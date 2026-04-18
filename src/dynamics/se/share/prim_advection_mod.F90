@@ -1128,6 +1128,8 @@ module prim_advection_mod
   logical :: euler_step_qtens_base_impl_selected = .false.
   logical :: euler_step_qtens_biharmonic_add_use_native_impl = .false.
   logical :: euler_step_qtens_biharmonic_add_impl_selected = .false.
+  logical :: euler_step_qtens_biharmonic_init_use_native_impl = .false.
+  logical :: euler_step_qtens_biharmonic_init_impl_selected = .false.
   logical :: euler_step_qtens_biharmonic_scale_use_native_impl = .false.
   logical :: euler_step_qtens_biharmonic_scale_impl_selected = .false.
   logical :: euler_step_qtens_biharmonic_unapply_use_native_impl = .false.
@@ -2232,6 +2234,7 @@ end subroutine ALE_parametric_coords
   call euler_step_gradq_prepare_select_impl()
   call euler_step_qtens_base_select_impl()
   call euler_step_qtens_biharmonic_add_select_impl()
+  call euler_step_qtens_biharmonic_init_select_impl()
   call euler_step_qtens_biharmonic_scale_select_impl()
   call euler_step_qtens_biharmonic_unapply_select_impl()
 ! call t_barrierf('sync_euler_step', hybrid%par%comm)
@@ -2277,16 +2280,23 @@ end subroutine ALE_parametric_coords
     ! initialize dp, and compute Q from Qdp (and store Q in Qtens_biharmonic)
     do ie = nets , nete
       ! add hyperviscosity to RHS.  apply to Q at timelevel n0, Qdp(n0)/dp
-      do k = 1 , nlev    !  Loop index added with implicit inversion (AAM)
-        do j=1,np
-          do i=1,np
-            dp(i,j,k) = elem(ie)%derived%dp(i,j,k) - rhs_multiplier*dt*elem(ie)%derived%divdp_proj(i,j,k)
-            do q = 1, qsize
-              Qtens_biharmonic(i,j,k,q,ie) = elem(ie)%state%Qdp(i,j,k,q,n0_qdp)/dp(i,j,k)
+      if (.not. euler_step_qtens_biharmonic_init_use_native_impl) then
+        call euler_step_qtens_biharmonic_init_apply_codon( &
+             elem(ie)%derived%dp, elem(ie)%derived%divdp_proj, elem(ie)%state%Qdp(:,:,:,:,n0_qdp), &
+             dt, rhs_multiplier, dp, Qtens_biharmonic(:,:,:,:,ie) &
+        )
+      else
+        do k = 1 , nlev    !  Loop index added with implicit inversion (AAM)
+          do j=1,np
+            do i=1,np
+              dp(i,j,k) = elem(ie)%derived%dp(i,j,k) - rhs_multiplier*dt*elem(ie)%derived%divdp_proj(i,j,k)
+              do q = 1, qsize
+                Qtens_biharmonic(i,j,k,q,ie) = elem(ie)%state%Qdp(i,j,k,q,n0_qdp)/dp(i,j,k)
+              enddo
             enddo
           enddo
         enddo
-      enddo
+      endif
 
       do q = 1, qsize
         do k= 1, nlev
@@ -2856,6 +2866,32 @@ end subroutine ALE_parametric_coords
          int(np, c_int64_t), c_loc(qtens), c_loc(qtens_biharmonic) &
     )
   end subroutine euler_step_qtens_biharmonic_add_apply_codon
+
+!-----------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
+
+  subroutine euler_step_qtens_biharmonic_init_apply_codon(dp_in, divdp_proj, qdp, dt, rhs_multiplier, dp_out, qtens_biharmonic)
+    use iso_c_binding, only : c_int64_t, c_loc, c_double, c_ptr
+    implicit none
+    real(kind=real_kind), target, intent(in) :: dp_in(np,np,nlev), divdp_proj(np,np,nlev), qdp(np,np,nlev,qsize)
+    real(kind=real_kind), target, intent(out) :: dp_out(np,np,nlev), qtens_biharmonic(np,np,nlev,qsize)
+    real(kind=real_kind), intent(in) :: dt
+    integer, intent(in) :: rhs_multiplier
+    interface
+       subroutine euler_step_qtens_biharmonic_init_codon(np_c, nlev_c, qsize_c, dt_c, rhs_multiplier_c, dp_in_p, divdp_proj_p, qdp_p, dp_out_p, qtens_biharmonic_p) &
+            bind(c, name='euler_step_qtens_biharmonic_init_codon')
+         use iso_c_binding, only : c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: np_c, nlev_c, qsize_c, rhs_multiplier_c
+         real(c_double), value :: dt_c
+         type(c_ptr), value :: dp_in_p, divdp_proj_p, qdp_p, dp_out_p, qtens_biharmonic_p
+       end subroutine euler_step_qtens_biharmonic_init_codon
+    end interface
+
+    call euler_step_qtens_biharmonic_init_codon( &
+         int(np, c_int64_t), int(nlev, c_int64_t), int(qsize, c_int64_t), real(dt, c_double), int(rhs_multiplier, c_int64_t), &
+         c_loc(dp_in), c_loc(divdp_proj), c_loc(qdp), c_loc(dp_out), c_loc(qtens_biharmonic) &
+    )
+  end subroutine euler_step_qtens_biharmonic_init_apply_codon
 
 !-----------------------------------------------------------------------------
 !-----------------------------------------------------------------------------
@@ -4324,6 +4360,30 @@ end subroutine ALE_parametric_coords
 
     euler_step_qtens_biharmonic_add_impl_selected = .true.
   end subroutine euler_step_qtens_biharmonic_add_select_impl
+
+  subroutine euler_step_qtens_biharmonic_init_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (euler_step_qtens_biharmonic_init_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EULER_STEP_QTENS_BIHARMONIC_INIT_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+      do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+          impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+      end do
+      euler_step_qtens_biharmonic_init_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+      euler_step_qtens_biharmonic_init_use_native_impl = .false.
+    end if
+
+    euler_step_qtens_biharmonic_init_impl_selected = .true.
+  end subroutine euler_step_qtens_biharmonic_init_select_impl
 
   subroutine euler_step_qtens_biharmonic_scale_select_impl()
     character(len=32) :: impl_name
