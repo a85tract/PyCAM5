@@ -52,6 +52,8 @@ module prim_driver_mod
   type (filter_t)       :: flt_advection   ! Filter struct for v grid for advection only
   real*8  :: tot_iter
   type (ReductionBuffer_ordered_1d_t), save :: red   ! reduction buffer               (shared)
+  logical, save :: prim_subcycle_q_update_use_native_impl = .false.
+  logical, save :: prim_subcycle_q_update_impl_selected = .false.
 
 contains
 
@@ -1327,12 +1329,13 @@ contains
     use parallel_mod, only : abortmp
     use reduction_mod, only : parallelmax
     use prim_advection_mod, only : vertical_remap
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
 #if USE_CUDA_FORTRAN
     use cuda_mod, only: copy_qdp_h2d, copy_qdp_d2h
 #endif
 
 
-    type (element_t) , intent(inout)        :: elem(:)
+    type (element_t) , target, intent(inout)        :: elem(:)
 
 #if defined(_SPELT)
       type(spelt_struct), intent(inout) :: fvm(:)
@@ -1341,7 +1344,7 @@ contains
 #endif
     type (hybrid_t), intent(in)           :: hybrid  ! distributed parallel structure (shared)
 
-    type (hvcoord_t), intent(in)      :: hvcoord         ! hybrid vertical coordinate struct
+    type (hvcoord_t), target, intent(in)      :: hvcoord         ! hybrid vertical coordinate struct
 
     integer, intent(in)                     :: nets  ! starting thread element number (private)
     integer, intent(in)                     :: nete  ! ending thread element number   (private)
@@ -1353,8 +1356,18 @@ contains
     integer :: n0_qdp,np1_qdp,r, nstep_end
 
     real (kind=real_kind)                          :: maxcflx, maxcfly
-    real (kind=real_kind) :: dp_np1(np,np)
+    real (kind=real_kind), target :: dp_np1(np,np)
     logical :: compute_diagnostics, compute_energy
+
+    interface
+      subroutine prim_subcycle_q_update_codon(np_c, nlev_c, qsize_c, ps0_c, &
+           hyai_p, hybi_p, ps_v_p, dp_np1_p, qdp_p, q_p) bind(c, name="prim_subcycle_q_update_codon")
+        use iso_c_binding, only : c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: np_c, nlev_c, qsize_c
+        real(c_double), value :: ps0_c
+        type(c_ptr), value :: hyai_p, hybi_p, ps_v_p, dp_np1_p, qdp_p, q_p
+      end subroutine prim_subcycle_q_update_codon
+    end interface
 
 
     ! ===================================
@@ -1381,6 +1394,8 @@ contains
     endif
 
     if(disable_diagnostics) compute_diagnostics=.false.
+
+    call prim_subcycle_q_update_select_impl()
 
     if (compute_diagnostics) &
        call prim_diag_scalars(elem,hvcoord,tl,4,.true.,nets,nete)
@@ -1455,6 +1470,14 @@ contains
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     do ie=nets,nete
        elem(ie)%state%lnps(:,:,tl%np1)= LOG(elem(ie)%state%ps_v(:,:,tl%np1))
+       if (.not. prim_subcycle_q_update_use_native_impl) then
+          call prim_subcycle_q_update_codon( &
+               int(np, c_int64_t), int(nlev, c_int64_t), int(qsize, c_int64_t), real(hvcoord%ps0, c_double), &
+               c_loc(hvcoord%hyai), c_loc(hvcoord%hybi), c_loc(elem(ie)%state%ps_v(:,:,tl%np1)), c_loc(dp_np1), &
+               c_loc(elem(ie)%state%Qdp(:,:,:,:,np1_qdp)), c_loc(elem(ie)%state%Q) &
+          )
+          cycle
+       end if
 #if (defined COLUMN_OPENMP)
        !$omp parallel do default(shared), private(k,q,dp_np1)
 #endif
@@ -1514,6 +1537,40 @@ contains
 
 
 
+
+
+  subroutine prim_subcycle_q_update_select_impl()
+    use parallel_mod, only : par
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (prim_subcycle_q_update_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('PRIM_SUBCYCLE_Q_UPDATE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       prim_subcycle_q_update_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       prim_subcycle_q_update_use_native_impl = .false.
+    end if
+
+    prim_subcycle_q_update_impl_selected = .true.
+
+    if (par%masterproc) then
+       if (prim_subcycle_q_update_use_native_impl) then
+          write(iulog,*) 'prim_subcycle_q_update implementation = native'
+       else
+          write(iulog,*) 'prim_subcycle_q_update implementation = codon'
+       end if
+    end if
+  end subroutine prim_subcycle_q_update_select_impl
 
 
   subroutine prim_step(elem, fvm, hybrid,nets,nete, dt, tl, hvcoord, compute_diagnostics)
@@ -1915,6 +1972,3 @@ contains
     end subroutine smooth_topo_datasets
 
 end module prim_driver_mod
-
-
-
