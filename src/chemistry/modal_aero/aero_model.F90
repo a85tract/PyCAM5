@@ -87,6 +87,12 @@ module aero_model
   logical :: wetdep_lq(pcnst)
 
   logical :: modal_accum_coarse_exch = .false.
+  logical :: aero_model_drydep_use_native_impl = .false.
+  logical :: aero_model_drydep_impl_selected = .false.
+  integer :: aero_model_drydep_branch_mask = 0
+  logical :: aero_model_drydep_branch_selected = .false.
+  logical :: aero_model_wetdep_use_native_impl = .false.
+  logical :: aero_model_wetdep_impl_selected = .false.
 
 contains
   
@@ -604,6 +610,15 @@ contains
     real(r8), pointer :: dgncur_awet(:,:,:)
     real(r8), pointer :: wetdens(:,:,:)
     real(r8), pointer :: qaerwat(:,:,:)
+    logical  :: apply_srf_drydep_local
+
+    call aero_model_drydep_select_impl()
+    if (.not. aero_model_drydep_use_native_impl) then
+       call aero_model_drydep_select_branches(.not. aerodep_flx_prescribed())
+       apply_srf_drydep_local = iand(aero_model_drydep_branch_mask, 1) /= 0
+    else
+       apply_srf_drydep_local = .not. aerodep_flx_prescribed()
+    end if
 
     landfrac => cam_in%landfrac(:)
     icefrac  => cam_in%icefrac(:)
@@ -814,11 +829,115 @@ contains
 
     ! if the user has specified prescribed aerosol dep fluxes then 
     ! do not set cam_out dep fluxes according to the prognostic aerosols
-    if (.not.aerodep_flx_prescribed()) then
+    if (apply_srf_drydep_local) then
        call set_srf_drydep(aerdepdryis, aerdepdrycw, cam_out)
     endif
 
   endsubroutine aero_model_drydep
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_drydep_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (aero_model_drydep_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('AERO_MODEL_DRYDEP_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       aero_model_drydep_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       aero_model_drydep_use_native_impl = .false.
+    end if
+
+    aero_model_drydep_impl_selected = .true.
+
+    if (masterproc) then
+       if (aero_model_drydep_use_native_impl) then
+          write(iulog,*) 'aero_model_drydep implementation = native'
+       else
+          write(iulog,*) 'aero_model_drydep implementation = codon'
+       end if
+    end if
+
+  end subroutine aero_model_drydep_select_impl
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_drydep_select_branches(apply_srf_drydep_in)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    logical, intent(in) :: apply_srf_drydep_in
+
+    integer(c_int64_t), target :: branch_mask_c
+
+    interface
+       subroutine aero_model_drydep_select_branches_codon(apply_srf_drydep_c, branch_mask_p) &
+            bind(c, name="aero_model_drydep_select_branches_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: apply_srf_drydep_c
+         type(c_ptr), value :: branch_mask_p
+       end subroutine aero_model_drydep_select_branches_codon
+    end interface
+
+    if (aero_model_drydep_branch_selected) return
+
+    branch_mask_c = 0_c_int64_t
+    call aero_model_drydep_select_branches_codon( &
+         merge(1_c_int64_t, 0_c_int64_t, apply_srf_drydep_in), &
+         c_loc(branch_mask_c) &
+    )
+
+    aero_model_drydep_branch_mask = int(branch_mask_c)
+    aero_model_drydep_branch_selected = .true.
+
+  end subroutine aero_model_drydep_select_branches
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_wetdep_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (aero_model_wetdep_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('AERO_MODEL_WETDEP_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       aero_model_wetdep_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       aero_model_wetdep_use_native_impl = .false.
+    end if
+
+    aero_model_wetdep_impl_selected = .true.
+
+    if (masterproc) then
+       if (aero_model_wetdep_use_native_impl) then
+          write(iulog,*) 'aero_model_wetdep implementation = native'
+       else
+          write(iulog,*) 'aero_model_wetdep implementation = codon'
+       end if
+    end if
+
+  end subroutine aero_model_wetdep_select_impl
 
   !=============================================================================
   !=============================================================================
@@ -896,6 +1015,8 @@ contains
     lchnk = state%lchnk
     ncol  = state%ncol
 
+    call aero_model_wetdep_select_impl()
+
     call physics_ptend_init(ptend, state%psetcols, 'aero_model_wetdep', lq=wetdep_lq)
     
     ! Do calculations of mode radius and water uptake if:
@@ -933,24 +1054,14 @@ contains
 
     ! calculate the mass-weighted sol_factic for coarse mode species
     ! sol_factic_coarse(:,:) = 0.30_r8 ! tuned 1/4
-    f_act_conv_coarse(:,:) = 0.60_r8 ! rce 2010/05/02
     f_act_conv_coarse_dust = 0.40_r8 ! rce 2010/05/02
     f_act_conv_coarse_nacl = 0.80_r8 ! rce 2010/05/02
+    f_act_conv_coarse(:,:) = 0.60_r8 ! rce 2010/05/02
     if (modeptr_coarse > 0) then
        lcoardust = lptr_dust_a_amode(modeptr_coarse)
        lcoarnacl = lptr_nacl_a_amode(modeptr_coarse)
        if ((lcoardust > 0) .and. (lcoarnacl > 0)) then
-          do k = 1, pver
-             do i = 1, ncol
-                tmpdust = max( 0.0_r8, state%q(i,k,lcoardust) + ptend%q(i,k,lcoardust)*dt )
-                tmpnacl = max( 0.0_r8, state%q(i,k,lcoarnacl) + ptend%q(i,k,lcoarnacl)*dt )
-                if ((tmpdust+tmpnacl) > 1.0e-30_r8) then
-                   ! sol_factic_coarse(i,k) = (0.2_r8*tmpdust + 0.4_r8*tmpnacl)/(tmpdust+tmpnacl) ! tuned 1/6
-                   f_act_conv_coarse(i,k) = (f_act_conv_coarse_dust*tmpdust &
-                        + f_act_conv_coarse_nacl*tmpnacl)/(tmpdust+tmpnacl) ! rce 2010/05/02
-                end if
-             end do
-          end do
+          call aero_model_wetdep_fill_f_act_conv_coarse(ncol, dt, lcoardust, lcoarnacl, state%q, ptend%q, f_act_conv_coarse)
        end if
     end if
 
@@ -1101,42 +1212,17 @@ contains
                 call outfld( trim(cnst_name(mm))//'SBC', bcscavt, pcols, lchnk)
                 call outfld( trim(cnst_name(mm))//'SBS', bsscavt, pcols, lchnk)
 
-                sflx(:)=0._r8
-                do k=1,pver
-                   do i=1,ncol
-                      sflx(i)=sflx(i)+dqdt_tmp(i,k)*state%pdel(i,k)/gravit
-                   enddo
-                enddo
+                call aero_model_wetdep_column_flux(ncol, dqdt_tmp, state%pdel, sflx)
                 call outfld( trim(cnst_name(mm))//'SFWET', sflx, pcols, lchnk)
                 aerdepwetis(:ncol,mm) = sflx(:ncol)
 
-                sflx(:)=0._r8
-                do k=1,pver
-                   do i=1,ncol
-                      sflx(i)=sflx(i)+icscavt(i,k)*state%pdel(i,k)/gravit
-                   enddo
-                enddo
+                call aero_model_wetdep_column_flux(ncol, icscavt, state%pdel, sflx)
                 call outfld( trim(cnst_name(mm))//'SFSIC', sflx, pcols, lchnk)
-                sflx(:)=0._r8
-                do k=1,pver
-                   do i=1,ncol
-                      sflx(i)=sflx(i)+isscavt(i,k)*state%pdel(i,k)/gravit
-                   enddo
-                enddo
+                call aero_model_wetdep_column_flux(ncol, isscavt, state%pdel, sflx)
                 call outfld( trim(cnst_name(mm))//'SFSIS', sflx, pcols, lchnk)
-                sflx(:)=0._r8
-                do k=1,pver
-                   do i=1,ncol
-                      sflx(i)=sflx(i)+bcscavt(i,k)*state%pdel(i,k)/gravit
-                   enddo
-                enddo
+                call aero_model_wetdep_column_flux(ncol, bcscavt, state%pdel, sflx)
                 call outfld( trim(cnst_name(mm))//'SFSBC', sflx, pcols, lchnk)
-                sflx(:)=0._r8
-                do k=1,pver
-                   do i=1,ncol
-                      sflx(i)=sflx(i)+bsscavt(i,k)*state%pdel(i,k)/gravit
-                   enddo
-                enddo
+                call aero_model_wetdep_column_flux(ncol, bsscavt, state%pdel, sflx)
                 call outfld( trim(cnst_name(mm))//'SFSBS', sflx, pcols, lchnk)
 
                 if (lspec > 0) then
@@ -1204,42 +1290,17 @@ contains
 
                 fldcw(1:ncol,:) = fldcw(1:ncol,:) + dqdt_tmp(1:ncol,:) * dt
 
-                sflx(:)=0._r8
-                do k=1,pver
-                   do i=1,ncol
-                      sflx(i)=sflx(i)+dqdt_tmp(i,k)*state%pdel(i,k)/gravit
-                   enddo
-                enddo
+                call aero_model_wetdep_column_flux(ncol, dqdt_tmp, state%pdel, sflx)
                 call outfld( trim(cnst_name_cw(mm))//'SFWET', sflx, pcols, lchnk)
                 aerdepwetcw(:ncol,mm) = sflx(:ncol)
 
-                sflx(:)=0._r8
-                do k=1,pver
-                   do i=1,ncol
-                      sflx(i)=sflx(i)+icscavt(i,k)*state%pdel(i,k)/gravit
-                   enddo
-                enddo
+                call aero_model_wetdep_column_flux(ncol, icscavt, state%pdel, sflx)
                 call outfld( trim(cnst_name_cw(mm))//'SFSIC', sflx, pcols, lchnk)
-                sflx(:)=0._r8
-                do k=1,pver
-                   do i=1,ncol
-                      sflx(i)=sflx(i)+isscavt(i,k)*state%pdel(i,k)/gravit
-                   enddo
-                enddo
+                call aero_model_wetdep_column_flux(ncol, isscavt, state%pdel, sflx)
                 call outfld( trim(cnst_name_cw(mm))//'SFSIS', sflx, pcols, lchnk)
-                sflx(:)=0._r8
-                do k=1,pver
-                   do i=1,ncol
-                      sflx(i)=sflx(i)+bcscavt(i,k)*state%pdel(i,k)/gravit
-                   enddo
-                enddo
+                call aero_model_wetdep_column_flux(ncol, bcscavt, state%pdel, sflx)
                 call outfld( trim(cnst_name_cw(mm))//'SFSBC', sflx, pcols, lchnk)
-                sflx(:)=0._r8
-                do k=1,pver
-                   do i=1,ncol
-                      sflx(i)=sflx(i)+bsscavt(i,k)*state%pdel(i,k)/gravit
-                   enddo
-                enddo
+                call aero_model_wetdep_column_flux(ncol, bsscavt, state%pdel, sflx)
                 call outfld( trim(cnst_name_cw(mm))//'SFSBS', sflx, pcols, lchnk)
 
              endif
@@ -1255,6 +1316,91 @@ contains
     endif
 
   endsubroutine aero_model_wetdep
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_wetdep_fill_f_act_conv_coarse(ncol, dt, lcoardust, lcoarnacl, state_q, ptend_q, f_act_conv_coarse)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol, lcoardust, lcoarnacl
+    real(r8), intent(in) :: dt
+    real(r8), target, intent(in) :: state_q(pcols,pver,pcnst), ptend_q(pcols,pver,pcnst)
+    real(r8), target, intent(out) :: f_act_conv_coarse(pcols,pver)
+
+    integer :: i, k
+    real(r8) :: tmpdust, tmpnacl
+
+    interface
+       subroutine aero_model_wetdep_f_act_conv_coarse_codon(ncol_c, pcols_c, pver_c, pcnst_c, dt_c, &
+            lcoardust_c, lcoarnacl_c, state_q_p, ptend_q_p, f_act_conv_coarse_p) &
+            bind(c, name="aero_model_wetdep_f_act_conv_coarse_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, lcoardust_c, lcoarnacl_c
+         real(c_double), value :: dt_c
+         type(c_ptr), value :: state_q_p, ptend_q_p, f_act_conv_coarse_p
+       end subroutine aero_model_wetdep_f_act_conv_coarse_codon
+    end interface
+
+    if (aero_model_wetdep_use_native_impl) then
+       f_act_conv_coarse(:,:) = 0.60_r8
+       do k = 1, pver
+          do i = 1, ncol
+             tmpdust = max( 0.0_r8, state_q(i,k,lcoardust) + ptend_q(i,k,lcoardust)*dt )
+             tmpnacl = max( 0.0_r8, state_q(i,k,lcoarnacl) + ptend_q(i,k,lcoarnacl)*dt )
+             if ((tmpdust+tmpnacl) > 1.0e-30_r8) then
+                f_act_conv_coarse(i,k) = (0.40_r8*tmpdust + 0.80_r8*tmpnacl)/(tmpdust+tmpnacl)
+             end if
+          end do
+       end do
+       return
+    end if
+
+    call aero_model_wetdep_f_act_conv_coarse_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), real(dt, c_double), &
+         int(lcoardust, c_int64_t), int(lcoarnacl, c_int64_t), c_loc(state_q), c_loc(ptend_q), c_loc(f_act_conv_coarse) &
+    )
+
+  end subroutine aero_model_wetdep_fill_f_act_conv_coarse
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_wetdep_column_flux(ncol, field, pdel, sflx)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: field(pcols,pver), pdel(pcols,pver)
+    real(r8), target, intent(out) :: sflx(pcols)
+
+    integer :: i, k
+
+    interface
+       subroutine aero_model_wetdep_column_flux_codon(ncol_c, pcols_c, pver_c, gravit_c, field_p, pdel_p, sflx_p) &
+            bind(c, name="aero_model_wetdep_column_flux_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: gravit_c
+         type(c_ptr), value :: field_p, pdel_p, sflx_p
+       end subroutine aero_model_wetdep_column_flux_codon
+    end interface
+
+    if (aero_model_wetdep_use_native_impl) then
+       sflx(:) = 0._r8
+       do k = 1, pver
+          do i = 1, ncol
+             sflx(i) = sflx(i) + field(i,k)*pdel(i,k)/gravit
+          end do
+       end do
+       return
+    end if
+
+    call aero_model_wetdep_column_flux_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(gravit, c_double), &
+         c_loc(field), c_loc(pdel), c_loc(sflx) &
+    )
+
+  end subroutine aero_model_wetdep_column_flux
 
   !-------------------------------------------------------------------------
   ! provides wet tropospheric aerosol surface area info for modal aerosols
