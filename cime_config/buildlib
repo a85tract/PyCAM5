@@ -78,6 +78,7 @@ def _build_cam():
 
         _build_codon_lib(srcroot, "rayleigh_friction")
         _build_codon_lib(srcroot, "dadadj")
+        _build_codon_lib(srcroot, "qneg3")
 
         #-------------------------------------------------------
         # Filepath is created in caseroot/camconf by the call

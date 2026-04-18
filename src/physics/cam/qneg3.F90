@@ -16,6 +16,130 @@ subroutine qneg3 (subnam  ,idx     ,ncol    ,ncold   ,lver    ,lconst_beg  , &
 !-----------------------------------------------------------------------
    use shr_kind_mod, only: r8 => shr_kind_r8
    use cam_logfile,  only: iulog
+   use spmd_utils,   only: masterproc
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+   implicit none
+
+!------------------------------Arguments--------------------------------
+!
+! Input arguments
+!
+   character*(*), intent(in) :: subnam ! name of calling routine
+
+   integer, intent(in) :: idx          ! chunk/latitude index
+   integer, intent(in) :: ncol         ! number of atmospheric columns
+   integer, intent(in) :: ncold        ! declared number of atmospheric columns
+   integer, intent(in) :: lver         ! number of vertical levels in column
+   integer, intent(in) :: lconst_beg   ! beginning constituent
+   integer, intent(in) :: lconst_end   ! ending    constituent
+
+   real(r8), target, intent(in) :: qmin(lconst_beg:lconst_end)      ! Global minimum constituent concentration
+
+!
+! Input/Output arguments
+!
+   real(r8), target, intent(inout) :: q(ncold,lver,lconst_beg:lconst_end) ! moisture/tracer field
+
+   logical, save :: use_native_impl = .false.
+   logical, save :: impl_selected = .false.
+
+   integer(c_int64_t), target :: indx(ncol,lver)  ! array of indices of points < qmin
+   integer(c_int64_t), target :: nval(lver)       ! number of points < qmin for 1 level
+   integer(c_int64_t), target :: nvals(lconst_beg:lconst_end)
+   integer(c_int64_t), target :: iw(lconst_beg:lconst_end)
+   integer(c_int64_t), target :: kw(lconst_beg:lconst_end)
+   integer :: m
+   integer :: mloc
+   real(c_double), target :: worst(lconst_beg:lconst_end)
+
+   interface
+      subroutine qneg3_codon(ncol_c, ncold_c, lver_c, nconst_c, &
+           qmin_p, q_p, indx_p, nval_p, nvals_p, worst_p, iw_p, kw_p) bind(c, name="qneg3_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, ncold_c, lver_c, nconst_c
+         type(c_ptr), value :: qmin_p, q_p, indx_p, nval_p, nvals_p, worst_p, iw_p, kw_p
+      end subroutine qneg3_codon
+   end interface
+
+   call qneg3_select_impl()
+
+   if (use_native_impl) then
+      call qneg3_native(subnam, idx, ncol, ncold, lver, lconst_beg, lconst_end, qmin, q)
+      return
+   end if
+
+   call qneg3_codon( &
+        int(ncol, c_int64_t), int(ncold, c_int64_t), int(lver, c_int64_t), &
+        int(lconst_end-lconst_beg+1, c_int64_t), &
+        c_loc(qmin), c_loc(q), c_loc(indx), c_loc(nval), c_loc(nvals), c_loc(worst), c_loc(iw), c_loc(kw) &
+   )
+
+   do m=lconst_beg,lconst_end
+      mloc = m - lconst_beg + 1
+      if (nvals(m) > 100_c_int64_t .and. abs(real(worst(m), r8)) > max(qmin(m), 1.e-12_r8)) then
+         write(iulog,9000)subnam,m,idx,int(nvals(m)),qmin(m),real(worst(m), r8),int(iw(m)),int(kw(m))
+      end if
+   end do
+
+   return
+9000 format(' QNEG3 from ',a,':m=',i3,' lat/lchnk=',i7, &
+            ' Min. mixing ratio violated at ',i4,' points.  Reset to ', &
+            1p,e8.1,' Worst =',e8.1,' at i,k=',i4,i3)
+
+contains
+
+   subroutine qneg3_select_impl()
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('QNEG3_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_impl = .false.
+      end if
+
+      impl_selected = .true.
+
+      if (masterproc) then
+         if (use_native_impl) then
+            write(iulog,*) 'qneg3 implementation = native'
+         else
+            write(iulog,*) 'qneg3 implementation = codon'
+         end if
+      end if
+   end subroutine qneg3_select_impl
+
+end subroutine qneg3
+
+subroutine qneg3_native (subnam  ,idx     ,ncol    ,ncold   ,lver    ,lconst_beg  , &
+                         lconst_end       ,qmin    ,q       )
+!----------------------------------------------------------------------- 
+! 
+! Purpose: 
+! Check moisture and tracers for minimum value, reset any below
+! minimum value to minimum value and return information to allow
+! warning message to be printed. The global average is NOT preserved.
+! 
+! Method: 
+! <Describe the algorithm(s) used in the routine.> 
+! <Also include any applicable external references.> 
+! 
+! Author: J. Rosinski
+! 
+!-----------------------------------------------------------------------
+   use shr_kind_mod, only: r8 => shr_kind_r8
+   use cam_logfile,  only: iulog
    implicit none
 
 !------------------------------Arguments--------------------------------
@@ -52,7 +176,7 @@ subroutine qneg3 (subnam  ,idx     ,ncol    ,ncold   ,lver    ,lconst_beg  , &
    logical found            ! true => at least 1 minimum violator found
 
    real(r8) worst           ! biggest violator
-
+ 
 !
 !-----------------------------------------------------------------------
 !
@@ -112,7 +236,5 @@ subroutine qneg3 (subnam  ,idx     ,ncol    ,ncold   ,lver    ,lconst_beg  , &
 9000 format(' QNEG3 from ',a,':m=',i3,' lat/lchnk=',i7, &
             ' Min. mixing ratio violated at ',i4,' points.  Reset to ', &
             1p,e8.1,' Worst =',e8.1,' at i,k=',i4,i3)
-end subroutine qneg3
-
-
+end subroutine qneg3_native
 
