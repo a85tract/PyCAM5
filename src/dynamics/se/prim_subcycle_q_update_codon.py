@@ -886,6 +886,49 @@ def gradient_sphere_codon(
 
 
 @export
+def curl_sphere_codon(
+    np: int,
+    rrearth: float,
+    s_p: cobj,
+    dvv_p: cobj,
+    d_p: cobj,
+    metdet_p: cobj,
+    v1_p: cobj,
+    v2_p: cobj,
+    ds_p: cobj,
+):
+    s = Ptr[float](s_p)
+    dvv = Ptr[float](dvv_p)
+    d = Ptr[float](d_p)
+    metdet = Ptr[float](metdet_p)
+    v1 = Ptr[float](v1_p)
+    v2 = Ptr[float](v2_p)
+    ds = Ptr[float](ds_p)
+
+    for j in range(1, np + 1):
+        for l in range(1, np + 1):
+            dsdx00 = 0.0
+            dsdy00 = 0.0
+            for i in range(1, np + 1):
+                dsdx00 = dsdx00 + dvv[_plane_idx(i, l, np)] * s[_plane_idx(i, j, np)]
+                dsdy00 = dsdy00 + dvv[_plane_idx(i, l, np)] * s[_plane_idx(j, i, np)]
+            v2[_plane_idx(l, j, np)] = -dsdx00 * rrearth
+            v1[_plane_idx(j, l, np)] = dsdy00 * rrearth
+
+    for j in range(1, np + 1):
+        for i in range(1, np + 1):
+            plane_idx = _plane_idx(i, j, np)
+            v1_val = v1[plane_idx]
+            v2_val = v2[plane_idx]
+            ds[_vec2_idx(i, j, 1, np)] = (
+                d[_mat22_idx(i, j, 1, 1, np)] * v1_val + d[_mat22_idx(i, j, 1, 2, np)] * v2_val
+            ) / metdet[plane_idx]
+            ds[_vec2_idx(i, j, 2, np)] = (
+                d[_mat22_idx(i, j, 2, 1, np)] * v1_val + d[_mat22_idx(i, j, 2, 2, np)] * v2_val
+            ) / metdet[plane_idx]
+
+
+@export
 def vertical_remap_rsplit_prepare_codon(
     np: int,
     nlev: int,

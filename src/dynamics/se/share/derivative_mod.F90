@@ -42,6 +42,8 @@ private
 
   real (kind=real_kind), allocatable :: integration_matrix(:,:)
   private :: allocate_subcell_integration_matrix
+  logical :: curl_sphere_use_native_impl = .false.
+  logical :: curl_sphere_impl_selected = .false.
   logical :: gradient_sphere_use_native_impl = .false.
   logical :: gradient_sphere_impl_selected = .false.
   logical :: vorticity_sphere_use_native_impl = .false.
@@ -1699,6 +1701,40 @@ end do
 !    curl(s khat) = (1/jacobian) ( ds/dy, -ds/dx ) in contra-variant coordinates
 !    then map to lat-lon
 !
+    type (derivative_t), intent(in), target :: deriv
+    type (element_t), intent(in), target :: elem
+    real(kind=real_kind), intent(in), target :: s(np,np)
+    real(kind=real_kind), target :: ds(np,np,2)
+
+    call curl_sphere_select_impl()
+    if (.not. curl_sphere_use_native_impl) then
+      call curl_sphere_apply_codon(s, deriv%Dvv, elem%D, elem%metdet, ds)
+    else
+      call curl_sphere_native(s,deriv,elem,ds)
+    endif
+  end subroutine curl_sphere
+
+  subroutine curl_sphere_apply_codon(s,dvv,d,metdet,ds)
+    use iso_c_binding, only : c_int64_t, c_loc, c_double, c_ptr
+    real(kind=real_kind), intent(in), target :: s(np,np), dvv(np,np), d(np,np,2,2), metdet(np,np)
+    real(kind=real_kind), target :: ds(np,np,2)
+    real(kind=real_kind), target :: v1(np,np), v2(np,np)
+    interface
+       subroutine curl_sphere_codon(np_c, rrearth_c, s_p, dvv_p, d_p, metdet_p, v1_p, v2_p, ds_p) &
+            bind(c, name='curl_sphere_codon')
+         use iso_c_binding, only : c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: np_c
+         real(c_double), value :: rrearth_c
+         type(c_ptr), value :: s_p, dvv_p, d_p, metdet_p, v1_p, v2_p, ds_p
+       end subroutine curl_sphere_codon
+    end interface
+
+    call curl_sphere_codon( &
+         int(np, c_int64_t), real(rrearth, c_double), c_loc(s), c_loc(dvv), c_loc(d), c_loc(metdet), c_loc(v1), c_loc(v2), c_loc(ds) &
+    )
+  end subroutine curl_sphere_apply_codon
+
+  subroutine curl_sphere_native(s,deriv,elem,ds)
     type (derivative_t), intent(in) :: deriv
     type (element_t), intent(in) :: elem
     real(kind=real_kind), intent(in) :: s(np,np)
@@ -1734,7 +1770,7 @@ end do
        enddo
     enddo
  
-    end subroutine curl_sphere
+    end subroutine curl_sphere_native
 
 
 !--------------------------------------------------------------------------
@@ -2701,9 +2737,32 @@ end do
     gradient_sphere_impl_selected = .true.
   end subroutine gradient_sphere_select_impl
 
+  subroutine curl_sphere_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (curl_sphere_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('CURL_SPHERE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+      do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+          impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+      end do
+      curl_sphere_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+      curl_sphere_use_native_impl = .false.
+    end if
+
+    curl_sphere_impl_selected = .true.
+  end subroutine curl_sphere_select_impl
+
 
 
 end module derivative_mod
-
 
 
