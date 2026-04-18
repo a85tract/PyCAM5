@@ -157,8 +157,14 @@ def buildnml(case, caseroot, compname):
         else:
             buildnl_opts.append("-ignore_ic_date")
 
-        if CAM_NML_USE_CASE != 'UNSET':
-            buildnl_opts += ["-use_case", CAM_NML_USE_CASE]
+        cam_nml_use_case = CAM_NML_USE_CASE
+        if cam_nml_use_case == 'aquaplanet_cam6':
+            # This source tree ships CAM60 compset metadata, but the bundled
+            # build-namelist use cases still use the older CAM5 aquaplanet name.
+            cam_nml_use_case = 'aquaplanet_cam5'
+
+        if cam_nml_use_case != 'UNSET':
+            buildnl_opts += ["-use_case", cam_nml_use_case]
 
         buildnl_opts += ["-inputdata", input_data_list]
 

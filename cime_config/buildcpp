@@ -85,17 +85,30 @@ def buildcpp(case):
         config_opts.append("-smp")
 
     # The ocean component setting is only used by CAM to do attribute matching for
-    # setting default tuning parameter values.  In SOM mode we want to use the same
+    # setting default tuning parameter values. In SOM mode we want to use the same
     # tunings as the fully coupled B compset, so set the ocean component to pop in
-    # that case.
+    # that case. Older aquaplanet compsets may still inject a deprecated
+    # "-aquaplanet" flag through CAM_CONFIG_OPTS even though this configure script
+    # now expects "-ocn aquaplanet".
+    user_config_opts = cam_config_opts.split()
+    aquaplanet_case = ("aquap" in (docn_mode or "").lower()) or ("-aquaplanet" in user_config_opts)
+    user_config_opts = [opt for opt in user_config_opts if opt != "-aquaplanet"]
+    for idx in range(len(user_config_opts) - 1):
+        if user_config_opts[idx] == "-phys" and user_config_opts[idx + 1] == "cam6":
+            # This source tree still uses the older configure interface even for
+            # CAM60 compsets; the CAM6-specific behavior comes from use cases and
+            # namelist defaults rather than a distinct configure-time physics token.
+            user_config_opts[idx + 1] = "cam5"
 
     if docn_mode == 'som':
         config_opts += ["-ocn", "pop"]
+    elif aquaplanet_case:
+        config_opts += ["-ocn", "aquaplanet"]
     else:
         config_opts += ["-ocn", comp_ocn]
 
-    # Add user options.
-    config_opts += cam_config_opts.split(" ")
+    # Add user options after normalizing any deprecated aquaplanet flag.
+    config_opts += user_config_opts
 
     if "-cosp" in config_opts:
         config_opts += ["-cosp_libdir", os.path.join(exeroot, "atm", "obj", "cosp")]
