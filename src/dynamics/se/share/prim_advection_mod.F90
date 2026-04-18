@@ -96,6 +96,8 @@ module vertremap_mod
 
   logical :: remap_q_ppm_grid_use_native_impl = .false.
   logical :: remap_q_ppm_grid_impl_selected = .false.
+  logical :: remap_q_ppm_compute_use_native_impl = .false.
+  logical :: remap_q_ppm_compute_impl_selected = .false.
 
   contains
 
@@ -572,22 +574,30 @@ subroutine remap_Q_ppm(Qdp,nx,qsize,dp1,dp2)
        integer(c_int64_t), value :: nlev_c, vert_remap_q_alg_c
        type(c_ptr), value :: dx_p, rslt_p
      end subroutine remap_q_ppm_compute_ppm_grids_codon
+     subroutine remap_q_ppm_compute_ppm_codon(nlev_c, vert_remap_q_alg_c, a_p, dx_p, ai_p, dma_p, coefs_p) &
+          bind(c, name='remap_q_ppm_compute_ppm_codon')
+       use iso_c_binding, only : c_int64_t, c_ptr
+       integer(c_int64_t), value :: nlev_c, vert_remap_q_alg_c
+       type(c_ptr), value :: a_p, dx_p, ai_p, dma_p, coefs_p
+     end subroutine remap_q_ppm_compute_ppm_codon
   end interface
   ! Local Variables
   integer, parameter :: gs = 2                              !Number of cells to place in the ghost region
   real(kind=real_kind), dimension(       nlev+2 ) :: pio    !Pressure at interfaces for old grid
   real(kind=real_kind), dimension(       nlev+1 ) :: pin    !Pressure at interfaces for new grid
   real(kind=real_kind), dimension(       nlev+1 ) :: masso  !Accumulate mass up to each interface
-  real(kind=real_kind), dimension(  1-gs:nlev+gs) :: ao     !Tracer value on old grid
+  real(kind=real_kind), target, dimension(  1-gs:nlev+gs) :: ao     !Tracer value on old grid
   real(kind=real_kind), target, dimension(  1-gs:nlev+gs) :: dpo    !change in pressure over a cell for old grid
   real(kind=real_kind), dimension(  1-gs:nlev+gs) :: dpn    !change in pressure over a cell for old grid
-  real(kind=real_kind), dimension(3,     nlev   ) :: coefs  !PPM coefficients within each cell
+  real(kind=real_kind), target, dimension(3,     nlev   ) :: coefs  !PPM coefficients within each cell
   real(kind=real_kind), dimension(       nlev   ) :: z1, z2
   real(kind=real_kind), target :: ppmdx(10,0:nlev+1)  !grid spacings
+  real(kind=real_kind), target :: ppm_ai(0:nlev), ppm_dma(0:nlev+1)
   real(kind=real_kind) :: mymass, massn1, massn2
   integer :: i, j, k, q, kk, kid(nlev)
 
   call remap_q_ppm_grid_select_impl()
+  call remap_q_ppm_compute_select_impl()
   call t_startf('remap_Q_ppm')
   do j = 1 , nx
     do i = 1 , nx
@@ -665,7 +675,14 @@ subroutine remap_Q_ppm(Qdp,nx,qsize,dp1,dp2)
           ao(nlev+k) = ao(nlev+1-k)
         enddo
         !Compute monotonic and conservative PPM reconstruction over every cell
-        coefs(:,:) = compute_ppm( ao , ppmdx )
+        if (.not. remap_q_ppm_compute_use_native_impl) then
+          call remap_q_ppm_compute_ppm_codon( &
+               int(nlev, c_int64_t), int(vert_remap_q_alg, c_int64_t), c_loc(ao), c_loc(ppmdx), &
+               c_loc(ppm_ai), c_loc(ppm_dma), c_loc(coefs) &
+          )
+        else
+          coefs(:,:) = compute_ppm( ao , ppmdx )
+        endif
         !Compute tracer values on the new grid by integrating from the old cell bottom to the new
         !cell interface to form a new grid mass accumulation. Taking the difference between
         !accumulation at successive interfaces gives the mass inside each cell. Since Qdp is
@@ -849,6 +866,31 @@ subroutine remap_q_ppm_grid_select_impl()
 
   remap_q_ppm_grid_impl_selected = .true.
 end subroutine remap_q_ppm_grid_select_impl
+
+subroutine remap_q_ppm_compute_select_impl()
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (remap_q_ppm_compute_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('REMAP_Q_PPM_COMPUTE_IMPL', &
+       value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+    do i = 1, n
+      code = iachar(impl_name(i:i))
+      if (code >= iachar('A') .and. code <= iachar('Z')) then
+        impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+      end if
+    end do
+    remap_q_ppm_compute_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+    remap_q_ppm_compute_use_native_impl = .false.
+  end if
+
+  remap_q_ppm_compute_impl_selected = .true.
+end subroutine remap_q_ppm_compute_select_impl
 
 
 !=============================================================================================!
