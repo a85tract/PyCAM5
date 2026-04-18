@@ -1110,6 +1110,8 @@ module prim_advection_mod
   logical :: vertical_remap_ps_v_update_impl_selected = .false.
   logical :: qdp_time_avg_use_native_impl = .false.
   logical :: qdp_time_avg_impl_selected = .false.
+  logical :: euler_step_vstar_prepare_use_native_impl = .false.
+  logical :: euler_step_vstar_prepare_impl_selected = .false.
 
 contains
 
@@ -2197,6 +2199,7 @@ end subroutine ALE_parametric_coords
   call euler_step_cuda( np1_qdp , n0_qdp , dt , elem , hvcoord , hybrid , deriv , nets , nete , DSSopt , rhs_multiplier )
   return
 #endif
+  call euler_step_vstar_prepare_select_impl()
 ! call t_barrierf('sync_euler_step', hybrid%par%comm)
 !   call t_startf('euler_step')
 
@@ -2375,17 +2378,23 @@ end subroutine ALE_parametric_coords
     if ( DSSopt == DSSdiv_vdp_ave ) DSSvar => elem(ie)%derived%divdp_proj(:,:,:)
 
     ! Compute velocity used to advance Qdp
-    do k = 1 , nlev    !  Loop index added (AAM)
-      ! derived variable divdp_proj() (DSS'd version of divdp) will only be correct on 2nd and 3rd stage
-      ! but that's ok because rhs_multiplier=0 on the first stage:
-      do j=1,np
-        do i=1,np
-          dp(i,j,k) = elem(ie)%derived%dp(i,j,k) - rhs_multiplier * dt * elem(ie)%derived%divdp_proj(i,j,k)
-          Vstar(i,j,1,k) = elem(ie)%derived%vn0(i,j,1,k) / dp(i,j,k)
-          Vstar(i,j,2,k) = elem(ie)%derived%vn0(i,j,2,k) / dp(i,j,k)
+    if (.not. euler_step_vstar_prepare_use_native_impl) then
+      call euler_step_vstar_prepare_apply_codon( &
+           elem(ie)%derived%dp, elem(ie)%derived%divdp_proj, elem(ie)%derived%vn0, dt, rhs_multiplier, dp, Vstar &
+      )
+    else
+      do k = 1 , nlev    !  Loop index added (AAM)
+        ! derived variable divdp_proj() (DSS'd version of divdp) will only be correct on 2nd and 3rd stage
+        ! but that's ok because rhs_multiplier=0 on the first stage:
+        do j=1,np
+          do i=1,np
+            dp(i,j,k) = elem(ie)%derived%dp(i,j,k) - rhs_multiplier * dt * elem(ie)%derived%divdp_proj(i,j,k)
+            Vstar(i,j,1,k) = elem(ie)%derived%vn0(i,j,1,k) / dp(i,j,k)
+            Vstar(i,j,2,k) = elem(ie)%derived%vn0(i,j,2,k) / dp(i,j,k)
+          enddo
         enddo
       enddo
-    enddo
+    endif
 
     ! advance Qdp
     do q = 1 , qsize
@@ -2523,6 +2532,32 @@ end subroutine ALE_parametric_coords
 !-----------------------------------------------------------------------------
 !-----------------------------------------------------------------------------
 !-----------------------------------------------------------------------------
+
+!-----------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
+
+  subroutine euler_step_vstar_prepare_apply_codon(dp_in, divdp_proj, vn0, dt, rhs_multiplier, dp_out, vstar)
+    use iso_c_binding, only : c_int64_t, c_loc, c_double, c_ptr
+    implicit none
+    real(kind=real_kind), target, intent(in) :: dp_in(np,np,nlev), divdp_proj(np,np,nlev), vn0(np,np,2,nlev)
+    real(kind=real_kind), target, intent(out) :: dp_out(np,np,nlev), vstar(np,np,2,nlev)
+    real(kind=real_kind), intent(in) :: dt
+    integer, intent(in) :: rhs_multiplier
+    interface
+       subroutine euler_step_vstar_prepare_codon(np_c, nlev_c, dt_c, rhs_multiplier_c, dp_in_p, divdp_proj_p, vn0_p, dp_out_p, vstar_p) &
+            bind(c, name='euler_step_vstar_prepare_codon')
+         use iso_c_binding, only : c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: np_c, nlev_c, rhs_multiplier_c
+         real(c_double), value :: dt_c
+         type(c_ptr), value :: dp_in_p, divdp_proj_p, vn0_p, dp_out_p, vstar_p
+       end subroutine euler_step_vstar_prepare_codon
+    end interface
+
+    call euler_step_vstar_prepare_codon( &
+         int(np, c_int64_t), int(nlev, c_int64_t), real(dt, c_double), int(rhs_multiplier, c_int64_t), &
+         c_loc(dp_in), c_loc(divdp_proj), c_loc(vn0), c_loc(dp_out), c_loc(vstar) &
+    )
+  end subroutine euler_step_vstar_prepare_apply_codon
 
 !-----------------------------------------------------------------------------
 !-----------------------------------------------------------------------------
@@ -3715,5 +3750,29 @@ end subroutine ALE_parametric_coords
 
     qdp_time_avg_impl_selected = .true.
   end subroutine qdp_time_avg_select_impl
+
+  subroutine euler_step_vstar_prepare_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (euler_step_vstar_prepare_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EULER_STEP_VSTAR_PREPARE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+      do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+          impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+      end do
+      euler_step_vstar_prepare_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+      euler_step_vstar_prepare_use_native_impl = .false.
+    end if
+
+    euler_step_vstar_prepare_impl_selected = .true.
+  end subroutine euler_step_vstar_prepare_select_impl
 
 end module prim_advection_mod

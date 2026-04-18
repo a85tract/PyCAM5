@@ -164,6 +164,34 @@ def qdp_time_avg_codon(
 
 
 @export
+def euler_step_vstar_prepare_codon(
+    np: int,
+    nlev: int,
+    dt: float,
+    rhs_multiplier: int,
+    dp_in_p: cobj,
+    divdp_proj_p: cobj,
+    vn0_p: cobj,
+    dp_out_p: cobj,
+    vstar_p: cobj,
+):
+    dp_in = Ptr[float](dp_in_p)
+    divdp_proj = Ptr[float](divdp_proj_p)
+    vn0 = Ptr[float](vn0_p)
+    dp_out = Ptr[float](dp_out_p)
+    vstar = Ptr[float](vstar_p)
+
+    for k in range(1, nlev + 1):
+        for j in range(1, np + 1):
+            for i in range(1, np + 1):
+                vol_idx = _vol_idx(i, j, k, np)
+                dp_val = dp_in[vol_idx] - rhs_multiplier * dt * divdp_proj[vol_idx]
+                dp_out[vol_idx] = dp_val
+                vstar[_v_idx(i, j, 1, k, np)] = vn0[_v_idx(i, j, 1, k, np)] / dp_val
+                vstar[_v_idx(i, j, 2, k, np)] = vn0[_v_idx(i, j, 2, k, np)] / dp_val
+
+
+@export
 def vertical_remap_rsplit_prepare_codon(
     np: int,
     nlev: int,
