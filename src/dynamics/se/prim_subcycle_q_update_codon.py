@@ -225,6 +225,29 @@ def euler_step_limiter_dpstar_codon(
 
 
 @export
+def euler_step_qdp_writeback_codon(
+    np: int,
+    nlev: int,
+    qsize: int,
+    qidx: int,
+    np1_qdp: int,
+    qdp_p: cobj,
+    spheremp_p: cobj,
+    qtens_p: cobj,
+):
+    qdp = Ptr[float](qdp_p)
+    spheremp = Ptr[float](spheremp_p)
+    qtens = Ptr[float](qtens_p)
+
+    for k in range(1, nlev + 1):
+        for j in range(1, np + 1):
+            for i in range(1, np + 1):
+                plane_idx = _plane_idx(i, j, np)
+                vol_idx = _vol_idx(i, j, k, np)
+                qdp[_q_tl_idx(i, j, k, qidx, np1_qdp, np, nlev, qsize)] = spheremp[plane_idx] * qtens[vol_idx]
+
+
+@export
 def vertical_remap_rsplit_prepare_codon(
     np: int,
     nlev: int,
