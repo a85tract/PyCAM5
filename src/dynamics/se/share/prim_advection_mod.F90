@@ -1124,6 +1124,8 @@ module prim_advection_mod
   logical :: euler_step_dssvar_pack_impl_selected = .false.
   logical :: euler_step_qtens_base_use_native_impl = .false.
   logical :: euler_step_qtens_base_impl_selected = .false.
+  logical :: euler_step_qtens_biharmonic_add_use_native_impl = .false.
+  logical :: euler_step_qtens_biharmonic_add_impl_selected = .false.
 
 contains
 
@@ -2218,6 +2220,7 @@ end subroutine ALE_parametric_coords
   call euler_step_dssvar_restore_select_impl()
   call euler_step_dssvar_pack_select_impl()
   call euler_step_qtens_base_select_impl()
+  call euler_step_qtens_biharmonic_add_select_impl()
 ! call t_barrierf('sync_euler_step', hybrid%par%comm)
 !   call t_startf('euler_step')
 
@@ -2441,11 +2444,15 @@ end subroutine ALE_parametric_coords
 
         ! optionally add in hyperviscosity computed above:
         if ( rhs_viss /= 0 ) then
-          do j=1,np
-            do i=1,np
-              Qtens(i,j,k) = Qtens(i,j,k) + Qtens_biharmonic(i,j,k,q,ie)
+          if (.not. euler_step_qtens_biharmonic_add_use_native_impl) then
+            call euler_step_qtens_biharmonic_add_apply_codon(Qtens(:,:,k), Qtens_biharmonic(:,:,k,q,ie))
+          else
+            do j=1,np
+              do i=1,np
+                Qtens(i,j,k) = Qtens(i,j,k) + Qtens_biharmonic(i,j,k,q,ie)
+              enddo
             enddo
-          enddo
+          endif
         endif
       enddo
 
@@ -2743,6 +2750,28 @@ end subroutine ALE_parametric_coords
          int(np, c_int64_t), real(dt, c_double), c_loc(qdp), c_loc(dp_star), c_loc(qtens) &
     )
   end subroutine euler_step_qtens_base_apply_codon
+
+!-----------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
+
+  subroutine euler_step_qtens_biharmonic_add_apply_codon(qtens, qtens_biharmonic)
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    implicit none
+    real(kind=real_kind), target, intent(inout) :: qtens(np,np)
+    real(kind=real_kind), target, intent(in) :: qtens_biharmonic(np,np)
+    interface
+       subroutine euler_step_qtens_biharmonic_add_codon(np_c, qtens_p, qtens_biharmonic_p) &
+            bind(c, name='euler_step_qtens_biharmonic_add_codon')
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: np_c
+         type(c_ptr), value :: qtens_p, qtens_biharmonic_p
+       end subroutine euler_step_qtens_biharmonic_add_codon
+    end interface
+
+    call euler_step_qtens_biharmonic_add_codon( &
+         int(np, c_int64_t), c_loc(qtens), c_loc(qtens_biharmonic) &
+    )
+  end subroutine euler_step_qtens_biharmonic_add_apply_codon
 
 !-----------------------------------------------------------------------------
 !-----------------------------------------------------------------------------
@@ -4103,5 +4132,29 @@ end subroutine ALE_parametric_coords
 
     euler_step_qtens_base_impl_selected = .true.
   end subroutine euler_step_qtens_base_select_impl
+
+  subroutine euler_step_qtens_biharmonic_add_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (euler_step_qtens_biharmonic_add_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EULER_STEP_QTENS_BIHARMONIC_ADD_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+      do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+          impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+      end do
+      euler_step_qtens_biharmonic_add_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+      euler_step_qtens_biharmonic_add_use_native_impl = .false.
+    end if
+
+    euler_step_qtens_biharmonic_add_impl_selected = .true.
+  end subroutine euler_step_qtens_biharmonic_add_select_impl
 
 end module prim_advection_mod

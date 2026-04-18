@@ -320,6 +320,21 @@ def euler_step_qtens_base_codon(
 
 
 @export
+def euler_step_qtens_biharmonic_add_codon(
+    np: int,
+    qtens_p: cobj,
+    qtens_biharmonic_p: cobj,
+):
+    qtens = Ptr[float](qtens_p)
+    qtens_biharmonic = Ptr[float](qtens_biharmonic_p)
+
+    for j in range(1, np + 1):
+        for i in range(1, np + 1):
+            plane_idx = _plane_idx(i, j, np)
+            qtens[plane_idx] = qtens[plane_idx] + qtens_biharmonic[plane_idx]
+
+
+@export
 def vertical_remap_rsplit_prepare_codon(
     np: int,
     nlev: int,
