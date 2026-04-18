@@ -42,6 +42,8 @@ private
 
   real (kind=real_kind), allocatable :: integration_matrix(:,:)
   private :: allocate_subcell_integration_matrix
+  logical :: gradient_sphere_use_native_impl = .false.
+  logical :: gradient_sphere_impl_selected = .false.
   logical :: vorticity_sphere_use_native_impl = .false.
   logical :: vorticity_sphere_impl_selected = .false.
   logical :: divergence_sphere_use_native_impl = .false.
@@ -1335,6 +1337,40 @@ end do
 !   input s:  scalar
 !   output  ds: spherical gradient of s, lat-lon coordinates
 !
+    type (derivative_t), intent(in), target :: deriv
+    real(kind=real_kind), intent(in), target, dimension(np,np,2,2) :: Dinv
+    real(kind=real_kind), intent(in), target :: s(np,np)
+    real(kind=real_kind), target :: ds(np,np,2)
+
+    call gradient_sphere_select_impl()
+    if (.not. gradient_sphere_use_native_impl) then
+      call gradient_sphere_apply_codon(s, deriv%Dvv, Dinv, ds)
+    else
+      call gradient_sphere_native(s,deriv,Dinv,ds)
+    endif
+  end subroutine gradient_sphere
+
+  subroutine gradient_sphere_apply_codon(s,dvv,dinv,ds)
+    use iso_c_binding, only : c_int64_t, c_loc, c_double, c_ptr
+    real(kind=real_kind), intent(in), target :: s(np,np), dvv(np,np), dinv(np,np,2,2)
+    real(kind=real_kind), target :: ds(np,np,2)
+    real(kind=real_kind), target :: v1(np,np), v2(np,np)
+    interface
+       subroutine gradient_sphere_codon(np_c, rrearth_c, s_p, dvv_p, dinv_p, v1_p, v2_p, ds_p) &
+            bind(c, name='gradient_sphere_codon')
+         use iso_c_binding, only : c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: np_c
+         real(c_double), value :: rrearth_c
+         type(c_ptr), value :: s_p, dvv_p, dinv_p, v1_p, v2_p, ds_p
+       end subroutine gradient_sphere_codon
+    end interface
+
+    call gradient_sphere_codon( &
+         int(np, c_int64_t), real(rrearth, c_double), c_loc(s), c_loc(dvv), c_loc(dinv), c_loc(v1), c_loc(v2), c_loc(ds) &
+    )
+  end subroutine gradient_sphere_apply_codon
+
+  subroutine gradient_sphere_native(s,deriv,Dinv,ds)
 
     type (derivative_t), intent(in) :: deriv
     real(kind=real_kind), intent(in), dimension(np,np,2,2) :: Dinv
@@ -1373,7 +1409,7 @@ end do
        enddo
     enddo
 
-    end subroutine gradient_sphere
+    end subroutine gradient_sphere_native
 
 
   subroutine curl_sphere_wk_testcov(s,deriv,elem,ds)
@@ -2641,10 +2677,33 @@ end do
     vorticity_sphere_impl_selected = .true.
   end subroutine vorticity_sphere_select_impl
 
+  subroutine gradient_sphere_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (gradient_sphere_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('GRADIENT_SPHERE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+      do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+          impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+      end do
+      gradient_sphere_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+      gradient_sphere_use_native_impl = .false.
+    end if
+
+    gradient_sphere_impl_selected = .true.
+  end subroutine gradient_sphere_select_impl
+
 
 
 end module derivative_mod
-
 
 
 
