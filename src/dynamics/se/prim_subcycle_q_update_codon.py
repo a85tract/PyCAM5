@@ -266,6 +266,24 @@ def euler_step_qdp_restore_codon(
 
 
 @export
+def euler_step_dssvar_restore_codon(
+    np: int,
+    nlev: int,
+    dssvar_p: cobj,
+    rspheremp_p: cobj,
+):
+    dssvar = Ptr[float](dssvar_p)
+    rspheremp = Ptr[float](rspheremp_p)
+
+    for k in range(1, nlev + 1):
+        for j in range(1, np + 1):
+            for i in range(1, np + 1):
+                plane_idx = _plane_idx(i, j, np)
+                vol_idx = _vol_idx(i, j, k, np)
+                dssvar[vol_idx] = dssvar[vol_idx] * rspheremp[plane_idx]
+
+
+@export
 def vertical_remap_rsplit_prepare_codon(
     np: int,
     nlev: int,

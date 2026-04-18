@@ -1118,6 +1118,8 @@ module prim_advection_mod
   logical :: euler_step_qdp_writeback_impl_selected = .false.
   logical :: euler_step_qdp_restore_use_native_impl = .false.
   logical :: euler_step_qdp_restore_impl_selected = .false.
+  logical :: euler_step_dssvar_restore_use_native_impl = .false.
+  logical :: euler_step_dssvar_restore_impl_selected = .false.
 
 contains
 
@@ -2209,6 +2211,7 @@ end subroutine ALE_parametric_coords
   call euler_step_limiter_dpstar_select_impl()
   call euler_step_qdp_writeback_select_impl()
   call euler_step_qdp_restore_select_impl()
+  call euler_step_dssvar_restore_select_impl()
 ! call t_barrierf('sync_euler_step', hybrid%par%comm)
 !   call t_startf('euler_step')
 
@@ -2522,15 +2525,19 @@ end subroutine ALE_parametric_coords
        if ( DSSopt == DSSdiv_vdp_ave ) DSSvar => elem(ie)%derived%divdp_proj(:,:,:)
        kptr = qsize*nlev + kbeg -1
        call edgeVunpack( edgeAdvp1 , DSSvar(:,:,kbeg:kend) , nlev , kptr , ie )
-       do k = 1, nlev
-         !OMP_COLLAPSE_SIMD
-         !DIR_VECTOR_ALIGNED
-         do j=1,np
-           do i=1,np
-             DSSvar(i,j,k) = DSSvar(i,j,k) * elem(ie)%rspheremp(i,j)
+       if (.not. euler_step_dssvar_restore_use_native_impl) then
+         call euler_step_dssvar_restore_apply_codon(DSSvar(:,:,1:nlev), elem(ie)%rspheremp)
+       else
+         do k = 1, nlev
+           !OMP_COLLAPSE_SIMD
+           !DIR_VECTOR_ALIGNED
+           do j=1,np
+             do i=1,np
+               DSSvar(i,j,k) = DSSvar(i,j,k) * elem(ie)%rspheremp(i,j)
+             enddo
            enddo
          enddo
-       enddo
+       endif
     do q = 1, qsize
       kptr = nlev*(q-1) + kbeg - 1
       call edgeVunpack( edgeAdvp1 , elem(ie)%state%Qdp(:,:,kbeg:kend,q,np1_qdp) , nlev , kptr , ie )
@@ -2654,6 +2661,28 @@ end subroutine ALE_parametric_coords
          int(np, c_int64_t), int(nlev, c_int64_t), c_loc(qdp), c_loc(rspheremp) &
     )
   end subroutine euler_step_qdp_restore_apply_codon
+
+!-----------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
+
+  subroutine euler_step_dssvar_restore_apply_codon(dssvar, rspheremp)
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    implicit none
+    real(kind=real_kind), target, intent(inout) :: dssvar(np,np,nlev)
+    real(kind=real_kind), target, intent(in) :: rspheremp(np,np)
+    interface
+       subroutine euler_step_dssvar_restore_codon(np_c, nlev_c, dssvar_p, rspheremp_p) &
+            bind(c, name='euler_step_dssvar_restore_codon')
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: np_c, nlev_c
+         type(c_ptr), value :: dssvar_p, rspheremp_p
+       end subroutine euler_step_dssvar_restore_codon
+    end interface
+
+    call euler_step_dssvar_restore_codon( &
+         int(np, c_int64_t), int(nlev, c_int64_t), c_loc(dssvar), c_loc(rspheremp) &
+    )
+  end subroutine euler_step_dssvar_restore_apply_codon
 
 !-----------------------------------------------------------------------------
 !-----------------------------------------------------------------------------
@@ -3942,5 +3971,29 @@ end subroutine ALE_parametric_coords
 
     euler_step_qdp_restore_impl_selected = .true.
   end subroutine euler_step_qdp_restore_select_impl
+
+  subroutine euler_step_dssvar_restore_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (euler_step_dssvar_restore_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EULER_STEP_DSSVAR_RESTORE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+      do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+          impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+      end do
+      euler_step_dssvar_restore_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+      euler_step_dssvar_restore_use_native_impl = .false.
+    end if
+
+    euler_step_dssvar_restore_impl_selected = .true.
+  end subroutine euler_step_dssvar_restore_select_impl
 
 end module prim_advection_mod
