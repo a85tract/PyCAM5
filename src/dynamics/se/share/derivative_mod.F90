@@ -54,6 +54,8 @@ private
   logical :: divergence_sphere_impl_selected = .false.
   logical :: divergence_sphere_wk_use_native_impl = .false.
   logical :: divergence_sphere_wk_impl_selected = .false.
+  logical :: laplace_sphere_wk_use_native_impl = .false.
+  logical :: laplace_sphere_wk_impl_selected = .false.
 
 ! ======================================
 ! Public Interfaces
@@ -2325,6 +2327,60 @@ end do
 !   input:  s = scalar
 !   ouput:  -< grad(PHI), grad(s) >   = weak divergence of grad(s)
 !     note: for this form of the operator, grad(s) does not need to be made C0
+!
+    real(kind=real_kind), intent(in), target :: s(np,np)
+    logical, intent(in) :: var_coef
+    type (derivative_t), intent(in), target :: deriv
+    type (element_t), intent(in), target :: elem
+    real(kind=real_kind), target :: laplace(np,np)
+
+    call laplace_sphere_wk_select_impl()
+    if (.not. laplace_sphere_wk_use_native_impl) then
+      call laplace_sphere_wk_apply_codon(s, deriv%Dvv, elem%spheremp, elem%Dinv, &
+           elem%variable_hyperviscosity, elem%tensorVisc, laplace, var_coef)
+    else
+      call laplace_sphere_wk_native(s,deriv,elem,laplace,var_coef)
+    endif
+  end subroutine laplace_sphere_wk
+
+  subroutine laplace_sphere_wk_apply_codon(s,dvv,spheremp,dinv, &
+       variable_hyperviscosity,tensorvisc,laplace,var_coef)
+    use iso_c_binding, only : c_int64_t, c_loc, c_double, c_ptr
+    real(kind=real_kind), intent(in), target :: s(np,np), dvv(np,np), spheremp(np,np), dinv(np,np,2,2)
+    real(kind=real_kind), intent(in), target :: variable_hyperviscosity(np,np), tensorvisc(np,np,2,2)
+    logical, intent(in) :: var_coef
+    real(kind=real_kind), target :: laplace(np,np)
+    real(kind=real_kind), target :: grads(np,np,2), oldgrads(np,np,2), v1(np,np), v2(np,np)
+    integer(c_int64_t) :: var_coef_c
+    interface
+       subroutine laplace_sphere_wk_codon(np_c, rrearth_c, hypervis_power_c, hypervis_scaling_c, var_coef_c, &
+            s_p, dvv_p, spheremp_p, dinv_p, variable_hyperviscosity_p, tensorvisc_p, grads_p, oldgrads_p, &
+            v1_p, v2_p, laplace_p) &
+            bind(c, name='laplace_sphere_wk_codon')
+         use iso_c_binding, only : c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: np_c, hypervis_power_c, hypervis_scaling_c, var_coef_c
+         real(c_double), value :: rrearth_c
+         type(c_ptr), value :: s_p, dvv_p, spheremp_p, dinv_p, variable_hyperviscosity_p, tensorvisc_p, grads_p, &
+              oldgrads_p, v1_p, v2_p, laplace_p
+       end subroutine laplace_sphere_wk_codon
+    end interface
+
+    var_coef_c = 0_c_int64_t
+    if (var_coef) var_coef_c = 1_c_int64_t
+
+    call laplace_sphere_wk_codon( &
+         int(np, c_int64_t), real(rrearth, c_double), int(hypervis_power, c_int64_t), &
+         int(hypervis_scaling, c_int64_t), var_coef_c, c_loc(s), c_loc(dvv), c_loc(spheremp), c_loc(dinv), &
+         c_loc(variable_hyperviscosity), c_loc(tensorvisc), c_loc(grads), c_loc(oldgrads), c_loc(v1), c_loc(v2), &
+         c_loc(laplace) &
+    )
+  end subroutine laplace_sphere_wk_apply_codon
+
+  subroutine laplace_sphere_wk_native(s,deriv,elem,laplace,var_coef)
+!
+!   input:  s = scalar
+!   ouput:  -< grad(PHI), grad(s) >   = weak divergence of grad(s)
+!     note: for this form of the operator, grad(s) does not need to be made C0
 !            
     real(kind=real_kind), intent(in) :: s(np,np) 
     logical, intent(in) :: var_coef
@@ -2362,7 +2418,7 @@ end do
     ! if input is C_0.  Here input is not C_0, so we should use divergence_sphere_wk().  
     call divergence_sphere_wk(grads,deriv,elem,laplace)
 
-  end subroutine laplace_sphere_wk
+  end subroutine laplace_sphere_wk_native
 
 
   subroutine vlaplace_sphere_wk(v,deriv,elem,laplace,var_coef,nu_ratio)
@@ -2786,6 +2842,30 @@ end do
 
     divergence_sphere_wk_impl_selected = .true.
   end subroutine divergence_sphere_wk_select_impl
+
+  subroutine laplace_sphere_wk_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (laplace_sphere_wk_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('LAPLACE_SPHERE_WK_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+      do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+          impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+      end do
+      laplace_sphere_wk_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+      laplace_sphere_wk_use_native_impl = .false.
+    end if
+
+    laplace_sphere_wk_impl_selected = .true.
+  end subroutine laplace_sphere_wk_select_impl
 
   subroutine vorticity_sphere_select_impl()
     character(len=32) :: impl_name

@@ -850,6 +850,62 @@ def divergence_sphere_wk_codon(
 
 
 @export
+def laplace_sphere_wk_codon(
+    np: int,
+    rrearth: float,
+    hypervis_power: int,
+    hypervis_scaling: int,
+    var_coef: int,
+    s_p: cobj,
+    dvv_p: cobj,
+    spheremp_p: cobj,
+    dinv_p: cobj,
+    variable_hyperviscosity_p: cobj,
+    tensorvisc_p: cobj,
+    grads_p: cobj,
+    oldgrads_p: cobj,
+    v1_p: cobj,
+    v2_p: cobj,
+    laplace_p: cobj,
+):
+    variable_hyperviscosity = Ptr[float](variable_hyperviscosity_p)
+    tensorvisc = Ptr[float](tensorvisc_p)
+    grads = Ptr[float](grads_p)
+    oldgrads = Ptr[float](oldgrads_p)
+
+    gradient_sphere_codon(np, rrearth, s_p, dvv_p, dinv_p, v1_p, v2_p, grads_p)
+
+    if var_coef != 0:
+        if hypervis_power != 0:
+            for j in range(1, np + 1):
+                for i in range(1, np + 1):
+                    plane_idx = _plane_idx(i, j, np)
+                    scale = variable_hyperviscosity[plane_idx]
+                    grads[_vec2_idx(i, j, 1, np)] = grads[_vec2_idx(i, j, 1, np)] * scale
+                    grads[_vec2_idx(i, j, 2, np)] = grads[_vec2_idx(i, j, 2, np)] * scale
+        elif hypervis_scaling != 0:
+            for j in range(1, np + 1):
+                for i in range(1, np + 1):
+                    oldgrads[_vec2_idx(i, j, 1, np)] = grads[_vec2_idx(i, j, 1, np)]
+                    oldgrads[_vec2_idx(i, j, 2, np)] = grads[_vec2_idx(i, j, 2, np)]
+
+            for j in range(1, np + 1):
+                for i in range(1, np + 1):
+                    oldgrad1 = oldgrads[_vec2_idx(i, j, 1, np)]
+                    oldgrad2 = oldgrads[_vec2_idx(i, j, 2, np)]
+                    grads[_vec2_idx(i, j, 1, np)] = (
+                        oldgrad1 * tensorvisc[_mat22_idx(i, j, 1, 1, np)]
+                        + oldgrad2 * tensorvisc[_mat22_idx(i, j, 1, 2, np)]
+                    )
+                    grads[_vec2_idx(i, j, 2, np)] = (
+                        oldgrad1 * tensorvisc[_mat22_idx(i, j, 2, 1, np)]
+                        + oldgrad2 * tensorvisc[_mat22_idx(i, j, 2, 2, np)]
+                    )
+
+    divergence_sphere_wk_codon(np, rrearth, grads_p, dvv_p, spheremp_p, dinv_p, oldgrads_p, laplace_p)
+
+
+@export
 def vorticity_sphere_codon(
     np: int,
     rrearth: float,
