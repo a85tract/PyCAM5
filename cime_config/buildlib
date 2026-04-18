@@ -83,6 +83,7 @@ def _build_cam():
         _build_codon_lib(srcroot, "radheat")
         _build_codon_lib(srcroot, "aoa_tracers")
         _build_codon_lib(srcroot, "tracers")
+        _build_codon_lib(srcroot, "qbo")
 
         #-------------------------------------------------------
         # Filepath is created in caseroot/camconf by the call
