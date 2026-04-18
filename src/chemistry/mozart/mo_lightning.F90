@@ -22,12 +22,14 @@ module mo_lightning
   real(r8) :: csrf
   real(r8) :: factor = 0.1_r8              ! user-controlled scaling factor to achieve arbitrary no prod.
   real(r8) :: geo_factor                   ! grid cell area factor
-  real(r8) :: vdist(16,3)                  ! vertical distribution of lightning
-  real(r8), allocatable :: prod_no(:,:,:)
-  real(r8), allocatable :: glob_prod_no_col(:,:)
-  real(r8), allocatable :: flash_freq(:,:)
+  real(r8), target :: vdist(16,3)          ! vertical distribution of lightning
+  real(r8), allocatable, target :: prod_no(:,:,:)
+  real(r8), allocatable, target :: glob_prod_no_col(:,:)
+  real(r8), allocatable, target :: flash_freq(:,:)
   integer :: no_ndx,xno_ndx
   logical :: has_no_lightning_prod = .false.
+  logical :: use_native_impl = .false.
+  logical :: impl_selected = .false.
 
 contains
 
@@ -121,6 +123,195 @@ contains
   end subroutine lightning_inti
 
   subroutine lightning_no_prod( state, pbuf2d,  cam_in )
+    !----------------------------------------------------------------------
+    !	... set no production from lightning
+    !----------------------------------------------------------------------
+    use iso_c_binding,   only : c_int64_t, c_double, c_loc, c_ptr
+    use physics_types,   only : physics_state
+    use physics_buffer,  only : pbuf_get_index, physics_buffer_desc, pbuf_get_field, pbuf_get_chunk
+    use physconst,       only : rga
+    use phys_grid,       only : get_rlat_all_p, get_wght_all_p
+    use cam_history,     only : outfld
+    use camsrfexch,      only : cam_in_t
+    use shr_reprosum_mod, only : shr_reprosum_calc
+    use mo_constants,    only : rearth, d2r
+    implicit none
+
+    type(physics_state), target, intent(in) :: state(begchunk:endchunk)
+    type(physics_buffer_desc), pointer :: pbuf2d(:,:)
+    type(cam_in_t), target, intent(in) :: cam_in(begchunk:endchunk)
+
+    integer :: c
+    integer :: kk
+    integer :: ncol
+    integer :: lchnk
+    integer :: cldtop_ndx, cldbot_ndx
+    real(r8) :: glob_flashfreq
+    real(r8) :: glob_noprod
+    real(r8) :: wrk2(1)
+    integer(c_int64_t), target :: status_code
+    real(r8), pointer :: cldtop(:)
+    real(r8), pointer :: cldbot(:)
+    real(r8), target :: dchgzone(pcols,begchunk:endchunk)
+    real(r8), target :: cldhgt(pcols,begchunk:endchunk)
+    real(r8), target :: cgic(pcols,begchunk:endchunk)
+    real(r8), target :: flash_energy(pcols,begchunk:endchunk)
+    real(r8), target :: prod_no_col(pcols,begchunk:endchunk)
+    real(r8), target :: rlats(pcols,begchunk:endchunk)
+    real(r8), target :: wght(pcols)
+
+    interface
+       subroutine lightning_no_prod_phase1_codon(ncol_c, pcols_c, pver_c, &
+            rga_c, rearth_c, geo_factor_c, factor_c, phis_p, zm_p, zi_p, t_p, &
+            cldtop_p, cldbot_p, landfrac_p, ocnfrac_p, wght_p, flash_freq_p, &
+            glob_prod_no_col_p, prod_no_col_p, cldhgt_p, dchgzone_p, cgic_p, &
+            flash_energy_p, status_p) bind(c, name="lightning_no_prod_phase1_codon")
+         use iso_c_binding, only : c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: rga_c, rearth_c, geo_factor_c, factor_c
+         type(c_ptr), value :: phis_p, zm_p, zi_p, t_p
+         type(c_ptr), value :: cldtop_p, cldbot_p, landfrac_p, ocnfrac_p, wght_p
+         type(c_ptr), value :: flash_freq_p, glob_prod_no_col_p, prod_no_col_p
+         type(c_ptr), value :: cldhgt_p, dchgzone_p, cgic_p, flash_energy_p, status_p
+       end subroutine lightning_no_prod_phase1_codon
+
+       subroutine lightning_no_prod_phase2_codon(ncol_c, pcols_c, pver_c, rga_c, lat25_c, &
+            phis_p, zi_p, cldtop_p, landfrac_p, rlats_p, vdist_p, prod_no_col_p, &
+            cldhgt_p, prod_no_p, status_p) bind(c, name="lightning_no_prod_phase2_codon")
+         use iso_c_binding, only : c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: rga_c, lat25_c
+         type(c_ptr), value :: phis_p, zi_p, cldtop_p, landfrac_p, rlats_p, vdist_p
+         type(c_ptr), value :: prod_no_col_p, cldhgt_p, prod_no_p, status_p
+       end subroutine lightning_no_prod_phase2_codon
+    end interface
+
+    call lightning_select_impl()
+
+    if (.not.has_no_lightning_prod) return
+
+    if (use_native_impl) then
+       call lightning_no_prod_native(state, pbuf2d, cam_in)
+       return
+    end if
+
+    flash_freq(:,:)       = 0._r8
+    prod_no(:,:,:)        = 0._r8
+    prod_no_col(:,:)      = 0._r8
+    cldhgt(:,:)           = 0._r8
+    dchgzone(:,:)         = 0._r8
+    cgic(:,:)             = 0._r8
+    flash_energy(:,:)     = 0._r8
+    glob_prod_no_col(:,:) = 0._r8
+
+    cldtop_ndx = pbuf_get_index('CLDTOP')
+    cldbot_ndx = pbuf_get_index('CLDBOT')
+
+    status_code = 0_c_int64_t
+    do c = begchunk,endchunk
+       ncol  = state(c)%ncol
+       lchnk = state(c)%lchnk
+       call pbuf_get_field(pbuf_get_chunk(pbuf2d,lchnk), cldtop_ndx, cldtop)
+       call pbuf_get_field(pbuf_get_chunk(pbuf2d,lchnk), cldbot_ndx, cldbot)
+       call get_rlat_all_p(c, ncol, rlats(1,c))
+       call get_wght_all_p(c, ncol, wght)
+
+       call lightning_no_prod_phase1_codon( &
+            int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+            real(rga, c_double), real(rearth, c_double), real(geo_factor, c_double), real(factor, c_double), &
+            c_loc(state(c)%phis(1)), c_loc(state(c)%zm(1,1)), c_loc(state(c)%zi(1,1)), c_loc(state(c)%t(1,1)), &
+            c_loc(cldtop(1)), c_loc(cldbot(1)), c_loc(cam_in(c)%landfrac(1)), c_loc(cam_in(c)%ocnfrac(1)), c_loc(wght(1)), &
+            c_loc(flash_freq(1,c)), c_loc(glob_prod_no_col(1,c)), c_loc(prod_no_col(1,c)), &
+            c_loc(cldhgt(1,c)), c_loc(dchgzone(1,c)), c_loc(cgic(1,c)), c_loc(flash_energy(1,c)), c_loc(status_code) &
+       )
+
+       if (status_code /= 0_c_int64_t) then
+          call lightning_no_prod_native(state, pbuf2d, cam_in)
+          return
+       end if
+    end do
+
+    kk = pcols*(endchunk-begchunk+1)
+    call shr_reprosum_calc(flash_freq, wrk2, kk, kk, 1, commid=mpicom)
+    glob_flashfreq = wrk2(1)/60._r8
+    call shr_reprosum_calc(glob_prod_no_col, wrk2, kk, kk, 1, commid=mpicom)
+    glob_noprod = wrk2(1)
+    if (masterproc) then
+       write(iulog,*) ' '
+       write(iulog,'(''Global flash freq (/s), lightning NOx (TgN/y) = '',2f10.4)') &
+            glob_flashfreq, glob_noprod
+    end if
+
+    if (glob_noprod > 0._r8) then
+       status_code = 0_c_int64_t
+       do c = begchunk,endchunk
+          ncol  = state(c)%ncol
+          lchnk = state(c)%lchnk
+          call pbuf_get_field(pbuf_get_chunk(pbuf2d,lchnk), cldtop_ndx, cldtop)
+
+          call lightning_no_prod_phase2_codon( &
+               int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+               real(rga, c_double), real(25._r8*d2r, c_double), &
+               c_loc(state(c)%phis(1)), c_loc(state(c)%zi(1,1)), c_loc(cldtop(1)), &
+               c_loc(cam_in(c)%landfrac(1)), c_loc(rlats(1,c)), c_loc(vdist(1,1)), &
+               c_loc(prod_no_col(1,c)), c_loc(cldhgt(1,c)), c_loc(prod_no(1,1,c)), c_loc(status_code) &
+          )
+
+          if (status_code /= 0_c_int64_t) then
+             call lightning_no_prod_native(state, pbuf2d, cam_in)
+             return
+          end if
+       end do
+    end if
+
+    do c = begchunk,endchunk
+       lchnk = state(c)%lchnk
+       call outfld('LNO_PROD',     prod_no(:,:,c),        pcols, lchnk)
+       call outfld('LNO_COL_PROD', glob_prod_no_col(:,c), pcols, lchnk)
+       call outfld('FLASHFRQ',     flash_freq(:,c),       pcols, lchnk)
+       call outfld('FLASHENGY',    flash_energy(:,c),     pcols, lchnk)
+       call outfld('CLDHGT',       cldhgt(:,c),           pcols, lchnk)
+       call outfld('DCHGZONE',     dchgzone(:,c),         pcols, lchnk)
+       call outfld('CGIC',         cgic(:,c),             pcols, lchnk)
+    enddo
+
+  end subroutine lightning_no_prod
+
+  subroutine lightning_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('LIGHTNING_NO_PROD_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_impl = .false.
+    end if
+
+    impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_impl) then
+          write(iulog,*) 'lightning_no_prod implementation = native'
+       else
+          write(iulog,*) 'lightning_no_prod implementation = codon'
+       end if
+    end if
+
+  end subroutine lightning_select_impl
+
+  subroutine lightning_no_prod_native( state, pbuf2d,  cam_in )
     !----------------------------------------------------------------------
     !	... set no production from lightning
     !----------------------------------------------------------------------
@@ -390,6 +581,6 @@ contains
        call outfld( 'CGIC',         cgic(:,c),             pcols, lchnk )
     enddo
 
-  end subroutine lightning_no_prod
+  end subroutine lightning_no_prod_native
 
 end module mo_lightning
