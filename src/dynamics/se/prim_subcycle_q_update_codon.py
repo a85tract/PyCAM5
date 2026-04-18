@@ -27,6 +27,18 @@ def _vol_idx(iidx: int, jidx: int, klev: int, np: int) -> int:
     return (iidx - 1) + (jidx - 1) * np + (klev - 1) * np * np
 
 
+@inline
+def _field_vol_idx(iidx: int, jidx: int, klev: int, fidx: int, np: int, nlev: int) -> int:
+    """ttmp declared as (np,np,nlev,2)."""
+    return _vol_idx(iidx, jidx, klev, np) + (fidx - 1) * np * np * nlev
+
+
+@inline
+def _v_idx(iidx: int, jidx: int, comp: int, klev: int, np: int) -> int:
+    """state%v slice declared as (np,np,2,nlev)."""
+    return (iidx - 1) + (jidx - 1) * np + (comp - 1) * np * np + (klev - 1) * np * np * 2
+
+
 @export
 def prim_subcycle_dp3d_init_codon(
     np: int,
@@ -157,3 +169,43 @@ def vertical_remap_t_unscale_codon(
             for i in range(1, np + 1):
                 vol_idx = _vol_idx(i, j, k, np)
                 t[vol_idx] = ttmp[vol_idx] / dp[vol_idx]
+
+
+@export
+def vertical_remap_v_scale_codon(
+    np: int,
+    nlev: int,
+    v_p: cobj,
+    dp_star_p: cobj,
+    ttmp_p: cobj,
+):
+    v = Ptr[float](v_p)
+    dp_star = Ptr[float](dp_star_p)
+    ttmp = Ptr[float](ttmp_p)
+
+    for k in range(1, nlev + 1):
+        for j in range(1, np + 1):
+            for i in range(1, np + 1):
+                vol_idx = _vol_idx(i, j, k, np)
+                ttmp[_field_vol_idx(i, j, k, 1, np, nlev)] = v[_v_idx(i, j, 1, k, np)] * dp_star[vol_idx]
+                ttmp[_field_vol_idx(i, j, k, 2, np, nlev)] = v[_v_idx(i, j, 2, k, np)] * dp_star[vol_idx]
+
+
+@export
+def vertical_remap_v_unscale_codon(
+    np: int,
+    nlev: int,
+    ttmp_p: cobj,
+    dp_p: cobj,
+    v_p: cobj,
+):
+    ttmp = Ptr[float](ttmp_p)
+    dp = Ptr[float](dp_p)
+    v = Ptr[float](v_p)
+
+    for k in range(1, nlev + 1):
+        for j in range(1, np + 1):
+            for i in range(1, np + 1):
+                vol_idx = _vol_idx(i, j, k, np)
+                v[_v_idx(i, j, 1, k, np)] = ttmp[_field_vol_idx(i, j, k, 1, np, nlev)] / dp[vol_idx]
+                v[_v_idx(i, j, 2, k, np)] = ttmp[_field_vol_idx(i, j, k, 2, np, nlev)] / dp[vol_idx]
