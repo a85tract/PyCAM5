@@ -87,6 +87,7 @@ def _build_cam():
         _build_codon_lib(srcroot, "flux_avg")
         _build_codon_lib(srcroot, "cam_diagnostics")
         _build_codon_lib(srcroot, "vertical_diffusion")
+        _build_codon_lib(srcroot, "chem_surfvals")
 
         #-------------------------------------------------------
         # Filepath is created in caseroot/camconf by the call

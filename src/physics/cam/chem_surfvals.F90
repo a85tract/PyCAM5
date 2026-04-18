@@ -67,19 +67,21 @@ module chem_surfvals
    real(r8) :: co2_limit    ! value of co2vmr where ramping ends
    real(r8) :: co2_base     ! initial co2 volume mixing ratio, before any ramping
    integer :: ntim = -1               ! number of yearly data values
-   integer,  allocatable :: yrdata(:) ! yearly data values
-   real(r8), allocatable :: co2(:)    ! co2 mixing ratios in ppmv 
-   real(r8), allocatable :: ch4(:)    ! ppbv
-   real(r8), allocatable :: n2o(:)    ! ppbv
-   real(r8), allocatable :: f11(:)    ! pptv
-   real(r8), allocatable :: f12(:)    ! pptv
-   real(r8), allocatable :: adj(:)    ! unitless adjustment factor for f11 & f12
+   integer,  allocatable, target :: yrdata(:) ! yearly data values
+   real(r8), allocatable, target :: co2(:)    ! co2 mixing ratios in ppmv 
+   real(r8), allocatable, target :: ch4(:)    ! ppbv
+   real(r8), allocatable, target :: n2o(:)    ! ppbv
+   real(r8), allocatable, target :: f11(:)    ! pptv
+   real(r8), allocatable, target :: f12(:)    ! pptv
+   real(r8), allocatable, target :: adj(:)    ! unitless adjustment factor for f11 & f12
    
    ! fixed lower boundary 
    
    character(len=256) :: flbc_file = ' '
    character(len=16)  :: flbc_list(pcnst) = ''
    type(time_ramp)    :: flbc_timing     != time_ramp( "CYCLICAL",  19970101, 0 )
+   logical :: use_native_impl = .false.
+   logical :: impl_selected = .false.
 
 !=========================================================================================
 contains
@@ -438,6 +440,125 @@ end function chem_surfvals_co2_rad
 
 subroutine chem_surfvals_set()
 
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+   use ppgrid,         only: begchunk, endchunk
+   use mo_flbc,        only: flbc_gmean_vmr, flbc_chk
+
+!---------------------------Local variables-----------------------------
+
+   integer  :: yr, mon, day, ncsec ! components of a date
+   integer  :: ncdate              ! current date in integer format [yyyymmdd]
+   real(r8) :: calday
+   real(r8) :: daydiff
+   integer(c_int64_t), target :: status_code
+   integer(c_int64_t), allocatable, target :: yrdata64(:)
+   real(c_double), target :: co2vmr_work
+   real(c_double), target :: ch4vmr_work
+   real(c_double), target :: n2ovmr_work
+   real(c_double), target :: f11vmr_work
+   real(c_double), target :: f12vmr_work
+
+   interface
+      subroutine chem_surfvals_set_all_codon(fixYear_ghg_c, ghg_yearStart_model_c, ghg_yearStart_data_c, &
+           yr_c, calday_c, ntim_c, yrdata_p, co2_p, ch4_p, n2o_p, f11_p, f12_p, adj_p, &
+           co2vmr_p, ch4vmr_p, n2ovmr_p, f11vmr_p, f12vmr_p, status_p) bind(c, name="chem_surfvals_set_all_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: fixYear_ghg_c, ghg_yearStart_model_c, ghg_yearStart_data_c
+         integer(c_int64_t), value :: yr_c, ntim_c
+         real(c_double), value :: calday_c
+         type(c_ptr), value :: yrdata_p, co2_p, ch4_p, n2o_p, f11_p, f12_p, adj_p
+         type(c_ptr), value :: co2vmr_p, ch4vmr_p, n2ovmr_p, f11vmr_p, f12vmr_p, status_p
+      end subroutine chem_surfvals_set_all_codon
+      subroutine chem_surfvals_set_co2_codon(daydiff_c, co2_base_c, co2_daily_factor_c, &
+           co2_limit_c, co2vmr_p) bind(c, name="chem_surfvals_set_co2_codon")
+         use iso_c_binding, only: c_double, c_ptr
+         real(c_double), value :: daydiff_c, co2_base_c, co2_daily_factor_c, co2_limit_c
+         type(c_ptr), value :: co2vmr_p
+      end subroutine chem_surfvals_set_co2_codon
+   end interface
+   
+   call chem_surfvals_select_impl()
+
+   if (use_native_impl) then
+      call chem_surfvals_set_native()
+      return
+   end if
+
+   if ( doRamp_ghg ) then
+      if(ramp_just_co2) then
+         call get_curr_date(yr, mon, day, ncsec)
+         ncdate = yr*10000 + mon*100 + day
+         call timemgr_datediff(co2_start, 0, ncdate, ncsec, daydiff)
+         co2vmr_work = real(co2vmr, c_double)
+         call chem_surfvals_set_co2_codon(real(daydiff, c_double), real(co2_base, c_double), &
+              real(co2_daily_factor, c_double), real(co2_limit, c_double), c_loc(co2vmr_work))
+         co2vmr = real(co2vmr_work, r8)
+      else
+         if (ntim <= 0 .or. .not. allocated(yrdata) .or. .not. allocated(co2) .or. .not. allocated(ch4) .or. &
+             .not. allocated(n2o) .or. .not. allocated(f11) .or. .not. allocated(f12) .or. .not. allocated(adj)) then
+            call chem_surfvals_set_native()
+            return
+         end if
+
+         call get_curr_date(yr, mon, day, ncsec)
+         calday = get_curr_calday()
+
+         allocate(yrdata64(ntim))
+         yrdata64(:) = int(yrdata(:), c_int64_t)
+
+         co2vmr_work = real(co2vmr, c_double)
+         ch4vmr_work = real(ch4vmr, c_double)
+         n2ovmr_work = real(n2ovmr, c_double)
+         f11vmr_work = real(f11vmr, c_double)
+         f12vmr_work = real(f12vmr, c_double)
+         status_code = 0_c_int64_t
+
+         call chem_surfvals_set_all_codon( &
+              int(fixYear_ghg, c_int64_t), int(ghg_yearStart_model, c_int64_t), int(ghg_yearStart_data, c_int64_t), &
+              int(yr, c_int64_t), real(calday, c_double), int(ntim, c_int64_t), &
+              c_loc(yrdata64), c_loc(co2), c_loc(ch4), c_loc(n2o), c_loc(f11), c_loc(f12), c_loc(adj), &
+              c_loc(co2vmr_work), c_loc(ch4vmr_work), c_loc(n2ovmr_work), c_loc(f11vmr_work), c_loc(f12vmr_work), &
+              c_loc(status_code) &
+         )
+
+         if (status_code /= 0_c_int64_t) then
+            deallocate(yrdata64)
+            call chem_surfvals_set_native()
+            return
+         end if
+
+         co2vmr = real(co2vmr_work, r8)
+         ch4vmr = real(ch4vmr_work, r8)
+         n2ovmr = real(n2ovmr_work, r8)
+         f11vmr = real(f11vmr_work, r8)
+         f12vmr = real(f12vmr_work, r8)
+         deallocate(yrdata64)
+      end if
+   elseif (scenario_ghg == 'CHEM_LBC_FILE') then
+      call chem_surfvals_set_native()
+      return
+   endif
+
+   if (masterproc .and. is_end_curr_day()) then
+      call get_curr_date(yr, mon, day, ncsec)
+      ncdate = yr*10000 + mon*100 + day
+      write(iulog,*) 'chem_surfvals_set: ncdate= ',ncdate,' co2vmr=',co2vmr
+
+      if (.not. ramp_just_co2 .and. mon==1 .and. day==1) then
+         write(iulog,*) 'chem_surfvals_set: ch4vmr=', ch4vmr, ' n2ovmr=', n2ovmr, &
+                        ' f11vmr=', f11vmr, ' f12vmr=', f12vmr
+      end if
+
+   end if
+
+   return
+end subroutine chem_surfvals_set
+
+!=========================================================================================
+
+subroutine chem_surfvals_set_native()
+
    use ppgrid,         only: begchunk, endchunk
    use mo_flbc,        only: flbc_gmean_vmr, flbc_chk
 
@@ -471,7 +592,43 @@ subroutine chem_surfvals_set()
    end if
 
    return
-end subroutine chem_surfvals_set
+end subroutine chem_surfvals_set_native
+
+!=========================================================================================
+
+subroutine chem_surfvals_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CHEM_SURFVALS_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_impl = .false.
+   end if
+
+   impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_impl) then
+         write(iulog,*) 'chem_surfvals implementation = native'
+      else
+         write(iulog,*) 'chem_surfvals implementation = codon'
+      end if
+   end if
+
+end subroutine chem_surfvals_select_impl
 
 !=========================================================================================
 
