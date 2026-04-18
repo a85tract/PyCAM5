@@ -302,6 +302,24 @@ def euler_step_dssvar_pack_codon(
 
 
 @export
+def euler_step_qtens_base_codon(
+    np: int,
+    dt: float,
+    qdp_p: cobj,
+    dp_star_p: cobj,
+    qtens_p: cobj,
+):
+    qdp = Ptr[float](qdp_p)
+    dp_star = Ptr[float](dp_star_p)
+    qtens = Ptr[float](qtens_p)
+
+    for j in range(1, np + 1):
+        for i in range(1, np + 1):
+            plane_idx = _plane_idx(i, j, np)
+            qtens[plane_idx] = qdp[plane_idx] - dt * dp_star[plane_idx]
+
+
+@export
 def vertical_remap_rsplit_prepare_codon(
     np: int,
     nlev: int,
