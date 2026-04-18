@@ -7,6 +7,8 @@ module flux_avg
 
   use shr_kind_mod,     only: r8=>shr_kind_r8
   use ppgrid,           only: begchunk, endchunk, pcols
+  use cam_logfile,      only: iulog
+  use spmd_utils,       only: masterproc
   
   use physics_types,    only: physics_state
   use camsrfexch,       only: cam_in_t    
@@ -34,10 +36,82 @@ module flux_avg
   integer :: qflx_res_idx   ! qflx_res index in physics buffer
   integer :: taux_res_idx   ! taux_res index in physics buffer
   integer :: tauy_res_idx   ! tauy_res index in physics buffer
+  logical :: use_native_impl = .false.
+  logical :: impl_selected = .false.
+  logical :: use_native_init_impl = .false.
+  logical :: init_impl_selected = .false.
 
 !===============================================================================
 contains
 !===============================================================================
+
+subroutine flux_avg_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('FLUX_AVG_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_impl = .false.
+   end if
+
+   impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_impl) then
+         write(iulog,*) 'flux_avg implementation = native'
+      else
+         write(iulog,*) 'flux_avg implementation = codon'
+      end if
+   end if
+
+end subroutine flux_avg_select_impl
+
+subroutine flux_avg_init_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (init_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('FLUX_AVG_INIT_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_init_impl = .false.
+   end if
+
+   init_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_init_impl) then
+         write(iulog,*) 'flux_avg_init implementation = native'
+      else
+         write(iulog,*) 'flux_avg_init implementation = codon'
+      end if
+   end if
+
+end subroutine flux_avg_init_select_impl
 
 subroutine flux_avg_register()
 
@@ -64,6 +138,69 @@ end subroutine flux_avg_register
 !===============================================================================
 
 subroutine flux_avg_init(cam_in,  pbuf2d)
+  use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+  use physics_buffer, only : physics_buffer_desc, pbuf_get_chunk, pbuf_get_field
+   ! Initialize the surface fluxes in the physics buffer using the cam import state
+
+   type(cam_in_t), target, intent(in)    :: cam_in(begchunk:endchunk)
+   
+   type(physics_buffer_desc), pointer :: pbuf2d(:,:)
+   integer :: lchnk
+   integer :: ncol
+   type(physics_buffer_desc), pointer :: pbuf2d_chunk(:)
+   real(r8), pointer, dimension(:) :: lhflx, shflx, qflx, taux, tauy
+   real(r8), pointer, dimension(:) :: lhflx_res, shflx_res, qflx_res, taux_res, tauy_res
+   interface
+      subroutine flux_avg_init_codon(ncol_c, pcols_c, cam_lhf_p, cam_shf_p, cam_cflx1_p, cam_wsx_p, cam_wsy_p, &
+           lhflx_p, shflx_p, qflx_p, taux_p, tauy_p, &
+           lhflx_res_p, shflx_res_p, qflx_res_p, taux_res_p, tauy_res_p) bind(c, name="flux_avg_init_codon")
+        use iso_c_binding, only : c_int64_t, c_ptr
+        integer(c_int64_t), value :: ncol_c, pcols_c
+        type(c_ptr), value :: cam_lhf_p, cam_shf_p, cam_cflx1_p, cam_wsx_p, cam_wsy_p
+        type(c_ptr), value :: lhflx_p, shflx_p, qflx_p, taux_p, tauy_p
+        type(c_ptr), value :: lhflx_res_p, shflx_res_p, qflx_res_p, taux_res_p, tauy_res_p
+      end subroutine flux_avg_init_codon
+   end interface
+
+   !----------------------------------------------------------------------- 
+
+   call flux_avg_init_select_impl()
+
+   if (use_native_init_impl) then
+      call flux_avg_init_native(cam_in, pbuf2d)
+      return
+   end if
+
+   do lchnk = begchunk, endchunk
+      ncol = get_ncols_p(lchnk)
+      pbuf2d_chunk => pbuf_get_chunk(pbuf2d, lchnk)
+
+      call pbuf_get_field(pbuf2d_chunk, lhflx_idx,     lhflx )
+      call pbuf_get_field(pbuf2d_chunk, shflx_idx,     shflx )
+      call pbuf_get_field(pbuf2d_chunk, qflx_idx,      qflx  )
+      call pbuf_get_field(pbuf2d_chunk, taux_idx,      taux  )
+      call pbuf_get_field(pbuf2d_chunk, tauy_idx,      tauy  )
+      call pbuf_get_field(pbuf2d_chunk, lhflx_res_idx, lhflx_res )
+      call pbuf_get_field(pbuf2d_chunk, shflx_res_idx, shflx_res )
+      call pbuf_get_field(pbuf2d_chunk, qflx_res_idx,  qflx_res  )
+      call pbuf_get_field(pbuf2d_chunk, taux_res_idx,  taux_res  )
+      call pbuf_get_field(pbuf2d_chunk, tauy_res_idx,  tauy_res  )
+
+      call flux_avg_init_codon( &
+           int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           c_loc(cam_in(lchnk)%lhf), c_loc(cam_in(lchnk)%shf), c_loc(cam_in(lchnk)%cflx(1,1)), &
+           c_loc(cam_in(lchnk)%wsx), c_loc(cam_in(lchnk)%wsy), &
+           c_loc(lhflx), c_loc(shflx), c_loc(qflx), c_loc(taux), c_loc(tauy), &
+           c_loc(lhflx_res), c_loc(shflx_res), c_loc(qflx_res), c_loc(taux_res), c_loc(tauy_res) &
+      )
+   end do
+
+
+end subroutine flux_avg_init
+
+!===============================================================================
+
+subroutine flux_avg_init_native(cam_in,  pbuf2d)
   use physics_buffer, only : physics_buffer_desc, pbuf_set_field, pbuf_get_chunk
    ! Initialize the surface fluxes in the physics buffer using the cam import state
 
@@ -93,11 +230,108 @@ subroutine flux_avg_init(cam_in,  pbuf2d)
    end do
 
 
-end subroutine flux_avg_init
+end subroutine flux_avg_init_native
 
 !===============================================================================
 
 subroutine flux_avg_run(state, cam_in,  pbuf, nstep, deltat)
+  use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+  use physics_buffer, only : physics_buffer_desc, pbuf_get_field
+   !----------------------------------------------------------------------- 
+   ! 
+   ! Purpose: 
+   !
+   !----------------------------------------------------------------------- 
+!++ debug code to be removed after PBL code validated
+   use phys_debug,       only: phys_debug_flux1, phys_debug_flux2
+!-- debug code to be removed after PBL code validated
+
+   ! Input arguments
+
+   type(physics_state), intent(in)    :: state
+   type(cam_in_t), target, intent(inout) :: cam_in
+   type(physics_buffer_desc), pointer :: pbuf(:)
+   
+   integer,             intent(in)    :: nstep
+   real(r8),            intent(in)    :: deltat
+
+   ! Local variables
+   integer :: lchnk                  ! chunk identifier
+   integer :: ncol                   ! number of atmospheric columns
+
+   ! physics buffer fields
+   real(r8), pointer, dimension(:) :: lhflx   ! latent heat flux
+   real(r8), pointer, dimension(:) :: shflx   ! sensible heat flux
+   real(r8), pointer, dimension(:) :: qflx    ! water vapor heat flux
+   real(r8), pointer, dimension(:) :: taux    ! x momentum flux
+   real(r8), pointer, dimension(:) :: tauy    ! y momentum flux
+   real(r8), pointer, dimension(:) :: lhflx_res   ! latent heat flux
+   real(r8), pointer, dimension(:) :: shflx_res   ! sensible heat flux
+   real(r8), pointer, dimension(:) :: qflx_res    ! water vapor heat flux
+   real(r8), pointer, dimension(:) :: taux_res    ! x momentum flux
+   real(r8), pointer, dimension(:) :: tauy_res    ! y momentum flux
+   real(r8), target :: temp(pcols)
+   interface
+      subroutine flux_avg_run_codon(ncol_c, pcols_c, nstep_c, deltat_c, &
+           cam_lhf_p, cam_shf_p, cam_wsx_p, cam_wsy_p, cam_cflx1_p, &
+           lhflx_p, shflx_p, qflx_p, taux_p, tauy_p, &
+           lhflx_res_p, shflx_res_p, qflx_res_p, taux_res_p, tauy_res_p, temp_p) &
+           bind(c, name="flux_avg_run_codon")
+        use iso_c_binding, only : c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: ncol_c, pcols_c, nstep_c
+        real(c_double), value :: deltat_c
+        type(c_ptr), value :: cam_lhf_p, cam_shf_p, cam_wsx_p, cam_wsy_p, cam_cflx1_p
+        type(c_ptr), value :: lhflx_p, shflx_p, qflx_p, taux_p, tauy_p
+        type(c_ptr), value :: lhflx_res_p, shflx_res_p, qflx_res_p, taux_res_p, tauy_res_p, temp_p
+      end subroutine flux_avg_run_codon
+   end interface
+   !----------------------------------------------------------------------- 
+
+   call flux_avg_select_impl()
+
+   if (use_native_impl) then
+      call flux_avg_run_native(state, cam_in, pbuf, nstep, deltat)
+      return
+   end if
+
+   lchnk = state%lchnk
+   ncol  = state%ncol
+
+   ! Associate pointers with physics buffer fields
+   call pbuf_get_field(pbuf, lhflx_idx,     lhflx )
+   call pbuf_get_field(pbuf, shflx_idx,     shflx )
+   call pbuf_get_field(pbuf, qflx_idx,      qflx  )
+   call pbuf_get_field(pbuf, taux_idx,      taux  )
+   call pbuf_get_field(pbuf, tauy_idx,      tauy  )
+
+   call pbuf_get_field(pbuf, lhflx_res_idx, lhflx_res )
+   call pbuf_get_field(pbuf, shflx_res_idx, shflx_res )
+   call pbuf_get_field(pbuf, qflx_res_idx,  qflx_res  )
+   call pbuf_get_field(pbuf, taux_res_idx,  taux_res  )
+   call pbuf_get_field(pbuf, tauy_res_idx,  tauy_res  )
+
+!++ debug code to be removed after PBL code validated
+   call phys_debug_flux1(lchnk, cam_in, lhflx, shflx, taux, tauy, qflx, &
+                         lhflx_res, shflx_res, taux_res, tauy_res, qflx_res)
+!-- debug code to be removed after PBL code validated
+
+   call flux_avg_run_codon( &
+        int(ncol, c_int64_t), int(pcols, c_int64_t), int(nstep, c_int64_t), real(deltat, c_double), &
+        c_loc(cam_in%lhf), c_loc(cam_in%shf), c_loc(cam_in%wsx), c_loc(cam_in%wsy), c_loc(cam_in%cflx(1,1)), &
+        c_loc(lhflx), c_loc(shflx), c_loc(qflx), c_loc(taux), c_loc(tauy), &
+        c_loc(lhflx_res), c_loc(shflx_res), c_loc(qflx_res), c_loc(taux_res), c_loc(tauy_res), c_loc(temp) &
+   )
+
+!++ debug code to be removed after PBL code validated
+   call phys_debug_flux2(lchnk, cam_in, lhflx, &
+                         lhflx_res, shflx_res, taux_res, tauy_res, qflx_res)
+!-- debug code to be removed after PBL code validated
+
+end subroutine flux_avg_run
+
+!===============================================================================
+
+subroutine flux_avg_run_native(state, cam_in,  pbuf, nstep, deltat)
   use physics_buffer, only : physics_buffer_desc, pbuf_get_field
    !----------------------------------------------------------------------- 
    ! 
@@ -166,7 +400,7 @@ subroutine flux_avg_run(state, cam_in,  pbuf, nstep, deltat)
                          lhflx_res, shflx_res, taux_res, tauy_res, qflx_res)
 !-- debug code to be removed after PBL code validated
 
-end subroutine flux_avg_run
+end subroutine flux_avg_run_native
 
 !===============================================================================
 
@@ -234,4 +468,3 @@ end subroutine smooth
 !===============================================================================
 
 end module flux_avg
-
