@@ -52,6 +52,8 @@ private
   logical :: vorticity_sphere_impl_selected = .false.
   logical :: divergence_sphere_use_native_impl = .false.
   logical :: divergence_sphere_impl_selected = .false.
+  logical :: divergence_sphere_wk_use_native_impl = .false.
+  logical :: divergence_sphere_wk_impl_selected = .false.
 
 ! ======================================
 ! Public Interfaces
@@ -1815,6 +1817,41 @@ end do
 
 
   subroutine divergence_sphere_wk(v,deriv,elem,div)
+    real(kind=real_kind), intent(in), target :: v(np,np,2)  ! in lat-lon coordinates
+    type (derivative_t), intent(in), target :: deriv
+    type (element_t), intent(in), target :: elem
+    real(kind=real_kind), target :: div(np,np)
+
+    call divergence_sphere_wk_select_impl()
+    if (.not. divergence_sphere_wk_use_native_impl) then
+      call divergence_sphere_wk_apply_codon(v, deriv%Dvv, elem%spheremp, elem%Dinv, div)
+    else
+      call divergence_sphere_wk_native(v,deriv,elem,div)
+    endif
+  end subroutine divergence_sphere_wk
+
+  subroutine divergence_sphere_wk_apply_codon(v,dvv,spheremp,dinv,div)
+    use iso_c_binding, only : c_int64_t, c_loc, c_double, c_ptr
+    real(kind=real_kind), intent(in), target :: v(np,np,2)
+    real(kind=real_kind), intent(in), target :: dvv(np,np), spheremp(np,np), dinv(np,np,2,2)
+    real(kind=real_kind), target :: div(np,np)
+    real(kind=real_kind), target :: vtemp(np,np,2)
+    interface
+       subroutine divergence_sphere_wk_codon(np_c, rrearth_c, v_p, dvv_p, spheremp_p, dinv_p, vtemp_p, div_p) &
+            bind(c, name='divergence_sphere_wk_codon')
+         use iso_c_binding, only : c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: np_c
+         real(c_double), value :: rrearth_c
+         type(c_ptr), value :: v_p, dvv_p, spheremp_p, dinv_p, vtemp_p, div_p
+       end subroutine divergence_sphere_wk_codon
+    end interface
+
+    call divergence_sphere_wk_codon( &
+         int(np, c_int64_t), real(rrearth, c_double), c_loc(v), c_loc(dvv), c_loc(spheremp), c_loc(dinv), c_loc(vtemp), c_loc(div) &
+    )
+  end subroutine divergence_sphere_wk_apply_codon
+
+  subroutine divergence_sphere_wk_native(v,deriv,elem,div)
 !
 !   input:  v = velocity in lat-lon coordinates
 !   ouput:  div(v)  spherical divergence of v, integrated by parts
@@ -1887,7 +1924,7 @@ end do
        end do
     end do
     
-  end subroutine divergence_sphere_wk
+  end subroutine divergence_sphere_wk_native
 
 
 
@@ -2725,6 +2762,30 @@ end do
 
     divergence_sphere_impl_selected = .true.
   end subroutine divergence_sphere_select_impl
+
+  subroutine divergence_sphere_wk_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (divergence_sphere_wk_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('DIVERGENCE_SPHERE_WK_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+      do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+          impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+      end do
+      divergence_sphere_wk_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+      divergence_sphere_wk_use_native_impl = .false.
+    end if
+
+    divergence_sphere_wk_impl_selected = .true.
+  end subroutine divergence_sphere_wk_select_impl
 
   subroutine vorticity_sphere_select_impl()
     character(len=32) :: impl_name

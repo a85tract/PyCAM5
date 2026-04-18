@@ -810,6 +810,46 @@ def divergence_sphere_codon(
 
 
 @export
+def divergence_sphere_wk_codon(
+    np: int,
+    rrearth: float,
+    v_p: cobj,
+    dvv_p: cobj,
+    spheremp_p: cobj,
+    dinv_p: cobj,
+    vtemp_p: cobj,
+    div_p: cobj,
+):
+    v = Ptr[float](v_p)
+    dvv = Ptr[float](dvv_p)
+    spheremp = Ptr[float](spheremp_p)
+    dinv = Ptr[float](dinv_p)
+    vtemp = Ptr[float](vtemp_p)
+    div = Ptr[float](div_p)
+
+    for j in range(1, np + 1):
+        for i in range(1, np + 1):
+            v1 = v[_vec2_idx(i, j, 1, np)]
+            v2 = v[_vec2_idx(i, j, 2, np)]
+            vtemp[_vec2_idx(i, j, 1, np)] = (
+                dinv[_mat22_idx(i, j, 1, 1, np)] * v1 + dinv[_mat22_idx(i, j, 1, 2, np)] * v2
+            )
+            vtemp[_vec2_idx(i, j, 2, np)] = (
+                dinv[_mat22_idx(i, j, 2, 1, np)] * v1 + dinv[_mat22_idx(i, j, 2, 2, np)] * v2
+            )
+
+    for n in range(1, np + 1):
+        for m in range(1, np + 1):
+            div_idx = _plane_idx(m, n, np)
+            div[div_idx] = 0.0
+            for j in range(1, np + 1):
+                div[div_idx] = div[div_idx] - (
+                    spheremp[_plane_idx(j, n, np)] * vtemp[_vec2_idx(j, n, 1, np)] * dvv[_plane_idx(m, j, np)]
+                    + spheremp[_plane_idx(m, j, np)] * vtemp[_vec2_idx(m, j, 2, np)] * dvv[_plane_idx(n, j, np)]
+                ) * rrearth
+
+
+@export
 def vorticity_sphere_codon(
     np: int,
     rrearth: float,
