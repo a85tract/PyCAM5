@@ -92,6 +92,7 @@ def _build_cam():
         _build_codon_lib(srcroot, "chemistry")
         _build_codon_lib(srcroot, "gw_drag")
         _build_codon_lib(srcroot, "mo_lightning")
+        _build_codon_lib(srcroot, "microp_driver")
 
         #-------------------------------------------------------
         # Filepath is created in caseroot/camconf by the call
