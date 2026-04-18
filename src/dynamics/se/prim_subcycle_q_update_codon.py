@@ -39,6 +39,18 @@ def _v_idx(iidx: int, jidx: int, comp: int, klev: int, np: int) -> int:
     return (iidx - 1) + (jidx - 1) * np + (comp - 1) * np * np + (klev - 1) * np * np * 2
 
 
+@inline
+def _ghost_col_idx(klev: int) -> int:
+    """dpo declared as (-1:nlev+2)."""
+    return klev + 1
+
+
+@inline
+def _ppm_grid_idx(row: int, jidx: int) -> int:
+    """ppmdx declared as (10,0:nlev+1)."""
+    return (row - 1) + jidx * 10
+
+
 @export
 def prim_subcycle_dp3d_init_codon(
     np: int,
@@ -229,3 +241,49 @@ def vertical_remap_ps_v_update_codon(
             for k in range(1, nlev + 1):
                 total += dp3d[_vol_idx(i, j, k, np)]
             ps_v[_plane_idx(i, j, np)] = hyai1 * ps0 + total
+
+
+@export
+def remap_q_ppm_compute_ppm_grids_codon(
+    nlev: int,
+    vert_remap_q_alg: int,
+    dx_p: cobj,
+    rslt_p: cobj,
+):
+    dx = Ptr[float](dx_p)
+    rslt = Ptr[float](rslt_p)
+
+    if vert_remap_q_alg == 2:
+        indB = 2
+        indE = nlev - 1
+    else:
+        indB = 0
+        indE = nlev + 1
+
+    for j in range(indB, indE + 1):
+        dxjm1 = dx[_ghost_col_idx(j - 1)]
+        dxj = dx[_ghost_col_idx(j)]
+        dxjp1 = dx[_ghost_col_idx(j + 1)]
+        rslt[_ppm_grid_idx(1, j)] = dxj / ((dxjm1 + dxj) + dxjp1)
+        rslt[_ppm_grid_idx(2, j)] = ((2.0 * dxjm1) + dxj) / (dxjp1 + dxj)
+        rslt[_ppm_grid_idx(3, j)] = (dxj + (2.0 * dxjp1)) / (dxjm1 + dxj)
+
+    if vert_remap_q_alg == 2:
+        indB = 2
+        indE = nlev - 2
+    else:
+        indB = 0
+        indE = nlev
+
+    for j in range(indB, indE + 1):
+        dxjm1 = dx[_ghost_col_idx(j - 1)]
+        dxj = dx[_ghost_col_idx(j)]
+        dxjp1 = dx[_ghost_col_idx(j + 1)]
+        dxjp2 = dx[_ghost_col_idx(j + 2)]
+        rslt[_ppm_grid_idx(4, j)] = dxj / (dxj + dxjp1)
+        rslt[_ppm_grid_idx(5, j)] = 1.0 / (((dxjm1 + dxj) + dxjp1) + dxjp2)
+        rslt[_ppm_grid_idx(6, j)] = ((2.0 * dxjp1) * dxj) / (dxj + dxjp1)
+        rslt[_ppm_grid_idx(7, j)] = (dxjm1 + dxj) / ((2.0 * dxj) + dxjp1)
+        rslt[_ppm_grid_idx(8, j)] = (dxjp2 + dxjp1) / ((2.0 * dxjp1) + dxj)
+        rslt[_ppm_grid_idx(9, j)] = dxj * (dxjm1 + dxj) / ((2.0 * dxj) + dxjp1)
+        rslt[_ppm_grid_idx(10, j)] = dxjp1 * (dxjp1 + dxjp2) / (dxj + (2.0 * dxjp1))
