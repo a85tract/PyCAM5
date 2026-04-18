@@ -95,6 +95,7 @@ def _build_cam():
         _build_codon_lib(srcroot, "microp_driver")
         _build_codon_lib(srcroot, "macrop_driver")
         _build_codon_lib(srcroot, "stratiform")
+        _build_codon_lib(srcroot, "convect_shallow")
 
         #-------------------------------------------------------
         # Filepath is created in caseroot/camconf by the call

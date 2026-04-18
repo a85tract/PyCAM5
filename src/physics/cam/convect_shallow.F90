@@ -62,6 +62,10 @@
    integer    ::    snow_sh_idx     = 0
 
    integer    ::  ttend_sh_idx      = 0
+   logical    :: use_native_impl    = .false.
+   logical    :: impl_selected      = .false.
+   integer    :: codon_scheme_code  = 0
+   logical    :: codon_scheme_selected = .false.
 
    integer :: & ! field index in physics buffer
       sh_flxprc_idx, &
@@ -566,6 +570,7 @@ end subroutine convect_shallow_init_cnst
    logical                           :: lq(pcnst)
 
    type(unicon_out_t) :: unicon_out
+   integer :: scheme_code
 
    ! ----------------------- !
    ! Main Computation Begins ! 
@@ -575,6 +580,9 @@ end subroutine convect_shallow_init_cnst
    nstep = get_nstep()
    lchnk = state%lchnk
    ncol  = state%ncol
+
+   call convect_shallow_select_impl()
+   if (.not. use_native_impl) call convect_shallow_select_codon_scheme()
   
    call physics_state_copy( state, state1 )          ! Copy state to local state1.
 
@@ -617,9 +625,26 @@ end subroutine convect_shallow_init_cnst
    tpert(:ncol)         = 0._r8
    landfracdum(:ncol)   = 0._r8
 
-   select case (shallow_scheme)
+   if (use_native_impl) then
+      select case (shallow_scheme)
+      case('off', 'CLUBB_SGS')
+         scheme_code = 1
+      case('Hack')
+         scheme_code = 2
+      case('UW')
+         scheme_code = 3
+      case('UNICON')
+         scheme_code = 4
+      case default
+         scheme_code = -1
+      end select
+   else
+      scheme_code = codon_scheme_code
+   end if
 
-   case('off', 'CLUBB_SGS') ! None
+   select case (scheme_code)
+
+   case(1) ! off, CLUBB_SGS
 
       lq(:) = .TRUE.
       call physics_ptend_init( ptend_loc, state%psetcols, 'convect_shallow (off)', ls=.true., lq=lq ) ! Initialize local ptend type
@@ -647,7 +672,7 @@ end subroutine convect_shallow_init_cnst
       wtprect(:,:)= 0._r8 
       wtsnowt(:,:)= 0._r8
 
-   case('Hack') ! Hack scheme
+   case(2) ! Hack scheme
                                    
       lq(:) = .TRUE.
       call physics_ptend_init( ptend_loc, state%psetcols, 'cmfmca', ls=.true., lq=lq  ) ! Initialize local ptend type
@@ -663,7 +688,7 @@ end subroutine convect_shallow_init_cnst
                    qc2          ,  cnt2         ,  cnb2       ,  icwmr       ,  rliq2       ,   & 
                    state%pmiddry,  state%pdeldry,  state%rpdeldry )
 
-   case('UW')   ! UW shallow convection scheme
+   case(3)   ! UW shallow convection scheme
 
       ! -------------------------------------- !
       ! uwshcu does momentum transport as well !
@@ -741,7 +766,7 @@ end subroutine convect_shallow_init_cnst
       call outfld( 'PRECSH' , precc  , pcols, lchnk )
 
 
-   case('UNICON')
+   case(4)
 
       icwmr = 0.0_r8
 
@@ -854,7 +879,7 @@ end subroutine convect_shallow_init_cnst
    call outfld( 'PCLDBOT', pcnb                      , pcols   , lchnk )  
    call outfld( 'FREQSH' , freqsh                    , pcols   , lchnk )
 
-   if( shallow_scheme .eq. 'UW' ) then
+   if (scheme_code == 3) then
       call outfld( 'CBMF'   , cbmf                      , pcols   , lchnk )
       call outfld( 'UWFLXPRC', flxprec                  , pcols   , lchnk )  
       call outfld( 'UWFLXSNW' , flxsnow                 , pcols   , lchnk )
@@ -958,7 +983,7 @@ end subroutine convect_shallow_init_cnst
    ! NOT perform below 'zm_conv_evap'.                                        !
    ! ------------------------------------------------------------------------ !
 
-   if( shallow_scheme .eq. 'Hack' ) then
+   if (scheme_code == 2) then
 
    ! ------------------------------------------------------------------------------- !
    ! Determine the phase of the precipitation produced and add latent heat of fusion !
@@ -1038,5 +1063,86 @@ end subroutine convect_shallow_init_cnst
    end if
 
   end subroutine convect_shallow_tend
+
+  !=============================================================================== !
+
+subroutine convect_shallow_select_codon_scheme()
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+   integer :: i
+   integer(c_int64_t), target :: scheme_ascii(len(shallow_scheme))
+   integer(c_int64_t), target :: scheme_code
+   integer(c_int64_t), target :: status_code
+
+   interface
+      subroutine convect_shallow_select_scheme_codon(scheme_len_c, scheme_ascii_p, scheme_code_p, status_p) &
+           bind(c, name="convect_shallow_select_scheme_codon")
+        use iso_c_binding, only: c_int64_t, c_ptr
+        integer(c_int64_t), value :: scheme_len_c
+        type(c_ptr), value :: scheme_ascii_p, scheme_code_p, status_p
+      end subroutine convect_shallow_select_scheme_codon
+   end interface
+
+   if (codon_scheme_selected) return
+
+   do i = 1, len(shallow_scheme)
+      scheme_ascii(i) = int(iachar(shallow_scheme(i:i)), c_int64_t)
+   end do
+
+   scheme_code = 0_c_int64_t
+   status_code = 0_c_int64_t
+   call convect_shallow_select_scheme_codon( &
+        int(len(shallow_scheme), c_int64_t), c_loc(scheme_ascii(1)), c_loc(scheme_code), c_loc(status_code) &
+   )
+
+   if (status_code /= 0_c_int64_t) then
+      codon_scheme_code = -1
+   else
+      codon_scheme_code = int(scheme_code)
+   end if
+
+   codon_scheme_selected = .true.
+
+end subroutine convect_shallow_select_codon_scheme
+
+  !=============================================================================== !
+
+subroutine convect_shallow_select_impl()
+
+   use spmd_utils, only: masterproc
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CONVECT_SHALLOW_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_impl = .false.
+   end if
+
+   impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_impl) then
+         write(iulog,*) 'convect_shallow_tend implementation = native'
+      else
+         write(iulog,*) 'convect_shallow_tend implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine convect_shallow_select_impl
 
   end module convect_shallow
