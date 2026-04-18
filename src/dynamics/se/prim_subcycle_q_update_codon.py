@@ -303,6 +303,35 @@ def remap_q_ppm_interval_setup_codon(
 
 
 @export
+def remap_q_ppm_mass_prep_codon(
+    nx: int,
+    nlev: int,
+    qsize: int,
+    iidx: int,
+    jidx: int,
+    qidx: int,
+    qdp_p: cobj,
+    dpo_p: cobj,
+    masso_p: cobj,
+    ao_p: cobj,
+):
+    qdp = Ptr[float](qdp_p)
+    dpo = Ptr[float](dpo_p)
+    masso = Ptr[float](masso_p)
+    ao = Ptr[float](ao_p)
+
+    masso[_col_idx(1)] = 0.0
+    for k in range(1, nlev + 1):
+        ao[_ghost_col_idx(k)] = qdp[_q_idx(iidx, jidx, k, qidx, nx, nlev)]
+        masso[_col_idx(k + 1)] = masso[_col_idx(k)] + ao[_ghost_col_idx(k)]
+        ao[_ghost_col_idx(k)] = ao[_ghost_col_idx(k)] / dpo[_ghost_col_idx(k)]
+
+    for k in range(1, 3):
+        ao[_ghost_col_idx(1 - k)] = ao[_ghost_col_idx(k)]
+        ao[_ghost_col_idx(nlev + k)] = ao[_ghost_col_idx(nlev + 1 - k)]
+
+
+@export
 def remap_q_ppm_compute_ppm_grids_codon(
     nlev: int,
     vert_remap_q_alg: int,

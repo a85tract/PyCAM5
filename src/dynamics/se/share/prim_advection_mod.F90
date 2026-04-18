@@ -98,6 +98,8 @@ module vertremap_mod
   logical :: remap_q_ppm_interval_impl_selected = .false.
   logical :: remap_q_ppm_grid_use_native_impl = .false.
   logical :: remap_q_ppm_grid_impl_selected = .false.
+  logical :: remap_q_ppm_mass_prep_use_native_impl = .false.
+  logical :: remap_q_ppm_mass_prep_impl_selected = .false.
   logical :: remap_q_ppm_compute_use_native_impl = .false.
   logical :: remap_q_ppm_compute_impl_selected = .false.
 
@@ -567,7 +569,7 @@ subroutine remap_Q_ppm(Qdp,nx,qsize,dp1,dp2)
   use iso_c_binding, only      : c_int64_t, c_loc, c_ptr
   implicit none
   integer,intent(in) :: nx,qsize
-  real (kind=real_kind), intent(inout) :: Qdp(nx,nx,nlev,qsize)
+  real (kind=real_kind), target, intent(inout) :: Qdp(nx,nx,nlev,qsize)
   real (kind=real_kind), intent(in) :: dp1(nx,nx,nlev),dp2(nx,nx,nlev)
   interface
      subroutine remap_q_ppm_interval_setup_codon(nlev_c, pio_p, pin_p, dpo_p, kid_p, z1_p, z2_p) &
@@ -582,6 +584,12 @@ subroutine remap_Q_ppm(Qdp,nx,qsize,dp1,dp2)
        integer(c_int64_t), value :: nlev_c, vert_remap_q_alg_c
        type(c_ptr), value :: dx_p, rslt_p
      end subroutine remap_q_ppm_compute_ppm_grids_codon
+     subroutine remap_q_ppm_mass_prep_codon(nx_c, nlev_c, qsize_c, i_c, j_c, q_c, qdp_p, dpo_p, masso_p, ao_p) &
+          bind(c, name='remap_q_ppm_mass_prep_codon')
+       use iso_c_binding, only : c_int64_t, c_ptr
+       integer(c_int64_t), value :: nx_c, nlev_c, qsize_c, i_c, j_c, q_c
+       type(c_ptr), value :: qdp_p, dpo_p, masso_p, ao_p
+     end subroutine remap_q_ppm_mass_prep_codon
      subroutine remap_q_ppm_compute_ppm_codon(nlev_c, vert_remap_q_alg_c, a_p, dx_p, ai_p, dma_p, coefs_p) &
           bind(c, name='remap_q_ppm_compute_ppm_codon')
        use iso_c_binding, only : c_int64_t, c_ptr
@@ -593,7 +601,7 @@ subroutine remap_Q_ppm(Qdp,nx,qsize,dp1,dp2)
   integer, parameter :: gs = 2                              !Number of cells to place in the ghost region
   real(kind=real_kind), target, dimension(       nlev+2 ) :: pio    !Pressure at interfaces for old grid
   real(kind=real_kind), target, dimension(       nlev+1 ) :: pin    !Pressure at interfaces for new grid
-  real(kind=real_kind), dimension(       nlev+1 ) :: masso  !Accumulate mass up to each interface
+  real(kind=real_kind), target, dimension(       nlev+1 ) :: masso  !Accumulate mass up to each interface
   real(kind=real_kind), target, dimension(  1-gs:nlev+gs) :: ao     !Tracer value on old grid
   real(kind=real_kind), target, dimension(  1-gs:nlev+gs) :: dpo    !change in pressure over a cell for old grid
   real(kind=real_kind), dimension(  1-gs:nlev+gs) :: dpn    !change in pressure over a cell for old grid
@@ -607,6 +615,7 @@ subroutine remap_Q_ppm(Qdp,nx,qsize,dp1,dp2)
 
   call remap_q_ppm_interval_select_impl()
   call remap_q_ppm_grid_select_impl()
+  call remap_q_ppm_mass_prep_select_impl()
   call remap_q_ppm_compute_select_impl()
   call t_startf('remap_Q_ppm')
   do j = 1 , nx
@@ -679,17 +688,24 @@ subroutine remap_Q_ppm(Qdp,nx,qsize,dp1,dp2)
         !during remapping. Also, divide out the grid spacing so we're working with actual tracer
         !values and can conserve mass. The option for ifndef ZEROHORZ I believe is there to ensure
         !tracer consistency for an initially uniform field. I copied it from the old remap routine.
-        masso(1) = 0.
-        do k = 1 , nlev
-          ao(k) = Qdp(i,j,k,q)
-          masso(k+1) = masso(k) + ao(k) !Accumulate the old mass. This will simplify the remapping
-          ao(k) = ao(k) / dpo(k)        !Divide out the old grid spacing because we want the tracer mixing ratio, not mass.
-        enddo
-        !Fill in ghost values. Ignored if vert_remap_q_alg == 2
-        do k = 1 , gs
-          ao(1   -k) = ao(       k)
-          ao(nlev+k) = ao(nlev+1-k)
-        enddo
+        if (.not. remap_q_ppm_mass_prep_use_native_impl) then
+          call remap_q_ppm_mass_prep_codon( &
+               int(nx, c_int64_t), int(nlev, c_int64_t), int(qsize, c_int64_t), int(i, c_int64_t), &
+               int(j, c_int64_t), int(q, c_int64_t), c_loc(Qdp), c_loc(dpo), c_loc(masso), c_loc(ao) &
+          )
+        else
+          masso(1) = 0.
+          do k = 1 , nlev
+            ao(k) = Qdp(i,j,k,q)
+            masso(k+1) = masso(k) + ao(k) !Accumulate the old mass. This will simplify the remapping
+            ao(k) = ao(k) / dpo(k)        !Divide out the old grid spacing because we want the tracer mixing ratio, not mass.
+          enddo
+          !Fill in ghost values. Ignored if vert_remap_q_alg == 2
+          do k = 1 , gs
+            ao(1   -k) = ao(       k)
+            ao(nlev+k) = ao(nlev+1-k)
+          enddo
+        endif
         !Compute monotonic and conservative PPM reconstruction over every cell
         if (.not. remap_q_ppm_compute_use_native_impl) then
           call remap_q_ppm_compute_ppm_codon( &
@@ -907,6 +923,31 @@ subroutine remap_q_ppm_grid_select_impl()
 
   remap_q_ppm_grid_impl_selected = .true.
 end subroutine remap_q_ppm_grid_select_impl
+
+subroutine remap_q_ppm_mass_prep_select_impl()
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (remap_q_ppm_mass_prep_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('REMAP_Q_PPM_MASS_PREP_IMPL', &
+       value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+    do i = 1, n
+      code = iachar(impl_name(i:i))
+      if (code >= iachar('A') .and. code <= iachar('Z')) then
+        impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+      end if
+    end do
+    remap_q_ppm_mass_prep_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+    remap_q_ppm_mass_prep_use_native_impl = .false.
+  end if
+
+  remap_q_ppm_mass_prep_impl_selected = .true.
+end subroutine remap_q_ppm_mass_prep_select_impl
 
 subroutine remap_q_ppm_compute_select_impl()
   character(len=32) :: impl_name
