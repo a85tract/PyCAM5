@@ -891,6 +891,8 @@ module prim_advection_mod
   real(kind=real_kind), allocatable :: qmin(:,:,:), qmax(:,:,:)
 
   type (derivative_t), public, allocatable   :: deriv(:) ! derivative struct (nthreads)
+  logical :: vertical_remap_rsplit_prepare_use_native_impl = .false.
+  logical :: vertical_remap_rsplit_prepare_impl_selected = .false.
 
 contains
 
@@ -3053,6 +3055,7 @@ end subroutine ALE_parametric_coords
   use parallel_mod, only : abortmp
   use hybrid_mod     , only : hybrid_t
   use derivative_mod, only : interpolate_gll2fvm_points
+  use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
 #if defined(_SPELT)
   use spelt_mod, only: spelt_struct
 #else
@@ -3074,19 +3077,30 @@ end subroutine ALE_parametric_coords
 #endif
 
   !    type (hybrid_t), intent(in)       :: hybrid  ! distributed parallel structure (shared)
-  type (element_t), intent(inout)   :: elem(:)
-  type (hvcoord_t)                  :: hvcoord
+  type (element_t), target, intent(inout)   :: elem(:)
+  type (hvcoord_t), target, intent(in)      :: hvcoord
   real (kind=real_kind)             :: dt
 
   integer :: ie,i,j,k,np1,nets,nete,np1_qdp
-  real (kind=real_kind), dimension(np,np,nlev)  :: dp,dp_star
+  real (kind=real_kind), dimension(np,np,nlev), target  :: dp,dp_star
   real (kind=real_kind), dimension(np,np,nlev,2)  :: ttmp
+  interface
+     subroutine vertical_remap_rsplit_prepare_codon( &
+          np, nlev, ps0, hyai_p, hybi_p, ps_v_p, dp3d_p, dp_p, dp_star_p) &
+          bind(c, name='vertical_remap_rsplit_prepare_codon')
+       use iso_c_binding, only : c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: np, nlev
+       real(c_double), value :: ps0
+       type(c_ptr), value :: hyai_p, hybi_p, ps_v_p, dp3d_p, dp_p, dp_star_p
+     end subroutine vertical_remap_rsplit_prepare_codon
+  end interface
 
 #if USE_CUDA_FORTRAN
   call vertical_remap_cuda(elem,fvm,hvcoord,dt,np1,np1_qdp,nets,nete)
   return
 #endif
 
+  call vertical_remap_rsplit_prepare_select_impl()
   call t_startf('vertical_remap')
 
   ! reference levels:
@@ -3127,11 +3141,19 @@ end subroutine ALE_parametric_coords
         ! update final ps_v
         elem(ie)%state%ps_v(:,:,np1) = hvcoord%hyai(1)*hvcoord%ps0 + &
              sum(elem(ie)%state%dp3d(:,:,:,np1),3)
-        do k=1,nlev
-           dp(:,:,k) = ( hvcoord%hyai(k+1) - hvcoord%hyai(k) )*hvcoord%ps0 + &
-                ( hvcoord%hybi(k+1) - hvcoord%hybi(k) )*elem(ie)%state%ps_v(:,:,np1)
-           dp_star(:,:,k) = elem(ie)%state%dp3d(:,:,k,np1)
-        enddo
+        if (.not. vertical_remap_rsplit_prepare_use_native_impl) then
+           call vertical_remap_rsplit_prepare_codon( &
+                int(np, c_int64_t), int(nlev, c_int64_t), real(hvcoord%ps0, c_double), &
+                c_loc(hvcoord%hyai), c_loc(hvcoord%hybi), c_loc(elem(ie)%state%ps_v(:,:,np1)), &
+                c_loc(elem(ie)%state%dp3d(:,:,:,np1)), c_loc(dp), c_loc(dp_star) &
+           )
+        else
+           do k=1,nlev
+              dp(:,:,k) = ( hvcoord%hyai(k+1) - hvcoord%hyai(k) )*hvcoord%ps0 + &
+                   ( hvcoord%hybi(k+1) - hvcoord%hybi(k) )*elem(ie)%state%ps_v(:,:,np1)
+              dp_star(:,:,k) = elem(ie)%state%dp3d(:,:,k,np1)
+           enddo
+        endif
         if (minval(dp_star)<0) call abortmp('negative layer thickness.  timestep or remap time too large')
 
         ! remap the dynamics:
@@ -3245,5 +3267,31 @@ end subroutine ALE_parametric_coords
   enddo
   call t_stopf('vertical_remap')
   end subroutine vertical_remap
+
+  subroutine vertical_remap_rsplit_prepare_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (vertical_remap_rsplit_prepare_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('VERTICAL_REMAP_RSPLIT_PREPARE_IMPL', &
+         value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       vertical_remap_rsplit_prepare_use_native_impl = &
+            trim(adjustl(impl_name(:n))) == 'native'
+    else
+      vertical_remap_rsplit_prepare_use_native_impl = .false.
+    end if
+
+    vertical_remap_rsplit_prepare_impl_selected = .true.
+  end subroutine vertical_remap_rsplit_prepare_select_impl
 
 end module prim_advection_mod

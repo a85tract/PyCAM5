@@ -21,6 +21,12 @@ def _q_idx(iidx: int, jidx: int, klev: int, qidx: int, np: int, nlev: int) -> in
     )
 
 
+@inline
+def _vol_idx(iidx: int, jidx: int, klev: int, np: int) -> int:
+    """dp3d, dp, dp_star declared as (np,np,nlev)."""
+    return (iidx - 1) + (jidx - 1) * np + (klev - 1) * np * np
+
+
 @export
 def prim_subcycle_q_update_codon(
     np: int,
@@ -56,3 +62,34 @@ def prim_subcycle_q_update_codon(
                     plane_idx = _plane_idx(i, j, np)
                     q_idx = _q_idx(i, j, k, qidx, np, nlev)
                     q_out[q_idx] = qdp[q_idx] / dp_np1[plane_idx]
+
+
+@export
+def vertical_remap_rsplit_prepare_codon(
+    np: int,
+    nlev: int,
+    ps0: float,
+    hyai_p: cobj,
+    hybi_p: cobj,
+    ps_v_p: cobj,
+    dp3d_p: cobj,
+    dp_p: cobj,
+    dp_star_p: cobj,
+):
+    hyai = Ptr[float](hyai_p)
+    hybi = Ptr[float](hybi_p)
+    ps_v = Ptr[float](ps_v_p)
+    dp3d = Ptr[float](dp3d_p)
+    dp = Ptr[float](dp_p)
+    dp_star = Ptr[float](dp_star_p)
+
+    for k in range(1, nlev + 1):
+        hyai_delta = hyai[_hy_idx(k + 1)] - hyai[_hy_idx(k)]
+        hybi_delta = hybi[_hy_idx(k + 1)] - hybi[_hy_idx(k)]
+
+        for j in range(1, np + 1):
+            for i in range(1, np + 1):
+                plane_idx = _plane_idx(i, j, np)
+                vol_idx = _vol_idx(i, j, k, np)
+                dp[vol_idx] = hyai_delta * ps0 + hybi_delta * ps_v[plane_idx]
+                dp_star[vol_idx] = dp3d[vol_idx]
