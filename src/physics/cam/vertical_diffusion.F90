@@ -51,6 +51,7 @@ module vertical_diffusion
   use cam_history,      only : fieldname_len
   use perf_mod
   use cam_logfile,      only : iulog
+  use spmd_utils,       only : masterproc
   use ref_pres,         only : do_molec_diff
   use phys_control,     only : phys_getopts, waccmx_is
   use time_manager,     only : is_first_step
@@ -133,6 +134,12 @@ module vertical_diffusion
   logical              :: do_tms                       ! switch for turbulent mountain stress
   logical              :: do_iss                       ! switch for implicit turbulent surface stress
   logical              :: prog_modal_aero = .false.    ! set true if prognostic modal aerosols are present
+  logical              :: use_native_ts_init_impl = .false.
+  logical              :: ts_init_impl_selected = .false.
+  logical              :: use_native_tend_impl = .false.
+  logical              :: tend_impl_selected = .false.
+  integer              :: tend_branch_mask = 0
+  logical              :: tend_branch_selected = .false.
   integer              :: pmam_ncnst = 0               ! number of prognostic modal aerosol constituents
   integer, allocatable :: pmam_cnst_idx(:)             ! constituent indices of prognostic modal aerosols
 
@@ -623,10 +630,176 @@ contains
     type(physics_state), intent(in) :: state(begchunk:endchunk)                 
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
 
- 
-    if (do_molec_diff) call init_timestep_molec_diff(pbuf2d, state )
+    interface
+       subroutine vertical_diffusion_ts_init_codon() bind(c, name="vertical_diffusion_ts_init_codon")
+       end subroutine vertical_diffusion_ts_init_codon
+    end interface
+
+    call vertical_diffusion_ts_init_select_impl()
+
+    if (use_native_ts_init_impl .or. do_molec_diff) then
+       call vertical_diffusion_ts_init_native(pbuf2d, state)
+       return
+    end if
+
+    call vertical_diffusion_ts_init_codon()
 
   end subroutine vertical_diffusion_ts_init
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_ts_init_native( pbuf2d, state )
+
+    !-------------------------------------------------------------- !
+    ! Timestep dependent setting,                                   !
+    ! At present only invokes upper bc code for molecular diffusion !
+    !-------------------------------------------------------------- !
+    use molec_diff    , only : init_timestep_molec_diff
+    use physics_types , only : physics_state
+    use ppgrid        , only : begchunk, endchunk
+    
+    use physics_buffer, only : physics_buffer_desc
+
+    type(physics_state), intent(in) :: state(begchunk:endchunk)                 
+    type(physics_buffer_desc), pointer :: pbuf2d(:,:)
+
+    if (do_molec_diff) call init_timestep_molec_diff(pbuf2d, state )
+
+  end subroutine vertical_diffusion_ts_init_native
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_ts_init_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (ts_init_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('VERTICAL_DIFFUSION_TS_INIT_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_ts_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_ts_init_impl = .false.
+    end if
+
+    ts_init_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_ts_init_impl) then
+          write(iulog,*) 'vertical_diffusion_ts_init implementation = native'
+       else
+          write(iulog,*) 'vertical_diffusion_ts_init implementation = codon'
+       end if
+    end if
+
+  end subroutine vertical_diffusion_ts_init_select_impl
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_tend_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (tend_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('VERTICAL_DIFFUSION_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_tend_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_tend_impl = .false.
+    end if
+
+    tend_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_tend_impl) then
+          write(iulog,*) 'vertical_diffusion_tend implementation = native'
+       else
+          write(iulog,*) 'vertical_diffusion_tend implementation = codon'
+       end if
+    end if
+
+  end subroutine vertical_diffusion_tend_select_impl
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_tend_select_branches(do_tms_in, do_molec_diff_in, use_diag_tke_in, &
+       use_hb_family_in, shallow_unicon_in, prog_modal_aero_in, do_pseudocon_diff_in, &
+       diff_cnsrv_mass_check_in, waccmx_special_in)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    logical, intent(in) :: do_tms_in
+    logical, intent(in) :: do_molec_diff_in
+    logical, intent(in) :: use_diag_tke_in
+    logical, intent(in) :: use_hb_family_in
+    logical, intent(in) :: shallow_unicon_in
+    logical, intent(in) :: prog_modal_aero_in
+    logical, intent(in) :: do_pseudocon_diff_in
+    logical, intent(in) :: diff_cnsrv_mass_check_in
+    logical, intent(in) :: waccmx_special_in
+
+    integer(c_int64_t), target :: branch_mask_c
+
+    interface
+       subroutine vertical_diffusion_tend_select_branches_codon(do_tms_c, do_molec_diff_c, use_diag_tke_c, &
+            use_hb_family_c, shallow_unicon_c, prog_modal_aero_c, do_pseudocon_diff_c, &
+            diff_cnsrv_mass_check_c, waccmx_special_c, branch_mask_p) &
+            bind(c, name="vertical_diffusion_tend_select_branches_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: do_tms_c, do_molec_diff_c, use_diag_tke_c, use_hb_family_c
+         integer(c_int64_t), value :: shallow_unicon_c, prog_modal_aero_c, do_pseudocon_diff_c
+         integer(c_int64_t), value :: diff_cnsrv_mass_check_c, waccmx_special_c
+         type(c_ptr), value :: branch_mask_p
+       end subroutine vertical_diffusion_tend_select_branches_codon
+    end interface
+
+    if (tend_branch_selected) return
+
+    branch_mask_c = 0_c_int64_t
+    call vertical_diffusion_tend_select_branches_codon( &
+         merge(1_c_int64_t, 0_c_int64_t, do_tms_in), &
+         merge(1_c_int64_t, 0_c_int64_t, do_molec_diff_in), &
+         merge(1_c_int64_t, 0_c_int64_t, use_diag_tke_in), &
+         merge(1_c_int64_t, 0_c_int64_t, use_hb_family_in), &
+         merge(1_c_int64_t, 0_c_int64_t, shallow_unicon_in), &
+         merge(1_c_int64_t, 0_c_int64_t, prog_modal_aero_in), &
+         merge(1_c_int64_t, 0_c_int64_t, do_pseudocon_diff_in), &
+         merge(1_c_int64_t, 0_c_int64_t, diff_cnsrv_mass_check_in), &
+         merge(1_c_int64_t, 0_c_int64_t, waccmx_special_in), &
+         c_loc(branch_mask_c) &
+    )
+
+    tend_branch_mask = int(branch_mask_c)
+    tend_branch_selected = .true.
+
+  end subroutine vertical_diffusion_tend_select_branches
 
   ! =============================================================================== !
   !                                                                                 !
@@ -808,6 +981,15 @@ contains
     real(r8) :: q_tmp(pcols,pver,pcnst)
 
     logical  :: lq(pcnst)
+    logical  :: do_tms_local
+    logical  :: do_molec_diff_local
+    logical  :: use_diag_tke_local
+    logical  :: use_hb_family_local
+    logical  :: shallow_unicon_local
+    logical  :: prog_modal_aero_local
+    logical  :: do_pseudocon_diff_local
+    logical  :: diff_cnsrv_mass_check_local
+    logical  :: waccmx_special_local
 
     ! ----------------------- !
     ! Main Computation Begins !
@@ -816,6 +998,34 @@ contains
     rztodt = 1._r8 / ztodt
     lchnk  = state%lchnk
     ncol   = state%ncol
+
+    call vertical_diffusion_tend_select_impl()
+    if (.not. use_native_tend_impl) then
+       call vertical_diffusion_tend_select_branches( &
+            do_tms, do_molec_diff, trim(eddy_scheme) == 'diag_TKE', &
+            trim(eddy_scheme) == 'HB' .or. trim(eddy_scheme) == 'HBR', &
+            trim(shallow_scheme) == 'UNICON', prog_modal_aero, do_pseudocon_diff, &
+            diff_cnsrv_mass_check, waccmx_is('ionosphere') .or. waccmx_is('neutral') )
+       do_tms_local = iand(tend_branch_mask, 1) /= 0
+       do_molec_diff_local = iand(tend_branch_mask, 2) /= 0
+       use_diag_tke_local = iand(tend_branch_mask, 4) /= 0
+       use_hb_family_local = iand(tend_branch_mask, 8) /= 0
+       shallow_unicon_local = iand(tend_branch_mask, 16) /= 0
+       prog_modal_aero_local = iand(tend_branch_mask, 32) /= 0
+       do_pseudocon_diff_local = iand(tend_branch_mask, 64) /= 0
+       diff_cnsrv_mass_check_local = iand(tend_branch_mask, 128) /= 0
+       waccmx_special_local = iand(tend_branch_mask, 256) /= 0
+    else
+       do_tms_local = do_tms
+       do_molec_diff_local = do_molec_diff
+       use_diag_tke_local = trim(eddy_scheme) == 'diag_TKE'
+       use_hb_family_local = trim(eddy_scheme) == 'HB' .or. trim(eddy_scheme) == 'HBR'
+       shallow_unicon_local = trim(shallow_scheme) == 'UNICON'
+       prog_modal_aero_local = prog_modal_aero
+       do_pseudocon_diff_local = do_pseudocon_diff
+       diff_cnsrv_mass_check_local = diff_cnsrv_mass_check
+       waccmx_special_local = waccmx_is('ionosphere') .or. waccmx_is('neutral')
+    end if
 
     call pbuf_get_field(pbuf, tauresx_idx,  tauresx)
     call pbuf_get_field(pbuf, tauresy_idx,  tauresy)
@@ -832,7 +1042,7 @@ contains
     ! the raw input (u,v) to compute 'ksrftms', not the provisionally-marched 'u,v' 
     ! within the iteration loop of the PBL scheme. 
 
-    if( do_tms ) then
+    if( do_tms_local ) then
         call compute_tms( pcols      , pver     , ncol    ,              &
                           state%u    , state%v  , state%t , state%pmid , & 
                           state%exner, state%zm , sgh     , ksrftms    , & 
@@ -859,8 +1069,7 @@ contains
     call pbuf_get_field(pbuf, smaw_idx, smaw)
     call pbuf_get_field(pbuf, tke_idx,  tke)
 
-    select case (eddy_scheme)
-    case ( 'diag_TKE' ) 
+    if (use_diag_tke_local) then
 
        ! ---------------------------------------------------------------- !
        ! At first time step, have eddy_diff.F90:caleddy() use kvh=kvm=kvf !
@@ -881,7 +1090,7 @@ contains
        call pbuf_get_field(pbuf, wsedl_idx, wsedl)
 
        ! These fields are put into the pbuf for UNICON only.
-       if (trim(shallow_scheme) == 'UNICON') then
+       if (shallow_unicon_local) then
           call pbuf_get_field(pbuf, bprod_idx,    bprod)
           call pbuf_get_field(pbuf, ipbl_idx,     ipbl)
           call pbuf_get_field(pbuf, kpblh_idx,    kpblh)
@@ -959,11 +1168,11 @@ contains
        call outfld( 'SPROD   ', sprod, pcols, lchnk )
        call outfld( 'SFI     ', sfi,   pcols, lchnk )
 
-       if (trim(shallow_scheme) /= 'UNICON') then
+       if (.not. shallow_unicon_local) then
           deallocate(bprod, ipbl, kpblh, wstarPBL, tkes, went)
        end if
 
-    case ( 'HB', 'HBR' )
+    else if (use_hb_family_local) then
 
        ! Modification : We may need to use 'taux' instead of 'tautotx' here, for
        !                consistency with the previous HB scheme.
@@ -983,7 +1192,7 @@ contains
 
        wpert = 0._r8  
 
-    end select
+    end if
 
     call outfld( 'ustar',   ustar(:), pcols, lchnk )
     call outfld( 'obklen', obklen(:), pcols, lchnk )
@@ -1043,7 +1252,7 @@ contains
     !------------------------------------------------------------------------ 
     !  Check to see if constituent dependent gas constant needed (WACCM-X) 
     !------------------------------------------------------------------------
-    if ( waccmx_is('ionosphere') .or. waccmx_is('neutral') ) then 
+    if (waccmx_special_local) then 
       rairi(:ncol,1) = rairv(:ncol,1,lchnk)
       do k = 2, pver
         do i = 1, ncol
@@ -1073,7 +1282,7 @@ contains
                             u_tmp         , v_tmp              , q_tmp        , s_tmp         ,                 &
                             tautmsx       , tautmsy            , dtk          , topflx        , errstring     , &
                             tauresx       , tauresy            , 1            , cpairv(:,:,state%lchnk), rairi, &
-                            do_molec_diff , compute_molec_diff , vd_lu_qdecomp, kvt )
+                            do_molec_diff_local , compute_molec_diff , vd_lu_qdecomp, kvt )
 
         call handle_errmsg(errstring, subname="compute_vdiff", &
              extra_msg="Error in fieldlist_wet call from vertical_diffusion.")
@@ -1082,7 +1291,7 @@ contains
  
     if( any( fieldlist_dry ) ) then
 
-        if( do_molec_diff ) then
+        if( do_molec_diff_local ) then
             errstring = "Design flaw: dry vdiff not currently supported with molecular diffusion"
             call endrun(errstring)
         end if
@@ -1097,14 +1306,14 @@ contains
                             u_tmp         , v_tmp              , q_tmp        , s_tmp         ,                 &
                             tautmsx       , tautmsy            , dtk          , topflx        , errstring     , &
                             tauresx       , tauresy            , 1            , cpairv(:,:,state%lchnk), rairi, &
-                            do_molec_diff , compute_molec_diff , vd_lu_qdecomp )
+                            do_molec_diff_local , compute_molec_diff , vd_lu_qdecomp )
 
         call handle_errmsg(errstring, subname="compute_vdiff", &
              extra_msg="Error in fieldlist_dry call from vertical_diffusion.")
 
     end if
 
-    if (prog_modal_aero) then
+    if (prog_modal_aero_local) then
 
        ! Modal aerosol species not diffused, so just add the explicit surface fluxes to the
        ! lowest layer
@@ -1170,7 +1379,7 @@ contains
     uflx_cg(:ncol,pverp)  = 0._r8
     vflx_cg(:ncol,pverp)  = 0._r8
 
-    if (trim(shallow_scheme) == 'UNICON') then
+    if (shallow_unicon_local) then
        call pbuf_get_field(pbuf, qtl_flx_idx,  qtl_flx)
        call pbuf_get_field(pbuf, qti_flx_idx,  qti_flx)
        qtl_flx(:ncol,1) = 0._r8
@@ -1222,7 +1431,7 @@ contains
     !                                                             !
     ! ----------------------------------------------------------- !
 
-    if( eddy_scheme .eq. 'diag_TKE' .and. do_pseudocon_diff ) then
+    if( use_diag_tke_local .and. do_pseudocon_diff_local ) then
 
          ptend%q(:ncol,:pver,1) = qtten(:ncol,:pver)
          ptend%s(:ncol,:pver)   = slten(:ncol,:pver)
@@ -1272,7 +1481,7 @@ contains
     ! -------------------------------------------------------------- !
     ! mass conservation check.........
     ! -------------------------------------------------------------- !
-    if (diff_cnsrv_mass_check) then
+    if (diff_cnsrv_mass_check_local) then
 
        ! Conservation check
        nstep = get_nstep()
@@ -1371,13 +1580,13 @@ contains
     do m = 1, pcnst
        call outfld( vdiffnam(m) , ptend%q(1,1,m),            pcols, lchnk )
     end do
-    if( do_tms ) then
+    if( do_tms_local ) then
       ! Here, 'tautmsx,tautmsy' are implicit 'tms' that have been actually
       ! added into the atmosphere.
         call outfld( 'TAUTMSX'  , tautmsx,                   pcols, lchnk )
         call outfld( 'TAUTMSY'  , tautmsy,                   pcols, lchnk )
     end if
-    if( do_molec_diff ) then
+    if( do_molec_diff_local ) then
         call outfld( 'TTPXMLC'  , topflx,                    pcols, lchnk )
     end if
 
