@@ -16,6 +16,7 @@ use constituents,   only: pcnst
 use cam_logfile,    only: iulog
 use cam_abortutils, only: endrun
 use perf_mod
+use spmd_utils,     only: masterproc
 
 implicit none
 private
@@ -62,6 +63,10 @@ character(len=8), dimension(ncnst), parameter &    ! Constituent names
 logical            :: use_shfrc                       ! Local copy of flag from convect_shallow_use_shfrc
 
 logical            :: do_cnst = .false. ! True when this module has registered constituents.
+logical            :: use_native_impl = .false.
+logical            :: impl_selected = .false.
+integer            :: branch_mask = 0
+logical            :: branch_selected = .false.
 
 integer :: &
    ixcldliq,     &! cloud liquid amount index
@@ -497,10 +502,22 @@ subroutine stratiform_tend( &
    real(r8) :: lwc(pcols,pver)                         ! Grid box average liquid water content  
    
    logical  :: lq(pcnst)
+   logical  :: use_shfrc_local
+   logical  :: cam3_local
    ! ======================================================================
 
    lchnk = state%lchnk
    ncol  = state%ncol
+
+   call stratiform_select_impl()
+   if (.not. use_native_impl) then
+      call stratiform_select_branches(use_shfrc, cam_physpkg_is('cam3'))
+      use_shfrc_local = iand(branch_mask, 1) /= 0
+      cam3_local = iand(branch_mask, 2) /= 0
+   else
+      use_shfrc_local = use_shfrc
+      cam3_local = cam_physpkg_is('cam3')
+   end if
 
    call physics_state_copy(state,state1)             ! Copy state to local state1.
 
@@ -642,7 +659,7 @@ subroutine stratiform_tend( &
    !     . Cumulus ( both Deep and Shallow ) has its own LWC and IWC.              !
    ! ----------------------------------------------------------------------------- ! 
 
-   if( use_shfrc ) then
+   if( use_shfrc_local ) then
        call pbuf_get_field(pbuf, shfrc_idx, shfrc )
    else
        shfrc=>shfrc_local
@@ -656,7 +673,7 @@ subroutine stratiform_tend( &
    call t_startf("cldfrc")
    call cldfrc( lchnk, ncol, pbuf,                                  &
                 state1%pmid, state1%t, state1%q(:,:,1), state1%omega, state1%phis, &
-                shfrc, use_shfrc,                                                  &
+                shfrc, use_shfrc_local,                                            &
                 cld, rhcloud, clc, state1%pdel,                                    &
                 cmfmc, cmfmc2, landfrac,snowh, concld, cldst,                      &
                 ts, sst, state1%pint(:,pverp), zdu, ocnfrac, rhu00,                &
@@ -667,7 +684,7 @@ subroutine stratiform_tend( &
 
    call cldfrc( lchnk, ncol, pbuf,                                  &
                 state1%pmid, state1%t, state1%q(:,:,1), state1%omega, state1%phis, &
-                shfrc, use_shfrc,                                                  &
+                shfrc, use_shfrc_local,                                            &
                 cld2, rhcloud2, clc, state1%pdel,                                  &
                 cmfmc, cmfmc2, landfrac, snowh, concld2, cldst2,                   &
                 ts, sst, state1%pint(:,pverp), zdu, ocnfrac, rhu002,               &
@@ -852,12 +869,12 @@ subroutine stratiform_tend( &
    call physics_ptend_sum( ptend_loc, ptend_all, ncol )
    call physics_update( state1, ptend_loc, dtime )
 
-   if (.not. cam_physpkg_is('cam3')) then
+   if (.not. cam3_local) then
 
       call t_startf("cldfrc")
       call cldfrc( lchnk, ncol, pbuf,                                  &
                    state1%pmid, state1%t, state1%q(:,:,1), state1%omega, state1%phis, &
-                   shfrc, use_shfrc,                                                  &
+                   shfrc, use_shfrc_local,                                            &
                    cld, rhcloud, clc, state1%pdel,                                    &
                    cmfmc, cmfmc2, landfrac, snowh, concld, cldst,                     &
                    ts, sst, state1%pint(:,pverp), zdu, ocnfrac, rhu00,                &
@@ -913,6 +930,76 @@ subroutine stratiform_tend( &
    call physics_state_dealloc(state1)
 
 end subroutine stratiform_tend
+
+!===============================================================================
+
+subroutine stratiform_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('STRATIFORM_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_impl = .false.
+   end if
+
+   impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_impl) then
+         write(iulog,*) 'stratiform_tend implementation = native'
+      else
+         write(iulog,*) 'stratiform_tend implementation = codon'
+      end if
+   end if
+
+end subroutine stratiform_select_impl
+
+!===============================================================================
+
+subroutine stratiform_select_branches(use_shfrc_in, cam3_in)
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+   logical, intent(in) :: use_shfrc_in
+   logical, intent(in) :: cam3_in
+
+   integer(c_int64_t), target :: branch_mask_c
+
+   interface
+      subroutine stratiform_select_branches_codon(use_shfrc_c, cam3_c, branch_mask_p) &
+           bind(c, name="stratiform_select_branches_codon")
+        use iso_c_binding, only: c_int64_t, c_ptr
+        integer(c_int64_t), value :: use_shfrc_c, cam3_c
+        type(c_ptr), value :: branch_mask_p
+      end subroutine stratiform_select_branches_codon
+   end interface
+
+   if (branch_selected) return
+
+   branch_mask_c = 0_c_int64_t
+   call stratiform_select_branches_codon( &
+        merge(1_c_int64_t, 0_c_int64_t, use_shfrc_in), &
+        merge(1_c_int64_t, 0_c_int64_t, cam3_in), &
+        c_loc(branch_mask_c) &
+   )
+
+   branch_mask = int(branch_mask_c)
+   branch_selected = .true.
+
+end subroutine stratiform_select_branches
 
   !============================================================================ !
   !                                                                             !

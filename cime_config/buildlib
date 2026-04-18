@@ -94,6 +94,7 @@ def _build_cam():
         _build_codon_lib(srcroot, "mo_lightning")
         _build_codon_lib(srcroot, "microp_driver")
         _build_codon_lib(srcroot, "macrop_driver")
+        _build_codon_lib(srcroot, "stratiform")
 
         #-------------------------------------------------------
         # Filepath is created in caseroot/camconf by the call
