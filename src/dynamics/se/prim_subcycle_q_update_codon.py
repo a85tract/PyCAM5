@@ -66,6 +66,12 @@ def _ppm_coef_idx(comp: int, jidx: int) -> int:
     return comp + (jidx - 1) * 3
 
 
+@inline
+def _col_idx(klev: int) -> int:
+    """pio declared as (nlev+2), pin declared as (nlev+1), z1/z2/kid declared as (nlev)."""
+    return klev - 1
+
+
 @export
 def prim_subcycle_dp3d_init_codon(
     np: int,
@@ -256,6 +262,44 @@ def vertical_remap_ps_v_update_codon(
             for k in range(1, nlev + 1):
                 total += dp3d[_vol_idx(i, j, k, np)]
             ps_v[_plane_idx(i, j, np)] = hyai1 * ps0 + total
+
+
+@export
+def remap_q_ppm_interval_setup_codon(
+    nlev: int,
+    pio_p: cobj,
+    pin_p: cobj,
+    dpo_p: cobj,
+    kid_p: cobj,
+    z1_p: cobj,
+    z2_p: cobj,
+):
+    pio = Ptr[float](pio_p)
+    pin = Ptr[float](pin_p)
+    dpo = Ptr[float](dpo_p)
+    kid = Ptr[int](kid_p)
+    z1 = Ptr[float](z1_p)
+    z2 = Ptr[float](z2_p)
+
+    pio[_col_idx(nlev + 2)] = pio[_col_idx(nlev + 1)] + 1.0
+    pin[_col_idx(nlev + 1)] = pio[_col_idx(nlev + 1)]
+
+    for k in range(1, 3):
+        dpo[_ghost_col_idx(1 - k)] = dpo[_ghost_col_idx(k)]
+        dpo[_ghost_col_idx(nlev + k)] = dpo[_ghost_col_idx(nlev + 1 - k)]
+
+    for k in range(1, nlev + 1):
+        kk = k
+        while pio[_col_idx(kk)] <= pin[_col_idx(k + 1)]:
+            kk += 1
+        kk -= 1
+        if kk == nlev + 1:
+            kk = nlev
+        kid[_col_idx(k)] = kk
+        z1[_col_idx(k)] = -0.5
+        z2[_col_idx(k)] = (pin[_col_idx(k + 1)] - (pio[_col_idx(kk)] + pio[_col_idx(kk + 1)]) * 0.5) / dpo[
+            _ghost_col_idx(kk)
+        ]
 
 
 @export

@@ -94,6 +94,8 @@ module vertremap_mod
 ! todo: tweak interface to match remap1 above, rename remap1_ppm:
   public remap_q_ppm             ! remap state%Q, PPM, monotone
 
+  logical :: remap_q_ppm_interval_use_native_impl = .false.
+  logical :: remap_q_ppm_interval_impl_selected = .false.
   logical :: remap_q_ppm_grid_use_native_impl = .false.
   logical :: remap_q_ppm_grid_impl_selected = .false.
   logical :: remap_q_ppm_compute_use_native_impl = .false.
@@ -568,6 +570,12 @@ subroutine remap_Q_ppm(Qdp,nx,qsize,dp1,dp2)
   real (kind=real_kind), intent(inout) :: Qdp(nx,nx,nlev,qsize)
   real (kind=real_kind), intent(in) :: dp1(nx,nx,nlev),dp2(nx,nx,nlev)
   interface
+     subroutine remap_q_ppm_interval_setup_codon(nlev_c, pio_p, pin_p, dpo_p, kid_p, z1_p, z2_p) &
+          bind(c, name='remap_q_ppm_interval_setup_codon')
+       use iso_c_binding, only : c_int64_t, c_ptr
+       integer(c_int64_t), value :: nlev_c
+       type(c_ptr), value :: pio_p, pin_p, dpo_p, kid_p, z1_p, z2_p
+     end subroutine remap_q_ppm_interval_setup_codon
      subroutine remap_q_ppm_compute_ppm_grids_codon(nlev_c, vert_remap_q_alg_c, dx_p, rslt_p) &
           bind(c, name='remap_q_ppm_compute_ppm_grids_codon')
        use iso_c_binding, only : c_int64_t, c_ptr
@@ -583,19 +591,21 @@ subroutine remap_Q_ppm(Qdp,nx,qsize,dp1,dp2)
   end interface
   ! Local Variables
   integer, parameter :: gs = 2                              !Number of cells to place in the ghost region
-  real(kind=real_kind), dimension(       nlev+2 ) :: pio    !Pressure at interfaces for old grid
-  real(kind=real_kind), dimension(       nlev+1 ) :: pin    !Pressure at interfaces for new grid
+  real(kind=real_kind), target, dimension(       nlev+2 ) :: pio    !Pressure at interfaces for old grid
+  real(kind=real_kind), target, dimension(       nlev+1 ) :: pin    !Pressure at interfaces for new grid
   real(kind=real_kind), dimension(       nlev+1 ) :: masso  !Accumulate mass up to each interface
   real(kind=real_kind), target, dimension(  1-gs:nlev+gs) :: ao     !Tracer value on old grid
   real(kind=real_kind), target, dimension(  1-gs:nlev+gs) :: dpo    !change in pressure over a cell for old grid
   real(kind=real_kind), dimension(  1-gs:nlev+gs) :: dpn    !change in pressure over a cell for old grid
   real(kind=real_kind), target, dimension(3,     nlev   ) :: coefs  !PPM coefficients within each cell
-  real(kind=real_kind), dimension(       nlev   ) :: z1, z2
+  real(kind=real_kind), target, dimension(       nlev   ) :: z1, z2
   real(kind=real_kind), target :: ppmdx(10,0:nlev+1)  !grid spacings
   real(kind=real_kind), target :: ppm_ai(0:nlev), ppm_dma(0:nlev+1)
   real(kind=real_kind) :: mymass, massn1, massn2
-  integer :: i, j, k, q, kk, kid(nlev)
+  integer :: i, j, k, q, kk
+  integer(c_int64_t), target :: kid(nlev)
 
+  call remap_q_ppm_interval_select_impl()
   call remap_q_ppm_grid_select_impl()
   call remap_q_ppm_compute_select_impl()
   call t_startf('remap_Q_ppm')
@@ -613,38 +623,44 @@ subroutine remap_Q_ppm(Qdp,nx,qsize,dp1,dp2)
 
 
 
-      pio(nlev+2) = pio(nlev+1) + 1.  !This is here to allow an entire block of k threads to run in the remapping phase.
-                                      !It makes sure there's an old interface value below the domain that is larger.
-      pin(nlev+1) = pio(nlev+1)       !The total mass in a column does not change.
-                                      !Therefore, the pressure of that mass cannot either.
-      !Fill in the ghost regions with mirrored values. if vert_remap_q_alg is defined, this is of no consequence.
-      do k = 1 , gs
-        dpo(1   -k) = dpo(       k)
-        dpo(nlev+k) = dpo(nlev+1-k)
-      enddo
-
-      !Compute remapping intervals once for all tracers. Find the old grid cell index in which the
-      !k-th new cell interface resides. Then integrate from the bottom of that old cell to the new
-      !interface location. In practice, the grid never deforms past one cell, so the search can be
-      !simplified by this. Also, the interval of integration is usually of magnitude close to zero
-      !or close to dpo because of minimial deformation.
-      !Numerous tests confirmed that the bottom and top of the grids match to machine precision, so
-      !I set them equal to each other.
-      do k = 1 , nlev
-        kk = k  !Keep from an order n^2 search operation by assuming the old cell index is close.
-        !Find the index of the old grid cell in which this new cell's bottom interface resides.
-        do while ( pio(kk) <= pin(k+1) )
-          kk = kk + 1
+      if (.not. remap_q_ppm_interval_use_native_impl) then
+        call remap_q_ppm_interval_setup_codon( &
+             int(nlev, c_int64_t), c_loc(pio), c_loc(pin), c_loc(dpo), c_loc(kid), c_loc(z1), c_loc(z2) &
+        )
+      else
+        pio(nlev+2) = pio(nlev+1) + 1.  !This is here to allow an entire block of k threads to run in the remapping phase.
+                                        !It makes sure there's an old interface value below the domain that is larger.
+        pin(nlev+1) = pio(nlev+1)       !The total mass in a column does not change.
+                                        !Therefore, the pressure of that mass cannot either.
+        !Fill in the ghost regions with mirrored values. if vert_remap_q_alg is defined, this is of no consequence.
+        do k = 1 , gs
+          dpo(1   -k) = dpo(       k)
+          dpo(nlev+k) = dpo(nlev+1-k)
         enddo
-        kk = kk - 1                   !kk is now the cell index we're integrating over.
-        if (kk == nlev+1) kk = nlev   !This is to keep the indices in bounds.
-                                      !Top bounds match anyway, so doesn't matter what coefficients are used
-        kid(k) = kk                   !Save for reuse
-        z1(k) = -0.5D0                !This remapping assumes we're starting from the left interface of an old grid cell
-                                      !In fact, we're usually integrating very little or almost all of the cell in question
-        z2(k) = ( pin(k+1) - ( pio(kk) + pio(kk+1) ) * 0.5 ) / dpo(kk)  !PPM interpolants are normalized to an independent
-                                                                        !coordinate domain [-0.5,0.5].
-      enddo
+
+        !Compute remapping intervals once for all tracers. Find the old grid cell index in which the
+        !k-th new cell interface resides. Then integrate from the bottom of that old cell to the new
+        !interface location. In practice, the grid never deforms past one cell, so the search can be
+        !simplified by this. Also, the interval of integration is usually of magnitude close to zero
+        !or close to dpo because of minimial deformation.
+        !Numerous tests confirmed that the bottom and top of the grids match to machine precision, so
+        !I set them equal to each other.
+        do k = 1 , nlev
+          kk = k  !Keep from an order n^2 search operation by assuming the old cell index is close.
+          !Find the index of the old grid cell in which this new cell's bottom interface resides.
+          do while ( pio(kk) <= pin(k+1) )
+            kk = kk + 1
+          enddo
+          kk = kk - 1                   !kk is now the cell index we're integrating over.
+          if (kk == nlev+1) kk = nlev   !This is to keep the indices in bounds.
+                                        !Top bounds match anyway, so doesn't matter what coefficients are used
+          kid(k) = kk                   !Save for reuse
+          z1(k) = -0.5D0                !This remapping assumes we're starting from the left interface of an old grid cell
+                                        !In fact, we're usually integrating very little or almost all of the cell in question
+          z2(k) = ( pin(k+1) - ( pio(kk) + pio(kk+1) ) * 0.5 ) / dpo(kk)  !PPM interpolants are normalized to an independent
+                                                                          !coordinate domain [-0.5,0.5].
+        enddo
+      endif
 
       !This turned out a big optimization, remembering that only parts of the PPM algorithm depends on the data, namely the
       !limiting. So anything that depends only on the grid is pre-computed outside the tracer loop.
@@ -841,6 +857,31 @@ function integrate_parabola( a , x1 , x2 )    result(mass)
   real(kind=real_kind)             :: mass
   mass = a(0) * (x2 - x1) + a(1) * (x2 ** 2 - x1 ** 2) / 0.2D1 + a(2) * (x2 ** 3 - x1 ** 3) / 0.3D1
 end function integrate_parabola
+
+subroutine remap_q_ppm_interval_select_impl()
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (remap_q_ppm_interval_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('REMAP_Q_PPM_INTERVAL_IMPL', &
+       value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+    do i = 1, n
+      code = iachar(impl_name(i:i))
+      if (code >= iachar('A') .and. code <= iachar('Z')) then
+        impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+      end if
+    end do
+    remap_q_ppm_interval_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+    remap_q_ppm_interval_use_native_impl = .false.
+  end if
+
+  remap_q_ppm_interval_impl_selected = .true.
+end subroutine remap_q_ppm_interval_select_impl
 
 subroutine remap_q_ppm_grid_select_impl()
   character(len=32) :: impl_name
