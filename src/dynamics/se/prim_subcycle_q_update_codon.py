@@ -209,3 +209,23 @@ def vertical_remap_v_unscale_codon(
                 vol_idx = _vol_idx(i, j, k, np)
                 v[_v_idx(i, j, 1, k, np)] = ttmp[_field_vol_idx(i, j, k, 1, np, nlev)] / dp[vol_idx]
                 v[_v_idx(i, j, 2, k, np)] = ttmp[_field_vol_idx(i, j, k, 2, np, nlev)] / dp[vol_idx]
+
+
+@export
+def vertical_remap_ps_v_update_codon(
+    np: int,
+    nlev: int,
+    hyai1: float,
+    ps0: float,
+    dp3d_p: cobj,
+    ps_v_p: cobj,
+):
+    dp3d = Ptr[float](dp3d_p)
+    ps_v = Ptr[float](ps_v_p)
+
+    for j in range(1, np + 1):
+        for i in range(1, np + 1):
+            total = 0.0
+            for k in range(1, nlev + 1):
+                total += dp3d[_vol_idx(i, j, k, np)]
+            ps_v[_plane_idx(i, j, np)] = hyai1 * ps0 + total
