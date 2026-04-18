@@ -379,6 +379,28 @@ def euler_step_qtens_biharmonic_add_codon(
 
 
 @export
+def euler_step_qtens_biharmonic_scale_codon(
+    np: int,
+    nlev: int,
+    qsize: int,
+    qtens_biharmonic_p: cobj,
+    dpdiss_ave_p: cobj,
+    dp0_p: cobj,
+):
+    qtens_biharmonic = Ptr[float](qtens_biharmonic_p)
+    dpdiss_ave = Ptr[float](dpdiss_ave_p)
+    dp0 = Ptr[float](dp0_p)
+
+    for q in range(1, qsize + 1):
+        for k in range(1, nlev + 1):
+            for j in range(1, np + 1):
+                for i in range(1, np + 1):
+                    q_idx = _q_idx(i, j, k, q, np, nlev)
+                    vol_idx = _vol_idx(i, j, k, np)
+                    qtens_biharmonic[q_idx] = qtens_biharmonic[q_idx] * dpdiss_ave[vol_idx] / dp0[_col_idx(k)]
+
+
+@export
 def euler_step_qtens_biharmonic_unapply_codon(
     np: int,
     nlev: int,

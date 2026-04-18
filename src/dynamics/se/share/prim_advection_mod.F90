@@ -1128,6 +1128,8 @@ module prim_advection_mod
   logical :: euler_step_qtens_base_impl_selected = .false.
   logical :: euler_step_qtens_biharmonic_add_use_native_impl = .false.
   logical :: euler_step_qtens_biharmonic_add_impl_selected = .false.
+  logical :: euler_step_qtens_biharmonic_scale_use_native_impl = .false.
+  logical :: euler_step_qtens_biharmonic_scale_impl_selected = .false.
   logical :: euler_step_qtens_biharmonic_unapply_use_native_impl = .false.
   logical :: euler_step_qtens_biharmonic_unapply_impl_selected = .false.
   logical :: advance_hypervis_qdp_update_use_native_impl = .false.
@@ -2230,6 +2232,7 @@ end subroutine ALE_parametric_coords
   call euler_step_gradq_prepare_select_impl()
   call euler_step_qtens_base_select_impl()
   call euler_step_qtens_biharmonic_add_select_impl()
+  call euler_step_qtens_biharmonic_scale_select_impl()
   call euler_step_qtens_biharmonic_unapply_select_impl()
 ! call t_barrierf('sync_euler_step', hybrid%par%comm)
 !   call t_startf('euler_step')
@@ -2321,21 +2324,27 @@ end subroutine ALE_parametric_coords
       ! nu_p>0):   qtens_biharmonc *= elem()%psdiss_ave      (for consistency, if nu_p=nu_q)
       if ( nu_p > 0 ) then
         do ie = nets , nete
-          do k = 1 , nlev 
-            do j=1,np
-              do i=1,np
-                dpdiss(i,j) = elem(ie)%derived%dpdiss_ave(i,j,k)
-              enddo
-            enddo
-            do q = 1 , qsize
-              ! NOTE: divide by dp0 since we multiply by dp0 below
+          if (.not. euler_step_qtens_biharmonic_scale_use_native_impl) then
+            call euler_step_qtens_biharmonic_scale_apply_codon( &
+                 Qtens_biharmonic(:,:,:,:,ie), elem(ie)%derived%dpdiss_ave, dp0 &
+            )
+          else
+            do k = 1 , nlev 
               do j=1,np
                 do i=1,np
-                  Qtens_biharmonic(i,j,k,q,ie)=Qtens_biharmonic(i,j,k,q,ie)*dpdiss(i,j)/dp0(k)
+                  dpdiss(i,j) = elem(ie)%derived%dpdiss_ave(i,j,k)
+                enddo
+              enddo
+              do q = 1 , qsize
+                ! NOTE: divide by dp0 since we multiply by dp0 below
+                do j=1,np
+                  do i=1,np
+                    Qtens_biharmonic(i,j,k,q,ie)=Qtens_biharmonic(i,j,k,q,ie)*dpdiss(i,j)/dp0(k)
+                  enddo
                 enddo
               enddo
             enddo
-          enddo
+          endif
         enddo
       endif
 #ifdef OVERLAP 
@@ -2847,6 +2856,28 @@ end subroutine ALE_parametric_coords
          int(np, c_int64_t), c_loc(qtens), c_loc(qtens_biharmonic) &
     )
   end subroutine euler_step_qtens_biharmonic_add_apply_codon
+
+!-----------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
+
+  subroutine euler_step_qtens_biharmonic_scale_apply_codon(qtens_biharmonic, dpdiss_ave, dp0_in)
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    implicit none
+    real(kind=real_kind), target, intent(inout) :: qtens_biharmonic(np,np,nlev,qsize)
+    real(kind=real_kind), target, intent(in) :: dpdiss_ave(np,np,nlev), dp0_in(nlev)
+    interface
+       subroutine euler_step_qtens_biharmonic_scale_codon(np_c, nlev_c, qsize_c, qtens_biharmonic_p, dpdiss_ave_p, dp0_p) &
+            bind(c, name='euler_step_qtens_biharmonic_scale_codon')
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: np_c, nlev_c, qsize_c
+         type(c_ptr), value :: qtens_biharmonic_p, dpdiss_ave_p, dp0_p
+       end subroutine euler_step_qtens_biharmonic_scale_codon
+    end interface
+
+    call euler_step_qtens_biharmonic_scale_codon( &
+         int(np, c_int64_t), int(nlev, c_int64_t), int(qsize, c_int64_t), c_loc(qtens_biharmonic), c_loc(dpdiss_ave), c_loc(dp0_in) &
+    )
+  end subroutine euler_step_qtens_biharmonic_scale_apply_codon
 
 !-----------------------------------------------------------------------------
 !-----------------------------------------------------------------------------
@@ -4293,6 +4324,30 @@ end subroutine ALE_parametric_coords
 
     euler_step_qtens_biharmonic_add_impl_selected = .true.
   end subroutine euler_step_qtens_biharmonic_add_select_impl
+
+  subroutine euler_step_qtens_biharmonic_scale_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (euler_step_qtens_biharmonic_scale_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EULER_STEP_QTENS_BIHARMONIC_SCALE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+      do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+          impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+      end do
+      euler_step_qtens_biharmonic_scale_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+      euler_step_qtens_biharmonic_scale_use_native_impl = .false.
+    end if
+
+    euler_step_qtens_biharmonic_scale_impl_selected = .true.
+  end subroutine euler_step_qtens_biharmonic_scale_select_impl
 
   subroutine euler_step_qtens_biharmonic_unapply_select_impl()
     character(len=32) :: impl_name
