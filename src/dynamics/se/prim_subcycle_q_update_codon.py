@@ -78,6 +78,12 @@ def _col_idx(klev: int) -> int:
     return klev - 1
 
 
+@inline
+def _lev_q_idx(klev: int, qidx: int, nlev: int) -> int:
+    """qmin and qmax declared as (nlev,qsize)."""
+    return (klev - 1) + (qidx - 1) * nlev
+
+
 @export
 def prim_subcycle_dp3d_init_codon(
     np: int,
@@ -496,6 +502,40 @@ def euler_step_qtens_biharmonic_unapply_codon(
                 vol_idx = _vol_idx(i, j, k, np)
                 plane_idx = _plane_idx(i, j, np)
                 qtens_biharmonic[vol_idx] = -rhs_viss * dt * nu_q * dp0[_col_idx(k)] * qtens_biharmonic[vol_idx] / spheremp[plane_idx]
+
+
+@export
+def euler_step_qminmax_update_codon(
+    np: int,
+    nlev: int,
+    qsize: int,
+    rhs_multiplier: int,
+    qtens_biharmonic_p: cobj,
+    qmin_p: cobj,
+    qmax_p: cobj,
+):
+    qtens_biharmonic = Ptr[float](qtens_biharmonic_p)
+    qmin = Ptr[float](qmin_p)
+    qmax = Ptr[float](qmax_p)
+
+    for q in range(1, qsize + 1):
+        for k in range(1, nlev + 1):
+            qmin_val = 1.0e24
+            qmax_val = -1.0e24
+            for j in range(1, np + 1):
+                for i in range(1, np + 1):
+                    val = qtens_biharmonic[_q_idx(i, j, k, q, np, nlev)]
+                    qmin_val = min(qmin_val, val)
+                    qmax_val = max(qmax_val, val)
+
+            lev_q_idx = _lev_q_idx(k, q, nlev)
+            if rhs_multiplier == 1:
+                qmin[lev_q_idx] = min(qmin[lev_q_idx], qmin_val)
+                qmin[lev_q_idx] = max(qmin[lev_q_idx], 0.0)
+                qmax[lev_q_idx] = max(qmax[lev_q_idx], qmax_val)
+            else:
+                qmin[lev_q_idx] = max(qmin_val, 0.0)
+                qmax[lev_q_idx] = qmax_val
 
 
 @export
