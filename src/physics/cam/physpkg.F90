@@ -66,6 +66,10 @@ module physpkg
   logical           :: clim_modal_aero     ! climate controled by prognostic or prescribed modal aerosols
   logical           :: prog_modal_aero     ! Prognostic modal aerosols present
   logical           :: micro_do_icesupersat
+  logical           :: use_native_phys_tstep_impl = .false.
+  logical           :: phys_tstep_impl_selected = .false.
+  integer           :: phys_tstep_branch_mask = 0
+  logical           :: phys_tstep_branch_selected = .false.
 
   !  Physics buffer index
   integer ::  teout_idx          = 0  
@@ -2542,10 +2546,25 @@ subroutine phys_timestep_init(phys_state, cam_out, pbuf2d)
 
   type(physics_state), intent(inout), dimension(begchunk:endchunk) :: phys_state
   type(cam_out_t),     intent(inout), dimension(begchunk:endchunk) :: cam_out
-  
+  logical :: do_cam3_aero_data
+  logical :: do_cam3_ozone_data
+  logical :: do_waccm_ions_local
+
   type(physics_buffer_desc), pointer                 :: pbuf2d(:,:)
 
   !-----------------------------------------------------------------------------
+
+  call phys_timestep_init_select_impl()
+  if (.not. use_native_phys_tstep_impl) then
+     call phys_timestep_init_select_branches(cam3_aero_data_on, cam3_ozone_data_on, do_waccm_ions)
+     do_cam3_aero_data = iand(phys_tstep_branch_mask, 1) /= 0
+     do_cam3_ozone_data = iand(phys_tstep_branch_mask, 2) /= 0
+     do_waccm_ions_local = iand(phys_tstep_branch_mask, 4) /= 0
+  else
+     do_cam3_aero_data = cam3_aero_data_on
+     do_cam3_ozone_data = cam3_ozone_data_on
+     do_waccm_ions_local = do_waccm_ions
+  end if
 
   ! Chemistry surface values
   call chem_surfvals_set()
@@ -2568,10 +2587,10 @@ subroutine phys_timestep_init(phys_state, cam_out, pbuf2d)
   call aerodep_flx_adv(phys_state, pbuf2d, cam_out)
 
   ! CAM3 prescribed aerosol masses
-  if (cam3_aero_data_on) call cam3_aero_data_timestep_init(pbuf2d,  phys_state)
+  if (do_cam3_aero_data) call cam3_aero_data_timestep_init(pbuf2d,  phys_state)
 
   ! CAM3 prescribed ozone data
-  if (cam3_ozone_data_on) call cam3_ozone_data_timestep_init(pbuf2d,  phys_state)
+  if (do_cam3_ozone_data) call cam3_ozone_data_timestep_init(pbuf2d,  phys_state)
 
   ! Time interpolate data models of gasses in pbuf2d
   call ghg_data_timestep_init(pbuf2d,  phys_state)
@@ -2587,7 +2606,7 @@ subroutine phys_timestep_init(phys_state, cam_out, pbuf2d)
   !----------------------------------------------------------------------
   call qbo_timestep_init
 
-  if (do_waccm_ions) then
+  if (do_waccm_ions_local) then
      ! Compute the electric field
      call t_startf ('efield')
      call get_efield
@@ -2603,5 +2622,78 @@ subroutine phys_timestep_init(phys_state, cam_out, pbuf2d)
   call aoa_tracers_timestep_init(phys_state)
 
 end subroutine phys_timestep_init
+
+!=======================================================================
+
+subroutine phys_timestep_init_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (phys_tstep_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('PHYS_TIMESTEP_INIT_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_phys_tstep_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_phys_tstep_impl = .false.
+  end if
+
+  phys_tstep_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_phys_tstep_impl) then
+        write(iulog,*) 'phys_timestep_init implementation = native'
+     else
+        write(iulog,*) 'phys_timestep_init implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine phys_timestep_init_select_impl
+
+!=======================================================================
+
+subroutine phys_timestep_init_select_branches(cam3_aero_data_on, cam3_ozone_data_on, do_waccm_ions)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+  logical, intent(in) :: cam3_aero_data_on
+  logical, intent(in) :: cam3_ozone_data_on
+  logical, intent(in) :: do_waccm_ions
+
+  integer(c_int64_t), target :: branch_mask
+
+  interface
+     subroutine phys_timestep_init_select_branches_codon(cam3_aero_on_c, cam3_ozone_on_c, do_waccm_ions_c, branch_mask_p) &
+          bind(c, name="phys_timestep_init_select_branches_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: cam3_aero_on_c, cam3_ozone_on_c, do_waccm_ions_c
+       type(c_ptr), value :: branch_mask_p
+     end subroutine phys_timestep_init_select_branches_codon
+  end interface
+
+  if (phys_tstep_branch_selected) return
+
+  branch_mask = 0_c_int64_t
+  call phys_timestep_init_select_branches_codon( &
+       merge(1_c_int64_t, 0_c_int64_t, cam3_aero_data_on), &
+       merge(1_c_int64_t, 0_c_int64_t, cam3_ozone_data_on), &
+       merge(1_c_int64_t, 0_c_int64_t, do_waccm_ions), &
+       c_loc(branch_mask) &
+  )
+
+  phys_tstep_branch_mask = int(branch_mask)
+  phys_tstep_branch_selected = .true.
+
+end subroutine phys_timestep_init_select_branches
 
 end module physpkg
