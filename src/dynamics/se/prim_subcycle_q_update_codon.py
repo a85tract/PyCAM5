@@ -192,6 +192,39 @@ def euler_step_vstar_prepare_codon(
 
 
 @export
+def euler_step_limiter_dpstar_codon(
+    np: int,
+    nlev: int,
+    dt: float,
+    rhs_viss: int,
+    nu_q: float,
+    nu_p: float,
+    dp_in_p: cobj,
+    divdp_p: cobj,
+    dpdiss_biharmonic_p: cobj,
+    spheremp_p: cobj,
+    dp_star_p: cobj,
+):
+    dp_in = Ptr[float](dp_in_p)
+    divdp = Ptr[float](divdp_p)
+    dpdiss_biharmonic = Ptr[float](dpdiss_biharmonic_p)
+    spheremp = Ptr[float](spheremp_p)
+    dp_star = Ptr[float](dp_star_p)
+
+    use_dpdiss = nu_p > 0.0 and rhs_viss != 0
+
+    for k in range(1, nlev + 1):
+        for j in range(1, np + 1):
+            for i in range(1, np + 1):
+                vol_idx = _vol_idx(i, j, k, np)
+                plane_idx = _plane_idx(i, j, np)
+                dp_val = dp_in[vol_idx] - dt * divdp[vol_idx]
+                if use_dpdiss:
+                    dp_val = dp_val - rhs_viss * dt * nu_q * dpdiss_biharmonic[vol_idx] / spheremp[plane_idx]
+                dp_star[vol_idx] = dp_val
+
+
+@export
 def vertical_remap_rsplit_prepare_codon(
     np: int,
     nlev: int,

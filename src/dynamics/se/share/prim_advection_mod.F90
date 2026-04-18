@@ -1112,6 +1112,8 @@ module prim_advection_mod
   logical :: qdp_time_avg_impl_selected = .false.
   logical :: euler_step_vstar_prepare_use_native_impl = .false.
   logical :: euler_step_vstar_prepare_impl_selected = .false.
+  logical :: euler_step_limiter_dpstar_use_native_impl = .false.
+  logical :: euler_step_limiter_dpstar_impl_selected = .false.
 
 contains
 
@@ -2200,6 +2202,7 @@ end subroutine ALE_parametric_coords
   return
 #endif
   call euler_step_vstar_prepare_select_impl()
+  call euler_step_limiter_dpstar_select_impl()
 ! call t_barrierf('sync_euler_step', hybrid%par%comm)
 !   call t_startf('euler_step')
 
@@ -2428,25 +2431,32 @@ end subroutine ALE_parametric_coords
       enddo
 
       if ( limiter_option == 8) then
-        do k = 1 , nlev  ! Loop index added (AAM)
-          ! UN-DSS'ed dp at timelevel n0+1:
-          do j=1,np
-            do i=1,np
-              dp_star(i,j,k) = dp(i,j,k) - dt * elem(ie)%derived%divdp(i,j,k)
-            enddo
-          enddo
-
-          if ( nu_p > 0 .and. rhs_viss /= 0 ) then
-            ! add contribution from UN-DSS'ed PS dissipation
-!            dpdiss(:,:) = ( hvcoord%hybi(k+1) - hvcoord%hybi(k) ) * elem(ie)%derived%psdiss_biharmonic(:,:)
-           do j=1,np
+        if (.not. euler_step_limiter_dpstar_use_native_impl) then
+          call euler_step_limiter_dpstar_apply_codon( &
+               dp, elem(ie)%derived%divdp, elem(ie)%derived%dpdiss_biharmonic, elem(ie)%spheremp, &
+               dt, rhs_viss, nu_q, nu_p, dp_star &
+          )
+        else
+          do k = 1 , nlev  ! Loop index added (AAM)
+            ! UN-DSS'ed dp at timelevel n0+1:
+            do j=1,np
               do i=1,np
-                  dpdiss(i,j) = elem(ie)%derived%dpdiss_biharmonic(i,j,k)
-               dp_star(i,j,k) = dp_star(i,j,k) - rhs_viss * dt * nu_q * dpdiss(i,j) / elem(ie)%spheremp(i,j)
+                dp_star(i,j,k) = dp(i,j,k) - dt * elem(ie)%derived%divdp(i,j,k)
               enddo
             enddo
-          endif
-        enddo
+
+            if ( nu_p > 0 .and. rhs_viss /= 0 ) then
+              ! add contribution from UN-DSS'ed PS dissipation
+!            dpdiss(:,:) = ( hvcoord%hybi(k+1) - hvcoord%hybi(k) ) * elem(ie)%derived%psdiss_biharmonic(:,:)
+             do j=1,np
+                do i=1,np
+                    dpdiss(i,j) = elem(ie)%derived%dpdiss_biharmonic(i,j,k)
+                 dp_star(i,j,k) = dp_star(i,j,k) - rhs_viss * dt * nu_q * dpdiss(i,j) / elem(ie)%spheremp(i,j)
+                enddo
+              enddo
+            endif
+          enddo
+        endif
         ! apply limiter to Q = Qtens / dp_star
         call limiter_optim_iter_full( Qtens(:,:,:) , elem(ie)%spheremp(:,:) , qmin(:,q,ie) , &
                                       qmax(:,q,ie) , dp_star(:,:,:))
@@ -2558,6 +2568,32 @@ end subroutine ALE_parametric_coords
          c_loc(dp_in), c_loc(divdp_proj), c_loc(vn0), c_loc(dp_out), c_loc(vstar) &
     )
   end subroutine euler_step_vstar_prepare_apply_codon
+
+!-----------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
+
+  subroutine euler_step_limiter_dpstar_apply_codon(dp_in, divdp, dpdiss_biharmonic, spheremp, dt, rhs_viss, nu_q, nu_p, dp_star)
+    use iso_c_binding, only : c_int64_t, c_loc, c_double, c_ptr
+    implicit none
+    real(kind=real_kind), target, intent(in) :: dp_in(np,np,nlev), divdp(np,np,nlev), dpdiss_biharmonic(np,np,nlev), spheremp(np,np)
+    real(kind=real_kind), target, intent(out) :: dp_star(np,np,nlev)
+    real(kind=real_kind), intent(in) :: dt, nu_q, nu_p
+    integer, intent(in) :: rhs_viss
+    interface
+       subroutine euler_step_limiter_dpstar_codon(np_c, nlev_c, dt_c, rhs_viss_c, nu_q_c, nu_p_c, dp_in_p, divdp_p, dpdiss_biharmonic_p, spheremp_p, dp_star_p) &
+            bind(c, name='euler_step_limiter_dpstar_codon')
+         use iso_c_binding, only : c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: np_c, nlev_c, rhs_viss_c
+         real(c_double), value :: dt_c, nu_q_c, nu_p_c
+         type(c_ptr), value :: dp_in_p, divdp_p, dpdiss_biharmonic_p, spheremp_p, dp_star_p
+       end subroutine euler_step_limiter_dpstar_codon
+    end interface
+
+    call euler_step_limiter_dpstar_codon( &
+         int(np, c_int64_t), int(nlev, c_int64_t), real(dt, c_double), int(rhs_viss, c_int64_t), &
+         real(nu_q, c_double), real(nu_p, c_double), c_loc(dp_in), c_loc(divdp), c_loc(dpdiss_biharmonic), c_loc(spheremp), c_loc(dp_star) &
+    )
+  end subroutine euler_step_limiter_dpstar_apply_codon
 
 !-----------------------------------------------------------------------------
 !-----------------------------------------------------------------------------
@@ -3774,5 +3810,29 @@ end subroutine ALE_parametric_coords
 
     euler_step_vstar_prepare_impl_selected = .true.
   end subroutine euler_step_vstar_prepare_select_impl
+
+  subroutine euler_step_limiter_dpstar_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (euler_step_limiter_dpstar_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EULER_STEP_LIMITER_DPSTAR_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+      do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+          impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+      end do
+      euler_step_limiter_dpstar_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+      euler_step_limiter_dpstar_use_native_impl = .false.
+    end if
+
+    euler_step_limiter_dpstar_impl_selected = .true.
+  end subroutine euler_step_limiter_dpstar_select_impl
 
 end module prim_advection_mod
