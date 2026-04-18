@@ -1136,6 +1136,8 @@ module prim_advection_mod
   logical :: euler_step_qtens_biharmonic_unapply_impl_selected = .false.
   logical :: euler_step_qminmax_update_use_native_impl = .false.
   logical :: euler_step_qminmax_update_impl_selected = .false.
+  logical :: limiter2d_zero_use_native_impl = .false.
+  logical :: limiter2d_zero_impl_selected = .false.
   logical :: advance_hypervis_qtens_prepare_use_native_impl = .false.
   logical :: advance_hypervis_qtens_prepare_impl_selected = .false.
   logical :: advance_hypervis_qdp_update_use_native_impl = .false.
@@ -3564,7 +3566,40 @@ end subroutine ALE_parametric_coords
 !-----------------------------------------------------------------------------
 !-----------------------------------------------------------------------------
 
+  subroutine limiter2d_zero_apply_codon(Q)
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    implicit none
+    real(kind=real_kind), target, intent(inout) :: Q(np,np,nlev)
+    interface
+       subroutine limiter2d_zero_codon(np_c, nlev_c, q_p) bind(c, name='limiter2d_zero_codon')
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: np_c, nlev_c
+         type(c_ptr), value :: q_p
+       end subroutine limiter2d_zero_codon
+    end interface
+
+    call limiter2d_zero_codon(int(np, c_int64_t), int(nlev, c_int64_t), c_loc(Q))
+  end subroutine limiter2d_zero_apply_codon
+
+!-----------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
+
   subroutine limiter2d_zero(Q)
+  implicit none
+  real (kind=real_kind), target, intent(inout) :: Q(np,np,nlev)
+
+  call limiter2d_zero_select_impl()
+  if (.not. limiter2d_zero_use_native_impl) then
+    call limiter2d_zero_apply_codon(Q)
+  else
+    call limiter2d_zero_native(Q)
+  endif
+  end subroutine limiter2d_zero
+
+!-----------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
+
+  subroutine limiter2d_zero_native(Q)
   ! mass conserving zero limiter (2D only).  to be called just before DSS
   !
   ! this routine is called inside a DSS loop, and so Q had already
@@ -3610,7 +3645,7 @@ end subroutine ALE_parametric_coords
     if ( mass_new > 0 ) Q(:,:,k) = Q(:,:,k) * abs(mass) / mass_new
     if ( mass     < 0 ) Q(:,:,k) = -Q(:,:,k)
   enddo
-  end subroutine limiter2d_zero
+  end subroutine limiter2d_zero_native
 
 !-----------------------------------------------------------------------------
 !-----------------------------------------------------------------------------
@@ -4523,6 +4558,30 @@ end subroutine ALE_parametric_coords
 
     euler_step_qminmax_update_impl_selected = .true.
   end subroutine euler_step_qminmax_update_select_impl
+
+  subroutine limiter2d_zero_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (limiter2d_zero_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('LIMITER2D_ZERO_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+      do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+          impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+      end do
+      limiter2d_zero_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+      limiter2d_zero_use_native_impl = .false.
+    end if
+
+    limiter2d_zero_impl_selected = .true.
+  end subroutine limiter2d_zero_select_impl
 
   subroutine advance_hypervis_qtens_prepare_select_impl()
     character(len=32) :: impl_name

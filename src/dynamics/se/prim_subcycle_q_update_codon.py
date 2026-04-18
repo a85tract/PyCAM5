@@ -539,6 +539,50 @@ def euler_step_qminmax_update_codon(
 
 
 @export
+def limiter2d_zero_codon(
+    np: int,
+    nlev: int,
+    q_p: cobj,
+):
+    q = Ptr[float](q_p)
+
+    for k in range(nlev, 0, -1):
+        mass = 0.0
+        for j in range(1, np + 1):
+            for i in range(1, np + 1):
+                plane_idx = _vol_idx(i, j, k, np)
+                mass = mass + q[plane_idx]
+
+        if mass < 0.0:
+            for j in range(1, np + 1):
+                for i in range(1, np + 1):
+                    plane_idx = _vol_idx(i, j, k, np)
+                    q[plane_idx] = -q[plane_idx]
+
+        mass_new = 0.0
+        for j in range(1, np + 1):
+            for i in range(1, np + 1):
+                plane_idx = _vol_idx(i, j, k, np)
+                if q[plane_idx] < 0.0:
+                    q[plane_idx] = 0.0
+                else:
+                    mass_new = mass_new + q[plane_idx]
+
+        if mass_new > 0.0:
+            scale = abs(mass) / mass_new
+            for j in range(1, np + 1):
+                for i in range(1, np + 1):
+                    plane_idx = _vol_idx(i, j, k, np)
+                    q[plane_idx] = q[plane_idx] * scale
+
+        if mass < 0.0:
+            for j in range(1, np + 1):
+                for i in range(1, np + 1):
+                    plane_idx = _vol_idx(i, j, k, np)
+                    q[plane_idx] = -q[plane_idx]
+
+
+@export
 def vertical_remap_rsplit_prepare_codon(
     np: int,
     nlev: int,
