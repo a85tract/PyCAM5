@@ -45,6 +45,7 @@ module tracers
 
   use shr_kind_mod, only: r8 => shr_kind_r8
   use cam_logfile,  only: iulog
+  use spmd_utils,   only: masterproc
 
   implicit none
   private
@@ -66,8 +67,80 @@ module tracers
   integer :: trac_ncnst                    ! total number of test tracers
   integer :: ixtrct=-999                   ! index of 1st constituent
   logical :: debug = .false.
+  logical :: use_native_impl = .false.
+  logical :: impl_selected = .false.
+  logical :: use_native_tstep_init_impl = .false.
+  logical :: tstep_init_impl_selected = .false.
   
 contains
+!======================================================================
+subroutine tracers_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('TRACERS_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_impl = .false.
+  end if
+
+  impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_impl) then
+        write(iulog,*) 'tracers implementation = native'
+     else
+        write(iulog,*) 'tracers implementation = codon'
+     end if
+  end if
+
+end subroutine tracers_select_impl
+!======================================================================
+subroutine tracers_tstep_init_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (tstep_init_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('TRACERS_TSTEP_INIT_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_tstep_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_tstep_init_impl = .false.
+  end if
+
+  tstep_init_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_tstep_init_impl) then
+        write(iulog,*) 'tracers_timestep_init implementation = native'
+     else
+        write(iulog,*) 'tracers_timestep_init implementation = codon'
+     end if
+  end if
+
+end subroutine tracers_tstep_init_select_impl
 !======================================================================
 subroutine tracers_register
 !----------------------------------------------------------------------- 
@@ -229,6 +302,41 @@ subroutine tracers_timestep_init( phys_state )
   type(physics_state), intent(inout), dimension(begchunk:endchunk), optional :: phys_state    
 !-----------------------------------------------------------------------
 
+  interface
+     subroutine tracers_timestep_init_codon() bind(c, name="tracers_timestep_init_codon")
+     end subroutine tracers_timestep_init_codon
+  end interface
+
+  call tracers_tstep_init_select_impl()
+
+  if (use_native_tstep_init_impl .or. tracers_flag) then
+     call tracers_timestep_init_native(phys_state)
+     return
+  end if
+
+  call tracers_timestep_init_codon()
+
+end subroutine tracers_timestep_init
+
+!======================================================================
+
+subroutine tracers_timestep_init_native( phys_state )
+!----------------------------------------------------------------------- 
+!
+! Purpose: At the beginning of a timestep, there are some things to do
+! that just the masterproc should do. This currently just interpolates
+! the emissions boundary data set to the current time step.
+!
+!-----------------------------------------------------------------------
+
+  use tracers_suite, only: timestep_init_tr
+
+  ! phys_state argument is unused in this version
+  use ppgrid,         only: begchunk, endchunk
+  use physics_types,  only: physics_state
+  type(physics_state), intent(inout), dimension(begchunk:endchunk), optional :: phys_state    
+!-----------------------------------------------------------------------
+
   if ( tracers_flag ) then 
      
      call timestep_init_tr
@@ -236,7 +344,7 @@ subroutine tracers_timestep_init( phys_state )
      if (debug) write(iulog,*)'tracers_timestep_init done'
   endif
 
-end subroutine tracers_timestep_init
+end subroutine tracers_timestep_init_native
 
 !======================================================================
 
@@ -249,6 +357,82 @@ subroutine tracers_timestep_tend(state, ptend, cflx, landfrac, deltat)
 ! 
 ! Author: D. Bundy
 !-----------------------------------------------------------------------
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use physics_types, only: physics_state, physics_ptend, physics_ptend_init
+  use ppgrid,        only: pcols, pver
+  use constituents,  only: pcnst, sflxnam, cnst_cam_outfld
+  use cam_history,   only: outfld
+
+  implicit none
+
+  ! Arguments
+   type(physics_state), intent(in)  :: state          ! state variables
+   type(physics_ptend), target, intent(out) :: ptend  ! package tendencies
+   real(r8),            intent(in)  :: deltat         ! timestep
+   real(r8),            intent(in)  :: landfrac(pcols) ! Land fraction
+   real(r8), target, intent(inout) :: cflx(pcols,pcnst) ! Surface constituent flux (kg/m^2/s)
+
+! Local variables
+   integer  :: m               ! tracer number (internal)
+
+   logical  :: lq(pcnst)
+   interface
+      subroutine tracers_timestep_tend_codon(ncol_c, pcols_c, pver_c, psetcols_c, &
+           ixtrct_c, trac_ncnst_c, ptend_q_p, cflx_p) bind(c, name="tracers_timestep_tend_codon")
+        use iso_c_binding, only: c_int64_t, c_ptr
+        integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, psetcols_c
+        integer(c_int64_t), value :: ixtrct_c, trac_ncnst_c
+        type(c_ptr), value :: ptend_q_p, cflx_p
+      end subroutine tracers_timestep_tend_codon
+   end interface
+
+!-----------------------------------------------------------------------
+
+  if (.not. tracers_flag) then
+       call physics_ptend_init(ptend,state%psetcols,'none') !Initialize an empty ptend for use with physics_update
+       return
+  endif
+
+  call tracers_select_impl()
+
+  if (use_native_impl) then
+     call tracers_timestep_tend_native(state, ptend, cflx, landfrac, deltat)
+     return
+  end if
+
+  lq(:)      = .FALSE.
+  lq(ixtrct:ixtrct+trac_ncnst-1) = .TRUE.
+  call physics_ptend_init(ptend, state%psetcols, 'tracers', lq=lq)
+
+  call tracers_timestep_tend_codon( &
+       int(state%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(state%psetcols, c_int64_t), int(ixtrct, c_int64_t), int(trac_ncnst, c_int64_t), &
+       c_loc(ptend%q), c_loc(cflx) &
+  )
+
+  do  m = 1,trac_ncnst
+     if (debug) write(iulog,*)'tracers.F90 calling for tracer ',m
+
+     if ( cnst_cam_outfld(ixtrct+m-1) ) then
+        call outfld (sflxnam(ixtrct+m-1),cflx(:,ixtrct+m-1),pcols,state%lchnk)
+     end if
+  end do
+
+  if ( debug ) then
+     do  m = 1,trac_ncnst
+        write(iulog,*)'tracers_timestep_tend ixtrct,m,ixtrct+m-1',ixtrct,m,ixtrct+m-1
+        write(iulog,*)'tracers_timestep_tend min max flux',minval(cflx(:,ixtrct+m-1)),maxval(cflx(:,ixtrct+m-1))
+        write(iulog,*)'tracers_timestep_tend min max tend',minval(ptend%q(:,:,ixtrct+m-1)),maxval(ptend%q(:,:,ixtrct+m-1))
+     end do
+     write(iulog,*)'tracers_timestep_tend end'
+  endif
+
+end subroutine tracers_timestep_tend
+
+!======================================================================
+
+subroutine tracers_timestep_tend_native(state, ptend, cflx, landfrac, deltat)
 
   use physics_types, only: physics_state, physics_ptend, physics_ptend_init
   use ppgrid,        only: pcols, pver
@@ -263,51 +447,48 @@ subroutine tracers_timestep_tend(state, ptend, cflx, landfrac, deltat)
    type(physics_ptend), intent(out) :: ptend          ! package tendencies
    real(r8),            intent(in)  :: deltat         ! timestep
    real(r8),            intent(in)  :: landfrac(pcols) ! Land fraction
-   real(r8), intent(inout) :: cflx(pcols,pcnst) ! Surface constituent flux (kg/m^2/s)
+   real(r8),            intent(inout) :: cflx(pcols,pcnst) ! Surface constituent flux (kg/m^2/s)
 
-! Local variables
+ ! Local variables
    integer  :: m               ! tracer number (internal)
 
    logical  :: lq(pcnst)
 
-!-----------------------------------------------------------------------
+ !-----------------------------------------------------------------------
 
-  if (.not. tracers_flag) then
-       call physics_ptend_init(ptend,state%psetcols,'none') !Initialize an empty ptend for use with physics_update
-       return
-  else
-     lq(:)      = .FALSE.
-     lq(ixtrct:ixtrct+trac_ncnst-1) = .TRUE.
-     call physics_ptend_init(ptend, state%psetcols, 'tracers', lq=lq)
- 
-     do  m = 1,trac_ncnst 
-        if (debug) write(iulog,*)'tracers.F90 calling for tracer ',m
-        
-        !calculate flux
-        call flux_tr(m,state%ncol,state%lchnk, landfrac, cflx(:,ixtrct+m-1))
-        
-        !calculate tendency
-        call tend_tr(m,state%ncol, state%q(:,:,ixtrct+m-1), deltat, ptend%q(:,:,ixtrct+m-1))
-        
-        !outfld calls could go here
-        if ( cnst_cam_outfld(ixtrct+m-1) ) then
-           call outfld (sflxnam(ixtrct+m-1),cflx(:,ixtrct+m-1),pcols,state%lchnk)
-        end if
-        
-        
-     end do
-     
-     if ( debug ) then 
-        do  m = 1,trac_ncnst 
-           write(iulog,*)'tracers_timestep_tend ixtrct,m,ixtrct+m-1',ixtrct,m,ixtrct+m-1
-           write(iulog,*)'tracers_timestep_tend min max flux',minval(cflx(:,ixtrct+m-1)),maxval(cflx(:,ixtrct+m-1))
-           write(iulog,*)'tracers_timestep_tend min max tend',minval(ptend%q(:,:,ixtrct+m-1)),maxval(ptend%q(:,:,ixtrct+m-1))
-        end do
-        write(iulog,*)'tracers_timestep_tend end'
-     endif
-  endif
+   if (.not. tracers_flag) then
+      call physics_ptend_init(ptend,state%psetcols,'none') !Initialize an empty ptend for use with physics_update
+      return
+   else
+      lq(:)      = .FALSE.
+      lq(ixtrct:ixtrct+trac_ncnst-1) = .TRUE.
+      call physics_ptend_init(ptend, state%psetcols, 'tracers', lq=lq)
 
+      do  m = 1,trac_ncnst
+         if (debug) write(iulog,*)'tracers.F90 calling for tracer ',m
 
-end subroutine tracers_timestep_tend
+         !calculate flux
+         call flux_tr(m,state%ncol,state%lchnk, landfrac, cflx(:,ixtrct+m-1))
+
+         !calculate tendency
+         call tend_tr(m,state%ncol, state%q(:,:,ixtrct+m-1), deltat, ptend%q(:,:,ixtrct+m-1))
+
+         !outfld calls could go here
+         if ( cnst_cam_outfld(ixtrct+m-1) ) then
+            call outfld (sflxnam(ixtrct+m-1),cflx(:,ixtrct+m-1),pcols,state%lchnk)
+         end if
+      end do
+
+      if ( debug ) then
+         do  m = 1,trac_ncnst
+            write(iulog,*)'tracers_timestep_tend ixtrct,m,ixtrct+m-1',ixtrct,m,ixtrct+m-1
+            write(iulog,*)'tracers_timestep_tend min max flux',minval(cflx(:,ixtrct+m-1)),maxval(cflx(:,ixtrct+m-1))
+            write(iulog,*)'tracers_timestep_tend min max tend',minval(ptend%q(:,:,ixtrct+m-1)),maxval(ptend%q(:,:,ixtrct+m-1))
+         end do
+         write(iulog,*)'tracers_timestep_tend end'
+      endif
+   endif
+
+end subroutine tracers_timestep_tend_native
 
 end module tracers
