@@ -1122,6 +1122,8 @@ module prim_advection_mod
   logical :: euler_step_dssvar_restore_impl_selected = .false.
   logical :: euler_step_dssvar_pack_use_native_impl = .false.
   logical :: euler_step_dssvar_pack_impl_selected = .false.
+  logical :: euler_step_gradq_prepare_use_native_impl = .false.
+  logical :: euler_step_gradq_prepare_impl_selected = .false.
   logical :: euler_step_qtens_base_use_native_impl = .false.
   logical :: euler_step_qtens_base_impl_selected = .false.
   logical :: euler_step_qtens_biharmonic_add_use_native_impl = .false.
@@ -2219,6 +2221,7 @@ end subroutine ALE_parametric_coords
   call euler_step_qdp_restore_select_impl()
   call euler_step_dssvar_restore_select_impl()
   call euler_step_dssvar_pack_select_impl()
+  call euler_step_gradq_prepare_select_impl()
   call euler_step_qtens_base_select_impl()
   call euler_step_qtens_biharmonic_add_select_impl()
 ! call t_barrierf('sync_euler_step', hybrid%par%comm)
@@ -2422,12 +2425,18 @@ end subroutine ALE_parametric_coords
       do k = 1 , nlev  !  dp_star used as temporary instead of divdp (AAM)
         ! div( U dp Q),
 
-        do j=1,np
-          do i=1,np
-            gradQ(i,j,1) = Vstar(i,j,1,k) * elem(ie)%state%Qdp(i,j,k,q,n0_qdp)
-            gradQ(i,j,2) = Vstar(i,j,2,k) * elem(ie)%state%Qdp(i,j,k,q,n0_qdp)
+        if (.not. euler_step_gradq_prepare_use_native_impl) then
+          call euler_step_gradq_prepare_apply_codon( &
+               Vstar(:,:,1,k), Vstar(:,:,2,k), elem(ie)%state%Qdp(:,:,k,q,n0_qdp), gradQ(:,:,1), gradQ(:,:,2) &
+          )
+        else
+          do j=1,np
+            do i=1,np
+              gradQ(i,j,1) = Vstar(i,j,1,k) * elem(ie)%state%Qdp(i,j,k,q,n0_qdp)
+              gradQ(i,j,2) = Vstar(i,j,2,k) * elem(ie)%state%Qdp(i,j,k,q,n0_qdp)
+            enddo
           enddo
-        enddo
+        endif
 
         ! dp_star(:,:,k) = divergence_sphere( gradQ , deriv , elem(ie) )
         call divergence_sphere( gradQ , deriv , elem(ie), dp_star(:,:,k) )
@@ -2726,6 +2735,28 @@ end subroutine ALE_parametric_coords
          int(np, c_int64_t), int(nlev, c_int64_t), c_loc(dssvar), c_loc(spheremp) &
     )
   end subroutine euler_step_dssvar_pack_apply_codon
+
+!-----------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
+
+  subroutine euler_step_gradq_prepare_apply_codon(vstar1, vstar2, qdp, gradq1, gradq2)
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    implicit none
+    real(kind=real_kind), target, intent(in) :: vstar1(np,np), vstar2(np,np), qdp(np,np)
+    real(kind=real_kind), target, intent(out) :: gradq1(np,np), gradq2(np,np)
+    interface
+       subroutine euler_step_gradq_prepare_codon(np_c, vstar1_p, vstar2_p, qdp_p, gradq1_p, gradq2_p) &
+            bind(c, name='euler_step_gradq_prepare_codon')
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: np_c
+         type(c_ptr), value :: vstar1_p, vstar2_p, qdp_p, gradq1_p, gradq2_p
+       end subroutine euler_step_gradq_prepare_codon
+    end interface
+
+    call euler_step_gradq_prepare_codon( &
+         int(np, c_int64_t), c_loc(vstar1), c_loc(vstar2), c_loc(qdp), c_loc(gradq1), c_loc(gradq2) &
+    )
+  end subroutine euler_step_gradq_prepare_apply_codon
 
 !-----------------------------------------------------------------------------
 !-----------------------------------------------------------------------------
@@ -4108,6 +4139,30 @@ end subroutine ALE_parametric_coords
 
     euler_step_dssvar_pack_impl_selected = .true.
   end subroutine euler_step_dssvar_pack_select_impl
+
+  subroutine euler_step_gradq_prepare_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (euler_step_gradq_prepare_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EULER_STEP_GRADQ_PREPARE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+      do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+          impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+      end do
+      euler_step_gradq_prepare_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+      euler_step_gradq_prepare_use_native_impl = .false.
+    end if
+
+    euler_step_gradq_prepare_impl_selected = .true.
+  end subroutine euler_step_gradq_prepare_select_impl
 
   subroutine euler_step_qtens_base_select_impl()
     character(len=32) :: impl_name

@@ -320,6 +320,28 @@ def euler_step_qtens_base_codon(
 
 
 @export
+def euler_step_gradq_prepare_codon(
+    np: int,
+    vstar1_p: cobj,
+    vstar2_p: cobj,
+    qdp_p: cobj,
+    gradq1_p: cobj,
+    gradq2_p: cobj,
+):
+    vstar1 = Ptr[float](vstar1_p)
+    vstar2 = Ptr[float](vstar2_p)
+    qdp = Ptr[float](qdp_p)
+    gradq1 = Ptr[float](gradq1_p)
+    gradq2 = Ptr[float](gradq2_p)
+
+    for j in range(1, np + 1):
+        for i in range(1, np + 1):
+            plane_idx = _plane_idx(i, j, np)
+            gradq1[plane_idx] = vstar1[plane_idx] * qdp[plane_idx]
+            gradq2[plane_idx] = vstar2[plane_idx] * qdp[plane_idx]
+
+
+@export
 def euler_step_qtens_biharmonic_add_codon(
     np: int,
     qtens_p: cobj,
