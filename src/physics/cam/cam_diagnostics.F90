@@ -14,6 +14,7 @@ use physics_buffer, only: physics_buffer_desc, pbuf_add_field, dtype_r8, dyn_tim
 
 
 use cam_history,    only: outfld, write_inithist, hist_fld_active
+use cam_logfile,    only: iulog
 use constituents,   only: pcnst, cnst_name, cnst_longname, cnst_cam_outfld, ptendnam, dmetendnam, apcnst, bpcnst, &
                           cnst_get_ind
 use dycore,         only: dycore_is
@@ -23,6 +24,7 @@ use time_manager,   only: is_first_step
 
 use scamMod,        only: single_column, wfld
 use cam_abortutils, only: endrun
+use spmd_utils,     only: masterproc
 
 use water_tracer_vars, only: trace_water, wtrc_nwset, wtrc_iatype, wtrc_srfvap_names, wtrc_srfpcp_indices, &
                              wtrc_out_names
@@ -100,6 +102,12 @@ integer  ::      snow_pcw_idx = 0
 
 
 integer :: tpert_idx=-1, qpert_idx=-1, pblh_idx=-1
+logical :: diag_surf_use_native_impl = .false.
+logical :: diag_surf_impl_selected = .false.
+logical :: diag_phys_writeout_use_native_impl = .false.
+logical :: diag_phys_writeout_impl_selected = .false.
+logical :: diag_physvar_ic_use_native_impl = .false.
+logical :: diag_physvar_ic_impl_selected = .false.
 
 contains
 
@@ -835,6 +843,8 @@ end subroutine diag_conv_tend_ini
     lchnk = state%lchnk
     ncol  = state%ncol
 
+    call diag_phys_writeout_select_impl()
+
     ! Output NSTEP for debugging
     nstep = get_nstep()
     timestep(:ncol) = nstep
@@ -875,9 +885,7 @@ end subroutine diag_conv_tend_ini
 !
 ! Add height of surface to midpoint height above surface
 !
-    do k = 1, pver
-       z3(:ncol,k) = state%zm(:ncol,k) + state%phis(:ncol)*rga
-    end do
+    call diag_phys_writeout_fill_z3(ncol, state%zm, state%phis, z3)
     call outfld('Z3      ',z3,pcols,lchnk)
 !
 ! Output Z3 on pressure surfaces
@@ -923,44 +931,44 @@ end subroutine diag_conv_tend_ini
 !
 ! Quadratic height fiels Z3*Z3
 !
-    ftem(:ncol,:) = z3(:ncol,:)*z3(:ncol,:)
+    call diag_phys_writeout_square_field(ncol, z3, ftem)
     call outfld('ZZ      ',ftem,pcols,lchnk)
 
-    ftem(:ncol,:) = z3(:ncol,:)*state%v(:ncol,:)*gravit
+    call diag_phys_writeout_mul_scalar_field(ncol, z3, state%v, gravit, ftem)
     call outfld('VZ      ',ftem,  pcols,lchnk)
 !
 ! Meridional advection fields
 !
-    ftem(:ncol,:) = state%v(:ncol,:)*state%t(:ncol,:)
+    call diag_phys_writeout_mul_field(ncol, state%v, state%t, ftem)
     call outfld ('VT      ',ftem    ,pcols   ,lchnk     )
 
 ! -- nanr
-    ftem(:ncol,:) = state%u(:ncol,:)*state%t(:ncol,:)
+    call diag_phys_writeout_mul_field(ncol, state%u, state%t, ftem)
     call outfld ('UT      ',ftem    ,pcols   ,lchnk     )
 
-    ftem(:ncol,:) = state%u(:ncol,:)*state%q(:ncol,:,1)
+    call diag_phys_writeout_mul_field(ncol, state%u, state%q(:,:,1), ftem)
     call outfld ('UQ      ',ftem    ,pcols   ,lchnk     )
 ! -- end
 
-    ftem(:ncol,:) = state%v(:ncol,:)*state%q(:ncol,:,1)
+    call diag_phys_writeout_mul_field(ncol, state%v, state%q(:,:,1), ftem)
     call outfld ('VQ      ',ftem    ,pcols   ,lchnk     )
 
-    ftem(:ncol,:) = state%q(:ncol,:,1)*state%q(:ncol,:,1)
+    call diag_phys_writeout_square_field(ncol, state%q(:,:,1), ftem)
     call outfld ('QQ      ',ftem    ,pcols   ,lchnk     )
 
-    ftem(:ncol,:) = state%v(:ncol,:)**2
+    call diag_phys_writeout_square_field(ncol, state%v, ftem)
     call outfld ('VV      ',ftem    ,pcols   ,lchnk     )
 
-    ftem(:ncol,:) = state%v(:ncol,:) * state%u(:ncol,:)
+    call diag_phys_writeout_mul_field(ncol, state%v, state%u, ftem)
     call outfld ('VU      ',ftem    ,pcols   ,lchnk     )
 
 ! zonal advection
 
-    ftem(:ncol,:) = state%u(:ncol,:)**2
+    call diag_phys_writeout_square_field(ncol, state%u, ftem)
     call outfld ('UU      ',ftem    ,pcols   ,lchnk     )
 
 ! Wind speed
-    ftem(:ncol,:) = sqrt( state%u(:ncol,:)**2 + state%v(:ncol,:)**2)
+    call diag_phys_writeout_wspeed_field(ncol, state%u, state%v, ftem)
     call outfld ('WSPEED  ',ftem    ,pcols   ,lchnk     )
     call outfld ('WSPDSRFMX',ftem(:,pver)   ,pcols   ,lchnk     )
     call outfld ('WSPDSRFAV',ftem(:,pver)   ,pcols   ,lchnk     )
@@ -977,15 +985,15 @@ end subroutine diag_conv_tend_ini
     call outfld('omega   ',state%omega,    pcols,   lchnk     )
 #endif
 
-    ftem(:ncol,:) = state%omega(:ncol,:)*state%t(:ncol,:)
+    call diag_phys_writeout_mul_field(ncol, state%omega, state%t, ftem)
     call outfld('OMEGAT  ',ftem,    pcols,   lchnk     )
-    ftem(:ncol,:) = state%omega(:ncol,:)*state%u(:ncol,:)
+    call diag_phys_writeout_mul_field(ncol, state%omega, state%u, ftem)
     call outfld('OMEGAU  ',ftem,    pcols,   lchnk     )
-    ftem(:ncol,:) = state%omega(:ncol,:)*state%v(:ncol,:)
+    call diag_phys_writeout_mul_field(ncol, state%omega, state%v, ftem)
     call outfld('OMEGAV  ',ftem,    pcols,   lchnk     )
-    ftem(:ncol,:) = state%omega(:ncol,:)*state%q(:ncol,:,1)
+    call diag_phys_writeout_mul_field(ncol, state%omega, state%q(:,:,1), ftem)
     call outfld('OMEGAQ  ',ftem,    pcols,   lchnk     )
-    ftem(:ncol,:) = state%omega(:ncol,:)*state%omega(:ncol,:)
+    call diag_phys_writeout_square_field(ncol, state%omega, ftem)
     call outfld('OMGAOMGA',ftem,    pcols,   lchnk     )
 !
 ! Output omega at 850 and 500 mb pressure levels
@@ -1007,13 +1015,9 @@ end subroutine diag_conv_tend_ini
 !
 ! Mass of q, by layer and vertically integrated
 !
-    ftem(:ncol,:) = state%q(:ncol,:,1) * state%pdel(:ncol,:) * rga
+    call diag_phys_writeout_mass_and_tmq(ncol, state%q(:,:,1), state%pdel, ftem, p_surf)
     call outfld ('MQ      ',ftem    ,pcols   ,lchnk     )
-
-    do k=2,pver
-       ftem(:ncol,1) = ftem(:ncol,1) + ftem(:ncol,k)
-    end do
-    call outfld ('TMQ     ',ftem, pcols   ,lchnk     )
+    call outfld ('TMQ     ',p_surf, pcols   ,lchnk     )
 
     !**********************
     !Water tracers/isotopes
@@ -1245,20 +1249,8 @@ end subroutine diag_conv_tend_ini
 
 ! Total energy of the atmospheric column for atmospheric heat storage calculations
 
-    !! temporary variable to get surface geopotential in dimensions of (ncol,pver)
-    do k=1,pver
-      ftem1(:ncol,k)=state%phis(:ncol)  !! surface geopotential in units (m2/s2)
-    end do
-
-    !! calculate sum of sensible, kinetic, latent, and surface geopotential energy
-    !! E=CpT+PHIS+Lv*q+(0.5)*(u^2+v^2)
-    ftem(:ncol,:) = (cpair*state%t(:ncol,:) +  ftem1(:ncol,:) + latvap*state%q(:ncol,:,1) + &
-         0.5_r8*(state%u(:ncol,:)**2+state%v(:ncol,:)**2))*(state%pdel(:ncol,:)/gravit)
-    !! vertically integrate
-    do k=2,pver
-	ftem(:ncol,1) = ftem(:ncol,1) + ftem(:ncol,k)
-    end do
-    call outfld ('ATMEINT   ',ftem(:ncol,1)  ,pcols   ,lchnk     )
+    call diag_phys_writeout_atmeint(ncol, state%t, state%q(:,:,1), state%u, state%v, state%pdel, state%phis, timestep)
+    call outfld ('ATMEINT   ',timestep  ,pcols   ,lchnk     )
 
 !! Boundary layer atmospheric stability, temperature, water vapor diagnostics
 
@@ -1396,6 +1388,303 @@ end subroutine diag_conv_tend_ini
   end subroutine diag_phys_writeout
 !===============================================================================
 
+  subroutine diag_phys_writeout_fill_z3(ncol, zm, phis, z3)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+    use physconst,     only: rga
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: zm(pcols,pver)
+    real(r8), target, intent(in) :: phis(pcols)
+    real(r8), target, intent(out) :: z3(pcols,pver)
+
+    integer :: k
+
+    interface
+       subroutine diag_phys_writeout_z3_codon(ncol_c, pcols_c, pver_c, rga_c, zm_p, phis_p, z3_p) &
+            bind(c, name="diag_phys_writeout_z3_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: rga_c
+         type(c_ptr), value :: zm_p, phis_p, z3_p
+       end subroutine diag_phys_writeout_z3_codon
+    end interface
+
+    if (diag_phys_writeout_use_native_impl) then
+       do k = 1, pver
+          z3(:ncol,k) = zm(:ncol,k) + phis(:ncol)*rga
+       end do
+       return
+    end if
+
+    call diag_phys_writeout_z3_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(rga, c_double), &
+         c_loc(zm), c_loc(phis), c_loc(z3) &
+    )
+
+  end subroutine diag_phys_writeout_fill_z3
+
+!===============================================================================
+
+  subroutine diag_phys_writeout_mul_field(ncol, a, b, out)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: a(pcols,pver), b(pcols,pver)
+    real(r8), target, intent(out) :: out(pcols,pver)
+
+    integer :: k
+
+    interface
+       subroutine diag_phys_writeout_mul_codon(ncol_c, pcols_c, pver_c, a_p, b_p, out_p) &
+            bind(c, name="diag_phys_writeout_mul_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: a_p, b_p, out_p
+       end subroutine diag_phys_writeout_mul_codon
+    end interface
+
+    if (diag_phys_writeout_use_native_impl) then
+       do k = 1, pver
+          out(:ncol,k) = a(:ncol,k) * b(:ncol,k)
+       end do
+       return
+    end if
+
+    call diag_phys_writeout_mul_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         c_loc(a), c_loc(b), c_loc(out) &
+    )
+
+  end subroutine diag_phys_writeout_mul_field
+
+!===============================================================================
+
+  subroutine diag_phys_writeout_mul_scalar_field(ncol, a, b, scale, out)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: a(pcols,pver), b(pcols,pver)
+    real(r8), intent(in) :: scale
+    real(r8), target, intent(out) :: out(pcols,pver)
+
+    integer :: k
+
+    interface
+       subroutine diag_phys_writeout_mul_scalar_codon(ncol_c, pcols_c, pver_c, scale_c, a_p, b_p, out_p) &
+            bind(c, name="diag_phys_writeout_mul_scalar_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: scale_c
+         type(c_ptr), value :: a_p, b_p, out_p
+       end subroutine diag_phys_writeout_mul_scalar_codon
+    end interface
+
+    if (diag_phys_writeout_use_native_impl) then
+       do k = 1, pver
+          out(:ncol,k) = a(:ncol,k) * b(:ncol,k) * scale
+       end do
+       return
+    end if
+
+    call diag_phys_writeout_mul_scalar_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(scale, c_double), &
+         c_loc(a), c_loc(b), c_loc(out) &
+    )
+
+  end subroutine diag_phys_writeout_mul_scalar_field
+
+!===============================================================================
+
+  subroutine diag_phys_writeout_square_field(ncol, a, out)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: a(pcols,pver)
+    real(r8), target, intent(out) :: out(pcols,pver)
+
+    integer :: k
+
+    interface
+       subroutine diag_phys_writeout_square_codon(ncol_c, pcols_c, pver_c, a_p, out_p) &
+            bind(c, name="diag_phys_writeout_square_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: a_p, out_p
+       end subroutine diag_phys_writeout_square_codon
+    end interface
+
+    if (diag_phys_writeout_use_native_impl) then
+       do k = 1, pver
+          out(:ncol,k) = a(:ncol,k) * a(:ncol,k)
+       end do
+       return
+    end if
+
+    call diag_phys_writeout_square_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         c_loc(a), c_loc(out) &
+    )
+
+  end subroutine diag_phys_writeout_square_field
+
+!===============================================================================
+
+  subroutine diag_phys_writeout_wspeed_field(ncol, u, v, out)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: u(pcols,pver), v(pcols,pver)
+    real(r8), target, intent(out) :: out(pcols,pver)
+
+    interface
+       subroutine diag_phys_writeout_wspeed_codon(ncol_c, pcols_c, pver_c, u_p, v_p, out_p) &
+            bind(c, name="diag_phys_writeout_wspeed_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: u_p, v_p, out_p
+       end subroutine diag_phys_writeout_wspeed_codon
+    end interface
+
+    if (diag_phys_writeout_use_native_impl) then
+       out(:ncol,:) = sqrt(u(:ncol,:)*u(:ncol,:) + v(:ncol,:)*v(:ncol,:))
+       return
+    end if
+
+    call diag_phys_writeout_wspeed_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         c_loc(u), c_loc(v), c_loc(out) &
+    )
+
+  end subroutine diag_phys_writeout_wspeed_field
+
+!===============================================================================
+
+  subroutine diag_phys_writeout_mass_and_tmq(ncol, q, pdel, mq, tmq)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+    use physconst,     only: rga
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: q(pcols,pver), pdel(pcols,pver)
+    real(r8), target, intent(out) :: mq(pcols,pver)
+    real(r8), target, intent(out) :: tmq(pcols)
+
+    integer :: k
+
+    interface
+       subroutine diag_phys_writeout_mass_and_tmq_codon(ncol_c, pcols_c, pver_c, rga_c, q_p, pdel_p, mq_p, tmq_p) &
+            bind(c, name="diag_phys_writeout_mass_and_tmq_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: rga_c
+         type(c_ptr), value :: q_p, pdel_p, mq_p, tmq_p
+       end subroutine diag_phys_writeout_mass_and_tmq_codon
+    end interface
+
+    if (diag_phys_writeout_use_native_impl) then
+       mq(:ncol,:) = q(:ncol,:) * pdel(:ncol,:) * rga
+       tmq(:ncol) = mq(:ncol,1)
+       do k = 2, pver
+          tmq(:ncol) = tmq(:ncol) + mq(:ncol,k)
+       end do
+       return
+    end if
+
+    call diag_phys_writeout_mass_and_tmq_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(rga, c_double), &
+         c_loc(q), c_loc(pdel), c_loc(mq), c_loc(tmq) &
+    )
+
+  end subroutine diag_phys_writeout_mass_and_tmq
+
+!===============================================================================
+
+  subroutine diag_phys_writeout_atmeint(ncol, t, q, u, v, pdel, phis, atmeint)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+    use physconst,     only: cpair, latvap, gravit
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: t(pcols,pver), q(pcols,pver), u(pcols,pver), v(pcols,pver), pdel(pcols,pver)
+    real(r8), target, intent(in) :: phis(pcols)
+    real(r8), target, intent(out) :: atmeint(pcols)
+
+    integer :: k
+    real(r8) :: work(pcols,pver)
+
+    interface
+       subroutine diag_phys_writeout_atmeint_codon(ncol_c, pcols_c, pver_c, cpair_c, latvap_c, gravit_c, &
+            t_p, q_p, u_p, v_p, pdel_p, phis_p, atmeint_p) bind(c, name="diag_phys_writeout_atmeint_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: cpair_c, latvap_c, gravit_c
+         type(c_ptr), value :: t_p, q_p, u_p, v_p, pdel_p, phis_p, atmeint_p
+       end subroutine diag_phys_writeout_atmeint_codon
+    end interface
+
+    if (diag_phys_writeout_use_native_impl) then
+       do k = 1, pver
+          work(:ncol,k) = (cpair*t(:ncol,k) + phis(:ncol) + latvap*q(:ncol,k) + &
+               0.5_r8*(u(:ncol,k)*u(:ncol,k) + v(:ncol,k)*v(:ncol,k))) * (pdel(:ncol,k)/gravit)
+       end do
+       atmeint(:ncol) = work(:ncol,1)
+       do k = 2, pver
+          atmeint(:ncol) = atmeint(:ncol) + work(:ncol,k)
+       end do
+       return
+    end if
+
+    call diag_phys_writeout_atmeint_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         real(cpair, c_double), real(latvap, c_double), real(gravit, c_double), &
+         c_loc(t), c_loc(q), c_loc(u), c_loc(v), c_loc(pdel), c_loc(phis), c_loc(atmeint) &
+    )
+
+  end subroutine diag_phys_writeout_atmeint
+
+!===============================================================================
+
+subroutine diag_phys_writeout_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (diag_phys_writeout_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('DIAG_PHYS_WRITEOUT_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      diag_phys_writeout_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      diag_phys_writeout_use_native_impl = .false.
+   end if
+
+   diag_phys_writeout_impl_selected = .true.
+
+   if (masterproc) then
+      if (diag_phys_writeout_use_native_impl) then
+         write(iulog,*) 'diag_phys_writeout implementation = native'
+      else
+         write(iulog,*) 'diag_phys_writeout implementation = codon'
+      end if
+   end if
+
+end subroutine diag_phys_writeout_select_impl
+
+!===============================================================================
+
 subroutine diag_conv(state, ztodt, pbuf)
 
 !-----------------------------------------------------------------------
@@ -1530,7 +1819,209 @@ end subroutine diag_conv
 
 !===============================================================================
 
+subroutine diag_surf_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (diag_surf_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('DIAG_SURF_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      diag_surf_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      diag_surf_use_native_impl = .false.
+   end if
+
+   diag_surf_impl_selected = .true.
+
+   if (masterproc) then
+      if (diag_surf_use_native_impl) then
+         write(iulog,*) 'diag_surf implementation = native'
+      else
+         write(iulog,*) 'diag_surf implementation = codon'
+      end if
+   end if
+
+end subroutine diag_surf_select_impl
+
+subroutine diag_physvar_ic_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (diag_physvar_ic_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('DIAG_PHYSVAR_IC_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      diag_physvar_ic_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      diag_physvar_ic_use_native_impl = .false.
+   end if
+
+   diag_physvar_ic_impl_selected = .true.
+
+   if (masterproc) then
+      if (diag_physvar_ic_use_native_impl) then
+         write(iulog,*) 'diag_physvar_ic implementation = native'
+      else
+         write(iulog,*) 'diag_physvar_ic implementation = codon'
+      end if
+   end if
+
+end subroutine diag_physvar_ic_select_impl
+
 subroutine diag_surf (cam_in, cam_out, ps, trefmxav, trefmnav )
+
+!-----------------------------------------------------------------------
+!
+! Purpose: record surface diagnostics
+!
+!-----------------------------------------------------------------------
+
+   use iso_c_binding,   only: c_double, c_int64_t, c_loc, c_ptr
+   use time_manager,     only: is_end_curr_day
+   use co2_cycle,        only: c_i, co2_transport
+   use constituents,     only: sflxnam
+
+!-----------------------------------------------------------------------
+!
+! Input arguments
+!
+    type(cam_in_t),  target, intent(in) :: cam_in
+    type(cam_out_t), intent(in) :: cam_out
+
+    real(r8), target, intent(inout) :: trefmnav(pcols) ! daily minimum tref
+    real(r8), target, intent(inout) :: trefmxav(pcols) ! daily maximum tref
+
+    real(r8), intent(in)    :: ps(pcols)       ! Surface pressure.
+!
+!---------------------------Local workspace-----------------------------
+!
+    integer :: i, k, m      ! indexes
+    integer :: lchnk        ! chunk identifier
+    integer :: ncol         ! longitude dimension
+    real(r8), target :: tem2(pcols)    ! temporary workspace
+    real(r8), target :: ftem(pcols)    ! temporary workspace
+    real(r8), target :: trefmx_day(pcols)
+    real(r8), target :: trefmn_day(pcols)
+    interface
+       subroutine diag_surf_codon(ncol_c, pcols_c, end_day_c, qref_p, rhref_p, tref_p, &
+            trefmxav_p, trefmnav_p, trefmx_day_p, trefmn_day_p) bind(c, name="diag_surf_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, end_day_c
+         type(c_ptr), value :: qref_p, rhref_p, tref_p, trefmxav_p, trefmnav_p, trefmx_day_p, trefmn_day_p
+       end subroutine diag_surf_codon
+    end interface
+!
+!-----------------------------------------------------------------------
+!
+    call diag_surf_select_impl()
+
+    if (diag_surf_use_native_impl) then
+       call diag_surf_native(cam_in, cam_out, ps, trefmxav, trefmnav)
+       return
+    end if
+
+    lchnk = cam_in%lchnk
+    ncol  = cam_in%ncol
+
+    call outfld('SHFLX',    cam_in%shf,       pcols, lchnk)
+    call outfld('LHFLX',    cam_in%lhf,       pcols, lchnk)
+    call outfld('QFLX',     cam_in%cflx(1,1), pcols, lchnk)
+
+    call outfld('TAUX',     cam_in%wsx,       pcols, lchnk)
+    call outfld('TAUY',     cam_in%wsy,       pcols, lchnk)
+    call outfld('TREFHT  ', cam_in%tref,      pcols, lchnk)
+    call outfld('TREFHTMX', cam_in%tref,      pcols, lchnk)
+    call outfld('TREFHTMN', cam_in%tref,      pcols, lchnk)
+    call outfld('QREFHT',   cam_in%qref,      pcols, lchnk)
+    call outfld('U10',      cam_in%u10,       pcols, lchnk)
+
+    ! Water tracers:
+    if(trace_water) then
+      do m=1,wtrc_nwset
+        call outfld ('QFLX_'//trim(wtrc_out_names(m)), cam_in%cflx(1,wtrc_iatype(m,iwtvap)), pcols, lchnk)
+      end do
+
+      call outfld('buckH',  cam_in%buckH, pcols, lchnk)
+      call outfld('buckD',  cam_in%buckD, pcols, lchnk)
+      call outfld('buck16', cam_in%buck16, pcols, lchnk)
+      call outfld('buck18', cam_in%buck18, pcols, lchnk)
+    end if
+
+!
+! Calculate and output reference height RH (RHREFHT)
+
+   call qsat(cam_in%tref(:ncol), ps(:ncol), tem2(:ncol), ftem(:ncol))
+   trefmx_day(:) = trefmxav(:)
+   trefmn_day(:) = trefmnav(:)
+   call diag_surf_codon( &
+        int(ncol, c_int64_t), int(pcols, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, is_end_curr_day()), &
+        c_loc(cam_in%qref), c_loc(ftem), c_loc(cam_in%tref), &
+        c_loc(trefmxav), c_loc(trefmnav), c_loc(trefmx_day), c_loc(trefmn_day) &
+   )
+
+
+    call outfld('RHREFHT',   ftem,      pcols, lchnk)
+
+
+#if (defined BFB_CAM_SCAM_IOP )
+    call outfld('shflx   ',cam_in%shf,   pcols,   lchnk)
+    call outfld('lhflx   ',cam_in%lhf,   pcols,   lchnk)
+    call outfld('trefht  ',cam_in%tref,  pcols,   lchnk)
+#endif
+!
+! Ouput ocn and ice fractions
+!
+    call outfld('LANDFRAC', cam_in%landfrac, pcols, lchnk)
+    call outfld('ICEFRAC',  cam_in%icefrac,  pcols, lchnk)
+    call outfld('OCNFRAC',  cam_in%ocnfrac,  pcols, lchnk)
+!
+! Compute daily minimum and maximum of TREF
+!
+    if (is_end_curr_day()) then
+       call outfld('TREFMXAV', trefmx_day,pcols,   lchnk     )
+       call outfld('TREFMNAV', trefmn_day,pcols,   lchnk     )
+    endif
+
+    call outfld('TBOT',     cam_out%tbot,     pcols, lchnk)
+    call outfld('TS',       cam_in%ts,        pcols, lchnk)
+    call outfld('TSMN',     cam_in%ts,        pcols, lchnk)
+    call outfld('TSMX',     cam_in%ts,        pcols, lchnk)
+    call outfld('SNOWHLND', cam_in%snowhland, pcols, lchnk)
+    call outfld('SNOWHICE', cam_in%snowhice,  pcols, lchnk)
+    call outfld('ASDIR',    cam_in%asdir,     pcols, lchnk)
+    call outfld('ASDIF',    cam_in%asdif,     pcols, lchnk)
+    call outfld('ALDIR',    cam_in%aldir,     pcols, lchnk)
+    call outfld('ALDIF',    cam_in%aldif,     pcols, lchnk)
+    call outfld('SST',      cam_in%sst,       pcols, lchnk)
+
+    if (co2_transport()) then
+       do m = 1,4
+          call outfld(sflxnam(c_i(m)), cam_in%cflx(:,c_i(m)), pcols, lchnk)
+       end do
+    end if
+
+end subroutine diag_surf
+
+subroutine diag_surf_native (cam_in, cam_out, ps, trefmxav, trefmnav )
 
 !-----------------------------------------------------------------------
 !
@@ -1644,7 +2135,7 @@ subroutine diag_surf (cam_in, cam_out, ps, trefmxav, trefmnav )
        end do
     end if
 
-end subroutine diag_surf
+end subroutine diag_surf_native
 
 !===============================================================================
 
@@ -1724,6 +2215,47 @@ end subroutine diag_export
 
    type(cam_out_t), intent(inout) :: cam_out
    type(cam_in_t),  intent(inout) :: cam_in
+   interface
+      subroutine diag_physvar_ic_codon() bind(c, name="diag_physvar_ic_codon")
+      end subroutine diag_physvar_ic_codon
+   end interface
+!
+!-----------------------------------------------------------------------
+!
+   call diag_physvar_ic_select_impl()
+
+   if (diag_physvar_ic_use_native_impl) then
+      call diag_physvar_ic_native(lchnk, pbuf, cam_out, cam_in)
+      return
+   end if
+
+   if (write_inithist()) then
+      call diag_physvar_ic_native(lchnk, pbuf, cam_out, cam_in)
+      return
+   end if
+
+   call diag_physvar_ic_codon()
+
+   end subroutine diag_physvar_ic
+
+!#######################################################################
+
+   subroutine diag_physvar_ic_native (lchnk,  pbuf, cam_out, cam_in)
+!
+!---------------------------------------------
+!
+! Purpose: record physics variables on IC file
+!
+!---------------------------------------------
+!
+!
+! Arguments
+!
+   integer       , intent(in) :: lchnk  ! chunk identifier
+   type(physics_buffer_desc), pointer :: pbuf(:)
+
+   type(cam_out_t), intent(inout) :: cam_out
+   type(cam_in_t),  intent(inout) :: cam_in
 !
 !---------------------------Local workspace-----------------------------
 !
@@ -1790,7 +2322,7 @@ end subroutine diag_export
 
    end if
 
-   end subroutine diag_physvar_ic
+   end subroutine diag_physvar_ic_native
 
 
 !#######################################################################

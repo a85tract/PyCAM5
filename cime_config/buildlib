@@ -85,6 +85,7 @@ def _build_cam():
         _build_codon_lib(srcroot, "tracers")
         _build_codon_lib(srcroot, "qbo")
         _build_codon_lib(srcroot, "flux_avg")
+        _build_codon_lib(srcroot, "cam_diagnostics")
 
         #-------------------------------------------------------
         # Filepath is created in caseroot/camconf by the call
