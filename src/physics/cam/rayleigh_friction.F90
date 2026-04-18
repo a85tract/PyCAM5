@@ -46,10 +46,12 @@ module rayleigh_friction
   ! 
   ! Private data
   !
-  real (r8) :: krange         ! range of rayleigh friction profile 
-  real (r8) :: tau0           ! approximate value of decay time at model top
-  real (r8) :: otau0          ! inverse of tau0
-  real (r8) :: otau(pver)     ! inverse decay time versus vertical level
+  logical :: use_native_impl = .false.
+  logical :: impl_selected = .false.
+  real (r8), target :: krange         ! range of rayleigh friction profile
+  real (r8), target :: tau0           ! approximate value of decay time at model top
+  real (r8), target :: otau0          ! inverse of tau0
+  real (r8), target :: otau(pver)     ! inverse decay time versus vertical level
 
   ! We apply a profile of the form otau0 * [1 + tanh (x)] / 2 , where
   ! x = (k0 - k) / krange. The default is for x to equal 2 at k=1, meaning
@@ -59,7 +61,91 @@ module rayleigh_friction
 contains
 
   !===============================================================================
+  subroutine rayleigh_friction_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('RAYLEIGH_FRICTION_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_impl = .false.
+       impl_name = 'codon'
+    end if
+
+    impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_impl) then
+          write(iulog,*) 'Rayleigh friction implementation = native'
+       else
+          write(iulog,*) 'Rayleigh friction implementation = codon'
+       end if
+    end if
+  end subroutine rayleigh_friction_select_impl
+
+  !===============================================================================
   subroutine rayleigh_friction_init()
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    !------------------------------Arguments--------------------------------
+    interface
+      subroutine rayleigh_friction_init_codon(rayk0_c, raykrange_c, raytau0_c, pver_c, &
+           krange_p, tau0_p, otau0_p, otau_p) bind(c, name="rayleigh_friction_init_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: rayk0_c
+        real(c_double), value :: raykrange_c, raytau0_c
+        integer(c_int64_t), value :: pver_c
+        type(c_ptr), value :: krange_p, tau0_p, otau0_p, otau_p
+      end subroutine rayleigh_friction_init_codon
+    end interface
+
+    !---------------------------Local storage-------------------------------
+    integer k
+
+    !-----------------------------------------------------------------------
+    ! Compute tau array
+    !-----------------------------------------------------------------------
+    call rayleigh_friction_select_impl()
+
+    if (use_native_impl) then
+       call rayleigh_friction_init_native()
+       return
+    end if
+
+    call rayleigh_friction_init_codon( &
+         int(rayk0, c_int64_t), real(raykrange, c_double), real(raytau0, c_double), int(pver, c_int64_t), &
+         c_loc(krange), c_loc(tau0), c_loc(otau0), c_loc(otau) &
+    )
+
+    if (masterproc) then
+       write (iulog,*) 'Rayleigh friction - rayk0 = ', rayk0
+       write (iulog,*) 'Rayleigh friction - raykrange = ', raykrange
+       write (iulog,*) 'Rayleigh friction - raytau0 = ', raytau0
+       write (iulog,*) 'Rayleigh friction - krange = ', krange
+       write (iulog,*) 'Rayleigh friction - otau0 = ', otau0
+       write (iulog,*) 'Rayleigh friction decay rate profile'
+       do k = 1, pver
+          write (iulog,*) '   k = ', k, '   otau = ', otau(k)
+       enddo
+    end if
+
+    return
+
+  end subroutine rayleigh_friction_init
+
+  !===============================================================================
+  subroutine rayleigh_friction_init_native()
     !------------------------------Arguments--------------------------------
 
     !---------------------------Local storage-------------------------------
@@ -96,10 +182,58 @@ contains
 
     return
 
-  end subroutine rayleigh_friction_init
+  end subroutine rayleigh_friction_init_native
   
 !=========================================================================================
   subroutine rayleigh_friction_tend(                                     &
+       ztodt    ,state    ,ptend    )
+    !-----------------------------------------------------------------------
+    ! interface routine for rayleigh friction
+    !-----------------------------------------------------------------------
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+    use physics_types, only: physics_state, physics_ptend, physics_ptend_init
+
+
+    !------------------------------Arguments--------------------------------
+    real(r8), intent(in) :: ztodt                  ! physics timestep
+    type(physics_state), target, intent(in)  :: state      ! physics state variables
+    
+    type(physics_ptend), target, intent(out) :: ptend      ! individual parameterization tendencies
+    !
+    !---------------------------Local storage-------------------------------
+    interface
+      subroutine rayleigh_friction_tend_codon(ztodt_c, pver_c, psetcols_c, ncol_c, &
+           otau_p, state_u_p, state_v_p, ptend_u_p, ptend_v_p, ptend_s_p) &
+           bind(c, name="rayleigh_friction_tend_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        real(c_double), value :: ztodt_c
+        integer(c_int64_t), value :: pver_c, psetcols_c, ncol_c
+        type(c_ptr), value :: otau_p, state_u_p, state_v_p, ptend_u_p, ptend_v_p, ptend_s_p
+      end subroutine rayleigh_friction_tend_codon
+    end interface
+    !-----------------------------------------------------------------------
+
+    call rayleigh_friction_select_impl()
+
+    if (use_native_impl) then
+       call rayleigh_friction_tend_native(ztodt, state, ptend)
+       return
+    end if
+
+    call physics_ptend_init(ptend, state%psetcols, 'rayleigh friction', ls=.true., lu=.true., lv=.true.)
+
+    if (otau0 .eq. 0._r8) return
+
+    call rayleigh_friction_tend_codon( &
+         real(ztodt, c_double), int(pver, c_int64_t), int(state%psetcols, c_int64_t), int(state%ncol, c_int64_t), &
+         c_loc(otau), c_loc(state%u), c_loc(state%v), c_loc(ptend%u), c_loc(ptend%v), c_loc(ptend%s) &
+    )
+
+    return
+  end subroutine rayleigh_friction_tend
+
+!=========================================================================================
+  subroutine rayleigh_friction_tend_native(                                     &
        ztodt    ,state    ,ptend    )
     !-----------------------------------------------------------------------
     ! interface routine for rayleigh friction
@@ -139,6 +273,6 @@ contains
     enddo
 
     return
-  end subroutine rayleigh_friction_tend
+  end subroutine rayleigh_friction_tend_native
 
 end module rayleigh_friction

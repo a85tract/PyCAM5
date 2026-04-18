@@ -76,6 +76,8 @@ def _build_cam():
         gmake = case.get_value("GMAKE")
         mach = case.get_value("MACH")
 
+        _build_codon_lib(srcroot, "rayleigh_friction")
+
         #-------------------------------------------------------
         # Filepath is created in caseroot/camconf by the call
         # to buildcpp - this needs to be copied to bldroot
