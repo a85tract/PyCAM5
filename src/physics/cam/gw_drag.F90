@@ -131,6 +131,10 @@ module gw_drag
 
   ! namelist 
   logical          :: history_amwg                   ! output the variables used by the AMWG diag package
+  logical          :: use_native_tend_impl = .false.
+  logical          :: gw_tend_impl_selected = .false.
+  integer          :: gw_tend_branch_mask = 0
+  logical          :: gw_tend_branch_selected = .false.
 
 !==========================================================================
 contains
@@ -882,6 +886,12 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
 
   ! Which constituents are being affected by diffusion.
   logical  :: lq(pcnst)
+  logical  :: do_molec_diff_local
+  logical  :: use_gw_convect_dp_local
+  logical  :: use_gw_convect_sh_local
+  logical  :: use_gw_front_local
+  logical  :: use_gw_front_igw_local
+  logical  :: use_gw_oro_local
 
   ! Contiguous copies of state arrays.
   real(r8) :: dse(state%ncol,pver)
@@ -893,6 +903,25 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
   real(r8) :: zm(state%ncol,pver)
 
   !------------------------------------------------------------------------
+
+  call gw_tend_select_impl()
+  if (.not. use_native_tend_impl) then
+     call gw_tend_select_branches(do_molec_diff, use_gw_convect_dp, use_gw_convect_sh, &
+          use_gw_front, use_gw_front_igw, use_gw_oro)
+     do_molec_diff_local = iand(gw_tend_branch_mask, 1) /= 0
+     use_gw_convect_dp_local = iand(gw_tend_branch_mask, 2) /= 0
+     use_gw_convect_sh_local = iand(gw_tend_branch_mask, 4) /= 0
+     use_gw_front_local = iand(gw_tend_branch_mask, 8) /= 0
+     use_gw_front_igw_local = iand(gw_tend_branch_mask, 16) /= 0
+     use_gw_oro_local = iand(gw_tend_branch_mask, 32) /= 0
+  else
+     do_molec_diff_local = do_molec_diff
+     use_gw_convect_dp_local = use_gw_convect_dp
+     use_gw_convect_sh_local = use_gw_convect_sh
+     use_gw_front_local = use_gw_front
+     use_gw_front_igw_local = use_gw_front_igw
+     use_gw_oro_local = use_gw_oro
+  end if
 
   lchnk = state%lchnk
   ncol  = state%ncol
@@ -914,7 +943,7 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
   ! Profiles of background state variables
   call gw_prof(ncol, p, cpair, t, rhoi, nm, ni)
 
-  if (do_molec_diff) then
+  if (do_molec_diff_local) then
      !--------------------------------------------------------
      ! Initialize and calculate local molecular diffusivity
      !--------------------------------------------------------
@@ -941,7 +970,7 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
 
   end if
 
-  if (use_gw_front_igw) then
+  if (use_gw_front_igw_local) then
      u_coriolis = coriolis_speed(band_long, state%lat(:ncol))
   end if
 
@@ -949,7 +978,7 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
   egwdffi_tot = 0._r8
   flx_heat = 0._r8
   
-  if (use_gw_convect_dp) then
+  if (use_gw_convect_dp_local) then
      !------------------------------------------------------------------
      ! Convective gravity waves (Beres scheme, deep).
      !------------------------------------------------------------------
@@ -1033,7 +1062,7 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
 
   end if
 
-  if (use_gw_convect_sh) then
+  if (use_gw_convect_sh_local) then
      !------------------------------------------------------------------
      ! Convective gravity waves (Beres scheme, shallow).
      !------------------------------------------------------------------
@@ -1113,7 +1142,7 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
 
   end if
 
-  if (use_gw_front .or. use_gw_front_igw) then
+  if (use_gw_front_local .or. use_gw_front_igw_local) then
      ! Get frontogenesis physics buffer fields set by dynamics.
      call pbuf_get_field(pbuf, frontgf_idx, frontgf)
      call pbuf_get_field(pbuf, frontga_idx, frontga)
@@ -1123,7 +1152,7 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
      call outfld ('FRONTGFA', frontga, pcols, lchnk)
   end if
 
-  if (use_gw_front) then
+  if (use_gw_front_local) then
      !------------------------------------------------------------------
      ! Frontally generated gravity waves
      !------------------------------------------------------------------
@@ -1196,7 +1225,7 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
 
   end if
 
-  if (use_gw_front_igw) then
+  if (use_gw_front_igw_local) then
      !------------------------------------------------------------------
      ! Frontally generated inertial gravity waves
      !------------------------------------------------------------------
@@ -1270,7 +1299,7 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
 
   end if
 
-  if (use_gw_oro) then
+  if (use_gw_oro_local) then
      !---------------------------------------------------------------------
      ! Orographic stationary gravity waves
      !---------------------------------------------------------------------
@@ -1359,6 +1388,88 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
   call p%finalize()
 
 end subroutine gw_tend
+
+!==========================================================================
+
+subroutine gw_tend_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (gw_tend_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('GW_TEND_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_tend_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_tend_impl = .false.
+  end if
+
+  gw_tend_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_tend_impl) then
+        write(iulog,*) 'gw_tend implementation = native'
+     else
+        write(iulog,*) 'gw_tend implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine gw_tend_select_impl
+
+!==========================================================================
+
+subroutine gw_tend_select_branches(do_molec_diff_in, use_gw_convect_dp_in, use_gw_convect_sh_in, &
+     use_gw_front_in, use_gw_front_igw_in, use_gw_oro_in)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+  logical, intent(in) :: do_molec_diff_in
+  logical, intent(in) :: use_gw_convect_dp_in
+  logical, intent(in) :: use_gw_convect_sh_in
+  logical, intent(in) :: use_gw_front_in
+  logical, intent(in) :: use_gw_front_igw_in
+  logical, intent(in) :: use_gw_oro_in
+
+  integer(c_int64_t), target :: branch_mask
+
+  interface
+     subroutine gw_tend_select_branches_codon(do_molec_diff_c, use_gw_convect_dp_c, use_gw_convect_sh_c, &
+          use_gw_front_c, use_gw_front_igw_c, use_gw_oro_c, branch_mask_p) &
+          bind(c, name="gw_tend_select_branches_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: do_molec_diff_c, use_gw_convect_dp_c, use_gw_convect_sh_c
+       integer(c_int64_t), value :: use_gw_front_c, use_gw_front_igw_c, use_gw_oro_c
+       type(c_ptr), value :: branch_mask_p
+     end subroutine gw_tend_select_branches_codon
+  end interface
+
+  if (gw_tend_branch_selected) return
+
+  branch_mask = 0_c_int64_t
+  call gw_tend_select_branches_codon( &
+       merge(1_c_int64_t, 0_c_int64_t, do_molec_diff_in), &
+       merge(1_c_int64_t, 0_c_int64_t, use_gw_convect_dp_in), &
+       merge(1_c_int64_t, 0_c_int64_t, use_gw_convect_sh_in), &
+       merge(1_c_int64_t, 0_c_int64_t, use_gw_front_in), &
+       merge(1_c_int64_t, 0_c_int64_t, use_gw_front_igw_in), &
+       merge(1_c_int64_t, 0_c_int64_t, use_gw_oro_in), &
+       c_loc(branch_mask) &
+  )
+
+  gw_tend_branch_mask = int(branch_mask)
+  gw_tend_branch_selected = .true.
+
+end subroutine gw_tend_select_branches
 
 !==========================================================================
 
