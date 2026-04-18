@@ -81,6 +81,7 @@ def _build_cam():
         _build_codon_lib(srcroot, "qneg3")
         _build_codon_lib(srcroot, "qneg4")
         _build_codon_lib(srcroot, "radheat")
+        _build_codon_lib(srcroot, "aoa_tracers")
 
         #-------------------------------------------------------
         # Filepath is created in caseroot/camconf by the call

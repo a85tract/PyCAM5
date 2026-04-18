@@ -44,6 +44,10 @@ module aoa_tracers
   ! Data from namelist variables
   logical :: aoa_tracers_flag  = .false.    ! true => turn on test tracer code, namelist variable
   logical :: aoa_read_from_ic_file = .true. ! true => tracers initialized from IC file
+  logical :: use_native_impl = .false.
+  logical :: impl_selected = .false.
+  logical :: use_native_tstep_init_impl = .false.
+  logical :: tstep_init_impl_selected = .false.
   
   real(r8),  parameter ::  treldays = 15._r8
   real(r8),  parameter ::  vert_offset = 10._r8
@@ -66,7 +70,7 @@ module aoa_tracers
   ! Troposphere and Stratosphere. J. Atmos. Sci., 57, 673–699.
   ! doi: http://dx.doi.org/10.1175/1520-0469(2000)057<0673:TDOGAI>2.0.CO;2
 
-  real(r8) :: qrel_vert(pver)  ! = -7._r8*log(pref_mid_norm(k)) + vert_offset
+  real(r8), target :: qrel_vert(pver)  ! = -7._r8*log(pref_mid_norm(k)) + vert_offset
 
 !===============================================================================
 contains
@@ -238,12 +242,103 @@ contains
     ! Provides a place to reinitialize diagnostic constituents HORZ and VERT
     !-----------------------------------------------------------------------
 
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
     use time_manager,   only: get_curr_date
     use ppgrid,         only: begchunk, endchunk
     use physics_types,  only: physics_state
 
-    type(physics_state), intent(inout), dimension(begchunk:endchunk), optional :: phys_state    
+    type(physics_state), target, intent(inout), dimension(begchunk:endchunk), optional :: phys_state    
 
+
+    integer c, ncol
+    integer yr, mon, day, tod
+    interface
+       subroutine aoa_tracers_tstep_init_codon(ncol_c, pcols_c, pver_c, ixht_c, ixvt_c, &
+            qrel_vert_p, state_lat_p, state_q_p) bind(c, name="aoa_tracers_tstep_init_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, ixht_c, ixvt_c
+         type(c_ptr), value :: qrel_vert_p, state_lat_p, state_q_p
+       end subroutine aoa_tracers_tstep_init_codon
+    end interface
+    !--------------------------------------------------------------------------
+
+    if (.not. aoa_tracers_flag) return
+
+    call aoa_tracers_tstep_init_select_impl()
+
+    if (use_native_tstep_init_impl) then
+       call aoa_tracers_timestep_init_native(phys_state)
+       return
+    end if
+
+    call get_curr_date (yr,mon,day,tod)
+
+    if ( day == 1 .and. tod == 0) then
+       if (masterproc) then
+         write(iulog,*) 'AGE_OF_AIR_CONSTITUENTS: RE-INITIALIZING HORZ/VERT CONSTITUENTS'
+       endif
+
+       do c = begchunk, endchunk
+          ncol = phys_state(c)%ncol
+          call aoa_tracers_tstep_init_codon( &
+               int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+               int(ixht, c_int64_t), int(ixvt, c_int64_t), c_loc(qrel_vert), &
+               c_loc(phys_state(c)%lat), c_loc(phys_state(c)%q) &
+          )
+       end do
+
+    end if
+
+  end subroutine aoa_tracers_timestep_init
+
+!===============================================================================
+
+  subroutine aoa_tracers_tstep_init_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (tstep_init_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('AOA_TRACERS_TSTEP_INIT_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_tstep_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_tstep_init_impl = .false.
+    end if
+
+    tstep_init_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_tstep_init_impl) then
+          write(iulog,*) 'aoa_tracers_timestep_init implementation = native'
+       else
+          write(iulog,*) 'aoa_tracers_timestep_init implementation = codon'
+       end if
+    end if
+
+  end subroutine aoa_tracers_tstep_init_select_impl
+
+!===============================================================================
+
+  subroutine aoa_tracers_timestep_init_native( phys_state )
+    !-----------------------------------------------------------------------
+    ! Provides a place to reinitialize diagnostic constituents HORZ and VERT
+    !-----------------------------------------------------------------------
+
+    use time_manager,   only: get_curr_date
+    use ppgrid,         only: begchunk, endchunk
+    use physics_types,  only: physics_state
+
+    type(physics_state), intent(inout), dimension(begchunk:endchunk), optional :: phys_state
 
     integer c, i, k, ncol
     integer yr, mon, day, tod
@@ -270,11 +365,116 @@ contains
 
     end if
 
-  end subroutine aoa_tracers_timestep_init
+  end subroutine aoa_tracers_timestep_init_native
+
+!===============================================================================
+
+  subroutine aoa_tracers_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('AOA_TRACERS_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_impl = .false.
+    end if
+
+    impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_impl) then
+          write(iulog,*) 'aoa_tracers implementation = native'
+       else
+          write(iulog,*) 'aoa_tracers implementation = codon'
+       end if
+    end if
+
+  end subroutine aoa_tracers_select_impl
 
 !===============================================================================
 
   subroutine aoa_tracers_timestep_tend(state, ptend, cflx, landfrac, dt)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+    use physics_types, only: physics_state, physics_ptend, physics_ptend_init
+    use cam_history,   only: outfld
+    use time_manager,  only: get_nstep
+
+    ! Arguments
+    type(physics_state), target, intent(in)    :: state              ! state variables
+    type(physics_ptend), target, intent(out)   :: ptend              ! package tendencies
+    real(r8), target, intent(inout) :: cflx(pcols,pcnst)  ! Surface constituent flux (kg/m^2/s)
+    real(r8), target, intent(in)    :: landfrac(pcols)    ! Land fraction
+    real(r8),            intent(in)    :: dt                 ! timestep
+
+    integer :: nstep                          ! current timestep number
+    integer :: lchnk                          ! chunk identifier
+    logical  :: lq(pcnst)
+    interface
+       subroutine aoa_tracers_timestep_tend_codon(ncol_c, pcols_c, pver_c, pcnst_c, psetcols_c, &
+            ixaoa1_c, ixaoa2_c, ixht_c, ixvt_c, nstep_c, dt_c, qrel_vert_p, state_lat_p, &
+            state_q_p, ptend_q_p, cflx_p, landfrac_p) bind(c, name="aoa_tracers_timestep_tend_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, psetcols_c
+         integer(c_int64_t), value :: ixaoa1_c, ixaoa2_c, ixht_c, ixvt_c, nstep_c
+         real(c_double), value :: dt_c
+         type(c_ptr), value :: qrel_vert_p, state_lat_p, state_q_p, ptend_q_p, cflx_p, landfrac_p
+       end subroutine aoa_tracers_timestep_tend_codon
+    end interface
+
+    if (.not. aoa_tracers_flag) then
+       call physics_ptend_init(ptend,state%psetcols,'none') !Initialize an empty ptend for use with physics_update
+       return
+    end if
+
+    call aoa_tracers_select_impl()
+
+    if (use_native_impl) then
+       call aoa_tracers_timestep_tend_native(state, ptend, cflx, landfrac, dt)
+       return
+    end if
+
+    lq(:)      = .FALSE.
+    lq(ixaoa1) = .TRUE.
+    lq(ixaoa2) = .TRUE.
+    lq(ixht)   = .TRUE.
+    lq(ixvt)   = .TRUE.
+    call physics_ptend_init(ptend,state%psetcols, 'aoa_tracers', lq=lq)
+
+    nstep = get_nstep()
+    lchnk = state%lchnk
+
+    call aoa_tracers_timestep_tend_codon( &
+         int(state%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(pcnst, c_int64_t), int(state%psetcols, c_int64_t), &
+         int(ixaoa1, c_int64_t), int(ixaoa2, c_int64_t), int(ixht, c_int64_t), int(ixvt, c_int64_t), &
+         int(nstep, c_int64_t), real(dt, c_double), c_loc(qrel_vert), c_loc(state%lat), &
+         c_loc(state%q), c_loc(ptend%q), c_loc(cflx), c_loc(landfrac) &
+    )
+
+    ! record tendencies on history files
+    call outfld (src_names(1), ptend%q(:,:,ixaoa1), pcols, lchnk)
+    call outfld (src_names(2), ptend%q(:,:,ixaoa2), pcols, lchnk)
+    call outfld (src_names(3), ptend%q(:,:,ixht),   pcols, lchnk)
+    call outfld (src_names(4), ptend%q(:,:,ixvt),   pcols, lchnk)
+
+  end subroutine aoa_tracers_timestep_tend
+
+!===============================================================================
+
+  subroutine aoa_tracers_timestep_tend_native(state, ptend, cflx, landfrac, dt)
 
     use physics_types, only: physics_state, physics_ptend, physics_ptend_init
     use phys_grid,     only: get_rlat_all_p , get_lat_all_p
@@ -372,7 +572,7 @@ contains
 
     end do
 
-  end subroutine aoa_tracers_timestep_tend
+  end subroutine aoa_tracers_timestep_tend_native
 
 !===========================================================================
 
