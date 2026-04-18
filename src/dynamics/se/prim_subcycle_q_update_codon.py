@@ -809,24 +809,16 @@ def divergence_sphere_codon(
             div[plane_idx] = (div[plane_idx] + vvtemp[plane_idx]) * (rmetdet[plane_idx] * rrearth)
 
 
-@export
-def divergence_sphere_wk_codon(
+def _divergence_sphere_wk_vec(
     np: int,
     rrearth: float,
-    v_p: cobj,
-    dvv_p: cobj,
-    spheremp_p: cobj,
-    dinv_p: cobj,
-    vtemp_p: cobj,
-    div_p: cobj,
+    v: Ptr[float],
+    dvv: Ptr[float],
+    spheremp: Ptr[float],
+    dinv: Ptr[float],
+    vtemp: Ptr[float],
+    div: Ptr[float],
 ):
-    v = Ptr[float](v_p)
-    dvv = Ptr[float](dvv_p)
-    spheremp = Ptr[float](spheremp_p)
-    dinv = Ptr[float](dinv_p)
-    vtemp = Ptr[float](vtemp_p)
-    div = Ptr[float](div_p)
-
     for j in range(1, np + 1):
         for i in range(1, np + 1):
             v1 = v[_vec2_idx(i, j, 1, np)]
@@ -849,31 +841,60 @@ def divergence_sphere_wk_codon(
                 ) * rrearth
 
 
-@export
-def laplace_sphere_wk_codon(
+def _gradient_sphere_field(
+    np: int,
+    rrearth: float,
+    s: Ptr[float],
+    s_offset: int,
+    dvv: Ptr[float],
+    dinv: Ptr[float],
+    v1: Ptr[float],
+    v2: Ptr[float],
+    ds: Ptr[float],
+):
+    for j in range(1, np + 1):
+        for l in range(1, np + 1):
+            dsdx00 = 0.0
+            dsdy00 = 0.0
+            for i in range(1, np + 1):
+                dsdx00 = dsdx00 + dvv[_plane_idx(i, l, np)] * s[s_offset + _plane_idx(i, j, np)]
+                dsdy00 = dsdy00 + dvv[_plane_idx(i, l, np)] * s[s_offset + _plane_idx(j, i, np)]
+            v1[_plane_idx(l, j, np)] = dsdx00 * rrearth
+            v2[_plane_idx(j, l, np)] = dsdy00 * rrearth
+
+    for j in range(1, np + 1):
+        for i in range(1, np + 1):
+            plane_idx = _plane_idx(i, j, np)
+            v1_val = v1[plane_idx]
+            v2_val = v2[plane_idx]
+            ds[_vec2_idx(i, j, 1, np)] = (
+                dinv[_mat22_idx(i, j, 1, 1, np)] * v1_val + dinv[_mat22_idx(i, j, 2, 1, np)] * v2_val
+            )
+            ds[_vec2_idx(i, j, 2, np)] = (
+                dinv[_mat22_idx(i, j, 1, 2, np)] * v1_val + dinv[_mat22_idx(i, j, 2, 2, np)] * v2_val
+            )
+
+
+def _laplace_sphere_wk_field(
     np: int,
     rrearth: float,
     hypervis_power: int,
     hypervis_scaling: int,
     var_coef: int,
-    s_p: cobj,
-    dvv_p: cobj,
-    spheremp_p: cobj,
-    dinv_p: cobj,
-    variable_hyperviscosity_p: cobj,
-    tensorvisc_p: cobj,
-    grads_p: cobj,
-    oldgrads_p: cobj,
-    v1_p: cobj,
-    v2_p: cobj,
-    laplace_p: cobj,
+    s: Ptr[float],
+    s_offset: int,
+    dvv: Ptr[float],
+    spheremp: Ptr[float],
+    dinv: Ptr[float],
+    variable_hyperviscosity: Ptr[float],
+    tensorvisc: Ptr[float],
+    grads: Ptr[float],
+    oldgrads: Ptr[float],
+    v1: Ptr[float],
+    v2: Ptr[float],
+    laplace: Ptr[float],
 ):
-    variable_hyperviscosity = Ptr[float](variable_hyperviscosity_p)
-    tensorvisc = Ptr[float](tensorvisc_p)
-    grads = Ptr[float](grads_p)
-    oldgrads = Ptr[float](oldgrads_p)
-
-    gradient_sphere_codon(np, rrearth, s_p, dvv_p, dinv_p, v1_p, v2_p, grads_p)
+    _gradient_sphere_field(np, rrearth, s, s_offset, dvv, dinv, v1, v2, grads)
 
     if var_coef != 0:
         if hypervis_power != 0:
@@ -902,7 +923,296 @@ def laplace_sphere_wk_codon(
                         + oldgrad2 * tensorvisc[_mat22_idx(i, j, 2, 2, np)]
                     )
 
-    divergence_sphere_wk_codon(np, rrearth, grads_p, dvv_p, spheremp_p, dinv_p, oldgrads_p, laplace_p)
+    _divergence_sphere_wk_vec(np, rrearth, grads, dvv, spheremp, dinv, oldgrads, laplace)
+
+
+def _curl_sphere_wk_testcov(
+    np: int,
+    rrearth: float,
+    s: Ptr[float],
+    dvv: Ptr[float],
+    mp: Ptr[float],
+    d: Ptr[float],
+    dscontra: Ptr[float],
+    ds: Ptr[float],
+):
+    for n in range(1, np + 1):
+        for m in range(1, np + 1):
+            dscontra[_vec2_idx(m, n, 1, np)] = 0.0
+            dscontra[_vec2_idx(m, n, 2, np)] = 0.0
+            for j in range(1, np + 1):
+                dscontra[_vec2_idx(m, n, 1, np)] = dscontra[_vec2_idx(m, n, 1, np)] - (
+                    mp[_plane_idx(m, j, np)] * s[_plane_idx(m, j, np)] * dvv[_plane_idx(n, j, np)]
+                ) * rrearth
+                dscontra[_vec2_idx(m, n, 2, np)] = dscontra[_vec2_idx(m, n, 2, np)] + (
+                    mp[_plane_idx(j, n, np)] * s[_plane_idx(j, n, np)] * dvv[_plane_idx(m, j, np)]
+                ) * rrearth
+
+    for j in range(1, np + 1):
+        for i in range(1, np + 1):
+            ds[_vec2_idx(i, j, 1, np)] = (
+                d[_mat22_idx(i, j, 1, 1, np)] * dscontra[_vec2_idx(i, j, 1, np)]
+                + d[_mat22_idx(i, j, 1, 2, np)] * dscontra[_vec2_idx(i, j, 2, np)]
+            )
+            ds[_vec2_idx(i, j, 2, np)] = (
+                d[_mat22_idx(i, j, 2, 1, np)] * dscontra[_vec2_idx(i, j, 1, np)]
+                + d[_mat22_idx(i, j, 2, 2, np)] * dscontra[_vec2_idx(i, j, 2, np)]
+            )
+
+
+def _gradient_sphere_wk_testcov(
+    np: int,
+    rrearth: float,
+    s: Ptr[float],
+    dvv: Ptr[float],
+    mp: Ptr[float],
+    metinv: Ptr[float],
+    metdet: Ptr[float],
+    d: Ptr[float],
+    dscontra: Ptr[float],
+    ds: Ptr[float],
+):
+    for n in range(1, np + 1):
+        for m in range(1, np + 1):
+            dscontra[_vec2_idx(m, n, 1, np)] = 0.0
+            dscontra[_vec2_idx(m, n, 2, np)] = 0.0
+            for j in range(1, np + 1):
+                plane_idx = _plane_idx(m, n, np)
+                dscontra[_vec2_idx(m, n, 1, np)] = dscontra[_vec2_idx(m, n, 1, np)] - (
+                    (
+                        mp[_plane_idx(j, n, np)]
+                        * metinv[_mat22_idx(m, n, 1, 1, np)]
+                        * metdet[plane_idx]
+                        * s[_plane_idx(j, n, np)]
+                        * dvv[_plane_idx(m, j, np)]
+                    )
+                    + (
+                        mp[_plane_idx(m, j, np)]
+                        * metinv[_mat22_idx(m, n, 2, 1, np)]
+                        * metdet[plane_idx]
+                        * s[_plane_idx(m, j, np)]
+                        * dvv[_plane_idx(n, j, np)]
+                    )
+                ) * rrearth
+                dscontra[_vec2_idx(m, n, 2, np)] = dscontra[_vec2_idx(m, n, 2, np)] - (
+                    (
+                        mp[_plane_idx(j, n, np)]
+                        * metinv[_mat22_idx(m, n, 1, 2, np)]
+                        * metdet[plane_idx]
+                        * s[_plane_idx(j, n, np)]
+                        * dvv[_plane_idx(m, j, np)]
+                    )
+                    + (
+                        mp[_plane_idx(m, j, np)]
+                        * metinv[_mat22_idx(m, n, 2, 2, np)]
+                        * metdet[plane_idx]
+                        * s[_plane_idx(m, j, np)]
+                        * dvv[_plane_idx(n, j, np)]
+                    )
+                ) * rrearth
+
+    for j in range(1, np + 1):
+        for i in range(1, np + 1):
+            ds[_vec2_idx(i, j, 1, np)] = (
+                d[_mat22_idx(i, j, 1, 1, np)] * dscontra[_vec2_idx(i, j, 1, np)]
+                + d[_mat22_idx(i, j, 1, 2, np)] * dscontra[_vec2_idx(i, j, 2, np)]
+            )
+            ds[_vec2_idx(i, j, 2, np)] = (
+                d[_mat22_idx(i, j, 2, 1, np)] * dscontra[_vec2_idx(i, j, 1, np)]
+                + d[_mat22_idx(i, j, 2, 2, np)] * dscontra[_vec2_idx(i, j, 2, np)]
+            )
+
+
+@export
+def divergence_sphere_wk_codon(
+    np: int,
+    rrearth: float,
+    v_p: cobj,
+    dvv_p: cobj,
+    spheremp_p: cobj,
+    dinv_p: cobj,
+    vtemp_p: cobj,
+    div_p: cobj,
+):
+    _divergence_sphere_wk_vec(
+        np,
+        rrearth,
+        Ptr[float](v_p),
+        Ptr[float](dvv_p),
+        Ptr[float](spheremp_p),
+        Ptr[float](dinv_p),
+        Ptr[float](vtemp_p),
+        Ptr[float](div_p),
+    )
+
+
+@export
+def laplace_sphere_wk_codon(
+    np: int,
+    rrearth: float,
+    hypervis_power: int,
+    hypervis_scaling: int,
+    var_coef: int,
+    s_p: cobj,
+    dvv_p: cobj,
+    spheremp_p: cobj,
+    dinv_p: cobj,
+    variable_hyperviscosity_p: cobj,
+    tensorvisc_p: cobj,
+    grads_p: cobj,
+    oldgrads_p: cobj,
+    v1_p: cobj,
+    v2_p: cobj,
+    laplace_p: cobj,
+):
+    _laplace_sphere_wk_field(
+        np,
+        rrearth,
+        hypervis_power,
+        hypervis_scaling,
+        var_coef,
+        Ptr[float](s_p),
+        0,
+        Ptr[float](dvv_p),
+        Ptr[float](spheremp_p),
+        Ptr[float](dinv_p),
+        Ptr[float](variable_hyperviscosity_p),
+        Ptr[float](tensorvisc_p),
+        Ptr[float](grads_p),
+        Ptr[float](oldgrads_p),
+        Ptr[float](v1_p),
+        Ptr[float](v2_p),
+        Ptr[float](laplace_p),
+    )
+
+
+@export
+def vlaplace_sphere_wk_codon(
+    np: int,
+    rrearth: float,
+    hypervis_power: int,
+    hypervis_scaling: int,
+    var_coef: int,
+    has_nu_ratio: int,
+    nu_ratio: float,
+    v_p: cobj,
+    dvv_p: cobj,
+    mp_p: cobj,
+    spheremp_p: cobj,
+    metinv_p: cobj,
+    metdet_p: cobj,
+    rmetdet_p: cobj,
+    d_p: cobj,
+    dinv_p: cobj,
+    variable_hyperviscosity_p: cobj,
+    tensorvisc_p: cobj,
+    vec_sphere2cart_p: cobj,
+    dum_cart_p: cobj,
+    dum_tmp_p: cobj,
+    div_p: cobj,
+    vor_p: cobj,
+    lap_tmp_p: cobj,
+    lap_tmp2_p: cobj,
+    work1_p: cobj,
+    work2_p: cobj,
+    v1_p: cobj,
+    v2_p: cobj,
+    laplace_p: cobj,
+):
+    v = Ptr[float](v_p)
+    mp = Ptr[float](mp_p)
+    spheremp = Ptr[float](spheremp_p)
+    metinv = Ptr[float](metinv_p)
+    metdet = Ptr[float](metdet_p)
+    d = Ptr[float](d_p)
+    variable_hyperviscosity = Ptr[float](variable_hyperviscosity_p)
+    vec_sphere2cart = Ptr[float](vec_sphere2cart_p)
+    dum_cart = Ptr[float](dum_cart_p)
+    dum_tmp = Ptr[float](dum_tmp_p)
+    div = Ptr[float](div_p)
+    vor = Ptr[float](vor_p)
+    lap_tmp = Ptr[float](lap_tmp_p)
+    lap_tmp2 = Ptr[float](lap_tmp2_p)
+    work1 = Ptr[float](work1_p)
+    work2 = Ptr[float](work2_p)
+    laplace = Ptr[float](laplace_p)
+
+    if hypervis_scaling != 0 and var_coef != 0:
+        for component in range(1, 4):
+            for j in range(1, np + 1):
+                for i in range(1, np + 1):
+                    dum_cart[_vec3_idx(i, j, component, np)] = (
+                        vec_sphere2cart[_mat32_idx(i, j, component, 1, np)] * v[_vec2_idx(i, j, 1, np)]
+                        + vec_sphere2cart[_mat32_idx(i, j, component, 2, np)] * v[_vec2_idx(i, j, 2, np)]
+                    )
+
+        for component in range(1, 4):
+            _laplace_sphere_wk_field(
+                np,
+                rrearth,
+                hypervis_power,
+                hypervis_scaling,
+                var_coef,
+                dum_cart,
+                (component - 1) * np * np,
+                Ptr[float](dvv_p),
+                spheremp,
+                Ptr[float](dinv_p),
+                variable_hyperviscosity,
+                Ptr[float](tensorvisc_p),
+                work1,
+                work2,
+                Ptr[float](v1_p),
+                Ptr[float](v2_p),
+                dum_tmp,
+            )
+            for j in range(1, np + 1):
+                for i in range(1, np + 1):
+                    dum_cart[_vec3_idx(i, j, component, np)] = dum_tmp[_plane_idx(i, j, np)]
+
+        for component in range(1, 3):
+            for j in range(1, np + 1):
+                for i in range(1, np + 1):
+                    laplace[_vec2_idx(i, j, component, np)] = (
+                        dum_cart[_vec3_idx(i, j, 1, np)] * vec_sphere2cart[_mat32_idx(i, j, 1, component, np)]
+                        + dum_cart[_vec3_idx(i, j, 2, np)] * vec_sphere2cart[_mat32_idx(i, j, 2, component, np)]
+                        + dum_cart[_vec3_idx(i, j, 3, np)] * vec_sphere2cart[_mat32_idx(i, j, 3, component, np)]
+                    )
+    else:
+        divergence_sphere_codon(np, rrearth, v_p, dvv_p, metdet_p, dinv_p, rmetdet_p, lap_tmp_p, dum_tmp_p, div_p)
+        vorticity_sphere_codon(np, rrearth, v_p, dvv_p, d_p, rmetdet_p, lap_tmp2_p, dum_tmp_p, vor_p)
+
+        if var_coef != 0 and hypervis_power != 0:
+            for j in range(1, np + 1):
+                for i in range(1, np + 1):
+                    plane_idx = _plane_idx(i, j, np)
+                    scale = variable_hyperviscosity[plane_idx]
+                    div[plane_idx] = div[plane_idx] * scale
+                    vor[plane_idx] = vor[plane_idx] * scale
+
+        if has_nu_ratio != 0:
+            for j in range(1, np + 1):
+                for i in range(1, np + 1):
+                    plane_idx = _plane_idx(i, j, np)
+                    div[plane_idx] = nu_ratio * div[plane_idx]
+
+        _gradient_sphere_wk_testcov(np, rrearth, div, Ptr[float](dvv_p), mp, metinv, metdet, d, work1, lap_tmp)
+        _curl_sphere_wk_testcov(np, rrearth, vor, Ptr[float](dvv_p), mp, d, work2, lap_tmp2)
+
+        rrearth_sq = rrearth * rrearth
+        for n in range(1, np + 1):
+            for m in range(1, np + 1):
+                plane_idx = _plane_idx(m, n, np)
+                laplace[_vec2_idx(m, n, 1, np)] = (
+                    lap_tmp[_vec2_idx(m, n, 1, np)]
+                    - lap_tmp2[_vec2_idx(m, n, 1, np)]
+                    + 2.0 * spheremp[plane_idx] * v[_vec2_idx(m, n, 1, np)] * rrearth_sq
+                )
+                laplace[_vec2_idx(m, n, 2, np)] = (
+                    lap_tmp[_vec2_idx(m, n, 2, np)]
+                    - lap_tmp2[_vec2_idx(m, n, 2, np)]
+                    + 2.0 * spheremp[plane_idx] * v[_vec2_idx(m, n, 2, np)] * rrearth_sq
+                )
 
 
 @export
