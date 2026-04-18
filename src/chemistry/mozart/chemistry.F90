@@ -133,6 +133,8 @@ module chemistry
   logical :: ghg_chem = .false.      ! .true. => use ghg chem package
   logical :: chem_step = .true.
   logical :: is_active = .false.
+  logical :: chem_timestep_tend_use_native_impl = .false.
+  logical :: chem_timestep_tend_impl_selected = .false.
 
   character(len=32) :: chem_name = 'UNSET'
   logical :: chem_rad_passive = .false.
@@ -1308,6 +1310,8 @@ end function chem_is_active
     lchnk = state%lchnk
     ncol  = state%ncol
 
+    call chem_timestep_tend_select_impl()
+
     lq(:) = .false.
     do n = 1,pcnst
        m = map2chm(n)
@@ -1353,11 +1357,7 @@ end function chem_is_active
 ! compute tendencies and surface fluxes
 !-----------------------------------------------------------------------
     call t_startf( 'chemdr' )
-    do k = 1,pver
-       cldw(:ncol,k) = state%q(:ncol,k,ixcldliq) + state%q(:ncol,k,ixcldice)
-       if (ixndrop>0) &
-            ncldwtr(:ncol,k) = state%q(:ncol,k,ixndrop)
-    end do
+    call chem_timestep_tend_fill_cloud_fields(ncol, state%q, cldw, ncldwtr)
 
     call gas_phase_chemdr(lchnk, ncol, imozart, state%q, &
                           state%phis, state%zm, state%zi, calday, &
@@ -1422,11 +1422,119 @@ end function chem_is_active
 !-----------------------------------------------------------------------
 ! Compute water vapor flux required to make conservation check
 !-----------------------------------------------------------------------
-    fh2o(:ncol) = 0._r8
-    do k = 1,pver
-       fh2o(:ncol) = fh2o(:ncol) + ptend%q(:ncol,k,1)*state%pdel(:ncol,k)/gravit
-    end do
+    call chem_timestep_tend_sum_fh2o(ncol, ptend%q(:,:,1), state%pdel, fh2o)
   end subroutine chem_timestep_tend
+
+!-------------------------------------------------------------------
+!-------------------------------------------------------------------
+  subroutine chem_timestep_tend_fill_cloud_fields(ncol, state_q, cldw, ncldwtr)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: state_q(pcols,pver,pcnst)
+    real(r8), target, intent(out) :: cldw(pcols,pver)
+    real(r8), target, intent(out) :: ncldwtr(pcols,pver)
+
+    integer :: k
+
+    interface
+       subroutine chem_timestep_tend_fill_cloud_fields_codon(ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, &
+            ixndrop_c, state_q_p, cldw_p, ncldwtr_p) bind(c, name="chem_timestep_tend_fill_cloud_fields_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, ixndrop_c
+         type(c_ptr), value :: state_q_p, cldw_p, ncldwtr_p
+       end subroutine chem_timestep_tend_fill_cloud_fields_codon
+    end interface
+
+    if (chem_timestep_tend_use_native_impl) then
+       do k = 1, pver
+          cldw(:ncol,k) = state_q(:ncol,k,ixcldliq) + state_q(:ncol,k,ixcldice)
+          if (ixndrop > 0) ncldwtr(:ncol,k) = state_q(:ncol,k,ixndrop)
+       end do
+       return
+    end if
+
+    call chem_timestep_tend_fill_cloud_fields_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+         int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), int(ixndrop, c_int64_t), &
+         c_loc(state_q), c_loc(cldw), c_loc(ncldwtr) &
+    )
+
+  end subroutine chem_timestep_tend_fill_cloud_fields
+
+!-------------------------------------------------------------------
+!-------------------------------------------------------------------
+  subroutine chem_timestep_tend_sum_fh2o(ncol, ptend_q1, pdel, fh2o)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: ptend_q1(pcols,pver), pdel(pcols,pver)
+    real(r8), target, intent(out) :: fh2o(pcols)
+
+    integer :: k
+
+    interface
+       subroutine chem_timestep_tend_sum_fh2o_codon(ncol_c, pcols_c, pver_c, gravit_c, ptend_q1_p, pdel_p, fh2o_p) &
+            bind(c, name="chem_timestep_tend_sum_fh2o_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: gravit_c
+         type(c_ptr), value :: ptend_q1_p, pdel_p, fh2o_p
+       end subroutine chem_timestep_tend_sum_fh2o_codon
+    end interface
+
+    if (chem_timestep_tend_use_native_impl) then
+       fh2o(:ncol) = 0._r8
+       do k = 1, pver
+          fh2o(:ncol) = fh2o(:ncol) + ptend_q1(:ncol,k)*pdel(:ncol,k)/gravit
+       end do
+       return
+    end if
+
+    call chem_timestep_tend_sum_fh2o_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(gravit, c_double), &
+         c_loc(ptend_q1), c_loc(pdel), c_loc(fh2o) &
+    )
+
+  end subroutine chem_timestep_tend_sum_fh2o
+
+!-------------------------------------------------------------------
+!-------------------------------------------------------------------
+  subroutine chem_timestep_tend_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (chem_timestep_tend_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('CHEM_TIMESTEP_TEND_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       chem_timestep_tend_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       chem_timestep_tend_use_native_impl = .false.
+    end if
+
+    chem_timestep_tend_impl_selected = .true.
+
+    if (masterproc) then
+       if (chem_timestep_tend_use_native_impl) then
+          write(iulog,*) 'chem_timestep_tend implementation = native'
+       else
+          write(iulog,*) 'chem_timestep_tend implementation = codon'
+       end if
+    end if
+
+  end subroutine chem_timestep_tend_select_impl
 
 !-------------------------------------------------------------------
 !-------------------------------------------------------------------
