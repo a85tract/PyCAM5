@@ -1134,6 +1134,8 @@ module prim_advection_mod
   logical :: euler_step_qtens_biharmonic_scale_impl_selected = .false.
   logical :: euler_step_qtens_biharmonic_unapply_use_native_impl = .false.
   logical :: euler_step_qtens_biharmonic_unapply_impl_selected = .false.
+  logical :: advance_hypervis_qtens_prepare_use_native_impl = .false.
+  logical :: advance_hypervis_qtens_prepare_impl_selected = .false.
   logical :: advance_hypervis_qdp_update_use_native_impl = .false.
   logical :: advance_hypervis_qdp_update_impl_selected = .false.
   logical :: advance_hypervis_qdp_restore_use_native_impl = .false.
@@ -2635,6 +2637,32 @@ end subroutine ALE_parametric_coords
 !-----------------------------------------------------------------------------
 !-----------------------------------------------------------------------------
 
+  subroutine advance_hypervis_qtens_prepare_apply_codon(hyai, hybi, ps0_in, dp_in, divdp_proj, dpdiss_ave, qdp, dt2, nu_p, dp_out, qtens)
+    use iso_c_binding, only : c_int64_t, c_loc, c_double, c_ptr
+    implicit none
+    real(kind=real_kind), target, intent(in) :: hyai(nlev+1), hybi(nlev+1)
+    real(kind=real_kind), intent(in) :: ps0_in, dt2, nu_p
+    real(kind=real_kind), target, intent(in) :: dp_in(np,np,nlev), divdp_proj(np,np,nlev), dpdiss_ave(np,np,nlev), qdp(np,np,nlev,qsize)
+    real(kind=real_kind), target, intent(out) :: dp_out(np,np,nlev), qtens(np,np,nlev,qsize)
+    interface
+       subroutine advance_hypervis_qtens_prepare_codon(np_c, nlev_c, qsize_c, ps0_c, dt2_c, nu_p_c, hyai_p, hybi_p, dp_in_p, divdp_proj_p, dpdiss_ave_p, qdp_p, dp_out_p, qtens_p) &
+            bind(c, name='advance_hypervis_qtens_prepare_codon')
+         use iso_c_binding, only : c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: np_c, nlev_c, qsize_c
+         real(c_double), value :: ps0_c, dt2_c, nu_p_c
+         type(c_ptr), value :: hyai_p, hybi_p, dp_in_p, divdp_proj_p, dpdiss_ave_p, qdp_p, dp_out_p, qtens_p
+       end subroutine advance_hypervis_qtens_prepare_codon
+    end interface
+
+    call advance_hypervis_qtens_prepare_codon( &
+         int(np, c_int64_t), int(nlev, c_int64_t), int(qsize, c_int64_t), real(ps0_in, c_double), real(dt2, c_double), real(nu_p, c_double), &
+         c_loc(hyai), c_loc(hybi), c_loc(dp_in), c_loc(divdp_proj), c_loc(dpdiss_ave), c_loc(qdp), c_loc(dp_out), c_loc(qtens) &
+    )
+  end subroutine advance_hypervis_qtens_prepare_apply_codon
+
+!-----------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
+
   subroutine advance_hypervis_qdp_update_apply_codon(qdp, spheremp, qtens, dt, nu_q)
     use iso_c_binding, only : c_int64_t, c_loc, c_double, c_ptr
     implicit none
@@ -3606,6 +3634,7 @@ end subroutine ALE_parametric_coords
   call advance_hypervis_scalar_cuda( edgeAdv , elem , hvcoord , hybrid , deriv , nt , nt_qdp , nets , nete , dt2 )
   return
 #endif
+  call advance_hypervis_qtens_prepare_select_impl()
   call advance_hypervis_qdp_update_select_impl()
   call advance_hypervis_qdp_restore_select_impl()
 !   call t_barrierf('sync_advance_hypervis_scalar', hybrid%par%comm)
@@ -3619,31 +3648,38 @@ end subroutine ALE_parametric_coords
   do ic = 1 , hypervis_subcycle_q
     do ie = nets , nete
       ! Qtens = Q/dp   (apply hyperviscsoity to dp0 * Q, not Qdp)
+      if (.not. advance_hypervis_qtens_prepare_use_native_impl) then
+        call advance_hypervis_qtens_prepare_apply_codon( &
+             hvcoord%hyai, hvcoord%hybi, hvcoord%ps0, elem(ie)%derived%dp, elem(ie)%derived%divdp_proj, elem(ie)%derived%dpdiss_ave, &
+             elem(ie)%state%Qdp(:,:,:,:,nt_qdp), dt2, nu_p, dp, Qtens(:,:,:,:,ie) &
+        )
+      else
 #if (defined COLUMN_OPENMP)
 !$omp parallel do private(k,dp0,q)
 #endif
-      do k = 1 , nlev
-         ! various options:
-         !   1)  biharmonic( Qdp )
-         !   2)  dp0 * biharmonic( Qdp/dp )
-         !   3)  dpave * biharmonic(Q/dp)
-         ! For trace mass / mass consistenciy, we use #2 when nu_p=0
-         ! and #e when nu_p>0, where dpave is the mean mass flux from the nu_p
-         ! contribution from dynamics.
-         dp0 = ( hvcoord%hyai(k+1) - hvcoord%hyai(k) ) * hvcoord%ps0 + &
-              ( hvcoord%hybi(k+1) - hvcoord%hybi(k) ) * hvcoord%ps0
-         dp(:,:,k) = elem(ie)%derived%dp(:,:,k) - dt2*elem(ie)%derived%divdp_proj(:,:,k)
-         if (nu_p>0) then
-            do q = 1 , qsize
-               Qtens(:,:,k,q,ie) = elem(ie)%derived%dpdiss_ave(:,:,k)*&
-                    elem(ie)%state%Qdp(:,:,k,q,nt_qdp) / dp(:,:,k)
-            enddo
-         else
-            do q = 1 , qsize
-               Qtens(:,:,k,q,ie) = dp0*elem(ie)%state%Qdp(:,:,k,q,nt_qdp) / dp(:,:,k)
-            enddo
-         endif
-      enddo
+        do k = 1 , nlev
+           ! various options:
+           !   1)  biharmonic( Qdp )
+           !   2)  dp0 * biharmonic( Qdp/dp )
+           !   3)  dpave * biharmonic(Q/dp)
+           ! For trace mass / mass consistenciy, we use #2 when nu_p=0
+           ! and #e when nu_p>0, where dpave is the mean mass flux from the nu_p
+           ! contribution from dynamics.
+           dp0 = ( hvcoord%hyai(k+1) - hvcoord%hyai(k) ) * hvcoord%ps0 + &
+                ( hvcoord%hybi(k+1) - hvcoord%hybi(k) ) * hvcoord%ps0
+           dp(:,:,k) = elem(ie)%derived%dp(:,:,k) - dt2*elem(ie)%derived%divdp_proj(:,:,k)
+           if (nu_p>0) then
+              do q = 1 , qsize
+                 Qtens(:,:,k,q,ie) = elem(ie)%derived%dpdiss_ave(:,:,k)*&
+                      elem(ie)%state%Qdp(:,:,k,q,nt_qdp) / dp(:,:,k)
+              enddo
+           else
+              do q = 1 , qsize
+                 Qtens(:,:,k,q,ie) = dp0*elem(ie)%state%Qdp(:,:,k,q,nt_qdp) / dp(:,:,k)
+              enddo
+           endif
+        enddo
+      endif
    enddo
 
     ! compute biharmonic operator. Qtens = input and output
@@ -4432,6 +4468,30 @@ end subroutine ALE_parametric_coords
 
     euler_step_qtens_biharmonic_unapply_impl_selected = .true.
   end subroutine euler_step_qtens_biharmonic_unapply_select_impl
+
+  subroutine advance_hypervis_qtens_prepare_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (advance_hypervis_qtens_prepare_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('ADVANCE_HYPERVIS_QTENS_PREPARE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+      do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+          impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+      end do
+      advance_hypervis_qtens_prepare_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+      advance_hypervis_qtens_prepare_use_native_impl = .false.
+    end if
+
+    advance_hypervis_qtens_prepare_impl_selected = .true.
+  end subroutine advance_hypervis_qtens_prepare_select_impl
 
   subroutine advance_hypervis_qdp_restore_select_impl()
     character(len=32) :: impl_name

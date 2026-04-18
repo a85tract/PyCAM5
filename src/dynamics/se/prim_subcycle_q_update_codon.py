@@ -266,6 +266,51 @@ def euler_step_qdp_restore_codon(
 
 
 @export
+def advance_hypervis_qtens_prepare_codon(
+    np: int,
+    nlev: int,
+    qsize: int,
+    ps0: float,
+    dt2: float,
+    nu_p: float,
+    hyai_p: cobj,
+    hybi_p: cobj,
+    dp_in_p: cobj,
+    divdp_proj_p: cobj,
+    dpdiss_ave_p: cobj,
+    qdp_p: cobj,
+    dp_out_p: cobj,
+    qtens_p: cobj,
+):
+    hyai = Ptr[float](hyai_p)
+    hybi = Ptr[float](hybi_p)
+    dp_in = Ptr[float](dp_in_p)
+    divdp_proj = Ptr[float](divdp_proj_p)
+    dpdiss_ave = Ptr[float](dpdiss_ave_p)
+    qdp = Ptr[float](qdp_p)
+    dp_out = Ptr[float](dp_out_p)
+    qtens = Ptr[float](qtens_p)
+
+    use_dpdiss = nu_p > 0.0
+
+    for k in range(1, nlev + 1):
+        dp0 = (hyai[_hy_idx(k + 1)] - hyai[_hy_idx(k)]) * ps0 + (hybi[_hy_idx(k + 1)] - hybi[_hy_idx(k)]) * ps0
+        for j in range(1, np + 1):
+            for i in range(1, np + 1):
+                vol_idx = _vol_idx(i, j, k, np)
+                dp_val = dp_in[vol_idx] - dt2 * divdp_proj[vol_idx]
+                dp_out[vol_idx] = dp_val
+                if use_dpdiss:
+                    for q in range(1, qsize + 1):
+                        q_idx = _q_idx(i, j, k, q, np, nlev)
+                        qtens[q_idx] = dpdiss_ave[vol_idx] * qdp[q_idx] / dp_val
+                else:
+                    for q in range(1, qsize + 1):
+                        q_idx = _q_idx(i, j, k, q, np, nlev)
+                        qtens[q_idx] = dp0 * qdp[q_idx] / dp_val
+
+
+@export
 def advance_hypervis_qdp_update_codon(
     np: int,
     nlev: int,
