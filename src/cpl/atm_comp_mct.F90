@@ -204,9 +204,9 @@ CONTAINS
        call seq_infodata_GetData( infodata,                                           &
             case_name=caseid, case_desc=ctitle,                                       &
             start_type=starttype,                                                     &
-!            atm_adiabatic=adiabatic,                                                  &
-!            atm_ideal_phys=ideal_phys,                                                &
-!            aqua_planet=aqua_planet,                                                  &
+            atm_adiabatic=adiabatic,                                                  &
+            atm_ideal_phys=ideal_phys,                                                &
+            aqua_planet=aqua_planet,                                                  &
             brnch_retain_casename=brnch_retain_casename,                              &
             single_column=single_column, scmlat=scmlat, scmlon=scmlon,                &
             orb_eccen=eccen, orb_mvelpp=mvelpp, orb_lambm0=lambm0, orb_obliqr=obliqr, &
@@ -215,10 +215,6 @@ CONTAINS
        !
        ! Get nsrest from startup type methods
        !
-       adiabatic = .false.
-       ideal_phys = .false.
-       aqua_planet = .false.
-
        if (     trim(starttype) == trim(seq_infodata_start_type_start)) then
           nsrest = 0
        else if (trim(starttype) == trim(seq_infodata_start_type_cont) ) then
