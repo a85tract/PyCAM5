@@ -464,3 +464,43 @@ def remap_q_ppm_compute_ppm_codon(
             coefs[_ppm_coef_idx(0, j)] = aj
             coefs[_ppm_coef_idx(1, j)] = 0.0
             coefs[_ppm_coef_idx(2, j)] = 0.0
+
+
+@export
+def remap_q_ppm_mass_apply_codon(
+    nx: int,
+    nlev: int,
+    iidx: int,
+    jidx: int,
+    qidx: int,
+    kid_p: cobj,
+    masso_p: cobj,
+    coefs_p: cobj,
+    z1_p: cobj,
+    z2_p: cobj,
+    dpo_p: cobj,
+    qdp_p: cobj,
+):
+    kid = Ptr[int](kid_p)
+    masso = Ptr[float](masso_p)
+    coefs = Ptr[float](coefs_p)
+    z1 = Ptr[float](z1_p)
+    z2 = Ptr[float](z2_p)
+    dpo = Ptr[float](dpo_p)
+    qdp = Ptr[float](qdp_p)
+
+    massn1 = 0.0
+    for k in range(1, nlev + 1):
+        kk = kid[_col_idx(k)]
+        x1 = z1[_col_idx(k)]
+        x2 = z2[_col_idx(k)]
+        x1_sq = x1 * x1
+        x2_sq = x2 * x2
+        mass = (
+            coefs[_ppm_coef_idx(0, kk)] * (x2 - x1)
+            + coefs[_ppm_coef_idx(1, kk)] * (x2_sq - x1_sq) / 2.0
+            + coefs[_ppm_coef_idx(2, kk)] * ((x2_sq * x2) - (x1_sq * x1)) / 3.0
+        )
+        massn2 = masso[_col_idx(kk)] + mass * dpo[_ghost_col_idx(kk)]
+        qdp[_q_idx(iidx, jidx, k, qidx, nx, nlev)] = massn2 - massn1
+        massn1 = massn2

@@ -102,6 +102,8 @@ module vertremap_mod
   logical :: remap_q_ppm_mass_prep_impl_selected = .false.
   logical :: remap_q_ppm_compute_use_native_impl = .false.
   logical :: remap_q_ppm_compute_impl_selected = .false.
+  logical :: remap_q_ppm_mass_apply_use_native_impl = .false.
+  logical :: remap_q_ppm_mass_apply_impl_selected = .false.
 
   contains
 
@@ -596,6 +598,12 @@ subroutine remap_Q_ppm(Qdp,nx,qsize,dp1,dp2)
        integer(c_int64_t), value :: nlev_c, vert_remap_q_alg_c
        type(c_ptr), value :: a_p, dx_p, ai_p, dma_p, coefs_p
      end subroutine remap_q_ppm_compute_ppm_codon
+     subroutine remap_q_ppm_mass_apply_codon(nx_c, nlev_c, i_c, j_c, q_c, kid_p, masso_p, coefs_p, z1_p, z2_p, dpo_p, qdp_p) &
+          bind(c, name='remap_q_ppm_mass_apply_codon')
+       use iso_c_binding, only : c_int64_t, c_ptr
+       integer(c_int64_t), value :: nx_c, nlev_c, i_c, j_c, q_c
+       type(c_ptr), value :: kid_p, masso_p, coefs_p, z1_p, z2_p, dpo_p, qdp_p
+     end subroutine remap_q_ppm_mass_apply_codon
   end interface
   ! Local Variables
   integer, parameter :: gs = 2                              !Number of cells to place in the ghost region
@@ -617,6 +625,7 @@ subroutine remap_Q_ppm(Qdp,nx,qsize,dp1,dp2)
   call remap_q_ppm_grid_select_impl()
   call remap_q_ppm_mass_prep_select_impl()
   call remap_q_ppm_compute_select_impl()
+  call remap_q_ppm_mass_apply_select_impl()
   call t_startf('remap_Q_ppm')
   do j = 1 , nx
     do i = 1 , nx
@@ -719,13 +728,20 @@ subroutine remap_Q_ppm(Qdp,nx,qsize,dp1,dp2)
         !cell interface to form a new grid mass accumulation. Taking the difference between
         !accumulation at successive interfaces gives the mass inside each cell. Since Qdp is
         !supposed to hold the full mass this needs no normalization.
-        massn1 = 0.
-        do k = 1 , nlev
-          kk = kid(k)
-          massn2 = masso(kk) + integrate_parabola( coefs(:,kk) , z1(k) , z2(k) ) * dpo(kk)
-          Qdp(i,j,k,q) = massn2 - massn1
-          massn1 = massn2
-        enddo
+        if (.not. remap_q_ppm_mass_apply_use_native_impl) then
+          call remap_q_ppm_mass_apply_codon( &
+               int(nx, c_int64_t), int(nlev, c_int64_t), int(i, c_int64_t), int(j, c_int64_t), &
+               int(q, c_int64_t), c_loc(kid), c_loc(masso), c_loc(coefs), c_loc(z1), c_loc(z2), c_loc(dpo), c_loc(Qdp) &
+          )
+        else
+          massn1 = 0.
+          do k = 1 , nlev
+            kk = kid(k)
+            massn2 = masso(kk) + integrate_parabola( coefs(:,kk) , z1(k) , z2(k) ) * dpo(kk)
+            Qdp(i,j,k,q) = massn2 - massn1
+            massn1 = massn2
+          enddo
+        endif
       enddo
     enddo
   enddo
@@ -973,6 +989,31 @@ subroutine remap_q_ppm_compute_select_impl()
 
   remap_q_ppm_compute_impl_selected = .true.
 end subroutine remap_q_ppm_compute_select_impl
+
+subroutine remap_q_ppm_mass_apply_select_impl()
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (remap_q_ppm_mass_apply_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('REMAP_Q_PPM_MASS_APPLY_IMPL', &
+       value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+    do i = 1, n
+      code = iachar(impl_name(i:i))
+      if (code >= iachar('A') .and. code <= iachar('Z')) then
+        impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+      end if
+    end do
+    remap_q_ppm_mass_apply_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+    remap_q_ppm_mass_apply_use_native_impl = .false.
+  end if
+
+  remap_q_ppm_mass_apply_impl_selected = .true.
+end subroutine remap_q_ppm_mass_apply_select_impl
 
 
 !=============================================================================================!
