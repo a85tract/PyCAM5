@@ -43,9 +43,21 @@ def _vec2_idx(iidx: int, jidx: int, comp: int, np: int) -> int:
 
 
 @inline
+def _vec3_idx(iidx: int, jidx: int, comp: int, np: int) -> int:
+    """dum_cart declared as (np,np,3)."""
+    return (iidx - 1) + (jidx - 1) * np + (comp - 1) * np * np
+
+
+@inline
 def _mat22_idx(iidx: int, jidx: int, row: int, col: int, np: int) -> int:
     """Dinv and D declared as (np,np,2,2)."""
     return (iidx - 1) + (jidx - 1) * np + (row - 1) * np * np + (col - 1) * np * np * 2
+
+
+@inline
+def _mat32_idx(iidx: int, jidx: int, row: int, col: int, np: int) -> int:
+    """vec_sphere2cart declared as (np,np,3,2)."""
+    return (iidx - 1) + (jidx - 1) * np + (row - 1) * np * np + (col - 1) * np * np * 3
 
 
 @inline
@@ -926,6 +938,77 @@ def curl_sphere_codon(
             ds[_vec2_idx(i, j, 2, np)] = (
                 d[_mat22_idx(i, j, 2, 1, np)] * v1_val + d[_mat22_idx(i, j, 2, 2, np)] * v2_val
             ) / metdet[plane_idx]
+
+
+@export
+def ugradv_sphere_codon(
+    np: int,
+    rrearth: float,
+    u_p: cobj,
+    v_p: cobj,
+    dvv_p: cobj,
+    dinv_p: cobj,
+    vec_sphere2cart_p: cobj,
+    dum_cart_p: cobj,
+    tmp_p: cobj,
+    v1_p: cobj,
+    v2_p: cobj,
+    ugradv_p: cobj,
+):
+    u = Ptr[float](u_p)
+    v = Ptr[float](v_p)
+    dvv = Ptr[float](dvv_p)
+    dinv = Ptr[float](dinv_p)
+    vec_sphere2cart = Ptr[float](vec_sphere2cart_p)
+    dum_cart = Ptr[float](dum_cart_p)
+    tmp = Ptr[float](tmp_p)
+    v1 = Ptr[float](v1_p)
+    v2 = Ptr[float](v2_p)
+    ugradv = Ptr[float](ugradv_p)
+
+    for component in range(1, 4):
+        for j in range(1, np + 1):
+            for i in range(1, np + 1):
+                dum_cart[_vec3_idx(i, j, component, np)] = (
+                    vec_sphere2cart[_mat32_idx(i, j, component, 1, np)] * v[_vec2_idx(i, j, 1, np)]
+                    + vec_sphere2cart[_mat32_idx(i, j, component, 2, np)] * v[_vec2_idx(i, j, 2, np)]
+                )
+
+    for component in range(1, 4):
+        for j in range(1, np + 1):
+            for l in range(1, np + 1):
+                dsdx00 = 0.0
+                dsdy00 = 0.0
+                for i in range(1, np + 1):
+                    dsdx00 = dsdx00 + dvv[_plane_idx(i, l, np)] * dum_cart[_vec3_idx(i, j, component, np)]
+                    dsdy00 = dsdy00 + dvv[_plane_idx(i, l, np)] * dum_cart[_vec3_idx(j, i, component, np)]
+                v1[_plane_idx(l, j, np)] = dsdx00 * rrearth
+                v2[_plane_idx(j, l, np)] = dsdy00 * rrearth
+
+        for j in range(1, np + 1):
+            for i in range(1, np + 1):
+                plane_idx = _plane_idx(i, j, np)
+                v1_val = v1[plane_idx]
+                v2_val = v2[plane_idx]
+                tmp[_vec2_idx(i, j, 1, np)] = (
+                    dinv[_mat22_idx(i, j, 1, 1, np)] * v1_val + dinv[_mat22_idx(i, j, 2, 1, np)] * v2_val
+                )
+                tmp[_vec2_idx(i, j, 2, np)] = (
+                    dinv[_mat22_idx(i, j, 1, 2, np)] * v1_val + dinv[_mat22_idx(i, j, 2, 2, np)] * v2_val
+                )
+                dum_cart[_vec3_idx(i, j, component, np)] = (
+                    u[_vec2_idx(i, j, 1, np)] * tmp[_vec2_idx(i, j, 1, np)]
+                    + u[_vec2_idx(i, j, 2, np)] * tmp[_vec2_idx(i, j, 2, np)]
+                )
+
+    for component in range(1, 3):
+        for j in range(1, np + 1):
+            for i in range(1, np + 1):
+                ugradv[_vec2_idx(i, j, component, np)] = (
+                    dum_cart[_vec3_idx(i, j, 1, np)] * vec_sphere2cart[_mat32_idx(i, j, 1, component, np)]
+                    + dum_cart[_vec3_idx(i, j, 2, np)] * vec_sphere2cart[_mat32_idx(i, j, 2, component, np)]
+                    + dum_cart[_vec3_idx(i, j, 3, np)] * vec_sphere2cart[_mat32_idx(i, j, 3, component, np)]
+                )
 
 
 @export

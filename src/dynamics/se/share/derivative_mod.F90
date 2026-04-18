@@ -42,6 +42,8 @@ private
 
   real (kind=real_kind), allocatable :: integration_matrix(:,:)
   private :: allocate_subcell_integration_matrix
+  logical :: ugradv_sphere_use_native_impl = .false.
+  logical :: ugradv_sphere_impl_selected = .false.
   logical :: curl_sphere_use_native_impl = .false.
   logical :: curl_sphere_impl_selected = .false.
   logical :: gradient_sphere_use_native_impl = .false.
@@ -1652,6 +1654,41 @@ end do
 !   input:  vectors u and v  (latlon coordinates)
 !   output: vector  [ u dot grad ] v  (latlon coordinates)
 !
+    type (derivative_t), intent(in), target :: deriv
+    type (element_t), intent(in), target :: elem
+    real(kind=real_kind), intent(in), target :: u(np,np,2)
+    real(kind=real_kind), intent(in), target :: v(np,np,2)
+    real(kind=real_kind), target :: ugradv(np,np,2)
+
+    call ugradv_sphere_select_impl()
+    if (.not. ugradv_sphere_use_native_impl) then
+      call ugradv_sphere_apply_codon(u,v,deriv%Dvv,elem%Dinv,elem%vec_sphere2cart,ugradv)
+    else
+      call ugradv_sphere_native(u,v,deriv,elem,ugradv)
+    endif
+  end subroutine ugradv_sphere
+
+  subroutine ugradv_sphere_apply_codon(u,v,dvv,dinv,vec_sphere2cart,ugradv)
+    use iso_c_binding, only : c_int64_t, c_loc, c_double, c_ptr
+    real(kind=real_kind), intent(in), target :: u(np,np,2), v(np,np,2), dvv(np,np), dinv(np,np,2,2), vec_sphere2cart(np,np,3,2)
+    real(kind=real_kind), target :: ugradv(np,np,2)
+    real(kind=real_kind), target :: dum_cart(np,np,3), tmp(np,np,2), v1(np,np), v2(np,np)
+    interface
+       subroutine ugradv_sphere_codon(np_c, rrearth_c, u_p, v_p, dvv_p, dinv_p, vec_sphere2cart_p, dum_cart_p, tmp_p, v1_p, v2_p, ugradv_p) &
+            bind(c, name='ugradv_sphere_codon')
+         use iso_c_binding, only : c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: np_c
+         real(c_double), value :: rrearth_c
+         type(c_ptr), value :: u_p, v_p, dvv_p, dinv_p, vec_sphere2cart_p, dum_cart_p, tmp_p, v1_p, v2_p, ugradv_p
+       end subroutine ugradv_sphere_codon
+    end interface
+
+    call ugradv_sphere_codon( &
+         int(np, c_int64_t), real(rrearth, c_double), c_loc(u), c_loc(v), c_loc(dvv), c_loc(dinv), c_loc(vec_sphere2cart), c_loc(dum_cart), c_loc(tmp), c_loc(v1), c_loc(v2), c_loc(ugradv) &
+    )
+  end subroutine ugradv_sphere_apply_codon
+
+  subroutine ugradv_sphere_native(u,v,deriv,elem,ugradv)
     type (derivative_t), intent(in) :: deriv
     type (element_t), intent(in) :: elem
     real(kind=real_kind), intent(in) :: u(np,np,2)
@@ -1685,7 +1722,7 @@ end do
        ugradv(:,:,component)=sum( dum_cart(:,:,:)*elem%vec_sphere2cart(:,:,:,component) ,3)
     end do
 
-  end subroutine ugradv_sphere
+  end subroutine ugradv_sphere_native
 
 
 
@@ -2761,8 +2798,30 @@ end do
     curl_sphere_impl_selected = .true.
   end subroutine curl_sphere_select_impl
 
+  subroutine ugradv_sphere_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (ugradv_sphere_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('UGRADV_SPHERE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+      do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+          impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+      end do
+      ugradv_sphere_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+      ugradv_sphere_use_native_impl = .false.
+    end if
+
+    ugradv_sphere_impl_selected = .true.
+  end subroutine ugradv_sphere_select_impl
+
 
 
 end module derivative_mod
-
-
