@@ -84,6 +84,13 @@ def _lev_q_idx(klev: int, qidx: int, nlev: int) -> int:
     return (klev - 1) + (qidx - 1) * nlev
 
 
+@inline
+def _cell_lev_idx(cell: int, klev: int, np: int) -> int:
+    """ptens, dpmass, and workspaces declared as (np*np,nlev)."""
+    ncols = np * np
+    return (cell - 1) + (klev - 1) * ncols
+
+
 @export
 def prim_subcycle_dp3d_init_codon(
     np: int,
@@ -580,6 +587,152 @@ def limiter2d_zero_codon(
                 for i in range(1, np + 1):
                     plane_idx = _vol_idx(i, j, k, np)
                     q[plane_idx] = -q[plane_idx]
+
+
+@export
+def limiter_optim_iter_full_codon(
+    np: int,
+    nlev: int,
+    ptens_p: cobj,
+    sphweights_p: cobj,
+    minp_p: cobj,
+    maxp_p: cobj,
+    dpmass_p: cobj,
+    weights_p: cobj,
+    whois_neg_p: cobj,
+    whois_pos_p: cobj,
+    x_p: cobj,
+    c_p: cobj,
+    al_neg_p: cobj,
+    al_pos_p: cobj,
+):
+    ptens = Ptr[float](ptens_p)
+    sphweights = Ptr[float](sphweights_p)
+    minp = Ptr[float](minp_p)
+    maxp = Ptr[float](maxp_p)
+    dpmass = Ptr[float](dpmass_p)
+    weights = Ptr[float](weights_p)
+    whois_neg = Ptr[int](whois_neg_p)
+    whois_pos = Ptr[int](whois_pos_p)
+    x = Ptr[float](x_p)
+    c = Ptr[float](c_p)
+    al_neg = Ptr[float](al_neg_p)
+    al_pos = Ptr[float](al_pos_p)
+
+    ncols = np * np
+    tol_limiter = 1.0e-15
+    maxiter = 5
+
+    for k in range(1, nlev + 1):
+        for k1 in range(1, ncols + 1):
+            wk_idx = _cell_lev_idx(k1, k, np)
+            weights[wk_idx] = sphweights[k1 - 1] * dpmass[wk_idx]
+            ptens[wk_idx] = ptens[wk_idx] / dpmass[wk_idx]
+
+    for k in range(1, nlev + 1):
+        mass = 0.0
+        sumc = 0.0
+        for k1 in range(1, ncols + 1):
+            wk_idx = _cell_lev_idx(k1, k, np)
+            c[k1 - 1] = weights[wk_idx]
+            x[k1 - 1] = ptens[wk_idx]
+            mass = mass + c[k1 - 1] * x[k1 - 1]
+            sumc = sumc + c[k1 - 1]
+
+        if (mass / sumc) < minp[_col_idx(k)]:
+            minp[_col_idx(k)] = mass / sumc
+        if (mass / sumc) > maxp[_col_idx(k)]:
+            maxp[_col_idx(k)] = mass / sumc
+
+        addmass = 0.0
+        pos_counter = 0
+        neg_counter = 0
+
+        for k1 in range(1, ncols + 1):
+            if x[k1 - 1] >= maxp[_col_idx(k)]:
+                addmass = addmass + (x[k1 - 1] - maxp[_col_idx(k)]) * c[k1 - 1]
+                x[k1 - 1] = maxp[_col_idx(k)]
+                whois_pos[k1 - 1] = -1
+            else:
+                pos_counter = pos_counter + 1
+                whois_pos[pos_counter - 1] = k1
+
+            if x[k1 - 1] <= minp[_col_idx(k)]:
+                addmass = addmass - (minp[_col_idx(k)] - x[k1 - 1]) * c[k1 - 1]
+                x[k1 - 1] = minp[_col_idx(k)]
+                whois_neg[k1 - 1] = -1
+            else:
+                neg_counter = neg_counter + 1
+                whois_neg[neg_counter - 1] = k1
+
+        if addmass > 0.0:
+            for _iter in range(1, maxiter + 1):
+                weightssum = 0.0
+                for k1 in range(1, pos_counter + 1):
+                    i1 = whois_pos[k1 - 1]
+                    weightssum = weightssum + c[i1 - 1]
+                    al_pos[i1 - 1] = maxp[_col_idx(k)] - x[i1 - 1]
+
+                if pos_counter > 0 and addmass > tol_limiter * abs(mass):
+                    for k1 in range(1, pos_counter + 1):
+                        i1 = whois_pos[k1 - 1]
+                        howmuch = addmass / weightssum
+                        if howmuch > al_pos[i1 - 1]:
+                            howmuch = al_pos[i1 - 1]
+                            whois_pos[k1 - 1] = -1
+                        addmass = addmass - howmuch * c[i1 - 1]
+                        weightssum = weightssum - c[i1 - 1]
+                        x[i1 - 1] = x[i1 - 1] + howmuch
+
+                    neg_counter = pos_counter
+                    for k1 in range(1, ncols + 1):
+                        whois_neg[k1 - 1] = whois_pos[k1 - 1]
+                        whois_pos[k1 - 1] = -1
+                    pos_counter = 0
+                    for k1 in range(1, neg_counter + 1):
+                        if whois_neg[k1 - 1] != -1:
+                            pos_counter = pos_counter + 1
+                            whois_pos[pos_counter - 1] = whois_neg[k1 - 1]
+                else:
+                    break
+        else:
+            for _iter in range(1, maxiter + 1):
+                weightssum = 0.0
+                for k1 in range(1, neg_counter + 1):
+                    i1 = whois_neg[k1 - 1]
+                    weightssum = weightssum + c[i1 - 1]
+                    al_neg[i1 - 1] = x[i1 - 1] - minp[_col_idx(k)]
+
+                if neg_counter > 0 and (-addmass) > tol_limiter * abs(mass):
+                    for k1 in range(1, neg_counter + 1):
+                        i1 = whois_neg[k1 - 1]
+                        howmuch = -addmass / weightssum
+                        if howmuch > al_neg[i1 - 1]:
+                            howmuch = al_neg[i1 - 1]
+                            whois_neg[k1 - 1] = -1
+                        addmass = addmass + howmuch * c[i1 - 1]
+                        weightssum = weightssum - c[i1 - 1]
+                        x[i1 - 1] = x[i1 - 1] - howmuch
+
+                    pos_counter = neg_counter
+                    for k1 in range(1, ncols + 1):
+                        whois_pos[k1 - 1] = whois_neg[k1 - 1]
+                        whois_neg[k1 - 1] = -1
+                    neg_counter = 0
+                    for k1 in range(1, pos_counter + 1):
+                        if whois_pos[k1 - 1] != -1:
+                            neg_counter = neg_counter + 1
+                            whois_neg[neg_counter - 1] = whois_pos[k1 - 1]
+                else:
+                    break
+
+        for k1 in range(1, ncols + 1):
+            ptens[_cell_lev_idx(k1, k, np)] = x[k1 - 1]
+
+    for k in range(1, nlev + 1):
+        for k1 in range(1, ncols + 1):
+            wk_idx = _cell_lev_idx(k1, k, np)
+            ptens[wk_idx] = ptens[wk_idx] * dpmass[wk_idx]
 
 
 @export

@@ -1138,6 +1138,8 @@ module prim_advection_mod
   logical :: euler_step_qminmax_update_impl_selected = .false.
   logical :: limiter2d_zero_use_native_impl = .false.
   logical :: limiter2d_zero_impl_selected = .false.
+  logical :: limiter_optim_iter_full_use_native_impl = .false.
+  logical :: limiter_optim_iter_full_impl_selected = .false.
   logical :: advance_hypervis_qtens_prepare_use_native_impl = .false.
   logical :: advance_hypervis_qtens_prepare_impl_selected = .false.
   logical :: advance_hypervis_qdp_update_use_native_impl = .false.
@@ -3201,6 +3203,52 @@ end subroutine ALE_parametric_coords
 
 #ifdef LIMITER_ORIGINAL
   subroutine limiter_optim_iter_full(ptens,sphweights,minp,maxp,dpmass)
+    use kinds         , only : real_kind
+    use dimensions_mod, only : np, nlev
+    implicit none
+    real (kind=real_kind), dimension(np*np,nlev), target, intent(inout)            :: ptens
+    real (kind=real_kind), dimension(np*np     ), target, intent(in   )            :: sphweights
+    real (kind=real_kind), dimension(      nlev), target, intent(inout)            :: minp
+    real (kind=real_kind), dimension(      nlev), target, intent(inout)            :: maxp
+    real (kind=real_kind), dimension(np*np,nlev), target, intent(in   ), optional  :: dpmass
+
+    call limiter_optim_iter_full_select_impl()
+    if (.not. limiter_optim_iter_full_use_native_impl .and. present(dpmass)) then
+      call limiter_optim_iter_full_apply_codon(ptens, sphweights, minp, maxp, dpmass)
+    else
+      call limiter_optim_iter_full_native(ptens, sphweights, minp, maxp, dpmass)
+    endif
+  end subroutine limiter_optim_iter_full
+
+  subroutine limiter_optim_iter_full_apply_codon(ptens,sphweights,minp,maxp,dpmass)
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use kinds         , only : real_kind
+    use dimensions_mod, only : np, nlev
+    implicit none
+    real (kind=real_kind), dimension(np*np,nlev), target, intent(inout) :: ptens
+    real (kind=real_kind), dimension(np*np     ), target, intent(in   ) :: sphweights
+    real (kind=real_kind), dimension(      nlev), target, intent(inout) :: minp
+    real (kind=real_kind), dimension(      nlev), target, intent(inout) :: maxp
+    real (kind=real_kind), dimension(np*np,nlev), target, intent(in   ) :: dpmass
+    real (kind=real_kind), target :: weights(np*np,nlev)
+    integer(c_int64_t), target :: whois_neg(np*np), whois_pos(np*np)
+    real (kind=real_kind), target :: x(np*np), c(np*np), al_neg(np*np), al_pos(np*np)
+    interface
+       subroutine limiter_optim_iter_full_codon(np_c, nlev_c, ptens_p, sphweights_p, minp_p, maxp_p, dpmass_p, weights_p, whois_neg_p, whois_pos_p, x_p, c_p, al_neg_p, al_pos_p) &
+            bind(c, name='limiter_optim_iter_full_codon')
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: np_c, nlev_c
+         type(c_ptr), value :: ptens_p, sphweights_p, minp_p, maxp_p, dpmass_p, weights_p, whois_neg_p, whois_pos_p, x_p, c_p, al_neg_p, al_pos_p
+       end subroutine limiter_optim_iter_full_codon
+    end interface
+
+    call limiter_optim_iter_full_codon( &
+         int(np, c_int64_t), int(nlev, c_int64_t), c_loc(ptens), c_loc(sphweights), c_loc(minp), c_loc(maxp), c_loc(dpmass), &
+         c_loc(weights), c_loc(whois_neg), c_loc(whois_pos), c_loc(x), c_loc(c), c_loc(al_neg), c_loc(al_pos) &
+    )
+  end subroutine limiter_optim_iter_full_apply_codon
+
+  subroutine limiter_optim_iter_full_native(ptens,sphweights,minp,maxp,dpmass)
     !THIS IS A NEW VERSION OF LIM8, POTENTIALLY FASTER BECAUSE INCORPORATES KNOWLEDGE FROM
     !PREVIOUS ITERATIONS
 
@@ -3356,7 +3404,7 @@ end subroutine ALE_parametric_coords
     do k = 1 , nlev
       ptens(:,k) = ptens(:,k) * dpmass(:,k)
     enddo
-  end subroutine limiter_optim_iter_full
+  end subroutine limiter_optim_iter_full_native
 #endif
 
 #ifdef LIMITER_REWRITE_OPT
@@ -4582,6 +4630,30 @@ end subroutine ALE_parametric_coords
 
     limiter2d_zero_impl_selected = .true.
   end subroutine limiter2d_zero_select_impl
+
+  subroutine limiter_optim_iter_full_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (limiter_optim_iter_full_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('LIMITER_OPTIM_ITER_FULL_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+      do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+          impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+      end do
+      limiter_optim_iter_full_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+      limiter_optim_iter_full_use_native_impl = .false.
+    end if
+
+    limiter_optim_iter_full_impl_selected = .true.
+  end subroutine limiter_optim_iter_full_select_impl
 
   subroutine advance_hypervis_qtens_prepare_select_impl()
     character(len=32) :: impl_name
