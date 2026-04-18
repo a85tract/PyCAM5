@@ -14,6 +14,7 @@ module convect_deep
    use shr_kind_mod, only: r8=>shr_kind_r8
    use ppgrid,       only: pver, pcols, pverp, begchunk, endchunk
    use cam_logfile,  only: iulog
+   use spmd_utils,   only: masterproc
 
    implicit none
 
@@ -28,9 +29,13 @@ module convect_deep
       convect_deep_tend,               &! return tendencies
       convect_deep_tend_2,             &! return tendencies
       deep_scheme_does_scav_trans             ! = .t. if scheme does scavenging and conv. transport
-   
+
 ! Private module data
    character(len=16) :: deep_scheme    ! default set in phys_control.F90, use namelist to change
+   logical :: use_native_impl = .false.
+   logical :: impl_selected = .false.
+   integer :: codon_scheme_code = 0
+   logical :: codon_scheme_selected = .false.
 ! Physics buffer indices 
    integer     ::  icwmrdp_idx      = 0 
    integer     ::  rprddp_idx       = 0 
@@ -225,13 +230,34 @@ subroutine convect_deep_tend( &
    real(r8) zero(pcols, pver)
 
    integer i, k
+   integer :: scheme_code
+
+   call convect_deep_select_impl()
+   if (.not. use_native_impl) call convect_deep_select_codon_scheme()
 
    call pbuf_get_field(pbuf, cldtop_idx,  jctop )
    call pbuf_get_field(pbuf, cldbot_idx,  jcbot )
    call pbuf_get_field(pbuf, icwmrdp_idx, ql    )
 
-  select case ( deep_scheme )
-  case('off', 'UNICON', 'CLUBB_SGS') ! in UNICON case the run method is called from convect_shallow_tend
+   if (use_native_impl) then
+      select case ( deep_scheme )
+      case('ZM')
+         scheme_code = 1
+      case('off')
+         scheme_code = 2
+      case('UNICON')
+         scheme_code = 3
+      case('CLUBB_SGS')
+         scheme_code = 4
+      case default
+         scheme_code = -1
+      end select
+   else
+      scheme_code = codon_scheme_code
+   end if
+
+  select case ( scheme_code )
+  case(2, 3, 4) ! in UNICON case the run method is called from convect_shallow_tend
     zero = 0     
     mcon = 0
     dlf = 0
@@ -275,7 +301,7 @@ subroutine convect_deep_tend( &
       wtsnow(:) = 0._r8
     end do
 
-  case('ZM') !    1 ==> Zhang-McFarlane (default)
+  case(1) !    1 ==> Zhang-McFarlane (default)
      call pbuf_get_field(pbuf, pblh_idx,  pblh)
      call pbuf_get_field(pbuf, tpert_idx, tpert)
 
@@ -320,7 +346,10 @@ subroutine convect_deep_tend_2( state,  ptend,  ztodt, pbuf)
    real(r8), intent(in) :: ztodt                          ! 2 delta t (model time increment)
 
 
-   if ( deep_scheme .eq. 'ZM' ) then  ! Zhang-McFarlane
+   call convect_deep_select_impl()
+   if (.not. use_native_impl) call convect_deep_select_codon_scheme()
+
+   if ( (use_native_impl .and. deep_scheme .eq. 'ZM') .or. (.not. use_native_impl .and. codon_scheme_code == 1) ) then
       call zm_conv_tend_2( state,   ptend,  ztodt,  pbuf) 
    else
       call physics_ptend_init(ptend, state%psetcols, 'convect_deep')
@@ -328,6 +357,85 @@ subroutine convect_deep_tend_2( state,  ptend,  ztodt, pbuf)
 
 
 end subroutine convect_deep_tend_2
+
+!=========================================================================================
+
+subroutine convect_deep_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CONVECT_DEEP_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_impl = .false.
+   end if
+
+   impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_impl) then
+         write(iulog,*) 'convect_deep_tend implementation = native'
+      else
+         write(iulog,*) 'convect_deep_tend implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine convect_deep_select_impl
+
+!=========================================================================================
+
+subroutine convect_deep_select_codon_scheme()
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+   integer :: i
+   integer(c_int64_t), target :: scheme_ascii(len(deep_scheme))
+   integer(c_int64_t), target :: scheme_code
+   integer(c_int64_t), target :: status_code
+
+   interface
+      subroutine convect_deep_select_scheme_codon(scheme_len_c, scheme_ascii_p, scheme_code_p, status_p) &
+           bind(c, name="convect_deep_select_scheme_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: scheme_len_c
+         type(c_ptr), value :: scheme_ascii_p, scheme_code_p, status_p
+      end subroutine convect_deep_select_scheme_codon
+   end interface
+
+   if (codon_scheme_selected) return
+
+   do i = 1, len(deep_scheme)
+      scheme_ascii(i) = int(iachar(deep_scheme(i:i)), c_int64_t)
+   end do
+
+   scheme_code = 0_c_int64_t
+   status_code = 0_c_int64_t
+   call convect_deep_select_scheme_codon( &
+        int(len(deep_scheme), c_int64_t), c_loc(scheme_ascii(1)), c_loc(scheme_code), c_loc(status_code) &
+   )
+
+   if (status_code /= 0_c_int64_t) then
+      codon_scheme_code = -1
+   else
+      codon_scheme_code = int(scheme_code)
+   end if
+
+   codon_scheme_selected = .true.
+
+end subroutine convect_deep_select_codon_scheme
 
 
 end module convect_deep
