@@ -1128,6 +1128,8 @@ module prim_advection_mod
   logical :: euler_step_qtens_base_impl_selected = .false.
   logical :: euler_step_qtens_biharmonic_add_use_native_impl = .false.
   logical :: euler_step_qtens_biharmonic_add_impl_selected = .false.
+  logical :: advance_hypervis_qdp_restore_use_native_impl = .false.
+  logical :: advance_hypervis_qdp_restore_impl_selected = .false.
 
 contains
 
@@ -3469,6 +3471,7 @@ end subroutine ALE_parametric_coords
   call advance_hypervis_scalar_cuda( edgeAdv , elem , hvcoord , hybrid , deriv , nt , nt_qdp , nets , nete , dt2 )
   return
 #endif
+  call advance_hypervis_qdp_restore_select_impl()
 !   call t_barrierf('sync_advance_hypervis_scalar', hybrid%par%comm)
   call t_startf('advance_hypervis_scalar')
 
@@ -3543,10 +3546,14 @@ end subroutine ALE_parametric_coords
 !$omp parallel do private(q,k)
 #endif
       do q = 1 , qsize
-        ! apply inverse mass matrix
-        do k = 1 , nlev
-          elem(ie)%state%Qdp(:,:,k,q,nt_qdp) = elem(ie)%rspheremp(:,:) * elem(ie)%state%Qdp(:,:,k,q,nt_qdp)
-        enddo
+        if (.not. advance_hypervis_qdp_restore_use_native_impl) then
+          call euler_step_qdp_restore_apply_codon(elem(ie)%state%Qdp(:,:,:,q,nt_qdp), elem(ie)%rspheremp)
+        else
+          ! apply inverse mass matrix
+          do k = 1 , nlev
+            elem(ie)%state%Qdp(:,:,k,q,nt_qdp) = elem(ie)%rspheremp(:,:) * elem(ie)%state%Qdp(:,:,k,q,nt_qdp)
+          enddo
+        endif
       enddo
     enddo
   enddo
@@ -4211,5 +4218,29 @@ end subroutine ALE_parametric_coords
 
     euler_step_qtens_biharmonic_add_impl_selected = .true.
   end subroutine euler_step_qtens_biharmonic_add_select_impl
+
+  subroutine advance_hypervis_qdp_restore_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (advance_hypervis_qdp_restore_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('ADVANCE_HYPERVIS_QDP_RESTORE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+      do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+          impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+      end do
+      advance_hypervis_qdp_restore_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+      advance_hypervis_qdp_restore_use_native_impl = .false.
+    end if
+
+    advance_hypervis_qdp_restore_impl_selected = .true.
+  end subroutine advance_hypervis_qdp_restore_select_impl
 
 end module prim_advection_mod
