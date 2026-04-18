@@ -97,6 +97,7 @@ def _build_cam():
         _build_codon_lib(srcroot, "stratiform")
         _build_codon_lib(srcroot, "convect_shallow")
         _build_codon_lib(srcroot, "convect_deep")
+        _build_codon_lib(srcroot, "conv_water")
         _build_codon_lib(srcroot, "physpkg")
         _build_codon_lib(srcroot, "prim_subcycle_q_update", "dynamics/se")
 
