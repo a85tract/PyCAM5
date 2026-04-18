@@ -96,6 +96,11 @@
     qlr_det_idx = -1,   &! detrained convective ql from UNICON  
     qir_det_idx = -1     ! detrained convective qi from UNICON  
 
+  logical :: use_native_impl = .false.
+  logical :: impl_selected = .false.
+  integer :: branch_mask = 0
+  logical :: branch_selected = .false.
+
   contains
 
   ! ===============================================================================
@@ -603,6 +608,14 @@ end subroutine macrop_driver_readnl
   integer               :: m                                              ! water set index
   logical               :: isOk
   integer               :: iwtype
+  logical               :: micro_do_icesupersat_local
+  logical               :: trace_water_local
+  logical               :: wtrc_detrain_in_macrop_local
+  logical               :: cu_det_st_local
+  logical               :: use_shfrc_local
+  logical               :: do_cldice_local
+  logical               :: do_cldliq_local
+  logical               :: do_detrain_local
 
   real(r8) pqctn(pcols,pver)
   real(r8) nqctn(pcols,pver)
@@ -611,7 +624,30 @@ end subroutine macrop_driver_readnl
 
   ! ======================================================================
 
-  if (micro_do_icesupersat) then 
+  call macrop_driver_select_impl()
+  if (.not. use_native_impl) then
+     call macrop_driver_select_branches(micro_do_icesupersat, trace_water, wtrc_detrain_in_macrop, &
+          cu_det_st, use_shfrc, do_cldice, do_cldliq, do_detrain)
+     micro_do_icesupersat_local = iand(branch_mask, 1) /= 0
+     trace_water_local = iand(branch_mask, 2) /= 0
+     wtrc_detrain_in_macrop_local = iand(branch_mask, 4) /= 0
+     cu_det_st_local = iand(branch_mask, 8) /= 0
+     use_shfrc_local = iand(branch_mask, 16) /= 0
+     do_cldice_local = iand(branch_mask, 32) /= 0
+     do_cldliq_local = iand(branch_mask, 64) /= 0
+     do_detrain_local = iand(branch_mask, 128) /= 0
+  else
+     micro_do_icesupersat_local = micro_do_icesupersat
+     trace_water_local = trace_water
+     wtrc_detrain_in_macrop_local = wtrc_detrain_in_macrop
+     cu_det_st_local = cu_det_st
+     use_shfrc_local = use_shfrc
+     do_cldice_local = do_cldice
+     do_cldliq_local = do_cldliq
+     do_detrain_local = do_detrain
+  end if
+
+  if (micro_do_icesupersat_local) then 
      call pbuf_get_field(pbuf, naai_idx, naai)
   endif
 
@@ -678,7 +714,7 @@ end subroutine macrop_driver_readnl
    lq(ixnumice) = .TRUE.
 
    !allow water tracers to change:
-   if ((trace_water) .and. (wtrc_detrain_in_macrop)) then
+   if ((trace_water_local) .and. (wtrc_detrain_in_macrop_local)) then
      do m=1,wtrc_nwset
        lq(wtrc_iatype(m,iwtliq)) = .TRUE.
        lq(wtrc_iatype(m,iwtice)) = .TRUE.
@@ -726,7 +762,7 @@ end subroutine macrop_driver_readnl
      ! If detrainment was done elsewhere, still update the variables used for output
      ! assuming that the temperature split between liquid and ice is the same as assumed
      ! here.
-     if (do_detrain) then
+     if (do_detrain_local) then
       ptend_loc%q(i,k,ixcldliq) = dlf(i,k) * ( 1._r8 - dum1 )
       ptend_loc%q(i,k,ixcldice) = dlf(i,k) * dum1
     ! dum2                      = dlf(i,k) * ( 1._r8 - dum1 )
@@ -760,14 +796,14 @@ end subroutine macrop_driver_readnl
 
       !water tracers:
       !NOTE:  This assumes no fractionation during freezing/melting. - JN
-      if ((trace_water) .and. (wtrc_detrain_in_macrop)) then
+      if ((trace_water_local) .and. (wtrc_detrain_in_macrop_local)) then
         do m=1,wtrc_nwset
           ptend_loc%q(i,k,wtrc_iatype(m,iwtliq)) = wtdlf(i,k,m) * (1._r8 - dum1)
           ptend_loc%q(i,k,wtrc_iatype(m,iwtice)) = wtdlf(i,k,m) * dum1
         end do
       end if
 
-      if( cu_det_st ) then
+      if( cu_det_st_local ) then
           dlf_T(i,k)  = ptend_loc%s(i,k)/cpair
           dlf_qv(i,k) = 0._r8
           dlf_ql(i,k) = ptend_loc%q(i,k,ixcldliq)
@@ -815,7 +851,7 @@ end subroutine macrop_driver_readnl
    ! ptend_loc is reset to zero by this call
    call physics_update(state_loc, ptend_loc, dtime)
 
-   if (micro_do_icesupersat) then 
+   if (micro_do_icesupersat_local) then 
 
       ! -------------------------------------- !
       ! Ice Saturation Adjustment Computation  !
@@ -901,7 +937,7 @@ end subroutine macrop_driver_readnl
       end do
    end do
 
-   if( use_shfrc ) then
+   if( use_shfrc_local ) then
        call pbuf_get_field(pbuf, shfrc_idx, shfrc )
    else 
        allocate(shfrc(pcols,pver))
@@ -917,7 +953,7 @@ end subroutine macrop_driver_readnl
 
    call cldfrc( lchnk, ncol, pbuf,                                                 &
                 state_loc%pmid, state_loc%t, state_loc%q(:,:,1), state_loc%omega,  &
-                state_loc%phis, shfrc, use_shfrc,                                  &
+                state_loc%phis, shfrc, use_shfrc_local,                            &
                 cld, rhcloud, clc, state_loc%pdel,                                 &
                 cmfmc, cmfmc2, landfrac,snowh, concld, cldst,                      &
                 ts, sst, state_loc%pint(:,pverp), zdu, ocnfrac, rhu00,             &
@@ -1034,7 +1070,7 @@ end subroutine macrop_driver_readnl
                       tke, qtl_flx, qti_flx, cmfr_det, qlr_det, qir_det,         &
                       tlat, qvlat, qcten, qiten, ncten, niten,                   &
                       cmeliq, qvadj, qladj, qiadj, qllim, qilim,                 &
-                      cld, alst, aist, qlst, qist, do_cldice ) 
+                      cld, alst, aist, qlst, qist, do_cldice_local ) 
 
  ! Copy of concld/fice to put in physics buffer
  ! Below are used only for convective cloud.
@@ -1059,20 +1095,20 @@ end subroutine macrop_driver_readnl
 
          ! Check to make sure that the macrophysics code is respecting the flags that control
          ! whether cldwat should be prognosing cloud ice and cloud liquid or not.
-         if ((.not. do_cldice) .and. (qiten(i,k) /= 0.0_r8)) then 
+         if ((.not. do_cldice_local) .and. (qiten(i,k) /= 0.0_r8)) then 
             call endrun("macrop_driver:ERROR - "// &
                  "Cldwat is configured not to prognose cloud ice, but mmacro_pcond has ice mass tendencies.")
          end if
-         if ((.not. do_cldice) .and. (niten(i,k) /= 0.0_r8)) then 
+         if ((.not. do_cldice_local) .and. (niten(i,k) /= 0.0_r8)) then 
             call endrun("macrop_driver:ERROR -"// &
                  " Cldwat is configured not to prognose cloud ice, but mmacro_pcond has ice number tendencies.")
          end if
 
-         if ((.not. do_cldliq) .and. (qcten(i,k) /= 0.0_r8)) then 
+         if ((.not. do_cldliq_local) .and. (qcten(i,k) /= 0.0_r8)) then 
             call endrun("macrop_driver:ERROR - "// &
                  "Cldwat is configured not to prognose cloud liquid, but mmacro_pcond has liquid mass tendencies.")
          end if
-         if ((.not. do_cldliq) .and. (ncten(i,k) /= 0.0_r8)) then 
+         if ((.not. do_cldliq_local) .and. (ncten(i,k) /= 0.0_r8)) then 
             call endrun("macrop_driver:ERROR - "// &
                  "Cldwat is configured not to prognose cloud liquid, but mmacro_pcond has liquid number tendencies.")
          end if
@@ -1093,7 +1129,7 @@ end subroutine macrop_driver_readnl
    ! vapor<->ice processes, not ice<->liquid. If this is wrong, then individual
    ! rates will need to be determined in mmacro_pcond.
    
-   if (trace_water) then
+   if (trace_water_local) then
 
      ! Setup the process rate matrix using the pre-sedimentation state and
      ! the calculated process rates.
@@ -1222,6 +1258,97 @@ end subroutine macrop_driver_readnl
    call physics_state_dealloc(state_loc)
 
 end subroutine macrop_driver_tend
+
+!============================================================================ !
+!                                                                             !
+!============================================================================ !
+
+subroutine macrop_driver_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MACROP_DRIVER_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_impl = .false.
+  end if
+
+  impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_impl) then
+        write(iulog,*) 'macrop_driver_tend implementation = native'
+     else
+        write(iulog,*) 'macrop_driver_tend implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine macrop_driver_select_impl
+
+!============================================================================ !
+!                                                                             !
+!============================================================================ !
+
+subroutine macrop_driver_select_branches(micro_do_icesupersat_in, trace_water_in, &
+     wtrc_detrain_in_macrop_in, cu_det_st_in, use_shfrc_in, do_cldice_in, do_cldliq_in, do_detrain_in)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+  logical, intent(in) :: micro_do_icesupersat_in
+  logical, intent(in) :: trace_water_in
+  logical, intent(in) :: wtrc_detrain_in_macrop_in
+  logical, intent(in) :: cu_det_st_in
+  logical, intent(in) :: use_shfrc_in
+  logical, intent(in) :: do_cldice_in
+  logical, intent(in) :: do_cldliq_in
+  logical, intent(in) :: do_detrain_in
+
+  integer(c_int64_t), target :: branch_mask_c
+
+  interface
+     subroutine macrop_driver_select_branches_codon(micro_do_icesupersat_c, trace_water_c, &
+          wtrc_detrain_in_macrop_c, cu_det_st_c, use_shfrc_c, do_cldice_c, do_cldliq_c, do_detrain_c, &
+          branch_mask_p) bind(c, name="macrop_driver_select_branches_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: micro_do_icesupersat_c, trace_water_c
+       integer(c_int64_t), value :: wtrc_detrain_in_macrop_c, cu_det_st_c, use_shfrc_c
+       integer(c_int64_t), value :: do_cldice_c, do_cldliq_c, do_detrain_c
+       type(c_ptr), value :: branch_mask_p
+     end subroutine macrop_driver_select_branches_codon
+  end interface
+
+  if (branch_selected) return
+
+  branch_mask_c = 0_c_int64_t
+  call macrop_driver_select_branches_codon( &
+       merge(1_c_int64_t, 0_c_int64_t, micro_do_icesupersat_in), &
+       merge(1_c_int64_t, 0_c_int64_t, trace_water_in), &
+       merge(1_c_int64_t, 0_c_int64_t, wtrc_detrain_in_macrop_in), &
+       merge(1_c_int64_t, 0_c_int64_t, cu_det_st_in), &
+       merge(1_c_int64_t, 0_c_int64_t, use_shfrc_in), &
+       merge(1_c_int64_t, 0_c_int64_t, do_cldice_in), &
+       merge(1_c_int64_t, 0_c_int64_t, do_cldliq_in), &
+       merge(1_c_int64_t, 0_c_int64_t, do_detrain_in), &
+       c_loc(branch_mask_c) &
+  )
+
+  branch_mask = int(branch_mask_c)
+  branch_selected = .true.
+
+end subroutine macrop_driver_select_branches
 
 ! Saturation adjustment for ice
 ! Add ice mass if supersaturated
