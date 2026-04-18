@@ -52,6 +52,8 @@ module prim_driver_mod
   type (filter_t)       :: flt_advection   ! Filter struct for v grid for advection only
   real*8  :: tot_iter
   type (ReductionBuffer_ordered_1d_t), save :: red   ! reduction buffer               (shared)
+  logical, save :: prim_subcycle_dp3d_init_use_native_impl = .false.
+  logical, save :: prim_subcycle_dp3d_init_impl_selected = .false.
   logical, save :: prim_subcycle_q_update_use_native_impl = .false.
   logical, save :: prim_subcycle_q_update_impl_selected = .false.
 
@@ -1360,6 +1362,14 @@ contains
     logical :: compute_diagnostics, compute_energy
 
     interface
+      subroutine prim_subcycle_dp3d_init_codon(np_c, nlev_c, ps0_c, &
+           hyai_p, hybi_p, ps_v_p, dp3d_p) bind(c, name="prim_subcycle_dp3d_init_codon")
+        use iso_c_binding, only : c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: np_c, nlev_c
+        real(c_double), value :: ps0_c
+        type(c_ptr), value :: hyai_p, hybi_p, ps_v_p, dp3d_p
+      end subroutine prim_subcycle_dp3d_init_codon
+
       subroutine prim_subcycle_q_update_codon(np_c, nlev_c, qsize_c, ps0_c, &
            hyai_p, hybi_p, ps_v_p, dp_np1_p, qdp_p, q_p) bind(c, name="prim_subcycle_q_update_codon")
         use iso_c_binding, only : c_double, c_int64_t, c_ptr
@@ -1395,6 +1405,7 @@ contains
 
     if(disable_diagnostics) compute_diagnostics=.false.
 
+    call prim_subcycle_dp3d_init_select_impl()
     call prim_subcycle_q_update_select_impl()
 
     if (compute_diagnostics) &
@@ -1423,11 +1434,19 @@ contains
     ! initialize dp3d from ps
     if (rsplit>0) then
     do ie=nets,nete
-       do k=1,nlev
-          elem(ie)%state%dp3d(:,:,k,tl%n0)=&
-               ( hvcoord%hyai(k+1) - hvcoord%hyai(k) )*hvcoord%ps0 + &
-               ( hvcoord%hybi(k+1) - hvcoord%hybi(k) )*elem(ie)%state%ps_v(:,:,tl%n0)
-       enddo
+       if (.not. prim_subcycle_dp3d_init_use_native_impl) then
+          call prim_subcycle_dp3d_init_codon( &
+               int(np, c_int64_t), int(nlev, c_int64_t), real(hvcoord%ps0, c_double), &
+               c_loc(hvcoord%hyai), c_loc(hvcoord%hybi), c_loc(elem(ie)%state%ps_v(:,:,tl%n0)), &
+               c_loc(elem(ie)%state%dp3d(:,:,:,tl%n0)) &
+          )
+       else
+          do k=1,nlev
+             elem(ie)%state%dp3d(:,:,k,tl%n0)=&
+                  ( hvcoord%hyai(k+1) - hvcoord%hyai(k) )*hvcoord%ps0 + &
+                  ( hvcoord%hybi(k+1) - hvcoord%hybi(k) )*elem(ie)%state%ps_v(:,:,tl%n0)
+          enddo
+       end if
        ! DEBUGDP step: ps_v should not be used for rsplit>0 code during prim_step
        ! vertical_remap.  so to this for debugging:
        elem(ie)%state%ps_v(:,:,tl%n0)=-9e9
@@ -1537,6 +1556,40 @@ contains
 
 
 
+
+
+  subroutine prim_subcycle_dp3d_init_select_impl()
+    use parallel_mod, only : par
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (prim_subcycle_dp3d_init_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('PRIM_SUBCYCLE_DP3D_INIT_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       prim_subcycle_dp3d_init_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       prim_subcycle_dp3d_init_use_native_impl = .false.
+    end if
+
+    prim_subcycle_dp3d_init_impl_selected = .true.
+
+    if (par%masterproc) then
+       if (prim_subcycle_dp3d_init_use_native_impl) then
+          write(iulog,*) 'prim_subcycle_dp3d_init implementation = native'
+       else
+          write(iulog,*) 'prim_subcycle_dp3d_init implementation = codon'
+       end if
+    end if
+  end subroutine prim_subcycle_dp3d_init_select_impl
 
 
   subroutine prim_subcycle_q_update_select_impl()

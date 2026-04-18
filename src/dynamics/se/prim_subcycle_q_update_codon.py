@@ -28,6 +28,32 @@ def _vol_idx(iidx: int, jidx: int, klev: int, np: int) -> int:
 
 
 @export
+def prim_subcycle_dp3d_init_codon(
+    np: int,
+    nlev: int,
+    ps0: float,
+    hyai_p: cobj,
+    hybi_p: cobj,
+    ps_v_p: cobj,
+    dp3d_p: cobj,
+):
+    hyai = Ptr[float](hyai_p)
+    hybi = Ptr[float](hybi_p)
+    ps_v = Ptr[float](ps_v_p)
+    dp3d = Ptr[float](dp3d_p)
+
+    for k in range(1, nlev + 1):
+        hyai_delta = hyai[_hy_idx(k + 1)] - hyai[_hy_idx(k)]
+        hybi_delta = hybi[_hy_idx(k + 1)] - hybi[_hy_idx(k)]
+
+        for j in range(1, np + 1):
+            for i in range(1, np + 1):
+                plane_idx = _plane_idx(i, j, np)
+                vol_idx = _vol_idx(i, j, k, np)
+                dp3d[vol_idx] = hyai_delta * ps0 + hybi_delta * ps_v[plane_idx]
+
+
+@export
 def prim_subcycle_q_update_codon(
     np: int,
     nlev: int,
