@@ -77,6 +77,7 @@ def _build_cam():
         mach = case.get_value("MACH")
 
         _build_codon_lib(srcroot, "rayleigh_friction")
+        _build_codon_lib(srcroot, "dadadj")
 
         #-------------------------------------------------------
         # Filepath is created in caseroot/camconf by the call

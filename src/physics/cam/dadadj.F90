@@ -1,18 +1,138 @@
-
 subroutine dadadj (lchnk   ,ncol    , &
                    pmid    ,pint    ,pdel    ,t       , &
                    q       )
-!----------------------------------------------------------------------- 
-! 
-! Purpose: 
+!-----------------------------------------------------------------------
+!
+! Purpose:
 ! GFDL style dry adiabatic adjustment
-! 
-! Method: 
+!
+! Method:
 ! if stratification is unstable, adjustment to the dry adiabatic lapse
 ! rate is forced subject to the condition that enthalpy is conserved.
-! 
+!
 ! Author: CMS Contact J.Hack
-! 
+!
+!-----------------------------------------------------------------------
+   use shr_kind_mod,    only: r8 => shr_kind_r8
+   use ppgrid
+   use phys_grid,       only: get_lat_p, get_lon_p
+   use physconst,       only: cappa
+   use cam_abortutils,  only: endrun
+   use cam_control_mod, only: nlvdry
+   use cam_logfile,     only: iulog
+   use spmd_utils,      only: masterproc
+   use iso_c_binding,   only: c_double, c_int64_t, c_loc, c_ptr
+   implicit none
+
+   integer, intent(in) :: lchnk               ! chunk identifier
+   integer, intent(in) :: ncol                ! number of atmospheric columns
+
+   real(r8), target, intent(in)    :: pmid(pcols,pver)   ! pressure at model levels
+   real(r8), target, intent(in)    :: pint(pcols,pverp)  ! pressure at model interfaces
+   real(r8), target, intent(in)    :: pdel(pcols,pver)   ! vertical delta-p
+   real(r8), target, intent(inout) :: t(pcols,pver)      ! temperature (K)
+   real(r8), target, intent(inout) :: q(pcols,pver)      ! specific humidity
+
+   logical, save :: use_native_impl = .false.
+   logical, save :: impl_selected = .false.
+
+   real(r8), target :: c1dad(pver)
+   real(r8), target :: c2dad(pver)
+   real(r8), target :: c3dad(pver)
+   real(r8), target :: c4dad(pver)
+   integer(c_int64_t), target :: dodad(pcols)
+   integer(c_int64_t), target :: status_code
+   integer(c_int64_t), target :: fail_i
+   real(c_double), target :: zeps_fail
+
+   interface
+      subroutine dadadj_codon(ncol_c, pcols_c, nlvdry_c, cappa_c, &
+           pmid_p, pint_p, pdel_p, t_p, q_p, &
+           c1dad_p, c2dad_p, c3dad_p, c4dad_p, dodad_p, &
+           status_p, zeps_fail_p, fail_i_p) bind(c, name="dadadj_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: ncol_c, pcols_c, nlvdry_c
+        real(c_double), value :: cappa_c
+        type(c_ptr), value :: pmid_p, pint_p, pdel_p, t_p, q_p
+        type(c_ptr), value :: c1dad_p, c2dad_p, c3dad_p, c4dad_p, dodad_p
+        type(c_ptr), value :: status_p, zeps_fail_p, fail_i_p
+      end subroutine dadadj_codon
+   end interface
+
+   call dadadj_select_impl()
+
+   if (use_native_impl) then
+      call dadadj_native(lchnk, ncol, pmid, pint, pdel, t, q)
+      return
+   end if
+
+   call dadadj_codon( &
+        int(ncol, c_int64_t), int(pcols, c_int64_t), int(nlvdry, c_int64_t), real(cappa, c_double), &
+        c_loc(pmid), c_loc(pint), c_loc(pdel), c_loc(t), c_loc(q), &
+        c_loc(c1dad), c_loc(c2dad), c_loc(c3dad), c_loc(c4dad), c_loc(dodad), &
+        c_loc(status_code), c_loc(zeps_fail), c_loc(fail_i) &
+   )
+
+   if (status_code /= 0_c_int64_t) then
+      write(iulog,*)'DADADJ: No convergence in dry adiabatic adjustment'
+      write(iulog,800) get_lat_p(lchnk, int(fail_i)), get_lon_p(lchnk, int(fail_i)), real(zeps_fail, r8)
+      call endrun
+   end if
+
+   return
+
+800 format(' lat,lon = ',2i5,', zeps= ',e9.4)
+
+contains
+
+   subroutine dadadj_select_impl()
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('DADADJ_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_impl = .false.
+      end if
+
+      impl_selected = .true.
+
+      if (masterproc) then
+         if (use_native_impl) then
+            write(iulog,*) 'dadadj implementation = native'
+         else
+            write(iulog,*) 'dadadj implementation = codon'
+         end if
+      end if
+   end subroutine dadadj_select_impl
+
+end subroutine dadadj
+
+subroutine dadadj_native (lchnk   ,ncol    , &
+                          pmid    ,pint    ,pdel    ,t       , &
+                          q       )
+!-----------------------------------------------------------------------
+!
+! Purpose:
+! GFDL style dry adiabatic adjustment
+!
+! Method:
+! if stratification is unstable, adjustment to the dry adiabatic lapse
+! rate is forced subject to the condition that enthalpy is conserved.
+!
+! Author: CMS Contact J.Hack
+!
 !-----------------------------------------------------------------------
    use shr_kind_mod,    only: r8 => shr_kind_r8
    use ppgrid
@@ -132,4 +252,4 @@ subroutine dadadj (lchnk   ,ncol    , &
 810   format(//,'DADADJ: Convergence criterion doubled to EPS=',E9.4, &
              ' for'/'        DRY CONVECTIVE ADJUSTMENT at Lat,Lon=', &
              2i5)
-end subroutine dadadj
+end subroutine dadadj_native
