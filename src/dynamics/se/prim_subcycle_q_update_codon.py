@@ -119,3 +119,41 @@ def vertical_remap_rsplit_prepare_codon(
                 vol_idx = _vol_idx(i, j, k, np)
                 dp[vol_idx] = hyai_delta * ps0 + hybi_delta * ps_v[plane_idx]
                 dp_star[vol_idx] = dp3d[vol_idx]
+
+
+@export
+def vertical_remap_t_scale_codon(
+    np: int,
+    nlev: int,
+    t_p: cobj,
+    dp_star_p: cobj,
+    ttmp_p: cobj,
+):
+    t = Ptr[float](t_p)
+    dp_star = Ptr[float](dp_star_p)
+    ttmp = Ptr[float](ttmp_p)
+
+    for k in range(1, nlev + 1):
+        for j in range(1, np + 1):
+            for i in range(1, np + 1):
+                vol_idx = _vol_idx(i, j, k, np)
+                ttmp[vol_idx] = t[vol_idx] * dp_star[vol_idx]
+
+
+@export
+def vertical_remap_t_unscale_codon(
+    np: int,
+    nlev: int,
+    ttmp_p: cobj,
+    dp_p: cobj,
+    t_p: cobj,
+):
+    ttmp = Ptr[float](ttmp_p)
+    dp = Ptr[float](dp_p)
+    t = Ptr[float](t_p)
+
+    for k in range(1, nlev + 1):
+        for j in range(1, np + 1):
+            for i in range(1, np + 1):
+                vol_idx = _vol_idx(i, j, k, np)
+                t[vol_idx] = ttmp[vol_idx] / dp[vol_idx]

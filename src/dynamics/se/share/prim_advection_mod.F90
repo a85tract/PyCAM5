@@ -893,6 +893,8 @@ module prim_advection_mod
   type (derivative_t), public, allocatable   :: deriv(:) ! derivative struct (nthreads)
   logical :: vertical_remap_rsplit_prepare_use_native_impl = .false.
   logical :: vertical_remap_rsplit_prepare_impl_selected = .false.
+  logical :: vertical_remap_t_scale_use_native_impl = .false.
+  logical :: vertical_remap_t_scale_impl_selected = .false.
 
 contains
 
@@ -3083,7 +3085,7 @@ end subroutine ALE_parametric_coords
 
   integer :: ie,i,j,k,np1,nets,nete,np1_qdp
   real (kind=real_kind), dimension(np,np,nlev), target  :: dp,dp_star
-  real (kind=real_kind), dimension(np,np,nlev,2)  :: ttmp
+  real (kind=real_kind), dimension(np,np,nlev,2), target  :: ttmp
   interface
      subroutine vertical_remap_rsplit_prepare_codon( &
           np, nlev, ps0, hyai_p, hybi_p, ps_v_p, dp3d_p, dp_p, dp_star_p) &
@@ -3093,6 +3095,20 @@ end subroutine ALE_parametric_coords
        real(c_double), value :: ps0
        type(c_ptr), value :: hyai_p, hybi_p, ps_v_p, dp3d_p, dp_p, dp_star_p
      end subroutine vertical_remap_rsplit_prepare_codon
+
+     subroutine vertical_remap_t_scale_codon(np, nlev, t_p, dp_star_p, ttmp_p) &
+          bind(c, name='vertical_remap_t_scale_codon')
+       use iso_c_binding, only : c_int64_t, c_ptr
+       integer(c_int64_t), value :: np, nlev
+       type(c_ptr), value :: t_p, dp_star_p, ttmp_p
+     end subroutine vertical_remap_t_scale_codon
+
+     subroutine vertical_remap_t_unscale_codon(np, nlev, ttmp_p, dp_p, t_p) &
+          bind(c, name='vertical_remap_t_unscale_codon')
+       use iso_c_binding, only : c_int64_t, c_ptr
+       integer(c_int64_t), value :: np, nlev
+       type(c_ptr), value :: ttmp_p, dp_p, t_p
+     end subroutine vertical_remap_t_unscale_codon
   end interface
 
 #if USE_CUDA_FORTRAN
@@ -3101,6 +3117,7 @@ end subroutine ALE_parametric_coords
 #endif
 
   call vertical_remap_rsplit_prepare_select_impl()
+  call vertical_remap_t_scale_select_impl()
   call t_startf('vertical_remap')
 
   ! reference levels:
@@ -3164,11 +3181,31 @@ end subroutine ALE_parametric_coords
              elem(ie)%state%v(:,:,2,:,np1)**2)/2 + &
              elem(ie)%state%t(:,:,:,np1)*cp
 #else
-        ttmp(:,:,:,1)=elem(ie)%state%t(:,:,:,np1)
+        if (.not. vertical_remap_t_scale_use_native_impl) then
+           call vertical_remap_t_scale_codon( &
+                int(np, c_int64_t), int(nlev, c_int64_t), c_loc(elem(ie)%state%t(:,:,:,np1)), &
+                c_loc(dp_star), c_loc(ttmp(:,:,:,1)) &
+           )
+        else
+           ttmp(:,:,:,1)=elem(ie)%state%t(:,:,:,np1)
+        endif
 #endif
+#ifndef REMAP_TE
+        if (vertical_remap_t_scale_use_native_impl) then
+           ttmp(:,:,:,1)=ttmp(:,:,:,1)*dp_star
+        endif
+#else
         ttmp(:,:,:,1)=ttmp(:,:,:,1)*dp_star
+#endif
         call remap1(ttmp,np,1,dp_star,dp)
-        elem(ie)%state%t(:,:,:,np1)=ttmp(:,:,:,1)/dp
+        if (.not. vertical_remap_t_scale_use_native_impl) then
+           call vertical_remap_t_unscale_codon( &
+                int(np, c_int64_t), int(nlev, c_int64_t), c_loc(ttmp(:,:,:,1)), c_loc(dp), &
+                c_loc(elem(ie)%state%t(:,:,:,np1)) &
+           )
+        else
+           elem(ie)%state%t(:,:,:,np1)=ttmp(:,:,:,1)/dp
+        endif
 
         ttmp(:,:,:,1)=elem(ie)%state%v(:,:,1,:,np1)*dp_star
         ttmp(:,:,:,2)=elem(ie)%state%v(:,:,2,:,np1)*dp_star
@@ -3293,5 +3330,30 @@ end subroutine ALE_parametric_coords
 
     vertical_remap_rsplit_prepare_impl_selected = .true.
   end subroutine vertical_remap_rsplit_prepare_select_impl
+
+  subroutine vertical_remap_t_scale_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (vertical_remap_t_scale_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('VERTICAL_REMAP_T_SCALE_IMPL', &
+         value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       vertical_remap_t_scale_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       vertical_remap_t_scale_use_native_impl = .false.
+    end if
+
+    vertical_remap_t_scale_impl_selected = .true.
+  end subroutine vertical_remap_t_scale_select_impl
 
 end module prim_advection_mod
