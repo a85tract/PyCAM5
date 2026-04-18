@@ -14,12 +14,19 @@ module radheat
 use shr_kind_mod,  only: r8 => shr_kind_r8
 use ppgrid,        only: pcols, pver
 use physics_types, only: physics_state, physics_ptend, physics_ptend_init
+use cam_logfile,   only: iulog
+use spmd_utils,    only: masterproc
 
 use physics_buffer, only : physics_buffer_desc
 
 implicit none
 private
 save
+
+logical :: use_native_impl = .false.
+logical :: impl_selected = .false.
+logical :: use_native_tstep_init_impl = .false.
+logical :: tstep_init_impl_selected = .false.
 
 ! Public interfaces
 public  &
@@ -64,13 +71,107 @@ subroutine radheat_timestep_init (state, pbuf2d)
     type(physics_state), intent(in):: state(begchunk:endchunk)                 
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
 
+    interface
+       subroutine radheat_timestep_init_codon() bind(c, name="radheat_timestep_init_codon")
+       end subroutine radheat_timestep_init_codon
+    end interface
+
+    call radheat_timestep_init_select_impl()
+
+    if (use_native_tstep_init_impl) then
+       call radheat_timestep_init_native(state, pbuf2d)
+       return
+    end if
+
+    call radheat_timestep_init_codon()
+
 
 end subroutine radheat_timestep_init
 
 !================================================================================================
 
+subroutine radheat_timestep_init_native (state, pbuf2d)
+    use physics_types,only : physics_state
+    use ppgrid,       only : begchunk, endchunk
+    use physics_buffer, only : physics_buffer_desc
+
+    type(physics_state), intent(in):: state(begchunk:endchunk)                 
+    type(physics_buffer_desc), pointer :: pbuf2d(:,:)
+
+
+end subroutine radheat_timestep_init_native
+
+!================================================================================================
+
 subroutine radheat_tend(state, pbuf,  ptend, qrl, qrs, fsns, &
                         fsnt, flns, flnt, asdir, net_flx)
+#if ( defined OFFLINE_DYN )
+   use metdata, only: met_rlx, met_srf_feedback
+#endif
+!-----------------------------------------------------------------------
+! Compute net radiative heating from qrs and qrl, and the associated net
+! boundary flux.
+!-----------------------------------------------------------------------
+
+! Arguments
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+   type(physics_state), intent(in)  :: state             ! Physics state variables
+   
+   type(physics_buffer_desc), pointer :: pbuf(:)
+   type(physics_ptend), intent(out) :: ptend             ! indivdual parameterization tendencie
+   real(r8),            target, intent(in)  :: qrl(pcols,pver)   ! longwave heating
+   real(r8),            target, intent(in)  :: qrs(pcols,pver)   ! shortwave heating
+   real(r8),            target, intent(in)  :: fsns(pcols)       ! Surface solar absorbed flux
+   real(r8),            target, intent(in)  :: fsnt(pcols)       ! Net column abs solar flux at model top
+   real(r8),            target, intent(in)  :: flns(pcols)       ! Srf longwave cooling (up-down) flux
+   real(r8),            target, intent(in)  :: flnt(pcols)       ! Net outgoing lw flux at model top
+   real(r8),            intent(in)  :: asdir(pcols)      ! shortwave, direct albedo
+   real(r8),            target, intent(out) :: net_flx(pcols)  
+
+
+! Local variables
+   integer :: ncol
+   real(r8), target :: ptend_s_work(state%psetcols,pver)
+
+   interface
+      subroutine radheat_tend_codon(ncol_c, pcols_c, pver_c, psetcols_c, &
+           qrl_p, qrs_p, ptend_s_p, fsns_p, fsnt_p, flns_p, flnt_p, net_flx_p) bind(c, name="radheat_tend_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, psetcols_c
+         type(c_ptr), value :: qrl_p, qrs_p, ptend_s_p, fsns_p, fsnt_p, flns_p, flnt_p, net_flx_p
+      end subroutine radheat_tend_codon
+   end interface
+!-----------------------------------------------------------------------
+
+   call radheat_select_impl()
+
+#if ( defined OFFLINE_DYN )
+   call radheat_tend_native(state, pbuf, ptend, qrl, qrs, fsns, fsnt, flns, flnt, asdir, net_flx)
+   return
+#endif
+
+   if (use_native_impl) then
+      call radheat_tend_native(state, pbuf, ptend, qrl, qrs, fsns, fsnt, flns, flnt, asdir, net_flx)
+      return
+   end if
+
+   ncol = state%ncol
+
+   call physics_ptend_init(ptend,state%psetcols, 'radheat', ls=.true.)
+   ptend_s_work = 0._r8
+
+   call radheat_tend_codon( &
+        int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(state%psetcols, c_int64_t), &
+        c_loc(qrl), c_loc(qrs), c_loc(ptend_s_work), c_loc(fsns), c_loc(fsnt), c_loc(flns), c_loc(flnt), c_loc(net_flx) &
+   )
+   ptend%s = ptend_s_work
+
+end subroutine radheat_tend
+
+!================================================================================================
+subroutine radheat_tend_native(state, pbuf,  ptend, qrl, qrs, fsns, &
+                               fsnt, flns, flnt, asdir, net_flx)
 #if ( defined OFFLINE_DYN )
    use metdata, only: met_rlx, met_srf_feedback
 #endif
@@ -91,7 +192,7 @@ subroutine radheat_tend(state, pbuf,  ptend, qrl, qrs, fsns, &
    real(r8),            intent(in)  :: flns(pcols)       ! Srf longwave cooling (up-down) flux
    real(r8),            intent(in)  :: flnt(pcols)       ! Net outgoing lw flux at model top
    real(r8),            intent(in)  :: asdir(pcols)      ! shortwave, direct albedo
-   real(r8),            intent(out) :: net_flx(pcols)  
+   real(r8),            intent(out) :: net_flx(pcols)
 
 
 ! Local variables
@@ -118,7 +219,77 @@ subroutine radheat_tend(state, pbuf,  ptend, qrl, qrs, fsns, &
       net_flx(i) = fsnt(i) - fsns(i) - flnt(i) + flns(i)
    end do
 
-end subroutine radheat_tend
+end subroutine radheat_tend_native
+
+!================================================================================================
+subroutine radheat_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('RADHEAT_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_impl = .false.
+  end if
+
+  impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_impl) then
+        write(iulog,*) 'radheat implementation = native'
+     else
+        write(iulog,*) 'radheat implementation = codon'
+     end if
+  end if
+
+end subroutine radheat_select_impl
+
+!================================================================================================
+subroutine radheat_timestep_init_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (tstep_init_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('RADHEAT_TSTEP_INIT_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_tstep_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_tstep_init_impl = .false.
+  end if
+
+  tstep_init_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_tstep_init_impl) then
+        write(iulog,*) 'radheat_timestep_init implementation = native'
+     else
+        write(iulog,*) 'radheat_timestep_init implementation = codon'
+     end if
+  end if
+
+end subroutine radheat_timestep_init_select_impl
 
 !================================================================================================
   subroutine radheat_disable_waccm()
