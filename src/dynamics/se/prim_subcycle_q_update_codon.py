@@ -25,6 +25,12 @@ def _q_idx(iidx: int, jidx: int, klev: int, qidx: int, np: int, nlev: int) -> in
 
 
 @inline
+def _q_tl_idx(iidx: int, jidx: int, klev: int, qidx: int, tlidx: int, np: int, nlev: int, qsize: int) -> int:
+    """state%Qdp declared as (np,np,nlev,qsize,2)."""
+    return _q_idx(iidx, jidx, klev, qidx, np, nlev) + (tlidx - 1) * np * np * nlev * qsize
+
+
+@inline
 def _vol_idx(iidx: int, jidx: int, klev: int, np: int) -> int:
     """dp3d, dp, dp_star declared as (np,np,nlev)."""
     return (iidx - 1) + (jidx - 1) * np + (klev - 1) * np * np
@@ -133,6 +139,28 @@ def prim_subcycle_q_update_codon(
                     plane_idx = _plane_idx(i, j, np)
                     q_idx = _q_idx(i, j, k, qidx, np, nlev)
                     q_out[q_idx] = qdp[q_idx] / dp_np1[plane_idx]
+
+
+@export
+def qdp_time_avg_codon(
+    np: int,
+    nlev: int,
+    qsize: int,
+    rkstage: int,
+    n0_qdp: int,
+    np1_qdp: int,
+    qdp_p: cobj,
+):
+    qdp = Ptr[float](qdp_p)
+    rkstage_minus_one = rkstage - 1
+
+    for qidx in range(1, qsize + 1):
+        for k in range(1, nlev + 1):
+            for j in range(1, np + 1):
+                for i in range(1, np + 1):
+                    n0_idx = _q_tl_idx(i, j, k, qidx, n0_qdp, np, nlev, qsize)
+                    np1_idx = _q_tl_idx(i, j, k, qidx, np1_qdp, np, nlev, qsize)
+                    qdp[np1_idx] = (qdp[n0_idx] + rkstage_minus_one * qdp[np1_idx]) / rkstage
 
 
 @export

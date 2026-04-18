@@ -1108,6 +1108,8 @@ module prim_advection_mod
   logical :: vertical_remap_v_scale_impl_selected = .false.
   logical :: vertical_remap_ps_v_update_use_native_impl = .false.
   logical :: vertical_remap_ps_v_update_impl_selected = .false.
+  logical :: qdp_time_avg_use_native_impl = .false.
+  logical :: qdp_time_avg_impl_selected = .false.
 
 contains
 
@@ -2089,20 +2091,45 @@ end subroutine ALE_parametric_coords
     call qdp_time_avg_cuda( elem , rkstage , n0_qdp , np1_qdp , limiter_option , nu_p , nets , nete )
     return
 #endif
+    call qdp_time_avg_select_impl()
     do ie=nets,nete
-      do q=1,qsize
-        do k=1,nlev
-          do j=1,np
-          do i=1,np
-          elem(ie)%state%Qdp(i,j,k,q,np1_qdp) =               &
-                   ( elem(ie)%state%Qdp(i,j,k,q,n0_qdp) + &
-                     (rkstage-1)*elem(ie)%state%Qdp(i,j,k,q,np1_qdp) ) / rkstage
-          enddo
+      if (.not. qdp_time_avg_use_native_impl) then
+        call qdp_time_avg_apply_codon(elem(ie)%state%Qdp, rkstage, n0_qdp, np1_qdp)
+      else
+        do q=1,qsize
+          do k=1,nlev
+            do j=1,np
+            do i=1,np
+            elem(ie)%state%Qdp(i,j,k,q,np1_qdp) =               &
+                     ( elem(ie)%state%Qdp(i,j,k,q,n0_qdp) + &
+                       (rkstage-1)*elem(ie)%state%Qdp(i,j,k,q,np1_qdp) ) / rkstage
+            enddo
+            enddo
           enddo
         enddo
-      enddo
+      endif
     enddo
   end subroutine qdp_time_avg
+
+  subroutine qdp_time_avg_apply_codon(qdp, rkstage, n0_qdp, np1_qdp)
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    implicit none
+    real(kind=real_kind), target, intent(inout) :: qdp(np,np,nlev,qsize,2)
+    integer, intent(in) :: rkstage, n0_qdp, np1_qdp
+    interface
+       subroutine qdp_time_avg_codon(np_c, nlev_c, qsize_c, rkstage_c, n0_qdp_c, np1_qdp_c, qdp_p) &
+            bind(c, name='qdp_time_avg_codon')
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: np_c, nlev_c, qsize_c, rkstage_c, n0_qdp_c, np1_qdp_c
+         type(c_ptr), value :: qdp_p
+       end subroutine qdp_time_avg_codon
+    end interface
+
+    call qdp_time_avg_codon( &
+         int(np, c_int64_t), int(nlev, c_int64_t), int(qsize, c_int64_t), int(rkstage, c_int64_t), &
+         int(n0_qdp, c_int64_t), int(np1_qdp, c_int64_t), c_loc(qdp) &
+    )
+  end subroutine qdp_time_avg_apply_codon
 
 !-----------------------------------------------------------------------------
 !-----------------------------------------------------------------------------
@@ -3664,5 +3691,29 @@ end subroutine ALE_parametric_coords
 
     vertical_remap_ps_v_update_impl_selected = .true.
   end subroutine vertical_remap_ps_v_update_select_impl
+
+  subroutine qdp_time_avg_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (qdp_time_avg_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('QDP_TIME_AVG_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+      do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+          impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+      end do
+      qdp_time_avg_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+      qdp_time_avg_use_native_impl = .false.
+    end if
+
+    qdp_time_avg_impl_selected = .true.
+  end subroutine qdp_time_avg_select_impl
 
 end module prim_advection_mod
