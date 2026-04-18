@@ -42,6 +42,8 @@ private
 
   real (kind=real_kind), allocatable :: integration_matrix(:,:)
   private :: allocate_subcell_integration_matrix
+  logical :: vorticity_sphere_use_native_impl = .false.
+  logical :: vorticity_sphere_impl_selected = .false.
   logical :: divergence_sphere_use_native_impl = .false.
   logical :: divergence_sphere_impl_selected = .false.
 
@@ -1930,6 +1932,41 @@ end do
     
 
   subroutine vorticity_sphere(v,deriv,elem,vort)
+    real(kind=real_kind), intent(in), target :: v(np,np,2)
+    type (derivative_t), intent(in), target :: deriv
+    type (element_t), intent(in), target :: elem
+    real(kind=real_kind), target :: vort(np,np)
+
+    call vorticity_sphere_select_impl()
+    if (.not. vorticity_sphere_use_native_impl) then
+      call vorticity_sphere_apply_codon(v, deriv%Dvv, elem%D, elem%rmetdet, vort)
+    else
+      call vorticity_sphere_native(v,deriv,elem,vort)
+    endif
+  end subroutine vorticity_sphere
+
+  subroutine vorticity_sphere_apply_codon(v,dvv,d,rmetdet,vort)
+    use iso_c_binding, only : c_int64_t, c_loc, c_double, c_ptr
+    real(kind=real_kind), intent(in), target :: v(np,np,2)
+    real(kind=real_kind), intent(in), target :: dvv(np,np), d(np,np,2,2), rmetdet(np,np)
+    real(kind=real_kind), target :: vort(np,np)
+    real(kind=real_kind), target :: vco(np,np,2), vtemp(np,np)
+    interface
+       subroutine vorticity_sphere_codon(np_c, rrearth_c, v_p, dvv_p, d_p, rmetdet_p, vco_p, vtemp_p, vort_p) &
+            bind(c, name='vorticity_sphere_codon')
+         use iso_c_binding, only : c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: np_c
+         real(c_double), value :: rrearth_c
+         type(c_ptr), value :: v_p, dvv_p, d_p, rmetdet_p, vco_p, vtemp_p, vort_p
+       end subroutine vorticity_sphere_codon
+    end interface
+
+    call vorticity_sphere_codon( &
+         int(np, c_int64_t), real(rrearth, c_double), c_loc(v), c_loc(dvv), c_loc(d), c_loc(rmetdet), c_loc(vco), c_loc(vtemp), c_loc(vort) &
+    )
+  end subroutine vorticity_sphere_apply_codon
+
+  subroutine vorticity_sphere_native(v,deriv,elem,vort)
 !
 !   input:  v = velocity in lat-lon coordinates
 !   ouput:  spherical vorticity of v
@@ -1980,7 +2017,7 @@ end do
        end do
     end do
 
-  end subroutine vorticity_sphere
+  end subroutine vorticity_sphere_native
 
   subroutine vorticity_sphere_diag(v,deriv,elem,vort)
   !
@@ -2580,10 +2617,33 @@ end do
     divergence_sphere_impl_selected = .true.
   end subroutine divergence_sphere_select_impl
 
+  subroutine vorticity_sphere_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (vorticity_sphere_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('VORTICITY_SPHERE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+      do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+          impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+      end do
+      vorticity_sphere_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+      vorticity_sphere_use_native_impl = .false.
+    end if
+
+    vorticity_sphere_impl_selected = .true.
+  end subroutine vorticity_sphere_select_impl
+
 
 
 end module derivative_mod
-
 
 
 

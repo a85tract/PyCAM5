@@ -44,7 +44,7 @@ def _vec2_idx(iidx: int, jidx: int, comp: int, np: int) -> int:
 
 @inline
 def _mat22_idx(iidx: int, jidx: int, row: int, col: int, np: int) -> int:
-    """Dinv declared as (np,np,2,2)."""
+    """Dinv and D declared as (np,np,2,2)."""
     return (iidx - 1) + (jidx - 1) * np + (row - 1) * np * np + (col - 1) * np * np * 2
 
 
@@ -795,6 +795,53 @@ def divergence_sphere_codon(
         for i in range(1, np + 1):
             plane_idx = _plane_idx(i, j, np)
             div[plane_idx] = (div[plane_idx] + vvtemp[plane_idx]) * (rmetdet[plane_idx] * rrearth)
+
+
+@export
+def vorticity_sphere_codon(
+    np: int,
+    rrearth: float,
+    v_p: cobj,
+    dvv_p: cobj,
+    d_p: cobj,
+    rmetdet_p: cobj,
+    vco_p: cobj,
+    vtemp_p: cobj,
+    vort_p: cobj,
+):
+    v = Ptr[float](v_p)
+    dvv = Ptr[float](dvv_p)
+    d = Ptr[float](d_p)
+    rmetdet = Ptr[float](rmetdet_p)
+    vco = Ptr[float](vco_p)
+    vtemp = Ptr[float](vtemp_p)
+    vort = Ptr[float](vort_p)
+
+    for j in range(1, np + 1):
+        for i in range(1, np + 1):
+            v1 = v[_vec2_idx(i, j, 1, np)]
+            v2 = v[_vec2_idx(i, j, 2, np)]
+            vco[_vec2_idx(i, j, 1, np)] = (
+                d[_mat22_idx(i, j, 1, 1, np)] * v1 + d[_mat22_idx(i, j, 2, 1, np)] * v2
+            )
+            vco[_vec2_idx(i, j, 2, np)] = (
+                d[_mat22_idx(i, j, 1, 2, np)] * v1 + d[_mat22_idx(i, j, 2, 2, np)] * v2
+            )
+
+    for j in range(1, np + 1):
+        for l in range(1, np + 1):
+            dudy00 = 0.0
+            dvdx00 = 0.0
+            for i in range(1, np + 1):
+                dvdx00 = dvdx00 + dvv[_plane_idx(i, l, np)] * vco[_vec2_idx(i, j, 2, np)]
+                dudy00 = dudy00 + dvv[_plane_idx(i, l, np)] * vco[_vec2_idx(j, i, 1, np)]
+            vort[_plane_idx(l, j, np)] = dvdx00
+            vtemp[_plane_idx(j, l, np)] = dudy00
+
+    for j in range(1, np + 1):
+        for i in range(1, np + 1):
+            plane_idx = _plane_idx(i, j, np)
+            vort[plane_idx] = (vort[plane_idx] - vtemp[plane_idx]) * (rmetdet[plane_idx] * rrearth)
 
 
 @export
