@@ -37,6 +37,18 @@ def _vol_idx(iidx: int, jidx: int, klev: int, np: int) -> int:
 
 
 @inline
+def _vec2_idx(iidx: int, jidx: int, comp: int, np: int) -> int:
+    """v and gv declared as (np,np,2)."""
+    return (iidx - 1) + (jidx - 1) * np + (comp - 1) * np * np
+
+
+@inline
+def _mat22_idx(iidx: int, jidx: int, row: int, col: int, np: int) -> int:
+    """Dinv declared as (np,np,2,2)."""
+    return (iidx - 1) + (jidx - 1) * np + (row - 1) * np * np + (col - 1) * np * np * 2
+
+
+@inline
 def _field_vol_idx(iidx: int, jidx: int, klev: int, fidx: int, np: int, nlev: int) -> int:
     """ttmp declared as (np,np,nlev,2)."""
     return _vol_idx(iidx, jidx, klev, np) + (fidx - 1) * np * np * nlev
@@ -733,6 +745,56 @@ def limiter_optim_iter_full_codon(
         for k1 in range(1, ncols + 1):
             wk_idx = _cell_lev_idx(k1, k, np)
             ptens[wk_idx] = ptens[wk_idx] * dpmass[wk_idx]
+
+
+@export
+def divergence_sphere_codon(
+    np: int,
+    rrearth: float,
+    v_p: cobj,
+    dvv_p: cobj,
+    metdet_p: cobj,
+    dinv_p: cobj,
+    rmetdet_p: cobj,
+    gv_p: cobj,
+    vvtemp_p: cobj,
+    div_p: cobj,
+):
+    v = Ptr[float](v_p)
+    dvv = Ptr[float](dvv_p)
+    metdet = Ptr[float](metdet_p)
+    dinv = Ptr[float](dinv_p)
+    rmetdet = Ptr[float](rmetdet_p)
+    gv = Ptr[float](gv_p)
+    vvtemp = Ptr[float](vvtemp_p)
+    div = Ptr[float](div_p)
+
+    for j in range(1, np + 1):
+        for i in range(1, np + 1):
+            plane_idx = _plane_idx(i, j, np)
+            v1 = v[_vec2_idx(i, j, 1, np)]
+            v2 = v[_vec2_idx(i, j, 2, np)]
+            gv[_vec2_idx(i, j, 1, np)] = metdet[plane_idx] * (
+                dinv[_mat22_idx(i, j, 1, 1, np)] * v1 + dinv[_mat22_idx(i, j, 1, 2, np)] * v2
+            )
+            gv[_vec2_idx(i, j, 2, np)] = metdet[plane_idx] * (
+                dinv[_mat22_idx(i, j, 2, 1, np)] * v1 + dinv[_mat22_idx(i, j, 2, 2, np)] * v2
+            )
+
+    for j in range(1, np + 1):
+        for l in range(1, np + 1):
+            dudx00 = 0.0
+            dvdy00 = 0.0
+            for i in range(1, np + 1):
+                dudx00 = dudx00 + dvv[_plane_idx(i, l, np)] * gv[_vec2_idx(i, j, 1, np)]
+                dvdy00 = dvdy00 + dvv[_plane_idx(i, l, np)] * gv[_vec2_idx(j, i, 2, np)]
+            div[_plane_idx(l, j, np)] = dudx00
+            vvtemp[_plane_idx(j, l, np)] = dvdy00
+
+    for j in range(1, np + 1):
+        for i in range(1, np + 1):
+            plane_idx = _plane_idx(i, j, np)
+            div[plane_idx] = (div[plane_idx] + vvtemp[plane_idx]) * (rmetdet[plane_idx] * rrearth)
 
 
 @export
