@@ -379,6 +379,29 @@ def euler_step_qtens_biharmonic_add_codon(
 
 
 @export
+def euler_step_qtens_biharmonic_unapply_codon(
+    np: int,
+    nlev: int,
+    rhs_viss: int,
+    dt: float,
+    nu_q: float,
+    qtens_biharmonic_p: cobj,
+    spheremp_p: cobj,
+    dp0_p: cobj,
+):
+    qtens_biharmonic = Ptr[float](qtens_biharmonic_p)
+    spheremp = Ptr[float](spheremp_p)
+    dp0 = Ptr[float](dp0_p)
+
+    for k in range(1, nlev + 1):
+        for j in range(1, np + 1):
+            for i in range(1, np + 1):
+                vol_idx = _vol_idx(i, j, k, np)
+                plane_idx = _plane_idx(i, j, np)
+                qtens_biharmonic[vol_idx] = -rhs_viss * dt * nu_q * dp0[_col_idx(k)] * qtens_biharmonic[vol_idx] / spheremp[plane_idx]
+
+
+@export
 def vertical_remap_rsplit_prepare_codon(
     np: int,
     nlev: int,
