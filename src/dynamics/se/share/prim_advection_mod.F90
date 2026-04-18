@@ -1128,6 +1128,8 @@ module prim_advection_mod
   logical :: euler_step_qtens_base_impl_selected = .false.
   logical :: euler_step_qtens_biharmonic_add_use_native_impl = .false.
   logical :: euler_step_qtens_biharmonic_add_impl_selected = .false.
+  logical :: advance_hypervis_qdp_update_use_native_impl = .false.
+  logical :: advance_hypervis_qdp_update_impl_selected = .false.
   logical :: advance_hypervis_qdp_restore_use_native_impl = .false.
   logical :: advance_hypervis_qdp_restore_impl_selected = .false.
 
@@ -2599,6 +2601,31 @@ end subroutine ALE_parametric_coords
 !-----------------------------------------------------------------------------
 !-----------------------------------------------------------------------------
 
+  subroutine advance_hypervis_qdp_update_apply_codon(qdp, spheremp, qtens, dt, nu_q)
+    use iso_c_binding, only : c_int64_t, c_loc, c_double, c_ptr
+    implicit none
+    real(kind=real_kind), target, intent(inout) :: qdp(np,np,nlev)
+    real(kind=real_kind), target, intent(in) :: spheremp(np,np), qtens(np,np,nlev)
+    real(kind=real_kind), intent(in) :: dt, nu_q
+    interface
+       subroutine advance_hypervis_qdp_update_codon(np_c, nlev_c, dt_c, nu_q_c, qdp_p, spheremp_p, qtens_p) &
+            bind(c, name='advance_hypervis_qdp_update_codon')
+         use iso_c_binding, only : c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: np_c, nlev_c
+         real(c_double), value :: dt_c, nu_q_c
+         type(c_ptr), value :: qdp_p, spheremp_p, qtens_p
+       end subroutine advance_hypervis_qdp_update_codon
+    end interface
+
+    call advance_hypervis_qdp_update_codon( &
+         int(np, c_int64_t), int(nlev, c_int64_t), real(dt, c_double), real(nu_q, c_double), &
+         c_loc(qdp), c_loc(spheremp), c_loc(qtens) &
+    )
+  end subroutine advance_hypervis_qdp_update_apply_codon
+
+!-----------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
+
   subroutine euler_step_vstar_prepare_apply_codon(dp_in, divdp_proj, vn0, dt, rhs_multiplier, dp_out, vstar)
     use iso_c_binding, only : c_int64_t, c_loc, c_double, c_ptr
     implicit none
@@ -3471,6 +3498,7 @@ end subroutine ALE_parametric_coords
   call advance_hypervis_scalar_cuda( edgeAdv , elem , hvcoord , hybrid , deriv , nt , nt_qdp , nets , nete , dt2 )
   return
 #endif
+  call advance_hypervis_qdp_update_select_impl()
   call advance_hypervis_qdp_restore_select_impl()
 !   call t_barrierf('sync_advance_hypervis_scalar', hybrid%par%comm)
   call t_startf('advance_hypervis_scalar')
@@ -3518,18 +3546,24 @@ end subroutine ALE_parametric_coords
 !$omp parallel do private(q,k,j,i,dp0)
 #endif
       do q = 1 , qsize
-        do k = 1 , nlev
-          dp0 = ( hvcoord%hyai(k+1) - hvcoord%hyai(k) ) * hvcoord%ps0 + &
-                ( hvcoord%hybi(k+1) - hvcoord%hybi(k) ) * hvcoord%ps0
-          do j = 1 , np
-            do i = 1 , np
-              ! advection Qdp.  For mass advection consistency:
-              ! DIFF( Qdp) ~   dp0 DIFF (Q)  =  dp0 DIFF ( Qdp/dp )
-              elem(ie)%state%Qdp(i,j,k,q,nt_qdp) = elem(ie)%state%Qdp(i,j,k,q,nt_qdp) * elem(ie)%spheremp(i,j) &
-                                                   - dt * nu_q * Qtens(i,j,k,q,ie)
+        if (.not. advance_hypervis_qdp_update_use_native_impl) then
+          call advance_hypervis_qdp_update_apply_codon( &
+               elem(ie)%state%Qdp(:,:,:,q,nt_qdp), elem(ie)%spheremp, Qtens(:,:,:,q,ie), dt, nu_q &
+          )
+        else
+          do k = 1 , nlev
+            dp0 = ( hvcoord%hyai(k+1) - hvcoord%hyai(k) ) * hvcoord%ps0 + &
+                  ( hvcoord%hybi(k+1) - hvcoord%hybi(k) ) * hvcoord%ps0
+            do j = 1 , np
+              do i = 1 , np
+                ! advection Qdp.  For mass advection consistency:
+                ! DIFF( Qdp) ~   dp0 DIFF (Q)  =  dp0 DIFF ( Qdp/dp )
+                elem(ie)%state%Qdp(i,j,k,q,nt_qdp) = elem(ie)%state%Qdp(i,j,k,q,nt_qdp) * elem(ie)%spheremp(i,j) &
+                                                     - dt * nu_q * Qtens(i,j,k,q,ie)
+              enddo
             enddo
           enddo
-        enddo
+        endif
 
         ! smooth some of the negativities introduced by diffusion:
         call limiter2d_zero( elem(ie)%state%Qdp(:,:,:,q,nt_qdp))
@@ -4242,5 +4276,29 @@ end subroutine ALE_parametric_coords
 
     advance_hypervis_qdp_restore_impl_selected = .true.
   end subroutine advance_hypervis_qdp_restore_select_impl
+
+  subroutine advance_hypervis_qdp_update_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (advance_hypervis_qdp_update_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('ADVANCE_HYPERVIS_QDP_UPDATE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+      do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+          impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+      end do
+      advance_hypervis_qdp_update_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+      advance_hypervis_qdp_update_use_native_impl = .false.
+    end if
+
+    advance_hypervis_qdp_update_impl_selected = .true.
+  end subroutine advance_hypervis_qdp_update_select_impl
 
 end module prim_advection_mod

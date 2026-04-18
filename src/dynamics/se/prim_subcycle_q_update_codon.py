@@ -266,6 +266,28 @@ def euler_step_qdp_restore_codon(
 
 
 @export
+def advance_hypervis_qdp_update_codon(
+    np: int,
+    nlev: int,
+    dt: float,
+    nu_q: float,
+    qdp_p: cobj,
+    spheremp_p: cobj,
+    qtens_p: cobj,
+):
+    qdp = Ptr[float](qdp_p)
+    spheremp = Ptr[float](spheremp_p)
+    qtens = Ptr[float](qtens_p)
+
+    for k in range(1, nlev + 1):
+        for j in range(1, np + 1):
+            for i in range(1, np + 1):
+                plane_idx = _plane_idx(i, j, np)
+                vol_idx = _vol_idx(i, j, k, np)
+                qdp[vol_idx] = qdp[vol_idx] * spheremp[plane_idx] - dt * nu_q * qtens[vol_idx]
+
+
+@export
 def euler_step_dssvar_restore_codon(
     np: int,
     nlev: int,
