@@ -242,3 +242,24 @@ def tphysbc_dadadj_output_codon(
             ptend_q[_field3_idx(i, k, 1, pcols, pver)] = (
                 ptend_q[_field3_idx(i, k, 1, pcols, pver)] - state_q[_field3_idx(i, k, 1, pcols, pver)]
             ) / ztodt
+
+
+@export
+def tphysbc_dtcore_update_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    ztodt: float,
+    tini_p: cobj,
+    dtcore_p: cobj,
+    tend_dtdt_p: cobj,
+):
+    tini = Ptr[float](tini_p)
+    dtcore = Ptr[float](dtcore_p)
+    tend_dtdt = Ptr[float](tend_dtdt_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            dtcore[_field2_idx(i, k, pcols)] = (
+                (tini[_field2_idx(i, k, pcols)] - dtcore[_field2_idx(i, k, pcols)]) / ztodt
+            ) + tend_dtdt[_field2_idx(i, k, pcols)]

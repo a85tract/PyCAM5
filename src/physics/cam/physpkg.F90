@@ -82,6 +82,8 @@ module physpkg
   logical           :: tphysbc_dadadj_input_impl_selected = .false.
   logical           :: use_native_tphysbc_dadadj_output_impl = .false.
   logical           :: tphysbc_dadadj_output_impl_selected = .false.
+  logical           :: use_native_tphysbc_dtcore_update_impl = .false.
+  logical           :: tphysbc_dtcore_update_impl_selected = .false.
 
   !  Physics buffer index
   integer ::  teout_idx          = 0  
@@ -2041,9 +2043,7 @@ subroutine tphysbc (ztodt,               &
 
     ! T tendency due to dynamics
     if( nstep > dyn_time_lvls-1 ) then
-       do k = 1,pver
-          dtcore(:ncol,k) = (tini(:ncol,k) - dtcore(:ncol,k))/(ztodt) + tend%dTdt(:ncol,k)
-       end do
+       call tphysbc_dtcore_update(ncol, pcols, pver, ztodt, tini, dtcore, tend%dTdt)
        call outfld( 'DTCORE', dtcore, pcols, lchnk )
     end if
 
@@ -3460,5 +3460,112 @@ subroutine tphysbc_dadadj_output_native(ncol, pcols_local, pver_local, pcnst_loc
   ptend_q(:ncol,:,1) = (ptend_q(:ncol,:,1) - state_q(:ncol,:,1))/ztodt
 
 end subroutine tphysbc_dadadj_output_native
+
+!=======================================================================
+
+subroutine tphysbc_dtcore_update_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (tphysbc_dtcore_update_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('TPHYSBC_DTCORE_UPDATE_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_tphysbc_dtcore_update_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_tphysbc_dtcore_update_impl = .false.
+  end if
+
+  tphysbc_dtcore_update_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_tphysbc_dtcore_update_impl) then
+        write(iulog,*) 'tphysbc_dtcore_update implementation = native'
+     else
+        write(iulog,*) 'tphysbc_dtcore_update implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine tphysbc_dtcore_update_select_impl
+
+!=======================================================================
+
+subroutine tphysbc_dtcore_update(ncol, pcols_local, pver_local, ztodt, tini, dtcore, tend_dtdt)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: pver_local
+  real(r8), intent(in) :: ztodt
+  real(r8), intent(in), target :: tini(pcols_local, pver_local)
+  real(r8), intent(inout), target :: dtcore(pcols_local, pver_local)
+  real(r8), intent(in), target :: tend_dtdt(pcols_local, pver_local)
+
+  integer(c_int64_t) :: ncol_c
+  integer(c_int64_t) :: pcols_c
+  integer(c_int64_t) :: pver_c
+
+  interface
+     subroutine tphysbc_dtcore_update_codon(ncol_c, pcols_c, pver_c, ztodt, tini_p, dtcore_p, tend_dtdt_p) &
+          bind(c, name="tphysbc_dtcore_update_codon")
+       use iso_c_binding, only: c_int64_t, c_double, c_ptr
+       integer(c_int64_t), value :: ncol_c
+       integer(c_int64_t), value :: pcols_c
+       integer(c_int64_t), value :: pver_c
+       real(c_double), value :: ztodt
+       type(c_ptr), value :: tini_p
+       type(c_ptr), value :: dtcore_p
+       type(c_ptr), value :: tend_dtdt_p
+     end subroutine tphysbc_dtcore_update_codon
+  end interface
+
+  call tphysbc_dtcore_update_select_impl()
+
+  if (use_native_tphysbc_dtcore_update_impl) then
+     call tphysbc_dtcore_update_native(ncol, pcols_local, pver_local, ztodt, tini, dtcore, tend_dtdt)
+     return
+  end if
+
+  ncol_c = int(ncol, c_int64_t)
+  pcols_c = int(pcols_local, c_int64_t)
+  pver_c = int(pver_local, c_int64_t)
+
+  call tphysbc_dtcore_update_codon(ncol_c, pcols_c, pver_c, ztodt, c_loc(tini), c_loc(dtcore), c_loc(tend_dtdt))
+
+end subroutine tphysbc_dtcore_update
+
+!=======================================================================
+
+subroutine tphysbc_dtcore_update_native(ncol, pcols_local, pver_local, ztodt, tini, dtcore, tend_dtdt)
+
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: pver_local
+  real(r8), intent(in) :: ztodt
+  real(r8), intent(in) :: tini(pcols_local, pver_local)
+  real(r8), intent(inout) :: dtcore(pcols_local, pver_local)
+  real(r8), intent(in) :: tend_dtdt(pcols_local, pver_local)
+
+  integer :: k
+
+  do k = 1,pver_local
+     dtcore(:ncol,k) = (tini(:ncol,k) - dtcore(:ncol,k))/(ztodt) + tend_dtdt(:ncol,k)
+  end do
+
+end subroutine tphysbc_dtcore_update_native
 
 end module physpkg
