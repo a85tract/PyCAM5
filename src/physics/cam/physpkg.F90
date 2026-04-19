@@ -76,6 +76,8 @@ module physpkg
   logical           :: tphysac_t_update_impl_selected = .false.
   logical           :: use_native_tphysac_q_snapshot_impl = .false.
   logical           :: tphysac_q_snapshot_impl_selected = .false.
+  logical           :: use_native_tphysbc_qini_snapshot_impl = .false.
+  logical           :: tphysbc_qini_snapshot_impl_selected = .false.
 
   !  Physics buffer index
   integer ::  teout_idx          = 0  
@@ -2026,9 +2028,8 @@ subroutine tphysbc (ztodt,               &
 
     call cnst_get_ind('CLDLIQ', ixcldliq)
     call cnst_get_ind('CLDICE', ixcldice)
-    qini     (:ncol,:pver) = state%q(:ncol,:pver,       1)
-    cldliqini(:ncol,:pver) = state%q(:ncol,:pver,ixcldliq)
-    cldiceini(:ncol,:pver) = state%q(:ncol,:pver,ixcldice)
+    call tphysbc_qini_snapshot(ncol, pcols, pver, pcnst, ixcldliq, ixcldice, &
+         state%q, qini, cldliqini, cldiceini)
 
     call outfld('TEOUT', teout       , pcols, lchnk   )
     call outfld('TEINP', state%te_ini, pcols, lchnk   )
@@ -3104,5 +3105,129 @@ subroutine tphysac_q_snapshot_native(ncol, pcols_local, pver_local, pcnst_local,
   tmp_cldice(:ncol,:pver_local) = state_q(:ncol,:pver_local,ixcldice)
 
 end subroutine tphysac_q_snapshot_native
+
+!=======================================================================
+
+subroutine tphysbc_qini_snapshot_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (tphysbc_qini_snapshot_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('TPHYSBC_QINI_SNAPSHOT_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_tphysbc_qini_snapshot_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_tphysbc_qini_snapshot_impl = .false.
+  end if
+
+  tphysbc_qini_snapshot_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_tphysbc_qini_snapshot_impl) then
+        write(iulog,*) 'tphysbc_qini_snapshot implementation = native'
+     else
+        write(iulog,*) 'tphysbc_qini_snapshot implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine tphysbc_qini_snapshot_select_impl
+
+!=======================================================================
+
+subroutine tphysbc_qini_snapshot(ncol, pcols_local, pver_local, pcnst_local, ixcldliq, ixcldice, &
+     state_q, qini, cldliqini, cldiceini)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: pver_local
+  integer, intent(in) :: pcnst_local
+  integer, intent(in) :: ixcldliq
+  integer, intent(in) :: ixcldice
+  real(r8), intent(in), target :: state_q(pcols_local, pver_local, pcnst_local)
+  real(r8), intent(inout), target :: qini(pcols_local, pver_local)
+  real(r8), intent(inout), target :: cldliqini(pcols_local, pver_local)
+  real(r8), intent(inout), target :: cldiceini(pcols_local, pver_local)
+
+  integer(c_int64_t) :: ncol_c
+  integer(c_int64_t) :: pcols_c
+  integer(c_int64_t) :: pver_c
+  integer(c_int64_t) :: pcnst_c
+  integer(c_int64_t) :: ixcldliq_c
+  integer(c_int64_t) :: ixcldice_c
+
+  interface
+     subroutine tphysbc_qini_snapshot_codon(ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, &
+          state_q_p, qini_p, cldliqini_p, cldiceini_p) bind(c, name="tphysbc_qini_snapshot_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c
+       integer(c_int64_t), value :: pcols_c
+       integer(c_int64_t), value :: pver_c
+       integer(c_int64_t), value :: pcnst_c
+       integer(c_int64_t), value :: ixcldliq_c
+       integer(c_int64_t), value :: ixcldice_c
+       type(c_ptr), value :: state_q_p
+       type(c_ptr), value :: qini_p
+       type(c_ptr), value :: cldliqini_p
+       type(c_ptr), value :: cldiceini_p
+     end subroutine tphysbc_qini_snapshot_codon
+  end interface
+
+  call tphysbc_qini_snapshot_select_impl()
+
+  if (use_native_tphysbc_qini_snapshot_impl) then
+     call tphysbc_qini_snapshot_native(ncol, pcols_local, pver_local, pcnst_local, ixcldliq, ixcldice, &
+          state_q, qini, cldliqini, cldiceini)
+     return
+  end if
+
+  ncol_c = int(ncol, c_int64_t)
+  pcols_c = int(pcols_local, c_int64_t)
+  pver_c = int(pver_local, c_int64_t)
+  pcnst_c = int(pcnst_local, c_int64_t)
+  ixcldliq_c = int(ixcldliq, c_int64_t)
+  ixcldice_c = int(ixcldice, c_int64_t)
+
+  call tphysbc_qini_snapshot_codon(ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, &
+       c_loc(state_q), c_loc(qini), c_loc(cldliqini), c_loc(cldiceini))
+
+end subroutine tphysbc_qini_snapshot
+
+!=======================================================================
+
+subroutine tphysbc_qini_snapshot_native(ncol, pcols_local, pver_local, pcnst_local, ixcldliq, ixcldice, &
+     state_q, qini, cldliqini, cldiceini)
+
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: pver_local
+  integer, intent(in) :: pcnst_local
+  integer, intent(in) :: ixcldliq
+  integer, intent(in) :: ixcldice
+  real(r8), intent(in) :: state_q(pcols_local, pver_local, pcnst_local)
+  real(r8), intent(inout) :: qini(pcols_local, pver_local)
+  real(r8), intent(inout) :: cldliqini(pcols_local, pver_local)
+  real(r8), intent(inout) :: cldiceini(pcols_local, pver_local)
+
+  qini     (:ncol,:pver_local) = state_q(:ncol,:pver_local,1)
+  cldliqini(:ncol,:pver_local) = state_q(:ncol,:pver_local,ixcldliq)
+  cldiceini(:ncol,:pver_local) = state_q(:ncol,:pver_local,ixcldice)
+
+end subroutine tphysbc_qini_snapshot_native
 
 end module physpkg

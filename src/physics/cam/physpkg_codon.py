@@ -155,3 +155,34 @@ def tphysac_q_snapshot_codon(
     for k in range(1, pver + 1):
         for i in range(1, ncol + 1):
             tmp_cldice[_field2_idx(i, k, pcols)] = state_q[_field3_idx(i, k, ixcldice, pcols, pver)]
+
+
+@export
+def tphysbc_qini_snapshot_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    ixcldliq: int,
+    ixcldice: int,
+    state_q_p: cobj,
+    qini_p: cobj,
+    cldliqini_p: cobj,
+    cldiceini_p: cobj,
+):
+    state_q = Ptr[float](state_q_p)
+    qini = Ptr[float](qini_p)
+    cldliqini = Ptr[float](cldliqini_p)
+    cldiceini = Ptr[float](cldiceini_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            qini[_field2_idx(i, k, pcols)] = state_q[_field3_idx(i, k, 1, pcols, pver)]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            cldliqini[_field2_idx(i, k, pcols)] = state_q[_field3_idx(i, k, ixcldliq, pcols, pver)]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            cldiceini[_field2_idx(i, k, pcols)] = state_q[_field3_idx(i, k, ixcldice, pcols, pver)]
