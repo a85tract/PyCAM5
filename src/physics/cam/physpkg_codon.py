@@ -94,6 +94,36 @@ def tphysbc_precip_ops_codon(
 
 
 @export
+def tphysac_flx_net_update_codon(
+    ncol: int,
+    pcols: int,
+    tend_flx_net_p: cobj,
+    cam_in_shf_p: cobj,
+    cam_out_precc_p: cobj,
+    cam_out_precl_p: cobj,
+    cam_out_precsc_p: cobj,
+    cam_out_precsl_p: cobj,
+    latvap_local: float,
+    latice_local: float,
+    rhoh2o_local: float,
+):
+    tend_flx_net = Ptr[float](tend_flx_net_p)
+    cam_in_shf = Ptr[float](cam_in_shf_p)
+    cam_out_precc = Ptr[float](cam_out_precc_p)
+    cam_out_precl = Ptr[float](cam_out_precl_p)
+    cam_out_precsc = Ptr[float](cam_out_precsc_p)
+    cam_out_precsl = Ptr[float](cam_out_precsl_p)
+
+    for i in range(1, ncol + 1):
+        tend_flx_net[_idx(i)] = (
+            tend_flx_net[_idx(i)]
+            + cam_in_shf[_idx(i)]
+            + (cam_out_precc[_idx(i)] + cam_out_precl[_idx(i)]) * latvap_local * rhoh2o_local
+            + (cam_out_precsc[_idx(i)] + cam_out_precsl[_idx(i)]) * latice_local * rhoh2o_local
+        )
+
+
+@export
 def tphysac_t_update_codon(
     ncol: int,
     pcols: int,

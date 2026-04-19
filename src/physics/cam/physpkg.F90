@@ -70,6 +70,8 @@ module physpkg
   logical           :: phys_tstep_impl_selected = .false.
   integer           :: phys_tstep_branch_mask = 0
   logical           :: phys_tstep_branch_selected = .false.
+  logical           :: use_native_tphysac_flx_net_update_impl = .false.
+  logical           :: tphysac_flx_net_update_impl_selected = .false.
   logical           :: use_native_tphysbc_precip_ops_impl = .false.
   logical           :: tphysbc_precip_ops_impl_selected = .false.
   logical           :: use_native_tphysac_t_update_impl = .false.
@@ -1428,11 +1430,8 @@ subroutine tphysac (ztodt,   cam_in,  &
     ! accumulate fluxes into net flux array for spectral dycores
     ! jrm Include latent heat of fusion for snow
     !
-    do i=1,ncol
-       tend%flx_net(i) = tend%flx_net(i) + cam_in%shf(i) + (cam_out%precc(i) &
-            + cam_out%precl(i))*latvap*rhoh2o &
-            + (cam_out%precsc(i) + cam_out%precsl(i))*latice*rhoh2o
-    end do
+    call tphysac_flx_net_update(ncol, pcols, tend%flx_net, cam_in%shf, cam_out%precc, &
+         cam_out%precl, cam_out%precsc, cam_out%precsl, latvap, latice, rhoh2o)
 
     ! emissions of aerosols and gas-phase chemistry constituents at surface
     call chem_emissions( state, cam_in )
@@ -2867,6 +2866,129 @@ subroutine tphysbc_precip_ops_native(mode, ncol, pcols_local, cld_macmic_num_ste
   end select
 
 end subroutine tphysbc_precip_ops_native
+
+!=======================================================================
+
+subroutine tphysac_flx_net_update_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (tphysac_flx_net_update_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('TPHYSAC_FLX_NET_UPDATE_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_tphysac_flx_net_update_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_tphysac_flx_net_update_impl = .false.
+  end if
+
+  tphysac_flx_net_update_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_tphysac_flx_net_update_impl) then
+        write(iulog,*) 'tphysac_flx_net_update implementation = native'
+     else
+        write(iulog,*) 'tphysac_flx_net_update implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine tphysac_flx_net_update_select_impl
+
+!=======================================================================
+
+subroutine tphysac_flx_net_update(ncol, pcols_local, tend_flx_net, cam_in_shf, cam_out_precc, &
+     cam_out_precl, cam_out_precsc, cam_out_precsl, latvap_local, latice_local, rhoh2o_local)
+
+  use iso_c_binding, only: c_int64_t, c_double, c_loc, c_ptr
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  real(r8), intent(inout), target :: tend_flx_net(pcols_local)
+  real(r8), intent(in), target :: cam_in_shf(pcols_local)
+  real(r8), intent(in), target :: cam_out_precc(pcols_local)
+  real(r8), intent(in), target :: cam_out_precl(pcols_local)
+  real(r8), intent(in), target :: cam_out_precsc(pcols_local)
+  real(r8), intent(in), target :: cam_out_precsl(pcols_local)
+  real(r8), intent(in) :: latvap_local
+  real(r8), intent(in) :: latice_local
+  real(r8), intent(in) :: rhoh2o_local
+
+  integer(c_int64_t) :: ncol_c
+  integer(c_int64_t) :: pcols_c
+
+  interface
+     subroutine tphysac_flx_net_update_codon(ncol_c, pcols_c, tend_flx_net_p, cam_in_shf_p, cam_out_precc_p, &
+          cam_out_precl_p, cam_out_precsc_p, cam_out_precsl_p, latvap_local, latice_local, rhoh2o_local) &
+          bind(c, name="tphysac_flx_net_update_codon")
+       use iso_c_binding, only: c_int64_t, c_double, c_ptr
+       integer(c_int64_t), value :: ncol_c
+       integer(c_int64_t), value :: pcols_c
+       type(c_ptr), value :: tend_flx_net_p
+       type(c_ptr), value :: cam_in_shf_p
+       type(c_ptr), value :: cam_out_precc_p
+       type(c_ptr), value :: cam_out_precl_p
+       type(c_ptr), value :: cam_out_precsc_p
+       type(c_ptr), value :: cam_out_precsl_p
+       real(c_double), value :: latvap_local
+       real(c_double), value :: latice_local
+       real(c_double), value :: rhoh2o_local
+     end subroutine tphysac_flx_net_update_codon
+  end interface
+
+  call tphysac_flx_net_update_select_impl()
+
+  if (use_native_tphysac_flx_net_update_impl) then
+     call tphysac_flx_net_update_native(ncol, pcols_local, tend_flx_net, cam_in_shf, cam_out_precc, &
+          cam_out_precl, cam_out_precsc, cam_out_precsl, latvap_local, latice_local, rhoh2o_local)
+     return
+  end if
+
+  ncol_c = int(ncol, c_int64_t)
+  pcols_c = int(pcols_local, c_int64_t)
+
+  call tphysac_flx_net_update_codon(ncol_c, pcols_c, c_loc(tend_flx_net), c_loc(cam_in_shf), c_loc(cam_out_precc), &
+       c_loc(cam_out_precl), c_loc(cam_out_precsc), c_loc(cam_out_precsl), latvap_local, latice_local, rhoh2o_local)
+
+end subroutine tphysac_flx_net_update
+
+!=======================================================================
+
+subroutine tphysac_flx_net_update_native(ncol, pcols_local, tend_flx_net, cam_in_shf, cam_out_precc, &
+     cam_out_precl, cam_out_precsc, cam_out_precsl, latvap_local, latice_local, rhoh2o_local)
+
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  real(r8), intent(inout) :: tend_flx_net(pcols_local)
+  real(r8), intent(in) :: cam_in_shf(pcols_local)
+  real(r8), intent(in) :: cam_out_precc(pcols_local)
+  real(r8), intent(in) :: cam_out_precl(pcols_local)
+  real(r8), intent(in) :: cam_out_precsc(pcols_local)
+  real(r8), intent(in) :: cam_out_precsl(pcols_local)
+  real(r8), intent(in) :: latvap_local
+  real(r8), intent(in) :: latice_local
+  real(r8), intent(in) :: rhoh2o_local
+
+  integer :: i
+
+  do i = 1, ncol
+     tend_flx_net(i) = tend_flx_net(i) + cam_in_shf(i) + (cam_out_precc(i) + cam_out_precl(i))*latvap_local*rhoh2o_local + &
+          (cam_out_precsc(i) + cam_out_precsl(i))*latice_local*rhoh2o_local
+  end do
+
+end subroutine tphysac_flx_net_update_native
 
 !=======================================================================
 
