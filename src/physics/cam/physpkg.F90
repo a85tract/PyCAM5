@@ -104,6 +104,8 @@ module physpkg
   logical           :: tphysbc_dadadj_lq_init_impl_selected = .false.
   logical           :: use_native_phys_inidat_qpert_expand_impl = .false.
   logical           :: phys_inidat_qpert_expand_impl_selected = .false.
+  logical           :: use_native_phys_inidat_pblh_default_impl = .false.
+  logical           :: phys_inidat_pblh_default_impl_selected = .false.
   logical           :: use_native_phys_inidat_tbot_init_impl = .false.
   logical           :: phys_inidat_tbot_init_impl_selected = .false.
 
@@ -441,8 +443,8 @@ subroutine phys_inidat( cam_out, pbuf2d )
 
     call infld('PBLH', fh_ini, dim1name, 'lat', 1, pcols, begchunk, endchunk, &
          tptr(:,:), found, grid_map='PHYS')
+    call phys_inidat_pblh_default(pcols, endchunk-begchunk+1, found, tptr)
     if(.not. found) then
-       tptr(:,:) = 0._r8
        if (masterproc) write(iulog,*) 'PBLH initialized to 0.'
     end if
     pblh_idx = pbuf_get_index('pblh')
@@ -4519,6 +4521,103 @@ subroutine phys_inidat_qpert_expand_native(pcols_local, pcnst_local, chunk_count
   tptr3d_2(:,1,:) = tptr(:,:)
 
 end subroutine phys_inidat_qpert_expand_native
+
+!=======================================================================
+
+subroutine phys_inidat_pblh_default_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (phys_inidat_pblh_default_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('PHYS_INIDAT_PBLH_DEFAULT_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_phys_inidat_pblh_default_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_phys_inidat_pblh_default_impl = .false.
+  end if
+
+  phys_inidat_pblh_default_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_phys_inidat_pblh_default_impl) then
+        write(iulog,*) 'phys_inidat_pblh_default implementation = native'
+     else
+        write(iulog,*) 'phys_inidat_pblh_default implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine phys_inidat_pblh_default_select_impl
+
+!=======================================================================
+
+subroutine phys_inidat_pblh_default(pcols_local, chunk_count_local, found_local, tptr)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: chunk_count_local
+  logical, intent(in) :: found_local
+  real(r8), intent(inout), target :: tptr(pcols_local, chunk_count_local)
+
+  integer(c_int64_t) :: pcols_c
+  integer(c_int64_t) :: chunk_count_c
+  integer(c_int64_t) :: found_c
+
+  interface
+     subroutine phys_inidat_pblh_default_codon(pcols_c, chunk_count_c, found_c, tptr_p) &
+          bind(c, name="phys_inidat_pblh_default_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: pcols_c
+       integer(c_int64_t), value :: chunk_count_c
+       integer(c_int64_t), value :: found_c
+       type(c_ptr), value :: tptr_p
+     end subroutine phys_inidat_pblh_default_codon
+  end interface
+
+  call phys_inidat_pblh_default_select_impl()
+
+  if (use_native_phys_inidat_pblh_default_impl) then
+     call phys_inidat_pblh_default_native(pcols_local, chunk_count_local, found_local, tptr)
+     return
+  end if
+
+  pcols_c = int(pcols_local, c_int64_t)
+  chunk_count_c = int(chunk_count_local, c_int64_t)
+  found_c = 0_c_int64_t
+  if (found_local) found_c = 1_c_int64_t
+
+  call phys_inidat_pblh_default_codon(pcols_c, chunk_count_c, found_c, c_loc(tptr))
+
+end subroutine phys_inidat_pblh_default
+
+!=======================================================================
+
+subroutine phys_inidat_pblh_default_native(pcols_local, chunk_count_local, found_local, tptr)
+
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: chunk_count_local
+  logical, intent(in) :: found_local
+  real(r8), intent(inout) :: tptr(pcols_local, chunk_count_local)
+
+  if (.not. found_local) then
+     tptr(:,:) = 0._r8
+  end if
+
+end subroutine phys_inidat_pblh_default_native
 
 !=======================================================================
 
