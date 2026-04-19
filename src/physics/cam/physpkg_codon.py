@@ -23,6 +23,12 @@ def _idx(i: int) -> int:
     return i - 1
 
 
+@inline
+def _field2_idx(i: int, k: int, ld1: int) -> int:
+    """state_t/tini/tend_dtdt/dtcore/tmp_t declared as (ld1, pver)"""
+    return (i - 1) + (k - 1) * ld1
+
+
 @export
 def tphysbc_precip_ops_codon(
     mode: int,
@@ -79,3 +85,36 @@ def tphysbc_precip_ops_codon(
         for i in range(1, ncol + 1):
             prec_sed[_idx(i)] = prec_sed[_idx(i)] + prec_sed_carma[_idx(i)]
             snow_sed[_idx(i)] = snow_sed[_idx(i)] + snow_sed_carma[_idx(i)]
+
+
+@export
+def tphysac_t_update_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    ztodt: float,
+    state_t_p: cobj,
+    tini_p: cobj,
+    tend_dtdt_p: cobj,
+    dtcore_p: cobj,
+    tmp_t_p: cobj,
+):
+    state_t = Ptr[float](state_t_p)
+    tini = Ptr[float](tini_p)
+    tend_dtdt = Ptr[float](tend_dtdt_p)
+    dtcore = Ptr[float](dtcore_p)
+    tmp_t = Ptr[float](tmp_t_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            tmp_t[_field2_idx(i, k, pcols)] = state_t[_field2_idx(i, k, pcols)]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            state_t[_field2_idx(i, k, pcols)] = tini[_field2_idx(i, k, pcols)] + ztodt * tend_dtdt[
+                _field2_idx(i, k, pcols)
+            ]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            dtcore[_field2_idx(i, k, pcols)] = state_t[_field2_idx(i, k, pcols)]

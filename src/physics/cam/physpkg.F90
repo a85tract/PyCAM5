@@ -72,6 +72,8 @@ module physpkg
   logical           :: phys_tstep_branch_selected = .false.
   logical           :: use_native_tphysbc_precip_ops_impl = .false.
   logical           :: tphysbc_precip_ops_impl_selected = .false.
+  logical           :: use_native_tphysac_t_update_impl = .false.
+  logical           :: tphysac_t_update_impl_selected = .false.
 
   !  Physics buffer index
   integer ::  teout_idx          = 0  
@@ -1635,13 +1637,7 @@ subroutine tphysac (ztodt,   cam_in,  &
 
     !*** BAB's FV heating kludge *** apply the heating as temperature tendency.
     !*** BAB's FV heating kludge *** modify the temperature in the state structure
-    tmp_t(:ncol,:pver) = state%t(:ncol,:pver)
-    state%t(:ncol,:pver) = tini(:ncol,:pver) + ztodt*tend%dtdt(:ncol,:pver)
-
-    ! store dse after tphysac in buffer
-    do k = 1,pver
-       dtcore(:ncol,k) = state%t(:ncol,k)
-    end do
+    call tphysac_t_update(ncol, pcols, pver, ztodt, state%t, tini, tend%dtdt, dtcore, tmp_t)
 
     !
     ! FV: convert dry-type mixing ratios to moist here because physics_dme_adjust
@@ -2866,5 +2862,122 @@ subroutine tphysbc_precip_ops_native(mode, ncol, pcols_local, cld_macmic_num_ste
   end select
 
 end subroutine tphysbc_precip_ops_native
+
+!=======================================================================
+
+subroutine tphysac_t_update_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (tphysac_t_update_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('TPHYSAC_T_UPDATE_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_tphysac_t_update_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_tphysac_t_update_impl = .false.
+  end if
+
+  tphysac_t_update_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_tphysac_t_update_impl) then
+        write(iulog,*) 'tphysac_t_update implementation = native'
+     else
+        write(iulog,*) 'tphysac_t_update implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine tphysac_t_update_select_impl
+
+!=======================================================================
+
+subroutine tphysac_t_update(ncol, pcols_local, pver_local, ztodt, state_t, tini, tend_dtdt, dtcore, tmp_t)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use shr_kind_mod,   only: r8 => shr_kind_r8
+
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: pver_local
+  real(r8), intent(in) :: ztodt
+  real(r8), intent(inout), target :: state_t(pcols_local, pver_local)
+  real(r8), intent(in),    target :: tini(pcols_local, pver_local)
+  real(r8), intent(in),    target :: tend_dtdt(pcols_local, pver_local)
+  real(r8), intent(inout), target :: dtcore(pcols_local, pver_local)
+  real(r8), intent(inout), target :: tmp_t(pcols_local, pver_local)
+
+  integer(c_int64_t), target :: ncol_c
+  integer(c_int64_t), target :: pcols_c
+  integer(c_int64_t), target :: pver_c
+
+  interface
+     subroutine tphysac_t_update_codon(ncol_c, pcols_c, pver_c, ztodt, state_t_p, tini_p, tend_dtdt_p, dtcore_p, tmp_t_p) &
+          bind(c, name="tphysac_t_update_codon")
+       use iso_c_binding, only: c_int64_t, c_double, c_ptr
+       integer(c_int64_t), value :: ncol_c
+       integer(c_int64_t), value :: pcols_c
+       integer(c_int64_t), value :: pver_c
+       real(c_double), value :: ztodt
+       type(c_ptr), value :: state_t_p
+       type(c_ptr), value :: tini_p
+       type(c_ptr), value :: tend_dtdt_p
+       type(c_ptr), value :: dtcore_p
+       type(c_ptr), value :: tmp_t_p
+     end subroutine tphysac_t_update_codon
+  end interface
+
+  call tphysac_t_update_select_impl()
+
+  if (use_native_tphysac_t_update_impl) then
+     call tphysac_t_update_native(ncol, pcols_local, pver_local, ztodt, state_t, tini, tend_dtdt, dtcore, tmp_t)
+     return
+  end if
+
+  ncol_c = int(ncol, c_int64_t)
+  pcols_c = int(pcols_local, c_int64_t)
+  pver_c = int(pver_local, c_int64_t)
+
+  call tphysac_t_update_codon(ncol_c, pcols_c, pver_c, ztodt, &
+       c_loc(state_t), c_loc(tini), c_loc(tend_dtdt), c_loc(dtcore), c_loc(tmp_t))
+
+end subroutine tphysac_t_update
+
+!=======================================================================
+
+subroutine tphysac_t_update_native(ncol, pcols_local, pver_local, ztodt, state_t, tini, tend_dtdt, dtcore, tmp_t)
+
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: pver_local
+  real(r8), intent(in) :: ztodt
+  real(r8), intent(inout) :: state_t(pcols_local, pver_local)
+  real(r8), intent(in)    :: tini(pcols_local, pver_local)
+  real(r8), intent(in)    :: tend_dtdt(pcols_local, pver_local)
+  real(r8), intent(inout) :: dtcore(pcols_local, pver_local)
+  real(r8), intent(inout) :: tmp_t(pcols_local, pver_local)
+
+  integer :: k
+
+  tmp_t(:ncol,:pver_local) = state_t(:ncol,:pver_local)
+  state_t(:ncol,:pver_local) = tini(:ncol,:pver_local) + ztodt*tend_dtdt(:ncol,:pver_local)
+
+  do k = 1, pver_local
+     dtcore(:ncol,k) = state_t(:ncol,k)
+  end do
+
+end subroutine tphysac_t_update_native
 
 end module physpkg
