@@ -78,6 +78,8 @@ module physpkg
   logical           :: tphysac_q_snapshot_impl_selected = .false.
   logical           :: use_native_tphysbc_qini_snapshot_impl = .false.
   logical           :: tphysbc_qini_snapshot_impl_selected = .false.
+  logical           :: use_native_tphysbc_dadadj_input_impl = .false.
+  logical           :: tphysbc_dadadj_input_impl_selected = .false.
 
   !  Physics buffer index
   integer ::  teout_idx          = 0  
@@ -2057,8 +2059,7 @@ subroutine tphysbc (ztodt,               &
     lq(:) = .FALSE.
     lq(1) = .TRUE.
     call physics_ptend_init(ptend, state%psetcols, 'dadadj', ls=.true., lq=lq)
-    ptend%s(:ncol,:pver)   = state%t(:ncol,:pver)
-    ptend%q(:ncol,:pver,1) = state%q(:ncol,:pver,1)
+    call tphysbc_dadadj_input(ncol, pcols, pver, pcnst, state%t, state%q, ptend%s, ptend%q)
 
     call dadadj (lchnk, ncol, state%pmid,  state%pint,  state%pdel,  &
          ptend%s, ptend%q(1,1,1))
@@ -3229,5 +3230,115 @@ subroutine tphysbc_qini_snapshot_native(ncol, pcols_local, pver_local, pcnst_loc
   cldiceini(:ncol,:pver_local) = state_q(:ncol,:pver_local,ixcldice)
 
 end subroutine tphysbc_qini_snapshot_native
+
+!=======================================================================
+
+subroutine tphysbc_dadadj_input_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (tphysbc_dadadj_input_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('TPHYSBC_DADADJ_INPUT_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_tphysbc_dadadj_input_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_tphysbc_dadadj_input_impl = .false.
+  end if
+
+  tphysbc_dadadj_input_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_tphysbc_dadadj_input_impl) then
+        write(iulog,*) 'tphysbc_dadadj_input implementation = native'
+     else
+        write(iulog,*) 'tphysbc_dadadj_input implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine tphysbc_dadadj_input_select_impl
+
+!=======================================================================
+
+subroutine tphysbc_dadadj_input(ncol, pcols_local, pver_local, pcnst_local, state_t, state_q, ptend_s, ptend_q)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: pver_local
+  integer, intent(in) :: pcnst_local
+  real(r8), intent(in), target :: state_t(pcols_local, pver_local)
+  real(r8), intent(in), target :: state_q(pcols_local, pver_local, pcnst_local)
+  real(r8), intent(inout), target :: ptend_s(pcols_local, pver_local)
+  real(r8), intent(inout), target :: ptend_q(pcols_local, pver_local, pcnst_local)
+
+  integer(c_int64_t) :: ncol_c
+  integer(c_int64_t) :: pcols_c
+  integer(c_int64_t) :: pver_c
+  integer(c_int64_t) :: pcnst_c
+
+  interface
+     subroutine tphysbc_dadadj_input_codon(ncol_c, pcols_c, pver_c, pcnst_c, state_t_p, state_q_p, ptend_s_p, ptend_q_p) &
+          bind(c, name="tphysbc_dadadj_input_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c
+       integer(c_int64_t), value :: pcols_c
+       integer(c_int64_t), value :: pver_c
+       integer(c_int64_t), value :: pcnst_c
+       type(c_ptr), value :: state_t_p
+       type(c_ptr), value :: state_q_p
+       type(c_ptr), value :: ptend_s_p
+       type(c_ptr), value :: ptend_q_p
+     end subroutine tphysbc_dadadj_input_codon
+  end interface
+
+  call tphysbc_dadadj_input_select_impl()
+
+  if (use_native_tphysbc_dadadj_input_impl) then
+     call tphysbc_dadadj_input_native(ncol, pcols_local, pver_local, pcnst_local, state_t, state_q, ptend_s, ptend_q)
+     return
+  end if
+
+  ncol_c = int(ncol, c_int64_t)
+  pcols_c = int(pcols_local, c_int64_t)
+  pver_c = int(pver_local, c_int64_t)
+  pcnst_c = int(pcnst_local, c_int64_t)
+
+  call tphysbc_dadadj_input_codon(ncol_c, pcols_c, pver_c, pcnst_c, &
+       c_loc(state_t), c_loc(state_q), c_loc(ptend_s), c_loc(ptend_q))
+
+end subroutine tphysbc_dadadj_input
+
+!=======================================================================
+
+subroutine tphysbc_dadadj_input_native(ncol, pcols_local, pver_local, pcnst_local, state_t, state_q, ptend_s, ptend_q)
+
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: pver_local
+  integer, intent(in) :: pcnst_local
+  real(r8), intent(in) :: state_t(pcols_local, pver_local)
+  real(r8), intent(in) :: state_q(pcols_local, pver_local, pcnst_local)
+  real(r8), intent(inout) :: ptend_s(pcols_local, pver_local)
+  real(r8), intent(inout) :: ptend_q(pcols_local, pver_local, pcnst_local)
+
+  ptend_s(:ncol,:pver_local)   = state_t(:ncol,:pver_local)
+  ptend_q(:ncol,:pver_local,1) = state_q(:ncol,:pver_local,1)
+
+end subroutine tphysbc_dadadj_input_native
 
 end module physpkg
