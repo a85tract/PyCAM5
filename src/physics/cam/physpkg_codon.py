@@ -323,3 +323,31 @@ def tphysbc_flx_cnd_sum_codon(
 
     for i in range(1, ncol + 1):
         out[_idx(i)] = a[_idx(i)] + b[_idx(i)]
+
+
+@export
+def tphysbc_macrop_fluxes_codon(
+    mode: int,
+    ncol: int,
+    pcols: int,
+    rliq_p: cobj,
+    det_s_p: cobj,
+    flx_cnd_p: cobj,
+    flx_heat_p: cobj,
+    shf_p: cobj,
+):
+    rliq = Ptr[float](rliq_p)
+    det_s = Ptr[float](det_s_p)
+    flx_cnd = Ptr[float](flx_cnd_p)
+    flx_heat = Ptr[float](flx_heat_p)
+
+    for i in range(1, ncol + 1):
+        flx_cnd[_idx(i)] = -1.0 * rliq[_idx(i)]
+
+    if mode == 1:
+        for i in range(1, ncol + 1):
+            flx_heat[_idx(i)] = det_s[_idx(i)]
+    else:
+        shf = Ptr[float](shf_p)
+        for i in range(1, ncol + 1):
+            flx_heat[_idx(i)] = shf[_idx(i)] + det_s[_idx(i)]

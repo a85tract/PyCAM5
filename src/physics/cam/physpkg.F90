@@ -88,6 +88,8 @@ module physpkg
   logical           :: tphysbc_tini_copy_impl_selected = .false.
   logical           :: use_native_tphysbc_flx_cnd_sum_impl = .false.
   logical           :: tphysbc_flx_cnd_sum_impl_selected = .false.
+  logical           :: use_native_tphysbc_macrop_fluxes_impl = .false.
+  logical           :: tphysbc_macrop_fluxes_impl_selected = .false.
   logical           :: use_native_tphysbc_init_fields_impl = .false.
   logical           :: tphysbc_init_fields_impl_selected = .false.
 
@@ -2260,8 +2262,7 @@ subroutine tphysbc (ztodt,               &
 
              !  Since we "added" the reserved liquid back in this routine, we need 
              !    to account for it in the energy checker
-             flx_cnd(:ncol) = -1._r8*rliq(:ncol) 
-             flx_heat(:ncol) = det_s(:ncol)
+             call tphysbc_macrop_fluxes(1, ncol, pcols, rliq, det_s, flx_cnd, flx_heat)
 
              ! Unfortunately, physics_update does not know what time period
              ! "tend" is supposed to cover, and therefore can't update it
@@ -2286,8 +2287,7 @@ subroutine tphysbc (ztodt,               &
 
                 !  Since we "added" the reserved liquid back in this routine, we need 
                 !    to account for it in the energy checker
-                flx_cnd(:ncol) = -1._r8*rliq(:ncol) 
-                flx_heat(:ncol) = cam_in%shf(:ncol) + det_s(:ncol)
+                call tphysbc_macrop_fluxes(2, ncol, pcols, rliq, det_s, flx_cnd, flx_heat, cam_in%shf)
 
                 ! Unfortunately, physics_update does not know what time period
                 ! "tend" is supposed to cover, and therefore can't update it
@@ -3760,6 +3760,125 @@ subroutine tphysbc_flx_cnd_sum_native(ncol, pcols_local, a, b, out)
   out(:ncol) = a(:ncol) + b(:ncol)
 
 end subroutine tphysbc_flx_cnd_sum_native
+
+!=======================================================================
+
+subroutine tphysbc_macrop_fluxes_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (tphysbc_macrop_fluxes_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('TPHYSBC_MACROP_FLUXES_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_tphysbc_macrop_fluxes_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_tphysbc_macrop_fluxes_impl = .false.
+  end if
+
+  tphysbc_macrop_fluxes_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_tphysbc_macrop_fluxes_impl) then
+        write(iulog,*) 'tphysbc_macrop_fluxes implementation = native'
+     else
+        write(iulog,*) 'tphysbc_macrop_fluxes implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine tphysbc_macrop_fluxes_select_impl
+
+!=======================================================================
+
+subroutine tphysbc_macrop_fluxes(mode, ncol, pcols_local, rliq, det_s, flx_cnd, flx_heat, shf)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr, c_ptr
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: mode
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  real(r8), intent(in), target :: rliq(pcols_local)
+  real(r8), intent(in), target :: det_s(pcols_local)
+  real(r8), intent(inout), target :: flx_cnd(pcols_local)
+  real(r8), intent(inout), target :: flx_heat(pcols_local)
+  real(r8), intent(in), target, optional :: shf(pcols_local)
+
+  integer(c_int64_t) :: mode_c
+  integer(c_int64_t) :: ncol_c
+  integer(c_int64_t) :: pcols_c
+  type(c_ptr) :: shf_p
+
+  interface
+     subroutine tphysbc_macrop_fluxes_codon(mode_c, ncol_c, pcols_c, rliq_p, det_s_p, flx_cnd_p, flx_heat_p, shf_p) &
+          bind(c, name="tphysbc_macrop_fluxes_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: mode_c
+       integer(c_int64_t), value :: ncol_c
+       integer(c_int64_t), value :: pcols_c
+       type(c_ptr), value :: rliq_p
+       type(c_ptr), value :: det_s_p
+       type(c_ptr), value :: flx_cnd_p
+       type(c_ptr), value :: flx_heat_p
+       type(c_ptr), value :: shf_p
+     end subroutine tphysbc_macrop_fluxes_codon
+  end interface
+
+  call tphysbc_macrop_fluxes_select_impl()
+
+  if (use_native_tphysbc_macrop_fluxes_impl) then
+     call tphysbc_macrop_fluxes_native(mode, ncol, pcols_local, rliq, det_s, flx_cnd, flx_heat, shf)
+     return
+  end if
+
+  mode_c = int(mode, c_int64_t)
+  ncol_c = int(ncol, c_int64_t)
+  pcols_c = int(pcols_local, c_int64_t)
+
+  if (present(shf)) then
+     shf_p = c_loc(shf)
+  else
+     shf_p = c_null_ptr
+  end if
+
+  call tphysbc_macrop_fluxes_codon(mode_c, ncol_c, pcols_c, c_loc(rliq), c_loc(det_s), c_loc(flx_cnd), c_loc(flx_heat), shf_p)
+
+end subroutine tphysbc_macrop_fluxes
+
+!=======================================================================
+
+subroutine tphysbc_macrop_fluxes_native(mode, ncol, pcols_local, rliq, det_s, flx_cnd, flx_heat, shf)
+
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: mode
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  real(r8), intent(in) :: rliq(pcols_local)
+  real(r8), intent(in) :: det_s(pcols_local)
+  real(r8), intent(inout) :: flx_cnd(pcols_local)
+  real(r8), intent(inout) :: flx_heat(pcols_local)
+  real(r8), intent(in), optional :: shf(pcols_local)
+
+  flx_cnd(:ncol) = -1._r8*rliq(:ncol)
+
+  if (mode == 1) then
+     flx_heat(:ncol) = det_s(:ncol)
+  else
+     flx_heat(:ncol) = shf(:ncol) + det_s(:ncol)
+  end if
+
+end subroutine tphysbc_macrop_fluxes_native
 
 !=======================================================================
 
