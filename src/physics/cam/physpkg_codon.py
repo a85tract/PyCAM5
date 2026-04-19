@@ -211,3 +211,34 @@ def tphysbc_dadadj_input_codon(
     for k in range(1, pver + 1):
         for i in range(1, ncol + 1):
             ptend_q[_field3_idx(i, k, 1, pcols, pver)] = state_q[_field3_idx(i, k, 1, pcols, pver)]
+
+
+@export
+def tphysbc_dadadj_output_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    ztodt: float,
+    cpair_local: float,
+    state_t_p: cobj,
+    state_q_p: cobj,
+    ptend_s_p: cobj,
+    ptend_q_p: cobj,
+):
+    state_t = Ptr[float](state_t_p)
+    state_q = Ptr[float](state_q_p)
+    ptend_s = Ptr[float](ptend_s_p)
+    ptend_q = Ptr[float](ptend_q_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            ptend_s[_field2_idx(i, k, pcols)] = (
+                (ptend_s[_field2_idx(i, k, pcols)] - state_t[_field2_idx(i, k, pcols)]) / ztodt
+            ) * cpair_local
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            ptend_q[_field3_idx(i, k, 1, pcols, pver)] = (
+                ptend_q[_field3_idx(i, k, 1, pcols, pver)] - state_q[_field3_idx(i, k, 1, pcols, pver)]
+            ) / ztodt
