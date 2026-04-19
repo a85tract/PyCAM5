@@ -29,6 +29,12 @@ def _field2_idx(i: int, k: int, ld1: int) -> int:
     return (i - 1) + (k - 1) * ld1
 
 
+@inline
+def _field3_idx(i: int, k: int, m: int, ld1: int, ld2: int) -> int:
+    """state_q declared as (ld1, ld2, pcnst)"""
+    return (i - 1) + (k - 1) * ld1 + (m - 1) * ld1 * ld2
+
+
 @export
 def tphysbc_precip_ops_codon(
     mode: int,
@@ -118,3 +124,34 @@ def tphysac_t_update_codon(
     for k in range(1, pver + 1):
         for i in range(1, ncol + 1):
             dtcore[_field2_idx(i, k, pcols)] = state_t[_field2_idx(i, k, pcols)]
+
+
+@export
+def tphysac_q_snapshot_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    ixcldliq: int,
+    ixcldice: int,
+    state_q_p: cobj,
+    tmp_q_p: cobj,
+    tmp_cldliq_p: cobj,
+    tmp_cldice_p: cobj,
+):
+    state_q = Ptr[float](state_q_p)
+    tmp_q = Ptr[float](tmp_q_p)
+    tmp_cldliq = Ptr[float](tmp_cldliq_p)
+    tmp_cldice = Ptr[float](tmp_cldice_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            tmp_q[_field2_idx(i, k, pcols)] = state_q[_field3_idx(i, k, 1, pcols, pver)]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            tmp_cldliq[_field2_idx(i, k, pcols)] = state_q[_field3_idx(i, k, ixcldliq, pcols, pver)]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            tmp_cldice[_field2_idx(i, k, pcols)] = state_q[_field3_idx(i, k, ixcldice, pcols, pver)]
