@@ -524,6 +524,24 @@ def phys_inidat_tpert_default_codon(
 
 
 @export
+def phys_inidat_cush_default_codon(
+    pcols: int,
+    chunk_count: int,
+    found_i: int,
+    tptr_p: cobj,
+    default_value: float,
+):
+    if found_i != 0:
+        return
+
+    tptr = Ptr[float](tptr_p)
+
+    for c in range(1, chunk_count + 1):
+        for i in range(1, pcols + 1):
+            tptr[_field2_idx(i, c, pcols)] = default_value
+
+
+@export
 def phys_inidat_tbot_init_codon(
     pcols: int,
     tbot_p: cobj,

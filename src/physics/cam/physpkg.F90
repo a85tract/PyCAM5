@@ -108,6 +108,8 @@ module physpkg
   logical           :: phys_inidat_pblh_default_impl_selected = .false.
   logical           :: use_native_phys_inidat_tpert_default_impl = .false.
   logical           :: phys_inidat_tpert_default_impl_selected = .false.
+  logical           :: use_native_phys_inidat_cush_default_impl = .false.
+  logical           :: phys_inidat_cush_default_impl_selected = .false.
   logical           :: use_native_phys_inidat_tbot_init_impl = .false.
   logical           :: phys_inidat_tbot_init_impl_selected = .false.
 
@@ -483,9 +485,9 @@ subroutine phys_inidat( cam_out, pbuf2d )
     m = pbuf_get_index('cush')
     call infld(fieldname, fh_ini, dim1name, 'lat', 1, pcols, begchunk, endchunk, &
          tptr, found, grid_map='PHYS')
+    call phys_inidat_cush_default(pcols, endchunk-begchunk+1, found, tptr, 1000._r8)
     if(.not.found) then
        if(masterproc) write(iulog,*) trim(fieldname), ' initialized to 1000.'
-       tptr=1000._r8
     end if
     do n=1,dyn_time_lvls
        call pbuf_set_field(pbuf2d, m, tptr, start=(/1,n/), kount=(/pcols,1/))
@@ -4717,6 +4719,106 @@ subroutine phys_inidat_tpert_default_native(pcols_local, chunk_count_local, foun
   end if
 
 end subroutine phys_inidat_tpert_default_native
+
+!=======================================================================
+
+subroutine phys_inidat_cush_default_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (phys_inidat_cush_default_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('PHYS_INIDAT_CUSH_DEFAULT_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_phys_inidat_cush_default_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_phys_inidat_cush_default_impl = .false.
+  end if
+
+  phys_inidat_cush_default_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_phys_inidat_cush_default_impl) then
+        write(iulog,*) 'phys_inidat_cush_default implementation = native'
+     else
+        write(iulog,*) 'phys_inidat_cush_default implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine phys_inidat_cush_default_select_impl
+
+!=======================================================================
+
+subroutine phys_inidat_cush_default(pcols_local, chunk_count_local, found_local, tptr, default_value)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: chunk_count_local
+  logical, intent(in) :: found_local
+  real(r8), intent(inout), target :: tptr(pcols_local, chunk_count_local)
+  real(r8), intent(in) :: default_value
+
+  integer(c_int64_t) :: pcols_c
+  integer(c_int64_t) :: chunk_count_c
+  integer(c_int64_t) :: found_c
+
+  interface
+     subroutine phys_inidat_cush_default_codon(pcols_c, chunk_count_c, found_c, tptr_p, default_value) &
+          bind(c, name="phys_inidat_cush_default_codon")
+       use iso_c_binding, only: c_int64_t, c_double, c_ptr
+       integer(c_int64_t), value :: pcols_c
+       integer(c_int64_t), value :: chunk_count_c
+       integer(c_int64_t), value :: found_c
+       type(c_ptr), value :: tptr_p
+       real(c_double), value :: default_value
+     end subroutine phys_inidat_cush_default_codon
+  end interface
+
+  call phys_inidat_cush_default_select_impl()
+
+  if (use_native_phys_inidat_cush_default_impl) then
+     call phys_inidat_cush_default_native(pcols_local, chunk_count_local, found_local, tptr, default_value)
+     return
+  end if
+
+  pcols_c = int(pcols_local, c_int64_t)
+  chunk_count_c = int(chunk_count_local, c_int64_t)
+  found_c = 0_c_int64_t
+  if (found_local) found_c = 1_c_int64_t
+
+  call phys_inidat_cush_default_codon(pcols_c, chunk_count_c, found_c, c_loc(tptr), default_value)
+
+end subroutine phys_inidat_cush_default
+
+!=======================================================================
+
+subroutine phys_inidat_cush_default_native(pcols_local, chunk_count_local, found_local, tptr, default_value)
+
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: chunk_count_local
+  logical, intent(in) :: found_local
+  real(r8), intent(inout) :: tptr(pcols_local, chunk_count_local)
+  real(r8), intent(in) :: default_value
+
+  if (.not. found_local) then
+     tptr = default_value
+  end if
+
+end subroutine phys_inidat_cush_default_native
 
 !=======================================================================
 
