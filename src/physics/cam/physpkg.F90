@@ -96,6 +96,8 @@ module physpkg
   logical           :: tphysbc_init_fields_impl_selected = .false.
   logical           :: use_native_tphysbc_radheat_flx_net_impl = .false.
   logical           :: tphysbc_radheat_flx_net_impl_selected = .false.
+  logical           :: use_native_tphysbc_zero_buffers_impl = .false.
+  logical           :: tphysbc_zero_buffers_impl_selected = .false.
 
   !  Physics buffer index
   integer ::  teout_idx          = 0  
@@ -1904,8 +1906,7 @@ subroutine tphysbc (ztodt,               &
     !-----------------------------------------------------------------------
 
     zero = 0._r8
-    zero_tracers(:,:) = 0._r8
-    zero_sc(:) = 0._r8
+    call tphysbc_zero_buffers(pcols, pcnst, pcols*psubcols, zero_tracers, zero_sc)
 
     lchnk = state%lchnk
     ncol  = state%ncol
@@ -4093,6 +4094,104 @@ subroutine tphysbc_radheat_flx_net_native(ncol, pcols_local, tend_flx_net, net_f
   tend_flx_net(:ncol) = net_flx(:ncol)
 
 end subroutine tphysbc_radheat_flx_net_native
+
+!=======================================================================
+
+subroutine tphysbc_zero_buffers_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (tphysbc_zero_buffers_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('TPHYSBC_ZERO_BUFFERS_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_tphysbc_zero_buffers_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_tphysbc_zero_buffers_impl = .false.
+  end if
+
+  tphysbc_zero_buffers_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_tphysbc_zero_buffers_impl) then
+        write(iulog,*) 'tphysbc_zero_buffers implementation = native'
+     else
+        write(iulog,*) 'tphysbc_zero_buffers implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine tphysbc_zero_buffers_select_impl
+
+!=======================================================================
+
+subroutine tphysbc_zero_buffers(pcols_local, pcnst_local, zero_sc_len, zero_tracers, zero_sc)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: pcnst_local
+  integer, intent(in) :: zero_sc_len
+  real(r8), intent(inout), target :: zero_tracers(pcols_local, pcnst_local)
+  real(r8), intent(inout), target :: zero_sc(zero_sc_len)
+
+  integer(c_int64_t) :: pcols_c
+  integer(c_int64_t) :: pcnst_c
+  integer(c_int64_t) :: zero_sc_len_c
+
+  interface
+     subroutine tphysbc_zero_buffers_codon(pcols_c, pcnst_c, zero_sc_len_c, zero_tracers_p, zero_sc_p) &
+          bind(c, name="tphysbc_zero_buffers_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: pcols_c
+       integer(c_int64_t), value :: pcnst_c
+       integer(c_int64_t), value :: zero_sc_len_c
+       type(c_ptr), value :: zero_tracers_p
+       type(c_ptr), value :: zero_sc_p
+     end subroutine tphysbc_zero_buffers_codon
+  end interface
+
+  call tphysbc_zero_buffers_select_impl()
+
+  if (use_native_tphysbc_zero_buffers_impl) then
+     call tphysbc_zero_buffers_native(pcols_local, pcnst_local, zero_sc_len, zero_tracers, zero_sc)
+     return
+  end if
+
+  pcols_c = int(pcols_local, c_int64_t)
+  pcnst_c = int(pcnst_local, c_int64_t)
+  zero_sc_len_c = int(zero_sc_len, c_int64_t)
+
+  call tphysbc_zero_buffers_codon(pcols_c, pcnst_c, zero_sc_len_c, c_loc(zero_tracers), c_loc(zero_sc))
+
+end subroutine tphysbc_zero_buffers
+
+!=======================================================================
+
+subroutine tphysbc_zero_buffers_native(pcols_local, pcnst_local, zero_sc_len, zero_tracers, zero_sc)
+
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: pcnst_local
+  integer, intent(in) :: zero_sc_len
+  real(r8), intent(inout) :: zero_tracers(pcols_local, pcnst_local)
+  real(r8), intent(inout) :: zero_sc(zero_sc_len)
+
+  zero_tracers(:,:) = 0._r8
+  zero_sc(:) = 0._r8
+
+end subroutine tphysbc_zero_buffers_native
 
 !=======================================================================
 

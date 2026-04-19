@@ -395,3 +395,22 @@ def tphysbc_radheat_flx_net_codon(
 
     for i in range(1, ncol + 1):
         tend_flx_net[_idx(i)] = net_flx[_idx(i)]
+
+
+@export
+def tphysbc_zero_buffers_codon(
+    pcols: int,
+    pcnst: int,
+    zero_sc_len: int,
+    zero_tracers_p: cobj,
+    zero_sc_p: cobj,
+):
+    zero_tracers = Ptr[float](zero_tracers_p)
+    zero_sc = Ptr[float](zero_sc_p)
+
+    for m in range(1, pcnst + 1):
+        for i in range(1, pcols + 1):
+            zero_tracers[_field2_idx(i, m, pcols)] = 0.0
+
+    for i in range(1, zero_sc_len + 1):
+        zero_sc[_idx(i)] = 0.0
