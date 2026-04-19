@@ -98,6 +98,8 @@ module physpkg
   logical           :: tphysbc_radheat_flx_net_impl_selected = .false.
   logical           :: use_native_tphysbc_zero_buffers_impl = .false.
   logical           :: tphysbc_zero_buffers_impl_selected = .false.
+  logical           :: use_native_tphysbc_trace_water_clip_impl = .false.
+  logical           :: tphysbc_trace_water_clip_impl_selected = .false.
 
   !  Physics buffer index
   integer ::  teout_idx          = 0  
@@ -1940,34 +1942,7 @@ subroutine tphysbc (ztodt,               &
    !be more "accurate" but blow up at high resolutions.
    !**************************************************
    if(trace_water) then
-     do i = 1,ncol
-       do k= 1,pver
-         do p=1,pwtype
-           do m=2,wtrc_nwset
-             if(wisotope) then
-               if(state%q(i,k,wtrc_iatype(m,p)) .gt. 1.5_r8*state%q(i,k,wtrc_iatype(1,p))) then
-                 state%q(i,k,wtrc_iatype(m,p)) = state%q(i,k,wtrc_iatype(1,p))
-               end if
-             else
-               if(state%q(i,k,wtrc_iatype(m,p)) .gt. state%q(i,k,wtrc_iatype(1,p))) then
-                 if(wtrc_is_tagged(wtrc_iatype(m,p))) then !water tag?
-                   state%q(i,k,wtrc_iatype(m,p)) = state%q(i,k,wtrc_iatype(1,p))
-                 else !ratio test
-                   state%q(i,k,wtrc_iatype(m,p)) = wtrc_get_rstd(iwspec(wtrc_iatype(m,p)))*&
-                                                   state%q(i,k,wtrc_iatype(1,p))
-                 end if
-               end if
-             end if
-           end do
-         end do
-       end do
-     end do
-     do p=1,pwtype
-        do m=2,wtrc_nwset
-           n = wtrc_iatype(m,p)
-           call qneg3('wiso',lchnk  ,ncol    ,pcols   ,pver, n, n, qmin(n), state%q(1,1,n) )
-        end do
-     end do
+     call tphysbc_trace_water_clip(lchnk, ncol, pcols, pver, pcnst, state%q)
    end if
   !*******************************
 
@@ -4192,6 +4167,170 @@ subroutine tphysbc_zero_buffers_native(pcols_local, pcnst_local, zero_sc_len, ze
   zero_sc(:) = 0._r8
 
 end subroutine tphysbc_zero_buffers_native
+
+!=======================================================================
+
+subroutine tphysbc_trace_water_clip_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (tphysbc_trace_water_clip_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('TPHYSBC_TRACE_WATER_CLIP_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_tphysbc_trace_water_clip_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_tphysbc_trace_water_clip_impl = .false.
+  end if
+
+  tphysbc_trace_water_clip_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_tphysbc_trace_water_clip_impl) then
+        write(iulog,*) 'tphysbc_trace_water_clip implementation = native'
+     else
+        write(iulog,*) 'tphysbc_trace_water_clip implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine tphysbc_trace_water_clip_select_impl
+
+!=======================================================================
+
+subroutine tphysbc_trace_water_clip(lchnk, ncol, pcols_local, pver_local, pcnst_local, state_q)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use shr_kind_mod, only: r8 => shr_kind_r8
+  use constituents, only: qmin
+  use water_tracer_vars, only: wtrc_iatype, wtrc_nwset, iwspec, wisotope
+  use water_tracers, only: wtrc_get_rstd, wtrc_is_tagged
+  use water_types, only: pwtype
+
+  integer, intent(in) :: lchnk
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: pver_local
+  integer, intent(in) :: pcnst_local
+  real(r8), intent(inout), target :: state_q(pcols_local, pver_local, pcnst_local)
+
+  integer :: m, p, n
+  integer(c_int64_t), target :: wtrc_iatype64(wtrc_nwset, pwtype)
+  integer(c_int64_t), target :: tagged64(pcnst_local)
+  real(r8), target :: rstd_by_constituent(pcnst_local)
+
+  interface
+     subroutine tphysbc_trace_water_clip_codon(ncol_c, pcols_c, pver_c, pcnst_c, pwtype_c, &
+          wtrc_nwset_c, wisotope_on_c, state_q_p, wtrc_iatype_p, tagged_p, rstd_p) &
+          bind(c, name="tphysbc_trace_water_clip_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c
+       integer(c_int64_t), value :: pcols_c
+       integer(c_int64_t), value :: pver_c
+       integer(c_int64_t), value :: pcnst_c
+       integer(c_int64_t), value :: pwtype_c
+       integer(c_int64_t), value :: wtrc_nwset_c
+       integer(c_int64_t), value :: wisotope_on_c
+       type(c_ptr), value :: state_q_p
+       type(c_ptr), value :: wtrc_iatype_p
+       type(c_ptr), value :: tagged_p
+       type(c_ptr), value :: rstd_p
+     end subroutine tphysbc_trace_water_clip_codon
+  end interface
+
+  call tphysbc_trace_water_clip_select_impl()
+
+  if (use_native_tphysbc_trace_water_clip_impl) then
+     call tphysbc_trace_water_clip_native(lchnk, ncol, pcols_local, pver_local, pcnst_local, state_q)
+     return
+  end if
+
+  do p = 1, pwtype
+     do m = 1, wtrc_nwset
+        wtrc_iatype64(m, p) = int(wtrc_iatype(m, p), c_int64_t)
+     end do
+  end do
+
+  do m = 1, pcnst_local
+     tagged64(m) = merge(1_c_int64_t, 0_c_int64_t, wtrc_is_tagged(m))
+     rstd_by_constituent(m) = wtrc_get_rstd(iwspec(m))
+  end do
+
+  call tphysbc_trace_water_clip_codon( &
+       int(ncol, c_int64_t), int(pcols_local, c_int64_t), int(pver_local, c_int64_t), &
+       int(pcnst_local, c_int64_t), int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), &
+       merge(1_c_int64_t, 0_c_int64_t, wisotope), c_loc(state_q), c_loc(wtrc_iatype64), &
+       c_loc(tagged64), c_loc(rstd_by_constituent) &
+  )
+
+  do p = 1, pwtype
+     do m = 2, wtrc_nwset
+        n = wtrc_iatype(m, p)
+        call qneg3('wiso', lchnk, ncol, pcols_local, pver_local, n, n, qmin(n), state_q(1,1,n))
+     end do
+  end do
+
+end subroutine tphysbc_trace_water_clip
+
+!=======================================================================
+
+subroutine tphysbc_trace_water_clip_native(lchnk, ncol, pcols_local, pver_local, pcnst_local, state_q)
+
+  use shr_kind_mod, only: r8 => shr_kind_r8
+  use constituents, only: qmin
+  use water_tracer_vars, only: wtrc_iatype, wtrc_nwset, iwspec, wisotope
+  use water_tracers, only: wtrc_get_rstd, wtrc_is_tagged
+  use water_types, only: pwtype
+
+  integer, intent(in) :: lchnk
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: pver_local
+  integer, intent(in) :: pcnst_local
+  real(r8), intent(inout) :: state_q(pcols_local, pver_local, pcnst_local)
+
+  integer :: i, k, m, n, p
+
+  do i = 1, ncol
+     do k = 1, pver_local
+        do p = 1, pwtype
+           do m = 2, wtrc_nwset
+              if (wisotope) then
+                 if (state_q(i,k,wtrc_iatype(m,p)) .gt. 1.5_r8*state_q(i,k,wtrc_iatype(1,p))) then
+                    state_q(i,k,wtrc_iatype(m,p)) = state_q(i,k,wtrc_iatype(1,p))
+                 end if
+              else
+                 if (state_q(i,k,wtrc_iatype(m,p)) .gt. state_q(i,k,wtrc_iatype(1,p))) then
+                    if (wtrc_is_tagged(wtrc_iatype(m,p))) then
+                       state_q(i,k,wtrc_iatype(m,p)) = state_q(i,k,wtrc_iatype(1,p))
+                    else
+                       state_q(i,k,wtrc_iatype(m,p)) = wtrc_get_rstd(iwspec(wtrc_iatype(m,p)))* &
+                            state_q(i,k,wtrc_iatype(1,p))
+                    end if
+                 end if
+              end if
+           end do
+        end do
+     end do
+  end do
+
+  do p = 1, pwtype
+     do m = 2, wtrc_nwset
+        n = wtrc_iatype(m, p)
+        call qneg3('wiso', lchnk, ncol, pcols_local, pver_local, n, n, qmin(n), state_q(1,1,n))
+     end do
+  end do
+
+end subroutine tphysbc_trace_water_clip_native
 
 !=======================================================================
 

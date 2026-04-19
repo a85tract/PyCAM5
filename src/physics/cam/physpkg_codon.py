@@ -414,3 +414,41 @@ def tphysbc_zero_buffers_codon(
 
     for i in range(1, zero_sc_len + 1):
         zero_sc[_idx(i)] = 0.0
+
+
+@export
+def tphysbc_trace_water_clip_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    pwtype: int,
+    wtrc_nwset: int,
+    wisotope_on: int,
+    state_q_p: cobj,
+    wtrc_iatype_p: cobj,
+    tagged_p: cobj,
+    rstd_p: cobj,
+):
+    state_q = Ptr[float](state_q_p)
+    wtrc_iatype = Ptr[int](wtrc_iatype_p)
+    tagged = Ptr[int](tagged_p)
+    rstd = Ptr[float](rstd_p)
+
+    for i in range(1, ncol + 1):
+        for k in range(1, pver + 1):
+            for p in range(1, pwtype + 1):
+                bulk_idx = wtrc_iatype[_field2_idx(1, p, wtrc_nwset)]
+                bulk = state_q[_field3_idx(i, k, bulk_idx, pcols, pver)]
+                for m in range(2, wtrc_nwset + 1):
+                    tracer_idx = wtrc_iatype[_field2_idx(m, p, wtrc_nwset)]
+                    state_idx = _field3_idx(i, k, tracer_idx, pcols, pver)
+                    if wisotope_on != 0:
+                        if state_q[state_idx] > 1.5 * bulk:
+                            state_q[state_idx] = bulk
+                    else:
+                        if state_q[state_idx] > bulk:
+                            if tagged[_idx(tracer_idx)] != 0:
+                                state_q[state_idx] = bulk
+                            else:
+                                state_q[state_idx] = rstd[_idx(tracer_idx)] * bulk
