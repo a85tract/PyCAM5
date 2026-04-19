@@ -84,6 +84,8 @@ module physpkg
   logical           :: tphysbc_dadadj_output_impl_selected = .false.
   logical           :: use_native_tphysbc_dtcore_update_impl = .false.
   logical           :: tphysbc_dtcore_update_impl_selected = .false.
+  logical           :: use_native_tphysbc_tini_copy_impl = .false.
+  logical           :: tphysbc_tini_copy_impl_selected = .false.
   logical           :: use_native_tphysbc_init_fields_impl = .false.
   logical           :: tphysbc_init_fields_impl_selected = .false.
 
@@ -2020,7 +2022,7 @@ subroutine tphysbc (ztodt,               &
     call t_startf('energy_fixer')
 
     !*** BAB's FV heating kludge *** save the initial temperature
-    tini(:ncol,:pver) = state%t(:ncol,:pver)
+    call tphysbc_tini_copy(ncol, pcols, pver, state%t, tini)
     if (dycore_is('LR') .or. dycore_is('SE'))  then
        call check_energy_fix(state, ptend, nstep, flx_heat)
        call physics_update(state, ptend, ztodt, tend)
@@ -3564,6 +3566,103 @@ subroutine tphysbc_dtcore_update_native(ncol, pcols_local, pver_local, ztodt, ti
   end do
 
 end subroutine tphysbc_dtcore_update_native
+
+!=======================================================================
+
+subroutine tphysbc_tini_copy_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (tphysbc_tini_copy_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('TPHYSBC_TINI_COPY_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_tphysbc_tini_copy_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_tphysbc_tini_copy_impl = .false.
+  end if
+
+  tphysbc_tini_copy_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_tphysbc_tini_copy_impl) then
+        write(iulog,*) 'tphysbc_tini_copy implementation = native'
+     else
+        write(iulog,*) 'tphysbc_tini_copy implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine tphysbc_tini_copy_select_impl
+
+!=======================================================================
+
+subroutine tphysbc_tini_copy(ncol, pcols_local, pver_local, state_t, tini)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: pver_local
+  real(r8), intent(in), target :: state_t(pcols_local, pver_local)
+  real(r8), intent(inout), target :: tini(pcols_local, pver_local)
+
+  integer(c_int64_t) :: ncol_c
+  integer(c_int64_t) :: pcols_c
+  integer(c_int64_t) :: pver_c
+
+  interface
+     subroutine tphysbc_tini_copy_codon(ncol_c, pcols_c, pver_c, state_t_p, tini_p) &
+          bind(c, name="tphysbc_tini_copy_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c
+       integer(c_int64_t), value :: pcols_c
+       integer(c_int64_t), value :: pver_c
+       type(c_ptr), value :: state_t_p
+       type(c_ptr), value :: tini_p
+     end subroutine tphysbc_tini_copy_codon
+  end interface
+
+  call tphysbc_tini_copy_select_impl()
+
+  if (use_native_tphysbc_tini_copy_impl) then
+     call tphysbc_tini_copy_native(ncol, pcols_local, pver_local, state_t, tini)
+     return
+  end if
+
+  ncol_c = int(ncol, c_int64_t)
+  pcols_c = int(pcols_local, c_int64_t)
+  pver_c = int(pver_local, c_int64_t)
+
+  call tphysbc_tini_copy_codon(ncol_c, pcols_c, pver_c, c_loc(state_t), c_loc(tini))
+
+end subroutine tphysbc_tini_copy
+
+!=======================================================================
+
+subroutine tphysbc_tini_copy_native(ncol, pcols_local, pver_local, state_t, tini)
+
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: pver_local
+  real(r8), intent(in) :: state_t(pcols_local, pver_local)
+  real(r8), intent(inout) :: tini(pcols_local, pver_local)
+
+  tini(:ncol,:pver_local) = state_t(:ncol,:pver_local)
+
+end subroutine tphysbc_tini_copy_native
 
 !=======================================================================
 

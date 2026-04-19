@@ -291,3 +291,19 @@ def tphysbc_init_fields_codon(
             tend_dtdt[_field2_idx(i, k, pcols)] = 0.0
             tend_dudt[_field2_idx(i, k, pcols)] = 0.0
             tend_dvdt[_field2_idx(i, k, pcols)] = 0.0
+
+
+@export
+def tphysbc_tini_copy_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    state_t_p: cobj,
+    tini_p: cobj,
+):
+    state_t = Ptr[float](state_t_p)
+    tini = Ptr[float](tini_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            tini[_field2_idx(i, k, pcols)] = state_t[_field2_idx(i, k, pcols)]
