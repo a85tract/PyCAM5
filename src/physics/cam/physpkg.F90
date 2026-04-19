@@ -94,6 +94,8 @@ module physpkg
   logical           :: tphysbc_macrop_fluxes_impl_selected = .false.
   logical           :: use_native_tphysbc_init_fields_impl = .false.
   logical           :: tphysbc_init_fields_impl_selected = .false.
+  logical           :: use_native_tphysbc_radheat_flx_net_impl = .false.
+  logical           :: tphysbc_radheat_flx_net_impl_selected = .false.
 
   !  Physics buffer index
   integer ::  teout_idx          = 0  
@@ -2484,9 +2486,7 @@ subroutine tphysbc (ztodt,               &
          fsds, net_flx)
 
     ! Set net flux used by spectral dycores
-    do i=1,ncol
-       tend%flx_net(i) = net_flx(i)
-    end do
+    call tphysbc_radheat_flx_net(ncol, pcols, tend%flx_net, net_flx)
     call physics_update(state, ptend, ztodt, tend)
     call check_energy_chng(state, tend, "radheat", nstep, ztodt, zero, zero, zero, net_flx)
 
@@ -4001,6 +4001,98 @@ subroutine tphysbc_macrop_fluxes_native(mode, ncol, pcols_local, rliq, det_s, fl
   end if
 
 end subroutine tphysbc_macrop_fluxes_native
+
+!=======================================================================
+
+subroutine tphysbc_radheat_flx_net_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (tphysbc_radheat_flx_net_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('TPHYSBC_RADHEAT_FLX_NET_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_tphysbc_radheat_flx_net_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_tphysbc_radheat_flx_net_impl = .false.
+  end if
+
+  tphysbc_radheat_flx_net_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_tphysbc_radheat_flx_net_impl) then
+        write(iulog,*) 'tphysbc_radheat_flx_net implementation = native'
+     else
+        write(iulog,*) 'tphysbc_radheat_flx_net implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine tphysbc_radheat_flx_net_select_impl
+
+!=======================================================================
+
+subroutine tphysbc_radheat_flx_net(ncol, pcols_local, tend_flx_net, net_flx)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  real(r8), intent(inout), target :: tend_flx_net(pcols_local)
+  real(r8), intent(in), target :: net_flx(pcols_local)
+
+  integer(c_int64_t) :: ncol_c
+  integer(c_int64_t) :: pcols_c
+
+  interface
+     subroutine tphysbc_radheat_flx_net_codon(ncol_c, pcols_c, tend_flx_net_p, net_flx_p) &
+          bind(c, name="tphysbc_radheat_flx_net_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c
+       integer(c_int64_t), value :: pcols_c
+       type(c_ptr), value :: tend_flx_net_p
+       type(c_ptr), value :: net_flx_p
+     end subroutine tphysbc_radheat_flx_net_codon
+  end interface
+
+  call tphysbc_radheat_flx_net_select_impl()
+
+  if (use_native_tphysbc_radheat_flx_net_impl) then
+     call tphysbc_radheat_flx_net_native(ncol, pcols_local, tend_flx_net, net_flx)
+     return
+  end if
+
+  ncol_c = int(ncol, c_int64_t)
+  pcols_c = int(pcols_local, c_int64_t)
+
+  call tphysbc_radheat_flx_net_codon(ncol_c, pcols_c, c_loc(tend_flx_net), c_loc(net_flx))
+
+end subroutine tphysbc_radheat_flx_net
+
+!=======================================================================
+
+subroutine tphysbc_radheat_flx_net_native(ncol, pcols_local, tend_flx_net, net_flx)
+
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  real(r8), intent(inout) :: tend_flx_net(pcols_local)
+  real(r8), intent(in) :: net_flx(pcols_local)
+
+  tend_flx_net(:ncol) = net_flx(:ncol)
+
+end subroutine tphysbc_radheat_flx_net_native
 
 !=======================================================================
 

@@ -381,3 +381,17 @@ def tphysbc_macrop_fluxes_codon(
         shf = Ptr[float](shf_p)
         for i in range(1, ncol + 1):
             flx_heat[_idx(i)] = shf[_idx(i)] + det_s[_idx(i)]
+
+
+@export
+def tphysbc_radheat_flx_net_codon(
+    ncol: int,
+    pcols: int,
+    tend_flx_net_p: cobj,
+    net_flx_p: cobj,
+):
+    tend_flx_net = Ptr[float](tend_flx_net_p)
+    net_flx = Ptr[float](net_flx_p)
+
+    for i in range(1, ncol + 1):
+        tend_flx_net[_idx(i)] = net_flx[_idx(i)]
