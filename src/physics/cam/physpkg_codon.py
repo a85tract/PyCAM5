@@ -469,6 +469,23 @@ def tphysbc_dadadj_lq_init_codon(
 
 
 @export
+def phys_inidat_qpert_default_codon(
+    pcols: int,
+    chunk_count: int,
+    found_i: int,
+    tptr_p: cobj,
+):
+    if found_i != 0:
+        return
+
+    tptr = Ptr[float](tptr_p)
+
+    for c in range(1, chunk_count + 1):
+        for i in range(1, pcols + 1):
+            tptr[_field2_idx(i, c, pcols)] = 0.0
+
+
+@export
 def phys_inidat_qpert_expand_codon(
     pcols: int,
     pcnst: int,
