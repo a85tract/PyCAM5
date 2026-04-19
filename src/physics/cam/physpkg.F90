@@ -86,6 +86,8 @@ module physpkg
   logical           :: tphysbc_dtcore_update_impl_selected = .false.
   logical           :: use_native_tphysbc_tini_copy_impl = .false.
   logical           :: tphysbc_tini_copy_impl_selected = .false.
+  logical           :: use_native_tphysbc_flx_cnd_sum_impl = .false.
+  logical           :: tphysbc_flx_cnd_sum_impl_selected = .false.
   logical           :: use_native_tphysbc_init_fields_impl = .false.
   logical           :: tphysbc_init_fields_impl_selected = .false.
 
@@ -2121,7 +2123,7 @@ subroutine tphysbc (ztodt,               &
     end if
 
     ! Check energy integrals, including "reserved liquid"
-    flx_cnd(:ncol) = prec_dp(:ncol) + rliq(:ncol)
+    call tphysbc_flx_cnd_sum(ncol, pcols, prec_dp, rliq, flx_cnd)
     call check_energy_chng(state, tend, "convect_deep", nstep, ztodt, zero, flx_cnd, snow_dp, zero)
 
     !
@@ -2151,7 +2153,7 @@ subroutine tphysbc (ztodt,               &
       isOK = wtrc_check_h2o("after-shallow tphysbc", state, state%q, ztodt)
     end if
 
-    flx_cnd(:ncol) = prec_sh(:ncol) + rliq2(:ncol)
+    call tphysbc_flx_cnd_sum(ncol, pcols, prec_sh, rliq2, flx_cnd)
     call check_energy_chng(state, tend, "convect_shallow", nstep, ztodt, zero, flx_cnd, snow_sh, zero)
 
     call check_tracers_chng(state, tracerint, "convect_shallow", nstep, ztodt, zero_tracers)
@@ -3663,6 +3665,101 @@ subroutine tphysbc_tini_copy_native(ncol, pcols_local, pver_local, state_t, tini
   tini(:ncol,:pver_local) = state_t(:ncol,:pver_local)
 
 end subroutine tphysbc_tini_copy_native
+
+!=======================================================================
+
+subroutine tphysbc_flx_cnd_sum_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (tphysbc_flx_cnd_sum_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('TPHYSBC_FLX_CND_SUM_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_tphysbc_flx_cnd_sum_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_tphysbc_flx_cnd_sum_impl = .false.
+  end if
+
+  tphysbc_flx_cnd_sum_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_tphysbc_flx_cnd_sum_impl) then
+        write(iulog,*) 'tphysbc_flx_cnd_sum implementation = native'
+     else
+        write(iulog,*) 'tphysbc_flx_cnd_sum implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine tphysbc_flx_cnd_sum_select_impl
+
+!=======================================================================
+
+subroutine tphysbc_flx_cnd_sum(ncol, pcols_local, a, b, out)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  real(r8), intent(in), target :: a(pcols_local)
+  real(r8), intent(in), target :: b(pcols_local)
+  real(r8), intent(inout), target :: out(pcols_local)
+
+  integer(c_int64_t) :: ncol_c
+  integer(c_int64_t) :: pcols_c
+
+  interface
+     subroutine tphysbc_flx_cnd_sum_codon(ncol_c, pcols_c, a_p, b_p, out_p) &
+          bind(c, name="tphysbc_flx_cnd_sum_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c
+       integer(c_int64_t), value :: pcols_c
+       type(c_ptr), value :: a_p
+       type(c_ptr), value :: b_p
+       type(c_ptr), value :: out_p
+     end subroutine tphysbc_flx_cnd_sum_codon
+  end interface
+
+  call tphysbc_flx_cnd_sum_select_impl()
+
+  if (use_native_tphysbc_flx_cnd_sum_impl) then
+     call tphysbc_flx_cnd_sum_native(ncol, pcols_local, a, b, out)
+     return
+  end if
+
+  ncol_c = int(ncol, c_int64_t)
+  pcols_c = int(pcols_local, c_int64_t)
+
+  call tphysbc_flx_cnd_sum_codon(ncol_c, pcols_c, c_loc(a), c_loc(b), c_loc(out))
+
+end subroutine tphysbc_flx_cnd_sum
+
+!=======================================================================
+
+subroutine tphysbc_flx_cnd_sum_native(ncol, pcols_local, a, b, out)
+
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  real(r8), intent(in) :: a(pcols_local)
+  real(r8), intent(in) :: b(pcols_local)
+  real(r8), intent(inout) :: out(pcols_local)
+
+  out(:ncol) = a(:ncol) + b(:ncol)
+
+end subroutine tphysbc_flx_cnd_sum_native
 
 !=======================================================================
 

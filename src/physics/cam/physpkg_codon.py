@@ -307,3 +307,19 @@ def tphysbc_tini_copy_codon(
     for k in range(1, pver + 1):
         for i in range(1, ncol + 1):
             tini[_field2_idx(i, k, pcols)] = state_t[_field2_idx(i, k, pcols)]
+
+
+@export
+def tphysbc_flx_cnd_sum_codon(
+    ncol: int,
+    pcols: int,
+    a_p: cobj,
+    b_p: cobj,
+    out_p: cobj,
+):
+    a = Ptr[float](a_p)
+    b = Ptr[float](b_p)
+    out = Ptr[float](out_p)
+
+    for i in range(1, ncol + 1):
+        out[_idx(i)] = a[_idx(i)] + b[_idx(i)]
