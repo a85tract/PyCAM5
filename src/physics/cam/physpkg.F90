@@ -102,6 +102,8 @@ module physpkg
   logical           :: tphysbc_trace_water_clip_impl_selected = .false.
   logical           :: use_native_tphysbc_dadadj_lq_init_impl = .false.
   logical           :: tphysbc_dadadj_lq_init_impl_selected = .false.
+  logical           :: use_native_phys_inidat_qpert_expand_impl = .false.
+  logical           :: phys_inidat_qpert_expand_impl_selected = .false.
 
   !  Physics buffer index
   integer ::  teout_idx          = 0  
@@ -464,8 +466,7 @@ subroutine phys_inidat( cam_out, pbuf2d )
        end if
 
        allocate(tptr3d_2(pcols,pcnst,begchunk:endchunk))
-       tptr3d_2 = 0_r8
-       tptr3d_2(:,1,:) = tptr(:,:)
+       call phys_inidat_qpert_expand(pcols, pcnst, endchunk-begchunk+1, tptr, tptr3d_2)
 
        call pbuf_set_field(pbuf2d, qpert_idx, tptr3d_2)
        deallocate(tptr3d_2)
@@ -4416,6 +4417,104 @@ subroutine tphysbc_dadadj_lq_init_native(pcnst_local, lq)
   lq(1) = .TRUE.
 
 end subroutine tphysbc_dadadj_lq_init_native
+
+!=======================================================================
+
+subroutine phys_inidat_qpert_expand_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (phys_inidat_qpert_expand_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('PHYS_INIDAT_QPERT_EXPAND_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_phys_inidat_qpert_expand_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_phys_inidat_qpert_expand_impl = .false.
+  end if
+
+  phys_inidat_qpert_expand_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_phys_inidat_qpert_expand_impl) then
+        write(iulog,*) 'phys_inidat_qpert_expand implementation = native'
+     else
+        write(iulog,*) 'phys_inidat_qpert_expand implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine phys_inidat_qpert_expand_select_impl
+
+!=======================================================================
+
+subroutine phys_inidat_qpert_expand(pcols_local, pcnst_local, chunk_count_local, tptr, tptr3d_2)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: pcnst_local
+  integer, intent(in) :: chunk_count_local
+  real(r8), intent(in), target :: tptr(pcols_local, chunk_count_local)
+  real(r8), intent(inout), target :: tptr3d_2(pcols_local, pcnst_local, chunk_count_local)
+
+  integer(c_int64_t) :: pcols_c
+  integer(c_int64_t) :: pcnst_c
+  integer(c_int64_t) :: chunk_count_c
+
+  interface
+     subroutine phys_inidat_qpert_expand_codon(pcols_c, pcnst_c, chunk_count_c, tptr_p, tptr3d_2_p) &
+          bind(c, name="phys_inidat_qpert_expand_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: pcols_c
+       integer(c_int64_t), value :: pcnst_c
+       integer(c_int64_t), value :: chunk_count_c
+       type(c_ptr), value :: tptr_p
+       type(c_ptr), value :: tptr3d_2_p
+     end subroutine phys_inidat_qpert_expand_codon
+  end interface
+
+  call phys_inidat_qpert_expand_select_impl()
+
+  if (use_native_phys_inidat_qpert_expand_impl) then
+     call phys_inidat_qpert_expand_native(pcols_local, pcnst_local, chunk_count_local, tptr, tptr3d_2)
+     return
+  end if
+
+  pcols_c = int(pcols_local, c_int64_t)
+  pcnst_c = int(pcnst_local, c_int64_t)
+  chunk_count_c = int(chunk_count_local, c_int64_t)
+
+  call phys_inidat_qpert_expand_codon(pcols_c, pcnst_c, chunk_count_c, c_loc(tptr), c_loc(tptr3d_2))
+
+end subroutine phys_inidat_qpert_expand
+
+!=======================================================================
+
+subroutine phys_inidat_qpert_expand_native(pcols_local, pcnst_local, chunk_count_local, tptr, tptr3d_2)
+
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: pcnst_local
+  integer, intent(in) :: chunk_count_local
+  real(r8), intent(in) :: tptr(pcols_local, chunk_count_local)
+  real(r8), intent(inout) :: tptr3d_2(pcols_local, pcnst_local, chunk_count_local)
+
+  tptr3d_2 = 0._r8
+  tptr3d_2(:,1,:) = tptr(:,:)
+
+end subroutine phys_inidat_qpert_expand_native
 
 !=======================================================================
 

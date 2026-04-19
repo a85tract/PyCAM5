@@ -466,3 +466,24 @@ def tphysbc_dadadj_lq_init_codon(
 
     if pcnst >= 1:
         lq_mask[0] = 1
+
+
+@export
+def phys_inidat_qpert_expand_codon(
+    pcols: int,
+    pcnst: int,
+    chunk_count: int,
+    tptr_p: cobj,
+    tptr3d_2_p: cobj,
+):
+    tptr = Ptr[float](tptr_p)
+    tptr3d_2 = Ptr[float](tptr3d_2_p)
+
+    for c in range(1, chunk_count + 1):
+        for m in range(1, pcnst + 1):
+            for i in range(1, pcols + 1):
+                tptr3d_2[_field3_idx(i, m, c, pcols, pcnst)] = 0.0
+
+    for c in range(1, chunk_count + 1):
+        for i in range(1, pcols + 1):
+            tptr3d_2[_field3_idx(i, 1, c, pcols, pcnst)] = tptr[_field2_idx(i, c, pcols)]
