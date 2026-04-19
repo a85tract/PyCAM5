@@ -70,6 +70,8 @@ module physpkg
   logical           :: phys_tstep_impl_selected = .false.
   integer           :: phys_tstep_branch_mask = 0
   logical           :: phys_tstep_branch_selected = .false.
+  logical           :: use_native_tphysbc_precip_ops_impl = .false.
+  logical           :: tphysbc_precip_ops_impl_selected = .false.
 
   !  Physics buffer index
   integer ::  teout_idx          = 0  
@@ -1717,6 +1719,8 @@ subroutine tphysbc (ztodt,               &
     use macrop_driver,   only: macrop_driver_tend
     use physics_types,   only: physics_state, physics_tend, physics_ptend, &
          physics_update, physics_ptend_init, physics_ptend_sum, &
+         physics_state_alloc, physics_state_dealloc, &
+         physics_tend_alloc, physics_tend_init, physics_tend_dealloc, &
          physics_state_check, physics_ptend_scale
     use cam_diagnostics, only: diag_conv_tend_ini, diag_phys_writeout, diag_conv, diag_export, diag_state_b4_phys_write
     use cam_history,     only: outfld
@@ -2214,10 +2218,10 @@ subroutine tphysbc (ztodt,               &
        cld_macmic_ztodt = ztodt/cld_macmic_num_steps
 
        ! Clear precip fields that should accumulate.
-       prec_sed_macmic = 0._r8
-       snow_sed_macmic = 0._r8
-       prec_pcw_macmic = 0._r8
-       snow_pcw_macmic = 0._r8
+       call tphysbc_precip_ops(0, ncol, pcols, cld_macmic_num_steps, &
+            prec_sed_macmic, snow_sed_macmic, prec_pcw_macmic, snow_pcw_macmic, &
+            prec_sed, snow_sed, prec_pcw, snow_pcw, prec_str, snow_str, &
+            prec_sed_carma, snow_sed_carma)
 
        do macmic_it = 1, cld_macmic_num_steps
 
@@ -2370,26 +2374,26 @@ subroutine tphysbc (ztodt,               &
                snow_str/cld_macmic_num_steps, zero)
 
           call t_stopf('microp_tend')
-          prec_sed_macmic(:ncol) = prec_sed_macmic(:ncol) + prec_sed(:ncol)
-          snow_sed_macmic(:ncol) = snow_sed_macmic(:ncol) + snow_sed(:ncol)
-          prec_pcw_macmic(:ncol) = prec_pcw_macmic(:ncol) + prec_pcw(:ncol)
-          snow_pcw_macmic(:ncol) = snow_pcw_macmic(:ncol) + snow_pcw(:ncol)
+          call tphysbc_precip_ops(1, ncol, pcols, cld_macmic_num_steps, &
+               prec_sed_macmic, snow_sed_macmic, prec_pcw_macmic, snow_pcw_macmic, &
+               prec_sed, snow_sed, prec_pcw, snow_pcw, prec_str, snow_str, &
+               prec_sed_carma, snow_sed_carma)
 
        end do ! end substepping over macrophysics/microphysics
 
-       prec_sed(:ncol) = prec_sed_macmic(:ncol)/cld_macmic_num_steps
-       snow_sed(:ncol) = snow_sed_macmic(:ncol)/cld_macmic_num_steps
-       prec_pcw(:ncol) = prec_pcw_macmic(:ncol)/cld_macmic_num_steps
-       snow_pcw(:ncol) = snow_pcw_macmic(:ncol)/cld_macmic_num_steps
-       prec_str(:ncol) = prec_pcw(:ncol) + prec_sed(:ncol)
-       snow_str(:ncol) = snow_pcw(:ncol) + snow_sed(:ncol)
+       call tphysbc_precip_ops(2, ncol, pcols, cld_macmic_num_steps, &
+            prec_sed_macmic, snow_sed_macmic, prec_pcw_macmic, snow_pcw_macmic, &
+            prec_sed, snow_sed, prec_pcw, snow_pcw, prec_str, snow_str, &
+            prec_sed_carma, snow_sed_carma)
 
     endif
 
     ! Add the precipitation from CARMA to the precipitation from stratiform.
     if (carma_do_cldice .or. carma_do_cldliq) then
-       prec_sed(:ncol) = prec_sed(:ncol) + prec_sed_carma(:ncol)
-       snow_sed(:ncol) = snow_sed(:ncol) + snow_sed_carma(:ncol)
+       call tphysbc_precip_ops(3, ncol, pcols, cld_macmic_num_steps, &
+            prec_sed_macmic, snow_sed_macmic, prec_pcw_macmic, snow_pcw_macmic, &
+            prec_sed, snow_sed, prec_pcw, snow_pcw, prec_str, snow_str, &
+            prec_sed_carma, snow_sed_carma)
     end if
 
    if(trace_water) then
@@ -2695,5 +2699,172 @@ subroutine phys_timestep_init_select_branches(cam3_aero_data_on, cam3_ozone_data
   phys_tstep_branch_selected = .true.
 
 end subroutine phys_timestep_init_select_branches
+
+!=======================================================================
+
+subroutine tphysbc_precip_ops_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (tphysbc_precip_ops_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('TPHYSBC_PRECIP_OPS_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_tphysbc_precip_ops_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_tphysbc_precip_ops_impl = .false.
+  end if
+
+  tphysbc_precip_ops_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_tphysbc_precip_ops_impl) then
+        write(iulog,*) 'tphysbc_precip_ops implementation = native'
+     else
+        write(iulog,*) 'tphysbc_precip_ops implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine tphysbc_precip_ops_select_impl
+
+!=======================================================================
+
+subroutine tphysbc_precip_ops(mode, ncol, pcols_local, cld_macmic_num_steps_local, &
+     prec_sed_macmic, snow_sed_macmic, prec_pcw_macmic, snow_pcw_macmic, &
+     prec_sed, snow_sed, prec_pcw, snow_pcw, prec_str, snow_str, &
+     prec_sed_carma, snow_sed_carma)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use shr_kind_mod,   only: r8 => shr_kind_r8
+
+  integer, intent(in) :: mode
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: cld_macmic_num_steps_local
+  real(r8), intent(inout), target :: prec_sed_macmic(pcols_local)
+  real(r8), intent(inout), target :: snow_sed_macmic(pcols_local)
+  real(r8), intent(inout), target :: prec_pcw_macmic(pcols_local)
+  real(r8), intent(inout), target :: snow_pcw_macmic(pcols_local)
+  real(r8), intent(inout), target :: prec_sed(pcols_local)
+  real(r8), intent(inout), target :: snow_sed(pcols_local)
+  real(r8), intent(inout), target :: prec_pcw(pcols_local)
+  real(r8), intent(inout), target :: snow_pcw(pcols_local)
+  real(r8), intent(inout), target :: prec_str(pcols_local)
+  real(r8), intent(inout), target :: snow_str(pcols_local)
+  real(r8), intent(in),    target :: prec_sed_carma(pcols_local)
+  real(r8), intent(in),    target :: snow_sed_carma(pcols_local)
+
+  integer(c_int64_t), target :: mode_c
+  integer(c_int64_t), target :: ncol_c
+  integer(c_int64_t), target :: pcols_c
+  integer(c_int64_t), target :: cld_macmic_num_steps_c
+
+  interface
+     subroutine tphysbc_precip_ops_codon(mode_c, ncol_c, pcols_c, cld_macmic_num_steps_c, &
+          prec_sed_macmic_p, snow_sed_macmic_p, prec_pcw_macmic_p, snow_pcw_macmic_p, &
+          prec_sed_p, snow_sed_p, prec_pcw_p, snow_pcw_p, prec_str_p, snow_str_p, &
+          prec_sed_carma_p, snow_sed_carma_p) bind(c, name="tphysbc_precip_ops_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: mode_c
+       integer(c_int64_t), value :: ncol_c
+       integer(c_int64_t), value :: pcols_c
+       integer(c_int64_t), value :: cld_macmic_num_steps_c
+       type(c_ptr), value :: prec_sed_macmic_p
+       type(c_ptr), value :: snow_sed_macmic_p
+       type(c_ptr), value :: prec_pcw_macmic_p
+       type(c_ptr), value :: snow_pcw_macmic_p
+       type(c_ptr), value :: prec_sed_p
+       type(c_ptr), value :: snow_sed_p
+       type(c_ptr), value :: prec_pcw_p
+       type(c_ptr), value :: snow_pcw_p
+       type(c_ptr), value :: prec_str_p
+       type(c_ptr), value :: snow_str_p
+       type(c_ptr), value :: prec_sed_carma_p
+       type(c_ptr), value :: snow_sed_carma_p
+     end subroutine tphysbc_precip_ops_codon
+  end interface
+
+  call tphysbc_precip_ops_select_impl()
+
+  if (use_native_tphysbc_precip_ops_impl) then
+     call tphysbc_precip_ops_native(mode, ncol, pcols_local, cld_macmic_num_steps_local, &
+          prec_sed_macmic, snow_sed_macmic, prec_pcw_macmic, snow_pcw_macmic, &
+          prec_sed, snow_sed, prec_pcw, snow_pcw, prec_str, snow_str, &
+          prec_sed_carma, snow_sed_carma)
+     return
+  end if
+
+  mode_c = int(mode, c_int64_t)
+  ncol_c = int(ncol, c_int64_t)
+  pcols_c = int(pcols_local, c_int64_t)
+  cld_macmic_num_steps_c = int(cld_macmic_num_steps_local, c_int64_t)
+
+  call tphysbc_precip_ops_codon(mode_c, ncol_c, pcols_c, cld_macmic_num_steps_c, &
+       c_loc(prec_sed_macmic), c_loc(snow_sed_macmic), c_loc(prec_pcw_macmic), c_loc(snow_pcw_macmic), &
+       c_loc(prec_sed), c_loc(snow_sed), c_loc(prec_pcw), c_loc(snow_pcw), c_loc(prec_str), c_loc(snow_str), &
+       c_loc(prec_sed_carma), c_loc(snow_sed_carma))
+
+end subroutine tphysbc_precip_ops
+
+!=======================================================================
+
+subroutine tphysbc_precip_ops_native(mode, ncol, pcols_local, cld_macmic_num_steps_local, &
+     prec_sed_macmic, snow_sed_macmic, prec_pcw_macmic, snow_pcw_macmic, &
+     prec_sed, snow_sed, prec_pcw, snow_pcw, prec_str, snow_str, &
+     prec_sed_carma, snow_sed_carma)
+
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: mode
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: cld_macmic_num_steps_local
+  real(r8), intent(inout) :: prec_sed_macmic(pcols_local)
+  real(r8), intent(inout) :: snow_sed_macmic(pcols_local)
+  real(r8), intent(inout) :: prec_pcw_macmic(pcols_local)
+  real(r8), intent(inout) :: snow_pcw_macmic(pcols_local)
+  real(r8), intent(inout) :: prec_sed(pcols_local)
+  real(r8), intent(inout) :: snow_sed(pcols_local)
+  real(r8), intent(inout) :: prec_pcw(pcols_local)
+  real(r8), intent(inout) :: snow_pcw(pcols_local)
+  real(r8), intent(inout) :: prec_str(pcols_local)
+  real(r8), intent(inout) :: snow_str(pcols_local)
+  real(r8), intent(in)    :: prec_sed_carma(pcols_local)
+  real(r8), intent(in)    :: snow_sed_carma(pcols_local)
+
+  select case (mode)
+  case (0)
+     prec_sed_macmic = 0._r8
+     snow_sed_macmic = 0._r8
+     prec_pcw_macmic = 0._r8
+     snow_pcw_macmic = 0._r8
+  case (1)
+     prec_sed_macmic(:ncol) = prec_sed_macmic(:ncol) + prec_sed(:ncol)
+     snow_sed_macmic(:ncol) = snow_sed_macmic(:ncol) + snow_sed(:ncol)
+     prec_pcw_macmic(:ncol) = prec_pcw_macmic(:ncol) + prec_pcw(:ncol)
+     snow_pcw_macmic(:ncol) = snow_pcw_macmic(:ncol) + snow_pcw(:ncol)
+  case (2)
+     prec_sed(:ncol) = prec_sed_macmic(:ncol)/cld_macmic_num_steps_local
+     snow_sed(:ncol) = snow_sed_macmic(:ncol)/cld_macmic_num_steps_local
+     prec_pcw(:ncol) = prec_pcw_macmic(:ncol)/cld_macmic_num_steps_local
+     snow_pcw(:ncol) = snow_pcw_macmic(:ncol)/cld_macmic_num_steps_local
+     prec_str(:ncol) = prec_pcw(:ncol) + prec_sed(:ncol)
+     snow_str(:ncol) = snow_pcw(:ncol) + snow_sed(:ncol)
+  case (3)
+     prec_sed(:ncol) = prec_sed(:ncol) + prec_sed_carma(:ncol)
+     snow_sed(:ncol) = snow_sed(:ncol) + snow_sed_carma(:ncol)
+  end select
+
+end subroutine tphysbc_precip_ops_native
 
 end module physpkg
