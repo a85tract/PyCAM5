@@ -84,6 +84,8 @@ module physpkg
   logical           :: tphysbc_dadadj_output_impl_selected = .false.
   logical           :: use_native_tphysbc_dtcore_update_impl = .false.
   logical           :: tphysbc_dtcore_update_impl_selected = .false.
+  logical           :: use_native_tphysbc_init_fields_impl = .false.
+  logical           :: tphysbc_init_fields_impl_selected = .false.
 
   !  Physics buffer index
   integer ::  teout_idx          = 0  
@@ -1978,12 +1980,7 @@ subroutine tphysbc (ztodt,               &
 
     ifld    = pbuf_get_index('FRACIS')
     call pbuf_get_field(pbuf, ifld, fracis, start=(/1,1,1/), kount=(/pcols, pver, pcnst/)  )
-    fracis (:ncol,:,1:pcnst) = 1._r8
-
-    ! Set physics tendencies to 0
-    tend %dTdt(:ncol,:pver)  = 0._r8
-    tend %dudt(:ncol,:pver)  = 0._r8
-    tend %dvdt(:ncol,:pver)  = 0._r8
+    call tphysbc_init_fields(ncol, pcols, pver, pcnst, fracis, tend%dTdt, tend%dudt, tend%dvdt)
 
     !
     ! Make sure that input tracers are all positive (probably unnecessary)
@@ -3567,5 +3564,117 @@ subroutine tphysbc_dtcore_update_native(ncol, pcols_local, pver_local, ztodt, ti
   end do
 
 end subroutine tphysbc_dtcore_update_native
+
+!=======================================================================
+
+subroutine tphysbc_init_fields_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (tphysbc_init_fields_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('TPHYSBC_INIT_FIELDS_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_tphysbc_init_fields_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_tphysbc_init_fields_impl = .false.
+  end if
+
+  tphysbc_init_fields_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_tphysbc_init_fields_impl) then
+        write(iulog,*) 'tphysbc_init_fields implementation = native'
+     else
+        write(iulog,*) 'tphysbc_init_fields implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine tphysbc_init_fields_select_impl
+
+!=======================================================================
+
+subroutine tphysbc_init_fields(ncol, pcols_local, pver_local, pcnst_local, fracis, tend_dtdt, tend_dudt, tend_dvdt)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: pver_local
+  integer, intent(in) :: pcnst_local
+  real(r8), intent(inout), target :: fracis(pcols_local, pver_local, pcnst_local)
+  real(r8), intent(inout), target :: tend_dtdt(pcols_local, pver_local)
+  real(r8), intent(inout), target :: tend_dudt(pcols_local, pver_local)
+  real(r8), intent(inout), target :: tend_dvdt(pcols_local, pver_local)
+
+  integer(c_int64_t) :: ncol_c
+  integer(c_int64_t) :: pcols_c
+  integer(c_int64_t) :: pver_c
+  integer(c_int64_t) :: pcnst_c
+
+  interface
+     subroutine tphysbc_init_fields_codon(ncol_c, pcols_c, pver_c, pcnst_c, fracis_p, tend_dtdt_p, tend_dudt_p, tend_dvdt_p) &
+          bind(c, name="tphysbc_init_fields_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c
+       integer(c_int64_t), value :: pcols_c
+       integer(c_int64_t), value :: pver_c
+       integer(c_int64_t), value :: pcnst_c
+       type(c_ptr), value :: fracis_p
+       type(c_ptr), value :: tend_dtdt_p
+       type(c_ptr), value :: tend_dudt_p
+       type(c_ptr), value :: tend_dvdt_p
+     end subroutine tphysbc_init_fields_codon
+  end interface
+
+  call tphysbc_init_fields_select_impl()
+
+  if (use_native_tphysbc_init_fields_impl) then
+     call tphysbc_init_fields_native(ncol, pcols_local, pver_local, pcnst_local, fracis, tend_dtdt, tend_dudt, tend_dvdt)
+     return
+  end if
+
+  ncol_c = int(ncol, c_int64_t)
+  pcols_c = int(pcols_local, c_int64_t)
+  pver_c = int(pver_local, c_int64_t)
+  pcnst_c = int(pcnst_local, c_int64_t)
+
+  call tphysbc_init_fields_codon(ncol_c, pcols_c, pver_c, pcnst_c, &
+       c_loc(fracis), c_loc(tend_dtdt), c_loc(tend_dudt), c_loc(tend_dvdt))
+
+end subroutine tphysbc_init_fields
+
+!=======================================================================
+
+subroutine tphysbc_init_fields_native(ncol, pcols_local, pver_local, pcnst_local, fracis, tend_dtdt, tend_dudt, tend_dvdt)
+
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: ncol
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: pver_local
+  integer, intent(in) :: pcnst_local
+  real(r8), intent(inout) :: fracis(pcols_local, pver_local, pcnst_local)
+  real(r8), intent(inout) :: tend_dtdt(pcols_local, pver_local)
+  real(r8), intent(inout) :: tend_dudt(pcols_local, pver_local)
+  real(r8), intent(inout) :: tend_dvdt(pcols_local, pver_local)
+
+  fracis(:ncol,:,1:pcnst_local) = 1._r8
+  tend_dtdt(:ncol,:pver_local) = 0._r8
+  tend_dudt(:ncol,:pver_local) = 0._r8
+  tend_dvdt(:ncol,:pver_local) = 0._r8
+
+end subroutine tphysbc_init_fields_native
 
 end module physpkg

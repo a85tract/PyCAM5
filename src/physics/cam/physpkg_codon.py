@@ -263,3 +263,31 @@ def tphysbc_dtcore_update_codon(
             dtcore[_field2_idx(i, k, pcols)] = (
                 (tini[_field2_idx(i, k, pcols)] - dtcore[_field2_idx(i, k, pcols)]) / ztodt
             ) + tend_dtdt[_field2_idx(i, k, pcols)]
+
+
+@export
+def tphysbc_init_fields_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    fracis_p: cobj,
+    tend_dtdt_p: cobj,
+    tend_dudt_p: cobj,
+    tend_dvdt_p: cobj,
+):
+    fracis = Ptr[float](fracis_p)
+    tend_dtdt = Ptr[float](tend_dtdt_p)
+    tend_dudt = Ptr[float](tend_dudt_p)
+    tend_dvdt = Ptr[float](tend_dvdt_p)
+
+    for m in range(1, pcnst + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                fracis[_field3_idx(i, k, m, pcols, pver)] = 1.0
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            tend_dtdt[_field2_idx(i, k, pcols)] = 0.0
+            tend_dudt[_field2_idx(i, k, pcols)] = 0.0
+            tend_dvdt[_field2_idx(i, k, pcols)] = 0.0
