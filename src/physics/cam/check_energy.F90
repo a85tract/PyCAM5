@@ -30,6 +30,7 @@ module check_energy
   use constituents,    only: cnst_get_ind, pcnst, cnst_name, cnst_get_type_byind
   use time_manager,    only: is_first_step
   use cam_logfile,     only: iulog
+  use cam_abortutils,  only: endrun
 
   implicit none
   private
@@ -47,6 +48,7 @@ module check_energy
   public :: check_energy_chng      ! check changes in integrals against cumulative boundary fluxes
   public :: check_energy_gmean     ! global means of physics input and output total energy
   public :: check_energy_fix       ! add global mean energy difference as a heating
+  public :: check_energy_fix_native
   public :: check_tracers_init      ! initialize tracer integrals and cumulative boundary fluxes
   public :: check_tracers_chng      ! check changes in integrals against cumulative boundary fluxes
 
@@ -54,6 +56,18 @@ module check_energy
 ! Private module data
 
   logical  :: print_energy_errors = .false.
+  logical  :: use_native_fix_impl = .false.
+  logical  :: fix_impl_selected = .false.
+  logical  :: use_native_timestep_init_impl = .false.
+  logical  :: timestep_init_impl_selected = .false.
+  logical  :: use_native_chng_impl = .false.
+  logical  :: chng_impl_selected = .false.
+  logical  :: use_native_gmean_impl = .false.
+  logical  :: gmean_impl_selected = .false.
+  logical  :: use_native_tracers_init_impl = .false.
+  logical  :: tracers_init_impl_selected = .false.
+  logical  :: use_native_tracers_chng_impl = .false.
+  logical  :: tracers_chng_impl_selected = .false.
 
   real(r8) :: teout_glob           ! global mean energy of output state
   real(r8) :: teinp_glob           ! global mean energy of input state
@@ -77,6 +91,210 @@ module check_energy
 !===============================================================================
 contains
 !===============================================================================
+
+subroutine check_energy_fix_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (fix_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CHECK_ENERGY_FIX_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_fix_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_fix_impl = .false.
+   end if
+
+   fix_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_fix_impl) then
+         write(iulog,*) 'check_energy_fix implementation = native'
+      else
+         write(iulog,*) 'check_energy_fix implementation = codon'
+      end if
+   end if
+
+end subroutine check_energy_fix_select_impl
+
+subroutine check_energy_timestep_init_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (timestep_init_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CHECK_ENERGY_TIMESTEP_INIT_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_timestep_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_timestep_init_impl = .false.
+   end if
+
+   timestep_init_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_timestep_init_impl) then
+         write(iulog,*) 'check_energy_timestep_init implementation = native'
+      else
+         write(iulog,*) 'check_energy_timestep_init implementation = codon'
+      end if
+   end if
+
+end subroutine check_energy_timestep_init_select_impl
+
+subroutine check_energy_chng_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (chng_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CHECK_ENERGY_CHNG_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_chng_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_chng_impl = .false.
+   end if
+
+   chng_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_chng_impl) then
+         write(iulog,*) 'check_energy_chng implementation = native'
+      else
+         write(iulog,*) 'check_energy_chng implementation = codon'
+      end if
+   end if
+
+end subroutine check_energy_chng_select_impl
+
+subroutine check_energy_gmean_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (gmean_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CHECK_ENERGY_GMEAN_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_gmean_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_gmean_impl = .false.
+   end if
+
+   gmean_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_gmean_impl) then
+         write(iulog,*) 'check_energy_gmean implementation = native'
+      else
+         write(iulog,*) 'check_energy_gmean implementation = codon'
+      end if
+   end if
+
+end subroutine check_energy_gmean_select_impl
+
+subroutine check_tracers_init_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (tracers_init_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CHECK_TRACERS_INIT_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_tracers_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_tracers_init_impl = .false.
+   end if
+
+   tracers_init_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_tracers_init_impl) then
+         write(iulog,*) 'check_tracers_init implementation = native'
+      else
+         write(iulog,*) 'check_tracers_init implementation = codon'
+      end if
+   end if
+
+end subroutine check_tracers_init_select_impl
+
+subroutine check_tracers_chng_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (tracers_chng_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CHECK_TRACERS_CHNG_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_tracers_chng_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_tracers_chng_impl = .false.
+   end if
+
+   tracers_chng_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_tracers_chng_impl) then
+         write(iulog,*) 'check_tracers_chng implementation = native'
+      else
+         write(iulog,*) 'check_tracers_chng implementation = codon'
+      end if
+   end if
+
+end subroutine check_tracers_chng_select_impl
 
 subroutine check_energy_defaultopts( &
    print_energy_errors_out)
@@ -196,6 +414,83 @@ end subroutine check_energy_get_integrals
 !===============================================================================
 
   subroutine check_energy_timestep_init(state, tend, pbuf, col_type)
+    use iso_c_binding, only: c_double, c_int64_t, c_ptr, c_loc
+    use physics_buffer, only : physics_buffer_desc, pbuf_set_field
+!-----------------------------------------------------------------------
+! Compute initial values of energy and water integrals, 
+! zero cumulative tendencies
+!-----------------------------------------------------------------------
+!------------------------------Arguments--------------------------------
+
+    type(physics_state),   target, intent(inout)    :: state
+    type(physics_tend ),   intent(inout)    :: tend
+    type(physics_buffer_desc), pointer      :: pbuf(:)
+    integer, optional                       :: col_type  ! Flag inidicating whether using grid or subcolumns
+!---------------------------Local storage-------------------------------
+
+    real(r8), target :: ke(state%ncol)             ! vertical integral of kinetic energy
+    real(r8), target :: se(state%ncol)             ! vertical integral of static energy
+    real(r8), target :: wv(state%ncol)             ! vertical integral of water (vapor)
+    real(r8), target :: wl(state%ncol)             ! vertical integral of water (liquid)
+    real(r8), target :: wi(state%ncol)             ! vertical integral of water (ice)
+
+    integer ncol                                   ! number of atmospheric columns
+    integer :: ixcldice, ixcldliq                  ! CLDICE and CLDLIQ indices
+    integer :: ixrain, ixsnow                      ! RAINQM and SNOWQM indices
+    interface
+       subroutine check_energy_timestep_init_codon(ncol_c, pver_c, psetcols_c, pcnst_c, &
+            latvap_c, latice_c, gravit_c, ixcldliq_c, ixcldice_c, ixrain_c, ixsnow_c, &
+            state_u_p, state_v_p, state_s_p, state_q_p, state_pdel_p, &
+            ke_p, se_p, wv_p, wl_p, wi_p, state_te_ini_p, state_tw_ini_p) bind(c, name="check_energy_timestep_init_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, psetcols_c, pcnst_c
+         integer(c_int64_t), value :: ixcldliq_c, ixcldice_c, ixrain_c, ixsnow_c
+         real(c_double), value :: latvap_c, latice_c, gravit_c
+         type(c_ptr), value :: state_u_p, state_v_p, state_s_p, state_q_p, state_pdel_p
+         type(c_ptr), value :: ke_p, se_p, wv_p, wl_p, wi_p, state_te_ini_p, state_tw_ini_p
+       end subroutine check_energy_timestep_init_codon
+    end interface
+!-----------------------------------------------------------------------
+
+    call check_energy_timestep_init_select_impl()
+    if (use_native_timestep_init_impl) then
+       call check_energy_timestep_init_native(state, tend, pbuf, col_type)
+       return
+    end if
+
+    ncol  = state%ncol
+    call cnst_get_ind('CLDICE', ixcldice, abort=.false.)
+    call cnst_get_ind('CLDLIQ', ixcldliq, abort=.false.)
+    call cnst_get_ind('RAINQM', ixrain,   abort=.false.)
+    call cnst_get_ind('SNOWQM', ixsnow,   abort=.false.)
+
+    call check_energy_timestep_init_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), int(state%psetcols, c_int64_t), int(pcnst, c_int64_t), &
+         real(latvap, c_double), real(latice, c_double), real(gravit, c_double), &
+         int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), int(ixrain, c_int64_t), int(ixsnow, c_int64_t), &
+         c_loc(state%u), c_loc(state%v), c_loc(state%s), c_loc(state%q), c_loc(state%pdel), &
+         c_loc(ke), c_loc(se), c_loc(wv), c_loc(wl), c_loc(wi), c_loc(state%te_ini), c_loc(state%tw_ini) &
+    )
+
+    state%te_cur(:ncol) = state%te_ini(:ncol)
+    state%tw_cur(:ncol) = state%tw_ini(:ncol)
+
+! zero cummulative boundary fluxes 
+    tend%te_tnd(:ncol) = 0._r8
+    tend%tw_tnd(:ncol) = 0._r8
+
+    state%count = 0
+
+! initialize physics buffer
+    if (is_first_step()) then
+       call pbuf_set_field(pbuf, teout_idx, state%te_ini, col_type=col_type)
+    end if
+
+  end subroutine check_energy_timestep_init
+
+!===============================================================================
+
+  subroutine check_energy_timestep_init_native(state, tend, pbuf, col_type)
     use physics_buffer, only : physics_buffer_desc, pbuf_set_field
 !-----------------------------------------------------------------------
 ! Compute initial values of energy and water integrals, 
@@ -281,11 +576,92 @@ end subroutine check_energy_get_integrals
        call pbuf_set_field(pbuf, teout_idx, state%te_ini, col_type=col_type)
     end if
 
-  end subroutine check_energy_timestep_init
+  end subroutine check_energy_timestep_init_native
 
 !===============================================================================
 
   subroutine check_energy_chng(state, tend, name, nstep, ztodt,        &
+       flx_vap, flx_cnd, flx_ice, flx_sen)
+    use iso_c_binding, only: c_double, c_int64_t, c_ptr, c_loc
+
+!-----------------------------------------------------------------------
+! Check that the energy and water change matches the boundary fluxes
+!-----------------------------------------------------------------------
+!------------------------------Arguments--------------------------------
+
+    type(physics_state)    , target, intent(inout) :: state
+    type(physics_tend )    , target, intent(inout) :: tend
+    character*(*),intent(in) :: name               ! parameterization name for fluxes
+    integer , intent(in   ) :: nstep               ! current timestep number
+    real(r8), intent(in   ) :: ztodt               ! 2 delta t (model time increment)
+    real(r8), target, intent(in   ) :: flx_vap(pcols)          ! (pcols) - boundary flux of vapor         (kg/m2/s)
+    real(r8), target, intent(in   ) :: flx_cnd(pcols)          ! (pcols) -boundary flux of liquid+ice    (m/s) (precip?)
+    real(r8), target, intent(in   ) :: flx_ice(pcols)          ! (pcols) -boundary flux of ice           (m/s) (snow?)
+    real(r8), target, intent(in   ) :: flx_sen(pcols)          ! (pcols) -boundary flux of sensible heat (w/m2)
+
+!******************** BAB ******************************************************
+!******* Note that the precip and ice fluxes are in precip units (m/s). ********
+!******* I would prefer to have kg/m2/s.                                ********
+!******* I would also prefer liquid (not total) and ice fluxes          ********
+!*******************************************************************************
+
+!---------------------------Local storage-------------------------------
+
+    real(r8), target :: ke(state%ncol)             ! vertical integral of kinetic energy
+    real(r8), target :: se(state%ncol)             ! vertical integral of static energy
+    real(r8), target :: wv(state%ncol)             ! vertical integral of water (vapor)
+    real(r8), target :: wl(state%ncol)             ! vertical integral of water (liquid)
+    real(r8), target :: wi(state%ncol)             ! vertical integral of water (ice)
+
+    integer ncol                                   ! number of atmospheric columns
+    integer :: ixcldice, ixcldliq                  ! CLDICE and CLDLIQ indices
+    integer :: ixrain, ixsnow                      ! RAINQM and SNOWQM indices
+    interface
+       subroutine check_energy_chng_codon(ncol_c, pver_c, psetcols_c, &
+            latvap_c, latice_c, gravit_c, ixcldliq_c, ixcldice_c, ixrain_c, ixsnow_c, &
+            state_u_p, state_v_p, state_s_p, state_q_p, state_pdel_p, &
+            flx_vap_p, flx_cnd_p, flx_ice_p, flx_sen_p, &
+            ke_p, se_p, wv_p, wl_p, wi_p, tend_te_tnd_p, tend_tw_tnd_p, state_te_cur_p, state_tw_cur_p) bind(c, name="check_energy_chng_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, psetcols_c
+         integer(c_int64_t), value :: ixcldliq_c, ixcldice_c, ixrain_c, ixsnow_c
+         real(c_double), value :: latvap_c, latice_c, gravit_c
+         type(c_ptr), value :: state_u_p, state_v_p, state_s_p, state_q_p, state_pdel_p
+         type(c_ptr), value :: flx_vap_p, flx_cnd_p, flx_ice_p, flx_sen_p
+         type(c_ptr), value :: ke_p, se_p, wv_p, wl_p, wi_p
+         type(c_ptr), value :: tend_te_tnd_p, tend_tw_tnd_p, state_te_cur_p, state_tw_cur_p
+       end subroutine check_energy_chng_codon
+    end interface
+!-----------------------------------------------------------------------
+
+    call check_energy_chng_select_impl()
+    if (use_native_chng_impl .or. print_energy_errors) then
+       call check_energy_chng_native(state, tend, name, nstep, ztodt, flx_vap, flx_cnd, flx_ice, flx_sen)
+       return
+    end if
+
+    ncol  = state%ncol
+    call cnst_get_ind('CLDICE', ixcldice, abort=.false.)
+    call cnst_get_ind('CLDLIQ', ixcldliq, abort=.false.)
+    call cnst_get_ind('RAINQM', ixrain,   abort=.false.)
+    call cnst_get_ind('SNOWQM', ixsnow,   abort=.false.)
+
+    call check_energy_chng_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), int(state%psetcols, c_int64_t), &
+         real(latvap, c_double), real(latice, c_double), real(gravit, c_double), &
+         int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), int(ixrain, c_int64_t), int(ixsnow, c_int64_t), &
+         c_loc(state%u), c_loc(state%v), c_loc(state%s), c_loc(state%q), c_loc(state%pdel), &
+         c_loc(flx_vap), c_loc(flx_cnd), c_loc(flx_ice), c_loc(flx_sen), &
+         c_loc(ke), c_loc(se), c_loc(wv), c_loc(wl), c_loc(wi), &
+         c_loc(tend%te_tnd), c_loc(tend%tw_tnd), c_loc(state%te_cur), c_loc(state%tw_cur) &
+    )
+
+  end subroutine check_energy_chng
+
+
+!===============================================================================
+
+  subroutine check_energy_chng_native(state, tend, name, nstep, ztodt,        &
        flx_vap, flx_cnd, flx_ice, flx_sen)
 
 !-----------------------------------------------------------------------
@@ -298,10 +674,10 @@ end subroutine check_energy_get_integrals
     character*(*),intent(in) :: name               ! parameterization name for fluxes
     integer , intent(in   ) :: nstep               ! current timestep number
     real(r8), intent(in   ) :: ztodt               ! 2 delta t (model time increment)
-    real(r8), intent(in   ) :: flx_vap(:)          ! (pcols) - boundary flux of vapor         (kg/m2/s)
-    real(r8), intent(in   ) :: flx_cnd(:)          ! (pcols) -boundary flux of liquid+ice    (m/s) (precip?)
-    real(r8), intent(in   ) :: flx_ice(:)          ! (pcols) -boundary flux of ice           (m/s) (snow?)
-    real(r8), intent(in   ) :: flx_sen(:)          ! (pcols) -boundary flux of sensible heat (w/m2)
+    real(r8), intent(in   ) :: flx_vap(pcols)      ! (pcols) - boundary flux of vapor         (kg/m2/s)
+    real(r8), intent(in   ) :: flx_cnd(pcols)      ! (pcols) -boundary flux of liquid+ice    (m/s) (precip?)
+    real(r8), intent(in   ) :: flx_ice(pcols)      ! (pcols) -boundary flux of ice           (m/s) (snow?)
+    real(r8), intent(in   ) :: flx_sen(pcols)      ! (pcols) -boundary flux of sensible heat (w/m2)
 
 !******************** BAB ******************************************************
 !******* Note that the precip and ice fluxes are in precip units (m/s). ********
@@ -443,11 +819,89 @@ end subroutine check_energy_get_integrals
        state%tw_cur(i) = tw(i)
     end do
 
-  end subroutine check_energy_chng
+  end subroutine check_energy_chng_native
 
 
 !===============================================================================
   subroutine check_energy_gmean(state, pbuf2d, dtime, nstep)
+    use iso_c_binding, only: c_int64_t, c_ptr, c_loc
+
+    use physics_buffer, only : physics_buffer_desc, pbuf_get_field, pbuf_get_chunk
+    
+!-----------------------------------------------------------------------
+! Compute global mean total energy of physics input and output states
+!-----------------------------------------------------------------------
+!------------------------------Arguments--------------------------------
+
+    type(physics_state), target, intent(in   ), dimension(begchunk:endchunk) :: state
+    type(physics_buffer_desc),    pointer    :: pbuf2d(:,:)
+
+    real(r8), intent(in) :: dtime        ! physics time step
+    integer , intent(in) :: nstep        ! current timestep number
+
+!---------------------------Local storage-------------------------------
+    integer :: ncol                      ! number of active columns
+    integer :: lchnk                     ! chunk index
+
+    real(r8), target :: te(pcols,begchunk:endchunk,3)
+                                         ! total energy of input/output states (copy)
+    real(r8) :: te_glob(3)               ! global means of total energy
+    real(r8), pointer :: teout(:)
+    interface
+       subroutine check_energy_gmean_fill_codon(ncol_c, state_te_ini_p, teout_p, pint_surf_p, &
+            te1_p, te2_p, te3_p) bind(c, name="check_energy_gmean_fill_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c
+         type(c_ptr), value :: state_te_ini_p, teout_p, pint_surf_p
+         type(c_ptr), value :: te1_p, te2_p, te3_p
+       end subroutine check_energy_gmean_fill_codon
+    end interface
+!-----------------------------------------------------------------------
+
+    call check_energy_gmean_select_impl()
+    if (use_native_gmean_impl) then
+       call check_energy_gmean_native(state, pbuf2d, dtime, nstep)
+       return
+    end if
+
+    ! Copy total energy out of input and output states
+!DIR$ CONCURRENT
+    do lchnk = begchunk, endchunk
+       ncol = state(lchnk)%ncol
+       call pbuf_get_field(pbuf_get_chunk(pbuf2d,lchnk),teout_idx, teout)
+       if (ncol > 0) then
+          call check_energy_gmean_fill_codon( &
+               int(ncol, c_int64_t), c_loc(state(lchnk)%te_ini(1)), c_loc(teout(1)), c_loc(state(lchnk)%pint(1,pver+1)), &
+               c_loc(te(1,lchnk,1)), c_loc(te(1,lchnk,2)), c_loc(te(1,lchnk,3)) &
+          )
+       end if
+    end do
+
+    ! Compute global means of input and output energies and of
+    ! surface pressure for heating rate (assume uniform ptop)
+    call gmean(te, te_glob, 3)
+
+    if (begchunk .le. endchunk) then
+       teinp_glob = te_glob(1)
+       teout_glob = te_glob(2)
+       psurf_glob = te_glob(3)
+       ptopb_glob = state(begchunk)%pint(1,1)
+
+       ! Global mean total energy difference
+       tedif_glob =  teinp_glob - teout_glob
+       heat_glob  = -tedif_glob/dtime * gravit / (psurf_glob - ptopb_glob)
+
+       if (masterproc) then
+          write(iulog,'(1x,a9,1x,i8,4(1x,e25.17))') "nstep, te", nstep, teinp_glob, teout_glob, heat_glob, psurf_glob
+       end if
+    else
+       heat_glob = 0._r8
+    end if  !  (begchunk .le. endchunk)
+    
+  end subroutine check_energy_gmean
+
+!===============================================================================
+  subroutine check_energy_gmean_native(state, pbuf2d, dtime, nstep)
 
     use physics_buffer, only : physics_buffer_desc, pbuf_get_field, pbuf_get_chunk
     
@@ -507,10 +961,240 @@ end subroutine check_energy_get_integrals
        heat_glob = 0._r8
     end if  !  (begchunk .le. endchunk)
     
-  end subroutine check_energy_gmean
+  end subroutine check_energy_gmean_native
 
 !===============================================================================
   subroutine check_energy_fix(state, ptend, nstep, eshflx)
+    use iso_c_binding, only: c_double, c_int64_t, c_ptr, c_loc
+
+!-----------------------------------------------------------------------
+! Add heating rate required for global mean total energy conservation
+!-----------------------------------------------------------------------
+!------------------------------Arguments--------------------------------
+
+    type(physics_state), target, intent(in   ) :: state
+    type(physics_ptend), target, intent(inout) :: ptend
+
+    integer , intent(in   ) :: nstep          ! time step number
+    real(r8), target, intent(inout  ) :: eshflx(pcols)  ! effective sensible heat flux
+
+!---------------------------Local storage-------------------------------
+    integer  :: ncol                     ! number of atmospheric columns in chunk
+    integer  :: status, n, i, k
+    integer  :: first_i_ptend, first_k_ptend, first_i_esh, first_i_pint, first_k_pint
+    integer  :: first_i_hflux_srf, first_i_hflux_top
+    integer  :: first_i_state_s, first_k_state_s, first_i_te_cur
+    logical  :: debug_compare, ptend_mismatch, esh_mismatch, pint_mismatch
+    logical  :: hflux_srf_mismatch, hflux_top_mismatch
+    logical  :: state_s_mismatch, te_cur_mismatch
+    logical, save :: debug_announced = .false.
+    character(len=32) :: debug_env
+    real(r8), allocatable :: ptend_s_dbg(:,:), pint_dbg(:,:), state_s_dbg(:,:), te_cur_dbg(:)
+    real(r8) :: eshflx_dbg(pcols)
+    real(r8) :: max_abs_s, max_abs_esh, max_abs_pint, diff
+    real(r8) :: max_abs_hflux_srf, max_abs_hflux_top, max_abs_state_s, max_abs_te_cur
+    interface
+       subroutine check_energy_fix_codon(ncol_c, pcols_c, pver_c, psetcols_c, heat_glob_c, gravit_c, &
+            state_pint_p, ptend_s_p, eshflx_p) bind(c, name="check_energy_fix_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, psetcols_c
+         real(c_double), value :: heat_glob_c, gravit_c
+         type(c_ptr), value :: state_pint_p, ptend_s_p, eshflx_p
+       end subroutine check_energy_fix_codon
+    end interface
+!-----------------------------------------------------------------------
+    ncol = state%ncol
+    debug_compare = .false.
+    debug_env = ''
+
+    call check_energy_fix_select_impl()
+    call get_environment_variable('CHECK_ENERGY_FIX_DEBUG', value=debug_env, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       debug_compare = trim(adjustl(debug_env(:n))) /= '0'
+    end if
+    if (debug_compare .and. .not. debug_announced .and. masterproc) then
+       write(iulog,*) 'check_energy_fix debug compare = enabled'
+       debug_announced = .true.
+    end if
+
+    call physics_ptend_init(ptend, state%psetcols, 'chkenergyfix', ls=.true.)
+    eshflx(:) = 0._r8
+
+#if ( defined OFFLINE_DYN )
+    ! disable the energy fix for offline driver
+    heat_glob = 0._r8
+#endif
+
+    if (use_native_fix_impl) then
+       call check_energy_fix_native(state, ptend, nstep, eshflx)
+       return
+    end if
+
+    if (debug_compare) then
+       allocate(ptend_s_dbg(state%psetcols,pver), stat=status)
+       if (status /= 0) call endrun('check_energy_fix debug allocate failed: ptend_s_dbg')
+       allocate(pint_dbg(state%psetcols,pver+1), stat=status)
+       if (status /= 0) call endrun('check_energy_fix debug allocate failed: pint_dbg')
+       allocate(state_s_dbg(state%psetcols,pver), stat=status)
+       if (status /= 0) call endrun('check_energy_fix debug allocate failed: state_s_dbg')
+       allocate(te_cur_dbg(state%psetcols), stat=status)
+       if (status /= 0) call endrun('check_energy_fix debug allocate failed: te_cur_dbg')
+       ptend_s_dbg(:,:) = 0._r8
+       pint_dbg(:,:) = state%pint(:,:)
+       state_s_dbg(:,:) = state%s(:,:)
+       te_cur_dbg(:) = state%te_cur(:)
+       eshflx(:) = 0._r8
+    end if
+
+    call check_energy_fix_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(state%psetcols, c_int64_t), &
+         real(heat_glob, c_double), real(gravit, c_double), c_loc(state%pint), c_loc(ptend%s), c_loc(eshflx) &
+    )
+
+    if (debug_compare) then
+       eshflx_dbg(:) = 0._r8
+       do k = 1, pver
+          do i = 1, ncol
+             ptend_s_dbg(i,k) = heat_glob
+          end do
+       end do
+       do i = 1, ncol
+          eshflx_dbg(i) = heat_glob * (state%pint(i,pver+1) - state%pint(i,1)) / gravit
+       end do
+
+       max_abs_s = 0._r8
+       max_abs_esh = 0._r8
+       max_abs_pint = 0._r8
+       max_abs_hflux_srf = 0._r8
+       max_abs_hflux_top = 0._r8
+       max_abs_state_s = 0._r8
+       max_abs_te_cur = 0._r8
+       first_i_ptend = 0
+       first_k_ptend = 0
+       first_i_esh = 0
+       first_i_pint = 0
+       first_k_pint = 0
+       first_i_hflux_srf = 0
+       first_i_hflux_top = 0
+       first_i_state_s = 0
+       first_k_state_s = 0
+       first_i_te_cur = 0
+       ptend_mismatch = .false.
+       esh_mismatch = .false.
+       pint_mismatch = .false.
+       hflux_srf_mismatch = .false.
+       hflux_top_mismatch = .false.
+       state_s_mismatch = .false.
+       te_cur_mismatch = .false.
+       do k = 1, pver
+          do i = 1, state%psetcols
+             diff = abs(ptend%s(i,k) - ptend_s_dbg(i,k))
+             if (diff > max_abs_s) max_abs_s = diff
+             if (.not. ptend_mismatch .and. ptend%s(i,k) /= ptend_s_dbg(i,k)) then
+                first_i_ptend = i
+                first_k_ptend = k
+                ptend_mismatch = .true.
+             end if
+          end do
+       end do
+       do i = 1, pcols
+          diff = abs(eshflx(i) - eshflx_dbg(i))
+          if (diff > max_abs_esh) max_abs_esh = diff
+          if (.not. esh_mismatch .and. eshflx(i) /= eshflx_dbg(i)) then
+             first_i_esh = i
+             esh_mismatch = .true.
+          end if
+       end do
+       do i = 1, state%psetcols
+          diff = abs(ptend%hflux_srf(i))
+          if (diff > max_abs_hflux_srf) max_abs_hflux_srf = diff
+          if (.not. hflux_srf_mismatch .and. ptend%hflux_srf(i) /= 0._r8) then
+             first_i_hflux_srf = i
+             hflux_srf_mismatch = .true.
+          end if
+          diff = abs(ptend%hflux_top(i))
+          if (diff > max_abs_hflux_top) max_abs_hflux_top = diff
+          if (.not. hflux_top_mismatch .and. ptend%hflux_top(i) /= 0._r8) then
+             first_i_hflux_top = i
+             hflux_top_mismatch = .true.
+          end if
+       end do
+       do k = 1, pver + 1
+          do i = 1, state%psetcols
+             diff = abs(state%pint(i,k) - pint_dbg(i,k))
+             if (diff > max_abs_pint) max_abs_pint = diff
+             if (.not. pint_mismatch .and. state%pint(i,k) /= pint_dbg(i,k)) then
+                first_i_pint = i
+                first_k_pint = k
+                pint_mismatch = .true.
+             end if
+          end do
+       end do
+       do k = 1, pver
+          do i = 1, state%psetcols
+             diff = abs(state%s(i,k) - state_s_dbg(i,k))
+             if (diff > max_abs_state_s) max_abs_state_s = diff
+             if (.not. state_s_mismatch .and. state%s(i,k) /= state_s_dbg(i,k)) then
+                first_i_state_s = i
+                first_k_state_s = k
+                state_s_mismatch = .true.
+             end if
+          end do
+       end do
+       do i = 1, state%psetcols
+          diff = abs(state%te_cur(i) - te_cur_dbg(i))
+          if (diff > max_abs_te_cur) max_abs_te_cur = diff
+          if (.not. te_cur_mismatch .and. state%te_cur(i) /= te_cur_dbg(i)) then
+             first_i_te_cur = i
+             te_cur_mismatch = .true.
+          end if
+       end do
+
+       if (ptend_mismatch .or. esh_mismatch .or. pint_mismatch .or. hflux_srf_mismatch .or. hflux_top_mismatch .or. &
+            state_s_mismatch .or. te_cur_mismatch) then
+
+          write(iulog,*) 'check_energy_fix debug mismatch at nstep=', nstep, ' lchnk=', state%lchnk
+          write(iulog,*) '  max_abs_ptend_s=', max_abs_s, ' max_abs_eshflx=', max_abs_esh, &
+               ' max_abs_pint=', max_abs_pint, ' max_abs_hflux_srf=', max_abs_hflux_srf, &
+               ' max_abs_hflux_top=', max_abs_hflux_top, ' max_abs_state_s=', max_abs_state_s, &
+               ' max_abs_te_cur=', max_abs_te_cur
+          if (ptend_mismatch) then
+             write(iulog,*) '  first ptend%s mismatch i,k=', first_i_ptend, first_k_ptend, &
+                  ptend%s(first_i_ptend,first_k_ptend), ptend_s_dbg(first_i_ptend,first_k_ptend)
+          end if
+          if (esh_mismatch) then
+             write(iulog,*) '  first eshflx mismatch i=', first_i_esh, eshflx(first_i_esh), eshflx_dbg(first_i_esh)
+          end if
+          if (pint_mismatch) then
+             write(iulog,*) '  first pint mismatch i,k=', first_i_pint, first_k_pint, &
+                  state%pint(first_i_pint,first_k_pint), pint_dbg(first_i_pint,first_k_pint)
+          end if
+          if (hflux_srf_mismatch) then
+             write(iulog,*) '  first hflux_srf mismatch i=', first_i_hflux_srf, ptend%hflux_srf(first_i_hflux_srf)
+          end if
+          if (hflux_top_mismatch) then
+             write(iulog,*) '  first hflux_top mismatch i=', first_i_hflux_top, ptend%hflux_top(first_i_hflux_top)
+          end if
+          if (state_s_mismatch) then
+             write(iulog,*) '  first state%s mismatch i,k=', first_i_state_s, first_k_state_s, &
+                  state%s(first_i_state_s,first_k_state_s), state_s_dbg(first_i_state_s,first_k_state_s)
+          end if
+          if (te_cur_mismatch) then
+             write(iulog,*) '  first te_cur mismatch i=', first_i_te_cur, state%te_cur(first_i_te_cur), &
+                  te_cur_dbg(first_i_te_cur)
+          end if
+          flush(iulog)
+          deallocate(ptend_s_dbg, pint_dbg, state_s_dbg, te_cur_dbg)
+          call endrun('check_energy_fix debug mismatch')
+       end if
+       deallocate(ptend_s_dbg, pint_dbg, state_s_dbg, te_cur_dbg)
+    end if
+
+    return
+  end subroutine check_energy_fix
+
+!===============================================================================
+  subroutine check_energy_fix_native(state, ptend, nstep, eshflx)
 
 !-----------------------------------------------------------------------
 ! Add heating rate required for global mean total energy conservation
@@ -518,10 +1202,10 @@ end subroutine check_energy_get_integrals
 !------------------------------Arguments--------------------------------
 
     type(physics_state), intent(in   ) :: state
-    type(physics_ptend), intent(out)   :: ptend
+    type(physics_ptend), intent(inout) :: ptend
 
     integer , intent(in   ) :: nstep          ! time step number
-    real(r8), intent(out  ) :: eshflx(pcols)  ! effective sensible heat flux
+    real(r8), intent(inout  ) :: eshflx(pcols)  ! effective sensible heat flux
 
 !---------------------------Local storage-------------------------------
     integer  :: i                        ! column
@@ -529,28 +1213,51 @@ end subroutine check_energy_get_integrals
 !-----------------------------------------------------------------------
     ncol = state%ncol
 
-    call physics_ptend_init(ptend, state%psetcols, 'chkenergyfix', ls=.true.)
-
-#if ( defined OFFLINE_DYN )
-    ! disable the energy fix for offline driver
-    heat_glob = 0._r8
-#endif
 ! add (-) global mean total energy difference as heating
     ptend%s(:ncol,:pver) = heat_glob
-!!$    write(iulog,*) "chk_fix: heat", state%lchnk, ncol, heat_glob
 
 ! compute effective sensible heat flux
+    eshflx(:) = 0._r8
     do i = 1, ncol
        eshflx(i) = heat_glob * (state%pint(i,pver+1) - state%pint(i,1)) / gravit
     end do
-!!!    if (nstep > 0) write(iulog,*) "heat", heat_glob, eshflx(1)
 
     return
-  end subroutine check_energy_fix
+  end subroutine check_energy_fix_native
 
 
 !===============================================================================
   subroutine check_tracers_init(state, tracerint)
+
+!-----------------------------------------------------------------------
+! Compute initial values of tracers integrals, 
+! zero cumulative tendencies
+!-----------------------------------------------------------------------
+
+!------------------------------Arguments--------------------------------
+
+    type(physics_state),   intent(in)    :: state
+    type(check_tracers_data), intent(out)   :: tracerint
+    interface
+       subroutine check_tracers_init_codon() bind(c, name="check_tracers_init_codon")
+       end subroutine check_tracers_init_codon
+    end interface
+
+!-----------------------------------------------------------------------
+
+    call check_tracers_init_select_impl()
+    if (use_native_tracers_init_impl) then
+       call check_tracers_init_native(state, tracerint)
+       return
+    end if
+
+    call check_tracers_init_codon()
+
+    return
+  end subroutine check_tracers_init
+
+!===============================================================================
+  subroutine check_tracers_init_native(state, tracerint)
 
 !-----------------------------------------------------------------------
 ! Compute initial values of tracers integrals, 
@@ -612,10 +1319,49 @@ end subroutine check_energy_get_integrals
     end do
 
     return
-  end subroutine check_tracers_init
+  end subroutine check_tracers_init_native
 
 !===============================================================================
   subroutine check_tracers_chng(state, tracerint, name, nstep, ztodt, cflx)
+
+!-----------------------------------------------------------------------
+! Check that the tracers and water change matches the boundary fluxes
+! these checks are not save when there are tracers transformations, as 
+! they only check to see whether a mass change in the column is
+! associated with a flux
+!-----------------------------------------------------------------------
+
+    use cam_abortutils, only: endrun 
+
+
+    implicit none
+
+!------------------------------Arguments--------------------------------
+
+    type(physics_state)    , intent(in   ) :: state
+    type(check_tracers_data), intent(inout) :: tracerint! tracers integrals and boundary fluxes
+    character*(*),intent(in) :: name               ! parameterization name for fluxes
+    integer , intent(in   ) :: nstep               ! current timestep number
+    real(r8), intent(in   ) :: ztodt               ! 2 delta t (model time increment)
+    real(r8), intent(in   ) :: cflx(pcols,pcnst)       ! boundary flux of tracers       (kg/m2/s)
+    interface
+       subroutine check_tracers_chng_codon() bind(c, name="check_tracers_chng_codon")
+       end subroutine check_tracers_chng_codon
+    end interface
+
+    call check_tracers_chng_select_impl()
+    if (use_native_tracers_chng_impl) then
+       call check_tracers_chng_native(state, tracerint, name, nstep, ztodt, cflx)
+       return
+    end if
+
+    call check_tracers_chng_codon()
+
+    return
+  end subroutine check_tracers_chng
+
+!===============================================================================
+  subroutine check_tracers_chng_native(state, tracerint, name, nstep, ztodt, cflx)
 
 !-----------------------------------------------------------------------
 ! Check that the tracers and water change matches the boundary fluxes
@@ -751,7 +1497,7 @@ end subroutine check_energy_get_integrals
     end do
 
     return
-  end subroutine check_tracers_chng
+  end subroutine check_tracers_chng_native
 
 
 end module check_energy
