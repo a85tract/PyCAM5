@@ -452,3 +452,17 @@ def tphysbc_trace_water_clip_codon(
                                 state_q[state_idx] = bulk
                             else:
                                 state_q[state_idx] = rstd[_idx(tracer_idx)] * bulk
+
+
+@export
+def tphysbc_dadadj_lq_init_codon(
+    pcnst: int,
+    lq_mask_p: cobj,
+):
+    lq_mask = Ptr[int](lq_mask_p)
+
+    for m in range(1, pcnst + 1):
+        lq_mask[_idx(m)] = 0
+
+    if pcnst >= 1:
+        lq_mask[0] = 1

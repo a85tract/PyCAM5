@@ -100,6 +100,8 @@ module physpkg
   logical           :: tphysbc_zero_buffers_impl_selected = .false.
   logical           :: use_native_tphysbc_trace_water_clip_impl = .false.
   logical           :: tphysbc_trace_water_clip_impl_selected = .false.
+  logical           :: use_native_tphysbc_dadadj_lq_init_impl = .false.
+  logical           :: tphysbc_dadadj_lq_init_impl_selected = .false.
 
   !  Physics buffer index
   integer ::  teout_idx          = 0  
@@ -2038,8 +2040,7 @@ subroutine tphysbc (ztodt,               &
     ! Copy state info for input to dadadj
     ! This is a kludge, so that dadadj does not have to be correctly reformulated in dry static energy
 
-    lq(:) = .FALSE.
-    lq(1) = .TRUE.
+    call tphysbc_dadadj_lq_init(pcnst, lq)
     call physics_ptend_init(ptend, state%psetcols, 'dadadj', ls=.true., lq=lq)
     call tphysbc_dadadj_input(ncol, pcols, pver, pcnst, state%t, state%q, ptend%s, ptend%q)
 
@@ -4331,6 +4332,90 @@ subroutine tphysbc_trace_water_clip_native(lchnk, ncol, pcols_local, pver_local,
   end do
 
 end subroutine tphysbc_trace_water_clip_native
+
+!=======================================================================
+
+subroutine tphysbc_dadadj_lq_init_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (tphysbc_dadadj_lq_init_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('TPHYSBC_DADADJ_LQ_INIT_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_tphysbc_dadadj_lq_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_tphysbc_dadadj_lq_init_impl = .false.
+  end if
+
+  tphysbc_dadadj_lq_init_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_tphysbc_dadadj_lq_init_impl) then
+        write(iulog,*) 'tphysbc_dadadj_lq_init implementation = native'
+     else
+        write(iulog,*) 'tphysbc_dadadj_lq_init implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine tphysbc_dadadj_lq_init_select_impl
+
+!=======================================================================
+
+subroutine tphysbc_dadadj_lq_init(pcnst_local, lq)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+  integer, intent(in) :: pcnst_local
+  logical, intent(out) :: lq(pcnst_local)
+
+  integer :: m
+  integer(c_int64_t), target :: lq_mask(pcnst_local)
+
+  interface
+     subroutine tphysbc_dadadj_lq_init_codon(pcnst_c, lq_mask_p) bind(c, name="tphysbc_dadadj_lq_init_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: pcnst_c
+       type(c_ptr), value :: lq_mask_p
+     end subroutine tphysbc_dadadj_lq_init_codon
+  end interface
+
+  call tphysbc_dadadj_lq_init_select_impl()
+
+  if (use_native_tphysbc_dadadj_lq_init_impl) then
+     call tphysbc_dadadj_lq_init_native(pcnst_local, lq)
+     return
+  end if
+
+  call tphysbc_dadadj_lq_init_codon(int(pcnst_local, c_int64_t), c_loc(lq_mask))
+
+  do m = 1, pcnst_local
+     lq(m) = lq_mask(m) /= 0_c_int64_t
+  end do
+
+end subroutine tphysbc_dadadj_lq_init
+
+!=======================================================================
+
+subroutine tphysbc_dadadj_lq_init_native(pcnst_local, lq)
+
+  integer, intent(in) :: pcnst_local
+  logical, intent(out) :: lq(pcnst_local)
+
+  lq(:) = .FALSE.
+  lq(1) = .TRUE.
+
+end subroutine tphysbc_dadadj_lq_init_native
 
 !=======================================================================
 
