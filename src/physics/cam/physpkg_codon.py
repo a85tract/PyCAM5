@@ -487,3 +487,15 @@ def phys_inidat_qpert_expand_codon(
     for c in range(1, chunk_count + 1):
         for i in range(1, pcols + 1):
             tptr3d_2[_field3_idx(i, 1, c, pcols, pcnst)] = tptr[_field2_idx(i, c, pcols)]
+
+
+@export
+def phys_inidat_tbot_init_codon(
+    pcols: int,
+    tbot_p: cobj,
+    posinf_local: float,
+):
+    tbot = Ptr[float](tbot_p)
+
+    for i in range(1, pcols + 1):
+        tbot[_idx(i)] = posinf_local

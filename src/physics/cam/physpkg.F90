@@ -104,6 +104,8 @@ module physpkg
   logical           :: tphysbc_dadadj_lq_init_impl_selected = .false.
   logical           :: use_native_phys_inidat_qpert_expand_impl = .false.
   logical           :: phys_inidat_qpert_expand_impl_selected = .false.
+  logical           :: use_native_phys_inidat_tbot_init_impl = .false.
+  logical           :: phys_inidat_tbot_init_impl_selected = .false.
 
   !  Physics buffer index
   integer ::  teout_idx          = 0  
@@ -390,6 +392,7 @@ subroutine phys_inidat( cam_out, pbuf2d )
     real(r8), pointer :: cldptr(:,:,:,:), convptr_3d(:,:,:,:)
     real(r8), pointer :: tptr(:,:), tptr3d(:,:,:), tptr3d_2(:,:,:)
     real(r8), pointer :: qpert(:,:)
+    real(r8) :: posinf_r8
 
     character*11 :: subname='phys_inidat' ! subroutine name
     integer :: tpert_idx, qpert_idx, pblh_idx
@@ -486,7 +489,8 @@ subroutine phys_inidat( cam_out, pbuf2d )
     deallocate(tptr)
 
     do lchnk=begchunk,endchunk
-       cam_out(lchnk)%tbot(:) = posinf
+       posinf_r8 = posinf
+       call phys_inidat_tbot_init(pcols, cam_out(lchnk)%tbot, posinf_r8)
     end do
 
     !
@@ -4515,6 +4519,91 @@ subroutine phys_inidat_qpert_expand_native(pcols_local, pcnst_local, chunk_count
   tptr3d_2(:,1,:) = tptr(:,:)
 
 end subroutine phys_inidat_qpert_expand_native
+
+!=======================================================================
+
+subroutine phys_inidat_tbot_init_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (phys_inidat_tbot_init_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('PHYS_INIDAT_TBOT_INIT_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_phys_inidat_tbot_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_phys_inidat_tbot_init_impl = .false.
+  end if
+
+  phys_inidat_tbot_init_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_phys_inidat_tbot_init_impl) then
+        write(iulog,*) 'phys_inidat_tbot_init implementation = native'
+     else
+        write(iulog,*) 'phys_inidat_tbot_init implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine phys_inidat_tbot_init_select_impl
+
+!=======================================================================
+
+subroutine phys_inidat_tbot_init(pcols_local, tbot, posinf_local)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: pcols_local
+  real(r8), intent(inout), target :: tbot(pcols_local)
+  real(r8), intent(in) :: posinf_local
+
+  integer(c_int64_t) :: pcols_c
+
+  interface
+     subroutine phys_inidat_tbot_init_codon(pcols_c, tbot_p, posinf_local) bind(c, name="phys_inidat_tbot_init_codon")
+       use iso_c_binding, only: c_int64_t, c_double, c_ptr
+       integer(c_int64_t), value :: pcols_c
+       type(c_ptr), value :: tbot_p
+       real(c_double), value :: posinf_local
+     end subroutine phys_inidat_tbot_init_codon
+  end interface
+
+  call phys_inidat_tbot_init_select_impl()
+
+  if (use_native_phys_inidat_tbot_init_impl) then
+     call phys_inidat_tbot_init_native(pcols_local, tbot, posinf_local)
+     return
+  end if
+
+  pcols_c = int(pcols_local, c_int64_t)
+  call phys_inidat_tbot_init_codon(pcols_c, c_loc(tbot), posinf_local)
+
+end subroutine phys_inidat_tbot_init
+
+!=======================================================================
+
+subroutine phys_inidat_tbot_init_native(pcols_local, tbot, posinf_local)
+
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: pcols_local
+  real(r8), intent(inout) :: tbot(pcols_local)
+  real(r8), intent(in) :: posinf_local
+
+  tbot(:) = posinf_local
+
+end subroutine phys_inidat_tbot_init_native
 
 !=======================================================================
 
