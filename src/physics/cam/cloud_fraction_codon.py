@@ -8,6 +8,53 @@ def _field2_idx(i: int, k: int, ld1: int) -> int:
 
 
 @export
+def cldfrc_state_init_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    dindex: int,
+    rhpert: float,
+    q_p: cobj,
+    qs_p: cobj,
+    relhum_p: cobj,
+    rh_p: cobj,
+    cloud_p: cobj,
+    icecldf_p: cobj,
+    liqcldf_p: cobj,
+    rhcloud_p: cobj,
+    cldst_p: cobj,
+    concld_p: cobj,
+):
+    q = Ptr[float](q_p)
+    qs = Ptr[float](qs_p)
+    relhum = Ptr[float](relhum_p)
+    rh = Ptr[float](rh_p)
+    cloud = Ptr[float](cloud_p)
+    icecldf = Ptr[float](icecldf_p)
+    liqcldf = Ptr[float](liqcldf_p)
+    rhcloud = Ptr[float](rhcloud_p)
+    cldst = Ptr[float](cldst_p)
+    concld = Ptr[float](concld_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, pcols + 1):
+            idx = _field2_idx(i, k, pcols)
+            cloud[idx] = 0.0
+            icecldf[idx] = 0.0
+            liqcldf[idx] = 0.0
+            rhcloud[idx] = 0.0
+            cldst[idx] = 0.0
+            concld[idx] = 0.0
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _field2_idx(i, k, pcols)
+            rh[idx] = q[idx] / qs[idx] * (1.0 + dindex * rhpert)
+            relhum[idx] = rh[idx]
+
+
+@export
 def cldfrc_total_cloud_codon(
     ncol: int,
     pcols: int,

@@ -78,6 +78,8 @@ module cloud_fraction
   logical :: cldfrc_fice_impl_selected = .false.
   logical :: use_native_cldfrc_convective_cover_impl = .false.
   logical :: cldfrc_convective_cover_impl_selected = .false.
+  logical :: use_native_cldfrc_state_init_impl = .false.
+  logical :: cldfrc_state_init_impl_selected = .false.
   logical :: use_native_cldfrc_total_cloud_impl = .false.
   logical :: cldfrc_total_cloud_impl_selected = .false.
 
@@ -156,6 +158,43 @@ subroutine cldfrc_convective_cover_select_impl()
    end if
 
 end subroutine cldfrc_convective_cover_select_impl
+
+!================================================================================================
+
+subroutine cldfrc_state_init_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cldfrc_state_init_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CLDFRC_STATE_INIT_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_cldfrc_state_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_cldfrc_state_init_impl = .false.
+   end if
+
+   cldfrc_state_init_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_cldfrc_state_init_impl) then
+         write(iulog,*) 'cldfrc_state_init implementation = native'
+      else
+         write(iulog,*) 'cldfrc_state_init implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine cldfrc_state_init_select_impl
 
 !================================================================================================
 
@@ -551,22 +590,11 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
             es(1:ncol,top_lev:pver), qs(1:ncol,top_lev:pver))
     endif
 
-    cloud    = 0._r8
-    icecldf  = 0._r8
-    liqcldf  = 0._r8
-    rhcloud  = 0._r8
-    cldst    = 0._r8
-    concld   = 0._r8
-
     do k=top_lev,pver
        theta(:ncol,k)    = temp(:ncol,k)*(pnot/pmid(:ncol,k))**cappa
-
-       do i=1,ncol
-          rh(i,k)     = q(i,k)/qs(i,k)*(1.0_r8+real(dindex,r8)*rhpert)
-          !  record relhum, rh itself will later be modified related with concld
-          relhum(i,k) = rh(i,k)
-       end do
     end do
+
+    call cldfrc_state_init(ncol, q, qs, relhum, rh, cloud, icecldf, liqcldf, rhcloud, cldst, concld, dindex, rhpert)
 
     ! Initialize other temporary variables
     ierror = 0
@@ -842,6 +870,90 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     !
     return
   end subroutine cldfrc
+
+!================================================================================================
+
+  subroutine cldfrc_state_init(ncol, q_local, qs_local, relhum_local, rh_local, cloud_local, icecldf_local, &
+       liqcldf_local, rhcloud_local, cldst_local, concld_local, dindex_local, rhpert_local)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr, c_double
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: dindex_local
+    real(r8), intent(in) :: rhpert_local
+    real(r8), target, intent(in) :: q_local(pcols,pver)
+    real(r8), target, intent(in) :: qs_local(pcols,pver)
+    real(r8), target, intent(inout) :: relhum_local(pcols,pver)
+    real(r8), target, intent(inout) :: rh_local(pcols,pver)
+    real(r8), target, intent(inout) :: cloud_local(pcols,pver)
+    real(r8), target, intent(inout) :: icecldf_local(pcols,pver)
+    real(r8), target, intent(inout) :: liqcldf_local(pcols,pver)
+    real(r8), target, intent(inout) :: rhcloud_local(pcols,pver)
+    real(r8), target, intent(inout) :: cldst_local(pcols,pver)
+    real(r8), target, intent(inout) :: concld_local(pcols,pver)
+
+    interface
+       subroutine cldfrc_state_init_codon(ncol_c, pcols_c, pver_c, top_lev_c, dindex_c, rhpert_c, q_p, qs_p, &
+            relhum_p, rh_p, cloud_p, icecldf_p, liqcldf_p, rhcloud_p, cldst_p, concld_p) &
+            bind(c, name="cldfrc_state_init_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr, c_double
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, dindex_c
+         real(c_double), value :: rhpert_c
+         type(c_ptr), value :: q_p, qs_p, relhum_p, rh_p, cloud_p, icecldf_p, liqcldf_p, rhcloud_p, cldst_p, concld_p
+       end subroutine cldfrc_state_init_codon
+    end interface
+
+    call cldfrc_state_init_select_impl()
+
+    if (use_native_cldfrc_state_init_impl) then
+       call cldfrc_state_init_native(ncol, q_local, qs_local, relhum_local, rh_local, cloud_local, icecldf_local, &
+            liqcldf_local, rhcloud_local, cldst_local, concld_local, dindex_local, rhpert_local)
+       return
+    end if
+
+    call cldfrc_state_init_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(top_lev, c_int64_t), int(dindex_local, c_int64_t), real(rhpert_local, c_double), c_loc(q_local), &
+         c_loc(qs_local), c_loc(relhum_local), c_loc(rh_local), c_loc(cloud_local), c_loc(icecldf_local), &
+         c_loc(liqcldf_local), c_loc(rhcloud_local), c_loc(cldst_local), c_loc(concld_local))
+
+  end subroutine cldfrc_state_init
+
+!================================================================================================
+
+  subroutine cldfrc_state_init_native(ncol, q_local, qs_local, relhum_local, rh_local, cloud_local, icecldf_local, &
+       liqcldf_local, rhcloud_local, cldst_local, concld_local, dindex_local, rhpert_local)
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: dindex_local
+    real(r8), intent(in) :: rhpert_local
+    real(r8), intent(in) :: q_local(pcols,pver)
+    real(r8), intent(in) :: qs_local(pcols,pver)
+    real(r8), intent(inout) :: relhum_local(pcols,pver)
+    real(r8), intent(inout) :: rh_local(pcols,pver)
+    real(r8), intent(inout) :: cloud_local(pcols,pver)
+    real(r8), intent(inout) :: icecldf_local(pcols,pver)
+    real(r8), intent(inout) :: liqcldf_local(pcols,pver)
+    real(r8), intent(inout) :: rhcloud_local(pcols,pver)
+    real(r8), intent(inout) :: cldst_local(pcols,pver)
+    real(r8), intent(inout) :: concld_local(pcols,pver)
+
+    integer :: i, k
+
+    cloud_local   = 0._r8
+    icecldf_local = 0._r8
+    liqcldf_local = 0._r8
+    rhcloud_local = 0._r8
+    cldst_local   = 0._r8
+    concld_local  = 0._r8
+
+    do k=top_lev,pver
+       do i=1,ncol
+          rh_local(i,k)     = q_local(i,k)/qs_local(i,k)*(1.0_r8+real(dindex_local,r8)*rhpert_local)
+          relhum_local(i,k) = rh_local(i,k)
+       end do
+    end do
+
+  end subroutine cldfrc_state_init_native
 
 !================================================================================================
 
