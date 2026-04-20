@@ -134,6 +134,8 @@ module water_tracers
 !-----------------------------------------------------------------------
   logical :: use_native_wtrc_mass_fixer_impl = .false.
   logical :: wtrc_mass_fixer_impl_selected = .false.
+  logical :: use_native_wtrc_check_h2o_impl = .false.
+  logical :: wtrc_check_h2o_impl_selected = .false.
 
 contains
 
@@ -175,6 +177,45 @@ subroutine wtrc_mass_fixer_select_impl()
   end if
 
 end subroutine wtrc_mass_fixer_select_impl
+
+!=======================================================================
+subroutine wtrc_check_h2o_select_impl()
+!-----------------------------------------------------------------------
+! Select native vs Codon implementation for wtrc_check_h2o.
+!-----------------------------------------------------------------------
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (wtrc_check_h2o_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('WTRC_CHECK_H2O_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+    do i = 1, n
+      code = iachar(impl_name(i:i))
+      if (code >= iachar('A') .and. code <= iachar('Z')) then
+        impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+      end if
+    end do
+    use_native_wtrc_check_h2o_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+    use_native_wtrc_check_h2o_impl = .false.
+  end if
+
+  wtrc_check_h2o_impl_selected = .true.
+
+  if (masterproc) then
+    if (use_native_wtrc_check_h2o_impl) then
+      write(iulog,*) 'wtrc_check_h2o implementation = native'
+    else
+      write(iulog,*) 'wtrc_check_h2o implementation = codon'
+    end if
+    call flush(iulog)
+  end if
+
+end subroutine wtrc_check_h2o_select_impl
 
 !=======================================================================
 subroutine wtrc_readnl(nlfile)
@@ -3063,6 +3104,131 @@ end subroutine wtrc_mass_fixer_native
 !
 !-----------------------------------------------------------------------
   use physics_types,  only: physics_state, physics_ptend 
+  use water_types,    only: pwtype
+  use constituents,   only: pcnst
+  use water_isotopes, only: pwtspec
+  use iso_c_binding,  only: c_int64_t, c_loc, c_ptr, c_double, c_null_ptr
+
+  
+  character(len=*),intent(in)        :: testname                  ! name of the test
+  type(physics_state), target, intent(in)    :: pstate            ! initial state
+  real(r8), target, intent(in)               :: qloc(pcols,pver,pcnst)    ! current state
+  real(r8), intent(in)               :: dtime                     ! length of time step (s)
+  type(physics_ptend), target, intent(inout), optional :: ptend   ! initial tendency
+  
+  logical                            :: wtrc_check_h2o
+  
+  integer            :: ispec
+  integer(c_int64_t), target :: wisotope_c
+  integer(c_int64_t), target :: wtrc_check_total_h2o_c
+  integer(c_int64_t), target :: ptend_present_c
+  integer(c_int64_t), target :: result_c
+  integer(c_int64_t), target :: issue_c
+  integer(c_int64_t), target :: wtrc_bulk_indices64(pwtype)
+  integer(c_int64_t), target :: wtrc_iawset64(pwtype, wtrc_nwset)
+  integer(c_int64_t), target :: iwspec64(pcnst)
+  real(c_double), target :: rstd(pwtspec)
+
+  interface
+    subroutine wtrc_check_h2o_codon(ncol_c, pcols_c, pver_c, pcnst_c, pwtype_c, wtrc_nwset_c, &
+         wisotope_c, wtrc_check_total_h2o_c, wtrc_qchkmin_c, dtime_c, pstate_q_p, pstate_pdel_p, &
+         qloc_p, wtrc_bulk_indices_p, wtrc_iawset_p, iwspec_p, rstd_p, ptend_present_c, ptend_q_p, &
+         result_p, issue_p) bind(c, name="wtrc_check_h2o_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr, c_double
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, pwtype_c, wtrc_nwset_c
+      integer(c_int64_t), value :: wisotope_c, wtrc_check_total_h2o_c, ptend_present_c
+      real(c_double), value :: wtrc_qchkmin_c, dtime_c
+      type(c_ptr), value :: pstate_q_p, pstate_pdel_p, qloc_p
+      type(c_ptr), value :: wtrc_bulk_indices_p, wtrc_iawset_p, iwspec_p, rstd_p
+      type(c_ptr), value :: ptend_q_p, result_p, issue_p
+    end subroutine wtrc_check_h2o_codon
+  end interface
+ 
+!-----------------------------------------------------------------------
+!
+  wtrc_check_h2o = .true.
+  
+  if (.not. trace_water) return
+
+  call wtrc_check_h2o_select_impl()
+
+  if (use_native_wtrc_check_h2o_impl) then
+    if (present(ptend)) then
+      wtrc_check_h2o = wtrc_check_h2o_native(testname, pstate, qloc, dtime, ptend)
+    else
+      wtrc_check_h2o = wtrc_check_h2o_native(testname, pstate, qloc, dtime)
+    end if
+    return
+  end if
+
+  do ispec = 1, pwtspec
+    rstd(ispec) = real(wtrc_get_rstd(ispec), c_double)
+  end do
+  do ispec = 1, pwtype
+    wtrc_bulk_indices64(ispec) = int(wtrc_bulk_indices(ispec), c_int64_t)
+  end do
+  do ispec = 1, wtrc_nwset
+    wtrc_iawset64(:, ispec) = int(wtrc_iawset(:, ispec), c_int64_t)
+  end do
+  do ispec = 1, pcnst
+    iwspec64(ispec) = int(iwspec(ispec), c_int64_t)
+  end do
+
+  wisotope_c = merge(1_c_int64_t, 0_c_int64_t, wisotope)
+  wtrc_check_total_h2o_c = merge(1_c_int64_t, 0_c_int64_t, wtrc_check_total_h2o)
+  ptend_present_c = merge(1_c_int64_t, 0_c_int64_t, present(ptend))
+  result_c = 1_c_int64_t
+  issue_c = 0_c_int64_t
+
+  if (present(ptend)) then
+    call wtrc_check_h2o_codon(int(pstate%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(pcnst, c_int64_t), int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), wisotope_c, &
+         wtrc_check_total_h2o_c, real(wtrc_qchkmin, c_double), real(dtime, c_double), c_loc(pstate%q), &
+         c_loc(pstate%pdel), c_loc(qloc), c_loc(wtrc_bulk_indices64), c_loc(wtrc_iawset64), c_loc(iwspec64), &
+         c_loc(rstd), ptend_present_c, c_loc(ptend%q), c_loc(result_c), c_loc(issue_c))
+  else
+    call wtrc_check_h2o_codon(int(pstate%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(pcnst, c_int64_t), int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), wisotope_c, &
+         wtrc_check_total_h2o_c, real(wtrc_qchkmin, c_double), real(dtime, c_double), c_loc(pstate%q), &
+         c_loc(pstate%pdel), c_loc(qloc), c_loc(wtrc_bulk_indices64), c_loc(wtrc_iawset64), c_loc(iwspec64), &
+         c_loc(rstd), ptend_present_c, c_null_ptr, c_loc(result_c), c_loc(issue_c))
+  end if
+
+  if (issue_c /= 0_c_int64_t) then
+    if (present(ptend)) then
+      wtrc_check_h2o = wtrc_check_h2o_native(testname, pstate, qloc, dtime, ptend)
+    else
+      wtrc_check_h2o = wtrc_check_h2o_native(testname, pstate, qloc, dtime)
+    end if
+  else
+    wtrc_check_h2o = result_c /= 0_c_int64_t
+  end if
+  
+  return
+end function wtrc_check_h2o
+
+
+!=======================================================================
+  function wtrc_check_h2o_native(testname, pstate, qloc, dtime, ptend)
+!-----------------------------------------------------------------------
+!
+! Purpose: Check water tracers for conservation of mass.
+!
+! Method:
+!   The tests are :
+!
+!     - (wtrc_check_total_h2o) - Checks whether the total mass of the first
+!       water set in the model (which should be a total water set) is the
+!       same as regular water.
+!
+!   Errors are reported if a negative total mass is
+!   detected or if the relative change in mass is greater than
+!   wtrc_qchkmin.
+
+! Author: Chuck Bardeen
+!
+!-----------------------------------------------------------------------
+  use physics_types,  only: physics_state, physics_ptend 
   use water_types,    only: pwtype, wtype_names
   use constituents,   only: cnst_name, pcnst
 
@@ -3073,7 +3239,7 @@ end subroutine wtrc_mass_fixer_native
   real(r8), intent(in)               :: dtime                     ! length of time step (s)
   type(physics_ptend), intent(inout), optional :: ptend           ! initial tendency
   
-  logical                            :: wtrc_check_h2o
+  logical                            :: wtrc_check_h2o_native
   
   integer            :: iwset
   integer            :: icol
@@ -3089,7 +3255,7 @@ end subroutine wtrc_mass_fixer_native
  
 !-----------------------------------------------------------------------
 !
-  wtrc_check_h2o = .true.
+  wtrc_check_h2o_native = .true.
   
   if (trace_water) then
 
@@ -3130,11 +3296,11 @@ end subroutine wtrc_mass_fixer_native
           stmass = sum(tmass)
   
           if ((stmass < 0._r8) .or. ((sbmass) < 0._r8)) then
-            wtrc_check_h2o = .false.
+            wtrc_check_h2o_native = .false.
   
             write(iulog, *) trim(testname) // ": Warning - Negative total mass", iwset, icol, stmass, sbmass
           else if (sbmass > 0._r8) then  
-              wtrc_check_h2o = .false.
+              wtrc_check_h2o_native = .false.
               
               if (abs(((stmass * scale) - sbmass) / sbmass) > wtrc_qchkmin) then
   
@@ -3163,7 +3329,7 @@ end subroutine wtrc_mass_fixer_native
   end if
   
   return
-end function wtrc_check_h2o
+end function wtrc_check_h2o_native
 
 
 !=======================================================================
