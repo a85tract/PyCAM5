@@ -251,3 +251,19 @@ def wtrc_clear_precip_codon(ncol: int, srfpcp_p: cobj):
 
     for i in range(1, ncol + 1):
         srfpcp[_field1_idx(i)] = 0.0
+
+
+@export
+def wtrc_diagnose_bulk_precip_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    bulk_idx: int,
+    ptend_q_p: cobj,
+):
+    ptend_q = Ptr[float](ptend_q_p)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            ptend_q[_state_q_idx(i, k, bulk_idx, pcols, pver)] = 0.0
