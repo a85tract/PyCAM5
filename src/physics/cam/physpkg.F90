@@ -124,6 +124,8 @@ module physpkg
   logical           :: phys_inidat_iccwat_default_impl_selected = .false.
   logical           :: use_native_phys_inidat_lcwat_default_impl = .false.
   logical           :: phys_inidat_lcwat_default_impl_selected = .false.
+  logical           :: use_native_phys_inidat_tcwat_default_impl = .false.
+  logical           :: phys_inidat_tcwat_default_impl_selected = .false.
   logical           :: use_native_phys_inidat_cloud_default_impl = .false.
   logical           :: phys_inidat_cloud_default_impl_selected = .false.
   logical           :: use_native_phys_inidat_concld_default_impl = .false.
@@ -422,7 +424,7 @@ subroutine phys_inidat( cam_out, pbuf2d )
     integer :: tpert_idx, qpert_idx, pblh_idx
 
     logical :: found=.false., found2=.false., found_primary=.false.
-    integer :: ierr, qcwat_source, iccwat_source, lcwat_source
+    integer :: ierr, qcwat_source, iccwat_source, lcwat_source, tcwat_source
     character(len=4) :: dim1name
     integer :: ixcldice, ixcldliq
     nullify(tptr,tptr3d,tptr3d_2,cldptr,convptr_3d)
@@ -644,10 +646,14 @@ call phys_inidat_qpert_expand(pcols, pcnst, endchunk-begchunk+1, tptr, tptr3d_2)
     if (m > 0) then
        call infld(fieldname, fh_ini, dim1name, 'lev', 'lat', 1, pcols, 1, pver, begchunk, endchunk, &
             tptr3d, found, grid_map='phys')
-       if(.not.found) then
+       found_primary = found
+       if(.not.found_primary) then
           call infld('T', fh_ini, dim1name, 'lev', 'lat', 1, pcols, 1, pver, begchunk, endchunk, &
                tptr3d, found, grid_map='phys')
-          if(dycore_is('LR')) call polar_average(pver, tptr3d) 
+       end if
+       call phys_inidat_tcwat_default(found_primary, tcwat_source)
+       if(tcwat_source == 2) then
+          if(dycore_is('LR')) call polar_average(pver, tptr3d)
           if (masterproc) write(iulog,*) trim(fieldname), ' initialized with T'
        end if
        do n = 1, dyn_time_lvls
@@ -5556,6 +5562,95 @@ subroutine phys_inidat_lcwat_default_native(primary_found_local, cldice_found_lo
   end if
 
 end subroutine phys_inidat_lcwat_default_native
+
+!=======================================================================
+
+subroutine phys_inidat_tcwat_default_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (phys_inidat_tcwat_default_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('PHYS_INIDAT_TCWAT_DEFAULT_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_phys_inidat_tcwat_default_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_phys_inidat_tcwat_default_impl = .false.
+  end if
+
+  phys_inidat_tcwat_default_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_phys_inidat_tcwat_default_impl) then
+        write(iulog,*) 'phys_inidat_tcwat_default implementation = native'
+     else
+        write(iulog,*) 'phys_inidat_tcwat_default implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine phys_inidat_tcwat_default_select_impl
+
+!=======================================================================
+
+subroutine phys_inidat_tcwat_default(primary_found_local, init_source_local)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+  logical, intent(in) :: primary_found_local
+  integer, intent(out) :: init_source_local
+
+  integer(c_int64_t) :: primary_found_c
+  integer(c_int64_t), target :: init_source_c
+
+  interface
+     subroutine phys_inidat_tcwat_default_codon(primary_found_c, init_source_p) &
+          bind(c, name="phys_inidat_tcwat_default_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: primary_found_c
+       type(c_ptr), value :: init_source_p
+     end subroutine phys_inidat_tcwat_default_codon
+  end interface
+
+  call phys_inidat_tcwat_default_select_impl()
+
+  if (use_native_phys_inidat_tcwat_default_impl) then
+     call phys_inidat_tcwat_default_native(primary_found_local, init_source_local)
+     return
+  end if
+
+  primary_found_c = 0_c_int64_t
+  if (primary_found_local) primary_found_c = 1_c_int64_t
+  init_source_c = 0_c_int64_t
+
+  call phys_inidat_tcwat_default_codon(primary_found_c, c_loc(init_source_c))
+  init_source_local = int(init_source_c)
+
+end subroutine phys_inidat_tcwat_default
+
+!=======================================================================
+
+subroutine phys_inidat_tcwat_default_native(primary_found_local, init_source_local)
+
+  logical, intent(in) :: primary_found_local
+  integer, intent(out) :: init_source_local
+
+  if (primary_found_local) then
+     init_source_local = 1
+  else
+     init_source_local = 2
+  end if
+
+end subroutine phys_inidat_tcwat_default_native
 
 !=======================================================================
 
