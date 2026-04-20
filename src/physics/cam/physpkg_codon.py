@@ -635,6 +635,27 @@ def phys_inidat_iccwat_default_codon(
 
 
 @export
+def phys_inidat_lcwat_default_codon(
+    primary_found_i: int,
+    cldice_found_i: int,
+    cldliq_found_i: int,
+    init_source_p: cobj,
+):
+    init_source = Ptr[int](init_source_p)
+
+    if primary_found_i != 0:
+        init_source[0] = 1
+    elif cldice_found_i != 0 and cldliq_found_i != 0:
+        init_source[0] = 2
+    elif cldice_found_i != 0:
+        init_source[0] = 3
+    elif cldliq_found_i != 0:
+        init_source[0] = 4
+    else:
+        init_source[0] = 0
+
+
+@export
 def phys_inidat_cloud_default_codon(
     pcols: int,
     pver: int,
