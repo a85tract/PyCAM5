@@ -58,6 +58,7 @@ module water_tracers
   use constituents,   only: pcnst
   use cam_abortutils, only: endrun
   use cam_logfile,    only: iulog
+  use spmd_utils,     only: masterproc
   use water_isotopes, only: pwtspec, ispundef, isph2o, isphdo, isph218o
   use water_types,    only: pwtype, iwtundef, iwtvap, iwtliq, iwtice, iwtstrain, iwtstsnow, iwtcvrain, iwtcvsnow
   use water_tracer_vars
@@ -131,7 +132,49 @@ module water_tracers
 !------------------- Module Variable Declarations -----------------------
 !Moved to water_tracer_vars.F90
 !-----------------------------------------------------------------------
+  logical :: use_native_wtrc_mass_fixer_impl = .false.
+  logical :: wtrc_mass_fixer_impl_selected = .false.
+
 contains
+
+!=======================================================================
+subroutine wtrc_mass_fixer_select_impl()
+!-----------------------------------------------------------------------
+! Select native vs Codon implementation for wtrc_mass_fixer.
+!-----------------------------------------------------------------------
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (wtrc_mass_fixer_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('WTRC_MASS_FIXER_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+    do i = 1, n
+      code = iachar(impl_name(i:i))
+      if (code >= iachar('A') .and. code <= iachar('Z')) then
+        impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+      end if
+    end do
+    use_native_wtrc_mass_fixer_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+    use_native_wtrc_mass_fixer_impl = .false.
+  end if
+
+  wtrc_mass_fixer_impl_selected = .true.
+
+  if (masterproc) then
+    if (use_native_wtrc_mass_fixer_impl) then
+      write(iulog,*) 'wtrc_mass_fixer implementation = native'
+    else
+      write(iulog,*) 'wtrc_mass_fixer implementation = codon'
+    end if
+    call flush(iulog)
+  end if
+
+end subroutine wtrc_mass_fixer_select_impl
 
 !=======================================================================
 subroutine wtrc_readnl(nlfile)
@@ -2792,6 +2835,94 @@ subroutine wtrc_mass_fixer(state)
 !***************************
 
 use physics_types, only: physics_state
+use water_isotopes, only: pwtspec
+use iso_c_binding, only: c_int64_t, c_loc, c_ptr, c_double
+use shr_const_mod, only: shr_const_pi
+
+!*****************
+!Delcare variables
+!*****************
+
+implicit none
+
+!Input/Output Variables:
+type(physics_state), target, intent(inout) :: state      ! Physics state variables
+
+!local variables:
+integer :: ispec
+integer(c_int64_t), target :: wisotope_c
+integer(c_int64_t), target :: wtrc_iatype64(wtrc_nwset,pwtype)
+integer(c_int64_t), target :: wtrc_bulk_indices64(pwtype)
+integer(c_int64_t), target :: iwspec64(pcnst)
+real(c_double), target :: rstd(pwtspec)
+
+interface
+  subroutine wtrc_mass_fixer_codon(ncol_c, pcols_c, pver_c, pcnst_c, pwtype_c, wtrc_nwset_c, &
+       isphdo_c, wisotope_c, wtrc_qmin_c, wtrc_limiter_18O_hgh_c, wtrc_limiter_18O_low_c, &
+       wtrc_limiter_HDO_hgh_c, wtrc_limiter_HDO_low_c, wtrc_limiter_phis_crit_c, radtodeg_c, &
+       state_q_p, state_lat_p, state_phis_p, wtrc_iatype_p, wtrc_bulk_indices_p, iwspec_p, rstd_p) &
+       bind(c, name="wtrc_mass_fixer_codon")
+    use iso_c_binding, only: c_int64_t, c_ptr, c_double
+    integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, pwtype_c, wtrc_nwset_c
+    integer(c_int64_t), value :: isphdo_c, wisotope_c
+    real(c_double), value :: wtrc_qmin_c, wtrc_limiter_18O_hgh_c, wtrc_limiter_18O_low_c
+    real(c_double), value :: wtrc_limiter_HDO_hgh_c, wtrc_limiter_HDO_low_c
+    real(c_double), value :: wtrc_limiter_phis_crit_c, radtodeg_c
+    type(c_ptr), value :: state_q_p, state_lat_p, state_phis_p
+    type(c_ptr), value :: wtrc_iatype_p, wtrc_bulk_indices_p, iwspec_p, rstd_p
+  end subroutine wtrc_mass_fixer_codon
+end interface
+
+call wtrc_mass_fixer_select_impl()
+
+if (use_native_wtrc_mass_fixer_impl) then
+  call wtrc_mass_fixer_native(state)
+  return
+end if
+
+do ispec = 1, pwtspec
+  rstd(ispec) = real(wtrc_get_rstd(ispec), c_double)
+end do
+
+do ispec = 1, wtrc_nwset
+  wtrc_iatype64(ispec,:) = int(wtrc_iatype(ispec,:), c_int64_t)
+end do
+do ispec = 1, pwtype
+  wtrc_bulk_indices64(ispec) = int(wtrc_bulk_indices(ispec), c_int64_t)
+end do
+do ispec = 1, pcnst
+  iwspec64(ispec) = int(iwspec(ispec), c_int64_t)
+end do
+
+wisotope_c = merge(1_c_int64_t, 0_c_int64_t, wisotope)
+
+call wtrc_mass_fixer_codon(int(state%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+     int(pcnst, c_int64_t), int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), int(isphdo, c_int64_t), &
+     wisotope_c, real(wtrc_qmin, c_double), real(wtrc_limiter_18O_hgh, c_double), &
+     real(wtrc_limiter_18O_low, c_double), real(wtrc_limiter_HDO_hgh, c_double), &
+     real(wtrc_limiter_HDO_low, c_double), real(wtrc_limiter_phis_crit, c_double), &
+     real(180.0_r8/shr_const_pi, c_double), c_loc(state%q), c_loc(state%lat), c_loc(state%phis), &
+     c_loc(wtrc_iatype64), c_loc(wtrc_bulk_indices64), c_loc(iwspec64), c_loc(rstd))
+
+end subroutine wtrc_mass_fixer
+
+
+!=======================================================================
+subroutine wtrc_mass_fixer_native(state)
+!--------------------------------
+!
+!Purpose:  To reset the standard (H2O) water tracer back to the bulk water value, and adjust
+!all of the proceeding water tracers bay an amount proportional to the H2O reset value.
+!
+!Written by:  Jesse Nusbaumer <nusbaume@colorado.edu> - April, 2014
+!
+!--------------------------------
+
+!***************************
+!use statements/header files
+!***************************
+
+use physics_types, only: physics_state
 use shr_const_mod, only: shr_const_pi
 
 !*****************
@@ -2908,7 +3039,7 @@ do i = 1,ncol
   end do
 end do
 
-end subroutine wtrc_mass_fixer
+end subroutine wtrc_mass_fixer_native
 
 
 !=======================================================================
