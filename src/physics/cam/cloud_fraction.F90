@@ -80,6 +80,8 @@ module cloud_fraction
   logical :: cldfrc_convective_cover_impl_selected = .false.
   logical :: use_native_cldfrc_state_init_impl = .false.
   logical :: cldfrc_state_init_impl_selected = .false.
+  logical :: use_native_cldfrc_layer_rh_impl = .false.
+  logical :: cldfrc_layer_rh_impl_selected = .false.
   logical :: use_native_cldfrc_total_cloud_impl = .false.
   logical :: cldfrc_total_cloud_impl_selected = .false.
 
@@ -195,6 +197,43 @@ subroutine cldfrc_state_init_select_impl()
    end if
 
 end subroutine cldfrc_state_init_select_impl
+
+!================================================================================================
+
+subroutine cldfrc_layer_rh_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cldfrc_layer_rh_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CLDFRC_LAYER_RH_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_cldfrc_layer_rh_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_cldfrc_layer_rh_impl = .false.
+   end if
+
+   cldfrc_layer_rh_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_cldfrc_layer_rh_impl) then
+         write(iulog,*) 'cldfrc_layer_rh implementation = native'
+      else
+         write(iulog,*) 'cldfrc_layer_rh implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine cldfrc_layer_rh_select_impl
 
 !================================================================================================
 
@@ -501,8 +540,6 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     real(r8), pointer, dimension(:,:) :: deepcu      ! deep convection cloud fraction
     real(r8), pointer, dimension(:,:) :: shallowcu   ! shallow convection cloud fraction
 
-    logical cldbnd(pcols)          ! region below high cloud boundary
-
     integer i, ierror, k           ! column, level indices
     integer kp1, ifld
     integer kdthdp(pcols)
@@ -639,69 +676,10 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     !====================================================================
     !
     numkcld = pver
+    call cldfrc_layer_rh(ncol, landfrac, snowh, clat, pmid, pref_mid, q, rh, rhcloud, rhu00)
+
     do k=top_lev+1,numkcld
-       kp1 = min(k + 1,pver)
        do i=1,ncol
-
-          !++ag   This is now designed to apply FOR LIQUID CLOUDS (condensation > RH water)
-
-          cldbnd(i) = pmid(i,k).ge.pretop
-
-          if ( pmid(i,k).ge.premib ) then
-             !==============================================================
-             ! This is the low cloud (below premib) block
-             !==============================================================
-             ! enhance low cloud activation over land with no snow cover
-             if (land(i) .and. (snowh(i) <= 0.000001_r8)) then
-                rhlim = rhminl - rhminl_adj_land
-             else
-                rhlim = rhminl
-             endif
-
-             rhdif = (rh(i,k) - rhlim)/(1.0_r8-rhlim)
-             rhcloud(i,k) = min(0.999_r8,(max(rhdif,0.0_r8))**2)
-
-             ! SJV: decrease cloud amount if very low water vapor content
-             ! (thus very cold): "freeze dry"
-             if (cldfrc_freeze_dry) then
-                rhcloud(i,k) = rhcloud(i,k)*max(0.15_r8,min(1.0_r8,q(i,k)/0.0030_r8)) 
-             endif
-
-          else if ( pmid(i,k).lt.premit ) then
-             !==============================================================
-             ! This is the high cloud (above premit) block
-             !==============================================================
-             !
-             rhlim = relhum_min(pref_mid(k),clat(i))
-             !
-             rhdif = (rh(i,k) - rhlim)/(1.0_r8-rhlim)
-             rhcloud(i,k) = min(0.999_r8,(max(rhdif,0.0_r8))**2)
-          else
-             !==============================================================
-             ! This is the middle cloud block
-             !==============================================================
-             !
-             !       linear rh threshold transition between thresholds for low & high cloud
-             !
-             rhwght = (premib-(max(pmid(i,k),premit)))/(premib-premit)
-             
-             if (land(i) .and. (snowh(i) <= 0.000001_r8)) then
-                rhlim = relhum_min(pref_mid(k),clat(i))*rhwght + (rhminl - rhminl_adj_land)*(1.0_r8-rhwght)
-             else
-                rhlim = relhum_min(pref_mid(k),clat(i))*rhwght + rhminl*(1.0_r8-rhwght)
-             endif
-             rhdif = (rh(i,k) - rhlim)/(1.0_r8-rhlim)
-             rhcloud(i,k) = min(0.999_r8,(max(rhdif,0.0_r8))**2)
-          end if
-          !==================================================================================
-          ! WE NEED TO DOCUMENT THE PURPOSE OF THIS TYPE OF CODE (ASSOCIATED WITH 2ND CALL)
-          !==================================================================================
-          !      !
-          !      ! save rhlim to rhu00, it handles well by itself for low/high cloud
-          !      !
-          rhu00(i,k)=rhlim
-          !==================================================================================
-
           if (cldfrc_ice) then
 
              ! Evaluate ice cloud fraction based on in-cloud ice content
@@ -873,6 +851,63 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
 
 !================================================================================================
 
+  subroutine cldfrc_layer_rh(ncol, landfrac_local, snowh_local, clat_local, pmid_local, pref_mid_local, q_local, &
+       rh_local, rhcloud_local, rhu00_local)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr, c_double
+    use physconst, only: pi
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: landfrac_local(pcols)
+    real(r8), target, intent(in) :: snowh_local(pcols)
+    real(r8), target, intent(in) :: clat_local(pcols)
+    real(r8), target, intent(in) :: pmid_local(pcols,pver)
+    real(r8), target, intent(in) :: pref_mid_local(pver)
+    real(r8), target, intent(in) :: q_local(pcols,pver)
+    real(r8), target, intent(in) :: rh_local(pcols,pver)
+    real(r8), target, intent(inout) :: rhcloud_local(pcols,pver)
+    real(r8), target, intent(inout) :: rhu00_local(pcols,pver)
+
+    integer(c_int64_t) :: cldfrc_freeze_dry_i
+
+    interface
+       subroutine cldfrc_layer_rh_codon(ncol_c, pcols_c, pver_c, top_lev_c, cldfrc_freeze_dry_c, premib_c, &
+            premit_c, rhminl_c, rhminl_adj_land_c, rhminh_c, rhminp_c, cldfrc_rhminp_botmb_c, unset_r8_c, pi_c, &
+            landfrac_p, snowh_p, clat_p, pmid_p, pref_mid_p, q_p, rh_p, rhcloud_p, rhu00_p) &
+            bind(c, name="cldfrc_layer_rh_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr, c_double
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, cldfrc_freeze_dry_c
+         real(c_double), value :: premib_c, premit_c, rhminl_c, rhminl_adj_land_c, rhminh_c, rhminp_c
+         real(c_double), value :: cldfrc_rhminp_botmb_c, unset_r8_c, pi_c
+         type(c_ptr), value :: landfrac_p, snowh_p, clat_p, pmid_p, pref_mid_p, q_p, rh_p, rhcloud_p, rhu00_p
+       end subroutine cldfrc_layer_rh_codon
+    end interface
+
+    call cldfrc_layer_rh_select_impl()
+
+    if (use_native_cldfrc_layer_rh_impl) then
+       call cldfrc_layer_rh_native(ncol, landfrac_local, snowh_local, clat_local, pmid_local, pref_mid_local, &
+            q_local, rh_local, rhcloud_local, rhu00_local)
+       return
+    end if
+
+    if (cldfrc_freeze_dry) then
+       cldfrc_freeze_dry_i = 1_c_int64_t
+    else
+       cldfrc_freeze_dry_i = 0_c_int64_t
+    end if
+
+    call cldfrc_layer_rh_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(top_lev, c_int64_t), cldfrc_freeze_dry_i, real(premib, c_double), real(premit, c_double), &
+         real(rhminl, c_double), real(rhminl_adj_land, c_double), real(rhminh, c_double), real(rhminp, c_double), &
+         real(cldfrc_rhminp_botmb, c_double), real(unset_r8, c_double), real(pi, c_double), c_loc(landfrac_local), &
+         c_loc(snowh_local), c_loc(clat_local), c_loc(pmid_local), c_loc(pref_mid_local), c_loc(q_local), &
+         c_loc(rh_local), c_loc(rhcloud_local), c_loc(rhu00_local))
+
+  end subroutine cldfrc_layer_rh
+
+!================================================================================================
+
   subroutine cldfrc_state_init(ncol, q_local, qs_local, relhum_local, rh_local, cloud_local, icecldf_local, &
        liqcldf_local, rhcloud_local, cldst_local, concld_local, dindex_local, rhpert_local)
 
@@ -954,6 +989,63 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     end do
 
   end subroutine cldfrc_state_init_native
+
+!================================================================================================
+
+  subroutine cldfrc_layer_rh_native(ncol, landfrac_local, snowh_local, clat_local, pmid_local, pref_mid_local, &
+       q_local, rh_local, rhcloud_local, rhu00_local)
+
+    integer, intent(in) :: ncol
+    real(r8), intent(in) :: landfrac_local(pcols)
+    real(r8), intent(in) :: snowh_local(pcols)
+    real(r8), intent(in) :: clat_local(pcols)
+    real(r8), intent(in) :: pmid_local(pcols,pver)
+    real(r8), intent(in) :: pref_mid_local(pver)
+    real(r8), intent(in) :: q_local(pcols,pver)
+    real(r8), intent(in) :: rh_local(pcols,pver)
+    real(r8), intent(inout) :: rhcloud_local(pcols,pver)
+    real(r8), intent(inout) :: rhu00_local(pcols,pver)
+
+    integer :: i, k
+    real(r8) :: rhdif, rhlim, rhwght
+
+    do k=top_lev+1,pver
+       do i=1,ncol
+          if ( pmid_local(i,k).ge.premib ) then
+             if (nint(landfrac_local(i)) == 1 .and. (snowh_local(i) <= 0.000001_r8)) then
+                rhlim = rhminl - rhminl_adj_land
+             else
+                rhlim = rhminl
+             endif
+
+             rhdif = (rh_local(i,k) - rhlim)/(1.0_r8-rhlim)
+             rhcloud_local(i,k) = min(0.999_r8,(max(rhdif,0.0_r8))**2)
+
+             if (cldfrc_freeze_dry) then
+                rhcloud_local(i,k) = rhcloud_local(i,k)*max(0.15_r8,min(1.0_r8,q_local(i,k)/0.0030_r8))
+             endif
+
+          else if ( pmid_local(i,k).lt.premit ) then
+             rhlim = relhum_min(pref_mid_local(k),clat_local(i))
+             rhdif = (rh_local(i,k) - rhlim)/(1.0_r8-rhlim)
+             rhcloud_local(i,k) = min(0.999_r8,(max(rhdif,0.0_r8))**2)
+          else
+             rhwght = (premib-(max(pmid_local(i,k),premit)))/(premib-premit)
+
+             if (nint(landfrac_local(i)) == 1 .and. (snowh_local(i) <= 0.000001_r8)) then
+                rhlim = relhum_min(pref_mid_local(k),clat_local(i))*rhwght + (rhminl - rhminl_adj_land)*(1.0_r8-rhwght)
+             else
+                rhlim = relhum_min(pref_mid_local(k),clat_local(i))*rhwght + rhminl*(1.0_r8-rhwght)
+             endif
+             rhdif = (rh_local(i,k) - rhlim)/(1.0_r8-rhlim)
+             rhcloud_local(i,k) = min(0.999_r8,(max(rhdif,0.0_r8))**2)
+          end if
+
+          rhu00_local(i,k)=rhlim
+       end do
+    end do
+
+  end subroutine cldfrc_layer_rh_native
 
 !================================================================================================
 
