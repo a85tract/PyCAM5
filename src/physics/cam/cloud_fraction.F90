@@ -74,9 +74,48 @@ module cloud_fraction
   logical :: inversion_cld_off    ! Turns off stratification-based cld frc
 
   integer :: k700   ! model level nearest 700 mb
+  logical :: use_native_cldfrc_fice_impl = .false.
+  logical :: cldfrc_fice_impl_selected = .false.
 
 !================================================================================================
   contains
+!================================================================================================
+
+subroutine cldfrc_fice_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cldfrc_fice_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CLDFRC_FICE_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_cldfrc_fice_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_cldfrc_fice_impl = .false.
+   end if
+
+   cldfrc_fice_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_cldfrc_fice_impl) then
+         write(iulog,*) 'cldfrc_fice implementation = native'
+      else
+         write(iulog,*) 'cldfrc_fice implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine cldfrc_fice_select_impl
+
 !================================================================================================
 
 subroutine cldfrc_readnl(nlfile)
@@ -761,6 +800,62 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
 !  modified: PJR 3/13/03 (added fsnow to ascribe snow production for convection )
 !-----------------------------------------------------------------------
     use physconst, only: tmelt
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr, c_double
+
+! Arguments
+    integer,  intent(in)  :: ncol                 ! number of active columns
+    real(r8), target, intent(in)  :: t(pcols,pver)        ! temperature
+
+    real(r8), target, intent(out) :: fice(pcols,pver)     ! Fractional ice content within cloud
+    real(r8), target, intent(out) :: fsnow(pcols,pver)    ! Fractional snow content for convection
+
+! Local variables
+    real(r8) :: tmax_fice                         ! max temperature for cloud ice formation
+    real(r8) :: tmin_fice                         ! min temperature for cloud ice formation
+    real(r8) :: tmax_fsnow                        ! max temperature for transition to convective snow
+    real(r8) :: tmin_fsnow                        ! min temperature for transition to convective snow
+
+    interface
+       subroutine cldfrc_fice_codon(ncol_c, pcols_c, pver_c, top_lev_c, t_p, fice_p, fsnow_p, &
+            tmax_fice_c, tmin_fice_c, tmax_fsnow_c, tmin_fsnow_c) bind(c, name="cldfrc_fice_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr, c_double
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+         type(c_ptr), value :: t_p, fice_p, fsnow_p
+         real(c_double), value :: tmax_fice_c, tmin_fice_c, tmax_fsnow_c, tmin_fsnow_c
+       end subroutine cldfrc_fice_codon
+    end interface
+
+!-----------------------------------------------------------------------
+
+    call cldfrc_fice_select_impl()
+
+    tmax_fice = tmelt - 10._r8        ! max temperature for cloud ice formation
+    tmin_fice = tmax_fice - 30._r8    ! min temperature for cloud ice formation
+    tmax_fsnow = tmelt                ! max temperature for transition to convective snow
+    tmin_fsnow = tmelt - 5._r8        ! min temperature for transition to convective snow
+
+    if (use_native_cldfrc_fice_impl) then
+       call cldfrc_fice_native(ncol, t, fice, fsnow)
+       return
+    end if
+
+    call cldfrc_fice_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
+         c_loc(t), c_loc(fice), c_loc(fsnow), tmax_fice, tmin_fice, tmax_fsnow, tmin_fsnow)
+
+  end subroutine cldfrc_fice
+
+!================================================================================================
+
+  subroutine cldfrc_fice_native(ncol, t, fice, fsnow)
+!
+! Compute the fraction of the total cloud water which is in ice phase.
+! The fraction depends on temperature only. 
+! This is the form that was used for radiation, the code came from cldefr originally
+! 
+! Author: B. A. Boville Sept 10, 2002
+!  modified: PJR 3/13/03 (added fsnow to ascribe snow production for convection )
+!-----------------------------------------------------------------------
+    use physconst, only: tmelt
 
 ! Arguments
     integer,  intent(in)  :: ncol                 ! number of active columns
@@ -822,7 +917,7 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
        end do
     end do
 
-  end subroutine cldfrc_fice
+  end subroutine cldfrc_fice_native
 
   !-----------------------------------------------------------------------------
   ! Sets rhmin to a different value (rhminp) poleward of +/- 60 deg latitude and 
