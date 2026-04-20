@@ -197,6 +197,71 @@ def aero_model_drydep_select_branches_codon(
 
 
 @export
+def modal_aero_bcscavcoef_get_codon(
+    m: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    ntot_amode: int,
+    nimptblgrow_mind: int,
+    nimptblgrow_maxd: int,
+    dlndg_nimptblgrow: float,
+    dgnum_mode: float,
+    isprx_mask_p: cobj,
+    dgn_awet_p: cobj,
+    scavimptblnum_mode_p: cobj,
+    scavimptblvol_mode_p: cobj,
+    scavcoefnum_p: cobj,
+    scavcoefvol_p: cobj,
+):
+    isprx_mask = Ptr[int](isprx_mask_p)
+    dgn_awet = Ptr[float](dgn_awet_p)
+    scavimptblnum_mode = Ptr[float](scavimptblnum_mode_p)
+    scavimptblvol_mode = Ptr[float](scavimptblvol_mode_p)
+    scavcoefnum = Ptr[float](scavcoefnum_p)
+    scavcoefvol = Ptr[float](scavcoefvol_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            if isprx_mask[_idx2(i, k, pcols)] != 0:
+                dumdgratio = dgn_awet[_idx3(i, k, m, pcols, pver)] / dgnum_mode
+
+                if dumdgratio >= 0.99 and dumdgratio <= 1.01:
+                    tbl_idx = 0 - nimptblgrow_mind
+                    scavimpvol = scavimptblvol_mode[tbl_idx]
+                    scavimpnum = scavimptblnum_mode[tbl_idx]
+                else:
+                    xgrow = log(dumdgratio) / dlndg_nimptblgrow
+                    jgrow = int(xgrow)
+                    if xgrow < 0.0:
+                        jgrow = jgrow - 1
+                    if jgrow < nimptblgrow_mind:
+                        jgrow = nimptblgrow_mind
+                        xgrow = float(jgrow)
+                    else:
+                        jgrow = min(jgrow, nimptblgrow_maxd - 1)
+
+                    dumfhi = xgrow - jgrow
+                    dumflo = 1.0 - dumfhi
+                    tbl_idx = jgrow - nimptblgrow_mind
+
+                    scavimpvol = (
+                        dumflo * scavimptblvol_mode[tbl_idx]
+                        + dumfhi * scavimptblvol_mode[tbl_idx + 1]
+                    )
+                    scavimpnum = (
+                        dumflo * scavimptblnum_mode[tbl_idx]
+                        + dumfhi * scavimptblnum_mode[tbl_idx + 1]
+                    )
+
+                scavcoefvol[_idx2(i, k, pcols)] = exp(scavimpvol)
+                scavcoefnum[_idx2(i, k, pcols)] = exp(scavimpnum)
+            else:
+                scavcoefvol[_idx2(i, k, pcols)] = 0.0
+                scavcoefnum[_idx2(i, k, pcols)] = 0.0
+
+
+@export
 def aero_model_wetdep_f_act_conv_coarse_codon(
     ncol: int,
     pcols: int,
