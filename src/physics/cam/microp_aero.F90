@@ -108,6 +108,8 @@ integer :: coarse_nacl_idx = -1  ! index of nacl in coarse mode
 integer :: npccn_idx, rndst_idx, nacon_idx
 
 logical  :: separate_dust = .false.
+logical  :: use_native_run_impl = .false.
+logical  :: run_impl_selected = .false.
 
 !=========================================================================================
 contains
@@ -342,6 +344,43 @@ end subroutine microp_aero_readnl
 
 !=========================================================================================
 
+subroutine microp_aero_run_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (run_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('MICROP_AERO_RUN_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_run_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_run_impl = .false.
+   end if
+
+   run_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_run_impl) then
+         write(iulog,*) 'microp_aero_run implementation = native'
+      else
+         write(iulog,*) 'microp_aero_run implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine microp_aero_run_select_impl
+
+!=========================================================================================
+
 subroutine microp_aero_run ( &
    state, ptend, deltatin, pbuf)
 
@@ -350,6 +389,25 @@ subroutine microp_aero_run ( &
    type(physics_ptend),         intent(out)   :: ptend
    real(r8),                    intent(in)    :: deltatin     ! time step (s)
    type(physics_buffer_desc),   pointer       :: pbuf(:)
+
+   call microp_aero_run_select_impl()
+   call microp_aero_run_impl(state, ptend, deltatin, pbuf, use_native_run_impl)
+
+end subroutine microp_aero_run
+
+!=========================================================================================
+
+subroutine microp_aero_run_impl ( &
+   state, ptend, deltatin, pbuf, use_native_impl)
+
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+   ! input arguments
+   type(physics_state), target, intent(in)    :: state
+   type(physics_ptend),         intent(out)   :: ptend
+   real(r8),                    intent(in)    :: deltatin     ! time step (s)
+   type(physics_buffer_desc),   pointer       :: pbuf(:)
+   logical,                     intent(in)    :: use_native_impl
 
    ! local workspace
    ! all units mks unless otherwise stated
@@ -380,12 +438,12 @@ subroutine microp_aero_run ( &
 
    real(r8), pointer :: aer_mmr(:,:)    ! aerosol mass mixing ratio
 
-   real(r8) :: rho(pcols,pver)     ! air density (kg m-3)
+   real(r8), target :: rho(pcols,pver)     ! air density (kg m-3)
 
-   real(r8) :: lcldm(pcols,pver)   ! liq cloud fraction
+   real(r8), target :: lcldm(pcols,pver)   ! liq cloud fraction
 
-   real(r8) :: lcldn(pcols,pver)   ! fractional coverage of new liquid cloud
-   real(r8) :: lcldo(pcols,pver)   ! fractional coverage of old liquid cloud
+   real(r8), target :: lcldn(pcols,pver)   ! fractional coverage of new liquid cloud
+   real(r8), target :: lcldo(pcols,pver)   ! fractional coverage of old liquid cloud
    real(r8) :: qcld                ! total cloud water
    real(r8) :: nctend_mixnuc(pcols,pver)
    real(r8) :: dum, dum2           ! temporary dummy variable
@@ -395,13 +453,24 @@ subroutine microp_aero_run ( &
    real(r8), allocatable :: naer2(:,:,:)    ! bulk aerosol number concentration (1/m3)
    real(r8), allocatable :: maerosol(:,:,:) ! bulk aerosol mass conc (kg/m3)
 
-   real(r8) :: wsub(pcols,pver)    ! diagnosed sub-grid vertical velocity st. dev. (m/s)
-   real(r8) :: wsubi(pcols,pver)   ! diagnosed sub-grid vertical velocity ice (m/s)
+   real(r8), target :: wsub(pcols,pver)    ! diagnosed sub-grid vertical velocity st. dev. (m/s)
+   real(r8), target :: wsubi(pcols,pver)   ! diagnosed sub-grid vertical velocity ice (m/s)
    real(r8) :: nucboast
 
    real(r8) :: wght
 
    real(r8), allocatable :: factnum(:,:,:) ! activation fraction for aerosol number
+
+   interface
+      subroutine microp_aero_init_fields_codon(ncol_c, pcols_c, pver_c, rn_dst1_c, rn_dst2_c, rn_dst3_c, rn_dst4_c, &
+           npccn_p, nacon_p, rndst_p) &
+           bind(c, name="microp_aero_init_fields_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: rn_dst1_c, rn_dst2_c, rn_dst3_c, rn_dst4_c
+         type(c_ptr), value :: npccn_p, nacon_p, rndst_p
+      end subroutine microp_aero_init_fields_codon
+   end interface
    !-------------------------------------------------------------------------------
 
    associate( &
@@ -445,23 +514,30 @@ subroutine microp_aero_run ( &
 
    end if
 
-   ! initialize output
-   npccn(1:ncol,1:pver)    = 0._r8  
+   ! initialize output and time-varying parameters
+   if (use_native_impl) then
+      npccn(1:ncol,1:pver)    = 0._r8
 
-   nacon(1:ncol,1:pver,:)  = 0._r8
+      nacon(1:ncol,1:pver,:)  = 0._r8
 
-   ! set default or fixed dust bins for contact freezing
-   rndst(1:ncol,1:pver,1) = rn_dst1
-   rndst(1:ncol,1:pver,2) = rn_dst2
-   rndst(1:ncol,1:pver,3) = rn_dst3
-   rndst(1:ncol,1:pver,4) = rn_dst4
+      ! set default or fixed dust bins for contact freezing
+      rndst(1:ncol,1:pver,1) = rn_dst1
+      rndst(1:ncol,1:pver,2) = rn_dst2
+      rndst(1:ncol,1:pver,3) = rn_dst3
+      rndst(1:ncol,1:pver,4) = rn_dst4
+   else
+      call microp_aero_init_fields_codon( &
+           int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(rn_dst1, c_double), &
+           real(rn_dst2, c_double), real(rn_dst3, c_double), real(rn_dst4, c_double), c_loc(npccn(1,1)), &
+           c_loc(nacon(1,1,1)), c_loc(rndst(1,1,1)) &
+      )
+   end if
 
    ! save copy of cloud borne aerosols for use in heterogeneous freezing
    if (use_hetfrz_classnuc) then
       call hetfrz_classnuc_cam_save_cbaero(state, pbuf)
    end if
 
-   ! initialize time-varying parameters
    do k = top_lev, pver
       do i = 1, ncol
          rho(i,k) = pmid(i,k)/(rair*t(i,k))
@@ -522,7 +598,7 @@ subroutine microp_aero_run ( &
          case ('diag_TKE', 'CLUBB_SGS')
             wsub(i,k) = sqrt(0.5_r8*(tke(i,k) + tke(i,k+1))*(2._r8/3._r8))
             wsub(i,k) = min(wsub(i,k),10._r8)
-         case default 
+         case default
             ! get sub-grid vertical velocity from diff coef.
             ! following morrison et al. 2005, JAS
             ! assume mixing length of 30 m
@@ -710,7 +786,7 @@ subroutine microp_aero_run ( &
 
    end associate
 
-end subroutine microp_aero_run
+end subroutine microp_aero_run_impl
 
 !=========================================================================================
 
