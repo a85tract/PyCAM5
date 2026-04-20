@@ -619,6 +619,26 @@ def phys_inidat_kvh_default_codon(
 
 
 @export
+def phys_inidat_concld_default_codon(
+    pcols: int,
+    pver: int,
+    chunk_count: int,
+    found_i: int,
+    tptr3d_p: cobj,
+    default_value: float,
+):
+    if found_i != 0:
+        return
+
+    tptr3d = Ptr[float](tptr3d_p)
+
+    for c in range(1, chunk_count + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, pcols + 1):
+                tptr3d[_field3_idx(i, k, c, pcols, pver)] = default_value
+
+
+@export
 def phys_inidat_tbot_init_codon(
     pcols: int,
     tbot_p: cobj,
