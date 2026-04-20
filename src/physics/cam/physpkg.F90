@@ -114,6 +114,8 @@ module physpkg
   logical           :: phys_inidat_cush_default_impl_selected = .false.
   logical           :: use_native_phys_inidat_tke_default_impl = .false.
   logical           :: phys_inidat_tke_default_impl_selected = .false.
+  logical           :: use_native_phys_inidat_kvm_default_impl = .false.
+  logical           :: phys_inidat_kvm_default_impl_selected = .false.
   logical           :: use_native_phys_inidat_tbot_init_impl = .false.
   logical           :: phys_inidat_tbot_init_impl_selected = .false.
 
@@ -649,10 +651,9 @@ call phys_inidat_qpert_expand(pcols, pcnst, endchunk-begchunk+1, tptr, tptr3d_2)
     m = pbuf_get_index('kvm')
     call infld(fieldname, fh_ini, dim1name, 'ilev', 'lat', 1, pcols, 1, pverp, begchunk, endchunk, &
          tptr3d, found, grid_map='phys')
-    if (found) then
-       call pbuf_set_field(pbuf2d, m, tptr3d)
-    else
-       call pbuf_set_field(pbuf2d, m, 0._r8)
+    call phys_inidat_kvm_default(pcols, pverp, endchunk-begchunk+1, found, tptr3d, 0._r8)
+    call pbuf_set_field(pbuf2d, m, tptr3d)
+    if (.not. found) then
        if (masterproc) write(iulog,*) trim(fieldname), ' initialized to 0.'
     end if
 
@@ -5024,6 +5025,111 @@ subroutine phys_inidat_tke_default_native(pcols_local, pverp_local, chunk_count_
   end if
 
 end subroutine phys_inidat_tke_default_native
+
+!=======================================================================
+
+subroutine phys_inidat_kvm_default_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (phys_inidat_kvm_default_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('PHYS_INIDAT_KVM_DEFAULT_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_phys_inidat_kvm_default_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_phys_inidat_kvm_default_impl = .false.
+  end if
+
+  phys_inidat_kvm_default_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_phys_inidat_kvm_default_impl) then
+        write(iulog,*) 'phys_inidat_kvm_default implementation = native'
+     else
+        write(iulog,*) 'phys_inidat_kvm_default implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine phys_inidat_kvm_default_select_impl
+
+!=======================================================================
+
+subroutine phys_inidat_kvm_default(pcols_local, pverp_local, chunk_count_local, found_local, tptr3d, default_value)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: pverp_local
+  integer, intent(in) :: chunk_count_local
+  logical, intent(in) :: found_local
+  real(r8), intent(inout), target :: tptr3d(pcols_local, pverp_local, chunk_count_local)
+  real(r8), intent(in) :: default_value
+
+  integer(c_int64_t) :: pcols_c
+  integer(c_int64_t) :: pverp_c
+  integer(c_int64_t) :: chunk_count_c
+  integer(c_int64_t) :: found_c
+
+  interface
+     subroutine phys_inidat_kvm_default_codon(pcols_c, pverp_c, chunk_count_c, found_c, tptr3d_p, default_value) &
+          bind(c, name="phys_inidat_kvm_default_codon")
+       use iso_c_binding, only: c_int64_t, c_double, c_ptr
+       integer(c_int64_t), value :: pcols_c
+       integer(c_int64_t), value :: pverp_c
+       integer(c_int64_t), value :: chunk_count_c
+       integer(c_int64_t), value :: found_c
+       type(c_ptr), value :: tptr3d_p
+       real(c_double), value :: default_value
+     end subroutine phys_inidat_kvm_default_codon
+  end interface
+
+  call phys_inidat_kvm_default_select_impl()
+
+  if (use_native_phys_inidat_kvm_default_impl) then
+     call phys_inidat_kvm_default_native(pcols_local, pverp_local, chunk_count_local, found_local, tptr3d, default_value)
+     return
+  end if
+
+  pcols_c = int(pcols_local, c_int64_t)
+  pverp_c = int(pverp_local, c_int64_t)
+  chunk_count_c = int(chunk_count_local, c_int64_t)
+  found_c = 0_c_int64_t
+  if (found_local) found_c = 1_c_int64_t
+
+  call phys_inidat_kvm_default_codon(pcols_c, pverp_c, chunk_count_c, found_c, c_loc(tptr3d), default_value)
+
+end subroutine phys_inidat_kvm_default
+
+!=======================================================================
+
+subroutine phys_inidat_kvm_default_native(pcols_local, pverp_local, chunk_count_local, found_local, tptr3d, default_value)
+
+  use shr_kind_mod, only: r8 => shr_kind_r8
+
+  integer, intent(in) :: pcols_local
+  integer, intent(in) :: pverp_local
+  integer, intent(in) :: chunk_count_local
+  logical, intent(in) :: found_local
+  real(r8), intent(inout) :: tptr3d(pcols_local, pverp_local, chunk_count_local)
+  real(r8), intent(in) :: default_value
+
+  if (.not. found_local) then
+     tptr3d = default_value
+  end if
+
+end subroutine phys_inidat_kvm_default_native
 
 !=======================================================================
 
