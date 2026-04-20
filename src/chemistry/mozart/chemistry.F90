@@ -133,6 +133,8 @@ module chemistry
   logical :: ghg_chem = .false.      ! .true. => use ghg chem package
   logical :: chem_step = .true.
   logical :: is_active = .false.
+  logical :: chem_emissions_use_native_impl = .false.
+  logical :: chem_emissions_impl_selected = .false.
   logical :: chem_timestep_tend_use_native_impl = .false.
   logical :: chem_timestep_tend_impl_selected = .false.
 
@@ -988,6 +990,115 @@ end function chem_is_active
     use mo_srf_emissions, only: set_srf_emissions
     use cam_cpl_indices,     only : index_x2a_Fall_flxvoc
     use cam_cpl_indices,     only : index_x2a_Fall_flxdst1
+    use iso_c_binding,    only: c_double, c_int64_t, c_loc, c_ptr
+
+    ! Arguments:
+
+    type(physics_state),    intent(in)           :: state   ! Physics state variables
+    type(cam_in_t), target, intent(inout) :: cam_in  ! import state
+
+    ! local vars
+
+    integer :: lchnk, ncol
+    integer :: i, m,n 
+
+    integer(c_int64_t), target :: map2chm_c(pcnst)
+    real(r8), target :: sflx(pcols,gas_pcnst)
+    real(r8), target :: megflx(pcols)
+
+    interface
+       subroutine chem_emissions_zero_cflx_codon(pcols_c, pcnst_c, map2chm_p, cflx_p) &
+            bind(c, name="chem_emissions_zero_cflx_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: pcols_c, pcnst_c
+         type(c_ptr), value :: map2chm_p, cflx_p
+       end subroutine chem_emissions_zero_cflx_codon
+       subroutine chem_emissions_megan_flux_codon(ncol_c, pcols_c, megan_index_c, megan_weight_c, meganflx_p, cflx_p, &
+            megflx_p) bind(c, name="chem_emissions_megan_flux_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, megan_index_c
+         real(c_double), value :: megan_weight_c
+         type(c_ptr), value :: meganflx_p, cflx_p, megflx_p
+       end subroutine chem_emissions_megan_flux_codon
+       subroutine chem_emissions_add_sflx_codon(ncol_c, pcols_c, pcnst_c, h2o_ndx_c, map2chm_p, cflx_p, sflx_p) &
+            bind(c, name="chem_emissions_add_sflx_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pcnst_c, h2o_ndx_c
+         type(c_ptr), value :: map2chm_p, cflx_p, sflx_p
+       end subroutine chem_emissions_add_sflx_codon
+    end interface
+
+    call chem_emissions_select_impl()
+
+    if (chem_emissions_use_native_impl) then
+       call chem_emissions_native(state, cam_in)
+       return
+    end if
+
+    lchnk = state%lchnk
+    ncol = state%ncol
+    map2chm_c(:) = int(map2chm(:), c_int64_t)
+    
+    ! initialize chemistry constituent surface fluxes to zero
+    call chem_emissions_zero_cflx_codon( &
+         int(pcols, c_int64_t), int(pcnst, c_int64_t), c_loc(map2chm_c), c_loc(cam_in%cflx(1,1)) &
+    )
+
+    ! aerosol emissions ...
+    call aero_model_emissions( state, cam_in )
+
+   ! MEGAN emissions ...
+ 
+    if ( index_x2a_Fall_flxvoc>0 .and. shr_megan_mechcomps_n>0 ) then
+
+       ! set MEGAN fluxes 
+       do n = 1,shr_megan_mechcomps_n
+          call chem_emissions_megan_flux_codon( &
+               int(ncol, c_int64_t), int(pcols, c_int64_t), int(megan_indices_map(n), c_int64_t), &
+               real(megan_wght_factors(n), c_double), c_loc(cam_in%meganflx(1,n)), c_loc(cam_in%cflx(1,1)), &
+               c_loc(megflx(1)) &
+          )
+
+          ! output MEGAN emis fluxes to history
+          call outfld('MEG_'//trim(shr_megan_mechcomps(n)%name), megflx(:ncol), ncol, lchnk)
+       enddo
+
+    endif
+
+   ! Fire Emissions ...
+
+   ! prescribed emissions from file ...
+
+    !-----------------------------------------------------------------------      
+    !        ... Set surface emissions
+    !-----------------------------------------------------------------------      
+    call set_srf_emissions( lchnk, ncol, sflx(:,:) )
+
+    call chem_emissions_add_sflx_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pcnst, c_int64_t), int(h2o_ndx, c_int64_t), &
+         c_loc(map2chm_c), c_loc(cam_in%cflx(1,1)), c_loc(sflx(1,1)) &
+    )
+
+    do m = 1,pcnst
+       n = map2chm(m)
+       if ( n /= h2o_ndx .and. n > 0 ) then
+          call outfld( sflxnam(m), cam_in%cflx(:ncol,m), ncol,lchnk )
+       endif
+    enddo
+
+
+  end subroutine chem_emissions
+
+!================================================================================
+
+  subroutine chem_emissions_native( state, cam_in )
+    use aero_model,       only: aero_model_emissions
+    use camsrfexch,       only: cam_in_t     
+    use constituents,     only: sflxnam
+    use cam_history,      only: outfld
+    use mo_srf_emissions, only: set_srf_emissions
+    use cam_cpl_indices,     only : index_x2a_Fall_flxvoc
+    use cam_cpl_indices,     only : index_x2a_Fall_flxdst1
 
     ! Arguments:
 
@@ -1049,7 +1160,44 @@ end function chem_is_active
     enddo
 
 
-  end subroutine chem_emissions
+  end subroutine chem_emissions_native
+
+!================================================================================
+
+  subroutine chem_emissions_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (chem_emissions_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('CHEM_EMISSIONS_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       chem_emissions_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       chem_emissions_use_native_impl = .false.
+    end if
+
+    chem_emissions_impl_selected = .true.
+
+    if (masterproc) then
+       if (chem_emissions_use_native_impl) then
+          write(iulog,*) 'chem_emissions implementation = native'
+       else
+          write(iulog,*) 'chem_emissions implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine chem_emissions_select_impl
 
 !================================================================================
 

@@ -8,6 +8,68 @@ def _idx3(i: int, k: int, m: int, ld1: int, ld2: int) -> int:
     return (i - 1) + (k - 1) * ld1 + (m - 1) * ld1 * ld2
 
 
+@inline
+def _flux_idx(i: int, m: int, pcols: int) -> int:
+    return (i - 1) + (m - 1) * pcols
+
+
+@export
+def chem_emissions_zero_cflx_codon(
+    pcols: int,
+    pcnst: int,
+    map2chm_p: cobj,
+    cflx_p: cobj,
+):
+    map2chm = Ptr[int](map2chm_p)
+    cflx = Ptr[float](cflx_p)
+
+    for m in range(2, pcnst + 1):
+        if map2chm[m - 1] > 0:
+            for i in range(1, pcols + 1):
+                cflx[_flux_idx(i, m, pcols)] = 0.0
+
+
+@export
+def chem_emissions_megan_flux_codon(
+    ncol: int,
+    pcols: int,
+    megan_index: int,
+    megan_weight: float,
+    meganflx_p: cobj,
+    cflx_p: cobj,
+    megflx_p: cobj,
+):
+    meganflx = Ptr[float](meganflx_p)
+    cflx = Ptr[float](cflx_p)
+    megflx = Ptr[float](megflx_p)
+
+    for i in range(1, ncol + 1):
+        flux = -meganflx[i - 1] * megan_weight
+        megflx[i - 1] = flux
+        cflx[_flux_idx(i, megan_index, pcols)] += flux
+
+
+@export
+def chem_emissions_add_sflx_codon(
+    ncol: int,
+    pcols: int,
+    pcnst: int,
+    h2o_ndx: int,
+    map2chm_p: cobj,
+    cflx_p: cobj,
+    sflx_p: cobj,
+):
+    map2chm = Ptr[int](map2chm_p)
+    cflx = Ptr[float](cflx_p)
+    sflx = Ptr[float](sflx_p)
+
+    for m in range(1, pcnst + 1):
+        n = map2chm[m - 1]
+        if n > 0 and n != h2o_ndx:
+            for i in range(1, ncol + 1):
+                cflx[_flux_idx(i, m, pcols)] += sflx[_flux_idx(i, n, pcols)]
+
+
 @export
 def chem_timestep_tend_fill_cloud_fields_codon(
     ncol: int,
