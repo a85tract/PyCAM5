@@ -50,6 +50,8 @@ integer :: idx_pom4 = -1
 logical :: bin_fluxes = .false.
 
 logical :: initialized = .false.
+logical :: use_native_set_srf_wetdep_impl = .false.
+logical :: set_srf_wetdep_impl_selected = .false.
 logical :: use_native_set_srf_drydep_impl = .false.
 logical :: set_srf_drydep_impl_selected = .false.
 
@@ -134,21 +136,100 @@ subroutine modal_aero_deposition_init(bc1_ndx,pom1_ndx,soa1_ndx,soa2_ndx,dst1_nd
 end subroutine modal_aero_deposition_init
 
 !==============================================================================
+subroutine set_srf_wetdep_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (set_srf_wetdep_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('SET_SRF_WETDEP_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_set_srf_wetdep_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_set_srf_wetdep_impl = .false.
+   end if
+
+   set_srf_wetdep_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_set_srf_wetdep_impl) then
+         write(iulog,*) 'set_srf_wetdep implementation = native'
+      else
+         write(iulog,*) 'set_srf_wetdep implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine set_srf_wetdep_select_impl
+
+!==============================================================================
 subroutine set_srf_wetdep(aerdepwetis, aerdepwetcw, cam_out)
+
+! Set surface wet deposition fluxes passed to coupler.
+
+   ! Arguments:
+   real(r8), target, intent(in) :: aerdepwetis(:,:)  ! aerosol wet deposition (interstitial)
+   real(r8), target, intent(in) :: aerdepwetcw(:,:)  ! aerosol wet deposition (cloud water)
+   type(cam_out_t), target, intent(inout) :: cam_out ! cam export state
+
+   integer :: ncol
+
+   interface
+      subroutine set_srf_wetdep_codon(ncol_c, pcols_c, idx_bc1_c, idx_bc4_c, idx_pom1_c, idx_pom4_c, idx_soa1_c, &
+           idx_soa2_c, idx_dst1_c, idx_dst3_c, aerdepwetis_p, aerdepwetcw_p, bcphiwet_p, ocphiwet_p, dstwet1_p, &
+           dstwet2_p, dstwet3_p, dstwet4_p) bind(c, name="set_srf_wetdep_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, idx_bc1_c, idx_bc4_c, idx_pom1_c, idx_pom4_c, idx_soa1_c
+         integer(c_int64_t), value :: idx_soa2_c, idx_dst1_c, idx_dst3_c
+         type(c_ptr), value :: aerdepwetis_p, aerdepwetcw_p, bcphiwet_p, ocphiwet_p, dstwet1_p, dstwet2_p
+         type(c_ptr), value :: dstwet3_p, dstwet4_p
+      end subroutine set_srf_wetdep_codon
+   end interface
+
+   call set_srf_wetdep_select_impl()
+
+   if (.not.bin_fluxes) return
+
+   if (use_native_set_srf_wetdep_impl) then
+      call set_srf_wetdep_native(aerdepwetis, aerdepwetcw, cam_out)
+      return
+   end if
+
+   ncol = cam_out%ncol
+
+   call set_srf_wetdep_codon( &
+        int(ncol, c_int64_t), int(pcols, c_int64_t), int(idx_bc1, c_int64_t), int(idx_bc4, c_int64_t), &
+        int(idx_pom1, c_int64_t), int(idx_pom4, c_int64_t), int(idx_soa1, c_int64_t), int(idx_soa2, c_int64_t), &
+        int(idx_dst1, c_int64_t), int(idx_dst3, c_int64_t), c_loc(aerdepwetis(1,1)), c_loc(aerdepwetcw(1,1)), &
+        c_loc(cam_out%bcphiwet(1)), c_loc(cam_out%ocphiwet(1)), c_loc(cam_out%dstwet1(1)), c_loc(cam_out%dstwet2(1)), &
+        c_loc(cam_out%dstwet3(1)), c_loc(cam_out%dstwet4(1)) &
+   )
+
+end subroutine set_srf_wetdep
+
+!==============================================================================
+subroutine set_srf_wetdep_native(aerdepwetis, aerdepwetcw, cam_out)
 
 ! Set surface wet deposition fluxes passed to coupler.
 
    ! Arguments:
    real(r8), intent(in) :: aerdepwetis(:,:)  ! aerosol wet deposition (interstitial)
    real(r8), intent(in) :: aerdepwetcw(:,:)  ! aerosol wet deposition (cloud water)
-   type(cam_out_t), intent(inout) :: cam_out     ! cam export state
+   type(cam_out_t), intent(inout) :: cam_out ! cam export state
 
    ! Local variables:
    integer :: i
    integer :: ncol                      ! number of columns
    !----------------------------------------------------------------------------
-
-   if (.not.bin_fluxes) return
 
    ncol = cam_out%ncol
 
@@ -194,7 +275,7 @@ subroutine set_srf_wetdep(aerdepwetis, aerdepwetcw, cam_out)
       if (cam_out%dstwet3(i)  .lt. 0._r8) cam_out%dstwet3(i)  = 0._r8
    enddo
 
-end subroutine set_srf_wetdep
+end subroutine set_srf_wetdep_native
 
 !==============================================================================
 

@@ -4,6 +4,92 @@ def _idx2(i: int, j: int, ld1: int) -> int:
 
 
 @export
+def set_srf_wetdep_codon(
+    ncol: int,
+    pcols: int,
+    idx_bc1: int,
+    idx_bc4: int,
+    idx_pom1: int,
+    idx_pom4: int,
+    idx_soa1: int,
+    idx_soa2: int,
+    idx_dst1: int,
+    idx_dst3: int,
+    aerdepwetis_p: cobj,
+    aerdepwetcw_p: cobj,
+    bcphiwet_p: cobj,
+    ocphiwet_p: cobj,
+    dstwet1_p: cobj,
+    dstwet2_p: cobj,
+    dstwet3_p: cobj,
+    dstwet4_p: cobj,
+):
+    aerdepwetis = Ptr[float](aerdepwetis_p)
+    aerdepwetcw = Ptr[float](aerdepwetcw_p)
+    bcphiwet = Ptr[float](bcphiwet_p)
+    ocphiwet = Ptr[float](ocphiwet_p)
+    dstwet1 = Ptr[float](dstwet1_p)
+    dstwet2 = Ptr[float](dstwet2_p)
+    dstwet3 = Ptr[float](dstwet3_p)
+    dstwet4 = Ptr[float](dstwet4_p)
+
+    for i in range(1, pcols + 1):
+        bcphiwet[i - 1] = 0.0
+        ocphiwet[i - 1] = 0.0
+
+    for i in range(1, ncol + 1):
+        if idx_bc1 > 0:
+            bcphiwet[i - 1] = (
+                bcphiwet[i - 1]
+                - (aerdepwetis[_idx2(i, idx_bc1, pcols)] + aerdepwetcw[_idx2(i, idx_bc1, pcols)])
+            )
+        if idx_bc4 > 0:
+            bcphiwet[i - 1] = (
+                bcphiwet[i - 1]
+                - (aerdepwetis[_idx2(i, idx_bc4, pcols)] + aerdepwetcw[_idx2(i, idx_bc4, pcols)])
+            )
+
+        if idx_soa1 > 0:
+            ocphiwet[i - 1] = (
+                ocphiwet[i - 1]
+                - (aerdepwetis[_idx2(i, idx_soa1, pcols)] + aerdepwetcw[_idx2(i, idx_soa1, pcols)])
+            )
+        if idx_soa2 > 0:
+            ocphiwet[i - 1] = (
+                ocphiwet[i - 1]
+                - (aerdepwetis[_idx2(i, idx_soa2, pcols)] + aerdepwetcw[_idx2(i, idx_soa2, pcols)])
+            )
+        if idx_pom1 > 0:
+            ocphiwet[i - 1] = (
+                ocphiwet[i - 1]
+                - (aerdepwetis[_idx2(i, idx_pom1, pcols)] + aerdepwetcw[_idx2(i, idx_pom1, pcols)])
+            )
+        if idx_pom4 > 0:
+            ocphiwet[i - 1] = (
+                ocphiwet[i - 1]
+                - (aerdepwetis[_idx2(i, idx_pom4, pcols)] + aerdepwetcw[_idx2(i, idx_pom4, pcols)])
+            )
+
+        dstwet1[i - 1] = -(
+            aerdepwetis[_idx2(i, idx_dst1, pcols)] + aerdepwetcw[_idx2(i, idx_dst1, pcols)]
+        )
+        dstwet2[i - 1] = 0.0
+        dstwet3[i - 1] = -(
+            aerdepwetis[_idx2(i, idx_dst3, pcols)] + aerdepwetcw[_idx2(i, idx_dst3, pcols)]
+        )
+        dstwet4[i - 1] = 0.0
+
+        if bcphiwet[i - 1] < 0.0:
+            bcphiwet[i - 1] = 0.0
+        if ocphiwet[i - 1] < 0.0:
+            ocphiwet[i - 1] = 0.0
+        if dstwet1[i - 1] < 0.0:
+            dstwet1[i - 1] = 0.0
+        if dstwet3[i - 1] < 0.0:
+            dstwet3[i - 1] = 0.0
+
+
+@export
 def set_srf_drydep_codon(
     ncol: int,
     pcols: int,
