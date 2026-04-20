@@ -18,10 +18,13 @@ module modal_aero_deposition
 !------------------------------------------------------------------------------------------------
 
 use shr_kind_mod,     only: r8 => shr_kind_r8
-use camsrfexch,       only: cam_out_t     
+use camsrfexch,       only: cam_out_t
 use constituents,     only: pcnst, cnst_get_ind
 use ppgrid,           only: pcols
 use cam_abortutils,   only: endrun
+use cam_logfile,      only: iulog
+use spmd_utils,       only: masterproc
+use iso_c_binding,    only: c_double, c_int64_t, c_loc, c_ptr
 
 implicit none
 private
@@ -47,6 +50,8 @@ integer :: idx_pom4 = -1
 logical :: bin_fluxes = .false.
 
 logical :: initialized = .false.
+logical :: use_native_set_srf_drydep_impl = .false.
+logical :: set_srf_drydep_impl_selected = .false.
 
 !==============================================================================
 contains
@@ -193,7 +198,87 @@ end subroutine set_srf_wetdep
 
 !==============================================================================
 
+subroutine set_srf_drydep_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (set_srf_drydep_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('SET_SRF_DRYDEP_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_set_srf_drydep_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_set_srf_drydep_impl = .false.
+   end if
+
+   set_srf_drydep_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_set_srf_drydep_impl) then
+         write(iulog,*) 'set_srf_drydep implementation = native'
+      else
+         write(iulog,*) 'set_srf_drydep implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine set_srf_drydep_select_impl
+
+!==============================================================================
+
 subroutine set_srf_drydep(aerdepdryis, aerdepdrycw, cam_out)
+
+   real(r8), target, intent(in)    :: aerdepdryis(:,:)  ! aerosol dry deposition (interstitial)
+   real(r8), target, intent(in)    :: aerdepdrycw(:,:)  ! aerosol dry deposition (cloud water)
+   type(cam_out_t), target, intent(inout) :: cam_out    ! cam export state
+
+   integer :: ncol
+
+   interface
+      subroutine set_srf_drydep_codon(ncol_c, pcols_c, idx_bc1_c, idx_bc4_c, idx_pom1_c, idx_pom4_c, idx_soa1_c, &
+           idx_soa2_c, idx_dst1_c, idx_dst3_c, aerdepdryis_p, aerdepdrycw_p, bcphidry_p, bcphodry_p, ocphidry_p, &
+           ocphodry_p, dstdry1_p, dstdry2_p, dstdry3_p, dstdry4_p) bind(c, name="set_srf_drydep_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, idx_bc1_c, idx_bc4_c, idx_pom1_c, idx_pom4_c, idx_soa1_c
+         integer(c_int64_t), value :: idx_soa2_c, idx_dst1_c, idx_dst3_c
+         type(c_ptr), value :: aerdepdryis_p, aerdepdrycw_p, bcphidry_p, bcphodry_p, ocphidry_p, ocphodry_p
+         type(c_ptr), value :: dstdry1_p, dstdry2_p, dstdry3_p, dstdry4_p
+      end subroutine set_srf_drydep_codon
+   end interface
+
+   call set_srf_drydep_select_impl()
+
+   if (.not.bin_fluxes) return
+
+   if (use_native_set_srf_drydep_impl) then
+      call set_srf_drydep_native(aerdepdryis, aerdepdrycw, cam_out)
+      return
+   end if
+
+   ncol = cam_out%ncol
+
+   call set_srf_drydep_codon( &
+        int(ncol, c_int64_t), int(pcols, c_int64_t), int(idx_bc1, c_int64_t), int(idx_bc4, c_int64_t), &
+        int(idx_pom1, c_int64_t), int(idx_pom4, c_int64_t), int(idx_soa1, c_int64_t), int(idx_soa2, c_int64_t), &
+        int(idx_dst1, c_int64_t), int(idx_dst3, c_int64_t), c_loc(aerdepdryis(1,1)), c_loc(aerdepdrycw(1,1)), &
+        c_loc(cam_out%bcphidry(1)), c_loc(cam_out%bcphodry(1)), c_loc(cam_out%ocphidry(1)), c_loc(cam_out%ocphodry(1)), &
+        c_loc(cam_out%dstdry1(1)), c_loc(cam_out%dstdry2(1)), c_loc(cam_out%dstdry3(1)), c_loc(cam_out%dstdry4(1)) &
+   )
+
+end subroutine set_srf_drydep
+
+!==============================================================================
+
+subroutine set_srf_drydep_native(aerdepdryis, aerdepdrycw, cam_out)
 
 ! Set surface dry deposition fluxes passed to coupler.
    
@@ -206,8 +291,6 @@ subroutine set_srf_drydep(aerdepdryis, aerdepdrycw, cam_out)
    integer :: i
    integer :: ncol                      ! number of columns
    !----------------------------------------------------------------------------
-   if (.not.bin_fluxes) return
-
    ncol = cam_out%ncol
 
    cam_out%bcphidry(:) = 0._r8
@@ -230,7 +313,7 @@ subroutine set_srf_drydep(aerdepdryis, aerdepdrycw, cam_out)
       ! organic carbon fluxes
       if (idx_pom1>0) &
            cam_out%ocphidry(i) = cam_out%ocphidry(i) + aerdepdryis(i,idx_pom1)+aerdepdrycw(i,idx_pom1)
-      if( idx_pom4>0) &
+      if (idx_pom4>0) &
            cam_out%ocphodry(i) = cam_out%ocphodry(i) + aerdepdryis(i,idx_pom4)+aerdepdrycw(i,idx_pom4)
       if (idx_soa1>0) &
            cam_out%ocphidry(i) = cam_out%ocphidry(i) + aerdepdryis(i,idx_soa1)+aerdepdrycw(i,idx_soa1)
@@ -257,7 +340,7 @@ subroutine set_srf_drydep(aerdepdryis, aerdepdrycw, cam_out)
       if (cam_out%dstdry3(i)  .lt. 0._r8) cam_out%dstdry3(i)  = 0._r8
    enddo
 
-end subroutine set_srf_drydep
+end subroutine set_srf_drydep_native
 
 
 !==============================================================================
