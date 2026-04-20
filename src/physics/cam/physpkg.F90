@@ -118,6 +118,8 @@ module physpkg
   logical           :: phys_inidat_kvm_default_impl_selected = .false.
   logical           :: use_native_phys_inidat_kvh_default_impl = .false.
   logical           :: phys_inidat_kvh_default_impl_selected = .false.
+  logical           :: use_native_phys_inidat_iccwat_default_impl = .false.
+  logical           :: phys_inidat_iccwat_default_impl_selected = .false.
   logical           :: use_native_phys_inidat_cloud_default_impl = .false.
   logical           :: phys_inidat_cloud_default_impl_selected = .false.
   logical           :: use_native_phys_inidat_concld_default_impl = .false.
@@ -416,7 +418,7 @@ subroutine phys_inidat( cam_out, pbuf2d )
     integer :: tpert_idx, qpert_idx, pblh_idx
 
     logical :: found=.false., found2=.false.
-    integer :: ierr
+    integer :: ierr, iccwat_source
     character(len=4) :: dim1name
     integer :: ixcldice, ixcldliq
     nullify(tptr,tptr3d,tptr3d_2,cldptr,convptr_3d)
@@ -554,27 +556,25 @@ call phys_inidat_qpert_expand(pcols, pcnst, endchunk-begchunk+1, tptr, tptr3d_2)
     if (m > 0) then
        call infld(fieldname, fh_ini, dim1name, 'lev', 'lat', 1, pcols, 1, pver, begchunk, endchunk, &
           tptr3d, found, grid_map='phys')
-       if(found) then
+       found2 = .false.
+       if(.not. found) then
+          call cnst_get_ind('CLDICE', ixcldice)
+          call infld('CLDICE',fh_ini,dim1name, 'lev', 'lat', 1, pcols, 1, pver, begchunk, endchunk, &
+             tptr3d, found2, grid_map='PHYS')
+       end if
+       call phys_inidat_iccwat_default(found, found2, iccwat_source)
+       if(iccwat_source /= 0) then
           do n = 1, dyn_time_lvls
              call pbuf_set_field(pbuf2d, m, tptr3d, (/1,1,n/),(/pcols,pver,1/))
           end do
        else
-          call cnst_get_ind('CLDICE', ixcldice)
-          call infld('CLDICE',fh_ini,dim1name, 'lev', 'lat', 1, pcols, 1, pver, begchunk, endchunk, &
-             tptr3d, found, grid_map='PHYS')
-          if(found) then
-             do n = 1, dyn_time_lvls
-                call pbuf_set_field(pbuf2d, m, tptr3d, (/1,1,n/),(/pcols,pver,1/))
-             end do
+          call pbuf_set_field(pbuf2d, m, 0._r8)
+       end if
+       if (masterproc .and. iccwat_source /= 1) then
+          if (iccwat_source == 2) then
+             write(iulog,*) trim(fieldname), ' initialized with CLDICE'
           else
-             call pbuf_set_field(pbuf2d, m, 0._r8)
-          end if
-          if (masterproc) then
-             if (found) then
-                write(iulog,*) trim(fieldname), ' initialized with CLDICE'
-             else
-                write(iulog,*) trim(fieldname), ' initialized to 0.0'
-             end if
+             write(iulog,*) trim(fieldname), ' initialized to 0.0'
           end if
        end if
     end if
@@ -5238,6 +5238,103 @@ subroutine phys_inidat_kvh_default_native(pcols_local, pverp_local, chunk_count_
   end if
 
 end subroutine phys_inidat_kvh_default_native
+
+!=======================================================================
+
+subroutine phys_inidat_iccwat_default_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (phys_inidat_iccwat_default_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('PHYS_INIDAT_ICCWAT_DEFAULT_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_phys_inidat_iccwat_default_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_phys_inidat_iccwat_default_impl = .false.
+  end if
+
+  phys_inidat_iccwat_default_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_phys_inidat_iccwat_default_impl) then
+        write(iulog,*) 'phys_inidat_iccwat_default implementation = native'
+     else
+        write(iulog,*) 'phys_inidat_iccwat_default implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine phys_inidat_iccwat_default_select_impl
+
+!=======================================================================
+
+subroutine phys_inidat_iccwat_default(primary_found_local, fallback_found_local, init_source_local)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+  logical, intent(in) :: primary_found_local
+  logical, intent(in) :: fallback_found_local
+  integer, intent(out) :: init_source_local
+
+  integer(c_int64_t) :: primary_found_c
+  integer(c_int64_t) :: fallback_found_c
+  integer(c_int64_t), target :: init_source_c
+
+  interface
+     subroutine phys_inidat_iccwat_default_codon(primary_found_c, fallback_found_c, init_source_p) &
+          bind(c, name="phys_inidat_iccwat_default_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: primary_found_c
+       integer(c_int64_t), value :: fallback_found_c
+       type(c_ptr), value :: init_source_p
+     end subroutine phys_inidat_iccwat_default_codon
+  end interface
+
+  call phys_inidat_iccwat_default_select_impl()
+
+  if (use_native_phys_inidat_iccwat_default_impl) then
+     call phys_inidat_iccwat_default_native(primary_found_local, fallback_found_local, init_source_local)
+     return
+  end if
+
+  primary_found_c = 0_c_int64_t
+  if (primary_found_local) primary_found_c = 1_c_int64_t
+  fallback_found_c = 0_c_int64_t
+  if (fallback_found_local) fallback_found_c = 1_c_int64_t
+  init_source_c = 0_c_int64_t
+
+  call phys_inidat_iccwat_default_codon(primary_found_c, fallback_found_c, c_loc(init_source_c))
+  init_source_local = int(init_source_c)
+
+end subroutine phys_inidat_iccwat_default
+
+!=======================================================================
+
+subroutine phys_inidat_iccwat_default_native(primary_found_local, fallback_found_local, init_source_local)
+
+  logical, intent(in) :: primary_found_local
+  logical, intent(in) :: fallback_found_local
+  integer, intent(out) :: init_source_local
+
+  if (primary_found_local) then
+     init_source_local = 1
+  else if (fallback_found_local) then
+     init_source_local = 2
+  else
+     init_source_local = 0
+  end if
+
+end subroutine phys_inidat_iccwat_default_native
 
 !=======================================================================
 
