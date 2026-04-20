@@ -243,3 +243,11 @@ def wtrc_check_h2o_codon(
 
     result[0] = ok
     issue[0] = issue_found
+
+
+@export
+def wtrc_clear_precip_codon(ncol: int, srfpcp_p: cobj):
+    srfpcp = Ptr[float](srfpcp_p)
+
+    for i in range(1, ncol + 1):
+        srfpcp[_field1_idx(i)] = 0.0

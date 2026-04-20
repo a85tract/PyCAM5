@@ -136,6 +136,8 @@ module water_tracers
   logical :: wtrc_mass_fixer_impl_selected = .false.
   logical :: use_native_wtrc_check_h2o_impl = .false.
   logical :: wtrc_check_h2o_impl_selected = .false.
+  logical :: use_native_wtrc_clear_precip_impl = .false.
+  logical :: wtrc_clear_precip_impl_selected = .false.
 
 contains
 
@@ -216,6 +218,45 @@ subroutine wtrc_check_h2o_select_impl()
   end if
 
 end subroutine wtrc_check_h2o_select_impl
+
+!=======================================================================
+subroutine wtrc_clear_precip_select_impl()
+!-----------------------------------------------------------------------
+! Select native vs Codon implementation for wtrc_clear_precip.
+!-----------------------------------------------------------------------
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (wtrc_clear_precip_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('WTRC_CLEAR_PRECIP_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+    do i = 1, n
+      code = iachar(impl_name(i:i))
+      if (code >= iachar('A') .and. code <= iachar('Z')) then
+        impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+      end if
+    end do
+    use_native_wtrc_clear_precip_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+    use_native_wtrc_clear_precip_impl = .false.
+  end if
+
+  wtrc_clear_precip_impl_selected = .true.
+
+  if (masterproc) then
+    if (use_native_wtrc_clear_precip_impl) then
+      write(iulog,*) 'wtrc_clear_precip implementation = native'
+    else
+      write(iulog,*) 'wtrc_clear_precip implementation = codon'
+    end if
+    call flush(iulog)
+  end if
+
+end subroutine wtrc_clear_precip_select_impl
 
 !=======================================================================
 subroutine wtrc_readnl(nlfile)
@@ -2535,6 +2576,73 @@ end subroutine stewart_isoevap
 ! Author: Chuck Bardeen
 !
 !-----------------------------------------------------------------------
+  use physics_types,  only: physics_state
+  use physics_buffer, only: physics_buffer_desc, pbuf_get_field
+  use iso_c_binding,  only: c_int64_t, c_loc, c_ptr
+  
+  type(physics_state), intent(in)    :: pstate                        ! State of the atmosphere
+  type(physics_buffer_desc), pointer :: pbuf(:) !physics buffer
+
+  integer, intent(in)                :: itype                         ! precipitation water type index
+  
+  integer                            :: iwset       ! water set index           
+  integer                            :: lchnk
+  integer                            :: ncol
+  real(r8), pointer, dimension(:)    :: srfpcp      ! Surface precipitation (m/s)
+
+  interface
+    subroutine wtrc_clear_precip_codon(ncol_c, srfpcp_p) bind(c, name="wtrc_clear_precip_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c
+      type(c_ptr), value :: srfpcp_p
+    end subroutine wtrc_clear_precip_codon
+  end interface
+
+!-----------------------------------------------------------------------
+!
+  call wtrc_clear_precip_select_impl()
+
+  if (use_native_wtrc_clear_precip_impl) then
+    call wtrc_clear_precip_native(pstate, pbuf, itype)
+    return
+  end if
+
+  if (trace_water) then
+    
+    ! Use an internal local ptend, so we can do the mass checking.
+    ncol  = pstate%ncol
+    lchnk = pstate%lchnk
+    
+    ! Iterate over the water sets.
+    do iwset = 1, wtrc_nwset
+    
+      ! The surface precipitation is stored in the physics buffer, so
+      ! get a pointer to the data.
+      call pbuf_get_field(pbuf, wtrc_srfpcp_indices(itype,iwset), srfpcp)
+
+      ! Calculate surface total.
+      if (ncol > 0) then
+        call wtrc_clear_precip_codon(int(ncol, c_int64_t), c_loc(srfpcp(1)))
+      end if
+    end do
+  end if
+
+  return
+end subroutine wtrc_clear_precip
+
+
+!=======================================================================
+  subroutine wtrc_clear_precip_native(pstate, pbuf, itype)
+!-----------------------------------------------------------------------
+!
+! Purpose: Clear the surface precipitation fields.
+!
+! Method:
+!   Clear the accumulated amount of surface precipitation
+!
+! Author: Chuck Bardeen
+!
+!-----------------------------------------------------------------------
   use physics_types,  only: physics_state, physics_ptend
   use water_types,    only: pwtype
   use physconst,      only: gravit, rhoh2o
@@ -2574,7 +2682,7 @@ end subroutine stewart_isoevap
   end if
 
   return
-end subroutine wtrc_clear_precip
+end subroutine wtrc_clear_precip_native
 
 
 !=======================================================================
