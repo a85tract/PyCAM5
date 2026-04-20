@@ -71,6 +71,16 @@ def chem_emissions_add_sflx_codon(
 
 
 @export
+def chem_timestep_init_should_run_codon(
+    nstep: int,
+    chem_freq: int,
+    chem_step_flag_p: cobj,
+):
+    chem_step_flag = Ptr[int](chem_step_flag_p)
+    chem_step_flag[0] = 1 if nstep % chem_freq == 0 else 0
+
+
+@export
 def chem_timestep_tend_fill_cloud_fields_codon(
     ncol: int,
     pcols: int,

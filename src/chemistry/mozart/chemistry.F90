@@ -135,6 +135,8 @@ module chemistry
   logical :: is_active = .false.
   logical :: chem_emissions_use_native_impl = .false.
   logical :: chem_emissions_impl_selected = .false.
+  logical :: chem_timestep_init_use_native_impl = .false.
+  logical :: chem_timestep_init_impl_selected = .false.
   logical :: chem_timestep_tend_use_native_impl = .false.
   logical :: chem_timestep_tend_impl_selected = .false.
 
@@ -1268,6 +1270,74 @@ end function chem_is_active
   subroutine chem_timestep_init(phys_state,pbuf2d)
 
     use time_manager,      only : get_nstep
+    use physics_buffer,    only : physics_buffer_desc
+    use iso_c_binding,     only : c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    type(physics_state), intent(inout) :: phys_state(begchunk:endchunk)
+    type(physics_buffer_desc), pointer :: pbuf2d(:,:)
+
+    integer :: nstep
+    integer(c_int64_t), target :: chem_step_flag
+
+    interface
+       subroutine chem_timestep_init_should_run_codon(nstep_c, chem_freq_c, chem_step_flag_p) &
+            bind(c, name="chem_timestep_init_should_run_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: nstep_c, chem_freq_c
+         type(c_ptr), value :: chem_step_flag_p
+       end subroutine chem_timestep_init_should_run_codon
+    end interface
+
+    call chem_timestep_init_select_impl()
+
+    if (chem_timestep_init_use_native_impl) then
+       call chem_timestep_init_native(phys_state, pbuf2d)
+       return
+    end if
+
+    nstep = get_nstep()
+    call chem_timestep_init_should_run_codon(int(nstep, c_int64_t), int(chem_freq, c_int64_t), c_loc(chem_step_flag))
+    chem_step = chem_step_flag /= 0_c_int64_t
+
+    if ( .not. chem_step ) return
+
+    call chem_timestep_init_body(phys_state, pbuf2d)
+
+  end subroutine chem_timestep_init
+
+!================================================================================
+
+  subroutine chem_timestep_init_native(phys_state,pbuf2d)
+
+    use time_manager,      only : get_nstep
+
+    use physics_buffer,    only : physics_buffer_desc
+
+    implicit none
+
+    type(physics_state), intent(inout) :: phys_state(begchunk:endchunk)                 
+    type(physics_buffer_desc), pointer :: pbuf2d(:,:)
+
+    !-----------------------------------------------------------------------
+    ! Local variables
+    !-----------------------------------------------------------------------
+    integer :: nstep
+
+    nstep = get_nstep()
+    chem_step = mod( nstep, chem_freq ) == 0
+
+    if ( .not. chem_step ) return
+
+    call chem_timestep_init_body(phys_state, pbuf2d)
+
+  end subroutine chem_timestep_init_native
+
+!================================================================================
+
+  subroutine chem_timestep_init_body(phys_state,pbuf2d)
+
     use time_manager,      only : get_curr_calday
     use mo_srf_emissions,  only : set_srf_emissions_time
     use mo_sulf,           only : set_sulf_time
@@ -1292,19 +1362,9 @@ end function chem_is_active
 
     implicit none
 
-    type(physics_state), intent(inout) :: phys_state(begchunk:endchunk)                 
+    type(physics_state), intent(inout) :: phys_state(begchunk:endchunk)
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
-
-    !-----------------------------------------------------------------------
-    ! Local variables
-    !-----------------------------------------------------------------------
     real(r8) :: calday
-    integer :: nstep
-
-    nstep = get_nstep()
-    chem_step = mod( nstep, chem_freq ) == 0
-
-    if ( .not. chem_step ) return
 
     !-----------------------------------------------------------------------
     ! get current calendar day of year
@@ -1377,11 +1437,48 @@ end function chem_is_active
     call advance_spedata()
 
     call update_cfc11star( pbuf2d, phys_state )
-    
+
     ! Galatic Cosmic Rays ...
     call gcr_ionization_adv( pbuf2d, phys_state )
 
-  end subroutine chem_timestep_init
+  end subroutine chem_timestep_init_body
+
+!================================================================================
+
+  subroutine chem_timestep_init_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (chem_timestep_init_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('CHEM_TIMESTEP_INIT_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       chem_timestep_init_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       chem_timestep_init_use_native_impl = .false.
+    end if
+
+    chem_timestep_init_impl_selected = .true.
+
+    if (masterproc) then
+       if (chem_timestep_init_use_native_impl) then
+          write(iulog,*) 'chem_timestep_init implementation = native'
+       else
+          write(iulog,*) 'chem_timestep_init implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine chem_timestep_init_select_impl
 
   subroutine chem_timestep_tend( state, ptend, cam_in, cam_out, dt, pbuf,  fh2o, fsds )
 
