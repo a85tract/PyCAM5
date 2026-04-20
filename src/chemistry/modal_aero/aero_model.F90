@@ -546,6 +546,7 @@ contains
 
     use dust_sediment_mod, only: dust_sediment_tend
     use drydep_mod,        only: d3ddflux, calcram
+    use mo_drydep,         only: fraction_landuse
     use modal_aero_data,   only: qqcw_get_field
     use modal_aero_data,   only: cnst_name_cw
     use modal_aero_data,   only: alnsg_amode
@@ -659,11 +660,11 @@ contains
     jvlc = 3
     call modal_aero_depvel_part( ncol,state%t(:,:), state%pmid(:,:), ram1, fv,  &
                      vlc_dry(:,:,jvlc), vlc_trb(:,jvlc), vlc_grv(:,:,jvlc),  &
-                     rad_drop(:,:), dens_drop(:,:), sg_drop(:,:), 0, lchnk)
+                     rad_drop(:,:), dens_drop(:,:), sg_drop(:,:), 0, fraction_landuse(:,:,lchnk))
     jvlc = 4
     call modal_aero_depvel_part( ncol,state%t(:,:), state%pmid(:,:), ram1, fv,  &
                      vlc_dry(:,:,jvlc), vlc_trb(:,jvlc), vlc_grv(:,:,jvlc),  &
-                     rad_drop(:,:), dens_drop(:,:), sg_drop(:,:), 3, lchnk)
+                     rad_drop(:,:), dens_drop(:,:), sg_drop(:,:), 3, fraction_landuse(:,:,lchnk))
 
 
 
@@ -684,11 +685,11 @@ contains
              jvlc = 1
              call modal_aero_depvel_part( ncol, state%t(:,:), state%pmid(:,:), ram1, fv,  & 
                         vlc_dry(:,:,jvlc), vlc_trb(:,jvlc), vlc_grv(:,:,jvlc),  &
-                        rad_aer(:,:), dens_aer(:,:), sg_aer(:,:), 0, lchnk)
+                        rad_aer(:,:), dens_aer(:,:), sg_aer(:,:), 0, fraction_landuse(:,:,lchnk))
              jvlc = 2
              call modal_aero_depvel_part( ncol, state%t(:,:), state%pmid(:,:), ram1, fv,  & 
                         vlc_dry(:,:,jvlc), vlc_trb(:,jvlc), vlc_grv(:,:,jvlc),  &
-                        rad_aer(:,:), dens_aer(:,:), sg_aer(:,:), 3, lchnk)
+                        rad_aer(:,:), dens_aer(:,:), sg_aer(:,:), 3, fraction_landuse(:,:,lchnk))
           end if
 
           do lspec = 0, nspec_amode(m)+1   ! loop over number + constituents + water
@@ -1921,7 +1922,103 @@ contains
   !===============================================================================
   !===============================================================================
   subroutine modal_aero_depvel_part( ncol, t, pmid, ram1, fv, vlc_dry, vlc_trb, vlc_grv,  &
-                                     radius_part, density_part, sig_part, moment, lchnk )
+                                     radius_part, density_part, sig_part, moment, fraction_landuse_lcl )
+
+!    calculates surface deposition velocity of particles
+!    L. Zhang, S. Gong, J. Padro, and L. Barrie
+!    A size-seggregated particle dry deposition scheme for an atmospheric aerosol module
+!    Atmospheric Environment, 35, 549-560, 2001.
+!
+!    Authors: X. Liu
+
+    !
+    ! !USES
+    !
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+    use physconst,     only: pi,boltz, gravit, rair
+    use mo_drydep,     only: n_land_type
+
+    ! !ARGUMENTS:
+    !
+    implicit none
+    !
+    real(r8), target, intent(in) :: t(pcols,pver)       !atm temperature (K)
+    real(r8), target, intent(in) :: pmid(pcols,pver)    !atm pressure (Pa)
+    real(r8), target, intent(in) :: fv(pcols)           !friction velocity (m/s)
+    real(r8), target, intent(in) :: ram1(pcols)         !aerodynamical resistance (s/m)
+    real(r8), target, intent(in) :: radius_part(pcols,pver)    ! mean (volume/number) particle radius (m)
+    real(r8), target, intent(in) :: density_part(pcols,pver)   ! density of particle material (kg/m3)
+    real(r8), target, intent(in) :: sig_part(pcols,pver)       ! geometric standard deviation of particles
+    integer,  intent(in) :: moment ! moment of size distribution (0 for number, 2 for surface area, 3 for volume)
+    integer,  intent(in) :: ncol
+    real(r8), target, intent(in) :: fraction_landuse_lcl(pcols,n_land_type)
+
+    real(r8), target, intent(out) :: vlc_trb(pcols)       !Turbulent deposn velocity (m/s)
+    real(r8), target, intent(out) :: vlc_grv(pcols,pver)  !grav deposn velocity (m/s)
+    real(r8), target, intent(out) :: vlc_dry(pcols,pver)  !dry deposn velocity (m/s)
+    !------------------------------------------------------------------------
+
+    !------------------------------------------------------------------------
+    ! Local Variables
+    integer  :: i,k,ix                !indices
+    real(r8) :: rho     !atm density (kg/m**3)
+    real(r8), target :: vsc_dyn_atm(pcols,pver)   ![kg m-1 s-1] Dynamic viscosity of air
+    real(r8), target :: vsc_knm_atm(pcols,pver)   ![m2 s-1] Kinematic viscosity of atmosphere
+    real(r8) :: shm_nbr       ![frc] Schmidt number
+    real(r8) :: stk_nbr       ![frc] Stokes number
+    real(r8), target :: mfp_atm(pcols,pver)       ![m] Mean free path of air
+    real(r8) :: dff_aer       ![m2 s-1] Brownian diffusivity of particle
+    real(r8), target :: slp_crc(pcols,pver) ![frc] Slip correction factor
+    real(r8) :: rss_trb       ![s m-1] Resistance to turbulent deposition
+    real(r8) :: rss_lmn       ![s m-1] Quasi-laminar layer resistance
+    real(r8) :: brownian      ! collection efficiency for Browning diffusion
+    real(r8) :: impaction     ! collection efficiency for impaction
+    real(r8) :: interception  ! collection efficiency for interception
+    real(r8) :: stickfrac     ! fraction of particles sticking to surface
+    real(r8), target :: radius_moment(pcols,pver) ! median radius (m) for moment
+    real(r8) :: lnsig         ! ln(sig_part)
+    real(r8) :: dispersion    ! accounts for influence of size dist dispersion on bulk settling velocity
+                              ! assuming radius_part is number mode radius * exp(1.5 ln(sigma))
+
+    integer  :: lt
+    real(r8) :: lnd_frc
+    real(r8) :: wrk1
+
+    interface
+       subroutine modal_aero_depvel_part_codon(ncol_c, pcols_c, pver_c, n_land_type_c, moment_c, pi_c, boltz_c, &
+            gravit_c, rair_c, t_p, pmid_p, ram1_p, fv_p, vlc_dry_p, vlc_trb_p, vlc_grv_p, radius_part_p, &
+            density_part_p, sig_part_p, fraction_landuse_p, vsc_dyn_atm_p, vsc_knm_atm_p, mfp_atm_p, slp_crc_p, &
+            radius_moment_p) bind(c, name="modal_aero_depvel_part_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, n_land_type_c, moment_c
+         real(c_double), value :: pi_c, boltz_c, gravit_c, rair_c
+         type(c_ptr), value :: t_p, pmid_p, ram1_p, fv_p, vlc_dry_p, vlc_trb_p, vlc_grv_p, radius_part_p
+         type(c_ptr), value :: density_part_p, sig_part_p, fraction_landuse_p, vsc_dyn_atm_p, vsc_knm_atm_p
+         type(c_ptr), value :: mfp_atm_p, slp_crc_p, radius_moment_p
+       end subroutine modal_aero_depvel_part_codon
+    end interface
+
+    if (.not. aero_model_drydep_use_native_impl) then
+       call modal_aero_depvel_part_codon( &
+            int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(n_land_type, c_int64_t), &
+            int(moment, c_int64_t), real(pi, c_double), real(boltz, c_double), real(gravit, c_double), &
+            real(rair, c_double), c_loc(t), c_loc(pmid), c_loc(ram1), c_loc(fv), c_loc(vlc_dry), c_loc(vlc_trb), &
+            c_loc(vlc_grv), c_loc(radius_part), c_loc(density_part), c_loc(sig_part), c_loc(fraction_landuse_lcl), &
+            c_loc(vsc_dyn_atm), c_loc(vsc_knm_atm), c_loc(mfp_atm), c_loc(slp_crc), c_loc(radius_moment) &
+       )
+       return
+    end if
+
+    call modal_aero_depvel_part_native( ncol, t, pmid, ram1, fv, vlc_dry, vlc_trb, vlc_grv,  &
+         radius_part, density_part, sig_part, moment, fraction_landuse_lcl )
+
+    return
+  end subroutine modal_aero_depvel_part
+
+  !===============================================================================
+  !===============================================================================
+  subroutine modal_aero_depvel_part_native( ncol, t, pmid, ram1, fv, vlc_dry, vlc_trb, vlc_grv,  &
+                                            radius_part, density_part, sig_part, moment, fraction_landuse_lcl )
 
 !    calculates surface deposition velocity of particles
 !    L. Zhang, S. Gong, J. Padro, and L. Barrie
@@ -1934,7 +2031,7 @@ contains
     ! !USES
     !
     use physconst,     only: pi,boltz, gravit, rair
-    use mo_drydep,     only: n_land_type, fraction_landuse
+    use mo_drydep,     only: n_land_type
 
     ! !ARGUMENTS:
     !
@@ -1949,7 +2046,7 @@ contains
     real(r8), intent(in) :: sig_part(pcols,pver)       ! geometric standard deviation of particles
     integer,  intent(in) :: moment ! moment of size distribution (0 for number, 2 for surface area, 3 for volume)
     integer,  intent(in) :: ncol
-    integer,  intent(in) :: lchnk
+    real(r8), intent(in) :: fraction_landuse_lcl(pcols,n_land_type)
 
     real(r8), intent(out) :: vlc_trb(pcols)       !Turbulent deposn velocity (m/s)
     real(r8), intent(out) :: vlc_grv(pcols,pver)       !grav deposn velocity (m/s)
@@ -1958,7 +2055,7 @@ contains
 
     !------------------------------------------------------------------------
     ! Local Variables
-    integer  :: m,i,k,ix                !indices
+    integer  :: i,k,ix                !indices
     real(r8) :: rho     !atm density (kg/m**3)
     real(r8) :: vsc_dyn_atm(pcols,pver)   ![kg m-1 s-1] Dynamic viscosity of air
     real(r8) :: vsc_knm_atm(pcols,pver)   ![m2 s-1] Kinematic viscosity of atmosphere
@@ -1987,7 +2084,7 @@ contains
 !   data gamma/0.54d+00,  0.56d+00,  0.57d+00,  0.54d+00,  0.54d+00, &
 !              0.56d+00,  0.54d+00,  0.54d+00,  0.54d+00,  0.56d+00, &
 !              0.50d+00/
-    data gamma/0.56e+00_r8,  0.54e+00_r8,  0.54e+00_r8,  0.56e+00_r8,  0.56e+00_r8, &        
+    data gamma/0.56e+00_r8,  0.54e+00_r8,  0.54e+00_r8,  0.56e+00_r8,  0.56e+00_r8, &
                0.56e+00_r8,  0.50e+00_r8,  0.54e+00_r8,  0.54e+00_r8,  0.54e+00_r8, &
                0.54e+00_r8/
     save gamma
@@ -2059,7 +2156,7 @@ contains
        wrk2 = 0._r8
        wrk3 = 0._r8
        do lt = 1,n_land_type
-          lnd_frc = fraction_landuse(i,lt,lchnk)
+          lnd_frc = fraction_landuse_lcl(i,lt)
           if ( lnd_frc /= 0._r8 ) then
              brownian = shm_nbr**(-gamma(lt))
              if (radius_collector(lt) > 0.0_r8) then
@@ -2092,7 +2189,7 @@ contains
     enddo !ncol
 
     return
-  end subroutine modal_aero_depvel_part
+  end subroutine modal_aero_depvel_part_native
 
   !===============================================================================
   subroutine modal_aero_bcscavcoef_get( m, ncol, isprx, dgn_awet, scavcoefnum, scavcoefvol )
