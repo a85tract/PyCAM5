@@ -82,6 +82,8 @@ module cloud_fraction
   logical :: cldfrc_state_init_impl_selected = .false.
   logical :: use_native_cldfrc_layer_rh_impl = .false.
   logical :: cldfrc_layer_rh_impl_selected = .false.
+  logical :: use_native_cldfrc_ice_wilson_impl = .false.
+  logical :: cldfrc_ice_wilson_impl_selected = .false.
   logical :: use_native_cldfrc_total_cloud_impl = .false.
   logical :: cldfrc_total_cloud_impl_selected = .false.
 
@@ -234,6 +236,43 @@ subroutine cldfrc_layer_rh_select_impl()
    end if
 
 end subroutine cldfrc_layer_rh_select_impl
+
+!================================================================================================
+
+subroutine cldfrc_ice_wilson_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cldfrc_ice_wilson_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CLDFRC_ICE_WILSON_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_cldfrc_ice_wilson_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_cldfrc_ice_wilson_impl = .false.
+   end if
+
+   cldfrc_ice_wilson_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_cldfrc_ice_wilson_impl) then
+         write(iulog,*) 'cldfrc_ice_wilson implementation = native'
+      else
+         write(iulog,*) 'cldfrc_ice_wilson implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine cldfrc_ice_wilson_select_impl
 
 !================================================================================================
 
@@ -678,88 +717,93 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     numkcld = pver
     call cldfrc_layer_rh(ncol, landfrac, snowh, clat, pmid, pref_mid, q, rh, rhcloud, rhu00)
 
-    do k=top_lev+1,numkcld
-       do i=1,ncol
-          if (cldfrc_ice) then
+    if (cldfrc_ice .and. iceopt > 3) then
+       call cldfrc_ice_wilson(ncol, cldice, qs, rhcloud, icecldf, liqcldf, cloud)
+    else
+       do k=top_lev+1,numkcld
+          do i=1,ncol
+             if (cldfrc_ice) then
 
-             ! Evaluate ice cloud fraction based on in-cloud ice content
+                ! Evaluate ice cloud fraction based on in-cloud ice content
 
-             !--------ICE CLOUD OPTION 1--------Wang & Sassen 2002
-             !         Evaluate desired in-cloud water content
-             !               icicval = f(temp,cldice,numice)
-             !         Start with a function of temperature.
-             !         Wang & Sassen 2002 (JAS), based on ARM site MMCR (midlat cirrus)
-             !           parameterization valid for 203-253K
-             !           icival > 0 for t>195K
-             if (iceopt.lt.3) then
-                if (iceopt.eq.1) then
-                   ttmp=max(195._r8,min(temp(i,k),253._r8)) - 273.16_r8
-                   icicval=a + b * ttmp + c * ttmp**2._r8
-                   !convert units
-                   rho=pmid(i,k)/(rair*temp(i,k))
-                   icicval= icicval * 1.e-6_r8 / rho
-                else
-                   !--------ICE CLOUD OPTION 2--------Schiller 2008 (JGR)
-                   !          Use a curve based on FISH measurements in
-                   !          tropics, mid-lats and arctic. Curve is for 180-250K (raise to 273K?)
-                   !          use median all flights
+                !--------ICE CLOUD OPTION 1--------Wang & Sassen 2002
+                !         Evaluate desired in-cloud water content
+                !               icicval = f(temp,cldice,numice)
+                !         Start with a function of temperature.
+                !         Wang & Sassen 2002 (JAS), based on ARM site MMCR (midlat cirrus)
+                !           parameterization valid for 203-253K
+                !           icival > 0 for t>195K
+                if (iceopt.lt.3) then
+                   if (iceopt.eq.1) then
+                      ttmp=max(195._r8,min(temp(i,k),253._r8)) - 273.16_r8
+                      icicval=a + b * ttmp + c * ttmp**2._r8
+                      !convert units
+                      rho=pmid(i,k)/(rair*temp(i,k))
+                      icicval= icicval * 1.e-6_r8 / rho
+                   else
+                      !--------ICE CLOUD OPTION 2--------Schiller 2008 (JGR)
+                      !          Use a curve based on FISH measurements in
+                      !          tropics, mid-lats and arctic. Curve is for 180-250K (raise to 273K?)
+                      !          use median all flights
 
-                   ttmp=max(190._r8,min(temp(i,k),273.16_r8))
-                   icicval = 10._r8 **(as * bs**ttmp + cs)
-                   !convert units from ppmv to kg/kg
-                   icicval= icicval * 1.e-6_r8 * 18._r8 / 28.97_r8
-                endif
-                !set icecldfraction  for OPTION 1 or OPTION2
-                icecldf(i,k) =  max(0._r8,min(cldice(i,k)/icicval,1._r8))
+                      ttmp=max(190._r8,min(temp(i,k),273.16_r8))
+                      icicval = 10._r8 **(as * bs**ttmp + cs)
+                      !convert units from ppmv to kg/kg
+                      icicval= icicval * 1.e-6_r8 * 18._r8 / 28.97_r8
+                   endif
+                   !set icecldfraction  for OPTION 1 or OPTION2
+                   icecldf(i,k) =  max(0._r8,min(cldice(i,k)/icicval,1._r8))
 
-             else if (iceopt.eq.3) then
+                else if (iceopt.eq.3) then
 
-                !--------ICE CLOUD OPTION 3--------Wood & Field 2000 (JAS)
-                ! eq 6: cloud fraction = 1 - exp (-K * qc/qsati)
+                   !--------ICE CLOUD OPTION 3--------Wood & Field 2000 (JAS)
+                   ! eq 6: cloud fraction = 1 - exp (-K * qc/qsati)
         
-                icecldf(i,k)=1._r8 - exp(-Kc*cldice(i,k)/(qs(i,k)*(esi(i,k)/esl(i,k))))
-                icecldf(i,k)=max(0._r8,min(icecldf(i,k),1._r8))
-             else
-                !--------ICE CLOUD OPTION 4--------Wilson and ballard 1999
-                ! inversion of smith....
-                !       ncf = cldice / ((1-RHcrit)*qs)
-                ! then a function of ncf....
-                ncf =cldice(i,k)/((1._r8 - icecrit)*qs(i,k))
-                if (ncf.le.0._r8) then
-                   icecldf(i,k)=0._r8
-                else if (ncf.gt.0._r8 .and. ncf.le.1._r8/6._r8) then
-                   icecldf(i,k)=0.5_r8*(6._r8 * ncf)**(2._r8/3._r8)
-                else if (ncf.gt.1._r8/6._r8 .and. ncf.lt.1._r8) then
-                   phi=(acos(3._r8*(1._r8-ncf)/2._r8**(3._r8/2._r8))+4._r8*3.1415927_r8)/3._r8
-                   icecldf(i,k)=(1._r8 - 4._r8 * cos(phi) * cos(phi))
+                   icecldf(i,k)=1._r8 - exp(-Kc*cldice(i,k)/(qs(i,k)*(esi(i,k)/esl(i,k))))
+                   icecldf(i,k)=max(0._r8,min(icecldf(i,k),1._r8))
                 else
-                   icecldf(i,k)=1._r8
+                   !--------ICE CLOUD OPTION 4--------Wilson and ballard 1999
+                   ! inversion of smith....
+                   !       ncf = cldice / ((1-RHcrit)*qs)
+                   ! then a function of ncf....
+                   ncf =cldice(i,k)/((1._r8 - icecrit)*qs(i,k))
+                   if (ncf.le.0._r8) then
+                      icecldf(i,k)=0._r8
+                   else if (ncf.gt.0._r8 .and. ncf.le.1._r8/6._r8) then
+                      icecldf(i,k)=0.5_r8*(6._r8 * ncf)**(2._r8/3._r8)
+                   else if (ncf.gt.1._r8/6._r8 .and. ncf.lt.1._r8) then
+                      phi=(acos(3._r8*(1._r8-ncf)/2._r8**(3._r8/2._r8))+4._r8*3.1415927_r8)/3._r8
+                      icecldf(i,k)=(1._r8 - 4._r8 * cos(phi) * cos(phi))
+                   else
+                      icecldf(i,k)=1._r8
+                   endif
+                   icecldf(i,k)=max(0._r8,min(icecldf(i,k),1._r8))
                 endif
-                icecldf(i,k)=max(0._r8,min(icecldf(i,k),1._r8))
-             endif
-             !TEST: if ice present, icecldf=1.
-             !          if (cldice(i,k).ge.1.e-8_r8) then
-             !             icecldf(i,k) = 0.99_r8
-             !          endif
 
-             !!          if ((cldice(i,k) .gt. icicval) .or. ((cldice(i,k) .gt. 0._r8) .and. (icecldf(i,k) .eq. 0._r8))) then
-             !          if (cldice(i,k) .gt. 1.e-8_r8) then
-             !             write(iulog,*) 'i,k,pmid,rho,t,cldice,icicval,icecldf,rhcloud: ', &
-             !                i,k,pmid(i,k),rho,temp(i,k),cldice(i,k),icicval,icecldf(i,k),rhcloud(i,k)
-             !          endif
+                !TEST: if ice present, icecldf=1.
+                !          if (cldice(i,k).ge.1.e-8_r8) then
+                !             icecldf(i,k) = 0.99_r8
+                !          endif
 
-             !         Combine ice and liquid cloud fraction assuming maximum overlap.
-             ! Combined cloud fraction is maximum overlap
-             !          cloud(i,k)=min(1._r8,max(icecldf(i,k),rhcloud(i,k)))
+                !!          if ((cldice(i,k) .gt. icicval) .or. ((cldice(i,k) .gt. 0._r8) .and. (icecldf(i,k) .eq. 0._r8))) then
+                !          if (cldice(i,k) .gt. 1.e-8_r8) then
+                !             write(iulog,*) 'i,k,pmid,rho,t,cldice,icicval,icecldf,rhcloud: ', &
+                !                i,k,pmid(i,k),rho,temp(i,k),cldice(i,k),icicval,icecldf(i,k),rhcloud(i,k)
+                !          endif
 
-             liqcldf(i,k)=(1._r8 - icecldf(i,k))* rhcloud(i,k)
-             cloud(i,k)=liqcldf(i,k) + icecldf(i,k)
-          else
-             ! For RK microphysics
-             cloud(i,k) = rhcloud(i,k)
-          end if
+                !         Combine ice and liquid cloud fraction assuming maximum overlap.
+                ! Combined cloud fraction is maximum overlap
+                !          cloud(i,k)=min(1._r8,max(icecldf(i,k),rhcloud(i,k)))
+
+                liqcldf(i,k)=(1._r8 - icecldf(i,k))* rhcloud(i,k)
+                cloud(i,k)=liqcldf(i,k) + icecldf(i,k)
+             else
+                ! For RK microphysics
+                cloud(i,k) = rhcloud(i,k)
+             end if
+          end do
        end do
-    end do 
+    end if
     !
     ! Add in the marine strat
     ! MARINE STRATUS SHOULD BE A SPECIAL CASE OF LAYERED CLOUD
@@ -908,6 +952,46 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
 
 !================================================================================================
 
+  subroutine cldfrc_ice_wilson(ncol, cldice_local, qs_local, rhcloud_local, icecldf_local, liqcldf_local, cloud_local)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr, c_double
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: cldice_local(pcols,pver)
+    real(r8), target, intent(in) :: qs_local(pcols,pver)
+    real(r8), target, intent(in) :: rhcloud_local(pcols,pver)
+    real(r8), target, intent(inout) :: icecldf_local(pcols,pver)
+    real(r8), target, intent(inout) :: liqcldf_local(pcols,pver)
+    real(r8), target, intent(inout) :: cloud_local(pcols,pver)
+
+    interface
+       subroutine cldfrc_ice_wilson_codon(ncol_c, pcols_c, pver_c, top_lev_c, icecrit_c, one_sixth_c, &
+            two_thirds_c, two_pow_three_halves_c, phi_offset_c, cldice_p, qs_p, rhcloud_p, icecldf_p, liqcldf_p, &
+            cloud_p) bind(c, name="cldfrc_ice_wilson_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr, c_double
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+         real(c_double), value :: icecrit_c, one_sixth_c, two_thirds_c, two_pow_three_halves_c, phi_offset_c
+         type(c_ptr), value :: cldice_p, qs_p, rhcloud_p, icecldf_p, liqcldf_p, cloud_p
+       end subroutine cldfrc_ice_wilson_codon
+    end interface
+
+    call cldfrc_ice_wilson_select_impl()
+
+    if (use_native_cldfrc_ice_wilson_impl) then
+       call cldfrc_ice_wilson_native(ncol, cldice_local, qs_local, rhcloud_local, icecldf_local, liqcldf_local, &
+            cloud_local)
+       return
+    end if
+
+    call cldfrc_ice_wilson_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(top_lev, c_int64_t), real(icecrit, c_double), real(1._r8/6._r8, c_double), real(2._r8/3._r8, c_double), &
+         real(2._r8**(3._r8/2._r8), c_double), real(4._r8*3.1415927_r8, c_double), c_loc(cldice_local), &
+         c_loc(qs_local), c_loc(rhcloud_local), c_loc(icecldf_local), c_loc(liqcldf_local), c_loc(cloud_local))
+
+  end subroutine cldfrc_ice_wilson
+
+!================================================================================================
+
   subroutine cldfrc_state_init(ncol, q_local, qs_local, relhum_local, rh_local, cloud_local, icecldf_local, &
        liqcldf_local, rhcloud_local, cldst_local, concld_local, dindex_local, rhpert_local)
 
@@ -1046,6 +1130,44 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     end do
 
   end subroutine cldfrc_layer_rh_native
+
+!================================================================================================
+
+  subroutine cldfrc_ice_wilson_native(ncol, cldice_local, qs_local, rhcloud_local, icecldf_local, liqcldf_local, &
+       cloud_local)
+
+    integer, intent(in) :: ncol
+    real(r8), intent(in) :: cldice_local(pcols,pver)
+    real(r8), intent(in) :: qs_local(pcols,pver)
+    real(r8), intent(in) :: rhcloud_local(pcols,pver)
+    real(r8), intent(inout) :: icecldf_local(pcols,pver)
+    real(r8), intent(inout) :: liqcldf_local(pcols,pver)
+    real(r8), intent(inout) :: cloud_local(pcols,pver)
+
+    integer :: i, k
+    real(r8) :: ncf_local, phi_local
+
+    do k=top_lev+1,pver
+       do i=1,ncol
+          ncf_local = cldice_local(i,k)/((1._r8 - icecrit)*qs_local(i,k))
+          if (ncf_local.le.0._r8) then
+             icecldf_local(i,k)=0._r8
+          else if (ncf_local.gt.0._r8 .and. ncf_local.le.1._r8/6._r8) then
+             icecldf_local(i,k)=0.5_r8*(6._r8 * ncf_local)**(2._r8/3._r8)
+          else if (ncf_local.gt.1._r8/6._r8 .and. ncf_local.lt.1._r8) then
+             phi_local=(acos(3._r8*(1._r8-ncf_local)/2._r8**(3._r8/2._r8))+4._r8*3.1415927_r8)/3._r8
+             icecldf_local(i,k)=(1._r8 - 4._r8 * cos(phi_local) * cos(phi_local))
+          else
+             icecldf_local(i,k)=1._r8
+          endif
+          icecldf_local(i,k)=max(0._r8,min(icecldf_local(i,k),1._r8))
+
+          liqcldf_local(i,k)=(1._r8 - icecldf_local(i,k))* rhcloud_local(i,k)
+          cloud_local(i,k)=liqcldf_local(i,k) + icecldf_local(i,k)
+       end do
+    end do
+
+  end subroutine cldfrc_ice_wilson_native
 
 !================================================================================================
 

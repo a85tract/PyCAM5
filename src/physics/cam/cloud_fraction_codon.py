@@ -1,4 +1,4 @@
-from math import log
+from math import acos, cos, log
 
 
 @inline
@@ -140,6 +140,55 @@ def cldfrc_layer_rh_codon(
                     rhcloud[idx] = rhcloud_val
 
             rhu00[idx] = rhlim
+
+
+@export
+def cldfrc_ice_wilson_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    icecrit: float,
+    one_sixth: float,
+    two_thirds: float,
+    two_pow_three_halves: float,
+    phi_offset: float,
+    cldice_p: cobj,
+    qs_p: cobj,
+    rhcloud_p: cobj,
+    icecldf_p: cobj,
+    liqcldf_p: cobj,
+    cloud_p: cobj,
+):
+    cldice = Ptr[float](cldice_p)
+    qs = Ptr[float](qs_p)
+    rhcloud = Ptr[float](rhcloud_p)
+    icecldf = Ptr[float](icecldf_p)
+    liqcldf = Ptr[float](liqcldf_p)
+    cloud = Ptr[float](cloud_p)
+
+    for k in range(top_lev + 1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _field2_idx(i, k, pcols)
+            ncf = cldice[idx] / ((1.0 - icecrit) * qs[idx])
+
+            if ncf <= 0.0:
+                icecldf[idx] = 0.0
+            elif ncf <= one_sixth:
+                icecldf[idx] = 0.5 * (6.0 * ncf) ** two_thirds
+            elif ncf < 1.0:
+                phi = (acos(3.0 * (1.0 - ncf) / two_pow_three_halves) + phi_offset) / 3.0
+                icecldf[idx] = 1.0 - 4.0 * cos(phi) * cos(phi)
+            else:
+                icecldf[idx] = 1.0
+
+            if icecldf[idx] < 0.0:
+                icecldf[idx] = 0.0
+            elif icecldf[idx] > 1.0:
+                icecldf[idx] = 1.0
+
+            liqcldf[idx] = (1.0 - icecldf[idx]) * rhcloud[idx]
+            cloud[idx] = liqcldf[idx] + icecldf[idx]
 
 
 @export
