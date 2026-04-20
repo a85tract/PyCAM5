@@ -8,6 +8,37 @@ def _field2_idx(i: int, k: int, ld1: int) -> int:
 
 
 @export
+def cldfrc_total_cloud_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    rhcloud_p: cobj,
+    cldst_p: cobj,
+    concld_p: cobj,
+    cloud_p: cobj,
+):
+    rhcloud = Ptr[float](rhcloud_p)
+    cldst = Ptr[float](cldst_p)
+    concld = Ptr[float](concld_p)
+    cloud = Ptr[float](cloud_p)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _field2_idx(i, k, pcols)
+            if rhcloud[idx] > cldst[idx]:
+                cloud[idx] = rhcloud[idx]
+            else:
+                cloud[idx] = cldst[idx]
+
+            cloud_sum = cloud[idx] + concld[idx]
+            if cloud_sum < 1.0:
+                cloud[idx] = cloud_sum
+            else:
+                cloud[idx] = 1.0
+
+
+@export
 def cldfrc_convective_cover_codon(
     ncol: int,
     pcols: int,

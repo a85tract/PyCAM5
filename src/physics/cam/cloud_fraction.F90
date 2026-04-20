@@ -78,6 +78,8 @@ module cloud_fraction
   logical :: cldfrc_fice_impl_selected = .false.
   logical :: use_native_cldfrc_convective_cover_impl = .false.
   logical :: cldfrc_convective_cover_impl_selected = .false.
+  logical :: use_native_cldfrc_total_cloud_impl = .false.
+  logical :: cldfrc_total_cloud_impl_selected = .false.
 
 !================================================================================================
   contains
@@ -154,6 +156,43 @@ subroutine cldfrc_convective_cover_select_impl()
    end if
 
 end subroutine cldfrc_convective_cover_select_impl
+
+!================================================================================================
+
+subroutine cldfrc_total_cloud_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cldfrc_total_cloud_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CLDFRC_TOTAL_CLOUD_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_cldfrc_total_cloud_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_cldfrc_total_cloud_impl = .false.
+   end if
+
+   cldfrc_total_cloud_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_cldfrc_total_cloud_impl) then
+         write(iulog,*) 'cldfrc_total_cloud implementation = native'
+      else
+         write(iulog,*) 'cldfrc_total_cloud implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine cldfrc_total_cloud_select_impl
 
 !================================================================================================
 
@@ -795,19 +834,7 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     end do
     end if  ! .not.inversion_cld_off
 
-    do k=top_lev,pver
-       do i=1,ncol
-          !
-          !       which is greater; standard layered cloud amount or stratocumulus diagnosis
-          !
-          cloud(i,k) = max(rhcloud(i,k),cldst(i,k))
-          !
-          !       add in the contributions of convective cloud (determined separately and accounted
-          !       for by modifications to the large-scale relative humidity.
-          !
-          cloud(i,k) = min(cloud(i,k)+concld(i,k), 1.0_r8)
-       end do
-    end do
+    call cldfrc_total_cloud(ncol, rhcloud, cldst, concld, cloud)
 
     call outfld( 'SH_CLD  ', shallowcu   , pcols, lchnk )
     call outfld( 'DP_CLD  ', deepcu      , pcols, lchnk )
@@ -815,6 +842,60 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     !
     return
   end subroutine cldfrc
+
+!================================================================================================
+
+  subroutine cldfrc_total_cloud(ncol, rhcloud_local, cldst_local, concld_local, cloud_local)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: rhcloud_local(pcols,pver)
+    real(r8), target, intent(in) :: cldst_local(pcols,pver)
+    real(r8), target, intent(in) :: concld_local(pcols,pver)
+    real(r8), target, intent(inout) :: cloud_local(pcols,pver)
+
+    interface
+       subroutine cldfrc_total_cloud_codon(ncol_c, pcols_c, pver_c, top_lev_c, rhcloud_p, cldst_p, concld_p, &
+            cloud_p) bind(c, name="cldfrc_total_cloud_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+         type(c_ptr), value :: rhcloud_p, cldst_p, concld_p, cloud_p
+       end subroutine cldfrc_total_cloud_codon
+    end interface
+
+    call cldfrc_total_cloud_select_impl()
+
+    if (use_native_cldfrc_total_cloud_impl) then
+       call cldfrc_total_cloud_native(ncol, rhcloud_local, cldst_local, concld_local, cloud_local)
+       return
+    end if
+
+    call cldfrc_total_cloud_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(top_lev, c_int64_t), c_loc(rhcloud_local), c_loc(cldst_local), c_loc(concld_local), c_loc(cloud_local))
+
+  end subroutine cldfrc_total_cloud
+
+!================================================================================================
+
+  subroutine cldfrc_total_cloud_native(ncol, rhcloud_local, cldst_local, concld_local, cloud_local)
+
+    integer, intent(in) :: ncol
+    real(r8), intent(in) :: rhcloud_local(pcols,pver)
+    real(r8), intent(in) :: cldst_local(pcols,pver)
+    real(r8), intent(in) :: concld_local(pcols,pver)
+    real(r8), intent(inout) :: cloud_local(pcols,pver)
+
+    integer :: i, k
+
+    do k=top_lev,pver
+       do i=1,ncol
+          cloud_local(i,k) = max(rhcloud_local(i,k),cldst_local(i,k))
+          cloud_local(i,k) = min(cloud_local(i,k)+concld_local(i,k), 1.0_r8)
+       end do
+    end do
+
+  end subroutine cldfrc_total_cloud_native
 
 !================================================================================================
 
