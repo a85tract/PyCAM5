@@ -619,6 +619,22 @@ def phys_inidat_kvh_default_codon(
 
 
 @export
+def phys_inidat_qcwat_default_codon(
+    primary_found_i: int,
+    fallback_found_i: int,
+    init_source_p: cobj,
+):
+    init_source = Ptr[int](init_source_p)
+
+    if primary_found_i != 0:
+        init_source[0] = 1
+    elif fallback_found_i != 0:
+        init_source[0] = 2
+    else:
+        init_source[0] = 0
+
+
+@export
 def phys_inidat_iccwat_default_codon(
     primary_found_i: int,
     fallback_found_i: int,
