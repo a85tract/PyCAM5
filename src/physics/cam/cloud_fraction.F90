@@ -76,6 +76,8 @@ module cloud_fraction
   integer :: k700   ! model level nearest 700 mb
   logical :: use_native_cldfrc_fice_impl = .false.
   logical :: cldfrc_fice_impl_selected = .false.
+  logical :: use_native_cldfrc_convective_cover_impl = .false.
+  logical :: cldfrc_convective_cover_impl_selected = .false.
 
 !================================================================================================
   contains
@@ -115,6 +117,43 @@ subroutine cldfrc_fice_select_impl()
    end if
 
 end subroutine cldfrc_fice_select_impl
+
+!================================================================================================
+
+subroutine cldfrc_convective_cover_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cldfrc_convective_cover_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CLDFRC_CONVECTIVE_COVER_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_cldfrc_convective_cover_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_cldfrc_convective_cover_impl = .false.
+   end if
+
+   cldfrc_convective_cover_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_cldfrc_convective_cover_impl) then
+         write(iulog,*) 'cldfrc_convective_cover implementation = native'
+      else
+         write(iulog,*) 'cldfrc_convective_cover implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine cldfrc_convective_cover_select_impl
 
 !================================================================================================
 
@@ -522,18 +561,7 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     ! are evaluated separately) and summed
     !   
 #ifndef PERGRO
-    do k=top_lev,pver
-       do i=1,ncol
-          if ( .not. use_shfrc ) then
-             shallowcu(i,k) = max(0.0_r8,min(sh1*log(1.0_r8+sh2*cmfmc2(i,k+1)),0.30_r8))
-          else
-             shallowcu(i,k) = shfrc(i,k)
-          endif
-          deepcu(i,k) = max(0.0_r8,min(dp1*log(1.0_r8+dp2*(cmfmc(i,k+1)-cmfmc2(i,k+1))),0.60_r8))
-          concld(i,k) = min(shallowcu(i,k) + deepcu(i,k),0.80_r8)
-          rh(i,k) = (rh(i,k) - concld(i,k))/(1.0_r8 - concld(i,k))
-       end do
-    end do
+    call cldfrc_convective_cover(ncol, use_shfrc, shfrc, cmfmc, cmfmc2, shallowcu, deepcu, concld, rh)
 #endif
     !==================================================================================
     !
@@ -787,6 +815,85 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     !
     return
   end subroutine cldfrc
+
+!================================================================================================
+
+  subroutine cldfrc_convective_cover(ncol, use_shfrc_local, shfrc_local, cmfmc_local, cmfmc2_local, &
+       shallowcu_local, deepcu_local, concld_local, rh_local)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    logical, intent(in) :: use_shfrc_local
+    real(r8), target, intent(in) :: shfrc_local(pcols,pver)
+    real(r8), target, intent(in) :: cmfmc_local(pcols,pverp)
+    real(r8), target, intent(in) :: cmfmc2_local(pcols,pverp)
+    real(r8), target, intent(inout) :: shallowcu_local(pcols,pver)
+    real(r8), target, intent(inout) :: deepcu_local(pcols,pver)
+    real(r8), target, intent(inout) :: concld_local(pcols,pver)
+    real(r8), target, intent(inout) :: rh_local(pcols,pver)
+
+    integer(c_int64_t) :: use_shfrc_c
+
+    interface
+       subroutine cldfrc_convective_cover_codon(ncol_c, pcols_c, pver_c, top_lev_c, use_shfrc_c, &
+            sh1_c, sh2_c, dp1_c, dp2_c, shfrc_p, cmfmc_p, cmfmc2_p, shallowcu_p, deepcu_p, concld_p, rh_p) &
+            bind(c, name="cldfrc_convective_cover_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr, c_double
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, use_shfrc_c
+         real(c_double), value :: sh1_c, sh2_c, dp1_c, dp2_c
+         type(c_ptr), value :: shfrc_p, cmfmc_p, cmfmc2_p, shallowcu_p, deepcu_p, concld_p, rh_p
+       end subroutine cldfrc_convective_cover_codon
+    end interface
+
+    call cldfrc_convective_cover_select_impl()
+
+    if (use_native_cldfrc_convective_cover_impl) then
+       call cldfrc_convective_cover_native(ncol, use_shfrc_local, shfrc_local, cmfmc_local, cmfmc2_local, &
+            shallowcu_local, deepcu_local, concld_local, rh_local)
+       return
+    end if
+
+    use_shfrc_c = 0_c_int64_t
+    if (use_shfrc_local) use_shfrc_c = 1_c_int64_t
+
+    call cldfrc_convective_cover_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(top_lev, c_int64_t), use_shfrc_c, sh1, sh2, dp1, dp2, c_loc(shfrc_local), c_loc(cmfmc_local), &
+         c_loc(cmfmc2_local), c_loc(shallowcu_local), c_loc(deepcu_local), c_loc(concld_local), c_loc(rh_local))
+
+  end subroutine cldfrc_convective_cover
+
+!================================================================================================
+
+  subroutine cldfrc_convective_cover_native(ncol, use_shfrc_local, shfrc_local, cmfmc_local, cmfmc2_local, &
+       shallowcu_local, deepcu_local, concld_local, rh_local)
+
+    integer, intent(in) :: ncol
+    logical, intent(in) :: use_shfrc_local
+    real(r8), intent(in) :: shfrc_local(pcols,pver)
+    real(r8), intent(in) :: cmfmc_local(pcols,pverp)
+    real(r8), intent(in) :: cmfmc2_local(pcols,pverp)
+    real(r8), intent(inout) :: shallowcu_local(pcols,pver)
+    real(r8), intent(inout) :: deepcu_local(pcols,pver)
+    real(r8), intent(inout) :: concld_local(pcols,pver)
+    real(r8), intent(inout) :: rh_local(pcols,pver)
+
+    integer :: i, k
+
+    do k=top_lev,pver
+       do i=1,ncol
+          if ( .not. use_shfrc_local ) then
+             shallowcu_local(i,k) = max(0.0_r8,min(sh1*log(1.0_r8+sh2*cmfmc2_local(i,k+1)),0.30_r8))
+          else
+             shallowcu_local(i,k) = shfrc_local(i,k)
+          endif
+          deepcu_local(i,k) = max(0.0_r8,min(dp1*log(1.0_r8+dp2*(cmfmc_local(i,k+1)-cmfmc2_local(i,k+1))),0.60_r8))
+          concld_local(i,k) = min(shallowcu_local(i,k) + deepcu_local(i,k),0.80_r8)
+          rh_local(i,k) = (rh_local(i,k) - concld_local(i,k))/(1.0_r8 - concld_local(i,k))
+       end do
+    end do
+
+  end subroutine cldfrc_convective_cover_native
 
 !================================================================================================
 
