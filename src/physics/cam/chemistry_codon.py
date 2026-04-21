@@ -295,6 +295,23 @@ def gas_phase_chemdr_load_mmr_codon(
 
 
 @export
+def gas_phase_chemdr_clip_sulfate_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    troplev_p: cobj,
+    sulfate_p: cobj,
+):
+    troplev = Ptr[int](troplev_p)
+    sulfate = Ptr[float](sulfate_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            if k < troplev[i - 1]:
+                sulfate[_idx2(i, k, ncol)] = 0.0
+
+
+@export
 def gas_phase_chemdr_store_drydep_codon(
     ncol: int,
     pcols: int,

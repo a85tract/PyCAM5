@@ -647,13 +647,7 @@ contains
     !-----------------------------------------------------------------
     ! ... zero out sulfate above tropopause
     !-----------------------------------------------------------------
-    do k = 1, pver
-       do i = 1, ncol
-          if( k < troplev(i) ) then
-             sulfate(i,k) = 0.0_r8
-          end if
-       end do
-    end do
+    call gas_phase_chemdr_clip_sulfate(ncol, troplev, sulfate)
 
     !-----------------------------------------------------------------
     !	... compute the relative humidity
@@ -1182,6 +1176,45 @@ contains
     )
 
   end subroutine gas_phase_chemdr_load_mmr
+
+  subroutine gas_phase_chemdr_clip_sulfate(ncol, troplev, sulfate)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    integer, target, intent(in) :: troplev(pcols)
+    real(r8), target, intent(inout) :: sulfate(ncol,pver)
+
+    integer :: i, k
+    integer(c_int64_t), target :: troplev_c(pcols)
+
+    interface
+       subroutine gas_phase_chemdr_clip_sulfate_codon(ncol_c, pcols_c, pver_c, troplev_p, sulfate_p) &
+            bind(c, name="gas_phase_chemdr_clip_sulfate_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: troplev_p, sulfate_p
+       end subroutine gas_phase_chemdr_clip_sulfate_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do k = 1, pver
+          do i = 1, ncol
+             if( k < troplev(i) ) then
+                sulfate(i,k) = 0.0_r8
+             end if
+          end do
+       end do
+       return
+    end if
+
+    troplev_c(:) = int(troplev(:), c_int64_t)
+
+    call gas_phase_chemdr_clip_sulfate_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), c_loc(troplev_c), c_loc(sulfate) &
+    )
+
+  end subroutine gas_phase_chemdr_clip_sulfate
 
   subroutine gas_phase_chemdr_store_drydep(ncol, sflx, cflx, drydepflx)
 
