@@ -343,3 +343,24 @@ def qqcw2vmr_codon(
             vmr[_idx2(i, k, ncol)] = (
                 mbar[_idx2(i, k, ncol)] * fldcw[_idx2(i, k, fldcw_ld1)] / adv_mass
             )
+
+
+@export
+def vmr2qqcw_codon(
+    ncol: int,
+    pver: int,
+    fldcw_ld1: int,
+    vmr_p: cobj,
+    mbar_p: cobj,
+    adv_mass: float,
+    fldcw_p: cobj,
+):
+    vmr = Ptr[float](vmr_p)
+    mbar = Ptr[float](mbar_p)
+    fldcw = Ptr[float](fldcw_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            fldcw[_idx2(i, k, fldcw_ld1)] = (
+                adv_mass * vmr[_idx2(i, k, ncol)] / mbar[_idx2(i, k, ncol)]
+            )
