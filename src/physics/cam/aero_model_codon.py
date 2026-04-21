@@ -998,3 +998,228 @@ def modal_aero_rename_acc_crs_dryvols_codon(
                             qqcw[_idx3(i, k, lc, ncol, pver)]
                             + deltat * dqqcwdt[_idx3(i, k, lc, ncol, pver)],
                         )
+
+
+@export
+def modal_aero_rename_acc_crs_xferfracs_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnstxx: int,
+    loffset: int,
+    mfrm: int,
+    numptr_amode_mfrm: int,
+    numptrcw_amode_mfrm: int,
+    igrow_shrink: int,
+    ixferable_all: int,
+    method_optbb: int,
+    flagaa_shrink: int,
+    dgnum_amode_mfrm: float,
+    factoraa: float,
+    factoryy: float,
+    dryvol_smallest: float,
+    v2nlorlx: float,
+    v2nhirlx: float,
+    factor_3alnsg2: float,
+    dp_cut: float,
+    lndp_cut: float,
+    dp_belowcut: float,
+    dp_xfernone_thresh: float,
+    dp_xferall_thresh: float,
+    onethird: float,
+    xferfrac_max: float,
+    troplev_p: cobj,
+    q_p: cobj,
+    qqcw_p: cobj,
+    dryvol_a_p: cobj,
+    dryvol_c_p: cobj,
+    deldryvol_a_p: cobj,
+    deldryvol_c_p: cobj,
+    dryvol_a_xfab_p: cobj,
+    dryvol_c_xfab_p: cobj,
+    xferfrac_vol_p: cobj,
+    xferfrac_num_p: cobj,
+):
+    troplev = Ptr[int](troplev_p)
+    q = Ptr[float](q_p)
+    qqcw = Ptr[float](qqcw_p)
+    dryvol_a = Ptr[float](dryvol_a_p)
+    dryvol_c = Ptr[float](dryvol_c_p)
+    deldryvol_a = Ptr[float](deldryvol_a_p)
+    deldryvol_c = Ptr[float](deldryvol_c_p)
+    dryvol_a_xfab = Ptr[float](dryvol_a_xfab_p)
+    dryvol_c_xfab = Ptr[float](dryvol_c_xfab_p)
+    xferfrac_vol = Ptr[float](xferfrac_vol_p)
+    xferfrac_num = Ptr[float](xferfrac_num_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            xferfrac_vol[_idx2(i, k, ncol)] = 0.0
+            xferfrac_num[_idx2(i, k, ncol)] = 0.0
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            dryvol_t_old = dryvol_a[_idx2(i, k, ncol)] + dryvol_c[_idx2(i, k, ncol)]
+            dryvol_t_del = deldryvol_a[_idx2(i, k, ncol)] + deldryvol_c[_idx2(i, k, ncol)]
+            dryvol_t_new = dryvol_t_old + dryvol_t_del
+            dryvol_t_oldbnd = max(dryvol_t_old, dryvol_smallest)
+
+            if igrow_shrink > 0:
+                if dryvol_t_new <= dryvol_smallest:
+                    continue
+                if method_optbb != 2:
+                    if dryvol_t_del <= 1.0e-6 * dryvol_t_oldbnd:
+                        continue
+
+                num_t_old = q[_idx3(i, k, numptr_amode_mfrm - loffset, ncol, pver)]
+                num_t_old += qqcw[
+                    _idx3(i, k, numptrcw_amode_mfrm - loffset, ncol, pver)
+                ]
+                num_t_old = max(0.0, num_t_old)
+                dryvol_t_oldbnd = max(dryvol_t_old, dryvol_smallest)
+                num_t_oldbnd = min(dryvol_t_oldbnd * v2nlorlx, num_t_old)
+                num_t_oldbnd = max(dryvol_t_oldbnd * v2nhirlx, num_t_oldbnd)
+
+                dgn_t_new = (dryvol_t_new / (num_t_oldbnd * factoraa)) ** onethird
+                if dgn_t_new <= dp_xfernone_thresh:
+                    continue
+
+                dgn_t_old = (dryvol_t_oldbnd / (num_t_oldbnd * factoraa)) ** onethird
+                dgn_t_oldb = dgn_t_old
+                dryvol_t_oldb = dryvol_t_old
+                if method_optbb == 2:
+                    if dgn_t_old >= dp_cut:
+                        dryvol_t_oldb = dryvol_t_old * (dp_belowcut / dgn_t_old) ** 3
+                        dgn_t_oldb = dp_belowcut
+                    if dgn_t_new < dp_xferall_thresh:
+                        if (dryvol_t_new - dryvol_t_oldb) <= 1.0e-6 * dryvol_t_oldbnd:
+                            continue
+                elif dgn_t_new >= dp_cut:
+                    dgn_t_oldb = min(dgn_t_oldb, dp_belowcut)
+
+                lndgn_new = log(dgn_t_new)
+                lndgv_new = lndgn_new + factor_3alnsg2
+                yn_tail = (lndp_cut - lndgn_new) * factoryy
+                yv_tail = (lndp_cut - lndgv_new) * factoryy
+                tailfr_numnew = 0.5 * erfc(yn_tail)
+                tailfr_volnew = 0.5 * erfc(yv_tail)
+
+                lndgn_old = log(dgn_t_oldb)
+                lndgv_old = lndgn_old + factor_3alnsg2
+                yn_tail = (lndp_cut - lndgn_old) * factoryy
+                yv_tail = (lndp_cut - lndgv_old) * factoryy
+                tailfr_numold = 0.5 * erfc(yn_tail)
+                tailfr_volold = 0.5 * erfc(yv_tail)
+
+                if method_optbb == 2 and dgn_t_new >= dp_xferall_thresh:
+                    dryvol_xferamt = dryvol_t_new
+                else:
+                    dryvol_xferamt = (
+                        tailfr_volnew * dryvol_t_new - tailfr_volold * dryvol_t_oldb
+                    )
+                if dryvol_xferamt <= 0.0:
+                    continue
+
+                xferfrac_vol_val = max(0.0, dryvol_xferamt / dryvol_t_new)
+                if method_optbb == 2 and xferfrac_vol_val >= xferfrac_max:
+                    xferfrac_vol_val = 1.0
+                    xferfrac_num_val = 1.0
+                else:
+                    xferfrac_vol_val = min(xferfrac_vol_val, xferfrac_max)
+                    xferfrac_num_val = tailfr_numnew - tailfr_numold
+                    xferfrac_num_val = max(
+                        0.0, min(xferfrac_num_val, xferfrac_vol_val)
+                    )
+
+                if ixferable_all <= 0:
+                    dryvol_t_new_xfab = max(
+                        0.0,
+                        dryvol_a_xfab[_idx2(i, k, ncol)] + dryvol_c_xfab[_idx2(i, k, ncol)],
+                    )
+                    dryvol_xferamt = xferfrac_vol_val * dryvol_t_new
+                    if dryvol_t_new_xfab >= 0.999999 * dryvol_xferamt:
+                        xferfrac_vol_val = min(1.0, dryvol_xferamt / dryvol_t_new_xfab)
+                    elif dryvol_t_new_xfab >= 1.0e-7 * dryvol_xferamt:
+                        xferfrac_vol_val = 1.0
+                        xferfrac_num_val = xferfrac_num_val * (
+                            dryvol_t_new_xfab / dryvol_xferamt
+                        )
+                    else:
+                        continue
+
+            else:
+                if dryvol_t_old <= dryvol_smallest:
+                    continue
+
+                if dryvol_t_del >= -1.0e-6 * dryvol_t_oldbnd:
+                    if flagaa_shrink != 0 and k < troplev[i - 1]:
+                        flagbb_shrink = 1
+                    else:
+                        continue
+                else:
+                    flagbb_shrink = 0
+
+                num_t_old = q[_idx3(i, k, numptr_amode_mfrm - loffset, ncol, pver)]
+                num_t_old += qqcw[
+                    _idx3(i, k, numptrcw_amode_mfrm - loffset, ncol, pver)
+                ]
+                num_t_old = max(0.0, num_t_old)
+                dryvol_t_oldbnd = max(dryvol_t_old, dryvol_smallest)
+                num_t_oldbnd = min(dryvol_t_oldbnd * v2nlorlx, num_t_old)
+                num_t_oldbnd = max(dryvol_t_oldbnd * v2nhirlx, num_t_oldbnd)
+
+                dgn_t_new = (dryvol_t_new / (num_t_oldbnd * factoraa)) ** onethird
+                if dgn_t_new >= dp_xfernone_thresh:
+                    continue
+                if flagbb_shrink != 0:
+                    if dgn_t_new > dp_cut:
+                        continue
+
+                if dgn_t_new <= dp_xferall_thresh:
+                    tailfr_numnew = 1.0
+                    tailfr_volnew = 1.0
+                else:
+                    lndgn_new = log(dgn_t_new)
+                    lndgv_new = lndgn_new + factor_3alnsg2
+                    yn_tail = (lndp_cut - lndgn_new) * factoryy
+                    yv_tail = (lndp_cut - lndgv_new) * factoryy
+                    tailfr_numnew = 1.0 - 0.5 * erfc(yn_tail)
+                    tailfr_volnew = 1.0 - 0.5 * erfc(yv_tail)
+
+                dgn_t_old = (dryvol_t_oldbnd / (num_t_oldbnd * factoraa)) ** onethird
+                dgn_t_oldb = dgn_t_old
+                dryvol_t_oldb = dryvol_t_old
+                tailfr_numold = 0.0
+                tailfr_volold = 0.0
+
+                xferfrac_vol_val = tailfr_volnew
+                if xferfrac_vol_val <= 0.0:
+                    continue
+                xferfrac_num_val = tailfr_numnew
+
+                if xferfrac_vol_val >= xferfrac_max:
+                    xferfrac_vol_val = 1.0
+                    xferfrac_num_val = 1.0
+                else:
+                    xferfrac_vol_val = min(xferfrac_vol_val, xferfrac_max)
+                    xferfrac_num_val = max(xferfrac_num_val, xferfrac_vol_val)
+                    xferfrac_num_val = min(xferfrac_max, xferfrac_num_val)
+
+                if ixferable_all <= 0:
+                    dryvol_t_new_xfab = max(
+                        0.0,
+                        dryvol_a_xfab[_idx2(i, k, ncol)] + dryvol_c_xfab[_idx2(i, k, ncol)],
+                    )
+                    dryvol_xferamt = xferfrac_vol_val * dryvol_t_new
+                    if dryvol_t_new_xfab >= 0.999999 * dryvol_xferamt:
+                        xferfrac_vol_val = min(1.0, dryvol_xferamt / dryvol_t_new_xfab)
+                    elif dryvol_t_new_xfab >= 1.0e-7 * dryvol_xferamt:
+                        xferfrac_vol_val = 1.0
+                        xferfrac_num_val = xferfrac_num_val * (
+                            dryvol_t_new_xfab / dryvol_xferamt
+                        )
+                    else:
+                        continue
+
+            xferfrac_vol[_idx2(i, k, ncol)] = xferfrac_vol_val
+            xferfrac_num[_idx2(i, k, ncol)] = xferfrac_num_val
