@@ -472,12 +472,7 @@ contains
     !-----------------------------------------------------------------------      
     !        ... map incoming concentrations to working array
     !-----------------------------------------------------------------------      
-    do m = 1,pcnst
-       n = map2chm(m)
-       if( n > 0 ) then
-          mmr(:ncol,:,n) = q(:ncol,:,m)
-       end if
-    end do
+    call gas_phase_chemdr_load_mmr(ncol, q, mmr)
 
     call get_short_lived_species( mmr, lchnk, ncol, pbuf )
 
@@ -1148,6 +1143,45 @@ contains
     )
 
   end subroutine gas_phase_chemdr_prepare_state
+
+  subroutine gas_phase_chemdr_load_mmr(ncol, q, mmr)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: q(pcols,pver,pcnst)
+    real(r8), target, intent(inout) :: mmr(pcols,pver,gas_pcnst)
+
+    integer :: m, n
+    integer(c_int64_t), target :: map2chm_c(pcnst)
+
+    interface
+       subroutine gas_phase_chemdr_load_mmr_codon(ncol_c, pcols_c, pver_c, pcnst_c, map2chm_p, q_p, mmr_p) &
+            bind(c, name="gas_phase_chemdr_load_mmr_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c
+         type(c_ptr), value :: map2chm_p, q_p, mmr_p
+       end subroutine gas_phase_chemdr_load_mmr_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do m = 1,pcnst
+          n = map2chm(m)
+          if( n > 0 ) then
+             mmr(:ncol,:,n) = q(:ncol,:,m)
+          end if
+       end do
+       return
+    end if
+
+    map2chm_c(:) = int(map2chm(:), c_int64_t)
+
+    call gas_phase_chemdr_load_mmr_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+         c_loc(map2chm_c), c_loc(q), c_loc(mmr) &
+    )
+
+  end subroutine gas_phase_chemdr_load_mmr
 
   subroutine gas_phase_chemdr_store_drydep(ncol, sflx, cflx, drydepflx)
 

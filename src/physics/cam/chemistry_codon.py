@@ -271,6 +271,30 @@ def gas_phase_chemdr_prepare_state_codon(
 
 
 @export
+def gas_phase_chemdr_load_mmr_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    map2chm_p: cobj,
+    q_p: cobj,
+    mmr_p: cobj,
+):
+    map2chm = Ptr[int](map2chm_p)
+    q = Ptr[float](q_p)
+    mmr = Ptr[float](mmr_p)
+
+    for m in range(1, pcnst + 1):
+        n = map2chm[m - 1]
+        if n > 0:
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    idx_q = _idx3(i, k, m, pcols, pver)
+                    idx_mmr = _idx3(i, k, n, pcols, pver)
+                    mmr[idx_mmr] = q[idx_q]
+
+
+@export
 def gas_phase_chemdr_store_drydep_codon(
     ncol: int,
     pcols: int,
