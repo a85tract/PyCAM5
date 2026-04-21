@@ -1279,6 +1279,449 @@ def modal_aero_rename_acc_crs_pair_codon(
     )
 
 
+def modal_aero_rename_acc_crs_dryvols_full_codon(
+    ncol: int,
+    pver: int,
+    maxspec_renamexf: int,
+    loffset: int,
+    ipair: int,
+    mfrm: int,
+    nspec_mfrm: int,
+    ixferable_all: int,
+    deltat: float,
+    q_p: cobj,
+    qqcw_p: cobj,
+    dqdt_p: cobj,
+    dqdt_other_p: cobj,
+    dqqcwdt_p: cobj,
+    dqqcwdt_other_p: cobj,
+    lspectype_amode_p: cobj,
+    specmw_amode_p: cobj,
+    specdens_amode_p: cobj,
+    lmassptr_amode_p: cobj,
+    lmassptrcw_amode_p: cobj,
+    ixferable_a_renamexf_p: cobj,
+    ixferable_c_renamexf_p: cobj,
+    dryvol_a_p: cobj,
+    dryvol_c_p: cobj,
+    deldryvol_a_p: cobj,
+    deldryvol_c_p: cobj,
+    dryvol_a_xfab_p: cobj,
+    dryvol_c_xfab_p: cobj,
+):
+    q = Ptr[float](q_p)
+    qqcw = Ptr[float](qqcw_p)
+    dqdt = Ptr[float](dqdt_p)
+    dqdt_other = Ptr[float](dqdt_other_p)
+    dqqcwdt = Ptr[float](dqqcwdt_p)
+    dqqcwdt_other = Ptr[float](dqqcwdt_other_p)
+    lspectype_amode = Ptr[int](lspectype_amode_p)
+    specmw_amode = Ptr[float](specmw_amode_p)
+    specdens_amode = Ptr[float](specdens_amode_p)
+    lmassptr_amode = Ptr[int](lmassptr_amode_p)
+    lmassptrcw_amode = Ptr[int](lmassptrcw_amode_p)
+    ixferable_a_renamexf = Ptr[int](ixferable_a_renamexf_p)
+    ixferable_c_renamexf = Ptr[int](ixferable_c_renamexf_p)
+    dryvol_a = Ptr[float](dryvol_a_p)
+    dryvol_c = Ptr[float](dryvol_c_p)
+    deldryvol_a = Ptr[float](deldryvol_a_p)
+    deldryvol_c = Ptr[float](deldryvol_c_p)
+    dryvol_a_xfab = Ptr[float](dryvol_a_xfab_p)
+    dryvol_c_xfab = Ptr[float](dryvol_c_xfab_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            dryvol_a[_idx2(i, k, ncol)] = 0.0
+            dryvol_c[_idx2(i, k, ncol)] = 0.0
+            deldryvol_a[_idx2(i, k, ncol)] = 0.0
+            deldryvol_c[_idx2(i, k, ncol)] = 0.0
+            dryvol_a_xfab[_idx2(i, k, ncol)] = 0.0
+            dryvol_c_xfab[_idx2(i, k, ncol)] = 0.0
+
+    for l1 in range(1, nspec_mfrm + 1):
+        l2 = lspectype_amode[_idx2(l1, mfrm, maxspec_renamexf)]
+        tmp_m2v = specmw_amode[l2 - 1] / specdens_amode[l2 - 1]
+        tmp_m2vdt = tmp_m2v * deltat
+
+        la = lmassptr_amode[_idx2(l1, mfrm, maxspec_renamexf)] - loffset
+        if la > 0:
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    dryvol_a[_idx2(i, k, ncol)] += tmp_m2v * max(
+                        0.0,
+                        q[_idx3(i, k, la, ncol, pver)]
+                        - deltat * dqdt_other[_idx3(i, k, la, ncol, pver)],
+                    )
+                    deldryvol_a[_idx2(i, k, ncol)] += (
+                        dqdt_other[_idx3(i, k, la, ncol, pver)]
+                        + dqdt[_idx3(i, k, la, ncol, pver)]
+                    ) * tmp_m2vdt
+                    if (
+                        ixferable_all <= 0
+                        and ixferable_a_renamexf[_idx2(l1, ipair, maxspec_renamexf)] > 0
+                    ):
+                        dryvol_a_xfab[_idx2(i, k, ncol)] += tmp_m2v * max(
+                            0.0,
+                            q[_idx3(i, k, la, ncol, pver)]
+                            + deltat * dqdt[_idx3(i, k, la, ncol, pver)],
+                        )
+
+        lc = lmassptrcw_amode[_idx2(l1, mfrm, maxspec_renamexf)] - loffset
+        if lc > 0:
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    dryvol_c[_idx2(i, k, ncol)] += tmp_m2v * max(
+                        0.0,
+                        qqcw[_idx3(i, k, lc, ncol, pver)]
+                        - deltat * dqqcwdt_other[_idx3(i, k, lc, ncol, pver)],
+                    )
+                    deldryvol_c[_idx2(i, k, ncol)] += (
+                        dqqcwdt_other[_idx3(i, k, lc, ncol, pver)]
+                        + dqqcwdt[_idx3(i, k, lc, ncol, pver)]
+                    ) * tmp_m2vdt
+                    if (
+                        ixferable_all <= 0
+                        and ixferable_c_renamexf[_idx2(l1, ipair, maxspec_renamexf)] > 0
+                    ):
+                        dryvol_c_xfab[_idx2(i, k, ncol)] += tmp_m2v * max(
+                            0.0,
+                            qqcw[_idx3(i, k, lc, ncol, pver)]
+                            + deltat * dqqcwdt[_idx3(i, k, lc, ncol, pver)],
+                        )
+
+
+def modal_aero_rename_acc_crs_tendencies_full_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnstxx: int,
+    maxspec_renamexf: int,
+    loffset: int,
+    ipair: int,
+    nspecfrm_ipair: int,
+    jsrflx_rename: int,
+    is_dorename_atik: int,
+    l_dqdt_rnpos: int,
+    deltat: float,
+    deltatinv: float,
+    gravit: float,
+    pdel_p: cobj,
+    dorename_atik_p: cobj,
+    q_p: cobj,
+    qqcw_p: cobj,
+    dqdt_p: cobj,
+    dqqcwdt_p: cobj,
+    qsrflx_p: cobj,
+    qqcwsrflx_p: cobj,
+    xferfrac_vol_p: cobj,
+    xferfrac_num_p: cobj,
+    lspecfrma_renamexf_p: cobj,
+    lspecfrmc_renamexf_p: cobj,
+    lspectooa_renamexf_p: cobj,
+    lspectooc_renamexf_p: cobj,
+    dqdt_rnpos_p: cobj,
+):
+    pdel = Ptr[float](pdel_p)
+    dorename_atik = Ptr[int](dorename_atik_p)
+    q = Ptr[float](q_p)
+    qqcw = Ptr[float](qqcw_p)
+    dqdt = Ptr[float](dqdt_p)
+    dqqcwdt = Ptr[float](dqqcwdt_p)
+    qsrflx = Ptr[float](qsrflx_p)
+    qqcwsrflx = Ptr[float](qqcwsrflx_p)
+    xferfrac_vol = Ptr[float](xferfrac_vol_p)
+    xferfrac_num = Ptr[float](xferfrac_num_p)
+    lspecfrma_renamexf = Ptr[int](lspecfrma_renamexf_p)
+    lspecfrmc_renamexf = Ptr[int](lspecfrmc_renamexf_p)
+    lspectooa_renamexf = Ptr[int](lspectooa_renamexf_p)
+    lspectooc_renamexf = Ptr[int](lspectooc_renamexf_p)
+    dqdt_rnpos = Ptr[float](dqdt_rnpos_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            if is_dorename_atik != 0:
+                if dorename_atik[_idx2(i, k, ncol)] == 0:
+                    continue
+
+            xferfrac_vol_local = xferfrac_vol[_idx2(i, k, ncol)]
+            xferfrac_num_local = xferfrac_num[_idx2(i, k, ncol)]
+            if xferfrac_vol_local <= 0.0:
+                continue
+
+            pdel_fac = pdel[_idx2(i, k, pcols)] / gravit
+
+            for iq in range(1, nspecfrm_ipair + 1):
+                xfercoef = xferfrac_vol_local * deltatinv
+                if iq == 1:
+                    xfercoef = xferfrac_num_local * deltatinv
+
+                lsfrma = lspecfrma_renamexf[_idx2(iq, ipair, maxspec_renamexf)] - loffset
+                lsfrmc = lspecfrmc_renamexf[_idx2(iq, ipair, maxspec_renamexf)] - loffset
+                lstooa = lspectooa_renamexf[_idx2(iq, ipair, maxspec_renamexf)] - loffset
+                lstooc = lspectooc_renamexf[_idx2(iq, ipair, maxspec_renamexf)] - loffset
+
+                if lsfrma > 0:
+                    xfertend = xfercoef * max(
+                        0.0,
+                        q[_idx3(i, k, lsfrma, ncol, pver)]
+                        + dqdt[_idx3(i, k, lsfrma, ncol, pver)] * deltat,
+                    )
+                    dqdt[_idx3(i, k, lsfrma, ncol, pver)] -= xfertend
+                    qsrflx[_idx3(i, lsfrma, jsrflx_rename, pcols, pcnstxx)] -= (
+                        xfertend * pdel_fac
+                    )
+                    if lstooa > 0:
+                        dqdt[_idx3(i, k, lstooa, ncol, pver)] += xfertend
+                        qsrflx[_idx3(i, lstooa, jsrflx_rename, pcols, pcnstxx)] += (
+                            xfertend * pdel_fac
+                        )
+                        if l_dqdt_rnpos != 0:
+                            dqdt_rnpos[_idx3(i, k, lstooa, ncol, pver)] += xfertend
+
+                if lsfrmc > 0:
+                    xfertend = xfercoef * max(
+                        0.0,
+                        qqcw[_idx3(i, k, lsfrmc, ncol, pver)]
+                        + dqqcwdt[_idx3(i, k, lsfrmc, ncol, pver)] * deltat,
+                    )
+                    dqqcwdt[_idx3(i, k, lsfrmc, ncol, pver)] -= xfertend
+                    qqcwsrflx[_idx3(i, lsfrmc, jsrflx_rename, pcols, pcnstxx)] -= (
+                        xfertend * pdel_fac
+                    )
+                    if lstooc > 0:
+                        dqqcwdt[_idx3(i, k, lstooc, ncol, pver)] += xfertend
+                        qqcwsrflx[_idx3(i, lstooc, jsrflx_rename, pcols, pcnstxx)] += (
+                            xfertend * pdel_fac
+                        )
+
+
+@export
+def modal_aero_rename_acc_crs_sub_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnstxx: int,
+    maxpair_renamexf: int,
+    maxspec_renamexf: int,
+    loffset: int,
+    npair_renamexf: int,
+    is_dorename_atik: int,
+    l_dqdt_rnpos: int,
+    jsrflx_rename: int,
+    nsrflx: int,
+    modeptr_coarse: int,
+    modeptr_accum: int,
+    method_optbb: int,
+    deltat: float,
+    deltatinv: float,
+    onethird: float,
+    xferfrac_max: float,
+    gravit: float,
+    troplev_p: cobj,
+    pdel_p: cobj,
+    dorename_atik_p: cobj,
+    q_p: cobj,
+    qqcw_p: cobj,
+    dqdt_p: cobj,
+    dqdt_other_p: cobj,
+    dqqcwdt_p: cobj,
+    dqqcwdt_other_p: cobj,
+    qsrflx_p: cobj,
+    qqcwsrflx_p: cobj,
+    modefrm_renamexf_p: cobj,
+    modetoo_renamexf_p: cobj,
+    nspec_amode_p: cobj,
+    lspectype_amode_p: cobj,
+    specmw_amode_p: cobj,
+    specdens_amode_p: cobj,
+    lmassptr_amode_p: cobj,
+    lmassptrcw_amode_p: cobj,
+    numptr_amode_p: cobj,
+    numptrcw_amode_p: cobj,
+    dgnum_amode_p: cobj,
+    factoraa_p: cobj,
+    factoryy_p: cobj,
+    dryvol_smallest_p: cobj,
+    v2nlorlx_p: cobj,
+    v2nhirlx_p: cobj,
+    factor_3alnsg2_p: cobj,
+    dp_cut_p: cobj,
+    lndp_cut_p: cobj,
+    dp_belowcut_p: cobj,
+    dp_xfernone_threshaa_p: cobj,
+    dp_xferall_thresh_p: cobj,
+    igrow_shrink_renamexf_p: cobj,
+    ixferable_all_renamexf_p: cobj,
+    ixferable_a_renamexf_p: cobj,
+    ixferable_c_renamexf_p: cobj,
+    nspecfrm_renamexf_p: cobj,
+    lspecfrma_renamexf_p: cobj,
+    lspecfrmc_renamexf_p: cobj,
+    lspectooa_renamexf_p: cobj,
+    lspectooc_renamexf_p: cobj,
+    dryvol_a_p: cobj,
+    dryvol_c_p: cobj,
+    deldryvol_a_p: cobj,
+    deldryvol_c_p: cobj,
+    dryvol_a_xfab_p: cobj,
+    dryvol_c_xfab_p: cobj,
+    xferfrac_vol_p: cobj,
+    xferfrac_num_p: cobj,
+    dotendrn_p: cobj,
+    dotendqqcwrn_p: cobj,
+    dqdt_rnpos_p: cobj,
+):
+    modefrm_renamexf = Ptr[int](modefrm_renamexf_p)
+    modetoo_renamexf = Ptr[int](modetoo_renamexf_p)
+    nspec_amode = Ptr[int](nspec_amode_p)
+    numptr_amode = Ptr[int](numptr_amode_p)
+    numptrcw_amode = Ptr[int](numptrcw_amode_p)
+    dgnum_amode = Ptr[float](dgnum_amode_p)
+    factoraa = Ptr[float](factoraa_p)
+    factoryy = Ptr[float](factoryy_p)
+    dryvol_smallest = Ptr[float](dryvol_smallest_p)
+    v2nlorlx = Ptr[float](v2nlorlx_p)
+    v2nhirlx = Ptr[float](v2nhirlx_p)
+    factor_3alnsg2 = Ptr[float](factor_3alnsg2_p)
+    dp_cut = Ptr[float](dp_cut_p)
+    lndp_cut = Ptr[float](lndp_cut_p)
+    dp_belowcut = Ptr[float](dp_belowcut_p)
+    dp_xfernone_threshaa = Ptr[float](dp_xfernone_threshaa_p)
+    dp_xferall_thresh = Ptr[float](dp_xferall_thresh_p)
+    igrow_shrink_renamexf = Ptr[int](igrow_shrink_renamexf_p)
+    ixferable_all_renamexf = Ptr[int](ixferable_all_renamexf_p)
+    nspecfrm_renamexf = Ptr[int](nspecfrm_renamexf_p)
+
+    for ipair in range(1, npair_renamexf + 1):
+        mfrm = modefrm_renamexf[ipair - 1]
+        mtoo = modetoo_renamexf[ipair - 1]
+        nspec_mfrm = nspec_amode[mfrm - 1]
+        ixferable_all = ixferable_all_renamexf[ipair - 1]
+        igrow_shrink = igrow_shrink_renamexf[ipair - 1]
+
+        flagaa_shrink = 0
+        if mfrm == modeptr_coarse and mtoo == modeptr_accum:
+            flagaa_shrink = 1
+
+        modal_aero_rename_acc_crs_dryvols_full_codon(
+            ncol,
+            pver,
+            maxspec_renamexf,
+            loffset,
+            ipair,
+            mfrm,
+            nspec_mfrm,
+            ixferable_all,
+            deltat,
+            q_p,
+            qqcw_p,
+            dqdt_p,
+            dqdt_other_p,
+            dqqcwdt_p,
+            dqqcwdt_other_p,
+            lspectype_amode_p,
+            specmw_amode_p,
+            specdens_amode_p,
+            lmassptr_amode_p,
+            lmassptrcw_amode_p,
+            ixferable_a_renamexf_p,
+            ixferable_c_renamexf_p,
+            dryvol_a_p,
+            dryvol_c_p,
+            deldryvol_a_p,
+            deldryvol_c_p,
+            dryvol_a_xfab_p,
+            dryvol_c_xfab_p,
+        )
+
+        modal_aero_rename_acc_crs_xferfracs_codon(
+            ncol,
+            pcols,
+            pver,
+            pcnstxx,
+            loffset,
+            mfrm,
+            numptr_amode[mfrm - 1],
+            numptrcw_amode[mfrm - 1],
+            igrow_shrink,
+            ixferable_all,
+            method_optbb,
+            flagaa_shrink,
+            dgnum_amode[mfrm - 1],
+            factoraa[mfrm - 1],
+            factoryy[mfrm - 1],
+            dryvol_smallest[mfrm - 1],
+            v2nlorlx[mfrm - 1],
+            v2nhirlx[mfrm - 1],
+            factor_3alnsg2[ipair - 1],
+            dp_cut[ipair - 1],
+            lndp_cut[ipair - 1],
+            dp_belowcut[ipair - 1],
+            dp_xfernone_threshaa[ipair - 1],
+            dp_xferall_thresh[ipair - 1],
+            onethird,
+            xferfrac_max,
+            troplev_p,
+            q_p,
+            qqcw_p,
+            dryvol_a_p,
+            dryvol_c_p,
+            deldryvol_a_p,
+            deldryvol_c_p,
+            dryvol_a_xfab_p,
+            dryvol_c_xfab_p,
+            xferfrac_vol_p,
+            xferfrac_num_p,
+        )
+
+        modal_aero_rename_acc_crs_tendencies_full_codon(
+            ncol,
+            pcols,
+            pver,
+            pcnstxx,
+            maxspec_renamexf,
+            loffset,
+            ipair,
+            nspecfrm_renamexf[ipair - 1],
+            jsrflx_rename,
+            is_dorename_atik,
+            l_dqdt_rnpos,
+            deltat,
+            deltatinv,
+            gravit,
+            pdel_p,
+            dorename_atik_p,
+            q_p,
+            qqcw_p,
+            dqdt_p,
+            dqqcwdt_p,
+            qsrflx_p,
+            qqcwsrflx_p,
+            xferfrac_vol_p,
+            xferfrac_num_p,
+            lspecfrma_renamexf_p,
+            lspecfrmc_renamexf_p,
+            lspectooa_renamexf_p,
+            lspectooc_renamexf_p,
+            dqdt_rnpos_p,
+        )
+
+    modal_aero_rename_set_dotend_flags_codon(
+        pcnstxx,
+        maxpair_renamexf,
+        maxspec_renamexf,
+        loffset,
+        npair_renamexf,
+        nspecfrm_renamexf_p,
+        lspecfrma_renamexf_p,
+        lspecfrmc_renamexf_p,
+        lspectooa_renamexf_p,
+        lspectooc_renamexf_p,
+        dotendrn_p,
+        dotendqqcwrn_p,
+    )
+
+
 @export
 def modal_aero_rename_set_dotend_flags_codon(
     pcnstxx: int,
