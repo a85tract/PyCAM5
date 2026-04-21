@@ -10,6 +10,17 @@ def _idx3(i: int, k: int, m: int, ld1: int, ld2: int) -> int:
     return (i - 1) + (k - 1) * ld1 + (m - 1) * ld1 * ld2
 
 
+@inline
+def _max3(a: float, b: float, c: float) -> float:
+    if a >= b:
+        if a >= c:
+            return a
+        return c
+    if b >= c:
+        return b
+    return c
+
+
 @export
 def modal_aero_depvel_part_codon(
     ncol: int,
@@ -437,3 +448,124 @@ def gas_aer_uptkrates_codon(
                 sumghq += wghq1 * dp * fuchs_sutugin / (dp**beta)
 
                 uptkrate[_idx3(n, i, k, ntot_amode, pcols)] = const * gasdiffus * sumghq
+
+
+@export
+def modal_aero_soaexch_codon(
+    dtfull: float,
+    temp: float,
+    pres: float,
+    niter_max: int,
+    ntot_soamode: int,
+    g_soa_in: float,
+    a_soa_in_p: cobj,
+    a_poa_in_p: cobj,
+    xferrate_p: cobj,
+    rgas: float,
+    a_opoa_p: cobj,
+    a_soa_p: cobj,
+    beta_p: cobj,
+    g_star_p: cobj,
+    phi_p: cobj,
+    sat_p: cobj,
+    niter_p: cobj,
+    g_soa_tend_p: cobj,
+    a_soa_tend_p: cobj,
+):
+    a_soa_in = Ptr[float](a_soa_in_p)
+    a_poa_in = Ptr[float](a_poa_in_p)
+    xferrate = Ptr[float](xferrate_p)
+    a_opoa = Ptr[float](a_opoa_p)
+    a_soa = Ptr[float](a_soa_p)
+    beta = Ptr[float](beta_p)
+    g_star = Ptr[float](g_star_p)
+    phi = Ptr[float](phi_p)
+    sat = Ptr[float](sat_p)
+    niter_out = Ptr[int](niter_p)
+    g_soa_tend_out = Ptr[float](g_soa_tend_p)
+    a_soa_tend = Ptr[float](a_soa_tend_p)
+
+    alpha = 0.05
+    g_min1 = 1.0e-20
+    opoa_frac = 0.1
+    delh_vap_soa = 156.0e3
+    p0_soa_298 = 1.0e-10
+
+    g_soa = g_soa_in
+    if g_soa < 0.0:
+        g_soa = 0.0
+    tot_soa = g_soa
+
+    for m in range(1, ntot_soamode + 1):
+        a_soa_val = a_soa_in[m - 1]
+        if a_soa_val < 0.0:
+            a_soa_val = 0.0
+        a_soa[m - 1] = a_soa_val
+        tot_soa += a_soa_val
+
+        a_opoa_val = opoa_frac * a_poa_in[m - 1]
+        if a_opoa_val < 1.0e-20:
+            a_opoa_val = 1.0e-20
+        a_opoa[m - 1] = a_opoa_val
+
+    p0_soa = p0_soa_298 * exp(
+        -(delh_vap_soa / rgas) * ((1.0 / temp) - (1.0 / 298.0))
+    )
+    g0_soa = 1.01325e5 * p0_soa / pres
+    g0_soa = g0_soa * (150.0 / 12.0)
+
+    niter = 0
+    tcur = 0.0
+    dtcur = 0.0
+    for m in range(1, ntot_soamode + 1):
+        phi[m - 1] = 0.0
+        g_star[m - 1] = 0.0
+
+    while tcur < dtfull - 1.0e-3:
+        niter += 1
+        if niter > niter_max:
+            break
+
+        tmpa = 0.0
+        for m in range(1, ntot_soamode + 1):
+            sat[m - 1] = g0_soa / (a_soa[m - 1] + a_opoa[m - 1])
+            g_star[m - 1] = sat[m - 1] * a_soa[m - 1]
+            denom = _max3(g_soa, g_star[m - 1], g_min1)
+            phi[m - 1] = (g_soa - g_star[m - 1]) / denom
+            tmpa += xferrate[m - 1] * abs(phi[m - 1])
+
+        dtmax = dtfull - tcur
+        if dtmax * tmpa <= alpha:
+            dtcur = dtmax
+            tcur = dtfull
+        else:
+            dtcur = alpha / tmpa
+            tcur += dtcur
+
+        for m in range(1, ntot_soamode + 1):
+            beta[m - 1] = dtcur * xferrate[m - 1]
+            tmpa = g_soa - g_star[m - 1]
+            if tmpa > 0.0:
+                a_soa_tmp = a_soa[m - 1] + beta[m - 1] * tmpa
+                sat[m - 1] = g0_soa / (a_soa_tmp + a_opoa[m - 1])
+                g_star[m - 1] = sat[m - 1] * a_soa_tmp
+
+        tmpa = 0.0
+        tmpb = 0.0
+        for m in range(1, ntot_soamode + 1):
+            denom = 1.0 + beta[m - 1] * sat[m - 1]
+            tmpa += a_soa[m - 1] / denom
+            tmpb += beta[m - 1] / denom
+
+        g_soa = (tot_soa - tmpa) / (1.0 + tmpb)
+        if g_soa < 0.0:
+            g_soa = 0.0
+        for m in range(1, ntot_soamode + 1):
+            a_soa[m - 1] = (a_soa[m - 1] + beta[m - 1] * g_soa) / (
+                1.0 + beta[m - 1] * sat[m - 1]
+            )
+
+    g_soa_tend_out[0] = (g_soa - g_soa_in) / dtfull
+    for m in range(1, ntot_soamode + 1):
+        a_soa_tend[m - 1] = (a_soa[m - 1] - a_soa_in[m - 1]) / dtfull
+    niter_out[0] = niter
