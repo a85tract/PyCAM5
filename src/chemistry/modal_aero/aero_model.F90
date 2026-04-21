@@ -93,6 +93,8 @@ module aero_model
   logical :: aero_model_drydep_branch_selected = .false.
   logical :: aero_model_wetdep_use_native_impl = .false.
   logical :: aero_model_wetdep_impl_selected = .false.
+  logical :: qqcw2vmr_use_native_impl = .false.
+  logical :: qqcw2vmr_impl_selected = .false.
 
 contains
   
@@ -939,6 +941,42 @@ contains
     end if
 
   end subroutine aero_model_wetdep_select_impl
+
+  !=============================================================================
+  !=============================================================================
+  subroutine qqcw2vmr_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (qqcw2vmr_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('QQCW2VMR_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       qqcw2vmr_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       qqcw2vmr_use_native_impl = .false.
+    end if
+
+    qqcw2vmr_impl_selected = .true.
+
+    if (masterproc) then
+       if (qqcw2vmr_use_native_impl) then
+          write(iulog,*) 'qqcw2vmr implementation = native'
+       else
+          write(iulog,*) 'qqcw2vmr implementation = codon'
+       end if
+    end if
+
+  end subroutine qqcw2vmr_select_impl
 
   !=============================================================================
   !=============================================================================
@@ -2543,6 +2581,7 @@ contains
   subroutine qqcw2vmr(lchnk, vmr, mbar, ncol, im, pbuf)
     use modal_aero_data, only : qqcw_get_field
     use physics_buffer, only : physics_buffer_desc
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
     !-----------------------------------------------------------------
     !	... Xfrom from mass to volume mixing ratio
     !-----------------------------------------------------------------
@@ -2555,8 +2594,8 @@ contains
     !	... Dummy args
     !-----------------------------------------------------------------
     integer, intent(in)     :: lchnk, ncol, im
-    real(r8), intent(in)    :: mbar(ncol,pver)
-    real(r8), intent(inout) :: vmr(ncol,pver,gas_pcnst)
+    real(r8), target, intent(in)    :: mbar(ncol,pver)
+    real(r8), target, intent(inout) :: vmr(ncol,pver,gas_pcnst)
     type(physics_buffer_desc), pointer :: pbuf(:)
 
     !-----------------------------------------------------------------
@@ -2565,13 +2604,43 @@ contains
     integer :: k, m
     real(r8), pointer :: fldcw(:,:)
 
+    interface
+       subroutine qqcw2vmr_codon(ncol_c, pver_c, fldcw_ld1_c, mbar_p, fldcw_p, adv_mass_c, vmr_p) &
+            bind(c, name="qqcw2vmr_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, fldcw_ld1_c
+         type(c_ptr), value :: mbar_p, fldcw_p, vmr_p
+         real(c_double), value :: adv_mass_c
+       end subroutine qqcw2vmr_codon
+    end interface
+
+    call qqcw2vmr_select_impl()
+
+    if (qqcw2vmr_use_native_impl) then
+       do m=1,gas_pcnst
+          if( adv_mass(m) /= 0._r8 ) then
+             fldcw => qqcw_get_field(pbuf, m+im,lchnk,errorhandle=.true.)
+             if(associated(fldcw)) then
+                do k=1,pver
+                   vmr(:ncol,k,m) = mbar(:ncol,k) * fldcw(:ncol,k) / adv_mass(m)
+                end do
+             else
+                vmr(:,:,m) = 0.0_r8
+             end if
+          end if
+       end do
+       return
+    end if
+
     do m=1,gas_pcnst
        if( adv_mass(m) /= 0._r8 ) then
           fldcw => qqcw_get_field(pbuf, m+im,lchnk,errorhandle=.true.)
           if(associated(fldcw)) then
-             do k=1,pver
-                vmr(:ncol,k,m) = mbar(:ncol,k) * fldcw(:ncol,k) / adv_mass(m)
-             end do
+             call qqcw2vmr_codon( &
+                  int(ncol, c_int64_t), int(pver, c_int64_t), int(size(fldcw,1), c_int64_t), &
+                  c_loc(mbar(1,1)), c_loc(fldcw(1,1)), &
+                  real(adv_mass(m), c_double), c_loc(vmr(1,1,m)) &
+             )
           else
              vmr(:,:,m) = 0.0_r8
           end if

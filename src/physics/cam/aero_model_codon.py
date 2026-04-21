@@ -322,3 +322,24 @@ def aero_model_wetdep_column_flux_codon(
         for k in range(1, pver + 1):
             total += field[_idx2(i, k, pcols)] * pdel[_idx2(i, k, pcols)] / gravit
         sflx[i - 1] = total
+
+
+@export
+def qqcw2vmr_codon(
+    ncol: int,
+    pver: int,
+    fldcw_ld1: int,
+    mbar_p: cobj,
+    fldcw_p: cobj,
+    adv_mass: float,
+    vmr_p: cobj,
+):
+    mbar = Ptr[float](mbar_p)
+    fldcw = Ptr[float](fldcw_p)
+    vmr = Ptr[float](vmr_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            vmr[_idx2(i, k, ncol)] = (
+                mbar[_idx2(i, k, ncol)] * fldcw[_idx2(i, k, fldcw_ld1)] / adv_mass
+            )
