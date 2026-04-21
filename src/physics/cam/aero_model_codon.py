@@ -1,12 +1,14 @@
-from math import erfc, exp, log, sqrt
+from math import copysign, erfc, exp, log, sqrt
 
 @inline
 def _idx2(i: int, k: int, ld1: int) -> int:
+    """Fortran array declared as (ld1, *)."""
     return (i - 1) + (k - 1) * ld1
 
 
 @inline
 def _idx3(i: int, k: int, m: int, ld1: int, ld2: int) -> int:
+    """Fortran array declared as (ld1, ld2, *)."""
     return (i - 1) + (k - 1) * ld1 + (m - 1) * ld1 * ld2
 
 
@@ -19,6 +21,31 @@ def _max3(a: float, b: float, c: float) -> float:
     if b >= c:
         return b
     return c
+
+
+@inline
+def _min4(a: float, b: float, c: float, d: float) -> float:
+    return min(min(a, b), min(c, d))
+
+
+@inline
+def _max4(a: float, b: float, c: float, d: float) -> float:
+    return max(max(a, b), max(c, d))
+
+
+@inline
+def _sign_one(x: float) -> float:
+    return copysign(1.0, x)
+
+
+@inline
+def _minmod(a: float, b: float) -> float:
+    return 0.5 * (_sign_one(a) + _sign_one(b)) * min(abs(a), abs(b))
+
+
+@inline
+def _medan(a: float, b: float, c: float) -> float:
+    return a + _minmod(b - a, c - a)
 
 
 @export
@@ -333,6 +360,474 @@ def aero_model_wetdep_column_flux_codon(
         for k in range(1, pver + 1):
             total += field[_idx2(i, k, pcols)] * pdel[_idx2(i, k, pcols)] / gravit
         sflx[i - 1] = total
+
+
+def _dust_cfint2(
+    ncol: int,
+    pcols: int,
+    pverp: int,
+    xin_k: int,
+    x_p: cobj,
+    f_p: cobj,
+    fdot_p: cobj,
+    xxk_p: cobj,
+    fxdot_p: cobj,
+    fxdd_p: cobj,
+    psistar_p: cobj,
+    xins_p: cobj,
+    intz_p: cobj,
+    status_p: cobj,
+    fail_i_p: cobj,
+    fail_k_p: cobj,
+):
+    x = Ptr[float](x_p)
+    f = Ptr[float](f_p)
+    fdot = Ptr[float](fdot_p)
+    xxk = Ptr[float](xxk_p)
+    fxdot = Ptr[float](fxdot_p)
+    fxdd = Ptr[float](fxdd_p)
+    psistar = Ptr[float](psistar_p)
+    xins = Ptr[float](xins_p)
+    intz = Ptr[int](intz_p)
+    status = Ptr[int](status_p)
+    fail_i = Ptr[int](fail_i_p)
+    fail_k = Ptr[int](fail_k_p)
+
+    for i in range(1, ncol + 1):
+        xins[i - 1] = _medan(
+            x[_idx2(i, 1, pcols)],
+            xxk[_idx2(i, xin_k, pcols)],
+            x[_idx2(i, pverp, pcols)],
+        )
+        intz[i - 1] = 0
+
+    for k in range(1, pverp):
+        for i in range(1, ncol + 1):
+            if (
+                (xins[i - 1] - x[_idx2(i, k, pcols)])
+                * (x[_idx2(i, k + 1, pcols)] - xins[i - 1])
+            ) >= 0.0:
+                intz[i - 1] = k
+
+    for i in range(1, ncol + 1):
+        if intz[i - 1] == 0:
+            status[0] = 1
+            fail_i[0] = i
+            fail_k[0] = xin_k
+            return
+
+    for i in range(1, ncol + 1):
+        k = int(intz[i - 1])
+        dx = x[_idx2(i, k + 1, pcols)] - x[_idx2(i, k, pcols)]
+        s = (f[_idx2(i, k + 1, pcols)] - f[_idx2(i, k, pcols)]) / dx
+        c2 = (3.0 * s - 2.0 * fdot[_idx2(i, k, pcols)] - fdot[_idx2(i, k + 1, pcols)]) / dx
+        c3 = (
+            fdot[_idx2(i, k, pcols)] + fdot[_idx2(i, k + 1, pcols)] - 2.0 * s
+        ) / (dx * dx)
+        xx = xins[i - 1] - x[_idx2(i, k, pcols)]
+        fxdot[i - 1] = (3.0 * c3 * xx + 2.0 * c2) * xx + fdot[_idx2(i, k, pcols)]
+        fxdd[i - 1] = 6.0 * c3 * xx + 2.0 * c2
+        cfint = ((c3 * xx + c2) * xx + fdot[_idx2(i, k, pcols)]) * xx + f[_idx2(i, k, pcols)]
+
+        psi1 = f[_idx2(i, k, pcols)] + (
+            (f[_idx2(i, k + 1, pcols)] - f[_idx2(i, k, pcols)]) * xx / dx
+        )
+        if k == 1:
+            psi2 = f[_idx2(i, 1, pcols)]
+        else:
+            psi2 = f[_idx2(i, k, pcols)] + (
+                (f[_idx2(i, k, pcols)] - f[_idx2(i, k - 1, pcols)])
+                * xx
+                / (x[_idx2(i, k, pcols)] - x[_idx2(i, k - 1, pcols)])
+            )
+
+        if (k + 1) == pverp:
+            psi3 = f[_idx2(i, pverp, pcols)]
+        else:
+            psi3 = f[_idx2(i, k + 1, pcols)] - (
+                (f[_idx2(i, k + 2, pcols)] - f[_idx2(i, k + 1, pcols)])
+                * (dx - xx)
+                / (x[_idx2(i, k + 2, pcols)] - x[_idx2(i, k + 1, pcols)])
+            )
+
+        psim = _medan(psi1, psi2, psi3)
+        cfnew = _medan(cfint, psi1, psim)
+        psistar[i - 1] = cfnew
+
+
+def _dust_cfdotmc_pro(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    x_p: cobj,
+    f_p: cobj,
+    fdot_p: cobj,
+    s_p: cobj,
+    sh_p: cobj,
+    d_p: cobj,
+    dh_p: cobj,
+    e_p: cobj,
+    eh_p: cobj,
+    ppl_p: cobj,
+    ppr_p: cobj,
+    delxh_p: cobj,
+):
+    x = Ptr[float](x_p)
+    f = Ptr[float](f_p)
+    fdot = Ptr[float](fdot_p)
+    s = Ptr[float](s_p)
+    sh = Ptr[float](sh_p)
+    d = Ptr[float](d_p)
+    dh = Ptr[float](dh_p)
+    e = Ptr[float](e_p)
+    eh = Ptr[float](eh_p)
+    ppl = Ptr[float](ppl_p)
+    ppr = Ptr[float](ppr_p)
+    delxh = Ptr[float](delxh_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            delxh[_idx2(i, k, pcols)] = x[_idx2(i, k + 1, pcols)] - x[_idx2(i, k, pcols)]
+            sh[_idx2(i, k, pcols)] = (
+                f[_idx2(i, k + 1, pcols)] - f[_idx2(i, k, pcols)]
+            ) / delxh[_idx2(i, k, pcols)]
+
+        if k >= 2:
+            for i in range(1, ncol + 1):
+                d[_idx2(i, k, pcols)] = (
+                    sh[_idx2(i, k, pcols)] - sh[_idx2(i, k - 1, pcols)]
+                ) / (x[_idx2(i, k + 1, pcols)] - x[_idx2(i, k - 1, pcols)])
+                s[_idx2(i, k, pcols)] = _minmod(
+                    sh[_idx2(i, k, pcols)], sh[_idx2(i, k - 1, pcols)]
+                )
+
+    for k in range(2, pver):
+        for i in range(1, ncol + 1):
+            eh[_idx2(i, k, pcols)] = (
+                d[_idx2(i, k + 1, pcols)] - d[_idx2(i, k, pcols)]
+            ) / (x[_idx2(i, k + 2, pcols)] - x[_idx2(i, k - 1, pcols)])
+            dh[_idx2(i, k, pcols)] = _minmod(
+                d[_idx2(i, k, pcols)], d[_idx2(i, k + 1, pcols)]
+            )
+
+    for i in range(1, ncol + 1):
+        e[_idx2(i, 2, pcols)] = eh[_idx2(i, 2, pcols)]
+        e[_idx2(i, pver, pcols)] = eh[_idx2(i, pver - 1, pcols)]
+
+        fdot[_idx2(i, 1, pcols)] = (
+            sh[_idx2(i, 1, pcols)]
+            - d[_idx2(i, 2, pcols)] * delxh[_idx2(i, 1, pcols)]
+            - eh[_idx2(i, 2, pcols)]
+            * delxh[_idx2(i, 1, pcols)]
+            * (x[_idx2(i, 1, pcols)] - x[_idx2(i, 3, pcols)])
+        )
+        fdot[_idx2(i, 1, pcols)] = _minmod(
+            fdot[_idx2(i, 1, pcols)], 3.0 * sh[_idx2(i, 1, pcols)]
+        )
+
+        fdot[_idx2(i, pverp, pcols)] = (
+            sh[_idx2(i, pver, pcols)]
+            + d[_idx2(i, pver, pcols)] * delxh[_idx2(i, pver, pcols)]
+            + eh[_idx2(i, pver - 1, pcols)]
+            * delxh[_idx2(i, pver, pcols)]
+            * (x[_idx2(i, pverp, pcols)] - x[_idx2(i, pver - 1, pcols)])
+        )
+        fdot[_idx2(i, pverp, pcols)] = _minmod(
+            fdot[_idx2(i, pverp, pcols)], 3.0 * sh[_idx2(i, pver, pcols)]
+        )
+
+        fdot[_idx2(i, 2, pcols)] = (
+            sh[_idx2(i, 1, pcols)]
+            + d[_idx2(i, 2, pcols)] * delxh[_idx2(i, 1, pcols)]
+            - eh[_idx2(i, 2, pcols)]
+            * delxh[_idx2(i, 1, pcols)]
+            * delxh[_idx2(i, 2, pcols)]
+        )
+        fdot[_idx2(i, 2, pcols)] = _minmod(
+            fdot[_idx2(i, 2, pcols)], 3.0 * s[_idx2(i, 2, pcols)]
+        )
+
+        fdot[_idx2(i, pver, pcols)] = (
+            sh[_idx2(i, pver, pcols)]
+            - d[_idx2(i, pver, pcols)] * delxh[_idx2(i, pver, pcols)]
+            - eh[_idx2(i, pver - 1, pcols)]
+            * delxh[_idx2(i, pver, pcols)]
+            * delxh[_idx2(i, pver - 1, pcols)]
+        )
+        fdot[_idx2(i, pver, pcols)] = _minmod(
+            fdot[_idx2(i, pver, pcols)], 3.0 * s[_idx2(i, pver, pcols)]
+        )
+
+    for k in range(3, pver):
+        for i in range(1, ncol + 1):
+            e[_idx2(i, k, pcols)] = _minmod(
+                eh[_idx2(i, k, pcols)], eh[_idx2(i, k - 1, pcols)]
+            )
+
+    for k in range(3, pver):
+        for i in range(1, ncol + 1):
+            ppl[_idx2(i, k, pcols)] = (
+                sh[_idx2(i, k - 1, pcols)] + dh[_idx2(i, k - 1, pcols)] * delxh[_idx2(i, k - 1, pcols)]
+            )
+            ppr[_idx2(i, k, pcols)] = (
+                sh[_idx2(i, k, pcols)] - dh[_idx2(i, k, pcols)] * delxh[_idx2(i, k, pcols)]
+            )
+
+            t = _minmod(ppl[_idx2(i, k, pcols)], ppr[_idx2(i, k, pcols)])
+
+            pp = sh[_idx2(i, k - 1, pcols)] + d[_idx2(i, k, pcols)] * delxh[_idx2(i, k - 1, pcols)]
+
+            fdot[_idx2(i, k, pcols)] = pp - (
+                delxh[_idx2(i, k - 1, pcols)]
+                * delxh[_idx2(i, k, pcols)]
+                * (
+                    eh[_idx2(i, k - 1, pcols)] * (x[_idx2(i, k + 2, pcols)] - x[_idx2(i, k, pcols)])
+                    + eh[_idx2(i, k, pcols)] * (x[_idx2(i, k, pcols)] - x[_idx2(i, k - 2, pcols)])
+                )
+                / (x[_idx2(i, k + 2, pcols)] - x[_idx2(i, k - 2, pcols)])
+            )
+
+            qpl = sh[_idx2(i, k - 1, pcols)] + delxh[_idx2(i, k - 1, pcols)] * _minmod(
+                d[_idx2(i, k - 1, pcols)]
+                + e[_idx2(i, k - 1, pcols)] * (x[_idx2(i, k, pcols)] - x[_idx2(i, k - 2, pcols)]),
+                d[_idx2(i, k, pcols)] - e[_idx2(i, k, pcols)] * delxh[_idx2(i, k, pcols)],
+            )
+            qpr = sh[_idx2(i, k, pcols)] + delxh[_idx2(i, k, pcols)] * _minmod(
+                d[_idx2(i, k, pcols)] + e[_idx2(i, k, pcols)] * delxh[_idx2(i, k - 1, pcols)],
+                d[_idx2(i, k + 1, pcols)]
+                + e[_idx2(i, k + 1, pcols)] * (x[_idx2(i, k, pcols)] - x[_idx2(i, k + 2, pcols)]),
+            )
+
+            fdot[_idx2(i, k, pcols)] = _medan(fdot[_idx2(i, k, pcols)], qpl, qpr)
+
+            ttt = _minmod(qpl, qpr)
+            tmin = _min4(
+                0.0,
+                3.0 * s[_idx2(i, k, pcols)],
+                1.5 * t,
+                ttt,
+            )
+            tmax = _max4(
+                0.0,
+                3.0 * s[_idx2(i, k, pcols)],
+                1.5 * t,
+                ttt,
+            )
+
+            fdot[_idx2(i, k, pcols)] = fdot[_idx2(i, k, pcols)] + _minmod(
+                tmin - fdot[_idx2(i, k, pcols)],
+                tmax - fdot[_idx2(i, k, pcols)],
+            )
+
+
+def _dust_getflx(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    deltat: float,
+    xw_p: cobj,
+    phi_p: cobj,
+    vel_p: cobj,
+    flux_p: cobj,
+    psi_p: cobj,
+    fdot_p: cobj,
+    xxk_p: cobj,
+    fxdot_p: cobj,
+    fxdd_p: cobj,
+    psistar_p: cobj,
+    xins_p: cobj,
+    intz_p: cobj,
+    status_p: cobj,
+    fail_i_p: cobj,
+    fail_k_p: cobj,
+    s_p: cobj,
+    sh_p: cobj,
+    d_p: cobj,
+    dh_p: cobj,
+    e_p: cobj,
+    eh_p: cobj,
+    ppl_p: cobj,
+    ppr_p: cobj,
+    delxh_p: cobj,
+):
+    xw = Ptr[float](xw_p)
+    phi = Ptr[float](phi_p)
+    vel = Ptr[float](vel_p)
+    flux = Ptr[float](flux_p)
+    psi = Ptr[float](psi_p)
+    xxk = Ptr[float](xxk_p)
+    psistar = Ptr[float](psistar_p)
+    status = Ptr[int](status_p)
+
+    for i in range(1, ncol + 1):
+        psi[_idx2(i, 1, pcols)] = 0.0
+        flux[_idx2(i, 1, pcols)] = 0.0
+        flux[_idx2(i, pverp, pcols)] = 0.0
+
+    for k in range(2, pverp + 1):
+        for i in range(1, ncol + 1):
+            psi[_idx2(i, k, pcols)] = (
+                phi[_idx2(i, k - 1, pcols)]
+                * (xw[_idx2(i, k, pcols)] - xw[_idx2(i, k - 1, pcols)])
+                + psi[_idx2(i, k - 1, pcols)]
+            )
+
+    _dust_cfdotmc_pro(
+        ncol, pcols, pver, pverp, xw_p, psi_p, fdot_p, s_p, sh_p, d_p, dh_p, e_p, eh_p, ppl_p, ppr_p, delxh_p
+    )
+
+    for k in range(2, pver + 1):
+        for i in range(1, ncol + 1):
+            xxk[_idx2(i, k, pcols)] = xw[_idx2(i, k, pcols)] - vel[_idx2(i, k, pcols)] * deltat
+
+    for k in range(2, pver + 1):
+        _dust_cfint2(
+            ncol,
+            pcols,
+            pverp,
+            k,
+            xw_p,
+            psi_p,
+            fdot_p,
+            xxk_p,
+            fxdot_p,
+            fxdd_p,
+            psistar_p,
+            xins_p,
+            intz_p,
+            status_p,
+            fail_i_p,
+            fail_k_p,
+        )
+        if status[0] != 0:
+            return
+        for i in range(1, ncol + 1):
+            flux[_idx2(i, k, pcols)] = psi[_idx2(i, k, pcols)] - psistar[i - 1]
+
+
+@export
+def dust_sediment_tend_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    dtime: float,
+    mxsedfac: float,
+    gravit: float,
+    pint_p: cobj,
+    pdel_p: cobj,
+    dustmr_p: cobj,
+    pvdust_p: cobj,
+    dusttend_p: cobj,
+    sfdust_p: cobj,
+    fxdust_p: cobj,
+    psi_p: cobj,
+    fdot_p: cobj,
+    xxk_p: cobj,
+    fxdot_p: cobj,
+    fxdd_p: cobj,
+    psistar_p: cobj,
+    s_p: cobj,
+    sh_p: cobj,
+    d_p: cobj,
+    dh_p: cobj,
+    e_p: cobj,
+    eh_p: cobj,
+    ppl_p: cobj,
+    ppr_p: cobj,
+    delxh_p: cobj,
+    xins_p: cobj,
+    intz_p: cobj,
+    status_p: cobj,
+    fail_i_p: cobj,
+    fail_k_p: cobj,
+):
+    pdel = Ptr[float](pdel_p)
+    dustmr = Ptr[float](dustmr_p)
+    pvdust = Ptr[float](pvdust_p)
+    fxdust = Ptr[float](fxdust_p)
+    dusttend = Ptr[float](dusttend_p)
+    sfdust = Ptr[float](sfdust_p)
+    status = Ptr[int](status_p)
+    fail_i = Ptr[int](fail_i_p)
+    fail_k = Ptr[int](fail_k_p)
+
+    status[0] = 0
+    fail_i[0] = 0
+    fail_k[0] = 0
+
+    for k in range(1, pverp + 1):
+        for i in range(1, ncol + 1):
+            fxdust[_idx2(i, k, pcols)] = 0.0
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            dusttend[_idx2(i, k, pcols)] = 0.0
+
+    for i in range(1, ncol + 1):
+        sfdust[i - 1] = 0.0
+
+    _dust_getflx(
+        ncol,
+        pcols,
+        pver,
+        pverp,
+        dtime,
+        pint_p,
+        dustmr_p,
+        pvdust_p,
+        fxdust_p,
+        psi_p,
+        fdot_p,
+        xxk_p,
+        fxdot_p,
+        fxdd_p,
+        psistar_p,
+        xins_p,
+        intz_p,
+        status_p,
+        fail_i_p,
+        fail_k_p,
+        s_p,
+        sh_p,
+        d_p,
+        dh_p,
+        e_p,
+        eh_p,
+        ppl_p,
+        ppr_p,
+        delxh_p,
+    )
+    if status[0] != 0:
+        return
+
+    for i in range(1, ncol + 1):
+        fxdust[_idx2(i, 1, pcols)] = 0.0
+        fxdust[_idx2(i, pverp, pcols)] = (
+            dustmr[_idx2(i, pver, pcols)] * pvdust[_idx2(i, pverp, pcols)] * dtime
+        )
+
+    for k in range(2, pver + 1):
+        for i in range(1, ncol + 1):
+            fxdust[_idx2(i, k, pcols)] = max(0.0, fxdust[_idx2(i, k, pcols)])
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            fxdust[_idx2(i, k + 1, pcols)] = min(
+                fxdust[_idx2(i, k + 1, pcols)],
+                mxsedfac * dustmr[_idx2(i, k, pcols)] * pdel[_idx2(i, k, pcols)],
+            )
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            dusttend[_idx2(i, k, pcols)] = (
+                fxdust[_idx2(i, k, pcols)] - fxdust[_idx2(i, k + 1, pcols)]
+            ) / (dtime * pdel[_idx2(i, k, pcols)])
+
+    for i in range(1, ncol + 1):
+        sfdust[i - 1] = fxdust[_idx2(i, pverp, pcols)] / (dtime * gravit)
 
 
 @export

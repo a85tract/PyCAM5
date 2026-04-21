@@ -14,6 +14,7 @@ module dust_sediment_mod
   use physconst,         only: gravit, rair
   use cam_logfile,       only: iulog
   use cam_abortutils,    only: endrun
+  use spmd_utils,        only: masterproc
 
   private
   public :: dust_sediment_vel, dust_sediment_tend
@@ -22,6 +23,8 @@ module dust_sediment_mod
   real (r8), parameter :: vland  = 2.8_r8            ! dust fall velocity over land  (cm/s)
   real (r8), parameter :: vocean = 1.5_r8            ! dust fall velocity over ocean (cm/s)
   real (r8), parameter :: mxsedfac   = 0.99_r8       ! maximum sedimentation flux factor
+  logical, save :: dust_sediment_tend_use_native_impl = .false.
+  logical, save :: dust_sediment_tend_impl_selected = .false.
 
 contains
 
@@ -86,6 +89,138 @@ contains
 
 !----------------------------------------------------------------------
 !     Apply Particle Gravitational Sedimentation 
+!----------------------------------------------------------------------
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+! Arguments
+    integer,  intent(in)  :: ncol                      ! number of colums to process
+
+    real(r8), intent(in)  :: dtime                     ! time step
+    real(r8), target, intent(in)  :: pint  (pcols,pverp)       ! interfaces pressure (Pa)
+    real(r8), target, intent(in)  :: pmid  (pcols,pver)        ! midpoint pressures (Pa)
+    real(r8), target, intent(in)  :: pdel  (pcols,pver)        ! pressure diff across layer (Pa)
+    real(r8), target, intent(in)  :: t     (pcols,pver)        ! temperature (K)
+    real(r8), target, intent(in)  :: dustmr(pcols,pver)        ! dust (kg/kg)
+    real(r8), target, intent(in)  :: pvdust (pcols,pverp)      ! vertical velocity of dust drops  (Pa/s)
+! -> note that pvel is at the interfaces (loss from cell is based on pvel(k+1))
+
+    real(r8), target, intent(out) :: dusttend(pcols,pver)      ! dust tend
+    real(r8), target, intent(out) :: sfdust  (pcols)           ! surface flux of dust (rain, kg/m/s)
+
+! Local variables
+    real(r8), target :: fxdust(pcols,pverp)             ! fluxes at the interfaces, dust (positive = down)
+    real(r8), target :: psi(pcols,pverp)
+    real(r8), target :: fdot(pcols,pverp)
+    real(r8), target :: xxk(pcols,pver)
+    real(r8), target :: fxdot(pcols)
+    real(r8), target :: fxdd(pcols)
+    real(r8), target :: psistar(pcols)
+    real(r8), target :: xins(pcols)
+    real(r8), target :: s(pcols,pverp)
+    real(r8), target :: sh(pcols,pverp)
+    real(r8), target :: d(pcols,pverp)
+    real(r8), target :: dh(pcols,pverp)
+    real(r8), target :: e(pcols,pverp)
+    real(r8), target :: eh(pcols,pverp)
+    real(r8), target :: ppl(pcols,pverp)
+    real(r8), target :: ppr(pcols,pverp)
+    real(r8), target :: delxh(pcols,pverp)
+    integer(c_int64_t), target :: intz(pcols)
+    integer(c_int64_t), target :: status_code
+    integer(c_int64_t), target :: fail_i
+    integer(c_int64_t), target :: fail_k
+
+    interface
+       subroutine dust_sediment_tend_codon(ncol_c, pcols_c, pver_c, pverp_c, dtime_c, mxsedfac_c, gravit_c, &
+            pint_p, pdel_p, dustmr_p, pvdust_p, dusttend_p, sfdust_p, fxdust_p, psi_p, fdot_p, xxk_p, fxdot_p, &
+            fxdd_p, psistar_p, s_p, sh_p, d_p, dh_p, e_p, eh_p, ppl_p, ppr_p, delxh_p, xins_p, intz_p, &
+            status_p, fail_i_p, fail_k_p) bind(c, name="dust_sediment_tend_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c
+         real(c_double), value :: dtime_c, mxsedfac_c, gravit_c
+         type(c_ptr), value :: pint_p, pdel_p, dustmr_p, pvdust_p, dusttend_p, sfdust_p, fxdust_p, psi_p
+         type(c_ptr), value :: fdot_p, xxk_p, fxdot_p, fxdd_p, psistar_p, s_p, sh_p, d_p, dh_p, e_p, eh_p
+         type(c_ptr), value :: ppl_p, ppr_p, delxh_p, xins_p, intz_p, status_p, fail_i_p, fail_k_p
+       end subroutine dust_sediment_tend_codon
+    end interface
+
+!----------------------------------------------------------------------
+
+    call dust_sediment_tend_select_impl()
+
+    if (dust_sediment_tend_use_native_impl) then
+       call dust_sediment_tend_native(ncol, dtime, pint, pmid, pdel, t, dustmr, pvdust, dusttend, sfdust)
+       return
+    end if
+
+    status_code = 0_c_int64_t
+    fail_i = 0_c_int64_t
+    fail_k = 0_c_int64_t
+
+    call dust_sediment_tend_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
+         real(dtime, c_double), real(mxsedfac, c_double), real(gravit, c_double), &
+         c_loc(pint), c_loc(pdel), c_loc(dustmr), c_loc(pvdust), c_loc(dusttend), c_loc(sfdust), c_loc(fxdust), &
+         c_loc(psi), c_loc(fdot), c_loc(xxk), c_loc(fxdot), c_loc(fxdd), c_loc(psistar), c_loc(s), c_loc(sh), &
+         c_loc(d), c_loc(dh), c_loc(e), c_loc(eh), c_loc(ppl), c_loc(ppr), c_loc(delxh), c_loc(xins), c_loc(intz), &
+         c_loc(status_code), c_loc(fail_i), c_loc(fail_k) &
+    )
+
+    if (status_code /= 0_c_int64_t) then
+       write(iulog,*) 'DUST_SEDIMENT_MOD:dust_sediment_tend -- interval was not found ', int(fail_i), int(fail_k)
+       call endrun('DUST_SEDIMENT_MOD:dust_sediment_tend -- interval was not found ')
+    end if
+
+    return
+  end subroutine dust_sediment_tend
+
+!===============================================================================
+  subroutine dust_sediment_tend_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (dust_sediment_tend_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('DUST_SEDIMENT_TEND_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       dust_sediment_tend_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       dust_sediment_tend_use_native_impl = .false.
+    end if
+
+    dust_sediment_tend_impl_selected = .true.
+
+    if (masterproc) then
+       if (dust_sediment_tend_use_native_impl) then
+          write(iulog,*) 'dust_sediment_tend implementation = native'
+       else
+          write(iulog,*) 'dust_sediment_tend implementation = codon'
+       end if
+    end if
+
+  end subroutine dust_sediment_tend_select_impl
+
+!===============================================================================
+  subroutine dust_sediment_tend_native ( &
+       ncol,   dtime,  pint,     pmid,    pdel,  t,   &
+       dustmr ,pvdust, dusttend, sfdust )
+
+!----------------------------------------------------------------------
+!     Apply Particle Gravitational Sedimentation
 !----------------------------------------------------------------------
 
     implicit none
@@ -155,7 +290,7 @@ contains
     sfdust(:ncol) = fxdust(:ncol,pverp) / (dtime*gravit)
 
     return
-  end subroutine dust_sediment_tend
+  end subroutine dust_sediment_tend_native
 
 !===============================================================================
   subroutine getflx(ncol, xw, phi, vel, deltat, flux)
