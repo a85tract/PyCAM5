@@ -488,6 +488,349 @@ def clddiag_codon(
 
 
 @export
+def wetdepa_v2_codon(
+    pcols: int,
+    pver: int,
+    ncol: int,
+    branch_mode: int,
+    gravit: float,
+    deltat: float,
+    omsm: float,
+    sol_facti: float,
+    sol_factb: float,
+    p_p: cobj,
+    q_p: cobj,
+    pdel_p: cobj,
+    cldt_p: cobj,
+    cldc_p: cobj,
+    cmfdqr_p: cobj,
+    evapc_p: cobj,
+    conicw_p: cobj,
+    precs_p: cobj,
+    conds_p: cobj,
+    evaps_p: cobj,
+    cwat_p: cobj,
+    tracer_p: cobj,
+    scavt_p: cobj,
+    iscavt_p: cobj,
+    cldvcu_p: cobj,
+    cldvst_p: cobj,
+    dlf_p: cobj,
+    fracis_p: cobj,
+    scavcoef_p: cobj,
+    sol_factic_p: cobj,
+    qqcw_p: cobj,
+    f_act_conv_p: cobj,
+    icscavt_p: cobj,
+    isscavt_p: cobj,
+    bcscavt_p: cobj,
+    bsscavt_p: cobj,
+    clds_p: cobj,
+    fracev_p: cobj,
+    fracev_cu_p: cobj,
+    fracp_p: cobj,
+    pdog_p: cobj,
+    rpdog_p: cobj,
+    precabc_p: cobj,
+    precabs_p: cobj,
+    rat_p: cobj,
+    scavab_p: cobj,
+    scavabc_p: cobj,
+    srcc_p: cobj,
+    srcs_p: cobj,
+    srct_p: cobj,
+    fins_p: cobj,
+    finc_p: cobj,
+    conv_scav_ic_p: cobj,
+    conv_scav_bc_p: cobj,
+    st_scav_ic_p: cobj,
+    st_scav_bc_p: cobj,
+    odds_p: cobj,
+    dblchek_p: cobj,
+    trac_qqcw_p: cobj,
+    tracer_incu_p: cobj,
+    tracer_mean_p: cobj,
+    dblchek_hist_p: cobj,
+    srct_hist_p: cobj,
+    rat_hist_p: cobj,
+    fracev_hist_p: cobj,
+):
+    pdel = Ptr[float](pdel_p)
+    cldt = Ptr[float](cldt_p)
+    cldc = Ptr[float](cldc_p)
+    cmfdqr = Ptr[float](cmfdqr_p)
+    evapc = Ptr[float](evapc_p)
+    conicw = Ptr[float](conicw_p)
+    precs = Ptr[float](precs_p)
+    evaps = Ptr[float](evaps_p)
+    cwat = Ptr[float](cwat_p)
+    tracer = Ptr[float](tracer_p)
+    scavt = Ptr[float](scavt_p)
+    iscavt = Ptr[float](iscavt_p)
+    cldvcu = Ptr[float](cldvcu_p)
+    cldvst = Ptr[float](cldvst_p)
+    dlf = Ptr[float](dlf_p)
+    fracis = Ptr[float](fracis_p)
+    scavcoef = Ptr[float](scavcoef_p)
+    sol_factic = Ptr[float](sol_factic_p)
+    qqcw = Ptr[float](qqcw_p)
+    f_act_conv = Ptr[float](f_act_conv_p)
+    icscavt = Ptr[float](icscavt_p)
+    isscavt = Ptr[float](isscavt_p)
+    bcscavt = Ptr[float](bcscavt_p)
+    bsscavt = Ptr[float](bsscavt_p)
+    clds = Ptr[float](clds_p)
+    fracev = Ptr[float](fracev_p)
+    fracev_cu = Ptr[float](fracev_cu_p)
+    fracp = Ptr[float](fracp_p)
+    pdog = Ptr[float](pdog_p)
+    rpdog = Ptr[float](rpdog_p)
+    precabc = Ptr[float](precabc_p)
+    precabs = Ptr[float](precabs_p)
+    rat = Ptr[float](rat_p)
+    scavab = Ptr[float](scavab_p)
+    scavabc = Ptr[float](scavabc_p)
+    srcc = Ptr[float](srcc_p)
+    srcs = Ptr[float](srcs_p)
+    srct = Ptr[float](srct_p)
+    fins = Ptr[float](fins_p)
+    finc = Ptr[float](finc_p)
+    conv_scav_ic = Ptr[float](conv_scav_ic_p)
+    conv_scav_bc = Ptr[float](conv_scav_bc_p)
+    st_scav_ic = Ptr[float](st_scav_ic_p)
+    st_scav_bc = Ptr[float](st_scav_bc_p)
+    odds = Ptr[float](odds_p)
+    dblchek = Ptr[float](dblchek_p)
+    trac_qqcw = Ptr[float](trac_qqcw_p)
+    tracer_incu = Ptr[float](tracer_incu_p)
+    tracer_mean = Ptr[float](tracer_mean_p)
+    dblchek_hist = Ptr[float](dblchek_hist_p)
+    srct_hist = Ptr[float](srct_hist_p)
+    rat_hist = Ptr[float](rat_hist_p)
+    fracev_hist = Ptr[float](fracev_hist_p)
+
+    for i in range(1, ncol + 1):
+        precabs[i - 1] = 0.0
+        precabc[i - 1] = 0.0
+        scavab[i - 1] = 0.0
+        scavabc[i - 1] = 0.0
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            clds[i - 1] = cldt[_idx2(i, k, pcols)] - cldc[_idx2(i, k, pcols)]
+            pdog[i - 1] = pdel[_idx2(i, k, pcols)] / gravit
+            rpdog[i - 1] = gravit / pdel[_idx2(i, k, pcols)]
+            rdeltat = 1.0 / deltat
+
+            fracev[i - 1] = (
+                evaps[_idx2(i, k, pcols)] * pdog[i - 1] / max(1.0e-12, precabs[i - 1])
+            )
+            fracev[i - 1] = max(0.0, min(1.0, fracev[i - 1]))
+
+            fracev_cu[i - 1] = (
+                evapc[_idx2(i, k, pcols)] * pdog[i - 1] / max(1.0e-12, precabc[i - 1])
+            )
+            fracev_cu[i - 1] = max(0.0, min(1.0, fracev_cu[i - 1]))
+
+            fracp[i - 1] = (
+                cmfdqr[_idx2(i, k, pcols)]
+                * deltat
+                / max(
+                    1.0e-12,
+                    cldc[_idx2(i, k, pcols)] * conicw[_idx2(i, k, pcols)]
+                    + (cmfdqr[_idx2(i, k, pcols)] + dlf[_idx2(i, k, pcols)]) * deltat,
+                )
+            )
+            fracp[i - 1] = max(min(1.0, fracp[i - 1]), 0.0)
+
+            if branch_mode != 0:
+                if branch_mode == 1:
+                    conv_scav_ic[i - 1] = 0.0
+                    conv_scav_bc[i - 1] = 0.0
+
+                    fracp[i - 1] = (
+                        precs[_idx2(i, k, pcols)]
+                        * deltat
+                        / max(
+                            1.0e-12,
+                            cwat[_idx2(i, k, pcols)] + precs[_idx2(i, k, pcols)] * deltat,
+                        )
+                    )
+                    fracp[i - 1] = max(0.0, min(1.0, fracp[i - 1]))
+                    st_scav_ic[i - 1] = (
+                        sol_facti * fracp[i - 1] * tracer[_idx2(i, k, pcols)] * rdeltat
+                    )
+                    st_scav_bc[i - 1] = 0.0
+                else:
+                    trac_qqcw[i - 1] = min(
+                        qqcw[_idx2(i, k, pcols)],
+                        tracer[_idx2(i, k, pcols)]
+                        * (clds[i - 1] / max(0.01, 1.0 - clds[i - 1])),
+                    )
+                    tracer_incu[i - 1] = (
+                        f_act_conv[_idx2(i, k, pcols)]
+                        * (tracer[_idx2(i, k, pcols)] + trac_qqcw[i - 1])
+                    )
+                    conv_scav_ic[i - 1] = (
+                        sol_factic[_idx2(i, k, pcols)]
+                        * cldc[_idx2(i, k, pcols)]
+                        * fracp[i - 1]
+                        * tracer_incu[i - 1]
+                        * rdeltat
+                    )
+                    tracer_mean[i - 1] = (
+                        tracer[_idx2(i, k, pcols)]
+                        * (1.0 - cldc[_idx2(i, k, pcols)] * f_act_conv[_idx2(i, k, pcols)])
+                        - cldc[_idx2(i, k, pcols)]
+                        * f_act_conv[_idx2(i, k, pcols)]
+                        * trac_qqcw[i - 1]
+                    )
+                    tracer_mean[i - 1] = max(0.0, tracer_mean[i - 1])
+
+                    odds[i - 1] = (
+                        precabc[i - 1]
+                        / max(cldvcu[_idx2(i, k, pcols)], 1.0e-5)
+                        * scavcoef[_idx2(i, k, pcols)]
+                        * deltat
+                    )
+                    odds[i - 1] = max(min(1.0, odds[i - 1]), 0.0)
+                    conv_scav_bc[i - 1] = (
+                        sol_factb
+                        * cldvcu[_idx2(i, k, pcols)]
+                        * odds[i - 1]
+                        * tracer_mean[i - 1]
+                        * rdeltat
+                    )
+
+                    st_scav_ic[i - 1] = 0.0
+
+                    odds[i - 1] = (
+                        precabs[i - 1]
+                        / max(cldvst[_idx2(i, k, pcols)], 1.0e-5)
+                        * scavcoef[_idx2(i, k, pcols)]
+                        * deltat
+                    )
+                    odds[i - 1] = max(min(1.0, odds[i - 1]), 0.0)
+                    st_scav_bc[i - 1] = (
+                        sol_factb
+                        * cldvst[_idx2(i, k, pcols)]
+                        * odds[i - 1]
+                        * tracer_mean[i - 1]
+                        * rdeltat
+                    )
+            else:
+                conv_scav_ic[i - 1] = (
+                    sol_factic[_idx2(i, k, pcols)]
+                    * cldc[_idx2(i, k, pcols)]
+                    * fracp[i - 1]
+                    * tracer[_idx2(i, k, pcols)]
+                    * rdeltat
+                )
+
+                odds[i - 1] = (
+                    precabc[i - 1]
+                    / max(cldvcu[_idx2(i, k, pcols)], 1.0e-5)
+                    * scavcoef[_idx2(i, k, pcols)]
+                    * deltat
+                )
+                odds[i - 1] = max(min(1.0, odds[i - 1]), 0.0)
+                conv_scav_bc[i - 1] = (
+                    sol_factb
+                    * cldvcu[_idx2(i, k, pcols)]
+                    * odds[i - 1]
+                    * tracer[_idx2(i, k, pcols)]
+                    * rdeltat
+                )
+
+                fracp[i - 1] = (
+                    precs[_idx2(i, k, pcols)]
+                    * deltat
+                    / max(
+                        1.0e-12,
+                        cwat[_idx2(i, k, pcols)] + precs[_idx2(i, k, pcols)] * deltat,
+                    )
+                )
+                fracp[i - 1] = max(0.0, min(1.0, fracp[i - 1]))
+                st_scav_ic[i - 1] = (
+                    sol_facti
+                    * clds[i - 1]
+                    * fracp[i - 1]
+                    * tracer[_idx2(i, k, pcols)]
+                    * rdeltat
+                )
+
+                odds[i - 1] = (
+                    precabs[i - 1]
+                    / max(cldvst[_idx2(i, k, pcols)], 1.0e-5)
+                    * scavcoef[_idx2(i, k, pcols)]
+                    * deltat
+                )
+                odds[i - 1] = max(min(1.0, odds[i - 1]), 0.0)
+                st_scav_bc[i - 1] = (
+                    sol_factb
+                    * (cldvst[_idx2(i, k, pcols)] * odds[i - 1])
+                    * tracer[_idx2(i, k, pcols)]
+                    * rdeltat
+                )
+
+            srcc[i - 1] = conv_scav_ic[i - 1] + conv_scav_bc[i - 1]
+            finc[i - 1] = conv_scav_ic[i - 1] / (srcc[i - 1] + 1.0e-36)
+
+            srcs[i - 1] = st_scav_ic[i - 1] + st_scav_bc[i - 1]
+            fins[i - 1] = st_scav_ic[i - 1] / (srcs[i - 1] + 1.0e-36)
+
+            rat[i - 1] = (
+                tracer[_idx2(i, k, pcols)] / max(deltat * (srcc[i - 1] + srcs[i - 1]), 1.0e-36)
+            )
+            if rat[i - 1] < 1.0:
+                srcs[i - 1] = srcs[i - 1] * rat[i - 1]
+                srcc[i - 1] = srcc[i - 1] * rat[i - 1]
+            srct[i - 1] = (srcc[i - 1] + srcs[i - 1]) * omsm
+
+            fracp[i - 1] = (
+                deltat
+                * srct[i - 1]
+                / max(cldvst[_idx2(i, k, pcols)] * tracer[_idx2(i, k, pcols)], 1.0e-36)
+            )
+            fracp[i - 1] = max(0.0, min(1.0, fracp[i - 1]))
+            fracis[_idx2(i, k, pcols)] = 1.0 - fracp[i - 1]
+
+            scavt[_idx2(i, k, pcols)] = -srct[i - 1] + (
+                fracev[i - 1] * scavab[i - 1] + fracev_cu[i - 1] * scavabc[i - 1]
+            ) * rpdog[i - 1]
+            iscavt[_idx2(i, k, pcols)] = (
+                -(srcc[i - 1] * finc[i - 1] + srcs[i - 1] * fins[i - 1]) * omsm
+            )
+
+            icscavt[_idx2(i, k, pcols)] = -(srcc[i - 1] * finc[i - 1]) * omsm
+            isscavt[_idx2(i, k, pcols)] = -(srcs[i - 1] * fins[i - 1]) * omsm
+            bcscavt[_idx2(i, k, pcols)] = (
+                -(srcc[i - 1] * (1.0 - finc[i - 1])) * omsm
+                + fracev_cu[i - 1] * scavabc[i - 1] * rpdog[i - 1]
+            )
+            bsscavt[_idx2(i, k, pcols)] = (
+                -(srcs[i - 1] * (1.0 - fins[i - 1])) * omsm
+                + fracev[i - 1] * scavab[i - 1] * rpdog[i - 1]
+            )
+
+            dblchek[i - 1] = tracer[_idx2(i, k, pcols)] + deltat * scavt[_idx2(i, k, pcols)]
+
+            scavab[i - 1] = scavab[i - 1] * (1.0 - fracev[i - 1]) + srcs[i - 1] * pdog[i - 1]
+            precabs[i - 1] = precabs[i - 1] + (
+                precs[_idx2(i, k, pcols)] - evaps[_idx2(i, k, pcols)]
+            ) * pdog[i - 1]
+            scavabc[i - 1] = scavabc[i - 1] * (1.0 - fracev_cu[i - 1]) + srcc[i - 1] * pdog[i - 1]
+            precabc[i - 1] = precabc[i - 1] + (
+                cmfdqr[_idx2(i, k, pcols)] - evapc[_idx2(i, k, pcols)]
+            ) * pdog[i - 1]
+
+            dblchek_hist[_idx2(i, k, pcols)] = dblchek[i - 1]
+            srct_hist[_idx2(i, k, pcols)] = srct[i - 1]
+            rat_hist[_idx2(i, k, pcols)] = rat[i - 1]
+            fracev_hist[_idx2(i, k, pcols)] = fracev[i - 1]
+
+
+@export
 def calcram_codon(
     ncol: int,
     pcols: int,

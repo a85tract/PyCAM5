@@ -61,6 +61,8 @@ integer :: nevapr_dpcu_idx     = 0
 integer :: ixcldice, ixcldliq
 logical :: clddiag_use_native_impl = .false.
 logical :: clddiag_impl_selected = .false.
+logical :: wetdepa_v2_use_native_impl = .false.
+logical :: wetdepa_v2_impl_selected = .false.
 
 !==============================================================================
 contains
@@ -349,6 +351,7 @@ subroutine wetdepa_v2(                                  &
    sol_fact, ncol, scavcoef, is_strat_cloudborne, qqcw, &
    f_act_conv, icscavt, isscavt, bcscavt, bsscavt,      &
    sol_facti_in, sol_factic_in )
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
    !----------------------------------------------------------------------- 
    !
@@ -356,7 +359,7 @@ subroutine wetdepa_v2(                                  &
    ! 
    !-----------------------------------------------------------------------
 
-   real(r8), intent(in) ::&
+   real(r8), target, intent(in) ::&
       p(pcols,pver),        &! pressure
       q(pcols,pver),        &! moisture
       pdel(pcols,pver),     &! pressure thikness
@@ -383,8 +386,8 @@ subroutine wetdepa_v2(                                  &
 
    real(r8), intent(in)  :: sol_fact
    integer,  intent(in)  :: ncol
-   real(r8), intent(in)  :: scavcoef(pcols,pver) ! Dana and Hales coefficient (/mm) (0.1 if not MODAL_AERO)
-   real(r8), intent(out) ::&
+   real(r8), target, intent(in)  :: scavcoef(pcols,pver) ! Dana and Hales coefficient (/mm) (0.1 if not MODAL_AERO)
+   real(r8), target, intent(out) ::&
       scavt(pcols,pver),   &! scavenging tend 
       iscavt(pcols,pver),  &! incloud scavenging tends
       fracis(pcols,pver)    ! fraction of species not scavenged
@@ -396,52 +399,53 @@ subroutine wetdepa_v2(                                  &
    !   interstitial modal aerosols.  In this case the optional qqcw (the cloud borne mixing ratio
    !   corresponding to the interstitial aerosol) must be provided, as well as the optional f_act_conv.
    logical,  intent(in), optional :: is_strat_cloudborne   
-   real(r8), intent(in), optional :: qqcw(pcols,pver)
-   real(r8), intent(in), optional :: f_act_conv(pcols,pver)
+   real(r8), target, intent(in), optional :: qqcw(pcols,pver)
+   real(r8), target, intent(in), optional :: f_act_conv(pcols,pver)
 
    real(r8), intent(in), optional :: sol_facti_in   ! solubility factor (frac of aerosol scavenged in cloud)
-   real(r8), intent(in), optional :: sol_factic_in(pcols,pver)  ! sol_facti_in for convective clouds
+   real(r8), target, intent(in), optional :: sol_factic_in(pcols,pver)  ! sol_facti_in for convective clouds
          
 
-   real(r8), intent(out), optional :: icscavt(pcols,pver)     ! incloud, convective
-   real(r8), intent(out), optional :: isscavt(pcols,pver)     ! incloud, stratiform
-   real(r8), intent(out), optional :: bcscavt(pcols,pver)     ! below cloud, convective
-   real(r8), intent(out), optional :: bsscavt(pcols,pver)     ! below cloud, stratiform
+   real(r8), target, intent(out), optional :: icscavt(pcols,pver)     ! incloud, convective
+   real(r8), target, intent(out), optional :: isscavt(pcols,pver)     ! incloud, stratiform
+   real(r8), target, intent(out), optional :: bcscavt(pcols,pver)     ! below cloud, convective
+   real(r8), target, intent(out), optional :: bsscavt(pcols,pver)     ! below cloud, stratiform
 
    ! local variables
 
    integer :: i, k
+   integer :: branch_mode
 
    real(r8) :: omsm                 ! 1 - (a small number)
-   real(r8) :: clds(pcols)          ! stratiform cloud fraction
-   real(r8) :: fracev(pcols)        ! fraction of precip from above that is evaporating
-   real(r8) :: fracev_cu(pcols)     ! Fraction of convective precip from above that is evaporating
-   real(r8) :: fracp(pcols)         ! fraction of cloud water converted to precip
-   real(r8) :: pdog(pcols)          ! work variable (pdel/gravit)
-   real(r8) :: rpdog(pcols)         ! work variable (gravit/pdel)
-   real(r8) :: precabc(pcols)       ! conv precip from above (work array)
-   real(r8) :: precabs(pcols)       ! strat precip from above (work array)
-   real(r8) :: rat(pcols)           ! ratio of amount available to amount removed
-   real(r8) :: scavab(pcols)        ! scavenged tracer flux from above (work array)
-   real(r8) :: scavabc(pcols)       ! scavenged tracer flux from above (work array)
-   real(r8) :: srcc(pcols)          ! tend for convective rain
-   real(r8) :: srcs(pcols)          ! tend for stratiform rain
-   real(r8) :: srct(pcols)          ! work variable
+   real(r8), target :: clds(pcols)          ! stratiform cloud fraction
+   real(r8), target :: fracev(pcols)        ! fraction of precip from above that is evaporating
+   real(r8), target :: fracev_cu(pcols)     ! Fraction of convective precip from above that is evaporating
+   real(r8), target :: fracp(pcols)         ! fraction of cloud water converted to precip
+   real(r8), target :: pdog(pcols)          ! work variable (pdel/gravit)
+   real(r8), target :: rpdog(pcols)         ! work variable (gravit/pdel)
+   real(r8), target :: precabc(pcols)       ! conv precip from above (work array)
+   real(r8), target :: precabs(pcols)       ! strat precip from above (work array)
+   real(r8), target :: rat(pcols)           ! ratio of amount available to amount removed
+   real(r8), target :: scavab(pcols)        ! scavenged tracer flux from above (work array)
+   real(r8), target :: scavabc(pcols)       ! scavenged tracer flux from above (work array)
+   real(r8), target :: srcc(pcols)          ! tend for convective rain
+   real(r8), target :: srcs(pcols)          ! tend for stratiform rain
+   real(r8), target :: srct(pcols)          ! work variable
 
-   real(r8) :: fins(pcols)          ! fraction of rem. rate by strat rain
-   real(r8) :: finc(pcols)          ! fraction of rem. rate by conv. rain
-   real(r8) :: conv_scav_ic(pcols)  ! convective scavenging incloud
-   real(r8) :: conv_scav_bc(pcols)  ! convective scavenging below cloud
-   real(r8) :: st_scav_ic(pcols)    ! stratiform scavenging incloud
-   real(r8) :: st_scav_bc(pcols)    ! stratiform scavenging below cloud
+   real(r8), target :: fins(pcols)          ! fraction of rem. rate by strat rain
+   real(r8), target :: finc(pcols)          ! fraction of rem. rate by conv. rain
+   real(r8), target :: conv_scav_ic(pcols)  ! convective scavenging incloud
+   real(r8), target :: conv_scav_bc(pcols)  ! convective scavenging below cloud
+   real(r8), target :: st_scav_ic(pcols)    ! stratiform scavenging incloud
+   real(r8), target :: st_scav_bc(pcols)    ! stratiform scavenging below cloud
 
-   real(r8) :: odds(pcols)          ! limit on removal rate (proportional to prec)
-   real(r8) :: dblchek(pcols)
+   real(r8), target :: odds(pcols)          ! limit on removal rate (proportional to prec)
+   real(r8), target :: dblchek(pcols)
    logical :: found
 
-   real(r8) :: trac_qqcw(pcols)
-   real(r8) :: tracer_incu(pcols)
-   real(r8) :: tracer_mean(pcols)
+   real(r8), target :: trac_qqcw(pcols)
+   real(r8), target :: tracer_incu(pcols)
+   real(r8), target :: tracer_mean(pcols)
 
    ! For stratiform cloud, cloudborne aerosol is treated explicitly,
    !    and sol_facti is 1.0 for cloudborne, 0.0 for interstitial.
@@ -450,9 +454,49 @@ subroutine wetdepa_v2(                                  &
 
    real(r8) :: sol_facti              ! in cloud fraction of aerosol scavenged
    real(r8) :: sol_factb              ! below cloud fraction of aerosol scavenged
-   real(r8) :: sol_factic(pcols,pver) ! in cloud fraction of aerosol scavenged for convective clouds
+   real(r8), target :: sol_factic(pcols,pver) ! in cloud fraction of aerosol scavenged for convective clouds
 
    real(r8) :: rdeltat
+   real(r8), target :: qqcw_local(pcols,pver)
+   real(r8), target :: f_act_conv_local(pcols,pver)
+   real(r8), target :: icscavt_local(pcols,pver)
+   real(r8), target :: isscavt_local(pcols,pver)
+   real(r8), target :: bcscavt_local(pcols,pver)
+   real(r8), target :: bsscavt_local(pcols,pver)
+   real(r8), target :: dblchek_hist(pcols,pver)
+   real(r8), target :: srct_hist(pcols,pver)
+   real(r8), target :: rat_hist(pcols,pver)
+   real(r8), target :: fracev_hist(pcols,pver)
+   type(c_ptr) :: qqcw_p
+   type(c_ptr) :: f_act_conv_p
+   type(c_ptr) :: icscavt_p
+   type(c_ptr) :: isscavt_p
+   type(c_ptr) :: bcscavt_p
+   type(c_ptr) :: bsscavt_p
+
+   interface
+      subroutine wetdepa_v2_codon(pcols_c, pver_c, ncol_c, branch_mode_c, gravit_c, deltat_c, omsm_c, &
+           sol_facti_c, sol_factb_c, p_p, q_p, pdel_p, cldt_p, cldc_p, cmfdqr_p, evapc_p, conicw_p, &
+           precs_p, conds_p, evaps_p, cwat_p, tracer_p, scavt_p, iscavt_p, cldvcu_p, cldvst_p, dlf_p, &
+           fracis_p, scavcoef_p, sol_factic_p, qqcw_p, f_act_conv_p, icscavt_p, isscavt_p, bcscavt_p, &
+           bsscavt_p, clds_p, fracev_p, fracev_cu_p, fracp_p, pdog_p, rpdog_p, precabc_p, precabs_p, rat_p, &
+           scavab_p, scavabc_p, srcc_p, srcs_p, srct_p, fins_p, finc_p, conv_scav_ic_p, conv_scav_bc_p, &
+           st_scav_ic_p, st_scav_bc_p, odds_p, dblchek_p, trac_qqcw_p, tracer_incu_p, tracer_mean_p, &
+           dblchek_hist_p, srct_hist_p, rat_hist_p, fracev_hist_p) bind(c, name="wetdepa_v2_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: pcols_c, pver_c, ncol_c, branch_mode_c
+        real(c_double), value :: gravit_c, deltat_c, omsm_c, sol_facti_c, sol_factb_c
+        type(c_ptr), value :: p_p, q_p, pdel_p, cldt_p, cldc_p, cmfdqr_p, evapc_p, conicw_p, precs_p
+        type(c_ptr), value :: conds_p, evaps_p, cwat_p, tracer_p, scavt_p, iscavt_p, cldvcu_p, cldvst_p
+        type(c_ptr), value :: dlf_p, fracis_p, scavcoef_p, sol_factic_p, qqcw_p, f_act_conv_p
+        type(c_ptr), value :: icscavt_p, isscavt_p, bcscavt_p, bsscavt_p
+        type(c_ptr), value :: clds_p, fracev_p, fracev_cu_p, fracp_p, pdog_p, rpdog_p, precabc_p, precabs_p
+        type(c_ptr), value :: rat_p, scavab_p, scavabc_p, srcc_p, srcs_p, srct_p, fins_p, finc_p
+        type(c_ptr), value :: conv_scav_ic_p, conv_scav_bc_p, st_scav_ic_p, st_scav_bc_p, odds_p, dblchek_p
+        type(c_ptr), value :: trac_qqcw_p, tracer_incu_p, tracer_mean_p
+        type(c_ptr), value :: dblchek_hist_p, srct_hist_p, rat_hist_p, fracev_hist_p
+      end subroutine wetdepa_v2_codon
+   end interface
    ! ------------------------------------------------------------------------
 
    omsm = 1._r8-2*epsilon(1._r8) ! used to prevent roundoff errors below zero
@@ -465,6 +509,92 @@ subroutine wetdepa_v2(                                  &
 
    sol_factic  = sol_facti
    if ( present(sol_factic_in ) )  sol_factic  = sol_factic_in
+
+   call wetdepa_v2_select_impl()
+
+   if (.not. wetdepa_v2_use_native_impl) then
+      branch_mode = 0
+      if (present(is_strat_cloudborne)) then
+         if (is_strat_cloudborne) then
+            branch_mode = 1
+         else
+            branch_mode = 2
+         end if
+      end if
+
+      if (present(qqcw)) then
+         qqcw_p = c_loc(qqcw)
+      else
+         qqcw_local = 0._r8
+         qqcw_p = c_loc(qqcw_local)
+      end if
+
+      if (present(f_act_conv)) then
+         f_act_conv_p = c_loc(f_act_conv)
+      else
+         f_act_conv_local = 0._r8
+         f_act_conv_p = c_loc(f_act_conv_local)
+      end if
+
+      if (present(icscavt)) then
+         icscavt_p = c_loc(icscavt)
+      else
+         icscavt_p = c_loc(icscavt_local)
+      end if
+
+      if (present(isscavt)) then
+         isscavt_p = c_loc(isscavt)
+      else
+         isscavt_p = c_loc(isscavt_local)
+      end if
+
+      if (present(bcscavt)) then
+         bcscavt_p = c_loc(bcscavt)
+      else
+         bcscavt_p = c_loc(bcscavt_local)
+      end if
+
+      if (present(bsscavt)) then
+         bsscavt_p = c_loc(bsscavt)
+      else
+         bsscavt_p = c_loc(bsscavt_local)
+      end if
+
+      call wetdepa_v2_codon( &
+           int(pcols, c_int64_t), int(pver, c_int64_t), int(ncol, c_int64_t), int(branch_mode, c_int64_t), &
+           real(gravit, c_double), real(deltat, c_double), real(omsm, c_double), real(sol_facti, c_double), &
+           real(sol_factb, c_double), c_loc(p), c_loc(q), c_loc(pdel), c_loc(cldt), c_loc(cldc), c_loc(cmfdqr), &
+           c_loc(evapc), c_loc(conicw), c_loc(precs), c_loc(conds), c_loc(evaps), c_loc(cwat), c_loc(tracer), &
+           c_loc(scavt), c_loc(iscavt), c_loc(cldvcu), c_loc(cldvst), c_loc(dlf), c_loc(fracis), c_loc(scavcoef), &
+           c_loc(sol_factic), qqcw_p, f_act_conv_p, icscavt_p, isscavt_p, bcscavt_p, bsscavt_p, c_loc(clds), &
+           c_loc(fracev), c_loc(fracev_cu), c_loc(fracp), c_loc(pdog), c_loc(rpdog), c_loc(precabc), c_loc(precabs), &
+           c_loc(rat), c_loc(scavab), c_loc(scavabc), c_loc(srcc), c_loc(srcs), c_loc(srct), c_loc(fins), c_loc(finc), &
+           c_loc(conv_scav_ic), c_loc(conv_scav_bc), c_loc(st_scav_ic), c_loc(st_scav_bc), c_loc(odds), c_loc(dblchek), &
+           c_loc(trac_qqcw), c_loc(tracer_incu), c_loc(tracer_mean), c_loc(dblchek_hist), c_loc(srct_hist), &
+           c_loc(rat_hist), c_loc(fracev_hist) &
+      )
+
+      do k = 1, pver
+         found = .false.
+         do i = 1,ncol
+            if ( dblchek_hist(i,k) < 0._r8 ) then
+               found = .true.
+               exit
+            end if
+         end do
+
+         if ( found ) then
+            do i = 1,ncol
+               if (dblchek_hist(i,k) .lt. 0._r8) then
+                  write(iulog,*) ' wetdapa: negative value ', i, k, tracer(i,k), &
+                     dblchek_hist(i,k), scavt(i,k), srct_hist(i,k), rat_hist(i,k), fracev_hist(i,k)
+               endif
+            end do
+         endif
+      end do
+
+      return
+   end if
 
    ! this section of code is for highly soluble aerosols,
    ! the assumption is that within the cloud that
@@ -665,6 +795,38 @@ subroutine wetdepa_v2(                                  &
    end do ! End of k = 1, pver
 
 end subroutine wetdepa_v2
+
+subroutine wetdepa_v2_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (wetdepa_v2_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('WETDEPA_V2_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      wetdepa_v2_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      wetdepa_v2_use_native_impl = .false.
+   end if
+
+   wetdepa_v2_impl_selected = .true.
+
+   if (wetdepa_v2_use_native_impl) then
+      write(iulog,*) 'wetdepa_v2 implementation = native'
+   else
+      write(iulog,*) 'wetdepa_v2 implementation = codon'
+   end if
+
+end subroutine wetdepa_v2_select_impl
 
 
 !==============================================================================
