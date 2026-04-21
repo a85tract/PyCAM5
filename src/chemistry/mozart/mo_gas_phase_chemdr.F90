@@ -467,16 +467,7 @@ contains
     !        ... Xform geopotential height from m to km 
     !            and pressure from Pa to mb
     !-----------------------------------------------------------------------      
-    zsurf(:ncol) = rga * phis(:ncol)
-    do k = 1,pver
-       zintr(:ncol,k) = m2km * zi(:ncol,k)
-       zmidr(:ncol,k) = m2km * zm(:ncol,k)
-       zmid(:ncol,k) = m2km * (zm(:ncol,k) + zsurf(:ncol))
-       zint(:ncol,k) = m2km * (zi(:ncol,k) + zsurf(:ncol))
-       pmb(:ncol,k)  = Pa2mb * pmid(:ncol,k)
-    end do
-    zint(:ncol,pver+1) = m2km * (zi(:ncol,pver+1) + zsurf(:ncol))
-    zintr(:ncol,pver+1)= m2km *  zi(:ncol,pver+1)
+    call gas_phase_chemdr_prepare_state(ncol, phis, zi, zm, pmid, zsurf, zintr, zmidr, zmid, zint, pmb)
 
     !-----------------------------------------------------------------------      
     !        ... map incoming concentrations to working array
@@ -1103,6 +1094,60 @@ contains
     )
 
   end subroutine gas_phase_chemdr_finalize_tendencies
+
+  subroutine gas_phase_chemdr_prepare_state(ncol, phis, zi, zm, pmid, zsurf, zintr, zmidr, zmid, zint, pmb)
+
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+    use physconst, only : rga
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: phis(pcols)
+    real(r8), target, intent(in) :: zi(pcols,pver+1)
+    real(r8), target, intent(in) :: zm(pcols,pver)
+    real(r8), target, intent(in) :: pmid(pcols,pver)
+    real(r8), target, intent(out) :: zsurf(ncol)
+    real(r8), target, intent(out) :: zintr(ncol,pver+1)
+    real(r8), target, intent(out) :: zmidr(ncol,pver)
+    real(r8), target, intent(out) :: zmid(ncol,pver)
+    real(r8), target, intent(out) :: zint(ncol,pver+1)
+    real(r8), target, intent(out) :: pmb(ncol,pver)
+    real(r8), parameter :: m2km  = 1.e-3_r8
+    real(r8), parameter :: Pa2mb = 1.e-2_r8
+
+    integer :: k
+
+    interface
+       subroutine gas_phase_chemdr_prepare_state_codon(ncol_c, pcols_c, pver_c, rga_c, m2km_c, pa2mb_c, phis_p, &
+            zi_p, zm_p, pmid_p, zsurf_p, zintr_p, zmidr_p, zmid_p, zint_p, pmb_p) &
+            bind(c, name="gas_phase_chemdr_prepare_state_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: rga_c, m2km_c, pa2mb_c
+         type(c_ptr), value :: phis_p, zi_p, zm_p, pmid_p, zsurf_p, zintr_p, zmidr_p, zmid_p, zint_p, pmb_p
+       end subroutine gas_phase_chemdr_prepare_state_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       zsurf(:ncol) = rga * phis(:ncol)
+       do k = 1,pver
+          zintr(:ncol,k) = m2km * zi(:ncol,k)
+          zmidr(:ncol,k) = m2km * zm(:ncol,k)
+          zmid(:ncol,k) = m2km * (zm(:ncol,k) + zsurf(:ncol))
+          zint(:ncol,k) = m2km * (zi(:ncol,k) + zsurf(:ncol))
+          pmb(:ncol,k)  = Pa2mb * pmid(:ncol,k)
+       end do
+       zint(:ncol,pver+1) = m2km * (zi(:ncol,pver+1) + zsurf(:ncol))
+       zintr(:ncol,pver+1)= m2km *  zi(:ncol,pver+1)
+       return
+    end if
+
+    call gas_phase_chemdr_prepare_state_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(rga, c_double), real(m2km, c_double), &
+         real(Pa2mb, c_double), c_loc(phis), c_loc(zi), c_loc(zm), c_loc(pmid), c_loc(zsurf), c_loc(zintr), &
+         c_loc(zmidr), c_loc(zmid), c_loc(zint), c_loc(pmb) &
+    )
+
+  end subroutine gas_phase_chemdr_prepare_state
 
   subroutine gas_phase_chemdr_store_drydep(ncol, sflx, cflx, drydepflx)
 

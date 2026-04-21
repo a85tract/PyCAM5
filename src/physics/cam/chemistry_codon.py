@@ -219,6 +219,58 @@ def gas_phase_chemdr_finalize_tendencies_codon(
 
 
 @export
+def gas_phase_chemdr_prepare_state_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    rga: float,
+    m2km: float,
+    pa2mb: float,
+    phis_p: cobj,
+    zi_p: cobj,
+    zm_p: cobj,
+    pmid_p: cobj,
+    zsurf_p: cobj,
+    zintr_p: cobj,
+    zmidr_p: cobj,
+    zmid_p: cobj,
+    zint_p: cobj,
+    pmb_p: cobj,
+):
+    phis = Ptr[float](phis_p)
+    zi = Ptr[float](zi_p)
+    zm = Ptr[float](zm_p)
+    pmid = Ptr[float](pmid_p)
+    zsurf = Ptr[float](zsurf_p)
+    zintr = Ptr[float](zintr_p)
+    zmidr = Ptr[float](zmidr_p)
+    zmid = Ptr[float](zmid_p)
+    zint = Ptr[float](zint_p)
+    pmb = Ptr[float](pmb_p)
+
+    for i in range(1, ncol + 1):
+        zsurf[i - 1] = rga * phis[i - 1]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            zi_in_idx = _idx2(i, k, pcols)
+            zm_in_idx = _idx2(i, k, pcols)
+            out_idx = _idx2(i, k, ncol)
+            zsurf_val = zsurf[i - 1]
+            zintr[out_idx] = m2km * zi[zi_in_idx]
+            zmidr[out_idx] = m2km * zm[zm_in_idx]
+            zmid[out_idx] = m2km * (zm[zm_in_idx] + zsurf_val)
+            zint[out_idx] = m2km * (zi[zi_in_idx] + zsurf_val)
+            pmb[out_idx] = pa2mb * pmid[zm_in_idx]
+
+    for i in range(1, ncol + 1):
+        zi_in_idx = _idx2(i, pver + 1, pcols)
+        zi_out_idx = _idx2(i, pver + 1, ncol)
+        zint[zi_out_idx] = m2km * (zi[zi_in_idx] + zsurf[i - 1])
+        zintr[zi_out_idx] = m2km * zi[zi_in_idx]
+
+
+@export
 def gas_phase_chemdr_store_drydep_codon(
     ncol: int,
     pcols: int,
