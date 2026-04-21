@@ -1547,6 +1547,7 @@ end function chem_is_active
     integer :: tim_ndx
 
     logical :: lq(pcnst)
+    integer :: idx_cb1, idx_cb2, idx_oc1, idx_oc2
 
     if ( .not. chem_step ) return
 
@@ -1557,14 +1558,26 @@ end function chem_is_active
 
     call chem_timestep_tend_select_impl()
 
-    lq(:) = .false.
-    do n = 1,pcnst
-       m = map2chm(n)
-       if( m > 0 ) then
-          lq(n) = .true.
-       end if
-    end do
-    if ( ghg_chem ) lq(1) = .true.
+    call chem_timestep_tend_init_lq(lq)
+
+    idx_cb1 = 0
+    idx_cb2 = 0
+    idx_oc1 = 0
+    idx_oc2 = 0
+    if (.not. aerodep_flx_prescribed()) then
+       do n = 1, pcnst
+          select case (trim(cnst_name(n)))
+          case('CB1')
+             idx_cb1 = n
+          case('CB2')
+             idx_cb2 = n
+          case('OC1')
+             idx_oc1 = n
+          case('OC2')
+             idx_oc2 = n
+          end select
+       end do
+    end if
 
     call physics_ptend_init(ptend, state%psetcols, 'chemistry', lq=lq)
     
@@ -1624,31 +1637,15 @@ end function chem_is_active
        if( m > 0 ) then
           call outfld( srcnam(m), ptend%q(:,:,n), pcols, lchnk )
        end if
-
-       ! if the user has specified prescribed aerosol dep fluxes then 
-       ! do not set cam_out dep fluxes according to the prognostic aerosols
-       if (.not.aerodep_flx_prescribed()) then
-          ! set deposition fluxes in the export state
-          select case (trim(cnst_name(n)))
-          case('CB1')
-             do i = 1, ncol
-                cam_out%bcphodry(i) = max(drydepflx(i,n), 0._r8)
-             end do
-          case('CB2')
-             do i = 1, ncol
-                cam_out%bcphidry(i) = max(drydepflx(i,n), 0._r8)
-             end do
-          case('OC1')
-             do i = 1, ncol
-                cam_out%ocphodry(i) = max(drydepflx(i,n), 0._r8)
-             end do
-          case('OC2')
-             do i = 1, ncol
-                cam_out%ocphidry(i) = max(drydepflx(i,n), 0._r8)
-             end do
-          end select
-       endif
     end do
+    ! If the user has specified prescribed aerosol deposition fluxes, leave
+    ! the export-state dry deposition fields untouched.
+    if (.not. aerodep_flx_prescribed()) then
+       call chem_timestep_tend_apply_depflux( &
+            ncol, drydepflx, idx_cb1, idx_cb2, idx_oc1, idx_oc2, &
+            cam_out%bcphodry, cam_out%bcphidry, cam_out%ocphodry, cam_out%ocphidry &
+       )
+    end if
     if ( ghg_chem ) then
        ptend%lq(1) = .true.
        call outfld( 'CT_H2O_GHG', ptend%q(:,:,1), pcols, lchnk )
@@ -1669,6 +1666,105 @@ end function chem_is_active
 !-----------------------------------------------------------------------
     call chem_timestep_tend_sum_fh2o(ncol, ptend%q(:,:,1), state%pdel, fh2o)
   end subroutine chem_timestep_tend
+
+!-------------------------------------------------------------------
+!-------------------------------------------------------------------
+  subroutine chem_timestep_tend_init_lq(lq)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    logical, intent(out) :: lq(pcnst)
+
+    integer :: n, m
+    integer(c_int64_t), target :: map2chm_c(pcnst)
+    integer(c_int64_t), target :: lq_mask(pcnst)
+
+    interface
+       subroutine chem_timestep_tend_init_lq_codon(pcnst_c, ghg_chem_c, map2chm_p, lq_mask_p) &
+            bind(c, name="chem_timestep_tend_init_lq_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: pcnst_c, ghg_chem_c
+         type(c_ptr), value :: map2chm_p, lq_mask_p
+       end subroutine chem_timestep_tend_init_lq_codon
+    end interface
+
+    if (chem_timestep_tend_use_native_impl) then
+       lq(:) = .false.
+       do n = 1, pcnst
+          m = map2chm(n)
+          if (m > 0) then
+             lq(n) = .true.
+          end if
+       end do
+       if (ghg_chem) lq(1) = .true.
+       return
+    end if
+
+    map2chm_c(:) = int(map2chm(:), c_int64_t)
+
+    call chem_timestep_tend_init_lq_codon( &
+         int(pcnst, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, ghg_chem), c_loc(map2chm_c), c_loc(lq_mask) &
+    )
+
+    do n = 1, pcnst
+       lq(n) = lq_mask(n) /= 0_c_int64_t
+    end do
+
+  end subroutine chem_timestep_tend_init_lq
+
+!-------------------------------------------------------------------
+!-------------------------------------------------------------------
+  subroutine chem_timestep_tend_apply_depflux(ncol, drydepflx, idx_cb1, idx_cb2, idx_oc1, idx_oc2, &
+       bcphodry, bcphidry, ocphodry, ocphidry)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol, idx_cb1, idx_cb2, idx_oc1, idx_oc2
+    real(r8), target, intent(in) :: drydepflx(pcols,pcnst)
+    real(r8), target, intent(inout) :: bcphodry(pcols), bcphidry(pcols), ocphodry(pcols), ocphidry(pcols)
+
+    integer :: i
+
+    interface
+       subroutine chem_timestep_tend_apply_depflux_codon(ncol_c, pcols_c, idx_cb1_c, idx_cb2_c, idx_oc1_c, idx_oc2_c, &
+            drydepflx_p, bcphodry_p, bcphidry_p, ocphodry_p, ocphidry_p) bind(c, name="chem_timestep_tend_apply_depflux_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, idx_cb1_c, idx_cb2_c, idx_oc1_c, idx_oc2_c
+         type(c_ptr), value :: drydepflx_p, bcphodry_p, bcphidry_p, ocphodry_p, ocphidry_p
+       end subroutine chem_timestep_tend_apply_depflux_codon
+    end interface
+
+    if (chem_timestep_tend_use_native_impl) then
+       if (idx_cb1 > 0) then
+          do i = 1, ncol
+             bcphodry(i) = max(drydepflx(i,idx_cb1), 0._r8)
+          end do
+       end if
+       if (idx_cb2 > 0) then
+          do i = 1, ncol
+             bcphidry(i) = max(drydepflx(i,idx_cb2), 0._r8)
+          end do
+       end if
+       if (idx_oc1 > 0) then
+          do i = 1, ncol
+             ocphodry(i) = max(drydepflx(i,idx_oc1), 0._r8)
+          end do
+       end if
+       if (idx_oc2 > 0) then
+          do i = 1, ncol
+             ocphidry(i) = max(drydepflx(i,idx_oc2), 0._r8)
+          end do
+       end if
+       return
+    end if
+
+    call chem_timestep_tend_apply_depflux_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(idx_cb1, c_int64_t), int(idx_cb2, c_int64_t), &
+         int(idx_oc1, c_int64_t), int(idx_oc2, c_int64_t), c_loc(drydepflx), c_loc(bcphodry), c_loc(bcphidry), &
+         c_loc(ocphodry), c_loc(ocphidry) &
+    )
+
+  end subroutine chem_timestep_tend_apply_depflux
 
 !-------------------------------------------------------------------
 !-------------------------------------------------------------------

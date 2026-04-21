@@ -109,6 +109,60 @@ def chem_timestep_tend_fill_cloud_fields_codon(
 
 
 @export
+def chem_timestep_tend_init_lq_codon(
+    pcnst: int,
+    ghg_chem: int,
+    map2chm_p: cobj,
+    lq_mask_p: cobj,
+):
+    map2chm = Ptr[int](map2chm_p)
+    lq_mask = Ptr[int](lq_mask_p)
+
+    for n in range(1, pcnst + 1):
+        lq_mask[n - 1] = 1 if map2chm[n - 1] > 0 else 0
+
+    if ghg_chem != 0 and pcnst > 0:
+        lq_mask[0] = 1
+
+
+@export
+def chem_timestep_tend_apply_depflux_codon(
+    ncol: int,
+    pcols: int,
+    idx_cb1: int,
+    idx_cb2: int,
+    idx_oc1: int,
+    idx_oc2: int,
+    drydepflx_p: cobj,
+    bcphodry_p: cobj,
+    bcphidry_p: cobj,
+    ocphodry_p: cobj,
+    ocphidry_p: cobj,
+):
+    drydepflx = Ptr[float](drydepflx_p)
+    bcphodry = Ptr[float](bcphodry_p)
+    bcphidry = Ptr[float](bcphidry_p)
+    ocphodry = Ptr[float](ocphodry_p)
+    ocphidry = Ptr[float](ocphidry_p)
+
+    if idx_cb1 > 0:
+        for i in range(1, ncol + 1):
+            bcphodry[i - 1] = max(drydepflx[_flux_idx(i, idx_cb1, pcols)], 0.0)
+
+    if idx_cb2 > 0:
+        for i in range(1, ncol + 1):
+            bcphidry[i - 1] = max(drydepflx[_flux_idx(i, idx_cb2, pcols)], 0.0)
+
+    if idx_oc1 > 0:
+        for i in range(1, ncol + 1):
+            ocphodry[i - 1] = max(drydepflx[_flux_idx(i, idx_oc1, pcols)], 0.0)
+
+    if idx_oc2 > 0:
+        for i in range(1, ncol + 1):
+            ocphidry[i - 1] = max(drydepflx[_flux_idx(i, idx_oc2, pcols)], 0.0)
+
+
+@export
 def chem_timestep_tend_sum_fh2o_codon(
     ncol: int,
     pcols: int,
