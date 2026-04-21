@@ -1107,6 +1107,51 @@ def modal_aero_rename_acc_crs_tendencies_codon(
 
 
 @export
+def modal_aero_rename_set_dotend_flags_codon(
+    pcnstxx: int,
+    maxpair_renamexf: int,
+    maxspec_renamexf: int,
+    loffset: int,
+    npair_renamexf: int,
+    nspecfrm_renamexf_p: cobj,
+    lspecfrma_renamexf_p: cobj,
+    lspecfrmc_renamexf_p: cobj,
+    lspectooa_renamexf_p: cobj,
+    lspectooc_renamexf_p: cobj,
+    dotendrn_p: cobj,
+    dotendqqcwrn_p: cobj,
+):
+    nspecfrm_renamexf = Ptr[int](nspecfrm_renamexf_p)
+    lspecfrma_renamexf = Ptr[int](lspecfrma_renamexf_p)
+    lspecfrmc_renamexf = Ptr[int](lspecfrmc_renamexf_p)
+    lspectooa_renamexf = Ptr[int](lspectooa_renamexf_p)
+    lspectooc_renamexf = Ptr[int](lspectooc_renamexf_p)
+    dotendrn = Ptr[int](dotendrn_p)
+    dotendqqcwrn = Ptr[int](dotendqqcwrn_p)
+
+    for l in range(1, pcnstxx + 1):
+        dotendrn[l - 1] = 0
+        dotendqqcwrn[l - 1] = 0
+
+    for ipair in range(1, npair_renamexf + 1):
+        for iq in range(1, nspecfrm_renamexf[ipair - 1] + 1):
+            lsfrma = lspecfrma_renamexf[_idx2(iq, ipair, maxspec_renamexf)] - loffset
+            lsfrmc = lspecfrmc_renamexf[_idx2(iq, ipair, maxspec_renamexf)] - loffset
+            lstooa = lspectooa_renamexf[_idx2(iq, ipair, maxspec_renamexf)] - loffset
+            lstooc = lspectooc_renamexf[_idx2(iq, ipair, maxspec_renamexf)] - loffset
+
+            if lsfrma > 0:
+                dotendrn[lsfrma - 1] = 1
+                if lstooa > 0:
+                    dotendrn[lstooa - 1] = 1
+
+            if lsfrmc > 0:
+                dotendqqcwrn[lsfrmc - 1] = 1
+                if lstooc > 0:
+                    dotendqqcwrn[lstooc - 1] = 1
+
+
+@export
 def modal_aero_rename_acc_crs_xferfracs_codon(
     ncol: int,
     pcols: int,

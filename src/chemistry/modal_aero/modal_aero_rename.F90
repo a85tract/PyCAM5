@@ -96,6 +96,8 @@
   logical :: modal_aero_rename_acc_crs_xferfracs_impl_selected = .false.
   logical :: modal_aero_rename_acc_crs_tendencies_use_native_impl = .false.
   logical :: modal_aero_rename_acc_crs_tendencies_impl_selected = .false.
+  logical :: modal_aero_rename_set_dotend_flags_use_native_impl = .false.
+  logical :: modal_aero_rename_set_dotend_flags_impl_selected = .false.
 
 ! !DESCRIPTION: This module implements ...
 !
@@ -351,6 +353,43 @@ contains
     end if
 
   end subroutine modal_aero_rename_acc_crs_tendencies_select_impl
+
+  !------------------------------------------------------------------
+  !------------------------------------------------------------------
+  subroutine modal_aero_rename_set_dotend_flags_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (modal_aero_rename_set_dotend_flags_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('MODAL_AERO_RENAME_SET_DOTEND_FLAGS_IMPL', &
+         value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       modal_aero_rename_set_dotend_flags_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       modal_aero_rename_set_dotend_flags_use_native_impl = .false.
+    end if
+
+    modal_aero_rename_set_dotend_flags_impl_selected = .true.
+
+    if (masterproc) then
+       if (modal_aero_rename_set_dotend_flags_use_native_impl) then
+          write(iulog,*) 'modal_aero_rename_set_dotend_flags implementation = native'
+       else
+          write(iulog,*) 'modal_aero_rename_set_dotend_flags implementation = codon'
+       end if
+    end if
+
+  end subroutine modal_aero_rename_set_dotend_flags_select_impl
 
   !------------------------------------------------------------------
   !------------------------------------------------------------------
@@ -1232,24 +1271,9 @@ mainloop1_ipair:  do ipair = 1, npair_renamexf_in
 !
 !   set dotend's
 !
-	dotendrn(:) = .false.
-	dotendqqcwrn(:) = .false.
-	do ipair = 1, npair_renamexf
-	do iq = 1, nspecfrm_renamexf(ipair)
-	    lsfrma = lspecfrma_renamexf(iq,ipair) - loffset
-	    lsfrmc = lspecfrmc_renamexf(iq,ipair) - loffset
-	    lstooa = lspectooa_renamexf(iq,ipair) - loffset
-	    lstooc = lspectooc_renamexf(iq,ipair) - loffset
-	    if (lsfrma .gt. 0) then
-		dotendrn(lsfrma) = .true.
-		if (lstooa .gt. 0) dotendrn(lstooa) = .true.
-	    end if
-	    if (lsfrmc .gt. 0) then
-		dotendqqcwrn(lsfrmc) = .true.
-		if (lstooc .gt. 0) dotendqqcwrn(lstooc) = .true.
-	    end if
-	end do
-	end do
+	call modal_aero_rename_set_dotend_flags( loffset, npair_renamexf, nspecfrm_renamexf, &
+	     lspecfrma_renamexf, lspecfrmc_renamexf, lspectooa_renamexf, lspectooc_renamexf, &
+	     dotendrn, dotendqqcwrn )
 
 
 	return
@@ -1992,6 +2016,123 @@ mainloop1_i:  do i = 1, ncol
   end subroutine modal_aero_rename_acc_crs_tendencies_native
 
 
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_rename_set_dotend_flags( loffset, npair_renamexf_in, &
+       nspecfrm_renamexf_in, lspecfrma_renamexf_in, lspecfrmc_renamexf_in, &
+       lspectooa_renamexf_in, lspectooc_renamexf_in, dotendrn, dotendqqcwrn )
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: loffset
+    integer, intent(in) :: npair_renamexf_in
+    integer, target, intent(in) :: nspecfrm_renamexf_in(maxpair_renamexf)
+    integer, target, intent(in) :: lspecfrma_renamexf_in(maxspec_renamexf,maxpair_renamexf)
+    integer, target, intent(in) :: lspecfrmc_renamexf_in(maxspec_renamexf,maxpair_renamexf)
+    integer, target, intent(in) :: lspectooa_renamexf_in(maxspec_renamexf,maxpair_renamexf)
+    integer, target, intent(in) :: lspectooc_renamexf_in(maxspec_renamexf,maxpair_renamexf)
+    logical, intent(out) :: dotendrn(pcnstxx)
+    logical, intent(out) :: dotendqqcwrn(pcnstxx)
+    integer(c_int64_t), target :: nspecfrm_renamexf_c(maxpair_renamexf)
+    integer(c_int64_t), target :: lspecfrma_renamexf_c(maxspec_renamexf,maxpair_renamexf)
+    integer(c_int64_t), target :: lspecfrmc_renamexf_c(maxspec_renamexf,maxpair_renamexf)
+    integer(c_int64_t), target :: lspectooa_renamexf_c(maxspec_renamexf,maxpair_renamexf)
+    integer(c_int64_t), target :: lspectooc_renamexf_c(maxspec_renamexf,maxpair_renamexf)
+    integer(c_int64_t), target :: dotendrn_c(pcnstxx)
+    integer(c_int64_t), target :: dotendqqcwrn_c(pcnstxx)
+    integer :: ipair, iq, l
+
+    interface
+       subroutine modal_aero_rename_set_dotend_flags_codon( &
+            pcnstxx_c, maxpair_renamexf_c, maxspec_renamexf_c, loffset_c, npair_renamexf_c, &
+            nspecfrm_renamexf_p, lspecfrma_renamexf_p, lspecfrmc_renamexf_p, lspectooa_renamexf_p, &
+            lspectooc_renamexf_p, dotendrn_p, dotendqqcwrn_p ) &
+            bind(c, name="modal_aero_rename_set_dotend_flags_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: pcnstxx_c, maxpair_renamexf_c, maxspec_renamexf_c
+         integer(c_int64_t), value :: loffset_c, npair_renamexf_c
+         type(c_ptr), value :: nspecfrm_renamexf_p, lspecfrma_renamexf_p, lspecfrmc_renamexf_p
+         type(c_ptr), value :: lspectooa_renamexf_p, lspectooc_renamexf_p, dotendrn_p, dotendqqcwrn_p
+       end subroutine modal_aero_rename_set_dotend_flags_codon
+    end interface
+
+    call modal_aero_rename_set_dotend_flags_select_impl()
+
+    if (.not. modal_aero_rename_set_dotend_flags_use_native_impl) then
+       do ipair = 1, maxpair_renamexf
+          nspecfrm_renamexf_c(ipair) = int(nspecfrm_renamexf_in(ipair), c_int64_t)
+          do iq = 1, maxspec_renamexf
+             lspecfrma_renamexf_c(iq,ipair) = int(lspecfrma_renamexf_in(iq,ipair), c_int64_t)
+             lspecfrmc_renamexf_c(iq,ipair) = int(lspecfrmc_renamexf_in(iq,ipair), c_int64_t)
+             lspectooa_renamexf_c(iq,ipair) = int(lspectooa_renamexf_in(iq,ipair), c_int64_t)
+             lspectooc_renamexf_c(iq,ipair) = int(lspectooc_renamexf_in(iq,ipair), c_int64_t)
+          end do
+       end do
+
+       call modal_aero_rename_set_dotend_flags_codon( &
+            int(pcnstxx, c_int64_t), int(maxpair_renamexf, c_int64_t), int(maxspec_renamexf, c_int64_t), &
+            int(loffset, c_int64_t), int(npair_renamexf_in, c_int64_t), c_loc(nspecfrm_renamexf_c(1)), &
+            c_loc(lspecfrma_renamexf_c(1,1)), c_loc(lspecfrmc_renamexf_c(1,1)), c_loc(lspectooa_renamexf_c(1,1)), &
+            c_loc(lspectooc_renamexf_c(1,1)), c_loc(dotendrn_c(1)), c_loc(dotendqqcwrn_c(1)) &
+       )
+       do l = 1, pcnstxx
+          dotendrn(l) = dotendrn_c(l) /= 0_c_int64_t
+          dotendqqcwrn(l) = dotendqqcwrn_c(l) /= 0_c_int64_t
+       end do
+       return
+    end if
+
+    call modal_aero_rename_set_dotend_flags_native( loffset, npair_renamexf_in, &
+         nspecfrm_renamexf_in, lspecfrma_renamexf_in, lspecfrmc_renamexf_in, &
+         lspectooa_renamexf_in, lspectooc_renamexf_in, dotendrn, dotendqqcwrn )
+
+  end subroutine modal_aero_rename_set_dotend_flags
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_rename_set_dotend_flags_native( loffset, npair_renamexf_in, &
+       nspecfrm_renamexf_in, lspecfrma_renamexf_in, lspecfrmc_renamexf_in, &
+       lspectooa_renamexf_in, lspectooc_renamexf_in, dotendrn, dotendqqcwrn )
+
+    implicit none
+
+    integer, intent(in) :: loffset
+    integer, intent(in) :: npair_renamexf_in
+    integer, intent(in) :: nspecfrm_renamexf_in(maxpair_renamexf)
+    integer, intent(in) :: lspecfrma_renamexf_in(maxspec_renamexf,maxpair_renamexf)
+    integer, intent(in) :: lspecfrmc_renamexf_in(maxspec_renamexf,maxpair_renamexf)
+    integer, intent(in) :: lspectooa_renamexf_in(maxspec_renamexf,maxpair_renamexf)
+    integer, intent(in) :: lspectooc_renamexf_in(maxspec_renamexf,maxpair_renamexf)
+    logical, intent(out) :: dotendrn(pcnstxx)
+    logical, intent(out) :: dotendqqcwrn(pcnstxx)
+
+    integer :: ipair, iq
+    integer :: lsfrma, lsfrmc, lstooa, lstooc
+
+    dotendrn(:) = .false.
+    dotendqqcwrn(:) = .false.
+    do ipair = 1, npair_renamexf_in
+       do iq = 1, nspecfrm_renamexf_in(ipair)
+          lsfrma = lspecfrma_renamexf_in(iq,ipair) - loffset
+          lsfrmc = lspecfrmc_renamexf_in(iq,ipair) - loffset
+          lstooa = lspectooa_renamexf_in(iq,ipair) - loffset
+          lstooc = lspectooc_renamexf_in(iq,ipair) - loffset
+          if (lsfrma .gt. 0) then
+             dotendrn(lsfrma) = .true.
+             if (lstooa .gt. 0) dotendrn(lstooa) = .true.
+          end if
+          if (lsfrmc .gt. 0) then
+             dotendqqcwrn(lsfrmc) = .true.
+             if (lstooc .gt. 0) dotendqqcwrn(lstooc) = .true.
+          end if
+       end do
+    end do
+
+  end subroutine modal_aero_rename_set_dotend_flags_native
+
+
 
 !-------------------------------------------------------------------------
 	subroutine modal_aero_rename_no_acc_crs_init
@@ -2399,24 +2540,9 @@ mainloop1_ipair:  do ipair = 1, npair_renamexf
 !
 !   set dotend's
 !
-	dotendrn(:) = .false.
-	dotendqqcwrn(:) = .false.
-	do ipair = 1, npair_renamexf
-	do iq = 1, nspecfrm_renamexf(ipair)
-	    lsfrma = lspecfrma_renamexf(iq,ipair) - loffset
-	    lsfrmc = lspecfrmc_renamexf(iq,ipair) - loffset
-	    lstooa = lspectooa_renamexf(iq,ipair) - loffset
-	    lstooc = lspectooc_renamexf(iq,ipair) - loffset
-	    if (lsfrma .gt. 0) then
-		dotendrn(lsfrma) = .true.
-		if (lstooa .gt. 0) dotendrn(lstooa) = .true.
-	    end if
-	    if (lsfrmc .gt. 0) then
-		dotendqqcwrn(lsfrmc) = .true.
-		if (lstooc .gt. 0) dotendqqcwrn(lstooc) = .true.
-	    end if
-	end do
-	end do
+	call modal_aero_rename_set_dotend_flags( loffset, npair_renamexf, nspecfrm_renamexf, &
+	     lspecfrma_renamexf, lspecfrmc_renamexf, lspectooa_renamexf, lspectooc_renamexf, &
+	     dotendrn, dotendqqcwrn )
 
 
 	return
