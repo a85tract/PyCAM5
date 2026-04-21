@@ -1,4 +1,4 @@
-from math import exp, log, sqrt
+from math import erfc, exp, log, sqrt
 
 @inline
 def _idx2(i: int, k: int, ld1: int) -> int:
@@ -659,3 +659,132 @@ def modal_aero_rename_no_acc_crs_dryvols_codon(
                                 dqqcwdt_other[_idx3(i, k, lc, ncol, pver)]
                                 + dqqcwdt[_idx3(i, k, lc, ncol, pver)]
                             ) * dum_m2vdt
+
+
+@export
+def modal_aero_rename_no_acc_crs_xferfracs_codon(
+    ncol: int,
+    pver: int,
+    pcnstxx: int,
+    ntot_amode: int,
+    maxpair_renamexf: int,
+    loffset: int,
+    npair_renamexf: int,
+    q_p: cobj,
+    qqcw_p: cobj,
+    dryvol_a_p: cobj,
+    dryvol_c_p: cobj,
+    deldryvol_a_p: cobj,
+    deldryvol_c_p: cobj,
+    modefrm_renamexf_p: cobj,
+    modetoo_renamexf_p: cobj,
+    numptr_amode_p: cobj,
+    numptrcw_amode_p: cobj,
+    dgnum_amode_p: cobj,
+    factoraa_p: cobj,
+    factoryy_p: cobj,
+    dryvol_smallest_p: cobj,
+    v2nlorlx_p: cobj,
+    v2nhirlx_p: cobj,
+    dum3alnsg2_p: cobj,
+    dp_cut_p: cobj,
+    lndp_cut_p: cobj,
+    dp_belowcut_p: cobj,
+    onethird: float,
+    xferfrac_max: float,
+    xferfrac_vol_p: cobj,
+    xferfrac_num_p: cobj,
+):
+    q = Ptr[float](q_p)
+    qqcw = Ptr[float](qqcw_p)
+    dryvol_a = Ptr[float](dryvol_a_p)
+    dryvol_c = Ptr[float](dryvol_c_p)
+    deldryvol_a = Ptr[float](deldryvol_a_p)
+    deldryvol_c = Ptr[float](deldryvol_c_p)
+    modefrm_renamexf = Ptr[int](modefrm_renamexf_p)
+    modetoo_renamexf = Ptr[int](modetoo_renamexf_p)
+    numptr_amode = Ptr[int](numptr_amode_p)
+    numptrcw_amode = Ptr[int](numptrcw_amode_p)
+    dgnum_amode = Ptr[float](dgnum_amode_p)
+    factoraa = Ptr[float](factoraa_p)
+    factoryy = Ptr[float](factoryy_p)
+    dryvol_smallest = Ptr[float](dryvol_smallest_p)
+    v2nlorlx = Ptr[float](v2nlorlx_p)
+    v2nhirlx = Ptr[float](v2nhirlx_p)
+    dum3alnsg2 = Ptr[float](dum3alnsg2_p)
+    dp_cut = Ptr[float](dp_cut_p)
+    lndp_cut = Ptr[float](lndp_cut_p)
+    dp_belowcut = Ptr[float](dp_belowcut_p)
+    xferfrac_vol = Ptr[float](xferfrac_vol_p)
+    xferfrac_num = Ptr[float](xferfrac_num_p)
+
+    for ipair in range(1, maxpair_renamexf + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                xferfrac_vol[_idx3(i, k, ipair, ncol, pver)] = 0.0
+                xferfrac_num[_idx3(i, k, ipair, ncol, pver)] = 0.0
+
+    for ipair in range(1, npair_renamexf + 1):
+        mfrm = modefrm_renamexf[ipair - 1]
+        mtoo = modetoo_renamexf[ipair - 1]
+
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                dryvol_t_old = dryvol_a[_idx3(i, k, mfrm, ncol, pver)] + dryvol_c[
+                    _idx3(i, k, mfrm, ncol, pver)
+                ]
+                dryvol_t_del = deldryvol_a[_idx3(i, k, mfrm, ncol, pver)] + deldryvol_c[
+                    _idx3(i, k, mfrm, ncol, pver)
+                ]
+                dryvol_t_new = dryvol_t_old + dryvol_t_del
+                dryvol_t_oldbnd = max(dryvol_t_old, dryvol_smallest[mfrm - 1])
+
+                if dryvol_t_new <= dryvol_smallest[mfrm - 1]:
+                    continue
+                if dryvol_t_del <= 1.0e-6 * dryvol_t_oldbnd:
+                    continue
+
+                num_t_old = q[_idx3(i, k, numptr_amode[mfrm - 1] - loffset, ncol, pver)]
+                num_t_old += qqcw[
+                    _idx3(i, k, numptrcw_amode[mfrm - 1] - loffset, ncol, pver)
+                ]
+                if num_t_old < 0.0:
+                    num_t_old = 0.0
+
+                dryvol_t_oldbnd = max(dryvol_t_old, dryvol_smallest[mfrm - 1])
+                num_t_oldbnd = min(dryvol_t_oldbnd * v2nlorlx[mfrm - 1], num_t_old)
+                num_t_oldbnd = max(dryvol_t_oldbnd * v2nhirlx[mfrm - 1], num_t_oldbnd)
+
+                dgn_t_new = (dryvol_t_new / (num_t_oldbnd * factoraa[mfrm - 1])) ** onethird
+                if dgn_t_new <= dgnum_amode[mfrm - 1]:
+                    continue
+
+                lndgn_new = log(dgn_t_new)
+                lndgv_new = lndgn_new + dum3alnsg2[ipair - 1]
+                yn_tail = (lndp_cut[ipair - 1] - lndgn_new) * factoryy[mfrm - 1]
+                yv_tail = (lndp_cut[ipair - 1] - lndgv_new) * factoryy[mfrm - 1]
+                tailfr_numnew = 0.5 * erfc(yn_tail)
+                tailfr_volnew = 0.5 * erfc(yv_tail)
+
+                dgn_t_old = (dryvol_t_oldbnd / (num_t_oldbnd * factoraa[mfrm - 1])) ** onethird
+                if dgn_t_new >= dp_cut[ipair - 1]:
+                    dgn_t_old = min(dgn_t_old, dp_belowcut[ipair - 1])
+
+                lndgn_old = log(dgn_t_old)
+                lndgv_old = lndgn_old + dum3alnsg2[ipair - 1]
+                yn_tail = (lndp_cut[ipair - 1] - lndgn_old) * factoryy[mfrm - 1]
+                yv_tail = (lndp_cut[ipair - 1] - lndgv_old) * factoryy[mfrm - 1]
+                tailfr_numold = 0.5 * erfc(yn_tail)
+                tailfr_volold = 0.5 * erfc(yv_tail)
+
+                dum = tailfr_volnew * dryvol_t_new - tailfr_volold * dryvol_t_old
+                if dum <= 0.0:
+                    continue
+
+                xferfrac_vol_val = min(dum, dryvol_t_new) / dryvol_t_new
+                xferfrac_vol_val = min(xferfrac_vol_val, xferfrac_max)
+                xferfrac_num_val = tailfr_numnew - tailfr_numold
+                xferfrac_num_val = max(0.0, min(xferfrac_num_val, xferfrac_vol_val))
+
+                xferfrac_vol[_idx3(i, k, ipair, ncol, pver)] = xferfrac_vol_val
+                xferfrac_num[_idx3(i, k, ipair, ncol, pver)] = xferfrac_num_val

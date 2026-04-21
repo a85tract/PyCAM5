@@ -86,6 +86,8 @@
   logical :: modal_accum_coarse_exch = .false.
   logical :: modal_aero_rename_no_acc_crs_dryvols_use_native_impl = .false.
   logical :: modal_aero_rename_no_acc_crs_dryvols_impl_selected = .false.
+  logical :: modal_aero_rename_no_acc_crs_xferfracs_use_native_impl = .false.
+  logical :: modal_aero_rename_no_acc_crs_xferfracs_impl_selected = .false.
 
 ! !DESCRIPTION: This module implements ...
 !
@@ -156,6 +158,43 @@ contains
     end if
 
   end subroutine modal_aero_rename_no_acc_crs_dryvols_select_impl
+
+  !------------------------------------------------------------------
+  !------------------------------------------------------------------
+  subroutine modal_aero_rename_no_acc_crs_xferfracs_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (modal_aero_rename_no_acc_crs_xferfracs_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('MODAL_AERO_RENAME_NO_ACC_CRS_XFERFRACS_IMPL', &
+         value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       modal_aero_rename_no_acc_crs_xferfracs_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       modal_aero_rename_no_acc_crs_xferfracs_use_native_impl = .false.
+    end if
+
+    modal_aero_rename_no_acc_crs_xferfracs_impl_selected = .true.
+
+    if (masterproc) then
+       if (modal_aero_rename_no_acc_crs_xferfracs_use_native_impl) then
+          write(iulog,*) 'modal_aero_rename_no_acc_crs_xferfracs implementation = native'
+       else
+          write(iulog,*) 'modal_aero_rename_no_acc_crs_xferfracs implementation = codon'
+       end if
+    end if
+
+  end subroutine modal_aero_rename_no_acc_crs_xferfracs_select_impl
 
   !------------------------------------------------------------------
   !------------------------------------------------------------------
@@ -408,6 +447,217 @@ contains
 
 !----------------------------------------------------------------------
 !----------------------------------------------------------------------
+  subroutine modal_aero_rename_no_acc_crs_xferfracs( ncol, loffset, npair_renamexf_in, &
+       q, qqcw, dryvol_a, dryvol_c, deldryvol_a, deldryvol_c, &
+       modefrm_renamexf_in, modetoo_renamexf_in, numptr_amode_in, numptrcw_amode_in, &
+       dgnum_amode_in, factoraa_in, factoryy_in, dryvol_smallest_in, v2nlorlx_in, v2nhirlx_in, &
+       dum3alnsg2_in, dp_cut_in, lndp_cut_in, dp_belowcut_in, onethird_in, xferfrac_max_in, &
+       xferfrac_vol_out, xferfrac_num_out )
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: loffset
+    integer, intent(in) :: npair_renamexf_in
+    real(r8), target, intent(in) :: q(ncol,pver,pcnstxx)
+    real(r8), target, intent(in) :: qqcw(ncol,pver,pcnstxx)
+    real(r8), target, intent(in) :: dryvol_a(ncol,pver,ntot_amode)
+    real(r8), target, intent(in) :: dryvol_c(ncol,pver,ntot_amode)
+    real(r8), target, intent(in) :: deldryvol_a(ncol,pver,ntot_amode)
+    real(r8), target, intent(in) :: deldryvol_c(ncol,pver,ntot_amode)
+    integer, target, intent(in) :: modefrm_renamexf_in(maxpair_renamexf)
+    integer, target, intent(in) :: modetoo_renamexf_in(maxpair_renamexf)
+    integer, target, intent(in) :: numptr_amode_in(ntot_amode)
+    integer, target, intent(in) :: numptrcw_amode_in(ntot_amode)
+    real(r8), target, intent(in) :: dgnum_amode_in(ntot_amode)
+    real(r8), target, intent(in) :: factoraa_in(ntot_amode)
+    real(r8), target, intent(in) :: factoryy_in(ntot_amode)
+    real(r8), target, intent(in) :: dryvol_smallest_in(ntot_amode)
+    real(r8), target, intent(in) :: v2nlorlx_in(ntot_amode)
+    real(r8), target, intent(in) :: v2nhirlx_in(ntot_amode)
+    real(r8), target, intent(in) :: dum3alnsg2_in(maxpair_renamexf)
+    real(r8), target, intent(in) :: dp_cut_in(maxpair_renamexf)
+    real(r8), target, intent(in) :: lndp_cut_in(maxpair_renamexf)
+    real(r8), target, intent(in) :: dp_belowcut_in(maxpair_renamexf)
+    real(r8), intent(in) :: onethird_in
+    real(r8), intent(in) :: xferfrac_max_in
+    real(r8), target, intent(out) :: xferfrac_vol_out(ncol,pver,maxpair_renamexf)
+    real(r8), target, intent(out) :: xferfrac_num_out(ncol,pver,maxpair_renamexf)
+    integer(c_int64_t), target :: modefrm_renamexf_c(maxpair_renamexf)
+    integer(c_int64_t), target :: modetoo_renamexf_c(maxpair_renamexf)
+    integer(c_int64_t), target :: numptr_amode_c(ntot_amode)
+    integer(c_int64_t), target :: numptrcw_amode_c(ntot_amode)
+    integer :: n, ipair
+
+    interface
+       subroutine modal_aero_rename_no_acc_crs_xferfracs_codon( &
+            ncol_c, pver_c, pcnstxx_c, ntot_amode_c, maxpair_renamexf_c, loffset_c, npair_renamexf_c, &
+            q_p, qqcw_p, dryvol_a_p, dryvol_c_p, deldryvol_a_p, deldryvol_c_p, &
+            modefrm_renamexf_p, modetoo_renamexf_p, numptr_amode_p, numptrcw_amode_p, &
+            dgnum_amode_p, factoraa_p, factoryy_p, dryvol_smallest_p, v2nlorlx_p, v2nhirlx_p, &
+            dum3alnsg2_p, dp_cut_p, lndp_cut_p, dp_belowcut_p, onethird_c, xferfrac_max_c, &
+            xferfrac_vol_p, xferfrac_num_p ) bind(c, name="modal_aero_rename_no_acc_crs_xferfracs_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, pcnstxx_c, ntot_amode_c, maxpair_renamexf_c
+         integer(c_int64_t), value :: loffset_c, npair_renamexf_c
+         real(c_double), value :: onethird_c, xferfrac_max_c
+         type(c_ptr), value :: q_p, qqcw_p, dryvol_a_p, dryvol_c_p, deldryvol_a_p, deldryvol_c_p
+         type(c_ptr), value :: modefrm_renamexf_p, modetoo_renamexf_p, numptr_amode_p, numptrcw_amode_p
+         type(c_ptr), value :: dgnum_amode_p, factoraa_p, factoryy_p, dryvol_smallest_p, v2nlorlx_p, v2nhirlx_p
+         type(c_ptr), value :: dum3alnsg2_p, dp_cut_p, lndp_cut_p, dp_belowcut_p
+         type(c_ptr), value :: xferfrac_vol_p, xferfrac_num_p
+       end subroutine modal_aero_rename_no_acc_crs_xferfracs_codon
+    end interface
+
+    call modal_aero_rename_no_acc_crs_xferfracs_select_impl()
+
+    if (.not. modal_aero_rename_no_acc_crs_xferfracs_use_native_impl) then
+       do ipair = 1, maxpair_renamexf
+          modefrm_renamexf_c(ipair) = int(modefrm_renamexf_in(ipair), c_int64_t)
+          modetoo_renamexf_c(ipair) = int(modetoo_renamexf_in(ipair), c_int64_t)
+       end do
+       do n = 1, ntot_amode
+          numptr_amode_c(n) = int(numptr_amode_in(n), c_int64_t)
+          numptrcw_amode_c(n) = int(numptrcw_amode_in(n), c_int64_t)
+       end do
+
+       call modal_aero_rename_no_acc_crs_xferfracs_codon( &
+            int(ncol, c_int64_t), int(pver, c_int64_t), int(pcnstxx, c_int64_t), int(ntot_amode, c_int64_t), &
+            int(maxpair_renamexf, c_int64_t), int(loffset, c_int64_t), int(npair_renamexf_in, c_int64_t), &
+            c_loc(q(1,1,1)), c_loc(qqcw(1,1,1)), c_loc(dryvol_a(1,1,1)), c_loc(dryvol_c(1,1,1)), &
+            c_loc(deldryvol_a(1,1,1)), c_loc(deldryvol_c(1,1,1)), c_loc(modefrm_renamexf_c(1)), c_loc(modetoo_renamexf_c(1)), &
+            c_loc(numptr_amode_c(1)), c_loc(numptrcw_amode_c(1)), c_loc(dgnum_amode_in(1)), c_loc(factoraa_in(1)), &
+            c_loc(factoryy_in(1)), c_loc(dryvol_smallest_in(1)), c_loc(v2nlorlx_in(1)), c_loc(v2nhirlx_in(1)), &
+            c_loc(dum3alnsg2_in(1)), c_loc(dp_cut_in(1)), c_loc(lndp_cut_in(1)), c_loc(dp_belowcut_in(1)), &
+            real(onethird_in, c_double), real(xferfrac_max_in, c_double), c_loc(xferfrac_vol_out(1,1,1)), &
+            c_loc(xferfrac_num_out(1,1,1)) &
+       )
+       return
+    end if
+
+    call modal_aero_rename_no_acc_crs_xferfracs_native( ncol, loffset, npair_renamexf_in, &
+         q, qqcw, dryvol_a, dryvol_c, deldryvol_a, deldryvol_c, modefrm_renamexf_in, modetoo_renamexf_in, &
+         numptr_amode_in, numptrcw_amode_in, dgnum_amode_in, factoraa_in, factoryy_in, dryvol_smallest_in, &
+         v2nlorlx_in, v2nhirlx_in, dum3alnsg2_in, dp_cut_in, lndp_cut_in, dp_belowcut_in, onethird_in, &
+         xferfrac_max_in, xferfrac_vol_out, xferfrac_num_out )
+
+  end subroutine modal_aero_rename_no_acc_crs_xferfracs
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_rename_no_acc_crs_xferfracs_native( ncol, loffset, npair_renamexf_in, &
+       q, qqcw, dryvol_a, dryvol_c, deldryvol_a, deldryvol_c, &
+       modefrm_renamexf_in, modetoo_renamexf_in, numptr_amode_in, numptrcw_amode_in, &
+       dgnum_amode_in, factoraa_in, factoryy_in, dryvol_smallest_in, v2nlorlx_in, v2nhirlx_in, &
+       dum3alnsg2_in, dp_cut_in, lndp_cut_in, dp_belowcut_in, onethird_in, xferfrac_max_in, &
+       xferfrac_vol_out, xferfrac_num_out )
+
+    use shr_spfn_mod, only: erfc => shr_spfn_erfc
+
+    implicit none
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: loffset
+    integer, intent(in) :: npair_renamexf_in
+    real(r8), intent(in) :: q(ncol,pver,pcnstxx)
+    real(r8), intent(in) :: qqcw(ncol,pver,pcnstxx)
+    real(r8), intent(in) :: dryvol_a(ncol,pver,ntot_amode)
+    real(r8), intent(in) :: dryvol_c(ncol,pver,ntot_amode)
+    real(r8), intent(in) :: deldryvol_a(ncol,pver,ntot_amode)
+    real(r8), intent(in) :: deldryvol_c(ncol,pver,ntot_amode)
+    integer, intent(in) :: modefrm_renamexf_in(maxpair_renamexf)
+    integer, intent(in) :: modetoo_renamexf_in(maxpair_renamexf)
+    integer, intent(in) :: numptr_amode_in(ntot_amode)
+    integer, intent(in) :: numptrcw_amode_in(ntot_amode)
+    real(r8), intent(in) :: dgnum_amode_in(ntot_amode)
+    real(r8), intent(in) :: factoraa_in(ntot_amode)
+    real(r8), intent(in) :: factoryy_in(ntot_amode)
+    real(r8), intent(in) :: dryvol_smallest_in(ntot_amode)
+    real(r8), intent(in) :: v2nlorlx_in(ntot_amode)
+    real(r8), intent(in) :: v2nhirlx_in(ntot_amode)
+    real(r8), intent(in) :: dum3alnsg2_in(maxpair_renamexf)
+    real(r8), intent(in) :: dp_cut_in(maxpair_renamexf)
+    real(r8), intent(in) :: lndp_cut_in(maxpair_renamexf)
+    real(r8), intent(in) :: dp_belowcut_in(maxpair_renamexf)
+    real(r8), intent(in) :: onethird_in
+    real(r8), intent(in) :: xferfrac_max_in
+    real(r8), intent(out) :: xferfrac_vol_out(ncol,pver,maxpair_renamexf)
+    real(r8), intent(out) :: xferfrac_num_out(ncol,pver,maxpair_renamexf)
+
+    integer :: i, k, ipair, mfrm, mtoo
+    real(r8) :: dgn_t_new, dgn_t_old
+    real(r8) :: dryvol_t_del, dryvol_t_new
+    real(r8) :: dryvol_t_old, dryvol_t_oldbnd
+    real(r8) :: dum
+    real(r8) :: lndgn_new, lndgn_old
+    real(r8) :: lndgv_new, lndgv_old
+    real(r8) :: num_t_old, num_t_oldbnd
+    real(r8) :: tailfr_volnew, tailfr_volold
+    real(r8) :: tailfr_numnew, tailfr_numold
+    real(r8) :: yn_tail, yv_tail
+
+    xferfrac_vol_out(:,:,:) = 0.0_r8
+    xferfrac_num_out(:,:,:) = 0.0_r8
+
+    do ipair = 1, npair_renamexf_in
+       mfrm = modefrm_renamexf_in(ipair)
+       mtoo = modetoo_renamexf_in(ipair)
+
+       do k = 1, pver
+       do i = 1, ncol
+          dryvol_t_old = dryvol_a(i,k,mfrm) + dryvol_c(i,k,mfrm)
+          dryvol_t_del = deldryvol_a(i,k,mfrm) + deldryvol_c(i,k,mfrm)
+          dryvol_t_new = dryvol_t_old + dryvol_t_del
+          dryvol_t_oldbnd = max( dryvol_t_old, dryvol_smallest_in(mfrm) )
+
+          if (dryvol_t_new .le. dryvol_smallest_in(mfrm)) cycle
+          if (dryvol_t_del .le. 1.0e-6_r8*dryvol_t_oldbnd) cycle
+
+          num_t_old = q(i,k,numptr_amode_in(mfrm)-loffset)
+          num_t_old = num_t_old + qqcw(i,k,numptrcw_amode_in(mfrm)-loffset)
+          num_t_old = max( 0.0_r8, num_t_old )
+          dryvol_t_oldbnd = max( dryvol_t_old, dryvol_smallest_in(mfrm) )
+          num_t_oldbnd = min( dryvol_t_oldbnd*v2nlorlx_in(mfrm), num_t_old )
+          num_t_oldbnd = max( dryvol_t_oldbnd*v2nhirlx_in(mfrm), num_t_oldbnd )
+
+          dgn_t_new = (dryvol_t_new/(num_t_oldbnd*factoraa_in(mfrm)))**onethird_in
+          if (dgn_t_new .le. dgnum_amode_in(mfrm)) cycle
+
+          lndgn_new = log( dgn_t_new )
+          lndgv_new = lndgn_new + dum3alnsg2_in(ipair)
+          yn_tail = (lndp_cut_in(ipair) - lndgn_new)*factoryy_in(mfrm)
+          yv_tail = (lndp_cut_in(ipair) - lndgv_new)*factoryy_in(mfrm)
+          tailfr_numnew = 0.5_r8*erfc( yn_tail )
+          tailfr_volnew = 0.5_r8*erfc( yv_tail )
+
+          dgn_t_old = (dryvol_t_oldbnd/(num_t_oldbnd*factoraa_in(mfrm)))**onethird_in
+          if (dgn_t_new .ge. dp_cut_in(ipair)) then
+             dgn_t_old = min( dgn_t_old, dp_belowcut_in(ipair) )
+          end if
+          lndgn_old = log( dgn_t_old )
+          lndgv_old = lndgn_old + dum3alnsg2_in(ipair)
+          yn_tail = (lndp_cut_in(ipair) - lndgn_old)*factoryy_in(mfrm)
+          yv_tail = (lndp_cut_in(ipair) - lndgv_old)*factoryy_in(mfrm)
+          tailfr_numold = 0.5_r8*erfc( yn_tail )
+          tailfr_volold = 0.5_r8*erfc( yv_tail )
+
+          dum = tailfr_volnew*dryvol_t_new - tailfr_volold*dryvol_t_old
+          if (dum .le. 0.0_r8) cycle
+
+          xferfrac_vol_out(i,k,ipair) = min( dum, dryvol_t_new )/dryvol_t_new
+          xferfrac_vol_out(i,k,ipair) = min( xferfrac_vol_out(i,k,ipair), xferfrac_max_in )
+          xferfrac_num_out(i,k,ipair) = tailfr_numnew - tailfr_numold
+          xferfrac_num_out(i,k,ipair) = max( 0.0_r8, min( xferfrac_num_out(i,k,ipair), xferfrac_vol_out(i,k,ipair) ) )
+       end do
+       end do
+    end do
+
+  end subroutine modal_aero_rename_no_acc_crs_xferfracs_native
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
 !BOP
 ! !ROUTINE:  modal_aero_rename_no_acc_crs_sub --- ...
 !
@@ -529,6 +779,8 @@ contains
    real (r8) :: v2nhirlx(ntot_amode), v2nlorlx(ntot_amode)
    real (r8) :: xfercoef, xfertend
    real (r8) :: xferfrac_vol, xferfrac_num, xferfrac_max
+   real (r8) :: xferfrac_vol_ik(ncol,pver,maxpair_renamexf)
+   real (r8) :: xferfrac_num_ik(ncol,pver,maxpair_renamexf)
 
    real (r8) :: yn_tail, yv_tail
 
@@ -603,6 +855,12 @@ contains
 	     nspec_amode, lspectype_amode, specmw_amode, specdens_amode, &
 	     lmassptr_amode, lmassptrcw_amode, dryvol_a, dryvol_c, deldryvol_a, deldryvol_c )
 
+	call modal_aero_rename_no_acc_crs_xferfracs( ncol, loffset, npair_renamexf, &
+	     q, qqcw, dryvol_a, dryvol_c, deldryvol_a, deldryvol_c, &
+	     modefrm_renamexf, modetoo_renamexf, numptr_amode, numptrcw_amode, dgnum_amode, &
+	     factoraa, factoryy, dryvol_smallest, v2nlorlx, v2nhirlx, dum3alnsg2, dp_cut, lndp_cut, dp_belowcut, &
+	     onethird, xferfrac_max, xferfrac_vol_ik, xferfrac_num_ik )
+
 
 
 !
@@ -624,64 +882,9 @@ mainloop1_ipair:  do ipair = 1, npair_renamexf
 
 	mfrm = modefrm_renamexf(ipair)
 	mtoo = modetoo_renamexf(ipair)
-
-!   dryvol_t_old is the old total (a+c) dry-volume for the "from" mode 
-!	in m^3-AP/kmol-air
-!   dryvol_t_new is the new total dry-volume
-!	(old/new = before/after the continuous growth)
-	dryvol_t_old = dryvol_a(i,k,mfrm) + dryvol_c(i,k,mfrm)
-	dryvol_t_del = deldryvol_a(i,k,mfrm) + deldryvol_c(i,k,mfrm)
-	dryvol_t_new = dryvol_t_old + dryvol_t_del
-	dryvol_t_oldbnd = max( dryvol_t_old, dryvol_smallest(mfrm) )
-
-!   no renaming if dryvol_t_new ~ 0 or dryvol_t_del ~ 0
-	if (dryvol_t_new .le. dryvol_smallest(mfrm)) cycle mainloop1_ipair
-	if (dryvol_t_del .le. 1.0e-6_r8*dryvol_t_oldbnd) cycle mainloop1_ipair
-
-!   num_t_old is total number in particles/kmol-air
-	num_t_old = q(i,k,numptr_amode(mfrm)-loffset)
-	num_t_old = num_t_old + qqcw(i,k,numptrcw_amode(mfrm)-loffset)
-	num_t_old = max( 0.0_r8, num_t_old )
-	dryvol_t_oldbnd = max( dryvol_t_old, dryvol_smallest(mfrm) )
-	num_t_oldbnd = min( dryvol_t_oldbnd*v2nlorlx(mfrm), num_t_old )
-	num_t_oldbnd = max( dryvol_t_oldbnd*v2nhirlx(mfrm), num_t_oldbnd )
-
-!   no renaming if dgnum < "base" dgnum, 
-	dgn_t_new = (dryvol_t_new/(num_t_oldbnd*factoraa(mfrm)))**onethird
-	if (dgn_t_new .le. dgnum_amode(mfrm)) cycle mainloop1_ipair
-
-!   compute new fraction of number and mass in the tail (dp > dp_cut)
-	lndgn_new = log( dgn_t_new )
-	lndgv_new = lndgn_new + dum3alnsg2(ipair)
-	yn_tail = (lndp_cut(ipair) - lndgn_new)*factoryy(mfrm)
-	yv_tail = (lndp_cut(ipair) - lndgv_new)*factoryy(mfrm)
-	tailfr_numnew = 0.5_r8*erfc( yn_tail )
-	tailfr_volnew = 0.5_r8*erfc( yv_tail )
-
-!   compute old fraction of number and mass in the tail (dp > dp_cut)
-	dgn_t_old =   &
-		(dryvol_t_oldbnd/(num_t_oldbnd*factoraa(mfrm)))**onethird
-!   if dgn_t_new exceeds dp_cut, use the minimum of dgn_t_old and 
-!   dp_belowcut to guarantee some transfer
-	if (dgn_t_new .ge. dp_cut(ipair)) then
-	    dgn_t_old = min( dgn_t_old, dp_belowcut(ipair) )
-	end if
-	lndgn_old = log( dgn_t_old )
-	lndgv_old = lndgn_old + dum3alnsg2(ipair)
-	yn_tail = (lndp_cut(ipair) - lndgn_old)*factoryy(mfrm)
-	yv_tail = (lndp_cut(ipair) - lndgv_old)*factoryy(mfrm)
-	tailfr_numold = 0.5_r8*erfc( yn_tail )
-	tailfr_volold = 0.5_r8*erfc( yv_tail )
-
-!   transfer fraction is difference between new and old tail-fractions
-!   transfer fraction for number cannot exceed that of mass
-	dum = tailfr_volnew*dryvol_t_new - tailfr_volold*dryvol_t_old
-	if (dum .le. 0.0_r8) cycle mainloop1_ipair
-
-	xferfrac_vol = min( dum, dryvol_t_new )/dryvol_t_new
-	xferfrac_vol = min( xferfrac_vol, xferfrac_max ) 
-	xferfrac_num = tailfr_numnew - tailfr_numold
-	xferfrac_num = max( 0.0_r8, min( xferfrac_num, xferfrac_vol ) )
+	xferfrac_vol = xferfrac_vol_ik(i,k,ipair)
+	xferfrac_num = xferfrac_num_ik(i,k,ipair)
+	if (xferfrac_vol .le. 0.0_r8) cycle mainloop1_ipair
 
 !   diagnostic output start ----------------------------------------
 !!$ 	if (ldiag1 > 0) then
