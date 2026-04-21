@@ -90,6 +90,8 @@
   logical :: modal_aero_rename_no_acc_crs_xferfracs_impl_selected = .false.
   logical :: modal_aero_rename_no_acc_crs_tendencies_use_native_impl = .false.
   logical :: modal_aero_rename_no_acc_crs_tendencies_impl_selected = .false.
+  logical :: modal_aero_rename_acc_crs_dryvols_use_native_impl = .false.
+  logical :: modal_aero_rename_acc_crs_dryvols_impl_selected = .false.
 
 ! !DESCRIPTION: This module implements ...
 !
@@ -234,6 +236,43 @@ contains
     end if
 
   end subroutine modal_aero_rename_no_acc_crs_tendencies_select_impl
+
+  !------------------------------------------------------------------
+  !------------------------------------------------------------------
+  subroutine modal_aero_rename_acc_crs_dryvols_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (modal_aero_rename_acc_crs_dryvols_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('MODAL_AERO_RENAME_ACC_CRS_DRYVOLS_IMPL', &
+         value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       modal_aero_rename_acc_crs_dryvols_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       modal_aero_rename_acc_crs_dryvols_use_native_impl = .false.
+    end if
+
+    modal_aero_rename_acc_crs_dryvols_impl_selected = .true.
+
+    if (masterproc) then
+       if (modal_aero_rename_acc_crs_dryvols_use_native_impl) then
+          write(iulog,*) 'modal_aero_rename_acc_crs_dryvols implementation = native'
+       else
+          write(iulog,*) 'modal_aero_rename_acc_crs_dryvols implementation = codon'
+       end if
+    end if
+
+  end subroutine modal_aero_rename_acc_crs_dryvols_select_impl
 
   !------------------------------------------------------------------
   !------------------------------------------------------------------
@@ -1149,6 +1188,175 @@ mainloop1_ipair:  do ipair = 1, npair_renamexf_in
 !EOC
 	end subroutine modal_aero_rename_no_acc_crs_sub
 
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_rename_acc_crs_dryvols( ncol, loffset, deltat, ixferable_all_in, &
+       q, qqcw, dqdt, dqdt_other, dqqcwdt, dqqcwdt_other, nspec_mfrm_in, &
+       lspectype_mfrm_in, specmw_amode_in, specdens_amode_in, lmassptr_mfrm_in, &
+       lmassptrcw_mfrm_in, ixferable_a_in, ixferable_c_in, dryvol_a, dryvol_c, &
+       deldryvol_a, deldryvol_c, dryvol_a_xfab, dryvol_c_xfab )
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: loffset
+    integer, intent(in) :: ixferable_all_in
+    real(r8), intent(in) :: deltat
+    real(r8), target, intent(in) :: q(ncol,pver,pcnstxx)
+    real(r8), target, intent(in) :: qqcw(ncol,pver,pcnstxx)
+    real(r8), target, intent(in) :: dqdt(ncol,pver,pcnstxx)
+    real(r8), target, intent(in) :: dqdt_other(ncol,pver,pcnstxx)
+    real(r8), target, intent(in) :: dqqcwdt(ncol,pver,pcnstxx)
+    real(r8), target, intent(in) :: dqqcwdt_other(ncol,pver,pcnstxx)
+    integer, intent(in) :: nspec_mfrm_in
+    integer, target, intent(in) :: lspectype_mfrm_in(maxspec_renamexf)
+    real(r8), target, intent(in) :: specmw_amode_in(*)
+    real(r8), target, intent(in) :: specdens_amode_in(*)
+    integer, target, intent(in) :: lmassptr_mfrm_in(maxspec_renamexf)
+    integer, target, intent(in) :: lmassptrcw_mfrm_in(maxspec_renamexf)
+    integer, target, intent(in) :: ixferable_a_in(maxspec_renamexf)
+    integer, target, intent(in) :: ixferable_c_in(maxspec_renamexf)
+    real(r8), target, intent(out) :: dryvol_a(ncol,pver)
+    real(r8), target, intent(out) :: dryvol_c(ncol,pver)
+    real(r8), target, intent(out) :: deldryvol_a(ncol,pver)
+    real(r8), target, intent(out) :: deldryvol_c(ncol,pver)
+    real(r8), target, intent(out) :: dryvol_a_xfab(ncol,pver)
+    real(r8), target, intent(out) :: dryvol_c_xfab(ncol,pver)
+    integer(c_int64_t) :: ixferable_all_c
+    integer(c_int64_t), target :: lspectype_mfrm_c(maxspec_renamexf)
+    integer(c_int64_t), target :: lmassptr_mfrm_c(maxspec_renamexf)
+    integer(c_int64_t), target :: lmassptrcw_mfrm_c(maxspec_renamexf)
+    integer(c_int64_t), target :: ixferable_a_c(maxspec_renamexf)
+    integer(c_int64_t), target :: ixferable_c_c(maxspec_renamexf)
+    integer :: l1
+
+    interface
+       subroutine modal_aero_rename_acc_crs_dryvols_codon( &
+            ncol_c, pver_c, pcnstxx_c, maxspec_renamexf_c, loffset_c, ixferable_all_c, &
+            nspec_mfrm_c, deltat_c, q_p, qqcw_p, dqdt_p, dqdt_other_p, dqqcwdt_p, dqqcwdt_other_p, &
+            lspectype_mfrm_p, specmw_amode_p, specdens_amode_p, lmassptr_mfrm_p, lmassptrcw_mfrm_p, &
+            ixferable_a_p, ixferable_c_p, dryvol_a_p, dryvol_c_p, deldryvol_a_p, deldryvol_c_p, &
+            dryvol_a_xfab_p, dryvol_c_xfab_p ) bind(c, name="modal_aero_rename_acc_crs_dryvols_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, pcnstxx_c, maxspec_renamexf_c
+         integer(c_int64_t), value :: loffset_c, ixferable_all_c, nspec_mfrm_c
+         real(c_double), value :: deltat_c
+         type(c_ptr), value :: q_p, qqcw_p, dqdt_p, dqdt_other_p, dqqcwdt_p, dqqcwdt_other_p
+         type(c_ptr), value :: lspectype_mfrm_p, specmw_amode_p, specdens_amode_p
+         type(c_ptr), value :: lmassptr_mfrm_p, lmassptrcw_mfrm_p, ixferable_a_p, ixferable_c_p
+         type(c_ptr), value :: dryvol_a_p, dryvol_c_p, deldryvol_a_p, deldryvol_c_p
+         type(c_ptr), value :: dryvol_a_xfab_p, dryvol_c_xfab_p
+       end subroutine modal_aero_rename_acc_crs_dryvols_codon
+    end interface
+
+    call modal_aero_rename_acc_crs_dryvols_select_impl()
+
+    if (.not. modal_aero_rename_acc_crs_dryvols_use_native_impl) then
+       ixferable_all_c = int(ixferable_all_in, c_int64_t)
+       do l1 = 1, maxspec_renamexf
+          lspectype_mfrm_c(l1) = int(lspectype_mfrm_in(l1), c_int64_t)
+          lmassptr_mfrm_c(l1) = int(lmassptr_mfrm_in(l1), c_int64_t)
+          lmassptrcw_mfrm_c(l1) = int(lmassptrcw_mfrm_in(l1), c_int64_t)
+          ixferable_a_c(l1) = int(ixferable_a_in(l1), c_int64_t)
+          ixferable_c_c(l1) = int(ixferable_c_in(l1), c_int64_t)
+       end do
+
+       call modal_aero_rename_acc_crs_dryvols_codon( &
+            int(ncol, c_int64_t), int(pver, c_int64_t), int(pcnstxx, c_int64_t), int(maxspec_renamexf, c_int64_t), &
+            int(loffset, c_int64_t), ixferable_all_c, int(nspec_mfrm_in, c_int64_t), real(deltat, c_double), &
+            c_loc(q(1,1,1)), c_loc(qqcw(1,1,1)), c_loc(dqdt(1,1,1)), c_loc(dqdt_other(1,1,1)), &
+            c_loc(dqqcwdt(1,1,1)), c_loc(dqqcwdt_other(1,1,1)), c_loc(lspectype_mfrm_c(1)), c_loc(specmw_amode_in(1)), &
+            c_loc(specdens_amode_in(1)), c_loc(lmassptr_mfrm_c(1)), c_loc(lmassptrcw_mfrm_c(1)), c_loc(ixferable_a_c(1)), &
+            c_loc(ixferable_c_c(1)), c_loc(dryvol_a(1,1)), c_loc(dryvol_c(1,1)), c_loc(deldryvol_a(1,1)), &
+            c_loc(deldryvol_c(1,1)), c_loc(dryvol_a_xfab(1,1)), c_loc(dryvol_c_xfab(1,1)) &
+       )
+       return
+    end if
+
+    call modal_aero_rename_acc_crs_dryvols_native( ncol, loffset, deltat, ixferable_all_in, &
+         q, qqcw, dqdt, dqdt_other, dqqcwdt, dqqcwdt_other, nspec_mfrm_in, lspectype_mfrm_in, &
+         specmw_amode_in, specdens_amode_in, lmassptr_mfrm_in, lmassptrcw_mfrm_in, ixferable_a_in, &
+         ixferable_c_in, dryvol_a, dryvol_c, deldryvol_a, deldryvol_c, dryvol_a_xfab, dryvol_c_xfab )
+
+  end subroutine modal_aero_rename_acc_crs_dryvols
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_rename_acc_crs_dryvols_native( ncol, loffset, deltat, ixferable_all_in, &
+       q, qqcw, dqdt, dqdt_other, dqqcwdt, dqqcwdt_other, nspec_mfrm_in, lspectype_mfrm_in, &
+       specmw_amode_in, specdens_amode_in, lmassptr_mfrm_in, lmassptrcw_mfrm_in, ixferable_a_in, &
+       ixferable_c_in, dryvol_a, dryvol_c, deldryvol_a, deldryvol_c, dryvol_a_xfab, dryvol_c_xfab )
+
+    implicit none
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: loffset
+    integer, intent(in) :: ixferable_all_in
+    real(r8), intent(in) :: deltat
+    real(r8), intent(in) :: q(ncol,pver,pcnstxx)
+    real(r8), intent(in) :: qqcw(ncol,pver,pcnstxx)
+    real(r8), intent(in) :: dqdt(ncol,pver,pcnstxx)
+    real(r8), intent(in) :: dqdt_other(ncol,pver,pcnstxx)
+    real(r8), intent(in) :: dqqcwdt(ncol,pver,pcnstxx)
+    real(r8), intent(in) :: dqqcwdt_other(ncol,pver,pcnstxx)
+    integer, intent(in) :: nspec_mfrm_in
+    integer, intent(in) :: lspectype_mfrm_in(maxspec_renamexf)
+    real(r8), intent(in) :: specmw_amode_in(*)
+    real(r8), intent(in) :: specdens_amode_in(*)
+    integer, intent(in) :: lmassptr_mfrm_in(maxspec_renamexf)
+    integer, intent(in) :: lmassptrcw_mfrm_in(maxspec_renamexf)
+    integer, intent(in) :: ixferable_a_in(maxspec_renamexf)
+    integer, intent(in) :: ixferable_c_in(maxspec_renamexf)
+    real(r8), intent(out) :: dryvol_a(ncol,pver)
+    real(r8), intent(out) :: dryvol_c(ncol,pver)
+    real(r8), intent(out) :: deldryvol_a(ncol,pver)
+    real(r8), intent(out) :: deldryvol_c(ncol,pver)
+    real(r8), intent(out) :: dryvol_a_xfab(ncol,pver)
+    real(r8), intent(out) :: dryvol_c_xfab(ncol,pver)
+
+    integer :: l1, l2, la, lc
+    real(r8) :: tmp_m2v, tmp_m2vdt
+
+    dryvol_a(:,:) = 0.0_r8
+    dryvol_c(:,:) = 0.0_r8
+    deldryvol_a(:,:) = 0.0_r8
+    deldryvol_c(:,:) = 0.0_r8
+    dryvol_a_xfab(:,:) = 0.0_r8
+    dryvol_c_xfab(:,:) = 0.0_r8
+
+    do l1 = 1, nspec_mfrm_in
+       l2 = lspectype_mfrm_in(l1)
+       tmp_m2v = specmw_amode_in(l2) / specdens_amode_in(l2)
+       tmp_m2vdt = tmp_m2v*deltat
+       la = lmassptr_mfrm_in(l1)-loffset
+       if (la > 0) then
+          dryvol_a(1:ncol,:) = dryvol_a(1:ncol,:)    &
+               + tmp_m2v*max( 0.0_r8, q(1:ncol,:,la)-deltat*dqdt_other(1:ncol,:,la) )
+          deldryvol_a(1:ncol,:) = deldryvol_a(1:ncol,:)    &
+               + (dqdt_other(1:ncol,:,la) + dqdt(1:ncol,:,la))*tmp_m2vdt
+          if ( (ixferable_all_in <= 0) .and. (ixferable_a_in(l1) > 0) ) then
+             dryvol_a_xfab(1:ncol,:) = dryvol_a_xfab(1:ncol,:)    &
+                  + tmp_m2v*max( 0.0_r8, q(1:ncol,:,la)+deltat*dqdt(1:ncol,:,la) )
+          end if
+       end if
+
+       lc = lmassptrcw_mfrm_in(l1)-loffset
+       if (lc > 0) then
+          dryvol_c(1:ncol,:) = dryvol_c(1:ncol,:)    &
+               + tmp_m2v*max( 0.0_r8, qqcw(1:ncol,:,lc)-deltat*dqqcwdt_other(1:ncol,:,lc) )
+          deldryvol_c(1:ncol,:) = deldryvol_c(1:ncol,:)    &
+               + (dqqcwdt_other(1:ncol,:,lc) + dqqcwdt(1:ncol,:,lc))*tmp_m2vdt
+          if ( (ixferable_all_in <= 0) .and. (ixferable_c_in(l1) > 0) ) then
+             dryvol_c_xfab(1:ncol,:) = dryvol_c_xfab(1:ncol,:)    &
+                  + tmp_m2v*max( 0.0_r8, qqcw(1:ncol,:,lc)+deltat*dqqcwdt(1:ncol,:,lc) )
+          end if
+       end if
+    end do
+
+  end subroutine modal_aero_rename_acc_crs_dryvols_native
+
 
 
 !-------------------------------------------------------------------------
@@ -1524,53 +1732,11 @@ mainloop1_ipair:  do ipair = 1, npair_renamexf
 !   also compute dry-volume change during the continuous growth process
 !	using the incoming dqdt*deltat
 !
-	dryvol_a(:,:) = 0.0_r8
-	dryvol_c(:,:) = 0.0_r8
-	deldryvol_a(:,:) = 0.0_r8
-	deldryvol_c(:,:) = 0.0_r8
-	if (ixferable_all_renamexf(ipair) <= 0) then
-	    dryvol_a_xfab(:,:) = 0.0_r8
-	    dryvol_c_xfab(:,:) = 0.0_r8
-	end if
-
-	n = mfrm
-	do l1 = 1, nspec_amode(n)
-	    l2 = lspectype_amode(l1,n)
-!   tmp_m2v converts (kmol-AP/kmol-air) to (m3-AP/kmol-air)
-!            [m3-AP/kmol-AP]= [kg-AP/kmol-AP]  / [kg-AP/m3-AP]
-	    tmp_m2v = specmw_amode(l2) / specdens_amode(l2)
-	    tmp_m2vdt = tmp_m2v*deltat
-	    la = lmassptr_amode(l1,n)-loffset
-	    if (la > 0) then
-		dryvol_a(1:ncol,:) = dryvol_a(1:ncol,:)    &
-		    + tmp_m2v*max( 0.0_r8,   &
-		      q(1:ncol,:,la)-deltat*dqdt_other(1:ncol,:,la) )
-		deldryvol_a(1:ncol,:) = deldryvol_a(1:ncol,:)    &
-		    + (dqdt_other(1:ncol,:,la) + dqdt(1:ncol,:,la))*tmp_m2vdt
-		if ( (ixferable_all_renamexf(ipair) <= 0) .and. &
-		     (ixferable_a_renamexf(l1,ipair) > 0) ) then
-		    dryvol_a_xfab(1:ncol,:) = dryvol_a_xfab(1:ncol,:)    &
-			+ tmp_m2v*max( 0.0_r8,   &
-			q(1:ncol,:,la)+deltat*dqdt(1:ncol,:,la) )
-		end if
-	    end if
-
-	    lc = lmassptrcw_amode(l1,n)-loffset
-	    if (lc > 0) then
-		dryvol_c(1:ncol,:) = dryvol_c(1:ncol,:)    &
-		    + tmp_m2v*max( 0.0_r8,   &
-		      qqcw(1:ncol,:,lc)-deltat*dqqcwdt_other(1:ncol,:,lc) )
-		deldryvol_c(1:ncol,:) = deldryvol_c(1:ncol,:)    &
-		    + (dqqcwdt_other(1:ncol,:,lc) +   &
-		             dqqcwdt(1:ncol,:,lc))*tmp_m2vdt
-		if ( (ixferable_all_renamexf(ipair) <= 0) .and. &
-		     (ixferable_c_renamexf(l1,ipair) > 0) ) then
-		    dryvol_c_xfab(1:ncol,:) = dryvol_c_xfab(1:ncol,:)    &
-			+ tmp_m2v*max( 0.0_r8,   &
-			  qqcw(1:ncol,:,lc)+deltat*dqqcwdt(1:ncol,:,lc) )
-		end if
-	    end if
-	end do
+	call modal_aero_rename_acc_crs_dryvols( ncol, loffset, deltat, ixferable_all_renamexf(ipair), &
+	     q, qqcw, dqdt, dqdt_other, dqqcwdt, dqqcwdt_other, nspec_amode(mfrm), lspectype_amode(:,mfrm), &
+	     specmw_amode, specdens_amode, lmassptr_amode(:,mfrm), lmassptrcw_amode(:,mfrm), &
+	     ixferable_a_renamexf(:,ipair), ixferable_c_renamexf(:,ipair), dryvol_a, dryvol_c, &
+	     deldryvol_a, deldryvol_c, dryvol_a_xfab, dryvol_c_xfab )
 
 !
 !

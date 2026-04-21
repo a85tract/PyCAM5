@@ -893,3 +893,108 @@ def modal_aero_rename_no_acc_crs_tendencies_codon(
                             qqcwsrflx[_idx3(i, lstooc, jsrflx_rename, pcols, pcnstxx)] += (
                                 xfertend * pdel_fac
                             )
+
+
+@export
+def modal_aero_rename_acc_crs_dryvols_codon(
+    ncol: int,
+    pver: int,
+    pcnstxx: int,
+    maxspec_renamexf: int,
+    loffset: int,
+    ixferable_all: int,
+    nspec_mfrm: int,
+    deltat: float,
+    q_p: cobj,
+    qqcw_p: cobj,
+    dqdt_p: cobj,
+    dqdt_other_p: cobj,
+    dqqcwdt_p: cobj,
+    dqqcwdt_other_p: cobj,
+    lspectype_mfrm_p: cobj,
+    specmw_amode_p: cobj,
+    specdens_amode_p: cobj,
+    lmassptr_mfrm_p: cobj,
+    lmassptrcw_mfrm_p: cobj,
+    ixferable_a_p: cobj,
+    ixferable_c_p: cobj,
+    dryvol_a_p: cobj,
+    dryvol_c_p: cobj,
+    deldryvol_a_p: cobj,
+    deldryvol_c_p: cobj,
+    dryvol_a_xfab_p: cobj,
+    dryvol_c_xfab_p: cobj,
+):
+    q = Ptr[float](q_p)
+    qqcw = Ptr[float](qqcw_p)
+    dqdt = Ptr[float](dqdt_p)
+    dqdt_other = Ptr[float](dqdt_other_p)
+    dqqcwdt = Ptr[float](dqqcwdt_p)
+    dqqcwdt_other = Ptr[float](dqqcwdt_other_p)
+    lspectype_mfrm = Ptr[int](lspectype_mfrm_p)
+    specmw_amode = Ptr[float](specmw_amode_p)
+    specdens_amode = Ptr[float](specdens_amode_p)
+    lmassptr_mfrm = Ptr[int](lmassptr_mfrm_p)
+    lmassptrcw_mfrm = Ptr[int](lmassptrcw_mfrm_p)
+    ixferable_a = Ptr[int](ixferable_a_p)
+    ixferable_c = Ptr[int](ixferable_c_p)
+    dryvol_a = Ptr[float](dryvol_a_p)
+    dryvol_c = Ptr[float](dryvol_c_p)
+    deldryvol_a = Ptr[float](deldryvol_a_p)
+    deldryvol_c = Ptr[float](deldryvol_c_p)
+    dryvol_a_xfab = Ptr[float](dryvol_a_xfab_p)
+    dryvol_c_xfab = Ptr[float](dryvol_c_xfab_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            dryvol_a[_idx2(i, k, ncol)] = 0.0
+            dryvol_c[_idx2(i, k, ncol)] = 0.0
+            deldryvol_a[_idx2(i, k, ncol)] = 0.0
+            deldryvol_c[_idx2(i, k, ncol)] = 0.0
+            dryvol_a_xfab[_idx2(i, k, ncol)] = 0.0
+            dryvol_c_xfab[_idx2(i, k, ncol)] = 0.0
+
+    for l1 in range(1, nspec_mfrm + 1):
+        l2 = lspectype_mfrm[l1 - 1]
+        tmp_m2v = specmw_amode[l2 - 1] / specdens_amode[l2 - 1]
+        tmp_m2vdt = tmp_m2v * deltat
+
+        la = lmassptr_mfrm[l1 - 1] - loffset
+        if la > 0:
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    dryvol_a[_idx2(i, k, ncol)] += tmp_m2v * max(
+                        0.0,
+                        q[_idx3(i, k, la, ncol, pver)]
+                        - deltat * dqdt_other[_idx3(i, k, la, ncol, pver)],
+                    )
+                    deldryvol_a[_idx2(i, k, ncol)] += (
+                        dqdt_other[_idx3(i, k, la, ncol, pver)]
+                        + dqdt[_idx3(i, k, la, ncol, pver)]
+                    ) * tmp_m2vdt
+                    if ixferable_all <= 0 and ixferable_a[l1 - 1] > 0:
+                        dryvol_a_xfab[_idx2(i, k, ncol)] += tmp_m2v * max(
+                            0.0,
+                            q[_idx3(i, k, la, ncol, pver)]
+                            + deltat * dqdt[_idx3(i, k, la, ncol, pver)],
+                        )
+
+        lc = lmassptrcw_mfrm[l1 - 1] - loffset
+        if lc > 0:
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    dryvol_c[_idx2(i, k, ncol)] += tmp_m2v * max(
+                        0.0,
+                        qqcw[_idx3(i, k, lc, ncol, pver)]
+                        - deltat * dqqcwdt_other[_idx3(i, k, lc, ncol, pver)],
+                    )
+                    deldryvol_c[_idx2(i, k, ncol)] += (
+                        dqqcwdt_other[_idx3(i, k, lc, ncol, pver)]
+                        + dqqcwdt[_idx3(i, k, lc, ncol, pver)]
+                    ) * tmp_m2vdt
+                    if ixferable_all <= 0 and ixferable_c[l1 - 1] > 0:
+                        dryvol_c_xfab[_idx2(i, k, ncol)] += tmp_m2v * max(
+                            0.0,
+                            qqcw[_idx3(i, k, lc, ncol, pver)]
+                            + deltat * dqqcwdt[_idx3(i, k, lc, ncol, pver)],
+                        )
