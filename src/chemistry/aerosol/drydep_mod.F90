@@ -2,12 +2,16 @@ module drydep_mod
 
   use shr_kind_mod, only: r8 => shr_kind_r8
   use ppgrid
+  use cam_logfile, only: iulog
+  use spmd_utils, only: masterproc
 
       ! Shared Data for dry deposition calculation.
 
       real(r8) rair                ! Gas constant for dry air (J/K/kg)
       real(r8) gravit              ! Gravitational acceleration
 !      real(r8), allocatable :: phi(:)           ! grid latitudes (radians)11
+      logical, save :: calcram_use_native_impl = .false.
+      logical, save :: calcram_impl_selected = .false.
 
 contains
 
@@ -179,12 +183,109 @@ contains
       subroutine  calcram(ncol,landfrac,icefrac,ocnfrac,obklen,&
            ustar,ram1in,ram1,t,pmid,&
            pdel,fvin,fv)
+        use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
         !
         ! !DESCRIPTION: 
         !  
         ! Calc aerodynamic resistance over oceans and sea ice (comes in from land model)
         ! from Seinfeld and Pandis, p.963.
         !  
+        ! Author: Natalie Mahowald
+        !
+        implicit none
+        integer, intent(in) :: ncol
+        real(r8), target, intent(in) :: ram1in(pcols)         !aerodynamical resistance (s/m)
+        real(r8), target, intent(in) :: fvin(pcols)                 ! sfc frc vel from land
+        real(r8), target, intent(out) :: ram1(pcols)         !aerodynamical resistance (s/m)
+        real(r8), target, intent(out) :: fv(pcols)                 ! sfc frc vel from land
+        real(r8), target, intent(in) :: obklen(pcols)                 ! obklen
+        real(r8), target, intent(in) :: ustar(pcols)                  ! sfc fric vel
+        real(r8), target, intent(in) :: landfrac(pcols)               ! land fraction
+        real(r8), target, intent(in) :: icefrac(pcols)                ! ice fraction
+        real(r8), target, intent(in) :: ocnfrac(pcols)                ! ocean fraction
+        real(r8), target, intent(in) :: t(pcols)       !atm temperature (K)
+        real(r8), target, intent(in) :: pmid(pcols)    !atm pressure (Pa)
+        real(r8), target, intent(in) :: pdel(pcols)    !atm pressure (Pa)
+
+        interface
+           subroutine calcram_codon(ncol_c, pcols_c, rair_c, gravit_c, ram1in_p, fvin_p, ram1_p, fv_p, &
+                obklen_p, ustar_p, landfrac_p, icefrac_p, ocnfrac_p, t_p, pmid_p, pdel_p) bind(c, name="calcram_codon")
+             use iso_c_binding, only: c_double, c_int64_t, c_ptr
+             integer(c_int64_t), value :: ncol_c, pcols_c
+             real(c_double), value :: rair_c, gravit_c
+             type(c_ptr), value :: ram1in_p, fvin_p, ram1_p, fv_p, obklen_p, ustar_p
+             type(c_ptr), value :: landfrac_p, icefrac_p, ocnfrac_p, t_p, pmid_p, pdel_p
+           end subroutine calcram_codon
+        end interface
+
+        call calcram_select_impl()
+
+        if (calcram_use_native_impl) then
+           call calcram_native(ncol,landfrac,icefrac,ocnfrac,obklen,ustar,ram1in,ram1,t,pmid,pdel,fvin,fv)
+           return
+        end if
+
+        call calcram_codon( &
+             int(ncol, c_int64_t), int(pcols, c_int64_t), real(rair, c_double), real(gravit, c_double), &
+             c_loc(ram1in), c_loc(fvin), c_loc(ram1), c_loc(fv), c_loc(obklen), c_loc(ustar), c_loc(landfrac), &
+             c_loc(icefrac), c_loc(ocnfrac), c_loc(t), c_loc(pmid), c_loc(pdel) &
+        )
+
+        return
+      end subroutine calcram
+
+
+!##############################################################################
+
+      subroutine calcram_select_impl()
+
+        implicit none
+
+        character(len=32) :: impl_name
+        integer :: status, n, i, code
+
+        if (calcram_impl_selected) return
+
+        impl_name = 'codon'
+        call get_environment_variable('CALCRAM_IMPL', value=impl_name, length=n, status=status)
+
+        if (status == 0 .and. n > 0) then
+           do i = 1, n
+              code = iachar(impl_name(i:i))
+              if (code >= iachar('A') .and. code <= iachar('Z')) then
+                 impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+              end if
+           end do
+           calcram_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+        else
+           calcram_use_native_impl = .false.
+        end if
+
+        calcram_impl_selected = .true.
+
+        if (masterproc) then
+           if (calcram_use_native_impl) then
+              write(iulog,*) 'calcram implementation = native'
+           else
+              write(iulog,*) 'calcram implementation = codon'
+           end if
+        end if
+
+        return
+      end subroutine calcram_select_impl
+
+
+!##############################################################################
+
+      subroutine  calcram_native(ncol,landfrac,icefrac,ocnfrac,obklen,&
+           ustar,ram1in,ram1,t,pmid,&
+           pdel,fvin,fv)
+        !
+        ! !DESCRIPTION:
+        !
+        ! Calc aerodynamic resistance over oceans and sea ice (comes in from land model)
+        ! from Seinfeld and Pandis, p.963.
+        !
         ! Author: Natalie Mahowald
         !
         implicit none
@@ -221,8 +322,8 @@ contains
               psi0=min(max(zzocen/obklen(i),-1.0_r8),1.0_r8)
            endif
            temp=z/zzocen
-           if(icefrac(i) > 0.5_r8) then 
-              if(obklen(i).gt.0) then 
+           if(icefrac(i) > 0.5_r8) then
+              if(obklen(i).gt.0) then
                  psi0=min(max(zzsice/obklen(i),-1.0_r8),1.0_r8)
               else
                  psi0=0.0_r8
@@ -254,14 +355,14 @@ contains
 
         enddo
 
-        ! fvitt -- fv == 0 causes a floating point exception in 
+        ! fvitt -- fv == 0 causes a floating point exception in
         ! dry dep of sea salts and dust
-        where ( fv(:ncol) == 0._r8 ) 
+        where ( fv(:ncol) == 0._r8 )
            fv(:ncol) = 1.e-12_r8
         endwhere
 
         return
-      end subroutine calcram
+      end subroutine calcram_native
 
 
 !##############################################################################

@@ -1,4 +1,4 @@
-from math import copysign, erfc, exp, log, sqrt
+from math import atan, copysign, erfc, exp, log, sqrt
 
 @inline
 def _idx2(i: int, k: int, ld1: int) -> int:
@@ -360,6 +360,88 @@ def aero_model_wetdep_column_flux_codon(
         for k in range(1, pver + 1):
             total += field[_idx2(i, k, pcols)] * pdel[_idx2(i, k, pcols)] / gravit
         sflx[i - 1] = total
+
+
+@export
+def calcram_codon(
+    ncol: int,
+    pcols: int,
+    rair: float,
+    gravit: float,
+    ram1in_p: cobj,
+    fvin_p: cobj,
+    ram1_p: cobj,
+    fv_p: cobj,
+    obklen_p: cobj,
+    ustar_p: cobj,
+    landfrac_p: cobj,
+    icefrac_p: cobj,
+    ocnfrac_p: cobj,
+    t_p: cobj,
+    pmid_p: cobj,
+    pdel_p: cobj,
+):
+    ram1in = Ptr[float](ram1in_p)
+    fvin = Ptr[float](fvin_p)
+    ram1 = Ptr[float](ram1_p)
+    fv = Ptr[float](fv_p)
+    obklen = Ptr[float](obklen_p)
+    ustar = Ptr[float](ustar_p)
+    landfrac = Ptr[float](landfrac_p)
+    icefrac = Ptr[float](icefrac_p)
+    ocnfrac = Ptr[float](ocnfrac_p)
+    t = Ptr[float](t_p)
+    pmid = Ptr[float](pmid_p)
+    pdel = Ptr[float](pdel_p)
+
+    zzocen = 0.0001
+    zzsice = 0.0400
+    xkar = 0.4
+
+    for i in range(1, ncol + 1):
+        z = pdel[i - 1] * rair * t[i - 1] / pmid[i - 1] / gravit / 2.0
+        if obklen[i - 1] == 0.0:
+            psi = 0.0
+            psi0 = 0.0
+        else:
+            psi = min(max(z / obklen[i - 1], -1.0), 1.0)
+            psi0 = min(max(zzocen / obklen[i - 1], -1.0), 1.0)
+
+        temp = z / zzocen
+        if icefrac[i - 1] > 0.5:
+            if obklen[i - 1] > 0.0:
+                psi0 = min(max(zzsice / obklen[i - 1], -1.0), 1.0)
+            else:
+                psi0 = 0.0
+            temp = z / zzsice
+
+        if psi > 0.0:
+            ram = 1.0 / xkar / ustar[i - 1] * (log(temp) + 4.7 * (psi - psi0))
+        else:
+            nu = (1.0 - 15.0 * psi) ** 0.25
+            nu0 = (1.0 - 15.0 * psi0) ** 0.25
+            if ustar[i - 1] != 0.0:
+                ram = 1.0 / xkar / ustar[i - 1] * (
+                    log(temp)
+                    + log(
+                        ((nu0**2.0 + 1.0) * (nu0 + 1.0) ** 2.0)
+                        / ((nu**2.0 + 1.0) * (nu + 1.0) ** 2.0)
+                    )
+                    + 2.0 * (atan(nu) - atan(nu0))
+                )
+            else:
+                ram = 0.0
+
+        if landfrac[i - 1] < 0.000000001:
+            fv[i - 1] = ustar[i - 1]
+            ram1[i - 1] = ram
+        else:
+            fv[i - 1] = fvin[i - 1]
+            ram1[i - 1] = ram1in[i - 1]
+
+    for i in range(1, ncol + 1):
+        if fv[i - 1] == 0.0:
+            fv[i - 1] = 1.0e-12
 
 
 def _dust_cfint2(
