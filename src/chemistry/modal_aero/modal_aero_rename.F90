@@ -102,6 +102,8 @@
   logical :: modal_aero_rename_acc_crs_pair_impl_selected = .false.
   logical :: modal_aero_rename_acc_crs_sub_use_native_impl = .false.
   logical :: modal_aero_rename_acc_crs_sub_impl_selected = .false.
+  logical :: modal_aero_rename_sub_use_native_impl = .false.
+  logical :: modal_aero_rename_sub_impl_selected = .false.
   logical :: modal_aero_rename_set_dotend_flags_use_native_impl = .false.
   logical :: modal_aero_rename_set_dotend_flags_impl_selected = .false.
 
@@ -510,6 +512,43 @@ contains
 
   !------------------------------------------------------------------
   !------------------------------------------------------------------
+  subroutine modal_aero_rename_sub_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (modal_aero_rename_sub_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('MODAL_AERO_RENAME_SUB_IMPL', &
+         value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       modal_aero_rename_sub_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       modal_aero_rename_sub_use_native_impl = .false.
+    end if
+
+    modal_aero_rename_sub_impl_selected = .true.
+
+    if (masterproc) then
+       if (modal_aero_rename_sub_use_native_impl) then
+          write(iulog,*) 'modal_aero_rename_sub implementation = native'
+       else
+          write(iulog,*) 'modal_aero_rename_sub implementation = codon'
+       end if
+    end if
+
+  end subroutine modal_aero_rename_sub_select_impl
+
+  !------------------------------------------------------------------
+  !------------------------------------------------------------------
   subroutine modal_aero_rename_sub(                       &
        fromwhere,         lchnk,               &
        ncol,              nstep,               &
@@ -571,6 +610,40 @@ contains
          :: dqdt_rnpos(ncol,pver,pcnstxx)
     ! the positive (production) part of the renaming tendency
 
+    call modal_aero_rename_sub_select_impl()
+
+    if (.not. modal_aero_rename_sub_use_native_impl) then
+       if (modal_accum_coarse_exch) then
+          call modal_aero_rename_sub_acc_crs_codon_impl( &
+               fromwhere,         lchnk,               &
+               ncol,              nstep,               &
+               loffset,           deltat,              &
+               pdel,              troplev,             &
+               dotendrn,          q,                   &
+               dqdt,              dqdt_other,          &
+               dotendqqcwrn,      qqcw,                &
+               dqqcwdt,           dqqcwdt_other,       &
+               is_dorename_atik,  dorename_atik,       &
+               jsrflx_rename,     nsrflx,              &
+               qsrflx,            qqcwsrflx,           &
+               dqdt_rnpos                              )
+       else
+          call modal_aero_rename_sub_no_acc_crs_codon_impl( &
+               fromwhere,         lchnk,               &
+               ncol,              nstep,               &
+               loffset,           deltat,              &
+               pdel,                                   &
+               dotendrn,          q,                   &
+               dqdt,              dqdt_other,          &
+               dotendqqcwrn,      qqcw,                &
+               dqqcwdt,           dqqcwdt_other,       &
+               is_dorename_atik,  dorename_atik,       &
+               jsrflx_rename,     nsrflx,              &
+               qsrflx,            qqcwsrflx            )
+       endif
+       return
+    end if
+
     if (modal_accum_coarse_exch) then
        call modal_aero_rename_acc_crs_sub(        &
             fromwhere,         lchnk,               &
@@ -600,6 +673,94 @@ contains
             qsrflx,            qqcwsrflx            )
     endif
   end subroutine modal_aero_rename_sub
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_rename_sub_no_acc_crs_codon_impl(            &
+       fromwhere,         lchnk,               &
+       ncol,              nstep,               &
+       loffset,           deltat,              &
+       pdel,                                   &
+       dotendrn,          q,                   &
+       dqdt,              dqdt_other,          &
+       dotendqqcwrn,      qqcw,                &
+       dqqcwdt,           dqqcwdt_other,       &
+       is_dorename_atik,  dorename_atik,       &
+       jsrflx_rename,     nsrflx,              &
+       qsrflx,            qqcwsrflx            )
+
+    character(len=*), intent(in) :: fromwhere
+    integer, intent(in) :: lchnk, ncol, nstep, loffset
+    real(r8), intent(in) :: deltat
+    real(r8), intent(in) :: pdel(pcols,pver)
+    logical, intent(inout) :: dotendrn(pcnstxx), dotendqqcwrn(pcnstxx)
+    real(r8), intent(in) :: q(ncol,pver,pcnstxx), qqcw(ncol,pver,pcnstxx)
+    real(r8), intent(inout) :: dqdt(ncol,pver,pcnstxx), dqqcwdt(ncol,pver,pcnstxx)
+    real(r8), intent(in) :: dqdt_other(ncol,pver,pcnstxx), dqqcwdt_other(ncol,pver,pcnstxx)
+    logical, intent(in) :: is_dorename_atik, dorename_atik(ncol,pver)
+    integer, intent(in) :: jsrflx_rename, nsrflx
+    real(r8), intent(inout) :: qsrflx(pcols,pcnstxx,nsrflx), qqcwsrflx(pcols,pcnstxx,nsrflx)
+
+    call modal_aero_rename_no_acc_crs_sub( &
+         fromwhere,         lchnk,               &
+         ncol,              nstep,               &
+         loffset,           deltat,              &
+         pdel,                                   &
+         dotendrn,          q,                   &
+         dqdt,              dqdt_other,          &
+         dotendqqcwrn,      qqcw,                &
+         dqqcwdt,           dqqcwdt_other,       &
+         is_dorename_atik,  dorename_atik,       &
+         jsrflx_rename,     nsrflx,              &
+         qsrflx,            qqcwsrflx            )
+
+  end subroutine modal_aero_rename_sub_no_acc_crs_codon_impl
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_rename_sub_acc_crs_codon_impl(               &
+       fromwhere,         lchnk,               &
+       ncol,              nstep,               &
+       loffset,           deltat,              &
+       pdel,              troplev,             &
+       dotendrn,          q,                   &
+       dqdt,              dqdt_other,          &
+       dotendqqcwrn,      qqcw,                &
+       dqqcwdt,           dqqcwdt_other,       &
+       is_dorename_atik,  dorename_atik,       &
+       jsrflx_rename,     nsrflx,              &
+       qsrflx,            qqcwsrflx,           &
+       dqdt_rnpos                              )
+
+    character(len=*), intent(in) :: fromwhere
+    integer, intent(in) :: lchnk, ncol, nstep, loffset
+    real(r8), intent(in) :: deltat
+    integer, intent(in) :: troplev(pcols)
+    real(r8), intent(in) :: pdel(pcols,pver)
+    logical, intent(inout) :: dotendrn(pcnstxx), dotendqqcwrn(pcnstxx)
+    real(r8), intent(in) :: q(ncol,pver,pcnstxx), qqcw(ncol,pver,pcnstxx)
+    real(r8), intent(inout) :: dqdt(ncol,pver,pcnstxx), dqqcwdt(ncol,pver,pcnstxx)
+    real(r8), intent(in) :: dqdt_other(ncol,pver,pcnstxx), dqqcwdt_other(ncol,pver,pcnstxx)
+    logical, intent(in) :: is_dorename_atik, dorename_atik(ncol,pver)
+    integer, intent(in) :: jsrflx_rename, nsrflx
+    real(r8), intent(inout) :: qsrflx(pcols,pcnstxx,nsrflx), qqcwsrflx(pcols,pcnstxx,nsrflx)
+    real(r8), optional, intent(out) :: dqdt_rnpos(ncol,pver,pcnstxx)
+
+    call modal_aero_rename_acc_crs_sub( &
+         fromwhere,         lchnk,               &
+         ncol,              nstep,               &
+         loffset,           deltat,              &
+         pdel,              troplev,             &
+         dotendrn,          q,                   &
+         dqdt,              dqdt_other,          &
+         dotendqqcwrn,      qqcw,                &
+         dqqcwdt,           dqqcwdt_other,       &
+         is_dorename_atik,  dorename_atik,       &
+         jsrflx_rename,     nsrflx,              &
+         qsrflx,            qqcwsrflx,           &
+         dqdt_rnpos                              )
+
+  end subroutine modal_aero_rename_sub_acc_crs_codon_impl
 
 !----------------------------------------------------------------------
 !----------------------------------------------------------------------
