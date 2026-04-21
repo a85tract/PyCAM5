@@ -84,6 +84,8 @@
   real (r8) :: v2nhirlx(ntot_amode), v2nlorlx(ntot_amode)
 
   logical :: modal_accum_coarse_exch = .false.
+  logical :: modal_aero_rename_no_acc_crs_dryvols_use_native_impl = .false.
+  logical :: modal_aero_rename_no_acc_crs_dryvols_impl_selected = .false.
 
 ! !DESCRIPTION: This module implements ...
 !
@@ -117,6 +119,43 @@ contains
     endif
 
   end subroutine modal_aero_rename_init
+
+  !------------------------------------------------------------------
+  !------------------------------------------------------------------
+  subroutine modal_aero_rename_no_acc_crs_dryvols_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (modal_aero_rename_no_acc_crs_dryvols_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('MODAL_AERO_RENAME_NO_ACC_CRS_DRYVOLS_IMPL', &
+         value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       modal_aero_rename_no_acc_crs_dryvols_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       modal_aero_rename_no_acc_crs_dryvols_use_native_impl = .false.
+    end if
+
+    modal_aero_rename_no_acc_crs_dryvols_impl_selected = .true.
+
+    if (masterproc) then
+       if (modal_aero_rename_no_acc_crs_dryvols_use_native_impl) then
+          write(iulog,*) 'modal_aero_rename_no_acc_crs_dryvols implementation = native'
+       else
+          write(iulog,*) 'modal_aero_rename_no_acc_crs_dryvols implementation = codon'
+       end if
+    end if
+
+  end subroutine modal_aero_rename_no_acc_crs_dryvols_select_impl
 
   !------------------------------------------------------------------
   !------------------------------------------------------------------
@@ -214,6 +253,160 @@ contains
 !----------------------------------------------------------------------
 !----------------------------------------------------------------------
 ! private methods
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_rename_no_acc_crs_dryvols( ncol, loffset, deltat, &
+       idomode, q, qqcw, dqdt, dqdt_other, dqqcwdt, dqqcwdt_other, &
+       nspec_amode_in, lspectype_amode_in, specmw_amode_in, specdens_amode_in, &
+       lmassptr_amode_in, lmassptrcw_amode_in, dryvol_a, dryvol_c, deldryvol_a, deldryvol_c )
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: loffset
+    real(r8), intent(in) :: deltat
+    integer, target, intent(in) :: idomode(ntot_amode)
+    real(r8), target, intent(in) :: q(ncol,pver,pcnstxx)
+    real(r8), target, intent(in) :: qqcw(ncol,pver,pcnstxx)
+    real(r8), target, intent(in) :: dqdt(ncol,pver,pcnstxx)
+    real(r8), target, intent(in) :: dqdt_other(ncol,pver,pcnstxx)
+    real(r8), target, intent(in) :: dqqcwdt(ncol,pver,pcnstxx)
+    real(r8), target, intent(in) :: dqqcwdt_other(ncol,pver,pcnstxx)
+    integer, target, intent(in) :: nspec_amode_in(ntot_amode)
+    integer, target, intent(in) :: lspectype_amode_in(maxspec_renamexf,ntot_amode)
+    real(r8), target, intent(in) :: specmw_amode_in(*)
+    real(r8), target, intent(in) :: specdens_amode_in(*)
+    integer, target, intent(in) :: lmassptr_amode_in(maxspec_renamexf,ntot_amode)
+    integer, target, intent(in) :: lmassptrcw_amode_in(maxspec_renamexf,ntot_amode)
+    real(r8), target, intent(out) :: dryvol_a(ncol,pver,ntot_amode)
+    real(r8), target, intent(out) :: dryvol_c(ncol,pver,ntot_amode)
+    real(r8), target, intent(out) :: deldryvol_a(ncol,pver,ntot_amode)
+    real(r8), target, intent(out) :: deldryvol_c(ncol,pver,ntot_amode)
+    integer(c_int64_t), target :: idomode_c(ntot_amode)
+    integer(c_int64_t), target :: nspec_amode_c(ntot_amode)
+    integer(c_int64_t), target :: lspectype_amode_c(maxspec_renamexf,ntot_amode)
+    integer(c_int64_t), target :: lmassptr_amode_c(maxspec_renamexf,ntot_amode)
+    integer(c_int64_t), target :: lmassptrcw_amode_c(maxspec_renamexf,ntot_amode)
+    integer :: n, l1
+
+    interface
+       subroutine modal_aero_rename_no_acc_crs_dryvols_codon( &
+            ncol_c, pver_c, pcnstxx_c, ntot_amode_c, maxspec_renamexf_c, loffset_c, deltat_c, &
+            idomode_p, q_p, qqcw_p, dqdt_p, dqdt_other_p, dqqcwdt_p, dqqcwdt_other_p, &
+            nspec_amode_p, lspectype_amode_p, specmw_amode_p, specdens_amode_p, &
+            lmassptr_amode_p, lmassptrcw_amode_p, dryvol_a_p, dryvol_c_p, deldryvol_a_p, deldryvol_c_p ) &
+            bind(c, name="modal_aero_rename_no_acc_crs_dryvols_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, pcnstxx_c, ntot_amode_c, maxspec_renamexf_c, loffset_c
+         real(c_double), value :: deltat_c
+         type(c_ptr), value :: idomode_p, q_p, qqcw_p, dqdt_p, dqdt_other_p, dqqcwdt_p, dqqcwdt_other_p
+         type(c_ptr), value :: nspec_amode_p, lspectype_amode_p, specmw_amode_p, specdens_amode_p
+         type(c_ptr), value :: lmassptr_amode_p, lmassptrcw_amode_p
+         type(c_ptr), value :: dryvol_a_p, dryvol_c_p, deldryvol_a_p, deldryvol_c_p
+       end subroutine modal_aero_rename_no_acc_crs_dryvols_codon
+    end interface
+
+    call modal_aero_rename_no_acc_crs_dryvols_select_impl()
+
+    if (.not. modal_aero_rename_no_acc_crs_dryvols_use_native_impl) then
+       do n = 1, ntot_amode
+          idomode_c(n) = int(idomode(n), c_int64_t)
+          nspec_amode_c(n) = int(nspec_amode_in(n), c_int64_t)
+          do l1 = 1, maxspec_renamexf
+             lspectype_amode_c(l1,n) = int(lspectype_amode_in(l1,n), c_int64_t)
+             lmassptr_amode_c(l1,n) = int(lmassptr_amode_in(l1,n), c_int64_t)
+             lmassptrcw_amode_c(l1,n) = int(lmassptrcw_amode_in(l1,n), c_int64_t)
+          end do
+       end do
+
+       call modal_aero_rename_no_acc_crs_dryvols_codon( &
+            int(ncol, c_int64_t), int(pver, c_int64_t), int(pcnstxx, c_int64_t), &
+            int(ntot_amode, c_int64_t), int(maxspec_renamexf, c_int64_t), int(loffset, c_int64_t), &
+            real(deltat, c_double), c_loc(idomode_c(1)), c_loc(q(1,1,1)), c_loc(qqcw(1,1,1)), &
+            c_loc(dqdt(1,1,1)), c_loc(dqdt_other(1,1,1)), c_loc(dqqcwdt(1,1,1)), c_loc(dqqcwdt_other(1,1,1)), &
+            c_loc(nspec_amode_c(1)), c_loc(lspectype_amode_c(1,1)), c_loc(specmw_amode_in(1)), c_loc(specdens_amode_in(1)), &
+            c_loc(lmassptr_amode_c(1,1)), c_loc(lmassptrcw_amode_c(1,1)), c_loc(dryvol_a(1,1,1)), c_loc(dryvol_c(1,1,1)), &
+            c_loc(deldryvol_a(1,1,1)), c_loc(deldryvol_c(1,1,1)) &
+       )
+       return
+    end if
+
+    call modal_aero_rename_no_acc_crs_dryvols_native( ncol, loffset, deltat, &
+         idomode, q, qqcw, dqdt, dqdt_other, dqqcwdt, dqqcwdt_other, &
+         nspec_amode_in, lspectype_amode_in, specmw_amode_in, specdens_amode_in, &
+         lmassptr_amode_in, lmassptrcw_amode_in, dryvol_a, dryvol_c, deldryvol_a, deldryvol_c )
+
+  end subroutine modal_aero_rename_no_acc_crs_dryvols
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_rename_no_acc_crs_dryvols_native( ncol, loffset, deltat, &
+       idomode, q, qqcw, dqdt, dqdt_other, dqqcwdt, dqqcwdt_other, &
+       nspec_amode_in, lspectype_amode_in, specmw_amode_in, specdens_amode_in, &
+       lmassptr_amode_in, lmassptrcw_amode_in, dryvol_a, dryvol_c, deldryvol_a, deldryvol_c )
+
+    implicit none
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: loffset
+    real(r8), intent(in) :: deltat
+    integer, intent(in) :: idomode(ntot_amode)
+    real(r8), intent(in) :: q(ncol,pver,pcnstxx)
+    real(r8), intent(in) :: qqcw(ncol,pver,pcnstxx)
+    real(r8), intent(in) :: dqdt(ncol,pver,pcnstxx)
+    real(r8), intent(in) :: dqdt_other(ncol,pver,pcnstxx)
+    real(r8), intent(in) :: dqqcwdt(ncol,pver,pcnstxx)
+    real(r8), intent(in) :: dqqcwdt_other(ncol,pver,pcnstxx)
+    integer, intent(in) :: nspec_amode_in(ntot_amode)
+    integer, intent(in) :: lspectype_amode_in(maxspec_renamexf,ntot_amode)
+    real(r8), intent(in) :: specmw_amode_in(*)
+    real(r8), intent(in) :: specdens_amode_in(*)
+    integer, intent(in) :: lmassptr_amode_in(maxspec_renamexf,ntot_amode)
+    integer, intent(in) :: lmassptrcw_amode_in(maxspec_renamexf,ntot_amode)
+    real(r8), intent(out) :: dryvol_a(ncol,pver,ntot_amode)
+    real(r8), intent(out) :: dryvol_c(ncol,pver,ntot_amode)
+    real(r8), intent(out) :: deldryvol_a(ncol,pver,ntot_amode)
+    real(r8), intent(out) :: deldryvol_c(ncol,pver,ntot_amode)
+
+    integer :: n, l1, l2, la, lc
+    real(r8) :: dum_m2v, dum_m2vdt
+
+    do n = 1, ntot_amode
+       if (idomode(n) .gt. 0) then
+          dryvol_a(1:ncol,:,n) = 0.0_r8
+          dryvol_c(1:ncol,:,n) = 0.0_r8
+          deldryvol_a(1:ncol,:,n) = 0.0_r8
+          deldryvol_c(1:ncol,:,n) = 0.0_r8
+          do l1 = 1, nspec_amode_in(n)
+             l2 = lspectype_amode_in(l1,n)
+             dum_m2v = specmw_amode_in(l2) / specdens_amode_in(l2)
+             dum_m2vdt = dum_m2v*deltat
+             la = lmassptr_amode_in(l1,n)-loffset
+             if (la > 0) then
+                dryvol_a(1:ncol,:,n) = dryvol_a(1:ncol,:,n)    &
+                   + dum_m2v*max( 0.0_r8,   &
+                     q(1:ncol,:,la)-deltat*dqdt_other(1:ncol,:,la) )
+                deldryvol_a(1:ncol,:,n) = deldryvol_a(1:ncol,:,n)    &
+                   + (dqdt_other(1:ncol,:,la) + dqdt(1:ncol,:,la))*dum_m2vdt
+             end if
+
+             lc = lmassptrcw_amode_in(l1,n)-loffset
+             if (lc > 0) then
+                dryvol_c(1:ncol,:,n) = dryvol_c(1:ncol,:,n)    &
+                   + dum_m2v*max( 0.0_r8,   &
+                     qqcw(1:ncol,:,lc)-deltat*dqqcwdt_other(1:ncol,:,lc) )
+                deldryvol_c(1:ncol,:,n) = deldryvol_c(1:ncol,:,n)    &
+                   + (dqqcwdt_other(1:ncol,:,lc) + dqqcwdt(1:ncol,:,lc))*dum_m2vdt
+             end if
+          end do
+       end if
+    end do
+
+  end subroutine modal_aero_rename_no_acc_crs_dryvols_native
+
+!----------------------------------------------------------------------
 !----------------------------------------------------------------------
 !BOP
 ! !ROUTINE:  modal_aero_rename_no_acc_crs_sub --- ...
@@ -405,39 +598,10 @@ contains
 	    dp_belowcut(ipair) = 0.99_r8*dp_cut(ipair)
 	end do
 
-	do n = 1, ntot_amode
-	    if (idomode(n) .gt. 0) then
-		dryvol_a(1:ncol,:,n) = 0.0_r8
-		dryvol_c(1:ncol,:,n) = 0.0_r8
-		deldryvol_a(1:ncol,:,n) = 0.0_r8
-		deldryvol_c(1:ncol,:,n) = 0.0_r8
-		do l1 = 1, nspec_amode(n)
-		    l2 = lspectype_amode(l1,n)
-!   dum_m2v converts (kmol-AP/kmol-air) to (m3-AP/kmol-air)
-!            [m3-AP/kmol-AP]= [kg-AP/kmol-AP]  / [kg-AP/m3-AP]
-		    dum_m2v = specmw_amode(l2) / specdens_amode(l2)
-		    dum_m2vdt = dum_m2v*deltat
-		    la = lmassptr_amode(l1,n)-loffset
-		    if (la > 0) then
-		    dryvol_a(1:ncol,:,n) = dryvol_a(1:ncol,:,n)    &
-			+ dum_m2v*max( 0.0_r8,   &
-                          q(1:ncol,:,la)-deltat*dqdt_other(1:ncol,:,la) )
-		    deldryvol_a(1:ncol,:,n) = deldryvol_a(1:ncol,:,n)    &
-			+ (dqdt_other(1:ncol,:,la) + dqdt(1:ncol,:,la))*dum_m2vdt
-		    end if
-
-		    lc = lmassptrcw_amode(l1,n)-loffset
-		    if (lc > 0) then
-		    dryvol_c(1:ncol,:,n) = dryvol_c(1:ncol,:,n)    &
-			+ dum_m2v*max( 0.0_r8,   &
-                          qqcw(1:ncol,:,lc)-deltat*dqqcwdt_other(1:ncol,:,lc) )
-		    deldryvol_c(1:ncol,:,n) = deldryvol_c(1:ncol,:,n)    &
-			+ (dqqcwdt_other(1:ncol,:,lc) +   &
-			         dqqcwdt(1:ncol,:,lc))*dum_m2vdt
-		    end if
-		end do
-	    end if
-	end do
+	call modal_aero_rename_no_acc_crs_dryvols( ncol, loffset, deltat, &
+	     idomode, q, qqcw, dqdt, dqdt_other, dqqcwdt, dqqcwdt_other, &
+	     nspec_amode, lspectype_amode, specmw_amode, specdens_amode, &
+	     lmassptr_amode, lmassptrcw_amode, dryvol_a, dryvol_c, deldryvol_a, deldryvol_c )
 
 
 

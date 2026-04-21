@@ -569,3 +569,93 @@ def modal_aero_soaexch_codon(
     for m in range(1, ntot_soamode + 1):
         a_soa_tend[m - 1] = (a_soa[m - 1] - a_soa_in[m - 1]) / dtfull
     niter_out[0] = niter
+
+
+@export
+def modal_aero_rename_no_acc_crs_dryvols_codon(
+    ncol: int,
+    pver: int,
+    pcnstxx: int,
+    ntot_amode: int,
+    maxspec_renamexf: int,
+    loffset: int,
+    deltat: float,
+    idomode_p: cobj,
+    q_p: cobj,
+    qqcw_p: cobj,
+    dqdt_p: cobj,
+    dqdt_other_p: cobj,
+    dqqcwdt_p: cobj,
+    dqqcwdt_other_p: cobj,
+    nspec_amode_p: cobj,
+    lspectype_amode_p: cobj,
+    specmw_amode_p: cobj,
+    specdens_amode_p: cobj,
+    lmassptr_amode_p: cobj,
+    lmassptrcw_amode_p: cobj,
+    dryvol_a_p: cobj,
+    dryvol_c_p: cobj,
+    deldryvol_a_p: cobj,
+    deldryvol_c_p: cobj,
+):
+    idomode = Ptr[int](idomode_p)
+    q = Ptr[float](q_p)
+    qqcw = Ptr[float](qqcw_p)
+    dqdt = Ptr[float](dqdt_p)
+    dqdt_other = Ptr[float](dqdt_other_p)
+    dqqcwdt = Ptr[float](dqqcwdt_p)
+    dqqcwdt_other = Ptr[float](dqqcwdt_other_p)
+    nspec_amode = Ptr[int](nspec_amode_p)
+    lspectype_amode = Ptr[int](lspectype_amode_p)
+    specmw_amode = Ptr[float](specmw_amode_p)
+    specdens_amode = Ptr[float](specdens_amode_p)
+    lmassptr_amode = Ptr[int](lmassptr_amode_p)
+    lmassptrcw_amode = Ptr[int](lmassptrcw_amode_p)
+    dryvol_a = Ptr[float](dryvol_a_p)
+    dryvol_c = Ptr[float](dryvol_c_p)
+    deldryvol_a = Ptr[float](deldryvol_a_p)
+    deldryvol_c = Ptr[float](deldryvol_c_p)
+
+    for n in range(1, ntot_amode + 1):
+        if idomode[n - 1] > 0:
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    dryvol_a[_idx3(i, k, n, ncol, pver)] = 0.0
+                    dryvol_c[_idx3(i, k, n, ncol, pver)] = 0.0
+                    deldryvol_a[_idx3(i, k, n, ncol, pver)] = 0.0
+                    deldryvol_c[_idx3(i, k, n, ncol, pver)] = 0.0
+
+            for l1 in range(1, nspec_amode[n - 1] + 1):
+                l2 = lspectype_amode[_idx2(l1, n, maxspec_renamexf)]
+                dum_m2v = specmw_amode[l2 - 1] / specdens_amode[l2 - 1]
+                dum_m2vdt = dum_m2v * deltat
+
+                la = lmassptr_amode[_idx2(l1, n, maxspec_renamexf)] - loffset
+                if la > 0:
+                    for k in range(1, pver + 1):
+                        for i in range(1, ncol + 1):
+                            qold = q[_idx3(i, k, la, ncol, pver)] - deltat * dqdt_other[
+                                _idx3(i, k, la, ncol, pver)
+                            ]
+                            if qold < 0.0:
+                                qold = 0.0
+                            dryvol_a[_idx3(i, k, n, ncol, pver)] += dum_m2v * qold
+                            deldryvol_a[_idx3(i, k, n, ncol, pver)] += (
+                                dqdt_other[_idx3(i, k, la, ncol, pver)]
+                                + dqdt[_idx3(i, k, la, ncol, pver)]
+                            ) * dum_m2vdt
+
+                lc = lmassptrcw_amode[_idx2(l1, n, maxspec_renamexf)] - loffset
+                if lc > 0:
+                    for k in range(1, pver + 1):
+                        for i in range(1, ncol + 1):
+                            qqcwold = qqcw[_idx3(i, k, lc, ncol, pver)] - deltat * dqqcwdt_other[
+                                _idx3(i, k, lc, ncol, pver)
+                            ]
+                            if qqcwold < 0.0:
+                                qqcwold = 0.0
+                            dryvol_c[_idx3(i, k, n, ncol, pver)] += dum_m2v * qqcwold
+                            deldryvol_c[_idx3(i, k, n, ncol, pver)] += (
+                                dqqcwdt_other[_idx3(i, k, lc, ncol, pver)]
+                                + dqqcwdt[_idx3(i, k, lc, ncol, pver)]
+                            ) * dum_m2vdt
