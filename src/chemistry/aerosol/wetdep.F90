@@ -11,6 +11,7 @@ use ppgrid,       only: pcols, pver
 use physconst,    only: gravit, rair, tmelt
 use phys_control, only: cam_physpkg_is
 use cam_logfile,  only: iulog
+use spmd_utils,   only: masterproc
 
 implicit none
 save
@@ -58,6 +59,8 @@ integer :: dp_frac_idx         = 0
 integer :: nevapr_shcu_idx     = 0 
 integer :: nevapr_dpcu_idx     = 0 
 integer :: ixcldice, ixcldliq
+logical :: clddiag_use_native_impl = .false.
+logical :: clddiag_impl_selected = .false.
 
 !==============================================================================
 contains
@@ -161,6 +164,7 @@ subroutine clddiag(t, pmid, pdel, cmfdqr, evapc, &
                    cldt, cldcu, cldst, cme, evapr, &
                    prain, cldv, cldvcu, cldvst, rain, &
                    ncol)
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
    ! ------------------------------------------------------------------------------------ 
    ! Estimate the cloudy volume which is occupied by rain or cloud water as
@@ -173,48 +177,77 @@ subroutine clddiag(t, pmid, pdel, cmfdqr, evapc, &
    ! ------------------------------------------------------------------------------------
 
    ! Input arguments:
-   real(r8), intent(in) :: t(pcols,pver)        ! temperature (K)
-   real(r8), intent(in) :: pmid(pcols,pver)     ! pressure at layer midpoints
-   real(r8), intent(in) :: pdel(pcols,pver)     ! pressure difference across layers
-   real(r8), intent(in) :: cmfdqr(pcols,pver)   ! dq/dt due to convective rainout 
-   real(r8), intent(in) :: evapc(pcols,pver)    ! Evaporation rate of convective precipitation ( >= 0 ) 
-   real(r8), intent(in) :: cldt(pcols,pver)    ! total cloud fraction
-   real(r8), intent(in) :: cldcu(pcols,pver)    ! Cumulus cloud fraction
-   real(r8), intent(in) :: cldst(pcols,pver)    ! Stratus cloud fraction
-   real(r8), intent(in) :: cme(pcols,pver)      ! rate of cond-evap within the cloud
-   real(r8), intent(in) :: evapr(pcols,pver)    ! rate of evaporation of falling precipitation (kg/kg/s)
-   real(r8), intent(in) :: prain(pcols,pver)    ! rate of conversion of condensate to precipitation (kg/kg/s)
+   real(r8), target, intent(in) :: t(pcols,pver)        ! temperature (K)
+   real(r8), target, intent(in) :: pmid(pcols,pver)     ! pressure at layer midpoints
+   real(r8), target, intent(in) :: pdel(pcols,pver)     ! pressure difference across layers
+   real(r8), target, intent(in) :: cmfdqr(pcols,pver)   ! dq/dt due to convective rainout 
+   real(r8), target, intent(in) :: evapc(pcols,pver)    ! Evaporation rate of convective precipitation ( >= 0 ) 
+   real(r8), target, intent(in) :: cldt(pcols,pver)    ! total cloud fraction
+   real(r8), target, intent(in) :: cldcu(pcols,pver)    ! Cumulus cloud fraction
+   real(r8), target, intent(in) :: cldst(pcols,pver)    ! Stratus cloud fraction
+   real(r8), target, intent(in) :: cme(pcols,pver)      ! rate of cond-evap within the cloud
+   real(r8), target, intent(in) :: evapr(pcols,pver)    ! rate of evaporation of falling precipitation (kg/kg/s)
+   real(r8), target, intent(in) :: prain(pcols,pver)    ! rate of conversion of condensate to precipitation (kg/kg/s)
    integer, intent(in) :: ncol
 
    ! Output arguments:
-   real(r8), intent(out) :: cldv(pcols,pver)     ! fraction occupied by rain or cloud water 
-   real(r8), intent(out) :: cldvcu(pcols,pver)   ! Convective precipitation volume
-   real(r8), intent(out) :: cldvst(pcols,pver)   ! Stratiform precipitation volume
-   real(r8), intent(out) :: rain(pcols,pver)     ! mixing ratio of rain (kg/kg)
+   real(r8), target, intent(out) :: cldv(pcols,pver)     ! fraction occupied by rain or cloud water 
+   real(r8), target, intent(out) :: cldvcu(pcols,pver)   ! Convective precipitation volume
+   real(r8), target, intent(out) :: cldvst(pcols,pver)   ! Stratiform precipitation volume
+   real(r8), target, intent(out) :: rain(pcols,pver)     ! mixing ratio of rain (kg/kg)
 
    ! Local variables:
    integer  i, k
    real(r8) convfw         ! used in fallspeed calculation; taken from findmcnew
-   real(r8) sumppr(pcols)        ! precipitation rate (kg/m2-s)
-   real(r8) sumpppr(pcols)       ! sum of positive precips from above
-   real(r8) cldv1(pcols)         ! precip weighted cloud fraction from above
+   real(r8), target :: sumppr(pcols)        ! precipitation rate (kg/m2-s)
+   real(r8), target :: sumpppr(pcols)       ! sum of positive precips from above
+   real(r8), target :: cldv1(pcols)         ! precip weighted cloud fraction from above
    real(r8) lprec                ! local production rate of precip (kg/m2/s)
    real(r8) lprecp               ! local production rate of precip (kg/m2/s) if positive
    real(r8) rho                  ! air density
    real(r8) vfall
-   real(r8) sumppr_cu(pcols)     ! Convective precipitation rate (kg/m2-s)
-   real(r8) sumpppr_cu(pcols)    ! Sum of positive convective precips from above
-   real(r8) cldv1_cu(pcols)      ! Convective precip weighted convective cloud fraction from above
+   real(r8), target :: sumppr_cu(pcols)     ! Convective precipitation rate (kg/m2-s)
+   real(r8), target :: sumpppr_cu(pcols)    ! Sum of positive convective precips from above
+   real(r8), target :: cldv1_cu(pcols)      ! Convective precip weighted convective cloud fraction from above
    real(r8) lprec_cu             ! Local production rate of convective precip (kg/m2/s)
    real(r8) lprecp_cu            ! Local production rate of convective precip (kg/m2/s) if positive
-   real(r8) sumppr_st(pcols)     ! Stratiform precipitation rate (kg/m2-s)
-   real(r8) sumpppr_st(pcols)    ! Sum of positive stratiform precips from above
-   real(r8) cldv1_st(pcols)      ! Stratiform precip weighted stratiform cloud fraction from above
+   real(r8), target :: sumppr_st(pcols)     ! Stratiform precipitation rate (kg/m2-s)
+   real(r8), target :: sumpppr_st(pcols)    ! Sum of positive stratiform precips from above
+   real(r8), target :: cldv1_st(pcols)      ! Stratiform precip weighted stratiform cloud fraction from above
    real(r8) lprec_st             ! Local production rate of stratiform precip (kg/m2/s)
    real(r8) lprecp_st            ! Local production rate of stratiform precip (kg/m2/s) if positive
+
+   interface
+      subroutine clddiag_codon(pcols_c, pver_c, ncol_c, tmelt_c, rair_c, gravit_c, convfw_c, &
+           t_p, pmid_p, pdel_p, cmfdqr_p, evapc_p, cldt_p, cldcu_p, cldst_p, cme_p, evapr_p, prain_p, &
+           cldv_p, cldvcu_p, cldvst_p, rain_p, sumppr_p, sumpppr_p, cldv1_p, sumppr_cu_p, sumpppr_cu_p, &
+           cldv1_cu_p, sumppr_st_p, sumpppr_st_p, cldv1_st_p) bind(c, name="clddiag_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: pcols_c, pver_c, ncol_c
+        real(c_double), value :: tmelt_c, rair_c, gravit_c, convfw_c
+        type(c_ptr), value :: t_p, pmid_p, pdel_p, cmfdqr_p, evapc_p, cldt_p, cldcu_p, cldst_p, cme_p
+        type(c_ptr), value :: evapr_p, prain_p, cldv_p, cldvcu_p, cldvst_p, rain_p
+        type(c_ptr), value :: sumppr_p, sumpppr_p, cldv1_p, sumppr_cu_p, sumpppr_cu_p, cldv1_cu_p
+        type(c_ptr), value :: sumppr_st_p, sumpppr_st_p, cldv1_st_p
+      end subroutine clddiag_codon
+   end interface
    ! -----------------------------------------------------------------------
 
    convfw = 1.94_r8*2.13_r8*sqrt(rhoh2o*gravit*2.7e-4_r8)
+   call clddiag_select_impl()
+
+   if (.not. clddiag_use_native_impl) then
+      call clddiag_codon( &
+           int(pcols, c_int64_t), int(pver, c_int64_t), int(ncol, c_int64_t), &
+           real(tmelt, c_double), real(rair, c_double), real(gravit, c_double), real(convfw, c_double), &
+           c_loc(t), c_loc(pmid), c_loc(pdel), c_loc(cmfdqr), c_loc(evapc), c_loc(cldt), c_loc(cldcu), c_loc(cldst), &
+           c_loc(cme), c_loc(evapr), c_loc(prain), c_loc(cldv), c_loc(cldvcu), c_loc(cldvst), c_loc(rain), &
+           c_loc(sumppr), c_loc(sumpppr), c_loc(cldv1), c_loc(sumppr_cu), c_loc(sumpppr_cu), c_loc(cldv1_cu), &
+           c_loc(sumppr_st), c_loc(sumpppr_st), c_loc(cldv1_st) &
+      )
+      return
+   end if
+
    do i=1,ncol
       sumppr(i) = 0._r8
       cldv1(i) = 0._r8
@@ -269,6 +302,40 @@ subroutine clddiag(t, pmid, pdel, cmfdqr, evapc, &
    end do
 
 end subroutine clddiag
+
+subroutine clddiag_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (clddiag_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CLDDIAG_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      clddiag_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      clddiag_use_native_impl = .false.
+   end if
+
+   clddiag_impl_selected = .true.
+
+   if (masterproc) then
+      if (clddiag_use_native_impl) then
+         write(iulog,*) 'clddiag implementation = native'
+      else
+         write(iulog,*) 'clddiag implementation = codon'
+      end if
+   end if
+
+end subroutine clddiag_select_impl
 
 !==============================================================================
 

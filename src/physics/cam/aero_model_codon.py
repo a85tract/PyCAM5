@@ -363,6 +363,131 @@ def aero_model_wetdep_column_flux_codon(
 
 
 @export
+def clddiag_codon(
+    pcols: int,
+    pver: int,
+    ncol: int,
+    tmelt: float,
+    rair: float,
+    gravit: float,
+    convfw: float,
+    t_p: cobj,
+    pmid_p: cobj,
+    pdel_p: cobj,
+    cmfdqr_p: cobj,
+    evapc_p: cobj,
+    cldt_p: cobj,
+    cldcu_p: cobj,
+    cldst_p: cobj,
+    cme_p: cobj,
+    evapr_p: cobj,
+    prain_p: cobj,
+    cldv_p: cobj,
+    cldvcu_p: cobj,
+    cldvst_p: cobj,
+    rain_p: cobj,
+    sumppr_p: cobj,
+    sumpppr_p: cobj,
+    cldv1_p: cobj,
+    sumppr_cu_p: cobj,
+    sumpppr_cu_p: cobj,
+    cldv1_cu_p: cobj,
+    sumppr_st_p: cobj,
+    sumpppr_st_p: cobj,
+    cldv1_st_p: cobj,
+):
+    t = Ptr[float](t_p)
+    pmid = Ptr[float](pmid_p)
+    pdel = Ptr[float](pdel_p)
+    cmfdqr = Ptr[float](cmfdqr_p)
+    evapc = Ptr[float](evapc_p)
+    cldt = Ptr[float](cldt_p)
+    cldcu = Ptr[float](cldcu_p)
+    cldst = Ptr[float](cldst_p)
+    evapr = Ptr[float](evapr_p)
+    prain = Ptr[float](prain_p)
+    cldv = Ptr[float](cldv_p)
+    cldvcu = Ptr[float](cldvcu_p)
+    cldvst = Ptr[float](cldvst_p)
+    rain = Ptr[float](rain_p)
+    sumppr = Ptr[float](sumppr_p)
+    sumpppr = Ptr[float](sumpppr_p)
+    cldv1 = Ptr[float](cldv1_p)
+    sumppr_cu = Ptr[float](sumppr_cu_p)
+    sumpppr_cu = Ptr[float](sumpppr_cu_p)
+    cldv1_cu = Ptr[float](cldv1_cu_p)
+    sumppr_st = Ptr[float](sumppr_st_p)
+    sumpppr_st = Ptr[float](sumpppr_st_p)
+    cldv1_st = Ptr[float](cldv1_st_p)
+
+    for i in range(1, ncol + 1):
+        sumppr[i - 1] = 0.0
+        cldv1[i - 1] = 0.0
+        sumpppr[i - 1] = 1.0e-36
+        sumppr_cu[i - 1] = 0.0
+        cldv1_cu[i - 1] = 0.0
+        sumpppr_cu[i - 1] = 1.0e-36
+        sumppr_st[i - 1] = 0.0
+        cldv1_st[i - 1] = 0.0
+        sumpppr_st[i - 1] = 1.0e-36
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            cldv[_idx2(i, k, pcols)] = max(
+                min(1.0, cldv1[i - 1] / sumpppr[i - 1]) * sumppr[i - 1] / sumpppr[i - 1],
+                cldt[_idx2(i, k, pcols)],
+            )
+            lprec = (
+                pdel[_idx2(i, k, pcols)] / gravit
+                * (
+                    prain[_idx2(i, k, pcols)]
+                    + cmfdqr[_idx2(i, k, pcols)]
+                    - evapr[_idx2(i, k, pcols)]
+                )
+            )
+            lprecp = max(lprec, 1.0e-30)
+            cldv1[i - 1] = cldv1[i - 1] + cldt[_idx2(i, k, pcols)] * lprecp
+            sumppr[i - 1] = sumppr[i - 1] + lprec
+            sumpppr[i - 1] = sumpppr[i - 1] + lprecp
+
+            cldvcu[_idx2(i, k, pcols)] = max(
+                min(1.0, cldv1_cu[i - 1] / sumpppr_cu[i - 1])
+                * (sumppr_cu[i - 1] / sumpppr_cu[i - 1]),
+                0.0,
+            )
+            lprec_cu = (
+                pdel[_idx2(i, k, pcols)] / gravit
+                * (cmfdqr[_idx2(i, k, pcols)] - evapc[_idx2(i, k, pcols)])
+            )
+            lprecp_cu = max(lprec_cu, 1.0e-30)
+            cldv1_cu[i - 1] = cldv1_cu[i - 1] + cldcu[_idx2(i, k, pcols)] * lprecp_cu
+            sumppr_cu[i - 1] = sumppr_cu[i - 1] + lprec_cu
+            sumpppr_cu[i - 1] = sumpppr_cu[i - 1] + lprecp_cu
+
+            cldvst[_idx2(i, k, pcols)] = max(
+                min(1.0, cldv1_st[i - 1] / sumpppr_st[i - 1])
+                * (sumppr_st[i - 1] / sumpppr_st[i - 1]),
+                0.0,
+            )
+            lprec_st = (
+                pdel[_idx2(i, k, pcols)] / gravit
+                * (prain[_idx2(i, k, pcols)] - evapr[_idx2(i, k, pcols)])
+            )
+            lprecp_st = max(lprec_st, 1.0e-30)
+            cldv1_st[i - 1] = cldv1_st[i - 1] + cldst[_idx2(i, k, pcols)] * lprecp_st
+            sumppr_st[i - 1] = sumppr_st[i - 1] + lprec_st
+            sumpppr_st[i - 1] = sumpppr_st[i - 1] + lprecp_st
+
+            rain[_idx2(i, k, pcols)] = 0.0
+            if t[_idx2(i, k, pcols)] > tmelt:
+                rho = pmid[_idx2(i, k, pcols)] / (rair * t[_idx2(i, k, pcols)])
+                vfall = convfw / sqrt(rho)
+                rain[_idx2(i, k, pcols)] = sumppr[i - 1] / (rho * vfall)
+                if rain[_idx2(i, k, pcols)] < 1.0e-14:
+                    rain[_idx2(i, k, pcols)] = 0.0
+
+
+@export
 def calcram_codon(
     ncol: int,
     pcols: int,
