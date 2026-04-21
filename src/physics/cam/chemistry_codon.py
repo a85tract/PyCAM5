@@ -181,3 +181,68 @@ def chem_timestep_tend_sum_fh2o_codon(
         for k in range(1, pver + 1):
             total += ptend_q1[_idx2(i, k, pcols)] * pdel[_idx2(i, k, pcols)] / gravit
         fh2o[i - 1] = total
+
+
+@export
+def gas_phase_chemdr_finalize_tendencies_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    pcnst: int,
+    delt_inverse: float,
+    map2chm_p: cobj,
+    mmr_p: cobj,
+    mmr_tend_p: cobj,
+    mmr_new_p: cobj,
+    qtend_p: cobj,
+):
+    map2chm = Ptr[int](map2chm_p)
+    mmr = Ptr[float](mmr_p)
+    mmr_tend = Ptr[float](mmr_tend_p)
+    mmr_new = Ptr[float](mmr_new_p)
+    qtend = Ptr[float](qtend_p)
+
+    for m in range(1, gas_pcnst + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx3(i, k, m, pcols, pver)
+                mmr_new[idx] = mmr_tend[idx]
+                mmr_tend[idx] = (mmr_tend[idx] - mmr[idx]) * delt_inverse
+
+    for m in range(1, pcnst + 1):
+        n = map2chm[m - 1]
+        if n > 0:
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    qtend[_idx3(i, k, m, pcols, pver)] += mmr_tend[_idx3(i, k, n, pcols, pver)]
+
+
+@export
+def gas_phase_chemdr_store_drydep_codon(
+    ncol: int,
+    pcols: int,
+    gas_pcnst: int,
+    pcnst: int,
+    map2chm_p: cobj,
+    sflx_p: cobj,
+    cflx_p: cobj,
+    drydepflx_p: cobj,
+):
+    map2chm = Ptr[int](map2chm_p)
+    sflx = Ptr[float](sflx_p)
+    cflx = Ptr[float](cflx_p)
+    drydepflx = Ptr[float](drydepflx_p)
+
+    for m in range(1, pcnst + 1):
+        for i in range(1, pcols + 1):
+            drydepflx[_flux_idx(i, m, pcols)] = 0.0
+
+    for m in range(1, pcnst + 1):
+        n = map2chm[m - 1]
+        if n > 0:
+            for i in range(1, ncol + 1):
+                src_idx = _flux_idx(i, n, pcols)
+                dst_idx = _flux_idx(i, m, pcols)
+                cflx[dst_idx] = cflx[dst_idx] - sflx[src_idx]
+                drydepflx[dst_idx] = sflx[src_idx]

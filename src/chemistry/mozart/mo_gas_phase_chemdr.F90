@@ -8,7 +8,8 @@ module mo_gas_phase_chemdr
   use chem_mods,        only : rxt_tag_cnt, rxt_tag_lst, rxt_tag_map, extcnt
   use dust_model,       only : dust_names, ndust => dust_nbin
   use ppgrid,           only : pcols, pver
-  use spmd_utils,       only : iam
+  use cam_logfile,      only : iulog
+  use spmd_utils,       only : iam, masterproc
   use phys_control,     only : phys_getopts
   use carma_flags_mod,  only : carma_hetchem_feedback
 
@@ -47,6 +48,8 @@ module mo_gas_phase_chemdr
 
   logical :: pm25_srf_diag
   logical :: pm25_srf_diag_soa
+  logical :: gas_phase_chemdr_use_native_impl = .false.
+  logical :: gas_phase_chemdr_impl_selected = .false.
 
 contains
 
@@ -447,6 +450,8 @@ contains
     call pbuf_get_field(pbuf, ndx_cmfdqr,     cmfdqr, start=(/1,1/), kount=(/ncol,pver/))
     call pbuf_get_field(pbuf, ndx_nevapr,     nevapr, start=(/1,1/), kount=(/ncol,pver/))
     call pbuf_get_field(pbuf, ndx_cldtop,     cldtop )
+
+    call gas_phase_chemdr_select_impl()
 
     !-----------------------------------------------------------------------      
     !        ... Calculate cosine of zenith angle
@@ -964,17 +969,7 @@ contains
     !-----------------------------------------------------------------------      
     !         ... Form the tendencies
     !----------------------------------------------------------------------- 
-    do m = 1,gas_pcnst 
-       mmr_new(:ncol,:,m) = mmr_tend(:ncol,:,m)
-       mmr_tend(:ncol,:,m) = (mmr_tend(:ncol,:,m) - mmr(:ncol,:,m))*delt_inverse
-    enddo
-
-    do m = 1,pcnst
-       n = map2chm(m)
-       if( n > 0 ) then
-          qtend(:ncol,:,m) = qtend(:ncol,:,m) + mmr_tend(:ncol,:,n) 
-       end if
-    end do
+    call gas_phase_chemdr_finalize_tendencies(ncol, delt_inverse, mmr, mmr_tend, mmr_new, qtend)
 
     tvs(:ncol) = tfld(:ncol,pver) * (1._r8 + qh2o(:ncol,pver))
 
@@ -1005,14 +1000,7 @@ contains
             tvs, ncol, icefrac, ocnfrac, lchnk )
     endif
 
-    drydepflx(:,:) = 0._r8
-    do m = 1,pcnst
-       n = map2chm( m )
-       if ( n > 0 ) then
-         cflx(:ncol,m)      = cflx(:ncol,m) - sflx(:ncol,n)
-         drydepflx(:ncol,m) = sflx(:ncol,n)
-       endif
-    end do
+    call gas_phase_chemdr_store_drydep(ncol, sflx, cflx, drydepflx)
 
     call chm_diags( lchnk, ncol, vmr(:ncol,:,:), mmr_new(:ncol,:,:), &
                     reaction_rates(:ncol,:,:), invariants(:ncol,:,:), depvel(:ncol,:),  sflx(:ncol,:), &
@@ -1065,5 +1053,132 @@ contains
     endif
 
   end subroutine gas_phase_chemdr
+
+  subroutine gas_phase_chemdr_finalize_tendencies(ncol, delt_inverse, mmr, mmr_tend, mmr_new, qtend)
+
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), intent(in) :: delt_inverse
+    real(r8), target, intent(in) :: mmr(pcols,pver,gas_pcnst)
+    real(r8), target, intent(inout) :: mmr_tend(pcols,pver,gas_pcnst)
+    real(r8), target, intent(out) :: mmr_new(pcols,pver,gas_pcnst)
+    real(r8), target, intent(inout) :: qtend(pcols,pver,pcnst)
+
+    integer :: m, n
+    integer(c_int64_t), target :: map2chm_c(pcnst)
+
+    interface
+       subroutine gas_phase_chemdr_finalize_tendencies_codon(ncol_c, pcols_c, pver_c, gas_pcnst_c, pcnst_c, &
+            delt_inverse_c, map2chm_p, mmr_p, mmr_tend_p, mmr_new_p, qtend_p) &
+            bind(c, name="gas_phase_chemdr_finalize_tendencies_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, gas_pcnst_c, pcnst_c
+         real(c_double), value :: delt_inverse_c
+         type(c_ptr), value :: map2chm_p, mmr_p, mmr_tend_p, mmr_new_p, qtend_p
+       end subroutine gas_phase_chemdr_finalize_tendencies_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do m = 1, gas_pcnst
+          mmr_new(:ncol,:,m) = mmr_tend(:ncol,:,m)
+          mmr_tend(:ncol,:,m) = (mmr_tend(:ncol,:,m) - mmr(:ncol,:,m))*delt_inverse
+       end do
+
+       do m = 1, pcnst
+          n = map2chm(m)
+          if (n > 0) then
+             qtend(:ncol,:,m) = qtend(:ncol,:,m) + mmr_tend(:ncol,:,n)
+          end if
+       end do
+       return
+    end if
+
+    map2chm_c(:) = int(map2chm(:), c_int64_t)
+
+    call gas_phase_chemdr_finalize_tendencies_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), &
+         int(pcnst, c_int64_t), real(delt_inverse, c_double), c_loc(map2chm_c), c_loc(mmr), c_loc(mmr_tend), &
+         c_loc(mmr_new), c_loc(qtend) &
+    )
+
+  end subroutine gas_phase_chemdr_finalize_tendencies
+
+  subroutine gas_phase_chemdr_store_drydep(ncol, sflx, cflx, drydepflx)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: sflx(pcols,gas_pcnst)
+    real(r8), target, intent(inout) :: cflx(pcols,pcnst)
+    real(r8), target, intent(out) :: drydepflx(pcols,pcnst)
+
+    integer :: m, n
+    integer(c_int64_t), target :: map2chm_c(pcnst)
+
+    interface
+       subroutine gas_phase_chemdr_store_drydep_codon(ncol_c, pcols_c, gas_pcnst_c, pcnst_c, map2chm_p, sflx_p, &
+            cflx_p, drydepflx_p) bind(c, name="gas_phase_chemdr_store_drydep_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, gas_pcnst_c, pcnst_c
+         type(c_ptr), value :: map2chm_p, sflx_p, cflx_p, drydepflx_p
+       end subroutine gas_phase_chemdr_store_drydep_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       drydepflx(:,:) = 0._r8
+       do m = 1, pcnst
+          n = map2chm(m)
+          if (n > 0) then
+             cflx(:ncol,m)      = cflx(:ncol,m) - sflx(:ncol,n)
+             drydepflx(:ncol,m) = sflx(:ncol,n)
+          end if
+       end do
+       return
+    end if
+
+    map2chm_c(:) = int(map2chm(:), c_int64_t)
+
+    call gas_phase_chemdr_store_drydep_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(gas_pcnst, c_int64_t), int(pcnst, c_int64_t), &
+         c_loc(map2chm_c), c_loc(sflx), c_loc(cflx), c_loc(drydepflx) &
+    )
+
+  end subroutine gas_phase_chemdr_store_drydep
+
+  subroutine gas_phase_chemdr_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (gas_phase_chemdr_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('GAS_PHASE_CHEMDR_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       gas_phase_chemdr_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       gas_phase_chemdr_use_native_impl = .false.
+    end if
+
+    gas_phase_chemdr_impl_selected = .true.
+
+    if (masterproc) then
+       if (gas_phase_chemdr_use_native_impl) then
+          write(iulog,*) 'gas_phase_chemdr helper implementation = native'
+       else
+          write(iulog,*) 'gas_phase_chemdr helper implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine gas_phase_chemdr_select_impl
 
 end module mo_gas_phase_chemdr
