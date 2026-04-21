@@ -94,6 +94,8 @@
   logical :: modal_aero_rename_acc_crs_dryvols_impl_selected = .false.
   logical :: modal_aero_rename_acc_crs_xferfracs_use_native_impl = .false.
   logical :: modal_aero_rename_acc_crs_xferfracs_impl_selected = .false.
+  logical :: modal_aero_rename_acc_crs_tendencies_use_native_impl = .false.
+  logical :: modal_aero_rename_acc_crs_tendencies_impl_selected = .false.
 
 ! !DESCRIPTION: This module implements ...
 !
@@ -312,6 +314,43 @@ contains
     end if
 
   end subroutine modal_aero_rename_acc_crs_xferfracs_select_impl
+
+  !------------------------------------------------------------------
+  !------------------------------------------------------------------
+  subroutine modal_aero_rename_acc_crs_tendencies_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (modal_aero_rename_acc_crs_tendencies_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('MODAL_AERO_RENAME_ACC_CRS_TENDENCIES_IMPL', &
+         value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       modal_aero_rename_acc_crs_tendencies_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       modal_aero_rename_acc_crs_tendencies_use_native_impl = .false.
+    end if
+
+    modal_aero_rename_acc_crs_tendencies_impl_selected = .true.
+
+    if (masterproc) then
+       if (modal_aero_rename_acc_crs_tendencies_use_native_impl) then
+          write(iulog,*) 'modal_aero_rename_acc_crs_tendencies implementation = native'
+       else
+          write(iulog,*) 'modal_aero_rename_acc_crs_tendencies implementation = codon'
+       end if
+    end if
+
+  end subroutine modal_aero_rename_acc_crs_tendencies_select_impl
 
   !------------------------------------------------------------------
   !------------------------------------------------------------------
@@ -1732,6 +1771,226 @@ grow_shrink_conditional1: &
 
   end subroutine modal_aero_rename_acc_crs_xferfracs_native
 
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_rename_acc_crs_tendencies( ncol, loffset, deltat, deltatinv, &
+       is_dorename_atik, dorename_atik, jsrflx_rename, nsrflx, pdel, q, qqcw, dqdt, dqqcwdt, &
+       qsrflx, qqcwsrflx, xferfrac_vol_ik, xferfrac_num_ik, nspecfrm_renamexf_in, &
+       lspecfrma_renamexf_in, lspecfrmc_renamexf_in, lspectooa_renamexf_in, lspectooc_renamexf_in, &
+       l_dqdt_rnpos, dqdt_rnpos )
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+    use physconst, only: gravit
+
+    implicit none
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: loffset
+    real(r8), intent(in) :: deltat
+    real(r8), intent(in) :: deltatinv
+    logical, intent(in) :: is_dorename_atik
+    logical, intent(in) :: dorename_atik(ncol,pver)
+    integer, intent(in) :: jsrflx_rename
+    integer, intent(in) :: nsrflx
+    real(r8), target, intent(in) :: pdel(pcols,pver)
+    real(r8), target, intent(in) :: q(ncol,pver,pcnstxx)
+    real(r8), target, intent(in) :: qqcw(ncol,pver,pcnstxx)
+    real(r8), target, intent(inout) :: dqdt(ncol,pver,pcnstxx)
+    real(r8), target, intent(inout) :: dqqcwdt(ncol,pver,pcnstxx)
+    real(r8), target, intent(inout) :: qsrflx(pcols,pcnstxx,nsrflx)
+    real(r8), target, intent(inout) :: qqcwsrflx(pcols,pcnstxx,nsrflx)
+    real(r8), target, intent(in) :: xferfrac_vol_ik(ncol,pver)
+    real(r8), target, intent(in) :: xferfrac_num_ik(ncol,pver)
+    integer, target, intent(in) :: nspecfrm_renamexf_in
+    integer, target, intent(in) :: lspecfrma_renamexf_in(maxspec_renamexf)
+    integer, target, intent(in) :: lspecfrmc_renamexf_in(maxspec_renamexf)
+    integer, target, intent(in) :: lspectooa_renamexf_in(maxspec_renamexf)
+    integer, target, intent(in) :: lspectooc_renamexf_in(maxspec_renamexf)
+    logical, intent(in) :: l_dqdt_rnpos
+    real(r8), optional, target, intent(inout) :: dqdt_rnpos(ncol,pver,pcnstxx)
+    integer(c_int64_t), target :: dorename_atik_c(ncol,pver)
+    integer(c_int64_t), target :: lspecfrma_renamexf_c(maxspec_renamexf)
+    integer(c_int64_t), target :: lspecfrmc_renamexf_c(maxspec_renamexf)
+    integer(c_int64_t), target :: lspectooa_renamexf_c(maxspec_renamexf)
+    integer(c_int64_t), target :: lspectooc_renamexf_c(maxspec_renamexf)
+    integer(c_int64_t) :: is_dorename_atik_c
+    integer(c_int64_t) :: l_dqdt_rnpos_c
+    integer(c_int64_t) :: nspecfrm_renamexf_c
+    real(r8), target :: dqdt_rnpos_dummy(1,1,1)
+    type(c_ptr) :: dqdt_rnpos_p
+    integer :: i, k, iq
+
+    interface
+       subroutine modal_aero_rename_acc_crs_tendencies_codon( &
+            ncol_c, pcols_c, pver_c, pcnstxx_c, maxspec_renamexf_c, loffset_c, &
+            nspecfrm_renamexf_c, jsrflx_rename_c, nsrflx_c, is_dorename_atik_c, l_dqdt_rnpos_c, &
+            deltat_c, deltatinv_c, gravit_c, pdel_p, dorename_atik_p, q_p, qqcw_p, dqdt_p, dqqcwdt_p, &
+            qsrflx_p, qqcwsrflx_p, xferfrac_vol_p, xferfrac_num_p, lspecfrma_renamexf_p, &
+            lspecfrmc_renamexf_p, lspectooa_renamexf_p, lspectooc_renamexf_p, dqdt_rnpos_p ) &
+            bind(c, name="modal_aero_rename_acc_crs_tendencies_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnstxx_c, maxspec_renamexf_c
+         integer(c_int64_t), value :: loffset_c, nspecfrm_renamexf_c, jsrflx_rename_c, nsrflx_c
+         integer(c_int64_t), value :: is_dorename_atik_c, l_dqdt_rnpos_c
+         real(c_double), value :: deltat_c, deltatinv_c, gravit_c
+         type(c_ptr), value :: pdel_p, dorename_atik_p, q_p, qqcw_p, dqdt_p, dqqcwdt_p
+         type(c_ptr), value :: qsrflx_p, qqcwsrflx_p, xferfrac_vol_p, xferfrac_num_p
+         type(c_ptr), value :: lspecfrma_renamexf_p, lspecfrmc_renamexf_p
+         type(c_ptr), value :: lspectooa_renamexf_p, lspectooc_renamexf_p, dqdt_rnpos_p
+       end subroutine modal_aero_rename_acc_crs_tendencies_codon
+    end interface
+
+    call modal_aero_rename_acc_crs_tendencies_select_impl()
+
+    if (.not. modal_aero_rename_acc_crs_tendencies_use_native_impl) then
+       if (is_dorename_atik) then
+          is_dorename_atik_c = 1_c_int64_t
+          do k = 1, pver
+             do i = 1, ncol
+                if (dorename_atik(i,k)) then
+                   dorename_atik_c(i,k) = 1_c_int64_t
+                else
+                   dorename_atik_c(i,k) = 0_c_int64_t
+                end if
+             end do
+          end do
+       else
+          is_dorename_atik_c = 0_c_int64_t
+          dorename_atik_c(:,:) = 0_c_int64_t
+       end if
+
+       if (l_dqdt_rnpos) then
+          l_dqdt_rnpos_c = 1_c_int64_t
+       else
+          l_dqdt_rnpos_c = 0_c_int64_t
+       end if
+
+       nspecfrm_renamexf_c = int(nspecfrm_renamexf_in, c_int64_t)
+       do iq = 1, maxspec_renamexf
+          lspecfrma_renamexf_c(iq) = int(lspecfrma_renamexf_in(iq), c_int64_t)
+          lspecfrmc_renamexf_c(iq) = int(lspecfrmc_renamexf_in(iq), c_int64_t)
+          lspectooa_renamexf_c(iq) = int(lspectooa_renamexf_in(iq), c_int64_t)
+          lspectooc_renamexf_c(iq) = int(lspectooc_renamexf_in(iq), c_int64_t)
+       end do
+
+       if (present(dqdt_rnpos)) then
+          dqdt_rnpos_p = c_loc(dqdt_rnpos(1,1,1))
+       else
+          dqdt_rnpos_dummy(1,1,1) = 0.0_r8
+          dqdt_rnpos_p = c_loc(dqdt_rnpos_dummy(1,1,1))
+       end if
+
+       call modal_aero_rename_acc_crs_tendencies_codon( &
+            int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnstxx, c_int64_t), &
+            int(maxspec_renamexf, c_int64_t), int(loffset, c_int64_t), nspecfrm_renamexf_c, int(jsrflx_rename, c_int64_t), &
+            int(nsrflx, c_int64_t), is_dorename_atik_c, l_dqdt_rnpos_c, real(deltat, c_double), real(deltatinv, c_double), &
+            real(gravit, c_double), c_loc(pdel(1,1)), c_loc(dorename_atik_c(1,1)), c_loc(q(1,1,1)), c_loc(qqcw(1,1,1)), &
+            c_loc(dqdt(1,1,1)), c_loc(dqqcwdt(1,1,1)), c_loc(qsrflx(1,1,1)), c_loc(qqcwsrflx(1,1,1)), c_loc(xferfrac_vol_ik(1,1)), &
+            c_loc(xferfrac_num_ik(1,1)), c_loc(lspecfrma_renamexf_c(1)), c_loc(lspecfrmc_renamexf_c(1)), c_loc(lspectooa_renamexf_c(1)), &
+            c_loc(lspectooc_renamexf_c(1)), dqdt_rnpos_p &
+       )
+       return
+    end if
+
+    call modal_aero_rename_acc_crs_tendencies_native( ncol, loffset, deltat, deltatinv, &
+         is_dorename_atik, dorename_atik, jsrflx_rename, nsrflx, pdel, q, qqcw, dqdt, dqqcwdt, &
+         qsrflx, qqcwsrflx, xferfrac_vol_ik, xferfrac_num_ik, nspecfrm_renamexf_in, lspecfrma_renamexf_in, &
+         lspecfrmc_renamexf_in, lspectooa_renamexf_in, lspectooc_renamexf_in, l_dqdt_rnpos, dqdt_rnpos )
+
+  end subroutine modal_aero_rename_acc_crs_tendencies
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_rename_acc_crs_tendencies_native( ncol, loffset, deltat, deltatinv, &
+       is_dorename_atik, dorename_atik, jsrflx_rename, nsrflx, pdel, q, qqcw, dqdt, dqqcwdt, &
+       qsrflx, qqcwsrflx, xferfrac_vol_ik, xferfrac_num_ik, nspecfrm_renamexf_in, &
+       lspecfrma_renamexf_in, lspecfrmc_renamexf_in, lspectooa_renamexf_in, lspectooc_renamexf_in, &
+       l_dqdt_rnpos, dqdt_rnpos )
+
+    use physconst, only: gravit
+
+    implicit none
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: loffset
+    real(r8), intent(in) :: deltat
+    real(r8), intent(in) :: deltatinv
+    logical, intent(in) :: is_dorename_atik
+    logical, intent(in) :: dorename_atik(ncol,pver)
+    integer, intent(in) :: jsrflx_rename
+    integer, intent(in) :: nsrflx
+    real(r8), intent(in) :: pdel(pcols,pver)
+    real(r8), intent(in) :: q(ncol,pver,pcnstxx)
+    real(r8), intent(in) :: qqcw(ncol,pver,pcnstxx)
+    real(r8), intent(inout) :: dqdt(ncol,pver,pcnstxx)
+    real(r8), intent(inout) :: dqqcwdt(ncol,pver,pcnstxx)
+    real(r8), intent(inout) :: qsrflx(pcols,pcnstxx,nsrflx)
+    real(r8), intent(inout) :: qqcwsrflx(pcols,pcnstxx,nsrflx)
+    real(r8), intent(in) :: xferfrac_vol_ik(ncol,pver)
+    real(r8), intent(in) :: xferfrac_num_ik(ncol,pver)
+    integer, intent(in) :: nspecfrm_renamexf_in
+    integer, intent(in) :: lspecfrma_renamexf_in(maxspec_renamexf)
+    integer, intent(in) :: lspecfrmc_renamexf_in(maxspec_renamexf)
+    integer, intent(in) :: lspectooa_renamexf_in(maxspec_renamexf)
+    integer, intent(in) :: lspectooc_renamexf_in(maxspec_renamexf)
+    logical, intent(in) :: l_dqdt_rnpos
+    real(r8), optional, intent(inout) :: dqdt_rnpos(ncol,pver,pcnstxx)
+
+    integer :: i, j, k, iq
+    integer :: lsfrma, lsfrmc, lstooa, lstooc
+    real(r8) :: pdel_fac, xfercoef, xfertend, xferfrac_vol, xferfrac_num
+
+mainloop1_k:  do k = 1, pver
+mainloop1_i:  do i = 1, ncol
+
+       if (is_dorename_atik) then
+          if (.not. dorename_atik(i,k)) cycle mainloop1_i
+       end if
+
+       xferfrac_vol = xferfrac_vol_ik(i,k)
+       xferfrac_num = xferfrac_num_ik(i,k)
+       if (xferfrac_vol .le. 0.0_r8) cycle mainloop1_i
+
+       pdel_fac = pdel(i,k)/gravit
+       j = jsrflx_rename
+       do iq = 1, nspecfrm_renamexf_in
+          xfercoef = xferfrac_vol*deltatinv
+          if (iq .eq. 1) xfercoef = xferfrac_num*deltatinv
+
+          lsfrma = lspecfrma_renamexf_in(iq)-loffset
+          lsfrmc = lspecfrmc_renamexf_in(iq)-loffset
+          lstooa = lspectooa_renamexf_in(iq)-loffset
+          lstooc = lspectooc_renamexf_in(iq)-loffset
+
+          if (lsfrma .gt. 0) then
+             xfertend = xfercoef*max( 0.0_r8, (q(i,k,lsfrma)+dqdt(i,k,lsfrma)*deltat) )
+             dqdt(i,k,lsfrma) = dqdt(i,k,lsfrma) - xfertend
+             qsrflx(i,lsfrma,j) = qsrflx(i,lsfrma,j) - xfertend*pdel_fac
+             if (lstooa .gt. 0) then
+                dqdt(i,k,lstooa) = dqdt(i,k,lstooa) + xfertend
+                qsrflx(i,lstooa,j) = qsrflx(i,lstooa,j) + xfertend*pdel_fac
+                if ( l_dqdt_rnpos .and. present(dqdt_rnpos) ) then
+                   dqdt_rnpos(i,k,lstooa) = dqdt_rnpos(i,k,lstooa) + xfertend
+                end if
+             end if
+          end if
+
+          if (lsfrmc .gt. 0) then
+             xfertend = xfercoef*max( 0.0_r8, (qqcw(i,k,lsfrmc)+dqqcwdt(i,k,lsfrmc)*deltat) )
+             dqqcwdt(i,k,lsfrmc) = dqqcwdt(i,k,lsfrmc) - xfertend
+             qqcwsrflx(i,lsfrmc,j) = qqcwsrflx(i,lsfrmc,j) - xfertend*pdel_fac
+             if (lstooc .gt. 0) then
+                dqqcwdt(i,k,lstooc) = dqqcwdt(i,k,lstooc) + xfertend
+                qqcwsrflx(i,lstooc,j) = qqcwsrflx(i,lstooc,j) + xfertend*pdel_fac
+             end if
+          end if
+       end do
+
+    end do mainloop1_i
+    end do mainloop1_k
+
+  end subroutine modal_aero_rename_acc_crs_tendencies_native
+
 
 
 !-------------------------------------------------------------------------
@@ -2122,120 +2381,17 @@ mainloop1_ipair:  do ipair = 1, npair_renamexf
 	     dp_xferall_thresh(ipair), flagaa_shrink, igrow_shrink_renamexf(ipair), ixferable_all_renamexf(ipair), &
 	     method_optbb_renamexf, onethird, xferfrac_max, xferfrac_vol_ik, xferfrac_num_ik )
 
-!
-!
-!   loop over levels and columns to calc the renaming
-!
-!
-mainloop1_k:  do k = 1, pver
-mainloop1_i:  do i = 1, ncol
-
-!   if dorename_atik is provided, then check if renaming needed at this i,k
-	if (is_dorename_atik) then
-	    if (.not. dorename_atik(i,k)) cycle mainloop1_i
-	end if
-
-
-	xferfrac_vol = xferfrac_vol_ik(i,k)
-	xferfrac_num = xferfrac_num_ik(i,k)
-	if (xferfrac_vol .le. 0.0_r8) cycle mainloop1_i
-
-
-!!   diagnostic output start ----------------------------------------
-!!	if (ldiag1 > 0) then
-! 	icol_diag = -1
-! 	if ((lonndx(i) == 37) .and. (latndx(i) == 23)) icol_diag = i
-!!	if ((i == icol_diag) .and. (mod(k-1,5) == 0)) then
-!! qak
-! 	if (ldiag1 <= 0) then
-! 	if ((i == 1) .and. (k == 1)) then
-!! qak
-! !	write(lun,97010) fromwhere, nstep, lchnk, i, k, ipair
-!! 	write(lun,97010) fromwhere, nstep, latndx(i), lonndx(i), k, ipair
-!! 	write(lun,97020) 'drv old/oldb/oldbnd/new/del    ',   &
-!! 		dryvol_t_old, dryvol_t_oldb, dryvol_t_oldbnd, &
-!! 		dryvol_t_new, dryvol_t_del
-!! 	write(lun,97020) 'num old/oldbnd, dgnold/oldb/new',   &
-!! 		num_t_old, num_t_oldbnd, dgn_t_old, dgn_t_oldb, dgn_t_new
-!! 	write(lun,97020) 'tailfr v_old/new, n_old/new    ',   &
-!! 		tailfr_volold, tailfr_volnew, tailfr_numold, tailfr_numnew
-! 	tmpa = max(1.0e-10_r8,xferfrac_vol) / max(1.0e-10_r8,xferfrac_num)
-! 	dgn_xfer = dgn_t_new * tmpa**onethird
-! 	tmpa = max(1.0e-10_r8,(1.0_r8-xferfrac_vol)) /   &
-!               max(1.0e-10_r8,(1.0_r8-xferfrac_num))
-!! 	dgn_aftr = dgn_t_new * tmpa**onethird
-!! 	write(lun,97020) 'xferfrac_v/n; dgn_xfer/aftr    ',   &
-!! 		xferfrac_vol, xferfrac_num, dgn_xfer, dgn_aftr
-! !97010	format( / 'RENAME ', a, '  nx,lc,i,k,ip', i8, 4i4 )
-! 97010	format( / 'RENAME ', a, '  nx,lat,lon,k,ip', i8, 4i4 )
-! 97020	format( a, 6(1pe15.7) )
-! 	end if
-! 	end if
-!   diagnostic output end   ------------------------------------------
-
-
-!
-!   compute tendencies for the renaming transfer
-!
-	pdel_fac = pdel(i,k)/gravit
-	j = jsrflx_rename
-	do iq = 1, nspecfrm_renamexf(ipair)
-	    xfercoef = xferfrac_vol*deltatinv
-	    if (iq .eq. 1) xfercoef = xferfrac_num*deltatinv
-
-	    lsfrma = lspecfrma_renamexf(iq,ipair)-loffset
-	    lsfrmc = lspecfrmc_renamexf(iq,ipair)-loffset
-	    lstooa = lspectooa_renamexf(iq,ipair)-loffset
-	    lstooc = lspectooc_renamexf(iq,ipair)-loffset
-
-	    if (lsfrma .gt. 0) then
-		xfertend = xfercoef*max( 0.0_r8,   &
-			    (q(i,k,lsfrma)+dqdt(i,k,lsfrma)*deltat) )
-
-!   diagnostic output start ----------------------------------------
-                if (ldiag1 > 0) then
-                if ((i == icol_diag) .and. (mod(k-1,5) == 0)) then
-                  if (lstooa .gt. 0) then
-                    write(iulog,'(a,i4,2(2x,a),1p,10e14.6)') 'RENAME qdels', iq,   &
-                        cnst_name(lsfrma+loffset), cnst_name(lstooa+loffset),   &
-                        deltat*dqdt(i,k,lsfrma), deltat*(dqdt(i,k,lsfrma) - xfertend),   &
-                        deltat*dqdt(i,k,lstooa), deltat*(dqdt(i,k,lstooa) + xfertend)
-                  else
-                    write(iulog,'(a,i4,2(2x,a),1p,10e14.6)') 'RENAME qdels', iq,   &
-                        cnst_name(lsfrma+loffset), cnst_name(lstooa+loffset),   &
-                        deltat*dqdt(i,k,lsfrma), deltat*(dqdt(i,k,lsfrma) - xfertend)
-                  end if
-                end if
-                end if
-!   diagnostic output end   ------------------------------------------
-
-
-		dqdt(i,k,lsfrma) = dqdt(i,k,lsfrma) - xfertend
-		qsrflx(i,lsfrma,j) = qsrflx(i,lsfrma,j) - xfertend*pdel_fac
-		if (lstooa .gt. 0) then
-		    dqdt(i,k,lstooa) = dqdt(i,k,lstooa) + xfertend
-		    qsrflx(i,lstooa,j) = qsrflx(i,lstooa,j) + xfertend*pdel_fac
-		    if ( l_dqdt_rnpos ) &
-			dqdt_rnpos(i,k,lstooa) = dqdt_rnpos(i,k,lstooa) + xfertend
-		end if
-	    end if
-
-	    if (lsfrmc .gt. 0) then
-		xfertend = xfercoef*max( 0.0_r8,   &
-			    (qqcw(i,k,lsfrmc)+dqqcwdt(i,k,lsfrmc)*deltat) )
-		dqqcwdt(i,k,lsfrmc) = dqqcwdt(i,k,lsfrmc) - xfertend
-		qqcwsrflx(i,lsfrmc,j) = qqcwsrflx(i,lsfrmc,j) - xfertend*pdel_fac
-		if (lstooc .gt. 0) then
-		    dqqcwdt(i,k,lstooc) = dqqcwdt(i,k,lstooc) + xfertend
-		    qqcwsrflx(i,lstooc,j) = qqcwsrflx(i,lstooc,j) + xfertend*pdel_fac
-		end if
-	    end if
-
-	end do   ! "iq = 1, nspecfrm_renamexf(ipair)"
-
-
-	end do mainloop1_i
-	end do mainloop1_k
+        if (l_dqdt_rnpos) then
+           call modal_aero_rename_acc_crs_tendencies( ncol, loffset, deltat, deltatinv, is_dorename_atik, dorename_atik, &
+                jsrflx_rename, nsrflx, pdel, q, qqcw, dqdt, dqqcwdt, qsrflx, qqcwsrflx, xferfrac_vol_ik, xferfrac_num_ik, &
+                nspecfrm_renamexf(ipair), lspecfrma_renamexf(:,ipair), lspecfrmc_renamexf(:,ipair), lspectooa_renamexf(:,ipair), &
+                lspectooc_renamexf(:,ipair), l_dqdt_rnpos, dqdt_rnpos )
+        else
+           call modal_aero_rename_acc_crs_tendencies( ncol, loffset, deltat, deltatinv, is_dorename_atik, dorename_atik, &
+                jsrflx_rename, nsrflx, pdel, q, qqcw, dqdt, dqqcwdt, qsrflx, qqcwsrflx, xferfrac_vol_ik, xferfrac_num_ik, &
+                nspecfrm_renamexf(ipair), lspecfrma_renamexf(:,ipair), lspecfrmc_renamexf(:,ipair), lspectooa_renamexf(:,ipair), &
+                lspectooc_renamexf(:,ipair), l_dqdt_rnpos )
+        end if
 
 
 	end do mainloop1_ipair

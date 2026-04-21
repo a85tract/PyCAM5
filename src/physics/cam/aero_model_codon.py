@@ -1001,6 +1001,112 @@ def modal_aero_rename_acc_crs_dryvols_codon(
 
 
 @export
+def modal_aero_rename_acc_crs_tendencies_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnstxx: int,
+    maxspec_renamexf: int,
+    loffset: int,
+    nspecfrm_renamexf: int,
+    jsrflx_rename: int,
+    nsrflx: int,
+    is_dorename_atik: int,
+    l_dqdt_rnpos: int,
+    deltat: float,
+    deltatinv: float,
+    gravit: float,
+    pdel_p: cobj,
+    dorename_atik_p: cobj,
+    q_p: cobj,
+    qqcw_p: cobj,
+    dqdt_p: cobj,
+    dqqcwdt_p: cobj,
+    qsrflx_p: cobj,
+    qqcwsrflx_p: cobj,
+    xferfrac_vol_p: cobj,
+    xferfrac_num_p: cobj,
+    lspecfrma_renamexf_p: cobj,
+    lspecfrmc_renamexf_p: cobj,
+    lspectooa_renamexf_p: cobj,
+    lspectooc_renamexf_p: cobj,
+    dqdt_rnpos_p: cobj,
+):
+    pdel = Ptr[float](pdel_p)
+    dorename_atik = Ptr[int](dorename_atik_p)
+    q = Ptr[float](q_p)
+    qqcw = Ptr[float](qqcw_p)
+    dqdt = Ptr[float](dqdt_p)
+    dqqcwdt = Ptr[float](dqqcwdt_p)
+    qsrflx = Ptr[float](qsrflx_p)
+    qqcwsrflx = Ptr[float](qqcwsrflx_p)
+    xferfrac_vol = Ptr[float](xferfrac_vol_p)
+    xferfrac_num = Ptr[float](xferfrac_num_p)
+    lspecfrma_renamexf = Ptr[int](lspecfrma_renamexf_p)
+    lspecfrmc_renamexf = Ptr[int](lspecfrmc_renamexf_p)
+    lspectooa_renamexf = Ptr[int](lspectooa_renamexf_p)
+    lspectooc_renamexf = Ptr[int](lspectooc_renamexf_p)
+    dqdt_rnpos = Ptr[float](dqdt_rnpos_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            if is_dorename_atik != 0:
+                if dorename_atik[_idx2(i, k, ncol)] == 0:
+                    continue
+
+            xferfrac_vol_local = xferfrac_vol[_idx2(i, k, ncol)]
+            xferfrac_num_local = xferfrac_num[_idx2(i, k, ncol)]
+            if xferfrac_vol_local <= 0.0:
+                continue
+
+            pdel_fac = pdel[_idx2(i, k, pcols)] / gravit
+
+            for iq in range(1, nspecfrm_renamexf + 1):
+                xfercoef = xferfrac_vol_local * deltatinv
+                if iq == 1:
+                    xfercoef = xferfrac_num_local * deltatinv
+
+                lsfrma = lspecfrma_renamexf[iq - 1] - loffset
+                lsfrmc = lspecfrmc_renamexf[iq - 1] - loffset
+                lstooa = lspectooa_renamexf[iq - 1] - loffset
+                lstooc = lspectooc_renamexf[iq - 1] - loffset
+
+                if lsfrma > 0:
+                    xfertend = xfercoef * max(
+                        0.0,
+                        q[_idx3(i, k, lsfrma, ncol, pver)]
+                        + dqdt[_idx3(i, k, lsfrma, ncol, pver)] * deltat,
+                    )
+                    dqdt[_idx3(i, k, lsfrma, ncol, pver)] -= xfertend
+                    qsrflx[_idx3(i, lsfrma, jsrflx_rename, pcols, pcnstxx)] -= (
+                        xfertend * pdel_fac
+                    )
+                    if lstooa > 0:
+                        dqdt[_idx3(i, k, lstooa, ncol, pver)] += xfertend
+                        qsrflx[_idx3(i, lstooa, jsrflx_rename, pcols, pcnstxx)] += (
+                            xfertend * pdel_fac
+                        )
+                        if l_dqdt_rnpos != 0:
+                            dqdt_rnpos[_idx3(i, k, lstooa, ncol, pver)] += xfertend
+
+                if lsfrmc > 0:
+                    xfertend = xfercoef * max(
+                        0.0,
+                        qqcw[_idx3(i, k, lsfrmc, ncol, pver)]
+                        + dqqcwdt[_idx3(i, k, lsfrmc, ncol, pver)] * deltat,
+                    )
+                    dqqcwdt[_idx3(i, k, lsfrmc, ncol, pver)] -= xfertend
+                    qqcwsrflx[_idx3(i, lsfrmc, jsrflx_rename, pcols, pcnstxx)] -= (
+                        xfertend * pdel_fac
+                    )
+                    if lstooc > 0:
+                        dqqcwdt[_idx3(i, k, lstooc, ncol, pver)] += xfertend
+                        qqcwsrflx[_idx3(i, lstooc, jsrflx_rename, pcols, pcnstxx)] += (
+                            xfertend * pdel_fac
+                        )
+
+
+@export
 def modal_aero_rename_acc_crs_xferfracs_codon(
     ncol: int,
     pcols: int,
