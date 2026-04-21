@@ -896,6 +896,229 @@ def modal_aero_rename_no_acc_crs_tendencies_codon(
 
 
 @export
+def modal_aero_rename_no_acc_crs_sub_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnstxx: int,
+    ntot_amode: int,
+    maxpair_renamexf: int,
+    maxspec_renamexf: int,
+    loffset: int,
+    npair_renamexf: int,
+    is_dorename_atik: int,
+    jsrflx_rename: int,
+    nsrflx: int,
+    deltat: float,
+    deltatinv: float,
+    onethird: float,
+    xferfrac_max: float,
+    pi: float,
+    gravit: float,
+    pdel_p: cobj,
+    dorename_atik_p: cobj,
+    q_p: cobj,
+    qqcw_p: cobj,
+    dqdt_p: cobj,
+    dqdt_other_p: cobj,
+    dqqcwdt_p: cobj,
+    dqqcwdt_other_p: cobj,
+    qsrflx_p: cobj,
+    qqcwsrflx_p: cobj,
+    modefrm_renamexf_p: cobj,
+    modetoo_renamexf_p: cobj,
+    nspec_amode_p: cobj,
+    lspectype_amode_p: cobj,
+    specmw_amode_p: cobj,
+    specdens_amode_p: cobj,
+    lmassptr_amode_p: cobj,
+    lmassptrcw_amode_p: cobj,
+    numptr_amode_p: cobj,
+    numptrcw_amode_p: cobj,
+    dgnum_amode_p: cobj,
+    alnsg_amode_p: cobj,
+    voltonumblo_amode_p: cobj,
+    voltonumbhi_amode_p: cobj,
+    nspecfrm_renamexf_p: cobj,
+    lspecfrma_renamexf_p: cobj,
+    lspecfrmc_renamexf_p: cobj,
+    lspectooa_renamexf_p: cobj,
+    lspectooc_renamexf_p: cobj,
+    idomode_p: cobj,
+    dryvol_a_p: cobj,
+    dryvol_c_p: cobj,
+    deldryvol_a_p: cobj,
+    deldryvol_c_p: cobj,
+    factoraa_p: cobj,
+    factoryy_p: cobj,
+    dryvol_smallest_p: cobj,
+    v2nlorlx_p: cobj,
+    v2nhirlx_p: cobj,
+    dum3alnsg2_p: cobj,
+    dp_cut_p: cobj,
+    lndp_cut_p: cobj,
+    dp_belowcut_p: cobj,
+    xferfrac_vol_p: cobj,
+    xferfrac_num_p: cobj,
+    dotendrn_p: cobj,
+    dotendqqcwrn_p: cobj,
+):
+    idomode = Ptr[int](idomode_p)
+    modefrm_renamexf = Ptr[int](modefrm_renamexf_p)
+    modetoo_renamexf = Ptr[int](modetoo_renamexf_p)
+    nspec_amode = Ptr[int](nspec_amode_p)
+    numptr_amode = Ptr[int](numptr_amode_p)
+    numptrcw_amode = Ptr[int](numptrcw_amode_p)
+    dgnum_amode = Ptr[float](dgnum_amode_p)
+    alnsg_amode = Ptr[float](alnsg_amode_p)
+    voltonumblo_amode = Ptr[float](voltonumblo_amode_p)
+    voltonumbhi_amode = Ptr[float](voltonumbhi_amode_p)
+    factoraa = Ptr[float](factoraa_p)
+    factoryy = Ptr[float](factoryy_p)
+    dryvol_smallest = Ptr[float](dryvol_smallest_p)
+    v2nlorlx = Ptr[float](v2nlorlx_p)
+    v2nhirlx = Ptr[float](v2nhirlx_p)
+    dum3alnsg2 = Ptr[float](dum3alnsg2_p)
+    dp_cut = Ptr[float](dp_cut_p)
+    lndp_cut = Ptr[float](lndp_cut_p)
+    dp_belowcut = Ptr[float](dp_belowcut_p)
+
+    frelax = 27.0
+
+    for n in range(1, ntot_amode + 1):
+        idomode[n - 1] = 0
+
+    for ipair in range(1, npair_renamexf + 1):
+        mfrm = modefrm_renamexf[ipair - 1]
+        mtoo = modetoo_renamexf[ipair - 1]
+        idomode[mfrm - 1] = 1
+
+        factoraa[mfrm - 1] = (pi / 6.0) * exp(4.5 * (alnsg_amode[mfrm - 1] ** 2))
+        factoraa[mtoo - 1] = (pi / 6.0) * exp(4.5 * (alnsg_amode[mtoo - 1] ** 2))
+        factoryy[mfrm - 1] = sqrt(0.5) / alnsg_amode[mfrm - 1]
+        dryvol_smallest[mfrm - 1] = 1.0e-25
+        v2nlorlx[mfrm - 1] = voltonumblo_amode[mfrm - 1] * frelax
+        v2nhirlx[mfrm - 1] = voltonumbhi_amode[mfrm - 1] / frelax
+
+        dum3alnsg2[ipair - 1] = 3.0 * (alnsg_amode[mfrm - 1] ** 2)
+        dp_cut[ipair - 1] = sqrt(
+            dgnum_amode[mfrm - 1] * exp(1.5 * (alnsg_amode[mfrm - 1] ** 2))
+            * dgnum_amode[mtoo - 1]
+            * exp(1.5 * (alnsg_amode[mtoo - 1] ** 2))
+        )
+        lndp_cut[ipair - 1] = log(dp_cut[ipair - 1])
+        dp_belowcut[ipair - 1] = 0.99 * dp_cut[ipair - 1]
+
+    modal_aero_rename_no_acc_crs_dryvols_codon(
+        ncol,
+        pver,
+        pcnstxx,
+        ntot_amode,
+        maxspec_renamexf,
+        loffset,
+        deltat,
+        idomode_p,
+        q_p,
+        qqcw_p,
+        dqdt_p,
+        dqdt_other_p,
+        dqqcwdt_p,
+        dqqcwdt_other_p,
+        nspec_amode_p,
+        lspectype_amode_p,
+        specmw_amode_p,
+        specdens_amode_p,
+        lmassptr_amode_p,
+        lmassptrcw_amode_p,
+        dryvol_a_p,
+        dryvol_c_p,
+        deldryvol_a_p,
+        deldryvol_c_p,
+    )
+
+    modal_aero_rename_no_acc_crs_xferfracs_codon(
+        ncol,
+        pver,
+        pcnstxx,
+        ntot_amode,
+        maxpair_renamexf,
+        loffset,
+        npair_renamexf,
+        q_p,
+        qqcw_p,
+        dryvol_a_p,
+        dryvol_c_p,
+        deldryvol_a_p,
+        deldryvol_c_p,
+        modefrm_renamexf_p,
+        modetoo_renamexf_p,
+        numptr_amode_p,
+        numptrcw_amode_p,
+        dgnum_amode_p,
+        factoraa_p,
+        factoryy_p,
+        dryvol_smallest_p,
+        v2nlorlx_p,
+        v2nhirlx_p,
+        dum3alnsg2_p,
+        dp_cut_p,
+        lndp_cut_p,
+        dp_belowcut_p,
+        onethird,
+        xferfrac_max,
+        xferfrac_vol_p,
+        xferfrac_num_p,
+    )
+
+    modal_aero_rename_no_acc_crs_tendencies_codon(
+        ncol,
+        pcols,
+        pver,
+        pcnstxx,
+        maxpair_renamexf,
+        maxspec_renamexf,
+        loffset,
+        npair_renamexf,
+        jsrflx_rename,
+        nsrflx,
+        is_dorename_atik,
+        deltat,
+        deltatinv,
+        gravit,
+        pdel_p,
+        dorename_atik_p,
+        q_p,
+        qqcw_p,
+        dqdt_p,
+        dqqcwdt_p,
+        qsrflx_p,
+        qqcwsrflx_p,
+        xferfrac_vol_p,
+        xferfrac_num_p,
+        nspecfrm_renamexf_p,
+        lspecfrma_renamexf_p,
+        lspecfrmc_renamexf_p,
+        lspectooa_renamexf_p,
+        lspectooc_renamexf_p,
+    )
+
+    modal_aero_rename_set_dotend_flags_codon(
+        pcnstxx,
+        maxpair_renamexf,
+        maxspec_renamexf,
+        loffset,
+        npair_renamexf,
+        nspecfrm_renamexf_p,
+        lspecfrma_renamexf_p,
+        lspecfrmc_renamexf_p,
+        lspectooa_renamexf_p,
+        lspectooc_renamexf_p,
+        dotendrn_p,
+        dotendqqcwrn_p,
+    )
+
+
+@export
 def modal_aero_rename_acc_crs_dryvols_codon(
     ncol: int,
     pver: int,

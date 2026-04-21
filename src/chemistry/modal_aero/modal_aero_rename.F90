@@ -90,6 +90,8 @@
   logical :: modal_aero_rename_no_acc_crs_xferfracs_impl_selected = .false.
   logical :: modal_aero_rename_no_acc_crs_tendencies_use_native_impl = .false.
   logical :: modal_aero_rename_no_acc_crs_tendencies_impl_selected = .false.
+  logical :: modal_aero_rename_no_acc_crs_sub_use_native_impl = .false.
+  logical :: modal_aero_rename_no_acc_crs_sub_impl_selected = .false.
   logical :: modal_aero_rename_acc_crs_dryvols_use_native_impl = .false.
   logical :: modal_aero_rename_acc_crs_dryvols_impl_selected = .false.
   logical :: modal_aero_rename_acc_crs_xferfracs_use_native_impl = .false.
@@ -246,6 +248,43 @@ contains
     end if
 
   end subroutine modal_aero_rename_no_acc_crs_tendencies_select_impl
+
+  !------------------------------------------------------------------
+  !------------------------------------------------------------------
+  subroutine modal_aero_rename_no_acc_crs_sub_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (modal_aero_rename_no_acc_crs_sub_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('MODAL_AERO_RENAME_NO_ACC_CRS_SUB_IMPL', &
+         value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       modal_aero_rename_no_acc_crs_sub_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       modal_aero_rename_no_acc_crs_sub_use_native_impl = .false.
+    end if
+
+    modal_aero_rename_no_acc_crs_sub_impl_selected = .true.
+
+    if (masterproc) then
+       if (modal_aero_rename_no_acc_crs_sub_use_native_impl) then
+          write(iulog,*) 'modal_aero_rename_no_acc_crs_sub implementation = native'
+       else
+          write(iulog,*) 'modal_aero_rename_no_acc_crs_sub implementation = codon'
+       end if
+    end if
+
+  end subroutine modal_aero_rename_no_acc_crs_sub_select_impl
 
   !------------------------------------------------------------------
   !------------------------------------------------------------------
@@ -1159,6 +1198,7 @@ mainloop1_ipair:  do ipair = 1, npair_renamexf_in
    use physconst, only: gravit, mwdry
    use units, only: getunit
    use shr_spfn_mod, only: erfc => shr_spfn_erfc
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
    implicit none
 
@@ -1172,25 +1212,25 @@ mainloop1_ipair:  do ipair = 1, npair_renamexf_in
    integer,  intent(in)    :: loffset              ! offset applied to modal aero "ptrs"
    real(r8), intent(in)    :: deltat               ! time step (s)
 
-   real(r8), intent(in)    :: pdel(pcols,pver)     ! pressure thickness of levels (Pa)
-   real(r8), intent(in)    :: q(ncol,pver,pcnstxx) ! tracer mixing ratio array
+   real(r8), target, intent(in) :: pdel(pcols,pver)     ! pressure thickness of levels (Pa)
+   real(r8), target, intent(in) :: q(ncol,pver,pcnstxx) ! tracer mixing ratio array
                                                    ! *** MUST BE mol/mol-air or #/mol-air
                                                    ! *** NOTE ncol and pcnstxx dimensions
-   real(r8), intent(in)    :: qqcw(ncol,pver,pcnstxx) ! like q but for cloud-borne species
+   real(r8), target, intent(in) :: qqcw(ncol,pver,pcnstxx) ! like q but for cloud-borne species
 
-   real(r8), intent(inout) :: dqdt(ncol,pver,pcnstxx)  ! TMR tendency array;
+   real(r8), target, intent(inout) :: dqdt(ncol,pver,pcnstxx)  ! TMR tendency array;
                               ! incoming dqdt = tendencies for the 
                               !     "fromwhere" continuous growth process 
                               ! the renaming tendencies are added on
                               ! *** NOTE ncol and pcnstxx dimensions
-   real(r8), intent(inout) :: dqqcwdt(ncol,pver,pcnstxx)
-   real(r8), intent(in)    :: dqdt_other(ncol,pver,pcnstxx)  
+   real(r8), target, intent(inout) :: dqqcwdt(ncol,pver,pcnstxx)
+   real(r8), target, intent(in) :: dqdt_other(ncol,pver,pcnstxx)  
                               ! tendencies for "other" continuous growth process 
                               ! currently in cam3
                               !     dqdt is from gas (h2so4, nh3) condensation
                               !     dqdt_other is from aqchem and soa
                               ! *** NOTE ncol and pcnstxx dimensions
-   real(r8), intent(in)    :: dqqcwdt_other(ncol,pver,pcnstxx)  
+   real(r8), target, intent(in) :: dqqcwdt_other(ncol,pver,pcnstxx)  
    logical,  intent(inout) :: dotendrn(pcnstxx) ! identifies the species for which
                               !     renaming dqdt is computed
    logical,  intent(inout) :: dotendqqcwrn(pcnstxx)
@@ -1201,9 +1241,9 @@ mainloop1_ipair:  do ipair = 1, npair_renamexf_in
    integer,  intent(in)    :: jsrflx_rename        ! qsrflx index for renaming
    integer,  intent(in)    :: nsrflx               ! last dimension of qsrflx
 
-   real(r8), intent(inout) :: qsrflx(pcols,pcnstxx,nsrflx)
+   real(r8), target, intent(inout) :: qsrflx(pcols,pcnstxx,nsrflx)
                               ! process-specific column tracer tendencies 
-   real(r8), intent(inout) :: qqcwsrflx(pcols,pcnstxx,nsrflx)
+   real(r8), target, intent(inout) :: qqcwsrflx(pcols,pcnstxx,nsrflx)
 
 ! !DESCRIPTION: 
 ! computes TMR (tracer mixing ratio) tendencies for "mode renaming"
@@ -1230,25 +1270,25 @@ mainloop1_ipair:  do ipair = 1, npair_renamexf_in
                               ! if a special diagnostics file is opened)
 
 
-   real (r8) :: deldryvol_a(ncol,pver,ntot_amode)
-   real (r8) :: deldryvol_c(ncol,pver,ntot_amode)
+   real (r8), target :: deldryvol_a(ncol,pver,ntot_amode)
+   real (r8), target :: deldryvol_c(ncol,pver,ntot_amode)
    real (r8) :: deltatinv
-   real (r8) :: dp_belowcut(maxpair_renamexf)
-   real (r8) :: dp_cut(maxpair_renamexf)
+   real (r8), target :: dp_belowcut(maxpair_renamexf)
+   real (r8), target :: dp_cut(maxpair_renamexf)
    real (r8) :: dgn_aftr, dgn_xfer
    real (r8) :: dgn_t_new, dgn_t_old
    real (r8) :: dryvol_t_del, dryvol_t_new
    real (r8) :: dryvol_t_old, dryvol_t_oldbnd
-   real (r8) :: dryvol_a(ncol,pver,ntot_amode)
-   real (r8) :: dryvol_c(ncol,pver,ntot_amode)
-   real (r8) :: dryvol_smallest(ntot_amode)
+   real (r8), target :: dryvol_a(ncol,pver,ntot_amode)
+   real (r8), target :: dryvol_c(ncol,pver,ntot_amode)
+   real (r8), target :: dryvol_smallest(ntot_amode)
    real (r8) :: dum
-   real (r8) :: dum3alnsg2(maxpair_renamexf)
+   real (r8), target :: dum3alnsg2(maxpair_renamexf)
    real (r8) :: dum_m2v, dum_m2vdt
-   real (r8) :: factoraa(ntot_amode)
-   real (r8) :: factoryy(ntot_amode)
+   real (r8), target :: factoraa(ntot_amode)
+   real (r8), target :: factoryy(ntot_amode)
    real (r8) :: frelax
-   real (r8) :: lndp_cut(maxpair_renamexf)
+   real (r8), target :: lndp_cut(maxpair_renamexf)
    real (r8) :: lndgn_new, lndgn_old
    real (r8) :: lndgv_new, lndgv_old
    real (r8) :: num_t_old, num_t_oldbnd
@@ -1256,13 +1296,68 @@ mainloop1_ipair:  do ipair = 1, npair_renamexf_in
    real (r8) :: pdel_fac
    real (r8) :: tailfr_volnew, tailfr_volold
    real (r8) :: tailfr_numnew, tailfr_numold
-   real (r8) :: v2nhirlx(ntot_amode), v2nlorlx(ntot_amode)
+   real (r8), target :: v2nhirlx(ntot_amode), v2nlorlx(ntot_amode)
    real (r8) :: xfercoef, xfertend
    real (r8) :: xferfrac_vol, xferfrac_num, xferfrac_max
-   real (r8) :: xferfrac_vol_ik(ncol,pver,maxpair_renamexf)
-   real (r8) :: xferfrac_num_ik(ncol,pver,maxpair_renamexf)
+   real (r8), target :: xferfrac_vol_ik(ncol,pver,maxpair_renamexf)
+   real (r8), target :: xferfrac_num_ik(ncol,pver,maxpair_renamexf)
 
    real (r8) :: yn_tail, yv_tail
+   integer(c_int64_t), target :: dorename_atik_c(ncol,pver)
+   integer(c_int64_t), target :: idomode_c(ntot_amode)
+   integer(c_int64_t), target :: modefrm_renamexf_c(maxpair_renamexf)
+   integer(c_int64_t), target :: modetoo_renamexf_c(maxpair_renamexf)
+   integer(c_int64_t), target :: nspec_amode_c(ntot_amode)
+   integer(c_int64_t), target :: lspectype_amode_c(maxspec_renamexf,ntot_amode)
+   integer(c_int64_t), target :: lmassptr_amode_c(maxspec_renamexf,ntot_amode)
+   integer(c_int64_t), target :: lmassptrcw_amode_c(maxspec_renamexf,ntot_amode)
+   integer(c_int64_t), target :: numptr_amode_c(ntot_amode)
+   integer(c_int64_t), target :: numptrcw_amode_c(ntot_amode)
+   integer(c_int64_t), target :: nspecfrm_renamexf_c(maxpair_renamexf)
+   integer(c_int64_t), target :: lspecfrma_renamexf_c(maxspec_renamexf,maxpair_renamexf)
+   integer(c_int64_t), target :: lspecfrmc_renamexf_c(maxspec_renamexf,maxpair_renamexf)
+   integer(c_int64_t), target :: lspectooa_renamexf_c(maxspec_renamexf,maxpair_renamexf)
+   integer(c_int64_t), target :: lspectooc_renamexf_c(maxspec_renamexf,maxpair_renamexf)
+   integer(c_int64_t), target :: dotendrn_c(pcnstxx)
+   integer(c_int64_t), target :: dotendqqcwrn_c(pcnstxx)
+   integer(c_int64_t) :: is_dorename_atik_c
+   real(r8), target :: specmw_amode_c(size(specmw_amode))
+   real(r8), target :: specdens_amode_c(size(specdens_amode))
+   real(r8), target :: dgnum_amode_c(ntot_amode)
+   real(r8), target :: alnsg_amode_c(ntot_amode)
+   real(r8), target :: voltonumblo_amode_c(ntot_amode)
+   real(r8), target :: voltonumbhi_amode_c(ntot_amode)
+
+   interface
+      subroutine modal_aero_rename_no_acc_crs_sub_codon( &
+           ncol_c, pcols_c, pver_c, pcnstxx_c, ntot_amode_c, maxpair_renamexf_c, maxspec_renamexf_c, &
+           loffset_c, npair_renamexf_c, is_dorename_atik_c, jsrflx_rename_c, nsrflx_c, deltat_c, &
+           deltatinv_c, onethird_c, xferfrac_max_c, pi_c, gravit_c, pdel_p, dorename_atik_p, q_p, qqcw_p, &
+           dqdt_p, dqdt_other_p, dqqcwdt_p, dqqcwdt_other_p, qsrflx_p, qqcwsrflx_p, modefrm_renamexf_p, &
+           modetoo_renamexf_p, nspec_amode_p, lspectype_amode_p, specmw_amode_p, specdens_amode_p, &
+           lmassptr_amode_p, lmassptrcw_amode_p, numptr_amode_p, numptrcw_amode_p, dgnum_amode_p, &
+           alnsg_amode_p, voltonumblo_amode_p, voltonumbhi_amode_p, nspecfrm_renamexf_p, lspecfrma_renamexf_p, &
+           lspecfrmc_renamexf_p, lspectooa_renamexf_p, lspectooc_renamexf_p, idomode_p, dryvol_a_p, dryvol_c_p, &
+           deldryvol_a_p, deldryvol_c_p, factoraa_p, factoryy_p, dryvol_smallest_p, v2nlorlx_p, v2nhirlx_p, &
+           dum3alnsg2_p, dp_cut_p, lndp_cut_p, dp_belowcut_p, xferfrac_vol_p, xferfrac_num_p, dotendrn_p, &
+           dotendqqcwrn_p ) bind(c, name="modal_aero_rename_no_acc_crs_sub_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnstxx_c, ntot_amode_c, maxpair_renamexf_c
+        integer(c_int64_t), value :: maxspec_renamexf_c, loffset_c, npair_renamexf_c, is_dorename_atik_c
+        integer(c_int64_t), value :: jsrflx_rename_c, nsrflx_c
+        real(c_double), value :: deltat_c, deltatinv_c, onethird_c, xferfrac_max_c, pi_c, gravit_c
+        type(c_ptr), value :: pdel_p, dorename_atik_p, q_p, qqcw_p, dqdt_p, dqdt_other_p, dqqcwdt_p
+        type(c_ptr), value :: dqqcwdt_other_p, qsrflx_p, qqcwsrflx_p, modefrm_renamexf_p, modetoo_renamexf_p
+        type(c_ptr), value :: nspec_amode_p, lspectype_amode_p, specmw_amode_p, specdens_amode_p
+        type(c_ptr), value :: lmassptr_amode_p, lmassptrcw_amode_p, numptr_amode_p, numptrcw_amode_p
+        type(c_ptr), value :: dgnum_amode_p, alnsg_amode_p, voltonumblo_amode_p, voltonumbhi_amode_p
+        type(c_ptr), value :: nspecfrm_renamexf_p, lspecfrma_renamexf_p, lspecfrmc_renamexf_p
+        type(c_ptr), value :: lspectooa_renamexf_p, lspectooc_renamexf_p, idomode_p, dryvol_a_p, dryvol_c_p
+        type(c_ptr), value :: deldryvol_a_p, deldryvol_c_p, factoraa_p, factoryy_p, dryvol_smallest_p
+        type(c_ptr), value :: v2nlorlx_p, v2nhirlx_p, dum3alnsg2_p, dp_cut_p, lndp_cut_p, dp_belowcut_p
+        type(c_ptr), value :: xferfrac_vol_p, xferfrac_num_p, dotendrn_p, dotendqqcwrn_p
+      end subroutine modal_aero_rename_no_acc_crs_sub_codon
+   end interface
 
 ! begin
 	lunout = iulog
@@ -1289,6 +1384,7 @@ mainloop1_ipair:  do ipair = 1, npair_renamexf_in
 !   check if any renaming pairs exist
 !
 	if (npair_renamexf .le. 0) return
+        if (npair_renamexf .gt. 1) goto 8100
 ! 	if (ncol .ne. -123456789) return
 !	if (fromwhere .eq. 'aqchem') return
 
@@ -1301,6 +1397,78 @@ mainloop1_ipair:  do ipair = 1, npair_renamexf_in
 	onethird = 1.0_r8/3.0_r8
 	frelax = 27.0_r8
 	xferfrac_max = 1.0_r8 - 10.0_r8*epsilon(1.0_r8)   ! 1-eps
+
+        call modal_aero_rename_no_acc_crs_sub_select_impl()
+
+        if (.not. modal_aero_rename_no_acc_crs_sub_use_native_impl) then
+           if (is_dorename_atik) then
+              is_dorename_atik_c = 1_c_int64_t
+              do k = 1, pver
+                 do i = 1, ncol
+                    if (dorename_atik(i,k)) then
+                       dorename_atik_c(i,k) = 1_c_int64_t
+                    else
+                       dorename_atik_c(i,k) = 0_c_int64_t
+                    end if
+                 end do
+              end do
+           else
+              is_dorename_atik_c = 0_c_int64_t
+              dorename_atik_c(:,:) = 0_c_int64_t
+           end if
+
+           do ipair = 1, maxpair_renamexf
+              modefrm_renamexf_c(ipair) = int(modefrm_renamexf(ipair), c_int64_t)
+              modetoo_renamexf_c(ipair) = int(modetoo_renamexf(ipair), c_int64_t)
+              nspecfrm_renamexf_c(ipair) = int(nspecfrm_renamexf(ipair), c_int64_t)
+              do iq = 1, maxspec_renamexf
+                 lspecfrma_renamexf_c(iq,ipair) = int(lspecfrma_renamexf(iq,ipair), c_int64_t)
+                 lspecfrmc_renamexf_c(iq,ipair) = int(lspecfrmc_renamexf(iq,ipair), c_int64_t)
+                 lspectooa_renamexf_c(iq,ipair) = int(lspectooa_renamexf(iq,ipair), c_int64_t)
+                 lspectooc_renamexf_c(iq,ipair) = int(lspectooc_renamexf(iq,ipair), c_int64_t)
+              end do
+           end do
+           do n = 1, ntot_amode
+              nspec_amode_c(n) = int(nspec_amode(n), c_int64_t)
+              numptr_amode_c(n) = int(numptr_amode(n), c_int64_t)
+              numptrcw_amode_c(n) = int(numptrcw_amode(n), c_int64_t)
+              dgnum_amode_c(n) = dgnum_amode(n)
+              alnsg_amode_c(n) = alnsg_amode(n)
+              voltonumblo_amode_c(n) = voltonumblo_amode(n)
+              voltonumbhi_amode_c(n) = voltonumbhi_amode(n)
+              do iq = 1, maxspec_renamexf
+                 lspectype_amode_c(iq,n) = int(lspectype_amode(iq,n), c_int64_t)
+                 lmassptr_amode_c(iq,n) = int(lmassptr_amode(iq,n), c_int64_t)
+                 lmassptrcw_amode_c(iq,n) = int(lmassptrcw_amode(iq,n), c_int64_t)
+              end do
+           end do
+           specmw_amode_c(:) = specmw_amode(:)
+           specdens_amode_c(:) = specdens_amode(:)
+
+           call modal_aero_rename_no_acc_crs_sub_codon( &
+                int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnstxx, c_int64_t), &
+                int(ntot_amode, c_int64_t), int(maxpair_renamexf, c_int64_t), int(maxspec_renamexf, c_int64_t), &
+                int(loffset, c_int64_t), int(npair_renamexf, c_int64_t), is_dorename_atik_c, int(jsrflx_rename, c_int64_t), &
+                int(nsrflx, c_int64_t), real(deltat, c_double), real(deltatinv, c_double), real(onethird, c_double), &
+                real(xferfrac_max, c_double), real(pi, c_double), real(gravit, c_double), c_loc(pdel(1,1)), c_loc(dorename_atik_c(1,1)), &
+                c_loc(q(1,1,1)), c_loc(qqcw(1,1,1)), c_loc(dqdt(1,1,1)), c_loc(dqdt_other(1,1,1)), c_loc(dqqcwdt(1,1,1)), &
+                c_loc(dqqcwdt_other(1,1,1)), c_loc(qsrflx(1,1,1)), c_loc(qqcwsrflx(1,1,1)), c_loc(modefrm_renamexf_c(1)), &
+                c_loc(modetoo_renamexf_c(1)), c_loc(nspec_amode_c(1)), c_loc(lspectype_amode_c(1,1)), c_loc(specmw_amode_c(1)), &
+                c_loc(specdens_amode_c(1)), c_loc(lmassptr_amode_c(1,1)), c_loc(lmassptrcw_amode_c(1,1)), c_loc(numptr_amode_c(1)), &
+                c_loc(numptrcw_amode_c(1)), c_loc(dgnum_amode_c(1)), c_loc(alnsg_amode_c(1)), c_loc(voltonumblo_amode_c(1)), &
+                c_loc(voltonumbhi_amode_c(1)), c_loc(nspecfrm_renamexf_c(1)), c_loc(lspecfrma_renamexf_c(1,1)), &
+                c_loc(lspecfrmc_renamexf_c(1,1)), c_loc(lspectooa_renamexf_c(1,1)), c_loc(lspectooc_renamexf_c(1,1)), c_loc(idomode_c(1)), &
+                c_loc(dryvol_a(1,1,1)), c_loc(dryvol_c(1,1,1)), c_loc(deldryvol_a(1,1,1)), c_loc(deldryvol_c(1,1,1)), c_loc(factoraa(1)), &
+                c_loc(factoryy(1)), c_loc(dryvol_smallest(1)), c_loc(v2nlorlx(1)), c_loc(v2nhirlx(1)), c_loc(dum3alnsg2(1)), c_loc(dp_cut(1)), &
+                c_loc(lndp_cut(1)), c_loc(dp_belowcut(1)), c_loc(xferfrac_vol_ik(1,1,1)), c_loc(xferfrac_num_ik(1,1,1)), c_loc(dotendrn_c(1)), &
+                c_loc(dotendqqcwrn_c(1)) )
+
+           do l = 1, pcnstxx
+              dotendrn(l) = dotendrn_c(l) /= 0_c_int64_t
+              dotendqqcwrn(l) = dotendqqcwrn_c(l) /= 0_c_int64_t
+           end do
+           return
+        end if
 
 	do n = 1, ntot_amode
 	    idomode(n) = 0
