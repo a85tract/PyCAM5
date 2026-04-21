@@ -52,6 +52,8 @@
 ! this factor converts an soa volume to a volume of so4(+nh4)
 ! having same hygroscopicity as the soa
 
+  logical :: gas_aer_uptkrates_use_native_impl = .false.
+  logical :: gas_aer_uptkrates_impl_selected = .false.
 
 ! !DESCRIPTION: This module implements ...
 !
@@ -70,6 +72,47 @@
 
 
   contains
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+subroutine gas_aer_uptkrates_select_impl()
+
+  use cam_logfile, only: iulog
+  use spmd_utils, only: masterproc
+
+  implicit none
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (gas_aer_uptkrates_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('GAS_AER_UPTKRATES_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     gas_aer_uptkrates_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     gas_aer_uptkrates_use_native_impl = .false.
+  end if
+
+  gas_aer_uptkrates_impl_selected = .true.
+
+  if (masterproc) then
+     if (gas_aer_uptkrates_use_native_impl) then
+        write(iulog,*) 'gas_aer_uptkrates implementation = native'
+     else
+        write(iulog,*) 'gas_aer_uptkrates implementation = codon'
+     end if
+  end if
+
+end subroutine gas_aer_uptkrates_select_impl
 
 
 !----------------------------------------------------------------------
@@ -906,18 +949,19 @@ subroutine gas_aer_uptkrates( ncol,       loffset,                &
 !
 
 use physconst, only: mwdry, rair
+use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
 implicit none
 
 
    integer,  intent(in) :: ncol                 ! number of atmospheric column
    integer,  intent(in) :: loffset
-   real(r8), intent(in) :: q(ncol,pver,pcnstxx) ! Tracer array (mol,#/mol-air)
-   real(r8), intent(in) :: t(pcols,pver)        ! Temperature in Kelvin
-   real(r8), intent(in) :: pmid(pcols,pver)     ! Air pressure in Pa
-   real(r8), intent(in) :: dgncur_awet(pcols,pver,ntot_amode)
+   real(r8), target, intent(in) :: q(ncol,pver,pcnstxx) ! Tracer array (mol,#/mol-air)
+   real(r8), target, intent(in) :: t(pcols,pver)        ! Temperature in Kelvin
+   real(r8), target, intent(in) :: pmid(pcols,pver)     ! Air pressure in Pa
+   real(r8), target, intent(in) :: dgncur_awet(pcols,pver,ntot_amode)
 
-   real(r8), intent(out) :: uptkrate(ntot_amode,pcols,pver)  
+   real(r8), target, intent(out) :: uptkrate(ntot_amode,pcols,pver)  
                             ! gas-to-aerosol mass transfer rates (1/s)
 
 
@@ -941,10 +985,39 @@ implicit none
    real(r8) :: num_a
    real(r8) :: rhoair
    real(r8) :: sumghq
+   real(r8), target :: sigmag_local(ntot_amode)
    real(r8), save :: xghq(nghq), wghq(nghq) ! quadrature abscissae and weights
+   integer(c_int64_t), target :: numptr_local(ntot_amode)
 
    data xghq / 0.70710678_r8, -0.70710678_r8 /
    data wghq / 0.88622693_r8,  0.88622693_r8 /
+
+   interface
+      subroutine gas_aer_uptkrates_codon(ncol_c, pcols_c, pver_c, top_lev_c, ntot_amode_c, q_p, t_p, pmid_p, &
+           dgncur_awet_p, numptr_p, sigmag_p, mwdry_c, rair_c, uptkrate_p) bind(c, name="gas_aer_uptkrates_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, ntot_amode_c
+        type(c_ptr), value :: q_p, t_p, pmid_p, dgncur_awet_p, numptr_p, sigmag_p, uptkrate_p
+        real(c_double), value :: mwdry_c, rair_c
+      end subroutine gas_aer_uptkrates_codon
+   end interface
+
+   call gas_aer_uptkrates_select_impl()
+
+   if (.not. gas_aer_uptkrates_use_native_impl) then
+      do n = 1, ntot_amode
+         numptr_local(n) = int(numptr_amode(n) - loffset, c_int64_t)
+         sigmag_local(n) = sigmag_amode(n)
+      end do
+
+      call gas_aer_uptkrates_codon( &
+           int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
+           int(ntot_amode, c_int64_t), c_loc(q(1,1,1)), c_loc(t(1,1)), c_loc(pmid(1,1)), &
+           c_loc(dgncur_awet(1,1,1)), c_loc(numptr_local(1)), c_loc(sigmag_local(1)), &
+           real(mwdry, c_double), real(rair, c_double), c_loc(uptkrate(1,1,1)) &
+      )
+      return
+   end if
 
 
 ! outermost loop over all modes
@@ -1518,4 +1591,3 @@ aa_iqfrm: do iqfrm = -1, nspec_amode(mfrm)
 !----------------------------------------------------------------------
 
 end module modal_aero_gasaerexch
-

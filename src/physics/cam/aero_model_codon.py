@@ -364,3 +364,76 @@ def vmr2qqcw_codon(
             fldcw[_idx2(i, k, fldcw_ld1)] = (
                 adv_mass * vmr[_idx2(i, k, ncol)] / mbar[_idx2(i, k, ncol)]
             )
+
+
+@export
+def gas_aer_uptkrates_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    ntot_amode: int,
+    q_p: cobj,
+    t_p: cobj,
+    pmid_p: cobj,
+    dgncur_awet_p: cobj,
+    numptr_p: cobj,
+    sigmag_p: cobj,
+    mwdry: float,
+    rair: float,
+    uptkrate_p: cobj,
+):
+    q = Ptr[float](q_p)
+    t = Ptr[float](t_p)
+    pmid = Ptr[float](pmid_p)
+    dgncur_awet = Ptr[float](dgncur_awet_p)
+    numptr = Ptr[int](numptr_p)
+    sigmag = Ptr[float](sigmag_p)
+    uptkrate = Ptr[float](uptkrate_p)
+
+    tworootpi = 3.5449077
+    root2 = 1.4142135
+    beta = 2.0
+    xghq0 = 0.70710678
+    xghq1 = -0.70710678
+    wghq0 = 0.88622693
+    wghq1 = 0.88622693
+
+    for n in range(1, ntot_amode + 1):
+        lnsg = log(sigmag[n - 1])
+        beta_lnsg_sq = beta * (lnsg**2.0)
+        half_beta_lnsg_sq = 0.5 * ((beta * lnsg) ** 2.0)
+        numptr_idx = numptr[n - 1]
+
+        for k in range(top_lev, pver + 1):
+            for i in range(1, ncol + 1):
+                temp = t[_idx2(i, k, pcols)]
+                pmid_ik = pmid[_idx2(i, k, pcols)]
+                rhoair = pmid_ik / (rair * temp)
+                aircon = rhoair / mwdry
+                num_a = q[_idx3(i, k, numptr_idx, ncol, pver)] * aircon
+
+                gasdiffus = 0.557e-4 * (temp**1.75) / pmid_ik
+                gasspeed = 1.470e1 * sqrt(temp)
+                freepathx2 = 6.0 * gasdiffus / gasspeed
+
+                lndpgn = log(dgncur_awet[_idx3(i, k, n, pcols, pver)])
+                const = tworootpi * num_a * exp(beta * lndpgn + half_beta_lnsg_sq)
+
+                lndp = lndpgn + beta_lnsg_sq + root2 * lnsg * xghq0
+                dp = exp(lndp)
+                knudsen = freepathx2 / dp
+                fuchs_sutugin = (0.4875 * (1.0 + knudsen)) / (
+                    knudsen * (1.184 + knudsen) + 0.4875
+                )
+                sumghq = wghq0 * dp * fuchs_sutugin / (dp**beta)
+
+                lndp = lndpgn + beta_lnsg_sq + root2 * lnsg * xghq1
+                dp = exp(lndp)
+                knudsen = freepathx2 / dp
+                fuchs_sutugin = (0.4875 * (1.0 + knudsen)) / (
+                    knudsen * (1.184 + knudsen) + 0.4875
+                )
+                sumghq += wghq1 * dp * fuchs_sutugin / (dp**beta)
+
+                uptkrate[_idx3(n, i, k, ntot_amode, pcols)] = const * gasdiffus * sumghq
