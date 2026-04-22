@@ -62,6 +62,23 @@ def gas_phase_chemdr_zero_sulfate_codon(
 
 
 @export
+def gas_phase_chemdr_load_prognostic_sulfate_codon(
+    ncol: int,
+    pver: int,
+    gas_pcnst: int,
+    so4_ndx: int,
+    vmr_p: cobj,
+    sulfate_p: cobj,
+):
+    vmr = Ptr[float](vmr_p)
+    sulfate = Ptr[float](sulfate_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            sulfate[_idx2(i, k, ncol)] = vmr[_idx3(i, k, so4_ndx, ncol, pver)]
+
+
+@export
 def chem_emissions_megan_flux_codon(
     ncol: int,
     pcols: int,

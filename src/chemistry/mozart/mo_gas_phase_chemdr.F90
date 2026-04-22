@@ -619,7 +619,7 @@ contains
        if( so4_ndx < 1 ) then ! get offline so4 field if not prognostic
           call sulf_interp( ncol, lchnk, sulfate )
        else
-          sulfate(:,:) = vmr(:,:,so4_ndx)
+          call gas_phase_chemdr_load_prognostic_sulfate(ncol, so4_ndx, vmr, sulfate)
        endif
     endif
     
@@ -1192,6 +1192,42 @@ contains
     )
 
   end subroutine gas_phase_chemdr_zero_sulfate
+
+  subroutine gas_phase_chemdr_load_prognostic_sulfate(ncol, so4_ndx_in, vmr, sulfate)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: so4_ndx_in
+    real(r8), target, intent(in) :: vmr(ncol,pver,gas_pcnst)
+    real(r8), target, intent(inout) :: sulfate(ncol,pver)
+
+    integer :: i, k
+
+    interface
+       subroutine gas_phase_chemdr_load_prognostic_sulfate_codon(ncol_c, pver_c, gas_pcnst_c, so4_ndx_c, vmr_p, sulfate_p) &
+            bind(c, name="gas_phase_chemdr_load_prognostic_sulfate_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, gas_pcnst_c, so4_ndx_c
+         type(c_ptr), value :: vmr_p, sulfate_p
+       end subroutine gas_phase_chemdr_load_prognostic_sulfate_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do k = 1, pver
+          do i = 1, ncol
+             sulfate(i,k) = vmr(i,k,so4_ndx_in)
+          end do
+       end do
+       return
+    end if
+
+    call gas_phase_chemdr_load_prognostic_sulfate_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), int(so4_ndx_in, c_int64_t), &
+         c_loc(vmr), c_loc(sulfate) &
+    )
+
+  end subroutine gas_phase_chemdr_load_prognostic_sulfate
 
   subroutine gas_phase_chemdr_clip_sulfate(ncol, troplev, sulfate)
 
