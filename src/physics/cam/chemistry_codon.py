@@ -486,6 +486,19 @@ def gas_phase_chemdr_reset_ste_tracer_codon(
 
 
 @export
+def gas_phase_chemdr_zero_sflx_codon(
+    pcols: int,
+    gas_pcnst: int,
+    sflx_p: cobj,
+):
+    sflx = Ptr[float](sflx_p)
+
+    for m in range(1, gas_pcnst + 1):
+        for i in range(1, pcols + 1):
+            sflx[_flux_idx(i, m, pcols)] = 0.0
+
+
+@export
 def gas_phase_chemdr_compute_prect_codon(
     ncol: int,
     pcols: int,

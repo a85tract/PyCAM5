@@ -903,7 +903,7 @@ contains
 
     call gas_phase_chemdr_compute_tvs(ncol, tfld, qh2o, tvs)
 
-    sflx(:,:) = 0._r8
+    call gas_phase_chemdr_zero_sflx(sflx)
     call get_ref_date(yr, mon, day, sec)
     ncdate = yr*10000 + mon*100 + day
     wind_speed(:ncol) = sqrt( ufld(:ncol,pver)*ufld(:ncol,pver) + vfld(:ncol,pver)*vfld(:ncol,pver) )
@@ -1476,6 +1476,38 @@ contains
     )
 
   end subroutine gas_phase_chemdr_reset_ste_tracer
+
+  subroutine gas_phase_chemdr_zero_sflx(sflx)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    real(r8), target, intent(out) :: sflx(pcols,gas_pcnst)
+
+    integer :: i, m
+
+    interface
+       subroutine gas_phase_chemdr_zero_sflx_codon(pcols_c, gas_pcnst_c, sflx_p) &
+            bind(c, name="gas_phase_chemdr_zero_sflx_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: pcols_c, gas_pcnst_c
+         type(c_ptr), value :: sflx_p
+       end subroutine gas_phase_chemdr_zero_sflx_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do m = 1, gas_pcnst
+          do i = 1, pcols
+             sflx(i,m) = 0._r8
+          end do
+       end do
+       return
+    end if
+
+    call gas_phase_chemdr_zero_sflx_codon( &
+         int(pcols, c_int64_t), int(gas_pcnst, c_int64_t), c_loc(sflx) &
+    )
+
+  end subroutine gas_phase_chemdr_zero_sflx
 
   subroutine gas_phase_chemdr_compute_prect(ncol, precc, precl, prect)
 
