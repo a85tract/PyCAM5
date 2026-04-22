@@ -1,3 +1,6 @@
+from math import sqrt
+
+
 @inline
 def _idx2(i: int, k: int, ld1: int) -> int:
     return (i - 1) + (k - 1) * ld1
@@ -496,6 +499,25 @@ def gas_phase_chemdr_zero_sflx_codon(
     for m in range(1, gas_pcnst + 1):
         for i in range(1, pcols + 1):
             sflx[_flux_idx(i, m, pcols)] = 0.0
+
+
+@export
+def gas_phase_chemdr_compute_wind_speed_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    ufld_p: cobj,
+    vfld_p: cobj,
+    wind_speed_p: cobj,
+):
+    ufld = Ptr[float](ufld_p)
+    vfld = Ptr[float](vfld_p)
+    wind_speed = Ptr[float](wind_speed_p)
+
+    for i in range(1, ncol + 1):
+        uval = ufld[_idx2(i, pver, pcols)]
+        vval = vfld[_idx2(i, pver, pcols)]
+        wind_speed[i - 1] = sqrt(uval * uval + vval * vval)
 
 
 @export

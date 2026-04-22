@@ -906,7 +906,7 @@ contains
     call gas_phase_chemdr_zero_sflx(sflx)
     call get_ref_date(yr, mon, day, sec)
     ncdate = yr*10000 + mon*100 + day
-    wind_speed(:ncol) = sqrt( ufld(:ncol,pver)*ufld(:ncol,pver) + vfld(:ncol,pver)*vfld(:ncol,pver) )
+    call gas_phase_chemdr_compute_wind_speed(ncol, ufld, vfld, wind_speed)
     call gas_phase_chemdr_compute_prect(ncol, precc, precl, prect)
 
     if ( drydep_method == DD_XLND ) then
@@ -1508,6 +1508,39 @@ contains
     )
 
   end subroutine gas_phase_chemdr_zero_sflx
+
+  subroutine gas_phase_chemdr_compute_wind_speed(ncol, ufld, vfld, wind_speed)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: ufld(pcols,pver)
+    real(r8), target, intent(in) :: vfld(pcols,pver)
+    real(r8), target, intent(inout) :: wind_speed(pcols)
+
+    integer :: i
+
+    interface
+       subroutine gas_phase_chemdr_compute_wind_speed_codon(ncol_c, pcols_c, pver_c, ufld_p, vfld_p, wind_speed_p) &
+            bind(c, name="gas_phase_chemdr_compute_wind_speed_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: ufld_p, vfld_p, wind_speed_p
+       end subroutine gas_phase_chemdr_compute_wind_speed_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do i = 1, ncol
+          wind_speed(i) = sqrt( ufld(i,pver)*ufld(i,pver) + vfld(i,pver)*vfld(i,pver) )
+       end do
+       return
+    end if
+
+    call gas_phase_chemdr_compute_wind_speed_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), c_loc(ufld), c_loc(vfld), c_loc(wind_speed) &
+    )
+
+  end subroutine gas_phase_chemdr_compute_wind_speed
 
   subroutine gas_phase_chemdr_compute_prect(ncol, precc, precl, prect)
 
