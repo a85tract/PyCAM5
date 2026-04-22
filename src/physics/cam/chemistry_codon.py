@@ -1331,3 +1331,35 @@ def setrxt_codon(
             rate[_idx3(i, k, 3, ncol, pver)] = 2.9e-12 * exp(-160.0 * itemp)
             rate[_idx3(i, k, 5, ncol, pver)] = 9.6e-12 * exp(-234.0 * itemp)
             rate[_idx3(i, k, 7, ncol, pver)] = 1.9e-13 * exp(520.0 * itemp)
+
+
+@export
+def lu_slv_codon(
+    lu_p: cobj,
+    b_p: cobj,
+):
+    lu = Ptr[float](lu_p)
+    b = Ptr[float](b_p)
+
+    b[19] = b[19] * lu[21]
+    b[18] = b[18] * lu[20]
+    b[17] = b[17] * lu[19]
+    b[16] = b[16] * lu[18]
+    b[15] = b[15] * lu[17]
+    b[14] = b[14] * lu[16]
+    b[13] = b[13] * lu[15]
+    b[12] = b[12] * lu[14]
+    b[11] = b[11] * lu[13]
+    b[10] = b[10] * lu[12]
+    b[9] = b[9] * lu[11]
+    b[8] = b[8] * lu[10]
+    b[7] = b[7] * lu[9]
+    b[6] = b[6] * lu[8]
+    b[5] = b[5] * lu[7]
+    b[4] = b[4] * lu[6]
+    b[3] = b[3] * lu[5]
+    b[2] = b[2] - lu[4] * b[3]
+    b[2] = b[2] * lu[3]
+    b[1] = b[1] - lu[2] * b[2]
+    b[1] = b[1] * lu[1]
+    b[0] = b[0] * lu[0]

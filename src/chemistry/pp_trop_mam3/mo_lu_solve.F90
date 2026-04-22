@@ -8,24 +8,42 @@
       private
       public :: lu_slv
 
+      logical :: lu_slv_use_native_impl = .false.
+      logical :: lu_slv_impl_selected = .false.
+
       contains
 
       subroutine lu_slv01( lu, b )
 
 
       use shr_kind_mod, only : r8 => shr_kind_r8
+      use iso_c_binding, only : c_loc, c_ptr
 
       implicit none
 
 !-----------------------------------------------------------------------
 ! ... Dummy args
 !-----------------------------------------------------------------------
-      real(r8), intent(in) :: lu(:)
-      real(r8), intent(inout) :: b(:)
+      real(r8), target, intent(in) :: lu(:)
+      real(r8), target, intent(inout) :: b(:)
 
 !-----------------------------------------------------------------------
 ! ... Local variables
 !-----------------------------------------------------------------------
+
+      interface
+         subroutine lu_slv_codon(lu_p, b_p) bind(c, name="lu_slv_codon")
+            use iso_c_binding, only : c_ptr
+            type(c_ptr), value :: lu_p, b_p
+         end subroutine lu_slv_codon
+      end interface
+
+      call lu_slv_select_impl()
+
+      if (.not. lu_slv_use_native_impl) then
+         call lu_slv_codon(c_loc(lu), c_loc(b))
+         return
+      end if
 
 !-----------------------------------------------------------------------
 ! ... solve L * y = b
@@ -66,4 +84,45 @@
       real(r8), intent(inout) :: b(:)
       call lu_slv01( lu, b )
       end subroutine lu_slv
+
+      subroutine lu_slv_select_impl()
+
+      use cam_logfile, only : iulog
+      use spmd_utils, only : masterproc
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (lu_slv_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('LU_SLV_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         lu_slv_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         lu_slv_use_native_impl = .false.
+      end if
+
+      lu_slv_impl_selected = .true.
+
+      if (masterproc) then
+         if (lu_slv_use_native_impl) then
+            write(iulog,*) 'lu_slv implementation = native'
+         else
+            write(iulog,*) 'lu_slv implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine lu_slv_select_impl
+
       end module mo_lu_solve
