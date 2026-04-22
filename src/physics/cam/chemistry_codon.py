@@ -344,6 +344,23 @@ def gas_phase_chemdr_load_mmr_codon(
 
 
 @export
+def gas_phase_chemdr_init_reaction_rates_codon(
+    ncol: int,
+    pver: int,
+    rxntot: int,
+    nan_value_p: cobj,
+    reaction_rates_p: cobj,
+):
+    nan_value = Ptr[float](nan_value_p)[0]
+    reaction_rates = Ptr[float](reaction_rates_p)
+
+    for m in range(1, max(1, rxntot) + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                reaction_rates[_idx3(i, k, m, ncol, pver)] = nan_value
+
+
+@export
 def gas_phase_chemdr_clip_sulfate_codon(
     ncol: int,
     pcols: int,

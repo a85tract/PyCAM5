@@ -427,6 +427,7 @@ contains
 !
     real(r8) :: xlat
     real(r8) :: pm25(ncol)
+    real(r8) :: reaction_rates_nan
     real(r8), dimension(ncol,pver) :: o3s_loss             ! tropospheric ozone loss for o3s
 !
 ! jfl
@@ -434,7 +435,8 @@ contains
 !
 
     ! initialize to NaN to hopefully catch user defined rxts that go unset
-    reaction_rates(:,:,:) = nan
+    reaction_rates_nan = nan
+    call gas_phase_chemdr_init_reaction_rates(ncol, rxntot, reaction_rates_nan, reaction_rates)
 
     delt_inverse = 1._r8 / delt
     !-----------------------------------------------------------------------      
@@ -1159,6 +1161,35 @@ contains
     )
 
   end subroutine gas_phase_chemdr_load_mmr
+
+  subroutine gas_phase_chemdr_init_reaction_rates(ncol, rxntot_in, nan_in, reaction_rates)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: rxntot_in
+    real(r8), target, intent(in) :: nan_in
+    real(r8), target, intent(inout) :: reaction_rates(ncol,pver,max(1,rxntot_in))
+
+    interface
+       subroutine gas_phase_chemdr_init_reaction_rates_codon(ncol_c, pver_c, rxntot_c, nan_value_p, reaction_rates_p) &
+            bind(c, name="gas_phase_chemdr_init_reaction_rates_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, rxntot_c
+         type(c_ptr), value :: nan_value_p, reaction_rates_p
+       end subroutine gas_phase_chemdr_init_reaction_rates_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       reaction_rates(:,:,:) = nan_in
+       return
+    end if
+
+    call gas_phase_chemdr_init_reaction_rates_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), int(rxntot_in, c_int64_t), c_loc(nan_in), c_loc(reaction_rates) &
+    )
+
+  end subroutine gas_phase_chemdr_init_reaction_rates
 
   subroutine gas_phase_chemdr_zero_sulfate(ncol, sulfate)
 
