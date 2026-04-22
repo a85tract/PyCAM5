@@ -465,6 +465,23 @@ def gas_phase_chemdr_init_dust_vmr_codon(
 
 
 @export
+def gas_phase_chemdr_copy_h2o_to_wrk_codon(
+    ncol: int,
+    pver: int,
+    gas_pcnst: int,
+    h2o_ndx: int,
+    vmr_p: cobj,
+    wrk_p: cobj,
+):
+    vmr = Ptr[float](vmr_p)
+    wrk = Ptr[float](wrk_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            wrk[_idx2(i, k, ncol)] = vmr[_idx3(i, k, h2o_ndx, ncol, pver)]
+
+
+@export
 def gas_phase_chemdr_update_qdsett_wrk_codon(
     ncol: int,
     pver: int,

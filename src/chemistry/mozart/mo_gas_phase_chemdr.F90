@@ -780,7 +780,7 @@ contains
     !-----------------------------------------------------------------------
     !	... Solve for "Implicit" species
     !-----------------------------------------------------------------------
-    if ( has_strato_chem ) wrk(:,:) = vmr(:,:,h2o_ndx)
+    if ( has_strato_chem ) call gas_phase_chemdr_copy_h2o_to_wrk(ncol, h2o_ndx, vmr, wrk)
     call t_startf('imp_sol')
     !
     call imp_sol( vmr, reaction_rates, het_rates, extfrc, delt, &
@@ -826,7 +826,7 @@ contains
        !             first settle hno3(2) using radius ice
        !             secnd settle hno3(3) using radius large nat
        !-----------------------------------------------------------------------      
-       wrk(:,:) = vmr(:,:,h2o_ndx)
+       call gas_phase_chemdr_copy_h2o_to_wrk(ncol, h2o_ndx, vmr, wrk)
 #ifdef ALT_SETTL
        where( h2o_cond(:,:) > 0._r8 )
           settl_rad(:,:) = radius_strat(:,:,3)
@@ -1438,6 +1438,42 @@ contains
     )
 
   end subroutine gas_phase_chemdr_init_dust_vmr
+
+  subroutine gas_phase_chemdr_copy_h2o_to_wrk(ncol, h2o_ndx_in, vmr, wrk)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: h2o_ndx_in
+    real(r8), target, intent(in) :: vmr(ncol,pver,gas_pcnst)
+    real(r8), target, intent(out) :: wrk(ncol,pver)
+
+    integer :: i, k
+
+    interface
+       subroutine gas_phase_chemdr_copy_h2o_to_wrk_codon(ncol_c, pver_c, gas_pcnst_c, h2o_ndx_c, vmr_p, wrk_p) &
+            bind(c, name="gas_phase_chemdr_copy_h2o_to_wrk_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, gas_pcnst_c, h2o_ndx_c
+         type(c_ptr), value :: vmr_p, wrk_p
+       end subroutine gas_phase_chemdr_copy_h2o_to_wrk_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do k = 1,pver
+          do i = 1,ncol
+             wrk(i,k) = vmr(i,k,h2o_ndx_in)
+          end do
+       end do
+       return
+    end if
+
+    call gas_phase_chemdr_copy_h2o_to_wrk_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), int(h2o_ndx_in, c_int64_t), &
+         c_loc(vmr), c_loc(wrk) &
+    )
+
+  end subroutine gas_phase_chemdr_copy_h2o_to_wrk
 
   subroutine gas_phase_chemdr_update_qdsett_wrk(ncol, h2o_ndx_in, delt_inverse_in, vmr, wrk)
 
