@@ -11,6 +11,8 @@ module mo_mass_xforms
   real(r8) :: adv_mass_h2o = 18._r8
   logical :: mmr2vmr_use_native_impl = .false.
   logical :: mmr2vmr_impl_selected = .false.
+  logical :: vmr2mmr_use_native_impl = .false.
+  logical :: vmr2mmr_impl_selected = .false.
 
 contains
 
@@ -123,6 +125,7 @@ contains
 
     use m_spc_id
     use chem_mods, only : adv_mass, gas_pcnst
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
 
     implicit none
 
@@ -130,25 +133,47 @@ contains
     !	... Dummy args
     !-----------------------------------------------------------------
     integer, intent(in)     :: ncol
-    real(r8), intent(in)    :: mbar(ncol,pver)
-    real(r8), intent(in)    :: vmr(ncol,pver,gas_pcnst)
-    real(r8), intent(inout) :: mmr(pcols,pver,gas_pcnst)
+    real(r8), target, intent(in)    :: mbar(ncol,pver)
+    real(r8), target, intent(in)    :: vmr(ncol,pver,gas_pcnst)
+    real(r8), target, intent(inout) :: mmr(pcols,pver,gas_pcnst)
 
     !-----------------------------------------------------------------
     !	... Local variables
     !-----------------------------------------------------------------
     integer :: k, m
+    real(r8), target :: adv_mass_local(gas_pcnst)
+
+    interface
+       subroutine vmr2mmr_codon(ncol_c, pcols_c, pver_c, gas_pcnst_c, mbar_p, vmr_p, adv_mass_p, mmr_p) &
+            bind(c, name="vmr2mmr_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, gas_pcnst_c
+         type(c_ptr), value :: mbar_p, vmr_p, adv_mass_p, mmr_p
+       end subroutine vmr2mmr_codon
+    end interface
+
+    call vmr2mmr_select_impl()
 
     !-----------------------------------------------------------------
     !	... The non-group species
     !-----------------------------------------------------------------
-    do m = 1,gas_pcnst
-       if( adv_mass(m) /= 0._r8 ) then
-          do k = 1,pver
-             mmr(:ncol,k,m) = adv_mass(m) * vmr(:ncol,k,m) / mbar(:ncol,k)
-          end do
-       end if
-    end do
+    if (vmr2mmr_use_native_impl) then
+       do m = 1,gas_pcnst
+          if( adv_mass(m) /= 0._r8 ) then
+             do k = 1,pver
+                mmr(:ncol,k,m) = adv_mass(m) * vmr(:ncol,k,m) / mbar(:ncol,k)
+             end do
+          end if
+       end do
+       return
+    end if
+
+    adv_mass_local(:) = adv_mass(:)
+
+    call vmr2mmr_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), &
+         c_loc(mbar), c_loc(vmr), c_loc(adv_mass_local), c_loc(mmr) &
+    )
 
   end subroutine vmr2mmr
 
@@ -281,5 +306,43 @@ contains
     end if
 
   end subroutine mmr2vmr_select_impl
+
+  subroutine vmr2mmr_select_impl()
+
+    use cam_logfile, only : iulog
+    use spmd_utils,  only : masterproc
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (vmr2mmr_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('VMR2MMR_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       vmr2mmr_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       vmr2mmr_use_native_impl = .false.
+    end if
+
+    vmr2mmr_impl_selected = .true.
+
+    if (masterproc) then
+       if (vmr2mmr_use_native_impl) then
+          write(iulog,*) 'vmr2mmr implementation = native'
+       else
+          write(iulog,*) 'vmr2mmr implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine vmr2mmr_select_impl
 
 end module mo_mass_xforms
