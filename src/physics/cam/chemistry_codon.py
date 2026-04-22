@@ -556,6 +556,42 @@ def photo_timestep_init_exo_time_codon(
 
 
 @export
+def table_photo_jno_ho2no2_codon(
+    ncol: int,
+    pver: int,
+    phtcnt: int,
+    i_col: int,
+    jno_ndx: int,
+    jho2no2_ndx: int,
+    do_jshort: int,
+    has_o2_col: int,
+    has_o3_col: int,
+    zen_angle: float,
+    photos_p: cobj,
+    col_dens_p: cobj,
+    cld_mult_p: cobj,
+):
+    photos = Ptr[float](photos_p)
+    col_dens = Ptr[float](col_dens_p)
+    cld_mult = Ptr[float](cld_mult_p)
+
+    if jno_ndx > 0 and do_jshort == 0:
+        if has_o2_col != 0 and has_o3_col != 0:
+            for k in range(1, pver + 1):
+                fac1 = 1.0e-8 * (abs(col_dens[_idx3(i_col, k, 2, ncol, pver)] / cos(zen_angle))) ** 0.38
+                fac2 = 5.0e-19 * abs(col_dens[_idx3(i_col, k, 1, ncol, pver)] / cos(zen_angle))
+                photos[_idx3(i_col, k, jno_ndx, ncol, pver)] = (
+                    photos[_idx3(i_col, k, jno_ndx, ncol, pver)] + 4.5e-6 * exp(-(fac1 + fac2))
+                )
+
+    if jho2no2_ndx > 0:
+        for k in range(1, pver + 1):
+            photos[_idx3(i_col, k, jho2no2_ndx, ncol, pver)] = (
+                photos[_idx3(i_col, k, jho2no2_ndx, ncol, pver)] + 1.0e-5 * cld_mult[k - 1]
+            )
+
+
+@export
 def gas_phase_chemdr_zero_sulfate_codon(
     ncol: int,
     pver: int,

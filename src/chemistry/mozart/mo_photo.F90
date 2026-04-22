@@ -84,6 +84,8 @@ module mo_photo
   logical :: cloud_mod_impl_selected = .false.
   logical :: photo_timestep_init_exo_time_use_native_impl = .false.
   logical :: photo_timestep_init_exo_time_impl_selected = .false.
+  logical :: table_photo_jno_ho2no2_use_native_impl = .false.
+  logical :: table_photo_jno_ho2no2_impl_selected = .false.
   logical :: set_xnox_photo_use_native_impl = .false.
   logical :: set_xnox_photo_impl_selected = .false.
 
@@ -605,7 +607,7 @@ contains
     integer,  intent(in)    :: ncol
     real(r8), intent(in)    :: esfact                       ! earth sun distance factor
     real(r8), intent(in)    :: vmr(ncol,pver,max(1,gas_pcnst)) ! vmr
-    real(r8), intent(in)    :: col_dens(ncol,pver,ncol_abs) ! column densities (molecules/cm^2)
+    real(r8), target, intent(in)    :: col_dens(ncol,pver,ncol_abs) ! column densities (molecules/cm^2)
     real(r8), intent(in)    :: zen_angle(ncol)              ! solar zenith angle (radians)
     real(r8), intent(in)    :: srf_alb(pcols)               ! surface albedo
     real(r8), intent(in)    :: lwc(ncol,pver)               ! liquid water content (kg/kg)
@@ -616,7 +618,7 @@ contains
     real(r8), intent(in)    :: zmid(ncol,pver)              ! midpoint height (km)
     real(r8), intent(in)    :: zint(ncol,pver)              ! interface height (km)
     real(r8), intent(in)    :: invariants(ncol,pver,max(1,nfs)) ! invariant densities (molecules/cm^3)
-    real(r8), intent(inout) :: photos(ncol,pver,phtcnt)     ! photodissociation rates (1/s)
+    real(r8), target, intent(inout) :: photos(ncol,pver,phtcnt)     ! photodissociation rates (1/s)
     type(physics_buffer_desc),pointer :: pbuf(:)
 
 !-----------------------------------------------------------------
@@ -637,7 +639,7 @@ contains
     real(r8) ::  cld_line(pver)            ! vertical cloud array
     real(r8) ::  lwc_line(pver)            ! vertical lwc array
     real(r8) ::  eff_alb(pver)             ! effective albedo from cloud modifications
-    real(r8) ::  cld_mult(pver)            ! clould multiplier
+    real(r8), target ::  cld_mult(pver)    ! clould multiplier
     real(r8) ::  tmp(ncol,pver)            ! wrk array
     real(r8), allocatable ::  lng_prates(:,:) ! photorates matrix (1/s)
     real(r8), allocatable ::  sht_prates(:,:) ! photorates matrix (1/s)
@@ -877,20 +879,7 @@ contains
           !-----------------------------------------------------------------
           !	... calculate j(no) from formula
           !-----------------------------------------------------------------
-          if( (jno_ndx > 0) .and. (.not.do_jshort)) then
-             if( has_o2_col .and. has_o3_col ) then
-                fac1(:) = 1.e-8_r8 * (abs(col_dens(i,:,2)/cos(zen_angle(i))))**.38_r8
-                fac2(:) = 5.e-19_r8 * abs(col_dens(i,:,1)/cos(zen_angle(i)))
-                photos(i,:,jno_ndx) = photos(i,:,jno_ndx) + 4.5e-6_r8 * exp( -(fac1(:) + fac2(:)) )
-             end if
-          end if
-
-          !-----------------------------------------------------------------
-          ! 	... add near IR correction to ho2no2
-          !-----------------------------------------------------------------
-          if( jho2no2_ndx > 0 ) then
-             photos(i,:,jho2no2_ndx) = photos(i,:,jho2no2_ndx) + 1.e-5_r8*cld_mult(:)
-          endif
+          call table_photo_apply_jno_ho2no2( ncol, i, photos, col_dens, cld_mult, zen_angle(i) )
 
           !  Save photo-ionization rates to physics buffer accessed in ionosphere module for WACCMX
           if (ion_rates_idx>0) then
@@ -940,6 +929,101 @@ contains
     call set_xnox_photo( photos, ncol  )
 
   end subroutine table_photo
+
+  subroutine table_photo_apply_jno_ho2no2( ncol, i, photos, col_dens, cld_mult, zen_angle_in )
+
+    use chem_mods, only : ncol_abs => nabscol, phtcnt
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: i
+    real(r8), target, intent(inout) :: photos(ncol,pver,phtcnt)
+    real(r8), target, intent(in) :: col_dens(ncol,pver,ncol_abs)
+    real(r8), target, intent(in) :: cld_mult(pver)
+    real(r8), intent(in) :: zen_angle_in
+
+    real(r8) :: fac1(pver)
+    real(r8) :: fac2(pver)
+    integer :: k
+
+    interface
+       subroutine table_photo_jno_ho2no2_codon(ncol_c, pver_c, phtcnt_c, i_c, jno_ndx_c, jho2no2_ndx_c, &
+            do_jshort_c, has_o2_col_c, has_o3_col_c, zen_angle_c, photos_p, col_dens_p, cld_mult_p) &
+            bind(c, name="table_photo_jno_ho2no2_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, phtcnt_c, i_c, jno_ndx_c, jho2no2_ndx_c
+         integer(c_int64_t), value :: do_jshort_c, has_o2_col_c, has_o3_col_c
+         real(c_double), value :: zen_angle_c
+         type(c_ptr), value :: photos_p, col_dens_p, cld_mult_p
+       end subroutine table_photo_jno_ho2no2_codon
+    end interface
+
+    call table_photo_jno_ho2no2_select_impl()
+
+    if (.not. table_photo_jno_ho2no2_use_native_impl) then
+       call table_photo_jno_ho2no2_codon( &
+            int(ncol, c_int64_t), int(pver, c_int64_t), int(phtcnt, c_int64_t), int(i, c_int64_t), &
+            int(jno_ndx, c_int64_t), int(jho2no2_ndx, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, do_jshort), &
+            merge(1_c_int64_t, 0_c_int64_t, has_o2_col), merge(1_c_int64_t, 0_c_int64_t, has_o3_col), &
+            real(zen_angle_in, c_double), c_loc(photos), c_loc(col_dens), c_loc(cld_mult) &
+       )
+       return
+    end if
+
+    if( (jno_ndx > 0) .and. (.not.do_jshort)) then
+       if( has_o2_col .and. has_o3_col ) then
+          fac1(:) = 1.e-8_r8 * (abs(col_dens(i,:,2)/cos(zen_angle_in)))**.38_r8
+          fac2(:) = 5.e-19_r8 * abs(col_dens(i,:,1)/cos(zen_angle_in))
+          photos(i,:,jno_ndx) = photos(i,:,jno_ndx) + 4.5e-6_r8 * exp( -(fac1(:) + fac2(:)) )
+       end if
+    end if
+
+    if( jho2no2_ndx > 0 ) then
+       do k = 1,pver
+          photos(i,k,jho2no2_ndx) = photos(i,k,jho2no2_ndx) + 1.e-5_r8*cld_mult(k)
+       end do
+    endif
+
+  end subroutine table_photo_apply_jno_ho2no2
+
+  subroutine table_photo_jno_ho2no2_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (table_photo_jno_ho2no2_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('TABLE_PHOTO_JNO_HO2NO2_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       table_photo_jno_ho2no2_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       table_photo_jno_ho2no2_use_native_impl = .false.
+    end if
+
+    table_photo_jno_ho2no2_impl_selected = .true.
+
+    if (masterproc) then
+       if (table_photo_jno_ho2no2_use_native_impl) then
+          write(iulog,*) 'table_photo_jno_ho2no2 implementation = native'
+       else
+          write(iulog,*) 'table_photo_jno_ho2no2 implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine table_photo_jno_ho2no2_select_impl
 
   subroutine xactive_photo( photos, vmr, temper, cwat, cldfr, &
                             pmid, zmid, col_dens, zen_angle, srf_alb, &
