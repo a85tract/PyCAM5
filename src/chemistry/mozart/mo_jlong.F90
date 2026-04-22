@@ -66,6 +66,8 @@
       real(r8), allocatable, target :: colo3(:)
       real(r4), allocatable, target :: rsf_tab(:,:,:,:,:)
       logical :: jlong_used = .false.
+      logical :: jlong_photo_accum_use_native_impl = .false.
+      logical :: jlong_photo_accum_impl_selected = .false.
       logical :: jlong_photo_xswk_use_native_impl = .false.
       logical :: jlong_photo_xswk_impl_selected = .false.
       logical :: jlong_interpolate_rsf_use_native_impl = .false.
@@ -682,7 +684,7 @@ level_loop_1 : &
       real(r8), target, intent(in)     :: p_in(nlev)         ! midpoint pressure (hPa)
       real(r8), target, intent(in)     :: t_in(nlev)         ! Temperature profile (K)
       real(r8), intent(in)     :: colo3_in(nlev)     ! o3 column density (molecules/cm^3)
-      real(r8), intent(out)    :: j_long(:,:)	     ! photo rates (1/s)
+      real(r8), target, intent(out)    :: j_long(:,:)	     ! photo rates (1/s)
 
 !----------------------------------------------------------------------
 !  	... local variables
@@ -695,7 +697,7 @@ level_loop_1 : &
       real(r8) ::  ptarget
       real(r8) ::  delp
       real(r8) ::  hfactor
-      real(r8), allocatable :: rsf(:,:)	        ! Radiative source function
+      real(r8), allocatable, target :: rsf(:,:)	        ! Radiative source function
       real(r8), allocatable, target :: xswk(:,:)	! working xsection array
 
       interface
@@ -705,6 +707,12 @@ level_loop_1 : &
            integer(c_int64_t), value :: numj_c, nw_c, nt_c, np_xs_c, k_c
            type(c_ptr), value :: p_in_p, t_in_p, prs_p, dprs_p, xsqy_p, xswk_p
          end subroutine jlong_photo_fill_xswk_codon
+         subroutine jlong_photo_accum_codon(numj_c, nw_c, xswk_p, rsf_col_p, j_long_col_p) &
+              bind(c, name="jlong_photo_accum_codon")
+           use iso_c_binding, only : c_int64_t, c_ptr
+           integer(c_int64_t), value :: numj_c, nw_c
+           type(c_ptr), value :: xswk_p, rsf_col_p, j_long_col_p
+         end subroutine jlong_photo_accum_codon
       end interface
 
 !----------------------------------------------------------------------
@@ -723,6 +731,7 @@ level_loop_1 : &
 !        ... interpolate table rsf to model variables
 !----------------------------------------------------------------------
       call interpolate_rsf( alb_in, sza_in, p_in, colo3_in, nlev, rsf )
+      call jlong_photo_accum_select_impl()
       call jlong_photo_xswk_select_impl()
 
 !------------------------------------------------------------------------------
@@ -774,18 +783,60 @@ level_loop_1 : &
                 c_loc(p_in(1)), c_loc(t_in(1)), c_loc(prs(1)), c_loc(dprs(1)), c_loc(xsqy(1,1,1,1)), c_loc(xswk(1,1)) &
            )
         end if
+        if (jlong_photo_accum_use_native_impl) then
 #ifdef USE_ESSL
-        call dgemm( 'N', 'N', numj, 1, nw, &
+           call dgemm( 'N', 'N', numj, 1, nw, &
 		    1._r8, xswk, numj, rsf(1,k), nw, &
 		    0._r8, j_long(1,k), numj )
 #else
-        j_long(:,k) = matmul( xswk(:,:),rsf(:,k) )
+           j_long(:,k) = matmul( xswk(:,:),rsf(:,k) )
 #endif
+        else
+           call jlong_photo_accum_codon( int(numj, c_int64_t), int(nw, c_int64_t), c_loc(xswk(1,1)), c_loc(rsf(1,k)), &
+                c_loc(j_long(1,k)) )
+        end if
       end do level_loop_1
 
       deallocate( rsf, xswk )
 
       end subroutine jlong_photo
+
+      subroutine jlong_photo_accum_select_impl()
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (jlong_photo_accum_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('JLONG_PHOTO_ACCUM_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         jlong_photo_accum_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         jlong_photo_accum_use_native_impl = .false.
+      end if
+
+      jlong_photo_accum_impl_selected = .true.
+
+      if (masterproc) then
+         if (jlong_photo_accum_use_native_impl) then
+            write(iulog,*) 'jlong_photo_accum implementation = native'
+         else
+            write(iulog,*) 'jlong_photo_accum implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine jlong_photo_accum_select_impl
 
       subroutine jlong_photo_xswk_select_impl()
 

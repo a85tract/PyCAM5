@@ -306,6 +306,25 @@ def jlong_photo_fill_xswk_codon(
 
 
 @export
+def jlong_photo_accum_codon(
+    numj: int,
+    nw: int,
+    xswk_p: cobj,
+    rsf_col_p: cobj,
+    j_long_col_p: cobj,
+):
+    xswk = Ptr[float](xswk_p)
+    rsf_col = Ptr[float](rsf_col_p)
+    j_long_col = Ptr[float](j_long_col_p)
+
+    for m in range(1, numj + 1):
+        acc = 0.0
+        for wn in range(1, nw + 1):
+            acc = acc + xswk[_idx2(m, wn, numj)] * rsf_col[wn - 1]
+        j_long_col[m - 1] = acc
+
+
+@export
 def chem_emissions_zero_cflx_codon(
     pcols: int,
     pcnst: int,
