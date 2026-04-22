@@ -80,6 +80,8 @@ module mo_photo
   logical :: set_ub_col_impl_selected = .false.
   logical :: setcol_use_native_impl = .false.
   logical :: setcol_impl_selected = .false.
+  logical :: set_xnox_photo_use_native_impl = .false.
+  logical :: set_xnox_photo_impl_selected = .false.
 
   integer :: ion_rates_idx = -1
 
@@ -1832,9 +1834,47 @@ secant_in_bounds : &
   !--------------------------------------------------------------------------
   subroutine set_xnox_photo( photos, ncol )
     use chem_mods,    only : ncol_abs => nabscol, phtcnt, pcnstm1 => gas_pcnst, nfs
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
     implicit none
     integer, intent(in)     :: ncol
-    real(r8), intent(inout) :: photos(ncol,pver,phtcnt)     ! photodissociation rates (1/s)
+    real(r8), target, intent(inout) :: photos(ncol,pver,phtcnt)     ! photodissociation rates (1/s)
+
+    interface
+       subroutine set_xnox_photo_codon(ncol_c, pver_c, photos_p, &
+            jno2a_ndx_c, jno2_ndx_c, jn2o5a_ndx_c, jn2o5_ndx_c, jn2o5b_ndx_c, &
+            jhno3a_ndx_c, jhno3_ndx_c, jno3a_ndx_c, jno3_ndx_c, &
+            jho2no2a_ndx_c, jho2no2_ndx_c, jmpana_ndx_c, jmpan_ndx_c, &
+            jpana_ndx_c, jpan_ndx_c, jonitra_ndx_c, jonitr_ndx_c, &
+            jo1da_ndx_c, jo1d_ndx_c, jo3pa_ndx_c, jo3p_ndx_c) bind(c, name="set_xnox_photo_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c
+         type(c_ptr), value :: photos_p
+         integer(c_int64_t), value :: jno2a_ndx_c, jno2_ndx_c, jn2o5a_ndx_c, jn2o5_ndx_c, jn2o5b_ndx_c
+         integer(c_int64_t), value :: jhno3a_ndx_c, jhno3_ndx_c, jno3a_ndx_c, jno3_ndx_c
+         integer(c_int64_t), value :: jho2no2a_ndx_c, jho2no2_ndx_c, jmpana_ndx_c, jmpan_ndx_c
+         integer(c_int64_t), value :: jpana_ndx_c, jpan_ndx_c, jonitra_ndx_c, jonitr_ndx_c
+         integer(c_int64_t), value :: jo1da_ndx_c, jo1d_ndx_c, jo3pa_ndx_c, jo3p_ndx_c
+       end subroutine set_xnox_photo_codon
+    end interface
+
+    call set_xnox_photo_select_impl()
+
+    if (.not. set_xnox_photo_use_native_impl) then
+       call set_xnox_photo_codon( &
+            int(ncol, c_int64_t), int(pver, c_int64_t), c_loc(photos), &
+            int(jno2a_ndx, c_int64_t), int(jno2_ndx, c_int64_t), &
+            int(jn2o5a_ndx, c_int64_t), int(jn2o5_ndx, c_int64_t), int(jn2o5b_ndx, c_int64_t), &
+            int(jhno3a_ndx, c_int64_t), int(jhno3_ndx, c_int64_t), &
+            int(jno3a_ndx, c_int64_t), int(jno3_ndx, c_int64_t), &
+            int(jho2no2a_ndx, c_int64_t), int(jho2no2_ndx, c_int64_t), &
+            int(jmpana_ndx, c_int64_t), int(jmpan_ndx, c_int64_t), &
+            int(jpana_ndx, c_int64_t), int(jpan_ndx, c_int64_t), &
+            int(jonitra_ndx, c_int64_t), int(jonitr_ndx, c_int64_t), &
+            int(jo1da_ndx, c_int64_t), int(jo1d_ndx, c_int64_t), &
+            int(jo3pa_ndx, c_int64_t), int(jo3p_ndx, c_int64_t) &
+       )
+       return
+    end if
 
     if( jno2a_ndx > 0 .and. jno2_ndx > 0 ) then
        photos(:,:,jno2a_ndx) = photos(:,:,jno2_ndx)
@@ -1872,5 +1912,42 @@ secant_in_bounds : &
     end if
 
   endsubroutine set_xnox_photo
+
+  subroutine set_xnox_photo_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (set_xnox_photo_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('SET_XNOX_PHOTO_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       set_xnox_photo_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       set_xnox_photo_use_native_impl = .false.
+    end if
+
+    set_xnox_photo_impl_selected = .true.
+
+    if (masterproc) then
+       if (set_xnox_photo_use_native_impl) then
+          write(iulog,*) 'set_xnox_photo implementation = native'
+       else
+          write(iulog,*) 'set_xnox_photo implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine set_xnox_photo_select_impl
 
 end module mo_photo
