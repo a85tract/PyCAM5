@@ -639,7 +639,7 @@ contains
 
     call gas_phase_chemdr_compute_relhum(ncol, h2ovmr, satq, relhum)
     
-    cwat(:ncol,:pver) = cldw(:ncol,:pver)
+    call gas_phase_chemdr_copy_cldw_to_cwat(ncol, cldw, cwat)
 
     call usrrxt( reaction_rates, tfld, tfld, tfld, invariants, h2ovmr, ps, &
                  pmid, invariants(:,:,indexm), sulfate, mmr, relhum, strato_sad, &
@@ -1437,6 +1437,40 @@ contains
     )
 
   end subroutine gas_phase_chemdr_init_dust_vmr
+
+  subroutine gas_phase_chemdr_copy_cldw_to_cwat(ncol, cldw, cwat)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: cldw(pcols,pver)
+    real(r8), target, intent(out) :: cwat(ncol,pver)
+
+    integer :: i, k
+
+    interface
+       subroutine gas_phase_chemdr_copy_cldw_to_cwat_codon(ncol_c, pcols_c, pver_c, cldw_p, cwat_p) &
+            bind(c, name="gas_phase_chemdr_copy_cldw_to_cwat_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: cldw_p, cwat_p
+       end subroutine gas_phase_chemdr_copy_cldw_to_cwat_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do k = 1,pver
+          do i = 1,ncol
+             cwat(i,k) = cldw(i,k)
+          end do
+       end do
+       return
+    end if
+
+    call gas_phase_chemdr_copy_cldw_to_cwat_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), c_loc(cldw), c_loc(cwat) &
+    )
+
+  end subroutine gas_phase_chemdr_copy_cldw_to_cwat
 
   subroutine gas_phase_chemdr_load_h2o_fields(ncol, h2o_ndx_in, mmr, vmr, qh2o, h2ovmr)
 

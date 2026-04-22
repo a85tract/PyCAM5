@@ -465,6 +465,22 @@ def gas_phase_chemdr_init_dust_vmr_codon(
 
 
 @export
+def gas_phase_chemdr_copy_cldw_to_cwat_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    cldw_p: cobj,
+    cwat_p: cobj,
+):
+    cldw = Ptr[float](cldw_p)
+    cwat = Ptr[float](cwat_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            cwat[_idx2(i, k, ncol)] = cldw[_idx2(i, k, pcols)]
+
+
+@export
 def gas_phase_chemdr_load_h2o_fields_codon(
     ncol: int,
     pcols: int,
