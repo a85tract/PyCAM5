@@ -515,8 +515,7 @@ contains
        !-----------------------------------------------------------------------      
        !        ... store water vapor in wrk variable
        !-----------------------------------------------------------------------      
-       qh2o(:ncol,:) = mmr(:ncol,:,h2o_ndx)
-       h2ovmr(:ncol,:) = vmr(:ncol,:,h2o_ndx)
+       call gas_phase_chemdr_load_h2o_fields(ncol, h2o_ndx, mmr, vmr, qh2o, h2ovmr)
     else
        qh2o(:ncol,:) = q(:ncol,:,1)
        !-----------------------------------------------------------------------      
@@ -1438,6 +1437,45 @@ contains
     )
 
   end subroutine gas_phase_chemdr_init_dust_vmr
+
+  subroutine gas_phase_chemdr_load_h2o_fields(ncol, h2o_ndx_in, mmr, vmr, qh2o, h2ovmr)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: h2o_ndx_in
+    real(r8), target, intent(in) :: mmr(pcols,pver,gas_pcnst)
+    real(r8), target, intent(in) :: vmr(ncol,pver,gas_pcnst)
+    real(r8), target, intent(out) :: qh2o(pcols,pver)
+    real(r8), target, intent(out) :: h2ovmr(ncol,pver)
+
+    integer :: i, k
+
+    interface
+       subroutine gas_phase_chemdr_load_h2o_fields_codon(ncol_c, pcols_c, pver_c, gas_pcnst_c, h2o_ndx_c, mmr_p, &
+            vmr_p, qh2o_p, h2ovmr_p) bind(c, name="gas_phase_chemdr_load_h2o_fields_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, gas_pcnst_c, h2o_ndx_c
+         type(c_ptr), value :: mmr_p, vmr_p, qh2o_p, h2ovmr_p
+       end subroutine gas_phase_chemdr_load_h2o_fields_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do k = 1,pver
+          do i = 1,ncol
+             qh2o(i,k) = mmr(i,k,h2o_ndx_in)
+             h2ovmr(i,k) = vmr(i,k,h2o_ndx_in)
+          end do
+       end do
+       return
+    end if
+
+    call gas_phase_chemdr_load_h2o_fields_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), &
+         int(h2o_ndx_in, c_int64_t), c_loc(mmr), c_loc(vmr), c_loc(qh2o), c_loc(h2ovmr) &
+    )
+
+  end subroutine gas_phase_chemdr_load_h2o_fields
 
   subroutine gas_phase_chemdr_copy_o3_to_o3s_trop(ncol, troplev, o3_ndx_in, o3s_ndx_in, vmr)
 

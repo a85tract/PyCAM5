@@ -465,6 +465,29 @@ def gas_phase_chemdr_init_dust_vmr_codon(
 
 
 @export
+def gas_phase_chemdr_load_h2o_fields_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    h2o_ndx: int,
+    mmr_p: cobj,
+    vmr_p: cobj,
+    qh2o_p: cobj,
+    h2ovmr_p: cobj,
+):
+    mmr = Ptr[float](mmr_p)
+    vmr = Ptr[float](vmr_p)
+    qh2o = Ptr[float](qh2o_p)
+    h2ovmr = Ptr[float](h2ovmr_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            qh2o[_idx2(i, k, pcols)] = mmr[_idx3(i, k, h2o_ndx, pcols, pver)]
+            h2ovmr[_idx2(i, k, ncol)] = vmr[_idx3(i, k, h2o_ndx, ncol, pver)]
+
+
+@export
 def gas_phase_chemdr_copy_o3_to_o3s_trop_codon(
     ncol: int,
     pcols: int,
