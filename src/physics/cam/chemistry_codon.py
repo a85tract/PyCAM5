@@ -387,6 +387,24 @@ def gas_phase_chemdr_store_vmr0_codon(
 
 
 @export
+def gas_phase_chemdr_update_h2so4_gasprod_codon(
+    ncol: int,
+    pver: int,
+    gas_pcnst: int,
+    ndx_h2so4: int,
+    vmr_p: cobj,
+    del_h2so4_gasprod_p: cobj,
+):
+    vmr = Ptr[float](vmr_p)
+    del_h2so4_gasprod = Ptr[float](del_h2so4_gasprod_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _idx2(i, k, ncol)
+            del_h2so4_gasprod[idx2] = vmr[_idx3(i, k, ndx_h2so4, ncol, pver)] - del_h2so4_gasprod[idx2]
+
+
+@export
 def gas_phase_chemdr_normalize_extfrc_codon(
     ncol: int,
     pver: int,
