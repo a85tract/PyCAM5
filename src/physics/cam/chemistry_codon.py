@@ -1593,3 +1593,44 @@ def negtrc_codon(
                 idx = _idx3(i, k, m, ncol, pver)
                 if fld[idx] < 0.0:
                     fld[idx] = 0.0
+
+
+@export
+def O1D_to_2OH_adj_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    rxntot: int,
+    nfs: int,
+    jo1d_ndx: int,
+    n2_ndx: int,
+    o2_ndx: int,
+    h2o_ndx: int,
+    p_rate_p: cobj,
+    inv_p: cobj,
+    tfld_p: cobj,
+):
+    if jo1d_ndx < 1:
+        return
+
+    p_rate = Ptr[float](p_rate_p)
+    inv = Ptr[float](inv_p)
+    tfld = Ptr[float](tfld_p)
+
+    x1 = 2.15e-11
+    x2 = 3.30e-11
+    x3 = 1.63e-10
+    y1 = 110.0
+    y2 = 55.0
+    y3 = 60.0
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            temp = tfld[_idx2(i, k, pcols)]
+            n2_rate = x1 * exp(y1 / temp) * inv[_idx3(i, k, n2_ndx, ncol, pver)]
+            o2_rate = x2 * exp(y2 / temp) * inv[_idx3(i, k, o2_ndx, ncol, pver)]
+            h2o_rate = x3 * exp(y3 / temp) * inv[_idx3(i, k, h2o_ndx, ncol, pver)]
+            denom = h2o_rate + n2_rate + o2_rate
+            p_rate[_idx3(i, k, jo1d_ndx, ncol, pver)] = (
+                p_rate[_idx3(i, k, jo1d_ndx, ncol, pver)] * (h2o_rate / denom)
+            )
