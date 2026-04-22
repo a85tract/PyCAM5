@@ -223,6 +223,48 @@ def setinv_codon(
 
 
 @export
+def charge_balance_codon(
+    ncol: int,
+    pver: int,
+    gas_pcnst: int,
+    np_ndx: int,
+    n2p_ndx: int,
+    op_ndx: int,
+    o2p_ndx: int,
+    nop_ndx: int,
+    conc_p: cobj,
+    wrk_p: cobj,
+):
+    conc = Ptr[float](conc_p)
+    wrk = Ptr[float](wrk_p)
+
+    if np_ndx > 0:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                wrk[_idx2(i, k, ncol)] = wrk[_idx2(i, k, ncol)] + conc[_idx3(i, k, np_ndx, ncol, pver)]
+
+    if n2p_ndx > 0:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                wrk[_idx2(i, k, ncol)] = wrk[_idx2(i, k, ncol)] + conc[_idx3(i, k, n2p_ndx, ncol, pver)]
+
+    if op_ndx > 0:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                wrk[_idx2(i, k, ncol)] = wrk[_idx2(i, k, ncol)] + conc[_idx3(i, k, op_ndx, ncol, pver)]
+
+    if o2p_ndx > 0:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                wrk[_idx2(i, k, ncol)] = wrk[_idx2(i, k, ncol)] + conc[_idx3(i, k, o2p_ndx, ncol, pver)]
+
+    if nop_ndx > 0:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                wrk[_idx2(i, k, ncol)] = wrk[_idx2(i, k, ncol)] + conc[_idx3(i, k, nop_ndx, ncol, pver)]
+
+
+@export
 def gas_phase_chemdr_zero_sulfate_codon(
     ncol: int,
     pver: int,

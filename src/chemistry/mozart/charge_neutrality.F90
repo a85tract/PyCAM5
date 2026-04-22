@@ -11,6 +11,8 @@
       public :: charge_fix     ! temporary, for fixing charge balance after vertical diffusion
                                ! without converting mass mixing ratios to volume
                                ! mean mass assumed to be mwdry
+      logical :: charge_balance_use_native_impl = .false.
+      logical :: charge_balance_impl_selected = .false.
 
       contains
 
@@ -22,6 +24,7 @@
         use ppgrid,       only : pver
         use mo_chem_utls, only : get_spc_ndx
         use chem_mods,    only : gas_pcnst
+        use iso_c_binding, only : c_int64_t, c_loc, c_ptr
 
         implicit none
 
@@ -29,14 +32,26 @@
 !        ... dummy arguments
 !-----------------------------------------------------------------------      
       integer,  intent(in)          :: ncol
-      real(r8), intent(inout)       :: conc(ncol,pver,gas_pcnst)         ! concentration
+      real(r8), target, intent(inout) :: conc(ncol,pver,gas_pcnst)         ! concentration
 
 !-----------------------------------------------------------------------      
 !        ... local variables
 !-----------------------------------------------------------------------      
       integer  :: k, n
-      integer  :: elec_ndx
-      real(r8) :: wrk(ncol,pver)
+      integer  :: elec_ndx, np_ndx, n2p_ndx, op_ndx, o2p_ndx, nop_ndx
+      real(r8), target :: wrk(ncol,pver)
+
+      interface
+         subroutine charge_balance_codon(ncol_c, pver_c, gas_pcnst_c, np_ndx_c, n2p_ndx_c, op_ndx_c, o2p_ndx_c, &
+              nop_ndx_c, conc_p, wrk_p) bind(c, name="charge_balance_codon")
+           use iso_c_binding, only : c_int64_t, c_ptr
+           integer(c_int64_t), value :: ncol_c, pver_c, gas_pcnst_c
+           integer(c_int64_t), value :: np_ndx_c, n2p_ndx_c, op_ndx_c, o2p_ndx_c, nop_ndx_c
+           type(c_ptr), value :: conc_p, wrk_p
+         end subroutine charge_balance_codon
+      end interface
+
+      call charge_balance_select_impl()
 
       elec_ndx = get_spc_ndx('e')
 #ifdef CB_DEBUG
@@ -45,50 +60,107 @@
       write(iulog,*) 'charge_balance: e ndx,offset = ',elec_ndx,offset
       write(iulog,*) 'charge_balance: size of conc = ',size(conc,dim=1),' x ',size(conc,dim=2),' x ',size(conc,dim=3)
 #endif
+      if (charge_balance_use_native_impl) then
+         if( elec_ndx > 0 ) then
+	    wrk(:,:) = 0._r8
+            n = get_spc_ndx('Np')
+            if( n > 0 ) then
+	       do k = 1,pver
+	         wrk(:,k) = wrk(:,k) + conc(:ncol,k,n)
+	       end do
+            end if
+            n = get_spc_ndx('N2p')
+            if( n > 0 ) then
+	       do k = 1,pver
+	         wrk(:,k) = wrk(:,k) + conc(:ncol,k,n)
+	       end do
+            end if
+            n = get_spc_ndx('Op')
+            if( n > 0 ) then
+	       do k = 1,pver
+	         wrk(:,k) = wrk(:,k) + conc(:ncol,k,n)
+	       end do
+            end if
+            n = get_spc_ndx('O2p')
+            if( n > 0 ) then
+	       do k = 1,pver
+	         wrk(:,k) = wrk(:,k) + conc(:ncol,k,n)
+	       end do
+            end if
+            n = get_spc_ndx('NOp')
+            if( n > 0 ) then
+	       do k = 1,pver
+	         wrk(:,k) = wrk(:,k) + conc(:ncol,k,n)
+	       end do
+            end if
+#ifdef CB_DEBUG
+            write(iulog,*) 'charge_balance: electron concentration before balance'
+            write(iulog,'(1p,5g15.7)') conc(1,:,elec_ndx)
+            write(iulog,*) 'charge_balance: electron concentration after  balance'
+            write(iulog,'(1p,5g15.7)') wrk(1,:)
+            write(iulog,*) '------------------------------------------------------------------'
+            write(iulog,*) ' '
+#endif
+            conc(:ncol,:,elec_ndx) = wrk(:ncol,:)
+         end if
+         return
+      end if
+
       if( elec_ndx > 0 ) then
 	 wrk(:,:) = 0._r8
-         n = get_spc_ndx('Np')
-         if( n > 0 ) then
-	    do k = 1,pver
-	      wrk(:,k) = wrk(:,k) + conc(:ncol,k,n)
-	    end do
-         end if
-         n = get_spc_ndx('N2p')
-         if( n > 0 ) then
-	    do k = 1,pver
-	      wrk(:,k) = wrk(:,k) + conc(:ncol,k,n)
-	    end do
-         end if
-         n = get_spc_ndx('Op')
-         if( n > 0 ) then
-	    do k = 1,pver
-	      wrk(:,k) = wrk(:,k) + conc(:ncol,k,n)
-	    end do
-         end if
-         n = get_spc_ndx('O2p')
-         if( n > 0 ) then
-	    do k = 1,pver
-	      wrk(:,k) = wrk(:,k) + conc(:ncol,k,n)
-	    end do
-         end if
-         n = get_spc_ndx('NOp')
-         if( n > 0 ) then
-	    do k = 1,pver
-	      wrk(:,k) = wrk(:,k) + conc(:ncol,k,n)
-	    end do
-         end if
-#ifdef CB_DEBUG
-         write(iulog,*) 'charge_balance: electron concentration before balance'
-         write(iulog,'(1p,5g15.7)') conc(1,:,elec_ndx)
-         write(iulog,*) 'charge_balance: electron concentration after  balance'
-         write(iulog,'(1p,5g15.7)') wrk(1,:)
-         write(iulog,*) '------------------------------------------------------------------'
-         write(iulog,*) ' '
-#endif
+         np_ndx = get_spc_ndx('Np')
+         n2p_ndx = get_spc_ndx('N2p')
+         op_ndx = get_spc_ndx('Op')
+         o2p_ndx = get_spc_ndx('O2p')
+         nop_ndx = get_spc_ndx('NOp')
+
+         call charge_balance_codon( &
+              int(ncol, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), int(np_ndx, c_int64_t), &
+              int(n2p_ndx, c_int64_t), int(op_ndx, c_int64_t), int(o2p_ndx, c_int64_t), int(nop_ndx, c_int64_t), &
+              c_loc(conc), c_loc(wrk) &
+         )
+
          conc(:ncol,:,elec_ndx) = wrk(:ncol,:)
       end if
 
       end subroutine charge_balance
+
+      subroutine charge_balance_select_impl()
+
+      use spmd_utils, only : masterproc
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (charge_balance_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('CHARGE_BALANCE_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         charge_balance_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         charge_balance_use_native_impl = .false.
+      end if
+
+      charge_balance_impl_selected = .true.
+
+      if (masterproc) then
+         if (charge_balance_use_native_impl) then
+            write(iulog,*) 'charge_balance implementation = native'
+         else
+            write(iulog,*) 'charge_balance implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine charge_balance_select_impl
 
 
       subroutine charge_fix(state, pbuf)
