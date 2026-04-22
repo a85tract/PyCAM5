@@ -101,6 +101,51 @@ def vmr2mmr_codon(
 
 
 @export
+def set_mean_mass_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    id_o2: int,
+    id_o: int,
+    id_h: int,
+    id_n: int,
+    fixed_mbar: int,
+    mwdry: float,
+    mmr_p: cobj,
+    adv_mass_p: cobj,
+    mbar_p: cobj,
+):
+    mmr = Ptr[float](mmr_p)
+    adv_mass = Ptr[float](adv_mass_p)
+    mbar = Ptr[float](mbar_p)
+
+    if fixed_mbar != 0:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                mbar[_idx2(i, k, ncol)] = mwdry
+        return
+
+    adv_n = adv_mass[id_n - 1]
+    adv_o2 = adv_mass[id_o2 - 1]
+    adv_o = adv_mass[id_o - 1]
+    adv_h = adv_mass[id_h - 1]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            xn2 = 1.0 - (
+                mmr[_idx3(i, k, id_o2, pcols, pver)]
+                + mmr[_idx3(i, k, id_o, pcols, pver)]
+                + mmr[_idx3(i, k, id_h, pcols, pver)]
+            )
+            fn2 = 0.5 * xn2 / adv_n
+            fo2 = mmr[_idx3(i, k, id_o2, pcols, pver)] / adv_o2
+            fo = mmr[_idx3(i, k, id_o, pcols, pver)] / adv_o
+            fh = mmr[_idx3(i, k, id_h, pcols, pver)] / adv_h
+            mbar[_idx2(i, k, ncol)] = 1.0 / (fn2 + fo2 + fo + fh)
+
+
+@export
 def gas_phase_chemdr_zero_sulfate_codon(
     ncol: int,
     pver: int,
