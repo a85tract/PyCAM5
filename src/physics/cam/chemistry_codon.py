@@ -49,6 +49,19 @@ def gas_phase_chemdr_prepare_sza_codon(
 
 
 @export
+def gas_phase_chemdr_zero_sulfate_codon(
+    ncol: int,
+    pver: int,
+    sulfate_p: cobj,
+):
+    sulfate = Ptr[float](sulfate_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            sulfate[_idx2(i, k, ncol)] = 0.0
+
+
+@export
 def chem_emissions_megan_flux_codon(
     ncol: int,
     pcols: int,

@@ -614,7 +614,7 @@ contains
     !-----------------------------------------------------------------------      
     call setrxt( reaction_rates, tfld, invariants(1,1,indexm), ncol )
     
-    sulfate(:,:) = 0._r8
+    call gas_phase_chemdr_zero_sulfate(ncol, sulfate)
     if ( .not. carma_hetchem_feedback ) then
        if( so4_ndx < 1 ) then ! get offline so4 field if not prognostic
           call sulf_interp( ncol, lchnk, sulfate )
@@ -1159,6 +1159,39 @@ contains
     )
 
   end subroutine gas_phase_chemdr_load_mmr
+
+  subroutine gas_phase_chemdr_zero_sulfate(ncol, sulfate)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(inout) :: sulfate(ncol,pver)
+
+    integer :: i, k
+
+    interface
+       subroutine gas_phase_chemdr_zero_sulfate_codon(ncol_c, pver_c, sulfate_p) &
+            bind(c, name="gas_phase_chemdr_zero_sulfate_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c
+         type(c_ptr), value :: sulfate_p
+       end subroutine gas_phase_chemdr_zero_sulfate_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do k = 1, pver
+          do i = 1, ncol
+             sulfate(i,k) = 0._r8
+          end do
+       end do
+       return
+    end if
+
+    call gas_phase_chemdr_zero_sulfate_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), c_loc(sulfate) &
+    )
+
+  end subroutine gas_phase_chemdr_zero_sulfate
 
   subroutine gas_phase_chemdr_clip_sulfate(ncol, troplev, sulfate)
 
