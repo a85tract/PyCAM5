@@ -369,6 +369,24 @@ def gas_phase_chemdr_zero_st80_tau_codon(
 
 
 @export
+def gas_phase_chemdr_store_vmr0_codon(
+    ncol: int,
+    pver: int,
+    gas_pcnst: int,
+    vmr_p: cobj,
+    vmr0_p: cobj,
+):
+    vmr = Ptr[float](vmr_p)
+    vmr0 = Ptr[float](vmr0_p)
+
+    for m in range(1, gas_pcnst + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx3(i, k, m, ncol, pver)
+                vmr0[idx] = vmr[idx]
+
+
+@export
 def gas_phase_chemdr_normalize_extfrc_codon(
     ncol: int,
     pver: int,

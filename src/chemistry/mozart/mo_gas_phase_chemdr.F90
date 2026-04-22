@@ -794,7 +794,7 @@ contains
        del_h2so4_gasprod(:,:) = 0.0_r8
     endif
 
-    vmr0(:ncol,:,:) = vmr(:ncol,:,:) ! mixing ratios before chemistry changes
+    call gas_phase_chemdr_store_vmr0(ncol, vmr, vmr0)
 
     !=======================================================================
     !        ... Call the class solution algorithms
@@ -1305,6 +1305,34 @@ contains
     )
 
   end subroutine gas_phase_chemdr_zero_st80_tau
+
+  subroutine gas_phase_chemdr_store_vmr0(ncol, vmr, vmr0)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: vmr(ncol,pver,gas_pcnst)
+    real(r8), target, intent(out) :: vmr0(ncol,pver,gas_pcnst)
+
+    interface
+       subroutine gas_phase_chemdr_store_vmr0_codon(ncol_c, pver_c, gas_pcnst_c, vmr_p, vmr0_p) &
+            bind(c, name="gas_phase_chemdr_store_vmr0_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, gas_pcnst_c
+         type(c_ptr), value :: vmr_p, vmr0_p
+       end subroutine gas_phase_chemdr_store_vmr0_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       vmr0(:ncol,:,:) = vmr(:ncol,:,:)
+       return
+    end if
+
+    call gas_phase_chemdr_store_vmr0_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), c_loc(vmr), c_loc(vmr0) &
+    )
+
+  end subroutine gas_phase_chemdr_store_vmr0
 
   subroutine gas_phase_chemdr_normalize_extfrc(ncol, extcnt_in, nfs_in, indexm_in, extfrc, invariants)
 
