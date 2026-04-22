@@ -333,6 +333,24 @@ def gas_phase_chemdr_load_oxygen_mmr_codon(
 
 
 @export
+def gas_phase_chemdr_set_ltrop_sol_codon(
+    ncol: int,
+    has_linoz_data_flag: int,
+    troplev_p: cobj,
+    ltrop_sol_p: cobj,
+):
+    troplev = Ptr[int](troplev_p)
+    ltrop_sol = Ptr[int](ltrop_sol_p)
+
+    if has_linoz_data_flag != 0:
+        for i in range(1, ncol + 1):
+            ltrop_sol[i - 1] = troplev[i - 1]
+    else:
+        for i in range(1, ncol + 1):
+            ltrop_sol[i - 1] = 0
+
+
+@export
 def gas_phase_chemdr_normalize_extfrc_codon(
     ncol: int,
     pver: int,

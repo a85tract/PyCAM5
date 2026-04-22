@@ -789,11 +789,7 @@ contains
        call outfld( tag_names(i), reaction_rates(:ncol,:,rxt_tag_map(i)), ncol, lchnk )
     enddo
 
-    if ( has_linoz_data ) then
-       ltrop_sol(:ncol) = troplev(:ncol)
-    else
-       ltrop_sol(:ncol) = 0 ! apply solver to all levels
-    endif
+    call gas_phase_chemdr_set_ltrop_sol(ncol, merge(1, 0, has_linoz_data), troplev, ltrop_sol)
 
     ! save h2so4 before gas phase chem (for later new particle nucleation)
     if (ndx_h2so4 > 0) then
@@ -1244,6 +1240,39 @@ contains
     )
 
   end subroutine gas_phase_chemdr_load_oxygen_mmr
+
+  subroutine gas_phase_chemdr_set_ltrop_sol(ncol, has_linoz_data_flag_in, troplev, ltrop_sol)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: has_linoz_data_flag_in
+    integer, target, intent(in) :: troplev(pcols)
+    integer, target, intent(out) :: ltrop_sol(pcols)
+
+    interface
+       subroutine gas_phase_chemdr_set_ltrop_sol_codon(ncol_c, has_linoz_data_flag_c, troplev_p, ltrop_sol_p) &
+            bind(c, name="gas_phase_chemdr_set_ltrop_sol_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, has_linoz_data_flag_c
+         type(c_ptr), value :: troplev_p, ltrop_sol_p
+       end subroutine gas_phase_chemdr_set_ltrop_sol_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       if (has_linoz_data_flag_in /= 0) then
+          ltrop_sol(:ncol) = troplev(:ncol)
+       else
+          ltrop_sol(:ncol) = 0
+       end if
+       return
+    end if
+
+    call gas_phase_chemdr_set_ltrop_sol_codon( &
+         int(ncol, c_int64_t), int(has_linoz_data_flag_in, c_int64_t), c_loc(troplev), c_loc(ltrop_sol) &
+    )
+
+  end subroutine gas_phase_chemdr_set_ltrop_sol
 
   subroutine gas_phase_chemdr_normalize_extfrc(ncol, extcnt_in, nfs_in, indexm_in, extfrc, invariants)
 
