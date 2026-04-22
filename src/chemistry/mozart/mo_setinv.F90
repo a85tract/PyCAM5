@@ -14,6 +14,8 @@ module mo_setinv
   integer :: id_o, id_o2, id_h
   integer :: m_ndx, o2_ndx, n2_ndx, h2o_ndx, o3_ndx
   logical :: has_o2, has_n2, has_h2o, has_o3, has_var_o2
+  logical :: setinv_use_native_impl = .false.
+  logical :: setinv_impl_selected = .false.
 
   private
   public :: setinv_inti, setinv, has_h2o, o2_ndx, h2o_ndx, n2_ndx
@@ -68,6 +70,7 @@ contains
     use tracer_cnst,   only : num_tracer_cnst, tracer_cnst_flds, get_cnst_data
     use mo_chem_utls,  only : get_inv_ndx
     use physics_buffer, only : physics_buffer_desc
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
 
     implicit none
 
@@ -75,12 +78,12 @@ contains
     !        ... dummy arguments
     !-----------------------------------------------------------------
     integer,  intent(in)  ::      ncol                      ! chunk column count
-    real(r8), intent(in)  ::      tfld(pcols,pver)          ! temperature
-    real(r8), intent(in)  ::      h2ovmr(ncol,pver)         ! water vapor vmr
-    real(r8), intent(in)  ::      pmid(pcols,pver)          ! pressure
+    real(r8), target, intent(in)  ::      tfld(pcols,pver)          ! temperature
+    real(r8), target, intent(in)  ::      h2ovmr(ncol,pver)         ! water vapor vmr
+    real(r8), target, intent(in)  ::      pmid(pcols,pver)          ! pressure
     integer,  intent(in)  ::      lchnk                     ! chunk number
-    real(r8), intent(in)  ::      vmr(ncol,pver,gas_pcnst)  ! vmr
-    real(r8), intent(out) ::      invariants(ncol,pver,nfs) ! invariant array
+    real(r8), target, intent(in)  ::      vmr(ncol,pver,gas_pcnst)  ! vmr
+    real(r8), target, intent(out) ::      invariants(ncol,pver,nfs) ! invariant array
     type(physics_buffer_desc), pointer :: pbuf(:)
 
 
@@ -94,40 +97,68 @@ contains
     real(r8) :: sum1(ncol)
     real(r8) :: tmp_out(ncol,pver)
 
+    interface
+       subroutine setinv_codon(ncol_c, pcols_c, pver_c, gas_pcnst_c, nfs_c, m_ndx_c, n2_ndx_c, o2_ndx_c, h2o_ndx_c, &
+            id_o_c, id_o2_c, id_h_c, has_n2_c, has_o2_c, has_h2o_c, has_var_o2_c, pa_xfac_c, boltz_cgs_c, tfld_p, &
+            h2ovmr_p, vmr_p, pmid_p, invariants_p) bind(c, name="setinv_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, gas_pcnst_c, nfs_c
+         integer(c_int64_t), value :: m_ndx_c, n2_ndx_c, o2_ndx_c, h2o_ndx_c
+         integer(c_int64_t), value :: id_o_c, id_o2_c, id_h_c
+         integer(c_int64_t), value :: has_n2_c, has_o2_c, has_h2o_c, has_var_o2_c
+         real(c_double), value :: pa_xfac_c, boltz_cgs_c
+         type(c_ptr), value :: tfld_p, h2ovmr_p, vmr_p, pmid_p, invariants_p
+       end subroutine setinv_codon
+    end interface
+
+    call setinv_select_impl()
+
     !-----------------------------------------------------------------
     !        note: invariants are in cgs density units.
     !              the pmid array is in pascals and must be
     !	       mutiplied by 10. to yield dynes/cm**2.
     !-----------------------------------------------------------------
-    invariants(:,:,:) = 0._r8
-    !-----------------------------------------------------------------
-    !	... set m, n2, o2, and h2o densities
-    !-----------------------------------------------------------------
-    do k = 1,pver
-       invariants(:ncol,k,m_ndx) = Pa_xfac * pmid(:ncol,k) / (boltz_cgs*tfld(:ncol,k))
-    end do
+    if (setinv_use_native_impl) then
+       invariants(:,:,:) = 0._r8
+       !-----------------------------------------------------------------
+       !	... set m, n2, o2, and h2o densities
+       !-----------------------------------------------------------------
+       do k = 1,pver
+          invariants(:ncol,k,m_ndx) = Pa_xfac * pmid(:ncol,k) / (boltz_cgs*tfld(:ncol,k))
+       end do
 
-    if( has_n2 ) then
-       if ( has_var_o2 ) then
+       if( has_n2 ) then
+          if ( has_var_o2 ) then
+             do k = 1,pver
+                sum1(:ncol) = (vmr(:ncol,k,id_o) + vmr(:ncol,k,id_o2) + vmr(:ncol,k,id_h))
+                invariants(:ncol,k,n2_ndx) = (1._r8 - sum1(:)) * invariants(:ncol,k,m_ndx)
+             end do
+          else
+             do k = 1,pver
+                invariants(:ncol,k,n2_ndx) = .79_r8 * invariants(:ncol,k,m_ndx)
+             end do
+          endif
+       end if
+       if( has_o2 ) then
           do k = 1,pver
-             sum1(:ncol) = (vmr(:ncol,k,id_o) + vmr(:ncol,k,id_o2) + vmr(:ncol,k,id_h))
-             invariants(:ncol,k,n2_ndx) = (1._r8 - sum1(:)) * invariants(:ncol,k,m_ndx)
+             invariants(:ncol,k,o2_ndx) = .21_r8 * invariants(:ncol,k,m_ndx)
           end do
-       else
+       end if
+       if( has_h2o ) then
           do k = 1,pver
-             invariants(:ncol,k,n2_ndx) = .79_r8 * invariants(:ncol,k,m_ndx)
+             invariants(:ncol,k,h2o_ndx) = h2ovmr(:ncol,k) * invariants(:ncol,k,m_ndx)
           end do
-       endif
-    end if
-    if( has_o2 ) then
-       do k = 1,pver
-          invariants(:ncol,k,o2_ndx) = .21_r8 * invariants(:ncol,k,m_ndx)
-       end do
-    end if
-    if( has_h2o ) then
-       do k = 1,pver
-          invariants(:ncol,k,h2o_ndx) = h2ovmr(:ncol,k) * invariants(:ncol,k,m_ndx)
-       end do
+       end if
+    else
+       call setinv_codon( &
+            int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), &
+            int(nfs, c_int64_t), int(m_ndx, c_int64_t), int(n2_ndx, c_int64_t), int(o2_ndx, c_int64_t), &
+            int(h2o_ndx, c_int64_t), int(id_o, c_int64_t), int(id_o2, c_int64_t), int(id_h, c_int64_t), &
+            merge(1_c_int64_t, 0_c_int64_t, has_n2), merge(1_c_int64_t, 0_c_int64_t, has_o2), &
+            merge(1_c_int64_t, 0_c_int64_t, has_h2o), merge(1_c_int64_t, 0_c_int64_t, has_var_o2), &
+            real(Pa_xfac, c_double), real(boltz_cgs, c_double), c_loc(tfld), c_loc(h2ovmr), c_loc(vmr), c_loc(pmid), &
+            c_loc(invariants) &
+       )
     end if
 
     do i = 1,num_tracer_cnst
@@ -149,5 +180,42 @@ contains
     enddo
 
   end subroutine setinv
+
+  subroutine setinv_select_impl()
+
+    use spmd_utils, only : masterproc
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (setinv_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('SETINV_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       setinv_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       setinv_use_native_impl = .false.
+    end if
+
+    setinv_impl_selected = .true.
+
+    if (masterproc) then
+       if (setinv_use_native_impl) then
+          write(iulog,*) 'setinv implementation = native'
+       else
+          write(iulog,*) 'setinv implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine setinv_select_impl
 
 end module mo_setinv

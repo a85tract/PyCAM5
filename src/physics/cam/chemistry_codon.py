@@ -146,6 +146,83 @@ def set_mean_mass_codon(
 
 
 @export
+def setinv_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    nfs: int,
+    m_ndx: int,
+    n2_ndx: int,
+    o2_ndx: int,
+    h2o_ndx: int,
+    id_o: int,
+    id_o2: int,
+    id_h: int,
+    has_n2: int,
+    has_o2: int,
+    has_h2o: int,
+    has_var_o2: int,
+    pa_xfac: float,
+    boltz_cgs: float,
+    tfld_p: cobj,
+    h2ovmr_p: cobj,
+    vmr_p: cobj,
+    pmid_p: cobj,
+    invariants_p: cobj,
+):
+    tfld = Ptr[float](tfld_p)
+    h2ovmr = Ptr[float](h2ovmr_p)
+    vmr = Ptr[float](vmr_p)
+    pmid = Ptr[float](pmid_p)
+    invariants = Ptr[float](invariants_p)
+
+    for m in range(1, nfs + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                invariants[_idx3(i, k, m, ncol, pver)] = 0.0
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            invariants[_idx3(i, k, m_ndx, ncol, pver)] = (
+                pa_xfac * pmid[_idx2(i, k, pcols)] / (boltz_cgs * tfld[_idx2(i, k, pcols)])
+            )
+
+    if has_n2 != 0:
+        if has_var_o2 != 0:
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    sum1 = (
+                        vmr[_idx3(i, k, id_o, ncol, pver)]
+                        + vmr[_idx3(i, k, id_o2, ncol, pver)]
+                        + vmr[_idx3(i, k, id_h, ncol, pver)]
+                    )
+                    invariants[_idx3(i, k, n2_ndx, ncol, pver)] = (
+                        (1.0 - sum1) * invariants[_idx3(i, k, m_ndx, ncol, pver)]
+                    )
+        else:
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    invariants[_idx3(i, k, n2_ndx, ncol, pver)] = (
+                        0.79 * invariants[_idx3(i, k, m_ndx, ncol, pver)]
+                    )
+
+    if has_o2 != 0:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                invariants[_idx3(i, k, o2_ndx, ncol, pver)] = (
+                    0.21 * invariants[_idx3(i, k, m_ndx, ncol, pver)]
+                )
+
+    if has_h2o != 0:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                invariants[_idx3(i, k, h2o_ndx, ncol, pver)] = (
+                    h2ovmr[_idx2(i, k, ncol)] * invariants[_idx3(i, k, m_ndx, ncol, pver)]
+                )
+
+
+@export
 def gas_phase_chemdr_zero_sulfate_codon(
     ncol: int,
     pver: int,
