@@ -84,6 +84,8 @@ module mo_photo
   logical :: cloud_mod_impl_selected = .false.
   logical :: photo_timestep_init_exo_time_use_native_impl = .false.
   logical :: photo_timestep_init_exo_time_impl_selected = .false.
+  logical :: table_photo_jlong_apply_use_native_impl = .false.
+  logical :: table_photo_jlong_apply_impl_selected = .false.
   logical :: table_photo_jno_ho2no2_use_native_impl = .false.
   logical :: table_photo_jno_ho2no2_impl_selected = .false.
   logical :: set_xnox_photo_use_native_impl = .false.
@@ -597,6 +599,7 @@ contains
     use photo_bkgrnd, only : photo_bkgrnd_calc
     use cam_history, only : outfld
     use infnan,      only : nan, assignment(=)
+    use iso_c_binding, only : c_int64_t
 
     implicit none
 
@@ -641,7 +644,7 @@ contains
     real(r8) ::  eff_alb(pver)             ! effective albedo from cloud modifications
     real(r8), target ::  cld_mult(pver)    ! clould multiplier
     real(r8) ::  tmp(ncol,pver)            ! wrk array
-    real(r8), allocatable ::  lng_prates(:,:) ! photorates matrix (1/s)
+    real(r8), allocatable, target ::  lng_prates(:,:) ! photorates matrix (1/s)
     real(r8), allocatable ::  sht_prates(:,:) ! photorates matrix (1/s)
     real(r8), allocatable ::  euv_prates(:,:) ! photorates matrix (1/s)
     
@@ -667,6 +670,8 @@ contains
     real(r8) :: qbkn2(ncol,pver)
     real(r8) :: qbkn1(ncol,pver)
     real(r8) :: qbkno(ncol,pver)
+    real(r8), target :: alias_mult2(phtcnt)
+    integer(c_int64_t), target :: lng_indexer_c(phtcnt)
 
     qbktot(:,:) = nan
     qbko1(:,:) = nan
@@ -674,6 +679,8 @@ contains
     qbkn2(:,:) = nan
     qbkn1(:,:) = nan
     qbkno(:,:) = nan
+    alias_mult2(:) = pht_alias_mult(:,2)
+    lng_indexer_c(:) = int(lng_indexer(:), c_int64_t)
 
     if( phtcnt < 1 ) then
        return
@@ -865,16 +872,9 @@ contains
           !	... long wave length component
           !-----------------------------------------------------------------
           call jlong( pver, sza, eff_alb, parg, tline, colo3, lng_prates )          
-          do m = 1,phtcnt
-             if( lng_indexer(m) > 0 ) then
-                alias_factor = pht_alias_mult(m,2)
-                if( alias_factor == 1._r8 ) then
-                   photos(i,:,m) = (photos(i,:,m) + lng_prates(lng_indexer(m),:))*cld_mult(:)
-                else
-                   photos(i,:,m) = (photos(i,:,m) + alias_factor * lng_prates(lng_indexer(m),:))*cld_mult(:)
-                end if
-             end if
-          end do
+          if (nlng > 0) then
+             call table_photo_apply_jlong( ncol, i, photos, lng_prates, cld_mult, lng_indexer_c, alias_mult2 )
+          end if
 
           !-----------------------------------------------------------------
           !	... calculate j(no) from formula
@@ -929,6 +929,95 @@ contains
     call set_xnox_photo( photos, ncol  )
 
   end subroutine table_photo
+
+  subroutine table_photo_apply_jlong( ncol, i, photos, lng_prates, cld_mult, lng_indexer_c, alias_mult2 )
+
+    use chem_mods, only : phtcnt
+    use mo_jlong, only : nlng => numj
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: i
+    real(r8), target, intent(inout) :: photos(ncol,pver,phtcnt)
+    real(r8), target, intent(in) :: lng_prates(nlng,pver)
+    real(r8), target, intent(in) :: cld_mult(pver)
+    integer(c_int64_t), target, intent(in) :: lng_indexer_c(phtcnt)
+    real(r8), target, intent(in) :: alias_mult2(phtcnt)
+
+    integer :: m
+    real(r8) :: alias_factor
+
+    interface
+       subroutine table_photo_jlong_apply_codon(ncol_c, pver_c, phtcnt_c, nlng_c, i_c, photos_p, lng_prates_p, &
+            cld_mult_p, lng_indexer_p, alias_mult2_p) bind(c, name="table_photo_jlong_apply_codon")
+         use iso_c_binding, only : c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, phtcnt_c, nlng_c, i_c
+         type(c_ptr), value :: photos_p, lng_prates_p, cld_mult_p, lng_indexer_p, alias_mult2_p
+       end subroutine table_photo_jlong_apply_codon
+    end interface
+
+    call table_photo_jlong_apply_select_impl()
+
+    if (.not. table_photo_jlong_apply_use_native_impl) then
+       call table_photo_jlong_apply_codon( &
+            int(ncol, c_int64_t), int(pver, c_int64_t), int(phtcnt, c_int64_t), int(nlng, c_int64_t), &
+            int(i, c_int64_t), c_loc(photos), c_loc(lng_prates), c_loc(cld_mult), c_loc(lng_indexer_c), &
+            c_loc(alias_mult2) &
+       )
+       return
+    end if
+
+    do m = 1,phtcnt
+       if( lng_indexer_c(m) > 0_c_int64_t ) then
+          alias_factor = alias_mult2(m)
+          if( alias_factor == 1._r8 ) then
+             photos(i,:,m) = (photos(i,:,m) + lng_prates(lng_indexer_c(m),:))*cld_mult(:)
+          else
+             photos(i,:,m) = (photos(i,:,m) + alias_factor * lng_prates(lng_indexer_c(m),:))*cld_mult(:)
+          end if
+       end if
+    end do
+
+  end subroutine table_photo_apply_jlong
+
+  subroutine table_photo_jlong_apply_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (table_photo_jlong_apply_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('TABLE_PHOTO_JLONG_APPLY_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       table_photo_jlong_apply_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       table_photo_jlong_apply_use_native_impl = .false.
+    end if
+
+    table_photo_jlong_apply_impl_selected = .true.
+
+    if (masterproc) then
+      if (table_photo_jlong_apply_use_native_impl) then
+         write(iulog,*) 'table_photo_jlong_apply implementation = native'
+      else
+         write(iulog,*) 'table_photo_jlong_apply implementation = codon'
+      end if
+      call flush(iulog)
+    end if
+
+  end subroutine table_photo_jlong_apply_select_impl
 
   subroutine table_photo_apply_jno_ho2no2( ncol, i, photos, col_dens, cld_mult, zen_angle_in )
 

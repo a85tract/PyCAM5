@@ -556,6 +556,41 @@ def photo_timestep_init_exo_time_codon(
 
 
 @export
+def table_photo_jlong_apply_codon(
+    ncol: int,
+    pver: int,
+    phtcnt: int,
+    nlng: int,
+    i_col: int,
+    photos_p: cobj,
+    lng_prates_p: cobj,
+    cld_mult_p: cobj,
+    lng_indexer_p: cobj,
+    alias_mult2_p: cobj,
+):
+    photos = Ptr[float](photos_p)
+    lng_prates = Ptr[float](lng_prates_p)
+    cld_mult = Ptr[float](cld_mult_p)
+    lng_indexer = Ptr[int](lng_indexer_p)
+    alias_mult2 = Ptr[float](alias_mult2_p)
+
+    for m in range(1, phtcnt + 1):
+        if lng_indexer[m - 1] > 0:
+            alias_factor = alias_mult2[m - 1]
+            idx_lng = lng_indexer[m - 1]
+            if alias_factor == 1.0:
+                for k in range(1, pver + 1):
+                    photos[_idx3(i_col, k, m, ncol, pver)] = (
+                        photos[_idx3(i_col, k, m, ncol, pver)] + lng_prates[_idx2(idx_lng, k, nlng)]
+                    ) * cld_mult[k - 1]
+            else:
+                for k in range(1, pver + 1):
+                    photos[_idx3(i_col, k, m, ncol, pver)] = (
+                        photos[_idx3(i_col, k, m, ncol, pver)] + alias_factor * lng_prates[_idx2(idx_lng, k, nlng)]
+                    ) * cld_mult[k - 1]
+
+
+@export
 def table_photo_jno_ho2no2_codon(
     ncol: int,
     pver: int,
