@@ -76,6 +76,8 @@ module mo_photo
   logical :: do_jeuv = .false.
   logical :: do_jshort = .false.
   logical :: do_diag = .false.
+  logical :: set_ub_col_use_native_impl = .false.
+  logical :: set_ub_col_impl_selected = .false.
   logical :: setcol_use_native_impl = .false.
   logical :: setcol_impl_selected = .false.
 
@@ -1389,6 +1391,7 @@ secant_in_bounds : &
     use chem_mods, only : nfs, ncol_abs=>nabscol, indexm
     use chem_mods, only : nabscol, gas_pcnst, indexm, nfs
     use chem_mods, only : gas_pcnst
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
 
     implicit none
 
@@ -1398,10 +1401,10 @@ secant_in_bounds : &
     real(r8), intent(in)    ::  ptop(pcols)                            ! top pressure (Pa)
     integer,  intent(in)    ::  ncol                                   ! number of columns in current chunk
     integer,  intent(in)    ::  lchnk                                  ! latitude indicies in chunk
-    real(r8), intent(in)    ::  vmr(ncol,pver,gas_pcnst)               ! xported species vmr
-    real(r8), intent(in)    ::  pdel(pcols,pver)                       ! pressure delta about midpoints (Pa)
-    real(r8), intent(in)    ::  invariants(ncol,pver,nfs)
-    real(r8), intent(out)   ::  col_delta(ncol,0:pver,max(1,nabscol))  ! /cm**2 o2,o3 col dens above model
+    real(r8), target, intent(in)  ::  vmr(ncol,pver,gas_pcnst)               ! xported species vmr
+    real(r8), target, intent(in)  ::  pdel(pcols,pver)                       ! pressure delta about midpoints (Pa)
+    real(r8), target, intent(in)  ::  invariants(ncol,pver,nfs)
+    real(r8), target, intent(out) ::  col_delta(ncol,0:pver,max(1,nabscol))  ! /cm**2 o2,o3 col dens above model
 
     !---------------------------------------------------------------
     !        ... local variables
@@ -1416,9 +1419,23 @@ secant_in_bounds : &
     integer :: ku(ncol)
     real(r8)    :: dp(ncol)
     real(r8)    :: tint_vals(2)
-    real(r8)    :: o2_exo_col(ncol)
-    real(r8)    :: o3_exo_col(ncol)
+    real(r8), target :: o2_exo_col(ncol)
+    real(r8), target :: o3_exo_col(ncol)
     integer :: lat, i
+
+    interface
+       subroutine set_ub_col_codon(ncol_c, pcols_c, pver_c, ncol_abs_c, indexm_c, o3rad_ndx_c, ox_ndx_c, o3_ndx_c, &
+            o3_inv_ndx_c, o2_ndx_c, o2_is_inv_c, xfactor_c, pdel_p, vmr_p, invariants_p, o2_exo_col_p, o3_exo_col_p, &
+            col_delta_p) bind(c, name="set_ub_col_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, ncol_abs_c, indexm_c
+         integer(c_int64_t), value :: o3rad_ndx_c, ox_ndx_c, o3_ndx_c, o3_inv_ndx_c, o2_ndx_c, o2_is_inv_c
+         real(c_double), value :: xfactor_c
+         type(c_ptr), value :: pdel_p, vmr_p, invariants_p, o2_exo_col_p, o3_exo_col_p, col_delta_p
+       end subroutine set_ub_col_codon
+    end interface
+
+    call set_ub_col_select_impl()
  
     !---------------------------------------------------------------
     !        ... assign column density at the upper boundary
@@ -1495,37 +1512,83 @@ secant_in_bounds : &
     if( spc_ndx < 1 ) then
        spc_ndx = o3_ndx
     end if
-    if( spc_ndx > 0 ) then
-       col_delta(:,0,1) = o3_exo_col(:)
-       do k = 1,pver
-          col_delta(:ncol,k,1) = xfactor * pdel(:ncol,k) * vmr(:ncol,k,spc_ndx)
-       end do
-    else if( o3_inv_ndx > 0 ) then
-       col_delta(:,0,1) = o3_exo_col(:)
-       do k = 1,pver
-          col_delta(:ncol,k,1) = xfactor * pdel(:ncol,k) * invariants(:ncol,k,o3_inv_ndx)/invariants(:ncol,k,indexm)
-       end do
-    else
-       col_delta(:,:,1) = 0._r8
-    end if
-    if( ncol_abs > 1 ) then
-       if( o2_ndx > 1 ) then
-          col_delta(:,0,2) = o2_exo_col(:)
-          if( o2_is_inv ) then
-             do k = 1,pver
-                col_delta(:ncol,k,2) = xfactor * pdel(:ncol,k) * invariants(:ncol,k,o2_ndx)/invariants(:ncol,k,indexm)
-             end do
-          else
-             do k = 1,pver
-                col_delta(:ncol,k,2) = xfactor * pdel(:ncol,k) * vmr(:ncol,k,o2_ndx)
-             end do
-          endif
+    if (set_ub_col_use_native_impl) then
+       if( spc_ndx > 0 ) then
+          col_delta(:,0,1) = o3_exo_col(:)
+          do k = 1,pver
+             col_delta(:ncol,k,1) = xfactor * pdel(:ncol,k) * vmr(:ncol,k,spc_ndx)
+          end do
+       else if( o3_inv_ndx > 0 ) then
+          col_delta(:,0,1) = o3_exo_col(:)
+          do k = 1,pver
+             col_delta(:ncol,k,1) = xfactor * pdel(:ncol,k) * invariants(:ncol,k,o3_inv_ndx)/invariants(:ncol,k,indexm)
+          end do
        else
-          col_delta(:,:,2) = 0._r8
+          col_delta(:,:,1) = 0._r8
        end if
+       if( ncol_abs > 1 ) then
+          if( o2_ndx > 1 ) then
+             col_delta(:,0,2) = o2_exo_col(:)
+             if( o2_is_inv ) then
+                do k = 1,pver
+                   col_delta(:ncol,k,2) = xfactor * pdel(:ncol,k) * invariants(:ncol,k,o2_ndx)/invariants(:ncol,k,indexm)
+                end do
+             else
+                do k = 1,pver
+                   col_delta(:ncol,k,2) = xfactor * pdel(:ncol,k) * vmr(:ncol,k,o2_ndx)
+                end do
+             endif
+          else
+             col_delta(:,:,2) = 0._r8
+          end if
+       end if
+       return
     end if
 
+    call set_ub_col_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(ncol_abs, c_int64_t), &
+         int(indexm, c_int64_t), int(o3rad_ndx, c_int64_t), int(ox_ndx, c_int64_t), int(o3_ndx, c_int64_t), &
+         int(o3_inv_ndx, c_int64_t), int(o2_ndx, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, o2_is_inv), &
+         real(xfactor, c_double), c_loc(pdel), c_loc(vmr), c_loc(invariants), c_loc(o2_exo_col), c_loc(o3_exo_col), &
+         c_loc(col_delta) &
+    )
+
   end subroutine set_ub_col
+
+  subroutine set_ub_col_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (set_ub_col_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('SET_UB_COL_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       set_ub_col_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       set_ub_col_use_native_impl = .false.
+    end if
+
+    set_ub_col_impl_selected = .true.
+
+    if (masterproc) then
+       if (set_ub_col_use_native_impl) then
+          write(iulog,*) 'set_ub_col implementation = native'
+       else
+          write(iulog,*) 'set_ub_col implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine set_ub_col_select_impl
 
   subroutine p_interp( lchnk, ncol, ptop, o2_exo_col, o3_exo_col )
     !---------------------------------------------------------------

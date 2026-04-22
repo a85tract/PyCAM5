@@ -295,6 +295,89 @@ def setcol_codon(
 
 
 @export
+def set_ub_col_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    ncol_abs: int,
+    indexm: int,
+    o3rad_ndx: int,
+    ox_ndx: int,
+    o3_ndx: int,
+    o3_inv_ndx: int,
+    o2_ndx: int,
+    o2_is_inv: int,
+    xfactor: float,
+    pdel_p: cobj,
+    vmr_p: cobj,
+    invariants_p: cobj,
+    o2_exo_col_p: cobj,
+    o3_exo_col_p: cobj,
+    col_delta_p: cobj,
+):
+    pdel = Ptr[float](pdel_p)
+    vmr = Ptr[float](vmr_p)
+    invariants = Ptr[float](invariants_p)
+    o2_exo_col = Ptr[float](o2_exo_col_p)
+    o3_exo_col = Ptr[float](o3_exo_col_p)
+    col_delta = Ptr[float](col_delta_p)
+
+    spc_ndx = o3rad_ndx
+    if spc_ndx <= 0:
+        spc_ndx = ox_ndx
+    if spc_ndx < 1:
+        spc_ndx = o3_ndx
+
+    if spc_ndx > 0:
+        for i in range(1, ncol + 1):
+            col_delta[_idx3_k0(i, 0, 1, ncol, pver + 1)] = o3_exo_col[i - 1]
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                col_delta[_idx3_k0(i, k, 1, ncol, pver + 1)] = (
+                    xfactor * pdel[_idx2(i, k, pcols)] * vmr[_idx3(i, k, spc_ndx, ncol, pver)]
+                )
+    elif o3_inv_ndx > 0:
+        for i in range(1, ncol + 1):
+            col_delta[_idx3_k0(i, 0, 1, ncol, pver + 1)] = o3_exo_col[i - 1]
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                col_delta[_idx3_k0(i, k, 1, ncol, pver + 1)] = (
+                    xfactor
+                    * pdel[_idx2(i, k, pcols)]
+                    * invariants[_idx3(i, k, o3_inv_ndx, ncol, pver)]
+                    / invariants[_idx3(i, k, indexm, ncol, pver)]
+                )
+    else:
+        for k in range(0, pver + 1):
+            for i in range(1, ncol + 1):
+                col_delta[_idx3_k0(i, k, 1, ncol, pver + 1)] = 0.0
+
+    if ncol_abs > 1:
+        if o2_ndx > 1:
+            for i in range(1, ncol + 1):
+                col_delta[_idx3_k0(i, 0, 2, ncol, pver + 1)] = o2_exo_col[i - 1]
+            if o2_is_inv != 0:
+                for k in range(1, pver + 1):
+                    for i in range(1, ncol + 1):
+                        col_delta[_idx3_k0(i, k, 2, ncol, pver + 1)] = (
+                            xfactor
+                            * pdel[_idx2(i, k, pcols)]
+                            * invariants[_idx3(i, k, o2_ndx, ncol, pver)]
+                            / invariants[_idx3(i, k, indexm, ncol, pver)]
+                        )
+            else:
+                for k in range(1, pver + 1):
+                    for i in range(1, ncol + 1):
+                        col_delta[_idx3_k0(i, k, 2, ncol, pver + 1)] = (
+                            xfactor * pdel[_idx2(i, k, pcols)] * vmr[_idx3(i, k, o2_ndx, ncol, pver)]
+                        )
+        else:
+            for k in range(0, pver + 1):
+                for i in range(1, ncol + 1):
+                    col_delta[_idx3_k0(i, k, 2, ncol, pver + 1)] = 0.0
+
+
+@export
 def gas_phase_chemdr_zero_sulfate_codon(
     ncol: int,
     pver: int,
