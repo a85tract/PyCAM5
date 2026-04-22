@@ -17,6 +17,17 @@ def _idx3_k0(i: int, k: int, m: int, ld1: int, nk: int) -> int:
 
 
 @inline
+def _idx5(i1: int, i2: int, i3: int, i4: int, i5: int, ld1: int, ld2: int, ld3: int, ld4: int) -> int:
+    return (
+        (i1 - 1)
+        + (i2 - 1) * ld1
+        + (i3 - 1) * ld1 * ld2
+        + (i4 - 1) * ld1 * ld2 * ld3
+        + (i5 - 1) * ld1 * ld2 * ld3 * ld4
+    )
+
+
+@inline
 def _flux_idx(i: int, m: int, pcols: int) -> int:
     return (i - 1) + (m - 1) * pcols
 
@@ -63,6 +74,175 @@ def rebin_codon(
             trg[i - 1] = y / (trg_x[i] - trg_x[i - 1])
         else:
             trg[i - 1] = 0.0
+
+
+@export
+def jlong_interpolate_rsf_codon(
+    nw: int,
+    nump: int,
+    numsza: int,
+    numalb: int,
+    numcolo3: int,
+    kbot: int,
+    sza_in: float,
+    alb_in_p: cobj,
+    p_in_p: cobj,
+    colo3_in_p: cobj,
+    p_grid_p: cobj,
+    del_p_p: cobj,
+    sza_grid_p: cobj,
+    del_sza_p: cobj,
+    alb_grid_p: cobj,
+    del_alb_p: cobj,
+    o3rat_p: cobj,
+    del_o3rat_p: cobj,
+    colo3_grid_p: cobj,
+    rsf_tab_p: cobj,
+    etfphot_p: cobj,
+    psum_l_p: cobj,
+    rsf_p: cobj,
+):
+    alb_in = Ptr[float](alb_in_p)
+    p_in = Ptr[float](p_in_p)
+    colo3_in = Ptr[float](colo3_in_p)
+    p_grid = Ptr[float](p_grid_p)
+    del_p = Ptr[float](del_p_p)
+    sza_grid = Ptr[float](sza_grid_p)
+    del_sza = Ptr[float](del_sza_p)
+    alb_grid = Ptr[float](alb_grid_p)
+    del_alb = Ptr[float](del_alb_p)
+    o3rat = Ptr[float](o3rat_p)
+    del_o3rat = Ptr[float](del_o3rat_p)
+    colo3_grid = Ptr[float](colo3_grid_p)
+    rsf_tab = Ptr[float32](rsf_tab_p)
+    etfphot = Ptr[float](etfphot_p)
+    psum_l = Ptr[float](psum_l_p)
+    rsf = Ptr[float](rsf_p)
+
+    is_idx = numsza + 1
+    for idx in range(1, numsza + 1):
+        if sza_grid[idx - 1] > sza_in:
+            is_idx = idx
+            break
+    is_idx = max(min(is_idx, numsza) - 1, 1)
+    isp1 = is_idx + 1
+    dels1 = max(0.0, min(1.0, (sza_in - sza_grid[is_idx - 1]) * del_sza[is_idx - 1]))
+    wrk0 = 1.0 - dels1
+
+    izl = 2
+    for k in range(kbot, 0, -1):
+        ial = numalb + 1
+        for idx in range(1, numalb + 1):
+            if alb_grid[idx - 1] > alb_in[k - 1]:
+                ial = idx
+                break
+        albind = max(min(ial, numalb) - 1, 1)
+
+        if p_in[k - 1] > p_grid[0]:
+            pind = 2
+            wght1 = 1.0
+        elif p_in[k - 1] <= p_grid[nump - 1]:
+            pind = nump
+            wght1 = 0.0
+        else:
+            iz = nump + 1
+            for idx in range(izl, nump + 1):
+                if p_grid[idx - 1] < p_in[k - 1]:
+                    iz = idx
+                    izl = idx
+                    break
+            pind = max(min(iz, nump), 2)
+            wght1 = max(0.0, min(1.0, (p_in[k - 1] - p_grid[pind - 1]) * del_p[pind - 2]))
+
+        v3ratu = colo3_in[k - 1] / colo3_grid[pind - 2]
+        iv = numcolo3 + 1
+        for idx in range(1, numcolo3 + 1):
+            if o3rat[idx - 1] > v3ratu:
+                iv = idx
+                break
+        ratindu = max(min(iv, numcolo3) - 1, 1)
+
+        if colo3_grid[pind - 1] != 0.0:
+            v3ratl = colo3_in[k - 1] / colo3_grid[pind - 1]
+            iv = numcolo3 + 1
+            for idx in range(1, numcolo3 + 1):
+                if o3rat[idx - 1] > v3ratl:
+                    iv = idx
+                    break
+            ratindl = max(min(iv, numcolo3) - 1, 1)
+        else:
+            ratindl = ratindu
+            v3ratl = o3rat[ratindu - 1]
+
+        ial = albind
+        ialp1 = ial + 1
+        iv = ratindl
+
+        dels2 = max(0.0, min(1.0, (v3ratl - o3rat[iv - 1]) * del_o3rat[iv - 1]))
+        dels3 = max(0.0, min(1.0, (alb_in[k - 1] - alb_grid[ial - 1]) * del_alb[ial - 1]))
+
+        wrk1 = (1.0 - dels2) * (1.0 - dels3)
+        wghtl000 = wrk0 * wrk1
+        wghtl100 = dels1 * wrk1
+        wrk1 = (1.0 - dels2) * dels3
+        wghtl001 = wrk0 * wrk1
+        wghtl101 = dels1 * wrk1
+        wrk1 = dels2 * (1.0 - dels3)
+        wghtl010 = wrk0 * wrk1
+        wghtl110 = dels1 * wrk1
+        wrk1 = dels2 * dels3
+        wghtl011 = wrk0 * wrk1
+        wghtl111 = dels1 * wrk1
+
+        iv = ratindu
+        dels2 = max(0.0, min(1.0, (v3ratu - o3rat[iv - 1]) * del_o3rat[iv - 1]))
+
+        wrk1 = (1.0 - dels2) * (1.0 - dels3)
+        wghtu000 = wrk0 * wrk1
+        wghtu100 = dels1 * wrk1
+        wrk1 = (1.0 - dels2) * dels3
+        wghtu001 = wrk0 * wrk1
+        wghtu101 = dels1 * wrk1
+        wrk1 = dels2 * (1.0 - dels3)
+        wghtu010 = wrk0 * wrk1
+        wghtu110 = dels1 * wrk1
+        wrk1 = dels2 * dels3
+        wghtu011 = wrk0 * wrk1
+        wghtu111 = dels1 * wrk1
+
+        iz = pind
+        iv = ratindl
+        ivp1 = iv + 1
+        for wn in range(1, nw + 1):
+            psum_l[wn - 1] = (
+                wghtl000 * float(rsf_tab[_idx5(wn, iz, is_idx, iv, ial, nw, nump, numsza, numcolo3)])
+                + wghtl001 * float(rsf_tab[_idx5(wn, iz, is_idx, iv, ialp1, nw, nump, numsza, numcolo3)])
+                + wghtl010 * float(rsf_tab[_idx5(wn, iz, is_idx, ivp1, ial, nw, nump, numsza, numcolo3)])
+                + wghtl011 * float(rsf_tab[_idx5(wn, iz, is_idx, ivp1, ialp1, nw, nump, numsza, numcolo3)])
+                + wghtl100 * float(rsf_tab[_idx5(wn, iz, isp1, iv, ial, nw, nump, numsza, numcolo3)])
+                + wghtl101 * float(rsf_tab[_idx5(wn, iz, isp1, iv, ialp1, nw, nump, numsza, numcolo3)])
+                + wghtl110 * float(rsf_tab[_idx5(wn, iz, isp1, ivp1, ial, nw, nump, numsza, numcolo3)])
+                + wghtl111 * float(rsf_tab[_idx5(wn, iz, isp1, ivp1, ialp1, nw, nump, numsza, numcolo3)])
+            )
+
+        iz = iz - 1
+        iv = ratindu
+        ivp1 = iv + 1
+        for wn in range(1, nw + 1):
+            psum_u = (
+                wghtu000 * float(rsf_tab[_idx5(wn, iz, is_idx, iv, ial, nw, nump, numsza, numcolo3)])
+                + wghtu001 * float(rsf_tab[_idx5(wn, iz, is_idx, iv, ialp1, nw, nump, numsza, numcolo3)])
+                + wghtu010 * float(rsf_tab[_idx5(wn, iz, is_idx, ivp1, ial, nw, nump, numsza, numcolo3)])
+                + wghtu011 * float(rsf_tab[_idx5(wn, iz, is_idx, ivp1, ialp1, nw, nump, numsza, numcolo3)])
+                + wghtu100 * float(rsf_tab[_idx5(wn, iz, isp1, iv, ial, nw, nump, numsza, numcolo3)])
+                + wghtu101 * float(rsf_tab[_idx5(wn, iz, isp1, iv, ialp1, nw, nump, numsza, numcolo3)])
+                + wghtu110 * float(rsf_tab[_idx5(wn, iz, isp1, ivp1, ial, nw, nump, numsza, numcolo3)])
+                + wghtu111 * float(rsf_tab[_idx5(wn, iz, isp1, ivp1, ialp1, nw, nump, numsza, numcolo3)])
+            )
+            rsf[_idx2(wn, k, nw)] = psum_l[wn - 1] + wght1 * (psum_u - psum_l[wn - 1])
+
+        for wn in range(1, nw + 1):
+            rsf[_idx2(wn, k, nw)] = etfphot[wn - 1] * rsf[_idx2(wn, k, nw)]
 
 
 @export

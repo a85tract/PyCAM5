@@ -46,26 +46,28 @@
       real(r8), allocatable :: wc(:)
       real(r8), allocatable :: we(:)
       real(r8), allocatable :: wlintv(:)
-      real(r8), allocatable :: etfphot(:)
+      real(r8), allocatable, target :: etfphot(:)
       real(r8), allocatable :: bde_o2_b(:)
       real(r8), allocatable :: bde_o3_a(:)
       real(r8), allocatable :: bde_o3_b(:)
       real(r8), allocatable :: xs_o2b(:,:,:)
       real(r8), allocatable :: xs_o3a(:,:,:)
       real(r8), allocatable :: xs_o3b(:,:,:)
-      real(r8), allocatable :: p(:)
-      real(r8), allocatable :: del_p(:)
+      real(r8), allocatable, target :: p(:)
+      real(r8), allocatable, target :: del_p(:)
       real(r8), allocatable :: prs(:)
       real(r8), allocatable :: dprs(:)
-      real(r8), allocatable :: sza(:)
-      real(r8), allocatable :: del_sza(:)
-      real(r8), allocatable :: alb(:)
-      real(r8), allocatable :: del_alb(:)
-      real(r8), allocatable :: o3rat(:)
-      real(r8), allocatable :: del_o3rat(:)
-      real(r8), allocatable :: colo3(:)
-      real(r4), allocatable :: rsf_tab(:,:,:,:,:)
+      real(r8), allocatable, target :: sza(:)
+      real(r8), allocatable, target :: del_sza(:)
+      real(r8), allocatable, target :: alb(:)
+      real(r8), allocatable, target :: del_alb(:)
+      real(r8), allocatable, target :: o3rat(:)
+      real(r8), allocatable, target :: del_o3rat(:)
+      real(r8), allocatable, target :: colo3(:)
+      real(r4), allocatable, target :: rsf_tab(:,:,:,:,:)
       logical :: jlong_used = .false.
+      logical :: jlong_interpolate_rsf_use_native_impl = .false.
+      logical :: jlong_interpolate_rsf_impl_selected = .false.
 
       contains
 
@@ -773,18 +775,19 @@ level_loop_1 : &
       subroutine interpolate_rsf( alb_in, sza_in, p_in, colo3_in, kbot, rsf )
 
         use error_messages, only : alloc_err
+        use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
 
       implicit none
 
 !------------------------------------------------------------------------------
 !    	... dummy arguments
 !------------------------------------------------------------------------------
-      real(r8), intent(in)  :: alb_in(:)       ! albedo
+      real(r8), target, intent(in)  :: alb_in(:)       ! albedo
       real(r8), intent(in)  :: sza_in          ! solar zenith angle (degrees)
       integer,  intent(in)  :: kbot            ! heating levels
-      real(r8), intent(in)  :: p_in(:)         ! midpoint pressure (hPa)
-      real(r8), intent(in)  :: colo3_in(:)     ! o3 column density (molecules/cm^3)
-      real(r8), intent(out) :: rsf(:,:)
+      real(r8), target, intent(in)  :: p_in(:)         ! midpoint pressure (hPa)
+      real(r8), target, intent(in)  :: colo3_in(:)     ! o3 column density (molecules/cm^3)
+      real(r8), target, intent(out) :: rsf(:,:)
 
 !----------------------------------------------------------------------
 !  	... local variables
@@ -795,7 +798,7 @@ level_loop_1 : &
       real(r8), dimension(3)               :: dels
       real(r8), dimension(0:1,0:1,0:1)     :: wghtl, wghtu
       real(r8) ::  psum_u
-      real(r8), allocatable                :: psum_l(:)
+      real(r8), allocatable, target        :: psum_l(:)
       real(r8) ::  v3ratl, v3ratu
       integer  ::  pind, albind
       real(r8) ::  wrk0, wrk1, wght1
@@ -804,12 +807,41 @@ level_loop_1 : &
       integer  ::  ratindl, ratindu
       integer  ::  wn
 
+      interface
+         subroutine jlong_interpolate_rsf_codon(nw_c, nump_c, numsza_c, numalb_c, numcolo3_c, kbot_c, sza_in_c, &
+              alb_in_p, p_in_p, colo3_in_p, p_grid_p, del_p_p, sza_grid_p, del_sza_p, alb_grid_p, del_alb_p, &
+              o3rat_p, del_o3rat_p, colo3_grid_p, rsf_tab_p, etfphot_p, psum_l_p, rsf_p) &
+              bind(c, name="jlong_interpolate_rsf_codon")
+           use iso_c_binding, only : c_double, c_int64_t, c_ptr
+           integer(c_int64_t), value :: nw_c, nump_c, numsza_c, numalb_c, numcolo3_c, kbot_c
+           real(c_double), value :: sza_in_c
+           type(c_ptr), value :: alb_in_p, p_in_p, colo3_in_p, p_grid_p, del_p_p
+           type(c_ptr), value :: sza_grid_p, del_sza_p, alb_grid_p, del_alb_p
+           type(c_ptr), value :: o3rat_p, del_o3rat_p, colo3_grid_p, rsf_tab_p, etfphot_p
+           type(c_ptr), value :: psum_l_p, rsf_p
+         end subroutine jlong_interpolate_rsf_codon
+      end interface
+
 !----------------------------------------------------------------------
 !        ... allocate variables
 !----------------------------------------------------------------------
       allocate( psum_l(nw),stat=astat )
       if( astat /= 0 ) then
          call alloc_err( astat, 'jlong_hrates', 'psum_l', nw )
+      end if
+
+      call jlong_interpolate_rsf_select_impl()
+
+      if (.not. jlong_interpolate_rsf_use_native_impl) then
+         call jlong_interpolate_rsf_codon( &
+              int(nw, c_int64_t), int(nump, c_int64_t), int(numsza, c_int64_t), int(numalb, c_int64_t), &
+              int(numcolo3, c_int64_t), int(kbot, c_int64_t), real(sza_in, c_double), c_loc(alb_in(1)), &
+              c_loc(p_in(1)), c_loc(colo3_in(1)), c_loc(p(1)), c_loc(del_p(1)), c_loc(sza(1)), c_loc(del_sza(1)), &
+              c_loc(alb(1)), c_loc(del_alb(1)), c_loc(o3rat(1)), c_loc(del_o3rat(1)), c_loc(colo3(1)), &
+              c_loc(rsf_tab(1,1,1,1,1)), c_loc(etfphot(1)), c_loc(psum_l(1)), c_loc(rsf(1,1)) &
+         )
+         deallocate( psum_l )
+         return
       end if
 
 !----------------------------------------------------------------------
@@ -958,6 +990,43 @@ Level_loop : &
       deallocate( psum_l )
 
       end subroutine interpolate_rsf
+
+      subroutine jlong_interpolate_rsf_select_impl()
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (jlong_interpolate_rsf_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('JLONG_INTERPOLATE_RSF_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         jlong_interpolate_rsf_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         jlong_interpolate_rsf_use_native_impl = .false.
+      end if
+
+      jlong_interpolate_rsf_impl_selected = .true.
+
+      if (masterproc) then
+         if (jlong_interpolate_rsf_use_native_impl) then
+            write(iulog,*) 'jlong_interpolate_rsf implementation = native'
+         else
+            write(iulog,*) 'jlong_interpolate_rsf implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine jlong_interpolate_rsf_select_impl
 
 
       end module mo_jlong
