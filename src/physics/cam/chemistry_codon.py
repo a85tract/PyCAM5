@@ -22,6 +22,50 @@ def _flux_idx(i: int, m: int, pcols: int) -> int:
 
 
 @export
+def rebin_codon(
+    nsrc: int,
+    ntrg: int,
+    src_x_p: cobj,
+    trg_x_p: cobj,
+    src_p: cobj,
+    trg_p: cobj,
+):
+    src_x = Ptr[float](src_x_p)
+    trg_x = Ptr[float](trg_x_p)
+    src = Ptr[float](src_p)
+    trg = Ptr[float](trg_p)
+
+    for i in range(1, ntrg + 1):
+        tl = trg_x[i - 1]
+        if tl < src_x[nsrc]:
+            sil = nsrc + 2
+            for idx in range(1, nsrc + 2):
+                if tl <= src_x[idx - 1]:
+                    sil = idx
+                    break
+
+            tu = trg_x[i]
+            siu = nsrc + 2
+            for idx in range(1, nsrc + 2):
+                if tu <= src_x[idx - 1]:
+                    siu = idx
+                    break
+
+            y = 0.0
+            sil = max(sil, 2)
+            siu = min(siu, nsrc + 1)
+            for si in range(sil, siu + 1):
+                si1 = si - 1
+                sl = max(tl, src_x[si1 - 1])
+                su = min(tu, src_x[si - 1])
+                y = y + (su - sl) * src[si1 - 1]
+
+            trg[i - 1] = y / (trg_x[i] - trg_x[i - 1])
+        else:
+            trg[i - 1] = 0.0
+
+
+@export
 def chem_emissions_zero_cflx_codon(
     pcols: int,
     pcnst: int,

@@ -1,11 +1,16 @@
 module mo_util
 
   use shr_kind_mod, only : r8 => shr_kind_r8
+  use cam_logfile, only : iulog
+  use spmd_utils, only : masterproc
 
   implicit none
 
   private
   public :: rebin
+
+  logical :: rebin_use_native_impl = .false.
+  logical :: rebin_impl_selected = .false.
 
 contains
 
@@ -14,6 +19,8 @@ contains
     !	... rebin src to trg
     !---------------------------------------------------------------
 
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
     implicit none
 
     !---------------------------------------------------------------
@@ -21,10 +28,10 @@ contains
     !---------------------------------------------------------------
     integer, intent(in)   :: nsrc                  ! dimension source array
     integer, intent(in)   :: ntrg                  ! dimension target array
-    real(r8), intent(in)      :: src_x(nsrc+1)         ! source coordinates
-    real(r8), intent(in)      :: trg_x(ntrg+1)         ! target coordinates
-    real(r8), intent(in)      :: src(nsrc)             ! source array
-    real(r8), intent(out)     :: trg(ntrg)             ! target array
+    real(r8), target, intent(in)  :: src_x(nsrc+1) ! source coordinates
+    real(r8), target, intent(in)  :: trg_x(ntrg+1) ! target coordinates
+    real(r8), target, intent(in)  :: src(nsrc)     ! source array
+    real(r8), target, intent(out) :: trg(ntrg)     ! target array
 
     !---------------------------------------------------------------
     !	... local variables
@@ -35,6 +42,21 @@ contains
     real(r8)     :: y
     real(r8)     :: sl, su
     real(r8)     :: tl, tu
+
+    interface
+       subroutine rebin_codon(nsrc_c, ntrg_c, src_x_p, trg_x_p, src_p, trg_p) bind(c, name="rebin_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: nsrc_c, ntrg_c
+         type(c_ptr), value :: src_x_p, trg_x_p, src_p, trg_p
+       end subroutine rebin_codon
+    end interface
+
+    call rebin_select_impl()
+
+    if (.not. rebin_use_native_impl) then
+       call rebin_codon( int(nsrc, c_int64_t), int(ntrg, c_int64_t), c_loc(src_x), c_loc(trg_x), c_loc(src), c_loc(trg) )
+       return
+    end if
 
     !---------------------------------------------------------------
     !	... check interval overlap
@@ -76,6 +98,43 @@ contains
     end do
 
   end subroutine rebin
+
+  subroutine rebin_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (rebin_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('REBIN_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       rebin_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       rebin_use_native_impl = .false.
+    end if
+
+    rebin_impl_selected = .true.
+
+    if (masterproc) then
+       if (rebin_use_native_impl) then
+          write(iulog,*) 'rebin implementation = native'
+       else
+          write(iulog,*) 'rebin implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine rebin_select_impl
 
 
 end module mo_util
