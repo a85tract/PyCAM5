@@ -737,7 +737,7 @@ contains
     !        ... Form the washout rates
     !-----------------------------------------------------------------------      
     if ( do_neu_wetdep ) then
-      het_rates = 0._r8
+      call gas_phase_chemdr_zero_het_rates(ncol, het_rates)
     else
       call sethet( het_rates, pmid, zmid, phis, tfld, &
                    cmfdqr, prain, nevapr, delt, invariants(:,:,indexm), &
@@ -1267,6 +1267,41 @@ contains
     )
 
   end subroutine gas_phase_chemdr_clip_sulfate
+
+  subroutine gas_phase_chemdr_zero_het_rates(ncol, het_rates)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(inout) :: het_rates(ncol,pver,max(1,gas_pcnst))
+
+    integer :: i, k, m
+
+    interface
+       subroutine gas_phase_chemdr_zero_het_rates_codon(ncol_c, pver_c, gas_pcnst_dim_c, het_rates_p) &
+            bind(c, name="gas_phase_chemdr_zero_het_rates_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, gas_pcnst_dim_c
+         type(c_ptr), value :: het_rates_p
+       end subroutine gas_phase_chemdr_zero_het_rates_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do m = 1, max(1, gas_pcnst)
+          do k = 1, pver
+             do i = 1, ncol
+                het_rates(i,k,m) = 0._r8
+             end do
+          end do
+       end do
+       return
+    end if
+
+    call gas_phase_chemdr_zero_het_rates_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), int(max(1, gas_pcnst), c_int64_t), c_loc(het_rates) &
+    )
+
+  end subroutine gas_phase_chemdr_zero_het_rates
 
   subroutine gas_phase_chemdr_load_oxygen_mmr(ncol, o2_ndx_in, o_ndx_in, mmr, o2mmr, ommr)
 

@@ -361,6 +361,21 @@ def gas_phase_chemdr_clip_sulfate_codon(
 
 
 @export
+def gas_phase_chemdr_zero_het_rates_codon(
+    ncol: int,
+    pver: int,
+    gas_pcnst_dim: int,
+    het_rates_p: cobj,
+):
+    het_rates = Ptr[float](het_rates_p)
+
+    for m in range(1, gas_pcnst_dim + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                het_rates[_idx3(i, k, m, ncol, pver)] = 0.0
+
+
+@export
 def gas_phase_chemdr_load_oxygen_mmr_codon(
     ncol: int,
     pcols: int,
