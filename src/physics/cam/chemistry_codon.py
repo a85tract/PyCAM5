@@ -312,6 +312,29 @@ def gas_phase_chemdr_clip_sulfate_codon(
 
 
 @export
+def gas_phase_chemdr_normalize_extfrc_codon(
+    ncol: int,
+    pver: int,
+    extcnt: int,
+    synoz_ndx: int,
+    aoa_nh_ext_ndx: int,
+    indexm: int,
+    extfrc_p: cobj,
+    invariants_p: cobj,
+):
+    extfrc = Ptr[float](extfrc_p)
+    invariants = Ptr[float](invariants_p)
+
+    for m in range(1, extcnt + 1):
+        if m != synoz_ndx and m != aoa_nh_ext_ndx:
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    extfrc[_idx3(i, k, m, ncol, pver)] = extfrc[_idx3(i, k, m, ncol, pver)] / invariants[
+                        _idx3(i, k, indexm, ncol, pver)
+                    ]
+
+
+@export
 def gas_phase_chemdr_store_drydep_codon(
     ncol: int,
     pcols: int,

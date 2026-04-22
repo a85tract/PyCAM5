@@ -759,12 +759,8 @@ contains
                  zmid, lchnk, tfld, o2mmr, ommr, &
                  pmid, mbar, rlats, calday, ncol, rlons, pbuf )
 
+    call gas_phase_chemdr_normalize_extfrc(ncol, extcnt, nfs, indexm, extfrc, invariants)
     do m = 1,extcnt
-       if( m /= synoz_ndx .and. m /= aoa_nh_ext_ndx ) then
-          do k = 1,pver
-             extfrc(:ncol,k,m) = extfrc(:ncol,k,m) / invariants(:ncol,k,indexm)
-          end do
-       endif
        call outfld( extfrc_name(m), extfrc(:ncol,:,m), ncol, lchnk )
     end do
 
@@ -1215,6 +1211,44 @@ contains
     )
 
   end subroutine gas_phase_chemdr_clip_sulfate
+
+  subroutine gas_phase_chemdr_normalize_extfrc(ncol, extcnt_in, nfs_in, indexm_in, extfrc, invariants)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: extcnt_in, nfs_in, indexm_in
+    real(r8), target, intent(inout) :: extfrc(ncol,pver,max(1,extcnt_in))
+    real(r8), target, intent(in) :: invariants(ncol,pver,nfs_in)
+
+    integer :: m, k
+
+    interface
+       subroutine gas_phase_chemdr_normalize_extfrc_codon(ncol_c, pver_c, extcnt_c, synoz_ndx_c, aoa_nh_ext_ndx_c, &
+            indexm_c, extfrc_p, invariants_p) bind(c, name="gas_phase_chemdr_normalize_extfrc_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, extcnt_c, synoz_ndx_c, aoa_nh_ext_ndx_c, indexm_c
+         type(c_ptr), value :: extfrc_p, invariants_p
+       end subroutine gas_phase_chemdr_normalize_extfrc_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do m = 1,extcnt_in
+          if( m /= synoz_ndx .and. m /= aoa_nh_ext_ndx ) then
+             do k = 1,pver
+                extfrc(:ncol,k,m) = extfrc(:ncol,k,m) / invariants(:ncol,k,indexm_in)
+             end do
+          endif
+       end do
+       return
+    end if
+
+    call gas_phase_chemdr_normalize_extfrc_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), int(extcnt_in, c_int64_t), int(synoz_ndx, c_int64_t), &
+         int(aoa_nh_ext_ndx, c_int64_t), int(indexm_in, c_int64_t), c_loc(extfrc), c_loc(invariants) &
+    )
+
+  end subroutine gas_phase_chemdr_normalize_extfrc
 
   subroutine gas_phase_chemdr_store_drydep(ncol, sflx, cflx, drydepflx)
 
