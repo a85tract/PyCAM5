@@ -76,6 +76,8 @@ module mo_photo
   logical :: do_jeuv = .false.
   logical :: do_jshort = .false.
   logical :: do_diag = .false.
+  logical :: setcol_use_native_impl = .false.
+  logical :: setcol_impl_selected = .false.
 
   integer :: ion_rates_idx = -1
 
@@ -1597,6 +1599,7 @@ secant_in_bounds : &
     !---------------------------------------------------------------
 
     use chem_mods, only : ncol_abs=>nabscol, gas_pcnst
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
 
     implicit none
 
@@ -1606,13 +1609,13 @@ secant_in_bounds : &
     integer,  intent(in)    :: ncol                              ! no. of columns in current chunk
     real(r8), intent(in)    :: vmr(ncol,pver,gas_pcnst)          ! xported species vmr
     real(r8), intent(in)    :: pdel(pcols,pver)                  ! delta about midpoints
-    real(r8), intent(in)    :: col_delta(:,0:,:)                 ! layer column densities (molecules/cm^2)
-    real(r8), intent(out)   :: col_dens(:,:,:)                   ! column densities ( /cm**2 )
+    real(r8), target, intent(in)  :: col_delta(ncol,0:pver,max(1,ncol_abs))
+    real(r8), target, intent(out) :: col_dens(ncol,pver,max(1,ncol_abs))
 
     !---------------------------------------------------------------
     !        the local variables
     !---------------------------------------------------------------
-    integer  ::   i, k, km1, m      ! long, alt indicies
+    integer  ::   k, km1, m      ! long, alt indicies
 
     !---------------------------------------------------------------
     !        note: xfactor = 10.*r/(k*g) in cgs units.
@@ -1621,20 +1624,73 @@ secant_in_bounds : &
     !---------------------------------------------------------------
     real(r8), parameter :: xfactor = 2.8704e21_r8/(9.80616_r8*1.38044_r8)
 
+    interface
+       subroutine setcol_codon(ncol_c, pver_c, ncol_abs_c, col_delta_p, col_dens_p) bind(c, name="setcol_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, ncol_abs_c
+         type(c_ptr), value :: col_delta_p, col_dens_p
+       end subroutine setcol_codon
+    end interface
+
+    call setcol_select_impl()
+
     !---------------------------------------------------------------
     !   	... compute column densities down to the
     !           current eta index in the calling routine.
     !           the first column is o3 and the second is o2.
     !---------------------------------------------------------------
-    do m = 1,ncol_abs
-       col_dens(:,1,m) = col_delta(:,0,m) + .5_r8 * col_delta(:,1,m)
-       do k = 2,pver
-          km1 = k - 1
-          col_dens(:,k,m) = col_dens(:,km1,m) + .5_r8 * (col_delta(:,km1,m) + col_delta(:,k,m))
-       end do
-    enddo
+    if (setcol_use_native_impl) then
+       do m = 1,ncol_abs
+          col_dens(:,1,m) = col_delta(:,0,m) + .5_r8 * col_delta(:,1,m)
+          do k = 2,pver
+             km1 = k - 1
+             col_dens(:,k,m) = col_dens(:,km1,m) + .5_r8 * (col_delta(:,km1,m) + col_delta(:,k,m))
+          end do
+       enddo
+       return
+    end if
+
+    call setcol_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), int(ncol_abs, c_int64_t), &
+         c_loc(col_delta), c_loc(col_dens) &
+    )
 
   end subroutine setcol
+
+  subroutine setcol_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (setcol_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('SETCOL_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       setcol_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       setcol_use_native_impl = .false.
+    end if
+
+    setcol_impl_selected = .true.
+
+    if (masterproc) then
+       if (setcol_use_native_impl) then
+          write(iulog,*) 'setcol implementation = native'
+       else
+          write(iulog,*) 'setcol implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine setcol_select_impl
 
   subroutine photo_timestep_init( calday )
     use time_manager,   only : is_end_curr_day

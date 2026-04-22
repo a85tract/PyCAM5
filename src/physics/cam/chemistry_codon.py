@@ -12,6 +12,11 @@ def _idx3(i: int, k: int, m: int, ld1: int, ld2: int) -> int:
 
 
 @inline
+def _idx3_k0(i: int, k: int, m: int, ld1: int, nk: int) -> int:
+    return (i - 1) + k * ld1 + (m - 1) * ld1 * nk
+
+
+@inline
 def _flux_idx(i: int, m: int, pcols: int) -> int:
     return (i - 1) + (m - 1) * pcols
 
@@ -262,6 +267,31 @@ def charge_balance_codon(
         for k in range(1, pver + 1):
             for i in range(1, ncol + 1):
                 wrk[_idx2(i, k, ncol)] = wrk[_idx2(i, k, ncol)] + conc[_idx3(i, k, nop_ndx, ncol, pver)]
+
+
+@export
+def setcol_codon(
+    ncol: int,
+    pver: int,
+    ncol_abs: int,
+    col_delta_p: cobj,
+    col_dens_p: cobj,
+):
+    col_delta = Ptr[float](col_delta_p)
+    col_dens = Ptr[float](col_dens_p)
+
+    for m in range(1, ncol_abs + 1):
+        for i in range(1, ncol + 1):
+            col_dens[_idx3(i, 1, m, ncol, pver)] = col_delta[_idx3_k0(i, 0, m, ncol, pver + 1)] + 0.5 * col_delta[
+                _idx3_k0(i, 1, m, ncol, pver + 1)
+            ]
+
+        for k in range(2, pver + 1):
+            km1 = k - 1
+            for i in range(1, ncol + 1):
+                col_dens[_idx3(i, k, m, ncol, pver)] = col_dens[_idx3(i, km1, m, ncol, pver)] + 0.5 * (
+                    col_delta[_idx3_k0(i, km1, m, ncol, pver + 1)] + col_delta[_idx3_k0(i, k, m, ncol, pver + 1)]
+                )
 
 
 @export
