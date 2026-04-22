@@ -106,6 +106,25 @@ def vmr2mmr_codon(
 
 
 @export
+def h2o_to_vmr_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    adv_mass_h2o: float,
+    h2o_mmr_p: cobj,
+    mbar_p: cobj,
+    h2o_vmr_p: cobj,
+):
+    h2o_mmr = Ptr[float](h2o_mmr_p)
+    mbar = Ptr[float](mbar_p)
+    h2o_vmr = Ptr[float](h2o_vmr_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            h2o_vmr[_idx2(i, k, ncol)] = mbar[_idx2(i, k, ncol)] * h2o_mmr[_idx2(i, k, pcols)] / adv_mass_h2o
+
+
+@export
 def set_mean_mass_codon(
     ncol: int,
     pcols: int,
