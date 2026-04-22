@@ -312,6 +312,27 @@ def gas_phase_chemdr_clip_sulfate_codon(
 
 
 @export
+def gas_phase_chemdr_load_oxygen_mmr_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    o2_ndx: int,
+    o_ndx: int,
+    mmr_p: cobj,
+    o2mmr_p: cobj,
+    ommr_p: cobj,
+):
+    mmr = Ptr[float](mmr_p)
+    o2mmr = Ptr[float](o2mmr_p)
+    ommr = Ptr[float](ommr_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            o2mmr[_idx2(i, k, ncol)] = mmr[_idx3(i, k, o2_ndx, pcols, pver)]
+            ommr[_idx2(i, k, ncol)] = mmr[_idx3(i, k, o_ndx, pcols, pver)]
+
+
+@export
 def gas_phase_chemdr_normalize_extfrc_codon(
     ncol: int,
     pver: int,

@@ -747,10 +747,7 @@ contains
     !        ... Compute the extraneous frcing at time = t(n+1)
     !-----------------------------------------------------------------------      
     if ( o2_ndx > 0 .and. o_ndx > 0 ) then
-       do k = 1,pver
-          o2mmr(:ncol,k) = mmr(:ncol,k,o2_ndx)
-          ommr(:ncol,k)  = mmr(:ncol,k,o_ndx)
-       end do
+       call gas_phase_chemdr_load_oxygen_mmr(ncol, o2_ndx, o_ndx, mmr, o2mmr, ommr)
     endif
     !-----------------------------------------------------------------------
     !        ... Compute the extraneous frcing at time = t(n+1)
@@ -1211,6 +1208,42 @@ contains
     )
 
   end subroutine gas_phase_chemdr_clip_sulfate
+
+  subroutine gas_phase_chemdr_load_oxygen_mmr(ncol, o2_ndx_in, o_ndx_in, mmr, o2mmr, ommr)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: o2_ndx_in, o_ndx_in
+    real(r8), target, intent(in) :: mmr(pcols,pver,gas_pcnst)
+    real(r8), target, intent(out) :: o2mmr(ncol,pver)
+    real(r8), target, intent(out) :: ommr(ncol,pver)
+
+    integer :: k
+
+    interface
+       subroutine gas_phase_chemdr_load_oxygen_mmr_codon(ncol_c, pcols_c, pver_c, o2_ndx_c, o_ndx_c, mmr_p, &
+            o2mmr_p, ommr_p) bind(c, name="gas_phase_chemdr_load_oxygen_mmr_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, o2_ndx_c, o_ndx_c
+         type(c_ptr), value :: mmr_p, o2mmr_p, ommr_p
+       end subroutine gas_phase_chemdr_load_oxygen_mmr_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do k = 1,pver
+          o2mmr(:ncol,k) = mmr(:ncol,k,o2_ndx_in)
+          ommr(:ncol,k)  = mmr(:ncol,k,o_ndx_in)
+       end do
+       return
+    end if
+
+    call gas_phase_chemdr_load_oxygen_mmr_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(o2_ndx_in, c_int64_t), &
+         int(o_ndx_in, c_int64_t), c_loc(mmr), c_loc(o2mmr), c_loc(ommr) &
+    )
+
+  end subroutine gas_phase_chemdr_load_oxygen_mmr
 
   subroutine gas_phase_chemdr_normalize_extfrc(ncol, extcnt_in, nfs_in, indexm_in, extfrc, invariants)
 
