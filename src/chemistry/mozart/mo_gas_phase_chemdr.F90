@@ -777,11 +777,7 @@ contains
 !
 ! set loss to below the tropopause only
 !
-    if ( st80_25_tau_ndx > 0 ) then
-       do i = 1,ncol
-          reaction_rates(i,1:troplev(i),st80_25_tau_ndx) = 0._r8
-       enddo
-    end if
+    call gas_phase_chemdr_zero_st80_tau(ncol, rxntot, st80_25_tau_ndx, troplev, reaction_rates)
 
 !
 
@@ -1273,6 +1269,42 @@ contains
     )
 
   end subroutine gas_phase_chemdr_set_ltrop_sol
+
+  subroutine gas_phase_chemdr_zero_st80_tau(ncol, rxntot_in, st80_25_tau_ndx_in, troplev, reaction_rates)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: rxntot_in, st80_25_tau_ndx_in
+    integer, target, intent(in) :: troplev(pcols)
+    real(r8), target, intent(inout) :: reaction_rates(ncol,pver,max(1,rxntot_in))
+
+    integer :: i
+
+    interface
+       subroutine gas_phase_chemdr_zero_st80_tau_codon(ncol_c, pver_c, rxntot_c, st80_25_tau_ndx_c, troplev_p, &
+            reaction_rates_p) bind(c, name="gas_phase_chemdr_zero_st80_tau_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, rxntot_c, st80_25_tau_ndx_c
+         type(c_ptr), value :: troplev_p, reaction_rates_p
+       end subroutine gas_phase_chemdr_zero_st80_tau_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       if (st80_25_tau_ndx_in > 0) then
+          do i = 1,ncol
+             reaction_rates(i,1:troplev(i),st80_25_tau_ndx_in) = 0._r8
+          enddo
+       end if
+       return
+    end if
+
+    call gas_phase_chemdr_zero_st80_tau_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), int(rxntot_in, c_int64_t), int(st80_25_tau_ndx_in, c_int64_t), &
+         c_loc(troplev), c_loc(reaction_rates) &
+    )
+
+  end subroutine gas_phase_chemdr_zero_st80_tau
 
   subroutine gas_phase_chemdr_normalize_extfrc(ncol, extcnt_in, nfs_in, indexm_in, extfrc, invariants)
 

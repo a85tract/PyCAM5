@@ -351,6 +351,24 @@ def gas_phase_chemdr_set_ltrop_sol_codon(
 
 
 @export
+def gas_phase_chemdr_zero_st80_tau_codon(
+    ncol: int,
+    pver: int,
+    rxntot: int,
+    st80_25_tau_ndx: int,
+    troplev_p: cobj,
+    reaction_rates_p: cobj,
+):
+    troplev = Ptr[int](troplev_p)
+    reaction_rates = Ptr[float](reaction_rates_p)
+
+    if st80_25_tau_ndx > 0:
+        for i in range(1, ncol + 1):
+            for k in range(1, troplev[i - 1] + 1):
+                reaction_rates[_idx3(i, k, st80_25_tau_ndx, ncol, pver)] = 0.0
+
+
+@export
 def gas_phase_chemdr_normalize_extfrc_codon(
     ncol: int,
     pver: int,
