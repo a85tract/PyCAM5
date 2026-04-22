@@ -881,12 +881,7 @@ contains
 !      NOTE: vmr for hcl and hno3 is gas-phase at this point.
 !            hno3_cond(:,k,1) = STS; hno3_cond(:,k,2) = NAT
    
-       do k = 1,pver
-          vmr(:,k,hno3_ndx) = vmr(:,k,hno3_ndx) + hno3_cond(:,k,1) &
-               + hno3_cond(:,k,2) 
-          vmr(:,k,hcl_ndx)  = vmr(:,k,hcl_ndx)  + hcl_cond(:,k) 
-              
-       end do
+       call gas_phase_chemdr_reform_hno3_hcl(ncol, hno3_ndx, hcl_ndx, vmr, hno3_cond, hcl_cond)
 
        wrk(:,:) = (vmr(:,:,h2o_ndx) - wrk(:,:))*delt_inverse
        call outfld( 'QDSETT', wrk(:,:), ncol, lchnk )
@@ -1363,6 +1358,43 @@ contains
     )
 
   end subroutine gas_phase_chemdr_update_h2so4_gasprod
+
+  subroutine gas_phase_chemdr_reform_hno3_hcl(ncol, hno3_ndx_in, hcl_ndx_in, vmr, hno3_cond, hcl_cond)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: hno3_ndx_in, hcl_ndx_in
+    real(r8), target, intent(inout) :: vmr(ncol,pver,gas_pcnst)
+    real(r8), target, intent(in) :: hno3_cond(ncol,pver,2)
+    real(r8), target, intent(in) :: hcl_cond(ncol,pver)
+
+    integer :: k
+
+    interface
+       subroutine gas_phase_chemdr_reform_hno3_hcl_codon(ncol_c, pver_c, gas_pcnst_c, hno3_ndx_c, hcl_ndx_c, &
+            vmr_p, hno3_cond_p, hcl_cond_p) bind(c, name="gas_phase_chemdr_reform_hno3_hcl_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, gas_pcnst_c, hno3_ndx_c, hcl_ndx_c
+         type(c_ptr), value :: vmr_p, hno3_cond_p, hcl_cond_p
+       end subroutine gas_phase_chemdr_reform_hno3_hcl_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do k = 1,pver
+          vmr(:,k,hno3_ndx_in) = vmr(:,k,hno3_ndx_in) + hno3_cond(:,k,1) + hno3_cond(:,k,2)
+          vmr(:,k,hcl_ndx_in) = vmr(:,k,hcl_ndx_in) + hcl_cond(:,k)
+       end do
+       return
+    end if
+
+    call gas_phase_chemdr_reform_hno3_hcl_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), &
+         int(hno3_ndx_in, c_int64_t), int(hcl_ndx_in, c_int64_t), &
+         c_loc(vmr), c_loc(hno3_cond), c_loc(hcl_cond) &
+    )
+
+  end subroutine gas_phase_chemdr_reform_hno3_hcl
 
   subroutine gas_phase_chemdr_normalize_extfrc(ncol, extcnt_in, nfs_in, indexm_in, extfrc, invariants)
 

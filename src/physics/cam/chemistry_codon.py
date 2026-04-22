@@ -405,6 +405,31 @@ def gas_phase_chemdr_update_h2so4_gasprod_codon(
 
 
 @export
+def gas_phase_chemdr_reform_hno3_hcl_codon(
+    ncol: int,
+    pver: int,
+    gas_pcnst: int,
+    hno3_ndx: int,
+    hcl_ndx: int,
+    vmr_p: cobj,
+    hno3_cond_p: cobj,
+    hcl_cond_p: cobj,
+):
+    vmr = Ptr[float](vmr_p)
+    hno3_cond = Ptr[float](hno3_cond_p)
+    hcl_cond = Ptr[float](hcl_cond_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            hno3_idx = _idx3(i, k, hno3_ndx, ncol, pver)
+            hno3_total = vmr[hno3_idx] + hno3_cond[_idx3(i, k, 1, ncol, pver)]
+            vmr[hno3_idx] = hno3_total + hno3_cond[_idx3(i, k, 2, ncol, pver)]
+
+            hcl_idx = _idx3(i, k, hcl_ndx, ncol, pver)
+            vmr[hcl_idx] = vmr[hcl_idx] + hcl_cond[_idx2(i, k, ncol)]
+
+
+@export
 def gas_phase_chemdr_normalize_extfrc_codon(
     ncol: int,
     pver: int,
