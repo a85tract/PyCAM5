@@ -1271,3 +1271,44 @@ def gas_phase_chemdr_store_drydep_codon(
                 dst_idx = _flux_idx(i, m, pcols)
                 cflx[dst_idx] = cflx[dst_idx] - sflx[src_idx]
                 drydepflx[dst_idx] = sflx[src_idx]
+
+
+@export
+def adjrxt_codon(
+    ncol: int,
+    pver: int,
+    rate_p: cobj,
+    inv_p: cobj,
+    m_p: cobj,
+):
+    rate = Ptr[float](rate_p)
+    inv = Ptr[float](inv_p)
+    m = Ptr[float](m_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx_r2 = _idx3(i, k, 2, ncol, pver)
+            idx_r3 = _idx3(i, k, 3, ncol, pver)
+            idx_r4 = _idx3(i, k, 4, ncol, pver)
+            idx_r5 = _idx3(i, k, 5, ncol, pver)
+            idx_r6 = _idx3(i, k, 6, ncol, pver)
+            idx_r7 = _idx3(i, k, 7, ncol, pver)
+            idx_i6 = _idx3(i, k, 6, ncol, pver)
+            idx_i7 = _idx3(i, k, 7, ncol, pver)
+            idx_i8 = _idx3(i, k, 8, ncol, pver)
+            idx_m = _idx2(i, k, ncol)
+
+            inv6 = inv[idx_i6]
+            inv7 = inv[idx_i7]
+            inv8 = inv[idx_i8]
+            im = 1.0 / m[idx_m]
+
+            rate[idx_r3] = rate[idx_r3] * inv6
+            rate[idx_r4] = rate[idx_r4] * inv6
+            rate[idx_r5] = rate[idx_r5] * inv6
+            rate[idx_r6] = rate[idx_r6] * inv6
+            rate[idx_r7] = rate[idx_r7] * inv7
+
+            tmp = rate[idx_r2] * inv8
+            tmp = tmp * inv8
+            rate[idx_r2] = tmp * im
