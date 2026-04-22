@@ -1576,3 +1576,20 @@ def indprd_codon(
             prod[_idx3(i, k, 18, ncol, pver)] = 0.0
             prod[_idx3(i, k, 19, ncol, pver)] = 0.0
             prod[_idx3(i, k, 20, ncol, pver)] = 0.0
+
+
+@export
+def negtrc_codon(
+    ncol: int,
+    pver: int,
+    gas_pcnst: int,
+    fld_p: cobj,
+):
+    fld = Ptr[float](fld_p)
+
+    for m in range(1, gas_pcnst + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx3(i, k, m, ncol, pver)
+                if fld[idx] < 0.0:
+                    fld[idx] = 0.0
