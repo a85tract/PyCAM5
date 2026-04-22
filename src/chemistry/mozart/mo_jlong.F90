@@ -66,6 +66,8 @@
       real(r8), allocatable, target :: colo3(:)
       real(r4), allocatable, target :: rsf_tab(:,:,:,:,:)
       logical :: jlong_used = .false.
+      logical :: jlong_photo_use_native_impl = .false.
+      logical :: jlong_photo_impl_selected = .false.
       logical :: jlong_photo_loop_use_native_impl = .false.
       logical :: jlong_photo_loop_impl_selected = .false.
       logical :: jlong_photo_accum_use_native_impl = .false.
@@ -554,10 +556,10 @@
       real(r8), intent(in)     :: o2_vmr(nlev)       ! o2 conc (mol/mol)
       real(r8), intent(in)     :: o3_vmr(nlev)       ! o3 conc (mol/mol)
       real(r8), intent(in)     :: sza_in             ! solar zenith angle (degrees)
-      real(r8), intent(in)     :: alb_in(nlev)       ! albedo
+      real(r8), target, intent(in)     :: alb_in(nlev)       ! albedo
       real(r8), intent(in)     :: p_in(nlev)         ! midpoint pressure (hPa)
       real(r8), intent(in)     :: t_in(nlev)         ! Temperature profile (K)
-      real(r8), intent(in)     :: colo3_in(nlev)     ! o3 column density (molecules/cm^3)
+      real(r8), target, intent(in)     :: colo3_in(nlev)     ! o3 column density (molecules/cm^3)
       real(r8), intent(in)     :: mw(nlev)           ! atms molecular weight
       real(r8), intent(in)     :: cparg(nlev)        ! specific heat capacity
       real(r8), intent(inout)  :: qrl_col(:,:)	     ! heating rates
@@ -682,10 +684,10 @@ level_loop_1 : &
 !------------------------------------------------------------------------------
       integer, intent (in)     :: nlev               ! number vertical levels
       real(r8), intent(in)     :: sza_in             ! solar zenith angle (degrees)
-      real(r8), intent(in)     :: alb_in(nlev)       ! albedo
+      real(r8), target, intent(in)     :: alb_in(nlev)       ! albedo
       real(r8), target, intent(in)     :: p_in(nlev)         ! midpoint pressure (hPa)
       real(r8), target, intent(in)     :: t_in(nlev)         ! Temperature profile (K)
-      real(r8), intent(in)     :: colo3_in(nlev)     ! o3 column density (molecules/cm^3)
+      real(r8), target, intent(in)     :: colo3_in(nlev)     ! o3 column density (molecules/cm^3)
       real(r8), target, intent(out)    :: j_long(:,:)	     ! photo rates (1/s)
 
 !----------------------------------------------------------------------
@@ -700,9 +702,22 @@ level_loop_1 : &
       real(r8) ::  delp
       real(r8) ::  hfactor
       real(r8), allocatable, target :: rsf(:,:)	        ! Radiative source function
+      real(r8), allocatable, target :: psum_l(:)
       real(r8), allocatable, target :: xswk(:,:)	! working xsection array
 
       interface
+         subroutine jlong_photo_codon(numj_c, nw_c, nt_c, np_xs_c, nump_c, numsza_c, numalb_c, numcolo3_c, nlev_c, &
+              sza_in_c, alb_in_p, p_in_p, t_in_p, colo3_in_p, p_grid_p, del_p_p, sza_grid_p, del_sza_p, alb_grid_p, &
+              del_alb_p, o3rat_p, del_o3rat_p, colo3_grid_p, rsf_tab_p, etfphot_p, prs_p, dprs_p, xsqy_p, rsf_p, &
+              psum_l_p, xswk_p, j_long_p) bind(c, name="jlong_photo_codon")
+           use iso_c_binding, only : c_double, c_int64_t, c_ptr
+           integer(c_int64_t), value :: numj_c, nw_c, nt_c, np_xs_c, nump_c, numsza_c, numalb_c, numcolo3_c, nlev_c
+           real(c_double), value :: sza_in_c
+           type(c_ptr), value :: alb_in_p, p_in_p, t_in_p, colo3_in_p
+           type(c_ptr), value :: p_grid_p, del_p_p, sza_grid_p, del_sza_p, alb_grid_p, del_alb_p
+           type(c_ptr), value :: o3rat_p, del_o3rat_p, colo3_grid_p, rsf_tab_p, etfphot_p
+           type(c_ptr), value :: prs_p, dprs_p, xsqy_p, rsf_p, psum_l_p, xswk_p, j_long_p
+         end subroutine jlong_photo_codon
          subroutine jlong_photo_fill_xswk_codon(numj_c, nw_c, nt_c, np_xs_c, k_c, p_in_p, t_in_p, prs_p, dprs_p, &
               xsqy_p, xswk_p) bind(c, name="jlong_photo_fill_xswk_codon")
            use iso_c_binding, only : c_int64_t, c_ptr
@@ -733,6 +748,23 @@ level_loop_1 : &
       allocate( xswk(numj,nw),stat=astat )
       if( astat /= 0 ) then
          call alloc_err( astat, 'jlong_photo', 'xswk', numj*nw )
+      end if
+      call jlong_photo_select_impl()
+      if (.not. jlong_photo_use_native_impl) then
+         allocate( psum_l(nw),stat=astat )
+         if( astat /= 0 ) then
+            call alloc_err( astat, 'jlong_photo', 'psum_l', nw )
+         end if
+         call jlong_photo_codon( &
+              int(numj, c_int64_t), int(nw, c_int64_t), int(nt, c_int64_t), int(np_xs, c_int64_t), int(nump, c_int64_t), &
+              int(numsza, c_int64_t), int(numalb, c_int64_t), int(numcolo3, c_int64_t), int(nlev, c_int64_t), &
+              real(sza_in, c_double), c_loc(alb_in(1)), c_loc(p_in(1)), c_loc(t_in(1)), c_loc(colo3_in(1)), c_loc(p(1)), &
+              c_loc(del_p(1)), c_loc(sza(1)), c_loc(del_sza(1)), c_loc(alb(1)), c_loc(del_alb(1)), c_loc(o3rat(1)), &
+              c_loc(del_o3rat(1)), c_loc(colo3(1)), c_loc(rsf_tab(1,1,1,1,1)), c_loc(etfphot(1)), c_loc(prs(1)), &
+              c_loc(dprs(1)), c_loc(xsqy(1,1,1,1)), c_loc(rsf(1,1)), c_loc(psum_l(1)), c_loc(xswk(1,1)), c_loc(j_long(1,1)) &
+         )
+         deallocate( rsf, xswk, psum_l )
+         return
       end if
 
 !----------------------------------------------------------------------
@@ -816,6 +848,43 @@ level_loop_1 : &
       deallocate( rsf, xswk )
 
       end subroutine jlong_photo
+
+      subroutine jlong_photo_select_impl()
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (jlong_photo_impl_selected) return
+
+      impl_name = 'native'
+      call get_environment_variable('JLONG_PHOTO_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         jlong_photo_use_native_impl = trim(adjustl(impl_name(:n))) /= 'codon'
+      else
+         jlong_photo_use_native_impl = .true.
+      end if
+
+      jlong_photo_impl_selected = .true.
+
+      if (masterproc) then
+         if (jlong_photo_use_native_impl) then
+            write(iulog,*) 'jlong_photo implementation = native'
+         else
+            write(iulog,*) 'jlong_photo implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine jlong_photo_select_impl
 
       subroutine jlong_photo_loop_select_impl()
 
