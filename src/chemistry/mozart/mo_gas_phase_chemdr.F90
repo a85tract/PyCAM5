@@ -654,10 +654,7 @@ contains
     !-----------------------------------------------------------------
     call qsat(tfld(:ncol,:), pmid(:ncol,:), satv, satq)
 
-    do k = 1,pver
-       relhum(:,k) = .622_r8 * h2ovmr(:,k) / satq(:,k)
-       relhum(:,k) = max( 0._r8,min( 1._r8,relhum(:,k) ) )
-    end do
+    call gas_phase_chemdr_compute_relhum(ncol, h2ovmr, satq, relhum)
     
     cwat(:ncol,:pver) = cldw(:ncol,:pver)
 
@@ -1296,6 +1293,42 @@ contains
     )
 
   end subroutine gas_phase_chemdr_zero_st80_tau
+
+  subroutine gas_phase_chemdr_compute_relhum(ncol, h2ovmr, satq, relhum)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: h2ovmr(ncol,pver)
+    real(r8), target, intent(in) :: satq(ncol,pver)
+    real(r8), target, intent(out) :: relhum(ncol,pver)
+
+    integer :: i, k
+
+    interface
+       subroutine gas_phase_chemdr_compute_relhum_codon(ncol_c, pver_c, h2ovmr_p, satq_p, relhum_p) &
+            bind(c, name="gas_phase_chemdr_compute_relhum_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c
+         type(c_ptr), value :: h2ovmr_p, satq_p, relhum_p
+       end subroutine gas_phase_chemdr_compute_relhum_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do k = 1,pver
+          do i = 1,ncol
+             relhum(i,k) = .622_r8 * h2ovmr(i,k) / satq(i,k)
+             relhum(i,k) = max(0._r8, min(1._r8, relhum(i,k)))
+          end do
+       end do
+       return
+    end if
+
+    call gas_phase_chemdr_compute_relhum_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), c_loc(h2ovmr), c_loc(satq), c_loc(relhum) &
+    )
+
+  end subroutine gas_phase_chemdr_compute_relhum
 
   subroutine gas_phase_chemdr_init_h2so4_gasprod(ncol, ndx_h2so4_in, vmr, del_h2so4_gasprod)
 

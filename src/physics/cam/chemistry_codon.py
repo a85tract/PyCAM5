@@ -369,6 +369,30 @@ def gas_phase_chemdr_zero_st80_tau_codon(
 
 
 @export
+def gas_phase_chemdr_compute_relhum_codon(
+    ncol: int,
+    pver: int,
+    h2ovmr_p: cobj,
+    satq_p: cobj,
+    relhum_p: cobj,
+):
+    h2ovmr = Ptr[float](h2ovmr_p)
+    satq = Ptr[float](satq_p)
+    relhum = Ptr[float](relhum_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, ncol)
+            value = 0.622 * h2ovmr[idx]
+            value = value / satq[idx]
+            if value < 0.0:
+                value = 0.0
+            elif value > 1.0:
+                value = 1.0
+            relhum[idx] = value
+
+
+@export
 def gas_phase_chemdr_init_h2so4_gasprod_codon(
     ncol: int,
     pver: int,
