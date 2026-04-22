@@ -422,6 +422,24 @@ def gas_phase_chemdr_restore_strat_gases_codon(
 
 
 @export
+def gas_phase_chemdr_restore_hcl_gas_codon(
+    ncol: int,
+    pver: int,
+    gas_pcnst: int,
+    hcl_ndx: int,
+    vmr_p: cobj,
+    hcl_gas_p: cobj,
+):
+    vmr = Ptr[float](vmr_p)
+    hcl_gas = Ptr[float](hcl_gas_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _idx2(i, k, ncol)
+            vmr[_idx3(i, k, hcl_ndx, ncol, pver)] = hcl_gas[idx2]
+
+
+@export
 def gas_phase_chemdr_init_h2so4_gasprod_codon(
     ncol: int,
     pver: int,

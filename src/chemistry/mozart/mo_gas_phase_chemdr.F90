@@ -618,7 +618,7 @@ contains
 !      NOTE: For gas-phase solver only. 
 !            ratecon_sfstrat needs total hcl.
     if (hcl_ndx>0) then
-       vmr(:,:,hcl_ndx)  = hcl_gas(:,:)
+       call gas_phase_chemdr_restore_hcl_gas(ncol, hcl_ndx, vmr, hcl_gas)
     endif
 
     !-----------------------------------------------------------------------      
@@ -1370,6 +1370,42 @@ contains
     )
 
   end subroutine gas_phase_chemdr_restore_strat_gases
+
+  subroutine gas_phase_chemdr_restore_hcl_gas(ncol, hcl_ndx_in, vmr, hcl_gas)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: hcl_ndx_in
+    real(r8), target, intent(inout) :: vmr(ncol,pver,gas_pcnst)
+    real(r8), target, intent(in) :: hcl_gas(ncol,pver)
+
+    integer :: i, k
+
+    interface
+       subroutine gas_phase_chemdr_restore_hcl_gas_codon(ncol_c, pver_c, gas_pcnst_c, hcl_ndx_c, vmr_p, hcl_gas_p) &
+            bind(c, name="gas_phase_chemdr_restore_hcl_gas_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, gas_pcnst_c, hcl_ndx_c
+         type(c_ptr), value :: vmr_p, hcl_gas_p
+       end subroutine gas_phase_chemdr_restore_hcl_gas_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do k = 1,pver
+          do i = 1,ncol
+             vmr(i,k,hcl_ndx_in) = hcl_gas(i,k)
+          end do
+       end do
+       return
+    end if
+
+    call gas_phase_chemdr_restore_hcl_gas_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), int(hcl_ndx_in, c_int64_t), &
+         c_loc(vmr), c_loc(hcl_gas) &
+    )
+
+  end subroutine gas_phase_chemdr_restore_hcl_gas
 
   subroutine gas_phase_chemdr_init_h2so4_gasprod(ncol, ndx_h2so4_in, vmr, del_h2so4_gasprod)
 
