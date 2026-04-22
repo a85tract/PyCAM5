@@ -1,4 +1,4 @@
-from math import acos, sqrt
+from math import acos, exp, sqrt
 
 
 @inline
@@ -1312,3 +1312,22 @@ def adjrxt_codon(
             tmp = rate[idx_r2] * inv8
             tmp = tmp * inv8
             rate[idx_r2] = tmp * im
+
+
+@export
+def setrxt_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    temp_p: cobj,
+    rate_p: cobj,
+):
+    temp = Ptr[float](temp_p)
+    rate = Ptr[float](rate_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            itemp = 1.0 / temp[_idx2(i, k, pcols)]
+            rate[_idx3(i, k, 3, ncol, pver)] = 2.9e-12 * exp(-160.0 * itemp)
+            rate[_idx3(i, k, 5, ncol, pver)] = 9.6e-12 * exp(-234.0 * itemp)
+            rate[_idx3(i, k, 7, ncol, pver)] = 1.9e-13 * exp(520.0 * itemp)
