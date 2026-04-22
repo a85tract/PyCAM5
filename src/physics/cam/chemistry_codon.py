@@ -465,6 +465,25 @@ def gas_phase_chemdr_init_dust_vmr_codon(
 
 
 @export
+def gas_phase_chemdr_copy_o3_to_o3s_trop_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    troplev_p: cobj,
+    o3_ndx: int,
+    o3s_ndx: int,
+    vmr_p: cobj,
+):
+    troplev = Ptr[int](troplev_p)
+    vmr = Ptr[float](vmr_p)
+
+    for i in range(1, ncol + 1):
+        for k in range(1, troplev[i - 1] + 1):
+            vmr[_idx3(i, k, o3s_ndx, ncol, pver)] = vmr[_idx3(i, k, o3_ndx, ncol, pver)]
+
+
+@export
 def gas_phase_chemdr_copy_h2o_to_wrk_codon(
     ncol: int,
     pver: int,

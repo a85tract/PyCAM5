@@ -793,8 +793,8 @@ contains
 ! jfl : CCMI : implement O3S here because mo_fstrat is not called
 !
     if ( o3_ndx > 0 .and. o3s_ndx > 0 ) then
+       call gas_phase_chemdr_copy_o3_to_o3s_trop(ncol, troplev, o3_ndx, o3s_ndx, vmr)
        do i = 1,ncol
-          vmr(i,1:troplev(i),o3s_ndx) = vmr(i,1:troplev(i),o3_ndx)
           vmr(i,troplev(i)+1:pver,o3s_ndx) = vmr(i,troplev(i)+1:pver,o3s_ndx) * exp(-delt*o3s_loss(i,troplev(i)+1:pver))
        enddo
        call outfld( 'O3S_LOSS',  o3s_loss,  ncol ,lchnk )
@@ -1438,6 +1438,45 @@ contains
     )
 
   end subroutine gas_phase_chemdr_init_dust_vmr
+
+  subroutine gas_phase_chemdr_copy_o3_to_o3s_trop(ncol, troplev, o3_ndx_in, o3s_ndx_in, vmr)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    integer, target, intent(in) :: troplev(pcols)
+    integer, intent(in) :: o3_ndx_in, o3s_ndx_in
+    real(r8), target, intent(inout) :: vmr(ncol,pver,gas_pcnst)
+
+    integer :: i, k
+    integer(c_int64_t), target :: troplev_c(pcols)
+
+    interface
+       subroutine gas_phase_chemdr_copy_o3_to_o3s_trop_codon(ncol_c, pcols_c, pver_c, gas_pcnst_c, troplev_p, &
+            o3_ndx_c, o3s_ndx_c, vmr_p) bind(c, name="gas_phase_chemdr_copy_o3_to_o3s_trop_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, gas_pcnst_c, o3_ndx_c, o3s_ndx_c
+         type(c_ptr), value :: troplev_p, vmr_p
+       end subroutine gas_phase_chemdr_copy_o3_to_o3s_trop_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do i = 1,ncol
+          do k = 1,troplev(i)
+             vmr(i,k,o3s_ndx_in) = vmr(i,k,o3_ndx_in)
+          end do
+       end do
+       return
+    end if
+
+    troplev_c(:) = int(troplev(:), c_int64_t)
+
+    call gas_phase_chemdr_copy_o3_to_o3s_trop_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), &
+         c_loc(troplev_c), int(o3_ndx_in, c_int64_t), int(o3s_ndx_in, c_int64_t), c_loc(vmr) &
+    )
+
+  end subroutine gas_phase_chemdr_copy_o3_to_o3s_trop
 
   subroutine gas_phase_chemdr_copy_h2o_to_wrk(ncol, h2o_ndx_in, vmr, wrk)
 
