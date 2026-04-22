@@ -440,6 +440,25 @@ def gas_phase_chemdr_restore_hcl_gas_codon(
 
 
 @export
+def gas_phase_chemdr_update_qdchem_wrk_codon(
+    ncol: int,
+    pver: int,
+    gas_pcnst: int,
+    h2o_ndx: int,
+    delt_inverse: float,
+    vmr_p: cobj,
+    wrk_p: cobj,
+):
+    vmr = Ptr[float](vmr_p)
+    wrk = Ptr[float](wrk_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _idx2(i, k, ncol)
+            wrk[idx2] = (vmr[_idx3(i, k, h2o_ndx, ncol, pver)] - wrk[idx2]) * delt_inverse
+
+
+@export
 def gas_phase_chemdr_init_stratchem_state_codon(
     ncol: int,
     pcols: int,

@@ -821,7 +821,7 @@ contains
 
     if ( has_strato_chem ) then 
 
-       wrk(:ncol,:) = (vmr(:ncol,:,h2o_ndx) - wrk(:ncol,:))*delt_inverse
+       call gas_phase_chemdr_update_qdchem_wrk(ncol, h2o_ndx, delt_inverse, vmr, wrk)
        call outfld( 'QDCHEM',   wrk(:ncol,:),         ncol, lchnk )
        call outfld( 'HNO3_GAS', vmr(:ncol,:,hno3_ndx), ncol ,lchnk )
 
@@ -1394,6 +1394,44 @@ contains
     )
 
   end subroutine gas_phase_chemdr_restore_hcl_gas
+
+  subroutine gas_phase_chemdr_update_qdchem_wrk(ncol, h2o_ndx_in, delt_inverse_in, vmr, wrk)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: h2o_ndx_in
+    real(r8), intent(in) :: delt_inverse_in
+    real(r8), target, intent(in) :: vmr(ncol,pver,gas_pcnst)
+    real(r8), target, intent(inout) :: wrk(ncol,pver)
+
+    integer :: i, k
+
+    interface
+       subroutine gas_phase_chemdr_update_qdchem_wrk_codon(ncol_c, pver_c, gas_pcnst_c, h2o_ndx_c, delt_inverse_c, &
+            vmr_p, wrk_p) bind(c, name="gas_phase_chemdr_update_qdchem_wrk_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr, c_double
+         integer(c_int64_t), value :: ncol_c, pver_c, gas_pcnst_c, h2o_ndx_c
+         real(c_double), value :: delt_inverse_c
+         type(c_ptr), value :: vmr_p, wrk_p
+       end subroutine gas_phase_chemdr_update_qdchem_wrk_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do k = 1,pver
+          do i = 1,ncol
+             wrk(i,k) = (vmr(i,k,h2o_ndx_in) - wrk(i,k))*delt_inverse_in
+          end do
+       end do
+       return
+    end if
+
+    call gas_phase_chemdr_update_qdchem_wrk_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), int(h2o_ndx_in, c_int64_t), &
+         delt_inverse_in, c_loc(vmr), c_loc(wrk) &
+    )
+
+  end subroutine gas_phase_chemdr_update_qdchem_wrk
 
   subroutine gas_phase_chemdr_init_stratchem_state(ncol, hno3_ndx_in, hcl_ndx_in, cldice_ndx_in, vmr, h2ovmr, q, &
        hcl_cond, hcl_gas, hno3_gas, h2o_gas, wrk, cldice, hno3_cond)
