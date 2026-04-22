@@ -1425,3 +1425,59 @@ def linmat_codon(
     mat[19] = -(het_rates[17])
     mat[20] = -(het_rates[18])
     mat[21] = -(het_rates[19])
+
+
+@export
+def imp_prod_loss_codon(
+    prod_p: cobj,
+    loss_p: cobj,
+    y_p: cobj,
+    rxt_p: cobj,
+    het_rates_p: cobj,
+):
+    prod = Ptr[float](prod_p)
+    loss = Ptr[float](loss_p)
+    y = Ptr[float](y_p)
+    rxt = Ptr[float](rxt_p)
+    het_rates = Ptr[float](het_rates_p)
+
+    loss[0] = (rxt[0] + rxt[2] + het_rates[0]) * y[0]
+    prod[0] = 0.0
+    loss[1] = het_rates[1] * y[1]
+    prod[1] = rxt[3] * y[2]
+    loss[2] = (rxt[3] + het_rates[2]) * y[2]
+    prod[2] = (rxt[4] + 0.5 * rxt[5] + rxt[6]) * y[3]
+    loss[3] = (rxt[4] + rxt[5] + rxt[6] + het_rates[3]) * y[3]
+    prod[3] = 0.0
+    loss[4] = het_rates[4] * y[4]
+    prod[4] = 0.0
+    loss[5] = het_rates[5] * y[5]
+    prod[5] = 0.0
+    loss[6] = het_rates[6] * y[6]
+    prod[6] = 0.0
+    loss[7] = het_rates[7] * y[7]
+    prod[7] = 0.0
+    loss[8] = het_rates[8] * y[8]
+    prod[8] = 0.0
+    loss[9] = het_rates[9] * y[9]
+    prod[9] = 0.0
+    loss[10] = het_rates[10] * y[10]
+    prod[10] = 0.0
+    loss[11] = het_rates[11] * y[11]
+    prod[11] = 0.0
+    loss[12] = het_rates[12] * y[12]
+    prod[12] = 0.0
+    loss[13] = het_rates[13] * y[13]
+    prod[13] = 0.0
+    loss[14] = het_rates[14] * y[14]
+    prod[14] = 0.0
+    loss[15] = het_rates[15] * y[15]
+    prod[15] = 0.0
+    loss[16] = het_rates[16] * y[16]
+    prod[16] = 0.0
+    loss[17] = het_rates[17] * y[17]
+    prod[17] = 0.0
+    loss[18] = het_rates[18] * y[18]
+    prod[18] = 0.0
+    loss[19] = het_rates[19] * y[19]
+    prod[19] = 0.0

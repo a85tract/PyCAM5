@@ -10,6 +10,9 @@
       public :: exp_prod_loss
       public :: imp_prod_loss
 
+      logical :: imp_prod_loss_use_native_impl = .false.
+      logical :: imp_prod_loss_impl_selected = .false.
+
       contains
 
       subroutine exp_prod_loss( prod, loss, y, rxt, het_rates )
@@ -34,18 +37,33 @@
       subroutine imp_prod_loss( prod, loss, y, rxt, het_rates )
 
       use ppgrid, only : pver
+      use iso_c_binding, only : c_loc, c_ptr
 
       implicit none
 
 !--------------------------------------------------------------------
 ! ... dummy args
 !--------------------------------------------------------------------
-      real(r8), dimension(:), intent(out) :: &
+      real(r8), dimension(:), target, intent(out) :: &
             prod, &
             loss
-      real(r8), intent(in) :: y(:)
-      real(r8), intent(in) :: rxt(:)
-      real(r8), intent(in) :: het_rates(:)
+      real(r8), target, intent(in) :: y(:)
+      real(r8), target, intent(in) :: rxt(:)
+      real(r8), target, intent(in) :: het_rates(:)
+
+      interface
+         subroutine imp_prod_loss_codon(prod_p, loss_p, y_p, rxt_p, het_rates_p) bind(c, name="imp_prod_loss_codon")
+            use iso_c_binding, only : c_ptr
+            type(c_ptr), value :: prod_p, loss_p, y_p, rxt_p, het_rates_p
+         end subroutine imp_prod_loss_codon
+      end interface
+
+      call imp_prod_loss_select_impl()
+
+      if (.not. imp_prod_loss_use_native_impl) then
+         call imp_prod_loss_codon(c_loc(prod), c_loc(loss), c_loc(y), c_loc(rxt), c_loc(het_rates))
+         return
+      end if
 
 
 
@@ -96,5 +114,45 @@
          prod(20) = 0._r8
 
       end subroutine imp_prod_loss
+
+      subroutine imp_prod_loss_select_impl()
+
+      use cam_logfile, only : iulog
+      use spmd_utils, only : masterproc
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (imp_prod_loss_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('IMP_PROD_LOSS_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         imp_prod_loss_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         imp_prod_loss_use_native_impl = .false.
+      end if
+
+      imp_prod_loss_impl_selected = .true.
+
+      if (masterproc) then
+         if (imp_prod_loss_use_native_impl) then
+            write(iulog,*) 'imp_prod_loss implementation = native'
+         else
+            write(iulog,*) 'imp_prod_loss implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine imp_prod_loss_select_impl
 
       end module mo_prod_loss
