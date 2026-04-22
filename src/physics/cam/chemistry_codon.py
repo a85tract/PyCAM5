@@ -1535,3 +1535,44 @@ def nlnmat_codon(
     mat[19] = mat[19] - dti
     mat[20] = mat[20] - dti
     mat[21] = mat[21] - dti
+
+
+@export
+def indprd_codon(
+    class_id: int,
+    ncol: int,
+    pver: int,
+    nprod: int,
+    rxt_p: cobj,
+    extfrc_p: cobj,
+    prod_p: cobj,
+):
+    rxt = Ptr[float](rxt_p)
+    extfrc = Ptr[float](extfrc_p)
+    prod = Ptr[float](prod_p)
+
+    if class_id != 4:
+        return
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            prod[_idx3(i, k, 1, ncol, pver)] = rxt[_idx3(i, k, 2, ncol, pver)]
+            prod[_idx3(i, k, 2, ncol, pver)] = 0.0
+            prod[_idx3(i, k, 3, ncol, pver)] = extfrc[_idx3(i, k, 1, ncol, pver)]
+            prod[_idx3(i, k, 4, ncol, pver)] = 0.0
+            prod[_idx3(i, k, 5, ncol, pver)] = 0.0
+            prod[_idx3(i, k, 6, ncol, pver)] = extfrc[_idx3(i, k, 2, ncol, pver)]
+            prod[_idx3(i, k, 7, ncol, pver)] = extfrc[_idx3(i, k, 4, ncol, pver)]
+            prod[_idx3(i, k, 8, ncol, pver)] = 0.0
+            prod[_idx3(i, k, 9, ncol, pver)] = extfrc[_idx3(i, k, 5, ncol, pver)]
+            prod[_idx3(i, k, 10, ncol, pver)] = 0.0
+            prod[_idx3(i, k, 11, ncol, pver)] = 0.0
+            prod[_idx3(i, k, 12, ncol, pver)] = extfrc[_idx3(i, k, 6, ncol, pver)]
+            prod[_idx3(i, k, 13, ncol, pver)] = extfrc[_idx3(i, k, 3, ncol, pver)]
+            prod[_idx3(i, k, 14, ncol, pver)] = 0.0
+            prod[_idx3(i, k, 15, ncol, pver)] = 0.0
+            prod[_idx3(i, k, 16, ncol, pver)] = extfrc[_idx3(i, k, 7, ncol, pver)]
+            prod[_idx3(i, k, 17, ncol, pver)] = 0.0
+            prod[_idx3(i, k, 18, ncol, pver)] = 0.0
+            prod[_idx3(i, k, 19, ncol, pver)] = 0.0
+            prod[_idx3(i, k, 20, ncol, pver)] = 0.0
