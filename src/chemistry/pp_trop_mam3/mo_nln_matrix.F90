@@ -10,11 +10,15 @@
       private
       public :: nlnmat
 
+      logical :: nlnmat_use_native_impl = .false.
+      logical :: nlnmat_impl_selected = .false.
+
       contains
 
       subroutine nlnmat( mat, y, rxt, lmat, dti )
 
       use chem_mods, only : gas_pcnst, rxntot, nzcnt
+      use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
 
       implicit none
 
@@ -22,10 +26,26 @@
 ! ... dummy arguments
 !----------------------------------------------
       real(r8), intent(in) :: dti
-      real(r8), intent(in) :: lmat(nzcnt)
+      real(r8), target, intent(in) :: lmat(nzcnt)
       real(r8), intent(in) :: y(gas_pcnst)
       real(r8), intent(in) :: rxt(rxntot)
-      real(r8), intent(inout) :: mat(nzcnt)
+      real(r8), target, intent(inout) :: mat(nzcnt)
+
+      interface
+         subroutine nlnmat_codon(mat_p, lmat_p, dti_c) bind(c, name="nlnmat_codon")
+            use iso_c_binding, only : c_double, c_ptr
+            type(c_ptr), value :: mat_p, lmat_p
+            real(c_double), value :: dti_c
+         end subroutine nlnmat_codon
+      end interface
+
+      call nlnmat_select_impl()
+
+      if (.not. nlnmat_use_native_impl) then
+         call nlnmat_codon(c_loc(mat), c_loc(lmat), real(dti, c_double))
+         return
+      end if
+
       call nlnmat_finit( mat, lmat, dti )
       end subroutine nlnmat
       subroutine nlnmat_finit( mat, lmat, dti )
@@ -86,4 +106,45 @@
          mat( 21) = mat( 21) - dti
          mat( 22) = mat( 22) - dti
       end subroutine nlnmat_finit
+
+      subroutine nlnmat_select_impl()
+
+      use cam_logfile, only : iulog
+      use spmd_utils, only : masterproc
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (nlnmat_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('NLNMAT_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         nlnmat_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         nlnmat_use_native_impl = .false.
+      end if
+
+      nlnmat_impl_selected = .true.
+
+      if (masterproc) then
+         if (nlnmat_use_native_impl) then
+            write(iulog,*) 'nlnmat implementation = native'
+         else
+            write(iulog,*) 'nlnmat implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine nlnmat_select_impl
+
       end module mo_nln_matrix

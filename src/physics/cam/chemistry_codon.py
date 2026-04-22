@@ -1481,3 +1481,57 @@ def imp_prod_loss_codon(
     prod[18] = 0.0
     loss[19] = het_rates[19] * y[19]
     prod[19] = 0.0
+
+
+@export
+def nlnmat_codon(
+    mat_p: cobj,
+    lmat_p: cobj,
+    dti: float,
+):
+    mat = Ptr[float](mat_p)
+    lmat = Ptr[float](lmat_p)
+
+    mat[0] = lmat[0]
+    mat[1] = lmat[1]
+    mat[2] = lmat[2]
+    mat[3] = lmat[3]
+    mat[4] = lmat[4]
+    mat[5] = lmat[5]
+    mat[6] = lmat[6]
+    mat[7] = lmat[7]
+    mat[8] = lmat[8]
+    mat[9] = lmat[9]
+    mat[10] = lmat[10]
+    mat[11] = lmat[11]
+    mat[12] = lmat[12]
+    mat[13] = lmat[13]
+    mat[14] = lmat[14]
+    mat[15] = lmat[15]
+    mat[16] = lmat[16]
+    mat[17] = lmat[17]
+    mat[18] = lmat[18]
+    mat[19] = lmat[19]
+    mat[20] = lmat[20]
+    mat[21] = lmat[21]
+
+    mat[0] = mat[0] - dti
+    mat[1] = mat[1] - dti
+    mat[3] = mat[3] - dti
+    mat[5] = mat[5] - dti
+    mat[6] = mat[6] - dti
+    mat[7] = mat[7] - dti
+    mat[8] = mat[8] - dti
+    mat[9] = mat[9] - dti
+    mat[10] = mat[10] - dti
+    mat[11] = mat[11] - dti
+    mat[12] = mat[12] - dti
+    mat[13] = mat[13] - dti
+    mat[14] = mat[14] - dti
+    mat[15] = mat[15] - dti
+    mat[16] = mat[16] - dti
+    mat[17] = mat[17] - dti
+    mat[18] = mat[18] - dti
+    mat[19] = mat[19] - dti
+    mat[20] = mat[20] - dti
+    mat[21] = mat[21] - dti
