@@ -8,19 +8,37 @@
       private
       public :: lu_fac
 
+      logical :: lu_fac_use_native_impl = .false.
+      logical :: lu_fac_impl_selected = .false.
+
       contains
 
       subroutine lu_fac01( lu )
 
 
       use shr_kind_mod, only : r8 => shr_kind_r8
+      use iso_c_binding, only : c_loc, c_ptr
 
       implicit none
 
 !-----------------------------------------------------------------------
 ! ... dummy args
 !-----------------------------------------------------------------------
-      real(r8), intent(inout) :: lu(:)
+      real(r8), target, intent(inout) :: lu(:)
+
+      interface
+         subroutine lu_fac_codon(lu_p) bind(c, name="lu_fac_codon")
+            use iso_c_binding, only : c_ptr
+            type(c_ptr), value :: lu_p
+         end subroutine lu_fac_codon
+      end interface
+
+      call lu_fac_select_impl()
+
+      if (.not. lu_fac_use_native_impl) then
+         call lu_fac_codon(c_loc(lu))
+         return
+      end if
 
          lu(1) = 1._r8 / lu(1)
 
@@ -80,5 +98,45 @@
       call lu_fac01( lu )
 
       end subroutine lu_fac
+
+      subroutine lu_fac_select_impl()
+
+      use cam_logfile, only : iulog
+      use spmd_utils, only : masterproc
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (lu_fac_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('LU_FAC_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         lu_fac_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         lu_fac_use_native_impl = .false.
+      end if
+
+      lu_fac_impl_selected = .true.
+
+      if (masterproc) then
+         if (lu_fac_use_native_impl) then
+            write(iulog,*) 'lu_fac implementation = native'
+         else
+            write(iulog,*) 'lu_fac implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine lu_fac_select_impl
 
       end module mo_lu_factor
