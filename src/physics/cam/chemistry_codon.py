@@ -49,6 +49,32 @@ def gas_phase_chemdr_prepare_sza_codon(
 
 
 @export
+def mmr2vmr_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    mbar_p: cobj,
+    mmr_p: cobj,
+    adv_mass_p: cobj,
+    vmr_p: cobj,
+):
+    mbar = Ptr[float](mbar_p)
+    mmr = Ptr[float](mmr_p)
+    adv_mass = Ptr[float](adv_mass_p)
+    vmr = Ptr[float](vmr_p)
+
+    for m in range(1, gas_pcnst + 1):
+        adv = adv_mass[m - 1]
+        if adv != 0.0:
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    vmr[_idx3(i, k, m, ncol, pver)] = mbar[_idx2(i, k, ncol)] * mmr[
+                        _idx3(i, k, m, pcols, pver)
+                    ] / adv
+
+
+@export
 def gas_phase_chemdr_zero_sulfate_codon(
     ncol: int,
     pver: int,
