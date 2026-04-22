@@ -1,4 +1,4 @@
-from math import sqrt
+from math import acos, sqrt
 
 
 @inline
@@ -30,6 +30,22 @@ def chem_emissions_zero_cflx_codon(
         if map2chm[m - 1] > 0:
             for i in range(1, pcols + 1):
                 cflx[_flux_idx(i, m, pcols)] = 0.0
+
+
+@export
+def gas_phase_chemdr_prepare_sza_codon(
+    ncol: int,
+    rad2deg: float,
+    zen_angle_p: cobj,
+    sza_p: cobj,
+):
+    zen_angle = Ptr[float](zen_angle_p)
+    sza = Ptr[float](sza_p)
+
+    for i in range(1, ncol + 1):
+        z = acos(zen_angle[i - 1])
+        zen_angle[i - 1] = z
+        sza[i - 1] = z * rad2deg
 
 
 @export

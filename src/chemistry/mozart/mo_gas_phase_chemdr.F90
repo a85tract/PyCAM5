@@ -458,9 +458,7 @@ contains
     !            then cast back to angle (radians)
     !-----------------------------------------------------------------------      
     call zenith( calday, rlats, rlons, zen_angle, ncol )
-    zen_angle(:) = acos( zen_angle(:) )
-
-    sza(:) = zen_angle(:) * rad2deg
+    call gas_phase_chemdr_prepare_sza(ncol, rad2deg, zen_angle, sza)
     call outfld( 'SZA',   sza,    ncol, lchnk )
 
     !-----------------------------------------------------------------------      
@@ -1033,6 +1031,41 @@ contains
     )
 
   end subroutine gas_phase_chemdr_finalize_tendencies
+
+  subroutine gas_phase_chemdr_prepare_sza(ncol, rad2deg_in, zen_angle, sza)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr, c_double
+
+    integer, intent(in) :: ncol
+    real(r8), intent(in) :: rad2deg_in
+    real(r8), target, intent(inout) :: zen_angle(ncol)
+    real(r8), target, intent(out) :: sza(ncol)
+
+    integer :: i
+
+    interface
+       subroutine gas_phase_chemdr_prepare_sza_codon(ncol_c, rad2deg_c, zen_angle_p, sza_p) &
+            bind(c, name="gas_phase_chemdr_prepare_sza_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr, c_double
+         integer(c_int64_t), value :: ncol_c
+         real(c_double), value :: rad2deg_c
+         type(c_ptr), value :: zen_angle_p, sza_p
+       end subroutine gas_phase_chemdr_prepare_sza_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+      do i = 1, ncol
+         zen_angle(i) = acos( zen_angle(i) )
+         sza(i) = zen_angle(i) * rad2deg_in
+      end do
+      return
+    end if
+
+    call gas_phase_chemdr_prepare_sza_codon( &
+         int(ncol, c_int64_t), rad2deg_in, c_loc(zen_angle), c_loc(sza) &
+    )
+
+  end subroutine gas_phase_chemdr_prepare_sza
 
   subroutine gas_phase_chemdr_prepare_state(ncol, phis, zi, zm, pmid, zsurf, zintr, zmidr, zmid, zint, pmb)
 
