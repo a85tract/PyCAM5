@@ -909,7 +909,7 @@ contains
     call get_ref_date(yr, mon, day, sec)
     ncdate = yr*10000 + mon*100 + day
     wind_speed(:ncol) = sqrt( ufld(:ncol,pver)*ufld(:ncol,pver) + vfld(:ncol,pver)*vfld(:ncol,pver) )
-    prect(:ncol) = precc(:ncol) + precl(:ncol)
+    call gas_phase_chemdr_compute_prect(ncol, precc, precl, prect)
 
     if ( drydep_method == DD_XLND ) then
        soilw = -99
@@ -1437,6 +1437,39 @@ contains
     )
 
   end subroutine gas_phase_chemdr_init_dust_vmr
+
+  subroutine gas_phase_chemdr_compute_prect(ncol, precc, precl, prect)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: precc(pcols)
+    real(r8), target, intent(in) :: precl(pcols)
+    real(r8), target, intent(out) :: prect(pcols)
+
+    integer :: i
+
+    interface
+       subroutine gas_phase_chemdr_compute_prect_codon(ncol_c, pcols_c, precc_p, precl_p, prect_p) &
+            bind(c, name="gas_phase_chemdr_compute_prect_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c
+         type(c_ptr), value :: precc_p, precl_p, prect_p
+       end subroutine gas_phase_chemdr_compute_prect_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do i = 1,ncol
+          prect(i) = precc(i) + precl(i)
+       end do
+       return
+    end if
+
+    call gas_phase_chemdr_compute_prect_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), c_loc(precc), c_loc(precl), c_loc(prect) &
+    )
+
+  end subroutine gas_phase_chemdr_compute_prect
 
   subroutine gas_phase_chemdr_compute_tvs(ncol, tfld, qh2o, tvs)
 

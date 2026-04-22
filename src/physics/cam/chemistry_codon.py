@@ -465,6 +465,22 @@ def gas_phase_chemdr_init_dust_vmr_codon(
 
 
 @export
+def gas_phase_chemdr_compute_prect_codon(
+    ncol: int,
+    pcols: int,
+    precc_p: cobj,
+    precl_p: cobj,
+    prect_p: cobj,
+):
+    precc = Ptr[float](precc_p)
+    precl = Ptr[float](precl_p)
+    prect = Ptr[float](prect_p)
+
+    for i in range(1, ncol + 1):
+        prect[i - 1] = precc[i - 1] + precl[i - 1]
+
+
+@export
 def gas_phase_chemdr_compute_tvs_codon(
     ncol: int,
     pcols: int,
