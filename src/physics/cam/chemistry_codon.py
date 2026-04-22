@@ -17,6 +17,16 @@ def _idx3_k0(i: int, k: int, m: int, ld1: int, nk: int) -> int:
 
 
 @inline
+def _idx4(i1: int, i2: int, i3: int, i4: int, ld1: int, ld2: int, ld3: int) -> int:
+    return (
+        (i1 - 1)
+        + (i2 - 1) * ld1
+        + (i3 - 1) * ld1 * ld2
+        + (i4 - 1) * ld1 * ld2 * ld3
+    )
+
+
+@inline
 def _idx5(i1: int, i2: int, i3: int, i4: int, i5: int, ld1: int, ld2: int, ld3: int, ld4: int) -> int:
     return (
         (i1 - 1)
@@ -243,6 +253,56 @@ def jlong_interpolate_rsf_codon(
 
         for wn in range(1, nw + 1):
             rsf[_idx2(wn, k, nw)] = etfphot[wn - 1] * rsf[_idx2(wn, k, nw)]
+
+
+@export
+def jlong_photo_fill_xswk_codon(
+    numj: int,
+    nw: int,
+    nt: int,
+    np_xs: int,
+    k: int,
+    p_in_p: cobj,
+    t_in_p: cobj,
+    prs_p: cobj,
+    dprs_p: cobj,
+    xsqy_p: cobj,
+    xswk_p: cobj,
+):
+    p_in = Ptr[float](p_in_p)
+    t_in = Ptr[float](t_in_p)
+    prs = Ptr[float](prs_p)
+    dprs = Ptr[float](dprs_p)
+    xsqy = Ptr[float32](xsqy_p)
+    xswk = Ptr[float](xswk_p)
+
+    t_index = int(t_in[k - 1] - 148.5)
+    t_index = min(201, max(t_index, 1))
+    ptarget = p_in[k - 1]
+
+    if ptarget >= prs[0]:
+        pndx = 1
+        for wn in range(1, nw + 1):
+            for m in range(1, numj + 1):
+                xswk[_idx2(m, wn, numj)] = float(xsqy[_idx4(m, wn, t_index, pndx, numj, nw, nt)])
+    elif ptarget <= prs[np_xs - 1]:
+        pndx = np_xs
+        for wn in range(1, nw + 1):
+            for m in range(1, numj + 1):
+                xswk[_idx2(m, wn, numj)] = float(xsqy[_idx4(m, wn, t_index, pndx, numj, nw, nt)])
+    else:
+        pndx = np_xs - 1
+        delp = 0.0
+        for km in range(2, np_xs + 1):
+            if ptarget >= prs[km - 1]:
+                pndx = km - 1
+                delp = (prs[pndx - 1] - ptarget) * dprs[pndx - 1]
+                break
+        for wn in range(1, nw + 1):
+            for m in range(1, numj + 1):
+                lo = float(xsqy[_idx4(m, wn, t_index, pndx, numj, nw, nt)])
+                hi = float(xsqy[_idx4(m, wn, t_index, pndx + 1, numj, nw, nt)])
+                xswk[_idx2(m, wn, numj)] = lo + delp * (hi - lo)
 
 
 @export

@@ -42,7 +42,7 @@
       integer               :: numsza  		! number of zen angles in rsf
       integer               :: numalb  		! number of albedos in rsf
       integer               :: numcolo3		! number of o3 columns in rsf
-      real(r4), allocatable :: xsqy(:,:,:,:)
+      real(r4), allocatable, target :: xsqy(:,:,:,:)
       real(r8), allocatable :: wc(:)
       real(r8), allocatable :: we(:)
       real(r8), allocatable :: wlintv(:)
@@ -55,8 +55,8 @@
       real(r8), allocatable :: xs_o3b(:,:,:)
       real(r8), allocatable, target :: p(:)
       real(r8), allocatable, target :: del_p(:)
-      real(r8), allocatable :: prs(:)
-      real(r8), allocatable :: dprs(:)
+      real(r8), allocatable, target :: prs(:)
+      real(r8), allocatable, target :: dprs(:)
       real(r8), allocatable, target :: sza(:)
       real(r8), allocatable, target :: del_sza(:)
       real(r8), allocatable, target :: alb(:)
@@ -66,6 +66,8 @@
       real(r8), allocatable, target :: colo3(:)
       real(r4), allocatable, target :: rsf_tab(:,:,:,:,:)
       logical :: jlong_used = .false.
+      logical :: jlong_photo_xswk_use_native_impl = .false.
+      logical :: jlong_photo_xswk_impl_selected = .false.
       logical :: jlong_interpolate_rsf_use_native_impl = .false.
       logical :: jlong_interpolate_rsf_impl_selected = .false.
 
@@ -666,6 +668,7 @@ level_loop_1 : &
 !==============================================================================
 
  use spmd_utils,   only : masterproc
+        use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
         use error_messages, only : alloc_err
 
 	implicit none
@@ -676,8 +679,8 @@ level_loop_1 : &
       integer, intent (in)     :: nlev               ! number vertical levels
       real(r8), intent(in)     :: sza_in             ! solar zenith angle (degrees)
       real(r8), intent(in)     :: alb_in(nlev)       ! albedo
-      real(r8), intent(in)     :: p_in(nlev)         ! midpoint pressure (hPa)
-      real(r8), intent(in)     :: t_in(nlev)         ! Temperature profile (K)
+      real(r8), target, intent(in)     :: p_in(nlev)         ! midpoint pressure (hPa)
+      real(r8), target, intent(in)     :: t_in(nlev)         ! Temperature profile (K)
       real(r8), intent(in)     :: colo3_in(nlev)     ! o3 column density (molecules/cm^3)
       real(r8), intent(out)    :: j_long(:,:)	     ! photo rates (1/s)
 
@@ -693,7 +696,16 @@ level_loop_1 : &
       real(r8) ::  delp
       real(r8) ::  hfactor
       real(r8), allocatable :: rsf(:,:)	        ! Radiative source function
-      real(r8), allocatable :: xswk(:,:)	! working xsection array
+      real(r8), allocatable, target :: xswk(:,:)	! working xsection array
+
+      interface
+         subroutine jlong_photo_fill_xswk_codon(numj_c, nw_c, nt_c, np_xs_c, k_c, p_in_p, t_in_p, prs_p, dprs_p, &
+              xsqy_p, xswk_p) bind(c, name="jlong_photo_fill_xswk_codon")
+           use iso_c_binding, only : c_int64_t, c_ptr
+           integer(c_int64_t), value :: numj_c, nw_c, nt_c, np_xs_c, k_c
+           type(c_ptr), value :: p_in_p, t_in_p, prs_p, dprs_p, xsqy_p, xswk_p
+         end subroutine jlong_photo_fill_xswk_codon
+      end interface
 
 !----------------------------------------------------------------------
 !        ... allocate variables
@@ -711,6 +723,7 @@ level_loop_1 : &
 !        ... interpolate table rsf to model variables
 !----------------------------------------------------------------------
       call interpolate_rsf( alb_in, sza_in, p_in, colo3_in, nlev, rsf )
+      call jlong_photo_xswk_select_impl()
 
 !------------------------------------------------------------------------------
 !     ... calculate total Jlong for wavelengths >200nm
@@ -732,28 +745,35 @@ level_loop_1 : &
 !----------------------------------------------------------------------
 !   	... find pressure level
 !----------------------------------------------------------------------
-	ptarget = p_in(k)
-	if( ptarget >= prs(1) ) then
-	   do wn = 1,nw
-	      xswk(:,wn) = xsqy(:,wn,t_index,1)
-	   end do
-	else if( ptarget <= prs(np_xs) ) then
-	   do wn = 1,nw
-	      xswk(:,wn) = xsqy(:,wn,t_index,np_xs)
-	   end do
-	else
-	   do km = 2,np_xs
-	      if( ptarget >= prs(km) ) then
-		 pndx = km - 1
-		 delp = (prs(pndx) - ptarget)*dprs(pndx)
-		 exit
-	      end if
-	   end do
-	   do wn = 1,nw
-	      xswk(:,wn) = xsqy(:,wn,t_index,pndx) &
-                           + delp*(xsqy(:,wn,t_index,pndx+1) - xsqy(:,wn,t_index,pndx))
-	   end do
-	end if
+        if (jlong_photo_xswk_use_native_impl) then
+	   ptarget = p_in(k)
+	   if( ptarget >= prs(1) ) then
+	      do wn = 1,nw
+	         xswk(:,wn) = xsqy(:,wn,t_index,1)
+	      end do
+	   else if( ptarget <= prs(np_xs) ) then
+	      do wn = 1,nw
+	         xswk(:,wn) = xsqy(:,wn,t_index,np_xs)
+	      end do
+	   else
+	      do km = 2,np_xs
+	         if( ptarget >= prs(km) ) then
+		    pndx = km - 1
+		    delp = (prs(pndx) - ptarget)*dprs(pndx)
+		    exit
+	         end if
+	      end do
+	      do wn = 1,nw
+	         xswk(:,wn) = xsqy(:,wn,t_index,pndx) &
+                              + delp*(xsqy(:,wn,t_index,pndx+1) - xsqy(:,wn,t_index,pndx))
+	      end do
+	   end if
+        else
+           call jlong_photo_fill_xswk_codon( &
+                int(numj, c_int64_t), int(nw, c_int64_t), int(nt, c_int64_t), int(np_xs, c_int64_t), int(k, c_int64_t), &
+                c_loc(p_in(1)), c_loc(t_in(1)), c_loc(prs(1)), c_loc(dprs(1)), c_loc(xsqy(1,1,1,1)), c_loc(xswk(1,1)) &
+           )
+        end if
 #ifdef USE_ESSL
         call dgemm( 'N', 'N', numj, 1, nw, &
 		    1._r8, xswk, numj, rsf(1,k), nw, &
@@ -766,6 +786,43 @@ level_loop_1 : &
       deallocate( rsf, xswk )
 
       end subroutine jlong_photo
+
+      subroutine jlong_photo_xswk_select_impl()
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (jlong_photo_xswk_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('JLONG_PHOTO_XSWK_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         jlong_photo_xswk_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         jlong_photo_xswk_use_native_impl = .false.
+      end if
+
+      jlong_photo_xswk_impl_selected = .true.
+
+      if (masterproc) then
+         if (jlong_photo_xswk_use_native_impl) then
+            write(iulog,*) 'jlong_photo_xswk implementation = native'
+         else
+            write(iulog,*) 'jlong_photo_xswk implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine jlong_photo_xswk_select_impl
 
 !----------------------------------------------------------------------
 !----------------------------------------------------------------------
