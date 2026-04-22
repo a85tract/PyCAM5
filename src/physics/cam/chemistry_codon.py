@@ -440,6 +440,51 @@ def gas_phase_chemdr_restore_hcl_gas_codon(
 
 
 @export
+def gas_phase_chemdr_init_stratchem_state_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    pcnst: int,
+    hno3_ndx: int,
+    hcl_ndx: int,
+    cldice_ndx: int,
+    vmr_p: cobj,
+    h2ovmr_p: cobj,
+    q_p: cobj,
+    hcl_cond_p: cobj,
+    hcl_gas_p: cobj,
+    hno3_gas_p: cobj,
+    h2o_gas_p: cobj,
+    wrk_p: cobj,
+    cldice_p: cobj,
+    hno3_cond_p: cobj,
+):
+    vmr = Ptr[float](vmr_p)
+    h2ovmr = Ptr[float](h2ovmr_p)
+    q = Ptr[float](q_p)
+    hcl_cond = Ptr[float](hcl_cond_p)
+    hcl_gas = Ptr[float](hcl_gas_p)
+    hno3_gas = Ptr[float](hno3_gas_p)
+    h2o_gas = Ptr[float](h2o_gas_p)
+    wrk = Ptr[float](wrk_p)
+    cldice = Ptr[float](cldice_p)
+    hno3_cond = Ptr[float](hno3_cond_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _idx2(i, k, ncol)
+            hcl_cond[idx2] = 0.0
+            hno3_cond[_idx3(i, k, 1, ncol, pver)] = 0.0
+            hno3_cond[_idx3(i, k, 2, ncol, pver)] = 0.0
+            hno3_gas[idx2] = vmr[_idx3(i, k, hno3_ndx, ncol, pver)]
+            h2o_gas[idx2] = h2ovmr[idx2]
+            hcl_gas[idx2] = vmr[_idx3(i, k, hcl_ndx, ncol, pver)]
+            wrk[idx2] = h2ovmr[idx2]
+            cldice[_idx2(i, k, pcols)] = q[_idx3(i, k, cldice_ndx, pcols, pver)]
+
+
+@export
 def gas_phase_chemdr_init_h2so4_gasprod_codon(
     ncol: int,
     pver: int,

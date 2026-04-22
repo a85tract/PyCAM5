@@ -556,20 +556,8 @@ contains
        !-----------------------------------------------------------------------      
        !        ... initialize condensed and gas phases; all hno3 to gas
        !-----------------------------------------------------------------------    
-       hcl_cond(:,:)      = 0.0_r8
-       hcl_gas (:,:)      = 0.0_r8  
-       do k = 1,pver
-          hno3_gas(:,k)   = vmr(:,k,hno3_ndx)
-          h2o_gas(:,k)    = h2ovmr(:,k)
-          hcl_gas(:,k)    = vmr(:,k,hcl_ndx)
-          wrk(:,k)        = h2ovmr(:,k)
-          cldice(:ncol,k) = q(:ncol,k,cldice_ndx)
-       end do
-       do m = 1,2
-          do k = 1,pver
-             hno3_cond(:,k,m) = 0._r8
-          end do
-       end do
+       call gas_phase_chemdr_init_stratchem_state(ncol, hno3_ndx, hcl_ndx, cldice_ndx, vmr, h2ovmr, q, hcl_cond, &
+            hcl_gas, hno3_gas, h2o_gas, wrk, cldice, hno3_cond)
 
        call mmr2vmri( cldice, h2o_cond, mbar, cnst_mw(cldice_ndx), ncol )
 
@@ -1406,6 +1394,57 @@ contains
     )
 
   end subroutine gas_phase_chemdr_restore_hcl_gas
+
+  subroutine gas_phase_chemdr_init_stratchem_state(ncol, hno3_ndx_in, hcl_ndx_in, cldice_ndx_in, vmr, h2ovmr, q, &
+       hcl_cond, hcl_gas, hno3_gas, h2o_gas, wrk, cldice, hno3_cond)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: hno3_ndx_in, hcl_ndx_in, cldice_ndx_in
+    real(r8), target, intent(in) :: vmr(ncol,pver,gas_pcnst), h2ovmr(ncol,pver), q(pcols,pver,pcnst)
+    real(r8), target, intent(out) :: hcl_cond(ncol,pver), hcl_gas(ncol,pver), hno3_gas(ncol,pver)
+    real(r8), target, intent(out) :: h2o_gas(ncol,pver), wrk(ncol,pver), cldice(pcols,pver)
+    real(r8), target, intent(out) :: hno3_cond(ncol,pver,2)
+
+    integer :: i, k, m
+
+    interface
+       subroutine gas_phase_chemdr_init_stratchem_state_codon(ncol_c, pcols_c, pver_c, gas_pcnst_c, pcnst_c, &
+            hno3_ndx_c, hcl_ndx_c, cldice_ndx_c, vmr_p, h2ovmr_p, q_p, hcl_cond_p, hcl_gas_p, hno3_gas_p, &
+            h2o_gas_p, wrk_p, cldice_p, hno3_cond_p) bind(c, name="gas_phase_chemdr_init_stratchem_state_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, gas_pcnst_c, pcnst_c
+         integer(c_int64_t), value :: hno3_ndx_c, hcl_ndx_c, cldice_ndx_c
+         type(c_ptr), value :: vmr_p, h2ovmr_p, q_p, hcl_cond_p, hcl_gas_p, hno3_gas_p, h2o_gas_p
+         type(c_ptr), value :: wrk_p, cldice_p, hno3_cond_p
+       end subroutine gas_phase_chemdr_init_stratchem_state_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do k = 1,pver
+          do i = 1,ncol
+             hcl_cond(i,k) = 0.0_r8
+             hno3_cond(i,k,1) = 0.0_r8
+             hno3_cond(i,k,2) = 0.0_r8
+             hno3_gas(i,k) = vmr(i,k,hno3_ndx_in)
+             h2o_gas(i,k) = h2ovmr(i,k)
+             hcl_gas(i,k) = vmr(i,k,hcl_ndx_in)
+             wrk(i,k) = h2ovmr(i,k)
+             cldice(i,k) = q(i,k,cldice_ndx_in)
+          end do
+       end do
+       return
+    end if
+
+    call gas_phase_chemdr_init_stratchem_state_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), &
+         int(pcnst, c_int64_t), int(hno3_ndx_in, c_int64_t), int(hcl_ndx_in, c_int64_t), &
+         int(cldice_ndx_in, c_int64_t), c_loc(vmr), c_loc(h2ovmr), c_loc(q), c_loc(hcl_cond), c_loc(hcl_gas), &
+         c_loc(hno3_gas), c_loc(h2o_gas), c_loc(wrk), c_loc(cldice), c_loc(hno3_cond) &
+    )
+
+  end subroutine gas_phase_chemdr_init_stratchem_state
 
   subroutine gas_phase_chemdr_init_h2so4_gasprod(ncol, ndx_h2so4_in, vmr, del_h2so4_gasprod)
 
