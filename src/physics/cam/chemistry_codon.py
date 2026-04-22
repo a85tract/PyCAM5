@@ -465,6 +465,27 @@ def gas_phase_chemdr_init_dust_vmr_codon(
 
 
 @export
+def gas_phase_chemdr_reset_ste_tracer_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    st80_25_ndx: int,
+    pmid_threshold: float,
+    st80_vmr: float,
+    pmid_p: cobj,
+    vmr_p: cobj,
+):
+    pmid = Ptr[float](pmid_p)
+    vmr = Ptr[float](vmr_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            if pmid[_idx2(i, k, pcols)] < pmid_threshold:
+                vmr[_idx3(i, k, st80_25_ndx, ncol, pver)] = st80_vmr
+
+
+@export
 def gas_phase_chemdr_compute_prect_codon(
     ncol: int,
     pcols: int,

@@ -492,9 +492,7 @@ contains
 ! reset STE tracer to specific vmr of 200 ppbv
 !
     if ( st80_25_ndx > 0 ) then 
-       where ( pmid(:ncol,:) < 80.e+2_r8 )
-          vmr(:ncol,:,st80_25_ndx) = 200.e-9_r8 
-       end where
+       call gas_phase_chemdr_reset_ste_tracer(ncol, st80_25_ndx, 80.e+2_r8, 200.e-9_r8, pmid, vmr)
     end if
 !
 ! reset AOA_NH, NH_5, NH_50, NH_50W surface mixing ratios between 30N and 50N
@@ -1437,6 +1435,47 @@ contains
     )
 
   end subroutine gas_phase_chemdr_init_dust_vmr
+
+  subroutine gas_phase_chemdr_reset_ste_tracer(ncol, st80_25_ndx_in, pmid_threshold_in, st80_vmr_in, pmid, vmr)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: st80_25_ndx_in
+    real(r8), intent(in) :: pmid_threshold_in
+    real(r8), intent(in) :: st80_vmr_in
+    real(r8), target, intent(in) :: pmid(pcols,pver)
+    real(r8), target, intent(inout) :: vmr(ncol,pver,gas_pcnst)
+
+    integer :: i, k
+
+    interface
+       subroutine gas_phase_chemdr_reset_ste_tracer_codon(ncol_c, pcols_c, pver_c, gas_pcnst_c, st80_25_ndx_c, &
+            pmid_threshold_c, st80_vmr_c, pmid_p, vmr_p) bind(c, name="gas_phase_chemdr_reset_ste_tracer_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr, c_double
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, gas_pcnst_c, st80_25_ndx_c
+         real(c_double), value :: pmid_threshold_c, st80_vmr_c
+         type(c_ptr), value :: pmid_p, vmr_p
+       end subroutine gas_phase_chemdr_reset_ste_tracer_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do k = 1,pver
+          do i = 1,ncol
+             if (pmid(i,k) < pmid_threshold_in) then
+                vmr(i,k,st80_25_ndx_in) = st80_vmr_in
+             end if
+          end do
+       end do
+       return
+    end if
+
+    call gas_phase_chemdr_reset_ste_tracer_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), &
+         int(st80_25_ndx_in, c_int64_t), pmid_threshold_in, st80_vmr_in, c_loc(pmid), c_loc(vmr) &
+    )
+
+  end subroutine gas_phase_chemdr_reset_ste_tracer
 
   subroutine gas_phase_chemdr_compute_prect(ncol, precc, precl, prect)
 
