@@ -495,6 +495,21 @@ def gas_phase_chemdr_prepare_sza_codon(
 
 
 @export
+def table_photo_zero_photos_codon(
+    ncol: int,
+    pver: int,
+    phtcnt: int,
+    photos_p: cobj,
+):
+    photos = Ptr[float](photos_p)
+
+    for m in range(1, phtcnt + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                photos[_idx3(i, k, m, ncol, pver)] = 0.0
+
+
+@export
 def table_photo_daylight_setup_codon(
     ncol: int,
     pcols: int,

@@ -84,6 +84,8 @@ module mo_photo
   logical :: cloud_mod_impl_selected = .false.
   logical :: photo_timestep_init_exo_time_use_native_impl = .false.
   logical :: photo_timestep_init_exo_time_impl_selected = .false.
+  logical :: table_photo_zero_photos_use_native_impl = .false.
+  logical :: table_photo_zero_photos_impl_selected = .false.
   logical :: table_photo_daylight_setup_use_native_impl = .false.
   logical :: table_photo_daylight_setup_impl_selected = .false.
   logical :: table_photo_jlong_apply_use_native_impl = .false.
@@ -742,11 +744,7 @@ contains
 !-----------------------------------------------------------------
 !	... zero all photorates
 !-----------------------------------------------------------------
-    do m = 1,max(1,phtcnt)
-       do k = 1,pver
-          photos(:,k,m) = 0._r8
-       end do
-    end do
+    call table_photo_zero_photos(ncol, photos)
 
 !------------------------------------------------------------------------------------------------------------
 !  Point to production rates array in physics buffer where rates will be stored for ionosphere module
@@ -924,8 +922,79 @@ contains
 
   end subroutine table_photo
 
+  subroutine table_photo_zero_photos(ncol, photos)
+
+    use chem_mods, only : phtcnt
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(inout) :: photos(ncol,pver,phtcnt)
+
+    integer :: m, k
+
+    interface
+       subroutine table_photo_zero_photos_codon(ncol_c, pver_c, phtcnt_c, photos_p) &
+            bind(c, name="table_photo_zero_photos_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, phtcnt_c
+         type(c_ptr), value :: photos_p
+       end subroutine table_photo_zero_photos_codon
+    end interface
+
+    call table_photo_zero_photos_select_impl()
+
+    if (.not. table_photo_zero_photos_use_native_impl) then
+       call table_photo_zero_photos_codon( &
+            int(ncol, c_int64_t), int(pver, c_int64_t), int(phtcnt, c_int64_t), c_loc(photos) &
+       )
+       return
+    end if
+
+    do m = 1,max(1,phtcnt)
+       do k = 1,pver
+          photos(:,k,m) = 0._r8
+       end do
+    end do
+
+  end subroutine table_photo_zero_photos
+
+  subroutine table_photo_zero_photos_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (table_photo_zero_photos_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('TABLE_PHOTO_ZERO_PHOTOS_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       table_photo_zero_photos_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       table_photo_zero_photos_use_native_impl = .false.
+    end if
+
+    table_photo_zero_photos_impl_selected = .true.
+
+    if (masterproc) then
+       if (table_photo_zero_photos_use_native_impl) then
+          write(iulog,*) 'table_photo_zero_photos implementation = native'
+       else
+          write(iulog,*) 'table_photo_zero_photos implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine table_photo_zero_photos_select_impl
+
   subroutine table_photo_daylight_setup( ncol, i, p1, p2, pmid, pdel, col_dens, lwc, clouds, temper, zmid, &
-       parg, colo3, fac1, lwc_line, cld_line, tline, zarg )
+                                         parg, colo3, fac1, lwc_line, cld_line, tline, zarg )
 
     use chem_mods, only : ncol_abs => nabscol
     use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
