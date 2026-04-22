@@ -54,6 +54,59 @@ def gas_phase_chemdr_prepare_sza_codon(
 
 
 @export
+def table_photo_daylight_setup_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    ncol_abs: int,
+    i_col: int,
+    p1: int,
+    p2: int,
+    pa2mb: float,
+    pmid_p: cobj,
+    pdel_p: cobj,
+    col_dens_p: cobj,
+    lwc_p: cobj,
+    clouds_p: cobj,
+    temper_p: cobj,
+    zmid_p: cobj,
+    parg_p: cobj,
+    colo3_p: cobj,
+    fac1_p: cobj,
+    lwc_line_p: cobj,
+    cld_line_p: cobj,
+    tline_p: cobj,
+    zarg_p: cobj,
+):
+    pmid = Ptr[float](pmid_p)
+    pdel = Ptr[float](pdel_p)
+    col_dens = Ptr[float](col_dens_p)
+    lwc = Ptr[float](lwc_p)
+    clouds = Ptr[float](clouds_p)
+    temper = Ptr[float](temper_p)
+    zmid = Ptr[float](zmid_p)
+    parg = Ptr[float](parg_p)
+    colo3 = Ptr[float](colo3_p)
+    fac1 = Ptr[float](fac1_p)
+    lwc_line = Ptr[float](lwc_line_p)
+    cld_line = Ptr[float](cld_line_p)
+    tline = Ptr[float](tline_p)
+    zarg = Ptr[float](zarg_p)
+
+    for k in range(1, pver + 1):
+        parg[k - 1] = pa2mb * pmid[_idx2(i_col, k, pcols)]
+        colo3[k - 1] = col_dens[_idx3(i_col, k, 1, ncol, pver)]
+        fac1[k - 1] = pdel[_idx2(i_col, k, pcols)]
+        lwc_line[k - 1] = lwc[_idx2(i_col, k, ncol)]
+        cld_line[k - 1] = clouds[_idx2(i_col, k, ncol)]
+
+    for k in range(p1, p2 + 1):
+        src_k = k - p1 + 1
+        tline[k - 1] = temper[_idx2(i_col, src_k, pcols)]
+        zarg[k - 1] = zmid[_idx2(i_col, src_k, ncol)]
+
+
+@export
 def mmr2vmr_codon(
     ncol: int,
     pcols: int,

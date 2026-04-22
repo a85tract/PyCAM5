@@ -84,6 +84,8 @@ module mo_photo
   logical :: cloud_mod_impl_selected = .false.
   logical :: photo_timestep_init_exo_time_use_native_impl = .false.
   logical :: photo_timestep_init_exo_time_impl_selected = .false.
+  logical :: table_photo_daylight_setup_use_native_impl = .false.
+  logical :: table_photo_daylight_setup_impl_selected = .false.
   logical :: table_photo_jlong_apply_use_native_impl = .false.
   logical :: table_photo_jlong_apply_impl_selected = .false.
   logical :: table_photo_jno_ho2no2_use_native_impl = .false.
@@ -613,12 +615,12 @@ contains
     real(r8), target, intent(in)    :: col_dens(ncol,pver,ncol_abs) ! column densities (molecules/cm^2)
     real(r8), intent(in)    :: zen_angle(ncol)              ! solar zenith angle (radians)
     real(r8), intent(in)    :: srf_alb(pcols)               ! surface albedo
-    real(r8), intent(in)    :: lwc(ncol,pver)               ! liquid water content (kg/kg)
-    real(r8), intent(in)    :: clouds(ncol,pver)            ! cloud fraction
-    real(r8), intent(in)    :: pmid(pcols,pver)             ! midpoint pressure (Pa)
-    real(r8), intent(in)    :: pdel(pcols,pver)             ! pressure delta about midpoint (Pa)
-    real(r8), intent(in)    :: temper(pcols,pver)           ! midpoint temperature (K)
-    real(r8), intent(in)    :: zmid(ncol,pver)              ! midpoint height (km)
+    real(r8), target, intent(in)    :: lwc(ncol,pver)               ! liquid water content (kg/kg)
+    real(r8), target, intent(in)    :: clouds(ncol,pver)            ! cloud fraction
+    real(r8), target, intent(in)    :: pmid(pcols,pver)             ! midpoint pressure (Pa)
+    real(r8), target, intent(in)    :: pdel(pcols,pver)             ! pressure delta about midpoint (Pa)
+    real(r8), target, intent(in)    :: temper(pcols,pver)           ! midpoint temperature (K)
+    real(r8), target, intent(in)    :: zmid(ncol,pver)              ! midpoint height (km)
     real(r8), intent(in)    :: zint(ncol,pver)              ! interface height (km)
     real(r8), intent(in)    :: invariants(ncol,pver,max(1,nfs)) ! invariant densities (molecules/cm^3)
     real(r8), target, intent(inout) :: photos(ncol,pver,phtcnt)     ! photodissociation rates (1/s)
@@ -634,13 +636,13 @@ contains
     integer ::  indxIR                     ! pbuf index for ionization rates
     real(r8) ::  sza
     real(r8) ::  alias_factor
-    real(r8) ::  fac1(pver)                ! work space for j(no) calc
+    real(r8), target ::  fac1(pver)        ! work space for j(no) calc
     real(r8) ::  fac2(pver)                ! work space for j(no) calc
-    real(r8) ::  colo3(pver)               ! vertical o3 column density
-    real(r8) ::  parg(pver)                ! vertical pressure array (hPa)
+    real(r8), target ::  colo3(pver)       ! vertical o3 column density
+    real(r8), target ::  parg(pver)        ! vertical pressure array (hPa)
 
-    real(r8) ::  cld_line(pver)            ! vertical cloud array
-    real(r8) ::  lwc_line(pver)            ! vertical lwc array
+    real(r8), target ::  cld_line(pver)    ! vertical cloud array
+    real(r8), target ::  lwc_line(pver)    ! vertical lwc array
     real(r8) ::  eff_alb(pver)             ! effective albedo from cloud modifications
     real(r8), target ::  cld_mult(pver)    ! clould multiplier
     real(r8) ::  tmp(ncol,pver)            ! wrk array
@@ -649,8 +651,8 @@ contains
     real(r8), allocatable ::  euv_prates(:,:) ! photorates matrix (1/s)
     
 
-    real(r8), allocatable :: zarg(:)
-    real(r8), allocatable :: tline(:)               ! vertical temperature array
+    real(r8), allocatable, target :: zarg(:)
+    real(r8), allocatable, target :: tline(:)               ! vertical temperature array
     real(r8), allocatable :: o_den(:)               ! o density (molecules/cm^3)
     real(r8), allocatable :: o2_den(:)              ! o2 density (molecules/cm^3)
     real(r8), allocatable :: o3_den(:)              ! o3 density (molecules/cm^3)
@@ -787,16 +789,8 @@ contains
        endif
        sza = zen_angle(i)*r2d
        daylight : if( sza >= 0._r8 .and. sza < max_zen_angle ) then
-          parg(:)     = Pa2mb*pmid(i,:)
-          colo3(:)    = col_dens(i,:,1)
-          fac1(:)     = pdel(i,:)
-          lwc_line(:) = lwc(i,:)
-          cld_line(:) = clouds(i,:)
-
-          
-          tline(p1:p2) = temper(i,:pver)
-
-          zarg(p1:p2) = zmid(i,:pver)
+          call table_photo_daylight_setup( ncol, i, p1, p2, pmid, pdel, col_dens, lwc, clouds, temper, zmid, &
+               parg, colo3, fac1, lwc_line, cld_line, tline, zarg )
 
           if (do_jshort) then
              if ( ptop_ref > 10._r8 ) then
@@ -929,6 +923,111 @@ contains
     call set_xnox_photo( photos, ncol  )
 
   end subroutine table_photo
+
+  subroutine table_photo_daylight_setup( ncol, i, p1, p2, pmid, pdel, col_dens, lwc, clouds, temper, zmid, &
+       parg, colo3, fac1, lwc_line, cld_line, tline, zarg )
+
+    use chem_mods, only : ncol_abs => nabscol
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: i
+    integer, intent(in) :: p1
+    integer, intent(in) :: p2
+    real(r8), target, intent(in) :: pmid(pcols,pver)
+    real(r8), target, intent(in) :: pdel(pcols,pver)
+    real(r8), target, intent(in) :: col_dens(ncol,pver,ncol_abs)
+    real(r8), target, intent(in) :: lwc(ncol,pver)
+    real(r8), target, intent(in) :: clouds(ncol,pver)
+    real(r8), target, intent(in) :: temper(pcols,pver)
+    real(r8), target, intent(in) :: zmid(ncol,pver)
+    real(r8), target, intent(out) :: parg(pver)
+    real(r8), target, intent(out) :: colo3(pver)
+    real(r8), target, intent(out) :: fac1(pver)
+    real(r8), target, intent(out) :: lwc_line(pver)
+    real(r8), target, intent(out) :: cld_line(pver)
+    real(r8), target, intent(inout) :: tline(:)
+    real(r8), target, intent(inout) :: zarg(:)
+
+    integer :: k
+    real(r8), parameter :: Pa2mb = 1.e-2_r8
+
+    interface
+       subroutine table_photo_daylight_setup_codon(ncol_c, pcols_c, pver_c, ncol_abs_c, i_c, p1_c, p2_c, pa2mb_c, &
+            pmid_p, pdel_p, col_dens_p, lwc_p, clouds_p, temper_p, zmid_p, parg_p, colo3_p, fac1_p, lwc_line_p, &
+            cld_line_p, tline_p, zarg_p) bind(c, name="table_photo_daylight_setup_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, ncol_abs_c, i_c, p1_c, p2_c
+         real(c_double), value :: pa2mb_c
+         type(c_ptr), value :: pmid_p, pdel_p, col_dens_p, lwc_p, clouds_p, temper_p, zmid_p
+         type(c_ptr), value :: parg_p, colo3_p, fac1_p, lwc_line_p, cld_line_p, tline_p, zarg_p
+       end subroutine table_photo_daylight_setup_codon
+    end interface
+
+    call table_photo_daylight_setup_select_impl()
+
+    if (.not. table_photo_daylight_setup_use_native_impl) then
+       call table_photo_daylight_setup_codon( &
+            int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(ncol_abs, c_int64_t), &
+            int(i, c_int64_t), int(p1, c_int64_t), int(p2, c_int64_t), real(Pa2mb, c_double), c_loc(pmid), &
+            c_loc(pdel), c_loc(col_dens), c_loc(lwc), c_loc(clouds), c_loc(temper), c_loc(zmid), c_loc(parg), &
+            c_loc(colo3), c_loc(fac1), c_loc(lwc_line), c_loc(cld_line), c_loc(tline), c_loc(zarg) &
+       )
+       return
+    end if
+
+    do k = 1,pver
+       parg(k) = Pa2mb * pmid(i,k)
+       colo3(k) = col_dens(i,k,1)
+       fac1(k) = pdel(i,k)
+       lwc_line(k) = lwc(i,k)
+       cld_line(k) = clouds(i,k)
+    end do
+    do k = p1,p2
+       tline(k) = temper(i,k-p1+1)
+       zarg(k) = zmid(i,k-p1+1)
+    end do
+
+  end subroutine table_photo_daylight_setup
+
+  subroutine table_photo_daylight_setup_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (table_photo_daylight_setup_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('TABLE_PHOTO_DAYLIGHT_SETUP_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       table_photo_daylight_setup_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       table_photo_daylight_setup_use_native_impl = .false.
+    end if
+
+    table_photo_daylight_setup_impl_selected = .true.
+
+    if (masterproc) then
+       if (table_photo_daylight_setup_use_native_impl) then
+          write(iulog,*) 'table_photo_daylight_setup implementation = native'
+       else
+          write(iulog,*) 'table_photo_daylight_setup implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine table_photo_daylight_setup_select_impl
 
   subroutine table_photo_apply_jlong( ncol, i, photos, lng_prates, cld_mult, lng_indexer_c, alias_mult2 )
 
