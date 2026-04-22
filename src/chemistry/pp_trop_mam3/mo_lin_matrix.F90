@@ -8,6 +8,9 @@
       private
       public :: linmat
 
+      logical :: linmat_use_native_impl = .false.
+      logical :: linmat_impl_selected = .false.
+
       contains
 
       subroutine linmat01( mat, y, rxt, het_rates )
@@ -17,6 +20,7 @@
 
       use chem_mods, only : gas_pcnst, rxntot, nzcnt
       use shr_kind_mod, only : r8 => shr_kind_r8
+      use iso_c_binding, only : c_loc, c_ptr
 
       implicit none
 
@@ -24,9 +28,23 @@
 ! ... dummy arguments
 !----------------------------------------------
       real(r8), intent(in) :: y(gas_pcnst)
-      real(r8), intent(in) :: rxt(rxntot)
-      real(r8), intent(in) :: het_rates(max(1,gas_pcnst))
-      real(r8), intent(inout) :: mat(nzcnt)
+      real(r8), target, intent(in) :: rxt(rxntot)
+      real(r8), target, intent(in) :: het_rates(max(1,gas_pcnst))
+      real(r8), target, intent(inout) :: mat(nzcnt)
+
+      interface
+         subroutine linmat_codon(mat_p, rxt_p, het_rates_p) bind(c, name="linmat_codon")
+            use iso_c_binding, only : c_ptr
+            type(c_ptr), value :: mat_p, rxt_p, het_rates_p
+         end subroutine linmat_codon
+      end interface
+
+      call linmat_select_impl()
+
+      if (.not. linmat_use_native_impl) then
+         call linmat_codon(c_loc(mat), c_loc(rxt), c_loc(het_rates))
+         return
+      end if
 
          mat(1) = -( rxt(1) + rxt(3) + het_rates(1) )
 
@@ -94,5 +112,45 @@
       call linmat01( mat, y, rxt, het_rates )
 
       end subroutine linmat
+
+      subroutine linmat_select_impl()
+
+      use cam_logfile, only : iulog
+      use spmd_utils, only : masterproc
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (linmat_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('LINMAT_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         linmat_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         linmat_use_native_impl = .false.
+      end if
+
+      linmat_impl_selected = .true.
+
+      if (masterproc) then
+         if (linmat_use_native_impl) then
+            write(iulog,*) 'linmat implementation = native'
+         else
+            write(iulog,*) 'linmat implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine linmat_select_impl
 
       end module mo_lin_matrix
