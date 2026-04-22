@@ -520,6 +520,42 @@ def cloud_mod_codon(
 
 
 @export
+def photo_timestep_init_exo_time_codon(
+    calday: float,
+    days_p: cobj,
+    next_p: cobj,
+    last_p: cobj,
+    dels_p: cobj,
+):
+    days = Ptr[float](days_p)
+    next_v = Ptr[int](next_p)
+    last_v = Ptr[int](last_p)
+    dels_v = Ptr[float](dels_p)
+
+    if calday < days[0]:
+        next_v[0] = 1
+        last_v[0] = 12
+        dels_v[0] = (365.0 + calday - days[11]) / (365.0 + days[0] - days[11])
+        return
+
+    if calday >= days[11]:
+        next_v[0] = 1
+        last_v[0] = 12
+        dels_v[0] = (calday - days[11]) / (365.0 + days[0] - days[11])
+        return
+
+    m = 0
+    for idx in range(10, -1, -1):
+        if calday >= days[idx]:
+            m = idx
+            break
+
+    last_v[0] = m + 1
+    next_v[0] = m + 2
+    dels_v[0] = (calday - days[m]) / (days[m + 1] - days[m])
+
+
+@export
 def gas_phase_chemdr_zero_sulfate_codon(
     ncol: int,
     pver: int,

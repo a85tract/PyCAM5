@@ -52,7 +52,7 @@ module mo_photo
   integer              :: n_exo_levs
   real(r8)                 :: delp
   real(r8)                 :: dels
-  real(r8), allocatable    :: days(:)
+  real(r8), allocatable, target :: days(:)
   real(r8), allocatable    :: levs(:)
   real(r8), allocatable    :: o2_exo_coldens(:,:,:,:)
   real(r8), allocatable    :: o3_exo_coldens(:,:,:,:)
@@ -82,6 +82,8 @@ module mo_photo
   logical :: setcol_impl_selected = .false.
   logical :: cloud_mod_use_native_impl = .false.
   logical :: cloud_mod_impl_selected = .false.
+  logical :: photo_timestep_init_exo_time_use_native_impl = .false.
+  logical :: photo_timestep_init_exo_time_impl_selected = .false.
   logical :: set_xnox_photo_use_native_impl = .false.
   logical :: set_xnox_photo_impl_selected = .false.
 
@@ -1830,6 +1832,7 @@ secant_in_bounds : &
     use mo_solar_parms, only : solar_parms_get
     use mo_jshort,      only : jshort_timestep_init
     use mo_jlong,       only : jlong_timestep_init
+    use iso_c_binding,  only : c_double, c_int64_t, c_loc, c_ptr
 
     !-----------------------------------------------------------------------------
     !	... setup the time interpolation
@@ -1848,6 +1851,17 @@ secant_in_bounds : &
     integer :: m
     real(r8) :: f107
     real(r8) :: f107a
+    integer(c_int64_t), target :: next_c, last_c
+    real(c_double), target :: dels_c
+
+    interface
+       subroutine photo_timestep_init_exo_time_codon(calday_c, days_p, next_p, last_p, dels_p) &
+            bind(c, name="photo_timestep_init_exo_time_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         real(c_double), value :: calday_c
+         type(c_ptr), value :: days_p, next_p, last_p, dels_p
+       end subroutine photo_timestep_init_exo_time_codon
+    end interface
 
     if ( do_jeuv ) then
        if( is_end_curr_day() ) then
@@ -1857,23 +1871,33 @@ secant_in_bounds : &
     endif
 
     if( has_o2_col .or. has_o3_col ) then
-       if( calday < days(1) ) then
-          next = 1
-          last = 12
-          dels = (365._r8 + calday - days(12)) / (365._r8 + days(1) - days(12))
-       else if( calday >= days(12) ) then
-          next = 1
-          last = 12
-          dels = (calday - days(12)) / (365._r8 + days(1) - days(12))
+       call photo_timestep_init_exo_time_select_impl()
+       if (.not. photo_timestep_init_exo_time_use_native_impl) then
+          call photo_timestep_init_exo_time_codon( &
+               real(calday, c_double), c_loc(days), c_loc(next_c), c_loc(last_c), c_loc(dels_c) &
+          )
+          next = int(next_c)
+          last = int(last_c)
+          dels = real(dels_c, r8)
        else
-          do m = 11,1,-1
-             if( calday >= days(m) ) then
-                exit
-             end if
-          end do
-          last = m
-          next = m + 1
-          dels = (calday - days(m)) / (days(m+1) - days(m))
+          if( calday < days(1) ) then
+             next = 1
+             last = 12
+             dels = (365._r8 + calday - days(12)) / (365._r8 + days(1) - days(12))
+          else if( calday >= days(12) ) then
+             next = 1
+             last = 12
+             dels = (calday - days(12)) / (365._r8 + days(1) - days(12))
+          else
+             do m = 11,1,-1
+                if( calday >= days(m) ) then
+                   exit
+                end if
+             end do
+             last = m
+             next = m + 1
+             dels = (calday - days(m)) / (days(m+1) - days(m))
+          end if
        end if
 #ifdef DEBUG
        write(iulog,*) '-----------------------------------'
@@ -1896,6 +1920,43 @@ secant_in_bounds : &
     endif
 
   end subroutine photo_timestep_init
+
+  subroutine photo_timestep_init_exo_time_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (photo_timestep_init_exo_time_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('PHOTO_TIMESTEP_INIT_EXO_TIME_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       photo_timestep_init_exo_time_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       photo_timestep_init_exo_time_use_native_impl = .false.
+    end if
+
+    photo_timestep_init_exo_time_impl_selected = .true.
+
+    if (masterproc) then
+       if (photo_timestep_init_exo_time_use_native_impl) then
+          write(iulog,*) 'photo_timestep_init_exo_time implementation = native'
+       else
+          write(iulog,*) 'photo_timestep_init_exo_time implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine photo_timestep_init_exo_time_select_impl
 
   !--------------------------------------------------------------------------
   !--------------------------------------------------------------------------
