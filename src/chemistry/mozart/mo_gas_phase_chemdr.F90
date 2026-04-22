@@ -856,7 +856,7 @@ contains
    
        call gas_phase_chemdr_reform_hno3_hcl(ncol, hno3_ndx, hcl_ndx, vmr, hno3_cond, hcl_cond)
 
-       wrk(:,:) = (vmr(:,:,h2o_ndx) - wrk(:,:))*delt_inverse
+       call gas_phase_chemdr_update_qdsett_wrk(ncol, h2o_ndx, delt_inverse, vmr, wrk)
        call outfld( 'QDSETT', wrk(:,:), ncol, lchnk )
 
     endif
@@ -1438,6 +1438,44 @@ contains
     )
 
   end subroutine gas_phase_chemdr_init_dust_vmr
+
+  subroutine gas_phase_chemdr_update_qdsett_wrk(ncol, h2o_ndx_in, delt_inverse_in, vmr, wrk)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: h2o_ndx_in
+    real(r8), intent(in) :: delt_inverse_in
+    real(r8), target, intent(in) :: vmr(ncol,pver,gas_pcnst)
+    real(r8), target, intent(inout) :: wrk(ncol,pver)
+
+    integer :: i, k
+
+    interface
+       subroutine gas_phase_chemdr_update_qdsett_wrk_codon(ncol_c, pver_c, gas_pcnst_c, h2o_ndx_c, delt_inverse_c, &
+            vmr_p, wrk_p) bind(c, name="gas_phase_chemdr_update_qdsett_wrk_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr, c_double
+         integer(c_int64_t), value :: ncol_c, pver_c, gas_pcnst_c, h2o_ndx_c
+         real(c_double), value :: delt_inverse_c
+         type(c_ptr), value :: vmr_p, wrk_p
+       end subroutine gas_phase_chemdr_update_qdsett_wrk_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do k = 1,pver
+          do i = 1,ncol
+             wrk(i,k) = (vmr(i,k,h2o_ndx_in) - wrk(i,k))*delt_inverse_in
+          end do
+       end do
+       return
+    end if
+
+    call gas_phase_chemdr_update_qdsett_wrk_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), int(h2o_ndx_in, c_int64_t), &
+         delt_inverse_in, c_loc(vmr), c_loc(wrk) &
+    )
+
+  end subroutine gas_phase_chemdr_update_qdsett_wrk
 
   subroutine gas_phase_chemdr_update_qdchem_wrk(ncol, h2o_ndx_in, delt_inverse_in, vmr, wrk)
 
