@@ -66,6 +66,8 @@
       real(r8), allocatable, target :: colo3(:)
       real(r4), allocatable, target :: rsf_tab(:,:,:,:,:)
       logical :: jlong_used = .false.
+      logical :: jlong_photo_loop_use_native_impl = .false.
+      logical :: jlong_photo_loop_impl_selected = .false.
       logical :: jlong_photo_accum_use_native_impl = .false.
       logical :: jlong_photo_accum_impl_selected = .false.
       logical :: jlong_photo_xswk_use_native_impl = .false.
@@ -713,6 +715,12 @@ level_loop_1 : &
            integer(c_int64_t), value :: numj_c, nw_c
            type(c_ptr), value :: xswk_p, rsf_col_p, j_long_col_p
          end subroutine jlong_photo_accum_codon
+         subroutine jlong_photo_loop_codon(numj_c, nw_c, nt_c, np_xs_c, nlev_c, p_in_p, t_in_p, prs_p, dprs_p, xsqy_p, &
+              rsf_p, xswk_p, j_long_p) bind(c, name="jlong_photo_loop_codon")
+           use iso_c_binding, only : c_int64_t, c_ptr
+           integer(c_int64_t), value :: numj_c, nw_c, nt_c, np_xs_c, nlev_c
+           type(c_ptr), value :: p_in_p, t_in_p, prs_p, dprs_p, xsqy_p, rsf_p, xswk_p, j_long_p
+         end subroutine jlong_photo_loop_codon
       end interface
 
 !----------------------------------------------------------------------
@@ -731,6 +739,14 @@ level_loop_1 : &
 !        ... interpolate table rsf to model variables
 !----------------------------------------------------------------------
       call interpolate_rsf( alb_in, sza_in, p_in, colo3_in, nlev, rsf )
+      call jlong_photo_loop_select_impl()
+      if (.not. jlong_photo_loop_use_native_impl) then
+         call jlong_photo_loop_codon( int(numj, c_int64_t), int(nw, c_int64_t), int(nt, c_int64_t), int(np_xs, c_int64_t), &
+              int(nlev, c_int64_t), c_loc(p_in(1)), c_loc(t_in(1)), c_loc(prs(1)), c_loc(dprs(1)), c_loc(xsqy(1,1,1,1)), &
+              c_loc(rsf(1,1)), c_loc(xswk(1,1)), c_loc(j_long(1,1)) )
+         deallocate( rsf, xswk )
+         return
+      end if
       call jlong_photo_accum_select_impl()
       call jlong_photo_xswk_select_impl()
 
@@ -800,6 +816,43 @@ level_loop_1 : &
       deallocate( rsf, xswk )
 
       end subroutine jlong_photo
+
+      subroutine jlong_photo_loop_select_impl()
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (jlong_photo_loop_impl_selected) return
+
+      impl_name = 'native'
+      call get_environment_variable('JLONG_PHOTO_LOOP_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         jlong_photo_loop_use_native_impl = trim(adjustl(impl_name(:n))) /= 'codon'
+      else
+         jlong_photo_loop_use_native_impl = .true.
+      end if
+
+      jlong_photo_loop_impl_selected = .true.
+
+      if (masterproc) then
+         if (jlong_photo_loop_use_native_impl) then
+            write(iulog,*) 'jlong_photo_loop implementation = native'
+         else
+            write(iulog,*) 'jlong_photo_loop implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine jlong_photo_loop_select_impl
 
       subroutine jlong_photo_accum_select_impl()
 

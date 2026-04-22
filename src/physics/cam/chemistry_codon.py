@@ -325,6 +325,67 @@ def jlong_photo_accum_codon(
 
 
 @export
+def jlong_photo_loop_codon(
+    numj: int,
+    nw: int,
+    nt: int,
+    np_xs: int,
+    nlev: int,
+    p_in_p: cobj,
+    t_in_p: cobj,
+    prs_p: cobj,
+    dprs_p: cobj,
+    xsqy_p: cobj,
+    rsf_p: cobj,
+    xswk_p: cobj,
+    j_long_p: cobj,
+):
+    p_in = Ptr[float](p_in_p)
+    t_in = Ptr[float](t_in_p)
+    prs = Ptr[float](prs_p)
+    dprs = Ptr[float](dprs_p)
+    xsqy = Ptr[float32](xsqy_p)
+    rsf = Ptr[float](rsf_p)
+    xswk = Ptr[float](xswk_p)
+    j_long = Ptr[float](j_long_p)
+
+    for k in range(1, nlev + 1):
+        t_index = int(t_in[k - 1] - 148.5)
+        t_index = min(201, max(t_index, 1))
+        ptarget = p_in[k - 1]
+
+        if ptarget >= prs[0]:
+            pndx = 1
+            for wn in range(1, nw + 1):
+                for m in range(1, numj + 1):
+                    xswk[_idx2(m, wn, numj)] = float(xsqy[_idx4(m, wn, t_index, pndx, numj, nw, nt)])
+        elif ptarget <= prs[np_xs - 1]:
+            pndx = np_xs
+            for wn in range(1, nw + 1):
+                for m in range(1, numj + 1):
+                    xswk[_idx2(m, wn, numj)] = float(xsqy[_idx4(m, wn, t_index, pndx, numj, nw, nt)])
+        else:
+            pndx = np_xs - 1
+            delp = 0.0
+            for km in range(2, np_xs + 1):
+                if ptarget >= prs[km - 1]:
+                    pndx = km - 1
+                    delp = (prs[pndx - 1] - ptarget) * dprs[pndx - 1]
+                    break
+            for wn in range(1, nw + 1):
+                for m in range(1, numj + 1):
+                    lo = float(xsqy[_idx4(m, wn, t_index, pndx, numj, nw, nt)])
+                    hi = float(xsqy[_idx4(m, wn, t_index, pndx + 1, numj, nw, nt)])
+                    xswk[_idx2(m, wn, numj)] = lo + delp * (hi - lo)
+
+        for m in range(1, numj + 1):
+            acc = 0.0
+            for wn in range(1, nw + 1):
+                acc = acc + xswk[_idx2(m, wn, numj)] * rsf[_idx2(wn, k, nw)]
+            j_long[_idx2(m, k, numj)] = acc
+
+
+@export
 def chem_emissions_zero_cflx_codon(
     pcols: int,
     pcnst: int,
