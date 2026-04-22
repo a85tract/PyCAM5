@@ -440,6 +440,31 @@ def gas_phase_chemdr_restore_hcl_gas_codon(
 
 
 @export
+def gas_phase_chemdr_init_dust_vmr_codon(
+    ncol: int,
+    pver: int,
+    gas_pcnst: int,
+    ndust: int,
+    dst_ndx: int,
+    vmr_p: cobj,
+    dust_vmr_p: cobj,
+):
+    vmr = Ptr[float](vmr_p)
+    dust_vmr = Ptr[float](dust_vmr_p)
+
+    if dst_ndx > 0:
+        for m in range(1, ndust + 1):
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    dust_vmr[_idx3(i, k, m, ncol, pver)] = vmr[_idx3(i, k, dst_ndx + m - 1, ncol, pver)]
+    else:
+        for m in range(1, ndust + 1):
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    dust_vmr[_idx3(i, k, m, ncol, pver)] = 0.0
+
+
+@export
 def gas_phase_chemdr_update_qdchem_wrk_codon(
     ncol: int,
     pver: int,

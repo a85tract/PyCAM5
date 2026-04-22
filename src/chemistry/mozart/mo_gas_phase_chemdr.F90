@@ -680,11 +680,7 @@ contains
 
 
     if ( xactive_prates ) then
-       if ( dst_ndx > 0 ) then
-          dust_vmr(:ncol,:,1:ndust) = vmr(:ncol,:,dst_ndx:dst_ndx+ndust-1)
-       else 
-          dust_vmr(:ncol,:,:) = 0._r8
-       endif
+       call gas_phase_chemdr_init_dust_vmr(ncol, dst_ndx, vmr, dust_vmr)
 
        !-----------------------------------------------------------------
        !	... compute the photolysis rates
@@ -1394,6 +1390,54 @@ contains
     )
 
   end subroutine gas_phase_chemdr_restore_hcl_gas
+
+  subroutine gas_phase_chemdr_init_dust_vmr(ncol, dst_ndx_in, vmr, dust_vmr)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: dst_ndx_in
+    real(r8), target, intent(in) :: vmr(ncol,pver,gas_pcnst)
+    real(r8), target, intent(out) :: dust_vmr(ncol,pver,ndust)
+
+    integer :: i, k, m
+
+    interface
+       subroutine gas_phase_chemdr_init_dust_vmr_codon(ncol_c, pver_c, gas_pcnst_c, ndust_c, dst_ndx_c, vmr_p, &
+            dust_vmr_p) bind(c, name="gas_phase_chemdr_init_dust_vmr_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, gas_pcnst_c, ndust_c, dst_ndx_c
+         type(c_ptr), value :: vmr_p, dust_vmr_p
+       end subroutine gas_phase_chemdr_init_dust_vmr_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       if (dst_ndx_in > 0) then
+          do m = 1, ndust
+             do k = 1, pver
+                do i = 1, ncol
+                   dust_vmr(i,k,m) = vmr(i,k,dst_ndx_in + m - 1)
+                end do
+             end do
+          end do
+       else
+          do m = 1, ndust
+             do k = 1, pver
+                do i = 1, ncol
+                   dust_vmr(i,k,m) = 0.0_r8
+                end do
+             end do
+          end do
+       end if
+       return
+    end if
+
+    call gas_phase_chemdr_init_dust_vmr_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), int(ndust, c_int64_t), &
+         int(dst_ndx_in, c_int64_t), c_loc(vmr), c_loc(dust_vmr) &
+    )
+
+  end subroutine gas_phase_chemdr_init_dust_vmr
 
   subroutine gas_phase_chemdr_update_qdchem_wrk(ncol, h2o_ndx_in, delt_inverse_in, vmr, wrk)
 
