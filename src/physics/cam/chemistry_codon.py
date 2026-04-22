@@ -393,6 +393,35 @@ def gas_phase_chemdr_compute_relhum_codon(
 
 
 @export
+def gas_phase_chemdr_restore_strat_gases_codon(
+    ncol: int,
+    pver: int,
+    gas_pcnst: int,
+    hno3_ndx: int,
+    h2o_ndx: int,
+    delt_inverse: float,
+    vmr_p: cobj,
+    hno3_gas_p: cobj,
+    h2o_gas_p: cobj,
+    h2ovmr_p: cobj,
+    wrk_p: cobj,
+):
+    vmr = Ptr[float](vmr_p)
+    hno3_gas = Ptr[float](hno3_gas_p)
+    h2o_gas = Ptr[float](h2o_gas_p)
+    h2ovmr = Ptr[float](h2ovmr_p)
+    wrk = Ptr[float](wrk_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _idx2(i, k, ncol)
+            vmr[_idx3(i, k, hno3_ndx, ncol, pver)] = hno3_gas[idx2]
+            h2ovmr[idx2] = h2o_gas[idx2]
+            vmr[_idx3(i, k, h2o_ndx, ncol, pver)] = h2o_gas[idx2]
+            wrk[idx2] = (h2ovmr[idx2] - wrk[idx2]) * delt_inverse
+
+
+@export
 def gas_phase_chemdr_init_h2so4_gasprod_codon(
     ncol: int,
     pver: int,

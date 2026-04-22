@@ -584,12 +584,8 @@ contains
        call outfld( 'HNO3_TOTAL', vmr(:ncol,:,hno3_ndx), ncol ,lchnk )
 
 
-       do k = 1,pver
-          vmr(:,k,hno3_ndx) = hno3_gas(:,k)
-          h2ovmr(:,k)       = h2o_gas(:,k)
-          vmr(:,k,h2o_ndx)  = h2o_gas(:,k)
-          wrk(:,k)          = (h2ovmr(:,k) - wrk(:,k))*delt_inverse
-       end do
+       call gas_phase_chemdr_restore_strat_gases(ncol, hno3_ndx, h2o_ndx, delt_inverse, vmr, hno3_gas, h2o_gas, &
+            h2ovmr, wrk)
 
        call outfld( 'QDSAD', wrk(:,:), ncol, lchnk )
 !
@@ -1329,6 +1325,51 @@ contains
     )
 
   end subroutine gas_phase_chemdr_compute_relhum
+
+  subroutine gas_phase_chemdr_restore_strat_gases(ncol, hno3_ndx_in, h2o_ndx_in, delt_inverse_in, vmr, hno3_gas, &
+       h2o_gas, h2ovmr, wrk)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: hno3_ndx_in, h2o_ndx_in
+    real(r8), intent(in) :: delt_inverse_in
+    real(r8), target, intent(inout) :: vmr(ncol,pver,gas_pcnst)
+    real(r8), target, intent(in) :: hno3_gas(ncol,pver), h2o_gas(ncol,pver)
+    real(r8), target, intent(inout) :: h2ovmr(ncol,pver), wrk(ncol,pver)
+
+    integer :: i, k
+
+    interface
+       subroutine gas_phase_chemdr_restore_strat_gases_codon(ncol_c, pver_c, gas_pcnst_c, hno3_ndx_c, h2o_ndx_c, &
+            delt_inverse_c, vmr_p, hno3_gas_p, h2o_gas_p, h2ovmr_p, wrk_p) &
+            bind(c, name="gas_phase_chemdr_restore_strat_gases_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr, c_double
+         integer(c_int64_t), value :: ncol_c, pver_c, gas_pcnst_c, hno3_ndx_c, h2o_ndx_c
+         real(c_double), value :: delt_inverse_c
+         type(c_ptr), value :: vmr_p, hno3_gas_p, h2o_gas_p, h2ovmr_p, wrk_p
+       end subroutine gas_phase_chemdr_restore_strat_gases_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do k = 1,pver
+          do i = 1,ncol
+             vmr(i,k,hno3_ndx_in) = hno3_gas(i,k)
+             h2ovmr(i,k) = h2o_gas(i,k)
+             vmr(i,k,h2o_ndx_in) = h2o_gas(i,k)
+             wrk(i,k) = (h2ovmr(i,k) - wrk(i,k))*delt_inverse_in
+          end do
+       end do
+       return
+    end if
+
+    call gas_phase_chemdr_restore_strat_gases_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), int(hno3_ndx_in, c_int64_t), &
+         int(h2o_ndx_in, c_int64_t), delt_inverse_in, c_loc(vmr), c_loc(hno3_gas), c_loc(h2o_gas), &
+         c_loc(h2ovmr), c_loc(wrk) &
+    )
+
+  end subroutine gas_phase_chemdr_restore_strat_gases
 
   subroutine gas_phase_chemdr_init_h2so4_gasprod(ncol, ndx_h2so4_in, vmr, del_h2so4_gasprod)
 
