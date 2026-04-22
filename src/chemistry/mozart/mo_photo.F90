@@ -80,6 +80,8 @@ module mo_photo
   logical :: set_ub_col_impl_selected = .false.
   logical :: setcol_use_native_impl = .false.
   logical :: setcol_impl_selected = .false.
+  logical :: cloud_mod_use_native_impl = .false.
+  logical :: cloud_mod_impl_selected = .false.
   logical :: set_xnox_photo_use_native_impl = .false.
   logical :: set_xnox_photo_impl_selected = .false.
 
@@ -1257,6 +1259,8 @@ secant_in_bounds : &
     ! 	... cloud alteration factors for photorates and albedo
     !-----------------------------------------------------------------------
 
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+
     implicit none
 
     !-----------------------------------------------------------------------
@@ -1264,29 +1268,55 @@ secant_in_bounds : &
     !-----------------------------------------------------------------------
     real(r8), intent(in)    ::  zen_angle         ! zenith angle
     real(r8), intent(in)    ::  srf_alb           ! surface albedo
-    real(r8), intent(in)    ::  clouds(pver)       ! cloud fraction
-    real(r8), intent(in)    ::  lwc(pver)          ! liquid water content (mass mr)
-    real(r8), intent(in)    ::  delp(pver)         ! del press about midpoint in pascals
-    real(r8), intent(out)   ::  eff_alb(pver)      ! effective albedo
-    real(r8), intent(out)   ::  cld_mult(pver)     ! photolysis mult factor
+    real(r8), target, intent(in)    ::  clouds(pver)       ! cloud fraction
+    real(r8), target, intent(in)    ::  lwc(pver)          ! liquid water content (mass mr)
+    real(r8), target, intent(in)    ::  delp(pver)         ! del press about midpoint in pascals
+    real(r8), target, intent(out)   ::  eff_alb(pver)      ! effective albedo
+    real(r8), target, intent(out)   ::  cld_mult(pver)     ! photolysis mult factor
 
     !-----------------------------------------------------------------------
     ! 	... local variables
     !-----------------------------------------------------------------------
     integer :: k
     real(r8)    :: coschi
-    real(r8)    :: del_lwp(pver)
-    real(r8)    :: del_tau(pver)
-    real(r8)    :: above_tau(pver)
-    real(r8)    :: below_tau(pver)
-    real(r8)    :: above_cld(pver)
-    real(r8)    :: below_cld(pver)
-    real(r8)    :: above_tra(pver)
-    real(r8)    :: below_tra(pver)
-    real(r8)    :: fac1(pver)
-    real(r8)    :: fac2(pver)
+    real(r8), target :: del_lwp(pver)
+    real(r8), target :: del_tau(pver)
+    real(r8), target :: above_tau(pver)
+    real(r8), target :: below_tau(pver)
+    real(r8), target :: above_cld(pver)
+    real(r8), target :: below_cld(pver)
+    real(r8), target :: above_tra(pver)
+    real(r8), target :: below_tra(pver)
+    real(r8), target :: fac1(pver)
+    real(r8), target :: fac2(pver)
 
     real(r8), parameter :: rgrav = 1._r8/9.80616_r8
+
+    interface
+       subroutine cloud_mod_codon(pver_c, zen_angle_c, srf_alb_c, rgrav_c, clouds_p, lwc_p, delp_p, eff_alb_p, &
+            cld_mult_p, del_lwp_p, del_tau_p, above_tau_p, below_tau_p, above_cld_p, below_cld_p, above_tra_p, &
+            below_tra_p, fac1_p, fac2_p) bind(c, name="cloud_mod_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: pver_c
+         real(c_double), value :: zen_angle_c, srf_alb_c, rgrav_c
+         type(c_ptr), value :: clouds_p, lwc_p, delp_p, eff_alb_p, cld_mult_p
+         type(c_ptr), value :: del_lwp_p, del_tau_p, above_tau_p, below_tau_p
+         type(c_ptr), value :: above_cld_p, below_cld_p, above_tra_p, below_tra_p
+         type(c_ptr), value :: fac1_p, fac2_p
+       end subroutine cloud_mod_codon
+    end interface
+
+    call cloud_mod_select_impl()
+
+    if (.not. cloud_mod_use_native_impl) then
+       call cloud_mod_codon( &
+            int(pver, c_int64_t), real(zen_angle, c_double), real(srf_alb, c_double), real(rgrav, c_double), &
+            c_loc(clouds), c_loc(lwc), c_loc(delp), c_loc(eff_alb), c_loc(cld_mult), c_loc(del_lwp), c_loc(del_tau), &
+            c_loc(above_tau), c_loc(below_tau), c_loc(above_cld), c_loc(below_cld), c_loc(above_tra), &
+            c_loc(below_tra), c_loc(fac1), c_loc(fac2) &
+       )
+       return
+    end if
 
     !---------------------------------------------------------
     !	... modify lwc for cloud fraction and form
@@ -1384,6 +1414,43 @@ secant_in_bounds : &
     cld_mult(:) = max( .05_r8,cld_mult(:) )
 
   end subroutine cloud_mod
+
+  subroutine cloud_mod_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (cloud_mod_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('CLOUD_MOD_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       cloud_mod_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       cloud_mod_use_native_impl = .false.
+    end if
+
+    cloud_mod_impl_selected = .true.
+
+    if (masterproc) then
+       if (cloud_mod_use_native_impl) then
+          write(iulog,*) 'cloud_mod implementation = native'
+       else
+          write(iulog,*) 'cloud_mod implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine cloud_mod_select_impl
 
   subroutine set_ub_col( col_delta, vmr, invariants, ptop, pdel, ncol, lchnk )
     !---------------------------------------------------------------

@@ -1,4 +1,4 @@
-from math import acos, exp, sqrt
+from math import acos, cos, exp, sqrt
 
 
 @inline
@@ -394,6 +394,129 @@ def set_ub_col_codon(
             for k in range(0, pver + 1):
                 for i in range(1, ncol + 1):
                     col_delta[_idx3_k0(i, k, 2, ncol, pver + 1)] = 0.0
+
+
+@export
+def cloud_mod_codon(
+    pver: int,
+    zen_angle: float,
+    srf_alb: float,
+    rgrav: float,
+    clouds_p: cobj,
+    lwc_p: cobj,
+    delp_p: cobj,
+    eff_alb_p: cobj,
+    cld_mult_p: cobj,
+    del_lwp_p: cobj,
+    del_tau_p: cobj,
+    above_tau_p: cobj,
+    below_tau_p: cobj,
+    above_cld_p: cobj,
+    below_cld_p: cobj,
+    above_tra_p: cobj,
+    below_tra_p: cobj,
+    fac1_p: cobj,
+    fac2_p: cobj,
+):
+    clouds = Ptr[float](clouds_p)
+    lwc = Ptr[float](lwc_p)
+    delp = Ptr[float](delp_p)
+    eff_alb = Ptr[float](eff_alb_p)
+    cld_mult = Ptr[float](cld_mult_p)
+    del_lwp = Ptr[float](del_lwp_p)
+    del_tau = Ptr[float](del_tau_p)
+    above_tau = Ptr[float](above_tau_p)
+    below_tau = Ptr[float](below_tau_p)
+    above_cld = Ptr[float](above_cld_p)
+    below_cld = Ptr[float](below_cld_p)
+    above_tra = Ptr[float](above_tra_p)
+    below_tra = Ptr[float](below_tra_p)
+    fac1 = Ptr[float](fac1_p)
+    fac2 = Ptr[float](fac2_p)
+
+    for k in range(1, pver + 1):
+        if clouds[k - 1] != 0.0:
+            del_lwp[k - 1] = rgrav * lwc[k - 1] * delp[k - 1] * 1.0e3 / clouds[k - 1]
+        else:
+            del_lwp[k - 1] = 0.0
+
+    for k in range(1, pver + 1):
+        if clouds[k - 1] != 0.0:
+            del_tau[k - 1] = del_lwp[k - 1] * 0.155 * (clouds[k - 1] ** 1.5)
+        else:
+            del_tau[k - 1] = 0.0
+
+    above_tau[0] = 0.0
+    for k in range(1, pver):
+        above_tau[k] = del_tau[k - 1] + above_tau[k - 1]
+
+    below_tau[pver - 1] = 0.0
+    for k in range(pver - 1, 0, -1):
+        below_tau[k - 1] = del_tau[k] + below_tau[k]
+
+    above_cld[0] = 0.0
+    for k in range(1, pver):
+        above_cld[k] = clouds[k - 1] * del_tau[k - 1] + above_cld[k - 1]
+    for k in range(1, pver):
+        if above_tau[k] != 0.0:
+            above_cld[k] = above_cld[k] / above_tau[k]
+        else:
+            above_cld[k] = above_cld[k - 1]
+
+    below_cld[pver - 1] = 0.0
+    for k in range(pver - 1, 0, -1):
+        below_cld[k - 1] = clouds[k] * del_tau[k] + below_cld[k]
+    for k in range(pver - 2, -1, -1):
+        if below_tau[k] != 0.0:
+            below_cld[k] = below_cld[k] / below_tau[k]
+        else:
+            below_cld[k] = below_cld[k + 1]
+
+    for k in range(1, pver):
+        if above_cld[k] != 0.0:
+            above_tau[k] = above_tau[k] / above_cld[k]
+    for k in range(0, pver - 1):
+        if below_cld[k] != 0.0:
+            below_tau[k] = below_tau[k] / below_cld[k]
+
+    for k in range(1, pver):
+        if above_tau[k] < 5.0:
+            above_cld[k] = 0.0
+    for k in range(0, pver - 1):
+        if below_tau[k] < 5.0:
+            below_cld[k] = 0.0
+
+    for k in range(1, pver + 1):
+        above_tra[k - 1] = 11.905 / (9.524 + above_tau[k - 1])
+        below_tra[k - 1] = 11.905 / (9.524 + below_tau[k - 1])
+
+    for k in range(1, pver + 1):
+        if below_cld[k - 1] != 0.0:
+            eff_alb[k - 1] = srf_alb + below_cld[k - 1] * (1.0 - below_tra[k - 1]) * (1.0 - srf_alb)
+        else:
+            eff_alb[k - 1] = srf_alb
+
+    coschi = cos(zen_angle)
+    if coschi < 0.5:
+        coschi = 0.5
+
+    for k in range(1, pver + 1):
+        if del_lwp[k - 1] * 0.155 < 5.0:
+            fac1[k - 1] = 0.0
+        else:
+            fac1[k - 1] = 1.4 * coschi - 1.0
+
+    for k in range(1, pver + 1):
+        fac2_val = 1.6 * coschi * above_tra[k - 1] - 1.0
+        if fac2_val > 0.0:
+            fac2[k - 1] = 0.0
+        else:
+            fac2[k - 1] = fac2_val
+
+    for k in range(1, pver + 1):
+        cld_mult[k - 1] = 1.0 + fac1[k - 1] * clouds[k - 1] + fac2[k - 1] * above_cld[k - 1]
+        if cld_mult[k - 1] < 0.05:
+            cld_mult[k - 1] = 0.05
 
 
 @export
