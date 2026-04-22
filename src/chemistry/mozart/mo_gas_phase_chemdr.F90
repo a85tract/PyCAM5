@@ -903,7 +903,7 @@ contains
     !----------------------------------------------------------------------- 
     call gas_phase_chemdr_finalize_tendencies(ncol, delt_inverse, mmr, mmr_tend, mmr_new, qtend)
 
-    tvs(:ncol) = tfld(:ncol,pver) * (1._r8 + qh2o(:ncol,pver))
+    call gas_phase_chemdr_compute_tvs(ncol, tfld, qh2o, tvs)
 
     sflx(:,:) = 0._r8
     call get_ref_date(yr, mon, day, sec)
@@ -1437,6 +1437,39 @@ contains
     )
 
   end subroutine gas_phase_chemdr_init_dust_vmr
+
+  subroutine gas_phase_chemdr_compute_tvs(ncol, tfld, qh2o, tvs)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: tfld(pcols,pver)
+    real(r8), target, intent(in) :: qh2o(pcols,pver)
+    real(r8), target, intent(out) :: tvs(pcols)
+
+    integer :: i
+
+    interface
+       subroutine gas_phase_chemdr_compute_tvs_codon(ncol_c, pcols_c, pver_c, tfld_p, qh2o_p, tvs_p) &
+            bind(c, name="gas_phase_chemdr_compute_tvs_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: tfld_p, qh2o_p, tvs_p
+       end subroutine gas_phase_chemdr_compute_tvs_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       do i = 1,ncol
+          tvs(i) = tfld(i,pver) * (1._r8 + qh2o(i,pver))
+       end do
+       return
+    end if
+
+    call gas_phase_chemdr_compute_tvs_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), c_loc(tfld), c_loc(qh2o), c_loc(tvs) &
+    )
+
+  end subroutine gas_phase_chemdr_compute_tvs
 
   subroutine gas_phase_chemdr_copy_cldw_to_cwat(ncol, cldw, cwat)
 

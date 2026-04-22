@@ -465,6 +465,23 @@ def gas_phase_chemdr_init_dust_vmr_codon(
 
 
 @export
+def gas_phase_chemdr_compute_tvs_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    tfld_p: cobj,
+    qh2o_p: cobj,
+    tvs_p: cobj,
+):
+    tfld = Ptr[float](tfld_p)
+    qh2o = Ptr[float](qh2o_p)
+    tvs = Ptr[float](tvs_p)
+
+    for i in range(1, ncol + 1):
+        tvs[i - 1] = tfld[_idx2(i, pver, pcols)] * (1.0 + qh2o[_idx2(i, pver, pcols)])
+
+
+@export
 def gas_phase_chemdr_copy_cldw_to_cwat_codon(
     ncol: int,
     pcols: int,
