@@ -369,6 +369,28 @@ def gas_phase_chemdr_zero_st80_tau_codon(
 
 
 @export
+def gas_phase_chemdr_init_h2so4_gasprod_codon(
+    ncol: int,
+    pver: int,
+    gas_pcnst: int,
+    ndx_h2so4: int,
+    vmr_p: cobj,
+    del_h2so4_gasprod_p: cobj,
+):
+    vmr = Ptr[float](vmr_p)
+    del_h2so4_gasprod = Ptr[float](del_h2so4_gasprod_p)
+
+    if ndx_h2so4 > 0:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                del_h2so4_gasprod[_idx2(i, k, ncol)] = vmr[_idx3(i, k, ndx_h2so4, ncol, pver)]
+    else:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                del_h2so4_gasprod[_idx2(i, k, ncol)] = 0.0
+
+
+@export
 def gas_phase_chemdr_store_vmr0_codon(
     ncol: int,
     pver: int,

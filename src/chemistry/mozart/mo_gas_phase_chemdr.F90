@@ -788,11 +788,7 @@ contains
     call gas_phase_chemdr_set_ltrop_sol(ncol, merge(1, 0, has_linoz_data), troplev, ltrop_sol)
 
     ! save h2so4 before gas phase chem (for later new particle nucleation)
-    if (ndx_h2so4 > 0) then
-       del_h2so4_gasprod(1:ncol,:) = vmr(1:ncol,:,ndx_h2so4)
-    else
-       del_h2so4_gasprod(:,:) = 0.0_r8
-    endif
+    call gas_phase_chemdr_init_h2so4_gasprod(ncol, ndx_h2so4, vmr, del_h2so4_gasprod)
 
     call gas_phase_chemdr_store_vmr0(ncol, vmr, vmr0)
 
@@ -1300,6 +1296,40 @@ contains
     )
 
   end subroutine gas_phase_chemdr_zero_st80_tau
+
+  subroutine gas_phase_chemdr_init_h2so4_gasprod(ncol, ndx_h2so4_in, vmr, del_h2so4_gasprod)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: ndx_h2so4_in
+    real(r8), target, intent(in) :: vmr(ncol,pver,gas_pcnst)
+    real(r8), target, intent(out) :: del_h2so4_gasprod(ncol,pver)
+
+    interface
+       subroutine gas_phase_chemdr_init_h2so4_gasprod_codon(ncol_c, pver_c, gas_pcnst_c, ndx_h2so4_c, vmr_p, &
+            del_h2so4_gasprod_p) bind(c, name="gas_phase_chemdr_init_h2so4_gasprod_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, gas_pcnst_c, ndx_h2so4_c
+         type(c_ptr), value :: vmr_p, del_h2so4_gasprod_p
+       end subroutine gas_phase_chemdr_init_h2so4_gasprod_codon
+    end interface
+
+    if (gas_phase_chemdr_use_native_impl) then
+       if (ndx_h2so4_in > 0) then
+          del_h2so4_gasprod(1:ncol,:) = vmr(1:ncol,:,ndx_h2so4_in)
+       else
+          del_h2so4_gasprod(:,:) = 0.0_r8
+       end if
+       return
+    end if
+
+    call gas_phase_chemdr_init_h2so4_gasprod_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), int(ndx_h2so4_in, c_int64_t), &
+         c_loc(vmr), c_loc(del_h2so4_gasprod) &
+    )
+
+  end subroutine gas_phase_chemdr_init_h2so4_gasprod
 
   subroutine gas_phase_chemdr_store_vmr0(ncol, vmr, vmr0)
 
