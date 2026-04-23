@@ -80,6 +80,8 @@
       logical :: jlong_timestep_init_impl_selected = .false.
       logical :: jlong_init_set_we_use_native_impl = .false.
       logical :: jlong_init_set_we_impl_selected = .false.
+      logical :: jlong_get_rsf_deltas_use_native_impl = .false.
+      logical :: jlong_get_rsf_deltas_impl_selected = .false.
 
       contains
 
@@ -570,12 +572,86 @@
       bde_o3_b(:) = hc/wc(:)
 #endif
 
-      del_p(:nump-1)         = 1._r8/abs(p(1:nump-1)- p(2:nump))
-      del_sza(:numsza-1)     = 1._r8/(sza(2:numsza) - sza(1:numsza-1))
-      del_alb(:numalb-1)     = 1._r8/(alb(2:numalb) - alb(1:numalb-1))
-      del_o3rat(:numcolo3-1) = 1._r8/(o3rat(2:numcolo3) - o3rat(1:numcolo3-1))
+      call jlong_get_rsf_deltas( nump, numsza, numalb, numcolo3, p, sza, alb, o3rat, del_p, del_sza, del_alb, del_o3rat )
 
       end subroutine get_rsf
+
+      subroutine jlong_get_rsf_deltas( nump_in, numsza_in, numalb_in, numcolo3_in, p_in, sza_in, alb_in, o3rat_in, &
+                                       del_p_out, del_sza_out, del_alb_out, del_o3rat_out )
+
+      use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+      implicit none
+
+      integer, intent(in) :: nump_in, numsza_in, numalb_in, numcolo3_in
+      real(r8), target, intent(in) :: p_in(nump_in), sza_in(numsza_in), alb_in(numalb_in), o3rat_in(numcolo3_in)
+      real(r8), target, intent(inout) :: del_p_out(nump_in-1), del_sza_out(numsza_in-1), del_alb_out(numalb_in-1), &
+                                         del_o3rat_out(numcolo3_in-1)
+
+      interface
+         subroutine jlong_get_rsf_deltas_codon(nump_c, numsza_c, numalb_c, numcolo3_c, p_p, sza_p, alb_p, o3rat_p, &
+                                               del_p_p, del_sza_p, del_alb_p, del_o3rat_p) &
+              bind(c, name="jlong_get_rsf_deltas_codon")
+            use iso_c_binding, only : c_int64_t, c_ptr
+            integer(c_int64_t), value :: nump_c, numsza_c, numalb_c, numcolo3_c
+            type(c_ptr), value :: p_p, sza_p, alb_p, o3rat_p, del_p_p, del_sza_p, del_alb_p, del_o3rat_p
+         end subroutine jlong_get_rsf_deltas_codon
+      end interface
+
+      call jlong_get_rsf_deltas_select_impl()
+
+      if (jlong_get_rsf_deltas_use_native_impl) then
+         del_p_out(:nump_in-1)         = 1._r8/abs(p_in(1:nump_in-1)- p_in(2:nump_in))
+         del_sza_out(:numsza_in-1)     = 1._r8/(sza_in(2:numsza_in) - sza_in(1:numsza_in-1))
+         del_alb_out(:numalb_in-1)     = 1._r8/(alb_in(2:numalb_in) - alb_in(1:numalb_in-1))
+         del_o3rat_out(:numcolo3_in-1) = 1._r8/(o3rat_in(2:numcolo3_in) - o3rat_in(1:numcolo3_in-1))
+         return
+      end if
+
+      call jlong_get_rsf_deltas_codon( &
+           int(nump_in, c_int64_t), int(numsza_in, c_int64_t), int(numalb_in, c_int64_t), int(numcolo3_in, c_int64_t), &
+           c_loc(p_in), c_loc(sza_in), c_loc(alb_in), c_loc(o3rat_in), c_loc(del_p_out), c_loc(del_sza_out), &
+           c_loc(del_alb_out), c_loc(del_o3rat_out) &
+      )
+
+      end subroutine jlong_get_rsf_deltas
+
+      subroutine jlong_get_rsf_deltas_select_impl()
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (jlong_get_rsf_deltas_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('JLONG_GET_RSF_DELTAS_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         jlong_get_rsf_deltas_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         jlong_get_rsf_deltas_use_native_impl = .false.
+      end if
+
+      jlong_get_rsf_deltas_impl_selected = .true.
+
+      if (masterproc) then
+         if (jlong_get_rsf_deltas_use_native_impl) then
+            write(iulog,*) 'jlong_get_rsf_deltas implementation = native'
+         else
+            write(iulog,*) 'jlong_get_rsf_deltas implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine jlong_get_rsf_deltas_select_impl
 
       subroutine jlong_timestep_init
 !---------------------------------------------------------------

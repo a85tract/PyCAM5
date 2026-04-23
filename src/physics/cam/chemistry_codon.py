@@ -136,6 +136,40 @@ def jlong_init_set_we_codon(
 
 
 @export
+def jlong_get_rsf_deltas_codon(
+    nump: int,
+    numsza: int,
+    numalb: int,
+    numcolo3: int,
+    p_p: cobj,
+    sza_p: cobj,
+    alb_p: cobj,
+    o3rat_p: cobj,
+    del_p_p: cobj,
+    del_sza_p: cobj,
+    del_alb_p: cobj,
+    del_o3rat_p: cobj,
+):
+    p = Ptr[float](p_p)
+    sza = Ptr[float](sza_p)
+    alb = Ptr[float](alb_p)
+    o3rat = Ptr[float](o3rat_p)
+    del_p = Ptr[float](del_p_p)
+    del_sza = Ptr[float](del_sza_p)
+    del_alb = Ptr[float](del_alb_p)
+    del_o3rat = Ptr[float](del_o3rat_p)
+
+    for i in range(1, nump):
+        del_p[i - 1] = 1.0 / abs(p[i - 1] - p[i])
+    for i in range(1, numsza):
+        del_sza[i - 1] = 1.0 / (sza[i] - sza[i - 1])
+    for i in range(1, numalb):
+        del_alb[i - 1] = 1.0 / (alb[i] - alb[i - 1])
+    for i in range(1, numcolo3):
+        del_o3rat[i - 1] = 1.0 / (o3rat[i] - o3rat[i - 1])
+
+
+@export
 def zenith_codon(
     ncol: int,
     calday: float,
