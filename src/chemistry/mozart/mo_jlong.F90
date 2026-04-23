@@ -82,6 +82,8 @@
       logical :: jlong_init_set_we_impl_selected = .false.
       logical :: jlong_get_rsf_deltas_use_native_impl = .false.
       logical :: jlong_get_rsf_deltas_impl_selected = .false.
+      logical :: jlong_get_rsf_bde_use_native_impl = .false.
+      logical :: jlong_get_rsf_bde_impl_selected = .false.
 
       contains
 
@@ -562,19 +564,102 @@
 #endif
 #ifdef USE_BDE
       if (masterproc) write(iulog,*) 'Jlong using bdes'
-      bde_o2_b(:) = max( 0._r8, hc*(wc_o2_b - wc(:))/(wc_o2_b*wc(:)) )
-      bde_o3_a(:) = max( 0._r8, hc*(wc_o3_a - wc(:))/(wc_o3_a*wc(:)) )
-      bde_o3_b(:) = max( 0._r8, hc*(wc_o3_b - wc(:))/(wc_o3_b*wc(:)) )
+      call jlong_get_rsf_bde( nw, 1, wc, bde_o2_b, bde_o3_a, bde_o3_b )
 #else
       if (masterproc) write(iulog,*) 'Jlong not using bdes'
-      bde_o2_b(:) = hc/wc(:)
-      bde_o3_a(:) = hc/wc(:)
-      bde_o3_b(:) = hc/wc(:)
+      call jlong_get_rsf_bde( nw, 0, wc, bde_o2_b, bde_o3_a, bde_o3_b )
 #endif
 
       call jlong_get_rsf_deltas( nump, numsza, numalb, numcolo3, p, sza, alb, o3rat, del_p, del_sza, del_alb, del_o3rat )
 
       end subroutine get_rsf
+
+      subroutine jlong_get_rsf_bde( nw_in, use_bde_flag_in, wc_in, bde_o2_b_out, bde_o3_a_out, bde_o3_b_out )
+
+      use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+
+      implicit none
+
+      integer, intent(in) :: nw_in
+      integer, intent(in) :: use_bde_flag_in
+      real(r8), target, intent(in) :: wc_in(nw_in)
+      real(r8), target, intent(inout) :: bde_o2_b_out(nw_in), bde_o3_a_out(nw_in), bde_o3_b_out(nw_in)
+
+      integer :: i
+
+      interface
+         subroutine jlong_get_rsf_bde_codon(nw_c, use_bde_flag_c, hc_c, wc_o2_b_c, wc_o3_a_c, wc_o3_b_c, wc_p, &
+                                            bde_o2_b_p, bde_o3_a_p, bde_o3_b_p) bind(c, name="jlong_get_rsf_bde_codon")
+            use iso_c_binding, only : c_double, c_int64_t, c_ptr
+            integer(c_int64_t), value :: nw_c, use_bde_flag_c
+            real(c_double), value :: hc_c, wc_o2_b_c, wc_o3_a_c, wc_o3_b_c
+            type(c_ptr), value :: wc_p, bde_o2_b_p, bde_o3_a_p, bde_o3_b_p
+         end subroutine jlong_get_rsf_bde_codon
+      end interface
+
+      call jlong_get_rsf_bde_select_impl()
+
+      if (jlong_get_rsf_bde_use_native_impl) then
+         if (use_bde_flag_in /= 0) then
+            do i = 1, nw_in
+               bde_o2_b_out(i) = max( 0._r8, hc*(wc_o2_b - wc_in(i))/(wc_o2_b*wc_in(i)) )
+               bde_o3_a_out(i) = max( 0._r8, hc*(wc_o3_a - wc_in(i))/(wc_o3_a*wc_in(i)) )
+               bde_o3_b_out(i) = max( 0._r8, hc*(wc_o3_b - wc_in(i))/(wc_o3_b*wc_in(i)) )
+            end do
+         else
+            do i = 1, nw_in
+               bde_o2_b_out(i) = hc/wc_in(i)
+               bde_o3_a_out(i) = hc/wc_in(i)
+               bde_o3_b_out(i) = hc/wc_in(i)
+            end do
+         end if
+         return
+      end if
+
+      call jlong_get_rsf_bde_codon( &
+           int(nw_in, c_int64_t), int(use_bde_flag_in, c_int64_t), real(hc, c_double), real(wc_o2_b, c_double), &
+           real(wc_o3_a, c_double), real(wc_o3_b, c_double), c_loc(wc_in), c_loc(bde_o2_b_out), c_loc(bde_o3_a_out), &
+           c_loc(bde_o3_b_out) &
+      )
+
+      end subroutine jlong_get_rsf_bde
+
+      subroutine jlong_get_rsf_bde_select_impl()
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (jlong_get_rsf_bde_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('JLONG_GET_RSF_BDE_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         jlong_get_rsf_bde_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         jlong_get_rsf_bde_use_native_impl = .false.
+      end if
+
+      jlong_get_rsf_bde_impl_selected = .true.
+
+      if (masterproc) then
+         if (jlong_get_rsf_bde_use_native_impl) then
+            write(iulog,*) 'jlong_get_rsf_bde implementation = native'
+         else
+            write(iulog,*) 'jlong_get_rsf_bde implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine jlong_get_rsf_bde_select_impl
 
       subroutine jlong_get_rsf_deltas( nump_in, numsza_in, numalb_in, numcolo3_in, p_in, sza_in, alb_in, o3rat_in, &
                                        del_p_out, del_sza_out, del_alb_out, del_o3rat_out )
