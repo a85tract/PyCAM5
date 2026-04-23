@@ -160,6 +160,31 @@ def jlong_get_xsqy_numj_codon(
 
 
 @export
+def jlong_get_xsqy_read_order_codon(
+    phtcnt: int,
+    numj: int,
+    lng_indexer_p: cobj,
+    read_varids_p: cobj,
+):
+    lng_indexer = Ptr[int](lng_indexer_p)
+    read_varids = Ptr[int](read_varids_p)
+
+    ndx = 0
+    for m in range(1, phtcnt + 1):
+        value = lng_indexer[m - 1]
+        if value > 0:
+            seen = 0
+            for i in range(1, m):
+                if lng_indexer[i - 1] == value:
+                    seen = 1
+                    break
+            if seen == 0:
+                if ndx < numj:
+                    read_varids[ndx] = value
+                ndx += 1
+
+
+@export
 def jlong_get_xsqy_index_map_codon(
     phtcnt: int,
     lng_indexer_p: cobj,

@@ -82,6 +82,8 @@
       logical :: jlong_init_set_we_impl_selected = .false.
       logical :: jlong_get_xsqy_numj_use_native_impl = .false.
       logical :: jlong_get_xsqy_numj_impl_selected = .false.
+      logical :: jlong_get_xsqy_read_order_use_native_impl = .false.
+      logical :: jlong_get_xsqy_read_order_impl_selected = .false.
       logical :: jlong_get_xsqy_index_map_use_native_impl = .false.
       logical :: jlong_get_xsqy_index_map_impl_selected = .false.
       logical :: jlong_get_xsqy_dprs_use_native_impl = .false.
@@ -254,6 +256,7 @@
       integer :: iret
       integer :: i, k, m, n
       integer :: wrk_ndx(phtcnt)
+      integer :: read_varids(phtcnt)
       character(len=256) :: locfn
 
       Masterproc_only : if( masterproc ) then
@@ -315,20 +318,10 @@
          !------------------------------------------------------------------------------
          !       ... read cross sections
          !------------------------------------------------------------------------------
-         ndx = 0
-         do m = 1,phtcnt
-            if( lng_indexer(m) > 0 ) then
-               if( any( lng_indexer(:m-1) == lng_indexer(m) ) ) then
-                  cycle
-               end if
-               ndx = ndx + 1
-               iret = nf90_get_var( ncid, lng_indexer(m), xsqy(ndx,:,:,:) )
-            end if
+         call jlong_get_xsqy_read_order( phtcnt, numj, lng_indexer, read_varids )
+         do ndx = 1,numj
+            iret = nf90_get_var( ncid, read_varids(ndx), xsqy(ndx,:,:,:) )
          end do
-         if( ndx /= numj ) then
-            write(iulog,*) 'get_xsqy : ndx count /= cross section count'
-            call endrun
-         end if
          iret = nf90_inq_varid( ncid, 'jo2_b', varid )
          iret = nf90_get_var( ncid, varid, xs_o2b )
          iret = nf90_inq_varid( ncid, 'jo3_a', varid )
@@ -462,6 +455,92 @@
       end if
 
       end subroutine jlong_get_xsqy_numj_select_impl
+
+      subroutine jlong_get_xsqy_read_order( phtcnt_in, numj_in, lng_indexer_in, read_varids_out )
+
+      use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+      implicit none
+
+      integer, intent(in) :: phtcnt_in, numj_in
+      integer, target, intent(in) :: lng_indexer_in(phtcnt_in)
+      integer, target, intent(out) :: read_varids_out(max(numj_in, 1))
+
+      integer :: ndx, m
+
+      interface
+         subroutine jlong_get_xsqy_read_order_codon(phtcnt_c, numj_c, lng_indexer_p, read_varids_p) &
+              bind(c, name="jlong_get_xsqy_read_order_codon")
+            use iso_c_binding, only : c_int64_t, c_ptr
+            integer(c_int64_t), value :: phtcnt_c, numj_c
+            type(c_ptr), value :: lng_indexer_p, read_varids_p
+         end subroutine jlong_get_xsqy_read_order_codon
+      end interface
+
+      call jlong_get_xsqy_read_order_select_impl()
+
+      if (jlong_get_xsqy_read_order_use_native_impl) then
+         read_varids_out(:max(numj_in, 1)) = 0
+         ndx = 0
+         do m = 1,phtcnt_in
+            if( lng_indexer_in(m) > 0 ) then
+               if( any( lng_indexer_in(:m-1) == lng_indexer_in(m) ) ) then
+                  cycle
+               end if
+               ndx = ndx + 1
+               read_varids_out(ndx) = lng_indexer_in(m)
+            end if
+         end do
+         if (ndx /= numj_in) then
+            write(iulog,*) 'jlong_get_xsqy_read_order : ndx count /= cross section count'
+            call endrun
+         end if
+         return
+      end if
+
+      if (numj_in <= 0) return
+
+      call jlong_get_xsqy_read_order_codon( int(phtcnt_in, c_int64_t), int(numj_in, c_int64_t), &
+           c_loc(lng_indexer_in), c_loc(read_varids_out) )
+
+      end subroutine jlong_get_xsqy_read_order
+
+      subroutine jlong_get_xsqy_read_order_select_impl()
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (jlong_get_xsqy_read_order_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('JLONG_GET_XSQY_READ_ORDER_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         jlong_get_xsqy_read_order_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         jlong_get_xsqy_read_order_use_native_impl = .false.
+      end if
+
+      jlong_get_xsqy_read_order_impl_selected = .true.
+
+      if (masterproc) then
+         if (jlong_get_xsqy_read_order_use_native_impl) then
+            write(iulog,*) 'jlong_get_xsqy_read_order implementation = native'
+         else
+            write(iulog,*) 'jlong_get_xsqy_read_order implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine jlong_get_xsqy_read_order_select_impl
 
       subroutine jlong_get_xsqy_index_map( phtcnt_in, lng_indexer_inout )
 
