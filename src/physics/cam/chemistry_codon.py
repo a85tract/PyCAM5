@@ -136,6 +136,29 @@ def jlong_init_set_we_codon(
 
 
 @export
+def jlong_get_rsf_scale_codon(
+    nw: int,
+    nump: int,
+    numsza: int,
+    numcolo3: int,
+    numalb: int,
+    wlintv_p: cobj,
+    rsf_tab_p: cobj,
+):
+    wlintv = Ptr[float](wlintv_p)
+    rsf_tab = Ptr[float32](rsf_tab_p)
+
+    for w in range(1, nw + 1):
+        wrk = wlintv[w - 1]
+        for ial in range(1, numalb + 1):
+            for iv in range(1, numcolo3 + 1):
+                for is_idx in range(1, numsza + 1):
+                    for iz in range(1, nump + 1):
+                        idx = _idx5(w, iz, is_idx, iv, ial, nw, nump, numsza, numcolo3)
+                        rsf_tab[idx] = float32(wrk * float(rsf_tab[idx]))
+
+
+@export
 def jlong_get_rsf_deltas_codon(
     nump: int,
     numsza: int,

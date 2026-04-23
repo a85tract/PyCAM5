@@ -80,6 +80,8 @@
       logical :: jlong_timestep_init_impl_selected = .false.
       logical :: jlong_init_set_we_use_native_impl = .false.
       logical :: jlong_init_set_we_impl_selected = .false.
+      logical :: jlong_get_rsf_scale_use_native_impl = .false.
+      logical :: jlong_get_rsf_scale_impl_selected = .false.
       logical :: jlong_get_rsf_deltas_use_native_impl = .false.
       logical :: jlong_get_rsf_deltas_impl_selected = .false.
       logical :: jlong_get_rsf_bde_use_native_impl = .false.
@@ -544,10 +546,7 @@
          iret = nf90_get_var( ncid, varid, rsf_tab )
          iret = nf90_close( ncid )
 
-         do w = 1,nw
-            wrk = wlintv(w)
-            rsf_tab(w,:,:,:,:) = wrk*rsf_tab(w,:,:,:,:)
-         enddo
+         call jlong_get_rsf_scale( nw, nump, numsza, numcolo3, numalb, wlintv, rsf_tab )
 
       end if Masterproc_only2
 #ifdef SPMD
@@ -573,6 +572,82 @@
       call jlong_get_rsf_deltas( nump, numsza, numalb, numcolo3, p, sza, alb, o3rat, del_p, del_sza, del_alb, del_o3rat )
 
       end subroutine get_rsf
+
+      subroutine jlong_get_rsf_scale( nw_in, nump_in, numsza_in, numcolo3_in, numalb_in, wlintv_in, rsf_tab_inout )
+
+      use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+      implicit none
+
+      integer, intent(in) :: nw_in, nump_in, numsza_in, numcolo3_in, numalb_in
+      real(r8), target, intent(in) :: wlintv_in(nw_in)
+      real(r4), target, intent(inout) :: rsf_tab_inout(nw_in,nump_in,numsza_in,numcolo3_in,numalb_in)
+
+      integer :: w
+      real(r8) :: wrk
+
+      interface
+         subroutine jlong_get_rsf_scale_codon(nw_c, nump_c, numsza_c, numcolo3_c, numalb_c, wlintv_p, rsf_tab_p) &
+              bind(c, name="jlong_get_rsf_scale_codon")
+            use iso_c_binding, only : c_int64_t, c_ptr
+            integer(c_int64_t), value :: nw_c, nump_c, numsza_c, numcolo3_c, numalb_c
+            type(c_ptr), value :: wlintv_p, rsf_tab_p
+         end subroutine jlong_get_rsf_scale_codon
+      end interface
+
+      call jlong_get_rsf_scale_select_impl()
+
+      if (jlong_get_rsf_scale_use_native_impl) then
+         do w = 1,nw_in
+            wrk = wlintv_in(w)
+            rsf_tab_inout(w,:,:,:,:) = wrk*rsf_tab_inout(w,:,:,:,:)
+         end do
+         return
+      end if
+
+      call jlong_get_rsf_scale_codon( &
+           int(nw_in, c_int64_t), int(nump_in, c_int64_t), int(numsza_in, c_int64_t), int(numcolo3_in, c_int64_t), &
+           int(numalb_in, c_int64_t), c_loc(wlintv_in), c_loc(rsf_tab_inout) &
+      )
+
+      end subroutine jlong_get_rsf_scale
+
+      subroutine jlong_get_rsf_scale_select_impl()
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (jlong_get_rsf_scale_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('JLONG_GET_RSF_SCALE_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         jlong_get_rsf_scale_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         jlong_get_rsf_scale_use_native_impl = .false.
+      end if
+
+      jlong_get_rsf_scale_impl_selected = .true.
+
+      if (masterproc) then
+         if (jlong_get_rsf_scale_use_native_impl) then
+            write(iulog,*) 'jlong_get_rsf_scale implementation = native'
+         else
+            write(iulog,*) 'jlong_get_rsf_scale implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine jlong_get_rsf_scale_select_impl
 
       subroutine jlong_get_rsf_bde( nw_in, use_bde_flag_in, wc_in, bde_o2_b_out, bde_o3_a_out, bde_o3_b_out )
 
