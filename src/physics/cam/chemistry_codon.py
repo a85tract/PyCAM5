@@ -136,6 +136,19 @@ def jlong_init_set_we_codon(
 
 
 @export
+def jlong_get_xsqy_dprs_codon(
+    np_xs: int,
+    prs_p: cobj,
+    dprs_p: cobj,
+):
+    prs = Ptr[float](prs_p)
+    dprs = Ptr[float](dprs_p)
+
+    for i in range(1, np_xs):
+        dprs[i - 1] = 1.0 / (prs[i - 1] - prs[i])
+
+
+@export
 def jlong_get_rsf_scale_codon(
     nw: int,
     nump: int,

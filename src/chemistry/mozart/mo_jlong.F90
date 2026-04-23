@@ -80,6 +80,8 @@
       logical :: jlong_timestep_init_impl_selected = .false.
       logical :: jlong_init_set_we_use_native_impl = .false.
       logical :: jlong_init_set_we_impl_selected = .false.
+      logical :: jlong_get_xsqy_dprs_use_native_impl = .false.
+      logical :: jlong_get_xsqy_dprs_impl_selected = .false.
       logical :: jlong_get_rsf_scale_use_native_impl = .false.
       logical :: jlong_get_rsf_scale_impl_selected = .false.
       logical :: jlong_get_rsf_deltas_use_native_impl = .false.
@@ -393,9 +395,75 @@
       call mpibcast( xs_o3a, nw*nt*np_xs, mpir8, 0, mpicom )
       call mpibcast( xs_o3b, nw*nt*np_xs, mpir8, 0, mpicom )
 #endif
-      dprs(:np_xs-1) = 1._r8/(prs(1:np_xs-1) - prs(2:np_xs))
+      call jlong_get_xsqy_dprs( np_xs, prs, dprs )
 
       end subroutine get_xsqy
+
+      subroutine jlong_get_xsqy_dprs( np_xs_in, prs_in, dprs_out )
+
+      use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+      implicit none
+
+      integer, intent(in) :: np_xs_in
+      real(r8), target, intent(in) :: prs_in(np_xs_in)
+      real(r8), target, intent(inout) :: dprs_out(np_xs_in-1)
+
+      interface
+         subroutine jlong_get_xsqy_dprs_codon(np_xs_c, prs_p, dprs_p) bind(c, name="jlong_get_xsqy_dprs_codon")
+            use iso_c_binding, only : c_int64_t, c_ptr
+            integer(c_int64_t), value :: np_xs_c
+            type(c_ptr), value :: prs_p, dprs_p
+         end subroutine jlong_get_xsqy_dprs_codon
+      end interface
+
+      call jlong_get_xsqy_dprs_select_impl()
+
+      if (jlong_get_xsqy_dprs_use_native_impl) then
+         dprs_out(:np_xs_in-1) = 1._r8/(prs_in(1:np_xs_in-1) - prs_in(2:np_xs_in))
+         return
+      end if
+
+      call jlong_get_xsqy_dprs_codon( int(np_xs_in, c_int64_t), c_loc(prs_in), c_loc(dprs_out) )
+
+      end subroutine jlong_get_xsqy_dprs
+
+      subroutine jlong_get_xsqy_dprs_select_impl()
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (jlong_get_xsqy_dprs_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('JLONG_GET_XSQY_DPRS_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         jlong_get_xsqy_dprs_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         jlong_get_xsqy_dprs_use_native_impl = .false.
+      end if
+
+      jlong_get_xsqy_dprs_impl_selected = .true.
+
+      if (masterproc) then
+         if (jlong_get_xsqy_dprs_use_native_impl) then
+            write(iulog,*) 'jlong_get_xsqy_dprs implementation = native'
+         else
+            write(iulog,*) 'jlong_get_xsqy_dprs implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine jlong_get_xsqy_dprs_select_impl
 
       subroutine get_rsf(rsf_file)
 !=============================================================================!
