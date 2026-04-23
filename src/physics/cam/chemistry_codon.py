@@ -1,4 +1,4 @@
-from math import acos, cos, exp, sin, sqrt
+from math import acos, cos, exp, log, sin, sqrt
 
 
 @inline
@@ -1279,6 +1279,35 @@ def cloud_mod_codon(
         cld_mult[k - 1] = 1.0 + fac1[k - 1] * clouds[k - 1] + fac2[k - 1] * above_cld[k - 1]
         if cld_mult[k - 1] < 0.05:
             cld_mult[k - 1] = 0.05
+
+
+@export
+def photo_inti_fixed_press_setup_codon(
+    pinterp: float,
+    n_exo_levs: int,
+    levs_p: cobj,
+    ki_p: cobj,
+    delp_p: cobj,
+):
+    levs = Ptr[float](levs_p)
+    ki_out = Ptr[int](ki_p)
+    delp_out = Ptr[float](delp_p)
+
+    if pinterp <= levs[0]:
+        ki_out[0] = 1
+        delp_out[0] = 0.0
+        return
+
+    ki_val = 2
+    for idx in range(2, n_exo_levs + 1):
+        ki_val = idx
+        if pinterp <= levs[idx - 1]:
+            ki_out[0] = idx
+            delp_out[0] = log(pinterp / levs[idx - 2]) / log(levs[idx - 1] / levs[idx - 2])
+            return
+
+    ki_out[0] = ki_val
+    delp_out[0] = 0.0
 
 
 @export

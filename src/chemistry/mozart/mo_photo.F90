@@ -84,6 +84,8 @@ module mo_photo
   logical :: cloud_mod_impl_selected = .false.
   logical :: photo_timestep_init_exo_time_use_native_impl = .false.
   logical :: photo_timestep_init_exo_time_impl_selected = .false.
+  logical :: photo_inti_fixed_press_setup_use_native_impl = .false.
+  logical :: photo_inti_fixed_press_setup_impl_selected = .false.
   logical :: table_photo_zero_photos_use_native_impl = .false.
   logical :: table_photo_zero_photos_impl_selected = .false.
   logical :: table_photo_scale_cld_mult_use_native_impl = .false.
@@ -565,18 +567,7 @@ contains
        !	... setup the pressure interpolation
        !-----------------------------------------------------------------------
        if( has_fixed_press ) then
-          pinterp =  ptop_ref
-          if( pinterp <= levs(1) ) then
-             ki   = 1
-             delp = 0._r8
-          else
-             do ki = 2,n_exo_levs
-                if( pinterp <= levs(ki) ) then
-                   delp = log( pinterp/levs(ki-1) )/log( levs(ki)/levs(ki-1) )
-                   exit
-                end if
-             end do
-          end if
+          call photo_inti_fixed_press_setup( ptop_ref, n_exo_levs, levs, ki, delp )
 #ifdef DEBUG
           write(iulog,*) '-----------------------------------'
           write(iulog,*) 'photo_inti: diagnostics'
@@ -585,9 +576,97 @@ contains
           write(iulog,*) '-----------------------------------'
 #endif
        end if
-    end if has_abs_columns
+  end if has_abs_columns
 
   end subroutine photo_inti
+
+  subroutine photo_inti_fixed_press_setup( pinterp_in, n_exo_levs_in, levs_in, ki_out, delp_out )
+
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    real(r8), intent(in) :: pinterp_in
+    integer, intent(in) :: n_exo_levs_in
+    real(r8), target, intent(in) :: levs_in(n_exo_levs_in)
+    integer, intent(out) :: ki_out
+    real(r8), intent(out) :: delp_out
+
+    integer :: ki_local
+    integer(c_int64_t), target :: ki_c
+    real(c_double), target :: delp_c
+
+    interface
+       subroutine photo_inti_fixed_press_setup_codon(pinterp_c, n_exo_levs_c, levs_p, ki_p, delp_p) &
+            bind(c, name="photo_inti_fixed_press_setup_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         real(c_double), value :: pinterp_c
+         integer(c_int64_t), value :: n_exo_levs_c
+         type(c_ptr), value :: levs_p, ki_p, delp_p
+       end subroutine photo_inti_fixed_press_setup_codon
+    end interface
+
+    call photo_inti_fixed_press_setup_select_impl()
+
+    if (photo_inti_fixed_press_setup_use_native_impl) then
+       if( pinterp_in <= levs_in(1) ) then
+          ki_out   = 1
+          delp_out = 0._r8
+       else
+          do ki_local = 2,n_exo_levs_in
+             if( pinterp_in <= levs_in(ki_local) ) then
+                delp_out = log( pinterp_in/levs_in(ki_local-1) )/log( levs_in(ki_local)/levs_in(ki_local-1) )
+                exit
+             end if
+          end do
+          ki_out = ki_local
+       end if
+       return
+    end if
+
+    call photo_inti_fixed_press_setup_codon( real(pinterp_in, c_double), int(n_exo_levs_in, c_int64_t), c_loc(levs_in), &
+         c_loc(ki_c), c_loc(delp_c) )
+    ki_out = int(ki_c)
+    delp_out = real(delp_c, r8)
+
+  end subroutine photo_inti_fixed_press_setup
+
+  subroutine photo_inti_fixed_press_setup_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (photo_inti_fixed_press_setup_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('PHOTO_INTI_FIXED_PRESS_SETUP_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       photo_inti_fixed_press_setup_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       photo_inti_fixed_press_setup_use_native_impl = .false.
+    end if
+
+    photo_inti_fixed_press_setup_impl_selected = .true.
+
+    if (masterproc) then
+       if (photo_inti_fixed_press_setup_use_native_impl) then
+          write(iulog,*) 'photo_inti_fixed_press_setup implementation = native'
+       else
+          write(iulog,*) 'photo_inti_fixed_press_setup implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine photo_inti_fixed_press_setup_select_impl
 
   subroutine table_photo( photos, pmid, pdel, temper, zmid, zint, &
                           col_dens, zen_angle, srf_alb, lwc, clouds, &
