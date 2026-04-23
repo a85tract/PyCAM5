@@ -78,6 +78,8 @@
       logical :: jlong_interpolate_rsf_impl_selected = .false.
       logical :: jlong_timestep_init_use_native_impl = .false.
       logical :: jlong_timestep_init_impl_selected = .false.
+      logical :: jlong_init_set_we_use_native_impl = .false.
+      logical :: jlong_init_set_we_impl_selected = .false.
 
       contains
 
@@ -110,8 +112,7 @@
       call get_rsf(rsf_file)
       if(masterproc) write(iulog,*) 'jlong_init: after  get_rsf'
 
-      we(:nw)  = wc(:nw) - .5_r8*wlintv(:nw)
-      we(nw+1) = wc(nw) + .5_r8*wlintv(nw)
+      call jlong_init_set_we( nw, wc, wlintv, we )
 
       if (masterproc) then
          write(iulog,*) ' '
@@ -128,6 +129,76 @@
       jlong_used = .true.
  
       end subroutine jlong_init
+
+      subroutine jlong_init_set_we( nw_in, wc_in, wlintv_in, we_out )
+
+      use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+      implicit none
+
+      integer, intent(in) :: nw_in
+      real(r8), target, intent(in) :: wc_in(nw_in)
+      real(r8), target, intent(in) :: wlintv_in(nw_in)
+      real(r8), target, intent(inout) :: we_out(nw_in+1)
+
+      interface
+         subroutine jlong_init_set_we_codon(nw_c, wc_p, wlintv_p, we_p) bind(c, name="jlong_init_set_we_codon")
+            use iso_c_binding, only : c_int64_t, c_ptr
+            integer(c_int64_t), value :: nw_c
+            type(c_ptr), value :: wc_p, wlintv_p, we_p
+         end subroutine jlong_init_set_we_codon
+      end interface
+
+      call jlong_init_set_we_select_impl()
+
+      if (jlong_init_set_we_use_native_impl) then
+         we_out(:nw_in)  = wc_in(:nw_in) - .5_r8*wlintv_in(:nw_in)
+         we_out(nw_in+1) = wc_in(nw_in) + .5_r8*wlintv_in(nw_in)
+         return
+      end if
+
+      call jlong_init_set_we_codon( &
+           int(nw_in, c_int64_t), c_loc(wc_in), c_loc(wlintv_in), c_loc(we_out) &
+      )
+
+      end subroutine jlong_init_set_we
+
+      subroutine jlong_init_set_we_select_impl()
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (jlong_init_set_we_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('JLONG_INIT_SET_WE_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         jlong_init_set_we_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         jlong_init_set_we_use_native_impl = .false.
+      end if
+
+      jlong_init_set_we_impl_selected = .true.
+
+      if (masterproc) then
+         if (jlong_init_set_we_use_native_impl) then
+            write(iulog,*) 'jlong_init_set_we implementation = native'
+         else
+            write(iulog,*) 'jlong_init_set_we implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine jlong_init_set_we_select_impl
 
       subroutine get_xsqy( xs_long_file, lng_indexer )
 !=============================================================================!

@@ -120,6 +120,22 @@ def jlong_timestep_init_codon(
 
 
 @export
+def jlong_init_set_we_codon(
+    nw: int,
+    wc_p: cobj,
+    wlintv_p: cobj,
+    we_p: cobj,
+):
+    wc = Ptr[float](wc_p)
+    wlintv = Ptr[float](wlintv_p)
+    we = Ptr[float](we_p)
+
+    for w in range(1, nw + 1):
+        we[w - 1] = wc[w - 1] - 0.5 * wlintv[w - 1]
+    we[nw] = wc[nw - 1] + 0.5 * wlintv[nw - 1]
+
+
+@export
 def zenith_codon(
     ncol: int,
     calday: float,
