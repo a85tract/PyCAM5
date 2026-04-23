@@ -80,6 +80,8 @@
       logical :: jlong_timestep_init_impl_selected = .false.
       logical :: jlong_init_set_we_use_native_impl = .false.
       logical :: jlong_init_set_we_impl_selected = .false.
+      logical :: jlong_get_xsqy_index_map_use_native_impl = .false.
+      logical :: jlong_get_xsqy_index_map_impl_selected = .false.
       logical :: jlong_get_xsqy_dprs_use_native_impl = .false.
       logical :: jlong_get_xsqy_dprs_impl_selected = .false.
       logical :: jlong_get_rsf_scale_use_native_impl = .false.
@@ -239,7 +241,7 @@
 !------------------------------------------------------------------------------
 !    ... Dummy arguments
 !------------------------------------------------------------------------------
-      integer, intent(inout) :: lng_indexer(:)
+      integer, target, intent(inout) :: lng_indexer(:)
       character(len=*) :: xs_long_file
 
 !------------------------------------------------------------------------------
@@ -342,18 +344,7 @@
          !------------------------------------------------------------------------------
          !       ... setup final lng_indexer
          !------------------------------------------------------------------------------
-         ndx = 0
-         wrk_ndx(:) = lng_indexer(:)
-         do m = 1,phtcnt
-            if( wrk_ndx(m) > 0 ) then
-               ndx = ndx + 1
-               i = wrk_ndx(m)
-               where( wrk_ndx(:) == i )
-                  lng_indexer(:) = ndx
-                  wrk_ndx(:)     = -100000
-               end where
-            end if
-         end do
+         call jlong_get_xsqy_index_map( phtcnt, lng_indexer )
 
          iret = nf90_inq_varid( ncid, 'pressure', varid )
          iret = nf90_get_var( ncid, varid, prs )
@@ -398,6 +389,87 @@
       call jlong_get_xsqy_dprs( np_xs, prs, dprs )
 
       end subroutine get_xsqy
+
+      subroutine jlong_get_xsqy_index_map( phtcnt_in, lng_indexer_inout )
+
+      use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+      implicit none
+
+      integer, intent(in) :: phtcnt_in
+      integer, target, intent(inout) :: lng_indexer_inout(phtcnt_in)
+
+      integer, target :: wrk_ndx(phtcnt_in)
+      integer :: ndx, m, i
+
+      interface
+         subroutine jlong_get_xsqy_index_map_codon(phtcnt_c, lng_indexer_p, wrk_ndx_p) &
+              bind(c, name="jlong_get_xsqy_index_map_codon")
+            use iso_c_binding, only : c_int64_t, c_ptr
+            integer(c_int64_t), value :: phtcnt_c
+            type(c_ptr), value :: lng_indexer_p, wrk_ndx_p
+         end subroutine jlong_get_xsqy_index_map_codon
+      end interface
+
+      call jlong_get_xsqy_index_map_select_impl()
+
+      if (jlong_get_xsqy_index_map_use_native_impl) then
+         ndx = 0
+         wrk_ndx(:) = lng_indexer_inout(:)
+         do m = 1,phtcnt_in
+            if( wrk_ndx(m) > 0 ) then
+               ndx = ndx + 1
+               i = wrk_ndx(m)
+               where( wrk_ndx(:) == i )
+                  lng_indexer_inout(:) = ndx
+                  wrk_ndx(:)           = -100000
+               end where
+            end if
+         end do
+         return
+      end if
+
+      wrk_ndx(:) = lng_indexer_inout(:)
+      call jlong_get_xsqy_index_map_codon( int(phtcnt_in, c_int64_t), c_loc(lng_indexer_inout), c_loc(wrk_ndx) )
+
+      end subroutine jlong_get_xsqy_index_map
+
+      subroutine jlong_get_xsqy_index_map_select_impl()
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (jlong_get_xsqy_index_map_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('JLONG_GET_XSQY_INDEX_MAP_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         jlong_get_xsqy_index_map_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         jlong_get_xsqy_index_map_use_native_impl = .false.
+      end if
+
+      jlong_get_xsqy_index_map_impl_selected = .true.
+
+      if (masterproc) then
+         if (jlong_get_xsqy_index_map_use_native_impl) then
+            write(iulog,*) 'jlong_get_xsqy_index_map implementation = native'
+         else
+            write(iulog,*) 'jlong_get_xsqy_index_map implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine jlong_get_xsqy_index_map_select_impl
 
       subroutine jlong_get_xsqy_dprs( np_xs_in, prs_in, dprs_out )
 

@@ -136,6 +136,26 @@ def jlong_init_set_we_codon(
 
 
 @export
+def jlong_get_xsqy_index_map_codon(
+    phtcnt: int,
+    lng_indexer_p: cobj,
+    wrk_ndx_p: cobj,
+):
+    lng_indexer = Ptr[int](lng_indexer_p)
+    wrk_ndx = Ptr[int](wrk_ndx_p)
+
+    ndx = 0
+    for m in range(1, phtcnt + 1):
+        if wrk_ndx[m - 1] > 0:
+            ndx += 1
+            value = wrk_ndx[m - 1]
+            for i in range(1, phtcnt + 1):
+                if wrk_ndx[i - 1] == value:
+                    lng_indexer[i - 1] = ndx
+                    wrk_ndx[i - 1] = -100000
+
+
+@export
 def jlong_get_xsqy_dprs_codon(
     np_xs: int,
     prs_p: cobj,
