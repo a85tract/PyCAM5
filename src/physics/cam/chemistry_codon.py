@@ -42,20 +42,15 @@ def _flux_idx(i: int, m: int, pcols: int) -> int:
     return (i - 1) + (m - 1) * pcols
 
 
-@export
-def rebin_codon(
+@inline
+def _rebin_core(
     nsrc: int,
     ntrg: int,
-    src_x_p: cobj,
-    trg_x_p: cobj,
-    src_p: cobj,
-    trg_p: cobj,
+    src_x: Ptr[float],
+    trg_x: Ptr[float],
+    src: Ptr[float],
+    trg: Ptr[float],
 ):
-    src_x = Ptr[float](src_x_p)
-    trg_x = Ptr[float](trg_x_p)
-    src = Ptr[float](src_p)
-    trg = Ptr[float](trg_p)
-
     for i in range(1, ntrg + 1):
         tl = trg_x[i - 1]
         if tl < src_x[nsrc]:
@@ -84,6 +79,44 @@ def rebin_codon(
             trg[i - 1] = y / (trg_x[i] - trg_x[i - 1])
         else:
             trg[i - 1] = 0.0
+
+
+@export
+def rebin_codon(
+    nsrc: int,
+    ntrg: int,
+    src_x_p: cobj,
+    trg_x_p: cobj,
+    src_p: cobj,
+    trg_p: cobj,
+):
+    src_x = Ptr[float](src_x_p)
+    trg_x = Ptr[float](trg_x_p)
+    src = Ptr[float](src_p)
+    trg = Ptr[float](trg_p)
+
+    _rebin_core(nsrc, ntrg, src_x, trg_x, src, trg)
+
+
+@export
+def jlong_timestep_init_codon(
+    jlong_used_flag: int,
+    nsrc: int,
+    ntrg: int,
+    src_x_p: cobj,
+    trg_x_p: cobj,
+    src_p: cobj,
+    trg_p: cobj,
+):
+    if jlong_used_flag == 0:
+        return
+
+    src_x = Ptr[float](src_x_p)
+    trg_x = Ptr[float](trg_x_p)
+    src = Ptr[float](src_p)
+    trg = Ptr[float](trg_p)
+
+    _rebin_core(nsrc, ntrg, src_x, trg_x, src, trg)
 
 
 @export

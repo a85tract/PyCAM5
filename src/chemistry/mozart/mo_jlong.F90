@@ -44,7 +44,7 @@
       integer               :: numcolo3		! number of o3 columns in rsf
       real(r4), allocatable, target :: xsqy(:,:,:,:)
       real(r8), allocatable :: wc(:)
-      real(r8), allocatable :: we(:)
+      real(r8), allocatable, target :: we(:)
       real(r8), allocatable :: wlintv(:)
       real(r8), allocatable, target :: etfphot(:)
       real(r8), allocatable :: bde_o2_b(:)
@@ -76,6 +76,8 @@
       logical :: jlong_photo_xswk_impl_selected = .false.
       logical :: jlong_interpolate_rsf_use_native_impl = .false.
       logical :: jlong_interpolate_rsf_impl_selected = .false.
+      logical :: jlong_timestep_init_use_native_impl = .false.
+      logical :: jlong_timestep_init_impl_selected = .false.
 
       contains
 
@@ -511,16 +513,73 @@
 
       use time_manager,   only : is_end_curr_day
       use mo_util,        only : rebin
+      use iso_c_binding,  only : c_int64_t, c_loc, c_ptr
 
       use solar_data,  only : data_nw => nbins, data_we => we, data_etf => sol_etf
 
       implicit none
+
+      interface
+         subroutine jlong_timestep_init_codon(jlong_used_c, nsrc_c, ntrg_c, src_x_p, trg_x_p, src_p, trg_p) &
+              bind(c, name="jlong_timestep_init_codon")
+            use iso_c_binding, only : c_int64_t, c_ptr
+            integer(c_int64_t), value :: jlong_used_c, nsrc_c, ntrg_c
+            type(c_ptr), value :: src_x_p, trg_x_p, src_p, trg_p
+         end subroutine jlong_timestep_init_codon
+      end interface
+
+      call jlong_timestep_init_select_impl()
+
+      if (.not. jlong_timestep_init_use_native_impl) then
+         call jlong_timestep_init_codon( &
+              merge(1_c_int64_t, 0_c_int64_t, jlong_used), int(data_nw, c_int64_t), int(nw, c_int64_t), &
+              c_loc(data_we), c_loc(we), c_loc(data_etf), c_loc(etfphot) &
+         )
+         return
+      end if
 
       if (.not.jlong_used) return
 
       call rebin( data_nw, nw, data_we, we, data_etf, etfphot )
 
       end subroutine jlong_timestep_init
+
+      subroutine jlong_timestep_init_select_impl()
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (jlong_timestep_init_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('JLONG_TIMESTEP_INIT_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         jlong_timestep_init_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         jlong_timestep_init_use_native_impl = .false.
+      end if
+
+      jlong_timestep_init_impl_selected = .true.
+
+      if (masterproc) then
+         if (jlong_timestep_init_use_native_impl) then
+            write(iulog,*) 'jlong_timestep_init implementation = native'
+         else
+            write(iulog,*) 'jlong_timestep_init implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine jlong_timestep_init_select_impl
 
       subroutine jlong_hrates( nlev, sza_in, alb_in, p_in, t_in, &
                                mw, o2_vmr, o3_vmr, colo3_in, qrl_col, &

@@ -30,12 +30,12 @@ module solar_data
 
   integer :: nbins
   integer :: ntimes
-  real(r8), allocatable :: sol_etf(:)
+  real(r8), allocatable, target :: sol_etf(:)
   real(r8), allocatable :: irradi(:,:)
   real(r8)              :: itsi(2)
   real(r8), allocatable :: ssi_ref(:)  ! a reference spectrum constructed from 3 solar cycles of data
 
-  real(r8), allocatable :: we(:)
+  real(r8), allocatable, target :: we(:)
   real(r8), allocatable :: data_times(:)
 
   integer :: last_index = 1
