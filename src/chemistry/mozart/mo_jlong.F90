@@ -1149,7 +1149,7 @@ level_loop_1 : &
 
       if (jlong_photo_impl_selected) return
 
-      impl_name = 'native'
+      impl_name = 'codon'
       call get_environment_variable('JLONG_PHOTO_IMPL', value=impl_name, length=n, status=status)
 
       if (status == 0 .and. n > 0) then
@@ -1159,9 +1159,9 @@ level_loop_1 : &
                impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
             end if
          end do
-         jlong_photo_use_native_impl = trim(adjustl(impl_name(:n))) /= 'codon'
+         jlong_photo_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
       else
-         jlong_photo_use_native_impl = .true.
+         jlong_photo_use_native_impl = .false.
       end if
 
       jlong_photo_impl_selected = .true.
