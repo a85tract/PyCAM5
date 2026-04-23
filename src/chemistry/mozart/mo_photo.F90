@@ -86,6 +86,8 @@ module mo_photo
   logical :: photo_timestep_init_exo_time_impl_selected = .false.
   logical :: table_photo_zero_photos_use_native_impl = .false.
   logical :: table_photo_zero_photos_impl_selected = .false.
+  logical :: table_photo_scale_cld_mult_use_native_impl = .false.
+  logical :: table_photo_scale_cld_mult_impl_selected = .false.
   logical :: table_photo_daylight_setup_use_native_impl = .false.
   logical :: table_photo_daylight_setup_impl_selected = .false.
   logical :: table_photo_jlong_apply_use_native_impl = .false.
@@ -858,7 +860,7 @@ contains
           !-----------------------------------------------------------------
           call cloud_mod( zen_angle(i), cld_line, lwc_line, fac1, srf_alb(i), &
                           eff_alb, cld_mult )
-          cld_mult(:) = esfact * cld_mult(:)
+          call table_photo_scale_cld_mult(esfact, cld_mult)
 
           !-----------------------------------------------------------------
           !	... long wave length component
@@ -992,6 +994,73 @@ contains
     end if
 
   end subroutine table_photo_zero_photos_select_impl
+
+  subroutine table_photo_scale_cld_mult(esfact, cld_mult)
+
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+
+    real(r8), intent(in) :: esfact
+    real(r8), target, intent(inout) :: cld_mult(pver)
+
+    integer :: k
+
+    interface
+       subroutine table_photo_scale_cld_mult_codon(pver_c, esfact_c, cld_mult_p) &
+            bind(c, name="table_photo_scale_cld_mult_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: pver_c
+         real(c_double), value :: esfact_c
+         type(c_ptr), value :: cld_mult_p
+       end subroutine table_photo_scale_cld_mult_codon
+    end interface
+
+    call table_photo_scale_cld_mult_select_impl()
+
+    if (.not. table_photo_scale_cld_mult_use_native_impl) then
+       call table_photo_scale_cld_mult_codon(int(pver, c_int64_t), esfact, c_loc(cld_mult))
+       return
+    end if
+
+    do k = 1, pver
+       cld_mult(k) = esfact * cld_mult(k)
+    end do
+
+  end subroutine table_photo_scale_cld_mult
+
+  subroutine table_photo_scale_cld_mult_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (table_photo_scale_cld_mult_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('TABLE_PHOTO_SCALE_CLD_MULT_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       table_photo_scale_cld_mult_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       table_photo_scale_cld_mult_use_native_impl = .false.
+    end if
+
+    table_photo_scale_cld_mult_impl_selected = .true.
+
+    if (masterproc) then
+       if (table_photo_scale_cld_mult_use_native_impl) then
+          write(iulog,*) 'table_photo_scale_cld_mult implementation = native'
+       else
+          write(iulog,*) 'table_photo_scale_cld_mult implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine table_photo_scale_cld_mult_select_impl
 
   subroutine table_photo_daylight_setup( ncol, i, p1, p2, pmid, pdel, col_dens, lwc, clouds, temper, zmid, &
                                          parg, colo3, fac1, lwc_line, cld_line, tline, zarg )

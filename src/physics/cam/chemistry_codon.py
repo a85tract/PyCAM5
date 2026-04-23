@@ -563,6 +563,18 @@ def table_photo_daylight_setup_codon(
 
 
 @export
+def table_photo_scale_cld_mult_codon(
+    pver: int,
+    esfact: float,
+    cld_mult_p: cobj,
+):
+    cld_mult = Ptr[float](cld_mult_p)
+
+    for k in range(1, pver + 1):
+        cld_mult[k - 1] = esfact * cld_mult[k - 1]
+
+
+@export
 def mmr2vmr_codon(
     ncol: int,
     pcols: int,
