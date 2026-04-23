@@ -1,4 +1,4 @@
-from math import acos, cos, exp, sqrt
+from math import acos, cos, exp, sin, sqrt
 
 
 @inline
@@ -84,6 +84,26 @@ def rebin_codon(
             trg[i - 1] = y / (trg_x[i] - trg_x[i - 1])
         else:
             trg[i - 1] = 0.0
+
+
+@export
+def zenith_codon(
+    ncol: int,
+    calday: float,
+    pi_val: float,
+    delta: float,
+    clat_p: cobj,
+    clon_p: cobj,
+    coszrs_p: cobj,
+):
+    clat = Ptr[float](clat_p)
+    clon = Ptr[float](clon_p)
+    coszrs = Ptr[float](coszrs_p)
+
+    for i in range(1, ncol + 1):
+        coszrs[i - 1] = sin(clat[i - 1]) * sin(delta) - cos(clat[i - 1]) * cos(delta) * cos(
+            calday * 2.0 * pi_val + clon[i - 1]
+        )
 
 
 @export
