@@ -80,6 +80,8 @@
       logical :: jlong_timestep_init_impl_selected = .false.
       logical :: jlong_init_set_we_use_native_impl = .false.
       logical :: jlong_init_set_we_impl_selected = .false.
+      logical :: jlong_get_xsqy_numj_use_native_impl = .false.
+      logical :: jlong_get_xsqy_numj_impl_selected = .false.
       logical :: jlong_get_xsqy_index_map_use_native_impl = .false.
       logical :: jlong_get_xsqy_index_map_impl_selected = .false.
       logical :: jlong_get_xsqy_dprs_use_native_impl = .false.
@@ -292,15 +294,7 @@
                end if
             end if
          end do
-         numj = 0
-         do m = 1,phtcnt
-            if( lng_indexer(m) > 0 ) then
-               if( any( lng_indexer(:m-1) == lng_indexer(m) ) ) then
-                  cycle
-               end if
-               numj = numj + 1
-            end if
-         end do
+         call jlong_get_xsqy_numj( phtcnt, lng_indexer, numj )
 
          !------------------------------------------------------------------------------
          !       ... allocate arrays
@@ -389,6 +383,85 @@
       call jlong_get_xsqy_dprs( np_xs, prs, dprs )
 
       end subroutine get_xsqy
+
+      subroutine jlong_get_xsqy_numj( phtcnt_in, lng_indexer_in, numj_out )
+
+      use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+      implicit none
+
+      integer, intent(in) :: phtcnt_in
+      integer, target, intent(in) :: lng_indexer_in(phtcnt_in)
+      integer, intent(out) :: numj_out
+
+      integer(c_int64_t), target :: numj_c
+      integer :: m
+
+      interface
+         subroutine jlong_get_xsqy_numj_codon(phtcnt_c, lng_indexer_p, numj_p) bind(c, name="jlong_get_xsqy_numj_codon")
+            use iso_c_binding, only : c_int64_t, c_ptr
+            integer(c_int64_t), value :: phtcnt_c
+            type(c_ptr), value :: lng_indexer_p, numj_p
+         end subroutine jlong_get_xsqy_numj_codon
+      end interface
+
+      call jlong_get_xsqy_numj_select_impl()
+
+      if (jlong_get_xsqy_numj_use_native_impl) then
+         numj_out = 0
+         do m = 1,phtcnt_in
+            if( lng_indexer_in(m) > 0 ) then
+               if( any( lng_indexer_in(:m-1) == lng_indexer_in(m) ) ) then
+                  cycle
+               end if
+               numj_out = numj_out + 1
+            end if
+         end do
+         return
+      end if
+
+      numj_c = 0_c_int64_t
+      call jlong_get_xsqy_numj_codon( int(phtcnt_in, c_int64_t), c_loc(lng_indexer_in), c_loc(numj_c) )
+      numj_out = int(numj_c)
+
+      end subroutine jlong_get_xsqy_numj
+
+      subroutine jlong_get_xsqy_numj_select_impl()
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (jlong_get_xsqy_numj_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('JLONG_GET_XSQY_NUMJ_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         jlong_get_xsqy_numj_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         jlong_get_xsqy_numj_use_native_impl = .false.
+      end if
+
+      jlong_get_xsqy_numj_impl_selected = .true.
+
+      if (masterproc) then
+         if (jlong_get_xsqy_numj_use_native_impl) then
+            write(iulog,*) 'jlong_get_xsqy_numj implementation = native'
+         else
+            write(iulog,*) 'jlong_get_xsqy_numj implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine jlong_get_xsqy_numj_select_impl
 
       subroutine jlong_get_xsqy_index_map( phtcnt_in, lng_indexer_inout )
 
