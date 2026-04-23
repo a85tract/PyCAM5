@@ -93,6 +93,8 @@ module aero_model
   logical :: aero_model_drydep_branch_selected = .false.
   logical :: aero_model_wetdep_use_native_impl = .false.
   logical :: aero_model_wetdep_impl_selected = .false.
+  logical :: aero_model_emissions_seasalt_wind_use_native_impl = .false.
+  logical :: aero_model_emissions_seasalt_wind_impl_selected = .false.
   logical :: qqcw2vmr_use_native_impl = .false.
   logical :: qqcw2vmr_impl_selected = .false.
   logical :: vmr2qqcw_use_native_impl = .false.
@@ -1796,14 +1798,7 @@ contains
     endif
 
     if (seasalt_active) then
-       u10cubed(:ncol)=sqrt(state%u(:ncol,pver)**2+state%v(:ncol,pver)**2)
-       ! move the winds to 10m high from the midpoint of the gridbox:
-       ! follows Tie and Seinfeld and Pandis, p.859 with math.
-
-       u10cubed(:ncol)=u10cubed(:ncol)*log(10._r8/z0)/log(state%zm(:ncol,pver)/z0)
-
-       ! we need them to the 3.41 power, according to Gong et al., 1997:
-       u10cubed(:ncol)=u10cubed(:ncol)**3.41_r8
+       call aero_model_emissions_seasalt_wind(ncol, state%u, state%v, state%zm, z0, u10cubed)
 
        sflx(:)=0._r8
 
@@ -1818,6 +1813,82 @@ contains
     endif
 
   end subroutine aero_model_emissions
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_emissions_seasalt_wind_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (aero_model_emissions_seasalt_wind_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('AERO_MODEL_EMISSIONS_SEASALT_WIND_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       aero_model_emissions_seasalt_wind_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       aero_model_emissions_seasalt_wind_use_native_impl = .false.
+    end if
+
+    aero_model_emissions_seasalt_wind_impl_selected = .true.
+
+    if (masterproc) then
+       if (aero_model_emissions_seasalt_wind_use_native_impl) then
+          write(iulog,*) 'aero_model_emissions_seasalt_wind implementation = native'
+       else
+          write(iulog,*) 'aero_model_emissions_seasalt_wind implementation = codon'
+       end if
+    end if
+
+  end subroutine aero_model_emissions_seasalt_wind_select_impl
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_emissions_seasalt_wind(ncol, state_u, state_v, state_zm, z0, u10cubed)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: state_u(pcols,pver), state_v(pcols,pver), state_zm(pcols,pver)
+    real(r8), intent(in) :: z0
+    real(r8), target, intent(out) :: u10cubed(pcols)
+
+    interface
+       subroutine aero_model_emissions_seasalt_wind_codon(ncol_c, pcols_c, pver_c, z0_c, state_u_p, state_v_p, state_zm_p, u10cubed_p) &
+            bind(c, name="aero_model_emissions_seasalt_wind_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: z0_c
+         type(c_ptr), value :: state_u_p, state_v_p, state_zm_p, u10cubed_p
+       end subroutine aero_model_emissions_seasalt_wind_codon
+    end interface
+
+    call aero_model_emissions_seasalt_wind_select_impl()
+
+    if (aero_model_emissions_seasalt_wind_use_native_impl) then
+       u10cubed(:ncol)=sqrt(state_u(:ncol,pver)**2+state_v(:ncol,pver)**2)
+       ! move the winds to 10m high from the midpoint of the gridbox:
+       ! follows Tie and Seinfeld and Pandis, p.859 with math.
+       u10cubed(:ncol)=u10cubed(:ncol)*log(10._r8/z0)/log(state_zm(:ncol,pver)/z0)
+       ! we need them to the 3.41 power, according to Gong et al., 1997:
+       u10cubed(:ncol)=u10cubed(:ncol)**3.41_r8
+       return
+    end if
+
+    call aero_model_emissions_seasalt_wind_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(z0, c_double), &
+         c_loc(state_u), c_loc(state_v), c_loc(state_zm), c_loc(u10cubed) &
+    )
+
+  end subroutine aero_model_emissions_seasalt_wind
 
   !===============================================================================
   ! private methods

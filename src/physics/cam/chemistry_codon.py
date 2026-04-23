@@ -1489,6 +1489,28 @@ def chem_emissions_add_sflx_codon(
 
 
 @export
+def aero_model_emissions_seasalt_wind_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    z0: float,
+    state_u_p: cobj,
+    state_v_p: cobj,
+    state_zm_p: cobj,
+    u10cubed_p: cobj,
+):
+    state_u = Ptr[float](state_u_p)
+    state_v = Ptr[float](state_v_p)
+    state_zm = Ptr[float](state_zm_p)
+    u10cubed = Ptr[float](u10cubed_p)
+
+    for i in range(1, ncol + 1):
+        wind = sqrt(state_u[_idx2(i, pver, pcols)] ** 2 + state_v[_idx2(i, pver, pcols)] ** 2)
+        wind = wind * log(10.0 / z0) / log(state_zm[_idx2(i, pver, pcols)] / z0)
+        u10cubed[i - 1] = wind ** 3.41
+
+
+@export
 def chem_timestep_init_should_run_codon(
     nstep: int,
     chem_freq: int,
