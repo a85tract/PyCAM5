@@ -521,6 +521,26 @@ def vertical_diffusion_modal_aero_flux_codon(
 
 
 @export
+def vertical_diffusion_pre_qsat_rh_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    state_q_p: cobj,
+    ftem_p: cobj,
+    ftem_prePBL_p: cobj,
+):
+    state_q = Ptr[float](state_q_p)
+    ftem = Ptr[float](ftem_p)
+    ftem_prePBL = Ptr[float](ftem_prePBL_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            ftem_prePBL[_idx2(i, k, pcols)] = (
+                state_q[_idx3(i, k, 1, pcols, pver)] / ftem[_idx2(i, k, pcols)] * 100.0
+            )
+
+
+@export
 def vertical_diffusion_post_qsat_diag_codon(
     ncol: int,
     pcols: int,

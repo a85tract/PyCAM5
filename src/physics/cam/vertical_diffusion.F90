@@ -149,6 +149,8 @@ module vertical_diffusion
   logical              :: post_pbl_state_impl_selected = .false.
   logical              :: use_native_modal_aero_flux_impl = .false.
   logical              :: modal_aero_flux_impl_selected = .false.
+  logical              :: use_native_pre_qsat_rh_impl = .false.
+  logical              :: pre_qsat_rh_impl_selected = .false.
   logical              :: use_native_post_qsat_diag_impl = .false.
   logical              :: post_qsat_diag_impl_selected = .false.
   integer              :: tend_branch_mask = 0
@@ -1542,6 +1544,95 @@ contains
   !                                                                                 !
   ! =============================================================================== !
 
+  subroutine vertical_diffusion_pre_qsat_rh_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (pre_qsat_rh_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('VERTICAL_DIFFUSION_PRE_QSAT_RH_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_pre_qsat_rh_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_pre_qsat_rh_impl = .false.
+    end if
+
+    pre_qsat_rh_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_pre_qsat_rh_impl) then
+          write(iulog,*) 'vertical_diffusion_pre_qsat_rh implementation = native'
+       else
+          write(iulog,*) 'vertical_diffusion_pre_qsat_rh implementation = codon'
+       end if
+    end if
+
+  end subroutine vertical_diffusion_pre_qsat_rh_select_impl
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_pre_qsat_rh(ncol, state_q_local, ftem_local, ftem_prePBL_local)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: state_q_local(pcols,pver,pcnst)
+    real(r8), target, intent(in) :: ftem_local(pcols,pver)
+    real(r8), target, intent(inout) :: ftem_prePBL_local(pcols,pver)
+
+    interface
+       subroutine vertical_diffusion_pre_qsat_rh_codon(ncol_c, pcols_c, pver_c, state_q_p, ftem_p, ftem_prePBL_p) &
+            bind(c, name="vertical_diffusion_pre_qsat_rh_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: state_q_p, ftem_p, ftem_prePBL_p
+       end subroutine vertical_diffusion_pre_qsat_rh_codon
+    end interface
+
+    call vertical_diffusion_pre_qsat_rh_select_impl()
+
+    if (use_native_pre_qsat_rh_impl) then
+       call vertical_diffusion_pre_qsat_rh_native(ncol, state_q_local, ftem_local, ftem_prePBL_local)
+       return
+    end if
+
+    call vertical_diffusion_pre_qsat_rh_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), c_loc(state_q_local), c_loc(ftem_local), &
+         c_loc(ftem_prePBL_local) &
+    )
+
+  end subroutine vertical_diffusion_pre_qsat_rh
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_pre_qsat_rh_native(ncol, state_q_local, ftem_local, ftem_prePBL_local)
+
+    integer, intent(in) :: ncol
+    real(r8), intent(in) :: state_q_local(pcols,pver,pcnst)
+    real(r8), intent(in) :: ftem_local(pcols,pver)
+    real(r8), intent(inout) :: ftem_prePBL_local(pcols,pver)
+
+    ftem_prePBL_local(:ncol,:pver) = state_q_local(:ncol,:pver,1) / ftem_local(:ncol,:pver) * 100._r8
+
+  end subroutine vertical_diffusion_pre_qsat_rh_native
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
   subroutine vertical_diffusion_post_qsat_diag_select_impl()
 
     character(len=32) :: impl_name
@@ -2068,7 +2159,7 @@ contains
 
     call qsat(state%t(:ncol,:), state%pmid(:ncol,:), &
          tem2(:ncol,:), ftem(:ncol,:))
-    ftem_prePBL(:ncol,:) = state%q(:ncol,:,1)/ftem(:ncol,:)*100._r8
+    call vertical_diffusion_pre_qsat_rh(ncol, state%q, ftem, ftem_prePBL)
 
     call outfld( 'qt_pre_PBL   ', qt_prePBL,                 pcols, lchnk )
     call outfld( 'sl_pre_PBL   ', sl_prePBL,                 pcols, lchnk )
