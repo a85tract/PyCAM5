@@ -4017,6 +4017,36 @@ def modal_aero_newnuc_apply_tendencies_codon(
 
 
 @export
+def modal_aero_newnuc_set_tendency_flags_codon(
+    pcnst_c: int,
+    lnumait_c: int,
+    lso4ait_c: int,
+    l_h2so4_c: int,
+    lnh4ait_c: int,
+    l_nh3_c: int,
+    do_nh3_flag_c: int,
+    dotend_p: cobj,
+    do_nh3_p: cobj,
+):
+    dotend = Ptr[int](dotend_p)
+    do_nh3 = Ptr[int](do_nh3_p)
+
+    for l in range(1, pcnst_c + 1):
+        dotend[l - 1] = 0
+
+    dotend[lnumait_c - 1] = 1
+    dotend[lso4ait_c - 1] = 1
+    dotend[l_h2so4_c - 1] = 1
+
+    if do_nh3_flag_c != 0:
+        do_nh3[0] = 1
+        dotend[lnh4ait_c - 1] = 1
+        dotend[l_nh3_c - 1] = 1
+    else:
+        do_nh3[0] = 0
+
+
+@export
 def modal_aero_newnuc_setup_modes_codon(
     loffset_c: int,
     pcnst_c: int,

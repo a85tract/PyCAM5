@@ -31,6 +31,8 @@ module modal_aero_newnuc
   logical :: modal_aero_newnuc_prepare_box_inputs_impl_selected = .false.
   logical :: modal_aero_newnuc_setup_modes_use_native_impl = .false.
   logical :: modal_aero_newnuc_setup_modes_impl_selected = .false.
+  logical :: modal_aero_newnuc_set_tendency_flags_use_native_impl = .false.
+  logical :: modal_aero_newnuc_set_tendency_flags_impl_selected = .false.
   logical :: modal_aero_newnuc_scale_qsrflx_use_native_impl = .false.
   logical :: modal_aero_newnuc_scale_qsrflx_impl_selected = .false.
   logical :: modal_aero_newnuc_apply_tendencies_use_native_impl = .false.
@@ -493,7 +495,123 @@ module modal_aero_newnuc
    mass1p_aitlo_out = tmpa*(dplom_mode_1_out**3)
    mass1p_aithi_out = tmpa*(dphim_mode_1_out**3)
 
-  end subroutine modal_aero_newnuc_setup_modes_native
+ end subroutine modal_aero_newnuc_setup_modes_native
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_newnuc_set_tendency_flags_select_impl()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   implicit none
+
+   character(len=48) :: impl_name
+   integer :: status, n, i, code
+
+   if (modal_aero_newnuc_set_tendency_flags_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('MODAL_AERO_NEWNUC_SET_TENDENCY_FLAGS_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      modal_aero_newnuc_set_tendency_flags_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      modal_aero_newnuc_set_tendency_flags_use_native_impl = .false.
+   end if
+
+   modal_aero_newnuc_set_tendency_flags_impl_selected = .true.
+
+   if (masterproc) then
+      if (modal_aero_newnuc_set_tendency_flags_use_native_impl) then
+         write(iulog,*) 'modal_aero_newnuc_set_tendency_flags implementation = native'
+      else
+         write(iulog,*) 'modal_aero_newnuc_set_tendency_flags implementation = codon'
+      end if
+   end if
+
+  end subroutine modal_aero_newnuc_set_tendency_flags_select_impl
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_newnuc_set_tendency_flags( &
+       pcnst_in, lnumait_in, lso4ait_in, l_h2so4_in, lnh4ait_in, l_nh3_in, do_nh3_flag_in, dotend_out, do_nh3_out )
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+   implicit none
+
+   integer, intent(in) :: pcnst_in, lnumait_in, lso4ait_in, l_h2so4_in, lnh4ait_in, l_nh3_in, do_nh3_flag_in
+   logical, intent(out) :: dotend_out(pcnst_in)
+   logical, intent(out) :: do_nh3_out
+
+   integer :: l
+   integer(c_int64_t), target :: dotend_work(pcnst_in), do_nh3_work
+
+   interface
+      subroutine modal_aero_newnuc_set_tendency_flags_codon( &
+           pcnst_c, lnumait_c, lso4ait_c, l_h2so4_c, lnh4ait_c, l_nh3_c, do_nh3_flag_c, dotend_p, do_nh3_p ) &
+           bind(c, name="modal_aero_newnuc_set_tendency_flags_codon")
+        use iso_c_binding, only: c_int64_t, c_ptr
+        integer(c_int64_t), value :: pcnst_c, lnumait_c, lso4ait_c, l_h2so4_c, lnh4ait_c, l_nh3_c, do_nh3_flag_c
+        type(c_ptr), value :: dotend_p, do_nh3_p
+      end subroutine modal_aero_newnuc_set_tendency_flags_codon
+   end interface
+
+   call modal_aero_newnuc_set_tendency_flags_select_impl()
+
+   if (modal_aero_newnuc_set_tendency_flags_use_native_impl) then
+      call modal_aero_newnuc_set_tendency_flags_native( &
+           pcnst_in, lnumait_in, lso4ait_in, l_h2so4_in, lnh4ait_in, l_nh3_in, do_nh3_flag_in, dotend_out, do_nh3_out )
+      return
+   end if
+
+   dotend_work(:) = 0_c_int64_t
+   do_nh3_work = 0_c_int64_t
+
+   call modal_aero_newnuc_set_tendency_flags_codon( &
+        int(pcnst_in, c_int64_t), int(lnumait_in, c_int64_t), int(lso4ait_in, c_int64_t), int(l_h2so4_in, c_int64_t), &
+        int(lnh4ait_in, c_int64_t), int(l_nh3_in, c_int64_t), int(do_nh3_flag_in, c_int64_t), &
+        c_loc(dotend_work(1)), c_loc(do_nh3_work) )
+
+   do_nh3_out = (do_nh3_work /= 0_c_int64_t)
+   do l = 1, pcnst_in
+      dotend_out(l) = (dotend_work(l) /= 0_c_int64_t)
+   end do
+
+  end subroutine modal_aero_newnuc_set_tendency_flags
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_newnuc_set_tendency_flags_native( &
+       pcnst_in, lnumait_in, lso4ait_in, l_h2so4_in, lnh4ait_in, l_nh3_in, do_nh3_flag_in, dotend_out, do_nh3_out )
+
+   implicit none
+
+   integer, intent(in) :: pcnst_in, lnumait_in, lso4ait_in, l_h2so4_in, lnh4ait_in, l_nh3_in, do_nh3_flag_in
+   logical, intent(out) :: dotend_out(pcnst_in)
+   logical, intent(out) :: do_nh3_out
+
+   dotend_out(:) = .false.
+   dotend_out(lnumait_in) = .true.
+   dotend_out(lso4ait_in) = .true.
+   dotend_out(l_h2so4_in) = .true.
+
+   if (do_nh3_flag_in /= 0) then
+      do_nh3_out = .true.
+      dotend_out(lnh4ait_in) = .true.
+      dotend_out(l_nh3_in) = .true.
+   else
+      do_nh3_out = .false.
+   end if
+
+  end subroutine modal_aero_newnuc_set_tendency_flags_native
 
 !----------------------------------------------------------------------
 !----------------------------------------------------------------------
@@ -899,21 +1017,9 @@ module modal_aero_newnuc
 !   skip if no aitken mode OR if no h2so4 species
 	if (valid_mask == 0) return
 
-	dotend(:) = .false.
 	call modal_aero_newnuc_zero_tendencies(ncol, pcnst, nsrflx, dqdt, qsrflx)
-
-!   set dotend
-	dotend(lnumait) = .true.
-	dotend(lso4ait) = .true.
-	dotend(l_h2so4) = .true.
-
-	if (do_nh3_flag /= 0) then
-	    do_nh3 = .true.
-	    dotend(lnh4ait) = .true.
-	    dotend(l_nh3) = .true.
-	else
-	    do_nh3 = .false.
-	end if
+	call modal_aero_newnuc_set_tendency_flags( &
+	     pcnst, lnumait, lso4ait, l_h2so4, lnh4ait, l_nh3, do_nh3_flag, dotend, do_nh3 )
 
 !   compute qv_sat = saturation specific humidity
 	call qsat(t(1:ncol, 1:pver), pmid(1:ncol, 1:pver), &
