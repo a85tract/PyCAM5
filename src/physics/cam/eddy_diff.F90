@@ -176,6 +176,8 @@
   logical                     :: surface_stress_diag_impl_selected = .false.
   logical                     :: use_native_austausch_atm_impl = .false.
   logical                     :: austausch_atm_impl_selected = .false.
+  logical                     :: use_native_kv_init_impl = .false.
+  logical                     :: kv_init_impl_selected = .false.
 
   CONTAINS
 
@@ -615,26 +617,7 @@
      ! Initialize kvh/kvm to send to caleddy, depending on model timestep and iteration number
      ! This is necessary for 'wstar-based' entrainment closure.
 
-       if( iturb .eq. 1 ) then
-           if( kvinit ) then
-           ! First iteration of first model timestep : Use free tropospheric value or zero.
-             if( use_kvf ) then
-                 kvh(:ncol,:) = kvf(:ncol,:)
-                 kvm(:ncol,:) = kvf(:ncol,:)
-             else
-                 kvh(:ncol,:) = 0._r8
-                 kvm(:ncol,:) = 0._r8
-             endif
-           else
-             ! First iteration on any model timestep except the first : Use value from previous timestep
-             kvh(:ncol,:) = kvh_in(:ncol,:)
-             kvm(:ncol,:) = kvm_in(:ncol,:)
-           endif
-       else
-        ! Not the first iteration : Use from previous iteration
-          kvh(:ncol,:) = kvh_out(:ncol,:)
-          kvm(:ncol,:) = kvm_out(:ncol,:)
-       endif
+       call eddy_diff_kv_init(ncol, pcols, pver, iturb, kvinit, kvf, kvh_in, kvm_in, kvh_out, kvm_out, kvh, kvm)
 
      ! Calculate eddy diffusivity (kvh_out,kvm_out) and (tke,bprod,sprod) using
      ! a given (kvh,kvm) which are used only for initializing (bprod,sprod)  at
@@ -1545,6 +1528,125 @@
     return
 
     end subroutine austausch_atm_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_kv_init_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (kv_init_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_KV_INIT_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_kv_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_kv_init_impl = .false.
+    end if
+
+    kv_init_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_kv_init_impl) then
+          write(iulog,*) 'eddy_diff_kv_init implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_kv_init implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_kv_init_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_kv_init(ncol, pcols, pver, iturb, kvinit_local, kvf_local, kvh_in_local, kvm_in_local, &
+       kvh_out_local, kvm_out_local, kvh_local, kvm_local)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, pver, iturb
+    logical, intent(in) :: kvinit_local
+    real(r8), target, intent(in) :: kvf_local(pcols,pver+1), kvh_in_local(pcols,pver+1), kvm_in_local(pcols,pver+1)
+    real(r8), target, intent(in) :: kvh_out_local(pcols,pver+1), kvm_out_local(pcols,pver+1)
+    real(r8), target, intent(inout) :: kvh_local(pcols,pver+1), kvm_local(pcols,pver+1)
+
+    interface
+       subroutine eddy_diff_kv_init_codon(ncol_c, pcols_c, pver_c, iturb_c, kvinit_c, use_kvf_c, kvf_p, kvh_in_p, &
+            kvm_in_p, kvh_out_p, kvm_out_p, kvh_p, kvm_p) bind(c, name="eddy_diff_kv_init_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, iturb_c, kvinit_c, use_kvf_c
+         type(c_ptr), value :: kvf_p, kvh_in_p, kvm_in_p, kvh_out_p, kvm_out_p, kvh_p, kvm_p
+       end subroutine eddy_diff_kv_init_codon
+    end interface
+
+    call eddy_diff_kv_init_select_impl()
+
+    if (use_native_kv_init_impl) then
+       call eddy_diff_kv_init_native(ncol, pcols, pver, iturb, kvinit_local, kvf_local, kvh_in_local, kvm_in_local, &
+            kvh_out_local, kvm_out_local, kvh_local, kvm_local)
+       return
+    end if
+
+    call eddy_diff_kv_init_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(iturb, c_int64_t), &
+         int(merge(1, 0, kvinit_local), c_int64_t), int(merge(1, 0, use_kvf), c_int64_t), c_loc(kvf_local), &
+         c_loc(kvh_in_local), c_loc(kvm_in_local), c_loc(kvh_out_local), c_loc(kvm_out_local), c_loc(kvh_local), &
+         c_loc(kvm_local) &
+    )
+
+  end subroutine eddy_diff_kv_init
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_kv_init_native(ncol, pcols, pver, iturb, kvinit_local, kvf_local, kvh_in_local, kvm_in_local, &
+       kvh_out_local, kvm_out_local, kvh_local, kvm_local)
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, pver, iturb
+    logical, intent(in) :: kvinit_local
+    real(r8), intent(in) :: kvf_local(pcols,pver+1), kvh_in_local(pcols,pver+1), kvm_in_local(pcols,pver+1)
+    real(r8), intent(in) :: kvh_out_local(pcols,pver+1), kvm_out_local(pcols,pver+1)
+    real(r8), intent(inout) :: kvh_local(pcols,pver+1), kvm_local(pcols,pver+1)
+
+    if( iturb .eq. 1 ) then
+       if( kvinit_local ) then
+       ! First iteration of first model timestep : Use free tropospheric value or zero.
+         if( use_kvf ) then
+             kvh_local(:ncol,:) = kvf_local(:ncol,:)
+             kvm_local(:ncol,:) = kvf_local(:ncol,:)
+         else
+             kvh_local(:ncol,:) = 0._r8
+             kvm_local(:ncol,:) = 0._r8
+         endif
+       else
+       ! First iteration on any model timestep except the first : Use value from previous timestep
+         kvh_local(:ncol,:) = kvh_in_local(:ncol,:)
+         kvm_local(:ncol,:) = kvm_in_local(:ncol,:)
+       endif
+    else
+     ! Not the first iteration : Use from previous iteration
+      kvh_local(:ncol,:) = kvh_out_local(:ncol,:)
+      kvm_local(:ncol,:) = kvm_out_local(:ncol,:)
+    endif
+
+  end subroutine eddy_diff_kv_init_native
 
     ! ---------------------------------------------------------------------------- !
     !                                                                              !

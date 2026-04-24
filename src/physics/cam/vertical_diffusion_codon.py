@@ -621,6 +621,54 @@ def eddy_diff_surface_stress_diag_codon(
 
 
 @export
+def eddy_diff_kv_init_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    iturb: int,
+    kvinit: int,
+    use_kvf: int,
+    kvf_p: cobj,
+    kvh_in_p: cobj,
+    kvm_in_p: cobj,
+    kvh_out_p: cobj,
+    kvm_out_p: cobj,
+    kvh_p: cobj,
+    kvm_p: cobj,
+):
+    kvf = Ptr[float](kvf_p)
+    kvh_in = Ptr[float](kvh_in_p)
+    kvm_in = Ptr[float](kvm_in_p)
+    kvh_out = Ptr[float](kvh_out_p)
+    kvm_out = Ptr[float](kvm_out_p)
+    kvh = Ptr[float](kvh_p)
+    kvm = Ptr[float](kvm_p)
+
+    if iturb == 1:
+        if kvinit != 0:
+            if use_kvf != 0:
+                for k in range(1, pver + 2):
+                    for i in range(1, ncol + 1):
+                        kvh[_idx2(i, k, pcols)] = kvf[_idx2(i, k, pcols)]
+                        kvm[_idx2(i, k, pcols)] = kvf[_idx2(i, k, pcols)]
+            else:
+                for k in range(1, pver + 2):
+                    for i in range(1, ncol + 1):
+                        kvh[_idx2(i, k, pcols)] = 0.0
+                        kvm[_idx2(i, k, pcols)] = 0.0
+        else:
+            for k in range(1, pver + 2):
+                for i in range(1, ncol + 1):
+                    kvh[_idx2(i, k, pcols)] = kvh_in[_idx2(i, k, pcols)]
+                    kvm[_idx2(i, k, pcols)] = kvm_in[_idx2(i, k, pcols)]
+    else:
+        for k in range(1, pver + 2):
+            for i in range(1, ncol + 1):
+                kvh[_idx2(i, k, pcols)] = kvh_out[_idx2(i, k, pcols)]
+                kvm[_idx2(i, k, pcols)] = kvm_out[_idx2(i, k, pcols)]
+
+
+@export
 def vertical_diffusion_obklen_diag_codon(
     ncol: int,
     pcols: int,
