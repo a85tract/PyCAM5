@@ -662,10 +662,34 @@ def eddy_diff_kv_init_codon(
                     kvh[_idx2(i, k, pcols)] = kvh_in[_idx2(i, k, pcols)]
                     kvm[_idx2(i, k, pcols)] = kvm_in[_idx2(i, k, pcols)]
     else:
-        for k in range(1, pver + 2):
-            for i in range(1, ncol + 1):
-                kvh[_idx2(i, k, pcols)] = kvh_out[_idx2(i, k, pcols)]
-                kvm[_idx2(i, k, pcols)] = kvm_out[_idx2(i, k, pcols)]
+            for k in range(1, pver + 2):
+                for i in range(1, ncol + 1):
+                    kvh[_idx2(i, k, pcols)] = kvh_out[_idx2(i, k, pcols)]
+                    kvm[_idx2(i, k, pcols)] = kvm_out[_idx2(i, k, pcols)]
+
+
+@export
+def eddy_diff_error_pbl_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    kvh_p: cobj,
+    kvh_out_p: cobj,
+    errorPBL_p: cobj,
+):
+    kvh = Ptr[float](kvh_p)
+    kvh_out = Ptr[float](kvh_out_p)
+    errorPBL = Ptr[float](errorPBL_p)
+
+    for i in range(1, ncol + 1):
+        errorPBL[i - 1] = 0.0
+        for k in range(1, pver + 1):
+            errorPBL[i - 1] = errorPBL[i - 1] + (
+                kvh[_idx2(i, k, pcols)] - kvh_out[_idx2(i, k, pcols)]
+            ) * (
+                kvh[_idx2(i, k, pcols)] - kvh_out[_idx2(i, k, pcols)]
+            )
+        errorPBL[i - 1] = sqrt(errorPBL[i - 1] / pver)
 
 
 @export

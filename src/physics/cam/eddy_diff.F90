@@ -178,6 +178,8 @@
   logical                     :: austausch_atm_impl_selected = .false.
   logical                     :: use_native_kv_init_impl = .false.
   logical                     :: kv_init_impl_selected = .false.
+  logical                     :: use_native_error_pbl_impl = .false.
+  logical                     :: error_pbl_impl_selected = .false.
 
   CONTAINS
 
@@ -650,13 +652,7 @@
      ! Calculate errorPBL to check whether PBL produced convergent solutions or not.
 
        if( iturb .eq. nturb ) then
-           do i = 1, ncol
-              errorPBL(i) = 0._r8 
-              do k = 1, pver
-                 errorPBL(i) = errorPBL(i) + ( kvh(i,k) - kvh_out(i,k) )**2 
-              end do 
-              errorPBL(i) = sqrt(errorPBL(i)/pver)
-           end do
+           call eddy_diff_error_pbl(ncol, pcols, pver, kvh, kvh_out, errorPBL)
        end if
 
      ! Eddy diffusivities which will be used for the initialization of (bprod,
@@ -1647,6 +1643,105 @@
     endif
 
   end subroutine eddy_diff_kv_init_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_error_pbl_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (error_pbl_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_ERROR_PBL_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_error_pbl_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_error_pbl_impl = .false.
+    end if
+
+    error_pbl_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_error_pbl_impl) then
+          write(iulog,*) 'eddy_diff_error_pbl implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_error_pbl implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_error_pbl_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_error_pbl(ncol, pcols, pver, kvh_local, kvh_out_local, errorPBL_local)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, pver
+    real(r8), target, intent(in) :: kvh_local(pcols,pver+1), kvh_out_local(pcols,pver+1)
+    real(r8), target, intent(inout) :: errorPBL_local(pcols)
+
+    interface
+       subroutine eddy_diff_error_pbl_codon(ncol_c, pcols_c, pver_c, kvh_p, kvh_out_p, errorPBL_p) &
+            bind(c, name="eddy_diff_error_pbl_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: kvh_p, kvh_out_p, errorPBL_p
+       end subroutine eddy_diff_error_pbl_codon
+    end interface
+
+    call eddy_diff_error_pbl_select_impl()
+
+    if (use_native_error_pbl_impl) then
+       call eddy_diff_error_pbl_native(ncol, pcols, pver, kvh_local, kvh_out_local, errorPBL_local)
+       return
+    end if
+
+    call eddy_diff_error_pbl_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), c_loc(kvh_local), c_loc(kvh_out_local), &
+         c_loc(errorPBL_local) &
+    )
+
+  end subroutine eddy_diff_error_pbl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_error_pbl_native(ncol, pcols, pver, kvh_local, kvh_out_local, errorPBL_local)
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, pver
+    real(r8), intent(in) :: kvh_local(pcols,pver+1), kvh_out_local(pcols,pver+1)
+    real(r8), intent(inout) :: errorPBL_local(pcols)
+
+    integer :: i, k
+
+    do i = 1, ncol
+       errorPBL_local(i) = 0._r8
+       do k = 1, pver
+          errorPBL_local(i) = errorPBL_local(i) + ( kvh_local(i,k) - kvh_out_local(i,k) )**2
+       end do
+       errorPBL_local(i) = sqrt(errorPBL_local(i)/pver)
+    end do
+
+  end subroutine eddy_diff_error_pbl_native
 
     ! ---------------------------------------------------------------------------- !
     !                                                                              !
