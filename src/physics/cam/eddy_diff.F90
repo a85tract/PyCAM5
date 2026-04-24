@@ -182,6 +182,8 @@
   logical                     :: error_pbl_impl_selected = .false.
   logical                     :: use_native_kv_relax_impl = .false.
   logical                     :: kv_relax_impl_selected = .false.
+  logical                     :: use_native_restore_fields_impl = .false.
+  logical                     :: restore_fields_impl_selected = .false.
   logical                     :: use_native_wstar_pbl_impl = .false.
   logical                     :: wstar_pbl_impl_selected = .false.
 
@@ -675,10 +677,7 @@
 
          ! Each time we diffuse the original state
 
-           slfd(:ncol,:)  = sl(:ncol,:)
-           qtfd(:ncol,:)  = qt(:ncol,:)
-           ufd(:ncol,:)   = u(:ncol,:)
-           vfd(:ncol,:)   = v(:ncol,:)
+           call eddy_diff_restore_fields(ncol, pcols, pver, sl, qt, u, v, slfd, qtfd, ufd, vfd)
 
          !------------------------------------------------------------------------ 
          !  Check to see if constituent dependent gas constant needed (WACCM-X)
@@ -1834,6 +1833,104 @@
     kvh_out_local(:ncol,:) = lambda_local * kvh_out_local(:ncol,:) + ( 1._r8 - lambda_local ) * kvh_local(:ncol,:)
 
   end subroutine eddy_diff_kv_relax_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_restore_fields_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (restore_fields_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_RESTORE_FIELDS_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_restore_fields_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_restore_fields_impl = .false.
+    end if
+
+    restore_fields_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_restore_fields_impl) then
+          write(iulog,*) 'eddy_diff_restore_fields implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_restore_fields implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_restore_fields_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_restore_fields(ncol, pcols, pver, sl_local, qt_local, u_local, v_local, slfd_local, qtfd_local, &
+       ufd_local, vfd_local)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, pver
+    real(r8), target, intent(in) :: sl_local(pcols,pver), qt_local(pcols,pver), u_local(pcols,pver), v_local(pcols,pver)
+    real(r8), target, intent(inout) :: slfd_local(pcols,pver), qtfd_local(pcols,pver), ufd_local(pcols,pver), &
+         vfd_local(pcols,pver)
+
+    interface
+       subroutine eddy_diff_restore_fields_codon(ncol_c, pcols_c, pver_c, sl_p, qt_p, u_p, v_p, slfd_p, qtfd_p, ufd_p, &
+            vfd_p) bind(c, name="eddy_diff_restore_fields_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: sl_p, qt_p, u_p, v_p, slfd_p, qtfd_p, ufd_p, vfd_p
+       end subroutine eddy_diff_restore_fields_codon
+    end interface
+
+    call eddy_diff_restore_fields_select_impl()
+
+    if (use_native_restore_fields_impl) then
+       call eddy_diff_restore_fields_native(ncol, pcols, pver, sl_local, qt_local, u_local, v_local, slfd_local, &
+            qtfd_local, ufd_local, vfd_local)
+       return
+    end if
+
+    call eddy_diff_restore_fields_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), c_loc(sl_local), c_loc(qt_local), &
+         c_loc(u_local), c_loc(v_local), c_loc(slfd_local), c_loc(qtfd_local), c_loc(ufd_local), c_loc(vfd_local) &
+    )
+
+  end subroutine eddy_diff_restore_fields
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_restore_fields_native(ncol, pcols, pver, sl_local, qt_local, u_local, v_local, slfd_local, &
+       qtfd_local, ufd_local, vfd_local)
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, pver
+    real(r8), intent(in) :: sl_local(pcols,pver), qt_local(pcols,pver), u_local(pcols,pver), v_local(pcols,pver)
+    real(r8), intent(inout) :: slfd_local(pcols,pver), qtfd_local(pcols,pver), ufd_local(pcols,pver), vfd_local(pcols,pver)
+
+    slfd_local(:ncol,:) = sl_local(:ncol,:)
+    qtfd_local(:ncol,:) = qt_local(:ncol,:)
+    ufd_local(:ncol,:) = u_local(:ncol,:)
+    vfd_local(:ncol,:) = v_local(:ncol,:)
+
+  end subroutine eddy_diff_restore_fields_native
 
   !=============================================================================== !
   !                                                                                !

@@ -744,6 +744,46 @@ def eddy_diff_wstar_pbl_codon(
 
 
 @export
+def eddy_diff_restore_fields_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    sl_p: cobj,
+    qt_p: cobj,
+    u_p: cobj,
+    v_p: cobj,
+    slfd_p: cobj,
+    qtfd_p: cobj,
+    ufd_p: cobj,
+    vfd_p: cobj,
+):
+    sl = Ptr[float](sl_p)
+    qt = Ptr[float](qt_p)
+    u = Ptr[float](u_p)
+    v = Ptr[float](v_p)
+    slfd = Ptr[float](slfd_p)
+    qtfd = Ptr[float](qtfd_p)
+    ufd = Ptr[float](ufd_p)
+    vfd = Ptr[float](vfd_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            slfd[_idx2(i, k, pcols)] = sl[_idx2(i, k, pcols)]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            qtfd[_idx2(i, k, pcols)] = qt[_idx2(i, k, pcols)]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            ufd[_idx2(i, k, pcols)] = u[_idx2(i, k, pcols)]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            vfd[_idx2(i, k, pcols)] = v[_idx2(i, k, pcols)]
+
+
+@export
 def vertical_diffusion_obklen_diag_codon(
     ncol: int,
     pcols: int,
