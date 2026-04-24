@@ -581,6 +581,46 @@ def austausch_atm_codon(
 
 
 @export
+def eddy_diff_surface_stress_diag_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    rair: float,
+    ustar_min: float,
+    tfd_p: cobj,
+    pmid_p: cobj,
+    taux_p: cobj,
+    tauy_p: cobj,
+    ksrftms_p: cobj,
+    ufd_p: cobj,
+    vfd_p: cobj,
+    rrho_p: cobj,
+    ustar_p: cobj,
+    minpblh_p: cobj,
+):
+    tfd = Ptr[float](tfd_p)
+    pmid = Ptr[float](pmid_p)
+    taux = Ptr[float](taux_p)
+    tauy = Ptr[float](tauy_p)
+    ksrftms = Ptr[float](ksrftms_p)
+    ufd = Ptr[float](ufd_p)
+    vfd = Ptr[float](vfd_p)
+    rrho = Ptr[float](rrho_p)
+    ustar = Ptr[float](ustar_p)
+    minpblh = Ptr[float](minpblh_p)
+
+    for i in range(1, ncol + 1):
+        taux_eff = taux[i - 1] - ksrftms[i - 1] * ufd[_idx2(i, pver, pcols)]
+        tauy_eff = tauy[i - 1] - ksrftms[i - 1] * vfd[_idx2(i, pver, pcols)]
+        rrho[i - 1] = rair * tfd[_idx2(i, pver, pcols)] / pmid[_idx2(i, pver, pcols)]
+        ustar[i - 1] = max(
+            sqrt(sqrt(taux_eff * taux_eff + tauy_eff * tauy_eff) * rrho[i - 1]),
+            ustar_min,
+        )
+        minpblh[i - 1] = 100.0 * ustar[i - 1]
+
+
+@export
 def vertical_diffusion_post_qsat_diag_codon(
     ncol: int,
     pcols: int,

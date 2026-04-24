@@ -172,6 +172,8 @@
 
   real(r8), allocatable, target :: ml2(:)                       ! Mixing lengths squared. Not used in the UW PBL.
                                                                 ! Used for computing free air diffusivity.
+  logical                     :: use_native_surface_stress_diag_impl = .false.
+  logical                     :: surface_stress_diag_impl_selected = .false.
   logical                     :: use_native_austausch_atm_impl = .false.
   logical                     :: austausch_atm_impl_selected = .false.
 
@@ -587,11 +589,8 @@
      ! I am using updated wind, here.
 
      ! Compute ustar
-       call calc_ustar( tfd(:ncol,pver), pmid(:ncol,pver), &
-                        taux(:ncol) - ksrftms(:ncol) * ufd(:ncol,pver), & ! Zonal wind stress
-                        tauy(:ncol) - ksrftms(:ncol) * vfd(:ncol,pver), & ! Meridional wind stress
-                        rrho(:ncol), ustar(:ncol))
-       minpblh(:ncol) = 100.0_r8 * ustar(:ncol)   ! By construction, 'minpblh' is larger than 1 [m] when 'ustar_min = 0.01'.
+       call eddy_diff_surface_stress_diag(ncol, pcols, pver, tfd, pmid, taux, tauy, ksrftms, ufd, vfd, rrho, ustar, &
+            minpblh)
 
      ! Calculate (qt,sl,n2,s2,ri) from a given set of (t,qv,ql,qi,u,v)
 
@@ -1277,6 +1276,114 @@
   return
 
   end subroutine trbintd
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine surface_stress_diag_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (surface_stress_diag_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_SURFACE_STRESS_DIAG_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_surface_stress_diag_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_surface_stress_diag_impl = .false.
+    end if
+
+    surface_stress_diag_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_surface_stress_diag_impl) then
+          write(iulog,*) 'eddy_diff_surface_stress_diag implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_surface_stress_diag implementation = codon'
+       end if
+    end if
+
+  end subroutine surface_stress_diag_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_surface_stress_diag(ncol, pcols, pver, tfd_local, pmid_local, taux_local, tauy_local, &
+       ksrftms_local, ufd_local, vfd_local, rrho_local, ustar_local, minpblh_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, pver
+    real(r8), target, intent(in) :: tfd_local(pcols,pver), pmid_local(pcols,pver)
+    real(r8), target, intent(in) :: taux_local(pcols), tauy_local(pcols), ksrftms_local(pcols)
+    real(r8), target, intent(in) :: ufd_local(pcols,pver), vfd_local(pcols,pver)
+    real(r8), target, intent(inout) :: rrho_local(pcols), ustar_local(pcols), minpblh_local(pcols)
+
+    interface
+       subroutine eddy_diff_surface_stress_diag_codon(ncol_c, pcols_c, pver_c, rair_c, ustar_min_c, tfd_p, &
+            pmid_p, taux_p, tauy_p, ksrftms_p, ufd_p, vfd_p, rrho_p, ustar_p, minpblh_p) &
+            bind(c, name="eddy_diff_surface_stress_diag_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: rair_c, ustar_min_c
+         type(c_ptr), value :: tfd_p, pmid_p, taux_p, tauy_p, ksrftms_p, ufd_p, vfd_p, rrho_p, ustar_p, minpblh_p
+       end subroutine eddy_diff_surface_stress_diag_codon
+    end interface
+
+    call surface_stress_diag_select_impl()
+
+    if (use_native_surface_stress_diag_impl) then
+       call eddy_diff_surface_stress_diag_native(ncol, pcols, pver, tfd_local, pmid_local, taux_local, tauy_local, &
+            ksrftms_local, ufd_local, vfd_local, rrho_local, ustar_local, minpblh_local)
+       return
+    end if
+
+    call eddy_diff_surface_stress_diag_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(rair, c_double), &
+         real(0.01_r8, c_double), c_loc(tfd_local), c_loc(pmid_local), c_loc(taux_local), c_loc(tauy_local), &
+         c_loc(ksrftms_local), c_loc(ufd_local), c_loc(vfd_local), c_loc(rrho_local), c_loc(ustar_local), &
+         c_loc(minpblh_local) &
+    )
+
+  end subroutine eddy_diff_surface_stress_diag
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_surface_stress_diag_native(ncol, pcols, pver, tfd_local, pmid_local, taux_local, tauy_local, &
+       ksrftms_local, ufd_local, vfd_local, rrho_local, ustar_local, minpblh_local)
+
+    use pbl_utils, only: calc_ustar
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, pver
+    real(r8), intent(in) :: tfd_local(pcols,pver), pmid_local(pcols,pver)
+    real(r8), intent(in) :: taux_local(pcols), tauy_local(pcols), ksrftms_local(pcols)
+    real(r8), intent(in) :: ufd_local(pcols,pver), vfd_local(pcols,pver)
+    real(r8), intent(inout) :: rrho_local(pcols), ustar_local(pcols), minpblh_local(pcols)
+
+    call calc_ustar( tfd_local(:ncol,pver), pmid_local(:ncol,pver), &
+         taux_local(:ncol) - ksrftms_local(:ncol) * ufd_local(:ncol,pver), & ! Zonal wind stress
+         tauy_local(:ncol) - ksrftms_local(:ncol) * vfd_local(:ncol,pver), & ! Meridional wind stress
+         rrho_local(:ncol), ustar_local(:ncol))
+    minpblh_local(:ncol) = 100.0_r8 * ustar_local(:ncol)
+
+  end subroutine eddy_diff_surface_stress_diag_native
 
   !=============================================================================== !
   !                                                                                !
