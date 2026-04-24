@@ -33,6 +33,8 @@ module modal_aero_newnuc
   logical :: pbl_nuc_wang2008_impl_selected = .false.
   logical :: binary_nuc_vehk2002_use_native_impl = .false.
   logical :: binary_nuc_vehk2002_impl_selected = .false.
+  logical :: mer07_veh02_nuc_mosaic_finalize_use_native_impl = .false.
+  logical :: mer07_veh02_nuc_mosaic_finalize_impl_selected = .false.
 
 ! min h2so4 vapor for nuc calcs = 4.0e-16 mol/mol-air ~= 1.0e4 molecules/cm3, 
   real(r8), parameter :: qh2so4_cutoff = 4.0e-16_r8
@@ -1034,6 +1036,14 @@ main_i:	do i = 1, ncol
         ratenuclt = exp( rateloge )
         ratenuclt_bb = ratenuclt*1.0e6_r8
 
+        if (ldiagaa <= 0) then
+           call mer07_veh02_nuc_mosaic_finalize( &
+              dtnuc, temp_in, rh_in, press_in, qh2so4_cur, qnh3_cur, h2so4_uptkrate, mw_so4a_host, &
+              nsize, maxd_asize, dplom_sect, dphim_sect, cnum_h2so4, cnum_nh3, radius_cluster, so4vol_in, ratenuclt_bb, &
+              isize_nuc, qnuma_del, qso4a_del, qnh4a_del, qh2so4_del, qnh3_del, dens_nh4so4a )
+           return
+        end if
+
 
 ! wet/dry volume ratio - use simple kohler approx for ammsulf/ammbisulf
         tmpa = max( 0.10_r8, min( 0.95_r8, rh_in ) )
@@ -1345,6 +1355,274 @@ main_i:	do i = 1, ncol
 
         return
         end subroutine mer07_veh02_nuc_mosaic_1box
+
+!-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+  subroutine mer07_veh02_nuc_mosaic_finalize_select_impl()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   implicit none
+
+   character(len=48) :: impl_name
+   integer :: status, n, i, code
+
+   if (mer07_veh02_nuc_mosaic_finalize_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('MER07_VEH02_NUC_MOSAIC_FINALIZE_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      mer07_veh02_nuc_mosaic_finalize_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      mer07_veh02_nuc_mosaic_finalize_use_native_impl = .false.
+   end if
+
+   mer07_veh02_nuc_mosaic_finalize_impl_selected = .true.
+
+   if (masterproc) then
+      if (mer07_veh02_nuc_mosaic_finalize_use_native_impl) then
+         write(iulog,*) 'mer07_veh02_nuc_mosaic_finalize implementation = native'
+      else
+         write(iulog,*) 'mer07_veh02_nuc_mosaic_finalize implementation = codon'
+      end if
+   end if
+
+  end subroutine mer07_veh02_nuc_mosaic_finalize_select_impl
+
+!-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+  subroutine mer07_veh02_nuc_mosaic_finalize( dtnuc, temp_in, rh_in, press_in, qh2so4_cur, qnh3_cur, h2so4_uptkrate, &
+       mw_so4a_host, nsize, maxd_asize, dplom_sect, dphim_sect, cnum_h2so4, cnum_nh3, radius_cluster, so4vol_in, &
+       ratenuclt_bb, isize_nuc, qnuma_del, qso4a_del, qnh4a_del, qh2so4_del, qnh3_del, dens_nh4so4a )
+
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+   use mo_constants, only: pi, rgas, avogad => avogadro
+   use physconst, only: mw_so4a => mwso4, mw_nh4a => mwnh4
+
+   implicit none
+
+   real(r8), intent(in) :: dtnuc, temp_in, rh_in, press_in
+   real(r8), intent(in) :: qh2so4_cur, qnh3_cur, h2so4_uptkrate, mw_so4a_host
+   integer, intent(in) :: nsize, maxd_asize
+   real(r8), intent(in), target :: dplom_sect(maxd_asize), dphim_sect(maxd_asize)
+   real(r8), intent(in) :: cnum_h2so4, cnum_nh3, radius_cluster, so4vol_in, ratenuclt_bb
+   integer, intent(inout) :: isize_nuc
+   real(r8), intent(inout) :: qnuma_del, qso4a_del, qnh4a_del, qh2so4_del, qnh3_del, dens_nh4so4a
+
+   integer(c_int64_t), target :: isize_nuc_work
+   real(c_double), target :: qnuma_del_work, qso4a_del_work, qnh4a_del_work
+   real(c_double), target :: qh2so4_del_work, qnh3_del_work, dens_nh4so4a_work
+
+   interface
+      subroutine mer07_veh02_nuc_mosaic_finalize_codon( dtnuc_c, temp_in_c, rh_in_c, press_in_c, qh2so4_cur_c, qnh3_cur_c, &
+           h2so4_uptkrate_c, mw_so4a_host_c, nsize_c, dplom_sect_p, dphim_sect_p, cnum_h2so4_c, cnum_nh3_c, radius_cluster_c, &
+           so4vol_in_c, ratenuclt_bb_c, pi_c, rgas_c, avogad_c, mw_so4a_c, mw_nh4a_c, isize_nuc_p, qnuma_del_p, qso4a_del_p, &
+           qnh4a_del_p, qh2so4_del_p, qnh3_del_p, dens_nh4so4a_p ) bind(c, name="mer07_veh02_nuc_mosaic_finalize_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        real(c_double), value :: dtnuc_c, temp_in_c, rh_in_c, press_in_c, qh2so4_cur_c, qnh3_cur_c
+        real(c_double), value :: h2so4_uptkrate_c, mw_so4a_host_c, cnum_h2so4_c, cnum_nh3_c, radius_cluster_c
+        real(c_double), value :: so4vol_in_c, ratenuclt_bb_c, pi_c, rgas_c, avogad_c, mw_so4a_c, mw_nh4a_c
+        integer(c_int64_t), value :: nsize_c
+        type(c_ptr), value :: dplom_sect_p, dphim_sect_p, isize_nuc_p, qnuma_del_p, qso4a_del_p, qnh4a_del_p
+        type(c_ptr), value :: qh2so4_del_p, qnh3_del_p, dens_nh4so4a_p
+      end subroutine mer07_veh02_nuc_mosaic_finalize_codon
+   end interface
+
+   call mer07_veh02_nuc_mosaic_finalize_select_impl()
+
+   if (mer07_veh02_nuc_mosaic_finalize_use_native_impl) then
+      call mer07_veh02_nuc_mosaic_finalize_native( dtnuc, temp_in, rh_in, press_in, qh2so4_cur, qnh3_cur, h2so4_uptkrate, &
+           mw_so4a_host, nsize, maxd_asize, dplom_sect, dphim_sect, cnum_h2so4, cnum_nh3, radius_cluster, so4vol_in, ratenuclt_bb, &
+           isize_nuc, qnuma_del, qso4a_del, qnh4a_del, qh2so4_del, qnh3_del, dens_nh4so4a )
+      return
+   end if
+
+   isize_nuc_work = int(isize_nuc, c_int64_t)
+   qnuma_del_work = real(qnuma_del, c_double)
+   qso4a_del_work = real(qso4a_del, c_double)
+   qnh4a_del_work = real(qnh4a_del, c_double)
+   qh2so4_del_work = real(qh2so4_del, c_double)
+   qnh3_del_work = real(qnh3_del, c_double)
+
+   call mer07_veh02_nuc_mosaic_finalize_codon( &
+        real(dtnuc, c_double), real(temp_in, c_double), real(rh_in, c_double), &
+        real(press_in, c_double), real(qh2so4_cur, c_double), real(qnh3_cur, c_double), &
+        real(h2so4_uptkrate, c_double), real(mw_so4a_host, c_double), int(nsize, c_int64_t), &
+        c_loc(dplom_sect(1)), c_loc(dphim_sect(1)), real(cnum_h2so4, c_double), &
+        real(cnum_nh3, c_double), real(radius_cluster, c_double), real(so4vol_in, c_double), &
+        real(ratenuclt_bb, c_double), real(pi, c_double), real(rgas, c_double), &
+        real(avogad, c_double), real(mw_so4a, c_double), real(mw_nh4a, c_double), &
+        c_loc(isize_nuc_work), c_loc(qnuma_del_work), c_loc(qso4a_del_work), &
+        c_loc(qnh4a_del_work), c_loc(qh2so4_del_work), c_loc(qnh3_del_work), &
+        c_loc(dens_nh4so4a_work) )
+
+   isize_nuc = int(isize_nuc_work, kind(isize_nuc))
+   qnuma_del = real(qnuma_del_work, r8)
+   qso4a_del = real(qso4a_del_work, r8)
+   qnh4a_del = real(qnh4a_del_work, r8)
+   qh2so4_del = real(qh2so4_del_work, r8)
+   qnh3_del = real(qnh3_del_work, r8)
+   dens_nh4so4a = real(dens_nh4so4a_work, r8)
+
+  end subroutine mer07_veh02_nuc_mosaic_finalize
+
+!-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+  subroutine mer07_veh02_nuc_mosaic_finalize_native( dtnuc, temp_in, rh_in, press_in, qh2so4_cur, qnh3_cur, h2so4_uptkrate, &
+       mw_so4a_host, nsize, maxd_asize, dplom_sect, dphim_sect, cnum_h2so4, cnum_nh3, radius_cluster, so4vol_in, ratenuclt_bb, &
+       isize_nuc, qnuma_del, qso4a_del, qnh4a_del, qh2so4_del, qnh3_del, dens_nh4so4a )
+
+   use mo_constants, only: pi, rgas, avogad => avogadro
+   use physconst, only: mw_so4a => mwso4, mw_nh4a => mwnh4
+
+   implicit none
+
+   real(r8), intent(in) :: dtnuc, temp_in, rh_in, press_in
+   real(r8), intent(in) :: qh2so4_cur, qnh3_cur, h2so4_uptkrate, mw_so4a_host
+   integer, intent(in) :: nsize, maxd_asize
+   real(r8), intent(in) :: dplom_sect(maxd_asize), dphim_sect(maxd_asize)
+   real(r8), intent(in) :: cnum_h2so4, cnum_nh3, radius_cluster, so4vol_in, ratenuclt_bb
+   integer, intent(inout) :: isize_nuc
+   real(r8), intent(inout) :: qnuma_del, qso4a_del, qnh4a_del, qh2so4_del, qnh3_del, dens_nh4so4a
+
+   integer :: i
+   integer :: igrow
+   real(r8), parameter :: onethird = 1.0_r8/3.0_r8
+   real(r8), parameter :: accom_coef_h2so4 = 0.65_r8
+   real(r8), parameter :: dens_ammsulf   = 1.770e3_r8
+   real(r8), parameter :: dens_ammbisulf = 1.770e3_r8
+   real(r8), parameter :: dens_sulfacid  = 1.770e3_r8
+   real(r8), parameter :: mw_ammsulf   = 132.0_r8
+   real(r8), parameter :: mw_ammbisulf = 114.0_r8
+   real(r8), parameter :: mw_sulfacid  = 96.0_r8
+   real(r8) :: cair, cs_prime_kk, dens_part, dfin_kk, dnuc_kk
+   real(r8) :: dpdry_clus, dpdry_part, factor_kk, freduce, freducea, freduceb
+   real(r8) :: gamma_kk, gr_kk, kgaero_per_moleso4a, mass_part, molenh4a_per_moleso4a
+   real(r8) :: nu_kk, qmolnh4a_del_max, qmolso4a_del_max, ratenuclt_kk
+   real(r8) :: tmp_m1, tmp_m2, tmp_m3, tmp_n1, tmp_n2, tmp_n3
+   real(r8) :: tmp_spd, tmpa, tmpb, tmpe, voldry_clus, voldry_part
+   real(r8) :: wet_volfrac_so4a, wetvol_dryvol
+
+   cair = press_in/(temp_in*rgas)
+
+   tmpa = max( 0.10_r8, min( 0.95_r8, rh_in ) )
+   wetvol_dryvol = 1.0_r8 - 0.56_r8/log(tmpa)
+
+   voldry_clus = ( max(cnum_h2so4,1.0_r8)*mw_so4a + cnum_nh3*mw_nh4a ) / &
+                 (1.0e3_r8*dens_sulfacid*avogad)
+   voldry_clus = voldry_clus * (mw_so4a_host/mw_so4a)
+   dpdry_clus = (voldry_clus*6.0_r8/pi)**onethird
+
+   dpdry_part = dplom_sect(1)
+   if (dpdry_clus <= dplom_sect(1)) then
+      igrow = 1
+   else if (dpdry_clus >= dphim_sect(nsize)) then
+      igrow = 0
+      isize_nuc = nsize
+      dpdry_part = dphim_sect(nsize)
+   else
+      igrow = 0
+      do i = 1, nsize
+         if (dpdry_clus < dphim_sect(i)) then
+            isize_nuc = i
+            dpdry_part = dpdry_clus
+            dpdry_part = min( dpdry_part, dphim_sect(i) )
+            dpdry_part = max( dpdry_part, dplom_sect(i) )
+            exit
+         end if
+      end do
+   end if
+   voldry_part = (pi/6.0_r8)*(dpdry_part**3)
+
+   if (igrow .le. 0) then
+      tmp_n1 = 0.0_r8
+      tmp_n2 = 0.0_r8
+      tmp_n3 = 1.0_r8
+   else if (qnh3_cur .ge. qh2so4_cur) then
+      tmp_n1 = (qnh3_cur/qh2so4_cur) - 1.0_r8
+      tmp_n1 = max( 0.0_r8, min( 1.0_r8, tmp_n1 ) )
+      tmp_n2 = 1.0_r8 - tmp_n1
+      tmp_n3 = 0.0_r8
+   else
+      tmp_n1 = 0.0_r8
+      tmp_n2 = (qnh3_cur/qh2so4_cur)
+      tmp_n2 = max( 0.0_r8, min( 1.0_r8, tmp_n2 ) )
+      tmp_n3 = 1.0_r8 - tmp_n2
+   end if
+
+   tmp_m1 = tmp_n1*mw_ammsulf
+   tmp_m2 = tmp_n2*mw_ammbisulf
+   tmp_m3 = tmp_n3*mw_sulfacid
+   dens_part = (tmp_m1 + tmp_m2 + tmp_m3)/((tmp_m1/dens_ammsulf) + (tmp_m2/dens_ammbisulf) + (tmp_m3/dens_sulfacid))
+   dens_nh4so4a = dens_part
+   mass_part = voldry_part*dens_part
+   molenh4a_per_moleso4a = 2.0_r8*tmp_n1 + tmp_n2
+   kgaero_per_moleso4a = 1.0e-3_r8*(tmp_m1 + tmp_m2 + tmp_m3)
+   kgaero_per_moleso4a = kgaero_per_moleso4a * (mw_so4a_host/mw_so4a)
+
+   tmpb = 1.0_r8 + molenh4a_per_moleso4a*17.0_r8/98.0_r8
+   wet_volfrac_so4a = 1.0_r8 / ( wetvol_dryvol * tmpb )
+
+   if (igrow <= 0) then
+      factor_kk = 1.0_r8
+   else
+      tmp_spd = 14.7_r8*sqrt(temp_in)
+      gr_kk = 3.0e-9_r8*tmp_spd*mw_sulfacid*so4vol_in/(dens_part*wet_volfrac_so4a)
+      dfin_kk = 1.0e9_r8 * dpdry_part * (wetvol_dryvol**onethird)
+      dnuc_kk = 2.0_r8*radius_cluster
+      dnuc_kk = max( dnuc_kk, 1.0_r8 )
+      gamma_kk = 0.23_r8 * (dnuc_kk)**0.2_r8 &
+               * (dfin_kk/3.0_r8)**0.075_r8 &
+               * (dens_part*1.0e-3_r8)**(-0.33_r8) &
+               * (temp_in/293.0_r8)**(-0.75_r8)
+      tmpa = h2so4_uptkrate * 3600.0_r8
+      tmpa = max( tmpa, 0.0_r8 )
+      tmpb = 6.7037e-6_r8 * (temp_in**0.75_r8) / cair
+      tmpb = tmpb*3600.0_r8
+      cs_prime_kk = tmpa/(4.0_r8*pi*tmpb*accom_coef_h2so4)
+      nu_kk = gamma_kk*cs_prime_kk/gr_kk
+      factor_kk = exp( (nu_kk/dfin_kk) - (nu_kk/dnuc_kk) )
+   end if
+   ratenuclt_kk = ratenuclt_bb*factor_kk
+
+   tmpa = max( 0.0_r8, (ratenuclt_kk*dtnuc*mass_part) )
+   tmpe = tmpa/(kgaero_per_moleso4a*cair)
+   qmolso4a_del_max = tmpe
+
+   freducea = 1.0_r8
+   if (qmolso4a_del_max .gt. qh2so4_cur) then
+      freducea = qh2so4_cur/qmolso4a_del_max
+   end if
+
+   freduceb = 1.0_r8
+   if (molenh4a_per_moleso4a .ge. 1.0e-10_r8) then
+      qmolnh4a_del_max = qmolso4a_del_max*molenh4a_per_moleso4a
+      if (qmolnh4a_del_max .gt. qnh3_cur) then
+         freduceb = qnh3_cur/qmolnh4a_del_max
+      end if
+   end if
+   freduce = min( freducea, freduceb )
+
+   if (freduce*ratenuclt_kk .le. 1.0e-12_r8) return
+
+   tmpa = 0.9999_r8
+   qh2so4_del = min( tmpa*qh2so4_cur, freduce*qmolso4a_del_max )
+   qnh3_del = min( tmpa*qnh3_cur, qh2so4_del*molenh4a_per_moleso4a )
+   qh2so4_del = -qh2so4_del
+   qnh3_del = -qnh3_del
+   qso4a_del = -qh2so4_del
+   qnh4a_del = -qnh3_del
+   qnuma_del = 1.0e-3_r8*(qso4a_del*mw_so4a + qnh4a_del*mw_nh4a)/mass_part
+
+  end subroutine mer07_veh02_nuc_mosaic_finalize_native
 
 
 
