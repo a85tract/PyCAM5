@@ -182,6 +182,8 @@
   logical                     :: error_pbl_impl_selected = .false.
   logical                     :: use_native_kv_relax_impl = .false.
   logical                     :: kv_relax_impl_selected = .false.
+  logical                     :: use_native_init_fields_impl = .false.
+  logical                     :: init_fields_impl_selected = .false.
   logical                     :: use_native_zero_nonlocal_impl = .false.
   logical                     :: zero_nonlocal_impl_selected = .false.
   logical                     :: use_native_restore_fields_impl = .false.
@@ -579,8 +581,7 @@
     ! Initialize !
     ! ---------- !
 
-    zero(:)     = 0._r8
-    zero2d(:,:) = 0._r8
+    call eddy_diff_init_fields(ncol, pcols, pver, u, v, t, qv, ql, zero, zero2d, ufd, vfd, tfd, qvfd, qlfd)
 
     ! ----------------------- !
     ! Main Computation Begins ! 
@@ -1834,6 +1835,111 @@
     kvh_out_local(:ncol,:) = lambda_local * kvh_out_local(:ncol,:) + ( 1._r8 - lambda_local ) * kvh_local(:ncol,:)
 
   end subroutine eddy_diff_kv_relax_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_init_fields_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (init_fields_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_INIT_FIELDS_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_init_fields_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_init_fields_impl = .false.
+    end if
+
+    init_fields_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_init_fields_impl) then
+          write(iulog,*) 'eddy_diff_init_fields implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_init_fields implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_init_fields_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_init_fields(ncol, pcols, pver, u_local, v_local, t_local, qv_local, ql_local, zero_local, &
+       zero2d_local, ufd_local, vfd_local, tfd_local, qvfd_local, qlfd_local)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, pver
+    real(r8), target, intent(in) :: u_local(pcols,pver), v_local(pcols,pver), t_local(pcols,pver), qv_local(pcols,pver), &
+         ql_local(pcols,pver)
+    real(r8), target, intent(inout) :: zero_local(pcols), zero2d_local(pcols,pver+1), ufd_local(pcols,pver), &
+         vfd_local(pcols,pver), tfd_local(pcols,pver), qvfd_local(pcols,pver), qlfd_local(pcols,pver)
+
+    interface
+       subroutine eddy_diff_init_fields_codon(ncol_c, pcols_c, pver_c, u_p, v_p, t_p, qv_p, ql_p, zero_p, zero2d_p, &
+            ufd_p, vfd_p, tfd_p, qvfd_p, qlfd_p) bind(c, name="eddy_diff_init_fields_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: u_p, v_p, t_p, qv_p, ql_p, zero_p, zero2d_p, ufd_p, vfd_p, tfd_p, qvfd_p, qlfd_p
+       end subroutine eddy_diff_init_fields_codon
+    end interface
+
+    call eddy_diff_init_fields_select_impl()
+
+    if (use_native_init_fields_impl) then
+       call eddy_diff_init_fields_native(ncol, pcols, pver, u_local, v_local, t_local, qv_local, ql_local, zero_local, &
+            zero2d_local, ufd_local, vfd_local, tfd_local, qvfd_local, qlfd_local)
+       return
+    end if
+
+    call eddy_diff_init_fields_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), c_loc(u_local), c_loc(v_local), &
+         c_loc(t_local), c_loc(qv_local), c_loc(ql_local), c_loc(zero_local), c_loc(zero2d_local), c_loc(ufd_local), &
+         c_loc(vfd_local), c_loc(tfd_local), c_loc(qvfd_local), c_loc(qlfd_local) &
+    )
+
+  end subroutine eddy_diff_init_fields
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_init_fields_native(ncol, pcols, pver, u_local, v_local, t_local, qv_local, ql_local, zero_local, &
+       zero2d_local, ufd_local, vfd_local, tfd_local, qvfd_local, qlfd_local)
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, pver
+    real(r8), intent(in) :: u_local(pcols,pver), v_local(pcols,pver), t_local(pcols,pver), qv_local(pcols,pver), &
+         ql_local(pcols,pver)
+    real(r8), intent(inout) :: zero_local(pcols), zero2d_local(pcols,pver+1), ufd_local(pcols,pver), vfd_local(pcols,pver), &
+         tfd_local(pcols,pver), qvfd_local(pcols,pver), qlfd_local(pcols,pver)
+
+    zero_local(:) = 0._r8
+    zero2d_local(:,:) = 0._r8
+    ufd_local(:ncol,:) = u_local(:ncol,:)
+    vfd_local(:ncol,:) = v_local(:ncol,:)
+    tfd_local(:ncol,:) = t_local(:ncol,:)
+    qvfd_local(:ncol,:) = qv_local(:ncol,:)
+    qlfd_local(:ncol,:) = ql_local(:ncol,:)
+
+  end subroutine eddy_diff_init_fields_native
 
   !=============================================================================== !
   !                                                                                !

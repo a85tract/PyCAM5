@@ -804,6 +804,65 @@ def eddy_diff_zero_nonlocal_codon(
 
 
 @export
+def eddy_diff_init_fields_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    u_p: cobj,
+    v_p: cobj,
+    t_p: cobj,
+    qv_p: cobj,
+    ql_p: cobj,
+    zero_p: cobj,
+    zero2d_p: cobj,
+    ufd_p: cobj,
+    vfd_p: cobj,
+    tfd_p: cobj,
+    qvfd_p: cobj,
+    qlfd_p: cobj,
+):
+    u = Ptr[float](u_p)
+    v = Ptr[float](v_p)
+    t = Ptr[float](t_p)
+    qv = Ptr[float](qv_p)
+    ql = Ptr[float](ql_p)
+    zero = Ptr[float](zero_p)
+    zero2d = Ptr[float](zero2d_p)
+    ufd = Ptr[float](ufd_p)
+    vfd = Ptr[float](vfd_p)
+    tfd = Ptr[float](tfd_p)
+    qvfd = Ptr[float](qvfd_p)
+    qlfd = Ptr[float](qlfd_p)
+
+    for i in range(1, pcols + 1):
+        zero[i - 1] = 0.0
+
+    for k in range(1, pver + 2):
+        for i in range(1, pcols + 1):
+            zero2d[_idx2(i, k, pcols)] = 0.0
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            ufd[_idx2(i, k, pcols)] = u[_idx2(i, k, pcols)]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            vfd[_idx2(i, k, pcols)] = v[_idx2(i, k, pcols)]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            tfd[_idx2(i, k, pcols)] = t[_idx2(i, k, pcols)]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            qvfd[_idx2(i, k, pcols)] = qv[_idx2(i, k, pcols)]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            qlfd[_idx2(i, k, pcols)] = ql[_idx2(i, k, pcols)]
+
+
+@export
 def vertical_diffusion_obklen_diag_codon(
     ncol: int,
     pcols: int,
