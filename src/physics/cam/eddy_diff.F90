@@ -170,8 +170,10 @@
   integer                     :: nbot_turb                      ! Bottom interface level to which turbulent vertical diff
                                                                 ! is applied ( = pver )
 
-  real(r8), allocatable       :: ml2(:)                         ! Mixing lengths squared. Not used in the UW PBL.
+  real(r8), allocatable, target :: ml2(:)                       ! Mixing lengths squared. Not used in the UW PBL.
                                                                 ! Used for computing free air diffusivity.
+  logical                     :: use_native_austausch_atm_impl = .false.
+  logical                     :: austausch_atm_impl_selected = .false.
 
   CONTAINS
 
@@ -1280,7 +1282,87 @@
   !                                                                                !
   !=============================================================================== !
   
+  subroutine austausch_atm_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (austausch_atm_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('AUSTAUSCH_ATM_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_austausch_atm_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_austausch_atm_impl = .false.
+    end if
+
+    austausch_atm_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_austausch_atm_impl) then
+          write(iulog,*) 'austausch_atm implementation = native'
+       else
+          write(iulog,*) 'austausch_atm implementation = codon'
+       end if
+    end if
+
+  end subroutine austausch_atm_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
   subroutine austausch_atm( pcols, pver, ncol, ri, s2, kvf )
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer,  intent(in)  :: pcols                ! Number of atmospheric columns
+    integer,  intent(in)  :: pver                 ! Number of atmospheric layers
+    integer,  intent(in)  :: ncol                 ! Number of atmospheric columns
+
+    real(r8), target, intent(in)  :: s2(pcols,pver)       ! Shear squared
+    real(r8), target, intent(in)  :: ri(pcols,pver)       ! Richardson no
+    real(r8), target, intent(out) :: kvf(pcols,pver+1)    ! Eddy diffusivity for heat and tracers
+
+    interface
+       subroutine austausch_atm_codon(ncol_c, pcols_c, pver_c, ntop_turb_c, nbot_turb_c, zkmin_c, &
+            ri_p, s2_p, ml2_p, kvf_p) bind(c, name="austausch_atm_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, ntop_turb_c, nbot_turb_c
+         real(c_double), value :: zkmin_c
+         type(c_ptr), value :: ri_p, s2_p, ml2_p, kvf_p
+       end subroutine austausch_atm_codon
+    end interface
+
+    call austausch_atm_select_impl()
+
+    if (use_native_austausch_atm_impl) then
+       call austausch_atm_native(pcols, pver, ncol, ri, s2, kvf)
+       return
+    end if
+
+    call austausch_atm_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(ntop_turb, c_int64_t), &
+         int(nbot_turb, c_int64_t), real(zkmin, c_double), c_loc(ri), c_loc(s2), c_loc(ml2), c_loc(kvf) &
+    )
+
+  end subroutine austausch_atm
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine austausch_atm_native( pcols, pver, ncol, ri, s2, kvf )
 
     !---------------------------------------------------------------------- ! 
     !                                                                       !
@@ -1355,7 +1437,7 @@
 
     return
 
-    end subroutine austausch_atm
+    end subroutine austausch_atm_native
 
     ! ---------------------------------------------------------------------------- !
     !                                                                              !

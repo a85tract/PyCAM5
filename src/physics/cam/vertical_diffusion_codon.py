@@ -1,3 +1,6 @@
+from math import sqrt
+
+
 @export
 def vertical_diffusion_ts_init_codon():
     return
@@ -538,6 +541,43 @@ def vertical_diffusion_pre_qsat_rh_codon(
             ftem_prePBL[_idx2(i, k, pcols)] = (
                 state_q[_idx3(i, k, 1, pcols, pver)] / ftem[_idx2(i, k, pcols)] * 100.0
             )
+
+
+@export
+def austausch_atm_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    ntop_turb: int,
+    nbot_turb: int,
+    zkmin: float,
+    ri_p: cobj,
+    s2_p: cobj,
+    ml2_p: cobj,
+    kvf_p: cobj,
+):
+    ri = Ptr[float](ri_p)
+    s2 = Ptr[float](s2_p)
+    ml2 = Ptr[float](ml2_p)
+    kvf = Ptr[float](kvf_p)
+
+    for k in range(1, pver + 2):
+        for i in range(1, ncol + 1):
+            kvf[_idx2(i, k, pcols)] = 0.0
+
+    for k in range(ntop_turb + 1, nbot_turb + 1):
+        for i in range(1, ncol + 1):
+            if ri[_idx2(i, k, pcols)] < 0.0:
+                fofri = sqrt(max(1.0 - 18.0 * ri[_idx2(i, k, pcols)], 0.0))
+            else:
+                fofri = 1.0 / (
+                    1.0
+                    + 10.0
+                    * ri[_idx2(i, k, pcols)]
+                    * (1.0 + 8.0 * ri[_idx2(i, k, pcols)])
+                )
+            kvn = ml2[k - 1] * sqrt(s2[_idx2(i, k, pcols)])
+            kvf[_idx2(i, k, pcols)] = max(zkmin, kvn * fofri)
 
 
 @export
