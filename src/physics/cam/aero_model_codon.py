@@ -1423,6 +1423,54 @@ def vmr2qqcw_codon(
 
 
 @export
+def modal_aero_gasaerexch_snapshot_state_codon(
+    ncol: int,
+    pver: int,
+    pcnstxx: int,
+    q_p: cobj,
+    qqcw_p: cobj,
+    dqdt_p: cobj,
+    dqqcwdt_p: cobj,
+    qold_p: cobj,
+    qqcwold_p: cobj,
+    dqdtsv1_p: cobj,
+    dqqcwdtsv1_p: cobj,
+):
+    q = Ptr[float](q_p)
+    qqcw = Ptr[float](qqcw_p)
+    dqdt = Ptr[float](dqdt_p)
+    dqqcwdt = Ptr[float](dqqcwdt_p)
+    qold = Ptr[float](qold_p)
+    qqcwold = Ptr[float](qqcwold_p)
+    dqdtsv1 = Ptr[float](dqdtsv1_p)
+    dqqcwdtsv1 = Ptr[float](dqqcwdtsv1_p)
+
+    for m in range(1, pcnstxx + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx3(i, k, m, ncol, pver)
+                qold[idx] = q[idx]
+
+    for m in range(1, pcnstxx + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx3(i, k, m, ncol, pver)
+                qqcwold[idx] = qqcw[idx]
+
+    for m in range(1, pcnstxx + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx3(i, k, m, ncol, pver)
+                dqdtsv1[idx] = dqdt[idx]
+
+    for m in range(1, pcnstxx + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx3(i, k, m, ncol, pver)
+                dqqcwdtsv1[idx] = dqqcwdt[idx]
+
+
+@export
 def gas_aer_uptkrates_codon(
     ncol: int,
     pcols: int,

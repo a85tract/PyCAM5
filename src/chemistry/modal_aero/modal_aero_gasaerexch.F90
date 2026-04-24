@@ -56,6 +56,8 @@
   logical :: gas_aer_uptkrates_impl_selected = .false.
   logical :: modal_aero_soaexch_use_native_impl = .false.
   logical :: modal_aero_soaexch_impl_selected = .false.
+  logical :: modal_aero_gasaerexch_snapshot_state_use_native_impl = .false.
+  logical :: modal_aero_gasaerexch_snapshot_state_impl_selected = .false.
 
 ! !DESCRIPTION: This module implements ...
 !
@@ -157,6 +159,91 @@ subroutine modal_aero_soaexch_select_impl()
   end if
 
 end subroutine modal_aero_soaexch_select_impl
+
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+subroutine modal_aero_gasaerexch_snapshot_state_select_impl()
+
+  use cam_logfile, only: iulog
+  use spmd_utils, only: masterproc
+
+  implicit none
+
+  character(len=48) :: impl_name
+  integer :: status, n, i, code
+
+  if (modal_aero_gasaerexch_snapshot_state_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MODAL_AERO_GASAEREXCH_SNAPSHOT_STATE_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     modal_aero_gasaerexch_snapshot_state_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     modal_aero_gasaerexch_snapshot_state_use_native_impl = .false.
+  end if
+
+  modal_aero_gasaerexch_snapshot_state_impl_selected = .true.
+
+  if (masterproc) then
+     if (modal_aero_gasaerexch_snapshot_state_use_native_impl) then
+        write(iulog,*) 'modal_aero_gasaerexch_snapshot_state implementation = native'
+     else
+        write(iulog,*) 'modal_aero_gasaerexch_snapshot_state implementation = codon'
+     end if
+  end if
+
+end subroutine modal_aero_gasaerexch_snapshot_state_select_impl
+
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+subroutine modal_aero_gasaerexch_snapshot_state(ncol, q, qqcw, dqdt, dqqcwdt, qold, qqcwold, dqdtsv1, dqqcwdtsv1)
+
+  use iso_c_binding, only: c_int64_t, c_loc
+
+  implicit none
+
+  integer, intent(in) :: ncol
+  real(r8), target, intent(in) :: q(ncol,pver,pcnstxx), qqcw(ncol,pver,pcnstxx)
+  real(r8), target, intent(in) :: dqdt(ncol,pver,pcnstxx), dqqcwdt(ncol,pver,pcnstxx)
+  real(r8), target, intent(out) :: qold(ncol,pver,pcnstxx), qqcwold(ncol,pver,pcnstxx)
+  real(r8), target, intent(out) :: dqdtsv1(ncol,pver,pcnstxx), dqqcwdtsv1(ncol,pver,pcnstxx)
+
+  interface
+     subroutine modal_aero_gasaerexch_snapshot_state_codon(ncol_c, pver_c, pcnstxx_c, q_p, qqcw_p, dqdt_p, dqqcwdt_p, &
+          qold_p, qqcwold_p, dqdtsv1_p, dqqcwdtsv1_p) bind(c, name="modal_aero_gasaerexch_snapshot_state_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pver_c, pcnstxx_c
+       type(c_ptr), value :: q_p, qqcw_p, dqdt_p, dqqcwdt_p
+       type(c_ptr), value :: qold_p, qqcwold_p, dqdtsv1_p, dqqcwdtsv1_p
+     end subroutine modal_aero_gasaerexch_snapshot_state_codon
+  end interface
+
+  call modal_aero_gasaerexch_snapshot_state_select_impl()
+
+  if (modal_aero_gasaerexch_snapshot_state_use_native_impl) then
+     qold(:,:,:) = q(:,:,:)
+     qqcwold(:,:,:) = qqcw(:,:,:)
+     dqdtsv1(:,:,:) = dqdt(:,:,:)
+     dqqcwdtsv1(:,:,:) = dqqcwdt(:,:,:)
+     return
+  end if
+
+  call modal_aero_gasaerexch_snapshot_state_codon( &
+       int(ncol, c_int64_t), int(pver, c_int64_t), int(pcnstxx, c_int64_t), &
+       c_loc(q(1,1,1)), c_loc(qqcw(1,1,1)), c_loc(dqdt(1,1,1)), c_loc(dqqcwdt(1,1,1)), &
+       c_loc(qold(1,1,1)), c_loc(qqcwold(1,1,1)), c_loc(dqdtsv1(1,1,1)), c_loc(dqqcwdtsv1(1,1,1)) &
+  )
+
+end subroutine modal_aero_gasaerexch_snapshot_state
 
 
 !----------------------------------------------------------------------
@@ -802,10 +889,7 @@ implicit none
 
 
 ! set "temporary testing arrays"
-   qold(:,:,:) = q(:,:,:)
-   qqcwold(:,:,:) = qqcw(:,:,:)
-   dqdtsv1(:,:,:) = dqdt(:,:,:)
-   dqqcwdtsv1(:,:,:) = dqqcwdt(:,:,:)
+   call modal_aero_gasaerexch_snapshot_state(ncol, q, qqcw, dqdt, dqqcwdt, qold, qqcwold, dqdtsv1, dqqcwdtsv1)
 
 
 !
