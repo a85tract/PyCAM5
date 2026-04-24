@@ -2059,12 +2059,6 @@ contains
     !    Application of diffusivities     !
     !------------------------------------ !
 
-    ! Set arrays from input state.
-    q_tmp(:ncol,:,:) = state%q(:ncol,:,:)
-    s_tmp(:ncol,:) = state%s(:ncol,:)
-    u_tmp(:ncol,:) = state%u(:ncol,:)
-    v_tmp(:ncol,:) = state%v(:ncol,:)
-
     !------------------------------------------------------ !
     ! Write profile output before applying diffusion scheme !
     !------------------------------------------------------ !
