@@ -724,6 +724,26 @@ def eddy_diff_kv_relax_codon(
 
 
 @export
+def eddy_diff_wstar_pbl_codon(
+    ncol: int,
+    pcols: int,
+    ncvmax: int,
+    ipbl_p: cobj,
+    wstar_p: cobj,
+    wstarPBL_p: cobj,
+):
+    ipbl = Ptr[int](ipbl_p)
+    wstar = Ptr[float](wstar_p)
+    wstarPBL = Ptr[float](wstarPBL_p)
+
+    for i in range(1, ncol + 1):
+        if ipbl[i - 1] == 1:
+            wstarPBL[i - 1] = max(0.0, wstar[_idx2(i, 1, pcols)])
+        else:
+            wstarPBL[i - 1] = 0.0
+
+
+@export
 def vertical_diffusion_obklen_diag_codon(
     ncol: int,
     pcols: int,

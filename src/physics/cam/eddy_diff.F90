@@ -182,6 +182,8 @@
   logical                     :: error_pbl_impl_selected = .false.
   logical                     :: use_native_kv_relax_impl = .false.
   logical                     :: kv_relax_impl_selected = .false.
+  logical                     :: use_native_wstar_pbl_impl = .false.
+  logical                     :: wstar_pbl_impl_selected = .false.
 
   CONTAINS
 
@@ -756,13 +758,7 @@
 
   ! Compute 'wstar' within the PBL for use in the future convection scheme.
 
-    do i = 1, ncol
-       if(ipbl(i) .eq. 1) then 
-           wstarPBL(i) = max( 0._r8, wstar(i,1) )
-       else
-           wstarPBL(i) = 0._r8
-       endif
-    end do
+    call eddy_diff_wstar_pbl(ncol, pcols, ncvmax, ipbl, wstar, wstarPBL)
 
     ! --------------------------------------------------------------- !
     ! Writing for detailed diagnostic analysis of UW moist PBL scheme !
@@ -1838,6 +1834,107 @@
     kvh_out_local(:ncol,:) = lambda_local * kvh_out_local(:ncol,:) + ( 1._r8 - lambda_local ) * kvh_local(:ncol,:)
 
   end subroutine eddy_diff_kv_relax_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_wstar_pbl_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (wstar_pbl_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_WSTAR_PBL_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_wstar_pbl_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_wstar_pbl_impl = .false.
+    end if
+
+    wstar_pbl_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_wstar_pbl_impl) then
+          write(iulog,*) 'eddy_diff_wstar_pbl implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_wstar_pbl implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_wstar_pbl_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_wstar_pbl(ncol, pcols, ncvmax_local, ipbl_local, wstar_local, wstarPBL_local)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, ncvmax_local
+    integer(i4), target, intent(in) :: ipbl_local(pcols)
+    real(r8), target, intent(in) :: wstar_local(pcols,ncvmax_local)
+    real(r8), target, intent(inout) :: wstarPBL_local(pcols)
+
+    interface
+       subroutine eddy_diff_wstar_pbl_codon(ncol_c, pcols_c, ncvmax_c, ipbl_p, wstar_p, wstarPBL_p) &
+            bind(c, name="eddy_diff_wstar_pbl_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, ncvmax_c
+         type(c_ptr), value :: ipbl_p, wstar_p, wstarPBL_p
+       end subroutine eddy_diff_wstar_pbl_codon
+    end interface
+
+    call eddy_diff_wstar_pbl_select_impl()
+
+    if (use_native_wstar_pbl_impl) then
+       call eddy_diff_wstar_pbl_native(ncol, pcols, ncvmax_local, ipbl_local, wstar_local, wstarPBL_local)
+       return
+    end if
+
+    call eddy_diff_wstar_pbl_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(ncvmax_local, c_int64_t), c_loc(ipbl_local), c_loc(wstar_local), &
+         c_loc(wstarPBL_local) &
+    )
+
+  end subroutine eddy_diff_wstar_pbl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_wstar_pbl_native(ncol, pcols, ncvmax_local, ipbl_local, wstar_local, wstarPBL_local)
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, ncvmax_local
+    integer(i4), intent(in) :: ipbl_local(pcols)
+    real(r8), intent(in) :: wstar_local(pcols,ncvmax_local)
+    real(r8), intent(inout) :: wstarPBL_local(pcols)
+
+    integer :: i
+
+    do i = 1, ncol
+       if(ipbl_local(i) .eq. 1) then
+           wstarPBL_local(i) = max( 0._r8, wstar_local(i,1) )
+       else
+           wstarPBL_local(i) = 0._r8
+       endif
+    end do
+
+  end subroutine eddy_diff_wstar_pbl_native
 
     ! ---------------------------------------------------------------------------- !
     !                                                                              !
