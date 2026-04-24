@@ -29,6 +29,8 @@ module modal_aero_newnuc
   logical :: modal_aero_newnuc_zero_tendencies_impl_selected = .false.
   logical :: modal_aero_newnuc_prepare_box_inputs_use_native_impl = .false.
   logical :: modal_aero_newnuc_prepare_box_inputs_impl_selected = .false.
+  logical :: modal_aero_newnuc_apply_tendencies_use_native_impl = .false.
+  logical :: modal_aero_newnuc_apply_tendencies_impl_selected = .false.
   logical :: pbl_nuc_wang2008_use_native_impl = .false.
   logical :: pbl_nuc_wang2008_impl_selected = .false.
   logical :: binary_nuc_vehk2002_use_native_impl = .false.
@@ -320,6 +322,156 @@ module modal_aero_newnuc
 
 !----------------------------------------------------------------------
 !----------------------------------------------------------------------
+  subroutine modal_aero_newnuc_apply_tendencies_select_impl()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   implicit none
+
+   character(len=48) :: impl_name
+   integer :: status, n, i, code
+
+   if (modal_aero_newnuc_apply_tendencies_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('MODAL_AERO_NEWNUC_APPLY_TENDENCIES_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      modal_aero_newnuc_apply_tendencies_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      modal_aero_newnuc_apply_tendencies_use_native_impl = .false.
+   end if
+
+   modal_aero_newnuc_apply_tendencies_impl_selected = .true.
+
+   if (masterproc) then
+      if (modal_aero_newnuc_apply_tendencies_use_native_impl) then
+         write(iulog,*) 'modal_aero_newnuc_apply_tendencies implementation = native'
+      else
+         write(iulog,*) 'modal_aero_newnuc_apply_tendencies implementation = codon'
+      end if
+   end if
+
+  end subroutine modal_aero_newnuc_apply_tendencies_select_impl
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_newnuc_apply_tendencies( i_idx, k_idx, ncol_in, pcnst_in, nsrflx_in, &
+       pdel, dqdt, qsrflx, q, gravit_in, cldx, deltat, dso4dt_ait, dndt_ait, dnh4dt_ait, &
+       l_h2so4, lso4ait, lnumait, l_nh3, lnh4ait, do_nh3_in )
+
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+   use ppgrid, only: pcols, pver
+
+   implicit none
+
+   integer, intent(in) :: i_idx, k_idx, ncol_in, pcnst_in, nsrflx_in
+   integer, intent(in) :: l_h2so4, lso4ait, lnumait, l_nh3, lnh4ait
+   logical, intent(in) :: do_nh3_in
+   real(r8), intent(in) :: gravit_in, cldx, deltat, dso4dt_ait, dndt_ait, dnh4dt_ait
+   real(r8), target, intent(in) :: pdel(pcols,pver)
+   real(r8), target, intent(inout) :: dqdt(ncol_in,pver,pcnstxx)
+   real(r8), target, intent(inout) :: qsrflx(pcols,pcnst_in,nsrflx_in)
+   real(r8), target, intent(inout) :: q(ncol_in,pver,pcnstxx)
+
+   integer(c_int64_t) :: do_nh3_flag
+
+   interface
+      subroutine modal_aero_newnuc_apply_tendencies_codon( i_c, k_c, ncol_c, pcols_c, pver_c, pcnst_c, &
+           pdel_p, dqdt_p, qsrflx_p, q_p, gravit_c, cldx_c, deltat_c, dso4dt_ait_c, dndt_ait_c, dnh4dt_ait_c, &
+           l_h2so4_c, lso4ait_c, lnumait_c, l_nh3_c, lnh4ait_c, do_nh3_c ) &
+           bind(c, name="modal_aero_newnuc_apply_tendencies_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: i_c, k_c, ncol_c, pcols_c, pver_c, pcnst_c
+        type(c_ptr), value :: pdel_p, dqdt_p, qsrflx_p, q_p
+        real(c_double), value :: gravit_c, cldx_c, deltat_c, dso4dt_ait_c, dndt_ait_c, dnh4dt_ait_c
+        integer(c_int64_t), value :: l_h2so4_c, lso4ait_c, lnumait_c, l_nh3_c, lnh4ait_c, do_nh3_c
+      end subroutine modal_aero_newnuc_apply_tendencies_codon
+   end interface
+
+   call modal_aero_newnuc_apply_tendencies_select_impl()
+
+   if (do_nh3_in) then
+      do_nh3_flag = 1_c_int64_t
+   else
+      do_nh3_flag = 0_c_int64_t
+   end if
+
+   if (modal_aero_newnuc_apply_tendencies_use_native_impl) then
+      call modal_aero_newnuc_apply_tendencies_native( i_idx, k_idx, ncol_in, pcnst_in, nsrflx_in, &
+           pdel, dqdt, qsrflx, q, gravit_in, cldx, deltat, dso4dt_ait, dndt_ait, dnh4dt_ait, &
+           l_h2so4, lso4ait, lnumait, l_nh3, lnh4ait, do_nh3_in )
+      return
+   end if
+
+   call modal_aero_newnuc_apply_tendencies_codon( &
+        int(i_idx, c_int64_t), int(k_idx, c_int64_t), int(ncol_in, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        int(pcnst_in, c_int64_t), c_loc(pdel(1,1)), c_loc(dqdt(1,1,1)), c_loc(qsrflx(1,1,1)), c_loc(q(1,1,1)), &
+        real(gravit_in, c_double), real(cldx, c_double), real(deltat, c_double), real(dso4dt_ait, c_double), &
+        real(dndt_ait, c_double), real(dnh4dt_ait, c_double), int(l_h2so4, c_int64_t), int(lso4ait, c_int64_t), &
+        int(lnumait, c_int64_t), int(l_nh3, c_int64_t), int(lnh4ait, c_int64_t), do_nh3_flag &
+   )
+
+  end subroutine modal_aero_newnuc_apply_tendencies
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_newnuc_apply_tendencies_native( i_idx, k_idx, ncol_in, pcnst_in, nsrflx_in, &
+       pdel, dqdt, qsrflx, q, gravit_in, cldx, deltat, dso4dt_ait, dndt_ait, dnh4dt_ait, &
+       l_h2so4, lso4ait, lnumait, l_nh3, lnh4ait, do_nh3_in )
+
+   use ppgrid, only: pcols, pver
+
+   implicit none
+
+   integer, intent(in) :: i_idx, k_idx, ncol_in, pcnst_in, nsrflx_in
+   integer, intent(in) :: l_h2so4, lso4ait, lnumait, l_nh3, lnh4ait
+   logical, intent(in) :: do_nh3_in
+   real(r8), intent(in) :: gravit_in, cldx, deltat, dso4dt_ait, dndt_ait, dnh4dt_ait
+   real(r8), intent(in) :: pdel(pcols,pver)
+   real(r8), intent(inout) :: dqdt(ncol_in,pver,pcnstxx)
+   real(r8), intent(inout) :: qsrflx(pcols,pcnst_in,nsrflx_in)
+   real(r8), intent(inout) :: q(ncol_in,pver,pcnstxx)
+
+   real(r8) :: pdel_fac
+
+!   set tendencies
+   pdel_fac = pdel(i_idx,k_idx)/gravit_in
+
+   dqdt(i_idx,k_idx,l_h2so4) = -dso4dt_ait*(1.0_r8-cldx)
+   qsrflx(i_idx,l_h2so4,1) = qsrflx(i_idx,l_h2so4,1) + dqdt(i_idx,k_idx,l_h2so4)*pdel_fac
+   q(i_idx,k_idx,l_h2so4) = q(i_idx,k_idx,l_h2so4) + dqdt(i_idx,k_idx,l_h2so4)*deltat
+
+   dqdt(i_idx,k_idx,lso4ait) = dso4dt_ait*(1.0_r8-cldx)
+   qsrflx(i_idx,lso4ait,1) = qsrflx(i_idx,lso4ait,1) + dqdt(i_idx,k_idx,lso4ait)*pdel_fac
+   q(i_idx,k_idx,lso4ait) = q(i_idx,k_idx,lso4ait) + dqdt(i_idx,k_idx,lso4ait)*deltat
+   if (lnumait > 0) then
+      dqdt(i_idx,k_idx,lnumait) = dndt_ait*(1.0_r8-cldx)
+      qsrflx(i_idx,lnumait,1) = qsrflx(i_idx,lnumait,1) + dqdt(i_idx,k_idx,lnumait)*pdel_fac
+      q(i_idx,k_idx,lnumait) = q(i_idx,k_idx,lnumait) + dqdt(i_idx,k_idx,lnumait)*deltat
+   end if
+
+   if (( do_nh3_in ) .and. (dnh4dt_ait > 0.0_r8)) then
+      dqdt(i_idx,k_idx,l_nh3) = -dnh4dt_ait*(1.0_r8-cldx)
+      qsrflx(i_idx,l_nh3,1) = qsrflx(i_idx,l_nh3,1) + dqdt(i_idx,k_idx,l_nh3)*pdel_fac
+      q(i_idx,k_idx,l_nh3) = q(i_idx,k_idx,l_nh3) + dqdt(i_idx,k_idx,l_nh3)*deltat
+
+      dqdt(i_idx,k_idx,lnh4ait) = dnh4dt_ait*(1.0_r8-cldx)
+      qsrflx(i_idx,lnh4ait,1) = qsrflx(i_idx,lnh4ait,1) + dqdt(i_idx,k_idx,lnh4ait)*pdel_fac
+      q(i_idx,k_idx,lnh4ait) = q(i_idx,k_idx,lnh4ait) + dqdt(i_idx,k_idx,lnh4ait)*deltat
+   end if
+
+  end subroutine modal_aero_newnuc_apply_tendencies_native
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
 !BOP
 ! !ROUTINE:  modal_aero_newnuc_sub --- ...
 !
@@ -418,7 +570,6 @@ module modal_aero_newnuc
 	real(r8) :: mass1p
 	real(r8) :: mass1p_aithi, mass1p_aitlo 
 	real(r8) :: mw_so4a_host
-	real(r8) :: pdel_fac
 	real(r8) :: qh2so4_cur, qh2so4_avg, qh2so4_del
 	real(r8) :: qnh3_cur, qnh3_del, qnh4a_del
 	real(r8) :: qnuma_del
@@ -626,32 +777,9 @@ main_i:	do i = 1, ncol
 !	dndt_ait = dndt_ait * adjust_factor
 !	dmdt_ait = dmdt_ait * adjust_factor
 
-!   set tendencies
-	pdel_fac = pdel(i,k)/gravit
-
-	dqdt(i,k,l_h2so4) = -dso4dt_ait*(1.0_r8-cldx)
-	qsrflx(i,l_h2so4,1) = qsrflx(i,l_h2so4,1) + dqdt(i,k,l_h2so4)*pdel_fac
-	q(i,k,l_h2so4) = q(i,k,l_h2so4) + dqdt(i,k,l_h2so4)*deltat
-
-	dqdt(i,k,lso4ait) = dso4dt_ait*(1.0_r8-cldx)
-	qsrflx(i,lso4ait,1) = qsrflx(i,lso4ait,1) + dqdt(i,k,lso4ait)*pdel_fac
-	q(i,k,lso4ait) = q(i,k,lso4ait) + dqdt(i,k,lso4ait)*deltat
-	if (lnumait > 0) then
-	    dqdt(i,k,lnumait) = dndt_ait*(1.0_r8-cldx)
-	    qsrflx(i,lnumait,1) = qsrflx(i,lnumait,1)   &
-	                        + dqdt(i,k,lnumait)*pdel_fac
-	    q(i,k,lnumait) = q(i,k,lnumait) + dqdt(i,k,lnumait)*deltat
-	end if
-
-	if (( do_nh3 ) .and. (dnh4dt_ait > 0.0_r8)) then
-	    dqdt(i,k,l_nh3) = -dnh4dt_ait*(1.0_r8-cldx)
-	    qsrflx(i,l_nh3,1) = qsrflx(i,l_nh3,1) + dqdt(i,k,l_nh3)*pdel_fac
-	    q(i,k,l_nh3) = q(i,k,l_nh3) + dqdt(i,k,l_nh3)*deltat
-
-	    dqdt(i,k,lnh4ait) = dnh4dt_ait*(1.0_r8-cldx)
-	    qsrflx(i,lnh4ait,1) = qsrflx(i,lnh4ait,1) + dqdt(i,k,lnh4ait)*pdel_fac
-	    q(i,k,lnh4ait) = q(i,k,lnh4ait) + dqdt(i,k,lnh4ait)*deltat
-	end if
+        call modal_aero_newnuc_apply_tendencies( &
+           i, k, ncol, pcnst, nsrflx, pdel, dqdt, qsrflx, q, gravit, cldx, deltat, &
+           dso4dt_ait, dndt_ait, dnh4dt_ait, l_h2so4, lso4ait, lnumait, l_nh3, lnh4ait, do_nh3 )
 
 !!   temporary diagnostic
 !        if (ldiag3 > 0) then

@@ -3922,3 +3922,95 @@ def modal_aero_rename_acc_crs_xferfracs_codon(
 
             xferfrac_vol[_idx2(i, k, ncol)] = xferfrac_vol_val
             xferfrac_num[_idx2(i, k, ncol)] = xferfrac_num_val
+
+
+@export
+def modal_aero_newnuc_apply_tendencies_codon(
+    i_c: int,
+    k_c: int,
+    ncol_c: int,
+    pcols_c: int,
+    pver_c: int,
+    pcnst_c: int,
+    pdel_p: cobj,
+    dqdt_p: cobj,
+    qsrflx_p: cobj,
+    q_p: cobj,
+    gravit_c: float,
+    cldx_c: float,
+    deltat_c: float,
+    dso4dt_ait_c: float,
+    dndt_ait_c: float,
+    dnh4dt_ait_c: float,
+    l_h2so4_c: int,
+    lso4ait_c: int,
+    lnumait_c: int,
+    l_nh3_c: int,
+    lnh4ait_c: int,
+    do_nh3_c: int,
+):
+    pdel = Ptr[float](pdel_p)
+    dqdt = Ptr[float](dqdt_p)
+    qsrflx = Ptr[float](qsrflx_p)
+    q = Ptr[float](q_p)
+
+    i = i_c
+    k = k_c
+    ncol = ncol_c
+    pcols = pcols_c
+    pver = pver_c
+    pcnst = pcnst_c
+
+    pdel_fac = pdel[_idx2(i, k, pcols)] / gravit_c
+
+    dqdt[_idx3(i, k, l_h2so4_c, ncol, pver)] = -dso4dt_ait_c * (1.0 - cldx_c)
+    qsrflx[_idx3(i, l_h2so4_c, 1, pcols, pcnst)] = (
+        qsrflx[_idx3(i, l_h2so4_c, 1, pcols, pcnst)]
+        + dqdt[_idx3(i, k, l_h2so4_c, ncol, pver)] * pdel_fac
+    )
+    q[_idx3(i, k, l_h2so4_c, ncol, pver)] = (
+        q[_idx3(i, k, l_h2so4_c, ncol, pver)]
+        + dqdt[_idx3(i, k, l_h2so4_c, ncol, pver)] * deltat_c
+    )
+
+    dqdt[_idx3(i, k, lso4ait_c, ncol, pver)] = dso4dt_ait_c * (1.0 - cldx_c)
+    qsrflx[_idx3(i, lso4ait_c, 1, pcols, pcnst)] = (
+        qsrflx[_idx3(i, lso4ait_c, 1, pcols, pcnst)]
+        + dqdt[_idx3(i, k, lso4ait_c, ncol, pver)] * pdel_fac
+    )
+    q[_idx3(i, k, lso4ait_c, ncol, pver)] = (
+        q[_idx3(i, k, lso4ait_c, ncol, pver)]
+        + dqdt[_idx3(i, k, lso4ait_c, ncol, pver)] * deltat_c
+    )
+
+    if lnumait_c > 0:
+        dqdt[_idx3(i, k, lnumait_c, ncol, pver)] = dndt_ait_c * (1.0 - cldx_c)
+        qsrflx[_idx3(i, lnumait_c, 1, pcols, pcnst)] = (
+            qsrflx[_idx3(i, lnumait_c, 1, pcols, pcnst)]
+            + dqdt[_idx3(i, k, lnumait_c, ncol, pver)] * pdel_fac
+        )
+        q[_idx3(i, k, lnumait_c, ncol, pver)] = (
+            q[_idx3(i, k, lnumait_c, ncol, pver)]
+            + dqdt[_idx3(i, k, lnumait_c, ncol, pver)] * deltat_c
+        )
+
+    if do_nh3_c != 0 and dnh4dt_ait_c > 0.0:
+        dqdt[_idx3(i, k, l_nh3_c, ncol, pver)] = -dnh4dt_ait_c * (1.0 - cldx_c)
+        qsrflx[_idx3(i, l_nh3_c, 1, pcols, pcnst)] = (
+            qsrflx[_idx3(i, l_nh3_c, 1, pcols, pcnst)]
+            + dqdt[_idx3(i, k, l_nh3_c, ncol, pver)] * pdel_fac
+        )
+        q[_idx3(i, k, l_nh3_c, ncol, pver)] = (
+            q[_idx3(i, k, l_nh3_c, ncol, pver)]
+            + dqdt[_idx3(i, k, l_nh3_c, ncol, pver)] * deltat_c
+        )
+
+        dqdt[_idx3(i, k, lnh4ait_c, ncol, pver)] = dnh4dt_ait_c * (1.0 - cldx_c)
+        qsrflx[_idx3(i, lnh4ait_c, 1, pcols, pcnst)] = (
+            qsrflx[_idx3(i, lnh4ait_c, 1, pcols, pcnst)]
+            + dqdt[_idx3(i, k, lnh4ait_c, ncol, pver)] * pdel_fac
+        )
+        q[_idx3(i, k, lnh4ait_c, ncol, pver)] = (
+            q[_idx3(i, k, lnh4ait_c, ncol, pver)]
+            + dqdt[_idx3(i, k, lnh4ait_c, ncol, pver)] * deltat_c
+        )
