@@ -393,3 +393,99 @@ def vertical_diffusion_pre_pbl_diag_codon(
             slv_prePBL[_idx2(i, k, pcols)] = sl_prePBL[_idx2(i, k, pcols)] * (
                 1.0 + zvir * qt_prePBL[_idx2(i, k, pcols)]
             )
+
+
+@export
+def vertical_diffusion_post_pbl_state_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    psetcols: int,
+    ixcldliq: int,
+    ixcldice: int,
+    ztodt: float,
+    gravit: float,
+    cpair: float,
+    state_q_p: cobj,
+    state_s_p: cobj,
+    state_u_p: cobj,
+    state_v_p: cobj,
+    state_zm_p: cobj,
+    ptend_q_p: cobj,
+    ptend_s_p: cobj,
+    ptend_u_p: cobj,
+    ptend_v_p: cobj,
+    qv_aft_PBL_p: cobj,
+    ql_aft_PBL_p: cobj,
+    qi_aft_PBL_p: cobj,
+    s_aft_PBL_p: cobj,
+    t_aftPBL_p: cobj,
+    u_aft_PBL_p: cobj,
+    v_aft_PBL_p: cobj,
+):
+    state_q = Ptr[float](state_q_p)
+    state_s = Ptr[float](state_s_p)
+    state_u = Ptr[float](state_u_p)
+    state_v = Ptr[float](state_v_p)
+    state_zm = Ptr[float](state_zm_p)
+    ptend_q = Ptr[float](ptend_q_p)
+    ptend_s = Ptr[float](ptend_s_p)
+    ptend_u = Ptr[float](ptend_u_p)
+    ptend_v = Ptr[float](ptend_v_p)
+    qv_aft_PBL = Ptr[float](qv_aft_PBL_p)
+    ql_aft_PBL = Ptr[float](ql_aft_PBL_p)
+    qi_aft_PBL = Ptr[float](qi_aft_PBL_p)
+    s_aft_PBL = Ptr[float](s_aft_PBL_p)
+    t_aftPBL = Ptr[float](t_aftPBL_p)
+    u_aft_PBL = Ptr[float](u_aft_PBL_p)
+    v_aft_PBL = Ptr[float](v_aft_PBL_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            qv_aft_PBL[_idx2(i, k, pcols)] = (
+                state_q[_idx3(i, k, 1, pcols, pver)]
+                + ptend_q[_idx3(i, k, 1, psetcols, pver)] * ztodt
+            )
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            ql_aft_PBL[_idx2(i, k, pcols)] = (
+                state_q[_idx3(i, k, ixcldliq, pcols, pver)]
+                + ptend_q[_idx3(i, k, ixcldliq, psetcols, pver)] * ztodt
+            )
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            qi_aft_PBL[_idx2(i, k, pcols)] = (
+                state_q[_idx3(i, k, ixcldice, pcols, pver)]
+                + ptend_q[_idx3(i, k, ixcldice, psetcols, pver)] * ztodt
+            )
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            s_aft_PBL[_idx2(i, k, pcols)] = (
+                state_s[_idx2(i, k, pcols)]
+                + ptend_s[_idx2(i, k, psetcols)] * ztodt
+            )
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            t_aftPBL[_idx2(i, k, pcols)] = (
+                s_aft_PBL[_idx2(i, k, pcols)]
+                - gravit * state_zm[_idx2(i, k, pcols)]
+            ) / cpair
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            u_aft_PBL[_idx2(i, k, pcols)] = (
+                state_u[_idx2(i, k, pcols)]
+                + ptend_u[_idx2(i, k, psetcols)] * ztodt
+            )
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            v_aft_PBL[_idx2(i, k, pcols)] = (
+                state_v[_idx2(i, k, pcols)]
+                + ptend_v[_idx2(i, k, psetcols)] * ztodt
+            )

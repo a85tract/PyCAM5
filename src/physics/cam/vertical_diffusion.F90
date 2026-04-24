@@ -144,6 +144,8 @@ module vertical_diffusion
   logical              :: ptend_core_impl_selected = .false.
   logical              :: use_native_pre_pbl_diag_impl = .false.
   logical              :: pre_pbl_diag_impl_selected = .false.
+  logical              :: use_native_post_pbl_state_impl = .false.
+  logical              :: post_pbl_state_impl_selected = .false.
   integer              :: tend_branch_mask = 0
   logical              :: tend_branch_selected = .false.
   integer              :: pmam_ncnst = 0               ! number of prognostic modal aerosol constituents
@@ -1286,6 +1288,151 @@ contains
   !                                                                                 !
   ! =============================================================================== !
 
+  subroutine vertical_diffusion_post_pbl_state_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (post_pbl_state_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('VERTICAL_DIFFUSION_POST_PBL_STATE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_post_pbl_state_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_post_pbl_state_impl = .false.
+    end if
+
+    post_pbl_state_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_post_pbl_state_impl) then
+          write(iulog,*) 'vertical_diffusion_post_pbl_state implementation = native'
+       else
+          write(iulog,*) 'vertical_diffusion_post_pbl_state implementation = codon'
+       end if
+    end if
+
+  end subroutine vertical_diffusion_post_pbl_state_select_impl
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_post_pbl_state(ncol, psetcols_local, state_q_local, state_s_local, state_u_local, &
+       state_v_local, state_zm_local, ptend_q_local, ptend_s_local, ptend_u_local, ptend_v_local, ztodt_local, &
+       qv_aft_PBL_local, ql_aft_PBL_local, qi_aft_PBL_local, s_aft_PBL_local, t_aftPBL_local, u_aft_PBL_local, &
+       v_aft_PBL_local)
+
+    use iso_c_binding, only: c_int64_t, c_double, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: psetcols_local
+    real(r8), target, intent(in) :: state_q_local(pcols,pver,pcnst)
+    real(r8), target, intent(in) :: state_s_local(pcols,pver)
+    real(r8), target, intent(in) :: state_u_local(pcols,pver)
+    real(r8), target, intent(in) :: state_v_local(pcols,pver)
+    real(r8), target, intent(in) :: state_zm_local(pcols,pver)
+    real(r8), target, intent(in) :: ptend_q_local(psetcols_local,pver,pcnst)
+    real(r8), target, intent(in) :: ptend_s_local(psetcols_local,pver)
+    real(r8), target, intent(in) :: ptend_u_local(psetcols_local,pver)
+    real(r8), target, intent(in) :: ptend_v_local(psetcols_local,pver)
+    real(r8), intent(in) :: ztodt_local
+    real(r8), target, intent(inout) :: qv_aft_PBL_local(pcols,pver)
+    real(r8), target, intent(inout) :: ql_aft_PBL_local(pcols,pver)
+    real(r8), target, intent(inout) :: qi_aft_PBL_local(pcols,pver)
+    real(r8), target, intent(inout) :: s_aft_PBL_local(pcols,pver)
+    real(r8), target, intent(inout) :: t_aftPBL_local(pcols,pver)
+    real(r8), target, intent(inout) :: u_aft_PBL_local(pcols,pver)
+    real(r8), target, intent(inout) :: v_aft_PBL_local(pcols,pver)
+
+    interface
+       subroutine vertical_diffusion_post_pbl_state_codon(ncol_c, pcols_c, pver_c, pcnst_c, psetcols_c, &
+            ixcldliq_c, ixcldice_c, ztodt_c, gravit_c, cpair_c, state_q_p, state_s_p, state_u_p, state_v_p, &
+            state_zm_p, ptend_q_p, ptend_s_p, ptend_u_p, ptend_v_p, qv_aft_PBL_p, ql_aft_PBL_p, qi_aft_PBL_p, &
+            s_aft_PBL_p, t_aftPBL_p, u_aft_PBL_p, v_aft_PBL_p) bind(c, name="vertical_diffusion_post_pbl_state_codon")
+         use iso_c_binding, only: c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, psetcols_c, ixcldliq_c, ixcldice_c
+         real(c_double), value :: ztodt_c, gravit_c, cpair_c
+         type(c_ptr), value :: state_q_p, state_s_p, state_u_p, state_v_p, state_zm_p
+         type(c_ptr), value :: ptend_q_p, ptend_s_p, ptend_u_p, ptend_v_p
+         type(c_ptr), value :: qv_aft_PBL_p, ql_aft_PBL_p, qi_aft_PBL_p, s_aft_PBL_p, t_aftPBL_p
+         type(c_ptr), value :: u_aft_PBL_p, v_aft_PBL_p
+       end subroutine vertical_diffusion_post_pbl_state_codon
+    end interface
+
+    call vertical_diffusion_post_pbl_state_select_impl()
+
+    if (use_native_post_pbl_state_impl) then
+      call vertical_diffusion_post_pbl_state_native(ncol, psetcols_local, state_q_local, state_s_local, state_u_local, &
+           state_v_local, state_zm_local, ptend_q_local, ptend_s_local, ptend_u_local, ptend_v_local, ztodt_local, &
+           qv_aft_PBL_local, ql_aft_PBL_local, qi_aft_PBL_local, s_aft_PBL_local, t_aftPBL_local, u_aft_PBL_local, &
+           v_aft_PBL_local)
+      return
+    end if
+
+    call vertical_diffusion_post_pbl_state_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+         int(psetcols_local, c_int64_t), int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), &
+         real(ztodt_local, c_double), real(gravit, c_double), real(cpair, c_double), c_loc(state_q_local), &
+         c_loc(state_s_local), c_loc(state_u_local), c_loc(state_v_local), c_loc(state_zm_local), c_loc(ptend_q_local), &
+         c_loc(ptend_s_local), c_loc(ptend_u_local), c_loc(ptend_v_local), c_loc(qv_aft_PBL_local), &
+         c_loc(ql_aft_PBL_local), c_loc(qi_aft_PBL_local), c_loc(s_aft_PBL_local), c_loc(t_aftPBL_local), &
+         c_loc(u_aft_PBL_local), c_loc(v_aft_PBL_local) &
+    )
+
+  end subroutine vertical_diffusion_post_pbl_state
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_post_pbl_state_native(ncol, psetcols_local, state_q_local, state_s_local, &
+       state_u_local, state_v_local, state_zm_local, ptend_q_local, ptend_s_local, ptend_u_local, ptend_v_local, &
+       ztodt_local, qv_aft_PBL_local, ql_aft_PBL_local, qi_aft_PBL_local, s_aft_PBL_local, t_aftPBL_local, &
+       u_aft_PBL_local, v_aft_PBL_local)
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: psetcols_local
+    real(r8), intent(in) :: state_q_local(pcols,pver,pcnst)
+    real(r8), intent(in) :: state_s_local(pcols,pver)
+    real(r8), intent(in) :: state_u_local(pcols,pver)
+    real(r8), intent(in) :: state_v_local(pcols,pver)
+    real(r8), intent(in) :: state_zm_local(pcols,pver)
+    real(r8), intent(in) :: ptend_q_local(psetcols_local,pver,pcnst)
+    real(r8), intent(in) :: ptend_s_local(psetcols_local,pver)
+    real(r8), intent(in) :: ptend_u_local(psetcols_local,pver)
+    real(r8), intent(in) :: ptend_v_local(psetcols_local,pver)
+    real(r8), intent(in) :: ztodt_local
+    real(r8), intent(inout) :: qv_aft_PBL_local(pcols,pver)
+    real(r8), intent(inout) :: ql_aft_PBL_local(pcols,pver)
+    real(r8), intent(inout) :: qi_aft_PBL_local(pcols,pver)
+    real(r8), intent(inout) :: s_aft_PBL_local(pcols,pver)
+    real(r8), intent(inout) :: t_aftPBL_local(pcols,pver)
+    real(r8), intent(inout) :: u_aft_PBL_local(pcols,pver)
+    real(r8), intent(inout) :: v_aft_PBL_local(pcols,pver)
+
+    qv_aft_PBL_local(:ncol,:pver) = state_q_local(:ncol,:pver,1)         + ptend_q_local(:ncol,:pver,1)        * ztodt_local
+    ql_aft_PBL_local(:ncol,:pver) = state_q_local(:ncol,:pver,ixcldliq)  + ptend_q_local(:ncol,:pver,ixcldliq) * ztodt_local
+    qi_aft_PBL_local(:ncol,:pver) = state_q_local(:ncol,:pver,ixcldice)  + ptend_q_local(:ncol,:pver,ixcldice) * ztodt_local
+    s_aft_PBL_local(:ncol,:pver)  = state_s_local(:ncol,:pver)           + ptend_s_local(:ncol,:pver)          * ztodt_local
+    t_aftPBL_local(:ncol,:pver)   = ( s_aft_PBL_local(:ncol,:pver) - gravit*state_zm_local(:ncol,:pver) ) / cpair
+    u_aft_PBL_local(:ncol,:pver)  = state_u_local(:ncol,:pver)           + ptend_u_local(:ncol,:pver)          * ztodt_local
+    v_aft_PBL_local(:ncol,:pver)  = state_v_local(:ncol,:pver)           + ptend_v_local(:ncol,:pver)          * ztodt_local
+
+  end subroutine vertical_diffusion_post_pbl_state_native
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
   subroutine vertical_diffusion_tend( &
                                       ztodt    , state    ,                  &
                                       taux     , tauy     , shflx    , cflx, &
@@ -1891,14 +2038,9 @@ contains
     ! Re-calculate diagnostic output variables after vertical diffusion !
     ! ----------------------------------------------------------------- !
  
-    qv_aft_PBL(:ncol,:pver)  =   state%q(:ncol,:pver,1)         + ptend%q(:ncol,:pver,1)        * ztodt
-    ql_aft_PBL(:ncol,:pver)  =   state%q(:ncol,:pver,ixcldliq)  + ptend%q(:ncol,:pver,ixcldliq) * ztodt
-    qi_aft_PBL(:ncol,:pver)  =   state%q(:ncol,:pver,ixcldice)  + ptend%q(:ncol,:pver,ixcldice) * ztodt
-    s_aft_PBL(:ncol,:pver)   =   state%s(:ncol,:pver)           + ptend%s(:ncol,:pver)          * ztodt
-    t_aftPBL(:ncol,:pver)    = ( s_aft_PBL(:ncol,:pver) - gravit*state%zm(:ncol,:pver) ) / cpair 
-
-    u_aft_PBL(:ncol,:pver)   =  state%u(:ncol,:pver)          + ptend%u(:ncol,:pver)            * ztodt
-    v_aft_PBL(:ncol,:pver)   =  state%v(:ncol,:pver)          + ptend%v(:ncol,:pver)            * ztodt
+    call vertical_diffusion_post_pbl_state(ncol, state%psetcols, state%q, state%s, state%u, state%v, state%zm, &
+         ptend%q, ptend%s, ptend%u, ptend%v, ztodt, qv_aft_PBL, ql_aft_PBL, qi_aft_PBL, s_aft_PBL, t_aftPBL, &
+         u_aft_PBL, v_aft_PBL)
 
     call qsat(t_aftPBL(:ncol,:pver), state%pmid(:ncol,:pver), &
          tem2(:ncol,:pver), ftem(:ncol,:pver))
