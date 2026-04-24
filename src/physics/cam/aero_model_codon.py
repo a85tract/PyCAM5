@@ -1654,6 +1654,91 @@ def pbl_nuc_wang2008_codon(
 
 
 @export
+def binary_nuc_vehk2002_codon(
+    temp: float,
+    rh: float,
+    so4vol: float,
+    ratenucl_p: cobj,
+    rateloge_p: cobj,
+    cnum_h2so4_p: cobj,
+    cnum_tot_p: cobj,
+    radius_cluster_p: cobj,
+):
+    ratenucl = Ptr[float](ratenucl_p)
+    rateloge = Ptr[float](rateloge_p)
+    cnum_h2so4 = Ptr[float](cnum_h2so4_p)
+    cnum_tot = Ptr[float](cnum_tot_p)
+    radius_cluster = Ptr[float](radius_cluster_p)
+
+    crit_x = (
+        0.740997
+        - 0.00266379 * temp
+        - 0.00349998 * log(so4vol)
+        + 0.0000504022 * temp * log(so4vol)
+        + 0.00201048 * log(rh)
+        - 0.000183289 * temp * log(rh)
+        + 0.00157407 * (log(rh)) ** 2.0
+        - 0.0000179059 * temp * (log(rh)) ** 2.0
+        + 0.000184403 * (log(rh)) ** 3.0
+        - 1.50345e-6 * temp * (log(rh)) ** 3.0
+    )
+
+    acoe = 0.14309 + 2.21956 * temp - 0.0273911 * temp**2.0 + 0.0000722811 * temp**3.0 + 5.91822 / crit_x
+    bcoe = 0.117489 + 0.462532 * temp - 0.0118059 * temp**2.0 + 0.0000404196 * temp**3.0 + 15.7963 / crit_x
+    ccoe = -0.215554 - 0.0810269 * temp + 0.00143581 * temp**2.0 - 4.7758e-6 * temp**3.0 - 2.91297 / crit_x
+    dcoe = -3.58856 + 0.049508 * temp - 0.00021382 * temp**2.0 + 3.10801e-7 * temp**3.0 - 0.0293333 / crit_x
+    ecoe = 1.14598 - 0.600796 * temp + 0.00864245 * temp**2.0 - 0.0000228947 * temp**3.0 - 8.44985 / crit_x
+    fcoe = 2.15855 + 0.0808121 * temp - 0.000407382 * temp**2.0 - 4.01957e-7 * temp**3.0 + 0.721326 / crit_x
+    gcoe = 1.6241 - 0.0160106 * temp + 0.0000377124 * temp**2.0 + 3.21794e-8 * temp**3.0 - 0.0113255 / crit_x
+    hcoe = 9.71682 - 0.115048 * temp + 0.000157098 * temp**2.0 + 4.00914e-7 * temp**3.0 + 0.71186 / crit_x
+    icoe = -1.05611 + 0.00903378 * temp - 0.0000198417 * temp**2.0 + 2.46048e-8 * temp**3.0 - 0.0579087 / crit_x
+    jcoe = -0.148712 + 0.00283508 * temp - 9.24619e-6 * temp**2.0 + 5.00427e-9 * temp**3.0 - 0.0127081 / crit_x
+
+    tmpa = (
+        acoe
+        + bcoe * log(rh)
+        + ccoe * (log(rh)) ** 2.0
+        + dcoe * (log(rh)) ** 3.0
+        + ecoe * log(so4vol)
+        + fcoe * (log(rh)) * (log(so4vol))
+        + gcoe * ((log(rh)) ** 2.0) * (log(so4vol))
+        + hcoe * (log(so4vol)) ** 2.0
+        + icoe * log(rh) * ((log(so4vol)) ** 2.0)
+        + jcoe * (log(so4vol)) ** 3.0
+    )
+    rateloge[0] = tmpa
+    tmpa = min(tmpa, log(1.0e38))
+    ratenucl[0] = exp(tmpa)
+
+    acoe = -0.00295413 - 0.0976834 * temp + 0.00102485 * temp**2.0 - 2.18646e-6 * temp**3.0 - 0.101717 / crit_x
+    bcoe = -0.00205064 - 0.00758504 * temp + 0.000192654 * temp**2.0 - 6.7043e-7 * temp**3.0 - 0.255774 / crit_x
+    ccoe = 0.00322308 + 0.000852637 * temp - 0.0000154757 * temp**2.0 + 5.66661e-8 * temp**3.0 + 0.0338444 / crit_x
+    dcoe = 0.0474323 - 0.000625104 * temp + 2.65066e-6 * temp**2.0 - 3.67471e-9 * temp**3.0 - 0.000267251 / crit_x
+    ecoe = -0.0125211 + 0.00580655 * temp - 0.000101674 * temp**2.0 + 2.88195e-7 * temp**3.0 + 0.0942243 / crit_x
+    fcoe = -0.038546 - 0.000672316 * temp + 2.60288e-6 * temp**2.0 + 1.19416e-8 * temp**3.0 - 0.00851515 / crit_x
+    gcoe = -0.0183749 + 0.000172072 * temp - 3.71766e-7 * temp**2.0 - 5.14875e-10 * temp**3.0 + 0.00026866 / crit_x
+    hcoe = -0.0619974 + 0.000906958 * temp - 9.11728e-7 * temp**2.0 - 5.36796e-9 * temp**3.0 - 0.00774234 / crit_x
+    icoe = 0.0121827 - 0.00010665 * temp + 2.5346e-7 * temp**2.0 - 3.63519e-10 * temp**3.0 + 0.000610065 / crit_x
+    jcoe = 0.000320184 - 0.0000174762 * temp + 6.06504e-8 * temp**2.0 - 1.4177e-11 * temp**3.0 + 0.000135751 / crit_x
+
+    cnum_tot[0] = exp(
+        acoe
+        + bcoe * log(rh)
+        + ccoe * (log(rh)) ** 2.0
+        + dcoe * (log(rh)) ** 3.0
+        + ecoe * log(so4vol)
+        + fcoe * (log(rh)) * (log(so4vol))
+        + gcoe * ((log(rh)) ** 2.0) * (log(so4vol))
+        + hcoe * (log(so4vol)) ** 2.0
+        + icoe * log(rh) * ((log(so4vol)) ** 2.0)
+        + jcoe * (log(so4vol)) ** 3.0
+    )
+
+    cnum_h2so4[0] = cnum_tot[0] * crit_x
+    radius_cluster[0] = exp(-1.6524245 + 0.42316402 * crit_x + 0.3346648 * log(cnum_tot[0]))
+
+
+@export
 def modal_aero_gasaerexch_snapshot_state_codon(
     ncol: int,
     pver: int,
