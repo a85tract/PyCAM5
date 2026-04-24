@@ -138,6 +138,8 @@ module vertical_diffusion
   logical              :: ts_init_impl_selected = .false.
   logical              :: use_native_tend_impl = .false.
   logical              :: tend_impl_selected = .false.
+  logical              :: use_native_flux_diag_impl = .false.
+  logical              :: flux_diag_impl_selected = .false.
   integer              :: tend_branch_mask = 0
   logical              :: tend_branch_selected = .false.
   integer              :: pmam_ncnst = 0               ! number of prognostic modal aerosol constituents
@@ -805,6 +807,212 @@ contains
   !                                                                                 !
   ! =============================================================================== !
 
+  subroutine vertical_diffusion_flux_diag_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (flux_diag_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('VERTICAL_DIFFUSION_FLUX_DIAG_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_flux_diag_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_flux_diag_impl = .false.
+    end if
+
+    flux_diag_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_flux_diag_impl) then
+          write(iulog,*) 'vertical_diffusion_flux_diag implementation = native'
+       else
+          write(iulog,*) 'vertical_diffusion_flux_diag implementation = codon'
+       end if
+    end if
+
+  end subroutine vertical_diffusion_flux_diag_select_impl
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_flux_diag(ncol, q_tmp_local, s_tmp_local, u_tmp_local, v_tmp_local, &
+       pint_local, zi_local, zm_local, cflx_local, kvh_local, kvm_local, cgs_local, cgh_local, &
+       shflx_local, tautotx_local, tautoty_local, sl_local, qt_local, slv_local, slflx_local, qtflx_local, &
+       uflx_local, vflx_local, slflx_cg_local, qtflx_cg_local, uflx_cg_local, vflx_cg_local)
+
+    use iso_c_binding, only: c_int64_t, c_double, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: q_tmp_local(pcols,pver,pcnst)
+    real(r8), target, intent(in) :: s_tmp_local(pcols,pver)
+    real(r8), target, intent(in) :: u_tmp_local(pcols,pver)
+    real(r8), target, intent(in) :: v_tmp_local(pcols,pver)
+    real(r8), target, intent(in) :: pint_local(pcols,pverp)
+    real(r8), target, intent(in) :: zi_local(pcols,pverp)
+    real(r8), target, intent(in) :: zm_local(pcols,pver)
+    real(r8), target, intent(in) :: cflx_local(pcols,pcnst)
+    real(r8), target, intent(in) :: kvh_local(pcols,pverp)
+    real(r8), target, intent(in) :: kvm_local(pcols,pverp)
+    real(r8), target, intent(in) :: cgs_local(pcols,pverp)
+    real(r8), target, intent(in) :: cgh_local(pcols,pverp)
+    real(r8), target, intent(in) :: shflx_local(pcols)
+    real(r8), target, intent(in) :: tautotx_local(pcols)
+    real(r8), target, intent(in) :: tautoty_local(pcols)
+    real(r8), target, intent(inout) :: sl_local(pcols,pver)
+    real(r8), target, intent(inout) :: qt_local(pcols,pver)
+    real(r8), target, intent(inout) :: slv_local(pcols,pver)
+    real(r8), target, intent(inout) :: slflx_local(pcols,pverp)
+    real(r8), target, intent(inout) :: qtflx_local(pcols,pverp)
+    real(r8), target, intent(inout) :: uflx_local(pcols,pverp)
+    real(r8), target, intent(inout) :: vflx_local(pcols,pverp)
+    real(r8), target, intent(inout) :: slflx_cg_local(pcols,pverp)
+    real(r8), target, intent(inout) :: qtflx_cg_local(pcols,pverp)
+    real(r8), target, intent(inout) :: uflx_cg_local(pcols,pverp)
+    real(r8), target, intent(inout) :: vflx_cg_local(pcols,pverp)
+
+    interface
+       subroutine vertical_diffusion_flux_diag_codon(ncol_c, pcols_c, pver_c, pverp_c, ixcldliq_c, ixcldice_c, &
+            latvap_c, latice_c, zvir_c, rair_c, gravit_c, cpair_c, q_tmp_p, s_tmp_p, u_tmp_p, v_tmp_p, pint_p, &
+            zi_p, zm_p, cflx_p, kvh_p, kvm_p, cgs_p, cgh_p, shflx_p, tautotx_p, tautoty_p, sl_p, qt_p, slv_p, &
+            slflx_p, qtflx_p, uflx_p, vflx_p, slflx_cg_p, qtflx_cg_p, uflx_cg_p, vflx_cg_p) &
+            bind(c, name="vertical_diffusion_flux_diag_codon")
+         use iso_c_binding, only: c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c, ixcldliq_c, ixcldice_c
+         real(c_double), value :: latvap_c, latice_c, zvir_c, rair_c, gravit_c, cpair_c
+         type(c_ptr), value :: q_tmp_p, s_tmp_p, u_tmp_p, v_tmp_p, pint_p, zi_p, zm_p, cflx_p
+         type(c_ptr), value :: kvh_p, kvm_p, cgs_p, cgh_p, shflx_p, tautotx_p, tautoty_p
+         type(c_ptr), value :: sl_p, qt_p, slv_p, slflx_p, qtflx_p, uflx_p, vflx_p
+         type(c_ptr), value :: slflx_cg_p, qtflx_cg_p, uflx_cg_p, vflx_cg_p
+       end subroutine vertical_diffusion_flux_diag_codon
+    end interface
+
+    call vertical_diffusion_flux_diag_select_impl()
+
+    if (use_native_flux_diag_impl) then
+       call vertical_diffusion_flux_diag_native(ncol, q_tmp_local, s_tmp_local, u_tmp_local, v_tmp_local, &
+            pint_local, zi_local, zm_local, cflx_local, kvh_local, kvm_local, cgs_local, cgh_local, shflx_local, &
+            tautotx_local, tautoty_local, sl_local, qt_local, slv_local, slflx_local, qtflx_local, uflx_local, &
+            vflx_local, slflx_cg_local, qtflx_cg_local, uflx_cg_local, vflx_cg_local)
+       return
+    end if
+
+    call vertical_diffusion_flux_diag_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
+         int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), real(latvap, c_double), real(latice, c_double), &
+         real(zvir, c_double), real(rair, c_double), real(gravit, c_double), real(cpair, c_double), &
+         c_loc(q_tmp_local), c_loc(s_tmp_local), c_loc(u_tmp_local), c_loc(v_tmp_local), c_loc(pint_local), &
+         c_loc(zi_local), c_loc(zm_local), c_loc(cflx_local), c_loc(kvh_local), c_loc(kvm_local), c_loc(cgs_local), &
+         c_loc(cgh_local), c_loc(shflx_local), c_loc(tautotx_local), c_loc(tautoty_local), c_loc(sl_local), &
+         c_loc(qt_local), c_loc(slv_local), c_loc(slflx_local), c_loc(qtflx_local), c_loc(uflx_local), &
+         c_loc(vflx_local), c_loc(slflx_cg_local), c_loc(qtflx_cg_local), c_loc(uflx_cg_local), c_loc(vflx_cg_local) &
+    )
+
+  end subroutine vertical_diffusion_flux_diag
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_flux_diag_native(ncol, q_tmp_local, s_tmp_local, u_tmp_local, v_tmp_local, &
+       pint_local, zi_local, zm_local, cflx_local, kvh_local, kvm_local, cgs_local, cgh_local, shflx_local, &
+       tautotx_local, tautoty_local, sl_local, qt_local, slv_local, slflx_local, qtflx_local, uflx_local, &
+       vflx_local, slflx_cg_local, qtflx_cg_local, uflx_cg_local, vflx_cg_local)
+
+    integer, intent(in) :: ncol
+    real(r8), intent(in) :: q_tmp_local(pcols,pver,pcnst)
+    real(r8), intent(in) :: s_tmp_local(pcols,pver)
+    real(r8), intent(in) :: u_tmp_local(pcols,pver)
+    real(r8), intent(in) :: v_tmp_local(pcols,pver)
+    real(r8), intent(in) :: pint_local(pcols,pverp)
+    real(r8), intent(in) :: zi_local(pcols,pverp)
+    real(r8), intent(in) :: zm_local(pcols,pver)
+    real(r8), intent(in) :: cflx_local(pcols,pcnst)
+    real(r8), intent(in) :: kvh_local(pcols,pverp)
+    real(r8), intent(in) :: kvm_local(pcols,pverp)
+    real(r8), intent(in) :: cgs_local(pcols,pverp)
+    real(r8), intent(in) :: cgh_local(pcols,pverp)
+    real(r8), intent(in) :: shflx_local(pcols)
+    real(r8), intent(in) :: tautotx_local(pcols)
+    real(r8), intent(in) :: tautoty_local(pcols)
+    real(r8), intent(inout) :: sl_local(pcols,pver)
+    real(r8), intent(inout) :: qt_local(pcols,pver)
+    real(r8), intent(inout) :: slv_local(pcols,pver)
+    real(r8), intent(inout) :: slflx_local(pcols,pverp)
+    real(r8), intent(inout) :: qtflx_local(pcols,pverp)
+    real(r8), intent(inout) :: uflx_local(pcols,pverp)
+    real(r8), intent(inout) :: vflx_local(pcols,pverp)
+    real(r8), intent(inout) :: slflx_cg_local(pcols,pverp)
+    real(r8), intent(inout) :: qtflx_cg_local(pcols,pverp)
+    real(r8), intent(inout) :: uflx_cg_local(pcols,pverp)
+    real(r8), intent(inout) :: vflx_cg_local(pcols,pverp)
+
+    integer :: i, k
+    real(r8) :: rhoair_local
+
+    sl_local(:ncol,:pver)  = s_tmp_local(:ncol,:) -   latvap           * q_tmp_local(:ncol,:,ixcldliq) &
+                                               - ( latvap + latice) * q_tmp_local(:ncol,:,ixcldice)
+    qt_local(:ncol,:pver)  = q_tmp_local(:ncol,:,1) + q_tmp_local(:ncol,:,ixcldliq) &
+                                              + q_tmp_local(:ncol,:,ixcldice)
+    slv_local(:ncol,:pver) = sl_local(:ncol,:pver) * ( 1._r8 + zvir*qt_local(:ncol,:pver) )
+
+    slflx_local(:ncol,1) = 0._r8
+    qtflx_local(:ncol,1) = 0._r8
+    uflx_local(:ncol,1)  = 0._r8
+    vflx_local(:ncol,1)  = 0._r8
+
+    slflx_cg_local(:ncol,1) = 0._r8
+    qtflx_cg_local(:ncol,1) = 0._r8
+    uflx_cg_local(:ncol,1)  = 0._r8
+    vflx_cg_local(:ncol,1)  = 0._r8
+
+    do k = 2, pver
+       do i = 1, ncol
+          rhoair_local     = pint_local(i,k) / &
+               ( rair * ( ( 0.5_r8*(slv_local(i,k)+slv_local(i,k-1)) - gravit*zi_local(i,k))/cpair ) )
+          slflx_local(i,k) = kvh_local(i,k) * &
+                               ( - rhoair_local*(sl_local(i,k-1)-sl_local(i,k))/(zm_local(i,k-1)-zm_local(i,k)) &
+                                 + cgh_local(i,k) )
+          qtflx_local(i,k) = kvh_local(i,k) * &
+                               ( - rhoair_local*(qt_local(i,k-1)-qt_local(i,k))/(zm_local(i,k-1)-zm_local(i,k)) &
+                                 + rhoair_local*(cflx_local(i,1)+cflx_local(i,ixcldliq)+cflx_local(i,ixcldice))*cgs_local(i,k) )
+          uflx_local(i,k)  = kvm_local(i,k) * &
+                               ( - rhoair_local*(u_tmp_local(i,k-1)-u_tmp_local(i,k))/(zm_local(i,k-1)-zm_local(i,k)))
+          vflx_local(i,k)  = kvm_local(i,k) * &
+                               ( - rhoair_local*(v_tmp_local(i,k-1)-v_tmp_local(i,k))/(zm_local(i,k-1)-zm_local(i,k)))
+          slflx_cg_local(i,k) = kvh_local(i,k) * cgh_local(i,k)
+          qtflx_cg_local(i,k) = kvh_local(i,k) * rhoair_local * &
+               ( cflx_local(i,1) + cflx_local(i,ixcldliq) + cflx_local(i,ixcldice) ) * cgs_local(i,k)
+          uflx_cg_local(i,k)  = 0._r8
+          vflx_cg_local(i,k)  = 0._r8
+       end do
+    end do
+
+    slflx_local(:ncol,pverp) = shflx_local(:ncol)
+    qtflx_local(:ncol,pverp) = cflx_local(:ncol,1)
+    uflx_local(:ncol,pverp)  = tautotx_local(:ncol)
+    vflx_local(:ncol,pverp)  = tautoty_local(:ncol)
+
+    slflx_cg_local(:ncol,pverp) = 0._r8
+    qtflx_cg_local(:ncol,pverp) = 0._r8
+    uflx_cg_local(:ncol,pverp)  = 0._r8
+    vflx_cg_local(:ncol,pverp)  = 0._r8
+
+  end subroutine vertical_diffusion_flux_diag_native
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
   subroutine vertical_diffusion_tend( &
                                       ztodt    , state    ,                  &
                                       taux     , tauy     , shflx    , cflx, &
@@ -1329,55 +1537,9 @@ contains
     ! Diagnostics and output writing after applying PBL scheme !
     ! -------------------------------------------------------- !
 
-    sl(:ncol,:pver)  = s_tmp(:ncol,:) -   latvap           * q_tmp(:ncol,:,ixcldliq) &
-                                      - ( latvap + latice) * q_tmp(:ncol,:,ixcldice)
-    qt(:ncol,:pver)  = q_tmp(:ncol,:,1) + q_tmp(:ncol,:,ixcldliq) &
-                                    + q_tmp(:ncol,:,ixcldice)
-    slv(:ncol,:pver) = sl(:ncol,:pver) * ( 1._r8 + zvir*qt(:ncol,:pver) ) 
-
-    slflx(:ncol,1) = 0._r8
-    qtflx(:ncol,1) = 0._r8
-    uflx(:ncol,1)  = 0._r8
-    vflx(:ncol,1)  = 0._r8
-
-    slflx_cg(:ncol,1) = 0._r8
-    qtflx_cg(:ncol,1) = 0._r8
-    uflx_cg(:ncol,1)  = 0._r8
-    vflx_cg(:ncol,1)  = 0._r8
-
-    do k = 2, pver
-       do i = 1, ncol
-          rhoair     = state%pint(i,k) / ( rair * ( ( 0.5_r8*(slv(i,k)+slv(i,k-1)) - gravit*state%zi(i,k))/cpair ) )
-          slflx(i,k) = kvh(i,k) * &
-                          ( - rhoair*(sl(i,k-1)-sl(i,k))/(state%zm(i,k-1)-state%zm(i,k)) &
-                            + cgh(i,k) ) 
-          qtflx(i,k) = kvh(i,k) * &
-                          ( - rhoair*(qt(i,k-1)-qt(i,k))/(state%zm(i,k-1)-state%zm(i,k)) &
-                            + rhoair*(cflx(i,1)+cflx(i,ixcldliq)+cflx(i,ixcldice))*cgs(i,k) )
-          uflx(i,k)  = kvm(i,k) * &
-                          ( - rhoair*(u_tmp(i,k-1)-u_tmp(i,k))/(state%zm(i,k-1)-state%zm(i,k)))
-          vflx(i,k)  = kvm(i,k) * &
-                          ( - rhoair*(v_tmp(i,k-1)-v_tmp(i,k))/(state%zm(i,k-1)-state%zm(i,k)))
-          slflx_cg(i,k) = kvh(i,k) * cgh(i,k)
-          qtflx_cg(i,k) = kvh(i,k) * rhoair * ( cflx(i,1) + cflx(i,ixcldliq) + cflx(i,ixcldice) ) * cgs(i,k)
-          uflx_cg(i,k)  = 0._r8
-          vflx_cg(i,k)  = 0._r8
-       end do
-    end do
-
-  ! Modification : I should check whether slflx(:ncol,pverp) is correctly computed.
-  !                Note also that 'tautotx' is explicit total stress, different from
-  !                the ones that have been actually added into the atmosphere.
-
-    slflx(:ncol,pverp) = shflx(:ncol)
-    qtflx(:ncol,pverp) = cflx(:ncol,1)
-    uflx(:ncol,pverp)  = tautotx(:ncol)
-    vflx(:ncol,pverp)  = tautoty(:ncol)
-
-    slflx_cg(:ncol,pverp) = 0._r8
-    qtflx_cg(:ncol,pverp) = 0._r8
-    uflx_cg(:ncol,pverp)  = 0._r8
-    vflx_cg(:ncol,pverp)  = 0._r8
+    call vertical_diffusion_flux_diag(ncol, q_tmp, s_tmp, u_tmp, v_tmp, state%pint, state%zi, state%zm, &
+         cflx, kvh, kvm, cgs, cgh, shflx, tautotx, tautoty, sl, qt, slv, slflx, qtflx, uflx, vflx, &
+         slflx_cg, qtflx_cg, uflx_cg, vflx_cg)
 
     if (shallow_unicon_local) then
        call pbuf_get_field(pbuf, qtl_flx_idx,  qtl_flx)

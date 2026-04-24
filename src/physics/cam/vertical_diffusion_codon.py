@@ -39,3 +39,210 @@ def vertical_diffusion_tend_select_branches_codon(
         mask |= 256
 
     branch_mask[0] = mask
+
+
+@inline
+def _idx2(i: int, k: int, ld1: int) -> int:
+    """Fortran arrays declared as (ld1, nlev)."""
+    return (i - 1) + (k - 1) * ld1
+
+
+@inline
+def _idx3(i: int, k: int, m: int, ld1: int, ld2: int) -> int:
+    """Fortran arrays declared as (ld1, ld2, nconst)."""
+    return (i - 1) + (k - 1) * ld1 + (m - 1) * ld1 * ld2
+
+
+@export
+def vertical_diffusion_flux_diag_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    ixcldliq: int,
+    ixcldice: int,
+    latvap: float,
+    latice: float,
+    zvir: float,
+    rair: float,
+    gravit: float,
+    cpair: float,
+    q_tmp_p: cobj,
+    s_tmp_p: cobj,
+    u_tmp_p: cobj,
+    v_tmp_p: cobj,
+    pint_p: cobj,
+    zi_p: cobj,
+    zm_p: cobj,
+    cflx_p: cobj,
+    kvh_p: cobj,
+    kvm_p: cobj,
+    cgs_p: cobj,
+    cgh_p: cobj,
+    shflx_p: cobj,
+    tautotx_p: cobj,
+    tautoty_p: cobj,
+    sl_p: cobj,
+    qt_p: cobj,
+    slv_p: cobj,
+    slflx_p: cobj,
+    qtflx_p: cobj,
+    uflx_p: cobj,
+    vflx_p: cobj,
+    slflx_cg_p: cobj,
+    qtflx_cg_p: cobj,
+    uflx_cg_p: cobj,
+    vflx_cg_p: cobj,
+):
+    q_tmp = Ptr[float](q_tmp_p)
+    s_tmp = Ptr[float](s_tmp_p)
+    u_tmp = Ptr[float](u_tmp_p)
+    v_tmp = Ptr[float](v_tmp_p)
+    pint = Ptr[float](pint_p)
+    zi = Ptr[float](zi_p)
+    zm = Ptr[float](zm_p)
+    cflx = Ptr[float](cflx_p)
+    kvh = Ptr[float](kvh_p)
+    kvm = Ptr[float](kvm_p)
+    cgs = Ptr[float](cgs_p)
+    cgh = Ptr[float](cgh_p)
+    shflx = Ptr[float](shflx_p)
+    tautotx = Ptr[float](tautotx_p)
+    tautoty = Ptr[float](tautoty_p)
+    sl = Ptr[float](sl_p)
+    qt = Ptr[float](qt_p)
+    slv = Ptr[float](slv_p)
+    slflx = Ptr[float](slflx_p)
+    qtflx = Ptr[float](qtflx_p)
+    uflx = Ptr[float](uflx_p)
+    vflx = Ptr[float](vflx_p)
+    slflx_cg = Ptr[float](slflx_cg_p)
+    qtflx_cg = Ptr[float](qtflx_cg_p)
+    uflx_cg = Ptr[float](uflx_cg_p)
+    vflx_cg = Ptr[float](vflx_cg_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            sl[_idx2(i, k, pcols)] = (
+                s_tmp[_idx2(i, k, pcols)]
+                - latvap * q_tmp[_idx3(i, k, ixcldliq, pcols, pver)]
+                - (latvap + latice) * q_tmp[_idx3(i, k, ixcldice, pcols, pver)]
+            )
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            qt[_idx2(i, k, pcols)] = (
+                q_tmp[_idx3(i, k, 1, pcols, pver)]
+                + q_tmp[_idx3(i, k, ixcldliq, pcols, pver)]
+                + q_tmp[_idx3(i, k, ixcldice, pcols, pver)]
+            )
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            slv[_idx2(i, k, pcols)] = sl[_idx2(i, k, pcols)] * (
+                1.0 + zvir * qt[_idx2(i, k, pcols)]
+            )
+
+    for i in range(1, ncol + 1):
+        slflx[_idx2(i, 1, pcols)] = 0.0
+        qtflx[_idx2(i, 1, pcols)] = 0.0
+        uflx[_idx2(i, 1, pcols)] = 0.0
+        vflx[_idx2(i, 1, pcols)] = 0.0
+        slflx_cg[_idx2(i, 1, pcols)] = 0.0
+        qtflx_cg[_idx2(i, 1, pcols)] = 0.0
+        uflx_cg[_idx2(i, 1, pcols)] = 0.0
+        vflx_cg[_idx2(i, 1, pcols)] = 0.0
+
+    for k in range(2, pver + 1):
+        for i in range(1, ncol + 1):
+            rhoair = pint[_idx2(i, k, pcols)] / (
+                rair
+                * (
+                    (
+                        0.5
+                        * (
+                            slv[_idx2(i, k, pcols)]
+                            + slv[_idx2(i, k - 1, pcols)]
+                        )
+                        - gravit * zi[_idx2(i, k, pcols)]
+                    )
+                    / cpair
+                )
+            )
+            slflx[_idx2(i, k, pcols)] = kvh[_idx2(i, k, pcols)] * (
+                -rhoair
+                * (
+                    sl[_idx2(i, k - 1, pcols)]
+                    - sl[_idx2(i, k, pcols)]
+                )
+                / (
+                    zm[_idx2(i, k - 1, pcols)]
+                    - zm[_idx2(i, k, pcols)]
+                )
+                + cgh[_idx2(i, k, pcols)]
+            )
+            qtflx[_idx2(i, k, pcols)] = kvh[_idx2(i, k, pcols)] * (
+                -rhoair
+                * (
+                    qt[_idx2(i, k - 1, pcols)]
+                    - qt[_idx2(i, k, pcols)]
+                )
+                / (
+                    zm[_idx2(i, k - 1, pcols)]
+                    - zm[_idx2(i, k, pcols)]
+                )
+                + rhoair
+                * (
+                    cflx[_idx2(i, 1, pcols)]
+                    + cflx[_idx2(i, ixcldliq, pcols)]
+                    + cflx[_idx2(i, ixcldice, pcols)]
+                )
+                * cgs[_idx2(i, k, pcols)]
+            )
+            uflx[_idx2(i, k, pcols)] = kvm[_idx2(i, k, pcols)] * (
+                -rhoair
+                * (
+                    u_tmp[_idx2(i, k - 1, pcols)]
+                    - u_tmp[_idx2(i, k, pcols)]
+                )
+                / (
+                    zm[_idx2(i, k - 1, pcols)]
+                    - zm[_idx2(i, k, pcols)]
+                )
+            )
+            vflx[_idx2(i, k, pcols)] = kvm[_idx2(i, k, pcols)] * (
+                -rhoair
+                * (
+                    v_tmp[_idx2(i, k - 1, pcols)]
+                    - v_tmp[_idx2(i, k, pcols)]
+                )
+                / (
+                    zm[_idx2(i, k - 1, pcols)]
+                    - zm[_idx2(i, k, pcols)]
+                )
+            )
+            slflx_cg[_idx2(i, k, pcols)] = (
+                kvh[_idx2(i, k, pcols)] * cgh[_idx2(i, k, pcols)]
+            )
+            qtflx_cg[_idx2(i, k, pcols)] = (
+                kvh[_idx2(i, k, pcols)]
+                * rhoair
+                * (
+                    cflx[_idx2(i, 1, pcols)]
+                    + cflx[_idx2(i, ixcldliq, pcols)]
+                    + cflx[_idx2(i, ixcldice, pcols)]
+                )
+                * cgs[_idx2(i, k, pcols)]
+            )
+            uflx_cg[_idx2(i, k, pcols)] = 0.0
+            vflx_cg[_idx2(i, k, pcols)] = 0.0
+
+    for i in range(1, ncol + 1):
+        slflx[_idx2(i, pverp, pcols)] = shflx[i - 1]
+        qtflx[_idx2(i, pverp, pcols)] = cflx[_idx2(i, 1, pcols)]
+        uflx[_idx2(i, pverp, pcols)] = tautotx[i - 1]
+        vflx[_idx2(i, pverp, pcols)] = tautoty[i - 1]
+        slflx_cg[_idx2(i, pverp, pcols)] = 0.0
+        qtflx_cg[_idx2(i, pverp, pcols)] = 0.0
+        uflx_cg[_idx2(i, pverp, pcols)] = 0.0
+        vflx_cg[_idx2(i, pverp, pcols)] = 0.0
