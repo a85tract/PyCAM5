@@ -621,6 +621,64 @@ def eddy_diff_surface_stress_diag_codon(
 
 
 @export
+def vertical_diffusion_obklen_diag_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    cpair: float,
+    zvir: float,
+    gravit: float,
+    karman: float,
+    state_t_p: cobj,
+    state_exner_p: cobj,
+    state_q_p: cobj,
+    cflx_p: cobj,
+    shflx_p: cobj,
+    rrho_p: cobj,
+    ustar_p: cobj,
+    th_p: cobj,
+    thvs_p: cobj,
+    khfs_p: cobj,
+    kqfs_p: cobj,
+    kbfs_p: cobj,
+    obklen_p: cobj,
+):
+    state_t = Ptr[float](state_t_p)
+    state_exner = Ptr[float](state_exner_p)
+    state_q = Ptr[float](state_q_p)
+    cflx = Ptr[float](cflx_p)
+    shflx = Ptr[float](shflx_p)
+    rrho = Ptr[float](rrho_p)
+    ustar = Ptr[float](ustar_p)
+    th = Ptr[float](th_p)
+    thvs = Ptr[float](thvs_p)
+    khfs = Ptr[float](khfs_p)
+    kqfs = Ptr[float](kqfs_p)
+    kbfs = Ptr[float](kbfs_p)
+    obklen = Ptr[float](obklen_p)
+
+    for i in range(1, ncol + 1):
+        th[_idx2(i, pver, pcols)] = (
+            state_t[_idx2(i, pver, pcols)] * state_exner[_idx2(i, pver, pcols)]
+        )
+        thvs[i - 1] = th[_idx2(i, pver, pcols)] * (
+            1.0 + zvir * state_q[_idx3(i, pver, 1, pcols, pver)]
+        )
+        khfs[i - 1] = shflx[i - 1] * rrho[i - 1] / cpair
+        kqfs[i - 1] = cflx[_idx2(i, 1, pcols)] * rrho[i - 1]
+        kbfs[i - 1] = khfs[i - 1] + zvir * th[_idx2(i, pver, pcols)] * kqfs[i - 1]
+        if kbfs[i - 1] < 0.0:
+            signed_eps = -1.0e-10
+        else:
+            signed_eps = 1.0e-10
+        obklen[i - 1] = (
+            -thvs[i - 1]
+            * (ustar[i - 1] * ustar[i - 1] * ustar[i - 1])
+            / (gravit * karman * (kbfs[i - 1] + signed_eps))
+        )
+
+
+@export
 def vertical_diffusion_post_qsat_diag_codon(
     ncol: int,
     pcols: int,

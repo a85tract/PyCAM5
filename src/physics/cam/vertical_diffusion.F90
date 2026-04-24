@@ -149,6 +149,8 @@ module vertical_diffusion
   logical              :: post_pbl_state_impl_selected = .false.
   logical              :: use_native_modal_aero_flux_impl = .false.
   logical              :: modal_aero_flux_impl_selected = .false.
+  logical              :: use_native_obklen_diag_impl = .false.
+  logical              :: obklen_diag_impl_selected = .false.
   logical              :: use_native_pre_qsat_rh_impl = .false.
   logical              :: pre_qsat_rh_impl_selected = .false.
   logical              :: use_native_post_qsat_diag_impl = .false.
@@ -1544,6 +1546,114 @@ contains
   !                                                                                 !
   ! =============================================================================== !
 
+  subroutine vertical_diffusion_obklen_diag_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (obklen_diag_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('VERTICAL_DIFFUSION_OBKLEN_DIAG_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_obklen_diag_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_obklen_diag_impl = .false.
+    end if
+
+    obklen_diag_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_obklen_diag_impl) then
+          write(iulog,*) 'vertical_diffusion_obklen_diag implementation = native'
+       else
+          write(iulog,*) 'vertical_diffusion_obklen_diag implementation = codon'
+       end if
+    end if
+
+  end subroutine vertical_diffusion_obklen_diag_select_impl
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_obklen_diag(ncol, state_t_local, state_exner_local, state_q_local, cflx_local, &
+       shflx_local, rrho_local, ustar_local, th_local, thvs_local, khfs_local, kqfs_local, kbfs_local, obklen_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: state_t_local(pcols,pver), state_exner_local(pcols,pver)
+    real(r8), target, intent(in) :: state_q_local(pcols,pver,pcnst), cflx_local(pcols,pcnst), shflx_local(pcols)
+    real(r8), target, intent(in) :: rrho_local(pcols), ustar_local(pcols)
+    real(r8), target, intent(inout) :: th_local(pcols,pver), thvs_local(pcols)
+    real(r8), target, intent(inout) :: khfs_local(pcols), kqfs_local(pcols), kbfs_local(pcols), obklen_local(pcols)
+
+    interface
+       subroutine vertical_diffusion_obklen_diag_codon(ncol_c, pcols_c, pver_c, cpair_c, zvir_c, gravit_c, karman_c, &
+            state_t_p, state_exner_p, state_q_p, cflx_p, shflx_p, rrho_p, ustar_p, th_p, thvs_p, khfs_p, kqfs_p, &
+            kbfs_p, obklen_p) bind(c, name="vertical_diffusion_obklen_diag_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: cpair_c, zvir_c, gravit_c, karman_c
+         type(c_ptr), value :: state_t_p, state_exner_p, state_q_p, cflx_p, shflx_p, rrho_p, ustar_p
+         type(c_ptr), value :: th_p, thvs_p, khfs_p, kqfs_p, kbfs_p, obklen_p
+       end subroutine vertical_diffusion_obklen_diag_codon
+    end interface
+
+    call vertical_diffusion_obklen_diag_select_impl()
+
+    if (use_native_obklen_diag_impl) then
+       call vertical_diffusion_obklen_diag_native(ncol, state_t_local, state_exner_local, state_q_local, cflx_local, &
+            shflx_local, rrho_local, ustar_local, th_local, thvs_local, khfs_local, kqfs_local, kbfs_local, &
+            obklen_local)
+       return
+    end if
+
+    call vertical_diffusion_obklen_diag_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(cpair, c_double), &
+         real(zvir, c_double), real(gravit, c_double), real(karman, c_double), c_loc(state_t_local), &
+         c_loc(state_exner_local), c_loc(state_q_local), c_loc(cflx_local), c_loc(shflx_local), c_loc(rrho_local), &
+         c_loc(ustar_local), c_loc(th_local), c_loc(thvs_local), c_loc(khfs_local), c_loc(kqfs_local), c_loc(kbfs_local), &
+         c_loc(obklen_local) &
+    )
+
+  end subroutine vertical_diffusion_obklen_diag
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_obklen_diag_native(ncol, state_t_local, state_exner_local, state_q_local, cflx_local, &
+       shflx_local, rrho_local, ustar_local, th_local, thvs_local, khfs_local, kqfs_local, kbfs_local, obklen_local)
+
+    use pbl_utils, only: calc_obklen, virtem
+
+    integer, intent(in) :: ncol
+    real(r8), intent(in) :: state_t_local(pcols,pver), state_exner_local(pcols,pver)
+    real(r8), intent(in) :: state_q_local(pcols,pver,pcnst), cflx_local(pcols,pcnst), shflx_local(pcols)
+    real(r8), intent(in) :: rrho_local(pcols), ustar_local(pcols)
+    real(r8), intent(inout) :: th_local(pcols,pver), thvs_local(pcols)
+    real(r8), intent(inout) :: khfs_local(pcols), kqfs_local(pcols), kbfs_local(pcols), obklen_local(pcols)
+
+    th_local(:ncol,pver) = state_t_local(:ncol,pver) * state_exner_local(:ncol,pver)
+    thvs_local(:ncol) = virtem(th_local(:ncol,pver), state_q_local(:ncol,pver,1))
+    call calc_obklen(th_local(:ncol,pver), thvs_local(:ncol), cflx_local(:ncol,1), shflx_local(:ncol), rrho_local(:ncol), &
+         ustar_local(:ncol), khfs_local(:ncol), kqfs_local(:ncol), kbfs_local(:ncol), obklen_local(:ncol))
+
+  end subroutine vertical_diffusion_obklen_diag_native
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
   subroutine vertical_diffusion_pre_qsat_rh_select_impl()
 
     character(len=32) :: impl_name
@@ -2055,10 +2165,8 @@ contains
 
        ! The diag_TKE scheme does not calculate the Monin-Obukhov length, which is used in dry deposition calculations.
        ! Use the routines from pbl_utils to accomplish this. Assumes ustar and rrho have been set.
-       th(:ncol,pver) = state%t(:ncol,pver) * state%exner(:ncol,pver)
-       thvs(:ncol) = virtem(th(:ncol,pver),state%q(:ncol,pver,1))
-       call calc_obklen(th(:ncol,pver), thvs(:ncol), cflx(:ncol,1), shflx(:ncol), rrho(:ncol), ustar(:ncol), &
-                        khfs(:ncol),    kqfs(:ncol), kbfs(:ncol),   obklen(:ncol))
+       call vertical_diffusion_obklen_diag(ncol, state%t, state%exner, state%q, cflx, shflx, rrho, ustar, th, thvs, &
+            khfs, kqfs, kbfs, obklen)
 
        ! ----------------------------------------------- !       
        ! Store TKE in pbuf for use by shallow convection !
