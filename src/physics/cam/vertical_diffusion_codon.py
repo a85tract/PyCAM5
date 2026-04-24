@@ -919,6 +919,77 @@ def eddy_diff_rebuild_thermo_codon(
 
 
 @export
+def eddy_diff_trbintd_midpoint_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    cpair: float,
+    latvap: float,
+    latsub: float,
+    gravit: float,
+    zvir: float,
+    t_p: cobj,
+    z_p: cobj,
+    qv_p: cobj,
+    ql_p: cobj,
+    qi_p: cobj,
+    gam_p: cobj,
+    qt_p: cobj,
+    sl_p: cobj,
+    slv_p: cobj,
+    chu_p: cobj,
+    chs_p: cobj,
+    cmu_p: cobj,
+    cms_p: cobj,
+):
+    t = Ptr[float](t_p)
+    z = Ptr[float](z_p)
+    qv = Ptr[float](qv_p)
+    ql = Ptr[float](ql_p)
+    qi = Ptr[float](qi_p)
+    gam = Ptr[float](gam_p)
+    qt = Ptr[float](qt_p)
+    sl = Ptr[float](sl_p)
+    slv = Ptr[float](slv_p)
+    chu = Ptr[float](chu_p)
+    chs = Ptr[float](chs_p)
+    cmu = Ptr[float](cmu_p)
+    cms = Ptr[float](cms_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            tval = t[idx]
+            qvval = qv[idx]
+            qlval = ql[idx]
+            qival = qi[idx]
+
+            qtval = qvval + qlval + qival
+            qt[idx] = qtval
+
+            slval = cpair * tval + gravit * z[idx] - latvap * qlval - latsub * qival
+            sl[idx] = slval
+            slv[idx] = slval * (1.0 + zvir * qtval)
+
+            bfact = gravit / (tval * (1.0 + zvir * qvval - qlval - qival))
+            chu[idx] = (1.0 + zvir * qtval) * bfact / cpair
+            chs[idx] = (
+                (1.0 + (1.0 + zvir) * gam[idx] * cpair * tval / latvap)
+                / (1.0 + gam[idx])
+            ) * bfact / cpair
+            cmu[idx] = zvir * bfact * tval
+            cms[idx] = latvap * chs[idx] - bfact * tval
+
+    for i in range(1, ncol + 1):
+        idx_last = _idx2(i, pver, pcols)
+        idx_sfc = _idx2(i, pver + 1, pcols)
+        chu[idx_sfc] = chu[idx_last]
+        chs[idx_sfc] = chs[idx_last]
+        cmu[idx_sfc] = cmu[idx_last]
+        cms[idx_sfc] = cms[idx_last]
+
+
+@export
 def vertical_diffusion_obklen_diag_codon(
     ncol: int,
     pcols: int,
