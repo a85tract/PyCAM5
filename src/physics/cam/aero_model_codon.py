@@ -4081,3 +4081,21 @@ def modal_aero_newnuc_setup_modes_codon(
     tmpa = specdens_so4_amode_c * pi_c / 6.0
     mass1p_aitlo[0] = tmpa * (dplom_mode_1[0] ** 3)
     mass1p_aithi[0] = tmpa * (dphim_mode_1[0] ** 3)
+
+
+@export
+def modal_aero_newnuc_scale_qsrflx_codon(
+    ncol_c: int,
+    pcols_c: int,
+    pcnst_c: int,
+    lmz_c: int,
+    adv_mass_c: float,
+    mwdry_c: float,
+    qsrflx_p: cobj,
+):
+    qsrflx = Ptr[float](qsrflx_p)
+
+    for i in range(1, ncol_c + 1):
+        qsrflx[_idx3(i, lmz_c, 1, pcols_c, pcnst_c)] = (
+            qsrflx[_idx3(i, lmz_c, 1, pcols_c, pcnst_c)] * (adv_mass_c / mwdry_c)
+        )

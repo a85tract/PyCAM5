@@ -31,6 +31,8 @@ module modal_aero_newnuc
   logical :: modal_aero_newnuc_prepare_box_inputs_impl_selected = .false.
   logical :: modal_aero_newnuc_setup_modes_use_native_impl = .false.
   logical :: modal_aero_newnuc_setup_modes_impl_selected = .false.
+  logical :: modal_aero_newnuc_scale_qsrflx_use_native_impl = .false.
+  logical :: modal_aero_newnuc_scale_qsrflx_impl_selected = .false.
   logical :: modal_aero_newnuc_apply_tendencies_use_native_impl = .false.
   logical :: modal_aero_newnuc_apply_tendencies_impl_selected = .false.
   logical :: pbl_nuc_wang2008_use_native_impl = .false.
@@ -492,6 +494,103 @@ module modal_aero_newnuc
    mass1p_aithi_out = tmpa*(dphim_mode_1_out**3)
 
   end subroutine modal_aero_newnuc_setup_modes_native
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_newnuc_scale_qsrflx_select_impl()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   implicit none
+
+   character(len=48) :: impl_name
+   integer :: status, n, i, code
+
+   if (modal_aero_newnuc_scale_qsrflx_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('MODAL_AERO_NEWNUC_SCALE_QSRFLX_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      modal_aero_newnuc_scale_qsrflx_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      modal_aero_newnuc_scale_qsrflx_use_native_impl = .false.
+   end if
+
+   modal_aero_newnuc_scale_qsrflx_impl_selected = .true.
+
+   if (masterproc) then
+      if (modal_aero_newnuc_scale_qsrflx_use_native_impl) then
+         write(iulog,*) 'modal_aero_newnuc_scale_qsrflx implementation = native'
+      else
+         write(iulog,*) 'modal_aero_newnuc_scale_qsrflx implementation = codon'
+      end if
+   end if
+
+  end subroutine modal_aero_newnuc_scale_qsrflx_select_impl
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_newnuc_scale_qsrflx(ncol_in, pcnst_in, lmz_in, adv_mass_in, mwdry_in, qsrflx)
+
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+   use ppgrid, only: pcols
+
+   implicit none
+
+   integer, intent(in) :: ncol_in, pcnst_in, lmz_in
+   real(r8), intent(in) :: adv_mass_in, mwdry_in
+   real(r8), target, intent(inout) :: qsrflx(pcols,pcnst_in,1)
+
+   interface
+      subroutine modal_aero_newnuc_scale_qsrflx_codon( ncol_c, pcols_c, pcnst_c, lmz_c, adv_mass_c, mwdry_c, qsrflx_p ) &
+           bind(c, name="modal_aero_newnuc_scale_qsrflx_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: ncol_c, pcols_c, pcnst_c, lmz_c
+        real(c_double), value :: adv_mass_c, mwdry_c
+        type(c_ptr), value :: qsrflx_p
+      end subroutine modal_aero_newnuc_scale_qsrflx_codon
+   end interface
+
+   call modal_aero_newnuc_scale_qsrflx_select_impl()
+
+   if (modal_aero_newnuc_scale_qsrflx_use_native_impl) then
+      call modal_aero_newnuc_scale_qsrflx_native(ncol_in, pcnst_in, lmz_in, adv_mass_in, mwdry_in, qsrflx)
+      return
+   end if
+
+   call modal_aero_newnuc_scale_qsrflx_codon( &
+        int(ncol_in, c_int64_t), int(pcols, c_int64_t), int(pcnst_in, c_int64_t), int(lmz_in, c_int64_t), &
+        real(adv_mass_in, c_double), real(mwdry_in, c_double), c_loc(qsrflx(1,1,1)) )
+
+  end subroutine modal_aero_newnuc_scale_qsrflx
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_newnuc_scale_qsrflx_native(ncol_in, pcnst_in, lmz_in, adv_mass_in, mwdry_in, qsrflx)
+
+   use ppgrid, only: pcols
+
+   implicit none
+
+   integer, intent(in) :: ncol_in, pcnst_in, lmz_in
+   real(r8), intent(in) :: adv_mass_in, mwdry_in
+   real(r8), intent(inout) :: qsrflx(pcols,pcnst_in,1)
+
+   integer :: i
+
+   do i = 1, ncol_in
+      qsrflx(i,lmz_in,1) = qsrflx(i,lmz_in,1)*(adv_mass_in/mwdry_in)
+   end do
+
+  end subroutine modal_aero_newnuc_scale_qsrflx_native
 
 !----------------------------------------------------------------------
 !----------------------------------------------------------------------
@@ -1013,9 +1112,7 @@ main_i:	do i = 1, ncol
 	    lmz = l - loffset
 	    if ( .not. dotend(lmz) ) cycle
 
-	    do i = 1, ncol
-		qsrflx(i,lmz,1) = qsrflx(i,lmz,1)*(adv_mass(lmz)/mwdry)
-	    end do
+	    call modal_aero_newnuc_scale_qsrflx(ncol, pcnst, lmz, adv_mass(lmz), mwdry, qsrflx)
 	    fieldname = trim(cnst_name(l)) // '_sfnnuc1'
 	    call outfld( fieldname, qsrflx(:,lmz,1), pcols, lchnk )
 
