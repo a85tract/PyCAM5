@@ -1516,6 +1516,27 @@ def aero_model_gasaerexch_column_flux_codon(
 
 
 @export
+def aero_model_gasaerexch_gas_tend_codon(
+    ncol: int,
+    pver: int,
+    gas_pcnst: int,
+    delt: float,
+    vmr0_p: cobj,
+    vmr_p: cobj,
+    dvmrdt_p: cobj,
+):
+    vmr0 = Ptr[float](vmr0_p)
+    vmr = Ptr[float](vmr_p)
+    dvmrdt = Ptr[float](dvmrdt_p)
+
+    for m in range(1, gas_pcnst + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx3(i, k, m, ncol, pver)
+                dvmrdt[idx] = (vmr[idx] - vmr0[idx]) / delt
+
+
+@export
 def aero_model_gasaerexch_aq_tend_codon(
     ncol: int,
     pver: int,
