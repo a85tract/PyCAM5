@@ -35,6 +35,8 @@ module modal_aero_newnuc
   logical :: binary_nuc_vehk2002_impl_selected = .false.
   logical :: mer07_veh02_nuc_mosaic_prepare_rates_use_native_impl = .false.
   logical :: mer07_veh02_nuc_mosaic_prepare_rates_impl_selected = .false.
+  logical :: mer07_veh02_nuc_mosaic_postprocess_use_native_impl = .false.
+  logical :: mer07_veh02_nuc_mosaic_postprocess_impl_selected = .false.
   logical :: mer07_veh02_nuc_mosaic_finalize_use_native_impl = .false.
   logical :: mer07_veh02_nuc_mosaic_finalize_impl_selected = .false.
 
@@ -395,6 +397,7 @@ module modal_aero_newnuc
 	integer :: lnumait, lso4ait, lnh4ait
 	integer :: l_h2so4, l_nh3
 	integer :: ldiagveh02
+	integer :: postprocess_code
 	integer, parameter :: ldiag1=-1, ldiag2=-1, ldiag3=-1, ldiag4=-1
         integer, parameter :: newnuc_method_flagaa = 11
 !       integer, parameter :: newnuc_method_flagaa = 12
@@ -599,54 +602,23 @@ main_i:	do i = 1, ncol
 !----------------------------------------------------------------------
 
 
-!   convert qnuma_del from (#/mol-air) to (#/kmol-air)
-        qnuma_del = qnuma_del*1.0e3_r8
-!   number nuc rate (#/kmol-air/s) from number nuc amt
-        dndt_ait = qnuma_del/deltat
-!   fraction of mass nuc going to so4
-        tmpa = qso4a_del*specmw_so4_amode
-        tmpb = tmpa + qnh4a_del*specmw_nh4_amode
-        tmp_frso4 = max( tmpa, 1.0e-35_r8 )/max( tmpb, 1.0e-35_r8 )
-!   mass nuc rate (kg/kmol-air/s or g/mol...) hhfrom mass nuc amts
-        dmdt_ait = max( 0.0_r8, (tmpb/deltat) ) 
+        call mer07_veh02_nuc_mosaic_postprocess( &
+           qnuma_del, qso4a_del, qnh4a_del, deltat, specmw_so4_amode, specmw_nh4_amode, &
+           mass1p_aitlo, mass1p_aithi, dndt_ait, dmdt_ait, dso4dt_ait, dnh4dt_ait, &
+           dndt_aitsv1, dmdt_aitsv1, dndt_aitsv2, dmdt_aitsv2, dndt_aitsv3, dmdt_aitsv3, &
+           postprocess_code )
 
-	dndt_aitsv1 = dndt_ait
-	dmdt_aitsv1 = dmdt_ait
-	dndt_aitsv2 = 0.0_r8
-	dmdt_aitsv2 = 0.0_r8
-	dndt_aitsv3 = 0.0_r8
-	dmdt_aitsv3 = 0.0_r8
         tmpch1 = ' '
         tmpch2 = ' '
-
-	if (dndt_ait < 1.0e2_r8) then
-!   ignore newnuc if number rate < 100 #/kmol-air/s ~= 0.3 #/mg-air/d
-            dndt_ait = 0.0_r8
-            dmdt_ait = 0.0_r8
-            tmpch1 = 'A'
-
-	else
-	    dndt_aitsv2 = dndt_ait
-	    dmdt_aitsv2 = dmdt_ait
-            tmpch1 = 'B'
-
-!   mirage2 code checked for complete h2so4 depletion here,
-!   but this is now done in mer07_veh02_nuc_mosaic_1box
-	    mass1p = dmdt_ait/dndt_ait
-	    dndt_aitsv3 = dndt_ait
-	    dmdt_aitsv3 = dmdt_ait
-
-!   apply particle size constraints
-	    if (mass1p < mass1p_aitlo) then
-!   reduce dndt to increase new particle size
-		dndt_ait = dmdt_ait/mass1p_aitlo
-                tmpch1 = 'C'
-	    else if (mass1p > mass1p_aithi) then
-!   reduce dmdt to decrease new particle size
-		dmdt_ait = dndt_ait*mass1p_aithi
-                tmpch1 = 'E'
-	    end if
-	end if
+        if (postprocess_code == 1) then
+           tmpch1 = 'A'
+        else if (postprocess_code == 2) then
+           tmpch1 = 'B'
+        else if (postprocess_code == 3) then
+           tmpch1 = 'C'
+        else if (postprocess_code == 4) then
+           tmpch1 = 'E'
+        end if
 
 ! *** apply adjustment factor to avoid unrealistically high
 !     aitken number concentrations in mid and upper troposphere
@@ -656,10 +628,6 @@ main_i:	do i = 1, ncol
 
 !   set tendencies
 	pdel_fac = pdel(i,k)/gravit
-
-!   dso4dt_ait, dnh4dt_ait are (kmol/kmol-air/s)
-        dso4dt_ait = dmdt_ait*tmp_frso4/specmw_so4_amode
-        dnh4dt_ait = dmdt_ait*(1.0_r8 - tmp_frso4)/specmw_nh4_amode
 
 	dqdt(i,k,l_h2so4) = -dso4dt_ait*(1.0_r8-cldx)
 	qsrflx(i,l_h2so4,1) = qsrflx(i,l_h2so4,1) + dqdt(i,k,l_h2so4)*pdel_fac
@@ -891,6 +859,7 @@ main_i:	do i = 1, ncol
 !       integer, parameter :: ldiagaa = -1
         integer :: lun
         integer :: newnuc_method_flagaa2
+        integer :: postprocess_code
         integer :: use_ternary_rate, use_binary_rate, do_pbl_rate
 
         real(r8), parameter :: onethird = 1.0_r8/3.0_r8
@@ -1508,6 +1477,177 @@ main_i:	do i = 1, ncol
    end if
 
   end subroutine mer07_veh02_nuc_mosaic_prepare_rates_native
+
+!-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+  subroutine mer07_veh02_nuc_mosaic_postprocess_select_impl()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   implicit none
+
+   character(len=48) :: impl_name
+   integer :: status, n, i, code
+
+   if (mer07_veh02_nuc_mosaic_postprocess_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('MER07_VEH02_NUC_MOSAIC_POSTPROCESS_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      mer07_veh02_nuc_mosaic_postprocess_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      mer07_veh02_nuc_mosaic_postprocess_use_native_impl = .false.
+   end if
+
+   mer07_veh02_nuc_mosaic_postprocess_impl_selected = .true.
+
+   if (masterproc) then
+      if (mer07_veh02_nuc_mosaic_postprocess_use_native_impl) then
+         write(iulog,*) 'mer07_veh02_nuc_mosaic_postprocess implementation = native'
+      else
+         write(iulog,*) 'mer07_veh02_nuc_mosaic_postprocess implementation = codon'
+      end if
+   end if
+
+  end subroutine mer07_veh02_nuc_mosaic_postprocess_select_impl
+
+!-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+  subroutine mer07_veh02_nuc_mosaic_postprocess( qnuma_del, qso4a_del, qnh4a_del, deltat, specmw_so4_amode, specmw_nh4_amode, &
+       mass1p_aitlo, mass1p_aithi, dndt_ait, dmdt_ait, dso4dt_ait, dnh4dt_ait, dndt_aitsv1, dmdt_aitsv1, dndt_aitsv2, &
+       dmdt_aitsv2, dndt_aitsv3, dmdt_aitsv3, postprocess_code )
+
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+   implicit none
+
+   real(r8), intent(inout) :: qnuma_del
+   real(r8), intent(in) :: qso4a_del, qnh4a_del, deltat, specmw_so4_amode, specmw_nh4_amode
+   real(r8), intent(in) :: mass1p_aitlo, mass1p_aithi
+   real(r8), intent(out) :: dndt_ait, dmdt_ait, dso4dt_ait, dnh4dt_ait
+   real(r8), intent(out) :: dndt_aitsv1, dmdt_aitsv1, dndt_aitsv2, dmdt_aitsv2, dndt_aitsv3, dmdt_aitsv3
+   integer, intent(out) :: postprocess_code
+
+   integer(c_int64_t), target :: postprocess_code_work
+   real(c_double), target :: qnuma_del_work, dndt_ait_work, dmdt_ait_work
+   real(c_double), target :: dso4dt_ait_work, dnh4dt_ait_work
+   real(c_double), target :: dndt_aitsv1_work, dmdt_aitsv1_work, dndt_aitsv2_work
+   real(c_double), target :: dmdt_aitsv2_work, dndt_aitsv3_work, dmdt_aitsv3_work
+
+   interface
+      subroutine mer07_veh02_nuc_mosaic_postprocess_codon( qnuma_del_p, qso4a_del_c, qnh4a_del_c, deltat_c, specmw_so4_amode_c, &
+           specmw_nh4_amode_c, mass1p_aitlo_c, mass1p_aithi_c, dndt_ait_p, dmdt_ait_p, dso4dt_ait_p, dnh4dt_ait_p, &
+           dndt_aitsv1_p, dmdt_aitsv1_p, dndt_aitsv2_p, dmdt_aitsv2_p, dndt_aitsv3_p, dmdt_aitsv3_p, postprocess_code_p ) &
+           bind(c, name="mer07_veh02_nuc_mosaic_postprocess_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        type(c_ptr), value :: qnuma_del_p, dndt_ait_p, dmdt_ait_p, dso4dt_ait_p, dnh4dt_ait_p
+        type(c_ptr), value :: dndt_aitsv1_p, dmdt_aitsv1_p, dndt_aitsv2_p, dmdt_aitsv2_p, dndt_aitsv3_p, dmdt_aitsv3_p
+        type(c_ptr), value :: postprocess_code_p
+        real(c_double), value :: qso4a_del_c, qnh4a_del_c, deltat_c, specmw_so4_amode_c, specmw_nh4_amode_c
+        real(c_double), value :: mass1p_aitlo_c, mass1p_aithi_c
+      end subroutine mer07_veh02_nuc_mosaic_postprocess_codon
+   end interface
+
+   call mer07_veh02_nuc_mosaic_postprocess_select_impl()
+
+   if (mer07_veh02_nuc_mosaic_postprocess_use_native_impl) then
+      call mer07_veh02_nuc_mosaic_postprocess_native( qnuma_del, qso4a_del, qnh4a_del, deltat, specmw_so4_amode, specmw_nh4_amode, &
+           mass1p_aitlo, mass1p_aithi, dndt_ait, dmdt_ait, dso4dt_ait, dnh4dt_ait, dndt_aitsv1, dmdt_aitsv1, dndt_aitsv2, &
+           dmdt_aitsv2, dndt_aitsv3, dmdt_aitsv3, postprocess_code )
+      return
+   end if
+
+   qnuma_del_work = real(qnuma_del, c_double)
+   call mer07_veh02_nuc_mosaic_postprocess_codon( &
+        c_loc(qnuma_del_work), real(qso4a_del, c_double), real(qnh4a_del, c_double), real(deltat, c_double), &
+        real(specmw_so4_amode, c_double), real(specmw_nh4_amode, c_double), &
+        real(mass1p_aitlo, c_double), real(mass1p_aithi, c_double), &
+        c_loc(dndt_ait_work), c_loc(dmdt_ait_work), c_loc(dso4dt_ait_work), c_loc(dnh4dt_ait_work), c_loc(dndt_aitsv1_work), &
+        c_loc(dmdt_aitsv1_work), c_loc(dndt_aitsv2_work), c_loc(dmdt_aitsv2_work), &
+        c_loc(dndt_aitsv3_work), c_loc(dmdt_aitsv3_work), &
+        c_loc(postprocess_code_work) )
+
+   qnuma_del = real(qnuma_del_work, r8)
+   dndt_ait = real(dndt_ait_work, r8)
+   dmdt_ait = real(dmdt_ait_work, r8)
+   dso4dt_ait = real(dso4dt_ait_work, r8)
+   dnh4dt_ait = real(dnh4dt_ait_work, r8)
+   dndt_aitsv1 = real(dndt_aitsv1_work, r8)
+   dmdt_aitsv1 = real(dmdt_aitsv1_work, r8)
+   dndt_aitsv2 = real(dndt_aitsv2_work, r8)
+   dmdt_aitsv2 = real(dmdt_aitsv2_work, r8)
+   dndt_aitsv3 = real(dndt_aitsv3_work, r8)
+   dmdt_aitsv3 = real(dmdt_aitsv3_work, r8)
+   postprocess_code = int(postprocess_code_work, kind(postprocess_code))
+
+  end subroutine mer07_veh02_nuc_mosaic_postprocess
+
+!-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+  subroutine mer07_veh02_nuc_mosaic_postprocess_native( qnuma_del, qso4a_del, qnh4a_del, deltat, &
+       specmw_so4_amode, specmw_nh4_amode, mass1p_aitlo, mass1p_aithi, dndt_ait, dmdt_ait, dso4dt_ait, dnh4dt_ait, &
+       dndt_aitsv1, dmdt_aitsv1, dndt_aitsv2, dmdt_aitsv2, dndt_aitsv3, dmdt_aitsv3, postprocess_code )
+
+   implicit none
+
+   real(r8), intent(inout) :: qnuma_del
+   real(r8), intent(in) :: qso4a_del, qnh4a_del, deltat, specmw_so4_amode, specmw_nh4_amode
+   real(r8), intent(in) :: mass1p_aitlo, mass1p_aithi
+   real(r8), intent(out) :: dndt_ait, dmdt_ait, dso4dt_ait, dnh4dt_ait
+   real(r8), intent(out) :: dndt_aitsv1, dmdt_aitsv1, dndt_aitsv2, dmdt_aitsv2, dndt_aitsv3, dmdt_aitsv3
+   integer, intent(out) :: postprocess_code
+
+   real(r8) :: mass1p
+   real(r8) :: tmpa, tmpb, tmp_frso4
+
+   qnuma_del = qnuma_del*1.0e3_r8
+   dndt_ait = qnuma_del/deltat
+   tmpa = qso4a_del*specmw_so4_amode
+   tmpb = tmpa + qnh4a_del*specmw_nh4_amode
+   tmp_frso4 = max( tmpa, 1.0e-35_r8 )/max( tmpb, 1.0e-35_r8 )
+   dmdt_ait = max( 0.0_r8, (tmpb/deltat) )
+
+   dndt_aitsv1 = dndt_ait
+   dmdt_aitsv1 = dmdt_ait
+   dndt_aitsv2 = 0.0_r8
+   dmdt_aitsv2 = 0.0_r8
+   dndt_aitsv3 = 0.0_r8
+   dmdt_aitsv3 = 0.0_r8
+   postprocess_code = 0
+
+   if (dndt_ait < 1.0e2_r8) then
+      dndt_ait = 0.0_r8
+      dmdt_ait = 0.0_r8
+      postprocess_code = 1
+   else
+      dndt_aitsv2 = dndt_ait
+      dmdt_aitsv2 = dmdt_ait
+      postprocess_code = 2
+      mass1p = dmdt_ait/dndt_ait
+      dndt_aitsv3 = dndt_ait
+      dmdt_aitsv3 = dmdt_ait
+
+      if (mass1p < mass1p_aitlo) then
+         dndt_ait = dmdt_ait/mass1p_aitlo
+         postprocess_code = 3
+      else if (mass1p > mass1p_aithi) then
+         dmdt_ait = dndt_ait*mass1p_aithi
+         postprocess_code = 4
+      end if
+   end if
+
+   dso4dt_ait = dmdt_ait*tmp_frso4/specmw_so4_amode
+   dnh4dt_ait = dmdt_ait*(1.0_r8 - tmp_frso4)/specmw_nh4_amode
+
+  end subroutine mer07_veh02_nuc_mosaic_postprocess_native
 
 !-----------------------------------------------------------------------
 !-----------------------------------------------------------------------

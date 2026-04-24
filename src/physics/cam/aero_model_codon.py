@@ -1813,6 +1813,79 @@ def mer07_veh02_nuc_mosaic_prepare_rates_codon(
 
 
 @export
+def mer07_veh02_nuc_mosaic_postprocess_codon(
+    qnuma_del_p: cobj,
+    qso4a_del: float,
+    qnh4a_del: float,
+    deltat: float,
+    specmw_so4_amode: float,
+    specmw_nh4_amode: float,
+    mass1p_aitlo: float,
+    mass1p_aithi: float,
+    dndt_ait_p: cobj,
+    dmdt_ait_p: cobj,
+    dso4dt_ait_p: cobj,
+    dnh4dt_ait_p: cobj,
+    dndt_aitsv1_p: cobj,
+    dmdt_aitsv1_p: cobj,
+    dndt_aitsv2_p: cobj,
+    dmdt_aitsv2_p: cobj,
+    dndt_aitsv3_p: cobj,
+    dmdt_aitsv3_p: cobj,
+    postprocess_code_p: cobj,
+):
+    qnuma_del = Ptr[float](qnuma_del_p)
+    dndt_ait = Ptr[float](dndt_ait_p)
+    dmdt_ait = Ptr[float](dmdt_ait_p)
+    dso4dt_ait = Ptr[float](dso4dt_ait_p)
+    dnh4dt_ait = Ptr[float](dnh4dt_ait_p)
+    dndt_aitsv1 = Ptr[float](dndt_aitsv1_p)
+    dmdt_aitsv1 = Ptr[float](dmdt_aitsv1_p)
+    dndt_aitsv2 = Ptr[float](dndt_aitsv2_p)
+    dmdt_aitsv2 = Ptr[float](dmdt_aitsv2_p)
+    dndt_aitsv3 = Ptr[float](dndt_aitsv3_p)
+    dmdt_aitsv3 = Ptr[float](dmdt_aitsv3_p)
+    postprocess_code = Ptr[int](postprocess_code_p)
+
+    qnuma_del[0] = qnuma_del[0] * 1.0e3
+    dndt_ait[0] = qnuma_del[0] / deltat
+    tmpa = qso4a_del * specmw_so4_amode
+    tmpb = tmpa + qnh4a_del * specmw_nh4_amode
+    tmp_frso4 = max(tmpa, 1.0e-35) / max(tmpb, 1.0e-35)
+    dmdt_ait[0] = max(0.0, tmpb / deltat)
+
+    dndt_aitsv1[0] = dndt_ait[0]
+    dmdt_aitsv1[0] = dmdt_ait[0]
+    dndt_aitsv2[0] = 0.0
+    dmdt_aitsv2[0] = 0.0
+    dndt_aitsv3[0] = 0.0
+    dmdt_aitsv3[0] = 0.0
+    postprocess_code[0] = 0
+
+    if dndt_ait[0] < 1.0e2:
+        dndt_ait[0] = 0.0
+        dmdt_ait[0] = 0.0
+        postprocess_code[0] = 1
+    else:
+        dndt_aitsv2[0] = dndt_ait[0]
+        dmdt_aitsv2[0] = dmdt_ait[0]
+        postprocess_code[0] = 2
+        mass1p = dmdt_ait[0] / dndt_ait[0]
+        dndt_aitsv3[0] = dndt_ait[0]
+        dmdt_aitsv3[0] = dmdt_ait[0]
+
+        if mass1p < mass1p_aitlo:
+            dndt_ait[0] = dmdt_ait[0] / mass1p_aitlo
+            postprocess_code[0] = 3
+        elif mass1p > mass1p_aithi:
+            dmdt_ait[0] = dndt_ait[0] * mass1p_aithi
+            postprocess_code[0] = 4
+
+    dso4dt_ait[0] = dmdt_ait[0] * tmp_frso4 / specmw_so4_amode
+    dnh4dt_ait[0] = dmdt_ait[0] * (1.0 - tmp_frso4) / specmw_nh4_amode
+
+
+@export
 def mer07_veh02_nuc_mosaic_finalize_codon(
     dtnuc: float,
     temp_in: float,
