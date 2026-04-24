@@ -1,3 +1,5 @@
+from C import eddy_diff_estblf_cb(float) -> float
+from C import eddy_diff_svp_to_qsat_cb(float, float) -> float
 from math import sqrt
 
 
@@ -860,6 +862,60 @@ def eddy_diff_init_fields_codon(
     for k in range(1, pver + 1):
         for i in range(1, ncol + 1):
             qlfd[_idx2(i, k, pcols)] = ql[_idx2(i, k, pcols)]
+
+
+@export
+def eddy_diff_rebuild_thermo_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    cpair: float,
+    latvap: float,
+    latsub: float,
+    gravit: float,
+    rair: float,
+    slfd_p: cobj,
+    qtfd_p: cobj,
+    qi_p: cobj,
+    z_p: cobj,
+    pmid_p: cobj,
+    qlfd_p: cobj,
+    qvfd_p: cobj,
+    tfd_p: cobj,
+):
+    slfd = Ptr[float](slfd_p)
+    qtfd = Ptr[float](qtfd_p)
+    qi = Ptr[float](qi_p)
+    z = Ptr[float](z_p)
+    pmid = Ptr[float](pmid_p)
+    qlfd = Ptr[float](qlfd_p)
+    qvfd = Ptr[float](qvfd_p)
+    tfd = Ptr[float](tfd_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            zval = z[idx]
+            qival = qi[idx]
+            qtval = qtfd[idx]
+            slval = slfd[idx]
+            pval = pmid[idx]
+
+            templ = (slval - gravit * zval) / cpair
+            es = eddy_diff_estblf_cb(templ)
+            qs = eddy_diff_svp_to_qsat_cb(es, pval)
+            templ_sq = templ * templ
+
+            temps = templ + (qtval - qs) / (
+                cpair / latvap + latvap * qs / (rair * templ_sq)
+            )
+            es = eddy_diff_estblf_cb(temps)
+            qs = eddy_diff_svp_to_qsat_cb(es, pval)
+
+            qlval = max(qtval - qival - qs, 0.0)
+            qlfd[idx] = qlval
+            qvfd[idx] = max(0.0, qtval - qival - qlval)
+            tfd[idx] = (slval + latvap * qlval + latsub * qival - gravit * zval) / cpair
 
 
 @export

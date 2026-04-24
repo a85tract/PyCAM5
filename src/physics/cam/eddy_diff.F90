@@ -29,8 +29,8 @@
   use cam_logfile,      only: iulog
   use ppgrid,           only: pver  
   use cam_abortutils,   only: endrun
-  use spmd_utils,       only: masterproc
-  use wv_saturation,    only: qsat
+  use spmd_utils,       only: masterproc, iam
+  use wv_saturation,    only: qsat, estblf, svp_to_qsat
 
   implicit none
   private
@@ -184,6 +184,8 @@
   logical                     :: kv_relax_impl_selected = .false.
   logical                     :: use_native_init_fields_impl = .false.
   logical                     :: init_fields_impl_selected = .false.
+  logical                     :: use_native_rebuild_thermo_impl = .false.
+  logical                     :: rebuild_thermo_impl_selected = .false.
   logical                     :: use_native_zero_nonlocal_impl = .false.
   logical                     :: zero_nonlocal_impl_selected = .false.
   logical                     :: use_native_restore_fields_impl = .false.
@@ -714,31 +716,8 @@
          ! Retrieve (tfd,qvfd,qlfd) from (slfd,qtfd) in order to 
          ! use 'trbintd' at the next iteration.
           
-          do k = 1, pver
-             do i = 1, ncol
-              ! ----------------------------------------------------- ! 
-              ! Compute the condensate 'qlfd' in the updated profiles !
-              ! ----------------------------------------------------- !  
-              ! Option.1 : Assume grid-mean condensate is homogeneously diffused by the moist turbulence scheme.
-              !            This should bs used if 'pseudodiff = .false.' in vertical_diffusion.F90.
-              ! Modification : Need to be check whether below is correct in the presence of ice, qi.       
-              !                I should understand why the variation of ice, qi is neglected during diffusion.
-                templ     = ( slfd(i,k) - g*z(i,k) ) / cpair
-                call qsat( templ, pmid(i,k), es, qs)
-                ep2       =  .622_r8 
-                temps     =   templ + ( qtfd(i,k) - qs ) / ( cpair / latvap + latvap * qs / ( rair * templ**2 ) )
-                call qsat( temps, pmid(i,k), es, qs)
-                qlfd(i,k) =   max( qtfd(i,k) - qi(i,k) - qs ,0._r8 )
-              ! Option.2 : Assume condensate is not diffused by the moist turbulence scheme. 
-              !            This should bs used if 'pseudodiff = .true.'  in vertical_diffusion.F90.       
-              ! qlfd(i,k) = ql(i,k)
-              ! ----------------------------- !
-              ! Compute the other 'qvfd, tfd' ! 
-              ! ----------------------------- !
-                qvfd(i,k) = max( 0._r8, qtfd(i,k) - qi(i,k) - qlfd(i,k) )
-                tfd(i,k)  = ( slfd(i,k) + latvap * qlfd(i,k) + latsub * qi(i,k) - g*z(i,k)) / cpair
-             end do
-          end do
+          call eddy_diff_rebuild_thermo(ncol, pcols, pver, cpair, latvap, latsub, g, rair, slfd, qtfd, qi, z, pmid, &
+               qlfd, qvfd, tfd)
        endif
 
      ! Debug 
@@ -1940,6 +1919,157 @@
     qlfd_local(:ncol,:) = ql_local(:ncol,:)
 
   end subroutine eddy_diff_init_fields_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  function eddy_diff_estblf_cb(t_local) bind(C, name="eddy_diff_estblf_cb") result(es_local)
+
+    use iso_c_binding, only: c_double
+
+    implicit none
+
+    real(c_double), value, intent(in) :: t_local
+    real(c_double) :: es_local
+
+    es_local = estblf(real(t_local, r8))
+
+  end function eddy_diff_estblf_cb
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  function eddy_diff_svp_to_qsat_cb(es_local, p_local) bind(C, name="eddy_diff_svp_to_qsat_cb") result(qs_local)
+
+    use iso_c_binding, only: c_double
+
+    implicit none
+
+    real(c_double), value, intent(in) :: es_local, p_local
+    real(c_double) :: qs_local
+
+    qs_local = svp_to_qsat(real(es_local, r8), real(p_local, r8))
+
+  end function eddy_diff_svp_to_qsat_cb
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_rebuild_thermo_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (rebuild_thermo_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_REBUILD_THERMO_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_rebuild_thermo_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_rebuild_thermo_impl = .false.
+    end if
+
+    rebuild_thermo_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_rebuild_thermo_impl) then
+          write(iulog,*) 'eddy_diff_rebuild_thermo implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_rebuild_thermo implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_rebuild_thermo_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_rebuild_thermo(ncol, pcols, pver, cpair_local, latvap_local, latsub_local, g_local, rair_local, &
+       slfd_local, qtfd_local, qi_local, z_local, pmid_local, qlfd_local, qvfd_local, tfd_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, pver
+    real(r8), intent(in) :: cpair_local, latvap_local, latsub_local, g_local, rair_local
+    real(r8), target, intent(in) :: slfd_local(pcols,pver), qtfd_local(pcols,pver), qi_local(pcols,pver), z_local(pcols,pver), &
+         pmid_local(pcols,pver)
+    real(r8), target, intent(inout) :: qlfd_local(pcols,pver), qvfd_local(pcols,pver), tfd_local(pcols,pver)
+
+    interface
+       subroutine eddy_diff_rebuild_thermo_codon(ncol_c, pcols_c, pver_c, cpair_c, latvap_c, latsub_c, g_c, rair_c, &
+            slfd_p, qtfd_p, qi_p, z_p, pmid_p, qlfd_p, qvfd_p, tfd_p) bind(c, name="eddy_diff_rebuild_thermo_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: cpair_c, latvap_c, latsub_c, g_c, rair_c
+         type(c_ptr), value :: slfd_p, qtfd_p, qi_p, z_p, pmid_p, qlfd_p, qvfd_p, tfd_p
+       end subroutine eddy_diff_rebuild_thermo_codon
+    end interface
+
+    call eddy_diff_rebuild_thermo_select_impl()
+
+    if (use_native_rebuild_thermo_impl) then
+       call eddy_diff_rebuild_thermo_native(ncol, pcols, pver, cpair_local, latvap_local, latsub_local, g_local, &
+            rair_local, slfd_local, qtfd_local, qi_local, z_local, pmid_local, qlfd_local, qvfd_local, tfd_local)
+       return
+    end if
+
+    call eddy_diff_rebuild_thermo_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(cpair_local, c_double), &
+         real(latvap_local, c_double), real(latsub_local, c_double), real(g_local, c_double), real(rair_local, c_double), &
+         c_loc(slfd_local), c_loc(qtfd_local), c_loc(qi_local), c_loc(z_local), c_loc(pmid_local), c_loc(qlfd_local), &
+         c_loc(qvfd_local), c_loc(tfd_local) &
+    )
+
+  end subroutine eddy_diff_rebuild_thermo
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_rebuild_thermo_native(ncol, pcols, pver, cpair_local, latvap_local, latsub_local, g_local, &
+       rair_local, slfd_local, qtfd_local, qi_local, z_local, pmid_local, qlfd_local, qvfd_local, tfd_local)
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, pver
+    real(r8), intent(in) :: cpair_local, latvap_local, latsub_local, g_local, rair_local
+    real(r8), intent(in) :: slfd_local(pcols,pver), qtfd_local(pcols,pver), qi_local(pcols,pver), z_local(pcols,pver), &
+         pmid_local(pcols,pver)
+    real(r8), intent(inout) :: qlfd_local(pcols,pver), qvfd_local(pcols,pver), tfd_local(pcols,pver)
+
+    integer :: i, k
+    real(r8) :: es_local, qs_local, templ_local, temps_local, ep2_local
+
+    do k = 1, pver
+       do i = 1, ncol
+          templ_local = ( slfd_local(i,k) - g_local*z_local(i,k) ) / cpair_local
+          call qsat( templ_local, pmid_local(i,k), es_local, qs_local)
+          ep2_local = .622_r8
+          temps_local = templ_local + ( qtfd_local(i,k) - qs_local ) / ( cpair_local / latvap_local + &
+               latvap_local * qs_local / ( rair_local * templ_local**2 ) )
+          call qsat( temps_local, pmid_local(i,k), es_local, qs_local)
+          qlfd_local(i,k) = max( qtfd_local(i,k) - qi_local(i,k) - qs_local ,0._r8 )
+          qvfd_local(i,k) = max( 0._r8, qtfd_local(i,k) - qi_local(i,k) - qlfd_local(i,k) )
+          tfd_local(i,k) = ( slfd_local(i,k) + latvap_local * qlfd_local(i,k) + latsub_local * qi_local(i,k) - &
+               g_local*z_local(i,k)) / cpair_local
+       end do
+    end do
+
+  end subroutine eddy_diff_rebuild_thermo_native
 
   !=============================================================================== !
   !                                                                                !
