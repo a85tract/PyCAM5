@@ -93,6 +93,8 @@ module aero_model
   logical :: aero_model_drydep_branch_selected = .false.
   logical :: aero_model_wetdep_use_native_impl = .false.
   logical :: aero_model_wetdep_impl_selected = .false.
+  logical :: aero_model_gasaerexch_column_flux_use_native_impl = .false.
+  logical :: aero_model_gasaerexch_column_flux_impl_selected = .false.
   logical :: aero_model_emissions_seasalt_wind_use_native_impl = .false.
   logical :: aero_model_emissions_seasalt_wind_impl_selected = .false.
   logical :: aero_model_emissions_accumulate_sflx_use_native_impl = .false.
@@ -1639,10 +1641,7 @@ contains
     ! calculate tendency due to gas phase chemistry and processes
     dvmrdt(:ncol,:,:) = (vmr(:ncol,:,:) - vmr0(:ncol,:,:)) / delt
     do m = 1, gas_pcnst
-      wrk(:) = 0._r8
-      do k = 1,pver
-        wrk(:ncol) = wrk(:ncol) + dvmrdt(:ncol,k,m)*adv_mass(m)/mbar(:ncol,k)*pdel(:ncol,k)/gravit
-      end do
+      call aero_model_gasaerexch_column_flux(ncol, dvmrdt(:,:,m), mbar, pdel, adv_mass(m), wrk)
       name = 'GS_'//trim(solsym(m))
       call outfld( name, wrk(:ncol), ncol, lchnk )
     enddo
@@ -1681,10 +1680,7 @@ contains
     dvmrdt = (vmr - dvmrdt) / delt
     dvmrcwdt = (vmrcw - dvmrcwdt) / delt
     do m = 1, gas_pcnst
-      wrk(:) = 0._r8
-      do k = 1,pver
-        wrk(:ncol) = wrk(:ncol) + dvmrdt(:ncol,k,m) * adv_mass(m)/mbar(:ncol,k)*pdel(:ncol,k)/gravit
-      end do
+      call aero_model_gasaerexch_column_flux(ncol, dvmrdt(:,:,m), mbar, pdel, adv_mass(m), wrk)
       name = 'AQ_'//trim(solsym(m))
       call outfld( name, wrk(:ncol), ncol, lchnk )
     enddo
@@ -1759,6 +1755,83 @@ contains
     end do
 
   end subroutine aero_model_gasaerexch
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_gasaerexch_column_flux_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (aero_model_gasaerexch_column_flux_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('AERO_MODEL_GASAEREXCH_COLUMN_FLUX_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       aero_model_gasaerexch_column_flux_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       aero_model_gasaerexch_column_flux_use_native_impl = .false.
+    end if
+
+    aero_model_gasaerexch_column_flux_impl_selected = .true.
+
+    if (masterproc) then
+       if (aero_model_gasaerexch_column_flux_use_native_impl) then
+          write(iulog,*) 'aero_model_gasaerexch_column_flux implementation = native'
+       else
+          write(iulog,*) 'aero_model_gasaerexch_column_flux implementation = codon'
+       end if
+    end if
+
+  end subroutine aero_model_gasaerexch_column_flux_select_impl
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_gasaerexch_column_flux(ncol, field, mbar, pdel, adv_mass_in, wrk)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: field(ncol,pver)
+    real(r8), target, intent(in) :: mbar(pcols,pver), pdel(pcols,pver)
+    real(r8), intent(in) :: adv_mass_in
+    real(r8), target, intent(out) :: wrk(ncol)
+
+    integer :: k
+
+    interface
+       subroutine aero_model_gasaerexch_column_flux_codon(ncol_c, pcols_c, pver_c, adv_mass_c, gravit_c, field_p, mbar_p, pdel_p, wrk_p) &
+            bind(c, name="aero_model_gasaerexch_column_flux_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: adv_mass_c, gravit_c
+         type(c_ptr), value :: field_p, mbar_p, pdel_p, wrk_p
+       end subroutine aero_model_gasaerexch_column_flux_codon
+    end interface
+
+    call aero_model_gasaerexch_column_flux_select_impl()
+
+    if (aero_model_gasaerexch_column_flux_use_native_impl) then
+       wrk(:) = 0._r8
+       do k = 1,pver
+          wrk(:ncol) = wrk(:ncol) + field(:ncol,k) * adv_mass_in/mbar(:ncol,k)*pdel(:ncol,k)/gravit
+       end do
+       return
+    end if
+
+    call aero_model_gasaerexch_column_flux_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(adv_mass_in, c_double), real(gravit, c_double), &
+         c_loc(field), c_loc(mbar), c_loc(pdel), c_loc(wrk) &
+    )
+
+  end subroutine aero_model_gasaerexch_column_flux
 
   !=============================================================================
   !=============================================================================

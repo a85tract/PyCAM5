@@ -1489,6 +1489,33 @@ def chem_emissions_add_sflx_codon(
 
 
 @export
+def aero_model_gasaerexch_column_flux_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    adv_mass: float,
+    gravit: float,
+    field_p: cobj,
+    mbar_p: cobj,
+    pdel_p: cobj,
+    wrk_p: cobj,
+):
+    field = Ptr[float](field_p)
+    mbar = Ptr[float](mbar_p)
+    pdel = Ptr[float](pdel_p)
+    wrk = Ptr[float](wrk_p)
+
+    for i in range(1, ncol + 1):
+        wrk[i - 1] = 0.0
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            wrk[i - 1] += field[_idx2(i, k, ncol)] * adv_mass / mbar[_idx2(i, k, pcols)] * pdel[
+                _idx2(i, k, pcols)
+            ] / gravit
+
+
+@export
 def aero_model_emissions_accumulate_sflx_codon(
     ncol: int,
     pcols: int,
