@@ -37,6 +37,8 @@ module modal_aero_newnuc
   logical :: modal_aero_newnuc_scale_qsrflx_impl_selected = .false.
   logical :: modal_aero_newnuc_apply_tendencies_use_native_impl = .false.
   logical :: modal_aero_newnuc_apply_tendencies_impl_selected = .false.
+  logical :: modal_aero_newnuc_postprocess_label_use_native_impl = .false.
+  logical :: modal_aero_newnuc_postprocess_label_impl_selected = .false.
   logical :: pbl_nuc_wang2008_use_native_impl = .false.
   logical :: pbl_nuc_wang2008_impl_selected = .false.
   logical :: binary_nuc_vehk2002_use_native_impl = .false.
@@ -866,6 +868,106 @@ module modal_aero_newnuc
 
 !----------------------------------------------------------------------
 !----------------------------------------------------------------------
+  subroutine modal_aero_newnuc_postprocess_label_select_impl()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   implicit none
+
+   character(len=48) :: impl_name
+   integer :: status, n, i, code
+
+   if (modal_aero_newnuc_postprocess_label_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('MODAL_AERO_NEWNUC_POSTPROCESS_LABEL_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      modal_aero_newnuc_postprocess_label_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      modal_aero_newnuc_postprocess_label_use_native_impl = .false.
+   end if
+
+   modal_aero_newnuc_postprocess_label_impl_selected = .true.
+
+   if (masterproc) then
+      if (modal_aero_newnuc_postprocess_label_use_native_impl) then
+         write(iulog,*) 'modal_aero_newnuc_postprocess_label implementation = native'
+      else
+         write(iulog,*) 'modal_aero_newnuc_postprocess_label implementation = codon'
+      end if
+   end if
+
+  end subroutine modal_aero_newnuc_postprocess_label_select_impl
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_newnuc_postprocess_label( postprocess_code_in, tmpch1_code_out )
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+   implicit none
+
+   integer, intent(in) :: postprocess_code_in
+   integer, intent(out) :: tmpch1_code_out
+
+   integer(c_int64_t), target :: tmpch1_code_work
+
+   interface
+      subroutine modal_aero_newnuc_postprocess_label_codon( postprocess_code_c, tmpch1_code_p ) &
+           bind(c, name="modal_aero_newnuc_postprocess_label_codon")
+        use iso_c_binding, only: c_int64_t, c_ptr
+        integer(c_int64_t), value :: postprocess_code_c
+        type(c_ptr), value :: tmpch1_code_p
+      end subroutine modal_aero_newnuc_postprocess_label_codon
+   end interface
+
+   call modal_aero_newnuc_postprocess_label_select_impl()
+
+   if (modal_aero_newnuc_postprocess_label_use_native_impl) then
+      call modal_aero_newnuc_postprocess_label_native( postprocess_code_in, tmpch1_code_out )
+      return
+   end if
+
+   tmpch1_code_work = int(iachar(' '), c_int64_t)
+
+   call modal_aero_newnuc_postprocess_label_codon( int(postprocess_code_in, c_int64_t), c_loc(tmpch1_code_work) )
+
+   tmpch1_code_out = int(tmpch1_code_work, kind(tmpch1_code_out))
+
+  end subroutine modal_aero_newnuc_postprocess_label
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_newnuc_postprocess_label_native( postprocess_code_in, tmpch1_code_out )
+
+   implicit none
+
+   integer, intent(in) :: postprocess_code_in
+   integer, intent(out) :: tmpch1_code_out
+
+   tmpch1_code_out = iachar(' ')
+   if (postprocess_code_in == 1) then
+      tmpch1_code_out = iachar('A')
+   else if (postprocess_code_in == 2) then
+      tmpch1_code_out = iachar('B')
+   else if (postprocess_code_in == 3) then
+      tmpch1_code_out = iachar('C')
+   else if (postprocess_code_in == 4) then
+      tmpch1_code_out = iachar('E')
+   end if
+
+  end subroutine modal_aero_newnuc_postprocess_label_native
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
 !BOP
 ! !ROUTINE:  modal_aero_newnuc_sub --- ...
 !
@@ -991,6 +1093,7 @@ module modal_aero_newnuc
 
 
 	character(len=1) :: tmpch1, tmpch2, tmpch3
+        integer :: tmpch1_code
         character(len=fieldname_len+3) :: fieldname
 
 
@@ -1124,17 +1227,9 @@ main_i:	do i = 1, ncol
            dndt_aitsv1, dmdt_aitsv1, dndt_aitsv2, dmdt_aitsv2, dndt_aitsv3, dmdt_aitsv3, &
            postprocess_code )
 
-        tmpch1 = ' '
+        call modal_aero_newnuc_postprocess_label( postprocess_code, tmpch1_code )
+        tmpch1 = achar(tmpch1_code)
         tmpch2 = ' '
-        if (postprocess_code == 1) then
-           tmpch1 = 'A'
-        else if (postprocess_code == 2) then
-           tmpch1 = 'B'
-        else if (postprocess_code == 3) then
-           tmpch1 = 'C'
-        else if (postprocess_code == 4) then
-           tmpch1 = 'E'
-        end if
 
 ! *** apply adjustment factor to avoid unrealistically high
 !     aitken number concentrations in mid and upper troposphere

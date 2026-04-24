@@ -4076,6 +4076,24 @@ def modal_aero_newnuc_apply_tendencies_codon(
 
 
 @export
+def modal_aero_newnuc_postprocess_label_codon(
+    postprocess_code_c: int,
+    tmpch1_code_p: cobj,
+):
+    tmpch1_code = Ptr[int](tmpch1_code_p)
+
+    tmpch1_code[0] = 32
+    if postprocess_code_c == 1:
+        tmpch1_code[0] = 65
+    elif postprocess_code_c == 2:
+        tmpch1_code[0] = 66
+    elif postprocess_code_c == 3:
+        tmpch1_code[0] = 67
+    elif postprocess_code_c == 4:
+        tmpch1_code[0] = 69
+
+
+@export
 def modal_aero_newnuc_set_tendency_flags_codon(
     pcnst_c: int,
     lnumait_c: int,
