@@ -1516,6 +1516,28 @@ def aero_model_gasaerexch_column_flux_codon(
 
 
 @export
+def aero_model_gasaerexch_h2so4_save_codon(
+    ncol: int,
+    pver: int,
+    gas_pcnst: int,
+    ndx_h2so4: int,
+    vmr_p: cobj,
+    del_h2so4_aeruptk_p: cobj,
+):
+    vmr = Ptr[float](vmr_p)
+    del_h2so4_aeruptk = Ptr[float](del_h2so4_aeruptk_p)
+
+    if ndx_h2so4 > 0:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                del_h2so4_aeruptk[_idx2(i, k, ncol)] = vmr[_idx3(i, k, ndx_h2so4, ncol, pver)]
+    else:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                del_h2so4_aeruptk[_idx2(i, k, ncol)] = 0.0
+
+
+@export
 def aero_model_gasaerexch_gas_tend_codon(
     ncol: int,
     pver: int,

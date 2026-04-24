@@ -95,6 +95,8 @@ module aero_model
   logical :: aero_model_wetdep_impl_selected = .false.
   logical :: aero_model_gasaerexch_column_flux_use_native_impl = .false.
   logical :: aero_model_gasaerexch_column_flux_impl_selected = .false.
+  logical :: aero_model_gasaerexch_h2so4_save_use_native_impl = .false.
+  logical :: aero_model_gasaerexch_h2so4_save_impl_selected = .false.
   logical :: aero_model_gasaerexch_gas_tend_use_native_impl = .false.
   logical :: aero_model_gasaerexch_gas_tend_impl_selected = .false.
   logical :: aero_model_gasaerexch_aq_tend_use_native_impl = .false.
@@ -1690,11 +1692,7 @@ contains
 
 ! do gas-aerosol exchange (h2so4, msa, nh3 condensation)
 
-    if (ndx_h2so4 > 0) then
-       del_h2so4_aeruptk(1:ncol,:) = vmr(1:ncol,:,ndx_h2so4)
-    else
-       del_h2so4_aeruptk(:,:) = 0.0_r8
-    endif
+    call aero_model_gasaerexch_h2so4_save(ncol, ndx_h2so4, vmr, del_h2so4_aeruptk)
 
     call t_startf('modal_gas-aer_exchng')
     
@@ -1758,6 +1756,79 @@ contains
     end do
 
   end subroutine aero_model_gasaerexch
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_gasaerexch_h2so4_save_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (aero_model_gasaerexch_h2so4_save_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('AERO_MODEL_GASAEREXCH_H2SO4_SAVE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       aero_model_gasaerexch_h2so4_save_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       aero_model_gasaerexch_h2so4_save_use_native_impl = .false.
+    end if
+
+    aero_model_gasaerexch_h2so4_save_impl_selected = .true.
+
+    if (masterproc) then
+       if (aero_model_gasaerexch_h2so4_save_use_native_impl) then
+          write(iulog,*) 'aero_model_gasaerexch_h2so4_save implementation = native'
+       else
+          write(iulog,*) 'aero_model_gasaerexch_h2so4_save implementation = codon'
+       end if
+    end if
+
+  end subroutine aero_model_gasaerexch_h2so4_save_select_impl
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_gasaerexch_h2so4_save(ncol, ndx_h2so4_in, vmr, del_h2so4_aeruptk)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol, ndx_h2so4_in
+    real(r8), target, intent(in) :: vmr(ncol,pver,gas_pcnst)
+    real(r8), target, intent(out) :: del_h2so4_aeruptk(ncol,pver)
+
+    interface
+       subroutine aero_model_gasaerexch_h2so4_save_codon(ncol_c, pver_c, gas_pcnst_c, ndx_h2so4_c, vmr_p, del_h2so4_aeruptk_p) &
+            bind(c, name="aero_model_gasaerexch_h2so4_save_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, gas_pcnst_c, ndx_h2so4_c
+         type(c_ptr), value :: vmr_p, del_h2so4_aeruptk_p
+       end subroutine aero_model_gasaerexch_h2so4_save_codon
+    end interface
+
+    call aero_model_gasaerexch_h2so4_save_select_impl()
+
+    if (aero_model_gasaerexch_h2so4_save_use_native_impl) then
+       if (ndx_h2so4_in > 0) then
+          del_h2so4_aeruptk(1:ncol,:) = vmr(1:ncol,:,ndx_h2so4_in)
+       else
+          del_h2so4_aeruptk(:,:) = 0.0_r8
+       end if
+       return
+    end if
+
+    call aero_model_gasaerexch_h2so4_save_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), int(ndx_h2so4_in, c_int64_t), &
+         c_loc(vmr(1,1,1)), c_loc(del_h2so4_aeruptk(1,1)) &
+    )
+
+  end subroutine aero_model_gasaerexch_h2so4_save
 
   !=============================================================================
   !=============================================================================
