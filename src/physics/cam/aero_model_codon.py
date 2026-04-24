@@ -1,4 +1,4 @@
-from math import atan, copysign, erfc, exp, log, sqrt
+from math import atan, copysign, erfc, exp, log, pi, sqrt
 
 @inline
 def _idx2(i: int, k: int, ld1: int) -> int:
@@ -1607,6 +1607,50 @@ def modal_aero_newnuc_prepare_box_inputs_codon(
             qnh3_cur_out[out_idx] = qnh3_cur
             tmp_uptkrate_out[out_idx] = tmp_uptkrate
             relhumnn_out[out_idx] = relhumnn
+
+
+@export
+def pbl_nuc_wang2008_codon(
+    so4vol: float,
+    newnuc_method_flagaa: int,
+    newnuc_method_flagaa2_p: cobj,
+    ratenucl_p: cobj,
+    rateloge_p: cobj,
+    cnum_tot_p: cobj,
+    cnum_h2so4_p: cobj,
+    cnum_nh3_p: cobj,
+    radius_cluster_p: cobj,
+):
+    newnuc_method_flagaa2 = Ptr[int](newnuc_method_flagaa2_p)
+    ratenucl = Ptr[float](ratenucl_p)
+    rateloge = Ptr[float](rateloge_p)
+    cnum_tot = Ptr[float](cnum_tot_p)
+    cnum_h2so4 = Ptr[float](cnum_h2so4_p)
+    cnum_nh3 = Ptr[float](cnum_nh3_p)
+    radius_cluster = Ptr[float](radius_cluster_p)
+
+    if newnuc_method_flagaa == 11:
+        tmp_ratenucl = 1.0e-6 * so4vol
+    elif newnuc_method_flagaa == 12:
+        tmp_ratenucl = 1.0e-12 * (so4vol * so4vol)
+    else:
+        return
+
+    tmp_rateloge = log(tmp_ratenucl)
+    if tmp_rateloge <= rateloge[0]:
+        return
+
+    rateloge[0] = tmp_rateloge
+    ratenucl[0] = tmp_ratenucl
+    newnuc_method_flagaa2[0] = newnuc_method_flagaa
+
+    radius_cluster[0] = 0.5
+    tmp_diam = radius_cluster[0] * 2.0e-7
+    tmp_volu = (tmp_diam * tmp_diam * tmp_diam) * (pi / 6.0)
+    tmp_mass = tmp_volu * 1.8
+    cnum_h2so4[0] = (tmp_mass / 98.0) * 6.023e23
+    cnum_tot[0] = cnum_h2so4[0]
+    cnum_nh3[0] = 0.0
 
 
 @export

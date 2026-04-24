@@ -29,6 +29,8 @@ module modal_aero_newnuc
   logical :: modal_aero_newnuc_zero_tendencies_impl_selected = .false.
   logical :: modal_aero_newnuc_prepare_box_inputs_use_native_impl = .false.
   logical :: modal_aero_newnuc_prepare_box_inputs_impl_selected = .false.
+  logical :: pbl_nuc_wang2008_use_native_impl = .false.
+  logical :: pbl_nuc_wang2008_impl_selected = .false.
 
 ! min h2so4 vapor for nuc calcs = 4.0e-16 mol/mol-air ~= 1.0e4 molecules/cm3, 
   real(r8), parameter :: qh2so4_cutoff = 4.0e-16_r8
@@ -1346,7 +1348,119 @@ main_i:	do i = 1, ncol
 
 !-----------------------------------------------------------------------
 !-----------------------------------------------------------------------
+  subroutine pbl_nuc_wang2008_select_impl()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   implicit none
+
+   character(len=48) :: impl_name
+   integer :: status, n, i, code
+
+   if (pbl_nuc_wang2008_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('PBL_NUC_WANG2008_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      pbl_nuc_wang2008_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      pbl_nuc_wang2008_use_native_impl = .false.
+   end if
+
+   pbl_nuc_wang2008_impl_selected = .true.
+
+   if (masterproc) then
+      if (pbl_nuc_wang2008_use_native_impl) then
+         write(iulog,*) 'pbl_nuc_wang2008 implementation = native'
+      else
+         write(iulog,*) 'pbl_nuc_wang2008 implementation = codon'
+      end if
+   end if
+
+  end subroutine pbl_nuc_wang2008_select_impl
+
+!-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
         subroutine pbl_nuc_wang2008( so4vol,   &
+            newnuc_method_flagaa, newnuc_method_flagaa2,   &
+            ratenucl, rateloge,   &
+            cnum_tot, cnum_h2so4, cnum_nh3, radius_cluster )
+
+        use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+        implicit none
+
+! subr arguments (in)
+        real(r8), intent(in) :: so4vol
+        integer, intent(in)  :: newnuc_method_flagaa
+
+! subr arguments (inout)
+        integer, intent(inout)  :: newnuc_method_flagaa2
+        real(r8), intent(inout) :: ratenucl
+        real(r8), intent(inout) :: rateloge
+        real(r8), intent(inout) :: cnum_tot
+        real(r8), intent(inout) :: cnum_h2so4
+        real(r8), intent(inout) :: cnum_nh3
+        real(r8), intent(inout) :: radius_cluster
+
+        integer(c_int64_t), target :: newnuc_method_flagaa2_work
+        real(c_double), target :: ratenucl_work, rateloge_work
+        real(c_double), target :: cnum_tot_work, cnum_h2so4_work
+        real(c_double), target :: cnum_nh3_work, radius_cluster_work
+
+        interface
+           subroutine pbl_nuc_wang2008_codon(so4vol_c, newnuc_method_flagaa_c, newnuc_method_flagaa2_p, ratenucl_p, rateloge_p, &
+                cnum_tot_p, cnum_h2so4_p, cnum_nh3_p, radius_cluster_p) bind(c, name="pbl_nuc_wang2008_codon")
+             use iso_c_binding, only: c_double, c_int64_t, c_ptr
+             real(c_double), value :: so4vol_c
+             integer(c_int64_t), value :: newnuc_method_flagaa_c
+             type(c_ptr), value :: newnuc_method_flagaa2_p, ratenucl_p, rateloge_p
+             type(c_ptr), value :: cnum_tot_p, cnum_h2so4_p, cnum_nh3_p, radius_cluster_p
+           end subroutine pbl_nuc_wang2008_codon
+        end interface
+
+        call pbl_nuc_wang2008_select_impl()
+
+        if (pbl_nuc_wang2008_use_native_impl) then
+           call pbl_nuc_wang2008_native( &
+                so4vol, newnuc_method_flagaa, newnuc_method_flagaa2, ratenucl, rateloge, cnum_tot, cnum_h2so4, cnum_nh3, radius_cluster)
+           return
+        end if
+
+        newnuc_method_flagaa2_work = int(newnuc_method_flagaa2, c_int64_t)
+        ratenucl_work = real(ratenucl, c_double)
+        rateloge_work = real(rateloge, c_double)
+        cnum_tot_work = real(cnum_tot, c_double)
+        cnum_h2so4_work = real(cnum_h2so4, c_double)
+        cnum_nh3_work = real(cnum_nh3, c_double)
+        radius_cluster_work = real(radius_cluster, c_double)
+
+        call pbl_nuc_wang2008_codon( &
+             real(so4vol, c_double), int(newnuc_method_flagaa, c_int64_t), c_loc(newnuc_method_flagaa2_work), c_loc(ratenucl_work), &
+             c_loc(rateloge_work), c_loc(cnum_tot_work), c_loc(cnum_h2so4_work), c_loc(cnum_nh3_work), c_loc(radius_cluster_work) &
+        )
+
+        newnuc_method_flagaa2 = int(newnuc_method_flagaa2_work, kind(newnuc_method_flagaa2))
+        ratenucl = real(ratenucl_work, r8)
+        rateloge = real(rateloge_work, r8)
+        cnum_tot = real(cnum_tot_work, r8)
+        cnum_h2so4 = real(cnum_h2so4_work, r8)
+        cnum_nh3 = real(cnum_nh3_work, r8)
+        radius_cluster = real(radius_cluster_work, r8)
+
+        end subroutine pbl_nuc_wang2008
+
+!-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+        subroutine pbl_nuc_wang2008_native( so4vol,   &
             newnuc_method_flagaa, newnuc_method_flagaa2,   &
             ratenucl, rateloge,   &
             cnum_tot, cnum_h2so4, cnum_nh3, radius_cluster )
@@ -1416,7 +1530,7 @@ main_i:	do i = 1, ncol
 
 
         return
-        end subroutine pbl_nuc_wang2008
+        end subroutine pbl_nuc_wang2008_native
 
 
 
