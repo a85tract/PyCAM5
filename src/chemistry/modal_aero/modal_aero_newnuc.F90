@@ -29,6 +29,8 @@ module modal_aero_newnuc
   logical :: modal_aero_newnuc_zero_tendencies_impl_selected = .false.
   logical :: modal_aero_newnuc_prepare_box_inputs_use_native_impl = .false.
   logical :: modal_aero_newnuc_prepare_box_inputs_impl_selected = .false.
+  logical :: modal_aero_newnuc_setup_modes_use_native_impl = .false.
+  logical :: modal_aero_newnuc_setup_modes_impl_selected = .false.
   logical :: modal_aero_newnuc_apply_tendencies_use_native_impl = .false.
   logical :: modal_aero_newnuc_apply_tendencies_impl_selected = .false.
   logical :: pbl_nuc_wang2008_use_native_impl = .false.
@@ -322,6 +324,177 @@ module modal_aero_newnuc
 
 !----------------------------------------------------------------------
 !----------------------------------------------------------------------
+  subroutine modal_aero_newnuc_setup_modes_select_impl()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   implicit none
+
+   character(len=48) :: impl_name
+   integer :: status, n, i, code
+
+   if (modal_aero_newnuc_setup_modes_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('MODAL_AERO_NEWNUC_SETUP_MODES_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      modal_aero_newnuc_setup_modes_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      modal_aero_newnuc_setup_modes_use_native_impl = .false.
+   end if
+
+   modal_aero_newnuc_setup_modes_impl_selected = .true.
+
+   if (masterproc) then
+      if (modal_aero_newnuc_setup_modes_use_native_impl) then
+         write(iulog,*) 'modal_aero_newnuc_setup_modes implementation = native'
+      else
+         write(iulog,*) 'modal_aero_newnuc_setup_modes implementation = codon'
+      end if
+   end if
+
+  end subroutine modal_aero_newnuc_setup_modes_select_impl
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_newnuc_setup_modes( &
+       loffset_in, pcnst_in, l_h2so4_sv_in, l_nh3_sv_in, lnumait_sv_in, lso4ait_sv_in, lptr_nh4_aitken_in, &
+       dgnumlo_aitken_in, dgnum_aitken_in, dgnumhi_aitken_in, specdens_so4_amode_in, pi_in, &
+       l_h2so4_out, l_nh3_out, lnumait_out, lnh4ait_out, lso4ait_out, do_nh3_flag_out, valid_mask_out, &
+       dplom_mode_1_out, dphim_mode_1_out, mass1p_aitlo_out, mass1p_aithi_out )
+
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+   implicit none
+
+   integer, intent(in) :: loffset_in, pcnst_in, l_h2so4_sv_in, l_nh3_sv_in, lnumait_sv_in, lso4ait_sv_in, lptr_nh4_aitken_in
+   real(r8), intent(in) :: dgnumlo_aitken_in, dgnum_aitken_in, dgnumhi_aitken_in, specdens_so4_amode_in, pi_in
+   integer, intent(out) :: l_h2so4_out, l_nh3_out, lnumait_out, lnh4ait_out, lso4ait_out
+   integer, intent(out) :: do_nh3_flag_out, valid_mask_out
+   real(r8), intent(out) :: dplom_mode_1_out, dphim_mode_1_out, mass1p_aitlo_out, mass1p_aithi_out
+
+   integer(c_int64_t), target :: l_h2so4_work, l_nh3_work, lnumait_work, lnh4ait_work, lso4ait_work
+   integer(c_int64_t), target :: do_nh3_flag_work, valid_mask_work
+   real(c_double), target :: dplom_mode_1_work, dphim_mode_1_work, mass1p_aitlo_work, mass1p_aithi_work
+
+   interface
+      subroutine modal_aero_newnuc_setup_modes_codon( &
+           loffset_c, pcnst_c, l_h2so4_sv_c, l_nh3_sv_c, lnumait_sv_c, lso4ait_sv_c, lptr_nh4_aitken_c, &
+           dgnumlo_aitken_c, dgnum_aitken_c, dgnumhi_aitken_c, specdens_so4_amode_c, pi_c, &
+           l_h2so4_p, l_nh3_p, lnumait_p, lnh4ait_p, lso4ait_p, do_nh3_flag_p, valid_mask_p, &
+           dplom_mode_1_p, dphim_mode_1_p, mass1p_aitlo_p, mass1p_aithi_p ) bind(c, name="modal_aero_newnuc_setup_modes_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: loffset_c, pcnst_c, l_h2so4_sv_c, l_nh3_sv_c, lnumait_sv_c, lso4ait_sv_c, lptr_nh4_aitken_c
+        real(c_double), value :: dgnumlo_aitken_c, dgnum_aitken_c, dgnumhi_aitken_c, specdens_so4_amode_c, pi_c
+        type(c_ptr), value :: l_h2so4_p, l_nh3_p, lnumait_p, lnh4ait_p, lso4ait_p, do_nh3_flag_p, valid_mask_p
+        type(c_ptr), value :: dplom_mode_1_p, dphim_mode_1_p, mass1p_aitlo_p, mass1p_aithi_p
+      end subroutine modal_aero_newnuc_setup_modes_codon
+   end interface
+
+   call modal_aero_newnuc_setup_modes_select_impl()
+
+   if (modal_aero_newnuc_setup_modes_use_native_impl) then
+      call modal_aero_newnuc_setup_modes_native( &
+           loffset_in, pcnst_in, l_h2so4_sv_in, l_nh3_sv_in, lnumait_sv_in, lso4ait_sv_in, lptr_nh4_aitken_in, &
+           dgnumlo_aitken_in, dgnum_aitken_in, dgnumhi_aitken_in, specdens_so4_amode_in, pi_in, &
+           l_h2so4_out, l_nh3_out, lnumait_out, lnh4ait_out, lso4ait_out, do_nh3_flag_out, valid_mask_out, &
+           dplom_mode_1_out, dphim_mode_1_out, mass1p_aitlo_out, mass1p_aithi_out )
+      return
+   end if
+
+   l_h2so4_work = 0_c_int64_t
+   l_nh3_work = 0_c_int64_t
+   lnumait_work = 0_c_int64_t
+   lnh4ait_work = 0_c_int64_t
+   lso4ait_work = 0_c_int64_t
+   do_nh3_flag_work = 0_c_int64_t
+   valid_mask_work = 0_c_int64_t
+   dplom_mode_1_work = 0.0_c_double
+   dphim_mode_1_work = 0.0_c_double
+   mass1p_aitlo_work = 0.0_c_double
+   mass1p_aithi_work = 0.0_c_double
+
+   call modal_aero_newnuc_setup_modes_codon( &
+        int(loffset_in, c_int64_t), int(pcnst_in, c_int64_t), int(l_h2so4_sv_in, c_int64_t), int(l_nh3_sv_in, c_int64_t), &
+        int(lnumait_sv_in, c_int64_t), int(lso4ait_sv_in, c_int64_t), int(lptr_nh4_aitken_in, c_int64_t), &
+        real(dgnumlo_aitken_in, c_double), real(dgnum_aitken_in, c_double), real(dgnumhi_aitken_in, c_double), &
+        real(specdens_so4_amode_in, c_double), real(pi_in, c_double), c_loc(l_h2so4_work), c_loc(l_nh3_work), c_loc(lnumait_work), &
+        c_loc(lnh4ait_work), c_loc(lso4ait_work), c_loc(do_nh3_flag_work), c_loc(valid_mask_work), c_loc(dplom_mode_1_work), &
+        c_loc(dphim_mode_1_work), c_loc(mass1p_aitlo_work), c_loc(mass1p_aithi_work) )
+
+   l_h2so4_out = int(l_h2so4_work)
+   l_nh3_out = int(l_nh3_work)
+   lnumait_out = int(lnumait_work)
+   lnh4ait_out = int(lnh4ait_work)
+   lso4ait_out = int(lso4ait_work)
+   do_nh3_flag_out = int(do_nh3_flag_work)
+   valid_mask_out = int(valid_mask_work)
+   dplom_mode_1_out = real(dplom_mode_1_work, r8)
+   dphim_mode_1_out = real(dphim_mode_1_work, r8)
+   mass1p_aitlo_out = real(mass1p_aitlo_work, r8)
+   mass1p_aithi_out = real(mass1p_aithi_work, r8)
+
+  end subroutine modal_aero_newnuc_setup_modes
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_newnuc_setup_modes_native( &
+       loffset_in, pcnst_in, l_h2so4_sv_in, l_nh3_sv_in, lnumait_sv_in, lso4ait_sv_in, lptr_nh4_aitken_in, &
+       dgnumlo_aitken_in, dgnum_aitken_in, dgnumhi_aitken_in, specdens_so4_amode_in, pi_in, &
+       l_h2so4_out, l_nh3_out, lnumait_out, lnh4ait_out, lso4ait_out, do_nh3_flag_out, valid_mask_out, &
+       dplom_mode_1_out, dphim_mode_1_out, mass1p_aitlo_out, mass1p_aithi_out )
+
+   implicit none
+
+   integer, intent(in) :: loffset_in, pcnst_in, l_h2so4_sv_in, l_nh3_sv_in, lnumait_sv_in, lso4ait_sv_in, lptr_nh4_aitken_in
+   real(r8), intent(in) :: dgnumlo_aitken_in, dgnum_aitken_in, dgnumhi_aitken_in, specdens_so4_amode_in, pi_in
+   integer, intent(out) :: l_h2so4_out, l_nh3_out, lnumait_out, lnh4ait_out, lso4ait_out
+   integer, intent(out) :: do_nh3_flag_out, valid_mask_out
+   real(r8), intent(out) :: dplom_mode_1_out, dphim_mode_1_out, mass1p_aitlo_out, mass1p_aithi_out
+
+   real(r8) :: tmpa
+
+   l_h2so4_out = l_h2so4_sv_in - loffset_in
+   l_nh3_out = l_nh3_sv_in - loffset_in
+   lnumait_out = lnumait_sv_in - loffset_in
+   lso4ait_out = lso4ait_sv_in - loffset_in
+   lnh4ait_out = lptr_nh4_aitken_in - loffset_in
+
+   dplom_mode_1_out = 0.0_r8
+   dphim_mode_1_out = 0.0_r8
+   mass1p_aitlo_out = 0.0_r8
+   mass1p_aithi_out = 0.0_r8
+   do_nh3_flag_out = 0
+   valid_mask_out = 0
+
+   if ((l_h2so4_out <= 0) .or. (lso4ait_out <= 0) .or. (lnumait_out <= 0)) return
+
+   valid_mask_out = 1
+
+   if ((l_nh3_out > 0) .and. (l_nh3_out <= pcnst_in) .and. &
+       (lnh4ait_out > 0) .and. (lnh4ait_out <= pcnst_in)) then
+      do_nh3_flag_out = 1
+   end if
+
+   dplom_mode_1_out = exp( 0.67_r8*log(dgnumlo_aitken_in) + 0.33_r8*log(dgnum_aitken_in) )
+   dphim_mode_1_out = dgnumhi_aitken_in
+
+   tmpa = specdens_so4_amode_in*pi_in/6.0_r8
+   mass1p_aitlo_out = tmpa*(dplom_mode_1_out**3)
+   mass1p_aithi_out = tmpa*(dphim_mode_1_out**3)
+
+  end subroutine modal_aero_newnuc_setup_modes_native
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
   subroutine modal_aero_newnuc_apply_tendencies_select_impl()
 
    use cam_logfile, only: iulog
@@ -545,10 +718,11 @@ module modal_aero_newnuc
 !BOC
 
 !   local variables
-	integer :: i, itmp, k, l, lmz, lun, m, mait
+	integer :: i, itmp, k, l, lmz, lun, m
 	integer :: lnumait, lso4ait, lnh4ait
 	integer :: l_h2so4, l_nh3
 	integer :: ldiagveh02
+	integer :: do_nh3_flag, valid_mask
 	integer :: postprocess_code
 	integer, parameter :: ldiag1=-1, ldiag2=-1, ldiag3=-1, ldiag4=-1
         integer, parameter :: newnuc_method_flagaa = 11
@@ -618,47 +792,29 @@ module modal_aero_newnuc
 !--------------------------------------------------------------------------------
 
 !-----------------------------------------------------------------------
-	l_h2so4 = l_h2so4_sv - loffset
-	l_nh3   = l_nh3_sv   - loffset
-	lnumait = lnumait_sv - loffset
-	lnh4ait = lnh4ait_sv - loffset
-	lso4ait = lso4ait_sv - loffset
+	call modal_aero_newnuc_setup_modes( &
+	     loffset, pcnst, l_h2so4_sv, l_nh3_sv, lnumait_sv, lso4ait_sv, lptr_nh4_a_amode(modeptr_aitken), &
+	     dgnumlo_amode(modeptr_aitken), dgnum_amode(modeptr_aitken), dgnumhi_amode(modeptr_aitken), specdens_so4_amode, pi, &
+	     l_h2so4, l_nh3, lnumait, lnh4ait, lso4ait, do_nh3_flag, valid_mask, dplom_mode(1), dphim_mode(1), mass1p_aitlo, mass1p_aithi )
 
 !   skip if no aitken mode OR if no h2so4 species
-	if ((l_h2so4 <= 0) .or. (lso4ait <= 0) .or. (lnumait <= 0)) return
+	if (valid_mask == 0) return
 
 	dotend(:) = .false.
 	call modal_aero_newnuc_zero_tendencies(ncol, pcnst, nsrflx, dqdt, qsrflx)
 
 !   set dotend
-	mait = modeptr_aitken
 	dotend(lnumait) = .true.
 	dotend(lso4ait) = .true.
 	dotend(l_h2so4) = .true.
 
-	lnh4ait = lptr_nh4_a_amode(mait) - loffset
-	if ((l_nh3   > 0) .and. (l_nh3   <= pcnst) .and. &
-	    (lnh4ait > 0) .and. (lnh4ait <= pcnst)) then
+	if (do_nh3_flag /= 0) then
 	    do_nh3 = .true.
 	    dotend(lnh4ait) = .true.
 	    dotend(l_nh3) = .true.
 	else
 	    do_nh3 = .false.
 	end if
-
-
-!   dry-diameter limits for "grown" new particles
-	dplom_mode(1) = exp( 0.67_r8*log(dgnumlo_amode(mait))   &
-	                   + 0.33_r8*log(dgnum_amode(mait)) )
-	dphim_mode(1) = dgnumhi_amode(mait)
-
-!   mass1p_... = mass (kg) of so4 & nh4 in a single particle of diameter ...
-!                (assuming same dry density for so4 & nh4)
-!	mass1p_aitlo - dp = dplom_mode(1)
-!	mass1p_aithi - dp = dphim_mode(1)
-	tmpa = specdens_so4_amode*pi/6.0_r8
-	mass1p_aitlo = tmpa*(dplom_mode(1)**3)
-	mass1p_aithi = tmpa*(dphim_mode(1)**3)
 
 !   compute qv_sat = saturation specific humidity
 	call qsat(t(1:ncol, 1:pver), pmid(1:ncol, 1:pver), &

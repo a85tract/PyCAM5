@@ -4014,3 +4014,70 @@ def modal_aero_newnuc_apply_tendencies_codon(
             q[_idx3(i, k, lnh4ait_c, ncol, pver)]
             + dqdt[_idx3(i, k, lnh4ait_c, ncol, pver)] * deltat_c
         )
+
+
+@export
+def modal_aero_newnuc_setup_modes_codon(
+    loffset_c: int,
+    pcnst_c: int,
+    l_h2so4_sv_c: int,
+    l_nh3_sv_c: int,
+    lnumait_sv_c: int,
+    lso4ait_sv_c: int,
+    lptr_nh4_aitken_c: int,
+    dgnumlo_aitken_c: float,
+    dgnum_aitken_c: float,
+    dgnumhi_aitken_c: float,
+    specdens_so4_amode_c: float,
+    pi_c: float,
+    l_h2so4_p: cobj,
+    l_nh3_p: cobj,
+    lnumait_p: cobj,
+    lnh4ait_p: cobj,
+    lso4ait_p: cobj,
+    do_nh3_flag_p: cobj,
+    valid_mask_p: cobj,
+    dplom_mode_1_p: cobj,
+    dphim_mode_1_p: cobj,
+    mass1p_aitlo_p: cobj,
+    mass1p_aithi_p: cobj,
+):
+    l_h2so4 = Ptr[int](l_h2so4_p)
+    l_nh3 = Ptr[int](l_nh3_p)
+    lnumait = Ptr[int](lnumait_p)
+    lnh4ait = Ptr[int](lnh4ait_p)
+    lso4ait = Ptr[int](lso4ait_p)
+    do_nh3_flag = Ptr[int](do_nh3_flag_p)
+    valid_mask = Ptr[int](valid_mask_p)
+    dplom_mode_1 = Ptr[float](dplom_mode_1_p)
+    dphim_mode_1 = Ptr[float](dphim_mode_1_p)
+    mass1p_aitlo = Ptr[float](mass1p_aitlo_p)
+    mass1p_aithi = Ptr[float](mass1p_aithi_p)
+
+    l_h2so4[0] = l_h2so4_sv_c - loffset_c
+    l_nh3[0] = l_nh3_sv_c - loffset_c
+    lnumait[0] = lnumait_sv_c - loffset_c
+    lso4ait[0] = lso4ait_sv_c - loffset_c
+    lnh4ait[0] = lptr_nh4_aitken_c - loffset_c
+
+    dplom_mode_1[0] = 0.0
+    dphim_mode_1[0] = 0.0
+    mass1p_aitlo[0] = 0.0
+    mass1p_aithi[0] = 0.0
+    do_nh3_flag[0] = 0
+    valid_mask[0] = 0
+
+    if l_h2so4[0] <= 0 or lso4ait[0] <= 0 or lnumait[0] <= 0:
+        return
+
+    valid_mask[0] = 1
+
+    if l_nh3[0] > 0 and l_nh3[0] <= pcnst_c and lnh4ait[0] > 0 and lnh4ait[0] <= pcnst_c:
+        do_nh3_flag[0] = 1
+
+    dplom_mode_1[0] = exp(0.67 * log(dgnumlo_aitken_c) + 0.33 * log(dgnum_aitken_c))
+    dphim_mode_1[0] = dgnumhi_aitken_c
+
+    tmpa = specdens_so4_amode_c * pi_c / 6.0
+    mass1p_aitlo[0] = tmpa * (dplom_mode_1[0] ** 3)
+    mass1p_aithi[0] = tmpa * (dphim_mode_1[0] ** 3)
