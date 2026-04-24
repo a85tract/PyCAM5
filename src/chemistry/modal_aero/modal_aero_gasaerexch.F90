@@ -56,6 +56,8 @@
   logical :: gas_aer_uptkrates_impl_selected = .false.
   logical :: modal_aero_soaexch_use_native_impl = .false.
   logical :: modal_aero_soaexch_impl_selected = .false.
+  logical :: modal_aero_gasaerexch_zero_tendencies_use_native_impl = .false.
+  logical :: modal_aero_gasaerexch_zero_tendencies_impl_selected = .false.
   logical :: modal_aero_gasaerexch_snapshot_state_use_native_impl = .false.
   logical :: modal_aero_gasaerexch_snapshot_state_impl_selected = .false.
 
@@ -159,6 +161,87 @@ subroutine modal_aero_soaexch_select_impl()
   end if
 
 end subroutine modal_aero_soaexch_select_impl
+
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+subroutine modal_aero_gasaerexch_zero_tendencies_select_impl()
+
+  use cam_logfile, only: iulog
+  use spmd_utils, only: masterproc
+
+  implicit none
+
+  character(len=48) :: impl_name
+  integer :: status, n, i, code
+
+  if (modal_aero_gasaerexch_zero_tendencies_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MODAL_AERO_GASAEREXCH_ZERO_TENDENCIES_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     modal_aero_gasaerexch_zero_tendencies_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     modal_aero_gasaerexch_zero_tendencies_use_native_impl = .false.
+  end if
+
+  modal_aero_gasaerexch_zero_tendencies_impl_selected = .true.
+
+  if (masterproc) then
+     if (modal_aero_gasaerexch_zero_tendencies_use_native_impl) then
+        write(iulog,*) 'modal_aero_gasaerexch_zero_tendencies implementation = native'
+     else
+        write(iulog,*) 'modal_aero_gasaerexch_zero_tendencies implementation = codon'
+     end if
+  end if
+
+end subroutine modal_aero_gasaerexch_zero_tendencies_select_impl
+
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+subroutine modal_aero_gasaerexch_zero_tendencies(ncol, nsrflx_in, dqdt, dqqcwdt, qsrflx, qqcwsrflx)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+  implicit none
+
+  integer, intent(in) :: ncol, nsrflx_in
+  real(r8), target, intent(out) :: dqdt(ncol,pver,pcnstxx), dqqcwdt(ncol,pver,pcnstxx)
+  real(r8), target, intent(out) :: qsrflx(pcols,pcnstxx,nsrflx_in), qqcwsrflx(pcols,pcnstxx,nsrflx_in)
+
+  interface
+     subroutine modal_aero_gasaerexch_zero_tendencies_codon(ncol_c, pcols_c, pver_c, pcnstxx_c, nsrflx_c, &
+          dqdt_p, dqqcwdt_p, qsrflx_p, qqcwsrflx_p) bind(c, name="modal_aero_gasaerexch_zero_tendencies_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnstxx_c, nsrflx_c
+       type(c_ptr), value :: dqdt_p, dqqcwdt_p, qsrflx_p, qqcwsrflx_p
+     end subroutine modal_aero_gasaerexch_zero_tendencies_codon
+  end interface
+
+  call modal_aero_gasaerexch_zero_tendencies_select_impl()
+
+  if (modal_aero_gasaerexch_zero_tendencies_use_native_impl) then
+     dqdt(:,:,:) = 0.0_r8
+     dqqcwdt(:,:,:) = 0.0_r8
+     qsrflx(:,:,:) = 0.0_r8
+     qqcwsrflx(:,:,:) = 0.0_r8
+     return
+  end if
+
+  call modal_aero_gasaerexch_zero_tendencies_codon( &
+       int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnstxx, c_int64_t), int(nsrflx_in, c_int64_t), &
+       c_loc(dqdt(1,1,1)), c_loc(dqqcwdt(1,1,1)), c_loc(qsrflx(1,1,1)), c_loc(qqcwsrflx(1,1,1)) &
+  )
+
+end subroutine modal_aero_gasaerexch_zero_tendencies
 
 
 !----------------------------------------------------------------------
@@ -518,10 +601,7 @@ implicit none
 
 
 ! zero out tendencies and other
-   dqdt(:,:,:) = 0.0_r8
-   dqqcwdt(:,:,:) = 0.0_r8
-   qsrflx(:,:,:) = 0.0_r8
-   qqcwsrflx(:,:,:) = 0.0_r8
+   call modal_aero_gasaerexch_zero_tendencies(ncol, nsrflx, dqdt, dqqcwdt, qsrflx, qqcwsrflx)
 
 ! compute gas-to-aerosol mass transfer rates
    call gas_aer_uptkrates( ncol,       loffset,                &

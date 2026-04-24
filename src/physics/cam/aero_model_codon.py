@@ -1423,6 +1423,37 @@ def vmr2qqcw_codon(
 
 
 @export
+def modal_aero_gasaerexch_zero_tendencies_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnstxx: int,
+    nsrflx: int,
+    dqdt_p: cobj,
+    dqqcwdt_p: cobj,
+    qsrflx_p: cobj,
+    qqcwsrflx_p: cobj,
+):
+    dqdt = Ptr[float](dqdt_p)
+    dqqcwdt = Ptr[float](dqqcwdt_p)
+    qsrflx = Ptr[float](qsrflx_p)
+    qqcwsrflx = Ptr[float](qqcwsrflx_p)
+
+    for m in range(1, pcnstxx + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                dqdt[_idx3(i, k, m, ncol, pver)] = 0.0
+                dqqcwdt[_idx3(i, k, m, ncol, pver)] = 0.0
+
+    for jsrf in range(1, nsrflx + 1):
+        for m in range(1, pcnstxx + 1):
+            for i in range(1, pcols + 1):
+                idx = _idx3(i, m, jsrf, pcols, pcnstxx)
+                qsrflx[idx] = 0.0
+                qqcwsrflx[idx] = 0.0
+
+
+@export
 def modal_aero_gasaerexch_snapshot_state_codon(
     ncol: int,
     pver: int,
