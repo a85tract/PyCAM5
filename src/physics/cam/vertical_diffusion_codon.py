@@ -693,6 +693,37 @@ def eddy_diff_error_pbl_codon(
 
 
 @export
+def eddy_diff_kv_relax_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    lambda_v: float,
+    kvm_p: cobj,
+    kvh_p: cobj,
+    kvm_out_p: cobj,
+    kvh_out_p: cobj,
+):
+    kvm = Ptr[float](kvm_p)
+    kvh = Ptr[float](kvh_p)
+    kvm_out = Ptr[float](kvm_out_p)
+    kvh_out = Ptr[float](kvh_out_p)
+
+    for k in range(1, pver + 2):
+        for i in range(1, ncol + 1):
+            kvm_out[_idx2(i, k, pcols)] = (
+                lambda_v * kvm_out[_idx2(i, k, pcols)]
+                + (1.0 - lambda_v) * kvm[_idx2(i, k, pcols)]
+            )
+
+    for k in range(1, pver + 2):
+        for i in range(1, ncol + 1):
+            kvh_out[_idx2(i, k, pcols)] = (
+                lambda_v * kvh_out[_idx2(i, k, pcols)]
+                + (1.0 - lambda_v) * kvh[_idx2(i, k, pcols)]
+            )
+
+
+@export
 def vertical_diffusion_obklen_diag_codon(
     ncol: int,
     pcols: int,

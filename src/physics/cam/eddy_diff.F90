@@ -180,6 +180,8 @@
   logical                     :: kv_init_impl_selected = .false.
   logical                     :: use_native_error_pbl_impl = .false.
   logical                     :: error_pbl_impl_selected = .false.
+  logical                     :: use_native_kv_relax_impl = .false.
+  logical                     :: kv_relax_impl_selected = .false.
 
   CONTAINS
 
@@ -659,8 +661,7 @@
      ! sprod) in 'caleddy' at the next iteration step.
 
        if( iturb .gt. 1 .and. iturb .lt. nturb ) then
-           kvm_out(:ncol,:) = lambda * kvm_out(:ncol,:) + ( 1._r8 - lambda ) * kvm(:ncol,:)
-           kvh_out(:ncol,:) = lambda * kvh_out(:ncol,:) + ( 1._r8 - lambda ) * kvh(:ncol,:)
+           call eddy_diff_kv_relax(ncol, pcols, pver, lambda, kvm, kvh, kvm_out, kvh_out)
        endif
 
      ! Set nonlocal terms to zero for flux diagnostics, since not used by caleddy.
@@ -1742,6 +1743,101 @@
     end do
 
   end subroutine eddy_diff_error_pbl_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_kv_relax_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (kv_relax_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_KV_RELAX_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_kv_relax_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_kv_relax_impl = .false.
+    end if
+
+    kv_relax_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_kv_relax_impl) then
+          write(iulog,*) 'eddy_diff_kv_relax implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_kv_relax implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_kv_relax_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_kv_relax(ncol, pcols, pver, lambda_local, kvm_local, kvh_local, kvm_out_local, kvh_out_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, pver
+    real(r8), intent(in) :: lambda_local
+    real(r8), target, intent(in) :: kvm_local(pcols,pver+1), kvh_local(pcols,pver+1)
+    real(r8), target, intent(inout) :: kvm_out_local(pcols,pver+1), kvh_out_local(pcols,pver+1)
+
+    interface
+       subroutine eddy_diff_kv_relax_codon(ncol_c, pcols_c, pver_c, lambda_c, kvm_p, kvh_p, kvm_out_p, kvh_out_p) &
+            bind(c, name="eddy_diff_kv_relax_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: lambda_c
+         type(c_ptr), value :: kvm_p, kvh_p, kvm_out_p, kvh_out_p
+       end subroutine eddy_diff_kv_relax_codon
+    end interface
+
+    call eddy_diff_kv_relax_select_impl()
+
+    if (use_native_kv_relax_impl) then
+       call eddy_diff_kv_relax_native(ncol, pcols, pver, lambda_local, kvm_local, kvh_local, kvm_out_local, kvh_out_local)
+       return
+    end if
+
+    call eddy_diff_kv_relax_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(lambda_local, c_double), &
+         c_loc(kvm_local), c_loc(kvh_local), c_loc(kvm_out_local), c_loc(kvh_out_local) &
+    )
+
+  end subroutine eddy_diff_kv_relax
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_kv_relax_native(ncol, pcols, pver, lambda_local, kvm_local, kvh_local, kvm_out_local, kvh_out_local)
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, pver
+    real(r8), intent(in) :: lambda_local
+    real(r8), intent(in) :: kvm_local(pcols,pver+1), kvh_local(pcols,pver+1)
+    real(r8), intent(inout) :: kvm_out_local(pcols,pver+1), kvh_out_local(pcols,pver+1)
+
+    kvm_out_local(:ncol,:) = lambda_local * kvm_out_local(:ncol,:) + ( 1._r8 - lambda_local ) * kvm_local(:ncol,:)
+    kvh_out_local(:ncol,:) = lambda_local * kvh_out_local(:ncol,:) + ( 1._r8 - lambda_local ) * kvh_local(:ncol,:)
+
+  end subroutine eddy_diff_kv_relax_native
 
     ! ---------------------------------------------------------------------------- !
     !                                                                              !
