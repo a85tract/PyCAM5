@@ -33,6 +33,8 @@ module modal_aero_newnuc
   logical :: pbl_nuc_wang2008_impl_selected = .false.
   logical :: binary_nuc_vehk2002_use_native_impl = .false.
   logical :: binary_nuc_vehk2002_impl_selected = .false.
+  logical :: mer07_veh02_nuc_mosaic_prepare_rates_use_native_impl = .false.
+  logical :: mer07_veh02_nuc_mosaic_prepare_rates_impl_selected = .false.
   logical :: mer07_veh02_nuc_mosaic_finalize_use_native_impl = .false.
   logical :: mer07_veh02_nuc_mosaic_finalize_impl_selected = .false.
 
@@ -889,6 +891,7 @@ main_i:	do i = 1, ncol
 !       integer, parameter :: ldiagaa = -1
         integer :: lun
         integer :: newnuc_method_flagaa2
+        integer :: use_ternary_rate, use_binary_rate, do_pbl_rate
 
         real(r8), parameter :: onethird = 1.0_r8/3.0_r8
 
@@ -974,58 +977,38 @@ main_i:	do i = 1, ncol
 ! make call to parameterization routine
 !
 
-! calc h2so4 in molecules/cm3 and nh3 in ppt
-        cair = press_in/(temp_in*rgas)
-        so4vol_in  = qh2so4_avg * cair * avogad * 1.0e-6_r8
-        nh3ppt    = qnh3_cur * 1.0e12_r8
-        ratenuclt = 1.0e-38_r8
-        rateloge = log( ratenuclt )
+! calc h2so4 in molecules/cm3 and nh3 in ppt, and prepare bounded inputs
+        call mer07_veh02_nuc_mosaic_prepare_rates( &
+           newnuc_method_flagaa, temp_in, rh_in, press_in, zm_in, pblh_in, qh2so4_avg, qnh3_cur, &
+           cair, so4vol_in, nh3ppt, ratenuclt, rateloge, temp_bb, rh_bb, so4vol_bb, nh3ppt_bb, &
+           newnuc_method_flagaa2, use_ternary_rate, use_binary_rate, do_pbl_rate )
 
-        if ( (newnuc_method_flagaa /=  2) .and. &
-             (nh3ppt >= 0.1_r8) ) then
+        if (use_ternary_rate /= 0) then
 ! make call to merikanto ternary parameterization routine
 ! (when nh3ppt < 0.1, use binary param instead)
-
-            if (so4vol_in >= 5.0e4_r8) then
-               temp_bb = max( 235.0_r8, min( 295.0_r8, temp_in ) )
-               rh_bb = max( 0.05_r8, min( 0.95_r8, rh_in ) )
-               so4vol_bb = max( 5.0e4_r8, min( 1.0e9_r8, so4vol_in ) )
-               nh3ppt_bb = max( 0.1_r8, min( 1.0e3_r8, nh3ppt ) )
-               call ternary_nuc_merik2007(   &
-                  temp_bb, rh_bb, so4vol_bb, nh3ppt_bb,   &
-                  rateloge,   &
-                  cnum_tot, cnum_h2so4, cnum_nh3, radius_cluster )
-            end if
-            newnuc_method_flagaa2 = 1
+           call ternary_nuc_merik2007(   &
+              temp_bb, rh_bb, so4vol_bb, nh3ppt_bb,   &
+              rateloge,   &
+              cnum_tot, cnum_h2so4, cnum_nh3, radius_cluster )
 
         else
 ! make call to vehkamaki binary parameterization routine
-
-            if (so4vol_in >= 1.0e4_r8) then
-               temp_bb = max( 230.15_r8, min( 305.15_r8, temp_in ) )
-               rh_bb = max( 1.0e-4_r8, min( 1.0_r8, rh_in ) )
-               so4vol_bb = max( 1.0e4_r8, min( 1.0e11_r8, so4vol_in ) )
-               call binary_nuc_vehk2002(   &
-                  temp_bb, rh_bb, so4vol_bb,   &
-                  ratenuclt, rateloge,   &
-                  cnum_h2so4, cnum_tot, radius_cluster )
-            end if
-            cnum_nh3 = 0.0_r8
-            newnuc_method_flagaa2 = 2
-
+           if (use_binary_rate /= 0) then
+              call binary_nuc_vehk2002(   &
+                 temp_bb, rh_bb, so4vol_bb,   &
+                 ratenuclt, rateloge,   &
+                 cnum_h2so4, cnum_tot, radius_cluster )
+           end if
+           cnum_nh3 = 0.0_r8
         end if
 
 
 ! do boundary layer nuc
-        if ((newnuc_method_flagaa == 11) .or.   &
-            (newnuc_method_flagaa == 12)) then
-           if ( zm_in <= max(pblh_in,100.0_r8) ) then
-              so4vol_bb = so4vol_in
-              call pbl_nuc_wang2008( so4vol_bb,   &
-                 newnuc_method_flagaa, newnuc_method_flagaa2,   &
-                 ratenuclt, rateloge,   &
-                 cnum_tot, cnum_h2so4, cnum_nh3, radius_cluster )
-           end if
+        if (do_pbl_rate /= 0) then
+           call pbl_nuc_wang2008( so4vol_in,   &
+              newnuc_method_flagaa, newnuc_method_flagaa2,   &
+              ratenuclt, rateloge,   &
+              cnum_tot, cnum_h2so4, cnum_nh3, radius_cluster )
         end if
 
 
@@ -1355,6 +1338,176 @@ main_i:	do i = 1, ncol
 
         return
         end subroutine mer07_veh02_nuc_mosaic_1box
+
+!-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+  subroutine mer07_veh02_nuc_mosaic_prepare_rates_select_impl()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   implicit none
+
+   character(len=48) :: impl_name
+   integer :: status, n, i, code
+
+   if (mer07_veh02_nuc_mosaic_prepare_rates_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('MER07_VEH02_NUC_MOSAIC_PREPARE_RATES_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      mer07_veh02_nuc_mosaic_prepare_rates_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      mer07_veh02_nuc_mosaic_prepare_rates_use_native_impl = .false.
+   end if
+
+   mer07_veh02_nuc_mosaic_prepare_rates_impl_selected = .true.
+
+   if (masterproc) then
+      if (mer07_veh02_nuc_mosaic_prepare_rates_use_native_impl) then
+         write(iulog,*) 'mer07_veh02_nuc_mosaic_prepare_rates implementation = native'
+      else
+         write(iulog,*) 'mer07_veh02_nuc_mosaic_prepare_rates implementation = codon'
+      end if
+   end if
+
+  end subroutine mer07_veh02_nuc_mosaic_prepare_rates_select_impl
+
+!-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+  subroutine mer07_veh02_nuc_mosaic_prepare_rates( newnuc_method_flagaa, temp_in, rh_in, press_in, zm_in, pblh_in, &
+       qh2so4_avg, qnh3_cur, cair, so4vol_in, nh3ppt, ratenuclt, rateloge, temp_bb, rh_bb, so4vol_bb, nh3ppt_bb, &
+       newnuc_method_flagaa2, use_ternary_rate, use_binary_rate, do_pbl_rate )
+
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+   use mo_constants, only: rgas, avogad => avogadro
+
+   implicit none
+
+   integer, intent(in) :: newnuc_method_flagaa
+   real(r8), intent(in) :: temp_in, rh_in, press_in, zm_in, pblh_in
+   real(r8), intent(in) :: qh2so4_avg, qnh3_cur
+   real(r8), intent(out) :: cair, so4vol_in, nh3ppt, ratenuclt, rateloge
+   real(r8), intent(out) :: temp_bb, rh_bb, so4vol_bb, nh3ppt_bb
+   integer, intent(out) :: newnuc_method_flagaa2, use_ternary_rate, use_binary_rate, do_pbl_rate
+
+   integer(c_int64_t), target :: newnuc_method_flagaa2_work
+   integer(c_int64_t), target :: use_ternary_rate_work, use_binary_rate_work, do_pbl_rate_work
+   real(c_double), target :: cair_work, so4vol_in_work, nh3ppt_work
+   real(c_double), target :: ratenuclt_work, rateloge_work
+   real(c_double), target :: temp_bb_work, rh_bb_work, so4vol_bb_work, nh3ppt_bb_work
+
+   interface
+      subroutine mer07_veh02_nuc_mosaic_prepare_rates_codon( newnuc_method_flagaa_c, temp_in_c, rh_in_c, press_in_c, zm_in_c, &
+           pblh_in_c, qh2so4_avg_c, qnh3_cur_c, rgas_c, avogad_c, cair_p, so4vol_in_p, nh3ppt_p, ratenuclt_p, rateloge_p, &
+           temp_bb_p, rh_bb_p, so4vol_bb_p, nh3ppt_bb_p, newnuc_method_flagaa2_p, use_ternary_rate_p, use_binary_rate_p, &
+           do_pbl_rate_p ) bind(c, name="mer07_veh02_nuc_mosaic_prepare_rates_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: newnuc_method_flagaa_c
+        real(c_double), value :: temp_in_c, rh_in_c, press_in_c, zm_in_c, pblh_in_c, qh2so4_avg_c, qnh3_cur_c
+        real(c_double), value :: rgas_c, avogad_c
+        type(c_ptr), value :: cair_p, so4vol_in_p, nh3ppt_p, ratenuclt_p, rateloge_p
+        type(c_ptr), value :: temp_bb_p, rh_bb_p, so4vol_bb_p, nh3ppt_bb_p
+        type(c_ptr), value :: newnuc_method_flagaa2_p, use_ternary_rate_p, use_binary_rate_p, do_pbl_rate_p
+      end subroutine mer07_veh02_nuc_mosaic_prepare_rates_codon
+   end interface
+
+   call mer07_veh02_nuc_mosaic_prepare_rates_select_impl()
+
+   if (mer07_veh02_nuc_mosaic_prepare_rates_use_native_impl) then
+      call mer07_veh02_nuc_mosaic_prepare_rates_native( newnuc_method_flagaa, temp_in, rh_in, press_in, zm_in, pblh_in, &
+           qh2so4_avg, qnh3_cur, cair, so4vol_in, nh3ppt, ratenuclt, rateloge, temp_bb, rh_bb, so4vol_bb, nh3ppt_bb, &
+           newnuc_method_flagaa2, use_ternary_rate, use_binary_rate, do_pbl_rate )
+      return
+   end if
+
+   call mer07_veh02_nuc_mosaic_prepare_rates_codon( &
+        int(newnuc_method_flagaa, c_int64_t), real(temp_in, c_double), real(rh_in, c_double), real(press_in, c_double), &
+        real(zm_in, c_double), real(pblh_in, c_double), real(qh2so4_avg, c_double), real(qnh3_cur, c_double), &
+        real(rgas, c_double), real(avogad, c_double), c_loc(cair_work), c_loc(so4vol_in_work), c_loc(nh3ppt_work), &
+        c_loc(ratenuclt_work), c_loc(rateloge_work), c_loc(temp_bb_work), c_loc(rh_bb_work), c_loc(so4vol_bb_work), &
+        c_loc(nh3ppt_bb_work), c_loc(newnuc_method_flagaa2_work), c_loc(use_ternary_rate_work), c_loc(use_binary_rate_work), &
+        c_loc(do_pbl_rate_work) )
+
+   cair = real(cair_work, r8)
+   so4vol_in = real(so4vol_in_work, r8)
+   nh3ppt = real(nh3ppt_work, r8)
+   ratenuclt = real(ratenuclt_work, r8)
+   rateloge = real(rateloge_work, r8)
+   temp_bb = real(temp_bb_work, r8)
+   rh_bb = real(rh_bb_work, r8)
+   so4vol_bb = real(so4vol_bb_work, r8)
+   nh3ppt_bb = real(nh3ppt_bb_work, r8)
+   newnuc_method_flagaa2 = int(newnuc_method_flagaa2_work, kind(newnuc_method_flagaa2))
+   use_ternary_rate = int(use_ternary_rate_work, kind(use_ternary_rate))
+   use_binary_rate = int(use_binary_rate_work, kind(use_binary_rate))
+   do_pbl_rate = int(do_pbl_rate_work, kind(do_pbl_rate))
+
+  end subroutine mer07_veh02_nuc_mosaic_prepare_rates
+
+!-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+  subroutine mer07_veh02_nuc_mosaic_prepare_rates_native( newnuc_method_flagaa, temp_in, rh_in, press_in, zm_in, pblh_in, &
+       qh2so4_avg, qnh3_cur, cair, so4vol_in, nh3ppt, ratenuclt, rateloge, temp_bb, rh_bb, so4vol_bb, nh3ppt_bb, &
+       newnuc_method_flagaa2, use_ternary_rate, use_binary_rate, do_pbl_rate )
+
+   use mo_constants, only: rgas, avogad => avogadro
+
+   implicit none
+
+   integer, intent(in) :: newnuc_method_flagaa
+   real(r8), intent(in) :: temp_in, rh_in, press_in, zm_in, pblh_in
+   real(r8), intent(in) :: qh2so4_avg, qnh3_cur
+   real(r8), intent(out) :: cair, so4vol_in, nh3ppt, ratenuclt, rateloge
+   real(r8), intent(out) :: temp_bb, rh_bb, so4vol_bb, nh3ppt_bb
+   integer, intent(out) :: newnuc_method_flagaa2, use_ternary_rate, use_binary_rate, do_pbl_rate
+
+   cair = press_in/(temp_in*rgas)
+   so4vol_in = qh2so4_avg * cair * avogad * 1.0e-6_r8
+   nh3ppt = qnh3_cur * 1.0e12_r8
+   ratenuclt = 1.0e-38_r8
+   rateloge = log( ratenuclt )
+   temp_bb = 0.0_r8
+   rh_bb = 0.0_r8
+   so4vol_bb = 0.0_r8
+   nh3ppt_bb = 0.0_r8
+   use_ternary_rate = 0
+   use_binary_rate = 0
+   do_pbl_rate = 0
+
+   if ( (newnuc_method_flagaa /= 2) .and. (nh3ppt >= 0.1_r8) ) then
+      if (so4vol_in >= 5.0e4_r8) then
+         temp_bb = max( 235.0_r8, min( 295.0_r8, temp_in ) )
+         rh_bb = max( 0.05_r8, min( 0.95_r8, rh_in ) )
+         so4vol_bb = max( 5.0e4_r8, min( 1.0e9_r8, so4vol_in ) )
+         nh3ppt_bb = max( 0.1_r8, min( 1.0e3_r8, nh3ppt ) )
+         use_ternary_rate = 1
+      end if
+      newnuc_method_flagaa2 = 1
+   else
+      if (so4vol_in >= 1.0e4_r8) then
+         temp_bb = max( 230.15_r8, min( 305.15_r8, temp_in ) )
+         rh_bb = max( 1.0e-4_r8, min( 1.0_r8, rh_in ) )
+         so4vol_bb = max( 1.0e4_r8, min( 1.0e11_r8, so4vol_in ) )
+         use_binary_rate = 1
+      end if
+      newnuc_method_flagaa2 = 2
+   end if
+
+   if ((newnuc_method_flagaa == 11) .or. (newnuc_method_flagaa == 12)) then
+      if (zm_in <= max(pblh_in, 100.0_r8)) then
+         do_pbl_rate = 1
+      end if
+   end if
+
+  end subroutine mer07_veh02_nuc_mosaic_prepare_rates_native
 
 !-----------------------------------------------------------------------
 !-----------------------------------------------------------------------

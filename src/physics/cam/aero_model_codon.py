@@ -1739,6 +1739,80 @@ def binary_nuc_vehk2002_codon(
 
 
 @export
+def mer07_veh02_nuc_mosaic_prepare_rates_codon(
+    newnuc_method_flagaa: int,
+    temp_in: float,
+    rh_in: float,
+    press_in: float,
+    zm_in: float,
+    pblh_in: float,
+    qh2so4_avg: float,
+    qnh3_cur: float,
+    rgas: float,
+    avogad: float,
+    cair_p: cobj,
+    so4vol_in_p: cobj,
+    nh3ppt_p: cobj,
+    ratenuclt_p: cobj,
+    rateloge_p: cobj,
+    temp_bb_p: cobj,
+    rh_bb_p: cobj,
+    so4vol_bb_p: cobj,
+    nh3ppt_bb_p: cobj,
+    newnuc_method_flagaa2_p: cobj,
+    use_ternary_rate_p: cobj,
+    use_binary_rate_p: cobj,
+    do_pbl_rate_p: cobj,
+):
+    cair = Ptr[float](cair_p)
+    so4vol_in = Ptr[float](so4vol_in_p)
+    nh3ppt = Ptr[float](nh3ppt_p)
+    ratenuclt = Ptr[float](ratenuclt_p)
+    rateloge = Ptr[float](rateloge_p)
+    temp_bb = Ptr[float](temp_bb_p)
+    rh_bb = Ptr[float](rh_bb_p)
+    so4vol_bb = Ptr[float](so4vol_bb_p)
+    nh3ppt_bb = Ptr[float](nh3ppt_bb_p)
+    newnuc_method_flagaa2 = Ptr[int](newnuc_method_flagaa2_p)
+    use_ternary_rate = Ptr[int](use_ternary_rate_p)
+    use_binary_rate = Ptr[int](use_binary_rate_p)
+    do_pbl_rate = Ptr[int](do_pbl_rate_p)
+
+    cair[0] = press_in / (temp_in * rgas)
+    so4vol_in[0] = qh2so4_avg * cair[0] * avogad * 1.0e-6
+    nh3ppt[0] = qnh3_cur * 1.0e12
+    ratenuclt[0] = 1.0e-38
+    rateloge[0] = log(ratenuclt[0])
+    temp_bb[0] = 0.0
+    rh_bb[0] = 0.0
+    so4vol_bb[0] = 0.0
+    nh3ppt_bb[0] = 0.0
+    use_ternary_rate[0] = 0
+    use_binary_rate[0] = 0
+    do_pbl_rate[0] = 0
+
+    if (newnuc_method_flagaa != 2) and (nh3ppt[0] >= 0.1):
+        if so4vol_in[0] >= 5.0e4:
+            temp_bb[0] = max(235.0, min(295.0, temp_in))
+            rh_bb[0] = max(0.05, min(0.95, rh_in))
+            so4vol_bb[0] = max(5.0e4, min(1.0e9, so4vol_in[0]))
+            nh3ppt_bb[0] = max(0.1, min(1.0e3, nh3ppt[0]))
+            use_ternary_rate[0] = 1
+        newnuc_method_flagaa2[0] = 1
+    else:
+        if so4vol_in[0] >= 1.0e4:
+            temp_bb[0] = max(230.15, min(305.15, temp_in))
+            rh_bb[0] = max(1.0e-4, min(1.0, rh_in))
+            so4vol_bb[0] = max(1.0e4, min(1.0e11, so4vol_in[0]))
+            use_binary_rate[0] = 1
+        newnuc_method_flagaa2[0] = 2
+
+    if (newnuc_method_flagaa == 11) or (newnuc_method_flagaa == 12):
+        if zm_in <= max(pblh_in, 100.0):
+            do_pbl_rate[0] = 1
+
+
+@export
 def mer07_veh02_nuc_mosaic_finalize_codon(
     dtnuc: float,
     temp_in: float,
