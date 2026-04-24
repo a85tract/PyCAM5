@@ -140,6 +140,8 @@ module vertical_diffusion
   logical              :: tend_impl_selected = .false.
   logical              :: use_native_flux_diag_impl = .false.
   logical              :: flux_diag_impl_selected = .false.
+  logical              :: use_native_ptend_core_impl = .false.
+  logical              :: ptend_core_impl_selected = .false.
   integer              :: tend_branch_mask = 0
   logical              :: tend_branch_selected = .false.
   integer              :: pmam_ncnst = 0               ! number of prognostic modal aerosol constituents
@@ -1013,6 +1015,152 @@ contains
   !                                                                                 !
   ! =============================================================================== !
 
+  subroutine vertical_diffusion_ptend_core_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (ptend_core_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('VERTICAL_DIFFUSION_PTEND_CORE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_ptend_core_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_ptend_core_impl = .false.
+    end if
+
+    ptend_core_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_ptend_core_impl) then
+          write(iulog,*) 'vertical_diffusion_ptend_core implementation = native'
+       else
+          write(iulog,*) 'vertical_diffusion_ptend_core implementation = codon'
+       end if
+    end if
+
+  end subroutine vertical_diffusion_ptend_core_select_impl
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_ptend_core(ncol, psetcols_local, q_tmp_local, s_tmp_local, u_tmp_local, v_tmp_local, &
+       state_q_local, state_s_local, state_u_local, state_v_local, sl_local, qt_local, sl_prePBL_local, &
+       qt_prePBL_local, rztodt_local, ptend_q_local, ptend_s_local, ptend_u_local, ptend_v_local, slten_local, &
+       qtten_local)
+
+    use iso_c_binding, only: c_int64_t, c_double, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: psetcols_local
+    real(r8), target, intent(in) :: q_tmp_local(pcols,pver,pcnst)
+    real(r8), target, intent(in) :: s_tmp_local(pcols,pver)
+    real(r8), target, intent(in) :: u_tmp_local(pcols,pver)
+    real(r8), target, intent(in) :: v_tmp_local(pcols,pver)
+    real(r8), target, intent(in) :: state_q_local(pcols,pver,pcnst)
+    real(r8), target, intent(in) :: state_s_local(pcols,pver)
+    real(r8), target, intent(in) :: state_u_local(pcols,pver)
+    real(r8), target, intent(in) :: state_v_local(pcols,pver)
+    real(r8), target, intent(in) :: sl_local(pcols,pver)
+    real(r8), target, intent(in) :: qt_local(pcols,pver)
+    real(r8), target, intent(in) :: sl_prePBL_local(pcols,pver)
+    real(r8), target, intent(in) :: qt_prePBL_local(pcols,pver)
+    real(r8), intent(in) :: rztodt_local
+    real(r8), target, intent(inout) :: ptend_q_local(psetcols_local,pver,pcnst)
+    real(r8), target, intent(inout) :: ptend_s_local(psetcols_local,pver)
+    real(r8), target, intent(inout) :: ptend_u_local(psetcols_local,pver)
+    real(r8), target, intent(inout) :: ptend_v_local(psetcols_local,pver)
+    real(r8), target, intent(inout) :: slten_local(pcols,pver)
+    real(r8), target, intent(inout) :: qtten_local(pcols,pver)
+
+    interface
+       subroutine vertical_diffusion_ptend_core_codon(ncol_c, pcols_c, pver_c, pcnst_c, psetcols_c, rztodt_c, &
+            q_tmp_p, s_tmp_p, u_tmp_p, v_tmp_p, state_q_p, state_s_p, state_u_p, state_v_p, sl_p, qt_p, &
+            sl_prePBL_p, qt_prePBL_p, ptend_q_p, ptend_s_p, ptend_u_p, ptend_v_p, slten_p, qtten_p) &
+            bind(c, name="vertical_diffusion_ptend_core_codon")
+         use iso_c_binding, only: c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, psetcols_c
+         real(c_double), value :: rztodt_c
+         type(c_ptr), value :: q_tmp_p, s_tmp_p, u_tmp_p, v_tmp_p, state_q_p, state_s_p, state_u_p, state_v_p
+         type(c_ptr), value :: sl_p, qt_p, sl_prePBL_p, qt_prePBL_p, ptend_q_p, ptend_s_p, ptend_u_p, ptend_v_p
+         type(c_ptr), value :: slten_p, qtten_p
+       end subroutine vertical_diffusion_ptend_core_codon
+    end interface
+
+    call vertical_diffusion_ptend_core_select_impl()
+
+    if (use_native_ptend_core_impl) then
+       call vertical_diffusion_ptend_core_native(ncol, psetcols_local, q_tmp_local, s_tmp_local, u_tmp_local, &
+            v_tmp_local, state_q_local, state_s_local, state_u_local, state_v_local, sl_local, qt_local, &
+            sl_prePBL_local, qt_prePBL_local, rztodt_local, ptend_q_local, ptend_s_local, ptend_u_local, &
+            ptend_v_local, slten_local, qtten_local)
+       return
+    end if
+
+    call vertical_diffusion_ptend_core_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+         int(psetcols_local, c_int64_t), real(rztodt_local, c_double), c_loc(q_tmp_local), c_loc(s_tmp_local), &
+         c_loc(u_tmp_local), c_loc(v_tmp_local), c_loc(state_q_local), c_loc(state_s_local), c_loc(state_u_local), &
+         c_loc(state_v_local), c_loc(sl_local), c_loc(qt_local), c_loc(sl_prePBL_local), c_loc(qt_prePBL_local), &
+         c_loc(ptend_q_local), c_loc(ptend_s_local), c_loc(ptend_u_local), c_loc(ptend_v_local), c_loc(slten_local), &
+         c_loc(qtten_local) &
+    )
+
+  end subroutine vertical_diffusion_ptend_core
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_ptend_core_native(ncol, psetcols_local, q_tmp_local, s_tmp_local, u_tmp_local, &
+       v_tmp_local, state_q_local, state_s_local, state_u_local, state_v_local, sl_local, qt_local, &
+       sl_prePBL_local, qt_prePBL_local, rztodt_local, ptend_q_local, ptend_s_local, ptend_u_local, ptend_v_local, &
+       slten_local, qtten_local)
+
+    integer, intent(in) :: ncol
+    integer, intent(in) :: psetcols_local
+    real(r8), intent(in) :: q_tmp_local(pcols,pver,pcnst)
+    real(r8), intent(in) :: s_tmp_local(pcols,pver)
+    real(r8), intent(in) :: u_tmp_local(pcols,pver)
+    real(r8), intent(in) :: v_tmp_local(pcols,pver)
+    real(r8), intent(in) :: state_q_local(pcols,pver,pcnst)
+    real(r8), intent(in) :: state_s_local(pcols,pver)
+    real(r8), intent(in) :: state_u_local(pcols,pver)
+    real(r8), intent(in) :: state_v_local(pcols,pver)
+    real(r8), intent(in) :: sl_local(pcols,pver)
+    real(r8), intent(in) :: qt_local(pcols,pver)
+    real(r8), intent(in) :: sl_prePBL_local(pcols,pver)
+    real(r8), intent(in) :: qt_prePBL_local(pcols,pver)
+    real(r8), intent(in) :: rztodt_local
+    real(r8), intent(inout) :: ptend_q_local(psetcols_local,pver,pcnst)
+    real(r8), intent(inout) :: ptend_s_local(psetcols_local,pver)
+    real(r8), intent(inout) :: ptend_u_local(psetcols_local,pver)
+    real(r8), intent(inout) :: ptend_v_local(psetcols_local,pver)
+    real(r8), intent(inout) :: slten_local(pcols,pver)
+    real(r8), intent(inout) :: qtten_local(pcols,pver)
+
+    ptend_s_local(:ncol,:)       = ( s_tmp_local(:ncol,:) - state_s_local(:ncol,:) ) * rztodt_local
+    ptend_u_local(:ncol,:)       = ( u_tmp_local(:ncol,:) - state_u_local(:ncol,:) ) * rztodt_local
+    ptend_v_local(:ncol,:)       = ( v_tmp_local(:ncol,:) - state_v_local(:ncol,:) ) * rztodt_local
+    ptend_q_local(:ncol,:pver,:) = ( q_tmp_local(:ncol,:pver,:) - state_q_local(:ncol,:pver,:) ) * rztodt_local
+    slten_local(:ncol,:)         = ( sl_local(:ncol,:) - sl_prePBL_local(:ncol,:) ) * rztodt_local
+    qtten_local(:ncol,:)         = ( qt_local(:ncol,:) - qt_prePBL_local(:ncol,:) ) * rztodt_local
+
+  end subroutine vertical_diffusion_ptend_core_native
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
   subroutine vertical_diffusion_tend( &
                                       ztodt    , state    ,                  &
                                       taux     , tauy     , shflx    , cflx, &
@@ -1574,12 +1722,9 @@ contains
     call physics_ptend_init(ptend,state%psetcols, "vertical diffusion", &
          ls=.true., lu=.true., lv=.true., lq=lq)
 
-    ptend%s(:ncol,:)       = ( s_tmp(:ncol,:) - state%s(:ncol,:) ) * rztodt
-    ptend%u(:ncol,:)       = ( u_tmp(:ncol,:) - state%u(:ncol,:) ) * rztodt
-    ptend%v(:ncol,:)       = ( v_tmp(:ncol,:) - state%v(:ncol,:) ) * rztodt
-    ptend%q(:ncol,:pver,:) = ( q_tmp(:ncol,:pver,:) - state%q(:ncol,:pver,:) ) * rztodt
-    slten(:ncol,:)         = ( sl(:ncol,:) - sl_prePBL(:ncol,:) ) * rztodt
-    qtten(:ncol,:)         = ( qt(:ncol,:) - qt_prePBL(:ncol,:) ) * rztodt
+    call vertical_diffusion_ptend_core(ncol, state%psetcols, q_tmp, s_tmp, u_tmp, v_tmp, state%q, state%s, &
+         state%u, state%v, sl, qt, sl_prePBL, qt_prePBL, rztodt, ptend%q, ptend%s, ptend%u, ptend%v, slten, &
+         qtten)
 
     ! ----------------------------------------------------------- !
     ! In order to perform 'pseudo-conservative varible diffusion' !
