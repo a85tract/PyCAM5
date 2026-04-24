@@ -489,3 +489,32 @@ def vertical_diffusion_post_pbl_state_codon(
                 state_v[_idx2(i, k, pcols)]
                 + ptend_v[_idx2(i, k, psetcols)] * ztodt
             )
+
+
+@export
+def vertical_diffusion_modal_aero_flux_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    pmam_ncnst: int,
+    ztodt: float,
+    gravit: float,
+    state_rpdel_p: cobj,
+    pmam_cnst_idx_p: cobj,
+    cflx_p: cobj,
+    q_tmp_p: cobj,
+):
+    state_rpdel = Ptr[float](state_rpdel_p)
+    pmam_cnst_idx = Ptr[int](pmam_cnst_idx_p)
+    cflx = Ptr[float](cflx_p)
+    q_tmp = Ptr[float](q_tmp_p)
+
+    for i in range(1, ncol + 1):
+        tmp1 = ztodt * gravit * state_rpdel[_idx2(i, pver, pcols)]
+        for m in range(1, pmam_ncnst + 1):
+            l = pmam_cnst_idx[m - 1]
+            q_tmp[_idx3(i, pver, l, pcols, pver)] = (
+                q_tmp[_idx3(i, pver, l, pcols, pver)]
+                + tmp1 * cflx[_idx2(i, l, pcols)]
+            )

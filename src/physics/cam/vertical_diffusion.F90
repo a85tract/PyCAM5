@@ -29,6 +29,7 @@ module vertical_diffusion
   ! S. Park     : Aug. 2006, Dec. 2008. Jan. 2010                                                        ! 
   !----------------------------------------------------------------------------------------------------- !
 
+  use iso_c_binding,    only : c_int64_t
   use shr_kind_mod,     only : r8 => shr_kind_r8, i4=> shr_kind_i4
   use ppgrid,           only : pcols, pver, pverp
   use constituents,     only : pcnst, qmin, cnst_get_ind
@@ -146,10 +147,13 @@ module vertical_diffusion
   logical              :: pre_pbl_diag_impl_selected = .false.
   logical              :: use_native_post_pbl_state_impl = .false.
   logical              :: post_pbl_state_impl_selected = .false.
+  logical              :: use_native_modal_aero_flux_impl = .false.
+  logical              :: modal_aero_flux_impl_selected = .false.
   integer              :: tend_branch_mask = 0
   logical              :: tend_branch_selected = .false.
   integer              :: pmam_ncnst = 0               ! number of prognostic modal aerosol constituents
-  integer, allocatable :: pmam_cnst_idx(:)             ! constituent indices of prognostic modal aerosols
+  integer, allocatable, target :: pmam_cnst_idx(:)     ! constituent indices of prognostic modal aerosols
+  integer(c_int64_t), allocatable, target :: pmam_cnst_idx_c(:) ! 64-bit indices for Codon interop
 
 contains
 
@@ -323,6 +327,7 @@ contains
        end do
 
        allocate(pmam_cnst_idx(pmam_ncnst))
+       allocate(pmam_cnst_idx_c(pmam_ncnst))
 
        ! Get the constituent indicies
        im = 1
@@ -335,6 +340,8 @@ contains
              im = im + 1
           end do
        end do
+
+       pmam_cnst_idx_c(:) = int(pmam_cnst_idx(:), c_int64_t)
     end if
 
     ! ---------------------------------------------------------------------------------------- !
@@ -1433,6 +1440,106 @@ contains
   !                                                                                 !
   ! =============================================================================== !
 
+  subroutine vertical_diffusion_modal_aero_flux_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (modal_aero_flux_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('VERTICAL_DIFFUSION_MODAL_AERO_FLUX_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_modal_aero_flux_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_modal_aero_flux_impl = .false.
+    end if
+
+    modal_aero_flux_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_modal_aero_flux_impl) then
+          write(iulog,*) 'vertical_diffusion_modal_aero_flux implementation = native'
+       else
+          write(iulog,*) 'vertical_diffusion_modal_aero_flux implementation = codon'
+       end if
+    end if
+
+  end subroutine vertical_diffusion_modal_aero_flux_select_impl
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_modal_aero_flux(ncol, state_rpdel_local, cflx_local, ztodt_local, q_tmp_local)
+
+    use iso_c_binding, only: c_int64_t, c_double, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: state_rpdel_local(pcols,pver)
+    real(r8), target, intent(in) :: cflx_local(pcols,pcnst)
+    real(r8), intent(in) :: ztodt_local
+    real(r8), target, intent(inout) :: q_tmp_local(pcols,pver,pcnst)
+
+    interface
+       subroutine vertical_diffusion_modal_aero_flux_codon(ncol_c, pcols_c, pver_c, pcnst_c, pmam_ncnst_c, ztodt_c, &
+            gravit_c, state_rpdel_p, pmam_cnst_idx_p, cflx_p, q_tmp_p) bind(c, name="vertical_diffusion_modal_aero_flux_codon")
+         use iso_c_binding, only: c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, pmam_ncnst_c
+         real(c_double), value :: ztodt_c, gravit_c
+         type(c_ptr), value :: state_rpdel_p, pmam_cnst_idx_p, cflx_p, q_tmp_p
+       end subroutine vertical_diffusion_modal_aero_flux_codon
+    end interface
+
+    call vertical_diffusion_modal_aero_flux_select_impl()
+
+    if (use_native_modal_aero_flux_impl) then
+      call vertical_diffusion_modal_aero_flux_native(ncol, state_rpdel_local, cflx_local, ztodt_local, q_tmp_local)
+      return
+    end if
+
+    call vertical_diffusion_modal_aero_flux_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+         int(pmam_ncnst, c_int64_t), real(ztodt_local, c_double), real(gravit, c_double), c_loc(state_rpdel_local), &
+         c_loc(pmam_cnst_idx_c), c_loc(cflx_local), c_loc(q_tmp_local) &
+    )
+
+  end subroutine vertical_diffusion_modal_aero_flux
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_modal_aero_flux_native(ncol, state_rpdel_local, cflx_local, ztodt_local, q_tmp_local)
+
+    integer, intent(in) :: ncol
+    real(r8), intent(in) :: state_rpdel_local(pcols,pver)
+    real(r8), intent(in) :: cflx_local(pcols,pcnst)
+    real(r8), intent(in) :: ztodt_local
+    real(r8), intent(inout) :: q_tmp_local(pcols,pver,pcnst)
+
+    integer :: l, m
+    real(r8) :: tmp1_local(pcols)
+
+    tmp1_local(:ncol) = ztodt_local * gravit * state_rpdel_local(:ncol,pver)
+    do m = 1, pmam_ncnst
+       l = pmam_cnst_idx(m)
+       q_tmp_local(:ncol,pver,l) = q_tmp_local(:ncol,pver,l) + tmp1_local(:ncol) * cflx_local(:ncol,l)
+    enddo
+
+  end subroutine vertical_diffusion_modal_aero_flux_native
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
   subroutine vertical_diffusion_tend( &
                                       ztodt    , state    ,                  &
                                       taux     , tauy     , shflx    , cflx, &
@@ -1943,11 +2050,7 @@ contains
        ! Modal aerosol species not diffused, so just add the explicit surface fluxes to the
        ! lowest layer
 
-    tmp1(:ncol) = ztodt * gravit * state%rpdel(:ncol,pver)
-       do m = 1, pmam_ncnst
-          l = pmam_cnst_idx(m)
-          q_tmp(:ncol,pver,l) = q_tmp(:ncol,pver,l) + tmp1(:ncol) * cflx(:ncol,l)
-       enddo
+       call vertical_diffusion_modal_aero_flux(ncol, state%rpdel, cflx, ztodt, q_tmp)
     end if
 
     ! -------------------------------------------------------- !
