@@ -1479,6 +1479,137 @@ def modal_aero_newnuc_zero_tendencies_codon(
 
 
 @export
+def modal_aero_newnuc_prepare_box_inputs_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    l_h2so4: int,
+    l_nh3: int,
+    do_nh3: int,
+    deltat: float,
+    qh2so4_cutoff: float,
+    q_p: cobj,
+    qv_p: cobj,
+    cld_p: cobj,
+    qv_sat_p: cobj,
+    del_h2so4_gasprod_p: cobj,
+    del_h2so4_aeruptk_p: cobj,
+    active_mask_p: cobj,
+    cldx_p: cobj,
+    qh2so4_cur_p: cobj,
+    qh2so4_avg_p: cobj,
+    qnh3_cur_p: cobj,
+    tmp_uptkrate_p: cobj,
+    relhumnn_p: cobj,
+):
+    q = Ptr[float](q_p)
+    qv = Ptr[float](qv_p)
+    cld = Ptr[float](cld_p)
+    qv_sat = Ptr[float](qv_sat_p)
+    del_h2so4_gasprod = Ptr[float](del_h2so4_gasprod_p)
+    del_h2so4_aeruptk = Ptr[float](del_h2so4_aeruptk_p)
+    active_mask = Ptr[int](active_mask_p)
+    cldx_out = Ptr[float](cldx_p)
+    qh2so4_cur_out = Ptr[float](qh2so4_cur_p)
+    qh2so4_avg_out = Ptr[float](qh2so4_avg_p)
+    qnh3_cur_out = Ptr[float](qnh3_cur_p)
+    tmp_uptkrate_out = Ptr[float](tmp_uptkrate_p)
+    relhumnn_out = Ptr[float](relhumnn_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            out_idx = _idx2(i, k, ncol)
+            active_mask[out_idx] = 0
+            cldx_out[out_idx] = 0.0
+            qh2so4_cur_out[out_idx] = 0.0
+            qh2so4_avg_out[out_idx] = 0.0
+            qnh3_cur_out[out_idx] = 0.0
+            tmp_uptkrate_out[out_idx] = 0.0
+            relhumnn_out[out_idx] = 0.0
+
+            if k < top_lev:
+                continue
+
+            cld_val = cld[_idx2(i, k, ncol)]
+            if cld_val >= 0.99:
+                continue
+
+            qh2so4_cur = q[_idx3(i, k, l_h2so4, ncol, pver)]
+            if qh2so4_cur <= qh2so4_cutoff:
+                continue
+
+            tmpa = del_h2so4_gasprod[_idx2(i, k, ncol)]
+            if tmpa < 0.0:
+                tmpa = 0.0
+            tmp_q3 = qh2so4_cur
+
+            tmpb = -del_h2so4_aeruptk[_idx2(i, k, ncol)]
+            if tmpb < 0.0:
+                tmpb = 0.0
+            tmp_q2 = tmp_q3 + tmpb
+
+            if tmp_q2 <= tmp_q3:
+                tmpb = 0.0
+            else:
+                tmpc = tmp_q2 * exp(-20.0)
+                if tmp_q3 <= tmpc:
+                    tmp_q3 = tmpc
+                    tmpb = 20.0
+                else:
+                    tmpb = log(tmp_q2 / tmp_q3)
+
+            tmp_uptkrate = tmpb / deltat
+
+            if tmpb <= 0.1:
+                qh2so4_avg = tmp_q3 * (1.0 + 0.5 * tmpb) - 0.5 * tmpa
+            else:
+                tmpc = tmpa / tmpb
+                qh2so4_avg = (tmp_q3 - tmpc) * ((exp(tmpb) - 1.0) / tmpb) + tmpc
+            if qh2so4_avg <= qh2so4_cutoff:
+                continue
+
+            if do_nh3 != 0:
+                qnh3_cur = q[_idx3(i, k, l_nh3, ncol, pver)]
+                if qnh3_cur < 0.0:
+                    qnh3_cur = 0.0
+            else:
+                qnh3_cur = 0.0
+
+            qvswtr = qv_sat[_idx2(i, k, pcols)]
+            if qvswtr < 1.0e-20:
+                qvswtr = 1.0e-20
+            relhumav = qv[_idx2(i, k, pcols)] / qvswtr
+            if relhumav < 0.0:
+                relhumav = 0.0
+            elif relhumav > 1.0:
+                relhumav = 1.0
+
+            cldx = cld_val
+            if cldx < 0.0:
+                cldx = 0.0
+            relhum = (relhumav - cldx) / (1.0 - cldx)
+            if relhum < 0.0:
+                relhum = 0.0
+            elif relhum > 1.0:
+                relhum = 1.0
+
+            relhumnn = relhum
+            if relhumnn < 0.01:
+                relhumnn = 0.01
+            elif relhumnn > 0.99:
+                relhumnn = 0.99
+
+            active_mask[out_idx] = 1
+            cldx_out[out_idx] = cldx
+            qh2so4_cur_out[out_idx] = qh2so4_cur
+            qh2so4_avg_out[out_idx] = qh2so4_avg
+            qnh3_cur_out[out_idx] = qnh3_cur
+            tmp_uptkrate_out[out_idx] = tmp_uptkrate
+            relhumnn_out[out_idx] = relhumnn
+
+
+@export
 def modal_aero_gasaerexch_snapshot_state_codon(
     ncol: int,
     pver: int,

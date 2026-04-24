@@ -27,6 +27,8 @@ module modal_aero_newnuc
   integer  :: l_h2so4_sv, l_nh3_sv, lnumait_sv, lnh4ait_sv, lso4ait_sv
   logical :: modal_aero_newnuc_zero_tendencies_use_native_impl = .false.
   logical :: modal_aero_newnuc_zero_tendencies_impl_selected = .false.
+  logical :: modal_aero_newnuc_prepare_box_inputs_use_native_impl = .false.
+  logical :: modal_aero_newnuc_prepare_box_inputs_impl_selected = .false.
 
 ! min h2so4 vapor for nuc calcs = 4.0e-16 mol/mol-air ~= 1.0e4 molecules/cm3, 
   real(r8), parameter :: qh2so4_cutoff = 4.0e-16_r8
@@ -94,7 +96,7 @@ module modal_aero_newnuc
 !----------------------------------------------------------------------
   subroutine modal_aero_newnuc_zero_tendencies(ncol, pcnst_in, nsrflx_in, dqdt, qsrflx)
 
-   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
    use ppgrid, only: pcols, pver
 
    implicit none
@@ -129,6 +131,185 @@ module modal_aero_newnuc
 
 !----------------------------------------------------------------------
 !----------------------------------------------------------------------
+  subroutine modal_aero_newnuc_prepare_box_inputs_select_impl()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   implicit none
+
+   character(len=48) :: impl_name
+   integer :: status, n, i, code
+
+   if (modal_aero_newnuc_prepare_box_inputs_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('MODAL_AERO_NEWNUC_PREPARE_BOX_INPUTS_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      modal_aero_newnuc_prepare_box_inputs_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      modal_aero_newnuc_prepare_box_inputs_use_native_impl = .false.
+   end if
+
+   modal_aero_newnuc_prepare_box_inputs_impl_selected = .true.
+
+   if (masterproc) then
+      if (modal_aero_newnuc_prepare_box_inputs_use_native_impl) then
+         write(iulog,*) 'modal_aero_newnuc_prepare_box_inputs implementation = native'
+      else
+         write(iulog,*) 'modal_aero_newnuc_prepare_box_inputs implementation = codon'
+      end if
+   end if
+
+  end subroutine modal_aero_newnuc_prepare_box_inputs_select_impl
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_newnuc_prepare_box_inputs( &
+       ncol, top_lev_in, l_h2so4_in, l_nh3_in, do_nh3_in, deltat, q, qv, cld, qv_sat, del_h2so4_gasprod, del_h2so4_aeruptk, &
+       active_mask, cldx_out, qh2so4_cur_out, qh2so4_avg_out, qnh3_cur_out, tmp_uptkrate_out, relhumnn_out)
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+   use ppgrid, only: pcols, pver
+
+   implicit none
+
+   integer, intent(in) :: ncol, top_lev_in, l_h2so4_in, l_nh3_in
+   logical, intent(in) :: do_nh3_in
+   real(r8), intent(in) :: deltat
+   real(r8), target, intent(in) :: q(ncol,pver,pcnstxx)
+   real(r8), target, intent(in) :: qv(pcols,pver)
+   real(r8), target, intent(in) :: cld(ncol,pver)
+   real(r8), target, intent(in) :: qv_sat(pcols,pver)
+   real(r8), target, intent(in) :: del_h2so4_gasprod(ncol,pver)
+   real(r8), target, intent(in) :: del_h2so4_aeruptk(ncol,pver)
+   integer(c_int64_t), target, intent(out) :: active_mask(ncol,pver)
+   real(r8), target, intent(out) :: cldx_out(ncol,pver)
+   real(r8), target, intent(out) :: qh2so4_cur_out(ncol,pver)
+   real(r8), target, intent(out) :: qh2so4_avg_out(ncol,pver)
+   real(r8), target, intent(out) :: qnh3_cur_out(ncol,pver)
+   real(r8), target, intent(out) :: tmp_uptkrate_out(ncol,pver)
+   real(r8), target, intent(out) :: relhumnn_out(ncol,pver)
+
+   interface
+      subroutine modal_aero_newnuc_prepare_box_inputs_codon( &
+           ncol_c, pcols_c, pver_c, top_lev_c, l_h2so4_c, l_nh3_c, do_nh3_c, deltat_c, qh2so4_cutoff_c, &
+           q_p, qv_p, cld_p, qv_sat_p, del_h2so4_gasprod_p, del_h2so4_aeruptk_p, active_mask_p, cldx_p, &
+           qh2so4_cur_p, qh2so4_avg_p, qnh3_cur_p, tmp_uptkrate_p, relhumnn_p) &
+           bind(c, name="modal_aero_newnuc_prepare_box_inputs_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, l_h2so4_c, l_nh3_c, do_nh3_c
+        real(c_double), value :: deltat_c, qh2so4_cutoff_c
+        type(c_ptr), value :: q_p, qv_p, cld_p, qv_sat_p, del_h2so4_gasprod_p, del_h2so4_aeruptk_p
+        type(c_ptr), value :: active_mask_p, cldx_p, qh2so4_cur_p, qh2so4_avg_p, qnh3_cur_p, tmp_uptkrate_p, relhumnn_p
+      end subroutine modal_aero_newnuc_prepare_box_inputs_codon
+   end interface
+
+   integer :: i, k
+   integer(c_int64_t) :: do_nh3_c
+   real(r8) :: cldx
+   real(r8) :: qh2so4_cur, qh2so4_avg, qnh3_cur
+   real(r8) :: qvswtr, relhum, relhumav
+   real(r8) :: tmpa, tmpb, tmpc
+   real(r8) :: tmp_q2, tmp_q3
+   real(r8) :: tmp_uptkrate
+
+   call modal_aero_newnuc_prepare_box_inputs_select_impl()
+
+   if (do_nh3_in) then
+      do_nh3_c = 1_c_int64_t
+   else
+      do_nh3_c = 0_c_int64_t
+   end if
+
+   if (modal_aero_newnuc_prepare_box_inputs_use_native_impl) then
+      active_mask(:,:) = 0_c_int64_t
+      cldx_out(:,:) = 0.0_r8
+      qh2so4_cur_out(:,:) = 0.0_r8
+      qh2so4_avg_out(:,:) = 0.0_r8
+      qnh3_cur_out(:,:) = 0.0_r8
+      tmp_uptkrate_out(:,:) = 0.0_r8
+      relhumnn_out(:,:) = 0.0_r8
+
+      do k = top_lev_in, pver
+         do i = 1, ncol
+            if (cld(i,k) >= 0.99_r8) cycle
+
+            qh2so4_cur = q(i,k,l_h2so4_in)
+            if (qh2so4_cur <= qh2so4_cutoff) cycle
+
+            tmpa = max(0.0_r8, del_h2so4_gasprod(i,k))
+            tmp_q3 = qh2so4_cur
+            tmp_q2 = tmp_q3 + max(0.0_r8, -del_h2so4_aeruptk(i,k))
+
+            if (tmp_q2 <= tmp_q3) then
+               tmpb = 0.0_r8
+            else
+               tmpc = tmp_q2 * exp(-20.0_r8)
+               if (tmp_q3 <= tmpc) then
+                  tmp_q3 = tmpc
+                  tmpb = 20.0_r8
+               else
+                  tmpb = log(tmp_q2/tmp_q3)
+               end if
+            end if
+
+            tmp_uptkrate = tmpb/deltat
+
+            if (tmpb <= 0.1_r8) then
+               qh2so4_avg = tmp_q3*(1.0_r8 + 0.5_r8*tmpb) - 0.5_r8*tmpa
+            else
+               tmpc = tmpa/tmpb
+               qh2so4_avg = (tmp_q3 - tmpc)*((exp(tmpb)-1.0_r8)/tmpb) + tmpc
+            end if
+            if (qh2so4_avg <= qh2so4_cutoff) cycle
+
+            if (do_nh3_in) then
+               qnh3_cur = max(0.0_r8, q(i,k,l_nh3_in))
+            else
+               qnh3_cur = 0.0_r8
+            end if
+
+            qvswtr = qv_sat(i,k)
+            qvswtr = max(qvswtr, 1.0e-20_r8)
+            relhumav = qv(i,k) / qvswtr
+            relhumav = max(0.0_r8, min(1.0_r8, relhumav))
+
+            cldx = max(0.0_r8, cld(i,k))
+            relhum = (relhumav - cldx) / (1.0_r8 - cldx)
+            relhum = max(0.0_r8, min(1.0_r8, relhum))
+
+            active_mask(i,k) = 1_c_int64_t
+            cldx_out(i,k) = cldx
+            qh2so4_cur_out(i,k) = qh2so4_cur
+            qh2so4_avg_out(i,k) = qh2so4_avg
+            qnh3_cur_out(i,k) = qnh3_cur
+            tmp_uptkrate_out(i,k) = tmp_uptkrate
+            relhumnn_out(i,k) = max(0.01_r8, min(0.99_r8, relhum))
+         end do
+      end do
+      return
+   end if
+
+   call modal_aero_newnuc_prepare_box_inputs_codon( &
+        int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev_in, c_int64_t), &
+        int(l_h2so4_in, c_int64_t), int(l_nh3_in, c_int64_t), do_nh3_c, deltat, qh2so4_cutoff, &
+        c_loc(q(1,1,1)), c_loc(qv(1,1)), c_loc(cld(1,1)), c_loc(qv_sat(1,1)), c_loc(del_h2so4_gasprod(1,1)), &
+        c_loc(del_h2so4_aeruptk(1,1)), c_loc(active_mask(1,1)), c_loc(cldx_out(1,1)), c_loc(qh2so4_cur_out(1,1)), &
+        c_loc(qh2so4_avg_out(1,1)), c_loc(qnh3_cur_out(1,1)), c_loc(tmp_uptkrate_out(1,1)), c_loc(relhumnn_out(1,1)) &
+   )
+
+  end subroutine modal_aero_newnuc_prepare_box_inputs
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
 !BOP
 ! !ROUTINE:  modal_aero_newnuc_sub --- ...
 !
@@ -144,6 +325,7 @@ module modal_aero_newnuc
 
 
 ! !USES:
+   use iso_c_binding,     only: c_int64_t
    use modal_aero_data
    use cam_abortutils,    only: endrun
    use cam_history,       only: outfld, fieldname_len
@@ -230,17 +412,22 @@ module modal_aero_newnuc
 	real(r8) :: qnh3_cur, qnh3_del, qnh4a_del
 	real(r8) :: qnuma_del
 	real(r8) :: qso4a_del
-	real(r8) :: qv_sat(pcols,pver)
-	real(r8) :: qvswtr
-	real(r8) :: relhum, relhumav, relhumnn
-	real(r8) :: tmpa, tmpb, tmpc
-	real(r8) :: tmp_q1, tmp_q2, tmp_q3
-	real(r8) :: tmp_frso4, tmp_uptkrate
+		real(r8) :: qv_sat(pcols,pver)
+		real(r8) :: qvswtr
+		real(r8) :: relhum, relhumav, relhumnn
+		real(r8) :: tmpa, tmpb, tmpc
+		real(r8) :: tmp_q1, tmp_q2, tmp_q3
+		real(r8) :: tmp_frso4, tmp_uptkrate
+		real(r8) :: cldx_work(ncol,pver)
+		real(r8) :: qh2so4_cur_work(ncol,pver), qh2so4_avg_work(ncol,pver)
+		real(r8) :: qnh3_cur_work(ncol,pver), tmp_uptkrate_work(ncol,pver)
+		real(r8) :: relhumnn_work(ncol,pver)
 
-	integer, parameter :: nsrflx = 1     ! last dimension of qsrflx
-	real(r8) :: qsrflx(pcols,pcnst,nsrflx)
-                              ! process-specific column tracer tendencies
-                              ! 1 = nucleation (for aerocom)
+		integer, parameter :: nsrflx = 1     ! last dimension of qsrflx
+		integer(c_int64_t) :: active_mask(ncol,pver)
+		real(r8) :: qsrflx(pcols,pcnst,nsrflx)
+	                              ! process-specific column tracer tendencies
+	                              ! 1 = nucleation (for aerocom)
 	real(r8) :: dqdt(ncol,pver,pcnstxx)  ! TMR tendency array -- NOTE dims
 	logical  :: dotend(pcnst)            ! flag for doing tendency
 	logical  :: do_nh3                   ! flag for doing nh3/nh4
@@ -313,7 +500,11 @@ module modal_aero_newnuc
 
 !   compute qv_sat = saturation specific humidity
 	call qsat(t(1:ncol, 1:pver), pmid(1:ncol, 1:pver), &
-            ev_sat(1:ncol, 1:pver), qv_sat(1:ncol, 1:pver))
+	            ev_sat(1:ncol, 1:pver), qv_sat(1:ncol, 1:pver))
+
+	call modal_aero_newnuc_prepare_box_inputs( &
+	     ncol, top_lev, l_h2so4, l_nh3, do_nh3, deltat, q, qv, cld, qv_sat, del_h2so4_gasprod, del_h2so4_aeruptk, &
+	     active_mask, cldx_work, qh2so4_cur_work, qh2so4_avg_work, qnh3_cur_work, tmp_uptkrate_work, relhumnn_work)
 
 !   mw_so4a_host is molec-wght of sulfate aerosol in host code
 !      96 when nh3/nh4 are simulated
@@ -327,76 +518,14 @@ module modal_aero_newnuc
 main_k:	do k = top_lev, pver
 main_i:	do i = 1, ncol
 
-!   skip if completely cloudy, 
-!   because all h2so4 vapor should be cloud-borne
-	if (cld(i,k) >= 0.99_r8) cycle main_i
+	if (active_mask(i,k) == 0_c_int64_t) cycle main_i
 
-!   qh2so4_cur = current qh2so4, after aeruptk
-	qh2so4_cur = q(i,k,l_h2so4)
-!   skip if h2so4 vapor < qh2so4_cutoff
-	if (qh2so4_cur <= qh2so4_cutoff) cycle main_i
-
-	tmpa = max( 0.0_r8, del_h2so4_gasprod(i,k) )
-	tmp_q3 = qh2so4_cur
-!   tmp_q2 = qh2so4 before aeruptk
-!   (note tmp_q3, tmp_q2 both >= 0.0)
-	tmp_q2 = tmp_q3 + max( 0.0_r8, -del_h2so4_aeruptk(i,k) )
-
-!   *** temporary -- in order to get more nucleation
-!	qh2so4_cur = qh2so4_cur*1.0e1
-!	tmp_q3 = tmp_q3*1.0e1
-!	tmp_q2 = tmp_q2*1.0e1
-!	tmpa   = tmpa  *1.0e1
-
-!   tmpb = log( tmp_q2/tmp_q3 ) BUT with some checks added
-!       tmp_uptkrate = tmpb/deltat
-	if (tmp_q2 <= tmp_q3) then
-	   tmpb = 0.0_r8
-	else
-	   tmpc = tmp_q2 * exp( -20.0_r8 )
-	   if (tmp_q3 <= tmpc) then
-	      tmp_q3 = tmpc
-	      tmpb = 20.0_r8
-	   else
-	      tmpb = log( tmp_q2/tmp_q3 )
-	   end if
-	end if
-!   d[ln(qh2so4)]/dt (1/s) from uptake (condensation) to aerosol
-	tmp_uptkrate = tmpb/deltat
-
-!   qh2so4_avg = estimated average qh2so4
-!   when production & loss are done simultaneously
-	if (tmpb <= 0.1_r8) then
-	   qh2so4_avg = tmp_q3*(1.0_r8 + 0.5_r8*tmpb) - 0.5_r8*tmpa
-	else
-	   tmpc = tmpa/tmpb
-	   qh2so4_avg = (tmp_q3 - tmpc)*((exp(tmpb)-1.0_r8)/tmpb) + tmpc
-	end if
-	if (qh2so4_avg <= qh2so4_cutoff) cycle main_i
-
-
-	if ( do_nh3 ) then
-	    qnh3_cur = max( 0.0_r8, q(i,k,l_nh3) )
-	else
-	    qnh3_cur = 0.0_r8
-	end if
-
-
-!   relhumav = grid average RH
-	qvswtr = qv_sat(i,k)
-	qvswtr = max( qvswtr, 1.0e-20_r8 )
-	relhumav = qv(i,k) / qvswtr
-	relhumav = max( 0.0_r8, min( 1.0_r8, relhumav ) )
-!   relhum = non-cloudy area RH
-	cldx = max( 0.0_r8, cld(i,k) )
-	relhum = (relhumav - cldx) / (1.0_r8 - cldx)
-	relhum = max( 0.0_r8, min( 1.0_r8, relhum ) )
-!   limit RH to between 0.1% and 99%
-	relhumnn = relhum
-	relhumnn = max( 0.01_r8, min( 0.99_r8, relhumnn ) )
-
-!   aircon = air concentration (mol-air/m3)
-        aircon = 1.0e3_r8*pmid(i,k)/(r_universal*t(i,k))
+	cldx = cldx_work(i,k)
+	qh2so4_cur = qh2so4_cur_work(i,k)
+	qh2so4_avg = qh2so4_avg_work(i,k)
+	qnh3_cur = qnh3_cur_work(i,k)
+	tmp_uptkrate = tmp_uptkrate_work(i,k)
+	relhumnn = relhumnn_work(i,k)
 
 
 !   call ... routine to get nucleation rates
@@ -1772,5 +1901,3 @@ end  subroutine ternary_nuc_merik2007
 
 !----------------------------------------------------------------------
 end module modal_aero_newnuc
-
-
