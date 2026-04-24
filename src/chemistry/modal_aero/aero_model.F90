@@ -95,6 +95,8 @@ module aero_model
   logical :: aero_model_wetdep_impl_selected = .false.
   logical :: aero_model_gasaerexch_column_flux_use_native_impl = .false.
   logical :: aero_model_gasaerexch_column_flux_impl_selected = .false.
+  logical :: aero_model_gasaerexch_aq_tend_use_native_impl = .false.
+  logical :: aero_model_gasaerexch_aq_tend_impl_selected = .false.
   logical :: aero_model_emissions_seasalt_wind_use_native_impl = .false.
   logical :: aero_model_emissions_seasalt_wind_impl_selected = .false.
   logical :: aero_model_emissions_accumulate_sflx_use_native_impl = .false.
@@ -1677,8 +1679,7 @@ contains
     endif
 
 !   Tendency due to aqueous chemistry 
-    dvmrdt = (vmr - dvmrdt) / delt
-    dvmrcwdt = (vmrcw - dvmrcwdt) / delt
+    call aero_model_gasaerexch_aq_tend(ncol, delt, vmr, vmrcw, dvmrdt, dvmrcwdt)
     do m = 1, gas_pcnst
       call aero_model_gasaerexch_column_flux(ncol, dvmrdt(:,:,m), mbar, pdel, adv_mass(m), wrk)
       name = 'AQ_'//trim(solsym(m))
@@ -1755,6 +1756,78 @@ contains
     end do
 
   end subroutine aero_model_gasaerexch
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_gasaerexch_aq_tend_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (aero_model_gasaerexch_aq_tend_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('AERO_MODEL_GASAEREXCH_AQ_TEND_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       aero_model_gasaerexch_aq_tend_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       aero_model_gasaerexch_aq_tend_use_native_impl = .false.
+    end if
+
+    aero_model_gasaerexch_aq_tend_impl_selected = .true.
+
+    if (masterproc) then
+       if (aero_model_gasaerexch_aq_tend_use_native_impl) then
+          write(iulog,*) 'aero_model_gasaerexch_aq_tend implementation = native'
+       else
+          write(iulog,*) 'aero_model_gasaerexch_aq_tend implementation = codon'
+       end if
+    end if
+
+  end subroutine aero_model_gasaerexch_aq_tend_select_impl
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_gasaerexch_aq_tend(ncol, delt, vmr, vmrcw, dvmrdt, dvmrcwdt)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), intent(in) :: delt
+    real(r8), target, intent(in) :: vmr(ncol,pver,gas_pcnst), vmrcw(ncol,pver,gas_pcnst)
+    real(r8), target, intent(inout) :: dvmrdt(ncol,pver,gas_pcnst), dvmrcwdt(ncol,pver,gas_pcnst)
+
+    interface
+       subroutine aero_model_gasaerexch_aq_tend_codon(ncol_c, pver_c, gas_pcnst_c, delt_c, vmr_p, vmrcw_p, dvmrdt_p, dvmrcwdt_p) &
+            bind(c, name="aero_model_gasaerexch_aq_tend_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, gas_pcnst_c
+         real(c_double), value :: delt_c
+         type(c_ptr), value :: vmr_p, vmrcw_p, dvmrdt_p, dvmrcwdt_p
+       end subroutine aero_model_gasaerexch_aq_tend_codon
+    end interface
+
+    call aero_model_gasaerexch_aq_tend_select_impl()
+
+    if (aero_model_gasaerexch_aq_tend_use_native_impl) then
+       dvmrdt = (vmr - dvmrdt) / delt
+       dvmrcwdt = (vmrcw - dvmrcwdt) / delt
+       return
+    end if
+
+    call aero_model_gasaerexch_aq_tend_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), real(delt, c_double), &
+         c_loc(vmr(1,1,1)), c_loc(vmrcw(1,1,1)), c_loc(dvmrdt(1,1,1)), c_loc(dvmrcwdt(1,1,1)) &
+    )
+
+  end subroutine aero_model_gasaerexch_aq_tend
 
   !=============================================================================
   !=============================================================================
