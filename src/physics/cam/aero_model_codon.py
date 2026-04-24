@@ -1739,6 +1739,42 @@ def binary_nuc_vehk2002_codon(
 
 
 @export
+def mer07_veh02_nuc_mosaic_init_state_codon(
+    newnuc_method_flagaa: int,
+    isize_nuc_p: cobj,
+    qnuma_del_p: cobj,
+    qso4a_del_p: cobj,
+    qnh4a_del_p: cobj,
+    qh2so4_del_p: cobj,
+    qnh3_del_p: cobj,
+    valid_method_p: cobj,
+):
+    isize_nuc = Ptr[int](isize_nuc_p)
+    qnuma_del = Ptr[float](qnuma_del_p)
+    qso4a_del = Ptr[float](qso4a_del_p)
+    qnh4a_del = Ptr[float](qnh4a_del_p)
+    qh2so4_del = Ptr[float](qh2so4_del_p)
+    qnh3_del = Ptr[float](qnh3_del_p)
+    valid_method = Ptr[int](valid_method_p)
+
+    isize_nuc[0] = 1
+    qnuma_del[0] = 0.0
+    qso4a_del[0] = 0.0
+    qnh4a_del[0] = 0.0
+    qh2so4_del[0] = 0.0
+    qnh3_del[0] = 0.0
+    valid_method[0] = 0
+
+    if (
+        newnuc_method_flagaa == 1
+        or newnuc_method_flagaa == 2
+        or newnuc_method_flagaa == 11
+        or newnuc_method_flagaa == 12
+    ):
+        valid_method[0] = 1
+
+
+@export
 def mer07_veh02_nuc_mosaic_prepare_rates_codon(
     newnuc_method_flagaa: int,
     temp_in: float,

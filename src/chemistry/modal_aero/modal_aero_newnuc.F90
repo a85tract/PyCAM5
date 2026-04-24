@@ -41,6 +41,8 @@ module modal_aero_newnuc
   logical :: pbl_nuc_wang2008_impl_selected = .false.
   logical :: binary_nuc_vehk2002_use_native_impl = .false.
   logical :: binary_nuc_vehk2002_impl_selected = .false.
+  logical :: mer07_veh02_nuc_mosaic_init_state_use_native_impl = .false.
+  logical :: mer07_veh02_nuc_mosaic_init_state_impl_selected = .false.
   logical :: mer07_veh02_nuc_mosaic_prepare_rates_use_native_impl = .false.
   logical :: mer07_veh02_nuc_mosaic_prepare_rates_impl_selected = .false.
   logical :: mer07_veh02_nuc_mosaic_postprocess_use_native_impl = .false.
@@ -1236,6 +1238,128 @@ main_i:	do i = 1, ncol
 
 !----------------------------------------------------------------------
 !-----------------------------------------------------------------------
+  subroutine mer07_veh02_nuc_mosaic_init_state_select_impl()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   implicit none
+
+   character(len=48) :: impl_name
+   integer :: status, n, i, code
+
+   if (mer07_veh02_nuc_mosaic_init_state_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('MER07_VEH02_NUC_MOSAIC_INIT_STATE_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      mer07_veh02_nuc_mosaic_init_state_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      mer07_veh02_nuc_mosaic_init_state_use_native_impl = .false.
+   end if
+
+   mer07_veh02_nuc_mosaic_init_state_impl_selected = .true.
+
+   if (masterproc) then
+      if (mer07_veh02_nuc_mosaic_init_state_use_native_impl) then
+         write(iulog,*) 'mer07_veh02_nuc_mosaic_init_state implementation = native'
+      else
+         write(iulog,*) 'mer07_veh02_nuc_mosaic_init_state implementation = codon'
+      end if
+   end if
+
+  end subroutine mer07_veh02_nuc_mosaic_init_state_select_impl
+
+!----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+  subroutine mer07_veh02_nuc_mosaic_init_state( newnuc_method_flagaa, isize_nuc, qnuma_del, qso4a_del, qnh4a_del, &
+       qh2so4_del, qnh3_del, valid_method )
+
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+   implicit none
+
+   integer, intent(in) :: newnuc_method_flagaa
+   integer, intent(out) :: isize_nuc, valid_method
+   real(r8), intent(out) :: qnuma_del, qso4a_del, qnh4a_del, qh2so4_del, qnh3_del
+
+   integer(c_int64_t), target :: isize_nuc_work, valid_method_work
+   real(c_double), target :: qnuma_del_work, qso4a_del_work, qnh4a_del_work, qh2so4_del_work, qnh3_del_work
+
+   interface
+      subroutine mer07_veh02_nuc_mosaic_init_state_codon( newnuc_method_flagaa_c, isize_nuc_p, qnuma_del_p, qso4a_del_p, &
+           qnh4a_del_p, qh2so4_del_p, qnh3_del_p, valid_method_p ) bind(c, name="mer07_veh02_nuc_mosaic_init_state_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: newnuc_method_flagaa_c
+        type(c_ptr), value :: isize_nuc_p, qnuma_del_p, qso4a_del_p, qnh4a_del_p, qh2so4_del_p, qnh3_del_p, valid_method_p
+      end subroutine mer07_veh02_nuc_mosaic_init_state_codon
+   end interface
+
+   call mer07_veh02_nuc_mosaic_init_state_select_impl()
+
+   if (mer07_veh02_nuc_mosaic_init_state_use_native_impl) then
+      call mer07_veh02_nuc_mosaic_init_state_native( newnuc_method_flagaa, isize_nuc, qnuma_del, qso4a_del, qnh4a_del, &
+           qh2so4_del, qnh3_del, valid_method )
+      return
+   end if
+
+   isize_nuc_work = 0_c_int64_t
+   valid_method_work = 0_c_int64_t
+   qnuma_del_work = 0.0_c_double
+   qso4a_del_work = 0.0_c_double
+   qnh4a_del_work = 0.0_c_double
+   qh2so4_del_work = 0.0_c_double
+   qnh3_del_work = 0.0_c_double
+
+   call mer07_veh02_nuc_mosaic_init_state_codon( int(newnuc_method_flagaa, c_int64_t), c_loc(isize_nuc_work), &
+        c_loc(qnuma_del_work), c_loc(qso4a_del_work), c_loc(qnh4a_del_work), c_loc(qh2so4_del_work), &
+        c_loc(qnh3_del_work), c_loc(valid_method_work) )
+
+   isize_nuc = int(isize_nuc_work, kind(isize_nuc))
+   valid_method = int(valid_method_work, kind(valid_method))
+   qnuma_del = real(qnuma_del_work, r8)
+   qso4a_del = real(qso4a_del_work, r8)
+   qnh4a_del = real(qnh4a_del_work, r8)
+   qh2so4_del = real(qh2so4_del_work, r8)
+   qnh3_del = real(qnh3_del_work, r8)
+
+  end subroutine mer07_veh02_nuc_mosaic_init_state
+
+!----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+  subroutine mer07_veh02_nuc_mosaic_init_state_native( newnuc_method_flagaa, isize_nuc, qnuma_del, qso4a_del, qnh4a_del, &
+       qh2so4_del, qnh3_del, valid_method )
+
+   implicit none
+
+   integer, intent(in) :: newnuc_method_flagaa
+   integer, intent(out) :: isize_nuc, valid_method
+   real(r8), intent(out) :: qnuma_del, qso4a_del, qnh4a_del, qh2so4_del, qnh3_del
+
+   isize_nuc = 1
+   qnuma_del = 0.0_r8
+   qso4a_del = 0.0_r8
+   qnh4a_del = 0.0_r8
+   qh2so4_del = 0.0_r8
+   qnh3_del = 0.0_r8
+   valid_method = 0
+
+   if ((newnuc_method_flagaa == 1) .or. (newnuc_method_flagaa == 2) .or. &
+       (newnuc_method_flagaa == 11) .or. (newnuc_method_flagaa == 12)) then
+      valid_method = 1
+   end if
+
+  end subroutine mer07_veh02_nuc_mosaic_init_state_native
+
+!----------------------------------------------------------------------
+!-----------------------------------------------------------------------
         subroutine mer07_veh02_nuc_mosaic_1box(   &
            newnuc_method_flagaa, dtnuc, temp_in, rh_in, press_in,   &
            zm_in, pblh_in,   &
@@ -1348,6 +1472,7 @@ main_i:	do i = 1, ncol
         integer :: newnuc_method_flagaa2
         integer :: postprocess_code
         integer :: use_ternary_rate, use_binary_rate, do_pbl_rate
+        integer :: valid_method
 
         real(r8), parameter :: onethird = 1.0_r8/3.0_r8
 
@@ -1414,19 +1539,12 @@ main_i:	do i = 1, ncol
 ! if h2so4 vapor < qh2so4_cutoff
 ! exit with new particle formation = 0
 !
-        isize_nuc = 1
-        qnuma_del = 0.0_r8
-        qso4a_del = 0.0_r8
-        qnh4a_del = 0.0_r8
-        qh2so4_del = 0.0_r8
-        qnh3_del = 0.0_r8
+        call mer07_veh02_nuc_mosaic_init_state( newnuc_method_flagaa, isize_nuc, qnuma_del, qso4a_del, qnh4a_del, &
+             qh2so4_del, qnh3_del, valid_method )
 !       if (qh2so4_avg .le. qh2so4_cutoff) return   ! this no longer needed
 !       if (qh2so4_cur .le. qh2so4_cutoff) return   ! this no longer needed
 
-        if ((newnuc_method_flagaa /=  1) .and. &
-            (newnuc_method_flagaa /=  2) .and. &
-            (newnuc_method_flagaa /= 11) .and. &
-            (newnuc_method_flagaa /= 12)) return
+        if (valid_method == 0) return
 
 
 !
