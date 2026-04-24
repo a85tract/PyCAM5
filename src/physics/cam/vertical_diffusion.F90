@@ -149,6 +149,8 @@ module vertical_diffusion
   logical              :: post_pbl_state_impl_selected = .false.
   logical              :: use_native_modal_aero_flux_impl = .false.
   logical              :: modal_aero_flux_impl_selected = .false.
+  logical              :: use_native_post_qsat_diag_impl = .false.
+  logical              :: post_qsat_diag_impl_selected = .false.
   integer              :: tend_branch_mask = 0
   logical              :: tend_branch_selected = .false.
   integer              :: pmam_ncnst = 0               ! number of prognostic modal aerosol constituents
@@ -1540,6 +1542,116 @@ contains
   !                                                                                 !
   ! =============================================================================== !
 
+  subroutine vertical_diffusion_post_qsat_diag_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (post_qsat_diag_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('VERTICAL_DIFFUSION_POST_QSAT_DIAG_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_post_qsat_diag_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_post_qsat_diag_impl = .false.
+    end if
+
+    post_qsat_diag_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_post_qsat_diag_impl) then
+          write(iulog,*) 'vertical_diffusion_post_qsat_diag implementation = native'
+       else
+          write(iulog,*) 'vertical_diffusion_post_qsat_diag implementation = codon'
+       end if
+    end if
+
+  end subroutine vertical_diffusion_post_qsat_diag_select_impl
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_post_qsat_diag(ncol, state_t_local, qv_aft_PBL_local, ftem_prePBL_local, &
+       t_aftPBL_local, ftem_local, rztodt_local, ftem_aftPBL_local, tten_local, rhten_local)
+
+    use iso_c_binding, only: c_int64_t, c_double, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: state_t_local(pcols,pver)
+    real(r8), target, intent(in) :: qv_aft_PBL_local(pcols,pver)
+    real(r8), target, intent(in) :: ftem_prePBL_local(pcols,pver)
+    real(r8), target, intent(in) :: t_aftPBL_local(pcols,pver)
+    real(r8), target, intent(in) :: ftem_local(pcols,pver)
+    real(r8), intent(in) :: rztodt_local
+    real(r8), target, intent(inout) :: ftem_aftPBL_local(pcols,pver)
+    real(r8), target, intent(inout) :: tten_local(pcols,pver)
+    real(r8), target, intent(inout) :: rhten_local(pcols,pver)
+
+    interface
+       subroutine vertical_diffusion_post_qsat_diag_codon(ncol_c, pcols_c, pver_c, rztodt_c, state_t_p, &
+            qv_aft_PBL_p, ftem_prePBL_p, t_aftPBL_p, ftem_p, ftem_aftPBL_p, tten_p, rhten_p) &
+            bind(c, name="vertical_diffusion_post_qsat_diag_codon")
+         use iso_c_binding, only: c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: rztodt_c
+         type(c_ptr), value :: state_t_p, qv_aft_PBL_p, ftem_prePBL_p, t_aftPBL_p, ftem_p
+         type(c_ptr), value :: ftem_aftPBL_p, tten_p, rhten_p
+       end subroutine vertical_diffusion_post_qsat_diag_codon
+    end interface
+
+    call vertical_diffusion_post_qsat_diag_select_impl()
+
+    if (use_native_post_qsat_diag_impl) then
+       call vertical_diffusion_post_qsat_diag_native(ncol, state_t_local, qv_aft_PBL_local, ftem_prePBL_local, &
+            t_aftPBL_local, ftem_local, rztodt_local, ftem_aftPBL_local, tten_local, rhten_local)
+       return
+    end if
+
+    call vertical_diffusion_post_qsat_diag_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(rztodt_local, c_double), &
+         c_loc(state_t_local), c_loc(qv_aft_PBL_local), c_loc(ftem_prePBL_local), c_loc(t_aftPBL_local), &
+         c_loc(ftem_local), c_loc(ftem_aftPBL_local), c_loc(tten_local), c_loc(rhten_local) &
+    )
+
+  end subroutine vertical_diffusion_post_qsat_diag
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_post_qsat_diag_native(ncol, state_t_local, qv_aft_PBL_local, ftem_prePBL_local, &
+       t_aftPBL_local, ftem_local, rztodt_local, ftem_aftPBL_local, tten_local, rhten_local)
+
+    integer, intent(in) :: ncol
+    real(r8), intent(in) :: state_t_local(pcols,pver)
+    real(r8), intent(in) :: qv_aft_PBL_local(pcols,pver)
+    real(r8), intent(in) :: ftem_prePBL_local(pcols,pver)
+    real(r8), intent(in) :: t_aftPBL_local(pcols,pver)
+    real(r8), intent(in) :: ftem_local(pcols,pver)
+    real(r8), intent(in) :: rztodt_local
+    real(r8), intent(inout) :: ftem_aftPBL_local(pcols,pver)
+    real(r8), intent(inout) :: tten_local(pcols,pver)
+    real(r8), intent(inout) :: rhten_local(pcols,pver)
+
+    ftem_aftPBL_local(:ncol,:pver) = qv_aft_PBL_local(:ncol,:pver) / ftem_local(:ncol,:pver) * 100._r8
+    tten_local(:ncol,:pver)        = ( t_aftPBL_local(:ncol,:pver)    - state_t_local(:ncol,:pver) )     * rztodt_local
+    rhten_local(:ncol,:pver)       = ( ftem_aftPBL_local(:ncol,:pver) - ftem_prePBL_local(:ncol,:pver) ) * rztodt_local
+
+  end subroutine vertical_diffusion_post_qsat_diag_native
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
   subroutine vertical_diffusion_tend( &
                                       ztodt    , state    ,                  &
                                       taux     , tauy     , shflx    , cflx, &
@@ -2147,10 +2259,8 @@ contains
 
     call qsat(t_aftPBL(:ncol,:pver), state%pmid(:ncol,:pver), &
          tem2(:ncol,:pver), ftem(:ncol,:pver))
-    ftem_aftPBL(:ncol,:pver) = qv_aft_PBL(:ncol,:pver) / ftem(:ncol,:pver) * 100._r8
-
-    tten(:ncol,:pver)        = ( t_aftPBL(:ncol,:pver)    - state%t(:ncol,:pver) )              * rztodt     
-    rhten(:ncol,:pver)       = ( ftem_aftPBL(:ncol,:pver) - ftem_prePBL(:ncol,:pver) )          * rztodt 
+    call vertical_diffusion_post_qsat_diag(ncol, state%t, qv_aft_PBL, ftem_prePBL, t_aftPBL, ftem, rztodt, &
+         ftem_aftPBL, tten, rhten)
 
     ! -------------------------------------------------------------- !
     ! mass conservation check.........

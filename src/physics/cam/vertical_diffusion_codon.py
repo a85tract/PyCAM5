@@ -518,3 +518,46 @@ def vertical_diffusion_modal_aero_flux_codon(
                 q_tmp[_idx3(i, pver, l, pcols, pver)]
                 + tmp1 * cflx[_idx2(i, l, pcols)]
             )
+
+
+@export
+def vertical_diffusion_post_qsat_diag_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    rztodt: float,
+    state_t_p: cobj,
+    qv_aft_PBL_p: cobj,
+    ftem_prePBL_p: cobj,
+    t_aftPBL_p: cobj,
+    ftem_p: cobj,
+    ftem_aftPBL_p: cobj,
+    tten_p: cobj,
+    rhten_p: cobj,
+):
+    state_t = Ptr[float](state_t_p)
+    qv_aft_PBL = Ptr[float](qv_aft_PBL_p)
+    ftem_prePBL = Ptr[float](ftem_prePBL_p)
+    t_aftPBL = Ptr[float](t_aftPBL_p)
+    ftem = Ptr[float](ftem_p)
+    ftem_aftPBL = Ptr[float](ftem_aftPBL_p)
+    tten = Ptr[float](tten_p)
+    rhten = Ptr[float](rhten_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            ftem_aftPBL[_idx2(i, k, pcols)] = (
+                qv_aft_PBL[_idx2(i, k, pcols)] / ftem[_idx2(i, k, pcols)] * 100.0
+            )
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            tten[_idx2(i, k, pcols)] = (
+                t_aftPBL[_idx2(i, k, pcols)] - state_t[_idx2(i, k, pcols)]
+            ) * rztodt
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            rhten[_idx2(i, k, pcols)] = (
+                ftem_aftPBL[_idx2(i, k, pcols)] - ftem_prePBL[_idx2(i, k, pcols)]
+            ) * rztodt
