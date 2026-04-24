@@ -142,6 +142,8 @@ module vertical_diffusion
   logical              :: flux_diag_impl_selected = .false.
   logical              :: use_native_ptend_core_impl = .false.
   logical              :: ptend_core_impl_selected = .false.
+  logical              :: use_native_pre_pbl_diag_impl = .false.
+  logical              :: pre_pbl_diag_impl_selected = .false.
   integer              :: tend_branch_mask = 0
   logical              :: tend_branch_selected = .false.
   integer              :: pmam_ncnst = 0               ! number of prognostic modal aerosol constituents
@@ -1161,6 +1163,129 @@ contains
   !                                                                                 !
   ! =============================================================================== !
 
+  subroutine vertical_diffusion_pre_pbl_diag_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (pre_pbl_diag_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('VERTICAL_DIFFUSION_PRE_PBL_DIAG_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_pre_pbl_diag_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_pre_pbl_diag_impl = .false.
+    end if
+
+    pre_pbl_diag_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_pre_pbl_diag_impl) then
+          write(iulog,*) 'vertical_diffusion_pre_pbl_diag implementation = native'
+       else
+          write(iulog,*) 'vertical_diffusion_pre_pbl_diag implementation = codon'
+       end if
+    end if
+
+  end subroutine vertical_diffusion_pre_pbl_diag_select_impl
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_pre_pbl_diag(ncol, state_q_local, state_s_local, state_u_local, state_v_local, &
+       q_tmp_local, s_tmp_local, u_tmp_local, v_tmp_local, sl_prePBL_local, qt_prePBL_local, slv_prePBL_local)
+
+    use iso_c_binding, only: c_int64_t, c_double, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: state_q_local(pcols,pver,pcnst)
+    real(r8), target, intent(in) :: state_s_local(pcols,pver)
+    real(r8), target, intent(in) :: state_u_local(pcols,pver)
+    real(r8), target, intent(in) :: state_v_local(pcols,pver)
+    real(r8), target, intent(inout) :: q_tmp_local(pcols,pver,pcnst)
+    real(r8), target, intent(inout) :: s_tmp_local(pcols,pver)
+    real(r8), target, intent(inout) :: u_tmp_local(pcols,pver)
+    real(r8), target, intent(inout) :: v_tmp_local(pcols,pver)
+    real(r8), target, intent(inout) :: sl_prePBL_local(pcols,pver)
+    real(r8), target, intent(inout) :: qt_prePBL_local(pcols,pver)
+    real(r8), target, intent(inout) :: slv_prePBL_local(pcols,pver)
+
+    interface
+       subroutine vertical_diffusion_pre_pbl_diag_codon(ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, &
+            latvap_c, latice_c, zvir_c, state_q_p, state_s_p, state_u_p, state_v_p, q_tmp_p, s_tmp_p, u_tmp_p, &
+            v_tmp_p, sl_prePBL_p, qt_prePBL_p, slv_prePBL_p) bind(c, name="vertical_diffusion_pre_pbl_diag_codon")
+         use iso_c_binding, only: c_int64_t, c_double, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c
+         real(c_double), value :: latvap_c, latice_c, zvir_c
+         type(c_ptr), value :: state_q_p, state_s_p, state_u_p, state_v_p, q_tmp_p, s_tmp_p, u_tmp_p, v_tmp_p
+         type(c_ptr), value :: sl_prePBL_p, qt_prePBL_p, slv_prePBL_p
+       end subroutine vertical_diffusion_pre_pbl_diag_codon
+    end interface
+
+    call vertical_diffusion_pre_pbl_diag_select_impl()
+
+    if (use_native_pre_pbl_diag_impl) then
+       call vertical_diffusion_pre_pbl_diag_native(ncol, state_q_local, state_s_local, state_u_local, state_v_local, &
+            q_tmp_local, s_tmp_local, u_tmp_local, v_tmp_local, sl_prePBL_local, qt_prePBL_local, slv_prePBL_local)
+       return
+    end if
+
+    call vertical_diffusion_pre_pbl_diag_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+         int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), real(latvap, c_double), real(latice, c_double), &
+         real(zvir, c_double), c_loc(state_q_local), c_loc(state_s_local), c_loc(state_u_local), c_loc(state_v_local), &
+         c_loc(q_tmp_local), c_loc(s_tmp_local), c_loc(u_tmp_local), c_loc(v_tmp_local), c_loc(sl_prePBL_local), &
+         c_loc(qt_prePBL_local), c_loc(slv_prePBL_local) &
+    )
+
+  end subroutine vertical_diffusion_pre_pbl_diag
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_pre_pbl_diag_native(ncol, state_q_local, state_s_local, state_u_local, state_v_local, &
+       q_tmp_local, s_tmp_local, u_tmp_local, v_tmp_local, sl_prePBL_local, qt_prePBL_local, slv_prePBL_local)
+
+    integer, intent(in) :: ncol
+    real(r8), intent(in) :: state_q_local(pcols,pver,pcnst)
+    real(r8), intent(in) :: state_s_local(pcols,pver)
+    real(r8), intent(in) :: state_u_local(pcols,pver)
+    real(r8), intent(in) :: state_v_local(pcols,pver)
+    real(r8), intent(inout) :: q_tmp_local(pcols,pver,pcnst)
+    real(r8), intent(inout) :: s_tmp_local(pcols,pver)
+    real(r8), intent(inout) :: u_tmp_local(pcols,pver)
+    real(r8), intent(inout) :: v_tmp_local(pcols,pver)
+    real(r8), intent(inout) :: sl_prePBL_local(pcols,pver)
+    real(r8), intent(inout) :: qt_prePBL_local(pcols,pver)
+    real(r8), intent(inout) :: slv_prePBL_local(pcols,pver)
+
+    q_tmp_local(:ncol,:,:) = state_q_local(:ncol,:,:)
+    s_tmp_local(:ncol,:) = state_s_local(:ncol,:)
+    u_tmp_local(:ncol,:) = state_u_local(:ncol,:)
+    v_tmp_local(:ncol,:) = state_v_local(:ncol,:)
+
+    sl_prePBL_local(:ncol,:pver)  = s_tmp_local(:ncol,:) -   latvap * q_tmp_local(:ncol,:,ixcldliq) &
+                                                   - ( latvap + latice) * q_tmp_local(:ncol,:,ixcldice)
+    qt_prePBL_local(:ncol,:pver)  = q_tmp_local(:ncol,:,1) + q_tmp_local(:ncol,:,ixcldliq) &
+                                                      + q_tmp_local(:ncol,:,ixcldice)
+    slv_prePBL_local(:ncol,:pver) = sl_prePBL_local(:ncol,:pver) * ( 1._r8 + zvir*qt_prePBL_local(:ncol,:pver) )
+
+  end subroutine vertical_diffusion_pre_pbl_diag_native
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
   subroutine vertical_diffusion_tend( &
                                       ztodt    , state    ,                  &
                                       taux     , tauy     , shflx    , cflx, &
@@ -1578,11 +1703,8 @@ contains
     ! Write profile output before applying diffusion scheme !
     !------------------------------------------------------ !
 
-    sl_prePBL(:ncol,:pver)  = s_tmp(:ncol,:) -   latvap * q_tmp(:ncol,:,ixcldliq) &
-                                             - ( latvap + latice) * q_tmp(:ncol,:,ixcldice)
-    qt_prePBL(:ncol,:pver)  = q_tmp(:ncol,:,1) + q_tmp(:ncol,:,ixcldliq) &
-                                               + q_tmp(:ncol,:,ixcldice)
-    slv_prePBL(:ncol,:pver) = sl_prePBL(:ncol,:pver) * ( 1._r8 + zvir*qt_prePBL(:ncol,:pver) ) 
+    call vertical_diffusion_pre_pbl_diag(ncol, state%q, state%s, state%u, state%v, q_tmp, s_tmp, u_tmp, v_tmp, &
+         sl_prePBL, qt_prePBL, slv_prePBL)
 
     call qsat(state%t(:ncol,:), state%pmid(:ncol,:), &
          tem2(:ncol,:), ftem(:ncol,:))

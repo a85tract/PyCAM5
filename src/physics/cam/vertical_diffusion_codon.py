@@ -316,3 +316,80 @@ def vertical_diffusion_ptend_core_codon(
                     q_tmp[_idx3(i, k, m, pcols, pver)]
                     - state_q[_idx3(i, k, m, pcols, pver)]
                 ) * rztodt
+
+
+@export
+def vertical_diffusion_pre_pbl_diag_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    ixcldliq: int,
+    ixcldice: int,
+    latvap: float,
+    latice: float,
+    zvir: float,
+    state_q_p: cobj,
+    state_s_p: cobj,
+    state_u_p: cobj,
+    state_v_p: cobj,
+    q_tmp_p: cobj,
+    s_tmp_p: cobj,
+    u_tmp_p: cobj,
+    v_tmp_p: cobj,
+    sl_prePBL_p: cobj,
+    qt_prePBL_p: cobj,
+    slv_prePBL_p: cobj,
+):
+    state_q = Ptr[float](state_q_p)
+    state_s = Ptr[float](state_s_p)
+    state_u = Ptr[float](state_u_p)
+    state_v = Ptr[float](state_v_p)
+    q_tmp = Ptr[float](q_tmp_p)
+    s_tmp = Ptr[float](s_tmp_p)
+    u_tmp = Ptr[float](u_tmp_p)
+    v_tmp = Ptr[float](v_tmp_p)
+    sl_prePBL = Ptr[float](sl_prePBL_p)
+    qt_prePBL = Ptr[float](qt_prePBL_p)
+    slv_prePBL = Ptr[float](slv_prePBL_p)
+
+    for m in range(1, pcnst + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                q_tmp[_idx3(i, k, m, pcols, pver)] = state_q[
+                    _idx3(i, k, m, pcols, pver)
+                ]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            s_tmp[_idx2(i, k, pcols)] = state_s[_idx2(i, k, pcols)]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            u_tmp[_idx2(i, k, pcols)] = state_u[_idx2(i, k, pcols)]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            v_tmp[_idx2(i, k, pcols)] = state_v[_idx2(i, k, pcols)]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            sl_prePBL[_idx2(i, k, pcols)] = (
+                s_tmp[_idx2(i, k, pcols)]
+                - latvap * q_tmp[_idx3(i, k, ixcldliq, pcols, pver)]
+                - (latvap + latice) * q_tmp[_idx3(i, k, ixcldice, pcols, pver)]
+            )
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            qt_prePBL[_idx2(i, k, pcols)] = (
+                q_tmp[_idx3(i, k, 1, pcols, pver)]
+                + q_tmp[_idx3(i, k, ixcldliq, pcols, pver)]
+                + q_tmp[_idx3(i, k, ixcldice, pcols, pver)]
+            )
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            slv_prePBL[_idx2(i, k, pcols)] = sl_prePBL[_idx2(i, k, pcols)] * (
+                1.0 + zvir * qt_prePBL[_idx2(i, k, pcols)]
+            )
