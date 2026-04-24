@@ -53,6 +53,8 @@ module modal_aero_newnuc
   logical :: mer07_veh02_nuc_mosaic_postprocess_impl_selected = .false.
   logical :: mer07_veh02_nuc_mosaic_finalize_use_native_impl = .false.
   logical :: mer07_veh02_nuc_mosaic_finalize_impl_selected = .false.
+  logical :: mer07_veh02_nuc_mosaic_1box_use_native_impl = .false.
+  logical :: mer07_veh02_nuc_mosaic_1box_impl_selected = .false.
 
 ! min h2so4 vapor for nuc calcs = 4.0e-16 mol/mol-air ~= 1.0e4 molecules/cm3, 
   real(r8), parameter :: qh2so4_cutoff = 4.0e-16_r8
@@ -1564,7 +1566,159 @@ main_i:	do i = 1, ncol
 
 !----------------------------------------------------------------------
 !-----------------------------------------------------------------------
+  subroutine mer07_veh02_nuc_mosaic_1box_select_impl()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   implicit none
+
+   character(len=48) :: impl_name
+   integer :: status, n, i, code
+
+   if (mer07_veh02_nuc_mosaic_1box_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('MER07_VEH02_NUC_MOSAIC_1BOX_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      mer07_veh02_nuc_mosaic_1box_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      mer07_veh02_nuc_mosaic_1box_use_native_impl = .false.
+   end if
+
+   mer07_veh02_nuc_mosaic_1box_impl_selected = .true.
+
+   if (masterproc) then
+      if (mer07_veh02_nuc_mosaic_1box_use_native_impl) then
+         write(iulog,*) 'mer07_veh02_nuc_mosaic_1box implementation = native'
+      else
+         write(iulog,*) 'mer07_veh02_nuc_mosaic_1box implementation = codon'
+      end if
+   end if
+
+  end subroutine mer07_veh02_nuc_mosaic_1box_select_impl
+
+!----------------------------------------------------------------------
+!-----------------------------------------------------------------------
         subroutine mer07_veh02_nuc_mosaic_1box(   &
+           newnuc_method_flagaa, dtnuc, temp_in, rh_in, press_in,   &
+           zm_in, pblh_in,   &
+           qh2so4_cur, qh2so4_avg, qnh3_cur, h2so4_uptkrate,   &
+           mw_so4a_host,   &
+           nsize, maxd_asize, dplom_sect, dphim_sect,   &
+           isize_nuc, qnuma_del, qso4a_del, qnh4a_del,   &
+           qh2so4_del, qnh3_del, dens_nh4so4a, ldiagaa )
+
+          use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+          use mo_constants, only: pi, rgas, avogad => avogadro
+          use physconst,    only: mw_so4a => mwso4, mw_nh4a => mwnh4
+
+          implicit none
+
+! subr arguments (in)
+        real(r8), intent(in) :: dtnuc
+        real(r8), intent(in) :: temp_in
+        real(r8), intent(in) :: rh_in
+        real(r8), intent(in) :: press_in
+        real(r8), intent(in) :: zm_in
+        real(r8), intent(in) :: pblh_in
+        real(r8), intent(in) :: qh2so4_cur, qh2so4_avg
+        real(r8), intent(in) :: qnh3_cur
+        real(r8), intent(in) :: h2so4_uptkrate
+        real(r8), intent(in) :: mw_so4a_host
+        integer, intent(in) :: newnuc_method_flagaa
+        integer, intent(in) :: nsize
+        integer, intent(in) :: maxd_asize
+        real(r8), intent(in), target :: dplom_sect(maxd_asize)
+        real(r8), intent(in), target :: dphim_sect(maxd_asize)
+        integer, intent(in) :: ldiagaa
+
+! subr arguments (out)
+        integer, intent(out) :: isize_nuc
+        real(r8), intent(out) :: qnuma_del
+        real(r8), intent(out) :: qso4a_del
+        real(r8), intent(out) :: qnh4a_del
+        real(r8), intent(out) :: qh2so4_del
+        real(r8), intent(out) :: qnh3_del
+        real(r8), intent(out) :: dens_nh4so4a
+
+        integer(c_int64_t), target :: isize_nuc_work, fallback_required_work
+        real(c_double), target :: qnuma_del_work, qso4a_del_work, qnh4a_del_work
+        real(c_double), target :: qh2so4_del_work, qnh3_del_work, dens_nh4so4a_work
+
+        interface
+           subroutine mer07_veh02_nuc_mosaic_1box_codon( newnuc_method_flagaa_c, dtnuc_c, temp_in_c, rh_in_c, press_in_c, &
+                zm_in_c, pblh_in_c, qh2so4_cur_c, qh2so4_avg_c, qnh3_cur_c, h2so4_uptkrate_c, mw_so4a_host_c, nsize_c, &
+                dplom_sect_p, dphim_sect_p, ldiagaa_c, pi_c, rgas_c, avogad_c, mw_so4a_c, mw_nh4a_c, isize_nuc_p, qnuma_del_p, &
+                qso4a_del_p, qnh4a_del_p, qh2so4_del_p, qnh3_del_p, dens_nh4so4a_p, fallback_required_p ) &
+                bind(c, name="mer07_veh02_nuc_mosaic_1box_codon")
+             use iso_c_binding, only: c_double, c_int64_t, c_ptr
+             integer(c_int64_t), value :: newnuc_method_flagaa_c, nsize_c, ldiagaa_c
+             real(c_double), value :: dtnuc_c, temp_in_c, rh_in_c, press_in_c, zm_in_c, pblh_in_c
+             real(c_double), value :: qh2so4_cur_c, qh2so4_avg_c, qnh3_cur_c, h2so4_uptkrate_c, mw_so4a_host_c
+             real(c_double), value :: pi_c, rgas_c, avogad_c, mw_so4a_c, mw_nh4a_c
+             type(c_ptr), value :: dplom_sect_p, dphim_sect_p
+             type(c_ptr), value :: isize_nuc_p, qnuma_del_p, qso4a_del_p, qnh4a_del_p
+             type(c_ptr), value :: qh2so4_del_p, qnh3_del_p, dens_nh4so4a_p, fallback_required_p
+           end subroutine mer07_veh02_nuc_mosaic_1box_codon
+        end interface
+
+        call mer07_veh02_nuc_mosaic_1box_select_impl()
+
+        if (mer07_veh02_nuc_mosaic_1box_use_native_impl) then
+           call mer07_veh02_nuc_mosaic_1box_native( &
+                newnuc_method_flagaa, dtnuc, temp_in, rh_in, press_in, zm_in, pblh_in, qh2so4_cur, qh2so4_avg, qnh3_cur, &
+                h2so4_uptkrate, mw_so4a_host, nsize, maxd_asize, dplom_sect, dphim_sect, isize_nuc, qnuma_del, qso4a_del, &
+                qnh4a_del, qh2so4_del, qnh3_del, dens_nh4so4a, ldiagaa )
+           return
+        end if
+
+        isize_nuc_work = 1_c_int64_t
+        qnuma_del_work = 0.0_c_double
+        qso4a_del_work = 0.0_c_double
+        qnh4a_del_work = 0.0_c_double
+        qh2so4_del_work = 0.0_c_double
+        qnh3_del_work = 0.0_c_double
+        dens_nh4so4a_work = 0.0_c_double
+        fallback_required_work = 0_c_int64_t
+
+        call mer07_veh02_nuc_mosaic_1box_codon( &
+             int(newnuc_method_flagaa, c_int64_t), real(dtnuc, c_double), real(temp_in, c_double), real(rh_in, c_double), &
+             real(press_in, c_double), real(zm_in, c_double), real(pblh_in, c_double), real(qh2so4_cur, c_double), &
+             real(qh2so4_avg, c_double), real(qnh3_cur, c_double), real(h2so4_uptkrate, c_double), real(mw_so4a_host, c_double), &
+             int(nsize, c_int64_t), c_loc(dplom_sect(1)), c_loc(dphim_sect(1)), int(ldiagaa, c_int64_t), real(pi, c_double), &
+             real(rgas, c_double), real(avogad, c_double), real(mw_so4a, c_double), real(mw_nh4a, c_double), c_loc(isize_nuc_work), &
+             c_loc(qnuma_del_work), c_loc(qso4a_del_work), c_loc(qnh4a_del_work), c_loc(qh2so4_del_work), c_loc(qnh3_del_work), &
+             c_loc(dens_nh4so4a_work), c_loc(fallback_required_work) )
+
+        if (fallback_required_work /= 0_c_int64_t) then
+           call mer07_veh02_nuc_mosaic_1box_native( &
+                newnuc_method_flagaa, dtnuc, temp_in, rh_in, press_in, zm_in, pblh_in, qh2so4_cur, qh2so4_avg, qnh3_cur, &
+                h2so4_uptkrate, mw_so4a_host, nsize, maxd_asize, dplom_sect, dphim_sect, isize_nuc, qnuma_del, qso4a_del, &
+                qnh4a_del, qh2so4_del, qnh3_del, dens_nh4so4a, ldiagaa )
+           return
+        end if
+
+        isize_nuc = int(isize_nuc_work, kind(isize_nuc))
+        qnuma_del = real(qnuma_del_work, r8)
+        qso4a_del = real(qso4a_del_work, r8)
+        qnh4a_del = real(qnh4a_del_work, r8)
+        qh2so4_del = real(qh2so4_del_work, r8)
+        qnh3_del = real(qnh3_del_work, r8)
+        dens_nh4so4a = real(dens_nh4so4a_work, r8)
+
+        end subroutine mer07_veh02_nuc_mosaic_1box
+
+!----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+        subroutine mer07_veh02_nuc_mosaic_1box_native(   &
            newnuc_method_flagaa, dtnuc, temp_in, rh_in, press_in,   &
            zm_in, pblh_in,   &
            qh2so4_cur, qh2so4_avg, qnh3_cur, h2so4_uptkrate,   &
@@ -2114,7 +2268,7 @@ main_i:	do i = 1, ncol
 
 
         return
-        end subroutine mer07_veh02_nuc_mosaic_1box
+        end subroutine mer07_veh02_nuc_mosaic_1box_native
 
 !-----------------------------------------------------------------------
 !-----------------------------------------------------------------------

@@ -2098,6 +2098,358 @@ def mer07_veh02_nuc_mosaic_finalize_codon(
 
 
 @export
+def mer07_veh02_nuc_mosaic_1box_codon(
+    newnuc_method_flagaa: int,
+    dtnuc: float,
+    temp_in: float,
+    rh_in: float,
+    press_in: float,
+    zm_in: float,
+    pblh_in: float,
+    qh2so4_cur: float,
+    qh2so4_avg: float,
+    qnh3_cur: float,
+    h2so4_uptkrate: float,
+    mw_so4a_host: float,
+    nsize: int,
+    dplom_sect_p: cobj,
+    dphim_sect_p: cobj,
+    ldiagaa: int,
+    pi_c: float,
+    rgas: float,
+    avogad: float,
+    mw_so4a: float,
+    mw_nh4a: float,
+    isize_nuc_p: cobj,
+    qnuma_del_p: cobj,
+    qso4a_del_p: cobj,
+    qnh4a_del_p: cobj,
+    qh2so4_del_p: cobj,
+    qnh3_del_p: cobj,
+    dens_nh4so4a_p: cobj,
+    fallback_required_p: cobj,
+):
+    dplom_sect = Ptr[float](dplom_sect_p)
+    dphim_sect = Ptr[float](dphim_sect_p)
+    isize_nuc = Ptr[int](isize_nuc_p)
+    qnuma_del = Ptr[float](qnuma_del_p)
+    qso4a_del = Ptr[float](qso4a_del_p)
+    qnh4a_del = Ptr[float](qnh4a_del_p)
+    qh2so4_del = Ptr[float](qh2so4_del_p)
+    qnh3_del = Ptr[float](qnh3_del_p)
+    dens_nh4so4a = Ptr[float](dens_nh4so4a_p)
+    fallback_required = Ptr[int](fallback_required_p)
+
+    fallback_required[0] = 0
+
+    if ldiagaa > 0:
+        fallback_required[0] = 1
+        return
+
+    isize_nuc_local = 1
+    qnuma_del_local = 0.0
+    qso4a_del_local = 0.0
+    qnh4a_del_local = 0.0
+    qh2so4_del_local = 0.0
+    qnh3_del_local = 0.0
+    dens_nh4so4a_local = 0.0
+
+    valid_method = 0
+    if (
+        newnuc_method_flagaa == 1
+        or newnuc_method_flagaa == 2
+        or newnuc_method_flagaa == 11
+        or newnuc_method_flagaa == 12
+    ):
+        valid_method = 1
+
+    if valid_method == 0:
+        isize_nuc[0] = isize_nuc_local
+        qnuma_del[0] = qnuma_del_local
+        qso4a_del[0] = qso4a_del_local
+        qnh4a_del[0] = qnh4a_del_local
+        qh2so4_del[0] = qh2so4_del_local
+        qnh3_del[0] = qnh3_del_local
+        dens_nh4so4a[0] = dens_nh4so4a_local
+        return
+
+    cair = press_in / (temp_in * rgas)
+    so4vol_in = qh2so4_avg * cair * avogad * 1.0e-6
+    nh3ppt = qnh3_cur * 1.0e12
+    ratenuclt = 1.0e-38
+    rateloge = log(ratenuclt)
+    temp_bb = 0.0
+    rh_bb = 0.0
+    so4vol_bb = 0.0
+    nh3ppt_bb = 0.0
+    use_ternary_rate = 0
+    use_binary_rate = 0
+    do_pbl_rate = 0
+
+    if (newnuc_method_flagaa != 2) and (nh3ppt >= 0.1):
+        if so4vol_in >= 5.0e4:
+            temp_bb = max(235.0, min(295.0, temp_in))
+            rh_bb = max(0.05, min(0.95, rh_in))
+            so4vol_bb = max(5.0e4, min(1.0e9, so4vol_in))
+            nh3ppt_bb = max(0.1, min(1.0e3, nh3ppt))
+            use_ternary_rate = 1
+        newnuc_method_flagaa2 = 1
+    else:
+        if so4vol_in >= 1.0e4:
+            temp_bb = max(230.15, min(305.15, temp_in))
+            rh_bb = max(1.0e-4, min(1.0, rh_in))
+            so4vol_bb = max(1.0e4, min(1.0e11, so4vol_in))
+            use_binary_rate = 1
+        newnuc_method_flagaa2 = 2
+
+    if (newnuc_method_flagaa == 11) or (newnuc_method_flagaa == 12):
+        if zm_in <= max(pblh_in, 100.0):
+            do_pbl_rate = 1
+
+    if use_ternary_rate != 0:
+        fallback_required[0] = 1
+        return
+
+    if use_binary_rate != 0:
+        crit_x = (
+            0.740997
+            - 0.00266379 * temp_bb
+            - 0.00349998 * log(so4vol_bb)
+            + 0.0000504022 * temp_bb * log(so4vol_bb)
+            + 0.00201048 * log(rh_bb)
+            - 0.000183289 * temp_bb * log(rh_bb)
+            + 0.00157407 * (log(rh_bb)) ** 2.0
+            - 0.0000179059 * temp_bb * (log(rh_bb)) ** 2.0
+            + 0.000184403 * (log(rh_bb)) ** 3.0
+            - 1.50345e-6 * temp_bb * (log(rh_bb)) ** 3.0
+        )
+
+        acoe = 0.14309 + 2.21956 * temp_bb - 0.0273911 * temp_bb**2.0 + 0.0000722811 * temp_bb**3.0 + 5.91822 / crit_x
+        bcoe = 0.117489 + 0.462532 * temp_bb - 0.0118059 * temp_bb**2.0 + 0.0000404196 * temp_bb**3.0 + 15.7963 / crit_x
+        ccoe = -0.215554 - 0.0810269 * temp_bb + 0.00143581 * temp_bb**2.0 - 4.7758e-6 * temp_bb**3.0 - 2.91297 / crit_x
+        dcoe = -3.58856 + 0.049508 * temp_bb - 0.00021382 * temp_bb**2.0 + 3.10801e-7 * temp_bb**3.0 - 0.0293333 / crit_x
+        ecoe = 1.14598 - 0.600796 * temp_bb + 0.00864245 * temp_bb**2.0 - 0.0000228947 * temp_bb**3.0 - 8.44985 / crit_x
+        fcoe = 2.15855 + 0.0808121 * temp_bb - 0.000407382 * temp_bb**2.0 - 4.01957e-7 * temp_bb**3.0 + 0.721326 / crit_x
+        gcoe = 1.6241 - 0.0160106 * temp_bb + 0.0000377124 * temp_bb**2.0 + 3.21794e-8 * temp_bb**3.0 - 0.0113255 / crit_x
+        hcoe = 9.71682 - 0.115048 * temp_bb + 0.000157098 * temp_bb**2.0 + 4.00914e-7 * temp_bb**3.0 + 0.71186 / crit_x
+        icoe = -1.05611 + 0.00903378 * temp_bb - 0.0000198417 * temp_bb**2.0 + 2.46048e-8 * temp_bb**3.0 - 0.0579087 / crit_x
+        jcoe = -0.148712 + 0.00283508 * temp_bb - 9.24619e-6 * temp_bb**2.0 + 5.00427e-9 * temp_bb**3.0 - 0.0127081 / crit_x
+
+        tmpa = (
+            acoe
+            + bcoe * log(rh_bb)
+            + ccoe * (log(rh_bb)) ** 2.0
+            + dcoe * (log(rh_bb)) ** 3.0
+            + ecoe * log(so4vol_bb)
+            + fcoe * (log(rh_bb)) * (log(so4vol_bb))
+            + gcoe * ((log(rh_bb)) ** 2.0) * (log(so4vol_bb))
+            + hcoe * (log(so4vol_bb)) ** 2.0
+            + icoe * log(rh_bb) * ((log(so4vol_bb)) ** 2.0)
+            + jcoe * (log(so4vol_bb)) ** 3.0
+        )
+        rateloge = tmpa
+        tmpa = min(tmpa, log(1.0e38))
+        ratenuclt = exp(tmpa)
+
+        acoe = -0.00295413 - 0.0976834 * temp_bb + 0.00102485 * temp_bb**2.0 - 2.18646e-6 * temp_bb**3.0 - 0.101717 / crit_x
+        bcoe = -0.00205064 - 0.00758504 * temp_bb + 0.000192654 * temp_bb**2.0 - 6.7043e-7 * temp_bb**3.0 - 0.255774 / crit_x
+        ccoe = 0.00322308 + 0.000852637 * temp_bb - 0.0000154757 * temp_bb**2.0 + 5.66661e-8 * temp_bb**3.0 + 0.0338444 / crit_x
+        dcoe = 0.0474323 - 0.000625104 * temp_bb + 2.65066e-6 * temp_bb**2.0 - 3.67471e-9 * temp_bb**3.0 - 0.000267251 / crit_x
+        ecoe = -0.0125211 + 0.00580655 * temp_bb - 0.000101674 * temp_bb**2.0 + 2.88195e-7 * temp_bb**3.0 + 0.0942243 / crit_x
+        fcoe = -0.038546 - 0.000672316 * temp_bb + 2.60288e-6 * temp_bb**2.0 + 1.19416e-8 * temp_bb**3.0 - 0.00851515 / crit_x
+        gcoe = -0.0183749 + 0.000172072 * temp_bb - 3.71766e-7 * temp_bb**2.0 - 5.14875e-10 * temp_bb**3.0 + 0.00026866 / crit_x
+        hcoe = -0.0619974 + 0.000906958 * temp_bb - 9.11728e-7 * temp_bb**2.0 - 5.36796e-9 * temp_bb**3.0 - 0.00774234 / crit_x
+        icoe = 0.0121827 - 0.00010665 * temp_bb + 2.5346e-7 * temp_bb**2.0 - 3.63519e-10 * temp_bb**3.0 + 0.000610065 / crit_x
+        jcoe = 0.000320184 - 0.0000174762 * temp_bb + 6.06504e-8 * temp_bb**2.0 - 1.4177e-11 * temp_bb**3.0 + 0.000135751 / crit_x
+
+        cnum_tot = exp(
+            acoe
+            + bcoe * log(rh_bb)
+            + ccoe * (log(rh_bb)) ** 2.0
+            + dcoe * (log(rh_bb)) ** 3.0
+            + ecoe * log(so4vol_bb)
+            + fcoe * (log(rh_bb)) * (log(so4vol_bb))
+            + gcoe * ((log(rh_bb)) ** 2.0) * (log(so4vol_bb))
+            + hcoe * (log(so4vol_bb)) ** 2.0
+            + icoe * log(rh_bb) * ((log(so4vol_bb)) ** 2.0)
+            + jcoe * (log(so4vol_bb)) ** 3.0
+        )
+
+        cnum_h2so4 = cnum_tot * crit_x
+        radius_cluster = exp(-1.6524245 + 0.42316402 * crit_x + 0.3346648 * log(cnum_tot))
+    else:
+        cnum_tot = 0.0
+        cnum_h2so4 = 0.0
+        radius_cluster = 0.0
+
+    cnum_nh3 = 0.0
+    if do_pbl_rate != 0:
+        if newnuc_method_flagaa == 11:
+            tmp_ratenucl = 1.0e-6 * so4vol_in
+        elif newnuc_method_flagaa == 12:
+            tmp_ratenucl = 1.0e-12 * (so4vol_in * so4vol_in)
+        else:
+            tmp_ratenucl = -1.0
+
+        if tmp_ratenucl > 0.0:
+            tmp_rateloge = log(tmp_ratenucl)
+            if tmp_rateloge > rateloge:
+                rateloge = tmp_rateloge
+                ratenuclt = tmp_ratenucl
+                newnuc_method_flagaa2 = newnuc_method_flagaa
+                radius_cluster = 0.5
+                tmp_diam = radius_cluster * 2.0e-7
+                tmp_volu = (tmp_diam * tmp_diam * tmp_diam) * (pi / 6.0)
+                tmp_mass = tmp_volu * 1.8
+                cnum_h2so4 = (tmp_mass / 98.0) * 6.023e23
+                cnum_tot = cnum_h2so4
+                cnum_nh3 = 0.0
+
+    ratenuclt_bb = 0.0
+    continue_flag = 0
+    if rateloge > -13.82:
+        ratenuclt = exp(rateloge)
+        ratenuclt_bb = ratenuclt * 1.0e6
+        continue_flag = 1
+
+    if continue_flag == 0:
+        isize_nuc[0] = isize_nuc_local
+        qnuma_del[0] = qnuma_del_local
+        qso4a_del[0] = qso4a_del_local
+        qnh4a_del[0] = qnh4a_del_local
+        qh2so4_del[0] = qh2so4_del_local
+        qnh3_del[0] = qnh3_del_local
+        dens_nh4so4a[0] = dens_nh4so4a_local
+        return
+
+    onethird = 1.0 / 3.0
+    accom_coef_h2so4 = 0.65
+    dens_ammsulf = 1.770e3
+    dens_ammbisulf = 1.770e3
+    dens_sulfacid = 1.770e3
+    mw_ammsulf = 132.0
+    mw_ammbisulf = 114.0
+    mw_sulfacid = 96.0
+
+    tmpa = max(0.10, min(0.95, rh_in))
+    wetvol_dryvol = 1.0 - 0.56 / log(tmpa)
+
+    voldry_clus = (max(cnum_h2so4, 1.0) * mw_so4a + cnum_nh3 * mw_nh4a) / (1.0e3 * dens_sulfacid * avogad)
+    voldry_clus = voldry_clus * (mw_so4a_host / mw_so4a)
+    dpdry_clus = (voldry_clus * 6.0 / pi_c) ** onethird
+
+    dpdry_part = dplom_sect[0]
+    if dpdry_clus <= dplom_sect[0]:
+        igrow = 1
+    elif dpdry_clus >= dphim_sect[nsize - 1]:
+        igrow = 0
+        isize_nuc_local = nsize
+        dpdry_part = dphim_sect[nsize - 1]
+    else:
+        igrow = 0
+        for i in range(1, nsize + 1):
+            if dpdry_clus < dphim_sect[i - 1]:
+                isize_nuc_local = i
+                dpdry_part = dpdry_clus
+                dpdry_part = min(dpdry_part, dphim_sect[i - 1])
+                dpdry_part = max(dpdry_part, dplom_sect[i - 1])
+                break
+
+    voldry_part = (pi_c / 6.0) * (dpdry_part**3)
+
+    if igrow <= 0:
+        tmp_n1 = 0.0
+        tmp_n2 = 0.0
+        tmp_n3 = 1.0
+    elif qnh3_cur >= qh2so4_cur:
+        tmp_n1 = (qnh3_cur / qh2so4_cur) - 1.0
+        tmp_n1 = max(0.0, min(1.0, tmp_n1))
+        tmp_n2 = 1.0 - tmp_n1
+        tmp_n3 = 0.0
+    else:
+        tmp_n1 = 0.0
+        tmp_n2 = qnh3_cur / qh2so4_cur
+        tmp_n2 = max(0.0, min(1.0, tmp_n2))
+        tmp_n3 = 1.0 - tmp_n2
+
+    tmp_m1 = tmp_n1 * mw_ammsulf
+    tmp_m2 = tmp_n2 * mw_ammbisulf
+    tmp_m3 = tmp_n3 * mw_sulfacid
+    dens_part = (tmp_m1 + tmp_m2 + tmp_m3) / ((tmp_m1 / dens_ammsulf) + (tmp_m2 / dens_ammbisulf) + (tmp_m3 / dens_sulfacid))
+    dens_nh4so4a_local = dens_part
+    mass_part = voldry_part * dens_part
+    molenh4a_per_moleso4a = 2.0 * tmp_n1 + tmp_n2
+    kgaero_per_moleso4a = 1.0e-3 * (tmp_m1 + tmp_m2 + tmp_m3)
+    kgaero_per_moleso4a = kgaero_per_moleso4a * (mw_so4a_host / mw_so4a)
+
+    tmpb = 1.0 + molenh4a_per_moleso4a * 17.0 / 98.0
+    wet_volfrac_so4a = 1.0 / (wetvol_dryvol * tmpb)
+
+    if igrow <= 0:
+        factor_kk = 1.0
+    else:
+        tmp_spd = 14.7 * sqrt(temp_in)
+        gr_kk = 3.0e-9 * tmp_spd * mw_sulfacid * so4vol_in / (dens_part * wet_volfrac_so4a)
+        dfin_kk = 1.0e9 * dpdry_part * (wetvol_dryvol**onethird)
+        dnuc_kk = 2.0 * radius_cluster
+        dnuc_kk = max(dnuc_kk, 1.0)
+        gamma_kk = 0.23 * (dnuc_kk**0.2) * (dfin_kk / 3.0) ** 0.075 * (dens_part * 1.0e-3) ** (-0.33) * (temp_in / 293.0) ** (-0.75)
+        tmpa = h2so4_uptkrate * 3600.0
+        tmpa = max(tmpa, 0.0)
+        tmpb = 6.7037e-6 * (temp_in**0.75) / cair
+        tmpb1 = tmpb
+        tmpb = tmpb * 3600.0
+        cs_prime_kk = tmpa / (4.0 * pi_c * tmpb * accom_coef_h2so4)
+        cs_kk = cs_prime_kk * 4.0 * pi_c * tmpb1
+        nu_kk = gamma_kk * cs_prime_kk / gr_kk
+        factor_kk = exp((nu_kk / dfin_kk) - (nu_kk / dnuc_kk))
+
+    ratenuclt_kk = ratenuclt_bb * factor_kk
+
+    tmpa = max(0.0, ratenuclt_kk * dtnuc * mass_part)
+    tmpe = tmpa / (kgaero_per_moleso4a * cair)
+    qmolso4a_del_max = tmpe
+
+    freducea = 1.0
+    if qmolso4a_del_max > qh2so4_cur:
+        freducea = qh2so4_cur / qmolso4a_del_max
+
+    freduceb = 1.0
+    if molenh4a_per_moleso4a >= 1.0e-10:
+        qmolnh4a_del_max = qmolso4a_del_max * molenh4a_per_moleso4a
+        if qmolnh4a_del_max > qnh3_cur:
+            freduceb = qnh3_cur / qmolnh4a_del_max
+
+    freduce = min(freducea, freduceb)
+    if freduce * ratenuclt_kk <= 1.0e-12:
+        isize_nuc[0] = isize_nuc_local
+        qnuma_del[0] = qnuma_del_local
+        qso4a_del[0] = qso4a_del_local
+        qnh4a_del[0] = qnh4a_del_local
+        qh2so4_del[0] = qh2so4_del_local
+        qnh3_del[0] = qnh3_del_local
+        dens_nh4so4a[0] = dens_nh4so4a_local
+        return
+
+    tmpa = 0.9999
+    qh2so4_del_local = min(tmpa * qh2so4_cur, freduce * qmolso4a_del_max)
+    qnh3_del_local = min(tmpa * qnh3_cur, qh2so4_del_local * molenh4a_per_moleso4a)
+    qh2so4_del_local = -qh2so4_del_local
+    qnh3_del_local = -qnh3_del_local
+    qso4a_del_local = -qh2so4_del_local
+    qnh4a_del_local = -qnh3_del_local
+    qnuma_del_local = 1.0e-3 * (qso4a_del_local * mw_so4a + qnh4a_del_local * mw_nh4a) / mass_part
+
+    isize_nuc[0] = isize_nuc_local
+    qnuma_del[0] = qnuma_del_local
+    qso4a_del[0] = qso4a_del_local
+    qnh4a_del[0] = qnh4a_del_local
+    qh2so4_del[0] = qh2so4_del_local
+    qnh3_del[0] = qnh3_del_local
+    dens_nh4so4a[0] = dens_nh4so4a_local
+
+
+@export
 def modal_aero_gasaerexch_snapshot_state_codon(
     ncol: int,
     pver: int,
