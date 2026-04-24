@@ -784,6 +784,26 @@ def eddy_diff_restore_fields_codon(
 
 
 @export
+def eddy_diff_zero_nonlocal_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    cgh_p: cobj,
+    cgs_p: cobj,
+):
+    cgh = Ptr[float](cgh_p)
+    cgs = Ptr[float](cgs_p)
+
+    for k in range(1, pver + 2):
+        for i in range(1, ncol + 1):
+            cgh[_idx2(i, k, pcols)] = 0.0
+
+    for k in range(1, pver + 2):
+        for i in range(1, ncol + 1):
+            cgs[_idx2(i, k, pcols)] = 0.0
+
+
+@export
 def vertical_diffusion_obklen_diag_codon(
     ncol: int,
     pcols: int,

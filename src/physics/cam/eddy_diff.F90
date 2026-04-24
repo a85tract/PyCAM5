@@ -182,6 +182,8 @@
   logical                     :: error_pbl_impl_selected = .false.
   logical                     :: use_native_kv_relax_impl = .false.
   logical                     :: kv_relax_impl_selected = .false.
+  logical                     :: use_native_zero_nonlocal_impl = .false.
+  logical                     :: zero_nonlocal_impl_selected = .false.
   logical                     :: use_native_restore_fields_impl = .false.
   logical                     :: restore_fields_impl_selected = .false.
   logical                     :: use_native_wstar_pbl_impl = .false.
@@ -670,8 +672,7 @@
 
      ! Set nonlocal terms to zero for flux diagnostics, since not used by caleddy.
 
-       cgh(:ncol,:) = 0._r8
-       cgs(:ncol,:) = 0._r8      
+       call eddy_diff_zero_nonlocal(ncol, pcols, pver, cgh, cgs)
 
        if( iturb .lt. nturb ) then
 
@@ -1833,6 +1834,95 @@
     kvh_out_local(:ncol,:) = lambda_local * kvh_out_local(:ncol,:) + ( 1._r8 - lambda_local ) * kvh_local(:ncol,:)
 
   end subroutine eddy_diff_kv_relax_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_zero_nonlocal_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (zero_nonlocal_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_ZERO_NONLOCAL_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_zero_nonlocal_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_zero_nonlocal_impl = .false.
+    end if
+
+    zero_nonlocal_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_zero_nonlocal_impl) then
+          write(iulog,*) 'eddy_diff_zero_nonlocal implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_zero_nonlocal implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_zero_nonlocal_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_zero_nonlocal(ncol, pcols, pver, cgh_local, cgs_local)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, pver
+    real(r8), target, intent(inout) :: cgh_local(pcols,pver+1), cgs_local(pcols,pver+1)
+
+    interface
+       subroutine eddy_diff_zero_nonlocal_codon(ncol_c, pcols_c, pver_c, cgh_p, cgs_p) &
+            bind(c, name="eddy_diff_zero_nonlocal_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: cgh_p, cgs_p
+       end subroutine eddy_diff_zero_nonlocal_codon
+    end interface
+
+    call eddy_diff_zero_nonlocal_select_impl()
+
+    if (use_native_zero_nonlocal_impl) then
+       call eddy_diff_zero_nonlocal_native(ncol, pcols, pver, cgh_local, cgs_local)
+       return
+    end if
+
+    call eddy_diff_zero_nonlocal_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), c_loc(cgh_local), c_loc(cgs_local) &
+    )
+
+  end subroutine eddy_diff_zero_nonlocal
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_zero_nonlocal_native(ncol, pcols, pver, cgh_local, cgs_local)
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, pver
+    real(r8), intent(inout) :: cgh_local(pcols,pver+1), cgs_local(pcols,pver+1)
+
+    cgh_local(:ncol,:) = 0._r8
+    cgs_local(:ncol,:) = 0._r8
+
+  end subroutine eddy_diff_zero_nonlocal_native
 
   !=============================================================================== !
   !                                                                                !
