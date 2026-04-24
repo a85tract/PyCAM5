@@ -1489,6 +1489,28 @@ def chem_emissions_add_sflx_codon(
 
 
 @export
+def aero_model_emissions_accumulate_sflx_codon(
+    ncol: int,
+    pcols: int,
+    nindices: int,
+    indices_p: cobj,
+    cflx_p: cobj,
+    sflx_p: cobj,
+):
+    indices = Ptr[int](indices_p)
+    cflx = Ptr[float](cflx_p)
+    sflx = Ptr[float](sflx_p)
+
+    for i in range(1, pcols + 1):
+        sflx[i - 1] = 0.0
+
+    for m in range(1, nindices + 1):
+        idx = indices[m - 1]
+        for i in range(1, ncol + 1):
+            sflx[i - 1] += cflx[_flux_idx(i, idx, pcols)]
+
+
+@export
 def aero_model_emissions_seasalt_wind_codon(
     ncol: int,
     pcols: int,

@@ -95,6 +95,8 @@ module aero_model
   logical :: aero_model_wetdep_impl_selected = .false.
   logical :: aero_model_emissions_seasalt_wind_use_native_impl = .false.
   logical :: aero_model_emissions_seasalt_wind_impl_selected = .false.
+  logical :: aero_model_emissions_accumulate_sflx_use_native_impl = .false.
+  logical :: aero_model_emissions_accumulate_sflx_impl_selected = .false.
   logical :: qqcw2vmr_use_native_impl = .false.
   logical :: qqcw2vmr_impl_selected = .false.
   logical :: vmr2qqcw_use_native_impl = .false.
@@ -882,7 +884,7 @@ contains
   !=============================================================================
   subroutine aero_model_drydep_select_branches(apply_srf_drydep_in)
 
-    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
     logical, intent(in) :: apply_srf_drydep_in
 
@@ -1787,10 +1789,9 @@ contains
        call dust_emis( ncol, lchnk, cam_in%dstflx, cam_in%cflx, soil_erod_tmp )
 
        ! some dust emis diagnostics ...
-       sflx(:)=0._r8
+       call aero_model_emissions_accumulate_sflx(ncol, dust_nbin, dust_indices(1:dust_nbin), cam_in%cflx, sflx)
        do m=1,dust_nbin+dust_nnum
           mm = dust_indices(m)
-          if (m<=dust_nbin) sflx(:ncol)=sflx(:ncol)+cam_in%cflx(:ncol,mm)
           call outfld(trim(dust_names(m))//'SF',cam_in%cflx(:,mm),pcols, lchnk)
        enddo
        call outfld('DSTSFMBL',sflx(:),pcols,lchnk)
@@ -1800,19 +1801,94 @@ contains
     if (seasalt_active) then
        call aero_model_emissions_seasalt_wind(ncol, state%u, state%v, state%zm, z0, u10cubed)
 
-       sflx(:)=0._r8
-
        call seasalt_emis( u10cubed, cam_in%sst, cam_in%ocnfrac, ncol, cam_in%cflx )
+       call aero_model_emissions_accumulate_sflx(ncol, seasalt_nbin, seasalt_indices(1:seasalt_nbin), cam_in%cflx, sflx)
 
        do m=1,seasalt_nbin
           mm = seasalt_indices(m)
-          sflx(:ncol)=sflx(:ncol)+cam_in%cflx(:ncol,mm)
           call outfld(trim(seasalt_names(m))//'SF',cam_in%cflx(:,mm),pcols,lchnk)
        enddo
        call outfld('SSTSFMBL',sflx(:),pcols,lchnk)
     endif
 
   end subroutine aero_model_emissions
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_emissions_accumulate_sflx_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (aero_model_emissions_accumulate_sflx_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('AERO_MODEL_EMISSIONS_ACCUMULATE_SFLX_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       aero_model_emissions_accumulate_sflx_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       aero_model_emissions_accumulate_sflx_use_native_impl = .false.
+    end if
+
+    aero_model_emissions_accumulate_sflx_impl_selected = .true.
+
+    if (masterproc) then
+       if (aero_model_emissions_accumulate_sflx_use_native_impl) then
+          write(iulog,*) 'aero_model_emissions_accumulate_sflx implementation = native'
+       else
+          write(iulog,*) 'aero_model_emissions_accumulate_sflx implementation = codon'
+       end if
+    end if
+
+  end subroutine aero_model_emissions_accumulate_sflx_select_impl
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_emissions_accumulate_sflx(ncol, nindices, indices, cflx, sflx)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol, nindices
+    integer, intent(in) :: indices(nindices)
+    real(r8), target, intent(in) :: cflx(pcols,pcnst)
+    real(r8), target, intent(out) :: sflx(pcols)
+
+    integer :: m
+    integer(c_int64_t), target :: indices_c(nindices)
+
+    interface
+       subroutine aero_model_emissions_accumulate_sflx_codon(ncol_c, pcols_c, nindices_c, indices_p, cflx_p, sflx_p) &
+            bind(c, name="aero_model_emissions_accumulate_sflx_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, nindices_c
+         type(c_ptr), value :: indices_p, cflx_p, sflx_p
+       end subroutine aero_model_emissions_accumulate_sflx_codon
+    end interface
+
+    call aero_model_emissions_accumulate_sflx_select_impl()
+
+    if (aero_model_emissions_accumulate_sflx_use_native_impl) then
+       sflx(:) = 0._r8
+       do m = 1, nindices
+          sflx(:ncol) = sflx(:ncol) + cflx(:ncol,indices(m))
+       end do
+       return
+    end if
+
+    indices_c(:) = int(indices(:), c_int64_t)
+    call aero_model_emissions_accumulate_sflx_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(nindices, c_int64_t), &
+         c_loc(indices_c), c_loc(cflx), c_loc(sflx) &
+    )
+
+  end subroutine aero_model_emissions_accumulate_sflx
 
   !=============================================================================
   !=============================================================================
