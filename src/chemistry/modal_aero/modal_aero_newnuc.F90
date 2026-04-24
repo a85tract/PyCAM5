@@ -25,6 +25,8 @@ module modal_aero_newnuc
 ! !PUBLIC DATA MEMBERS:
   integer, parameter  :: pcnstxx = gas_pcnst
   integer  :: l_h2so4_sv, l_nh3_sv, lnumait_sv, lnh4ait_sv, lso4ait_sv
+  logical :: modal_aero_newnuc_zero_tendencies_use_native_impl = .false.
+  logical :: modal_aero_newnuc_zero_tendencies_impl_selected = .false.
 
 ! min h2so4 vapor for nuc calcs = 4.0e-16 mol/mol-air ~= 1.0e4 molecules/cm3, 
   real(r8), parameter :: qh2so4_cutoff = 4.0e-16_r8
@@ -46,6 +48,84 @@ module modal_aero_newnuc
 
 
   contains
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_newnuc_zero_tendencies_select_impl()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   implicit none
+
+   character(len=48) :: impl_name
+   integer :: status, n, i, code
+
+   if (modal_aero_newnuc_zero_tendencies_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('MODAL_AERO_NEWNUC_ZERO_TENDENCIES_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      modal_aero_newnuc_zero_tendencies_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      modal_aero_newnuc_zero_tendencies_use_native_impl = .false.
+   end if
+
+   modal_aero_newnuc_zero_tendencies_impl_selected = .true.
+
+   if (masterproc) then
+      if (modal_aero_newnuc_zero_tendencies_use_native_impl) then
+         write(iulog,*) 'modal_aero_newnuc_zero_tendencies implementation = native'
+      else
+         write(iulog,*) 'modal_aero_newnuc_zero_tendencies implementation = codon'
+      end if
+   end if
+
+  end subroutine modal_aero_newnuc_zero_tendencies_select_impl
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_newnuc_zero_tendencies(ncol, pcnst_in, nsrflx_in, dqdt, qsrflx)
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+   use ppgrid, only: pcols, pver
+
+   implicit none
+
+   integer, intent(in) :: ncol, pcnst_in, nsrflx_in
+   real(r8), target, intent(out) :: dqdt(ncol,pver,pcnstxx)
+   real(r8), target, intent(out) :: qsrflx(pcols,pcnst_in,nsrflx_in)
+
+   interface
+      subroutine modal_aero_newnuc_zero_tendencies_codon(ncol_c, pcols_c, pver_c, pcnstxx_c, pcnst_c, nsrflx_c, dqdt_p, qsrflx_p) &
+           bind(c, name="modal_aero_newnuc_zero_tendencies_codon")
+        use iso_c_binding, only: c_int64_t, c_ptr
+        integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnstxx_c, pcnst_c, nsrflx_c
+        type(c_ptr), value :: dqdt_p, qsrflx_p
+      end subroutine modal_aero_newnuc_zero_tendencies_codon
+   end interface
+
+   call modal_aero_newnuc_zero_tendencies_select_impl()
+
+   if (modal_aero_newnuc_zero_tendencies_use_native_impl) then
+      dqdt(1:ncol,:,:) = 0.0_r8
+      qsrflx(1:ncol,:,:) = 0.0_r8
+      return
+   end if
+
+   call modal_aero_newnuc_zero_tendencies_codon( &
+        int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnstxx, c_int64_t), int(pcnst_in, c_int64_t), &
+        int(nsrflx_in, c_int64_t), c_loc(dqdt(1,1,1)), c_loc(qsrflx(1,1,1)) &
+   )
+
+  end subroutine modal_aero_newnuc_zero_tendencies
 
 !----------------------------------------------------------------------
 !----------------------------------------------------------------------
@@ -199,8 +279,7 @@ module modal_aero_newnuc
 	if ((l_h2so4 <= 0) .or. (lso4ait <= 0) .or. (lnumait <= 0)) return
 
 	dotend(:) = .false.
-	dqdt(1:ncol,:,:) = 0.0_r8
-	qsrflx(1:ncol,:,:) = 0.0_r8
+	call modal_aero_newnuc_zero_tendencies(ncol, pcnst, nsrflx, dqdt, qsrflx)
 
 !   set dotend
 	mait = modeptr_aitken
@@ -1693,6 +1772,5 @@ end  subroutine ternary_nuc_merik2007
 
 !----------------------------------------------------------------------
 end module modal_aero_newnuc
-
 
 
