@@ -43,6 +43,8 @@ module modal_aero_newnuc
   logical :: binary_nuc_vehk2002_impl_selected = .false.
   logical :: mer07_veh02_nuc_mosaic_init_state_use_native_impl = .false.
   logical :: mer07_veh02_nuc_mosaic_init_state_impl_selected = .false.
+  logical :: mer07_veh02_nuc_mosaic_prepare_finalize_inputs_use_native_impl = .false.
+  logical :: mer07_veh02_nuc_mosaic_prepare_finalize_inputs_impl_selected = .false.
   logical :: mer07_veh02_nuc_mosaic_prepare_rates_use_native_impl = .false.
   logical :: mer07_veh02_nuc_mosaic_prepare_rates_impl_selected = .false.
   logical :: mer07_veh02_nuc_mosaic_postprocess_use_native_impl = .false.
@@ -1360,6 +1362,113 @@ main_i:	do i = 1, ncol
 
 !----------------------------------------------------------------------
 !-----------------------------------------------------------------------
+  subroutine mer07_veh02_nuc_mosaic_prepare_finalize_inputs_select_impl()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   implicit none
+
+   character(len=48) :: impl_name
+   integer :: status, n, i, code
+
+   if (mer07_veh02_nuc_mosaic_prepare_finalize_inputs_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('MER07_VEH02_NUC_MOSAIC_PREPARE_FINALIZE_INPUTS_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      mer07_veh02_nuc_mosaic_prepare_finalize_inputs_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      mer07_veh02_nuc_mosaic_prepare_finalize_inputs_use_native_impl = .false.
+   end if
+
+   mer07_veh02_nuc_mosaic_prepare_finalize_inputs_impl_selected = .true.
+
+   if (masterproc) then
+      if (mer07_veh02_nuc_mosaic_prepare_finalize_inputs_use_native_impl) then
+         write(iulog,*) 'mer07_veh02_nuc_mosaic_prepare_finalize_inputs implementation = native'
+      else
+         write(iulog,*) 'mer07_veh02_nuc_mosaic_prepare_finalize_inputs implementation = codon'
+      end if
+   end if
+
+  end subroutine mer07_veh02_nuc_mosaic_prepare_finalize_inputs_select_impl
+
+!----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+  subroutine mer07_veh02_nuc_mosaic_prepare_finalize_inputs( rateloge, ratenuclt, ratenuclt_bb, continue_flag )
+
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+   implicit none
+
+   real(r8), intent(in) :: rateloge
+   real(r8), intent(out) :: ratenuclt, ratenuclt_bb
+   integer, intent(out) :: continue_flag
+
+   integer(c_int64_t), target :: continue_flag_work
+   real(c_double), target :: ratenuclt_work, ratenuclt_bb_work
+
+   interface
+      subroutine mer07_veh02_nuc_mosaic_prepare_finalize_inputs_codon( rateloge_c, ratenuclt_p, ratenuclt_bb_p, continue_flag_p ) &
+           bind(c, name="mer07_veh02_nuc_mosaic_prepare_finalize_inputs_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        real(c_double), value :: rateloge_c
+        type(c_ptr), value :: ratenuclt_p, ratenuclt_bb_p, continue_flag_p
+      end subroutine mer07_veh02_nuc_mosaic_prepare_finalize_inputs_codon
+   end interface
+
+   call mer07_veh02_nuc_mosaic_prepare_finalize_inputs_select_impl()
+
+   if (mer07_veh02_nuc_mosaic_prepare_finalize_inputs_use_native_impl) then
+      call mer07_veh02_nuc_mosaic_prepare_finalize_inputs_native( rateloge, ratenuclt, ratenuclt_bb, continue_flag )
+      return
+   end if
+
+   continue_flag_work = 0_c_int64_t
+   ratenuclt_work = 0.0_c_double
+   ratenuclt_bb_work = 0.0_c_double
+
+   call mer07_veh02_nuc_mosaic_prepare_finalize_inputs_codon( real(rateloge, c_double), c_loc(ratenuclt_work), &
+        c_loc(ratenuclt_bb_work), c_loc(continue_flag_work) )
+
+   ratenuclt = real(ratenuclt_work, r8)
+   ratenuclt_bb = real(ratenuclt_bb_work, r8)
+   continue_flag = int(continue_flag_work, kind(continue_flag))
+
+  end subroutine mer07_veh02_nuc_mosaic_prepare_finalize_inputs
+
+!----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+  subroutine mer07_veh02_nuc_mosaic_prepare_finalize_inputs_native( rateloge, ratenuclt, ratenuclt_bb, continue_flag )
+
+   implicit none
+
+   real(r8), intent(in) :: rateloge
+   real(r8), intent(out) :: ratenuclt, ratenuclt_bb
+   integer, intent(out) :: continue_flag
+
+   ratenuclt = 0.0_r8
+   ratenuclt_bb = 0.0_r8
+   continue_flag = 0
+
+   if (rateloge .le. -13.82_r8) return
+
+   ratenuclt = exp( rateloge )
+   ratenuclt_bb = ratenuclt*1.0e6_r8
+   continue_flag = 1
+
+  end subroutine mer07_veh02_nuc_mosaic_prepare_finalize_inputs_native
+
+!----------------------------------------------------------------------
+!-----------------------------------------------------------------------
         subroutine mer07_veh02_nuc_mosaic_1box(   &
            newnuc_method_flagaa, dtnuc, temp_in, rh_in, press_in,   &
            zm_in, pblh_in,   &
@@ -1473,6 +1582,7 @@ main_i:	do i = 1, ncol
         integer :: postprocess_code
         integer :: use_ternary_rate, use_binary_rate, do_pbl_rate
         integer :: valid_method
+        integer :: continue_flag
 
         real(r8), parameter :: onethird = 1.0_r8/3.0_r8
 
@@ -1588,10 +1698,8 @@ main_i:	do i = 1, ncol
 
 ! if nucleation rate is less than 1e-6 #/m3/s ~= 0.1 #/cm3/day,
 ! exit with new particle formation = 0
-        if (rateloge  .le. -13.82_r8) return
-!       if (ratenuclt .le. 1.0e-6) return
-        ratenuclt = exp( rateloge )
-        ratenuclt_bb = ratenuclt*1.0e6_r8
+        call mer07_veh02_nuc_mosaic_prepare_finalize_inputs( rateloge, ratenuclt, ratenuclt_bb, continue_flag )
+        if (continue_flag == 0) return
 
         if (ldiagaa <= 0) then
            call mer07_veh02_nuc_mosaic_finalize( &

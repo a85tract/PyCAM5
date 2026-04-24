@@ -1775,6 +1775,29 @@ def mer07_veh02_nuc_mosaic_init_state_codon(
 
 
 @export
+def mer07_veh02_nuc_mosaic_prepare_finalize_inputs_codon(
+    rateloge: float,
+    ratenuclt_p: cobj,
+    ratenuclt_bb_p: cobj,
+    continue_flag_p: cobj,
+):
+    ratenuclt = Ptr[float](ratenuclt_p)
+    ratenuclt_bb = Ptr[float](ratenuclt_bb_p)
+    continue_flag = Ptr[int](continue_flag_p)
+
+    ratenuclt[0] = 0.0
+    ratenuclt_bb[0] = 0.0
+    continue_flag[0] = 0
+
+    if rateloge <= -13.82:
+        return
+
+    ratenuclt[0] = exp(rateloge)
+    ratenuclt_bb[0] = ratenuclt[0] * 1.0e6
+    continue_flag[0] = 1
+
+
+@export
 def mer07_veh02_nuc_mosaic_prepare_rates_codon(
     newnuc_method_flagaa: int,
     temp_in: float,
