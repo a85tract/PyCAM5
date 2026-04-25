@@ -4107,7 +4107,7 @@
     kb_is_surface_local = 0
     if( kb_local .eq. pver_local + 1 ) kb_is_surface_local = 1
 
-    call eddy_diff_zisocl_surface_state_native(kb_is_surface_local, use_dw_surf_local, zi_local(i_local,kt_local), zi_local(i_local,kb_local), &
+    call eddy_diff_zisocl_surface_state(kb_is_surface_local, use_dw_surf_local, zi_local(i_local,kt_local), zi_local(i_local,kb_local), &
          z_surf_local, bflxs_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, lbulk_local, gh_local, sh_local, &
          sm_local, dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local, lint_local, l2n2_local, l2s2_local, &
          wint_local)
@@ -4259,7 +4259,7 @@
     kb_is_surface_mode_local = 0
     if( kb_local .eq. pver_local + 1 ) kb_is_surface_mode_local = 1
 
-    call eddy_diff_zisocl_surface_state_native(kb_is_surface_mode_local, use_dw_surf_local, zi_top_local, zi_base_local, z_surf_local, &
+    call eddy_diff_zisocl_surface_state(kb_is_surface_mode_local, use_dw_surf_local, zi_top_local, zi_base_local, z_surf_local, &
          bflxs_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, lbulk_local, gh_local, sh_local, sm_local, &
          dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local, lint_local, l2n2_local, l2s2_local, wint_local)
 
