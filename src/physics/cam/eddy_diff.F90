@@ -4120,7 +4120,7 @@
              zi_local, n2_local, s2_local, leng_max_local, lint_local, l2n2_local, l2s2_local, wint_local, ricll_local, gh_local, &
              sh_local, sm_local)
     else
-        call eddy_diff_zisocl_sbcl_state_native(choice_tkes_ebprod_local, sh_local, dlint_surf_local, dl2n2_surf_local, &
+        call eddy_diff_zisocl_sbcl_state(choice_tkes_ebprod_local, sh_local, dlint_surf_local, dl2n2_surf_local, &
              dl2s2_surf_local, dw_surf_local, lint_local, l2n2_local, l2s2_local, wint_local)
     end if
 
