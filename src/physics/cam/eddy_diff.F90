@@ -216,6 +216,8 @@
   logical                     :: caleddy_surface_tke_impl_selected = .false.
   logical                     :: use_native_zisocl_surface_energy_impl = .false.
   logical                     :: zisocl_surface_energy_impl_selected = .false.
+  logical                     :: use_native_zisocl_stability_impl = .false.
+  logical                     :: zisocl_stability_impl_selected = .false.
   logical                     :: use_native_zisocl_layer_energy_impl = .false.
   logical                     :: zisocl_layer_energy_impl_selected = .false.
   logical                     :: use_native_zisocl_interface_energy_impl = .false.
@@ -3602,6 +3604,104 @@
   !                                                                                !
   !=============================================================================== !
 
+  subroutine eddy_diff_zisocl_stability_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (zisocl_stability_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_ZISOCL_STABILITY_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_zisocl_stability_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_zisocl_stability_impl = .false.
+    end if
+
+    zisocl_stability_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_zisocl_stability_impl) then
+          write(iulog,*) 'eddy_diff_zisocl_stability implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_zisocl_stability implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_zisocl_stability_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_zisocl_stability(l2n2_local, l2s2_local, ricll_local, gh_local, sh_local, sm_local)
+
+    use iso_c_binding, only: c_double, c_loc, c_ptr
+
+    implicit none
+
+    real(r8), target, intent(in) :: l2n2_local, l2s2_local
+    real(r8), target, intent(out) :: ricll_local, gh_local, sh_local, sm_local
+
+    interface
+       subroutine eddy_diff_zisocl_stability_codon(alph1_c, alph2_c, alph3_c, alph4_c, alph5_c, b1_c, ntzero_c, ricrit_c, &
+            l2n2_c, l2s2_c, ricll_p, gh_p, sh_p, sm_p) bind(c, name="eddy_diff_zisocl_stability_codon")
+         use iso_c_binding, only: c_double, c_ptr
+         real(c_double), value :: alph1_c, alph2_c, alph3_c, alph4_c, alph5_c, b1_c, ntzero_c, ricrit_c
+         real(c_double), value :: l2n2_c, l2s2_c
+         type(c_ptr), value :: ricll_p, gh_p, sh_p, sm_p
+       end subroutine eddy_diff_zisocl_stability_codon
+    end interface
+
+    call eddy_diff_zisocl_stability_select_impl()
+
+    if (use_native_zisocl_stability_impl) then
+       call eddy_diff_zisocl_stability_native(l2n2_local, l2s2_local, ricll_local, gh_local, sh_local, sm_local)
+       return
+    end if
+
+    call eddy_diff_zisocl_stability_codon(alph1, alph2, alph3, alph4, alph5, b1, ntzero, ricrit, l2n2_local, l2s2_local, &
+         c_loc(ricll_local), c_loc(gh_local), c_loc(sh_local), c_loc(sm_local))
+
+  end subroutine eddy_diff_zisocl_stability
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_zisocl_stability_native(l2n2_local, l2s2_local, ricll_local, gh_local, sh_local, sm_local)
+
+    implicit none
+
+    real(r8), intent(in) :: l2n2_local, l2s2_local
+    real(r8), intent(out) :: ricll_local, gh_local, sh_local, sm_local
+
+    real(r8) :: trma_local, trmb_local, trmc_local, det_local
+
+    ricll_local = min(l2n2_local/max(l2s2_local,ntzero),ricrit)
+    trma_local = alph3*alph4*ricll_local+2._r8*b1*(alph2-alph4*alph5*ricll_local)
+    trmb_local = ricll_local*(alph3+alph4)+2._r8*b1*(-alph5*ricll_local+alph1)
+    trmc_local = ricll_local
+    det_local = max(trmb_local*trmb_local-4._r8*trma_local*trmc_local,0._r8)
+    gh_local = (-trmb_local + sqrt(det_local))/2._r8/trma_local
+    gh_local = min(max(gh_local,-3.5334_r8),0.0233_r8)
+    sh_local = alph5/(1._r8+alph3*gh_local)
+    sm_local = (alph1 + alph2*gh_local)/(1._r8+alph3*gh_local)/(1._r8+alph4*gh_local)
+
+  end subroutine eddy_diff_zisocl_stability_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
   subroutine eddy_diff_zisocl_layer_energy_select_impl()
 
     character(len=32) :: impl_name
@@ -6469,10 +6569,6 @@
     real(r8)              :: dlint_surf               ! Surface interfacial layer thickness 
     real(r8)              :: lbulk                    ! Master Length Scale : Whole CL thickness from top to base external interface
     real(r8)              :: ricll                    ! Mean Richardson number of internal CL 
-    real(r8)              :: trma
-    real(r8)              :: trmb
-    real(r8)              :: trmc
-    real(r8)              :: det
     real(r8)              :: zbot                     ! Height of CL base
     real(r8)              :: l2rat                    ! Square of ratio of actual to initial CL (not used)
 
@@ -6593,16 +6689,7 @@
          ! Modification : It seems that below cannot be applied when ricrit > 0.19.
          !                May need future generalization.
 
-           ricll = min(l2n2/max(l2s2,ntzero),ricrit) ! Mean Ri of internal CL
-           trma  = alph3*alph4*ricll+2._r8*b1*(alph2-alph4*alph5*ricll)
-           trmb  = ricll*(alph3+alph4)+2._r8*b1*(-alph5*ricll+alph1)
-           trmc  = ricll
-           det   = max(trmb*trmb-4._r8*trma*trmc,0._r8)
-           gh    = (-trmb + sqrt(det))/2._r8/trma
-         ! gh    = min(max(gh,-0.28_r8),0.0233_r8)
-           gh    = min(max(gh,-3.5334_r8),0.0233_r8)
-           sh    = alph5/(1._r8+alph3*gh)
-           sm    = (alph1 + alph2*gh)/(1._r8+alph3*gh)/(1._r8+alph4*gh)
+           call eddy_diff_zisocl_stability(l2n2, l2s2, ricll, gh, sh, sm)
            wint  = wint - sh*l2n2 + sm*l2s2 
 
        else ! The case of SBCL
@@ -6970,16 +7057,7 @@
               l2s2 = l2s2 + dl2s2
            end do
 
-           ricll = min(l2n2/max(l2s2,ntzero),ricrit)
-           trma = alph3*alph4*ricll+2._r8*b1*(alph2-alph4*alph5*ricll)
-           trmb = ricll*(alph3+alph4)+2._r8*b1*(-alph5*ricll+alph1)
-           trmc = ricll
-           det = max(trmb*trmb-4._r8*trma*trmc,0._r8)
-           gh = (-trmb + sqrt(det))/2._r8/trma
-         ! gh = min(max(gh,-0.28_r8),0.0233_r8)
-           gh = min(max(gh,-3.5334_r8),0.0233_r8)
-           sh = alph5 / (1._r8+alph3*gh)
-           sm = (alph1 + alph2*gh)/(1._r8+alph3*gh)/(1._r8+alph4*gh)
+           call eddy_diff_zisocl_stability(l2n2, l2s2, ricll, gh, sh, sm)
            ! Even though the 'wint' after finishing merging was positive, it is 
            ! possible that re-calculated 'wint' here is negative.  In this case,
            ! correct 'wint' to be a small positive number

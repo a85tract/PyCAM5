@@ -1115,6 +1115,39 @@ def eddy_diff_zisocl_surface_energy_codon(
 
 
 @export
+def eddy_diff_zisocl_stability_codon(
+    alph1: float,
+    alph2: float,
+    alph3: float,
+    alph4: float,
+    alph5: float,
+    b1: float,
+    ntzero: float,
+    ricrit: float,
+    l2n2: float,
+    l2s2: float,
+    ricll_p: cobj,
+    gh_p: cobj,
+    sh_p: cobj,
+    sm_p: cobj,
+):
+    ricll = Ptr[float](ricll_p)
+    gh = Ptr[float](gh_p)
+    sh = Ptr[float](sh_p)
+    sm = Ptr[float](sm_p)
+
+    ricll[0] = min(l2n2 / max(l2s2, ntzero), ricrit)
+    trma = alph3 * alph4 * ricll[0] + 2.0 * b1 * (alph2 - alph4 * alph5 * ricll[0])
+    trmb = ricll[0] * (alph3 + alph4) + 2.0 * b1 * (-alph5 * ricll[0] + alph1)
+    trmc = ricll[0]
+    det = max(trmb * trmb - 4.0 * trma * trmc, 0.0)
+    gh[0] = (-trmb + sqrt(det)) / 2.0 / trma
+    gh[0] = min(max(gh[0], -3.5334), 0.0233)
+    sh[0] = alph5 / (1.0 + alph3 * gh[0])
+    sm[0] = (alph1 + alph2 * gh[0]) / (1.0 + alph3 * gh[0]) / (1.0 + alph4 * gh[0])
+
+
+@export
 def eddy_diff_zisocl_layer_energy_codon(
     i_col: int,
     k_ifc: int,
