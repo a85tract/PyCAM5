@@ -990,6 +990,70 @@ def eddy_diff_trbintd_midpoint_codon(
 
 
 @export
+def eddy_diff_trbintd_slopes_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pmid_p: cobj,
+    sl_p: cobj,
+    qt_p: cobj,
+    slslope_p: cobj,
+    qtslope_p: cobj,
+    dsldp_b_p: cobj,
+    dqtdp_b_p: cobj,
+):
+    pmid = Ptr[float](pmid_p)
+    sl = Ptr[float](sl_p)
+    qt = Ptr[float](qt_p)
+    slslope = Ptr[float](slslope_p)
+    qtslope = Ptr[float](qtslope_p)
+    dsldp_b = Ptr[float](dsldp_b_p)
+    dqtdp_b = Ptr[float](dqtdp_b_p)
+
+    for i in range(1, ncol + 1):
+        idx_pver = _idx2(i, pver, pcols)
+        idx_pverm1 = _idx2(i, pver - 1, pcols)
+        idx_1 = _idx2(i, 1, pcols)
+        idx_2 = _idx2(i, 2, pcols)
+        idx_i = i - 1
+
+        slslope[idx_pver] = (sl[idx_pver] - sl[idx_pverm1]) / (pmid[idx_pver] - pmid[idx_pverm1])
+        qtslope[idx_pver] = (qt[idx_pver] - qt[idx_pverm1]) / (pmid[idx_pver] - pmid[idx_pverm1])
+        slslope[idx_1] = (sl[idx_2] - sl[idx_1]) / (pmid[idx_2] - pmid[idx_1])
+        qtslope[idx_1] = (qt[idx_2] - qt[idx_1]) / (pmid[idx_2] - pmid[idx_1])
+        dsldp_b[idx_i] = slslope[idx_1]
+        dqtdp_b[idx_i] = qtslope[idx_1]
+
+    for k in range(2, pver):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            idx_kp1 = _idx2(i, k + 1, pcols)
+            idx_i = i - 1
+
+            dsldp_a = dsldp_b[idx_i]
+            dqtdp_a = dqtdp_b[idx_i]
+
+            dsldp_b[idx_i] = (sl[idx_kp1] - sl[idx]) / (pmid[idx_kp1] - pmid[idx])
+            dqtdp_b[idx_i] = (qt[idx_kp1] - qt[idx]) / (pmid[idx_kp1] - pmid[idx])
+
+            product = dsldp_a * dsldp_b[idx_i]
+            if product <= 0.0:
+                slslope[idx] = 0.0
+            elif dsldp_a < 0.0:
+                slslope[idx] = max(dsldp_a, dsldp_b[idx_i])
+            else:
+                slslope[idx] = min(dsldp_a, dsldp_b[idx_i])
+
+            product = dqtdp_a * dqtdp_b[idx_i]
+            if product <= 0.0:
+                qtslope[idx] = 0.0
+            elif dqtdp_a < 0.0:
+                qtslope[idx] = max(dqtdp_a, dqtdp_b[idx_i])
+            else:
+                qtslope[idx] = min(dqtdp_a, dqtdp_b[idx_i])
+
+
+@export
 def vertical_diffusion_obklen_diag_codon(
     ncol: int,
     pcols: int,

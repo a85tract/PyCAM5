@@ -188,6 +188,8 @@
   logical                     :: rebuild_thermo_impl_selected = .false.
   logical                     :: use_native_trbintd_midpoint_impl = .false.
   logical                     :: trbintd_midpoint_impl_selected = .false.
+  logical                     :: use_native_trbintd_slopes_impl = .false.
+  logical                     :: trbintd_slopes_impl_selected = .false.
   logical                     :: use_native_zero_nonlocal_impl = .false.
   logical                     :: zero_nonlocal_impl_selected = .false.
   logical                     :: use_native_restore_fields_impl = .false.
@@ -1061,7 +1063,7 @@
     real(r8), intent(in)  :: u(pcols,pver)                    ! Layer mid-point u [ m/s ]
     real(r8), intent(in)  :: v(pcols,pver)                    ! Layer mid-point v [ m/s ]
     real(r8), target, intent(in)  :: t(pcols,pver)            ! Layer mid-point temperature [ K ]
-    real(r8), intent(in)  :: pmid(pcols,pver)                 ! Layer mid-point pressure [ Pa ]
+    real(r8), target, intent(in)  :: pmid(pcols,pver)         ! Layer mid-point pressure [ Pa ]
     real(r8), intent(in)  :: zi(pcols,pver+1)                 ! Interface height [ m ]
     real(r8), intent(in)  :: pi(pcols,pver+1)                 ! Interface pressure [ Pa ]
     real(r8), intent(in)  :: cld(pcols,pver)                  ! Stratus fraction
@@ -1092,8 +1094,8 @@
                                                               ! [ unit ? ]
     real(r8), target, intent(out) :: cms(pcols,pver+1)        ! Moisture buoyancy coef for sat states at all interfaces, finally.
                                                               ! [ unit ? ]
-    real(r8), intent(out) :: slslope(pcols,pver)              ! Slope of 'sl' in each layer
-    real(r8), intent(out) :: qtslope(pcols,pver)              ! Slope of 'qt' in each layer
+    real(r8), target, intent(out) :: slslope(pcols,pver)      ! Slope of 'sl' in each layer
+    real(r8), target, intent(out) :: qtslope(pcols,pver)      ! Slope of 'qt' in each layer
  
     ! --------------- !
     ! Local Variables !
@@ -1109,9 +1111,7 @@
     real(r8)              :: dqtdz                            ! 'delta qt / delta z' at interface
     real(r8)              :: ch                               ! 'sfi' weighted ch at the interface
     real(r8)              :: cm                               ! 'sfi' weighted cm at the interface
-    real(r8)              :: product                          ! Intermediate vars used to find slopes
-    real(r8)              :: dsldp_a, dqtdp_a                 ! Slopes across interface above 
-    real(r8)              :: dsldp_b(pcols), dqtdp_b(pcols)   ! Slopes across interface below
+    real(r8), target      :: dsldp_b(pcols), dqtdp_b(pcols)   ! Slopes across interface below
 
     ! ----------------------- !
     ! Main Computation Begins !
@@ -1135,40 +1135,7 @@
     ! profile reconstruction is the best or not.
     ! This is similar to the profile reconstruction used in the UWShCu. 
 
-    do i = 1, ncol
-     ! Slopes at endpoints determined by extrapolation
-       slslope(i,pver) = ( sl(i,pver) - sl(i,pver-1) ) / ( pmid(i,pver) - pmid(i,pver-1) )
-       qtslope(i,pver) = ( qt(i,pver) - qt(i,pver-1) ) / ( pmid(i,pver) - pmid(i,pver-1) )
-       slslope(i,1)    = ( sl(i,2) - sl(i,1) ) / ( pmid(i,2) - pmid(i,1) )
-       qtslope(i,1)    = ( qt(i,2) - qt(i,1) ) / ( pmid(i,2) - pmid(i,1) )
-       dsldp_b(i)      = slslope(i,1)
-       dqtdp_b(i)      = qtslope(i,1)
-    end do
-
-    do k = 2, pver - 1
-       do i = 1, ncol
-          dsldp_a    = dsldp_b(i)
-          dqtdp_a    = dqtdp_b(i)
-          dsldp_b(i) = ( sl(i,k+1) - sl(i,k) ) / ( pmid(i,k+1) - pmid(i,k) )
-          dqtdp_b(i) = ( qt(i,k+1) - qt(i,k) ) / ( pmid(i,k+1) - pmid(i,k) )
-          product    = dsldp_a * dsldp_b(i)
-          if( product .le. 0._r8 ) then 
-              slslope(i,k) = 0._r8
-          else if( product .gt. 0._r8 .and. dsldp_a .lt. 0._r8 ) then 
-              slslope(i,k) = max( dsldp_a, dsldp_b(i) )
-          else if( product .gt. 0._r8 .and. dsldp_a .gt. 0._r8 ) then 
-              slslope(i,k) = min( dsldp_a, dsldp_b(i) )
-          end if
-          product = dqtdp_a*dqtdp_b(i)
-          if( product .le. 0._r8 ) then 
-              qtslope(i,k) = 0._r8
-          else if( product .gt. 0._r8 .and. dqtdp_a .lt. 0._r8 ) then 
-              qtslope(i,k) = max( dqtdp_a, dqtdp_b(i) )
-          else if( product .gt. 0._r8 .and. dqtdp_a .gt. 0._r8 ) then 
-              qtslope(i,k) = min( dqtdp_a, dqtdp_b(i) )
-          end if
-       end do ! i
-    end do ! k
+    call eddy_diff_trbintd_slopes(ncol, pcols, pver, pmid, sl, qt, slslope, qtslope, dsldp_b, dqtdp_b)
 
     !  Compute saturation fraction at the interfacial layers for use in buoyancy
     !  flux computation.
@@ -1337,6 +1304,136 @@
     end do
 
   end subroutine eddy_diff_trbintd_midpoint_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_trbintd_slopes_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (trbintd_slopes_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_TRBINTD_SLOPES_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_trbintd_slopes_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_trbintd_slopes_impl = .false.
+    end if
+
+    trbintd_slopes_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_trbintd_slopes_impl) then
+          write(iulog,*) 'eddy_diff_trbintd_slopes implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_trbintd_slopes implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_trbintd_slopes_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_trbintd_slopes(ncol, pcols, pver, pmid_local, sl_local, qt_local, slslope_local, qtslope_local, &
+       dsldp_b_local, dqtdp_b_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, pver
+    real(r8), target, intent(in) :: pmid_local(pcols,pver), sl_local(pcols,pver), qt_local(pcols,pver)
+    real(r8), target, intent(out) :: slslope_local(pcols,pver), qtslope_local(pcols,pver)
+    real(r8), target, intent(out) :: dsldp_b_local(pcols), dqtdp_b_local(pcols)
+
+    interface
+       subroutine eddy_diff_trbintd_slopes_codon(ncol_c, pcols_c, pver_c, pmid_p, sl_p, qt_p, slslope_p, qtslope_p, &
+            dsldp_b_p, dqtdp_b_p) bind(c, name="eddy_diff_trbintd_slopes_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: pmid_p, sl_p, qt_p, slslope_p, qtslope_p, dsldp_b_p, dqtdp_b_p
+       end subroutine eddy_diff_trbintd_slopes_codon
+    end interface
+
+    call eddy_diff_trbintd_slopes_select_impl()
+
+    if (use_native_trbintd_slopes_impl) then
+       call eddy_diff_trbintd_slopes_native(ncol, pcols, pver, pmid_local, sl_local, qt_local, slslope_local, qtslope_local, &
+            dsldp_b_local, dqtdp_b_local)
+       return
+    end if
+
+    call eddy_diff_trbintd_slopes_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), c_loc(pmid_local), &
+         c_loc(sl_local), c_loc(qt_local), c_loc(slslope_local), c_loc(qtslope_local), c_loc(dsldp_b_local), &
+         c_loc(dqtdp_b_local))
+
+  end subroutine eddy_diff_trbintd_slopes
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_trbintd_slopes_native(ncol, pcols, pver, pmid_local, sl_local, qt_local, slslope_local, qtslope_local, &
+       dsldp_b_local, dqtdp_b_local)
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, pver
+    real(r8), intent(in) :: pmid_local(pcols,pver), sl_local(pcols,pver), qt_local(pcols,pver)
+    real(r8), intent(out) :: slslope_local(pcols,pver), qtslope_local(pcols,pver)
+    real(r8), intent(out) :: dsldp_b_local(pcols), dqtdp_b_local(pcols)
+
+    integer :: i, k
+    real(r8) :: product_local, dsldp_a_local, dqtdp_a_local
+
+    do i = 1, ncol
+       slslope_local(i,pver) = ( sl_local(i,pver) - sl_local(i,pver-1) ) / ( pmid_local(i,pver) - pmid_local(i,pver-1) )
+       qtslope_local(i,pver) = ( qt_local(i,pver) - qt_local(i,pver-1) ) / ( pmid_local(i,pver) - pmid_local(i,pver-1) )
+       slslope_local(i,1)    = ( sl_local(i,2) - sl_local(i,1) ) / ( pmid_local(i,2) - pmid_local(i,1) )
+       qtslope_local(i,1)    = ( qt_local(i,2) - qt_local(i,1) ) / ( pmid_local(i,2) - pmid_local(i,1) )
+       dsldp_b_local(i)      = slslope_local(i,1)
+       dqtdp_b_local(i)      = qtslope_local(i,1)
+    end do
+
+    do k = 2, pver - 1
+       do i = 1, ncol
+          dsldp_a_local    = dsldp_b_local(i)
+          dqtdp_a_local    = dqtdp_b_local(i)
+          dsldp_b_local(i) = ( sl_local(i,k+1) - sl_local(i,k) ) / ( pmid_local(i,k+1) - pmid_local(i,k) )
+          dqtdp_b_local(i) = ( qt_local(i,k+1) - qt_local(i,k) ) / ( pmid_local(i,k+1) - pmid_local(i,k) )
+          product_local    = dsldp_a_local * dsldp_b_local(i)
+          if( product_local .le. 0._r8 ) then
+              slslope_local(i,k) = 0._r8
+          else if( product_local .gt. 0._r8 .and. dsldp_a_local .lt. 0._r8 ) then
+              slslope_local(i,k) = max( dsldp_a_local, dsldp_b_local(i) )
+          else if( product_local .gt. 0._r8 .and. dsldp_a_local .gt. 0._r8 ) then
+              slslope_local(i,k) = min( dsldp_a_local, dsldp_b_local(i) )
+          end if
+          product_local = dqtdp_a_local * dqtdp_b_local(i)
+          if( product_local .le. 0._r8 ) then
+              qtslope_local(i,k) = 0._r8
+          else if( product_local .gt. 0._r8 .and. dqtdp_a_local .lt. 0._r8 ) then
+              qtslope_local(i,k) = max( dqtdp_a_local, dqtdp_b_local(i) )
+          else if( product_local .gt. 0._r8 .and. dqtdp_a_local .gt. 0._r8 ) then
+              qtslope_local(i,k) = min( dqtdp_a_local, dqtdp_b_local(i) )
+          end if
+       end do
+    end do
+
+  end subroutine eddy_diff_trbintd_slopes_native
 
   !=============================================================================== !
   !                                                                                !
