@@ -222,6 +222,8 @@
   logical                     :: zisocl_surface_extend_impl_selected = .false.
   logical                     :: use_native_zisocl_sbcl_state_impl = .false.
   logical                     :: zisocl_sbcl_state_impl_selected = .false.
+  logical                     :: use_native_zisocl_initial_state_impl = .false.
+  logical                     :: zisocl_initial_state_impl_selected = .false.
   logical                     :: use_native_zisocl_extended_state_impl = .false.
   logical                     :: zisocl_extended_state_impl_selected = .false.
   logical                     :: use_native_zisocl_non_sbcl_state_impl = .false.
@@ -3968,6 +3970,169 @@
   !                                                                                !
   !=============================================================================== !
 
+  subroutine eddy_diff_zisocl_initial_state_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (zisocl_initial_state_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_ZISOCL_INITIAL_STATE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_zisocl_initial_state_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_zisocl_initial_state_impl = .false.
+    end if
+
+    zisocl_initial_state_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_zisocl_initial_state_impl) then
+          write(iulog,*) 'eddy_diff_zisocl_initial_state implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_zisocl_initial_state implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_zisocl_initial_state_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_zisocl_initial_state(i_local, kt_local, kb_local, pcols_local, pver_local, use_dw_surf_local, &
+       choice_tkes_ebprod_local, z_surf_local, bflxs_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, z_local, &
+       zi_local, n2_local, s2_local, leng_max_local, lbulk_local, gh_local, sh_local, sm_local, dlint_surf_local, &
+       dl2n2_surf_local, dl2s2_surf_local, dw_surf_local, lint_local, l2n2_local, l2s2_local, wint_local, ricll_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: i_local, kt_local, kb_local, pcols_local, pver_local, use_dw_surf_local, choice_tkes_ebprod_local
+    real(r8), intent(in) :: z_surf_local, bflxs_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local
+    real(r8), target, intent(in) :: z_local(pcols_local,pver_local), zi_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: n2_local(pcols_local,pver_local), s2_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: leng_max_local(pver_local)
+    real(r8), target, intent(inout) :: lbulk_local, gh_local, sh_local, sm_local
+    real(r8), target, intent(inout) :: dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local
+    real(r8), target, intent(inout) :: lint_local, l2n2_local, l2s2_local, wint_local, ricll_local
+
+    integer :: kb_is_surface_local, tunl_mode_local, leng_mode_local
+
+    interface
+       subroutine eddy_diff_zisocl_initial_state_codon(i_c, kt_c, kb_c, pcols_c, pver_c, kb_is_surface_c, use_dw_surf_c, &
+            choice_tkes_ebprod_c, tunl_mode_c, leng_mode_c, alph1_c, alph2_c, alph3_c, alph4_c, alph5_c, b1_c, vk_c, ntzero_c, &
+            ricrit_c, lbulk_max_c, tunl_c, ctunl_c, cleng_c, tkemax_c, z_surf_c, bflxs_surf_c, bprod_surf_c, sprod_surf_c, &
+            tkes_surf_c, z_p, zi_p, n2_p, s2_p, leng_max_p, lbulk_p, gh_p, sh_p, sm_p, dlint_surf_p, dl2n2_surf_p, &
+            dl2s2_surf_p, dw_surf_p, lint_p, l2n2_p, l2s2_p, wint_p, ricll_p) bind(c, &
+            name="eddy_diff_zisocl_initial_state_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: i_c, kt_c, kb_c, pcols_c, pver_c, kb_is_surface_c, use_dw_surf_c
+         integer(c_int64_t), value :: choice_tkes_ebprod_c, tunl_mode_c, leng_mode_c
+         real(c_double), value :: alph1_c, alph2_c, alph3_c, alph4_c, alph5_c, b1_c, vk_c, ntzero_c, ricrit_c
+         real(c_double), value :: lbulk_max_c, tunl_c, ctunl_c, cleng_c, tkemax_c
+         real(c_double), value :: z_surf_c, bflxs_surf_c, bprod_surf_c, sprod_surf_c, tkes_surf_c
+         type(c_ptr), value :: z_p, zi_p, n2_p, s2_p, leng_max_p, lbulk_p, gh_p, sh_p, sm_p, dlint_surf_p, dl2n2_surf_p
+         type(c_ptr), value :: dl2s2_surf_p, dw_surf_p, lint_p, l2n2_p, l2s2_p, wint_p, ricll_p
+       end subroutine eddy_diff_zisocl_initial_state_codon
+    end interface
+
+    kb_is_surface_local = 0
+    if( kb_local .eq. pver_local + 1 ) kb_is_surface_local = 1
+
+    tunl_mode_local = 0
+    if( choice_tunl .eq. 'rampcl' ) then
+        tunl_mode_local = 1
+    elseif( choice_tunl .eq. 'rampsl' ) then
+        tunl_mode_local = 2
+    end if
+
+    leng_mode_local = 1
+    if( choice_leng .eq. 'origin' ) then
+        leng_mode_local = 0
+    end if
+
+    call eddy_diff_zisocl_initial_state_select_impl()
+
+    if (use_native_zisocl_initial_state_impl) then
+       call eddy_diff_zisocl_initial_state_native(i_local, kt_local, kb_local, pcols_local, pver_local, use_dw_surf_local, &
+            choice_tkes_ebprod_local, z_surf_local, bflxs_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, &
+            z_local, zi_local, n2_local, s2_local, leng_max_local, lbulk_local, gh_local, sh_local, sm_local, dlint_surf_local, &
+            dl2n2_surf_local, dl2s2_surf_local, dw_surf_local, lint_local, l2n2_local, l2s2_local, wint_local, ricll_local)
+       return
+    end if
+
+    call eddy_diff_zisocl_initial_state_codon(int(i_local, c_int64_t), int(kt_local, c_int64_t), int(kb_local, c_int64_t), &
+         int(pcols_local, c_int64_t), int(pver_local, c_int64_t), int(kb_is_surface_local, c_int64_t), &
+         int(use_dw_surf_local, c_int64_t), int(choice_tkes_ebprod_local, c_int64_t), int(tunl_mode_local, c_int64_t), &
+         int(leng_mode_local, c_int64_t), alph1, alph2, alph3, alph4, alph5, b1, vk, ntzero, ricrit, lbulk_max, tunl, ctunl, &
+         cleng, tkemax, z_surf_local, bflxs_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, c_loc(z_local), &
+         c_loc(zi_local), c_loc(n2_local), c_loc(s2_local), c_loc(leng_max_local), c_loc(lbulk_local), c_loc(gh_local), &
+         c_loc(sh_local), c_loc(sm_local), c_loc(dlint_surf_local), c_loc(dl2n2_surf_local), c_loc(dl2s2_surf_local), &
+         c_loc(dw_surf_local), c_loc(lint_local), c_loc(l2n2_local), c_loc(l2s2_local), c_loc(wint_local), c_loc(ricll_local))
+
+  end subroutine eddy_diff_zisocl_initial_state
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_zisocl_initial_state_native(i_local, kt_local, kb_local, pcols_local, pver_local, use_dw_surf_local, &
+       choice_tkes_ebprod_local, z_surf_local, bflxs_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, z_local, &
+       zi_local, n2_local, s2_local, leng_max_local, lbulk_local, gh_local, sh_local, sm_local, dlint_surf_local, &
+       dl2n2_surf_local, dl2s2_surf_local, dw_surf_local, lint_local, l2n2_local, l2s2_local, wint_local, ricll_local)
+
+    implicit none
+
+    integer, intent(in) :: i_local, kt_local, kb_local, pcols_local, pver_local, use_dw_surf_local, choice_tkes_ebprod_local
+    real(r8), intent(in) :: z_surf_local, bflxs_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local
+    real(r8), intent(in) :: z_local(pcols_local,pver_local), zi_local(pcols_local,pver_local+1)
+    real(r8), intent(in) :: n2_local(pcols_local,pver_local), s2_local(pcols_local,pver_local)
+    real(r8), intent(in) :: leng_max_local(pver_local)
+    real(r8), intent(inout) :: lbulk_local, gh_local, sh_local, sm_local
+    real(r8), intent(inout) :: dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local
+    real(r8), intent(inout) :: lint_local, l2n2_local, l2s2_local, wint_local, ricll_local
+
+    integer :: kb_is_surface_local
+
+    kb_is_surface_local = 0
+    if( kb_local .eq. pver_local + 1 ) kb_is_surface_local = 1
+
+    call eddy_diff_zisocl_surface_state_native(kb_is_surface_local, use_dw_surf_local, zi_local(i_local,kt_local), zi_local(i_local,kb_local), &
+         z_surf_local, bflxs_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, lbulk_local, gh_local, sh_local, &
+         sm_local, dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local, lint_local, l2n2_local, l2s2_local, &
+         wint_local)
+    if( kb_local .eq. pver_local+1 .and. bflxs_surf_local .gt. 0._r8 ) then
+        ricll_local = min(-(sm_local/sh_local)*(bprod_surf_local/sprod_surf_local),ricrit)
+    end if
+
+    if( kt_local .lt. kb_local - 1 ) then
+        call eddy_diff_zisocl_non_sbcl_state_native(i_local, kt_local, kb_local, pcols_local, pver_local, lbulk_local, z_local, &
+             zi_local, n2_local, s2_local, leng_max_local, lint_local, l2n2_local, l2s2_local, wint_local, ricll_local, gh_local, &
+             sh_local, sm_local)
+    else
+        call eddy_diff_zisocl_sbcl_state_native(choice_tkes_ebprod_local, sh_local, dlint_surf_local, dl2n2_surf_local, &
+             dl2s2_surf_local, dw_surf_local, lint_local, l2n2_local, l2s2_local, wint_local)
+    end if
+
+    l2n2_local = -min(-l2n2_local, tkemax*lint_local/(b1*sh_local))
+    l2s2_local =  min( l2s2_local, tkemax*lint_local/(b1*sm_local))
+
+  end subroutine eddy_diff_zisocl_initial_state_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
   subroutine eddy_diff_zisocl_extended_state_select_impl()
 
     character(len=32) :: impl_name
@@ -7709,55 +7874,9 @@
        ! Step 0: Calculate surface interfacial layer energetics !
        ! ------------------------------------------------------ !
 
-       kb_is_surface_mode = 0
-       if( kb .eq. pver+1 ) kb_is_surface_mode = 1
-       call eddy_diff_zisocl_surface_state(kb_is_surface_mode, use_dw_surf_mode, zi(i,kt), zi(i,kb), z(i,pver), bflxs(i), &
-            bprod(i,pver+1), sprod(i,pver+1), tkes(i), lbulk, gh, sh, sm, dlint_surf, dl2n2_surf, dl2s2_surf, dw_surf, &
-            lint, l2n2, l2s2, wint)
-       if( kb .eq. pver+1 .and. bflxs(i) .gt. 0._r8 ) then
-           ricll = min(-(sm/sh)*(bprod(i,pver+1)/sprod(i,pver+1)),ricrit)
-       end if
-       
-       ! --------------------------------------------------------------------------------- !
-       ! Step 2. Include the contribution of 'pure internal interfaces' other than surface !
-       ! --------------------------------------------------------------------------------- ! 
-       
-       if( kt .lt. kb - 1 ) then ! The case of non-SBCL.
-           call eddy_diff_zisocl_non_sbcl_state(i, kt, kb, pcols, pver, lbulk, z, zi, n2, s2, leng_max, lint, l2n2, l2s2, wint, &
-                ricll, gh, sh, sm)
-
-       else ! The case of SBCL
- 
-           ! If there is no pure internal interface, use only surface interfacial
-           ! values. However, re-set surface interfacial values such  that it can
-           ! be used in the merging tests (either based on 'wint' or 'l2n2')  and
-           ! in such that surface interfacial energy is not double-counted.
-           ! Note that regardless of the choise of 'use_dw_surf', below should be
-           ! kept as it is below, for consistent merging test of extending SBCL. 
-       
-           ! Aug.29.2006 : Only for the purpose of merging test of extending SRCL
-           ! based on 'l2n2', re-define 'l2n2' of surface interfacial layer using
-           ! 'wint'. This part is designed for similar treatment of merging as in
-           ! the original 'eddy_diff.F90' code,  where 'l2n2' of SBCL was defined
-           ! as 'l2n2 = - wint / sh'. Note that below block is used only when (1)
-           ! surface buoyancy production 'bprod(i,pver+1)' is NOT included in the
-           ! calculation of surface TKE in the initialization of 'bprod(i,pver+1)'
-           ! in the main subroutine ( even though bflxs > 0 ), and (2) to force 
-           ! current scheme be similar to the previous scheme in the treatment of  
-           ! extending-merging test of SBCL based on 'l2n2'. Otherwise below line
-           ! must be commented out. Note at this stage, correct non-zero value of
-           ! 'sh' has been already computed.      
-
-           call eddy_diff_zisocl_sbcl_state(choice_tkes_ebprod_mode, sh, dlint_surf, dl2n2_surf, dl2s2_surf, dw_surf, lint, l2n2, &
-                l2s2, wint)
-           
-       endif
-           
-       ! Set consistent upper limits on 'l2n2' and 'l2s2'. Below limits are
-       ! reasonable since l2n2 of CL interior interface is always negative.
-
-       l2n2 = -min(-l2n2, tkemax*lint/(b1*sh))
-       l2s2 =  min( l2s2, tkemax*lint/(b1*sm))
+       call eddy_diff_zisocl_initial_state(i, kt, kb, pcols, pver, use_dw_surf_mode, choice_tkes_ebprod_mode, z(i,pver), bflxs(i), &
+            bprod(i,pver+1), sprod(i,pver+1), tkes(i), z, zi, n2, s2, leng_max, lbulk, gh, sh, sm, dlint_surf, dl2n2_surf, &
+            dl2s2_surf, dw_surf, lint, l2n2, l2s2, wint, ricll)
        
        ! Note that at this stage, ( gh, sh, sm )  are the values of surface
        ! interfacial layer if there is no pure internal interface, while if
