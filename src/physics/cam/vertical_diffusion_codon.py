@@ -803,6 +803,104 @@ def eddy_diff_exacol_codon(
 
 
 @export
+def eddy_diff_compute_radf_codon(
+    i_col: int,
+    pcols: int,
+    pver: int,
+    ncvmax: int,
+    radf_mode: int,
+    qmin: float,
+    gravit: float,
+    ncvfin_p: cobj,
+    ktop_p: cobj,
+    ql_p: cobj,
+    pi_p: cobj,
+    qrlw_p: cobj,
+    cldeff_p: cobj,
+    zi_p: cobj,
+    chs_p: cobj,
+    lwp_CL_p: cobj,
+    opt_depth_CL_p: cobj,
+    radinvfrac_CL_p: cobj,
+    radf_CL_p: cobj,
+):
+    ncvfin = Ptr[i32](ncvfin_p)
+    ktop = Ptr[i32](ktop_p)
+    ql = Ptr[float](ql_p)
+    pi = Ptr[float](pi_p)
+    qrlw = Ptr[float](qrlw_p)
+    cldeff = Ptr[float](cldeff_p)
+    zi = Ptr[float](zi_p)
+    chs = Ptr[float](chs_p)
+    lwp_CL = Ptr[float](lwp_CL_p)
+    opt_depth_CL = Ptr[float](opt_depth_CL_p)
+    radinvfrac_CL = Ptr[float](radinvfrac_CL_p)
+    radf_CL = Ptr[float](radf_CL_p)
+
+    i = i_col
+    ncvfin_i = int(ncvfin[i - 1])
+
+    for ncv in range(1, ncvfin_i + 1):
+        kt = int(ktop[_idx2(i, ncv, pcols)])
+
+        lwp = 0.0
+        opt_depth = 0.0
+        radinvfrac = 0.0
+        radf = 0.0
+
+        if radf_mode == 0:
+            if ql[_idx2(i, kt, pcols)] > qmin and ql[_idx2(i, kt - 1, pcols)] < qmin:
+                lwp = ql[_idx2(i, kt, pcols)] * (pi[_idx2(i, kt + 1, pcols)] - pi[_idx2(i, kt, pcols)]) / gravit
+                opt_depth = 156.0 * lwp
+                radinvfrac = opt_depth * (4.0 + opt_depth) / (6.0 * (4.0 + opt_depth) + opt_depth**2)
+                radf = qrlw[_idx2(i, kt, pcols)] / (pi[_idx2(i, kt, pcols)] - pi[_idx2(i, kt + 1, pcols)])
+                radf = max(
+                    radinvfrac * radf * (zi[_idx2(i, kt, pcols)] - zi[_idx2(i, kt + 1, pcols)]),
+                    0.0,
+                ) * chs[_idx2(i, kt, pcols)]
+
+        elif radf_mode == 1:
+            lwp = ql[_idx2(i, kt, pcols)] * (pi[_idx2(i, kt + 1, pcols)] - pi[_idx2(i, kt, pcols)]) / gravit
+            opt_depth = 156.0 * lwp
+            radinvfrac = opt_depth * (4.0 + opt_depth) / (6.0 * (4.0 + opt_depth) + opt_depth**2)
+            radinvfrac = max(cldeff[_idx2(i, kt, pcols)] - cldeff[_idx2(i, kt - 1, pcols)], 0.0) * radinvfrac
+            radf = qrlw[_idx2(i, kt, pcols)] / (pi[_idx2(i, kt, pcols)] - pi[_idx2(i, kt + 1, pcols)])
+            radf = max(
+                radinvfrac * radf * (zi[_idx2(i, kt, pcols)] - zi[_idx2(i, kt + 1, pcols)]),
+                0.0,
+            ) * chs[_idx2(i, kt, pcols)]
+
+        else:
+            lwp = ql[_idx2(i, kt, pcols)] * (pi[_idx2(i, kt + 1, pcols)] - pi[_idx2(i, kt, pcols)]) / gravit
+            opt_depth = 156.0 * lwp
+            radinvfrac = opt_depth * (4.0 + opt_depth) / (6.0 * (4.0 + opt_depth) + opt_depth**2)
+            radf = max(
+                radinvfrac
+                * qrlw[_idx2(i, kt, pcols)]
+                / (pi[_idx2(i, kt, pcols)] - pi[_idx2(i, kt + 1, pcols)])
+                * (zi[_idx2(i, kt, pcols)] - zi[_idx2(i, kt + 1, pcols)]),
+                0.0,
+            )
+
+            lwp = ql[_idx2(i, kt - 1, pcols)] * (pi[_idx2(i, kt, pcols)] - pi[_idx2(i, kt - 1, pcols)]) / gravit
+            opt_depth = 156.0 * lwp
+            radinvfrac = opt_depth * (4.0 + opt_depth) / (6.0 * (4.0 + opt_depth) + opt_depth**2)
+            radf = radf + max(
+                radinvfrac
+                * qrlw[_idx2(i, kt - 1, pcols)]
+                / (pi[_idx2(i, kt - 1, pcols)] - pi[_idx2(i, kt, pcols)])
+                * (zi[_idx2(i, kt - 1, pcols)] - zi[_idx2(i, kt, pcols)]),
+                0.0,
+            )
+            radf = max(radf, 0.0) * chs[_idx2(i, kt, pcols)]
+
+        lwp_CL[_idx2(i, ncv, pcols)] = lwp
+        opt_depth_CL[_idx2(i, ncv, pcols)] = opt_depth
+        radinvfrac_CL[_idx2(i, ncv, pcols)] = radinvfrac
+        radf_CL[_idx2(i, ncv, pcols)] = radf
+
+
+@export
 def eddy_diff_restore_fields_codon(
     ncol: int,
     pcols: int,

@@ -202,6 +202,8 @@
   logical                     :: wstar_pbl_impl_selected = .false.
   logical                     :: use_native_exacol_impl = .false.
   logical                     :: exacol_impl_selected = .false.
+  logical                     :: use_native_compute_radf_impl = .false.
+  logical                     :: compute_radf_impl_selected = .false.
 
   CONTAINS
 
@@ -2784,6 +2786,132 @@
 
   end subroutine eddy_diff_wstar_pbl_native
 
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_compute_radf_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (compute_radf_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_COMPUTE_RADF_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_compute_radf_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_compute_radf_impl = .false.
+    end if
+
+    compute_radf_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_compute_radf_impl) then
+          write(iulog,*) 'eddy_diff_compute_radf implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_compute_radf implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_compute_radf_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_compute_radf(choice_radf_local, i_local, pcols_local, pver_local, ncvmax_local, ncvfin_local, &
+       ktop_local, qmin_local, ql_local, pi_local, qrlw_local, g_local, cldeff_local, zi_local, chs_local, lwp_CL_local, &
+       opt_depth_CL_local, radinvfrac_CL_local, radf_CL_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    character(len=*), intent(in) :: choice_radf_local
+    integer, intent(in) :: i_local, pcols_local, pver_local, ncvmax_local
+    integer(i4), target, intent(in) :: ncvfin_local(pcols_local), ktop_local(pcols_local,ncvmax_local)
+    real(r8), intent(in) :: qmin_local, g_local
+    real(r8), target, intent(in) :: ql_local(pcols_local,pver_local), pi_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: qrlw_local(pcols_local,pver_local), cldeff_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: zi_local(pcols_local,pver_local+1), chs_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: lwp_CL_local(pcols_local,ncvmax_local), opt_depth_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: radinvfrac_CL_local(pcols_local,ncvmax_local), radf_CL_local(pcols_local,ncvmax_local)
+
+    integer :: radf_mode
+
+    interface
+       subroutine eddy_diff_compute_radf_codon(i_c, pcols_c, pver_c, ncvmax_c, radf_mode_c, qmin_c, g_c, ncvfin_p, &
+            ktop_p, ql_p, pi_p, qrlw_p, cldeff_p, zi_p, chs_p, lwp_CL_p, opt_depth_CL_p, radinvfrac_CL_p, radf_CL_p) &
+            bind(c, name="eddy_diff_compute_radf_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: i_c, pcols_c, pver_c, ncvmax_c, radf_mode_c
+         real(c_double), value :: qmin_c, g_c
+         type(c_ptr), value :: ncvfin_p, ktop_p, ql_p, pi_p, qrlw_p, cldeff_p, zi_p, chs_p, lwp_CL_p, opt_depth_CL_p, &
+              radinvfrac_CL_p, radf_CL_p
+       end subroutine eddy_diff_compute_radf_codon
+    end interface
+
+    call eddy_diff_compute_radf_select_impl()
+
+    if (use_native_compute_radf_impl) then
+       call eddy_diff_compute_radf_native(choice_radf_local, i_local, pcols_local, pver_local, ncvmax_local, ncvfin_local, &
+            ktop_local, qmin_local, ql_local, pi_local, qrlw_local, g_local, cldeff_local, zi_local, chs_local, lwp_CL_local, &
+            opt_depth_CL_local, radinvfrac_CL_local, radf_CL_local)
+       return
+    end if
+
+    radf_mode = 2
+    if (choice_radf_local .eq. 'orig') then
+       radf_mode = 0
+    elseif (choice_radf_local .eq. 'ramp') then
+       radf_mode = 1
+    endif
+
+    call eddy_diff_compute_radf_codon(int(i_local, c_int64_t), int(pcols_local, c_int64_t), int(pver_local, c_int64_t), &
+         int(ncvmax_local, c_int64_t), int(radf_mode, c_int64_t), real(qmin_local, c_double), real(g_local, c_double), &
+         c_loc(ncvfin_local), c_loc(ktop_local), c_loc(ql_local), c_loc(pi_local), c_loc(qrlw_local), c_loc(cldeff_local), &
+         c_loc(zi_local), c_loc(chs_local), c_loc(lwp_CL_local), c_loc(opt_depth_CL_local), c_loc(radinvfrac_CL_local), &
+         c_loc(radf_CL_local))
+
+  end subroutine eddy_diff_compute_radf
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_compute_radf_native(choice_radf_local, i_local, pcols_local, pver_local, ncvmax_local, ncvfin_local, &
+       ktop_local, qmin_local, ql_local, pi_local, qrlw_local, g_local, cldeff_local, zi_local, chs_local, lwp_CL_local, &
+       opt_depth_CL_local, radinvfrac_CL_local, radf_CL_local)
+
+    use pbl_utils, only: compute_radf
+
+    implicit none
+
+    character(len=*), intent(in) :: choice_radf_local
+    integer, intent(in) :: i_local, pcols_local, pver_local, ncvmax_local
+    integer(i4), intent(in) :: ncvfin_local(pcols_local), ktop_local(pcols_local,ncvmax_local)
+    real(r8), intent(in) :: qmin_local, g_local
+    real(r8), intent(in) :: ql_local(pcols_local,pver_local), pi_local(pcols_local,pver_local+1)
+    real(r8), intent(in) :: qrlw_local(pcols_local,pver_local), cldeff_local(pcols_local,pver_local)
+    real(r8), intent(in) :: zi_local(pcols_local,pver_local+1), chs_local(pcols_local,pver_local+1)
+    real(r8), intent(inout) :: lwp_CL_local(pcols_local,ncvmax_local), opt_depth_CL_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: radinvfrac_CL_local(pcols_local,ncvmax_local), radf_CL_local(pcols_local,ncvmax_local)
+
+    call compute_radf(choice_radf_local, i_local, pcols_local, pver_local, ncvmax_local, ncvfin_local, ktop_local, &
+         qmin_local, ql_local, pi_local, qrlw_local, g_local, cldeff_local, zi_local, chs_local, lwp_CL_local(i_local,:), &
+         opt_depth_CL_local(i_local,:), radinvfrac_CL_local(i_local,:), radf_CL_local(i_local,:))
+
+  end subroutine eddy_diff_compute_radf_native
+
     ! ---------------------------------------------------------------------------- !
     !                                                                              !
     ! The University of Washington Moist Turbulence Scheme                         !
@@ -2849,9 +2977,6 @@
     !     sungsup@ucar.edu or breth@washington.edu                                     !
     !                                                                                  !
     !--------------------------------------------------------------------------------- !
-
-    use pbl_utils, only: &
-      compute_radf      ! Subroutine for computing radf    
 
     ! ---------------- !
     ! Inputs variables !
@@ -3563,9 +3688,8 @@
        ! --------------------------------------------------------------------- !
        ! Compute radf for each CL in column by calling subroutine compute_radf !
        ! --------------------------------------------------------------------- !
-       call compute_radf( choice_radf, i, pcols, pver, ncvmax,  ncvfin, ktop, qmin,         &
-                          ql, pi, qrlw, g, cldeff, zi, chs, lwp_CL(i,:), opt_depth_CL(i,:), &
-                          radinvfrac_CL(i,:), radf_CL(i,:) )
+       call eddy_diff_compute_radf(choice_radf, i, pcols, pver, ncvmax, ncvfin, ktop, qmin, ql, pi, qrlw, g, cldeff, zi, &
+            chs, lwp_CL, opt_depth_CL, radinvfrac_CL, radf_CL)
 
        ! ---------------------------------------- !
        ! Perform do loop for individual CL regime !
