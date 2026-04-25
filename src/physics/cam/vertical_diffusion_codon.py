@@ -879,6 +879,114 @@ def eddy_diff_caleddy_init_codon(
 
 
 @export
+def eddy_diff_caleddy_diaginit_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    ncvmax: int,
+    went_p: cobj,
+    wet_CL_p: cobj,
+    web_CL_p: cobj,
+    jtbu_CL_p: cobj,
+    jbbu_CL_p: cobj,
+    evhc_CL_p: cobj,
+    jt2slv_CL_p: cobj,
+    n2ht_CL_p: cobj,
+    n2hb_CL_p: cobj,
+    lwp_CL_p: cobj,
+    opt_depth_CL_p: cobj,
+    radinvfrac_CL_p: cobj,
+    radf_CL_p: cobj,
+    wstar_CL_p: cobj,
+    wstar3fact_CL_p: cobj,
+    ricl_p: cobj,
+    ghcl_p: cobj,
+    shcl_p: cobj,
+    smcl_p: cobj,
+    ebrk_p: cobj,
+    wbrk_p: cobj,
+    lbrk_p: cobj,
+    gh_a_p: cobj,
+    sh_a_p: cobj,
+    sm_a_p: cobj,
+    ri_a_p: cobj,
+    sm_aw_p: cobj,
+    ipbl_p: cobj,
+    kpblh_p: cobj,
+    wsed_CL_p: cobj,
+):
+    went = Ptr[float](went_p)
+    wet_CL = Ptr[float](wet_CL_p)
+    web_CL = Ptr[float](web_CL_p)
+    jtbu_CL = Ptr[float](jtbu_CL_p)
+    jbbu_CL = Ptr[float](jbbu_CL_p)
+    evhc_CL = Ptr[float](evhc_CL_p)
+    jt2slv_CL = Ptr[float](jt2slv_CL_p)
+    n2ht_CL = Ptr[float](n2ht_CL_p)
+    n2hb_CL = Ptr[float](n2hb_CL_p)
+    lwp_CL = Ptr[float](lwp_CL_p)
+    opt_depth_CL = Ptr[float](opt_depth_CL_p)
+    radinvfrac_CL = Ptr[float](radinvfrac_CL_p)
+    radf_CL = Ptr[float](radf_CL_p)
+    wstar_CL = Ptr[float](wstar_CL_p)
+    wstar3fact_CL = Ptr[float](wstar3fact_CL_p)
+    ricl = Ptr[float](ricl_p)
+    ghcl = Ptr[float](ghcl_p)
+    shcl = Ptr[float](shcl_p)
+    smcl = Ptr[float](smcl_p)
+    ebrk = Ptr[float](ebrk_p)
+    wbrk = Ptr[float](wbrk_p)
+    lbrk = Ptr[float](lbrk_p)
+    gh_a = Ptr[float](gh_a_p)
+    sh_a = Ptr[float](sh_a_p)
+    sm_a = Ptr[float](sm_a_p)
+    ri_a = Ptr[float](ri_a_p)
+    sm_aw = Ptr[float](sm_aw_p)
+    ipbl = Ptr[i32](ipbl_p)
+    kpblh = Ptr[i32](kpblh_p)
+    wsed_CL = Ptr[float](wsed_CL_p)
+
+    for i in range(1, ncol + 1):
+        went[i - 1] = 0.0
+
+        for ncv in range(1, ncvmax + 1):
+            idx = _idx2(i, ncv, pcols)
+            wet_CL[idx] = 0.0
+            web_CL[idx] = 0.0
+            jtbu_CL[idx] = 0.0
+            jbbu_CL[idx] = 0.0
+            evhc_CL[idx] = 0.0
+            jt2slv_CL[idx] = 0.0
+            n2ht_CL[idx] = 0.0
+            n2hb_CL[idx] = 0.0
+            lwp_CL[idx] = 0.0
+            opt_depth_CL[idx] = 0.0
+            radinvfrac_CL[idx] = 0.0
+            radf_CL[idx] = 0.0
+            wstar_CL[idx] = 0.0
+            wstar3fact_CL[idx] = 0.0
+            ricl[idx] = 0.0
+            ghcl[idx] = 0.0
+            shcl[idx] = 0.0
+            smcl[idx] = 0.0
+            ebrk[idx] = 0.0
+            wbrk[idx] = 0.0
+            lbrk[idx] = 0.0
+            wsed_CL[idx] = 0.0
+
+        for k in range(1, pver + 2):
+            idx = _idx2(i, k, pcols)
+            gh_a[idx] = 0.0
+            sh_a[idx] = 0.0
+            sm_a[idx] = 0.0
+            ri_a[idx] = 0.0
+            sm_aw[idx] = 0.0
+
+        ipbl[i - 1] = i32(0)
+        kpblh[i - 1] = i32(pver)
+
+
+@export
 def eddy_diff_exacol_codon(
     ncol: int,
     pcols: int,

@@ -206,6 +206,8 @@
   logical                     :: compute_radf_impl_selected = .false.
   logical                     :: use_native_caleddy_init_impl = .false.
   logical                     :: caleddy_init_impl_selected = .false.
+  logical                     :: use_native_caleddy_diaginit_impl = .false.
+  logical                     :: caleddy_diaginit_impl_selected = .false.
   logical                     :: use_native_caleddy_clprep_impl = .false.
   logical                     :: caleddy_clprep_impl_selected = .false.
   logical                     :: use_native_caleddy_closure_impl = .false.
@@ -2996,6 +2998,178 @@
   !                                                                                !
   !=============================================================================== !
 
+  subroutine eddy_diff_caleddy_diaginit_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (caleddy_diaginit_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_CALEDDY_DIAGINIT_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_caleddy_diaginit_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_caleddy_diaginit_impl = .false.
+    end if
+
+    caleddy_diaginit_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_caleddy_diaginit_impl) then
+          write(iulog,*) 'eddy_diff_caleddy_diaginit implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_caleddy_diaginit implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_caleddy_diaginit_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_diaginit(ncol_local, pcols_local, pver_local, ncvmax_local, went_local, wet_CL_local, &
+       web_CL_local, jtbu_CL_local, jbbu_CL_local, evhc_CL_local, jt2slv_CL_local, n2ht_CL_local, n2hb_CL_local, lwp_CL_local, &
+       opt_depth_CL_local, radinvfrac_CL_local, radf_CL_local, wstar_CL_local, wstar3fact_CL_local, ricl_local, ghcl_local, &
+       shcl_local, smcl_local, ebrk_local, wbrk_local, lbrk_local, gh_a_local, sh_a_local, sm_a_local, ri_a_local, &
+       sm_aw_local, ipbl_local, kpblh_local, wsed_CL_local)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: ncol_local, pcols_local, pver_local, ncvmax_local
+    real(r8), target, intent(inout) :: went_local(pcols_local)
+    real(r8), target, intent(inout) :: wet_CL_local(pcols_local,ncvmax_local), web_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: jtbu_CL_local(pcols_local,ncvmax_local), jbbu_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: evhc_CL_local(pcols_local,ncvmax_local), jt2slv_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: n2ht_CL_local(pcols_local,ncvmax_local), n2hb_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: lwp_CL_local(pcols_local,ncvmax_local), opt_depth_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: radinvfrac_CL_local(pcols_local,ncvmax_local), radf_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: wstar_CL_local(pcols_local,ncvmax_local), wstar3fact_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: ricl_local(pcols_local,ncvmax_local), ghcl_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: shcl_local(pcols_local,ncvmax_local), smcl_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: ebrk_local(pcols_local,ncvmax_local), wbrk_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: lbrk_local(pcols_local,ncvmax_local), wsed_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: gh_a_local(pcols_local,pver_local+1), sh_a_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: sm_a_local(pcols_local,pver_local+1), ri_a_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: sm_aw_local(pcols_local,pver_local+1)
+    integer(i4), target, intent(inout) :: ipbl_local(pcols_local), kpblh_local(pcols_local)
+
+    interface
+       subroutine eddy_diff_caleddy_diaginit_codon(ncol_c, pcols_c, pver_c, ncvmax_c, went_p, wet_CL_p, web_CL_p, jtbu_CL_p, &
+            jbbu_CL_p, evhc_CL_p, jt2slv_CL_p, n2ht_CL_p, n2hb_CL_p, lwp_CL_p, opt_depth_CL_p, radinvfrac_CL_p, radf_CL_p, &
+            wstar_CL_p, wstar3fact_CL_p, ricl_p, ghcl_p, shcl_p, smcl_p, ebrk_p, wbrk_p, lbrk_p, gh_a_p, sh_a_p, sm_a_p, &
+            ri_a_p, sm_aw_p, ipbl_p, kpblh_p, wsed_CL_p) bind(c, name="eddy_diff_caleddy_diaginit_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, ncvmax_c
+         type(c_ptr), value :: went_p, wet_CL_p, web_CL_p, jtbu_CL_p, jbbu_CL_p, evhc_CL_p, jt2slv_CL_p, n2ht_CL_p
+         type(c_ptr), value :: n2hb_CL_p, lwp_CL_p, opt_depth_CL_p, radinvfrac_CL_p, radf_CL_p, wstar_CL_p
+         type(c_ptr), value :: wstar3fact_CL_p, ricl_p, ghcl_p, shcl_p, smcl_p, ebrk_p, wbrk_p, lbrk_p, gh_a_p
+         type(c_ptr), value :: sh_a_p, sm_a_p, ri_a_p, sm_aw_p, ipbl_p, kpblh_p, wsed_CL_p
+       end subroutine eddy_diff_caleddy_diaginit_codon
+    end interface
+
+    call eddy_diff_caleddy_diaginit_select_impl()
+
+    if (use_native_caleddy_diaginit_impl) then
+       call eddy_diff_caleddy_diaginit_native(ncol_local, pcols_local, pver_local, ncvmax_local, went_local, wet_CL_local, &
+            web_CL_local, jtbu_CL_local, jbbu_CL_local, evhc_CL_local, jt2slv_CL_local, n2ht_CL_local, n2hb_CL_local, &
+            lwp_CL_local, opt_depth_CL_local, radinvfrac_CL_local, radf_CL_local, wstar_CL_local, wstar3fact_CL_local, &
+            ricl_local, ghcl_local, shcl_local, smcl_local, ebrk_local, wbrk_local, lbrk_local, gh_a_local, sh_a_local, &
+            sm_a_local, ri_a_local, sm_aw_local, ipbl_local, kpblh_local, wsed_CL_local)
+       return
+    end if
+
+    call eddy_diff_caleddy_diaginit_codon(int(ncol_local, c_int64_t), int(pcols_local, c_int64_t), int(pver_local, c_int64_t), &
+         int(ncvmax_local, c_int64_t), c_loc(went_local), c_loc(wet_CL_local), c_loc(web_CL_local), c_loc(jtbu_CL_local), &
+         c_loc(jbbu_CL_local), c_loc(evhc_CL_local), c_loc(jt2slv_CL_local), c_loc(n2ht_CL_local), c_loc(n2hb_CL_local), &
+         c_loc(lwp_CL_local), c_loc(opt_depth_CL_local), c_loc(radinvfrac_CL_local), c_loc(radf_CL_local), c_loc(wstar_CL_local), &
+         c_loc(wstar3fact_CL_local), c_loc(ricl_local), c_loc(ghcl_local), c_loc(shcl_local), c_loc(smcl_local), &
+         c_loc(ebrk_local), c_loc(wbrk_local), c_loc(lbrk_local), c_loc(gh_a_local), c_loc(sh_a_local), c_loc(sm_a_local), &
+         c_loc(ri_a_local), c_loc(sm_aw_local), c_loc(ipbl_local), c_loc(kpblh_local), c_loc(wsed_CL_local))
+
+  end subroutine eddy_diff_caleddy_diaginit
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_diaginit_native(ncol_local, pcols_local, pver_local, ncvmax_local, went_local, wet_CL_local, &
+       web_CL_local, jtbu_CL_local, jbbu_CL_local, evhc_CL_local, jt2slv_CL_local, n2ht_CL_local, n2hb_CL_local, lwp_CL_local, &
+       opt_depth_CL_local, radinvfrac_CL_local, radf_CL_local, wstar_CL_local, wstar3fact_CL_local, ricl_local, ghcl_local, &
+       shcl_local, smcl_local, ebrk_local, wbrk_local, lbrk_local, gh_a_local, sh_a_local, sm_a_local, ri_a_local, &
+       sm_aw_local, ipbl_local, kpblh_local, wsed_CL_local)
+
+    implicit none
+
+    integer, intent(in) :: ncol_local, pcols_local, pver_local, ncvmax_local
+    real(r8), intent(inout) :: went_local(pcols_local)
+    real(r8), intent(inout) :: wet_CL_local(pcols_local,ncvmax_local), web_CL_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: jtbu_CL_local(pcols_local,ncvmax_local), jbbu_CL_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: evhc_CL_local(pcols_local,ncvmax_local), jt2slv_CL_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: n2ht_CL_local(pcols_local,ncvmax_local), n2hb_CL_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: lwp_CL_local(pcols_local,ncvmax_local), opt_depth_CL_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: radinvfrac_CL_local(pcols_local,ncvmax_local), radf_CL_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: wstar_CL_local(pcols_local,ncvmax_local), wstar3fact_CL_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: ricl_local(pcols_local,ncvmax_local), ghcl_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: shcl_local(pcols_local,ncvmax_local), smcl_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: ebrk_local(pcols_local,ncvmax_local), wbrk_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: lbrk_local(pcols_local,ncvmax_local), wsed_CL_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: gh_a_local(pcols_local,pver_local+1), sh_a_local(pcols_local,pver_local+1)
+    real(r8), intent(inout) :: sm_a_local(pcols_local,pver_local+1), ri_a_local(pcols_local,pver_local+1)
+    real(r8), intent(inout) :: sm_aw_local(pcols_local,pver_local+1)
+    integer(i4), intent(inout) :: ipbl_local(pcols_local), kpblh_local(pcols_local)
+
+    integer :: i
+
+    do i = 1, ncol_local
+       went_local(i)                  = 0._r8
+       wet_CL_local(i,:ncvmax_local)        = 0._r8
+       web_CL_local(i,:ncvmax_local)        = 0._r8
+       jtbu_CL_local(i,:ncvmax_local)       = 0._r8
+       jbbu_CL_local(i,:ncvmax_local)       = 0._r8
+       evhc_CL_local(i,:ncvmax_local)       = 0._r8
+       jt2slv_CL_local(i,:ncvmax_local)     = 0._r8
+       n2ht_CL_local(i,:ncvmax_local)       = 0._r8
+       n2hb_CL_local(i,:ncvmax_local)       = 0._r8
+       lwp_CL_local(i,:ncvmax_local)        = 0._r8
+       opt_depth_CL_local(i,:ncvmax_local)  = 0._r8
+       radinvfrac_CL_local(i,:ncvmax_local) = 0._r8
+       radf_CL_local(i,:ncvmax_local)       = 0._r8
+       wstar_CL_local(i,:ncvmax_local)      = 0._r8
+       wstar3fact_CL_local(i,:ncvmax_local) = 0._r8
+       ricl_local(i,:ncvmax_local)          = 0._r8
+       ghcl_local(i,:ncvmax_local)          = 0._r8
+       shcl_local(i,:ncvmax_local)          = 0._r8
+       smcl_local(i,:ncvmax_local)          = 0._r8
+       ebrk_local(i,:ncvmax_local)          = 0._r8
+       wbrk_local(i,:ncvmax_local)          = 0._r8
+       lbrk_local(i,:ncvmax_local)          = 0._r8
+       gh_a_local(i,:pver_local+1)          = 0._r8
+       sh_a_local(i,:pver_local+1)          = 0._r8
+       sm_a_local(i,:pver_local+1)          = 0._r8
+       ri_a_local(i,:pver_local+1)          = 0._r8
+       sm_aw_local(i,:pver_local+1)         = 0._r8
+       ipbl_local(i)                        = 0
+       kpblh_local(i)                       = pver_local
+       wsed_CL_local(i,:ncvmax_local)       = 0._r8
+    end do
+
+  end subroutine eddy_diff_caleddy_diaginit_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
   subroutine eddy_diff_compute_radf_select_impl()
 
     character(len=32) :: impl_name
@@ -5049,38 +5223,9 @@
     ! Initialization of Diagnostic Output
     !
 
-    do i = 1, ncol
-       went(i)                  = 0._r8
-       wet_CL(i,:ncvmax)        = 0._r8
-       web_CL(i,:ncvmax)        = 0._r8
-       jtbu_CL(i,:ncvmax)       = 0._r8
-       jbbu_CL(i,:ncvmax)       = 0._r8
-       evhc_CL(i,:ncvmax)       = 0._r8
-       jt2slv_CL(i,:ncvmax)     = 0._r8
-       n2ht_CL(i,:ncvmax)       = 0._r8
-       n2hb_CL(i,:ncvmax)       = 0._r8                    
-       lwp_CL(i,:ncvmax)        = 0._r8
-       opt_depth_CL(i,:ncvmax)  = 0._r8
-       radinvfrac_CL(i,:ncvmax) = 0._r8
-       radf_CL(i,:ncvmax)       = 0._r8
-       wstar_CL(i,:ncvmax)      = 0._r8          
-       wstar3fact_CL(i,:ncvmax) = 0._r8
-       ricl(i,:ncvmax)          = 0._r8
-       ghcl(i,:ncvmax)          = 0._r8
-       shcl(i,:ncvmax)          = 0._r8
-       smcl(i,:ncvmax)          = 0._r8
-       ebrk(i,:ncvmax)          = 0._r8
-       wbrk(i,:ncvmax)          = 0._r8
-       lbrk(i,:ncvmax)          = 0._r8
-       gh_a(i,:pver+1)          = 0._r8
-       sh_a(i,:pver+1)          = 0._r8
-       sm_a(i,:pver+1)          = 0._r8
-       ri_a(i,:pver+1)          = 0._r8
-       sm_aw(i,:pver+1)         = 0._r8
-       ipbl(i)                  = 0
-       kpblh(i)                 = pver
-       wsed_CL(i,:ncvmax)       = 0._r8          
-    end do  
+    call eddy_diff_caleddy_diaginit(ncol, pcols, pver, ncvmax, went, wet_CL, web_CL, jtbu_CL, jbbu_CL, evhc_CL, &
+         jt2slv_CL, n2ht_CL, n2hb_CL, lwp_CL, opt_depth_CL, radinvfrac_CL, radf_CL, wstar_CL, wstar3fact_CL, ricl, ghcl, &
+         shcl, smcl, ebrk, wbrk, lbrk, gh_a, sh_a, sm_a, ri_a, sm_aw, ipbl, kpblh, wsed_CL)
 
     ! Initially identify CL regimes in 'exacol'
     !    ktop  : Interface index of the CL top  external interface
