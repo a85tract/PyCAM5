@@ -901,6 +901,185 @@ def eddy_diff_compute_radf_codon(
 
 
 @export
+def eddy_diff_caleddy_srcl_codon(
+    i_col: int,
+    pcols: int,
+    pver: int,
+    ncvmax: int,
+    ntop_turb: int,
+    nbot_turb: int,
+    srcl_mode: int,
+    qmin: float,
+    ricrit: float,
+    b1: float,
+    vk: float,
+    alph1: float,
+    alph2: float,
+    alph3: float,
+    alph4exs: float,
+    alph5: float,
+    ghmin: float,
+    ql_p: cobj,
+    qrlw_p: cobj,
+    ri_p: cobj,
+    sfuh_p: cobj,
+    chu_p: cobj,
+    chs_p: cobj,
+    cmu_p: cobj,
+    cms_p: cobj,
+    slslope_p: cobj,
+    qtslope_p: cobj,
+    z_p: cobj,
+    bflxs_p: cobj,
+    tkes_p: cobj,
+    bprod_p: cobj,
+    sprod_p: cobj,
+    ncvfin_p: cobj,
+    kbase_p: cobj,
+    ktop_p: cobj,
+    ricl_p: cobj,
+    ghcl_p: cobj,
+    shcl_p: cobj,
+    smcl_p: cobj,
+    lbrk_p: cobj,
+    wbrk_p: cobj,
+    ebrk_p: cobj,
+    belong_mask_p: cobj,
+    ncvsurf_p: cobj,
+    srcl_status_p: cobj,
+):
+    ql = Ptr[float](ql_p)
+    qrlw = Ptr[float](qrlw_p)
+    ri = Ptr[float](ri_p)
+    sfuh = Ptr[float](sfuh_p)
+    chu = Ptr[float](chu_p)
+    chs = Ptr[float](chs_p)
+    cmu = Ptr[float](cmu_p)
+    cms = Ptr[float](cms_p)
+    slslope = Ptr[float](slslope_p)
+    qtslope = Ptr[float](qtslope_p)
+    z = Ptr[float](z_p)
+    bflxs = Ptr[float](bflxs_p)
+    tkes = Ptr[float](tkes_p)
+    bprod = Ptr[float](bprod_p)
+    sprod = Ptr[float](sprod_p)
+    ncvfin = Ptr[i32](ncvfin_p)
+    kbase = Ptr[i32](kbase_p)
+    ktop = Ptr[i32](ktop_p)
+    ricl = Ptr[float](ricl_p)
+    ghcl = Ptr[float](ghcl_p)
+    shcl = Ptr[float](shcl_p)
+    smcl = Ptr[float](smcl_p)
+    lbrk = Ptr[float](lbrk_p)
+    wbrk = Ptr[float](wbrk_p)
+    ebrk = Ptr[float](ebrk_p)
+    belong_mask = Ptr[i32](belong_mask_p)
+    ncvsurf = Ptr[i32](ncvsurf_p)
+    srcl_status = Ptr[i32](srcl_status_p)
+
+    i = i_col
+    ncv = 1
+    ncvf = int(ncvfin[i - 1])
+    srcl_status[0] = i32(0)
+
+    for k in range(1, pver + 2):
+        belong_mask[k - 1] = i32(0)
+
+    for ncv_mask in range(1, ncvf + 1):
+        kt_mask = int(ktop[_idx2(i, ncv_mask, pcols)])
+        kb_mask = int(kbase[_idx2(i, ncv_mask, pcols)])
+        for k in range(kt_mask, kb_mask + 1):
+            belong_mask[k - 1] = i32(1)
+
+    if srcl_mode == 0:
+        return
+
+    for k in range(nbot_turb, ntop_turb, -1):
+        if (
+            ql[_idx2(i, k, pcols)] > qmin
+            and ql[_idx2(i, k - 1, pcols)] < qmin
+            and qrlw[_idx2(i, k, pcols)] < 0.0
+            and ri[_idx2(i, k, pcols)] >= ricrit
+        ):
+            if srcl_mode == 2 and belong_mask[k] != i32(0):
+                continue
+
+            ch = (1.0 - sfuh[_idx2(i, k, pcols)]) * chu[_idx2(i, k, pcols)] + sfuh[
+                _idx2(i, k, pcols)
+            ] * chs[_idx2(i, k, pcols)]
+            cm = (1.0 - sfuh[_idx2(i, k, pcols)]) * cmu[_idx2(i, k, pcols)] + sfuh[
+                _idx2(i, k, pcols)
+            ] * cms[_idx2(i, k, pcols)]
+
+            n2htSRCL = ch * slslope[_idx2(i, k, pcols)] + cm * qtslope[_idx2(i, k, pcols)]
+
+            if n2htSRCL <= 0.0:
+                in_CL = False
+
+                while ncv <= ncvf:
+                    if int(ktop[_idx2(i, ncv, pcols)]) <= k:
+                        if int(kbase[_idx2(i, ncv, pcols)]) > k:
+                            in_CL = True
+                        break
+                    ncv += 1
+
+                if not in_CL:
+                    ncvnew = int(ncvfin[i - 1]) + 1
+                    ncvfin[i - 1] = i32(ncvnew)
+                    ktop[_idx2(i, ncvnew, pcols)] = i32(k)
+                    kbase[_idx2(i, ncvnew, pcols)] = i32(k + 1)
+                    belong_mask[k - 1] = i32(1)
+                    belong_mask[k] = i32(1)
+
+                    if k < pver:
+                        wbrk[_idx2(i, ncvnew, pcols)] = 0.0
+                        ebrk[_idx2(i, ncvnew, pcols)] = 0.0
+                        lbrk[_idx2(i, ncvnew, pcols)] = 0.0
+                        ghcl[_idx2(i, ncvnew, pcols)] = 0.0
+                        shcl[_idx2(i, ncvnew, pcols)] = 0.0
+                        smcl[_idx2(i, ncvnew, pcols)] = 0.0
+                        ricl[_idx2(i, ncvnew, pcols)] = 0.0
+                    else:
+                        if bflxs[i - 1] > 0.0:
+                            ebrk[_idx2(i, ncvnew, pcols)] = tkes[i - 1]
+                            lbrk[_idx2(i, ncvnew, pcols)] = z[_idx2(i, pver, pcols)]
+                            wbrk[_idx2(i, ncvnew, pcols)] = tkes[i - 1] / b1
+                            srcl_status[0] = i32(1)
+                            return
+                        else:
+                            ebrk[_idx2(i, ncvnew, pcols)] = 0.0
+                            lbrk[_idx2(i, ncvnew, pcols)] = 0.0
+                            wbrk[_idx2(i, ncvnew, pcols)] = 0.0
+
+                        gg = (
+                            0.5
+                            * vk
+                            * z[_idx2(i, pver, pcols)]
+                            * bprod[_idx2(i, pver + 1, pcols)]
+                            / (tkes[i - 1] ** (3.0 / 2.0))
+                        )
+                        if abs(alph5 - gg * alph3) <= 1.0e-7:
+                            gh = ghmin
+                        else:
+                            gh = gg / (alph5 - gg * alph3)
+                        gh = min(max(gh, ghmin), 0.0233)
+                        ghcl[_idx2(i, ncvnew, pcols)] = gh
+                        shcl[_idx2(i, ncvnew, pcols)] = max(0.0, alph5 / (1.0 + alph3 * gh))
+                        smcl[_idx2(i, ncvnew, pcols)] = max(
+                            0.0,
+                            (alph1 + alph2 * gh)
+                            / (1.0 + alph3 * gh)
+                            / (1.0 + alph4exs * gh),
+                        )
+                        ricl[_idx2(i, ncvnew, pcols)] = -(
+                            smcl[_idx2(i, ncvnew, pcols)] / shcl[_idx2(i, ncvnew, pcols)]
+                        ) * (
+                            bprod[_idx2(i, pver + 1, pcols)] / sprod[_idx2(i, pver + 1, pcols)]
+                        )
+                        ncvsurf[0] = i32(ncvnew)
+
+
+@export
 def eddy_diff_restore_fields_codon(
     ncol: int,
     pcols: int,

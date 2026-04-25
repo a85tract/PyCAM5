@@ -204,6 +204,8 @@
   logical                     :: exacol_impl_selected = .false.
   logical                     :: use_native_compute_radf_impl = .false.
   logical                     :: compute_radf_impl_selected = .false.
+  logical                     :: use_native_caleddy_srcl_impl = .false.
+  logical                     :: caleddy_srcl_impl_selected = .false.
 
   CONTAINS
 
@@ -2912,6 +2914,291 @@
 
   end subroutine eddy_diff_compute_radf_native
 
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_srcl_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (caleddy_srcl_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_CALEDDY_SRCL_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_caleddy_srcl_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_caleddy_srcl_impl = .false.
+    end if
+
+    caleddy_srcl_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_caleddy_srcl_impl) then
+          write(iulog,*) 'eddy_diff_caleddy_srcl implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_caleddy_srcl implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_caleddy_srcl_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_srcl(choice_srcl_local, i_local, pcols_local, pver_local, ncvmax_local, ntop_turb_local, &
+       nbot_turb_local, qmin_local, ricrit_local, b1_local, vk_local, alph1_local, alph2_local, alph3_local, &
+       alph4exs_local, alph5_local, ghmin_local, ql_local, qrlw_local, ri_local, sfuh_local, chu_local, chs_local, &
+       cmu_local, cms_local, slslope_local, qtslope_local, z_local, bflxs_local, tkes_local, bprod_local, sprod_local, &
+       ncvfin_local, kbase_local, ktop_local, belongcv_local, ricl_local, ghcl_local, shcl_local, smcl_local, lbrk_local, &
+       wbrk_local, ebrk_local, ncvsurf_local, srcl_status_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    character(len=*), intent(in) :: choice_srcl_local
+    integer, intent(in) :: i_local, pcols_local, pver_local, ncvmax_local, ntop_turb_local, nbot_turb_local
+    real(r8), intent(in) :: qmin_local, ricrit_local, b1_local, vk_local
+    real(r8), intent(in) :: alph1_local, alph2_local, alph3_local, alph4exs_local, alph5_local, ghmin_local
+    real(r8), target, intent(in) :: ql_local(pcols_local,pver_local), qrlw_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: ri_local(pcols_local,pver_local), sfuh_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: chu_local(pcols_local,pver_local+1), chs_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: cmu_local(pcols_local,pver_local+1), cms_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: slslope_local(pcols_local,pver_local), qtslope_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: z_local(pcols_local,pver_local), bflxs_local(pcols_local), tkes_local(pcols_local)
+    real(r8), target, intent(in) :: bprod_local(pcols_local,pver_local+1), sprod_local(pcols_local,pver_local+1)
+    integer(i4), target, intent(inout) :: ncvfin_local(pcols_local), kbase_local(pcols_local,ncvmax_local)
+    integer(i4), target, intent(inout) :: ktop_local(pcols_local,ncvmax_local)
+    logical, intent(inout) :: belongcv_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: ricl_local(pcols_local,ncvmax_local), ghcl_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: shcl_local(pcols_local,ncvmax_local), smcl_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: lbrk_local(pcols_local,ncvmax_local), wbrk_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: ebrk_local(pcols_local,ncvmax_local)
+    integer(i4), intent(inout) :: ncvsurf_local
+    integer(i4), intent(out) :: srcl_status_local
+
+    integer :: srcl_mode, k, ncv
+    integer(i4), target :: belongcv_mask_local(pver_local+1)
+    integer(i4), target :: ncvsurf_codon, srcl_status_codon
+
+    interface
+       subroutine eddy_diff_caleddy_srcl_codon(i_c, pcols_c, pver_c, ncvmax_c, ntop_turb_c, nbot_turb_c, srcl_mode_c, &
+            qmin_c, ricrit_c, b1_c, vk_c, alph1_c, alph2_c, alph3_c, alph4exs_c, alph5_c, ghmin_c, ql_p, qrlw_p, ri_p, &
+            sfuh_p, chu_p, chs_p, cmu_p, cms_p, slslope_p, qtslope_p, z_p, bflxs_p, tkes_p, bprod_p, sprod_p, ncvfin_p, &
+            kbase_p, ktop_p, ricl_p, ghcl_p, shcl_p, smcl_p, lbrk_p, wbrk_p, ebrk_p, belong_mask_p, ncvsurf_p, &
+            srcl_status_p) bind(c, name="eddy_diff_caleddy_srcl_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: i_c, pcols_c, pver_c, ncvmax_c, ntop_turb_c, nbot_turb_c, srcl_mode_c
+         real(c_double), value :: qmin_c, ricrit_c, b1_c, vk_c, alph1_c, alph2_c, alph3_c, alph4exs_c, alph5_c, ghmin_c
+         type(c_ptr), value :: ql_p, qrlw_p, ri_p, sfuh_p, chu_p, chs_p, cmu_p, cms_p, slslope_p, qtslope_p, z_p, bflxs_p
+         type(c_ptr), value :: tkes_p, bprod_p, sprod_p, ncvfin_p, kbase_p, ktop_p, ricl_p, ghcl_p, shcl_p, smcl_p
+         type(c_ptr), value :: lbrk_p, wbrk_p, ebrk_p, belong_mask_p, ncvsurf_p, srcl_status_p
+       end subroutine eddy_diff_caleddy_srcl_codon
+    end interface
+
+    call eddy_diff_caleddy_srcl_select_impl()
+
+    srcl_status_local = 0_i4
+
+    if (use_native_caleddy_srcl_impl) then
+       call eddy_diff_caleddy_srcl_native(choice_srcl_local, i_local, pcols_local, pver_local, ncvmax_local, ntop_turb_local, &
+            nbot_turb_local, qmin_local, ricrit_local, b1_local, vk_local, alph1_local, alph2_local, alph3_local, &
+            alph4exs_local, alph5_local, ghmin_local, ql_local, qrlw_local, ri_local, sfuh_local, chu_local, chs_local, &
+            cmu_local, cms_local, slslope_local, qtslope_local, z_local, bflxs_local, tkes_local, bprod_local, sprod_local, &
+            ncvfin_local, kbase_local, ktop_local, belongcv_local, ricl_local, ghcl_local, shcl_local, smcl_local, lbrk_local, &
+            wbrk_local, ebrk_local, ncvsurf_local, srcl_status_local)
+       return
+    end if
+
+    srcl_mode = 1
+    if (choice_srcl_local .eq. 'remove') then
+       srcl_mode = 0
+    else if (choice_srcl_local .eq. 'nonamb') then
+       srcl_mode = 2
+    end if
+
+    ncvsurf_codon = ncvsurf_local
+    srcl_status_codon = 0_i4
+
+    call eddy_diff_caleddy_srcl_codon(int(i_local, c_int64_t), int(pcols_local, c_int64_t), int(pver_local, c_int64_t), &
+         int(ncvmax_local, c_int64_t), int(ntop_turb_local, c_int64_t), int(nbot_turb_local, c_int64_t), &
+         int(srcl_mode, c_int64_t), qmin_local, ricrit_local, b1_local, vk_local, alph1_local, alph2_local, alph3_local, &
+         alph4exs_local, alph5_local, ghmin_local, c_loc(ql_local), c_loc(qrlw_local), c_loc(ri_local), c_loc(sfuh_local), &
+         c_loc(chu_local), c_loc(chs_local), c_loc(cmu_local), c_loc(cms_local), c_loc(slslope_local), c_loc(qtslope_local), &
+         c_loc(z_local), c_loc(bflxs_local), c_loc(tkes_local), c_loc(bprod_local), c_loc(sprod_local), c_loc(ncvfin_local), &
+         c_loc(kbase_local), c_loc(ktop_local), c_loc(ricl_local), c_loc(ghcl_local), c_loc(shcl_local), c_loc(smcl_local), &
+         c_loc(lbrk_local), c_loc(wbrk_local), c_loc(ebrk_local), c_loc(belongcv_mask_local), c_loc(ncvsurf_codon), &
+         c_loc(srcl_status_codon))
+
+    ncvsurf_local = ncvsurf_codon
+    srcl_status_local = srcl_status_codon
+
+    do k = 1, pver_local + 1
+       belongcv_local(i_local,k) = .false.
+    end do
+
+    do ncv = 1, ncvfin_local(i_local)
+       do k = ktop_local(i_local,ncv), kbase_local(i_local,ncv)
+          belongcv_local(i_local,k) = .true.
+       end do
+    end do
+
+  end subroutine eddy_diff_caleddy_srcl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_srcl_native(choice_srcl_local, i_local, pcols_local, pver_local, ncvmax_local, ntop_turb_local, &
+       nbot_turb_local, qmin_local, ricrit_local, b1_local, vk_local, alph1_local, alph2_local, alph3_local, &
+       alph4exs_local, alph5_local, ghmin_local, ql_local, qrlw_local, ri_local, sfuh_local, chu_local, chs_local, &
+       cmu_local, cms_local, slslope_local, qtslope_local, z_local, bflxs_local, tkes_local, bprod_local, sprod_local, &
+       ncvfin_local, kbase_local, ktop_local, belongcv_local, ricl_local, ghcl_local, shcl_local, smcl_local, lbrk_local, &
+       wbrk_local, ebrk_local, ncvsurf_local, srcl_status_local)
+
+    implicit none
+
+    character(len=*), intent(in) :: choice_srcl_local
+    integer, intent(in) :: i_local, pcols_local, pver_local, ncvmax_local, ntop_turb_local, nbot_turb_local
+    real(r8), intent(in) :: qmin_local, ricrit_local, b1_local, vk_local
+    real(r8), intent(in) :: alph1_local, alph2_local, alph3_local, alph4exs_local, alph5_local, ghmin_local
+    real(r8), intent(in) :: ql_local(pcols_local,pver_local), qrlw_local(pcols_local,pver_local)
+    real(r8), intent(in) :: ri_local(pcols_local,pver_local), sfuh_local(pcols_local,pver_local)
+    real(r8), intent(in) :: chu_local(pcols_local,pver_local+1), chs_local(pcols_local,pver_local+1)
+    real(r8), intent(in) :: cmu_local(pcols_local,pver_local+1), cms_local(pcols_local,pver_local+1)
+    real(r8), intent(in) :: slslope_local(pcols_local,pver_local), qtslope_local(pcols_local,pver_local)
+    real(r8), intent(in) :: z_local(pcols_local,pver_local), bflxs_local(pcols_local), tkes_local(pcols_local)
+    real(r8), intent(in) :: bprod_local(pcols_local,pver_local+1), sprod_local(pcols_local,pver_local+1)
+    integer(i4), intent(inout) :: ncvfin_local(pcols_local), kbase_local(pcols_local,ncvmax_local)
+    integer(i4), intent(inout) :: ktop_local(pcols_local,ncvmax_local)
+    logical, intent(inout) :: belongcv_local(pcols_local,pver_local+1)
+    real(r8), intent(inout) :: ricl_local(pcols_local,ncvmax_local), ghcl_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: shcl_local(pcols_local,ncvmax_local), smcl_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: lbrk_local(pcols_local,ncvmax_local), wbrk_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: ebrk_local(pcols_local,ncvmax_local)
+    integer(i4), intent(inout) :: ncvsurf_local
+    integer(i4), intent(out) :: srcl_status_local
+
+    logical :: in_cl_local
+    integer :: k, ncv, ncvf, ncvnew
+    real(r8) :: ch, cm, n2htSRCL, gg, gh
+
+    srcl_status_local = 0_i4
+
+    ncv  = 1
+    ncvf = ncvfin_local(i_local)
+
+    if( choice_srcl_local .eq. 'remove' ) goto 222
+
+    do k = nbot_turb_local, ntop_turb_local + 1, -1
+
+       if( ql_local(i_local,k) .gt. qmin_local .and. ql_local(i_local,k-1) .lt. qmin_local .and. &
+            qrlw_local(i_local,k) .lt. 0._r8 .and. ri_local(i_local,k) .ge. ricrit_local ) then
+
+           if( choice_srcl_local .eq. 'nonamb' .and. belongcv_local(i_local,k+1) ) then
+               go to 220
+           endif
+
+           ch = ( 1._r8 - sfuh_local(i_local,k) ) * chu_local(i_local,k) + sfuh_local(i_local,k) * chs_local(i_local,k)
+           cm = ( 1._r8 - sfuh_local(i_local,k) ) * cmu_local(i_local,k) + sfuh_local(i_local,k) * cms_local(i_local,k)
+
+           n2htSRCL = ch * slslope_local(i_local,k) + cm * qtslope_local(i_local,k)
+
+           if( n2htSRCL .le. 0._r8 ) then
+
+               in_cl_local = .false.
+
+               do while ( ncv .le. ncvf )
+                  if( ktop_local(i_local,ncv) .le. k ) then
+                     if( kbase_local(i_local,ncv) .gt. k ) then
+                        in_cl_local = .true.
+                     endif
+                     exit
+                  else
+                     ncv = ncv + 1
+                  end if
+               end do
+
+               if( .not. in_cl_local ) then
+
+                  ncvfin_local(i_local)       =  ncvfin_local(i_local) + 1
+                  ncvnew                      =  ncvfin_local(i_local)
+                  ktop_local(i_local,ncvnew)  =  k
+                  kbase_local(i_local,ncvnew) =  k+1
+                  belongcv_local(i_local,k)   = .true.
+                  belongcv_local(i_local,k+1) = .true.
+
+                  if( k .lt. pver_local ) then
+
+                      wbrk_local(i_local,ncvnew) = 0._r8
+                      ebrk_local(i_local,ncvnew) = 0._r8
+                      lbrk_local(i_local,ncvnew) = 0._r8
+                      ghcl_local(i_local,ncvnew) = 0._r8
+                      shcl_local(i_local,ncvnew) = 0._r8
+                      smcl_local(i_local,ncvnew) = 0._r8
+                      ricl_local(i_local,ncvnew) = 0._r8
+
+                  else
+
+                      if( bflxs_local(i_local) .gt. 0._r8 ) then
+                          ebrk_local(i_local,ncvnew) = tkes_local(i_local)
+                          lbrk_local(i_local,ncvnew) = z_local(i_local,pver_local)
+                          wbrk_local(i_local,ncvnew) = tkes_local(i_local) / b1_local
+                          srcl_status_local = 1_i4
+                          return
+
+                      else
+
+                          ebrk_local(i_local,ncvnew) = 0._r8
+                          lbrk_local(i_local,ncvnew) = 0._r8
+                          wbrk_local(i_local,ncvnew) = 0._r8
+
+                      endif
+
+                      gg = 0.5_r8 * vk_local * z_local(i_local,pver_local) * bprod_local(i_local,pver_local+1) / &
+                           ( tkes_local(i_local)**(3._r8/2._r8) )
+                      if( abs(alph5_local-gg*alph3_local) .le. 1.e-7_r8 ) then
+                         gh = ghmin_local
+                      else
+                         gh = gg / ( alph5_local - gg * alph3_local )
+                      end if
+                      gh = min(max(gh,ghmin_local),0.0233_r8)
+                      ghcl_local(i_local,ncvnew) =  gh
+                      shcl_local(i_local,ncvnew) =  max(0._r8,alph5_local/(1._r8+alph3_local*gh))
+                      smcl_local(i_local,ncvnew) =  max(0._r8,(alph1_local + alph2_local*gh)/(1._r8+alph3_local*gh)/ &
+                           (1._r8+alph4exs_local*gh))
+                      ricl_local(i_local,ncvnew) = -(smcl_local(i_local,ncvnew)/shcl_local(i_local,ncvnew))* &
+                           (bprod_local(i_local,pver_local+1)/sprod_local(i_local,pver_local+1))
+
+                      ncvsurf_local = ncvnew
+
+                   end if
+
+               end if
+
+           end if
+
+       end if
+
+220 continue
+
+    end do
+
+222 continue
+
+  end subroutine eddy_diff_caleddy_srcl_native
+
     ! ---------------------------------------------------------------------------- !
     !                                                                              !
     ! The University of Washington Moist Turbulence Scheme                         !
@@ -3118,8 +3405,9 @@
     integer :: ncvf                                   ! Total number of CL in column prior to adding SRCL
     integer :: ncv                                    ! Index of current CL
     integer :: ncvnew                                 ! Index of added SRCL appended after regular CLs from 'zisocl'
-    integer :: ncvsurf                                ! If nonzero, CL index based on surface
+    integer(i4) :: ncvsurf                            ! If nonzero, CL index based on surface
                                                       ! (usually 1, but can be > 1 when SRCL is based at sfc)
+    integer(i4) :: srcl_status
     integer :: kbase(pcols,ncvmax)                    ! Vertical index of CL base interface
     integer :: ktop(pcols,ncvmax)                     ! Vertical index of CL top interface
     integer :: kb, kt                                 ! kbase and ktop for current CL
@@ -3507,160 +3795,20 @@
        ! with height similar to the regular CLs indices identified from 'zisocl'.       !
        ! ------------------------------------------------------------------------------ !
 
-       ncv  = 1
-       ncvf = ncvfin(i)
+       call eddy_diff_caleddy_srcl(choice_SRCL, i, pcols, pver, ncvmax, ntop_turb, nbot_turb, qmin, ricrit, b1, vk, alph1, &
+            alph2, alph3, alph4exs, alph5, ghmin, ql, qrlw, ri, sfuh, chu, chs, cmu, cms, slslope, qtslope, z, bflxs, &
+            tkes, bprod, sprod, ncvfin, kbase, ktop, belongcv, ricl, ghcl, shcl, smcl, lbrk, wbrk, ebrk, ncvsurf, srcl_status)
 
-       if( choice_SRCL .eq. 'remove' ) goto 222 
-
-       do k = nbot_turb, ntop_turb + 1, -1 ! 'k = pver, 2, -1' is a layer index.
-
-          if( ql(i,k) .gt. qmin .and. ql(i,k-1) .lt. qmin .and. qrlw(i,k) .lt. 0._r8 &
-                                .and. ri(i,k) .ge. ricrit ) then
-
-              ! In order to avoid any confliction with the treatment of ambiguous layer,
-              ! I need to impose an additional constraint that ambiguous layer cannot be
-              ! SRCL. So, I added constraint that 'k+1' interface (base interface of k
-              ! layer) should not be a part of previously identified CL. Since 'belongcv'
-              ! is even true for external entrainment interfaces, below constraint is
-              ! fully sufficient.
- 
-              if( choice_SRCL .eq. 'nonamb' .and. belongcv(i,k+1) ) then
-                  go to 220 
-              endif
-
-              ch = ( 1._r8 - sfuh(i,k) ) * chu(i,k) + sfuh(i,k) * chs(i,k)
-              cm = ( 1._r8 - sfuh(i,k) ) * cmu(i,k) + sfuh(i,k) * cms(i,k)
-
-              n2htSRCL = ch * slslope(i,k) + cm * qtslope(i,k)
-
-              if( n2htSRCL .le. 0._r8 ) then
-
-                  ! Test if bottom and top interfaces are part of the pre-existing CL. 
-                  ! If not, find appropriate index for the new SRCL. Note that this
-                  ! calculation makes use of 'ncv set' obtained from 'zisocl'. The 
-                  ! 'in_CL' is a parameter testing whether the new SRCL is already 
-                  ! within the pre-existing CLs (.true.) or not (.false.). 
-
-                  in_CL = .false.
-
-                  do while ( ncv .le. ncvf )
-                     if( ktop(i,ncv) .le. k ) then
-                        if( kbase(i,ncv) .gt. k ) then 
-                            in_CL = .true.
-                        endif
-                        exit             ! Exit from 'do while' loop if SRCL is within the CLs.
-                     else
-                        ncv = ncv + 1    ! Go up one CL
-                     end if
-                  end do ! ncv
-
-                  if( .not. in_CL ) then ! SRCL is not within the pre-existing CLs.
-
-                     ! Identify a new SRCL and add it to the pre-existing CL regime group.
-
-                     ncvfin(i)       =  ncvfin(i) + 1
-                     ncvnew          =  ncvfin(i)
-                     ktop(i,ncvnew)  =  k
-                     kbase(i,ncvnew) =  k+1
-                     belongcv(i,k)   = .true.
-                     belongcv(i,k+1) = .true.
-
-                     ! Calculate internal energy of SRCL. There is no internal energy if
-                     ! SRCL is elevated from the surface. Also, we simply assume neutral 
-                     ! stability function. Note that this assumption of neutral stability
-                     ! does not influence numerical calculation- stability functions here
-                     ! are just for diagnostic output. In general SRCLs other than a SRCL 
-                     ! based at surface with bflxs <= 0, there is no other way but to use
-                     ! neutral stability function.  However, in case of SRCL based at the
-                     ! surface,  we can explicitly calculate non-zero stability functions            
-                     ! in a consistent way.   Even though stability functions of SRCL are
-                     ! just diagnostic outputs not influencing numerical calculations, it
-                     ! would be informative to write out correct reasonable values rather
-                     ! than simply assuming neutral stability. I am doing this right now.
-                     ! Similar calculations were done for the SBCL and when surface inter
-                     ! facial layer was merged by overlying CL in 'ziscol'.
-
-                     if( k .lt. pver ) then
-
-                         wbrk(i,ncvnew) = 0._r8
-                         ebrk(i,ncvnew) = 0._r8
-                         lbrk(i,ncvnew) = 0._r8
-                         ghcl(i,ncvnew) = 0._r8
-                         shcl(i,ncvnew) = 0._r8
-                         smcl(i,ncvnew) = 0._r8
-                         ricl(i,ncvnew) = 0._r8
-
-                     else ! Surface-based fog
-
-                         if( bflxs(i) .gt. 0._r8 ) then    ! Incorporate surface TKE into CL interior energy
-                                                           ! It is likely that this case cannot exist  since
-                                                           ! if surface buoyancy flux is positive,  it would
-                                                           ! have been identified as SBCL in 'zisocl' ahead. 
-                             ebrk(i,ncvnew) = tkes(i)
-                             lbrk(i,ncvnew) = z(i,pver)
-                             wbrk(i,ncvnew) = tkes(i) / b1    
-        
-                             write(iulog,*) 'Major mistake in SRCL: bflxs > 0 for surface-based SRCL'
-                             write(iulog,*) 'bflxs = ', bflxs(i)
-                             write(iulog,*) 'ncvfin_o = ', ncvfin_o(i)
-                             write(iulog,*) 'ncvfin_mg = ', ncvfin_mg(i)
-                             do ks = 1, ncvmax
-                                write(iulog,*) 'ncv =', ks, ' ', kbase_o(i,ks), ktop_o(i,ks), kbase_mg(i,ks), ktop_mg(i,ks)
-                             end do
-                             call endrun('CALEDDY: Major mistake in SRCL: bflxs > 0 for surface-based SRCL')
-
-                         else                              ! Don't incorporate surface interfacial TKE into CL interior energy
-
-                             ebrk(i,ncvnew) = 0._r8
-                             lbrk(i,ncvnew) = 0._r8
-                             wbrk(i,ncvnew) = 0._r8
-
-                         endif
-
-                         ! Calculate stability functions (ghcl, shcl, smcl, ricl) explicitly
-                         ! using an reverse procedure starting from tkes(i). Note that it is
-                         ! possible to calculate stability functions even when bflxs < 0.
-                         ! Previous code just assumed neutral stability functions. Note that
-                         ! since alph5 = 0.7 > 0, alph3 = -35 < 0, the denominator of gh  is
-                         ! always positive if bflxs > 0. However, if bflxs < 0,  denominator
-                         ! can be zero. For this case, we provide a possible maximum negative
-                         ! value (the most stable state) to gh. Note also tkes(i) is always a
-                         ! positive value by a limiter. Also, sprod(i,pver+1) > 0 by limiter.
-                         
-                         gg = 0.5_r8 * vk * z(i,pver) * bprod(i,pver+1) / ( tkes(i)**(3._r8/2._r8) )
-                         if( abs(alph5-gg*alph3) .le. 1.e-7_r8 ) then
-                           ! gh = -0.28_r8
-                           ! gh = -3.5334_r8
-                             gh = ghmin
-                         else    
-                             gh = gg / ( alph5 - gg * alph3 )
-                         end if 
-                       ! gh = min(max(gh,-0.28_r8),0.0233_r8)
-                       ! gh = min(max(gh,-3.5334_r8),0.0233_r8)
-                         gh = min(max(gh,ghmin),0.0233_r8)
-                         ghcl(i,ncvnew) =  gh
-                         shcl(i,ncvnew) =  max(0._r8,alph5/(1._r8+alph3*gh))
-                         smcl(i,ncvnew) =  max(0._r8,(alph1 + alph2*gh)/(1._r8+alph3*gh)/(1._r8+alph4exs*gh))
-                         ricl(i,ncvnew) = -(smcl(i,ncvnew)/shcl(i,ncvnew))*(bprod(i,pver+1)/sprod(i,pver+1))
-
-                       ! 'ncvsurf' is CL regime index based at the surface. If there is no
-                       ! such regime, then 'ncvsurf = 0'.
-    
-                         ncvsurf = ncvnew
-
-                      end if
-
-                  end if
-
-              end if
-
-          end if
-
-   220 continue    
-
-       end do ! End of 'k' loop where 'k' is a grid layer index running from 'pver' to 2
-
-   222 continue
+       if (srcl_status .ne. 0_i4) then
+           write(iulog,*) 'Major mistake in SRCL: bflxs > 0 for surface-based SRCL'
+           write(iulog,*) 'bflxs = ', bflxs(i)
+           write(iulog,*) 'ncvfin_o = ', ncvfin_o(i)
+           write(iulog,*) 'ncvfin_mg = ', ncvfin_mg(i)
+           do ks = 1, ncvmax
+              write(iulog,*) 'ncv =', ks, ' ', kbase_o(i,ks), ktop_o(i,ks), kbase_mg(i,ks), ktop_mg(i,ks)
+           end do
+           call endrun('CALEDDY: Major mistake in SRCL: bflxs > 0 for surface-based SRCL')
+       end if
 
        ! -------------------------------------------------------------------------- !
        ! Up to this point, we identified all kinds of CL regimes :                  !
