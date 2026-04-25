@@ -990,6 +990,204 @@ def eddy_diff_trbintd_midpoint_codon(
 
 
 @export
+def eddy_diff_trbintd_core_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    cpair: float,
+    latvap: float,
+    latsub: float,
+    gravit: float,
+    zvir: float,
+    ntzero: float,
+    t_p: cobj,
+    z_p: cobj,
+    u_p: cobj,
+    v_p: cobj,
+    qv_p: cobj,
+    ql_p: cobj,
+    qi_p: cobj,
+    gam_p: cobj,
+    pmid_p: cobj,
+    cld_p: cobj,
+    qt_p: cobj,
+    sl_p: cobj,
+    slv_p: cobj,
+    slslope_p: cobj,
+    qtslope_p: cobj,
+    dsldp_b_p: cobj,
+    dqtdp_b_p: cobj,
+    chu_p: cobj,
+    chs_p: cobj,
+    cmu_p: cobj,
+    cms_p: cobj,
+    sfi_p: cobj,
+    sfuh_p: cobj,
+    sflh_p: cobj,
+    n2_p: cobj,
+    s2_p: cobj,
+    ri_p: cobj,
+):
+    t = Ptr[float](t_p)
+    z = Ptr[float](z_p)
+    u = Ptr[float](u_p)
+    v = Ptr[float](v_p)
+    qv = Ptr[float](qv_p)
+    ql = Ptr[float](ql_p)
+    qi = Ptr[float](qi_p)
+    gam = Ptr[float](gam_p)
+    pmid = Ptr[float](pmid_p)
+    cld = Ptr[float](cld_p)
+    qt = Ptr[float](qt_p)
+    sl = Ptr[float](sl_p)
+    slv = Ptr[float](slv_p)
+    slslope = Ptr[float](slslope_p)
+    qtslope = Ptr[float](qtslope_p)
+    dsldp_b = Ptr[float](dsldp_b_p)
+    dqtdp_b = Ptr[float](dqtdp_b_p)
+    chu = Ptr[float](chu_p)
+    chs = Ptr[float](chs_p)
+    cmu = Ptr[float](cmu_p)
+    cms = Ptr[float](cms_p)
+    sfi = Ptr[float](sfi_p)
+    sfuh = Ptr[float](sfuh_p)
+    sflh = Ptr[float](sflh_p)
+    n2 = Ptr[float](n2_p)
+    s2 = Ptr[float](s2_p)
+    ri = Ptr[float](ri_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            tval = t[idx]
+            qvval = qv[idx]
+            qlval = ql[idx]
+            qival = qi[idx]
+
+            qtval = qvval + qlval + qival
+            qt[idx] = qtval
+
+            slval = cpair * tval + gravit * z[idx] - latvap * qlval - latsub * qival
+            sl[idx] = slval
+            slv[idx] = slval * (1.0 + zvir * qtval)
+
+            bfact = gravit / (tval * (1.0 + zvir * qvval - qlval - qival))
+            chu[idx] = (1.0 + zvir * qtval) * bfact / cpair
+            chs[idx] = (
+                (1.0 + (1.0 + zvir) * gam[idx] * cpair * tval / latvap)
+                / (1.0 + gam[idx])
+            ) * bfact / cpair
+            cmu[idx] = zvir * bfact * tval
+            cms[idx] = latvap * chs[idx] - bfact * tval
+
+    for i in range(1, ncol + 1):
+        idx_last = _idx2(i, pver, pcols)
+        idx_sfc = _idx2(i, pver + 1, pcols)
+        chu[idx_sfc] = chu[idx_last]
+        chs[idx_sfc] = chs[idx_last]
+        cmu[idx_sfc] = cmu[idx_last]
+        cms[idx_sfc] = cms[idx_last]
+
+    for i in range(1, ncol + 1):
+        idx_pver = _idx2(i, pver, pcols)
+        idx_pverm1 = _idx2(i, pver - 1, pcols)
+        idx_1 = _idx2(i, 1, pcols)
+        idx_2 = _idx2(i, 2, pcols)
+        idx_i = i - 1
+
+        slslope[idx_pver] = (sl[idx_pver] - sl[idx_pverm1]) / (pmid[idx_pver] - pmid[idx_pverm1])
+        qtslope[idx_pver] = (qt[idx_pver] - qt[idx_pverm1]) / (pmid[idx_pver] - pmid[idx_pverm1])
+        slslope[idx_1] = (sl[idx_2] - sl[idx_1]) / (pmid[idx_2] - pmid[idx_1])
+        qtslope[idx_1] = (qt[idx_2] - qt[idx_1]) / (pmid[idx_2] - pmid[idx_1])
+        dsldp_b[idx_i] = slslope[idx_1]
+        dqtdp_b[idx_i] = qtslope[idx_1]
+
+    for k in range(2, pver):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            idx_kp1 = _idx2(i, k + 1, pcols)
+            idx_i = i - 1
+
+            dsldp_a = dsldp_b[idx_i]
+            dqtdp_a = dqtdp_b[idx_i]
+
+            dsldp_b[idx_i] = (sl[idx_kp1] - sl[idx]) / (pmid[idx_kp1] - pmid[idx])
+            dqtdp_b[idx_i] = (qt[idx_kp1] - qt[idx]) / (pmid[idx_kp1] - pmid[idx])
+
+            product = dsldp_a * dsldp_b[idx_i]
+            if product <= 0.0:
+                slslope[idx] = 0.0
+            elif dsldp_a < 0.0:
+                slslope[idx] = max(dsldp_a, dsldp_b[idx_i])
+            else:
+                slslope[idx] = min(dsldp_a, dsldp_b[idx_i])
+
+            product = dqtdp_a * dqtdp_b[idx_i]
+            if product <= 0.0:
+                qtslope[idx] = 0.0
+            elif dqtdp_a < 0.0:
+                qtslope[idx] = max(dqtdp_a, dqtdp_b[idx_i])
+            else:
+                qtslope[idx] = min(dqtdp_a, dqtdp_b[idx_i])
+
+    for k in range(1, pver + 2):
+        for i in range(1, ncol + 1):
+            sfi[_idx2(i, k, pcols)] = 0.0
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            sfuh[_idx2(i, k, pcols)] = 0.0
+            sflh[_idx2(i, k, pcols)] = 0.0
+
+    for k in range(2, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            idx_km1 = _idx2(i, k - 1, pcols)
+            cldval = cld[idx]
+            sfuh[idx] = cldval
+            sflh[idx] = cldval
+            sfi[idx] = 0.5 * (sflh[idx_km1] + min(sfuh[idx], sflh[idx_km1]))
+
+    for i in range(1, ncol + 1):
+        sfi[_idx2(i, pver + 1, pcols)] = sflh[_idx2(i, pver, pcols)]
+
+    for k in range(pver, 1, -1):
+        km1 = k - 1
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            idx_km1 = _idx2(i, km1, pcols)
+
+            rdz = 1.0 / (z[idx_km1] - z[idx])
+            dsldz = (sl[idx_km1] - sl[idx]) * rdz
+            dqtdz = (qt[idx_km1] - qt[idx]) * rdz
+
+            chu[idx] = (chu[idx_km1] + chu[idx]) * 0.5
+            chs[idx] = (chs[idx_km1] + chs[idx]) * 0.5
+            cmu[idx] = (cmu[idx_km1] + cmu[idx]) * 0.5
+            cms[idx] = (cms[idx_km1] + cms[idx]) * 0.5
+
+            sfival = sfi[idx]
+            ch = chu[idx] * (1.0 - sfival) + chs[idx] * sfival
+            cm = cmu[idx] * (1.0 - sfival) + cms[idx] * sfival
+
+            n2[idx] = ch * dsldz + cm * dqtdz
+
+            du = u[idx_km1] - u[idx]
+            dv = v[idx_km1] - v[idx]
+            rdz_sq = rdz * rdz
+            s2val = (du * du + dv * dv) * rdz_sq
+            s2[idx] = max(ntzero, s2val)
+            ri[idx] = n2[idx] / s2[idx]
+
+    for i in range(1, ncol + 1):
+        idx_1 = _idx2(i, 1, pcols)
+        idx_2 = _idx2(i, 2, pcols)
+        n2[idx_1] = n2[idx_2]
+        s2[idx_1] = s2[idx_2]
+        ri[idx_1] = ri[idx_2]
+
+
+@export
 def eddy_diff_trbintd_slopes_codon(
     ncol: int,
     pcols: int,

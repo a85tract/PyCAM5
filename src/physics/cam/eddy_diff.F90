@@ -192,6 +192,8 @@
   logical                     :: trbintd_slopes_impl_selected = .false.
   logical                     :: use_native_trbintd_sfdiag_interface_impl = .false.
   logical                     :: trbintd_sfdiag_interface_impl_selected = .false.
+  logical                     :: use_native_trbintd_core_impl = .false.
+  logical                     :: trbintd_core_impl_selected = .false.
   logical                     :: use_native_zero_nonlocal_impl = .false.
   logical                     :: zero_nonlocal_impl_selected = .false.
   logical                     :: use_native_restore_fields_impl = .false.
@@ -1120,25 +1122,144 @@
        call qsat( t(:ncol,k), pmid(:ncol,k), es(:ncol,k), qs(:ncol,k), gam=gam(:ncol,k))
     end do
 
-    call eddy_diff_trbintd_midpoint(ncol, pcols, pver, t, z, qv, ql, qi, gam, qt, sl, slv, chu, chs, cmu, cms)
-
-    ! Compute slopes of conserved variables sl, qt within each layer k. 
-    ! 'a' indicates the 'above' gradient from layer k-1 to layer k and 
-    ! 'b' indicates the 'below' gradient from layer k   to layer k+1.
-    ! We take a smaller (in absolute value)  of these gradients as the
-    ! slope within layer k. If they have opposite signs,   gradient in 
-    ! layer k is taken to be zero. I should re-consider whether   this
-    ! profile reconstruction is the best or not.
-    ! This is similar to the profile reconstruction used in the UWShCu. 
-
-    call eddy_diff_trbintd_slopes(ncol, pcols, pver, pmid, sl, qt, slslope, qtslope, dsldp_b, dqtdp_b)
-
-    call eddy_diff_trbintd_sfdiag_interface(ncol, pcols, pver, ql, sl, qt, pi, pmid, zi, cld, slslope, qtslope, u, v, z, &
-         chu, chs, cmu, cms, sfi, sfuh, sflh, n2, s2, ri)
+    call eddy_diff_trbintd_core(ncol, pcols, pver, t, z, u, v, qv, ql, qi, gam, pmid, pi, zi, cld, qt, sl, slv, &
+         slslope, qtslope, dsldp_b, dqtdp_b, chu, chs, cmu, cms, sfi, sfuh, sflh, n2, s2, ri)
 
   return
 
   end subroutine trbintd
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_trbintd_core_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (trbintd_core_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_TRBINTD_CORE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_trbintd_core_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_trbintd_core_impl = .false.
+    end if
+
+    trbintd_core_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_trbintd_core_impl) then
+          write(iulog,*) 'eddy_diff_trbintd_core implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_trbintd_core implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_trbintd_core_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_trbintd_core(ncol, pcols, pver, t_local, z_local, u_local, v_local, qv_local, ql_local, qi_local, &
+       gam_local, pmid_local, pi_local, zi_local, cld_local, qt_local, sl_local, slv_local, slslope_local, qtslope_local, &
+       dsldp_b_local, dqtdp_b_local, chu_local, chs_local, cmu_local, cms_local, sfi_local, sfuh_local, sflh_local, &
+       n2_local, s2_local, ri_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, pver
+    real(r8), target, intent(in) :: t_local(pcols,pver), z_local(pcols,pver), u_local(pcols,pver), v_local(pcols,pver)
+    real(r8), target, intent(in) :: qv_local(pcols,pver), ql_local(pcols,pver), qi_local(pcols,pver), gam_local(pcols,pver)
+    real(r8), target, intent(in) :: pmid_local(pcols,pver), cld_local(pcols,pver)
+    real(r8), intent(in) :: pi_local(pcols,pver+1), zi_local(pcols,pver+1)
+    real(r8), target, intent(out) :: qt_local(pcols,pver), sl_local(pcols,pver), slv_local(pcols,pver)
+    real(r8), target, intent(out) :: slslope_local(pcols,pver), qtslope_local(pcols,pver)
+    real(r8), target, intent(out) :: dsldp_b_local(pcols), dqtdp_b_local(pcols)
+    real(r8), target, intent(out) :: chu_local(pcols,pver+1), chs_local(pcols,pver+1), cmu_local(pcols,pver+1), &
+         cms_local(pcols,pver+1)
+    real(r8), target, intent(out) :: sfi_local(pcols,pver+1), sfuh_local(pcols,pver), sflh_local(pcols,pver)
+    real(r8), target, intent(out) :: n2_local(pcols,pver), s2_local(pcols,pver), ri_local(pcols,pver)
+
+    interface
+       subroutine eddy_diff_trbintd_core_codon(ncol_c, pcols_c, pver_c, cpair_c, latvap_c, latsub_c, g_c, zvir_c, ntzero_c, &
+            t_p, z_p, u_p, v_p, qv_p, ql_p, qi_p, gam_p, pmid_p, cld_p, qt_p, sl_p, slv_p, slslope_p, qtslope_p, &
+            dsldp_b_p, dqtdp_b_p, chu_p, chs_p, cmu_p, cms_p, sfi_p, sfuh_p, sflh_p, n2_p, s2_p, ri_p) &
+            bind(c, name="eddy_diff_trbintd_core_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: cpair_c, latvap_c, latsub_c, g_c, zvir_c, ntzero_c
+         type(c_ptr), value :: t_p, z_p, u_p, v_p, qv_p, ql_p, qi_p, gam_p, pmid_p, cld_p, qt_p, sl_p, slv_p, &
+              slslope_p, qtslope_p, dsldp_b_p, dqtdp_b_p, chu_p, chs_p, cmu_p, cms_p, sfi_p, sfuh_p, sflh_p, n2_p, s2_p, &
+              ri_p
+       end subroutine eddy_diff_trbintd_core_codon
+    end interface
+
+    call eddy_diff_trbintd_core_select_impl()
+
+    if (use_native_trbintd_core_impl) then
+       call eddy_diff_trbintd_core_native(ncol, pcols, pver, t_local, z_local, u_local, v_local, qv_local, ql_local, qi_local, &
+            gam_local, pmid_local, pi_local, zi_local, cld_local, qt_local, sl_local, slv_local, slslope_local, qtslope_local, &
+            dsldp_b_local, dqtdp_b_local, chu_local, chs_local, cmu_local, cms_local, sfi_local, sfuh_local, sflh_local, &
+            n2_local, s2_local, ri_local)
+       return
+    end if
+
+    call eddy_diff_trbintd_core_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(cpair, c_double), &
+         real(latvap, c_double), real(latsub, c_double), real(g, c_double), real(zvir, c_double), real(ntzero, c_double), &
+         c_loc(t_local), c_loc(z_local), c_loc(u_local), c_loc(v_local), c_loc(qv_local), c_loc(ql_local), c_loc(qi_local), &
+         c_loc(gam_local), c_loc(pmid_local), c_loc(cld_local), c_loc(qt_local), c_loc(sl_local), c_loc(slv_local), &
+         c_loc(slslope_local), c_loc(qtslope_local), c_loc(dsldp_b_local), c_loc(dqtdp_b_local), c_loc(chu_local), &
+         c_loc(chs_local), c_loc(cmu_local), c_loc(cms_local), c_loc(sfi_local), c_loc(sfuh_local), c_loc(sflh_local), &
+         c_loc(n2_local), c_loc(s2_local), c_loc(ri_local))
+
+  end subroutine eddy_diff_trbintd_core
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_trbintd_core_native(ncol, pcols, pver, t_local, z_local, u_local, v_local, qv_local, ql_local, qi_local, &
+       gam_local, pmid_local, pi_local, zi_local, cld_local, qt_local, sl_local, slv_local, slslope_local, qtslope_local, &
+       dsldp_b_local, dqtdp_b_local, chu_local, chs_local, cmu_local, cms_local, sfi_local, sfuh_local, sflh_local, &
+       n2_local, s2_local, ri_local)
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, pver
+    real(r8), intent(in) :: t_local(pcols,pver), z_local(pcols,pver), u_local(pcols,pver), v_local(pcols,pver)
+    real(r8), intent(in) :: qv_local(pcols,pver), ql_local(pcols,pver), qi_local(pcols,pver), gam_local(pcols,pver)
+    real(r8), intent(in) :: pmid_local(pcols,pver), pi_local(pcols,pver+1), zi_local(pcols,pver+1), cld_local(pcols,pver)
+    real(r8), intent(out) :: qt_local(pcols,pver), sl_local(pcols,pver), slv_local(pcols,pver)
+    real(r8), intent(out) :: slslope_local(pcols,pver), qtslope_local(pcols,pver)
+    real(r8), intent(out) :: dsldp_b_local(pcols), dqtdp_b_local(pcols)
+    real(r8), intent(out) :: chu_local(pcols,pver+1), chs_local(pcols,pver+1), cmu_local(pcols,pver+1), cms_local(pcols,pver+1)
+    real(r8), intent(out) :: sfi_local(pcols,pver+1), sfuh_local(pcols,pver), sflh_local(pcols,pver)
+    real(r8), intent(out) :: n2_local(pcols,pver), s2_local(pcols,pver), ri_local(pcols,pver)
+
+    call eddy_diff_trbintd_midpoint_native(ncol, pcols, pver, t_local, z_local, qv_local, ql_local, qi_local, gam_local, &
+         qt_local, sl_local, slv_local, chu_local, chs_local, cmu_local, cms_local)
+
+    call eddy_diff_trbintd_slopes_native(ncol, pcols, pver, pmid_local, sl_local, qt_local, slslope_local, qtslope_local, &
+         dsldp_b_local, dqtdp_b_local)
+
+    call eddy_diff_trbintd_sfdiag_interface_native(ncol, pcols, pver, ql_local, sl_local, qt_local, pi_local, pmid_local, &
+         zi_local, cld_local, slslope_local, qtslope_local, u_local, v_local, z_local, chu_local, chs_local, cmu_local, &
+         cms_local, sfi_local, sfuh_local, sflh_local, n2_local, s2_local, ri_local)
+
+  end subroutine eddy_diff_trbintd_core_native
 
   !=============================================================================== !
   !                                                                                !
