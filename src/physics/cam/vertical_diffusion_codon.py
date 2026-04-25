@@ -1487,6 +1487,155 @@ def eddy_diff_zisocl_non_sbcl_state_codon(
 
 
 @export
+def eddy_diff_zisocl_upward_state_codon(
+    i_col: int,
+    pcols: int,
+    pver: int,
+    ntop_turb: int,
+    ncv_col: int,
+    tunl_mode: int,
+    leng_mode: int,
+    tunl: float,
+    ctunl: float,
+    cleng: float,
+    vk: float,
+    rinc: float,
+    tkemax: float,
+    b1: float,
+    lbulk: float,
+    sh: float,
+    sm: float,
+    z_p: cobj,
+    zi_p: cobj,
+    n2_p: cobj,
+    s2_p: cobj,
+    leng_max_p: cobj,
+    ncvfin_p: cobj,
+    kbase_p: cobj,
+    ktop_p: cobj,
+    kt_p: cobj,
+    lint_p: cobj,
+    l2n2_p: cobj,
+    l2s2_p: cobj,
+    wint_p: cobj,
+    status_p: cobj,
+):
+    z = Ptr[float](z_p)
+    zi = Ptr[float](zi_p)
+    n2 = Ptr[float](n2_p)
+    s2 = Ptr[float](s2_p)
+    leng_max = Ptr[float](leng_max_p)
+    ncvfin = Ptr[i32](ncvfin_p)
+    kbase = Ptr[i32](kbase_p)
+    ktop = Ptr[i32](ktop_p)
+    kt_state = Ptr[int](kt_p)
+    lint = Ptr[float](lint_p)
+    l2n2 = Ptr[float](l2n2_p)
+    l2s2 = Ptr[float](l2s2_p)
+    wint = Ptr[float](wint_p)
+    status = Ptr[int](status_p)
+
+    kt = int(kt_state[0])
+    cntu = 0
+    status[0] = 0
+
+    if tunl_mode == 1:
+        tunlramp = 0.5 * (1.0 + ctunl) * tunl
+    elif tunl_mode == 2:
+        tunlramp = ctunl * tunl
+    else:
+        tunlramp = tunl
+
+    if leng_mode == 0:
+        lz = ((vk * zi[_idx2(i_col, kt, pcols)]) ** (-cleng) + (tunlramp * lbulk) ** (-cleng)) ** (-1.0 / cleng)
+    else:
+        lz = min(vk * zi[_idx2(i_col, kt, pcols)], tunlramp * lbulk)
+    lz = min(leng_max[kt - 1], lz)
+
+    dzinc = z[_idx2(i_col, kt - 1, pcols)] - z[_idx2(i_col, kt, pcols)]
+    dl2n2 = lz * lz * n2[_idx2(i_col, kt, pcols)] * dzinc
+    dl2s2 = lz * lz * s2[_idx2(i_col, kt, pcols)] * dzinc
+    dwinc = -sh * dl2n2 + sm * dl2s2
+
+    while (-dl2n2 > (-rinc * l2n2[0] / (1.0 - rinc))) and (
+        kt > ntop_turb + 2 or z[_idx2(i_col, kt, pcols)] < 50000.0
+    ):
+        lint[0] = lint[0] + dzinc
+        l2n2[0] = l2n2[0] + dl2n2
+        l2n2[0] = -min(-l2n2[0], tkemax * lint[0] / (b1 * sh))
+        l2s2[0] = l2s2[0] + dl2s2
+        wint[0] = wint[0] + dwinc
+
+        kt = kt - 1
+        if kt == ntop_turb:
+            kt_state[0] = kt
+            status[0] = 1
+            return
+
+        ktinc = int(kbase[_idx2(i_col, ncv_col + cntu + 1, pcols)]) - 1
+
+        if kt == ktinc:
+            k_ifc = int(kbase[_idx2(i_col, ncv_col + cntu + 1, pcols)]) - 1
+            while k_ifc >= int(ktop[_idx2(i_col, ncv_col + cntu + 1, pcols)]) + 1:
+                if tunl_mode == 1:
+                    tunlramp = 0.5 * (1.0 + ctunl) * tunl
+                elif tunl_mode == 2:
+                    tunlramp = ctunl * tunl
+                else:
+                    tunlramp = tunl
+
+                if leng_mode == 0:
+                    lz = ((vk * zi[_idx2(i_col, k_ifc, pcols)]) ** (-cleng) + (tunlramp * lbulk) ** (-cleng)) ** (-1.0 / cleng)
+                else:
+                    lz = min(vk * zi[_idx2(i_col, k_ifc, pcols)], tunlramp * lbulk)
+                lz = min(leng_max[k_ifc - 1], lz)
+
+                dzinc = z[_idx2(i_col, k_ifc - 1, pcols)] - z[_idx2(i_col, k_ifc, pcols)]
+                dl2n2 = lz * lz * n2[_idx2(i_col, k_ifc, pcols)] * dzinc
+                dl2s2 = lz * lz * s2[_idx2(i_col, k_ifc, pcols)] * dzinc
+                dwinc = -sh * dl2n2 + sm * dl2s2
+
+                lint[0] = lint[0] + dzinc
+                l2n2[0] = l2n2[0] + dl2n2
+                l2n2[0] = -min(-l2n2[0], tkemax * lint[0] / (b1 * sh))
+                l2s2[0] = l2s2[0] + dl2s2
+                wint[0] = wint[0] + dwinc
+
+                k_ifc -= 1
+
+            kt = int(ktop[_idx2(i_col, ncv_col + cntu + 1, pcols)])
+            ncvfin[i_col - 1] = i32(int(ncvfin[i_col - 1]) - 1)
+            cntu += 1
+
+        if tunl_mode == 1:
+            tunlramp = 0.5 * (1.0 + ctunl) * tunl
+        elif tunl_mode == 2:
+            tunlramp = ctunl * tunl
+        else:
+            tunlramp = tunl
+
+        if leng_mode == 0:
+            lz = ((vk * zi[_idx2(i_col, kt, pcols)]) ** (-cleng) + (tunlramp * lbulk) ** (-cleng)) ** (-1.0 / cleng)
+        else:
+            lz = min(vk * zi[_idx2(i_col, kt, pcols)], tunlramp * lbulk)
+        lz = min(leng_max[kt - 1], lz)
+
+        dzinc = z[_idx2(i_col, kt - 1, pcols)] - z[_idx2(i_col, kt, pcols)]
+        dl2n2 = lz * lz * n2[_idx2(i_col, kt, pcols)] * dzinc
+        dl2s2 = lz * lz * s2[_idx2(i_col, kt, pcols)] * dzinc
+        dwinc = -sh * dl2n2 + sm * dl2s2
+
+    if cntu > 0:
+        incv = 1
+        while incv <= int(ncvfin[i_col - 1]) - ncv_col:
+            kbase[_idx2(i_col, ncv_col + incv, pcols)] = kbase[_idx2(i_col, ncv_col + cntu + incv, pcols)]
+            ktop[_idx2(i_col, ncv_col + incv, pcols)] = ktop[_idx2(i_col, ncv_col + cntu + incv, pcols)]
+            incv += 1
+
+    kt_state[0] = kt
+
+
+@export
 def eddy_diff_zisocl_stability_codon(
     alph1: float,
     alph2: float,

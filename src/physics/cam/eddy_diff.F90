@@ -226,6 +226,8 @@
   logical                     :: zisocl_extended_state_impl_selected = .false.
   logical                     :: use_native_zisocl_non_sbcl_state_impl = .false.
   logical                     :: zisocl_non_sbcl_state_impl_selected = .false.
+  logical                     :: use_native_zisocl_upward_state_impl = .false.
+  logical                     :: zisocl_upward_state_impl_selected = .false.
   logical                     :: use_native_zisocl_stability_impl = .false.
   logical                     :: zisocl_stability_impl_selected = .false.
   logical                     :: use_native_zisocl_layer_energy_impl = .false.
@@ -4245,6 +4247,204 @@
   !                                                                                !
   !=============================================================================== !
 
+  subroutine eddy_diff_zisocl_upward_state_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (zisocl_upward_state_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_ZISOCL_UPWARD_STATE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_zisocl_upward_state_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_zisocl_upward_state_impl = .false.
+    end if
+
+    zisocl_upward_state_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_zisocl_upward_state_impl) then
+          write(iulog,*) 'eddy_diff_zisocl_upward_state implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_zisocl_upward_state implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_zisocl_upward_state_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_zisocl_upward_state(i_local, kt_local, pcols_local, pver_local, ntop_turb_local, ncv_local, &
+       lbulk_local, sh_local, sm_local, z_local, zi_local, n2_local, s2_local, leng_max_local, ncvfin_local, kbase_local, &
+       ktop_local, lint_local, l2n2_local, l2s2_local, wint_local, status_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: i_local, pcols_local, pver_local, ntop_turb_local, ncv_local
+    integer, intent(inout) :: kt_local
+    real(r8), intent(in) :: lbulk_local, sh_local, sm_local
+    real(r8), target, intent(in) :: z_local(pcols_local,pver_local), zi_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: n2_local(pcols_local,pver_local), s2_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: leng_max_local(pver_local)
+    integer(i4), target, intent(inout) :: ncvfin_local(pcols_local), kbase_local(pcols_local,ncvmax)
+    integer(i4), target, intent(inout) :: ktop_local(pcols_local,ncvmax)
+    real(r8), target, intent(inout) :: lint_local, l2n2_local, l2s2_local, wint_local
+    integer, intent(out) :: status_local
+
+    integer :: tunl_mode_local, leng_mode_local
+    integer(c_int64_t), target :: kt_codon, status_codon
+
+    interface
+       subroutine eddy_diff_zisocl_upward_state_codon(i_c, pcols_c, pver_c, ntop_turb_c, ncv_c, tunl_mode_c, leng_mode_c, &
+            tunl_c, ctunl_c, cleng_c, vk_c, rinc_c, tkemax_c, b1_c, lbulk_c, sh_c, sm_c, z_p, zi_p, n2_p, s2_p, leng_max_p, &
+            ncvfin_p, kbase_p, ktop_p, kt_p, lint_p, l2n2_p, l2s2_p, wint_p, status_p) bind(c, &
+            name="eddy_diff_zisocl_upward_state_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: i_c, pcols_c, pver_c, ntop_turb_c, ncv_c, tunl_mode_c, leng_mode_c
+         real(c_double), value :: tunl_c, ctunl_c, cleng_c, vk_c, rinc_c, tkemax_c, b1_c, lbulk_c, sh_c, sm_c
+         type(c_ptr), value :: z_p, zi_p, n2_p, s2_p, leng_max_p, ncvfin_p, kbase_p, ktop_p, kt_p, lint_p, l2n2_p, l2s2_p
+         type(c_ptr), value :: wint_p, status_p
+       end subroutine eddy_diff_zisocl_upward_state_codon
+    end interface
+
+    tunl_mode_local = 0
+    if( choice_tunl .eq. 'rampcl' ) then
+        tunl_mode_local = 1
+    elseif( choice_tunl .eq. 'rampsl' ) then
+        tunl_mode_local = 2
+    end if
+
+    leng_mode_local = 1
+    if( choice_leng .eq. 'origin' ) then
+        leng_mode_local = 0
+    end if
+
+    call eddy_diff_zisocl_upward_state_select_impl()
+
+    status_local = 0
+
+    if (use_native_zisocl_upward_state_impl) then
+       call eddy_diff_zisocl_upward_state_native(i_local, kt_local, pcols_local, pver_local, ntop_turb_local, ncv_local, &
+            lbulk_local, sh_local, sm_local, z_local, zi_local, n2_local, s2_local, leng_max_local, ncvfin_local, kbase_local, &
+            ktop_local, lint_local, l2n2_local, l2s2_local, wint_local, status_local)
+       return
+    end if
+
+    kt_codon = int(kt_local, c_int64_t)
+    status_codon = 0_c_int64_t
+
+    call eddy_diff_zisocl_upward_state_codon(int(i_local, c_int64_t), int(pcols_local, c_int64_t), int(pver_local, c_int64_t), &
+         int(ntop_turb_local, c_int64_t), int(ncv_local, c_int64_t), int(tunl_mode_local, c_int64_t), &
+         int(leng_mode_local, c_int64_t), tunl, ctunl, cleng, vk, rinc, tkemax, b1, lbulk_local, sh_local, sm_local, &
+         c_loc(z_local), c_loc(zi_local), c_loc(n2_local), c_loc(s2_local), c_loc(leng_max_local), c_loc(ncvfin_local), &
+         c_loc(kbase_local), c_loc(ktop_local), c_loc(kt_codon), c_loc(lint_local), c_loc(l2n2_local), c_loc(l2s2_local), &
+         c_loc(wint_local), c_loc(status_codon))
+
+    kt_local = int(kt_codon)
+    status_local = int(status_codon)
+
+  end subroutine eddy_diff_zisocl_upward_state
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_zisocl_upward_state_native(i_local, kt_local, pcols_local, pver_local, ntop_turb_local, ncv_local, &
+       lbulk_local, sh_local, sm_local, z_local, zi_local, n2_local, s2_local, leng_max_local, ncvfin_local, kbase_local, &
+       ktop_local, lint_local, l2n2_local, l2s2_local, wint_local, status_local)
+
+    implicit none
+
+    integer, intent(in) :: i_local, pcols_local, pver_local, ntop_turb_local, ncv_local
+    integer, intent(inout) :: kt_local
+    real(r8), intent(in) :: lbulk_local, sh_local, sm_local
+    real(r8), intent(in) :: z_local(pcols_local,pver_local), zi_local(pcols_local,pver_local+1)
+    real(r8), intent(in) :: n2_local(pcols_local,pver_local), s2_local(pcols_local,pver_local)
+    real(r8), intent(in) :: leng_max_local(pver_local)
+    integer(i4), intent(inout) :: ncvfin_local(pcols_local), kbase_local(pcols_local,ncvmax)
+    integer(i4), intent(inout) :: ktop_local(pcols_local,ncvmax)
+    real(r8), intent(inout) :: lint_local, l2n2_local, l2s2_local, wint_local
+    integer, intent(out) :: status_local
+
+    integer :: cntu_local, k_local, incv_local, ktinc_local
+    real(r8) :: dzinc_local, dl2n2_local, dl2s2_local, dwinc_local
+
+    status_local = 0
+    cntu_local = 0
+
+    call eddy_diff_zisocl_interface_energy_native(i_local, kt_local, pcols_local, pver_local, lbulk_local, sh_local, sm_local, &
+         z_local, zi_local, n2_local, s2_local, leng_max_local, dzinc_local, dl2n2_local, dl2s2_local, dwinc_local)
+
+    do while ( -dl2n2_local .gt. (-rinc*l2n2_local/(1._r8-rinc)) .and. (kt_local > ntop_turb_local + 2 .or. &
+         z_local(i_local,kt_local) < 50000._r8) )
+
+       lint_local = lint_local + dzinc_local
+       l2n2_local = l2n2_local + dl2n2_local
+       l2n2_local = -min(-l2n2_local, tkemax*lint_local/(b1*sh_local))
+       l2s2_local = l2s2_local + dl2s2_local
+       wint_local = wint_local + dwinc_local
+
+       kt_local = kt_local - 1
+       if( kt_local .eq. ntop_turb_local ) then
+           status_local = 1
+           return
+       end if
+
+       ktinc_local = kbase_local(i_local,ncv_local+cntu_local+1) - 1
+
+       if( kt_local .eq. ktinc_local ) then
+
+           do k_local = kbase_local(i_local,ncv_local+cntu_local+1) - 1, ktop_local(i_local,ncv_local+cntu_local+1) + 1, -1
+
+              call eddy_diff_zisocl_interface_energy_native(i_local, k_local, pcols_local, pver_local, lbulk_local, sh_local, &
+                   sm_local, z_local, zi_local, n2_local, s2_local, leng_max_local, dzinc_local, dl2n2_local, dl2s2_local, &
+                   dwinc_local)
+
+              lint_local = lint_local + dzinc_local
+              l2n2_local = l2n2_local + dl2n2_local
+              l2n2_local = -min(-l2n2_local, tkemax*lint_local/(b1*sh_local))
+              l2s2_local = l2s2_local + dl2s2_local
+              wint_local = wint_local + dwinc_local
+
+           end do
+
+           kt_local = ktop_local(i_local,ncv_local+cntu_local+1)
+           ncvfin_local(i_local) = ncvfin_local(i_local) - 1
+           cntu_local = cntu_local + 1
+
+       end if
+
+       call eddy_diff_zisocl_interface_energy_native(i_local, kt_local, pcols_local, pver_local, lbulk_local, sh_local, sm_local, &
+            z_local, zi_local, n2_local, s2_local, leng_max_local, dzinc_local, dl2n2_local, dl2s2_local, dwinc_local)
+
+    end do
+
+    if( cntu_local .gt. 0 ) then
+        do incv_local = 1, ncvfin_local(i_local) - ncv_local
+           kbase_local(i_local,ncv_local+incv_local) = kbase_local(i_local,ncv_local+cntu_local+incv_local)
+           ktop_local(i_local,ncv_local+incv_local)  = ktop_local(i_local,ncv_local+cntu_local+incv_local)
+        end do
+    end if
+
+  end subroutine eddy_diff_zisocl_upward_state_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
   subroutine eddy_diff_zisocl_stability_select_impl()
 
     character(len=32) :: impl_name
@@ -7183,6 +7383,7 @@
     integer               :: k
     integer               :: kb                       ! Local index for kbase
     integer               :: kt                       ! Local index for ktop
+    integer               :: kt_before                ! Previous value of kt before helper update
     integer               :: ncvinit                  ! Value of ncv at routine entrance 
     integer               :: cntu                     ! Number of merged CLs during upward   extension of individual CL
     integer               :: cntd                     ! Number of merged CLs during downward extension of individual CL
@@ -7191,6 +7392,7 @@
     integer               :: kb_is_surface_mode
     integer               :: use_dw_surf_mode
     integer               :: choice_tkes_ebprod_mode
+    integer               :: upward_state_status
 
     real(r8)              :: wint                     ! Normalized TKE of internal CL
     real(r8)              :: dwinc                    ! Normalized TKE of CL external interfaces
@@ -7357,105 +7559,16 @@
        ! ---------------------------- !
        
        extend = .false.    ! This will become .true. if CL top or base is extended
-
-       ! Calculate contribution of potentially incorporable CL top interface
-
-       call eddy_diff_zisocl_interface_energy(i, kt, pcols, pver, lbulk, sh, sm, z, zi, n2, s2, leng_max, dzinc, dl2n2, &
-            dl2s2, dwinc)
-
-       ! ------------ !
-       ! Merging Test !
-       ! ------------ !
-
-       ! The part of the below test that involves kt and z has different
-       ! effects based on the model top.
-       ! If the model top is in the stratosphere, we want the loop to
-       ! continue until it either completes normally, or kt is pushed to
-       ! the top of the model. The latter case should not happen, so this
-       ! causes an error.
-       ! If the model top is higher, as in WACCM and WACCM-X, if kt is
-       ! pushed close to the model top, this may not represent an error at
-       ! all, because of very different and more variable temperature/wind
-       ! profiles at the model top. Therefore we simply exit the loop early
-       ! and continue with no errors.
-
-     ! do while (  dwinc .gt. ( rinc*dzinc*wint/(lint+(1._r8-rinc)*dzinc)) )  ! Merging test based on wint
-     ! do while ( -dl2n2 .gt. (-rinc*dzinc*l2n2/(lint+(1._r8-rinc)*dzinc)) )  ! Merging test based on l2n2 
-       do while ( -dl2n2 .gt. (-rinc*l2n2/(1._r8-rinc)) &                     ! Integral merging test
-            .and. (kt > ntop_turb+2 .or. z(i,kt) < 50000._r8) )
-
-          ! Add contribution of top external interface to interior energy.
-          ! Note even when we chose 'use_dw_surf='true.', the contribution
-          ! of surface interfacial layer to 'l2n2' and 'l2s2' are included
-          ! here. However it is not double counting of surface interfacial
-          ! energy : surface interfacial layer energy is counted in 'wint'
-          ! formula and 'l2n2' is just used for performing merging test in
-          ! this 'do while' loop.     
-
-          lint = lint + dzinc
-          l2n2 = l2n2 + dl2n2
-          l2n2 = -min(-l2n2, tkemax*lint/(b1*sh))
-          l2s2 = l2s2 + dl2s2
-          wint = wint + dwinc
-
-          ! Extend top external interface of CL upward after merging
-
-          kt        = kt - 1
-          extend    = .true.
-          extend_up = .true.
-          if( kt .eq. ntop_turb ) then
-              write(iulog,*) 'zisocl: Error: Tried to extend CL to the model top'
-              call endrun('zisocl: Error: Tried to extend CL to the model top')
-          end if
-
-          ! If the top external interface of extending CL is the same as the 
-          ! top interior interface of the overlying CL, overlying CL will be
-          ! automatically merged. Then,reduce total number of CL regime by 1. 
-          ! and increase 'cntu'(number of merged CLs during upward extension)
-          ! by 1.
- 
-          ktinc = kbase(i,ncv+cntu+1) - 1  ! Lowest interior interface of overlying CL
-
-          if( kt .eq. ktinc ) then
-
-              do k = kbase(i,ncv+cntu+1) - 1, ktop(i,ncv+cntu+1) + 1, -1
-
-                 call eddy_diff_zisocl_interface_energy(i, k, pcols, pver, lbulk, sh, sm, z, zi, n2, s2, leng_max, dzinc, &
-                      dl2n2, dl2s2, dwinc)
-
-                 lint = lint + dzinc
-                 l2n2 = l2n2 + dl2n2
-                 l2n2 = -min(-l2n2, tkemax*lint/(b1*sh))
-                 l2s2 = l2s2 + dl2s2
-                 wint = wint + dwinc
-
-              end do 
-
-              kt        = ktop(i,ncv+cntu+1) 
-              ncvfin(i) = ncvfin(i) - 1
-              cntu      = cntu + 1
-        
-          end if
-
-          ! Again, calculate the contribution of potentially incorporatable CL
-          ! top external interface of CL regime.
-
-          call eddy_diff_zisocl_interface_energy(i, kt, pcols, pver, lbulk, sh, sm, z, zi, n2, s2, leng_max, dzinc, dl2n2, &
-               dl2s2, dwinc)
-
-       end do   ! End of upward merging test 'do while' loop
-
-       ! Update CL interface indices appropriately if any CL was merged.
-       ! Note that below only updated the interface index of merged CL,
-       ! not the original merging CL.  Updates of 'kbase' and 'ktop' of 
-       ! the original merging CL  will be done after finishing downward
-       ! extension also later.
-
-       if( cntu .gt. 0 ) then
-           do incv = 1, ncvfin(i) - ncv
-              kbase(i,ncv+incv) = kbase(i,ncv+cntu+incv)
-              ktop(i,ncv+incv)  = ktop(i,ncv+cntu+incv)
-           end do
+       kt_before = kt
+       call eddy_diff_zisocl_upward_state(i, kt, pcols, pver, ntop_turb, ncv, lbulk, sh, sm, z, zi, n2, s2, leng_max, ncvfin, &
+            kbase, ktop, lint, l2n2, l2s2, wint, upward_state_status)
+       if( kt .ne. kt_before ) then
+           extend    = .true.
+           extend_up = .true.
+       end if
+       if( upward_state_status .ne. 0 ) then
+           write(iulog,*) 'zisocl: Error: Tried to extend CL to the model top'
+           call endrun('zisocl: Error: Tried to extend CL to the model top')
        end if
 
        ! ------------------------------ !
