@@ -200,6 +200,8 @@
   logical                     :: restore_fields_impl_selected = .false.
   logical                     :: use_native_wstar_pbl_impl = .false.
   logical                     :: wstar_pbl_impl_selected = .false.
+  logical                     :: use_native_exacol_impl = .false.
+  logical                     :: exacol_impl_selected = .false.
 
   CONTAINS
 
@@ -4463,7 +4465,89 @@
     !                                                                               !
     !============================================================================== !
 
-    subroutine exacol( pcols, pver, ncol, ri, bflxs, minpblh, zi, ktop, kbase, ncvfin ) 
+  subroutine exacol_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (exacol_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_EXACOL_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_exacol_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_exacol_impl = .false.
+    end if
+
+    exacol_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_exacol_impl) then
+          write(iulog,*) 'eddy_diff_exacol implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_exacol implementation = codon'
+       end if
+    end if
+
+  end subroutine exacol_select_impl
+
+  !============================================================================== !
+  !                                                                               !
+  !============================================================================== !
+
+    subroutine exacol( pcols, pver, ncol, ri, bflxs, minpblh, zi, ktop, kbase, ncvfin )
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: pcols
+    integer, intent(in) :: pver
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: ri(pcols,pver)
+    real(r8), target, intent(in) :: bflxs(pcols)
+    real(r8), intent(in) :: minpblh(pcols)
+    real(r8), intent(in) :: zi(pcols,pver+1)
+    integer(i4), target, intent(out) :: ktop(pcols,ncvmax)
+    integer(i4), target, intent(out) :: kbase(pcols,ncvmax)
+    integer(i4), target, intent(out) :: ncvfin(pcols)
+
+    interface
+       subroutine eddy_diff_exacol_codon(ncol_c, pcols_c, pver_c, ncvmax_c, ntop_turb_c, ri_p, bflxs_p, ktop_p, kbase_p, &
+            ncvfin_p) bind(c, name="eddy_diff_exacol_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, ncvmax_c, ntop_turb_c
+         type(c_ptr), value :: ri_p, bflxs_p, ktop_p, kbase_p, ncvfin_p
+       end subroutine eddy_diff_exacol_codon
+    end interface
+
+    call exacol_select_impl()
+
+    if (use_native_exacol_impl) then
+       call exacol_native(pcols, pver, ncol, ri, bflxs, minpblh, zi, ktop, kbase, ncvfin)
+       return
+    end if
+
+    call eddy_diff_exacol_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(ncvmax, c_int64_t), &
+         int(ntop_turb, c_int64_t), c_loc(ri), c_loc(bflxs), c_loc(ktop), c_loc(kbase), c_loc(ncvfin))
+
+    return
+
+    end subroutine exacol
+
+    !============================================================================== !
+    !                                                                               !
+    !============================================================================== !
+
+    subroutine exacol_native( pcols, pver, ncol, ri, bflxs, minpblh, zi, ktop, kbase, ncvfin )
 
     ! ---------------------------------------------------------------------------- !
     ! Object : Find unstable CL regimes and determine the indices                  !
@@ -4492,9 +4576,9 @@
     ! Output variables !      
     ! ---------------- !
 
-    integer, intent(out) :: kbase(pcols,ncvmax)    ! External interface index of CL base
-    integer, intent(out) :: ktop(pcols,ncvmax)     ! External interface index of CL top
-    integer, intent(out) :: ncvfin(pcols)          ! Total number of CLs
+    integer(i4), intent(out) :: kbase(pcols,ncvmax)    ! External interface index of CL base
+    integer(i4), intent(out) :: ktop(pcols,ncvmax)     ! External interface index of CL top
+    integer(i4), intent(out) :: ncvfin(pcols)          ! Total number of CLs
 
     ! --------------- !
     ! Local variables !
@@ -4579,7 +4663,7 @@
 
     return 
 
-    end subroutine exacol
+    end subroutine exacol_native
 
     !============================================================================== !
     !                                                                               !

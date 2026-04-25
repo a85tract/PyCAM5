@@ -746,6 +746,63 @@ def eddy_diff_wstar_pbl_codon(
 
 
 @export
+def eddy_diff_exacol_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    ncvmax: int,
+    ntop_turb: int,
+    ri_p: cobj,
+    bflxs_p: cobj,
+    ktop_p: cobj,
+    kbase_p: cobj,
+    ncvfin_p: cobj,
+):
+    ri = Ptr[float](ri_p)
+    bflxs = Ptr[float](bflxs_p)
+    ktop = Ptr[i32](ktop_p)
+    kbase = Ptr[i32](kbase_p)
+    ncvfin = Ptr[i32](ncvfin_p)
+
+    rimaxentr = 0.0
+
+    for i in range(1, ncol + 1):
+        ncvfin[i - 1] = i32(0)
+        for ncv in range(1, ncvmax + 1):
+            ktop[_idx2(i, ncv, pcols)] = i32(0)
+            kbase[_idx2(i, ncv, pcols)] = i32(0)
+
+    for i in range(1, ncol + 1):
+        ncv = 0
+        k = pver + 1
+
+        while k > ntop_turb + 1:
+            if k == pver + 1:
+                riex_k = rimaxentr - bflxs[i - 1]
+            else:
+                riex_k = ri[_idx2(i, k, pcols)]
+
+            if riex_k < rimaxentr:
+                ncv += 1
+                kbase[_idx2(i, ncv, pcols)] = i32(min(k + 1, pver + 1))
+
+                while k > ntop_turb + 1:
+                    if k == pver + 1:
+                        riex_k = rimaxentr - bflxs[i - 1]
+                    else:
+                        riex_k = ri[_idx2(i, k, pcols)]
+                    if not (riex_k < rimaxentr):
+                        break
+                    k -= 1
+
+                ktop[_idx2(i, ncv, pcols)] = i32(k)
+            else:
+                k -= 1
+
+        ncvfin[i - 1] = i32(ncv)
+
+
+@export
 def eddy_diff_restore_fields_codon(
     ncol: int,
     pcols: int,
