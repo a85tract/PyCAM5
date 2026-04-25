@@ -1075,6 +1075,46 @@ def eddy_diff_caleddy_surface_tke_codon(
 
 
 @export
+def eddy_diff_zisocl_surface_energy_codon(
+    alph1: float,
+    alph2: float,
+    alph3: float,
+    alph4: float,
+    alph5: float,
+    b1: float,
+    vk: float,
+    z_surf: float,
+    bprod_surf: float,
+    sprod_surf: float,
+    tkes_surf: float,
+    gh_p: cobj,
+    sh_p: cobj,
+    sm_p: cobj,
+    dlint_surf_p: cobj,
+    dl2n2_surf_p: cobj,
+    dl2s2_surf_p: cobj,
+    dw_surf_p: cobj,
+):
+    gh = Ptr[float](gh_p)
+    sh = Ptr[float](sh_p)
+    sm = Ptr[float](sm_p)
+    dlint_surf = Ptr[float](dlint_surf_p)
+    dl2n2_surf = Ptr[float](dl2n2_surf_p)
+    dl2s2_surf = Ptr[float](dl2s2_surf_p)
+    dw_surf = Ptr[float](dw_surf_p)
+
+    gg = 0.5 * vk * z_surf * bprod_surf / (tkes_surf ** (3.0 / 2.0))
+    gh[0] = gg / (alph5 - gg * alph3)
+    gh[0] = min(max(gh[0], -3.5334), 0.0233)
+    sh[0] = alph5 / (1.0 + alph3 * gh[0])
+    sm[0] = (alph1 + alph2 * gh[0]) / (1.0 + alph3 * gh[0]) / (1.0 + alph4 * gh[0])
+    dlint_surf[0] = z_surf
+    dl2n2_surf[0] = -vk * (z_surf ** 2.0) * bprod_surf / (sh[0] * sqrt(tkes_surf))
+    dl2s2_surf[0] = vk * (z_surf ** 2.0) * sprod_surf / (sm[0] * sqrt(tkes_surf))
+    dw_surf[0] = (tkes_surf / b1) * z_surf
+
+
+@export
 def eddy_diff_zisocl_layer_energy_codon(
     i_col: int,
     k_ifc: int,

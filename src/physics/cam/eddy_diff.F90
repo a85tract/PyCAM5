@@ -214,6 +214,8 @@
   logical                     :: caleddy_stable_config_impl_selected = .false.
   logical                     :: use_native_caleddy_surface_tke_impl = .false.
   logical                     :: caleddy_surface_tke_impl_selected = .false.
+  logical                     :: use_native_zisocl_surface_energy_impl = .false.
+  logical                     :: zisocl_surface_energy_impl_selected = .false.
   logical                     :: use_native_zisocl_layer_energy_impl = .false.
   logical                     :: zisocl_layer_energy_impl_selected = .false.
   logical                     :: use_native_zisocl_interface_energy_impl = .false.
@@ -3495,6 +3497,111 @@
   !                                                                                !
   !=============================================================================== !
 
+  subroutine eddy_diff_zisocl_surface_energy_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (zisocl_surface_energy_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_ZISOCL_SURFACE_ENERGY_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_zisocl_surface_energy_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_zisocl_surface_energy_impl = .false.
+    end if
+
+    zisocl_surface_energy_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_zisocl_surface_energy_impl) then
+          write(iulog,*) 'eddy_diff_zisocl_surface_energy implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_zisocl_surface_energy implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_zisocl_surface_energy_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_zisocl_surface_energy(z_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, gh_local, &
+       sh_local, sm_local, dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local)
+
+    use iso_c_binding, only: c_double, c_loc, c_ptr
+
+    implicit none
+
+    real(r8), target, intent(in) :: z_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local
+    real(r8), target, intent(out) :: gh_local, sh_local, sm_local
+    real(r8), target, intent(out) :: dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local
+
+    interface
+       subroutine eddy_diff_zisocl_surface_energy_codon(alph1_c, alph2_c, alph3_c, alph4_c, alph5_c, b1_c, vk_c, &
+            z_surf_c, bprod_surf_c, sprod_surf_c, tkes_surf_c, gh_p, sh_p, sm_p, dlint_surf_p, dl2n2_surf_p, &
+            dl2s2_surf_p, dw_surf_p) bind(c, name="eddy_diff_zisocl_surface_energy_codon")
+         use iso_c_binding, only: c_double, c_ptr
+         real(c_double), value :: alph1_c, alph2_c, alph3_c, alph4_c, alph5_c, b1_c, vk_c
+         real(c_double), value :: z_surf_c, bprod_surf_c, sprod_surf_c, tkes_surf_c
+         type(c_ptr), value :: gh_p, sh_p, sm_p, dlint_surf_p, dl2n2_surf_p, dl2s2_surf_p, dw_surf_p
+       end subroutine eddy_diff_zisocl_surface_energy_codon
+    end interface
+
+    call eddy_diff_zisocl_surface_energy_select_impl()
+
+    if (use_native_zisocl_surface_energy_impl) then
+       call eddy_diff_zisocl_surface_energy_native(z_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, gh_local, &
+            sh_local, sm_local, dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local)
+       return
+    end if
+
+    call eddy_diff_zisocl_surface_energy_codon(alph1, alph2, alph3, alph4, alph5, b1, vk, z_surf_local, bprod_surf_local, &
+         sprod_surf_local, tkes_surf_local, c_loc(gh_local), c_loc(sh_local), c_loc(sm_local), c_loc(dlint_surf_local), &
+         c_loc(dl2n2_surf_local), c_loc(dl2s2_surf_local), c_loc(dw_surf_local))
+
+  end subroutine eddy_diff_zisocl_surface_energy
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_zisocl_surface_energy_native(z_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, gh_local, &
+       sh_local, sm_local, dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local)
+
+    implicit none
+
+    real(r8), intent(in) :: z_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local
+    real(r8), intent(out) :: gh_local, sh_local, sm_local
+    real(r8), intent(out) :: dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local
+
+    real(r8) :: gg_local
+
+    gg_local = 0.5_r8*vk*z_surf_local*bprod_surf_local/(tkes_surf_local**(3._r8/2._r8))
+    gh_local = gg_local/(alph5-gg_local*alph3)
+    gh_local = min(max(gh_local,-3.5334_r8),0.0233_r8)
+    sh_local = alph5/(1._r8+alph3*gh_local)
+    sm_local = (alph1 + alph2*gh_local)/(1._r8+alph3*gh_local)/(1._r8+alph4*gh_local)
+    dlint_surf_local = z_surf_local
+    dl2n2_surf_local = -vk*(z_surf_local**2._r8)*bprod_surf_local/(sh_local*sqrt(tkes_surf_local))
+    dl2s2_surf_local =  vk*(z_surf_local**2._r8)*sprod_surf_local/(sm_local*sqrt(tkes_surf_local))
+    dw_surf_local = (tkes_surf_local/b1)*z_surf_local
+
+  end subroutine eddy_diff_zisocl_surface_energy_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
   subroutine eddy_diff_zisocl_layer_energy_select_impl()
 
     character(len=32) :: impl_name
@@ -6368,7 +6475,6 @@
     real(r8)              :: det
     real(r8)              :: zbot                     ! Height of CL base
     real(r8)              :: l2rat                    ! Square of ratio of actual to initial CL (not used)
-    real(r8)              :: gg                       ! Intermediate variable used for calculating stability functions of SBCL
 
     ! ----------------------- !
     ! Main Computation Begins !
@@ -6438,30 +6544,9 @@
        if( kb .eq. pver+1 ) then
 
            if( bflxs(i) .gt. 0._r8 ) then
-
-               ! Calculate stability functions of surface interfacial layer
-               ! from the given 'bprod(i,pver+1)' and 'sprod(i,pver+1)' using
-               ! inverse approach. Since alph5>0 and alph3<0, denominator of
-               ! gg is always positive if bprod(i,pver+1)>0.               
-
-               gg    = 0.5_r8*vk*z(i,pver)*bprod(i,pver+1)/(tkes(i)**(3._r8/2._r8))
-               gh    = gg/(alph5-gg*alph3)
-             ! gh    = min(max(gh,-0.28_r8),0.0233_r8)
-               gh    = min(max(gh,-3.5334_r8),0.0233_r8)
-               sh    = alph5/(1._r8+alph3*gh)
-               sm    = (alph1 + alph2*gh)/(1._r8+alph3*gh)/(1._r8+alph4*gh)
+               call eddy_diff_zisocl_surface_energy(z(i,pver), bprod(i,pver+1), sprod(i,pver+1), tkes(i), gh, sh, sm, &
+                    dlint_surf, dl2n2_surf, dl2s2_surf, dw_surf)
                ricll = min(-(sm/sh)*(bprod(i,pver+1)/sprod(i,pver+1)),ricrit)
-
-               ! Calculate surface interfacial layer contribution to CL internal
-               ! energetics. By construction, 'dw_surf = -dl2n2_surf + ds2n2_surf'
-               ! is exactly satisfied, which corresponds to assuming turbulent
-               ! length scale of surface interfacial layer = vk * z(i,pver). Note
-               ! 'dl2n2_surf','dl2s2_surf','dw_surf' include thickness product.   
-
-               dlint_surf = z(i,pver)
-               dl2n2_surf = -vk*(z(i,pver)**2)*bprod(i,pver+1)/(sh*sqrt(tkes(i)))
-               dl2s2_surf =  vk*(z(i,pver)**2)*sprod(i,pver+1)/(sm*sqrt(tkes(i)))
-               dw_surf    = (tkes(i)/b1)*z(i,pver) 
 
            else
 
@@ -6773,19 +6858,8 @@
               if( kb .eq. pver + 1 ) then 
 
                   if( bflxs(i) .gt. 0._r8 ) then 
-                      ! Calculate stability functions of surface interfacial layer
-                      gg = 0.5_r8*vk*z(i,pver)*bprod(i,pver+1)/(tkes(i)**(3._r8/2._r8))
-                      gh_surf = gg/(alph5-gg*alph3)
-                    ! gh_surf = min(max(gh_surf,-0.28_r8),0.0233_r8)
-                      gh_surf = min(max(gh_surf,-3.5334_r8),0.0233_r8)
-                      sh_surf = alph5/(1._r8+alph3*gh_surf)
-                      sm_surf = (alph1 + alph2*gh_surf)/(1._r8+alph3*gh_surf)/(1._r8+alph4*gh_surf)
-                      ! Calculate surface interfacial layer contribution. By construction,
-                      ! it exactly becomes 'dw_surf = -dl2n2_surf + ds2n2_surf'  
-                      dlint_surf = z(i,pver)
-                      dl2n2_surf = -vk*(z(i,pver)**2._r8)*bprod(i,pver+1)/(sh_surf*sqrt(tkes(i)))
-                      dl2s2_surf =  vk*(z(i,pver)**2._r8)*sprod(i,pver+1)/(sm_surf*sqrt(tkes(i)))
-                      dw_surf = (tkes(i)/b1)*z(i,pver) 
+                      call eddy_diff_zisocl_surface_energy(z(i,pver), bprod(i,pver+1), sprod(i,pver+1), tkes(i), gh_surf, &
+                           sh_surf, sm_surf, dlint_surf, dl2n2_surf, dl2s2_surf, dw_surf)
                   else
                       dlint_surf = 0._r8
                       dl2n2_surf = 0._r8
@@ -6867,19 +6941,8 @@
            dw_surf    = 0._r8
            if( kb .eq. pver + 1 ) then
                if( bflxs(i) .gt. 0._r8 ) then
-                   ! Calculate stability functions of surface interfacial layer
-                   gg = 0.5_r8*vk*z(i,pver)*bprod(i,pver+1)/(tkes(i)**(3._r8/2._r8))
-                   gh = gg/(alph5-gg*alph3)
-                 ! gh = min(max(gh,-0.28_r8),0.0233_r8)
-                   gh = min(max(gh,-3.5334_r8),0.0233_r8)
-                   sh = alph5/(1._r8+alph3*gh)
-                   sm = (alph1 + alph2*gh)/(1._r8+alph3*gh)/(1._r8+alph4*gh)
-                   ! Calculate surface interfacial layer contribution. By construction,
-                   ! it exactly becomes 'dw_surf = -dl2n2_surf + ds2n2_surf'  
-                   dlint_surf = z(i,pver)
-                   dl2n2_surf = -vk*(z(i,pver)**2._r8)*bprod(i,pver+1)/(sh*sqrt(tkes(i)))
-                   dl2s2_surf =  vk*(z(i,pver)**2._r8)*sprod(i,pver+1)/(sm*sqrt(tkes(i)))
-                   dw_surf    = (tkes(i)/b1)*z(i,pver) 
+                   call eddy_diff_zisocl_surface_energy(z(i,pver), bprod(i,pver+1), sprod(i,pver+1), tkes(i), gh, sh, sm, &
+                        dlint_surf, dl2n2_surf, dl2s2_surf, dw_surf)
                else
                    lbulk = zi(i,kt) - z(i,pver)
                    lbulk = min( lbulk, lbulk_max )
