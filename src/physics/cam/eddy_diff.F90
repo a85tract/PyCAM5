@@ -214,6 +214,8 @@
   logical                     :: caleddy_stable_config_impl_selected = .false.
   logical                     :: use_native_caleddy_surface_tke_impl = .false.
   logical                     :: caleddy_surface_tke_impl_selected = .false.
+  logical                     :: use_native_zisocl_layer_energy_impl = .false.
+  logical                     :: zisocl_layer_energy_impl_selected = .false.
   logical                     :: use_native_zisocl_interface_energy_impl = .false.
   logical                     :: zisocl_interface_energy_impl_selected = .false.
   logical                     :: use_native_caleddy_clprep_impl = .false.
@@ -3493,6 +3495,140 @@
   !                                                                                !
   !=============================================================================== !
 
+  subroutine eddy_diff_zisocl_layer_energy_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (zisocl_layer_energy_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_ZISOCL_LAYER_ENERGY_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_zisocl_layer_energy_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_zisocl_layer_energy_impl = .false.
+    end if
+
+    zisocl_layer_energy_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_zisocl_layer_energy_impl) then
+          write(iulog,*) 'eddy_diff_zisocl_layer_energy implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_zisocl_layer_energy implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_zisocl_layer_energy_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_zisocl_layer_energy(i_local, k_local, pcols_local, pver_local, lbulk_local, z_local, zi_local, &
+       n2_local, s2_local, leng_max_local, dzinc_local, dl2n2_local, dl2s2_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: i_local, k_local, pcols_local, pver_local
+    real(r8), intent(in) :: lbulk_local
+    real(r8), target, intent(in) :: z_local(pcols_local,pver_local), zi_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: n2_local(pcols_local,pver_local), s2_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: leng_max_local(pver_local)
+    real(r8), target, intent(out) :: dzinc_local, dl2n2_local, dl2s2_local
+
+    integer :: tunl_mode_local, leng_mode_local
+
+    interface
+       subroutine eddy_diff_zisocl_layer_energy_codon(i_c, k_c, pcols_c, pver_c, tunl_mode_c, leng_mode_c, tunl_c, &
+            ctunl_c, cleng_c, lbulk_c, vk_c, z_p, zi_p, n2_p, s2_p, leng_max_p, dzinc_p, dl2n2_p, dl2s2_p) &
+            bind(c, name="eddy_diff_zisocl_layer_energy_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c, tunl_mode_c, leng_mode_c
+         real(c_double), value :: tunl_c, ctunl_c, cleng_c, lbulk_c, vk_c
+         type(c_ptr), value :: z_p, zi_p, n2_p, s2_p, leng_max_p, dzinc_p, dl2n2_p, dl2s2_p
+       end subroutine eddy_diff_zisocl_layer_energy_codon
+    end interface
+
+    tunl_mode_local = 0
+    if( choice_tunl .eq. 'rampcl' ) then
+        tunl_mode_local = 1
+    elseif( choice_tunl .eq. 'rampsl' ) then
+        tunl_mode_local = 2
+    end if
+
+    leng_mode_local = 1
+    if( choice_leng .eq. 'origin' ) then
+        leng_mode_local = 0
+    end if
+
+    call eddy_diff_zisocl_layer_energy_select_impl()
+
+    if (use_native_zisocl_layer_energy_impl) then
+       call eddy_diff_zisocl_layer_energy_native(i_local, k_local, pcols_local, pver_local, lbulk_local, z_local, zi_local, &
+            n2_local, s2_local, leng_max_local, dzinc_local, dl2n2_local, dl2s2_local)
+       return
+    end if
+
+    call eddy_diff_zisocl_layer_energy_codon(int(i_local, c_int64_t), int(k_local, c_int64_t), int(pcols_local, c_int64_t), &
+         int(pver_local, c_int64_t), int(tunl_mode_local, c_int64_t), int(leng_mode_local, c_int64_t), tunl, ctunl, cleng, &
+         lbulk_local, vk, c_loc(z_local), c_loc(zi_local), c_loc(n2_local), c_loc(s2_local), c_loc(leng_max_local), &
+         c_loc(dzinc_local), c_loc(dl2n2_local), c_loc(dl2s2_local))
+
+  end subroutine eddy_diff_zisocl_layer_energy
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_zisocl_layer_energy_native(i_local, k_local, pcols_local, pver_local, lbulk_local, z_local, zi_local, &
+       n2_local, s2_local, leng_max_local, dzinc_local, dl2n2_local, dl2s2_local)
+
+    implicit none
+
+    integer, intent(in) :: i_local, k_local, pcols_local, pver_local
+    real(r8), intent(in) :: lbulk_local
+    real(r8), intent(in) :: z_local(pcols_local,pver_local), zi_local(pcols_local,pver_local+1)
+    real(r8), intent(in) :: n2_local(pcols_local,pver_local), s2_local(pcols_local,pver_local)
+    real(r8), intent(in) :: leng_max_local(pver_local)
+    real(r8), intent(out) :: dzinc_local, dl2n2_local, dl2s2_local
+
+    real(r8) :: tunlramp_local, lz_local
+
+    if( choice_tunl .eq. 'rampcl' ) then
+        tunlramp_local = 0.5_r8*(1._r8+ctunl)*tunl
+    elseif( choice_tunl .eq. 'rampsl' ) then
+        tunlramp_local = ctunl*tunl
+    else
+        tunlramp_local = tunl
+    endif
+    if( choice_leng .eq. 'origin' ) then
+        lz_local = ( (vk*zi_local(i_local,k_local))**(-cleng) + (tunlramp_local*lbulk_local)**(-cleng) )**(-1._r8/cleng)
+    else
+        lz_local = min( vk*zi_local(i_local,k_local), tunlramp_local*lbulk_local )
+    endif
+    lz_local = min(leng_max_local(k_local), lz_local)
+
+    dzinc_local = z_local(i_local,k_local-1) - z_local(i_local,k_local)
+    dl2n2_local = lz_local*lz_local*n2_local(i_local,k_local)*dzinc_local
+    dl2s2_local = lz_local*lz_local*s2_local(i_local,k_local)*dzinc_local
+
+  end subroutine eddy_diff_zisocl_layer_energy_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
   subroutine eddy_diff_zisocl_interface_energy_select_impl()
 
     character(len=32) :: impl_name
@@ -6225,7 +6361,6 @@
     real(r8)              :: dlint                    ! Interfacial layer thickness of CL external interfaces
     real(r8)              :: dlint_surf               ! Surface interfacial layer thickness 
     real(r8)              :: lbulk                    ! Master Length Scale : Whole CL thickness from top to base external interface
-    real(r8)              :: lz                       ! Turbulent length scale
     real(r8)              :: ricll                    ! Mean Richardson number of internal CL 
     real(r8)              :: trma
     real(r8)              :: trmb
@@ -6234,7 +6369,6 @@
     real(r8)              :: zbot                     ! Height of CL base
     real(r8)              :: l2rat                    ! Square of ratio of actual to initial CL (not used)
     real(r8)              :: gg                       ! Intermediate variable used for calculating stability functions of SBCL
-    real(r8)              :: tunlramp                 ! Ramping tunl
 
     ! ----------------------- !
     ! Main Computation Begins !
@@ -6362,25 +6496,9 @@
        if( kt .lt. kb - 1 ) then ! The case of non-SBCL.
                               
            do k = kb - 1, kt + 1, -1       
-              if( choice_tunl .eq. 'rampcl' ) then
-                ! Modification : I simply used the average tunlramp between the two limits.
-                  tunlramp = 0.5_r8*(1._r8+ctunl)*tunl
-              elseif( choice_tunl .eq. 'rampsl' ) then
-                  tunlramp = ctunl*tunl
-                ! tunlramp = 0.765_r8
-              else
-                  tunlramp = tunl
-              endif
-              if( choice_leng .eq. 'origin' ) then
-                  lz = ( (vk*zi(i,k))**(-cleng) + (tunlramp*lbulk)**(-cleng) )**(-1._r8/cleng)
-                ! lz = vk*zi(i,k) / (1._r8+vk*zi(i,k)/(tunlramp*lbulk))
-              else
-                  lz = min( vk*zi(i,k), tunlramp*lbulk )              
-              endif
-              lz = min(leng_max(k), lz)
-              dzinc = z(i,k-1) - z(i,k)
-              l2n2  = l2n2 + lz*lz*n2(i,k)*dzinc
-              l2s2  = l2s2 + lz*lz*s2(i,k)*dzinc
+              call eddy_diff_zisocl_layer_energy(i, k, pcols, pver, lbulk, z, zi, n2, s2, leng_max, dzinc, dl2n2, dl2s2)
+              l2n2  = l2n2 + dl2n2
+              l2s2  = l2s2 + dl2s2
               lint  = lint + dzinc
            end do
 
@@ -6783,25 +6901,10 @@
            ! -------------------------------------------------------------- ! 
           
            do k = kt + 1, kb - 1
-              if( choice_tunl .eq. 'rampcl' ) then
-                  tunlramp = 0.5_r8*(1._r8+ctunl)*tunl
-              elseif( choice_tunl .eq. 'rampsl' ) then
-                  tunlramp = ctunl*tunl
-                ! tunlramp = 0.765_r8
-              else
-                  tunlramp = tunl
-              endif
-              if( choice_leng .eq. 'origin' ) then
-                  lz = ( (vk*zi(i,k))**(-cleng) + (tunlramp*lbulk)**(-cleng) )**(-1._r8/cleng)
-                ! lz = vk*zi(i,k) / (1._r8+vk*zi(i,k)/(tunlramp*lbulk))
-              else
-                  lz = min( vk*zi(i,k), tunlramp*lbulk )              
-              endif
-              lz = min(leng_max(k), lz)
-              dzinc = z(i,k-1) - z(i,k)
+              call eddy_diff_zisocl_layer_energy(i, k, pcols, pver, lbulk, z, zi, n2, s2, leng_max, dzinc, dl2n2, dl2s2)
               lint = lint + dzinc
-              l2n2 = l2n2 + lz*lz*n2(i,k)*dzinc
-              l2s2 = l2s2 + lz*lz*s2(i,k)*dzinc
+              l2n2 = l2n2 + dl2n2
+              l2s2 = l2s2 + dl2s2
            end do
 
            ricll = min(l2n2/max(l2s2,ntzero),ricrit)

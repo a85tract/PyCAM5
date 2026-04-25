@@ -1075,6 +1075,55 @@ def eddy_diff_caleddy_surface_tke_codon(
 
 
 @export
+def eddy_diff_zisocl_layer_energy_codon(
+    i_col: int,
+    k_ifc: int,
+    pcols: int,
+    pver: int,
+    tunl_mode: int,
+    leng_mode: int,
+    tunl: float,
+    ctunl: float,
+    cleng: float,
+    lbulk: float,
+    vk: float,
+    z_p: cobj,
+    zi_p: cobj,
+    n2_p: cobj,
+    s2_p: cobj,
+    leng_max_p: cobj,
+    dzinc_p: cobj,
+    dl2n2_p: cobj,
+    dl2s2_p: cobj,
+):
+    z = Ptr[float](z_p)
+    zi = Ptr[float](zi_p)
+    n2 = Ptr[float](n2_p)
+    s2 = Ptr[float](s2_p)
+    leng_max = Ptr[float](leng_max_p)
+    dzinc = Ptr[float](dzinc_p)
+    dl2n2 = Ptr[float](dl2n2_p)
+    dl2s2 = Ptr[float](dl2s2_p)
+
+    if tunl_mode == 1:
+        tunlramp = 0.5 * (1.0 + ctunl) * tunl
+    elif tunl_mode == 2:
+        tunlramp = ctunl * tunl
+    else:
+        tunlramp = tunl
+
+    if leng_mode == 0:
+        lz = ((vk * zi[_idx2(i_col, k_ifc, pcols)]) ** (-cleng) + (tunlramp * lbulk) ** (-cleng)) ** (-1.0 / cleng)
+    else:
+        lz = min(vk * zi[_idx2(i_col, k_ifc, pcols)], tunlramp * lbulk)
+    lz = min(leng_max[k_ifc - 1], lz)
+
+    dzinc[0] = z[_idx2(i_col, k_ifc - 1, pcols)] - z[_idx2(i_col, k_ifc, pcols)]
+    dl2n2[0] = lz * lz * n2[_idx2(i_col, k_ifc, pcols)] * dzinc[0]
+    dl2s2[0] = lz * lz * s2[_idx2(i_col, k_ifc, pcols)] * dzinc[0]
+
+
+@export
 def eddy_diff_zisocl_interface_energy_codon(
     i_col: int,
     k_ifc: int,
