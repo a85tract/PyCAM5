@@ -1016,6 +1016,37 @@ def eddy_diff_caleddy_regime_diag_codon(
 
 
 @export
+def eddy_diff_caleddy_surface_tke_codon(
+    i_col: int,
+    pcols: int,
+    pver: int,
+    b1: float,
+    vk: float,
+    tkemax: float,
+    z_p: cobj,
+    bprod_p: cobj,
+    sprod_p: cobj,
+    tkes_p: cobj,
+    tke_p: cobj,
+    wcap_p: cobj,
+):
+    z = Ptr[float](z_p)
+    bprod = Ptr[float](bprod_p)
+    sprod = Ptr[float](sprod_p)
+    tkes = Ptr[float](tkes_p)
+    tke = Ptr[float](tke_p)
+    wcap = Ptr[float](wcap_p)
+
+    i = i_col
+    surf_idx = _idx2(i, pver + 1, pcols)
+
+    tkes[i - 1] = max(b1 * vk * z[_idx2(i, pver, pcols)] * (bprod[surf_idx] + sprod[surf_idx]), 1.0e-7) ** (2.0 / 3.0)
+    tkes[i - 1] = min(tkes[i - 1], tkemax)
+    tke[surf_idx] = tkes[i - 1]
+    wcap[surf_idx] = tkes[i - 1] / b1
+
+
+@export
 def eddy_diff_exacol_codon(
     ncol: int,
     pcols: int,

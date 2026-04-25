@@ -210,6 +210,8 @@
   logical                     :: caleddy_diaginit_impl_selected = .false.
   logical                     :: use_native_caleddy_regime_diag_impl = .false.
   logical                     :: caleddy_regime_diag_impl_selected = .false.
+  logical                     :: use_native_caleddy_surface_tke_impl = .false.
+  logical                     :: caleddy_surface_tke_impl_selected = .false.
   logical                     :: use_native_caleddy_clprep_impl = .false.
   logical                     :: caleddy_clprep_impl_selected = .false.
   logical                     :: use_native_caleddy_closure_impl = .false.
@@ -3275,6 +3277,110 @@
   !                                                                                !
   !=============================================================================== !
 
+  subroutine eddy_diff_caleddy_surface_tke_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (caleddy_surface_tke_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_CALEDDY_SURFACE_TKE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_caleddy_surface_tke_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_caleddy_surface_tke_impl = .false.
+    end if
+
+    caleddy_surface_tke_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_caleddy_surface_tke_impl) then
+          write(iulog,*) 'eddy_diff_caleddy_surface_tke implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_caleddy_surface_tke implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_caleddy_surface_tke_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_surface_tke(i_local, pcols_local, pver_local, b1_local, vk_local, tkemax_local, z_local, &
+       bprod_local, sprod_local, tkes_local, tke_local, wcap_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: i_local, pcols_local, pver_local
+    real(r8), intent(in) :: b1_local, vk_local, tkemax_local
+    real(r8), target, intent(in) :: z_local(pcols_local,pver_local), bprod_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: sprod_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: tkes_local(pcols_local), tke_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: wcap_local(pcols_local,pver_local+1)
+
+    interface
+       subroutine eddy_diff_caleddy_surface_tke_codon(i_c, pcols_c, pver_c, b1_c, vk_c, tkemax_c, z_p, bprod_p, sprod_p, &
+            tkes_p, tke_p, wcap_p) bind(c, name="eddy_diff_caleddy_surface_tke_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: i_c, pcols_c, pver_c
+         real(c_double), value :: b1_c, vk_c, tkemax_c
+         type(c_ptr), value :: z_p, bprod_p, sprod_p, tkes_p, tke_p, wcap_p
+       end subroutine eddy_diff_caleddy_surface_tke_codon
+    end interface
+
+    call eddy_diff_caleddy_surface_tke_select_impl()
+
+    if (use_native_caleddy_surface_tke_impl) then
+       call eddy_diff_caleddy_surface_tke_native(i_local, pcols_local, pver_local, b1_local, vk_local, tkemax_local, z_local, &
+            bprod_local, sprod_local, tkes_local, tke_local, wcap_local)
+       return
+    end if
+
+    call eddy_diff_caleddy_surface_tke_codon(int(i_local, c_int64_t), int(pcols_local, c_int64_t), int(pver_local, c_int64_t), &
+         b1_local, vk_local, tkemax_local, c_loc(z_local), c_loc(bprod_local), c_loc(sprod_local), c_loc(tkes_local), &
+         c_loc(tke_local), c_loc(wcap_local))
+
+  end subroutine eddy_diff_caleddy_surface_tke
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_surface_tke_native(i_local, pcols_local, pver_local, b1_local, vk_local, tkemax_local, z_local, &
+       bprod_local, sprod_local, tkes_local, tke_local, wcap_local)
+
+    implicit none
+
+    integer, intent(in) :: i_local, pcols_local, pver_local
+    real(r8), intent(in) :: b1_local, vk_local, tkemax_local
+    real(r8), intent(in) :: z_local(pcols_local,pver_local), bprod_local(pcols_local,pver_local+1)
+    real(r8), intent(in) :: sprod_local(pcols_local,pver_local+1)
+    real(r8), intent(inout) :: tkes_local(pcols_local), tke_local(pcols_local,pver_local+1)
+    real(r8), intent(inout) :: wcap_local(pcols_local,pver_local+1)
+
+    tkes_local(i_local) = max(b1_local*vk_local*z_local(i_local,pver_local)*(bprod_local(i_local,pver_local+1)+ &
+         sprod_local(i_local,pver_local+1)), 1.e-7_r8)**(2._r8/3._r8)
+    tkes_local(i_local) = min(tkes_local(i_local), tkemax_local)
+    tke_local(i_local,pver_local+1)  = tkes_local(i_local)
+    wcap_local(i_local,pver_local+1) = tkes_local(i_local)/b1_local
+
+  end subroutine eddy_diff_caleddy_surface_tke_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
   subroutine eddy_diff_compute_radf_select_impl()
 
     character(len=32) :: impl_name
@@ -5375,10 +5481,7 @@
        ! other parts of the code also.
   
      ! tkes(i) = (b1*vk*z(i,pver)*sprod(i,pver+1))**(2._r8/3._r8)
-       tkes(i) = max(b1*vk*z(i,pver)*(bprod(i,pver+1)+sprod(i,pver+1)), 1.e-7_r8)**(2._r8/3._r8)
-       tkes(i) = min(tkes(i), tkemax)
-       tke(i,pver+1)  = tkes(i)
-       wcap(i,pver+1) = tkes(i)/b1
+       call eddy_diff_caleddy_surface_tke(i, pcols, pver, b1, vk, tkemax, z, bprod, sprod, tkes, tke, wcap)
 
        ! Extend and merge the initially identified CLs, relabel the CLs, and calculate
        ! CL internal mean energetics and stability functions in 'zisocl'. 
