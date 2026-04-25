@@ -1251,6 +1251,33 @@ def eddy_diff_zisocl_surface_extend_codon(
 
 
 @export
+def eddy_diff_zisocl_sbcl_state_codon(
+    choice_tkes_ebprod: int,
+    sh: float,
+    dlint_surf: float,
+    dl2n2_surf: float,
+    dl2s2_surf: float,
+    dw_surf: float,
+    lint_p: cobj,
+    l2n2_p: cobj,
+    l2s2_p: cobj,
+    wint_p: cobj,
+):
+    lint = Ptr[float](lint_p)
+    l2n2 = Ptr[float](l2n2_p)
+    l2s2 = Ptr[float](l2s2_p)
+    wint = Ptr[float](wint_p)
+
+    lint[0] = dlint_surf
+    l2n2[0] = dl2n2_surf
+    l2s2[0] = dl2s2_surf
+    wint[0] = dw_surf
+
+    if choice_tkes_ebprod != 0:
+        l2n2[0] = -wint[0] / sh
+
+
+@export
 def eddy_diff_zisocl_stability_codon(
     alph1: float,
     alph2: float,

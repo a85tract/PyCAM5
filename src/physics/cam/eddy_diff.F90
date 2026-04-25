@@ -220,6 +220,8 @@
   logical                     :: zisocl_surface_state_impl_selected = .false.
   logical                     :: use_native_zisocl_surface_extend_impl = .false.
   logical                     :: zisocl_surface_extend_impl_selected = .false.
+  logical                     :: use_native_zisocl_sbcl_state_impl = .false.
+  logical                     :: zisocl_sbcl_state_impl_selected = .false.
   logical                     :: use_native_zisocl_stability_impl = .false.
   logical                     :: zisocl_stability_impl_selected = .false.
   logical                     :: use_native_zisocl_layer_energy_impl = .false.
@@ -3858,6 +3860,106 @@
   !                                                                                !
   !=============================================================================== !
 
+  subroutine eddy_diff_zisocl_sbcl_state_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (zisocl_sbcl_state_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_ZISOCL_SBCL_STATE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_zisocl_sbcl_state_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_zisocl_sbcl_state_impl = .false.
+    end if
+
+    zisocl_sbcl_state_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_zisocl_sbcl_state_impl) then
+          write(iulog,*) 'eddy_diff_zisocl_sbcl_state implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_zisocl_sbcl_state implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_zisocl_sbcl_state_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_zisocl_sbcl_state(choice_tkes_ebprod_local, sh_local, dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, &
+       dw_surf_local, lint_local, l2n2_local, l2s2_local, wint_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: choice_tkes_ebprod_local
+    real(r8), target, intent(in) :: sh_local, dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local
+    real(r8), target, intent(out) :: lint_local, l2n2_local, l2s2_local, wint_local
+
+    interface
+       subroutine eddy_diff_zisocl_sbcl_state_codon(choice_tkes_ebprod_c, sh_c, dlint_surf_c, dl2n2_surf_c, dl2s2_surf_c, &
+            dw_surf_c, lint_p, l2n2_p, l2s2_p, wint_p) bind(c, name="eddy_diff_zisocl_sbcl_state_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: choice_tkes_ebprod_c
+         real(c_double), value :: sh_c, dlint_surf_c, dl2n2_surf_c, dl2s2_surf_c, dw_surf_c
+         type(c_ptr), value :: lint_p, l2n2_p, l2s2_p, wint_p
+       end subroutine eddy_diff_zisocl_sbcl_state_codon
+    end interface
+
+    call eddy_diff_zisocl_sbcl_state_select_impl()
+
+    if (use_native_zisocl_sbcl_state_impl) then
+       call eddy_diff_zisocl_sbcl_state_native(choice_tkes_ebprod_local, sh_local, dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, &
+            dw_surf_local, lint_local, l2n2_local, l2s2_local, wint_local)
+       return
+    end if
+
+    call eddy_diff_zisocl_sbcl_state_codon(int(choice_tkes_ebprod_local, c_int64_t), sh_local, dlint_surf_local, dl2n2_surf_local, &
+         dl2s2_surf_local, dw_surf_local, c_loc(lint_local), c_loc(l2n2_local), c_loc(l2s2_local), c_loc(wint_local))
+
+  end subroutine eddy_diff_zisocl_sbcl_state
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_zisocl_sbcl_state_native(choice_tkes_ebprod_local, sh_local, dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, &
+       dw_surf_local, lint_local, l2n2_local, l2s2_local, wint_local)
+
+    implicit none
+
+    integer, intent(in) :: choice_tkes_ebprod_local
+    real(r8), intent(in) :: sh_local, dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local
+    real(r8), intent(out) :: lint_local, l2n2_local, l2s2_local, wint_local
+
+    lint_local = dlint_surf_local
+    l2n2_local = dl2n2_surf_local
+    l2s2_local = dl2s2_surf_local
+    wint_local = dw_surf_local
+
+    if (choice_tkes_ebprod_local .ne. 0) then
+       l2n2_local = -wint_local / sh_local
+    end if
+
+  end subroutine eddy_diff_zisocl_sbcl_state_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
   subroutine eddy_diff_zisocl_stability_select_impl()
 
     character(len=32) :: impl_name
@@ -6803,6 +6905,7 @@
     integer               :: ktinc                    ! Index for incorporating  overlying CL
     integer               :: kb_is_surface_mode
     integer               :: use_dw_surf_mode
+    integer               :: choice_tkes_ebprod_mode
 
     real(r8)              :: wint                     ! Normalized TKE of internal CL
     real(r8)              :: dwinc                    ! Normalized TKE of CL external interfaces
@@ -6833,7 +6936,9 @@
 
     kb_is_surface_mode = 0
     use_dw_surf_mode = 0
+    choice_tkes_ebprod_mode = 0
     if( use_dw_surf ) use_dw_surf_mode = 1
+    if( choice_tkes .eq. 'ebprod' ) choice_tkes_ebprod_mode = 1
 
     ! Initialize main output variables
     
@@ -6928,11 +7033,6 @@
            ! Note that regardless of the choise of 'use_dw_surf', below should be
            ! kept as it is below, for consistent merging test of extending SBCL. 
        
-           lint = dlint_surf
-           l2n2 = dl2n2_surf
-           l2s2 = dl2s2_surf 
-           wint = dw_surf
-
            ! Aug.29.2006 : Only for the purpose of merging test of extending SRCL
            ! based on 'l2n2', re-define 'l2n2' of surface interfacial layer using
            ! 'wint'. This part is designed for similar treatment of merging as in
@@ -6946,9 +7046,8 @@
            ! must be commented out. Note at this stage, correct non-zero value of
            ! 'sh' has been already computed.      
 
-           if( choice_tkes .eq. 'ebprod' ) then
-               l2n2 = - wint / sh 
-           endif
+           call eddy_diff_zisocl_sbcl_state(choice_tkes_ebprod_mode, sh, dlint_surf, dl2n2_surf, dl2s2_surf, dw_surf, lint, l2n2, &
+                l2s2, wint)
            
        endif
            
