@@ -901,6 +901,221 @@ def eddy_diff_compute_radf_codon(
 
 
 @export
+def eddy_diff_caleddy_clprep_codon(
+    i_col: int,
+    ncv_col: int,
+    pcols: int,
+    pver: int,
+    ncvmax: int,
+    tunl_mode: int,
+    leng_mode: int,
+    evhc_mode: int,
+    tunl: float,
+    ctunl: float,
+    cleng: float,
+    lbulk_max: float,
+    qmin: float,
+    gravit: float,
+    vk: float,
+    latvap: float,
+    a2l: float,
+    a3l: float,
+    jbumin: float,
+    evhcmax: float,
+    ql_p: cobj,
+    slv_p: cobj,
+    sl_p: cobj,
+    qt_p: cobj,
+    u_p: cobj,
+    v_p: cobj,
+    zi_p: cobj,
+    z_p: cobj,
+    n2_p: cobj,
+    s2_p: cobj,
+    sfuh_p: cobj,
+    sflh_p: cobj,
+    chu_p: cobj,
+    chs_p: cobj,
+    cmu_p: cobj,
+    cms_p: cobj,
+    cldeff_p: cobj,
+    bflxs_p: cobj,
+    bprod_p: cobj,
+    kbase_p: cobj,
+    ktop_p: cobj,
+    ricl_p: cobj,
+    shcl_p: cobj,
+    smcl_p: cobj,
+    radf: float,
+    leng_max_p: cobj,
+    leng_p: cobj,
+    wcap_p: cobj,
+    clprep_state_p: cobj,
+):
+    ql = Ptr[float](ql_p)
+    slv = Ptr[float](slv_p)
+    sl = Ptr[float](sl_p)
+    qt = Ptr[float](qt_p)
+    u = Ptr[float](u_p)
+    v = Ptr[float](v_p)
+    zi = Ptr[float](zi_p)
+    z = Ptr[float](z_p)
+    n2 = Ptr[float](n2_p)
+    s2 = Ptr[float](s2_p)
+    sfuh = Ptr[float](sfuh_p)
+    sflh = Ptr[float](sflh_p)
+    chu = Ptr[float](chu_p)
+    chs = Ptr[float](chs_p)
+    cmu = Ptr[float](cmu_p)
+    cms = Ptr[float](cms_p)
+    cldeff = Ptr[float](cldeff_p)
+    bflxs = Ptr[float](bflxs_p)
+    bprod = Ptr[float](bprod_p)
+    kbase = Ptr[i32](kbase_p)
+    ktop = Ptr[i32](ktop_p)
+    ricl = Ptr[float](ricl_p)
+    shcl = Ptr[float](shcl_p)
+    smcl = Ptr[float](smcl_p)
+    leng_max = Ptr[float](leng_max_p)
+    leng = Ptr[float](leng_p)
+    wcap = Ptr[float](wcap_p)
+    clprep_state = Ptr[float](clprep_state_p)
+
+    i = i_col
+    ncv = ncv_col
+    kt = int(ktop[_idx2(i, ncv, pcols)])
+    kb = int(kbase[_idx2(i, ncv, pcols)])
+
+    if kb == pver + 1 and bflxs[i - 1] <= 0.0:
+        lbulk = zi[_idx2(i, kt, pcols)] - z[_idx2(i, pver, pcols)]
+    else:
+        lbulk = zi[_idx2(i, kt, pcols)] - zi[_idx2(i, kb, pcols)]
+    lbulk = min(lbulk, lbulk_max)
+
+    for k in range(min(kb, pver), kt - 1, -1):
+        if tunl_mode == 1:
+            tunlramp = ctunl * tunl * (
+                1.0
+                - (1.0 - 1.0 / ctunl)
+                * exp(min(0.0, ricl[_idx2(i, ncv, pcols)]))
+            )
+            tunlramp = min(max(tunlramp, tunl), ctunl * tunl)
+        elif tunl_mode == 2:
+            tunlramp = ctunl * tunl
+        else:
+            tunlramp = tunl
+
+        if leng_mode == 0:
+            leng[_idx2(i, k, pcols)] = (
+                (vk * zi[_idx2(i, k, pcols)]) ** (-cleng)
+                + (tunlramp * lbulk) ** (-cleng)
+            ) ** (-1.0 / cleng)
+        else:
+            leng[_idx2(i, k, pcols)] = min(
+                vk * zi[_idx2(i, k, pcols)], tunlramp * lbulk
+            )
+        leng[_idx2(i, k, pcols)] = min(leng_max[k - 1], leng[_idx2(i, k, pcols)])
+        wcap[_idx2(i, k, pcols)] = (leng[_idx2(i, k, pcols)] ** 2) * (
+            -shcl[_idx2(i, ncv, pcols)] * n2[_idx2(i, k, pcols)]
+            + smcl[_idx2(i, ncv, pcols)] * s2[_idx2(i, k, pcols)]
+        )
+
+    if kb < pver + 1:
+        jbzm = z[_idx2(i, kb - 1, pcols)] - z[_idx2(i, kb, pcols)]
+        jbsl = sl[_idx2(i, kb - 1, pcols)] - sl[_idx2(i, kb, pcols)]
+        jbqt = qt[_idx2(i, kb - 1, pcols)] - qt[_idx2(i, kb, pcols)]
+        jbbu = n2[_idx2(i, kb, pcols)] * jbzm
+        jbbu = max(jbbu, jbumin)
+        jbu = u[_idx2(i, kb - 1, pcols)] - u[_idx2(i, kb, pcols)]
+        jbv = v[_idx2(i, kb - 1, pcols)] - v[_idx2(i, kb, pcols)]
+        ch = (1.0 - sflh[_idx2(i, kb - 1, pcols)]) * chu[_idx2(i, kb, pcols)] + sflh[
+            _idx2(i, kb - 1, pcols)
+        ] * chs[_idx2(i, kb, pcols)]
+        cm = (1.0 - sflh[_idx2(i, kb - 1, pcols)]) * cmu[_idx2(i, kb, pcols)] + sflh[
+            _idx2(i, kb - 1, pcols)
+        ] * cms[_idx2(i, kb, pcols)]
+        n2hb = (ch * jbsl + cm * jbqt) / jbzm
+        vyb = n2hb * jbzm / jbbu
+        vub = min(1.0, (jbu**2 + jbv**2) / (jbbu * jbzm))
+    else:
+        jbzm = 0.0
+        jbbu = 0.0
+        n2hb = 0.0
+        vyb = 0.0
+        vub = 0.0
+
+    jtzm = z[_idx2(i, kt - 1, pcols)] - z[_idx2(i, kt, pcols)]
+    jtsl = sl[_idx2(i, kt - 1, pcols)] - sl[_idx2(i, kt, pcols)]
+    jtqt = qt[_idx2(i, kt - 1, pcols)] - qt[_idx2(i, kt, pcols)]
+    jtbu = n2[_idx2(i, kt, pcols)] * jtzm
+    jtbu = max(jtbu, jbumin)
+    jtu = u[_idx2(i, kt - 1, pcols)] - u[_idx2(i, kt, pcols)]
+    jtv = v[_idx2(i, kt - 1, pcols)] - v[_idx2(i, kt, pcols)]
+    ch = (1.0 - sfuh[_idx2(i, kt, pcols)]) * chu[_idx2(i, kt, pcols)] + sfuh[
+        _idx2(i, kt, pcols)
+    ] * chs[_idx2(i, kt, pcols)]
+    cm = (1.0 - sfuh[_idx2(i, kt, pcols)]) * cmu[_idx2(i, kt, pcols)] + sfuh[
+        _idx2(i, kt, pcols)
+    ] * cms[_idx2(i, kt, pcols)]
+    n2ht = (ch * jtsl + cm * jtqt) / jtzm
+    vyt = n2ht * jtzm / jtbu
+    vut = min(1.0, (jtu**2 + jtv**2) / (jtbu * jtzm))
+
+    evhc = 1.0
+    jt2slv = 0.0
+
+    if evhc_mode == 0:
+        if ql[_idx2(i, kt, pcols)] > qmin and ql[_idx2(i, kt - 1, pcols)] < qmin:
+            jt2slv = slv[_idx2(i, max(kt - 2, 1), pcols)] - slv[_idx2(i, kt, pcols)]
+            jt2slv = max(jt2slv, jbumin * slv[_idx2(i, kt - 1, pcols)] / gravit)
+            evhc = 1.0 + a2l * a3l * latvap * ql[_idx2(i, kt, pcols)] / jt2slv
+            evhc = min(evhc, evhcmax)
+    elif evhc_mode == 1:
+        jt2slv = slv[_idx2(i, max(kt - 2, 1), pcols)] - slv[_idx2(i, kt, pcols)]
+        jt2slv = max(jt2slv, jbumin * slv[_idx2(i, kt - 1, pcols)] / gravit)
+        evhc = 1.0 + max(cldeff[_idx2(i, kt, pcols)] - cldeff[_idx2(i, kt - 1, pcols)], 0.0) * a2l * a3l * latvap * ql[
+            _idx2(i, kt, pcols)
+        ] / jt2slv
+        evhc = min(evhc, evhcmax)
+    else:
+        qleff = max(ql[_idx2(i, kt - 1, pcols)], ql[_idx2(i, kt, pcols)])
+        jt2slv = slv[_idx2(i, max(kt - 2, 1), pcols)] - slv[_idx2(i, kt, pcols)]
+        jt2slv = max(jt2slv, jbumin * slv[_idx2(i, kt - 1, pcols)] / gravit)
+        evhc = 1.0 + a2l * a3l * latvap * qleff / jt2slv
+        evhc = min(evhc, evhcmax)
+
+    dzht = zi[_idx2(i, kt, pcols)] - z[_idx2(i, kt, pcols)]
+    dzhb = z[_idx2(i, kb - 1, pcols)] - zi[_idx2(i, kb, pcols)]
+    wstar3 = radf * dzht
+    for k in range(kt + 1, kb):
+        wstar3 = wstar3 + bprod[_idx2(i, k, pcols)] * (
+            z[_idx2(i, k - 1, pcols)] - z[_idx2(i, k, pcols)]
+        )
+    if kb == pver + 1 and bflxs[i - 1] > 0.0:
+        wstar3 = wstar3 + bflxs[i - 1] * dzhb
+    wstar3 = max(2.5 * wstar3, 0.0)
+
+    # state: lbulk, jbzm, jbbu, n2hb, vyb, vub, jtzm, jtbu, jt2slv, n2ht,
+    #        vyt, vut, evhc, dzht, dzhb, wstar3
+    clprep_state[0] = lbulk
+    clprep_state[1] = jbzm
+    clprep_state[2] = jbbu
+    clprep_state[3] = n2hb
+    clprep_state[4] = vyb
+    clprep_state[5] = vub
+    clprep_state[6] = jtzm
+    clprep_state[7] = jtbu
+    clprep_state[8] = jt2slv
+    clprep_state[9] = n2ht
+    clprep_state[10] = vyt
+    clprep_state[11] = vut
+    clprep_state[12] = evhc
+    clprep_state[13] = dzht
+    clprep_state[14] = dzhb
+    clprep_state[15] = wstar3
+
+
+@export
 def eddy_diff_caleddy_srcl_codon(
     i_col: int,
     pcols: int,

@@ -204,6 +204,8 @@
   logical                     :: exacol_impl_selected = .false.
   logical                     :: use_native_compute_radf_impl = .false.
   logical                     :: compute_radf_impl_selected = .false.
+  logical                     :: use_native_caleddy_clprep_impl = .false.
+  logical                     :: caleddy_clprep_impl_selected = .false.
   logical                     :: use_native_caleddy_srcl_impl = .false.
   logical                     :: caleddy_srcl_impl_selected = .false.
   logical                     :: use_native_caleddy_stl_impl = .false.
@@ -3517,6 +3519,297 @@
 
   end subroutine eddy_diff_caleddy_stl_native
 
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_clprep_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (caleddy_clprep_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_CALEDDY_CLPREP_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_caleddy_clprep_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_caleddy_clprep_impl = .false.
+    end if
+
+    caleddy_clprep_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_caleddy_clprep_impl) then
+          write(iulog,*) 'eddy_diff_caleddy_clprep implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_caleddy_clprep implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_caleddy_clprep_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_clprep(i_local, ncv_local, pcols_local, pver_local, ncvmax_local, tunl_mode_local, &
+       leng_mode_local, evhc_mode_local, tunl_local, ctunl_local, cleng_local, lbulk_max_local, qmin_local, g_local, &
+       vk_local, latvap_local, a2l_local, a3l_local, jbumin_local, evhcmax_local, ql_local, slv_local, sl_local, qt_local, &
+       u_local, v_local, zi_local, z_local, n2_local, s2_local, sfuh_local, sflh_local, chu_local, chs_local, cmu_local, &
+       cms_local, cldeff_local, bflxs_local, bprod_local, kbase_local, ktop_local, ricl_local, shcl_local, smcl_local, &
+       radf_local, leng_max_local, leng_local, wcap_local, lbulk_local, jbzm_local, jbbu_local, n2hb_local, vyb_local, &
+       vub_local, jtzm_local, jtbu_local, jt2slv_local, n2ht_local, vyt_local, vut_local, evhc_local, dzht_local, &
+       dzhb_local, wstar3_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: i_local, ncv_local, pcols_local, pver_local, ncvmax_local
+    integer, intent(in) :: tunl_mode_local, leng_mode_local, evhc_mode_local
+    real(r8), intent(in) :: tunl_local, ctunl_local, cleng_local, lbulk_max_local
+    real(r8), intent(in) :: qmin_local, g_local, vk_local, latvap_local
+    real(r8), intent(in) :: a2l_local, a3l_local, jbumin_local, evhcmax_local, radf_local
+    real(r8), target, intent(in) :: ql_local(pcols_local,pver_local), slv_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: sl_local(pcols_local,pver_local), qt_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: u_local(pcols_local,pver_local), v_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: zi_local(pcols_local,pver_local+1), z_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: n2_local(pcols_local,pver_local), s2_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: sfuh_local(pcols_local,pver_local), sflh_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: chu_local(pcols_local,pver_local+1), chs_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: cmu_local(pcols_local,pver_local+1), cms_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: cldeff_local(pcols_local,pver_local), bflxs_local(pcols_local)
+    real(r8), target, intent(in) :: bprod_local(pcols_local,pver_local+1), leng_max_local(pver_local)
+    integer(i4), target, intent(in) :: kbase_local(pcols_local,ncvmax_local), ktop_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(in) :: ricl_local(pcols_local,ncvmax_local), shcl_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(in) :: smcl_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: leng_local(pcols_local,pver_local+1), wcap_local(pcols_local,pver_local+1)
+    real(r8), intent(out) :: lbulk_local, jbzm_local, jbbu_local, n2hb_local, vyb_local, vub_local
+    real(r8), intent(out) :: jtzm_local, jtbu_local, jt2slv_local, n2ht_local, vyt_local, vut_local
+    real(r8), intent(out) :: evhc_local, dzht_local, dzhb_local, wstar3_local
+
+    real(r8), target :: clprep_state_local(16)
+
+    interface
+       subroutine eddy_diff_caleddy_clprep_codon(i_c, ncv_c, pcols_c, pver_c, ncvmax_c, tunl_mode_c, leng_mode_c, &
+            evhc_mode_c, tunl_c, ctunl_c, cleng_c, lbulk_max_c, qmin_c, g_c, vk_c, latvap_c, a2l_c, a3l_c, jbumin_c, &
+            evhcmax_c, ql_p, slv_p, sl_p, qt_p, u_p, v_p, zi_p, z_p, n2_p, s2_p, sfuh_p, sflh_p, chu_p, chs_p, cmu_p, &
+            cms_p, cldeff_p, bflxs_p, bprod_p, kbase_p, ktop_p, ricl_p, shcl_p, smcl_p, radf_c, leng_max_p, leng_p, &
+            wcap_p, clprep_state_p) bind(c, name="eddy_diff_caleddy_clprep_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: i_c, ncv_c, pcols_c, pver_c, ncvmax_c, tunl_mode_c, leng_mode_c, evhc_mode_c
+         real(c_double), value :: tunl_c, ctunl_c, cleng_c, lbulk_max_c, qmin_c, g_c, vk_c, latvap_c, a2l_c, a3l_c
+         real(c_double), value :: jbumin_c, evhcmax_c, radf_c
+         type(c_ptr), value :: ql_p, slv_p, sl_p, qt_p, u_p, v_p, zi_p, z_p, n2_p, s2_p, sfuh_p, sflh_p
+         type(c_ptr), value :: chu_p, chs_p, cmu_p, cms_p, cldeff_p, bflxs_p, bprod_p, kbase_p, ktop_p
+         type(c_ptr), value :: ricl_p, shcl_p, smcl_p, leng_max_p, leng_p, wcap_p, clprep_state_p
+       end subroutine eddy_diff_caleddy_clprep_codon
+    end interface
+
+    call eddy_diff_caleddy_clprep_select_impl()
+
+    if (use_native_caleddy_clprep_impl) then
+       call eddy_diff_caleddy_clprep_native(i_local, ncv_local, pcols_local, pver_local, ncvmax_local, tunl_mode_local, &
+            leng_mode_local, evhc_mode_local, tunl_local, ctunl_local, cleng_local, lbulk_max_local, qmin_local, g_local, &
+            vk_local, latvap_local, a2l_local, a3l_local, jbumin_local, evhcmax_local, ql_local, slv_local, sl_local, &
+            qt_local, u_local, v_local, zi_local, z_local, n2_local, s2_local, sfuh_local, sflh_local, chu_local, &
+            chs_local, cmu_local, cms_local, cldeff_local, bflxs_local, bprod_local, kbase_local, ktop_local, ricl_local, &
+            shcl_local, smcl_local, radf_local, leng_max_local, leng_local, wcap_local, lbulk_local, jbzm_local, jbbu_local, &
+            n2hb_local, vyb_local, vub_local, jtzm_local, jtbu_local, jt2slv_local, n2ht_local, vyt_local, vut_local, &
+            evhc_local, dzht_local, dzhb_local, wstar3_local)
+       return
+    end if
+
+    call eddy_diff_caleddy_clprep_codon(int(i_local, c_int64_t), int(ncv_local, c_int64_t), int(pcols_local, c_int64_t), &
+         int(pver_local, c_int64_t), int(ncvmax_local, c_int64_t), int(tunl_mode_local, c_int64_t), &
+         int(leng_mode_local, c_int64_t), int(evhc_mode_local, c_int64_t), tunl_local, ctunl_local, cleng_local, &
+         lbulk_max_local, qmin_local, g_local, vk_local, latvap_local, a2l_local, a3l_local, jbumin_local, evhcmax_local, &
+         c_loc(ql_local), c_loc(slv_local), c_loc(sl_local), c_loc(qt_local), c_loc(u_local), c_loc(v_local), c_loc(zi_local), &
+         c_loc(z_local), c_loc(n2_local), c_loc(s2_local), c_loc(sfuh_local), c_loc(sflh_local), c_loc(chu_local), &
+         c_loc(chs_local), c_loc(cmu_local), c_loc(cms_local), c_loc(cldeff_local), c_loc(bflxs_local), c_loc(bprod_local), &
+         c_loc(kbase_local), c_loc(ktop_local), c_loc(ricl_local), c_loc(shcl_local), c_loc(smcl_local), radf_local, &
+         c_loc(leng_max_local), c_loc(leng_local), c_loc(wcap_local), c_loc(clprep_state_local))
+
+    lbulk_local  = clprep_state_local(1)
+    jbzm_local   = clprep_state_local(2)
+    jbbu_local   = clprep_state_local(3)
+    n2hb_local   = clprep_state_local(4)
+    vyb_local    = clprep_state_local(5)
+    vub_local    = clprep_state_local(6)
+    jtzm_local   = clprep_state_local(7)
+    jtbu_local   = clprep_state_local(8)
+    jt2slv_local = clprep_state_local(9)
+    n2ht_local   = clprep_state_local(10)
+    vyt_local    = clprep_state_local(11)
+    vut_local    = clprep_state_local(12)
+    evhc_local   = clprep_state_local(13)
+    dzht_local   = clprep_state_local(14)
+    dzhb_local   = clprep_state_local(15)
+    wstar3_local = clprep_state_local(16)
+
+  end subroutine eddy_diff_caleddy_clprep
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_clprep_native(i_local, ncv_local, pcols_local, pver_local, ncvmax_local, tunl_mode_local, &
+       leng_mode_local, evhc_mode_local, tunl_local, ctunl_local, cleng_local, lbulk_max_local, qmin_local, g_local, &
+       vk_local, latvap_local, a2l_local, a3l_local, jbumin_local, evhcmax_local, ql_local, slv_local, sl_local, qt_local, &
+       u_local, v_local, zi_local, z_local, n2_local, s2_local, sfuh_local, sflh_local, chu_local, chs_local, cmu_local, &
+       cms_local, cldeff_local, bflxs_local, bprod_local, kbase_local, ktop_local, ricl_local, shcl_local, smcl_local, &
+       radf_local, leng_max_local, leng_local, wcap_local, lbulk_local, jbzm_local, jbbu_local, n2hb_local, vyb_local, &
+       vub_local, jtzm_local, jtbu_local, jt2slv_local, n2ht_local, vyt_local, vut_local, evhc_local, dzht_local, &
+       dzhb_local, wstar3_local)
+
+    implicit none
+
+    integer, intent(in) :: i_local, ncv_local, pcols_local, pver_local, ncvmax_local
+    integer, intent(in) :: tunl_mode_local, leng_mode_local, evhc_mode_local
+    real(r8), intent(in) :: tunl_local, ctunl_local, cleng_local, lbulk_max_local
+    real(r8), intent(in) :: qmin_local, g_local, vk_local, latvap_local
+    real(r8), intent(in) :: a2l_local, a3l_local, jbumin_local, evhcmax_local, radf_local
+    real(r8), intent(in) :: ql_local(pcols_local,pver_local), slv_local(pcols_local,pver_local)
+    real(r8), intent(in) :: sl_local(pcols_local,pver_local), qt_local(pcols_local,pver_local)
+    real(r8), intent(in) :: u_local(pcols_local,pver_local), v_local(pcols_local,pver_local)
+    real(r8), intent(in) :: zi_local(pcols_local,pver_local+1), z_local(pcols_local,pver_local)
+    real(r8), intent(in) :: n2_local(pcols_local,pver_local), s2_local(pcols_local,pver_local)
+    real(r8), intent(in) :: sfuh_local(pcols_local,pver_local), sflh_local(pcols_local,pver_local)
+    real(r8), intent(in) :: chu_local(pcols_local,pver_local+1), chs_local(pcols_local,pver_local+1)
+    real(r8), intent(in) :: cmu_local(pcols_local,pver_local+1), cms_local(pcols_local,pver_local+1)
+    real(r8), intent(in) :: cldeff_local(pcols_local,pver_local), bflxs_local(pcols_local)
+    real(r8), intent(in) :: bprod_local(pcols_local,pver_local+1), leng_max_local(pver_local)
+    integer(i4), intent(in) :: kbase_local(pcols_local,ncvmax_local), ktop_local(pcols_local,ncvmax_local)
+    real(r8), intent(in) :: ricl_local(pcols_local,ncvmax_local), shcl_local(pcols_local,ncvmax_local)
+    real(r8), intent(in) :: smcl_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: leng_local(pcols_local,pver_local+1), wcap_local(pcols_local,pver_local+1)
+    real(r8), intent(out) :: lbulk_local, jbzm_local, jbbu_local, n2hb_local, vyb_local, vub_local
+    real(r8), intent(out) :: jtzm_local, jtbu_local, jt2slv_local, n2ht_local, vyt_local, vut_local
+    real(r8), intent(out) :: evhc_local, dzht_local, dzhb_local, wstar3_local
+
+    integer :: k, kb, kt
+    real(r8) :: tunlramp, qleff
+    real(r8) :: jbsl, jbqt, jbu, jbv, jtsl, jtqt, jtu, jtv
+    real(r8) :: ch, cm
+
+    kt = ktop_local(i_local,ncv_local)
+    kb = kbase_local(i_local,ncv_local)
+
+    if( kb .eq. (pver_local+1) .and. bflxs_local(i_local) .le. 0._r8 ) then
+        lbulk_local = zi_local(i_local,kt) - z_local(i_local,pver_local)
+    else
+        lbulk_local = zi_local(i_local,kt) - zi_local(i_local,kb)
+    end if
+    lbulk_local = min( lbulk_local, lbulk_max_local )
+
+    do k = min(kb,pver_local), kt, -1
+       if( tunl_mode_local .eq. 1 ) then
+           tunlramp = ctunl_local*tunl_local*(1._r8-(1._r8-1._r8/ctunl_local)*exp(min(0._r8,ricl_local(i_local,ncv_local))))
+           tunlramp = min(max(tunlramp,tunl_local),ctunl_local*tunl_local)
+       elseif( tunl_mode_local .eq. 2 ) then
+           tunlramp = ctunl_local*tunl_local
+       else
+           tunlramp = tunl_local
+       endif
+       if( leng_mode_local .eq. 0 ) then
+           leng_local(i_local,k) = ( (vk_local*zi_local(i_local,k))**(-cleng_local) + (tunlramp*lbulk_local)**(-cleng_local) )**(-1._r8/cleng_local)
+       else
+           leng_local(i_local,k) = min( vk_local*zi_local(i_local,k), tunlramp*lbulk_local )
+       endif
+       leng_local(i_local,k) = min(leng_max_local(k), leng_local(i_local,k))
+       wcap_local(i_local,k) = (leng_local(i_local,k)**2) * (-shcl_local(i_local,ncv_local)*n2_local(i_local,k)+smcl_local(i_local,ncv_local)*s2_local(i_local,k))
+    end do
+
+    if( kb .lt. pver_local+1 ) then
+
+        jbzm_local = z_local(i_local,kb-1) - z_local(i_local,kb)
+        jbsl = sl_local(i_local,kb-1) - sl_local(i_local,kb)
+        jbqt = qt_local(i_local,kb-1) - qt_local(i_local,kb)
+        jbbu_local = n2_local(i_local,kb) * jbzm_local
+        jbbu_local = max(jbbu_local,jbumin_local)
+        jbu  = u_local(i_local,kb-1) - u_local(i_local,kb)
+        jbv  = v_local(i_local,kb-1) - v_local(i_local,kb)
+        ch   = (1._r8 -sflh_local(i_local,kb-1))*chu_local(i_local,kb) + sflh_local(i_local,kb-1)*chs_local(i_local,kb)
+        cm   = (1._r8 -sflh_local(i_local,kb-1))*cmu_local(i_local,kb) + sflh_local(i_local,kb-1)*cms_local(i_local,kb)
+        n2hb_local = (ch*jbsl + cm*jbqt)/jbzm_local
+        vyb_local  = n2hb_local*jbzm_local/jbbu_local
+        vub_local  = min(1._r8,(jbu**2+jbv**2)/(jbbu_local*jbzm_local))
+
+    else
+
+        jbzm_local = 0._r8
+        jbbu_local = 0._r8
+        n2hb_local = 0._r8
+        vyb_local  = 0._r8
+        vub_local  = 0._r8
+
+    end if
+
+    jtzm_local = z_local(i_local,kt-1) - z_local(i_local,kt)
+    jtsl = sl_local(i_local,kt-1) - sl_local(i_local,kt)
+    jtqt = qt_local(i_local,kt-1) - qt_local(i_local,kt)
+    jtbu_local = n2_local(i_local,kt)*jtzm_local
+    jtbu_local = max(jtbu_local,jbumin_local)
+    jtu  = u_local(i_local,kt-1) - u_local(i_local,kt)
+    jtv  = v_local(i_local,kt-1) - v_local(i_local,kt)
+    ch   = (1._r8 -sfuh_local(i_local,kt))*chu_local(i_local,kt) + sfuh_local(i_local,kt)*chs_local(i_local,kt)
+    cm   = (1._r8 -sfuh_local(i_local,kt))*cmu_local(i_local,kt) + sfuh_local(i_local,kt)*cms_local(i_local,kt)
+    n2ht_local = (ch*jtsl + cm*jtqt)/jtzm_local
+    vyt_local  = n2ht_local*jtzm_local/jtbu_local
+    vut_local  = min(1._r8,(jtu**2+jtv**2)/(jtbu_local*jtzm_local))
+
+    evhc_local   = 1._r8
+    jt2slv_local = 0._r8
+
+    if( evhc_mode_local .eq. 0 ) then
+
+        if( ql_local(i_local,kt) .gt. qmin_local .and. ql_local(i_local,kt-1) .lt. qmin_local ) then
+            jt2slv_local = slv_local(i_local,max(kt-2,1)) - slv_local(i_local,kt)
+            jt2slv_local = max( jt2slv_local, jbumin_local*slv_local(i_local,kt-1)/g_local )
+            evhc_local   = 1._r8 + a2l_local * a3l_local * latvap_local * ql_local(i_local,kt) / jt2slv_local
+            evhc_local   = min( evhc_local, evhcmax_local )
+        end if
+
+    elseif( evhc_mode_local .eq. 1 ) then
+
+        jt2slv_local = slv_local(i_local,max(kt-2,1)) - slv_local(i_local,kt)
+        jt2slv_local = max( jt2slv_local, jbumin_local*slv_local(i_local,kt-1)/g_local )
+        evhc_local   = 1._r8 + max(cldeff_local(i_local,kt)-cldeff_local(i_local,kt-1),0._r8) * a2l_local * a3l_local * &
+             latvap_local * ql_local(i_local,kt) / jt2slv_local
+        evhc_local   = min( evhc_local, evhcmax_local )
+
+    else
+
+        qleff        = max( ql_local(i_local,kt-1), ql_local(i_local,kt) )
+        jt2slv_local = slv_local(i_local,max(kt-2,1)) - slv_local(i_local,kt)
+        jt2slv_local = max( jt2slv_local, jbumin_local*slv_local(i_local,kt-1)/g_local )
+        evhc_local   = 1._r8 + a2l_local * a3l_local * latvap_local * qleff / jt2slv_local
+        evhc_local   = min( evhc_local, evhcmax_local )
+
+    endif
+
+    dzht_local   = zi_local(i_local,kt)  - z_local(i_local,kt)
+    dzhb_local   = z_local(i_local,kb-1) - zi_local(i_local,kb)
+    wstar3_local = radf_local * dzht_local
+    do k = kt + 1, kb - 1
+         wstar3_local =  wstar3_local + bprod_local(i_local,k) * ( z_local(i_local,k-1) - z_local(i_local,k) )
+    end do
+    if( kb .eq. (pver_local+1) .and. bflxs_local(i_local) .gt. 0._r8 ) then
+       wstar3_local = wstar3_local + bflxs_local(i_local) * dzhb_local
+    end if
+    wstar3_local = max( 2.5_r8 * wstar3_local, 0._r8 )
+
+  end subroutine eddy_diff_caleddy_clprep_native
+
     ! ---------------------------------------------------------------------------- !
     !                                                                              !
     ! The University of Washington Moist Turbulence Scheme                         !
@@ -3727,6 +4020,7 @@
     integer(i4) :: srcl_status
     integer :: tunl_mode                              ! Encoded choice_tunl for Codon helper
     integer :: leng_mode                              ! Encoded choice_leng for Codon helper
+    integer :: evhc_mode                              ! Encoded choice_evhc for Codon helper
     integer :: kbase(pcols,ncvmax)                    ! Vertical index of CL base interface
     integer :: ktop(pcols,ncvmax)                     ! Vertical index of CL top interface
     integer :: kb, kt                                 ! kbase and ktop for current CL
@@ -3876,6 +4170,13 @@
     leng_mode = 1
     if( choice_leng .eq. 'origin' ) then
         leng_mode = 0
+    end if
+
+    evhc_mode = 2
+    if( choice_evhc .eq. 'orig' ) then
+        evhc_mode = 0
+    elseif( choice_evhc .eq. 'ramp' ) then
+        evhc_mode = 1
     end if
 
     !
@@ -4201,171 +4502,13 @@
           radinvfrac = radinvfrac_CL(i,ncv)
           radf       = radf_CL(i, ncv)
 
-          ! Check whether surface interface is energetically interior or not.
-          if( kb .eq. (pver+1) .and. bflxs(i) .le. 0._r8 ) then
-              lbulk = zi(i,kt) - z(i,pver)
-          else
-              lbulk = zi(i,kt) - zi(i,kb)
-          end if
-          lbulk = min( lbulk, lbulk_max )
+          call eddy_diff_caleddy_clprep(i, ncv, pcols, pver, ncvmax, tunl_mode, leng_mode, evhc_mode, tunl, ctunl, cleng, &
+               lbulk_max, qmin, g, vk, latvap, a2l, a3l, jbumin, evhcmax, ql, slv, sl, qt, u, v, zi, z, n2, s2, sfuh, &
+               sflh, chu, chs, cmu, cms, cldeff, bflxs, bprod, kbase, ktop, ricl, shcl, smcl, radf, leng_max, leng, wcap, &
+               lbulk, jbzm, jbbu, n2hb, vyb, vub, jtzm, jtbu, jt2slv, n2ht, vyt, vut, evhc, dzht, dzhb, wstar3)
 
-          ! Calculate 'turbulent length scale (leng)' and 'normalized TKE (wcap)'
-          ! at all CL interfaces except the surface.  Note that below 'wcap' at 
-          ! external interfaces are not correct. However, it does not influence 
-          ! numerical calculation and correct normalized TKE at the entraining 
-          ! interfaces will be re-calculated at the end of this 'do ncv' loop. 
+          web = 0._r8
 
-          do k = min(kb,pver), kt, -1 
-             if( choice_tunl .eq. 'rampcl' ) then
-               ! In order to treat the case of 'ricl(i,ncv) >> 0' of surface-based SRCL
-               ! with 'bflxs(i) < 0._r8', I changed ricl(i,ncv) -> min(0._r8,ricl(i,ncv))
-               ! in the below exponential. This is necessary to prevent the model crash
-               ! by too large values (e.g., 700) of ricl(i,ncv)   
-                 tunlramp = ctunl*tunl*(1._r8-(1._r8-1._r8/ctunl)*exp(min(0._r8,ricl(i,ncv))))
-                 tunlramp = min(max(tunlramp,tunl),ctunl*tunl)
-             elseif( choice_tunl .eq. 'rampsl' ) then
-                 tunlramp = ctunl*tunl
-               ! tunlramp = 0.765_r8
-             else
-                 tunlramp = tunl
-             endif
-             if( choice_leng .eq. 'origin' ) then
-                 leng(i,k) = ( (vk*zi(i,k))**(-cleng) + (tunlramp*lbulk)**(-cleng) )**(-1._r8/cleng)
-               ! leng(i,k) = vk*zi(i,k) / (1._r8+vk*zi(i,k)/(tunlramp*lbulk))
-             else
-                 leng(i,k) = min( vk*zi(i,k), tunlramp*lbulk )              
-             endif
-             leng(i,k) = min(leng_max(k), leng(i,k))
-             wcap(i,k) = (leng(i,k)**2) * (-shcl(i,ncv)*n2(i,k)+smcl(i,ncv)*s2(i,k))
-          end do ! k
-
-          ! Calculate basic cross-interface variables ( jump condition ) across the 
-          ! base external interface of CL.
-
-          if( kb .lt. pver+1 ) then 
-
-              jbzm = z(i,kb-1) - z(i,kb)                                      ! Interfacial layer thickness [m]
-              jbsl = sl(i,kb-1) - sl(i,kb)                                    ! Interfacial jump of 'sl' [J/kg]
-              jbqt = qt(i,kb-1) - qt(i,kb)                                    ! Interfacial jump of 'qt' [kg/kg]
-              jbbu = n2(i,kb) * jbzm                                          ! Interfacial buoyancy jump [m/s2]
-                                                                              ! considering saturation ( > 0 )
-              jbbu = max(jbbu,jbumin)                                         ! Set minimum buoyancy jump, jbumin = 1.e-3
-              jbu  = u(i,kb-1) - u(i,kb)                                      ! Interfacial jump of 'u' [m/s]
-              jbv  = v(i,kb-1) - v(i,kb)                                      ! Interfacial jump of 'v' [m/s]
-              ch   = (1._r8 -sflh(i,kb-1))*chu(i,kb) + sflh(i,kb-1)*chs(i,kb) ! Buoyancy coefficient just above the base interface
-              cm   = (1._r8 -sflh(i,kb-1))*cmu(i,kb) + sflh(i,kb-1)*cms(i,kb) ! Buoyancy coefficient just above the base interface
-              n2hb = (ch*jbsl + cm*jbqt)/jbzm                                 ! Buoyancy frequency [s-2]
-                                                                              ! just above the base interface
-              vyb  = n2hb*jbzm/jbbu                                           ! Ratio of 'n2hb/n2' at 'kb' interface
-              vub  = min(1._r8,(jbu**2+jbv**2)/(jbbu*jbzm) )                  ! Ratio of 's2/n2 = 1/Ri' at 'kb' interface
-
-          else 
-
-            ! Below setting is necessary for consistent treatment when 'kb' is at the surface.
-              jbbu = 0._r8
-              n2hb = 0._r8
-              vyb  = 0._r8
-              vub  = 0._r8
-              web  = 0._r8
-
-          end if
-
-          ! Calculate basic cross-interface variables ( jump condition ) across the 
-          ! top external interface of CL. The meanings of variables are similar to
-          ! the ones at the base interface.
-
-          jtzm = z(i,kt-1) - z(i,kt)
-          jtsl = sl(i,kt-1) - sl(i,kt)
-          jtqt = qt(i,kt-1) - qt(i,kt)
-          jtbu = n2(i,kt)*jtzm                                      ! Note : 'jtbu' is guaranteed positive by definition of CL top.
-          jtbu = max(jtbu,jbumin)                                   ! But threshold it anyway to be sure.
-          jtu  = u(i,kt-1) - u(i,kt)
-          jtv  = v(i,kt-1) - v(i,kt)
-          ch   = (1._r8 -sfuh(i,kt))*chu(i,kt) + sfuh(i,kt)*chs(i,kt) 
-          cm   = (1._r8 -sfuh(i,kt))*cmu(i,kt) + sfuh(i,kt)*cms(i,kt) 
-          n2ht = (ch*jtsl + cm*jtqt)/jtzm                       
-          vyt  = n2ht*jtzm/jtbu                                  
-          vut  = min(1._r8,(jtu**2+jtv**2)/(jtbu*jtzm))             
-
-          ! Evaporative enhancement factor of entrainment rate at the CL top interface, evhc. 
-          ! We take the full inversion strength to be 'jt2slv = slv(i,kt-2)-slv(i,kt)' 
-          ! where 'kt-1' is in the ambiguous layer. However, for a cloud-topped CL overlain
-          ! by another CL, it is possible that 'slv(i,kt-2) < slv(i,kt)'. To avoid negative
-          ! or excessive evhc, we lower-bound jt2slv and upper-bound evhc.  Note 'jtslv' is
-          ! used only for calculating 'evhc' : when calculating entrainment rate,   we will
-          ! use normal interfacial buoyancy jump across CL top interface.
-
-          evhc   = 1._r8
-          jt2slv = 0._r8
-
-        ! Modification : I should check whether below 'jbumin' produces reasonable limiting value.   
-        !                In addition, our current formulation does not consider ice contribution. 
-
-          if( choice_evhc .eq. 'orig' ) then
-
-              if( ql(i,kt) .gt. qmin .and. ql(i,kt-1) .lt. qmin ) then 
-                  jt2slv = slv(i,max(kt-2,1)) - slv(i,kt)
-                  jt2slv = max( jt2slv, jbumin*slv(i,kt-1)/g )
-                  evhc   = 1._r8 + a2l * a3l * latvap * ql(i,kt) / jt2slv
-                  evhc   = min( evhc, evhcmax )
-              end if
-
-          elseif( choice_evhc .eq. 'ramp' ) then
-
-              jt2slv = slv(i,max(kt-2,1)) - slv(i,kt)
-              jt2slv = max( jt2slv, jbumin*slv(i,kt-1)/g )
-              evhc   = 1._r8 + max(cldeff(i,kt)-cldeff(i,kt-1),0._r8) * a2l * a3l * latvap * ql(i,kt) / jt2slv
-              evhc   = min( evhc, evhcmax )
-
-          elseif( choice_evhc .eq. 'maxi' ) then
-
-              qleff  = max( ql(i,kt-1), ql(i,kt) ) 
-              jt2slv = slv(i,max(kt-2,1)) - slv(i,kt)
-              jt2slv = max( jt2slv, jbumin*slv(i,kt-1)/g )
-              evhc   = 1._r8 + a2l * a3l * latvap * qleff / jt2slv
-              evhc   = min( evhc, evhcmax )
-
-          endif
-
-          ! ------------------------------------------------------------------- !
-          ! Calculate 'wstar3' by summing buoyancy productions within CL from   !
-          !   1. Interior buoyancy production ( bprod: fcn of TKE )             !
-          !   2. Cloud-top radiative cooling                                    !
-          !   3. Surface buoyancy flux contribution only when bflxs > 0.        !
-          !      Note that master length scale, lbulk, has already been         !
-          !      corrctly defined at the first part of this 'do ncv' loop       !
-          !      considering the sign of bflxs.                                 !
-          ! This 'wstar3' is used for calculation of entrainment rate.          !
-          ! Note that this 'wstar3' formula does not include shear production   !
-          ! and the effect of drizzle, which should be included later.          !
-          ! Q : Strictly speaking, in calculating interior buoyancy production, ! 
-          !     the use of 'bprod' is not correct, since 'bprod' is not correct !
-          !     value but initially guessed value.   More reasonably, we should ! 
-          !     use '-leng(i,k)*sqrt(b1*wcap(i,k))*shcl(i,ncv)*n2(i,k)' instead !
-          !     of 'bprod(i,k)', although this is still an  approximation since !
-          !     tke(i,k) is not exactly 'b1*wcap(i,k)'  due to a transport term.! 
-          !     However since iterative calculation will be performed after all,! 
-          !     below might also be OK. But I should test this alternative.     !
-          ! ------------------------------------------------------------------- !      
-
-          dzht   = zi(i,kt)  - z(i,kt)     ! Thickness of CL top half-layer
-          dzhb   = z(i,kb-1) - zi(i,kb)    ! Thickness of CL bot half-layer
-          wstar3 = radf * dzht
-          do k = kt + 1, kb - 1 ! If 'kt = kb - 1', this loop will not be performed. 
-               wstar3 =  wstar3 + bprod(i,k) * ( z(i,k-1) - z(i,k) )
-             ! Below is an alternative which may speed up convergence.
-             ! However, for interfaces merged into original CL, it can
-             ! be 'wcap(i,k)<0' since 'n2(i,k)>0'.  Thus, I should use
-             ! the above original one.
-             ! wstar3 =  wstar3 - leng(i,k)*sqrt(b1*wcap(i,k))*shcl(i,ncv)*n2(i,k)* &
-             !                    (z(i,k-1) - z(i,k))
-          end do      
-          if( kb .eq. (pver+1) .and. bflxs(i) .gt. 0._r8 ) then
-             wstar3 = wstar3 + bflxs(i) * dzhb
-           ! wstar3 = wstar3 + bprod(i,pver+1) * dzhb
-          end if   
-          wstar3 = max( 2.5_r8 * wstar3, 0._r8 )
-   
           ! -------------------------------------------------------------- !
           ! Below single block is for 'sedimentation-entrainment feedback' !
           ! -------------------------------------------------------------- !          
