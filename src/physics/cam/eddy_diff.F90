@@ -210,6 +210,8 @@
   logical                     :: caleddy_diaginit_impl_selected = .false.
   logical                     :: use_native_caleddy_regime_diag_impl = .false.
   logical                     :: caleddy_regime_diag_impl_selected = .false.
+  logical                     :: use_native_caleddy_stable_config_impl = .false.
+  logical                     :: caleddy_stable_config_impl_selected = .false.
   logical                     :: use_native_caleddy_surface_tke_impl = .false.
   logical                     :: caleddy_surface_tke_impl_selected = .false.
   logical                     :: use_native_caleddy_clprep_impl = .false.
@@ -3277,6 +3279,114 @@
   !                                                                                !
   !=============================================================================== !
 
+  subroutine eddy_diff_caleddy_stable_config_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (caleddy_stable_config_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_CALEDDY_STABLE_CONFIG_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_caleddy_stable_config_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_caleddy_stable_config_impl = .false.
+    end if
+
+    caleddy_stable_config_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_caleddy_stable_config_impl) then
+          write(iulog,*) 'eddy_diff_caleddy_stable_config implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_caleddy_stable_config implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_caleddy_stable_config_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_stable_config(ricrit_local, b1_local, alph2_local, alph3_local, alph4_local, alph5_local, &
+       alph4exs_local, ghmin_local)
+
+    use iso_c_binding, only: c_double, c_loc, c_ptr
+
+    implicit none
+
+    real(r8), intent(in) :: ricrit_local, b1_local, alph2_local, alph3_local, alph4_local, alph5_local
+    real(r8), target, intent(out) :: alph4exs_local, ghmin_local
+    integer(i4), target :: stable_config_status_local
+
+    interface
+       subroutine eddy_diff_caleddy_stable_config_codon(ricrit_c, b1_c, alph2_c, alph3_c, alph4_c, alph5_c, alph4exs_p, &
+            ghmin_p, status_p) bind(c, name="eddy_diff_caleddy_stable_config_codon")
+         use iso_c_binding, only: c_double, c_ptr
+         real(c_double), value :: ricrit_c, b1_c, alph2_c, alph3_c, alph4_c, alph5_c
+         type(c_ptr), value :: alph4exs_p, ghmin_p, status_p
+       end subroutine eddy_diff_caleddy_stable_config_codon
+    end interface
+
+    stable_config_status_local = 0_i4
+
+    call eddy_diff_caleddy_stable_config_select_impl()
+
+    if (use_native_caleddy_stable_config_impl) then
+       call eddy_diff_caleddy_stable_config_native(ricrit_local, b1_local, alph2_local, alph3_local, alph4_local, &
+            alph5_local, alph4exs_local, ghmin_local, stable_config_status_local)
+    else
+       call eddy_diff_caleddy_stable_config_codon(ricrit_local, b1_local, alph2_local, alph3_local, alph4_local, alph5_local, &
+            c_loc(alph4exs_local), c_loc(ghmin_local), c_loc(stable_config_status_local))
+    end if
+
+    if (stable_config_status_local .ne. 0_i4) then
+       write(iulog,*) 'Error : ricrit should be larger than 0.19 in UW PBL'
+       call endrun('CALEDDY Error: ricrit should be larger than 0.19 in UW PBL')
+    end if
+
+  end subroutine eddy_diff_caleddy_stable_config
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_stable_config_native(ricrit_local, b1_local, alph2_local, alph3_local, alph4_local, alph5_local, &
+       alph4exs_local, ghmin_local, stable_config_status_local)
+
+    implicit none
+
+    real(r8), intent(in) :: ricrit_local, b1_local, alph2_local, alph3_local, alph4_local, alph5_local
+    real(r8), intent(out) :: alph4exs_local, ghmin_local
+    integer(i4), intent(out) :: stable_config_status_local
+
+    stable_config_status_local = 0_i4
+
+    if( ricrit_local .eq. 0.19_r8 ) then
+        alph4exs_local = alph4_local
+        ghmin_local    = -3.5334_r8
+    elseif( ricrit_local .gt. 0.19_r8 ) then
+        alph4exs_local = -2._r8 * b1_local * alph2_local / ( alph3_local - 2._r8 * b1_local * alph5_local ) / ricrit_local
+        ghmin_local    = -1.e10_r8
+    else
+        stable_config_status_local = 1_i4
+    endif
+
+  end subroutine eddy_diff_caleddy_stable_config_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
   subroutine eddy_diff_caleddy_surface_tke_select_impl()
 
     character(len=32) :: impl_name
@@ -5366,16 +5476,7 @@
     ! For an extended stability function in the stable regime, re-define
     ! alph4exe and ghmin. This is for future work.
 
-    if( ricrit .eq. 0.19_r8 ) then
-        alph4exs = alph4
-        ghmin    = -3.5334_r8
-    elseif( ricrit .gt. 0.19_r8 ) then
-        alph4exs = -2._r8 * b1 * alph2 / ( alph3 - 2._r8 * b1 * alph5 ) / ricrit
-        ghmin    = -1.e10_r8
-    else
-        write(iulog,*) 'Error : ricrit should be larger than 0.19 in UW PBL'
-        call endrun('CALEDDY Error: ricrit should be larger than 0.19 in UW PBL')
-    endif
+    call eddy_diff_caleddy_stable_config(ricrit, b1, alph2, alph3, alph4, alph5, alph4exs, ghmin)
 
     tunl_mode = 0
     if( choice_tunl .eq. 'rampcl' ) then

@@ -1016,6 +1016,34 @@ def eddy_diff_caleddy_regime_diag_codon(
 
 
 @export
+def eddy_diff_caleddy_stable_config_codon(
+    ricrit: float,
+    b1: float,
+    alph2: float,
+    alph3: float,
+    alph4: float,
+    alph5: float,
+    alph4exs_p: cobj,
+    ghmin_p: cobj,
+    status_p: cobj,
+):
+    alph4exs = Ptr[float](alph4exs_p)
+    ghmin = Ptr[float](ghmin_p)
+    status = Ptr[i32](status_p)
+
+    status[0] = i32(0)
+
+    if ricrit == 0.19:
+        alph4exs[0] = alph4
+        ghmin[0] = -3.5334
+    elif ricrit > 0.19:
+        alph4exs[0] = -2.0 * b1 * alph2 / (alph3 - 2.0 * b1 * alph5) / ricrit
+        ghmin[0] = -1.0e10
+    else:
+        status[0] = i32(1)
+
+
+@export
 def eddy_diff_caleddy_surface_tke_codon(
     i_col: int,
     pcols: int,
