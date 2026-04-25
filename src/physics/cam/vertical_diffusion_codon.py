@@ -1,6 +1,6 @@
 from C import eddy_diff_estblf_cb(float) -> float
 from C import eddy_diff_svp_to_qsat_cb(float, float) -> float
-from math import sqrt
+from math import exp, log, sqrt
 
 
 @export
@@ -1077,6 +1077,274 @@ def eddy_diff_caleddy_srcl_codon(
                             bprod[_idx2(i, pver + 1, pcols)] / sprod[_idx2(i, pver + 1, pcols)]
                         )
                         ncvsurf[0] = i32(ncvnew)
+
+
+@inline
+def _eddy_diff_tunlramp_stl(tunl_mode: int, ctunl: float, tunl: float, ri_val: float, ricrit: float) -> float:
+    if tunl_mode == 2:
+        return max(1.0e-3, ctunl * tunl * exp(-log(ctunl) * ri_val / ricrit))
+    return tunl
+
+
+@inline
+def _eddy_diff_leng_stl(
+    leng_mode: int,
+    vk: float,
+    zi_val: float,
+    tunlramp: float,
+    lbulk: float,
+    cleng: float,
+    leng_max_val: float,
+) -> float:
+    if leng_mode == 0:
+        leng_val = ((vk * zi_val) ** (-cleng) + (tunlramp * lbulk) ** (-cleng)) ** (-1.0 / cleng)
+    else:
+        leng_val = min(vk * zi_val, tunlramp * lbulk)
+    return min(leng_max_val, leng_val)
+
+
+@export
+def eddy_diff_caleddy_stl_codon(
+    i_col: int,
+    pcols: int,
+    pver: int,
+    ncvmax: int,
+    tunl_mode: int,
+    leng_mode: int,
+    ricrit: float,
+    tunl: float,
+    ctunl: float,
+    cleng: float,
+    lbulk_max: float,
+    tkemax: float,
+    b1: float,
+    ae: float,
+    alph1: float,
+    alph2: float,
+    alph3: float,
+    alph4exs: float,
+    alph5: float,
+    ghmin: float,
+    vk: float,
+    fak: float,
+    cpair: float,
+    ri_p: cobj,
+    z_p: cobj,
+    zi_p: cobj,
+    pi_p: cobj,
+    n2_p: cobj,
+    s2_p: cobj,
+    shflx_p: cobj,
+    qflx_p: cobj,
+    rrho_p: cobj,
+    ustar_p: cobj,
+    leng_max_p: cobj,
+    ncvfin_p: cobj,
+    ktop_p: cobj,
+    kbase_p: cobj,
+    kvh_p: cobj,
+    kvm_p: cobj,
+    leng_p: cobj,
+    tke_p: cobj,
+    wcap_p: cobj,
+    bprod_p: cobj,
+    sprod_p: cobj,
+    turbtype_p: cobj,
+    sm_aw_p: cobj,
+    pblh_p: cobj,
+    pblhp_p: cobj,
+    wpert_p: cobj,
+    tpert_p: cobj,
+    qpert_p: cobj,
+    ipbl_p: cobj,
+    kpblh_p: cobj,
+    clmask_p: cobj,
+    stlmask_p: cobj,
+):
+    ri = Ptr[float](ri_p)
+    z = Ptr[float](z_p)
+    zi = Ptr[float](zi_p)
+    pi = Ptr[float](pi_p)
+    n2 = Ptr[float](n2_p)
+    s2 = Ptr[float](s2_p)
+    shflx = Ptr[float](shflx_p)
+    qflx = Ptr[float](qflx_p)
+    rrho = Ptr[float](rrho_p)
+    ustar = Ptr[float](ustar_p)
+    leng_max = Ptr[float](leng_max_p)
+    ncvfin = Ptr[i32](ncvfin_p)
+    ktop = Ptr[i32](ktop_p)
+    kbase = Ptr[i32](kbase_p)
+    kvh = Ptr[float](kvh_p)
+    kvm = Ptr[float](kvm_p)
+    leng = Ptr[float](leng_p)
+    tke = Ptr[float](tke_p)
+    wcap = Ptr[float](wcap_p)
+    bprod = Ptr[float](bprod_p)
+    sprod = Ptr[float](sprod_p)
+    turbtype = Ptr[i32](turbtype_p)
+    sm_aw = Ptr[float](sm_aw_p)
+    pblh = Ptr[float](pblh_p)
+    pblhp = Ptr[float](pblhp_p)
+    wpert = Ptr[float](wpert_p)
+    tpert = Ptr[float](tpert_p)
+    qpert = Ptr[float](qpert_p)
+    ipbl = Ptr[i32](ipbl_p)
+    kpblh = Ptr[i32](kpblh_p)
+    clmask = Ptr[i32](clmask_p)
+    stlmask = Ptr[i32](stlmask_p)
+
+    i = i_col
+    ncvfin_i = int(ncvfin[i - 1])
+
+    for k in range(1, pver + 2):
+        clmask[k - 1] = i32(0)
+        stlmask[k - 1] = i32(0)
+
+    for ncv in range(1, ncvfin_i + 1):
+        kt = int(ktop[_idx2(i, ncv, pcols)])
+        kb = int(kbase[_idx2(i, ncv, pcols)])
+        for k in range(kt, kb + 1):
+            clmask[k - 1] = i32(1)
+
+    stlmask[0] = i32(0)
+    for k in range(2, pver + 1):
+        idx = _idx2(i, k, pcols)
+        if ri[idx] < ricrit and clmask[k - 1] == i32(0):
+            stlmask[k - 1] = i32(1)
+        else:
+            stlmask[k - 1] = i32(0)
+
+        if stlmask[k - 1] != i32(0) and stlmask[k - 2] == i32(0):
+            kt = k
+        elif stlmask[k - 1] == i32(0) and stlmask[k - 2] != i32(0):
+            kb = k - 1
+            lbulk = z[_idx2(i, kt - 1, pcols)] - z[_idx2(i, kb, pcols)]
+            lbulk = min(lbulk, lbulk_max)
+            for ks in range(kt, kb + 1):
+                tunlramp = _eddy_diff_tunlramp_stl(
+                    tunl_mode,
+                    ctunl,
+                    tunl,
+                    ri[_idx2(i, ks, pcols)],
+                    ricrit,
+                )
+                leng[_idx2(i, ks, pcols)] = _eddy_diff_leng_stl(
+                    leng_mode,
+                    vk,
+                    zi[_idx2(i, ks, pcols)],
+                    tunlramp,
+                    lbulk,
+                    cleng,
+                    leng_max[ks - 1],
+                )
+
+    if clmask[pver] == i32(0):
+        stlmask[pver] = i32(1)
+    else:
+        stlmask[pver] = i32(0)
+
+    if stlmask[pver] != i32(0):
+        turbtype[_idx2(i, pver + 1, pcols)] = i32(1)
+
+        if stlmask[pver - 1] != i32(0):
+            lbulk = z[_idx2(i, kt - 1, pcols)]
+        else:
+            kt = pver + 1
+            lbulk = z[_idx2(i, kt - 1, pcols)]
+        lbulk = min(lbulk, lbulk_max)
+
+        ktopbl = kt - 1
+        pblh[i - 1] = z[_idx2(i, ktopbl, pcols)]
+        pblhp[i - 1] = 0.5 * (pi[_idx2(i, ktopbl, pcols)] + pi[_idx2(i, ktopbl + 1, pcols)])
+
+        for ks in range(kt, pver + 1):
+            tunlramp = _eddy_diff_tunlramp_stl(
+                tunl_mode,
+                ctunl,
+                tunl,
+                ri[_idx2(i, ks, pcols)],
+                ricrit,
+            )
+            leng[_idx2(i, ks, pcols)] = _eddy_diff_leng_stl(
+                leng_mode,
+                vk,
+                zi[_idx2(i, ks, pcols)],
+                tunlramp,
+                lbulk,
+                cleng,
+                leng_max[ks - 1],
+            )
+
+        wpert[i - 1] = 0.0
+        tpert[i - 1] = max(shflx[i - 1] * rrho[i - 1] / cpair * fak / ustar[i - 1], 0.0)
+        qpert[i - 1] = max(qflx[i - 1] * rrho[i - 1] * fak / ustar[i - 1], 0.0)
+
+        ipbl[i - 1] = i32(0)
+        kpblh[i - 1] = i32(ktopbl)
+
+    for k in range(2, pver + 1):
+        if stlmask[k - 1] != i32(0):
+            idx = _idx2(i, k, pcols)
+            turbtype[idx] = i32(1)
+            trma = alph3 * alph4exs * ri[idx] + 2.0 * b1 * (alph2 - alph4exs * alph5 * ri[idx])
+            trmb = (alph3 + alph4exs) * ri[idx] + 2.0 * b1 * (-alph5 * ri[idx] + alph1)
+            trmc = ri[idx]
+            det = max(trmb * trmb - 4.0 * trma * trmc, 0.0)
+            gh = (-trmb + sqrt(det)) / (2.0 * trma)
+            gh = min(max(gh, ghmin), 0.0233)
+            sh = max(0.0, alph5 / (1.0 + alph3 * gh))
+            sm = max(0.0, (alph1 + alph2 * gh) / (1.0 + alph3 * gh) / (1.0 + alph4exs * gh))
+
+            tke[idx] = b1 * (leng[idx] ** 2) * (-sh * n2[idx] + sm * s2[idx])
+            tke[idx] = min(tke[idx], tkemax)
+            wcap[idx] = tke[idx] / b1
+            kvh[idx] = leng[idx] * sqrt(tke[idx]) * sh
+            kvm[idx] = leng[idx] * sqrt(tke[idx]) * sm
+            bprod[idx] = -kvh[idx] * n2[idx]
+            sprod[idx] = kvm[idx] * s2[idx]
+            sm_aw[idx] = sm / alph1
+
+    for k in range(2, pver + 1):
+        idx = _idx2(i, k, pcols)
+        if turbtype[idx] == i32(3) or turbtype[idx] == i32(4) or turbtype[idx] == i32(5):
+            trma = alph3 * alph4exs * ri[idx] + 2.0 * b1 * (alph2 - alph4exs * alph5 * ri[idx])
+            trmb = (alph3 + alph4exs) * ri[idx] + 2.0 * b1 * (-alph5 * ri[idx] + alph1)
+            trmc = ri[idx]
+            det = max(trmb * trmb - 4.0 * trma * trmc, 0.0)
+            gh = (-trmb + sqrt(det)) / (2.0 * trma)
+            gh = min(max(gh, ghmin), 0.0233)
+            sh = max(0.0, alph5 / (1.0 + alph3 * gh))
+            sm = max(0.0, (alph1 + alph2 * gh) / (1.0 + alph3 * gh) / (1.0 + alph4exs * gh))
+
+            lbulk = z[_idx2(i, k - 1, pcols)] - z[_idx2(i, k, pcols)]
+            lbulk = min(lbulk, lbulk_max)
+            tunlramp = _eddy_diff_tunlramp_stl(tunl_mode, ctunl, tunl, ri[idx], ricrit)
+            leng_imsi = _eddy_diff_leng_stl(
+                leng_mode,
+                vk,
+                zi[_idx2(i, k, pcols)],
+                tunlramp,
+                lbulk,
+                cleng,
+                leng_max[k - 1],
+            )
+
+            tke_imsi = b1 * (leng_imsi ** 2) * (-sh * n2[idx] + sm * s2[idx])
+            tke_imsi = min(max(tke_imsi, 0.0), tkemax)
+            kvh_imsi = leng_imsi * sqrt(tke_imsi) * sh
+            kvm_imsi = leng_imsi * sqrt(tke_imsi) * sm
+
+            if kvh[idx] < kvh_imsi:
+                kvh[idx] = kvh_imsi
+                kvm[idx] = kvm_imsi
+                leng[idx] = leng_imsi
+                tke[idx] = tke_imsi
+                wcap[idx] = tke_imsi / b1
+                bprod[idx] = -kvh_imsi * n2[idx]
+                sprod[idx] = kvm_imsi * s2[idx]
+                sm_aw[idx] = sm / alph1
+                turbtype[idx] = i32(1)
 
 
 @export

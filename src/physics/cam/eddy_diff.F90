@@ -206,6 +206,8 @@
   logical                     :: compute_radf_impl_selected = .false.
   logical                     :: use_native_caleddy_srcl_impl = .false.
   logical                     :: caleddy_srcl_impl_selected = .false.
+  logical                     :: use_native_caleddy_stl_impl = .false.
+  logical                     :: caleddy_stl_impl_selected = .false.
 
   CONTAINS
 
@@ -3199,6 +3201,322 @@
 
   end subroutine eddy_diff_caleddy_srcl_native
 
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_stl_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (caleddy_stl_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_CALEDDY_STL_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_caleddy_stl_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_caleddy_stl_impl = .false.
+    end if
+
+    caleddy_stl_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_caleddy_stl_impl) then
+          write(iulog,*) 'eddy_diff_caleddy_stl implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_caleddy_stl implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_caleddy_stl_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_stl(i_local, pcols_local, pver_local, ncvmax_local, tunl_mode_local, leng_mode_local, &
+       ricrit_local, tunl_local, ctunl_local, cleng_local, lbulk_max_local, tkemax_local, b1_local, ae_local, alph1_local, &
+       alph2_local, alph3_local, alph4exs_local, alph5_local, ghmin_local, vk_local, fak_local, cpair_local, ri_local, &
+       z_local, zi_local, pi_local, n2_local, s2_local, shflx_local, qflx_local, rrho_local, ustar_local, leng_max_local, &
+       ncvfin_local, ktop_local, kbase_local, kvh_local, kvm_local, leng_local, tke_local, wcap_local, bprod_local, &
+       sprod_local, turbtype_local, sm_aw_local, pblh_local, pblhp_local, wpert_local, tpert_local, qpert_local, &
+       ipbl_local, kpblh_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: i_local, pcols_local, pver_local, ncvmax_local
+    integer, intent(in) :: tunl_mode_local, leng_mode_local
+    real(r8), intent(in) :: ricrit_local, tunl_local, ctunl_local, cleng_local, lbulk_max_local, tkemax_local
+    real(r8), intent(in) :: b1_local, ae_local, alph1_local, alph2_local, alph3_local, alph4exs_local, alph5_local
+    real(r8), intent(in) :: ghmin_local, vk_local, fak_local, cpair_local
+    real(r8), target, intent(in) :: ri_local(pcols_local,pver_local), z_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: zi_local(pcols_local,pver_local+1), pi_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: n2_local(pcols_local,pver_local), s2_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: shflx_local(pcols_local), qflx_local(pcols_local), rrho_local(pcols_local)
+    real(r8), target, intent(in) :: ustar_local(pcols_local), leng_max_local(pver_local+1)
+    integer(i4), target, intent(in) :: ncvfin_local(pcols_local), ktop_local(pcols_local,ncvmax_local)
+    integer(i4), target, intent(in) :: kbase_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: kvh_local(pcols_local,pver_local+1), kvm_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: leng_local(pcols_local,pver_local+1), tke_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: wcap_local(pcols_local,pver_local+1), bprod_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: sprod_local(pcols_local,pver_local+1), sm_aw_local(pcols_local,pver_local+1)
+    integer(i4), target, intent(inout) :: turbtype_local(pcols_local,pver_local+1), ipbl_local(pcols_local), kpblh_local(pcols_local)
+    real(r8), target, intent(inout) :: pblh_local(pcols_local), pblhp_local(pcols_local), wpert_local(pcols_local)
+    real(r8), target, intent(inout) :: tpert_local(pcols_local), qpert_local(pcols_local)
+
+    integer(i4), target :: clmask_local(pver_local+1), stlmask_local(pver_local+1)
+
+    interface
+       subroutine eddy_diff_caleddy_stl_codon(i_c, pcols_c, pver_c, ncvmax_c, tunl_mode_c, leng_mode_c, ricrit_c, tunl_c, &
+            ctunl_c, cleng_c, lbulk_max_c, tkemax_c, b1_c, ae_c, alph1_c, alph2_c, alph3_c, alph4exs_c, alph5_c, ghmin_c, &
+            vk_c, fak_c, cpair_c, ri_p, z_p, zi_p, pi_p, n2_p, s2_p, shflx_p, qflx_p, rrho_p, ustar_p, leng_max_p, &
+            ncvfin_p, ktop_p, kbase_p, kvh_p, kvm_p, leng_p, tke_p, wcap_p, bprod_p, sprod_p, turbtype_p, sm_aw_p, pblh_p, &
+            pblhp_p, wpert_p, tpert_p, qpert_p, ipbl_p, kpblh_p, clmask_p, stlmask_p) bind(c, name="eddy_diff_caleddy_stl_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: i_c, pcols_c, pver_c, ncvmax_c, tunl_mode_c, leng_mode_c
+         real(c_double), value :: ricrit_c, tunl_c, ctunl_c, cleng_c, lbulk_max_c, tkemax_c, b1_c, ae_c, alph1_c, alph2_c
+         real(c_double), value :: alph3_c, alph4exs_c, alph5_c, ghmin_c, vk_c, fak_c, cpair_c
+         type(c_ptr), value :: ri_p, z_p, zi_p, pi_p, n2_p, s2_p, shflx_p, qflx_p, rrho_p, ustar_p, leng_max_p
+         type(c_ptr), value :: ncvfin_p, ktop_p, kbase_p, kvh_p, kvm_p, leng_p, tke_p, wcap_p, bprod_p, sprod_p
+         type(c_ptr), value :: turbtype_p, sm_aw_p, pblh_p, pblhp_p, wpert_p, tpert_p, qpert_p, ipbl_p, kpblh_p
+         type(c_ptr), value :: clmask_p, stlmask_p
+       end subroutine eddy_diff_caleddy_stl_codon
+    end interface
+
+    call eddy_diff_caleddy_stl_select_impl()
+
+    if (use_native_caleddy_stl_impl) then
+       call eddy_diff_caleddy_stl_native(i_local, pcols_local, pver_local, ncvmax_local, tunl_mode_local, leng_mode_local, &
+            ricrit_local, tunl_local, ctunl_local, cleng_local, lbulk_max_local, tkemax_local, b1_local, ae_local, &
+            alph1_local, alph2_local, alph3_local, alph4exs_local, alph5_local, ghmin_local, vk_local, fak_local, &
+            cpair_local, ri_local, z_local, zi_local, pi_local, n2_local, s2_local, shflx_local, qflx_local, rrho_local, &
+            ustar_local, leng_max_local, ncvfin_local, ktop_local, kbase_local, kvh_local, kvm_local, leng_local, tke_local, &
+            wcap_local, bprod_local, sprod_local, turbtype_local, sm_aw_local, pblh_local, pblhp_local, wpert_local, &
+            tpert_local, qpert_local, ipbl_local, kpblh_local)
+       return
+    end if
+
+    call eddy_diff_caleddy_stl_codon(int(i_local, c_int64_t), int(pcols_local, c_int64_t), int(pver_local, c_int64_t), &
+         int(ncvmax_local, c_int64_t), int(tunl_mode_local, c_int64_t), int(leng_mode_local, c_int64_t), ricrit_local, &
+         tunl_local, ctunl_local, cleng_local, lbulk_max_local, tkemax_local, b1_local, ae_local, alph1_local, alph2_local, &
+         alph3_local, alph4exs_local, alph5_local, ghmin_local, vk_local, fak_local, cpair_local, c_loc(ri_local), &
+         c_loc(z_local), c_loc(zi_local), c_loc(pi_local), c_loc(n2_local), c_loc(s2_local), c_loc(shflx_local), &
+         c_loc(qflx_local), c_loc(rrho_local), c_loc(ustar_local), c_loc(leng_max_local), c_loc(ncvfin_local), c_loc(ktop_local), &
+         c_loc(kbase_local), c_loc(kvh_local), c_loc(kvm_local), c_loc(leng_local), c_loc(tke_local), c_loc(wcap_local), &
+         c_loc(bprod_local), c_loc(sprod_local), c_loc(turbtype_local), c_loc(sm_aw_local), c_loc(pblh_local), &
+         c_loc(pblhp_local), c_loc(wpert_local), c_loc(tpert_local), c_loc(qpert_local), c_loc(ipbl_local), c_loc(kpblh_local), &
+         c_loc(clmask_local), c_loc(stlmask_local))
+
+  end subroutine eddy_diff_caleddy_stl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_stl_native(i_local, pcols_local, pver_local, ncvmax_local, tunl_mode_local, leng_mode_local, &
+       ricrit_local, tunl_local, ctunl_local, cleng_local, lbulk_max_local, tkemax_local, b1_local, ae_local, alph1_local, &
+       alph2_local, alph3_local, alph4exs_local, alph5_local, ghmin_local, vk_local, fak_local, cpair_local, ri_local, &
+       z_local, zi_local, pi_local, n2_local, s2_local, shflx_local, qflx_local, rrho_local, ustar_local, leng_max_local, &
+       ncvfin_local, ktop_local, kbase_local, kvh_local, kvm_local, leng_local, tke_local, wcap_local, bprod_local, &
+       sprod_local, turbtype_local, sm_aw_local, pblh_local, pblhp_local, wpert_local, tpert_local, qpert_local, &
+       ipbl_local, kpblh_local)
+
+    implicit none
+
+    integer, intent(in) :: i_local, pcols_local, pver_local, ncvmax_local
+    integer, intent(in) :: tunl_mode_local, leng_mode_local
+    real(r8), intent(in) :: ricrit_local, tunl_local, ctunl_local, cleng_local, lbulk_max_local, tkemax_local
+    real(r8), intent(in) :: b1_local, ae_local, alph1_local, alph2_local, alph3_local, alph4exs_local, alph5_local
+    real(r8), intent(in) :: ghmin_local, vk_local, fak_local, cpair_local
+    real(r8), intent(in) :: ri_local(pcols_local,pver_local), z_local(pcols_local,pver_local)
+    real(r8), intent(in) :: zi_local(pcols_local,pver_local+1), pi_local(pcols_local,pver_local+1)
+    real(r8), intent(in) :: n2_local(pcols_local,pver_local), s2_local(pcols_local,pver_local)
+    real(r8), intent(in) :: shflx_local(pcols_local), qflx_local(pcols_local), rrho_local(pcols_local)
+    real(r8), intent(in) :: ustar_local(pcols_local), leng_max_local(pver_local+1)
+    integer(i4), intent(in) :: ncvfin_local(pcols_local), ktop_local(pcols_local,ncvmax_local)
+    integer(i4), intent(in) :: kbase_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: kvh_local(pcols_local,pver_local+1), kvm_local(pcols_local,pver_local+1)
+    real(r8), intent(inout) :: leng_local(pcols_local,pver_local+1), tke_local(pcols_local,pver_local+1)
+    real(r8), intent(inout) :: wcap_local(pcols_local,pver_local+1), bprod_local(pcols_local,pver_local+1)
+    real(r8), intent(inout) :: sprod_local(pcols_local,pver_local+1), sm_aw_local(pcols_local,pver_local+1)
+    integer(i4), intent(inout) :: turbtype_local(pcols_local,pver_local+1), ipbl_local(pcols_local), kpblh_local(pcols_local)
+    real(r8), intent(inout) :: pblh_local(pcols_local), pblhp_local(pcols_local), wpert_local(pcols_local)
+    real(r8), intent(inout) :: tpert_local(pcols_local), qpert_local(pcols_local)
+
+    logical :: belongcv_local(pver_local+1), belongst_local(pver_local+1)
+    integer :: k, ks, ncv, kt, kb, ktopbl_local
+    real(r8) :: tunlramp, lbulk, gh, sh, sm
+    real(r8) :: trma, trmb, trmc, det
+    real(r8) :: leng_imsi, tke_imsi, kvh_imsi, kvm_imsi
+
+    belongcv_local(:) = .false.
+    belongst_local(:) = .false.
+
+    do ncv = 1, ncvfin_local(i_local)
+       do k = ktop_local(i_local,ncv), kbase_local(i_local,ncv)
+          belongcv_local(k) = .true.
+       end do
+    end do
+
+    belongst_local(1) = .false.
+    do k = 2, pver_local
+       belongst_local(k) = ( ri_local(i_local,k) .lt. ricrit_local ) .and. ( .not. belongcv_local(k) )
+       if( belongst_local(k) .and. ( .not. belongst_local(k-1) ) ) then
+           kt = k
+       elseif( .not. belongst_local(k) .and. belongst_local(k-1) ) then
+           kb = k - 1
+           lbulk = z_local(i_local,kt-1) - z_local(i_local,kb)
+           lbulk = min( lbulk, lbulk_max_local )
+           do ks = kt, kb
+              if( tunl_mode_local .eq. 2 ) then
+                  tunlramp = max(1.e-3_r8,ctunl_local*tunl_local*exp(-log(ctunl_local)*ri_local(i_local,ks)/ricrit_local))
+              else
+                  tunlramp = tunl_local
+              endif
+              if( leng_mode_local .eq. 0 ) then
+                  leng_local(i_local,ks) = ( (vk_local*zi_local(i_local,ks))**(-cleng_local) + &
+                       (tunlramp*lbulk)**(-cleng_local) )**(-1._r8/cleng_local)
+              else
+                  leng_local(i_local,ks) = min( vk_local*zi_local(i_local,ks), tunlramp*lbulk )
+              endif
+              leng_local(i_local,ks) = min(leng_max_local(ks), leng_local(i_local,ks))
+           end do
+       end if
+    end do
+
+    belongst_local(pver_local+1) = .not. belongcv_local(pver_local+1)
+
+    if( belongst_local(pver_local+1) ) then
+
+        turbtype_local(i_local,pver_local+1) = 1
+
+        if( belongst_local(pver_local) ) then
+            lbulk = z_local(i_local,kt-1)
+        else
+            kt = pver_local+1
+            lbulk = z_local(i_local,kt-1)
+        end if
+        lbulk = min( lbulk, lbulk_max_local )
+
+        ktopbl_local = kt - 1
+        pblh_local(i_local) = z_local(i_local,ktopbl_local)
+        pblhp_local(i_local) = 0.5_r8 * ( pi_local(i_local,ktopbl_local) + pi_local(i_local,ktopbl_local+1) )
+
+        do ks = kt, pver_local
+           if( tunl_mode_local .eq. 2 ) then
+               tunlramp = max(1.e-3_r8,ctunl_local*tunl_local*exp(-log(ctunl_local)*ri_local(i_local,ks)/ricrit_local))
+           else
+               tunlramp = tunl_local
+           endif
+           if( leng_mode_local .eq. 0 ) then
+               leng_local(i_local,ks) = ( (vk_local*zi_local(i_local,ks))**(-cleng_local) + &
+                    (tunlramp*lbulk)**(-cleng_local) )**(-1._r8/cleng_local)
+           else
+               leng_local(i_local,ks) = min( vk_local*zi_local(i_local,ks), tunlramp*lbulk )
+           endif
+           leng_local(i_local,ks) = min(leng_max_local(ks), leng_local(i_local,ks))
+        end do
+
+        wpert_local(i_local) = 0._r8
+        tpert_local(i_local) = max(shflx_local(i_local)*rrho_local(i_local)/cpair_local*fak_local/ustar_local(i_local),0._r8)
+        qpert_local(i_local) = max(qflx_local(i_local)*rrho_local(i_local)*fak_local/ustar_local(i_local),0._r8)
+
+        ipbl_local(i_local) = 0
+        kpblh_local(i_local) = ktopbl_local
+
+    end if
+
+    do k = 2, pver_local
+
+       if( belongst_local(k) ) then
+
+           turbtype_local(i_local,k) = 1
+           trma = alph3_local*alph4exs_local*ri_local(i_local,k) + 2._r8*b1_local*(alph2_local-alph4exs_local*alph5_local*ri_local(i_local,k))
+           trmb = (alph3_local+alph4exs_local)*ri_local(i_local,k) + 2._r8*b1_local*(-alph5_local*ri_local(i_local,k)+alph1_local)
+           trmc = ri_local(i_local,k)
+           det = max(trmb*trmb-4._r8*trma*trmc,0._r8)
+           gh = (-trmb + sqrt(det))/(2._r8*trma)
+           gh = min(max(gh,ghmin_local),0.0233_r8)
+           sh = max(0._r8,alph5_local/(1._r8+alph3_local*gh))
+           sm = max(0._r8,(alph1_local + alph2_local*gh)/(1._r8+alph3_local*gh)/(1._r8+alph4exs_local*gh))
+
+           tke_local(i_local,k) = b1_local*(leng_local(i_local,k)**2)*(-sh*n2_local(i_local,k)+sm*s2_local(i_local,k))
+           tke_local(i_local,k) = min(tke_local(i_local,k),tkemax_local)
+           wcap_local(i_local,k) = tke_local(i_local,k)/b1_local
+           kvh_local(i_local,k) = leng_local(i_local,k) * sqrt(tke_local(i_local,k)) * sh
+           kvm_local(i_local,k) = leng_local(i_local,k) * sqrt(tke_local(i_local,k)) * sm
+           bprod_local(i_local,k) = -kvh_local(i_local,k) * n2_local(i_local,k)
+           sprod_local(i_local,k) = kvm_local(i_local,k) * s2_local(i_local,k)
+
+           sm_aw_local(i_local,k) = sm/alph1_local
+
+       end if
+
+    end do
+
+    do k = 2, pver_local
+
+       if( ( turbtype_local(i_local,k) .eq. 3 ) .or. ( turbtype_local(i_local,k) .eq. 4 ) .or. &
+           ( turbtype_local(i_local,k) .eq. 5 ) ) then
+
+           trma = alph3_local*alph4exs_local*ri_local(i_local,k) + 2._r8*b1_local*(alph2_local-alph4exs_local*alph5_local*ri_local(i_local,k))
+           trmb = (alph3_local+alph4exs_local)*ri_local(i_local,k) + 2._r8*b1_local*(-alph5_local*ri_local(i_local,k)+alph1_local)
+           trmc = ri_local(i_local,k)
+           det  = max(trmb*trmb-4._r8*trma*trmc,0._r8)
+           gh   = (-trmb + sqrt(det))/(2._r8*trma)
+           gh   = min(max(gh,ghmin_local),0.0233_r8)
+           sh   = max(0._r8,alph5_local/(1._r8+alph3_local*gh))
+           sm   = max(0._r8,(alph1_local + alph2_local*gh)/(1._r8+alph3_local*gh)/(1._r8+alph4exs_local*gh))
+
+           lbulk = z_local(i_local,k-1) - z_local(i_local,k)
+           lbulk = min( lbulk, lbulk_max_local )
+
+           if( tunl_mode_local .eq. 2 ) then
+               tunlramp = max(1.e-3_r8,ctunl_local*tunl_local*exp(-log(ctunl_local)*ri_local(i_local,k)/ricrit_local))
+           else
+               tunlramp = tunl_local
+           endif
+           if( leng_mode_local .eq. 0 ) then
+               leng_imsi = ( (vk_local*zi_local(i_local,k))**(-cleng_local) + (tunlramp*lbulk)**(-cleng_local) )**(-1._r8/cleng_local)
+           else
+               leng_imsi = min( vk_local*zi_local(i_local,k), tunlramp*lbulk )
+           endif
+           leng_imsi = min(leng_max_local(k), leng_imsi)
+
+           tke_imsi = b1_local*(leng_imsi**2)*(-sh*n2_local(i_local,k)+sm*s2_local(i_local,k))
+           tke_imsi = min(max(tke_imsi,0._r8),tkemax_local)
+           kvh_imsi = leng_imsi * sqrt(tke_imsi) * sh
+           kvm_imsi = leng_imsi * sqrt(tke_imsi) * sm
+
+           if( kvh_local(i_local,k) .lt. kvh_imsi ) then
+               kvh_local(i_local,k) = kvh_imsi
+               kvm_local(i_local,k) = kvm_imsi
+               leng_local(i_local,k) = leng_imsi
+               tke_local(i_local,k) = tke_imsi
+               wcap_local(i_local,k) = tke_imsi / b1_local
+               bprod_local(i_local,k) = -kvh_imsi * n2_local(i_local,k)
+               sprod_local(i_local,k) = kvm_imsi * s2_local(i_local,k)
+               sm_aw_local(i_local,k) = sm/alph1_local
+               turbtype_local(i_local,k) = 1
+           endif
+
+       end if
+
+    end do
+
+  end subroutine eddy_diff_caleddy_stl_native
+
     ! ---------------------------------------------------------------------------- !
     !                                                                              !
     ! The University of Washington Moist Turbulence Scheme                         !
@@ -3392,7 +3710,6 @@
     ! ------------------------ !
 
     logical :: belongcv(pcols,pver+1)                 ! True for interfaces in a CL (both interior and exterior are included)
-    logical :: belongst(pcols,pver+1)                 ! True for stable turbulent layer interfaces (STL)
     logical :: in_CL                                  ! True if interfaces k,k+1 both in same CL.
     logical :: extend                                 ! True when CL is extended in zisocl
     logical :: extend_up                              ! True when CL is extended upward in zisocl
@@ -3408,6 +3725,8 @@
     integer(i4) :: ncvsurf                            ! If nonzero, CL index based on surface
                                                       ! (usually 1, but can be > 1 when SRCL is based at sfc)
     integer(i4) :: srcl_status
+    integer :: tunl_mode                              ! Encoded choice_tunl for Codon helper
+    integer :: leng_mode                              ! Encoded choice_leng for Codon helper
     integer :: kbase(pcols,ncvmax)                    ! Vertical index of CL base interface
     integer :: ktop(pcols,ncvmax)                     ! Vertical index of CL top interface
     integer :: kb, kt                                 ! kbase and ktop for current CL
@@ -3546,6 +3865,18 @@
         write(iulog,*) 'Error : ricrit should be larger than 0.19 in UW PBL'
         call endrun('CALEDDY Error: ricrit should be larger than 0.19 in UW PBL')
     endif
+
+    tunl_mode = 0
+    if( choice_tunl .eq. 'rampcl' ) then
+        tunl_mode = 1
+    elseif( choice_tunl .eq. 'rampsl' ) then
+        tunl_mode = 2
+    end if
+
+    leng_mode = 1
+    if( choice_leng .eq. 'origin' ) then
+        leng_mode = 0
+    end if
 
     !
     ! Initialization of Diagnostic Output
@@ -4420,224 +4751,10 @@
            went(i)  = wet_CL(i,ncvsurf)
        end if ! End of the calculationf of te properties of surface-based CL.
 
-       ! -------------------------------------------- !
-       ! Treatment of Stable Turbulent Regime ( STL ) !
-       ! -------------------------------------------- !
-
-       ! Identify top and bottom most (internal) interfaces of STL except surface.
-       ! Also, calculate 'turbulent length scale (leng)' at each STL interfaces.     
-
-       belongst(i,1) = .false.   ! k = 1 (top interface) is assumed non-turbulent
-       do k = 2, pver            ! k is an interface index
-          belongst(i,k) = ( ri(i,k) .lt. ricrit ) .and. ( .not. belongcv(i,k) )
-          if( belongst(i,k) .and. ( .not. belongst(i,k-1) ) ) then
-              kt = k             ! Top interface index of STL
-          elseif( .not. belongst(i,k) .and. belongst(i,k-1) ) then
-              kb = k - 1         ! Base interface index of STL
-              lbulk = z(i,kt-1) - z(i,kb)
-              lbulk = min( lbulk, lbulk_max )
-              do ks = kt, kb
-                 if( choice_tunl .eq. 'rampcl' ) then
-                     tunlramp = tunl
-                 elseif( choice_tunl .eq. 'rampsl' ) then
-                    tunlramp = max( 1.e-3_r8, ctunl * tunl * exp(-log(ctunl)*ri(i,ks)/ricrit) )
-                  ! tunlramp = 0.065_r8 + 0.7_r8 * exp(-20._r8*ri(i,ks))
-                 else
-                    tunlramp = tunl
-                 endif
-                 if( choice_leng .eq. 'origin' ) then
-                     leng(i,ks) = ( (vk*zi(i,ks))**(-cleng) + (tunlramp*lbulk)**(-cleng) )**(-1._r8/cleng)
-                   ! leng(i,ks) = vk*zi(i,ks) / (1._r8+vk*zi(i,ks)/(tunlramp*lbulk))
-                 else
-                     leng(i,ks) = min( vk*zi(i,ks), tunlramp*lbulk )              
-                 endif
-                 leng(i,ks) = min(leng_max(ks), leng(i,ks))
-              end do
-          end if
-       end do ! k
-
-       ! Now look whether STL extends to ground.  If STL extends to surface,
-       ! re-define master length scale,'lbulk' including surface interfacial
-       ! layer thickness, and re-calculate turbulent length scale, 'leng' at
-       ! all STL interfaces again. Note that surface interface is assumed to
-       ! always be STL if it is not CL.   
-       
-       belongst(i,pver+1) = .not. belongcv(i,pver+1)
-
-       if( belongst(i,pver+1) ) then     ! kb = pver+1 (surface  STL)
-
-           turbtype(i,pver+1) = 1        ! Surface is STL interface
-          
-           if( belongst(i,pver) ) then   ! STL includes interior
-             ! 'kt' already defined above as the top interface of STL
-               lbulk = z(i,kt-1)          
-           else                          ! STL with no interior turbulence
-               kt = pver+1
-               lbulk = z(i,kt-1)
-           end if
-           lbulk = min( lbulk, lbulk_max )
-
-           ! PBL height : Layer mid-point just above the highest STL interface
-           ! Note in contrast to the surface based CL regime where  PBL height
-           ! was defined at the top external interface, PBL height of  surface
-           ! based STL is defined as the layer mid-point.
-
-           ktopbl(i) = kt - 1
-           pblh(i)   = z(i,ktopbl(i))
-           pblhp(i)  = 0.5_r8 * ( pi(i,ktopbl(i)) + pi(i,ktopbl(i)+1) )          
-
-           ! Re-calculate turbulent length scale including surface interfacial
-           ! layer contribution to lbulk.
-
-           do ks = kt, pver
-              if( choice_tunl .eq. 'rampcl' ) then
-                  tunlramp = tunl
-              elseif( choice_tunl .eq. 'rampsl' ) then
-                  tunlramp = max(1.e-3_r8,ctunl*tunl*exp(-log(ctunl)*ri(i,ks)/ricrit))
-                ! tunlramp = 0.065_r8 + 0.7_r8 * exp(-20._r8*ri(i,ks))
-              else
-                  tunlramp = tunl
-              endif
-              if( choice_leng .eq. 'origin' ) then
-                  leng(i,ks) = ( (vk*zi(i,ks))**(-cleng) + (tunlramp*lbulk)**(-cleng) )**(-1._r8/cleng)
-                ! leng(i,ks) = vk*zi(i,ks) / (1._r8+vk*zi(i,ks)/(tunlramp*lbulk))
-              else
-                  leng(i,ks) = min( vk*zi(i,ks), tunlramp*lbulk )              
-              endif
-             leng(i,ks) = min(leng_max(ks), leng(i,ks))
-           end do ! ks
-
-           ! Characteristic cumulus excess of surface-based STL.
-           ! We may be able to use ustar for wpert.
-
-           wpert(i) = 0._r8 
-           tpert(i) = max(shflx(i)*rrho(i)/cpair*fak/ustar(i),0._r8) ! CCM stable-layer forms
-           qpert(i) = max(qflx(i)*rrho(i)*fak/ustar(i),0._r8)
-
-           ipbl(i)  = 0
-           kpblh(i) = ktopbl(i)
-
-       end if
-
-       ! Calculate stability functions and energetics at the STL interfaces
-       ! except the surface. Note that tke(i,pver+1) and wcap(i,pver+1) are
-       ! already calculated in the first part of 'caleddy', kvm(i,pver+1) &
-       ! kvh(i,pver+1) were already initialized to be zero, bprod(i,pver+1)
-       ! & sprod(i,pver+1) were direcly calculated from the bflxs and ustar.
-       ! Note transport term is assumed to be negligible at STL interfaces.
-           
-       do k = 2, pver
-
-          if( belongst(i,k) ) then
-
-              turbtype(i,k) = 1    ! STL interfaces
-              trma = alph3*alph4exs*ri(i,k) + 2._r8*b1*(alph2-alph4exs*alph5*ri(i,k))
-              trmb = (alph3+alph4exs)*ri(i,k) + 2._r8*b1*(-alph5*ri(i,k)+alph1)
-              trmc = ri(i,k)
-              det = max(trmb*trmb-4._r8*trma*trmc,0._r8)
-              ! Sanity Check
-              if( det .lt. 0._r8 ) then
-                  write(iulog,*) 'The det < 0. for the STL in UW eddy_diff'
-                  call endrun('CALEDDY: The det < 0. for the STL in UW eddy_diff')
-              end if                  
-              gh = (-trmb + sqrt(det))/(2._r8*trma)
-            ! gh = min(max(gh,-0.28_r8),0.0233_r8)
-            ! gh = min(max(gh,-3.5334_r8),0.0233_r8)
-              gh = min(max(gh,ghmin),0.0233_r8)
-              sh = max(0._r8,alph5/(1._r8+alph3*gh))
-              sm = max(0._r8,(alph1 + alph2*gh)/(1._r8+alph3*gh)/(1._r8+alph4exs*gh))
-
-              tke(i,k)   = b1*(leng(i,k)**2)*(-sh*n2(i,k)+sm*s2(i,k))
-              tke(i,k)   = min(tke(i,k),tkemax)
-              wcap(i,k)  = tke(i,k)/b1
-              kvh(i,k)   = leng(i,k) * sqrt(tke(i,k)) * sh
-              kvm(i,k)   = leng(i,k) * sqrt(tke(i,k)) * sm
-              bprod(i,k) = -kvh(i,k) * n2(i,k)
-              sprod(i,k) =  kvm(i,k) * s2(i,k)
-
-              sm_aw(i,k) = sm/alph1     ! This is diagnostic output for use in the microphysics             
-
-          end if
-
-       end do  ! k
-
-       ! --------------------------------------------------- !
-       ! End of treatment of Stable Turbulent Regime ( STL ) !
-       ! --------------------------------------------------- !
-
-       ! --------------------------------------------------------------- !
-       ! Re-computation of eddy diffusivity at the entrainment interface !
-       ! assuming that it is purely STL (0<Ri<0.19). Note even Ri>0.19,  !
-       ! turbulent can exist at the entrainment interface since 'Sh,Sm'  !
-       ! do not necessarily go to zero even when Ri>0.19. Since Ri can   !
-       ! be fairly larger than 0.19 at the entrainment interface, I      !
-       ! should set minimum value of 'tke' to be 0. in order to prevent  !
-       ! sqrt(tke) from being imaginary.                                 !
-       ! --------------------------------------------------------------- !
-
-       ! goto 888
-
-         do k = 2, pver
-
-         if( ( turbtype(i,k) .eq. 3 ) .or. ( turbtype(i,k) .eq. 4 ) .or. &
-             ( turbtype(i,k) .eq. 5 ) ) then
-
-             trma = alph3*alph4exs*ri(i,k) + 2._r8*b1*(alph2-alph4exs*alph5*ri(i,k))
-             trmb = (alph3+alph4exs)*ri(i,k) + 2._r8*b1*(-alph5*ri(i,k)+alph1)
-             trmc = ri(i,k)
-             det  = max(trmb*trmb-4._r8*trma*trmc,0._r8)
-             gh   = (-trmb + sqrt(det))/(2._r8*trma)
-           ! gh   = min(max(gh,-0.28_r8),0.0233_r8)
-           ! gh   = min(max(gh,-3.5334_r8),0.0233_r8)
-             gh   = min(max(gh,ghmin),0.0233_r8)
-             sh   = max(0._r8,alph5/(1._r8+alph3*gh))
-             sm   = max(0._r8,(alph1 + alph2*gh)/(1._r8+alph3*gh)/(1._r8+alph4exs*gh))
-
-             lbulk = z(i,k-1) - z(i,k)
-             lbulk = min( lbulk, lbulk_max )
-
-             if( choice_tunl .eq. 'rampcl' ) then
-                 tunlramp = tunl
-             elseif( choice_tunl .eq. 'rampsl' ) then
-                 tunlramp = max(1.e-3_r8,ctunl*tunl*exp(-log(ctunl)*ri(i,k)/ricrit))
-               ! tunlramp = 0.065_r8 + 0.7_r8*exp(-20._r8*ri(i,k))
-             else
-                 tunlramp = tunl
-             endif
-             if( choice_leng .eq. 'origin' ) then
-                 leng_imsi = ( (vk*zi(i,k))**(-cleng) + (tunlramp*lbulk)**(-cleng) )**(-1._r8/cleng)
-               ! leng_imsi = vk*zi(i,k) / (1._r8+vk*zi(i,k)/(tunlramp*lbulk))
-             else
-                 leng_imsi = min( vk*zi(i,k), tunlramp*lbulk )              
-             endif
-             leng_imsi = min(leng_max(k), leng_imsi)
-
-             tke_imsi = b1*(leng_imsi**2)*(-sh*n2(i,k)+sm*s2(i,k))
-             tke_imsi = min(max(tke_imsi,0._r8),tkemax)
-             kvh_imsi = leng_imsi * sqrt(tke_imsi) * sh
-             kvm_imsi = leng_imsi * sqrt(tke_imsi) * sm
-
-             if( kvh(i,k) .lt. kvh_imsi ) then 
-                 kvh(i,k)   =  kvh_imsi
-                 kvm(i,k)   =  kvm_imsi
-                 leng(i,k)  = leng_imsi
-                 tke(i,k)   =  tke_imsi
-                 wcap(i,k)  =  tke_imsi / b1
-                 bprod(i,k) = -kvh_imsi * n2(i,k)
-                 sprod(i,k) =  kvm_imsi * s2(i,k)
-                 sm_aw(i,k) =  sm/alph1     ! This is diagnostic output for use in the microphysics             
-                 turbtype(i,k) = 1          ! This was added on Dec.10.2009 for use in microphysics.
-             endif
-
-         end if
-
-         end do
-
- ! 888   continue 
-
-       ! ------------------------------------------------------------------ !
-       ! End of recomputation of eddy diffusivity at entrainment interfaces !
-       ! ------------------------------------------------------------------ !
+       call eddy_diff_caleddy_stl(i, pcols, pver, ncvmax, tunl_mode, leng_mode, ricrit, tunl, ctunl, cleng, lbulk_max, &
+            tkemax, b1, ae, alph1, alph2, alph3, alph4exs, alph5, ghmin, vk, fak, cpair, ri, z, zi, pi, n2, s2, shflx, &
+            qflx, rrho, ustar, leng_max, ncvfin, ktop, kbase, kvh, kvm, leng, tke, wcap, bprod, sprod, turbtype, sm_aw, &
+            pblh, pblhp, wpert, tpert, qpert, ipbl, kpblh)
 
        ! As an option, we can impose a certain minimum back-ground diffusivity.
 
