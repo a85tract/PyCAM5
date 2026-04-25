@@ -208,6 +208,8 @@
   logical                     :: caleddy_init_impl_selected = .false.
   logical                     :: use_native_caleddy_diaginit_impl = .false.
   logical                     :: caleddy_diaginit_impl_selected = .false.
+  logical                     :: use_native_caleddy_regime_diag_impl = .false.
+  logical                     :: caleddy_regime_diag_impl_selected = .false.
   logical                     :: use_native_caleddy_clprep_impl = .false.
   logical                     :: caleddy_clprep_impl_selected = .false.
   logical                     :: use_native_caleddy_closure_impl = .false.
@@ -3170,6 +3172,109 @@
   !                                                                                !
   !=============================================================================== !
 
+  subroutine eddy_diff_caleddy_regime_diag_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (caleddy_regime_diag_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_CALEDDY_REGIME_DIAG_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_caleddy_regime_diag_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_caleddy_regime_diag_impl = .false.
+    end if
+
+    caleddy_regime_diag_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_caleddy_regime_diag_impl) then
+          write(iulog,*) 'eddy_diff_caleddy_regime_diag implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_caleddy_regime_diag implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_caleddy_regime_diag_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_regime_diag(i_local, pcols_local, ncvmax_local, kbase_local, ktop_local, ncvfin_local, &
+       kbase_diag_local, ktop_diag_local, ncvfin_diag_local)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: i_local, pcols_local, ncvmax_local
+    integer(i4), target, intent(in) :: kbase_local(pcols_local,ncvmax_local), ktop_local(pcols_local,ncvmax_local)
+    integer(i4), target, intent(in) :: ncvfin_local(pcols_local)
+    real(r8), target, intent(inout) :: kbase_diag_local(pcols_local,ncvmax_local), ktop_diag_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: ncvfin_diag_local(pcols_local)
+
+    interface
+       subroutine eddy_diff_caleddy_regime_diag_codon(i_c, pcols_c, ncvmax_c, kbase_p, ktop_p, ncvfin_p, kbase_diag_p, &
+            ktop_diag_p, ncvfin_diag_p) bind(c, name="eddy_diff_caleddy_regime_diag_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: i_c, pcols_c, ncvmax_c
+         type(c_ptr), value :: kbase_p, ktop_p, ncvfin_p, kbase_diag_p, ktop_diag_p, ncvfin_diag_p
+       end subroutine eddy_diff_caleddy_regime_diag_codon
+    end interface
+
+    call eddy_diff_caleddy_regime_diag_select_impl()
+
+    if (use_native_caleddy_regime_diag_impl) then
+       call eddy_diff_caleddy_regime_diag_native(i_local, pcols_local, ncvmax_local, kbase_local, ktop_local, ncvfin_local, &
+            kbase_diag_local, ktop_diag_local, ncvfin_diag_local)
+       return
+    end if
+
+    call eddy_diff_caleddy_regime_diag_codon(int(i_local, c_int64_t), int(pcols_local, c_int64_t), int(ncvmax_local, c_int64_t), &
+         c_loc(kbase_local), c_loc(ktop_local), c_loc(ncvfin_local), c_loc(kbase_diag_local), c_loc(ktop_diag_local), &
+         c_loc(ncvfin_diag_local))
+
+  end subroutine eddy_diff_caleddy_regime_diag
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_regime_diag_native(i_local, pcols_local, ncvmax_local, kbase_local, ktop_local, ncvfin_local, &
+       kbase_diag_local, ktop_diag_local, ncvfin_diag_local)
+
+    implicit none
+
+    integer, intent(in) :: i_local, pcols_local, ncvmax_local
+    integer(i4), intent(in) :: kbase_local(pcols_local,ncvmax_local), ktop_local(pcols_local,ncvmax_local)
+    integer(i4), intent(in) :: ncvfin_local(pcols_local)
+    real(r8), intent(inout) :: kbase_diag_local(pcols_local,ncvmax_local), ktop_diag_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: ncvfin_diag_local(pcols_local)
+
+    integer :: k
+
+    do k = 1, ncvmax_local
+       kbase_diag_local(i_local,k) = real(kbase_local(i_local,k),r8)
+       ktop_diag_local(i_local,k)  = real(ktop_local(i_local,k),r8)
+    end do
+    ncvfin_diag_local(i_local) = real(ncvfin_local(i_local),r8)
+
+  end subroutine eddy_diff_caleddy_regime_diag_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
   subroutine eddy_diff_compute_radf_select_impl()
 
     character(len=32) :: impl_name
@@ -5244,12 +5349,8 @@
     ! Diagnostic output of CL interface indices before performing 'extending-merging'
     ! of CL regimes in 'zisocl'
     do i = 1, ncol
-    do k = 1, ncvmax
-       kbase_o(i,k) = real(kbase(i,k),r8)
-       ktop_o(i,k)  = real(ktop(i,k),r8) 
-       ncvfin_o(i)  = real(ncvfin(i),r8)
+       call eddy_diff_caleddy_regime_diag(i, pcols, ncvmax, kbase, ktop, ncvfin, kbase_o, ktop_o, ncvfin_o)
     end do
-    end do 
 
     ! ----------------------------------- !
     ! Perform calculation for each column !
@@ -5325,11 +5426,7 @@
        ! Diagnostic output after finishing extending-merging process in 'zisocl'
        ! Since we are adding SRCL additionally, we need to print out these here.
 
-       do k = 1, ncvmax
-          kbase_mg(i,k) = real(kbase(i,k))
-          ktop_mg(i,k)  = real(ktop(i,k)) 
-          ncvfin_mg(i)  = real(ncvfin(i))
-       end do 
+       call eddy_diff_caleddy_regime_diag(i, pcols, ncvmax, kbase, ktop, ncvfin, kbase_mg, ktop_mg, ncvfin_mg)
 
        ! ----------------------- !
        ! Identification of SRCLs !
@@ -5405,11 +5502,7 @@
 
        ! Diagnostic output of final CL regimes indices
        
-       do k = 1, ncvmax
-          kbase_f(i,k) = real(kbase(i,k))
-          ktop_f(i,k)  = real(ktop(i,k)) 
-          ncvfin_f(i)  = real(ncvfin(i))
-       end do 
+       call eddy_diff_caleddy_regime_diag(i, pcols, ncvmax, kbase, ktop, ncvfin, kbase_f, ktop_f, ncvfin_f)
 
        ! --------------------------------------------------------------------- !
        ! Compute radf for each CL in column by calling subroutine compute_radf !

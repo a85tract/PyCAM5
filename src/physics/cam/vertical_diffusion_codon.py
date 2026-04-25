@@ -987,6 +987,35 @@ def eddy_diff_caleddy_diaginit_codon(
 
 
 @export
+def eddy_diff_caleddy_regime_diag_codon(
+    i_col: int,
+    pcols: int,
+    ncvmax: int,
+    kbase_p: cobj,
+    ktop_p: cobj,
+    ncvfin_p: cobj,
+    kbase_diag_p: cobj,
+    ktop_diag_p: cobj,
+    ncvfin_diag_p: cobj,
+):
+    kbase = Ptr[i32](kbase_p)
+    ktop = Ptr[i32](ktop_p)
+    ncvfin = Ptr[i32](ncvfin_p)
+    kbase_diag = Ptr[float](kbase_diag_p)
+    ktop_diag = Ptr[float](ktop_diag_p)
+    ncvfin_diag = Ptr[float](ncvfin_diag_p)
+
+    i = i_col
+
+    for ncv in range(1, ncvmax + 1):
+        idx = _idx2(i, ncv, pcols)
+        kbase_diag[idx] = float(kbase[idx])
+        ktop_diag[idx] = float(ktop[idx])
+
+    ncvfin_diag[i - 1] = float(ncvfin[i - 1])
+
+
+@export
 def eddy_diff_exacol_codon(
     ncol: int,
     pcols: int,
