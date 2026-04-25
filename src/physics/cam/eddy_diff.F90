@@ -204,6 +204,8 @@
   logical                     :: exacol_impl_selected = .false.
   logical                     :: use_native_compute_radf_impl = .false.
   logical                     :: compute_radf_impl_selected = .false.
+  logical                     :: use_native_caleddy_init_impl = .false.
+  logical                     :: caleddy_init_impl_selected = .false.
   logical                     :: use_native_caleddy_clprep_impl = .false.
   logical                     :: caleddy_clprep_impl_selected = .false.
   logical                     :: use_native_caleddy_closure_impl = .false.
@@ -2800,6 +2802,200 @@
   !                                                                                !
   !=============================================================================== !
 
+  subroutine eddy_diff_caleddy_init_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (caleddy_init_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_CALEDDY_INIT_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_caleddy_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_caleddy_init_impl = .false.
+    end if
+
+    caleddy_init_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_caleddy_init_impl) then
+          write(iulog,*) 'eddy_diff_caleddy_init implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_caleddy_init implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_caleddy_init_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_init(ncol_local, pcols_local, pver_local, qrlzero_mode_local, cldeff_mode_local, &
+       tkes_mode_local, use_kvf_mode_local, qmin_local, vk_local, ql_local, qrlin_local, cld_local, kvf_local, &
+       kvh_in_local, kvm_in_local, n2_local, s2_local, shflx_local, qflx_local, rrho_local, ustar_local, z_local, &
+       chu_local, chs_local, cmu_local, cms_local, sflh_local, qrlw_local, cldeff_local, kvh_local, kvm_local, bflxs_local, &
+       bprod_local, sprod_local, wcap_local, leng_local, tke_local, turbtype_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: ncol_local, pcols_local, pver_local
+    integer, intent(in) :: qrlzero_mode_local, cldeff_mode_local, tkes_mode_local, use_kvf_mode_local
+    real(r8), intent(in) :: qmin_local, vk_local
+    real(r8), target, intent(in) :: ql_local(pcols_local,pver_local), qrlin_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: cld_local(pcols_local,pver_local), kvf_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: kvh_in_local(pcols_local,pver_local+1), kvm_in_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: n2_local(pcols_local,pver_local), s2_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: shflx_local(pcols_local), qflx_local(pcols_local), rrho_local(pcols_local)
+    real(r8), target, intent(in) :: ustar_local(pcols_local), z_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: chu_local(pcols_local,pver_local+1), chs_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: cmu_local(pcols_local,pver_local+1), cms_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: sflh_local(pcols_local,pver_local)
+    real(r8), target, intent(inout) :: qrlw_local(pcols_local,pver_local), cldeff_local(pcols_local,pver_local)
+    real(r8), target, intent(inout) :: kvh_local(pcols_local,pver_local+1), kvm_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: bflxs_local(pcols_local), bprod_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: sprod_local(pcols_local,pver_local+1), wcap_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: leng_local(pcols_local,pver_local+1), tke_local(pcols_local,pver_local+1)
+    integer(i4), target, intent(inout) :: turbtype_local(pcols_local,pver_local+1)
+
+    interface
+       subroutine eddy_diff_caleddy_init_codon(ncol_c, pcols_c, pver_c, qrlzero_mode_c, cldeff_mode_c, tkes_mode_c, &
+            use_kvf_mode_c, qmin_c, vk_c, ql_p, qrlin_p, cld_p, kvf_p, kvh_in_p, kvm_in_p, n2_p, s2_p, shflx_p, qflx_p, &
+            rrho_p, ustar_p, z_p, chu_p, chs_p, cmu_p, cms_p, sflh_p, qrlw_p, cldeff_p, kvh_p, kvm_p, bflxs_p, bprod_p, &
+            sprod_p, wcap_p, leng_p, tke_p, turbtype_p) bind(c, name="eddy_diff_caleddy_init_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         integer(c_int64_t), value :: qrlzero_mode_c, cldeff_mode_c, tkes_mode_c, use_kvf_mode_c
+         real(c_double), value :: qmin_c, vk_c
+         type(c_ptr), value :: ql_p, qrlin_p, cld_p, kvf_p, kvh_in_p, kvm_in_p, n2_p, s2_p, shflx_p, qflx_p, rrho_p
+         type(c_ptr), value :: ustar_p, z_p, chu_p, chs_p, cmu_p, cms_p, sflh_p, qrlw_p, cldeff_p, kvh_p, kvm_p
+         type(c_ptr), value :: bflxs_p, bprod_p, sprod_p, wcap_p, leng_p, tke_p, turbtype_p
+       end subroutine eddy_diff_caleddy_init_codon
+    end interface
+
+    call eddy_diff_caleddy_init_select_impl()
+
+    if (use_native_caleddy_init_impl) then
+       call eddy_diff_caleddy_init_native(ncol_local, pcols_local, pver_local, qrlzero_mode_local, cldeff_mode_local, &
+            tkes_mode_local, use_kvf_mode_local, qmin_local, vk_local, ql_local, qrlin_local, cld_local, kvf_local, &
+            kvh_in_local, kvm_in_local, n2_local, s2_local, shflx_local, qflx_local, rrho_local, ustar_local, z_local, &
+            chu_local, chs_local, cmu_local, cms_local, sflh_local, qrlw_local, cldeff_local, kvh_local, kvm_local, &
+            bflxs_local, bprod_local, sprod_local, wcap_local, leng_local, tke_local, turbtype_local)
+       return
+    end if
+
+    call eddy_diff_caleddy_init_codon(int(ncol_local, c_int64_t), int(pcols_local, c_int64_t), int(pver_local, c_int64_t), &
+         int(qrlzero_mode_local, c_int64_t), int(cldeff_mode_local, c_int64_t), int(tkes_mode_local, c_int64_t), &
+         int(use_kvf_mode_local, c_int64_t), real(qmin_local, c_double), real(vk_local, c_double), c_loc(ql_local), &
+         c_loc(qrlin_local), c_loc(cld_local), c_loc(kvf_local), c_loc(kvh_in_local), c_loc(kvm_in_local), c_loc(n2_local), &
+         c_loc(s2_local), c_loc(shflx_local), c_loc(qflx_local), c_loc(rrho_local), c_loc(ustar_local), c_loc(z_local), &
+         c_loc(chu_local), c_loc(chs_local), c_loc(cmu_local), c_loc(cms_local), c_loc(sflh_local), c_loc(qrlw_local), &
+         c_loc(cldeff_local), c_loc(kvh_local), c_loc(kvm_local), c_loc(bflxs_local), c_loc(bprod_local), c_loc(sprod_local), &
+         c_loc(wcap_local), c_loc(leng_local), c_loc(tke_local), c_loc(turbtype_local))
+
+  end subroutine eddy_diff_caleddy_init
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_init_native(ncol_local, pcols_local, pver_local, qrlzero_mode_local, cldeff_mode_local, &
+       tkes_mode_local, use_kvf_mode_local, qmin_local, vk_local, ql_local, qrlin_local, cld_local, kvf_local, kvh_in_local, &
+       kvm_in_local, n2_local, s2_local, shflx_local, qflx_local, rrho_local, ustar_local, z_local, chu_local, chs_local, &
+       cmu_local, cms_local, sflh_local, qrlw_local, cldeff_local, kvh_local, kvm_local, bflxs_local, bprod_local, sprod_local, &
+       wcap_local, leng_local, tke_local, turbtype_local)
+
+    implicit none
+
+    integer, intent(in) :: ncol_local, pcols_local, pver_local
+    integer, intent(in) :: qrlzero_mode_local, cldeff_mode_local, tkes_mode_local, use_kvf_mode_local
+    real(r8), intent(in) :: qmin_local, vk_local
+    real(r8), intent(in) :: ql_local(pcols_local,pver_local), qrlin_local(pcols_local,pver_local)
+    real(r8), intent(in) :: cld_local(pcols_local,pver_local), kvf_local(pcols_local,pver_local+1)
+    real(r8), intent(in) :: kvh_in_local(pcols_local,pver_local+1), kvm_in_local(pcols_local,pver_local+1)
+    real(r8), intent(in) :: n2_local(pcols_local,pver_local), s2_local(pcols_local,pver_local)
+    real(r8), intent(in) :: shflx_local(pcols_local), qflx_local(pcols_local), rrho_local(pcols_local)
+    real(r8), intent(in) :: ustar_local(pcols_local), z_local(pcols_local,pver_local)
+    real(r8), intent(in) :: chu_local(pcols_local,pver_local+1), chs_local(pcols_local,pver_local+1)
+    real(r8), intent(in) :: cmu_local(pcols_local,pver_local+1), cms_local(pcols_local,pver_local+1)
+    real(r8), intent(in) :: sflh_local(pcols_local,pver_local)
+    real(r8), intent(inout) :: qrlw_local(pcols_local,pver_local), cldeff_local(pcols_local,pver_local)
+    real(r8), intent(inout) :: kvh_local(pcols_local,pver_local+1), kvm_local(pcols_local,pver_local+1)
+    real(r8), intent(inout) :: bflxs_local(pcols_local), bprod_local(pcols_local,pver_local+1)
+    real(r8), intent(inout) :: sprod_local(pcols_local,pver_local+1), wcap_local(pcols_local,pver_local+1)
+    real(r8), intent(inout) :: leng_local(pcols_local,pver_local+1), tke_local(pcols_local,pver_local+1)
+    integer(i4), intent(inout) :: turbtype_local(pcols_local,pver_local+1)
+
+    integer :: i, k
+    real(r8) :: ch, cm
+
+    if (qrlzero_mode_local /= 0) then
+       qrlw_local(:,:) = 0._r8
+    else
+       qrlw_local(:ncol_local,:pver_local) = qrlin_local(:ncol_local,:pver_local)
+    endif
+
+    do k = 1, pver_local
+       do i = 1, ncol_local
+          if (cldeff_mode_local /= 0) then
+             cldeff_local(i,k) = cld_local(i,k) * min(ql_local(i,k) / qmin_local, 1._r8)
+          else
+             cldeff_local(i,k) = cld_local(i,k)
+          endif
+       end do
+    end do
+
+    if (use_kvf_mode_local /= 0) then
+       kvh_local(:,:) = kvf_local(:,:)
+       kvm_local(:,:) = kvf_local(:,:)
+    else
+       kvh_local(:,:) = 0._r8
+       kvm_local(:,:) = 0._r8
+    endif
+
+    wcap_local(:,:) = 0._r8
+    leng_local(:,:) = 0._r8
+    tke_local(:,:)  = 0._r8
+    turbtype_local(:,:) = 0
+
+    do k = 2, pver_local
+       do i = 1, ncol_local
+          bprod_local(i,k) = -kvh_in_local(i,k) * n2_local(i,k)
+          sprod_local(i,k) =  kvm_in_local(i,k) * s2_local(i,k)
+       end do
+    end do
+
+    do i = 1, ncol_local
+       bprod_local(i,1) = 0._r8
+       sprod_local(i,1) = 0._r8
+       ch = chu_local(i,pver_local+1) * ( 1._r8 - sflh_local(i,pver_local) ) + chs_local(i,pver_local+1) * sflh_local(i,pver_local)
+       cm = cmu_local(i,pver_local+1) * ( 1._r8 - sflh_local(i,pver_local) ) + cms_local(i,pver_local+1) * sflh_local(i,pver_local)
+       bflxs_local(i) = ch * shflx_local(i) * rrho_local(i) + cm * qflx_local(i) * rrho_local(i)
+       if (tkes_mode_local /= 0) then
+          bprod_local(i,pver_local+1) = bflxs_local(i)
+       else
+          bprod_local(i,pver_local+1) = 0._r8
+       endif
+       sprod_local(i,pver_local+1) = (ustar_local(i)**3)/(vk_local*z_local(i,pver_local))
+    end do
+
+  end subroutine eddy_diff_caleddy_init_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
   subroutine eddy_diff_compute_radf_select_impl()
 
     character(len=32) :: impl_name
@@ -4669,6 +4865,10 @@
     integer(i4) :: ncvsurf                            ! If nonzero, CL index based on surface
                                                       ! (usually 1, but can be > 1 when SRCL is based at sfc)
     integer(i4) :: srcl_status
+    integer :: qrlzero_mode                          ! Encoded set_qrlzero for Codon helper
+    integer :: cldeff_mode                           ! Encoded cldeff ramp choice for Codon helper
+    integer :: tkes_mode                             ! Encoded choice_tkes for Codon helper
+    integer :: use_kvf_mode                          ! Encoded use_kvf for Codon helper
     integer :: tunl_mode                              ! Encoded choice_tunl for Codon helper
     integer :: leng_mode                              ! Encoded choice_leng for Codon helper
     integer :: evhc_mode                              ! Encoded choice_evhc for Codon helper
@@ -4778,27 +4978,6 @@
     !         by setting qrlw = 0.  Logical parameter 'set_qrlzero'  was
     !         defined in the first part of 'eddy_diff.F90' module. 
 
-    if( set_qrlzero ) then
-        qrlw(:,:) = 0._r8
-    else
-        qrlw(:ncol,:pver) = qrlin(:ncol,:pver)
-    endif
-
-    ! Define effective stratus fraction using the grid-mean ql.
-    ! Modification : The contribution of ice should be carefully considered.
-    !                This should be done in combination with the 'qrlw' and
-    !                overlapping assumption of liquid and ice stratus. 
-
-    do k = 1, pver
-       do i = 1, ncol
-          if( choice_evhc .eq. 'ramp' .or. choice_radf .eq. 'ramp' ) then 
-              cldeff(i,k) = cld(i,k) * min( ql(i,k) / qmin, 1._r8 )
-          else
-              cldeff(i,k) = cld(i,k)
-          endif
-       end do
-    end do
-
     ! For an extended stability function in the stable regime, re-define
     ! alph4exe and ghmin. This is for future work.
 
@@ -4842,6 +5021,30 @@
         sedfact_mode = 1
     end if
 
+    qrlzero_mode = 0
+    if (set_qrlzero) then
+        qrlzero_mode = 1
+    end if
+
+    cldeff_mode = 0
+    if (choice_evhc .eq. 'ramp' .or. choice_radf .eq. 'ramp') then
+        cldeff_mode = 1
+    end if
+
+    tkes_mode = 0
+    if (choice_tkes .eq. 'ibprod') then
+        tkes_mode = 1
+    end if
+
+    use_kvf_mode = 0
+    if (use_kvf) then
+        use_kvf_mode = 1
+    end if
+
+    call eddy_diff_caleddy_init(ncol, pcols, pver, qrlzero_mode, cldeff_mode, tkes_mode, use_kvf_mode, qmin, vk, ql, qrlin, &
+         cld, kvf, kvh_in, kvm_in, n2, s2, shflx, qflx, rrho, ustar, z, chu, chs, cmu, cms, sflh, qrlw, cldeff, kvh, kvm, &
+         bflxs, bprod, sprod, wcap, leng, tke, turbtype)
+
     !
     ! Initialization of Diagnostic Output
     !
@@ -4878,71 +5081,6 @@
        kpblh(i)                 = pver
        wsed_CL(i,:ncvmax)       = 0._r8          
     end do  
-
-    ! kvh and kvm are stored over timesteps in 'vertical_diffusion.F90' and 
-    ! passed in as kvh_in and kvm_in.  However,  at the first timestep they
-    ! need to be computed and these are done just before calling 'caleddy'.   
-    ! kvm and kvh are also stored over iterative time step in the first part
-    ! of 'eddy_diff.F90'
-
-    ! Initialize kvh and kvm to zero or kvf
-    if( use_kvf ) then
-       kvh(:,:) = kvf(:,:)
-       kvm(:,:) = kvf(:,:)
-    else
-       kvh(:,:) = 0._r8
-       kvm(:,:) = 0._r8
-    end if
-        ! Zero diagnostic quantities for the new diffusion step.
-    wcap(:,:) = 0._r8
-    leng(:,:) = 0._r8
-    tke(:,:)  = 0._r8
-    turbtype(:,:) = 0
-
-
-    ! Initialize 'bprod' [ m2/s3 ] and 'sprod' [ m2/s3 ] at all interfaces.
-    ! Note this initialization is a hybrid initialization since 'n2' [s-2] and 's2' [s-2]
-    ! are calculated from the given current initial profile, while 'kvh_in' [m2/s] and 
-    ! 'kvm_in' [m2/s] are from the previous iteration or previous time step.
-    ! This initially guessed 'bprod' and 'sprod' will be updated at the end of this 
-    ! 'caleddy' subroutine for diagnostic output.
-    ! This computation of 'brpod,sprod' below is necessary for wstar-based entrainment closure.
-
-    do k = 2, pver
-       do i = 1, ncol
-            bprod(i,k) = -kvh_in(i,k) * n2(i,k)
-            sprod(i,k) =  kvm_in(i,k) * s2(i,k)
-       end do
-    end do
-
-    ! Set 'bprod' and 'sprod' at top and bottom interface.
-    ! In calculating 'surface' (actually lowest half-layer) buoyancy flux,
-    ! 'chu' at surface is defined to be the same as 'chu' at the mid-point
-    ! of lowest model layer (pver) at the end of 'trbind'. The same is for
-    ! the other buoyancy coefficients.  'sprod(i,pver+1)'  is defined in a
-    ! consistent way as the definition of 'tkes' in the original code.
-    ! ( Important Option ) If I want to isolate surface buoyancy flux from
-    ! the other parts of CL regimes energetically even though bflxs > 0,
-    ! all I should do is to re-define 'bprod(i,pver+1)=0' in the below 'do'
-    ! block. Additionally for merging test of extending SBCL based on 'l2n2'
-    ! in 'zisocl', I should use 'l2n2 = - wint / sh'  for similar treatment
-    ! as previous code. All other parts of the code  are fully consistently
-    ! treated by these change only.
-    ! My future general convection scheme will use bflxs(i).
-
-    do i = 1, ncol
-       bprod(i,1) = 0._r8 ! Top interface
-       sprod(i,1) = 0._r8 ! Top interface
-       ch = chu(i,pver+1) * ( 1._r8 - sflh(i,pver) ) + chs(i,pver+1) * sflh(i,pver)   
-       cm = cmu(i,pver+1) * ( 1._r8 - sflh(i,pver) ) + cms(i,pver+1) * sflh(i,pver)   
-       bflxs(i) = ch * shflx(i) * rrho(i) + cm * qflx(i) * rrho(i)
-       if( choice_tkes .eq. 'ibprod' ) then
-           bprod(i,pver+1) = bflxs(i)
-       else
-           bprod(i,pver+1) = 0._r8
-       endif
-       sprod(i,pver+1) = (ustar(i)**3)/(vk*z(i,pver))
-    end do
 
     ! Initially identify CL regimes in 'exacol'
     !    ktop  : Interface index of the CL top  external interface

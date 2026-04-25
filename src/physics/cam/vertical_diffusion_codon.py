@@ -746,6 +746,139 @@ def eddy_diff_wstar_pbl_codon(
 
 
 @export
+def eddy_diff_caleddy_init_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    qrlzero_mode: int,
+    cldeff_mode: int,
+    tkes_mode: int,
+    use_kvf_mode: int,
+    qmin: float,
+    vk: float,
+    ql_p: cobj,
+    qrlin_p: cobj,
+    cld_p: cobj,
+    kvf_p: cobj,
+    kvh_in_p: cobj,
+    kvm_in_p: cobj,
+    n2_p: cobj,
+    s2_p: cobj,
+    shflx_p: cobj,
+    qflx_p: cobj,
+    rrho_p: cobj,
+    ustar_p: cobj,
+    z_p: cobj,
+    chu_p: cobj,
+    chs_p: cobj,
+    cmu_p: cobj,
+    cms_p: cobj,
+    sflh_p: cobj,
+    qrlw_p: cobj,
+    cldeff_p: cobj,
+    kvh_p: cobj,
+    kvm_p: cobj,
+    bflxs_p: cobj,
+    bprod_p: cobj,
+    sprod_p: cobj,
+    wcap_p: cobj,
+    leng_p: cobj,
+    tke_p: cobj,
+    turbtype_p: cobj,
+):
+    ql = Ptr[float](ql_p)
+    qrlin = Ptr[float](qrlin_p)
+    cld = Ptr[float](cld_p)
+    kvf = Ptr[float](kvf_p)
+    kvh_in = Ptr[float](kvh_in_p)
+    kvm_in = Ptr[float](kvm_in_p)
+    n2 = Ptr[float](n2_p)
+    s2 = Ptr[float](s2_p)
+    shflx = Ptr[float](shflx_p)
+    qflx = Ptr[float](qflx_p)
+    rrho = Ptr[float](rrho_p)
+    ustar = Ptr[float](ustar_p)
+    z = Ptr[float](z_p)
+    chu = Ptr[float](chu_p)
+    chs = Ptr[float](chs_p)
+    cmu = Ptr[float](cmu_p)
+    cms = Ptr[float](cms_p)
+    sflh = Ptr[float](sflh_p)
+    qrlw = Ptr[float](qrlw_p)
+    cldeff = Ptr[float](cldeff_p)
+    kvh = Ptr[float](kvh_p)
+    kvm = Ptr[float](kvm_p)
+    bflxs = Ptr[float](bflxs_p)
+    bprod = Ptr[float](bprod_p)
+    sprod = Ptr[float](sprod_p)
+    wcap = Ptr[float](wcap_p)
+    leng = Ptr[float](leng_p)
+    tke = Ptr[float](tke_p)
+    turbtype = Ptr[i32](turbtype_p)
+
+    if qrlzero_mode != 0:
+        for k in range(1, pver + 1):
+            for i in range(1, pcols + 1):
+                qrlw[_idx2(i, k, pcols)] = 0.0
+    else:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                qrlw[idx] = qrlin[idx]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            if cldeff_mode != 0:
+                cldeff[idx] = cld[idx] * min(ql[idx] / qmin, 1.0)
+            else:
+                cldeff[idx] = cld[idx]
+
+    for k in range(1, pver + 2):
+        for i in range(1, pcols + 1):
+            idx = _idx2(i, k, pcols)
+            if use_kvf_mode != 0:
+                kvh[idx] = kvf[idx]
+                kvm[idx] = kvf[idx]
+            else:
+                kvh[idx] = 0.0
+                kvm[idx] = 0.0
+
+    for k in range(1, pver + 2):
+        for i in range(1, pcols + 1):
+            idx = _idx2(i, k, pcols)
+            wcap[idx] = 0.0
+            leng[idx] = 0.0
+            tke[idx] = 0.0
+            turbtype[idx] = i32(0)
+
+    for k in range(2, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            bprod[idx] = -kvh_in[idx] * n2[idx]
+            sprod[idx] = kvm_in[idx] * s2[idx]
+
+    for i in range(1, ncol + 1):
+        top_idx = _idx2(i, 1, pcols)
+        surf_idx = _idx2(i, pver + 1, pcols)
+        surf_layer_idx = _idx2(i, pver, pcols)
+
+        bprod[top_idx] = 0.0
+        sprod[top_idx] = 0.0
+
+        ch = chu[surf_idx] * (1.0 - sflh[surf_layer_idx]) + chs[surf_idx] * sflh[surf_layer_idx]
+        cm = cmu[surf_idx] * (1.0 - sflh[surf_layer_idx]) + cms[surf_idx] * sflh[surf_layer_idx]
+        bflxs[i - 1] = ch * shflx[i - 1] * rrho[i - 1] + cm * qflx[i - 1] * rrho[i - 1]
+
+        if tkes_mode != 0:
+            bprod[surf_idx] = bflxs[i - 1]
+        else:
+            bprod[surf_idx] = 0.0
+
+        sprod[surf_idx] = (ustar[i - 1] ** 3) / (vk * z[surf_layer_idx])
+
+
+@export
 def eddy_diff_exacol_codon(
     ncol: int,
     pcols: int,
