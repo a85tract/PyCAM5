@@ -216,6 +216,8 @@
   logical                     :: caleddy_surface_tke_impl_selected = .false.
   logical                     :: use_native_zisocl_surface_energy_impl = .false.
   logical                     :: zisocl_surface_energy_impl_selected = .false.
+  logical                     :: use_native_zisocl_surface_state_impl = .false.
+  logical                     :: zisocl_surface_state_impl_selected = .false.
   logical                     :: use_native_zisocl_stability_impl = .false.
   logical                     :: zisocl_stability_impl_selected = .false.
   logical                     :: use_native_zisocl_layer_energy_impl = .false.
@@ -3604,6 +3606,142 @@
   !                                                                                !
   !=============================================================================== !
 
+  subroutine eddy_diff_zisocl_surface_state_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (zisocl_surface_state_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_ZISOCL_SURFACE_STATE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_zisocl_surface_state_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_zisocl_surface_state_impl = .false.
+    end if
+
+    zisocl_surface_state_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_zisocl_surface_state_impl) then
+          write(iulog,*) 'eddy_diff_zisocl_surface_state implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_zisocl_surface_state implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_zisocl_surface_state_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_zisocl_surface_state(kb_is_surface_local, use_dw_surf_local, zi_top_local, zi_base_local, z_surf_local, &
+       bflxs_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, lbulk_local, gh_local, sh_local, sm_local, &
+       dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local, lint_local, l2n2_local, l2s2_local, wint_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: kb_is_surface_local, use_dw_surf_local
+    real(r8), intent(in) :: zi_top_local, zi_base_local, z_surf_local
+    real(r8), intent(in) :: bflxs_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local
+    real(r8), target, intent(out) :: lbulk_local, dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local
+    real(r8), target, intent(out) :: lint_local, l2n2_local, l2s2_local, wint_local
+    real(r8), target, intent(inout) :: gh_local, sh_local, sm_local
+
+    interface
+       subroutine eddy_diff_zisocl_surface_state_codon(alph1_c, alph2_c, alph3_c, alph4_c, alph5_c, b1_c, vk_c, lbulk_max_c, &
+            kb_is_surface_c, use_dw_surf_c, zi_top_c, zi_base_c, z_surf_c, bflxs_surf_c, bprod_surf_c, sprod_surf_c, &
+            tkes_surf_c, lbulk_p, gh_p, sh_p, sm_p, dlint_surf_p, dl2n2_surf_p, dl2s2_surf_p, dw_surf_p, lint_p, l2n2_p, &
+            l2s2_p, wint_p) bind(c, name="eddy_diff_zisocl_surface_state_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         real(c_double), value :: alph1_c, alph2_c, alph3_c, alph4_c, alph5_c, b1_c, vk_c, lbulk_max_c
+         integer(c_int64_t), value :: kb_is_surface_c, use_dw_surf_c
+         real(c_double), value :: zi_top_c, zi_base_c, z_surf_c, bflxs_surf_c, bprod_surf_c, sprod_surf_c, tkes_surf_c
+         type(c_ptr), value :: lbulk_p, gh_p, sh_p, sm_p, dlint_surf_p, dl2n2_surf_p, dl2s2_surf_p, dw_surf_p
+         type(c_ptr), value :: lint_p, l2n2_p, l2s2_p, wint_p
+       end subroutine eddy_diff_zisocl_surface_state_codon
+    end interface
+
+    call eddy_diff_zisocl_surface_state_select_impl()
+
+    if (use_native_zisocl_surface_state_impl) then
+       call eddy_diff_zisocl_surface_state_native(kb_is_surface_local, use_dw_surf_local, zi_top_local, zi_base_local, z_surf_local, &
+            bflxs_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, lbulk_local, gh_local, sh_local, sm_local, &
+            dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local, lint_local, l2n2_local, l2s2_local, wint_local)
+       return
+    end if
+
+    call eddy_diff_zisocl_surface_state_codon(alph1, alph2, alph3, alph4, alph5, b1, vk, lbulk_max, int(kb_is_surface_local, c_int64_t), &
+         int(use_dw_surf_local, c_int64_t), zi_top_local, zi_base_local, z_surf_local, bflxs_surf_local, bprod_surf_local, &
+         sprod_surf_local, tkes_surf_local, c_loc(lbulk_local), c_loc(gh_local), c_loc(sh_local), c_loc(sm_local), &
+         c_loc(dlint_surf_local), c_loc(dl2n2_surf_local), c_loc(dl2s2_surf_local), c_loc(dw_surf_local), c_loc(lint_local), &
+         c_loc(l2n2_local), c_loc(l2s2_local), c_loc(wint_local))
+
+  end subroutine eddy_diff_zisocl_surface_state
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_zisocl_surface_state_native(kb_is_surface_local, use_dw_surf_local, zi_top_local, zi_base_local, z_surf_local, &
+       bflxs_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, lbulk_local, gh_local, sh_local, sm_local, &
+       dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local, lint_local, l2n2_local, l2s2_local, wint_local)
+
+    implicit none
+
+    integer, intent(in) :: kb_is_surface_local, use_dw_surf_local
+    real(r8), intent(in) :: zi_top_local, zi_base_local, z_surf_local
+    real(r8), intent(in) :: bflxs_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local
+    real(r8), intent(out) :: lbulk_local, dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local
+    real(r8), intent(out) :: lint_local, l2n2_local, l2s2_local, wint_local
+    real(r8), intent(inout) :: gh_local, sh_local, sm_local
+
+    lbulk_local = zi_top_local - zi_base_local
+    lbulk_local = min(lbulk_local, lbulk_max)
+    dlint_surf_local = 0._r8
+    dl2n2_surf_local = 0._r8
+    dl2s2_surf_local = 0._r8
+    dw_surf_local = 0._r8
+
+    if (kb_is_surface_local .ne. 0) then
+       if (bflxs_surf_local .gt. 0._r8) then
+          call eddy_diff_zisocl_surface_energy_native(z_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, gh_local, &
+               sh_local, sm_local, dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local)
+       else
+          lbulk_local = zi_top_local - z_surf_local
+          lbulk_local = min(lbulk_local, lbulk_max)
+       end if
+    end if
+
+    lint_local = dlint_surf_local
+    l2n2_local = dl2n2_surf_local
+    l2s2_local = dl2s2_surf_local
+    wint_local = dw_surf_local
+
+    if (use_dw_surf_local .ne. 0) then
+       l2n2_local = 0._r8
+       l2s2_local = 0._r8
+    else
+       wint_local = 0._r8
+    end if
+
+  end subroutine eddy_diff_zisocl_surface_state_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
   subroutine eddy_diff_zisocl_stability_select_impl()
 
     character(len=32) :: impl_name
@@ -6547,6 +6685,8 @@
     integer               :: cntd                     ! Number of merged CLs during downward extension of individual CL
     integer               :: kbinc                    ! Index for incorporating underlying CL
     integer               :: ktinc                    ! Index for incorporating  overlying CL
+    integer               :: kb_is_surface_mode
+    integer               :: use_dw_surf_mode
 
     real(r8)              :: wint                     ! Normalized TKE of internal CL
     real(r8)              :: dwinc                    ! Normalized TKE of CL external interfaces
@@ -6577,6 +6717,10 @@
     ! ----------------------- ! 
 
     i = long
+
+    kb_is_surface_mode = 0
+    use_dw_surf_mode = 0
+    if( use_dw_surf ) use_dw_surf_mode = 1
 
     ! Initialize main output variables
     
@@ -6631,44 +6775,14 @@
        ! Step 0: Calculate surface interfacial layer energetics !
        ! ------------------------------------------------------ !
 
-       lbulk      = zi(i,kt) - zi(i,kb)
-       lbulk      = min( lbulk, lbulk_max )
-       dlint_surf = 0._r8
-       dl2n2_surf = 0._r8
-       dl2s2_surf = 0._r8
-       dw_surf    = 0._r8
-       if( kb .eq. pver+1 ) then
-
-           if( bflxs(i) .gt. 0._r8 ) then
-               call eddy_diff_zisocl_surface_energy(z(i,pver), bprod(i,pver+1), sprod(i,pver+1), tkes(i), gh, sh, sm, &
-                    dlint_surf, dl2n2_surf, dl2s2_surf, dw_surf)
-               ricll = min(-(sm/sh)*(bprod(i,pver+1)/sprod(i,pver+1)),ricrit)
-
-           else
-
-               ! Note that this case can happen when surface is an external 
-               ! interface of CL.
-               lbulk = zi(i,kt) - z(i,pver)
-               lbulk = min( lbulk, lbulk_max )
-
-           end if
-
+       kb_is_surface_mode = 0
+       if( kb .eq. pver+1 ) kb_is_surface_mode = 1
+       call eddy_diff_zisocl_surface_state(kb_is_surface_mode, use_dw_surf_mode, zi(i,kt), zi(i,kb), z(i,pver), bflxs(i), &
+            bprod(i,pver+1), sprod(i,pver+1), tkes(i), lbulk, gh, sh, sm, dlint_surf, dl2n2_surf, dl2s2_surf, dw_surf, &
+            lint, l2n2, l2s2, wint)
+       if( kb .eq. pver+1 .and. bflxs(i) .gt. 0._r8 ) then
+           ricll = min(-(sm/sh)*(bprod(i,pver+1)/sprod(i,pver+1)),ricrit)
        end if
-           
-       ! ------------------------------------------------------ !   
-       ! Step 1: Include surface interfacial layer contribution !
-       ! ------------------------------------------------------ !
-       
-       lint = dlint_surf
-       l2n2 = dl2n2_surf
-       l2s2 = dl2s2_surf          
-       wint = dw_surf
-       if( use_dw_surf ) then
-           l2n2 = 0._r8
-           l2s2 = 0._r8
-       else
-           wint = 0._r8
-       end if    
        
        ! --------------------------------------------------------------------------------- !
        ! Step 2. Include the contribution of 'pure internal interfaces' other than surface !
@@ -7020,31 +7134,11 @@
            ! Step 1: Include surface interfacial layer contribution !
            ! ------------------------------------------------------ !        
           
-           lbulk      = zi(i,kt) - zi(i,kb)
-           lbulk      = min( lbulk, lbulk_max )
-           dlint_surf = 0._r8
-           dl2n2_surf = 0._r8
-           dl2s2_surf = 0._r8
-           dw_surf    = 0._r8
-           if( kb .eq. pver + 1 ) then
-               if( bflxs(i) .gt. 0._r8 ) then
-                   call eddy_diff_zisocl_surface_energy(z(i,pver), bprod(i,pver+1), sprod(i,pver+1), tkes(i), gh, sh, sm, &
-                        dlint_surf, dl2n2_surf, dl2s2_surf, dw_surf)
-               else
-                   lbulk = zi(i,kt) - z(i,pver)
-                   lbulk = min( lbulk, lbulk_max )
-               end if
-           end if
-           lint = dlint_surf
-           l2n2 = dl2n2_surf
-           l2s2 = dl2s2_surf
-           wint = dw_surf
-           if( use_dw_surf ) then
-               l2n2 = 0._r8
-               l2s2 = 0._r8
-           else
-               wint = 0._r8
-           end if   
+           kb_is_surface_mode = 0
+           if( kb .eq. pver+1 ) kb_is_surface_mode = 1
+           call eddy_diff_zisocl_surface_state(kb_is_surface_mode, use_dw_surf_mode, zi(i,kt), zi(i,kb), z(i,pver), bflxs(i), &
+                bprod(i,pver+1), sprod(i,pver+1), tkes(i), lbulk, gh, sh, sm, dlint_surf, dl2n2_surf, dl2s2_surf, dw_surf, &
+                lint, l2n2, l2s2, wint)
        
            ! -------------------------------------------------------------- !
            ! Step 2. Include the contribution of 'pure internal interfaces' !
