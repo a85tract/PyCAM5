@@ -212,6 +212,8 @@
   logical                     :: caleddy_srcl_impl_selected = .false.
   logical                     :: use_native_caleddy_stl_impl = .false.
   logical                     :: caleddy_stl_impl_selected = .false.
+  logical                     :: use_native_caleddy_diag_impl = .false.
+  logical                     :: caleddy_diag_impl_selected = .false.
 
   CONTAINS
 
@@ -3525,6 +3527,181 @@
   !                                                                                !
   !=============================================================================== !
 
+  subroutine eddy_diff_caleddy_diag_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (caleddy_diag_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_CALEDDY_DIAG_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_caleddy_diag_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_caleddy_diag_impl = .false.
+    end if
+
+    caleddy_diag_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_caleddy_diag_impl) then
+          write(iulog,*) 'eddy_diff_caleddy_diag implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_caleddy_diag implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_caleddy_diag_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_diag(i_local, pcols_local, pver_local, ricrit_local, tkes_local, b1_local, alph1_local, &
+       alph2_local, alph3_local, alph4_local, alph4exs_local, alph5_local, ghmin_local, vk_local, z_local, ri_local, &
+       bflxs_local, bprod_local, sprod_local, gh_a_local, sh_a_local, sm_a_local, ri_a_local, sm_aw_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: i_local, pcols_local, pver_local
+    real(r8), intent(in) :: ricrit_local, b1_local, alph1_local, alph2_local, alph3_local, alph4_local
+    real(r8), intent(in) :: alph4exs_local, alph5_local, ghmin_local, vk_local
+    real(r8), target, intent(in) :: tkes_local(pcols_local), z_local(pcols_local,pver_local), ri_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: bflxs_local(pcols_local), sprod_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: bprod_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: gh_a_local(pcols_local,pver_local+1), sh_a_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: sm_a_local(pcols_local,pver_local+1), ri_a_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: sm_aw_local(pcols_local,pver_local+1)
+
+    interface
+       subroutine eddy_diff_caleddy_diag_codon(i_c, pcols_c, pver_c, ricrit_c, b1_c, alph1_c, alph2_c, alph3_c, alph4_c, &
+            alph4exs_c, alph5_c, ghmin_c, vk_c, tkes_p, z_p, ri_p, bflxs_p, bprod_p, sprod_p, gh_a_p, sh_a_p, sm_a_p, &
+            ri_a_p, sm_aw_p) bind(c, name="eddy_diff_caleddy_diag_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: i_c, pcols_c, pver_c
+         real(c_double), value :: ricrit_c, b1_c, alph1_c, alph2_c, alph3_c, alph4_c, alph4exs_c, alph5_c, ghmin_c, vk_c
+         type(c_ptr), value :: tkes_p, z_p, ri_p, bflxs_p, bprod_p, sprod_p, gh_a_p, sh_a_p, sm_a_p, ri_a_p, sm_aw_p
+       end subroutine eddy_diff_caleddy_diag_codon
+    end interface
+
+    call eddy_diff_caleddy_diag_select_impl()
+
+    if (use_native_caleddy_diag_impl) then
+       call eddy_diff_caleddy_diag_native(i_local, pcols_local, pver_local, ricrit_local, tkes_local, b1_local, alph1_local, &
+            alph2_local, alph3_local, alph4_local, alph4exs_local, alph5_local, ghmin_local, vk_local, z_local, ri_local, &
+            bflxs_local, bprod_local, sprod_local, gh_a_local, sh_a_local, sm_a_local, ri_a_local, sm_aw_local)
+       return
+    end if
+
+    call eddy_diff_caleddy_diag_codon(int(i_local, c_int64_t), int(pcols_local, c_int64_t), int(pver_local, c_int64_t), &
+         ricrit_local, b1_local, alph1_local, alph2_local, alph3_local, alph4_local, alph4exs_local, alph5_local, &
+         ghmin_local, vk_local, c_loc(tkes_local), c_loc(z_local), c_loc(ri_local), c_loc(bflxs_local), c_loc(bprod_local), &
+         c_loc(sprod_local), c_loc(gh_a_local), c_loc(sh_a_local), c_loc(sm_a_local), c_loc(ri_a_local), c_loc(sm_aw_local))
+
+  end subroutine eddy_diff_caleddy_diag
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_diag_native(i_local, pcols_local, pver_local, ricrit_local, tkes_local, b1_local, alph1_local, &
+       alph2_local, alph3_local, alph4_local, alph4exs_local, alph5_local, ghmin_local, vk_local, z_local, ri_local, &
+       bflxs_local, bprod_local, sprod_local, gh_a_local, sh_a_local, sm_a_local, ri_a_local, sm_aw_local)
+
+    implicit none
+
+    integer, intent(in) :: i_local, pcols_local, pver_local
+    real(r8), intent(in) :: ricrit_local, b1_local, alph1_local, alph2_local, alph3_local, alph4_local
+    real(r8), intent(in) :: alph4exs_local, alph5_local, ghmin_local, vk_local
+    real(r8), intent(in) :: tkes_local(pcols_local), z_local(pcols_local,pver_local), ri_local(pcols_local,pver_local)
+    real(r8), intent(in) :: bflxs_local(pcols_local), sprod_local(pcols_local,pver_local+1)
+    real(r8), intent(inout) :: bprod_local(pcols_local,pver_local+1)
+    real(r8), intent(inout) :: gh_a_local(pcols_local,pver_local+1), sh_a_local(pcols_local,pver_local+1)
+    real(r8), intent(inout) :: sm_a_local(pcols_local,pver_local+1), ri_a_local(pcols_local,pver_local+1)
+    real(r8), intent(inout) :: sm_aw_local(pcols_local,pver_local+1)
+
+    integer :: k
+    real(r8) :: gg, gh, trma, trmb, trmc, det
+
+    bprod_local(i_local,pver_local+1) = bflxs_local(i_local)
+
+    gg = 0.5_r8*vk_local*z_local(i_local,pver_local)*bprod_local(i_local,pver_local+1)/(tkes_local(i_local)**(3._r8/2._r8))
+    if( abs(alph5_local-gg*alph3_local) .le. 1.e-7_r8 ) then
+        if( bprod_local(i_local,pver_local+1) .gt. 0._r8 ) then
+            gh = -3.5334_r8
+        else
+            gh = ghmin_local
+        endif
+    else
+        gh = gg/(alph5_local-gg*alph3_local)
+    end if
+
+    if( bprod_local(i_local,pver_local+1) .gt. 0._r8 ) then
+        gh = min(max(gh,-3.5334_r8),0.0233_r8)
+    else
+        gh = min(max(gh,ghmin_local),0.0233_r8)
+    endif
+
+    gh_a_local(i_local,pver_local+1) = gh
+    sh_a_local(i_local,pver_local+1) = max(0._r8,alph5_local/(1._r8+alph3_local*gh))
+    if( bprod_local(i_local,pver_local+1) .gt. 0._r8 ) then
+        sm_a_local(i_local,pver_local+1) = max(0._r8,(alph1_local+alph2_local*gh)/(1._r8+alph3_local*gh)/(1._r8+alph4_local*gh))
+    else
+        sm_a_local(i_local,pver_local+1) = max(0._r8,(alph1_local+alph2_local*gh)/(1._r8+alph3_local*gh)/(1._r8+alph4exs_local*gh))
+    endif
+    sm_aw_local(i_local,pver_local+1) = sm_a_local(i_local,pver_local+1)/alph1_local
+    ri_a_local(i_local,pver_local+1)  = -(sm_a_local(i_local,pver_local+1)/sh_a_local(i_local,pver_local+1))* &
+         (bprod_local(i_local,pver_local+1)/sprod_local(i_local,pver_local+1))
+
+    do k = 1, pver_local
+       if( ri_local(i_local,k) .lt. 0._r8 ) then
+           trma = alph3_local*alph4_local*ri_local(i_local,k) + 2._r8*b1_local*(alph2_local-alph4_local*alph5_local*ri_local(i_local,k))
+           trmb = (alph3_local+alph4_local)*ri_local(i_local,k) + 2._r8*b1_local*(-alph5_local*ri_local(i_local,k)+alph1_local)
+           trmc = ri_local(i_local,k)
+           det  = max(trmb*trmb-4._r8*trma*trmc,0._r8)
+           gh   = (-trmb + sqrt(det))/(2._r8*trma)
+           gh   = min(max(gh,-3.5334_r8),0.0233_r8)
+           gh_a_local(i_local,k) = gh
+           sh_a_local(i_local,k) = max(0._r8,alph5_local/(1._r8+alph3_local*gh))
+           sm_a_local(i_local,k) = max(0._r8,(alph1_local+alph2_local*gh)/(1._r8+alph3_local*gh)/(1._r8+alph4_local*gh))
+           ri_a_local(i_local,k) = ri_local(i_local,k)
+       else
+           if( ri_local(i_local,k) .gt. ricrit_local ) then
+               gh_a_local(i_local,k) = ghmin_local
+               sh_a_local(i_local,k) = 0._r8
+               sm_a_local(i_local,k) = 0._r8
+               ri_a_local(i_local,k) = ri_local(i_local,k)
+           else
+               trma = alph3_local*alph4exs_local*ri_local(i_local,k) + 2._r8*b1_local*(alph2_local-alph4exs_local*alph5_local*ri_local(i_local,k))
+               trmb = (alph3_local+alph4exs_local)*ri_local(i_local,k) + 2._r8*b1_local*(-alph5_local*ri_local(i_local,k)+alph1_local)
+               trmc = ri_local(i_local,k)
+               det  = max(trmb*trmb-4._r8*trma*trmc,0._r8)
+               gh   = (-trmb + sqrt(det))/(2._r8*trma)
+               gh   = min(max(gh,ghmin_local),0.0233_r8)
+               gh_a_local(i_local,k) = gh
+               sh_a_local(i_local,k) = max(0._r8,alph5_local/(1._r8+alph3_local*gh))
+               sm_a_local(i_local,k) = max(0._r8,(alph1_local+alph2_local*gh)/(1._r8+alph3_local*gh)/(1._r8+alph4exs_local*gh))
+               ri_a_local(i_local,k) = ri_local(i_local,k)
+           endif
+       endif
+    end do
+
+  end subroutine eddy_diff_caleddy_diag_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
   subroutine eddy_diff_caleddy_clprep_select_impl()
 
     character(len=32) :: impl_name
@@ -5013,72 +5190,10 @@
        ! output.                                                               !
        ! --------------------------------------------------------------------- !
 
-       bprod(i,pver+1) = bflxs(i)
-              
-       gg = 0.5_r8*vk*z(i,pver)*bprod(i,pver+1)/(tkes(i)**(3._r8/2._r8))
-       if( abs(alph5-gg*alph3) .le. 1.e-7_r8 ) then
-         ! gh = -0.28_r8
-           if( bprod(i,pver+1) .gt. 0._r8 ) then
-               gh = -3.5334_r8
-           else
-               gh = ghmin
-           endif
-       else    
-           gh = gg/(alph5-gg*alph3)
-       end if 
+       call eddy_diff_caleddy_diag(i, pcols, pver, ricrit, tkes, b1, alph1, alph2, alph3, alph4, alph4exs, alph5, ghmin, &
+            vk, z, ri, bflxs, bprod, sprod, gh_a, sh_a, sm_a, ri_a, sm_aw)
 
-     ! gh = min(max(gh,-0.28_r8),0.0233_r8)
-       if( bprod(i,pver+1) .gt. 0._r8 ) then
-           gh = min(max(gh,-3.5334_r8),0.0233_r8)
-       else
-           gh = min(max(gh,ghmin),0.0233_r8)
-       endif
-
-       gh_a(i,pver+1) = gh     
-       sh_a(i,pver+1) = max(0._r8,alph5/(1._r8+alph3*gh))
-       if( bprod(i,pver+1) .gt. 0._r8 ) then       
-           sm_a(i,pver+1) = max(0._r8,(alph1+alph2*gh)/(1._r8+alph3*gh)/(1._r8+alph4*gh))
-       else
-           sm_a(i,pver+1) = max(0._r8,(alph1+alph2*gh)/(1._r8+alph3*gh)/(1._r8+alph4exs*gh))
-       endif
-       sm_aw(i,pver+1) = sm_a(i,pver+1)/alph1
-       ri_a(i,pver+1)  = -(sm_a(i,pver+1)/sh_a(i,pver+1))*(bprod(i,pver+1)/sprod(i,pver+1))
-
-       do k = 1, pver
-          if( ri(i,k) .lt. 0._r8 ) then
-              trma = alph3*alph4*ri(i,k) + 2._r8*b1*(alph2-alph4*alph5*ri(i,k))
-              trmb = (alph3+alph4)*ri(i,k) + 2._r8*b1*(-alph5*ri(i,k)+alph1)
-              trmc = ri(i,k)
-              det  = max(trmb*trmb-4._r8*trma*trmc,0._r8)
-              gh   = (-trmb + sqrt(det))/(2._r8*trma)
-              gh   = min(max(gh,-3.5334_r8),0.0233_r8)
-              gh_a(i,k) = gh
-              sh_a(i,k) = max(0._r8,alph5/(1._r8+alph3*gh))
-              sm_a(i,k) = max(0._r8,(alph1+alph2*gh)/(1._r8+alph3*gh)/(1._r8+alph4*gh))
-              ri_a(i,k) = ri(i,k)
-          else
-              if( ri(i,k) .gt. ricrit ) then
-                  gh_a(i,k) = ghmin
-                  sh_a(i,k) = 0._r8
-                  sm_a(i,k) = 0._r8
-                  ri_a(i,k) = ri(i,k)
-              else
-                  trma = alph3*alph4exs*ri(i,k) + 2._r8*b1*(alph2-alph4exs*alph5*ri(i,k))
-                  trmb = (alph3+alph4exs)*ri(i,k) + 2._r8*b1*(-alph5*ri(i,k)+alph1)
-                  trmc = ri(i,k)
-                  det  = max(trmb*trmb-4._r8*trma*trmc,0._r8)
-                  gh   = (-trmb + sqrt(det))/(2._r8*trma)
-                  gh   = min(max(gh,ghmin),0.0233_r8)
-                  gh_a(i,k) = gh
-                  sh_a(i,k) = max(0._r8,alph5/(1._r8+alph3*gh))
-                  sm_a(i,k) = max(0._r8,(alph1+alph2*gh)/(1._r8+alph3*gh)/(1._r8+alph4exs*gh))
-                  ri_a(i,k) = ri(i,k)
-              endif
-          endif
-
-       end do
-
-    end do   ! End of column index loop, i 
+    end do   ! End of column index loop, i
 
     return
 

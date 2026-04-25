@@ -2103,6 +2103,105 @@ def eddy_diff_caleddy_stl_codon(
 
 
 @export
+def eddy_diff_caleddy_diag_codon(
+    i_col: int,
+    pcols: int,
+    pver: int,
+    ricrit: float,
+    b1: float,
+    alph1: float,
+    alph2: float,
+    alph3: float,
+    alph4: float,
+    alph4exs: float,
+    alph5: float,
+    ghmin: float,
+    vk: float,
+    tkes_p: cobj,
+    z_p: cobj,
+    ri_p: cobj,
+    bflxs_p: cobj,
+    bprod_p: cobj,
+    sprod_p: cobj,
+    gh_a_p: cobj,
+    sh_a_p: cobj,
+    sm_a_p: cobj,
+    ri_a_p: cobj,
+    sm_aw_p: cobj,
+):
+    tkes = Ptr[float](tkes_p)
+    z = Ptr[float](z_p)
+    ri = Ptr[float](ri_p)
+    bflxs = Ptr[float](bflxs_p)
+    bprod = Ptr[float](bprod_p)
+    sprod = Ptr[float](sprod_p)
+    gh_a = Ptr[float](gh_a_p)
+    sh_a = Ptr[float](sh_a_p)
+    sm_a = Ptr[float](sm_a_p)
+    ri_a = Ptr[float](ri_a_p)
+    sm_aw = Ptr[float](sm_aw_p)
+
+    i = i_col
+    surf_idx = _idx2(i, pver + 1, pcols)
+
+    bprod[surf_idx] = bflxs[i - 1]
+
+    gg = 0.5 * vk * z[_idx2(i, pver, pcols)] * bprod[surf_idx] / (tkes[i - 1] ** (3.0 / 2.0))
+    if abs(alph5 - gg * alph3) <= 1.0e-7:
+        if bprod[surf_idx] > 0.0:
+            gh = -3.5334
+        else:
+            gh = ghmin
+    else:
+        gh = gg / (alph5 - gg * alph3)
+
+    if bprod[surf_idx] > 0.0:
+        gh = min(max(gh, -3.5334), 0.0233)
+    else:
+        gh = min(max(gh, ghmin), 0.0233)
+
+    gh_a[surf_idx] = gh
+    sh_a[surf_idx] = max(0.0, alph5 / (1.0 + alph3 * gh))
+    if bprod[surf_idx] > 0.0:
+        sm_a[surf_idx] = max(0.0, (alph1 + alph2 * gh) / (1.0 + alph3 * gh) / (1.0 + alph4 * gh))
+    else:
+        sm_a[surf_idx] = max(0.0, (alph1 + alph2 * gh) / (1.0 + alph3 * gh) / (1.0 + alph4exs * gh))
+    sm_aw[surf_idx] = sm_a[surf_idx] / alph1
+    ri_a[surf_idx] = -(sm_a[surf_idx] / sh_a[surf_idx]) * (bprod[surf_idx] / sprod[surf_idx])
+
+    for k in range(1, pver + 1):
+        idx = _idx2(i, k, pcols)
+        if ri[idx] < 0.0:
+            trma = alph3 * alph4 * ri[idx] + 2.0 * b1 * (alph2 - alph4 * alph5 * ri[idx])
+            trmb = (alph3 + alph4) * ri[idx] + 2.0 * b1 * (-alph5 * ri[idx] + alph1)
+            trmc = ri[idx]
+            det = max(trmb * trmb - 4.0 * trma * trmc, 0.0)
+            gh = (-trmb + sqrt(det)) / (2.0 * trma)
+            gh = min(max(gh, -3.5334), 0.0233)
+            gh_a[idx] = gh
+            sh_a[idx] = max(0.0, alph5 / (1.0 + alph3 * gh))
+            sm_a[idx] = max(0.0, (alph1 + alph2 * gh) / (1.0 + alph3 * gh) / (1.0 + alph4 * gh))
+            ri_a[idx] = ri[idx]
+        else:
+            if ri[idx] > ricrit:
+                gh_a[idx] = ghmin
+                sh_a[idx] = 0.0
+                sm_a[idx] = 0.0
+                ri_a[idx] = ri[idx]
+            else:
+                trma = alph3 * alph4exs * ri[idx] + 2.0 * b1 * (alph2 - alph4exs * alph5 * ri[idx])
+                trmb = (alph3 + alph4exs) * ri[idx] + 2.0 * b1 * (-alph5 * ri[idx] + alph1)
+                trmc = ri[idx]
+                det = max(trmb * trmb - 4.0 * trma * trmc, 0.0)
+                gh = (-trmb + sqrt(det)) / (2.0 * trma)
+                gh = min(max(gh, ghmin), 0.0233)
+                gh_a[idx] = gh
+                sh_a[idx] = max(0.0, alph5 / (1.0 + alph3 * gh))
+                sm_a[idx] = max(0.0, (alph1 + alph2 * gh) / (1.0 + alph3 * gh) / (1.0 + alph4exs * gh))
+                ri_a[idx] = ri[idx]
+
+
+@export
 def eddy_diff_restore_fields_codon(
     ncol: int,
     pcols: int,
