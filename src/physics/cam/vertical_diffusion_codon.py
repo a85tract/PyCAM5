@@ -1400,6 +1400,93 @@ def eddy_diff_zisocl_extended_state_codon(
 
 
 @export
+def eddy_diff_zisocl_non_sbcl_state_codon(
+    i_col: int,
+    kt_ifc: int,
+    kb_ifc: int,
+    pcols: int,
+    pver: int,
+    tunl_mode: int,
+    leng_mode: int,
+    alph1: float,
+    alph2: float,
+    alph3: float,
+    alph4: float,
+    alph5: float,
+    b1: float,
+    vk: float,
+    ntzero: float,
+    ricrit: float,
+    tunl: float,
+    ctunl: float,
+    cleng: float,
+    lbulk: float,
+    z_p: cobj,
+    zi_p: cobj,
+    n2_p: cobj,
+    s2_p: cobj,
+    leng_max_p: cobj,
+    lint_p: cobj,
+    l2n2_p: cobj,
+    l2s2_p: cobj,
+    wint_p: cobj,
+    ricll_p: cobj,
+    gh_p: cobj,
+    sh_p: cobj,
+    sm_p: cobj,
+):
+    z = Ptr[float](z_p)
+    zi = Ptr[float](zi_p)
+    n2 = Ptr[float](n2_p)
+    s2 = Ptr[float](s2_p)
+    leng_max = Ptr[float](leng_max_p)
+    lint = Ptr[float](lint_p)
+    l2n2 = Ptr[float](l2n2_p)
+    l2s2 = Ptr[float](l2s2_p)
+    wint = Ptr[float](wint_p)
+    ricll = Ptr[float](ricll_p)
+    gh = Ptr[float](gh_p)
+    sh = Ptr[float](sh_p)
+    sm = Ptr[float](sm_p)
+
+    k_ifc = kb_ifc - 1
+    while k_ifc >= kt_ifc + 1:
+        if tunl_mode == 1:
+            tunlramp = 0.5 * (1.0 + ctunl) * tunl
+        elif tunl_mode == 2:
+            tunlramp = ctunl * tunl
+        else:
+            tunlramp = tunl
+
+        if leng_mode == 0:
+            lz = ((vk * zi[_idx2(i_col, k_ifc, pcols)]) ** (-cleng) + (tunlramp * lbulk) ** (-cleng)) ** (-1.0 / cleng)
+        else:
+            lz = min(vk * zi[_idx2(i_col, k_ifc, pcols)], tunlramp * lbulk)
+        lz = min(leng_max[k_ifc - 1], lz)
+
+        dzinc = z[_idx2(i_col, k_ifc - 1, pcols)] - z[_idx2(i_col, k_ifc, pcols)]
+        dl2n2 = lz * lz * n2[_idx2(i_col, k_ifc, pcols)] * dzinc
+        dl2s2 = lz * lz * s2[_idx2(i_col, k_ifc, pcols)] * dzinc
+
+        l2n2[0] = l2n2[0] + dl2n2
+        l2s2[0] = l2s2[0] + dl2s2
+        lint[0] = lint[0] + dzinc
+
+        k_ifc -= 1
+
+    ricll[0] = min(l2n2[0] / max(l2s2[0], ntzero), ricrit)
+    trma = alph3 * alph4 * ricll[0] + 2.0 * b1 * (alph2 - alph4 * alph5 * ricll[0])
+    trmb = ricll[0] * (alph3 + alph4) + 2.0 * b1 * (-alph5 * ricll[0] + alph1)
+    trmc = ricll[0]
+    det = max(trmb * trmb - 4.0 * trma * trmc, 0.0)
+    gh[0] = (-trmb + sqrt(det)) / 2.0 / trma
+    gh[0] = min(max(gh[0], -3.5334), 0.0233)
+    sh[0] = alph5 / (1.0 + alph3 * gh[0])
+    sm[0] = (alph1 + alph2 * gh[0]) / (1.0 + alph3 * gh[0]) / (1.0 + alph4 * gh[0])
+    wint[0] = wint[0] - sh[0] * l2n2[0] + sm[0] * l2s2[0]
+
+
+@export
 def eddy_diff_zisocl_stability_codon(
     alph1: float,
     alph2: float,
