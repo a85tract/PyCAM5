@@ -206,6 +206,8 @@
   logical                     :: compute_radf_impl_selected = .false.
   logical                     :: use_native_caleddy_clprep_impl = .false.
   logical                     :: caleddy_clprep_impl_selected = .false.
+  logical                     :: use_native_caleddy_closure_impl = .false.
+  logical                     :: caleddy_closure_impl_selected = .false.
   logical                     :: use_native_caleddy_srcl_impl = .false.
   logical                     :: caleddy_srcl_impl_selected = .false.
   logical                     :: use_native_caleddy_stl_impl = .false.
@@ -3810,6 +3812,478 @@
 
   end subroutine eddy_diff_caleddy_clprep_native
 
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_closure_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (caleddy_closure_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_CALEDDY_CLOSURE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_caleddy_closure_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_caleddy_closure_impl = .false.
+    end if
+
+    caleddy_closure_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_caleddy_closure_impl) then
+          write(iulog,*) 'eddy_diff_caleddy_closure implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_caleddy_closure implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_caleddy_closure_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_closure(i_local, pcols_local, pver_local, ncvmax_local, tunl_mode_local, leng_mode_local, &
+       evhc_mode_local, wstarent_mode_local, sedfact_mode_local, tunl_local, ctunl_local, cleng_local, lbulk_max_local, &
+       tkemax_local, b1_local, ae_local, alph1_local, a1l_local, a1i_local, ccrit_local, wstar3factcrit_local, &
+       ntzero_local, onet_local, rcapmin_local, rcapmax_local, wfac_local, wpertmin_local, tfac_local, qmin_local, &
+       g_local, vk_local, cpair_local, latvap_local, a2l_local, a3l_local, jbumin_local, evhcmax_local, ased_local, &
+       ql_local, slv_local, sl_local, qt_local, u_local, v_local, pi_local, zi_local, z_local, n2_local, s2_local, &
+       shflx_local, qflx_local, rrho_local, sfuh_local, sflh_local, chu_local, chs_local, cmu_local, cms_local, &
+       cldeff_local, bflxs_local, bprod_local, sprod_local, wsedl_local, ncvfin_local, kbase_local, ktop_local, &
+       belongcv_local, lbrk_local, ebrk_local, wbrk_local, ricl_local, shcl_local, smcl_local, radf_CL_local, &
+       wsed_CL_local, leng_max_local, wet_CL_local, web_CL_local, jtbu_CL_local, jbbu_CL_local, evhc_CL_local, &
+       jt2slv_CL_local, n2ht_CL_local, n2hb_CL_local, wstar_CL_local, wstar3fact_CL_local, leng_local, wcap_local, &
+       tke_local, kvh_local, kvm_local, turbtype_local, sm_aw_local, pblh_local, pblhp_local, wpert_local, tpert_local, &
+       qpert_local, ipbl_local, kpblh_local, went_local, ncvsurf_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: i_local, pcols_local, pver_local, ncvmax_local
+    integer, intent(in) :: tunl_mode_local, leng_mode_local, evhc_mode_local
+    integer, intent(in) :: wstarent_mode_local, sedfact_mode_local
+    real(r8), intent(in) :: tunl_local, ctunl_local, cleng_local, lbulk_max_local, tkemax_local
+    real(r8), intent(in) :: b1_local, ae_local, alph1_local, a1l_local, a1i_local, ccrit_local
+    real(r8), intent(in) :: wstar3factcrit_local, ntzero_local, onet_local, rcapmin_local, rcapmax_local
+    real(r8), intent(in) :: wfac_local, wpertmin_local, tfac_local, qmin_local, g_local, vk_local, cpair_local
+    real(r8), intent(in) :: latvap_local, a2l_local, a3l_local, jbumin_local, evhcmax_local, ased_local
+    real(r8), target, intent(in) :: ql_local(pcols_local,pver_local), slv_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: sl_local(pcols_local,pver_local), qt_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: u_local(pcols_local,pver_local), v_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: pi_local(pcols_local,pver_local+1), zi_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: z_local(pcols_local,pver_local), n2_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: s2_local(pcols_local,pver_local), shflx_local(pcols_local), qflx_local(pcols_local)
+    real(r8), target, intent(in) :: rrho_local(pcols_local), sfuh_local(pcols_local,pver_local), sflh_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: chu_local(pcols_local,pver_local+1), chs_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: cmu_local(pcols_local,pver_local+1), cms_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: cldeff_local(pcols_local,pver_local), bflxs_local(pcols_local)
+    real(r8), target, intent(inout) :: bprod_local(pcols_local,pver_local+1), sprod_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: wsedl_local(pcols_local,pver_local)
+    integer(i4), target, intent(in) :: ncvfin_local(pcols_local), kbase_local(pcols_local,ncvmax_local)
+    integer(i4), target, intent(in) :: ktop_local(pcols_local,ncvmax_local)
+    logical, intent(inout) :: belongcv_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: lbrk_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: ebrk_local(pcols_local,ncvmax_local), wbrk_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(in) :: ricl_local(pcols_local,ncvmax_local), shcl_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(in) :: smcl_local(pcols_local,ncvmax_local), radf_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: wsed_CL_local(pcols_local,ncvmax_local), wet_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: web_CL_local(pcols_local,ncvmax_local), jtbu_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: jbbu_CL_local(pcols_local,ncvmax_local), evhc_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: jt2slv_CL_local(pcols_local,ncvmax_local), n2ht_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: n2hb_CL_local(pcols_local,ncvmax_local), wstar_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: wstar3fact_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(in) :: leng_max_local(pver_local)
+    real(r8), target, intent(inout) :: leng_local(pcols_local,pver_local+1), wcap_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: tke_local(pcols_local,pver_local+1), kvh_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: kvm_local(pcols_local,pver_local+1), sm_aw_local(pcols_local,pver_local+1)
+    integer(i4), target, intent(inout) :: turbtype_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: pblh_local(pcols_local), pblhp_local(pcols_local), wpert_local(pcols_local)
+    real(r8), target, intent(inout) :: tpert_local(pcols_local), qpert_local(pcols_local), went_local(pcols_local)
+    integer(i4), target, intent(inout) :: ipbl_local(pcols_local), kpblh_local(pcols_local)
+    integer(i4), intent(in) :: ncvsurf_local
+
+    integer(i4), target :: zero_tke_mask_local(pver_local+1), closure_status_local(3)
+    integer :: k
+
+    interface
+       subroutine eddy_diff_caleddy_closure_codon(i_c, pcols_c, pver_c, ncvmax_c, tunl_mode_c, leng_mode_c, evhc_mode_c, &
+            wstarent_mode_c, sedfact_mode_c, ncvsurf_c, tunl_c, ctunl_c, cleng_c, lbulk_max_c, tkemax_c, b1_c, ae_c, &
+            alph1_c, a1l_c, a1i_c, ccrit_c, wstar3factcrit_c, ntzero_c, onet_c, rcapmin_c, rcapmax_c, wfac_c, &
+            wpertmin_c, tfac_c, qmin_c, g_c, vk_c, cpair_c, latvap_c, a2l_c, a3l_c, jbumin_c, evhcmax_c, ased_c, &
+            ql_p, slv_p, sl_p, qt_p, u_p, v_p, pi_p, zi_p, z_p, n2_p, s2_p, shflx_p, qflx_p, rrho_p, sfuh_p, sflh_p, &
+            chu_p, chs_p, cmu_p, cms_p, cldeff_p, bflxs_p, bprod_p, sprod_p, wsedl_p, ncvfin_p, kbase_p, ktop_p, lbrk_p, &
+            ebrk_p, wbrk_p, ricl_p, shcl_p, smcl_p, radf_CL_p, wsed_CL_p, leng_max_p, wet_CL_p, web_CL_p, jtbu_CL_p, &
+            jbbu_CL_p, evhc_CL_p, jt2slv_CL_p, n2ht_CL_p, n2hb_CL_p, wstar_CL_p, wstar3fact_CL_p, leng_p, wcap_p, tke_p, &
+            kvh_p, kvm_p, turbtype_p, sm_aw_p, pblh_p, pblhp_p, wpert_p, tpert_p, qpert_p, ipbl_p, kpblh_p, went_p, &
+            zero_tke_mask_p, closure_status_p) bind(c, name="eddy_diff_caleddy_closure_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: i_c, pcols_c, pver_c, ncvmax_c, tunl_mode_c, leng_mode_c, evhc_mode_c
+         integer(c_int64_t), value :: wstarent_mode_c, sedfact_mode_c, ncvsurf_c
+         real(c_double), value :: tunl_c, ctunl_c, cleng_c, lbulk_max_c, tkemax_c, b1_c, ae_c, alph1_c, a1l_c, a1i_c
+         real(c_double), value :: ccrit_c, wstar3factcrit_c, ntzero_c, onet_c, rcapmin_c, rcapmax_c, wfac_c, wpertmin_c
+         real(c_double), value :: tfac_c, qmin_c, g_c, vk_c, cpair_c, latvap_c, a2l_c, a3l_c, jbumin_c, evhcmax_c, ased_c
+         type(c_ptr), value :: ql_p, slv_p, sl_p, qt_p, u_p, v_p, pi_p, zi_p, z_p, n2_p, s2_p, shflx_p, qflx_p, rrho_p
+         type(c_ptr), value :: sfuh_p, sflh_p, chu_p, chs_p, cmu_p, cms_p, cldeff_p, bflxs_p, bprod_p, sprod_p, wsedl_p
+         type(c_ptr), value :: ncvfin_p, kbase_p, ktop_p, lbrk_p, ebrk_p, wbrk_p, ricl_p, shcl_p, smcl_p, radf_CL_p
+         type(c_ptr), value :: wsed_CL_p, leng_max_p, wet_CL_p, web_CL_p, jtbu_CL_p, jbbu_CL_p, evhc_CL_p, jt2slv_CL_p
+         type(c_ptr), value :: n2ht_CL_p, n2hb_CL_p, wstar_CL_p, wstar3fact_CL_p, leng_p, wcap_p, tke_p, kvh_p, kvm_p
+         type(c_ptr), value :: turbtype_p, sm_aw_p, pblh_p, pblhp_p, wpert_p, tpert_p, qpert_p, ipbl_p, kpblh_p, went_p
+         type(c_ptr), value :: zero_tke_mask_p, closure_status_p
+       end subroutine eddy_diff_caleddy_closure_codon
+    end interface
+
+    call eddy_diff_caleddy_closure_select_impl()
+
+    if (use_native_caleddy_closure_impl) then
+       call eddy_diff_caleddy_closure_native(i_local, pcols_local, pver_local, ncvmax_local, tunl_mode_local, leng_mode_local, &
+            evhc_mode_local, wstarent_mode_local, sedfact_mode_local, tunl_local, ctunl_local, cleng_local, lbulk_max_local, &
+            tkemax_local, b1_local, ae_local, alph1_local, a1l_local, a1i_local, ccrit_local, wstar3factcrit_local, &
+            ntzero_local, onet_local, rcapmin_local, rcapmax_local, wfac_local, wpertmin_local, tfac_local, qmin_local, &
+            g_local, vk_local, cpair_local, latvap_local, a2l_local, a3l_local, jbumin_local, evhcmax_local, ased_local, &
+            ql_local, slv_local, sl_local, qt_local, u_local, v_local, pi_local, zi_local, z_local, n2_local, s2_local, &
+            shflx_local, qflx_local, rrho_local, sfuh_local, sflh_local, chu_local, chs_local, cmu_local, cms_local, &
+            cldeff_local, bflxs_local, bprod_local, sprod_local, wsedl_local, ncvfin_local, kbase_local, ktop_local, &
+            belongcv_local, lbrk_local, ebrk_local, wbrk_local, ricl_local, shcl_local, smcl_local, radf_CL_local, &
+            wsed_CL_local, leng_max_local, wet_CL_local, web_CL_local, jtbu_CL_local, jbbu_CL_local, evhc_CL_local, &
+            jt2slv_CL_local, n2ht_CL_local, n2hb_CL_local, wstar_CL_local, wstar3fact_CL_local, leng_local, wcap_local, &
+            tke_local, kvh_local, kvm_local, turbtype_local, sm_aw_local, pblh_local, pblhp_local, wpert_local, tpert_local, &
+            qpert_local, ipbl_local, kpblh_local, went_local, ncvsurf_local)
+       return
+    end if
+
+    call eddy_diff_caleddy_closure_codon(int(i_local, c_int64_t), int(pcols_local, c_int64_t), int(pver_local, c_int64_t), &
+         int(ncvmax_local, c_int64_t), int(tunl_mode_local, c_int64_t), int(leng_mode_local, c_int64_t), &
+         int(evhc_mode_local, c_int64_t), int(wstarent_mode_local, c_int64_t), int(sedfact_mode_local, c_int64_t), &
+         int(ncvsurf_local, c_int64_t), tunl_local, ctunl_local, cleng_local, lbulk_max_local, tkemax_local, b1_local, &
+         ae_local, alph1_local, a1l_local, a1i_local, ccrit_local, wstar3factcrit_local, ntzero_local, onet_local, &
+         rcapmin_local, rcapmax_local, wfac_local, wpertmin_local, tfac_local, qmin_local, g_local, vk_local, cpair_local, &
+         latvap_local, a2l_local, a3l_local, jbumin_local, evhcmax_local, ased_local, c_loc(ql_local), c_loc(slv_local), &
+         c_loc(sl_local), c_loc(qt_local), c_loc(u_local), c_loc(v_local), c_loc(pi_local), c_loc(zi_local), c_loc(z_local), &
+         c_loc(n2_local), c_loc(s2_local), c_loc(shflx_local), c_loc(qflx_local), c_loc(rrho_local), c_loc(sfuh_local), &
+         c_loc(sflh_local), c_loc(chu_local), c_loc(chs_local), c_loc(cmu_local), c_loc(cms_local), c_loc(cldeff_local), &
+         c_loc(bflxs_local), c_loc(bprod_local), c_loc(sprod_local), c_loc(wsedl_local), c_loc(ncvfin_local), c_loc(kbase_local), &
+         c_loc(ktop_local), c_loc(lbrk_local), c_loc(ebrk_local), c_loc(wbrk_local), c_loc(ricl_local), c_loc(shcl_local), &
+         c_loc(smcl_local), c_loc(radf_CL_local), c_loc(wsed_CL_local), c_loc(leng_max_local), c_loc(wet_CL_local), &
+         c_loc(web_CL_local), c_loc(jtbu_CL_local), c_loc(jbbu_CL_local), c_loc(evhc_CL_local), c_loc(jt2slv_CL_local), &
+         c_loc(n2ht_CL_local), c_loc(n2hb_CL_local), c_loc(wstar_CL_local), c_loc(wstar3fact_CL_local), c_loc(leng_local), &
+         c_loc(wcap_local), c_loc(tke_local), c_loc(kvh_local), c_loc(kvm_local), c_loc(turbtype_local), c_loc(sm_aw_local), &
+         c_loc(pblh_local), c_loc(pblhp_local), c_loc(wpert_local), c_loc(tpert_local), c_loc(qpert_local), c_loc(ipbl_local), &
+         c_loc(kpblh_local), c_loc(went_local), c_loc(zero_tke_mask_local), c_loc(closure_status_local))
+
+    if (closure_status_local(1) .ne. 0_i4) then
+       write(iulog,*) 'CALEDDY: Warning, CL with zero TKE, i, kt, kb ', i_local, closure_status_local(2), closure_status_local(3)
+       do k = 1, pver_local + 1
+          if (zero_tke_mask_local(k) .ne. 0_i4) belongcv_local(i_local,k) = .false.
+       end do
+    end if
+
+  end subroutine eddy_diff_caleddy_closure
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_closure_native(i_local, pcols_local, pver_local, ncvmax_local, tunl_mode_local, leng_mode_local, &
+       evhc_mode_local, wstarent_mode_local, sedfact_mode_local, tunl_local, ctunl_local, cleng_local, lbulk_max_local, &
+       tkemax_local, b1_local, ae_local, alph1_local, a1l_local, a1i_local, ccrit_local, wstar3factcrit_local, &
+       ntzero_local, onet_local, rcapmin_local, rcapmax_local, wfac_local, wpertmin_local, tfac_local, qmin_local, &
+       g_local, vk_local, cpair_local, latvap_local, a2l_local, a3l_local, jbumin_local, evhcmax_local, ased_local, &
+       ql_local, slv_local, sl_local, qt_local, u_local, v_local, pi_local, zi_local, z_local, n2_local, s2_local, &
+       shflx_local, qflx_local, rrho_local, sfuh_local, sflh_local, chu_local, chs_local, cmu_local, cms_local, &
+       cldeff_local, bflxs_local, bprod_local, sprod_local, wsedl_local, ncvfin_local, kbase_local, ktop_local, &
+       belongcv_local, lbrk_local, ebrk_local, wbrk_local, ricl_local, shcl_local, smcl_local, radf_CL_local, &
+       wsed_CL_local, leng_max_local, wet_CL_local, web_CL_local, jtbu_CL_local, jbbu_CL_local, evhc_CL_local, &
+       jt2slv_CL_local, n2ht_CL_local, n2hb_CL_local, wstar_CL_local, wstar3fact_CL_local, leng_local, wcap_local, &
+       tke_local, kvh_local, kvm_local, turbtype_local, sm_aw_local, pblh_local, pblhp_local, wpert_local, tpert_local, &
+       qpert_local, ipbl_local, kpblh_local, went_local, ncvsurf_local)
+
+    implicit none
+
+    integer, intent(in) :: i_local, pcols_local, pver_local, ncvmax_local
+    integer, intent(in) :: tunl_mode_local, leng_mode_local, evhc_mode_local
+    integer, intent(in) :: wstarent_mode_local, sedfact_mode_local
+    real(r8), intent(in) :: tunl_local, ctunl_local, cleng_local, lbulk_max_local, tkemax_local
+    real(r8), intent(in) :: b1_local, ae_local, alph1_local, a1l_local, a1i_local, ccrit_local
+    real(r8), intent(in) :: wstar3factcrit_local, ntzero_local, onet_local, rcapmin_local, rcapmax_local
+    real(r8), intent(in) :: wfac_local, wpertmin_local, tfac_local, qmin_local, g_local, vk_local, cpair_local
+    real(r8), intent(in) :: latvap_local, a2l_local, a3l_local, jbumin_local, evhcmax_local, ased_local
+    real(r8), intent(in) :: ql_local(pcols_local,pver_local), slv_local(pcols_local,pver_local)
+    real(r8), intent(in) :: sl_local(pcols_local,pver_local), qt_local(pcols_local,pver_local)
+    real(r8), intent(in) :: u_local(pcols_local,pver_local), v_local(pcols_local,pver_local)
+    real(r8), intent(in) :: pi_local(pcols_local,pver_local+1), zi_local(pcols_local,pver_local+1)
+    real(r8), intent(in) :: z_local(pcols_local,pver_local), n2_local(pcols_local,pver_local), s2_local(pcols_local,pver_local)
+    real(r8), intent(in) :: shflx_local(pcols_local), qflx_local(pcols_local), rrho_local(pcols_local)
+    real(r8), intent(in) :: sfuh_local(pcols_local,pver_local), sflh_local(pcols_local,pver_local)
+    real(r8), intent(in) :: chu_local(pcols_local,pver_local+1), chs_local(pcols_local,pver_local+1)
+    real(r8), intent(in) :: cmu_local(pcols_local,pver_local+1), cms_local(pcols_local,pver_local+1)
+    real(r8), intent(in) :: cldeff_local(pcols_local,pver_local), bflxs_local(pcols_local)
+    real(r8), intent(inout) :: bprod_local(pcols_local,pver_local+1), sprod_local(pcols_local,pver_local+1)
+    real(r8), intent(in) :: wsedl_local(pcols_local,pver_local)
+    integer(i4), intent(in) :: ncvfin_local(pcols_local), kbase_local(pcols_local,ncvmax_local), ktop_local(pcols_local,ncvmax_local)
+    logical, intent(inout) :: belongcv_local(pcols_local,pver_local+1)
+    real(r8), intent(in) :: lbrk_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: ebrk_local(pcols_local,ncvmax_local), wbrk_local(pcols_local,ncvmax_local)
+    real(r8), intent(in) :: ricl_local(pcols_local,ncvmax_local), shcl_local(pcols_local,ncvmax_local)
+    real(r8), intent(in) :: smcl_local(pcols_local,ncvmax_local), radf_CL_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: wsed_CL_local(pcols_local,ncvmax_local), wet_CL_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: web_CL_local(pcols_local,ncvmax_local), jtbu_CL_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: jbbu_CL_local(pcols_local,ncvmax_local), evhc_CL_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: jt2slv_CL_local(pcols_local,ncvmax_local), n2ht_CL_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: n2hb_CL_local(pcols_local,ncvmax_local), wstar_CL_local(pcols_local,ncvmax_local)
+    real(r8), intent(inout) :: wstar3fact_CL_local(pcols_local,ncvmax_local)
+    real(r8), intent(in) :: leng_max_local(pver_local)
+    real(r8), intent(inout) :: leng_local(pcols_local,pver_local+1), wcap_local(pcols_local,pver_local+1)
+    real(r8), intent(inout) :: tke_local(pcols_local,pver_local+1), kvh_local(pcols_local,pver_local+1)
+    real(r8), intent(inout) :: kvm_local(pcols_local,pver_local+1), sm_aw_local(pcols_local,pver_local+1)
+    integer(i4), intent(inout) :: turbtype_local(pcols_local,pver_local+1)
+    real(r8), intent(inout) :: pblh_local(pcols_local), pblhp_local(pcols_local), wpert_local(pcols_local)
+    real(r8), intent(inout) :: tpert_local(pcols_local), qpert_local(pcols_local), went_local(pcols_local)
+    integer(i4), intent(inout) :: ipbl_local(pcols_local), kpblh_local(pcols_local)
+    integer(i4), intent(in) :: ncvsurf_local
+
+    integer :: ncv, k, ktblw, kb, kt, ktopbl_local
+    real(r8) :: lbulk, jbzm, jbbu, n2hb, vyb, vub, jtzm, jtbu, jt2slv, n2ht, vyt, vut, evhc
+    real(r8) :: dzht, dzhb, wstar3, radf, web, wet, sedfact, qleff, cet, ceb, wstar, wstar3fact
+    real(r8) :: fact, trma, trmp, trmq, qq, rmin, fmin, rcrit, fcrit, rootp, rcap, kentr, dzhb5, dzht5, tke_imsi
+    logical  :: noroot
+
+    ktblw = 0
+
+    do ncv = 1, ncvfin_local(i_local)
+       kt = ktop_local(i_local,ncv)
+       kb = kbase_local(i_local,ncv)
+       radf = radf_CL_local(i_local,ncv)
+
+       call eddy_diff_caleddy_clprep_native(i_local, ncv, pcols_local, pver_local, ncvmax_local, tunl_mode_local, &
+            leng_mode_local, evhc_mode_local, tunl_local, ctunl_local, cleng_local, lbulk_max_local, qmin_local, g_local, &
+            vk_local, latvap_local, a2l_local, a3l_local, jbumin_local, evhcmax_local, ql_local, slv_local, sl_local, &
+            qt_local, u_local, v_local, zi_local, z_local, n2_local, s2_local, sfuh_local, sflh_local, chu_local, &
+            chs_local, cmu_local, cms_local, cldeff_local, bflxs_local, bprod_local, kbase_local, ktop_local, ricl_local, &
+            shcl_local, smcl_local, radf, leng_max_local, leng_local, wcap_local, lbulk, jbzm, jbbu, n2hb, vyb, vub, &
+            jtzm, jtbu, jt2slv, n2ht, vyt, vut, evhc, dzht, dzhb, wstar3)
+
+       web = 0._r8
+       wstar = 0._r8
+
+       if( sedfact_mode_local .ne. 0 ) then
+           sedfact = exp(-ased_local*wsedl_local(i_local,kt)/(wstar3**(1._r8/3._r8)+1.e-6_r8))
+           wsed_CL_local(i_local,ncv) = wsedl_local(i_local,kt)
+           if( evhc_mode_local .eq. 0 ) then
+               if (ql_local(i_local,kt).gt.qmin_local .and. ql_local(i_local,kt-1).lt.qmin_local) then
+                   jt2slv = slv_local(i_local,max(kt-2,1)) - slv_local(i_local,kt)
+                   jt2slv = max(jt2slv, jbumin_local*slv_local(i_local,kt-1)/g_local)
+                   evhc = 1._r8+sedfact*a2l_local*a3l_local*latvap_local*ql_local(i_local,kt) / jt2slv
+                   evhc = min(evhc,evhcmax_local)
+               end if
+           elseif( evhc_mode_local .eq. 1 ) then
+               jt2slv = slv_local(i_local,max(kt-2,1)) - slv_local(i_local,kt)
+               jt2slv = max(jt2slv, jbumin_local*slv_local(i_local,kt-1)/g_local)
+               evhc = 1._r8+max(cldeff_local(i_local,kt)-cldeff_local(i_local,kt-1),0._r8)*sedfact*a2l_local*a3l_local* &
+                    latvap_local*ql_local(i_local,kt) / jt2slv
+               evhc = min(evhc,evhcmax_local)
+           else
+               qleff  = max(ql_local(i_local,kt-1),ql_local(i_local,kt))
+               jt2slv = slv_local(i_local,max(kt-2,1)) - slv_local(i_local,kt)
+               jt2slv = max(jt2slv, jbumin_local*slv_local(i_local,kt-1)/g_local)
+               evhc = 1._r8+sedfact*a2l_local*a3l_local*latvap_local*qleff / jt2slv
+               evhc = min(evhc,evhcmax_local)
+           endif
+       end if
+
+       if( wstar3 .gt. 0._r8 ) then
+           cet = a1i_local * evhc / ( jtbu * lbulk )
+           if( kb .eq. pver_local + 1 ) then
+               wstar3fact = max( 1._r8 + 2.5_r8 * cet * n2ht * jtzm * dzht, wstar3factcrit_local )
+           else
+               ceb = a1i_local / ( jbbu * lbulk )
+               wstar3fact = max( 1._r8 + 2.5_r8 * cet * n2ht * jtzm * dzht + 2.5_r8 * ceb * n2hb * jbzm * dzhb, &
+                    wstar3factcrit_local )
+           end if
+           wstar3 = wstar3 / wstar3fact
+       else
+           wstar3fact = 0._r8
+           cet        = 0._r8
+           ceb        = 0._r8
+       end if
+
+       fact = ( evhc * ( -vyt + vut ) * dzht + ( -vyb + vub ) * dzhb * leng_local(i_local,kb) / leng_local(i_local,kt) ) / lbulk
+
+       if( wstarent_mode_local .ne. 0 ) then
+           trma = 1._r8
+           trmp = ebrk_local(i_local,ncv) * ( lbrk_local(i_local,ncv) / lbulk ) / 3._r8 + ntzero_local
+           trmq = 0.5_r8 * b1_local * ( leng_local(i_local,kt) / lbulk ) * ( radf * dzht + a1i_local * fact * wstar3 )
+
+           rmin  = sqrt(trmp)
+           fmin  = rmin * ( rmin * rmin - 3._r8 * trmp ) - 2._r8 * trmq
+           wstar = wstar3**onet_local
+           rcrit = ccrit_local * wstar
+           fcrit = rcrit * ( rcrit * rcrit - 3._r8 * trmp ) - 2._r8 * trmq
+           noroot = ( ( rmin .lt. rcrit ) .and. ( fcrit .gt. 0._r8 ) ) .or. ( ( rmin .ge. rcrit ) .and. ( fmin  .gt. 0._r8 ) )
+           if( noroot ) then
+               trma = 1._r8 - b1_local * ( leng_local(i_local,kt) / lbulk ) * a1i_local * fact / ccrit_local**3
+               trma = max( trma, 0.5_r8 )
+               trmp = trmp / trma
+               trmq = 0.5_r8 * b1_local * ( leng_local(i_local,kt) / lbulk ) * radf * dzht / trma
+           end if
+
+           qq = trmq**2 - trmp**3
+           if( qq .ge. 0._r8 ) then
+               rootp = ( trmq + sqrt(qq) )**(1._r8/3._r8) + ( max( trmq - sqrt(qq), 0._r8 ) )**(1._r8/3._r8)
+           else
+               rootp = 2._r8 * sqrt(trmp) * cos( acos( trmq / sqrt(trmp**3) ) / 3._r8 )
+           end if
+
+           if( noroot )  wstar3 = ( rootp / ccrit_local )**3
+           wet = cet * wstar3
+           if( kb .lt. pver_local + 1 ) web = ceb * wstar3
+       else
+           trma = 1._r8 - b1_local * a1l_local * fact
+           trma = max( trma, 0.5_r8 )
+           trmp = ebrk_local(i_local,ncv) * ( lbrk_local(i_local,ncv) / lbulk ) / ( 3._r8 * trma )
+           trmq = 0.5_r8 * b1_local * ( leng_local(i_local,kt) / lbulk ) * radf * dzht / trma
+
+           qq = trmq**2 - trmp**3
+           if( qq .ge. 0._r8 ) then
+               rootp = ( trmq + sqrt(qq) )**(1._r8/3._r8) + ( max( trmq - sqrt(qq), 0._r8 ) )**(1._r8/3._r8)
+           else
+               rootp = 2._r8 * sqrt(trmp) * cos( acos( trmq / sqrt(trmp**3) ) / 3._r8 )
+           end if
+
+           wet = a1l_local * rootp * min( evhc * rootp**2 / ( leng_local(i_local,kt) * jtbu ), 1._r8 )
+           if( kb .lt. pver_local + 1 ) web = a1l_local * rootp * min( evhc * rootp**2 / ( leng_local(i_local,kb) * jbbu ), 1._r8 )
+       end if
+
+       ebrk_local(i_local,ncv) = rootp**2
+       ebrk_local(i_local,ncv) = min(ebrk_local(i_local,ncv),tkemax_local)
+       wbrk_local(i_local,ncv) = ebrk_local(i_local,ncv)/b1_local
+
+       if( ebrk_local(i_local,ncv) .le. 0._r8 ) then
+           write(iulog,*) 'CALEDDY: Warning, CL with zero TKE, i, kt, kb ', i_local, kt, kb
+           belongcv_local(i_local,kt) = .false.
+           belongcv_local(i_local,kb) = .false.
+       end if
+
+       do k = kb - 1, kt + 1, -1
+          rcap = ( b1_local * ae_local + wcap_local(i_local,k) / wbrk_local(i_local,ncv) ) / ( b1_local * ae_local + 1._r8 )
+          rcap = min( max(rcap,rcapmin_local), rcapmax_local )
+          tke_local(i_local,k) = ebrk_local(i_local,ncv) * rcap
+          tke_local(i_local,k) = min( tke_local(i_local,k), tkemax_local )
+          kvh_local(i_local,k) = leng_local(i_local,k) * sqrt(tke_local(i_local,k)) * shcl_local(i_local,ncv)
+          kvm_local(i_local,k) = leng_local(i_local,k) * sqrt(tke_local(i_local,k)) * smcl_local(i_local,ncv)
+          bprod_local(i_local,k) = -kvh_local(i_local,k) * n2_local(i_local,k)
+          sprod_local(i_local,k) =  kvm_local(i_local,k) * s2_local(i_local,k)
+          turbtype_local(i_local,k) = 2
+          sm_aw_local(i_local,k) = smcl_local(i_local,ncv)/alph1_local
+       end do
+
+       kentr = wet * jtzm
+       kvh_local(i_local,kt) = kentr
+       kvm_local(i_local,kt) = kentr
+       bprod_local(i_local,kt) = -kentr * n2ht + radf
+       sprod_local(i_local,kt) =  kentr * s2_local(i_local,kt)
+       turbtype_local(i_local,kt) = 4
+       trmp = -b1_local * ae_local / ( 1._r8 + b1_local * ae_local )
+       trmq = -(bprod_local(i_local,kt)+sprod_local(i_local,kt))*b1_local*leng_local(i_local,kt) / &
+            (1._r8+b1_local*ae_local)/(ebrk_local(i_local,ncv)**(3._r8/2._r8))
+       rcap = compute_cubic(0._r8,trmp,trmq)**2._r8
+       rcap = min( max(rcap,rcapmin_local), rcapmax_local )
+       tke_local(i_local,kt)  = ebrk_local(i_local,ncv) * rcap
+       tke_local(i_local,kt)  = min( tke_local(i_local,kt), tkemax_local )
+       sm_aw_local(i_local,kt) = smcl_local(i_local,ncv) / alph1_local
+
+       if( kb .lt. pver_local + 1 ) then
+           kentr = web * jbzm
+           if( kb .ne. ktblw ) then
+               kvh_local(i_local,kb) = kentr
+               kvm_local(i_local,kb) = kentr
+               bprod_local(i_local,kb) = -kvh_local(i_local,kb)*n2hb
+               sprod_local(i_local,kb) =  kvm_local(i_local,kb)*s2_local(i_local,kb)
+               turbtype_local(i_local,kb) = 3
+               trmp = -b1_local*ae_local/(1._r8+b1_local*ae_local)
+               trmq = -(bprod_local(i_local,kb)+sprod_local(i_local,kb))*b1_local*leng_local(i_local,kb) / &
+                    (1._r8+b1_local*ae_local)/(ebrk_local(i_local,ncv)**(3._r8/2._r8))
+               rcap = compute_cubic(0._r8,trmp,trmq)**2._r8
+               rcap = min( max(rcap,rcapmin_local), rcapmax_local )
+               tke_local(i_local,kb)  = ebrk_local(i_local,ncv) * rcap
+               tke_local(i_local,kb)  = min( tke_local(i_local,kb),tkemax_local )
+           else
+               kvh_local(i_local,kb) = kvh_local(i_local,kb) + kentr
+               kvm_local(i_local,kb) = kvm_local(i_local,kb) + kentr
+               dzhb5 = z_local(i_local,kb-1) - zi_local(i_local,kb)
+               dzht5 = zi_local(i_local,kb) - z_local(i_local,kb)
+               bprod_local(i_local,kb) = ( dzht5*bprod_local(i_local,kb) - dzhb5*kentr*n2hb ) / ( dzhb5 + dzht5 )
+               sprod_local(i_local,kb) = ( dzht5*sprod_local(i_local,kb) + dzhb5*kentr*s2_local(i_local,kb) ) / ( dzhb5 + dzht5 )
+               trmp = -b1_local*ae_local/(1._r8+b1_local*ae_local)
+               trmq = -kentr*(s2_local(i_local,kb)-n2hb)*b1_local*leng_local(i_local,kb) / &
+                    (1._r8+b1_local*ae_local)/(ebrk_local(i_local,ncv)**(3._r8/2._r8))
+               rcap = compute_cubic(0._r8,trmp,trmq)**2._r8
+               rcap = min( max(rcap,rcapmin_local), rcapmax_local )
+               tke_imsi = ebrk_local(i_local,ncv) * rcap
+               tke_imsi = min( tke_imsi, tkemax_local )
+               tke_local(i_local,kb)  = ( dzht5*tke_local(i_local,kb) + dzhb5*tke_imsi ) / ( dzhb5 + dzht5 )
+               tke_local(i_local,kb)  = min(tke_local(i_local,kb),tkemax_local)
+               turbtype_local(i_local,kb) = 5
+           end if
+       else
+           rcap = (b1_local*ae_local + wcap_local(i_local,kb)/wbrk_local(i_local,ncv))/(b1_local*ae_local + 1._r8)
+           rcap = min( max(rcap,rcapmin_local), rcapmax_local )
+           tke_local(i_local,kb) = ebrk_local(i_local,ncv) * rcap
+           tke_local(i_local,kb) = min( tke_local(i_local,kb),tkemax_local )
+       end if
+
+       sm_aw_local(i_local,kb) = smcl_local(i_local,ncv)/alph1_local
+
+       wcap_local(i_local,kt) = (bprod_local(i_local,kt)+sprod_local(i_local,kt))*leng_local(i_local,kt)/sqrt(max(tke_local(i_local,kt),1.e-6_r8))
+       if( kb .lt. pver_local + 1 ) then
+           wcap_local(i_local,kb) = (bprod_local(i_local,kb)+sprod_local(i_local,kb))*leng_local(i_local,kb)/sqrt(max(tke_local(i_local,kb),1.e-6_r8))
+       end if
+
+       ktblw = kt
+
+       wet_CL_local(i_local,ncv)        = wet
+       web_CL_local(i_local,ncv)        = web
+       jtbu_CL_local(i_local,ncv)       = jtbu
+       jbbu_CL_local(i_local,ncv)       = jbbu
+       evhc_CL_local(i_local,ncv)       = evhc
+       jt2slv_CL_local(i_local,ncv)     = jt2slv
+       n2ht_CL_local(i_local,ncv)       = n2ht
+       n2hb_CL_local(i_local,ncv)       = n2hb
+       wstar_CL_local(i_local,ncv)      = wstar
+       wstar3fact_CL_local(i_local,ncv) = wstar3fact
+    end do
+
+    if( ncvsurf_local .gt. 0 ) then
+        ktopbl_local = ktop_local(i_local,ncvsurf_local)
+        pblh_local(i_local)   = zi_local(i_local, ktopbl_local)
+        pblhp_local(i_local)  = pi_local(i_local, ktopbl_local)
+        wpert_local(i_local)  = max(wfac_local*sqrt(ebrk_local(i_local,ncvsurf_local)),wpertmin_local)
+        tpert_local(i_local)  = max(abs(shflx_local(i_local)*rrho_local(i_local)/cpair_local)*tfac_local/wpert_local(i_local),0._r8)
+        qpert_local(i_local)  = max(abs(qflx_local(i_local)*rrho_local(i_local))*tfac_local/wpert_local(i_local),0._r8)
+        if( bflxs_local(i_local) .gt. 0._r8 ) then
+            turbtype_local(i_local,pver_local+1) = 2
+        else
+            turbtype_local(i_local,pver_local+1) = 3
+        endif
+        ipbl_local(i_local)  = 1
+        kpblh_local(i_local) = max(ktopbl_local-1, 1)
+        went_local(i_local)  = wet_CL_local(i_local,ncvsurf_local)
+    end if
+
+  end subroutine eddy_diff_caleddy_closure_native
+
     ! ---------------------------------------------------------------------------- !
     !                                                                              !
     ! The University of Washington Moist Turbulence Scheme                         !
@@ -4021,6 +4495,8 @@
     integer :: tunl_mode                              ! Encoded choice_tunl for Codon helper
     integer :: leng_mode                              ! Encoded choice_leng for Codon helper
     integer :: evhc_mode                              ! Encoded choice_evhc for Codon helper
+    integer :: wstarent_mode                          ! Encoded wstarent for Codon helper
+    integer :: sedfact_mode                           ! Encoded id_sedfact for Codon helper
     integer :: kbase(pcols,ncvmax)                    ! Vertical index of CL base interface
     integer :: ktop(pcols,ncvmax)                     ! Vertical index of CL top interface
     integer :: kb, kt                                 ! kbase and ktop for current CL
@@ -4177,6 +4653,16 @@
         evhc_mode = 0
     elseif( choice_evhc .eq. 'ramp' ) then
         evhc_mode = 1
+    end if
+
+    wstarent_mode = 0
+    if (wstarent) then
+        wstarent_mode = 1
+    end if
+
+    sedfact_mode = 0
+    if (id_sedfact) then
+        sedfact_mode = 1
     end if
 
     !
@@ -4491,408 +4977,13 @@
        ! calculated later from surface-based STL (Stable Turbulent Layer) properties.!
        ! --------------------------------------------------------------------------- !
 
-       ktblw = 0
-       do ncv = 1, ncvfin(i)
-
-          kt = ktop(i,ncv)
-          kb = kbase(i,ncv)
-
-          lwp        = lwp_CL(i,ncv)
-          opt_depth  = opt_depth_CL(i,ncv)
-          radinvfrac = radinvfrac_CL(i,ncv)
-          radf       = radf_CL(i, ncv)
-
-          call eddy_diff_caleddy_clprep(i, ncv, pcols, pver, ncvmax, tunl_mode, leng_mode, evhc_mode, tunl, ctunl, cleng, &
-               lbulk_max, qmin, g, vk, latvap, a2l, a3l, jbumin, evhcmax, ql, slv, sl, qt, u, v, zi, z, n2, s2, sfuh, &
-               sflh, chu, chs, cmu, cms, cldeff, bflxs, bprod, kbase, ktop, ricl, shcl, smcl, radf, leng_max, leng, wcap, &
-               lbulk, jbzm, jbbu, n2hb, vyb, vub, jtzm, jtbu, jt2slv, n2ht, vyt, vut, evhc, dzht, dzhb, wstar3)
-
-          web = 0._r8
-
-          ! -------------------------------------------------------------- !
-          ! Below single block is for 'sedimentation-entrainment feedback' !
-          ! -------------------------------------------------------------- !          
-
-          if( id_sedfact ) then
-            ! wsed    = 7.8e5_r8*(ql(i,kt)/ncliq(i,kt))**(2._r8/3._r8)
-              sedfact = exp(-ased*wsedl(i,kt)/(wstar3**(1._r8/3._r8)+1.e-6_r8))
-              wsed_CL(i,ncv) = wsedl(i,kt)
-              if( choice_evhc .eq. 'orig' ) then
-                  if (ql(i,kt).gt.qmin .and. ql(i,kt-1).lt.qmin) then
-                      jt2slv = slv(i,max(kt-2,1)) - slv(i,kt)
-                      jt2slv = max(jt2slv, jbumin*slv(i,kt-1)/g)
-                      evhc = 1._r8+sedfact*a2l*a3l*latvap*ql(i,kt) / jt2slv
-                      evhc = min(evhc,evhcmax)
-                  end if
-              elseif( choice_evhc .eq. 'ramp' ) then
-                  jt2slv = slv(i,max(kt-2,1)) - slv(i,kt)
-                  jt2slv = max(jt2slv, jbumin*slv(i,kt-1)/g)
-                  evhc = 1._r8+max(cldeff(i,kt)-cldeff(i,kt-1),0._r8)*sedfact*a2l*a3l*latvap*ql(i,kt) / jt2slv
-                  evhc = min(evhc,evhcmax)
-              elseif( choice_evhc .eq. 'maxi' ) then
-                  qleff  = max(ql(i,kt-1),ql(i,kt))
-                  jt2slv = slv(i,max(kt-2,1)) - slv(i,kt)
-                  jt2slv = max(jt2slv, jbumin*slv(i,kt-1)/g)
-                  evhc = 1._r8+sedfact*a2l*a3l*latvap*qleff / jt2slv
-                  evhc = min(evhc,evhcmax)
-              endif
-          endif
-
-          ! -------------------------------------------------------------------------- !
-          ! Now diagnose CL top and bottom entrainment rates (and the contribution of  !
-          ! top/bottom entrainments to wstar3) using entrainment closures of the form  !
-          !                                                                            !        
-          !                   wet = cet*wstar3, web = ceb*wstar3                       !
-          !                                                                            !
-          ! where cet and ceb depend on the entrainment interface jumps, ql, etc.      !
-          ! No entrainment is diagnosed unless the wstar3 > 0. Note '1/wstar3fact' is  !
-          ! a factor indicating the enhancement of wstar3 due to entrainment process.  !
-          ! Q : Below setting of 'wstar3fact = max(..,0.5)'might prevent the possible  !
-          !     case when buoyancy consumption by entrainment is  stronger than cloud  !
-          !     top radiative cooling production. Is that OK ? No.  According to bulk  !
-          !     modeling study, entrainment buoyancy consumption was always a certain  !
-          !     fraction of other net productions, rather than a separate sum.  Thus,  !
-          !     below max limit of wstar3fact is correct.   'wstar3fact = max(.,0.5)'  !
-          !     prevents unreasonable enhancement of CL entrainment rate by cloud-top  !
-          !     entrainment instability, CTEI.                                         !
-          ! Q : Use of the same dry entrainment coefficient, 'a1i' both at the CL  top !
-          !     and base interfaces may result in too small 'wstar3' and 'ebrk' below, !
-          !     as was seen in my generalized bulk modeling study. This should be re-  !
-          !     considered later                                                       !
-          ! -------------------------------------------------------------------------- !
-          
-          if( wstar3 .gt. 0._r8 ) then
-              cet = a1i * evhc / ( jtbu * lbulk )
-              if( kb .eq. pver + 1 ) then 
-                  wstar3fact = max( 1._r8 + 2.5_r8 * cet * n2ht * jtzm * dzht, wstar3factcrit )
-              else    
-                  ceb = a1i / ( jbbu * lbulk )
-                  wstar3fact = max( 1._r8 + 2.5_r8 * cet * n2ht * jtzm * dzht &
-                                          + 2.5_r8 * ceb * n2hb * jbzm * dzhb, wstar3factcrit )
-              end if
-              wstar3 = wstar3 / wstar3fact       
-          else ! wstar3 == 0
-              wstar3fact = 0._r8 ! This is just for dianostic output
-              cet        = 0._r8
-              ceb        = 0._r8
-          end if 
-
-          ! ---------------------------------------------------------------------------- !
-          ! Calculate net CL mean TKE including entrainment contribution by solving a    !
-          ! canonical cubic equation. The solution of cubic equ. is 'rootp**2 = ebrk'    !
-          ! where 'ebrk' originally (before solving cubic eq.) was interior CL mean TKE, !
-          ! but after solving cubic equation,  it is replaced by net CL mean TKE in the  !
-          ! same variable 'ebrk'.                                                        !
-          ! ---------------------------------------------------------------------------- !
-          ! Solve cubic equation (canonical form for analytic solution)                  !
-          !   r^3 - 3*trmp*r - 2*trmq = 0,   r = sqrt<e>                                 ! 
-          ! to estimate <e> for CL, derived from layer-mean TKE balance:                 !
-          !                                                                              !
-          !   <e>^(3/2)/(b_1*<l>) \approx <B + S>   (*)                                  !
-          !   <B+S> = (<B+S>_int * l_int + <B+S>_et * dzt + <B+S>_eb * dzb)/lbulk        !
-          !   <B+S>_int = <e>^(1/2)/(b_1*<l>)*<e>_int                                    !
-          !   <B+S>_et  = (-vyt+vut)*wet*jtbu + radf                                     !
-          !   <B+S>_eb  = (-vyb+vub)*web*jbbu                                            !
-          !                                                                              !
-          ! where:                                                                       !
-          !   <> denotes a vertical avg (over the whole CL unless indicated)             !
-          !   l_int (called lbrk below) is aggregate thickness of interior CL layers     !
-          !   dzt = zi(i,kt)-z(i,kt)   is thickness of top entrainment layer             !
-          !   dzb = z(i,kb-1)-zi(i,kb) is thickness of bot entrainment layer             !
-          !   <e>_int (called ebrk below) is the CL-mean TKE if only interior            !
-          !                               interfaces contributed.                        !
-          !   wet, web                  are top. bottom entrainment rates                !
-          !                                                                              !
-          ! For a single-level radiatively-driven convective layer, there are no         ! 
-          ! interior interfaces so 'ebrk' = 'lbrk' = 0. If the CL goes to the            !
-          ! surface, 'vyb' and 'vub' are set to zero before and 'ebrk' and 'lbrk'        !
-          ! have already incorporated the surface interfacial layer contribution,        !
-          ! so the same formulas still apply.                                            !
-          !                                                                              !
-          ! In the original formulation based on TKE,                                    !
-          !    wet*jtbu = a1l*evhc*<e>^3/2/leng(i,kt)                                    ! 
-          !    web*jbbu = a1l*<e>^3/2/leng(i,kt)                                         !
-          !                                                                              !
-          ! In the wstar formulation                                                     !
-          !    wet*jtbu = a1i*evhc*wstar3/lbulk                                          !
-          !    web*jbbu = a1i*wstar3/lbulk,                                              !
-          ! ---------------------------------------------------------------------------- !
-
-          fact = ( evhc * ( -vyt + vut ) * dzht + ( -vyb + vub ) * dzhb * leng(i,kb) / leng(i,kt) ) / lbulk
-
-          if( wstarent ) then
-
-              ! (Option 1) 'wstar' entrainment formulation 
-              ! Here trmq can have either sign, and will usually be nonzero even for non-
-              ! cloud topped CLs.  If trmq > 0, there will be two positive roots r; we take 
-              ! the larger one. Why ? If necessary, we limit entrainment and wstar to prevent
-              ! a solution with r < ccrit*wstar ( Why ? ) where we take ccrit = 0.5. 
-
-              trma = 1._r8          
-              trmp = ebrk(i,ncv) * ( lbrk(i,ncv) / lbulk ) / 3._r8 + ntzero
-              trmq = 0.5_r8 * b1 * ( leng(i,kt)  / lbulk ) * ( radf * dzht + a1i * fact * wstar3 )
-
-              ! Check if there is an acceptable root with r > rcrit = ccrit*wstar. 
-              ! To do this, first find local minimum fmin of the cubic f(r) at sqrt(p), 
-              ! and value fcrit = f(rcrit).
-
-              rmin  = sqrt(trmp)
-              fmin  = rmin * ( rmin * rmin - 3._r8 * trmp ) - 2._r8 * trmq
-              wstar = wstar3**onet
-              rcrit = ccrit * wstar
-              fcrit = rcrit * ( rcrit * rcrit - 3._r8 * trmp ) - 2._r8 * trmq
-
-              ! No acceptable root exists (noroot = .true.) if either:
-              !    1) rmin < rcrit (in which case cubic is monotone increasing for r > rcrit)
-              !       and f(rcrit) > 0.
-              ! or 2) rmin > rcrit (in which case min of f(r) in r > rcrit is at rmin)
-              !       and f(rmin) > 0.  
-              ! In this case, we reduce entrainment and wstar3 such that r/wstar = ccrit;
-              ! this changes the coefficients of the cubic.   It might be informative to
-              ! check when and how many 'noroot' cases occur,  since when 'noroot',   we
-              ! will impose arbitrary limit on 'wstar3, wet, web, and ebrk' using ccrit.
-
-              noroot = ( ( rmin .lt. rcrit ) .and. ( fcrit .gt. 0._r8 ) ) &
-                  .or. ( ( rmin .ge. rcrit ) .and. ( fmin  .gt. 0._r8 ) )
-              if( noroot ) then ! Solve cubic for r
-                  trma = 1._r8 - b1 * ( leng(i,kt) / lbulk ) * a1i * fact / ccrit**3
-                  trma = max( trma, 0.5_r8 )  ! Limit entrainment enhancement of ebrk
-                  trmp = trmp / trma 
-                  trmq = 0.5_r8 * b1 * ( leng(i,kt) / lbulk ) * radf * dzht / trma
-              end if   ! noroot
-
-              ! Solve the cubic equation
-
-              qq = trmq**2 - trmp**3
-              if( qq .ge. 0._r8 ) then 
-                  rootp = ( trmq + sqrt(qq) )**(1._r8/3._r8) + ( max( trmq - sqrt(qq), 0._r8 ) )**(1._r8/3._r8)
-              else
-                  rootp = 2._r8 * sqrt(trmp) * cos( acos( trmq / sqrt(trmp**3) ) / 3._r8 )
-              end if
- 
-              ! Adjust 'wstar3' only if there is 'noroot'. 
-              ! And calculate entrainment rates at the top and base interfaces.
-
-              if( noroot )  wstar3 = ( rootp / ccrit )**3     ! Adjust wstar3 
-              wet = cet * wstar3                              ! Find entrainment rates
-              if( kb .lt. pver + 1 ) web = ceb * wstar3       ! When 'kb.eq.pver+1', it was set to web=0. 
-
-          else !
-
-              ! (Option.2) wstarentr = .false. Use original entrainment formulation.
-              ! trmp > 0 if there are interior interfaces in CL, trmp = 0 otherwise.
-              ! trmq > 0 if there is cloudtop radiative cooling, trmq = 0 otherwise.
-             
-              trma = 1._r8 - b1 * a1l * fact
-              trma = max( trma, 0.5_r8 )  ! Prevents runaway entrainment instability
-              trmp = ebrk(i,ncv) * ( lbrk(i,ncv) / lbulk ) / ( 3._r8 * trma )
-              trmq = 0.5_r8 * b1 * ( leng(i,kt)  / lbulk ) * radf * dzht / trma
-
-              qq = trmq**2 - trmp**3
-              if( qq .ge. 0._r8 ) then 
-                  rootp = ( trmq + sqrt(qq) )**(1._r8/3._r8) + ( max( trmq - sqrt(qq), 0._r8 ) )**(1._r8/3._r8)
-              else ! Also part of case 3
-                  rootp = 2._r8 * sqrt(trmp) * cos( acos( trmq / sqrt(trmp**3) ) / 3._r8 )
-              end if   ! qq
-
-             ! Find entrainment rates and limit them by free-entrainment values a1l*sqrt(e)
-
-              wet = a1l * rootp * min( evhc * rootp**2 / ( leng(i,kt) * jtbu ), 1._r8 )   
-              if( kb .lt. pver + 1 ) web = a1l * rootp * min( evhc * rootp**2 / ( leng(i,kb) * jbbu ), 1._r8 )
-
-          end if ! wstarentr
-
-          ! ---------------------------------------------------- !
-          ! Finally, get the net CL mean TKE and normalized TKE  ! 
-          ! ---------------------------------------------------- !
-
-          ebrk(i,ncv) = rootp**2
-          ebrk(i,ncv) = min(ebrk(i,ncv),tkemax) ! Limit CL-avg TKE used for entrainment
-          wbrk(i,ncv) = ebrk(i,ncv)/b1  
-        
-          ! The only way ebrk = 0 is for SRCL which are actually radiatively cooled 
-          ! at top interface. In this case, we remove 'convective' label from the 
-          ! interfaces around this layer. This case should now be impossible, so 
-          ! we flag it. Q: I can't understand why this case is impossible now. Maybe,
-          ! due to various limiting procedures used in solving cubic equation ? 
-          ! In case of SRCL, 'ebrk' should be positive due to cloud top LW radiative
-          ! cooling contribution, although 'ebrk(internal)' of SRCL before including
-          ! entrainment contribution (which include LW cooling contribution also) is
-          ! zero. 
-
-          if( ebrk(i,ncv) .le. 0._r8 ) then
-              write(iulog,*) 'CALEDDY: Warning, CL with zero TKE, i, kt, kb ', i, kt, kb
-              belongcv(i,kt) = .false.
-              belongcv(i,kb) = .false. 
-          end if
-          
-          ! ----------------------------------------------------------------------- !
-          ! Calculate complete TKE profiles at all CL interfaces, capped by tkemax. !
-          ! We approximate TKE = <e> at entrainment interfaces. However when CL is  !
-          ! based at surface, correct 'tkes' will be inserted to tke(i,pver+1).     !
-          ! Note that this approximation at CL external interfaces do not influence !
-          ! numerical calculation since 'e' at external interfaces are not used  in !
-          ! actual numerical calculation afterward. In addition in order to extract !
-          ! correct TKE averaged over the PBL in the cumulus scheme,it is necessary !
-          ! to set e = <e> at the top entrainment interface.  Since net CL mean TKE !
-          ! 'ebrk' obtained by solving cubic equation already includes tkes  ( tkes !
-          ! is included when bflxs > 0 but not when bflxs <= 0 into internal ebrk ),!
-          ! 'tkes' should be written to tke(i,pver+1)                               !
-          ! ----------------------------------------------------------------------- !
-
-          ! 1. At internal interfaces          
-          do k = kb - 1, kt + 1, -1
-             rcap = ( b1 * ae + wcap(i,k) / wbrk(i,ncv) ) / ( b1 * ae + 1._r8 )
-             rcap = min( max(rcap,rcapmin), rcapmax )
-             tke(i,k) = ebrk(i,ncv) * rcap
-             tke(i,k) = min( tke(i,k), tkemax )
-             kvh(i,k) = leng(i,k) * sqrt(tke(i,k)) * shcl(i,ncv)
-             kvm(i,k) = leng(i,k) * sqrt(tke(i,k)) * smcl(i,ncv)
-             bprod(i,k) = -kvh(i,k) * n2(i,k)
-             sprod(i,k) =  kvm(i,k) * s2(i,k)
-             turbtype(i,k) = 2                     ! CL interior interfaces.
-             sm_aw(i,k) = smcl(i,ncv)/alph1        ! Diagnostic output for microphysics
-          end do
-
-          ! 2. At CL top entrainment interface
-          kentr = wet * jtzm
-          kvh(i,kt) = kentr
-          kvm(i,kt) = kentr
-          bprod(i,kt) = -kentr * n2ht + radf       ! I must use 'n2ht' not 'n2'
-          sprod(i,kt) =  kentr * s2(i,kt)
-          turbtype(i,kt) = 4                       ! CL top entrainment interface
-          trmp = -b1 * ae / ( 1._r8 + b1 * ae )
-          trmq = -(bprod(i,kt)+sprod(i,kt))*b1*leng(i,kt)/(1._r8+b1*ae)/(ebrk(i,ncv)**(3._r8/2._r8))
-          rcap = compute_cubic(0._r8,trmp,trmq)**2._r8
-          rcap = min( max(rcap,rcapmin), rcapmax )
-          tke(i,kt)  = ebrk(i,ncv) * rcap
-          tke(i,kt)  = min( tke(i,kt), tkemax )
-          sm_aw(i,kt) = smcl(i,ncv) / alph1        ! Diagnostic output for microphysics
-
-          ! 3. At CL base entrainment interface and double entraining interfaces
-          ! When current CL base is also the top interface of CL regime below,
-          ! simply add the two contributions for calculating eddy diffusivity
-          ! and buoyancy/shear production. Below code correctly works because
-          ! we (CL regime index) always go from surface upward.
-
-          if( kb .lt. pver + 1 ) then 
-
-              kentr = web * jbzm
-
-              if( kb .ne. ktblw ) then
-
-                  kvh(i,kb) = kentr
-                  kvm(i,kb) = kentr
-                  bprod(i,kb) = -kvh(i,kb)*n2hb     ! I must use 'n2hb' not 'n2'
-                  sprod(i,kb) =  kvm(i,kb)*s2(i,kb)
-                  turbtype(i,kb) = 3                ! CL base entrainment interface
-                  trmp = -b1*ae/(1._r8+b1*ae)
-                  trmq = -(bprod(i,kb)+sprod(i,kb))*b1*leng(i,kb)/(1._r8+b1*ae)/(ebrk(i,ncv)**(3._r8/2._r8))
-                  rcap = compute_cubic(0._r8,trmp,trmq)**2._r8
-                  rcap = min( max(rcap,rcapmin), rcapmax )
-                  tke(i,kb)  = ebrk(i,ncv) * rcap
-                  tke(i,kb)  = min( tke(i,kb),tkemax )
-
-              else
-                  
-                  kvh(i,kb) = kvh(i,kb) + kentr 
-                  kvm(i,kb) = kvm(i,kb) + kentr
-                ! dzhb5 : Half thickness of the lowest  layer of  current CL regime
-                ! dzht5 : Half thickness of the highest layer of adjacent CL regime just below current CL. 
-                  dzhb5 = z(i,kb-1) - zi(i,kb)
-                  dzht5 = zi(i,kb) - z(i,kb)
-                  bprod(i,kb) = ( dzht5*bprod(i,kb) - dzhb5*kentr*n2hb )     / ( dzhb5 + dzht5 )
-                  sprod(i,kb) = ( dzht5*sprod(i,kb) + dzhb5*kentr*s2(i,kb) ) / ( dzhb5 + dzht5 )
-                  trmp = -b1*ae/(1._r8+b1*ae)
-                  trmq = -kentr*(s2(i,kb)-n2hb)*b1*leng(i,kb)/(1._r8+b1*ae)/(ebrk(i,ncv)**(3._r8/2._r8))
-                  rcap = compute_cubic(0._r8,trmp,trmq)**2._r8
-                  rcap = min( max(rcap,rcapmin), rcapmax )
-                  tke_imsi = ebrk(i,ncv) * rcap
-                  tke_imsi = min( tke_imsi, tkemax )
-                  tke(i,kb)  = ( dzht5*tke(i,kb) + dzhb5*tke_imsi ) / ( dzhb5 + dzht5 )               
-                  tke(i,kb)  = min(tke(i,kb),tkemax)
-                  turbtype(i,kb) = 5                ! CL double entraining interface      
-                 
-              end if
-
-           else
-
-             ! If CL base interface is surface, compute similarly using wcap(i,kb)=tkes/b1    
-             ! Even when bflx < 0, use the same formula in order to impose consistency of
-             ! tke(i,kb) at bflx = 0._r8
- 
-             rcap = (b1*ae + wcap(i,kb)/wbrk(i,ncv))/(b1*ae + 1._r8)
-             rcap = min( max(rcap,rcapmin), rcapmax )
-             tke(i,kb) = ebrk(i,ncv) * rcap
-             tke(i,kb) = min( tke(i,kb),tkemax )
-
-          end if
-
-          ! For double entraining interface, simply use smcl(i,ncv) of the overlying CL. 
-          ! Below 'sm_aw' is a diagnostic output for use in the microphysics.
-          ! When 'kb' is surface, 'sm' will be over-written later below.
-
-          sm_aw(i,kb) = smcl(i,ncv)/alph1             
-
-          ! Calculate wcap at all interfaces of CL. Put a  minimum threshold on TKE
-          ! to prevent possible division by zero.  'wcap' at CL internal interfaces
-          ! are already calculated in the first part of 'do ncv' loop correctly.
-          ! When 'kb.eq.pver+1', below formula produces the identical result to the
-          ! 'tkes(i)/b1' if leng(i,kb) is set to vk*z(i,pver). Note  wcap(i,pver+1)
-          ! is already defined as 'tkes(i)/b1' at the first part of caleddy.
-          
-          wcap(i,kt) = (bprod(i,kt)+sprod(i,kt))*leng(i,kt)/sqrt(max(tke(i,kt),1.e-6_r8))
-          if( kb .lt. pver + 1 ) then
-              wcap(i,kb) = (bprod(i,kb)+sprod(i,kb))*leng(i,kb)/sqrt(max(tke(i,kb),1.e-6_r8))
-          end if
-
-          ! Save the index of upper external interface of current CL-regime in order to
-          ! handle the case when this interface is also the lower external interface of 
-          ! CL-regime located just above. 
-
-          ktblw = kt 
-
-          ! Diagnostic Output
-
-          wet_CL(i,ncv)        = wet
-          web_CL(i,ncv)        = web
-          jtbu_CL(i,ncv)       = jtbu
-          jbbu_CL(i,ncv)       = jbbu
-          evhc_CL(i,ncv)       = evhc
-          jt2slv_CL(i,ncv)     = jt2slv
-          n2ht_CL(i,ncv)       = n2ht
-          n2hb_CL(i,ncv)       = n2hb          
-          wstar_CL(i,ncv)      = wstar          
-          wstar3fact_CL(i,ncv) = wstar3fact          
-
-       end do        ! ncv
- 
-       ! Calculate PBL height and characteristic cumulus excess for use in the
-       ! cumulus convection shceme. Also define turbulence type at the surface
-       ! when the lowest CL is based at the surface. These are just diagnostic
-       ! outputs, not influencing numerical calculation of current PBL scheme.
-       ! If the lowest CL is based at the surface, define the PBL depth as the
-       ! CL top interface. The same rule is applied for all CLs including SRCL.
-
-       if( ncvsurf .gt. 0 ) then
-
-           ktopbl(i) = ktop(i,ncvsurf)
-           pblh(i)   = zi(i, ktopbl(i))
-           pblhp(i)  = pi(i, ktopbl(i))
-           wpert(i)  = max(wfac*sqrt(ebrk(i,ncvsurf)),wpertmin)
-           tpert(i)  = max(abs(shflx(i)*rrho(i)/cpair)*tfac/wpert(i),0._r8)
-           qpert(i)  = max(abs(qflx(i)*rrho(i))*tfac/wpert(i),0._r8)
-
-           if( bflxs(i) .gt. 0._r8 ) then
-               turbtype(i,pver+1) = 2 ! CL interior interface
-           else
-               turbtype(i,pver+1) = 3 ! CL external base interface
-           endif
-
-           ipbl(i)  = 1
-           kpblh(i) = max(ktopbl(i)-1, 1)
-           went(i)  = wet_CL(i,ncvsurf)
-       end if ! End of the calculationf of te properties of surface-based CL.
+       call eddy_diff_caleddy_closure(i, pcols, pver, ncvmax, tunl_mode, leng_mode, evhc_mode, wstarent_mode, sedfact_mode, &
+            tunl, ctunl, cleng, lbulk_max, tkemax, b1, ae, alph1, a1l, a1i, ccrit, wstar3factcrit, ntzero, onet, rcapmin, &
+            rcapmax, wfac, wpertmin, tfac, qmin, g, vk, cpair, latvap, a2l, a3l, jbumin, evhcmax, ased, ql, slv, sl, qt, u, &
+            v, pi, zi, z, n2, s2, shflx, qflx, rrho, sfuh, sflh, chu, chs, cmu, cms, cldeff, bflxs, bprod, sprod, wsedl, &
+            ncvfin, kbase, ktop, belongcv, lbrk, ebrk, wbrk, ricl, shcl, smcl, radf_CL, wsed_CL, leng_max, wet_CL, web_CL, &
+            jtbu_CL, jbbu_CL, evhc_CL, jt2slv_CL, n2ht_CL, n2hb_CL, wstar_CL, wstar3fact_CL, leng, wcap, tke, kvh, kvm, &
+            turbtype, sm_aw, pblh, pblhp, wpert, tpert, qpert, ipbl, kpblh, went, ncvsurf)
 
        call eddy_diff_caleddy_stl(i, pcols, pver, ncvmax, tunl_mode, leng_mode, ricrit, tunl, ctunl, cleng, lbulk_max, &
             tkemax, b1, ae, alph1, alph2, alph3, alph4exs, alph5, ghmin, vk, fak, cpair, ri, z, zi, pi, n2, s2, shflx, &
