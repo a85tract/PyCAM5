@@ -218,6 +218,8 @@
   logical                     :: zisocl_surface_energy_impl_selected = .false.
   logical                     :: use_native_zisocl_surface_state_impl = .false.
   logical                     :: zisocl_surface_state_impl_selected = .false.
+  logical                     :: use_native_zisocl_surface_extend_impl = .false.
+  logical                     :: zisocl_surface_extend_impl_selected = .false.
   logical                     :: use_native_zisocl_stability_impl = .false.
   logical                     :: zisocl_stability_impl_selected = .false.
   logical                     :: use_native_zisocl_layer_energy_impl = .false.
@@ -3742,6 +3744,120 @@
   !                                                                                !
   !=============================================================================== !
 
+  subroutine eddy_diff_zisocl_surface_extend_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (zisocl_surface_extend_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_ZISOCL_SURFACE_EXTEND_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_zisocl_surface_extend_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_zisocl_surface_extend_impl = .false.
+    end if
+
+    zisocl_surface_extend_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_zisocl_surface_extend_impl) then
+          write(iulog,*) 'eddy_diff_zisocl_surface_extend implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_zisocl_surface_extend implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_zisocl_surface_extend_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_zisocl_surface_extend(bflxs_surf_local, z_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, &
+       sh_local, dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local, lint_local, l2n2_local, l2s2_local, &
+       wint_local)
+
+    use iso_c_binding, only: c_double, c_loc, c_ptr
+
+    implicit none
+
+    real(r8), target, intent(in) :: bflxs_surf_local, z_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, sh_local
+    real(r8), target, intent(out) :: dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local
+    real(r8), target, intent(inout) :: lint_local, l2n2_local, l2s2_local, wint_local
+
+    interface
+       subroutine eddy_diff_zisocl_surface_extend_codon(alph1_c, alph2_c, alph3_c, alph4_c, alph5_c, b1_c, vk_c, tkemax_c, &
+            bflxs_surf_c, z_surf_c, bprod_surf_c, sprod_surf_c, tkes_surf_c, sh_c, dlint_surf_p, dl2n2_surf_p, dl2s2_surf_p, &
+            dw_surf_p, lint_p, l2n2_p, l2s2_p, wint_p) bind(c, name="eddy_diff_zisocl_surface_extend_codon")
+         use iso_c_binding, only: c_double, c_ptr
+         real(c_double), value :: alph1_c, alph2_c, alph3_c, alph4_c, alph5_c, b1_c, vk_c, tkemax_c
+         real(c_double), value :: bflxs_surf_c, z_surf_c, bprod_surf_c, sprod_surf_c, tkes_surf_c, sh_c
+         type(c_ptr), value :: dlint_surf_p, dl2n2_surf_p, dl2s2_surf_p, dw_surf_p, lint_p, l2n2_p, l2s2_p, wint_p
+       end subroutine eddy_diff_zisocl_surface_extend_codon
+    end interface
+
+    call eddy_diff_zisocl_surface_extend_select_impl()
+
+    if (use_native_zisocl_surface_extend_impl) then
+       call eddy_diff_zisocl_surface_extend_native(bflxs_surf_local, z_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, &
+            sh_local, dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local, lint_local, l2n2_local, l2s2_local, &
+            wint_local)
+       return
+    end if
+
+    call eddy_diff_zisocl_surface_extend_codon(alph1, alph2, alph3, alph4, alph5, b1, vk, tkemax, bflxs_surf_local, z_surf_local, &
+         bprod_surf_local, sprod_surf_local, tkes_surf_local, sh_local, c_loc(dlint_surf_local), c_loc(dl2n2_surf_local), &
+         c_loc(dl2s2_surf_local), c_loc(dw_surf_local), c_loc(lint_local), c_loc(l2n2_local), c_loc(l2s2_local), c_loc(wint_local))
+
+  end subroutine eddy_diff_zisocl_surface_extend
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_zisocl_surface_extend_native(bflxs_surf_local, z_surf_local, bprod_surf_local, sprod_surf_local, &
+       tkes_surf_local, sh_local, dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local, lint_local, &
+       l2n2_local, l2s2_local, wint_local)
+
+    implicit none
+
+    real(r8), intent(in) :: bflxs_surf_local, z_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, sh_local
+    real(r8), intent(out) :: dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local
+    real(r8), intent(inout) :: lint_local, l2n2_local, l2s2_local, wint_local
+
+    real(r8) :: gh_surf_local, sh_surf_local, sm_surf_local
+
+    if (bflxs_surf_local .gt. 0._r8) then
+       call eddy_diff_zisocl_surface_energy_native(z_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, gh_surf_local, &
+            sh_surf_local, sm_surf_local, dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local)
+    else
+       dlint_surf_local = 0._r8
+       dl2n2_surf_local = 0._r8
+       dl2s2_surf_local = 0._r8
+       dw_surf_local = 0._r8
+    end if
+
+    lint_local = lint_local + dlint_surf_local
+    l2n2_local = l2n2_local + dl2n2_surf_local
+    l2n2_local = -min(-l2n2_local, tkemax*lint_local/(b1*sh_local))
+    l2s2_local = l2s2_local + dl2s2_surf_local
+    wint_local = wint_local + dw_surf_local
+
+  end subroutine eddy_diff_zisocl_surface_extend_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
   subroutine eddy_diff_zisocl_stability_select_impl()
 
     character(len=32) :: impl_name
@@ -6695,9 +6811,6 @@
     real(r8)              :: gh
     real(r8)              :: sh
     real(r8)              :: sm
-    real(r8)              :: gh_surf                  ! Half of normalized buoyancy production in surface interfacial layer 
-    real(r8)              :: sh_surf                  ! Galperin instability function in surface interfacial layer  
-    real(r8)              :: sm_surf                  ! Galperin instability function in surface interfacial layer 
     real(r8)              :: l2n2                     ! Vertical integral of 'l^2N^2' over CL. Include thickness product
     real(r8)              :: l2s2                     ! Vertical integral of 'l^2S^2' over CL. Include thickness product
     real(r8)              :: dl2n2                    ! Vertical integration of 'l^2*N^2' of CL external interfaces
@@ -7058,15 +7171,6 @@
              
               if( kb .eq. pver + 1 ) then 
 
-                  if( bflxs(i) .gt. 0._r8 ) then 
-                      call eddy_diff_zisocl_surface_energy(z(i,pver), bprod(i,pver+1), sprod(i,pver+1), tkes(i), gh_surf, &
-                           sh_surf, sm_surf, dlint_surf, dl2n2_surf, dl2s2_surf, dw_surf)
-                  else
-                      dlint_surf = 0._r8
-                      dl2n2_surf = 0._r8
-                      dl2s2_surf = 0._r8
-                      dw_surf = 0._r8
-                  end if
                   ! If (kb.eq.pver+1), updating of CL internal energetics should be 
                   ! performed here inside of 'do while' loop, since 'do while' loop
                   ! contains the constraint of '.and.(kb.ne.pver+1)',so updating of
@@ -7074,11 +7178,8 @@
                   ! loop when kb.eq.pver+1. Even though I updated all 'l2n2','l2s2',
                   ! 'wint' below, only the updated 'wint' is used in the following
                   ! numerical calculation.                
-                  lint = lint + dlint_surf
-                  l2n2 = l2n2 + dl2n2_surf
-                  l2n2 = -min(-l2n2, tkemax*lint/(b1*sh))
-                  l2s2 = l2s2 + dl2s2_surf 
-                  wint = wint + dw_surf                
+                  call eddy_diff_zisocl_surface_extend(bflxs(i), z(i,pver), bprod(i,pver+1), sprod(i,pver+1), tkes(i), sh, &
+                       dlint_surf, dl2n2_surf, dl2s2_surf, dw_surf, lint, l2n2, l2s2, wint)
                 
               else
 

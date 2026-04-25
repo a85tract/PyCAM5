@@ -1194,6 +1194,63 @@ def eddy_diff_zisocl_surface_state_codon(
 
 
 @export
+def eddy_diff_zisocl_surface_extend_codon(
+    alph1: float,
+    alph2: float,
+    alph3: float,
+    alph4: float,
+    alph5: float,
+    b1: float,
+    vk: float,
+    tkemax: float,
+    bflxs_surf: float,
+    z_surf: float,
+    bprod_surf: float,
+    sprod_surf: float,
+    tkes_surf: float,
+    sh: float,
+    dlint_surf_p: cobj,
+    dl2n2_surf_p: cobj,
+    dl2s2_surf_p: cobj,
+    dw_surf_p: cobj,
+    lint_p: cobj,
+    l2n2_p: cobj,
+    l2s2_p: cobj,
+    wint_p: cobj,
+):
+    dlint_surf = Ptr[float](dlint_surf_p)
+    dl2n2_surf = Ptr[float](dl2n2_surf_p)
+    dl2s2_surf = Ptr[float](dl2s2_surf_p)
+    dw_surf = Ptr[float](dw_surf_p)
+    lint = Ptr[float](lint_p)
+    l2n2 = Ptr[float](l2n2_p)
+    l2s2 = Ptr[float](l2s2_p)
+    wint = Ptr[float](wint_p)
+
+    if bflxs_surf > 0.0:
+        gg = 0.5 * vk * z_surf * bprod_surf / (tkes_surf ** (3.0 / 2.0))
+        gh_surf = gg / (alph5 - gg * alph3)
+        gh_surf = min(max(gh_surf, -3.5334), 0.0233)
+        sh_surf = alph5 / (1.0 + alph3 * gh_surf)
+        sm_surf = (alph1 + alph2 * gh_surf) / (1.0 + alph3 * gh_surf) / (1.0 + alph4 * gh_surf)
+        dlint_surf[0] = z_surf
+        dl2n2_surf[0] = -vk * (z_surf ** 2.0) * bprod_surf / (sh_surf * sqrt(tkes_surf))
+        dl2s2_surf[0] = vk * (z_surf ** 2.0) * sprod_surf / (sm_surf * sqrt(tkes_surf))
+        dw_surf[0] = (tkes_surf / b1) * z_surf
+    else:
+        dlint_surf[0] = 0.0
+        dl2n2_surf[0] = 0.0
+        dl2s2_surf[0] = 0.0
+        dw_surf[0] = 0.0
+
+    lint[0] = lint[0] + dlint_surf[0]
+    l2n2[0] = l2n2[0] + dl2n2_surf[0]
+    l2n2[0] = -min(-l2n2[0], tkemax * lint[0] / (b1 * sh))
+    l2s2[0] = l2s2[0] + dl2s2_surf[0]
+    wint[0] = wint[0] + dw_surf[0]
+
+
+@export
 def eddy_diff_zisocl_stability_codon(
     alph1: float,
     alph2: float,
