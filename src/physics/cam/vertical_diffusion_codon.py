@@ -1278,6 +1278,128 @@ def eddy_diff_zisocl_sbcl_state_codon(
 
 
 @export
+def eddy_diff_zisocl_extended_state_codon(
+    i_col: int,
+    kt_ifc: int,
+    kb_ifc: int,
+    pcols: int,
+    pver: int,
+    use_dw_surf: int,
+    tunl_mode: int,
+    leng_mode: int,
+    alph1: float,
+    alph2: float,
+    alph3: float,
+    alph4: float,
+    alph5: float,
+    b1: float,
+    vk: float,
+    ntzero: float,
+    ricrit: float,
+    lbulk_max: float,
+    tunl: float,
+    ctunl: float,
+    cleng: float,
+    tkemax: float,
+    zi_top: float,
+    zi_base: float,
+    z_surf: float,
+    bflxs_surf: float,
+    bprod_surf: float,
+    sprod_surf: float,
+    tkes_surf: float,
+    z_p: cobj,
+    zi_p: cobj,
+    n2_p: cobj,
+    s2_p: cobj,
+    leng_max_p: cobj,
+    gh_p: cobj,
+    sh_p: cobj,
+    sm_p: cobj,
+    lint_p: cobj,
+    wint_p: cobj,
+    ricll_p: cobj,
+):
+    z = Ptr[float](z_p)
+    zi = Ptr[float](zi_p)
+    n2 = Ptr[float](n2_p)
+    s2 = Ptr[float](s2_p)
+    leng_max = Ptr[float](leng_max_p)
+    gh = Ptr[float](gh_p)
+    sh = Ptr[float](sh_p)
+    sm = Ptr[float](sm_p)
+    lint = Ptr[float](lint_p)
+    wint = Ptr[float](wint_p)
+    ricll = Ptr[float](ricll_p)
+
+    lbulk = zi_top - zi_base
+    lbulk = min(lbulk, lbulk_max)
+    dlint_surf = 0.0
+    dl2n2_surf = 0.0
+    dl2s2_surf = 0.0
+    dw_surf = 0.0
+
+    if kb_ifc == pver + 1:
+        if bflxs_surf > 0.0:
+            gg = 0.5 * vk * z_surf * bprod_surf / (tkes_surf ** (3.0 / 2.0))
+            gh_surf = gg / (alph5 - gg * alph3)
+            gh_surf = min(max(gh_surf, -3.5334), 0.0233)
+            sh_surf = alph5 / (1.0 + alph3 * gh_surf)
+            sm_surf = (alph1 + alph2 * gh_surf) / (1.0 + alph3 * gh_surf) / (1.0 + alph4 * gh_surf)
+            dlint_surf = z_surf
+            dl2n2_surf = -vk * (z_surf ** 2.0) * bprod_surf / (sh_surf * sqrt(tkes_surf))
+            dl2s2_surf = vk * (z_surf ** 2.0) * sprod_surf / (sm_surf * sqrt(tkes_surf))
+            dw_surf = (tkes_surf / b1) * z_surf
+        else:
+            lbulk = zi_top - z_surf
+            lbulk = min(lbulk, lbulk_max)
+
+    lint[0] = dlint_surf
+    l2n2 = dl2n2_surf
+    l2s2 = dl2s2_surf
+    wint[0] = dw_surf
+
+    if use_dw_surf != 0:
+        l2n2 = 0.0
+        l2s2 = 0.0
+    else:
+        wint[0] = 0.0
+
+    for k_ifc in range(kt_ifc + 1, kb_ifc):
+        if tunl_mode == 1:
+            tunlramp = 0.5 * (1.0 + ctunl) * tunl
+        elif tunl_mode == 2:
+            tunlramp = ctunl * tunl
+        else:
+            tunlramp = tunl
+
+        if leng_mode == 0:
+            lz = ((vk * zi[_idx2(i_col, k_ifc, pcols)]) ** (-cleng) + (tunlramp * lbulk) ** (-cleng)) ** (-1.0 / cleng)
+        else:
+            lz = min(vk * zi[_idx2(i_col, k_ifc, pcols)], tunlramp * lbulk)
+        lz = min(leng_max[k_ifc - 1], lz)
+
+        dzinc = z[_idx2(i_col, k_ifc - 1, pcols)] - z[_idx2(i_col, k_ifc, pcols)]
+        dl2n2 = lz * lz * n2[_idx2(i_col, k_ifc, pcols)] * dzinc
+        dl2s2 = lz * lz * s2[_idx2(i_col, k_ifc, pcols)] * dzinc
+
+        lint[0] = lint[0] + dzinc
+        l2n2 = l2n2 + dl2n2
+        l2s2 = l2s2 + dl2s2
+
+    ricll[0] = min(l2n2 / max(l2s2, ntzero), ricrit)
+    trma = alph3 * alph4 * ricll[0] + 2.0 * b1 * (alph2 - alph4 * alph5 * ricll[0])
+    trmb = ricll[0] * (alph3 + alph4) + 2.0 * b1 * (-alph5 * ricll[0] + alph1)
+    trmc = ricll[0]
+    det = max(trmb * trmb - 4.0 * trma * trmc, 0.0)
+    gh[0] = (-trmb + sqrt(det)) / 2.0 / trma
+    gh[0] = min(max(gh[0], -3.5334), 0.0233)
+    sh[0] = alph5 / (1.0 + alph3 * gh[0])
+    sm[0] = (alph1 + alph2 * gh[0]) / (1.0 + alph3 * gh[0]) / (1.0 + alph4 * gh[0])
+    wint[0] = max(wint[0] - sh[0] * l2n2 + sm[0] * l2s2, 0.01)
+
+
+@export
 def eddy_diff_zisocl_stability_codon(
     alph1: float,
     alph2: float,

@@ -222,6 +222,8 @@
   logical                     :: zisocl_surface_extend_impl_selected = .false.
   logical                     :: use_native_zisocl_sbcl_state_impl = .false.
   logical                     :: zisocl_sbcl_state_impl_selected = .false.
+  logical                     :: use_native_zisocl_extended_state_impl = .false.
+  logical                     :: zisocl_extended_state_impl_selected = .false.
   logical                     :: use_native_zisocl_stability_impl = .false.
   logical                     :: zisocl_stability_impl_selected = .false.
   logical                     :: use_native_zisocl_layer_energy_impl = .false.
@@ -3960,6 +3962,153 @@
   !                                                                                !
   !=============================================================================== !
 
+  subroutine eddy_diff_zisocl_extended_state_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (zisocl_extended_state_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_ZISOCL_EXTENDED_STATE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_zisocl_extended_state_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_zisocl_extended_state_impl = .false.
+    end if
+
+    zisocl_extended_state_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_zisocl_extended_state_impl) then
+          write(iulog,*) 'eddy_diff_zisocl_extended_state implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_zisocl_extended_state implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_zisocl_extended_state_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_zisocl_extended_state(i_local, kt_local, kb_local, pcols_local, pver_local, use_dw_surf_local, &
+       zi_top_local, zi_base_local, z_surf_local, bflxs_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, &
+       z_local, zi_local, n2_local, s2_local, leng_max_local, gh_local, sh_local, sm_local, lint_local, wint_local, ricll_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: i_local, kt_local, kb_local, pcols_local, pver_local, use_dw_surf_local
+    real(r8), intent(in) :: zi_top_local, zi_base_local, z_surf_local
+    real(r8), intent(in) :: bflxs_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local
+    real(r8), target, intent(in) :: z_local(pcols_local,pver_local), zi_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: n2_local(pcols_local,pver_local), s2_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: leng_max_local(pver_local)
+    real(r8), target, intent(out) :: gh_local, sh_local, sm_local, lint_local, wint_local, ricll_local
+
+    integer :: tunl_mode_local, leng_mode_local
+
+    interface
+       subroutine eddy_diff_zisocl_extended_state_codon(i_c, kt_c, kb_c, pcols_c, pver_c, use_dw_surf_c, tunl_mode_c, leng_mode_c, &
+            alph1_c, alph2_c, alph3_c, alph4_c, alph5_c, b1_c, vk_c, ntzero_c, ricrit_c, lbulk_max_c, tunl_c, ctunl_c, cleng_c, &
+            tkemax_c, zi_top_c, zi_base_c, z_surf_c, bflxs_surf_c, bprod_surf_c, sprod_surf_c, tkes_surf_c, z_p, zi_p, n2_p, s2_p, &
+            leng_max_p, gh_p, sh_p, sm_p, lint_p, wint_p, ricll_p) bind(c, name="eddy_diff_zisocl_extended_state_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: i_c, kt_c, kb_c, pcols_c, pver_c, use_dw_surf_c, tunl_mode_c, leng_mode_c
+         real(c_double), value :: alph1_c, alph2_c, alph3_c, alph4_c, alph5_c, b1_c, vk_c, ntzero_c, ricrit_c, lbulk_max_c
+         real(c_double), value :: tunl_c, ctunl_c, cleng_c, tkemax_c
+         real(c_double), value :: zi_top_c, zi_base_c, z_surf_c, bflxs_surf_c, bprod_surf_c, sprod_surf_c, tkes_surf_c
+         type(c_ptr), value :: z_p, zi_p, n2_p, s2_p, leng_max_p, gh_p, sh_p, sm_p, lint_p, wint_p, ricll_p
+       end subroutine eddy_diff_zisocl_extended_state_codon
+    end interface
+
+    tunl_mode_local = 0
+    if( choice_tunl .eq. 'rampcl' ) then
+        tunl_mode_local = 1
+    elseif( choice_tunl .eq. 'rampsl' ) then
+        tunl_mode_local = 2
+    end if
+
+    leng_mode_local = 1
+    if( choice_leng .eq. 'origin' ) then
+        leng_mode_local = 0
+    end if
+
+    call eddy_diff_zisocl_extended_state_select_impl()
+
+    if (use_native_zisocl_extended_state_impl) then
+       call eddy_diff_zisocl_extended_state_native(i_local, kt_local, kb_local, pcols_local, pver_local, use_dw_surf_local, &
+            zi_top_local, zi_base_local, z_surf_local, bflxs_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, &
+            z_local, zi_local, n2_local, s2_local, leng_max_local, gh_local, sh_local, sm_local, lint_local, wint_local, ricll_local)
+       return
+    end if
+
+    call eddy_diff_zisocl_extended_state_codon(int(i_local, c_int64_t), int(kt_local, c_int64_t), int(kb_local, c_int64_t), &
+         int(pcols_local, c_int64_t), int(pver_local, c_int64_t), int(use_dw_surf_local, c_int64_t), int(tunl_mode_local, c_int64_t), &
+         int(leng_mode_local, c_int64_t), alph1, alph2, alph3, alph4, alph5, b1, vk, ntzero, ricrit, lbulk_max, tunl, ctunl, cleng, &
+         tkemax, zi_top_local, zi_base_local, z_surf_local, bflxs_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, &
+         c_loc(z_local), c_loc(zi_local), c_loc(n2_local), c_loc(s2_local), c_loc(leng_max_local), c_loc(gh_local), c_loc(sh_local), &
+         c_loc(sm_local), c_loc(lint_local), c_loc(wint_local), c_loc(ricll_local))
+
+  end subroutine eddy_diff_zisocl_extended_state
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_zisocl_extended_state_native(i_local, kt_local, kb_local, pcols_local, pver_local, use_dw_surf_local, &
+       zi_top_local, zi_base_local, z_surf_local, bflxs_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, &
+       z_local, zi_local, n2_local, s2_local, leng_max_local, gh_local, sh_local, sm_local, lint_local, wint_local, ricll_local)
+
+    implicit none
+
+    integer, intent(in) :: i_local, kt_local, kb_local, pcols_local, pver_local, use_dw_surf_local
+    real(r8), intent(in) :: zi_top_local, zi_base_local, z_surf_local
+    real(r8), intent(in) :: bflxs_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local
+    real(r8), intent(in) :: z_local(pcols_local,pver_local), zi_local(pcols_local,pver_local+1)
+    real(r8), intent(in) :: n2_local(pcols_local,pver_local), s2_local(pcols_local,pver_local)
+    real(r8), intent(in) :: leng_max_local(pver_local)
+    real(r8), intent(out) :: gh_local, sh_local, sm_local, lint_local, wint_local, ricll_local
+
+    integer :: k_local, kb_is_surface_mode_local
+    real(r8) :: lbulk_local
+    real(r8) :: dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local
+    real(r8) :: dzinc_local, dl2n2_local, dl2s2_local, l2n2_local, l2s2_local
+
+    kb_is_surface_mode_local = 0
+    if( kb_local .eq. pver_local + 1 ) kb_is_surface_mode_local = 1
+
+    call eddy_diff_zisocl_surface_state_native(kb_is_surface_mode_local, use_dw_surf_local, zi_top_local, zi_base_local, z_surf_local, &
+         bflxs_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, lbulk_local, gh_local, sh_local, sm_local, &
+         dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local, lint_local, l2n2_local, l2s2_local, wint_local)
+
+    do k_local = kt_local + 1, kb_local - 1
+       call eddy_diff_zisocl_layer_energy_native(i_local, k_local, pcols_local, pver_local, lbulk_local, z_local, zi_local, n2_local, &
+            s2_local, leng_max_local, dzinc_local, dl2n2_local, dl2s2_local)
+       lint_local = lint_local + dzinc_local
+       l2n2_local = l2n2_local + dl2n2_local
+       l2s2_local = l2s2_local + dl2s2_local
+    end do
+
+    call eddy_diff_zisocl_stability_native(l2n2_local, l2s2_local, ricll_local, gh_local, sh_local, sm_local)
+    wint_local = max( wint_local - sh_local*l2n2_local + sm_local*l2s2_local, 0.01_r8 )
+
+  end subroutine eddy_diff_zisocl_extended_state_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
   subroutine eddy_diff_zisocl_stability_select_impl()
 
     character(len=32) :: impl_name
@@ -7329,33 +7478,8 @@
 
            ktop(i,ncv)  = kt
            kbase(i,ncv) = kb
-
-           ! ------------------------------------------------------ !   
-           ! Step 1: Include surface interfacial layer contribution !
-           ! ------------------------------------------------------ !        
-          
-           kb_is_surface_mode = 0
-           if( kb .eq. pver+1 ) kb_is_surface_mode = 1
-           call eddy_diff_zisocl_surface_state(kb_is_surface_mode, use_dw_surf_mode, zi(i,kt), zi(i,kb), z(i,pver), bflxs(i), &
-                bprod(i,pver+1), sprod(i,pver+1), tkes(i), lbulk, gh, sh, sm, dlint_surf, dl2n2_surf, dl2s2_surf, dw_surf, &
-                lint, l2n2, l2s2, wint)
-       
-           ! -------------------------------------------------------------- !
-           ! Step 2. Include the contribution of 'pure internal interfaces' !
-           ! -------------------------------------------------------------- ! 
-          
-           do k = kt + 1, kb - 1
-              call eddy_diff_zisocl_layer_energy(i, k, pcols, pver, lbulk, z, zi, n2, s2, leng_max, dzinc, dl2n2, dl2s2)
-              lint = lint + dzinc
-              l2n2 = l2n2 + dl2n2
-              l2s2 = l2s2 + dl2s2
-           end do
-
-           call eddy_diff_zisocl_stability(l2n2, l2s2, ricll, gh, sh, sm)
-           ! Even though the 'wint' after finishing merging was positive, it is 
-           ! possible that re-calculated 'wint' here is negative.  In this case,
-           ! correct 'wint' to be a small positive number
-           wint = max( wint - sh*l2n2 + sm*l2s2, 0.01_r8 )
+           call eddy_diff_zisocl_extended_state(i, kt, kb, pcols, pver, use_dw_surf_mode, zi(i,kt), zi(i,kb), z(i,pver), bflxs(i), &
+                bprod(i,pver+1), sprod(i,pver+1), tkes(i), z, zi, n2, s2, leng_max, gh, sh, sm, lint, wint, ricll)
 
        end if
 
