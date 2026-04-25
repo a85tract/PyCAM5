@@ -1054,6 +1054,103 @@ def eddy_diff_trbintd_slopes_codon(
 
 
 @export
+def eddy_diff_trbintd_sfdiag_interface_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    ntzero: float,
+    cld_p: cobj,
+    u_p: cobj,
+    v_p: cobj,
+    z_p: cobj,
+    sl_p: cobj,
+    qt_p: cobj,
+    chu_p: cobj,
+    chs_p: cobj,
+    cmu_p: cobj,
+    cms_p: cobj,
+    sfi_p: cobj,
+    sfuh_p: cobj,
+    sflh_p: cobj,
+    n2_p: cobj,
+    s2_p: cobj,
+    ri_p: cobj,
+):
+    cld = Ptr[float](cld_p)
+    u = Ptr[float](u_p)
+    v = Ptr[float](v_p)
+    z = Ptr[float](z_p)
+    sl = Ptr[float](sl_p)
+    qt = Ptr[float](qt_p)
+    chu = Ptr[float](chu_p)
+    chs = Ptr[float](chs_p)
+    cmu = Ptr[float](cmu_p)
+    cms = Ptr[float](cms_p)
+    sfi = Ptr[float](sfi_p)
+    sfuh = Ptr[float](sfuh_p)
+    sflh = Ptr[float](sflh_p)
+    n2 = Ptr[float](n2_p)
+    s2 = Ptr[float](s2_p)
+    ri = Ptr[float](ri_p)
+
+    for k in range(1, pver + 2):
+        for i in range(1, ncol + 1):
+            sfi[_idx2(i, k, pcols)] = 0.0
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            sfuh[_idx2(i, k, pcols)] = 0.0
+            sflh[_idx2(i, k, pcols)] = 0.0
+
+    for k in range(2, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            idx_km1 = _idx2(i, k - 1, pcols)
+            cldval = cld[idx]
+            sfuh[idx] = cldval
+            sflh[idx] = cldval
+            sfi[idx] = 0.5 * (sflh[idx_km1] + min(sfuh[idx], sflh[idx_km1]))
+
+    for i in range(1, ncol + 1):
+        sfi[_idx2(i, pver + 1, pcols)] = sflh[_idx2(i, pver, pcols)]
+
+    for k in range(pver, 1, -1):
+        km1 = k - 1
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            idx_km1 = _idx2(i, km1, pcols)
+
+            rdz = 1.0 / (z[idx_km1] - z[idx])
+            dsldz = (sl[idx_km1] - sl[idx]) * rdz
+            dqtdz = (qt[idx_km1] - qt[idx]) * rdz
+
+            chu[idx] = (chu[idx_km1] + chu[idx]) * 0.5
+            chs[idx] = (chs[idx_km1] + chs[idx]) * 0.5
+            cmu[idx] = (cmu[idx_km1] + cmu[idx]) * 0.5
+            cms[idx] = (cms[idx_km1] + cms[idx]) * 0.5
+
+            sfival = sfi[idx]
+            ch = chu[idx] * (1.0 - sfival) + chs[idx] * sfival
+            cm = cmu[idx] * (1.0 - sfival) + cms[idx] * sfival
+
+            n2[idx] = ch * dsldz + cm * dqtdz
+
+            du = u[idx_km1] - u[idx]
+            dv = v[idx_km1] - v[idx]
+            rdz_sq = rdz * rdz
+            s2val = (du * du + dv * dv) * rdz_sq
+            s2[idx] = max(ntzero, s2val)
+            ri[idx] = n2[idx] / s2[idx]
+
+    for i in range(1, ncol + 1):
+        idx_1 = _idx2(i, 1, pcols)
+        idx_2 = _idx2(i, 2, pcols)
+        n2[idx_1] = n2[idx_2]
+        s2[idx_1] = s2[idx_2]
+        ri[idx_1] = ri[idx_2]
+
+
+@export
 def vertical_diffusion_obklen_diag_codon(
     ncol: int,
     pcols: int,

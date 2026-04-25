@@ -190,6 +190,8 @@
   logical                     :: trbintd_midpoint_impl_selected = .false.
   logical                     :: use_native_trbintd_slopes_impl = .false.
   logical                     :: trbintd_slopes_impl_selected = .false.
+  logical                     :: use_native_trbintd_sfdiag_interface_impl = .false.
+  logical                     :: trbintd_sfdiag_interface_impl_selected = .false.
   logical                     :: use_native_zero_nonlocal_impl = .false.
   logical                     :: zero_nonlocal_impl_selected = .false.
   logical                     :: use_native_restore_fields_impl = .false.
@@ -1060,13 +1062,13 @@
     integer,  intent(in)  :: pver                             ! Number of atmospheric layers   
     integer,  intent(in)  :: ncol                             ! Number of atmospheric columns
     real(r8), target, intent(in)  :: z(pcols,pver)            ! Layer mid-point height above surface [ m ]
-    real(r8), intent(in)  :: u(pcols,pver)                    ! Layer mid-point u [ m/s ]
-    real(r8), intent(in)  :: v(pcols,pver)                    ! Layer mid-point v [ m/s ]
+    real(r8), target, intent(in)  :: u(pcols,pver)            ! Layer mid-point u [ m/s ]
+    real(r8), target, intent(in)  :: v(pcols,pver)            ! Layer mid-point v [ m/s ]
     real(r8), target, intent(in)  :: t(pcols,pver)            ! Layer mid-point temperature [ K ]
     real(r8), target, intent(in)  :: pmid(pcols,pver)         ! Layer mid-point pressure [ Pa ]
     real(r8), intent(in)  :: zi(pcols,pver+1)                 ! Interface height [ m ]
     real(r8), intent(in)  :: pi(pcols,pver+1)                 ! Interface pressure [ Pa ]
-    real(r8), intent(in)  :: cld(pcols,pver)                  ! Stratus fraction
+    real(r8), target, intent(in)  :: cld(pcols,pver)          ! Stratus fraction
     real(r8), target, intent(in)  :: qv(pcols,pver)           ! Water vapor specific humidity [ kg/kg ]
     real(r8), target, intent(in)  :: ql(pcols,pver)           ! Liquid water specific humidity [ kg/kg ]
     real(r8), target, intent(in)  :: qi(pcols,pver)           ! Ice water specific humidity [ kg/kg ]
@@ -1075,14 +1077,14 @@
     ! Output arguments !
     ! ---------------- !
 
-    real(r8), intent(out) :: s2(pcols,pver)                   ! Interfacial ( except surface ) shear squared [ s-2 ]
-    real(r8), intent(out) :: n2(pcols,pver)                   ! Interfacial ( except surface ) buoyancy frequency [ s-2 ]
-    real(r8), intent(out) :: ri(pcols,pver)                   ! Interfacial ( except surface ) Richardson number, 'n2/s2'
+    real(r8), target, intent(out) :: s2(pcols,pver)           ! Interfacial ( except surface ) shear squared [ s-2 ]
+    real(r8), target, intent(out) :: n2(pcols,pver)           ! Interfacial ( except surface ) buoyancy frequency [ s-2 ]
+    real(r8), target, intent(out) :: ri(pcols,pver)           ! Interfacial ( except surface ) Richardson number, 'n2/s2'
  
     real(r8), target, intent(out) :: qt(pcols,pver)           ! Total specific humidity [ kg/kg ]
-    real(r8), intent(out) :: sfi(pcols,pver+1)                ! Interfacial layer saturation fraction [ fraction ]
-    real(r8), intent(out) :: sfuh(pcols,pver)                 ! Saturation fraction in upper half-layer [ fraction ]
-    real(r8), intent(out) :: sflh(pcols,pver)                 ! Saturation fraction in lower half-layer [ fraction ]
+    real(r8), target, intent(out) :: sfi(pcols,pver+1)        ! Interfacial layer saturation fraction [ fraction ]
+    real(r8), target, intent(out) :: sfuh(pcols,pver)         ! Saturation fraction in upper half-layer [ fraction ]
+    real(r8), target, intent(out) :: sflh(pcols,pver)         ! Saturation fraction in lower half-layer [ fraction ]
     real(r8), target, intent(out) :: sl(pcols,pver)           ! Liquid water static energy [ J/kg ] 
     real(r8), target, intent(out) :: slv(pcols,pver)          ! Liquid water virtual static energy [ J/kg ]
    
@@ -1101,16 +1103,10 @@
     ! Local Variables !
     ! --------------- ! 
 
-    integer               :: i                                ! Longitude index
-    integer               :: k, km1                           ! Level index
+    integer               :: k                                ! Level index
     real(r8), target      :: qs(pcols,pver)                   ! Saturation specific humidity
     real(r8)              :: es(pcols,pver)                   ! Saturation vapor pressure
     real(r8), target      :: gam(pcols,pver)                  ! (l/cp)*(d(qs)/dT)
-    real(r8)              :: rdz                              ! 1 / (delta z) between midpoints
-    real(r8)              :: dsldz                            ! 'delta sl / delta z' at interface
-    real(r8)              :: dqtdz                            ! 'delta qt / delta z' at interface
-    real(r8)              :: ch                               ! 'sfi' weighted ch at the interface
-    real(r8)              :: cm                               ! 'sfi' weighted cm at the interface
     real(r8), target      :: dsldp_b(pcols), dqtdp_b(pcols)   ! Slopes across interface below
 
     ! ----------------------- !
@@ -1137,44 +1133,8 @@
 
     call eddy_diff_trbintd_slopes(ncol, pcols, pver, pmid, sl, qt, slslope, qtslope, dsldp_b, dqtdp_b)
 
-    !  Compute saturation fraction at the interfacial layers for use in buoyancy
-    !  flux computation.
-
-    call sfdiag( pcols  , pver    , ncol    , qt      , ql      , sl      , & 
-                 pi     , pmid    , zi      , cld     , sfi     , sfuh    , &
-                 sflh   , slslope , qtslope )
-
-    ! Calculate buoyancy coefficients at all interfaces (1:pver+1) and (n2,s2,ri) 
-    ! at all interfaces except surface. Note 'nbot_turb = pver', 'ntop_turb = 1'.
-    ! With the previous definition of buoyancy coefficients at the surface, the 
-    ! resulting buoyancy coefficients at the top and surface interfaces becomes 
-    ! identical to the buoyancy coefficients at the top and bottom layers. Note 
-    ! that even though the dimension of (s2,n2,ri) is 'pver',  they are defined
-    ! at interfaces ( not at the layer mid-points ) except the surface. 
-
-    do k = nbot_turb, ntop_turb + 1, -1
-       km1 = k - 1
-       do i = 1, ncol
-          rdz      = 1._r8 / ( z(i,km1) - z(i,k) )
-          dsldz    = ( sl(i,km1) - sl(i,k) ) * rdz
-          dqtdz    = ( qt(i,km1) - qt(i,k) ) * rdz 
-          chu(i,k) = ( chu(i,km1) + chu(i,k) ) * 0.5_r8
-          chs(i,k) = ( chs(i,km1) + chs(i,k) ) * 0.5_r8
-          cmu(i,k) = ( cmu(i,km1) + cmu(i,k) ) * 0.5_r8
-          cms(i,k) = ( cms(i,km1) + cms(i,k) ) * 0.5_r8
-          ch       = chu(i,k) * ( 1._r8 - sfi(i,k) ) + chs(i,k) * sfi(i,k)
-          cm       = cmu(i,k) * ( 1._r8 - sfi(i,k) ) + cms(i,k) * sfi(i,k)
-          n2(i,k)  = ch * dsldz +  cm * dqtdz
-          s2(i,k)  = ( ( u(i,km1) - u(i,k) )**2 + ( v(i,km1) - v(i,k) )**2) * rdz**2
-          s2(i,k)  = max( ntzero, s2(i,k) )
-          ri(i,k)  = n2(i,k) / s2(i,k)
-       end do
-    end do 
-    do i = 1, ncol
-       n2(i,1) = n2(i,2)
-       s2(i,1) = s2(i,2)
-       ri(i,1) = ri(i,2)
-    end do
+    call eddy_diff_trbintd_sfdiag_interface(ncol, pcols, pver, ql, sl, qt, pi, pmid, zi, cld, slslope, qtslope, u, v, z, &
+         chu, chs, cmu, cms, sfi, sfuh, sflh, n2, s2, ri)
 
   return
 
@@ -1434,6 +1394,146 @@
     end do
 
   end subroutine eddy_diff_trbintd_slopes_native
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_trbintd_sfdiag_interface_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (trbintd_sfdiag_interface_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_TRBINTD_SFDIAG_INTERFACE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_trbintd_sfdiag_interface_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_trbintd_sfdiag_interface_impl = .false.
+    end if
+
+    trbintd_sfdiag_interface_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_trbintd_sfdiag_interface_impl) then
+          write(iulog,*) 'eddy_diff_trbintd_sfdiag_interface implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_trbintd_sfdiag_interface implementation = codon'
+       end if
+    end if
+
+  end subroutine eddy_diff_trbintd_sfdiag_interface_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_trbintd_sfdiag_interface(ncol, pcols, pver, ql_local, sl_local, qt_local, pi_local, pmid_local, &
+       zi_local, cld_local, slslope_local, qtslope_local, u_local, v_local, z_local, chu_local, chs_local, cmu_local, &
+       cms_local, sfi_local, sfuh_local, sflh_local, n2_local, s2_local, ri_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, pver
+    real(r8), intent(in) :: ql_local(pcols,pver), pi_local(pcols,pver+1), pmid_local(pcols,pver), zi_local(pcols,pver+1)
+    real(r8), intent(in) :: slslope_local(pcols,pver), qtslope_local(pcols,pver)
+    real(r8), target, intent(in) :: sl_local(pcols,pver), qt_local(pcols,pver), cld_local(pcols,pver), u_local(pcols,pver), &
+         v_local(pcols,pver), z_local(pcols,pver)
+    real(r8), target, intent(inout) :: chu_local(pcols,pver+1), chs_local(pcols,pver+1), cmu_local(pcols,pver+1), &
+         cms_local(pcols,pver+1)
+    real(r8), target, intent(out) :: sfi_local(pcols,pver+1), sfuh_local(pcols,pver), sflh_local(pcols,pver)
+    real(r8), target, intent(out) :: n2_local(pcols,pver), s2_local(pcols,pver), ri_local(pcols,pver)
+
+    interface
+       subroutine eddy_diff_trbintd_sfdiag_interface_codon(ncol_c, pcols_c, pver_c, ntzero_c, cld_p, u_p, v_p, z_p, sl_p, &
+            qt_p, chu_p, chs_p, cmu_p, cms_p, sfi_p, sfuh_p, sflh_p, n2_p, s2_p, ri_p) &
+            bind(c, name="eddy_diff_trbintd_sfdiag_interface_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: ntzero_c
+         type(c_ptr), value :: cld_p, u_p, v_p, z_p, sl_p, qt_p, chu_p, chs_p, cmu_p, cms_p, sfi_p, sfuh_p, sflh_p, &
+              n2_p, s2_p, ri_p
+       end subroutine eddy_diff_trbintd_sfdiag_interface_codon
+    end interface
+
+    call eddy_diff_trbintd_sfdiag_interface_select_impl()
+
+    if (use_native_trbintd_sfdiag_interface_impl) then
+       call eddy_diff_trbintd_sfdiag_interface_native(ncol, pcols, pver, ql_local, sl_local, qt_local, pi_local, pmid_local, &
+            zi_local, cld_local, slslope_local, qtslope_local, u_local, v_local, z_local, chu_local, chs_local, cmu_local, &
+            cms_local, sfi_local, sfuh_local, sflh_local, n2_local, s2_local, ri_local)
+       return
+    end if
+
+    call eddy_diff_trbintd_sfdiag_interface_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         real(ntzero, c_double), c_loc(cld_local), c_loc(u_local), c_loc(v_local), c_loc(z_local), c_loc(sl_local), &
+         c_loc(qt_local), c_loc(chu_local), c_loc(chs_local), c_loc(cmu_local), c_loc(cms_local), c_loc(sfi_local), &
+         c_loc(sfuh_local), c_loc(sflh_local), c_loc(n2_local), c_loc(s2_local), c_loc(ri_local))
+
+  end subroutine eddy_diff_trbintd_sfdiag_interface
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_trbintd_sfdiag_interface_native(ncol, pcols, pver, ql_local, sl_local, qt_local, pi_local, pmid_local, &
+       zi_local, cld_local, slslope_local, qtslope_local, u_local, v_local, z_local, chu_local, chs_local, cmu_local, &
+       cms_local, sfi_local, sfuh_local, sflh_local, n2_local, s2_local, ri_local)
+
+    implicit none
+
+    integer, intent(in) :: ncol, pcols, pver
+    real(r8), intent(in) :: ql_local(pcols,pver), sl_local(pcols,pver), qt_local(pcols,pver)
+    real(r8), intent(in) :: pi_local(pcols,pver+1), pmid_local(pcols,pver), zi_local(pcols,pver+1), cld_local(pcols,pver)
+    real(r8), intent(in) :: slslope_local(pcols,pver), qtslope_local(pcols,pver), u_local(pcols,pver), v_local(pcols,pver)
+    real(r8), intent(in) :: z_local(pcols,pver)
+    real(r8), intent(inout) :: chu_local(pcols,pver+1), chs_local(pcols,pver+1), cmu_local(pcols,pver+1), cms_local(pcols,pver+1)
+    real(r8), intent(out) :: sfi_local(pcols,pver+1), sfuh_local(pcols,pver), sflh_local(pcols,pver)
+    real(r8), intent(out) :: n2_local(pcols,pver), s2_local(pcols,pver), ri_local(pcols,pver)
+
+    integer :: i, k, km1
+    real(r8) :: rdz_local, dsldz_local, dqtdz_local, ch_local, cm_local
+
+    call sfdiag(pcols, pver, ncol, qt_local, ql_local, sl_local, pi_local, pmid_local, zi_local, cld_local, sfi_local, &
+         sfuh_local, sflh_local, slslope_local, qtslope_local)
+
+    do k = nbot_turb, ntop_turb + 1, -1
+       km1 = k - 1
+       do i = 1, ncol
+          rdz_local      = 1._r8 / ( z_local(i,km1) - z_local(i,k) )
+          dsldz_local    = ( sl_local(i,km1) - sl_local(i,k) ) * rdz_local
+          dqtdz_local    = ( qt_local(i,km1) - qt_local(i,k) ) * rdz_local
+          chu_local(i,k) = ( chu_local(i,km1) + chu_local(i,k) ) * 0.5_r8
+          chs_local(i,k) = ( chs_local(i,km1) + chs_local(i,k) ) * 0.5_r8
+          cmu_local(i,k) = ( cmu_local(i,km1) + cmu_local(i,k) ) * 0.5_r8
+          cms_local(i,k) = ( cms_local(i,km1) + cms_local(i,k) ) * 0.5_r8
+          ch_local       = chu_local(i,k) * ( 1._r8 - sfi_local(i,k) ) + chs_local(i,k) * sfi_local(i,k)
+          cm_local       = cmu_local(i,k) * ( 1._r8 - sfi_local(i,k) ) + cms_local(i,k) * sfi_local(i,k)
+          n2_local(i,k)  = ch_local * dsldz_local + cm_local * dqtdz_local
+          s2_local(i,k)  = ( ( u_local(i,km1) - u_local(i,k) )**2 + ( v_local(i,km1) - v_local(i,k) )**2 ) * rdz_local**2
+          s2_local(i,k)  = max( ntzero, s2_local(i,k) )
+          ri_local(i,k)  = n2_local(i,k) / s2_local(i,k)
+       end do
+    end do
+
+    do i = 1, ncol
+       n2_local(i,1) = n2_local(i,2)
+       s2_local(i,1) = s2_local(i,2)
+       ri_local(i,1) = ri_local(i,2)
+    end do
+
+  end subroutine eddy_diff_trbintd_sfdiag_interface_native
 
   !=============================================================================== !
   !                                                                                !
