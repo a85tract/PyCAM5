@@ -4672,6 +4672,84 @@ def eddy_diff_zero_nonlocal_codon(
 
 
 @export
+def init_eddy_diff_codon(
+    pver: int,
+    ntop_eddy: int,
+    nbot_eddy: int,
+    gravx: float,
+    cpairx: float,
+    rairx: float,
+    zvirx: float,
+    latvapx: float,
+    laticex: float,
+    vkx: float,
+    fak: float,
+    sffrac: float,
+    b1: float,
+    eddy_lbulk_max: float,
+    eddy_leng_max: float,
+    eddy_max_bot_pressure: float,
+    eddy_moist_entrain_a2l: float,
+    pref_mid_p: cobj,
+    leng_max_p: cobj,
+    ml2_p: cobj,
+    cpair_p: cobj,
+    rair_p: cobj,
+    g_p: cobj,
+    zvir_p: cobj,
+    latvap_p: cobj,
+    latice_p: cobj,
+    latsub_p: cobj,
+    vk_p: cobj,
+    ccon_p: cobj,
+    b123_p: cobj,
+    a2l_p: cobj,
+    lbulk_max_p: cobj,
+):
+    pref_mid = Ptr[float](pref_mid_p)
+    leng_max = Ptr[float](leng_max_p)
+    ml2 = Ptr[float](ml2_p)
+    cpair = Ptr[float](cpair_p)
+    rair = Ptr[float](rair_p)
+    g = Ptr[float](g_p)
+    zvir = Ptr[float](zvir_p)
+    latvap = Ptr[float](latvap_p)
+    latice = Ptr[float](latice_p)
+    latsub = Ptr[float](latsub_p)
+    vk = Ptr[float](vk_p)
+    ccon = Ptr[float](ccon_p)
+    b123 = Ptr[float](b123_p)
+    a2l = Ptr[float](a2l_p)
+    lbulk_max = Ptr[float](lbulk_max_p)
+
+    cpair[0] = cpairx
+    rair[0] = rairx
+    g[0] = gravx
+    zvir[0] = zvirx
+    latvap[0] = latvapx
+    latice[0] = laticex
+    latsub[0] = latvap[0] + latice[0]
+    vk[0] = vkx
+    ccon[0] = fak * sffrac * vk[0]
+    b123[0] = b1 ** (2.0 / 3.0)
+    a2l[0] = eddy_moist_entrain_a2l
+    lbulk_max[0] = eddy_lbulk_max
+
+    for k in range(1, pver + 1):
+        if pref_mid[k - 1] <= eddy_max_bot_pressure * 100.0:
+            leng_max[k - 1] = eddy_leng_max
+
+    for k in range(1, ntop_eddy + 1):
+        ml2[k - 1] = 0.0
+
+    for k in range(ntop_eddy + 1, nbot_eddy + 1):
+        ml2[k - 1] = 30.0 ** 2
+
+    for k in range(nbot_eddy + 1, pver + 2):
+        ml2[k - 1] = 0.0
+
+
+@export
 def eddy_diff_init_fields_codon(
     ncol: int,
     pcols: int,

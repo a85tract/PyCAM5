@@ -172,6 +172,8 @@
 
   real(r8), allocatable, target :: ml2(:)                       ! Mixing lengths squared. Not used in the UW PBL.
                                                                 ! Used for computing free air diffusivity.
+  logical                     :: use_native_init_eddy_diff_impl = .false.
+  logical                     :: init_eddy_diff_impl_selected = .false.
   logical                     :: use_native_surface_stress_diag_impl = .false.
   logical                     :: surface_stress_diag_impl_selected = .false.
   logical                     :: use_native_austausch_atm_impl = .false.
@@ -263,10 +265,82 @@
   !                                                                             !
   !============================================================================ !
   
-  subroutine init_eddy_diff( kind, pver, gravx, cpairx, rairx, zvirx, & 
+  subroutine init_eddy_diff_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (init_eddy_diff_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_INIT_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_init_eddy_diff_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_init_eddy_diff_impl = .false.
+    end if
+
+    init_eddy_diff_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_init_eddy_diff_impl) then
+          write(iulog,*) 'eddy_diff_init implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_init implementation = codon'
+       end if
+    end if
+
+  end subroutine init_eddy_diff_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine init_eddy_diff( kind, pver, gravx, cpairx, rairx, zvirx, &
                              latvapx, laticex, ntop_eddy, nbot_eddy, vkx, &
                              eddy_lbulk_max, eddy_leng_max, eddy_max_bot_pressure, &
                              eddy_moist_entrain_a2l)
+
+    implicit none
+
+    integer,  intent(in) :: kind
+    integer,  intent(in) :: pver
+    integer,  intent(in) :: ntop_eddy
+    integer,  intent(in) :: nbot_eddy
+    real(r8), intent(in) :: gravx
+    real(r8), intent(in) :: cpairx
+    real(r8), intent(in) :: rairx
+    real(r8), intent(in) :: zvirx
+    real(r8), intent(in) :: latvapx
+    real(r8), intent(in) :: laticex
+    real(r8), intent(in) :: vkx
+    real(r8), intent(in) :: eddy_lbulk_max
+    real(r8), intent(in) :: eddy_leng_max
+    real(r8), intent(in) :: eddy_max_bot_pressure
+    real(r8), intent(in) :: eddy_moist_entrain_a2l
+
+    call init_eddy_diff_select_impl()
+
+    call init_eddy_diff_driver(kind, pver, gravx, cpairx, rairx, zvirx, latvapx, laticex, ntop_eddy, nbot_eddy, vkx, &
+         eddy_lbulk_max, eddy_leng_max, eddy_max_bot_pressure, eddy_moist_entrain_a2l, use_native_init_eddy_diff_impl)
+
+  end subroutine init_eddy_diff
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine init_eddy_diff_driver( kind, pver, gravx, cpairx, rairx, zvirx, &
+                                    latvapx, laticex, ntop_eddy, nbot_eddy, vkx, &
+                                    eddy_lbulk_max, eddy_leng_max, eddy_max_bot_pressure, &
+                                    eddy_moist_entrain_a2l, use_native_init_path )
     !---------------------------------------------------------------- ! 
     ! Purpose:                                                        !
     ! Initialize time independent constants/variables of PBL package. !
@@ -274,6 +348,7 @@
     use diffusion_solver, only: new_fieldlist_vdiff, vdiff_select
     use cam_history,      only: outfld, addfld, phys_decomp
     use ref_pres,         only: pref_mid
+    use iso_c_binding,    only: c_double, c_int64_t, c_loc, c_ptr
     
     ! --------- !
     ! Arguments !
@@ -282,6 +357,7 @@
     integer,  intent(in) :: pver       ! Number of vertical layers
     integer,  intent(in) :: ntop_eddy  ! Top interface level to which eddy vertical diffusivity is applied ( = 1 )
     integer,  intent(in) :: nbot_eddy  ! Bottom interface level to which eddy vertical diffusivity is applied ( = pver )
+    logical,  intent(in) :: use_native_init_path
     real(r8), intent(in) :: gravx      ! Acceleration of gravity
     real(r8), intent(in) :: cpairx     ! Specific heat of dry air
     real(r8), intent(in) :: rairx      ! Gas constant for dry air
@@ -296,34 +372,92 @@
     real(r8), intent(in) :: eddy_moist_entrain_a2l ! Moist entrainment enhancement param
 
     integer              :: k          ! Vertical loop index
+    real(r8), target     :: pref_mid_local(pver)
+    real(r8), target     :: cpair_local
+    real(r8), target     :: rair_local
+    real(r8), target     :: g_local
+    real(r8), target     :: zvir_local
+    real(r8), target     :: latvap_local
+    real(r8), target     :: latice_local
+    real(r8), target     :: latsub_local
+    real(r8), target     :: vk_local
+    real(r8), target     :: ccon_local
+    real(r8), target     :: b123_local
+    real(r8), target     :: a2l_local
+    real(r8), target     :: lbulk_max_local
+
+    interface
+       subroutine init_eddy_diff_codon(pver_c, ntop_eddy_c, nbot_eddy_c, gravx_c, cpairx_c, rairx_c, zvirx_c, latvapx_c, &
+            laticex_c, vkx_c, fak_c, sffrac_c, b1_c, eddy_lbulk_max_c, eddy_leng_max_c, eddy_max_bot_pressure_c, &
+            eddy_moist_entrain_a2l_c, pref_mid_p, leng_max_p, ml2_p, cpair_p, rair_p, g_p, zvir_p, latvap_p, latice_p, &
+            latsub_p, vk_p, ccon_p, b123_p, a2l_p, lbulk_max_p) bind(c, name="init_eddy_diff_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: pver_c, ntop_eddy_c, nbot_eddy_c
+         real(c_double), value :: gravx_c, cpairx_c, rairx_c, zvirx_c, latvapx_c, laticex_c, vkx_c
+         real(c_double), value :: fak_c, sffrac_c, b1_c, eddy_lbulk_max_c, eddy_leng_max_c, eddy_max_bot_pressure_c
+         real(c_double), value :: eddy_moist_entrain_a2l_c
+         type(c_ptr), value :: pref_mid_p, leng_max_p, ml2_p, cpair_p, rair_p, g_p, zvir_p, latvap_p, latice_p
+         type(c_ptr), value :: latsub_p, vk_p, ccon_p, b123_p, a2l_p, lbulk_max_p
+       end subroutine init_eddy_diff_codon
+    end interface
 
     if( kind .ne. r8 ) then
         write(iulog,*) 'wrong KIND of reals passed to init_diffusvity -- exiting.'
         call endrun('init_eddy_diff: wrong KIND of reals passed to init_diffusvity')
     endif
 
+    ntop_turb = ntop_eddy
+    nbot_turb = nbot_eddy
+
     ! --------------- !
     ! Basic constants !
     ! --------------- !
 
-    cpair     = cpairx
-    rair      = rairx
-    g         = gravx
-    zvir      = zvirx
-    latvap    = latvapx
-    latice    = laticex
-    latsub    = latvap + latice
-    vk        = vkx
-    ccon      = fak*sffrac*vk
-    ntop_turb = ntop_eddy
-    nbot_turb = nbot_eddy
-    b123      = b1**(2._r8/3._r8)
-    a2l       = eddy_moist_entrain_a2l
-    
-    lbulk_max = eddy_lbulk_max
-    do k = 1,pver
-      if ( pref_mid(k) .le. eddy_max_bot_pressure*1.D2 ) leng_max(k)  = eddy_leng_max
-    end do
+    if (use_native_init_path) then
+       cpair     = cpairx
+       rair      = rairx
+       g         = gravx
+       zvir      = zvirx
+       latvap    = latvapx
+       latice    = laticex
+       latsub    = latvap + latice
+       vk        = vkx
+       ccon      = fak*sffrac*vk
+       b123      = b1**(2._r8/3._r8)
+       a2l       = eddy_moist_entrain_a2l
+
+       lbulk_max = eddy_lbulk_max
+       do k = 1,pver
+         if ( pref_mid(k) .le. eddy_max_bot_pressure*1.D2 ) leng_max(k)  = eddy_leng_max
+       end do
+
+       allocate(ml2(pver+1))
+       ml2(1:ntop_turb) = 0._r8
+       do k = ntop_turb + 1, nbot_turb
+          ml2(k) = 30.0_r8**2
+       end do
+       ml2(nbot_turb+1:pver+1) = 0._r8
+    else
+       allocate(ml2(pver+1))
+       pref_mid_local(:) = pref_mid(:)
+       call init_eddy_diff_codon(int(pver, c_int64_t), int(ntop_turb, c_int64_t), int(nbot_turb, c_int64_t), gravx, cpairx, &
+            rairx, zvirx, latvapx, laticex, vkx, fak, sffrac, b1, eddy_lbulk_max, eddy_leng_max, eddy_max_bot_pressure, &
+            eddy_moist_entrain_a2l, c_loc(pref_mid_local), c_loc(leng_max), c_loc(ml2), c_loc(cpair_local), c_loc(rair_local), &
+            c_loc(g_local), c_loc(zvir_local), c_loc(latvap_local), c_loc(latice_local), c_loc(latsub_local), c_loc(vk_local), &
+            c_loc(ccon_local), c_loc(b123_local), c_loc(a2l_local), c_loc(lbulk_max_local))
+       cpair = cpair_local
+       rair = rair_local
+       g = g_local
+       zvir = zvir_local
+       latvap = latvap_local
+       latice = latice_local
+       latsub = latsub_local
+       vk = vk_local
+       ccon = ccon_local
+       b123 = b123_local
+       a2l = a2l_local
+       lbulk_max = lbulk_max_local
+    end if
 
     if (masterproc) then
        write(iulog,*)'init_eddy_diff: eddy_leng_max=',eddy_leng_max,' lbulk_max=',lbulk_max
@@ -332,16 +466,6 @@
        end do
     end if
 
-    ! Set the square of the mixing lengths. Only for CAM3 HB PBL scheme.
-    ! Not used for UW moist PBL. Used for free air eddy diffusivity.
-
-    allocate(ml2(pver+1))
-    ml2(1:ntop_turb) = 0._r8
-    do k = ntop_turb + 1, nbot_turb
-       ml2(k) = 30.0_r8**2
-    end do
-    ml2(nbot_turb+1:pver+1) = 0._r8
-    
     ! Get fieldlists to pass to diffusion solver.
     fieldlist_wet   = new_fieldlist_vdiff(1)
     fieldlist_molec = new_fieldlist_vdiff(1)
@@ -426,7 +550,7 @@
 
   return
 
-  end subroutine init_eddy_diff
+  end subroutine init_eddy_diff_driver
 
   !=============================================================================== !
   !                                                                                !
