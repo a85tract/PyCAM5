@@ -1966,6 +1966,486 @@ def eddy_diff_zisocl_downward_state_codon(
 
 
 @export
+def eddy_diff_zisocl_codon(
+    i_col: int,
+    pcols: int,
+    pver: int,
+    ncvmax: int,
+    ntop_turb: int,
+    use_dw_surf: int,
+    choice_tkes_ebprod: int,
+    tunl_mode: int,
+    leng_mode: int,
+    alph1: float,
+    alph2: float,
+    alph3: float,
+    alph4: float,
+    alph5: float,
+    b1: float,
+    vk: float,
+    ntzero: float,
+    ricrit: float,
+    lbulk_max: float,
+    tunl: float,
+    ctunl: float,
+    cleng: float,
+    tkemax: float,
+    rinc: float,
+    z_p: cobj,
+    zi_p: cobj,
+    n2_p: cobj,
+    s2_p: cobj,
+    leng_max_p: cobj,
+    bprod_p: cobj,
+    sprod_p: cobj,
+    bflxs_p: cobj,
+    tkes_p: cobj,
+    ncvfin_p: cobj,
+    kbase_p: cobj,
+    ktop_p: cobj,
+    ricl_p: cobj,
+    ghcl_p: cobj,
+    shcl_p: cobj,
+    smcl_p: cobj,
+    lbrk_p: cobj,
+    wbrk_p: cobj,
+    ebrk_p: cobj,
+    belong_mask_p: cobj,
+    extend_p: cobj,
+    extend_up_p: cobj,
+    extend_dn_p: cobj,
+    status_p: cobj,
+):
+    z = Ptr[float](z_p)
+    zi = Ptr[float](zi_p)
+    n2 = Ptr[float](n2_p)
+    s2 = Ptr[float](s2_p)
+    leng_max = Ptr[float](leng_max_p)
+    bprod = Ptr[float](bprod_p)
+    sprod = Ptr[float](sprod_p)
+    bflxs = Ptr[float](bflxs_p)
+    tkes = Ptr[float](tkes_p)
+    ncvfin = Ptr[i32](ncvfin_p)
+    kbase = Ptr[i32](kbase_p)
+    ktop = Ptr[i32](ktop_p)
+    ricl = Ptr[float](ricl_p)
+    ghcl = Ptr[float](ghcl_p)
+    shcl = Ptr[float](shcl_p)
+    smcl = Ptr[float](smcl_p)
+    lbrk = Ptr[float](lbrk_p)
+    wbrk = Ptr[float](wbrk_p)
+    ebrk = Ptr[float](ebrk_p)
+    belong_mask = Ptr[i32](belong_mask_p)
+    extend_state = Ptr[i32](extend_p)
+    extend_up_state = Ptr[i32](extend_up_p)
+    extend_dn_state = Ptr[i32](extend_dn_p)
+    status = Ptr[i32](status_p)
+
+    i = i_col
+
+    for ncv_idx in range(1, ncvmax + 1):
+        ricl[_idx2(i, ncv_idx, pcols)] = 0.0
+        ghcl[_idx2(i, ncv_idx, pcols)] = 0.0
+        shcl[_idx2(i, ncv_idx, pcols)] = 0.0
+        smcl[_idx2(i, ncv_idx, pcols)] = 0.0
+        lbrk[_idx2(i, ncv_idx, pcols)] = 0.0
+        wbrk[_idx2(i, ncv_idx, pcols)] = 0.0
+        ebrk[_idx2(i, ncv_idx, pcols)] = 0.0
+
+    extend_flag = 0
+    extend_up_flag = 0
+    extend_dn_flag = 0
+    status[0] = i32(0)
+
+    ncv = 1
+    while ncv <= int(ncvfin[i - 1]):
+        ncvinit = ncv
+        kb = int(kbase[_idx2(i, ncv, pcols)])
+        kt = int(ktop[_idx2(i, ncv, pcols)])
+
+        lbulk = zi[_idx2(i, kt, pcols)] - zi[_idx2(i, kb, pcols)]
+        lbulk = min(lbulk, lbulk_max)
+        dlint_surf = 0.0
+        dl2n2_surf = 0.0
+        dl2s2_surf = 0.0
+        dw_surf = 0.0
+        gh = 0.0
+        sh = 1.0
+        sm = 1.0
+        ricll = 0.0
+
+        if kb == pver + 1:
+            if bflxs[i - 1] > 0.0:
+                gh, sh, sm, dlint_surf, dl2n2_surf, dl2s2_surf, dw_surf = _eddy_diff_zisocl_surface_energy_values(
+                    alph1,
+                    alph2,
+                    alph3,
+                    alph4,
+                    alph5,
+                    b1,
+                    vk,
+                    z[_idx2(i, pver, pcols)],
+                    bprod[_idx2(i, pver + 1, pcols)],
+                    sprod[_idx2(i, pver + 1, pcols)],
+                    tkes[i - 1],
+                )
+            else:
+                lbulk = zi[_idx2(i, kt, pcols)] - z[_idx2(i, pver, pcols)]
+                lbulk = min(lbulk, lbulk_max)
+
+        lint = dlint_surf
+        l2n2 = dl2n2_surf
+        l2s2 = dl2s2_surf
+        wint = dw_surf
+
+        if use_dw_surf != 0:
+            l2n2 = 0.0
+            l2s2 = 0.0
+        else:
+            wint = 0.0
+
+        if kb == pver + 1 and bflxs[i - 1] > 0.0:
+            ricll = min(
+                -(sm / sh)
+                * (
+                    bprod[_idx2(i, pver + 1, pcols)]
+                    / sprod[_idx2(i, pver + 1, pcols)]
+                ),
+                ricrit,
+            )
+
+        if kt < kb - 1:
+            k_ifc = kb - 1
+            while k_ifc >= kt + 1:
+                dzinc, dl2n2, dl2s2 = _eddy_diff_zisocl_layer_energy_values(
+                    tunl_mode,
+                    leng_mode,
+                    tunl,
+                    ctunl,
+                    cleng,
+                    lbulk,
+                    vk,
+                    i,
+                    k_ifc,
+                    pcols,
+                    z,
+                    zi,
+                    n2,
+                    s2,
+                    leng_max,
+                )
+
+                l2n2 = l2n2 + dl2n2
+                l2s2 = l2s2 + dl2s2
+                lint = lint + dzinc
+                k_ifc -= 1
+
+            ricll, gh, sh, sm = _eddy_diff_zisocl_stability_values(
+                alph1, alph2, alph3, alph4, alph5, b1, ntzero, ricrit, l2n2, l2s2
+            )
+            wint = wint - sh * l2n2 + sm * l2s2
+        else:
+            lint = dlint_surf
+            l2n2 = dl2n2_surf
+            l2s2 = dl2s2_surf
+            wint = dw_surf
+            if choice_tkes_ebprod != 0:
+                l2n2 = -wint / sh
+
+        l2n2 = -min(-l2n2, tkemax * lint / (b1 * sh))
+        l2s2 = min(l2s2, tkemax * lint / (b1 * sm))
+
+        extend_flag = 0
+        extend_up_flag = 0
+        extend_dn_flag = 0
+
+        kt_before = kt
+        cntu = 0
+        upward_status = 0
+        dzinc, dl2n2, dl2s2, dwinc = _eddy_diff_zisocl_interface_energy_values(
+            tunl_mode, leng_mode, tunl, ctunl, cleng, lbulk, sh, sm, vk, i, kt, pcols, z, zi, n2, s2, leng_max
+        )
+
+        while (-dl2n2 > (-rinc * l2n2 / (1.0 - rinc))) and (
+            kt > ntop_turb + 2 or z[_idx2(i, kt, pcols)] < 50000.0
+        ):
+            lint = lint + dzinc
+            l2n2 = l2n2 + dl2n2
+            l2n2 = -min(-l2n2, tkemax * lint / (b1 * sh))
+            l2s2 = l2s2 + dl2s2
+            wint = wint + dwinc
+
+            kt = kt - 1
+            if kt == ntop_turb:
+                upward_status = 1
+                break
+
+            ktinc = int(kbase[_idx2(i, ncv + cntu + 1, pcols)]) - 1
+
+            if kt == ktinc:
+                k_ifc = int(kbase[_idx2(i, ncv + cntu + 1, pcols)]) - 1
+                while k_ifc >= int(ktop[_idx2(i, ncv + cntu + 1, pcols)]) + 1:
+                    dzinc, dl2n2, dl2s2, dwinc = _eddy_diff_zisocl_interface_energy_values(
+                        tunl_mode,
+                        leng_mode,
+                        tunl,
+                        ctunl,
+                        cleng,
+                        lbulk,
+                        sh,
+                        sm,
+                        vk,
+                        i,
+                        k_ifc,
+                        pcols,
+                        z,
+                        zi,
+                        n2,
+                        s2,
+                        leng_max,
+                    )
+
+                    lint = lint + dzinc
+                    l2n2 = l2n2 + dl2n2
+                    l2n2 = -min(-l2n2, tkemax * lint / (b1 * sh))
+                    l2s2 = l2s2 + dl2s2
+                    wint = wint + dwinc
+
+                    k_ifc -= 1
+
+                kt = int(ktop[_idx2(i, ncv + cntu + 1, pcols)])
+                ncvfin[i - 1] = i32(int(ncvfin[i - 1]) - 1)
+                cntu += 1
+
+            dzinc, dl2n2, dl2s2, dwinc = _eddy_diff_zisocl_interface_energy_values(
+                tunl_mode, leng_mode, tunl, ctunl, cleng, lbulk, sh, sm, vk, i, kt, pcols, z, zi, n2, s2, leng_max
+            )
+
+        if cntu > 0:
+            incv = 1
+            while incv <= int(ncvfin[i - 1]) - ncv:
+                kbase[_idx2(i, ncv + incv, pcols)] = kbase[_idx2(i, ncv + cntu + incv, pcols)]
+                ktop[_idx2(i, ncv + incv, pcols)] = ktop[_idx2(i, ncv + cntu + incv, pcols)]
+                incv += 1
+
+        if upward_status != 0:
+            status[0] = i32(1)
+            return
+
+        if kt != kt_before:
+            extend_flag = 1
+            extend_up_flag = 1
+
+        kb_before = kb
+        cntd = 0
+        downward_status = 0
+
+        if kb != pver + 1:
+            dzinc, dl2n2, dl2s2, dwinc = _eddy_diff_zisocl_interface_energy_values(
+                tunl_mode, leng_mode, tunl, ctunl, cleng, lbulk, sh, sm, vk, i, kb, pcols, z, zi, n2, s2, leng_max
+            )
+
+            while (-dl2n2 > (-rinc * l2n2 / (1.0 - rinc))) and (kb != pver + 1):
+                lint = lint + dzinc
+                l2n2 = l2n2 + dl2n2
+                l2n2 = -min(-l2n2, tkemax * lint / (b1 * sh))
+                l2s2 = l2s2 + dl2s2
+                wint = wint + dwinc
+
+                kb = kb + 1
+
+                kbinc = 0
+                if ncv > 1:
+                    kbinc = int(ktop[_idx2(i, ncv - 1, pcols)]) + 1
+
+                if kb == kbinc:
+                    k_ifc = int(ktop[_idx2(i, ncv - 1, pcols)]) + 1
+                    while k_ifc <= int(kbase[_idx2(i, ncv - 1, pcols)]) - 1:
+                        dzinc, dl2n2, dl2s2, dwinc = _eddy_diff_zisocl_interface_energy_values(
+                            tunl_mode,
+                            leng_mode,
+                            tunl,
+                            ctunl,
+                            cleng,
+                            lbulk,
+                            sh,
+                            sm,
+                            vk,
+                            i,
+                            k_ifc,
+                            pcols,
+                            z,
+                            zi,
+                            n2,
+                            s2,
+                            leng_max,
+                        )
+
+                        lint = lint + dzinc
+                        l2n2 = l2n2 + dl2n2
+                        l2n2 = -min(-l2n2, tkemax * lint / (b1 * sh))
+                        l2s2 = l2s2 + dl2s2
+                        wint = wint + dwinc
+
+                        k_ifc += 1
+
+                    kb = int(kbase[_idx2(i, ncv - 1, pcols)])
+                    ncv = ncv - 1
+                    ncvfin[i - 1] = i32(int(ncvfin[i - 1]) - 1)
+                    cntd += 1
+
+                if kb == pver + 1:
+                    if bflxs[i - 1] > 0.0:
+                        _, _, _, dlint_surf, dl2n2_surf, dl2s2_surf, dw_surf = _eddy_diff_zisocl_surface_energy_values(
+                            alph1,
+                            alph2,
+                            alph3,
+                            alph4,
+                            alph5,
+                            b1,
+                            vk,
+                            z[_idx2(i, pver, pcols)],
+                            bprod[_idx2(i, pver + 1, pcols)],
+                            sprod[_idx2(i, pver + 1, pcols)],
+                            tkes[i - 1],
+                        )
+                    else:
+                        dlint_surf = 0.0
+                        dl2n2_surf = 0.0
+                        dl2s2_surf = 0.0
+                        dw_surf = 0.0
+
+                    lint = lint + dlint_surf
+                    l2n2 = l2n2 + dl2n2_surf
+                    l2n2 = -min(-l2n2, tkemax * lint / (b1 * sh))
+                    l2s2 = l2s2 + dl2s2_surf
+                    wint = wint + dw_surf
+                else:
+                    dzinc, dl2n2, dl2s2, dwinc = _eddy_diff_zisocl_interface_energy_values(
+                        tunl_mode, leng_mode, tunl, ctunl, cleng, lbulk, sh, sm, vk, i, kb, pcols, z, zi, n2, s2, leng_max
+                    )
+
+            if kb == pver + 1 and ncv != 1:
+                downward_status = 1
+
+            if cntd > 0:
+                incv = 1
+                while incv <= int(ncvfin[i - 1]) - ncv:
+                    kbase[_idx2(i, ncv + incv, pcols)] = kbase[_idx2(i, ncvinit + incv, pcols)]
+                    ktop[_idx2(i, ncv + incv, pcols)] = ktop[_idx2(i, ncvinit + incv, pcols)]
+                    incv += 1
+
+        if downward_status != 0:
+            status[0] = i32(2)
+            return
+
+        if kb != kb_before:
+            extend_flag = 1
+            extend_dn_flag = 1
+
+        if wint < 0.01:
+            wint = 0.01
+
+        if extend_flag != 0:
+            ktop[_idx2(i, ncv, pcols)] = i32(kt)
+            kbase[_idx2(i, ncv, pcols)] = i32(kb)
+
+            lbulk = zi[_idx2(i, kt, pcols)] - zi[_idx2(i, kb, pcols)]
+            lbulk = min(lbulk, lbulk_max)
+            dlint_surf = 0.0
+            dl2n2_surf = 0.0
+            dl2s2_surf = 0.0
+            dw_surf = 0.0
+
+            if kb == pver + 1:
+                if bflxs[i - 1] > 0.0:
+                    _, _, _, dlint_surf, dl2n2_surf, dl2s2_surf, dw_surf = _eddy_diff_zisocl_surface_energy_values(
+                        alph1,
+                        alph2,
+                        alph3,
+                        alph4,
+                        alph5,
+                        b1,
+                        vk,
+                        z[_idx2(i, pver, pcols)],
+                        bprod[_idx2(i, pver + 1, pcols)],
+                        sprod[_idx2(i, pver + 1, pcols)],
+                        tkes[i - 1],
+                    )
+                else:
+                    lbulk = zi[_idx2(i, kt, pcols)] - z[_idx2(i, pver, pcols)]
+                    lbulk = min(lbulk, lbulk_max)
+
+            lint = dlint_surf
+            l2n2 = dl2n2_surf
+            l2s2 = dl2s2_surf
+            wint = dw_surf
+
+            if use_dw_surf != 0:
+                l2n2 = 0.0
+                l2s2 = 0.0
+            else:
+                wint = 0.0
+
+            for k_ifc in range(kt + 1, kb):
+                dzinc, dl2n2, dl2s2 = _eddy_diff_zisocl_layer_energy_values(
+                    tunl_mode,
+                    leng_mode,
+                    tunl,
+                    ctunl,
+                    cleng,
+                    lbulk,
+                    vk,
+                    i,
+                    k_ifc,
+                    pcols,
+                    z,
+                    zi,
+                    n2,
+                    s2,
+                    leng_max,
+                )
+
+                lint = lint + dzinc
+                l2n2 = l2n2 + dl2n2
+                l2s2 = l2s2 + dl2s2
+
+            ricll, gh, sh, sm = _eddy_diff_zisocl_stability_values(
+                alph1, alph2, alph3, alph4, alph5, b1, ntzero, ricrit, l2n2, l2s2
+            )
+            wint = max(wint - sh * l2n2 + sm * l2s2, 0.01)
+
+        lbrk[_idx2(i, ncv, pcols)] = lint
+        wbrk[_idx2(i, ncv, pcols)] = wint / lint
+        ebrk[_idx2(i, ncv, pcols)] = b1 * wbrk[_idx2(i, ncv, pcols)]
+        ebrk[_idx2(i, ncv, pcols)] = min(ebrk[_idx2(i, ncv, pcols)], tkemax)
+        ricl[_idx2(i, ncv, pcols)] = ricll
+        ghcl[_idx2(i, ncv, pcols)] = gh
+        shcl[_idx2(i, ncv, pcols)] = sh
+        smcl[_idx2(i, ncv, pcols)] = sm
+
+        ncv += 1
+
+    for ncv_idx in range(int(ncvfin[i - 1]) + 1, ncvmax + 1):
+        ktop[_idx2(i, ncv_idx, pcols)] = i32(0)
+        kbase[_idx2(i, ncv_idx, pcols)] = i32(0)
+
+    for k_idx in range(1, pver + 2):
+        belong_mask[k_idx - 1] = i32(0)
+
+    for ncv_idx in range(1, int(ncvfin[i - 1]) + 1):
+        for k_idx in range(
+            int(ktop[_idx2(i, ncv_idx, pcols)]),
+            int(kbase[_idx2(i, ncv_idx, pcols)]) + 1,
+        ):
+            belong_mask[k_idx - 1] = i32(1)
+
+    extend_state[0] = i32(extend_flag)
+    extend_up_state[0] = i32(extend_up_flag)
+    extend_dn_state[0] = i32(extend_dn_flag)
+
+
+@export
 def eddy_diff_zisocl_stability_codon(
     alph1: float,
     alph2: float,
