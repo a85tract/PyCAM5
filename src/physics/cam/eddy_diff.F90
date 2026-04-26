@@ -186,6 +186,8 @@
   logical                     :: init_fields_impl_selected = .false.
   logical                     :: use_native_rebuild_thermo_impl = .false.
   logical                     :: rebuild_thermo_impl_selected = .false.
+  logical                     :: use_native_trbintd_impl = .false.
+  logical                     :: trbintd_impl_selected = .false.
   logical                     :: use_native_trbintd_midpoint_impl = .false.
   logical                     :: trbintd_midpoint_impl_selected = .false.
   logical                     :: use_native_trbintd_slopes_impl = .false.
@@ -1088,6 +1090,44 @@
   !                                                                                !
   !=============================================================================== !
  
+  subroutine trbintd_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (trbintd_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_TRBINTD_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_trbintd_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_trbintd_impl = .false.
+    end if
+
+    trbintd_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_trbintd_impl) then
+          write(iulog,*) 'eddy_diff_trbintd implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_trbintd implementation = codon'
+       end if
+    end if
+
+  end subroutine trbintd_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+ 
   subroutine trbintd( pcols   , pver    , ncol    ,                               &
                       z       , u       , v       ,                               &
                       t       , pmid    ,                                         &
@@ -1096,6 +1136,9 @@
                       qt      , qv      , ql      , qi      , sfi     , sfuh    , &
                       sflh    , sl      , slv     , slslope , qtslope ,           &
                       chs     , chu     , cms     , cmu     )
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
     !----------------------------------------------------------------------- !
     ! Purpose: Calculate buoyancy coefficients at all interfaces including   !
     !          surface. Also, computes the profiles of ( sl,qt,n2,s2,ri ).   !
@@ -1163,9 +1206,31 @@
     real(r8), target      :: gam(pcols,pver)                  ! (l/cp)*(d(qs)/dT)
     real(r8), target      :: dsldp_b(pcols), dqtdp_b(pcols)   ! Slopes across interface below
 
+    interface
+       subroutine eddy_diff_trbintd_core_codon(ncol_c, pcols_c, pver_c, cpair_c, latvap_c, latsub_c, g_c, zvir_c, ntzero_c, &
+            t_p, z_p, u_p, v_p, qv_p, ql_p, qi_p, gam_p, pmid_p, cld_p, qt_p, sl_p, slv_p, slslope_p, qtslope_p, &
+            dsldp_b_p, dqtdp_b_p, chu_p, chs_p, cmu_p, cms_p, sfi_p, sfuh_p, sflh_p, n2_p, s2_p, ri_p) &
+            bind(c, name="eddy_diff_trbintd_core_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: cpair_c, latvap_c, latsub_c, g_c, zvir_c, ntzero_c
+         type(c_ptr), value :: t_p, z_p, u_p, v_p, qv_p, ql_p, qi_p, gam_p, pmid_p, cld_p, qt_p, sl_p, slv_p, &
+              slslope_p, qtslope_p, dsldp_b_p, dqtdp_b_p, chu_p, chs_p, cmu_p, cms_p, sfi_p, sfuh_p, sflh_p, n2_p, s2_p, &
+              ri_p
+       end subroutine eddy_diff_trbintd_core_codon
+    end interface
+
     ! ----------------------- !
     ! Main Computation Begins !
     ! ----------------------- !
+
+    call trbintd_select_impl()
+
+    if (use_native_trbintd_impl) then
+       call trbintd_native(pcols, pver, ncol, z, u, v, t, pmid, s2, n2, ri, zi, pi, cld, qt, qv, ql, qi, sfi, sfuh, &
+            sflh, sl, slv, slslope, qtslope, chs, chu, cms, cmu)
+       return
+    end if
 
     ! Calculate conservative scalars (qt,sl,slv) and buoyancy coefficients at the layer mid-points.
     ! Note that 'ntop_turb = 1', 'nbot_turb = pver'
@@ -1174,12 +1239,87 @@
        call qsat( t(:ncol,k), pmid(:ncol,k), es(:ncol,k), qs(:ncol,k), gam=gam(:ncol,k))
     end do
 
-    call eddy_diff_trbintd_core(ncol, pcols, pver, t, z, u, v, qv, ql, qi, gam, pmid, pi, zi, cld, qt, sl, slv, &
-         slslope, qtslope, dsldp_b, dqtdp_b, chu, chs, cmu, cms, sfi, sfuh, sflh, n2, s2, ri)
+    call eddy_diff_trbintd_core_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(cpair, c_double), &
+         real(latvap, c_double), real(latsub, c_double), real(g, c_double), real(zvir, c_double), real(ntzero, c_double), &
+         c_loc(t), c_loc(z), c_loc(u), c_loc(v), c_loc(qv), c_loc(ql), c_loc(qi), c_loc(gam), c_loc(pmid), c_loc(cld), &
+         c_loc(qt), c_loc(sl), c_loc(slv), c_loc(slslope), c_loc(qtslope), c_loc(dsldp_b), c_loc(dqtdp_b), c_loc(chu), &
+         c_loc(chs), c_loc(cmu), c_loc(cms), c_loc(sfi), c_loc(sfuh), c_loc(sflh), c_loc(n2), c_loc(s2), c_loc(ri))
 
   return
 
   end subroutine trbintd
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine trbintd_native( pcols   , pver    , ncol    ,                        &
+                             z       , u       , v       ,                        &
+                             t       , pmid    ,                                  &
+                             s2      , n2      , ri      ,                        &
+                             zi      , pi      , cld     ,                        &
+                             qt      , qv      , ql      , qi      , sfi     ,    &
+                             sfuh    , sflh    , sl      , slv     , slslope ,    &
+                             qtslope , chs     , chu     , cms     , cmu     )
+    !----------------------------------------------------------------------- !
+    ! Purpose: Calculate buoyancy coefficients at all interfaces including   !
+    !          surface. Also, computes the profiles of ( sl,qt,n2,s2,ri ).   !
+    !          Note that (n2,s2,ri) are defined at each interfaces except    !
+    !          surface.                                                      !
+    !                                                                        !
+    ! Author: B. Stevens  ( Extracted from pbldiff, August, 2000 )           !
+    !         Sungsu Park ( August 2006, May. 2008 )                         !
+    !----------------------------------------------------------------------- !
+
+    implicit none
+
+    integer,  intent(in)  :: pcols
+    integer,  intent(in)  :: pver
+    integer,  intent(in)  :: ncol
+    real(r8), target, intent(in)  :: z(pcols,pver)
+    real(r8), target, intent(in)  :: u(pcols,pver)
+    real(r8), target, intent(in)  :: v(pcols,pver)
+    real(r8), target, intent(in)  :: t(pcols,pver)
+    real(r8), target, intent(in)  :: pmid(pcols,pver)
+    real(r8), intent(in)  :: zi(pcols,pver+1)
+    real(r8), intent(in)  :: pi(pcols,pver+1)
+    real(r8), target, intent(in)  :: cld(pcols,pver)
+    real(r8), target, intent(in)  :: qv(pcols,pver)
+    real(r8), target, intent(in)  :: ql(pcols,pver)
+    real(r8), target, intent(in)  :: qi(pcols,pver)
+
+    real(r8), target, intent(out) :: s2(pcols,pver)
+    real(r8), target, intent(out) :: n2(pcols,pver)
+    real(r8), target, intent(out) :: ri(pcols,pver)
+    real(r8), target, intent(out) :: qt(pcols,pver)
+    real(r8), target, intent(out) :: sfi(pcols,pver+1)
+    real(r8), target, intent(out) :: sfuh(pcols,pver)
+    real(r8), target, intent(out) :: sflh(pcols,pver)
+    real(r8), target, intent(out) :: sl(pcols,pver)
+    real(r8), target, intent(out) :: slv(pcols,pver)
+    real(r8), target, intent(out) :: chu(pcols,pver+1)
+    real(r8), target, intent(out) :: chs(pcols,pver+1)
+    real(r8), target, intent(out) :: cmu(pcols,pver+1)
+    real(r8), target, intent(out) :: cms(pcols,pver+1)
+    real(r8), target, intent(out) :: slslope(pcols,pver)
+    real(r8), target, intent(out) :: qtslope(pcols,pver)
+
+    integer               :: k
+    real(r8), target      :: qs(pcols,pver)
+    real(r8)              :: es(pcols,pver)
+    real(r8), target      :: gam(pcols,pver)
+    real(r8), target      :: dsldp_b(pcols), dqtdp_b(pcols)
+
+    do k = ntop_turb, nbot_turb
+       call qsat( t(:ncol,k), pmid(:ncol,k), es(:ncol,k), qs(:ncol,k), gam=gam(:ncol,k))
+    end do
+
+    call eddy_diff_trbintd_core_native(ncol, pcols, pver, t, z, u, v, qv, ql, qi, gam, pmid, pi, zi, cld, qt, sl, slv, &
+         slslope, qtslope, dsldp_b, dqtdp_b, chu, chs, cmu, cms, sfi, sfuh, sflh, n2, s2, ri)
+
+  return
+
+  end subroutine trbintd_native
 
   !=============================================================================== !
   !                                                                                !
