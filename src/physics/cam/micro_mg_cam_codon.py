@@ -1,9 +1,43 @@
+from math import pi
+
+
 def _idx2(i: int, k: int, ld1: int):
     return (k - 1) * ld1 + (i - 1)
 
 
 def _idx3(i: int, k: int, m: int, ld1: int, ld2: int):
     return ((m - 1) * ld2 + (k - 1)) * ld1 + (i - 1)
+
+
+def _size_dist_param_basic_codon(
+    qsmall: float,
+    qic: float,
+    nic: float,
+    eff_dim: float,
+    shape_coef: float,
+    lambda_lo: float,
+    lambda_hi: float,
+    min_mean_mass: float,
+):
+    lam = 0.0
+    nic_out = nic
+
+    if qic > qsmall:
+        nic_out = min(nic_out, qic / min_mean_mass)
+        lam = (shape_coef * nic_out / qic) ** (1.0 / eff_dim)
+
+        if lam < lambda_lo:
+            lam = lambda_lo
+            nic_out = lam**eff_dim * qic / shape_coef
+        elif lam > lambda_hi:
+            lam = lambda_hi
+            nic_out = lam**eff_dim * qic / shape_coef
+
+    return lam, nic_out
+
+
+def _avg_diameter_codon(q: float, n: float, rho_air: float, rho_sub: float):
+    return (pi * rho_sub * n / (q * rho_air)) ** (-1.0 / 3.0)
 
 
 @export
@@ -514,3 +548,190 @@ def micro_mg_cam_grid_diag_codon(
             idx2 = _idx2(i, k, pcols)
             evprain_st_grid[idx2] = max(evprain_st_grid[idx2], 0.0)
             evpsnow_st_grid[idx2] = max(evpsnow_st_grid[idx2], 0.0)
+
+
+@export
+def micro_mg_cam_reff_calc_codon(
+    ngrdcol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    micro_mg_version: int,
+    qsmall: float,
+    mincld: float,
+    liq_rho: float,
+    liq_eff_dim: float,
+    liq_min_mean_mass: float,
+    ice_eff_dim: float,
+    ice_shape_coef: float,
+    ice_lambda_lo: float,
+    ice_lambda_hi: float,
+    ice_min_mean_mass: float,
+    rhosn: float,
+    rhoi: float,
+    rhow: float,
+    rhows: float,
+    mucon: float,
+    dcon: float,
+    deicon: float,
+    rho_grid_p: cobj,
+    icwmrst_grid_p: cobj,
+    liqcldf_grid_p: cobj,
+    nc_grid_p: cobj,
+    qr_grid_p: cobj,
+    nr_grid_p: cobj,
+    qs_grid_p: cobj,
+    ns_grid_p: cobj,
+    qrout_grid_p: cobj,
+    nrout_grid_p: cobj,
+    qsout_grid_p: cobj,
+    nsout_grid_p: cobj,
+    ni_grid_p: cobj,
+    icecldf_grid_p: cobj,
+    icimrst_grid_p: cobj,
+    ast_grid_p: cobj,
+    mu_grid_p: cobj,
+    lambdac_grid_p: cobj,
+    rel_fn_grid_p: cobj,
+    ncic_grid_p: cobj,
+    rel_grid_p: cobj,
+    drout2_grid_p: cobj,
+    reff_rain_grid_p: cobj,
+    des_grid_p: cobj,
+    dsout2_grid_p: cobj,
+    reff_snow_grid_p: cobj,
+    rei_grid_p: cobj,
+    niic_grid_p: cobj,
+    dei_grid_p: cobj,
+    mgreffrain_grid_p: cobj,
+    mgreffsnow_grid_p: cobj,
+):
+    rho_grid = Ptr[float](rho_grid_p)
+    icwmrst_grid = Ptr[float](icwmrst_grid_p)
+    liqcldf_grid = Ptr[float](liqcldf_grid_p)
+    nc_grid = Ptr[float](nc_grid_p)
+    qr_grid = Ptr[float](qr_grid_p)
+    nr_grid = Ptr[float](nr_grid_p)
+    qs_grid = Ptr[float](qs_grid_p)
+    ns_grid = Ptr[float](ns_grid_p)
+    qrout_grid = Ptr[float](qrout_grid_p)
+    nrout_grid = Ptr[float](nrout_grid_p)
+    qsout_grid = Ptr[float](qsout_grid_p)
+    nsout_grid = Ptr[float](nsout_grid_p)
+    ni_grid = Ptr[float](ni_grid_p)
+    icecldf_grid = Ptr[float](icecldf_grid_p)
+    icimrst_grid = Ptr[float](icimrst_grid_p)
+    ast_grid = Ptr[float](ast_grid_p)
+    mu_grid = Ptr[float](mu_grid_p)
+    lambdac_grid = Ptr[float](lambdac_grid_p)
+    rel_fn_grid = Ptr[float](rel_fn_grid_p)
+    ncic_grid = Ptr[float](ncic_grid_p)
+    rel_grid = Ptr[float](rel_grid_p)
+    drout2_grid = Ptr[float](drout2_grid_p)
+    reff_rain_grid = Ptr[float](reff_rain_grid_p)
+    des_grid = Ptr[float](des_grid_p)
+    dsout2_grid = Ptr[float](dsout2_grid_p)
+    reff_snow_grid = Ptr[float](reff_snow_grid_p)
+    rei_grid = Ptr[float](rei_grid_p)
+    niic_grid = Ptr[float](niic_grid_p)
+    dei_grid = Ptr[float](dei_grid_p)
+    mgreffrain_grid = Ptr[float](mgreffrain_grid_p)
+    mgreffsnow_grid = Ptr[float](mgreffsnow_grid_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, pcols + 1):
+            idx2 = _idx2(i, k, pcols)
+            drout2_grid[idx2] = 0.0
+            reff_rain_grid[idx2] = 0.0
+            des_grid[idx2] = 0.0
+            dsout2_grid[idx2] = 0.0
+            reff_snow_grid[idx2] = 0.0
+
+    if micro_mg_version > 1:
+        for k in range(top_lev, pver + 1):
+            for i in range(1, ngrdcol + 1):
+                idx2 = _idx2(i, k, pcols)
+                if qr_grid[idx2] >= 1.0e-7:
+                    drout2_grid[idx2] = _avg_diameter_codon(
+                        qr_grid[idx2],
+                        nr_grid[idx2] * rho_grid[idx2],
+                        rho_grid[idx2],
+                        rhow,
+                    )
+                    reff_rain_grid[idx2] = drout2_grid[idx2] * 1.5 * 1.0e6
+
+                if qs_grid[idx2] >= 1.0e-7:
+                    dsout2_grid[idx2] = _avg_diameter_codon(
+                        qs_grid[idx2],
+                        ns_grid[idx2] * rho_grid[idx2],
+                        rho_grid[idx2],
+                        rhosn,
+                    )
+                    des_grid[idx2] = dsout2_grid[idx2] * 3.0 * rhosn / rhows
+                    reff_snow_grid[idx2] = dsout2_grid[idx2] * 1.5 * 1.0e6
+    else:
+        for k in range(top_lev, pver + 1):
+            for i in range(1, ngrdcol + 1):
+                idx2 = _idx2(i, k, pcols)
+                if qrout_grid[idx2] >= 1.0e-7:
+                    drout2_grid[idx2] = _avg_diameter_codon(
+                        qrout_grid[idx2],
+                        nrout_grid[idx2] * rho_grid[idx2],
+                        rho_grid[idx2],
+                        rhow,
+                    )
+                    reff_rain_grid[idx2] = drout2_grid[idx2] * 1.5 * 1.0e6
+
+                if qsout_grid[idx2] >= 1.0e-7:
+                    dsout2_grid[idx2] = _avg_diameter_codon(
+                        qsout_grid[idx2],
+                        nsout_grid[idx2] * rho_grid[idx2],
+                        rho_grid[idx2],
+                        rhosn,
+                    )
+                    des_grid[idx2] = dsout2_grid[idx2] * 3.0 * rhosn / rhows
+                    reff_snow_grid[idx2] = dsout2_grid[idx2] * 1.5 * 1.0e6
+
+    for k in range(1, pver + 1):
+        for i in range(1, pcols + 1):
+            idx2 = _idx2(i, k, pcols)
+            rei_grid[idx2] = 25.0
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ngrdcol + 1):
+            idx2 = _idx2(i, k, pcols)
+            niic_grid[idx2] = ni_grid[idx2] / max(mincld, icecldf_grid[idx2])
+            rei_grid[idx2], niic_grid[idx2] = _size_dist_param_basic_codon(
+                qsmall,
+                icimrst_grid[idx2],
+                niic_grid[idx2],
+                ice_eff_dim,
+                ice_shape_coef,
+                ice_lambda_lo,
+                ice_lambda_hi,
+                ice_min_mean_mass,
+            )
+            if icimrst_grid[idx2] >= qsmall:
+                rei_grid[idx2] = 1.5 / rei_grid[idx2] * 1.0e6
+            else:
+                rei_grid[idx2] = 25.0
+
+    for k in range(1, pver + 1):
+        for i in range(1, pcols + 1):
+            idx2 = _idx2(i, k, pcols)
+            dei_grid[idx2] = rei_grid[idx2] * rhoi / rhows * 2.0
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ngrdcol + 1):
+            idx2 = _idx2(i, k, pcols)
+            des_grid[idx2] = des_grid[idx2] * 1.0e6
+            if ast_grid[idx2] < 1.0e-4:
+                mu_grid[idx2] = mucon
+                lambdac_grid[idx2] = (mucon + 1.0) / dcon
+                dei_grid[idx2] = deicon
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ngrdcol + 1):
+            idx2 = _idx2(i, k, pcols)
+            mgreffrain_grid[idx2] = reff_rain_grid[idx2]
+            mgreffsnow_grid[idx2] = reff_snow_grid[idx2]

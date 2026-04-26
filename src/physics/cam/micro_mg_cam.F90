@@ -127,6 +127,11 @@ logical :: use_native_postmg_diag_impl = .false.
 logical :: postmg_diag_impl_selected = .false.
 logical :: use_native_grid_diag_impl = .false.
 logical :: grid_diag_impl_selected = .false.
+logical :: use_native_reff_calc_impl = .false.
+logical :: reff_calc_impl_selected = .false.
+logical :: use_reff_calc_compare = .false.
+logical :: reff_calc_compare_selected = .false.
+logical :: reff_calc_compare_done = .false.
 
 integer :: num_steps ! Number of MG substeps
 
@@ -2615,141 +2620,10 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
       rho_grid = rho
    end if
 
-   ! Effective radius for cloud liquid, fixed number.
-   mu_grid = 0._r8
-   lambdac_grid = 0._r8
-   rel_fn_grid = 10._r8
-
-   ncic_grid = 1.e8_r8
-
-   call size_dist_param_liq(mg_liq_props, icwmrst_grid(:ngrdcol,top_lev:), &
-        ncic_grid(:ngrdcol,top_lev:), rho_grid(:ngrdcol,top_lev:), &
-        mu_grid(:ngrdcol,top_lev:), lambdac_grid(:ngrdcol,top_lev:))
-
-   where (icwmrst_grid(:ngrdcol,top_lev:) > qsmall)
-      rel_fn_grid(:ngrdcol,top_lev:) = &
-           (mu_grid(:ngrdcol,top_lev:) + 3._r8)/ &
-           lambdac_grid(:ngrdcol,top_lev:)/2._r8 * 1.e6_r8
-   end where
-
-   ! Effective radius for cloud liquid, and size parameters
-   ! mu_grid and lambdac_grid.
-   mu_grid = 0._r8
-   lambdac_grid = 0._r8
-   rel_grid = 10._r8
-
-   ! Calculate ncic on the grid
-   ncic_grid(:ngrdcol,top_lev:) = nc_grid(:ngrdcol,top_lev:) / &
-        max(mincld,liqcldf_grid(:ngrdcol,top_lev:))
-
-   call size_dist_param_liq(mg_liq_props, icwmrst_grid(:ngrdcol,top_lev:), &
-        ncic_grid(:ngrdcol,top_lev:), rho_grid(:ngrdcol,top_lev:), &
-        mu_grid(:ngrdcol,top_lev:), lambdac_grid(:ngrdcol,top_lev:))
-
-   where (icwmrst_grid(:ngrdcol,top_lev:) >= qsmall)
-      rel_grid(:ngrdcol,top_lev:) = &
-           (mu_grid(:ngrdcol,top_lev:) + 3._r8) / &
-           lambdac_grid(:ngrdcol,top_lev:)/2._r8 * 1.e6_r8
-   elsewhere
-      ! Deal with the fact that size_dist_param_liq sets mu_grid to -100
-      ! wherever there is no cloud.
-      mu_grid(:ngrdcol,top_lev:) = 0._r8
-   end where
-
-   ! Rain/Snow effective diameter.
-   drout2_grid = 0._r8
-   reff_rain_grid = 0._r8
-   des_grid = 0._r8
-   dsout2_grid = 0._r8
-   reff_snow_grid = 0._r8
-
-   if (micro_mg_version > 1) then
-      ! Prognostic precipitation
-
-      where (qr_grid(:ngrdcol,top_lev:) >= 1.e-7_r8)
-         drout2_grid(:ngrdcol,top_lev:) = avg_diameter( &
-              qr_grid(:ngrdcol,top_lev:), &
-              nr_grid(:ngrdcol,top_lev:) * rho_grid(:ngrdcol,top_lev:), &
-              rho_grid(:ngrdcol,top_lev:), rhow)
-
-         reff_rain_grid(:ngrdcol,top_lev:) = drout2_grid(:ngrdcol,top_lev:) * &
-              1.5_r8 * 1.e6_r8
-      end where
-
-      where (qs_grid(:ngrdcol,top_lev:) >= 1.e-7_r8)
-         dsout2_grid(:ngrdcol,top_lev:) = avg_diameter( &
-              qs_grid(:ngrdcol,top_lev:), &
-              ns_grid(:ngrdcol,top_lev:) * rho_grid(:ngrdcol,top_lev:), &
-              rho_grid(:ngrdcol,top_lev:), rhosn)
-
-         des_grid(:ngrdcol,top_lev:) = dsout2_grid(:ngrdcol,top_lev:) *&
-              3._r8 * rhosn/rhows
-
-         reff_snow_grid(:ngrdcol,top_lev:) = dsout2_grid(:ngrdcol,top_lev:) * &
-              1.5_r8 * 1.e6_r8
-      end where
-
-   else
-      ! Diagnostic precipitation
-
-      where (qrout_grid(:ngrdcol,top_lev:) >= 1.e-7_r8)
-         drout2_grid(:ngrdcol,top_lev:) = avg_diameter( &
-              qrout_grid(:ngrdcol,top_lev:), &
-              nrout_grid(:ngrdcol,top_lev:) * rho_grid(:ngrdcol,top_lev:), &
-              rho_grid(:ngrdcol,top_lev:), rhow)
-
-         reff_rain_grid(:ngrdcol,top_lev:) = drout2_grid(:ngrdcol,top_lev:) * &
-              1.5_r8 * 1.e6_r8
-      end where
-
-      where (qsout_grid(:ngrdcol,top_lev:) >= 1.e-7_r8)
-         dsout2_grid(:ngrdcol,top_lev:) = avg_diameter( &
-              qsout_grid(:ngrdcol,top_lev:), &
-              nsout_grid(:ngrdcol,top_lev:) * rho_grid(:ngrdcol,top_lev:), &
-              rho_grid(:ngrdcol,top_lev:), rhosn)
-
-         des_grid(:ngrdcol,top_lev:) = dsout2_grid(:ngrdcol,top_lev:) &
-              * 3._r8 * rhosn/rhows
-
-         reff_snow_grid(:ngrdcol,top_lev:) = &
-              dsout2_grid(:ngrdcol,top_lev:) * 1.5_r8 * 1.e6_r8
-      end where
-
-   end if
-
-   ! Effective radius and diameter for cloud ice.
-   rei_grid = 25._r8
-
-   niic_grid(:ngrdcol,top_lev:) = ni_grid(:ngrdcol,top_lev:) / &
-        max(mincld,icecldf_grid(:ngrdcol,top_lev:))
-
-   call size_dist_param_basic(mg_ice_props, icimrst_grid(:ngrdcol,top_lev:), &
-        niic_grid(:ngrdcol,top_lev:), rei_grid(:ngrdcol,top_lev:))
-
-   where (icimrst_grid(:ngrdcol,top_lev:) >= qsmall)
-      rei_grid(:ngrdcol,top_lev:) = 1.5_r8/rei_grid(:ngrdcol,top_lev:) &
-           * 1.e6_r8
-   elsewhere
-      rei_grid(:ngrdcol,top_lev:) = 25._r8
-   end where
-
-   dei_grid = rei_grid * rhoi/rhows * 2._r8
-
-   ! Limiters for low cloud fraction.
-   do k = top_lev, pver
-      do i = 1, ngrdcol
-         ! Convert snow effective diameter to microns
-         des_grid(i,k) = des_grid(i,k) * 1.e6_r8
-         if ( ast_grid(i,k) < 1.e-4_r8 ) then
-            mu_grid(i,k) = mucon
-            lambdac_grid(i,k) = (mucon + 1._r8)/dcon
-            dei_grid(i,k) = deicon
-         end if
-      end do
-   end do
-
-   mgreffrain_grid(:ngrdcol,top_lev:pver) = reff_rain_grid(:ngrdcol,top_lev:pver)
-   mgreffsnow_grid(:ngrdcol,top_lev:pver) = reff_snow_grid(:ngrdcol,top_lev:pver)
+   call micro_mg_cam_reff_calc(ngrdcol, micro_mg_version, rho_grid, icwmrst_grid, liqcldf_grid, nc_grid, qr_grid, nr_grid, &
+        qs_grid, ns_grid, qrout_grid, nrout_grid, qsout_grid, nsout_grid, ni_grid, icecldf_grid, icimrst_grid, ast_grid, &
+        mu_grid, lambdac_grid, rel_fn_grid, ncic_grid, rel_grid, drout2_grid, reff_rain_grid, des_grid, dsout2_grid, &
+        reff_snow_grid, rei_grid, niic_grid, dei_grid, mgreffrain_grid, mgreffsnow_grid)
 
    ! ------------------------------------- !
    ! Precipitation efficiency Calculation  !
@@ -2946,6 +2820,546 @@ subroutine micro_mg_cam_append_impl_proof(env_name, proof_line)
   close(unit_id)
 
 end subroutine micro_mg_cam_append_impl_proof
+
+subroutine micro_mg_cam_select_reff_calc_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (reff_calc_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MICRO_MG_CAM_REFF_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_reff_calc_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_reff_calc_impl = .false.
+  end if
+
+  reff_calc_impl_selected = .true.
+
+  if (use_native_reff_calc_impl) then
+     write(iulog,*) 'micro_mg_cam_reff_calc implementation = native'
+     call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_REFF_PROOF_FILE', &
+          'micro_mg_cam_reff_calc implementation = native')
+  else
+     write(iulog,*) 'micro_mg_cam_reff_calc implementation = codon'
+     call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_REFF_PROOF_FILE', &
+          'micro_mg_cam_reff_calc implementation = codon')
+  end if
+  call flush(iulog)
+
+end subroutine micro_mg_cam_select_reff_calc_impl
+
+subroutine micro_mg_cam_select_reff_calc_compare()
+
+  integer :: status, n
+
+  if (reff_calc_compare_selected) return
+
+  call get_environment_variable('MICRO_MG_CAM_REFF_COMPARE_FILE', length=n, status=status)
+  use_reff_calc_compare = status == 0 .and. n > 0
+  reff_calc_compare_selected = .true.
+
+end subroutine micro_mg_cam_select_reff_calc_compare
+
+subroutine micro_mg_cam_reff_calc(ngrdcol_local, micro_mg_version_local, rho_grid_local, icwmrst_grid_local, &
+     liqcldf_grid_local, nc_grid_local, qr_grid_local, nr_grid_local, qs_grid_local, ns_grid_local, qrout_grid_local, &
+     nrout_grid_local, qsout_grid_local, nsout_grid_local, ni_grid_local, icecldf_grid_local, icimrst_grid_local, &
+     ast_grid_local, mu_grid_local, lambdac_grid_local, rel_fn_grid_local, ncic_grid_local, rel_grid_local, &
+     drout2_grid_local, reff_rain_grid_local, des_grid_local, dsout2_grid_local, reff_snow_grid_local, rei_grid_local, &
+     niic_grid_local, dei_grid_local, mgreffrain_grid_local, mgreffsnow_grid_local)
+
+  integer, intent(in) :: ngrdcol_local, micro_mg_version_local
+  real(r8), intent(in) :: rho_grid_local(pcols,pver), icwmrst_grid_local(pcols,pver)
+  real(r8), intent(in) :: liqcldf_grid_local(pcols,pver), nc_grid_local(pcols,pver)
+  real(r8), intent(in) :: qr_grid_local(pcols,pver), nr_grid_local(pcols,pver)
+  real(r8), intent(in) :: qs_grid_local(pcols,pver), ns_grid_local(pcols,pver)
+  real(r8), intent(in) :: qrout_grid_local(pcols,pver), nrout_grid_local(pcols,pver)
+  real(r8), intent(in) :: qsout_grid_local(pcols,pver), nsout_grid_local(pcols,pver)
+  real(r8), intent(in) :: ni_grid_local(pcols,pver), icecldf_grid_local(pcols,pver)
+  real(r8), intent(in) :: icimrst_grid_local(pcols,pver), ast_grid_local(pcols,pver)
+  real(r8), intent(inout) :: mu_grid_local(pcols,pver), lambdac_grid_local(pcols,pver)
+  real(r8), intent(inout) :: rel_fn_grid_local(pcols,pver), ncic_grid_local(pcols,pver)
+  real(r8), intent(inout) :: rel_grid_local(pcols,pver), drout2_grid_local(pcols,pver)
+  real(r8), intent(inout) :: reff_rain_grid_local(pcols,pver), des_grid_local(pcols,pver)
+  real(r8), intent(inout) :: dsout2_grid_local(pcols,pver), reff_snow_grid_local(pcols,pver)
+  real(r8), intent(inout) :: rei_grid_local(pcols,pver), niic_grid_local(pcols,pver)
+  real(r8), intent(inout) :: dei_grid_local(pcols,pver), mgreffrain_grid_local(pcols,pver)
+  real(r8), intent(inout) :: mgreffsnow_grid_local(pcols,pver)
+
+  call micro_mg_cam_select_reff_calc_impl()
+  call micro_mg_cam_select_reff_calc_compare()
+
+  if (use_reff_calc_compare .and. .not. reff_calc_compare_done) then
+     call micro_mg_cam_reff_calc_compare(ngrdcol_local, micro_mg_version_local, rho_grid_local, icwmrst_grid_local, &
+          liqcldf_grid_local, nc_grid_local, qr_grid_local, nr_grid_local, qs_grid_local, ns_grid_local, qrout_grid_local, &
+          nrout_grid_local, qsout_grid_local, nsout_grid_local, ni_grid_local, icecldf_grid_local, icimrst_grid_local, &
+          ast_grid_local, mu_grid_local, lambdac_grid_local, rel_fn_grid_local, ncic_grid_local, rel_grid_local, &
+          drout2_grid_local, reff_rain_grid_local, des_grid_local, dsout2_grid_local, reff_snow_grid_local, rei_grid_local, &
+          niic_grid_local, dei_grid_local, mgreffrain_grid_local, mgreffsnow_grid_local)
+     reff_calc_compare_done = .true.
+     return
+  end if
+
+  if (use_native_reff_calc_impl) then
+     call micro_mg_cam_reff_calc_native(ngrdcol_local, micro_mg_version_local, rho_grid_local, icwmrst_grid_local, &
+          liqcldf_grid_local, nc_grid_local, qr_grid_local, nr_grid_local, qs_grid_local, ns_grid_local, qrout_grid_local, &
+          nrout_grid_local, qsout_grid_local, nsout_grid_local, ni_grid_local, icecldf_grid_local, icimrst_grid_local, &
+          ast_grid_local, mu_grid_local, lambdac_grid_local, rel_fn_grid_local, ncic_grid_local, rel_grid_local, &
+          drout2_grid_local, reff_rain_grid_local, des_grid_local, dsout2_grid_local, reff_snow_grid_local, rei_grid_local, &
+          niic_grid_local, dei_grid_local, mgreffrain_grid_local, mgreffsnow_grid_local)
+     return
+  end if
+
+  call micro_mg_cam_reff_calc_codon_invoke(ngrdcol_local, micro_mg_version_local, rho_grid_local, icwmrst_grid_local, &
+       liqcldf_grid_local, nc_grid_local, qr_grid_local, nr_grid_local, qs_grid_local, ns_grid_local, qrout_grid_local, &
+       nrout_grid_local, qsout_grid_local, nsout_grid_local, ni_grid_local, icecldf_grid_local, icimrst_grid_local, &
+       ast_grid_local, mu_grid_local, lambdac_grid_local, rel_fn_grid_local, ncic_grid_local, rel_grid_local, &
+       drout2_grid_local, reff_rain_grid_local, des_grid_local, dsout2_grid_local, reff_snow_grid_local, rei_grid_local, &
+       niic_grid_local, dei_grid_local, mgreffrain_grid_local, mgreffsnow_grid_local)
+
+end subroutine micro_mg_cam_reff_calc
+
+subroutine micro_mg_cam_reff_calc_codon_invoke(ngrdcol_local, micro_mg_version_local, rho_grid_local, icwmrst_grid_local, &
+     liqcldf_grid_local, nc_grid_local, qr_grid_local, nr_grid_local, qs_grid_local, ns_grid_local, qrout_grid_local, &
+     nrout_grid_local, qsout_grid_local, nsout_grid_local, ni_grid_local, icecldf_grid_local, icimrst_grid_local, &
+     ast_grid_local, mu_grid_local, lambdac_grid_local, rel_fn_grid_local, ncic_grid_local, rel_grid_local, &
+     drout2_grid_local, reff_rain_grid_local, des_grid_local, dsout2_grid_local, reff_snow_grid_local, rei_grid_local, &
+     niic_grid_local, dei_grid_local, mgreffrain_grid_local, mgreffsnow_grid_local)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  use micro_mg_utils, only: mg_liq_props, mg_ice_props, qsmall, mincld, rhosn, rhoi, rhow, rhows
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ngrdcol_local, micro_mg_version_local
+  real(r8), parameter :: dcon_local = 25.e-6_r8
+  real(r8), parameter :: mucon_local = 5.3_r8
+  real(r8), parameter :: deicon_local = 50._r8
+  real(r8), target, intent(in) :: rho_grid_local(pcols,pver), icwmrst_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: liqcldf_grid_local(pcols,pver), nc_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: qr_grid_local(pcols,pver), nr_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: qs_grid_local(pcols,pver), ns_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: qrout_grid_local(pcols,pver), nrout_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: qsout_grid_local(pcols,pver), nsout_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: ni_grid_local(pcols,pver), icecldf_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: icimrst_grid_local(pcols,pver), ast_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: mu_grid_local(pcols,pver), lambdac_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: rel_fn_grid_local(pcols,pver), ncic_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: rel_grid_local(pcols,pver), drout2_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: reff_rain_grid_local(pcols,pver), des_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: dsout2_grid_local(pcols,pver), reff_snow_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: rei_grid_local(pcols,pver), niic_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: dei_grid_local(pcols,pver), mgreffrain_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: mgreffsnow_grid_local(pcols,pver)
+
+  interface
+     subroutine micro_mg_cam_reff_calc_codon(ngrdcol_c, pcols_c, pver_c, top_lev_c, micro_mg_version_c, qsmall_c, &
+          mincld_c, liq_rho_c, liq_eff_dim_c, liq_min_mean_mass_c, ice_eff_dim_c, ice_shape_coef_c, ice_lambda_lo_c, &
+          ice_lambda_hi_c, ice_min_mean_mass_c, rhosn_c, rhoi_c, rhow_c, rhows_c, mucon_c, dcon_c, deicon_c, rho_grid_p, &
+          icwmrst_grid_p, liqcldf_grid_p, nc_grid_p, qr_grid_p, nr_grid_p, qs_grid_p, ns_grid_p, qrout_grid_p, &
+          nrout_grid_p, qsout_grid_p, nsout_grid_p, ni_grid_p, icecldf_grid_p, icimrst_grid_p, ast_grid_p, mu_grid_p, &
+          lambdac_grid_p, rel_fn_grid_p, ncic_grid_p, rel_grid_p, drout2_grid_p, reff_rain_grid_p, des_grid_p, &
+          dsout2_grid_p, reff_snow_grid_p, rei_grid_p, niic_grid_p, dei_grid_p, mgreffrain_grid_p, &
+          mgreffsnow_grid_p) bind(c, name="micro_mg_cam_reff_calc_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ngrdcol_c, pcols_c, pver_c, top_lev_c, micro_mg_version_c
+       real(c_double), value :: qsmall_c, mincld_c, liq_rho_c, liq_eff_dim_c, liq_min_mean_mass_c
+       real(c_double), value :: ice_eff_dim_c, ice_shape_coef_c, ice_lambda_lo_c, ice_lambda_hi_c
+       real(c_double), value :: ice_min_mean_mass_c, rhosn_c, rhoi_c, rhow_c, rhows_c
+       real(c_double), value :: mucon_c, dcon_c, deicon_c
+       type(c_ptr), value :: rho_grid_p, icwmrst_grid_p, liqcldf_grid_p, nc_grid_p, qr_grid_p, nr_grid_p
+       type(c_ptr), value :: qs_grid_p, ns_grid_p, qrout_grid_p, nrout_grid_p, qsout_grid_p, nsout_grid_p
+       type(c_ptr), value :: ni_grid_p, icecldf_grid_p, icimrst_grid_p, ast_grid_p, mu_grid_p, lambdac_grid_p
+       type(c_ptr), value :: rel_fn_grid_p, ncic_grid_p, rel_grid_p, drout2_grid_p, reff_rain_grid_p, des_grid_p
+       type(c_ptr), value :: dsout2_grid_p, reff_snow_grid_p, rei_grid_p, niic_grid_p, dei_grid_p
+       type(c_ptr), value :: mgreffrain_grid_p, mgreffsnow_grid_p
+     end subroutine micro_mg_cam_reff_calc_codon
+  end interface
+
+  call micro_mg_cam_reff_liq_native(ngrdcol_local, rho_grid_local, icwmrst_grid_local, liqcldf_grid_local, nc_grid_local, &
+       mu_grid_local, lambdac_grid_local, rel_fn_grid_local, ncic_grid_local, rel_grid_local)
+
+  call micro_mg_cam_reff_calc_codon(int(ngrdcol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(top_lev, c_int64_t), int(micro_mg_version_local, c_int64_t), qsmall, mincld, mg_liq_props%rho, &
+       mg_liq_props%eff_dim, mg_liq_props%min_mean_mass, mg_ice_props%eff_dim, mg_ice_props%shape_coef, &
+       mg_ice_props%lambda_bounds(1), mg_ice_props%lambda_bounds(2), mg_ice_props%min_mean_mass, rhosn, rhoi, rhow, rhows, &
+       mucon_local, dcon_local, deicon_local, c_loc(rho_grid_local), c_loc(icwmrst_grid_local), c_loc(liqcldf_grid_local), &
+       c_loc(nc_grid_local), c_loc(qr_grid_local), c_loc(nr_grid_local), c_loc(qs_grid_local), c_loc(ns_grid_local), &
+       c_loc(qrout_grid_local), c_loc(nrout_grid_local), c_loc(qsout_grid_local), c_loc(nsout_grid_local), c_loc(ni_grid_local), &
+       c_loc(icecldf_grid_local), c_loc(icimrst_grid_local), c_loc(ast_grid_local), c_loc(mu_grid_local), c_loc(lambdac_grid_local), &
+       c_loc(rel_fn_grid_local), c_loc(ncic_grid_local), c_loc(rel_grid_local), c_loc(drout2_grid_local), c_loc(reff_rain_grid_local), &
+       c_loc(des_grid_local), c_loc(dsout2_grid_local), c_loc(reff_snow_grid_local), c_loc(rei_grid_local), c_loc(niic_grid_local), &
+       c_loc(dei_grid_local), c_loc(mgreffrain_grid_local), c_loc(mgreffsnow_grid_local))
+
+end subroutine micro_mg_cam_reff_calc_codon_invoke
+
+subroutine micro_mg_cam_reff_calc_compare(ngrdcol_local, micro_mg_version_local, rho_grid_local, icwmrst_grid_local, &
+     liqcldf_grid_local, nc_grid_local, qr_grid_local, nr_grid_local, qs_grid_local, ns_grid_local, qrout_grid_local, &
+     nrout_grid_local, qsout_grid_local, nsout_grid_local, ni_grid_local, icecldf_grid_local, icimrst_grid_local, &
+     ast_grid_local, mu_grid_local, lambdac_grid_local, rel_fn_grid_local, ncic_grid_local, rel_grid_local, &
+     drout2_grid_local, reff_rain_grid_local, des_grid_local, dsout2_grid_local, reff_snow_grid_local, rei_grid_local, &
+     niic_grid_local, dei_grid_local, mgreffrain_grid_local, mgreffsnow_grid_local)
+
+  integer, intent(in) :: ngrdcol_local, micro_mg_version_local
+  real(r8), intent(in) :: rho_grid_local(pcols,pver), icwmrst_grid_local(pcols,pver)
+  real(r8), intent(in) :: liqcldf_grid_local(pcols,pver), nc_grid_local(pcols,pver)
+  real(r8), intent(in) :: qr_grid_local(pcols,pver), nr_grid_local(pcols,pver)
+  real(r8), intent(in) :: qs_grid_local(pcols,pver), ns_grid_local(pcols,pver)
+  real(r8), intent(in) :: qrout_grid_local(pcols,pver), nrout_grid_local(pcols,pver)
+  real(r8), intent(in) :: qsout_grid_local(pcols,pver), nsout_grid_local(pcols,pver)
+  real(r8), intent(in) :: ni_grid_local(pcols,pver), icecldf_grid_local(pcols,pver)
+  real(r8), intent(in) :: icimrst_grid_local(pcols,pver), ast_grid_local(pcols,pver)
+  real(r8), intent(inout) :: mu_grid_local(pcols,pver), lambdac_grid_local(pcols,pver)
+  real(r8), intent(inout) :: rel_fn_grid_local(pcols,pver), ncic_grid_local(pcols,pver)
+  real(r8), intent(inout) :: rel_grid_local(pcols,pver), drout2_grid_local(pcols,pver)
+  real(r8), intent(inout) :: reff_rain_grid_local(pcols,pver), des_grid_local(pcols,pver)
+  real(r8), intent(inout) :: dsout2_grid_local(pcols,pver), reff_snow_grid_local(pcols,pver)
+  real(r8), intent(inout) :: rei_grid_local(pcols,pver), niic_grid_local(pcols,pver)
+  real(r8), intent(inout) :: dei_grid_local(pcols,pver), mgreffrain_grid_local(pcols,pver)
+  real(r8), intent(inout) :: mgreffsnow_grid_local(pcols,pver)
+  real(r8), allocatable, target :: native_mu_grid(:,:), codon_mu_grid(:,:)
+  real(r8), allocatable, target :: native_lambdac_grid(:,:), codon_lambdac_grid(:,:)
+  real(r8), allocatable, target :: native_rel_fn_grid(:,:), codon_rel_fn_grid(:,:)
+  real(r8), allocatable, target :: native_ncic_grid(:,:), codon_ncic_grid(:,:)
+  real(r8), allocatable, target :: native_rel_grid(:,:), codon_rel_grid(:,:)
+  real(r8), allocatable, target :: native_drout2_grid(:,:), codon_drout2_grid(:,:)
+  real(r8), allocatable, target :: native_reff_rain_grid(:,:), codon_reff_rain_grid(:,:)
+  real(r8), allocatable, target :: native_des_grid(:,:), codon_des_grid(:,:)
+  real(r8), allocatable, target :: native_dsout2_grid(:,:), codon_dsout2_grid(:,:)
+  real(r8), allocatable, target :: native_reff_snow_grid(:,:), codon_reff_snow_grid(:,:)
+  real(r8), allocatable, target :: native_rei_grid(:,:), codon_rei_grid(:,:)
+  real(r8), allocatable, target :: native_niic_grid(:,:), codon_niic_grid(:,:)
+  real(r8), allocatable, target :: native_dei_grid(:,:), codon_dei_grid(:,:)
+  real(r8), allocatable, target :: native_mgreffrain_grid(:,:), codon_mgreffrain_grid(:,:)
+  real(r8), allocatable, target :: native_mgreffsnow_grid(:,:), codon_mgreffsnow_grid(:,:)
+
+  allocate(native_mu_grid(pcols,pver), codon_mu_grid(pcols,pver))
+  allocate(native_lambdac_grid(pcols,pver), codon_lambdac_grid(pcols,pver))
+  allocate(native_rel_fn_grid(pcols,pver), codon_rel_fn_grid(pcols,pver))
+  allocate(native_ncic_grid(pcols,pver), codon_ncic_grid(pcols,pver))
+  allocate(native_rel_grid(pcols,pver), codon_rel_grid(pcols,pver))
+  allocate(native_drout2_grid(pcols,pver), codon_drout2_grid(pcols,pver))
+  allocate(native_reff_rain_grid(pcols,pver), codon_reff_rain_grid(pcols,pver))
+  allocate(native_des_grid(pcols,pver), codon_des_grid(pcols,pver))
+  allocate(native_dsout2_grid(pcols,pver), codon_dsout2_grid(pcols,pver))
+  allocate(native_reff_snow_grid(pcols,pver), codon_reff_snow_grid(pcols,pver))
+  allocate(native_rei_grid(pcols,pver), codon_rei_grid(pcols,pver))
+  allocate(native_niic_grid(pcols,pver), codon_niic_grid(pcols,pver))
+  allocate(native_dei_grid(pcols,pver), codon_dei_grid(pcols,pver))
+  allocate(native_mgreffrain_grid(pcols,pver), codon_mgreffrain_grid(pcols,pver))
+  allocate(native_mgreffsnow_grid(pcols,pver), codon_mgreffsnow_grid(pcols,pver))
+
+  native_mu_grid = mu_grid_local
+  codon_mu_grid = mu_grid_local
+  native_lambdac_grid = lambdac_grid_local
+  codon_lambdac_grid = lambdac_grid_local
+  native_rel_fn_grid = rel_fn_grid_local
+  codon_rel_fn_grid = rel_fn_grid_local
+  native_ncic_grid = ncic_grid_local
+  codon_ncic_grid = ncic_grid_local
+  native_rel_grid = rel_grid_local
+  codon_rel_grid = rel_grid_local
+  native_drout2_grid = drout2_grid_local
+  codon_drout2_grid = drout2_grid_local
+  native_reff_rain_grid = reff_rain_grid_local
+  codon_reff_rain_grid = reff_rain_grid_local
+  native_des_grid = des_grid_local
+  codon_des_grid = des_grid_local
+  native_dsout2_grid = dsout2_grid_local
+  codon_dsout2_grid = dsout2_grid_local
+  native_reff_snow_grid = reff_snow_grid_local
+  codon_reff_snow_grid = reff_snow_grid_local
+  native_rei_grid = rei_grid_local
+  codon_rei_grid = rei_grid_local
+  native_niic_grid = niic_grid_local
+  codon_niic_grid = niic_grid_local
+  native_dei_grid = dei_grid_local
+  codon_dei_grid = dei_grid_local
+  native_mgreffrain_grid = mgreffrain_grid_local
+  codon_mgreffrain_grid = mgreffrain_grid_local
+  native_mgreffsnow_grid = mgreffsnow_grid_local
+  codon_mgreffsnow_grid = mgreffsnow_grid_local
+
+  call micro_mg_cam_reff_calc_native(ngrdcol_local, micro_mg_version_local, rho_grid_local, icwmrst_grid_local, &
+       liqcldf_grid_local, nc_grid_local, qr_grid_local, nr_grid_local, qs_grid_local, ns_grid_local, qrout_grid_local, &
+       nrout_grid_local, qsout_grid_local, nsout_grid_local, ni_grid_local, icecldf_grid_local, icimrst_grid_local, &
+       ast_grid_local, native_mu_grid, native_lambdac_grid, native_rel_fn_grid, native_ncic_grid, native_rel_grid, &
+       native_drout2_grid, native_reff_rain_grid, native_des_grid, native_dsout2_grid, native_reff_snow_grid, native_rei_grid, &
+       native_niic_grid, native_dei_grid, native_mgreffrain_grid, native_mgreffsnow_grid)
+
+  call micro_mg_cam_reff_calc_codon_invoke(ngrdcol_local, micro_mg_version_local, rho_grid_local, icwmrst_grid_local, &
+       liqcldf_grid_local, nc_grid_local, qr_grid_local, nr_grid_local, qs_grid_local, ns_grid_local, qrout_grid_local, &
+       nrout_grid_local, qsout_grid_local, nsout_grid_local, ni_grid_local, icecldf_grid_local, icimrst_grid_local, &
+       ast_grid_local, codon_mu_grid, codon_lambdac_grid, codon_rel_fn_grid, codon_ncic_grid, codon_rel_grid, &
+       codon_drout2_grid, codon_reff_rain_grid, codon_des_grid, codon_dsout2_grid, codon_reff_snow_grid, codon_rei_grid, &
+       codon_niic_grid, codon_dei_grid, codon_mgreffrain_grid, codon_mgreffsnow_grid)
+
+  call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_REFF_COMPARE_FILE', &
+       'micro_mg_cam_reff_calc direct compare begin')
+  call report_field('mu_grid', native_mu_grid, codon_mu_grid)
+  call report_field('lambdac_grid', native_lambdac_grid, codon_lambdac_grid)
+  call report_field('rel_fn_grid', native_rel_fn_grid, codon_rel_fn_grid)
+  call report_field('ncic_grid', native_ncic_grid, codon_ncic_grid)
+  call report_field('rel_grid', native_rel_grid, codon_rel_grid)
+  call report_field('drout2_grid', native_drout2_grid, codon_drout2_grid)
+  call report_field('reff_rain_grid', native_reff_rain_grid, codon_reff_rain_grid)
+  call report_field('des_grid', native_des_grid, codon_des_grid)
+  call report_field('dsout2_grid', native_dsout2_grid, codon_dsout2_grid)
+  call report_field('reff_snow_grid', native_reff_snow_grid, codon_reff_snow_grid)
+  call report_field('rei_grid', native_rei_grid, codon_rei_grid)
+  call report_field('niic_grid', native_niic_grid, codon_niic_grid)
+  call report_field('dei_grid', native_dei_grid, codon_dei_grid)
+  call report_field('mgreffrain_grid', native_mgreffrain_grid, codon_mgreffrain_grid)
+  call report_field('mgreffsnow_grid', native_mgreffsnow_grid, codon_mgreffsnow_grid)
+  call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_REFF_COMPARE_FILE', &
+       'micro_mg_cam_reff_calc direct compare end')
+
+  if (use_native_reff_calc_impl) then
+     mu_grid_local = native_mu_grid
+     lambdac_grid_local = native_lambdac_grid
+     rel_fn_grid_local = native_rel_fn_grid
+     ncic_grid_local = native_ncic_grid
+     rel_grid_local = native_rel_grid
+     drout2_grid_local = native_drout2_grid
+     reff_rain_grid_local = native_reff_rain_grid
+     des_grid_local = native_des_grid
+     dsout2_grid_local = native_dsout2_grid
+     reff_snow_grid_local = native_reff_snow_grid
+     rei_grid_local = native_rei_grid
+     niic_grid_local = native_niic_grid
+     dei_grid_local = native_dei_grid
+     mgreffrain_grid_local = native_mgreffrain_grid
+     mgreffsnow_grid_local = native_mgreffsnow_grid
+  else
+     mu_grid_local = codon_mu_grid
+     lambdac_grid_local = codon_lambdac_grid
+     rel_fn_grid_local = codon_rel_fn_grid
+     ncic_grid_local = codon_ncic_grid
+     rel_grid_local = codon_rel_grid
+     drout2_grid_local = codon_drout2_grid
+     reff_rain_grid_local = codon_reff_rain_grid
+     des_grid_local = codon_des_grid
+     dsout2_grid_local = codon_dsout2_grid
+     reff_snow_grid_local = codon_reff_snow_grid
+     rei_grid_local = codon_rei_grid
+     niic_grid_local = codon_niic_grid
+     dei_grid_local = codon_dei_grid
+     mgreffrain_grid_local = codon_mgreffrain_grid
+     mgreffsnow_grid_local = codon_mgreffsnow_grid
+  end if
+
+  deallocate(native_mu_grid, codon_mu_grid)
+  deallocate(native_lambdac_grid, codon_lambdac_grid)
+  deallocate(native_rel_fn_grid, codon_rel_fn_grid)
+  deallocate(native_ncic_grid, codon_ncic_grid)
+  deallocate(native_rel_grid, codon_rel_grid)
+  deallocate(native_drout2_grid, codon_drout2_grid)
+  deallocate(native_reff_rain_grid, codon_reff_rain_grid)
+  deallocate(native_des_grid, codon_des_grid)
+  deallocate(native_dsout2_grid, codon_dsout2_grid)
+  deallocate(native_reff_snow_grid, codon_reff_snow_grid)
+  deallocate(native_rei_grid, codon_rei_grid)
+  deallocate(native_niic_grid, codon_niic_grid)
+  deallocate(native_dei_grid, codon_dei_grid)
+  deallocate(native_mgreffrain_grid, codon_mgreffrain_grid)
+  deallocate(native_mgreffsnow_grid, codon_mgreffsnow_grid)
+
+contains
+
+  subroutine report_field(name, native_field, codon_field)
+
+    character(len=*), intent(in) :: name
+    real(r8), intent(in) :: native_field(pcols,pver), codon_field(pcols,pver)
+    integer :: i, k, diff_count, first_i, first_k
+    real(r8) :: max_abs_diff, abs_diff, first_native, first_codon
+    character(len=512) :: line
+
+    diff_count = 0
+    first_i = 0
+    first_k = 0
+    max_abs_diff = 0._r8
+    first_native = 0._r8
+    first_codon = 0._r8
+
+    do k = 1, pver
+       do i = 1, pcols
+          if (native_field(i,k) /= codon_field(i,k)) then
+             diff_count = diff_count + 1
+             if (first_i == 0) then
+                first_i = i
+                first_k = k
+                first_native = native_field(i,k)
+                first_codon = codon_field(i,k)
+             end if
+             abs_diff = abs(native_field(i,k) - codon_field(i,k))
+             if (abs_diff == abs_diff) then
+                max_abs_diff = max(max_abs_diff, abs_diff)
+             end if
+          end if
+       end do
+    end do
+
+    if (diff_count == 0) then
+      write(line,'(A,": diff_count=0")') trim(name)
+    else
+      write(line,'(A,": diff_count=",I0,", max_abs_diff=",ES24.16E3,", first_diff=(",I0,",",I0,")",", native=",ES24.16E3,", codon=",ES24.16E3)') &
+           trim(name), diff_count, max_abs_diff, first_i, first_k, first_native, first_codon
+    end if
+    call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_REFF_COMPARE_FILE', trim(line))
+
+  end subroutine report_field
+
+end subroutine micro_mg_cam_reff_calc_compare
+
+subroutine micro_mg_cam_reff_liq_native(ngrdcol_local, rho_grid_local, icwmrst_grid_local, liqcldf_grid_local, nc_grid_local, &
+     mu_grid_local, lambdac_grid_local, rel_fn_grid_local, ncic_grid_local, rel_grid_local)
+
+  use micro_mg_utils, only: mg_liq_props, size_dist_param_liq, qsmall, mincld
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ngrdcol_local
+  real(r8), intent(in) :: rho_grid_local(pcols,pver), icwmrst_grid_local(pcols,pver)
+  real(r8), intent(in) :: liqcldf_grid_local(pcols,pver), nc_grid_local(pcols,pver)
+  real(r8), intent(inout) :: mu_grid_local(pcols,pver), lambdac_grid_local(pcols,pver)
+  real(r8), intent(inout) :: rel_fn_grid_local(pcols,pver), ncic_grid_local(pcols,pver)
+  real(r8), intent(inout) :: rel_grid_local(pcols,pver)
+
+  mu_grid_local = 0._r8
+  lambdac_grid_local = 0._r8
+  rel_fn_grid_local = 10._r8
+
+  ncic_grid_local = 1.e8_r8
+  call size_dist_param_liq(mg_liq_props, icwmrst_grid_local(:ngrdcol_local,top_lev:), ncic_grid_local(:ngrdcol_local,top_lev:), &
+       rho_grid_local(:ngrdcol_local,top_lev:), mu_grid_local(:ngrdcol_local,top_lev:), lambdac_grid_local(:ngrdcol_local,top_lev:))
+  where (icwmrst_grid_local(:ngrdcol_local,top_lev:) > qsmall)
+     rel_fn_grid_local(:ngrdcol_local,top_lev:) = (mu_grid_local(:ngrdcol_local,top_lev:) + 3._r8) / &
+          lambdac_grid_local(:ngrdcol_local,top_lev:) / 2._r8 * 1.e6_r8
+  end where
+
+  mu_grid_local = 0._r8
+  lambdac_grid_local = 0._r8
+  rel_grid_local = 10._r8
+
+  ncic_grid_local(:ngrdcol_local,top_lev:) = nc_grid_local(:ngrdcol_local,top_lev:) / max(mincld, liqcldf_grid_local(:ngrdcol_local,top_lev:))
+  call size_dist_param_liq(mg_liq_props, icwmrst_grid_local(:ngrdcol_local,top_lev:), ncic_grid_local(:ngrdcol_local,top_lev:), &
+       rho_grid_local(:ngrdcol_local,top_lev:), mu_grid_local(:ngrdcol_local,top_lev:), lambdac_grid_local(:ngrdcol_local,top_lev:))
+  where (icwmrst_grid_local(:ngrdcol_local,top_lev:) >= qsmall)
+     rel_grid_local(:ngrdcol_local,top_lev:) = (mu_grid_local(:ngrdcol_local,top_lev:) + 3._r8) / &
+          lambdac_grid_local(:ngrdcol_local,top_lev:) / 2._r8 * 1.e6_r8
+  elsewhere
+     mu_grid_local(:ngrdcol_local,top_lev:) = 0._r8
+  end where
+
+end subroutine micro_mg_cam_reff_liq_native
+
+subroutine micro_mg_cam_reff_calc_native(ngrdcol_local, micro_mg_version_local, rho_grid_local, icwmrst_grid_local, &
+     liqcldf_grid_local, nc_grid_local, qr_grid_local, nr_grid_local, qs_grid_local, ns_grid_local, qrout_grid_local, &
+     nrout_grid_local, qsout_grid_local, nsout_grid_local, ni_grid_local, icecldf_grid_local, icimrst_grid_local, &
+     ast_grid_local, mu_grid_local, lambdac_grid_local, rel_fn_grid_local, ncic_grid_local, rel_grid_local, &
+     drout2_grid_local, reff_rain_grid_local, des_grid_local, dsout2_grid_local, reff_snow_grid_local, rei_grid_local, &
+     niic_grid_local, dei_grid_local, mgreffrain_grid_local, mgreffsnow_grid_local)
+
+  use micro_mg_utils, only: mg_liq_props, mg_ice_props, size_dist_param_liq, size_dist_param_basic, avg_diameter, qsmall, &
+       mincld, rhosn, rhoi, rhow, rhows
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ngrdcol_local, micro_mg_version_local
+  real(r8), parameter :: dcon_local = 25.e-6_r8
+  real(r8), parameter :: mucon_local = 5.3_r8
+  real(r8), parameter :: deicon_local = 50._r8
+  real(r8), intent(in) :: rho_grid_local(pcols,pver), icwmrst_grid_local(pcols,pver)
+  real(r8), intent(in) :: liqcldf_grid_local(pcols,pver), nc_grid_local(pcols,pver)
+  real(r8), intent(in) :: qr_grid_local(pcols,pver), nr_grid_local(pcols,pver)
+  real(r8), intent(in) :: qs_grid_local(pcols,pver), ns_grid_local(pcols,pver)
+  real(r8), intent(in) :: qrout_grid_local(pcols,pver), nrout_grid_local(pcols,pver)
+  real(r8), intent(in) :: qsout_grid_local(pcols,pver), nsout_grid_local(pcols,pver)
+  real(r8), intent(in) :: ni_grid_local(pcols,pver), icecldf_grid_local(pcols,pver)
+  real(r8), intent(in) :: icimrst_grid_local(pcols,pver), ast_grid_local(pcols,pver)
+  real(r8), intent(inout) :: mu_grid_local(pcols,pver), lambdac_grid_local(pcols,pver)
+  real(r8), intent(inout) :: rel_fn_grid_local(pcols,pver), ncic_grid_local(pcols,pver)
+  real(r8), intent(inout) :: rel_grid_local(pcols,pver), drout2_grid_local(pcols,pver)
+  real(r8), intent(inout) :: reff_rain_grid_local(pcols,pver), des_grid_local(pcols,pver)
+  real(r8), intent(inout) :: dsout2_grid_local(pcols,pver), reff_snow_grid_local(pcols,pver)
+  real(r8), intent(inout) :: rei_grid_local(pcols,pver), niic_grid_local(pcols,pver)
+  real(r8), intent(inout) :: dei_grid_local(pcols,pver), mgreffrain_grid_local(pcols,pver)
+  real(r8), intent(inout) :: mgreffsnow_grid_local(pcols,pver)
+  integer :: i, k
+
+  call micro_mg_cam_reff_liq_native(ngrdcol_local, rho_grid_local, icwmrst_grid_local, liqcldf_grid_local, nc_grid_local, &
+       mu_grid_local, lambdac_grid_local, rel_fn_grid_local, ncic_grid_local, rel_grid_local)
+
+  drout2_grid_local = 0._r8
+  reff_rain_grid_local = 0._r8
+  des_grid_local = 0._r8
+  dsout2_grid_local = 0._r8
+  reff_snow_grid_local = 0._r8
+
+  if (micro_mg_version_local > 1) then
+     where (qr_grid_local(:ngrdcol_local,top_lev:) >= 1.e-7_r8)
+        drout2_grid_local(:ngrdcol_local,top_lev:) = avg_diameter(qr_grid_local(:ngrdcol_local,top_lev:), &
+             nr_grid_local(:ngrdcol_local,top_lev:) * rho_grid_local(:ngrdcol_local,top_lev:), &
+             rho_grid_local(:ngrdcol_local,top_lev:), rhow)
+        reff_rain_grid_local(:ngrdcol_local,top_lev:) = drout2_grid_local(:ngrdcol_local,top_lev:) * 1.5_r8 * 1.e6_r8
+     end where
+
+     where (qs_grid_local(:ngrdcol_local,top_lev:) >= 1.e-7_r8)
+        dsout2_grid_local(:ngrdcol_local,top_lev:) = avg_diameter(qs_grid_local(:ngrdcol_local,top_lev:), &
+             ns_grid_local(:ngrdcol_local,top_lev:) * rho_grid_local(:ngrdcol_local,top_lev:), &
+             rho_grid_local(:ngrdcol_local,top_lev:), rhosn)
+        des_grid_local(:ngrdcol_local,top_lev:) = dsout2_grid_local(:ngrdcol_local,top_lev:) * 3._r8 * rhosn/rhows
+        reff_snow_grid_local(:ngrdcol_local,top_lev:) = dsout2_grid_local(:ngrdcol_local,top_lev:) * 1.5_r8 * 1.e6_r8
+     end where
+  else
+     where (qrout_grid_local(:ngrdcol_local,top_lev:) >= 1.e-7_r8)
+        drout2_grid_local(:ngrdcol_local,top_lev:) = avg_diameter(qrout_grid_local(:ngrdcol_local,top_lev:), &
+             nrout_grid_local(:ngrdcol_local,top_lev:) * rho_grid_local(:ngrdcol_local,top_lev:), &
+             rho_grid_local(:ngrdcol_local,top_lev:), rhow)
+        reff_rain_grid_local(:ngrdcol_local,top_lev:) = drout2_grid_local(:ngrdcol_local,top_lev:) * 1.5_r8 * 1.e6_r8
+     end where
+
+     where (qsout_grid_local(:ngrdcol_local,top_lev:) >= 1.e-7_r8)
+        dsout2_grid_local(:ngrdcol_local,top_lev:) = avg_diameter(qsout_grid_local(:ngrdcol_local,top_lev:), &
+             nsout_grid_local(:ngrdcol_local,top_lev:) * rho_grid_local(:ngrdcol_local,top_lev:), &
+             rho_grid_local(:ngrdcol_local,top_lev:), rhosn)
+        des_grid_local(:ngrdcol_local,top_lev:) = dsout2_grid_local(:ngrdcol_local,top_lev:) * 3._r8 * rhosn/rhows
+        reff_snow_grid_local(:ngrdcol_local,top_lev:) = dsout2_grid_local(:ngrdcol_local,top_lev:) * 1.5_r8 * 1.e6_r8
+     end where
+  end if
+
+  rei_grid_local = 25._r8
+  niic_grid_local(:ngrdcol_local,top_lev:) = ni_grid_local(:ngrdcol_local,top_lev:) / max(mincld, icecldf_grid_local(:ngrdcol_local,top_lev:))
+  call size_dist_param_basic(mg_ice_props, icimrst_grid_local(:ngrdcol_local,top_lev:), niic_grid_local(:ngrdcol_local,top_lev:), &
+       rei_grid_local(:ngrdcol_local,top_lev:))
+  where (icimrst_grid_local(:ngrdcol_local,top_lev:) >= qsmall)
+     rei_grid_local(:ngrdcol_local,top_lev:) = 1.5_r8 / rei_grid_local(:ngrdcol_local,top_lev:) * 1.e6_r8
+  elsewhere
+     rei_grid_local(:ngrdcol_local,top_lev:) = 25._r8
+  end where
+
+  dei_grid_local = rei_grid_local * rhoi/rhows * 2._r8
+  do k = top_lev, pver
+     do i = 1, ngrdcol_local
+        des_grid_local(i,k) = des_grid_local(i,k) * 1.e6_r8
+        if (ast_grid_local(i,k) < 1.e-4_r8) then
+           mu_grid_local(i,k) = mucon_local
+           lambdac_grid_local(i,k) = (mucon_local + 1._r8) / dcon_local
+           dei_grid_local(i,k) = deicon_local
+        end if
+     end do
+  end do
+
+  mgreffrain_grid_local(:ngrdcol_local,top_lev:pver) = reff_rain_grid_local(:ngrdcol_local,top_lev:pver)
+  mgreffsnow_grid_local(:ngrdcol_local,top_lev:pver) = reff_snow_grid_local(:ngrdcol_local,top_lev:pver)
+
+end subroutine micro_mg_cam_reff_calc_native
 
 subroutine micro_mg_cam_select_postmg_diag_impl()
 
