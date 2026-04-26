@@ -3730,7 +3730,7 @@
 
     if (kb_is_surface_local .ne. 0) then
        if (bflxs_surf_local .gt. 0._r8) then
-          call eddy_diff_zisocl_surface_energy_native(z_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, gh_local, &
+          call eddy_diff_zisocl_surface_energy(z_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, gh_local, &
                sh_local, sm_local, dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local)
        else
           lbulk_local = zi_top_local - z_surf_local
@@ -3849,7 +3849,7 @@
     real(r8) :: gh_surf_local, sh_surf_local, sm_surf_local
 
     if (bflxs_surf_local .gt. 0._r8) then
-       call eddy_diff_zisocl_surface_energy_native(z_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, gh_surf_local, &
+       call eddy_diff_zisocl_surface_energy(z_surf_local, bprod_surf_local, sprod_surf_local, tkes_surf_local, gh_surf_local, &
             sh_surf_local, sm_surf_local, dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local)
     else
        dlint_surf_local = 0._r8

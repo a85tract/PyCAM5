@@ -1074,6 +1074,32 @@ def eddy_diff_caleddy_surface_tke_codon(
     wcap[surf_idx] = tkes[i - 1] / b1
 
 
+@inline
+def _eddy_diff_zisocl_surface_energy_values(
+    alph1: float,
+    alph2: float,
+    alph3: float,
+    alph4: float,
+    alph5: float,
+    b1: float,
+    vk: float,
+    z_surf: float,
+    bprod_surf: float,
+    sprod_surf: float,
+    tkes_surf: float,
+):
+    gg = 0.5 * vk * z_surf * bprod_surf / (tkes_surf ** (3.0 / 2.0))
+    gh = gg / (alph5 - gg * alph3)
+    gh = min(max(gh, -3.5334), 0.0233)
+    sh = alph5 / (1.0 + alph3 * gh)
+    sm = (alph1 + alph2 * gh) / (1.0 + alph3 * gh) / (1.0 + alph4 * gh)
+    dlint_surf = z_surf
+    dl2n2_surf = -vk * (z_surf ** 2.0) * bprod_surf / (sh * sqrt(tkes_surf))
+    dl2s2_surf = vk * (z_surf ** 2.0) * sprod_surf / (sm * sqrt(tkes_surf))
+    dw_surf = (tkes_surf / b1) * z_surf
+    return gh, sh, sm, dlint_surf, dl2n2_surf, dl2s2_surf, dw_surf
+
+
 @export
 def eddy_diff_zisocl_surface_energy_codon(
     alph1: float,
@@ -1103,15 +1129,16 @@ def eddy_diff_zisocl_surface_energy_codon(
     dl2s2_surf = Ptr[float](dl2s2_surf_p)
     dw_surf = Ptr[float](dw_surf_p)
 
-    gg = 0.5 * vk * z_surf * bprod_surf / (tkes_surf ** (3.0 / 2.0))
-    gh[0] = gg / (alph5 - gg * alph3)
-    gh[0] = min(max(gh[0], -3.5334), 0.0233)
-    sh[0] = alph5 / (1.0 + alph3 * gh[0])
-    sm[0] = (alph1 + alph2 * gh[0]) / (1.0 + alph3 * gh[0]) / (1.0 + alph4 * gh[0])
-    dlint_surf[0] = z_surf
-    dl2n2_surf[0] = -vk * (z_surf ** 2.0) * bprod_surf / (sh[0] * sqrt(tkes_surf))
-    dl2s2_surf[0] = vk * (z_surf ** 2.0) * sprod_surf / (sm[0] * sqrt(tkes_surf))
-    dw_surf[0] = (tkes_surf / b1) * z_surf
+    gh_val, sh_val, sm_val, dlint_surf_val, dl2n2_surf_val, dl2s2_surf_val, dw_surf_val = _eddy_diff_zisocl_surface_energy_values(
+        alph1, alph2, alph3, alph4, alph5, b1, vk, z_surf, bprod_surf, sprod_surf, tkes_surf
+    )
+    gh[0] = gh_val
+    sh[0] = sh_val
+    sm[0] = sm_val
+    dlint_surf[0] = dlint_surf_val
+    dl2n2_surf[0] = dl2n2_surf_val
+    dl2s2_surf[0] = dl2s2_surf_val
+    dw_surf[0] = dw_surf_val
 
 
 @export
@@ -1168,15 +1195,16 @@ def eddy_diff_zisocl_surface_state_codon(
 
     if kb_is_surface != 0:
         if bflxs_surf > 0.0:
-            gg = 0.5 * vk * z_surf * bprod_surf / (tkes_surf ** (3.0 / 2.0))
-            gh[0] = gg / (alph5 - gg * alph3)
-            gh[0] = min(max(gh[0], -3.5334), 0.0233)
-            sh[0] = alph5 / (1.0 + alph3 * gh[0])
-            sm[0] = (alph1 + alph2 * gh[0]) / (1.0 + alph3 * gh[0]) / (1.0 + alph4 * gh[0])
-            dlint_surf[0] = z_surf
-            dl2n2_surf[0] = -vk * (z_surf ** 2.0) * bprod_surf / (sh[0] * sqrt(tkes_surf))
-            dl2s2_surf[0] = vk * (z_surf ** 2.0) * sprod_surf / (sm[0] * sqrt(tkes_surf))
-            dw_surf[0] = (tkes_surf / b1) * z_surf
+            gh_val, sh_val, sm_val, dlint_surf_val, dl2n2_surf_val, dl2s2_surf_val, dw_surf_val = _eddy_diff_zisocl_surface_energy_values(
+                alph1, alph2, alph3, alph4, alph5, b1, vk, z_surf, bprod_surf, sprod_surf, tkes_surf
+            )
+            gh[0] = gh_val
+            sh[0] = sh_val
+            sm[0] = sm_val
+            dlint_surf[0] = dlint_surf_val
+            dl2n2_surf[0] = dl2n2_surf_val
+            dl2s2_surf[0] = dl2s2_surf_val
+            dw_surf[0] = dw_surf_val
         else:
             lbulk[0] = zi_top - z_surf
             lbulk[0] = min(lbulk[0], lbulk_max)
@@ -1228,15 +1256,13 @@ def eddy_diff_zisocl_surface_extend_codon(
     wint = Ptr[float](wint_p)
 
     if bflxs_surf > 0.0:
-        gg = 0.5 * vk * z_surf * bprod_surf / (tkes_surf ** (3.0 / 2.0))
-        gh_surf = gg / (alph5 - gg * alph3)
-        gh_surf = min(max(gh_surf, -3.5334), 0.0233)
-        sh_surf = alph5 / (1.0 + alph3 * gh_surf)
-        sm_surf = (alph1 + alph2 * gh_surf) / (1.0 + alph3 * gh_surf) / (1.0 + alph4 * gh_surf)
-        dlint_surf[0] = z_surf
-        dl2n2_surf[0] = -vk * (z_surf ** 2.0) * bprod_surf / (sh_surf * sqrt(tkes_surf))
-        dl2s2_surf[0] = vk * (z_surf ** 2.0) * sprod_surf / (sm_surf * sqrt(tkes_surf))
-        dw_surf[0] = (tkes_surf / b1) * z_surf
+        gh_surf, sh_surf, sm_surf, dlint_surf_val, dl2n2_surf_val, dl2s2_surf_val, dw_surf_val = _eddy_diff_zisocl_surface_energy_values(
+            alph1, alph2, alph3, alph4, alph5, b1, vk, z_surf, bprod_surf, sprod_surf, tkes_surf
+        )
+        dlint_surf[0] = dlint_surf_val
+        dl2n2_surf[0] = dl2n2_surf_val
+        dl2s2_surf[0] = dl2s2_surf_val
+        dw_surf[0] = dw_surf_val
     else:
         dlint_surf[0] = 0.0
         dl2n2_surf[0] = 0.0
@@ -1355,15 +1381,16 @@ def eddy_diff_zisocl_initial_state_codon(
 
     if kb_is_surface != 0:
         if bflxs_surf > 0.0:
-            gg = 0.5 * vk * z_surf * bprod_surf / (tkes_surf ** (3.0 / 2.0))
-            gh[0] = gg / (alph5 - gg * alph3)
-            gh[0] = min(max(gh[0], -3.5334), 0.0233)
-            sh[0] = alph5 / (1.0 + alph3 * gh[0])
-            sm[0] = (alph1 + alph2 * gh[0]) / (1.0 + alph3 * gh[0]) / (1.0 + alph4 * gh[0])
-            dlint_surf[0] = z_surf
-            dl2n2_surf[0] = -vk * (z_surf ** 2.0) * bprod_surf / (sh[0] * sqrt(tkes_surf))
-            dl2s2_surf[0] = vk * (z_surf ** 2.0) * sprod_surf / (sm[0] * sqrt(tkes_surf))
-            dw_surf[0] = (tkes_surf / b1) * z_surf
+            gh_val, sh_val, sm_val, dlint_surf_val, dl2n2_surf_val, dl2s2_surf_val, dw_surf_val = _eddy_diff_zisocl_surface_energy_values(
+                alph1, alph2, alph3, alph4, alph5, b1, vk, z_surf, bprod_surf, sprod_surf, tkes_surf
+            )
+            gh[0] = gh_val
+            sh[0] = sh_val
+            sm[0] = sm_val
+            dlint_surf[0] = dlint_surf_val
+            dl2n2_surf[0] = dl2n2_surf_val
+            dl2s2_surf[0] = dl2s2_surf_val
+            dw_surf[0] = dw_surf_val
         else:
             lbulk[0] = zi[_idx2(i_col, kt_ifc, pcols)] - z_surf
             lbulk[0] = min(lbulk[0], lbulk_max)
@@ -1494,15 +1521,9 @@ def eddy_diff_zisocl_extended_state_codon(
 
     if kb_ifc == pver + 1:
         if bflxs_surf > 0.0:
-            gg = 0.5 * vk * z_surf * bprod_surf / (tkes_surf ** (3.0 / 2.0))
-            gh_surf = gg / (alph5 - gg * alph3)
-            gh_surf = min(max(gh_surf, -3.5334), 0.0233)
-            sh_surf = alph5 / (1.0 + alph3 * gh_surf)
-            sm_surf = (alph1 + alph2 * gh_surf) / (1.0 + alph3 * gh_surf) / (1.0 + alph4 * gh_surf)
-            dlint_surf = z_surf
-            dl2n2_surf = -vk * (z_surf ** 2.0) * bprod_surf / (sh_surf * sqrt(tkes_surf))
-            dl2s2_surf = vk * (z_surf ** 2.0) * sprod_surf / (sm_surf * sqrt(tkes_surf))
-            dw_surf = (tkes_surf / b1) * z_surf
+            gh_surf, sh_surf, sm_surf, dlint_surf, dl2n2_surf, dl2s2_surf, dw_surf = _eddy_diff_zisocl_surface_energy_values(
+                alph1, alph2, alph3, alph4, alph5, b1, vk, z_surf, bprod_surf, sprod_surf, tkes_surf
+            )
         else:
             lbulk = zi_top - z_surf
             lbulk = min(lbulk, lbulk_max)
@@ -1930,15 +1951,13 @@ def eddy_diff_zisocl_downward_state_codon(
 
         if kb == pver + 1:
             if bflxs_surf > 0.0:
-                gg = 0.5 * vk * z_surf * bprod_surf / (tkes_surf ** (3.0 / 2.0))
-                gh_surf = gg / (alph5 - gg * alph3)
-                gh_surf = min(max(gh_surf, -3.5334), 0.0233)
-                sh_surf = alph5 / (1.0 + alph3 * gh_surf)
-                sm_surf = (alph1 + alph2 * gh_surf) / (1.0 + alph3 * gh_surf) / (1.0 + alph4 * gh_surf)
-                dlint_surf[0] = z_surf
-                dl2n2_surf[0] = -vk * (z_surf ** 2.0) * bprod_surf / (sh_surf * sqrt(tkes_surf))
-                dl2s2_surf[0] = vk * (z_surf ** 2.0) * sprod_surf / (sm_surf * sqrt(tkes_surf))
-                dw_surf[0] = (tkes_surf / b1) * z_surf
+                gh_surf, sh_surf, sm_surf, dlint_surf_val, dl2n2_surf_val, dl2s2_surf_val, dw_surf_val = _eddy_diff_zisocl_surface_energy_values(
+                    alph1, alph2, alph3, alph4, alph5, b1, vk, z_surf, bprod_surf, sprod_surf, tkes_surf
+                )
+                dlint_surf[0] = dlint_surf_val
+                dl2n2_surf[0] = dl2n2_surf_val
+                dl2s2_surf[0] = dl2s2_surf_val
+                dw_surf[0] = dw_surf_val
             else:
                 dlint_surf[0] = 0.0
                 dl2n2_surf[0] = 0.0
