@@ -4806,7 +4806,7 @@
 
        if( kb_local .eq. pver_local + 1 ) then
 
-           call eddy_diff_zisocl_surface_extend_native(bflxs_surf_local, z_surf_local, bprod_surf_local, sprod_surf_local, &
+           call eddy_diff_zisocl_surface_extend(bflxs_surf_local, z_surf_local, bprod_surf_local, sprod_surf_local, &
                 tkes_surf_local, sh_local, dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local, lint_local, &
                 l2n2_local, l2s2_local, wint_local)
 
