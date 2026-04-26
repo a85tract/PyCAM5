@@ -184,6 +184,8 @@
   logical                     :: kv_relax_impl_selected = .false.
   logical                     :: use_native_init_fields_impl = .false.
   logical                     :: init_fields_impl_selected = .false.
+  logical                     :: use_native_compute_eddy_diff_impl = .false.
+  logical                     :: compute_eddy_diff_impl_selected = .false.
   logical                     :: use_native_rebuild_thermo_impl = .false.
   logical                     :: rebuild_thermo_impl_selected = .false.
   logical                     :: use_native_trbintd_impl = .false.
@@ -429,17 +431,140 @@
   !=============================================================================== !
   !                                                                                !
   !=============================================================================== !
-  
+
+  subroutine compute_eddy_diff_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (compute_eddy_diff_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_COMPUTE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_compute_eddy_diff_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_compute_eddy_diff_impl = .false.
+    end if
+
+    compute_eddy_diff_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_compute_eddy_diff_impl) then
+          write(iulog,*) 'eddy_diff_compute implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_compute implementation = codon'
+       end if
+    end if
+
+  end subroutine compute_eddy_diff_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
   subroutine compute_eddy_diff( lchnk  ,                                                            &
                                 pcols  , pver   , ncol     , t       , qv       , ztodt   ,         &
                                 ql     , qi     , s        , pdel, rpdel   , cldn     , qrl     , wsedl , &
                                 z      , zi     , pmid     , pi      , u        , v       ,         &
                                 taux   , tauy   , shflx    , qflx    , wstarent , nturb   , rrho  , &
-                                ustar  , pblh   , kvm_in   , kvh_in  , kvm_out  , kvh_out , kvq   , & 
+                                ustar  , pblh   , kvm_in   , kvh_in  , kvm_out  , kvh_out , kvq   , &
                                 cgh    , cgs    , tpert    , qpert   , wpert    , tke     , bprod , &
                                 sprod  , sfi    , kvinit   ,                                        &
                                 tauresx, tauresy, ksrftms  ,                                        &
                                 ipbl   , kpblh  , wstarPBL , tkes    , went     ,turbtype, sm_aw )
+
+    implicit none
+
+    integer,  intent(in)    :: lchnk
+    integer,  intent(in)    :: pcols
+    integer,  intent(in)    :: pver
+    integer,  intent(in)    :: ncol
+    integer,  intent(in)    :: nturb
+    logical,  intent(in)    :: wstarent
+    logical,  intent(in)    :: kvinit
+    real(r8), intent(in)    :: ztodt
+    real(r8), intent(in)    :: t(pcols,pver)
+    real(r8), intent(in)    :: qv(pcols,pver)
+    real(r8), intent(in)    :: ql(pcols,pver)
+    real(r8), intent(in)    :: qi(pcols,pver)
+    real(r8), intent(in)    :: s(pcols,pver)
+    real(r8), intent(in)    :: pdel(pcols,pver)
+    real(r8), intent(in)    :: rpdel(pcols,pver)
+    real(r8), intent(in)    :: cldn(pcols,pver)
+    real(r8), intent(in)    :: qrl(pcols,pver)
+    real(r8), intent(in)    :: wsedl(pcols,pver)
+    real(r8), intent(in)    :: z(pcols,pver)
+    real(r8), intent(in)    :: zi(pcols,pver+1)
+    real(r8), intent(in)    :: pmid(pcols,pver)
+    real(r8), intent(in)    :: pi(pcols,pver+1)
+    real(r8), intent(in)    :: u(pcols,pver)
+    real(r8), intent(in)    :: v(pcols,pver)
+    real(r8), intent(in)    :: taux(pcols)
+    real(r8), intent(in)    :: tauy(pcols)
+    real(r8), intent(in)    :: shflx(pcols)
+    real(r8), intent(in)    :: qflx(pcols)
+    real(r8), intent(in)    :: kvm_in(pcols,pver+1)
+    real(r8), intent(in)    :: kvh_in(pcols,pver+1)
+    real(r8), intent(in)    :: ksrftms(pcols)
+
+    real(r8), intent(out)   :: kvm_out(pcols,pver+1)
+    real(r8), intent(out)   :: kvh_out(pcols,pver+1)
+    real(r8), intent(out)   :: kvq(pcols,pver+1)
+    real(r8), intent(out)   :: rrho(pcols)
+    real(r8), intent(out)   :: ustar(pcols)
+    real(r8), intent(out)   :: pblh(pcols)
+    real(r8), intent(out)   :: cgh(pcols,pver+1)
+    real(r8), intent(out)   :: cgs(pcols,pver+1)
+    real(r8), intent(out)   :: tpert(pcols)
+    real(r8), intent(out)   :: qpert(pcols)
+    real(r8), intent(out)   :: wpert(pcols)
+    real(r8), intent(out)   :: tke(pcols,pver+1)
+    real(r8), intent(out)   :: bprod(pcols,pver+1)
+    real(r8), intent(out)   :: sprod(pcols,pver+1)
+    real(r8), intent(out)   :: sfi(pcols,pver+1)
+    integer(i4), intent(out) :: turbtype(pcols,pver+1)
+    real(r8), intent(out)   :: sm_aw(pcols,pver+1)
+    integer(i4), intent(out) :: ipbl(pcols)
+    integer(i4), intent(out) :: kpblh(pcols)
+    real(r8), intent(out)   :: wstarPBL(pcols)
+    real(r8), intent(out)   :: tkes(pcols)
+    real(r8), intent(out)   :: went(pcols)
+
+    real(r8), intent(inout) :: tauresx(pcols)
+    real(r8), intent(inout) :: tauresy(pcols)
+
+    call compute_eddy_diff_select_impl()
+
+    call compute_eddy_diff_driver(lchnk, pcols, pver, ncol, t, qv, ztodt, ql, qi, s, pdel, rpdel, cldn, qrl, wsedl, &
+         z, zi, pmid, pi, u, v, taux, tauy, shflx, qflx, wstarent, nturb, rrho, ustar, pblh, kvm_in, kvh_in, kvm_out, &
+         kvh_out, kvq, cgh, cgs, tpert, qpert, wpert, tke, bprod, sprod, sfi, kvinit, tauresx, tauresy, ksrftms, ipbl, &
+         kpblh, wstarPBL, tkes, went, turbtype, sm_aw, use_native_compute_eddy_diff_impl)
+
+  end subroutine compute_eddy_diff
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+  
+  subroutine compute_eddy_diff_driver( lchnk  ,                                                     &
+                                       pcols  , pver   , ncol     , t       , qv       , ztodt   , &
+                                       ql     , qi     , s        , pdel, rpdel   , cldn     , qrl , &
+                                       wsedl  , z      , zi       , pmid     , pi      , u        , &
+                                       v      , taux   , tauy     , shflx    , qflx    , wstarent , &
+                                       nturb  , rrho   , ustar    , pblh     , kvm_in  , kvh_in   , &
+                                       kvm_out, kvh_out, kvq      , cgh      , cgs     , tpert    , &
+                                       qpert  , wpert  , tke      , bprod    , sprod   , sfi      , &
+                                       kvinit , tauresx, tauresy  , ksrftms  , ipbl    , kpblh    , &
+                                       wstarPBL, tkes  , went     , turbtype , sm_aw   ,           &
+                                       use_native_compute_path )
        
     !-------------------------------------------------------------------- ! 
     ! Purpose: Interface to compute eddy diffusivities.                   !
@@ -475,6 +600,7 @@
     logical,  intent(in)    :: wstarent                  ! .true. means use the 'wstar' entrainment closure. 
     logical,  intent(in)    :: kvinit                    ! 'true' means time step = 1 : used for initializing kvh, kvm
                                                          ! (uses kvf or zero)
+    logical,  intent(in)    :: use_native_compute_path   ! Select native or codon helper path
     real(r8), intent(in)    :: ztodt                     ! Physics integration time step 2 delta-t [ s ]
     real(r8), intent(in)    :: t(pcols,pver)             ! Temperature [K]
     real(r8), intent(in)    :: qv(pcols,pver)            ! Water vapor  specific humidity [ kg/kg ]
@@ -545,6 +671,8 @@
     integer                    i, k, iturb, status
 
     character(128)          :: errstring                 ! Error status for compute_vdiff
+    logical                 :: saved_use_native_trbintd_impl, saved_trbintd_impl_selected
+    logical                 :: saved_use_native_caleddy_impl, saved_caleddy_impl_selected
 
     real(r8)                :: kvf(pcols,pver+1)         ! Free atmospheric eddy diffusivity [ m2/s ]
     real(r8)                :: kvm(pcols,pver+1)         ! Eddy diffusivity for momentum [ m2/s ]
@@ -645,7 +773,11 @@
     ! Initialize !
     ! ---------- !
 
-    call eddy_diff_init_fields(ncol, pcols, pver, u, v, t, qv, ql, zero, zero2d, ufd, vfd, tfd, qvfd, qlfd)
+    if (use_native_compute_path) then
+       call eddy_diff_init_fields_native(ncol, pcols, pver, u, v, t, qv, ql, zero, zero2d, ufd, vfd, tfd, qvfd, qlfd)
+    else
+       call eddy_diff_init_fields(ncol, pcols, pver, u, v, t, qv, ql, zero, zero2d, ufd, vfd, tfd, qvfd, qlfd)
+    end if
 
     ! ----------------------- !
     ! Main Computation Begins ! 
@@ -666,16 +798,27 @@
      ! I am using updated wind, here.
 
      ! Compute ustar
-       call eddy_diff_surface_stress_diag(ncol, pcols, pver, tfd, pmid, taux, tauy, ksrftms, ufd, vfd, rrho, ustar, &
-            minpblh)
+       if (use_native_compute_path) then
+          call eddy_diff_surface_stress_diag_native(ncol, pcols, pver, tfd, pmid, taux, tauy, ksrftms, ufd, vfd, rrho, &
+               ustar, minpblh)
+       else
+          call eddy_diff_surface_stress_diag(ncol, pcols, pver, tfd, pmid, taux, tauy, ksrftms, ufd, vfd, rrho, ustar, &
+               minpblh)
+       end if
 
      ! Calculate (qt,sl,n2,s2,ri) from a given set of (t,qv,ql,qi,u,v)
 
+       saved_use_native_trbintd_impl = use_native_trbintd_impl
+       saved_trbintd_impl_selected = trbintd_impl_selected
+       use_native_trbintd_impl = use_native_compute_path
+       trbintd_impl_selected = .true.
        call trbintd( &
                      pcols    , pver    , ncol  , z       , ufd     , vfd     , tfd   , pmid    , &
                      s2       , n2      , ri    , zi      , pi      , cldn    , qtfd  , qvfd    , &
                      qlfd     , qi      , sfi   , sfuh    , sflh    , slfd    , slv   , slslope , &
                      qtslope  , chs     , chu   , cms     , cmu     )
+       use_native_trbintd_impl = saved_use_native_trbintd_impl
+       trbintd_impl_selected = saved_trbintd_impl_selected
 
      ! Save initial (i.e., before iterative diffusion) profile of (qt,sl) at each iteration.         
      ! Only necessary for (qt,sl) not (u,v) because (qt,sl) are newly calculated variables. 
@@ -687,18 +830,31 @@
 
      ! Get free atmosphere exchange coefficients. This 'kvf' is not used in UW moist PBL scheme
 
-       call austausch_atm( pcols, pver, ncol, ri, s2, kvf )
+       if (use_native_compute_path) then
+          call austausch_atm_native(pcols, pver, ncol, ri, s2, kvf)
+       else
+          call austausch_atm(pcols, pver, ncol, ri, s2, kvf)
+       end if
 
      ! Initialize kvh/kvm to send to caleddy, depending on model timestep and iteration number
      ! This is necessary for 'wstar-based' entrainment closure.
 
-       call eddy_diff_kv_init(ncol, pcols, pver, iturb, kvinit, kvf, kvh_in, kvm_in, kvh_out, kvm_out, kvh, kvm)
+       if (use_native_compute_path) then
+          call eddy_diff_kv_init_native(ncol, pcols, pver, iturb, kvinit, kvf, kvh_in, kvm_in, kvh_out, kvm_out, kvh, &
+               kvm)
+       else
+          call eddy_diff_kv_init(ncol, pcols, pver, iturb, kvinit, kvf, kvh_in, kvm_in, kvh_out, kvm_out, kvh, kvm)
+       end if
 
      ! Calculate eddy diffusivity (kvh_out,kvm_out) and (tke,bprod,sprod) using
      ! a given (kvh,kvm) which are used only for initializing (bprod,sprod)  at
      ! the first part of caleddy. (bprod,sprod) are fully updated at the end of
      ! caleddy after calculating (kvh_out,kvm_out) 
 
+       saved_use_native_caleddy_impl = use_native_caleddy_impl
+       saved_caleddy_impl_selected = caleddy_impl_selected
+       use_native_caleddy_impl = use_native_compute_path
+       caleddy_impl_selected = .true.
        call caleddy( pcols     , pver      , ncol      ,                     &
                      slfd      , qtfd      , qlfd      , slv      ,ufd     , &
                      vfd       , pi        , z         , zi       ,          &
@@ -721,29 +877,47 @@
                      shcl      , smcl      , ghi       , shi      , smi    , &
                      rii       , lengi     , wcap      , pblhp    , cldn   , &
                      ipbl      , kpblh     , wsedl     , wsed)
+       use_native_caleddy_impl = saved_use_native_caleddy_impl
+       caleddy_impl_selected = saved_caleddy_impl_selected
 
      ! Calculate errorPBL to check whether PBL produced convergent solutions or not.
 
        if( iturb .eq. nturb ) then
-           call eddy_diff_error_pbl(ncol, pcols, pver, kvh, kvh_out, errorPBL)
+           if (use_native_compute_path) then
+              call eddy_diff_error_pbl_native(ncol, pcols, pver, kvh, kvh_out, errorPBL)
+           else
+              call eddy_diff_error_pbl(ncol, pcols, pver, kvh, kvh_out, errorPBL)
+           end if
        end if
 
      ! Eddy diffusivities which will be used for the initialization of (bprod,
      ! sprod) in 'caleddy' at the next iteration step.
 
        if( iturb .gt. 1 .and. iturb .lt. nturb ) then
-           call eddy_diff_kv_relax(ncol, pcols, pver, lambda, kvm, kvh, kvm_out, kvh_out)
+           if (use_native_compute_path) then
+              call eddy_diff_kv_relax_native(ncol, pcols, pver, lambda, kvm, kvh, kvm_out, kvh_out)
+           else
+              call eddy_diff_kv_relax(ncol, pcols, pver, lambda, kvm, kvh, kvm_out, kvh_out)
+           end if
        endif
 
      ! Set nonlocal terms to zero for flux diagnostics, since not used by caleddy.
 
-       call eddy_diff_zero_nonlocal(ncol, pcols, pver, cgh, cgs)
+       if (use_native_compute_path) then
+          call eddy_diff_zero_nonlocal_native(ncol, pcols, pver, cgh, cgs)
+       else
+          call eddy_diff_zero_nonlocal(ncol, pcols, pver, cgh, cgs)
+       end if
 
        if( iturb .lt. nturb ) then
 
          ! Each time we diffuse the original state
 
-           call eddy_diff_restore_fields(ncol, pcols, pver, sl, qt, u, v, slfd, qtfd, ufd, vfd)
+           if (use_native_compute_path) then
+              call eddy_diff_restore_fields_native(ncol, pcols, pver, sl, qt, u, v, slfd, qtfd, ufd, vfd)
+           else
+              call eddy_diff_restore_fields(ncol, pcols, pver, sl, qt, u, v, slfd, qtfd, ufd, vfd)
+           end if
 
          !------------------------------------------------------------------------ 
          !  Check to see if constituent dependent gas constant needed (WACCM-X)
@@ -778,8 +952,13 @@
          ! Retrieve (tfd,qvfd,qlfd) from (slfd,qtfd) in order to 
          ! use 'trbintd' at the next iteration.
           
-          call eddy_diff_rebuild_thermo(ncol, pcols, pver, cpair, latvap, latsub, g, rair, slfd, qtfd, qi, z, pmid, &
-               qlfd, qvfd, tfd)
+          if (use_native_compute_path) then
+             call eddy_diff_rebuild_thermo_native(ncol, pcols, pver, cpair, latvap, latsub, g, rair, slfd, qtfd, qi, z, &
+                  pmid, qlfd, qvfd, tfd)
+          else
+             call eddy_diff_rebuild_thermo(ncol, pcols, pver, cpair, latvap, latsub, g, rair, slfd, qtfd, qi, z, pmid, &
+                  qlfd, qvfd, tfd)
+          end if
        endif
 
      ! Debug 
@@ -800,7 +979,11 @@
 
   ! Compute 'wstar' within the PBL for use in the future convection scheme.
 
-    call eddy_diff_wstar_pbl(ncol, pcols, ncvmax, ipbl, wstar, wstarPBL)
+    if (use_native_compute_path) then
+       call eddy_diff_wstar_pbl_native(ncol, pcols, ncvmax, ipbl, wstar, wstarPBL)
+    else
+       call eddy_diff_wstar_pbl(ncol, pcols, ncvmax, ipbl, wstar, wstarPBL)
+    end if
 
     ! --------------------------------------------------------------- !
     ! Writing for detailed diagnostic analysis of UW moist PBL scheme !
@@ -889,7 +1072,7 @@
 
     return
     
-  end subroutine compute_eddy_diff
+  end subroutine compute_eddy_diff_driver
 
   !=============================================================================== !
   !                                                                                !
