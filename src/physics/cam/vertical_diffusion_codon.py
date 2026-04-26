@@ -2,6 +2,14 @@ from C import eddy_diff_estblf_cb(float) -> float
 from C import eddy_diff_svp_to_qsat_cb(float, float) -> float
 from math import acos, cos, exp, log, sqrt
 
+SFDIAG_MODE_D = 1
+SFDIAG_MODE_L = 2
+SFDIAG_MODE_U = 3
+SFDIAG_MODE_Z = 4
+SFDIAG_STRATUS_ORIG = 0
+SFDIAG_STRATUS_RAMP = 1
+SFDIAG_STRATUS_MAXI = 2
+
 
 @export
 def vertical_diffusion_ts_init_codon():
@@ -5196,44 +5204,42 @@ def eddy_diff_trbintd_slopes_codon(
 
 
 @export
-def eddy_diff_trbintd_sfdiag_interface_codon(
+def eddy_diff_sfdiag_codon(
+    mode: int,
+    stratus_mode: int,
+    ntop_turb: int,
+    nbot_turb: int,
     ncol: int,
     pcols: int,
     pver: int,
-    ntzero: float,
-    cld_p: cobj,
-    u_p: cobj,
-    v_p: cobj,
-    z_p: cobj,
-    sl_p: cobj,
+    qmin: float,
+    cpair: float,
+    gravit: float,
     qt_p: cobj,
-    chu_p: cobj,
-    chs_p: cobj,
-    cmu_p: cobj,
-    cms_p: cobj,
+    ql_p: cobj,
+    sl_p: cobj,
+    pi_p: cobj,
+    pm_p: cobj,
+    zi_p: cobj,
+    cld_p: cobj,
     sfi_p: cobj,
     sfuh_p: cobj,
     sflh_p: cobj,
-    n2_p: cobj,
-    s2_p: cobj,
-    ri_p: cobj,
+    slslope_p: cobj,
+    qtslope_p: cobj,
 ):
-    cld = Ptr[float](cld_p)
-    u = Ptr[float](u_p)
-    v = Ptr[float](v_p)
-    z = Ptr[float](z_p)
-    sl = Ptr[float](sl_p)
     qt = Ptr[float](qt_p)
-    chu = Ptr[float](chu_p)
-    chs = Ptr[float](chs_p)
-    cmu = Ptr[float](cmu_p)
-    cms = Ptr[float](cms_p)
+    ql = Ptr[float](ql_p)
+    sl = Ptr[float](sl_p)
+    pi = Ptr[float](pi_p)
+    pm = Ptr[float](pm_p)
+    zi = Ptr[float](zi_p)
+    cld = Ptr[float](cld_p)
     sfi = Ptr[float](sfi_p)
     sfuh = Ptr[float](sfuh_p)
     sflh = Ptr[float](sflh_p)
-    n2 = Ptr[float](n2_p)
-    s2 = Ptr[float](s2_p)
-    ri = Ptr[float](ri_p)
+    slslope = Ptr[float](slslope_p)
+    qtslope = Ptr[float](qtslope_p)
 
     for k in range(1, pver + 2):
         for i in range(1, ncol + 1):
@@ -5244,17 +5250,131 @@ def eddy_diff_trbintd_sfdiag_interface_codon(
             sfuh[_idx2(i, k, pcols)] = 0.0
             sflh[_idx2(i, k, pcols)] = 0.0
 
-    for k in range(2, pver + 1):
-        for i in range(1, ncol + 1):
-            idx = _idx2(i, k, pcols)
-            idx_km1 = _idx2(i, k - 1, pcols)
-            cldval = cld[idx]
-            sfuh[idx] = cldval
-            sflh[idx] = cldval
-            sfi[idx] = 0.5 * (sflh[idx_km1] + min(sfuh[idx], sflh[idx_km1]))
+    if mode == SFDIAG_MODE_D:
+        for k in range(ntop_turb + 1, nbot_turb + 1):
+            km1 = k - 1
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                idx_km1 = _idx2(i, km1, pcols)
+                cldval = cld[idx]
+                sfuh[idx] = cldval
+                sflh[idx] = cldval
+                sfi[idx] = 0.5 * (sflh[idx_km1] + min(sflh[idx_km1], sfuh[idx]))
 
-    for i in range(1, ncol + 1):
-        sfi[_idx2(i, pver + 1, pcols)] = sflh[_idx2(i, pver, pcols)]
+        for i in range(1, ncol + 1):
+            sfi[_idx2(i, pver + 1, pcols)] = sflh[_idx2(i, pver, pcols)]
+        return
+
+    if mode == SFDIAG_MODE_L:
+        for k in range(ntop_turb + 1, nbot_turb + 1):
+            km1 = k - 1
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                idx_km1 = _idx2(i, km1, pcols)
+                cldval = cld[idx]
+                qlval = ql[idx]
+
+                sfuh[idx] = cldval
+                sflh[idx] = cldval
+
+                if qlval < qmin:
+                    sfuh[idx] = 0.0
+                    sflh[idx] = 0.0
+
+                if stratus_mode == SFDIAG_STRATUS_RAMP:
+                    cldval = cldval * min(qlval / qmin, 1.0)
+                    sfuh[idx] = cldval
+                    sflh[idx] = cldval
+                elif stratus_mode == SFDIAG_STRATUS_MAXI:
+                    sfuh[idx] = cldval
+                    sflh[idx] = cldval
+
+                sfi[idx] = 0.5 * (sflh[idx_km1] + min(sfuh[idx], sflh[idx_km1]))
+
+        for i in range(1, ncol + 1):
+            sfi[_idx2(i, pver + 1, pcols)] = sflh[_idx2(i, pver, pcols)]
+        return
+
+    if mode == SFDIAG_MODE_U:
+        return
+
+    if mode == SFDIAG_MODE_Z:
+        for k in range(ntop_turb + 1, nbot_turb + 1):
+            km1 = k - 1
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                idx_kp1 = _idx2(i, k + 1, pcols)
+                idx_km1 = _idx2(i, km1, pcols)
+
+                sltop = sl[idx] + slslope[idx] * (pi[idx] - pm[idx])
+                qttop = qt[idx] + qtslope[idx] * (pi[idx] - pm[idx])
+                tltop = (sltop - gravit * zi[idx]) / cpair
+                es = eddy_diff_estblf_cb(tltop)
+                qs = eddy_diff_svp_to_qsat_cb(es, pi[idx])
+                qxtop = qttop - qs
+
+                slbot = sl[idx] + slslope[idx] * (pi[idx_kp1] - pm[idx])
+                qtbot = qt[idx] + qtslope[idx] * (pi[idx_kp1] - pm[idx])
+                tlbot = (slbot - gravit * zi[idx_kp1]) / cpair
+                es = eddy_diff_estblf_cb(tlbot)
+                qs = eddy_diff_svp_to_qsat_cb(es, pi[idx_kp1])
+                qxbot = qtbot - qs
+
+                qxm = qxtop + (qxbot - qxtop) * (pm[idx] - pi[idx]) / (pi[idx_kp1] - pi[idx])
+
+                if (qxtop < 0.0) and (qxm < 0.0):
+                    sfuh[idx] = 0.0
+                elif (qxtop > 0.0) and (qxm > 0.0):
+                    sfuh[idx] = 1.0
+                else:
+                    sfuh[idx] = max(qxtop, qxm) / abs(qxtop - qxm)
+
+                sfi[idx] = 0.5 * (sflh[idx_km1] + min(sflh[idx_km1], sfuh[idx]))
+
+                if (qxbot < 0.0) and (qxm < 0.0):
+                    sflh[idx] = 0.0
+                elif (qxbot > 0.0) and (qxm > 0.0):
+                    sflh[idx] = 1.0
+                else:
+                    sflh[idx] = max(qxbot, qxm) / abs(qxbot - qxm)
+
+        for i in range(1, ncol + 1):
+            sfi[_idx2(i, pver + 1, pcols)] = sflh[_idx2(i, pver, pcols)]
+
+
+@export
+def eddy_diff_trbintd_sfdiag_interface_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    ntzero: float,
+    u_p: cobj,
+    v_p: cobj,
+    z_p: cobj,
+    sl_p: cobj,
+    qt_p: cobj,
+    chu_p: cobj,
+    chs_p: cobj,
+    cmu_p: cobj,
+    cms_p: cobj,
+    sfi_p: cobj,
+    n2_p: cobj,
+    s2_p: cobj,
+    ri_p: cobj,
+):
+    u = Ptr[float](u_p)
+    v = Ptr[float](v_p)
+    z = Ptr[float](z_p)
+    sl = Ptr[float](sl_p)
+    qt = Ptr[float](qt_p)
+    chu = Ptr[float](chu_p)
+    chs = Ptr[float](chs_p)
+    cmu = Ptr[float](cmu_p)
+    cms = Ptr[float](cms_p)
+    sfi = Ptr[float](sfi_p)
+    n2 = Ptr[float](n2_p)
+    s2 = Ptr[float](s2_p)
+    ri = Ptr[float](ri_p)
 
     for k in range(pver, 1, -1):
         km1 = k - 1
