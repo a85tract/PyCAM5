@@ -4552,7 +4552,7 @@
     status_local = 0
     cntu_local = 0
 
-    call eddy_diff_zisocl_interface_energy_native(i_local, kt_local, pcols_local, pver_local, lbulk_local, sh_local, sm_local, &
+    call eddy_diff_zisocl_interface_energy(i_local, kt_local, pcols_local, pver_local, lbulk_local, sh_local, sm_local, &
          z_local, zi_local, n2_local, s2_local, leng_max_local, dzinc_local, dl2n2_local, dl2s2_local, dwinc_local)
 
     do while ( -dl2n2_local .gt. (-rinc*l2n2_local/(1._r8-rinc)) .and. (kt_local > ntop_turb_local + 2 .or. &
@@ -4576,9 +4576,8 @@
 
            do k_local = kbase_local(i_local,ncv_local+cntu_local+1) - 1, ktop_local(i_local,ncv_local+cntu_local+1) + 1, -1
 
-              call eddy_diff_zisocl_interface_energy_native(i_local, k_local, pcols_local, pver_local, lbulk_local, sh_local, &
-                   sm_local, z_local, zi_local, n2_local, s2_local, leng_max_local, dzinc_local, dl2n2_local, dl2s2_local, &
-                   dwinc_local)
+              call eddy_diff_zisocl_interface_energy(i_local, k_local, pcols_local, pver_local, lbulk_local, sh_local, sm_local, &
+                   z_local, zi_local, n2_local, s2_local, leng_max_local, dzinc_local, dl2n2_local, dl2s2_local, dwinc_local)
 
               lint_local = lint_local + dzinc_local
               l2n2_local = l2n2_local + dl2n2_local
@@ -4594,7 +4593,7 @@
 
        end if
 
-       call eddy_diff_zisocl_interface_energy_native(i_local, kt_local, pcols_local, pver_local, lbulk_local, sh_local, sm_local, &
+       call eddy_diff_zisocl_interface_energy(i_local, kt_local, pcols_local, pver_local, lbulk_local, sh_local, sm_local, &
             z_local, zi_local, n2_local, s2_local, leng_max_local, dzinc_local, dl2n2_local, dl2s2_local, dwinc_local)
 
     end do
@@ -4766,7 +4765,7 @@
 
     if( kb_local .eq. pver_local + 1 ) return
 
-    call eddy_diff_zisocl_interface_energy_native(i_local, kb_local, pcols_local, pver_local, lbulk_local, sh_local, sm_local, &
+    call eddy_diff_zisocl_interface_energy(i_local, kb_local, pcols_local, pver_local, lbulk_local, sh_local, sm_local, &
          z_local, zi_local, n2_local, s2_local, leng_max_local, dzinc_local, dl2n2_local, dl2s2_local, dwinc_local)
 
     do while( ( -dl2n2_local .gt. (-rinc*l2n2_local/(1._r8-rinc)) ) .and. (kb_local .ne. pver_local+1) )
@@ -4785,9 +4784,8 @@
 
            do k_local = ktop_local(i_local,ncv_local-1) + 1, kbase_local(i_local,ncv_local-1) - 1
 
-              call eddy_diff_zisocl_interface_energy_native(i_local, k_local, pcols_local, pver_local, lbulk_local, sh_local, &
-                   sm_local, z_local, zi_local, n2_local, s2_local, leng_max_local, dzinc_local, dl2n2_local, dl2s2_local, &
-                   dwinc_local)
+              call eddy_diff_zisocl_interface_energy(i_local, k_local, pcols_local, pver_local, lbulk_local, sh_local, sm_local, &
+                   z_local, zi_local, n2_local, s2_local, leng_max_local, dzinc_local, dl2n2_local, dl2s2_local, dwinc_local)
 
               lint_local = lint_local + dzinc_local
               l2n2_local = l2n2_local + dl2n2_local
@@ -4812,7 +4810,7 @@
 
        else
 
-           call eddy_diff_zisocl_interface_energy_native(i_local, kb_local, pcols_local, pver_local, lbulk_local, sh_local, sm_local, &
+           call eddy_diff_zisocl_interface_energy(i_local, kb_local, pcols_local, pver_local, lbulk_local, sh_local, sm_local, &
                 z_local, zi_local, n2_local, s2_local, leng_max_local, dzinc_local, dl2n2_local, dl2s2_local, dwinc_local)
 
        end if

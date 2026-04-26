@@ -1162,6 +1162,33 @@ def _eddy_diff_zisocl_layer_energy_values(
     return dzinc, dl2n2, dl2s2
 
 
+@inline
+def _eddy_diff_zisocl_interface_energy_values(
+    tunl_mode: int,
+    leng_mode: int,
+    tunl: float,
+    ctunl: float,
+    cleng: float,
+    lbulk: float,
+    sh: float,
+    sm: float,
+    vk: float,
+    i_col: int,
+    k_ifc: int,
+    pcols: int,
+    z: Ptr[float],
+    zi: Ptr[float],
+    n2: Ptr[float],
+    s2: Ptr[float],
+    leng_max: Ptr[float],
+):
+    dzinc, dl2n2, dl2s2 = _eddy_diff_zisocl_layer_energy_values(
+        tunl_mode, leng_mode, tunl, ctunl, cleng, lbulk, vk, i_col, k_ifc, pcols, z, zi, n2, s2, leng_max
+    )
+    dwinc = -sh * dl2n2 + sm * dl2s2
+    return dzinc, dl2n2, dl2s2, dwinc
+
+
 @export
 def eddy_diff_zisocl_surface_energy_codon(
     alph1: float,
@@ -1730,23 +1757,9 @@ def eddy_diff_zisocl_upward_state_codon(
     cntu = 0
     status[0] = 0
 
-    if tunl_mode == 1:
-        tunlramp = 0.5 * (1.0 + ctunl) * tunl
-    elif tunl_mode == 2:
-        tunlramp = ctunl * tunl
-    else:
-        tunlramp = tunl
-
-    if leng_mode == 0:
-        lz = ((vk * zi[_idx2(i_col, kt, pcols)]) ** (-cleng) + (tunlramp * lbulk) ** (-cleng)) ** (-1.0 / cleng)
-    else:
-        lz = min(vk * zi[_idx2(i_col, kt, pcols)], tunlramp * lbulk)
-    lz = min(leng_max[kt - 1], lz)
-
-    dzinc = z[_idx2(i_col, kt - 1, pcols)] - z[_idx2(i_col, kt, pcols)]
-    dl2n2 = lz * lz * n2[_idx2(i_col, kt, pcols)] * dzinc
-    dl2s2 = lz * lz * s2[_idx2(i_col, kt, pcols)] * dzinc
-    dwinc = -sh * dl2n2 + sm * dl2s2
+    dzinc, dl2n2, dl2s2, dwinc = _eddy_diff_zisocl_interface_energy_values(
+        tunl_mode, leng_mode, tunl, ctunl, cleng, lbulk, sh, sm, vk, i_col, kt, pcols, z, zi, n2, s2, leng_max
+    )
 
     while (-dl2n2 > (-rinc * l2n2[0] / (1.0 - rinc))) and (
         kt > ntop_turb + 2 or z[_idx2(i_col, kt, pcols)] < 50000.0
@@ -1768,23 +1781,9 @@ def eddy_diff_zisocl_upward_state_codon(
         if kt == ktinc:
             k_ifc = int(kbase[_idx2(i_col, ncv_col + cntu + 1, pcols)]) - 1
             while k_ifc >= int(ktop[_idx2(i_col, ncv_col + cntu + 1, pcols)]) + 1:
-                if tunl_mode == 1:
-                    tunlramp = 0.5 * (1.0 + ctunl) * tunl
-                elif tunl_mode == 2:
-                    tunlramp = ctunl * tunl
-                else:
-                    tunlramp = tunl
-
-                if leng_mode == 0:
-                    lz = ((vk * zi[_idx2(i_col, k_ifc, pcols)]) ** (-cleng) + (tunlramp * lbulk) ** (-cleng)) ** (-1.0 / cleng)
-                else:
-                    lz = min(vk * zi[_idx2(i_col, k_ifc, pcols)], tunlramp * lbulk)
-                lz = min(leng_max[k_ifc - 1], lz)
-
-                dzinc = z[_idx2(i_col, k_ifc - 1, pcols)] - z[_idx2(i_col, k_ifc, pcols)]
-                dl2n2 = lz * lz * n2[_idx2(i_col, k_ifc, pcols)] * dzinc
-                dl2s2 = lz * lz * s2[_idx2(i_col, k_ifc, pcols)] * dzinc
-                dwinc = -sh * dl2n2 + sm * dl2s2
+                dzinc, dl2n2, dl2s2, dwinc = _eddy_diff_zisocl_interface_energy_values(
+                    tunl_mode, leng_mode, tunl, ctunl, cleng, lbulk, sh, sm, vk, i_col, k_ifc, pcols, z, zi, n2, s2, leng_max
+                )
 
                 lint[0] = lint[0] + dzinc
                 l2n2[0] = l2n2[0] + dl2n2
@@ -1798,23 +1797,9 @@ def eddy_diff_zisocl_upward_state_codon(
             ncvfin[i_col - 1] = i32(int(ncvfin[i_col - 1]) - 1)
             cntu += 1
 
-        if tunl_mode == 1:
-            tunlramp = 0.5 * (1.0 + ctunl) * tunl
-        elif tunl_mode == 2:
-            tunlramp = ctunl * tunl
-        else:
-            tunlramp = tunl
-
-        if leng_mode == 0:
-            lz = ((vk * zi[_idx2(i_col, kt, pcols)]) ** (-cleng) + (tunlramp * lbulk) ** (-cleng)) ** (-1.0 / cleng)
-        else:
-            lz = min(vk * zi[_idx2(i_col, kt, pcols)], tunlramp * lbulk)
-        lz = min(leng_max[kt - 1], lz)
-
-        dzinc = z[_idx2(i_col, kt - 1, pcols)] - z[_idx2(i_col, kt, pcols)]
-        dl2n2 = lz * lz * n2[_idx2(i_col, kt, pcols)] * dzinc
-        dl2s2 = lz * lz * s2[_idx2(i_col, kt, pcols)] * dzinc
-        dwinc = -sh * dl2n2 + sm * dl2s2
+        dzinc, dl2n2, dl2s2, dwinc = _eddy_diff_zisocl_interface_energy_values(
+            tunl_mode, leng_mode, tunl, ctunl, cleng, lbulk, sh, sm, vk, i_col, kt, pcols, z, zi, n2, s2, leng_max
+        )
 
     if cntu > 0:
         incv = 1
@@ -1902,23 +1887,9 @@ def eddy_diff_zisocl_downward_state_codon(
     if kb == pver + 1:
         return
 
-    if tunl_mode == 1:
-        tunlramp = 0.5 * (1.0 + ctunl) * tunl
-    elif tunl_mode == 2:
-        tunlramp = ctunl * tunl
-    else:
-        tunlramp = tunl
-
-    if leng_mode == 0:
-        lz = ((vk * zi[_idx2(i_col, kb, pcols)]) ** (-cleng) + (tunlramp * lbulk) ** (-cleng)) ** (-1.0 / cleng)
-    else:
-        lz = min(vk * zi[_idx2(i_col, kb, pcols)], tunlramp * lbulk)
-    lz = min(leng_max[kb - 1], lz)
-
-    dzinc = z[_idx2(i_col, kb - 1, pcols)] - z[_idx2(i_col, kb, pcols)]
-    dl2n2 = lz * lz * n2[_idx2(i_col, kb, pcols)] * dzinc
-    dl2s2 = lz * lz * s2[_idx2(i_col, kb, pcols)] * dzinc
-    dwinc = -sh * dl2n2 + sm * dl2s2
+    dzinc, dl2n2, dl2s2, dwinc = _eddy_diff_zisocl_interface_energy_values(
+        tunl_mode, leng_mode, tunl, ctunl, cleng, lbulk, sh, sm, vk, i_col, kb, pcols, z, zi, n2, s2, leng_max
+    )
 
     while (-dl2n2 > (-rinc * l2n2[0] / (1.0 - rinc))) and (kb != pver + 1):
         lint[0] = lint[0] + dzinc
@@ -1935,23 +1906,9 @@ def eddy_diff_zisocl_downward_state_codon(
         if kb == kbinc:
             k_ifc = int(ktop[_idx2(i_col, ncv - 1, pcols)]) + 1
             while k_ifc <= int(kbase[_idx2(i_col, ncv - 1, pcols)]) - 1:
-                if tunl_mode == 1:
-                    tunlramp = 0.5 * (1.0 + ctunl) * tunl
-                elif tunl_mode == 2:
-                    tunlramp = ctunl * tunl
-                else:
-                    tunlramp = tunl
-
-                if leng_mode == 0:
-                    lz = ((vk * zi[_idx2(i_col, k_ifc, pcols)]) ** (-cleng) + (tunlramp * lbulk) ** (-cleng)) ** (-1.0 / cleng)
-                else:
-                    lz = min(vk * zi[_idx2(i_col, k_ifc, pcols)], tunlramp * lbulk)
-                lz = min(leng_max[k_ifc - 1], lz)
-
-                dzinc = z[_idx2(i_col, k_ifc - 1, pcols)] - z[_idx2(i_col, k_ifc, pcols)]
-                dl2n2 = lz * lz * n2[_idx2(i_col, k_ifc, pcols)] * dzinc
-                dl2s2 = lz * lz * s2[_idx2(i_col, k_ifc, pcols)] * dzinc
-                dwinc = -sh * dl2n2 + sm * dl2s2
+                dzinc, dl2n2, dl2s2, dwinc = _eddy_diff_zisocl_interface_energy_values(
+                    tunl_mode, leng_mode, tunl, ctunl, cleng, lbulk, sh, sm, vk, i_col, k_ifc, pcols, z, zi, n2, s2, leng_max
+                )
 
                 lint[0] = lint[0] + dzinc
                 l2n2[0] = l2n2[0] + dl2n2
@@ -1987,23 +1944,9 @@ def eddy_diff_zisocl_downward_state_codon(
             l2s2[0] = l2s2[0] + dl2s2_surf[0]
             wint[0] = wint[0] + dw_surf[0]
         else:
-            if tunl_mode == 1:
-                tunlramp = 0.5 * (1.0 + ctunl) * tunl
-            elif tunl_mode == 2:
-                tunlramp = ctunl * tunl
-            else:
-                tunlramp = tunl
-
-            if leng_mode == 0:
-                lz = ((vk * zi[_idx2(i_col, kb, pcols)]) ** (-cleng) + (tunlramp * lbulk) ** (-cleng)) ** (-1.0 / cleng)
-            else:
-                lz = min(vk * zi[_idx2(i_col, kb, pcols)], tunlramp * lbulk)
-            lz = min(leng_max[kb - 1], lz)
-
-            dzinc = z[_idx2(i_col, kb - 1, pcols)] - z[_idx2(i_col, kb, pcols)]
-            dl2n2 = lz * lz * n2[_idx2(i_col, kb, pcols)] * dzinc
-            dl2s2 = lz * lz * s2[_idx2(i_col, kb, pcols)] * dzinc
-            dwinc = -sh * dl2n2 + sm * dl2s2
+            dzinc, dl2n2, dl2s2, dwinc = _eddy_diff_zisocl_interface_energy_values(
+                tunl_mode, leng_mode, tunl, ctunl, cleng, lbulk, sh, sm, vk, i_col, kb, pcols, z, zi, n2, s2, leng_max
+            )
 
     if kb == pver + 1 and ncv != 1:
         kb_state[0] = kb
@@ -2127,23 +2070,13 @@ def eddy_diff_zisocl_interface_energy_codon(
     dl2s2 = Ptr[float](dl2s2_p)
     dwinc = Ptr[float](dwinc_p)
 
-    if tunl_mode == 1:
-        tunlramp = 0.5 * (1.0 + ctunl) * tunl
-    elif tunl_mode == 2:
-        tunlramp = ctunl * tunl
-    else:
-        tunlramp = tunl
-
-    if leng_mode == 0:
-        lz = ((vk * zi[_idx2(i_col, k_ifc, pcols)]) ** (-cleng) + (tunlramp * lbulk) ** (-cleng)) ** (-1.0 / cleng)
-    else:
-        lz = min(vk * zi[_idx2(i_col, k_ifc, pcols)], tunlramp * lbulk)
-    lz = min(leng_max[k_ifc - 1], lz)
-
-    dzinc[0] = z[_idx2(i_col, k_ifc - 1, pcols)] - z[_idx2(i_col, k_ifc, pcols)]
-    dl2n2[0] = lz * lz * n2[_idx2(i_col, k_ifc, pcols)] * dzinc[0]
-    dl2s2[0] = lz * lz * s2[_idx2(i_col, k_ifc, pcols)] * dzinc[0]
-    dwinc[0] = -sh * dl2n2[0] + sm * dl2s2[0]
+    dzinc_val, dl2n2_val, dl2s2_val, dwinc_val = _eddy_diff_zisocl_interface_energy_values(
+        tunl_mode, leng_mode, tunl, ctunl, cleng, lbulk, sh, sm, vk, i_col, k_ifc, pcols, z, zi, n2, s2, leng_max
+    )
+    dzinc[0] = dzinc_val
+    dl2n2[0] = dl2n2_val
+    dl2s2[0] = dl2s2_val
+    dwinc[0] = dwinc_val
 
 
 @export
