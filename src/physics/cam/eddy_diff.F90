@@ -4271,7 +4271,7 @@
        l2s2_local = l2s2_local + dl2s2_local
     end do
 
-    call eddy_diff_zisocl_stability_native(l2n2_local, l2s2_local, ricll_local, gh_local, sh_local, sm_local)
+    call eddy_diff_zisocl_stability(l2n2_local, l2s2_local, ricll_local, gh_local, sh_local, sm_local)
     wint_local = max( wint_local - sh_local*l2n2_local + sm_local*l2s2_local, 0.01_r8 )
 
   end subroutine eddy_diff_zisocl_extended_state_native
@@ -4405,7 +4405,7 @@
        lint_local = lint_local + dzinc_local
     end do
 
-    call eddy_diff_zisocl_stability_native(l2n2_local, l2s2_local, ricll_local, gh_local, sh_local, sm_local)
+    call eddy_diff_zisocl_stability(l2n2_local, l2s2_local, ricll_local, gh_local, sh_local, sm_local)
     wint_local = wint_local - sh_local*l2n2_local + sm_local*l2s2_local
 
   end subroutine eddy_diff_zisocl_non_sbcl_state_native

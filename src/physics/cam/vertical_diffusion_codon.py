@@ -1100,6 +1100,31 @@ def _eddy_diff_zisocl_surface_energy_values(
     return gh, sh, sm, dlint_surf, dl2n2_surf, dl2s2_surf, dw_surf
 
 
+@inline
+def _eddy_diff_zisocl_stability_values(
+    alph1: float,
+    alph2: float,
+    alph3: float,
+    alph4: float,
+    alph5: float,
+    b1: float,
+    ntzero: float,
+    ricrit: float,
+    l2n2: float,
+    l2s2: float,
+):
+    ricll = min(l2n2 / max(l2s2, ntzero), ricrit)
+    trma = alph3 * alph4 * ricll + 2.0 * b1 * (alph2 - alph4 * alph5 * ricll)
+    trmb = ricll * (alph3 + alph4) + 2.0 * b1 * (-alph5 * ricll + alph1)
+    trmc = ricll
+    det = max(trmb * trmb - 4.0 * trma * trmc, 0.0)
+    gh = (-trmb + sqrt(det)) / 2.0 / trma
+    gh = min(max(gh, -3.5334), 0.0233)
+    sh = alph5 / (1.0 + alph3 * gh)
+    sm = (alph1 + alph2 * gh) / (1.0 + alph3 * gh) / (1.0 + alph4 * gh)
+    return ricll, gh, sh, sm
+
+
 @export
 def eddy_diff_zisocl_surface_energy_codon(
     alph1: float,
@@ -1435,15 +1460,13 @@ def eddy_diff_zisocl_initial_state_codon(
 
             k_ifc -= 1
 
-        ricll[0] = min(l2n2[0] / max(l2s2[0], ntzero), ricrit)
-        trma = alph3 * alph4 * ricll[0] + 2.0 * b1 * (alph2 - alph4 * alph5 * ricll[0])
-        trmb = ricll[0] * (alph3 + alph4) + 2.0 * b1 * (-alph5 * ricll[0] + alph1)
-        trmc = ricll[0]
-        det = max(trmb * trmb - 4.0 * trma * trmc, 0.0)
-        gh[0] = (-trmb + sqrt(det)) / 2.0 / trma
-        gh[0] = min(max(gh[0], -3.5334), 0.0233)
-        sh[0] = alph5 / (1.0 + alph3 * gh[0])
-        sm[0] = (alph1 + alph2 * gh[0]) / (1.0 + alph3 * gh[0]) / (1.0 + alph4 * gh[0])
+        ricll_val, gh_val, sh_val, sm_val = _eddy_diff_zisocl_stability_values(
+            alph1, alph2, alph3, alph4, alph5, b1, ntzero, ricrit, l2n2[0], l2s2[0]
+        )
+        ricll[0] = ricll_val
+        gh[0] = gh_val
+        sh[0] = sh_val
+        sm[0] = sm_val
         wint[0] = wint[0] - sh[0] * l2n2[0] + sm[0] * l2s2[0]
     else:
         lint[0] = dlint_surf[0]
@@ -1561,15 +1584,13 @@ def eddy_diff_zisocl_extended_state_codon(
         l2n2 = l2n2 + dl2n2
         l2s2 = l2s2 + dl2s2
 
-    ricll[0] = min(l2n2 / max(l2s2, ntzero), ricrit)
-    trma = alph3 * alph4 * ricll[0] + 2.0 * b1 * (alph2 - alph4 * alph5 * ricll[0])
-    trmb = ricll[0] * (alph3 + alph4) + 2.0 * b1 * (-alph5 * ricll[0] + alph1)
-    trmc = ricll[0]
-    det = max(trmb * trmb - 4.0 * trma * trmc, 0.0)
-    gh[0] = (-trmb + sqrt(det)) / 2.0 / trma
-    gh[0] = min(max(gh[0], -3.5334), 0.0233)
-    sh[0] = alph5 / (1.0 + alph3 * gh[0])
-    sm[0] = (alph1 + alph2 * gh[0]) / (1.0 + alph3 * gh[0]) / (1.0 + alph4 * gh[0])
+    ricll_val, gh_val, sh_val, sm_val = _eddy_diff_zisocl_stability_values(
+        alph1, alph2, alph3, alph4, alph5, b1, ntzero, ricrit, l2n2, l2s2
+    )
+    ricll[0] = ricll_val
+    gh[0] = gh_val
+    sh[0] = sh_val
+    sm[0] = sm_val
     wint[0] = max(wint[0] - sh[0] * l2n2 + sm[0] * l2s2, 0.01)
 
 
@@ -1648,15 +1669,13 @@ def eddy_diff_zisocl_non_sbcl_state_codon(
 
         k_ifc -= 1
 
-    ricll[0] = min(l2n2[0] / max(l2s2[0], ntzero), ricrit)
-    trma = alph3 * alph4 * ricll[0] + 2.0 * b1 * (alph2 - alph4 * alph5 * ricll[0])
-    trmb = ricll[0] * (alph3 + alph4) + 2.0 * b1 * (-alph5 * ricll[0] + alph1)
-    trmc = ricll[0]
-    det = max(trmb * trmb - 4.0 * trma * trmc, 0.0)
-    gh[0] = (-trmb + sqrt(det)) / 2.0 / trma
-    gh[0] = min(max(gh[0], -3.5334), 0.0233)
-    sh[0] = alph5 / (1.0 + alph3 * gh[0])
-    sm[0] = (alph1 + alph2 * gh[0]) / (1.0 + alph3 * gh[0]) / (1.0 + alph4 * gh[0])
+    ricll_val, gh_val, sh_val, sm_val = _eddy_diff_zisocl_stability_values(
+        alph1, alph2, alph3, alph4, alph5, b1, ntzero, ricrit, l2n2[0], l2s2[0]
+    )
+    ricll[0] = ricll_val
+    gh[0] = gh_val
+    sh[0] = sh_val
+    sm[0] = sm_val
     wint[0] = wint[0] - sh[0] * l2n2[0] + sm[0] * l2s2[0]
 
 
@@ -2027,15 +2046,13 @@ def eddy_diff_zisocl_stability_codon(
     sh = Ptr[float](sh_p)
     sm = Ptr[float](sm_p)
 
-    ricll[0] = min(l2n2 / max(l2s2, ntzero), ricrit)
-    trma = alph3 * alph4 * ricll[0] + 2.0 * b1 * (alph2 - alph4 * alph5 * ricll[0])
-    trmb = ricll[0] * (alph3 + alph4) + 2.0 * b1 * (-alph5 * ricll[0] + alph1)
-    trmc = ricll[0]
-    det = max(trmb * trmb - 4.0 * trma * trmc, 0.0)
-    gh[0] = (-trmb + sqrt(det)) / 2.0 / trma
-    gh[0] = min(max(gh[0], -3.5334), 0.0233)
-    sh[0] = alph5 / (1.0 + alph3 * gh[0])
-    sm[0] = (alph1 + alph2 * gh[0]) / (1.0 + alph3 * gh[0]) / (1.0 + alph4 * gh[0])
+    ricll_val, gh_val, sh_val, sm_val = _eddy_diff_zisocl_stability_values(
+        alph1, alph2, alph3, alph4, alph5, b1, ntzero, ricrit, l2n2, l2s2
+    )
+    ricll[0] = ricll_val
+    gh[0] = gh_val
+    sh[0] = sh_val
+    sm[0] = sm_val
 
 
 @export
