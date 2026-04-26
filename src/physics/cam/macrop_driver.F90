@@ -749,88 +749,27 @@ end subroutine macrop_driver_readnl
    dpdlft   = 0._r8
    shdlft   = 0._r8
 
-   do k = top_lev, pver
-   do i = 1, state_loc%ncol
-      if( state_loc%t(i,k) > 268.15_r8 ) then
-          dum1 = 0.0_r8
-      elseif( state_loc%t(i,k) < 238.15_r8 ) then
-          dum1 = 1.0_r8
-      else
-          dum1 = ( 268.15_r8 - state_loc%t(i,k) ) / 30._r8
-      endif
+   call macrop_driver_detrain_core_native(ncol, do_detrain_local, cu_det_st_local, state_loc%t, state_loc%pdel, dlf, dlf2, ptend_loc%q(:,:,ixcldliq), &
+        ptend_loc%q(:,:,ixcldice), ptend_loc%q(:,:,ixnumliq), ptend_loc%q(:,:,ixnumice), ptend_loc%s, det_s, det_ice, &
+        dlf_t, dlf_qv, dlf_ql, dlf_qi, dlf_nl, dlf_ni, dpdlfliq, dpdlfice, shdlfliq, shdlfice, dpdlft, shdlft)
 
-     ! If detrainment was done elsewhere, still update the variables used for output
-     ! assuming that the temperature split between liquid and ice is the same as assumed
-     ! here.
-     if (do_detrain_local) then
-      ptend_loc%q(i,k,ixcldliq) = dlf(i,k) * ( 1._r8 - dum1 )
-      ptend_loc%q(i,k,ixcldice) = dlf(i,k) * dum1
-    ! dum2                      = dlf(i,k) * ( 1._r8 - dum1 )
-      ptend_loc%q(i,k,ixnumliq) = 3._r8 * ( max(0._r8, ( dlf(i,k) - dlf2(i,k) )) * ( 1._r8 - dum1 ) ) / &
-           (4._r8*3.14_r8* 8.e-6_r8**3*997._r8) + & ! Deep    Convection
-           3._r8 * (                         dlf2(i,k)    * ( 1._r8 - dum1 ) ) / &
-           (4._r8*3.14_r8*10.e-6_r8**3*997._r8)     ! Shallow Convection 
-    ! dum2                      = dlf(i,k) * dum1
-      ptend_loc%q(i,k,ixnumice) = 3._r8 * ( max(0._r8, ( dlf(i,k) - dlf2(i,k) )) *  dum1 ) / &
-           (4._r8*3.14_r8*25.e-6_r8**3*500._r8) + & ! Deep    Convection
-           3._r8 * (                         dlf2(i,k)    *  dum1 ) / &
-           (4._r8*3.14_r8*50.e-6_r8**3*500._r8)     ! Shallow Convection
-      ptend_loc%s(i,k)          = dlf(i,k) * dum1 * latice
-     else 
-        ptend_loc%q(i,k,ixcldliq) = 0._r8
-        ptend_loc%q(i,k,ixcldice) = 0._r8
-        ptend_loc%q(i,k,ixnumliq) = 0._r8
-        ptend_loc%q(i,k,ixnumice) = 0._r8
-        ptend_loc%s(i,k)          = 0._r8
-     end if
-    
-
-    ! Only rliq is saved from deep convection, which is the reserved liquid.  We need to keep
-    !   track of the integrals of ice and static energy that is effected from conversion to ice
-    !   so that the energy checker doesn't complain.
-      det_s(i)                  = det_s(i) + ptend_loc%s(i,k)*state_loc%pdel(i,k)/gravit
-      det_ice(i)                = det_ice(i) - ptend_loc%q(i,k,ixcldice)*state_loc%pdel(i,k)/gravit      
-
-    ! Targetted detrainment of convective liquid water either directly into the
-    ! existing liquid stratus or into the environment. 
-
-      !water tracers:
-      !NOTE:  This assumes no fractionation during freezing/melting. - JN
-      if ((trace_water_local) .and. (wtrc_detrain_in_macrop_local)) then
-        do m=1,wtrc_nwset
-          ptend_loc%q(i,k,wtrc_iatype(m,iwtliq)) = wtdlf(i,k,m) * (1._r8 - dum1)
-          ptend_loc%q(i,k,wtrc_iatype(m,iwtice)) = wtdlf(i,k,m) * dum1
-        end do
-      end if
-
-      if( cu_det_st_local ) then
-          dlf_T(i,k)  = ptend_loc%s(i,k)/cpair
-          dlf_qv(i,k) = 0._r8
-          dlf_ql(i,k) = ptend_loc%q(i,k,ixcldliq)
-          dlf_qi(i,k) = ptend_loc%q(i,k,ixcldice)
-          dlf_nl(i,k) = ptend_loc%q(i,k,ixnumliq)
-          dlf_ni(i,k) = ptend_loc%q(i,k,ixnumice)         
-          ptend_loc%q(i,k,ixcldliq) = 0._r8
-          ptend_loc%q(i,k,ixcldice) = 0._r8
-          ptend_loc%q(i,k,ixnumliq) = 0._r8
-          ptend_loc%q(i,k,ixnumice) = 0._r8
-          ptend_loc%s(i,k)          = 0._r8
-          dpdlfliq(i,k)             = 0._r8
-          dpdlfice(i,k)             = 0._r8
-          shdlfliq(i,k)             = 0._r8
-          shdlfice(i,k)             = 0._r8
-          dpdlft  (i,k)             = 0._r8
-          shdlft  (i,k)             = 0._r8
-       else
-          dpdlfliq(i,k) = ( dlf(i,k) - dlf2(i,k) ) * ( 1._r8 - dum1 )
-          dpdlfice(i,k) = ( dlf(i,k) - dlf2(i,k) ) * ( dum1 )
-          shdlfliq(i,k) = dlf2(i,k) * ( 1._r8 - dum1 )
-          shdlfice(i,k) = dlf2(i,k) * ( dum1 )
-          dpdlft  (i,k) = ( dlf(i,k) - dlf2(i,k) ) * dum1 * latice/cpair
-          shdlft  (i,k) = dlf2(i,k) * dum1 * latice/cpair
-      endif
-   end do
-   end do
+   if ((trace_water_local) .and. (wtrc_detrain_in_macrop_local)) then
+      do k = top_lev, pver
+         do i = 1, state_loc%ncol
+            if( state_loc%t(i,k) > 268.15_r8 ) then
+                dum1 = 0.0_r8
+            elseif( state_loc%t(i,k) < 238.15_r8 ) then
+                dum1 = 1.0_r8
+            else
+                dum1 = ( 268.15_r8 - state_loc%t(i,k) ) / 30._r8
+            endif
+            do m = 1, wtrc_nwset
+               ptend_loc%q(i,k,wtrc_iatype(m,iwtliq)) = wtdlf(i,k,m) * (1._r8 - dum1)
+               ptend_loc%q(i,k,wtrc_iatype(m,iwtice)) = wtdlf(i,k,m) * dum1
+            end do
+         end do
+      end do
+   end if
 
    call outfld( 'DPDLFLIQ ', dpdlfliq, pcols, lchnk )
    call outfld( 'DPDLFICE ', dpdlfice, pcols, lchnk )
@@ -930,12 +869,7 @@ end subroutine macrop_driver_readnl
 
    clrw_old(:ncol,:top_lev-1) = 0._r8
    clri_old(:ncol,:top_lev-1) = 0._r8
-   do k = top_lev, pver
-      do i = 1, ncol
-         clrw_old(i,k) = max( 0._r8, min( 1._r8, 1._r8 - concld(i,k) - alst(i,k) ) )      
-         clri_old(i,k) = max( 0._r8, min( 1._r8, 1._r8 - concld(i,k) -  ast(i,k) ) )      
-      end do
-   end do
+   call macrop_driver_clr_old_diag(ncol, concld, alst, ast, clrw_old, clri_old)
 
    if( use_shfrc_local ) then
        call pbuf_get_field(pbuf, shfrc_idx, shfrc )
@@ -1011,48 +945,9 @@ end subroutine macrop_driver_readnl
  ! are separately provided into the prognostic microp_driver macrophysics scheme. This is an
  ! attempt to resolve in-cloud and out-cloud forcings. 
 
-   if( get_nstep() .le. 1 ) then
-       tcwat(:ncol,:)   = state_loc%t(:ncol,:)
-       qcwat(:ncol,:)   = state_loc%q(:ncol,:,1)
-       lcwat(:ncol,:)   = qc(:ncol,:) + qi(:ncol,:)
-       iccwat(:ncol,:)  = qi(:ncol,:)
-       nlwat(:ncol,:)   = nc(:ncol,:)
-       niwat(:ncol,:)   = ni(:ncol,:)
-       ttend(:ncol,:)   = 0._r8
-       qtend(:ncol,:)   = 0._r8
-       ltend(:ncol,:)   = 0._r8
-       itend(:ncol,:)   = 0._r8
-       nltend(:ncol,:)  = 0._r8
-       nitend(:ncol,:)  = 0._r8
-       CC_T(:ncol,:)    = 0._r8
-       CC_qv(:ncol,:)   = 0._r8
-       CC_ql(:ncol,:)   = 0._r8
-       CC_qi(:ncol,:)   = 0._r8
-       CC_nl(:ncol,:)   = 0._r8
-       CC_ni(:ncol,:)   = 0._r8
-       CC_qlst(:ncol,:) = 0._r8
-   else
-       ttend(:ncol,top_lev:pver)   = ( state_loc%t(:ncol,top_lev:pver)   -  tcwat(:ncol,top_lev:pver)) * rdtime &
-            - CC_T(:ncol,top_lev:pver) 
-       qtend(:ncol,top_lev:pver)   = ( state_loc%q(:ncol,top_lev:pver,1) -  qcwat(:ncol,top_lev:pver)) * rdtime &
-            - CC_qv(:ncol,top_lev:pver)
-       ltend(:ncol,top_lev:pver)   = ( qc(:ncol,top_lev:pver) + qi(:ncol,top_lev:pver) - lcwat(:ncol,top_lev:pver) ) * rdtime &
-            - (CC_ql(:ncol,top_lev:pver) + CC_qi(:ncol,top_lev:pver))
-       itend(:ncol,top_lev:pver)   = ( qi(:ncol,top_lev:pver)         - iccwat(:ncol,top_lev:pver)) * rdtime &
-            - CC_qi(:ncol,top_lev:pver)
-       nltend(:ncol,top_lev:pver)  = ( nc(:ncol,top_lev:pver)         -  nlwat(:ncol,top_lev:pver)) * rdtime &
-            - CC_nl(:ncol,top_lev:pver)
-       nitend(:ncol,top_lev:pver)  = ( ni(:ncol,top_lev:pver)         -  niwat(:ncol,top_lev:pver)) * rdtime &
-            - CC_ni(:ncol,top_lev:pver)
-   endif
-   lmitend(:ncol,top_lev:pver) = ltend(:ncol,top_lev:pver) - itend(:ncol,top_lev:pver)
-
-   t_inout(:ncol,top_lev:pver)  =  tcwat(:ncol,top_lev:pver) 
-   qv_inout(:ncol,top_lev:pver) =  qcwat(:ncol,top_lev:pver)
-   ql_inout(:ncol,top_lev:pver) =  lcwat(:ncol,top_lev:pver) - iccwat(:ncol,top_lev:pver)
-   qi_inout(:ncol,top_lev:pver) = iccwat(:ncol,top_lev:pver)
-   nl_inout(:ncol,top_lev:pver) =  nlwat(:ncol,top_lev:pver)
-   ni_inout(:ncol,top_lev:pver) =  niwat(:ncol,top_lev:pver)
+   call macrop_driver_forcing_prep(ncol, get_nstep(), rdtime, state_loc%t, state_loc%q(:,:,1), qc, qi, nc, ni, tcwat, &
+        qcwat, lcwat, iccwat, nlwat, niwat, cc_t, cc_qv, cc_ql, cc_qi, cc_nl, cc_ni, cc_qlst, ttend, qtend, ltend, &
+        itend, nltend, nitend, lmitend, t_inout, qv_inout, ql_inout, qi_inout, nl_inout, ni_inout)
 
  ! Liquid Microp_Driver Macrophysics.
  ! The main roles of this subroutines are
@@ -1084,36 +979,25 @@ end subroutine macrop_driver_readnl
 
    call t_stopf('mmacro_pcond')
 
-   do k = top_lev, pver
-      do i = 1, ncol
-         ptend_loc%s(i,k)          =  tlat(i,k)
-         ptend_loc%q(i,k,1)        = qvlat(i,k)
-         ptend_loc%q(i,k,ixcldliq) = qcten(i,k)
-         ptend_loc%q(i,k,ixcldice) = qiten(i,k)
-         ptend_loc%q(i,k,ixnumliq) = ncten(i,k)
-         ptend_loc%q(i,k,ixnumice) = niten(i,k)
+   call macrop_driver_ptend_assign(ncol, tlat, qvlat, qcten, qiten, ncten, niten, ptend_loc%s, ptend_loc%q(:,:,1), &
+        ptend_loc%q(:,:,ixcldliq), ptend_loc%q(:,:,ixcldice), ptend_loc%q(:,:,ixnumliq), ptend_loc%q(:,:,ixnumice))
 
-         ! Check to make sure that the macrophysics code is respecting the flags that control
-         ! whether cldwat should be prognosing cloud ice and cloud liquid or not.
-         if ((.not. do_cldice_local) .and. (qiten(i,k) /= 0.0_r8)) then 
-            call endrun("macrop_driver:ERROR - "// &
-                 "Cldwat is configured not to prognose cloud ice, but mmacro_pcond has ice mass tendencies.")
-         end if
-         if ((.not. do_cldice_local) .and. (niten(i,k) /= 0.0_r8)) then 
-            call endrun("macrop_driver:ERROR -"// &
-                 " Cldwat is configured not to prognose cloud ice, but mmacro_pcond has ice number tendencies.")
-         end if
-
-         if ((.not. do_cldliq_local) .and. (qcten(i,k) /= 0.0_r8)) then 
-            call endrun("macrop_driver:ERROR - "// &
-                 "Cldwat is configured not to prognose cloud liquid, but mmacro_pcond has liquid mass tendencies.")
-         end if
-         if ((.not. do_cldliq_local) .and. (ncten(i,k) /= 0.0_r8)) then 
-            call endrun("macrop_driver:ERROR - "// &
-                 "Cldwat is configured not to prognose cloud liquid, but mmacro_pcond has liquid number tendencies.")
-         end if
-      end do
-   end do
+   if ((.not. do_cldice_local) .and. any(qiten(:ncol,top_lev:pver) /= 0.0_r8)) then
+      call endrun("macrop_driver:ERROR - "// &
+           "Cldwat is configured not to prognose cloud ice, but mmacro_pcond has ice mass tendencies.")
+   end if
+   if ((.not. do_cldice_local) .and. any(niten(:ncol,top_lev:pver) /= 0.0_r8)) then
+      call endrun("macrop_driver:ERROR -"// &
+           " Cldwat is configured not to prognose cloud ice, but mmacro_pcond has ice number tendencies.")
+   end if
+   if ((.not. do_cldliq_local) .and. any(qcten(:ncol,top_lev:pver) /= 0.0_r8)) then
+      call endrun("macrop_driver:ERROR - "// &
+           "Cldwat is configured not to prognose cloud liquid, but mmacro_pcond has liquid mass tendencies.")
+   end if
+   if ((.not. do_cldliq_local) .and. any(ncten(:ncol,top_lev:pver) /= 0.0_r8)) then
+      call endrun("macrop_driver:ERROR - "// &
+           "Cldwat is configured not to prognose cloud liquid, but mmacro_pcond has liquid number tendencies.")
+   end if
 
 !-------------------------------------------------
 !water tracers
@@ -1146,20 +1030,7 @@ end subroutine macrop_driver_readnl
      nqitn(:,top_lev:) = 0._r8
 
      !split into positive and negative tendencies - JN
-     do i=1,ncol
-       do k=top_lev,pver
-         if(qcten(i,k) .lt. 0._r8) then
-           nqctn(i,k) = qcten(i,k) 
-         else
-           pqctn(i,k) = qcten(i,k)
-         end if
-         if(qiten(i,k) .lt. 0._r8) then
-           nqitn(i,k) = qiten(i,k)
-         else
-           pqitn(i,k) = qiten(i,k)
-         end if  
-       end do
-     end do
+     call macrop_driver_wtrc_split_tend(ncol, qcten, qiten, pqctn, nqctn, pqitn, nqitn)
 
      call wtrc_add_rates(process_rates, ncol, top_lev, iwtvap, iwtvap, iwtvap, qvlat + qcten + qiten)
 
@@ -1220,17 +1091,7 @@ end subroutine macrop_driver_readnl
    mr_lsliq = 0._r8
    mr_lsice = 0._r8
 
-   do k=top_lev,pver
-      do i=1,ncol
-         if (cld(i,k) .gt. 0._r8) then
-            mr_lsliq(i,k) = state_loc%q(i,k,ixcldliq)
-            mr_lsice(i,k) = state_loc%q(i,k,ixcldice)
-         else
-            mr_lsliq(i,k) = 0._r8
-            mr_lsice(i,k) = 0._r8
-         end if
-      end do
-   end do
+   call macrop_driver_cloud_mixing_diag(ncol, cld, state_loc%q(:,:,ixcldliq), state_loc%q(:,:,ixcldice), mr_lsliq, mr_lsice)
 
    call outfld( 'CLDLIQSTR  ', mr_lsliq,    pcols, lchnk )
    call outfld( 'CLDICESTR  ', mr_lsice,    pcols, lchnk )
@@ -1242,15 +1103,9 @@ end subroutine macrop_driver_readnl
    ! at the next time step                             !
    ! ------------------------------------------------- !
    cldsice = 0._r8
-   do k = top_lev, pver
-      tcwat(:ncol,k)  = state_loc%t(:ncol,k)
-      qcwat(:ncol,k)  = state_loc%q(:ncol,k,1)
-      lcwat(:ncol,k)  = state_loc%q(:ncol,k,ixcldliq) + state_loc%q(:ncol,k,ixcldice)
-      iccwat(:ncol,k) = state_loc%q(:ncol,k,ixcldice)
-      nlwat(:ncol,k)  = state_loc%q(:ncol,k,ixnumliq)
-      niwat(:ncol,k)  = state_loc%q(:ncol,k,ixnumice)
-      cldsice(:ncol,k) = lcwat(:ncol,k) * min(1.0_r8, max(0.0_r8, (tmelt - tcwat(:ncol,k)) / 20._r8))
-   end do
+   call macrop_driver_store_state(ncol, state_loc%t, state_loc%q(:,:,1), state_loc%q(:,:,ixcldliq), &
+        state_loc%q(:,:,ixcldice), state_loc%q(:,:,ixnumliq), state_loc%q(:,:,ixnumice), tcwat, qcwat, lcwat, iccwat, &
+        nlwat, niwat, cldsice)
 
    call outfld( 'CLDSICE'    , cldsice,   pcols, lchnk )
 
@@ -1261,6 +1116,530 @@ end subroutine macrop_driver_tend
 
 !============================================================================ !
 !                                                                             !
+!============================================================================ !
+
+subroutine macrop_driver_detrain_core_native(ncol_local, do_detrain_local, cu_det_st_local, state_t_local, state_pdel_local, &
+     dlf_local, dlf2_local, ptend_ql_local, ptend_qi_local, ptend_nl_local, ptend_ni_local, ptend_s_local, det_s_local, &
+     det_ice_local, dlf_t_local, dlf_qv_local, dlf_ql_local, dlf_qi_local, dlf_nl_local, dlf_ni_local, dpdlfliq_local, &
+     dpdlfice_local, shdlfliq_local, shdlfice_local, dpdlft_local, shdlft_local)
+
+  use physconst, only: cpair, gravit
+  use ref_pres,  only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  logical, intent(in) :: do_detrain_local, cu_det_st_local
+  real(r8), intent(in) :: state_t_local(pcols,pver), state_pdel_local(pcols,pver)
+  real(r8), intent(in) :: dlf_local(pcols,pver), dlf2_local(pcols,pver)
+  real(r8), intent(inout) :: ptend_ql_local(pcols,pver), ptend_qi_local(pcols,pver)
+  real(r8), intent(inout) :: ptend_nl_local(pcols,pver), ptend_ni_local(pcols,pver)
+  real(r8), intent(inout) :: ptend_s_local(pcols,pver), det_s_local(pcols), det_ice_local(pcols)
+  real(r8), intent(inout) :: dlf_t_local(pcols,pver), dlf_qv_local(pcols,pver), dlf_ql_local(pcols,pver)
+  real(r8), intent(inout) :: dlf_qi_local(pcols,pver), dlf_nl_local(pcols,pver), dlf_ni_local(pcols,pver)
+  real(r8), intent(inout) :: dpdlfliq_local(pcols,pver), dpdlfice_local(pcols,pver)
+  real(r8), intent(inout) :: shdlfliq_local(pcols,pver), shdlfice_local(pcols,pver)
+  real(r8), intent(inout) :: dpdlft_local(pcols,pver), shdlft_local(pcols,pver)
+  integer :: i, k
+  real(r8) :: dum1_local
+
+  do k = top_lev, pver
+     do i = 1, ncol_local
+        if( state_t_local(i,k) > 268.15_r8 ) then
+            dum1_local = 0.0_r8
+        elseif( state_t_local(i,k) < 238.15_r8 ) then
+            dum1_local = 1.0_r8
+        else
+            dum1_local = ( 268.15_r8 - state_t_local(i,k) ) / 30._r8
+        endif
+
+        if (do_detrain_local) then
+           ptend_ql_local(i,k) = dlf_local(i,k) * ( 1._r8 - dum1_local )
+           ptend_qi_local(i,k) = dlf_local(i,k) * dum1_local
+           ptend_nl_local(i,k) = 3._r8 * ( max(0._r8, ( dlf_local(i,k) - dlf2_local(i,k) )) * ( 1._r8 - dum1_local ) ) / &
+                (4._r8*3.14_r8* 8.e-6_r8**3*997._r8) + &
+                3._r8 * (                         dlf2_local(i,k)    * ( 1._r8 - dum1_local ) ) / &
+                (4._r8*3.14_r8*10.e-6_r8**3*997._r8)
+           ptend_ni_local(i,k) = 3._r8 * ( max(0._r8, ( dlf_local(i,k) - dlf2_local(i,k) )) *  dum1_local ) / &
+                (4._r8*3.14_r8*25.e-6_r8**3*500._r8) + &
+                3._r8 * (                         dlf2_local(i,k)    *  dum1_local ) / &
+                (4._r8*3.14_r8*50.e-6_r8**3*500._r8)
+           ptend_s_local(i,k) = dlf_local(i,k) * dum1_local * latice
+        else
+           ptend_ql_local(i,k) = 0._r8
+           ptend_qi_local(i,k) = 0._r8
+           ptend_nl_local(i,k) = 0._r8
+           ptend_ni_local(i,k) = 0._r8
+           ptend_s_local(i,k) = 0._r8
+        end if
+
+        det_s_local(i) = det_s_local(i) + ptend_s_local(i,k) * state_pdel_local(i,k) / gravit
+        det_ice_local(i) = det_ice_local(i) - ptend_qi_local(i,k) * state_pdel_local(i,k) / gravit
+
+        if( cu_det_st_local ) then
+            dlf_t_local(i,k) = ptend_s_local(i,k)/cpair
+            dlf_qv_local(i,k) = 0._r8
+            dlf_ql_local(i,k) = ptend_ql_local(i,k)
+            dlf_qi_local(i,k) = ptend_qi_local(i,k)
+            dlf_nl_local(i,k) = ptend_nl_local(i,k)
+            dlf_ni_local(i,k) = ptend_ni_local(i,k)
+            ptend_ql_local(i,k) = 0._r8
+            ptend_qi_local(i,k) = 0._r8
+            ptend_nl_local(i,k) = 0._r8
+            ptend_ni_local(i,k) = 0._r8
+            ptend_s_local(i,k) = 0._r8
+            dpdlfliq_local(i,k) = 0._r8
+            dpdlfice_local(i,k) = 0._r8
+            shdlfliq_local(i,k) = 0._r8
+            shdlfice_local(i,k) = 0._r8
+            dpdlft_local(i,k) = 0._r8
+            shdlft_local(i,k) = 0._r8
+         else
+            dpdlfliq_local(i,k) = ( dlf_local(i,k) - dlf2_local(i,k) ) * ( 1._r8 - dum1_local )
+            dpdlfice_local(i,k) = ( dlf_local(i,k) - dlf2_local(i,k) ) * ( dum1_local )
+            shdlfliq_local(i,k) = dlf2_local(i,k) * ( 1._r8 - dum1_local )
+            shdlfice_local(i,k) = dlf2_local(i,k) * ( dum1_local )
+            dpdlft_local(i,k) = ( dlf_local(i,k) - dlf2_local(i,k) ) * dum1_local * latice/cpair
+            shdlft_local(i,k) = dlf2_local(i,k) * dum1_local * latice/cpair
+        endif
+     end do
+  end do
+
+end subroutine macrop_driver_detrain_core_native
+
+!============================================================================ !
+
+subroutine macrop_driver_clr_old_diag(ncol_local, concld_local, alst_local, ast_local, clrw_old_local, clri_old_local)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  real(r8), target, intent(in) :: concld_local(pcols,pver), alst_local(pcols,pver), ast_local(pcols,pver)
+  real(r8), target, intent(inout) :: clrw_old_local(pcols,pver), clri_old_local(pcols,pver)
+
+  interface
+     subroutine macrop_driver_clr_old_diag_codon(ncol_c, pcols_c, pver_c, top_lev_c, concld_p, alst_p, ast_p, &
+          clrw_old_p, clri_old_p) bind(c, name="macrop_driver_clr_old_diag_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+       type(c_ptr), value :: concld_p, alst_p, ast_p, clrw_old_p, clri_old_p
+     end subroutine macrop_driver_clr_old_diag_codon
+  end interface
+
+  if (use_native_impl) then
+     call macrop_driver_clr_old_diag_native(ncol_local, concld_local, alst_local, ast_local, clrw_old_local, clri_old_local)
+     return
+  end if
+
+  call macrop_driver_clr_old_diag_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(top_lev, c_int64_t), c_loc(concld_local), c_loc(alst_local), c_loc(ast_local), c_loc(clrw_old_local), &
+       c_loc(clri_old_local))
+
+end subroutine macrop_driver_clr_old_diag
+
+!============================================================================ !
+
+subroutine macrop_driver_clr_old_diag_native(ncol_local, concld_local, alst_local, ast_local, clrw_old_local, clri_old_local)
+
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  real(r8), intent(in) :: concld_local(pcols,pver), alst_local(pcols,pver), ast_local(pcols,pver)
+  real(r8), intent(inout) :: clrw_old_local(pcols,pver), clri_old_local(pcols,pver)
+  integer :: i, k
+
+  do k = top_lev, pver
+     do i = 1, ncol_local
+        clrw_old_local(i,k) = max( 0._r8, min( 1._r8, 1._r8 - concld_local(i,k) - alst_local(i,k) ) )
+        clri_old_local(i,k) = max( 0._r8, min( 1._r8, 1._r8 - concld_local(i,k) -  ast_local(i,k) ) )
+     end do
+  end do
+
+end subroutine macrop_driver_clr_old_diag_native
+
+!============================================================================ !
+
+subroutine macrop_driver_forcing_prep(ncol_local, nstep_local, rdtime_local, state_t_local, state_qv_local, qc_local, qi_local, &
+     nc_local, ni_local, tcwat_local, qcwat_local, lcwat_local, iccwat_local, nlwat_local, niwat_local, cc_t_local, &
+     cc_qv_local, cc_ql_local, cc_qi_local, cc_nl_local, cc_ni_local, cc_qlst_local, ttend_local, qtend_local, ltend_local, &
+     itend_local, nltend_local, nitend_local, lmitend_local, t_inout_local, qv_inout_local, ql_inout_local, qi_inout_local, &
+     nl_inout_local, ni_inout_local)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local, nstep_local
+  real(r8), intent(in) :: rdtime_local
+  real(r8), target, intent(in) :: state_t_local(pcols,pver), state_qv_local(pcols,pver)
+  real(r8), target, intent(in) :: qc_local(pcols,pver), qi_local(pcols,pver), nc_local(pcols,pver), ni_local(pcols,pver)
+  real(r8), target, intent(inout) :: tcwat_local(pcols,pver), qcwat_local(pcols,pver), lcwat_local(pcols,pver)
+  real(r8), target, intent(inout) :: iccwat_local(pcols,pver), nlwat_local(pcols,pver), niwat_local(pcols,pver)
+  real(r8), target, intent(inout) :: cc_t_local(pcols,pver), cc_qv_local(pcols,pver), cc_ql_local(pcols,pver)
+  real(r8), target, intent(inout) :: cc_qi_local(pcols,pver), cc_nl_local(pcols,pver), cc_ni_local(pcols,pver)
+  real(r8), target, intent(inout) :: cc_qlst_local(pcols,pver)
+  real(r8), target, intent(inout) :: ttend_local(pcols,pver), qtend_local(pcols,pver), ltend_local(pcols,pver)
+  real(r8), target, intent(inout) :: itend_local(pcols,pver), nltend_local(pcols,pver), nitend_local(pcols,pver)
+  real(r8), target, intent(inout) :: lmitend_local(pcols,pver), t_inout_local(pcols,pver), qv_inout_local(pcols,pver)
+  real(r8), target, intent(inout) :: ql_inout_local(pcols,pver), qi_inout_local(pcols,pver)
+  real(r8), target, intent(inout) :: nl_inout_local(pcols,pver), ni_inout_local(pcols,pver)
+
+  interface
+     subroutine macrop_driver_forcing_prep_codon(ncol_c, pcols_c, pver_c, top_lev_c, nstep_c, rdtime_c, state_t_p, &
+          state_qv_p, qc_p, qi_p, nc_p, ni_p, tcwat_p, qcwat_p, lcwat_p, iccwat_p, nlwat_p, niwat_p, cc_t_p, cc_qv_p, &
+          cc_ql_p, cc_qi_p, cc_nl_p, cc_ni_p, cc_qlst_p, ttend_p, qtend_p, ltend_p, itend_p, nltend_p, nitend_p, &
+          lmitend_p, t_inout_p, qv_inout_p, ql_inout_p, qi_inout_p, nl_inout_p, ni_inout_p) bind(c, name="macrop_driver_forcing_prep_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, nstep_c
+       real(c_double), value :: rdtime_c
+       type(c_ptr), value :: state_t_p, state_qv_p, qc_p, qi_p, nc_p, ni_p, tcwat_p, qcwat_p, lcwat_p, iccwat_p
+       type(c_ptr), value :: nlwat_p, niwat_p, cc_t_p, cc_qv_p, cc_ql_p, cc_qi_p, cc_nl_p, cc_ni_p, cc_qlst_p
+       type(c_ptr), value :: ttend_p, qtend_p, ltend_p, itend_p, nltend_p, nitend_p, lmitend_p, t_inout_p
+       type(c_ptr), value :: qv_inout_p, ql_inout_p, qi_inout_p, nl_inout_p, ni_inout_p
+     end subroutine macrop_driver_forcing_prep_codon
+  end interface
+
+  if (use_native_impl) then
+     call macrop_driver_forcing_prep_native(ncol_local, nstep_local, rdtime_local, state_t_local, state_qv_local, qc_local, &
+          qi_local, nc_local, ni_local, tcwat_local, qcwat_local, lcwat_local, iccwat_local, nlwat_local, niwat_local, &
+          cc_t_local, cc_qv_local, cc_ql_local, cc_qi_local, cc_nl_local, cc_ni_local, cc_qlst_local, ttend_local, &
+          qtend_local, ltend_local, itend_local, nltend_local, nitend_local, lmitend_local, t_inout_local, qv_inout_local, &
+          ql_inout_local, qi_inout_local, nl_inout_local, ni_inout_local)
+     return
+  end if
+
+  call macrop_driver_forcing_prep_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(top_lev, c_int64_t), int(nstep_local, c_int64_t), rdtime_local, c_loc(state_t_local), c_loc(state_qv_local), &
+       c_loc(qc_local), c_loc(qi_local), c_loc(nc_local), c_loc(ni_local), c_loc(tcwat_local), c_loc(qcwat_local), &
+       c_loc(lcwat_local), c_loc(iccwat_local), c_loc(nlwat_local), c_loc(niwat_local), c_loc(cc_t_local), c_loc(cc_qv_local), &
+       c_loc(cc_ql_local), c_loc(cc_qi_local), c_loc(cc_nl_local), c_loc(cc_ni_local), c_loc(cc_qlst_local), c_loc(ttend_local), &
+       c_loc(qtend_local), c_loc(ltend_local), c_loc(itend_local), c_loc(nltend_local), c_loc(nitend_local), c_loc(lmitend_local), &
+       c_loc(t_inout_local), c_loc(qv_inout_local), c_loc(ql_inout_local), c_loc(qi_inout_local), c_loc(nl_inout_local), &
+       c_loc(ni_inout_local))
+
+end subroutine macrop_driver_forcing_prep
+
+!============================================================================ !
+
+subroutine macrop_driver_forcing_prep_native(ncol_local, nstep_local, rdtime_local, state_t_local, state_qv_local, qc_local, &
+     qi_local, nc_local, ni_local, tcwat_local, qcwat_local, lcwat_local, iccwat_local, nlwat_local, niwat_local, cc_t_local, &
+     cc_qv_local, cc_ql_local, cc_qi_local, cc_nl_local, cc_ni_local, cc_qlst_local, ttend_local, qtend_local, ltend_local, &
+     itend_local, nltend_local, nitend_local, lmitend_local, t_inout_local, qv_inout_local, ql_inout_local, qi_inout_local, &
+     nl_inout_local, ni_inout_local)
+
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local, nstep_local
+  real(r8), intent(in) :: rdtime_local
+  real(r8), intent(in) :: state_t_local(pcols,pver), state_qv_local(pcols,pver)
+  real(r8), intent(in) :: qc_local(pcols,pver), qi_local(pcols,pver), nc_local(pcols,pver), ni_local(pcols,pver)
+  real(r8), intent(inout) :: tcwat_local(pcols,pver), qcwat_local(pcols,pver), lcwat_local(pcols,pver)
+  real(r8), intent(inout) :: iccwat_local(pcols,pver), nlwat_local(pcols,pver), niwat_local(pcols,pver)
+  real(r8), intent(inout) :: cc_t_local(pcols,pver), cc_qv_local(pcols,pver), cc_ql_local(pcols,pver), cc_qi_local(pcols,pver)
+  real(r8), intent(inout) :: cc_nl_local(pcols,pver), cc_ni_local(pcols,pver), cc_qlst_local(pcols,pver)
+  real(r8), intent(inout) :: ttend_local(pcols,pver), qtend_local(pcols,pver), ltend_local(pcols,pver), itend_local(pcols,pver)
+  real(r8), intent(inout) :: nltend_local(pcols,pver), nitend_local(pcols,pver), lmitend_local(pcols,pver)
+  real(r8), intent(inout) :: t_inout_local(pcols,pver), qv_inout_local(pcols,pver), ql_inout_local(pcols,pver)
+  real(r8), intent(inout) :: qi_inout_local(pcols,pver), nl_inout_local(pcols,pver), ni_inout_local(pcols,pver)
+  integer :: i, k
+
+  if( nstep_local .le. 1 ) then
+     tcwat_local(:ncol_local,:) = state_t_local(:ncol_local,:)
+     qcwat_local(:ncol_local,:) = state_qv_local(:ncol_local,:)
+     lcwat_local(:ncol_local,:) = qc_local(:ncol_local,:) + qi_local(:ncol_local,:)
+     iccwat_local(:ncol_local,:) = qi_local(:ncol_local,:)
+     nlwat_local(:ncol_local,:) = nc_local(:ncol_local,:)
+     niwat_local(:ncol_local,:) = ni_local(:ncol_local,:)
+     ttend_local(:ncol_local,:) = 0._r8
+     qtend_local(:ncol_local,:) = 0._r8
+     ltend_local(:ncol_local,:) = 0._r8
+     itend_local(:ncol_local,:) = 0._r8
+     nltend_local(:ncol_local,:) = 0._r8
+     nitend_local(:ncol_local,:) = 0._r8
+     cc_t_local(:ncol_local,:) = 0._r8
+     cc_qv_local(:ncol_local,:) = 0._r8
+     cc_ql_local(:ncol_local,:) = 0._r8
+     cc_qi_local(:ncol_local,:) = 0._r8
+     cc_nl_local(:ncol_local,:) = 0._r8
+     cc_ni_local(:ncol_local,:) = 0._r8
+     cc_qlst_local(:ncol_local,:) = 0._r8
+  else
+     ttend_local(:ncol_local,top_lev:pver) = ( state_t_local(:ncol_local,top_lev:pver) - tcwat_local(:ncol_local,top_lev:pver) ) * rdtime_local &
+          - cc_t_local(:ncol_local,top_lev:pver)
+     qtend_local(:ncol_local,top_lev:pver) = ( state_qv_local(:ncol_local,top_lev:pver) - qcwat_local(:ncol_local,top_lev:pver) ) * rdtime_local &
+          - cc_qv_local(:ncol_local,top_lev:pver)
+     ltend_local(:ncol_local,top_lev:pver) = ( qc_local(:ncol_local,top_lev:pver) + qi_local(:ncol_local,top_lev:pver) - lcwat_local(:ncol_local,top_lev:pver) ) * rdtime_local &
+          - (cc_ql_local(:ncol_local,top_lev:pver) + cc_qi_local(:ncol_local,top_lev:pver))
+     itend_local(:ncol_local,top_lev:pver) = ( qi_local(:ncol_local,top_lev:pver) - iccwat_local(:ncol_local,top_lev:pver) ) * rdtime_local &
+          - cc_qi_local(:ncol_local,top_lev:pver)
+     nltend_local(:ncol_local,top_lev:pver) = ( nc_local(:ncol_local,top_lev:pver) - nlwat_local(:ncol_local,top_lev:pver) ) * rdtime_local &
+          - cc_nl_local(:ncol_local,top_lev:pver)
+     nitend_local(:ncol_local,top_lev:pver) = ( ni_local(:ncol_local,top_lev:pver) - niwat_local(:ncol_local,top_lev:pver) ) * rdtime_local &
+          - cc_ni_local(:ncol_local,top_lev:pver)
+  endif
+
+  do k = top_lev, pver
+     do i = 1, ncol_local
+        lmitend_local(i,k) = ltend_local(i,k) - itend_local(i,k)
+        t_inout_local(i,k) = tcwat_local(i,k)
+        qv_inout_local(i,k) = qcwat_local(i,k)
+        ql_inout_local(i,k) = lcwat_local(i,k) - iccwat_local(i,k)
+        qi_inout_local(i,k) = iccwat_local(i,k)
+        nl_inout_local(i,k) = nlwat_local(i,k)
+        ni_inout_local(i,k) = niwat_local(i,k)
+     end do
+  end do
+
+end subroutine macrop_driver_forcing_prep_native
+
+!============================================================================ !
+
+subroutine macrop_driver_ptend_assign(ncol_local, tlat_local, qvlat_local, qcten_local, qiten_local, ncten_local, niten_local, &
+     ptend_s_local, ptend_qv_local, ptend_ql_local, ptend_qi_local, ptend_nl_local, ptend_ni_local)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  real(r8), target, intent(in) :: tlat_local(pcols,pver), qvlat_local(pcols,pver), qcten_local(pcols,pver)
+  real(r8), target, intent(in) :: qiten_local(pcols,pver), ncten_local(pcols,pver), niten_local(pcols,pver)
+  real(r8), target, intent(inout) :: ptend_s_local(pcols,pver), ptend_qv_local(pcols,pver), ptend_ql_local(pcols,pver)
+  real(r8), target, intent(inout) :: ptend_qi_local(pcols,pver), ptend_nl_local(pcols,pver), ptend_ni_local(pcols,pver)
+
+  interface
+     subroutine macrop_driver_ptend_assign_codon(ncol_c, pcols_c, pver_c, top_lev_c, tlat_p, qvlat_p, qcten_p, qiten_p, &
+          ncten_p, niten_p, ptend_s_p, ptend_qv_p, ptend_ql_p, ptend_qi_p, ptend_nl_p, ptend_ni_p) bind(c, name="macrop_driver_ptend_assign_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+       type(c_ptr), value :: tlat_p, qvlat_p, qcten_p, qiten_p, ncten_p, niten_p, ptend_s_p, ptend_qv_p
+       type(c_ptr), value :: ptend_ql_p, ptend_qi_p, ptend_nl_p, ptend_ni_p
+     end subroutine macrop_driver_ptend_assign_codon
+  end interface
+
+  if (use_native_impl) then
+     call macrop_driver_ptend_assign_native(ncol_local, tlat_local, qvlat_local, qcten_local, qiten_local, ncten_local, &
+          niten_local, ptend_s_local, ptend_qv_local, ptend_ql_local, ptend_qi_local, ptend_nl_local, ptend_ni_local)
+     return
+  end if
+
+  call macrop_driver_ptend_assign_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(top_lev, c_int64_t), c_loc(tlat_local), c_loc(qvlat_local), c_loc(qcten_local), c_loc(qiten_local), &
+       c_loc(ncten_local), c_loc(niten_local), c_loc(ptend_s_local), c_loc(ptend_qv_local), c_loc(ptend_ql_local), &
+       c_loc(ptend_qi_local), c_loc(ptend_nl_local), c_loc(ptend_ni_local))
+
+end subroutine macrop_driver_ptend_assign
+
+!============================================================================ !
+
+subroutine macrop_driver_ptend_assign_native(ncol_local, tlat_local, qvlat_local, qcten_local, qiten_local, ncten_local, &
+     niten_local, ptend_s_local, ptend_qv_local, ptend_ql_local, ptend_qi_local, ptend_nl_local, ptend_ni_local)
+
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  real(r8), intent(in) :: tlat_local(pcols,pver), qvlat_local(pcols,pver), qcten_local(pcols,pver), qiten_local(pcols,pver)
+  real(r8), intent(in) :: ncten_local(pcols,pver), niten_local(pcols,pver)
+  real(r8), intent(inout) :: ptend_s_local(pcols,pver), ptend_qv_local(pcols,pver), ptend_ql_local(pcols,pver)
+  real(r8), intent(inout) :: ptend_qi_local(pcols,pver), ptend_nl_local(pcols,pver), ptend_ni_local(pcols,pver)
+  integer :: i, k
+
+  do k = top_lev, pver
+     do i = 1, ncol_local
+        ptend_s_local(i,k) = tlat_local(i,k)
+        ptend_qv_local(i,k) = qvlat_local(i,k)
+        ptend_ql_local(i,k) = qcten_local(i,k)
+        ptend_qi_local(i,k) = qiten_local(i,k)
+        ptend_nl_local(i,k) = ncten_local(i,k)
+        ptend_ni_local(i,k) = niten_local(i,k)
+     end do
+  end do
+
+end subroutine macrop_driver_ptend_assign_native
+
+!============================================================================ !
+
+subroutine macrop_driver_wtrc_split_tend(ncol_local, qcten_local, qiten_local, pqctn_local, nqctn_local, pqitn_local, nqitn_local)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  real(r8), target, intent(in) :: qcten_local(pcols,pver), qiten_local(pcols,pver)
+  real(r8), target, intent(inout) :: pqctn_local(pcols,pver), nqctn_local(pcols,pver), pqitn_local(pcols,pver), nqitn_local(pcols,pver)
+
+  interface
+     subroutine macrop_driver_wtrc_split_tend_codon(ncol_c, pcols_c, pver_c, top_lev_c, qcten_p, qiten_p, pqctn_p, nqctn_p, &
+          pqitn_p, nqitn_p) bind(c, name="macrop_driver_wtrc_split_tend_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+       type(c_ptr), value :: qcten_p, qiten_p, pqctn_p, nqctn_p, pqitn_p, nqitn_p
+     end subroutine macrop_driver_wtrc_split_tend_codon
+  end interface
+
+  if (use_native_impl) then
+     call macrop_driver_wtrc_split_tend_native(ncol_local, qcten_local, qiten_local, pqctn_local, nqctn_local, pqitn_local, nqitn_local)
+     return
+  end if
+
+  call macrop_driver_wtrc_split_tend_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(top_lev, c_int64_t), c_loc(qcten_local), c_loc(qiten_local), c_loc(pqctn_local), c_loc(nqctn_local), &
+       c_loc(pqitn_local), c_loc(nqitn_local))
+
+end subroutine macrop_driver_wtrc_split_tend
+
+!============================================================================ !
+
+subroutine macrop_driver_wtrc_split_tend_native(ncol_local, qcten_local, qiten_local, pqctn_local, nqctn_local, pqitn_local, nqitn_local)
+
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  real(r8), intent(in) :: qcten_local(pcols,pver), qiten_local(pcols,pver)
+  real(r8), intent(inout) :: pqctn_local(pcols,pver), nqctn_local(pcols,pver), pqitn_local(pcols,pver), nqitn_local(pcols,pver)
+  integer :: i, k
+
+  do i = 1, ncol_local
+     do k = top_lev, pver
+        if(qcten_local(i,k) .lt. 0._r8) then
+          nqctn_local(i,k) = qcten_local(i,k)
+        else
+          pqctn_local(i,k) = qcten_local(i,k)
+        end if
+        if(qiten_local(i,k) .lt. 0._r8) then
+          nqitn_local(i,k) = qiten_local(i,k)
+        else
+          pqitn_local(i,k) = qiten_local(i,k)
+        end if
+     end do
+  end do
+
+end subroutine macrop_driver_wtrc_split_tend_native
+
+!============================================================================ !
+
+subroutine macrop_driver_cloud_mixing_diag(ncol_local, cld_local, state_ql_local, state_qi_local, mr_lsliq_local, mr_lsice_local)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  real(r8), target, intent(in) :: cld_local(pcols,pver), state_ql_local(pcols,pver), state_qi_local(pcols,pver)
+  real(r8), target, intent(inout) :: mr_lsliq_local(pcols,pver), mr_lsice_local(pcols,pver)
+
+  interface
+     subroutine macrop_driver_cloud_mixing_diag_codon(ncol_c, pcols_c, pver_c, top_lev_c, cld_p, state_ql_p, state_qi_p, &
+          mr_lsliq_p, mr_lsice_p) bind(c, name="macrop_driver_cloud_mixing_diag_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+       type(c_ptr), value :: cld_p, state_ql_p, state_qi_p, mr_lsliq_p, mr_lsice_p
+     end subroutine macrop_driver_cloud_mixing_diag_codon
+  end interface
+
+  if (use_native_impl) then
+     call macrop_driver_cloud_mixing_diag_native(ncol_local, cld_local, state_ql_local, state_qi_local, mr_lsliq_local, mr_lsice_local)
+     return
+  end if
+
+  call macrop_driver_cloud_mixing_diag_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(top_lev, c_int64_t), c_loc(cld_local), c_loc(state_ql_local), c_loc(state_qi_local), c_loc(mr_lsliq_local), &
+       c_loc(mr_lsice_local))
+
+end subroutine macrop_driver_cloud_mixing_diag
+
+!============================================================================ !
+
+subroutine macrop_driver_cloud_mixing_diag_native(ncol_local, cld_local, state_ql_local, state_qi_local, mr_lsliq_local, mr_lsice_local)
+
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  real(r8), intent(in) :: cld_local(pcols,pver), state_ql_local(pcols,pver), state_qi_local(pcols,pver)
+  real(r8), intent(inout) :: mr_lsliq_local(pcols,pver), mr_lsice_local(pcols,pver)
+  integer :: i, k
+
+  do k = top_lev, pver
+     do i = 1, ncol_local
+        if (cld_local(i,k) .gt. 0._r8) then
+           mr_lsliq_local(i,k) = state_ql_local(i,k)
+           mr_lsice_local(i,k) = state_qi_local(i,k)
+        else
+           mr_lsliq_local(i,k) = 0._r8
+           mr_lsice_local(i,k) = 0._r8
+        end if
+     end do
+  end do
+
+end subroutine macrop_driver_cloud_mixing_diag_native
+
+!============================================================================ !
+
+subroutine macrop_driver_store_state(ncol_local, state_t_local, state_qv_local, state_ql_local, state_qi_local, state_nl_local, &
+     state_ni_local, tcwat_local, qcwat_local, lcwat_local, iccwat_local, nlwat_local, niwat_local, cldsice_local)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  use physconst, only: tmelt
+  use ref_pres,  only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  real(r8), target, intent(in) :: state_t_local(pcols,pver), state_qv_local(pcols,pver), state_ql_local(pcols,pver)
+  real(r8), target, intent(in) :: state_qi_local(pcols,pver), state_nl_local(pcols,pver), state_ni_local(pcols,pver)
+  real(r8), target, intent(inout) :: tcwat_local(pcols,pver), qcwat_local(pcols,pver), lcwat_local(pcols,pver)
+  real(r8), target, intent(inout) :: iccwat_local(pcols,pver), nlwat_local(pcols,pver), niwat_local(pcols,pver)
+  real(r8), target, intent(inout) :: cldsice_local(pcols,pver)
+
+  interface
+     subroutine macrop_driver_store_state_codon(ncol_c, pcols_c, pver_c, top_lev_c, tmelt_c, state_t_p, state_qv_p, &
+          state_ql_p, state_qi_p, state_nl_p, state_ni_p, tcwat_p, qcwat_p, lcwat_p, iccwat_p, nlwat_p, niwat_p, &
+          cldsice_p) bind(c, name="macrop_driver_store_state_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+       real(c_double), value :: tmelt_c
+       type(c_ptr), value :: state_t_p, state_qv_p, state_ql_p, state_qi_p, state_nl_p, state_ni_p, tcwat_p, qcwat_p
+       type(c_ptr), value :: lcwat_p, iccwat_p, nlwat_p, niwat_p, cldsice_p
+     end subroutine macrop_driver_store_state_codon
+  end interface
+
+  if (use_native_impl) then
+     call macrop_driver_store_state_native(ncol_local, state_t_local, state_qv_local, state_ql_local, state_qi_local, &
+          state_nl_local, state_ni_local, tcwat_local, qcwat_local, lcwat_local, iccwat_local, nlwat_local, niwat_local, &
+          cldsice_local)
+     return
+  end if
+
+  call macrop_driver_store_state_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(top_lev, c_int64_t), tmelt, c_loc(state_t_local), c_loc(state_qv_local), c_loc(state_ql_local), c_loc(state_qi_local), &
+       c_loc(state_nl_local), c_loc(state_ni_local), c_loc(tcwat_local), c_loc(qcwat_local), c_loc(lcwat_local), &
+       c_loc(iccwat_local), c_loc(nlwat_local), c_loc(niwat_local), c_loc(cldsice_local))
+
+end subroutine macrop_driver_store_state
+
+!============================================================================ !
+
+subroutine macrop_driver_store_state_native(ncol_local, state_t_local, state_qv_local, state_ql_local, state_qi_local, state_nl_local, &
+     state_ni_local, tcwat_local, qcwat_local, lcwat_local, iccwat_local, nlwat_local, niwat_local, cldsice_local)
+
+  use physconst, only: tmelt
+  use ref_pres,  only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  real(r8), intent(in) :: state_t_local(pcols,pver), state_qv_local(pcols,pver), state_ql_local(pcols,pver)
+  real(r8), intent(in) :: state_qi_local(pcols,pver), state_nl_local(pcols,pver), state_ni_local(pcols,pver)
+  real(r8), intent(inout) :: tcwat_local(pcols,pver), qcwat_local(pcols,pver), lcwat_local(pcols,pver), iccwat_local(pcols,pver)
+  real(r8), intent(inout) :: nlwat_local(pcols,pver), niwat_local(pcols,pver), cldsice_local(pcols,pver)
+  integer :: i, k
+
+  do k = top_lev, pver
+     do i = 1, ncol_local
+        tcwat_local(i,k) = state_t_local(i,k)
+        qcwat_local(i,k) = state_qv_local(i,k)
+        lcwat_local(i,k) = state_ql_local(i,k) + state_qi_local(i,k)
+        iccwat_local(i,k) = state_qi_local(i,k)
+        nlwat_local(i,k) = state_nl_local(i,k)
+        niwat_local(i,k) = state_ni_local(i,k)
+        cldsice_local(i,k) = lcwat_local(i,k) * min(1.0_r8, max(0.0_r8, (tmelt - tcwat_local(i,k)) / 20._r8))
+     end do
+  end do
+
+end subroutine macrop_driver_store_state_native
+
 !============================================================================ !
 
 subroutine macrop_driver_select_impl()
