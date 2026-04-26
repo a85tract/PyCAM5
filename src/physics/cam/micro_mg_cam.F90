@@ -123,6 +123,9 @@ real(r8)          :: micro_mg_berg_eff_factor    = 1.0_r8        ! berg efficien
 logical, public :: do_cldliq ! Prognose cldliq flag
 logical, public :: do_cldice ! Prognose cldice flag
 
+logical :: use_native_postmg_diag_impl = .false.
+logical :: postmg_diag_impl_selected = .false.
+
 integer :: num_steps ! Number of MG substeps
 
 integer :: ncnst = 4       ! Number of constituents
@@ -2282,120 +2285,13 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
            " but micro_mg_tend has liquid number tendencies.")
    end if
 
-
-   mnuccdohet = 0._r8
-   do k=top_lev,pver
-      do i=1,ncol
-         if (naai(i,k) > 0._r8) then
-            mnuccdohet(i,k) = mnuccdo(i,k) - (naai_hom(i,k)/naai(i,k))*mnuccdo(i,k)
-         end if
-      end do
-   end do
-
-   mgflxprc(:ncol,top_lev:pverp) = rflx(:ncol,top_lev:pverp) + sflx(:ncol,top_lev:pverp)
-   mgflxsnw(:ncol,top_lev:pverp) = sflx(:ncol,top_lev:pverp)
-
-   mgmrprc(:ncol,top_lev:pver) = qrout(:ncol,top_lev:pver) + qsout(:ncol,top_lev:pver)
-   mgmrsnw(:ncol,top_lev:pver) = qsout(:ncol,top_lev:pver)
-
-   !! calculate effective radius of convective liquid and ice using dcon and deicon (not used by code, not useful for COSP)
-   !! hard-coded as average of hard-coded values used for deep/shallow convective detrainment (near line 1502/1505)
-   cvreffliq(:ncol,top_lev:pver) = 9.0_r8
-   cvreffice(:ncol,top_lev:pver) = 37.0_r8
-
-   ! Reassign rate1 if modal aerosols
-   if (rate1_cw2pr_st_idx > 0) then
-      rate1ord_cw2pr_st(:ncol,top_lev:pver) = rate1cld(:ncol,top_lev:pver)
-   end if
-
-   ! Sedimentation velocity for liquid stratus cloud droplet
-   wsedl(:ncol,top_lev:pver) = vtrmc(:ncol,top_lev:pver)
-
-   ! Microphysical tendencies for use in the macrophysics at the next time step
-   CC_T(:ncol,top_lev:pver)    =  tlat(:ncol,top_lev:pver)/cpair
-   CC_qv(:ncol,top_lev:pver)   = qvlat(:ncol,top_lev:pver)
-   CC_ql(:ncol,top_lev:pver)   = qcten(:ncol,top_lev:pver)
-   CC_qi(:ncol,top_lev:pver)   = qiten(:ncol,top_lev:pver)
-   CC_nl(:ncol,top_lev:pver)   = ncten(:ncol,top_lev:pver)
-   CC_ni(:ncol,top_lev:pver)   = niten(:ncol,top_lev:pver)
-   CC_qlst(:ncol,top_lev:pver) = qcten(:ncol,top_lev:pver)/max(0.01_r8,alst_mic(:ncol,top_lev:pver))
-
-   ! Net micro_mg_cam condensation rate
-   qme(:ncol,top_lev:pver) = cmeliq(:ncol,top_lev:pver) + cmeiout(:ncol,top_lev:pver)
-
-   ! For precip, accumulate only total precip in prec_pcw and snow_pcw variables.
-   ! Other precip output variables are set to 0
-   ! Do not subscript by ncol here, because in physpkg we divide the whole
-   ! array and need to avoid an FPE due to uninitialized data.
-   prec_pcw = prect
-   snow_pcw = preci
-   prec_sed = 0._r8
-   snow_sed = 0._r8
-   prec_str = prec_pcw + prec_sed
-   snow_str = snow_pcw + snow_sed
-
-   icecldf(:ncol,top_lev:pver) = ast(:ncol,top_lev:pver)
-   liqcldf(:ncol,top_lev:pver) = ast(:ncol,top_lev:pver)
-
-   ! ------------------------------------------------------------ !
-   ! Compute in cloud ice and liquid mixing ratios                !
-   ! Note that 'iclwp, iciwp' are used for radiation computation. !
-   ! ------------------------------------------------------------ !
-
-   icinc = 0._r8
-   icwnc = 0._r8
-   iciwpst = 0._r8
-   iclwpst = 0._r8
-   icswp = 0._r8
-   cldfsnow = 0._r8
-
-   do k = top_lev, pver
-      do i = 1, ncol
-         ! Limits for in-cloud mixing ratios consistent with MG microphysics
-         ! in-cloud mixing ratio maximum limit of 0.005 kg/kg
-         icimrst(i,k)   = min( state_loc%q(i,k,ixcldice) / max(mincld,icecldf(i,k)),0.005_r8 )
-         icwmrst(i,k)   = min( state_loc%q(i,k,ixcldliq) / max(mincld,liqcldf(i,k)),0.005_r8 )
-         icinc(i,k)     = state_loc%q(i,k,ixnumice) / max(mincld,icecldf(i,k)) * &
-              state_loc%pmid(i,k) / (287.15_r8*state_loc%t(i,k))
-         icwnc(i,k)     = state_loc%q(i,k,ixnumliq) / max(mincld,liqcldf(i,k)) * &
-              state_loc%pmid(i,k) / (287.15_r8*state_loc%t(i,k))
-         ! Calculate micro_mg_cam cloud water paths in each layer
-         ! Note: uses stratiform cloud fraction!
-         iciwpst(i,k)   = min(state_loc%q(i,k,ixcldice)/max(mincld,ast(i,k)),0.005_r8) * state_loc%pdel(i,k) / gravit
-         iclwpst(i,k)   = min(state_loc%q(i,k,ixcldliq)/max(mincld,ast(i,k)),0.005_r8) * state_loc%pdel(i,k) / gravit
-
-         ! ------------------------------ !
-         ! Adjust cloud fraction for snow !
-         ! ------------------------------ !
-         cldfsnow(i,k) = cld(i,k)
-         ! If cloud and only ice ( no convective cloud or ice ), then set to 0.
-         if( ( cldfsnow(i,k) .gt. 1.e-4_r8 ) .and. &
-            ( concld(i,k)   .lt. 1.e-4_r8 ) .and. &
-            ( state_loc%q(i,k,ixcldliq) .lt. 1.e-10_r8 ) ) then
-            cldfsnow(i,k) = 0._r8
-         end if
-         ! If no cloud and snow, then set to 0.25
-         if( ( cldfsnow(i,k) .le. 1.e-4_r8 ) .and. ( qsout(i,k) .gt. 1.e-6_r8 ) ) then
-            cldfsnow(i,k) = 0.25_r8
-         end if
-         ! Calculate in-cloud snow water path
-         icswp(i,k) = qsout(i,k) / max( mincld, cldfsnow(i,k) ) * state_loc%pdel(i,k) / gravit
-      end do
-   end do
-
-   ! Calculate cloud fraction for prognostic precip sizes.
-   if (micro_mg_version > 1) then
-      ! Cloud fraction for purposes of precipitation is maximum cloud
-      ! fraction out of all the layers that the precipitation may be
-      ! falling down from.
-      cldmax = max(mincld, ast)
-      do k = top_lev+1, pver
-         where (state_loc%q(:ncol,k-1,ixrain) >= qsmall .or. &
-              state_loc%q(:ncol,k-1,ixsnow) >= qsmall)
-            cldmax(:ncol,k) = max(cldmax(:ncol,k-1), cldmax(:ncol,k))
-         end where
-      end do
-   end if
+   call micro_mg_cam_postmg_diag(ncol, psetcols, micro_mg_version, rate1_cw2pr_st_idx, ixcldliq, ixcldice, ixnumliq, &
+        ixnumice, ixrain, ixsnow, state_loc%q, state_loc%t, state_loc%pmid, state_loc%pdel, naai, naai_hom, mnuccdo, &
+        rflx, sflx, qrout, qsout, prect, preci, rate1cld, vtrmc, tlat, qvlat, qcten, qiten, ncten, niten, alst_mic, &
+        cmeliq, cmeiout, ast, cld, concld, mnuccdohet, mgflxprc, mgflxsnw, mgmrprc, mgmrsnw, cvreffliq, cvreffice, &
+        rate1ord_cw2pr_st, wsedl, CC_T, CC_qv, CC_ql, CC_qi, CC_nl, CC_ni, CC_qlst, qme, prec_pcw, snow_pcw, prec_sed, &
+        snow_sed, prec_str, snow_str, icecldf, liqcldf, icinc, icwnc, iciwpst, iclwpst, icswp, cldfsnow, icimrst, &
+        icwmrst, cldmax)
 
    ! ------------------------------------------------------ !
    ! ------------------------------------------------------ !
@@ -3182,6 +3078,290 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    call physics_state_dealloc(state_loc)
 
 end subroutine micro_mg_cam_tend
+
+subroutine micro_mg_cam_select_postmg_diag_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (postmg_diag_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MICRO_MG_CAM_POSTMG_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_postmg_diag_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_postmg_diag_impl = .false.
+  end if
+
+  postmg_diag_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_postmg_diag_impl) then
+        write(iulog,*) 'micro_mg_cam_postmg_diag implementation = native'
+     else
+        write(iulog,*) 'micro_mg_cam_postmg_diag implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine micro_mg_cam_select_postmg_diag_impl
+
+subroutine micro_mg_cam_postmg_diag(ncol_local, psetcols_local, micro_mg_version_local, rate1_cw2pr_st_idx_local, &
+     ixcldliq_local, ixcldice_local, ixnumliq_local, ixnumice_local, ixrain_local, ixsnow_local, state_q_local, &
+     state_t_local, state_pmid_local, state_pdel_local, naai_local, naai_hom_local, mnuccdo_local, rflx_local, sflx_local, &
+     qrout_local, qsout_local, prect_local, preci_local, rate1cld_local, vtrmc_local, tlat_local, qvlat_local, qcten_local, &
+     qiten_local, ncten_local, niten_local, alst_mic_local, cmeliq_local, cmeiout_local, ast_local, cld_local, &
+     concld_local, mnuccdohet_local, mgflxprc_local, mgflxsnw_local, mgmrprc_local, mgmrsnw_local, cvreffliq_local, &
+     cvreffice_local, rate1ord_cw2pr_st_local, wsedl_local, cc_t_local, cc_qv_local, cc_ql_local, cc_qi_local, cc_nl_local, &
+     cc_ni_local, cc_qlst_local, qme_local, prec_pcw_local, snow_pcw_local, prec_sed_local, snow_sed_local, prec_str_local, &
+     snow_str_local, icecldf_local, liqcldf_local, icinc_local, icwnc_local, iciwpst_local, iclwpst_local, icswp_local, &
+     cldfsnow_local, icimrst_local, icwmrst_local, cldmax_local)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  use micro_mg_utils, only: qsmall, mincld
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local, psetcols_local, micro_mg_version_local, rate1_cw2pr_st_idx_local
+  integer, intent(in) :: ixcldliq_local, ixcldice_local, ixnumliq_local, ixnumice_local, ixrain_local, ixsnow_local
+  real(r8), target, intent(in) :: state_q_local(psetcols_local,pver,pcnst)
+  real(r8), target, intent(in) :: state_t_local(psetcols_local,pver), state_pmid_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: state_pdel_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: naai_local(psetcols_local,pver), naai_hom_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: mnuccdo_local(psetcols_local,pver), rflx_local(psetcols_local,pverp)
+  real(r8), target, intent(in) :: sflx_local(psetcols_local,pverp), qrout_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: qsout_local(psetcols_local,pver), prect_local(psetcols_local), preci_local(psetcols_local)
+  real(r8), target, intent(in) :: rate1cld_local(psetcols_local,pver), vtrmc_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: tlat_local(psetcols_local,pver), qvlat_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: qcten_local(psetcols_local,pver), qiten_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: ncten_local(psetcols_local,pver), niten_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: alst_mic_local(psetcols_local,pver), cmeliq_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: cmeiout_local(psetcols_local,pver), ast_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: cld_local(psetcols_local,pver), concld_local(psetcols_local,pver)
+  real(r8), target, intent(inout) :: mnuccdohet_local(psetcols_local,pver), mgflxprc_local(psetcols_local,pverp)
+  real(r8), target, intent(inout) :: mgflxsnw_local(psetcols_local,pverp), mgmrprc_local(psetcols_local,pver)
+  real(r8), target, intent(inout) :: mgmrsnw_local(psetcols_local,pver), cvreffliq_local(psetcols_local,pver)
+  real(r8), target, intent(inout) :: cvreffice_local(psetcols_local,pver), rate1ord_cw2pr_st_local(psetcols_local,pver)
+  real(r8), target, intent(inout) :: wsedl_local(psetcols_local,pver), cc_t_local(psetcols_local,pver)
+  real(r8), target, intent(inout) :: cc_qv_local(psetcols_local,pver), cc_ql_local(psetcols_local,pver)
+  real(r8), target, intent(inout) :: cc_qi_local(psetcols_local,pver), cc_nl_local(psetcols_local,pver)
+  real(r8), target, intent(inout) :: cc_ni_local(psetcols_local,pver), cc_qlst_local(psetcols_local,pver)
+  real(r8), target, intent(inout) :: qme_local(psetcols_local,pver), prec_pcw_local(psetcols_local)
+  real(r8), target, intent(inout) :: snow_pcw_local(psetcols_local), prec_sed_local(psetcols_local)
+  real(r8), target, intent(inout) :: snow_sed_local(psetcols_local), prec_str_local(psetcols_local)
+  real(r8), target, intent(inout) :: snow_str_local(psetcols_local), icecldf_local(psetcols_local,pver)
+  real(r8), target, intent(inout) :: liqcldf_local(psetcols_local,pver), icinc_local(psetcols_local,pver)
+  real(r8), target, intent(inout) :: icwnc_local(psetcols_local,pver), iciwpst_local(psetcols_local,pver)
+  real(r8), target, intent(inout) :: iclwpst_local(psetcols_local,pver), icswp_local(psetcols_local,pver)
+  real(r8), target, intent(inout) :: cldfsnow_local(psetcols_local,pver), icimrst_local(psetcols_local,pver)
+  real(r8), target, intent(inout) :: icwmrst_local(psetcols_local,pver), cldmax_local(psetcols_local,pver)
+
+  interface
+     subroutine micro_mg_cam_postmg_diag_codon(ncol_c, psetcols_c, pver_c, pverp_c, top_lev_c, micro_mg_version_c, &
+          rate1_cw2pr_st_idx_c, ixcldliq_c, ixcldice_c, ixnumliq_c, ixnumice_c, ixrain_c, ixsnow_c, cpair_c, gravit_c, &
+          mincld_c, qsmall_c, state_q_p, state_t_p, state_pmid_p, state_pdel_p, naai_p, naai_hom_p, mnuccdo_p, rflx_p, &
+          sflx_p, qrout_p, qsout_p, prect_p, preci_p, rate1cld_p, vtrmc_p, tlat_p, qvlat_p, qcten_p, qiten_p, ncten_p, &
+          niten_p, alst_mic_p, cmeliq_p, cmeiout_p, ast_p, cld_p, concld_p, mnuccdohet_p, mgflxprc_p, mgflxsnw_p, &
+          mgmrprc_p, mgmrsnw_p, cvreffliq_p, cvreffice_p, rate1ord_cw2pr_st_p, wsedl_p, cc_t_p, cc_qv_p, cc_ql_p, cc_qi_p, &
+          cc_nl_p, cc_ni_p, cc_qlst_p, qme_p, prec_pcw_p, snow_pcw_p, prec_sed_p, snow_sed_p, prec_str_p, snow_str_p, &
+          icecldf_p, liqcldf_p, icinc_p, icwnc_p, iciwpst_p, iclwpst_p, icswp_p, cldfsnow_p, icimrst_p, icwmrst_p, &
+          cldmax_p) bind(c, name="micro_mg_cam_postmg_diag_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, psetcols_c, pver_c, pverp_c, top_lev_c, micro_mg_version_c
+       integer(c_int64_t), value :: rate1_cw2pr_st_idx_c, ixcldliq_c, ixcldice_c, ixnumliq_c, ixnumice_c, ixrain_c
+       integer(c_int64_t), value :: ixsnow_c
+       real(c_double), value :: cpair_c, gravit_c, mincld_c, qsmall_c
+       type(c_ptr), value :: state_q_p, state_t_p, state_pmid_p, state_pdel_p, naai_p, naai_hom_p, mnuccdo_p, rflx_p
+       type(c_ptr), value :: sflx_p, qrout_p, qsout_p, prect_p, preci_p, rate1cld_p, vtrmc_p, tlat_p, qvlat_p, qcten_p
+       type(c_ptr), value :: qiten_p, ncten_p, niten_p, alst_mic_p, cmeliq_p, cmeiout_p, ast_p, cld_p, concld_p
+       type(c_ptr), value :: mnuccdohet_p, mgflxprc_p, mgflxsnw_p, mgmrprc_p, mgmrsnw_p, cvreffliq_p, cvreffice_p
+       type(c_ptr), value :: rate1ord_cw2pr_st_p, wsedl_p, cc_t_p, cc_qv_p, cc_ql_p, cc_qi_p, cc_nl_p, cc_ni_p
+       type(c_ptr), value :: cc_qlst_p, qme_p, prec_pcw_p, snow_pcw_p, prec_sed_p, snow_sed_p, prec_str_p, snow_str_p
+       type(c_ptr), value :: icecldf_p, liqcldf_p, icinc_p, icwnc_p, iciwpst_p, iclwpst_p, icswp_p, cldfsnow_p
+       type(c_ptr), value :: icimrst_p, icwmrst_p, cldmax_p
+     end subroutine micro_mg_cam_postmg_diag_codon
+  end interface
+
+  call micro_mg_cam_select_postmg_diag_impl()
+
+  if (use_native_postmg_diag_impl) then
+     call micro_mg_cam_postmg_diag_native(ncol_local, psetcols_local, micro_mg_version_local, rate1_cw2pr_st_idx_local, &
+          ixcldliq_local, ixcldice_local, ixnumliq_local, ixnumice_local, ixrain_local, ixsnow_local, state_q_local, &
+          state_t_local, state_pmid_local, state_pdel_local, naai_local, naai_hom_local, mnuccdo_local, rflx_local, &
+          sflx_local, qrout_local, qsout_local, prect_local, preci_local, rate1cld_local, vtrmc_local, tlat_local, &
+          qvlat_local, qcten_local, qiten_local, ncten_local, niten_local, alst_mic_local, cmeliq_local, cmeiout_local, &
+          ast_local, cld_local, concld_local, mnuccdohet_local, mgflxprc_local, mgflxsnw_local, mgmrprc_local, &
+          mgmrsnw_local, cvreffliq_local, cvreffice_local, rate1ord_cw2pr_st_local, wsedl_local, cc_t_local, cc_qv_local, &
+          cc_ql_local, cc_qi_local, cc_nl_local, cc_ni_local, cc_qlst_local, qme_local, prec_pcw_local, snow_pcw_local, &
+          prec_sed_local, snow_sed_local, prec_str_local, snow_str_local, icecldf_local, liqcldf_local, icinc_local, &
+          icwnc_local, iciwpst_local, iclwpst_local, icswp_local, cldfsnow_local, icimrst_local, icwmrst_local, cldmax_local)
+     return
+  end if
+
+  call micro_mg_cam_postmg_diag_codon(int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), int(pver, c_int64_t), &
+       int(pverp, c_int64_t), int(top_lev, c_int64_t), int(micro_mg_version_local, c_int64_t), &
+       int(rate1_cw2pr_st_idx_local, c_int64_t), int(ixcldliq_local, c_int64_t), int(ixcldice_local, c_int64_t), &
+       int(ixnumliq_local, c_int64_t), int(ixnumice_local, c_int64_t), int(ixrain_local, c_int64_t), &
+       int(ixsnow_local, c_int64_t), cpair, gravit, mincld, qsmall, c_loc(state_q_local), c_loc(state_t_local), &
+       c_loc(state_pmid_local), c_loc(state_pdel_local), c_loc(naai_local), c_loc(naai_hom_local), c_loc(mnuccdo_local), &
+       c_loc(rflx_local), c_loc(sflx_local), c_loc(qrout_local), c_loc(qsout_local), c_loc(prect_local), c_loc(preci_local), &
+       c_loc(rate1cld_local), c_loc(vtrmc_local), c_loc(tlat_local), c_loc(qvlat_local), c_loc(qcten_local), &
+       c_loc(qiten_local), c_loc(ncten_local), c_loc(niten_local), c_loc(alst_mic_local), c_loc(cmeliq_local), &
+       c_loc(cmeiout_local), c_loc(ast_local), c_loc(cld_local), c_loc(concld_local), c_loc(mnuccdohet_local), &
+       c_loc(mgflxprc_local), c_loc(mgflxsnw_local), c_loc(mgmrprc_local), c_loc(mgmrsnw_local), c_loc(cvreffliq_local), &
+       c_loc(cvreffice_local), c_loc(rate1ord_cw2pr_st_local), c_loc(wsedl_local), c_loc(cc_t_local), c_loc(cc_qv_local), &
+       c_loc(cc_ql_local), c_loc(cc_qi_local), c_loc(cc_nl_local), c_loc(cc_ni_local), c_loc(cc_qlst_local), c_loc(qme_local), &
+       c_loc(prec_pcw_local), c_loc(snow_pcw_local), c_loc(prec_sed_local), c_loc(snow_sed_local), c_loc(prec_str_local), &
+       c_loc(snow_str_local), c_loc(icecldf_local), c_loc(liqcldf_local), c_loc(icinc_local), c_loc(icwnc_local), &
+       c_loc(iciwpst_local), c_loc(iclwpst_local), c_loc(icswp_local), c_loc(cldfsnow_local), c_loc(icimrst_local), &
+       c_loc(icwmrst_local), c_loc(cldmax_local))
+
+end subroutine micro_mg_cam_postmg_diag
+
+subroutine micro_mg_cam_postmg_diag_native(ncol_local, psetcols_local, micro_mg_version_local, rate1_cw2pr_st_idx_local, &
+     ixcldliq_local, ixcldice_local, ixnumliq_local, ixnumice_local, ixrain_local, ixsnow_local, state_q_local, &
+     state_t_local, state_pmid_local, state_pdel_local, naai_local, naai_hom_local, mnuccdo_local, rflx_local, sflx_local, &
+     qrout_local, qsout_local, prect_local, preci_local, rate1cld_local, vtrmc_local, tlat_local, qvlat_local, qcten_local, &
+     qiten_local, ncten_local, niten_local, alst_mic_local, cmeliq_local, cmeiout_local, ast_local, cld_local, &
+     concld_local, mnuccdohet_local, mgflxprc_local, mgflxsnw_local, mgmrprc_local, mgmrsnw_local, cvreffliq_local, &
+     cvreffice_local, rate1ord_cw2pr_st_local, wsedl_local, cc_t_local, cc_qv_local, cc_ql_local, cc_qi_local, cc_nl_local, &
+     cc_ni_local, cc_qlst_local, qme_local, prec_pcw_local, snow_pcw_local, prec_sed_local, snow_sed_local, prec_str_local, &
+     snow_str_local, icecldf_local, liqcldf_local, icinc_local, icwnc_local, iciwpst_local, iclwpst_local, icswp_local, &
+     cldfsnow_local, icimrst_local, icwmrst_local, cldmax_local)
+
+  use micro_mg_utils, only: qsmall, mincld
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local, psetcols_local, micro_mg_version_local, rate1_cw2pr_st_idx_local
+  integer, intent(in) :: ixcldliq_local, ixcldice_local, ixnumliq_local, ixnumice_local, ixrain_local, ixsnow_local
+  real(r8), intent(in) :: state_q_local(psetcols_local,pver,pcnst)
+  real(r8), intent(in) :: state_t_local(psetcols_local,pver), state_pmid_local(psetcols_local,pver)
+  real(r8), intent(in) :: state_pdel_local(psetcols_local,pver)
+  real(r8), intent(in) :: naai_local(psetcols_local,pver), naai_hom_local(psetcols_local,pver)
+  real(r8), intent(in) :: mnuccdo_local(psetcols_local,pver), rflx_local(psetcols_local,pverp)
+  real(r8), intent(in) :: sflx_local(psetcols_local,pverp), qrout_local(psetcols_local,pver)
+  real(r8), intent(in) :: qsout_local(psetcols_local,pver), prect_local(psetcols_local), preci_local(psetcols_local)
+  real(r8), intent(in) :: rate1cld_local(psetcols_local,pver), vtrmc_local(psetcols_local,pver)
+  real(r8), intent(in) :: tlat_local(psetcols_local,pver), qvlat_local(psetcols_local,pver)
+  real(r8), intent(in) :: qcten_local(psetcols_local,pver), qiten_local(psetcols_local,pver)
+  real(r8), intent(in) :: ncten_local(psetcols_local,pver), niten_local(psetcols_local,pver)
+  real(r8), intent(in) :: alst_mic_local(psetcols_local,pver), cmeliq_local(psetcols_local,pver)
+  real(r8), intent(in) :: cmeiout_local(psetcols_local,pver), ast_local(psetcols_local,pver)
+  real(r8), intent(in) :: cld_local(psetcols_local,pver), concld_local(psetcols_local,pver)
+  real(r8), intent(inout) :: mnuccdohet_local(psetcols_local,pver), mgflxprc_local(psetcols_local,pverp)
+  real(r8), intent(inout) :: mgflxsnw_local(psetcols_local,pverp), mgmrprc_local(psetcols_local,pver)
+  real(r8), intent(inout) :: mgmrsnw_local(psetcols_local,pver), cvreffliq_local(psetcols_local,pver)
+  real(r8), intent(inout) :: cvreffice_local(psetcols_local,pver), rate1ord_cw2pr_st_local(psetcols_local,pver)
+  real(r8), intent(inout) :: wsedl_local(psetcols_local,pver), cc_t_local(psetcols_local,pver)
+  real(r8), intent(inout) :: cc_qv_local(psetcols_local,pver), cc_ql_local(psetcols_local,pver)
+  real(r8), intent(inout) :: cc_qi_local(psetcols_local,pver), cc_nl_local(psetcols_local,pver)
+  real(r8), intent(inout) :: cc_ni_local(psetcols_local,pver), cc_qlst_local(psetcols_local,pver)
+  real(r8), intent(inout) :: qme_local(psetcols_local,pver), prec_pcw_local(psetcols_local)
+  real(r8), intent(inout) :: snow_pcw_local(psetcols_local), prec_sed_local(psetcols_local)
+  real(r8), intent(inout) :: snow_sed_local(psetcols_local), prec_str_local(psetcols_local)
+  real(r8), intent(inout) :: snow_str_local(psetcols_local), icecldf_local(psetcols_local,pver)
+  real(r8), intent(inout) :: liqcldf_local(psetcols_local,pver), icinc_local(psetcols_local,pver)
+  real(r8), intent(inout) :: icwnc_local(psetcols_local,pver), iciwpst_local(psetcols_local,pver)
+  real(r8), intent(inout) :: iclwpst_local(psetcols_local,pver), icswp_local(psetcols_local,pver)
+  real(r8), intent(inout) :: cldfsnow_local(psetcols_local,pver), icimrst_local(psetcols_local,pver)
+  real(r8), intent(inout) :: icwmrst_local(psetcols_local,pver), cldmax_local(psetcols_local,pver)
+  integer :: i, k
+
+  mnuccdohet_local = 0._r8
+  do k = top_lev, pver
+     do i = 1, ncol_local
+        if (naai_local(i,k) > 0._r8) then
+           mnuccdohet_local(i,k) = mnuccdo_local(i,k) - (naai_hom_local(i,k)/naai_local(i,k))*mnuccdo_local(i,k)
+        end if
+     end do
+  end do
+
+  mgflxprc_local(:ncol_local,top_lev:pverp) = rflx_local(:ncol_local,top_lev:pverp) + sflx_local(:ncol_local,top_lev:pverp)
+  mgflxsnw_local(:ncol_local,top_lev:pverp) = sflx_local(:ncol_local,top_lev:pverp)
+
+  mgmrprc_local(:ncol_local,top_lev:pver) = qrout_local(:ncol_local,top_lev:pver) + qsout_local(:ncol_local,top_lev:pver)
+  mgmrsnw_local(:ncol_local,top_lev:pver) = qsout_local(:ncol_local,top_lev:pver)
+
+  cvreffliq_local(:ncol_local,top_lev:pver) = 9.0_r8
+  cvreffice_local(:ncol_local,top_lev:pver) = 37.0_r8
+
+  if (rate1_cw2pr_st_idx_local > 0) then
+     rate1ord_cw2pr_st_local(:ncol_local,top_lev:pver) = rate1cld_local(:ncol_local,top_lev:pver)
+  end if
+
+  wsedl_local(:ncol_local,top_lev:pver) = vtrmc_local(:ncol_local,top_lev:pver)
+
+  cc_t_local(:ncol_local,top_lev:pver)    = tlat_local(:ncol_local,top_lev:pver)/cpair
+  cc_qv_local(:ncol_local,top_lev:pver)   = qvlat_local(:ncol_local,top_lev:pver)
+  cc_ql_local(:ncol_local,top_lev:pver)   = qcten_local(:ncol_local,top_lev:pver)
+  cc_qi_local(:ncol_local,top_lev:pver)   = qiten_local(:ncol_local,top_lev:pver)
+  cc_nl_local(:ncol_local,top_lev:pver)   = ncten_local(:ncol_local,top_lev:pver)
+  cc_ni_local(:ncol_local,top_lev:pver)   = niten_local(:ncol_local,top_lev:pver)
+  cc_qlst_local(:ncol_local,top_lev:pver) = qcten_local(:ncol_local,top_lev:pver) / &
+       max(0.01_r8, alst_mic_local(:ncol_local,top_lev:pver))
+
+  qme_local(:ncol_local,top_lev:pver) = cmeliq_local(:ncol_local,top_lev:pver) + cmeiout_local(:ncol_local,top_lev:pver)
+
+  prec_pcw_local = prect_local
+  snow_pcw_local = preci_local
+  prec_sed_local = 0._r8
+  snow_sed_local = 0._r8
+  prec_str_local = prec_pcw_local + prec_sed_local
+  snow_str_local = snow_pcw_local + snow_sed_local
+
+  icecldf_local(:ncol_local,top_lev:pver) = ast_local(:ncol_local,top_lev:pver)
+  liqcldf_local(:ncol_local,top_lev:pver) = ast_local(:ncol_local,top_lev:pver)
+
+  icinc_local = 0._r8
+  icwnc_local = 0._r8
+  iciwpst_local = 0._r8
+  iclwpst_local = 0._r8
+  icswp_local = 0._r8
+  cldfsnow_local = 0._r8
+
+  do k = top_lev, pver
+     do i = 1, ncol_local
+        icimrst_local(i,k) = min(state_q_local(i,k,ixcldice_local) / max(mincld,icecldf_local(i,k)), 0.005_r8)
+        icwmrst_local(i,k) = min(state_q_local(i,k,ixcldliq_local) / max(mincld,liqcldf_local(i,k)), 0.005_r8)
+        icinc_local(i,k) = state_q_local(i,k,ixnumice_local) / max(mincld,icecldf_local(i,k)) * state_pmid_local(i,k) / &
+             (287.15_r8*state_t_local(i,k))
+        icwnc_local(i,k) = state_q_local(i,k,ixnumliq_local) / max(mincld,liqcldf_local(i,k)) * state_pmid_local(i,k) / &
+             (287.15_r8*state_t_local(i,k))
+        iciwpst_local(i,k) = min(state_q_local(i,k,ixcldice_local) / max(mincld,ast_local(i,k)), 0.005_r8) * &
+             state_pdel_local(i,k) / gravit
+        iclwpst_local(i,k) = min(state_q_local(i,k,ixcldliq_local) / max(mincld,ast_local(i,k)), 0.005_r8) * &
+             state_pdel_local(i,k) / gravit
+
+        cldfsnow_local(i,k) = cld_local(i,k)
+        if ((cldfsnow_local(i,k) .gt. 1.e-4_r8) .and. (concld_local(i,k) .lt. 1.e-4_r8) .and. &
+             (state_q_local(i,k,ixcldliq_local) .lt. 1.e-10_r8)) then
+           cldfsnow_local(i,k) = 0._r8
+        end if
+        if ((cldfsnow_local(i,k) .le. 1.e-4_r8) .and. (qsout_local(i,k) .gt. 1.e-6_r8)) then
+           cldfsnow_local(i,k) = 0.25_r8
+        end if
+        icswp_local(i,k) = qsout_local(i,k) / max(mincld, cldfsnow_local(i,k)) * state_pdel_local(i,k) / gravit
+     end do
+  end do
+
+  if (micro_mg_version_local > 1) then
+     cldmax_local = max(mincld, ast_local)
+     do k = top_lev+1, pver
+        where (state_q_local(:ncol_local,k-1,ixrain_local) >= qsmall .or. &
+             state_q_local(:ncol_local,k-1,ixsnow_local) >= qsmall)
+           cldmax_local(:ncol_local,k) = max(cldmax_local(:ncol_local,k-1), cldmax_local(:ncol_local,k))
+        end where
+     end do
+  end if
+
+end subroutine micro_mg_cam_postmg_diag_native
 
 function p1(tin) result(pout)
   real(r8), target, intent(in) :: tin(:)

@@ -96,6 +96,7 @@ def _build_cam():
         _build_codon_lib(srcroot, "mo_lightning")
         _build_codon_lib(srcroot, "microp_driver")
         _build_codon_lib(srcroot, "microp_aero")
+        _build_codon_lib(srcroot, "micro_mg_cam")
         _build_codon_lib(srcroot, "macrop_driver")
         _build_codon_lib(srcroot, "cloud_fraction")
         _build_codon_lib(srcroot, "water_tracers")
