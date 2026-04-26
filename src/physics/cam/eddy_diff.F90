@@ -988,6 +988,13 @@
        saved_caleddy_impl_selected = caleddy_impl_selected
        use_native_caleddy_impl = use_native_compute_path
        caleddy_impl_selected = .true.
+       if (iturb .eq. 1 .and. masterproc) then
+          if (use_native_compute_path) then
+             call eddy_diff_append_impl_trace('eddy_diff_caleddy implementation = native')
+          else
+             call eddy_diff_append_impl_trace('eddy_diff_caleddy implementation = codon')
+          end if
+       end if
        call caleddy( pcols     , pver      , ncol      ,                     &
                      slfd      , qtfd      , qlfd      , slv      ,ufd     , &
                      vfd       , pi        , z         , zi       ,          &
@@ -7486,8 +7493,12 @@
     if (masterproc) then
        if (use_native_caleddy_impl) then
           write(iulog,*) 'eddy_diff_caleddy implementation = native'
+          write(*,*) 'eddy_diff_caleddy implementation = native'
+          call eddy_diff_append_impl_trace('eddy_diff_caleddy implementation = native')
        else
           write(iulog,*) 'eddy_diff_caleddy implementation = codon'
+          write(*,*) 'eddy_diff_caleddy implementation = codon'
+          call eddy_diff_append_impl_trace('eddy_diff_caleddy implementation = codon')
        end if
     end if
 
@@ -7814,6 +7825,7 @@
     integer(i4), target :: belongcv_mask_local(pver+1), stlmask_local(pver+1), zero_tke_mask_local(pver+1)
     integer(i4), target :: extend_codon, extend_up_codon, extend_dn_codon, zisocl_status_codon
     integer(i4), target :: ncvsurf_codon, srcl_status_codon, closure_status_local(3), caleddy_status_local(3)
+    integer(i4) :: stable_config_status_local
 
     interface
        subroutine eddy_diff_caleddy_codon(pcols_c, pver_c, ncol_c, ncvmax_c, ntop_turb_c, nbot_turb_c, qrlzero_mode_c, &
@@ -7865,7 +7877,18 @@
     ! For an extended stability function in the stable regime, re-define
     ! alph4exe and ghmin. This is for future work.
 
-    call eddy_diff_caleddy_stable_config(ricrit, b1, alph2, alph3, alph4, alph5, alph4exs, ghmin)
+    call caleddy_select_impl()
+
+    if (use_native_caleddy_impl) then
+       call eddy_diff_caleddy_stable_config_native(ricrit, b1, alph2, alph3, alph4, alph5, alph4exs, ghmin, &
+            stable_config_status_local)
+       if (stable_config_status_local .ne. 0_i4) then
+          write(iulog,*) 'Error : ricrit should be larger than 0.19 in UW PBL'
+          call endrun('CALEDDY Error: ricrit should be larger than 0.19 in UW PBL')
+       end if
+    else
+       call eddy_diff_caleddy_stable_config(ricrit, b1, alph2, alph3, alph4, alph5, alph4exs, ghmin)
+    end if
 
     tunl_mode = 0
     if( choice_tunl .eq. 'rampcl' ) then
@@ -7940,73 +7963,29 @@
         srcl_mode = 2
     end if
 
-    call caleddy_select_impl()
-
-    if (.not. use_native_caleddy_impl) then
-       extend_codon = 0_i4
-       extend_up_codon = 0_i4
-       extend_dn_codon = 0_i4
-       zisocl_status_codon = 0_i4
-       ncvsurf_codon = 0_i4
-       srcl_status_codon = 0_i4
-       closure_status_local = 0_i4
-       caleddy_status_local = 0_i4
-
-       call eddy_diff_caleddy_codon(int(pcols, c_int64_t), int(pver, c_int64_t), int(ncol, c_int64_t), &
-            int(ncvmax, c_int64_t), int(ntop_turb, c_int64_t), int(nbot_turb, c_int64_t), int(qrlzero_mode, c_int64_t), &
-            int(cldeff_mode, c_int64_t), int(tkes_mode, c_int64_t), int(use_kvf_mode, c_int64_t), &
-            int(tunl_mode, c_int64_t), int(leng_mode, c_int64_t), int(evhc_mode, c_int64_t), &
-            int(wstarent_mode, c_int64_t), int(sedfact_mode, c_int64_t), int(srcl_mode, c_int64_t), &
-            int(radf_mode, c_int64_t), int(use_dw_surf_mode, c_int64_t), int(choice_tkes_ebprod_mode, c_int64_t), qmin, &
-            ricrit, b1, vk, ntzero, alph1, alph2, alph3, alph4, alph5, alph4exs, ghmin, tunl, ctunl, cleng, lbulk_max, &
-            tkemax, rinc, ae, a1l, a1i, ccrit, wstar3factcrit, onet, rcapmin, rcapmax, wfac, wpertmin, tfac, g, cpair, &
-            latvap, a2l, a3l, jbumin, evhcmax, ased, fak, c_loc(sl), c_loc(qt), c_loc(ql), c_loc(slv), c_loc(u), &
-            c_loc(v), c_loc(pi), c_loc(z), c_loc(zi), c_loc(qflx), c_loc(shflx), c_loc(slslope), c_loc(qtslope), &
-            c_loc(chu), c_loc(chs), c_loc(cmu), c_loc(cms), c_loc(sfuh), c_loc(sflh), c_loc(n2), c_loc(s2), c_loc(ri), &
-            c_loc(rrho), c_loc(pblh), c_loc(ustar), c_loc(kvh_in), c_loc(kvm_in), c_loc(kvh), c_loc(kvm), c_loc(tpert), &
-            c_loc(qpert), c_loc(qrlin), c_loc(kvf), c_loc(tke), c_loc(bprod), c_loc(sprod), c_loc(wpert), c_loc(tkes), &
-            c_loc(went), c_loc(turbtype), c_loc(sm_aw), c_loc(kbase_o), c_loc(ktop_o), c_loc(ncvfin_o), c_loc(kbase_mg), &
-            c_loc(ktop_mg), c_loc(ncvfin_mg), c_loc(kbase_f), c_loc(ktop_f), c_loc(ncvfin_f), c_loc(wet_CL), &
-            c_loc(web_CL), c_loc(jtbu_CL), c_loc(jbbu_CL), c_loc(evhc_CL), c_loc(jt2slv_CL), c_loc(n2ht_CL), &
-            c_loc(n2hb_CL), c_loc(lwp_CL), c_loc(opt_depth_CL), c_loc(radinvfrac_CL), c_loc(radf_CL), c_loc(wstar_CL), &
-            c_loc(wstar3fact_CL), c_loc(ebrk), c_loc(wbrk), c_loc(lbrk), c_loc(ricl), c_loc(ghcl), c_loc(shcl), &
-            c_loc(smcl), c_loc(gh_a), c_loc(sh_a), c_loc(sm_a), c_loc(ri_a), c_loc(leng), c_loc(wcap), c_loc(pblhp), &
-            c_loc(cld), c_loc(ipbl), c_loc(kpblh), c_loc(wsedl), c_loc(wsed_CL), c_loc(leng_max), c_loc(qrlw), &
-            c_loc(cldeff), c_loc(bflxs), c_loc(ncvfin), c_loc(kbase), c_loc(ktop), c_loc(belongcv_mask_local), &
-            c_loc(stlmask_local), c_loc(extend_codon), c_loc(extend_up_codon), c_loc(extend_dn_codon), &
-            c_loc(zisocl_status_codon), c_loc(ncvsurf_codon), c_loc(srcl_status_codon), c_loc(zero_tke_mask_local), &
-            c_loc(closure_status_local), c_loc(caleddy_status_local))
-
-       if (caleddy_status_local(1) .eq. 1_i4) then
-          if (caleddy_status_local(2) .eq. 1_i4) then
-             write(iulog,*) 'zisocl: Error: Tried to extend CL to the model top'
-             call endrun('zisocl: Error: Tried to extend CL to the model top')
-          elseif (caleddy_status_local(2) .eq. 2_i4) then
-             write(iulog,*) 'Major mistake zisocl: the CL based at surface is not indexed 1'
-             call endrun('Major mistake zisocl: the CL based at surface is not indexed 1')
-          else
-             call endrun('CALEDDY Error: unexpected zisocl status in Codon shell')
-          end if
-       elseif (caleddy_status_local(1) .eq. 2_i4) then
-          write(iulog,*) 'CALEDDY: Major mistake in SRCL: bflxs > 0 for surface-based SRCL'
-          write(iulog,*) 'column = ', caleddy_status_local(3)
-          call endrun('CALEDDY: Major mistake in SRCL: bflxs > 0 for surface-based SRCL')
-       end if
-
-       return
+    if (use_native_caleddy_impl) then
+       call eddy_diff_caleddy_init_native(ncol, pcols, pver, qrlzero_mode, cldeff_mode, tkes_mode, use_kvf_mode, qmin, vk, &
+            ql, qrlin, cld, kvf, kvh_in, kvm_in, n2, s2, shflx, qflx, rrho, ustar, z, chu, chs, cmu, cms, sflh, qrlw, &
+            cldeff, kvh, kvm, bflxs, bprod, sprod, wcap, leng, tke, turbtype)
+    else
+       call eddy_diff_caleddy_init(ncol, pcols, pver, qrlzero_mode, cldeff_mode, tkes_mode, use_kvf_mode, qmin, vk, ql, &
+            qrlin, cld, kvf, kvh_in, kvm_in, n2, s2, shflx, qflx, rrho, ustar, z, chu, chs, cmu, cms, sflh, qrlw, cldeff, &
+            kvh, kvm, bflxs, bprod, sprod, wcap, leng, tke, turbtype)
     end if
-
-    call eddy_diff_caleddy_init(ncol, pcols, pver, qrlzero_mode, cldeff_mode, tkes_mode, use_kvf_mode, qmin, vk, ql, qrlin, &
-         cld, kvf, kvh_in, kvm_in, n2, s2, shflx, qflx, rrho, ustar, z, chu, chs, cmu, cms, sflh, qrlw, cldeff, kvh, kvm, &
-         bflxs, bprod, sprod, wcap, leng, tke, turbtype)
 
     !
     ! Initialization of Diagnostic Output
     !
 
-    call eddy_diff_caleddy_diaginit(ncol, pcols, pver, ncvmax, went, wet_CL, web_CL, jtbu_CL, jbbu_CL, evhc_CL, &
-         jt2slv_CL, n2ht_CL, n2hb_CL, lwp_CL, opt_depth_CL, radinvfrac_CL, radf_CL, wstar_CL, wstar3fact_CL, ricl, ghcl, &
-         shcl, smcl, ebrk, wbrk, lbrk, gh_a, sh_a, sm_a, ri_a, sm_aw, ipbl, kpblh, wsed_CL)
+    if (use_native_caleddy_impl) then
+       call eddy_diff_caleddy_diaginit_native(ncol, pcols, pver, ncvmax, went, wet_CL, web_CL, jtbu_CL, jbbu_CL, evhc_CL, &
+            jt2slv_CL, n2ht_CL, n2hb_CL, lwp_CL, opt_depth_CL, radinvfrac_CL, radf_CL, wstar_CL, wstar3fact_CL, ricl, ghcl, &
+            shcl, smcl, ebrk, wbrk, lbrk, gh_a, sh_a, sm_a, ri_a, sm_aw, ipbl, kpblh, wsed_CL)
+    else
+       call eddy_diff_caleddy_diaginit(ncol, pcols, pver, ncvmax, went, wet_CL, web_CL, jtbu_CL, jbbu_CL, evhc_CL, &
+            jt2slv_CL, n2ht_CL, n2hb_CL, lwp_CL, opt_depth_CL, radinvfrac_CL, radf_CL, wstar_CL, wstar3fact_CL, ricl, ghcl, &
+            shcl, smcl, ebrk, wbrk, lbrk, gh_a, sh_a, sm_a, ri_a, sm_aw, ipbl, kpblh, wsed_CL)
+    end if
 
     ! Initially identify CL regimes in 'exacol'
     !    ktop  : Interface index of the CL top  external interface
@@ -8020,12 +7999,20 @@
     ! intereface (STL) as shown at the end of 'caleddy'. Even though a 'minpblh' is
     ! passed into 'exacol', it is not used in the 'exacol'.
 
-    call exacol( pcols, pver, ncol, ri, bflxs, minpblh, zi, ktop, kbase, ncvfin )
+    if (use_native_caleddy_impl) then
+       call exacol_native(pcols, pver, ncol, ri, bflxs, minpblh, zi, ktop, kbase, ncvfin)
+    else
+       call exacol(pcols, pver, ncol, ri, bflxs, minpblh, zi, ktop, kbase, ncvfin)
+    end if
 
     ! Diagnostic output of CL interface indices before performing 'extending-merging'
     ! of CL regimes in 'zisocl'
     do i = 1, ncol
-       call eddy_diff_caleddy_regime_diag(i, pcols, ncvmax, kbase, ktop, ncvfin, kbase_o, ktop_o, ncvfin_o)
+       if (use_native_caleddy_impl) then
+          call eddy_diff_caleddy_regime_diag_native(i, pcols, ncvmax, kbase, ktop, ncvfin, kbase_o, ktop_o, ncvfin_o)
+       else
+          call eddy_diff_caleddy_regime_diag(i, pcols, ncvmax, kbase, ktop, ncvfin, kbase_o, ktop_o, ncvfin_o)
+       end if
     end do
 
     ! ----------------------------------- !
@@ -8051,7 +8038,11 @@
        ! other parts of the code also.
   
      ! tkes(i) = (b1*vk*z(i,pver)*sprod(i,pver+1))**(2._r8/3._r8)
-       call eddy_diff_caleddy_surface_tke(i, pcols, pver, b1, vk, tkemax, z, bprod, sprod, tkes, tke, wcap)
+       if (use_native_caleddy_impl) then
+          call eddy_diff_caleddy_surface_tke_native(i, pcols, pver, b1, vk, tkemax, z, bprod, sprod, tkes, tke, wcap)
+       else
+          call eddy_diff_caleddy_surface_tke(i, pcols, pver, b1, vk, tkemax, z, bprod, sprod, tkes, tke, wcap)
+       end if
 
        ! Extend and merge the initially identified CLs, relabel the CLs, and calculate
        ! CL internal mean energetics and stability functions in 'zisocl'. 
@@ -8084,13 +8075,18 @@
 
        ncvsurf = 0
        if( ncvfin(i) .gt. 0 ) then 
-           call zisocl( pcols  , pver     , i        ,           &
-                        z      , zi       , n2       , s2      , & 
-                        bprod  , sprod    , bflxs    , tkes    , &
-                        ncvfin , kbase    , ktop     , belongcv, &
-                        ricl   , ghcl     , shcl     , smcl    , & 
-                        lbrk   , wbrk     , ebrk     ,           & 
-                        extend , extend_up, extend_dn )
+           if (use_native_caleddy_impl) then
+              call zisocl_native(pcols, pver, i, z, zi, n2, s2, bprod, sprod, bflxs, tkes, ncvfin, kbase, ktop, belongcv, &
+                   ricl, ghcl, shcl, smcl, lbrk, wbrk, ebrk, extend, extend_up, extend_dn)
+           else
+              call zisocl( pcols  , pver     , i        ,           &
+                           z      , zi       , n2       , s2      , & 
+                           bprod  , sprod    , bflxs    , tkes    , &
+                           ncvfin , kbase    , ktop     , belongcv, &
+                           ricl   , ghcl     , shcl     , smcl    , & 
+                           lbrk   , wbrk     , ebrk     ,           & 
+                           extend , extend_up, extend_dn )
+           end if
            if( kbase(i,1) .eq. pver + 1 ) ncvsurf = 1
        else
            belongcv(i,:) = .false.
@@ -8099,7 +8095,11 @@
        ! Diagnostic output after finishing extending-merging process in 'zisocl'
        ! Since we are adding SRCL additionally, we need to print out these here.
 
-       call eddy_diff_caleddy_regime_diag(i, pcols, ncvmax, kbase, ktop, ncvfin, kbase_mg, ktop_mg, ncvfin_mg)
+       if (use_native_caleddy_impl) then
+          call eddy_diff_caleddy_regime_diag_native(i, pcols, ncvmax, kbase, ktop, ncvfin, kbase_mg, ktop_mg, ncvfin_mg)
+       else
+          call eddy_diff_caleddy_regime_diag(i, pcols, ncvmax, kbase, ktop, ncvfin, kbase_mg, ktop_mg, ncvfin_mg)
+       end if
 
        ! ----------------------- !
        ! Identification of SRCLs !
@@ -8143,9 +8143,17 @@
        ! with height similar to the regular CLs indices identified from 'zisocl'.       !
        ! ------------------------------------------------------------------------------ !
 
-       call eddy_diff_caleddy_srcl(choice_SRCL, i, pcols, pver, ncvmax, ntop_turb, nbot_turb, qmin, ricrit, b1, vk, alph1, &
-            alph2, alph3, alph4exs, alph5, ghmin, ql, qrlw, ri, sfuh, chu, chs, cmu, cms, slslope, qtslope, z, bflxs, &
-            tkes, bprod, sprod, ncvfin, kbase, ktop, belongcv, ricl, ghcl, shcl, smcl, lbrk, wbrk, ebrk, ncvsurf, srcl_status)
+       if (use_native_caleddy_impl) then
+          call eddy_diff_caleddy_srcl_native(choice_SRCL, i, pcols, pver, ncvmax, ntop_turb, nbot_turb, qmin, ricrit, b1, &
+               vk, alph1, alph2, alph3, alph4exs, alph5, ghmin, ql, qrlw, ri, sfuh, chu, chs, cmu, cms, slslope, qtslope, &
+               z, bflxs, tkes, bprod, sprod, ncvfin, kbase, ktop, belongcv, ricl, ghcl, shcl, smcl, lbrk, wbrk, ebrk, &
+               ncvsurf, srcl_status)
+       else
+          call eddy_diff_caleddy_srcl(choice_SRCL, i, pcols, pver, ncvmax, ntop_turb, nbot_turb, qmin, ricrit, b1, vk, &
+               alph1, alph2, alph3, alph4exs, alph5, ghmin, ql, qrlw, ri, sfuh, chu, chs, cmu, cms, slslope, qtslope, z, &
+               bflxs, tkes, bprod, sprod, ncvfin, kbase, ktop, belongcv, ricl, ghcl, shcl, smcl, lbrk, wbrk, ebrk, &
+               ncvsurf, srcl_status)
+       end if
 
        if (srcl_status .ne. 0_i4) then
            write(iulog,*) 'Major mistake in SRCL: bflxs > 0 for surface-based SRCL'
@@ -8175,13 +8183,22 @@
 
        ! Diagnostic output of final CL regimes indices
        
-       call eddy_diff_caleddy_regime_diag(i, pcols, ncvmax, kbase, ktop, ncvfin, kbase_f, ktop_f, ncvfin_f)
+       if (use_native_caleddy_impl) then
+          call eddy_diff_caleddy_regime_diag_native(i, pcols, ncvmax, kbase, ktop, ncvfin, kbase_f, ktop_f, ncvfin_f)
+       else
+          call eddy_diff_caleddy_regime_diag(i, pcols, ncvmax, kbase, ktop, ncvfin, kbase_f, ktop_f, ncvfin_f)
+       end if
 
        ! --------------------------------------------------------------------- !
        ! Compute radf for each CL in column by calling subroutine compute_radf !
        ! --------------------------------------------------------------------- !
-       call eddy_diff_compute_radf(choice_radf, i, pcols, pver, ncvmax, ncvfin, ktop, qmin, ql, pi, qrlw, g, cldeff, zi, &
-            chs, lwp_CL, opt_depth_CL, radinvfrac_CL, radf_CL)
+       if (use_native_caleddy_impl) then
+          call eddy_diff_compute_radf_native(choice_radf, i, pcols, pver, ncvmax, ncvfin, ktop, qmin, ql, pi, qrlw, g, &
+               cldeff, zi, chs, lwp_CL, opt_depth_CL, radinvfrac_CL, radf_CL)
+       else
+          call eddy_diff_compute_radf(choice_radf, i, pcols, pver, ncvmax, ncvfin, ktop, qmin, ql, pi, qrlw, g, cldeff, &
+               zi, chs, lwp_CL, opt_depth_CL, radinvfrac_CL, radf_CL)
+       end if
 
        ! ---------------------------------------- !
        ! Perform do loop for individual CL regime !
@@ -8203,18 +8220,36 @@
        ! calculated later from surface-based STL (Stable Turbulent Layer) properties.!
        ! --------------------------------------------------------------------------- !
 
-       call eddy_diff_caleddy_closure(i, pcols, pver, ncvmax, tunl_mode, leng_mode, evhc_mode, wstarent_mode, sedfact_mode, &
-            tunl, ctunl, cleng, lbulk_max, tkemax, b1, ae, alph1, a1l, a1i, ccrit, wstar3factcrit, ntzero, onet, rcapmin, &
-            rcapmax, wfac, wpertmin, tfac, qmin, g, vk, cpair, latvap, a2l, a3l, jbumin, evhcmax, ased, ql, slv, sl, qt, u, &
-            v, pi, zi, z, n2, s2, shflx, qflx, rrho, sfuh, sflh, chu, chs, cmu, cms, cldeff, bflxs, bprod, sprod, wsedl, &
-            ncvfin, kbase, ktop, belongcv, lbrk, ebrk, wbrk, ricl, shcl, smcl, radf_CL, wsed_CL, leng_max, wet_CL, web_CL, &
-            jtbu_CL, jbbu_CL, evhc_CL, jt2slv_CL, n2ht_CL, n2hb_CL, wstar_CL, wstar3fact_CL, leng, wcap, tke, kvh, kvm, &
-            turbtype, sm_aw, pblh, pblhp, wpert, tpert, qpert, ipbl, kpblh, went, ncvsurf)
+       if (use_native_caleddy_impl) then
+          call eddy_diff_caleddy_closure_native(i, pcols, pver, ncvmax, tunl_mode, leng_mode, evhc_mode, wstarent_mode, &
+               sedfact_mode, tunl, ctunl, cleng, lbulk_max, tkemax, b1, ae, alph1, a1l, a1i, ccrit, wstar3factcrit, &
+               ntzero, onet, rcapmin, rcapmax, wfac, wpertmin, tfac, qmin, g, vk, cpair, latvap, a2l, a3l, jbumin, &
+               evhcmax, ased, ql, slv, sl, qt, u, v, pi, zi, z, n2, s2, shflx, qflx, rrho, sfuh, sflh, chu, chs, cmu, cms, &
+               cldeff, bflxs, bprod, sprod, wsedl, ncvfin, kbase, ktop, belongcv, lbrk, ebrk, wbrk, ricl, shcl, smcl, &
+               radf_CL, wsed_CL, leng_max, wet_CL, web_CL, jtbu_CL, jbbu_CL, evhc_CL, jt2slv_CL, n2ht_CL, n2hb_CL, &
+               wstar_CL, wstar3fact_CL, leng, wcap, tke, kvh, kvm, turbtype, sm_aw, pblh, pblhp, wpert, tpert, qpert, ipbl, &
+               kpblh, went, ncvsurf)
+       else
+          call eddy_diff_caleddy_closure(i, pcols, pver, ncvmax, tunl_mode, leng_mode, evhc_mode, wstarent_mode, sedfact_mode, &
+               tunl, ctunl, cleng, lbulk_max, tkemax, b1, ae, alph1, a1l, a1i, ccrit, wstar3factcrit, ntzero, onet, rcapmin, &
+               rcapmax, wfac, wpertmin, tfac, qmin, g, vk, cpair, latvap, a2l, a3l, jbumin, evhcmax, ased, ql, slv, sl, qt, &
+               u, v, pi, zi, z, n2, s2, shflx, qflx, rrho, sfuh, sflh, chu, chs, cmu, cms, cldeff, bflxs, bprod, sprod, &
+               wsedl, ncvfin, kbase, ktop, belongcv, lbrk, ebrk, wbrk, ricl, shcl, smcl, radf_CL, wsed_CL, leng_max, wet_CL, &
+               web_CL, jtbu_CL, jbbu_CL, evhc_CL, jt2slv_CL, n2ht_CL, n2hb_CL, wstar_CL, wstar3fact_CL, leng, wcap, tke, kvh, &
+               kvm, turbtype, sm_aw, pblh, pblhp, wpert, tpert, qpert, ipbl, kpblh, went, ncvsurf)
+       end if
 
-       call eddy_diff_caleddy_stl(i, pcols, pver, ncvmax, tunl_mode, leng_mode, ricrit, tunl, ctunl, cleng, lbulk_max, &
-            tkemax, b1, ae, alph1, alph2, alph3, alph4exs, alph5, ghmin, vk, fak, cpair, ri, z, zi, pi, n2, s2, shflx, &
-            qflx, rrho, ustar, leng_max, ncvfin, ktop, kbase, kvh, kvm, leng, tke, wcap, bprod, sprod, turbtype, sm_aw, &
-            pblh, pblhp, wpert, tpert, qpert, ipbl, kpblh)
+       if (use_native_caleddy_impl) then
+          call eddy_diff_caleddy_stl_native(i, pcols, pver, ncvmax, tunl_mode, leng_mode, ricrit, tunl, ctunl, cleng, &
+               lbulk_max, tkemax, b1, ae, alph1, alph2, alph3, alph4exs, alph5, ghmin, vk, fak, cpair, ri, z, zi, pi, n2, &
+               s2, shflx, qflx, rrho, ustar, leng_max, ncvfin, ktop, kbase, kvh, kvm, leng, tke, wcap, bprod, sprod, &
+               turbtype, sm_aw, pblh, pblhp, wpert, tpert, qpert, ipbl, kpblh)
+       else
+          call eddy_diff_caleddy_stl(i, pcols, pver, ncvmax, tunl_mode, leng_mode, ricrit, tunl, ctunl, cleng, lbulk_max, &
+               tkemax, b1, ae, alph1, alph2, alph3, alph4exs, alph5, ghmin, vk, fak, cpair, ri, z, zi, pi, n2, s2, shflx, &
+               qflx, rrho, ustar, leng_max, ncvfin, ktop, kbase, kvh, kvm, leng, tke, wcap, bprod, sprod, turbtype, sm_aw, &
+               pblh, pblhp, wpert, tpert, qpert, ipbl, kpblh)
+       end if
 
        ! As an option, we can impose a certain minimum back-ground diffusivity.
 
@@ -8239,8 +8274,13 @@
        ! output.                                                               !
        ! --------------------------------------------------------------------- !
 
-       call eddy_diff_caleddy_diag(i, pcols, pver, ricrit, tkes, b1, alph1, alph2, alph3, alph4, alph4exs, alph5, ghmin, &
-            vk, z, ri, bflxs, bprod, sprod, gh_a, sh_a, sm_a, ri_a, sm_aw)
+       if (use_native_caleddy_impl) then
+          call eddy_diff_caleddy_diag_native(i, pcols, pver, ricrit, tkes, b1, alph1, alph2, alph3, alph4, alph4exs, alph5, &
+               ghmin, vk, z, ri, bflxs, bprod, sprod, gh_a, sh_a, sm_a, ri_a, sm_aw)
+       else
+          call eddy_diff_caleddy_diag(i, pcols, pver, ricrit, tkes, b1, alph1, alph2, alph3, alph4, alph4exs, alph5, ghmin, &
+               vk, z, ri, bflxs, bprod, sprod, gh_a, sh_a, sm_a, ri_a, sm_aw)
+       end if
 
     end do   ! End of column index loop, i
 
@@ -8279,8 +8319,12 @@
     if (masterproc) then
        if (use_native_exacol_impl) then
           write(iulog,*) 'eddy_diff_exacol implementation = native'
+          write(*,*) 'eddy_diff_exacol implementation = native'
+          call eddy_diff_append_impl_trace('eddy_diff_exacol implementation = native')
        else
           write(iulog,*) 'eddy_diff_exacol implementation = codon'
+          write(*,*) 'eddy_diff_exacol implementation = codon'
+          call eddy_diff_append_impl_trace('eddy_diff_exacol implementation = codon')
        end if
     end if
 
@@ -8483,8 +8527,12 @@
     if (masterproc) then
        if (use_native_zisocl_impl) then
           write(iulog,*) 'eddy_diff_zisocl implementation = native'
+          write(*,*) 'eddy_diff_zisocl implementation = native'
+          call eddy_diff_append_impl_trace('eddy_diff_zisocl implementation = native')
        else
           write(iulog,*) 'eddy_diff_zisocl implementation = codon'
+          write(*,*) 'eddy_diff_zisocl implementation = codon'
+          call eddy_diff_append_impl_trace('eddy_diff_zisocl implementation = codon')
        end if
     end if
 
