@@ -4264,7 +4264,7 @@
          dlint_surf_local, dl2n2_surf_local, dl2s2_surf_local, dw_surf_local, lint_local, l2n2_local, l2s2_local, wint_local)
 
     do k_local = kt_local + 1, kb_local - 1
-       call eddy_diff_zisocl_layer_energy_native(i_local, k_local, pcols_local, pver_local, lbulk_local, z_local, zi_local, n2_local, &
+       call eddy_diff_zisocl_layer_energy(i_local, k_local, pcols_local, pver_local, lbulk_local, z_local, zi_local, n2_local, &
             s2_local, leng_max_local, dzinc_local, dl2n2_local, dl2s2_local)
        lint_local = lint_local + dzinc_local
        l2n2_local = l2n2_local + dl2n2_local
@@ -4398,7 +4398,7 @@
     real(r8) :: dzinc_local, dl2n2_local, dl2s2_local
 
     do k_local = kb_local - 1, kt_local + 1, -1
-       call eddy_diff_zisocl_layer_energy_native(i_local, k_local, pcols_local, pver_local, lbulk_local, z_local, zi_local, n2_local, &
+       call eddy_diff_zisocl_layer_energy(i_local, k_local, pcols_local, pver_local, lbulk_local, z_local, zi_local, n2_local, &
             s2_local, leng_max_local, dzinc_local, dl2n2_local, dl2s2_local)
        l2n2_local = l2n2_local + dl2n2_local
        l2s2_local = l2s2_local + dl2s2_local
