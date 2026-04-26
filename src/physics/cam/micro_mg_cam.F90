@@ -125,6 +125,8 @@ logical, public :: do_cldice ! Prognose cldice flag
 
 logical :: use_native_postmg_diag_impl = .false.
 logical :: postmg_diag_impl_selected = .false.
+logical :: use_native_grid_diag_impl = .false.
+logical :: grid_diag_impl_selected = .false.
 
 integer :: num_steps ! Number of MG substeps
 
@@ -2757,167 +2759,14 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    ! Liquid water path
 
    ! Compute liquid water paths, and column condensation
-   tgliqwp_grid(:ngrdcol) = 0._r8
-   tgcmeliq_grid(:ngrdcol) = 0._r8
-   do k = top_lev, pver
-      do i = 1, ngrdcol
-         tgliqwp_grid(i)  = tgliqwp_grid(i) + iclwpst_grid(i,k)*cld_grid(i,k)
-
-         if (cmeliq_grid(i,k) > 1.e-12_r8) then
-            !convert cmeliq to right units:  kgh2o/kgair/s  *  kgair/m2  / kgh2o/m3  = m/s
-            tgcmeliq_grid(i) = tgcmeliq_grid(i) + cmeliq_grid(i,k) * &
-                 (pdel_grid(i,k) / gravit) / rhoh2o
-         end if
-      end do
-   end do
-
-   ! note: 1e-6 kgho2/kgair/s * 1000. pa / (9.81 m/s2) / 1000 kgh2o/m3 = 1e-7 m/s
-   ! this is 1ppmv of h2o in 10hpa
-   ! alternatively: 0.1 mm/day * 1.e-4 m/mm * 1/86400 day/s = 1.e-9
-
-   !-----------------------------------------------------------------------
-   ! precipitation efficiency calculation  (accumulate cme and precip)
-
    minlwp = 0.01_r8        !minimum lwp threshold (kg/m3)
 
-   ! zero out precip efficiency and total averaged precip
-   pe_grid(:ngrdcol)     = 0._r8
-   tpr_grid(:ngrdcol)    = 0._r8
-   pefrac_grid(:ngrdcol) = 0._r8
-
-   ! accumulate precip and condensation
-   do i = 1, ngrdcol
-
-      acgcme_grid(i)  = acgcme_grid(i) + tgcmeliq_grid(i)
-      acprecl_grid(i) = acprecl_grid(i) + prec_str_grid(i)
-      acnum_grid(i)   = acnum_grid(i) + 1
-
-      ! if LWP is zero, then 'end of cloud': calculate precip efficiency
-      if (tgliqwp_grid(i) < minlwp) then
-         if (acprecl_grid(i) > 5.e-8_r8) then
-            tpr_grid(i) = max(acprecl_grid(i)/acnum_grid(i), 1.e-15_r8)
-            if (acgcme_grid(i) > 1.e-10_r8) then
-               pe_grid(i) = min(max(acprecl_grid(i)/acgcme_grid(i), 1.e-15_r8), 1.e5_r8)
-               pefrac_grid(i) = 1._r8
-            end if
-         end if
-
-         ! reset counters
-!        if (pe_grid(i) /= 0._r8 .and. (pe_grid(i) < 1.e-8_r8 .or. pe_grid(i) > 1.e3_r8)) then
-!           write (iulog,*) 'PE_grid:ANOMALY  pe_grid, acprecl_grid, acgcme_grid, tpr_grid, acnum_grid ', &
-!                           pe_grid(i),acprecl_grid(i), acgcme_grid(i), tpr_grid(i), acnum_grid(i)
-!        endif
-
-         acprecl_grid(i) = 0._r8
-         acgcme_grid(i)  = 0._r8
-         acnum_grid(i)   = 0
-      end if               ! end LWP zero conditional
-
-      ! if never find any rain....(after 10^3 timesteps...)
-      if (acnum_grid(i) > 1000) then
-         acnum_grid(i)   = 0
-         acprecl_grid(i) = 0._r8
-         acgcme_grid(i)  = 0._r8
-      end if
-
-   end do
-
-   !-----------------------------------------------------------------------
-   ! vertical average of non-zero accretion, autoconversion and ratio.
-   ! vars: vprco_grid(i),vprao_grid(i),racau_grid(i),cnt_grid
-
-   vprao_grid = 0._r8
-   cnt_grid = 0
-   do k = top_lev, pver
-      vprao_grid(:ngrdcol) = vprao_grid(:ngrdcol) + prao_grid(:ngrdcol,k)
-      where (prao_grid(:ngrdcol,k) /= 0._r8) cnt_grid(:ngrdcol) = cnt_grid(:ngrdcol) + 1
-   end do
-
-   where (cnt_grid > 0) vprao_grid = vprao_grid/cnt_grid
-
-   vprco_grid = 0._r8
-   cnt_grid = 0
-   do k = top_lev, pver
-      vprco_grid(:ngrdcol) = vprco_grid(:ngrdcol) + prco_grid(:ngrdcol,k)
-      where (prco_grid(:ngrdcol,k) /= 0._r8) cnt_grid(:ngrdcol) = cnt_grid(:ngrdcol) + 1
-   end do
-
-   where (cnt_grid > 0)
-      vprco_grid = vprco_grid/cnt_grid
-      racau_grid = vprao_grid/vprco_grid
-   elsewhere
-      racau_grid = 0._r8
-   end where
-
-   racau_grid = min(racau_grid, 1.e10_r8)
-
-   ! --------------------- !
-   ! History Output Fields !
-   ! --------------------- !
-
-   ! Column droplet concentration
-   cdnumc_grid(:ngrdcol) = sum(nc_grid(:ngrdcol,top_lev:pver) * &
-        pdel_grid(:ngrdcol,top_lev:pver)/gravit, dim=2)
-
-   ! Averaging for new output fields
-   efcout_grid      = 0._r8
-   efiout_grid      = 0._r8
-   ncout_grid       = 0._r8
-   niout_grid       = 0._r8
-   freql_grid       = 0._r8
-   freqi_grid       = 0._r8
-   icwmrst_grid_out = 0._r8
-   icimrst_grid_out = 0._r8
-
-   do k = top_lev, pver
-      do i = 1, ngrdcol
-         if ( liqcldf_grid(i,k) > 0.01_r8 .and. icwmrst_grid(i,k) > 5.e-5_r8 ) then
-            efcout_grid(i,k) = rel_grid(i,k) * liqcldf_grid(i,k)
-            ncout_grid(i,k)  = icwnc_grid(i,k) * liqcldf_grid(i,k)
-            freql_grid(i,k)  = liqcldf_grid(i,k)
-            icwmrst_grid_out(i,k) = icwmrst_grid(i,k)
-         end if
-         if ( icecldf_grid(i,k) > 0.01_r8 .and. icimrst_grid(i,k) > 1.e-6_r8 ) then
-            efiout_grid(i,k) = rei_grid(i,k) * icecldf_grid(i,k)
-            niout_grid(i,k)  = icinc_grid(i,k) * icecldf_grid(i,k)
-            freqi_grid(i,k)  = icecldf_grid(i,k)
-            icimrst_grid_out(i,k) = icimrst_grid(i,k)
-         end if
-      end do
-   end do
-
-   ! Cloud top effective radius and number.
-   fcti_grid  = 0._r8
-   fctl_grid  = 0._r8
-   ctrel_grid = 0._r8
-   ctrei_grid = 0._r8
-   ctnl_grid  = 0._r8
-   ctni_grid  = 0._r8
-   do i = 1, ngrdcol
-      do k = top_lev, pver
-         if ( liqcldf_grid(i,k) > 0.01_r8 .and. icwmrst_grid(i,k) > 1.e-7_r8 ) then
-            ctrel_grid(i) = rel_grid(i,k) * liqcldf_grid(i,k)
-            ctnl_grid(i)  = icwnc_grid(i,k) * liqcldf_grid(i,k)
-            fctl_grid(i)  = liqcldf_grid(i,k)
-            exit
-         end if
-         if ( icecldf_grid(i,k) > 0.01_r8 .and. icimrst_grid(i,k) > 1.e-7_r8 ) then
-            ctrei_grid(i) = rei_grid(i,k) * icecldf_grid(i,k)
-            ctni_grid(i)  = icinc_grid(i,k) * icecldf_grid(i,k)
-            fcti_grid(i)  = icecldf_grid(i,k)
-            exit
-         end if
-      end do
-   end do
-
-   ! Evaporation of stratiform precipitation fields for UNICON
-   evprain_st_grid(:ngrdcol,:pver) = nevapr_grid(:ngrdcol,:pver) - evpsnow_st_grid(:ngrdcol,:pver)
-   do k = top_lev, pver
-      do i = 1, ngrdcol
-         evprain_st_grid(i,k) = max(evprain_st_grid(i,k), 0._r8)
-         evpsnow_st_grid(i,k) = max(evpsnow_st_grid(i,k), 0._r8)
-      end do
-   end do
+   call micro_mg_cam_grid_diag(ngrdcol, minlwp, iclwpst_grid, cld_grid, cmeliq_grid, pdel_grid, prec_str_grid, &
+        acgcme_grid, acprecl_grid, acnum_grid, prao_grid, prco_grid, nc_grid, liqcldf_grid, icwmrst_grid, rel_grid, &
+        icwnc_grid, icecldf_grid, icimrst_grid, rei_grid, icinc_grid, nevapr_grid, evpsnow_st_grid, tgliqwp_grid, &
+        tgcmeliq_grid, pe_grid, tpr_grid, pefrac_grid, vprao_grid, vprco_grid, racau_grid, cnt_grid, cdnumc_grid, &
+        efcout_grid, efiout_grid, ncout_grid, niout_grid, freql_grid, freqi_grid, icwmrst_grid_out, icimrst_grid_out, &
+        fcti_grid, fctl_grid, ctrel_grid, ctrei_grid, ctnl_grid, ctni_grid, evprain_st_grid)
 
    ! Assign the values to the pbuf pointers if they exist in pbuf
    if (qrain_idx > 0)  qrout_grid_ptr = qrout_grid
@@ -3079,6 +2928,25 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
 
 end subroutine micro_mg_cam_tend
 
+subroutine micro_mg_cam_append_impl_proof(env_name, proof_line)
+
+  character(len=*), intent(in) :: env_name, proof_line
+  character(len=512) :: proof_path
+  integer :: status, n, unit_id
+
+  proof_path = ''
+  call get_environment_variable(env_name, value=proof_path, length=n, status=status)
+  if (status /= 0 .or. n <= 0) return
+
+  open(newunit=unit_id, file=trim(adjustl(proof_path(:n))), status='unknown', action='write', &
+       position='append', iostat=status)
+  if (status /= 0) return
+
+  write(unit_id,'(A)') trim(proof_line)
+  close(unit_id)
+
+end subroutine micro_mg_cam_append_impl_proof
+
 subroutine micro_mg_cam_select_postmg_diag_impl()
 
   character(len=32) :: impl_name
@@ -3103,14 +2971,16 @@ subroutine micro_mg_cam_select_postmg_diag_impl()
 
   postmg_diag_impl_selected = .true.
 
-  if (masterproc) then
-     if (use_native_postmg_diag_impl) then
-        write(iulog,*) 'micro_mg_cam_postmg_diag implementation = native'
-     else
-        write(iulog,*) 'micro_mg_cam_postmg_diag implementation = codon'
-     end if
-     call flush(iulog)
+  if (use_native_postmg_diag_impl) then
+     write(iulog,*) 'micro_mg_cam_postmg_diag implementation = native'
+     call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_POSTMG_PROOF_FILE', &
+          'micro_mg_cam_postmg_diag implementation = native')
+  else
+     write(iulog,*) 'micro_mg_cam_postmg_diag implementation = codon'
+     call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_POSTMG_PROOF_FILE', &
+          'micro_mg_cam_postmg_diag implementation = codon')
   end if
+  call flush(iulog)
 
 end subroutine micro_mg_cam_select_postmg_diag_impl
 
@@ -3362,6 +3232,301 @@ subroutine micro_mg_cam_postmg_diag_native(ncol_local, psetcols_local, micro_mg_
   end if
 
 end subroutine micro_mg_cam_postmg_diag_native
+
+subroutine micro_mg_cam_select_grid_diag_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (grid_diag_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MICRO_MG_CAM_GRID_DIAG_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_grid_diag_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_grid_diag_impl = .false.
+  end if
+
+  grid_diag_impl_selected = .true.
+
+  if (use_native_grid_diag_impl) then
+     write(iulog,*) 'micro_mg_cam_grid_diag implementation = native'
+     call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_GRID_DIAG_PROOF_FILE', &
+          'micro_mg_cam_grid_diag implementation = native')
+  else
+     write(iulog,*) 'micro_mg_cam_grid_diag implementation = codon'
+     call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_GRID_DIAG_PROOF_FILE', &
+          'micro_mg_cam_grid_diag implementation = codon')
+  end if
+  call flush(iulog)
+
+end subroutine micro_mg_cam_select_grid_diag_impl
+
+subroutine micro_mg_cam_grid_diag(ngrdcol_local, minlwp_local, iclwpst_grid_local, cld_grid_local, cmeliq_grid_local, &
+     pdel_grid_local, prec_str_grid_local, acgcme_grid_local, acprecl_grid_local, acnum_grid_local, prao_grid_local, &
+     prco_grid_local, nc_grid_local, liqcldf_grid_local, icwmrst_grid_local, rel_grid_local, icwnc_grid_local, &
+     icecldf_grid_local, icimrst_grid_local, rei_grid_local, icinc_grid_local, nevapr_grid_local, evpsnow_st_grid_local, &
+     tgliqwp_grid_local, tgcmeliq_grid_local, pe_grid_local, tpr_grid_local, pefrac_grid_local, vprao_grid_local, &
+     vprco_grid_local, racau_grid_local, cnt_grid_local, cdnumc_grid_local, efcout_grid_local, efiout_grid_local, &
+     ncout_grid_local, niout_grid_local, freql_grid_local, freqi_grid_local, icwmrst_grid_out_local, &
+     icimrst_grid_out_local, fcti_grid_local, fctl_grid_local, ctrel_grid_local, ctrei_grid_local, ctnl_grid_local, &
+     ctni_grid_local, evprain_st_grid_local)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ngrdcol_local
+  real(r8), intent(in) :: minlwp_local
+  real(r8), target, intent(in) :: iclwpst_grid_local(pcols,pver), cld_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: cmeliq_grid_local(pcols,pver), pdel_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: prec_str_grid_local(pcols), prao_grid_local(pcols,pver), prco_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: nc_grid_local(pcols,pver), liqcldf_grid_local(pcols,pver), icwmrst_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: rel_grid_local(pcols,pver), icwnc_grid_local(pcols,pver), icecldf_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: icimrst_grid_local(pcols,pver), rei_grid_local(pcols,pver), icinc_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: nevapr_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: evpsnow_st_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: acgcme_grid_local(:), acprecl_grid_local(:)
+  integer, target, intent(inout) :: acnum_grid_local(:)
+  real(r8), target, intent(inout) :: tgliqwp_grid_local(pcols), tgcmeliq_grid_local(pcols), pe_grid_local(pcols)
+  real(r8), target, intent(inout) :: tpr_grid_local(pcols), pefrac_grid_local(pcols), vprao_grid_local(pcols)
+  real(r8), target, intent(inout) :: vprco_grid_local(pcols), racau_grid_local(pcols), cdnumc_grid_local(pcols)
+  integer, target, intent(inout) :: cnt_grid_local(pcols)
+  real(r8), target, intent(inout) :: efcout_grid_local(pcols,pver), efiout_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: ncout_grid_local(pcols,pver), niout_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: freql_grid_local(pcols,pver), freqi_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: icwmrst_grid_out_local(pcols,pver), icimrst_grid_out_local(pcols,pver)
+  real(r8), target, intent(inout) :: fcti_grid_local(pcols), fctl_grid_local(pcols), ctrel_grid_local(pcols)
+  real(r8), target, intent(inout) :: ctrei_grid_local(pcols), ctnl_grid_local(pcols), ctni_grid_local(pcols)
+  real(r8), target, intent(inout) :: evprain_st_grid_local(pcols,pver)
+
+  interface
+     subroutine micro_mg_cam_grid_diag_codon(ngrdcol_c, pcols_c, pver_c, top_lev_c, minlwp_c, gravit_c, rhoh2o_c, &
+          iclwpst_grid_p, cld_grid_p, cmeliq_grid_p, pdel_grid_p, prec_str_grid_p, acgcme_grid_p, acprecl_grid_p, &
+          acnum_grid_p, prao_grid_p, prco_grid_p, nc_grid_p, liqcldf_grid_p, icwmrst_grid_p, rel_grid_p, icwnc_grid_p, &
+          icecldf_grid_p, icimrst_grid_p, rei_grid_p, icinc_grid_p, nevapr_grid_p, evpsnow_st_grid_p, tgliqwp_grid_p, &
+          tgcmeliq_grid_p, pe_grid_p, tpr_grid_p, pefrac_grid_p, vprao_grid_p, vprco_grid_p, racau_grid_p, cnt_grid_p, &
+          cdnumc_grid_p, efcout_grid_p, efiout_grid_p, ncout_grid_p, niout_grid_p, freql_grid_p, freqi_grid_p, &
+          icwmrst_grid_out_p, icimrst_grid_out_p, fcti_grid_p, fctl_grid_p, ctrel_grid_p, ctrei_grid_p, ctnl_grid_p, &
+          ctni_grid_p, evprain_st_grid_p) bind(c, name="micro_mg_cam_grid_diag_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ngrdcol_c, pcols_c, pver_c, top_lev_c
+       real(c_double), value :: minlwp_c, gravit_c, rhoh2o_c
+       type(c_ptr), value :: iclwpst_grid_p, cld_grid_p, cmeliq_grid_p, pdel_grid_p, prec_str_grid_p, acgcme_grid_p
+       type(c_ptr), value :: acprecl_grid_p, acnum_grid_p, prao_grid_p, prco_grid_p, nc_grid_p, liqcldf_grid_p
+       type(c_ptr), value :: icwmrst_grid_p, rel_grid_p, icwnc_grid_p, icecldf_grid_p, icimrst_grid_p, rei_grid_p
+       type(c_ptr), value :: icinc_grid_p, nevapr_grid_p, evpsnow_st_grid_p, tgliqwp_grid_p, tgcmeliq_grid_p, pe_grid_p
+       type(c_ptr), value :: tpr_grid_p, pefrac_grid_p, vprao_grid_p, vprco_grid_p, racau_grid_p, cnt_grid_p
+       type(c_ptr), value :: cdnumc_grid_p, efcout_grid_p, efiout_grid_p, ncout_grid_p, niout_grid_p, freql_grid_p
+       type(c_ptr), value :: freqi_grid_p, icwmrst_grid_out_p, icimrst_grid_out_p, fcti_grid_p, fctl_grid_p
+       type(c_ptr), value :: ctrel_grid_p, ctrei_grid_p, ctnl_grid_p, ctni_grid_p, evprain_st_grid_p
+     end subroutine micro_mg_cam_grid_diag_codon
+  end interface
+
+  call micro_mg_cam_select_grid_diag_impl()
+
+  if (use_native_grid_diag_impl) then
+     call micro_mg_cam_grid_diag_native(ngrdcol_local, minlwp_local, iclwpst_grid_local, cld_grid_local, cmeliq_grid_local, &
+          pdel_grid_local, prec_str_grid_local, acgcme_grid_local, acprecl_grid_local, acnum_grid_local, prao_grid_local, &
+          prco_grid_local, nc_grid_local, liqcldf_grid_local, icwmrst_grid_local, rel_grid_local, icwnc_grid_local, &
+          icecldf_grid_local, icimrst_grid_local, rei_grid_local, icinc_grid_local, nevapr_grid_local, evpsnow_st_grid_local, &
+          tgliqwp_grid_local, tgcmeliq_grid_local, pe_grid_local, tpr_grid_local, pefrac_grid_local, vprao_grid_local, &
+          vprco_grid_local, racau_grid_local, cnt_grid_local, cdnumc_grid_local, efcout_grid_local, efiout_grid_local, &
+          ncout_grid_local, niout_grid_local, freql_grid_local, freqi_grid_local, icwmrst_grid_out_local, &
+          icimrst_grid_out_local, fcti_grid_local, fctl_grid_local, ctrel_grid_local, ctrei_grid_local, ctnl_grid_local, &
+          ctni_grid_local, evprain_st_grid_local)
+     return
+  end if
+
+  call micro_mg_cam_grid_diag_codon(int(ngrdcol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(top_lev, c_int64_t), minlwp_local, gravit, rhoh2o, c_loc(iclwpst_grid_local), c_loc(cld_grid_local), &
+       c_loc(cmeliq_grid_local), c_loc(pdel_grid_local), c_loc(prec_str_grid_local), c_loc(acgcme_grid_local), &
+       c_loc(acprecl_grid_local), c_loc(acnum_grid_local(1)), c_loc(prao_grid_local), c_loc(prco_grid_local), &
+       c_loc(nc_grid_local), c_loc(liqcldf_grid_local), c_loc(icwmrst_grid_local), c_loc(rel_grid_local), c_loc(icwnc_grid_local), &
+       c_loc(icecldf_grid_local), c_loc(icimrst_grid_local), c_loc(rei_grid_local), c_loc(icinc_grid_local), &
+       c_loc(nevapr_grid_local), c_loc(evpsnow_st_grid_local), c_loc(tgliqwp_grid_local), c_loc(tgcmeliq_grid_local), &
+       c_loc(pe_grid_local), c_loc(tpr_grid_local), c_loc(pefrac_grid_local), c_loc(vprao_grid_local), c_loc(vprco_grid_local), &
+       c_loc(racau_grid_local), c_loc(cnt_grid_local(1)), c_loc(cdnumc_grid_local), c_loc(efcout_grid_local), &
+       c_loc(efiout_grid_local), c_loc(ncout_grid_local), c_loc(niout_grid_local), c_loc(freql_grid_local), c_loc(freqi_grid_local), &
+       c_loc(icwmrst_grid_out_local), c_loc(icimrst_grid_out_local), c_loc(fcti_grid_local), c_loc(fctl_grid_local), &
+       c_loc(ctrel_grid_local), c_loc(ctrei_grid_local), c_loc(ctnl_grid_local), c_loc(ctni_grid_local), &
+       c_loc(evprain_st_grid_local))
+
+end subroutine micro_mg_cam_grid_diag
+
+subroutine micro_mg_cam_grid_diag_native(ngrdcol_local, minlwp_local, iclwpst_grid_local, cld_grid_local, cmeliq_grid_local, &
+     pdel_grid_local, prec_str_grid_local, acgcme_grid_local, acprecl_grid_local, acnum_grid_local, prao_grid_local, &
+     prco_grid_local, nc_grid_local, liqcldf_grid_local, icwmrst_grid_local, rel_grid_local, icwnc_grid_local, &
+     icecldf_grid_local, icimrst_grid_local, rei_grid_local, icinc_grid_local, nevapr_grid_local, evpsnow_st_grid_local, &
+     tgliqwp_grid_local, tgcmeliq_grid_local, pe_grid_local, tpr_grid_local, pefrac_grid_local, vprao_grid_local, &
+     vprco_grid_local, racau_grid_local, cnt_grid_local, cdnumc_grid_local, efcout_grid_local, efiout_grid_local, &
+     ncout_grid_local, niout_grid_local, freql_grid_local, freqi_grid_local, icwmrst_grid_out_local, &
+     icimrst_grid_out_local, fcti_grid_local, fctl_grid_local, ctrel_grid_local, ctrei_grid_local, ctnl_grid_local, &
+     ctni_grid_local, evprain_st_grid_local)
+
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ngrdcol_local
+  real(r8), intent(in) :: minlwp_local
+  real(r8), intent(in) :: iclwpst_grid_local(pcols,pver), cld_grid_local(pcols,pver)
+  real(r8), intent(in) :: cmeliq_grid_local(pcols,pver), pdel_grid_local(pcols,pver)
+  real(r8), intent(in) :: prec_str_grid_local(pcols), prao_grid_local(pcols,pver), prco_grid_local(pcols,pver)
+  real(r8), intent(in) :: nc_grid_local(pcols,pver), liqcldf_grid_local(pcols,pver), icwmrst_grid_local(pcols,pver)
+  real(r8), intent(in) :: rel_grid_local(pcols,pver), icwnc_grid_local(pcols,pver), icecldf_grid_local(pcols,pver)
+  real(r8), intent(in) :: icimrst_grid_local(pcols,pver), rei_grid_local(pcols,pver), icinc_grid_local(pcols,pver)
+  real(r8), intent(in) :: nevapr_grid_local(pcols,pver)
+  real(r8), intent(inout) :: evpsnow_st_grid_local(pcols,pver)
+  real(r8), intent(inout) :: acgcme_grid_local(:), acprecl_grid_local(:)
+  integer, intent(inout) :: acnum_grid_local(:)
+  real(r8), intent(inout) :: tgliqwp_grid_local(pcols), tgcmeliq_grid_local(pcols), pe_grid_local(pcols)
+  real(r8), intent(inout) :: tpr_grid_local(pcols), pefrac_grid_local(pcols), vprao_grid_local(pcols)
+  real(r8), intent(inout) :: vprco_grid_local(pcols), racau_grid_local(pcols), cdnumc_grid_local(pcols)
+  integer, intent(inout) :: cnt_grid_local(pcols)
+  real(r8), intent(inout) :: efcout_grid_local(pcols,pver), efiout_grid_local(pcols,pver)
+  real(r8), intent(inout) :: ncout_grid_local(pcols,pver), niout_grid_local(pcols,pver)
+  real(r8), intent(inout) :: freql_grid_local(pcols,pver), freqi_grid_local(pcols,pver)
+  real(r8), intent(inout) :: icwmrst_grid_out_local(pcols,pver), icimrst_grid_out_local(pcols,pver)
+  real(r8), intent(inout) :: fcti_grid_local(pcols), fctl_grid_local(pcols), ctrel_grid_local(pcols)
+  real(r8), intent(inout) :: ctrei_grid_local(pcols), ctnl_grid_local(pcols), ctni_grid_local(pcols)
+  real(r8), intent(inout) :: evprain_st_grid_local(pcols,pver)
+  integer :: i, k
+
+  tgliqwp_grid_local(:ngrdcol_local) = 0._r8
+  tgcmeliq_grid_local(:ngrdcol_local) = 0._r8
+  do k = top_lev, pver
+     do i = 1, ngrdcol_local
+        tgliqwp_grid_local(i) = tgliqwp_grid_local(i) + iclwpst_grid_local(i,k)*cld_grid_local(i,k)
+        if (cmeliq_grid_local(i,k) > 1.e-12_r8) then
+           tgcmeliq_grid_local(i) = tgcmeliq_grid_local(i) + cmeliq_grid_local(i,k) * &
+                (pdel_grid_local(i,k) / gravit) / rhoh2o
+        end if
+     end do
+  end do
+
+  pe_grid_local(:ngrdcol_local) = 0._r8
+  tpr_grid_local(:ngrdcol_local) = 0._r8
+  pefrac_grid_local(:ngrdcol_local) = 0._r8
+
+  do i = 1, ngrdcol_local
+     acgcme_grid_local(i) = acgcme_grid_local(i) + tgcmeliq_grid_local(i)
+     acprecl_grid_local(i) = acprecl_grid_local(i) + prec_str_grid_local(i)
+     acnum_grid_local(i) = acnum_grid_local(i) + 1
+
+     if (tgliqwp_grid_local(i) < minlwp_local) then
+        if (acprecl_grid_local(i) > 5.e-8_r8) then
+           tpr_grid_local(i) = max(acprecl_grid_local(i)/acnum_grid_local(i), 1.e-15_r8)
+           if (acgcme_grid_local(i) > 1.e-10_r8) then
+              pe_grid_local(i) = min(max(acprecl_grid_local(i)/acgcme_grid_local(i), 1.e-15_r8), 1.e5_r8)
+              pefrac_grid_local(i) = 1._r8
+           end if
+        end if
+
+        acprecl_grid_local(i) = 0._r8
+        acgcme_grid_local(i)  = 0._r8
+        acnum_grid_local(i)   = 0
+     end if
+
+     if (acnum_grid_local(i) > 1000) then
+        acnum_grid_local(i)   = 0
+        acprecl_grid_local(i) = 0._r8
+        acgcme_grid_local(i)  = 0._r8
+     end if
+  end do
+
+  vprao_grid_local = 0._r8
+  cnt_grid_local = 0
+  do k = top_lev, pver
+     vprao_grid_local(:ngrdcol_local) = vprao_grid_local(:ngrdcol_local) + prao_grid_local(:ngrdcol_local,k)
+     where (prao_grid_local(:ngrdcol_local,k) /= 0._r8) cnt_grid_local(:ngrdcol_local) = cnt_grid_local(:ngrdcol_local) + 1
+  end do
+  where (cnt_grid_local > 0) vprao_grid_local = vprao_grid_local/cnt_grid_local
+
+  vprco_grid_local = 0._r8
+  cnt_grid_local = 0
+  do k = top_lev, pver
+     vprco_grid_local(:ngrdcol_local) = vprco_grid_local(:ngrdcol_local) + prco_grid_local(:ngrdcol_local,k)
+     where (prco_grid_local(:ngrdcol_local,k) /= 0._r8) cnt_grid_local(:ngrdcol_local) = cnt_grid_local(:ngrdcol_local) + 1
+  end do
+  where (cnt_grid_local > 0)
+     vprco_grid_local = vprco_grid_local/cnt_grid_local
+     racau_grid_local = vprao_grid_local/vprco_grid_local
+  elsewhere
+     racau_grid_local = 0._r8
+  end where
+  racau_grid_local = min(racau_grid_local, 1.e10_r8)
+
+  cdnumc_grid_local(:ngrdcol_local) = 0._r8
+  do k = top_lev, pver
+     do i = 1, ngrdcol_local
+        cdnumc_grid_local(i) = cdnumc_grid_local(i) + nc_grid_local(i,k) * pdel_grid_local(i,k) / gravit
+     end do
+  end do
+
+  efcout_grid_local = 0._r8
+  efiout_grid_local = 0._r8
+  ncout_grid_local = 0._r8
+  niout_grid_local = 0._r8
+  freql_grid_local = 0._r8
+  freqi_grid_local = 0._r8
+  icwmrst_grid_out_local = 0._r8
+  icimrst_grid_out_local = 0._r8
+
+  do k = top_lev, pver
+     do i = 1, ngrdcol_local
+        if (liqcldf_grid_local(i,k) > 0.01_r8 .and. icwmrst_grid_local(i,k) > 5.e-5_r8) then
+           efcout_grid_local(i,k) = rel_grid_local(i,k) * liqcldf_grid_local(i,k)
+           ncout_grid_local(i,k) = icwnc_grid_local(i,k) * liqcldf_grid_local(i,k)
+           freql_grid_local(i,k) = liqcldf_grid_local(i,k)
+           icwmrst_grid_out_local(i,k) = icwmrst_grid_local(i,k)
+        end if
+        if (icecldf_grid_local(i,k) > 0.01_r8 .and. icimrst_grid_local(i,k) > 1.e-6_r8) then
+           efiout_grid_local(i,k) = rei_grid_local(i,k) * icecldf_grid_local(i,k)
+           niout_grid_local(i,k) = icinc_grid_local(i,k) * icecldf_grid_local(i,k)
+           freqi_grid_local(i,k) = icecldf_grid_local(i,k)
+           icimrst_grid_out_local(i,k) = icimrst_grid_local(i,k)
+        end if
+     end do
+  end do
+
+  fcti_grid_local = 0._r8
+  fctl_grid_local = 0._r8
+  ctrel_grid_local = 0._r8
+  ctrei_grid_local = 0._r8
+  ctnl_grid_local = 0._r8
+  ctni_grid_local = 0._r8
+  do i = 1, ngrdcol_local
+     do k = top_lev, pver
+        if (liqcldf_grid_local(i,k) > 0.01_r8 .and. icwmrst_grid_local(i,k) > 1.e-7_r8) then
+           ctrel_grid_local(i) = rel_grid_local(i,k) * liqcldf_grid_local(i,k)
+           ctnl_grid_local(i) = icwnc_grid_local(i,k) * liqcldf_grid_local(i,k)
+           fctl_grid_local(i) = liqcldf_grid_local(i,k)
+           exit
+        end if
+        if (icecldf_grid_local(i,k) > 0.01_r8 .and. icimrst_grid_local(i,k) > 1.e-7_r8) then
+           ctrei_grid_local(i) = rei_grid_local(i,k) * icecldf_grid_local(i,k)
+           ctni_grid_local(i) = icinc_grid_local(i,k) * icecldf_grid_local(i,k)
+           fcti_grid_local(i) = icecldf_grid_local(i,k)
+           exit
+        end if
+     end do
+  end do
+
+  evprain_st_grid_local(:ngrdcol_local,:pver) = nevapr_grid_local(:ngrdcol_local,:pver) - evpsnow_st_grid_local(:ngrdcol_local,:pver)
+  do k = top_lev, pver
+     do i = 1, ngrdcol_local
+        evprain_st_grid_local(i,k) = max(evprain_st_grid_local(i,k), 0._r8)
+        evpsnow_st_grid_local(i,k) = max(evpsnow_st_grid_local(i,k), 0._r8)
+     end do
+  end do
+
+end subroutine micro_mg_cam_grid_diag_native
 
 function p1(tin) result(pout)
   real(r8), target, intent(in) :: tin(:)

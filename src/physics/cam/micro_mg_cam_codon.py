@@ -255,3 +255,262 @@ def micro_mg_cam_postmg_diag_codon(
                 idx_snow_prev = _idx3(i, k - 1, ixsnow, psetcols, pver)
                 if state_q[idx_rain_prev] >= qsmall or state_q[idx_snow_prev] >= qsmall:
                     cldmax[idx2] = max(cldmax[idx2_prev], cldmax[idx2])
+
+
+@export
+def micro_mg_cam_grid_diag_codon(
+    ngrdcol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    minlwp: float,
+    gravit: float,
+    rhoh2o: float,
+    iclwpst_grid_p: cobj,
+    cld_grid_p: cobj,
+    cmeliq_grid_p: cobj,
+    pdel_grid_p: cobj,
+    prec_str_grid_p: cobj,
+    acgcme_grid_p: cobj,
+    acprecl_grid_p: cobj,
+    acnum_grid_p: cobj,
+    prao_grid_p: cobj,
+    prco_grid_p: cobj,
+    nc_grid_p: cobj,
+    liqcldf_grid_p: cobj,
+    icwmrst_grid_p: cobj,
+    rel_grid_p: cobj,
+    icwnc_grid_p: cobj,
+    icecldf_grid_p: cobj,
+    icimrst_grid_p: cobj,
+    rei_grid_p: cobj,
+    icinc_grid_p: cobj,
+    nevapr_grid_p: cobj,
+    evpsnow_st_grid_p: cobj,
+    tgliqwp_grid_p: cobj,
+    tgcmeliq_grid_p: cobj,
+    pe_grid_p: cobj,
+    tpr_grid_p: cobj,
+    pefrac_grid_p: cobj,
+    vprao_grid_p: cobj,
+    vprco_grid_p: cobj,
+    racau_grid_p: cobj,
+    cnt_grid_p: cobj,
+    cdnumc_grid_p: cobj,
+    efcout_grid_p: cobj,
+    efiout_grid_p: cobj,
+    ncout_grid_p: cobj,
+    niout_grid_p: cobj,
+    freql_grid_p: cobj,
+    freqi_grid_p: cobj,
+    icwmrst_grid_out_p: cobj,
+    icimrst_grid_out_p: cobj,
+    fcti_grid_p: cobj,
+    fctl_grid_p: cobj,
+    ctrel_grid_p: cobj,
+    ctrei_grid_p: cobj,
+    ctnl_grid_p: cobj,
+    ctni_grid_p: cobj,
+    evprain_st_grid_p: cobj,
+):
+    iclwpst_grid = Ptr[float](iclwpst_grid_p)
+    cld_grid = Ptr[float](cld_grid_p)
+    cmeliq_grid = Ptr[float](cmeliq_grid_p)
+    pdel_grid = Ptr[float](pdel_grid_p)
+    prec_str_grid = Ptr[float](prec_str_grid_p)
+    acgcme_grid = Ptr[float](acgcme_grid_p)
+    acprecl_grid = Ptr[float](acprecl_grid_p)
+    acnum_grid = Ptr[i32](acnum_grid_p)
+    prao_grid = Ptr[float](prao_grid_p)
+    prco_grid = Ptr[float](prco_grid_p)
+    nc_grid = Ptr[float](nc_grid_p)
+    liqcldf_grid = Ptr[float](liqcldf_grid_p)
+    icwmrst_grid = Ptr[float](icwmrst_grid_p)
+    rel_grid = Ptr[float](rel_grid_p)
+    icwnc_grid = Ptr[float](icwnc_grid_p)
+    icecldf_grid = Ptr[float](icecldf_grid_p)
+    icimrst_grid = Ptr[float](icimrst_grid_p)
+    rei_grid = Ptr[float](rei_grid_p)
+    icinc_grid = Ptr[float](icinc_grid_p)
+    nevapr_grid = Ptr[float](nevapr_grid_p)
+    evpsnow_st_grid = Ptr[float](evpsnow_st_grid_p)
+    tgliqwp_grid = Ptr[float](tgliqwp_grid_p)
+    tgcmeliq_grid = Ptr[float](tgcmeliq_grid_p)
+    pe_grid = Ptr[float](pe_grid_p)
+    tpr_grid = Ptr[float](tpr_grid_p)
+    pefrac_grid = Ptr[float](pefrac_grid_p)
+    vprao_grid = Ptr[float](vprao_grid_p)
+    vprco_grid = Ptr[float](vprco_grid_p)
+    racau_grid = Ptr[float](racau_grid_p)
+    cnt_grid = Ptr[i32](cnt_grid_p)
+    cdnumc_grid = Ptr[float](cdnumc_grid_p)
+    efcout_grid = Ptr[float](efcout_grid_p)
+    efiout_grid = Ptr[float](efiout_grid_p)
+    ncout_grid = Ptr[float](ncout_grid_p)
+    niout_grid = Ptr[float](niout_grid_p)
+    freql_grid = Ptr[float](freql_grid_p)
+    freqi_grid = Ptr[float](freqi_grid_p)
+    icwmrst_grid_out = Ptr[float](icwmrst_grid_out_p)
+    icimrst_grid_out = Ptr[float](icimrst_grid_out_p)
+    fcti_grid = Ptr[float](fcti_grid_p)
+    fctl_grid = Ptr[float](fctl_grid_p)
+    ctrel_grid = Ptr[float](ctrel_grid_p)
+    ctrei_grid = Ptr[float](ctrei_grid_p)
+    ctnl_grid = Ptr[float](ctnl_grid_p)
+    ctni_grid = Ptr[float](ctni_grid_p)
+    evprain_st_grid = Ptr[float](evprain_st_grid_p)
+
+    for i in range(1, ngrdcol + 1):
+        idx1 = i - 1
+        tgliqwp_grid[idx1] = 0.0
+        tgcmeliq_grid[idx1] = 0.0
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ngrdcol + 1):
+            idx1 = i - 1
+            idx2 = _idx2(i, k, pcols)
+            tgliqwp_grid[idx1] = tgliqwp_grid[idx1] + iclwpst_grid[idx2] * cld_grid[idx2]
+            if cmeliq_grid[idx2] > 1.0e-12:
+                tgcmeliq_grid[idx1] = tgcmeliq_grid[idx1] + cmeliq_grid[idx2] * (pdel_grid[idx2] / gravit) / rhoh2o
+
+    for i in range(1, ngrdcol + 1):
+        idx1 = i - 1
+        pe_grid[idx1] = 0.0
+        tpr_grid[idx1] = 0.0
+        pefrac_grid[idx1] = 0.0
+
+    for i in range(1, ngrdcol + 1):
+        idx1 = i - 1
+        acgcme_grid[idx1] = acgcme_grid[idx1] + tgcmeliq_grid[idx1]
+        acprecl_grid[idx1] = acprecl_grid[idx1] + prec_str_grid[idx1]
+        acnum_grid[idx1] = i32(int(acnum_grid[idx1]) + 1)
+
+        if tgliqwp_grid[idx1] < minlwp:
+            if acprecl_grid[idx1] > 5.0e-8:
+                tpr_grid[idx1] = max(acprecl_grid[idx1] / int(acnum_grid[idx1]), 1.0e-15)
+                if acgcme_grid[idx1] > 1.0e-10:
+                    pe_grid[idx1] = min(max(acprecl_grid[idx1] / acgcme_grid[idx1], 1.0e-15), 1.0e5)
+                    pefrac_grid[idx1] = 1.0
+
+            acprecl_grid[idx1] = 0.0
+            acgcme_grid[idx1] = 0.0
+            acnum_grid[idx1] = i32(0)
+
+        if int(acnum_grid[idx1]) > 1000:
+            acnum_grid[idx1] = i32(0)
+            acprecl_grid[idx1] = 0.0
+            acgcme_grid[idx1] = 0.0
+
+    for i in range(1, pcols + 1):
+        idx1 = i - 1
+        vprao_grid[idx1] = 0.0
+        cnt_grid[idx1] = i32(0)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ngrdcol + 1):
+            idx1 = i - 1
+            idx2 = _idx2(i, k, pcols)
+            vprao_grid[idx1] = vprao_grid[idx1] + prao_grid[idx2]
+            if prao_grid[idx2] != 0.0:
+                cnt_grid[idx1] = i32(int(cnt_grid[idx1]) + 1)
+
+    for i in range(1, pcols + 1):
+        idx1 = i - 1
+        if int(cnt_grid[idx1]) > 0:
+            vprao_grid[idx1] = vprao_grid[idx1] / int(cnt_grid[idx1])
+
+    for i in range(1, pcols + 1):
+        idx1 = i - 1
+        vprco_grid[idx1] = 0.0
+        cnt_grid[idx1] = i32(0)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ngrdcol + 1):
+            idx1 = i - 1
+            idx2 = _idx2(i, k, pcols)
+            vprco_grid[idx1] = vprco_grid[idx1] + prco_grid[idx2]
+            if prco_grid[idx2] != 0.0:
+                cnt_grid[idx1] = i32(int(cnt_grid[idx1]) + 1)
+
+    for i in range(1, pcols + 1):
+        idx1 = i - 1
+        if int(cnt_grid[idx1]) > 0:
+            vprco_grid[idx1] = vprco_grid[idx1] / int(cnt_grid[idx1])
+            racau_grid[idx1] = vprao_grid[idx1] / vprco_grid[idx1]
+        else:
+            racau_grid[idx1] = 0.0
+
+    for i in range(1, pcols + 1):
+        idx1 = i - 1
+        racau_grid[idx1] = min(racau_grid[idx1], 1.0e10)
+
+    for i in range(1, ngrdcol + 1):
+        idx1 = i - 1
+        cdnumc_grid[idx1] = 0.0
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ngrdcol + 1):
+            idx1 = i - 1
+            idx2 = _idx2(i, k, pcols)
+            cdnumc_grid[idx1] = cdnumc_grid[idx1] + nc_grid[idx2] * pdel_grid[idx2] / gravit
+
+    for k in range(1, pver + 1):
+        for i in range(1, pcols + 1):
+            idx2 = _idx2(i, k, pcols)
+            efcout_grid[idx2] = 0.0
+            efiout_grid[idx2] = 0.0
+            ncout_grid[idx2] = 0.0
+            niout_grid[idx2] = 0.0
+            freql_grid[idx2] = 0.0
+            freqi_grid[idx2] = 0.0
+            icwmrst_grid_out[idx2] = 0.0
+            icimrst_grid_out[idx2] = 0.0
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ngrdcol + 1):
+            idx2 = _idx2(i, k, pcols)
+            if liqcldf_grid[idx2] > 0.01 and icwmrst_grid[idx2] > 5.0e-5:
+                efcout_grid[idx2] = rel_grid[idx2] * liqcldf_grid[idx2]
+                ncout_grid[idx2] = icwnc_grid[idx2] * liqcldf_grid[idx2]
+                freql_grid[idx2] = liqcldf_grid[idx2]
+                icwmrst_grid_out[idx2] = icwmrst_grid[idx2]
+            if icecldf_grid[idx2] > 0.01 and icimrst_grid[idx2] > 1.0e-6:
+                efiout_grid[idx2] = rei_grid[idx2] * icecldf_grid[idx2]
+                niout_grid[idx2] = icinc_grid[idx2] * icecldf_grid[idx2]
+                freqi_grid[idx2] = icecldf_grid[idx2]
+                icimrst_grid_out[idx2] = icimrst_grid[idx2]
+
+    for i in range(1, pcols + 1):
+        idx1 = i - 1
+        fcti_grid[idx1] = 0.0
+        fctl_grid[idx1] = 0.0
+        ctrel_grid[idx1] = 0.0
+        ctrei_grid[idx1] = 0.0
+        ctnl_grid[idx1] = 0.0
+        ctni_grid[idx1] = 0.0
+
+    for i in range(1, ngrdcol + 1):
+        idx1 = i - 1
+        for k in range(top_lev, pver + 1):
+            idx2 = _idx2(i, k, pcols)
+            if liqcldf_grid[idx2] > 0.01 and icwmrst_grid[idx2] > 1.0e-7:
+                ctrel_grid[idx1] = rel_grid[idx2] * liqcldf_grid[idx2]
+                ctnl_grid[idx1] = icwnc_grid[idx2] * liqcldf_grid[idx2]
+                fctl_grid[idx1] = liqcldf_grid[idx2]
+                break
+            if icecldf_grid[idx2] > 0.01 and icimrst_grid[idx2] > 1.0e-7:
+                ctrei_grid[idx1] = rei_grid[idx2] * icecldf_grid[idx2]
+                ctni_grid[idx1] = icinc_grid[idx2] * icecldf_grid[idx2]
+                fcti_grid[idx1] = icecldf_grid[idx2]
+                break
+
+    for k in range(1, pver + 1):
+        for i in range(1, ngrdcol + 1):
+            idx2 = _idx2(i, k, pcols)
+            evprain_st_grid[idx2] = nevapr_grid[idx2] - evpsnow_st_grid[idx2]
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ngrdcol + 1):
+            idx2 = _idx2(i, k, pcols)
+            evprain_st_grid[idx2] = max(evprain_st_grid[idx2], 0.0)
+            evpsnow_st_grid[idx2] = max(evpsnow_st_grid[idx2], 0.0)
