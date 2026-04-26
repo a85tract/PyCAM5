@@ -206,6 +206,8 @@
   logical                     :: zisocl_impl_selected = .false.
   logical                     :: use_native_compute_radf_impl = .false.
   logical                     :: compute_radf_impl_selected = .false.
+  logical                     :: use_native_caleddy_impl = .false.
+  logical                     :: caleddy_impl_selected = .false.
   logical                     :: use_native_caleddy_init_impl = .false.
   logical                     :: caleddy_init_impl_selected = .false.
   logical                     :: use_native_caleddy_diaginit_impl = .false.
@@ -6865,6 +6867,44 @@
 
   end subroutine eddy_diff_caleddy_closure_native
 
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine caleddy_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (caleddy_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_CALEDDY_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_caleddy_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_caleddy_impl = .false.
+    end if
+
+    caleddy_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_caleddy_impl) then
+          write(iulog,*) 'eddy_diff_caleddy implementation = native'
+       else
+          write(iulog,*) 'eddy_diff_caleddy implementation = codon'
+       end if
+    end if
+
+  end subroutine caleddy_select_impl
+
     ! ---------------------------------------------------------------------------- !
     !                                                                              !
     ! The University of Washington Moist Turbulence Scheme                         !
@@ -6896,6 +6936,8 @@
                         gh_a         , sh_a         , sm_a        , ri_a       , leng         , & 
                         wcap         , pblhp        , cld         , ipbl       , kpblh        , &
                         wsedl        , wsed_CL )
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
     !--------------------------------------------------------------------------------- !
     !                                                                                  !
@@ -6939,119 +6981,119 @@
     integer,  intent(in) :: pcols                     ! Number of atmospheric columns   
     integer,  intent(in) :: pver                      ! Number of atmospheric layers   
     integer,  intent(in) :: ncol                      ! Number of atmospheric columns   
-    real(r8), intent(in) :: u(pcols,pver)             ! U wind [ m/s ]
-    real(r8), intent(in) :: v(pcols,pver)             ! V wind [ m/s ]
-    real(r8), intent(in) :: sl(pcols,pver)            ! Liquid water static energy, cp * T + g * z - Lv * ql - Ls * qi [ J/kg ]
-    real(r8), intent(in) :: slv(pcols,pver)           ! Liquid water virtual static energy, sl * ( 1 + 0.608 * qt ) [ J/kg ]
-    real(r8), intent(in) :: qt(pcols,pver)            ! Total speccific humidity  qv + ql + qi [ kg/kg ] 
-    real(r8), intent(in) :: ql(pcols,pver)            ! Liquid water specific humidity [ kg/kg ]
-    real(r8), intent(in) :: pi(pcols,pver+1)          ! Interface pressures [ Pa ]
-    real(r8), intent(in) :: z(pcols,pver)             ! Layer midpoint height above surface [ m ]
-    real(r8), intent(in) :: zi(pcols,pver+1)          ! Interface height above surface, i.e., zi(pver+1) = 0 all over the globe
+    real(r8), target, intent(in) :: u(pcols,pver)     ! U wind [ m/s ]
+    real(r8), target, intent(in) :: v(pcols,pver)     ! V wind [ m/s ]
+    real(r8), target, intent(in) :: sl(pcols,pver)    ! Liquid water static energy, cp * T + g * z - Lv * ql - Ls * qi [ J/kg ]
+    real(r8), target, intent(in) :: slv(pcols,pver)   ! Liquid water virtual static energy, sl * ( 1 + 0.608 * qt ) [ J/kg ]
+    real(r8), target, intent(in) :: qt(pcols,pver)    ! Total speccific humidity  qv + ql + qi [ kg/kg ] 
+    real(r8), target, intent(in) :: ql(pcols,pver)    ! Liquid water specific humidity [ kg/kg ]
+    real(r8), target, intent(in) :: pi(pcols,pver+1)  ! Interface pressures [ Pa ]
+    real(r8), target, intent(in) :: z(pcols,pver)     ! Layer midpoint height above surface [ m ]
+    real(r8), target, intent(in) :: zi(pcols,pver+1)  ! Interface height above surface, i.e., zi(pver+1) = 0 all over the globe
                                                       ! [ m ]
-    real(r8), intent(in) :: chu(pcols,pver+1)         ! Buoyancy coeffi. unsaturated sl (heat) coef. at all interfaces.
+    real(r8), target, intent(in) :: chu(pcols,pver+1) ! Buoyancy coeffi. unsaturated sl (heat) coef. at all interfaces.
                                                       ! [ unit ? ]
-    real(r8), intent(in) :: chs(pcols,pver+1)         ! Buoyancy coeffi. saturated sl (heat) coef. at all interfaces.
+    real(r8), target, intent(in) :: chs(pcols,pver+1) ! Buoyancy coeffi. saturated sl (heat) coef. at all interfaces.
                                                       ! [ unit ? ]
-    real(r8), intent(in) :: cmu(pcols,pver+1)         ! Buoyancy coeffi. unsaturated qt (moisture) coef. at all interfaces
+    real(r8), target, intent(in) :: cmu(pcols,pver+1) ! Buoyancy coeffi. unsaturated qt (moisture) coef. at all interfaces
                                                       ! [ unit ? ]
-    real(r8), intent(in) :: cms(pcols,pver+1)         ! Buoyancy coeffi. saturated qt (moisture) coef. at all interfaces
+    real(r8), target, intent(in) :: cms(pcols,pver+1) ! Buoyancy coeffi. saturated qt (moisture) coef. at all interfaces
                                                       ! [ unit ? ]
-    real(r8), intent(in) :: sfuh(pcols,pver)          ! Saturation fraction in upper half-layer [ fraction ]
-    real(r8), intent(in) :: sflh(pcols,pver)          ! Saturation fraction in lower half-layer [ fraction ]
-    real(r8), intent(in) :: n2(pcols,pver)            ! Interfacial (except surface) moist buoyancy frequency [ s-2 ]
-    real(r8), intent(in) :: s2(pcols,pver)            ! Interfacial (except surface) shear frequency [ s-2 ]
-    real(r8), intent(in) :: ri(pcols,pver)            ! Interfacial (except surface) Richardson number
-    real(r8), intent(in) :: qflx(pcols)               ! Kinematic surface constituent ( water vapor ) flux [ kg/m2/s ]
-    real(r8), intent(in) :: shflx(pcols)              ! Kinematic surface heat flux [ unit ? ] 
-    real(r8), intent(in) :: slslope(pcols,pver)       ! Slope of 'sl' in each layer [ J/kg/Pa ]
-    real(r8), intent(in) :: qtslope(pcols,pver)       ! Slope of 'qt' in each layer [ kg/kg/Pa ]
-    real(r8), intent(in) :: qrlin(pcols,pver)         ! Input grid-mean LW heating rate : [ K/s ] * cpair * dp = [ W/kg*Pa ]
-    real(r8), intent(in) :: wsedl(pcols,pver)         ! Sedimentation velocity of liquid stratus cloud droplet [ m/s ]
-    real(r8), intent(in) :: ustar(pcols)              ! Surface friction velocity [ m/s ]
-    real(r8), intent(in) :: rrho(pcols)               ! 1./bottom mid-point density. Specific volume [ m3/kg ]
-    real(r8), intent(in) :: kvf(pcols,pver+1)         ! Free atmosphere eddy diffusivity [ m2/s ]
+    real(r8), target, intent(in) :: sfuh(pcols,pver)  ! Saturation fraction in upper half-layer [ fraction ]
+    real(r8), target, intent(in) :: sflh(pcols,pver)  ! Saturation fraction in lower half-layer [ fraction ]
+    real(r8), target, intent(in) :: n2(pcols,pver)    ! Interfacial (except surface) moist buoyancy frequency [ s-2 ]
+    real(r8), target, intent(in) :: s2(pcols,pver)    ! Interfacial (except surface) shear frequency [ s-2 ]
+    real(r8), target, intent(in) :: ri(pcols,pver)    ! Interfacial (except surface) Richardson number
+    real(r8), target, intent(in) :: qflx(pcols)       ! Kinematic surface constituent ( water vapor ) flux [ kg/m2/s ]
+    real(r8), target, intent(in) :: shflx(pcols)      ! Kinematic surface heat flux [ unit ? ] 
+    real(r8), target, intent(in) :: slslope(pcols,pver) ! Slope of 'sl' in each layer [ J/kg/Pa ]
+    real(r8), target, intent(in) :: qtslope(pcols,pver) ! Slope of 'qt' in each layer [ kg/kg/Pa ]
+    real(r8), target, intent(in) :: qrlin(pcols,pver) ! Input grid-mean LW heating rate : [ K/s ] * cpair * dp = [ W/kg*Pa ]
+    real(r8), target, intent(in) :: wsedl(pcols,pver) ! Sedimentation velocity of liquid stratus cloud droplet [ m/s ]
+    real(r8), target, intent(in) :: ustar(pcols)      ! Surface friction velocity [ m/s ]
+    real(r8), target, intent(in) :: rrho(pcols)       ! 1./bottom mid-point density. Specific volume [ m3/kg ]
+    real(r8), target, intent(in) :: kvf(pcols,pver+1) ! Free atmosphere eddy diffusivity [ m2/s ]
     logical,  intent(in) :: wstarent                  ! Switch for choosing wstar3 entrainment parameterization
     real(r8), intent(in) :: minpblh(pcols)            ! Minimum PBL height based on surface stress [ m ]
-    real(r8), intent(in) :: kvh_in(pcols,pver+1)      ! kvh saved from last timestep or last iterative step [ m2/s ] 
-    real(r8), intent(in) :: kvm_in(pcols,pver+1)      ! kvm saved from last timestep or last iterative step [ m2/s ]
-    real(r8), intent(in) :: cld(pcols,pver)           ! Stratus Cloud Fraction [ fraction ]
+    real(r8), target, intent(in) :: kvh_in(pcols,pver+1) ! kvh saved from last timestep or last iterative step [ m2/s ] 
+    real(r8), target, intent(in) :: kvm_in(pcols,pver+1) ! kvm saved from last timestep or last iterative step [ m2/s ]
+    real(r8), target, intent(in) :: cld(pcols,pver)   ! Stratus Cloud Fraction [ fraction ]
 
     ! ---------------- !
     ! Output variables !
     ! ---------------- !
 
-    real(r8), intent(out) :: kvh(pcols,pver+1)        ! Eddy diffusivity for heat, moisture, and tracers [ m2/s ]
-    real(r8), intent(out) :: kvm(pcols,pver+1)        ! Eddy diffusivity for momentum [ m2/s ]
-    real(r8), intent(out) :: pblh(pcols)              ! PBL top height [ m ]
-    real(r8), intent(out) :: pblhp(pcols)             ! PBL top height pressure [ Pa ]
-    real(r8), intent(out) :: tpert(pcols)             ! Convective temperature excess [ K ]
-    real(r8), intent(out) :: qpert(pcols)             ! Convective humidity excess [ kg/kg ]
-    real(r8), intent(out) :: wpert(pcols)             ! Turbulent velocity excess [ m/s ]
-    real(r8), intent(out) :: tkes(pcols)              ! TKE at surface [ m2/s2 ] 
-    real(r8), intent(out) :: went(pcols)              ! Entrainment rate at the PBL top interface [ m/s ] 
-    real(r8), intent(out) :: tke(pcols,pver+1)        ! Turbulent kinetic energy [ m2/s2 ], 'tkes' at surface, pver+1.
-    real(r8), intent(out) :: bprod(pcols,pver+1)      ! Buoyancy production [ m2/s3 ],     'bflxs' at surface, pver+1.
-    real(r8), intent(out) :: sprod(pcols,pver+1)      ! Shear production [ m2/s3 ], (ustar(i)**3)/(vk*z(i,pver))
+    real(r8), target, intent(out) :: kvh(pcols,pver+1) ! Eddy diffusivity for heat, moisture, and tracers [ m2/s ]
+    real(r8), target, intent(out) :: kvm(pcols,pver+1) ! Eddy diffusivity for momentum [ m2/s ]
+    real(r8), target, intent(out) :: pblh(pcols)     ! PBL top height [ m ]
+    real(r8), target, intent(out) :: pblhp(pcols)    ! PBL top height pressure [ Pa ]
+    real(r8), target, intent(out) :: tpert(pcols)    ! Convective temperature excess [ K ]
+    real(r8), target, intent(out) :: qpert(pcols)    ! Convective humidity excess [ kg/kg ]
+    real(r8), target, intent(out) :: wpert(pcols)    ! Turbulent velocity excess [ m/s ]
+    real(r8), target, intent(out) :: tkes(pcols)     ! TKE at surface [ m2/s2 ] 
+    real(r8), target, intent(out) :: went(pcols)     ! Entrainment rate at the PBL top interface [ m/s ] 
+    real(r8), target, intent(out) :: tke(pcols,pver+1) ! Turbulent kinetic energy [ m2/s2 ], 'tkes' at surface, pver+1.
+    real(r8), target, intent(out) :: bprod(pcols,pver+1) ! Buoyancy production [ m2/s3 ],     'bflxs' at surface, pver+1.
+    real(r8), target, intent(out) :: sprod(pcols,pver+1) ! Shear production [ m2/s3 ], (ustar(i)**3)/(vk*z(i,pver))
                                                       ! at surface, pver+1.
-    integer(i4), intent(out) :: turbtype(pcols,pver+1) ! Turbulence type at each interface:
+    integer(i4), target, intent(out) :: turbtype(pcols,pver+1) ! Turbulence type at each interface:
                                                       ! 0. = Non turbulence interface
                                                       ! 1. = Stable turbulence interface
                                                       ! 2. = CL interior interface ( if bflxs > 0, surface is this )
                                                       ! 3. = Bottom external interface of CL
                                                       ! 4. = Top external interface of CL.
                                                       ! 5. = Double entraining CL external interface 
-    real(r8), intent(out) :: sm_aw(pcols,pver+1)      ! Galperin instability function of momentum for use in the microphysics
+    real(r8), target, intent(out) :: sm_aw(pcols,pver+1) ! Galperin instability function of momentum for use in the microphysics
                                                       ! [ no unit ]
-    integer(i4), intent(out) :: ipbl(pcols)           ! If 1, PBL is CL, while if 0, PBL is STL.
-    integer(i4), intent(out) :: kpblh(pcols)          ! Layer index containing PBL within or at the base interface
-    real(r8), intent(out) :: wsed_CL(pcols,ncvmax)    ! Sedimentation velocity at the top of each CL [ m/s ]
+    integer(i4), target, intent(out) :: ipbl(pcols)   ! If 1, PBL is CL, while if 0, PBL is STL.
+    integer(i4), target, intent(out) :: kpblh(pcols)  ! Layer index containing PBL within or at the base interface
+    real(r8), target, intent(out) :: wsed_CL(pcols,ncvmax) ! Sedimentation velocity at the top of each CL [ m/s ]
 
     ! --------------------------- !
     ! Diagnostic output variables !
     ! --------------------------- !
 
-    real(r8) :: kbase_o(pcols,ncvmax)                 ! Original external base interface index of CL just after 'exacol'
-    real(r8) :: ktop_o(pcols,ncvmax)                  ! Original external top  interface index of CL just after 'exacol'
-    real(r8) :: ncvfin_o(pcols)                       ! Original number of CLs just after 'exacol'
-    real(r8) :: kbase_mg(pcols,ncvmax)                ! kbase  just after extending-merging (after 'zisocl') but without SRCL
-    real(r8) :: ktop_mg(pcols,ncvmax)                 ! ktop   just after extending-merging (after 'zisocl') but without SRCL
-    real(r8) :: ncvfin_mg(pcols)                      ! ncvfin just after extending-merging (after 'zisocl') but without SRCL
-    real(r8) :: kbase_f(pcols,ncvmax)                 ! Final kbase  after adding SRCL
-    real(r8) :: ktop_f(pcols,ncvmax)                  ! Final ktop   after adding SRCL
-    real(r8) :: ncvfin_f(pcols)                       ! Final ncvfin after adding SRCL
-    real(r8) :: wet_CL(pcols,ncvmax)                  ! Entrainment rate at the CL top [ m/s ] 
-    real(r8) :: web_CL(pcols,ncvmax)                  ! Entrainment rate at the CL base [ m/s ]
-    real(r8) :: jtbu_CL(pcols,ncvmax)                 ! Buoyancy jump across the CL top [ m/s2 ]  
-    real(r8) :: jbbu_CL(pcols,ncvmax)                 ! Buoyancy jump across the CL base [ m/s2 ]  
-    real(r8) :: evhc_CL(pcols,ncvmax)                 ! Evaporative enhancement factor at the CL top
-    real(r8) :: jt2slv_CL(pcols,ncvmax)               ! Jump of slv ( across two layers ) at CL top for use only in evhc [ J/kg ]
-    real(r8) :: n2ht_CL(pcols,ncvmax)                 ! n2 defined at the CL top  interface
+    real(r8), target :: kbase_o(pcols,ncvmax)         ! Original external base interface index of CL just after 'exacol'
+    real(r8), target :: ktop_o(pcols,ncvmax)          ! Original external top  interface index of CL just after 'exacol'
+    real(r8), target :: ncvfin_o(pcols)               ! Original number of CLs just after 'exacol'
+    real(r8), target :: kbase_mg(pcols,ncvmax)        ! kbase  just after extending-merging (after 'zisocl') but without SRCL
+    real(r8), target :: ktop_mg(pcols,ncvmax)         ! ktop   just after extending-merging (after 'zisocl') but without SRCL
+    real(r8), target :: ncvfin_mg(pcols)              ! ncvfin just after extending-merging (after 'zisocl') but without SRCL
+    real(r8), target :: kbase_f(pcols,ncvmax)         ! Final kbase  after adding SRCL
+    real(r8), target :: ktop_f(pcols,ncvmax)          ! Final ktop   after adding SRCL
+    real(r8), target :: ncvfin_f(pcols)               ! Final ncvfin after adding SRCL
+    real(r8), target :: wet_CL(pcols,ncvmax)          ! Entrainment rate at the CL top [ m/s ] 
+    real(r8), target :: web_CL(pcols,ncvmax)          ! Entrainment rate at the CL base [ m/s ]
+    real(r8), target :: jtbu_CL(pcols,ncvmax)         ! Buoyancy jump across the CL top [ m/s2 ]  
+    real(r8), target :: jbbu_CL(pcols,ncvmax)         ! Buoyancy jump across the CL base [ m/s2 ]  
+    real(r8), target :: evhc_CL(pcols,ncvmax)         ! Evaporative enhancement factor at the CL top
+    real(r8), target :: jt2slv_CL(pcols,ncvmax)       ! Jump of slv ( across two layers ) at CL top for use only in evhc [ J/kg ]
+    real(r8), target :: n2ht_CL(pcols,ncvmax)         ! n2 defined at the CL top  interface
                                                       ! but using sfuh(kt)   instead of sfi(kt) [ s-2 ]
-    real(r8) :: n2hb_CL(pcols,ncvmax)                 ! n2 defined at the CL base interface
+    real(r8), target :: n2hb_CL(pcols,ncvmax)         ! n2 defined at the CL base interface
                                                       ! but using sflh(kb-1) instead of sfi(kb) [ s-2 ]
-    real(r8) :: lwp_CL(pcols,ncvmax)                  ! LWP in the CL top layer [ kg/m2 ]
-    real(r8) :: opt_depth_CL(pcols,ncvmax)            ! Optical depth of the CL top layer
-    real(r8) :: radinvfrac_CL(pcols,ncvmax)           ! Fraction of LW radiative cooling confined in the top portion of CL
-    real(r8) :: radf_CL(pcols,ncvmax)                 ! Buoyancy production at the CL top due to radiative cooling [ m2/s3 ]
-    real(r8) :: wstar_CL(pcols,ncvmax)                ! Convective velocity of CL including entrainment contribution finally [ m/s ]
-    real(r8) :: wstar3fact_CL(pcols,ncvmax)           ! "wstar3fact" of CL. Entrainment enhancement of wstar3 (inverse)
+    real(r8), target :: lwp_CL(pcols,ncvmax)          ! LWP in the CL top layer [ kg/m2 ]
+    real(r8), target :: opt_depth_CL(pcols,ncvmax)    ! Optical depth of the CL top layer
+    real(r8), target :: radinvfrac_CL(pcols,ncvmax)   ! Fraction of LW radiative cooling confined in the top portion of CL
+    real(r8), target :: radf_CL(pcols,ncvmax)         ! Buoyancy production at the CL top due to radiative cooling [ m2/s3 ]
+    real(r8), target :: wstar_CL(pcols,ncvmax)        ! Convective velocity of CL including entrainment contribution finally [ m/s ]
+    real(r8), target :: wstar3fact_CL(pcols,ncvmax)   ! "wstar3fact" of CL. Entrainment enhancement of wstar3 (inverse)
 
-    real(r8) :: gh_a(pcols,pver+1)                    ! Half of normalized buoyancy production, -l2n2/2e. [ no unit ]
-    real(r8) :: sh_a(pcols,pver+1)                    ! Galperin instability function of heat-moisture at all interfaces [ no unit ]
-    real(r8) :: sm_a(pcols,pver+1)                    ! Galperin instability function of momentum      at all interfaces [ no unit ]
-    real(r8) :: ri_a(pcols,pver+1)                    ! Interfacial Richardson number                  at all interfaces [ no unit ]
+    real(r8), target :: gh_a(pcols,pver+1)            ! Half of normalized buoyancy production, -l2n2/2e. [ no unit ]
+    real(r8), target :: sh_a(pcols,pver+1)            ! Galperin instability function of heat-moisture at all interfaces [ no unit ]
+    real(r8), target :: sm_a(pcols,pver+1)            ! Galperin instability function of momentum      at all interfaces [ no unit ]
+    real(r8), target :: ri_a(pcols,pver+1)            ! Interfacial Richardson number                  at all interfaces [ no unit ]
 
-    real(r8) :: ebrk(pcols,ncvmax)                    ! Net CL mean TKE [ m2/s2 ]
-    real(r8) :: wbrk(pcols,ncvmax)                    ! Net CL mean normalized TKE [ m2/s2 ]
-    real(r8) :: lbrk(pcols,ncvmax)                    ! Net energetic integral thickness of CL [ m ]
-    real(r8) :: ricl(pcols,ncvmax)                    ! Mean Richardson number of CL ( l2n2/l2s2 )
-    real(r8) :: ghcl(pcols,ncvmax)                    ! Half of normalized buoyancy production of CL                 
-    real(r8) :: shcl(pcols,ncvmax)                    ! Instability function of heat and moisture of CL
-    real(r8) :: smcl(pcols,ncvmax)                    ! Instability function of momentum of CL
+    real(r8), target :: ebrk(pcols,ncvmax)            ! Net CL mean TKE [ m2/s2 ]
+    real(r8), target :: wbrk(pcols,ncvmax)            ! Net CL mean normalized TKE [ m2/s2 ]
+    real(r8), target :: lbrk(pcols,ncvmax)            ! Net energetic integral thickness of CL [ m ]
+    real(r8), target :: ricl(pcols,ncvmax)            ! Mean Richardson number of CL ( l2n2/l2s2 )
+    real(r8), target :: ghcl(pcols,ncvmax)            ! Half of normalized buoyancy production of CL                 
+    real(r8), target :: shcl(pcols,ncvmax)            ! Instability function of heat and moisture of CL
+    real(r8), target :: smcl(pcols,ncvmax)            ! Instability function of momentum of CL
 
-    real(r8) :: leng(pcols,pver+1)                    ! Turbulent length scale [ m ], 0 at the surface.
-    real(r8) :: wcap(pcols,pver+1)                    ! Normalized TKE [m2/s2], 'tkes/b1' at the surface and 'tke/b1' at
+    real(r8), target :: leng(pcols,pver+1)            ! Turbulent length scale [ m ], 0 at the surface.
+    real(r8), target :: wcap(pcols,pver+1)            ! Normalized TKE [m2/s2], 'tkes/b1' at the surface and 'tke/b1' at
                                                       ! the top/bottom entrainment interfaces of CL assuming no transport.
     ! ------------------------ !
     ! Local Internal Variables !
@@ -7066,7 +7108,7 @@
     integer :: i                                      ! Longitude index
     integer :: k                                      ! Vertical index
     integer :: ks                                     ! Vertical index
-    integer :: ncvfin(pcols)                          ! Total number of CL in column
+    integer(i4), target :: ncvfin(pcols)              ! Total number of CL in column
     integer :: ncvf                                   ! Total number of CL in column prior to adding SRCL
     integer :: ncv                                    ! Index of current CL
     integer :: ncvnew                                 ! Index of added SRCL appended after regular CLs from 'zisocl'
@@ -7082,13 +7124,13 @@
     integer :: evhc_mode                              ! Encoded choice_evhc for Codon helper
     integer :: wstarent_mode                          ! Encoded wstarent for Codon helper
     integer :: sedfact_mode                           ! Encoded id_sedfact for Codon helper
-    integer :: kbase(pcols,ncvmax)                    ! Vertical index of CL base interface
-    integer :: ktop(pcols,ncvmax)                     ! Vertical index of CL top interface
+    integer(i4), target :: kbase(pcols,ncvmax)        ! Vertical index of CL base interface
+    integer(i4), target :: ktop(pcols,ncvmax)         ! Vertical index of CL top interface
     integer :: kb, kt                                 ! kbase and ktop for current CL
     integer :: ktblw                                  ! ktop of the CL located at just below the current CL
 
     integer  :: ktopbl(pcols)                         ! PBL top height or interface index 
-    real(r8) :: bflxs(pcols)                          ! Surface buoyancy flux [ m2/s3 ]
+    real(r8), target :: bflxs(pcols)                  ! Surface buoyancy flux [ m2/s3 ]
     real(r8) :: rcap                                  ! 'tke/ebrk' at all interfaces of CL.
                                                       ! Set to 1 at the CL entrainment interfaces
     real(r8) :: jtzm                                  ! Interface layer thickness of CL top interface [ m ]
@@ -7151,9 +7193,9 @@
     real(r8) :: dzhb5                                 ! Half thickness of the bottom-most layer of current CL regime
     real(r8) :: dzht5                                 ! Half thickness of the top-most layer of adjacent CL regime
                                                       ! just below current CL
-    real(r8) :: qrlw(pcols,pver)                      ! Local grid-mean LW heating rate : [K/s] * cpair * dp = [ W/kg*Pa ]
+    real(r8), target :: qrlw(pcols,pver)              ! Local grid-mean LW heating rate : [K/s] * cpair * dp = [ W/kg*Pa ]
 
-    real(r8) :: cldeff(pcols,pver)                    ! Effective stratus fraction
+    real(r8), target :: cldeff(pcols,pver)            ! Effective stratus fraction
     real(r8) :: qleff                                 ! Used for computing evhc
     real(r8) :: tunlramp                              ! Ramping tunl
     real(r8) :: leng_imsi                             ! For Kv = max(Kv_STL, Kv_entrain)
@@ -7177,6 +7219,52 @@
     real(r8) :: rcrit                                 ! ccrit*wstar
     real(r8) :: fcrit                                 ! f(rcrit)
     logical     noroot                                ! True if f(r) has no root r > rcrit
+    integer :: use_dw_surf_mode                       ! Encoded use_dw_surf for Codon shell
+    integer :: choice_tkes_ebprod_mode               ! Encoded choice_tkes=ebprod for Codon shell
+    integer :: radf_mode                              ! Encoded choice_radf for Codon shell
+    integer :: srcl_mode                              ! Encoded choice_SRCL for Codon shell
+    integer(i4), target :: belongcv_mask_local(pver+1), stlmask_local(pver+1), zero_tke_mask_local(pver+1)
+    integer(i4), target :: extend_codon, extend_up_codon, extend_dn_codon, zisocl_status_codon
+    integer(i4), target :: ncvsurf_codon, srcl_status_codon, closure_status_local(3), caleddy_status_local(3)
+
+    interface
+       subroutine eddy_diff_caleddy_codon(pcols_c, pver_c, ncol_c, ncvmax_c, ntop_turb_c, nbot_turb_c, qrlzero_mode_c, &
+            cldeff_mode_c, tkes_mode_c, use_kvf_mode_c, tunl_mode_c, leng_mode_c, evhc_mode_c, wstarent_mode_c, &
+            sedfact_mode_c, srcl_mode_c, radf_mode_c, use_dw_surf_mode_c, choice_tkes_ebprod_mode_c, qmin_c, ricrit_c, &
+            b1_c, vk_c, ntzero_c, alph1_c, alph2_c, alph3_c, alph4_c, alph5_c, alph4exs_c, ghmin_c, tunl_c, ctunl_c, &
+            cleng_c, lbulk_max_c, tkemax_c, rinc_c, ae_c, a1l_c, a1i_c, ccrit_c, wstar3factcrit_c, onet_c, rcapmin_c, &
+            rcapmax_c, wfac_c, wpertmin_c, tfac_c, gravit_c, cpair_c, latvap_c, a2l_c, a3l_c, jbumin_c, evhcmax_c, &
+            ased_c, fak_c, sl_p, qt_p, ql_p, slv_p, u_p, v_p, pi_p, z_p, zi_p, qflx_p, shflx_p, slslope_p, qtslope_p, &
+            chu_p, chs_p, cmu_p, cms_p, sfuh_p, sflh_p, n2_p, s2_p, ri_p, rrho_p, pblh_p, ustar_p, kvh_in_p, kvm_in_p, &
+            kvh_p, kvm_p, tpert_p, qpert_p, qrlin_p, kvf_p, tke_p, bprod_p, sprod_p, wpert_p, tkes_p, went_p, &
+            turbtype_p, sm_aw_p, kbase_o_p, ktop_o_p, ncvfin_o_p, kbase_mg_p, ktop_mg_p, ncvfin_mg_p, kbase_f_p, &
+            ktop_f_p, ncvfin_f_p, wet_CL_p, web_CL_p, jtbu_CL_p, jbbu_CL_p, evhc_CL_p, jt2slv_CL_p, n2ht_CL_p, &
+            n2hb_CL_p, lwp_CL_p, opt_depth_CL_p, radinvfrac_CL_p, radf_CL_p, wstar_CL_p, wstar3fact_CL_p, ebrk_p, &
+            wbrk_p, lbrk_p, ricl_p, ghcl_p, shcl_p, smcl_p, gh_a_p, sh_a_p, sm_a_p, ri_a_p, leng_p, wcap_p, pblhp_p, &
+            cld_p, ipbl_p, kpblh_p, wsedl_p, wsed_CL_p, leng_max_p, qrlw_p, cldeff_p, bflxs_p, ncvfin_p, kbase_p, &
+            ktop_p, belong_mask_p, stlmask_p, extend_p, extend_up_p, extend_dn_p, zisocl_status_p, ncvsurf_p, &
+            srcl_status_p, zero_tke_mask_p, closure_status_p, caleddy_status_p) bind(c, name="eddy_diff_caleddy_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: pcols_c, pver_c, ncol_c, ncvmax_c, ntop_turb_c, nbot_turb_c, qrlzero_mode_c, &
+              cldeff_mode_c, tkes_mode_c, use_kvf_mode_c, tunl_mode_c, leng_mode_c, evhc_mode_c, wstarent_mode_c, &
+              sedfact_mode_c, srcl_mode_c, radf_mode_c, use_dw_surf_mode_c, choice_tkes_ebprod_mode_c
+         real(c_double), value :: qmin_c, ricrit_c, b1_c, vk_c, ntzero_c, alph1_c, alph2_c, alph3_c, alph4_c, &
+              alph5_c, alph4exs_c, ghmin_c, tunl_c, ctunl_c, cleng_c, lbulk_max_c, tkemax_c, rinc_c, ae_c, a1l_c, &
+              a1i_c, ccrit_c, wstar3factcrit_c, onet_c, rcapmin_c, rcapmax_c, wfac_c, wpertmin_c, tfac_c, gravit_c, &
+              cpair_c, latvap_c, a2l_c, a3l_c, jbumin_c, evhcmax_c, ased_c, fak_c
+         type(c_ptr), value :: sl_p, qt_p, ql_p, slv_p, u_p, v_p, pi_p, z_p, zi_p, qflx_p, shflx_p, slslope_p, &
+              qtslope_p, chu_p, chs_p, cmu_p, cms_p, sfuh_p, sflh_p, n2_p, s2_p, ri_p, rrho_p, pblh_p, ustar_p, &
+              kvh_in_p, kvm_in_p, kvh_p, kvm_p, tpert_p, qpert_p, qrlin_p, kvf_p, tke_p, bprod_p, sprod_p, wpert_p, &
+              tkes_p, went_p, turbtype_p, sm_aw_p, kbase_o_p, ktop_o_p, ncvfin_o_p, kbase_mg_p, ktop_mg_p, &
+              ncvfin_mg_p, kbase_f_p, ktop_f_p, ncvfin_f_p, wet_CL_p, web_CL_p, jtbu_CL_p, jbbu_CL_p, evhc_CL_p, &
+              jt2slv_CL_p, n2ht_CL_p, n2hb_CL_p, lwp_CL_p, opt_depth_CL_p, radinvfrac_CL_p, radf_CL_p, wstar_CL_p, &
+              wstar3fact_CL_p, ebrk_p, wbrk_p, lbrk_p, ricl_p, ghcl_p, shcl_p, smcl_p, gh_a_p, sh_a_p, sm_a_p, &
+              ri_a_p, leng_p, wcap_p, pblhp_p, cld_p, ipbl_p, kpblh_p, wsedl_p, wsed_CL_p, leng_max_p, qrlw_p, &
+              cldeff_p, bflxs_p, ncvfin_p, kbase_p, ktop_p, belong_mask_p, stlmask_p, extend_p, extend_up_p, &
+              extend_dn_p, zisocl_status_p, ncvsurf_p, srcl_status_p, zero_tke_mask_p, closure_status_p, &
+              caleddy_status_p
+       end subroutine eddy_diff_caleddy_codon
+    end interface
 
     !-----------------------!
     ! Start of Main Program !
@@ -7238,6 +7326,86 @@
     use_kvf_mode = 0
     if (use_kvf) then
         use_kvf_mode = 1
+    end if
+
+    use_dw_surf_mode = 0
+    if (use_dw_surf) then
+        use_dw_surf_mode = 1
+    end if
+
+    choice_tkes_ebprod_mode = 0
+    if (choice_tkes .eq. 'ebprod') then
+        choice_tkes_ebprod_mode = 1
+    end if
+
+    radf_mode = 2
+    if (choice_radf .eq. 'orig') then
+        radf_mode = 0
+    elseif (choice_radf .eq. 'ramp') then
+        radf_mode = 1
+    end if
+
+    srcl_mode = 1
+    if (choice_SRCL .eq. 'remove') then
+        srcl_mode = 0
+    elseif (choice_SRCL .eq. 'nonamb') then
+        srcl_mode = 2
+    end if
+
+    call caleddy_select_impl()
+
+    if (.not. use_native_caleddy_impl) then
+       extend_codon = 0_i4
+       extend_up_codon = 0_i4
+       extend_dn_codon = 0_i4
+       zisocl_status_codon = 0_i4
+       ncvsurf_codon = 0_i4
+       srcl_status_codon = 0_i4
+       closure_status_local = 0_i4
+       caleddy_status_local = 0_i4
+
+       call eddy_diff_caleddy_codon(int(pcols, c_int64_t), int(pver, c_int64_t), int(ncol, c_int64_t), &
+            int(ncvmax, c_int64_t), int(ntop_turb, c_int64_t), int(nbot_turb, c_int64_t), int(qrlzero_mode, c_int64_t), &
+            int(cldeff_mode, c_int64_t), int(tkes_mode, c_int64_t), int(use_kvf_mode, c_int64_t), &
+            int(tunl_mode, c_int64_t), int(leng_mode, c_int64_t), int(evhc_mode, c_int64_t), &
+            int(wstarent_mode, c_int64_t), int(sedfact_mode, c_int64_t), int(srcl_mode, c_int64_t), &
+            int(radf_mode, c_int64_t), int(use_dw_surf_mode, c_int64_t), int(choice_tkes_ebprod_mode, c_int64_t), qmin, &
+            ricrit, b1, vk, ntzero, alph1, alph2, alph3, alph4, alph5, alph4exs, ghmin, tunl, ctunl, cleng, lbulk_max, &
+            tkemax, rinc, ae, a1l, a1i, ccrit, wstar3factcrit, onet, rcapmin, rcapmax, wfac, wpertmin, tfac, g, cpair, &
+            latvap, a2l, a3l, jbumin, evhcmax, ased, fak, c_loc(sl), c_loc(qt), c_loc(ql), c_loc(slv), c_loc(u), &
+            c_loc(v), c_loc(pi), c_loc(z), c_loc(zi), c_loc(qflx), c_loc(shflx), c_loc(slslope), c_loc(qtslope), &
+            c_loc(chu), c_loc(chs), c_loc(cmu), c_loc(cms), c_loc(sfuh), c_loc(sflh), c_loc(n2), c_loc(s2), c_loc(ri), &
+            c_loc(rrho), c_loc(pblh), c_loc(ustar), c_loc(kvh_in), c_loc(kvm_in), c_loc(kvh), c_loc(kvm), c_loc(tpert), &
+            c_loc(qpert), c_loc(qrlin), c_loc(kvf), c_loc(tke), c_loc(bprod), c_loc(sprod), c_loc(wpert), c_loc(tkes), &
+            c_loc(went), c_loc(turbtype), c_loc(sm_aw), c_loc(kbase_o), c_loc(ktop_o), c_loc(ncvfin_o), c_loc(kbase_mg), &
+            c_loc(ktop_mg), c_loc(ncvfin_mg), c_loc(kbase_f), c_loc(ktop_f), c_loc(ncvfin_f), c_loc(wet_CL), &
+            c_loc(web_CL), c_loc(jtbu_CL), c_loc(jbbu_CL), c_loc(evhc_CL), c_loc(jt2slv_CL), c_loc(n2ht_CL), &
+            c_loc(n2hb_CL), c_loc(lwp_CL), c_loc(opt_depth_CL), c_loc(radinvfrac_CL), c_loc(radf_CL), c_loc(wstar_CL), &
+            c_loc(wstar3fact_CL), c_loc(ebrk), c_loc(wbrk), c_loc(lbrk), c_loc(ricl), c_loc(ghcl), c_loc(shcl), &
+            c_loc(smcl), c_loc(gh_a), c_loc(sh_a), c_loc(sm_a), c_loc(ri_a), c_loc(leng), c_loc(wcap), c_loc(pblhp), &
+            c_loc(cld), c_loc(ipbl), c_loc(kpblh), c_loc(wsedl), c_loc(wsed_CL), c_loc(leng_max), c_loc(qrlw), &
+            c_loc(cldeff), c_loc(bflxs), c_loc(ncvfin), c_loc(kbase), c_loc(ktop), c_loc(belongcv_mask_local), &
+            c_loc(stlmask_local), c_loc(extend_codon), c_loc(extend_up_codon), c_loc(extend_dn_codon), &
+            c_loc(zisocl_status_codon), c_loc(ncvsurf_codon), c_loc(srcl_status_codon), c_loc(zero_tke_mask_local), &
+            c_loc(closure_status_local), c_loc(caleddy_status_local))
+
+       if (caleddy_status_local(1) .eq. 1_i4) then
+          if (caleddy_status_local(2) .eq. 1_i4) then
+             write(iulog,*) 'zisocl: Error: Tried to extend CL to the model top'
+             call endrun('zisocl: Error: Tried to extend CL to the model top')
+          elseif (caleddy_status_local(2) .eq. 2_i4) then
+             write(iulog,*) 'Major mistake zisocl: the CL based at surface is not indexed 1'
+             call endrun('Major mistake zisocl: the CL based at surface is not indexed 1')
+          else
+             call endrun('CALEDDY Error: unexpected zisocl status in Codon shell')
+          end if
+       elseif (caleddy_status_local(1) .eq. 2_i4) then
+          write(iulog,*) 'CALEDDY: Major mistake in SRCL: bflxs > 0 for surface-based SRCL'
+          write(iulog,*) 'column = ', caleddy_status_local(3)
+          call endrun('CALEDDY: Major mistake in SRCL: bflxs > 0 for surface-based SRCL')
+       end if
+
+       return
     end if
 
     call eddy_diff_caleddy_init(ncol, pcols, pver, qrlzero_mode, cldeff_mode, tkes_mode, use_kvf_mode, qmin, vk, ql, qrlin, &
