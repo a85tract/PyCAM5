@@ -100,6 +100,7 @@
   logical :: impl_selected = .false.
   integer :: branch_mask = 0
   logical :: branch_selected = .false.
+  logical :: wtrc_detrain_impl_logged = .false.
 
   contains
 
@@ -448,7 +449,6 @@ end subroutine macrop_driver_readnl
   type(physics_state) :: state_loc                  ! Local copy of the state variable
   type(physics_ptend) :: ptend_loc                  ! Local parameterization tendencies
 
-  integer i,k
   integer :: lchnk                                  ! Chunk identifier
   integer :: ncol                                   ! Number of atmospheric columns
 
@@ -533,7 +533,6 @@ end subroutine macrop_driver_readnl
   real(r8)  dpdlft  (pcols,pver)
   real(r8)  shdlft  (pcols,pver)
 
-  real(r8)  dum1
   real(r8)  qc(pcols,pver)
   real(r8)  qi(pcols,pver)
   real(r8)  nc(pcols,pver)
@@ -754,21 +753,7 @@ end subroutine macrop_driver_readnl
         dlf_t, dlf_qv, dlf_ql, dlf_qi, dlf_nl, dlf_ni, dpdlfliq, dpdlfice, shdlfliq, shdlfice, dpdlft, shdlft)
 
    if ((trace_water_local) .and. (wtrc_detrain_in_macrop_local)) then
-      do k = top_lev, pver
-         do i = 1, state_loc%ncol
-            if( state_loc%t(i,k) > 268.15_r8 ) then
-                dum1 = 0.0_r8
-            elseif( state_loc%t(i,k) < 238.15_r8 ) then
-                dum1 = 1.0_r8
-            else
-                dum1 = ( 268.15_r8 - state_loc%t(i,k) ) / 30._r8
-            endif
-            do m = 1, wtrc_nwset
-               ptend_loc%q(i,k,wtrc_iatype(m,iwtliq)) = wtdlf(i,k,m) * (1._r8 - dum1)
-               ptend_loc%q(i,k,wtrc_iatype(m,iwtice)) = wtdlf(i,k,m) * dum1
-            end do
-         end do
-      end do
+      call macrop_driver_wtrc_detrain(ncol, state_loc%t, wtdlf, ptend_loc%q)
    end if
 
    call outfld( 'DPDLFLIQ ', dpdlfliq, pcols, lchnk )
@@ -1116,6 +1101,91 @@ end subroutine macrop_driver_tend
 
 !============================================================================ !
 !                                                                             !
+!============================================================================ !
+
+subroutine macrop_driver_wtrc_detrain(ncol_local, state_t_local, wtdlf_local, ptend_q_local)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use water_tracer_vars, only: wtrc_nwset, wtrc_iatype
+  use water_types, only: iwtliq, iwtice
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  real(r8), target, intent(in) :: state_t_local(pcols,pver), wtdlf_local(pcols,pver,wtrc_nwset)
+  real(r8), target, intent(inout) :: ptend_q_local(pcols,pver,pcnst)
+
+  integer(c_int64_t), target :: liq_type_c(wtrc_nwset), ice_type_c(wtrc_nwset)
+  integer :: m
+
+  interface
+     subroutine macrop_driver_wtrc_detrain_codon(ncol_c, pcols_c, pver_c, top_lev_c, wtrc_nwset_c, state_t_p, wtdlf_p, &
+          liq_type_p, ice_type_p, ptend_q_p) bind(c, name="macrop_driver_wtrc_detrain_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, wtrc_nwset_c
+       type(c_ptr), value :: state_t_p, wtdlf_p, liq_type_p, ice_type_p, ptend_q_p
+     end subroutine macrop_driver_wtrc_detrain_codon
+  end interface
+
+  if (masterproc .and. .not. wtrc_detrain_impl_logged) then
+     if (use_native_impl) then
+        write(iulog,*) 'macrop_driver_wtrc_detrain implementation = native'
+     else
+        write(iulog,*) 'macrop_driver_wtrc_detrain implementation = codon'
+     end if
+     call flush(iulog)
+     wtrc_detrain_impl_logged = .true.
+  end if
+
+  if (use_native_impl) then
+     call macrop_driver_wtrc_detrain_native(ncol_local, state_t_local, wtdlf_local, wtrc_iatype(:,iwtliq), wtrc_iatype(:,iwtice), &
+          ptend_q_local)
+     return
+  end if
+
+  do m = 1, wtrc_nwset
+     liq_type_c(m) = int(wtrc_iatype(m,iwtliq), c_int64_t)
+     ice_type_c(m) = int(wtrc_iatype(m,iwtice), c_int64_t)
+  end do
+
+  call macrop_driver_wtrc_detrain_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(top_lev, c_int64_t), int(wtrc_nwset, c_int64_t), c_loc(state_t_local), c_loc(wtdlf_local), c_loc(liq_type_c), &
+       c_loc(ice_type_c), c_loc(ptend_q_local))
+
+end subroutine macrop_driver_wtrc_detrain
+
+!============================================================================ !
+
+subroutine macrop_driver_wtrc_detrain_native(ncol_local, state_t_local, wtdlf_local, liq_type_local, ice_type_local, ptend_q_local)
+
+  use water_tracer_vars, only: wtrc_nwset
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  real(r8), intent(in) :: state_t_local(pcols,pver), wtdlf_local(pcols,pver,wtrc_nwset)
+  integer, intent(in) :: liq_type_local(wtrc_nwset), ice_type_local(wtrc_nwset)
+  real(r8), intent(inout) :: ptend_q_local(pcols,pver,pcnst)
+
+  real(r8) :: dum1_local
+  integer :: i, k, m
+
+  do k = top_lev, pver
+     do i = 1, ncol_local
+        if( state_t_local(i,k) > 268.15_r8 ) then
+           dum1_local = 0.0_r8
+        elseif( state_t_local(i,k) < 238.15_r8 ) then
+           dum1_local = 1.0_r8
+        else
+           dum1_local = ( 268.15_r8 - state_t_local(i,k) ) / 30._r8
+        endif
+        do m = 1, wtrc_nwset
+           ptend_q_local(i,k,liq_type_local(m)) = wtdlf_local(i,k,m) * (1._r8 - dum1_local)
+           ptend_q_local(i,k,ice_type_local(m)) = wtdlf_local(i,k,m) * dum1_local
+        end do
+     end do
+  end do
+
+end subroutine macrop_driver_wtrc_detrain_native
+
 !============================================================================ !
 
 subroutine macrop_driver_detrain_core(ncol_local, do_detrain_local, cu_det_st_local, state_t_local, state_pdel_local, &

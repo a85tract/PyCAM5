@@ -2,6 +2,10 @@ def _idx2(i: int, k: int, pcols: int):
     return (k - 1) * pcols + (i - 1)
 
 
+def _idx3(i: int, k: int, m: int, pcols: int, pver: int):
+    return (m - 1) * pcols * pver + (k - 1) * pcols + (i - 1)
+
+
 @export
 def macrop_driver_select_branches_codon(
     micro_do_icesupersat: int,
@@ -35,6 +39,41 @@ def macrop_driver_select_branches_codon(
         mask |= 128
 
     branch_mask[0] = mask
+
+
+@export
+def macrop_driver_wtrc_detrain_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    wtrc_nwset: int,
+    state_t_p: cobj,
+    wtdlf_p: cobj,
+    liq_type_p: cobj,
+    ice_type_p: cobj,
+    ptend_q_p: cobj,
+):
+    state_t = Ptr[float](state_t_p)
+    wtdlf = Ptr[float](wtdlf_p)
+    liq_type = Ptr[int](liq_type_p)
+    ice_type = Ptr[int](ice_type_p)
+    ptend_q = Ptr[float](ptend_q_p)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _idx2(i, k, pcols)
+            if state_t[idx2] > 268.15:
+                dum1 = 0.0
+            elif state_t[idx2] < 238.15:
+                dum1 = 1.0
+            else:
+                dum1 = (268.15 - state_t[idx2]) / 30.0
+            for m in range(1, wtrc_nwset + 1):
+                idx_wtdlf = _idx3(i, k, m, pcols, pver)
+                ptend_q[_idx3(i, k, liq_type[m - 1], pcols, pver)] = wtdlf[idx_wtdlf] * (1.0 - dum1)
+                ptend_q[_idx3(i, k, ice_type[m - 1], pcols, pver)] = wtdlf[idx_wtdlf] * dum1
+
 
 @export
 def macrop_driver_clr_old_diag_codon(
