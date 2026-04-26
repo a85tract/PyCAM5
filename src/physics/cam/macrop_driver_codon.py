@@ -331,3 +331,137 @@ def macrop_driver_store_state_codon(
             nlwat[idx2] = state_nl[idx2]
             niwat[idx2] = state_ni[idx2]
             cldsice[idx2] = lcwat[idx2] * min(1.0, max(0.0, (tmelt - tcwat[idx2]) / 20.0))
+
+
+@export
+def macrop_driver_detrain_core_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    do_detrain: int,
+    cu_det_st: int,
+    cpair: float,
+    gravit: float,
+    latice: float,
+    nl_denom_a: float,
+    nl_denom_b: float,
+    ni_denom_a: float,
+    ni_denom_b: float,
+    state_t_p: cobj,
+    state_pdel_p: cobj,
+    dlf_p: cobj,
+    dlf2_p: cobj,
+    ptend_ql_p: cobj,
+    ptend_qi_p: cobj,
+    ptend_nl_p: cobj,
+    ptend_ni_p: cobj,
+    ptend_s_p: cobj,
+    det_s_p: cobj,
+    det_ice_p: cobj,
+    dlf_t_p: cobj,
+    dlf_qv_p: cobj,
+    dlf_ql_p: cobj,
+    dlf_qi_p: cobj,
+    dlf_nl_p: cobj,
+    dlf_ni_p: cobj,
+    dpdlfliq_p: cobj,
+    dpdlfice_p: cobj,
+    shdlfliq_p: cobj,
+    shdlfice_p: cobj,
+    dpdlft_p: cobj,
+    shdlft_p: cobj,
+):
+    # Fortran mappings: state_t/state_pdel/dlf/... are real(r8) arrays with shape (pcols,pver);
+    # det_s/det_ice are real(r8) arrays with shape (pcols).
+    state_t = Ptr[float](state_t_p)
+    state_pdel = Ptr[float](state_pdel_p)
+    dlf = Ptr[float](dlf_p)
+    dlf2 = Ptr[float](dlf2_p)
+    ptend_ql = Ptr[float](ptend_ql_p)
+    ptend_qi = Ptr[float](ptend_qi_p)
+    ptend_nl = Ptr[float](ptend_nl_p)
+    ptend_ni = Ptr[float](ptend_ni_p)
+    ptend_s = Ptr[float](ptend_s_p)
+    det_s = Ptr[float](det_s_p)
+    det_ice = Ptr[float](det_ice_p)
+    dlf_t = Ptr[float](dlf_t_p)
+    dlf_qv = Ptr[float](dlf_qv_p)
+    dlf_ql = Ptr[float](dlf_ql_p)
+    dlf_qi = Ptr[float](dlf_qi_p)
+    dlf_nl = Ptr[float](dlf_nl_p)
+    dlf_ni = Ptr[float](dlf_ni_p)
+    dpdlfliq = Ptr[float](dpdlfliq_p)
+    dpdlfice = Ptr[float](dpdlfice_p)
+    shdlfliq = Ptr[float](shdlfliq_p)
+    shdlfice = Ptr[float](shdlfice_p)
+    dpdlft = Ptr[float](dpdlft_p)
+    shdlft = Ptr[float](shdlft_p)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _idx2(i, k, pcols)
+            idx1 = i - 1
+
+            if state_t[idx2] > 268.15:
+                dum1_local = 0.0
+            elif state_t[idx2] < 238.15:
+                dum1_local = 1.0
+            else:
+                dum1_local = (268.15 - state_t[idx2]) / 30.0
+
+            if do_detrain != 0:
+                ptend_ql[idx2] = dlf[idx2] * (1.0 - dum1_local)
+                ptend_qi[idx2] = dlf[idx2] * dum1_local
+                ptend_nl[idx2] = (
+                    3.0
+                    * (max(0.0, (dlf[idx2] - dlf2[idx2])) * (1.0 - dum1_local))
+                    / nl_denom_a
+                    + 3.0
+                    * (dlf2[idx2] * (1.0 - dum1_local))
+                    / nl_denom_b
+                )
+                ptend_ni[idx2] = (
+                    3.0
+                    * (max(0.0, (dlf[idx2] - dlf2[idx2])) * dum1_local)
+                    / ni_denom_a
+                    + 3.0
+                    * (dlf2[idx2] * dum1_local)
+                    / ni_denom_b
+                )
+                ptend_s[idx2] = dlf[idx2] * dum1_local * latice
+            else:
+                ptend_ql[idx2] = 0.0
+                ptend_qi[idx2] = 0.0
+                ptend_nl[idx2] = 0.0
+                ptend_ni[idx2] = 0.0
+                ptend_s[idx2] = 0.0
+
+            det_s[idx1] = det_s[idx1] + ptend_s[idx2] * state_pdel[idx2] / gravit
+            det_ice[idx1] = det_ice[idx1] - ptend_qi[idx2] * state_pdel[idx2] / gravit
+
+            if cu_det_st != 0:
+                dlf_t[idx2] = ptend_s[idx2] / cpair
+                dlf_qv[idx2] = 0.0
+                dlf_ql[idx2] = ptend_ql[idx2]
+                dlf_qi[idx2] = ptend_qi[idx2]
+                dlf_nl[idx2] = ptend_nl[idx2]
+                dlf_ni[idx2] = ptend_ni[idx2]
+                ptend_ql[idx2] = 0.0
+                ptend_qi[idx2] = 0.0
+                ptend_nl[idx2] = 0.0
+                ptend_ni[idx2] = 0.0
+                ptend_s[idx2] = 0.0
+                dpdlfliq[idx2] = 0.0
+                dpdlfice[idx2] = 0.0
+                shdlfliq[idx2] = 0.0
+                shdlfice[idx2] = 0.0
+                dpdlft[idx2] = 0.0
+                shdlft[idx2] = 0.0
+            else:
+                dpdlfliq[idx2] = (dlf[idx2] - dlf2[idx2]) * (1.0 - dum1_local)
+                dpdlfice[idx2] = (dlf[idx2] - dlf2[idx2]) * dum1_local
+                shdlfliq[idx2] = dlf2[idx2] * (1.0 - dum1_local)
+                shdlfice[idx2] = dlf2[idx2] * dum1_local
+                dpdlft[idx2] = (dlf[idx2] - dlf2[idx2]) * dum1_local * latice / cpair
+                shdlft[idx2] = dlf2[idx2] * dum1_local * latice / cpair

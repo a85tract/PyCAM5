@@ -749,7 +749,7 @@ end subroutine macrop_driver_readnl
    dpdlft   = 0._r8
    shdlft   = 0._r8
 
-   call macrop_driver_detrain_core_native(ncol, do_detrain_local, cu_det_st_local, state_loc%t, state_loc%pdel, dlf, dlf2, ptend_loc%q(:,:,ixcldliq), &
+   call macrop_driver_detrain_core(ncol, do_detrain_local, cu_det_st_local, state_loc%t, state_loc%pdel, dlf, dlf2, ptend_loc%q(:,:,ixcldliq), &
         ptend_loc%q(:,:,ixcldice), ptend_loc%q(:,:,ixnumliq), ptend_loc%q(:,:,ixnumice), ptend_loc%s, det_s, det_ice, &
         dlf_t, dlf_qv, dlf_ql, dlf_qi, dlf_nl, dlf_ni, dpdlfliq, dpdlfice, shdlfliq, shdlfice, dpdlft, shdlft)
 
@@ -1116,6 +1116,146 @@ end subroutine macrop_driver_tend
 
 !============================================================================ !
 !                                                                             !
+!============================================================================ !
+
+subroutine macrop_driver_detrain_core(ncol_local, do_detrain_local, cu_det_st_local, state_t_local, state_pdel_local, &
+     dlf_local, dlf2_local, ptend_ql_local, ptend_qi_local, ptend_nl_local, ptend_ni_local, ptend_s_local, det_s_local, &
+     det_ice_local, dlf_t_local, dlf_qv_local, dlf_ql_local, dlf_qi_local, dlf_nl_local, dlf_ni_local, dpdlfliq_local, &
+     dpdlfice_local, shdlfliq_local, shdlfice_local, dpdlft_local, shdlft_local)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  use physconst, only: cpair, gravit
+  use ref_pres,  only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  logical, intent(in) :: do_detrain_local, cu_det_st_local
+  real(r8), target, intent(in) :: state_t_local(pcols,pver), state_pdel_local(pcols,pver)
+  real(r8), target, intent(in) :: dlf_local(pcols,pver), dlf2_local(pcols,pver)
+  real(r8), target, intent(inout) :: ptend_ql_local(pcols,pver), ptend_qi_local(pcols,pver)
+  real(r8), target, intent(inout) :: ptend_nl_local(pcols,pver), ptend_ni_local(pcols,pver)
+  real(r8), target, intent(inout) :: ptend_s_local(pcols,pver), det_s_local(pcols), det_ice_local(pcols)
+  real(r8), target, intent(inout) :: dlf_t_local(pcols,pver), dlf_qv_local(pcols,pver), dlf_ql_local(pcols,pver)
+  real(r8), target, intent(inout) :: dlf_qi_local(pcols,pver), dlf_nl_local(pcols,pver), dlf_ni_local(pcols,pver)
+  real(r8), target, intent(inout) :: dpdlfliq_local(pcols,pver), dpdlfice_local(pcols,pver)
+  real(r8), target, intent(inout) :: shdlfliq_local(pcols,pver), shdlfice_local(pcols,pver)
+  real(r8), target, intent(inout) :: dpdlft_local(pcols,pver), shdlft_local(pcols,pver)
+  real(r8) :: nl_denom_a_local, nl_denom_b_local, ni_denom_a_local, ni_denom_b_local
+  logical, save :: detrain_debug_checked = .false.
+  logical, save :: detrain_debug_enabled = .false.
+  logical, save :: detrain_debug_reported = .false.
+  character(len=32) :: debug_name
+  integer :: debug_status, debug_len
+  real(r8) :: ptend_ql_ref(pcols,pver), ptend_qi_ref(pcols,pver), ptend_nl_ref(pcols,pver), ptend_ni_ref(pcols,pver)
+  real(r8) :: ptend_s_ref(pcols,pver), det_s_ref(pcols), det_ice_ref(pcols)
+  real(r8) :: dlf_t_ref(pcols,pver), dlf_qv_ref(pcols,pver), dlf_ql_ref(pcols,pver), dlf_qi_ref(pcols,pver)
+  real(r8) :: dlf_nl_ref(pcols,pver), dlf_ni_ref(pcols,pver)
+  real(r8) :: dpdlfliq_ref(pcols,pver), dpdlfice_ref(pcols,pver), shdlfliq_ref(pcols,pver), shdlfice_ref(pcols,pver)
+  real(r8) :: dpdlft_ref(pcols,pver), shdlft_ref(pcols,pver)
+
+  interface
+     subroutine macrop_driver_detrain_core_codon(ncol_c, pcols_c, pver_c, top_lev_c, do_detrain_c, cu_det_st_c, cpair_c, &
+          gravit_c, latice_c, nl_denom_a_c, nl_denom_b_c, ni_denom_a_c, ni_denom_b_c, state_t_p, state_pdel_p, dlf_p, &
+          dlf2_p, ptend_ql_p, ptend_qi_p, ptend_nl_p, ptend_ni_p, ptend_s_p, det_s_p, det_ice_p, dlf_t_p, dlf_qv_p, &
+          dlf_ql_p, dlf_qi_p, dlf_nl_p, dlf_ni_p, dpdlfliq_p, &
+          dpdlfice_p, shdlfliq_p, shdlfice_p, dpdlft_p, shdlft_p) bind(c, name="macrop_driver_detrain_core_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, do_detrain_c, cu_det_st_c
+       real(c_double), value :: cpair_c, gravit_c, latice_c, nl_denom_a_c, nl_denom_b_c, ni_denom_a_c, ni_denom_b_c
+       type(c_ptr), value :: state_t_p, state_pdel_p, dlf_p, dlf2_p, ptend_ql_p, ptend_qi_p, ptend_nl_p, ptend_ni_p
+       type(c_ptr), value :: ptend_s_p, det_s_p, det_ice_p, dlf_t_p, dlf_qv_p, dlf_ql_p, dlf_qi_p, dlf_nl_p, dlf_ni_p
+       type(c_ptr), value :: dpdlfliq_p, dpdlfice_p, shdlfliq_p, shdlfice_p, dpdlft_p, shdlft_p
+     end subroutine macrop_driver_detrain_core_codon
+  end interface
+
+  if (use_native_impl) then
+     call macrop_driver_detrain_core_native(ncol_local, do_detrain_local, cu_det_st_local, state_t_local, state_pdel_local, &
+          dlf_local, dlf2_local, ptend_ql_local, ptend_qi_local, ptend_nl_local, ptend_ni_local, ptend_s_local, det_s_local, &
+          det_ice_local, dlf_t_local, dlf_qv_local, dlf_ql_local, dlf_qi_local, dlf_nl_local, dlf_ni_local, dpdlfliq_local, &
+          dpdlfice_local, shdlfliq_local, shdlfice_local, dpdlft_local, shdlft_local)
+     return
+  end if
+
+  if (.not. detrain_debug_checked) then
+     debug_name = ''
+     call get_environment_variable('MACROP_DRIVER_DETRAIN_DEBUG', value=debug_name, length=debug_len, status=debug_status)
+     detrain_debug_enabled = debug_status == 0 .and. debug_len > 0 .and. trim(adjustl(debug_name(:debug_len))) /= '0'
+     detrain_debug_checked = .true.
+  end if
+
+  nl_denom_a_local = 4._r8*3.14_r8*8.e-6_r8**3*997._r8
+  nl_denom_b_local = 4._r8*3.14_r8*10.e-6_r8**3*997._r8
+  ni_denom_a_local = 4._r8*3.14_r8*25.e-6_r8**3*500._r8
+  ni_denom_b_local = 4._r8*3.14_r8*50.e-6_r8**3*500._r8
+
+  if (detrain_debug_enabled .and. .not. detrain_debug_reported) then
+     ptend_ql_ref = ptend_ql_local
+     ptend_qi_ref = ptend_qi_local
+     ptend_nl_ref = ptend_nl_local
+     ptend_ni_ref = ptend_ni_local
+     ptend_s_ref = ptend_s_local
+     det_s_ref = det_s_local
+     det_ice_ref = det_ice_local
+     dlf_t_ref = dlf_t_local
+     dlf_qv_ref = dlf_qv_local
+     dlf_ql_ref = dlf_ql_local
+     dlf_qi_ref = dlf_qi_local
+     dlf_nl_ref = dlf_nl_local
+     dlf_ni_ref = dlf_ni_local
+     dpdlfliq_ref = dpdlfliq_local
+     dpdlfice_ref = dpdlfice_local
+     shdlfliq_ref = shdlfliq_local
+     shdlfice_ref = shdlfice_local
+     dpdlft_ref = dpdlft_local
+     shdlft_ref = shdlft_local
+
+     call macrop_driver_detrain_core_native(ncol_local, do_detrain_local, cu_det_st_local, state_t_local, state_pdel_local, &
+          dlf_local, dlf2_local, ptend_ql_ref, ptend_qi_ref, ptend_nl_ref, ptend_ni_ref, ptend_s_ref, det_s_ref, det_ice_ref, &
+          dlf_t_ref, dlf_qv_ref, dlf_ql_ref, dlf_qi_ref, dlf_nl_ref, dlf_ni_ref, dpdlfliq_ref, dpdlfice_ref, shdlfliq_ref, &
+          shdlfice_ref, dpdlft_ref, shdlft_ref)
+  end if
+
+  call macrop_driver_detrain_core_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(top_lev, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, do_detrain_local), &
+       merge(1_c_int64_t, 0_c_int64_t, cu_det_st_local), cpair, gravit, latice, nl_denom_a_local, nl_denom_b_local, &
+       ni_denom_a_local, ni_denom_b_local, c_loc(state_t_local), c_loc(state_pdel_local), c_loc(dlf_local), c_loc(dlf2_local), &
+       c_loc(ptend_ql_local), c_loc(ptend_qi_local), c_loc(ptend_nl_local), c_loc(ptend_ni_local), c_loc(ptend_s_local), &
+       c_loc(det_s_local), c_loc(det_ice_local), c_loc(dlf_t_local), c_loc(dlf_qv_local), c_loc(dlf_ql_local), &
+       c_loc(dlf_qi_local), c_loc(dlf_nl_local), c_loc(dlf_ni_local), c_loc(dpdlfliq_local), c_loc(dpdlfice_local), &
+       c_loc(shdlfliq_local), c_loc(shdlfice_local), c_loc(dpdlft_local), c_loc(shdlft_local))
+
+  if (detrain_debug_enabled .and. .not. detrain_debug_reported) then
+     write(iulog,*) 'macrop_driver_detrain_core debug maxdiff ptend_ql =', &
+          maxval(abs(ptend_ql_local(1:ncol_local,top_lev:pver) - ptend_ql_ref(1:ncol_local,top_lev:pver)))
+     write(iulog,*) 'macrop_driver_detrain_core debug maxdiff ptend_qi =', &
+          maxval(abs(ptend_qi_local(1:ncol_local,top_lev:pver) - ptend_qi_ref(1:ncol_local,top_lev:pver)))
+     write(iulog,*) 'macrop_driver_detrain_core debug maxdiff ptend_nl =', &
+          maxval(abs(ptend_nl_local(1:ncol_local,top_lev:pver) - ptend_nl_ref(1:ncol_local,top_lev:pver)))
+     write(iulog,*) 'macrop_driver_detrain_core debug maxdiff ptend_ni =', &
+          maxval(abs(ptend_ni_local(1:ncol_local,top_lev:pver) - ptend_ni_ref(1:ncol_local,top_lev:pver)))
+     write(iulog,*) 'macrop_driver_detrain_core debug maxdiff ptend_s =', &
+          maxval(abs(ptend_s_local(1:ncol_local,top_lev:pver) - ptend_s_ref(1:ncol_local,top_lev:pver)))
+     write(iulog,*) 'macrop_driver_detrain_core debug maxdiff det_s =', &
+          maxval(abs(det_s_local(1:ncol_local) - det_s_ref(1:ncol_local)))
+     write(iulog,*) 'macrop_driver_detrain_core debug maxdiff det_ice =', &
+          maxval(abs(det_ice_local(1:ncol_local) - det_ice_ref(1:ncol_local)))
+     write(iulog,*) 'macrop_driver_detrain_core debug maxdiff dpdlfliq =', &
+          maxval(abs(dpdlfliq_local(1:ncol_local,top_lev:pver) - dpdlfliq_ref(1:ncol_local,top_lev:pver)))
+     write(iulog,*) 'macrop_driver_detrain_core debug maxdiff dpdlfice =', &
+          maxval(abs(dpdlfice_local(1:ncol_local,top_lev:pver) - dpdlfice_ref(1:ncol_local,top_lev:pver)))
+     write(iulog,*) 'macrop_driver_detrain_core debug maxdiff shdlfliq =', &
+          maxval(abs(shdlfliq_local(1:ncol_local,top_lev:pver) - shdlfliq_ref(1:ncol_local,top_lev:pver)))
+     write(iulog,*) 'macrop_driver_detrain_core debug maxdiff shdlfice =', &
+          maxval(abs(shdlfice_local(1:ncol_local,top_lev:pver) - shdlfice_ref(1:ncol_local,top_lev:pver)))
+     write(iulog,*) 'macrop_driver_detrain_core debug maxdiff dpdlft =', &
+          maxval(abs(dpdlft_local(1:ncol_local,top_lev:pver) - dpdlft_ref(1:ncol_local,top_lev:pver)))
+     write(iulog,*) 'macrop_driver_detrain_core debug maxdiff shdlft =', &
+          maxval(abs(shdlft_local(1:ncol_local,top_lev:pver) - shdlft_ref(1:ncol_local,top_lev:pver)))
+     call flush(iulog)
+     detrain_debug_reported = .true.
+  end if
+
+end subroutine macrop_driver_detrain_core
+
 !============================================================================ !
 
 subroutine macrop_driver_detrain_core_native(ncol_local, do_detrain_local, cu_det_st_local, state_t_local, state_pdel_local, &
