@@ -517,6 +517,7 @@ end subroutine convect_shallow_init_cnst
    real(r8) :: pcnb(pcols)                                               ! Bottom pressure level of shallow + deep convective activity
    real(r8) :: cmfsl(pcols,pverp )                                       ! Convective flux of liquid water static energy
    real(r8) :: cmflq(pcols,pverp )                                       ! Convective flux of total water in energy unit
+   real(r8) :: rprdtot(pcols,pver)                                       ! Total shallow+deep rain production tendency
    
    real(r8) :: ftem_preCu(pcols,pver)                                    ! Saturation vapor pressure after shallow Cu convection
    real(r8) :: tem2(pcols,pver)                                          ! Saturation specific humidity and RH
@@ -725,11 +726,13 @@ end subroutine convect_shallow_init_cnst
       ! In addition, define 'icwmr' which includes both liquid and ice.       !
       ! --------------------------------------------------------------------- !
 
-      icwmr(:ncol,:)  = iccmr_UW(:ncol,:) 
-      rprdsh(:ncol,:) = rprdsh(:ncol,:) + cmfdqs(:ncol,:)
-      do m = 4, pcnst
-         ptend_loc%q(:ncol,:pver,m) = ptend_tracer(:ncol,:pver,m)
-      enddo
+      if (use_native_impl) then
+         icwmr(:ncol,:)  = iccmr_UW(:ncol,:)
+         rprdsh(:ncol,:) = rprdsh(:ncol,:) + cmfdqs(:ncol,:)
+         do m = 4, pcnst
+            ptend_loc%q(:ncol,:pver,m) = ptend_tracer(:ncol,:pver,m)
+         end do
+      end if
 
       ! Conservation check
       
@@ -760,8 +763,10 @@ end subroutine convect_shallow_init_cnst
       ! Convective fluxes of 'sl' and 'qt' in energy unit !
       ! ------------------------------------------------- !
 
-      cmfsl(:ncol,:) = slflx(:ncol,:)
-      cmflq(:ncol,:) = qtflx(:ncol,:) * latvap
+      if (use_native_impl) then
+         cmfsl(:ncol,:) = slflx(:ncol,:)
+         cmflq(:ncol,:) = qtflx(:ncol,:) * latvap
+      end if
 
       call outfld( 'PRECSH' , precc  , pcols, lchnk )
 
@@ -796,37 +801,43 @@ end subroutine convect_shallow_init_cnst
 
  ! Modification : I should check whether below computation of freqsh is correct.
 
-   freqsh(:) = 0._r8
-   do i = 1, ncol
-      if( maxval(cmfmc2(i,:pver)) <= 0._r8 ) then
-          freqsh(i) = 1._r8
+   if (.not. use_native_impl .and. scheme_code == 3) then
+      call convect_shallow_uw_post_shell(ncol, state%pmid, cmfmc, cmfmc2, cnt, cnt2, cnb, cnb2, pcnt, pcnb, qc, qc2, rliq, &
+           rliq2, wtqc, wtdlf, freqsh, icwmr, iccmr_UW, rprdsh, cmfdqs, ptend_loc%q, ptend_tracer, cmfsl, cmflq, slflx, &
+           qtflx, rprddp, rprdtot, ptend_loc%s, ftem)
+   else
+      if (use_native_impl) then
+         freqsh(:) = 0._r8
+         do i = 1, ncol
+            if( maxval(cmfmc2(i,:pver)) <= 0._r8 ) then
+                freqsh(i) = 1._r8
+            end if
+         end do
+
+         cmfmc(:ncol,:) = cmfmc(:ncol,:) + cmfmc2(:ncol,:)
+
+         do i = 1, ncol
+            if( cnt2(i) < cnt(i)) cnt(i) = cnt2(i)
+            if( cnb2(i) > cnb(i)) cnb(i) = cnb2(i)
+            pcnt(i) = state%pmid(i,int(cnt(i)))
+            pcnb(i) = state%pmid(i,int(cnb(i)))
+         end do
+
+         qc(:ncol,:pver) = qc(:ncol,:pver) + qc2(:ncol,:pver)
+         rliq(:ncol)     = rliq(:ncol) + rliq2(:ncol)
+
+         do m=1,wtrc_nwset
+           wtdlf(:ncol,:pver,m) = wtdlf(:ncol,:pver,m) + &
+                                 (wtqc(:ncol,:pver,wtrc_iatype(m,iwtliq)) + wtqc(:ncol,:pver,wtrc_iatype(m,iwtice)))
+         end do
+      else
+         call convect_shallow_postmerge(ncol, state%pmid, cmfmc, cmfmc2, cnt, cnt2, cnb, cnb2, pcnt, pcnb, qc, qc2, rliq, &
+              rliq2, wtqc, wtdlf, freqsh)
       end if
-   end do
 
-   ! ------------------------------------------------------------------------------ !
-   ! Merge shallow convection output with prior results from deep convection scheme !
-   ! ------------------------------------------------------------------------------ !
-
-   ! ----------------------------------------------------------------------- !
-   ! Combine cumulus updraft mass flux : 'cmfmc2'(shallow) + 'cmfmc'(deep)   !
-   ! ----------------------------------------------------------------------- !
-
-   cmfmc(:ncol,:) = cmfmc(:ncol,:) + cmfmc2(:ncol,:)
-
-   ! -------------------------------------------------------------- !
-   ! 'cnt2' & 'cnb2' are from shallow, 'cnt' & 'cnb' are from deep  !
-   ! 'cnt2' & 'cnb2' are the interface indices of cloud top & base: ! 
-   !        cnt2 = float(kpen)                                      !
-   !        cnb2 = float(krel - 1)                                  !
-   ! Note that indices decreases with height.                       !
-   ! -------------------------------------------------------------- !
-
-   do i = 1, ncol
-      if( cnt2(i) < cnt(i)) cnt(i) = cnt2(i)
-      if( cnb2(i) > cnb(i)) cnb(i) = cnb2(i)
-      pcnt(i) = state%pmid(i,int(cnt(i)))
-      pcnb(i) = state%pmid(i,int(cnb(i)))     
-   end do
+      rprdtot(:ncol,:pver) = rprdsh(:ncol,:pver) + rprddp(:ncol,:pver)
+      ftem(:ncol,:pver) = ptend_loc%s(:ncol,:pver)/cpair
+   end if
    
    ! ----------------------------------------------- !
    ! This quantity was previously known as CMFDQR.   !
@@ -834,21 +845,12 @@ end subroutine convect_shallow_init_cnst
    ! ----------------------------------------------- !
 
    
-   call pbuf_set_field(pbuf, rprdtot_idx, rprdsh(:ncol,:pver) + rprddp(:ncol,:pver), start=(/1,1/), kount=(/ncol,pver/))
+   call pbuf_set_field(pbuf, rprdtot_idx, rprdtot(:ncol,:pver), start=(/1,1/), kount=(/ncol,pver/))
  
    ! ----------------------------------------------------------------------- ! 
    ! Add shallow reserved cloud condensate to deep reserved cloud condensate !
    !     qc [ kg/kg/s] , rliq [ m/s ]                                        !
    ! ----------------------------------------------------------------------- !
-
-   qc(:ncol,:pver) = qc(:ncol,:pver) + qc2(:ncol,:pver)
-   rliq(:ncol)     = rliq(:ncol) + rliq2(:ncol)    
-
-   !water tracers:
-   do m=1,wtrc_nwset !loop over water speices
-     wtdlf(:ncol,:pver,m) = wtdlf(:ncol,:pver,m) + &
-                           (wtqc(:ncol,:pver,wtrc_iatype(m,iwtliq)) + wtqc(:ncol,:pver,wtrc_iatype(m,iwtice)))
-   end do
 
    ! ---------------------------------------------------------------------------- !
    ! Output new partition of cloud condensate variables, as well as precipitation !
@@ -858,8 +860,6 @@ end subroutine convect_shallow_init_cnst
        call cnst_get_ind( 'NUMLIQ', ixnumliq )
        call cnst_get_ind( 'NUMICE', ixnumice )
    endif
-
-   ftem(:ncol,:pver) = ptend_loc%s(:ncol,:pver)/cpair
 
    call outfld( 'ICWMRSH ', icwmr                    , pcols   , lchnk )
 
@@ -1068,39 +1068,23 @@ end subroutine convect_shallow_init_cnst
 
 subroutine convect_shallow_select_codon_scheme()
 
-   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
-
-   integer :: i
-   integer(c_int64_t), target :: scheme_ascii(len(shallow_scheme))
-   integer(c_int64_t), target :: scheme_code
-   integer(c_int64_t), target :: status_code
-
-   interface
-      subroutine convect_shallow_select_scheme_codon(scheme_len_c, scheme_ascii_p, scheme_code_p, status_p) &
-           bind(c, name="convect_shallow_select_scheme_codon")
-        use iso_c_binding, only: c_int64_t, c_ptr
-        integer(c_int64_t), value :: scheme_len_c
-        type(c_ptr), value :: scheme_ascii_p, scheme_code_p, status_p
-      end subroutine convect_shallow_select_scheme_codon
-   end interface
+   character(len=len(shallow_scheme)) :: scheme_name
 
    if (codon_scheme_selected) return
 
-   do i = 1, len(shallow_scheme)
-      scheme_ascii(i) = int(iachar(shallow_scheme(i:i)), c_int64_t)
-   end do
-
-   scheme_code = 0_c_int64_t
-   status_code = 0_c_int64_t
-   call convect_shallow_select_scheme_codon( &
-        int(len(shallow_scheme), c_int64_t), c_loc(scheme_ascii(1)), c_loc(scheme_code), c_loc(status_code) &
-   )
-
-   if (status_code /= 0_c_int64_t) then
+   scheme_name = trim(adjustl(shallow_scheme))
+   select case (scheme_name)
+   case ('off', 'clubb_sgs')
+      codon_scheme_code = 1
+   case ('Hack')
+      codon_scheme_code = 2
+   case ('UW')
+      codon_scheme_code = 3
+   case ('UNICON')
+      codon_scheme_code = 4
+   case default
       codon_scheme_code = -1
-   else
-      codon_scheme_code = int(scheme_code)
-   end if
+   end select
 
    codon_scheme_selected = .true.
 
@@ -1144,5 +1128,102 @@ subroutine convect_shallow_select_impl()
    end if
 
 end subroutine convect_shallow_select_impl
+
+subroutine convect_shallow_uw_post_shell(ncol_local, state_pmid_local, cmfmc_local, cmfmc2_local, cnt_local, cnt2_local, cnb_local, &
+     cnb2_local, pcnt_local, pcnb_local, qc_local, qc2_local, rliq_local, rliq2_local, wtqc_local, wtdlf_local, freqsh_local, &
+     icwmr_local, iccmr_uw_local, rprdsh_local, cmfdqs_local, ptend_q_local, ptend_tracer_local, cmfsl_local, cmflq_local, &
+     slflx_local, qtflx_local, rprddp_local, rprdtot_local, ptend_s_local, ftem_local)
+
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+   use physconst, only: latvap, cpair
+   use constituents, only: pcnst
+   use water_tracer_vars, only: wtrc_nwset, wtrc_iatype
+   use water_types, only: iwtliq, iwtice
+
+   integer, intent(in) :: ncol_local
+   real(r8), target, intent(in) :: state_pmid_local(pcols,pver), cmfmc2_local(pcols,pverp), cnt2_local(pcols), cnb2_local(pcols)
+   real(r8), target, intent(in) :: qc2_local(pcols,pver), rliq2_local(pcols), wtqc_local(pcols,pver,pcnst)
+   real(r8), target, intent(in) :: iccmr_uw_local(pcols,pver), cmfdqs_local(pcols,pver), ptend_tracer_local(pcols,pver,pcnst)
+   real(r8), target, intent(in) :: slflx_local(pcols,pverp), qtflx_local(pcols,pverp), rprddp_local(pcols,pver), ptend_s_local(pcols,pver)
+   real(r8), target, intent(inout) :: cmfmc_local(pcols,pverp), cnt_local(pcols), cnb_local(pcols), pcnt_local(pcols), pcnb_local(pcols)
+   real(r8), target, intent(inout) :: qc_local(pcols,pver), rliq_local(pcols), wtdlf_local(pcols,pver,wtrc_nwset), freqsh_local(pcols)
+   real(r8), target, intent(inout) :: icwmr_local(pcols,pver), rprdsh_local(pcols,pver), ptend_q_local(pcols,pver,pcnst)
+   real(r8), target, intent(inout) :: cmfsl_local(pcols,pverp), cmflq_local(pcols,pverp), rprdtot_local(pcols,pver), ftem_local(pcols,pver)
+
+   integer(c_int64_t), target :: liq_type_c(wtrc_nwset), ice_type_c(wtrc_nwset)
+   integer :: m
+
+   interface
+      subroutine convect_shallow_uw_post_shell_codon(ncol_c, pcols_c, pver_c, pverp_c, pcnst_c, wtrc_nwset_c, latvap_c, cpair_c, &
+           state_pmid_p, cmfmc_p, cmfmc2_p, cnt_p, cnt2_p, cnb_p, cnb2_p, pcnt_p, pcnb_p, qc_p, qc2_p, rliq_p, rliq2_p, &
+           wtqc_p, wtdlf_p, freqsh_p, icwmr_p, iccmr_uw_p, rprdsh_p, cmfdqs_p, ptend_q_p, ptend_tracer_p, cmfsl_p, cmflq_p, &
+           slflx_p, qtflx_p, rprddp_p, rprdtot_p, ptend_s_p, ftem_p, liq_type_p, ice_type_p) &
+           bind(c, name="convect_shallow_uw_post_shell_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c, pcnst_c, wtrc_nwset_c
+         real(c_double), value :: latvap_c, cpair_c
+         type(c_ptr), value :: state_pmid_p, cmfmc_p, cmfmc2_p, cnt_p, cnt2_p, cnb_p, cnb2_p, pcnt_p, pcnb_p, qc_p, qc2_p
+         type(c_ptr), value :: rliq_p, rliq2_p, wtqc_p, wtdlf_p, freqsh_p, icwmr_p, iccmr_uw_p, rprdsh_p, cmfdqs_p
+         type(c_ptr), value :: ptend_q_p, ptend_tracer_p, cmfsl_p, cmflq_p, slflx_p, qtflx_p, rprddp_p, rprdtot_p
+         type(c_ptr), value :: ptend_s_p, ftem_p, liq_type_p, ice_type_p
+      end subroutine convect_shallow_uw_post_shell_codon
+   end interface
+
+   do m = 1, wtrc_nwset
+      liq_type_c(m) = int(wtrc_iatype(m,iwtliq), c_int64_t)
+      ice_type_c(m) = int(wtrc_iatype(m,iwtice), c_int64_t)
+   end do
+
+   call convect_shallow_uw_post_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        int(pverp, c_int64_t), int(pcnst, c_int64_t), int(wtrc_nwset, c_int64_t), real(latvap, c_double), real(cpair, c_double), &
+        c_loc(state_pmid_local), c_loc(cmfmc_local), c_loc(cmfmc2_local), c_loc(cnt_local), c_loc(cnt2_local), c_loc(cnb_local), &
+        c_loc(cnb2_local), c_loc(pcnt_local), c_loc(pcnb_local), c_loc(qc_local), c_loc(qc2_local), c_loc(rliq_local), &
+        c_loc(rliq2_local), c_loc(wtqc_local), c_loc(wtdlf_local), c_loc(freqsh_local), c_loc(icwmr_local), c_loc(iccmr_uw_local), &
+        c_loc(rprdsh_local), c_loc(cmfdqs_local), c_loc(ptend_q_local), c_loc(ptend_tracer_local), c_loc(cmfsl_local), &
+        c_loc(cmflq_local), c_loc(slflx_local), c_loc(qtflx_local), c_loc(rprddp_local), c_loc(rprdtot_local), c_loc(ptend_s_local), &
+        c_loc(ftem_local), c_loc(liq_type_c), c_loc(ice_type_c))
+
+end subroutine convect_shallow_uw_post_shell
+
+subroutine convect_shallow_postmerge(ncol_local, state_pmid_local, cmfmc_local, cmfmc2_local, cnt_local, cnt2_local, cnb_local, &
+     cnb2_local, pcnt_local, pcnb_local, qc_local, qc2_local, rliq_local, rliq2_local, wtqc_local, wtdlf_local, freqsh_local)
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+   use constituents, only: pcnst
+   use water_tracer_vars, only: wtrc_nwset, wtrc_iatype
+   use water_types, only: iwtliq, iwtice
+
+   integer, intent(in) :: ncol_local
+   real(r8), target, intent(in) :: state_pmid_local(pcols,pver), cmfmc2_local(pcols,pverp), cnt2_local(pcols), cnb2_local(pcols)
+   real(r8), target, intent(in) :: qc2_local(pcols,pver), rliq2_local(pcols), wtqc_local(pcols,pver,pcnst)
+   real(r8), target, intent(inout) :: cmfmc_local(pcols,pverp), cnt_local(pcols), cnb_local(pcols), pcnt_local(pcols), pcnb_local(pcols)
+   real(r8), target, intent(inout) :: qc_local(pcols,pver), rliq_local(pcols), wtdlf_local(pcols,pver,wtrc_nwset), freqsh_local(pcols)
+
+   integer(c_int64_t), target :: liq_type_c(wtrc_nwset), ice_type_c(wtrc_nwset)
+   integer :: m
+
+   interface
+      subroutine convect_shallow_postmerge_codon(ncol_c, pcols_c, pver_c, pverp_c, pcnst_c, wtrc_nwset_c, state_pmid_p, cmfmc_p, &
+           cmfmc2_p, cnt_p, cnt2_p, cnb_p, cnb2_p, pcnt_p, pcnb_p, qc_p, qc2_p, rliq_p, rliq2_p, wtqc_p, wtdlf_p, freqsh_p, &
+           liq_type_p, ice_type_p) bind(c, name="convect_shallow_postmerge_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c, pcnst_c, wtrc_nwset_c
+         type(c_ptr), value :: state_pmid_p, cmfmc_p, cmfmc2_p, cnt_p, cnt2_p, cnb_p, cnb2_p, pcnt_p, pcnb_p, qc_p, qc2_p
+         type(c_ptr), value :: rliq_p, rliq2_p, wtqc_p, wtdlf_p, freqsh_p, liq_type_p, ice_type_p
+      end subroutine convect_shallow_postmerge_codon
+   end interface
+
+   do m = 1, wtrc_nwset
+      liq_type_c(m) = int(wtrc_iatype(m,iwtliq), c_int64_t)
+      ice_type_c(m) = int(wtrc_iatype(m,iwtice), c_int64_t)
+   end do
+
+   call convect_shallow_postmerge_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        int(pverp, c_int64_t), int(pcnst, c_int64_t), int(wtrc_nwset, c_int64_t), c_loc(state_pmid_local), c_loc(cmfmc_local), &
+        c_loc(cmfmc2_local), c_loc(cnt_local), c_loc(cnt2_local), c_loc(cnb_local), c_loc(cnb2_local), c_loc(pcnt_local), &
+        c_loc(pcnb_local), c_loc(qc_local), c_loc(qc2_local), c_loc(rliq_local), c_loc(rliq2_local), c_loc(wtqc_local), &
+        c_loc(wtdlf_local), c_loc(freqsh_local), c_loc(liq_type_c), c_loc(ice_type_c))
+
+end subroutine convect_shallow_postmerge
 
   end module convect_shallow
