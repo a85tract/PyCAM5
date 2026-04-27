@@ -50,6 +50,24 @@ module mo_gas_phase_chemdr
   logical :: pm25_srf_diag_soa
   logical :: gas_phase_chemdr_use_native_impl = .false.
   logical :: gas_phase_chemdr_impl_selected = .false.
+  logical :: gas_phase_chemdr_use_codon_shell_impl = .false.
+  logical :: gas_phase_chemdr_shell_impl_selected = .false.
+
+  integer, parameter :: gas_phase_chemdr_shell_stage_prepare_sza = 1
+  integer, parameter :: gas_phase_chemdr_shell_stage_prepare_state_load_mmr = 2
+  integer, parameter :: gas_phase_chemdr_shell_stage_h2o_setup = 3
+  integer, parameter :: gas_phase_chemdr_shell_stage_zero_sulfate = 4
+  integer, parameter :: gas_phase_chemdr_shell_stage_load_sulfate = 5
+  integer, parameter :: gas_phase_chemdr_shell_stage_clip_sulfate = 6
+  integer, parameter :: gas_phase_chemdr_shell_stage_relhum_cwat = 7
+  integer, parameter :: gas_phase_chemdr_shell_stage_normalize_extfrc = 8
+  integer, parameter :: gas_phase_chemdr_shell_stage_zero_het_rates = 9
+  integer, parameter :: gas_phase_chemdr_shell_stage_zero_st80_tau = 10
+  integer, parameter :: gas_phase_chemdr_shell_stage_pre_solver = 11
+  integer, parameter :: gas_phase_chemdr_shell_stage_post_solver = 12
+  integer, parameter :: gas_phase_chemdr_shell_stage_final_tendencies = 13
+  integer, parameter :: gas_phase_chemdr_shell_stage_surface_prep = 14
+  integer, parameter :: gas_phase_chemdr_shell_stage_drydep_store = 15
 
 contains
 
@@ -454,25 +472,37 @@ contains
     call pbuf_get_field(pbuf, ndx_cldtop,     cldtop )
 
     call gas_phase_chemdr_select_impl()
+    call gas_phase_chemdr_select_shell_impl()
 
     !-----------------------------------------------------------------------      
     !        ... Calculate cosine of zenith angle
     !            then cast back to angle (radians)
     !-----------------------------------------------------------------------      
     call zenith( calday, rlats, rlons, zen_angle, ncol )
-    call gas_phase_chemdr_prepare_sza(ncol, rad2deg, zen_angle, sza)
+    if (gas_phase_chemdr_use_codon_shell_impl) then
+       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_prepare_sza, ncol, &
+            rad2deg_in=rad2deg, zen_angle=zen_angle, sza=sza)
+    else
+       call gas_phase_chemdr_prepare_sza(ncol, rad2deg, zen_angle, sza)
+    end if
     call outfld( 'SZA',   sza,    ncol, lchnk )
 
     !-----------------------------------------------------------------------      
     !        ... Xform geopotential height from m to km 
     !            and pressure from Pa to mb
     !-----------------------------------------------------------------------      
-    call gas_phase_chemdr_prepare_state(ncol, phis, zi, zm, pmid, zsurf, zintr, zmidr, zmid, zint, pmb)
+    if (gas_phase_chemdr_use_codon_shell_impl) then
+       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_prepare_state_load_mmr, ncol, &
+            phis=phis, zi=zi, zm=zm, pmid=pmid, zsurf=zsurf, zintr=zintr, zmidr=zmidr, zmid=zmid, zint=zint, &
+            pmb=pmb, q=q, mmr=mmr)
+    else
+       call gas_phase_chemdr_prepare_state(ncol, phis, zi, zm, pmid, zsurf, zintr, zmidr, zmid, zint, pmb)
 
-    !-----------------------------------------------------------------------      
-    !        ... map incoming concentrations to working array
-    !-----------------------------------------------------------------------      
-    call gas_phase_chemdr_load_mmr(ncol, q, mmr)
+       !-----------------------------------------------------------------------
+       !        ... map incoming concentrations to working array
+       !-----------------------------------------------------------------------
+       call gas_phase_chemdr_load_mmr(ncol, q, mmr)
+    end if
 
     call get_short_lived_species( mmr, lchnk, ncol, pbuf )
 
@@ -491,29 +521,36 @@ contains
 !
 ! reset STE tracer to specific vmr of 200 ppbv
 !
-    if ( st80_25_ndx > 0 ) then 
-       call gas_phase_chemdr_reset_ste_tracer(ncol, st80_25_ndx, 80.e+2_r8, 200.e-9_r8, pmid, vmr)
-    end if
+    if (gas_phase_chemdr_use_codon_shell_impl) then
+       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_h2o_setup, ncol, &
+            rad2deg_in=rad2deg, pmid=pmid, vmr=vmr, rlats=rlats, mmr=mmr, qh2o=qh2o, h2ovmr=h2ovmr)
+    else
+       if ( st80_25_ndx > 0 ) then
+          call gas_phase_chemdr_reset_ste_tracer(ncol, st80_25_ndx, 80.e+2_r8, 200.e-9_r8, pmid, vmr)
+       end if
 !
 ! reset AOA_NH, NH_5, NH_50, NH_50W surface mixing ratios between 30N and 50N
 !
-    if ( aoa_nh_ndx>0 .and. nh_5_ndx>0 .and. nh_50_ndx>0 .and. nh_50w_ndx>0 ) then
-      do j=1,ncol
-        xlat = rlats(j)*rad2deg              ! convert to degrees
-        if ( xlat >= 30._r8 .and. xlat <= 50._r8 ) then
-           vmr(j,pver,nh_5_ndx)   = 100.e-9_r8
-           vmr(j,pver,nh_50_ndx)  = 100.e-9_r8
-           vmr(j,pver,nh_50w_ndx) = 100.e-9_r8
-           vmr(j,pver,aoa_nh_ndx) = 0._r8
-        end if
-      end do
+       if ( aoa_nh_ndx>0 .and. nh_5_ndx>0 .and. nh_50_ndx>0 .and. nh_50w_ndx>0 ) then
+         do j=1,ncol
+           xlat = rlats(j)*rad2deg              ! convert to degrees
+           if ( xlat >= 30._r8 .and. xlat <= 50._r8 ) then
+              vmr(j,pver,nh_5_ndx)   = 100.e-9_r8
+              vmr(j,pver,nh_50_ndx)  = 100.e-9_r8
+              vmr(j,pver,nh_50w_ndx) = 100.e-9_r8
+              vmr(j,pver,aoa_nh_ndx) = 0._r8
+           end if
+         end do
+       end if
     end if
 
     if (h2o_ndx>0) then
-       !-----------------------------------------------------------------------      
-       !        ... store water vapor in wrk variable
-       !-----------------------------------------------------------------------      
-       call gas_phase_chemdr_load_h2o_fields(ncol, h2o_ndx, mmr, vmr, qh2o, h2ovmr)
+       if (.not. gas_phase_chemdr_use_codon_shell_impl) then
+          !-----------------------------------------------------------------------
+          !        ... store water vapor in wrk variable
+          !-----------------------------------------------------------------------
+          call gas_phase_chemdr_load_h2o_fields(ncol, h2o_ndx, mmr, vmr, qh2o, h2ovmr)
+       end if
     else
        qh2o(:ncol,:) = q(:ncol,:,1)
        !-----------------------------------------------------------------------      
@@ -616,28 +653,47 @@ contains
     !-----------------------------------------------------------------------      
     call setrxt( reaction_rates, tfld, invariants(1,1,indexm), ncol )
     
-    call gas_phase_chemdr_zero_sulfate(ncol, sulfate)
+    if (gas_phase_chemdr_use_codon_shell_impl) then
+       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_zero_sulfate, ncol, sulfate=sulfate)
+    else
+       call gas_phase_chemdr_zero_sulfate(ncol, sulfate)
+    end if
     if ( .not. carma_hetchem_feedback ) then
        if( so4_ndx < 1 ) then ! get offline so4 field if not prognostic
           call sulf_interp( ncol, lchnk, sulfate )
        else
-          call gas_phase_chemdr_load_prognostic_sulfate(ncol, so4_ndx, vmr, sulfate)
+          if (gas_phase_chemdr_use_codon_shell_impl) then
+             call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_load_sulfate, ncol, &
+                  vmr=vmr, sulfate=sulfate)
+          else
+             call gas_phase_chemdr_load_prognostic_sulfate(ncol, so4_ndx, vmr, sulfate)
+          end if
        endif
     endif
     
     !-----------------------------------------------------------------
     ! ... zero out sulfate above tropopause
     !-----------------------------------------------------------------
-    call gas_phase_chemdr_clip_sulfate(ncol, troplev, sulfate)
+    if (gas_phase_chemdr_use_codon_shell_impl) then
+       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_clip_sulfate, ncol, &
+            troplev=troplev, sulfate=sulfate)
+    else
+       call gas_phase_chemdr_clip_sulfate(ncol, troplev, sulfate)
+    end if
 
     !-----------------------------------------------------------------
     !	... compute the relative humidity
     !-----------------------------------------------------------------
     call qsat(tfld(:ncol,:), pmid(:ncol,:), satv, satq)
 
-    call gas_phase_chemdr_compute_relhum(ncol, h2ovmr, satq, relhum)
+    if (gas_phase_chemdr_use_codon_shell_impl) then
+       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_relhum_cwat, ncol, &
+            h2ovmr=h2ovmr, satq=satq, relhum=relhum, cldw=cldw, cwat=cwat)
+    else
+       call gas_phase_chemdr_compute_relhum(ncol, h2ovmr, satq, relhum)
     
-    call gas_phase_chemdr_copy_cldw_to_cwat(ncol, cldw, cwat)
+       call gas_phase_chemdr_copy_cldw_to_cwat(ncol, cldw, cwat)
+    end if
 
     call usrrxt( reaction_rates, tfld, tfld, tfld, invariants, h2ovmr, ps, &
                  pmid, invariants(:,:,indexm), sulfate, mmr, relhum, strato_sad, &
@@ -730,7 +786,12 @@ contains
                  zmid, lchnk, tfld, o2mmr, ommr, &
                  pmid, mbar, rlats, calday, ncol, rlons, pbuf )
 
-    call gas_phase_chemdr_normalize_extfrc(ncol, extcnt, nfs, indexm, extfrc, invariants)
+    if (gas_phase_chemdr_use_codon_shell_impl) then
+       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_normalize_extfrc, ncol, &
+            extfrc=extfrc, invariants=invariants)
+    else
+       call gas_phase_chemdr_normalize_extfrc(ncol, extcnt, nfs, indexm, extfrc, invariants)
+    end if
     do m = 1,extcnt
        call outfld( extfrc_name(m), extfrc(:ncol,:,m), ncol, lchnk )
     end do
@@ -739,7 +800,11 @@ contains
     !        ... Form the washout rates
     !-----------------------------------------------------------------------      
     if ( do_neu_wetdep ) then
-      call gas_phase_chemdr_zero_het_rates(ncol, het_rates)
+      if (gas_phase_chemdr_use_codon_shell_impl) then
+         call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_zero_het_rates, ncol, het_rates=het_rates)
+      else
+         call gas_phase_chemdr_zero_het_rates(ncol, het_rates)
+      end if
     else
       call sethet( het_rates, pmid, zmid, phis, tfld, &
                    cmfdqr, prain, nevapr, delt, invariants(:,:,indexm), &
@@ -751,7 +816,12 @@ contains
 !
 ! set loss to below the tropopause only
 !
-    call gas_phase_chemdr_zero_st80_tau(ncol, rxntot, st80_25_tau_ndx, troplev, reaction_rates)
+    if (gas_phase_chemdr_use_codon_shell_impl) then
+       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_zero_st80_tau, ncol, &
+            troplev=troplev, reaction_rates=reaction_rates)
+    else
+       call gas_phase_chemdr_zero_st80_tau(ncol, rxntot, st80_25_tau_ndx, troplev, reaction_rates)
+    end if
 
 !
 
@@ -759,12 +829,17 @@ contains
        call outfld( tag_names(i), reaction_rates(:ncol,:,rxt_tag_map(i)), ncol, lchnk )
     enddo
 
-    call gas_phase_chemdr_set_ltrop_sol(ncol, merge(1, 0, has_linoz_data), troplev, ltrop_sol)
+    if (gas_phase_chemdr_use_codon_shell_impl) then
+       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_pre_solver, ncol, &
+            troplev=troplev, ltrop_sol=ltrop_sol, vmr=vmr, del_h2so4_gasprod=del_h2so4_gasprod, vmr0=vmr0)
+    else
+       call gas_phase_chemdr_set_ltrop_sol(ncol, merge(1, 0, has_linoz_data), troplev, ltrop_sol)
 
-    ! save h2so4 before gas phase chem (for later new particle nucleation)
-    call gas_phase_chemdr_init_h2so4_gasprod(ncol, ndx_h2so4, vmr, del_h2so4_gasprod)
+       ! save h2so4 before gas phase chem (for later new particle nucleation)
+       call gas_phase_chemdr_init_h2so4_gasprod(ncol, ndx_h2so4, vmr, del_h2so4_gasprod)
 
-    call gas_phase_chemdr_store_vmr0(ncol, vmr, vmr0)
+       call gas_phase_chemdr_store_vmr0(ncol, vmr, vmr0)
+    end if
 
     !=======================================================================
     !        ... Call the class solution algorithms
@@ -789,18 +864,26 @@ contains
 !
 ! jfl : CCMI : implement O3S here because mo_fstrat is not called
 !
-    if ( o3_ndx > 0 .and. o3s_ndx > 0 ) then
-       call gas_phase_chemdr_copy_o3_to_o3s_trop(ncol, troplev, o3_ndx, o3s_ndx, vmr)
-       do i = 1,ncol
-          vmr(i,troplev(i)+1:pver,o3s_ndx) = vmr(i,troplev(i)+1:pver,o3s_ndx) * exp(-delt*o3s_loss(i,troplev(i)+1:pver))
-       enddo
-       call outfld( 'O3S_LOSS',  o3s_loss,  ncol ,lchnk )
-    end if
+    if (gas_phase_chemdr_use_codon_shell_impl) then
+       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_post_solver, ncol, &
+            delt_in=delt, troplev=troplev, vmr=vmr, o3s_loss=o3s_loss, del_h2so4_gasprod=del_h2so4_gasprod)
+       if ( o3_ndx > 0 .and. o3s_ndx > 0 ) then
+          call outfld( 'O3S_LOSS',  o3s_loss,  ncol ,lchnk )
+       end if
+    else
+       if ( o3_ndx > 0 .and. o3s_ndx > 0 ) then
+          call gas_phase_chemdr_copy_o3_to_o3s_trop(ncol, troplev, o3_ndx, o3s_ndx, vmr)
+          do i = 1,ncol
+             vmr(i,troplev(i)+1:pver,o3s_ndx) = vmr(i,troplev(i)+1:pver,o3s_ndx) * exp(-delt*o3s_loss(i,troplev(i)+1:pver))
+          enddo
+          call outfld( 'O3S_LOSS',  o3s_loss,  ncol ,lchnk )
+       end if
 
-    ! save h2so4 change by gas phase chem (for later new particle nucleation)
-    if (ndx_h2so4 > 0) then
-       call gas_phase_chemdr_update_h2so4_gasprod(ncol, ndx_h2so4, vmr, del_h2so4_gasprod)
-    endif
+       ! save h2so4 change by gas phase chem (for later new particle nucleation)
+       if (ndx_h2so4 > 0) then
+          call gas_phase_chemdr_update_h2so4_gasprod(ncol, ndx_h2so4, vmr, del_h2so4_gasprod)
+       endif
+    end if
 
 !
 ! Aerosol processes ...
@@ -899,15 +982,26 @@ contains
     !-----------------------------------------------------------------------      
     !         ... Form the tendencies
     !----------------------------------------------------------------------- 
-    call gas_phase_chemdr_finalize_tendencies(ncol, delt_inverse, mmr, mmr_tend, mmr_new, qtend)
+    if (gas_phase_chemdr_use_codon_shell_impl) then
+       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_final_tendencies, ncol, &
+            delt_inverse_in=delt_inverse, mmr=mmr, mmr_tend=mmr_tend, mmr_new=mmr_new, qtend=qtend, &
+            tfld=tfld, qh2o=qh2o, tvs=tvs, sflx=sflx)
+    else
+       call gas_phase_chemdr_finalize_tendencies(ncol, delt_inverse, mmr, mmr_tend, mmr_new, qtend)
 
-    call gas_phase_chemdr_compute_tvs(ncol, tfld, qh2o, tvs)
+       call gas_phase_chemdr_compute_tvs(ncol, tfld, qh2o, tvs)
 
-    call gas_phase_chemdr_zero_sflx(sflx)
+       call gas_phase_chemdr_zero_sflx(sflx)
+    end if
     call get_ref_date(yr, mon, day, sec)
     ncdate = yr*10000 + mon*100 + day
-    call gas_phase_chemdr_compute_wind_speed(ncol, ufld, vfld, wind_speed)
-    call gas_phase_chemdr_compute_prect(ncol, precc, precl, prect)
+    if (gas_phase_chemdr_use_codon_shell_impl) then
+       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_surface_prep, ncol, &
+            ufld=ufld, vfld=vfld, wind_speed=wind_speed, precc=precc, precl=precl, prect=prect)
+    else
+       call gas_phase_chemdr_compute_wind_speed(ncol, ufld, vfld, wind_speed)
+       call gas_phase_chemdr_compute_prect(ncol, precc, precl, prect)
+    end if
 
     if ( drydep_method == DD_XLND ) then
        soilw = -99
@@ -930,7 +1024,12 @@ contains
             tvs, ncol, icefrac, ocnfrac, lchnk )
     endif
 
-    call gas_phase_chemdr_store_drydep(ncol, sflx, cflx, drydepflx)
+    if (gas_phase_chemdr_use_codon_shell_impl) then
+       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_drydep_store, ncol, &
+            sflx=sflx, cflx=cflx, drydepflx=drydepflx)
+    else
+       call gas_phase_chemdr_store_drydep(ncol, sflx, cflx, drydepflx)
+    end if
 
     call chm_diags( lchnk, ncol, vmr(:ncol,:,:), mmr_new(:ncol,:,:), &
                     reaction_rates(:ncol,:,:), invariants(:ncol,:,:), depvel(:ncol,:),  sflx(:ncol,:), &
@@ -2259,6 +2358,219 @@ contains
     )
 
   end subroutine gas_phase_chemdr_store_drydep
+
+  subroutine gas_phase_chemdr_shell_codon_wrap(stage, ncol, rad2deg_in, delt_in, delt_inverse_in, &
+       zen_angle, sza, phis, zi, zm, pmid, zsurf, zintr, zmidr, zmid, zint, pmb, q, mmr, vmr, qh2o, &
+       h2ovmr, rlats, sulfate, satq, relhum, cldw, cwat, extfrc, invariants, het_rates, reaction_rates, &
+       troplev, ltrop_sol, del_h2so4_gasprod, vmr0, o3s_loss, mmr_tend, mmr_new, qtend, tfld, tvs, sflx, &
+       ufld, vfld, wind_speed, precc, precl, prect, cflx, drydepflx)
+
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
+    use physconst, only : rga
+    use chem_mods, only : nfs, indexm
+    use linoz_data, only : has_linoz_data
+
+    integer, intent(in) :: stage
+    integer, intent(in) :: ncol
+    real(r8), optional, intent(in) :: rad2deg_in, delt_in, delt_inverse_in
+    real(r8), target, optional, intent(inout) :: zen_angle(ncol), sza(ncol)
+    real(r8), target, optional, intent(in) :: phis(pcols), zi(pcols,pver+1), zm(pcols,pver), pmid(pcols,pver)
+    real(r8), target, optional, intent(in) :: q(pcols,pver,pcnst), rlats(ncol), satq(ncol,pver)
+    real(r8), target, optional, intent(in) :: cldw(pcols,pver), invariants(ncol,pver,nfs), o3s_loss(ncol,pver)
+    real(r8), target, optional, intent(in) :: tfld(pcols,pver), ufld(pcols,pver), vfld(pcols,pver)
+    real(r8), target, optional, intent(in) :: precc(pcols), precl(pcols)
+    real(r8), target, optional, intent(inout) :: zsurf(ncol), zintr(ncol,pver+1), zmidr(ncol,pver)
+    real(r8), target, optional, intent(inout) :: zmid(ncol,pver), zint(ncol,pver+1), pmb(ncol,pver)
+    real(r8), target, optional, intent(inout) :: mmr(pcols,pver,gas_pcnst), vmr(ncol,pver,gas_pcnst)
+    real(r8), target, optional, intent(inout) :: qh2o(pcols,pver), h2ovmr(ncol,pver), sulfate(ncol,pver)
+    real(r8), target, optional, intent(inout) :: relhum(ncol,pver), cwat(ncol,pver)
+    real(r8), target, optional, intent(inout) :: extfrc(ncol,pver,max(1,extcnt))
+    real(r8), target, optional, intent(inout) :: het_rates(ncol,pver,max(1,gas_pcnst))
+    real(r8), target, optional, intent(inout) :: reaction_rates(ncol,pver,max(1,rxntot))
+    real(r8), target, optional, intent(inout) :: del_h2so4_gasprod(ncol,pver), vmr0(ncol,pver,gas_pcnst)
+    real(r8), target, optional, intent(inout) :: mmr_tend(pcols,pver,gas_pcnst), mmr_new(pcols,pver,gas_pcnst)
+    real(r8), target, optional, intent(inout) :: qtend(pcols,pver,pcnst), tvs(pcols), sflx(pcols,gas_pcnst)
+    real(r8), target, optional, intent(inout) :: wind_speed(pcols), prect(pcols)
+    real(r8), target, optional, intent(inout) :: cflx(pcols,pcnst), drydepflx(pcols,pcnst)
+    integer, target, optional, intent(in) :: troplev(pcols)
+    integer, target, optional, intent(inout) :: ltrop_sol(pcols)
+
+    real(r8), parameter :: m2km  = 1.e-3_r8
+    real(r8), parameter :: Pa2mb = 1.e-2_r8
+    real(c_double) :: rad2deg_c, delt_c, delt_inverse_c
+    integer(c_int64_t), target :: map2chm_c(pcnst)
+    integer(c_int64_t), target :: troplev_c(pcols)
+    integer(c_int64_t), target :: ltrop_sol_c(pcols)
+    type(c_ptr) :: map2chm_p, troplev_p, ltrop_sol_p
+    type(c_ptr) :: zen_angle_p, sza_p, phis_p, zi_p, zm_p, pmid_p, zsurf_p, zintr_p, zmidr_p, zmid_p
+    type(c_ptr) :: zint_p, pmb_p, q_p, mmr_p, vmr_p, qh2o_p, h2ovmr_p, rlats_p, sulfate_p, satq_p
+    type(c_ptr) :: relhum_p, cldw_p, cwat_p, extfrc_p, invariants_p, het_rates_p, reaction_rates_p
+    type(c_ptr) :: del_h2so4_gasprod_p, vmr0_p, o3s_loss_p, mmr_tend_p, mmr_new_p, qtend_p
+    type(c_ptr) :: tfld_p, tvs_p, sflx_p, ufld_p, vfld_p, wind_speed_p, precc_p, precl_p, prect_p
+    type(c_ptr) :: cflx_p, drydepflx_p
+
+    interface
+       subroutine gas_phase_chemdr_shell_codon(stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, pcnst_c, &
+            rxntot_c, extcnt_c, nfs_c, indexm_c, has_linoz_data_c, h2o_ndx_c, st80_25_ndx_c, aoa_nh_ndx_c, &
+            nh_5_ndx_c, nh_50_ndx_c, nh_50w_ndx_c, so4_ndx_c, st80_25_tau_ndx_c, ndx_h2so4_c, o3_ndx_c, &
+            o3s_ndx_c, synoz_ndx_c, aoa_nh_ext_ndx_c, rad2deg_c, delt_c, delt_inverse_c, rga_c, m2km_c, &
+            pa2mb_c, map2chm_p, troplev_p, ltrop_sol_p, zen_angle_p, sza_p, phis_p, zi_p, zm_p, pmid_p, &
+            zsurf_p, zintr_p, zmidr_p, zmid_p, zint_p, pmb_p, q_p, mmr_p, vmr_p, qh2o_p, h2ovmr_p, rlats_p, &
+            sulfate_p, satq_p, relhum_p, cldw_p, cwat_p, extfrc_p, invariants_p, het_rates_p, reaction_rates_p, &
+            del_h2so4_gasprod_p, vmr0_p, o3s_loss_p, mmr_tend_p, mmr_new_p, qtend_p, tfld_p, tvs_p, sflx_p, &
+            ufld_p, vfld_p, wind_speed_p, precc_p, precl_p, prect_p, cflx_p, drydepflx_p) &
+            bind(c, name="gas_phase_chemdr_shell_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, pcnst_c
+         integer(c_int64_t), value :: rxntot_c, extcnt_c, nfs_c, indexm_c, has_linoz_data_c
+         integer(c_int64_t), value :: h2o_ndx_c, st80_25_ndx_c, aoa_nh_ndx_c, nh_5_ndx_c, nh_50_ndx_c
+         integer(c_int64_t), value :: nh_50w_ndx_c, so4_ndx_c, st80_25_tau_ndx_c, ndx_h2so4_c
+         integer(c_int64_t), value :: o3_ndx_c, o3s_ndx_c, synoz_ndx_c, aoa_nh_ext_ndx_c
+         real(c_double), value :: rad2deg_c, delt_c, delt_inverse_c, rga_c, m2km_c, pa2mb_c
+         type(c_ptr), value :: map2chm_p, troplev_p, ltrop_sol_p, zen_angle_p, sza_p, phis_p, zi_p, zm_p
+         type(c_ptr), value :: pmid_p, zsurf_p, zintr_p, zmidr_p, zmid_p, zint_p, pmb_p, q_p, mmr_p, vmr_p
+         type(c_ptr), value :: qh2o_p, h2ovmr_p, rlats_p, sulfate_p, satq_p, relhum_p, cldw_p, cwat_p
+         type(c_ptr), value :: extfrc_p, invariants_p, het_rates_p, reaction_rates_p, del_h2so4_gasprod_p
+         type(c_ptr), value :: vmr0_p, o3s_loss_p, mmr_tend_p, mmr_new_p, qtend_p, tfld_p, tvs_p, sflx_p
+         type(c_ptr), value :: ufld_p, vfld_p, wind_speed_p, precc_p, precl_p, prect_p, cflx_p, drydepflx_p
+       end subroutine gas_phase_chemdr_shell_codon
+    end interface
+
+    rad2deg_c = 0._c_double
+    delt_c = 0._c_double
+    delt_inverse_c = 0._c_double
+    if (present(rad2deg_in)) rad2deg_c = real(rad2deg_in, c_double)
+    if (present(delt_in)) delt_c = real(delt_in, c_double)
+    if (present(delt_inverse_in)) delt_inverse_c = real(delt_inverse_in, c_double)
+
+    map2chm_c(:) = int(map2chm(:), c_int64_t)
+    map2chm_p = c_loc(map2chm_c)
+
+    troplev_p = c_null_ptr
+    if (present(troplev)) then
+       troplev_c(:) = int(troplev(:), c_int64_t)
+       troplev_p = c_loc(troplev_c)
+    end if
+
+    ltrop_sol_p = c_null_ptr
+    ltrop_sol_c(:) = 0_c_int64_t
+    if (present(ltrop_sol)) then
+       ltrop_sol_c(:) = int(ltrop_sol(:), c_int64_t)
+       ltrop_sol_p = c_loc(ltrop_sol_c)
+    end if
+
+    zen_angle_p = c_null_ptr; if (present(zen_angle)) zen_angle_p = c_loc(zen_angle)
+    sza_p = c_null_ptr; if (present(sza)) sza_p = c_loc(sza)
+    phis_p = c_null_ptr; if (present(phis)) phis_p = c_loc(phis)
+    zi_p = c_null_ptr; if (present(zi)) zi_p = c_loc(zi)
+    zm_p = c_null_ptr; if (present(zm)) zm_p = c_loc(zm)
+    pmid_p = c_null_ptr; if (present(pmid)) pmid_p = c_loc(pmid)
+    zsurf_p = c_null_ptr; if (present(zsurf)) zsurf_p = c_loc(zsurf)
+    zintr_p = c_null_ptr; if (present(zintr)) zintr_p = c_loc(zintr)
+    zmidr_p = c_null_ptr; if (present(zmidr)) zmidr_p = c_loc(zmidr)
+    zmid_p = c_null_ptr; if (present(zmid)) zmid_p = c_loc(zmid)
+    zint_p = c_null_ptr; if (present(zint)) zint_p = c_loc(zint)
+    pmb_p = c_null_ptr; if (present(pmb)) pmb_p = c_loc(pmb)
+    q_p = c_null_ptr; if (present(q)) q_p = c_loc(q)
+    mmr_p = c_null_ptr; if (present(mmr)) mmr_p = c_loc(mmr)
+    vmr_p = c_null_ptr; if (present(vmr)) vmr_p = c_loc(vmr)
+    qh2o_p = c_null_ptr; if (present(qh2o)) qh2o_p = c_loc(qh2o)
+    h2ovmr_p = c_null_ptr; if (present(h2ovmr)) h2ovmr_p = c_loc(h2ovmr)
+    rlats_p = c_null_ptr; if (present(rlats)) rlats_p = c_loc(rlats)
+    sulfate_p = c_null_ptr; if (present(sulfate)) sulfate_p = c_loc(sulfate)
+    satq_p = c_null_ptr; if (present(satq)) satq_p = c_loc(satq)
+    relhum_p = c_null_ptr; if (present(relhum)) relhum_p = c_loc(relhum)
+    cldw_p = c_null_ptr; if (present(cldw)) cldw_p = c_loc(cldw)
+    cwat_p = c_null_ptr; if (present(cwat)) cwat_p = c_loc(cwat)
+    extfrc_p = c_null_ptr; if (present(extfrc)) extfrc_p = c_loc(extfrc)
+    invariants_p = c_null_ptr; if (present(invariants)) invariants_p = c_loc(invariants)
+    het_rates_p = c_null_ptr; if (present(het_rates)) het_rates_p = c_loc(het_rates)
+    reaction_rates_p = c_null_ptr; if (present(reaction_rates)) reaction_rates_p = c_loc(reaction_rates)
+    del_h2so4_gasprod_p = c_null_ptr; if (present(del_h2so4_gasprod)) del_h2so4_gasprod_p = c_loc(del_h2so4_gasprod)
+    vmr0_p = c_null_ptr; if (present(vmr0)) vmr0_p = c_loc(vmr0)
+    o3s_loss_p = c_null_ptr; if (present(o3s_loss)) o3s_loss_p = c_loc(o3s_loss)
+    mmr_tend_p = c_null_ptr; if (present(mmr_tend)) mmr_tend_p = c_loc(mmr_tend)
+    mmr_new_p = c_null_ptr; if (present(mmr_new)) mmr_new_p = c_loc(mmr_new)
+    qtend_p = c_null_ptr; if (present(qtend)) qtend_p = c_loc(qtend)
+    tfld_p = c_null_ptr; if (present(tfld)) tfld_p = c_loc(tfld)
+    tvs_p = c_null_ptr; if (present(tvs)) tvs_p = c_loc(tvs)
+    sflx_p = c_null_ptr; if (present(sflx)) sflx_p = c_loc(sflx)
+    ufld_p = c_null_ptr; if (present(ufld)) ufld_p = c_loc(ufld)
+    vfld_p = c_null_ptr; if (present(vfld)) vfld_p = c_loc(vfld)
+    wind_speed_p = c_null_ptr; if (present(wind_speed)) wind_speed_p = c_loc(wind_speed)
+    precc_p = c_null_ptr; if (present(precc)) precc_p = c_loc(precc)
+    precl_p = c_null_ptr; if (present(precl)) precl_p = c_loc(precl)
+    prect_p = c_null_ptr; if (present(prect)) prect_p = c_loc(prect)
+    cflx_p = c_null_ptr; if (present(cflx)) cflx_p = c_loc(cflx)
+    drydepflx_p = c_null_ptr; if (present(drydepflx)) drydepflx_p = c_loc(drydepflx)
+
+    call gas_phase_chemdr_shell_codon( &
+         int(stage, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(gas_pcnst, c_int64_t), int(pcnst, c_int64_t), int(rxntot, c_int64_t), int(extcnt, c_int64_t), &
+         int(nfs, c_int64_t), int(indexm, c_int64_t), int(merge(1, 0, has_linoz_data), c_int64_t), &
+         int(h2o_ndx, c_int64_t), int(st80_25_ndx, c_int64_t), int(aoa_nh_ndx, c_int64_t), &
+         int(nh_5_ndx, c_int64_t), int(nh_50_ndx, c_int64_t), int(nh_50w_ndx, c_int64_t), &
+         int(so4_ndx, c_int64_t), int(st80_25_tau_ndx, c_int64_t), int(ndx_h2so4, c_int64_t), &
+         int(o3_ndx, c_int64_t), int(o3s_ndx, c_int64_t), int(synoz_ndx, c_int64_t), &
+         int(aoa_nh_ext_ndx, c_int64_t), rad2deg_c, delt_c, delt_inverse_c, real(rga, c_double), &
+         real(m2km, c_double), real(Pa2mb, c_double), map2chm_p, troplev_p, ltrop_sol_p, zen_angle_p, sza_p, &
+         phis_p, zi_p, zm_p, pmid_p, zsurf_p, zintr_p, zmidr_p, zmid_p, zint_p, pmb_p, q_p, mmr_p, vmr_p, &
+         qh2o_p, h2ovmr_p, rlats_p, sulfate_p, satq_p, relhum_p, cldw_p, cwat_p, extfrc_p, invariants_p, &
+         het_rates_p, reaction_rates_p, del_h2so4_gasprod_p, vmr0_p, o3s_loss_p, mmr_tend_p, mmr_new_p, &
+         qtend_p, tfld_p, tvs_p, sflx_p, ufld_p, vfld_p, wind_speed_p, precc_p, precl_p, prect_p, &
+         cflx_p, drydepflx_p &
+    )
+
+    if (present(ltrop_sol)) then
+       ltrop_sol(:) = int(ltrop_sol_c(:))
+    end if
+
+  end subroutine gas_phase_chemdr_shell_codon_wrap
+
+  subroutine gas_phase_chemdr_select_shell_impl()
+
+    character(len=32) :: impl_name
+    character(len=512) :: proof_file
+    integer :: status, n, i, code, proof_unit, ios
+
+    if (gas_phase_chemdr_shell_impl_selected) return
+
+    impl_name = 'native'
+    call get_environment_variable('GAS_PHASE_CHEMDR_SHELL_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       gas_phase_chemdr_use_codon_shell_impl = trim(adjustl(impl_name(:n))) == 'codon'
+    else
+       gas_phase_chemdr_use_codon_shell_impl = .false.
+    end if
+
+    gas_phase_chemdr_shell_impl_selected = .true.
+
+    if (masterproc) then
+       if (gas_phase_chemdr_use_codon_shell_impl) then
+          write(iulog,*) 'gas_phase_chemdr_shell implementation = codon'
+          proof_file = ''
+          call get_environment_variable('GAS_PHASE_CHEMDR_SHELL_PROOF_FILE', value=proof_file, length=n, status=status)
+          if (status == 0 .and. n > 0) then
+             open(newunit=proof_unit, file=trim(proof_file(:n)), status='replace', action='write', iostat=ios)
+             if (ios == 0) then
+                write(proof_unit,'(A)') 'gas_phase_chemdr_shell implementation = codon'
+                close(proof_unit)
+             end if
+          end if
+       else
+          write(iulog,*) 'gas_phase_chemdr_shell implementation = native'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine gas_phase_chemdr_select_shell_impl
 
   subroutine gas_phase_chemdr_select_impl()
 

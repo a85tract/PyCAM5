@@ -2598,6 +2598,218 @@ def gas_phase_chemdr_store_drydep_codon(
                 drydepflx[dst_idx] = sflx[src_idx]
 
 
+@inline
+def _gas_phase_chemdr_shell_h2o_setup(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    h2o_ndx: int,
+    st80_25_ndx: int,
+    aoa_nh_ndx: int,
+    nh_5_ndx: int,
+    nh_50_ndx: int,
+    nh_50w_ndx: int,
+    rad2deg: float,
+    pmid_p: cobj,
+    vmr_p: cobj,
+    rlats_p: cobj,
+    mmr_p: cobj,
+    qh2o_p: cobj,
+    h2ovmr_p: cobj,
+):
+    if st80_25_ndx > 0:
+        gas_phase_chemdr_reset_ste_tracer_codon(
+            ncol, pcols, pver, gas_pcnst, st80_25_ndx, 80.0e2, 200.0e-9, pmid_p, vmr_p
+        )
+
+    if aoa_nh_ndx > 0 and nh_5_ndx > 0 and nh_50_ndx > 0 and nh_50w_ndx > 0:
+        rlats = Ptr[float](rlats_p)
+        vmr = Ptr[float](vmr_p)
+        for j in range(1, ncol + 1):
+            xlat = rlats[j - 1] * rad2deg
+            if xlat >= 30.0 and xlat <= 50.0:
+                vmr[_idx3(j, pver, nh_5_ndx, ncol, pver)] = 100.0e-9
+                vmr[_idx3(j, pver, nh_50_ndx, ncol, pver)] = 100.0e-9
+                vmr[_idx3(j, pver, nh_50w_ndx, ncol, pver)] = 100.0e-9
+                vmr[_idx3(j, pver, aoa_nh_ndx, ncol, pver)] = 0.0
+
+    if h2o_ndx > 0:
+        gas_phase_chemdr_load_h2o_fields_codon(
+            ncol, pcols, pver, gas_pcnst, h2o_ndx, mmr_p, vmr_p, qh2o_p, h2ovmr_p
+        )
+
+
+@inline
+def _gas_phase_chemdr_shell_post_solver(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    ndx_h2so4: int,
+    o3_ndx: int,
+    o3s_ndx: int,
+    delt: float,
+    troplev_p: cobj,
+    vmr_p: cobj,
+    o3s_loss_p: cobj,
+    del_h2so4_gasprod_p: cobj,
+):
+    if o3_ndx > 0 and o3s_ndx > 0:
+        gas_phase_chemdr_copy_o3_to_o3s_trop_codon(
+            ncol, pcols, pver, gas_pcnst, troplev_p, o3_ndx, o3s_ndx, vmr_p
+        )
+        troplev = Ptr[int](troplev_p)
+        vmr = Ptr[float](vmr_p)
+        o3s_loss = Ptr[float](o3s_loss_p)
+        for i in range(1, ncol + 1):
+            for k in range(troplev[i - 1] + 1, pver + 1):
+                idx = _idx3(i, k, o3s_ndx, ncol, pver)
+                vmr[idx] = vmr[idx] * exp(-delt * o3s_loss[_idx2(i, k, ncol)])
+
+    if ndx_h2so4 > 0:
+        gas_phase_chemdr_update_h2so4_gasprod_codon(
+            ncol, pver, gas_pcnst, ndx_h2so4, vmr_p, del_h2so4_gasprod_p
+        )
+
+
+@export
+def gas_phase_chemdr_shell_codon(
+    stage: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    pcnst: int,
+    rxntot: int,
+    extcnt: int,
+    nfs: int,
+    indexm: int,
+    has_linoz_data_flag: int,
+    h2o_ndx: int,
+    st80_25_ndx: int,
+    aoa_nh_ndx: int,
+    nh_5_ndx: int,
+    nh_50_ndx: int,
+    nh_50w_ndx: int,
+    so4_ndx: int,
+    st80_25_tau_ndx: int,
+    ndx_h2so4: int,
+    o3_ndx: int,
+    o3s_ndx: int,
+    synoz_ndx: int,
+    aoa_nh_ext_ndx: int,
+    rad2deg: float,
+    delt: float,
+    delt_inverse: float,
+    rga: float,
+    m2km: float,
+    pa2mb: float,
+    map2chm_p: cobj,
+    troplev_p: cobj,
+    ltrop_sol_p: cobj,
+    zen_angle_p: cobj,
+    sza_p: cobj,
+    phis_p: cobj,
+    zi_p: cobj,
+    zm_p: cobj,
+    pmid_p: cobj,
+    zsurf_p: cobj,
+    zintr_p: cobj,
+    zmidr_p: cobj,
+    zmid_p: cobj,
+    zint_p: cobj,
+    pmb_p: cobj,
+    q_p: cobj,
+    mmr_p: cobj,
+    vmr_p: cobj,
+    qh2o_p: cobj,
+    h2ovmr_p: cobj,
+    rlats_p: cobj,
+    sulfate_p: cobj,
+    satq_p: cobj,
+    relhum_p: cobj,
+    cldw_p: cobj,
+    cwat_p: cobj,
+    extfrc_p: cobj,
+    invariants_p: cobj,
+    het_rates_p: cobj,
+    reaction_rates_p: cobj,
+    del_h2so4_gasprod_p: cobj,
+    vmr0_p: cobj,
+    o3s_loss_p: cobj,
+    mmr_tend_p: cobj,
+    mmr_new_p: cobj,
+    qtend_p: cobj,
+    tfld_p: cobj,
+    tvs_p: cobj,
+    sflx_p: cobj,
+    ufld_p: cobj,
+    vfld_p: cobj,
+    wind_speed_p: cobj,
+    precc_p: cobj,
+    precl_p: cobj,
+    prect_p: cobj,
+    cflx_p: cobj,
+    drydepflx_p: cobj,
+):
+    if stage == 1:
+        gas_phase_chemdr_prepare_sza_codon(ncol, rad2deg, zen_angle_p, sza_p)
+    elif stage == 2:
+        gas_phase_chemdr_prepare_state_codon(
+            ncol, pcols, pver, rga, m2km, pa2mb, phis_p, zi_p, zm_p, pmid_p, zsurf_p, zintr_p, zmidr_p,
+            zmid_p, zint_p, pmb_p
+        )
+        gas_phase_chemdr_load_mmr_codon(ncol, pcols, pver, pcnst, map2chm_p, q_p, mmr_p)
+    elif stage == 3:
+        _gas_phase_chemdr_shell_h2o_setup(
+            ncol, pcols, pver, gas_pcnst, h2o_ndx, st80_25_ndx, aoa_nh_ndx, nh_5_ndx, nh_50_ndx,
+            nh_50w_ndx, rad2deg, pmid_p, vmr_p, rlats_p, mmr_p, qh2o_p, h2ovmr_p
+        )
+    elif stage == 4:
+        gas_phase_chemdr_zero_sulfate_codon(ncol, pver, sulfate_p)
+    elif stage == 5:
+        gas_phase_chemdr_load_prognostic_sulfate_codon(ncol, pver, gas_pcnst, so4_ndx, vmr_p, sulfate_p)
+    elif stage == 6:
+        gas_phase_chemdr_clip_sulfate_codon(ncol, pcols, pver, troplev_p, sulfate_p)
+    elif stage == 7:
+        gas_phase_chemdr_compute_relhum_codon(ncol, pver, h2ovmr_p, satq_p, relhum_p)
+        gas_phase_chemdr_copy_cldw_to_cwat_codon(ncol, pcols, pver, cldw_p, cwat_p)
+    elif stage == 8:
+        gas_phase_chemdr_normalize_extfrc_codon(
+            ncol, pver, extcnt, synoz_ndx, aoa_nh_ext_ndx, indexm, extfrc_p, invariants_p
+        )
+    elif stage == 9:
+        gas_phase_chemdr_zero_het_rates_codon(ncol, pver, gas_pcnst, het_rates_p)
+    elif stage == 10:
+        gas_phase_chemdr_zero_st80_tau_codon(ncol, pver, rxntot, st80_25_tau_ndx, troplev_p, reaction_rates_p)
+    elif stage == 11:
+        gas_phase_chemdr_set_ltrop_sol_codon(ncol, has_linoz_data_flag, troplev_p, ltrop_sol_p)
+        gas_phase_chemdr_init_h2so4_gasprod_codon(
+            ncol, pver, gas_pcnst, ndx_h2so4, vmr_p, del_h2so4_gasprod_p
+        )
+        gas_phase_chemdr_store_vmr0_codon(ncol, pver, gas_pcnst, vmr_p, vmr0_p)
+    elif stage == 12:
+        _gas_phase_chemdr_shell_post_solver(
+            ncol, pcols, pver, gas_pcnst, ndx_h2so4, o3_ndx, o3s_ndx, delt, troplev_p, vmr_p, o3s_loss_p,
+            del_h2so4_gasprod_p
+        )
+    elif stage == 13:
+        gas_phase_chemdr_finalize_tendencies_codon(
+            ncol, pcols, pver, gas_pcnst, pcnst, delt_inverse, map2chm_p, mmr_p, mmr_tend_p, mmr_new_p,
+            qtend_p
+        )
+        gas_phase_chemdr_compute_tvs_codon(ncol, pcols, pver, tfld_p, qh2o_p, tvs_p)
+        gas_phase_chemdr_zero_sflx_codon(pcols, gas_pcnst, sflx_p)
+    elif stage == 14:
+        gas_phase_chemdr_compute_wind_speed_codon(ncol, pcols, pver, ufld_p, vfld_p, wind_speed_p)
+        gas_phase_chemdr_compute_prect_codon(ncol, pcols, precc_p, precl_p, prect_p)
+    elif stage == 15:
+        gas_phase_chemdr_store_drydep_codon(
+            ncol, pcols, gas_pcnst, pcnst, map2chm_p, sflx_p, cflx_p, drydepflx_p
+        )
+
+
 @export
 def set_xnox_photo_codon(
     ncol: int,
