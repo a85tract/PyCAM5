@@ -1,4 +1,4 @@
-from math import acos, cos, exp, log, sin, sqrt
+from math import acos, cos, exp, log, log10, sin, sqrt
 
 
 @inline
@@ -1746,6 +1746,749 @@ def aero_model_gasaerexch_aq_tend_codon(
     dvmrcwdt = Ptr[float](dvmrcwdt_p)
 
     _aero_model_gasaerexch_aq_tend(ncol, pver, gas_pcnst, delt, vmr, vmrcw, dvmrdt, dvmrcwdt)
+
+
+@export
+def setsox_init_fields_codon(
+    stage: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    nfs: int,
+    cloud_borne_flag: int,
+    inv_so2_flag: int,
+    inv_h2o2_flag: int,
+    inv_o3_flag: int,
+    inv_ho2_flag: int,
+    id_so2: int,
+    id_hno3: int,
+    id_h2o2: int,
+    id_nh3: int,
+    id_o3: int,
+    id_ho2: int,
+    id_h2so4: int,
+    id_so4: int,
+    id_msa: int,
+    ph0: float,
+    xhnm_p: cobj,
+    invariants_p: cobj,
+    qin_p: cobj,
+    cfact_p: cobj,
+    xph_p: cobj,
+    xso2_p: cobj,
+    xhno3_p: cobj,
+    xh2o2_p: cobj,
+    xnh3_p: cobj,
+    xo3_p: cobj,
+    xho2_p: cobj,
+    xh2so4_p: cobj,
+    xso4_p: cobj,
+    xno3_p: cobj,
+    xnh4_p: cobj,
+    xmsa_p: cobj,
+):
+    xhnm = Ptr[float](xhnm_p)
+    cfact = Ptr[float](cfact_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, ncol)
+            cfact[idx] = xhnm[idx] * 1.0e6 * 1.38e-23 / 287.0 * 1.0e-3
+
+    if stage == 1:
+        return
+
+    invariants = Ptr[float](invariants_p)
+    qin = Ptr[float](qin_p)
+    xph = Ptr[float](xph_p)
+    xso2 = Ptr[float](xso2_p)
+    xhno3 = Ptr[float](xhno3_p)
+    xh2o2 = Ptr[float](xh2o2_p)
+    xnh3 = Ptr[float](xnh3_p)
+    xo3 = Ptr[float](xo3_p)
+    xho2 = Ptr[float](xho2_p)
+    xh2so4 = Ptr[float](xh2so4_p)
+    xso4 = Ptr[float](xso4_p)
+    xno3 = Ptr[float](xno3_p)
+    xnh4 = Ptr[float](xnh4_p)
+    xmsa = Ptr[float](xmsa_p)
+    xph0 = 10.0 ** (-ph0)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, ncol)
+            xso4[idx] = 0.0
+            xno3[idx] = 0.0
+            xnh4[idx] = 0.0
+            xph[idx] = xph0
+
+            if inv_so2_flag != 0:
+                xso2[idx] = invariants[_idx3(i, k, id_so2, ncol, pver)] / xhnm[idx]
+            else:
+                xso2[idx] = qin[_idx3(i, k, id_so2, ncol, pver)]
+
+            if id_hno3 > 0:
+                xhno3[idx] = qin[_idx3(i, k, id_hno3, ncol, pver)]
+            else:
+                xhno3[idx] = 0.0
+
+            if inv_h2o2_flag != 0:
+                xh2o2[idx] = invariants[_idx3(i, k, id_h2o2, ncol, pver)] / xhnm[idx]
+            else:
+                xh2o2[idx] = qin[_idx3(i, k, id_h2o2, ncol, pver)]
+
+            if id_nh3 > 0:
+                xnh3[idx] = qin[_idx3(i, k, id_nh3, ncol, pver)]
+            else:
+                xnh3[idx] = 0.0
+
+            if inv_o3_flag != 0:
+                xo3[idx] = invariants[_idx3(i, k, id_o3, ncol, pver)] / xhnm[idx]
+            else:
+                xo3[idx] = qin[_idx3(i, k, id_o3, ncol, pver)]
+
+            if inv_ho2_flag != 0:
+                xho2[idx] = invariants[_idx3(i, k, id_ho2, ncol, pver)] / xhnm[idx]
+            else:
+                xho2[idx] = qin[_idx3(i, k, id_ho2, ncol, pver)]
+
+            if cloud_borne_flag != 0:
+                xh2so4[idx] = qin[_idx3(i, k, id_h2so4, ncol, pver)]
+            else:
+                xso4[idx] = qin[_idx3(i, k, id_so4, ncol, pver)]
+
+            if id_msa > 0:
+                xmsa[idx] = qin[_idx3(i, k, id_msa, ncol, pver)]
+
+
+@export
+def setsox_ph_solve_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    itermax: int,
+    cloud_borne_flag: int,
+    const0: float,
+    ra: float,
+    xkw: float,
+    so4_fact: float,
+    press_p: cobj,
+    tfld_p: cobj,
+    cldfrc_p: cobj,
+    xhnm_p: cobj,
+    xlwc_p: cobj,
+    xso4c_p: cobj,
+    xnh4c_p: cobj,
+    xno3c_p: cobj,
+    xso4_p: cobj,
+    xnh4_p: cobj,
+    xno3_p: cobj,
+    xso2_p: cobj,
+    xhno3_p: cobj,
+    xnh3_p: cobj,
+    xph_p: cobj,
+):
+    press = Ptr[float](press_p)
+    tfld = Ptr[float](tfld_p)
+    cldfrc = Ptr[float](cldfrc_p)
+    xhnm = Ptr[float](xhnm_p)
+    xlwc = Ptr[float](xlwc_p)
+    xso4c = Ptr[float](xso4c_p)
+    xnh4c = Ptr[float](xnh4c_p)
+    xno3c = Ptr[float](xno3c_p)
+    xso4 = Ptr[float](xso4_p)
+    xnh4 = Ptr[float](xnh4_p)
+    xno3 = Ptr[float](xno3_p)
+    xso2 = Ptr[float](xso2_p)
+    xhno3 = Ptr[float](xhno3_p)
+    xnh3 = Ptr[float](xnh3_p)
+    xph = Ptr[float](xph_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, ncol)
+            idxp = _idx2(i, k, pcols)
+            if cloud_borne_flag != 0 and cldfrc[idxp] > 0.0:
+                xso4[idx] = xso4c[idxp] / cldfrc[idxp]
+                xnh4[idx] = xnh4c[idxp] / cldfrc[idxp]
+                xno3[idx] = xno3c[idxp] / cldfrc[idxp]
+
+            xl = xlwc[idxp]
+            if xl >= 1.0e-8:
+                work1 = 1.0 / tfld[idxp] - 1.0 / 298.0
+                pz = 0.01 * press[idxp]
+                tz = tfld[idxp]
+                patm = pz / 1013.0
+
+                xk = 2.1e5 * exp(8700.0 * work1)
+                xe = 15.4
+                fact1_hno3 = xk * xe * patm * xhno3[idx]
+                fact2_hno3 = xk * ra * tz * xl
+                fact3_hno3 = xe
+
+                xk = 1.23 * exp(3120.0 * work1)
+                xe = 1.7e-2 * exp(2090.0 * work1)
+                x2 = 6.0e-8 * exp(1120.0 * work1)
+                fact1_so2 = xk * xe * patm * xso2[idx]
+                fact2_so2 = xk * ra * tz * xl
+                fact3_so2 = xe
+                fact4_so2 = x2
+
+                xk = 58.0 * exp(4085.0 * work1)
+                xe = 1.7e-5 * exp(-4325.0 * work1)
+                fact1_nh3 = (xk * xe * patm / xkw) * (xnh3[idx] + xnh4[idx])
+                fact2_nh3 = xk * ra * tz * xl
+                fact3_nh3 = xe / xkw
+
+                eh2o = xkw
+                co2g = 330.0e-6
+                xk = 3.1e-2 * exp(2423.0 * work1)
+                xe = 4.3e-7 * exp(-913.0 * work1)
+                eco2 = xk * xe * co2g * patm
+                eso4 = xso4[idx] * xhnm[idx] * const0 / xl
+
+                converged = 0
+                yph_lo = 0.0
+                yph_hi = 0.0
+                ynetpos_lo = 0.0
+                ynetpos_hi = 0.0
+                for iter in range(1, itermax + 1):
+                    if iter == 1:
+                        yph_lo = 2.0
+                        yph_hi = yph_lo
+                        yph = yph_lo
+                    elif iter == 2:
+                        yph_hi = 7.0
+                        yph = yph_hi
+                    else:
+                        yph = 0.5 * (yph_lo + yph_hi)
+
+                    xph[idx] = 10.0 ** (-yph)
+                    ehno3 = fact1_hno3 / (1.0 + fact2_hno3 * (1.0 + fact3_hno3 / xph[idx]))
+                    eso2 = fact1_so2 / (
+                        1.0
+                        + fact2_so2
+                        * (1.0 + (fact3_so2 / xph[idx]) * (1.0 + fact4_so2 / xph[idx]))
+                    )
+                    enh3 = fact1_nh3 / (1.0 + fact2_nh3 * (1.0 + fact3_nh3 * xph[idx]))
+
+                    tmp_nh4 = enh3 * xph[idx]
+                    tmp_hso3 = eso2 / xph[idx]
+                    tmp_so3 = tmp_hso3 * 2.0 * fact4_so2 / xph[idx]
+                    tmp_hco3 = eco2 / xph[idx]
+                    tmp_oh = eh2o / xph[idx]
+                    tmp_no3 = ehno3 / xph[idx]
+                    tmp_so4 = so4_fact * eso4
+                    tmp_pos = xph[idx] + tmp_nh4
+                    tmp_neg = tmp_oh + tmp_hco3 + tmp_no3 + tmp_hso3 + tmp_so3 + tmp_so4
+                    ynetpos = tmp_pos - tmp_neg
+
+                    if iter > 2:
+                        if ynetpos == 0.0:
+                            converged = 1
+                            break
+                        elif ynetpos >= 0.0:
+                            yph_lo = yph
+                            ynetpos_lo = ynetpos
+                        else:
+                            yph_hi = yph
+                            ynetpos_hi = ynetpos
+
+                        if abs(yph_hi - yph_lo) <= 0.005:
+                            yph = 0.5 * (yph_hi + yph_lo)
+                            xph[idx] = 10.0 ** (-yph)
+                            converged = 1
+                            break
+                    elif iter == 1:
+                        if ynetpos <= 0.0:
+                            converged = 1
+                            break
+                        ynetpos_lo = ynetpos
+                    else:
+                        if ynetpos >= 0.0:
+                            converged = 1
+                            break
+                        ynetpos_hi = ynetpos
+            else:
+                xph[idx] = 1.0e-7
+
+
+@export
+def setsox_aqchem_predict_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    cloud_borne_flag: int,
+    modal_aerosols_flag: int,
+    id_nh3: int,
+    dtime: float,
+    const0: float,
+    kh0: float,
+    kh1: float,
+    kh2: float,
+    kh3: float,
+    ra: float,
+    xkw: float,
+    press_p: cobj,
+    tfld_p: cobj,
+    xhnm_p: cobj,
+    xlwc_p: cobj,
+    xph_p: cobj,
+    xho2_p: cobj,
+    xhno3_p: cobj,
+    xno3_p: cobj,
+    xh2o2_p: cobj,
+    xso2_p: cobj,
+    xo3_p: cobj,
+    xnh3_p: cobj,
+    xnh4_p: cobj,
+    xso4_p: cobj,
+    xso4_init_p: cobj,
+    xdelso4hp_p: cobj,
+    hno3g_p: cobj,
+    nh3g_p: cobj,
+    hehno3_p: cobj,
+    heh2o2_p: cobj,
+    heso2_p: cobj,
+    henh3_p: cobj,
+    heo3_p: cobj,
+):
+    press = Ptr[float](press_p)
+    tfld = Ptr[float](tfld_p)
+    xhnm = Ptr[float](xhnm_p)
+    xlwc = Ptr[float](xlwc_p)
+    xph = Ptr[float](xph_p)
+    xho2 = Ptr[float](xho2_p)
+    xhno3 = Ptr[float](xhno3_p)
+    xno3 = Ptr[float](xno3_p)
+    xh2o2 = Ptr[float](xh2o2_p)
+    xso2 = Ptr[float](xso2_p)
+    xo3 = Ptr[float](xo3_p)
+    xnh3 = Ptr[float](xnh3_p)
+    xnh4 = Ptr[float](xnh4_p)
+    xso4 = Ptr[float](xso4_p)
+    xso4_init = Ptr[float](xso4_init_p)
+    xdelso4hp = Ptr[float](xdelso4hp_p)
+    hno3g = Ptr[float](hno3g_p)
+    nh3g = Ptr[float](nh3g_p)
+    hehno3 = Ptr[float](hehno3_p)
+    heh2o2 = Ptr[float](heh2o2_p)
+    heso2 = Ptr[float](heso2_p)
+    henh3 = Ptr[float](henh3_p)
+    heo3 = Ptr[float](heo3_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, ncol)
+            idxp = _idx2(i, k, pcols)
+            work1 = 1.0 / tfld[idxp] - 1.0 / 298.0
+            tz = tfld[idxp]
+            xl = xlwc[idxp]
+            patm = press[idxp] / 101300.0
+            xam = press[idxp] / (1.38e-23 * tz)
+
+            xk = 2.1e5 * exp(8700.0 * work1)
+            xe = 15.4
+            hehno3[idx] = xk * (1.0 + xe / xph[idx])
+
+            xk = 7.4e4 * exp(6621.0 * work1)
+            xe = 2.2e-12 * exp(-3730.0 * work1)
+            heh2o2[idx] = xk * (1.0 + xe / xph[idx])
+
+            xk = 1.23 * exp(3120.0 * work1)
+            xe = 1.7e-2 * exp(2090.0 * work1)
+            x2 = 6.0e-8 * exp(1120.0 * work1)
+            wrk = xe / xph[idx]
+            heso2[idx] = xk * (1.0 + wrk * (1.0 + x2 / xph[idx]))
+
+            xk = 58.0 * exp(4085.0 * work1)
+            xe = 1.7e-5 * exp(-4325.0 * work1)
+            henh3[idx] = xk * (1.0 + xe * xph[idx] / xkw)
+
+            xk = 1.15e-2 * exp(2560.0 * work1)
+            heo3[idx] = xk
+
+            kh4 = (kh2 + kh3 * kh1 / xph[idx]) / ((1.0 + kh1 / xph[idx]) ** 2)
+            ho2s = kh0 * xho2[idx] * patm * (1.0 + kh1 / xph[idx])
+            r1h2o2 = kh4 * ho2s * ho2s
+
+            if cloud_borne_flag != 0:
+                r2h2o2 = r1h2o2 * xl / const0 * 1.0e6 / xam
+            else:
+                r2h2o2 = r1h2o2 * xl * const0 / xam
+
+            if modal_aerosols_flag == 0:
+                xh2o2[idx] = xh2o2[idx] + r2h2o2 * dtime
+
+            px = hehno3[idx] * ra * tz * xl
+            hno3g[idx] = (xhno3[idx] + xno3[idx]) / (1.0 + px)
+
+            px = heh2o2[idx] * ra * tz * xl
+            h2o2g = xh2o2[idx] / (1.0 + px)
+
+            px = heso2[idx] * ra * tz * xl
+            so2g = xso2[idx] / (1.0 + px)
+
+            px = heo3[idx] * ra * tz * xl
+            o3g = xo3[idx] / (1.0 + px)
+
+            px = henh3[idx] * ra * tz * xl
+            if id_nh3 > 0:
+                nh3g[idx] = (xnh3[idx] + xnh4[idx]) / (1.0 + px)
+            else:
+                nh3g[idx] = 0.0
+
+            rah2o2 = 8.0e4 * exp(-3650.0 * work1) / (0.1 + xph[idx])
+            rao3 = 4.39e11 * exp(-4131.0 / tz) + 2.56e3 * exp(-996.0 / tz) / xph[idx]
+
+            if xl >= 1.0e-8:
+                if cloud_borne_flag != 0:
+                    patm_x = patm
+                else:
+                    patm_x = 1.0
+
+                if modal_aerosols_flag != 0:
+                    pso4 = (
+                        rah2o2
+                        * 7.4e4
+                        * exp(6621.0 * work1)
+                        * h2o2g
+                        * patm_x
+                        * 1.23
+                        * exp(3120.0 * work1)
+                        * so2g
+                        * patm_x
+                    )
+                else:
+                    pso4 = rah2o2 * heh2o2[idx] * h2o2g * patm_x * heso2[idx] * so2g * patm_x
+
+                pso4 = pso4 * xl / const0 / xhnm[idx]
+                ccc = pso4 * dtime
+                ccc = max(ccc, 1.0e-30)
+                xso4_init[idx] = xso4[idx]
+
+                if xh2o2[idx] > xso2[idx]:
+                    if ccc > xso2[idx]:
+                        xso4[idx] = xso4[idx] + xso2[idx]
+                        if cloud_borne_flag != 0:
+                            xh2o2[idx] = xh2o2[idx] - xso2[idx]
+                            xso2[idx] = 1.0e-20
+                        else:
+                            xso2[idx] = 1.0e-20
+                            xh2o2[idx] = xh2o2[idx] - xso2[idx]
+                    else:
+                        xso4[idx] = xso4[idx] + ccc
+                        xh2o2[idx] = xh2o2[idx] - ccc
+                        xso2[idx] = xso2[idx] - ccc
+                else:
+                    if ccc > xh2o2[idx]:
+                        xso4[idx] = xso4[idx] + xh2o2[idx]
+                        xso2[idx] = xso2[idx] - xh2o2[idx]
+                        xh2o2[idx] = 1.0e-20
+                    else:
+                        xso4[idx] = xso4[idx] + ccc
+                        xh2o2[idx] = xh2o2[idx] - ccc
+                        xso2[idx] = xso2[idx] - ccc
+
+                if modal_aerosols_flag != 0:
+                    xdelso4hp[idx] = xso4[idx] - xso4_init[idx]
+
+                pso4 = rao3 * heo3[idx] * o3g * patm_x * heso2[idx] * so2g * patm_x
+                pso4 = pso4 * xl / const0 / xhnm[idx]
+                ccc = pso4 * dtime
+                ccc = max(ccc, 1.0e-30)
+                xso4_init[idx] = xso4[idx]
+
+                if ccc > xso2[idx]:
+                    xso4[idx] = xso4[idx] + xso2[idx]
+                    xso2[idx] = 1.0e-20
+                else:
+                    xso4[idx] = xso4[idx] + ccc
+                    xso2[idx] = xso2[idx] - ccc
+
+
+@export
+def setsox_xph_lwc_diag_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    cldfrc_p: cobj,
+    lwc_p: cobj,
+    xph_p: cobj,
+    xphlwc_p: cobj,
+):
+    cldfrc = Ptr[float](cldfrc_p)
+    lwc = Ptr[float](lwc_p)
+    xph = Ptr[float](xph_p)
+    xphlwc = Ptr[float](xphlwc_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, ncol)
+            idxp = _idx2(i, k, pcols)
+            xphlwc[idx] = 0.0
+            if cldfrc[idxp] >= 1.0e-5 and lwc[idx] >= 1.0e-8:
+                xphlwc[idx] = -1.0 * log10(xph[idx]) * lwc[idx]
+
+
+@inline
+def _sox_cldaero_uptakerate(
+    xl: float,
+    cldnum: float,
+    cfact: float,
+    cldfrc: float,
+    tfld: float,
+    press: float,
+    pi_val: float,
+) -> float:
+    num_cd = 1.0e-3 * cldnum * cfact / cldfrc
+    num_cd = max(num_cd, 0.0)
+    volx34pi_cd = xl * 0.75 / pi_val
+    radxnum_cd = (volx34pi_cd * num_cd * num_cd) ** 0.3333333
+    if radxnum_cd <= volx34pi_cd * 4.0e4:
+        radxnum_cd = volx34pi_cd * 4.0e4
+        rad_cd = 50.0e-4
+    elif radxnum_cd >= volx34pi_cd * 4.0e8:
+        radxnum_cd = volx34pi_cd * 4.0e8
+        rad_cd = 0.5e-4
+    else:
+        rad_cd = radxnum_cd / num_cd
+
+    gasdiffus = 0.557 * (tfld ** 1.75) / press
+    gasspeed = 1.455e4 * sqrt(tfld / 98.0)
+    knudsen = 3.0 * gasdiffus / (gasspeed * rad_cd)
+    fuchs_sutugin = (0.4875 * (1.0 + knudsen)) / (knudsen * (1.184 + knudsen) + 0.4875)
+    return 12.56637 * radxnum_cd * gasdiffus * fuchs_sutugin
+
+
+@export
+def sox_cldaero_update_core_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    ntot_amode: int,
+    loffset: int,
+    id_msa: int,
+    id_h2so4: int,
+    id_so2: int,
+    id_h2o2: int,
+    id_nh3: int,
+    modeptr_accum: int,
+    dtime: float,
+    pi_val: float,
+    cldfrc_p: cobj,
+    xlwc_p: cobj,
+    cldnum_p: cobj,
+    cfact_p: cobj,
+    tfld_p: cobj,
+    press_p: cobj,
+    delso4_hprxn_p: cobj,
+    xh2so4_p: cobj,
+    xso4_p: cobj,
+    xso4_init_p: cobj,
+    nh3g_p: cobj,
+    xnh3_p: cobj,
+    xnh4c_p: cobj,
+    xmsa_p: cobj,
+    xso2_p: cobj,
+    xh2o2_p: cobj,
+    qcw_p: cobj,
+    qin_p: cobj,
+    dqdt_aqso4_p: cobj,
+    dqdt_aqh2so4_p: cobj,
+    dqdt_aqhprxn_p: cobj,
+    dqdt_aqo3rxn_p: cobj,
+    faqgain_msa_p: cobj,
+    faqgain_so4_p: cobj,
+    qnum_c_p: cobj,
+    numptrcw_amode_p: cobj,
+    lptr_so4_cw_amode_p: cobj,
+    lptr_msa_cw_amode_p: cobj,
+    lptr_nh4_cw_amode_p: cobj,
+):
+    cldfrc = Ptr[float](cldfrc_p)
+    xlwc = Ptr[float](xlwc_p)
+    cldnum = Ptr[float](cldnum_p)
+    cfact = Ptr[float](cfact_p)
+    tfld = Ptr[float](tfld_p)
+    press = Ptr[float](press_p)
+    delso4_hprxn = Ptr[float](delso4_hprxn_p)
+    xh2so4 = Ptr[float](xh2so4_p)
+    xso4 = Ptr[float](xso4_p)
+    xso4_init = Ptr[float](xso4_init_p)
+    nh3g = Ptr[float](nh3g_p)
+    xnh3 = Ptr[float](xnh3_p)
+    xnh4c = Ptr[float](xnh4c_p)
+    xmsa = Ptr[float](xmsa_p)
+    xso2 = Ptr[float](xso2_p)
+    xh2o2 = Ptr[float](xh2o2_p)
+    qcw = Ptr[float](qcw_p)
+    qin = Ptr[float](qin_p)
+    dqdt_aqso4 = Ptr[float](dqdt_aqso4_p)
+    dqdt_aqh2so4 = Ptr[float](dqdt_aqh2so4_p)
+    dqdt_aqhprxn = Ptr[float](dqdt_aqhprxn_p)
+    dqdt_aqo3rxn = Ptr[float](dqdt_aqo3rxn_p)
+    faqgain_msa = Ptr[float](faqgain_msa_p)
+    faqgain_so4 = Ptr[float](faqgain_so4_p)
+    qnum_c = Ptr[float](qnum_c_p)
+    numptrcw_amode = Ptr[int](numptrcw_amode_p)
+    lptr_so4_cw_amode = Ptr[int](lptr_so4_cw_amode_p)
+    lptr_msa_cw_amode = Ptr[int](lptr_msa_cw_amode_p)
+    lptr_nh4_cw_amode = Ptr[int](lptr_nh4_cw_amode_p)
+
+    for m in range(1, gas_pcnst + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                dqdt_aqso4[_idx3(i, k, m, ncol, pver)] = 0.0
+                dqdt_aqh2so4[_idx3(i, k, m, ncol, pver)] = 0.0
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            dqdt_aqhprxn[_idx2(i, k, ncol)] = 0.0
+            dqdt_aqo3rxn[_idx2(i, k, ncol)] = 0.0
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, ncol)
+            idxp = _idx2(i, k, pcols)
+            if cldfrc[idxp] >= 1.0e-5:
+                xl = xlwc[idxp]
+                if xl >= 1.0e-8:
+                    delso4_o3rxn = xso4[idx] - xso4_init[idx]
+                    if id_nh3 > 0:
+                        delnh3 = nh3g[idx] - xnh3[idx]
+                        delnh4 = -delnh3
+                    else:
+                        delnh3 = 0.0
+                        delnh4 = 0.0
+
+                    for n in range(1, ntot_amode + 1):
+                        qnum_c[n - 1] = 0.0
+                        l = numptrcw_amode[n - 1] - loffset
+                        if l > 0:
+                            qnum_c[n - 1] = max(0.0, qcw[_idx3(i, k, l, ncol, pver)])
+
+                    n_accum = modeptr_accum
+                    if n_accum <= 0:
+                        n_accum = 1
+                    qnum_c[n_accum - 1] = max(1.0e-10, qnum_c[n_accum - 1])
+
+                    sumf = 0.0
+                    for n in range(1, ntot_amode + 1):
+                        faqgain_so4[n - 1] = 0.0
+                        if lptr_so4_cw_amode[n - 1] > 0:
+                            faqgain_so4[n - 1] = qnum_c[n - 1]
+                            sumf = sumf + faqgain_so4[n - 1]
+
+                    if sumf > 0.0:
+                        for n in range(1, ntot_amode + 1):
+                            faqgain_so4[n - 1] = faqgain_so4[n - 1] / sumf
+
+                    ntot_msa_c = 0
+                    sumf = 0.0
+                    for n in range(1, ntot_amode + 1):
+                        faqgain_msa[n - 1] = 0.0
+                        if lptr_msa_cw_amode[n - 1] > 0:
+                            faqgain_msa[n - 1] = qnum_c[n - 1]
+                            ntot_msa_c = ntot_msa_c + 1
+                        sumf = sumf + faqgain_msa[n - 1]
+
+                    if sumf > 0.0:
+                        for n in range(1, ntot_amode + 1):
+                            faqgain_msa[n - 1] = faqgain_msa[n - 1] / sumf
+
+                    uptkrate = _sox_cldaero_uptakerate(
+                        xl, cldnum[idxp], cfact[idx], cldfrc[idxp], tfld[idxp], press[idxp], pi_val
+                    )
+                    uptkrate = (1.0 - exp(-min(100.0, dtime * uptkrate))) / dtime
+
+                    dso4dt_gasuptk = xh2so4[idx] * uptkrate
+                    if id_msa > 0:
+                        dmsadt_gasuptk = xmsa[idx] * uptkrate
+                    else:
+                        dmsadt_gasuptk = 0.0
+
+                    dmsadt_gasuptk_toso4 = 0.0
+                    dmsadt_gasuptk_tomsa = dmsadt_gasuptk
+                    if ntot_msa_c == 0:
+                        dmsadt_gasuptk_tomsa = 0.0
+                        dmsadt_gasuptk_toso4 = dmsadt_gasuptk
+
+                    dso4dt_aqrxn = (delso4_o3rxn + delso4_hprxn[idx]) / dtime
+                    dso4dt_hprxn = delso4_hprxn[idx] / dtime
+                    fwetrem = 0.0
+
+                    for n in range(1, ntot_amode + 1):
+                        l = lptr_so4_cw_amode[n - 1] - loffset
+                        if l > 0:
+                            qidx = _idx3(i, k, l, ncol, pver)
+                            dqdt_aqso4[qidx] = faqgain_so4[n - 1] * dso4dt_aqrxn * cldfrc[idxp]
+                            dqdt_aqh2so4[qidx] = (
+                                faqgain_so4[n - 1] * (dso4dt_gasuptk + dmsadt_gasuptk_toso4) * cldfrc[idxp]
+                            )
+                            dqdt_aq = dqdt_aqso4[qidx] + dqdt_aqh2so4[qidx]
+                            dqdt_wr = -fwetrem * dqdt_aq
+                            dqdt = dqdt_aq + dqdt_wr
+                            qcw[qidx] = qcw[qidx] + dqdt * dtime
+
+                        l = lptr_msa_cw_amode[n - 1] - loffset
+                        if l > 0:
+                            qidx = _idx3(i, k, l, ncol, pver)
+                            dqdt_aq = faqgain_msa[n - 1] * dmsadt_gasuptk_tomsa * cldfrc[idxp]
+                            dqdt_wr = -fwetrem * dqdt_aq
+                            dqdt = dqdt_aq + dqdt_wr
+                            qcw[qidx] = qcw[qidx] + dqdt * dtime
+
+                        l = lptr_nh4_cw_amode[n - 1] - loffset
+                        if l > 0:
+                            qidx = _idx3(i, k, l, ncol, pver)
+                            if delnh4 > 0.0:
+                                dqdt_aq = faqgain_so4[n - 1] * delnh4 / dtime * cldfrc[idxp]
+                                dqdt = dqdt_aq
+                                qcw[qidx] = qcw[qidx] + dqdt * dtime
+                            else:
+                                dqdt = (
+                                    qcw[qidx]
+                                    / max(xnh4c[idxp], 1.0e-35)
+                                    * delnh4
+                                    / dtime
+                                    * cldfrc[idxp]
+                                )
+                                qcw[qidx] = qcw[qidx] + dqdt * dtime
+
+                    qin[_idx3(i, k, id_h2so4, ncol, pver)] = (
+                        qin[_idx3(i, k, id_h2so4, ncol, pver)] - dso4dt_gasuptk * dtime * cldfrc[idxp]
+                    )
+                    if id_msa > 0:
+                        qin[_idx3(i, k, id_msa, ncol, pver)] = (
+                            qin[_idx3(i, k, id_msa, ncol, pver)] - dmsadt_gasuptk * dtime * cldfrc[idxp]
+                        )
+
+                    fwetrem = 0.0
+                    dqdt_wr = -fwetrem * xso2[idx] / dtime * cldfrc[idxp]
+                    dqdt_aq = -dso4dt_aqrxn * cldfrc[idxp]
+                    dqdt = dqdt_aq + dqdt_wr
+                    qin[_idx3(i, k, id_so2, ncol, pver)] = qin[_idx3(i, k, id_so2, ncol, pver)] + dqdt * dtime
+
+                    fwetrem = 0.0
+                    dqdt_wr = -fwetrem * xh2o2[idx] / dtime * cldfrc[idxp]
+                    dqdt_aq = -dso4dt_hprxn * cldfrc[idxp]
+                    dqdt = dqdt_aq + dqdt_wr
+                    qin[_idx3(i, k, id_h2o2, ncol, pver)] = (
+                        qin[_idx3(i, k, id_h2o2, ncol, pver)] + dqdt * dtime
+                    )
+
+                    if id_nh3 > 0:
+                        dqdt_aq = delnh3 / dtime * cldfrc[idxp]
+                        dqdt = dqdt_aq
+                        qin[_idx3(i, k, id_nh3, ncol, pver)] = (
+                            qin[_idx3(i, k, id_nh3, ncol, pver)] + dqdt * dtime
+                        )
+
+                    dqdt_aqhprxn[idx] = dso4dt_hprxn * cldfrc[idxp]
+                    dqdt_aqo3rxn[idx] = (dso4dt_aqrxn - dso4dt_hprxn) * cldfrc[idxp]
 
 
 @export

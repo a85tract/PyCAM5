@@ -20,8 +20,354 @@ module MO_SETSOX
 
   logical :: cloud_borne = .false.
   logical :: modal_aerosols = .false.
+  logical :: setsox_init_fields_use_native_impl = .false.
+  logical :: setsox_init_fields_impl_selected = .false.
+  logical :: setsox_init_fields_proof_written = .false.
+  logical :: setsox_init_fields_wrap_proof_written = .false.
+  logical :: setsox_ph_solve_use_native_impl = .false.
+  logical :: setsox_ph_solve_impl_selected = .false.
+  logical :: setsox_ph_solve_proof_written = .false.
+  logical :: setsox_ph_solve_wrap_proof_written = .false.
+  logical :: setsox_aqchem_predict_use_native_impl = .false.
+  logical :: setsox_aqchem_predict_impl_selected = .false.
+  logical :: setsox_aqchem_predict_proof_written = .false.
+  logical :: setsox_aqchem_predict_wrap_proof_written = .false.
+  logical :: setsox_xph_lwc_diag_use_native_impl = .false.
+  logical :: setsox_xph_lwc_diag_impl_selected = .false.
+  logical :: setsox_xph_lwc_diag_proof_written = .false.
+  logical :: setsox_xph_lwc_diag_wrap_proof_written = .false.
 
 contains
+
+  subroutine setsox_append_impl_proof(proof_line)
+
+    implicit none
+
+    character(len=*), intent(in) :: proof_line
+
+    character(len=512) :: proof_path
+    integer :: status, n, unit_id
+
+    call get_environment_variable('SOX_CHEM_PROOF_FILE', value=proof_path, length=n, status=status)
+    if (status /= 0 .or. n <= 0) return
+
+    open(newunit=unit_id, file=trim(adjustl(proof_path(:n))), status='unknown', action='write', &
+         position='append', iostat=status)
+    if (status /= 0) return
+
+    write(unit_id,'(A)') trim(proof_line)
+    close(unit_id)
+
+  end subroutine setsox_append_impl_proof
+
+  subroutine setsox_select_impl(env_name, helper_name, use_native_impl, impl_selected, proof_written)
+
+    use spmd_utils, only : masterproc
+
+    implicit none
+
+    character(len=*), intent(in) :: env_name, helper_name
+    logical, intent(inout) :: use_native_impl, impl_selected, proof_written
+
+    character(len=48) :: impl_name
+    character(len=160) :: proof_line
+    integer :: status, n, i, code
+
+    if (impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable(env_name, value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_impl = .false.
+    end if
+
+    impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_impl) then
+          proof_line = trim(helper_name)//' selector entered implementation = native'
+       else
+          proof_line = trim(helper_name)//' selector entered implementation = codon'
+       end if
+       write(iulog,'(A)') trim(proof_line)
+       if (.not. proof_written) then
+          call setsox_append_impl_proof(trim(proof_line))
+          proof_written = .true.
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine setsox_select_impl
+
+  subroutine setsox_init_fields_select_impl()
+
+    call setsox_select_impl('SETSOX_INIT_FIELDS_IMPL', 'setsox_init_fields', &
+         setsox_init_fields_use_native_impl, setsox_init_fields_impl_selected, &
+         setsox_init_fields_proof_written)
+
+  end subroutine setsox_init_fields_select_impl
+
+  subroutine setsox_ph_solve_select_impl()
+
+    call setsox_select_impl('SETSOX_PH_SOLVE_IMPL', 'setsox_ph_solve', &
+         setsox_ph_solve_use_native_impl, setsox_ph_solve_impl_selected, &
+         setsox_ph_solve_proof_written)
+
+  end subroutine setsox_ph_solve_select_impl
+
+  subroutine setsox_aqchem_predict_select_impl()
+
+    call setsox_select_impl('SETSOX_AQCHEM_PREDICT_IMPL', 'setsox_aqchem_predict', &
+         setsox_aqchem_predict_use_native_impl, setsox_aqchem_predict_impl_selected, &
+         setsox_aqchem_predict_proof_written)
+
+  end subroutine setsox_aqchem_predict_select_impl
+
+  subroutine setsox_xph_lwc_diag_select_impl()
+
+    call setsox_select_impl('SETSOX_XPH_LWC_DIAG_IMPL', 'setsox_xph_lwc_diag', &
+         setsox_xph_lwc_diag_use_native_impl, setsox_xph_lwc_diag_impl_selected, &
+         setsox_xph_lwc_diag_proof_written)
+
+  end subroutine setsox_xph_lwc_diag_select_impl
+
+  subroutine setsox_init_fields_codon_wrap(stage, ncol, ph0_in, xhnm, invariants, qin, cfact, xph, &
+       xso2, xhno3, xh2o2, xnh3, xo3, xho2, xh2so4, xso4, xno3, xnh4, xmsa)
+
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+    use ppgrid,        only : pcols, pver
+    use chem_mods,     only : gas_pcnst, nfs
+    use spmd_utils,    only : masterproc
+
+    implicit none
+
+    integer, intent(in) :: stage, ncol
+    real(r8), intent(in) :: ph0_in
+    real(r8), target, intent(in) :: xhnm(ncol,pver), invariants(ncol,pver,nfs)
+    real(r8), target, intent(in) :: qin(ncol,pver,gas_pcnst)
+    real(r8), target, intent(inout) :: cfact(ncol,pver), xph(ncol,pver)
+    real(r8), target, intent(inout) :: xso2(ncol,pver), xhno3(ncol,pver), xh2o2(ncol,pver)
+    real(r8), target, intent(inout) :: xnh3(ncol,pver), xo3(ncol,pver), xho2(ncol,pver)
+    real(r8), target, intent(inout) :: xh2so4(ncol,pver), xso4(ncol,pver), xno3(ncol,pver)
+    real(r8), target, intent(inout) :: xnh4(ncol,pver), xmsa(ncol,pver)
+
+    integer(c_int64_t) :: cloud_borne_c, inv_so2_c, inv_h2o2_c, inv_o3_c, inv_ho2_c
+    character(len=96) :: proof_line
+
+    interface
+       subroutine setsox_init_fields_codon(stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, nfs_c, &
+            cloud_borne_c, inv_so2_c, inv_h2o2_c, inv_o3_c, inv_ho2_c, id_so2_c, id_hno3_c, &
+            id_h2o2_c, id_nh3_c, id_o3_c, id_ho2_c, id_h2so4_c, id_so4_c, id_msa_c, ph0_c, &
+            xhnm_p, invariants_p, qin_p, cfact_p, xph_p, xso2_p, xhno3_p, xh2o2_p, xnh3_p, &
+            xo3_p, xho2_p, xh2so4_p, xso4_p, xno3_p, xnh4_p, xmsa_p) &
+            bind(c, name="setsox_init_fields_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, nfs_c
+         integer(c_int64_t), value :: cloud_borne_c, inv_so2_c, inv_h2o2_c, inv_o3_c, inv_ho2_c
+         integer(c_int64_t), value :: id_so2_c, id_hno3_c, id_h2o2_c, id_nh3_c, id_o3_c, id_ho2_c
+         integer(c_int64_t), value :: id_h2so4_c, id_so4_c, id_msa_c
+         real(c_double), value :: ph0_c
+         type(c_ptr), value :: xhnm_p, invariants_p, qin_p, cfact_p, xph_p, xso2_p, xhno3_p
+         type(c_ptr), value :: xh2o2_p, xnh3_p, xo3_p, xho2_p, xh2so4_p, xso4_p, xno3_p
+         type(c_ptr), value :: xnh4_p, xmsa_p
+       end subroutine setsox_init_fields_codon
+    end interface
+
+    if (masterproc .and. .not. setsox_init_fields_wrap_proof_written) then
+       write(proof_line,'(A,I0)') 'setsox_init_fields_codon_wrap entered stage=', stage
+       write(iulog,'(A)') trim(proof_line)
+       call setsox_append_impl_proof(trim(proof_line))
+       setsox_init_fields_wrap_proof_written = .true.
+       call flush(iulog)
+    end if
+
+    cloud_borne_c = 0_c_int64_t
+    inv_so2_c = 0_c_int64_t
+    inv_h2o2_c = 0_c_int64_t
+    inv_o3_c = 0_c_int64_t
+    inv_ho2_c = 0_c_int64_t
+    if (cloud_borne) cloud_borne_c = 1_c_int64_t
+    if (inv_so2) inv_so2_c = 1_c_int64_t
+    if (inv_h2o2) inv_h2o2_c = 1_c_int64_t
+    if (inv_o3) inv_o3_c = 1_c_int64_t
+    if (inv_ho2) inv_ho2_c = 1_c_int64_t
+
+    call setsox_init_fields_codon( &
+         int(stage, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(gas_pcnst, c_int64_t), int(nfs, c_int64_t), cloud_borne_c, inv_so2_c, inv_h2o2_c, &
+         inv_o3_c, inv_ho2_c, int(id_so2, c_int64_t), int(id_hno3, c_int64_t), &
+         int(id_h2o2, c_int64_t), int(id_nh3, c_int64_t), int(id_o3, c_int64_t), &
+         int(id_ho2, c_int64_t), int(id_h2so4, c_int64_t), int(id_so4, c_int64_t), &
+         int(id_msa, c_int64_t), real(ph0_in, c_double), c_loc(xhnm), c_loc(invariants), c_loc(qin), &
+         c_loc(cfact), c_loc(xph), c_loc(xso2), c_loc(xhno3), c_loc(xh2o2), c_loc(xnh3), &
+         c_loc(xo3), c_loc(xho2), c_loc(xh2so4), c_loc(xso4), c_loc(xno3), c_loc(xnh4), c_loc(xmsa) )
+
+  end subroutine setsox_init_fields_codon_wrap
+
+  subroutine setsox_ph_solve_codon_wrap(ncol, itermax_in, const0_in, ra_in, xkw_in, press, tfld, &
+       cldfrc, xhnm, xlwc, xso4c, xnh4c, xno3c, xso4, xnh4, xno3, xso2, xhno3, xnh3, xph, so4_fact)
+
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+    use ppgrid,        only : pcols, pver
+    use spmd_utils,    only : masterproc
+
+    implicit none
+
+    integer, intent(in) :: ncol, itermax_in
+    real(r8), intent(in) :: const0_in, ra_in, xkw_in
+    real(r8), target, intent(in) :: press(:,:), tfld(:,:), cldfrc(:,:), xhnm(ncol,pver)
+    real(r8), target, intent(in) :: xlwc(:,:), xso4c(:,:), xnh4c(:,:), xno3c(:,:)
+    real(r8), target, intent(inout) :: xso4(ncol,pver), xnh4(ncol,pver), xno3(ncol,pver)
+    real(r8), target, intent(in) :: xso2(ncol,pver), xhno3(ncol,pver), xnh3(ncol,pver)
+    real(r8), target, intent(inout) :: xph(ncol,pver)
+    real(r8), intent(in) :: so4_fact
+
+    integer(c_int64_t) :: cloud_borne_c
+    character(len=96) :: proof_line
+
+    interface
+       subroutine setsox_ph_solve_codon(ncol_c, pcols_c, pver_c, itermax_c, cloud_borne_c, const0_c, &
+            ra_c, xkw_c, so4_fact_c, press_p, tfld_p, cldfrc_p, xhnm_p, xlwc_p, xso4c_p, xnh4c_p, &
+            xno3c_p, xso4_p, xnh4_p, xno3_p, xso2_p, xhno3_p, xnh3_p, xph_p) &
+            bind(c, name="setsox_ph_solve_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, itermax_c, cloud_borne_c
+         real(c_double), value :: const0_c, ra_c, xkw_c, so4_fact_c
+         type(c_ptr), value :: press_p, tfld_p, cldfrc_p, xhnm_p, xlwc_p, xso4c_p, xnh4c_p
+         type(c_ptr), value :: xno3c_p, xso4_p, xnh4_p, xno3_p, xso2_p, xhno3_p, xnh3_p, xph_p
+       end subroutine setsox_ph_solve_codon
+    end interface
+
+    if (masterproc .and. .not. setsox_ph_solve_wrap_proof_written) then
+       proof_line = 'setsox_ph_solve_codon_wrap entered'
+       write(iulog,'(A)') trim(proof_line)
+       call setsox_append_impl_proof(trim(proof_line))
+       setsox_ph_solve_wrap_proof_written = .true.
+       call flush(iulog)
+    end if
+
+    cloud_borne_c = 0_c_int64_t
+    if (cloud_borne) cloud_borne_c = 1_c_int64_t
+
+    call setsox_ph_solve_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(itermax_in, c_int64_t), &
+         cloud_borne_c, real(const0_in, c_double), real(ra_in, c_double), real(xkw_in, c_double), &
+         real(so4_fact, c_double), c_loc(press), c_loc(tfld), c_loc(cldfrc), c_loc(xhnm), c_loc(xlwc), &
+         c_loc(xso4c), c_loc(xnh4c), c_loc(xno3c), c_loc(xso4), c_loc(xnh4), c_loc(xno3), &
+         c_loc(xso2), c_loc(xhno3), c_loc(xnh3), c_loc(xph) )
+
+  end subroutine setsox_ph_solve_codon_wrap
+
+  subroutine setsox_aqchem_predict_codon_wrap(ncol, dtime, const0_in, kh0_in, kh1_in, kh2_in, kh3_in, &
+       ra_in, xkw_in, press, tfld, xhnm, xlwc, xph, xho2, &
+       xhno3, xno3, xh2o2, xso2, xo3, xnh3, xnh4, xso4, xso4_init, xdelso4hp, &
+       hno3g, nh3g, hehno3, heh2o2, heso2, henh3, heo3)
+
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+    use ppgrid,        only : pcols, pver
+    use spmd_utils,    only : masterproc
+
+    implicit none
+
+    integer, intent(in) :: ncol
+    real(r8), intent(in) :: dtime, const0_in, kh0_in, kh1_in, kh2_in, kh3_in, ra_in, xkw_in
+    real(r8), target, intent(in) :: press(:,:), tfld(:,:), xhnm(ncol,pver), xlwc(:,:)
+    real(r8), target, intent(in) :: xph(ncol,pver), xho2(ncol,pver), xhno3(ncol,pver), xno3(ncol,pver)
+    real(r8), target, intent(inout) :: xh2o2(ncol,pver), xso2(ncol,pver), xso4(ncol,pver)
+    real(r8), target, intent(in) :: xo3(ncol,pver), xnh3(ncol,pver), xnh4(ncol,pver)
+    real(r8), target, intent(inout) :: xso4_init(ncol,pver), xdelso4hp(ncol,pver)
+    real(r8), target, intent(inout) :: hno3g(ncol,pver), nh3g(ncol,pver)
+    real(r8), target, intent(inout) :: hehno3(ncol,pver), heh2o2(ncol,pver), heso2(ncol,pver)
+    real(r8), target, intent(inout) :: henh3(ncol,pver), heo3(ncol,pver)
+
+    integer(c_int64_t) :: cloud_borne_c, modal_aerosols_c
+    character(len=96) :: proof_line
+
+    interface
+       subroutine setsox_aqchem_predict_codon(ncol_c, pcols_c, pver_c, cloud_borne_c, modal_aerosols_c, &
+            id_nh3_c, dtime_c, const0_c, kh0_c, kh1_c, kh2_c, kh3_c, ra_c, xkw_c, press_p, tfld_p, &
+            xhnm_p, xlwc_p, xph_p, xho2_p, xhno3_p, xno3_p, xh2o2_p, xso2_p, xo3_p, xnh3_p, &
+            xnh4_p, xso4_p, xso4_init_p, xdelso4hp_p, hno3g_p, nh3g_p, hehno3_p, heh2o2_p, &
+            heso2_p, henh3_p, heo3_p) bind(c, name="setsox_aqchem_predict_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, cloud_borne_c, modal_aerosols_c, id_nh3_c
+         real(c_double), value :: dtime_c, const0_c, kh0_c, kh1_c, kh2_c, kh3_c, ra_c, xkw_c
+         type(c_ptr), value :: press_p, tfld_p, xhnm_p, xlwc_p, xph_p, xho2_p, xhno3_p, xno3_p
+         type(c_ptr), value :: xh2o2_p, xso2_p, xo3_p, xnh3_p, xnh4_p, xso4_p, xso4_init_p
+         type(c_ptr), value :: xdelso4hp_p, hno3g_p, nh3g_p, hehno3_p, heh2o2_p, heso2_p
+         type(c_ptr), value :: henh3_p, heo3_p
+       end subroutine setsox_aqchem_predict_codon
+    end interface
+
+    if (masterproc .and. .not. setsox_aqchem_predict_wrap_proof_written) then
+       proof_line = 'setsox_aqchem_predict_codon_wrap entered'
+       write(iulog,'(A)') trim(proof_line)
+       call setsox_append_impl_proof(trim(proof_line))
+       setsox_aqchem_predict_wrap_proof_written = .true.
+       call flush(iulog)
+    end if
+
+    cloud_borne_c = 0_c_int64_t
+    modal_aerosols_c = 0_c_int64_t
+    if (cloud_borne) cloud_borne_c = 1_c_int64_t
+    if (modal_aerosols) modal_aerosols_c = 1_c_int64_t
+
+    call setsox_aqchem_predict_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), cloud_borne_c, &
+         modal_aerosols_c, int(id_nh3, c_int64_t), real(dtime, c_double), real(const0_in, c_double), &
+         real(kh0_in, c_double), real(kh1_in, c_double), real(kh2_in, c_double), real(kh3_in, c_double), &
+         real(ra_in, c_double), real(xkw_in, c_double), c_loc(press), c_loc(tfld), c_loc(xhnm), c_loc(xlwc), &
+         c_loc(xph), c_loc(xho2), c_loc(xhno3), c_loc(xno3), c_loc(xh2o2), c_loc(xso2), c_loc(xo3), &
+         c_loc(xnh3), c_loc(xnh4), c_loc(xso4), c_loc(xso4_init), c_loc(xdelso4hp), c_loc(hno3g), &
+         c_loc(nh3g), c_loc(hehno3), c_loc(heh2o2), c_loc(heso2), c_loc(henh3), c_loc(heo3) )
+
+  end subroutine setsox_aqchem_predict_codon_wrap
+
+  subroutine setsox_xph_lwc_diag_codon_wrap(ncol, cldfrc, lwc, xph, xphlwc)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+    use ppgrid,        only : pcols, pver
+    use spmd_utils,    only : masterproc
+
+    implicit none
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: cldfrc(:,:), lwc(ncol,pver), xph(ncol,pver)
+    real(r8), target, intent(inout) :: xphlwc(ncol,pver)
+
+    character(len=96) :: proof_line
+
+    interface
+       subroutine setsox_xph_lwc_diag_codon(ncol_c, pcols_c, pver_c, cldfrc_p, lwc_p, xph_p, xphlwc_p) &
+            bind(c, name="setsox_xph_lwc_diag_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: cldfrc_p, lwc_p, xph_p, xphlwc_p
+       end subroutine setsox_xph_lwc_diag_codon
+    end interface
+
+    if (masterproc .and. .not. setsox_xph_lwc_diag_wrap_proof_written) then
+       proof_line = 'setsox_xph_lwc_diag_codon_wrap entered'
+       write(iulog,'(A)') trim(proof_line)
+       call setsox_append_impl_proof(trim(proof_line))
+       setsox_xph_lwc_diag_wrap_proof_written = .true.
+       call flush(iulog)
+    end if
+
+    call setsox_xph_lwc_diag_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         c_loc(cldfrc), c_loc(lwc), c_loc(xph), c_loc(xphlwc) )
+
+  end subroutine setsox_xph_lwc_diag_codon_wrap
 
 !-----------------------------------------------------------------------      
 !-----------------------------------------------------------------------      
@@ -296,72 +642,85 @@ contains
     !-----------------------------------------------------------------
     xph0 = 10._r8**(-ph0)                      ! initial PH value
 
-    do k = 1,pver
-       cfact(:,k) = xhnm(:,k)     &          ! /cm3(a)  
-            * 1.e6_r8             &          ! /m3(a)
-            * 1.38e-23_r8/287._r8 &          ! Kg(a)/m3(a)
-            * 1.e-3_r8                       ! Kg(a)/L(a)
-    end do
+    call setsox_init_fields_select_impl()
+    if (setsox_init_fields_use_native_impl) then
+       do k = 1,pver
+          cfact(:,k) = xhnm(:,k)     &          ! /cm3(a)
+               * 1.e6_r8             &          ! /m3(a)
+               * 1.38e-23_r8/287._r8 &          ! Kg(a)/m3(a)
+               * 1.e-3_r8                       ! Kg(a)/L(a)
+       end do
+    else
+       call setsox_init_fields_codon_wrap(1, ncol, ph0, xhnm, invariants, qin, cfact, xph, &
+            xso2, xhno3, xh2o2, xnh3, xo3, xho2, xh2so4, xso4, xno3, xnh4, xmsa)
+    end if
 
     cldconc => sox_cldaero_create_obj( cldfrc,qcw,lwc, cfact, ncol, loffset )
     xso4c => cldconc%so4c
     xnh4c => cldconc%nh4c
     xno3c => cldconc%no3c
 
-    xso4(:,:) = 0._r8
-    xno3(:,:) = 0._r8
-    xnh4(:,:) = 0._r8
+    if (setsox_init_fields_use_native_impl) then
+       xso4(:,:) = 0._r8
+       xno3(:,:) = 0._r8
+       xnh4(:,:) = 0._r8
 
-    do k = 1,pver
-       xph(:,k) = xph0                                ! initial PH value
+       do k = 1,pver
+          xph(:,k) = xph0                                ! initial PH value
 
-       if ( inv_so2 ) then
-          xso2 (:,k) = invariants(:,k,id_so2)/xhnm(:,k)  ! mixing ratio
-       else
-          xso2 (:,k) = qin(:,k,id_so2)                   ! mixing ratio
-       endif
+          if ( inv_so2 ) then
+             xso2 (:,k) = invariants(:,k,id_so2)/xhnm(:,k)  ! mixing ratio
+          else
+             xso2 (:,k) = qin(:,k,id_so2)                   ! mixing ratio
+          endif
 
-       if (id_hno3 > 0) then
-          xhno3(:,k) = qin(:,k,id_hno3)
-       else
-          xhno3(:,k) = 0.0_r8
-       endif
+          if (id_hno3 > 0) then
+             xhno3(:,k) = qin(:,k,id_hno3)
+          else
+             xhno3(:,k) = 0.0_r8
+          endif
 
-       if ( inv_h2o2 ) then
-          xh2o2 (:,k) = invariants(:,k,id_h2o2)/xhnm(:,k)  ! mixing ratio
-       else
-          xh2o2 (:,k) = qin(:,k,id_h2o2)                   ! mixing ratio
-       endif
+          if ( inv_h2o2 ) then
+             xh2o2 (:,k) = invariants(:,k,id_h2o2)/xhnm(:,k)  ! mixing ratio
+          else
+             xh2o2 (:,k) = qin(:,k,id_h2o2)                   ! mixing ratio
+          endif
 
-       if (id_nh3  > 0) then
-          xnh3 (:,k) = qin(:,k,id_nh3)
-       else
-          xnh3 (:,k) = 0.0_r8
-       endif
+          if (id_nh3  > 0) then
+             xnh3 (:,k) = qin(:,k,id_nh3)
+          else
+             xnh3 (:,k) = 0.0_r8
+          endif
 
-       if ( inv_o3 ) then
-          xo3  (:,k) = invariants(:,k,id_o3)/xhnm(:,k) ! mixing ratio
-       else
-          xo3  (:,k) = qin(:,k,id_o3)                  ! mixing ratio
-       endif
-       if ( inv_ho2 ) then
-          xho2 (:,k) = invariants(:,k,id_ho2)/xhnm(:,k)! mixing ratio
-       else
-          xho2 (:,k) = qin(:,k,id_ho2)                 ! mixing ratio
-       endif
+          if ( inv_o3 ) then
+             xo3  (:,k) = invariants(:,k,id_o3)/xhnm(:,k) ! mixing ratio
+          else
+             xo3  (:,k) = qin(:,k,id_o3)                  ! mixing ratio
+          endif
+          if ( inv_ho2 ) then
+             xho2 (:,k) = invariants(:,k,id_ho2)/xhnm(:,k)! mixing ratio
+          else
+             xho2 (:,k) = qin(:,k,id_ho2)                 ! mixing ratio
+          endif
 
-       if (cloud_borne) then
-          xh2so4(:,k) = qin(:,k,id_h2so4)
-       else
-          xso4  (:,k) = qin(:,k,id_so4) ! mixing ratio
-       endif
-       if (id_msa > 0) xmsa (:,k) = qin(:,k,id_msa)
+          if (cloud_borne) then
+             xh2so4(:,k) = qin(:,k,id_h2so4)
+          else
+             xso4  (:,k) = qin(:,k,id_so4) ! mixing ratio
+          endif
+          if (id_msa > 0) xmsa (:,k) = qin(:,k,id_msa)
 
-    end do
+       end do
+    else
+       call setsox_init_fields_codon_wrap(2, ncol, ph0, xhnm, invariants, qin, cfact, xph, &
+            xso2, xhno3, xh2o2, xnh3, xo3, xho2, xh2so4, xso4, xno3, xnh4, xmsa)
+    end if
     
     !-----------------------------------------------------------------
     !       ... Temperature dependent Henry constants
     !-----------------------------------------------------------------
+    call setsox_ph_solve_select_impl()
+    if (setsox_ph_solve_use_native_impl) then
     ver_loop0: do k = 1,pver                               !! pver loop for STEP 0
        col_loop0: do i = 1,ncol
           
@@ -611,10 +970,17 @@ contains
           end if
        end do col_loop0
     end do ver_loop0 ! end pver loop for STEP 0
+    else
+       call setsox_ph_solve_codon_wrap(ncol, itermax, const0, Ra, xkw, press, tfld, cldfrc, xhnm, &
+            cldconc%xlwc, xso4c, xnh4c, xno3c, xso4, xnh4, xno3, xso2, xhno3, xnh3, xph, &
+            cldconc%so4_fact)
+    end if
 
     !==============================================================
     !          ... Now use the actual PH
     !==============================================================
+    call setsox_aqchem_predict_select_impl()
+    if (setsox_aqchem_predict_use_native_impl) then
     ver_loop1: do k = 1,pver
        col_loop1: do i = 1,ncol
           work1(i) = 1._r8 / tfld(i,k) - 1._r8 / 298._r8
@@ -845,19 +1211,30 @@ contains
 
        end do col_loop1
     end do ver_loop1
+    else
+       call setsox_aqchem_predict_codon_wrap(ncol, dtime, const0, kh0, kh1, kh2, kh3, Ra, xkw, &
+            press, tfld, xhnm, cldconc%xlwc, xph, xho2, xhno3, xno3, xh2o2, xso2, xo3, &
+            xnh3, xnh4, xso4, xso4_init, xdelso4hp, hno3g, nh3g, hehno3, heh2o2, heso2, &
+            henh3, heo3)
+    end if
 
     call sox_cldaero_update( &
          ncol, lchnk, loffset, dtime, mbar, pdel, press, tfld, cldnum, cldfrc, cfact, cldconc%xlwc, &
          xdelso4hp, xh2so4, xso4, xso4_init, nh3g, hno3g, xnh3, xhno3, xnh4c,  xno3c, xmsa, xso2, xh2o2, qcw, qin )
     
-    xphlwc(:,:) = 0._r8
-    do k = 1, pver
-       do i = 1, ncol
-          if (cldfrc(i,k)>=1.e-5_r8 .and. lwc(i,k)>=1.e-8_r8) then
-             xphlwc(i,k) = -1._r8*log10(xph(i,k)) * lwc(i,k)
-          endif
+    call setsox_xph_lwc_diag_select_impl()
+    if (setsox_xph_lwc_diag_use_native_impl) then
+       xphlwc(:,:) = 0._r8
+       do k = 1, pver
+          do i = 1, ncol
+             if (cldfrc(i,k)>=1.e-5_r8 .and. lwc(i,k)>=1.e-8_r8) then
+                xphlwc(i,k) = -1._r8*log10(xph(i,k)) * lwc(i,k)
+             endif
+          end do
        end do
-    end do
+    else
+       call setsox_xph_lwc_diag_codon_wrap(ncol, cldfrc, lwc, xph, xphlwc)
+    end if
     call outfld( 'XPH_LWC', xphlwc(:ncol,:), ncol , lchnk )
 
     call sox_cldaero_destroy_obj(cldconc)

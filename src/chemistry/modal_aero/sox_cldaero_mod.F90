@@ -18,6 +18,7 @@ module sox_cldaero_mod
   use phys_control,    only : phys_getopts
   use cldaero_mod,     only : cldaero_uptakerate
   use chem_mods,       only : gas_pcnst
+  use mo_constants,    only : pi
 
   implicit none
   private
@@ -30,8 +31,153 @@ module sox_cldaero_mod
   integer :: id_msa, id_h2so4, id_so2, id_h2o2, id_nh3
 
   real(r8), parameter :: small_value = 1.e-20_r8
+  logical :: sox_cldaero_update_core_use_native_impl = .false.
+  logical :: sox_cldaero_update_core_impl_selected = .false.
+  logical :: sox_cldaero_update_core_proof_written = .false.
+  logical :: sox_cldaero_update_core_wrap_proof_written = .false.
 
 contains
+
+  subroutine sox_cldaero_append_impl_proof(proof_line)
+
+    character(len=*), intent(in) :: proof_line
+
+    character(len=512) :: proof_path
+    integer :: status, n, unit_id
+
+    call get_environment_variable('SOX_CHEM_PROOF_FILE', value=proof_path, length=n, status=status)
+    if (status /= 0 .or. n <= 0) return
+
+    open(newunit=unit_id, file=trim(adjustl(proof_path(:n))), status='unknown', action='write', &
+         position='append', iostat=status)
+    if (status /= 0) return
+
+    write(unit_id,'(A)') trim(proof_line)
+    close(unit_id)
+
+  end subroutine sox_cldaero_append_impl_proof
+
+  subroutine sox_cldaero_update_core_select_impl()
+
+    use cam_logfile, only : iulog
+    use spmd_utils,  only : masterproc
+
+    implicit none
+
+    character(len=48) :: impl_name
+    character(len=160) :: proof_line
+    integer :: status, n, i, code
+
+    if (sox_cldaero_update_core_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('SOX_CLDAERO_UPDATE_CORE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       sox_cldaero_update_core_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       sox_cldaero_update_core_use_native_impl = .false.
+    end if
+
+    sox_cldaero_update_core_impl_selected = .true.
+
+    if (masterproc) then
+       if (sox_cldaero_update_core_use_native_impl) then
+          proof_line = 'sox_cldaero_update_core selector entered implementation = native'
+       else
+          proof_line = 'sox_cldaero_update_core selector entered implementation = codon'
+       end if
+       write(iulog,'(A)') trim(proof_line)
+       if (.not. sox_cldaero_update_core_proof_written) then
+          call sox_cldaero_append_impl_proof(trim(proof_line))
+          sox_cldaero_update_core_proof_written = .true.
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine sox_cldaero_update_core_select_impl
+
+  subroutine sox_cldaero_update_core_codon_wrap(ncol, loffset, dtime, press, tfld, cldnum, cldfrc, &
+       cfact, xlwc, delso4_hprxn, xh2so4, xso4, xso4_init, nh3g, xnh3, xnh4c, xmsa, &
+       xso2, xh2o2, qcw, qin, dqdt_aqso4, dqdt_aqh2so4, dqdt_aqhprxn, dqdt_aqo3rxn, &
+       faqgain_msa, faqgain_so4, qnum_c)
+
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+    use cam_logfile,   only : iulog
+    use spmd_utils,    only : masterproc
+
+    implicit none
+
+    integer, intent(in) :: ncol, loffset
+    real(r8), intent(in) :: dtime
+    real(r8), target, intent(in) :: press(:,:), tfld(:,:), cldnum(:,:)
+    real(r8), target, intent(in) :: cldfrc(:,:), cfact(ncol,pver), xlwc(:,:)
+    real(r8), target, intent(in) :: delso4_hprxn(ncol,pver), xh2so4(ncol,pver), xso4(ncol,pver)
+    real(r8), target, intent(in) :: xso4_init(ncol,pver), nh3g(ncol,pver), xnh3(ncol,pver)
+    real(r8), target, intent(in) :: xnh4c(:,:), xmsa(ncol,pver), xso2(ncol,pver), xh2o2(ncol,pver)
+    real(r8), target, intent(inout) :: qcw(ncol,pver,gas_pcnst), qin(ncol,pver,gas_pcnst)
+    real(r8), target, intent(inout) :: dqdt_aqso4(ncol,pver,gas_pcnst), dqdt_aqh2so4(ncol,pver,gas_pcnst)
+    real(r8), target, intent(inout) :: dqdt_aqhprxn(ncol,pver), dqdt_aqo3rxn(ncol,pver)
+    real(r8), target, intent(inout) :: faqgain_msa(ntot_amode), faqgain_so4(ntot_amode), qnum_c(ntot_amode)
+
+    integer(c_int64_t), target :: numptrcw_amode_c(ntot_amode), lptr_so4_cw_amode_c(ntot_amode)
+    integer(c_int64_t), target :: lptr_msa_cw_amode_c(ntot_amode), lptr_nh4_cw_amode_c(ntot_amode)
+    character(len=96) :: proof_line
+
+    interface
+       subroutine sox_cldaero_update_core_codon(ncol_c, pcols_c, pver_c, gas_pcnst_c, ntot_amode_c, &
+            loffset_c, id_msa_c, id_h2so4_c, id_so2_c, id_h2o2_c, id_nh3_c, modeptr_accum_c, &
+            dtime_c, pi_c, cldfrc_p, xlwc_p, cldnum_p, cfact_p, tfld_p, press_p, delso4_hprxn_p, &
+            xh2so4_p, xso4_p, xso4_init_p, nh3g_p, xnh3_p, xnh4c_p, xmsa_p, xso2_p, xh2o2_p, &
+            qcw_p, qin_p, dqdt_aqso4_p, dqdt_aqh2so4_p, dqdt_aqhprxn_p, dqdt_aqo3rxn_p, &
+            faqgain_msa_p, faqgain_so4_p, qnum_c_p, numptrcw_amode_p, lptr_so4_cw_amode_p, &
+            lptr_msa_cw_amode_p, lptr_nh4_cw_amode_p) bind(c, name="sox_cldaero_update_core_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, gas_pcnst_c, ntot_amode_c
+         integer(c_int64_t), value :: loffset_c, id_msa_c, id_h2so4_c, id_so2_c, id_h2o2_c, id_nh3_c
+         integer(c_int64_t), value :: modeptr_accum_c
+         real(c_double), value :: dtime_c, pi_c
+         type(c_ptr), value :: cldfrc_p, xlwc_p, cldnum_p, cfact_p, tfld_p, press_p
+         type(c_ptr), value :: delso4_hprxn_p, xh2so4_p, xso4_p, xso4_init_p, nh3g_p, xnh3_p
+         type(c_ptr), value :: xnh4c_p, xmsa_p, xso2_p, xh2o2_p, qcw_p, qin_p, dqdt_aqso4_p
+         type(c_ptr), value :: dqdt_aqh2so4_p, dqdt_aqhprxn_p, dqdt_aqo3rxn_p
+         type(c_ptr), value :: faqgain_msa_p, faqgain_so4_p, qnum_c_p, numptrcw_amode_p
+         type(c_ptr), value :: lptr_so4_cw_amode_p, lptr_msa_cw_amode_p, lptr_nh4_cw_amode_p
+       end subroutine sox_cldaero_update_core_codon
+    end interface
+
+    if (masterproc .and. .not. sox_cldaero_update_core_wrap_proof_written) then
+       proof_line = 'sox_cldaero_update_core_codon_wrap entered'
+       write(iulog,'(A)') trim(proof_line)
+       call sox_cldaero_append_impl_proof(trim(proof_line))
+       sox_cldaero_update_core_wrap_proof_written = .true.
+       call flush(iulog)
+    end if
+
+    numptrcw_amode_c(:) = int(numptrcw_amode(:), c_int64_t)
+    lptr_so4_cw_amode_c(:) = int(lptr_so4_cw_amode(:), c_int64_t)
+    lptr_msa_cw_amode_c(:) = int(lptr_msa_cw_amode(:), c_int64_t)
+    lptr_nh4_cw_amode_c(:) = int(lptr_nh4_cw_amode(:), c_int64_t)
+
+    call sox_cldaero_update_core_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), &
+         int(ntot_amode, c_int64_t), int(loffset, c_int64_t), int(id_msa, c_int64_t), &
+         int(id_h2so4, c_int64_t), int(id_so2, c_int64_t), int(id_h2o2, c_int64_t), &
+         int(id_nh3, c_int64_t), int(modeptr_accum, c_int64_t), real(dtime, c_double), real(pi, c_double), &
+         c_loc(cldfrc), c_loc(xlwc), c_loc(cldnum), c_loc(cfact), c_loc(tfld), c_loc(press), &
+         c_loc(delso4_hprxn), c_loc(xh2so4), c_loc(xso4), c_loc(xso4_init), c_loc(nh3g), &
+         c_loc(xnh3), c_loc(xnh4c), c_loc(xmsa), c_loc(xso2), c_loc(xh2o2), c_loc(qcw), c_loc(qin), &
+         c_loc(dqdt_aqso4), c_loc(dqdt_aqh2so4), c_loc(dqdt_aqhprxn), c_loc(dqdt_aqo3rxn), &
+         c_loc(faqgain_msa), c_loc(faqgain_so4), c_loc(qnum_c), c_loc(numptrcw_amode_c), &
+         c_loc(lptr_so4_cw_amode_c), c_loc(lptr_msa_cw_amode_c), c_loc(lptr_nh4_cw_amode_c) )
+
+  end subroutine sox_cldaero_update_core_codon_wrap
 
 !----------------------------------------------------------------------------------
 !----------------------------------------------------------------------------------
@@ -243,6 +389,8 @@ contains
     integer :: i,k
     real(r8) :: xl
 
+    call sox_cldaero_update_core_select_impl()
+    if (sox_cldaero_update_core_use_native_impl) then
     ! make sure dqdt is zero initially, for budgets
     dqdt_aqso4(:,:,:) = 0.0_r8
     dqdt_aqh2so4(:,:,:) = 0.0_r8
@@ -435,6 +583,12 @@ contains
           endif cloud
        enddo col_loop
     enddo lev_loop
+    else
+       call sox_cldaero_update_core_codon_wrap(ncol, loffset, dtime, press, tfld, cldnum, &
+            cldfrc, cfact, xlwc, delso4_hprxn, xh2so4, xso4, xso4_init, nh3g, xnh3, &
+            xnh4c, xmsa, xso2, xh2o2, qcw, qin, dqdt_aqso4, dqdt_aqh2so4, dqdt_aqhprxn, &
+            dqdt_aqo3rxn, faqgain_msa, faqgain_so4, qnum_c)
+    end if
 
     !==============================================================
     ! ... Update the mixing ratios
