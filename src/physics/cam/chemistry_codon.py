@@ -1488,6 +1488,180 @@ def chem_emissions_add_sflx_codon(
                 cflx[_flux_idx(i, m, pcols)] += sflx[_flux_idx(i, n, pcols)]
 
 
+@inline
+def _aero_model_gasaerexch_column_flux(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    adv_mass: float,
+    gravit: float,
+    field: Ptr[float],
+    mbar: Ptr[float],
+    pdel: Ptr[float],
+    wrk: Ptr[float],
+):
+    for i in range(1, ncol + 1):
+        wrk[i - 1] = 0.0
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            wrk[i - 1] += field[_idx2(i, k, ncol)] * adv_mass / mbar[_idx2(i, k, pcols)] * pdel[
+                _idx2(i, k, pcols)
+            ] / gravit
+
+
+@inline
+def _aero_model_gasaerexch_all_column_fluxes(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    gravit: float,
+    field: Ptr[float],
+    mbar: Ptr[float],
+    pdel: Ptr[float],
+    adv_mass: Ptr[float],
+    wrk: Ptr[float],
+):
+    for m in range(1, gas_pcnst + 1):
+        mass = adv_mass[m - 1]
+        for i in range(1, ncol + 1):
+            wrk[_idx2(i, m, ncol)] = 0.0
+
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                wrk[_idx2(i, m, ncol)] += (
+                    field[_idx3(i, k, m, ncol, pver)]
+                    * mass
+                    / mbar[_idx2(i, k, pcols)]
+                    * pdel[_idx2(i, k, pcols)]
+                    / gravit
+                )
+
+
+@inline
+def _aero_model_gasaerexch_h2so4_save_or_delta(
+    ncol: int,
+    pver: int,
+    ndx_h2so4: int,
+    stage3_mode: int,
+    vmr: Ptr[float],
+    del_h2so4_aeruptk: Ptr[float],
+):
+    if stage3_mode == 0:
+        if ndx_h2so4 > 0:
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    del_h2so4_aeruptk[_idx2(i, k, ncol)] = vmr[_idx3(i, k, ndx_h2so4, ncol, pver)]
+        else:
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    del_h2so4_aeruptk[_idx2(i, k, ncol)] = 0.0
+        return
+
+    if ndx_h2so4 > 0:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, ncol)
+                del_h2so4_aeruptk[idx] = vmr[_idx3(i, k, ndx_h2so4, ncol, pver)] - del_h2so4_aeruptk[idx]
+
+
+@inline
+def _aero_model_gasaerexch_gas_tend(
+    ncol: int,
+    pver: int,
+    gas_pcnst: int,
+    delt: float,
+    vmr0: Ptr[float],
+    vmr: Ptr[float],
+    dvmrdt: Ptr[float],
+):
+    for m in range(1, gas_pcnst + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx3(i, k, m, ncol, pver)
+                dvmrdt[idx] = (vmr[idx] - vmr0[idx]) / delt
+
+
+@inline
+def _aero_model_gasaerexch_aq_tend(
+    ncol: int,
+    pver: int,
+    gas_pcnst: int,
+    delt: float,
+    vmr: Ptr[float],
+    vmrcw: Ptr[float],
+    dvmrdt: Ptr[float],
+    dvmrcwdt: Ptr[float],
+):
+    for m in range(1, gas_pcnst + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx3(i, k, m, ncol, pver)
+                dvmrdt[idx] = (vmr[idx] - dvmrdt[idx]) / delt
+
+    for m in range(1, gas_pcnst + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx3(i, k, m, ncol, pver)
+                dvmrcwdt[idx] = (vmrcw[idx] - dvmrcwdt[idx]) / delt
+
+
+@export
+def aero_model_gasaerexch_codon(
+    stage: int,
+    stage3_mode: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    ndx_h2so4: int,
+    delt: float,
+    gravit: float,
+    vmr0_p: cobj,
+    vmr_p: cobj,
+    vmrcw_p: cobj,
+    dvmrdt_p: cobj,
+    dvmrcwdt_p: cobj,
+    mbar_p: cobj,
+    pdel_p: cobj,
+    adv_mass_p: cobj,
+    wrk_p: cobj,
+    del_h2so4_aeruptk_p: cobj,
+):
+    vmr = Ptr[float](vmr_p)
+    dvmrdt = Ptr[float](dvmrdt_p)
+
+    if stage == 1:
+        vmr0 = Ptr[float](vmr0_p)
+        mbar = Ptr[float](mbar_p)
+        pdel = Ptr[float](pdel_p)
+        adv_mass = Ptr[float](adv_mass_p)
+        wrk = Ptr[float](wrk_p)
+
+        _aero_model_gasaerexch_gas_tend(ncol, pver, gas_pcnst, delt, vmr0, vmr, dvmrdt)
+        _aero_model_gasaerexch_all_column_fluxes(ncol, pcols, pver, gas_pcnst, gravit, dvmrdt, mbar, pdel, adv_mass, wrk)
+        return
+
+    if stage == 2:
+        vmrcw = Ptr[float](vmrcw_p)
+        dvmrcwdt = Ptr[float](dvmrcwdt_p)
+        mbar = Ptr[float](mbar_p)
+        pdel = Ptr[float](pdel_p)
+        adv_mass = Ptr[float](adv_mass_p)
+        wrk = Ptr[float](wrk_p)
+
+        _aero_model_gasaerexch_aq_tend(ncol, pver, gas_pcnst, delt, vmr, vmrcw, dvmrdt, dvmrcwdt)
+        _aero_model_gasaerexch_all_column_fluxes(ncol, pcols, pver, gas_pcnst, gravit, dvmrdt, mbar, pdel, adv_mass, wrk)
+        return
+
+    if stage == 3:
+        del_h2so4_aeruptk = Ptr[float](del_h2so4_aeruptk_p)
+        _aero_model_gasaerexch_h2so4_save_or_delta(
+            ncol, pver, ndx_h2so4, stage3_mode, vmr, del_h2so4_aeruptk
+        )
+
+
 @export
 def aero_model_gasaerexch_column_flux_codon(
     ncol: int,
@@ -1505,14 +1679,7 @@ def aero_model_gasaerexch_column_flux_codon(
     pdel = Ptr[float](pdel_p)
     wrk = Ptr[float](wrk_p)
 
-    for i in range(1, ncol + 1):
-        wrk[i - 1] = 0.0
-
-    for k in range(1, pver + 1):
-        for i in range(1, ncol + 1):
-            wrk[i - 1] += field[_idx2(i, k, ncol)] * adv_mass / mbar[_idx2(i, k, pcols)] * pdel[
-                _idx2(i, k, pcols)
-            ] / gravit
+    _aero_model_gasaerexch_column_flux(ncol, pcols, pver, adv_mass, gravit, field, mbar, pdel, wrk)
 
 
 @export
@@ -1527,14 +1694,7 @@ def aero_model_gasaerexch_h2so4_save_codon(
     vmr = Ptr[float](vmr_p)
     del_h2so4_aeruptk = Ptr[float](del_h2so4_aeruptk_p)
 
-    if ndx_h2so4 > 0:
-        for k in range(1, pver + 1):
-            for i in range(1, ncol + 1):
-                del_h2so4_aeruptk[_idx2(i, k, ncol)] = vmr[_idx3(i, k, ndx_h2so4, ncol, pver)]
-    else:
-        for k in range(1, pver + 1):
-            for i in range(1, ncol + 1):
-                del_h2so4_aeruptk[_idx2(i, k, ncol)] = 0.0
+    _aero_model_gasaerexch_h2so4_save_or_delta(ncol, pver, ndx_h2so4, 0, vmr, del_h2so4_aeruptk)
 
 
 @export
@@ -1549,11 +1709,7 @@ def aero_model_gasaerexch_h2so4_delta_codon(
     vmr = Ptr[float](vmr_p)
     del_h2so4_aeruptk = Ptr[float](del_h2so4_aeruptk_p)
 
-    if ndx_h2so4 > 0:
-        for k in range(1, pver + 1):
-            for i in range(1, ncol + 1):
-                idx = _idx2(i, k, ncol)
-                del_h2so4_aeruptk[idx] = vmr[_idx3(i, k, ndx_h2so4, ncol, pver)] - del_h2so4_aeruptk[idx]
+    _aero_model_gasaerexch_h2so4_save_or_delta(ncol, pver, ndx_h2so4, 1, vmr, del_h2so4_aeruptk)
 
 
 @export
@@ -1570,11 +1726,7 @@ def aero_model_gasaerexch_gas_tend_codon(
     vmr = Ptr[float](vmr_p)
     dvmrdt = Ptr[float](dvmrdt_p)
 
-    for m in range(1, gas_pcnst + 1):
-        for k in range(1, pver + 1):
-            for i in range(1, ncol + 1):
-                idx = _idx3(i, k, m, ncol, pver)
-                dvmrdt[idx] = (vmr[idx] - vmr0[idx]) / delt
+    _aero_model_gasaerexch_gas_tend(ncol, pver, gas_pcnst, delt, vmr0, vmr, dvmrdt)
 
 
 @export
@@ -1593,17 +1745,7 @@ def aero_model_gasaerexch_aq_tend_codon(
     dvmrdt = Ptr[float](dvmrdt_p)
     dvmrcwdt = Ptr[float](dvmrcwdt_p)
 
-    for m in range(1, gas_pcnst + 1):
-        for k in range(1, pver + 1):
-            for i in range(1, ncol + 1):
-                idx = _idx3(i, k, m, ncol, pver)
-                dvmrdt[idx] = (vmr[idx] - dvmrdt[idx]) / delt
-
-    for m in range(1, gas_pcnst + 1):
-        for k in range(1, pver + 1):
-            for i in range(1, ncol + 1):
-                idx = _idx3(i, k, m, ncol, pver)
-                dvmrcwdt[idx] = (vmrcw[idx] - dvmrcwdt[idx]) / delt
+    _aero_model_gasaerexch_aq_tend(ncol, pver, gas_pcnst, delt, vmr, vmrcw, dvmrdt, dvmrcwdt)
 
 
 @export

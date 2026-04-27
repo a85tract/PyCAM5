@@ -93,6 +93,9 @@ module aero_model
   logical :: aero_model_drydep_branch_selected = .false.
   logical :: aero_model_wetdep_use_native_impl = .false.
   logical :: aero_model_wetdep_impl_selected = .false.
+  logical :: aero_model_gasaerexch_use_native_impl = .false.
+  logical :: aero_model_gasaerexch_impl_selected = .false.
+  logical :: aero_model_gasaerexch_proof_written = .false.
   logical :: aero_model_gasaerexch_column_flux_use_native_impl = .false.
   logical :: aero_model_gasaerexch_column_flux_impl_selected = .false.
   logical :: aero_model_gasaerexch_h2so4_save_use_native_impl = .false.
@@ -1617,13 +1620,15 @@ contains
     integer :: n, m
     integer :: i,k
     integer :: nstep
+    integer, parameter :: gasaerexch_stage3_save = 0
+    integer, parameter :: gasaerexch_stage3_delta = 1
 
     real(r8) :: del_h2so4_aeruptk(ncol,pver)
 
     real(r8), pointer :: dgnum(:,:,:), dgnumwet(:,:,:), wetdens(:,:,:)
     real(r8), pointer :: pblh(:)                    ! pbl height (m)
 
-    real(r8), dimension(ncol) :: wrk
+    real(r8) :: wrk(ncol,gas_pcnst)
     character(len=32)         :: name
     real(r8) :: dvmrcwdt(ncol,pver,gas_pcnst)
     real(r8) :: dvmrdt(ncol,pver,gas_pcnst)
@@ -1645,13 +1650,21 @@ contains
 ! do gas-aerosol exchange (h2so4, msa, nh3 condensation)
 
     nstep = get_nstep()
+    call aero_model_gasaerexch_select_impl()
 
     ! calculate tendency due to gas phase chemistry and processes
-    call aero_model_gasaerexch_gas_tend(ncol, delt, vmr0, vmr, dvmrdt)
+    if (aero_model_gasaerexch_use_native_impl) then
+       call aero_model_gasaerexch_gas_tend(ncol, delt, vmr0, vmr, dvmrdt)
+    else
+       call aero_model_gasaerexch_codon_wrap( &
+            1, 0, ncol, delt, ndx_h2so4, vmr0, vmr, vmrcw, dvmrdt, dvmrcwdt, mbar, pdel, adv_mass, wrk, del_h2so4_aeruptk )
+    end if
     do m = 1, gas_pcnst
-      call aero_model_gasaerexch_column_flux(ncol, dvmrdt(:,:,m), mbar, pdel, adv_mass(m), wrk)
+      if (aero_model_gasaerexch_use_native_impl) then
+         call aero_model_gasaerexch_column_flux(ncol, dvmrdt(:,:,m), mbar, pdel, adv_mass(m), wrk(:,m))
+      end if
       name = 'GS_'//trim(solsym(m))
-      call outfld( name, wrk(:ncol), ncol, lchnk )
+      call outfld( name, wrk(:ncol,m), ncol, lchnk )
     enddo
 
 !
@@ -1685,16 +1698,28 @@ contains
     endif
 
 !   Tendency due to aqueous chemistry 
-    call aero_model_gasaerexch_aq_tend(ncol, delt, vmr, vmrcw, dvmrdt, dvmrcwdt)
+    if (aero_model_gasaerexch_use_native_impl) then
+       call aero_model_gasaerexch_aq_tend(ncol, delt, vmr, vmrcw, dvmrdt, dvmrcwdt)
+    else
+       call aero_model_gasaerexch_codon_wrap( &
+            2, 0, ncol, delt, ndx_h2so4, vmr0, vmr, vmrcw, dvmrdt, dvmrcwdt, mbar, pdel, adv_mass, wrk, del_h2so4_aeruptk )
+    end if
     do m = 1, gas_pcnst
-      call aero_model_gasaerexch_column_flux(ncol, dvmrdt(:,:,m), mbar, pdel, adv_mass(m), wrk)
+      if (aero_model_gasaerexch_use_native_impl) then
+         call aero_model_gasaerexch_column_flux(ncol, dvmrdt(:,:,m), mbar, pdel, adv_mass(m), wrk(:,m))
+      end if
       name = 'AQ_'//trim(solsym(m))
-      call outfld( name, wrk(:ncol), ncol, lchnk )
+      call outfld( name, wrk(:ncol,m), ncol, lchnk )
     enddo
 
 ! do gas-aerosol exchange (h2so4, msa, nh3 condensation)
 
-    call aero_model_gasaerexch_h2so4_save(ncol, ndx_h2so4, vmr, del_h2so4_aeruptk)
+    if (aero_model_gasaerexch_use_native_impl) then
+       call aero_model_gasaerexch_h2so4_save(ncol, ndx_h2so4, vmr, del_h2so4_aeruptk)
+    else
+       call aero_model_gasaerexch_codon_wrap( &
+            3, gasaerexch_stage3_save, ncol, delt, ndx_h2so4, vmr0, vmr, vmrcw, dvmrdt, dvmrcwdt, mbar, pdel, adv_mass, wrk, del_h2so4_aeruptk )
+    end if
 
     call t_startf('modal_gas-aer_exchng')
     
@@ -1714,7 +1739,12 @@ contains
          dgnum,              dgnumwet,         &
          sulfeq     )
 
-    call aero_model_gasaerexch_h2so4_delta(ncol, ndx_h2so4, vmr, del_h2so4_aeruptk)
+    if (aero_model_gasaerexch_use_native_impl) then
+       call aero_model_gasaerexch_h2so4_delta(ncol, ndx_h2so4, vmr, del_h2so4_aeruptk)
+    else
+       call aero_model_gasaerexch_codon_wrap( &
+            3, gasaerexch_stage3_delta, ncol, delt, ndx_h2so4, vmr0, vmr, vmrcw, dvmrdt, dvmrcwdt, mbar, pdel, adv_mass, wrk, del_h2so4_aeruptk )
+    end if
 
     call t_stopf('modal_gas-aer_exchng')
 
@@ -1756,6 +1786,128 @@ contains
     end do
 
   end subroutine aero_model_gasaerexch
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_gasaerexch_append_impl_proof(env_name, proof_line)
+
+    character(len=*), intent(in) :: env_name, proof_line
+
+    character(len=512) :: proof_path
+    integer :: status, n, unit_id
+
+    call get_environment_variable(env_name, value=proof_path, length=n, status=status)
+    if (status /= 0 .or. n <= 0) return
+
+    open(newunit=unit_id, file=trim(adjustl(proof_path(:n))), status='unknown', action='write', &
+         position='append', iostat=status)
+    if (status /= 0) return
+
+    write(unit_id,'(A)') trim(proof_line)
+    close(unit_id)
+
+  end subroutine aero_model_gasaerexch_append_impl_proof
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_gasaerexch_select_impl()
+
+    character(len=48) :: impl_name
+    integer :: status, n, i, code
+
+    if (aero_model_gasaerexch_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('AERO_MODEL_GASAEREXCH_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       aero_model_gasaerexch_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       aero_model_gasaerexch_use_native_impl = .false.
+    end if
+
+    aero_model_gasaerexch_impl_selected = .true.
+
+    if (masterproc) then
+       if (aero_model_gasaerexch_use_native_impl) then
+          write(iulog,*) 'aero_model_gasaerexch implementation = native'
+       else
+          write(iulog,*) 'aero_model_gasaerexch implementation = codon'
+          if (.not. aero_model_gasaerexch_proof_written) then
+             call aero_model_gasaerexch_append_impl_proof('AERO_MODEL_GASAEREXCH_PROOF_FILE', &
+                  'aero_model_gasaerexch implementation = codon')
+             aero_model_gasaerexch_proof_written = .true.
+          end if
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine aero_model_gasaerexch_select_impl
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_gasaerexch_codon_wrap(stage, stage3_mode, ncol, delt, ndx_h2so4_in, &
+                                              vmr0, vmr, vmrcw, dvmrdt, dvmrcwdt, mbar, pdel, &
+                                              adv_mass_in, wrk, del_h2so4_aeruptk)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
+
+    integer, intent(in) :: stage, stage3_mode, ncol, ndx_h2so4_in
+    real(r8), intent(in) :: delt
+    real(r8), target, intent(in) :: vmr0(ncol,pver,gas_pcnst), vmr(ncol,pver,gas_pcnst)
+    real(r8), target, intent(in) :: vmrcw(ncol,pver,gas_pcnst)
+    real(r8), target, intent(in) :: mbar(pcols,pver), pdel(pcols,pver), adv_mass_in(gas_pcnst)
+    real(r8), target, intent(inout) :: dvmrdt(ncol,pver,gas_pcnst), dvmrcwdt(ncol,pver,gas_pcnst)
+    real(r8), target, intent(inout) :: wrk(ncol,gas_pcnst), del_h2so4_aeruptk(ncol,pver)
+    type(c_ptr) :: vmrcw_p, dvmrcwdt_p, wrk_p, del_h2so4_aeruptk_p
+
+    interface
+       subroutine aero_model_gasaerexch_codon(stage_c, stage3_mode_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, &
+                                              ndx_h2so4_c, delt_c, gravit_c, vmr0_p, vmr_p, vmrcw_p, dvmrdt_p, &
+                                              dvmrcwdt_p, mbar_p, pdel_p, adv_mass_p, wrk_p, del_h2so4_aeruptk_p) &
+            bind(c, name="aero_model_gasaerexch_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: stage_c, stage3_mode_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, ndx_h2so4_c
+         real(c_double), value :: delt_c, gravit_c
+         type(c_ptr), value :: vmr0_p, vmr_p, vmrcw_p, dvmrdt_p, dvmrcwdt_p
+         type(c_ptr), value :: mbar_p, pdel_p, adv_mass_p, wrk_p, del_h2so4_aeruptk_p
+       end subroutine aero_model_gasaerexch_codon
+    end interface
+
+    if (stage == 2) then
+       vmrcw_p = c_loc(vmrcw(1,1,1))
+       dvmrcwdt_p = c_loc(dvmrcwdt(1,1,1))
+    else
+       vmrcw_p = c_null_ptr
+       dvmrcwdt_p = c_null_ptr
+    end if
+
+    if (stage <= 2) then
+       wrk_p = c_loc(wrk(1,1))
+    else
+       wrk_p = c_null_ptr
+    end if
+
+    if (stage == 3) then
+       del_h2so4_aeruptk_p = c_loc(del_h2so4_aeruptk(1,1))
+    else
+       del_h2so4_aeruptk_p = c_null_ptr
+    end if
+
+    call aero_model_gasaerexch_codon( &
+         int(stage, c_int64_t), int(stage3_mode, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), &
+         int(pver, c_int64_t), int(gas_pcnst, c_int64_t), int(ndx_h2so4_in, c_int64_t), real(delt, c_double), &
+         real(gravit, c_double), c_loc(vmr0(1,1,1)), c_loc(vmr(1,1,1)), vmrcw_p, c_loc(dvmrdt(1,1,1)), &
+         dvmrcwdt_p, c_loc(mbar(1,1)), c_loc(pdel(1,1)), c_loc(adv_mass_in(1)), wrk_p, del_h2so4_aeruptk_p &
+    )
+
+  end subroutine aero_model_gasaerexch_codon_wrap
 
   !=============================================================================
   !=============================================================================
