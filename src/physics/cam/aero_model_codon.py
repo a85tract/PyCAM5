@@ -2803,6 +2803,479 @@ def modal_aero_soaexch_codon(
 
 
 @export
+def modal_aero_gasaerexch_sub_codon(
+    stage: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnstxx: int,
+    pcnst: int,
+    top_lev: int,
+    ntot_amode: int,
+    maxd_aspectype: int,
+    maxspec_pcage: int,
+    nsrflx: int,
+    jsrflx_gaexch: int,
+    jsrflx_rename: int,
+    l_so4g: int,
+    l_nh4g: int,
+    l_msag: int,
+    l_soag: int,
+    do_nh4g: int,
+    do_msag: int,
+    do_soag: int,
+    method_soa: int,
+    ntot_soamode: int,
+    modefrm_pcage: int,
+    modetoo_pcage: int,
+    modeptr_pcarbon: int,
+    nspecfrm_pcage: int,
+    has_sulfeq: int,
+    deltat: float,
+    deltatxx: float,
+    gravit: float,
+    mwdry: float,
+    rgas: float,
+    fac_m2v_so4: float,
+    fac_m2v_nh4: float,
+    fac_m2v_soa: float,
+    fac_volsfc_pcarbon: float,
+    xferfrac_max: float,
+    soa_equivso4_factor: float,
+    dr_so4_monolayers_pcage: float,
+    q_p: cobj,
+    qqcw_p: cobj,
+    dqdt_p: cobj,
+    dqqcwdt_p: cobj,
+    qsrflx_p: cobj,
+    qqcwsrflx_p: cobj,
+    qold_p: cobj,
+    qqcwold_p: cobj,
+    dqdtsv1_p: cobj,
+    dqqcwdtsv1_p: cobj,
+    t_p: cobj,
+    pmid_p: cobj,
+    pdel_p: cobj,
+    dgncur_a_p: cobj,
+    uptkrate_p: cobj,
+    sulfeq_p: cobj,
+    troplev_p: cobj,
+    ido_so4a_p: cobj,
+    ido_nh4a_p: cobj,
+    ido_soaa_p: cobj,
+    lptr_so4_a_p: cobj,
+    lptr_nh4_a_p: cobj,
+    lptr_soa_a_p: cobj,
+    lptr_pom_a_p: cobj,
+    lmassptr_p: cobj,
+    nspec_amode_p: cobj,
+    lspecfrm_p: cobj,
+    lspectoo_p: cobj,
+    fac_m2v_pcarbon_p: cobj,
+    dqdt_so4_p: cobj,
+    dqdt_nh4_p: cobj,
+    dqdt_soa_p: cobj,
+    fgain_so4_p: cobj,
+    fgain_nh4_p: cobj,
+    fgain_soa_p: cobj,
+    qold_so4_p: cobj,
+    qold_nh4_p: cobj,
+    qold_soa_p: cobj,
+    qold_poa_p: cobj,
+    uptkratebb_p: cobj,
+    uptkrate_soa_p: cobj,
+    a_opoa_soa_p: cobj,
+    a_soa_work_p: cobj,
+    beta_soa_p: cobj,
+    g_star_soa_p: cobj,
+    phi_soa_p: cobj,
+    sat_soa_p: cobj,
+    niter_soa_p: cobj,
+    g_soa_tend_p: cobj,
+    adv_mass_p: cobj,
+    dotend_p: cobj,
+    dotendqqcw_p: cobj,
+    dotendrn_p: cobj,
+    dotendqqcwrn_p: cobj,
+):
+    q = Ptr[float](q_p)
+    qqcw = Ptr[float](qqcw_p)
+    dqdt = Ptr[float](dqdt_p)
+    dqqcwdt = Ptr[float](dqqcwdt_p)
+    qsrflx = Ptr[float](qsrflx_p)
+    qqcwsrflx = Ptr[float](qqcwsrflx_p)
+    t = Ptr[float](t_p)
+    pmid = Ptr[float](pmid_p)
+    pdel = Ptr[float](pdel_p)
+    dgncur_a = Ptr[float](dgncur_a_p)
+    uptkrate = Ptr[float](uptkrate_p)
+    sulfeq = Ptr[float](sulfeq_p)
+    troplev = Ptr[int](troplev_p)
+    ido_so4a = Ptr[int](ido_so4a_p)
+    ido_nh4a = Ptr[int](ido_nh4a_p)
+    ido_soaa = Ptr[int](ido_soaa_p)
+    lptr_so4_a = Ptr[int](lptr_so4_a_p)
+    lptr_nh4_a = Ptr[int](lptr_nh4_a_p)
+    lptr_soa_a = Ptr[int](lptr_soa_a_p)
+    lptr_pom_a = Ptr[int](lptr_pom_a_p)
+    lmassptr = Ptr[int](lmassptr_p)
+    nspec_amode = Ptr[int](nspec_amode_p)
+    lspecfrm = Ptr[int](lspecfrm_p)
+    lspectoo = Ptr[int](lspectoo_p)
+    fac_m2v_pcarbon = Ptr[float](fac_m2v_pcarbon_p)
+    dqdt_so4 = Ptr[float](dqdt_so4_p)
+    dqdt_nh4 = Ptr[float](dqdt_nh4_p)
+    dqdt_soa = Ptr[float](dqdt_soa_p)
+    fgain_so4 = Ptr[float](fgain_so4_p)
+    fgain_nh4 = Ptr[float](fgain_nh4_p)
+    fgain_soa = Ptr[float](fgain_soa_p)
+    qold_so4 = Ptr[float](qold_so4_p)
+    qold_nh4 = Ptr[float](qold_nh4_p)
+    qold_soa = Ptr[float](qold_soa_p)
+    qold_poa = Ptr[float](qold_poa_p)
+    uptkratebb = Ptr[float](uptkratebb_p)
+    uptkrate_soa = Ptr[float](uptkrate_soa_p)
+    g_soa_tend = Ptr[float](g_soa_tend_p)
+    adv_mass = Ptr[float](adv_mass_p)
+    dotend = Ptr[int](dotend_p)
+    dotendqqcw = Ptr[int](dotendqqcw_p)
+    dotendrn = Ptr[int](dotendrn_p)
+    dotendqqcwrn = Ptr[int](dotendqqcwrn_p)
+
+    if stage == 1:
+        modal_aero_gasaerexch_zero_tendencies_codon(
+            ncol, pcols, pver, pcnstxx, nsrflx, dqdt_p, dqqcwdt_p, qsrflx_p, qqcwsrflx_p
+        )
+        return
+
+    if stage == 3:
+        modal_aero_gasaerexch_snapshot_state_codon(
+            ncol, pver, pcnstxx, q_p, qqcw_p, dqdt_p, dqqcwdt_p, qold_p, qqcwold_p, dqdtsv1_p, dqqcwdtsv1_p
+        )
+        return
+
+    if stage == 4:
+        for l in range(1, pcnstxx + 1):
+            if dotend[l - 1] != 0 or dotendrn[l - 1] != 0:
+                for k in range(top_lev, pver + 1):
+                    for i in range(1, ncol + 1):
+                        idx = _idx3(i, k, l, ncol, pver)
+                        q[idx] = q[idx] + dqdt[idx] * deltat
+
+            if dotendqqcw[l - 1] != 0 or dotendqqcwrn[l - 1] != 0:
+                for k in range(top_lev, pver + 1):
+                    for i in range(1, ncol + 1):
+                        idx = _idx3(i, k, l, ncol, pver)
+                        qqcw[idx] = qqcw[idx] + dqqcwdt[idx] * deltat
+        return
+
+    if stage == 5:
+        for l in range(1, pcnstxx + 1):
+            for jsrf in range(1, nsrflx + 1):
+                if jsrf == jsrflx_gaexch:
+                    if dotend[l - 1] == 0:
+                        continue
+                elif jsrf == jsrflx_rename:
+                    if dotendrn[l - 1] == 0:
+                        continue
+                else:
+                    continue
+                for i in range(1, ncol + 1):
+                    idx = _idx3(i, l, jsrf, pcols, pcnstxx)
+                    qsrflx[idx] = qsrflx[idx] * (adv_mass[l - 1] / mwdry)
+
+        for l in range(1, pcnstxx + 1):
+            if dotendqqcwrn[l - 1] == 0:
+                continue
+            for i in range(1, ncol + 1):
+                idx = _idx3(i, l, jsrflx_rename, pcols, pcnstxx)
+                qqcwsrflx[idx] = qqcwsrflx[idx] * (adv_mass[l - 1] / mwdry)
+        return
+
+    if stage != 2:
+        return
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            sum_uprt_so4 = 0.0
+            sum_uprt_nh4 = 0.0
+            sum_uprt_soa = 0.0
+
+            for n in range(1, ntot_amode + 1):
+                n0 = n - 1
+                uptkratebb[n0] = uptkrate[_idx3(n, i, k, ntot_amode, pcols)]
+
+                if ido_so4a[n0] > 0:
+                    fgain_so4[n0] = uptkratebb[n0]
+                    sum_uprt_so4 = sum_uprt_so4 + fgain_so4[n0]
+                    if ido_so4a[n0] == 1:
+                        qold_so4[n0] = q[_idx3(i, k, lptr_so4_a[n0], ncol, pver)]
+                    else:
+                        qold_so4[n0] = 0.0
+                else:
+                    fgain_so4[n0] = 0.0
+                    qold_so4[n0] = 0.0
+
+                if ido_nh4a[n0] > 0:
+                    fgain_nh4[n0] = uptkratebb[n0] * 2.08
+                    sum_uprt_nh4 = sum_uprt_nh4 + fgain_nh4[n0]
+                    if ido_nh4a[n0] == 1:
+                        qold_nh4[n0] = q[_idx3(i, k, lptr_nh4_a[n0], ncol, pver)]
+                    else:
+                        qold_nh4[n0] = 0.0
+                else:
+                    fgain_nh4[n0] = 0.0
+                    qold_nh4[n0] = 0.0
+
+                if ido_soaa[n0] > 0:
+                    fgain_soa[n0] = uptkratebb[n0] * 0.81
+                    sum_uprt_soa = sum_uprt_soa + fgain_soa[n0]
+                    if ido_soaa[n0] == 1:
+                        qold_soa[n0] = q[_idx3(i, k, lptr_soa_a[n0], ncol, pver)]
+                        l = lptr_pom_a[n0]
+                        if l > 0:
+                            qold_poa[n0] = q[_idx3(i, k, l, ncol, pver)]
+                        else:
+                            qold_poa[n0] = 0.0
+                    else:
+                        qold_soa[n0] = 0.0
+                        qold_poa[n0] = 0.0
+                else:
+                    fgain_soa[n0] = 0.0
+                    qold_soa[n0] = 0.0
+                    qold_poa[n0] = 0.0
+                uptkrate_soa[n0] = fgain_soa[n0]
+
+            if sum_uprt_so4 > 0.0:
+                for n in range(1, ntot_amode + 1):
+                    fgain_so4[n - 1] = fgain_so4[n - 1] / sum_uprt_so4
+
+            if sum_uprt_nh4 > 0.0:
+                for n in range(1, ntot_amode + 1):
+                    fgain_nh4[n - 1] = fgain_nh4[n - 1] / sum_uprt_nh4
+
+            if sum_uprt_soa > 0.0:
+                for n in range(1, ntot_amode + 1):
+                    fgain_soa[n - 1] = fgain_soa[n - 1] / sum_uprt_soa
+
+            avg_uprt_so4 = (1.0 - exp(-deltatxx * sum_uprt_so4)) / deltatxx
+            avg_uprt_nh4 = (1.0 - exp(-deltatxx * sum_uprt_nh4)) / deltatxx
+            avg_uprt_soa = (1.0 - exp(-deltatxx * sum_uprt_soa)) / deltatxx
+
+            sum_dqdt_so4 = q[_idx3(i, k, l_so4g, ncol, pver)] * avg_uprt_so4
+            if do_msag != 0:
+                sum_dqdt_msa = q[_idx3(i, k, l_msag, ncol, pver)] * avg_uprt_so4
+            else:
+                sum_dqdt_msa = 0.0
+            if do_nh4g != 0:
+                sum_dqdt_nh4 = q[_idx3(i, k, l_nh4g, ncol, pver)] * avg_uprt_nh4
+            else:
+                sum_dqdt_nh4 = 0.0
+            if do_soag != 0:
+                sum_dqdt_soa = q[_idx3(i, k, l_soag, ncol, pver)] * avg_uprt_soa
+            else:
+                sum_dqdt_soa = 0.0
+
+            if has_sulfeq != 0 and k <= troplev[i - 1]:
+                tmp_kxt = deltatxx * sum_uprt_so4
+                tmp_pxt = 0.0
+                for n in range(1, ntot_amode + 1):
+                    if ido_so4a[n - 1] <= 0:
+                        continue
+                    tmp_pxt = tmp_pxt + uptkratebb[n - 1] * sulfeq[_idx3(i, k, n, pcols, pver)]
+                tmp_pxt = max(0.0, tmp_pxt * deltatxx)
+                tmp_so4g_bgn = q[_idx3(i, k, l_so4g, ncol, pver)]
+                if tmp_kxt >= 1.0e-5:
+                    tmp_so4g_equ = tmp_pxt / tmp_kxt
+                    tmp_so4g_avg = tmp_so4g_equ + (tmp_so4g_bgn - tmp_so4g_equ) * (1.0 - exp(-tmp_kxt)) / tmp_kxt
+                else:
+                    tmp_so4g_avg = tmp_so4g_bgn * (1.0 - 0.5 * tmp_kxt) + 0.5 * tmp_pxt
+                sum_dqdt_so4 = 0.0
+                for n in range(1, ntot_amode + 1):
+                    n0 = n - 1
+                    if ido_so4a[n0] <= 0:
+                        continue
+                    if ido_so4a[n0] == 1:
+                        l = lptr_so4_a[n0]
+                        tmp_so4a_bgn = q[_idx3(i, k, l, ncol, pver)]
+                    else:
+                        tmp_so4a_bgn = 0.0
+                    tmp_so4a_end = tmp_so4a_bgn + deltatxx * uptkratebb[n0] * (
+                        tmp_so4g_avg - sulfeq[_idx3(i, k, n, pcols, pver)]
+                    )
+                    tmp_so4a_end = max(0.0, tmp_so4a_end)
+                    dqdt_so4[n0] = (tmp_so4a_end - tmp_so4a_bgn) / deltatxx
+                    sum_dqdt_so4 = sum_dqdt_so4 + dqdt_so4[n0]
+                if do_msag != 0:
+                    sum_dqdt_msa = 0.0
+            else:
+                for n in range(1, ntot_amode + 1):
+                    dqdt_so4[n - 1] = fgain_so4[n - 1] * (sum_dqdt_so4 + sum_dqdt_msa)
+
+            sum_dqdt_nh4_b = 0.0
+            for n in range(1, ntot_amode + 1):
+                dqdt_nh4[n - 1] = 0.0
+            if do_nh4g != 0:
+                for n in range(1, ntot_amode + 1):
+                    n0 = n - 1
+                    dqdt_nh4[n0] = fgain_nh4[n0] * sum_dqdt_nh4
+                    qnew_nh4 = qold_nh4[n0] + dqdt_nh4[n0] * deltat
+                    qnew_so4 = qold_so4[n0] + dqdt_so4[n0] * deltat
+                    qmax_nh4 = 2.0 * qnew_so4
+                    if qnew_nh4 > qmax_nh4:
+                        dqdt_nh4[n0] = (qmax_nh4 - qold_nh4[n0]) / deltatxx
+                    sum_dqdt_nh4_b = sum_dqdt_nh4_b + dqdt_nh4[n0]
+
+            if do_soag != 0 and method_soa > 1:
+                niter_max = 1000
+                for n in range(1, ntot_amode + 1):
+                    dqdt_soa[n - 1] = 0.0
+                modal_aero_soaexch_codon(
+                    deltat,
+                    t[_idx2(i, k, pcols)],
+                    pmid[_idx2(i, k, pcols)],
+                    niter_max,
+                    ntot_soamode,
+                    q[_idx3(i, k, l_soag, ncol, pver)],
+                    qold_soa_p,
+                    qold_poa_p,
+                    uptkrate_soa_p,
+                    rgas,
+                    a_opoa_soa_p,
+                    a_soa_work_p,
+                    beta_soa_p,
+                    g_star_soa_p,
+                    phi_soa_p,
+                    sat_soa_p,
+                    niter_soa_p,
+                    g_soa_tend_p,
+                    dqdt_soa_p,
+                )
+                sum_dqdt_soa = -g_soa_tend[0]
+            elif do_soag != 0:
+                for n in range(1, ntot_amode + 1):
+                    dqdt_soa[n - 1] = fgain_soa[n - 1] * sum_dqdt_soa
+            else:
+                for n in range(1, ntot_amode + 1):
+                    dqdt_soa[n - 1] = 0.0
+
+            pdel_fac = pdel[_idx2(i, k, pcols)] / gravit
+            for n in range(1, ntot_amode + 1):
+                n0 = n - 1
+                if ido_so4a[n0] == 1:
+                    l = lptr_so4_a[n0]
+                    dqdt[_idx3(i, k, l, ncol, pver)] = dqdt_so4[n0]
+                    qsrflx[_idx3(i, l, jsrflx_gaexch, pcols, pcnstxx)] = (
+                        qsrflx[_idx3(i, l, jsrflx_gaexch, pcols, pcnstxx)] + dqdt_so4[n0] * pdel_fac
+                    )
+
+                if do_nh4g != 0:
+                    if ido_nh4a[n0] == 1:
+                        l = lptr_nh4_a[n0]
+                        dqdt[_idx3(i, k, l, ncol, pver)] = dqdt_nh4[n0]
+                        qsrflx[_idx3(i, l, jsrflx_gaexch, pcols, pcnstxx)] = (
+                            qsrflx[_idx3(i, l, jsrflx_gaexch, pcols, pcnstxx)] + dqdt_nh4[n0] * pdel_fac
+                        )
+
+                if do_soag != 0:
+                    if ido_soaa[n0] == 1:
+                        l = lptr_soa_a[n0]
+                        dqdt[_idx3(i, k, l, ncol, pver)] = dqdt_soa[n0]
+                        qsrflx[_idx3(i, l, jsrflx_gaexch, pcols, pcnstxx)] = (
+                            qsrflx[_idx3(i, l, jsrflx_gaexch, pcols, pcnstxx)] + dqdt_soa[n0] * pdel_fac
+                        )
+
+            l = l_so4g
+            dqdt[_idx3(i, k, l, ncol, pver)] = -sum_dqdt_so4
+            qsrflx[_idx3(i, l, jsrflx_gaexch, pcols, pcnstxx)] = (
+                qsrflx[_idx3(i, l, jsrflx_gaexch, pcols, pcnstxx)]
+                + dqdt[_idx3(i, k, l, ncol, pver)] * pdel_fac
+            )
+
+            if do_msag != 0:
+                l = l_msag
+                dqdt[_idx3(i, k, l, ncol, pver)] = -sum_dqdt_msa
+                qsrflx[_idx3(i, l, jsrflx_gaexch, pcols, pcnstxx)] = (
+                    qsrflx[_idx3(i, l, jsrflx_gaexch, pcols, pcnstxx)]
+                    + dqdt[_idx3(i, k, l, ncol, pver)] * pdel_fac
+                )
+
+            if do_nh4g != 0:
+                l = l_nh4g
+                dqdt[_idx3(i, k, l, ncol, pver)] = -sum_dqdt_nh4_b
+                qsrflx[_idx3(i, l, jsrflx_gaexch, pcols, pcnstxx)] = (
+                    qsrflx[_idx3(i, l, jsrflx_gaexch, pcols, pcnstxx)]
+                    + dqdt[_idx3(i, k, l, ncol, pver)] * pdel_fac
+                )
+
+            if do_soag != 0:
+                l = l_soag
+                dqdt[_idx3(i, k, l, ncol, pver)] = -sum_dqdt_soa
+                qsrflx[_idx3(i, l, jsrflx_gaexch, pcols, pcnstxx)] = (
+                    qsrflx[_idx3(i, l, jsrflx_gaexch, pcols, pcnstxx)]
+                    + dqdt[_idx3(i, k, l, ncol, pver)] * pdel_fac
+                )
+
+            if modefrm_pcage > 0:
+                n = modeptr_pcarbon
+                n0 = n - 1
+                vol_shell = deltat * (
+                    dqdt_so4[n0] * fac_m2v_so4
+                    + dqdt_nh4[n0] * fac_m2v_nh4
+                    + dqdt_soa[n0] * fac_m2v_soa * soa_equivso4_factor
+                )
+                vol_core = 0.0
+                for l in range(1, nspec_amode[n0] + 1):
+                    vol_core = vol_core + q[_idx3(i, k, lmassptr[_idx2(l, n, maxd_aspectype)], ncol, pver)] * fac_m2v_pcarbon[l - 1]
+
+                tmp1 = vol_shell * dgncur_a[_idx3(i, k, n, pcols, pver)] * fac_volsfc_pcarbon
+                tmp2 = max(6.0 * dr_so4_monolayers_pcage * vol_core, 0.0)
+                if tmp1 >= tmp2:
+                    xferfrac_pcage = xferfrac_max
+                else:
+                    xferfrac_pcage = min(tmp1 / tmp2, xferfrac_max)
+
+                if xferfrac_pcage > 0.0:
+                    for iq in range(1, nspecfrm_pcage + 1):
+                        lsfrm = lspecfrm[iq - 1]
+                        lstoo = lspectoo[iq - 1]
+                        xferrate = (xferfrac_pcage / deltat) * q[_idx3(i, k, lsfrm, ncol, pver)]
+                        dqdt[_idx3(i, k, lsfrm, ncol, pver)] = dqdt[_idx3(i, k, lsfrm, ncol, pver)] - xferrate
+                        qsrflx[_idx3(i, lsfrm, jsrflx_gaexch, pcols, pcnstxx)] = (
+                            qsrflx[_idx3(i, lsfrm, jsrflx_gaexch, pcols, pcnstxx)] - xferrate * pdel_fac
+                        )
+                        if lstoo > 0 and lstoo <= pcnst:
+                            dqdt[_idx3(i, k, lstoo, ncol, pver)] = dqdt[_idx3(i, k, lstoo, ncol, pver)] + xferrate
+                            qsrflx[_idx3(i, lstoo, jsrflx_gaexch, pcols, pcnstxx)] = (
+                                qsrflx[_idx3(i, lstoo, jsrflx_gaexch, pcols, pcnstxx)] + xferrate * pdel_fac
+                            )
+
+                    if ido_so4a[modetoo_pcage - 1] > 0:
+                        l = lptr_so4_a[modetoo_pcage - 1]
+                        dqdt[_idx3(i, k, l, ncol, pver)] = dqdt[_idx3(i, k, l, ncol, pver)] + dqdt_so4[modefrm_pcage - 1]
+                        qsrflx[_idx3(i, l, jsrflx_gaexch, pcols, pcnstxx)] = (
+                            qsrflx[_idx3(i, l, jsrflx_gaexch, pcols, pcnstxx)]
+                            + dqdt_so4[modefrm_pcage - 1] * pdel_fac
+                        )
+
+                    if ido_nh4a[modetoo_pcage - 1] > 0:
+                        l = lptr_nh4_a[modetoo_pcage - 1]
+                        dqdt[_idx3(i, k, l, ncol, pver)] = dqdt[_idx3(i, k, l, ncol, pver)] + dqdt_nh4[modefrm_pcage - 1]
+                        qsrflx[_idx3(i, l, jsrflx_gaexch, pcols, pcnstxx)] = (
+                            qsrflx[_idx3(i, l, jsrflx_gaexch, pcols, pcnstxx)]
+                            + dqdt_nh4[modefrm_pcage - 1] * pdel_fac
+                        )
+
+                    if ido_soaa[modetoo_pcage - 1] > 0:
+                        l = lptr_soa_a[modetoo_pcage - 1]
+                        dqdt[_idx3(i, k, l, ncol, pver)] = dqdt[_idx3(i, k, l, ncol, pver)] + dqdt_soa[modefrm_pcage - 1]
+                        qsrflx[_idx3(i, l, jsrflx_gaexch, pcols, pcnstxx)] = (
+                            qsrflx[_idx3(i, l, jsrflx_gaexch, pcols, pcnstxx)]
+                            + dqdt_soa[modefrm_pcage - 1] * pdel_fac
+                        )
+
+
+@export
 def modal_aero_rename_no_acc_crs_dryvols_codon(
     ncol: int,
     pver: int,
