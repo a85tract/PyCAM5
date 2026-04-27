@@ -1871,6 +1871,68 @@ def mer07_veh02_nuc_mosaic_prepare_rates_codon(
             do_pbl_rate[0] = 1
 
 
+def _mer07_veh02_nuc_mosaic_postprocess_core(
+    qnuma_del: float,
+    qso4a_del: float,
+    qnh4a_del: float,
+    deltat: float,
+    specmw_so4_amode: float,
+    specmw_nh4_amode: float,
+    mass1p_aitlo: float,
+    mass1p_aithi: float,
+):
+    qnuma_del = qnuma_del * 1.0e3
+    dndt_ait = qnuma_del / deltat
+    tmpa = qso4a_del * specmw_so4_amode
+    tmpb = tmpa + qnh4a_del * specmw_nh4_amode
+    tmp_frso4 = max(tmpa, 1.0e-35) / max(tmpb, 1.0e-35)
+    dmdt_ait = max(0.0, tmpb / deltat)
+
+    dndt_aitsv1 = dndt_ait
+    dmdt_aitsv1 = dmdt_ait
+    dndt_aitsv2 = 0.0
+    dmdt_aitsv2 = 0.0
+    dndt_aitsv3 = 0.0
+    dmdt_aitsv3 = 0.0
+    postprocess_code = 0
+
+    if dndt_ait < 1.0e2:
+        dndt_ait = 0.0
+        dmdt_ait = 0.0
+        postprocess_code = 1
+    else:
+        dndt_aitsv2 = dndt_ait
+        dmdt_aitsv2 = dmdt_ait
+        postprocess_code = 2
+        mass1p = dmdt_ait / dndt_ait
+        dndt_aitsv3 = dndt_ait
+        dmdt_aitsv3 = dmdt_ait
+
+        if mass1p < mass1p_aitlo:
+            dndt_ait = dmdt_ait / mass1p_aitlo
+            postprocess_code = 3
+        elif mass1p > mass1p_aithi:
+            dmdt_ait = dndt_ait * mass1p_aithi
+            postprocess_code = 4
+
+    dso4dt_ait = dmdt_ait * tmp_frso4 / specmw_so4_amode
+    dnh4dt_ait = dmdt_ait * (1.0 - tmp_frso4) / specmw_nh4_amode
+    return (
+        qnuma_del,
+        dndt_ait,
+        dmdt_ait,
+        dso4dt_ait,
+        dnh4dt_ait,
+        dndt_aitsv1,
+        dmdt_aitsv1,
+        dndt_aitsv2,
+        dmdt_aitsv2,
+        dndt_aitsv3,
+        dmdt_aitsv3,
+        postprocess_code,
+    )
+
+
 @export
 def mer07_veh02_nuc_mosaic_postprocess_codon(
     qnuma_del_p: cobj,
@@ -1906,42 +1968,29 @@ def mer07_veh02_nuc_mosaic_postprocess_codon(
     dmdt_aitsv3 = Ptr[float](dmdt_aitsv3_p)
     postprocess_code = Ptr[int](postprocess_code_p)
 
-    qnuma_del[0] = qnuma_del[0] * 1.0e3
-    dndt_ait[0] = qnuma_del[0] / deltat
-    tmpa = qso4a_del * specmw_so4_amode
-    tmpb = tmpa + qnh4a_del * specmw_nh4_amode
-    tmp_frso4 = max(tmpa, 1.0e-35) / max(tmpb, 1.0e-35)
-    dmdt_ait[0] = max(0.0, tmpb / deltat)
-
-    dndt_aitsv1[0] = dndt_ait[0]
-    dmdt_aitsv1[0] = dmdt_ait[0]
-    dndt_aitsv2[0] = 0.0
-    dmdt_aitsv2[0] = 0.0
-    dndt_aitsv3[0] = 0.0
-    dmdt_aitsv3[0] = 0.0
-    postprocess_code[0] = 0
-
-    if dndt_ait[0] < 1.0e2:
-        dndt_ait[0] = 0.0
-        dmdt_ait[0] = 0.0
-        postprocess_code[0] = 1
-    else:
-        dndt_aitsv2[0] = dndt_ait[0]
-        dmdt_aitsv2[0] = dmdt_ait[0]
-        postprocess_code[0] = 2
-        mass1p = dmdt_ait[0] / dndt_ait[0]
-        dndt_aitsv3[0] = dndt_ait[0]
-        dmdt_aitsv3[0] = dmdt_ait[0]
-
-        if mass1p < mass1p_aitlo:
-            dndt_ait[0] = dmdt_ait[0] / mass1p_aitlo
-            postprocess_code[0] = 3
-        elif mass1p > mass1p_aithi:
-            dmdt_ait[0] = dndt_ait[0] * mass1p_aithi
-            postprocess_code[0] = 4
-
-    dso4dt_ait[0] = dmdt_ait[0] * tmp_frso4 / specmw_so4_amode
-    dnh4dt_ait[0] = dmdt_ait[0] * (1.0 - tmp_frso4) / specmw_nh4_amode
+    (
+        qnuma_del[0],
+        dndt_ait[0],
+        dmdt_ait[0],
+        dso4dt_ait[0],
+        dnh4dt_ait[0],
+        dndt_aitsv1[0],
+        dmdt_aitsv1[0],
+        dndt_aitsv2[0],
+        dmdt_aitsv2[0],
+        dndt_aitsv3[0],
+        dmdt_aitsv3[0],
+        postprocess_code[0],
+    ) = _mer07_veh02_nuc_mosaic_postprocess_core(
+        qnuma_del[0],
+        qso4a_del,
+        qnh4a_del,
+        deltat,
+        specmw_so4_amode,
+        specmw_nh4_amode,
+        mass1p_aitlo,
+        mass1p_aithi,
+    )
 
 
 @export
@@ -2097,8 +2146,7 @@ def mer07_veh02_nuc_mosaic_finalize_codon(
     qnuma_del[0] = 1.0e-3 * (qso4a_del[0] * mw_so4a + qnh4a_del[0] * mw_nh4a) / mass_part
 
 
-@export
-def mer07_veh02_nuc_mosaic_1box_codon(
+def _mer07_veh02_nuc_mosaic_1box_core(
     newnuc_method_flagaa: int,
     dtnuc: float,
     temp_in: float,
@@ -2112,39 +2160,17 @@ def mer07_veh02_nuc_mosaic_1box_codon(
     h2so4_uptkrate: float,
     mw_so4a_host: float,
     nsize: int,
-    dplom_sect_p: cobj,
-    dphim_sect_p: cobj,
+    dplom_sect: Ptr[float],
+    dphim_sect: Ptr[float],
     ldiagaa: int,
     pi_c: float,
     rgas: float,
     avogad: float,
     mw_so4a: float,
     mw_nh4a: float,
-    isize_nuc_p: cobj,
-    qnuma_del_p: cobj,
-    qso4a_del_p: cobj,
-    qnh4a_del_p: cobj,
-    qh2so4_del_p: cobj,
-    qnh3_del_p: cobj,
-    dens_nh4so4a_p: cobj,
-    fallback_required_p: cobj,
 ):
-    dplom_sect = Ptr[float](dplom_sect_p)
-    dphim_sect = Ptr[float](dphim_sect_p)
-    isize_nuc = Ptr[int](isize_nuc_p)
-    qnuma_del = Ptr[float](qnuma_del_p)
-    qso4a_del = Ptr[float](qso4a_del_p)
-    qnh4a_del = Ptr[float](qnh4a_del_p)
-    qh2so4_del = Ptr[float](qh2so4_del_p)
-    qnh3_del = Ptr[float](qnh3_del_p)
-    dens_nh4so4a = Ptr[float](dens_nh4so4a_p)
-    fallback_required = Ptr[int](fallback_required_p)
-
-    fallback_required[0] = 0
-
     if ldiagaa > 0:
-        fallback_required[0] = 1
-        return
+        return (1, 1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
     isize_nuc_local = 1
     qnuma_del_local = 0.0
@@ -2164,14 +2190,16 @@ def mer07_veh02_nuc_mosaic_1box_codon(
         valid_method = 1
 
     if valid_method == 0:
-        isize_nuc[0] = isize_nuc_local
-        qnuma_del[0] = qnuma_del_local
-        qso4a_del[0] = qso4a_del_local
-        qnh4a_del[0] = qnh4a_del_local
-        qh2so4_del[0] = qh2so4_del_local
-        qnh3_del[0] = qnh3_del_local
-        dens_nh4so4a[0] = dens_nh4so4a_local
-        return
+        return (
+            0,
+            isize_nuc_local,
+            qnuma_del_local,
+            qso4a_del_local,
+            qnh4a_del_local,
+            qh2so4_del_local,
+            qnh3_del_local,
+            dens_nh4so4a_local,
+        )
 
     cair = press_in / (temp_in * rgas)
     so4vol_in = qh2so4_avg * cair * avogad * 1.0e-6
@@ -2207,8 +2235,7 @@ def mer07_veh02_nuc_mosaic_1box_codon(
             do_pbl_rate = 1
 
     if use_ternary_rate != 0:
-        fallback_required[0] = 1
-        return
+        return (1, 1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
     if use_binary_rate != 0:
         crit_x = (
@@ -2313,14 +2340,16 @@ def mer07_veh02_nuc_mosaic_1box_codon(
         continue_flag = 1
 
     if continue_flag == 0:
-        isize_nuc[0] = isize_nuc_local
-        qnuma_del[0] = qnuma_del_local
-        qso4a_del[0] = qso4a_del_local
-        qnh4a_del[0] = qnh4a_del_local
-        qh2so4_del[0] = qh2so4_del_local
-        qnh3_del[0] = qnh3_del_local
-        dens_nh4so4a[0] = dens_nh4so4a_local
-        return
+        return (
+            0,
+            isize_nuc_local,
+            qnuma_del_local,
+            qso4a_del_local,
+            qnh4a_del_local,
+            qh2so4_del_local,
+            qnh3_del_local,
+            dens_nh4so4a_local,
+        )
 
     onethird = 1.0 / 3.0
     accom_coef_h2so4 = 0.65
@@ -2422,14 +2451,16 @@ def mer07_veh02_nuc_mosaic_1box_codon(
 
     freduce = min(freducea, freduceb)
     if freduce * ratenuclt_kk <= 1.0e-12:
-        isize_nuc[0] = isize_nuc_local
-        qnuma_del[0] = qnuma_del_local
-        qso4a_del[0] = qso4a_del_local
-        qnh4a_del[0] = qnh4a_del_local
-        qh2so4_del[0] = qh2so4_del_local
-        qnh3_del[0] = qnh3_del_local
-        dens_nh4so4a[0] = dens_nh4so4a_local
-        return
+        return (
+            0,
+            isize_nuc_local,
+            qnuma_del_local,
+            qso4a_del_local,
+            qnh4a_del_local,
+            qh2so4_del_local,
+            qnh3_del_local,
+            dens_nh4so4a_local,
+        )
 
     tmpa = 0.9999
     qh2so4_del_local = min(tmpa * qh2so4_cur, freduce * qmolso4a_del_max)
@@ -2440,13 +2471,93 @@ def mer07_veh02_nuc_mosaic_1box_codon(
     qnh4a_del_local = -qnh3_del_local
     qnuma_del_local = 1.0e-3 * (qso4a_del_local * mw_so4a + qnh4a_del_local * mw_nh4a) / mass_part
 
-    isize_nuc[0] = isize_nuc_local
-    qnuma_del[0] = qnuma_del_local
-    qso4a_del[0] = qso4a_del_local
-    qnh4a_del[0] = qnh4a_del_local
-    qh2so4_del[0] = qh2so4_del_local
-    qnh3_del[0] = qnh3_del_local
-    dens_nh4so4a[0] = dens_nh4so4a_local
+    return (
+        0,
+        isize_nuc_local,
+        qnuma_del_local,
+        qso4a_del_local,
+        qnh4a_del_local,
+        qh2so4_del_local,
+        qnh3_del_local,
+        dens_nh4so4a_local,
+    )
+
+
+@export
+def mer07_veh02_nuc_mosaic_1box_codon(
+    newnuc_method_flagaa: int,
+    dtnuc: float,
+    temp_in: float,
+    rh_in: float,
+    press_in: float,
+    zm_in: float,
+    pblh_in: float,
+    qh2so4_cur: float,
+    qh2so4_avg: float,
+    qnh3_cur: float,
+    h2so4_uptkrate: float,
+    mw_so4a_host: float,
+    nsize: int,
+    dplom_sect_p: cobj,
+    dphim_sect_p: cobj,
+    ldiagaa: int,
+    pi_c: float,
+    rgas: float,
+    avogad: float,
+    mw_so4a: float,
+    mw_nh4a: float,
+    isize_nuc_p: cobj,
+    qnuma_del_p: cobj,
+    qso4a_del_p: cobj,
+    qnh4a_del_p: cobj,
+    qh2so4_del_p: cobj,
+    qnh3_del_p: cobj,
+    dens_nh4so4a_p: cobj,
+    fallback_required_p: cobj,
+):
+    dplom_sect = Ptr[float](dplom_sect_p)
+    dphim_sect = Ptr[float](dphim_sect_p)
+    isize_nuc = Ptr[int](isize_nuc_p)
+    qnuma_del = Ptr[float](qnuma_del_p)
+    qso4a_del = Ptr[float](qso4a_del_p)
+    qnh4a_del = Ptr[float](qnh4a_del_p)
+    qh2so4_del = Ptr[float](qh2so4_del_p)
+    qnh3_del = Ptr[float](qnh3_del_p)
+    dens_nh4so4a = Ptr[float](dens_nh4so4a_p)
+    fallback_required = Ptr[int](fallback_required_p)
+
+    (
+        fallback_required[0],
+        isize_nuc[0],
+        qnuma_del[0],
+        qso4a_del[0],
+        qnh4a_del[0],
+        qh2so4_del[0],
+        qnh3_del[0],
+        dens_nh4so4a[0],
+    ) = _mer07_veh02_nuc_mosaic_1box_core(
+        newnuc_method_flagaa,
+        dtnuc,
+        temp_in,
+        rh_in,
+        press_in,
+        zm_in,
+        pblh_in,
+        qh2so4_cur,
+        qh2so4_avg,
+        qnh3_cur,
+        h2so4_uptkrate,
+        mw_so4a_host,
+        nsize,
+        dplom_sect,
+        dphim_sect,
+        ldiagaa,
+        pi_c,
+        rgas,
+        avogad,
+        mw_so4a,
+        mw_nh4a,
+    )
 
 
 @export
@@ -4475,6 +4586,74 @@ def modal_aero_newnuc_set_tendency_flags_codon(
         do_nh3[0] = 0
 
 
+def _modal_aero_newnuc_setup_modes_core(
+    loffset_c: int,
+    pcnst_c: int,
+    l_h2so4_sv_c: int,
+    l_nh3_sv_c: int,
+    lnumait_sv_c: int,
+    lso4ait_sv_c: int,
+    lptr_nh4_aitken_c: int,
+    dgnumlo_aitken_c: float,
+    dgnum_aitken_c: float,
+    dgnumhi_aitken_c: float,
+    specdens_so4_amode_c: float,
+    pi_c: float,
+):
+    l_h2so4 = l_h2so4_sv_c - loffset_c
+    l_nh3 = l_nh3_sv_c - loffset_c
+    lnumait = lnumait_sv_c - loffset_c
+    lso4ait = lso4ait_sv_c - loffset_c
+    lnh4ait = lptr_nh4_aitken_c - loffset_c
+
+    dplom_mode_1 = 0.0
+    dphim_mode_1 = 0.0
+    mass1p_aitlo = 0.0
+    mass1p_aithi = 0.0
+    do_nh3_flag = 0
+    valid_mask = 0
+
+    if l_h2so4 <= 0 or lso4ait <= 0 or lnumait <= 0:
+        return (
+            l_h2so4,
+            l_nh3,
+            lnumait,
+            lnh4ait,
+            lso4ait,
+            do_nh3_flag,
+            valid_mask,
+            dplom_mode_1,
+            dphim_mode_1,
+            mass1p_aitlo,
+            mass1p_aithi,
+        )
+
+    valid_mask = 1
+
+    if l_nh3 > 0 and l_nh3 <= pcnst_c and lnh4ait > 0 and lnh4ait <= pcnst_c:
+        do_nh3_flag = 1
+
+    dplom_mode_1 = exp(0.67 * log(dgnumlo_aitken_c) + 0.33 * log(dgnum_aitken_c))
+    dphim_mode_1 = dgnumhi_aitken_c
+
+    tmpa = specdens_so4_amode_c * pi_c / 6.0
+    mass1p_aitlo = tmpa * (dplom_mode_1**3)
+    mass1p_aithi = tmpa * (dphim_mode_1**3)
+    return (
+        l_h2so4,
+        l_nh3,
+        lnumait,
+        lnh4ait,
+        lso4ait,
+        do_nh3_flag,
+        valid_mask,
+        dplom_mode_1,
+        dphim_mode_1,
+        mass1p_aitlo,
+        mass1p_aithi,
+    )
+
+
 @export
 def modal_aero_newnuc_setup_modes_codon(
     loffset_c: int,
@@ -4513,33 +4692,32 @@ def modal_aero_newnuc_setup_modes_codon(
     mass1p_aitlo = Ptr[float](mass1p_aitlo_p)
     mass1p_aithi = Ptr[float](mass1p_aithi_p)
 
-    l_h2so4[0] = l_h2so4_sv_c - loffset_c
-    l_nh3[0] = l_nh3_sv_c - loffset_c
-    lnumait[0] = lnumait_sv_c - loffset_c
-    lso4ait[0] = lso4ait_sv_c - loffset_c
-    lnh4ait[0] = lptr_nh4_aitken_c - loffset_c
-
-    dplom_mode_1[0] = 0.0
-    dphim_mode_1[0] = 0.0
-    mass1p_aitlo[0] = 0.0
-    mass1p_aithi[0] = 0.0
-    do_nh3_flag[0] = 0
-    valid_mask[0] = 0
-
-    if l_h2so4[0] <= 0 or lso4ait[0] <= 0 or lnumait[0] <= 0:
-        return
-
-    valid_mask[0] = 1
-
-    if l_nh3[0] > 0 and l_nh3[0] <= pcnst_c and lnh4ait[0] > 0 and lnh4ait[0] <= pcnst_c:
-        do_nh3_flag[0] = 1
-
-    dplom_mode_1[0] = exp(0.67 * log(dgnumlo_aitken_c) + 0.33 * log(dgnum_aitken_c))
-    dphim_mode_1[0] = dgnumhi_aitken_c
-
-    tmpa = specdens_so4_amode_c * pi_c / 6.0
-    mass1p_aitlo[0] = tmpa * (dplom_mode_1[0] ** 3)
-    mass1p_aithi[0] = tmpa * (dphim_mode_1[0] ** 3)
+    (
+        l_h2so4[0],
+        l_nh3[0],
+        lnumait[0],
+        lnh4ait[0],
+        lso4ait[0],
+        do_nh3_flag[0],
+        valid_mask[0],
+        dplom_mode_1[0],
+        dphim_mode_1[0],
+        mass1p_aitlo[0],
+        mass1p_aithi[0],
+    ) = _modal_aero_newnuc_setup_modes_core(
+        loffset_c,
+        pcnst_c,
+        l_h2so4_sv_c,
+        l_nh3_sv_c,
+        lnumait_sv_c,
+        lso4ait_sv_c,
+        lptr_nh4_aitken_c,
+        dgnumlo_aitken_c,
+        dgnum_aitken_c,
+        dgnumhi_aitken_c,
+        specdens_so4_amode_c,
+        pi_c,
+    )
 
 
 @export
@@ -4557,4 +4735,277 @@ def modal_aero_newnuc_scale_qsrflx_codon(
     for i in range(1, ncol_c + 1):
         qsrflx[_idx3(i, lmz_c, 1, pcols_c, pcnst_c)] = (
             qsrflx[_idx3(i, lmz_c, 1, pcols_c, pcnst_c)] * (adv_mass_c / mwdry_c)
+        )
+
+
+@export
+def modal_aero_newnuc_sub_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    pcnstxx: int,
+    top_lev: int,
+    loffset: int,
+    deltat: float,
+    qh2so4_cutoff: float,
+    l_h2so4_sv: int,
+    l_nh3_sv: int,
+    lnumait_sv: int,
+    lso4ait_sv: int,
+    lptr_nh4_aitken: int,
+    dgnumlo_aitken: float,
+    dgnum_aitken: float,
+    dgnumhi_aitken: float,
+    specdens_so4_amode: float,
+    specmw_so4_amode: float,
+    specmw_nh4_amode: float,
+    pi_c: float,
+    gravit_c: float,
+    mwdry_c: float,
+    adv_mass_p: cobj,
+    rgas: float,
+    avogad: float,
+    mw_so4a: float,
+    mw_nh4a: float,
+    t_p: cobj,
+    pmid_p: cobj,
+    pdel_p: cobj,
+    zm_p: cobj,
+    pblh_p: cobj,
+    qv_p: cobj,
+    cld_p: cobj,
+    q_p: cobj,
+    qv_sat_p: cobj,
+    del_h2so4_gasprod_p: cobj,
+    del_h2so4_aeruptk_p: cobj,
+    dqdt_p: cobj,
+    qsrflx_p: cobj,
+    dplom_mode_p: cobj,
+    dphim_mode_p: cobj,
+    active_mask_p: cobj,
+    cldx_p: cobj,
+    qh2so4_cur_p: cobj,
+    qh2so4_avg_p: cobj,
+    qnh3_cur_p: cobj,
+    tmp_uptkrate_p: cobj,
+    relhumnn_p: cobj,
+    dotend_p: cobj,
+    fallback_required_p: cobj,
+):
+    t = Ptr[float](t_p)
+    pmid = Ptr[float](pmid_p)
+    zm = Ptr[float](zm_p)
+    pblh = Ptr[float](pblh_p)
+    active_mask = Ptr[int](active_mask_p)
+    cldx_work = Ptr[float](cldx_p)
+    qh2so4_cur_work = Ptr[float](qh2so4_cur_p)
+    qh2so4_avg_work = Ptr[float](qh2so4_avg_p)
+    qnh3_cur_work = Ptr[float](qnh3_cur_p)
+    tmp_uptkrate_work = Ptr[float](tmp_uptkrate_p)
+    relhumnn_work = Ptr[float](relhumnn_p)
+    dotend = Ptr[int](dotend_p)
+    fallback_required = Ptr[int](fallback_required_p)
+    dplom_mode = Ptr[float](dplom_mode_p)
+    dphim_mode = Ptr[float](dphim_mode_p)
+    adv_mass = Ptr[float](adv_mass_p)
+
+    fallback_required[0] = 0
+    for l in range(1, pcnst + 1):
+        dotend[l - 1] = 0
+
+    (
+        l_h2so4,
+        l_nh3,
+        lnumait,
+        lnh4ait,
+        lso4ait,
+        do_nh3_flag,
+        valid_mask,
+        dplom_mode_1,
+        dphim_mode_1,
+        mass1p_aitlo,
+        mass1p_aithi,
+    ) = _modal_aero_newnuc_setup_modes_core(
+        loffset,
+        pcnst,
+        l_h2so4_sv,
+        l_nh3_sv,
+        lnumait_sv,
+        lso4ait_sv,
+        lptr_nh4_aitken,
+        dgnumlo_aitken,
+        dgnum_aitken,
+        dgnumhi_aitken,
+        specdens_so4_amode,
+        pi_c,
+    )
+
+    dplom_mode[0] = dplom_mode_1
+    dphim_mode[0] = dphim_mode_1
+
+    if valid_mask == 0:
+        return
+
+    dotend[lnumait - 1] = 1
+    dotend[lso4ait - 1] = 1
+    dotend[l_h2so4 - 1] = 1
+
+    do_nh3 = 0
+    if do_nh3_flag != 0:
+        do_nh3 = 1
+        dotend[lnh4ait - 1] = 1
+        dotend[l_nh3 - 1] = 1
+
+    modal_aero_newnuc_zero_tendencies_codon(
+        ncol,
+        pcols,
+        pver,
+        pcnstxx,
+        pcnst,
+        1,
+        dqdt_p,
+        qsrflx_p,
+    )
+
+    modal_aero_newnuc_prepare_box_inputs_codon(
+        ncol,
+        pcols,
+        pver,
+        top_lev,
+        l_h2so4,
+        l_nh3,
+        do_nh3,
+        deltat,
+        qh2so4_cutoff,
+        q_p,
+        qv_p,
+        cld_p,
+        qv_sat_p,
+        del_h2so4_gasprod_p,
+        del_h2so4_aeruptk_p,
+        active_mask_p,
+        cldx_p,
+        qh2so4_cur_p,
+        qh2so4_avg_p,
+        qnh3_cur_p,
+        tmp_uptkrate_p,
+        relhumnn_p,
+    )
+
+    newnuc_method_flagaa = 11
+    if newnuc_method_flagaa != 2:
+        for k in range(top_lev, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, ncol)
+                if active_mask[idx] == 0:
+                    continue
+                nh3ppt = qnh3_cur_work[idx] * 1.0e12
+                if nh3ppt < 0.1:
+                    continue
+                cair = pmid[_idx2(i, k, pcols)] / (t[_idx2(i, k, pcols)] * rgas)
+                so4vol_in = qh2so4_avg_work[idx] * cair * avogad * 1.0e-6
+                if so4vol_in >= 5.0e4:
+                    fallback_required[0] = 1
+                    return
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _idx2(i, k, ncol)
+            if active_mask[idx2] == 0:
+                continue
+
+            (
+                _fallback_required,
+                _isize_nuc,
+                qnuma_del,
+                qso4a_del,
+                qnh4a_del,
+                _qh2so4_del,
+                _qnh3_del,
+                _dens_nh4so4a,
+            ) = _mer07_veh02_nuc_mosaic_1box_core(
+                newnuc_method_flagaa,
+                deltat,
+                t[_idx2(i, k, pcols)],
+                relhumnn_work[idx2],
+                pmid[_idx2(i, k, pcols)],
+                zm[_idx2(i, k, pcols)],
+                pblh[i - 1],
+                qh2so4_cur_work[idx2],
+                qh2so4_avg_work[idx2],
+                qnh3_cur_work[idx2],
+                tmp_uptkrate_work[idx2],
+                specmw_so4_amode,
+                1,
+                dplom_mode,
+                dphim_mode,
+                -1,
+                pi_c,
+                rgas,
+                avogad,
+                mw_so4a,
+                mw_nh4a,
+            )
+
+            (
+                _qnuma_del_work,
+                dndt_ait,
+                _dmdt_ait,
+                dso4dt_ait,
+                dnh4dt_ait,
+                _dndt_aitsv1,
+                _dmdt_aitsv1,
+                _dndt_aitsv2,
+                _dmdt_aitsv2,
+                _dndt_aitsv3,
+                _dmdt_aitsv3,
+                _postprocess_code,
+            ) = _mer07_veh02_nuc_mosaic_postprocess_core(
+                qnuma_del,
+                qso4a_del,
+                qnh4a_del,
+                deltat,
+                specmw_so4_amode,
+                specmw_nh4_amode,
+                mass1p_aitlo,
+                mass1p_aithi,
+            )
+
+            modal_aero_newnuc_apply_tendencies_codon(
+                i,
+                k,
+                ncol,
+                pcols,
+                pver,
+                pcnst,
+                pdel_p,
+                dqdt_p,
+                qsrflx_p,
+                q_p,
+                gravit_c,
+                cldx_work[idx2],
+                deltat,
+                dso4dt_ait,
+                dndt_ait,
+                dnh4dt_ait,
+                l_h2so4,
+                lso4ait,
+                lnumait,
+                l_nh3,
+                lnh4ait,
+                do_nh3,
+            )
+
+    for lmz in range(1, pcnst + 1):
+        if dotend[lmz - 1] == 0:
+            continue
+        modal_aero_newnuc_scale_qsrflx_codon(
+            ncol,
+            pcols,
+            pcnst,
+            lmz,
+            adv_mass[lmz - 1],
+            mwdry_c,
+            qsrflx_p,
         )

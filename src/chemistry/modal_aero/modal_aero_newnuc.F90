@@ -25,6 +25,9 @@ module modal_aero_newnuc
 ! !PUBLIC DATA MEMBERS:
   integer, parameter  :: pcnstxx = gas_pcnst
   integer  :: l_h2so4_sv, l_nh3_sv, lnumait_sv, lnh4ait_sv, lso4ait_sv
+  logical :: modal_aero_newnuc_sub_use_native_impl = .false.
+  logical :: modal_aero_newnuc_sub_impl_selected = .false.
+  logical :: modal_aero_newnuc_sub_fallback_reported = .false.
   logical :: modal_aero_newnuc_zero_tendencies_use_native_impl = .false.
   logical :: modal_aero_newnuc_zero_tendencies_impl_selected = .false.
   logical :: modal_aero_newnuc_prepare_box_inputs_use_native_impl = .false.
@@ -76,6 +79,76 @@ module modal_aero_newnuc
 
 
   contains
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_newnuc_append_impl_proof(env_name, proof_line)
+
+   implicit none
+
+   character(len=*), intent(in) :: env_name, proof_line
+
+   character(len=512) :: proof_path
+   integer :: status, n, unit_id
+
+   call get_environment_variable(env_name, value=proof_path, length=n, status=status)
+   if (status /= 0 .or. n <= 0) return
+
+   open(newunit=unit_id, file=trim(adjustl(proof_path(:n))), status='unknown', action='write', &
+        position='append', iostat=status)
+   if (status /= 0) return
+
+   write(unit_id,'(A)') trim(proof_line)
+   close(unit_id)
+
+  end subroutine modal_aero_newnuc_append_impl_proof
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_newnuc_sub_select_impl()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   implicit none
+
+   character(len=48) :: impl_name
+   integer :: status, n, i, code
+
+   if (modal_aero_newnuc_sub_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('MODAL_AERO_NEWNUC_SUB_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      modal_aero_newnuc_sub_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      modal_aero_newnuc_sub_use_native_impl = .false.
+   end if
+
+   modal_aero_newnuc_sub_impl_selected = .true.
+   modal_aero_newnuc_sub_fallback_reported = .false.
+
+   if (masterproc) then
+      if (modal_aero_newnuc_sub_use_native_impl) then
+         write(iulog,*) 'modal_aero_newnuc_sub implementation = native'
+         call modal_aero_newnuc_append_impl_proof('MODAL_AERO_NEWNUC_SUB_PROOF_FILE', &
+              'modal_aero_newnuc_sub implementation = native')
+      else
+         write(iulog,*) 'modal_aero_newnuc_sub implementation = codon'
+         call modal_aero_newnuc_append_impl_proof('MODAL_AERO_NEWNUC_SUB_PROOF_FILE', &
+              'modal_aero_newnuc_sub implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+  end subroutine modal_aero_newnuc_sub_select_impl
 
 !----------------------------------------------------------------------
 !----------------------------------------------------------------------
@@ -988,6 +1061,7 @@ module modal_aero_newnuc
    use iso_c_binding,     only: c_int64_t
    use modal_aero_data
    use cam_abortutils,    only: endrun
+   use cam_logfile,       only: iulog
    use cam_history,       only: outfld, fieldname_len
    use chem_mods,         only: adv_mass
    use constituents,      only: pcnst, cnst_name
@@ -1086,6 +1160,7 @@ module modal_aero_newnuc
 
 		integer, parameter :: nsrflx = 1     ! last dimension of qsrflx
 		integer(c_int64_t) :: active_mask(ncol,pver)
+		integer(c_int64_t) :: dotend_mask(pcnst), fallback_required
 		real(r8) :: qsrflx(pcols,pcnst,nsrflx)
 	                              ! process-specific column tracer tendencies
 	                              ! 1 = nucleation (for aerocom)
@@ -1116,6 +1191,37 @@ module modal_aero_newnuc
 !!$!  if (ncol /= -999888777) return
 !!$   end if
 !--------------------------------------------------------------------------------
+
+!-----------------------------------------------------------------------
+        call modal_aero_newnuc_sub_select_impl()
+
+        if (.not. modal_aero_newnuc_sub_use_native_impl) then
+           call qsat(t(1:ncol, 1:pver), pmid(1:ncol, 1:pver), &
+                     ev_sat(1:ncol, 1:pver), qv_sat(1:ncol, 1:pver))
+
+           call modal_aero_newnuc_sub_codon_wrap( &
+                loffset, ncol, deltat, t, pmid, pdel, zm, pblh, qv, cld, q, del_h2so4_gasprod, del_h2so4_aeruptk, qv_sat, &
+                dqdt, qsrflx, dplom_mode, dphim_mode, active_mask, cldx_work, qh2so4_cur_work, qh2so4_avg_work, &
+                qnh3_cur_work, tmp_uptkrate_work, relhumnn_work, dotend_mask, fallback_required )
+
+           if (fallback_required == 0_c_int64_t) then
+              do l = loffset+1, pcnst
+                 lmz = l - loffset
+                 if (dotend_mask(lmz) == 0_c_int64_t) cycle
+                 fieldname = trim(cnst_name(l)) // '_sfnnuc1'
+                 call outfld( fieldname, qsrflx(:,lmz,1), pcols, lchnk )
+              end do
+              return
+           end if
+
+           if (masterproc .and. .not. modal_aero_newnuc_sub_fallback_reported) then
+              write(iulog,*) 'modal_aero_newnuc_sub fallback = native'
+              call modal_aero_newnuc_append_impl_proof('MODAL_AERO_NEWNUC_SUB_PROOF_FILE', &
+                   'modal_aero_newnuc_sub fallback = native')
+              call flush(iulog)
+              modal_aero_newnuc_sub_fallback_reported = .true.
+           end if
+        end if
 
 !-----------------------------------------------------------------------
 	call modal_aero_newnuc_setup_modes( &
@@ -1332,6 +1438,79 @@ main_i:	do i = 1, ncol
 	return
 !EOC
 	end subroutine modal_aero_newnuc_sub
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_newnuc_sub_codon_wrap( &
+       loffset_in, ncol_in, deltat_in, t, pmid, pdel, zm, pblh, qv, cld, q, del_h2so4_gasprod, del_h2so4_aeruptk, qv_sat, &
+       dqdt, qsrflx, dplom_mode, dphim_mode, active_mask, cldx_work, qh2so4_cur_work, qh2so4_avg_work, qnh3_cur_work, &
+       tmp_uptkrate_work, relhumnn_work, dotend_out, fallback_required_out )
+
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+   use mo_constants, only: pi, rgas, avogad => avogadro
+   use modal_aero_data, only: lptr_nh4_a_amode, modeptr_aitken, dgnumlo_amode, dgnum_amode, dgnumhi_amode, &
+        specdens_so4_amode, specmw_so4_amode, specmw_nh4_amode
+   use chem_mods, only: adv_mass
+   use constituents, only: pcnst
+   use physconst, only: gravit, mwdry, mw_so4a => mwso4, mw_nh4a => mwnh4
+   use ppgrid, only: pcols, pver
+   use ref_pres, only: top_lev => clim_modal_aero_top_lev
+
+   implicit none
+
+   integer, intent(in) :: loffset_in, ncol_in
+   real(r8), intent(in) :: deltat_in
+   real(r8), target, intent(in) :: t(pcols,pver), pmid(pcols,pver), pdel(pcols,pver), zm(pcols,pver)
+   real(r8), target, intent(in) :: pblh(pcols), qv(pcols,pver), cld(ncol_in,pver), qv_sat(pcols,pver)
+   real(r8), target, intent(in) :: del_h2so4_gasprod(ncol_in,pver), del_h2so4_aeruptk(ncol_in,pver)
+   real(r8), target, intent(inout) :: q(ncol_in,pver,pcnstxx), dqdt(ncol_in,pver,pcnstxx), qsrflx(pcols,pcnst,1)
+   real(r8), target, intent(out) :: dplom_mode(1), dphim_mode(1)
+   integer(c_int64_t), target, intent(out) :: active_mask(ncol_in,pver), dotend_out(pcnst), fallback_required_out
+   real(r8), target, intent(out) :: cldx_work(ncol_in,pver), qh2so4_cur_work(ncol_in,pver), qh2so4_avg_work(ncol_in,pver)
+   real(r8), target, intent(out) :: qnh3_cur_work(ncol_in,pver), tmp_uptkrate_work(ncol_in,pver), relhumnn_work(ncol_in,pver)
+
+   real(r8), target :: adv_mass_work(pcnst)
+
+   interface
+      subroutine modal_aero_newnuc_sub_codon( &
+           ncol_c, pcols_c, pver_c, pcnst_c, pcnstxx_c, top_lev_c, loffset_c, deltat_c, qh2so4_cutoff_c, &
+           l_h2so4_sv_c, l_nh3_sv_c, lnumait_sv_c, lso4ait_sv_c, lptr_nh4_aitken_c, dgnumlo_aitken_c, dgnum_aitken_c, &
+           dgnumhi_aitken_c, specdens_so4_amode_c, specmw_so4_amode_c, specmw_nh4_amode_c, pi_c, gravit_c, mwdry_c, &
+           adv_mass_p, rgas_c, avogad_c, mw_so4a_c, mw_nh4a_c, t_p, pmid_p, pdel_p, zm_p, pblh_p, qv_p, cld_p, q_p, &
+           qv_sat_p, del_h2so4_gasprod_p, del_h2so4_aeruptk_p, dqdt_p, qsrflx_p, dplom_mode_p, dphim_mode_p, active_mask_p, &
+           cldx_p, qh2so4_cur_p, qh2so4_avg_p, qnh3_cur_p, tmp_uptkrate_p, relhumnn_p, dotend_p, fallback_required_p ) &
+           bind(c, name="modal_aero_newnuc_sub_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, pcnstxx_c, top_lev_c, loffset_c
+        integer(c_int64_t), value :: l_h2so4_sv_c, l_nh3_sv_c, lnumait_sv_c, lso4ait_sv_c, lptr_nh4_aitken_c
+        real(c_double), value :: deltat_c, qh2so4_cutoff_c, dgnumlo_aitken_c, dgnum_aitken_c, dgnumhi_aitken_c
+        real(c_double), value :: specdens_so4_amode_c, specmw_so4_amode_c, specmw_nh4_amode_c, pi_c, gravit_c, mwdry_c
+        real(c_double), value :: rgas_c, avogad_c, mw_so4a_c, mw_nh4a_c
+        type(c_ptr), value :: adv_mass_p, t_p, pmid_p, pdel_p, zm_p, pblh_p, qv_p, cld_p, q_p, qv_sat_p
+        type(c_ptr), value :: del_h2so4_gasprod_p, del_h2so4_aeruptk_p, dqdt_p, qsrflx_p, dplom_mode_p, dphim_mode_p
+        type(c_ptr), value :: active_mask_p, cldx_p, qh2so4_cur_p, qh2so4_avg_p, qnh3_cur_p, tmp_uptkrate_p, relhumnn_p
+        type(c_ptr), value :: dotend_p, fallback_required_p
+      end subroutine modal_aero_newnuc_sub_codon
+   end interface
+
+   adv_mass_work(:) = adv_mass(1:pcnst)
+
+   call modal_aero_newnuc_sub_codon( &
+        int(ncol_in, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), int(pcnstxx, c_int64_t), &
+        int(top_lev, c_int64_t), int(loffset_in, c_int64_t), real(deltat_in, c_double), real(qh2so4_cutoff, c_double), &
+        int(l_h2so4_sv, c_int64_t), int(l_nh3_sv, c_int64_t), int(lnumait_sv, c_int64_t), int(lso4ait_sv, c_int64_t), &
+        int(lptr_nh4_a_amode(modeptr_aitken), c_int64_t), real(dgnumlo_amode(modeptr_aitken), c_double), &
+        real(dgnum_amode(modeptr_aitken), c_double), real(dgnumhi_amode(modeptr_aitken), c_double), &
+        real(specdens_so4_amode, c_double), real(specmw_so4_amode, c_double), real(specmw_nh4_amode, c_double), &
+        real(pi, c_double), real(gravit, c_double), real(mwdry, c_double), c_loc(adv_mass_work(1)), real(rgas, c_double), &
+        real(avogad, c_double), real(mw_so4a, c_double), real(mw_nh4a, c_double), c_loc(t(1,1)), c_loc(pmid(1,1)), &
+        c_loc(pdel(1,1)), c_loc(zm(1,1)), c_loc(pblh(1)), c_loc(qv(1,1)), c_loc(cld(1,1)), c_loc(q(1,1,1)), &
+        c_loc(qv_sat(1,1)), c_loc(del_h2so4_gasprod(1,1)), c_loc(del_h2so4_aeruptk(1,1)), c_loc(dqdt(1,1,1)), &
+        c_loc(qsrflx(1,1,1)), c_loc(dplom_mode(1)), c_loc(dphim_mode(1)), c_loc(active_mask(1,1)), c_loc(cldx_work(1,1)), &
+        c_loc(qh2so4_cur_work(1,1)), c_loc(qh2so4_avg_work(1,1)), c_loc(qnh3_cur_work(1,1)), c_loc(tmp_uptkrate_work(1,1)), &
+        c_loc(relhumnn_work(1,1)), c_loc(dotend_out(1)), c_loc(fallback_required_out) )
+
+  end subroutine modal_aero_newnuc_sub_codon_wrap
 
 
 
