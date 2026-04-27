@@ -5482,3 +5482,400 @@ def modal_aero_newnuc_sub_codon(
             mwdry_c,
             qsrflx_p,
         )
+
+
+@export
+def modal_aero_coag_sub_codon(
+    stage: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnstxx: int,
+    pcnst: int,
+    top_lev: int,
+    ntot_amode: int,
+    maxd_aspectype: int,
+    maxpair_acoag: int,
+    maxspec_acoag: int,
+    pair_option_acoag: int,
+    npair_acoag: int,
+    ip_aitacc: int,
+    ip_pcaacc: int,
+    ip_aitpca: int,
+    macc: int,
+    mait: int,
+    mpca: int,
+    deltat: float,
+    deltatinv_main: float,
+    xferfrac_max: float,
+    dr_so4_monolayers_pcage: float,
+    fac_volsfc_pcarbon: float,
+    r_universal: float,
+    gravit: float,
+    mwdry: float,
+    q_p: cobj,
+    dqdt_p: cobj,
+    qsrflx_p: cobj,
+    t_p: cobj,
+    pmid_p: cobj,
+    pdel_p: cobj,
+    dgncur_a_p: cobj,
+    ybetaij0_p: cobj,
+    ybetaij3_p: cobj,
+    ybetaii0_p: cobj,
+    ybetajj0_p: cobj,
+    xnumbconc_p: cobj,
+    xnumbconcavg_p: cobj,
+    xnumbconcnew_p: cobj,
+    iselfcoagdone_p: cobj,
+    modefrm_acoag_p: cobj,
+    modetoo_acoag_p: cobj,
+    nspecfrm_acoag_p: cobj,
+    lspecfrm_acoag_p: cobj,
+    lspectoo_acoag_p: cobj,
+    mprognum_amode_p: cobj,
+    numptr_amode_p: cobj,
+    nspec_amode_p: cobj,
+    lmassptr_amode_p: cobj,
+    lptr_so4_a_amode_p: cobj,
+    lptr_nh4_a_amode_p: cobj,
+    lptr_soa_a_amode_p: cobj,
+    idomode_p: cobj,
+    fac_m2v_aitage_p: cobj,
+    fac_m2v_pcarbon_p: cobj,
+    adv_mass_p: cobj,
+    dotend_p: cobj,
+):
+    q = Ptr[float](q_p)
+    dqdt = Ptr[float](dqdt_p)
+    qsrflx = Ptr[float](qsrflx_p)
+    t = Ptr[float](t_p)
+    pmid = Ptr[float](pmid_p)
+    pdel = Ptr[float](pdel_p)
+    dgncur_a = Ptr[float](dgncur_a_p)
+    ybetaij0 = Ptr[float](ybetaij0_p)
+    ybetaij3 = Ptr[float](ybetaij3_p)
+    ybetaii0 = Ptr[float](ybetaii0_p)
+    ybetajj0 = Ptr[float](ybetajj0_p)
+    xnumbconc = Ptr[float](xnumbconc_p)
+    xnumbconcavg = Ptr[float](xnumbconcavg_p)
+    xnumbconcnew = Ptr[float](xnumbconcnew_p)
+    iselfcoagdone = Ptr[int](iselfcoagdone_p)
+    modefrm_acoag = Ptr[int](modefrm_acoag_p)
+    modetoo_acoag = Ptr[int](modetoo_acoag_p)
+    nspecfrm_acoag = Ptr[int](nspecfrm_acoag_p)
+    lspecfrm_acoag = Ptr[int](lspecfrm_acoag_p)
+    lspectoo_acoag = Ptr[int](lspectoo_acoag_p)
+    mprognum_amode = Ptr[int](mprognum_amode_p)
+    numptr_amode = Ptr[int](numptr_amode_p)
+    nspec_amode = Ptr[int](nspec_amode_p)
+    lmassptr_amode = Ptr[int](lmassptr_amode_p)
+    lptr_so4_a_amode = Ptr[int](lptr_so4_a_amode_p)
+    lptr_nh4_a_amode = Ptr[int](lptr_nh4_a_amode_p)
+    lptr_soa_a_amode = Ptr[int](lptr_soa_a_amode_p)
+    idomode = Ptr[int](idomode_p)
+    fac_m2v_aitage = Ptr[float](fac_m2v_aitage_p)
+    fac_m2v_pcarbon = Ptr[float](fac_m2v_pcarbon_p)
+    adv_mass = Ptr[float](adv_mass_p)
+    dotend = Ptr[int](dotend_p)
+
+    if stage == 1:
+        lmz = 1
+        while lmz <= pcnstxx:
+            dotend[lmz - 1] = 0
+            i = 1
+            while i <= pcols:
+                qsrflx[_idx2(i, lmz, pcols)] = 0.0
+                i += 1
+            k = 1
+            while k <= pver:
+                i = 1
+                while i <= ncol:
+                    dqdt[_idx3(i, k, lmz, ncol, pver)] = 0.0
+                    i += 1
+                k += 1
+            lmz += 1
+        return
+
+    if stage == 3:
+        lmz = 1
+        while lmz <= pcnstxx:
+            dotend[lmz - 1] = 0
+            lmz += 1
+
+        ipair = 1
+        while ipair <= npair_acoag:
+            modefrm = modefrm_acoag[ipair - 1]
+            modetoo = modetoo_acoag[ipair - 1]
+
+            iq = 1
+            while iq <= nspecfrm_acoag[ipair - 1]:
+                lsfrm = lspecfrm_acoag[_idx2(iq, ipair, maxspec_acoag)]
+                lstoo = lspectoo_acoag[_idx2(iq, ipair, maxspec_acoag)]
+                if lsfrm > 0 and lsfrm <= pcnstxx:
+                    dotend[lsfrm - 1] = 1
+                if lstoo > 0 and lstoo <= pcnstxx:
+                    dotend[lstoo - 1] = 1
+                iq += 1
+
+            if mprognum_amode[modefrm - 1] > 0:
+                lsfrm = numptr_amode[modefrm - 1]
+                if lsfrm > 0 and lsfrm <= pcnstxx:
+                    dotend[lsfrm - 1] = 1
+            if mprognum_amode[modetoo - 1] > 0:
+                lstoo = numptr_amode[modetoo - 1]
+                if lstoo > 0 and lstoo <= pcnstxx:
+                    dotend[lstoo - 1] = 1
+            ipair += 1
+
+        lmz = 1
+        while lmz <= pcnstxx:
+            if dotend[lmz - 1] == 0:
+                lmz += 1
+                continue
+            i = 1
+            while i <= pcols:
+                qsrflx[_idx2(i, lmz, pcols)] = 0.0
+                i += 1
+            k = top_lev
+            while k <= pver:
+                i = 1
+                while i <= ncol:
+                    qsrflx[_idx2(i, lmz, pcols)] = (
+                        qsrflx[_idx2(i, lmz, pcols)]
+                        + dqdt[_idx3(i, k, lmz, ncol, pver)] * pdel[_idx2(i, k, pcols)]
+                    )
+                    i += 1
+                k += 1
+            scale = adv_mass[lmz - 1] / (gravit * mwdry)
+            i = 1
+            while i <= pcols:
+                qsrflx[_idx2(i, lmz, pcols)] = qsrflx[_idx2(i, lmz, pcols)] * scale
+                i += 1
+            lmz += 1
+        return
+
+    if stage != 2:
+        return
+
+    k = top_lev
+    while k <= pver:
+        i = 1
+        while i <= ncol:
+            aircon = pmid[_idx2(i, k, pcols)] / (r_universal * t[_idx2(i, k, pcols)])
+
+            n = 1
+            while n <= ntot_amode:
+                idx_mode = _idx3(i, k, n, pcols, pver)
+                if idomode[n - 1] > 0:
+                    lmz = numptr_amode[n - 1]
+                    xnumbconc[idx_mode] = q[_idx3(i, k, lmz, ncol, pver)] * aircon
+                    xnumbconc[idx_mode] = max(0.0, xnumbconc[idx_mode])
+                else:
+                    xnumbconc[idx_mode] = 0.0
+                xnumbconcavg[idx_mode] = 0.0
+                xnumbconcnew[idx_mode] = 0.0
+                iselfcoagdone[idx_mode] = 0
+                n += 1
+
+            if pair_option_acoag == 1 or pair_option_acoag == 2:
+                ipair = 1
+                while ipair <= npair_acoag:
+                    modefrm = modefrm_acoag[ipair - 1]
+                    modetoo = modetoo_acoag[ipair - 1]
+                    idx_pair = _idx3(i, k, ipair, pcols, pver)
+                    idx_frm = _idx3(i, k, modefrm, pcols, pver)
+                    idx_too = _idx3(i, k, modetoo, pcols, pver)
+
+                    if mprognum_amode[modetoo - 1] > 0 and iselfcoagdone[idx_too] <= 0:
+                        iselfcoagdone[idx_too] = 1
+                        tmpn = xnumbconc[idx_too]
+                        xnumbconcnew[idx_too] = tmpn / (1.0 + deltat * ybetajj0[idx_pair] * tmpn)
+                        xnumbconcavg[idx_too] = 0.5 * (xnumbconcnew[idx_too] + tmpn)
+                        lstoo = numptr_amode[modetoo - 1]
+                        q[_idx3(i, k, lstoo, ncol, pver)] = xnumbconcnew[idx_too] / aircon
+                        dqdt[_idx3(i, k, lstoo, ncol, pver)] = (
+                            (xnumbconcnew[idx_too] - tmpn) * deltatinv_main / aircon
+                        )
+
+                    if mprognum_amode[modefrm - 1] > 0 and iselfcoagdone[idx_frm] <= 0:
+                        iselfcoagdone[idx_frm] = 1
+                        tmpn = xnumbconc[idx_frm]
+                        tmpa = deltat * ybetaij0[idx_pair] * xnumbconcavg[idx_too]
+                        tmpb = deltat * ybetaii0[idx_pair]
+                        tmpc = tmpa + tmpb * tmpn
+                        if abs(tmpc) < 0.01:
+                            xnumbconcnew[idx_frm] = tmpn * exp(-tmpc)
+                        elif abs(tmpa) < 0.001:
+                            xnumbconcnew[idx_frm] = exp(-tmpa) * tmpn / (1.0 + tmpb * tmpn)
+                        else:
+                            tmpf = tmpb * tmpn / tmpc
+                            tmpg = exp(-tmpa)
+                            tmph = tmpg * (1.0 - tmpf) / (1.0 - tmpg * tmpf)
+                            xnumbconcnew[idx_frm] = tmpn * max(0.0, min(1.0, tmph))
+                        xnumbconcavg[idx_frm] = 0.5 * (xnumbconcnew[idx_frm] + tmpn)
+                        lsfrm = numptr_amode[modefrm - 1]
+                        q[_idx3(i, k, lsfrm, ncol, pver)] = xnumbconcnew[idx_frm] / aircon
+                        dqdt[_idx3(i, k, lsfrm, ncol, pver)] = (
+                            (xnumbconcnew[idx_frm] - tmpn) * deltatinv_main / aircon
+                        )
+
+                    dumloss = ybetaij3[idx_pair] * xnumbconcavg[idx_too]
+                    xferfracvol = 1.0 - exp(-dumloss * deltat)
+                    xferfracvol = max(0.0, min(xferfrac_max, xferfracvol))
+
+                    iq = 1
+                    while iq <= nspecfrm_acoag[ipair - 1]:
+                        lsfrm = lspecfrm_acoag[_idx2(iq, ipair, maxspec_acoag)]
+                        lstoo = lspectoo_acoag[_idx2(iq, ipair, maxspec_acoag)]
+                        if lsfrm > 0:
+                            idx_qfrm = _idx3(i, k, lsfrm, ncol, pver)
+                            xferamt = q[idx_qfrm] * xferfracvol
+                            dqdt[idx_qfrm] = dqdt[idx_qfrm] - xferamt * deltatinv_main
+                            q[idx_qfrm] = q[idx_qfrm] - xferamt
+                            if lstoo > 0:
+                                idx_qtoo = _idx3(i, k, lstoo, ncol, pver)
+                                dqdt[idx_qtoo] = dqdt[idx_qtoo] + xferamt * deltatinv_main
+                                q[idx_qtoo] = q[idx_qtoo] + xferamt
+                        iq += 1
+                    ipair += 1
+
+            elif pair_option_acoag == 3:
+                idx_macc = _idx3(i, k, macc, pcols, pver)
+                idx_mpca = _idx3(i, k, mpca, pcols, pver)
+                idx_mait = _idx3(i, k, mait, pcols, pver)
+                idx_aitacc = _idx3(i, k, ip_aitacc, pcols, pver)
+                idx_pcaacc = _idx3(i, k, ip_pcaacc, pcols, pver)
+                idx_aitpca = _idx3(i, k, ip_aitpca, pcols, pver)
+
+                if mprognum_amode[macc - 1] > 0:
+                    tmpn = xnumbconc[idx_macc]
+                    xnumbconcnew[idx_macc] = tmpn / (1.0 + deltat * ybetajj0[idx_aitacc] * tmpn)
+                    xnumbconcavg[idx_macc] = 0.5 * (xnumbconcnew[idx_macc] + tmpn)
+                    lstoo = numptr_amode[macc - 1]
+                    q[_idx3(i, k, lstoo, ncol, pver)] = xnumbconcnew[idx_macc] / aircon
+                    dqdt[_idx3(i, k, lstoo, ncol, pver)] = (
+                        (xnumbconcnew[idx_macc] - tmpn) * deltatinv_main / aircon
+                    )
+
+                if mprognum_amode[mpca - 1] > 0:
+                    tmpn = xnumbconc[idx_mpca]
+                    tmpa = deltat * ybetaij0[idx_pcaacc] * xnumbconcavg[idx_macc]
+                    tmpb = deltat * ybetaii0[idx_pcaacc]
+                    tmpc = tmpa + tmpb * tmpn
+                    if abs(tmpc) < 0.01:
+                        xnumbconcnew[idx_mpca] = tmpn * exp(-tmpc)
+                    elif abs(tmpa) < 0.001:
+                        xnumbconcnew[idx_mpca] = exp(-tmpa) * tmpn / (1.0 + tmpb * tmpn)
+                    else:
+                        tmpf = tmpb * tmpn / tmpc
+                        tmpg = exp(-tmpa)
+                        tmph = tmpg * (1.0 - tmpf) / (1.0 - tmpg * tmpf)
+                        xnumbconcnew[idx_mpca] = tmpn * max(0.0, min(1.0, tmph))
+                    xnumbconcavg[idx_mpca] = 0.5 * (xnumbconcnew[idx_mpca] + tmpn)
+                    lsfrm = numptr_amode[mpca - 1]
+                    q[_idx3(i, k, lsfrm, ncol, pver)] = xnumbconcnew[idx_mpca] / aircon
+                    dqdt[_idx3(i, k, lsfrm, ncol, pver)] = (
+                        (xnumbconcnew[idx_mpca] - tmpn) * deltatinv_main / aircon
+                    )
+
+                if mprognum_amode[mait - 1] > 0:
+                    tmpn = xnumbconc[idx_mait]
+                    tmpa = deltat * (
+                        ybetaij0[idx_aitacc] * xnumbconcavg[idx_macc]
+                        + ybetaij0[idx_aitpca] * xnumbconcavg[idx_mpca]
+                    )
+                    tmpb = deltat * ybetaii0[idx_aitacc]
+                    tmpc = tmpa + tmpb * tmpn
+                    if abs(tmpc) < 0.01:
+                        xnumbconcnew[idx_mait] = tmpn * exp(-tmpc)
+                    elif abs(tmpa) < 0.001:
+                        xnumbconcnew[idx_mait] = exp(-tmpa) * tmpn / (1.0 + tmpb * tmpn)
+                    else:
+                        tmpf = tmpb * tmpn / tmpc
+                        tmpg = exp(-tmpa)
+                        tmph = tmpg * (1.0 - tmpf) / (1.0 - tmpg * tmpf)
+                        xnumbconcnew[idx_mait] = tmpn * max(0.0, min(1.0, tmph))
+                    xnumbconcavg[idx_mait] = 0.5 * (xnumbconcnew[idx_mait] + tmpn)
+                    lsfrm = numptr_amode[mait - 1]
+                    q[_idx3(i, k, lsfrm, ncol, pver)] = xnumbconcnew[idx_mait] / aircon
+                    dqdt[_idx3(i, k, lsfrm, ncol, pver)] = (
+                        (xnumbconcnew[idx_mait] - tmpn) * deltatinv_main / aircon
+                    )
+
+                dumloss = (
+                    ybetaij3[idx_aitacc] * xnumbconcavg[idx_macc]
+                    + ybetaij3[idx_aitpca] * xnumbconcavg[idx_mpca]
+                )
+                tmpa = ybetaij3[idx_aitpca] * xnumbconcavg[idx_mpca] / max(dumloss, 1.0e-37)
+                xferfracvol = 1.0 - exp(-dumloss * deltat)
+                xferfracvol = max(0.0, min(xferfrac_max, xferfracvol))
+                vol_shell = 0.0
+
+                ipair = ip_aitacc
+                iq = 1
+                while iq <= nspecfrm_acoag[ipair - 1]:
+                    lsfrm = lspecfrm_acoag[_idx2(iq, ipair, maxspec_acoag)]
+                    lstoo = lspectoo_acoag[_idx2(iq, ipair, maxspec_acoag)]
+                    if lsfrm > 0:
+                        idx_qfrm = _idx3(i, k, lsfrm, ncol, pver)
+                        xferamt = q[idx_qfrm] * xferfracvol
+                        dqdt[idx_qfrm] = dqdt[idx_qfrm] - xferamt * deltatinv_main
+                        q[idx_qfrm] = q[idx_qfrm] - xferamt
+                        if lstoo > 0:
+                            idx_qtoo = _idx3(i, k, lstoo, ncol, pver)
+                            dqdt[idx_qtoo] = dqdt[idx_qtoo] + xferamt * deltatinv_main
+                            q[idx_qtoo] = q[idx_qtoo] + xferamt
+                        vol_shell = vol_shell + xferamt * tmpa * fac_m2v_aitage[iq - 1]
+                    iq += 1
+
+                vol_core = 0.0
+                l = 1
+                while l <= nspec_amode[mpca - 1]:
+                    lmz = lmassptr_amode[_idx2(l, mpca, maxd_aspectype)]
+                    vol_core = vol_core + q[_idx3(i, k, lmz, ncol, pver)] * fac_m2v_pcarbon[l - 1]
+                    l += 1
+
+                tmp1 = vol_shell * dgncur_a[_idx3(i, k, mpca, pcols, pver)] * fac_volsfc_pcarbon
+                tmp2 = 6.0 * dr_so4_monolayers_pcage * vol_core
+                tmp2 = max(tmp2, 0.0)
+                xferfrac_pcage = 0.0
+                if tmp1 >= tmp2:
+                    xferfrac_pcage = xferfrac_max
+                else:
+                    xferfrac_pcage = min(tmp1 / tmp2, xferfrac_max)
+
+                dumloss = ybetaij3[idx_pcaacc] * xnumbconcavg[idx_macc]
+                xferfracvol = 1.0 - exp(-dumloss * deltat)
+                xferfracvol = xferfracvol + xferfrac_pcage
+                xferfracvol = max(0.0, min(xferfrac_max, xferfracvol))
+
+                ipair = ip_pcaacc
+                iq = 1
+                while iq <= nspecfrm_acoag[ipair - 1]:
+                    lsfrm = lspecfrm_acoag[_idx2(iq, ipair, maxspec_acoag)]
+                    lstoo = lspectoo_acoag[_idx2(iq, ipair, maxspec_acoag)]
+                    if lsfrm > 0:
+                        idx_qfrm = _idx3(i, k, lsfrm, ncol, pver)
+                        xferamt = q[idx_qfrm] * xferfracvol
+                        dqdt[idx_qfrm] = dqdt[idx_qfrm] - xferamt * deltatinv_main
+                        q[idx_qfrm] = q[idx_qfrm] - xferamt
+                        if lstoo > 0:
+                            idx_qtoo = _idx3(i, k, lstoo, ncol, pver)
+                            dqdt[idx_qtoo] = dqdt[idx_qtoo] + xferamt * deltatinv_main
+                            q[idx_qtoo] = q[idx_qtoo] + xferamt
+                    iq += 1
+
+                lsfrm = numptr_amode[mpca - 1]
+                lstoo = numptr_amode[macc - 1]
+                if lsfrm > 0:
+                    idx_qfrm = _idx3(i, k, lsfrm, ncol, pver)
+                    xferamt = q[idx_qfrm] * xferfrac_pcage
+                    dqdt[idx_qfrm] = dqdt[idx_qfrm] - xferamt * deltatinv_main
+                    q[idx_qfrm] = q[idx_qfrm] - xferamt
+                    if lstoo > 0:
+                        idx_qtoo = _idx3(i, k, lstoo, ncol, pver)
+                        dqdt[idx_qtoo] = dqdt[idx_qtoo] + xferamt * deltatinv_main
+                        q[idx_qtoo] = q[idx_qtoo] + xferamt
+            i += 1
+        k += 1

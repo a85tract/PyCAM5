@@ -12,7 +12,7 @@
 ! !USES:
    use shr_kind_mod,    only:  r8 => shr_kind_r8
    use chem_mods,       only:  gas_pcnst
-   use modal_aero_data, only:  maxd_aspectype
+   use modal_aero_data, only:  maxd_aspectype, ntot_amode
 
   implicit none
   private
@@ -47,6 +47,11 @@
   integer, public :: lspecfrm_acoag(maxspec_acoag,maxpair_acoag)
   integer, public :: lspectoo_acoag(maxspec_acoag,maxpair_acoag)
 
+  logical :: modal_aero_coag_sub_use_native_impl = .false.
+  logical :: modal_aero_coag_sub_impl_selected = .false.
+  logical :: modal_aero_coag_sub_proof_written = .false.
+  logical :: modal_aero_coag_sub_wrap_proof_written = .false.
+
 ! !DESCRIPTION: This module implements ...
 !
 ! !REVISION HISTORY:
@@ -62,6 +67,83 @@
 !EOC
 !----------------------------------------------------------------------
   contains
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+subroutine modal_aero_coag_sub_append_impl_proof(env_name, proof_line)
+
+  implicit none
+
+  character(len=*), intent(in) :: env_name, proof_line
+
+  character(len=512) :: proof_path
+  integer :: status, n, unit_id
+
+  call get_environment_variable(env_name, value=proof_path, length=n, status=status)
+  if (status /= 0 .or. n <= 0) return
+
+  open(newunit=unit_id, file=trim(adjustl(proof_path(:n))), status='unknown', action='write', &
+       position='append', iostat=status)
+  if (status /= 0) return
+
+  write(unit_id,'(A)') trim(proof_line)
+  close(unit_id)
+
+end subroutine modal_aero_coag_sub_append_impl_proof
+
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+subroutine modal_aero_coag_sub_select_impl()
+
+  use cam_logfile, only: iulog
+  use spmd_utils, only: masterproc
+
+  implicit none
+
+  character(len=48) :: impl_name
+  integer :: status, n, i, code
+
+  if (modal_aero_coag_sub_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MODAL_AERO_COAG_SUB_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     modal_aero_coag_sub_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     modal_aero_coag_sub_use_native_impl = .false.
+  end if
+
+  modal_aero_coag_sub_impl_selected = .true.
+
+  if (masterproc) then
+     if (modal_aero_coag_sub_use_native_impl) then
+        write(iulog,*) 'modal_aero_coag_sub implementation = native'
+        if (.not. modal_aero_coag_sub_proof_written) then
+           call modal_aero_coag_sub_append_impl_proof('MODAL_AERO_COAG_SUB_PROOF_FILE', &
+                'modal_aero_coag_sub implementation = native')
+           modal_aero_coag_sub_proof_written = .true.
+        end if
+     else
+        write(iulog,*) 'modal_aero_coag_sub implementation = codon'
+        if (.not. modal_aero_coag_sub_proof_written) then
+           call modal_aero_coag_sub_append_impl_proof('MODAL_AERO_COAG_SUB_PROOF_FILE', &
+                'modal_aero_coag_sub implementation = codon')
+           modal_aero_coag_sub_proof_written = .true.
+        end if
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine modal_aero_coag_sub_select_impl
+
+
 !----------------------------------------------------------------------
 !BOP
 ! !ROUTINE:  modal_aero_coag_sub --- ...
@@ -82,6 +164,7 @@
 
 ! !USES:
    use mo_constants,     only: pi
+   use iso_c_binding,    only: c_int64_t
    use modal_aero_data
    use modal_aero_gasaerexch, only:  n_so4_monolayers_pcage, &
                                      soa_equivso4_factor
@@ -105,19 +188,19 @@
 
    real(r8), intent(in) :: deltat_main      ! model timestep (s)
 
-   real(r8), intent(in) :: t(pcols,pver)    ! temperature (K)
-   real(r8), intent(in) :: pmid(pcols,pver) ! pressure at model levels (Pa)
-   real(r8), intent(in) :: pdel(pcols,pver) ! pressure thickness of levels (Pa)
+   real(r8), target, intent(in) :: t(pcols,pver)    ! temperature (K)
+   real(r8), target, intent(in) :: pmid(pcols,pver) ! pressure at model levels (Pa)
+   real(r8), target, intent(in) :: pdel(pcols,pver) ! pressure thickness of levels (Pa)
 
-   real(r8), intent(inout) :: q(ncol,pver,pcnstxx) 
+   real(r8), target, intent(inout) :: q(ncol,pver,pcnstxx)
                                             ! tracer mixing ratio (TMR) array
                                             ! *** MUST BE mol/mol-air or #/mol-air
                                             ! *** NOTE ncol & pcnstxx dimensions
-   real(r8), intent(in) :: dgncur_a(pcols,pver,ntot_amode)
+   real(r8), target, intent(in) :: dgncur_a(pcols,pver,ntot_amode)
                                  ! dry geo. mean dia. (m) of number distrib.
-   real(r8), intent(in) :: dgncur_awet(pcols,pver,ntot_amode)
+   real(r8), target, intent(in) :: dgncur_awet(pcols,pver,ntot_amode)
                                  ! wet geo. mean dia. (m) of number distrib.
-   real(r8), intent(in) :: wetdens_a(pcols,pver,ntot_amode) 
+   real(r8), target, intent(in) :: wetdens_a(pcols,pver,ntot_amode)
                                  ! density of wet aerosol (kg/m3)
 
 ! !DESCRIPTION: 
@@ -177,10 +260,37 @@
 	real(r8) :: ybetaij0(maxpair_acoag), ybetaij3(maxpair_acoag)
 	real(r8) :: ybetaii0(maxpair_acoag), ybetajj0(maxpair_acoag)
 
-        real(r8) :: dqdt(ncol,pver,pcnstxx)  ! TMR "dq/dt" array - NOTE dims
+        real(r8), target :: dqdt(ncol,pver,pcnstxx)
+                                             ! TMR "dq/dt" array - NOTE dims
         logical  :: dotend(pcnst)            ! identifies the species that
                                              ! tendencies are computed for
 	real(r8) :: qsrflx(pcols)
+        real(r8), target :: qsrflx_work(pcols,pcnstxx)
+        real(r8), target :: ybetaij0_work(pcols,pver,maxpair_acoag)
+        real(r8), target :: ybetaij3_work(pcols,pver,maxpair_acoag)
+        real(r8), target :: ybetaii0_work(pcols,pver,maxpair_acoag)
+        real(r8), target :: ybetajj0_work(pcols,pver,maxpair_acoag)
+        real(r8), target :: xnumbconc_work(pcols,pver,ntot_amode)
+        real(r8), target :: xnumbconcavg_work(pcols,pver,ntot_amode)
+        real(r8), target :: xnumbconcnew_work(pcols,pver,ntot_amode)
+        real(r8), target :: adv_mass_work(pcnstxx)
+        real(r8), target :: fac_m2v_aitage_work(maxd_aspectype)
+        real(r8), target :: fac_m2v_pcarbon_work(maxd_aspectype)
+        integer(c_int64_t), target :: dotend_mask(pcnstxx)
+        integer(c_int64_t), target :: idomode_c(ntot_amode)
+        integer(c_int64_t), target :: iselfcoagdone_work(pcols,pver,ntot_amode)
+        integer(c_int64_t), target :: modefrm_acoag_c(maxpair_acoag)
+        integer(c_int64_t), target :: modetoo_acoag_c(maxpair_acoag)
+        integer(c_int64_t), target :: nspecfrm_acoag_c(maxpair_acoag)
+        integer(c_int64_t), target :: lspecfrm_acoag_c(maxspec_acoag,maxpair_acoag)
+        integer(c_int64_t), target :: lspectoo_acoag_c(maxspec_acoag,maxpair_acoag)
+        integer(c_int64_t), target :: mprognum_amode_c(ntot_amode)
+        integer(c_int64_t), target :: numptr_amode_c(ntot_amode)
+        integer(c_int64_t), target :: nspec_amode_c(ntot_amode)
+        integer(c_int64_t), target :: lmassptr_amode_c(maxd_aspectype,ntot_amode)
+        integer(c_int64_t), target :: lptr_so4_a_amode_c(ntot_amode)
+        integer(c_int64_t), target :: lptr_nh4_a_amode_c(ntot_amode)
+        integer(c_int64_t), target :: lptr_soa_a_amode_c(ntot_amode)
 
         character(len=fieldname_len)   :: tmpname
         character(len=fieldname_len+3) :: fieldname
@@ -225,6 +335,147 @@
 	if (nfreqcoag .gt. 1) then
 	    if ( mod(nstep,nfreqcoag) .ne. jfreqcoag ) return
 	end if
+
+        call modal_aero_coag_sub_select_impl()
+
+        if (.not. modal_aero_coag_sub_use_native_impl) then
+	    deltat = nfreqcoag*deltat_main
+	    deltatinv_main = 1.0_r8/(deltat_main*(1.0_r8 + 1.0e-15_r8))
+
+            modefrm_acoag_c(:) = 0_c_int64_t
+            modetoo_acoag_c(:) = 0_c_int64_t
+            nspecfrm_acoag_c(:) = 0_c_int64_t
+            lspecfrm_acoag_c(:,:) = 0_c_int64_t
+            lspectoo_acoag_c(:,:) = 0_c_int64_t
+            idomode_c(:) = 0_c_int64_t
+            do ipair = 1, npair_acoag
+               modefrm_acoag_c(ipair) = int(modefrm_acoag(ipair), c_int64_t)
+               modetoo_acoag_c(ipair) = int(modetoo_acoag(ipair), c_int64_t)
+               nspecfrm_acoag_c(ipair) = int(nspecfrm_acoag(ipair), c_int64_t)
+               idomode_c(modefrm_acoag(ipair)) = 1_c_int64_t
+               idomode_c(modetoo_acoag(ipair)) = 1_c_int64_t
+               do iq = 1, nspecfrm_acoag(ipair)
+                  lspecfrm_acoag_c(iq,ipair) = int(lspecfrm_acoag(iq,ipair) - loffset, c_int64_t)
+                  lspectoo_acoag_c(iq,ipair) = int(lspectoo_acoag(iq,ipair) - loffset, c_int64_t)
+               end do
+            end do
+
+            lmassptr_amode_c(:,:) = 0_c_int64_t
+            do n = 1, ntot_amode
+               mprognum_amode_c(n) = int(mprognum_amode(n), c_int64_t)
+               numptr_amode_c(n) = int(numptr_amode(n) - loffset, c_int64_t)
+               nspec_amode_c(n) = int(nspec_amode(n), c_int64_t)
+               lptr_so4_a_amode_c(n) = int(lptr_so4_a_amode(n) - loffset, c_int64_t)
+               lptr_nh4_a_amode_c(n) = int(lptr_nh4_a_amode(n) - loffset, c_int64_t)
+               lptr_soa_a_amode_c(n) = int(lptr_soa_a_amode(n) - loffset, c_int64_t)
+               do l = 1, maxd_aspectype
+                  lmassptr_amode_c(l,n) = int(lmassptr_amode(l,n) - loffset, c_int64_t)
+               end do
+            end do
+
+            macc = modeptr_accum
+            mait = modeptr_aitken
+            mpca = modeptr_pcarbon
+
+            fac_m2v_aitage_work(:) = 0.0_r8
+            fac_m2v_pcarbon_work(:) = 0.0_r8
+            if (pair_option_acoag == 3) then
+               ip_aitacc = 1
+               ip_pcaacc = 2
+               ip_aitpca = 3
+               dr_so4_monolayers_pcage = n_so4_monolayers_pcage * 4.76e-10_r8
+
+               ipair = ip_aitpca
+               do iq = 1, nspecfrm_acoag(ipair)
+                  lsfrm = lspecfrm_acoag(iq,ipair)
+                  if (lsfrm == lptr_so4_a_amode(mait)) then
+                     fac_m2v_aitage_work(iq) = specmw_so4_amode / specdens_so4_amode
+                  else if (lsfrm == lptr_nh4_a_amode(mait)) then
+                     fac_m2v_aitage_work(iq) = specmw_nh4_amode / specdens_nh4_amode
+                  else if (lsfrm == lptr_soa_a_amode(mait)) then
+                     fac_m2v_aitage_work(iq) = soa_equivso4_factor*   &
+                                               (specmw_soa_amode / specdens_soa_amode)
+                  end if
+               end do
+
+               do l = 1, nspec_amode(mpca)
+                  l2 = lspectype_amode(l,mpca)
+                  fac_m2v_pcarbon_work(l) = specmw_amode(l2) / specdens_amode(l2)
+               end do
+
+               fac_volsfc_pcarbon = exp( 2.5_r8*(alnsg_amode(mpca)**2) )
+            else
+               ip_aitacc = -999888777
+               ip_pcaacc = -999888777
+               ip_aitpca = -999888777
+               dr_so4_monolayers_pcage = 0.0_r8
+               fac_volsfc_pcarbon = 0.0_r8
+            end if
+
+            adv_mass_work(:) = adv_mass(1:pcnstxx)
+
+            call modal_aero_coag_sub_codon_wrap( &
+                 1, ncol, deltat, deltatinv_main, xferfrac_max, dr_so4_monolayers_pcage, fac_volsfc_pcarbon, &
+                 ip_aitacc, ip_pcaacc, ip_aitpca, macc, mait, mpca, t, pmid, pdel, dgncur_a, q, dqdt, qsrflx_work, &
+                 ybetaij0_work, ybetaij3_work, ybetaii0_work, ybetajj0_work, xnumbconc_work, xnumbconcavg_work, &
+                 xnumbconcnew_work, iselfcoagdone_work, modefrm_acoag_c, modetoo_acoag_c, nspecfrm_acoag_c, &
+                 lspecfrm_acoag_c, lspectoo_acoag_c, mprognum_amode_c, numptr_amode_c, nspec_amode_c, &
+                 lmassptr_amode_c, lptr_so4_a_amode_c, lptr_nh4_a_amode_c, lptr_soa_a_amode_c, idomode_c, &
+                 fac_m2v_aitage_work, fac_m2v_pcarbon_work, adv_mass_work, dotend_mask )
+
+            ybetaij0_work(:,:,:) = 0.0_r8
+            ybetaij3_work(:,:,:) = 0.0_r8
+            ybetaii0_work(:,:,:) = 0.0_r8
+            ybetajj0_work(:,:,:) = 0.0_r8
+            do k = top_lev, pver
+            do i = 1, ncol
+            do ipair = 1, npair_acoag
+               modefrm = modefrm_acoag(ipair)
+               modetoo = modetoo_acoag(ipair)
+               call getcoags_wrapper_f(                                       &
+                    t(i,k), pmid(i,k),                                        &
+                    dgncur_awet(i,k,modefrm),     dgncur_awet(i,k,modetoo),   &
+                    sigmag_amode(modefrm),        sigmag_amode(modetoo),      &
+                    alnsg_amode(modefrm),         alnsg_amode(modetoo),       &
+                    wetdens_a(i,k,modefrm),       wetdens_a(i,k,modetoo),     &
+                    xbetaij0, xbetaij2i, xbetaij2j, xbetaij3,                 &
+                    xbetaii0, xbetaii2,  xbetajj0,  xbetajj2                  )
+               ybetaij0_work(i,k,ipair) = xbetaij0
+               ybetaij3_work(i,k,ipair) = xbetaij3
+               ybetaii0_work(i,k,ipair) = xbetaii0
+               ybetajj0_work(i,k,ipair) = xbetajj0
+            end do
+            end do
+            end do
+
+            call modal_aero_coag_sub_codon_wrap( &
+                 2, ncol, deltat, deltatinv_main, xferfrac_max, dr_so4_monolayers_pcage, fac_volsfc_pcarbon, &
+                 ip_aitacc, ip_pcaacc, ip_aitpca, macc, mait, mpca, t, pmid, pdel, dgncur_a, q, dqdt, qsrflx_work, &
+                 ybetaij0_work, ybetaij3_work, ybetaii0_work, ybetajj0_work, xnumbconc_work, xnumbconcavg_work, &
+                 xnumbconcnew_work, iselfcoagdone_work, modefrm_acoag_c, modetoo_acoag_c, nspecfrm_acoag_c, &
+                 lspecfrm_acoag_c, lspectoo_acoag_c, mprognum_amode_c, numptr_amode_c, nspec_amode_c, &
+                 lmassptr_amode_c, lptr_so4_a_amode_c, lptr_nh4_a_amode_c, lptr_soa_a_amode_c, idomode_c, &
+                 fac_m2v_aitage_work, fac_m2v_pcarbon_work, adv_mass_work, dotend_mask )
+
+            call modal_aero_coag_sub_codon_wrap( &
+                 3, ncol, deltat, deltatinv_main, xferfrac_max, dr_so4_monolayers_pcage, fac_volsfc_pcarbon, &
+                 ip_aitacc, ip_pcaacc, ip_aitpca, macc, mait, mpca, t, pmid, pdel, dgncur_a, q, dqdt, qsrflx_work, &
+                 ybetaij0_work, ybetaij3_work, ybetaii0_work, ybetajj0_work, xnumbconc_work, xnumbconcavg_work, &
+                 xnumbconcnew_work, iselfcoagdone_work, modefrm_acoag_c, modetoo_acoag_c, nspecfrm_acoag_c, &
+                 lspecfrm_acoag_c, lspectoo_acoag_c, mprognum_amode_c, numptr_amode_c, nspec_amode_c, &
+                 lmassptr_amode_c, lptr_so4_a_amode_c, lptr_nh4_a_amode_c, lptr_soa_a_amode_c, idomode_c, &
+                 fac_m2v_aitage_work, fac_m2v_pcarbon_work, adv_mass_work, dotend_mask )
+
+            do l = loffset+1, pcnst
+               lmz = l - loffset
+               if (lmz < 1 .or. lmz > pcnstxx) cycle
+               if (dotend_mask(lmz) == 0_c_int64_t) cycle
+               fieldname = trim(cnst_name(l)) // '_sfcoag1'
+               call outfld( fieldname, qsrflx_work(:,lmz), pcols, lchnk )
+            end do
+
+            return
+        end if
 
 !
 !   set idomode
@@ -747,6 +998,124 @@ main_ipair2: do ipair = 1, npair_acoag
 
 !EOC
 	end subroutine modal_aero_coag_sub
+
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+   subroutine modal_aero_coag_sub_codon_wrap( &
+        stage, ncol, deltat, deltatinv_main, xferfrac_max, dr_so4_monolayers_pcage, fac_volsfc_pcarbon, &
+        ip_aitacc, ip_pcaacc, ip_aitpca, macc, mait, mpca, t, pmid, pdel, dgncur_a, q, dqdt, qsrflx_work, &
+        ybetaij0_work, ybetaij3_work, ybetaii0_work, ybetajj0_work, xnumbconc_work, xnumbconcavg_work, &
+        xnumbconcnew_work, iselfcoagdone_work, modefrm_acoag_c, modetoo_acoag_c, nspecfrm_acoag_c, &
+        lspecfrm_acoag_c, lspectoo_acoag_c, mprognum_amode_c, numptr_amode_c, nspec_amode_c, &
+        lmassptr_amode_c, lptr_so4_a_amode_c, lptr_nh4_a_amode_c, lptr_soa_a_amode_c, idomode_c, &
+        fac_m2v_aitage_work, fac_m2v_pcarbon_work, adv_mass_work, dotend_mask )
+
+     use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+     use cam_logfile, only: iulog
+     use constituents, only: pcnst
+     use physconst, only: gravit, mwdry, r_universal
+     use ppgrid, only: pcols, pver
+     use ref_pres, only: top_lev => clim_modal_aero_top_lev
+     use spmd_utils, only: masterproc
+
+     implicit none
+
+     integer, intent(in) :: stage, ncol
+     integer, intent(in) :: ip_aitacc, ip_pcaacc, ip_aitpca, macc, mait, mpca
+     real(r8), intent(in) :: deltat, deltatinv_main, xferfrac_max
+     real(r8), intent(in) :: dr_so4_monolayers_pcage, fac_volsfc_pcarbon
+     real(r8), target, intent(in) :: t(pcols,pver), pmid(pcols,pver), pdel(pcols,pver)
+     real(r8), target, intent(in) :: dgncur_a(pcols,pver,ntot_amode)
+     real(r8), target, intent(inout) :: q(ncol,pver,pcnstxx), dqdt(ncol,pver,pcnstxx)
+     real(r8), target, intent(inout) :: qsrflx_work(pcols,pcnstxx)
+     real(r8), target, intent(in) :: ybetaij0_work(pcols,pver,maxpair_acoag)
+     real(r8), target, intent(in) :: ybetaij3_work(pcols,pver,maxpair_acoag)
+     real(r8), target, intent(in) :: ybetaii0_work(pcols,pver,maxpair_acoag)
+     real(r8), target, intent(in) :: ybetajj0_work(pcols,pver,maxpair_acoag)
+     real(r8), target, intent(inout) :: xnumbconc_work(pcols,pver,ntot_amode)
+     real(r8), target, intent(inout) :: xnumbconcavg_work(pcols,pver,ntot_amode)
+     real(r8), target, intent(inout) :: xnumbconcnew_work(pcols,pver,ntot_amode)
+     integer(c_int64_t), target, intent(inout) :: iselfcoagdone_work(pcols,pver,ntot_amode)
+     integer(c_int64_t), target, intent(in) :: modefrm_acoag_c(maxpair_acoag)
+     integer(c_int64_t), target, intent(in) :: modetoo_acoag_c(maxpair_acoag)
+     integer(c_int64_t), target, intent(in) :: nspecfrm_acoag_c(maxpair_acoag)
+     integer(c_int64_t), target, intent(in) :: lspecfrm_acoag_c(maxspec_acoag,maxpair_acoag)
+     integer(c_int64_t), target, intent(in) :: lspectoo_acoag_c(maxspec_acoag,maxpair_acoag)
+     integer(c_int64_t), target, intent(in) :: mprognum_amode_c(ntot_amode), numptr_amode_c(ntot_amode)
+     integer(c_int64_t), target, intent(in) :: nspec_amode_c(ntot_amode)
+     integer(c_int64_t), target, intent(in) :: lmassptr_amode_c(maxd_aspectype,ntot_amode)
+     integer(c_int64_t), target, intent(in) :: lptr_so4_a_amode_c(ntot_amode)
+     integer(c_int64_t), target, intent(in) :: lptr_nh4_a_amode_c(ntot_amode)
+     integer(c_int64_t), target, intent(in) :: lptr_soa_a_amode_c(ntot_amode)
+     integer(c_int64_t), target, intent(in) :: idomode_c(ntot_amode)
+     real(r8), target, intent(in) :: fac_m2v_aitage_work(maxd_aspectype)
+     real(r8), target, intent(in) :: fac_m2v_pcarbon_work(maxd_aspectype)
+     real(r8), target, intent(in) :: adv_mass_work(pcnstxx)
+     integer(c_int64_t), target, intent(inout) :: dotend_mask(pcnstxx)
+
+     character(len=96) :: wrap_proof_line
+
+     interface
+        subroutine modal_aero_coag_sub_codon( &
+             stage_c, ncol_c, pcols_c, pver_c, pcnstxx_c, pcnst_c, top_lev_c, ntot_amode_c, maxd_aspectype_c, &
+             maxpair_acoag_c, maxspec_acoag_c, pair_option_acoag_c, npair_acoag_c, ip_aitacc_c, ip_pcaacc_c, &
+             ip_aitpca_c, macc_c, mait_c, mpca_c, deltat_c, deltatinv_main_c, xferfrac_max_c, &
+             dr_so4_monolayers_pcage_c, fac_volsfc_pcarbon_c, r_universal_c, gravit_c, mwdry_c, q_p, dqdt_p, &
+             qsrflx_p, t_p, pmid_p, pdel_p, dgncur_a_p, ybetaij0_p, ybetaij3_p, ybetaii0_p, ybetajj0_p, &
+             xnumbconc_p, xnumbconcavg_p, xnumbconcnew_p, iselfcoagdone_p, modefrm_acoag_p, modetoo_acoag_p, &
+             nspecfrm_acoag_p, lspecfrm_acoag_p, lspectoo_acoag_p, mprognum_amode_p, numptr_amode_p, &
+             nspec_amode_p, lmassptr_amode_p, lptr_so4_a_amode_p, lptr_nh4_a_amode_p, lptr_soa_a_amode_p, &
+             idomode_p, fac_m2v_aitage_p, fac_m2v_pcarbon_p, adv_mass_p, dotend_p) &
+             bind(c, name="modal_aero_coag_sub_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, pcnstxx_c, pcnst_c, top_lev_c
+          integer(c_int64_t), value :: ntot_amode_c, maxd_aspectype_c, maxpair_acoag_c, maxspec_acoag_c
+          integer(c_int64_t), value :: pair_option_acoag_c, npair_acoag_c, ip_aitacc_c, ip_pcaacc_c, ip_aitpca_c
+          integer(c_int64_t), value :: macc_c, mait_c, mpca_c
+          real(c_double), value :: deltat_c, deltatinv_main_c, xferfrac_max_c
+          real(c_double), value :: dr_so4_monolayers_pcage_c, fac_volsfc_pcarbon_c, r_universal_c, gravit_c, mwdry_c
+          type(c_ptr), value :: q_p, dqdt_p, qsrflx_p, t_p, pmid_p, pdel_p, dgncur_a_p
+          type(c_ptr), value :: ybetaij0_p, ybetaij3_p, ybetaii0_p, ybetajj0_p
+          type(c_ptr), value :: xnumbconc_p, xnumbconcavg_p, xnumbconcnew_p, iselfcoagdone_p
+          type(c_ptr), value :: modefrm_acoag_p, modetoo_acoag_p, nspecfrm_acoag_p
+          type(c_ptr), value :: lspecfrm_acoag_p, lspectoo_acoag_p, mprognum_amode_p, numptr_amode_p
+          type(c_ptr), value :: nspec_amode_p, lmassptr_amode_p, lptr_so4_a_amode_p
+          type(c_ptr), value :: lptr_nh4_a_amode_p, lptr_soa_a_amode_p, idomode_p
+          type(c_ptr), value :: fac_m2v_aitage_p, fac_m2v_pcarbon_p, adv_mass_p, dotend_p
+        end subroutine modal_aero_coag_sub_codon
+     end interface
+
+     if (masterproc .and. .not. modal_aero_coag_sub_wrap_proof_written) then
+        write(wrap_proof_line,'(A,I0)') 'modal_aero_coag_sub_codon_wrap entered stage=', stage
+        write(iulog,'(A)') trim(wrap_proof_line)
+        call modal_aero_coag_sub_append_impl_proof('MODAL_AERO_COAG_SUB_PROOF_FILE', trim(wrap_proof_line))
+        modal_aero_coag_sub_wrap_proof_written = .true.
+        call flush(iulog)
+     end if
+
+     call modal_aero_coag_sub_codon( &
+          int(stage, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+          int(pcnstxx, c_int64_t), int(pcnst, c_int64_t), int(top_lev, c_int64_t), int(ntot_amode, c_int64_t), &
+          int(maxd_aspectype, c_int64_t), int(maxpair_acoag, c_int64_t), int(maxspec_acoag, c_int64_t), &
+          int(pair_option_acoag, c_int64_t), int(npair_acoag, c_int64_t), int(ip_aitacc, c_int64_t), &
+          int(ip_pcaacc, c_int64_t), int(ip_aitpca, c_int64_t), int(macc, c_int64_t), int(mait, c_int64_t), &
+          int(mpca, c_int64_t), real(deltat, c_double), real(deltatinv_main, c_double), &
+          real(xferfrac_max, c_double), real(dr_so4_monolayers_pcage, c_double), &
+          real(fac_volsfc_pcarbon, c_double), real(r_universal, c_double), real(gravit, c_double), &
+          real(mwdry, c_double), c_loc(q(1,1,1)), c_loc(dqdt(1,1,1)), c_loc(qsrflx_work(1,1)), &
+          c_loc(t(1,1)), c_loc(pmid(1,1)), c_loc(pdel(1,1)), c_loc(dgncur_a(1,1,1)), &
+          c_loc(ybetaij0_work(1,1,1)), c_loc(ybetaij3_work(1,1,1)), c_loc(ybetaii0_work(1,1,1)), &
+          c_loc(ybetajj0_work(1,1,1)), c_loc(xnumbconc_work(1,1,1)), c_loc(xnumbconcavg_work(1,1,1)), &
+          c_loc(xnumbconcnew_work(1,1,1)), c_loc(iselfcoagdone_work(1,1,1)), c_loc(modefrm_acoag_c(1)), &
+          c_loc(modetoo_acoag_c(1)), c_loc(nspecfrm_acoag_c(1)), c_loc(lspecfrm_acoag_c(1,1)), &
+          c_loc(lspectoo_acoag_c(1,1)), c_loc(mprognum_amode_c(1)), c_loc(numptr_amode_c(1)), &
+          c_loc(nspec_amode_c(1)), c_loc(lmassptr_amode_c(1,1)), c_loc(lptr_so4_a_amode_c(1)), &
+          c_loc(lptr_nh4_a_amode_c(1)), c_loc(lptr_soa_a_amode_c(1)), c_loc(idomode_c(1)), &
+          c_loc(fac_m2v_aitage_work(1)), c_loc(fac_m2v_pcarbon_work(1)), c_loc(adv_mass_work(1)), &
+          c_loc(dotend_mask(1)) )
+
+   end subroutine modal_aero_coag_sub_codon_wrap
 
 
 !----------------------------------------------------------------------
@@ -2858,6 +3227,3 @@ aa_iqfrm: do iqfrm = 1, nspec_amode(mfrm)
 !----------------------------------------------------------------------
 
    end module modal_aero_coag
-
-
-
