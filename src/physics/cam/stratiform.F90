@@ -65,6 +65,8 @@ logical            :: use_shfrc                       ! Local copy of flag from 
 logical            :: do_cnst = .false. ! True when this module has registered constituents.
 logical            :: use_native_impl = .false.
 logical            :: impl_selected = .false.
+logical            :: use_native_microphys_shell_impl = .false.
+logical            :: microphys_shell_impl_selected = .false.
 integer            :: branch_mask = 0
 logical            :: branch_selected = .false.
 
@@ -564,8 +566,10 @@ subroutine stratiform_tend( &
                           icefrac, landfrac, ocnfrac, state1%pmid, state1%pdel, state1%t, &
                           cld, state1%q(:,:,ixcldliq), state1%q(:,:,ixcldice),            & 
                           pvliq, pvice, landm, snowh )
-   
-   wsedl(:ncol,:pver) = pvliq(:ncol,:pver)/gravit/(state1%pmid(:ncol,:pver)/(287.15_r8*state1%t(:ncol,:pver)))
+
+   if (use_native_impl) then
+      wsedl(:ncol,:pver) = pvliq(:ncol,:pver)/gravit/(state1%pmid(:ncol,:pver)/(287.15_r8*state1%t(:ncol,:pver)))
+   end if
 
    lq(:)        = .FALSE.
    lq(1)        = .TRUE.
@@ -582,9 +586,13 @@ subroutine stratiform_tend( &
    ! Convert rain and snow fluxes at the surface from [kg/m2/s] to [m/s]
    ! Compute total precipitation flux at the surface in [m/s]
 
-   snow_sed(:ncol) = snow_sed(:ncol)/1000._r8
-   rain(:ncol)     = rain(:ncol)/1000._r8
-   prec_sed(:ncol) = rain(:ncol) + snow_sed(:ncol)
+   if (use_native_impl) then
+      snow_sed(:ncol) = snow_sed(:ncol)/1000._r8
+      rain(:ncol)     = rain(:ncol)/1000._r8
+      prec_sed(:ncol) = rain(:ncol) + snow_sed(:ncol)
+   else
+      call stratiform_sedimentation_diag(ncol, state1%pmid, state1%t, pvliq, wsedl, rain, snow_sed, prec_sed)
+   end if
 
    ! Record history variables
    call outfld( 'DQSED'   ,ptend_loc%q(:,:,1)       , pcols,lchnk )
@@ -621,11 +629,7 @@ subroutine stratiform_tend( &
    lq(ixcldliq) = .TRUE.
    call physics_ptend_init( ptend_loc, state1%psetcols, 'pcwdetrain', lq=lq)
    
-   do k = 1, pver
-      do i = 1, state1%ncol
-         ptend_loc%q(i,k,ixcldliq) = dlf(i,k)
-      end do
-   end do
+   call stratiform_detrain_assign(ncol, dlf, ptend_loc%q)
 
    call outfld( 'ZMDLF', dlf, pcols, lchnk )
    call outfld( 'SHDLF', dlf2, pcols, lchnk )
@@ -693,24 +697,7 @@ subroutine stratiform_tend( &
 
    call t_stopf("cldfrc")
 
-   rhu00(:ncol,1) = 2.0_r8
-   do k = 1, pver
-      do i = 1, ncol
-         if( relhum(i,k) < rhu00(i,k) ) then
-            rhdfda(i,k) = 0.0_r8
-         elseif( relhum(i,k) >= 1.0_r8 ) then
-            rhdfda(i,k) = 0.0_r8
-         else
-            ! Under certain circumstances, rh+ cause cld not to changed
-            ! when at an upper limit, or w/ strong subsidence
-            if( ( cld2(i,k) - cld(i,k) ) < 1.e-4_r8 ) then
-               rhdfda(i,k) = 0.01_r8*relhum(i,k)*1.e+4_r8  
-            else
-               rhdfda(i,k) = 0.01_r8*relhum(i,k)/(cld2(i,k)-cld(i,k))
-            endif
-         endif
-      enddo
-   enddo
+   call stratiform_rhdfda(ncol, relhum, rhu00, cld, cld2, rhdfda)
 
    ! ---------------------------------------------- !
    ! Stratiform Cloud Macrophysics and Microphysics !
@@ -734,10 +721,7 @@ subroutine stratiform_tend( &
    lq(ixcldliq) = .true.
    call physics_ptend_init( ptend_loc, state1%psetcols, 'cldwat-repartition', lq=lq )
 
-   totcw(:ncol,:pver)     = state1%q(:ncol,:pver,ixcldice) + state1%q(:ncol,:pver,ixcldliq)
-   repartht(:ncol,:pver)  = state1%q(:ncol,:pver,ixcldice)
-   ptend_loc%q(:ncol,:pver,ixcldice) = rdtime * ( totcw(:ncol,:pver)*fice(:ncol,:pver)          - state1%q(:ncol,:pver,ixcldice) )
-   ptend_loc%q(:ncol,:pver,ixcldliq) = rdtime * ( totcw(:ncol,:pver)*(1.0_r8-fice(:ncol,:pver)) - state1%q(:ncol,:pver,ixcldliq) )
+   call stratiform_repartition(ncol, rdtime, fice, state1%q, totcw, repartht, ptend_loc%q)
 
    call outfld( 'REPARTICE', ptend_loc%q(:,:,ixcldice), pcols, lchnk )
    call outfld( 'REPARTLIQ', ptend_loc%q(:,:,ixcldliq), pcols, lchnk )
@@ -747,14 +731,9 @@ subroutine stratiform_tend( &
 
    ! Determine repartition heating from change in cloud ice.
 
-   repartht(:ncol,:pver) = (latice/dtime) * ( state1%q(:ncol,:pver,ixcldice) - repartht(:ncol,:pver) )
-
    ! Non-micro and non-macrophysical external advective forcings to compute net condensation rate. 
    ! Note that advective forcing of condensate is aggregated into liquid phase.
-
-   qtend(:ncol,:pver) = ( state1%q(:ncol,:pver,1) - qcwat(:ncol,:pver) ) * rdtime
-   ttend(:ncol,:pver) = ( state1%t(:ncol,:pver)   - tcwat(:ncol,:pver) ) * rdtime
-   ltend(:ncol,:pver) = ( totcw   (:ncol,:pver)   - lcwat(:ncol,:pver) ) * rdtime
+   call stratiform_forcing_prep(ncol, dtime, state1%q, state1%t, qcwat, tcwat, lcwat, totcw, repartht, qtend, ttend, ltend)
 
    ! Compute Stratiform Macro-Microphysical Tendencies
 
@@ -779,35 +758,12 @@ subroutine stratiform_tend( &
    lq(ixcldliq) = .true.
    call physics_ptend_init( ptend_loc, state1%psetcols, 'cldwat', ls=.true., lq=lq)
 
-   do k = 1, pver
-      do i = 1, ncol
-         ptend_loc%s(i,k)          =   qme(i,k)*( latvap + latice*fice(i,k) ) + &
-                                       evapheat(i,k) + prfzheat(i,k) + meltheat(i,k) + repartht(i,k)
-         ptend_loc%q(i,k,1)        = - qme(i,k) + nevapr(i,k)
-         ptend_loc%q(i,k,ixcldice) =   qme(i,k)*fice(i,k)         - ice2pr(i,k)
-         ptend_loc%q(i,k,ixcldliq) =   qme(i,k)*(1._r8-fice(i,k)) - liq2pr(i,k)
-      end do
-   end do
- 
-   do k = 1, pver
-      do i = 1, ncol
-         ast(i,k)   = cld(i,k)
-         icimr(i,k) = (state1%q(i,k,ixcldice) + dtime*ptend_loc%q(i,k,ixcldice)) / max(0.01_r8,ast(i,k))
-         icwmr(i,k) = (state1%q(i,k,ixcldliq) + dtime*ptend_loc%q(i,k,ixcldliq)) / max(0.01_r8,ast(i,k))
-      end do
-   end do
+   call stratiform_select_microphys_shell_impl()
 
-   ! Convert precipitation from [ kg/m2 ] to [ m/s ]
-   snow_pcw(:ncol) = snow_pcw(:ncol)/1000._r8
-   prec_pcw(:ncol) = prec_pcw(:ncol)/1000._r8
+   call stratiform_microphys_tend_diag(ncol, dtime, cld, fice, qme, nevapr, evapheat, prfzheat, meltheat, ice2pr, liq2pr, &
+        state1%q, prec_pcw, snow_pcw, repartht, ptend_loc%q, ptend_loc%s, ast, icimr, icwmr, cmeheat, cmeice, cmeliq)
 
-   do k = 1, pver
-      do i = 1, ncol
-         cmeheat(i,k) = qme(i,k) * ( latvap + latice*fice(i,k) )
-         cmeice (i,k) = qme(i,k) *   fice(i,k)
-         cmeliq (i,k) = qme(i,k) * ( 1._r8 - fice(i,k) )
-      end do
-   end do
+   call stratiform_cloud_mixing_diag(ncol, state%q, cld, concld, mr_ccliq, mr_ccice, mr_lsliq, mr_lsice)
 
    ! Record history variables
 
@@ -834,28 +790,6 @@ subroutine stratiform_tend( &
    call outfld('PRACWO'   , pracwo,      pcols, lchnk )
    call outfld('PSACWO'   , psacwo,      pcols, lchnk )
    call outfld('PSACIO'   , psacio,      pcols, lchnk )
-
-   ! initialize local variables
-   mr_ccliq(1:ncol,1:pver) = 0._r8
-   mr_ccice(1:ncol,1:pver) = 0._r8
-   mr_lsliq(1:ncol,1:pver) = 0._r8
-   mr_lsice(1:ncol,1:pver) = 0._r8
-
-   do k=1,pver
-      do i=1,ncol
-         if (cld(i,k) .gt. 0._r8) then
-            mr_ccliq(i,k) = (state%q(i,k,ixcldliq)/cld(i,k))*concld(i,k)
-            mr_ccice(i,k) = (state%q(i,k,ixcldice)/cld(i,k))*concld(i,k)
-            mr_lsliq(i,k) = (state%q(i,k,ixcldliq)/cld(i,k))*(cld(i,k)-concld(i,k))
-            mr_lsice(i,k) = (state%q(i,k,ixcldice)/cld(i,k))*(cld(i,k)-concld(i,k))
-         else
-            mr_ccliq(i,k) = 0._r8
-            mr_ccice(i,k) = 0._r8
-            mr_lsliq(i,k) = 0._r8
-            mr_lsice(i,k) = 0._r8
-         end if
-      end do
-   end do
 
    call outfld( 'CLDLIQSTR  ', mr_lsliq,    pcols, lchnk )
    call outfld( 'CLDICESTR  ', mr_lsice,    pcols, lchnk )
@@ -889,14 +823,7 @@ subroutine stratiform_tend( &
    call outfld( 'CNVCLD  ', clc,    pcols, lchnk )
    call outfld( 'AST',      ast,    pcols, lchnk )   
 
-   do k = 1, pver
-      do i = 1, ncol
-         iwc(i,k)   = state1%q(i,k,ixcldice)*state1%pmid(i,k)/(287.15_r8*state1%t(i,k))
-         lwc(i,k)   = state1%q(i,k,ixcldliq)*state1%pmid(i,k)/(287.15_r8*state1%t(i,k))
-         icimr(i,k) = state1%q(i,k,ixcldice) / max(0.01_r8,rhcloud(i,k))
-         icwmr(i,k) = state1%q(i,k,ixcldliq) / max(0.01_r8,rhcloud(i,k))
-      end do
-   end do
+   call stratiform_postcloud_diag(ncol, state1%q, state1%pmid, state1%t, rhcloud, iwc, lwc, icimr, icwmr)
 
    call outfld( 'IWC'      , iwc,         pcols, lchnk )
    call outfld( 'LWC'      , lwc,         pcols, lchnk )
@@ -914,11 +841,7 @@ subroutine stratiform_tend( &
 
    ! Save variables for use in the macrophysics at the next time step
 
-   do k = 1, pver
-      qcwat(:ncol,k) = state1%q(:ncol,k,1)
-      tcwat(:ncol,k) = state1%t(:ncol,k)
-      lcwat(:ncol,k) = state1%q(:ncol,k,ixcldice) + state1%q(:ncol,k,ixcldliq)
-   end do
+   call stratiform_store_oldcloud(ncol, state1%q, state1%t, qcwat, tcwat, lcwat)
   
    ! Cloud water and ice particle sizes, saved in physics buffer for radiation
 
@@ -930,6 +853,695 @@ subroutine stratiform_tend( &
    call physics_state_dealloc(state1)
 
 end subroutine stratiform_tend
+
+!===============================================================================
+
+subroutine stratiform_detrain_assign(ncol_local, dlf_local, ptend_q_local)
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+   implicit none
+
+   integer, intent(in) :: ncol_local
+   real(r8), target, intent(in) :: dlf_local(pcols,pver)
+   real(r8), target, intent(inout) :: ptend_q_local(pcols,pver,pcnst)
+
+   interface
+      subroutine stratiform_detrain_assign_codon(ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, dlf_p, ptend_q_p) &
+           bind(c, name="stratiform_detrain_assign_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c
+         type(c_ptr), value :: dlf_p, ptend_q_p
+      end subroutine stratiform_detrain_assign_codon
+   end interface
+
+   if (use_native_impl) then
+      call stratiform_detrain_assign_native(ncol_local, dlf_local, ptend_q_local)
+      return
+   end if
+
+   call stratiform_detrain_assign_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), c_loc(dlf_local), c_loc(ptend_q_local))
+
+end subroutine stratiform_detrain_assign
+
+!===============================================================================
+
+subroutine stratiform_detrain_assign_native(ncol_local, dlf_local, ptend_q_local)
+
+   implicit none
+
+   integer, intent(in) :: ncol_local
+   real(r8), intent(in) :: dlf_local(pcols,pver)
+   real(r8), intent(inout) :: ptend_q_local(pcols,pver,pcnst)
+
+   integer :: i, k
+
+   do k = 1, pver
+      do i = 1, ncol_local
+         ptend_q_local(i,k,ixcldliq) = dlf_local(i,k)
+      end do
+   end do
+
+end subroutine stratiform_detrain_assign_native
+
+!===============================================================================
+
+subroutine stratiform_append_impl_proof(env_name, proof_line)
+
+   character(len=*), intent(in) :: env_name, proof_line
+   character(len=512) :: proof_path
+   integer :: status, n, unit_id
+
+   proof_path = ''
+   call get_environment_variable(env_name, value=proof_path, length=n, status=status)
+   if (status /= 0 .or. n <= 0) return
+
+   open(newunit=unit_id, file=trim(adjustl(proof_path(:n))), status='unknown', action='write', &
+        position='append', iostat=status)
+   if (status /= 0) return
+
+   write(unit_id,'(A)') trim(proof_line)
+   close(unit_id)
+
+end subroutine stratiform_append_impl_proof
+
+!===============================================================================
+
+subroutine stratiform_select_microphys_shell_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (microphys_shell_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('STRATIFORM_MICROPHYS_SHELL_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_microphys_shell_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_microphys_shell_impl = .false.
+   end if
+
+   microphys_shell_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_microphys_shell_impl) then
+         write(iulog,*) 'stratiform_microphys_shell implementation = native'
+         call stratiform_append_impl_proof('STRATIFORM_MICROPHYS_SHELL_PROOF_FILE', &
+              'stratiform_microphys_shell implementation = native')
+      else
+         write(iulog,*) 'stratiform_microphys_shell implementation = codon'
+         call stratiform_append_impl_proof('STRATIFORM_MICROPHYS_SHELL_PROOF_FILE', &
+              'stratiform_microphys_shell implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine stratiform_select_microphys_shell_impl
+
+!===============================================================================
+
+subroutine stratiform_microphys_shell_codon_wrap(ncol_local, dtime_local, cld_local, concld_local, fice_local, qme_local, &
+     nevapr_local, evapheat_local, prfzheat_local, meltheat_local, ice2pr_local, liq2pr_local, state_q_local, prec_pcw_local, &
+     snow_pcw_local, repartht_local, ptend_q_local, ptend_s_local, ast_local, icimr_local, icwmr_local, cmeheat_local, &
+     cmeice_local, cmeliq_local, mr_ccliq_local, mr_ccice_local, mr_lsliq_local, mr_lsice_local)
+
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+   integer, intent(in) :: ncol_local
+   real(r8), intent(in) :: dtime_local
+   real(r8), target, intent(in) :: cld_local(pcols,pver), concld_local(pcols,pver), fice_local(pcols,pver)
+   real(r8), target, intent(in) :: qme_local(pcols,pver), nevapr_local(pcols,pver), evapheat_local(pcols,pver)
+   real(r8), target, intent(in) :: prfzheat_local(pcols,pver), meltheat_local(pcols,pver), ice2pr_local(pcols,pver)
+   real(r8), target, intent(in) :: liq2pr_local(pcols,pver), state_q_local(pcols,pver,pcnst), repartht_local(pcols,pver)
+   real(r8), target, intent(inout) :: prec_pcw_local(pcols), snow_pcw_local(pcols), ptend_q_local(pcols,pver,pcnst)
+   real(r8), target, intent(inout) :: ptend_s_local(pcols,pver), ast_local(pcols,pver), icimr_local(pcols,pver)
+   real(r8), target, intent(inout) :: icwmr_local(pcols,pver), cmeheat_local(pcols,pver), cmeice_local(pcols,pver)
+   real(r8), target, intent(inout) :: cmeliq_local(pcols,pver), mr_ccliq_local(pcols,pver), mr_ccice_local(pcols,pver)
+   real(r8), target, intent(inout) :: mr_lsliq_local(pcols,pver), mr_lsice_local(pcols,pver)
+
+   interface
+      subroutine stratiform_microphys_shell_codon(ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, dtime_c, latvap_c, &
+           latice_c, cld_p, concld_p, fice_p, qme_p, nevapr_p, evapheat_p, prfzheat_p, meltheat_p, ice2pr_p, liq2pr_p, &
+           state_q_p, prec_pcw_p, snow_pcw_p, repartht_p, ptend_q_p, ptend_s_p, ast_p, icimr_p, icwmr_p, cmeheat_p, &
+           cmeice_p, cmeliq_p, mr_ccliq_p, mr_ccice_p, mr_lsliq_p, mr_lsice_p) bind(c, name="stratiform_microphys_shell_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c
+         real(c_double), value :: dtime_c, latvap_c, latice_c
+         type(c_ptr), value :: cld_p, concld_p, fice_p, qme_p, nevapr_p, evapheat_p, prfzheat_p, meltheat_p
+         type(c_ptr), value :: ice2pr_p, liq2pr_p, state_q_p, prec_pcw_p, snow_pcw_p, repartht_p, ptend_q_p, ptend_s_p
+         type(c_ptr), value :: ast_p, icimr_p, icwmr_p, cmeheat_p, cmeice_p, cmeliq_p, mr_ccliq_p, mr_ccice_p
+         type(c_ptr), value :: mr_lsliq_p, mr_lsice_p
+      end subroutine stratiform_microphys_shell_codon
+   end interface
+
+   call stratiform_microphys_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), dtime_local, latvap, latice, &
+        c_loc(cld_local), c_loc(concld_local), c_loc(fice_local), c_loc(qme_local), c_loc(nevapr_local), c_loc(evapheat_local), &
+        c_loc(prfzheat_local), c_loc(meltheat_local), c_loc(ice2pr_local), c_loc(liq2pr_local), c_loc(state_q_local), &
+        c_loc(prec_pcw_local), c_loc(snow_pcw_local), c_loc(repartht_local), c_loc(ptend_q_local), c_loc(ptend_s_local), &
+        c_loc(ast_local), c_loc(icimr_local), c_loc(icwmr_local), c_loc(cmeheat_local), c_loc(cmeice_local), c_loc(cmeliq_local), &
+        c_loc(mr_ccliq_local), c_loc(mr_ccice_local), c_loc(mr_lsliq_local), c_loc(mr_lsice_local))
+
+end subroutine stratiform_microphys_shell_codon_wrap
+
+!===============================================================================
+
+subroutine stratiform_sedimentation_diag(ncol_local, state_pmid_local, state_t_local, pvliq_local, wsedl_local, rain_local, &
+     snow_sed_local, prec_sed_local)
+
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+   implicit none
+
+   integer, intent(in) :: ncol_local
+   real(r8), target, intent(in) :: state_pmid_local(pcols,pver), state_t_local(pcols,pver), pvliq_local(pcols,pverp)
+   real(r8), target, intent(inout) :: wsedl_local(pcols,pver), prec_sed_local(pcols)
+   real(r8), target, intent(inout) :: rain_local(pcols), snow_sed_local(pcols)
+
+   interface
+      subroutine stratiform_sedimentation_diag_codon(ncol_c, pcols_c, pver_c, gravit_c, state_pmid_p, state_t_p, pvliq_p, &
+           wsedl_p, rain_p, snow_sed_p, prec_sed_p) bind(c, name="stratiform_sedimentation_diag_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: gravit_c
+         type(c_ptr), value :: state_pmid_p, state_t_p, pvliq_p, wsedl_p, rain_p, snow_sed_p, prec_sed_p
+      end subroutine stratiform_sedimentation_diag_codon
+   end interface
+
+   if (use_native_impl) then
+      call stratiform_sedimentation_diag_native(ncol_local, state_pmid_local, state_t_local, pvliq_local, wsedl_local, &
+           rain_local, snow_sed_local, prec_sed_local)
+      return
+   end if
+
+   call stratiform_sedimentation_diag_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        gravit, c_loc(state_pmid_local), c_loc(state_t_local), c_loc(pvliq_local), c_loc(wsedl_local), c_loc(rain_local), &
+        c_loc(snow_sed_local), c_loc(prec_sed_local))
+
+end subroutine stratiform_sedimentation_diag
+
+!===============================================================================
+
+subroutine stratiform_sedimentation_diag_native(ncol_local, state_pmid_local, state_t_local, pvliq_local, wsedl_local, &
+     rain_local, snow_sed_local, prec_sed_local)
+
+   implicit none
+
+   integer, intent(in) :: ncol_local
+   real(r8), intent(in) :: state_pmid_local(pcols,pver), state_t_local(pcols,pver), pvliq_local(pcols,pverp)
+   real(r8), intent(inout) :: wsedl_local(pcols,pver), prec_sed_local(pcols)
+   real(r8), intent(inout) :: rain_local(pcols), snow_sed_local(pcols)
+
+   integer :: i, k
+
+   do k = 1, pver
+      do i = 1, ncol_local
+         wsedl_local(i,k) = pvliq_local(i,k)/gravit/(state_pmid_local(i,k)/(287.15_r8*state_t_local(i,k)))
+      end do
+   end do
+
+   snow_sed_local(:ncol_local) = snow_sed_local(:ncol_local)/1000._r8
+   rain_local(:ncol_local) = rain_local(:ncol_local)/1000._r8
+   prec_sed_local(:ncol_local) = rain_local(:ncol_local) + snow_sed_local(:ncol_local)
+
+end subroutine stratiform_sedimentation_diag_native
+
+!===============================================================================
+
+subroutine stratiform_rhdfda(ncol_local, relhum_local, rhu00_local, cld_local, cld2_local, rhdfda_local)
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+   implicit none
+
+   integer, intent(in) :: ncol_local
+   real(r8), target, intent(in) :: relhum_local(pcols,pver), cld_local(pcols,pver), cld2_local(pcols,pver)
+   real(r8), target, intent(inout) :: rhu00_local(pcols,pver)
+   real(r8), target, intent(inout) :: rhdfda_local(pcols,pver)
+
+   interface
+      subroutine stratiform_rhdfda_codon(ncol_c, pcols_c, pver_c, relhum_p, rhu00_p, cld_p, cld2_p, rhdfda_p) &
+           bind(c, name="stratiform_rhdfda_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: relhum_p, rhu00_p, cld_p, cld2_p, rhdfda_p
+      end subroutine stratiform_rhdfda_codon
+   end interface
+
+   if (use_native_impl) then
+      call stratiform_rhdfda_native(ncol_local, relhum_local, rhu00_local, cld_local, cld2_local, rhdfda_local)
+      return
+   end if
+
+   call stratiform_rhdfda_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), c_loc(relhum_local), &
+        c_loc(rhu00_local), c_loc(cld_local), c_loc(cld2_local), c_loc(rhdfda_local))
+
+end subroutine stratiform_rhdfda
+
+!===============================================================================
+
+subroutine stratiform_rhdfda_native(ncol_local, relhum_local, rhu00_local, cld_local, cld2_local, rhdfda_local)
+
+   implicit none
+
+   integer, intent(in) :: ncol_local
+   real(r8), intent(in) :: relhum_local(pcols,pver), cld_local(pcols,pver), cld2_local(pcols,pver)
+   real(r8), intent(inout) :: rhu00_local(pcols,pver)
+   real(r8), intent(inout) :: rhdfda_local(pcols,pver)
+
+   integer :: i, k
+
+   rhu00_local(:ncol_local,1) = 2.0_r8
+   do k = 1, pver
+      do i = 1, ncol_local
+         if( relhum_local(i,k) < rhu00_local(i,k) ) then
+            rhdfda_local(i,k) = 0.0_r8
+         elseif( relhum_local(i,k) >= 1.0_r8 ) then
+            rhdfda_local(i,k) = 0.0_r8
+         else
+            if( ( cld2_local(i,k) - cld_local(i,k) ) < 1.e-4_r8 ) then
+               rhdfda_local(i,k) = 0.01_r8*relhum_local(i,k)*1.e+4_r8
+            else
+               rhdfda_local(i,k) = 0.01_r8*relhum_local(i,k)/(cld2_local(i,k)-cld_local(i,k))
+            endif
+         endif
+      enddo
+   enddo
+
+end subroutine stratiform_rhdfda_native
+
+!===============================================================================
+
+subroutine stratiform_repartition(ncol_local, rdtime_local, fice_local, state_q_local, totcw_local, repartht_local, ptend_q_local)
+
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+   implicit none
+
+   integer, intent(in) :: ncol_local
+   real(r8), intent(in) :: rdtime_local
+   real(r8), target, intent(in) :: fice_local(pcols,pver), state_q_local(pcols,pver,pcnst)
+   real(r8), target, intent(inout) :: totcw_local(pcols,pver), repartht_local(pcols,pver)
+   real(r8), target, intent(inout) :: ptend_q_local(pcols,pver,pcnst)
+
+   interface
+      subroutine stratiform_repartition_codon(ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, rdtime_c, fice_p, &
+           state_q_p, totcw_p, repartht_p, ptend_q_p) bind(c, name="stratiform_repartition_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c
+         real(c_double), value :: rdtime_c
+         type(c_ptr), value :: fice_p, state_q_p, totcw_p, repartht_p, ptend_q_p
+      end subroutine stratiform_repartition_codon
+   end interface
+
+   if (use_native_impl) then
+      call stratiform_repartition_native(ncol_local, rdtime_local, fice_local, state_q_local, totcw_local, repartht_local, &
+           ptend_q_local)
+      return
+   end if
+
+   call stratiform_repartition_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), rdtime_local, c_loc(fice_local), &
+        c_loc(state_q_local), c_loc(totcw_local), c_loc(repartht_local), c_loc(ptend_q_local))
+
+end subroutine stratiform_repartition
+
+!===============================================================================
+
+subroutine stratiform_repartition_native(ncol_local, rdtime_local, fice_local, state_q_local, totcw_local, repartht_local, &
+     ptend_q_local)
+
+   implicit none
+
+   integer, intent(in) :: ncol_local
+   real(r8), intent(in) :: rdtime_local
+   real(r8), intent(in) :: fice_local(pcols,pver), state_q_local(pcols,pver,pcnst)
+   real(r8), intent(inout) :: totcw_local(pcols,pver), repartht_local(pcols,pver)
+   real(r8), intent(inout) :: ptend_q_local(pcols,pver,pcnst)
+
+   totcw_local(:ncol_local,:pver) = state_q_local(:ncol_local,:pver,ixcldice) + state_q_local(:ncol_local,:pver,ixcldliq)
+   repartht_local(:ncol_local,:pver) = state_q_local(:ncol_local,:pver,ixcldice)
+   ptend_q_local(:ncol_local,:pver,ixcldice) = rdtime_local * (totcw_local(:ncol_local,:pver)*fice_local(:ncol_local,:pver) - &
+        state_q_local(:ncol_local,:pver,ixcldice))
+   ptend_q_local(:ncol_local,:pver,ixcldliq) = rdtime_local * ( &
+        totcw_local(:ncol_local,:pver)*(1.0_r8-fice_local(:ncol_local,:pver)) - &
+        state_q_local(:ncol_local,:pver,ixcldliq))
+
+end subroutine stratiform_repartition_native
+
+!===============================================================================
+
+subroutine stratiform_forcing_prep(ncol_local, dtime_local, state_q_local, state_t_local, qcwat_local, tcwat_local, lcwat_local, &
+     totcw_local, repartht_local, qtend_local, ttend_local, ltend_local)
+
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+   implicit none
+
+   integer, intent(in) :: ncol_local
+   real(r8), intent(in) :: dtime_local
+   real(r8), target, intent(in) :: state_q_local(pcols,pver,pcnst), state_t_local(pcols,pver), qcwat_local(pcols,pver), &
+        tcwat_local(pcols,pver), lcwat_local(pcols,pver), totcw_local(pcols,pver)
+   real(r8), target, intent(inout) :: repartht_local(pcols,pver)
+   real(r8), target, intent(inout) :: qtend_local(pcols,pver), ttend_local(pcols,pver), ltend_local(pcols,pver)
+
+   interface
+      subroutine stratiform_forcing_prep_codon(ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, dtime_c, latice_c, &
+           state_q_p, state_t_p, qcwat_p, tcwat_p, lcwat_p, totcw_p, repartht_p, qtend_p, ttend_p, ltend_p) &
+           bind(c, name="stratiform_forcing_prep_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c
+         real(c_double), value :: dtime_c, latice_c
+         type(c_ptr), value :: state_q_p, state_t_p, qcwat_p, tcwat_p, lcwat_p, totcw_p, repartht_p, qtend_p, ttend_p, ltend_p
+      end subroutine stratiform_forcing_prep_codon
+   end interface
+
+   if (use_native_impl) then
+      call stratiform_forcing_prep_native(ncol_local, dtime_local, state_q_local, state_t_local, qcwat_local, tcwat_local, &
+           lcwat_local, totcw_local, repartht_local, qtend_local, ttend_local, ltend_local)
+      return
+   end if
+
+   call stratiform_forcing_prep_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), dtime_local, latice, &
+        c_loc(state_q_local), c_loc(state_t_local), c_loc(qcwat_local), c_loc(tcwat_local), c_loc(lcwat_local), &
+        c_loc(totcw_local), c_loc(repartht_local), c_loc(qtend_local), c_loc(ttend_local), c_loc(ltend_local))
+
+end subroutine stratiform_forcing_prep
+
+!===============================================================================
+
+subroutine stratiform_forcing_prep_native(ncol_local, dtime_local, state_q_local, state_t_local, qcwat_local, tcwat_local, &
+     lcwat_local, totcw_local, repartht_local, qtend_local, ttend_local, ltend_local)
+
+   implicit none
+
+   integer, intent(in) :: ncol_local
+   real(r8), intent(in) :: dtime_local
+   real(r8), intent(in) :: state_q_local(pcols,pver,pcnst), state_t_local(pcols,pver), qcwat_local(pcols,pver), &
+        tcwat_local(pcols,pver), lcwat_local(pcols,pver), totcw_local(pcols,pver)
+   real(r8), intent(inout) :: repartht_local(pcols,pver)
+   real(r8), intent(inout) :: qtend_local(pcols,pver), ttend_local(pcols,pver), ltend_local(pcols,pver)
+
+   real(r8) :: rdtime_local
+
+   rdtime_local = 1._r8/dtime_local
+   repartht_local(:ncol_local,:pver) = (latice/dtime_local) * (state_q_local(:ncol_local,:pver,ixcldice) - &
+        repartht_local(:ncol_local,:pver))
+   qtend_local(:ncol_local,:pver) = (state_q_local(:ncol_local,:pver,1) - qcwat_local(:ncol_local,:pver)) * rdtime_local
+   ttend_local(:ncol_local,:pver) = (state_t_local(:ncol_local,:pver) - tcwat_local(:ncol_local,:pver)) * rdtime_local
+   ltend_local(:ncol_local,:pver) = (totcw_local(:ncol_local,:pver) - lcwat_local(:ncol_local,:pver)) * rdtime_local
+
+end subroutine stratiform_forcing_prep_native
+
+!===============================================================================
+
+subroutine stratiform_microphys_tend_diag(ncol_local, dtime_local, cld_local, fice_local, qme_local, nevapr_local, &
+     evapheat_local, prfzheat_local, meltheat_local, ice2pr_local, liq2pr_local, state_q_local, prec_pcw_local, snow_pcw_local, &
+     repartht_local, ptend_q_local, ptend_s_local, ast_local, icimr_local, icwmr_local, cmeheat_local, cmeice_local, cmeliq_local)
+
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+   implicit none
+
+   integer, intent(in) :: ncol_local
+   real(r8), intent(in) :: dtime_local
+   real(r8), target, intent(in) :: cld_local(pcols,pver), fice_local(pcols,pver), qme_local(pcols,pver), nevapr_local(pcols,pver), &
+        evapheat_local(pcols,pver), prfzheat_local(pcols,pver), meltheat_local(pcols,pver), ice2pr_local(pcols,pver), &
+        liq2pr_local(pcols,pver), state_q_local(pcols,pver,pcnst), repartht_local(pcols,pver)
+   real(r8), target, intent(inout) :: prec_pcw_local(pcols), snow_pcw_local(pcols), ptend_q_local(pcols,pver,pcnst)
+   real(r8), target, intent(inout) :: ptend_s_local(pcols,pver), ast_local(pcols,pver), icimr_local(pcols,pver), &
+        icwmr_local(pcols,pver), cmeheat_local(pcols,pver), cmeice_local(pcols,pver), cmeliq_local(pcols,pver)
+
+   interface
+      subroutine stratiform_microphys_tend_diag_codon(ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, dtime_c, &
+           latvap_c, latice_c, cld_p, fice_p, qme_p, nevapr_p, evapheat_p, prfzheat_p, meltheat_p, ice2pr_p, liq2pr_p, &
+           state_q_p, prec_pcw_p, snow_pcw_p, repartht_p, ptend_q_p, ptend_s_p, ast_p, icimr_p, icwmr_p, cmeheat_p, &
+           cmeice_p, cmeliq_p) bind(c, name="stratiform_microphys_tend_diag_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c
+         real(c_double), value :: dtime_c, latvap_c, latice_c
+         type(c_ptr), value :: cld_p, fice_p, qme_p, nevapr_p, evapheat_p, prfzheat_p, meltheat_p, ice2pr_p, liq2pr_p
+         type(c_ptr), value :: state_q_p, prec_pcw_p, snow_pcw_p, repartht_p, ptend_q_p, ptend_s_p, ast_p, icimr_p, icwmr_p
+         type(c_ptr), value :: cmeheat_p, cmeice_p, cmeliq_p
+      end subroutine stratiform_microphys_tend_diag_codon
+   end interface
+
+   if (use_native_microphys_shell_impl) then
+      call stratiform_microphys_tend_diag_native(ncol_local, dtime_local, cld_local, fice_local, qme_local, nevapr_local, &
+           evapheat_local, prfzheat_local, meltheat_local, ice2pr_local, liq2pr_local, state_q_local, prec_pcw_local, &
+           snow_pcw_local, repartht_local, ptend_q_local, ptend_s_local, ast_local, icimr_local, icwmr_local, cmeheat_local, &
+           cmeice_local, cmeliq_local)
+      return
+   end if
+
+   call stratiform_microphys_tend_diag_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), dtime_local, latvap, latice, &
+        c_loc(cld_local), c_loc(fice_local), c_loc(qme_local), c_loc(nevapr_local), c_loc(evapheat_local), c_loc(prfzheat_local), &
+        c_loc(meltheat_local), c_loc(ice2pr_local), c_loc(liq2pr_local), c_loc(state_q_local), c_loc(prec_pcw_local), &
+        c_loc(snow_pcw_local), c_loc(repartht_local), c_loc(ptend_q_local), c_loc(ptend_s_local), c_loc(ast_local), &
+        c_loc(icimr_local), c_loc(icwmr_local), c_loc(cmeheat_local), c_loc(cmeice_local), c_loc(cmeliq_local))
+
+end subroutine stratiform_microphys_tend_diag
+
+!===============================================================================
+
+subroutine stratiform_microphys_tend_diag_native(ncol_local, dtime_local, cld_local, fice_local, qme_local, nevapr_local, &
+     evapheat_local, prfzheat_local, meltheat_local, ice2pr_local, liq2pr_local, state_q_local, prec_pcw_local, snow_pcw_local, &
+     repartht_local, ptend_q_local, ptend_s_local, ast_local, icimr_local, icwmr_local, cmeheat_local, cmeice_local, cmeliq_local)
+
+   implicit none
+
+   integer, intent(in) :: ncol_local
+   real(r8), intent(in) :: dtime_local
+   real(r8), intent(in) :: cld_local(pcols,pver), fice_local(pcols,pver), qme_local(pcols,pver), nevapr_local(pcols,pver), &
+        evapheat_local(pcols,pver), prfzheat_local(pcols,pver), meltheat_local(pcols,pver), ice2pr_local(pcols,pver), &
+        liq2pr_local(pcols,pver), state_q_local(pcols,pver,pcnst), repartht_local(pcols,pver)
+   real(r8), intent(inout) :: prec_pcw_local(pcols), snow_pcw_local(pcols), ptend_q_local(pcols,pver,pcnst)
+   real(r8), intent(inout) :: ptend_s_local(pcols,pver), ast_local(pcols,pver), icimr_local(pcols,pver), icwmr_local(pcols,pver), &
+        cmeheat_local(pcols,pver), cmeice_local(pcols,pver), cmeliq_local(pcols,pver)
+
+   integer :: i, k
+
+   do k = 1, pver
+      do i = 1, ncol_local
+         ptend_s_local(i,k) = qme_local(i,k)*(latvap + latice*fice_local(i,k)) + evapheat_local(i,k) + prfzheat_local(i,k) + &
+              meltheat_local(i,k) + repartht_local(i,k)
+         ptend_q_local(i,k,1) = -qme_local(i,k) + nevapr_local(i,k)
+         ptend_q_local(i,k,ixcldice) = qme_local(i,k)*fice_local(i,k) - ice2pr_local(i,k)
+         ptend_q_local(i,k,ixcldliq) = qme_local(i,k)*(1._r8-fice_local(i,k)) - liq2pr_local(i,k)
+      end do
+   end do
+
+   do k = 1, pver
+      do i = 1, ncol_local
+         ast_local(i,k) = cld_local(i,k)
+         icimr_local(i,k) = (state_q_local(i,k,ixcldice) + dtime_local*ptend_q_local(i,k,ixcldice)) / max(0.01_r8, ast_local(i,k))
+         icwmr_local(i,k) = (state_q_local(i,k,ixcldliq) + dtime_local*ptend_q_local(i,k,ixcldliq)) / max(0.01_r8, ast_local(i,k))
+      end do
+   end do
+
+   snow_pcw_local(:ncol_local) = snow_pcw_local(:ncol_local)/1000._r8
+   prec_pcw_local(:ncol_local) = prec_pcw_local(:ncol_local)/1000._r8
+
+   do k = 1, pver
+      do i = 1, ncol_local
+         cmeheat_local(i,k) = qme_local(i,k) * (latvap + latice*fice_local(i,k))
+         cmeice_local(i,k) = qme_local(i,k) * fice_local(i,k)
+         cmeliq_local(i,k) = qme_local(i,k) * (1._r8 - fice_local(i,k))
+      end do
+   end do
+
+end subroutine stratiform_microphys_tend_diag_native
+
+!===============================================================================
+
+subroutine stratiform_cloud_mixing_diag(ncol_local, state_q_local, cld_local, concld_local, mr_ccliq_local, mr_ccice_local, &
+     mr_lsliq_local, mr_lsice_local)
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+   implicit none
+
+   integer, intent(in) :: ncol_local
+   real(r8), target, intent(in) :: state_q_local(pcols,pver,pcnst), cld_local(pcols,pver), concld_local(pcols,pver)
+   real(r8), target, intent(inout) :: mr_ccliq_local(pcols,pver), mr_ccice_local(pcols,pver), mr_lsliq_local(pcols,pver), &
+        mr_lsice_local(pcols,pver)
+
+   interface
+      subroutine stratiform_cloud_mixing_diag_codon(ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, state_q_p, cld_p, &
+           concld_p, mr_ccliq_p, mr_ccice_p, mr_lsliq_p, mr_lsice_p) bind(c, name="stratiform_cloud_mixing_diag_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c
+         type(c_ptr), value :: state_q_p, cld_p, concld_p, mr_ccliq_p, mr_ccice_p, mr_lsliq_p, mr_lsice_p
+      end subroutine stratiform_cloud_mixing_diag_codon
+   end interface
+
+   if (use_native_microphys_shell_impl) then
+      call stratiform_cloud_mixing_diag_native(ncol_local, state_q_local, cld_local, concld_local, mr_ccliq_local, &
+           mr_ccice_local, mr_lsliq_local, mr_lsice_local)
+      return
+   end if
+
+   call stratiform_cloud_mixing_diag_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), c_loc(state_q_local), c_loc(cld_local), &
+        c_loc(concld_local), c_loc(mr_ccliq_local), c_loc(mr_ccice_local), c_loc(mr_lsliq_local), c_loc(mr_lsice_local))
+
+end subroutine stratiform_cloud_mixing_diag
+
+!===============================================================================
+
+subroutine stratiform_cloud_mixing_diag_native(ncol_local, state_q_local, cld_local, concld_local, mr_ccliq_local, mr_ccice_local, &
+     mr_lsliq_local, mr_lsice_local)
+
+   implicit none
+
+   integer, intent(in) :: ncol_local
+   real(r8), intent(in) :: state_q_local(pcols,pver,pcnst), cld_local(pcols,pver), concld_local(pcols,pver)
+   real(r8), intent(inout) :: mr_ccliq_local(pcols,pver), mr_ccice_local(pcols,pver), mr_lsliq_local(pcols,pver), &
+        mr_lsice_local(pcols,pver)
+
+   integer :: i, k
+
+   do k = 1, pver
+      do i = 1, ncol_local
+         if (cld_local(i,k) .gt. 0._r8) then
+            mr_ccliq_local(i,k) = (state_q_local(i,k,ixcldliq)/cld_local(i,k))*concld_local(i,k)
+            mr_ccice_local(i,k) = (state_q_local(i,k,ixcldice)/cld_local(i,k))*concld_local(i,k)
+            mr_lsliq_local(i,k) = (state_q_local(i,k,ixcldliq)/cld_local(i,k))*(cld_local(i,k)-concld_local(i,k))
+            mr_lsice_local(i,k) = (state_q_local(i,k,ixcldice)/cld_local(i,k))*(cld_local(i,k)-concld_local(i,k))
+         else
+            mr_ccliq_local(i,k) = 0._r8
+            mr_ccice_local(i,k) = 0._r8
+            mr_lsliq_local(i,k) = 0._r8
+            mr_lsice_local(i,k) = 0._r8
+         end if
+      end do
+   end do
+
+end subroutine stratiform_cloud_mixing_diag_native
+
+!===============================================================================
+
+subroutine stratiform_postcloud_diag(ncol_local, state_q_local, state_pmid_local, state_t_local, rhcloud_local, iwc_local, &
+     lwc_local, icimr_local, icwmr_local)
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+   implicit none
+
+   integer, intent(in) :: ncol_local
+   real(r8), target, intent(in) :: state_q_local(pcols,pver,pcnst), state_pmid_local(pcols,pver), state_t_local(pcols,pver), &
+        rhcloud_local(pcols,pver)
+   real(r8), target, intent(inout) :: iwc_local(pcols,pver), lwc_local(pcols,pver), icimr_local(pcols,pver), icwmr_local(pcols,pver)
+
+   interface
+      subroutine stratiform_postcloud_diag_codon(ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, state_q_p, &
+           state_pmid_p, state_t_p, rhcloud_p, iwc_p, lwc_p, icimr_p, icwmr_p) bind(c, name="stratiform_postcloud_diag_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c
+         type(c_ptr), value :: state_q_p, state_pmid_p, state_t_p, rhcloud_p, iwc_p, lwc_p, icimr_p, icwmr_p
+      end subroutine stratiform_postcloud_diag_codon
+   end interface
+
+   if (use_native_impl) then
+      call stratiform_postcloud_diag_native(ncol_local, state_q_local, state_pmid_local, state_t_local, rhcloud_local, iwc_local, &
+           lwc_local, icimr_local, icwmr_local)
+      return
+   end if
+
+   call stratiform_postcloud_diag_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), c_loc(state_q_local), &
+        c_loc(state_pmid_local), c_loc(state_t_local), c_loc(rhcloud_local), c_loc(iwc_local), c_loc(lwc_local), &
+        c_loc(icimr_local), c_loc(icwmr_local))
+
+end subroutine stratiform_postcloud_diag
+
+!===============================================================================
+
+subroutine stratiform_postcloud_diag_native(ncol_local, state_q_local, state_pmid_local, state_t_local, rhcloud_local, iwc_local, &
+     lwc_local, icimr_local, icwmr_local)
+
+   implicit none
+
+   integer, intent(in) :: ncol_local
+   real(r8), intent(in) :: state_q_local(pcols,pver,pcnst), state_pmid_local(pcols,pver), state_t_local(pcols,pver), &
+        rhcloud_local(pcols,pver)
+   real(r8), intent(inout) :: iwc_local(pcols,pver), lwc_local(pcols,pver), icimr_local(pcols,pver), icwmr_local(pcols,pver)
+
+   integer :: i, k
+
+   do k = 1, pver
+      do i = 1, ncol_local
+         iwc_local(i,k) = state_q_local(i,k,ixcldice)*state_pmid_local(i,k)/(287.15_r8*state_t_local(i,k))
+         lwc_local(i,k) = state_q_local(i,k,ixcldliq)*state_pmid_local(i,k)/(287.15_r8*state_t_local(i,k))
+         icimr_local(i,k) = state_q_local(i,k,ixcldice) / max(0.01_r8,rhcloud_local(i,k))
+         icwmr_local(i,k) = state_q_local(i,k,ixcldliq) / max(0.01_r8,rhcloud_local(i,k))
+      end do
+   end do
+
+end subroutine stratiform_postcloud_diag_native
+
+!===============================================================================
+
+subroutine stratiform_store_oldcloud(ncol_local, state_q_local, state_t_local, qcwat_local, tcwat_local, lcwat_local)
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+   implicit none
+
+   integer, intent(in) :: ncol_local
+   real(r8), target, intent(in) :: state_q_local(pcols,pver,pcnst), state_t_local(pcols,pver)
+   real(r8), target, intent(inout) :: qcwat_local(pcols,pver), tcwat_local(pcols,pver), lcwat_local(pcols,pver)
+
+   interface
+      subroutine stratiform_store_oldcloud_codon(ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, state_q_p, &
+           state_t_p, qcwat_p, tcwat_p, lcwat_p) bind(c, name="stratiform_store_oldcloud_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c
+         type(c_ptr), value :: state_q_p, state_t_p, qcwat_p, tcwat_p, lcwat_p
+      end subroutine stratiform_store_oldcloud_codon
+   end interface
+
+   if (use_native_impl) then
+      call stratiform_store_oldcloud_native(ncol_local, state_q_local, state_t_local, qcwat_local, tcwat_local, lcwat_local)
+      return
+   end if
+
+   call stratiform_store_oldcloud_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), c_loc(state_q_local), c_loc(state_t_local), &
+        c_loc(qcwat_local), c_loc(tcwat_local), c_loc(lcwat_local))
+
+end subroutine stratiform_store_oldcloud
+
+!===============================================================================
+
+subroutine stratiform_store_oldcloud_native(ncol_local, state_q_local, state_t_local, qcwat_local, tcwat_local, lcwat_local)
+
+   implicit none
+
+   integer, intent(in) :: ncol_local
+   real(r8), intent(in) :: state_q_local(pcols,pver,pcnst), state_t_local(pcols,pver)
+   real(r8), intent(inout) :: qcwat_local(pcols,pver), tcwat_local(pcols,pver), lcwat_local(pcols,pver)
+
+   integer :: k
+
+   do k = 1, pver
+      qcwat_local(:ncol_local,k) = state_q_local(:ncol_local,k,1)
+      tcwat_local(:ncol_local,k) = state_t_local(:ncol_local,k)
+      lcwat_local(:ncol_local,k) = state_q_local(:ncol_local,k,ixcldice) + state_q_local(:ncol_local,k,ixcldliq)
+   end do
+
+end subroutine stratiform_store_oldcloud_native
 
 !===============================================================================
 
@@ -960,8 +1572,10 @@ subroutine stratiform_select_impl()
    if (masterproc) then
       if (use_native_impl) then
          write(iulog,*) 'stratiform_tend implementation = native'
+         write(*,*) 'stratiform_tend implementation = native'
       else
          write(iulog,*) 'stratiform_tend implementation = codon'
+         write(*,*) 'stratiform_tend implementation = codon'
       end if
    end if
 
