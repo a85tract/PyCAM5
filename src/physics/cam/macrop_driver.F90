@@ -101,6 +101,10 @@
   integer :: branch_mask = 0
   logical :: branch_selected = .false.
   logical :: wtrc_detrain_impl_logged = .false.
+  logical :: use_native_wtrc_shell_impl = .false.
+  logical :: wtrc_shell_impl_selected = .false.
+  logical :: use_native_wtrc_process_impl = .false.
+  logical :: wtrc_process_impl_selected = .false.
 
   contains
 
@@ -1000,38 +1004,51 @@ end subroutine macrop_driver_readnl
    
    if (trace_water_local) then
 
-     ! Setup the process rate matrix using the pre-sedimentation state and
-     ! the calculated process rates.
-     !
-     ! NOTE: The reverse of the process is filled in automatically.
-     call wtrc_init_rates(top_lev, process_rates)
+     call macrop_driver_select_wtrc_shell_impl()
 
-     ! Processes that consume water vapor:
+     if (use_native_wtrc_shell_impl) then
+        call macrop_driver_select_wtrc_process_impl()
 
-     !initalize variables - JN
-     pqctn(:,top_lev:) = 0._r8
-     nqctn(:,top_lev:) = 0._r8
-     pqitn(:,top_lev:) = 0._r8
-     nqitn(:,top_lev:) = 0._r8
+        ! Setup the process rate matrix using the pre-sedimentation state and
+        ! the calculated process rates.
+        !
+        ! NOTE: The reverse of the process is filled in automatically.
+        if (use_native_wtrc_process_impl) then
+           call wtrc_init_rates(top_lev, process_rates)
 
-     !split into positive and negative tendencies - JN
-     call macrop_driver_wtrc_split_tend(ncol, qcten, qiten, pqctn, nqctn, pqitn, nqitn)
+           ! Processes that consume water vapor:
 
-     call wtrc_add_rates(process_rates, ncol, top_lev, iwtvap, iwtvap, iwtvap, qvlat + qcten + qiten)
+           !initalize variables - JN
+           pqctn(:,top_lev:) = 0._r8
+           nqctn(:,top_lev:) = 0._r8
+           pqitn(:,top_lev:) = 0._r8
+           nqitn(:,top_lev:) = 0._r8
 
-     call wtrc_add_rates(process_rates, ncol, top_lev, iwtvap, iwtliq, iwtvap, pqctn)
-     call wtrc_add_rates(process_rates, ncol, top_lev, iwtvap, iwtliq, iwtliq, nqctn)
-     call wtrc_add_rates(process_rates, ncol, top_lev, iwtvap, iwtice, iwtvap, pqitn)
-     call wtrc_add_rates(process_rates, ncol, top_lev, iwtvap, iwtice, iwtice, nqitn)
+           !split into positive and negative tendencies - JN
+           call macrop_driver_wtrc_split_tend(ncol, qcten, qiten, pqctn, nqctn, pqitn, nqitn)
 
-    !debugging:
-!     call wtrc_add_rates(process_rates, ncol, top_lev, iwtvap, iwtvap, qvlat, do_reverse=.false. )
-!     call wtrc_add_rates(process_rates, ncol, top_lev, iwtliq, iwtliq, qcten, do_reverse=.false. )
-!     call wtrc_add_rates(process_rates, ncol, top_lev, iwtice, iwtice, qiten, do_reverse=.false. )
+           call wtrc_add_rates(process_rates, ncol, top_lev, iwtvap, iwtvap, iwtvap, qvlat + qcten + qiten)
 
-     ! Apply these rates.
-     call wtrc_apply_rates(state_loc, ptend_loc, pbuf, top_lev, dtime, .false., pre_rates=process_rates, &
-                           prelat=tlat)
+           call wtrc_add_rates(process_rates, ncol, top_lev, iwtvap, iwtliq, iwtvap, pqctn)
+           call wtrc_add_rates(process_rates, ncol, top_lev, iwtvap, iwtliq, iwtliq, nqctn)
+           call wtrc_add_rates(process_rates, ncol, top_lev, iwtvap, iwtice, iwtvap, pqitn)
+           call wtrc_add_rates(process_rates, ncol, top_lev, iwtvap, iwtice, iwtice, nqitn)
+        else
+           call macrop_driver_wtrc_process_rates_codon_wrap(ncol, qvlat, qcten, qiten, process_rates)
+        end if
+
+       !debugging:
+!        call wtrc_add_rates(process_rates, ncol, top_lev, iwtvap, iwtvap, qvlat, do_reverse=.false. )
+!        call wtrc_add_rates(process_rates, ncol, top_lev, iwtliq, iwtliq, qcten, do_reverse=.false. )
+!        call wtrc_add_rates(process_rates, ncol, top_lev, iwtice, iwtice, qiten, do_reverse=.false. )
+
+        ! Apply these rates.
+        call wtrc_apply_rates(state_loc, ptend_loc, pbuf, top_lev, dtime, .false., pre_rates=process_rates, &
+                              prelat=tlat)
+     else
+        call macrop_driver_wtrc_shell_codon_wrap(ncol, dtime, state_loc%q, state_loc%t, state_loc%pmid, ptend_loc%q, &
+             qvlat, qcten, qiten, tlat, process_rates)
+     end if
 
    end if !water tracers
 
@@ -1849,6 +1866,224 @@ subroutine macrop_driver_store_state_native(ncol_local, state_t_local, state_qv_
   end do
 
 end subroutine macrop_driver_store_state_native
+
+!============================================================================ !
+
+subroutine macrop_driver_append_impl_proof(env_name, proof_line)
+
+  character(len=*), intent(in) :: env_name, proof_line
+  character(len=512) :: proof_path
+  integer :: status, n, unit_id
+
+  proof_path = ''
+  call get_environment_variable(env_name, value=proof_path, length=n, status=status)
+  if (status /= 0 .or. n <= 0) return
+
+  open(newunit=unit_id, file=trim(adjustl(proof_path(:n))), status='unknown', action='write', &
+       position='append', iostat=status)
+  if (status /= 0) return
+
+  write(unit_id,'(A)') trim(proof_line)
+  close(unit_id)
+
+end subroutine macrop_driver_append_impl_proof
+
+!============================================================================ !
+
+subroutine macrop_driver_select_wtrc_shell_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (wtrc_shell_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MACROP_DRIVER_WTRC_SHELL_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_wtrc_shell_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_wtrc_shell_impl = .false.
+  end if
+
+  wtrc_shell_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_wtrc_shell_impl) then
+        write(iulog,*) 'macrop_driver_wtrc_shell implementation = native'
+        call macrop_driver_append_impl_proof('MACROP_DRIVER_WTRC_SHELL_PROOF_FILE', &
+             'macrop_driver_wtrc_shell implementation = native')
+     else
+        write(iulog,*) 'macrop_driver_wtrc_shell implementation = codon'
+        call macrop_driver_append_impl_proof('MACROP_DRIVER_WTRC_SHELL_PROOF_FILE', &
+             'macrop_driver_wtrc_shell implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine macrop_driver_select_wtrc_shell_impl
+
+!============================================================================ !
+
+subroutine macrop_driver_select_wtrc_process_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (wtrc_process_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MACROP_DRIVER_WTRC_PROCESS_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_wtrc_process_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_wtrc_process_impl = .false.
+  end if
+
+  wtrc_process_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_wtrc_process_impl) then
+        write(iulog,*) 'macrop_driver_wtrc_process implementation = native'
+        call macrop_driver_append_impl_proof('MACROP_DRIVER_WTRC_PROCESS_PROOF_FILE', &
+             'macrop_driver_wtrc_process implementation = native')
+     else
+        write(iulog,*) 'macrop_driver_wtrc_process implementation = codon'
+        call macrop_driver_append_impl_proof('MACROP_DRIVER_WTRC_PROCESS_PROOF_FILE', &
+             'macrop_driver_wtrc_process implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine macrop_driver_select_wtrc_process_impl
+
+!============================================================================ !
+
+subroutine macrop_driver_wtrc_shell_codon_wrap(ncol_local, dtime_local, state_q_local, state_t_local, state_pmid_local, &
+     ptend_q_local, qvlat_local, qcten_local, qiten_local, prelat_local, process_rates_local)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  use constituents, only: pcnst
+  use physconst, only: cpair, epsilo
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+  use water_isotopes, only: pwtspec
+  use water_tracer_vars, only: wisotope, wtrc_iatype, wtrc_iawset, wtrc_bulk_indices, wtrc_indices, &
+       wtrc_ncnst, wtrc_niter, wtrc_nwset, iwspec, wtrc_qmin
+  use water_tracers, only: wtrc_get_rstd
+  use water_types, only: pwtype, iwtvap, iwtliq, iwtice
+
+  integer, intent(in) :: ncol_local
+  real(r8), intent(in) :: dtime_local
+  real(r8), target, intent(in) :: state_q_local(pcols,pver,pcnst), state_t_local(pcols,pver), state_pmid_local(pcols,pver)
+  real(r8), target, intent(inout) :: ptend_q_local(pcols,pver,pcnst)
+  real(r8), target, intent(in) :: qvlat_local(pcols,pver), qcten_local(pcols,pver), qiten_local(pcols,pver)
+  real(r8), target, intent(in) :: prelat_local(pcols,pver)
+  real(r8), target, intent(inout) :: process_rates_local(pcols,pver,pwtype,pwtype,pwtype)
+
+  integer :: ispec
+  integer(c_int64_t), target :: wisotope_c
+  integer(c_int64_t), target :: wtrc_iawset64(pwtype,wtrc_nwset)
+  integer(c_int64_t), target :: wtrc_iatype64(wtrc_nwset,pwtype)
+  integer(c_int64_t), target :: wtrc_bulk_indices64(pwtype)
+  integer(c_int64_t), target :: wtrc_indices64(wtrc_ncnst)
+  integer(c_int64_t), target :: iwspec64(pcnst)
+  real(c_double), target :: rstd(pwtspec)
+  real(r8), target :: qloc_local(pcols,pver,pcnst)
+  real(r8), target :: qloc0_local(pcols,pver,pcnst)
+  real(r8), target :: tloc_local(pcols,pver)
+  real(r8), target :: diff_local(pcols,pver,pwtype)
+
+  interface
+     subroutine macrop_driver_wtrc_shell_codon(ncol_c, pcols_c, pver_c, pcnst_c, pwtype_c, top_lev_c, wtrc_niter_c, &
+          wtrc_ncnst_c, wtrc_nwset_c, wisotope_c, iwtvap_c, iwtliq_c, iwtice_c, cpair_c, dtime_c, wtrc_qmin_c, epsilo_c, &
+          state_q_p, state_t_p, state_pmid_p, ptend_q_p, qvlat_p, qcten_p, qiten_p, prelat_p, process_rates_p, qloc_p, &
+          qloc0_p, tloc_p, diff_p, wtrc_iawset_p, wtrc_iatype_p, wtrc_bulk_indices_p, wtrc_indices_p, iwspec_p, rstd_p) &
+          bind(c, name="macrop_driver_wtrc_shell_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, pwtype_c, top_lev_c, wtrc_niter_c
+       integer(c_int64_t), value :: wtrc_ncnst_c, wtrc_nwset_c, wisotope_c, iwtvap_c, iwtliq_c, iwtice_c
+       real(c_double), value :: cpair_c, dtime_c, wtrc_qmin_c, epsilo_c
+       type(c_ptr), value :: state_q_p, state_t_p, state_pmid_p, ptend_q_p, qvlat_p, qcten_p, qiten_p, prelat_p
+       type(c_ptr), value :: process_rates_p, qloc_p, qloc0_p, tloc_p, diff_p
+       type(c_ptr), value :: wtrc_iawset_p, wtrc_iatype_p, wtrc_bulk_indices_p, wtrc_indices_p, iwspec_p, rstd_p
+     end subroutine macrop_driver_wtrc_shell_codon
+  end interface
+
+  do ispec = 1, pwtspec
+     rstd(ispec) = real(wtrc_get_rstd(ispec), c_double)
+  end do
+  do ispec = 1, wtrc_nwset
+     wtrc_iawset64(:,ispec) = int(wtrc_iawset(:,ispec), c_int64_t)
+  end do
+  do ispec = 1, pwtype
+     wtrc_iatype64(:,ispec) = int(wtrc_iatype(1:wtrc_nwset,ispec), c_int64_t)
+     wtrc_bulk_indices64(ispec) = int(wtrc_bulk_indices(ispec), c_int64_t)
+  end do
+  do ispec = 1, wtrc_ncnst
+     wtrc_indices64(ispec) = int(wtrc_indices(ispec), c_int64_t)
+  end do
+  do ispec = 1, pcnst
+     iwspec64(ispec) = int(iwspec(ispec), c_int64_t)
+  end do
+
+  wisotope_c = merge(1_c_int64_t, 0_c_int64_t, wisotope)
+
+  if (ncol_local > 0 .and. top_lev <= pver) then
+     call macrop_driver_wtrc_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+          int(pcnst, c_int64_t), int(pwtype, c_int64_t), int(top_lev, c_int64_t), int(wtrc_niter, c_int64_t), &
+          int(wtrc_ncnst, c_int64_t), int(wtrc_nwset, c_int64_t), wisotope_c, int(iwtvap, c_int64_t), &
+          int(iwtliq, c_int64_t), int(iwtice, c_int64_t), real(cpair, c_double), real(dtime_local, c_double), &
+          real(wtrc_qmin, c_double), real(epsilo, c_double), c_loc(state_q_local), c_loc(state_t_local), c_loc(state_pmid_local), &
+          c_loc(ptend_q_local), c_loc(qvlat_local), c_loc(qcten_local), c_loc(qiten_local), c_loc(prelat_local), &
+          c_loc(process_rates_local), c_loc(qloc_local), c_loc(qloc0_local), c_loc(tloc_local), c_loc(diff_local), &
+          c_loc(wtrc_iawset64), c_loc(wtrc_iatype64), c_loc(wtrc_bulk_indices64), c_loc(wtrc_indices64), c_loc(iwspec64), &
+          c_loc(rstd))
+  end if
+
+end subroutine macrop_driver_wtrc_shell_codon_wrap
+
+!============================================================================ !
+
+subroutine macrop_driver_wtrc_process_rates_codon_wrap(ncol_local, qvlat_local, qcten_local, qiten_local, process_rates_local)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use water_types, only: pwtype, iwtvap, iwtliq, iwtice
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  real(r8), target, intent(in) :: qvlat_local(pcols,pver), qcten_local(pcols,pver), qiten_local(pcols,pver)
+  real(r8), target, intent(inout) :: process_rates_local(pcols,pver,pwtype,pwtype,pwtype)
+
+  interface
+     subroutine macrop_driver_wtrc_process_rates_codon(ncol_c, pcols_c, pver_c, pwtype_c, top_lev_c, iwtvap_c, iwtliq_c, &
+          iwtice_c, qvlat_p, qcten_p, qiten_p, process_rates_p) bind(c, name="macrop_driver_wtrc_process_rates_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pwtype_c, top_lev_c
+       integer(c_int64_t), value :: iwtvap_c, iwtliq_c, iwtice_c
+       type(c_ptr), value :: qvlat_p, qcten_p, qiten_p, process_rates_p
+     end subroutine macrop_driver_wtrc_process_rates_codon
+  end interface
+
+  if (ncol_local > 0 .and. top_lev <= pver) then
+     call macrop_driver_wtrc_process_rates_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+          int(pwtype, c_int64_t), int(top_lev, c_int64_t), int(iwtvap, c_int64_t), int(iwtliq, c_int64_t), &
+          int(iwtice, c_int64_t), c_loc(qvlat_local), c_loc(qcten_local), c_loc(qiten_local), c_loc(process_rates_local))
+  end if
+
+end subroutine macrop_driver_wtrc_process_rates_codon_wrap
 
 !============================================================================ !
 

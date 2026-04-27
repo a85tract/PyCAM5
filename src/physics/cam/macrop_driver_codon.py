@@ -1,9 +1,571 @@
+from math import exp, log10
+
+
 def _idx2(i: int, k: int, pcols: int):
     return (k - 1) * pcols + (i - 1)
 
 
 def _idx3(i: int, k: int, m: int, pcols: int, pver: int):
     return (m - 1) * pcols * pver + (k - 1) * pcols + (i - 1)
+
+
+def _process_rates_idx(
+    i: int,
+    k: int,
+    idsttype: int,
+    isrctype: int,
+    rtype: int,
+    pcols: int,
+    pver: int,
+    pwtype: int,
+):
+    return (
+        (i - 1)
+        + (k - 1) * pcols
+        + (idsttype - 1) * pcols * pver
+        + (isrctype - 1) * pcols * pver * pwtype
+        + (rtype - 1) * pcols * pver * pwtype * pwtype
+    )
+
+
+@inline
+def _iawset_idx(itype: int, iwset: int, pwtype: int):
+    return (itype - 1) + (iwset - 1) * pwtype
+
+
+@inline
+def _iatype_idx(iwset: int, itype: int, wtrc_nwset: int):
+    return (iwset - 1) + (itype - 1) * wtrc_nwset
+
+
+@inline
+def _spec_idx(ispec: int):
+    return ispec - 1
+
+
+@inline
+def _bulk_idx(itype: int):
+    return itype - 1
+
+
+@inline
+def _wtrc_ratio(ispec: int, qtrc: float, qtot: float, wtrc_qmin: float, rstd) -> float:
+    if abs(qtot) < wtrc_qmin:
+        return rstd[_spec_idx(ispec)]
+    return qtrc / qtot
+
+
+@inline
+def _wiso_alpl(ispec: int, tk: float) -> float:
+    if ispec <= 2:
+        return 1.0
+    if ispec == 3:
+        return exp(
+            1158.8e-12 * tk**3
+            + (-1620.1e-9) * tk**2
+            + 794.84e-6 * tk
+            + (-161.04e-3)
+            + 2.9992e6 / tk**3
+        )
+    return exp(0.35041e6 / tk**3 + (-1.6664e3) / tk**2 + 6.7123 / tk + (-7.685e-3))
+
+
+@inline
+def _wiso_alpi(ispec: int, tk: float) -> float:
+    if ispec <= 2:
+        return 1.0
+    if ispec == 3:
+        return exp(16289.0 / tk**2 + (-9.45e-2))
+    return exp(11.839 / tk + (-28.224e-3))
+
+
+@inline
+def _wiso_ssatf(tk: float) -> float:
+    ssat = 1.0 + (-0.002) * (tk - 273.16)
+    if ssat < 1.0:
+        ssat = 1.0
+    if ssat > 2.0:
+        ssat = 2.0
+    return ssat
+
+
+@inline
+def _wiso_akci(ispec: int, tk: float, alpeq: float) -> float:
+    if tk >= 253.15:
+        return alpeq
+    sat1 = _wiso_ssatf(tk)
+    difrmj = 1.0
+    if ispec == 3:
+        difrmj = 0.9757
+    elif ispec == 4:
+        difrmj = 0.9727
+    dondi = 1.0 / difrmj
+    return alpeq * sat1 / (alpeq * dondi * (sat1 - 1.0) + 1.0)
+
+
+@inline
+def _qsat_water(t: float, p: float, epsilo: float) -> float:
+    tboil = 373.16
+    es = 10.0 ** (
+        -7.90298 * (tboil / t - 1.0)
+        + 5.02808 * log10(tboil / t)
+        - 1.3816e-7 * (10.0 ** (11.344 * (1.0 - t / tboil)) - 1.0)
+        + 8.1328e-3 * (10.0 ** (-3.49149 * (tboil / t - 1.0)) - 1.0)
+        + log10(1013.246)
+    ) * 100.0
+    if (p - es) <= 0.0:
+        return 1.0
+    return epsilo * es / (p - (1.0 - epsilo) * es)
+
+
+@inline
+def _wtrc_get_alpha(
+    q: float,
+    tk: float,
+    ispec: int,
+    isrctype: int,
+    idsttype: int,
+    rhclc: int,
+    porqh: float,
+    kin: int,
+    wisotope: int,
+    iwtvap: int,
+    iwtliq: int,
+    epsilo: float,
+) -> float:
+    if wisotope == 0:
+        return 1.0
+
+    rh = porqh
+    if rhclc != 0:
+        rh = q / _qsat_water(tk, porqh, epsilo)
+
+    alpha = 1.0
+    if isrctype != idsttype:
+        if isrctype == iwtvap:
+            if idsttype == iwtliq:
+                alpha = _wiso_alpl(ispec, tk)
+            else:
+                alpha = _wiso_alpi(ispec, tk)
+                if kin != 0:
+                    alpha = _wiso_akci(ispec, tk, alpha)
+        elif idsttype == iwtvap:
+            if isrctype == iwtliq:
+                alpha = _wiso_alpl(ispec, tk)
+                alpha = 1.0 / alpha
+            else:
+                alpha = 1.0
+    return alpha
+
+
+@inline
+def _wtrc_efac(alpha: float, vapnew: float, liqnew: float, wtrc_qmin: float, rstd) -> float:
+    alov = _wtrc_ratio(1, vapnew, vapnew + liqnew, wtrc_qmin, rstd)
+    alov = alpha * (1.0 / alov - 1.0)
+    efac = 1.0 / (alov + 1.0)
+    if efac < 0.0:
+        efac = 0.0
+    if efac > 1.0:
+        efac = 1.0
+    return efac
+
+
+@inline
+def _wtrc_dqequil(
+    alpha: float,
+    feq0: float,
+    vtotnew: float,
+    ltotnew: float,
+    visoold: float,
+    lisoold: float,
+    wtrc_qmin: float,
+    rstd,
+) -> float:
+    qiso = visoold + lisoold
+    vieql = qiso * _wtrc_efac(alpha, vtotnew, ltotnew, wtrc_qmin, rstd)
+    vinof = qiso * _wtrc_efac(1.0, vtotnew, ltotnew, wtrc_qmin, rstd)
+    visonew = feq0 * vieql + (1.0 - feq0) * vinof
+    dviso = visonew - visoold
+    if dviso < 0.0:
+        if dviso < (-visoold):
+            dviso = -visoold
+    else:
+        if dviso > lisoold:
+            dviso = lisoold
+    return dviso
+
+
+@inline
+def _wtrc_liqvap_equil(
+    alpha: float,
+    feq0: float,
+    vaptot: float,
+    liqtot: float,
+    vapiso: float,
+    liqiso: float,
+    wtrc_qmin: float,
+    rstd,
+):
+    qtiny = 1.0e-36
+    qtot = vaptot + liqtot
+    qiso = vapiso + liqiso
+
+    if qtot < qtiny or qiso < qtiny:
+        return vapiso, liqiso
+
+    if liqtot < qtiny:
+        dliqiso = -liqiso
+        vapiso = vapiso - dliqiso
+        liqiso = 0.0
+        return vapiso, liqiso
+
+    if vaptot < qtiny:
+        dliqiso = vapiso
+        vapiso = 0.0
+        liqiso = liqiso + dliqiso
+        return vapiso, liqiso
+
+    dviso = _wtrc_dqequil(alpha, feq0, vaptot, liqtot, vapiso, liqiso, wtrc_qmin, rstd)
+    dliqiso = -dviso
+    liqiso = liqiso + dliqiso
+    vapiso = vapiso - dliqiso
+    return vapiso, liqiso
+
+
+@export
+def macrop_driver_wtrc_shell_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    pwtype: int,
+    top_lev: int,
+    wtrc_niter: int,
+    wtrc_ncnst: int,
+    wtrc_nwset: int,
+    wisotope: int,
+    iwtvap: int,
+    iwtliq: int,
+    iwtice: int,
+    cpair: float,
+    dtime: float,
+    wtrc_qmin: float,
+    epsilo: float,
+    state_q_p: cobj,
+    state_t_p: cobj,
+    state_pmid_p: cobj,
+    ptend_q_p: cobj,
+    qvlat_p: cobj,
+    qcten_p: cobj,
+    qiten_p: cobj,
+    prelat_p: cobj,
+    process_rates_p: cobj,
+    qloc_p: cobj,
+    qloc0_p: cobj,
+    tloc_p: cobj,
+    diff_p: cobj,
+    wtrc_iawset_p: cobj,
+    wtrc_iatype_p: cobj,
+    wtrc_bulk_indices_p: cobj,
+    wtrc_indices_p: cobj,
+    iwspec_p: cobj,
+    rstd_p: cobj,
+):
+    state_q = Ptr[float](state_q_p)
+    state_t = Ptr[float](state_t_p)
+    state_pmid = Ptr[float](state_pmid_p)
+    ptend_q = Ptr[float](ptend_q_p)
+    qvlat = Ptr[float](qvlat_p)
+    qcten = Ptr[float](qcten_p)
+    qiten = Ptr[float](qiten_p)
+    prelat = Ptr[float](prelat_p)
+    process_rates = Ptr[float](process_rates_p)
+    qloc = Ptr[float](qloc_p)
+    qloc0 = Ptr[float](qloc0_p)
+    tloc = Ptr[float](tloc_p)
+    diff = Ptr[float](diff_p)
+    wtrc_iawset = Ptr[int](wtrc_iawset_p)
+    wtrc_iatype = Ptr[int](wtrc_iatype_p)
+    wtrc_bulk_indices = Ptr[int](wtrc_bulk_indices_p)
+    wtrc_indices = Ptr[int](wtrc_indices_p)
+    iwspec = Ptr[int](iwspec_p)
+    rstd = Ptr[float](rstd_p)
+
+    for rtype in range(1, pwtype + 1):
+        for isrctype in range(1, pwtype + 1):
+            for idsttype in range(1, pwtype + 1):
+                for k in range(top_lev, pver + 1):
+                    for i in range(1, pcols + 1):
+                        process_rates[
+                            _process_rates_idx(
+                                i,
+                                k,
+                                idsttype,
+                                isrctype,
+                                rtype,
+                                pcols,
+                                pver,
+                                pwtype,
+                            )
+                        ] = 0.0
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _idx2(i, k, pcols)
+
+            rate_val = qvlat[idx2] + qcten[idx2]
+            rate_val = rate_val + qiten[idx2]
+            process_rates[
+                _process_rates_idx(
+                    i, k, iwtvap, iwtvap, iwtvap, pcols, pver, pwtype
+                )
+            ] = process_rates[
+                _process_rates_idx(
+                    i, k, iwtvap, iwtvap, iwtvap, pcols, pver, pwtype
+                )
+            ] + rate_val
+
+            rate_val = qcten[idx2]
+            if rate_val < 0.0:
+                dst_idx = _process_rates_idx(
+                    i, k, iwtliq, iwtvap, iwtliq, pcols, pver, pwtype
+                )
+                src_idx = _process_rates_idx(
+                    i, k, iwtvap, iwtliq, iwtliq, pcols, pver, pwtype
+                )
+            else:
+                dst_idx = _process_rates_idx(
+                    i, k, iwtliq, iwtvap, iwtvap, pcols, pver, pwtype
+                )
+                src_idx = _process_rates_idx(
+                    i, k, iwtvap, iwtliq, iwtvap, pcols, pver, pwtype
+                )
+            process_rates[dst_idx] = process_rates[dst_idx] + rate_val
+            process_rates[src_idx] = process_rates[src_idx] - rate_val
+
+            rate_val = qiten[idx2]
+            if rate_val < 0.0:
+                dst_idx = _process_rates_idx(
+                    i, k, iwtice, iwtvap, iwtice, pcols, pver, pwtype
+                )
+                src_idx = _process_rates_idx(
+                    i, k, iwtvap, iwtice, iwtice, pcols, pver, pwtype
+                )
+            else:
+                dst_idx = _process_rates_idx(
+                    i, k, iwtice, iwtvap, iwtvap, pcols, pver, pwtype
+                )
+                src_idx = _process_rates_idx(
+                    i, k, iwtvap, iwtice, iwtvap, pcols, pver, pwtype
+                )
+            process_rates[dst_idx] = process_rates[dst_idx] + rate_val
+            process_rates[src_idx] = process_rates[src_idx] - rate_val
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _idx2(i, k, pcols)
+            tloc[idx2] = state_t[idx2]
+            for icnst in range(1, wtrc_ncnst + 1):
+                trc_idx = wtrc_indices[icnst - 1]
+                idx3 = _idx3(i, k, trc_idx, pcols, pver)
+                qloc[idx3] = state_q[idx3]
+                qloc0[idx3] = qloc[idx3]
+
+    for iter_idx in range(1, wtrc_niter + 1):
+        for k in range(top_lev, pver + 1):
+            for i in range(1, ncol + 1):
+                idx2 = _idx2(i, k, pcols)
+                tloc[idx2] = (tloc[idx2] + (tloc[idx2] + prelat[idx2] / cpair * dtime)) / 2.0
+
+                for isrctype in range(1, pwtype + 1):
+                    for idsttype in range(1, pwtype + 1):
+                        rtype = isrctype
+                        rate_val = process_rates[
+                            _process_rates_idx(
+                                i,
+                                k,
+                                idsttype,
+                                isrctype,
+                                rtype,
+                                pcols,
+                                pver,
+                                pwtype,
+                            )
+                        ]
+                        if rate_val > 0.0:
+                            for iwset in range(1, wtrc_nwset + 1):
+                                msrc = wtrc_iawset[_iawset_idx(isrctype, iwset, pwtype)]
+                                mbase = wtrc_iawset[_iawset_idx(isrctype, 1, pwtype)]
+                                mdst = wtrc_iawset[_iawset_idx(idsttype, iwset, pwtype)]
+
+                                idx_msrc = _idx3(i, k, msrc, pcols, pver)
+                                idx_mbase = _idx3(i, k, mbase, pcols, pver)
+                                idx_mdst = _idx3(i, k, mdst, pcols, pver)
+
+                                R = _wtrc_ratio(
+                                    iwspec[msrc - 1],
+                                    qloc0[idx_msrc],
+                                    qloc0[idx_mbase],
+                                    wtrc_qmin,
+                                    rstd,
+                                )
+
+                                if (
+                                    wisotope != 0
+                                    and iwset != 1
+                                    and isrctype == iwtvap
+                                    and idsttype == iwtice
+                                ):
+                                    std_vap_idx = _idx3(
+                                        i,
+                                        k,
+                                        wtrc_iawset[_iawset_idx(iwtvap, 1, pwtype)],
+                                        pcols,
+                                        pver,
+                                    )
+                                    ispec = iwspec[mdst - 1]
+                                    alpha = _wtrc_get_alpha(
+                                        qloc0[std_vap_idx],
+                                        tloc[idx2],
+                                        ispec,
+                                        isrctype,
+                                        idsttype,
+                                        1,
+                                        state_pmid[idx2],
+                                        1,
+                                        wisotope,
+                                        iwtvap,
+                                        iwtliq,
+                                        epsilo,
+                                    )
+                                    fr = qloc[idx_mbase] / qloc0[idx_mbase]
+                                    if fr < 0.0:
+                                        fr = 0.0
+                                    if fr > 1.0:
+                                        fr = 1.0
+                                    qloc[idx_msrc] = qloc0[idx_msrc] * (fr**alpha)
+                                    qloc[idx_mdst] = qloc[idx_mdst] + (qloc0[idx_msrc] - qloc[idx_msrc])
+                                else:
+                                    qloc[idx_mdst] = (
+                                        qloc[idx_mdst]
+                                        + R * rate_val * dtime / wtrc_niter
+                                    )
+                                    if isrctype != idsttype:
+                                        qloc[idx_msrc] = (
+                                            qloc[idx_msrc]
+                                            - R * rate_val * dtime / wtrc_niter
+                                        )
+
+                            for icnst in range(1, wtrc_ncnst + 1):
+                                trc_idx = wtrc_indices[icnst - 1]
+                                idx3 = _idx3(i, k, trc_idx, pcols, pver)
+                                qloc0[idx3] = qloc[idx3]
+
+                    if wisotope != 0:
+                        for iwset in range(2, wtrc_nwset + 1):
+                            std_vap = wtrc_iawset[_iawset_idx(iwtvap, 1, pwtype)]
+                            std_liq = wtrc_iawset[_iawset_idx(iwtliq, 1, pwtype)]
+                            iso_vap = wtrc_iawset[_iawset_idx(iwtvap, iwset, pwtype)]
+                            iso_liq = wtrc_iawset[_iawset_idx(iwtliq, iwset, pwtype)]
+
+                            idx_std_vap = _idx3(i, k, std_vap, pcols, pver)
+                            idx_std_liq = _idx3(i, k, std_liq, pcols, pver)
+                            idx_iso_vap = _idx3(i, k, iso_vap, pcols, pver)
+                            idx_iso_liq = _idx3(i, k, iso_liq, pcols, pver)
+
+                            alpha = _wtrc_get_alpha(
+                                qloc0[idx_std_vap],
+                                tloc[idx2],
+                                iwspec[iso_vap - 1],
+                                iwtvap,
+                                iwtliq,
+                                0,
+                                1.0,
+                                0,
+                                wisotope,
+                                iwtvap,
+                                iwtliq,
+                                epsilo,
+                            )
+                            vapiso, liqiso = _wtrc_liqvap_equil(
+                                alpha,
+                                1.0,
+                                qloc[idx_std_vap],
+                                qloc[idx_std_liq],
+                                qloc[idx_iso_vap],
+                                qloc[idx_iso_liq],
+                                wtrc_qmin,
+                                rstd,
+                            )
+                            qloc[idx_iso_vap] = vapiso
+                            qloc[idx_iso_liq] = liqiso
+
+                        for icnst in range(1, wtrc_ncnst + 1):
+                            trc_idx = wtrc_indices[icnst - 1]
+                            idx3 = _idx3(i, k, trc_idx, pcols, pver)
+                            qloc0[idx3] = qloc[idx3]
+
+                tloc[idx2] = state_t[idx2] + prelat[idx2] / cpair * dtime / wtrc_niter
+
+    for itype in range(1, pwtype + 1):
+        for k in range(top_lev, pver + 1):
+            for i in range(1, ncol + 1):
+                diff[_idx3(i, k, itype, pcols, pver)] = 0.0
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            for icnst in range(1, wtrc_ncnst + 1):
+                trc_idx = wtrc_indices[icnst - 1]
+                idx3 = _idx3(i, k, trc_idx, pcols, pver)
+                ptend_q[idx3] = (qloc[idx3] - state_q[idx3]) / dtime
+
+                if icnst <= pwtype:
+                    bulk_idx = wtrc_bulk_indices[_bulk_idx(icnst)]
+                    diff[_idx3(i, k, icnst, pcols, pver)] = ptend_q[idx3] - ptend_q[
+                        _idx3(i, k, bulk_idx, pcols, pver)
+                    ]
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            for itype in range(1, pwtype + 1):
+                qtmp = 0.0
+                diff_idx = _idx3(i, k, itype, pcols, pver)
+                for iwset in range(1, wtrc_nwset + 1):
+                    trc_idx = wtrc_iatype[_iatype_idx(iwset, itype, wtrc_nwset)]
+                    idx3 = _idx3(i, k, trc_idx, pcols, pver)
+                    if iwset == 1:
+                        qtmp = ptend_q[idx3]
+                    R = _wtrc_ratio(
+                        iwspec[trc_idx - 1],
+                        ptend_q[idx3],
+                        qtmp,
+                        wtrc_qmin,
+                        rstd,
+                    )
+                    ptend_q[idx3] = ptend_q[idx3] - R * diff[diff_idx]
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            for itype in range(1, pwtype + 1):
+                qtmp = 0.0
+                diff_idx = _idx3(i, k, itype, pcols, pver)
+                for iwset in range(1, wtrc_nwset + 1):
+                    trc_idx = wtrc_iatype[_iatype_idx(iwset, itype, wtrc_nwset)]
+                    idx3 = _idx3(i, k, trc_idx, pcols, pver)
+                    if iwset == 1:
+                        bulk_idx = wtrc_bulk_indices[_bulk_idx(itype)]
+                        diff[diff_idx] = ptend_q[idx3] - ptend_q[
+                            _idx3(i, k, bulk_idx, pcols, pver)
+                        ]
+                        qtmp = ptend_q[idx3]
+                    R = _wtrc_ratio(
+                        iwspec[trc_idx - 1],
+                        ptend_q[idx3],
+                        qtmp,
+                        wtrc_qmin,
+                        rstd,
+                    )
+                    ptend_q[idx3] = ptend_q[idx3] - R * diff[diff_idx]
 
 
 @export
@@ -294,6 +856,97 @@ def macrop_driver_wtrc_split_tend_codon(
                 nqitn[idx2] = qiten[idx2]
             else:
                 pqitn[idx2] = qiten[idx2]
+
+
+@export
+def macrop_driver_wtrc_process_rates_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pwtype: int,
+    top_lev: int,
+    iwtvap: int,
+    iwtliq: int,
+    iwtice: int,
+    qvlat_p: cobj,
+    qcten_p: cobj,
+    qiten_p: cobj,
+    process_rates_p: cobj,
+):
+    qvlat = Ptr[float](qvlat_p)
+    qcten = Ptr[float](qcten_p)
+    qiten = Ptr[float](qiten_p)
+    process_rates = Ptr[float](process_rates_p)
+
+    for rtype in range(1, pwtype + 1):
+        for isrctype in range(1, pwtype + 1):
+            for idsttype in range(1, pwtype + 1):
+                for k in range(top_lev, pver + 1):
+                    for i in range(1, pcols + 1):
+                        process_rates[
+                            _process_rates_idx(
+                                i,
+                                k,
+                                idsttype,
+                                isrctype,
+                                rtype,
+                                pcols,
+                                pver,
+                                pwtype,
+                            )
+                        ] = 0.0
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _idx2(i, k, pcols)
+
+            rate_val = qvlat[idx2] + qcten[idx2]
+            rate_val = rate_val + qiten[idx2]
+            process_rates[
+                _process_rates_idx(
+                    i, k, iwtvap, iwtvap, iwtvap, pcols, pver, pwtype
+                )
+            ] = process_rates[
+                _process_rates_idx(
+                    i, k, iwtvap, iwtvap, iwtvap, pcols, pver, pwtype
+                )
+            ] + rate_val
+
+            rate_val = qcten[idx2]
+            if rate_val < 0.0:
+                dst_idx = _process_rates_idx(
+                    i, k, iwtliq, iwtvap, iwtliq, pcols, pver, pwtype
+                )
+                src_idx = _process_rates_idx(
+                    i, k, iwtvap, iwtliq, iwtliq, pcols, pver, pwtype
+                )
+            else:
+                dst_idx = _process_rates_idx(
+                    i, k, iwtliq, iwtvap, iwtvap, pcols, pver, pwtype
+                )
+                src_idx = _process_rates_idx(
+                    i, k, iwtvap, iwtliq, iwtvap, pcols, pver, pwtype
+                )
+            process_rates[dst_idx] = process_rates[dst_idx] + rate_val
+            process_rates[src_idx] = process_rates[src_idx] - rate_val
+
+            rate_val = qiten[idx2]
+            if rate_val < 0.0:
+                dst_idx = _process_rates_idx(
+                    i, k, iwtice, iwtvap, iwtice, pcols, pver, pwtype
+                )
+                src_idx = _process_rates_idx(
+                    i, k, iwtvap, iwtice, iwtice, pcols, pver, pwtype
+                )
+            else:
+                dst_idx = _process_rates_idx(
+                    i, k, iwtice, iwtvap, iwtvap, pcols, pver, pwtype
+                )
+                src_idx = _process_rates_idx(
+                    i, k, iwtvap, iwtice, iwtvap, pcols, pver, pwtype
+                )
+            process_rates[dst_idx] = process_rates[dst_idx] + rate_val
+            process_rates[src_idx] = process_rates[src_idx] - rate_val
 
 
 @export
