@@ -17,6 +17,27 @@ def _field2_idx(i: int, k: int, pcols: int) -> int:
 
 
 @inline
+def _process_rates_idx(
+    i: int,
+    k: int,
+    idsttype: int,
+    isrctype: int,
+    rtype: int,
+    pcols: int,
+    pver: int,
+    pwtype: int,
+) -> int:
+    """process_rates(pcols, pver, pwtype, pwtype, pwtype)"""
+    return (
+        (i - 1)
+        + (k - 1) * pcols
+        + (idsttype - 1) * pcols * pver
+        + (isrctype - 1) * pcols * pver * pwtype
+        + (rtype - 1) * pcols * pver * pwtype * pwtype
+    )
+
+
+@inline
 def _iatype_idx(m: int, p: int, wtrc_nwset: int) -> int:
     """wtrc_iatype64(wtrc_nwset, pwtype)"""
     return (m - 1) + (p - 1) * wtrc_nwset
@@ -267,3 +288,40 @@ def wtrc_diagnose_bulk_precip_codon(
     for k in range(top_lev, pver + 1):
         for i in range(1, ncol + 1):
             ptend_q[_state_q_idx(i, k, bulk_idx, pcols, pver)] = 0.0
+
+
+@export
+def wtrc_add_rates_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pwtype: int,
+    top_lev: int,
+    isrctype: int,
+    idsttype: int,
+    rtype: int,
+    do_reverse_present: int,
+    do_reverse: int,
+    process_rates_p: cobj,
+    rate_p: cobj,
+):
+    process_rates = Ptr[float](process_rates_p)
+    rate = Ptr[float](rate_p)
+
+    ldo_reverse = True
+    if do_reverse_present != 0:
+        ldo_reverse = do_reverse != 0
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            rate_val = rate[_field2_idx(i, k, pcols)]
+            dst_idx = _process_rates_idx(
+                i, k, idsttype, isrctype, rtype, pcols, pver, pwtype
+            )
+            process_rates[dst_idx] = process_rates[dst_idx] + rate_val
+
+            if isrctype != idsttype and ldo_reverse:
+                src_idx = _process_rates_idx(
+                    i, k, isrctype, idsttype, rtype, pcols, pver, pwtype
+                )
+                process_rates[src_idx] = process_rates[src_idx] - rate_val

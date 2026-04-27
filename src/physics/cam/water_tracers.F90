@@ -140,6 +140,8 @@ module water_tracers
   logical :: wtrc_clear_precip_impl_selected = .false.
   logical :: use_native_wtrc_diagnose_bulk_precip_impl = .false.
   logical :: wtrc_diagnose_bulk_precip_impl_selected = .false.
+  logical :: use_native_wtrc_add_rates_impl = .false.
+  logical :: wtrc_add_rates_impl_selected = .false.
 
 contains
 
@@ -298,6 +300,45 @@ subroutine wtrc_diagnose_bulk_precip_select_impl()
   end if
 
 end subroutine wtrc_diagnose_bulk_precip_select_impl
+
+!=======================================================================
+subroutine wtrc_add_rates_select_impl()
+!-----------------------------------------------------------------------
+! Select native vs Codon implementation for wtrc_add_rates.
+!-----------------------------------------------------------------------
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (wtrc_add_rates_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('WTRC_ADD_RATES_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+    do i = 1, n
+      code = iachar(impl_name(i:i))
+      if (code >= iachar('A') .and. code <= iachar('Z')) then
+        impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+      end if
+    end do
+    use_native_wtrc_add_rates_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+    use_native_wtrc_add_rates_impl = .false.
+  end if
+
+  wtrc_add_rates_impl_selected = .true.
+
+  if (masterproc) then
+    if (use_native_wtrc_add_rates_impl) then
+      write(iulog,*) 'wtrc_add_rates implementation = native'
+    else
+      write(iulog,*) 'wtrc_add_rates implementation = codon'
+    end if
+    call flush(iulog)
+  end if
+
+end subroutine wtrc_add_rates_select_impl
 
 !=======================================================================
 subroutine wtrc_readnl(nlfile)
@@ -1137,15 +1178,75 @@ end subroutine wtrc_register
   integer                         :: k
   integer                         :: icol
 !-----------------------------------------------------------------------
-    
+
+  call wtrc_add_rates_select_impl()
+
+  if (use_native_wtrc_add_rates_impl) then
     do k = top_lev, pver
       do icol = 1, ncol
         call wtrc_add_rate(process_rates, icol, k, isrctype, idsttype, rtype, rate(icol,k), do_reverse)
       end do
     end do
-    
     return
+  end if
+
+  call wtrc_add_rates_codon_wrap(process_rates, ncol, top_lev, isrctype, idsttype, rtype, rate, do_reverse)
+
+  return
   end subroutine wtrc_add_rates
+
+
+!=======================================================================
+  subroutine wtrc_add_rates_codon_wrap(process_rates, ncol, top_lev, isrctype, idsttype, rtype, rate, do_reverse)
+!-----------------------------------------------------------------------
+! Codon-only wrapper for wtrc_add_rates. Keep target/c_loc details out of
+! the public native path so the original Fortran loop can compile unchanged.
+!-----------------------------------------------------------------------
+  use iso_c_binding,  only: c_int64_t, c_loc, c_ptr
+  use water_types,    only: pwtype
+
+  real(r8), target, intent(inout) :: process_rates(pcols,pver,pwtype,pwtype,pwtype)
+  integer, intent(in)             :: ncol
+  integer, intent(in)             :: top_lev
+  integer, intent(in)             :: isrctype
+  integer, intent(in)             :: idsttype
+  integer, intent(in)             :: rtype
+  real(r8), intent(in)            :: rate(pcols,pver)
+  logical, intent(in), optional   :: do_reverse
+
+  integer(c_int64_t)              :: do_reverse_present_c
+  integer(c_int64_t)              :: do_reverse_c
+  real(r8), target                :: rate_local(pcols,pver)
+
+  interface
+    subroutine wtrc_add_rates_codon(ncol_c, pcols_c, pver_c, pwtype_c, top_lev_c, isrctype_c, idsttype_c, rtype_c, &
+         do_reverse_present_c, do_reverse_c, process_rates_p, rate_p) bind(c, name="wtrc_add_rates_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pwtype_c, top_lev_c
+      integer(c_int64_t), value :: isrctype_c, idsttype_c, rtype_c
+      integer(c_int64_t), value :: do_reverse_present_c, do_reverse_c
+      type(c_ptr), value :: process_rates_p, rate_p
+    end subroutine wtrc_add_rates_codon
+  end interface
+!-----------------------------------------------------------------------
+
+  if (present(do_reverse)) then
+    do_reverse_present_c = 1_c_int64_t
+    do_reverse_c = merge(1_c_int64_t, 0_c_int64_t, do_reverse)
+  else
+    do_reverse_present_c = 0_c_int64_t
+    do_reverse_c = 0_c_int64_t
+  end if
+
+  if (ncol > 0 .and. top_lev <= pver) then
+    rate_local(:,:) = rate(:,:)
+    call wtrc_add_rates_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pwtype, c_int64_t), &
+         int(top_lev, c_int64_t), int(isrctype, c_int64_t), int(idsttype, c_int64_t), int(rtype, c_int64_t), &
+         do_reverse_present_c, do_reverse_c, c_loc(process_rates), c_loc(rate_local))
+  end if
+
+  return
+  end subroutine wtrc_add_rates_codon_wrap
 
 
 !=======================================================================
