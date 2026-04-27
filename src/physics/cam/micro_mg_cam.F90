@@ -127,8 +127,18 @@ logical :: use_native_postmg_diag_impl = .false.
 logical :: postmg_diag_impl_selected = .false.
 logical :: use_native_grid_diag_impl = .false.
 logical :: grid_diag_impl_selected = .false.
+logical :: use_native_tail_shell_impl = .true.
+logical :: tail_shell_impl_selected = .false.
+logical :: use_native_wtrc_shell_impl = .false.
+logical :: wtrc_shell_impl_selected = .false.
+logical :: use_native_wtrc_prep_impl = .false.
+logical :: wtrc_prep_impl_selected = .false.
+logical :: use_native_budget_diag_impl = .false.
+logical :: budget_diag_impl_selected = .false.
 logical :: use_native_reff_calc_impl = .false.
 logical :: reff_calc_impl_selected = .false.
+logical :: use_native_diag_shell_impl = .false.
+logical :: diag_shell_impl_selected = .false.
 logical :: use_reff_calc_compare = .false.
 logical :: reff_calc_compare_selected = .false.
 logical :: reff_calc_compare_done = .false.
@@ -1024,7 +1034,7 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
 
    use water_tracer_vars, only: trace_water, wtrc_add_stprecip, wtrc_bulk_indices, &
                                 wtrc_iatype, wtrc_indices, wtrc_ncnst
-   use water_tracers,     only: wtrc_apply_rates, wtrc_init_rates, wtrc_add_rates, &
+   use water_tracers,     only: wtrc_apply_rates, wtrc_init_rates, wtrc_add_rate, &
                                 wtrc_output_precip
    use water_types,       only: pwtype, iwtvap, iwtliq, iwtice, iwtstrain, iwtstsnow
 
@@ -1036,7 +1046,7 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    ! Local variables
    integer :: lchnk, ncol, psetcols, ngrdcol
 
-   integer :: i, k, itim_old, it
+   integer :: i, k, m, itim_old, it
 
    real(r8), pointer :: naai(:,:)      ! ice nucleation number
    real(r8), pointer :: naai_hom(:,:)  ! ice nucleation number (homogeneous)
@@ -1378,7 +1388,7 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    real(r8) :: fcti_grid(pcols)
    real(r8) :: fctl_grid(pcols)
 
-   real(r8) :: ftem_grid(pcols,pver)
+   real(r8) :: budget_ftem_grid(pcols,pver,6)
 
    ! Variables for precip efficiency calculation
    real(r8) :: minlwp        ! LWP threshold
@@ -1500,6 +1510,7 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    integer :: col_type ! Flag to store whether accessing grid or sub-columns in pbuf_get_field
 
    character(128) :: errstring   ! return status (non-blank for error return)
+   real(r8) :: rate_local
 
    ! For rrtmg optics. specified distribution.
    real(r8), parameter :: dcon   = 25.e-6_r8         ! Convective size distribution effective radius (meters)
@@ -2461,19 +2472,23 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
 
    end if
 
-   !----------------------------------------
-   !water tracers/isotopes   (on gridlevel)
-   !----------------------------------------
+   call micro_mg_cam_select_tail_shell_impl()
 
-   ! Convert fields to grid level early, that are needed by water tracers
+   if (use_native_tail_shell_impl) then
 
-    if (trace_water) then
+      !----------------------------------------
+      !water tracers/isotopes   (on gridlevel)
+      !----------------------------------------
+
+      ! Convert fields to grid level early, that are needed by water tracers
+
+      if (trace_water) then
 
          ! Average isotope fields to the grid level , so they can be operated on
          if (use_subcol_microp) then
             !
             ! EBK Apr/21/2015
-            ! In order to run on sub-columns all fields would need to 
+            ! In order to run on sub-columns all fields would need to
             ! be averaged to the grid level like so...
             !call subcol_field_avg(preo,      ngrdcol, lchnk, preo_grid)
             ! For the list of fields, see the "else" statement
@@ -2503,144 +2518,208 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
             aist_mic_grid => aist_mic
          end if
 
-         ! Setup microphysics rates to be applied before sedimentation.
-         call wtrc_init_rates(top_lev, pre_rates_grid)
+         call micro_mg_cam_select_wtrc_shell_impl()
 
-         !initalize variables
-         pcmei_grid(:,top_lev:) = 0._r8
-         ncmei_grid(:,top_lev:) = 0._r8
-         pmelts_grid(:,top_lev:) = 0._r8
-         nmelts_grid(:,top_lev:) = 0._r8
+         if (use_native_wtrc_shell_impl) then
+            call wtrc_init_rates(top_lev, pre_rates_grid)
+            call wtrc_init_rates(top_lev, post_rates_grid)
 
-         !split into positive and negative tendencies - JN
-         do i=1,ncol
-           do k=top_lev,pver
-             if(cmeiout_grid(i,k) .lt. 0._r8) then
-               ncmei_grid(i,k) = cmeiout_grid(i,k) !sublimation (ice-dependent)
-             else
-               pcmei_grid(i,k) = cmeiout_grid(i,k) !deposition (vapor-dependent)
-             end if
-             if(meltso(i,k) .lt. 0._r8) then
-               nmelts_grid(i,k) = meltso_grid(i,k)
-             else
-               pmelts_grid(i,k) = meltso_grid(i,k)
-             end if
-           end do
-         end do
+            do k = top_lev, pver
+               do i = 1, pcols
+                  pcmei_grid(i,k) = 0._r8
+                  ncmei_grid(i,k) = 0._r8
+                  pmelts_grid(i,k) = 0._r8
+                  nmelts_grid(i,k) = 0._r8
+                  do m = 1, pwtype
+                     sed_rates_grid(i,k,m) = 0._r8
+                  end do
+               end do
+            end do
 
-         ! Processes that consume water vapor.
+            do k = top_lev, pver
+               do i = 1, ncol
+                  if (cmeiout_grid(i,k) < 0._r8) then
+                     ncmei_grid(i,k) = cmeiout_grid(i,k)
+                  else
+                     pcmei_grid(i,k) = cmeiout_grid(i,k)
+                  end if
+                  if (meltso_grid(i,k) < 0._r8) then
+                     nmelts_grid(i,k) = meltso_grid(i,k)
+                  else
+                     pmelts_grid(i,k) = meltso_grid(i,k)
+                  end if
+                  sed_rates_grid(i,k,iwtliq) = qcsedten_grid(i,k)
+                  sed_rates_grid(i,k,iwtice) = qisedten_grid(i,k)
+               end do
+            end do
 
-         call wtrc_add_rates(pre_rates_grid, ncol, top_lev, iwtvap, iwtice, iwtvap, pcmei_grid) !deposition
-         call wtrc_add_rates(pre_rates_grid, ncol, top_lev, iwtvap, iwtice, iwtice, ncmei_grid) !sublimation  
+            do k = top_lev, pver
+               do i = 1, ncol
+                  call wtrc_add_rate(pre_rates_grid, i, k, iwtvap, iwtice, iwtvap, pcmei_grid(i,k))
+                  call wtrc_add_rate(pre_rates_grid, i, k, iwtvap, iwtice, iwtice, ncmei_grid(i,k))
+                  call wtrc_add_rate(pre_rates_grid, i, k, iwtvap, iwtstrain, iwtstrain, preo_grid(i,k))
+                  call wtrc_add_rate(pre_rates_grid, i, k, iwtvap, iwtstsnow, iwtstsnow, prdso_grid(i,k))
 
-         call wtrc_add_rates(pre_rates_grid, ncol, top_lev, iwtvap,    iwtstrain, iwtstrain, preo_grid)  !rain re-evaporation
-         call wtrc_add_rates(pre_rates_grid, ncol, top_lev, iwtvap,    iwtstsnow, iwtstsnow, prdso_grid) !snow sublimation
+                  rate_local = mnuccco_grid(i,k) + mnuccto_grid(i,k)
+                  rate_local = rate_local + msacwio_grid(i,k)
+                  call wtrc_add_rate(pre_rates_grid, i, k, iwtliq, iwtice, iwtliq, rate_local)
 
-         ! Processes that consume liquid
-         !Freezing,accretion on ice,and evaporation to deposition:
-         call wtrc_add_rates(pre_rates_grid, ncol, top_lev, iwtliq,    &
-                             iwtice,    iwtliq,                        &
-                             mnuccco_grid + mnuccto_grid + msacwio_grid) 
-         !Accretion on rain,autoconversion: 
-         call wtrc_add_rates(pre_rates_grid, ncol, top_lev, iwtliq,    iwtstrain, iwtliq, prao_grid + prco_grid)
-         !Accretion on snow, Bergeron process on snow:
-         call wtrc_add_rates(pre_rates_grid, ncol, top_lev, iwtliq,    iwtstsnow, iwtliq, psacwso_grid)
+                  rate_local = prao_grid(i,k) + prco_grid(i,k)
+                  call wtrc_add_rate(pre_rates_grid, i, k, iwtliq, iwtstrain, iwtliq, rate_local)
 
-         !Bergeron processes to ice and snow (NOTE:  This is handled specifically in apply_rates, so the sources and sinks are not
-         !physical here.  It might be good to figure out a logical switch instead of using specific water type variables. - JN).
-         call wtrc_add_rates(pre_rates_grid, ncol, top_lev, iwtliq, iwtliq, iwtliq, bergo_grid)
-         call wtrc_add_rates(pre_rates_grid, ncol, top_lev, iwtice, iwtice, iwtice, bergso_grid) 
+                  call wtrc_add_rate(pre_rates_grid, i, k, iwtliq, iwtstsnow, iwtliq, psacwso_grid(i,k))
+                  call wtrc_add_rate(pre_rates_grid, i, k, iwtliq, iwtliq, iwtliq, bergo_grid(i,k))
+                  call wtrc_add_rate(pre_rates_grid, i, k, iwtice, iwtice, iwtice, bergso_grid(i,k))
 
-         ! Processes that consume ice
-         !Ice accretion on snow,autoncversion of snow:
-         call wtrc_add_rates(pre_rates_grid, ncol, top_lev, iwtice,    iwtstsnow, iwtice, praio_grid + prcio_grid)
+                  rate_local = praio_grid(i,k) + prcio_grid(i,k)
+                  call wtrc_add_rate(pre_rates_grid, i, k, iwtice, iwtstsnow, iwtice, rate_local)
 
-         ! Processes that consume rain
-         !Accretion on snow, freezing (hetero and homo?):
-         !Don't include freezing of rain (frzro_grid) as handled separately
-         call wtrc_add_rates(pre_rates_grid, ncol, top_lev, iwtstrain, &
-                             iwtstsnow, iwtstrain,                     &
-                             pracso_grid + mnuccro_grid)
+                  rate_local = pracso_grid(i,k) + mnuccro_grid(i,k)
+                  call wtrc_add_rate(pre_rates_grid, i, k, iwtstrain, iwtstsnow, iwtstrain, rate_local)
 
-         ! Don't include melting of snow (pmelts_grid, nmelts_grid) as handled separately
-
-         ! Setup  sedimentation.
-         sed_rates_grid(:, top_lev:, :)        = 0._r8
-         sed_rates_grid(:, top_lev:, iwtliq)   = qcsedten_grid
-         sed_rates_grid(:, top_lev:, iwtice)   = qisedten_grid
-
-         ! Setup microphysics rates to be applied after sedimentation.
-         call wtrc_init_rates(top_lev, post_rates_grid)
-
-         ! Processes that consume water vapor.
-         !Condenstation (sets supersat = 0):
-         call wtrc_add_rates(post_rates_grid, ncol, top_lev, iwtvap,    iwtliq,   iwtvap, qcreso_grid)
-         !Deposition (sets supersat = 0): 
-         call wtrc_add_rates(post_rates_grid, ncol, top_lev, iwtvap,    iwtice,   iwtvap, qireso_grid) !positive
-
-         ! Processes that consume liquid.
-         !
-         ! NOTE: The evaporation is of liquid that sedimented from a higher
-         ! level. The source of the vapor has already been include in the
-         ! sedimentation tendency. (NOTE:  managed in wtrc_sediment -JN)
-         !Freezing:
-         call wtrc_add_rates(post_rates_grid, ncol, top_lev, iwtliq,    iwtice,   iwtliq, homoo_grid) !positive
-
-         ! Processes that consume ice
-         !
-         ! NOTE: The evaporation is of ice that sedimented from a higher
-         ! level. The source of the vapor has already been include in the
-         ! sedimentation tendency. (NOTE:  managed in wtrc_sediment - JN)
-         !Melting:
-         call wtrc_add_rates(post_rates_grid, ncol, top_lev, iwtice,    iwtliq,   iwtice, melto_grid) !positive
+                  call wtrc_add_rate(post_rates_grid, i, k, iwtvap, iwtliq, iwtvap, qcreso_grid(i,k))
+                  call wtrc_add_rate(post_rates_grid, i, k, iwtvap, iwtice, iwtvap, qireso_grid(i,k))
+                  call wtrc_add_rate(post_rates_grid, i, k, iwtliq, iwtice, iwtliq, homoo_grid(i,k))
+                  call wtrc_add_rate(post_rates_grid, i, k, iwtice, iwtliq, iwtice, melto_grid(i,k))
+               end do
+            end do
+         else
+            call micro_mg_cam_wtrc_shell_codon_wrap(ncol, preo_grid, prdso_grid, cmeiout_grid, meltso_grid, qcsedten_grid, &
+                 qisedten_grid, mnuccco_grid, mnuccto_grid, msacwio_grid, prao_grid, prco_grid, psacwso_grid, bergo_grid, &
+                 bergso_grid, praio_grid, prcio_grid, pracso_grid, mnuccro_grid, qcreso_grid, qireso_grid, homoo_grid, &
+                 melto_grid, pre_rates_grid, sed_rates_grid, post_rates_grid, pcmei_grid, ncmei_grid, pmelts_grid, nmelts_grid)
+         end if
 
          ! Apply the microphysical process to the isotopes. rates.
-          call wtrc_apply_rates(state, ptend, pbuf, top_lev, dtime, .true., pre_rates=pre_rates_grid, sed_rates=sed_rates_grid, &
-                                post_rates=post_rates_grid, do_stprecip=.true., liqcldf=alst_mic, icecldf=aist_mic,    &
-                                fc=wtfc_grid, fi=wtfi_grid, prelat=wtprelat_grid, postlat=wtpostlat_grid,              &
-                                frzro=frzro_grid, meltso=meltso_grid)
+         call wtrc_apply_rates(state, ptend, pbuf, top_lev, dtime, .true., pre_rates=pre_rates_grid, sed_rates=sed_rates_grid, &
+              post_rates=post_rates_grid, do_stprecip=.true., liqcldf=alst_mic, icecldf=aist_mic, fc=wtfc_grid, fi=wtfi_grid, &
+              prelat=wtprelat_grid, postlat=wtpostlat_grid, frzro=frzro_grid, meltso=meltso_grid)
 
-    end if !water tracers
+      end if !water tracers
 
-   !-------------------------------------
-   ! ------------------------------------- !
-   ! Size distribution calculation         !
-   ! ------------------------------------- !
+      !-------------------------------------
+      ! ------------------------------------- !
+      ! Size distribution calculation         !
+      ! ------------------------------------- !
 
-   ! Calculate rho (on subcolumns if turned on) for size distribution
-   ! parameter calculations and average it if needed
-   !
-   ! State instead of state_loc to preserve answers for MG1 (and in any
-   ! case, it is unlikely to make much difference).
-   rho(:ncol,top_lev:) = state%pmid(:ncol,top_lev:) / &
-        (rair*state%t(:ncol,top_lev:))
-   if (use_subcol_microp) then
-      call subcol_field_avg(rho, ngrdcol, lchnk, rho_grid)
+      ! Calculate rho (on subcolumns if turned on) for size distribution
+      ! parameter calculations and average it if needed
+      !
+      ! State instead of state_loc to preserve answers for MG1 (and in any
+      ! case, it is unlikely to make much difference).
+      rho(:ncol,top_lev:) = state%pmid(:ncol,top_lev:) / &
+           (rair*state%t(:ncol,top_lev:))
+      if (use_subcol_microp) then
+         call subcol_field_avg(rho, ngrdcol, lchnk, rho_grid)
+      else
+         rho_grid = rho
+      end if
+
+      call micro_mg_cam_select_diag_shell_impl()
+
+      if (use_native_diag_shell_impl) then
+         call micro_mg_cam_reff_calc(ngrdcol, micro_mg_version, rho_grid, icwmrst_grid, liqcldf_grid, nc_grid, qr_grid, nr_grid, &
+              qs_grid, ns_grid, qrout_grid, nrout_grid, qsout_grid, nsout_grid, ni_grid, icecldf_grid, icimrst_grid, ast_grid, &
+              mu_grid, lambdac_grid, rel_fn_grid, ncic_grid, rel_grid, drout2_grid, reff_rain_grid, des_grid, dsout2_grid, &
+              reff_snow_grid, rei_grid, niic_grid, dei_grid, mgreffrain_grid, mgreffsnow_grid)
+
+         ! ------------------------------------- !
+         ! Precipitation efficiency Calculation  !
+         ! ------------------------------------- !
+
+         !-----------------------------------------------------------------------
+         ! Liquid water path
+
+         ! Compute liquid water paths, and column condensation
+         minlwp = 0.01_r8        !minimum lwp threshold (kg/m3)
+
+         call micro_mg_cam_grid_diag(ngrdcol, minlwp, iclwpst_grid, cld_grid, cmeliq_grid, pdel_grid, prec_str_grid, &
+              acgcme_grid, acprecl_grid, acnum_grid, prao_grid, prco_grid, nc_grid, liqcldf_grid, icwmrst_grid, rel_grid, &
+              icwnc_grid, icecldf_grid, icimrst_grid, rei_grid, icinc_grid, nevapr_grid, evpsnow_st_grid, tgliqwp_grid, &
+              tgcmeliq_grid, pe_grid, tpr_grid, pefrac_grid, vprao_grid, vprco_grid, racau_grid, cnt_grid, cdnumc_grid, &
+              efcout_grid, efiout_grid, ncout_grid, niout_grid, freql_grid, freqi_grid, icwmrst_grid_out, icimrst_grid_out, &
+              fcti_grid, fctl_grid, ctrel_grid, ctrei_grid, ctnl_grid, ctni_grid, evprain_st_grid)
+      else
+         minlwp = 0.01_r8        !minimum lwp threshold (kg/m3)
+
+         ! Keep the liquid effective-radius branch native; the remaining active
+         ! diagnostic tail is combined into one Codon shell.
+         call micro_mg_cam_reff_liq_native(ngrdcol, rho_grid, icwmrst_grid, liqcldf_grid, nc_grid, mu_grid, lambdac_grid, &
+              rel_fn_grid, ncic_grid, rel_grid)
+
+         call micro_mg_cam_diag_shell_codon_wrap(ngrdcol, micro_mg_version, minlwp, rho_grid, icwmrst_grid, liqcldf_grid, &
+              nc_grid, qr_grid, nr_grid, qs_grid, ns_grid, qrout_grid, nrout_grid, qsout_grid, nsout_grid, ni_grid, &
+              icecldf_grid, icimrst_grid, ast_grid, mu_grid, lambdac_grid, rel_fn_grid, ncic_grid, rel_grid, drout2_grid, &
+              reff_rain_grid, des_grid, dsout2_grid, reff_snow_grid, rei_grid, niic_grid, dei_grid, mgreffrain_grid, &
+              mgreffsnow_grid, iclwpst_grid, cld_grid, cmeliq_grid, pdel_grid, prec_str_grid, acgcme_grid, acprecl_grid, &
+              acnum_grid, prao_grid, prco_grid, icwnc_grid, icinc_grid, nevapr_grid, evpsnow_st_grid, tgliqwp_grid, &
+              tgcmeliq_grid, pe_grid, tpr_grid, pefrac_grid, vprao_grid, vprco_grid, racau_grid, cnt_grid, cdnumc_grid, &
+              efcout_grid, efiout_grid, ncout_grid, niout_grid, freql_grid, freqi_grid, icwmrst_grid_out, icimrst_grid_out, &
+              fcti_grid, fctl_grid, ctrel_grid, ctrei_grid, ctnl_grid, ctni_grid, evprain_st_grid, qcreso_grid, melto_grid, &
+              mnuccco_grid, mnuccto_grid, bergo_grid, homoo_grid, msacwio_grid, psacwso_grid, bergso_grid, cmeiout_grid, &
+              qireso_grid, prcio_grid, praio_grid, budget_ftem_grid)
+      end if
+
    else
-      rho_grid = rho
+
+      if (trace_water) then
+
+         if (use_subcol_microp) then
+            call endrun(subname // ':: ERROR water tracers are NOT configured to work with subcolumns')
+         else
+            preo_grid      => preo
+            prdso_grid     => prdso
+            frzro_grid     => frzro
+            meltso_grid    => meltso
+            wtfc_grid      => wtfc
+            wtfi_grid      => wtfi
+            wtprelat_grid  => wtprelat
+            wtpostlat_grid => wtpostlat
+
+            mnuccro_grid  => mnuccro
+            pracso_grid   => pracso
+            qcsedten_grid => qcsedten
+            qisedten_grid => qisedten
+            alst_mic_grid => alst_mic
+            aist_mic_grid => aist_mic
+         end if
+
+         call micro_mg_cam_wtrc_shell_codon_wrap(ncol, preo_grid, prdso_grid, cmeiout_grid, meltso_grid, qcsedten_grid, &
+              qisedten_grid, mnuccco_grid, mnuccto_grid, msacwio_grid, prao_grid, prco_grid, psacwso_grid, bergo_grid, &
+              bergso_grid, praio_grid, prcio_grid, pracso_grid, mnuccro_grid, qcreso_grid, qireso_grid, homoo_grid, melto_grid, &
+              pre_rates_grid, sed_rates_grid, post_rates_grid, pcmei_grid, ncmei_grid, pmelts_grid, nmelts_grid)
+
+         call wtrc_apply_rates(state, ptend, pbuf, top_lev, dtime, .true., pre_rates=pre_rates_grid, sed_rates=sed_rates_grid, &
+              post_rates=post_rates_grid, do_stprecip=.true., liqcldf=alst_mic, icecldf=aist_mic, fc=wtfc_grid, fi=wtfi_grid, &
+              prelat=wtprelat_grid, postlat=wtpostlat_grid, frzro=frzro_grid, meltso=meltso_grid)
+
+      end if
+
+      rho(:ncol,top_lev:) = state%pmid(:ncol,top_lev:) / &
+           (rair*state%t(:ncol,top_lev:))
+      if (use_subcol_microp) then
+         call subcol_field_avg(rho, ngrdcol, lchnk, rho_grid)
+      else
+         rho_grid = rho
+      end if
+
+      minlwp = 0.01_r8
+      call micro_mg_cam_reff_liq_native(ngrdcol, rho_grid, icwmrst_grid, liqcldf_grid, nc_grid, mu_grid, lambdac_grid, &
+           rel_fn_grid, ncic_grid, rel_grid)
+
+      call micro_mg_cam_diag_shell_codon_wrap(ngrdcol, micro_mg_version, minlwp, rho_grid, icwmrst_grid, liqcldf_grid, &
+           nc_grid, qr_grid, nr_grid, qs_grid, ns_grid, qrout_grid, nrout_grid, qsout_grid, nsout_grid, ni_grid, &
+           icecldf_grid, icimrst_grid, ast_grid, mu_grid, lambdac_grid, rel_fn_grid, ncic_grid, rel_grid, drout2_grid, &
+           reff_rain_grid, des_grid, dsout2_grid, reff_snow_grid, rei_grid, niic_grid, dei_grid, mgreffrain_grid, &
+           mgreffsnow_grid, iclwpst_grid, cld_grid, cmeliq_grid, pdel_grid, prec_str_grid, acgcme_grid, acprecl_grid, &
+           acnum_grid, prao_grid, prco_grid, icwnc_grid, icinc_grid, nevapr_grid, evpsnow_st_grid, tgliqwp_grid, &
+           tgcmeliq_grid, pe_grid, tpr_grid, pefrac_grid, vprao_grid, vprco_grid, racau_grid, cnt_grid, cdnumc_grid, &
+           efcout_grid, efiout_grid, ncout_grid, niout_grid, freql_grid, freqi_grid, icwmrst_grid_out, icimrst_grid_out, &
+           fcti_grid, fctl_grid, ctrel_grid, ctrei_grid, ctnl_grid, ctni_grid, evprain_st_grid, qcreso_grid, melto_grid, &
+           mnuccco_grid, mnuccto_grid, bergo_grid, homoo_grid, msacwio_grid, psacwso_grid, bergso_grid, cmeiout_grid, &
+           qireso_grid, prcio_grid, praio_grid, budget_ftem_grid)
+
    end if
-
-   call micro_mg_cam_reff_calc(ngrdcol, micro_mg_version, rho_grid, icwmrst_grid, liqcldf_grid, nc_grid, qr_grid, nr_grid, &
-        qs_grid, ns_grid, qrout_grid, nrout_grid, qsout_grid, nsout_grid, ni_grid, icecldf_grid, icimrst_grid, ast_grid, &
-        mu_grid, lambdac_grid, rel_fn_grid, ncic_grid, rel_grid, drout2_grid, reff_rain_grid, des_grid, dsout2_grid, &
-        reff_snow_grid, rei_grid, niic_grid, dei_grid, mgreffrain_grid, mgreffsnow_grid)
-
-   ! ------------------------------------- !
-   ! Precipitation efficiency Calculation  !
-   ! ------------------------------------- !
-
-   !-----------------------------------------------------------------------
-   ! Liquid water path
-
-   ! Compute liquid water paths, and column condensation
-   minlwp = 0.01_r8        !minimum lwp threshold (kg/m3)
-
-   call micro_mg_cam_grid_diag(ngrdcol, minlwp, iclwpst_grid, cld_grid, cmeliq_grid, pdel_grid, prec_str_grid, &
-        acgcme_grid, acprecl_grid, acnum_grid, prao_grid, prco_grid, nc_grid, liqcldf_grid, icwmrst_grid, rel_grid, &
-        icwnc_grid, icecldf_grid, icimrst_grid, rei_grid, icinc_grid, nevapr_grid, evpsnow_st_grid, tgliqwp_grid, &
-        tgcmeliq_grid, pe_grid, tpr_grid, pefrac_grid, vprao_grid, vprco_grid, racau_grid, cnt_grid, cdnumc_grid, &
-        efcout_grid, efiout_grid, ncout_grid, niout_grid, freql_grid, freqi_grid, icwmrst_grid_out, icimrst_grid_out, &
-        fcti_grid, fctl_grid, ctrel_grid, ctrei_grid, ctnl_grid, ctni_grid, evprain_st_grid)
 
    ! Assign the values to the pbuf pointers if they exist in pbuf
    if (qrain_idx > 0)  qrout_grid_ptr = qrout_grid
@@ -2652,31 +2731,37 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    ! General outfield calls for microphysics       !
    ! --------------------------------------------- !
 
-   ! Output a handle of variables which are calculated on the fly
-   ftem_grid = 0._r8
+   if (use_native_diag_shell_impl) then
+      call micro_mg_cam_budget_diag(1, ngrdcol, qcreso_grid, melto_grid, mnuccco_grid, mnuccto_grid, bergo_grid, homoo_grid, &
+           msacwio_grid, prao_grid, prco_grid, psacwso_grid, bergso_grid, cmeiout_grid, qireso_grid, prcio_grid, praio_grid, &
+           budget_ftem_grid(:,:,1))
 
-   ftem_grid(:ngrdcol,top_lev:pver) =  qcreso_grid(:ngrdcol,top_lev:pver)
-   call outfld( 'MPDW2V', ftem_grid, pcols, lchnk)
+      call micro_mg_cam_budget_diag(2, ngrdcol, qcreso_grid, melto_grid, mnuccco_grid, mnuccto_grid, bergo_grid, homoo_grid, &
+           msacwio_grid, prao_grid, prco_grid, psacwso_grid, bergso_grid, cmeiout_grid, qireso_grid, prcio_grid, praio_grid, &
+           budget_ftem_grid(:,:,2))
 
-   ftem_grid(:ngrdcol,top_lev:pver) =  melto_grid(:ngrdcol,top_lev:pver) - mnuccco_grid(:ngrdcol,top_lev:pver)&
-        - mnuccto_grid(:ngrdcol,top_lev:pver) -  bergo_grid(:ngrdcol,top_lev:pver) - homoo_grid(:ngrdcol,top_lev:pver)&
-        - msacwio_grid(:ngrdcol,top_lev:pver)
-   call outfld( 'MPDW2I', ftem_grid, pcols, lchnk)
+      call micro_mg_cam_budget_diag(3, ngrdcol, qcreso_grid, melto_grid, mnuccco_grid, mnuccto_grid, bergo_grid, homoo_grid, &
+           msacwio_grid, prao_grid, prco_grid, psacwso_grid, bergso_grid, cmeiout_grid, qireso_grid, prcio_grid, praio_grid, &
+           budget_ftem_grid(:,:,3))
 
-   ftem_grid(:ngrdcol,top_lev:pver) = -prao_grid(:ngrdcol,top_lev:pver) - prco_grid(:ngrdcol,top_lev:pver)&
-        - psacwso_grid(:ngrdcol,top_lev:pver) - bergso_grid(:ngrdcol,top_lev:pver)
-   call outfld( 'MPDW2P', ftem_grid, pcols, lchnk)
+      call micro_mg_cam_budget_diag(4, ngrdcol, qcreso_grid, melto_grid, mnuccco_grid, mnuccto_grid, bergo_grid, homoo_grid, &
+           msacwio_grid, prao_grid, prco_grid, psacwso_grid, bergso_grid, cmeiout_grid, qireso_grid, prcio_grid, praio_grid, &
+           budget_ftem_grid(:,:,4))
 
-   ftem_grid(:ngrdcol,top_lev:pver) =  cmeiout_grid(:ngrdcol,top_lev:pver) + qireso_grid(:ngrdcol,top_lev:pver)
-   call outfld( 'MPDI2V', ftem_grid, pcols, lchnk)
+      call micro_mg_cam_budget_diag(5, ngrdcol, qcreso_grid, melto_grid, mnuccco_grid, mnuccto_grid, bergo_grid, homoo_grid, &
+           msacwio_grid, prao_grid, prco_grid, psacwso_grid, bergso_grid, cmeiout_grid, qireso_grid, prcio_grid, praio_grid, &
+           budget_ftem_grid(:,:,5))
 
-   ftem_grid(:ngrdcol,top_lev:pver) = -melto_grid(:ngrdcol,top_lev:pver) + mnuccco_grid(:ngrdcol,top_lev:pver) &
-        + mnuccto_grid(:ngrdcol,top_lev:pver) +  bergo_grid(:ngrdcol,top_lev:pver) + homoo_grid(:ngrdcol,top_lev:pver)&
-        + msacwio_grid(:ngrdcol,top_lev:pver)
-   call outfld( 'MPDI2W', ftem_grid, pcols, lchnk)
-
-   ftem_grid(:ngrdcol,top_lev:pver) = -prcio_grid(:ngrdcol,top_lev:pver) - praio_grid(:ngrdcol,top_lev:pver)
-   call outfld( 'MPDI2P', ftem_grid, pcols, lchnk)
+      call micro_mg_cam_budget_diag(6, ngrdcol, qcreso_grid, melto_grid, mnuccco_grid, mnuccto_grid, bergo_grid, homoo_grid, &
+           msacwio_grid, prao_grid, prco_grid, psacwso_grid, bergso_grid, cmeiout_grid, qireso_grid, prcio_grid, praio_grid, &
+           budget_ftem_grid(:,:,6))
+   end if
+   call outfld( 'MPDW2V', budget_ftem_grid(:,:,1), pcols, lchnk)
+   call outfld( 'MPDW2I', budget_ftem_grid(:,:,2), pcols, lchnk)
+   call outfld( 'MPDW2P', budget_ftem_grid(:,:,3), pcols, lchnk)
+   call outfld( 'MPDI2V', budget_ftem_grid(:,:,4), pcols, lchnk)
+   call outfld( 'MPDI2W', budget_ftem_grid(:,:,5), pcols, lchnk)
+   call outfld( 'MPDI2P', budget_ftem_grid(:,:,6), pcols, lchnk)
 
    ! Output fields which have not been averaged already, averaging if use_subcol_microp is true
    call outfld('MPICLWPI',    iclwpi,      psetcols, lchnk, avg_subcol_field=use_subcol_microp)
@@ -2801,6 +2886,575 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    call physics_state_dealloc(state_loc)
 
 end subroutine micro_mg_cam_tend
+
+subroutine micro_mg_cam_select_tail_shell_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (tail_shell_impl_selected) return
+
+  impl_name = 'native'
+  call get_environment_variable('MICRO_MG_CAM_TAIL_SHELL_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_tail_shell_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_tail_shell_impl = .true.
+  end if
+
+  tail_shell_impl_selected = .true.
+
+  if (use_native_tail_shell_impl) then
+     write(iulog,*) 'micro_mg_cam_tail_shell implementation = native'
+     call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_TAIL_SHELL_PROOF_FILE', &
+          'micro_mg_cam_tail_shell implementation = native')
+  else
+     write(iulog,*) 'micro_mg_cam_tail_shell implementation = codon'
+     call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_TAIL_SHELL_PROOF_FILE', &
+          'micro_mg_cam_tail_shell implementation = codon')
+  end if
+  call flush(iulog)
+
+end subroutine micro_mg_cam_select_tail_shell_impl
+
+subroutine micro_mg_cam_select_diag_shell_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (diag_shell_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MICRO_MG_CAM_DIAG_SHELL_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_diag_shell_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_diag_shell_impl = .false.
+  end if
+
+  diag_shell_impl_selected = .true.
+
+  if (use_native_diag_shell_impl) then
+     write(iulog,*) 'micro_mg_cam_diag_shell implementation = native'
+     call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_DIAG_SHELL_PROOF_FILE', &
+          'micro_mg_cam_diag_shell implementation = native')
+  else
+     write(iulog,*) 'micro_mg_cam_diag_shell implementation = codon'
+     call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_DIAG_SHELL_PROOF_FILE', &
+          'micro_mg_cam_diag_shell implementation = codon')
+  end if
+  call flush(iulog)
+
+end subroutine micro_mg_cam_select_diag_shell_impl
+
+subroutine micro_mg_cam_diag_shell_codon_wrap(ngrdcol_local, micro_mg_version_local, minlwp_local, rho_grid_local, &
+     icwmrst_grid_local, liqcldf_grid_local, nc_grid_local, qr_grid_local, nr_grid_local, qs_grid_local, ns_grid_local, &
+     qrout_grid_local, nrout_grid_local, qsout_grid_local, nsout_grid_local, ni_grid_local, icecldf_grid_local, &
+     icimrst_grid_local, ast_grid_local, mu_grid_local, lambdac_grid_local, rel_fn_grid_local, ncic_grid_local, rel_grid_local, &
+     drout2_grid_local, reff_rain_grid_local, des_grid_local, dsout2_grid_local, reff_snow_grid_local, rei_grid_local, &
+     niic_grid_local, dei_grid_local, mgreffrain_grid_local, mgreffsnow_grid_local, iclwpst_grid_local, cld_grid_local, &
+     cmeliq_grid_local, pdel_grid_local, prec_str_grid_local, acgcme_grid_local, acprecl_grid_local, acnum_grid_local, &
+     prao_grid_local, prco_grid_local, icwnc_grid_local, icinc_grid_local, nevapr_grid_local, evpsnow_st_grid_local, &
+     tgliqwp_grid_local, tgcmeliq_grid_local, pe_grid_local, tpr_grid_local, pefrac_grid_local, vprao_grid_local, &
+     vprco_grid_local, racau_grid_local, cnt_grid_local, cdnumc_grid_local, efcout_grid_local, efiout_grid_local, &
+     ncout_grid_local, niout_grid_local, freql_grid_local, freqi_grid_local, icwmrst_grid_out_local, icimrst_grid_out_local, &
+     fcti_grid_local, fctl_grid_local, ctrel_grid_local, ctrei_grid_local, ctnl_grid_local, ctni_grid_local, &
+     evprain_st_grid_local, qcreso_grid_local, melto_grid_local, mnuccco_grid_local, mnuccto_grid_local, bergo_grid_local, &
+     homoo_grid_local, msacwio_grid_local, psacwso_grid_local, bergso_grid_local, cmeiout_grid_local, qireso_grid_local, &
+     prcio_grid_local, praio_grid_local, budget_ftem_grid_local)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  use micro_mg_utils, only: mg_liq_props, mg_ice_props, qsmall, mincld, rhosn, rhoi, rhow, rhows
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ngrdcol_local, micro_mg_version_local
+  real(r8), intent(in) :: minlwp_local
+  real(r8), parameter :: dcon_local = 25.e-6_r8
+  real(r8), parameter :: mucon_local = 5.3_r8
+  real(r8), parameter :: deicon_local = 50._r8
+  real(r8), target, intent(in) :: rho_grid_local(pcols,pver), icwmrst_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: liqcldf_grid_local(pcols,pver), nc_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: qr_grid_local(pcols,pver), nr_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: qs_grid_local(pcols,pver), ns_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: qrout_grid_local(pcols,pver), nrout_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: qsout_grid_local(pcols,pver), nsout_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: ni_grid_local(pcols,pver), icecldf_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: icimrst_grid_local(pcols,pver), ast_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: mu_grid_local(pcols,pver), lambdac_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: rel_fn_grid_local(pcols,pver), ncic_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: rel_grid_local(pcols,pver), drout2_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: reff_rain_grid_local(pcols,pver), des_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: dsout2_grid_local(pcols,pver), reff_snow_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: rei_grid_local(pcols,pver), niic_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: dei_grid_local(pcols,pver), mgreffrain_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: mgreffsnow_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: iclwpst_grid_local(pcols,pver), cld_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: cmeliq_grid_local(pcols,pver), pdel_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: prec_str_grid_local(pcols), prao_grid_local(pcols,pver), prco_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: icwnc_grid_local(pcols,pver), icinc_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: nevapr_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: evpsnow_st_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: acgcme_grid_local(:), acprecl_grid_local(:)
+  integer, target, intent(inout) :: acnum_grid_local(:)
+  real(r8), target, intent(inout) :: tgliqwp_grid_local(pcols), tgcmeliq_grid_local(pcols), pe_grid_local(pcols)
+  real(r8), target, intent(inout) :: tpr_grid_local(pcols), pefrac_grid_local(pcols), vprao_grid_local(pcols)
+  real(r8), target, intent(inout) :: vprco_grid_local(pcols), racau_grid_local(pcols), cdnumc_grid_local(pcols)
+  integer, target, intent(inout) :: cnt_grid_local(pcols)
+  real(r8), target, intent(inout) :: efcout_grid_local(pcols,pver), efiout_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: ncout_grid_local(pcols,pver), niout_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: freql_grid_local(pcols,pver), freqi_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: icwmrst_grid_out_local(pcols,pver), icimrst_grid_out_local(pcols,pver)
+  real(r8), target, intent(inout) :: fcti_grid_local(pcols), fctl_grid_local(pcols), ctrel_grid_local(pcols)
+  real(r8), target, intent(inout) :: ctrei_grid_local(pcols), ctnl_grid_local(pcols), ctni_grid_local(pcols)
+  real(r8), target, intent(inout) :: evprain_st_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: qcreso_grid_local(pcols,pver), melto_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: mnuccco_grid_local(pcols,pver), mnuccto_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: bergo_grid_local(pcols,pver), homoo_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: msacwio_grid_local(pcols,pver), psacwso_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: bergso_grid_local(pcols,pver), cmeiout_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: qireso_grid_local(pcols,pver), prcio_grid_local(pcols,pver), praio_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: budget_ftem_grid_local(pcols,pver,6)
+
+  interface
+     subroutine micro_mg_cam_diag_shell_codon(ngrdcol_c, pcols_c, pver_c, top_lev_c, micro_mg_version_c, qsmall_c, &
+          mincld_c, liq_rho_c, liq_eff_dim_c, liq_min_mean_mass_c, ice_eff_dim_c, ice_shape_coef_c, ice_lambda_lo_c, &
+          ice_lambda_hi_c, ice_min_mean_mass_c, rhosn_c, rhoi_c, rhow_c, rhows_c, mucon_c, dcon_c, deicon_c, minlwp_c, &
+          gravit_c, rhoh2o_c, rho_grid_p, icwmrst_grid_p, liqcldf_grid_p, nc_grid_p, qr_grid_p, nr_grid_p, qs_grid_p, &
+          ns_grid_p, qrout_grid_p, nrout_grid_p, qsout_grid_p, nsout_grid_p, ni_grid_p, icecldf_grid_p, icimrst_grid_p, &
+          ast_grid_p, mu_grid_p, lambdac_grid_p, rel_fn_grid_p, ncic_grid_p, rel_grid_p, drout2_grid_p, &
+          reff_rain_grid_p, des_grid_p, dsout2_grid_p, reff_snow_grid_p, rei_grid_p, niic_grid_p, dei_grid_p, &
+          mgreffrain_grid_p, mgreffsnow_grid_p, iclwpst_grid_p, cld_grid_p, cmeliq_grid_p, pdel_grid_p, prec_str_grid_p, &
+          acgcme_grid_p, acprecl_grid_p, acnum_grid_p, prao_grid_p, prco_grid_p, icwnc_grid_p, icinc_grid_p, nevapr_grid_p, &
+          evpsnow_st_grid_p, tgliqwp_grid_p, tgcmeliq_grid_p, pe_grid_p, tpr_grid_p, pefrac_grid_p, vprao_grid_p, &
+          vprco_grid_p, racau_grid_p, cnt_grid_p, cdnumc_grid_p, efcout_grid_p, efiout_grid_p, ncout_grid_p, niout_grid_p, &
+          freql_grid_p, freqi_grid_p, icwmrst_grid_out_p, icimrst_grid_out_p, fcti_grid_p, fctl_grid_p, ctrel_grid_p, &
+          ctrei_grid_p, ctnl_grid_p, ctni_grid_p, evprain_st_grid_p, qcreso_grid_p, melto_grid_p, mnuccco_grid_p, &
+          mnuccto_grid_p, bergo_grid_p, homoo_grid_p, msacwio_grid_p, psacwso_grid_p, bergso_grid_p, cmeiout_grid_p, &
+          qireso_grid_p, prcio_grid_p, praio_grid_p, budget_ftem_grid_p) bind(c, name="micro_mg_cam_diag_shell_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ngrdcol_c, pcols_c, pver_c, top_lev_c, micro_mg_version_c
+       real(c_double), value :: qsmall_c, mincld_c, liq_rho_c, liq_eff_dim_c, liq_min_mean_mass_c
+       real(c_double), value :: ice_eff_dim_c, ice_shape_coef_c, ice_lambda_lo_c, ice_lambda_hi_c
+       real(c_double), value :: ice_min_mean_mass_c, rhosn_c, rhoi_c, rhow_c, rhows_c, mucon_c, dcon_c, deicon_c
+       real(c_double), value :: minlwp_c, gravit_c, rhoh2o_c
+       type(c_ptr), value :: rho_grid_p, icwmrst_grid_p, liqcldf_grid_p, nc_grid_p, qr_grid_p, nr_grid_p
+       type(c_ptr), value :: qs_grid_p, ns_grid_p, qrout_grid_p, nrout_grid_p, qsout_grid_p, nsout_grid_p
+       type(c_ptr), value :: ni_grid_p, icecldf_grid_p, icimrst_grid_p, ast_grid_p, mu_grid_p, lambdac_grid_p
+       type(c_ptr), value :: rel_fn_grid_p, ncic_grid_p, rel_grid_p, drout2_grid_p, reff_rain_grid_p, des_grid_p
+       type(c_ptr), value :: dsout2_grid_p, reff_snow_grid_p, rei_grid_p, niic_grid_p, dei_grid_p
+       type(c_ptr), value :: mgreffrain_grid_p, mgreffsnow_grid_p, iclwpst_grid_p, cld_grid_p, cmeliq_grid_p
+       type(c_ptr), value :: pdel_grid_p, prec_str_grid_p, acgcme_grid_p, acprecl_grid_p, acnum_grid_p, prao_grid_p
+       type(c_ptr), value :: prco_grid_p, icwnc_grid_p, icinc_grid_p, nevapr_grid_p, evpsnow_st_grid_p
+       type(c_ptr), value :: tgliqwp_grid_p, tgcmeliq_grid_p, pe_grid_p, tpr_grid_p, pefrac_grid_p, vprao_grid_p
+       type(c_ptr), value :: vprco_grid_p, racau_grid_p, cnt_grid_p, cdnumc_grid_p, efcout_grid_p, efiout_grid_p
+       type(c_ptr), value :: ncout_grid_p, niout_grid_p, freql_grid_p, freqi_grid_p, icwmrst_grid_out_p
+       type(c_ptr), value :: icimrst_grid_out_p, fcti_grid_p, fctl_grid_p, ctrel_grid_p, ctrei_grid_p, ctnl_grid_p
+       type(c_ptr), value :: ctni_grid_p, evprain_st_grid_p, qcreso_grid_p, melto_grid_p, mnuccco_grid_p
+       type(c_ptr), value :: mnuccto_grid_p, bergo_grid_p, homoo_grid_p, msacwio_grid_p, psacwso_grid_p, bergso_grid_p
+       type(c_ptr), value :: cmeiout_grid_p, qireso_grid_p, prcio_grid_p, praio_grid_p, budget_ftem_grid_p
+     end subroutine micro_mg_cam_diag_shell_codon
+  end interface
+
+  call micro_mg_cam_diag_shell_codon(int(ngrdcol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(top_lev, c_int64_t), int(micro_mg_version_local, c_int64_t), qsmall, mincld, mg_liq_props%rho, &
+       mg_liq_props%eff_dim, mg_liq_props%min_mean_mass, mg_ice_props%eff_dim, mg_ice_props%shape_coef, &
+       mg_ice_props%lambda_bounds(1), mg_ice_props%lambda_bounds(2), mg_ice_props%min_mean_mass, rhosn, rhoi, rhow, rhows, &
+       mucon_local, dcon_local, deicon_local, minlwp_local, gravit, rhoh2o, c_loc(rho_grid_local), c_loc(icwmrst_grid_local), &
+       c_loc(liqcldf_grid_local), c_loc(nc_grid_local), c_loc(qr_grid_local), c_loc(nr_grid_local), c_loc(qs_grid_local), &
+       c_loc(ns_grid_local), c_loc(qrout_grid_local), c_loc(nrout_grid_local), c_loc(qsout_grid_local), c_loc(nsout_grid_local), &
+       c_loc(ni_grid_local), c_loc(icecldf_grid_local), c_loc(icimrst_grid_local), c_loc(ast_grid_local), c_loc(mu_grid_local), &
+       c_loc(lambdac_grid_local), c_loc(rel_fn_grid_local), c_loc(ncic_grid_local), c_loc(rel_grid_local), &
+       c_loc(drout2_grid_local), c_loc(reff_rain_grid_local), c_loc(des_grid_local), c_loc(dsout2_grid_local), &
+       c_loc(reff_snow_grid_local), c_loc(rei_grid_local), c_loc(niic_grid_local), c_loc(dei_grid_local), &
+       c_loc(mgreffrain_grid_local), c_loc(mgreffsnow_grid_local), c_loc(iclwpst_grid_local), c_loc(cld_grid_local), &
+       c_loc(cmeliq_grid_local), c_loc(pdel_grid_local), c_loc(prec_str_grid_local), c_loc(acgcme_grid_local), &
+       c_loc(acprecl_grid_local), c_loc(acnum_grid_local(1)), c_loc(prao_grid_local), c_loc(prco_grid_local), &
+       c_loc(icwnc_grid_local), c_loc(icinc_grid_local), c_loc(nevapr_grid_local), c_loc(evpsnow_st_grid_local), &
+       c_loc(tgliqwp_grid_local), c_loc(tgcmeliq_grid_local), c_loc(pe_grid_local), c_loc(tpr_grid_local), &
+       c_loc(pefrac_grid_local), c_loc(vprao_grid_local), c_loc(vprco_grid_local), c_loc(racau_grid_local), &
+       c_loc(cnt_grid_local(1)), c_loc(cdnumc_grid_local), c_loc(efcout_grid_local), c_loc(efiout_grid_local), &
+       c_loc(ncout_grid_local), c_loc(niout_grid_local), c_loc(freql_grid_local), c_loc(freqi_grid_local), &
+       c_loc(icwmrst_grid_out_local), c_loc(icimrst_grid_out_local), c_loc(fcti_grid_local), c_loc(fctl_grid_local), &
+       c_loc(ctrel_grid_local), c_loc(ctrei_grid_local), c_loc(ctnl_grid_local), c_loc(ctni_grid_local), &
+       c_loc(evprain_st_grid_local), c_loc(qcreso_grid_local), c_loc(melto_grid_local), c_loc(mnuccco_grid_local), &
+       c_loc(mnuccto_grid_local), c_loc(bergo_grid_local), c_loc(homoo_grid_local), c_loc(msacwio_grid_local), &
+       c_loc(psacwso_grid_local), c_loc(bergso_grid_local), c_loc(cmeiout_grid_local), c_loc(qireso_grid_local), &
+       c_loc(prcio_grid_local), c_loc(praio_grid_local), c_loc(budget_ftem_grid_local))
+
+end subroutine micro_mg_cam_diag_shell_codon_wrap
+
+subroutine micro_mg_cam_select_wtrc_shell_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (wtrc_shell_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MICRO_MG_CAM_WTRC_SHELL_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_wtrc_shell_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_wtrc_shell_impl = .false.
+  end if
+
+  wtrc_shell_impl_selected = .true.
+
+  if (use_native_wtrc_shell_impl) then
+     write(iulog,*) 'micro_mg_cam_wtrc_shell implementation = native'
+     call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_WTRC_SHELL_PROOF_FILE', &
+          'micro_mg_cam_wtrc_shell implementation = native')
+  else
+     write(iulog,*) 'micro_mg_cam_wtrc_shell implementation = codon'
+     call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_WTRC_SHELL_PROOF_FILE', &
+          'micro_mg_cam_wtrc_shell implementation = codon')
+  end if
+  call flush(iulog)
+
+end subroutine micro_mg_cam_select_wtrc_shell_impl
+
+subroutine micro_mg_cam_wtrc_shell_codon_wrap(ncol_local, preo_grid_local, prdso_grid_local, cmeiout_grid_local, meltso_grid_local, &
+     qcsedten_grid_local, qisedten_grid_local, mnuccco_grid_local, mnuccto_grid_local, msacwio_grid_local, prao_grid_local, &
+     prco_grid_local, psacwso_grid_local, bergo_grid_local, bergso_grid_local, praio_grid_local, prcio_grid_local, &
+     pracso_grid_local, mnuccro_grid_local, qcreso_grid_local, qireso_grid_local, homoo_grid_local, melto_grid_local, &
+     pre_rates_grid_local, sed_rates_grid_local, post_rates_grid_local, pcmei_grid_local, ncmei_grid_local, pmelts_grid_local, &
+     nmelts_grid_local)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use water_types, only: pwtype, iwtvap, iwtliq, iwtice, iwtstrain, iwtstsnow
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  real(r8), target, intent(in) :: preo_grid_local(pcols,pver), prdso_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: cmeiout_grid_local(pcols,pver), meltso_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: qcsedten_grid_local(pcols,pver), qisedten_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: mnuccco_grid_local(pcols,pver), mnuccto_grid_local(pcols,pver), msacwio_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: prao_grid_local(pcols,pver), prco_grid_local(pcols,pver), psacwso_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: bergo_grid_local(pcols,pver), bergso_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: praio_grid_local(pcols,pver), prcio_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: pracso_grid_local(pcols,pver), mnuccro_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: qcreso_grid_local(pcols,pver), qireso_grid_local(pcols,pver), homoo_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: melto_grid_local(pcols,pver)
+  real(r8), target, intent(out) :: pre_rates_grid_local(pcols,pver,pwtype,pwtype,pwtype)
+  real(r8), target, intent(out) :: sed_rates_grid_local(pcols,pver,pwtype)
+  real(r8), target, intent(out) :: post_rates_grid_local(pcols,pver,pwtype,pwtype,pwtype)
+  real(r8), target, intent(inout) :: pcmei_grid_local(pcols,pver), ncmei_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: pmelts_grid_local(pcols,pver), nmelts_grid_local(pcols,pver)
+
+  interface
+     subroutine micro_mg_cam_wtrc_shell_codon(ncol_c, pcols_c, pver_c, top_lev_c, pwtype_c, iwtvap_c, iwtliq_c, iwtice_c, &
+          iwtstrain_c, iwtstsnow_c, preo_grid_p, prdso_grid_p, cmeiout_grid_p, meltso_grid_p, qcsedten_grid_p, &
+          qisedten_grid_p, mnuccco_grid_p, mnuccto_grid_p, msacwio_grid_p, prao_grid_p, prco_grid_p, psacwso_grid_p, &
+          bergo_grid_p, bergso_grid_p, praio_grid_p, prcio_grid_p, pracso_grid_p, mnuccro_grid_p, qcreso_grid_p, &
+          qireso_grid_p, homoo_grid_p, melto_grid_p, pre_rates_grid_p, sed_rates_grid_p, post_rates_grid_p, pcmei_grid_p, &
+          ncmei_grid_p, pmelts_grid_p, nmelts_grid_p) bind(c, name="micro_mg_cam_wtrc_shell_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, pwtype_c, iwtvap_c, iwtliq_c, iwtice_c
+       integer(c_int64_t), value :: iwtstrain_c, iwtstsnow_c
+       type(c_ptr), value :: preo_grid_p, prdso_grid_p, cmeiout_grid_p, meltso_grid_p, qcsedten_grid_p, qisedten_grid_p
+       type(c_ptr), value :: mnuccco_grid_p, mnuccto_grid_p, msacwio_grid_p, prao_grid_p, prco_grid_p, psacwso_grid_p
+       type(c_ptr), value :: bergo_grid_p, bergso_grid_p, praio_grid_p, prcio_grid_p, pracso_grid_p, mnuccro_grid_p
+       type(c_ptr), value :: qcreso_grid_p, qireso_grid_p, homoo_grid_p, melto_grid_p, pre_rates_grid_p, sed_rates_grid_p
+       type(c_ptr), value :: post_rates_grid_p, pcmei_grid_p, ncmei_grid_p, pmelts_grid_p, nmelts_grid_p
+     end subroutine micro_mg_cam_wtrc_shell_codon
+  end interface
+
+  call micro_mg_cam_wtrc_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(top_lev, c_int64_t), int(pwtype, c_int64_t), int(iwtvap, c_int64_t), int(iwtliq, c_int64_t), int(iwtice, c_int64_t), &
+       int(iwtstrain, c_int64_t), int(iwtstsnow, c_int64_t), c_loc(preo_grid_local), c_loc(prdso_grid_local), &
+       c_loc(cmeiout_grid_local), c_loc(meltso_grid_local), c_loc(qcsedten_grid_local), c_loc(qisedten_grid_local), &
+       c_loc(mnuccco_grid_local), c_loc(mnuccto_grid_local), c_loc(msacwio_grid_local), c_loc(prao_grid_local), &
+       c_loc(prco_grid_local), c_loc(psacwso_grid_local), c_loc(bergo_grid_local), c_loc(bergso_grid_local), &
+       c_loc(praio_grid_local), c_loc(prcio_grid_local), c_loc(pracso_grid_local), c_loc(mnuccro_grid_local), &
+       c_loc(qcreso_grid_local), c_loc(qireso_grid_local), c_loc(homoo_grid_local), c_loc(melto_grid_local), &
+       c_loc(pre_rates_grid_local), c_loc(sed_rates_grid_local), c_loc(post_rates_grid_local), c_loc(pcmei_grid_local), &
+       c_loc(ncmei_grid_local), c_loc(pmelts_grid_local), c_loc(nmelts_grid_local))
+
+end subroutine micro_mg_cam_wtrc_shell_codon_wrap
+
+subroutine micro_mg_cam_select_wtrc_prep_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (wtrc_prep_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MICRO_MG_CAM_WTRC_PREP_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_wtrc_prep_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_wtrc_prep_impl = .false.
+  end if
+
+  wtrc_prep_impl_selected = .true.
+
+  if (use_native_wtrc_prep_impl) then
+     write(iulog,*) 'micro_mg_cam_wtrc_prep implementation = native'
+     call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_WTRC_PREP_PROOF_FILE', &
+          'micro_mg_cam_wtrc_prep implementation = native')
+  else
+     write(iulog,*) 'micro_mg_cam_wtrc_prep implementation = codon'
+     call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_WTRC_PREP_PROOF_FILE', &
+          'micro_mg_cam_wtrc_prep implementation = codon')
+  end if
+  call flush(iulog)
+
+end subroutine micro_mg_cam_select_wtrc_prep_impl
+
+subroutine micro_mg_cam_wtrc_prep(ncol_local, cmeiout_grid_local, meltso_grid_local, qcsedten_grid_local, qisedten_grid_local, &
+     pcmei_grid_local, ncmei_grid_local, pmelts_grid_local, nmelts_grid_local, sed_rates_grid_local)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  use water_types, only: pwtype, iwtliq, iwtice
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  real(r8), target, intent(in) :: cmeiout_grid_local(pcols,pver), meltso_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: qcsedten_grid_local(pcols,pver), qisedten_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: pcmei_grid_local(pcols,pver), ncmei_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: pmelts_grid_local(pcols,pver), nmelts_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: sed_rates_grid_local(pcols,pver,pwtype)
+
+  interface
+     subroutine micro_mg_cam_wtrc_prep_codon(ncol_c, pcols_c, pver_c, top_lev_c, pwtype_c, iwtliq_c, iwtice_c, &
+          cmeiout_grid_p, meltso_grid_p, qcsedten_grid_p, qisedten_grid_p, pcmei_grid_p, ncmei_grid_p, pmelts_grid_p, &
+          nmelts_grid_p, sed_rates_grid_p) bind(c, name="micro_mg_cam_wtrc_prep_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, pwtype_c, iwtliq_c, iwtice_c
+       type(c_ptr), value :: cmeiout_grid_p, meltso_grid_p, qcsedten_grid_p, qisedten_grid_p
+       type(c_ptr), value :: pcmei_grid_p, ncmei_grid_p, pmelts_grid_p, nmelts_grid_p, sed_rates_grid_p
+     end subroutine micro_mg_cam_wtrc_prep_codon
+  end interface
+
+  call micro_mg_cam_select_wtrc_prep_impl()
+
+  if (use_native_wtrc_prep_impl) then
+     call micro_mg_cam_wtrc_prep_native(ncol_local, cmeiout_grid_local, meltso_grid_local, qcsedten_grid_local, &
+          qisedten_grid_local, pcmei_grid_local, ncmei_grid_local, pmelts_grid_local, nmelts_grid_local, sed_rates_grid_local)
+     return
+  end if
+
+  call micro_mg_cam_wtrc_prep_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(top_lev, c_int64_t), int(pwtype, c_int64_t), int(iwtliq, c_int64_t), int(iwtice, c_int64_t), &
+       c_loc(cmeiout_grid_local), c_loc(meltso_grid_local), c_loc(qcsedten_grid_local), c_loc(qisedten_grid_local), &
+       c_loc(pcmei_grid_local), c_loc(ncmei_grid_local), c_loc(pmelts_grid_local), c_loc(nmelts_grid_local), &
+       c_loc(sed_rates_grid_local))
+
+end subroutine micro_mg_cam_wtrc_prep
+
+subroutine micro_mg_cam_wtrc_prep_native(ncol_local, cmeiout_grid_local, meltso_grid_local, qcsedten_grid_local, &
+     qisedten_grid_local, pcmei_grid_local, ncmei_grid_local, pmelts_grid_local, nmelts_grid_local, sed_rates_grid_local)
+
+  use water_types, only: pwtype, iwtliq, iwtice
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  real(r8), intent(in) :: cmeiout_grid_local(pcols,pver), meltso_grid_local(pcols,pver)
+  real(r8), intent(in) :: qcsedten_grid_local(pcols,pver), qisedten_grid_local(pcols,pver)
+  real(r8), intent(inout) :: pcmei_grid_local(pcols,pver), ncmei_grid_local(pcols,pver)
+  real(r8), intent(inout) :: pmelts_grid_local(pcols,pver), nmelts_grid_local(pcols,pver)
+  real(r8), intent(inout) :: sed_rates_grid_local(pcols,pver,pwtype)
+  integer :: i, k, m
+
+  do m = 1, pwtype
+     do k = top_lev, pver
+        do i = 1, pcols
+           sed_rates_grid_local(i,k,m) = 0._r8
+        end do
+     end do
+  end do
+
+  do k = top_lev, pver
+     do i = 1, pcols
+        pcmei_grid_local(i,k) = 0._r8
+        ncmei_grid_local(i,k) = 0._r8
+        pmelts_grid_local(i,k) = 0._r8
+        nmelts_grid_local(i,k) = 0._r8
+     end do
+  end do
+
+  do k = top_lev, pver
+     do i = 1, ncol_local
+        if (cmeiout_grid_local(i,k) < 0._r8) then
+           ncmei_grid_local(i,k) = cmeiout_grid_local(i,k)
+        else
+           pcmei_grid_local(i,k) = cmeiout_grid_local(i,k)
+        end if
+        if (meltso_grid_local(i,k) < 0._r8) then
+           nmelts_grid_local(i,k) = meltso_grid_local(i,k)
+        else
+           pmelts_grid_local(i,k) = meltso_grid_local(i,k)
+        end if
+        sed_rates_grid_local(i,k,iwtliq) = qcsedten_grid_local(i,k)
+        sed_rates_grid_local(i,k,iwtice) = qisedten_grid_local(i,k)
+     end do
+  end do
+
+end subroutine micro_mg_cam_wtrc_prep_native
+
+subroutine micro_mg_cam_select_budget_diag_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (budget_diag_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MICRO_MG_CAM_BUDGET_DIAG_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_budget_diag_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_budget_diag_impl = .false.
+  end if
+
+  budget_diag_impl_selected = .true.
+
+  if (use_native_budget_diag_impl) then
+     write(iulog,*) 'micro_mg_cam_budget_diag implementation = native'
+     call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_BUDGET_DIAG_PROOF_FILE', &
+          'micro_mg_cam_budget_diag implementation = native')
+  else
+     write(iulog,*) 'micro_mg_cam_budget_diag implementation = codon'
+     call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_BUDGET_DIAG_PROOF_FILE', &
+          'micro_mg_cam_budget_diag implementation = codon')
+  end if
+  call flush(iulog)
+
+end subroutine micro_mg_cam_select_budget_diag_impl
+
+subroutine micro_mg_cam_budget_diag(mode_local, ncol_local, qcreso_grid_local, melto_grid_local, mnuccco_grid_local, &
+     mnuccto_grid_local, bergo_grid_local, homoo_grid_local, msacwio_grid_local, prao_grid_local, prco_grid_local, &
+     psacwso_grid_local, bergso_grid_local, cmeiout_grid_local, qireso_grid_local, prcio_grid_local, praio_grid_local, &
+     ftem_grid_local)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: mode_local, ncol_local
+  real(r8), target, intent(in) :: qcreso_grid_local(pcols,pver), melto_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: mnuccco_grid_local(pcols,pver), mnuccto_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: bergo_grid_local(pcols,pver), homoo_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: msacwio_grid_local(pcols,pver), prao_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: prco_grid_local(pcols,pver), psacwso_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: bergso_grid_local(pcols,pver), cmeiout_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: qireso_grid_local(pcols,pver), prcio_grid_local(pcols,pver), praio_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: ftem_grid_local(pcols,pver)
+
+  interface
+     subroutine micro_mg_cam_budget_diag_codon(mode_c, ncol_c, pcols_c, pver_c, top_lev_c, qcreso_grid_p, melto_grid_p, &
+          mnuccco_grid_p, mnuccto_grid_p, bergo_grid_p, homoo_grid_p, msacwio_grid_p, prao_grid_p, prco_grid_p, &
+          psacwso_grid_p, bergso_grid_p, cmeiout_grid_p, qireso_grid_p, prcio_grid_p, praio_grid_p, ftem_grid_p) &
+          bind(c, name="micro_mg_cam_budget_diag_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: mode_c, ncol_c, pcols_c, pver_c, top_lev_c
+       type(c_ptr), value :: qcreso_grid_p, melto_grid_p, mnuccco_grid_p, mnuccto_grid_p, bergo_grid_p, homoo_grid_p
+       type(c_ptr), value :: msacwio_grid_p, prao_grid_p, prco_grid_p, psacwso_grid_p, bergso_grid_p, cmeiout_grid_p
+       type(c_ptr), value :: qireso_grid_p, prcio_grid_p, praio_grid_p, ftem_grid_p
+     end subroutine micro_mg_cam_budget_diag_codon
+  end interface
+
+  call micro_mg_cam_select_budget_diag_impl()
+
+  if (use_native_budget_diag_impl) then
+     call micro_mg_cam_budget_diag_native(mode_local, ncol_local, qcreso_grid_local, melto_grid_local, mnuccco_grid_local, &
+          mnuccto_grid_local, bergo_grid_local, homoo_grid_local, msacwio_grid_local, prao_grid_local, prco_grid_local, &
+          psacwso_grid_local, bergso_grid_local, cmeiout_grid_local, qireso_grid_local, prcio_grid_local, praio_grid_local, &
+          ftem_grid_local)
+     return
+  end if
+
+  call micro_mg_cam_budget_diag_codon(int(mode_local, c_int64_t), int(ncol_local, c_int64_t), int(pcols, c_int64_t), &
+       int(pver, c_int64_t), int(top_lev, c_int64_t), c_loc(qcreso_grid_local), c_loc(melto_grid_local), &
+       c_loc(mnuccco_grid_local), c_loc(mnuccto_grid_local), c_loc(bergo_grid_local), c_loc(homoo_grid_local), &
+       c_loc(msacwio_grid_local), c_loc(prao_grid_local), c_loc(prco_grid_local), c_loc(psacwso_grid_local), &
+       c_loc(bergso_grid_local), c_loc(cmeiout_grid_local), c_loc(qireso_grid_local), c_loc(prcio_grid_local), &
+       c_loc(praio_grid_local), c_loc(ftem_grid_local))
+
+end subroutine micro_mg_cam_budget_diag
+
+subroutine micro_mg_cam_budget_diag_native(mode_local, ncol_local, qcreso_grid_local, melto_grid_local, mnuccco_grid_local, &
+     mnuccto_grid_local, bergo_grid_local, homoo_grid_local, msacwio_grid_local, prao_grid_local, prco_grid_local, &
+     psacwso_grid_local, bergso_grid_local, cmeiout_grid_local, qireso_grid_local, prcio_grid_local, praio_grid_local, &
+     ftem_grid_local)
+
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: mode_local, ncol_local
+  real(r8), intent(in) :: qcreso_grid_local(pcols,pver), melto_grid_local(pcols,pver)
+  real(r8), intent(in) :: mnuccco_grid_local(pcols,pver), mnuccto_grid_local(pcols,pver)
+  real(r8), intent(in) :: bergo_grid_local(pcols,pver), homoo_grid_local(pcols,pver)
+  real(r8), intent(in) :: msacwio_grid_local(pcols,pver), prao_grid_local(pcols,pver)
+  real(r8), intent(in) :: prco_grid_local(pcols,pver), psacwso_grid_local(pcols,pver)
+  real(r8), intent(in) :: bergso_grid_local(pcols,pver), cmeiout_grid_local(pcols,pver)
+  real(r8), intent(in) :: qireso_grid_local(pcols,pver), prcio_grid_local(pcols,pver), praio_grid_local(pcols,pver)
+  real(r8), intent(inout) :: ftem_grid_local(pcols,pver)
+
+  ftem_grid_local = 0._r8
+
+  select case (mode_local)
+  case (1)
+     ftem_grid_local(:ncol_local,top_lev:pver) = qcreso_grid_local(:ncol_local,top_lev:pver)
+  case (2)
+     ftem_grid_local(:ncol_local,top_lev:pver) = melto_grid_local(:ncol_local,top_lev:pver) - &
+          mnuccco_grid_local(:ncol_local,top_lev:pver) - mnuccto_grid_local(:ncol_local,top_lev:pver) - &
+          bergo_grid_local(:ncol_local,top_lev:pver) - homoo_grid_local(:ncol_local,top_lev:pver) - &
+          msacwio_grid_local(:ncol_local,top_lev:pver)
+  case (3)
+     ftem_grid_local(:ncol_local,top_lev:pver) = -prao_grid_local(:ncol_local,top_lev:pver) - &
+          prco_grid_local(:ncol_local,top_lev:pver) - psacwso_grid_local(:ncol_local,top_lev:pver) - &
+          bergso_grid_local(:ncol_local,top_lev:pver)
+  case (4)
+     ftem_grid_local(:ncol_local,top_lev:pver) = cmeiout_grid_local(:ncol_local,top_lev:pver) + &
+          qireso_grid_local(:ncol_local,top_lev:pver)
+  case (5)
+     ftem_grid_local(:ncol_local,top_lev:pver) = -melto_grid_local(:ncol_local,top_lev:pver) + &
+          mnuccco_grid_local(:ncol_local,top_lev:pver) + mnuccto_grid_local(:ncol_local,top_lev:pver) + &
+          bergo_grid_local(:ncol_local,top_lev:pver) + homoo_grid_local(:ncol_local,top_lev:pver) + &
+          msacwio_grid_local(:ncol_local,top_lev:pver)
+  case (6)
+     ftem_grid_local(:ncol_local,top_lev:pver) = -prcio_grid_local(:ncol_local,top_lev:pver) - &
+          praio_grid_local(:ncol_local,top_lev:pver)
+  case default
+     call endrun('micro_mg_cam_budget_diag: invalid mode')
+  end select
+
+end subroutine micro_mg_cam_budget_diag_native
 
 subroutine micro_mg_cam_append_impl_proof(env_name, proof_line)
 

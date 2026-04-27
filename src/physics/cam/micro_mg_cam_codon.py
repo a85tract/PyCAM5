@@ -9,6 +9,221 @@ def _idx3(i: int, k: int, m: int, ld1: int, ld2: int):
     return ((m - 1) * ld2 + (k - 1)) * ld1 + (i - 1)
 
 
+@inline
+def _process_rates_idx(
+    i: int,
+    k: int,
+    idsttype: int,
+    isrctype: int,
+    rtype: int,
+    pcols: int,
+    pver: int,
+    pwtype: int,
+):
+    return (
+        (i - 1)
+        + (k - 1) * pcols
+        + (idsttype - 1) * pcols * pver
+        + (isrctype - 1) * pcols * pver * pwtype
+        + (rtype - 1) * pcols * pver * pwtype * pwtype
+    )
+
+
+@inline
+def _add_process_rate(
+    process_rates,
+    i: int,
+    k: int,
+    isrctype: int,
+    idsttype: int,
+    rtype: int,
+    rate_val: float,
+    pcols: int,
+    pver: int,
+    pwtype: int,
+):
+    dst_idx = _process_rates_idx(i, k, idsttype, isrctype, rtype, pcols, pver, pwtype)
+    process_rates[dst_idx] = process_rates[dst_idx] + rate_val
+    if isrctype != idsttype:
+        src_idx = _process_rates_idx(i, k, isrctype, idsttype, rtype, pcols, pver, pwtype)
+        process_rates[src_idx] = process_rates[src_idx] - rate_val
+
+
+@export
+def micro_mg_cam_wtrc_shell_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    pwtype: int,
+    iwtvap: int,
+    iwtliq: int,
+    iwtice: int,
+    iwtstrain: int,
+    iwtstsnow: int,
+    preo_grid_p: cobj,
+    prdso_grid_p: cobj,
+    cmeiout_grid_p: cobj,
+    meltso_grid_p: cobj,
+    qcsedten_grid_p: cobj,
+    qisedten_grid_p: cobj,
+    mnuccco_grid_p: cobj,
+    mnuccto_grid_p: cobj,
+    msacwio_grid_p: cobj,
+    prao_grid_p: cobj,
+    prco_grid_p: cobj,
+    psacwso_grid_p: cobj,
+    bergo_grid_p: cobj,
+    bergso_grid_p: cobj,
+    praio_grid_p: cobj,
+    prcio_grid_p: cobj,
+    pracso_grid_p: cobj,
+    mnuccro_grid_p: cobj,
+    qcreso_grid_p: cobj,
+    qireso_grid_p: cobj,
+    homoo_grid_p: cobj,
+    melto_grid_p: cobj,
+    pre_rates_grid_p: cobj,
+    sed_rates_grid_p: cobj,
+    post_rates_grid_p: cobj,
+    pcmei_grid_p: cobj,
+    ncmei_grid_p: cobj,
+    pmelts_grid_p: cobj,
+    nmelts_grid_p: cobj,
+):
+    preo_grid = Ptr[float](preo_grid_p)
+    prdso_grid = Ptr[float](prdso_grid_p)
+    cmeiout_grid = Ptr[float](cmeiout_grid_p)
+    meltso_grid = Ptr[float](meltso_grid_p)
+    qcsedten_grid = Ptr[float](qcsedten_grid_p)
+    qisedten_grid = Ptr[float](qisedten_grid_p)
+    mnuccco_grid = Ptr[float](mnuccco_grid_p)
+    mnuccto_grid = Ptr[float](mnuccto_grid_p)
+    msacwio_grid = Ptr[float](msacwio_grid_p)
+    prao_grid = Ptr[float](prao_grid_p)
+    prco_grid = Ptr[float](prco_grid_p)
+    psacwso_grid = Ptr[float](psacwso_grid_p)
+    bergo_grid = Ptr[float](bergo_grid_p)
+    bergso_grid = Ptr[float](bergso_grid_p)
+    praio_grid = Ptr[float](praio_grid_p)
+    prcio_grid = Ptr[float](prcio_grid_p)
+    pracso_grid = Ptr[float](pracso_grid_p)
+    mnuccro_grid = Ptr[float](mnuccro_grid_p)
+    qcreso_grid = Ptr[float](qcreso_grid_p)
+    qireso_grid = Ptr[float](qireso_grid_p)
+    homoo_grid = Ptr[float](homoo_grid_p)
+    melto_grid = Ptr[float](melto_grid_p)
+    pre_rates_grid = Ptr[float](pre_rates_grid_p)
+    sed_rates_grid = Ptr[float](sed_rates_grid_p)
+    post_rates_grid = Ptr[float](post_rates_grid_p)
+    pcmei_grid = Ptr[float](pcmei_grid_p)
+    ncmei_grid = Ptr[float](ncmei_grid_p)
+    pmelts_grid = Ptr[float](pmelts_grid_p)
+    nmelts_grid = Ptr[float](nmelts_grid_p)
+
+    for rtype in range(1, pwtype + 1):
+        for isrctype in range(1, pwtype + 1):
+            for idsttype in range(1, pwtype + 1):
+                for k in range(top_lev, pver + 1):
+                    for i in range(1, pcols + 1):
+                        pre_rates_grid[
+                            _process_rates_idx(
+                                i, k, idsttype, isrctype, rtype, pcols, pver, pwtype
+                            )
+                        ] = 0.0
+                        post_rates_grid[
+                            _process_rates_idx(
+                                i, k, idsttype, isrctype, rtype, pcols, pver, pwtype
+                            )
+                        ] = 0.0
+
+    for m in range(1, pwtype + 1):
+        for k in range(top_lev, pver + 1):
+            for i in range(1, pcols + 1):
+                sed_rates_grid[_idx3(i, k, m, pcols, pver)] = 0.0
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, pcols + 1):
+            idx2 = _idx2(i, k, pcols)
+            pcmei_grid[idx2] = 0.0
+            ncmei_grid[idx2] = 0.0
+            pmelts_grid[idx2] = 0.0
+            nmelts_grid[idx2] = 0.0
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _idx2(i, k, pcols)
+            if cmeiout_grid[idx2] < 0.0:
+                ncmei_grid[idx2] = cmeiout_grid[idx2]
+            else:
+                pcmei_grid[idx2] = cmeiout_grid[idx2]
+            if meltso_grid[idx2] < 0.0:
+                nmelts_grid[idx2] = meltso_grid[idx2]
+            else:
+                pmelts_grid[idx2] = meltso_grid[idx2]
+            sed_rates_grid[_idx3(i, k, iwtliq, pcols, pver)] = qcsedten_grid[idx2]
+            sed_rates_grid[_idx3(i, k, iwtice, pcols, pver)] = qisedten_grid[idx2]
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _idx2(i, k, pcols)
+            _add_process_rate(
+                pre_rates_grid, i, k, iwtvap, iwtice, iwtvap, pcmei_grid[idx2], pcols, pver, pwtype
+            )
+            _add_process_rate(
+                pre_rates_grid, i, k, iwtvap, iwtice, iwtice, ncmei_grid[idx2], pcols, pver, pwtype
+            )
+            _add_process_rate(
+                pre_rates_grid, i, k, iwtvap, iwtstrain, iwtstrain, preo_grid[idx2], pcols, pver, pwtype
+            )
+            _add_process_rate(
+                pre_rates_grid, i, k, iwtvap, iwtstsnow, iwtstsnow, prdso_grid[idx2], pcols, pver, pwtype
+            )
+
+            rate_val = mnuccco_grid[idx2] + mnuccto_grid[idx2]
+            rate_val = rate_val + msacwio_grid[idx2]
+            _add_process_rate(
+                pre_rates_grid, i, k, iwtliq, iwtice, iwtliq, rate_val, pcols, pver, pwtype
+            )
+
+            rate_val = prao_grid[idx2] + prco_grid[idx2]
+            _add_process_rate(
+                pre_rates_grid, i, k, iwtliq, iwtstrain, iwtliq, rate_val, pcols, pver, pwtype
+            )
+            _add_process_rate(
+                pre_rates_grid, i, k, iwtliq, iwtstsnow, iwtliq, psacwso_grid[idx2], pcols, pver, pwtype
+            )
+            _add_process_rate(
+                pre_rates_grid, i, k, iwtliq, iwtliq, iwtliq, bergo_grid[idx2], pcols, pver, pwtype
+            )
+            _add_process_rate(
+                pre_rates_grid, i, k, iwtice, iwtice, iwtice, bergso_grid[idx2], pcols, pver, pwtype
+            )
+
+            rate_val = praio_grid[idx2] + prcio_grid[idx2]
+            _add_process_rate(
+                pre_rates_grid, i, k, iwtice, iwtstsnow, iwtice, rate_val, pcols, pver, pwtype
+            )
+
+            rate_val = pracso_grid[idx2] + mnuccro_grid[idx2]
+            _add_process_rate(
+                pre_rates_grid, i, k, iwtstrain, iwtstsnow, iwtstrain, rate_val, pcols, pver, pwtype
+            )
+
+            _add_process_rate(
+                post_rates_grid, i, k, iwtvap, iwtliq, iwtvap, qcreso_grid[idx2], pcols, pver, pwtype
+            )
+            _add_process_rate(
+                post_rates_grid, i, k, iwtvap, iwtice, iwtvap, qireso_grid[idx2], pcols, pver, pwtype
+            )
+            _add_process_rate(
+                post_rates_grid, i, k, iwtliq, iwtice, iwtliq, homoo_grid[idx2], pcols, pver, pwtype
+            )
+            _add_process_rate(
+                post_rates_grid, i, k, iwtice, iwtliq, iwtice, melto_grid[idx2], pcols, pver, pwtype
+            )
+
+
 def _size_dist_param_basic_codon(
     qsmall: float,
     qic: float,
@@ -551,6 +766,142 @@ def micro_mg_cam_grid_diag_codon(
 
 
 @export
+def micro_mg_cam_wtrc_prep_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    pwtype: int,
+    iwtliq: int,
+    iwtice: int,
+    cmeiout_grid_p: cobj,
+    meltso_grid_p: cobj,
+    qcsedten_grid_p: cobj,
+    qisedten_grid_p: cobj,
+    pcmei_grid_p: cobj,
+    ncmei_grid_p: cobj,
+    pmelts_grid_p: cobj,
+    nmelts_grid_p: cobj,
+    sed_rates_grid_p: cobj,
+):
+    cmeiout_grid = Ptr[float](cmeiout_grid_p)
+    meltso_grid = Ptr[float](meltso_grid_p)
+    qcsedten_grid = Ptr[float](qcsedten_grid_p)
+    qisedten_grid = Ptr[float](qisedten_grid_p)
+    pcmei_grid = Ptr[float](pcmei_grid_p)
+    ncmei_grid = Ptr[float](ncmei_grid_p)
+    pmelts_grid = Ptr[float](pmelts_grid_p)
+    nmelts_grid = Ptr[float](nmelts_grid_p)
+    sed_rates_grid = Ptr[float](sed_rates_grid_p)
+
+    for m in range(1, pwtype + 1):
+        for k in range(top_lev, pver + 1):
+            for i in range(1, pcols + 1):
+                sed_rates_grid[_idx3(i, k, m, pcols, pver)] = 0.0
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, pcols + 1):
+            idx2 = _idx2(i, k, pcols)
+            pcmei_grid[idx2] = 0.0
+            ncmei_grid[idx2] = 0.0
+            pmelts_grid[idx2] = 0.0
+            nmelts_grid[idx2] = 0.0
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _idx2(i, k, pcols)
+            if cmeiout_grid[idx2] < 0.0:
+                ncmei_grid[idx2] = cmeiout_grid[idx2]
+            else:
+                pcmei_grid[idx2] = cmeiout_grid[idx2]
+
+            if meltso_grid[idx2] < 0.0:
+                nmelts_grid[idx2] = meltso_grid[idx2]
+            else:
+                pmelts_grid[idx2] = meltso_grid[idx2]
+
+            sed_rates_grid[_idx3(i, k, iwtliq, pcols, pver)] = qcsedten_grid[idx2]
+            sed_rates_grid[_idx3(i, k, iwtice, pcols, pver)] = qisedten_grid[idx2]
+
+
+@export
+def micro_mg_cam_budget_diag_codon(
+    mode: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    qcreso_grid_p: cobj,
+    melto_grid_p: cobj,
+    mnuccco_grid_p: cobj,
+    mnuccto_grid_p: cobj,
+    bergo_grid_p: cobj,
+    homoo_grid_p: cobj,
+    msacwio_grid_p: cobj,
+    prao_grid_p: cobj,
+    prco_grid_p: cobj,
+    psacwso_grid_p: cobj,
+    bergso_grid_p: cobj,
+    cmeiout_grid_p: cobj,
+    qireso_grid_p: cobj,
+    prcio_grid_p: cobj,
+    praio_grid_p: cobj,
+    ftem_grid_p: cobj,
+):
+    qcreso_grid = Ptr[float](qcreso_grid_p)
+    melto_grid = Ptr[float](melto_grid_p)
+    mnuccco_grid = Ptr[float](mnuccco_grid_p)
+    mnuccto_grid = Ptr[float](mnuccto_grid_p)
+    bergo_grid = Ptr[float](bergo_grid_p)
+    homoo_grid = Ptr[float](homoo_grid_p)
+    msacwio_grid = Ptr[float](msacwio_grid_p)
+    prao_grid = Ptr[float](prao_grid_p)
+    prco_grid = Ptr[float](prco_grid_p)
+    psacwso_grid = Ptr[float](psacwso_grid_p)
+    bergso_grid = Ptr[float](bergso_grid_p)
+    cmeiout_grid = Ptr[float](cmeiout_grid_p)
+    qireso_grid = Ptr[float](qireso_grid_p)
+    prcio_grid = Ptr[float](prcio_grid_p)
+    praio_grid = Ptr[float](praio_grid_p)
+    ftem_grid = Ptr[float](ftem_grid_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, pcols + 1):
+            ftem_grid[_idx2(i, k, pcols)] = 0.0
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _idx2(i, k, pcols)
+
+            if mode == 1:
+                ftem_grid[idx2] = qcreso_grid[idx2]
+            elif mode == 2:
+                tmp = melto_grid[idx2] - mnuccco_grid[idx2]
+                tmp = tmp - mnuccto_grid[idx2]
+                tmp = tmp - bergo_grid[idx2]
+                tmp = tmp - homoo_grid[idx2]
+                tmp = tmp - msacwio_grid[idx2]
+                ftem_grid[idx2] = tmp
+            elif mode == 3:
+                tmp = -prao_grid[idx2]
+                tmp = tmp - prco_grid[idx2]
+                tmp = tmp - psacwso_grid[idx2]
+                tmp = tmp - bergso_grid[idx2]
+                ftem_grid[idx2] = tmp
+            elif mode == 4:
+                ftem_grid[idx2] = cmeiout_grid[idx2] + qireso_grid[idx2]
+            elif mode == 5:
+                tmp = -melto_grid[idx2] + mnuccco_grid[idx2]
+                tmp = tmp + mnuccto_grid[idx2]
+                tmp = tmp + bergo_grid[idx2]
+                tmp = tmp + homoo_grid[idx2]
+                tmp = tmp + msacwio_grid[idx2]
+                ftem_grid[idx2] = tmp
+            elif mode == 6:
+                ftem_grid[idx2] = -prcio_grid[idx2] - praio_grid[idx2]
+
+
+@export
 def micro_mg_cam_reff_calc_codon(
     ngrdcol: int,
     pcols: int,
@@ -735,3 +1086,284 @@ def micro_mg_cam_reff_calc_codon(
             idx2 = _idx2(i, k, pcols)
             mgreffrain_grid[idx2] = reff_rain_grid[idx2]
             mgreffsnow_grid[idx2] = reff_snow_grid[idx2]
+
+
+@export
+def micro_mg_cam_diag_shell_codon(
+    ngrdcol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    micro_mg_version: int,
+    qsmall: float,
+    mincld: float,
+    liq_rho: float,
+    liq_eff_dim: float,
+    liq_min_mean_mass: float,
+    ice_eff_dim: float,
+    ice_shape_coef: float,
+    ice_lambda_lo: float,
+    ice_lambda_hi: float,
+    ice_min_mean_mass: float,
+    rhosn: float,
+    rhoi: float,
+    rhow: float,
+    rhows: float,
+    mucon: float,
+    dcon: float,
+    deicon: float,
+    minlwp: float,
+    gravit: float,
+    rhoh2o: float,
+    rho_grid_p: cobj,
+    icwmrst_grid_p: cobj,
+    liqcldf_grid_p: cobj,
+    nc_grid_p: cobj,
+    qr_grid_p: cobj,
+    nr_grid_p: cobj,
+    qs_grid_p: cobj,
+    ns_grid_p: cobj,
+    qrout_grid_p: cobj,
+    nrout_grid_p: cobj,
+    qsout_grid_p: cobj,
+    nsout_grid_p: cobj,
+    ni_grid_p: cobj,
+    icecldf_grid_p: cobj,
+    icimrst_grid_p: cobj,
+    ast_grid_p: cobj,
+    mu_grid_p: cobj,
+    lambdac_grid_p: cobj,
+    rel_fn_grid_p: cobj,
+    ncic_grid_p: cobj,
+    rel_grid_p: cobj,
+    drout2_grid_p: cobj,
+    reff_rain_grid_p: cobj,
+    des_grid_p: cobj,
+    dsout2_grid_p: cobj,
+    reff_snow_grid_p: cobj,
+    rei_grid_p: cobj,
+    niic_grid_p: cobj,
+    dei_grid_p: cobj,
+    mgreffrain_grid_p: cobj,
+    mgreffsnow_grid_p: cobj,
+    iclwpst_grid_p: cobj,
+    cld_grid_p: cobj,
+    cmeliq_grid_p: cobj,
+    pdel_grid_p: cobj,
+    prec_str_grid_p: cobj,
+    acgcme_grid_p: cobj,
+    acprecl_grid_p: cobj,
+    acnum_grid_p: cobj,
+    prao_grid_p: cobj,
+    prco_grid_p: cobj,
+    icwnc_grid_p: cobj,
+    icinc_grid_p: cobj,
+    nevapr_grid_p: cobj,
+    evpsnow_st_grid_p: cobj,
+    tgliqwp_grid_p: cobj,
+    tgcmeliq_grid_p: cobj,
+    pe_grid_p: cobj,
+    tpr_grid_p: cobj,
+    pefrac_grid_p: cobj,
+    vprao_grid_p: cobj,
+    vprco_grid_p: cobj,
+    racau_grid_p: cobj,
+    cnt_grid_p: cobj,
+    cdnumc_grid_p: cobj,
+    efcout_grid_p: cobj,
+    efiout_grid_p: cobj,
+    ncout_grid_p: cobj,
+    niout_grid_p: cobj,
+    freql_grid_p: cobj,
+    freqi_grid_p: cobj,
+    icwmrst_grid_out_p: cobj,
+    icimrst_grid_out_p: cobj,
+    fcti_grid_p: cobj,
+    fctl_grid_p: cobj,
+    ctrel_grid_p: cobj,
+    ctrei_grid_p: cobj,
+    ctnl_grid_p: cobj,
+    ctni_grid_p: cobj,
+    evprain_st_grid_p: cobj,
+    qcreso_grid_p: cobj,
+    melto_grid_p: cobj,
+    mnuccco_grid_p: cobj,
+    mnuccto_grid_p: cobj,
+    bergo_grid_p: cobj,
+    homoo_grid_p: cobj,
+    msacwio_grid_p: cobj,
+    psacwso_grid_p: cobj,
+    bergso_grid_p: cobj,
+    cmeiout_grid_p: cobj,
+    qireso_grid_p: cobj,
+    prcio_grid_p: cobj,
+    praio_grid_p: cobj,
+    budget_ftem_grid_p: cobj,
+):
+    micro_mg_cam_reff_calc_codon(
+        ngrdcol,
+        pcols,
+        pver,
+        top_lev,
+        micro_mg_version,
+        qsmall,
+        mincld,
+        liq_rho,
+        liq_eff_dim,
+        liq_min_mean_mass,
+        ice_eff_dim,
+        ice_shape_coef,
+        ice_lambda_lo,
+        ice_lambda_hi,
+        ice_min_mean_mass,
+        rhosn,
+        rhoi,
+        rhow,
+        rhows,
+        mucon,
+        dcon,
+        deicon,
+        rho_grid_p,
+        icwmrst_grid_p,
+        liqcldf_grid_p,
+        nc_grid_p,
+        qr_grid_p,
+        nr_grid_p,
+        qs_grid_p,
+        ns_grid_p,
+        qrout_grid_p,
+        nrout_grid_p,
+        qsout_grid_p,
+        nsout_grid_p,
+        ni_grid_p,
+        icecldf_grid_p,
+        icimrst_grid_p,
+        ast_grid_p,
+        mu_grid_p,
+        lambdac_grid_p,
+        rel_fn_grid_p,
+        ncic_grid_p,
+        rel_grid_p,
+        drout2_grid_p,
+        reff_rain_grid_p,
+        des_grid_p,
+        dsout2_grid_p,
+        reff_snow_grid_p,
+        rei_grid_p,
+        niic_grid_p,
+        dei_grid_p,
+        mgreffrain_grid_p,
+        mgreffsnow_grid_p,
+    )
+
+    micro_mg_cam_grid_diag_codon(
+        ngrdcol,
+        pcols,
+        pver,
+        top_lev,
+        minlwp,
+        gravit,
+        rhoh2o,
+        iclwpst_grid_p,
+        cld_grid_p,
+        cmeliq_grid_p,
+        pdel_grid_p,
+        prec_str_grid_p,
+        acgcme_grid_p,
+        acprecl_grid_p,
+        acnum_grid_p,
+        prao_grid_p,
+        prco_grid_p,
+        nc_grid_p,
+        liqcldf_grid_p,
+        icwmrst_grid_p,
+        rel_grid_p,
+        icwnc_grid_p,
+        icecldf_grid_p,
+        icimrst_grid_p,
+        rei_grid_p,
+        icinc_grid_p,
+        nevapr_grid_p,
+        evpsnow_st_grid_p,
+        tgliqwp_grid_p,
+        tgcmeliq_grid_p,
+        pe_grid_p,
+        tpr_grid_p,
+        pefrac_grid_p,
+        vprao_grid_p,
+        vprco_grid_p,
+        racau_grid_p,
+        cnt_grid_p,
+        cdnumc_grid_p,
+        efcout_grid_p,
+        efiout_grid_p,
+        ncout_grid_p,
+        niout_grid_p,
+        freql_grid_p,
+        freqi_grid_p,
+        icwmrst_grid_out_p,
+        icimrst_grid_out_p,
+        fcti_grid_p,
+        fctl_grid_p,
+        ctrel_grid_p,
+        ctrei_grid_p,
+        ctnl_grid_p,
+        ctni_grid_p,
+        evprain_st_grid_p,
+    )
+
+    budget_ftem_grid = Ptr[float](budget_ftem_grid_p)
+    qcreso_grid = Ptr[float](qcreso_grid_p)
+    melto_grid = Ptr[float](melto_grid_p)
+    mnuccco_grid = Ptr[float](mnuccco_grid_p)
+    mnuccto_grid = Ptr[float](mnuccto_grid_p)
+    bergo_grid = Ptr[float](bergo_grid_p)
+    homoo_grid = Ptr[float](homoo_grid_p)
+    msacwio_grid = Ptr[float](msacwio_grid_p)
+    prao_grid = Ptr[float](prao_grid_p)
+    prco_grid = Ptr[float](prco_grid_p)
+    psacwso_grid = Ptr[float](psacwso_grid_p)
+    bergso_grid = Ptr[float](bergso_grid_p)
+    cmeiout_grid = Ptr[float](cmeiout_grid_p)
+    qireso_grid = Ptr[float](qireso_grid_p)
+    prcio_grid = Ptr[float](prcio_grid_p)
+    praio_grid = Ptr[float](praio_grid_p)
+
+    for mode in range(1, 7):
+        for k in range(1, pver + 1):
+            for i in range(1, pcols + 1):
+                budget_ftem_grid[_idx3(i, k, mode, pcols, pver)] = 0.0
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ngrdcol + 1):
+            idx2 = _idx2(i, k, pcols)
+
+            budget_ftem_grid[_idx3(i, k, 1, pcols, pver)] = qcreso_grid[idx2]
+
+            tmp = melto_grid[idx2] - mnuccco_grid[idx2]
+            tmp = tmp - mnuccto_grid[idx2]
+            tmp = tmp - bergo_grid[idx2]
+            tmp = tmp - homoo_grid[idx2]
+            tmp = tmp - msacwio_grid[idx2]
+            budget_ftem_grid[_idx3(i, k, 2, pcols, pver)] = tmp
+
+            tmp = -prao_grid[idx2]
+            tmp = tmp - prco_grid[idx2]
+            tmp = tmp - psacwso_grid[idx2]
+            tmp = tmp - bergso_grid[idx2]
+            budget_ftem_grid[_idx3(i, k, 3, pcols, pver)] = tmp
+
+            budget_ftem_grid[_idx3(i, k, 4, pcols, pver)] = (
+                cmeiout_grid[idx2] + qireso_grid[idx2]
+            )
+
+            tmp = -melto_grid[idx2] + mnuccco_grid[idx2]
+            tmp = tmp + mnuccto_grid[idx2]
+            tmp = tmp + bergo_grid[idx2]
+            tmp = tmp + homoo_grid[idx2]
+            tmp = tmp + msacwio_grid[idx2]
+            budget_ftem_grid[_idx3(i, k, 5, pcols, pver)] = tmp
+
+            budget_ftem_grid[_idx3(i, k, 6, pcols, pver)] = (
+                -prcio_grid[idx2] - praio_grid[idx2]
+            )
