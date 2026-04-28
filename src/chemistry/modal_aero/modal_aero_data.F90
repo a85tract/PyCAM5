@@ -239,6 +239,28 @@
 
         end function qqcw_get_field
 
+        subroutine qqcw_fill_cptrs(pbuf, qqcw_cptrs)
+          use iso_c_binding, only : c_ptr, c_null_ptr, c_loc
+          use physics_buffer, only : physics_buffer_desc, pbuf_get_field
+
+          type(physics_buffer_desc), pointer :: pbuf(:)
+          type(c_ptr), intent(out) :: qqcw_cptrs(pcnst)
+
+          integer :: index
+          real(r8), pointer :: qqcw_field(:,:)
+
+          do index = 1, pcnst
+             qqcw_cptrs(index) = c_null_ptr
+             if (qqcw(index) <= 0) cycle
+
+             nullify(qqcw_field)
+             call pbuf_get_field(pbuf, qqcw(index), qqcw_field)
+             if (associated(qqcw_field)) then
+                qqcw_cptrs(index) = c_loc(qqcw_field(1,1))
+             end if
+          end do
+        end subroutine qqcw_fill_cptrs
+
       end module modal_aero_data
 
 !----------------------------------------------------------------
@@ -405,4 +427,3 @@
 !  v2ncur_a - for unactivated particles
 !             (currently just defined locally)
 !
-

@@ -1072,6 +1072,7 @@ contains
     use modal_aero_data
     use modal_aero_calcsize,   only: modal_aero_calcsize_sub
     use modal_aero_wateruptake,only: modal_aero_wateruptake_dr
+    use iso_c_binding,         only: c_ptr
 
 
     ! args
@@ -1140,6 +1141,7 @@ contains
     real(r8) :: codon_dummy2d_c(pcols,pver)
     real(r8) :: codon_dummy1d(pcols)
     real(r8), pointer :: fldcw(:,:)
+    type(c_ptr) :: qqcw_ptrs(pcnst)
 
     real(r8), pointer :: dgnumwet(:,:,:)
     real(r8), pointer :: qaerwat(:,:,:)  ! aerosol water
@@ -1180,6 +1182,9 @@ contains
     call pbuf_get_field(pbuf, dgnumwet_idx,       dgnumwet, start=(/1,1,1/), kount=(/pcols,pver,nmodes/) )
     call pbuf_get_field(pbuf, qaerwat_idx,        qaerwat,  start=(/1,1,1/), kount=(/pcols,pver,nmodes/) )
     call pbuf_get_field(pbuf, fracis_idx,         fracis, start=(/1,1,1/), kount=(/pcols, pver, pcnst/) )
+    if (.not. aero_model_wetdep_use_native_impl) then
+       call qqcw_fill_cptrs(pbuf, qqcw_ptrs)
+    end if
 
     if (aero_model_wetdep_use_native_impl) then
        prec(:ncol)=0._r8
@@ -1334,17 +1339,18 @@ contains
              if ((lphase == 1) .and. (lspec <= nspec_amode(m))) then
                 ptend%lq(mm) = .TRUE.
                 dqdt_tmp(:,:) = 0.0_r8
-                fldcw => qqcw_get_field(pbuf, mm,lchnk)
 
                 if (aero_model_wetdep_use_native_impl) then
+                   fldcw => qqcw_get_field(pbuf, mm,lchnk)
                    ! q_tmp reflects changes from modal_aero_calcsize and is the "most current" q
                    q_tmp(1:ncol,:) = state%q(1:ncol,:,mm) + ptend%q(1:ncol,:,mm)*dt
                 else
                    call aero_model_wetdep_codon_wrap( &
                         wetdep_stage_prepare_tracer, ncol, dt, 0.0_r8, state%pdel, state%q(:,:,mm), ptend%q(:,:,mm), &
                         q_tmp, dqdt_tmp, sflx, sflx_ics, sflx_iss, sflx_bcs, sflx_bss, hygro_sum_old, hygro_sum_del, &
-                        codon_dummy2d_a, fldcw, icscavt, isscavt, bcscavt, bsscavt, codon_dummy1d &
+                        codon_dummy2d_a, codon_dummy2d_c, icscavt, isscavt, bcscavt, bsscavt, codon_dummy1d &
                    )
+                   call aero_model_wetdep_resolve_qqcw_ptr(qqcw_ptrs, mm, fldcw)
                 end if
 
                 if (aero_model_wetdep_use_native_impl) then
@@ -1380,7 +1386,7 @@ contains
                    call aero_model_wetdep_codon_wrap( &
                         wetdep_stage_finish_interstitial, ncol, dt, tmpa, state%pdel, state%q(:,:,mm), ptend%q(:,:,mm), &
                         q_tmp, dqdt_tmp, sflx, sflx_ics, sflx_iss, sflx_bcs, sflx_bss, hygro_sum_old, hygro_sum_del, &
-                        codon_dummy2d_a, fldcw, icscavt, isscavt, bcscavt, bsscavt, aerdepwetis(:,mm) &
+                        codon_dummy2d_a, codon_dummy2d_c, icscavt, isscavt, bcscavt, bsscavt, aerdepwetis(:,mm) &
                    )
                 end if
 
@@ -1467,9 +1473,9 @@ contains
 
              else ! lphase == 2
                 dqdt_tmp(:,:) = 0.0_r8
-                fldcw => qqcw_get_field(pbuf, mm,lchnk)
 
                 if (aero_model_wetdep_use_native_impl) then
+                   fldcw => qqcw_get_field(pbuf, mm,lchnk)
                    call wetdepa_v2(state%pmid, state%q(:,:,1), state%pdel, &
                         dep_inputs%cldt, dep_inputs%cldcu, dep_inputs%cmfdqr, &
                         dep_inputs%evapc, dep_inputs%conicw, dep_inputs%prain, dep_inputs%qme, &
@@ -1481,6 +1487,7 @@ contains
                         icscavt=icscavt, isscavt=isscavt, bcscavt=bcscavt, bsscavt=bsscavt, &
                         sol_facti_in=sol_facti, sol_factic_in=sol_factic )
                 else
+                   call aero_model_wetdep_resolve_qqcw_ptr(qqcw_ptrs, mm, fldcw)
                    call aero_model_wetdep_scavenging_codon_wrap( &
                         1, ncol, dt, state%pmid, state%q(:,:,1), state%pdel, dep_inputs%cldt, dep_inputs%cldcu, &
                         dep_inputs%cmfdqr, dep_inputs%evapc, dep_inputs%conicw, dep_inputs%prain, dep_inputs%qme, &
@@ -1535,6 +1542,30 @@ contains
     endif
 
   endsubroutine aero_model_wetdep
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_wetdep_resolve_qqcw_ptr(qqcw_ptrs, qqcw_index, fldcw)
+
+    use iso_c_binding, only: c_ptr, c_associated, c_f_pointer
+    use cam_abortutils, only: endrun
+
+    type(c_ptr), intent(in) :: qqcw_ptrs(pcnst)
+    integer, intent(in) :: qqcw_index
+    real(r8), pointer, intent(out) :: fldcw(:,:)
+
+    nullify(fldcw)
+
+    if (qqcw_index < 1 .or. qqcw_index > pcnst) then
+       call endrun('aero_model_wetdep_resolve_qqcw_ptr: qqcw index out of range')
+    end if
+    if (.not. c_associated(qqcw_ptrs(qqcw_index))) then
+       call endrun('aero_model_wetdep_resolve_qqcw_ptr: unresolved qqcw pointer')
+    end if
+
+    call c_f_pointer(qqcw_ptrs(qqcw_index), fldcw, (/pcols, pver/))
+
+  end subroutine aero_model_wetdep_resolve_qqcw_ptr
 
   !=============================================================================
   !=============================================================================
@@ -1603,7 +1634,7 @@ contains
                                        hygro_sum_del(pcols,pver), qaerwat(pcols,pver), fldcw(pcols,pver)
     real(r8), target, intent(inout) :: sflx(pcols), sflx_ics(pcols), sflx_iss(pcols), sflx_bcs(pcols), sflx_bss(pcols)
     real(r8), target, intent(inout) :: aerdep(pcols)
-    character(len=128) :: wrap_proof_line
+    character(len=192) :: wrap_proof_line
 
     interface
        subroutine aero_model_wetdep_codon(stage_c, ncol_c, pcols_c, pver_c, dt_c, tmpa_c, gravit_c, pdel_p, &
@@ -1622,7 +1653,7 @@ contains
     end interface
 
     if (masterproc .and. .not. aero_model_wetdep_wrap_proof_written) then
-       wrap_proof_line = 'aero_model_wetdep_codon_wrap entered (wetdep_inputs/clddiag/prec_isprx/wetdepa/bcscavcoef/set_srf_wetdep direct = codon)'
+       wrap_proof_line = 'aero_model_wetdep_codon_wrap entered (wetdep_inputs/clddiag/prec_isprx/qqcw_ptr/wetdepa/bcscavcoef/set_srf_wetdep direct = codon)'
        write(iulog,'(A)') trim(wrap_proof_line)
        call aero_model_wetdep_append_impl_proof('AERO_MODEL_WETDEP_PROOF_FILE', trim(wrap_proof_line))
        aero_model_wetdep_wrap_proof_written = .true.
