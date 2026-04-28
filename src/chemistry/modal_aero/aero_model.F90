@@ -1067,7 +1067,7 @@ contains
   !=============================================================================
   subroutine aero_model_wetdep( state, dt, dlf, cam_out, ptend, pbuf)
 
-    use modal_aero_deposition, only: set_srf_wetdep
+    use modal_aero_deposition, only: set_srf_wetdep, set_srf_wetdep_codon_direct
     use wetdep,                only: wetdepa_v2, wetdep_inputs_set, wetdep_inputs_t
     use modal_aero_data
     use modal_aero_calcsize,   only: modal_aero_calcsize_sub
@@ -1231,8 +1231,13 @@ contains
           if (lphase == 1) then ! interstial aerosol
              hygro_sum_old(:,:) = 0.0_r8
              hygro_sum_del(:,:) = 0.0_r8
-             call modal_aero_bcscavcoef_get( m, ncol, isprx, dgnumwet, &
-                  scavcoefnv(:,:,1), scavcoefnv(:,:,2) )
+             if (aero_model_wetdep_use_native_impl) then
+                call modal_aero_bcscavcoef_get( m, ncol, isprx, dgnumwet, &
+                     scavcoefnv(:,:,1), scavcoefnv(:,:,2) )
+             else
+                call aero_model_wetdep_bcscavcoef_codon_wrap( m, ncol, isprx, dgnumwet, &
+                     scavcoefnv(:,:,1), scavcoefnv(:,:,2) )
+             end if
 
              sol_factb = sol_factb_interstitial ! all below-cloud scav ON (0.1 "tuning factor")
 
@@ -1516,10 +1521,65 @@ contains
     ! if the user has specified prescribed aerosol dep fluxes then
     ! do not set cam_out dep fluxes according to the prognostic aerosols
     if (.not.aerodep_flx_prescribed()) then
-       call set_srf_wetdep(aerdepwetis, aerdepwetcw, cam_out)
+       if (aero_model_wetdep_use_native_impl) then
+          call set_srf_wetdep(aerdepwetis, aerdepwetcw, cam_out)
+       else
+          call set_srf_wetdep_codon_direct(aerdepwetis, aerdepwetcw, cam_out)
+       end if
     endif
 
   endsubroutine aero_model_wetdep
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_wetdep_bcscavcoef_codon_wrap(m, ncol, isprx, dgn_awet, scavcoefnum, scavcoefvol)
+
+    use modal_aero_data, only: dgnum_amode
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: m, ncol
+    logical, intent(in) :: isprx(pcols,pver)
+    real(r8), target, intent(in) :: dgn_awet(pcols,pver,ntot_amode)
+    real(r8), target, intent(out) :: scavcoefnum(pcols,pver), scavcoefvol(pcols,pver)
+
+    integer :: i, k
+    real(r8) :: dgnum_mode
+    integer(c_int64_t), target :: isprx_mask(pcols,pver)
+    real(r8), target :: scavimptblnum_mode(nimptblgrow_mind:nimptblgrow_maxd)
+    real(r8), target :: scavimptblvol_mode(nimptblgrow_mind:nimptblgrow_maxd)
+
+    interface
+       subroutine modal_aero_bcscavcoef_get_codon(m_c, ncol_c, pcols_c, pver_c, ntot_amode_c, nimptblgrow_mind_c, &
+            nimptblgrow_maxd_c, dlndg_nimptblgrow_c, dgnum_mode_c, isprx_mask_p, dgn_awet_p, scavimptblnum_mode_p, &
+            scavimptblvol_mode_p, scavcoefnum_p, scavcoefvol_p) bind(c, name="modal_aero_bcscavcoef_get_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: m_c, ncol_c, pcols_c, pver_c, ntot_amode_c, nimptblgrow_mind_c
+         integer(c_int64_t), value :: nimptblgrow_maxd_c
+         real(c_double), value :: dlndg_nimptblgrow_c, dgnum_mode_c
+         type(c_ptr), value :: isprx_mask_p, dgn_awet_p, scavimptblnum_mode_p, scavimptblvol_mode_p
+         type(c_ptr), value :: scavcoefnum_p, scavcoefvol_p
+       end subroutine modal_aero_bcscavcoef_get_codon
+    end interface
+
+    do k = 1, pver
+       do i = 1, ncol
+          isprx_mask(i,k) = merge(1_c_int64_t, 0_c_int64_t, isprx(i,k))
+       end do
+    end do
+
+    dgnum_mode = dgnum_amode(m)
+    scavimptblnum_mode(:) = scavimptblnum(:,m)
+    scavimptblvol_mode(:) = scavimptblvol(:,m)
+
+    call modal_aero_bcscavcoef_get_codon( &
+         int(m, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(ntot_amode, c_int64_t), int(nimptblgrow_mind, c_int64_t), int(nimptblgrow_maxd, c_int64_t), &
+         real(dlndg_nimptblgrow, c_double), real(dgnum_mode, c_double), c_loc(isprx_mask), c_loc(dgn_awet), &
+         c_loc(scavimptblnum_mode(nimptblgrow_mind)), c_loc(scavimptblvol_mode(nimptblgrow_mind)), &
+         c_loc(scavcoefnum), c_loc(scavcoefvol) &
+    )
+
+  end subroutine aero_model_wetdep_bcscavcoef_codon_wrap
 
   !=============================================================================
   !=============================================================================
@@ -1556,7 +1616,7 @@ contains
     end interface
 
     if (masterproc .and. .not. aero_model_wetdep_wrap_proof_written) then
-       wrap_proof_line = 'aero_model_wetdep_codon_wrap entered (wetdepa direct = codon)'
+       wrap_proof_line = 'aero_model_wetdep_codon_wrap entered (wetdepa/bcscavcoef/set_srf_wetdep direct = codon)'
        write(iulog,'(A)') trim(wrap_proof_line)
        call aero_model_wetdep_append_impl_proof('AERO_MODEL_WETDEP_PROOF_FILE', trim(wrap_proof_line))
        aero_model_wetdep_wrap_proof_written = .true.

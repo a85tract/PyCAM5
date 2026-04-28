@@ -33,7 +33,8 @@ save
 public :: &
    modal_aero_deposition_init, &
    set_srf_drydep,             &
-   set_srf_wetdep
+   set_srf_wetdep,             &
+   set_srf_wetdep_codon_direct
 
 ! Private module data
 integer :: idx_bc1  = -1
@@ -181,6 +182,39 @@ subroutine set_srf_wetdep(aerdepwetis, aerdepwetcw, cam_out)
    real(r8), target, intent(in) :: aerdepwetcw(:,:)  ! aerosol wet deposition (cloud water)
    type(cam_out_t), target, intent(inout) :: cam_out ! cam export state
 
+   call set_srf_wetdep_select_impl()
+
+   if (.not.bin_fluxes) return
+
+   if (use_native_set_srf_wetdep_impl) then
+      call set_srf_wetdep_native(aerdepwetis, aerdepwetcw, cam_out)
+      return
+   end if
+
+   call set_srf_wetdep_codon_invoke(aerdepwetis, aerdepwetcw, cam_out)
+
+end subroutine set_srf_wetdep
+
+!==============================================================================
+subroutine set_srf_wetdep_codon_direct(aerdepwetis, aerdepwetcw, cam_out)
+
+! Direct Codon entry used by active shell callers that already selected Codon.
+
+   real(r8), target, intent(in) :: aerdepwetis(:,:)
+   real(r8), target, intent(in) :: aerdepwetcw(:,:)
+   type(cam_out_t), target, intent(inout) :: cam_out
+
+   call set_srf_wetdep_codon_invoke(aerdepwetis, aerdepwetcw, cam_out)
+
+end subroutine set_srf_wetdep_codon_direct
+
+!==============================================================================
+subroutine set_srf_wetdep_codon_invoke(aerdepwetis, aerdepwetcw, cam_out)
+
+   real(r8), target, intent(in) :: aerdepwetis(:,:)
+   real(r8), target, intent(in) :: aerdepwetcw(:,:)
+   type(cam_out_t), target, intent(inout) :: cam_out
+
    integer :: ncol
 
    interface
@@ -195,14 +229,7 @@ subroutine set_srf_wetdep(aerdepwetis, aerdepwetcw, cam_out)
       end subroutine set_srf_wetdep_codon
    end interface
 
-   call set_srf_wetdep_select_impl()
-
    if (.not.bin_fluxes) return
-
-   if (use_native_set_srf_wetdep_impl) then
-      call set_srf_wetdep_native(aerdepwetis, aerdepwetcw, cam_out)
-      return
-   end if
 
    ncol = cam_out%ncol
 
@@ -214,7 +241,7 @@ subroutine set_srf_wetdep(aerdepwetis, aerdepwetcw, cam_out)
         c_loc(cam_out%dstwet3(1)), c_loc(cam_out%dstwet4(1)) &
    )
 
-end subroutine set_srf_wetdep
+end subroutine set_srf_wetdep_codon_invoke
 
 !==============================================================================
 subroutine set_srf_wetdep_native(aerdepwetis, aerdepwetcw, cam_out)
