@@ -96,6 +96,7 @@ module aero_model
   logical :: aero_model_gasaerexch_use_native_impl = .false.
   logical :: aero_model_gasaerexch_impl_selected = .false.
   logical :: aero_model_gasaerexch_proof_written = .false.
+  logical :: aero_model_gasaerexch_wrap_proof_written = .false.
   logical :: aero_model_gasaerexch_column_flux_use_native_impl = .false.
   logical :: aero_model_gasaerexch_column_flux_impl_selected = .false.
   logical :: aero_model_gasaerexch_h2so4_save_use_native_impl = .false.
@@ -1670,7 +1671,11 @@ contains
 !
 ! Aerosol processes ...
 !
-    call qqcw2vmr( lchnk, vmrcw, mbar, ncol, loffset, pbuf )
+    if (aero_model_gasaerexch_use_native_impl) then
+       call qqcw2vmr( lchnk, vmrcw, mbar, ncol, loffset, pbuf )
+    else
+       call aero_model_gasaerexch_load_vmrcw_codon( lchnk, vmrcw, mbar, ncol, loffset, pbuf )
+    end if
 
     dvmrdt(:ncol,:,:) = vmr(:ncol,:,:)
     dvmrcwdt(:ncol,:,:) = vmrcw(:ncol,:,:)
@@ -1775,7 +1780,11 @@ contains
 
     call t_stopf('modal_coag')
 
-    call vmr2qqcw( lchnk, vmrcw, mbar, ncol, loffset, pbuf )
+    if (aero_model_gasaerexch_use_native_impl) then
+       call vmr2qqcw( lchnk, vmrcw, mbar, ncol, loffset, pbuf )
+    else
+       call aero_model_gasaerexch_store_vmrcw_codon( lchnk, vmrcw, mbar, ncol, loffset, pbuf )
+    end if
 
     ! diagnostics for cloud-borne aerosols... 
     do n = 1,pcnst
@@ -1786,6 +1795,86 @@ contains
     end do
 
   end subroutine aero_model_gasaerexch
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_gasaerexch_load_vmrcw_codon(lchnk, vmr, mbar, ncol, im, pbuf)
+
+    use modal_aero_data, only : qqcw_get_field
+    use physics_buffer, only : physics_buffer_desc
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: lchnk, ncol, im
+    real(r8), target, intent(in) :: mbar(ncol,pver)
+    real(r8), target, intent(inout) :: vmr(ncol,pver,gas_pcnst)
+    type(physics_buffer_desc), pointer :: pbuf(:)
+
+    integer :: m
+    real(r8), pointer :: fldcw(:,:)
+
+    interface
+       subroutine qqcw2vmr_codon(ncol_c, pver_c, fldcw_ld1_c, mbar_p, fldcw_p, adv_mass_c, vmr_p) &
+            bind(c, name="qqcw2vmr_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, fldcw_ld1_c
+         type(c_ptr), value :: mbar_p, fldcw_p, vmr_p
+         real(c_double), value :: adv_mass_c
+       end subroutine qqcw2vmr_codon
+    end interface
+
+    do m = 1, gas_pcnst
+       if (adv_mass(m) /= 0._r8) then
+          fldcw => qqcw_get_field(pbuf, m+im, lchnk, errorhandle=.true.)
+          if (associated(fldcw)) then
+             call qqcw2vmr_codon( &
+                  int(ncol, c_int64_t), int(pver, c_int64_t), int(size(fldcw,1), c_int64_t), &
+                  c_loc(mbar(1,1)), c_loc(fldcw(1,1)), real(adv_mass(m), c_double), c_loc(vmr(1,1,m)) &
+             )
+          else
+             vmr(:,:,m) = 0.0_r8
+          end if
+       end if
+    end do
+
+  end subroutine aero_model_gasaerexch_load_vmrcw_codon
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_gasaerexch_store_vmrcw_codon(lchnk, vmr, mbar, ncol, im, pbuf)
+
+    use modal_aero_data, only : qqcw_get_field
+    use physics_buffer, only : physics_buffer_desc
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: lchnk, ncol, im
+    real(r8), target, intent(in) :: mbar(ncol,pver)
+    real(r8), target, intent(in) :: vmr(ncol,pver,gas_pcnst)
+    type(physics_buffer_desc), pointer :: pbuf(:)
+
+    integer :: m
+    real(r8), pointer :: fldcw(:,:)
+
+    interface
+       subroutine vmr2qqcw_codon(ncol_c, pver_c, fldcw_ld1_c, vmr_p, mbar_p, adv_mass_c, fldcw_p) &
+            bind(c, name="vmr2qqcw_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, fldcw_ld1_c
+         type(c_ptr), value :: vmr_p, mbar_p, fldcw_p
+         real(c_double), value :: adv_mass_c
+       end subroutine vmr2qqcw_codon
+    end interface
+
+    do m = 1, gas_pcnst
+       fldcw => qqcw_get_field(pbuf, m+im, lchnk, errorhandle=.true.)
+       if (adv_mass(m) /= 0._r8 .and. associated(fldcw)) then
+          call vmr2qqcw_codon( &
+               int(ncol, c_int64_t), int(pver, c_int64_t), int(size(fldcw,1), c_int64_t), &
+               c_loc(vmr(1,1,m)), c_loc(mbar(1,1)), real(adv_mass(m), c_double), c_loc(fldcw(1,1)) &
+          )
+       end if
+    end do
+
+  end subroutine aero_model_gasaerexch_store_vmrcw_codon
 
   !=============================================================================
   !=============================================================================
@@ -1841,7 +1930,7 @@ contains
           write(iulog,*) 'aero_model_gasaerexch implementation = codon'
           if (.not. aero_model_gasaerexch_proof_written) then
              call aero_model_gasaerexch_append_impl_proof('AERO_MODEL_GASAEREXCH_PROOF_FILE', &
-                  'aero_model_gasaerexch implementation = codon')
+                  'aero_model_gasaerexch selector entered implementation = codon')
              aero_model_gasaerexch_proof_written = .true.
           end if
        end if
@@ -1866,6 +1955,7 @@ contains
     real(r8), target, intent(inout) :: dvmrdt(ncol,pver,gas_pcnst), dvmrcwdt(ncol,pver,gas_pcnst)
     real(r8), target, intent(inout) :: wrk(ncol,gas_pcnst), del_h2so4_aeruptk(ncol,pver)
     type(c_ptr) :: vmrcw_p, dvmrcwdt_p, wrk_p, del_h2so4_aeruptk_p
+    character(len=160) :: wrap_proof_line
 
     interface
        subroutine aero_model_gasaerexch_codon(stage_c, stage3_mode_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, &
@@ -1898,6 +1988,14 @@ contains
        del_h2so4_aeruptk_p = c_loc(del_h2so4_aeruptk(1,1))
     else
        del_h2so4_aeruptk_p = c_null_ptr
+    end if
+
+    if (masterproc .and. .not. aero_model_gasaerexch_wrap_proof_written) then
+       wrap_proof_line = 'aero_model_gasaerexch_codon_wrap entered (setsox callback = native, qqcw direct = codon)'
+       write(iulog,'(A)') trim(wrap_proof_line)
+       call aero_model_gasaerexch_append_impl_proof('AERO_MODEL_GASAEREXCH_PROOF_FILE', trim(wrap_proof_line))
+       aero_model_gasaerexch_wrap_proof_written = .true.
+       call flush(iulog)
     end if
 
     call aero_model_gasaerexch_codon( &
