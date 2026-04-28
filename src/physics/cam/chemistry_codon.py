@@ -2009,6 +2009,50 @@ def neu_wetdep_henry_flags_codon(
 
 
 @export
+def neu_wetdep_disgas_codon(
+    clwx: float,
+    cfx: float,
+    molmass: float,
+    hstar: float,
+    tm: float,
+    pr: float,
+    qm: float,
+    qt: float,
+    qtdis_p: cobj,
+):
+    qtdis = Ptr[float](qtdis_p)
+
+    tmix = 258.0
+    reteff = 0.5
+
+    if tm >= 263.0:
+        qtdis[0] = (hstar * (qt / (qm * cfx)) * 0.029 * (pr / 1.0e3)) * (clwx * qm)
+    elif tm <= tmix:
+        muemp = exp(-14.2252 + (1.55704e-1 * tm) - (7.1929e-4 * (tm ** 2.0)))
+        qtdis[0] = muemp * (molmass / 18.0) * (clwx * qm)
+    else:
+        qtdis[0] = reteff * ((hstar * (qt / (qm * cfx)) * 0.029 * (pr / 1.0e3)) * (clwx * qm))
+
+
+@export
+def neu_wetdep_raingas_codon(
+    rrain: float,
+    dtscav: float,
+    clwx: float,
+    cfx: float,
+    qm: float,
+    qt: float,
+    qtdis: float,
+    qtrain_p: cobj,
+):
+    qtrain = Ptr[float](qtrain_p)
+
+    qtdisstar = (qtdis * (qt * cfx)) / (qtdis + (qt * cfx))
+    qtlf = (rrain * qtdisstar) / (clwx * qm * qt * cfx)
+    qtrain[0] = qt * cfx * (1.0 - exp(-dtscav * qtlf))
+
+
+@export
 def setsox_init_fields_codon(
     stage: int,
     ncol: int,

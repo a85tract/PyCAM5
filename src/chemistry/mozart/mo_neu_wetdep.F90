@@ -48,6 +48,11 @@ module mo_neu_wetdep
   logical :: neu_wetdep_henry_impl_selected = .false.
   logical :: neu_wetdep_henry_selector_proof_written = .false.
   logical :: neu_wetdep_henry_wrap_proof_written = .false.
+  logical :: neu_wetdep_gas_micro_use_native_impl = .false.
+  logical :: neu_wetdep_gas_micro_impl_selected = .false.
+  logical :: neu_wetdep_gas_micro_selector_proof_written = .false.
+  logical :: neu_wetdep_disgas_wrap_proof_written = .false.
+  logical :: neu_wetdep_raingas_wrap_proof_written = .false.
 !
   real(r8), parameter  :: TICE=263._r8
 
@@ -326,6 +331,121 @@ subroutine neu_wetdep_henry_select_impl()
 
 end subroutine neu_wetdep_henry_select_impl
 !
+subroutine neu_wetdep_gas_micro_append_impl_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_path
+  integer :: status, n, unit_id
+
+  call get_environment_variable('NEU_WETDEP_GAS_MICRO_PROOF_FILE', value=proof_path, length=n, status=status)
+  if (status /= 0 .or. n <= 0) return
+
+  open(newunit=unit_id, file=trim(adjustl(proof_path(:n))), status='unknown', action='write', &
+       position='append', iostat=status)
+  if (status /= 0) return
+
+  write(unit_id,'(A)') trim(proof_line)
+  close(unit_id)
+
+end subroutine neu_wetdep_gas_micro_append_impl_proof
+!
+subroutine neu_wetdep_gas_micro_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (neu_wetdep_gas_micro_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('NEU_WETDEP_GAS_MICRO_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     neu_wetdep_gas_micro_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     neu_wetdep_gas_micro_use_native_impl = .false.
+  end if
+
+  neu_wetdep_gas_micro_impl_selected = .true.
+
+  if (masterproc) then
+     if (neu_wetdep_gas_micro_use_native_impl) then
+        write(iulog,*) 'neu_wetdep_gas_micro implementation = native'
+     else
+        write(iulog,*) 'neu_wetdep_gas_micro implementation = codon'
+        if (.not. neu_wetdep_gas_micro_selector_proof_written) then
+           call neu_wetdep_gas_micro_append_impl_proof('neu_wetdep_gas_micro selector entered implementation = codon')
+           neu_wetdep_gas_micro_selector_proof_written = .true.
+        end if
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine neu_wetdep_gas_micro_select_impl
+!
+subroutine neu_wetdep_disgas_codon_wrap(clwx, cfx, molmass, hstar, tm, pr, qm, qt, qtdis)
+
+  use iso_c_binding, only : c_double, c_loc, c_ptr
+
+  real(r8), intent(in) :: clwx, cfx, molmass, hstar, tm, pr, qm, qt
+  real(r8), target, intent(out) :: qtdis
+
+  interface
+     subroutine neu_wetdep_disgas_codon(clwx_c, cfx_c, molmass_c, hstar_c, tm_c, pr_c, qm_c, qt_c, &
+          qtdis_p) bind(c, name="neu_wetdep_disgas_codon")
+       use iso_c_binding, only : c_double, c_ptr
+       real(c_double), value :: clwx_c, cfx_c, molmass_c, hstar_c, tm_c, pr_c, qm_c, qt_c
+       type(c_ptr), value :: qtdis_p
+     end subroutine neu_wetdep_disgas_codon
+  end interface
+
+  if (masterproc .and. .not. neu_wetdep_disgas_wrap_proof_written) then
+     write(iulog,*) 'neu_wetdep_disgas_codon_wrap entered'
+     call neu_wetdep_gas_micro_append_impl_proof('neu_wetdep_disgas_codon_wrap entered')
+     neu_wetdep_disgas_wrap_proof_written = .true.
+     call flush(iulog)
+  end if
+
+  call neu_wetdep_disgas_codon(real(clwx, c_double), real(cfx, c_double), real(molmass, c_double), &
+       real(hstar, c_double), real(tm, c_double), real(pr, c_double), real(qm, c_double), &
+       real(qt, c_double), c_loc(qtdis))
+
+end subroutine neu_wetdep_disgas_codon_wrap
+!
+subroutine neu_wetdep_raingas_codon_wrap(rrain, dtscav, clwx, cfx, qm, qt, qtdis, qtrain)
+
+  use iso_c_binding, only : c_double, c_loc, c_ptr
+
+  real(r8), intent(in) :: rrain, dtscav, clwx, cfx, qm, qt, qtdis
+  real(r8), target, intent(out) :: qtrain
+
+  interface
+     subroutine neu_wetdep_raingas_codon(rrain_c, dtscav_c, clwx_c, cfx_c, qm_c, qt_c, qtdis_c, &
+          qtrain_p) bind(c, name="neu_wetdep_raingas_codon")
+       use iso_c_binding, only : c_double, c_ptr
+       real(c_double), value :: rrain_c, dtscav_c, clwx_c, cfx_c, qm_c, qt_c, qtdis_c
+       type(c_ptr), value :: qtrain_p
+     end subroutine neu_wetdep_raingas_codon
+  end interface
+
+  if (masterproc .and. .not. neu_wetdep_raingas_wrap_proof_written) then
+     write(iulog,*) 'neu_wetdep_raingas_codon_wrap entered'
+     call neu_wetdep_gas_micro_append_impl_proof('neu_wetdep_raingas_codon_wrap entered')
+     neu_wetdep_raingas_wrap_proof_written = .true.
+     call flush(iulog)
+  end if
+
+  call neu_wetdep_raingas_codon(real(rrain, c_double), real(dtscav, c_double), real(clwx, c_double), &
+       real(cfx, c_double), real(qm, c_double), real(qt, c_double), real(qtdis, c_double), c_loc(qtrain))
+
+end subroutine neu_wetdep_raingas_codon_wrap
+!
 subroutine neu_wetdep_henry_codon_wrap(ncol, pcols_in, pver_in, gas_cnt, nh3_ndx_in, co2_ndx_in, &
      t0_in, ph_in, ph_inv_in, mapping_to_heff_c, dheff_in, tfld, heff, wrk, dk1s, dk2s, tckaqb_c)
 
@@ -541,6 +661,7 @@ subroutine neu_wetdep_tend(lchnk,ncol,mmr,pmid,pdel,zint,tfld,delt, &
 !
   call neu_wetdep_aux_select_impl()
   call neu_wetdep_henry_select_impl()
+  call neu_wetdep_gas_micro_select_impl()
   if (.not. neu_wetdep_aux_use_native_impl .or. .not. neu_wetdep_henry_use_native_impl) then
     do m = 1, gas_wetdep_cnt
       if (.not. neu_wetdep_aux_use_native_impl) then
@@ -1885,6 +2006,12 @@ upper_level : &
       real(r8), parameter :: INV298 = 1._r8/298._r8
       real(r8), parameter  :: TMIX=258._r8
       real(r8), parameter  :: RETEFF=0.5_r8
+
+      if (.not. neu_wetdep_gas_micro_impl_selected) call neu_wetdep_gas_micro_select_impl()
+      if (.not. neu_wetdep_gas_micro_use_native_impl) then
+         call neu_wetdep_disgas_codon_wrap(CLWX, CFX, MOLMASS, HSTAR, TM, PR, QM, QT, QTDIS)
+         return
+      end if
 !---Next calculate rate of uptake of tracer
 
 !---effective Henry's Law constant: H* = moles-T / liter-precip / press(atm-T)
@@ -1932,6 +2059,11 @@ upper_level : &
       real(r8)   QTLF,QTDISSTAR
 
 
+      if (.not. neu_wetdep_gas_micro_impl_selected) call neu_wetdep_gas_micro_select_impl()
+      if (.not. neu_wetdep_gas_micro_use_native_impl) then
+         call neu_wetdep_raingas_codon_wrap(RRAIN, DTSCAV, CLWX, CFX, QM, QT, QTDIS, QTRAIN)
+         return
+      end if
 
 
 
