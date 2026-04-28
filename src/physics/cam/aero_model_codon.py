@@ -363,6 +363,112 @@ def aero_model_wetdep_column_flux_codon(
 
 
 @export
+def aero_model_wetdep_codon(
+    stage: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    dt: float,
+    tmpa: float,
+    gravit: float,
+    pdel_p: cobj,
+    state_tracer_p: cobj,
+    ptend_tracer_p: cobj,
+    q_tmp_p: cobj,
+    dqdt_p: cobj,
+    sflx_p: cobj,
+    sflx_ics_p: cobj,
+    sflx_iss_p: cobj,
+    sflx_bcs_p: cobj,
+    sflx_bss_p: cobj,
+    hygro_sum_old_p: cobj,
+    hygro_sum_del_p: cobj,
+    qaerwat_p: cobj,
+    fldcw_p: cobj,
+    icscavt_p: cobj,
+    isscavt_p: cobj,
+    bcscavt_p: cobj,
+    bsscavt_p: cobj,
+    aerdep_p: cobj,
+):
+    pdel = Ptr[float](pdel_p)
+    state_tracer = Ptr[float](state_tracer_p)
+    ptend_tracer = Ptr[float](ptend_tracer_p)
+    q_tmp = Ptr[float](q_tmp_p)
+    dqdt = Ptr[float](dqdt_p)
+    sflx = Ptr[float](sflx_p)
+    sflx_ics = Ptr[float](sflx_ics_p)
+    sflx_iss = Ptr[float](sflx_iss_p)
+    sflx_bcs = Ptr[float](sflx_bcs_p)
+    sflx_bss = Ptr[float](sflx_bss_p)
+    hygro_sum_old = Ptr[float](hygro_sum_old_p)
+    hygro_sum_del = Ptr[float](hygro_sum_del_p)
+    qaerwat = Ptr[float](qaerwat_p)
+    fldcw = Ptr[float](fldcw_p)
+    icscavt = Ptr[float](icscavt_p)
+    isscavt = Ptr[float](isscavt_p)
+    bcscavt = Ptr[float](bcscavt_p)
+    bsscavt = Ptr[float](bsscavt_p)
+    aerdep = Ptr[float](aerdep_p)
+
+    if stage == 1:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                q_tmp[idx] = state_tracer[idx] + ptend_tracer[idx] * dt
+        return
+
+    if stage == 2:
+        tmpb = tmpa * dt
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                ptend_tracer[idx] = ptend_tracer[idx] + dqdt[idx]
+                if tmpa != 0.0:
+                    hygro_sum_old[idx] = hygro_sum_old[idx] + tmpa * q_tmp[idx]
+                    hygro_sum_del[idx] = hygro_sum_del[idx] + tmpb * dqdt[idx]
+
+        aero_model_wetdep_column_flux_codon(ncol, pcols, pver, gravit, dqdt_p, pdel_p, sflx_p)
+        aero_model_wetdep_column_flux_codon(ncol, pcols, pver, gravit, icscavt_p, pdel_p, sflx_ics_p)
+        aero_model_wetdep_column_flux_codon(ncol, pcols, pver, gravit, isscavt_p, pdel_p, sflx_iss_p)
+        aero_model_wetdep_column_flux_codon(ncol, pcols, pver, gravit, bcscavt_p, pdel_p, sflx_bcs_p)
+        aero_model_wetdep_column_flux_codon(ncol, pcols, pver, gravit, bsscavt_p, pdel_p, sflx_bss_p)
+
+        for i in range(1, ncol + 1):
+            aerdep[i - 1] = sflx[i - 1]
+        return
+
+    if stage == 3:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                water_old = max(0.0, qaerwat[idx])
+                hygro_sum_old_ik = max(0.0, hygro_sum_old[idx])
+                hygro_sum_new_ik = max(0.0, hygro_sum_old_ik + hygro_sum_del[idx])
+                if hygro_sum_new_ik >= 10.0 * hygro_sum_old_ik:
+                    water_new = 10.0 * water_old
+                else:
+                    water_new = water_old * (hygro_sum_new_ik / hygro_sum_old_ik)
+                qaerwat[idx] = water_new
+        return
+
+    if stage == 4:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                fldcw[idx] = fldcw[idx] + dqdt[idx] * dt
+
+        aero_model_wetdep_column_flux_codon(ncol, pcols, pver, gravit, dqdt_p, pdel_p, sflx_p)
+        aero_model_wetdep_column_flux_codon(ncol, pcols, pver, gravit, icscavt_p, pdel_p, sflx_ics_p)
+        aero_model_wetdep_column_flux_codon(ncol, pcols, pver, gravit, isscavt_p, pdel_p, sflx_iss_p)
+        aero_model_wetdep_column_flux_codon(ncol, pcols, pver, gravit, bcscavt_p, pdel_p, sflx_bcs_p)
+        aero_model_wetdep_column_flux_codon(ncol, pcols, pver, gravit, bsscavt_p, pdel_p, sflx_bss_p)
+
+        for i in range(1, ncol + 1):
+            aerdep[i - 1] = sflx[i - 1]
+
+
+@export
 def clddiag_codon(
     pcols: int,
     pver: int,

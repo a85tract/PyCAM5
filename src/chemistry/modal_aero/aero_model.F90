@@ -93,6 +93,8 @@ module aero_model
   logical :: aero_model_drydep_branch_selected = .false.
   logical :: aero_model_wetdep_use_native_impl = .false.
   logical :: aero_model_wetdep_impl_selected = .false.
+  logical :: aero_model_wetdep_proof_written = .false.
+  logical :: aero_model_wetdep_wrap_proof_written = .false.
   logical :: aero_model_gasaerexch_use_native_impl = .false.
   logical :: aero_model_gasaerexch_impl_selected = .false.
   logical :: aero_model_gasaerexch_proof_written = .false.
@@ -928,6 +930,27 @@ contains
 
   !=============================================================================
   !=============================================================================
+  subroutine aero_model_wetdep_append_impl_proof(env_name, proof_line)
+
+    character(len=*), intent(in) :: env_name, proof_line
+
+    character(len=512) :: proof_path
+    integer :: status, n, unit_id
+
+    call get_environment_variable(env_name, value=proof_path, length=n, status=status)
+    if (status /= 0 .or. n <= 0) return
+
+    open(newunit=unit_id, file=trim(adjustl(proof_path(:n))), status='unknown', action='write', &
+         position='append', iostat=status)
+    if (status /= 0) return
+
+    write(unit_id,'(A)') trim(proof_line)
+    close(unit_id)
+
+  end subroutine aero_model_wetdep_append_impl_proof
+
+  !=============================================================================
+  !=============================================================================
   subroutine aero_model_wetdep_select_impl()
 
     character(len=32) :: impl_name
@@ -957,7 +980,13 @@ contains
           write(iulog,*) 'aero_model_wetdep implementation = native'
        else
           write(iulog,*) 'aero_model_wetdep implementation = codon'
+          if (.not. aero_model_wetdep_proof_written) then
+             call aero_model_wetdep_append_impl_proof('AERO_MODEL_WETDEP_PROOF_FILE', &
+                  'aero_model_wetdep selector entered implementation = codon')
+             aero_model_wetdep_proof_written = .true.
+          end if
        end if
+       call flush(iulog)
     end if
 
   end subroutine aero_model_wetdep_select_impl
@@ -1065,6 +1094,10 @@ contains
 
     integer :: mm
     integer :: i,k
+    integer, parameter :: wetdep_stage_prepare_tracer = 1
+    integer, parameter :: wetdep_stage_finish_interstitial = 2
+    integer, parameter :: wetdep_stage_update_water = 3
+    integer, parameter :: wetdep_stage_finish_cloudborne = 4
 
     real(r8) :: icscavt(pcols, pver)
     real(r8) :: isscavt(pcols, pver)
@@ -1074,6 +1107,10 @@ contains
     real(r8) :: sol_factic(pcols,pver)
 
     real(r8) :: sflx(pcols) ! deposition flux
+    real(r8) :: sflx_ics(pcols)
+    real(r8) :: sflx_iss(pcols)
+    real(r8) :: sflx_bcs(pcols)
+    real(r8) :: sflx_bss(pcols)
 
     integer :: jnv ! index for scavcoefnv 3rd dimension
     integer :: lphase ! index for interstitial / cloudborne aerosol
@@ -1098,6 +1135,10 @@ contains
     logical  :: isprx(pcols,pver) ! true if precipation
     real(r8) :: aerdepwetis(pcols,pcnst) ! aerosol wet deposition (interstitial)
     real(r8) :: aerdepwetcw(pcols,pcnst) ! aerosol wet deposition (cloud water)
+    real(r8) :: codon_dummy2d_a(pcols,pver)
+    real(r8) :: codon_dummy2d_b(pcols,pver)
+    real(r8) :: codon_dummy2d_c(pcols,pver)
+    real(r8) :: codon_dummy1d(pcols)
     real(r8), pointer :: fldcw(:,:)
 
     real(r8), pointer :: dgnumwet(:,:,:)
@@ -1282,9 +1323,18 @@ contains
              if ((lphase == 1) .and. (lspec <= nspec_amode(m))) then
                 ptend%lq(mm) = .TRUE.
                 dqdt_tmp(:,:) = 0.0_r8
-                ! q_tmp reflects changes from modal_aero_calcsize and is the "most current" q
-                q_tmp(1:ncol,:) = state%q(1:ncol,:,mm) + ptend%q(1:ncol,:,mm)*dt
                 fldcw => qqcw_get_field(pbuf, mm,lchnk)
+
+                if (aero_model_wetdep_use_native_impl) then
+                   ! q_tmp reflects changes from modal_aero_calcsize and is the "most current" q
+                   q_tmp(1:ncol,:) = state%q(1:ncol,:,mm) + ptend%q(1:ncol,:,mm)*dt
+                else
+                   call aero_model_wetdep_codon_wrap( &
+                        wetdep_stage_prepare_tracer, ncol, dt, 0.0_r8, state%pdel, state%q(:,:,mm), ptend%q(:,:,mm), &
+                        q_tmp, dqdt_tmp, sflx, sflx_ics, sflx_iss, sflx_bcs, sflx_bss, hygro_sum_old, hygro_sum_del, &
+                        codon_dummy2d_a, fldcw, icscavt, isscavt, bcscavt, bsscavt, codon_dummy1d &
+                   )
+                end if
 
                 call wetdepa_v2( state%pmid, state%q(:,:,1), state%pdel, &
                      dep_inputs%cldt, dep_inputs%cldcu, dep_inputs%cmfdqr, &
@@ -1299,7 +1349,20 @@ contains
                      icscavt=icscavt, isscavt=isscavt, bcscavt=bcscavt, bsscavt=bsscavt, &
                      sol_facti_in=sol_facti, sol_factic_in=sol_factic )
 
-                ptend%q(1:ncol,:,mm) = ptend%q(1:ncol,:,mm) + dqdt_tmp(1:ncol,:)
+                if (aero_model_wetdep_use_native_impl) then
+                   ptend%q(1:ncol,:,mm) = ptend%q(1:ncol,:,mm) + dqdt_tmp(1:ncol,:)
+                else
+                   tmpa = 0.0_r8
+                   if (lspec > 0) then
+                      tmpa = spechygro(lspectype_amode(lspec,m))/ &
+                           specdens_amode(lspectype_amode(lspec,m))
+                   end if
+                   call aero_model_wetdep_codon_wrap( &
+                        wetdep_stage_finish_interstitial, ncol, dt, tmpa, state%pdel, state%q(:,:,mm), ptend%q(:,:,mm), &
+                        q_tmp, dqdt_tmp, sflx, sflx_ics, sflx_iss, sflx_bcs, sflx_bss, hygro_sum_old, hygro_sum_del, &
+                        codon_dummy2d_a, fldcw, icscavt, isscavt, bcscavt, bsscavt, aerdepwetis(:,mm) &
+                   )
+                end if
 
                 call outfld( trim(cnst_name(mm))//'WET', dqdt_tmp(:,:), pcols, lchnk)
                 call outfld( trim(cnst_name(mm))//'SIC', icscavt, pcols, lchnk)
@@ -1307,28 +1370,34 @@ contains
                 call outfld( trim(cnst_name(mm))//'SBC', bcscavt, pcols, lchnk)
                 call outfld( trim(cnst_name(mm))//'SBS', bsscavt, pcols, lchnk)
 
-                call aero_model_wetdep_column_flux(ncol, dqdt_tmp, state%pdel, sflx)
-                call outfld( trim(cnst_name(mm))//'SFWET', sflx, pcols, lchnk)
-                aerdepwetis(:ncol,mm) = sflx(:ncol)
+                if (aero_model_wetdep_use_native_impl) then
+                   call aero_model_wetdep_column_flux(ncol, dqdt_tmp, state%pdel, sflx)
+                   aerdepwetis(:ncol,mm) = sflx(:ncol)
 
-                call aero_model_wetdep_column_flux(ncol, icscavt, state%pdel, sflx)
-                call outfld( trim(cnst_name(mm))//'SFSIC', sflx, pcols, lchnk)
-                call aero_model_wetdep_column_flux(ncol, isscavt, state%pdel, sflx)
-                call outfld( trim(cnst_name(mm))//'SFSIS', sflx, pcols, lchnk)
-                call aero_model_wetdep_column_flux(ncol, bcscavt, state%pdel, sflx)
-                call outfld( trim(cnst_name(mm))//'SFSBC', sflx, pcols, lchnk)
-                call aero_model_wetdep_column_flux(ncol, bsscavt, state%pdel, sflx)
-                call outfld( trim(cnst_name(mm))//'SFSBS', sflx, pcols, lchnk)
+                   call aero_model_wetdep_column_flux(ncol, icscavt, state%pdel, sflx)
+                   sflx_ics(:) = sflx(:)
+                   call aero_model_wetdep_column_flux(ncol, isscavt, state%pdel, sflx)
+                   sflx_iss(:) = sflx(:)
+                   call aero_model_wetdep_column_flux(ncol, bcscavt, state%pdel, sflx)
+                   sflx_bcs(:) = sflx(:)
+                   call aero_model_wetdep_column_flux(ncol, bsscavt, state%pdel, sflx)
+                   sflx_bss(:) = sflx(:)
 
-                if (lspec > 0) then
-                   tmpa = spechygro(lspectype_amode(lspec,m))/ &
-                        specdens_amode(lspectype_amode(lspec,m))
-                   tmpb = tmpa*dt
-                   hygro_sum_old(1:ncol,:) = hygro_sum_old(1:ncol,:) &
-                        + tmpa*q_tmp(1:ncol,:)
-                   hygro_sum_del(1:ncol,:) = hygro_sum_del(1:ncol,:) &
-                        + tmpb*dqdt_tmp(1:ncol,:)
+                   if (lspec > 0) then
+                      tmpa = spechygro(lspectype_amode(lspec,m))/ &
+                           specdens_amode(lspectype_amode(lspec,m))
+                      tmpb = tmpa*dt
+                      hygro_sum_old(1:ncol,:) = hygro_sum_old(1:ncol,:) &
+                           + tmpa*q_tmp(1:ncol,:)
+                      hygro_sum_del(1:ncol,:) = hygro_sum_del(1:ncol,:) &
+                           + tmpb*dqdt_tmp(1:ncol,:)
+                   end if
                 end if
+                call outfld( trim(cnst_name(mm))//'SFWET', sflx, pcols, lchnk)
+                call outfld( trim(cnst_name(mm))//'SFSIC', sflx_ics, pcols, lchnk)
+                call outfld( trim(cnst_name(mm))//'SFSIS', sflx_iss, pcols, lchnk)
+                call outfld( trim(cnst_name(mm))//'SFSBC', sflx_bcs, pcols, lchnk)
+                call outfld( trim(cnst_name(mm))//'SFSBS', sflx_bss, pcols, lchnk)
 
              else if ((lphase == 1) .and. (lspec == nspec_amode(m)+1)) then
                 ! aerosol water -- because of how wetdepa treats evaporation of stratiform
@@ -1340,21 +1409,29 @@ contains
                 ! also, individual wet removal terms (ic,is,bc,bs) are not output to history
                 ! ptend%lq(mm) = .TRUE.
                 ! dqdt_tmp(:,:) = 0.0_r8
-                do k = 1, pver
-                   do i = 1, ncol
-                      ! water_old = max( 0.0_r8, state%q(i,k,mm)+ptend%q(i,k,mm)*dt )
-                      water_old = max( 0.0_r8, qaerwat(i,k,mm) )
-                      hygro_sum_old_ik = max( 0.0_r8, hygro_sum_old(i,k) )
-                      hygro_sum_new_ik = max( 0.0_r8, hygro_sum_old_ik+hygro_sum_del(i,k) )
-                      if (hygro_sum_new_ik >= 10.0_r8*hygro_sum_old_ik) then
-                         water_new = 10.0_r8*water_old
-                      else
-                         water_new = water_old*(hygro_sum_new_ik/hygro_sum_old_ik)
-                      end if
-                      ! dqdt_tmp(i,k) = (water_new - water_old)/dt
-                      qaerwat(i,k,mm) = water_new
+                if (aero_model_wetdep_use_native_impl) then
+                   do k = 1, pver
+                      do i = 1, ncol
+                         ! water_old = max( 0.0_r8, state%q(i,k,mm)+ptend%q(i,k,mm)*dt )
+                         water_old = max( 0.0_r8, qaerwat(i,k,mm) )
+                         hygro_sum_old_ik = max( 0.0_r8, hygro_sum_old(i,k) )
+                         hygro_sum_new_ik = max( 0.0_r8, hygro_sum_old_ik+hygro_sum_del(i,k) )
+                         if (hygro_sum_new_ik >= 10.0_r8*hygro_sum_old_ik) then
+                            water_new = 10.0_r8*water_old
+                         else
+                            water_new = water_old*(hygro_sum_new_ik/hygro_sum_old_ik)
+                         end if
+                         ! dqdt_tmp(i,k) = (water_new - water_old)/dt
+                         qaerwat(i,k,mm) = water_new
+                      end do
                    end do
-                end do
+                else
+                   call aero_model_wetdep_codon_wrap( &
+                        wetdep_stage_update_water, ncol, dt, 0.0_r8, state%pdel, codon_dummy2d_a, codon_dummy2d_b, &
+                        q_tmp, dqdt_tmp, sflx, sflx_ics, sflx_iss, sflx_bcs, sflx_bss, hygro_sum_old, hygro_sum_del, &
+                        qaerwat(:,:,mm), codon_dummy2d_c, icscavt, isscavt, bcscavt, bsscavt, codon_dummy1d &
+                   )
+                end if
 
                 ! ptend%q(1:ncol,:,mm) = ptend%q(1:ncol,:,mm) + dqdt_tmp(1:ncol,:)
 
@@ -1383,20 +1460,34 @@ contains
                      icscavt=icscavt, isscavt=isscavt, bcscavt=bcscavt, bsscavt=bsscavt, &
                      sol_facti_in=sol_facti, sol_factic_in=sol_factic )
 
-                fldcw(1:ncol,:) = fldcw(1:ncol,:) + dqdt_tmp(1:ncol,:) * dt
+                if (aero_model_wetdep_use_native_impl) then
+                   fldcw(1:ncol,:) = fldcw(1:ncol,:) + dqdt_tmp(1:ncol,:) * dt
+                else
+                   call aero_model_wetdep_codon_wrap( &
+                        wetdep_stage_finish_cloudborne, ncol, dt, 0.0_r8, state%pdel, codon_dummy2d_a, codon_dummy2d_b, &
+                        q_tmp, dqdt_tmp, sflx, sflx_ics, sflx_iss, sflx_bcs, sflx_bss, hygro_sum_old, hygro_sum_del, &
+                        codon_dummy2d_c, fldcw, icscavt, isscavt, bcscavt, bsscavt, aerdepwetcw(:,mm) &
+                   )
+                end if
 
-                call aero_model_wetdep_column_flux(ncol, dqdt_tmp, state%pdel, sflx)
+                if (aero_model_wetdep_use_native_impl) then
+                   call aero_model_wetdep_column_flux(ncol, dqdt_tmp, state%pdel, sflx)
+                   aerdepwetcw(:ncol,mm) = sflx(:ncol)
+
+                   call aero_model_wetdep_column_flux(ncol, icscavt, state%pdel, sflx)
+                   sflx_ics(:) = sflx(:)
+                   call aero_model_wetdep_column_flux(ncol, isscavt, state%pdel, sflx)
+                   sflx_iss(:) = sflx(:)
+                   call aero_model_wetdep_column_flux(ncol, bcscavt, state%pdel, sflx)
+                   sflx_bcs(:) = sflx(:)
+                   call aero_model_wetdep_column_flux(ncol, bsscavt, state%pdel, sflx)
+                   sflx_bss(:) = sflx(:)
+                end if
                 call outfld( trim(cnst_name_cw(mm))//'SFWET', sflx, pcols, lchnk)
-                aerdepwetcw(:ncol,mm) = sflx(:ncol)
-
-                call aero_model_wetdep_column_flux(ncol, icscavt, state%pdel, sflx)
-                call outfld( trim(cnst_name_cw(mm))//'SFSIC', sflx, pcols, lchnk)
-                call aero_model_wetdep_column_flux(ncol, isscavt, state%pdel, sflx)
-                call outfld( trim(cnst_name_cw(mm))//'SFSIS', sflx, pcols, lchnk)
-                call aero_model_wetdep_column_flux(ncol, bcscavt, state%pdel, sflx)
-                call outfld( trim(cnst_name_cw(mm))//'SFSBC', sflx, pcols, lchnk)
-                call aero_model_wetdep_column_flux(ncol, bsscavt, state%pdel, sflx)
-                call outfld( trim(cnst_name_cw(mm))//'SFSBS', sflx, pcols, lchnk)
+                call outfld( trim(cnst_name_cw(mm))//'SFSIC', sflx_ics, pcols, lchnk)
+                call outfld( trim(cnst_name_cw(mm))//'SFSIS', sflx_iss, pcols, lchnk)
+                call outfld( trim(cnst_name_cw(mm))//'SFSBC', sflx_bcs, pcols, lchnk)
+                call outfld( trim(cnst_name_cw(mm))//'SFSBS', sflx_bss, pcols, lchnk)
 
              endif
 
@@ -1411,6 +1502,58 @@ contains
     endif
 
   endsubroutine aero_model_wetdep
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_wetdep_codon_wrap(stage, ncol, dt, tmpa, pdel, state_tracer, ptend_tracer, q_tmp, dqdt_tmp, &
+                                          sflx, sflx_ics, sflx_iss, sflx_bcs, sflx_bss, hygro_sum_old, hygro_sum_del, &
+                                          qaerwat, fldcw, icscavt, isscavt, bcscavt, bsscavt, aerdep)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: stage, ncol
+    real(r8), intent(in) :: dt, tmpa
+    real(r8), target, intent(in) :: pdel(pcols,pver), state_tracer(pcols,pver), dqdt_tmp(pcols,pver)
+    real(r8), target, intent(in) :: icscavt(pcols,pver), isscavt(pcols,pver), bcscavt(pcols,pver), bsscavt(pcols,pver)
+    real(r8), target, intent(inout) :: ptend_tracer(pcols,pver), q_tmp(pcols,pver), hygro_sum_old(pcols,pver), &
+                                       hygro_sum_del(pcols,pver), qaerwat(pcols,pver), fldcw(pcols,pver)
+    real(r8), target, intent(inout) :: sflx(pcols), sflx_ics(pcols), sflx_iss(pcols), sflx_bcs(pcols), sflx_bss(pcols)
+    real(r8), target, intent(inout) :: aerdep(pcols)
+    character(len=128) :: wrap_proof_line
+
+    interface
+       subroutine aero_model_wetdep_codon(stage_c, ncol_c, pcols_c, pver_c, dt_c, tmpa_c, gravit_c, pdel_p, &
+                                          state_tracer_p, ptend_tracer_p, q_tmp_p, dqdt_p, sflx_p, sflx_ics_p, &
+                                          sflx_iss_p, sflx_bcs_p, sflx_bss_p, hygro_sum_old_p, hygro_sum_del_p, &
+                                          qaerwat_p, fldcw_p, icscavt_p, isscavt_p, bcscavt_p, bsscavt_p, aerdep_p) &
+            bind(c, name="aero_model_wetdep_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c
+         real(c_double), value :: dt_c, tmpa_c, gravit_c
+         type(c_ptr), value :: pdel_p, state_tracer_p, ptend_tracer_p, q_tmp_p, dqdt_p
+         type(c_ptr), value :: sflx_p, sflx_ics_p, sflx_iss_p, sflx_bcs_p, sflx_bss_p
+         type(c_ptr), value :: hygro_sum_old_p, hygro_sum_del_p, qaerwat_p, fldcw_p
+         type(c_ptr), value :: icscavt_p, isscavt_p, bcscavt_p, bsscavt_p, aerdep_p
+       end subroutine aero_model_wetdep_codon
+    end interface
+
+    if (masterproc .and. .not. aero_model_wetdep_wrap_proof_written) then
+       wrap_proof_line = 'aero_model_wetdep_codon_wrap entered'
+       write(iulog,'(A)') trim(wrap_proof_line)
+       call aero_model_wetdep_append_impl_proof('AERO_MODEL_WETDEP_PROOF_FILE', trim(wrap_proof_line))
+       aero_model_wetdep_wrap_proof_written = .true.
+       call flush(iulog)
+    end if
+
+    call aero_model_wetdep_codon( &
+         int(stage, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         real(dt, c_double), real(tmpa, c_double), real(gravit, c_double), c_loc(pdel), c_loc(state_tracer), &
+         c_loc(ptend_tracer), c_loc(q_tmp), c_loc(dqdt_tmp), c_loc(sflx), c_loc(sflx_ics), c_loc(sflx_iss), &
+         c_loc(sflx_bcs), c_loc(sflx_bss), c_loc(hygro_sum_old), c_loc(hygro_sum_del), c_loc(qaerwat), c_loc(fldcw), &
+         c_loc(icscavt), c_loc(isscavt), c_loc(bcscavt), c_loc(bsscavt), c_loc(aerdep) &
+    )
+
+  end subroutine aero_model_wetdep_codon_wrap
 
   !=============================================================================
   !=============================================================================
