@@ -1,6 +1,5 @@
-from math import acos, cos, exp, log, log10, sin, sqrt
+from math import acos, cos, exp, gamma, log, log10, sin, sqrt
 from C import neu_wetdep_dempirical_native_cb(float, float) -> float
-from C import neu_wetdep_gamma_native_cb(float) -> float
 
 
 @inline
@@ -2063,8 +2062,8 @@ def _neu_wetdep_dempirical_core(cwater: float, rrate: float) -> float:
     beta = theta / (1.0 + 0.638)
     alpha = exp(4.0 * (beta - 3.5))
     bee = (0.638 * theta / (1.0 + 0.638)) - 1.0
-    gamtheta = neu_wetdep_gamma_native_cb(theta)
-    gambeta = neu_wetdep_gamma_native_cb(beta + 1.0)
+    gamtheta = gamma(theta)
+    gambeta = gamma(beta + 1.0)
     return (((wx * eta * gamtheta) / (1.0e6 * alpha * phi * gambeta)) ** (-1.0 / bee)) * 10.0
 
 

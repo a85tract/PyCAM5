@@ -543,7 +543,7 @@ subroutine neu_wetdep_washo_dempirical_select_impl()
   if (neu_wetdep_washo_dempirical_use_native_impl) then
      selected_impl = 'native'
   else
-     selected_impl = 'codon_native_gamma'
+     selected_impl = 'codon'
   end if
 
   if (masterproc) then
@@ -599,7 +599,7 @@ subroutine neu_wetdep_washo_codon_wrap(lpar, ntrace, dtscav, qttjfl, qm, pofl, d
      dempirical_impl_name = 'native'
   else
      dempirical_impl_c = 1_c_int64_t
-     dempirical_impl_name = 'codon_native_gamma'
+     dempirical_impl_name = 'codon'
   end if
 
   if (masterproc .and. .not. neu_wetdep_washo_wrap_proof_written) then
@@ -2422,19 +2422,5 @@ upper_level : &
       dempirical_c = DEMPIRICAL(real(cwater_c, r8), real(rrate_c, r8))
 
       end function neu_wetdep_dempirical_native_cb
-!
-      function neu_wetdep_gamma_native_cb(x_c) bind(c, name="neu_wetdep_gamma_native_cb") result(gamma_c)
-
-      use iso_c_binding, only : c_double
-      use shr_spfn_mod, only : shr_spfn_gamma
-
-      implicit none
-
-      real(c_double), value, intent(in) :: x_c
-      real(c_double) :: gamma_c
-
-      gamma_c = shr_spfn_gamma(real(x_c, r8))
-
-      end function neu_wetdep_gamma_native_cb
 !
 end module mo_neu_wetdep
