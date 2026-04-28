@@ -28,6 +28,7 @@ module mo_neu_wetdep
   integer                     :: index_cldice,index_cldliq,nh3_ndx,co2_ndx
   logical                     :: debug   = .false.
   integer                     :: hno3_ndx = 0
+  real(r8), target, dimension(n_species_table*6) :: dheff_cache
 !
 ! diagnostics
 !
@@ -43,6 +44,10 @@ module mo_neu_wetdep
   logical :: neu_wetdep_aux_selector_proof_written = .false.
   logical :: neu_wetdep_aux_prepare_proof_written = .false.
   logical :: neu_wetdep_aux_finish_proof_written = .false.
+  logical :: neu_wetdep_henry_use_native_impl = .false.
+  logical :: neu_wetdep_henry_impl_selected = .false.
+  logical :: neu_wetdep_henry_selector_proof_written = .false.
+  logical :: neu_wetdep_henry_wrap_proof_written = .false.
 !
   real(r8), parameter  :: TICE=263._r8
 
@@ -73,6 +78,7 @@ subroutine neu_wetdep_init
   allocate( mapping_to_mmr(gas_wetdep_cnt) )
   allocate( ice_uptake(gas_wetdep_cnt) )
   allocate( mol_weight(gas_wetdep_cnt) )
+  dheff_cache(:) = dheff(:)
 
 !
 ! find mapping to heff table
@@ -260,6 +266,108 @@ subroutine neu_wetdep_aux_select_impl()
 
 end subroutine neu_wetdep_aux_select_impl
 !
+subroutine neu_wetdep_henry_append_impl_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_path
+  integer :: status, n, unit_id
+
+  call get_environment_variable('NEU_WETDEP_HENRY_PROOF_FILE', value=proof_path, length=n, status=status)
+  if (status /= 0 .or. n <= 0) return
+
+  open(newunit=unit_id, file=trim(adjustl(proof_path(:n))), status='unknown', action='write', &
+       position='append', iostat=status)
+  if (status /= 0) return
+
+  write(unit_id,'(A)') trim(proof_line)
+  close(unit_id)
+
+end subroutine neu_wetdep_henry_append_impl_proof
+!
+subroutine neu_wetdep_henry_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (neu_wetdep_henry_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('NEU_WETDEP_HENRY_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     neu_wetdep_henry_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     neu_wetdep_henry_use_native_impl = .false.
+  end if
+
+  if (debug) neu_wetdep_henry_use_native_impl = .true.
+
+  neu_wetdep_henry_impl_selected = .true.
+
+  if (masterproc) then
+     if (neu_wetdep_henry_use_native_impl) then
+        write(iulog,*) 'neu_wetdep_henry implementation = native'
+     else
+        write(iulog,*) 'neu_wetdep_henry implementation = codon'
+        if (.not. neu_wetdep_henry_selector_proof_written) then
+           call neu_wetdep_henry_append_impl_proof('neu_wetdep_henry selector entered implementation = codon')
+           neu_wetdep_henry_selector_proof_written = .true.
+        end if
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine neu_wetdep_henry_select_impl
+!
+subroutine neu_wetdep_henry_codon_wrap(ncol, pcols_in, pver_in, gas_cnt, nh3_ndx_in, co2_ndx_in, &
+     t0_in, ph_in, ph_inv_in, mapping_to_heff_c, dheff_in, tfld, heff, wrk, dk1s, dk2s, tckaqb_c)
+
+  use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+
+  integer, intent(in) :: ncol, pcols_in, pver_in, gas_cnt
+  integer, intent(in) :: nh3_ndx_in, co2_ndx_in
+  real(r8), intent(in) :: t0_in, ph_in, ph_inv_in
+  integer(c_int64_t), target, intent(in) :: mapping_to_heff_c(gas_cnt)
+  real(r8), target, intent(in) :: dheff_in(n_species_table*6)
+  real(r8), target, intent(in) :: tfld(pcols_in,pver_in)
+  real(r8), target, intent(out) :: heff(ncol,pver_in,gas_cnt)
+  real(r8), target, intent(out) :: wrk(ncol), dk1s(ncol), dk2s(ncol)
+  integer(c_int64_t), target, intent(out) :: tckaqb_c(gas_cnt)
+
+  interface
+     subroutine neu_wetdep_henry_flags_codon(ncol_c, pcols_c, pver_c, gas_cnt_c, nh3_ndx_c, co2_ndx_c, &
+          t0_c, ph_c, ph_inv_c, mapping_to_heff_p, dheff_p, tfld_p, heff_p, wrk_p, dk1s_p, dk2s_p, tckaqb_p) &
+          bind(c, name="neu_wetdep_henry_flags_codon")
+       use iso_c_binding, only : c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, gas_cnt_c, nh3_ndx_c, co2_ndx_c
+       real(c_double), value :: t0_c, ph_c, ph_inv_c
+       type(c_ptr), value :: mapping_to_heff_p, dheff_p, tfld_p, heff_p, wrk_p, dk1s_p, dk2s_p, tckaqb_p
+     end subroutine neu_wetdep_henry_flags_codon
+  end interface
+
+  if (masterproc .and. .not. neu_wetdep_henry_wrap_proof_written) then
+     write(iulog,*) 'neu_wetdep_henry_codon_wrap entered'
+     call neu_wetdep_henry_append_impl_proof('neu_wetdep_henry_codon_wrap entered')
+     neu_wetdep_henry_wrap_proof_written = .true.
+     call flush(iulog)
+  end if
+
+  call neu_wetdep_henry_flags_codon( &
+       int(ncol, c_int64_t), int(pcols_in, c_int64_t), int(pver_in, c_int64_t), int(gas_cnt, c_int64_t), &
+       int(nh3_ndx_in, c_int64_t), int(co2_ndx_in, c_int64_t), real(t0_in, c_double), &
+       real(ph_in, c_double), real(ph_inv_in, c_double), c_loc(mapping_to_heff_c), c_loc(dheff_in), &
+       c_loc(tfld), c_loc(heff), c_loc(wrk), c_loc(dk1s), c_loc(dk2s), c_loc(tckaqb_c) &
+  )
+
+end subroutine neu_wetdep_henry_codon_wrap
+!
 subroutine neu_wetdep_aux_prepare_codon_wrap(ncol, pcols_in, pver_in, pcnst_in, gas_cnt, &
      index_cldice_in, index_cldliq_in, gravit_in, mapping_to_mmr_c, area, mmr, pmid, pdel, &
      zint, tfld, prain, nevapr, cld, cmfdqr, mass_in_layer, cldice, cldliq, cldfrc, totprec, &
@@ -402,7 +510,7 @@ subroutine neu_wetdep_tend(lchnk,ncol,mmr,pmid,pdel,zint,tfld,delt, &
   real(r8), target, dimension(ncol,pver,gas_wetdep_cnt) :: trc_mass,heff,dtwr
   real(r8), target, dimension(ncol,pver,gas_wetdep_cnt) :: wd_mmr
   logical , dimension(gas_wetdep_cnt)           :: tckaqb
-  integer(c_int64_t), target, dimension(gas_wetdep_cnt) :: mapping_to_mmr_c
+  integer(c_int64_t), target, dimension(gas_wetdep_cnt) :: mapping_to_mmr_c, mapping_to_heff_c, tckaqb_c
   integer , dimension(ncol)                 :: test_flag
 !
 ! arrays for HNO3 diagnostics
@@ -415,7 +523,7 @@ subroutine neu_wetdep_tend(lchnk,ncol,mmr,pmid,pdel,zint,tfld,delt, &
   real(r8), parameter       :: ph     = 1.e-5_r8
   real(r8), parameter       :: ph_inv = 1._r8/ph
   real(r8)                  :: e298, dhr
-  real(r8), dimension(ncol) :: dk1s,dk2s,wrk
+  real(r8), target, dimension(ncol) :: dk1s,dk2s,wrk
 !!DEK
   real(r8) :: pi
   real(r8), target :: lats(pcols)
@@ -432,9 +540,15 @@ subroutine neu_wetdep_tend(lchnk,ncol,mmr,pmid,pdel,zint,tfld,delt, &
   if ( gas_wetdep_cnt == 0 ) return
 !
   call neu_wetdep_aux_select_impl()
-  if (.not. neu_wetdep_aux_use_native_impl) then
+  call neu_wetdep_henry_select_impl()
+  if (.not. neu_wetdep_aux_use_native_impl .or. .not. neu_wetdep_henry_use_native_impl) then
     do m = 1, gas_wetdep_cnt
-      mapping_to_mmr_c(m) = int(mapping_to_mmr(m), c_int64_t)
+      if (.not. neu_wetdep_aux_use_native_impl) then
+        mapping_to_mmr_c(m) = int(mapping_to_mmr(m), c_int64_t)
+      end if
+      if (.not. neu_wetdep_henry_use_native_impl) then
+        mapping_to_heff_c(m) = int(mapping_to_heff(m), c_int64_t)
+      end if
     end do
   end if
 !
@@ -503,66 +617,74 @@ subroutine neu_wetdep_tend(lchnk,ncol,mmr,pmid,pdel,zint,tfld,delt, &
 ! compute effective Henry's law coefficients
 ! code taken from models/drv/shr/seq_drydep_mod.F90
 !
-  heff = 0._r8
-  do k=1,pver
+  if (.not. neu_wetdep_henry_use_native_impl) then
+    call neu_wetdep_henry_codon_wrap(ncol, pcols, pver, gas_wetdep_cnt, nh3_ndx, co2_ndx, &
+         t0, ph, ph_inv, mapping_to_heff_c, dheff_cache, tfld, heff, wrk, dk1s, dk2s, tckaqb_c)
+    do m = 1, gas_wetdep_cnt
+      tckaqb(m) = tckaqb_c(m) /= 0
+    end do
+  else
+    heff = 0._r8
+    do k=1,pver
 !
-    kk = pver - k + 1
+      kk = pver - k + 1
 !
-    wrk(:) = (t0-tfld(1:ncol,kk))/(t0*tfld(1:ncol,kk))
+      wrk(:) = (t0-tfld(1:ncol,kk))/(t0*tfld(1:ncol,kk))
 !
-    do m=1,gas_wetdep_cnt
+      do m=1,gas_wetdep_cnt
 !
-      l    = mapping_to_heff(m)
-      id   = 6*(l - 1)
-      e298 = dheff(id+1)
-      dhr  = dheff(id+2)
-      heff(:,k,m) = e298*exp( dhr*wrk(:) )
-      test_flag = -99
-      if( dheff(id+3) /= 0._r8 .and. dheff(id+5) == 0._r8 ) then
-        e298 = dheff(id+3)
-        dhr  = dheff(id+4)
-        dk1s(:) = e298*exp( dhr*wrk(:) )
-        where( heff(:,k,m) /= 0._r8 )
-          heff(:,k,m) = heff(:,k,m)*(1._r8 + dk1s(:)*ph_inv)
-        elsewhere
-          test_flag = 1
-          heff(:,k,m) = dk1s(:)*ph_inv
-        endwhere
-      end if
-!
-      if (k.eq.1 .and. maxval(test_flag) > 0 .and. debug ) print '(a,i4)','heff for m=',m
-!
-      if( dheff(id+5) /= 0._r8 ) then
-        if( nh3_ndx > 0 .or. co2_ndx > 0 ) then
+        l    = mapping_to_heff(m)
+        id   = 6*(l - 1)
+        e298 = dheff(id+1)
+        dhr  = dheff(id+2)
+        heff(:,k,m) = e298*exp( dhr*wrk(:) )
+        test_flag = -99
+        if( dheff(id+3) /= 0._r8 .and. dheff(id+5) == 0._r8 ) then
           e298 = dheff(id+3)
           dhr  = dheff(id+4)
           dk1s(:) = e298*exp( dhr*wrk(:) )
-          e298 = dheff(id+5)
-          dhr  = dheff(id+6)
-          dk2s(:) = e298*exp( dhr*wrk(:) )
-          if( m == co2_ndx ) then
-             heff(:,k,m) = heff(:,k,m)*(1._r8 + dk1s(:)*ph_inv)*(1._r8 + dk2s(:)*ph_inv)
-          else if( m == nh3_ndx ) then
-             heff(:,k,m) = heff(:,k,m)*(1._r8 + dk1s(:)*ph/dk2s(:))
-          else
-             write(iulog,*) 'error in assigning henrys law coefficients'
-             write(iulog,*) 'species ',m
+          where( heff(:,k,m) /= 0._r8 )
+            heff(:,k,m) = heff(:,k,m)*(1._r8 + dk1s(:)*ph_inv)
+          elsewhere
+            test_flag = 1
+            heff(:,k,m) = dk1s(:)*ph_inv
+          endwhere
+        end if
+!
+        if (k.eq.1 .and. maxval(test_flag) > 0 .and. debug ) print '(a,i4)','heff for m=',m
+!
+        if( dheff(id+5) /= 0._r8 ) then
+          if( nh3_ndx > 0 .or. co2_ndx > 0 ) then
+            e298 = dheff(id+3)
+            dhr  = dheff(id+4)
+            dk1s(:) = e298*exp( dhr*wrk(:) )
+            e298 = dheff(id+5)
+            dhr  = dheff(id+6)
+            dk2s(:) = e298*exp( dhr*wrk(:) )
+            if( m == co2_ndx ) then
+               heff(:,k,m) = heff(:,k,m)*(1._r8 + dk1s(:)*ph_inv)*(1._r8 + dk2s(:)*ph_inv)
+            else if( m == nh3_ndx ) then
+               heff(:,k,m) = heff(:,k,m)*(1._r8 + dk1s(:)*ph/dk2s(:))
+            else
+               write(iulog,*) 'error in assigning henrys law coefficients'
+               write(iulog,*) 'species ',m
+            end if
           end if
         end if
-      end if
 !
+      end do
     end do
-  end do
 !
 ! define flag for high effective Henry's law
 !
-  do m=1,gas_wetdep_cnt
-    if ( maxval(heff(:,:,m)) > 1.e4_r8 ) then
-      tckaqb(m) = .true.
-    else
-      tckaqb(m) = .false.
-    end if
-  end do
+    do m=1,gas_wetdep_cnt
+      if ( maxval(heff(:,:,m)) > 1.e4_r8 ) then
+        tckaqb(m) = .true.
+      else
+        tckaqb(m) = .false.
+      end if
+    end do
+  end if
 !
   if ( debug ) then
     print '(a,50f8.2)','tckaqb     ',tckaqb

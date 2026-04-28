@@ -1908,6 +1908,107 @@ def neu_wetdep_aux_finish_codon(
 
 
 @export
+def neu_wetdep_henry_flags_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_cnt: int,
+    nh3_ndx: int,
+    co2_ndx: int,
+    t0: float,
+    ph: float,
+    ph_inv: float,
+    mapping_to_heff_p: cobj,
+    dheff_p: cobj,
+    tfld_p: cobj,
+    heff_p: cobj,
+    wrk_p: cobj,
+    dk1s_p: cobj,
+    dk2s_p: cobj,
+    tckaqb_p: cobj,
+):
+    mapping_to_heff = Ptr[int](mapping_to_heff_p)
+    dheff = Ptr[float](dheff_p)
+    tfld = Ptr[float](tfld_p)
+    heff = Ptr[float](heff_p)
+    wrk = Ptr[float](wrk_p)
+    dk1s = Ptr[float](dk1s_p)
+    dk2s = Ptr[float](dk2s_p)
+    tckaqb = Ptr[int](tckaqb_p)
+
+    # Fortran declarations: tfld(pcols,pver), heff(ncol,pver,gas_wetdep_cnt).
+    for m in range(1, gas_cnt + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                heff[_idx3(i, k, m, ncol, pver)] = 0.0
+
+    for k in range(1, pver + 1):
+        kk = pver - k + 1
+
+        for i in range(1, ncol + 1):
+            temp = tfld[_idx2(i, kk, pcols)]
+            wrk[i - 1] = (t0 - temp) / (t0 * temp)
+
+        for m in range(1, gas_cnt + 1):
+            l = mapping_to_heff[m - 1]
+            base = 6 * (l - 1)
+            e298 = dheff[base]
+            dhr = dheff[base + 1]
+
+            for i in range(1, ncol + 1):
+                heff[_idx3(i, k, m, ncol, pver)] = e298 * exp(dhr * wrk[i - 1])
+
+            if dheff[base + 2] != 0.0 and dheff[base + 4] == 0.0:
+                e298 = dheff[base + 2]
+                dhr = dheff[base + 3]
+                for i in range(1, ncol + 1):
+                    dk1s[i - 1] = e298 * exp(dhr * wrk[i - 1])
+
+                for i in range(1, ncol + 1):
+                    idx = _idx3(i, k, m, ncol, pver)
+                    if heff[idx] != 0.0:
+                        heff[idx] = heff[idx] * (1.0 + dk1s[i - 1] * ph_inv)
+                    else:
+                        heff[idx] = dk1s[i - 1] * ph_inv
+
+            if dheff[base + 4] != 0.0:
+                if nh3_ndx > 0 or co2_ndx > 0:
+                    e298 = dheff[base + 2]
+                    dhr = dheff[base + 3]
+                    for i in range(1, ncol + 1):
+                        dk1s[i - 1] = e298 * exp(dhr * wrk[i - 1])
+
+                    e298 = dheff[base + 4]
+                    dhr = dheff[base + 5]
+                    for i in range(1, ncol + 1):
+                        dk2s[i - 1] = e298 * exp(dhr * wrk[i - 1])
+
+                    if m == co2_ndx:
+                        for i in range(1, ncol + 1):
+                            idx = _idx3(i, k, m, ncol, pver)
+                            heff[idx] = heff[idx] * (1.0 + dk1s[i - 1] * ph_inv) * (
+                                1.0 + dk2s[i - 1] * ph_inv
+                            )
+                    elif m == nh3_ndx:
+                        for i in range(1, ncol + 1):
+                            idx = _idx3(i, k, m, ncol, pver)
+                            heff[idx] = heff[idx] * (1.0 + dk1s[i - 1] * ph / dk2s[i - 1])
+
+    for m in range(1, gas_cnt + 1):
+        max_heff = heff[_idx3(1, 1, m, ncol, pver)]
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                val = heff[_idx3(i, k, m, ncol, pver)]
+                if val > max_heff:
+                    max_heff = val
+
+        if max_heff > 1.0e4:
+            tckaqb[m - 1] = 1
+        else:
+            tckaqb[m - 1] = 0
+
+
+@export
 def setsox_init_fields_codon(
     stage: int,
     ncol: int,
