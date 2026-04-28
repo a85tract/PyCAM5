@@ -1,5 +1,6 @@
 from math import acos, cos, exp, log, log10, sin, sqrt
 from C import neu_wetdep_dempirical_native_cb(float, float) -> float
+from C import neu_wetdep_gamma_native_cb(float) -> float
 
 
 @inline
@@ -2047,6 +2048,26 @@ def _neu_wetdep_raingas_core(
     return qt * cfx * (1.0 - exp(-dtscav * qtlf))
 
 
+@inline
+def _neu_wetdep_dempirical_core(cwater: float, rrate: float) -> float:
+    rratex = rrate * 3600.0
+    wx = cwater * 1.0e3
+
+    if rratex > 0.04:
+        theta = exp(-1.43 * log10(7.0 * rratex)) + 2.8
+    else:
+        theta = 5.0
+
+    phi = rratex / (3600.0 * 10.0)
+    eta = exp((3.01 * theta) - 10.5)
+    beta = theta / (1.0 + 0.638)
+    alpha = exp(4.0 * (beta - 3.5))
+    bee = (0.638 * theta / (1.0 + 0.638)) - 1.0
+    gamtheta = neu_wetdep_gamma_native_cb(theta)
+    gambeta = neu_wetdep_gamma_native_cb(beta + 1.0)
+    return (((wx * eta * gamtheta) / (1.0e6 * alpha * phi * gambeta)) ** (-1.0 / bee)) * 10.0
+
+
 @export
 def neu_wetdep_disgas_codon(
     clwx: float,
@@ -2084,6 +2105,7 @@ def neu_wetdep_washo_codon(
     ntrace: int,
     hno3_ndx: int,
     do_diag: int,
+    dempirical_impl: int,
     dtscav: float,
     garea: float,
     adj_factor: float,
@@ -2315,7 +2337,10 @@ def neu_wetdep_washo_codon(
                         if rprecip > zero:
                             wemp = (clwx * qm[l - 1]) / (garea * cfxx[l - 1] * delz[l - 1])
                             remp = rprecip / (rhorain / 1.0e3)
-                            dnew = neu_wetdep_dempirical_native_cb(wemp, remp)
+                            if dempirical_impl == 0:
+                                dnew = neu_wetdep_dempirical_native_cb(wemp, remp)
+                            else:
+                                dnew = _neu_wetdep_dempirical_core(wemp, remp)
                             dnew = max(dmin, dnew)
                             if fcxb > zero:
                                 dcxb = dnew
@@ -2327,7 +2352,10 @@ def neu_wetdep_washo_codon(
                         if fcxa > zero:
                             wemp = (clwx * qm[l - 1] * (fcxa / cfxx[l - 1])) / (garea * fcxa * delz[l - 1])
                             remp = rcxa / (rhorain / 1.0e3)
-                            demp = neu_wetdep_dempirical_native_cb(wemp, remp)
+                            if dempirical_impl == 0:
+                                demp = neu_wetdep_dempirical_native_cb(wemp, remp)
+                            else:
+                                demp = _neu_wetdep_dempirical_core(wemp, remp)
                             dcxa = ((rca + deltarime) / rcxa) * dor + (rprecip / rcxa) * dnew
                             dcxa = max(demp, dcxa)
                             dcxa = max(dmin, dcxa)

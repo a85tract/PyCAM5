@@ -56,6 +56,9 @@ module mo_neu_wetdep
   logical :: neu_wetdep_washo_use_native_impl = .false.
   logical :: neu_wetdep_washo_impl_selected = .false.
   logical :: neu_wetdep_washo_selector_proof_written = .false.
+  logical :: neu_wetdep_washo_dempirical_use_native_impl = .true.
+  logical :: neu_wetdep_washo_dempirical_impl_selected = .false.
+  logical :: neu_wetdep_washo_dempirical_selector_proof_written = .false.
   logical :: neu_wetdep_washo_wrap_proof_written = .false.
 !
   real(r8), parameter  :: TICE=263._r8
@@ -512,6 +515,48 @@ subroutine neu_wetdep_washo_select_impl()
 
 end subroutine neu_wetdep_washo_select_impl
 !
+subroutine neu_wetdep_washo_dempirical_select_impl()
+
+  character(len=32) :: impl_name
+  character(len=32) :: selected_impl
+  integer :: status, n, i, code
+
+  if (neu_wetdep_washo_dempirical_impl_selected) return
+
+  impl_name = 'native'
+  call get_environment_variable('WASHO_DEMPIRICAL_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     neu_wetdep_washo_dempirical_use_native_impl = trim(adjustl(impl_name(:n))) /= 'codon'
+  else
+     neu_wetdep_washo_dempirical_use_native_impl = .true.
+  end if
+
+  neu_wetdep_washo_dempirical_impl_selected = .true.
+
+  if (neu_wetdep_washo_dempirical_use_native_impl) then
+     selected_impl = 'native'
+  else
+     selected_impl = 'codon_native_gamma'
+  end if
+
+  if (masterproc) then
+     write(iulog,'(2A)') 'washo dempirical implementation = ', trim(selected_impl)
+     if (.not. neu_wetdep_washo_dempirical_selector_proof_written) then
+        call neu_wetdep_washo_append_impl_proof('washo_dempirical selector entered implementation = ' // trim(selected_impl))
+        neu_wetdep_washo_dempirical_selector_proof_written = .true.
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine neu_wetdep_washo_dempirical_select_impl
+!
 subroutine neu_wetdep_washo_codon_wrap(lpar, ntrace, dtscav, qttjfl, qm, pofl, delz, &
      rls, clwc, ciwc, cfr, tem, evaprate, garea, hstar, tcmass, tckaqb, tcnion, &
      qt_rain, qt_rime, qt_wash, qt_evap)
@@ -529,16 +574,17 @@ subroutine neu_wetdep_washo_codon_wrap(lpar, ntrace, dtscav, qttjfl, qm, pofl, d
   real(r8), target :: cfxx(lpar), qtt(lpar), qttnew(lpar)
   integer(c_int64_t), target :: tckaqb_c(ntrace), tcnion_c(ntrace)
 
-  integer(c_int64_t) :: do_diag_c
+  integer(c_int64_t) :: do_diag_c, dempirical_impl_c
+  character(len=32) :: dempirical_impl_name
   integer :: n
 
   interface
-     subroutine neu_wetdep_washo_codon(lpar_c, ntrace_c, hno3_ndx_c, do_diag_c, dtscav_c, garea_c, &
+     subroutine neu_wetdep_washo_codon(lpar_c, ntrace_c, hno3_ndx_c, do_diag_c, dempirical_impl_c, dtscav_c, garea_c, &
           adj_factor_c, qttjfl_p, qm_p, pofl_p, delz_p, rls_p, clwc_p, ciwc_p, cfr_p, tem_p, &
           evaprate_p, hstar_p, tcmass_p, tckaqb_p, tcnion_p, qt_rain_p, qt_rime_p, qt_wash_p, &
           qt_evap_p, cfxx_p, qtt_p, qttnew_p) bind(c, name="neu_wetdep_washo_codon")
        use iso_c_binding, only : c_double, c_int64_t, c_ptr
-       integer(c_int64_t), value :: lpar_c, ntrace_c, hno3_ndx_c, do_diag_c
+       integer(c_int64_t), value :: lpar_c, ntrace_c, hno3_ndx_c, do_diag_c, dempirical_impl_c
        real(c_double), value :: dtscav_c, garea_c, adj_factor_c
        type(c_ptr), value :: qttjfl_p, qm_p, pofl_p, delz_p, rls_p, clwc_p, ciwc_p, cfr_p, tem_p
        type(c_ptr), value :: evaprate_p, hstar_p, tcmass_p, tckaqb_p, tcnion_p
@@ -546,9 +592,21 @@ subroutine neu_wetdep_washo_codon_wrap(lpar, ntrace, dtscav, qttjfl, qm, pofl, d
      end subroutine neu_wetdep_washo_codon
   end interface
 
+  if (.not. neu_wetdep_washo_dempirical_impl_selected) call neu_wetdep_washo_dempirical_select_impl()
+
+  if (neu_wetdep_washo_dempirical_use_native_impl) then
+     dempirical_impl_c = 0_c_int64_t
+     dempirical_impl_name = 'native'
+  else
+     dempirical_impl_c = 1_c_int64_t
+     dempirical_impl_name = 'codon_native_gamma'
+  end if
+
   if (masterproc .and. .not. neu_wetdep_washo_wrap_proof_written) then
-     write(iulog,*) 'neu_wetdep_washo_codon_wrap entered (washo shell = codon, dempirical callback = native)'
-     call neu_wetdep_washo_append_impl_proof('washo_codon_wrap entered shell = codon, dempirical callback = native')
+     write(iulog,'(3A)') 'neu_wetdep_washo_codon_wrap entered (washo shell = codon, dempirical implementation = ', &
+          trim(dempirical_impl_name), ')'
+     call neu_wetdep_washo_append_impl_proof('washo_codon_wrap entered shell = codon, dempirical implementation = ' // &
+          trim(dempirical_impl_name))
      neu_wetdep_washo_wrap_proof_written = .true.
      call flush(iulog)
   end if
@@ -573,7 +631,7 @@ subroutine neu_wetdep_washo_codon_wrap(lpar, ntrace, dtscav, qttjfl, qm, pofl, d
   end if
 
   call neu_wetdep_washo_codon( &
-       int(lpar, c_int64_t), int(ntrace, c_int64_t), int(hno3_ndx, c_int64_t), do_diag_c, &
+       int(lpar, c_int64_t), int(ntrace, c_int64_t), int(hno3_ndx, c_int64_t), do_diag_c, dempirical_impl_c, &
        real(dtscav, c_double), real(garea, c_double), real(one + 10._r8*epsilon(one), c_double), &
        c_loc(qttjfl), c_loc(qm), c_loc(pofl), c_loc(delz), c_loc(rls), c_loc(clwc), c_loc(ciwc), &
        c_loc(cfr), c_loc(tem), c_loc(evaprate), c_loc(hstar), c_loc(tcmass), c_loc(tckaqb_c), &
@@ -2364,5 +2422,19 @@ upper_level : &
       dempirical_c = DEMPIRICAL(real(cwater_c, r8), real(rrate_c, r8))
 
       end function neu_wetdep_dempirical_native_cb
+!
+      function neu_wetdep_gamma_native_cb(x_c) bind(c, name="neu_wetdep_gamma_native_cb") result(gamma_c)
+
+      use iso_c_binding, only : c_double
+      use shr_spfn_mod, only : shr_spfn_gamma
+
+      implicit none
+
+      real(c_double), value, intent(in) :: x_c
+      real(c_double) :: gamma_c
+
+      gamma_c = shr_spfn_gamma(real(x_c, r8))
+
+      end function neu_wetdep_gamma_native_cb
 !
 end module mo_neu_wetdep
