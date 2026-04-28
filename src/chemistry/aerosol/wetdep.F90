@@ -245,8 +245,9 @@ subroutine wetdep_inputs_set_codon_direct(state, pbuf, inputs, prec, isprx)
 
   cldst(:state%ncol,:) = inputs%cldt(:state%ncol,:) - inputs%cldcu(:state%ncol,:)
 
-  call clddiag( state%t, state%pmid, state%pdel, inputs%cmfdqr, inputs%evapc, inputs%cldt, inputs%cldcu, cldst, &
-       inputs%qme, inputs%evapr, inputs%prain, inputs%cldv, inputs%cldvcu, inputs%cldvst, rainmr, state%ncol )
+  call clddiag_codon_invoke( state%t, state%pmid, state%pdel, inputs%cmfdqr, inputs%evapc, inputs%cldt, &
+       inputs%cldcu, cldst, inputs%qme, inputs%evapr, inputs%prain, inputs%cldv, inputs%cldvcu, &
+       inputs%cldvst, rainmr, state%ncol )
 
   call aero_model_wetdep_precip_mask_codon( &
        int(state%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(gravit, c_double), &
@@ -261,6 +262,67 @@ subroutine wetdep_inputs_set_codon_direct(state, pbuf, inputs, prec, isprx)
   end do
 
 end subroutine wetdep_inputs_set_codon_direct
+
+subroutine clddiag_codon_invoke(t, pmid, pdel, cmfdqr, evapc, &
+     cldt, cldcu, cldst, cme, evapr, prain, cldv, cldvcu, cldvst, rain, ncol)
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+   real(r8), target, intent(in) :: t(pcols,pver)
+   real(r8), target, intent(in) :: pmid(pcols,pver)
+   real(r8), target, intent(in) :: pdel(pcols,pver)
+   real(r8), target, intent(in) :: cmfdqr(pcols,pver)
+   real(r8), target, intent(in) :: evapc(pcols,pver)
+   real(r8), target, intent(in) :: cldt(pcols,pver)
+   real(r8), target, intent(in) :: cldcu(pcols,pver)
+   real(r8), target, intent(in) :: cldst(pcols,pver)
+   real(r8), target, intent(in) :: cme(pcols,pver)
+   real(r8), target, intent(in) :: evapr(pcols,pver)
+   real(r8), target, intent(in) :: prain(pcols,pver)
+   integer, intent(in) :: ncol
+
+   real(r8), target, intent(out) :: cldv(pcols,pver)
+   real(r8), target, intent(out) :: cldvcu(pcols,pver)
+   real(r8), target, intent(out) :: cldvst(pcols,pver)
+   real(r8), target, intent(out) :: rain(pcols,pver)
+
+   real(r8) :: convfw
+   real(r8), target :: sumppr(pcols)
+   real(r8), target :: sumpppr(pcols)
+   real(r8), target :: cldv1(pcols)
+   real(r8), target :: sumppr_cu(pcols)
+   real(r8), target :: sumpppr_cu(pcols)
+   real(r8), target :: cldv1_cu(pcols)
+   real(r8), target :: sumppr_st(pcols)
+   real(r8), target :: sumpppr_st(pcols)
+   real(r8), target :: cldv1_st(pcols)
+
+   interface
+      subroutine clddiag_codon(pcols_c, pver_c, ncol_c, tmelt_c, rair_c, gravit_c, convfw_c, &
+           t_p, pmid_p, pdel_p, cmfdqr_p, evapc_p, cldt_p, cldcu_p, cldst_p, cme_p, evapr_p, prain_p, &
+           cldv_p, cldvcu_p, cldvst_p, rain_p, sumppr_p, sumpppr_p, cldv1_p, sumppr_cu_p, sumpppr_cu_p, &
+           cldv1_cu_p, sumppr_st_p, sumpppr_st_p, cldv1_st_p) bind(c, name="clddiag_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: pcols_c, pver_c, ncol_c
+        real(c_double), value :: tmelt_c, rair_c, gravit_c, convfw_c
+        type(c_ptr), value :: t_p, pmid_p, pdel_p, cmfdqr_p, evapc_p, cldt_p, cldcu_p, cldst_p, cme_p
+        type(c_ptr), value :: evapr_p, prain_p, cldv_p, cldvcu_p, cldvst_p, rain_p
+        type(c_ptr), value :: sumppr_p, sumpppr_p, cldv1_p, sumppr_cu_p, sumpppr_cu_p, cldv1_cu_p
+        type(c_ptr), value :: sumppr_st_p, sumpppr_st_p, cldv1_st_p
+      end subroutine clddiag_codon
+   end interface
+
+   convfw = 1.94_r8*2.13_r8*sqrt(rhoh2o*gravit*2.7e-4_r8)
+
+   call clddiag_codon( &
+        int(pcols, c_int64_t), int(pver, c_int64_t), int(ncol, c_int64_t), &
+        real(tmelt, c_double), real(rair, c_double), real(gravit, c_double), real(convfw, c_double), &
+        c_loc(t), c_loc(pmid), c_loc(pdel), c_loc(cmfdqr), c_loc(evapc), c_loc(cldt), c_loc(cldcu), c_loc(cldst), &
+        c_loc(cme), c_loc(evapr), c_loc(prain), c_loc(cldv), c_loc(cldvcu), c_loc(cldvst), c_loc(rain), &
+        c_loc(sumppr), c_loc(sumpppr), c_loc(cldv1), c_loc(sumppr_cu), c_loc(sumpppr_cu), c_loc(cldv1_cu), &
+        c_loc(sumppr_st), c_loc(sumpppr_st), c_loc(cldv1_st) &
+   )
+
+end subroutine clddiag_codon_invoke
 
 subroutine clddiag(t, pmid, pdel, cmfdqr, evapc, &
                    cldt, cldcu, cldst, cme, evapr, &
@@ -319,34 +381,11 @@ subroutine clddiag(t, pmid, pdel, cmfdqr, evapc, &
    real(r8) lprec_st             ! Local production rate of stratiform precip (kg/m2/s)
    real(r8) lprecp_st            ! Local production rate of stratiform precip (kg/m2/s) if positive
 
-   interface
-      subroutine clddiag_codon(pcols_c, pver_c, ncol_c, tmelt_c, rair_c, gravit_c, convfw_c, &
-           t_p, pmid_p, pdel_p, cmfdqr_p, evapc_p, cldt_p, cldcu_p, cldst_p, cme_p, evapr_p, prain_p, &
-           cldv_p, cldvcu_p, cldvst_p, rain_p, sumppr_p, sumpppr_p, cldv1_p, sumppr_cu_p, sumpppr_cu_p, &
-           cldv1_cu_p, sumppr_st_p, sumpppr_st_p, cldv1_st_p) bind(c, name="clddiag_codon")
-        use iso_c_binding, only: c_double, c_int64_t, c_ptr
-        integer(c_int64_t), value :: pcols_c, pver_c, ncol_c
-        real(c_double), value :: tmelt_c, rair_c, gravit_c, convfw_c
-        type(c_ptr), value :: t_p, pmid_p, pdel_p, cmfdqr_p, evapc_p, cldt_p, cldcu_p, cldst_p, cme_p
-        type(c_ptr), value :: evapr_p, prain_p, cldv_p, cldvcu_p, cldvst_p, rain_p
-        type(c_ptr), value :: sumppr_p, sumpppr_p, cldv1_p, sumppr_cu_p, sumpppr_cu_p, cldv1_cu_p
-        type(c_ptr), value :: sumppr_st_p, sumpppr_st_p, cldv1_st_p
-      end subroutine clddiag_codon
-   end interface
-   ! -----------------------------------------------------------------------
-
-   convfw = 1.94_r8*2.13_r8*sqrt(rhoh2o*gravit*2.7e-4_r8)
    call clddiag_select_impl()
 
    if (.not. clddiag_use_native_impl) then
-      call clddiag_codon( &
-           int(pcols, c_int64_t), int(pver, c_int64_t), int(ncol, c_int64_t), &
-           real(tmelt, c_double), real(rair, c_double), real(gravit, c_double), real(convfw, c_double), &
-           c_loc(t), c_loc(pmid), c_loc(pdel), c_loc(cmfdqr), c_loc(evapc), c_loc(cldt), c_loc(cldcu), c_loc(cldst), &
-           c_loc(cme), c_loc(evapr), c_loc(prain), c_loc(cldv), c_loc(cldvcu), c_loc(cldvst), c_loc(rain), &
-           c_loc(sumppr), c_loc(sumpppr), c_loc(cldv1), c_loc(sumppr_cu), c_loc(sumpppr_cu), c_loc(cldv1_cu), &
-           c_loc(sumppr_st), c_loc(sumpppr_st), c_loc(cldv1_st) &
-      )
+      call clddiag_codon_invoke(t, pmid, pdel, cmfdqr, evapc, cldt, cldcu, cldst, cme, evapr, prain, &
+           cldv, cldvcu, cldvst, rain, ncol)
       return
    end if
 

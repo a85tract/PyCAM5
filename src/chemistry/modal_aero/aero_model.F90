@@ -1622,7 +1622,7 @@ contains
     end interface
 
     if (masterproc .and. .not. aero_model_wetdep_wrap_proof_written) then
-       wrap_proof_line = 'aero_model_wetdep_codon_wrap entered (wetdep_inputs/prec_isprx/wetdepa/bcscavcoef/set_srf_wetdep direct = codon)'
+       wrap_proof_line = 'aero_model_wetdep_codon_wrap entered (wetdep_inputs/clddiag/prec_isprx/wetdepa/bcscavcoef/set_srf_wetdep direct = codon)'
        write(iulog,'(A)') trim(wrap_proof_line)
        call aero_model_wetdep_append_impl_proof('AERO_MODEL_WETDEP_PROOF_FILE', trim(wrap_proof_line))
        aero_model_wetdep_wrap_proof_written = .true.
