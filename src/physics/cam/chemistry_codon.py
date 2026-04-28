@@ -1,4 +1,5 @@
 from math import acos, cos, exp, log, log10, sin, sqrt
+from C import neu_wetdep_dempirical_native_cb(float, float) -> float
 
 
 @inline
@@ -2008,6 +2009,44 @@ def neu_wetdep_henry_flags_codon(
             tckaqb[m - 1] = 0
 
 
+@inline
+def _neu_wetdep_disgas_core(
+    clwx: float,
+    cfx: float,
+    molmass: float,
+    hstar: float,
+    tm: float,
+    pr: float,
+    qm: float,
+    qt: float,
+) -> float:
+    tmix = 258.0
+    reteff = 0.5
+
+    if tm >= 263.0:
+        return (hstar * (qt / (qm * cfx)) * 0.029 * (pr / 1.0e3)) * (clwx * qm)
+    elif tm <= tmix:
+        muemp = exp(-14.2252 + (1.55704e-1 * tm) - (7.1929e-4 * (tm ** 2.0)))
+        return muemp * (molmass / 18.0) * (clwx * qm)
+
+    return reteff * ((hstar * (qt / (qm * cfx)) * 0.029 * (pr / 1.0e3)) * (clwx * qm))
+
+
+@inline
+def _neu_wetdep_raingas_core(
+    rrain: float,
+    dtscav: float,
+    clwx: float,
+    cfx: float,
+    qm: float,
+    qt: float,
+    qtdis: float,
+) -> float:
+    qtdisstar = (qtdis * (qt * cfx)) / (qtdis + (qt * cfx))
+    qtlf = (rrain * qtdisstar) / (clwx * qm * qt * cfx)
+    return qt * cfx * (1.0 - exp(-dtscav * qtlf))
+
+
 @export
 def neu_wetdep_disgas_codon(
     clwx: float,
@@ -2021,17 +2060,7 @@ def neu_wetdep_disgas_codon(
     qtdis_p: cobj,
 ):
     qtdis = Ptr[float](qtdis_p)
-
-    tmix = 258.0
-    reteff = 0.5
-
-    if tm >= 263.0:
-        qtdis[0] = (hstar * (qt / (qm * cfx)) * 0.029 * (pr / 1.0e3)) * (clwx * qm)
-    elif tm <= tmix:
-        muemp = exp(-14.2252 + (1.55704e-1 * tm) - (7.1929e-4 * (tm ** 2.0)))
-        qtdis[0] = muemp * (molmass / 18.0) * (clwx * qm)
-    else:
-        qtdis[0] = reteff * ((hstar * (qt / (qm * cfx)) * 0.029 * (pr / 1.0e3)) * (clwx * qm))
+    qtdis[0] = _neu_wetdep_disgas_core(clwx, cfx, molmass, hstar, tm, pr, qm, qt)
 
 
 @export
@@ -2046,10 +2075,709 @@ def neu_wetdep_raingas_codon(
     qtrain_p: cobj,
 ):
     qtrain = Ptr[float](qtrain_p)
+    qtrain[0] = _neu_wetdep_raingas_core(rrain, dtscav, clwx, cfx, qm, qt, qtdis)
 
-    qtdisstar = (qtdis * (qt * cfx)) / (qtdis + (qt * cfx))
-    qtlf = (rrain * qtdisstar) / (clwx * qm * qt * cfx)
-    qtrain[0] = qt * cfx * (1.0 - exp(-dtscav * qtlf))
+
+@export
+def neu_wetdep_washo_codon(
+    lpar: int,
+    ntrace: int,
+    hno3_ndx: int,
+    do_diag: int,
+    dtscav: float,
+    garea: float,
+    adj_factor: float,
+    qttjfl_p: cobj,
+    qm_p: cobj,
+    pofl_p: cobj,
+    delz_p: cobj,
+    rls_p: cobj,
+    clwc_p: cobj,
+    ciwc_p: cobj,
+    cfr_p: cobj,
+    tem_p: cobj,
+    evaprate_p: cobj,
+    hstar_p: cobj,
+    tcmass_p: cobj,
+    tckaqb_p: cobj,
+    tcnion_p: cobj,
+    qt_rain_p: cobj,
+    qt_rime_p: cobj,
+    qt_wash_p: cobj,
+    qt_evap_p: cobj,
+    cfxx_p: cobj,
+    qtt_p: cobj,
+    qttnew_p: cobj,
+):
+    qttjfl = Ptr[float](qttjfl_p)
+    qm = Ptr[float](qm_p)
+    pofl = Ptr[float](pofl_p)
+    delz = Ptr[float](delz_p)
+    rls = Ptr[float](rls_p)
+    clwc = Ptr[float](clwc_p)
+    ciwc = Ptr[float](ciwc_p)
+    cfr = Ptr[float](cfr_p)
+    tem = Ptr[float](tem_p)
+    evaprate = Ptr[float](evaprate_p)
+    hstar = Ptr[float](hstar_p)
+    tcmass = Ptr[float](tcmass_p)
+    tckaqb = Ptr[int](tckaqb_p)
+    tcnion = Ptr[int](tcnion_p)
+    qt_rain = Ptr[float](qt_rain_p)
+    qt_rime = Ptr[float](qt_rime_p)
+    qt_wash = Ptr[float](qt_wash_p)
+    qt_evap = Ptr[float](qt_evap_p)
+    cfxx = Ptr[float](cfxx_p)
+    qtt = Ptr[float](qtt_p)
+    qttnew = Ptr[float](qttnew_p)
+
+    zero = 0.0
+    one = 1.0
+    cfmin = 0.1
+    cwmin = 1.0e-5
+    dmin = 1.0e-1
+    volpow = 1.0 / 3.0
+    rhorain = 1.0e3
+    rhosnowfix = 1.0e2
+    coleffrain = 0.7
+    tmix = 258.0
+    tfroz = 240.0
+    coleffaer = 0.05
+    tice = 263.0
+    four = 4.0
+
+    le = lpar - 1
+    n = 1
+    while n <= ntrace:
+        ll = 1
+        while ll <= lpar:
+            ln_idx = _idx2(ll, n, lpar)
+            qtt[ll - 1] = qttjfl[ln_idx]
+            qttnew[ll - 1] = qttjfl[ln_idx]
+            ll += 1
+
+        is_hno3 = 0
+        if n == hno3_ndx:
+            is_hno3 = 1
+            ll = 1
+            while ll <= lpar:
+                qt_rain[ll - 1] = zero
+                qt_rime[ll - 1] = zero
+                qt_wash[ll - 1] = zero
+                qt_evap[ll - 1] = zero
+                ll += 1
+
+        if tckaqb[n - 1] != 0:
+            lwashtyp = 1
+        else:
+            lwashtyp = 2
+
+        if tcnion[n - 1] != 0:
+            licetyp = 1
+        else:
+            licetyp = 2
+
+        qttopaa = zero
+        qttopca = zero
+        rca = zero
+        fca = zero
+        dca = zero
+        rama = zero
+        fama = zero
+        dama = zero
+        ampct = zero
+        amclpct = zero
+        clnewpct = zero
+        clnewampct = zero
+        cloldpct = zero
+        cloldampct = zero
+
+        if le >= 1:
+            if rls[le - 1] > zero:
+                cfxx[le - 1] = max(cfmin, cfr[le - 1])
+            else:
+                cfxx[le - 1] = cfr[le - 1]
+
+        skip_species = 0
+        l = le
+        while l >= 1:
+            lm1 = l - 1
+            ln_idx = _idx2(l, n, lpar)
+            hstar_ln = hstar[ln_idx]
+
+            fax = zero
+            rax = zero
+            dax = zero
+            fcxa = zero
+            fcxb = zero
+            dcxa = zero
+            dcxb = zero
+            rcxa = zero
+            rcxb = zero
+            qtdiscf = zero
+            qtdisrime = zero
+            qtdiscxa = zero
+            qtevapaxp = zero
+            qtevapaxw = zero
+            qtevapax = zero
+            qtwashax = zero
+            qtevapcxap = zero
+            qtevapcxaw = zero
+            qtevapcxa = zero
+            qtrimecxa = zero
+            qtwashcxa = zero
+            qtraincxa = zero
+            qtraincxb = zero
+            rampct = zero
+            rprecip = zero
+            deltarimemass = zero
+            deltarime = zero
+            dor = zero
+            dnew = zero
+            qttopaax = zero
+            qttopcax = zero
+            freezing_l = 0
+            if tem[l - 1] < tice:
+                freezing_l = 1
+
+            if rls[l - 1] > zero:
+                fax = max(zero, fama * (one - evaprate[l - 1]))
+                rax = rama
+                if fama > zero:
+                    if freezing_l != 0:
+                        dax = dama
+                    else:
+                        dax = four
+                else:
+                    dax = zero
+
+                if rama > zero:
+                    qtevapaxp = min(qttopaa, evaprate[l - 1] * qttopaa)
+                else:
+                    qtevapaxp = zero
+
+                wrk = rax * fax + rca * fca
+                if wrk > 0.0:
+                    rnew_tst = rls[l - 1] / (garea * wrk)
+                else:
+                    rnew_tst = 10.0
+                rnew = (rls[l - 1] / garea) - (rax * fax + rca * fca)
+
+                if (rls[l - 1] / garea) > adj_factor * (rax * fax + rca * fca):
+                    if cfxx[l - 1] == zero:
+                        ll = 1
+                        while ll <= lpar:
+                            qttjfl[_idx2(ll, n, lpar)] = qtt[ll - 1]
+                            ll += 1
+                        skip_species = 1
+                        break
+
+                    clwx = max(clwc[l - 1] + ciwc[l - 1], cwmin * cfxx[l - 1])
+                    fcxa = fca
+                    fcxb = max(zero, cfxx[l - 1] - fcxa)
+
+                    if freezing_l != 0:
+                        coleffsnow = exp(2.5e-2 * (tem[l - 1] - tice))
+                        if tem[l - 1] <= tfroz:
+                            rhosnow = rhosnowfix
+                        else:
+                            rhosnow = 0.303 * (tem[l - 1] - tfroz) * rhosnowfix
+
+                        if fcxa > zero:
+                            if dca > zero:
+                                deltarimemass = clwx * qm[l - 1] * (fcxa / cfxx[l - 1]) * (
+                                    one
+                                    - exp(
+                                        (-coleffsnow / (dca * 1.0e-3))
+                                        * ((rca) / (2.0 * rhosnow))
+                                        * dtscav
+                                    )
+                                )
+                            else:
+                                deltarimemass = zero
+                        else:
+                            deltarimemass = zero
+
+                        if fcxa > zero:
+                            deltarime = min(rnew / fcxa, deltarimemass / (fcxa * garea * dtscav))
+                        else:
+                            deltarime = zero
+
+                        if rca > zero:
+                            dor = max(dmin, (((rca + deltarime) / rca) ** volpow) * dca)
+                        else:
+                            dor = zero
+
+                        rprecip = (rnew - (deltarime * fcxa)) / cfxx[l - 1]
+                        rcxa = rca + deltarime + rprecip
+                        rcxb = rprecip
+
+                        if rprecip > zero:
+                            wemp = (clwx * qm[l - 1]) / (garea * cfxx[l - 1] * delz[l - 1])
+                            remp = rprecip / (rhorain / 1.0e3)
+                            dnew = neu_wetdep_dempirical_native_cb(wemp, remp)
+                            dnew = max(dmin, dnew)
+                            if fcxb > zero:
+                                dcxb = dnew
+                            else:
+                                dcxb = zero
+                        else:
+                            dcxb = zero
+
+                        if fcxa > zero:
+                            wemp = (clwx * qm[l - 1] * (fcxa / cfxx[l - 1])) / (garea * fcxa * delz[l - 1])
+                            remp = rcxa / (rhorain / 1.0e3)
+                            demp = neu_wetdep_dempirical_native_cb(wemp, remp)
+                            dcxa = ((rca + deltarime) / rcxa) * dor + (rprecip / rcxa) * dnew
+                            dcxa = max(demp, dcxa)
+                            dcxa = max(dmin, dcxa)
+                        else:
+                            dcxa = zero
+
+                        if qtt[l - 1] > zero:
+                            if rprecip > zero:
+                                if licetyp == 1:
+                                    rrain = rprecip * garea
+                                    qtdiscf = _neu_wetdep_disgas_core(
+                                        clwx,
+                                        cfxx[l - 1],
+                                        tcmass[n - 1],
+                                        hstar_ln,
+                                        tem[l - 1],
+                                        pofl[l - 1],
+                                        qm[l - 1],
+                                        qtt[l - 1] * cfxx[l - 1],
+                                    )
+                                    qtrain = _neu_wetdep_raingas_core(
+                                        rrain,
+                                        dtscav,
+                                        clwx,
+                                        cfxx[l - 1],
+                                        qm[l - 1],
+                                        qtt[l - 1],
+                                        qtdiscf,
+                                    )
+                                    wrk = qtrain / cfxx[l - 1]
+                                    qtraincxa = fcxa * wrk
+                                    qtraincxb = fcxb * wrk
+                                else:
+                                    qtraincxa = zero
+                                    qtraincxb = zero
+
+                            if deltarime > zero:
+                                if licetyp == 1:
+                                    if tem[l - 1] <= tfroz:
+                                        rhosnow = rhosnowfix
+                                    else:
+                                        rhosnow = 0.303 * (tem[l - 1] - tfroz) * rhosnowfix
+                                    qtcxa = qtt[l - 1] * fcxa
+                                    qtdisrime = _neu_wetdep_disgas_core(
+                                        clwx * (fcxa / cfxx[l - 1]),
+                                        fcxa,
+                                        tcmass[n - 1],
+                                        hstar_ln,
+                                        tem[l - 1],
+                                        pofl[l - 1],
+                                        qm[l - 1],
+                                        qtcxa,
+                                    )
+                                    qtdisstar = (qtdisrime * qtcxa) / (qtdisrime + qtcxa)
+                                    qtrimecxa = qtcxa * (
+                                        one
+                                        - exp(
+                                            (-coleffsnow / (dca * 1.0e-3))
+                                            * (rca / (2.0 * rhosnow))
+                                            * (qtdisstar / qtcxa)
+                                            * dtscav
+                                        )
+                                    )
+                                    qtrimecxa = min(
+                                        qtrimecxa,
+                                        ((rnew * garea * dtscav) / (clwx * qm[l - 1] * (fcxa / cfxx[l - 1])))
+                                        * qtdisstar,
+                                    )
+                                else:
+                                    qtrimecxa = zero
+                        else:
+                            qtraincxa = zero
+                            qtraincxb = zero
+                            qtrimecxa = zero
+
+                        qtwashcxa = zero
+                        qtevapcxa = zero
+                    else:
+                        if fcxa > zero:
+                            deltarimemass = (clwx * qm[l - 1]) * (fcxa / cfxx[l - 1]) * (
+                                one - exp(-0.24 * coleffrain * ((rca) ** 0.75) * dtscav)
+                            )
+                        else:
+                            deltarimemass = zero
+
+                        if fcxa > zero:
+                            deltarime = min(rnew / fcxa, deltarimemass / (fcxa * garea * dtscav))
+                        else:
+                            deltarime = zero
+
+                        rprecip = (rnew - (deltarime * fcxa)) / cfxx[l - 1]
+                        rcxa = rca + deltarime + rprecip
+                        rcxb = rprecip
+                        dcxa = four
+                        if fcxb > zero:
+                            dcxb = four
+                        else:
+                            dcxb = zero
+
+                        if qtt[l - 1] > zero:
+                            if rprecip > zero:
+                                rrain = rprecip * garea
+                                qtdiscf = _neu_wetdep_disgas_core(
+                                    clwx,
+                                    cfxx[l - 1],
+                                    tcmass[n - 1],
+                                    hstar_ln,
+                                    tem[l - 1],
+                                    pofl[l - 1],
+                                    qm[l - 1],
+                                    qtt[l - 1] * cfxx[l - 1],
+                                )
+                                qtrain = _neu_wetdep_raingas_core(
+                                    rrain,
+                                    dtscav,
+                                    clwx,
+                                    cfxx[l - 1],
+                                    qm[l - 1],
+                                    qtt[l - 1],
+                                    qtdiscf,
+                                )
+                                wrk = qtrain / cfxx[l - 1]
+                                qtraincxa = fcxa * wrk
+                                qtraincxb = fcxb * wrk
+
+                            if deltarime > zero:
+                                qtcxa = qtt[l - 1] * fcxa
+                                qtdisrime = _neu_wetdep_disgas_core(
+                                    clwx * (fcxa / cfxx[l - 1]),
+                                    fcxa,
+                                    tcmass[n - 1],
+                                    hstar_ln,
+                                    tem[l - 1],
+                                    pofl[l - 1],
+                                    qm[l - 1],
+                                    qtcxa,
+                                )
+                                qtdisstar = (qtdisrime * qtcxa) / (qtdisrime + qtcxa)
+                                qtrimecxa = qtcxa * (
+                                    one
+                                    - exp(
+                                        -0.24 * coleffrain * ((rca) ** 0.75) * (qtdisstar / qtcxa) * dtscav
+                                    )
+                                )
+                                qtrimecxa = min(
+                                    qtrimecxa,
+                                    ((rnew * garea * dtscav) / (clwx * qm[l - 1] * (fcxa / cfxx[l - 1])))
+                                    * qtdisstar,
+                                )
+                            else:
+                                qtrimecxa = zero
+                        else:
+                            qtraincxa = zero
+                            qtraincxb = zero
+                            qtrimecxa = zero
+
+                        if rca > zero:
+                            qtprecip = fcxa * qtt[l - 1] - qtdisrime
+                            if lwashtyp == 1:
+                                if qtprecip > zero:
+                                    qtwashcxa = qtprecip * (
+                                        one - exp(-0.24 * coleffaer * ((rca) ** 0.75) * dtscav)
+                                    )
+                                else:
+                                    qtwashcxa = zero
+                                qtevapcxa = zero
+                            else:
+                                rwash = rca * garea
+                                if qtprecip > zero:
+                                    if fca == zero:
+                                        qtwashcxa = zero
+                                        qtevapcxa = zero
+                                    else:
+                                        fwash = (rwash * hstar_ln * 29.0e-6 * pofl[l - 1]) / (qm[l - 1] * fca)
+                                        qtmax = qtprecip * fwash * dtscav
+                                        if qtmax > (qttopca + qtrimecxa):
+                                            qtdif = min(qtprecip, qtmax - (qttopca + qtrimecxa))
+                                            qtwashcxa = qtdif * (one - exp(-dtscav * fwash))
+                                            qtevapcxa = zero
+                                        else:
+                                            qtwashcxa = zero
+                                            qtevapcxa = (qttopca + qtrimecxa) - qtmax
+                                else:
+                                    qtwashcxa = zero
+                                    qtevapcxa = zero
+                else:
+                    clwx = clwc[l - 1] + ciwc[l - 1]
+                    fcxa = fca
+                    fcxb = max(zero, cfxx[l - 1] - fcxa)
+                    rcxb = zero
+                    dcxb = zero
+                    qtraincxa = zero
+                    qtraincxb = zero
+                    qtrimecxa = zero
+
+                    if fcxa > zero:
+                        rcxa = min(rca, rls[l - 1] / (garea * fcxa))
+                        if fax > zero and ((rcxa + 1.0e-12) < rls[l - 1] / (garea * fcxa)):
+                            raxadjf = rls[l - 1] / garea - rcxa * fcxa
+                            rampct = raxadjf / (rax * fax)
+                            faxadj = rampct * fax
+                            if faxadj > zero:
+                                raxadj = raxadjf / faxadj
+                            else:
+                                raxadj = zero
+                        else:
+                            raxadj = zero
+                            rampct = zero
+                            faxadj = zero
+                    else:
+                        rcxa = zero
+                        if fax > zero:
+                            raxadjf = rls[l - 1] / garea
+                            rampct = raxadjf / (rax * fax)
+                            faxadj = rampct * fax
+                            if faxadj > zero:
+                                raxadj = raxadjf / faxadj
+                            else:
+                                raxadj = zero
+                        else:
+                            raxadj = zero
+                            rampct = zero
+                            faxadj = zero
+
+                    qtevapaxp = min(qttopaa, qttopaa - (rampct * (qttopaa - qtevapaxp)))
+                    fax = faxadj
+                    rax = raxadj
+
+                    if rcxa <= zero:
+                        qtevapcxa = qttopca
+                        rcxa = zero
+                        dcxa = zero
+                    else:
+                        if freezing_l != 0:
+                            qtwashcxa = zero
+                            dcxa = ((rcxa / rca) ** volpow) * dca
+                            if licetyp == 1:
+                                if tem[l - 1] <= tmix:
+                                    massloss = (rca - rcxa) * fcxa * garea * dtscav
+                                    qtevapcxa = _neu_wetdep_disgas_core(
+                                        massloss / qm[l - 1],
+                                        fcxa,
+                                        tcmass[n - 1],
+                                        hstar_ln,
+                                        tem[l - 1],
+                                        pofl[l - 1],
+                                        qm[l - 1],
+                                        qtt[l - 1],
+                                    )
+                                    qtevapcxa = min(qttopca, qtevapcxa)
+                                else:
+                                    qtevapcxa = zero
+                            else:
+                                qtevapcxa = zero
+                        else:
+                            qtevapcxap = (rca - rcxa) / rca * qttopca
+                            dcxa = four
+                            qtcxa = fcxa * qtt[l - 1]
+                            if lwashtyp == 1:
+                                if qtt[l - 1] > zero:
+                                    qtdiscxa = _neu_wetdep_disgas_core(
+                                        clwx * (fcxa / cfxx[l - 1]),
+                                        fcxa,
+                                        tcmass[n - 1],
+                                        hstar_ln,
+                                        tem[l - 1],
+                                        pofl[l - 1],
+                                        qm[l - 1],
+                                        qtcxa,
+                                    )
+                                    if qtcxa > qtdiscxa:
+                                        qtwashcxa = (qtcxa - qtdiscxa) * (
+                                            one - exp(-0.24 * coleffaer * ((rcxa) ** 0.75) * dtscav)
+                                        )
+                                    else:
+                                        qtwashcxa = zero
+                                    qtevapcxaw = zero
+                                else:
+                                    qtwashcxa = zero
+                                    qtevapcxaw = zero
+                            else:
+                                rwash = rcxa * garea
+                                if fcxa == zero:
+                                    qtwashcxa = zero
+                                    qtevapcxaw = zero
+                                else:
+                                    fwash = (rwash * hstar_ln * 29.0e-6 * pofl[l - 1]) / (qm[l - 1] * fcxa)
+                                    qtmax = (qtcxa - qtdiscxa) * fwash * dtscav
+                                    if qtmax > qttopca:
+                                        qtdif = min(qtcxa - qtdiscxa, qtmax - qttopca)
+                                        qtwashcxa = qtdif * (one - exp(-dtscav * fwash))
+                                        qtevapcxaw = zero
+                                    else:
+                                        qtwashcxa = zero
+                                        qtevapcxaw = qttopca - qtmax
+                            qtevapcxa = qtevapcxap + qtevapcxaw
+            else:
+                rnew = zero
+                qtevapcxa = qttopca
+                qtevapax = qttopaa
+                if l > 1:
+                    if rls[lm1 - 1] > zero:
+                        cfxx[lm1 - 1] = max(cfmin, cfr[lm1 - 1])
+                    else:
+                        cfxx[lm1 - 1] = cfr[lm1 - 1]
+                ampct = zero
+                amclpct = zero
+                clnewpct = zero
+                clnewampct = zero
+                cloldpct = zero
+                cloldampct = zero
+                rca = zero
+                rama = zero
+                fca = zero
+                fama = zero
+                dca = zero
+                dama = zero
+
+            if skip_species == 0:
+                if rls[l - 1] > zero:
+                    if rax > zero:
+                        if freezing_l == 0:
+                            qtax = fax * qtt[l - 1]
+                            if lwashtyp == 1:
+                                qtwashax = qtax * (one - exp(-0.24 * coleffaer * ((rax) ** 0.75) * dtscav))
+                                qtevapaxw = zero
+                            else:
+                                rwash = rax * garea
+                                if fax == zero:
+                                    qtwashax = zero
+                                    qtevapaxw = zero
+                                else:
+                                    fwash = (rwash * hstar_ln * 29.0e-6 * pofl[l - 1]) / (qm[l - 1] * fax)
+                                    qtmax = qtax * fwash * dtscav
+                                    if qtmax > qttopaa:
+                                        qtdif = min(qtax, qtmax - qttopaa)
+                                        qtwashax = qtdif * (one - exp(-dtscav * fwash))
+                                        qtevapaxw = zero
+                                    else:
+                                        qtwashax = zero
+                                        qtevapaxw = qttopaa - qtmax
+                        else:
+                            qtevapaxw = zero
+                            qtwashax = zero
+                    else:
+                        qtevapaxw = zero
+                        qtwashax = zero
+                    qtevapax = qtevapaxp + qtevapaxw
+
+                    if l > 1:
+                        fama = max(fcxa + fcxb + fax - cfr[lm1 - 1], zero)
+
+                        if cfr[lm1 - 1] >= cfmin:
+                            cfxx[lm1 - 1] = cfr[lm1 - 1]
+                        else:
+                            if adj_factor * (rls[lm1 - 1] / garea) >= (
+                                (rcxa * fcxa + rcxb * fcxb + rax * fax) * (one - evaprate[lm1 - 1])
+                            ):
+                                cfxx[lm1 - 1] = cfmin
+                            else:
+                                cfxx[lm1 - 1] = cfr[lm1 - 1]
+
+                        if fax > zero:
+                            ampct = max(zero, min(one, (cfxx[l - 1] + fax - cfxx[lm1 - 1]) / fax))
+                            amclpct = one - ampct
+                        else:
+                            ampct = zero
+                            amclpct = zero
+
+                        if fcxb > zero:
+                            clnewpct = max(zero, min((cfxx[lm1 - 1] - fcxa) / fcxb, one))
+                            clnewampct = one - clnewpct
+                        else:
+                            clnewpct = zero
+                            clnewampct = zero
+
+                        if fcxa > zero:
+                            cloldpct = max(zero, min(cfxx[lm1 - 1] / fcxa, one))
+                            cloldampct = one - cloldpct
+                        else:
+                            cloldpct = zero
+                            cloldampct = zero
+
+                        fca = min(cfxx[lm1 - 1], fcxa * cloldpct + clnewpct * fcxb + amclpct * fax)
+                        if fca > zero:
+                            rca = (rcxa * fcxa * cloldpct + rcxb * fcxb * clnewpct + rax * fax * amclpct) / fca
+                            if rca > zero:
+                                dca = (rcxa * fcxa * cloldpct) / (rca * fca) * dcxa + (
+                                    rcxb * fcxb * clnewpct
+                                ) / (rca * fca) * dcxb + (rax * fax * amclpct) / (rca * fca) * dax
+                            else:
+                                dca = zero
+                                fca = zero
+                        else:
+                            fca = zero
+                            dca = zero
+                            rca = zero
+
+                        fama = fcxa + fcxb + fax - cfxx[lm1 - 1]
+                        if fama > zero:
+                            rama = (
+                                rcxa * fcxa * cloldampct + rcxb * fcxb * clnewampct + rax * fax * ampct
+                            ) / fama
+                            if rama > zero:
+                                dama = (rcxa * fcxa * cloldampct) / (rama * fama) * dcxa + (
+                                    rcxb * fcxb * clnewampct
+                                ) / (rama * fama) * dcxb + (rax * fax * ampct) / (rama * fama) * dax
+                            else:
+                                fama = zero
+                                dama = zero
+                        else:
+                            fama = zero
+                            dama = zero
+                            rama = zero
+                    else:
+                        ampct = zero
+                        amclpct = zero
+                        clnewpct = zero
+                        clnewampct = zero
+                        cloldpct = zero
+                        cloldampct = zero
+
+                qtnetlcxa = qtraincxa + qtrimecxa + qtwashcxa - qtevapcxa
+                qtnetlcxa = min(qtt[l - 1] * fcxa, qtnetlcxa)
+                qtnetlcxb = qtraincxb
+                qtnetlcxb = min(qtt[l - 1] * fcxb, qtnetlcxb)
+                qtnetlax = qtwashax - qtevapax
+                qtnetlax = min(qtt[l - 1] * fax, qtnetlax)
+                qttnew[l - 1] = qtt[l - 1] - (qtnetlcxa + qtnetlcxb + qtnetlax)
+
+                if do_diag != 0 and is_hno3 != 0:
+                    qt_rain[l - 1] = qtraincxa + qtraincxb
+                    qt_rime[l - 1] = qtrimecxa
+                    qt_wash[l - 1] = qtwashcxa + qtwashax
+                    qt_evap[l - 1] = qtevapcxa + qtevapax
+
+                qttopcax = (qttopca + qtnetlcxa) * cloldpct + qtnetlcxb * clnewpct + (qttopaa + qtnetlax) * amclpct
+                qttopaax = (qttopca + qtnetlcxa) * cloldampct + qtnetlcxb * clnewampct + (qttopaa + qtnetlax) * ampct
+                qttopca = qttopcax
+                qttopaa = qttopaax
+
+            l -= 1
+
+        if skip_species == 0:
+            ll = 1
+            while ll <= le:
+                qttjfl[_idx2(ll, n, lpar)] = qttnew[ll - 1]
+                ll += 1
+
+        n += 1
 
 
 @export
