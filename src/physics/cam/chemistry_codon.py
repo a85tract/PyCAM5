@@ -1749,6 +1749,165 @@ def aero_model_gasaerexch_aq_tend_codon(
 
 
 @export
+def neu_wetdep_aux_prepare_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    gas_cnt: int,
+    index_cldice: int,
+    index_cldliq: int,
+    gravit: float,
+    mapping_to_mmr_p: cobj,
+    area_p: cobj,
+    mmr_p: cobj,
+    pmid_p: cobj,
+    pdel_p: cobj,
+    zint_p: cobj,
+    tfld_p: cobj,
+    prain_p: cobj,
+    nevapr_p: cobj,
+    cld_p: cobj,
+    cmfdqr_p: cobj,
+    mass_in_layer_p: cobj,
+    cldice_p: cobj,
+    cldliq_p: cobj,
+    cldfrc_p: cobj,
+    totprec_p: cobj,
+    totevap_p: cobj,
+    delz_p: cobj,
+    delp_p: cobj,
+    p_p: cobj,
+    rls_p: cobj,
+    evaprate_p: cobj,
+    temp_p: cobj,
+    trc_mass_p: cobj,
+    dtwr_p: cobj,
+):
+    mapping_to_mmr = Ptr[int](mapping_to_mmr_p)
+    area = Ptr[float](area_p)
+    mmr = Ptr[float](mmr_p)
+    pmid = Ptr[float](pmid_p)
+    pdel = Ptr[float](pdel_p)
+    zint = Ptr[float](zint_p)
+    tfld = Ptr[float](tfld_p)
+    prain = Ptr[float](prain_p)
+    nevapr = Ptr[float](nevapr_p)
+    cld = Ptr[float](cld_p)
+    cmfdqr = Ptr[float](cmfdqr_p)
+    mass_in_layer = Ptr[float](mass_in_layer_p)
+    cldice = Ptr[float](cldice_p)
+    cldliq = Ptr[float](cldliq_p)
+    cldfrc = Ptr[float](cldfrc_p)
+    totprec = Ptr[float](totprec_p)
+    totevap = Ptr[float](totevap_p)
+    delz = Ptr[float](delz_p)
+    delp = Ptr[float](delp_p)
+    press = Ptr[float](p_p)
+    rls = Ptr[float](rls_p)
+    evaprate = Ptr[float](evaprate_p)
+    temp = Ptr[float](temp_p)
+    trc_mass = Ptr[float](trc_mass_p)
+    dtwr = Ptr[float](dtwr_p)
+
+    for k in range(1, pver + 1):
+        kk = pver - k + 1
+        for i in range(1, ncol + 1):
+            idx_rev_ncol = _idx2(i, k, ncol)
+            idx_kk_pcols = _idx2(i, kk, pcols)
+            layer_mass = area[i - 1] * pdel[idx_kk_pcols] / gravit
+            mass_in_layer[idx_rev_ncol] = layer_mass
+
+            cldice[idx_rev_ncol] = mmr[_idx3(i, kk, index_cldice, pcols, pver)]
+            cldliq[idx_rev_ncol] = mmr[_idx3(i, kk, index_cldliq, pcols, pver)]
+            cldfrc[idx_rev_ncol] = cld[_idx2(i, kk, ncol)]
+
+            totprec[idx_rev_ncol] = (prain[_idx2(i, kk, ncol)] + cmfdqr[_idx2(i, kk, ncol)]) * layer_mass
+            totevap[idx_rev_ncol] = nevapr[_idx2(i, kk, ncol)] * layer_mass
+
+            delz[idx_rev_ncol] = zint[_idx2(i, kk, pcols)] - zint[_idx2(i, kk + 1, pcols)]
+            temp[idx_rev_ncol] = tfld[idx_kk_pcols]
+
+            for m in range(1, gas_cnt + 1):
+                spc = mapping_to_mmr[m - 1]
+                trc_mass[_idx3(i, k, m, ncol, pver)] = mmr[_idx3(i, kk, spc, pcols, pver)] * layer_mass
+
+            delp[idx_rev_ncol] = pdel[idx_kk_pcols] * 0.01
+            press[idx_rev_ncol] = pmid[idx_kk_pcols] * 0.01
+
+    for m in range(1, gas_cnt + 1):
+        spc = mapping_to_mmr[m - 1]
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                dtwr[_idx3(i, k, m, ncol, pver)] = mmr[_idx3(i, k, spc, pcols, pver)]
+
+    for i in range(1, ncol + 1):
+        rls[_idx2(i, pver, ncol)] = 0.0
+        evaprate[_idx2(i, pver, ncol)] = 0.0
+
+    for k in range(pver - 1, 0, -1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, ncol)
+            next_idx = _idx2(i, k + 1, ncol)
+            rls[idx] = max(0.0, totprec[idx] - totevap[idx] + rls[next_idx])
+            evaprate[idx] = min(1.0, totevap[idx] / (rls[next_idx] + 1.0e-36))
+
+
+@export
+def neu_wetdep_aux_finish_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    gas_cnt: int,
+    delt: float,
+    pi: float,
+    mapping_to_mmr_p: cobj,
+    lats_p: cobj,
+    pmid_p: cobj,
+    mass_in_layer_p: cobj,
+    trc_mass_p: cobj,
+    dtwr_p: cobj,
+    wd_mmr_p: cobj,
+    wd_tend_p: cobj,
+):
+    mapping_to_mmr = Ptr[int](mapping_to_mmr_p)
+    lats = Ptr[float](lats_p)
+    pmid = Ptr[float](pmid_p)
+    mass_in_layer = Ptr[float](mass_in_layer_p)
+    trc_mass = Ptr[float](trc_mass_p)
+    dtwr = Ptr[float](dtwr_p)
+    wd_mmr = Ptr[float](wd_mmr_p)
+    wd_tend = Ptr[float](wd_tend_p)
+
+    for k in range(1, pver + 1):
+        kk = pver - k + 1
+        for i in range(1, ncol + 1):
+            layer_mass = mass_in_layer[_idx2(i, k, ncol)]
+            for m in range(1, gas_cnt + 1):
+                wd_mmr[_idx3(i, kk, m, ncol, pver)] = trc_mass[_idx3(i, k, m, ncol, pver)] / layer_mass
+
+    for m in range(1, gas_cnt + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx3(i, k, m, ncol, pver)
+                dtwr[idx] = (wd_mmr[idx] - dtwr[idx]) / delt
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            if abs(lats[i - 1] * 180.0 / pi) > 60.0:
+                if pmid[_idx2(i, k, pcols)] < 20000.0:
+                    for m in range(1, gas_cnt + 1):
+                        dtwr[_idx3(i, k, m, ncol, pver)] = 0.0
+
+    for m in range(1, gas_cnt + 1):
+        spc = mapping_to_mmr[m - 1]
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                wd_tend[_idx3(i, k, spc, pcols, pver)] += dtwr[_idx3(i, k, m, ncol, pver)]
+
+
+@export
 def setsox_init_fields_codon(
     stage: int,
     ncol: int,

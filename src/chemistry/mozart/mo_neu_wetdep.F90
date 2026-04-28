@@ -38,6 +38,11 @@ module mo_neu_wetdep
   real(r8), parameter :: one  = 1._r8
 !
   logical :: do_neu_wetdep
+  logical :: neu_wetdep_aux_use_native_impl = .false.
+  logical :: neu_wetdep_aux_impl_selected = .false.
+  logical :: neu_wetdep_aux_selector_proof_written = .false.
+  logical :: neu_wetdep_aux_prepare_proof_written = .false.
+  logical :: neu_wetdep_aux_finish_proof_written = .false.
 !
   real(r8), parameter  :: TICE=263._r8
 
@@ -197,6 +202,164 @@ subroutine neu_wetdep_init
 !
 end subroutine neu_wetdep_init
 !
+subroutine neu_wetdep_aux_append_impl_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_path
+  integer :: status, n, unit_id
+
+  call get_environment_variable('NEU_WETDEP_AUX_PROOF_FILE', value=proof_path, length=n, status=status)
+  if (status /= 0 .or. n <= 0) return
+
+  open(newunit=unit_id, file=trim(adjustl(proof_path(:n))), status='unknown', action='write', &
+       position='append', iostat=status)
+  if (status /= 0) return
+
+  write(unit_id,'(A)') trim(proof_line)
+  close(unit_id)
+
+end subroutine neu_wetdep_aux_append_impl_proof
+!
+subroutine neu_wetdep_aux_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (neu_wetdep_aux_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('NEU_WETDEP_AUX_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     neu_wetdep_aux_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     neu_wetdep_aux_use_native_impl = .false.
+  end if
+
+  neu_wetdep_aux_impl_selected = .true.
+
+  if (masterproc) then
+     if (neu_wetdep_aux_use_native_impl) then
+        write(iulog,*) 'neu_wetdep_aux implementation = native'
+     else
+        write(iulog,*) 'neu_wetdep_aux implementation = codon'
+        if (.not. neu_wetdep_aux_selector_proof_written) then
+           call neu_wetdep_aux_append_impl_proof('neu_wetdep_aux selector entered implementation = codon')
+           neu_wetdep_aux_selector_proof_written = .true.
+        end if
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine neu_wetdep_aux_select_impl
+!
+subroutine neu_wetdep_aux_prepare_codon_wrap(ncol, pcols_in, pver_in, pcnst_in, gas_cnt, &
+     index_cldice_in, index_cldliq_in, gravit_in, mapping_to_mmr_c, area, mmr, pmid, pdel, &
+     zint, tfld, prain, nevapr, cld, cmfdqr, mass_in_layer, cldice, cldliq, cldfrc, totprec, &
+     totevap, delz, delp, p, rls, evaprate, temp, trc_mass, dtwr)
+
+  use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+
+  integer, intent(in) :: ncol, pcols_in, pver_in, pcnst_in, gas_cnt
+  integer, intent(in) :: index_cldice_in, index_cldliq_in
+  real(r8), intent(in) :: gravit_in
+  integer(c_int64_t), target, intent(in) :: mapping_to_mmr_c(gas_cnt)
+  real(r8), target, intent(in) :: area(ncol)
+  real(r8), target, intent(in) :: mmr(pcols_in,pver_in,pcnst_in)
+  real(r8), target, intent(in) :: pmid(pcols_in,pver_in), pdel(pcols_in,pver_in)
+  real(r8), target, intent(in) :: zint(pcols_in,pver_in+1), tfld(pcols_in,pver_in)
+  real(r8), target, intent(in) :: prain(ncol,pver_in), nevapr(ncol,pver_in)
+  real(r8), target, intent(in) :: cld(ncol,pver_in), cmfdqr(ncol,pver_in)
+  real(r8), target, intent(out) :: mass_in_layer(ncol,pver_in)
+  real(r8), target, intent(out) :: cldice(ncol,pver_in), cldliq(ncol,pver_in), cldfrc(ncol,pver_in)
+  real(r8), target, intent(out) :: totprec(ncol,pver_in), totevap(ncol,pver_in), delz(ncol,pver_in)
+  real(r8), target, intent(out) :: delp(ncol,pver_in), p(ncol,pver_in), rls(ncol,pver_in)
+  real(r8), target, intent(out) :: evaprate(ncol,pver_in), temp(ncol,pver_in)
+  real(r8), target, intent(out) :: trc_mass(ncol,pver_in,gas_cnt), dtwr(ncol,pver_in,gas_cnt)
+
+  interface
+     subroutine neu_wetdep_aux_prepare_codon(ncol_c, pcols_c, pver_c, pcnst_c, gas_cnt_c, index_cldice_c, &
+          index_cldliq_c, gravit_c, mapping_to_mmr_p, area_p, mmr_p, pmid_p, pdel_p, zint_p, tfld_p, &
+          prain_p, nevapr_p, cld_p, cmfdqr_p, mass_in_layer_p, cldice_p, cldliq_p, cldfrc_p, &
+          totprec_p, totevap_p, delz_p, delp_p, p_p, rls_p, evaprate_p, temp_p, trc_mass_p, dtwr_p) &
+          bind(c, name="neu_wetdep_aux_prepare_codon")
+       use iso_c_binding, only : c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, gas_cnt_c
+       integer(c_int64_t), value :: index_cldice_c, index_cldliq_c
+       real(c_double), value :: gravit_c
+       type(c_ptr), value :: mapping_to_mmr_p, area_p, mmr_p, pmid_p, pdel_p, zint_p, tfld_p
+       type(c_ptr), value :: prain_p, nevapr_p, cld_p, cmfdqr_p, mass_in_layer_p, cldice_p
+       type(c_ptr), value :: cldliq_p, cldfrc_p, totprec_p, totevap_p, delz_p, delp_p, p_p
+       type(c_ptr), value :: rls_p, evaprate_p, temp_p, trc_mass_p, dtwr_p
+     end subroutine neu_wetdep_aux_prepare_codon
+  end interface
+
+  if (masterproc .and. .not. neu_wetdep_aux_prepare_proof_written) then
+     write(iulog,*) 'neu_wetdep_aux_codon_wrap entered stage=prepare'
+     call neu_wetdep_aux_append_impl_proof('neu_wetdep_aux_codon_wrap entered stage=prepare')
+     neu_wetdep_aux_prepare_proof_written = .true.
+     call flush(iulog)
+  end if
+
+  call neu_wetdep_aux_prepare_codon( &
+       int(ncol, c_int64_t), int(pcols_in, c_int64_t), int(pver_in, c_int64_t), int(pcnst_in, c_int64_t), &
+       int(gas_cnt, c_int64_t), int(index_cldice_in, c_int64_t), int(index_cldliq_in, c_int64_t), &
+       real(gravit_in, c_double), c_loc(mapping_to_mmr_c), c_loc(area), c_loc(mmr), c_loc(pmid), &
+       c_loc(pdel), c_loc(zint), c_loc(tfld), c_loc(prain), c_loc(nevapr), c_loc(cld), c_loc(cmfdqr), &
+       c_loc(mass_in_layer), c_loc(cldice), c_loc(cldliq), c_loc(cldfrc), c_loc(totprec), c_loc(totevap), &
+       c_loc(delz), c_loc(delp), c_loc(p), c_loc(rls), c_loc(evaprate), c_loc(temp), c_loc(trc_mass), c_loc(dtwr) &
+  )
+
+end subroutine neu_wetdep_aux_prepare_codon_wrap
+!
+subroutine neu_wetdep_aux_finish_codon_wrap(ncol, pcols_in, pver_in, pcnst_in, gas_cnt, delt_in, pi_in, &
+     mapping_to_mmr_c, lats, pmid, mass_in_layer, trc_mass, dtwr, wd_mmr, wd_tend)
+
+  use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+
+  integer, intent(in) :: ncol, pcols_in, pver_in, pcnst_in, gas_cnt
+  real(r8), intent(in) :: delt_in, pi_in
+  integer(c_int64_t), target, intent(in) :: mapping_to_mmr_c(gas_cnt)
+  real(r8), target, intent(in) :: lats(pcols_in), pmid(pcols_in,pver_in)
+  real(r8), target, intent(in) :: mass_in_layer(ncol,pver_in), trc_mass(ncol,pver_in,gas_cnt)
+  real(r8), target, intent(inout) :: dtwr(ncol,pver_in,gas_cnt)
+  real(r8), target, intent(out) :: wd_mmr(ncol,pver_in,gas_cnt)
+  real(r8), target, intent(inout) :: wd_tend(pcols_in,pver_in,pcnst_in)
+
+  interface
+     subroutine neu_wetdep_aux_finish_codon(ncol_c, pcols_c, pver_c, pcnst_c, gas_cnt_c, delt_c, pi_c, &
+          mapping_to_mmr_p, lats_p, pmid_p, mass_in_layer_p, trc_mass_p, dtwr_p, wd_mmr_p, wd_tend_p) &
+          bind(c, name="neu_wetdep_aux_finish_codon")
+       use iso_c_binding, only : c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, gas_cnt_c
+       real(c_double), value :: delt_c, pi_c
+       type(c_ptr), value :: mapping_to_mmr_p, lats_p, pmid_p, mass_in_layer_p, trc_mass_p
+       type(c_ptr), value :: dtwr_p, wd_mmr_p, wd_tend_p
+     end subroutine neu_wetdep_aux_finish_codon
+  end interface
+
+  if (masterproc .and. .not. neu_wetdep_aux_finish_proof_written) then
+     write(iulog,*) 'neu_wetdep_aux_codon_wrap entered stage=finish'
+     call neu_wetdep_aux_append_impl_proof('neu_wetdep_aux_codon_wrap entered stage=finish')
+     neu_wetdep_aux_finish_proof_written = .true.
+     call flush(iulog)
+  end if
+
+  call neu_wetdep_aux_finish_codon( &
+       int(ncol, c_int64_t), int(pcols_in, c_int64_t), int(pver_in, c_int64_t), int(pcnst_in, c_int64_t), &
+       int(gas_cnt, c_int64_t), real(delt_in, c_double), real(pi_in, c_double), c_loc(mapping_to_mmr_c), &
+       c_loc(lats), c_loc(pmid), c_loc(mass_in_layer), c_loc(trc_mass), c_loc(dtwr), c_loc(wd_mmr), c_loc(wd_tend) &
+  )
+
+end subroutine neu_wetdep_aux_finish_codon_wrap
+!
 subroutine neu_wetdep_tend(lchnk,ncol,mmr,pmid,pdel,zint,tfld,delt, &
      prain, nevapr, cld, cmfdqr, wd_tend)
 !
@@ -205,24 +368,25 @@ subroutine neu_wetdep_tend(lchnk,ncol,mmr,pmid,pdel,zint,tfld,delt, &
   use phys_grid,        only : get_area_all_p, get_rlat_all_p
   use shr_const_mod,    only : SHR_CONST_REARTH,SHR_CONST_G
   use cam_history,      only : outfld
+  use iso_c_binding,     only : c_int64_t
 !
   implicit none
 !
   integer,        intent(in)    :: lchnk,ncol
-  real(r8),       intent(in)    :: mmr(pcols,pver,pcnst)    ! mass mixing ratio (kg/kg)
-  real(r8),       intent(in)    :: pmid(pcols,pver)         ! midpoint pressures (Pa)
-  real(r8),       intent(in)    :: pdel(pcols,pver)         ! pressure delta about midpoints (Pa)
-  real(r8),       intent(in)    :: zint(pcols,pver+1)       ! interface geopotential height above the surface (m)
-  real(r8),       intent(in)    :: tfld(pcols,pver)         ! midpoint temperature (K)
+  real(r8), target, intent(in)  :: mmr(pcols,pver,pcnst)    ! mass mixing ratio (kg/kg)
+  real(r8), target, intent(in)  :: pmid(pcols,pver)         ! midpoint pressures (Pa)
+  real(r8), target, intent(in)  :: pdel(pcols,pver)         ! pressure delta about midpoints (Pa)
+  real(r8), target, intent(in)  :: zint(pcols,pver+1)       ! interface geopotential height above the surface (m)
+  real(r8), target, intent(in)  :: tfld(pcols,pver)         ! midpoint temperature (K)
   real(r8),       intent(in)    :: delt                     ! timestep (s)
 !  
 
-  real(r8),       intent(in)    :: prain(ncol, pver)
-  real(r8),       intent(in)    :: nevapr(ncol, pver)
-  real(r8),       intent(in)    :: cld(ncol, pver)
-  real(r8),       intent(in)    :: cmfdqr(ncol, pver)
+  real(r8), target, intent(in)  :: prain(ncol, pver)
+  real(r8), target, intent(in)  :: nevapr(ncol, pver)
+  real(r8), target, intent(in)  :: cld(ncol, pver)
+  real(r8), target, intent(in)  :: cmfdqr(ncol, pver)
 
-  real(r8),       intent(inout) :: wd_tend(pcols,pver,pcnst)
+  real(r8), target, intent(inout) :: wd_tend(pcols,pver,pcnst)
 
 
 
@@ -232,12 +396,13 @@ subroutine neu_wetdep_tend(lchnk,ncol,mmr,pmid,pdel,zint,tfld,delt, &
   integer :: i,k,l,kk,m,id
   real(r8), parameter                       :: rearth = SHR_CONST_REARTH    ! radius earth (m)
   real(r8), parameter                       :: gravit = SHR_CONST_G         ! m/s^2
-  real(r8), dimension(ncol)                 :: area
-  real(r8), dimension(ncol,pver)            :: cldice,cldliq,cldfrc,totprec,totevap,delz,delp,p
-  real(r8), dimension(ncol,pver)            :: rls,evaprate,mass_in_layer,temp
-  real(r8), dimension(ncol,pver,gas_wetdep_cnt) :: trc_mass,heff,dtwr
-  real(r8), dimension(ncol,pver,gas_wetdep_cnt) :: wd_mmr
+  real(r8), target, dimension(ncol)         :: area
+  real(r8), target, dimension(ncol,pver)    :: cldice,cldliq,cldfrc,totprec,totevap,delz,delp,p
+  real(r8), target, dimension(ncol,pver)    :: rls,evaprate,mass_in_layer,temp
+  real(r8), target, dimension(ncol,pver,gas_wetdep_cnt) :: trc_mass,heff,dtwr
+  real(r8), target, dimension(ncol,pver,gas_wetdep_cnt) :: wd_mmr
   logical , dimension(gas_wetdep_cnt)           :: tckaqb
+  integer(c_int64_t), target, dimension(gas_wetdep_cnt) :: mapping_to_mmr_c
   integer , dimension(ncol)                 :: test_flag
 !
 ! arrays for HNO3 diagnostics
@@ -253,7 +418,7 @@ subroutine neu_wetdep_tend(lchnk,ncol,mmr,pmid,pdel,zint,tfld,delt, &
   real(r8), dimension(ncol) :: dk1s,dk2s,wrk
 !!DEK
   real(r8) :: pi
-  real(r8) :: lats(pcols)
+  real(r8), target :: lats(pcols)
 !
 ! from cam/src/physics/cam/stratiform.F90
 !
@@ -265,6 +430,13 @@ subroutine neu_wetdep_tend(lchnk,ncol,mmr,pmid,pdel,zint,tfld,delt, &
 ! don't do anything if there are no species to be removed
 !
   if ( gas_wetdep_cnt == 0 ) return
+!
+  call neu_wetdep_aux_select_impl()
+  if (.not. neu_wetdep_aux_use_native_impl) then
+    do m = 1, gas_wetdep_cnt
+      mapping_to_mmr_c(m) = int(mapping_to_mmr(m), c_int64_t)
+    end do
+  end if
 !
 ! reset output variables
 !
@@ -278,48 +450,55 @@ subroutine neu_wetdep_tend(lchnk,ncol,mmr,pmid,pdel,zint,tfld,delt, &
 ! reverse order along the vertical before calling
 ! J. Neu's wet removal subroutine
 !
-  do k=1,pver
-    kk = pver - k + 1
-    do i=1,ncol
+  if (.not. neu_wetdep_aux_use_native_impl) then
+    call neu_wetdep_aux_prepare_codon_wrap(ncol, pcols, pver, pcnst, gas_wetdep_cnt, &
+         index_cldice, index_cldliq, gravit, mapping_to_mmr_c, area, mmr, pmid, pdel, &
+         zint, tfld, prain, nevapr, cld, cmfdqr, mass_in_layer, cldice, cldliq, cldfrc, &
+         totprec, totevap, delz, delp, p, rls, evaprate, temp, trc_mass, dtwr)
+  else
+    do k=1,pver
+      kk = pver - k + 1
+      do i=1,ncol
 !
-      mass_in_layer(i,k) = area(i) * pdel(i,kk)/gravit          ! kg
+        mass_in_layer(i,k) = area(i) * pdel(i,kk)/gravit        ! kg
 !
-      cldice (i,k) = mmr(i,kk,index_cldice)                     ! kg/kg
-      cldliq (i,k) = mmr(i,kk,index_cldliq)                     ! kg/kg
-      cldfrc (i,k) = cld(i,kk)                                  ! unitless
+        cldice (i,k) = mmr(i,kk,index_cldice)                   ! kg/kg
+        cldliq (i,k) = mmr(i,kk,index_cldliq)                   ! kg/kg
+        cldfrc (i,k) = cld(i,kk)                                ! unitless
 !
-      totprec(i,k) = (prain(i,kk)+cmfdqr(i,kk)) &
-                                  * mass_in_layer(i,k)          ! kg/s
-      totevap(i,k) = nevapr(i,kk) * mass_in_layer(i,k)          ! kg/s
+        totprec(i,k) = (prain(i,kk)+cmfdqr(i,kk)) &
+                                    * mass_in_layer(i,k)        ! kg/s
+        totevap(i,k) = nevapr(i,kk) * mass_in_layer(i,k)        ! kg/s
 !
-      delz(i,k) = zint(i,kk) - zint(i,kk+1)                     ! in m
+        delz(i,k) = zint(i,kk) - zint(i,kk+1)                   ! in m
 !
-      temp(i,k) = tfld(i,kk)
+        temp(i,k) = tfld(i,kk)
 !
 ! convert tracer mass to kg
 !
-      trc_mass(i,k,:) = mmr(i,kk,mapping_to_mmr(:)) * mass_in_layer(i,k)
+        trc_mass(i,k,:) = mmr(i,kk,mapping_to_mmr(:)) * mass_in_layer(i,k)
 !
-      delp(i,k) = pdel(i,kk) * 0.01_r8          ! in hPa
-      p   (i,k) = pmid(i,kk) * 0.01_r8          ! in hPa
+        delp(i,k) = pdel(i,kk) * 0.01_r8        ! in hPa
+        p   (i,k) = pmid(i,kk) * 0.01_r8        ! in hPa
 !
+      end do
     end do
-  end do
 !
 ! define array for tendency calculation (on model grid)
 !
-  dtwr(1:ncol,:,:) = mmr(1:ncol,:,mapping_to_mmr(:))
+    dtwr(1:ncol,:,:) = mmr(1:ncol,:,mapping_to_mmr(:))
 !
 ! compute 1) integrated precipitation flux across the interfaces (rls)
 !         2) evaporation rate
 !
-  rls      (:,pver) = 0._r8
-  evaprate (:,pver) = 0._r8
-  do k=pver-1,1,-1
-    rls     (:,k) = max(0._r8,totprec(:,k)-totevap(:,k)+rls(:,k+1))
-    !evaprate(:,k) = min(1._r8,totevap(:,k)/(rls(:,k+1)+totprec(:,k)+1.e-36_r8))
-    evaprate(:,k) = min(1._r8,totevap(:,k)/(rls(:,k+1)+1.e-36_r8)) 
-  end do
+    rls      (:,pver) = 0._r8
+    evaprate (:,pver) = 0._r8
+    do k=pver-1,1,-1
+      rls     (:,k) = max(0._r8,totprec(:,k)-totevap(:,k)+rls(:,k+1))
+      !evaprate(:,k) = min(1._r8,totevap(:,k)/(rls(:,k+1)+totprec(:,k)+1.e-36_r8))
+      evaprate(:,k) = min(1._r8,totevap(:,k)/(rls(:,k+1)+1.e-36_r8))
+    end do
+  end if
 !
 ! compute effective Henry's law coefficients
 ! code taken from models/drv/shr/seq_drydep_mod.F90
@@ -408,38 +587,46 @@ subroutine neu_wetdep_tend(lchnk,ncol,mmr,pmid,pdel,zint,tfld,delt, &
 ! compute tendencies and convert back to mmr
 ! on original vertical grid
 !
-  do k=1,pver
-    kk = pver - k + 1
-    do i=1,ncol
+  if (.not. neu_wetdep_aux_use_native_impl) then
+    call get_rlat_all_p(lchnk, pcols, lats )
+    call neu_wetdep_aux_finish_codon_wrap(ncol, pcols, pver, pcnst, gas_wetdep_cnt, delt, pi, &
+         mapping_to_mmr_c, lats, pmid, mass_in_layer, trc_mass, dtwr, wd_mmr, wd_tend)
+  else
+    do k=1,pver
+      kk = pver - k + 1
+      do i=1,ncol
 !
 ! convert tracer mass from kg
 !
-      wd_mmr(i,kk,:) = trc_mass(i,k,:) / mass_in_layer(i,k)
+        wd_mmr(i,kk,:) = trc_mass(i,k,:) / mass_in_layer(i,k)
 !
+      end do
     end do
-  end do
 !
 ! tendency calculation (on model grid)
 !
-  dtwr(1:ncol,:,:) = wd_mmr(1:ncol,:,:) - dtwr(1:ncol,:,:)
-  dtwr(1:ncol,:,:) = dtwr(1:ncol,:,:) / delt 
+    dtwr(1:ncol,:,:) = wd_mmr(1:ncol,:,:) - dtwr(1:ncol,:,:)
+    dtwr(1:ncol,:,:) = dtwr(1:ncol,:,:) / delt
 
 !!DEK polarward of 60S, 60N and <200hPa set to zero!
-  call get_rlat_all_p(lchnk, pcols, lats )
-  do k = 1, pver
-    do i= 1, ncol
-      if ( abs( lats(i)*180._r8/pi ) > 60._r8 ) then
-        if ( pmid(i,k) < 20000._r8) then
-           dtwr(i,k,:) = 0._r8
+    call get_rlat_all_p(lchnk, pcols, lats )
+    do k = 1, pver
+      do i= 1, ncol
+        if ( abs( lats(i)*180._r8/pi ) > 60._r8 ) then
+          if ( pmid(i,k) < 20000._r8) then
+             dtwr(i,k,:) = 0._r8
+          endif
         endif 
-      endif
+      end do
     end do
-  end do
+  end if
 !
 ! output tendencies
 !
   do m=1,gas_wetdep_cnt
-    wd_tend(1:ncol,:,mapping_to_mmr(m)) = wd_tend(1:ncol,:,mapping_to_mmr(m)) + dtwr(1:ncol,:,m)
+    if (neu_wetdep_aux_use_native_impl) then
+      wd_tend(1:ncol,:,mapping_to_mmr(m)) = wd_tend(1:ncol,:,mapping_to_mmr(m)) + dtwr(1:ncol,:,m)
+    end if
     call outfld( 'DTWR_'//trim(gas_wetdep_list(m)),dtwr(:,:,m),ncol,lchnk )
   end do
 !
