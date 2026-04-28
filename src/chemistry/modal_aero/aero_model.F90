@@ -1336,18 +1336,27 @@ contains
                    )
                 end if
 
-                call wetdepa_v2( state%pmid, state%q(:,:,1), state%pdel, &
-                     dep_inputs%cldt, dep_inputs%cldcu, dep_inputs%cmfdqr, &
-                     dep_inputs%evapc, dep_inputs%conicw, dep_inputs%prain, dep_inputs%qme, &
-                     dep_inputs%evapr, dep_inputs%totcond, q_tmp, dt, &
-                     dqdt_tmp, iscavt, dep_inputs%cldvcu, dep_inputs%cldvst, &
-                     dlf, fracis(:,:,mm), sol_factb, ncol, &
-                     scavcoefnv(:,:,jnv), &
-                     is_strat_cloudborne=.false.,  &
-                     qqcw=fldcw,  &
-                     f_act_conv=f_act_conv, &
-                     icscavt=icscavt, isscavt=isscavt, bcscavt=bcscavt, bsscavt=bsscavt, &
-                     sol_facti_in=sol_facti, sol_factic_in=sol_factic )
+                if (aero_model_wetdep_use_native_impl) then
+                   call wetdepa_v2( state%pmid, state%q(:,:,1), state%pdel, &
+                        dep_inputs%cldt, dep_inputs%cldcu, dep_inputs%cmfdqr, &
+                        dep_inputs%evapc, dep_inputs%conicw, dep_inputs%prain, dep_inputs%qme, &
+                        dep_inputs%evapr, dep_inputs%totcond, q_tmp, dt, &
+                        dqdt_tmp, iscavt, dep_inputs%cldvcu, dep_inputs%cldvst, &
+                        dlf, fracis(:,:,mm), sol_factb, ncol, &
+                        scavcoefnv(:,:,jnv), &
+                        is_strat_cloudborne=.false.,  &
+                        qqcw=fldcw,  &
+                        f_act_conv=f_act_conv, &
+                        icscavt=icscavt, isscavt=isscavt, bcscavt=bcscavt, bsscavt=bsscavt, &
+                        sol_facti_in=sol_facti, sol_factic_in=sol_factic )
+                else
+                   call aero_model_wetdep_scavenging_codon_wrap( &
+                        2, ncol, dt, state%pmid, state%q(:,:,1), state%pdel, dep_inputs%cldt, dep_inputs%cldcu, &
+                        dep_inputs%cmfdqr, dep_inputs%evapc, dep_inputs%conicw, dep_inputs%prain, dep_inputs%qme, &
+                        dep_inputs%evapr, dep_inputs%totcond, q_tmp, dqdt_tmp, iscavt, dep_inputs%cldvcu, &
+                        dep_inputs%cldvst, dlf, fracis(:,:,mm), sol_factb, scavcoefnv(:,:,jnv), fldcw, f_act_conv, &
+                        icscavt, isscavt, bcscavt, bsscavt, sol_facti, sol_factic )
+                end if
 
                 if (aero_model_wetdep_use_native_impl) then
                    ptend%q(1:ncol,:,mm) = ptend%q(1:ncol,:,mm) + dqdt_tmp(1:ncol,:)
@@ -1449,16 +1458,25 @@ contains
                 dqdt_tmp(:,:) = 0.0_r8
                 fldcw => qqcw_get_field(pbuf, mm,lchnk)
 
-                call wetdepa_v2(state%pmid, state%q(:,:,1), state%pdel, &
-                     dep_inputs%cldt, dep_inputs%cldcu, dep_inputs%cmfdqr, &
-                     dep_inputs%evapc, dep_inputs%conicw, dep_inputs%prain, dep_inputs%qme, &
-                     dep_inputs%evapr, dep_inputs%totcond, fldcw, dt, &
-                     dqdt_tmp, iscavt, dep_inputs%cldvcu, dep_inputs%cldvst, &
-                     dlf, fracis_cw, sol_factb, ncol, &
-                     scavcoefnv(:,:,jnv), &
-                     is_strat_cloudborne=.true.,  &
-                     icscavt=icscavt, isscavt=isscavt, bcscavt=bcscavt, bsscavt=bsscavt, &
-                     sol_facti_in=sol_facti, sol_factic_in=sol_factic )
+                if (aero_model_wetdep_use_native_impl) then
+                   call wetdepa_v2(state%pmid, state%q(:,:,1), state%pdel, &
+                        dep_inputs%cldt, dep_inputs%cldcu, dep_inputs%cmfdqr, &
+                        dep_inputs%evapc, dep_inputs%conicw, dep_inputs%prain, dep_inputs%qme, &
+                        dep_inputs%evapr, dep_inputs%totcond, fldcw, dt, &
+                        dqdt_tmp, iscavt, dep_inputs%cldvcu, dep_inputs%cldvst, &
+                        dlf, fracis_cw, sol_factb, ncol, &
+                        scavcoefnv(:,:,jnv), &
+                        is_strat_cloudborne=.true.,  &
+                        icscavt=icscavt, isscavt=isscavt, bcscavt=bcscavt, bsscavt=bsscavt, &
+                        sol_facti_in=sol_facti, sol_factic_in=sol_factic )
+                else
+                   call aero_model_wetdep_scavenging_codon_wrap( &
+                        1, ncol, dt, state%pmid, state%q(:,:,1), state%pdel, dep_inputs%cldt, dep_inputs%cldcu, &
+                        dep_inputs%cmfdqr, dep_inputs%evapc, dep_inputs%conicw, dep_inputs%prain, dep_inputs%qme, &
+                        dep_inputs%evapr, dep_inputs%totcond, fldcw, dqdt_tmp, iscavt, dep_inputs%cldvcu, &
+                        dep_inputs%cldvst, dlf, fracis_cw, sol_factb, scavcoefnv(:,:,jnv), codon_dummy2d_a, f_act_conv, &
+                        icscavt, isscavt, bcscavt, bsscavt, sol_facti, sol_factic )
+                end if
 
                 if (aero_model_wetdep_use_native_impl) then
                    fldcw(1:ncol,:) = fldcw(1:ncol,:) + dqdt_tmp(1:ncol,:) * dt
@@ -1538,7 +1556,7 @@ contains
     end interface
 
     if (masterproc .and. .not. aero_model_wetdep_wrap_proof_written) then
-       wrap_proof_line = 'aero_model_wetdep_codon_wrap entered'
+       wrap_proof_line = 'aero_model_wetdep_codon_wrap entered (wetdepa direct = codon)'
        write(iulog,'(A)') trim(wrap_proof_line)
        call aero_model_wetdep_append_impl_proof('AERO_MODEL_WETDEP_PROOF_FILE', trim(wrap_proof_line))
        aero_model_wetdep_wrap_proof_written = .true.
@@ -1554,6 +1572,97 @@ contains
     )
 
   end subroutine aero_model_wetdep_codon_wrap
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_wetdep_scavenging_codon_wrap(branch_mode, ncol, deltat, p, q, pdel, cldt, cldc, cmfdqr, &
+                                                     evapc, conicw, precs, conds, evaps, cwat, tracer, scavt, iscavt, &
+                                                     cldvcu, cldvst, dlf, fracis, sol_factb, scavcoef, qqcw, f_act_conv, &
+                                                     icscavt, isscavt, bcscavt, bsscavt, sol_facti, sol_factic)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: branch_mode, ncol
+    real(r8), intent(in) :: deltat, sol_factb, sol_facti
+    real(r8), target, intent(in) :: p(pcols,pver), q(pcols,pver), pdel(pcols,pver), cldt(pcols,pver), cldc(pcols,pver)
+    real(r8), target, intent(in) :: cmfdqr(pcols,pver), evapc(pcols,pver), conicw(pcols,pver), precs(pcols,pver)
+    real(r8), target, intent(in) :: conds(pcols,pver), evaps(pcols,pver), cwat(pcols,pver), cldvcu(pcols,pver)
+    real(r8), target, intent(in) :: cldvst(pcols,pver), dlf(pcols,pver), scavcoef(pcols,pver), qqcw(pcols,pver)
+    real(r8), target, intent(in) :: f_act_conv(pcols,pver), sol_factic(pcols,pver)
+    real(r8), target, intent(inout) :: tracer(pcols,pver)
+    real(r8), target, intent(out) :: scavt(pcols,pver), iscavt(pcols,pver), fracis(pcols,pver)
+    real(r8), target, intent(out) :: icscavt(pcols,pver), isscavt(pcols,pver), bcscavt(pcols,pver), bsscavt(pcols,pver)
+
+    integer :: i, k
+    logical :: found
+    real(r8) :: omsm
+    real(r8), target :: clds(pcols), fracev(pcols), fracev_cu(pcols), fracp(pcols), pdog(pcols), rpdog(pcols)
+    real(r8), target :: precabc(pcols), precabs(pcols), rat(pcols), scavab(pcols), scavabc(pcols), srcc(pcols)
+    real(r8), target :: srcs(pcols), srct(pcols), fins(pcols), finc(pcols), conv_scav_ic(pcols), conv_scav_bc(pcols)
+    real(r8), target :: st_scav_ic(pcols), st_scav_bc(pcols), odds(pcols), dblchek(pcols), trac_qqcw(pcols)
+    real(r8), target :: tracer_incu(pcols), tracer_mean(pcols), dblchek_hist(pcols,pver), srct_hist(pcols,pver)
+    real(r8), target :: rat_hist(pcols,pver), fracev_hist(pcols,pver)
+
+    interface
+       subroutine wetdepa_v2_codon(pcols_c, pver_c, ncol_c, branch_mode_c, gravit_c, deltat_c, omsm_c, &
+            sol_facti_c, sol_factb_c, p_p, q_p, pdel_p, cldt_p, cldc_p, cmfdqr_p, evapc_p, conicw_p, &
+            precs_p, conds_p, evaps_p, cwat_p, tracer_p, scavt_p, iscavt_p, cldvcu_p, cldvst_p, dlf_p, &
+            fracis_p, scavcoef_p, sol_factic_p, qqcw_p, f_act_conv_p, icscavt_p, isscavt_p, bcscavt_p, &
+            bsscavt_p, clds_p, fracev_p, fracev_cu_p, fracp_p, pdog_p, rpdog_p, precabc_p, precabs_p, rat_p, &
+            scavab_p, scavabc_p, srcc_p, srcs_p, srct_p, fins_p, finc_p, conv_scav_ic_p, conv_scav_bc_p, &
+            st_scav_ic_p, st_scav_bc_p, odds_p, dblchek_p, trac_qqcw_p, tracer_incu_p, tracer_mean_p, &
+            dblchek_hist_p, srct_hist_p, rat_hist_p, fracev_hist_p) bind(c, name="wetdepa_v2_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: pcols_c, pver_c, ncol_c, branch_mode_c
+         real(c_double), value :: gravit_c, deltat_c, omsm_c, sol_facti_c, sol_factb_c
+         type(c_ptr), value :: p_p, q_p, pdel_p, cldt_p, cldc_p, cmfdqr_p, evapc_p, conicw_p, precs_p
+         type(c_ptr), value :: conds_p, evaps_p, cwat_p, tracer_p, scavt_p, iscavt_p, cldvcu_p, cldvst_p
+         type(c_ptr), value :: dlf_p, fracis_p, scavcoef_p, sol_factic_p, qqcw_p, f_act_conv_p
+         type(c_ptr), value :: icscavt_p, isscavt_p, bcscavt_p, bsscavt_p
+         type(c_ptr), value :: clds_p, fracev_p, fracev_cu_p, fracp_p, pdog_p, rpdog_p, precabc_p, precabs_p
+         type(c_ptr), value :: rat_p, scavab_p, scavabc_p, srcc_p, srcs_p, srct_p, fins_p, finc_p
+         type(c_ptr), value :: conv_scav_ic_p, conv_scav_bc_p, st_scav_ic_p, st_scav_bc_p, odds_p, dblchek_p
+         type(c_ptr), value :: trac_qqcw_p, tracer_incu_p, tracer_mean_p
+         type(c_ptr), value :: dblchek_hist_p, srct_hist_p, rat_hist_p, fracev_hist_p
+       end subroutine wetdepa_v2_codon
+    end interface
+
+    omsm = 1._r8 - 2*epsilon(1._r8)
+
+    call wetdepa_v2_codon( &
+         int(pcols, c_int64_t), int(pver, c_int64_t), int(ncol, c_int64_t), int(branch_mode, c_int64_t), &
+         real(gravit, c_double), real(deltat, c_double), real(omsm, c_double), real(sol_facti, c_double), &
+         real(sol_factb, c_double), c_loc(p), c_loc(q), c_loc(pdel), c_loc(cldt), c_loc(cldc), c_loc(cmfdqr), &
+         c_loc(evapc), c_loc(conicw), c_loc(precs), c_loc(conds), c_loc(evaps), c_loc(cwat), c_loc(tracer), &
+         c_loc(scavt), c_loc(iscavt), c_loc(cldvcu), c_loc(cldvst), c_loc(dlf), c_loc(fracis), c_loc(scavcoef), &
+         c_loc(sol_factic), c_loc(qqcw), c_loc(f_act_conv), c_loc(icscavt), c_loc(isscavt), c_loc(bcscavt), &
+         c_loc(bsscavt), c_loc(clds), c_loc(fracev), c_loc(fracev_cu), c_loc(fracp), c_loc(pdog), c_loc(rpdog), &
+         c_loc(precabc), c_loc(precabs), c_loc(rat), c_loc(scavab), c_loc(scavabc), c_loc(srcc), c_loc(srcs), &
+         c_loc(srct), c_loc(fins), c_loc(finc), c_loc(conv_scav_ic), c_loc(conv_scav_bc), c_loc(st_scav_ic), &
+         c_loc(st_scav_bc), c_loc(odds), c_loc(dblchek), c_loc(trac_qqcw), c_loc(tracer_incu), c_loc(tracer_mean), &
+         c_loc(dblchek_hist), c_loc(srct_hist), c_loc(rat_hist), c_loc(fracev_hist) &
+    )
+
+    do k = 1, pver
+       found = .false.
+       do i = 1, ncol
+          if (dblchek_hist(i,k) < 0._r8) then
+             found = .true.
+             exit
+          end if
+       end do
+
+       if (found) then
+          do i = 1, ncol
+             if (dblchek_hist(i,k) < 0._r8) then
+                write(iulog,*) ' wetdapa: negative value ', i, k, tracer(i,k), &
+                     dblchek_hist(i,k), scavt(i,k), srct_hist(i,k), rat_hist(i,k), fracev_hist(i,k)
+             end if
+          end do
+       end if
+    end do
+
+  end subroutine aero_model_wetdep_scavenging_codon_wrap
 
   !=============================================================================
   !=============================================================================
