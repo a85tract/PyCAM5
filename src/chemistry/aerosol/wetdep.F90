@@ -25,6 +25,7 @@ public :: clddiag     ! calc of cloudy volume and rain mixing ratio
 public :: wetdep_inputs_t
 public :: wetdep_init
 public :: wetdep_inputs_set
+public :: wetdep_inputs_set_codon_direct
 
 real(r8), parameter :: cmftau = 3600._r8
 real(r8), parameter :: rhoh2o = 1000._r8            ! density of water
@@ -161,6 +162,105 @@ subroutine wetdep_inputs_set( state, pbuf, inputs )
                 state%ncol )
 
 end subroutine wetdep_inputs_set
+
+subroutine wetdep_inputs_set_codon_direct(state, pbuf, inputs, prec, isprx)
+  use physics_types,  only: physics_state
+  use physics_buffer, only: physics_buffer_desc, pbuf_get_field, pbuf_old_tim_idx
+  use iso_c_binding,  only: c_double, c_int64_t, c_loc, c_ptr
+
+  type(physics_state),  target, intent(in ) :: state
+  type(physics_buffer_desc), pointer        :: pbuf(:)
+  type(wetdep_inputs_t), target, intent(out) :: inputs
+  real(r8), target, intent(out)             :: prec(pcols)
+  logical, intent(out)                      :: isprx(pcols,pver)
+
+  real(r8), pointer :: cldt(:,:)
+  real(r8), pointer :: qme(:,:)
+  real(r8), pointer :: prain(:,:)
+  real(r8), pointer :: evapr(:,:)
+  real(r8), pointer :: icwmrdp(:,:)
+  real(r8), pointer :: rprddp(:,:)
+  real(r8), pointer :: icwmrsh(:,:)
+  real(r8), pointer :: rprdsh(:,:)
+  real(r8), pointer :: sh_frac(:,:)
+  real(r8), pointer :: dp_frac(:,:)
+  real(r8), pointer :: evapcsh(:,:)
+  real(r8), pointer :: evapcdp(:,:)
+
+  real(r8) :: rainmr(pcols,pver)
+  real(r8) :: cldst(pcols,pver)
+  integer(c_int64_t), target :: isprx_mask(pcols,pver)
+  integer :: cam5_flag
+  integer :: i, k, itim
+
+  interface
+     subroutine aero_model_wetdep_inputs_codon(cam5_flag_c, ncol_c, pcols_c, pver_c, qliq_p, qice_p, icwmrdp_p, &
+          icwmrsh_p, rprddp_p, rprdsh_p, sh_frac_p, dp_frac_p, evapcsh_p, evapcdp_p, cldcu_p, evapc_p, cmfdqr_p, &
+          conicw_p, totcond_p) bind(c, name="aero_model_wetdep_inputs_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: cam5_flag_c, ncol_c, pcols_c, pver_c
+       type(c_ptr), value :: qliq_p, qice_p, icwmrdp_p, icwmrsh_p, rprddp_p, rprdsh_p, sh_frac_p, dp_frac_p
+       type(c_ptr), value :: evapcsh_p, evapcdp_p, cldcu_p, evapc_p, cmfdqr_p, conicw_p, totcond_p
+     end subroutine aero_model_wetdep_inputs_codon
+
+     subroutine aero_model_wetdep_precip_mask_codon(ncol_c, pcols_c, pver_c, gravit_c, pdel_p, prain_p, cmfdqr_p, &
+          evapr_p, prec_p, isprx_mask_p) bind(c, name="aero_model_wetdep_precip_mask_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+       real(c_double), value :: gravit_c
+       type(c_ptr), value :: pdel_p, prain_p, cmfdqr_p, evapr_p, prec_p, isprx_mask_p
+     end subroutine aero_model_wetdep_precip_mask_codon
+  end interface
+
+  itim = pbuf_old_tim_idx()
+
+  call pbuf_get_field(pbuf, cld_idx,         cldt, start=(/1,1,itim/), kount=(/pcols,pver,1/) )
+  call pbuf_get_field(pbuf, qme_idx,         qme     )
+  call pbuf_get_field(pbuf, prain_idx,       prain   )
+  call pbuf_get_field(pbuf, nevapr_idx,      evapr   )
+  call pbuf_get_field(pbuf, icwmrdp_idx,     icwmrdp )
+  call pbuf_get_field(pbuf, icwmrsh_idx,     icwmrsh )
+  call pbuf_get_field(pbuf, rprddp_idx,      rprddp  )
+  call pbuf_get_field(pbuf, rprdsh_idx,      rprdsh  )
+  call pbuf_get_field(pbuf, sh_frac_idx,     sh_frac )
+  call pbuf_get_field(pbuf, dp_frac_idx,     dp_frac )
+  call pbuf_get_field(pbuf, nevapr_shcu_idx, evapcsh )
+  call pbuf_get_field(pbuf, nevapr_dpcu_idx, evapcdp )
+
+  inputs%cldt  => cldt
+  inputs%qme   => qme
+  inputs%prain => prain
+  inputs%evapr => evapr
+
+  cam5_flag = 0
+  if (cam_physpkg_is('cam5')) cam5_flag = 1
+
+  call aero_model_wetdep_inputs_codon( &
+       int(cam5_flag, c_int64_t), int(state%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       c_loc(state%q(1,1,ixcldliq)), c_loc(state%q(1,1,ixcldice)), c_loc(icwmrdp(1,1)), c_loc(icwmrsh(1,1)), &
+       c_loc(rprddp(1,1)), c_loc(rprdsh(1,1)), c_loc(sh_frac(1,1)), c_loc(dp_frac(1,1)), c_loc(evapcsh(1,1)), &
+       c_loc(evapcdp(1,1)), c_loc(inputs%cldcu(1,1)), c_loc(inputs%evapc(1,1)), c_loc(inputs%cmfdqr(1,1)), &
+       c_loc(inputs%conicw(1,1)), c_loc(inputs%totcond(1,1)) &
+  )
+
+  cldst(:state%ncol,:) = inputs%cldt(:state%ncol,:) - inputs%cldcu(:state%ncol,:)
+
+  call clddiag( state%t, state%pmid, state%pdel, inputs%cmfdqr, inputs%evapc, inputs%cldt, inputs%cldcu, cldst, &
+       inputs%qme, inputs%evapr, inputs%prain, inputs%cldv, inputs%cldvcu, inputs%cldvst, rainmr, state%ncol )
+
+  call aero_model_wetdep_precip_mask_codon( &
+       int(state%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(gravit, c_double), &
+       c_loc(state%pdel(1,1)), c_loc(prain(1,1)), c_loc(inputs%cmfdqr(1,1)), c_loc(evapr(1,1)), c_loc(prec(1)), &
+       c_loc(isprx_mask(1,1)) &
+  )
+
+  do k = 1, pver
+     do i = 1, state%ncol
+        isprx(i,k) = isprx_mask(i,k) /= 0_c_int64_t
+     end do
+  end do
+
+end subroutine wetdep_inputs_set_codon_direct
 
 subroutine clddiag(t, pmid, pdel, cmfdqr, evapc, &
                    cldt, cldcu, cldst, cme, evapr, &

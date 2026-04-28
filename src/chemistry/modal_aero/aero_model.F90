@@ -1068,7 +1068,7 @@ contains
   subroutine aero_model_wetdep( state, dt, dlf, cam_out, ptend, pbuf)
 
     use modal_aero_deposition, only: set_srf_wetdep, set_srf_wetdep_codon_direct
-    use wetdep,                only: wetdepa_v2, wetdep_inputs_set, wetdep_inputs_t
+    use wetdep,                only: wetdepa_v2, wetdep_inputs_set, wetdep_inputs_set_codon_direct, wetdep_inputs_t
     use modal_aero_data
     use modal_aero_calcsize,   only: modal_aero_calcsize_sub
     use modal_aero_wateruptake,only: modal_aero_wateruptake_dr
@@ -1171,22 +1171,28 @@ contains
 
     if (nwetdep<1) return
 
-    call wetdep_inputs_set( state, pbuf, dep_inputs )
+    if (aero_model_wetdep_use_native_impl) then
+       call wetdep_inputs_set( state, pbuf, dep_inputs )
+    else
+       call wetdep_inputs_set_codon_direct( state, pbuf, dep_inputs, prec, isprx )
+    end if
 
     call pbuf_get_field(pbuf, dgnumwet_idx,       dgnumwet, start=(/1,1,1/), kount=(/pcols,pver,nmodes/) )
     call pbuf_get_field(pbuf, qaerwat_idx,        qaerwat,  start=(/1,1,1/), kount=(/pcols,pver,nmodes/) )
     call pbuf_get_field(pbuf, fracis_idx,         fracis, start=(/1,1,1/), kount=(/pcols, pver, pcnst/) )
 
-    prec(:ncol)=0._r8
-    do k=1,pver
-       where (prec(:ncol) >= 1.e-7_r8)
-          isprx(:ncol,k) = .true.
-       elsewhere
-          isprx(:ncol,k) = .false.
-       endwhere
-       prec(:ncol) = prec(:ncol) + (dep_inputs%prain(:ncol,k) + dep_inputs%cmfdqr(:ncol,k) - dep_inputs%evapr(:ncol,k)) &
-            *state%pdel(:ncol,k)/gravit
-    end do
+    if (aero_model_wetdep_use_native_impl) then
+       prec(:ncol)=0._r8
+       do k=1,pver
+          where (prec(:ncol) >= 1.e-7_r8)
+             isprx(:ncol,k) = .true.
+          elsewhere
+             isprx(:ncol,k) = .false.
+          endwhere
+          prec(:ncol) = prec(:ncol) + (dep_inputs%prain(:ncol,k) + dep_inputs%cmfdqr(:ncol,k) - dep_inputs%evapr(:ncol,k)) &
+               *state%pdel(:ncol,k)/gravit
+       end do
+    end if
 
     ! calculate the mass-weighted sol_factic for coarse mode species
     ! sol_factic_coarse(:,:) = 0.30_r8 ! tuned 1/4
@@ -1616,7 +1622,7 @@ contains
     end interface
 
     if (masterproc .and. .not. aero_model_wetdep_wrap_proof_written) then
-       wrap_proof_line = 'aero_model_wetdep_codon_wrap entered (wetdepa/bcscavcoef/set_srf_wetdep direct = codon)'
+       wrap_proof_line = 'aero_model_wetdep_codon_wrap entered (wetdep_inputs/prec_isprx/wetdepa/bcscavcoef/set_srf_wetdep direct = codon)'
        write(iulog,'(A)') trim(wrap_proof_line)
        call aero_model_wetdep_append_impl_proof('AERO_MODEL_WETDEP_PROOF_FILE', trim(wrap_proof_line))
        aero_model_wetdep_wrap_proof_written = .true.
