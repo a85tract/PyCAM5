@@ -13,6 +13,12 @@ def _idx3(i: int, k: int, m: int, ld1: int, ld2: int) -> int:
 
 
 @inline
+def _idx4(i: int, j: int, k: int, l: int, ld1: int, ld2: int, ld3: int) -> int:
+    """Fortran array declared as (ld1, ld2, ld3, *)."""
+    return (i - 1) + (j - 1) * ld1 + (k - 1) * ld1 * ld2 + (l - 1) * ld1 * ld2 * ld3
+
+
+@inline
 def _max3(a: float, b: float, c: float) -> float:
     if a >= b:
         if a >= c:
@@ -6078,3 +6084,614 @@ def modal_aero_coag_sub_codon(
                         q[idx_qtoo] = q[idx_qtoo] + xferamt
             i += 1
         k += 1
+
+
+def _modal_aero_calcsize_zero_state(
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    dqqcwdt: Ptr[float],
+    qsrflx: Ptr[float],
+    dotend: Ptr[int],
+    dotendqqcw: Ptr[int],
+):
+    l = 1
+    while l <= pcnst:
+        dotend[l - 1] = 0
+        dotendqqcw[l - 1] = 0
+        k = 1
+        while k <= pver:
+            i = 1
+            while i <= pcols:
+                dqqcwdt[_idx3(i, k, l, pcols, pver)] = 0.0
+                i += 1
+            k += 1
+        jsrflx = 1
+        while jsrflx <= 4:
+            jac = 1
+            while jac <= 2:
+                i = 1
+                while i <= pcols:
+                    qsrflx[_idx4(i, l, jsrflx, jac, pcols, pcnst, 4)] = 0.0
+                    i += 1
+                jac += 1
+            jsrflx += 1
+        l += 1
+
+
+@export
+def modal_aero_calcsize_sub_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    top_lev: int,
+    ntot_amode: int,
+    maxd_aspectype: int,
+    maxspec_renamexf: int,
+    nait: int,
+    nacc: int,
+    do_adjust: int,
+    do_aitacc_transfer: int,
+    nspecfrm_pair1: int,
+    deltat: float,
+    gravit: float,
+    q_p: cobj,
+    qqcw_p: cobj,
+    pdel_p: cobj,
+    dqdt_p: cobj,
+    dqqcwdt_p: cobj,
+    qsrflx_p: cobj,
+    dgncur_a_p: cobj,
+    dryvol_a_p: cobj,
+    dryvol_c_p: cobj,
+    drv_a_aitsv_p: cobj,
+    num_a_aitsv_p: cobj,
+    drv_c_aitsv_p: cobj,
+    num_c_aitsv_p: cobj,
+    drv_a_accsv_p: cobj,
+    num_a_accsv_p: cobj,
+    drv_c_accsv_p: cobj,
+    num_c_accsv_p: cobj,
+    dotend_p: cobj,
+    dotendqqcw_p: cobj,
+    mprognum_amode_p: cobj,
+    numptr_amode_p: cobj,
+    numptrcw_amode_p: cobj,
+    nspec_amode_p: cobj,
+    lspectype_amode_p: cobj,
+    lmassptr_amode_p: cobj,
+    lmassptrcw_amode_p: cobj,
+    dgnum_amode_p: cobj,
+    dgnumhi_amode_p: cobj,
+    dgnumlo_amode_p: cobj,
+    alnsg_amode_p: cobj,
+    voltonumb_amode_p: cobj,
+    voltonumblo_amode_p: cobj,
+    voltonumbhi_amode_p: cobj,
+    specdens_amode_p: cobj,
+    lspecfrma_pair1_p: cobj,
+    lspecfrmc_pair1_p: cobj,
+    lspectooa_pair1_p: cobj,
+    lspectooc_pair1_p: cobj,
+):
+    q = Ptr[float](q_p)
+    qqcw = Ptr[float](qqcw_p)
+    pdel = Ptr[float](pdel_p)
+    dqdt = Ptr[float](dqdt_p)
+    dqqcwdt = Ptr[float](dqqcwdt_p)
+    qsrflx = Ptr[float](qsrflx_p)
+    dgncur_a = Ptr[float](dgncur_a_p)
+    dryvol_a = Ptr[float](dryvol_a_p)
+    dryvol_c = Ptr[float](dryvol_c_p)
+    drv_a_aitsv = Ptr[float](drv_a_aitsv_p)
+    num_a_aitsv = Ptr[float](num_a_aitsv_p)
+    drv_c_aitsv = Ptr[float](drv_c_aitsv_p)
+    num_c_aitsv = Ptr[float](num_c_aitsv_p)
+    drv_a_accsv = Ptr[float](drv_a_accsv_p)
+    num_a_accsv = Ptr[float](num_a_accsv_p)
+    drv_c_accsv = Ptr[float](drv_c_accsv_p)
+    num_c_accsv = Ptr[float](num_c_accsv_p)
+    dotend = Ptr[int](dotend_p)
+    dotendqqcw = Ptr[int](dotendqqcw_p)
+    mprognum_amode = Ptr[int](mprognum_amode_p)
+    numptr_amode = Ptr[int](numptr_amode_p)
+    numptrcw_amode = Ptr[int](numptrcw_amode_p)
+    nspec_amode = Ptr[int](nspec_amode_p)
+    lspectype_amode = Ptr[int](lspectype_amode_p)
+    lmassptr_amode = Ptr[int](lmassptr_amode_p)
+    lmassptrcw_amode = Ptr[int](lmassptrcw_amode_p)
+    dgnum_amode = Ptr[float](dgnum_amode_p)
+    dgnumhi_amode = Ptr[float](dgnumhi_amode_p)
+    dgnumlo_amode = Ptr[float](dgnumlo_amode_p)
+    alnsg_amode = Ptr[float](alnsg_amode_p)
+    voltonumb_amode = Ptr[float](voltonumb_amode_p)
+    voltonumblo_amode = Ptr[float](voltonumblo_amode_p)
+    voltonumbhi_amode = Ptr[float](voltonumbhi_amode_p)
+    specdens_amode = Ptr[float](specdens_amode_p)
+    lspecfrma_pair1 = Ptr[int](lspecfrma_pair1_p)
+    lspecfrmc_pair1 = Ptr[int](lspecfrmc_pair1_p)
+    lspectooa_pair1 = Ptr[int](lspectooa_pair1_p)
+    lspectooc_pair1 = Ptr[int](lspectooc_pair1_p)
+
+    third = 1.0 / 3.0
+
+    _modal_aero_calcsize_zero_state(pcols, pver, pcnst, dqqcwdt, qsrflx, dotend, dotendqqcw)
+
+    deltatinv = 1.0 / (deltat * (1.0 + 1.0e-15))
+    tadj = deltat
+    tadj = 86400.0
+    tadj = max(tadj, deltat)
+    tadjinv = 1.0 / (tadj * (1.0 + 1.0e-15))
+    fracadj = deltat * tadjinv
+    fracadj = max(0.0, min(1.0, fracadj))
+    dumfac = 0.0
+
+    n = 1
+    while n <= ntot_amode:
+        k = top_lev
+        while k <= pver:
+            i = 1
+            while i <= ncol:
+                dgncur_a[_idx3(i, k, n, pcols, pver)] = dgnum_amode[n - 1]
+                dryvol_a[_idx2(i, k, pcols)] = 0.0
+                dryvol_c[_idx2(i, k, pcols)] = 0.0
+                i += 1
+            k += 1
+
+        l1 = 1
+        while l1 <= nspec_amode[n - 1]:
+            lsptype = lspectype_amode[_idx2(l1, n, maxd_aspectype)]
+            dummwdens = 1.0 / specdens_amode[lsptype - 1]
+            la = lmassptr_amode[_idx2(l1, n, maxd_aspectype)]
+            lc = lmassptrcw_amode[_idx2(l1, n, maxd_aspectype)]
+            k = top_lev
+            while k <= pver:
+                i = 1
+                while i <= ncol:
+                    dryvol_a[_idx2(i, k, pcols)] = (
+                        dryvol_a[_idx2(i, k, pcols)]
+                        + max(0.0, q[_idx3(i, k, la, pcols, pver)]) * dummwdens
+                    )
+                    dryvol_c[_idx2(i, k, pcols)] = (
+                        dryvol_c[_idx2(i, k, pcols)]
+                        + max(0.0, qqcw[_idx3(i, k, lc, pcols, pver)]) * dummwdens
+                    )
+                    i += 1
+                k += 1
+            l1 += 1
+
+        lna = numptr_amode[n - 1]
+        lnc = numptrcw_amode[n - 1]
+
+        if mprognum_amode[n - 1] <= 0:
+            if lna > 0:
+                dotend[lna - 1] = 1
+                k = top_lev
+                while k <= pver:
+                    i = 1
+                    while i <= ncol:
+                        dqdt[_idx3(i, k, lna, pcols, pver)] = (
+                            dryvol_a[_idx2(i, k, pcols)] * voltonumb_amode[n - 1]
+                            - q[_idx3(i, k, lna, pcols, pver)]
+                        ) * deltatinv
+                        i += 1
+                    k += 1
+            if lnc > 0:
+                dotendqqcw[lnc - 1] = 1
+                k = top_lev
+                while k <= pver:
+                    i = 1
+                    while i <= ncol:
+                        dqqcwdt[_idx3(i, k, lnc, pcols, pver)] = (
+                            dryvol_c[_idx2(i, k, pcols)] * voltonumb_amode[n - 1]
+                            - qqcw[_idx3(i, k, lnc, pcols, pver)]
+                        ) * deltatinv
+                        i += 1
+                    k += 1
+
+        frelaxadj = 27.0
+        dumfac = exp(4.5 * (alnsg_amode[n - 1] ** 2.0)) * pi / 6.0
+        v2nxx = voltonumbhi_amode[n - 1]
+        v2nyy = voltonumblo_amode[n - 1]
+        v2nxxrl = v2nxx / frelaxadj
+        v2nyyrl = v2nyy * frelaxadj
+        dgnxx = dgnumhi_amode[n - 1]
+        dgnyy = dgnumlo_amode[n - 1]
+
+        if do_aitacc_transfer != 0:
+            if n == nait:
+                v2nxx = v2nxx / 1.0e6
+            if n == nacc:
+                v2nyy = v2nyy * 1.0e6
+            v2nxxrl = v2nxx / frelaxadj
+            v2nyyrl = v2nyy * frelaxadj
+
+        if do_adjust != 0:
+            dotend[lna - 1] = 1
+            dotendqqcw[lnc - 1] = 1
+
+        k = top_lev
+        while k <= pver:
+            i = 1
+            while i <= ncol:
+                drv_a = dryvol_a[_idx2(i, k, pcols)]
+                num_a0 = q[_idx3(i, k, lna, pcols, pver)]
+                num_a = max(0.0, num_a0)
+                drv_c = dryvol_c[_idx2(i, k, pcols)]
+                num_c0 = qqcw[_idx3(i, k, lnc, pcols, pver)]
+                num_c = max(0.0, num_c0)
+
+                if do_adjust != 0:
+                    if (drv_a <= 0.0) and (drv_c <= 0.0):
+                        num_a = 0.0
+                        dqdt[_idx3(i, k, lna, pcols, pver)] = -num_a0 * deltatinv
+                        num_c = 0.0
+                        dqqcwdt[_idx3(i, k, lnc, pcols, pver)] = -num_c0 * deltatinv
+                    elif drv_c <= 0.0:
+                        num_c = 0.0
+                        dqqcwdt[_idx3(i, k, lnc, pcols, pver)] = -num_c0 * deltatinv
+                        num_a1 = num_a
+                        numbnd = max(drv_a * v2nxx, min(drv_a * v2nyy, num_a1))
+                        num_a = num_a1 + (numbnd - num_a1) * fracadj
+                        dqdt[_idx3(i, k, lna, pcols, pver)] = (num_a - num_a0) * deltatinv
+                    elif drv_a <= 0.0:
+                        num_a = 0.0
+                        dqdt[_idx3(i, k, lna, pcols, pver)] = -num_a0 * deltatinv
+                        num_c1 = num_c
+                        numbnd = max(drv_c * v2nxx, min(drv_c * v2nyy, num_c1))
+                        num_c = num_c1 + (numbnd - num_c1) * fracadj
+                        dqqcwdt[_idx3(i, k, lnc, pcols, pver)] = (num_c - num_c0) * deltatinv
+                    else:
+                        num_a1 = num_a
+                        num_c1 = num_c
+                        numbnd = max(drv_a * v2nxxrl, min(drv_a * v2nyyrl, num_a1))
+                        delnum_a2 = (numbnd - num_a1) * fracadj
+                        num_a2 = num_a1 + delnum_a2
+                        numbnd = max(drv_c * v2nxxrl, min(drv_c * v2nyyrl, num_c1))
+                        delnum_c2 = (numbnd - num_c1) * fracadj
+                        num_c2 = num_c1 + delnum_c2
+                        if (delnum_a2 == 0.0) and (delnum_c2 != 0.0):
+                            num_a2 = max(
+                                drv_a * v2nxxrl,
+                                min(drv_a * v2nyyrl, num_a1 - delnum_c2),
+                            )
+                        elif (delnum_a2 != 0.0) and (delnum_c2 == 0.0):
+                            num_c2 = max(
+                                drv_c * v2nxxrl,
+                                min(drv_c * v2nyyrl, num_c1 - delnum_a2),
+                            )
+                        drv_t = drv_a + drv_c
+                        num_t2 = num_a2 + num_c2
+                        delnum_a3 = 0.0
+                        delnum_c3 = 0.0
+                        if num_t2 < drv_t * v2nxx:
+                            delnum_t3 = (drv_t * v2nxx - num_t2) * fracadj
+                            if (num_a2 < drv_a * v2nxx) and (num_c2 < drv_c * v2nxx):
+                                delnum_a3 = delnum_t3 * (num_a2 / num_t2)
+                                delnum_c3 = delnum_t3 * (num_c2 / num_t2)
+                            elif num_c2 < drv_c * v2nxx:
+                                delnum_c3 = delnum_t3
+                            elif num_a2 < drv_a * v2nxx:
+                                delnum_a3 = delnum_t3
+                        elif num_t2 > drv_t * v2nyy:
+                            delnum_t3 = (drv_t * v2nyy - num_t2) * fracadj
+                            if (num_a2 > drv_a * v2nyy) and (num_c2 > drv_c * v2nyy):
+                                delnum_a3 = delnum_t3 * (num_a2 / num_t2)
+                                delnum_c3 = delnum_t3 * (num_c2 / num_t2)
+                            elif num_c2 > drv_c * v2nyy:
+                                delnum_c3 = delnum_t3
+                            elif num_a2 > drv_a * v2nyy:
+                                delnum_a3 = delnum_t3
+                        num_a = num_a2 + delnum_a3
+                        dqdt[_idx3(i, k, lna, pcols, pver)] = (num_a - num_a0) * deltatinv
+                        num_c = num_c2 + delnum_c3
+                        dqqcwdt[_idx3(i, k, lnc, pcols, pver)] = (num_c - num_c0) * deltatinv
+
+                if drv_a > 0.0:
+                    if num_a <= drv_a * v2nxx:
+                        dgncur_a[_idx3(i, k, n, pcols, pver)] = dgnxx
+                    elif num_a >= drv_a * v2nyy:
+                        dgncur_a[_idx3(i, k, n, pcols, pver)] = dgnyy
+                    else:
+                        dgncur_a[_idx3(i, k, n, pcols, pver)] = (drv_a / (dumfac * num_a)) ** third
+
+                pdel_fac = pdel[_idx2(i, k, pcols)] / gravit
+                qsrflx[_idx4(i, lna, 1, 1, pcols, pcnst, 4)] = (
+                    qsrflx[_idx4(i, lna, 1, 1, pcols, pcnst, 4)]
+                    + max(0.0, dqdt[_idx3(i, k, lna, pcols, pver)]) * pdel_fac
+                )
+                qsrflx[_idx4(i, lna, 2, 1, pcols, pcnst, 4)] = (
+                    qsrflx[_idx4(i, lna, 2, 1, pcols, pcnst, 4)]
+                    + min(0.0, dqdt[_idx3(i, k, lna, pcols, pver)]) * pdel_fac
+                )
+                qsrflx[_idx4(i, lnc, 1, 2, pcols, pcnst, 4)] = (
+                    qsrflx[_idx4(i, lnc, 1, 2, pcols, pcnst, 4)]
+                    + max(0.0, dqqcwdt[_idx3(i, k, lnc, pcols, pver)]) * pdel_fac
+                )
+                qsrflx[_idx4(i, lnc, 2, 2, pcols, pcnst, 4)] = (
+                    qsrflx[_idx4(i, lnc, 2, 2, pcols, pcnst, 4)]
+                    + min(0.0, dqqcwdt[_idx3(i, k, lnc, pcols, pver)]) * pdel_fac
+                )
+
+                if do_aitacc_transfer != 0:
+                    if n == nait:
+                        drv_a_aitsv[_idx2(i, k, pcols)] = drv_a
+                        num_a_aitsv[_idx2(i, k, pcols)] = num_a
+                        drv_c_aitsv[_idx2(i, k, pcols)] = drv_c
+                        num_c_aitsv[_idx2(i, k, pcols)] = num_c
+                    elif n == nacc:
+                        drv_a_accsv[_idx2(i, k, pcols)] = drv_a
+                        num_a_accsv[_idx2(i, k, pcols)] = num_a
+                        drv_c_accsv[_idx2(i, k, pcols)] = drv_c
+                        num_c_accsv[_idx2(i, k, pcols)] = num_c
+
+                i += 1
+            k += 1
+
+        n += 1
+
+    if do_aitacc_transfer != 0:
+        iq = 1
+        while iq <= nspecfrm_pair1:
+            lsfrm = lspecfrma_pair1[iq - 1]
+            lstoo = lspectooa_pair1[iq - 1]
+            if (lsfrm > 0) and (lstoo > 0):
+                dotend[lsfrm - 1] = 1
+                dotend[lstoo - 1] = 1
+            lsfrm = lspecfrmc_pair1[iq - 1]
+            lstoo = lspectooc_pair1[iq - 1]
+            if (lsfrm > 0) and (lstoo > 0):
+                dotendqqcw[lsfrm - 1] = 1
+                dotendqqcw[lstoo - 1] = 1
+            iq += 1
+
+        v2nzz = sqrt(voltonumb_amode[nait - 1] * voltonumb_amode[nacc - 1])
+
+        k = top_lev
+        while k <= pver:
+            i = 1
+            while i <= ncol:
+                pdel_fac = pdel[_idx2(i, k, pcols)] / gravit
+                xfertend_num_11 = 0.0
+                xfertend_num_12 = 0.0
+                xfertend_num_21 = 0.0
+                xfertend_num_22 = 0.0
+                xferfrac_num_ait2acc = 0.0
+                xferfrac_vol_ait2acc = 0.0
+                xferfrac_num_acc2ait = 0.0
+                xferfrac_vol_acc2ait = 0.0
+                xfertend = 0.0
+                xfercoef = 0.0
+                ixfer_ait2acc = 0
+                xfercoef_num_ait2acc = 0.0
+                xfercoef_vol_ait2acc = 0.0
+
+                drv_t = drv_a_aitsv[_idx2(i, k, pcols)] + drv_c_aitsv[_idx2(i, k, pcols)]
+                num_t = num_a_aitsv[_idx2(i, k, pcols)] + num_c_aitsv[_idx2(i, k, pcols)]
+                if drv_t > 0.0:
+                    if num_t < drv_t * v2nzz:
+                        ixfer_ait2acc = 1
+                        if num_t < drv_t * voltonumb_amode[nacc - 1]:
+                            xferfrac_num_ait2acc = 1.0
+                            xferfrac_vol_ait2acc = 1.0
+                        else:
+                            xferfrac_vol_ait2acc = ((num_t / drv_t) - v2nzz) / (
+                                voltonumb_amode[nacc - 1] - v2nzz
+                            )
+                            xferfrac_num_ait2acc = xferfrac_vol_ait2acc * (
+                                drv_t * voltonumb_amode[nacc - 1] / num_t
+                            )
+                            if (xferfrac_num_ait2acc <= 0.0) or (xferfrac_vol_ait2acc <= 0.0):
+                                xferfrac_num_ait2acc = 0.0
+                                xferfrac_vol_ait2acc = 0.0
+                            elif (xferfrac_num_ait2acc >= 1.0) or (xferfrac_vol_ait2acc >= 1.0):
+                                xferfrac_num_ait2acc = 1.0
+                                xferfrac_vol_ait2acc = 1.0
+                        xfercoef_num_ait2acc = xferfrac_num_ait2acc * tadjinv
+                        xfercoef_vol_ait2acc = xferfrac_vol_ait2acc * tadjinv
+                        xfertend_num_11 = num_a_aitsv[_idx2(i, k, pcols)] * xfercoef_num_ait2acc
+                        xfertend_num_12 = num_c_aitsv[_idx2(i, k, pcols)] * xfercoef_num_ait2acc
+
+                ixfer_acc2ait = 0
+                xfercoef_num_acc2ait = 0.0
+                xfercoef_vol_acc2ait = 0.0
+                num_t0 = 0.0
+                drv_a_noxf = 0.0
+                drv_c_noxf = 0.0
+
+                drv_t = drv_a_accsv[_idx2(i, k, pcols)] + drv_c_accsv[_idx2(i, k, pcols)]
+                num_t = num_a_accsv[_idx2(i, k, pcols)] + num_c_accsv[_idx2(i, k, pcols)]
+                if drv_t > 0.0:
+                    if num_t > drv_t * v2nzz:
+                        l1 = 1
+                        while l1 <= nspec_amode[nacc - 1]:
+                            la = lmassptr_amode[_idx2(l1, nacc, maxd_aspectype)]
+                            noxf = 1
+                            iq = 1
+                            while iq <= nspecfrm_pair1:
+                                if lspectooa_pair1[iq - 1] == la:
+                                    noxf = 0
+                                iq += 1
+                            if noxf != 0:
+                                lsptype = lspectype_amode[_idx2(l1, nacc, maxd_aspectype)]
+                                dummwdens = 1.0 / specdens_amode[lsptype - 1]
+                                drv_a_noxf = (
+                                    drv_a_noxf
+                                    + max(0.0, q[_idx3(i, k, la, pcols, pver)]) * dummwdens
+                                )
+                                lc = lmassptrcw_amode[_idx2(l1, nacc, maxd_aspectype)]
+                                drv_c_noxf = (
+                                    drv_c_noxf
+                                    + max(0.0, qqcw[_idx3(i, k, lc, pcols, pver)]) * dummwdens
+                                )
+                            l1 += 1
+                        drv_t_noxf = drv_a_noxf + drv_c_noxf
+                        num_t_noxf = drv_t_noxf * voltonumblo_amode[nacc - 1]
+                        num_t0 = num_t
+                        num_t = max(0.0, num_t - num_t_noxf)
+                        drv_t = max(0.0, drv_t - drv_t_noxf)
+
+                if drv_t > 0.0:
+                    if num_t > drv_t * v2nzz:
+                        ixfer_acc2ait = 1
+                        if num_t > drv_t * voltonumb_amode[nait - 1]:
+                            xferfrac_num_acc2ait = 1.0
+                            xferfrac_vol_acc2ait = 1.0
+                        else:
+                            xferfrac_vol_acc2ait = ((num_t / drv_t) - v2nzz) / (
+                                voltonumb_amode[nait - 1] - v2nzz
+                            )
+                            xferfrac_num_acc2ait = xferfrac_vol_acc2ait * (
+                                drv_t * voltonumb_amode[nait - 1] / num_t
+                            )
+                            if (xferfrac_num_acc2ait <= 0.0) or (xferfrac_vol_acc2ait <= 0.0):
+                                xferfrac_num_acc2ait = 0.0
+                                xferfrac_vol_acc2ait = 0.0
+                            elif (xferfrac_num_acc2ait >= 1.0) or (xferfrac_vol_acc2ait >= 1.0):
+                                xferfrac_num_acc2ait = 1.0
+                                xferfrac_vol_acc2ait = 1.0
+                        duma = 1.0e-37
+                        xferfrac_num_acc2ait = xferfrac_num_acc2ait * num_t / max(duma, num_t0)
+                        xfercoef_num_acc2ait = xferfrac_num_acc2ait * tadjinv
+                        xfercoef_vol_acc2ait = xferfrac_vol_acc2ait * tadjinv
+                        xfertend_num_21 = num_a_accsv[_idx2(i, k, pcols)] * xfercoef_num_acc2ait
+                        xfertend_num_22 = num_c_accsv[_idx2(i, k, pcols)] * xfercoef_num_acc2ait
+
+                if ixfer_ait2acc + ixfer_acc2ait > 0:
+                    duma = (xfertend_num_11 - xfertend_num_21) * deltat
+                    num_a = max(0.0, num_a_aitsv[_idx2(i, k, pcols)] - duma)
+                    num_a_acc = max(0.0, num_a_accsv[_idx2(i, k, pcols)] + duma)
+
+                    duma = (
+                        drv_a_aitsv[_idx2(i, k, pcols)] * xfercoef_vol_ait2acc
+                        - (drv_a_accsv[_idx2(i, k, pcols)] - drv_a_noxf) * xfercoef_vol_acc2ait
+                    ) * deltat
+                    drv_a = max(0.0, drv_a_aitsv[_idx2(i, k, pcols)] - duma)
+                    drv_a_acc = max(0.0, drv_a_accsv[_idx2(i, k, pcols)] + duma)
+
+                    duma = (xfertend_num_12 - xfertend_num_22) * deltat
+                    num_c = max(0.0, num_c_aitsv[_idx2(i, k, pcols)] - duma)
+                    num_c_acc = max(0.0, num_c_accsv[_idx2(i, k, pcols)] + duma)
+
+                    duma = (
+                        drv_c_aitsv[_idx2(i, k, pcols)] * xfercoef_vol_ait2acc
+                        - (drv_c_accsv[_idx2(i, k, pcols)] - drv_c_noxf) * xfercoef_vol_acc2ait
+                    ) * deltat
+                    drv_c = max(0.0, drv_c_aitsv[_idx2(i, k, pcols)] - duma)
+                    drv_c_acc = max(0.0, drv_c_accsv[_idx2(i, k, pcols)] + duma)
+
+                    if drv_a > 0.0:
+                        if num_a <= drv_a * voltonumbhi_amode[nait - 1]:
+                            dgncur_a[_idx3(i, k, nait, pcols, pver)] = dgnumhi_amode[nait - 1]
+                        elif num_a >= drv_a * voltonumblo_amode[nait - 1]:
+                            dgncur_a[_idx3(i, k, nait, pcols, pver)] = dgnumlo_amode[nait - 1]
+                        else:
+                            dgncur_a[_idx3(i, k, nait, pcols, pver)] = (drv_a / (dumfac * num_a)) ** third
+                    else:
+                        dgncur_a[_idx3(i, k, nait, pcols, pver)] = dgnum_amode[nait - 1]
+
+                    if drv_a_acc > 0.0:
+                        if num_a_acc <= drv_a_acc * voltonumbhi_amode[nacc - 1]:
+                            dgncur_a[_idx3(i, k, nacc, pcols, pver)] = dgnumhi_amode[nacc - 1]
+                        elif num_a_acc >= drv_a_acc * voltonumblo_amode[nacc - 1]:
+                            dgncur_a[_idx3(i, k, nacc, pcols, pver)] = dgnumlo_amode[nacc - 1]
+                        else:
+                            dgncur_a[_idx3(i, k, nacc, pcols, pver)] = (
+                                drv_a_acc / (dumfac * num_a_acc)
+                            ) ** third
+                    else:
+                        dgncur_a[_idx3(i, k, nacc, pcols, pver)] = dgnum_amode[nacc - 1]
+
+                    j = 1
+                    while j <= 2:
+                        if ((j == 1) and (ixfer_ait2acc > 0)) or ((j == 2) and (ixfer_acc2ait > 0)):
+                            jsrflx = j + 2
+                            if j == 1:
+                                xfercoef = xfercoef_vol_ait2acc
+                            else:
+                                xfercoef = xfercoef_vol_acc2ait
+
+                            iq = 1
+                            while iq <= nspecfrm_pair1:
+                                jac = 1
+                                while jac <= 2:
+                                    lsfrm = 0
+                                    lstoo = 0
+                                    if j == 1:
+                                        if jac == 1:
+                                            lsfrm = lspecfrma_pair1[iq - 1]
+                                            lstoo = lspectooa_pair1[iq - 1]
+                                        else:
+                                            lsfrm = lspecfrmc_pair1[iq - 1]
+                                            lstoo = lspectooc_pair1[iq - 1]
+                                    else:
+                                        if jac == 1:
+                                            lsfrm = lspectooa_pair1[iq - 1]
+                                            lstoo = lspecfrma_pair1[iq - 1]
+                                        else:
+                                            lsfrm = lspectooc_pair1[iq - 1]
+                                            lstoo = lspecfrmc_pair1[iq - 1]
+
+                                    if (lsfrm > 0) and (lstoo > 0):
+                                        if jac == 1:
+                                            if iq == 1:
+                                                if j == 1:
+                                                    xfertend = xfertend_num_11
+                                                else:
+                                                    xfertend = xfertend_num_21
+                                            else:
+                                                xfertend = max(0.0, q[_idx3(i, k, lsfrm, pcols, pver)]) * xfercoef
+                                            dqdt[_idx3(i, k, lsfrm, pcols, pver)] = (
+                                                dqdt[_idx3(i, k, lsfrm, pcols, pver)] - xfertend
+                                            )
+                                            dqdt[_idx3(i, k, lstoo, pcols, pver)] = (
+                                                dqdt[_idx3(i, k, lstoo, pcols, pver)] + xfertend
+                                            )
+                                        else:
+                                            if iq == 1:
+                                                if j == 1:
+                                                    xfertend = xfertend_num_12
+                                                else:
+                                                    xfertend = xfertend_num_22
+                                            else:
+                                                xfertend = max(0.0, qqcw[_idx3(i, k, lsfrm, pcols, pver)]) * xfercoef
+                                            dqqcwdt[_idx3(i, k, lsfrm, pcols, pver)] = (
+                                                dqqcwdt[_idx3(i, k, lsfrm, pcols, pver)] - xfertend
+                                            )
+                                            dqqcwdt[_idx3(i, k, lstoo, pcols, pver)] = (
+                                                dqqcwdt[_idx3(i, k, lstoo, pcols, pver)] + xfertend
+                                            )
+
+                                        qsrflx[_idx4(i, lsfrm, jsrflx, jac, pcols, pcnst, 4)] = (
+                                            qsrflx[_idx4(i, lsfrm, jsrflx, jac, pcols, pcnst, 4)]
+                                            - xfertend * pdel_fac
+                                        )
+                                        qsrflx[_idx4(i, lstoo, jsrflx, jac, pcols, pcnst, 4)] = (
+                                            qsrflx[_idx4(i, lstoo, jsrflx, jac, pcols, pcnst, 4)]
+                                            + xfertend * pdel_fac
+                                        )
+
+                                    jac += 1
+                                iq += 1
+
+                        j += 1
+
+                i += 1
+            k += 1
+
+    lc = 1
+    while lc <= pcnst:
+        if dotendqqcw[lc - 1] != 0:
+            k = top_lev
+            while k <= pver:
+                i = 1
+                while i <= ncol:
+                    qqcw[_idx3(i, k, lc, pcols, pver)] = max(
+                        0.0,
+                        qqcw[_idx3(i, k, lc, pcols, pver)]
+                        + dqqcwdt[_idx3(i, k, lc, pcols, pver)] * deltat,
+                    )
+                    i += 1
+                k += 1
+        lc += 1

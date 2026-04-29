@@ -24,7 +24,7 @@ use ref_pres,         only: top_lev => clim_modal_aero_top_lev
 #ifdef MODAL_AERO
 
 ! these are the variables needed for the diagnostic calculation of dry radius
-use modal_aero_data, only: ntot_amode, nspec_amode, &
+use modal_aero_data, only: ntot_amode, nspec_amode, maxd_aspectype, &
                            numptr_amode, &
                            alnsg_amode, &
                            voltonumbhi_amode, voltonumblo_amode, &
@@ -39,7 +39,8 @@ use modal_aero_data,  only: numptrcw_amode, mprognum_amode, qqcw_get_field, lmas
            cnst_name_cw
 
 use modal_aero_rename, only: lspectooa_renamexf, lspecfrma_renamexf, lspectooc_renamexf, lspecfrmc_renamexf, &
-           modetoo_renamexf, nspecfrm_renamexf, npair_renamexf, modefrm_renamexf
+           modetoo_renamexf, nspecfrm_renamexf, npair_renamexf, modefrm_renamexf, &
+           maxpair_renamexf, maxspec_renamexf
 
 
 #endif
@@ -54,6 +55,10 @@ public :: modal_aero_calcsize_reg
 
 logical :: do_adjust_default
 logical :: do_aitacc_transfer_default
+logical :: modal_aero_calcsize_sub_use_native_impl = .false.
+logical :: modal_aero_calcsize_sub_impl_selected = .false.
+logical :: modal_aero_calcsize_sub_proof_written = .false.
+logical :: modal_aero_calcsize_sub_wrap_proof_written = .false.
 
 integer :: dgnum_idx = -1
 
@@ -248,7 +253,310 @@ end subroutine modal_aero_calcsize_init
 
 !===============================================================================
 
+subroutine modal_aero_calcsize_sub_append_impl_proof(env_name, proof_line)
+
+  character(len=*), intent(in) :: env_name, proof_line
+
+  character(len=512) :: proof_path
+  integer :: status, n, unit_id
+
+  call get_environment_variable(env_name, value=proof_path, length=n, status=status)
+  if (status /= 0 .or. n <= 0) return
+
+  open(newunit=unit_id, file=trim(adjustl(proof_path(:n))), status='unknown', action='write', &
+       position='append', iostat=status)
+  if (status /= 0) return
+
+  write(unit_id,'(A)') trim(proof_line)
+  close(unit_id)
+
+end subroutine modal_aero_calcsize_sub_append_impl_proof
+
+!===============================================================================
+!===============================================================================
+
+subroutine modal_aero_calcsize_sub_select_impl()
+
+  character(len=48) :: impl_name
+  integer :: status, n, i, code
+
+  if (modal_aero_calcsize_sub_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MODAL_AERO_CALCSIZE_SUB_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     modal_aero_calcsize_sub_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     modal_aero_calcsize_sub_use_native_impl = .false.
+  end if
+
+  modal_aero_calcsize_sub_impl_selected = .true.
+
+  if (masterproc) then
+     if (modal_aero_calcsize_sub_use_native_impl) then
+        write(iulog,*) 'modal_aero_calcsize_sub implementation = native'
+     else
+        write(iulog,*) 'modal_aero_calcsize_sub implementation = codon'
+        if (.not. modal_aero_calcsize_sub_proof_written) then
+           call modal_aero_calcsize_sub_append_impl_proof('MODAL_AERO_CALCSIZE_SUB_PROOF_FILE', &
+                'modal_aero_calcsize_sub selector entered implementation = codon')
+           modal_aero_calcsize_sub_proof_written = .true.
+        end if
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine modal_aero_calcsize_sub_select_impl
+
+!===============================================================================
+!===============================================================================
+
 subroutine modal_aero_calcsize_sub(state, ptend, deltat, pbuf, do_adjust_in, &
+   do_aitacc_transfer_in)
+
+   use iso_c_binding, only: c_int64_t
+
+   ! arguments
+   type(physics_state), target, intent(in)    :: state
+   type(physics_ptend), target, intent(inout) :: ptend
+   real(r8),                    intent(in)    :: deltat
+   type(physics_buffer_desc),   pointer       :: pbuf(:)
+
+   logical, optional :: do_adjust_in
+   logical, optional :: do_aitacc_transfer_in
+
+#ifdef MODAL_AERO
+
+   integer, parameter :: nsrflx = 4
+
+   logical :: do_adjust
+   logical :: do_aitacc_transfer
+
+   integer :: iq, jac, l, lchnk, lsfrm, lstoo, n, ncol
+
+   logical,  pointer :: dotend(:)
+   real(r8), pointer :: dqdt(:,:,:)
+   real(r8), pointer :: dgncur_a(:,:,:)
+   real(r8), pointer :: fldcw(:,:)
+   real(r8), pointer :: pdel(:,:)
+   real(r8), pointer :: q(:,:,:)
+
+   character(len=fieldname_len)   :: tmpnamea, tmpnameb
+   character(len=fieldname_len+3) :: fieldname
+
+   real(r8), target :: qqcw_work(pcols,pver,pcnst)
+   real(r8), target :: dqqcwdt_work(pcols,pver,pcnst)
+   real(r8), target :: qsrflx_work(pcols,pcnst,nsrflx,2)
+   real(r8), target :: dryvol_a_work(pcols,pver)
+   real(r8), target :: dryvol_c_work(pcols,pver)
+   real(r8), target :: drv_a_aitsv_work(pcols,pver), num_a_aitsv_work(pcols,pver)
+   real(r8), target :: drv_c_aitsv_work(pcols,pver), num_c_aitsv_work(pcols,pver)
+   real(r8), target :: drv_a_accsv_work(pcols,pver), num_a_accsv_work(pcols,pver)
+   real(r8), target :: drv_c_accsv_work(pcols,pver), num_c_accsv_work(pcols,pver)
+   real(r8), target :: dgnum_amode_work(ntot_amode)
+   real(r8), target :: dgnumhi_amode_work(ntot_amode)
+   real(r8), target :: dgnumlo_amode_work(ntot_amode)
+   real(r8), target :: alnsg_amode_work(ntot_amode)
+   real(r8), target :: voltonumb_amode_work(ntot_amode)
+   real(r8), target :: voltonumblo_amode_work(ntot_amode)
+   real(r8), target :: voltonumbhi_amode_work(ntot_amode)
+   real(r8), target :: specdens_amode_work(maxd_aspectype)
+
+   integer(c_int64_t) :: do_adjust_c, do_aitacc_transfer_c, nspecfrm_pair1_c
+   integer(c_int64_t), target :: dotend_mask(pcnst), dotendqqcw_mask(pcnst)
+   integer(c_int64_t), target :: mprognum_amode_c(ntot_amode)
+   integer(c_int64_t), target :: numptr_amode_c(ntot_amode), numptrcw_amode_c(ntot_amode)
+   integer(c_int64_t), target :: nspec_amode_c(ntot_amode)
+   integer(c_int64_t), target :: lspectype_amode_c(maxd_aspectype,ntot_amode)
+   integer(c_int64_t), target :: lmassptr_amode_c(maxd_aspectype,ntot_amode)
+   integer(c_int64_t), target :: lmassptrcw_amode_c(maxd_aspectype,ntot_amode)
+   integer(c_int64_t), target :: lspecfrma_pair1_c(maxspec_renamexf)
+   integer(c_int64_t), target :: lspecfrmc_pair1_c(maxspec_renamexf)
+   integer(c_int64_t), target :: lspectooa_pair1_c(maxspec_renamexf)
+   integer(c_int64_t), target :: lspectooc_pair1_c(maxspec_renamexf)
+
+   if (present(do_adjust_in)) then
+      do_adjust = do_adjust_in
+   else
+      do_adjust = do_adjust_default
+   end if
+
+   if (present(do_aitacc_transfer_in)) then
+      do_aitacc_transfer = do_aitacc_transfer_in
+   else
+      do_aitacc_transfer = do_aitacc_transfer_default
+   end if
+
+   call modal_aero_calcsize_sub_select_impl()
+   if (modal_aero_calcsize_sub_use_native_impl) then
+      call modal_aero_calcsize_sub_native(state, ptend, deltat, pbuf, do_adjust, do_aitacc_transfer)
+      return
+   end if
+
+   if (do_aitacc_transfer) then
+      if (npair_renamexf .le. 0) then
+         write( 6, '(//a//)' ) '*** modal_aero_calcaersize_sub error -- npair_renamexf <= 0'
+         call endrun( 'modal_aero_calcaersize_sub error' )
+      end if
+      if ((modefrm_renamexf(1) .ne. modeptr_aitken) .or. (modetoo_renamexf(1) .ne. modeptr_accum)) then
+         write( 6, '(//2a//)' ) '*** modal_aero_calcaersize_sub error -- ', 'modefrm/too_renamexf(1) are wrong'
+         call endrun( 'modal_aero_calcaersize_sub error' )
+      end if
+   end if
+
+   lchnk = state%lchnk
+   ncol  = state%ncol
+
+   pdel => state%pdel
+   q    => state%q
+   dotend => ptend%lq
+   dqdt   => ptend%q
+
+   call pbuf_get_field(pbuf, dgnum_idx, dgncur_a)
+
+   qqcw_work(:,:,:) = 0.0_r8
+   do l = 1, pcnst
+      nullify(fldcw)
+      fldcw => qqcw_get_field(pbuf, l, lchnk, .true.)
+      if (associated(fldcw)) then
+         qqcw_work(1:ncol,top_lev:pver,l) = fldcw(1:ncol,top_lev:pver)
+      end if
+   end do
+
+   dgnum_amode_work(:) = dgnum_amode(:)
+   dgnumhi_amode_work(:) = dgnumhi_amode(:)
+   dgnumlo_amode_work(:) = dgnumlo_amode(:)
+   alnsg_amode_work(:) = alnsg_amode(:)
+   voltonumb_amode_work(:) = voltonumb_amode(:)
+   voltonumblo_amode_work(:) = voltonumblo_amode(:)
+   voltonumbhi_amode_work(:) = voltonumbhi_amode(:)
+   specdens_amode_work(:) = specdens_amode(:)
+
+   do n = 1, ntot_amode
+      mprognum_amode_c(n) = int(mprognum_amode(n), c_int64_t)
+      numptr_amode_c(n) = int(numptr_amode(n), c_int64_t)
+      numptrcw_amode_c(n) = int(numptrcw_amode(n), c_int64_t)
+      nspec_amode_c(n) = int(nspec_amode(n), c_int64_t)
+      do l = 1, maxd_aspectype
+         lspectype_amode_c(l,n) = int(lspectype_amode(l,n), c_int64_t)
+         lmassptr_amode_c(l,n) = int(lmassptr_amode(l,n), c_int64_t)
+         lmassptrcw_amode_c(l,n) = int(lmassptrcw_amode(l,n), c_int64_t)
+      end do
+   end do
+
+   nspecfrm_pair1_c = 0_c_int64_t
+   lspecfrma_pair1_c(:) = 0_c_int64_t
+   lspecfrmc_pair1_c(:) = 0_c_int64_t
+   lspectooa_pair1_c(:) = 0_c_int64_t
+   lspectooc_pair1_c(:) = 0_c_int64_t
+   if (do_aitacc_transfer) then
+      nspecfrm_pair1_c = int(nspecfrm_renamexf(1), c_int64_t)
+      do iq = 1, nspecfrm_renamexf(1)
+         lspecfrma_pair1_c(iq) = int(lspecfrma_renamexf(iq,1), c_int64_t)
+         lspecfrmc_pair1_c(iq) = int(lspecfrmc_renamexf(iq,1), c_int64_t)
+         lspectooa_pair1_c(iq) = int(lspectooa_renamexf(iq,1), c_int64_t)
+         lspectooc_pair1_c(iq) = int(lspectooc_renamexf(iq,1), c_int64_t)
+      end do
+   end if
+
+   do_adjust_c = merge(1_c_int64_t, 0_c_int64_t, do_adjust)
+   do_aitacc_transfer_c = merge(1_c_int64_t, 0_c_int64_t, do_aitacc_transfer)
+   dotend_mask(:) = 0_c_int64_t
+   dotendqqcw_mask(:) = 0_c_int64_t
+
+   call modal_aero_calcsize_sub_codon_wrap( &
+        ncol, deltat, do_adjust_c, do_aitacc_transfer_c, q, qqcw_work, pdel, dqdt, dqqcwdt_work, qsrflx_work, &
+        dgncur_a, dryvol_a_work, dryvol_c_work, drv_a_aitsv_work, num_a_aitsv_work, drv_c_aitsv_work, &
+        num_c_aitsv_work, drv_a_accsv_work, num_a_accsv_work, drv_c_accsv_work, num_c_accsv_work, dotend_mask, &
+        dotendqqcw_mask, mprognum_amode_c, numptr_amode_c, numptrcw_amode_c, nspec_amode_c, lspectype_amode_c, &
+        lmassptr_amode_c, lmassptrcw_amode_c, dgnum_amode_work, dgnumhi_amode_work, dgnumlo_amode_work, &
+        alnsg_amode_work, voltonumb_amode_work, voltonumblo_amode_work, voltonumbhi_amode_work, &
+        specdens_amode_work, nspecfrm_pair1_c, lspecfrma_pair1_c, lspecfrmc_pair1_c, lspectooa_pair1_c, &
+        lspectooc_pair1_c )
+
+   do l = 1, pcnst
+      if (dotend_mask(l) /= 0_c_int64_t) dotend(l) = .true.
+      if (dotendqqcw_mask(l) == 0_c_int64_t) cycle
+      nullify(fldcw)
+      fldcw => qqcw_get_field(pbuf, l, lchnk, .true.)
+      if (.not. associated(fldcw)) cycle
+      fldcw(1:ncol,top_lev:pver) = qqcw_work(1:ncol,top_lev:pver,l)
+   end do
+
+   if ( .not. do_adjust ) return
+
+   do n = 1, ntot_amode
+      if (mprognum_amode(n) <= 0) cycle
+
+      do jac = 1, 2
+         if (jac == 1) then
+            l = numptr_amode(n)
+            tmpnamea = cnst_name(l)
+         else
+            l = numptrcw_amode(n)
+            tmpnamea = cnst_name_cw(l)
+         end if
+         fieldname = trim(tmpnamea) // '_sfcsiz1'
+         call outfld( fieldname, qsrflx_work(:,l,1,jac), pcols, lchnk)
+
+         fieldname = trim(tmpnamea) // '_sfcsiz2'
+         call outfld( fieldname, qsrflx_work(:,l,2,jac), pcols, lchnk)
+      end do
+   end do
+
+   if ( .not. do_aitacc_transfer ) return
+
+   do iq = 1, nspecfrm_renamexf(1)
+      do jac = 1, 2
+         if (jac .eq. 1) then
+            lsfrm = lspecfrma_renamexf(iq,1)
+            lstoo = lspectooa_renamexf(iq,1)
+         else
+            lsfrm = lspecfrmc_renamexf(iq,1)
+            lstoo = lspectooc_renamexf(iq,1)
+         end if
+         if ((lsfrm <= 0) .or. (lstoo <= 0)) cycle
+
+         if (jac .eq. 1) then
+            tmpnamea = cnst_name(lsfrm)
+            tmpnameb = cnst_name(lstoo)
+         else
+            tmpnamea = cnst_name_cw(lsfrm)
+            tmpnameb = cnst_name_cw(lstoo)
+         end if
+
+         fieldname = trim(tmpnamea) // '_sfcsiz3'
+         call outfld( fieldname, qsrflx_work(:,lsfrm,3,jac), pcols, lchnk)
+
+         fieldname = trim(tmpnameb) // '_sfcsiz3'
+         call outfld( fieldname, qsrflx_work(:,lstoo,3,jac), pcols, lchnk)
+
+         fieldname = trim(tmpnamea) // '_sfcsiz4'
+         call outfld( fieldname, qsrflx_work(:,lsfrm,4,jac), pcols, lchnk)
+
+         fieldname = trim(tmpnameb) // '_sfcsiz4'
+         call outfld( fieldname, qsrflx_work(:,lstoo,4,jac), pcols, lchnk)
+      end do
+   end do
+
+#else
+
+   call modal_aero_calcsize_sub_native(state, ptend, deltat, pbuf, do_adjust_in, do_aitacc_transfer_in)
+
+#endif
+
+end subroutine modal_aero_calcsize_sub
+
+!===============================================================================
+
+subroutine modal_aero_calcsize_sub_native(state, ptend, deltat, pbuf, do_adjust_in, &
    do_aitacc_transfer_in)
 
    !-----------------------------------------------------------------------
@@ -1171,8 +1479,105 @@ subroutine modal_aero_calcsize_sub(state, ptend, deltat, pbuf, do_adjust_in, &
 
 #endif
 
-end subroutine modal_aero_calcsize_sub
- 
+end subroutine modal_aero_calcsize_sub_native
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+
+subroutine modal_aero_calcsize_sub_codon_wrap( &
+     ncol, deltat, do_adjust_c, do_aitacc_transfer_c, q, qqcw, pdel, dqdt, dqqcwdt, qsrflx, dgncur_a, &
+     dryvol_a, dryvol_c, drv_a_aitsv, num_a_aitsv, drv_c_aitsv, num_c_aitsv, drv_a_accsv, num_a_accsv, &
+     drv_c_accsv, num_c_accsv, dotend_mask, dotendqqcw_mask, mprognum_amode_c, numptr_amode_c, &
+     numptrcw_amode_c, nspec_amode_c, lspectype_amode_c, lmassptr_amode_c, lmassptrcw_amode_c, &
+     dgnum_amode_work, dgnumhi_amode_work, dgnumlo_amode_work, alnsg_amode_work, voltonumb_amode_work, &
+     voltonumblo_amode_work, voltonumbhi_amode_work, specdens_amode_work, nspecfrm_pair1_c, &
+     lspecfrma_pair1_c, lspecfrmc_pair1_c, lspectooa_pair1_c, lspectooc_pair1_c )
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+  integer, intent(in) :: ncol
+  real(r8), intent(in) :: deltat
+  integer(c_int64_t), intent(in) :: do_adjust_c, do_aitacc_transfer_c, nspecfrm_pair1_c
+  real(r8), target, intent(inout) :: q(pcols,pver,pcnst), qqcw(pcols,pver,pcnst)
+  real(r8), target, intent(in) :: pdel(pcols,pver)
+  real(r8), target, intent(inout) :: dqdt(pcols,pver,pcnst), dqqcwdt(pcols,pver,pcnst)
+  real(r8), target, intent(inout) :: qsrflx(pcols,pcnst,4,2), dgncur_a(pcols,pver,ntot_amode)
+  real(r8), target, intent(inout) :: dryvol_a(pcols,pver), dryvol_c(pcols,pver)
+  real(r8), target, intent(inout) :: drv_a_aitsv(pcols,pver), num_a_aitsv(pcols,pver)
+  real(r8), target, intent(inout) :: drv_c_aitsv(pcols,pver), num_c_aitsv(pcols,pver)
+  real(r8), target, intent(inout) :: drv_a_accsv(pcols,pver), num_a_accsv(pcols,pver)
+  real(r8), target, intent(inout) :: drv_c_accsv(pcols,pver), num_c_accsv(pcols,pver)
+  integer(c_int64_t), target, intent(inout) :: dotend_mask(pcnst), dotendqqcw_mask(pcnst)
+  integer(c_int64_t), target, intent(in) :: mprognum_amode_c(ntot_amode)
+  integer(c_int64_t), target, intent(in) :: numptr_amode_c(ntot_amode), numptrcw_amode_c(ntot_amode)
+  integer(c_int64_t), target, intent(in) :: nspec_amode_c(ntot_amode)
+  integer(c_int64_t), target, intent(in) :: lspectype_amode_c(maxd_aspectype,ntot_amode)
+  integer(c_int64_t), target, intent(in) :: lmassptr_amode_c(maxd_aspectype,ntot_amode)
+  integer(c_int64_t), target, intent(in) :: lmassptrcw_amode_c(maxd_aspectype,ntot_amode)
+  real(r8), target, intent(in) :: dgnum_amode_work(ntot_amode), dgnumhi_amode_work(ntot_amode)
+  real(r8), target, intent(in) :: dgnumlo_amode_work(ntot_amode), alnsg_amode_work(ntot_amode)
+  real(r8), target, intent(in) :: voltonumb_amode_work(ntot_amode), voltonumblo_amode_work(ntot_amode)
+  real(r8), target, intent(in) :: voltonumbhi_amode_work(ntot_amode), specdens_amode_work(maxd_aspectype)
+  integer(c_int64_t), target, intent(in) :: lspecfrma_pair1_c(maxspec_renamexf)
+  integer(c_int64_t), target, intent(in) :: lspecfrmc_pair1_c(maxspec_renamexf)
+  integer(c_int64_t), target, intent(in) :: lspectooa_pair1_c(maxspec_renamexf)
+  integer(c_int64_t), target, intent(in) :: lspectooc_pair1_c(maxspec_renamexf)
+
+  character(len=96) :: wrap_proof_line
+
+  interface
+     subroutine modal_aero_calcsize_sub_codon( &
+          ncol_c, pcols_c, pver_c, pcnst_c, top_lev_c, ntot_amode_c, maxd_aspectype_c, maxspec_renamexf_c, &
+          nait_c, nacc_c, do_adjust_c, do_aitacc_transfer_c, nspecfrm_pair1_c, deltat_c, gravit_c, q_p, qqcw_p, &
+          pdel_p, dqdt_p, dqqcwdt_p, qsrflx_p, dgncur_a_p, dryvol_a_p, dryvol_c_p, drv_a_aitsv_p, num_a_aitsv_p, &
+          drv_c_aitsv_p, num_c_aitsv_p, drv_a_accsv_p, num_a_accsv_p, drv_c_accsv_p, num_c_accsv_p, dotend_p, &
+          dotendqqcw_p, mprognum_amode_p, numptr_amode_p, numptrcw_amode_p, nspec_amode_p, lspectype_amode_p, &
+          lmassptr_amode_p, lmassptrcw_amode_p, dgnum_amode_p, dgnumhi_amode_p, dgnumlo_amode_p, alnsg_amode_p, &
+          voltonumb_amode_p, voltonumblo_amode_p, voltonumbhi_amode_p, specdens_amode_p, lspecfrma_pair1_p, &
+          lspecfrmc_pair1_p, lspectooa_pair1_p, lspectooc_pair1_p) bind(c, name="modal_aero_calcsize_sub_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, top_lev_c, ntot_amode_c
+       integer(c_int64_t), value :: maxd_aspectype_c, maxspec_renamexf_c, nait_c, nacc_c
+       integer(c_int64_t), value :: do_adjust_c, do_aitacc_transfer_c, nspecfrm_pair1_c
+       real(c_double), value :: deltat_c, gravit_c
+       type(c_ptr), value :: q_p, qqcw_p, pdel_p, dqdt_p, dqqcwdt_p, qsrflx_p, dgncur_a_p
+       type(c_ptr), value :: dryvol_a_p, dryvol_c_p, drv_a_aitsv_p, num_a_aitsv_p, drv_c_aitsv_p, num_c_aitsv_p
+       type(c_ptr), value :: drv_a_accsv_p, num_a_accsv_p, drv_c_accsv_p, num_c_accsv_p, dotend_p, dotendqqcw_p
+       type(c_ptr), value :: mprognum_amode_p, numptr_amode_p, numptrcw_amode_p, nspec_amode_p
+       type(c_ptr), value :: lspectype_amode_p, lmassptr_amode_p, lmassptrcw_amode_p
+       type(c_ptr), value :: dgnum_amode_p, dgnumhi_amode_p, dgnumlo_amode_p, alnsg_amode_p
+       type(c_ptr), value :: voltonumb_amode_p, voltonumblo_amode_p, voltonumbhi_amode_p, specdens_amode_p
+       type(c_ptr), value :: lspecfrma_pair1_p, lspecfrmc_pair1_p, lspectooa_pair1_p, lspectooc_pair1_p
+     end subroutine modal_aero_calcsize_sub_codon
+  end interface
+
+  if (masterproc .and. .not. modal_aero_calcsize_sub_wrap_proof_written) then
+     wrap_proof_line = 'modal_aero_calcsize_sub_codon_wrap entered'
+     write(iulog,'(A)') trim(wrap_proof_line)
+     call modal_aero_calcsize_sub_append_impl_proof('MODAL_AERO_CALCSIZE_SUB_PROOF_FILE', trim(wrap_proof_line))
+     modal_aero_calcsize_sub_wrap_proof_written = .true.
+     call flush(iulog)
+  end if
+
+  call modal_aero_calcsize_sub_codon( &
+       int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+       int(top_lev, c_int64_t), int(ntot_amode, c_int64_t), int(maxd_aspectype, c_int64_t), &
+       int(maxspec_renamexf, c_int64_t), int(modeptr_aitken, c_int64_t), int(modeptr_accum, c_int64_t), &
+       do_adjust_c, do_aitacc_transfer_c, nspecfrm_pair1_c, real(deltat, c_double), real(gravit, c_double), &
+       c_loc(q(1,1,1)), c_loc(qqcw(1,1,1)), c_loc(pdel(1,1)), c_loc(dqdt(1,1,1)), c_loc(dqqcwdt(1,1,1)), &
+       c_loc(qsrflx(1,1,1,1)), c_loc(dgncur_a(1,1,1)), c_loc(dryvol_a(1,1)), c_loc(dryvol_c(1,1)), &
+       c_loc(drv_a_aitsv(1,1)), c_loc(num_a_aitsv(1,1)), c_loc(drv_c_aitsv(1,1)), c_loc(num_c_aitsv(1,1)), &
+       c_loc(drv_a_accsv(1,1)), c_loc(num_a_accsv(1,1)), c_loc(drv_c_accsv(1,1)), c_loc(num_c_accsv(1,1)), &
+       c_loc(dotend_mask(1)), c_loc(dotendqqcw_mask(1)), c_loc(mprognum_amode_c(1)), c_loc(numptr_amode_c(1)), &
+       c_loc(numptrcw_amode_c(1)), c_loc(nspec_amode_c(1)), c_loc(lspectype_amode_c(1,1)), &
+       c_loc(lmassptr_amode_c(1,1)), c_loc(lmassptrcw_amode_c(1,1)), c_loc(dgnum_amode_work(1)), &
+       c_loc(dgnumhi_amode_work(1)), c_loc(dgnumlo_amode_work(1)), c_loc(alnsg_amode_work(1)), &
+       c_loc(voltonumb_amode_work(1)), c_loc(voltonumblo_amode_work(1)), c_loc(voltonumbhi_amode_work(1)), &
+       c_loc(specdens_amode_work(1)), c_loc(lspecfrma_pair1_c(1)), c_loc(lspecfrmc_pair1_c(1)), &
+       c_loc(lspectooa_pair1_c(1)), c_loc(lspectooc_pair1_c(1)) )
+
+end subroutine modal_aero_calcsize_sub_codon_wrap
+
 
 !----------------------------------------------------------------------
 
