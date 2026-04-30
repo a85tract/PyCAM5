@@ -96,6 +96,7 @@ module aero_model
   logical :: aero_model_wetdep_impl_selected = .false.
   logical :: aero_model_wetdep_proof_written = .false.
   logical :: aero_model_wetdep_wrap_proof_written = .false.
+  logical :: aero_model_wetdep_fullshell_wrap_proof_written = .false.
   logical :: aero_model_wetdep_mode_phase_wrap_proof_written = .false.
   logical :: aero_model_wetdep_mode_phase_use_interstitial = .true.
   logical :: aero_model_wetdep_mode_phase_use_cloudborne = .true.
@@ -1143,7 +1144,7 @@ contains
     ! local vars
 
     integer :: m ! tracer index
-    logical :: use_mode_phase_direct
+    logical :: use_mode_phase_direct, use_fullshell_direct
 
     integer :: lchnk ! chunk identifier
     integer :: ncol ! number of atmospheric columns
@@ -1199,22 +1200,23 @@ contains
     real(r8) :: codon_dummy1d(pcols)
     real(r8), pointer :: fldcw(:,:)
     type(c_ptr) :: qqcw_ptrs(pcnst)
-    integer(c_int64_t) :: wetdep_slot_active(wetdep_mode_phase_nslot)
-    integer(c_int64_t) :: wetdep_slot_mm(wetdep_mode_phase_nslot)
-    integer(c_int64_t) :: wetdep_slot_jnv(wetdep_mode_phase_nslot)
-    integer(c_int64_t) :: wetdep_slot_mass_kind(wetdep_mode_phase_nslot)
-    real(r8) :: wetdep_slot_hygro_scale(wetdep_mode_phase_nslot)
-    real(r8) :: wetdep_qqcw_mode_phase(pcols,pver,wetdep_mode_phase_nslot)
-    real(r8) :: wetdep_diag_dqdt(pcols,pver,wetdep_mode_phase_nslot)
-    real(r8) :: wetdep_diag_icscavt(pcols,pver,wetdep_mode_phase_nslot)
-    real(r8) :: wetdep_diag_isscavt(pcols,pver,wetdep_mode_phase_nslot)
-    real(r8) :: wetdep_diag_bcscavt(pcols,pver,wetdep_mode_phase_nslot)
-    real(r8) :: wetdep_diag_bsscavt(pcols,pver,wetdep_mode_phase_nslot)
-    real(r8) :: wetdep_diag_sflx(pcols,wetdep_mode_phase_nslot)
-    real(r8) :: wetdep_diag_sflx_ics(pcols,wetdep_mode_phase_nslot)
-    real(r8) :: wetdep_diag_sflx_iss(pcols,wetdep_mode_phase_nslot)
-    real(r8) :: wetdep_diag_sflx_bcs(pcols,wetdep_mode_phase_nslot)
-    real(r8) :: wetdep_diag_sflx_bss(pcols,wetdep_mode_phase_nslot)
+    integer(c_int64_t) :: wetdep_phase_active(2,ntot_amode)
+    integer(c_int64_t) :: wetdep_slot_active(wetdep_mode_phase_nslot,2,ntot_amode)
+    integer(c_int64_t) :: wetdep_slot_mm(wetdep_mode_phase_nslot,2,ntot_amode)
+    integer(c_int64_t) :: wetdep_slot_jnv(wetdep_mode_phase_nslot,2,ntot_amode)
+    integer(c_int64_t) :: wetdep_slot_mass_kind(wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8) :: wetdep_slot_hygro_scale(wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8) :: wetdep_qqcw_mode_phase(pcols,pver,wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8) :: wetdep_diag_dqdt(pcols,pver,wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8) :: wetdep_diag_icscavt(pcols,pver,wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8) :: wetdep_diag_isscavt(pcols,pver,wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8) :: wetdep_diag_bcscavt(pcols,pver,wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8) :: wetdep_diag_bsscavt(pcols,pver,wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8) :: wetdep_diag_sflx(pcols,wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8) :: wetdep_diag_sflx_ics(pcols,wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8) :: wetdep_diag_sflx_iss(pcols,wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8) :: wetdep_diag_sflx_bcs(pcols,wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8) :: wetdep_diag_sflx_bss(pcols,wetdep_mode_phase_nslot,2,ntot_amode)
 
     real(r8), pointer :: dgnumwet(:,:,:)
     real(r8), pointer :: qaerwat(:,:,:)  ! aerosol water
@@ -1288,55 +1290,84 @@ contains
 
     scavcoefnv(:,:,0) = 0.0_r8 ! below-cloud scavcoef = 0.0 for cloud-borne species
 
+    ! The interstitial phase updates qqcw, so the parent-shell batched path is
+    ! only order-safe when both phases stay inside the same Codon call.
+    use_fullshell_direct = .not. aero_model_wetdep_use_native_impl
+    use_fullshell_direct = use_fullshell_direct .and. aero_model_wetdep_mode_phase_use_interstitial
+    use_fullshell_direct = use_fullshell_direct .and. aero_model_wetdep_mode_phase_use_cloudborne
+
+    wetdep_phase_active(:,:) = 0_c_int64_t
+    if (use_fullshell_direct) then
+       call aero_model_wetdep_fullshell_codon_wrap( &
+            ncol, dt, state%pmid, state%q(:,:,1), state%pdel, dep_inputs%cldt, dep_inputs%cldcu, dep_inputs%cmfdqr, &
+            dep_inputs%evapc, dep_inputs%conicw, dep_inputs%prain, dep_inputs%qme, dep_inputs%evapr, &
+            dep_inputs%totcond, dep_inputs%cldvcu, dep_inputs%cldvst, dlf, isprx, dgnumwet, state%q, ptend%q, &
+            fracis, f_act_conv_coarse, qqcw_ptrs, wetdep_phase_active, wetdep_slot_active, wetdep_slot_mm, &
+            wetdep_slot_jnv, wetdep_slot_mass_kind, wetdep_slot_hygro_scale, wetdep_qqcw_mode_phase, &
+            wetdep_diag_dqdt, wetdep_diag_icscavt, wetdep_diag_isscavt, wetdep_diag_bcscavt, wetdep_diag_bsscavt, &
+            wetdep_diag_sflx, wetdep_diag_sflx_ics, wetdep_diag_sflx_iss, wetdep_diag_sflx_bcs, &
+            wetdep_diag_sflx_bss )
+    end if
+
     do m = 1, ntot_amode ! main loop over aerosol modes
 
        do lphase = 1, 2 ! loop over interstitial (1) and cloud-borne (2) forms
 
-          use_mode_phase_direct = .not. aero_model_wetdep_use_native_impl
-          if (lphase == 1) use_mode_phase_direct = use_mode_phase_direct .and. aero_model_wetdep_mode_phase_use_interstitial
-          if (lphase == 2) use_mode_phase_direct = use_mode_phase_direct .and. aero_model_wetdep_mode_phase_use_cloudborne
+          if (use_fullshell_direct) then
+             use_mode_phase_direct = wetdep_phase_active(lphase,m) /= 0_c_int64_t
+          else
+             use_mode_phase_direct = .not. aero_model_wetdep_use_native_impl
+             if (lphase == 1) use_mode_phase_direct = use_mode_phase_direct .and. aero_model_wetdep_mode_phase_use_interstitial
+             if (lphase == 2) use_mode_phase_direct = use_mode_phase_direct .and. aero_model_wetdep_mode_phase_use_cloudborne
+          end if
 
           if (use_mode_phase_direct) then
-             call aero_model_wetdep_mode_phase_codon_wrap( &
-                  m, lphase, ncol, dt, state%pmid, state%q(:,:,1), state%pdel, dep_inputs%cldt, dep_inputs%cldcu, &
-                  dep_inputs%cmfdqr, dep_inputs%evapc, dep_inputs%conicw, dep_inputs%prain, dep_inputs%qme, &
-                  dep_inputs%evapr, dep_inputs%totcond, dep_inputs%cldvcu, dep_inputs%cldvst, dlf, isprx, dgnumwet, &
-                  state%q, ptend%q, qaerwat(:,:,m), fracis, f_act_conv_coarse, qqcw_ptrs, wetdep_slot_active, &
-                  wetdep_slot_mm, wetdep_slot_jnv, wetdep_slot_mass_kind, wetdep_slot_hygro_scale, wetdep_qqcw_mode_phase, &
-                  q_tmp, iscavt, f_act_conv, sol_factic, hygro_sum_old, hygro_sum_del, scavcoefnv(:,:,1), &
-                  scavcoefnv(:,:,2), wetdep_diag_dqdt, wetdep_diag_icscavt, wetdep_diag_isscavt, wetdep_diag_bcscavt, &
-                  wetdep_diag_bsscavt, wetdep_diag_sflx, wetdep_diag_sflx_ics, wetdep_diag_sflx_iss, wetdep_diag_sflx_bcs, &
-                  wetdep_diag_sflx_bss )
+             if (.not. use_fullshell_direct) then
+                call aero_model_wetdep_mode_phase_codon_wrap( &
+                     m, lphase, ncol, dt, state%pmid, state%q(:,:,1), state%pdel, dep_inputs%cldt, dep_inputs%cldcu, &
+                     dep_inputs%cmfdqr, dep_inputs%evapc, dep_inputs%conicw, dep_inputs%prain, dep_inputs%qme, &
+                     dep_inputs%evapr, dep_inputs%totcond, dep_inputs%cldvcu, dep_inputs%cldvst, dlf, isprx, dgnumwet, &
+                     state%q, ptend%q, qaerwat(:,:,m), fracis, f_act_conv_coarse, qqcw_ptrs, wetdep_slot_active(:,lphase,m), &
+                     wetdep_slot_mm(:,lphase,m), wetdep_slot_jnv(:,lphase,m), wetdep_slot_mass_kind(:,lphase,m), &
+                     wetdep_slot_hygro_scale(:,lphase,m), wetdep_qqcw_mode_phase(:,:,:,lphase,m), q_tmp, iscavt, f_act_conv, &
+                     sol_factic, hygro_sum_old, hygro_sum_del, scavcoefnv(:,:,1), scavcoefnv(:,:,2), &
+                     wetdep_diag_dqdt(:,:,:,lphase,m), wetdep_diag_icscavt(:,:,:,lphase,m), wetdep_diag_isscavt(:,:,:,lphase,m), &
+                     wetdep_diag_bcscavt(:,:,:,lphase,m), wetdep_diag_bsscavt(:,:,:,lphase,m), wetdep_diag_sflx(:,:,lphase,m), &
+                     wetdep_diag_sflx_ics(:,:,lphase,m), wetdep_diag_sflx_iss(:,:,lphase,m), wetdep_diag_sflx_bcs(:,:,lphase,m), &
+                     wetdep_diag_sflx_bss(:,:,lphase,m) )
+             end if
 
              if (lphase == 1) then
                 do lspec = 1, wetdep_mode_phase_nslot
-                   if (wetdep_slot_active(lspec) == 0_c_int64_t) cycle
-                   mm = int(wetdep_slot_mm(lspec))
+                   if (wetdep_slot_active(lspec,lphase,m) == 0_c_int64_t) cycle
+                   mm = int(wetdep_slot_mm(lspec,lphase,m))
                    ptend%lq(mm) = .TRUE.
-                   call outfld( trim(cnst_name(mm))//'WET', wetdep_diag_dqdt(:,:,lspec), pcols, lchnk)
-                   call outfld( trim(cnst_name(mm))//'SIC', wetdep_diag_icscavt(:,:,lspec), pcols, lchnk)
-                   call outfld( trim(cnst_name(mm))//'SIS', wetdep_diag_isscavt(:,:,lspec), pcols, lchnk)
-                   call outfld( trim(cnst_name(mm))//'SBC', wetdep_diag_bcscavt(:,:,lspec), pcols, lchnk)
-                   call outfld( trim(cnst_name(mm))//'SBS', wetdep_diag_bsscavt(:,:,lspec), pcols, lchnk)
-                   aerdepwetis(:ncol,mm) = wetdep_diag_sflx(:ncol,lspec)
-                   call outfld( trim(cnst_name(mm))//'SFWET', wetdep_diag_sflx(:,lspec), pcols, lchnk)
-                   call outfld( trim(cnst_name(mm))//'SFSIC', wetdep_diag_sflx_ics(:,lspec), pcols, lchnk)
-                   call outfld( trim(cnst_name(mm))//'SFSIS', wetdep_diag_sflx_iss(:,lspec), pcols, lchnk)
-                   call outfld( trim(cnst_name(mm))//'SFSBC', wetdep_diag_sflx_bcs(:,lspec), pcols, lchnk)
-                   call outfld( trim(cnst_name(mm))//'SFSBS', wetdep_diag_sflx_bss(:,lspec), pcols, lchnk)
+                   call outfld( trim(cnst_name(mm))//'WET', wetdep_diag_dqdt(:,:,lspec,lphase,m), pcols, lchnk)
+                   call outfld( trim(cnst_name(mm))//'SIC', wetdep_diag_icscavt(:,:,lspec,lphase,m), pcols, lchnk)
+                   call outfld( trim(cnst_name(mm))//'SIS', wetdep_diag_isscavt(:,:,lspec,lphase,m), pcols, lchnk)
+                   call outfld( trim(cnst_name(mm))//'SBC', wetdep_diag_bcscavt(:,:,lspec,lphase,m), pcols, lchnk)
+                   call outfld( trim(cnst_name(mm))//'SBS', wetdep_diag_bsscavt(:,:,lspec,lphase,m), pcols, lchnk)
+                   aerdepwetis(:ncol,mm) = wetdep_diag_sflx(:ncol,lspec,lphase,m)
+                   call outfld( trim(cnst_name(mm))//'SFWET', wetdep_diag_sflx(:,lspec,lphase,m), pcols, lchnk)
+                   call outfld( trim(cnst_name(mm))//'SFSIC', wetdep_diag_sflx_ics(:,lspec,lphase,m), pcols, lchnk)
+                   call outfld( trim(cnst_name(mm))//'SFSIS', wetdep_diag_sflx_iss(:,lspec,lphase,m), pcols, lchnk)
+                   call outfld( trim(cnst_name(mm))//'SFSBC', wetdep_diag_sflx_bcs(:,lspec,lphase,m), pcols, lchnk)
+                   call outfld( trim(cnst_name(mm))//'SFSBS', wetdep_diag_sflx_bss(:,lspec,lphase,m), pcols, lchnk)
                 end do
              else
                 do lspec = 1, wetdep_mode_phase_nslot
-                   if (wetdep_slot_active(lspec) == 0_c_int64_t) cycle
-                   mm = int(wetdep_slot_mm(lspec))
-                   call aero_model_wetdep_resolve_qqcw_ptr(qqcw_ptrs, mm, fldcw)
-                   fldcw(:ncol,:) = wetdep_qqcw_mode_phase(:ncol,:,lspec)
-                   aerdepwetcw(:ncol,mm) = wetdep_diag_sflx(:ncol,lspec)
-                   call outfld( trim(cnst_name_cw(mm))//'SFWET', wetdep_diag_sflx(:,lspec), pcols, lchnk)
-                   call outfld( trim(cnst_name_cw(mm))//'SFSIC', wetdep_diag_sflx_ics(:,lspec), pcols, lchnk)
-                   call outfld( trim(cnst_name_cw(mm))//'SFSIS', wetdep_diag_sflx_iss(:,lspec), pcols, lchnk)
-                   call outfld( trim(cnst_name_cw(mm))//'SFSBC', wetdep_diag_sflx_bcs(:,lspec), pcols, lchnk)
-                   call outfld( trim(cnst_name_cw(mm))//'SFSBS', wetdep_diag_sflx_bss(:,lspec), pcols, lchnk)
+                   if (wetdep_slot_active(lspec,lphase,m) == 0_c_int64_t) cycle
+                   mm = int(wetdep_slot_mm(lspec,lphase,m))
+                   if (.not. use_fullshell_direct) then
+                      call aero_model_wetdep_resolve_qqcw_ptr(qqcw_ptrs, mm, fldcw)
+                      fldcw(:ncol,:) = wetdep_qqcw_mode_phase(:ncol,:,lspec,lphase,m)
+                   end if
+                   aerdepwetcw(:ncol,mm) = wetdep_diag_sflx(:ncol,lspec,lphase,m)
+                   call outfld( trim(cnst_name_cw(mm))//'SFWET', wetdep_diag_sflx(:,lspec,lphase,m), pcols, lchnk)
+                   call outfld( trim(cnst_name_cw(mm))//'SFSIC', wetdep_diag_sflx_ics(:,lspec,lphase,m), pcols, lchnk)
+                   call outfld( trim(cnst_name_cw(mm))//'SFSIS', wetdep_diag_sflx_iss(:,lspec,lphase,m), pcols, lchnk)
+                   call outfld( trim(cnst_name_cw(mm))//'SFSBC', wetdep_diag_sflx_bcs(:,lspec,lphase,m), pcols, lchnk)
+                   call outfld( trim(cnst_name_cw(mm))//'SFSBS', wetdep_diag_sflx_bss(:,lspec,lphase,m), pcols, lchnk)
                 end do
              end if
 
@@ -1691,6 +1722,261 @@ contains
     call c_f_pointer(qqcw_ptrs(qqcw_index), fldcw, (/pcols, pver/))
 
   end subroutine aero_model_wetdep_resolve_qqcw_ptr
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_wetdep_fullshell_codon_wrap(ncol, dt, pmid, q1, pdel, cldt, cldcu, cmfdqr, &
+                                                    evapc, conicw, prain, qme, evapr, totcond, cldvcu, cldvst, dlf, &
+                                                    isprx, dgnumwet, state_q, ptend_q, fracis_full, f_act_conv_coarse, &
+                                                    qqcw_ptrs, phase_active, slot_active, slot_mm, slot_jnv, &
+                                                    slot_mass_kind, slot_hygro_scale, qqcw_mode_phase, diag_dqdt, &
+                                                    diag_icscavt, diag_isscavt, diag_bcscavt, diag_bsscavt, diag_sflx, &
+                                                    diag_sflx_ics, diag_sflx_iss, diag_sflx_bcs, diag_sflx_bss)
+
+    use modal_aero_data
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), intent(in) :: dt
+    real(r8), target, intent(in) :: pmid(pcols,pver), q1(pcols,pver), pdel(pcols,pver), cldt(pcols,pver), cldcu(pcols,pver)
+    real(r8), target, intent(in) :: cmfdqr(pcols,pver), evapc(pcols,pver), conicw(pcols,pver), prain(pcols,pver)
+    real(r8), target, intent(in) :: qme(pcols,pver), evapr(pcols,pver), totcond(pcols,pver), cldvcu(pcols,pver)
+    real(r8), target, intent(in) :: cldvst(pcols,pver), dlf(pcols,pver), dgnumwet(pcols,pver,ntot_amode)
+    logical, intent(in) :: isprx(pcols,pver)
+    real(r8), target, intent(in) :: state_q(pcols,pver,pcnst), f_act_conv_coarse(pcols,pver)
+    real(r8), target, intent(inout) :: ptend_q(pcols,pver,pcnst), fracis_full(pcols,pver,pcnst)
+    type(c_ptr), intent(in) :: qqcw_ptrs(pcnst)
+    integer(c_int64_t), target, intent(inout) :: phase_active(2,ntot_amode)
+    integer(c_int64_t), target, intent(inout) :: slot_active(wetdep_mode_phase_nslot,2,ntot_amode)
+    integer(c_int64_t), target, intent(inout) :: slot_mm(wetdep_mode_phase_nslot,2,ntot_amode)
+    integer(c_int64_t), target, intent(inout) :: slot_jnv(wetdep_mode_phase_nslot,2,ntot_amode)
+    integer(c_int64_t), target, intent(inout) :: slot_mass_kind(wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8), target, intent(inout) :: slot_hygro_scale(wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8), target, intent(inout) :: qqcw_mode_phase(pcols,pver,wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8), target, intent(inout) :: diag_dqdt(pcols,pver,wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8), target, intent(inout) :: diag_icscavt(pcols,pver,wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8), target, intent(inout) :: diag_isscavt(pcols,pver,wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8), target, intent(inout) :: diag_bcscavt(pcols,pver,wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8), target, intent(inout) :: diag_bsscavt(pcols,pver,wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8), target, intent(inout) :: diag_sflx(pcols,wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8), target, intent(inout) :: diag_sflx_ics(pcols,wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8), target, intent(inout) :: diag_sflx_iss(pcols,wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8), target, intent(inout) :: diag_sflx_bcs(pcols,wetdep_mode_phase_nslot,2,ntot_amode)
+    real(r8), target, intent(inout) :: diag_sflx_bss(pcols,wetdep_mode_phase_nslot,2,ntot_amode)
+
+    integer :: i, k, m, lphase, lspec, slot, mm_local, jnv_local
+    logical :: use_mode_phase_direct
+    real(r8) :: omsm
+    real(r8), target :: phase_sol_factb(2,ntot_amode), phase_sol_facti(2,ntot_amode)
+    real(r8), target :: phase_sol_factic_scalar(2,ntot_amode), phase_base_f_act_scalar(2,ntot_amode)
+    real(r8), target :: phase_dgnum_mode(ntot_amode)
+    real(r8), target :: scavimptblnum_all(nimptblgrow_mind:nimptblgrow_maxd,ntot_amode)
+    real(r8), target :: scavimptblvol_all(nimptblgrow_mind:nimptblgrow_maxd,ntot_amode)
+    integer(c_int64_t), target :: phase_is_coarse_interstitial(2,ntot_amode), isprx_mask(pcols,pver)
+    real(r8), target :: q_tmp_work(pcols,pver), hygro_sum_old(pcols,pver), hygro_sum_del(pcols,pver)
+    real(r8), target :: scavcoefnum(pcols,pver), scavcoefvol(pcols,pver), scavcoef_work(pcols,pver)
+    real(r8), target :: iscavt_work(pcols,pver), f_act_conv_work(pcols,pver), sol_factic_work(pcols,pver)
+    real(r8), target :: fracis_dummy_work(pcols,pver), wetdep_dblchek_hist(pcols,pver), wetdep_srct_hist(pcols,pver)
+    real(r8), target :: wetdep_rat_hist(pcols,pver), wetdep_fracev_hist(pcols,pver)
+    real(r8), target :: wetdep_clds(pcols), wetdep_fracev(pcols), wetdep_fracev_cu(pcols), wetdep_fracp(pcols)
+    real(r8), target :: wetdep_pdog(pcols), wetdep_rpdog(pcols), wetdep_precabc(pcols), wetdep_precabs(pcols)
+    real(r8), target :: wetdep_rat(pcols), wetdep_scavab(pcols), wetdep_scavabc(pcols), wetdep_srcc(pcols)
+    real(r8), target :: wetdep_srcs(pcols), wetdep_srct(pcols), wetdep_fins(pcols), wetdep_finc(pcols)
+    real(r8), target :: wetdep_conv_scav_ic(pcols), wetdep_conv_scav_bc(pcols), wetdep_st_scav_ic(pcols)
+    real(r8), target :: wetdep_st_scav_bc(pcols), wetdep_odds(pcols), wetdep_dblchek(pcols), wetdep_trac_qqcw(pcols)
+    real(r8), target :: wetdep_tracer_incu(pcols), wetdep_tracer_mean(pcols)
+    real(r8), pointer :: fldcw(:,:)
+    character(len=192) :: wrap_proof_line
+
+    interface
+       subroutine aero_model_wetdep_fullshell_codon(ncol_c, pcols_c, pver_c, ntot_amode_c, nslot_max_c, &
+            nimptblgrow_mind_c, nimptblgrow_maxd_c, dt_c, gravit_c, omsm_c, dlndg_nimptblgrow_c, &
+            f_act_conv_coarse_dust_c, f_act_conv_coarse_nacl_c, pmid_p, q1_p, pdel_p, cldt_p, cldcu_p, cmfdqr_p, &
+            evapc_p, conicw_p, prain_p, qme_p, evapr_p, totcond_p, cldvcu_p, cldvst_p, dlf_p, phase_active_p, &
+            phase_sol_factb_p, phase_sol_facti_p, phase_sol_factic_scalar_p, phase_base_f_act_scalar_p, &
+            phase_dgnum_mode_p, phase_is_coarse_interstitial_p, isprx_mask_p, dgnumwet_p, scavimptblnum_all_p, &
+            scavimptblvol_all_p, state_q_p, ptend_q_p, fracis_full_p, f_act_conv_coarse_p, qqcw_mode_phase_p, &
+            q_tmp_work_p, hygro_sum_old_p, hygro_sum_del_p, scavcoefnum_p, scavcoefvol_p, scavcoef_work_p, &
+            iscavt_work_p, f_act_conv_work_p, sol_factic_work_p, slot_active_p, slot_mm_p, slot_jnv_p, &
+            slot_mass_kind_p, slot_hygro_scale_p, diag_dqdt_p, diag_icscavt_p, diag_isscavt_p, diag_bcscavt_p, &
+            diag_bsscavt_p, diag_sflx_p, diag_sflx_ics_p, diag_sflx_iss_p, diag_sflx_bcs_p, diag_sflx_bss_p, &
+            clds_p, fracev_p, fracev_cu_p, fracp_p, pdog_p, rpdog_p, precabc_p, precabs_p, rat_p, scavab_p, &
+            scavabc_p, srcc_p, srcs_p, srct_p, fins_p, finc_p, conv_scav_ic_p, conv_scav_bc_p, st_scav_ic_p, &
+            st_scav_bc_p, odds_p, dblchek_p, trac_qqcw_p, tracer_incu_p, tracer_mean_p, fracis_dummy_p, &
+            dblchek_hist_p, srct_hist_p, rat_hist_p, fracev_hist_p) bind(c, name="aero_model_wetdep_fullshell_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, ntot_amode_c, nslot_max_c
+         integer(c_int64_t), value :: nimptblgrow_mind_c, nimptblgrow_maxd_c
+         real(c_double), value :: dt_c, gravit_c, omsm_c, dlndg_nimptblgrow_c
+         real(c_double), value :: f_act_conv_coarse_dust_c, f_act_conv_coarse_nacl_c
+         type(c_ptr), value :: pmid_p, q1_p, pdel_p, cldt_p, cldcu_p, cmfdqr_p, evapc_p, conicw_p, prain_p, qme_p
+         type(c_ptr), value :: evapr_p, totcond_p, cldvcu_p, cldvst_p, dlf_p, phase_active_p, phase_sol_factb_p
+         type(c_ptr), value :: phase_sol_facti_p, phase_sol_factic_scalar_p, phase_base_f_act_scalar_p
+         type(c_ptr), value :: phase_dgnum_mode_p, phase_is_coarse_interstitial_p, isprx_mask_p, dgnumwet_p
+         type(c_ptr), value :: scavimptblnum_all_p, scavimptblvol_all_p, state_q_p, ptend_q_p, fracis_full_p
+         type(c_ptr), value :: f_act_conv_coarse_p, qqcw_mode_phase_p, q_tmp_work_p, hygro_sum_old_p
+         type(c_ptr), value :: hygro_sum_del_p, scavcoefnum_p, scavcoefvol_p, scavcoef_work_p, iscavt_work_p
+         type(c_ptr), value :: f_act_conv_work_p, sol_factic_work_p, slot_active_p, slot_mm_p, slot_jnv_p
+         type(c_ptr), value :: slot_mass_kind_p, slot_hygro_scale_p, diag_dqdt_p, diag_icscavt_p, diag_isscavt_p
+         type(c_ptr), value :: diag_bcscavt_p, diag_bsscavt_p, diag_sflx_p, diag_sflx_ics_p, diag_sflx_iss_p
+         type(c_ptr), value :: diag_sflx_bcs_p, diag_sflx_bss_p, clds_p, fracev_p, fracev_cu_p, fracp_p, pdog_p
+         type(c_ptr), value :: rpdog_p, precabc_p, precabs_p, rat_p, scavab_p, scavabc_p, srcc_p, srcs_p, srct_p
+         type(c_ptr), value :: fins_p, finc_p, conv_scav_ic_p, conv_scav_bc_p, st_scav_ic_p, st_scav_bc_p, odds_p
+         type(c_ptr), value :: dblchek_p, trac_qqcw_p, tracer_incu_p, tracer_mean_p, fracis_dummy_p
+         type(c_ptr), value :: dblchek_hist_p, srct_hist_p, rat_hist_p, fracev_hist_p
+       end subroutine aero_model_wetdep_fullshell_codon
+    end interface
+
+    phase_active(:,:) = 0_c_int64_t
+    phase_sol_factb(:,:) = 0.0_r8
+    phase_sol_facti(:,:) = 0.0_r8
+    phase_sol_factic_scalar(:,:) = 0.0_r8
+    phase_base_f_act_scalar(:,:) = 0.0_r8
+    phase_dgnum_mode(:) = 0.0_r8
+    scavimptblnum_all(:,:) = scavimptblnum(:,:)
+    scavimptblvol_all(:,:) = scavimptblvol(:,:)
+    phase_is_coarse_interstitial(:,:) = 0_c_int64_t
+    slot_active(:,:,:) = 0_c_int64_t
+    slot_mm(:,:,:) = 0_c_int64_t
+    slot_jnv(:,:,:) = 0_c_int64_t
+    slot_mass_kind(:,:,:) = 0_c_int64_t
+    slot_hygro_scale(:,:,:) = 0.0_r8
+    qqcw_mode_phase(:,:,:,:,:) = 0.0_r8
+    diag_dqdt(:,:,:,:,:) = 0.0_r8
+    diag_icscavt(:,:,:,:,:) = 0.0_r8
+    diag_isscavt(:,:,:,:,:) = 0.0_r8
+    diag_bcscavt(:,:,:,:,:) = 0.0_r8
+    diag_bsscavt(:,:,:,:,:) = 0.0_r8
+    diag_sflx(:,:,:,:) = 0.0_r8
+    diag_sflx_ics(:,:,:,:) = 0.0_r8
+    diag_sflx_iss(:,:,:,:) = 0.0_r8
+    diag_sflx_bcs(:,:,:,:) = 0.0_r8
+    diag_sflx_bss(:,:,:,:) = 0.0_r8
+
+    do k = 1, pver
+       do i = 1, ncol
+          isprx_mask(i,k) = merge(1_c_int64_t, 0_c_int64_t, isprx(i,k))
+       end do
+    end do
+
+    do m = 1, ntot_amode
+       phase_dgnum_mode(m) = dgnum_amode(m)
+       do lphase = 1, 2
+          use_mode_phase_direct = .false.
+          if (lphase == 1) use_mode_phase_direct = aero_model_wetdep_mode_phase_use_interstitial
+          if (lphase == 2) use_mode_phase_direct = aero_model_wetdep_mode_phase_use_cloudborne
+          if (.not. use_mode_phase_direct) cycle
+
+          phase_active(lphase,m) = 1_c_int64_t
+          if (lphase == 1) then
+             phase_sol_factb(lphase,m) = sol_factb_interstitial
+             phase_sol_facti(lphase,m) = 0.0_r8
+             phase_sol_factic_scalar(lphase,m) = sol_factic_interstitial
+             if (m == modeptr_pcarbon) then
+                phase_base_f_act_scalar(lphase,m) = 0.0_r8
+             else if ((m == modeptr_finedust) .or. (m == modeptr_coardust)) then
+                phase_base_f_act_scalar(lphase,m) = 0.4_r8
+             else
+                phase_base_f_act_scalar(lphase,m) = 0.8_r8
+             end if
+             phase_is_coarse_interstitial(lphase,m) = merge(1_c_int64_t, 0_c_int64_t, m == modeptr_coarse)
+          else
+             phase_sol_factb(lphase,m) = 0.0_r8
+             phase_sol_facti(lphase,m) = sol_facti_cloud_borne
+             phase_sol_factic_scalar(lphase,m) = 0.0_r8
+             phase_base_f_act_scalar(lphase,m) = 0.0_r8
+             phase_is_coarse_interstitial(lphase,m) = 0_c_int64_t
+          end if
+
+          do lspec = 0, nspec_amode(m)+1
+             slot = lspec + 1
+             if (lspec == 0) then
+                if (lphase == 1) then
+                   mm_local = numptr_amode(m)
+                   jnv_local = 1
+                else
+                   mm_local = numptrcw_amode(m)
+                   jnv_local = 0
+                end if
+             else if (lspec <= nspec_amode(m)) then
+                if (lphase == 1) then
+                   mm_local = lmassptr_amode(lspec,m)
+                   jnv_local = 2
+                else
+                   mm_local = lmassptrcw_amode(lspec,m)
+                   jnv_local = 0
+                end if
+             else
+                cycle
+             end if
+
+             if (mm_local <= 0) cycle
+
+             slot_active(slot,lphase,m) = 1_c_int64_t
+             slot_mm(slot,lphase,m) = int(mm_local, c_int64_t)
+             slot_jnv(slot,lphase,m) = int(jnv_local, c_int64_t)
+
+             if ((lphase == 1) .and. (lspec > 0)) then
+                slot_hygro_scale(slot,lphase,m) = spechygro(lspectype_amode(lspec,m)) / &
+                     specdens_amode(lspectype_amode(lspec,m))
+                if (m == modeptr_coarse) then
+                   if (lmassptr_amode(lspec,m) == lptr_dust_a_amode(m)) then
+                      slot_mass_kind(slot,lphase,m) = 1_c_int64_t
+                   else if (lmassptr_amode(lspec,m) == lptr_nacl_a_amode(m)) then
+                      slot_mass_kind(slot,lphase,m) = 2_c_int64_t
+                   end if
+                end if
+             end if
+
+             call aero_model_wetdep_resolve_qqcw_ptr(qqcw_ptrs, mm_local, fldcw)
+             qqcw_mode_phase(:ncol,:,slot,lphase,m) = fldcw(:ncol,:)
+          end do
+       end do
+    end do
+
+    if (masterproc .and. .not. aero_model_wetdep_fullshell_wrap_proof_written) then
+       wrap_proof_line = 'aero_model_wetdep_fullshell_codon_wrap entered (mode_phase parent shell = codon)'
+       write(iulog,'(A)') trim(wrap_proof_line)
+       call aero_model_wetdep_append_impl_proof('AERO_MODEL_WETDEP_PROOF_FILE', trim(wrap_proof_line))
+       aero_model_wetdep_fullshell_wrap_proof_written = .true.
+       call flush(iulog)
+    end if
+
+    omsm = 1._r8 - 2*epsilon(1._r8)
+    call aero_model_wetdep_fullshell_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(ntot_amode, c_int64_t), &
+         int(wetdep_mode_phase_nslot, c_int64_t), int(nimptblgrow_mind, c_int64_t), int(nimptblgrow_maxd, c_int64_t), &
+         real(dt, c_double), real(gravit, c_double), real(omsm, c_double), real(dlndg_nimptblgrow, c_double), &
+         real(0.40_r8, c_double), real(0.80_r8, c_double), c_loc(pmid), c_loc(q1), c_loc(pdel), c_loc(cldt), &
+         c_loc(cldcu), c_loc(cmfdqr), c_loc(evapc), c_loc(conicw), c_loc(prain), c_loc(qme), c_loc(evapr), &
+         c_loc(totcond), c_loc(cldvcu), c_loc(cldvst), c_loc(dlf), c_loc(phase_active), c_loc(phase_sol_factb), &
+         c_loc(phase_sol_facti), c_loc(phase_sol_factic_scalar), c_loc(phase_base_f_act_scalar), c_loc(phase_dgnum_mode), &
+         c_loc(phase_is_coarse_interstitial), c_loc(isprx_mask), c_loc(dgnumwet), c_loc(scavimptblnum_all(nimptblgrow_mind,1)), &
+         c_loc(scavimptblvol_all(nimptblgrow_mind,1)), c_loc(state_q), c_loc(ptend_q), c_loc(fracis_full), &
+         c_loc(f_act_conv_coarse), c_loc(qqcw_mode_phase), c_loc(q_tmp_work), c_loc(hygro_sum_old), c_loc(hygro_sum_del), &
+         c_loc(scavcoefnum), c_loc(scavcoefvol), c_loc(scavcoef_work), c_loc(iscavt_work), c_loc(f_act_conv_work), &
+         c_loc(sol_factic_work), c_loc(slot_active), c_loc(slot_mm), c_loc(slot_jnv), c_loc(slot_mass_kind), &
+         c_loc(slot_hygro_scale), c_loc(diag_dqdt), c_loc(diag_icscavt), c_loc(diag_isscavt), c_loc(diag_bcscavt), &
+         c_loc(diag_bsscavt), c_loc(diag_sflx), c_loc(diag_sflx_ics), c_loc(diag_sflx_iss), c_loc(diag_sflx_bcs), &
+         c_loc(diag_sflx_bss), c_loc(wetdep_clds), c_loc(wetdep_fracev), c_loc(wetdep_fracev_cu), c_loc(wetdep_fracp), &
+         c_loc(wetdep_pdog), c_loc(wetdep_rpdog), c_loc(wetdep_precabc), c_loc(wetdep_precabs), c_loc(wetdep_rat), &
+         c_loc(wetdep_scavab), c_loc(wetdep_scavabc), c_loc(wetdep_srcc), c_loc(wetdep_srcs), c_loc(wetdep_srct), &
+         c_loc(wetdep_fins), c_loc(wetdep_finc), c_loc(wetdep_conv_scav_ic), c_loc(wetdep_conv_scav_bc), &
+         c_loc(wetdep_st_scav_ic), c_loc(wetdep_st_scav_bc), c_loc(wetdep_odds), c_loc(wetdep_dblchek), &
+         c_loc(wetdep_trac_qqcw), c_loc(wetdep_tracer_incu), c_loc(wetdep_tracer_mean), c_loc(fracis_dummy_work), &
+         c_loc(wetdep_dblchek_hist), c_loc(wetdep_srct_hist), c_loc(wetdep_rat_hist), c_loc(wetdep_fracev_hist) &
+    )
+
+    do m = 1, ntot_amode
+       if (phase_active(2,m) == 0_c_int64_t) cycle
+       do slot = 1, wetdep_mode_phase_nslot
+          if (slot_active(slot,2,m) == 0_c_int64_t) cycle
+          call aero_model_wetdep_resolve_qqcw_ptr(qqcw_ptrs, int(slot_mm(slot,2,m)), fldcw)
+          fldcw(:ncol,:) = qqcw_mode_phase(:ncol,:,slot,2,m)
+       end do
+    end do
+
+  end subroutine aero_model_wetdep_fullshell_codon_wrap
 
   !=============================================================================
   !=============================================================================
