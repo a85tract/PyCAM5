@@ -29,6 +29,9 @@
 
 ! !PUBLIC MEMBER FUNCTIONS:
   public modal_aero_rename_sub, modal_aero_rename_init
+  public modal_accum_coarse_exch, factoraa, factoryy, dryvol_smallest
+  public v2nlorlx, v2nhirlx, factor_3alnsg2, dp_cut, lndp_cut, dp_belowcut
+  public dp_xfernone_threshaa, dp_xferall_thresh
 
 ! !PUBLIC DATA MEMBERS:
   integer, parameter :: pcnstxx = gas_pcnst

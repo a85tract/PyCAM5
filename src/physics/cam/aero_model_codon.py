@@ -5528,6 +5528,215 @@ def modal_aero_gasaerexch_sub_shell_codon(
 
 
 @export
+def modal_aero_gasaerexch_sub_postshell_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnstxx: int,
+    top_lev: int,
+    maxpair_renamexf: int,
+    maxspec_renamexf: int,
+    loffset: int,
+    npair_renamexf: int,
+    is_dorename_atik: int,
+    l_dqdt_rnpos: int,
+    jsrflx_gaexch: int,
+    jsrflx_rename: int,
+    nsrflx: int,
+    modeptr_coarse: int,
+    modeptr_accum: int,
+    method_optbb: int,
+    deltat: float,
+    deltatinv: float,
+    onethird: float,
+    xferfrac_max: float,
+    gravit: float,
+    mwdry: float,
+    troplev_p: cobj,
+    pdel_p: cobj,
+    dorename_atik_p: cobj,
+    q_p: cobj,
+    qqcw_p: cobj,
+    dqdt_p: cobj,
+    dqdt_other_p: cobj,
+    dqqcwdt_p: cobj,
+    dqqcwdt_other_p: cobj,
+    qsrflx_p: cobj,
+    qqcwsrflx_p: cobj,
+    modefrm_renamexf_p: cobj,
+    modetoo_renamexf_p: cobj,
+    nspec_amode_p: cobj,
+    lspectype_amode_p: cobj,
+    specmw_amode_p: cobj,
+    specdens_amode_p: cobj,
+    lmassptr_amode_p: cobj,
+    lmassptrcw_amode_p: cobj,
+    numptr_amode_p: cobj,
+    numptrcw_amode_p: cobj,
+    dgnum_amode_p: cobj,
+    factoraa_p: cobj,
+    factoryy_p: cobj,
+    dryvol_smallest_p: cobj,
+    v2nlorlx_p: cobj,
+    v2nhirlx_p: cobj,
+    factor_3alnsg2_p: cobj,
+    dp_cut_p: cobj,
+    lndp_cut_p: cobj,
+    dp_belowcut_p: cobj,
+    dp_xfernone_threshaa_p: cobj,
+    dp_xferall_thresh_p: cobj,
+    igrow_shrink_renamexf_p: cobj,
+    ixferable_all_renamexf_p: cobj,
+    ixferable_a_renamexf_p: cobj,
+    ixferable_c_renamexf_p: cobj,
+    nspecfrm_renamexf_p: cobj,
+    lspecfrma_renamexf_p: cobj,
+    lspecfrmc_renamexf_p: cobj,
+    lspectooa_renamexf_p: cobj,
+    lspectooc_renamexf_p: cobj,
+    dryvol_a_p: cobj,
+    dryvol_c_p: cobj,
+    deldryvol_a_p: cobj,
+    deldryvol_c_p: cobj,
+    dryvol_a_xfab_p: cobj,
+    dryvol_c_xfab_p: cobj,
+    xferfrac_vol_p: cobj,
+    xferfrac_num_p: cobj,
+    adv_mass_p: cobj,
+    dotend_p: cobj,
+    dotendqqcw_p: cobj,
+    dotendrn_p: cobj,
+    dotendqqcwrn_p: cobj,
+    dqdt_rnpos_p: cobj,
+):
+    modal_aero_rename_acc_crs_sub_codon(
+        ncol,
+        pcols,
+        pver,
+        pcnstxx,
+        maxpair_renamexf,
+        maxspec_renamexf,
+        loffset,
+        npair_renamexf,
+        is_dorename_atik,
+        l_dqdt_rnpos,
+        jsrflx_rename,
+        nsrflx,
+        modeptr_coarse,
+        modeptr_accum,
+        method_optbb,
+        deltat,
+        deltatinv,
+        onethird,
+        xferfrac_max,
+        gravit,
+        troplev_p,
+        pdel_p,
+        dorename_atik_p,
+        q_p,
+        qqcw_p,
+        dqdt_p,
+        dqdt_other_p,
+        dqqcwdt_p,
+        dqqcwdt_other_p,
+        qsrflx_p,
+        qqcwsrflx_p,
+        modefrm_renamexf_p,
+        modetoo_renamexf_p,
+        nspec_amode_p,
+        lspectype_amode_p,
+        specmw_amode_p,
+        specdens_amode_p,
+        lmassptr_amode_p,
+        lmassptrcw_amode_p,
+        numptr_amode_p,
+        numptrcw_amode_p,
+        dgnum_amode_p,
+        factoraa_p,
+        factoryy_p,
+        dryvol_smallest_p,
+        v2nlorlx_p,
+        v2nhirlx_p,
+        factor_3alnsg2_p,
+        dp_cut_p,
+        lndp_cut_p,
+        dp_belowcut_p,
+        dp_xfernone_threshaa_p,
+        dp_xferall_thresh_p,
+        igrow_shrink_renamexf_p,
+        ixferable_all_renamexf_p,
+        ixferable_a_renamexf_p,
+        ixferable_c_renamexf_p,
+        nspecfrm_renamexf_p,
+        lspecfrma_renamexf_p,
+        lspecfrmc_renamexf_p,
+        lspectooa_renamexf_p,
+        lspectooc_renamexf_p,
+        dryvol_a_p,
+        dryvol_c_p,
+        deldryvol_a_p,
+        deldryvol_c_p,
+        dryvol_a_xfab_p,
+        dryvol_c_xfab_p,
+        xferfrac_vol_p,
+        xferfrac_num_p,
+        dotendrn_p,
+        dotendqqcwrn_p,
+        dqdt_rnpos_p,
+    )
+
+    q = Ptr[float](q_p)
+    qqcw = Ptr[float](qqcw_p)
+    dqdt = Ptr[float](dqdt_p)
+    dqqcwdt = Ptr[float](dqqcwdt_p)
+    qsrflx = Ptr[float](qsrflx_p)
+    qqcwsrflx = Ptr[float](qqcwsrflx_p)
+    adv_mass = Ptr[float](adv_mass_p)
+    dotend = Ptr[int](dotend_p)
+    dotendqqcw = Ptr[int](dotendqqcw_p)
+    dotendrn = Ptr[int](dotendrn_p)
+    dotendqqcwrn = Ptr[int](dotendqqcwrn_p)
+
+    for l in range(1, pcnstxx + 1):
+        if dotend[l - 1] != 0 or dotendrn[l - 1] != 0:
+            for k in range(top_lev, pver + 1):
+                for i in range(1, ncol + 1):
+                    idx = _idx3(i, k, l, ncol, pver)
+                    q[idx] = q[idx] + dqdt[idx] * deltat
+
+        if dotendqqcw[l - 1] != 0 or dotendqqcwrn[l - 1] != 0:
+            for k in range(top_lev, pver + 1):
+                for i in range(1, ncol + 1):
+                    idx = _idx3(i, k, l, ncol, pver)
+                    qqcw[idx] = qqcw[idx] + dqqcwdt[idx] * deltat
+
+    for l in range(1, pcnstxx + 1):
+        for jsrf in range(1, nsrflx + 1):
+            if jsrf == jsrflx_gaexch:
+                if dotend[l - 1] == 0:
+                    continue
+            elif jsrf == jsrflx_rename:
+                if dotendrn[l - 1] == 0:
+                    continue
+            else:
+                continue
+
+            scale = adv_mass[l - 1] / mwdry
+            for i in range(1, ncol + 1):
+                idx = _idx3(i, l, jsrf, pcols, pcnstxx)
+                qsrflx[idx] = qsrflx[idx] * scale
+
+    for l in range(1, pcnstxx + 1):
+        if dotendqqcwrn[l - 1] == 0:
+            continue
+
+        scale = adv_mass[l - 1] / mwdry
+        for i in range(1, ncol + 1):
+            idx = _idx3(i, l, jsrflx_rename, pcols, pcnstxx)
+            qqcwsrflx[idx] = qqcwsrflx[idx] * scale
+
+
+@export
 def modal_aero_rename_no_acc_crs_dryvols_codon(
     ncol: int,
     pver: int,

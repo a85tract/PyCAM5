@@ -58,6 +58,7 @@
   logical :: modal_aero_gasaerexch_sub_direct_proof_written = .false.
   logical :: modal_aero_gasaerexch_sub_wrap_proof_written = .false.
   logical :: modal_aero_gasaerexch_sub_shell_proof_written = .false.
+  logical :: modal_aero_gasaerexch_sub_postshell_proof_written = .false.
   logical :: gas_aer_uptkrates_use_native_impl = .false.
   logical :: gas_aer_uptkrates_impl_selected = .false.
   logical :: modal_aero_soaexch_use_native_impl = .false.
@@ -488,12 +489,21 @@ subroutine modal_aero_gasaerexch_sub(                            &
                         sulfeq         )
 
 ! !USES:
-use modal_aero_data,   only:  alnsg_amode,lmassptr_amode,cnst_name_cw
+use modal_aero_data,   only:  alnsg_amode,lmassptr_amode,lmassptrcw_amode,cnst_name_cw
 use modal_aero_data,   only:  lptr_so4_a_amode,lptr_nh4_a_amode,lptr_soa_a_amode,lptr_pom_a_amode
 use modal_aero_data,   only:  specmw_so4_amode,specmw_nh4_amode,specmw_soa_amode
 use modal_aero_data,   only:  specdens_so4_amode,specdens_nh4_amode,specdens_soa_amode
-use modal_aero_data,   only:  modeptr_pcarbon,nspec_amode,lspectype_amode,specmw_amode,specdens_amode
-use modal_aero_rename, only:  modal_aero_rename_sub
+use modal_aero_data,   only:  modeptr_pcarbon,modeptr_coarse,modeptr_accum
+use modal_aero_data,   only:  nspec_amode,lspectype_amode,specmw_amode,specdens_amode,dgnum_amode,numptrcw_amode
+use modal_aero_rename, only:  modal_aero_rename_sub, modal_accum_coarse_exch
+use modal_aero_rename, only:  maxpair_renamexf, maxspec_renamexf, method_optbb_renamexf
+use modal_aero_rename, only:  npair_renamexf, modefrm_renamexf, modetoo_renamexf, nspecfrm_renamexf
+use modal_aero_rename, only:  lspecfrma_renamexf, lspecfrmc_renamexf, lspectooa_renamexf, lspectooc_renamexf
+use modal_aero_rename, only:  igrow_shrink_renamexf, ixferable_all_renamexf
+use modal_aero_rename, only:  ixferable_a_renamexf, ixferable_c_renamexf
+use modal_aero_rename, only:  factoraa, factoryy, dryvol_smallest, v2nlorlx, v2nhirlx
+use modal_aero_rename, only:  factor_3alnsg2, dp_cut, lndp_cut, dp_belowcut
+use modal_aero_rename, only:  dp_xfernone_threshaa, dp_xferall_thresh
 
 use cam_history,       only:  outfld, fieldname_len
 use chem_mods,         only:  adv_mass
@@ -581,13 +591,31 @@ implicit none
    integer(c_int64_t), target :: lspecfrm_c(maxspec_pcage), lspectoo_c(maxspec_pcage)
    integer(c_int64_t), target :: numptr_c(ntot_amode)
    integer(c_int64_t), target :: troplev_c(pcols)
+   integer(c_int64_t), target :: dorename_atik_c(ncol,pver)
+   integer(c_int64_t), target :: modefrm_renamexf_c(maxpair_renamexf), modetoo_renamexf_c(maxpair_renamexf)
+   integer(c_int64_t), target :: nspec_amode_rename_c(ntot_amode)
+   integer(c_int64_t), target :: numptr_amode_rename_c(ntot_amode), numptrcw_amode_rename_c(ntot_amode)
+   integer(c_int64_t), target :: lspectype_amode_rename_c(maxspec_renamexf,ntot_amode)
+   integer(c_int64_t), target :: lmassptr_amode_rename_c(maxspec_renamexf,ntot_amode)
+   integer(c_int64_t), target :: lmassptrcw_amode_rename_c(maxspec_renamexf,ntot_amode)
+   integer(c_int64_t), target :: igrow_shrink_renamexf_c(maxpair_renamexf), ixferable_all_renamexf_c(maxpair_renamexf)
+   integer(c_int64_t), target :: ixferable_a_renamexf_c(maxspec_renamexf,maxpair_renamexf)
+   integer(c_int64_t), target :: ixferable_c_renamexf_c(maxspec_renamexf,maxpair_renamexf)
+   integer(c_int64_t), target :: nspecfrm_renamexf_c(maxpair_renamexf)
+   integer(c_int64_t), target :: lspecfrma_renamexf_c(maxspec_renamexf,maxpair_renamexf)
+   integer(c_int64_t), target :: lspecfrmc_renamexf_c(maxspec_renamexf,maxpair_renamexf)
+   integer(c_int64_t), target :: lspectooa_renamexf_c(maxspec_renamexf,maxpair_renamexf)
+   integer(c_int64_t), target :: lspectooc_renamexf_c(maxspec_renamexf,maxpair_renamexf)
    integer(c_int64_t), target :: dotend_mask(pcnstxx), dotendqqcw_mask(pcnstxx)
    integer(c_int64_t), target :: dotendrn_mask(pcnstxx), dotendqqcwrn_mask(pcnstxx)
+   integer(c_int64_t), target :: dotendrn_c(pcnstxx), dotendqqcwrn_c(pcnstxx)
    integer(c_int64_t), target :: niter_soa_work
 
    logical :: is_dorename_atik, dorename_atik(ncol,pver)
+   logical :: rename_sub_native, rename_acc_crs_sub_native, use_postshell_direct_codon
 
    character(len=fieldname_len+3) :: fieldname
+   character(len=32) :: rename_sub_impl_name, rename_acc_crs_sub_impl_name
 
    real (r8) :: avg_uprt_nh4, avg_uprt_so4, avg_uprt_soa
    real (r8) :: deltatxx
@@ -620,6 +648,18 @@ implicit none
    real (r8), target :: beta_soa(ntot_amode), g_star_soa(ntot_amode)
    real (r8), target :: phi_soa(ntot_amode), sat_soa(ntot_amode)
    real (r8), target :: g_soa_tend_work
+   real (r8), target :: specmw_amode_rename_c(size(specmw_amode)), specdens_amode_rename_c(size(specdens_amode))
+   real (r8), target :: dgnum_amode_rename_c(ntot_amode)
+   real (r8), target :: factoraa_rename_c(ntot_amode), factoryy_rename_c(ntot_amode)
+   real (r8), target :: dryvol_smallest_rename_c(ntot_amode)
+   real (r8), target :: v2nlorlx_rename_c(ntot_amode), v2nhirlx_rename_c(ntot_amode)
+   real (r8), target :: factor_3alnsg2_rename_c(maxpair_renamexf), dp_cut_rename_c(maxpair_renamexf)
+   real (r8), target :: lndp_cut_rename_c(maxpair_renamexf), dp_belowcut_rename_c(maxpair_renamexf)
+   real (r8), target :: dp_xfernone_threshaa_rename_c(maxpair_renamexf), dp_xferall_thresh_rename_c(maxpair_renamexf)
+   real (r8), target :: dryvol_a_rename(ncol,pver), dryvol_c_rename(ncol,pver)
+   real (r8), target :: deldryvol_a_rename(ncol,pver), deldryvol_c_rename(ncol,pver)
+   real (r8), target :: dryvol_a_xfab_rename(ncol,pver), dryvol_c_xfab_rename(ncol,pver)
+   real (r8), target :: xferfrac_vol_ik_rename(ncol,pver), xferfrac_num_ik_rename(ncol,pver)
 
    logical  :: do_msag         ! true if msa gas is a species
    logical  :: do_nh4g         ! true if nh3 gas is a species
@@ -649,6 +689,7 @@ implicit none
    real(r8), target :: qqcwold(ncol,pver,pcnstxx)
    real(r8), target :: dqdtsv1(ncol,pver,pcnstxx)
    real(r8), target :: dqqcwdtsv1(ncol,pver,pcnstxx)
+   integer :: impl_status, impl_len, impl_code, impl_i, ipair
 
 
 !----------------------------------------------------------------------
@@ -784,6 +825,79 @@ implicit none
          troplev_c(i) = int(troplev(i), c_int64_t)
       end do
       adv_mass_work(:) = adv_mass(1:pcnstxx)
+
+      rename_sub_native = .false.
+      rename_acc_crs_sub_native = .false.
+      rename_sub_impl_name = 'codon'
+      rename_acc_crs_sub_impl_name = 'codon'
+
+      call get_environment_variable('MODAL_AERO_RENAME_SUB_IMPL', value=rename_sub_impl_name, &
+           length=impl_len, status=impl_status)
+      if (impl_status == 0 .and. impl_len > 0) then
+         do impl_i = 1, impl_len
+            impl_code = iachar(rename_sub_impl_name(impl_i:impl_i))
+            if (impl_code >= iachar('A') .and. impl_code <= iachar('Z')) then
+               rename_sub_impl_name(impl_i:impl_i) = achar(impl_code + iachar('a') - iachar('A'))
+            end if
+         end do
+         rename_sub_native = trim(adjustl(rename_sub_impl_name(:impl_len))) == 'native'
+      end if
+
+      call get_environment_variable('MODAL_AERO_RENAME_ACC_CRS_SUB_IMPL', value=rename_acc_crs_sub_impl_name, &
+           length=impl_len, status=impl_status)
+      if (impl_status == 0 .and. impl_len > 0) then
+         do impl_i = 1, impl_len
+            impl_code = iachar(rename_acc_crs_sub_impl_name(impl_i:impl_i))
+            if (impl_code >= iachar('A') .and. impl_code <= iachar('Z')) then
+               rename_acc_crs_sub_impl_name(impl_i:impl_i) = achar(impl_code + iachar('a') - iachar('A'))
+            end if
+         end do
+         rename_acc_crs_sub_native = trim(adjustl(rename_acc_crs_sub_impl_name(:impl_len))) == 'native'
+      end if
+
+      use_postshell_direct_codon = modal_accum_coarse_exch .and. (.not. rename_sub_native) .and. (.not. rename_acc_crs_sub_native)
+
+      specmw_amode_rename_c(:) = specmw_amode(:)
+      specdens_amode_rename_c(:) = specdens_amode(:)
+      dgnum_amode_rename_c(:) = dgnum_amode(:)
+      factoraa_rename_c(:) = factoraa(:)
+      factoryy_rename_c(:) = factoryy(:)
+      dryvol_smallest_rename_c(:) = dryvol_smallest(:)
+      v2nlorlx_rename_c(:) = v2nlorlx(:)
+      v2nhirlx_rename_c(:) = v2nhirlx(:)
+      factor_3alnsg2_rename_c(:) = factor_3alnsg2(:)
+      dp_cut_rename_c(:) = dp_cut(:)
+      lndp_cut_rename_c(:) = lndp_cut(:)
+      dp_belowcut_rename_c(:) = dp_belowcut(:)
+      dp_xfernone_threshaa_rename_c(:) = dp_xfernone_threshaa(:)
+      dp_xferall_thresh_rename_c(:) = dp_xferall_thresh(:)
+
+      do ipair = 1, maxpair_renamexf
+         modefrm_renamexf_c(ipair) = int(modefrm_renamexf(ipair), c_int64_t)
+         modetoo_renamexf_c(ipair) = int(modetoo_renamexf(ipair), c_int64_t)
+         igrow_shrink_renamexf_c(ipair) = int(igrow_shrink_renamexf(ipair), c_int64_t)
+         ixferable_all_renamexf_c(ipair) = int(ixferable_all_renamexf(ipair), c_int64_t)
+         nspecfrm_renamexf_c(ipair) = int(nspecfrm_renamexf(ipair), c_int64_t)
+         do iq = 1, maxspec_renamexf
+            ixferable_a_renamexf_c(iq,ipair) = int(ixferable_a_renamexf(iq,ipair), c_int64_t)
+            ixferable_c_renamexf_c(iq,ipair) = int(ixferable_c_renamexf(iq,ipair), c_int64_t)
+            lspecfrma_renamexf_c(iq,ipair) = int(lspecfrma_renamexf(iq,ipair), c_int64_t)
+            lspecfrmc_renamexf_c(iq,ipair) = int(lspecfrmc_renamexf(iq,ipair), c_int64_t)
+            lspectooa_renamexf_c(iq,ipair) = int(lspectooa_renamexf(iq,ipair), c_int64_t)
+            lspectooc_renamexf_c(iq,ipair) = int(lspectooc_renamexf(iq,ipair), c_int64_t)
+         end do
+      end do
+
+      do n = 1, ntot_amode
+         nspec_amode_rename_c(n) = int(nspec_amode(n), c_int64_t)
+         numptr_amode_rename_c(n) = int(numptr_amode(n), c_int64_t)
+         numptrcw_amode_rename_c(n) = int(numptrcw_amode(n), c_int64_t)
+         do iq = 1, maxspec_renamexf
+            lspectype_amode_rename_c(iq,n) = int(lspectype_amode(iq,n), c_int64_t)
+            lmassptr_amode_rename_c(iq,n) = int(lmassptr_amode(iq,n), c_int64_t)
+            lmassptrcw_amode_rename_c(iq,n) = int(lmassptrcw_amode(iq,n), c_int64_t)
+         end do
+      end do
    end if
 
 ! use this for tendency calcs to avoid generating very small negative values
@@ -1175,24 +1289,53 @@ implicit none
    dotendqqcwrn(:) = .false.
    dorename_atik(1:ncol,:) = .true.
    is_dorename_atik = .true.
-   call modal_aero_rename_sub(                              &
-        'modal_aero_gasaerexch_sub',            &
-        lchnk,             ncol,      nstep,    &
-        loffset,           deltat,              &
-        pdel,              troplev,             &
-        dotendrn,          q,                   &
-        dqdt,              dqdt_other,          &
-        dotendqqcwrn,      qqcw,                &
-        dqqcwdt,           dqqcwdt_other,       &
-        is_dorename_atik,  dorename_atik,       &
-        jsrflx_rename,     nsrflx,              &
-        qsrflx,            qqcwsrflx            )
+
+   if (.not. modal_aero_gasaerexch_sub_use_native_impl .and. use_postshell_direct_codon) then
+      dorename_atik_c(:,:) = 1_c_int64_t
+      dotendrn_c(:) = 0_c_int64_t
+      dotendqqcwrn_c(:) = 0_c_int64_t
+      do l = 1, pcnstxx
+         dotend_mask(l) = 0_c_int64_t
+         dotendqqcw_mask(l) = 0_c_int64_t
+         if (dotend(l)) dotend_mask(l) = 1_c_int64_t
+         if (dotendqqcw(l)) dotendqqcw_mask(l) = 1_c_int64_t
+      end do
+      call modal_aero_gasaerexch_sub_postshell_codon_wrap( &
+           ncol, nsrflx, loffset, deltat, q, qqcw, dqdt, dqdt_other, dqqcwdt, dqqcwdt_other, qsrflx, qqcwsrflx, &
+           pdel, troplev_c, dorename_atik_c, modefrm_renamexf_c, modetoo_renamexf_c, nspec_amode_rename_c, &
+           lspectype_amode_rename_c, specmw_amode_rename_c, specdens_amode_rename_c, lmassptr_amode_rename_c, &
+           lmassptrcw_amode_rename_c, numptr_amode_rename_c, numptrcw_amode_rename_c, dgnum_amode_rename_c, &
+           factoraa_rename_c, factoryy_rename_c, dryvol_smallest_rename_c, v2nlorlx_rename_c, v2nhirlx_rename_c, &
+           factor_3alnsg2_rename_c, dp_cut_rename_c, lndp_cut_rename_c, dp_belowcut_rename_c, &
+           dp_xfernone_threshaa_rename_c, dp_xferall_thresh_rename_c, igrow_shrink_renamexf_c, ixferable_all_renamexf_c, &
+           ixferable_a_renamexf_c, ixferable_c_renamexf_c, nspecfrm_renamexf_c, lspecfrma_renamexf_c, lspecfrmc_renamexf_c, &
+           lspectooa_renamexf_c, lspectooc_renamexf_c, dryvol_a_rename, dryvol_c_rename, deldryvol_a_rename, &
+           deldryvol_c_rename, dryvol_a_xfab_rename, dryvol_c_xfab_rename, xferfrac_vol_ik_rename, xferfrac_num_ik_rename, &
+           adv_mass_work, dotend_mask, dotendqqcw_mask, dotendrn_c, dotendqqcwrn_c )
+      do l = 1, pcnstxx
+         dotendrn(l) = dotendrn_c(l) /= 0_c_int64_t
+         dotendqqcwrn(l) = dotendqqcwrn_c(l) /= 0_c_int64_t
+      end do
+   else
+      call modal_aero_rename_sub(                              &
+           'modal_aero_gasaerexch_sub',            &
+           lchnk,             ncol,      nstep,    &
+           loffset,           deltat,              &
+           pdel,              troplev,             &
+           dotendrn,          q,                   &
+           dqdt,              dqdt_other,          &
+           dotendqqcwrn,      qqcw,                &
+           dqqcwdt,           dqqcwdt_other,       &
+           is_dorename_atik,  dorename_atik,       &
+           jsrflx_rename,     nsrflx,              &
+           qsrflx,            qqcwsrflx            )
+   end if
 
 
 !
 !  apply the dqdt to update q (and same for qqcw)
 !
-   if (.not. modal_aero_gasaerexch_sub_use_native_impl) then
+   if (.not. modal_aero_gasaerexch_sub_use_native_impl .and. (.not. use_postshell_direct_codon)) then
       do l = 1, pcnstxx
          dotend_mask(l) = 0_c_int64_t
          dotendqqcw_mask(l) = 0_c_int64_t
@@ -1212,7 +1355,7 @@ implicit none
            dqdt_so4, dqdt_nh4, dqdt_soa, fgain_so4, fgain_nh4, fgain_soa, qold_so4, qold_nh4, qold_soa, qold_poa, &
            uptkratebb, uptkrate_soa, a_opoa_soa, a_soa_work, beta_soa, g_star_soa, phi_soa, sat_soa, niter_soa_work, &
            g_soa_tend_work, adv_mass_work, dotend_mask, dotendqqcw_mask, dotendrn_mask, dotendqqcwrn_mask )
-   else
+   else if (modal_aero_gasaerexch_sub_use_native_impl) then
    do l = 1, pcnstxx
       if ( dotend(l) .or. dotendrn(l) ) then
          do k = top_lev, pver
@@ -1575,6 +1718,151 @@ subroutine modal_aero_gasaerexch_sub_codon_wrap( &
   end if
 
 end subroutine modal_aero_gasaerexch_sub_codon_wrap
+
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+subroutine modal_aero_gasaerexch_sub_postshell_codon_wrap( &
+     ncol, nsrflx, loffset, deltat, q, qqcw, dqdt, dqdt_other, dqqcwdt, dqqcwdt_other, qsrflx, qqcwsrflx, &
+     pdel, troplev_c, dorename_atik_c, modefrm_renamexf_c, modetoo_renamexf_c, nspec_amode_rename_c, &
+     lspectype_amode_rename_c, specmw_amode_rename_c, specdens_amode_rename_c, lmassptr_amode_rename_c, &
+     lmassptrcw_amode_rename_c, numptr_amode_rename_c, numptrcw_amode_rename_c, dgnum_amode_rename_c, &
+     factoraa_rename_c, factoryy_rename_c, dryvol_smallest_rename_c, v2nlorlx_rename_c, v2nhirlx_rename_c, &
+     factor_3alnsg2_rename_c, dp_cut_rename_c, lndp_cut_rename_c, dp_belowcut_rename_c, &
+     dp_xfernone_threshaa_rename_c, dp_xferall_thresh_rename_c, igrow_shrink_renamexf_c, ixferable_all_renamexf_c, &
+     ixferable_a_renamexf_c, ixferable_c_renamexf_c, nspecfrm_renamexf_c, lspecfrma_renamexf_c, lspecfrmc_renamexf_c, &
+     lspectooa_renamexf_c, lspectooc_renamexf_c, dryvol_a_rename, dryvol_c_rename, deldryvol_a_rename, deldryvol_c_rename, &
+     dryvol_a_xfab_rename, dryvol_c_xfab_rename, xferfrac_vol_ik_rename, xferfrac_num_ik_rename, adv_mass_work, &
+     dotend_mask, dotendqqcw_mask, dotendrn_c, dotendqqcwrn_c )
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc
+  use cam_logfile, only: iulog
+  use modal_aero_data, only: modeptr_coarse, modeptr_accum
+  use modal_aero_rename, only: maxpair_renamexf, maxspec_renamexf, npair_renamexf, method_optbb_renamexf
+  use physconst, only: gravit, mwdry
+  use ref_pres, only: top_lev => clim_modal_aero_top_lev
+  use spmd_utils, only: masterproc
+
+  implicit none
+
+  integer, parameter :: jsrflx_gaexch_local = 1
+  integer, parameter :: jsrflx_rename_local = 2
+
+  integer, intent(in) :: ncol, nsrflx, loffset
+  real(r8), intent(in) :: deltat
+  real(r8), target, intent(inout) :: q(ncol,pver,pcnstxx), qqcw(ncol,pver,pcnstxx)
+  real(r8), target, intent(inout) :: dqdt(ncol,pver,pcnstxx), dqqcwdt(ncol,pver,pcnstxx)
+  real(r8), target, intent(in) :: dqdt_other(ncol,pver,pcnstxx), dqqcwdt_other(ncol,pver,pcnstxx)
+  real(r8), target, intent(inout) :: qsrflx(pcols,pcnstxx,nsrflx), qqcwsrflx(pcols,pcnstxx,nsrflx)
+  real(r8), target, intent(in) :: pdel(pcols,pver)
+  integer(c_int64_t), target, intent(in) :: troplev_c(pcols), dorename_atik_c(ncol,pver)
+  integer(c_int64_t), target, intent(in) :: modefrm_renamexf_c(maxpair_renamexf), modetoo_renamexf_c(maxpair_renamexf)
+  integer(c_int64_t), target, intent(in) :: nspec_amode_rename_c(ntot_amode)
+  integer(c_int64_t), target, intent(in) :: lspectype_amode_rename_c(maxspec_renamexf,ntot_amode)
+  integer(c_int64_t), target, intent(in) :: lmassptr_amode_rename_c(maxspec_renamexf,ntot_amode)
+  integer(c_int64_t), target, intent(in) :: lmassptrcw_amode_rename_c(maxspec_renamexf,ntot_amode)
+  integer(c_int64_t), target, intent(in) :: numptr_amode_rename_c(ntot_amode), numptrcw_amode_rename_c(ntot_amode)
+  real(r8), target, intent(in) :: specmw_amode_rename_c(:), specdens_amode_rename_c(:)
+  real(r8), target, intent(in) :: dgnum_amode_rename_c(ntot_amode)
+  real(r8), target, intent(in) :: factoraa_rename_c(ntot_amode), factoryy_rename_c(ntot_amode)
+  real(r8), target, intent(in) :: dryvol_smallest_rename_c(ntot_amode)
+  real(r8), target, intent(in) :: v2nlorlx_rename_c(ntot_amode), v2nhirlx_rename_c(ntot_amode)
+  real(r8), target, intent(in) :: factor_3alnsg2_rename_c(maxpair_renamexf), dp_cut_rename_c(maxpair_renamexf)
+  real(r8), target, intent(in) :: lndp_cut_rename_c(maxpair_renamexf), dp_belowcut_rename_c(maxpair_renamexf)
+  real(r8), target, intent(in) :: dp_xfernone_threshaa_rename_c(maxpair_renamexf), dp_xferall_thresh_rename_c(maxpair_renamexf)
+  integer(c_int64_t), target, intent(in) :: igrow_shrink_renamexf_c(maxpair_renamexf), ixferable_all_renamexf_c(maxpair_renamexf)
+  integer(c_int64_t), target, intent(in) :: ixferable_a_renamexf_c(maxspec_renamexf,maxpair_renamexf)
+  integer(c_int64_t), target, intent(in) :: ixferable_c_renamexf_c(maxspec_renamexf,maxpair_renamexf)
+  integer(c_int64_t), target, intent(in) :: nspecfrm_renamexf_c(maxpair_renamexf)
+  integer(c_int64_t), target, intent(in) :: lspecfrma_renamexf_c(maxspec_renamexf,maxpair_renamexf)
+  integer(c_int64_t), target, intent(in) :: lspecfrmc_renamexf_c(maxspec_renamexf,maxpair_renamexf)
+  integer(c_int64_t), target, intent(in) :: lspectooa_renamexf_c(maxspec_renamexf,maxpair_renamexf)
+  integer(c_int64_t), target, intent(in) :: lspectooc_renamexf_c(maxspec_renamexf,maxpair_renamexf)
+  real(r8), target, intent(inout) :: dryvol_a_rename(ncol,pver), dryvol_c_rename(ncol,pver)
+  real(r8), target, intent(inout) :: deldryvol_a_rename(ncol,pver), deldryvol_c_rename(ncol,pver)
+  real(r8), target, intent(inout) :: dryvol_a_xfab_rename(ncol,pver), dryvol_c_xfab_rename(ncol,pver)
+  real(r8), target, intent(inout) :: xferfrac_vol_ik_rename(ncol,pver), xferfrac_num_ik_rename(ncol,pver)
+  real(r8), target, intent(in) :: adv_mass_work(pcnstxx)
+  integer(c_int64_t), target, intent(in) :: dotend_mask(pcnstxx), dotendqqcw_mask(pcnstxx)
+  integer(c_int64_t), target, intent(inout) :: dotendrn_c(pcnstxx), dotendqqcwrn_c(pcnstxx)
+
+  integer(c_int64_t), parameter :: is_dorename_atik_c_local = 1_c_int64_t
+  integer(c_int64_t), parameter :: l_dqdt_rnpos_c_local = 0_c_int64_t
+  real(r8), target :: dqdt_rnpos_dummy(1,1,1)
+  real(r8) :: deltatinv, onethird, xferfrac_max_rename
+  character(len=96) :: wrap_proof_line
+
+  interface
+     subroutine modal_aero_gasaerexch_sub_postshell_codon( &
+          ncol_c, pcols_c, pver_c, pcnstxx_c, top_lev_c, maxpair_renamexf_c, maxspec_renamexf_c, loffset_c, &
+          npair_renamexf_c, is_dorename_atik_c, l_dqdt_rnpos_c, jsrflx_gaexch_c, jsrflx_rename_c, nsrflx_c, &
+          modeptr_coarse_c, modeptr_accum_c, method_optbb_c, deltat_c, deltatinv_c, onethird_c, xferfrac_max_c, &
+          gravit_c, mwdry_c, troplev_p, pdel_p, dorename_atik_p, q_p, qqcw_p, dqdt_p, dqdt_other_p, dqqcwdt_p, &
+          dqqcwdt_other_p, qsrflx_p, qqcwsrflx_p, modefrm_renamexf_p, modetoo_renamexf_p, nspec_amode_p, &
+          lspectype_amode_p, specmw_amode_p, specdens_amode_p, lmassptr_amode_p, lmassptrcw_amode_p, numptr_amode_p, &
+          numptrcw_amode_p, dgnum_amode_p, factoraa_p, factoryy_p, dryvol_smallest_p, v2nlorlx_p, v2nhirlx_p, &
+          factor_3alnsg2_p, dp_cut_p, lndp_cut_p, dp_belowcut_p, dp_xfernone_threshaa_p, dp_xferall_thresh_p, &
+          igrow_shrink_renamexf_p, ixferable_all_renamexf_p, ixferable_a_renamexf_p, ixferable_c_renamexf_p, &
+          nspecfrm_renamexf_p, lspecfrma_renamexf_p, lspecfrmc_renamexf_p, lspectooa_renamexf_p, lspectooc_renamexf_p, &
+          dryvol_a_p, dryvol_c_p, deldryvol_a_p, deldryvol_c_p, dryvol_a_xfab_p, dryvol_c_xfab_p, xferfrac_vol_p, &
+          xferfrac_num_p, adv_mass_p, dotend_p, dotendqqcw_p, dotendrn_p, dotendqqcwrn_p, dqdt_rnpos_p ) &
+          bind(c, name="modal_aero_gasaerexch_sub_postshell_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnstxx_c, top_lev_c, maxpair_renamexf_c, maxspec_renamexf_c
+       integer(c_int64_t), value :: loffset_c, npair_renamexf_c, is_dorename_atik_c, l_dqdt_rnpos_c
+       integer(c_int64_t), value :: jsrflx_gaexch_c, jsrflx_rename_c, nsrflx_c, modeptr_coarse_c, modeptr_accum_c, method_optbb_c
+       real(c_double), value :: deltat_c, deltatinv_c, onethird_c, xferfrac_max_c, gravit_c, mwdry_c
+       type(c_ptr), value :: troplev_p, pdel_p, dorename_atik_p, q_p, qqcw_p, dqdt_p, dqdt_other_p, dqqcwdt_p
+       type(c_ptr), value :: dqqcwdt_other_p, qsrflx_p, qqcwsrflx_p, modefrm_renamexf_p, modetoo_renamexf_p
+       type(c_ptr), value :: nspec_amode_p, lspectype_amode_p, specmw_amode_p, specdens_amode_p
+       type(c_ptr), value :: lmassptr_amode_p, lmassptrcw_amode_p, numptr_amode_p, numptrcw_amode_p
+       type(c_ptr), value :: dgnum_amode_p, factoraa_p, factoryy_p, dryvol_smallest_p, v2nlorlx_p, v2nhirlx_p
+       type(c_ptr), value :: factor_3alnsg2_p, dp_cut_p, lndp_cut_p, dp_belowcut_p, dp_xfernone_threshaa_p
+       type(c_ptr), value :: dp_xferall_thresh_p, igrow_shrink_renamexf_p, ixferable_all_renamexf_p
+       type(c_ptr), value :: ixferable_a_renamexf_p, ixferable_c_renamexf_p, nspecfrm_renamexf_p
+       type(c_ptr), value :: lspecfrma_renamexf_p, lspecfrmc_renamexf_p, lspectooa_renamexf_p, lspectooc_renamexf_p
+       type(c_ptr), value :: dryvol_a_p, dryvol_c_p, deldryvol_a_p, deldryvol_c_p, dryvol_a_xfab_p, dryvol_c_xfab_p
+       type(c_ptr), value :: xferfrac_vol_p, xferfrac_num_p, adv_mass_p, dotend_p, dotendqqcw_p, dotendrn_p, dotendqqcwrn_p
+       type(c_ptr), value :: dqdt_rnpos_p
+     end subroutine modal_aero_gasaerexch_sub_postshell_codon
+  end interface
+
+  if (masterproc .and. .not. modal_aero_gasaerexch_sub_postshell_proof_written) then
+     write(iulog,*) 'modal_aero_gasaerexch_sub postshell codon entered'
+     write(wrap_proof_line,'(A)') 'modal_aero_gasaerexch_sub postshell codon entered'
+     call modal_aero_gasaerexch_sub_append_impl_proof('MODAL_AERO_GASAEREXCH_SUB_PROOF_FILE', trim(wrap_proof_line))
+     modal_aero_gasaerexch_sub_postshell_proof_written = .true.
+     call flush(iulog)
+  end if
+
+  deltatinv = 1.0_r8/(deltat*(1.0_r8 + 1.0e-15_r8))
+  onethird = 1.0_r8/3.0_r8
+  xferfrac_max_rename = 1.0_r8 - 10.0_r8*epsilon(1.0_r8)
+  dqdt_rnpos_dummy(1,1,1) = 0.0_r8
+
+  call modal_aero_gasaerexch_sub_postshell_codon( &
+       int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnstxx, c_int64_t), int(top_lev, c_int64_t), &
+       int(maxpair_renamexf, c_int64_t), int(maxspec_renamexf, c_int64_t), int(loffset, c_int64_t), int(npair_renamexf, c_int64_t), &
+       is_dorename_atik_c_local, l_dqdt_rnpos_c_local, int(jsrflx_gaexch_local, c_int64_t), int(jsrflx_rename_local, c_int64_t), &
+       int(nsrflx, c_int64_t), int(modeptr_coarse, c_int64_t), int(modeptr_accum, c_int64_t), int(method_optbb_renamexf, c_int64_t), &
+       real(deltat, c_double), real(deltatinv, c_double), real(onethird, c_double), real(xferfrac_max_rename, c_double), &
+       real(gravit, c_double), real(mwdry, c_double), c_loc(troplev_c(1)), c_loc(pdel(1,1)), c_loc(dorename_atik_c(1,1)), &
+       c_loc(q(1,1,1)), c_loc(qqcw(1,1,1)), c_loc(dqdt(1,1,1)), c_loc(dqdt_other(1,1,1)), c_loc(dqqcwdt(1,1,1)), &
+       c_loc(dqqcwdt_other(1,1,1)), c_loc(qsrflx(1,1,1)), c_loc(qqcwsrflx(1,1,1)), c_loc(modefrm_renamexf_c(1)), &
+       c_loc(modetoo_renamexf_c(1)), c_loc(nspec_amode_rename_c(1)), c_loc(lspectype_amode_rename_c(1,1)), c_loc(specmw_amode_rename_c(1)), &
+       c_loc(specdens_amode_rename_c(1)), c_loc(lmassptr_amode_rename_c(1,1)), c_loc(lmassptrcw_amode_rename_c(1,1)), &
+       c_loc(numptr_amode_rename_c(1)), c_loc(numptrcw_amode_rename_c(1)), c_loc(dgnum_amode_rename_c(1)), c_loc(factoraa_rename_c(1)), &
+       c_loc(factoryy_rename_c(1)), c_loc(dryvol_smallest_rename_c(1)), c_loc(v2nlorlx_rename_c(1)), c_loc(v2nhirlx_rename_c(1)), &
+       c_loc(factor_3alnsg2_rename_c(1)), c_loc(dp_cut_rename_c(1)), c_loc(lndp_cut_rename_c(1)), c_loc(dp_belowcut_rename_c(1)), &
+       c_loc(dp_xfernone_threshaa_rename_c(1)), c_loc(dp_xferall_thresh_rename_c(1)), c_loc(igrow_shrink_renamexf_c(1)), &
+       c_loc(ixferable_all_renamexf_c(1)), c_loc(ixferable_a_renamexf_c(1,1)), c_loc(ixferable_c_renamexf_c(1,1)), &
+       c_loc(nspecfrm_renamexf_c(1)), c_loc(lspecfrma_renamexf_c(1,1)), c_loc(lspecfrmc_renamexf_c(1,1)), c_loc(lspectooa_renamexf_c(1,1)), &
+       c_loc(lspectooc_renamexf_c(1,1)), c_loc(dryvol_a_rename(1,1)), c_loc(dryvol_c_rename(1,1)), c_loc(deldryvol_a_rename(1,1)), &
+       c_loc(deldryvol_c_rename(1,1)), c_loc(dryvol_a_xfab_rename(1,1)), c_loc(dryvol_c_xfab_rename(1,1)), &
+       c_loc(xferfrac_vol_ik_rename(1,1)), c_loc(xferfrac_num_ik_rename(1,1)), c_loc(adv_mass_work(1)), c_loc(dotend_mask(1)), &
+       c_loc(dotendqqcw_mask(1)), c_loc(dotendrn_c(1)), c_loc(dotendqqcwrn_c(1)), c_loc(dqdt_rnpos_dummy(1,1,1)) )
+
+end subroutine modal_aero_gasaerexch_sub_postshell_codon_wrap
 
 
 !----------------------------------------------------------------------
