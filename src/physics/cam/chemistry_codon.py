@@ -1750,6 +1750,53 @@ def aero_model_gasaerexch_aq_tend_codon(
 
 
 @export
+def aero_model_gasaerexch_vmrcw_batch_codon(
+    mode: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    qqcw_offset: int,
+    qqcw_ptrs_p: cobj,
+    qqcw_present_p: cobj,
+    mbar_p: cobj,
+    adv_mass_p: cobj,
+    vmr_p: cobj,
+):
+    qqcw_ptrs = Ptr[cobj](qqcw_ptrs_p)
+    qqcw_present = Ptr[int](qqcw_present_p)
+    mbar = Ptr[float](mbar_p)
+    adv_mass = Ptr[float](adv_mass_p)
+    vmr = Ptr[float](vmr_p)
+
+    for m in range(1, gas_pcnst + 1):
+        if adv_mass[m - 1] == 0.0:
+            continue
+
+        qqcw_index = m + qqcw_offset
+        if qqcw_present[qqcw_index - 1] != 0:
+            fldcw = Ptr[float](qqcw_ptrs[qqcw_index - 1])
+            if mode == 1:
+                for k in range(1, pver + 1):
+                    for i in range(1, ncol + 1):
+                        vmr_idx = _idx3(i, k, m, ncol, pver)
+                        vmr[vmr_idx] = (
+                            mbar[_idx2(i, k, ncol)] * fldcw[_idx2(i, k, pcols)] / adv_mass[m - 1]
+                        )
+            else:
+                for k in range(1, pver + 1):
+                    for i in range(1, ncol + 1):
+                        vmr_idx = _idx3(i, k, m, ncol, pver)
+                        fldcw[_idx2(i, k, pcols)] = (
+                            adv_mass[m - 1] * vmr[vmr_idx] / mbar[_idx2(i, k, ncol)]
+                        )
+        elif mode == 1:
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    vmr[_idx3(i, k, m, ncol, pver)] = 0.0
+
+
+@export
 def neu_wetdep_aux_prepare_codon(
     ncol: int,
     pcols: int,

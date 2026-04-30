@@ -2553,9 +2553,9 @@ contains
   !=============================================================================
   subroutine aero_model_gasaerexch_load_vmrcw_codon(lchnk, vmr, mbar, ncol, im, pbuf)
 
-    use modal_aero_data, only : qqcw_get_field
+    use modal_aero_data, only : qqcw_fill_cptrs
     use physics_buffer, only : physics_buffer_desc
-    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr, c_associated
 
     integer, intent(in) :: lchnk, ncol, im
     real(r8), target, intent(in) :: mbar(ncol,pver)
@@ -2563,31 +2563,34 @@ contains
     type(physics_buffer_desc), pointer :: pbuf(:)
 
     integer :: m
-    real(r8), pointer :: fldcw(:,:)
+    real(r8), target :: adv_mass_local(gas_pcnst)
+    type(c_ptr), target :: qqcw_ptrs(pcnst)
+    integer(c_int64_t), target :: qqcw_present(pcnst)
 
     interface
-       subroutine qqcw2vmr_codon(ncol_c, pver_c, fldcw_ld1_c, mbar_p, fldcw_p, adv_mass_c, vmr_p) &
-            bind(c, name="qqcw2vmr_codon")
-         use iso_c_binding, only : c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: ncol_c, pver_c, fldcw_ld1_c
-         type(c_ptr), value :: mbar_p, fldcw_p, vmr_p
-         real(c_double), value :: adv_mass_c
-       end subroutine qqcw2vmr_codon
+       subroutine aero_model_gasaerexch_vmrcw_batch_codon(mode_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, qqcw_offset_c, &
+            qqcw_ptrs_p, qqcw_present_p, mbar_p, adv_mass_p, vmr_p) bind(c, name="aero_model_gasaerexch_vmrcw_batch_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: mode_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, qqcw_offset_c
+         type(c_ptr), value :: qqcw_ptrs_p, qqcw_present_p, mbar_p, adv_mass_p, vmr_p
+       end subroutine aero_model_gasaerexch_vmrcw_batch_codon
     end interface
 
-    do m = 1, gas_pcnst
-       if (adv_mass(m) /= 0._r8) then
-          fldcw => qqcw_get_field(pbuf, m+im, lchnk, errorhandle=.true.)
-          if (associated(fldcw)) then
-             call qqcw2vmr_codon( &
-                  int(ncol, c_int64_t), int(pver, c_int64_t), int(size(fldcw,1), c_int64_t), &
-                  c_loc(mbar(1,1)), c_loc(fldcw(1,1)), real(adv_mass(m), c_double), c_loc(vmr(1,1,m)) &
-             )
-          else
-             vmr(:,:,m) = 0.0_r8
-          end if
+    adv_mass_local(:) = adv_mass(:)
+    call qqcw_fill_cptrs(pbuf, qqcw_ptrs)
+    do m = 1, pcnst
+       if (c_associated(qqcw_ptrs(m))) then
+          qqcw_present(m) = 1_c_int64_t
+       else
+          qqcw_present(m) = 0_c_int64_t
        end if
     end do
+
+    call aero_model_gasaerexch_vmrcw_batch_codon( &
+         int(1, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(gas_pcnst, c_int64_t), int(im, c_int64_t), c_loc(qqcw_ptrs(1)), c_loc(qqcw_present(1)), &
+         c_loc(mbar(1,1)), c_loc(adv_mass_local(1)), c_loc(vmr(1,1,1)) &
+    )
 
   end subroutine aero_model_gasaerexch_load_vmrcw_codon
 
@@ -2595,9 +2598,9 @@ contains
   !=============================================================================
   subroutine aero_model_gasaerexch_store_vmrcw_codon(lchnk, vmr, mbar, ncol, im, pbuf)
 
-    use modal_aero_data, only : qqcw_get_field
+    use modal_aero_data, only : qqcw_fill_cptrs
     use physics_buffer, only : physics_buffer_desc
-    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr, c_associated
 
     integer, intent(in) :: lchnk, ncol, im
     real(r8), target, intent(in) :: mbar(ncol,pver)
@@ -2605,27 +2608,34 @@ contains
     type(physics_buffer_desc), pointer :: pbuf(:)
 
     integer :: m
-    real(r8), pointer :: fldcw(:,:)
+    real(r8), target :: adv_mass_local(gas_pcnst)
+    type(c_ptr), target :: qqcw_ptrs(pcnst)
+    integer(c_int64_t), target :: qqcw_present(pcnst)
 
     interface
-       subroutine vmr2qqcw_codon(ncol_c, pver_c, fldcw_ld1_c, vmr_p, mbar_p, adv_mass_c, fldcw_p) &
-            bind(c, name="vmr2qqcw_codon")
-         use iso_c_binding, only : c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: ncol_c, pver_c, fldcw_ld1_c
-         type(c_ptr), value :: vmr_p, mbar_p, fldcw_p
-         real(c_double), value :: adv_mass_c
-       end subroutine vmr2qqcw_codon
+       subroutine aero_model_gasaerexch_vmrcw_batch_codon(mode_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, qqcw_offset_c, &
+            qqcw_ptrs_p, qqcw_present_p, mbar_p, adv_mass_p, vmr_p) bind(c, name="aero_model_gasaerexch_vmrcw_batch_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: mode_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, qqcw_offset_c
+         type(c_ptr), value :: qqcw_ptrs_p, qqcw_present_p, mbar_p, adv_mass_p, vmr_p
+       end subroutine aero_model_gasaerexch_vmrcw_batch_codon
     end interface
 
-    do m = 1, gas_pcnst
-       fldcw => qqcw_get_field(pbuf, m+im, lchnk, errorhandle=.true.)
-       if (adv_mass(m) /= 0._r8 .and. associated(fldcw)) then
-          call vmr2qqcw_codon( &
-               int(ncol, c_int64_t), int(pver, c_int64_t), int(size(fldcw,1), c_int64_t), &
-               c_loc(vmr(1,1,m)), c_loc(mbar(1,1)), real(adv_mass(m), c_double), c_loc(fldcw(1,1)) &
-          )
+    adv_mass_local(:) = adv_mass(:)
+    call qqcw_fill_cptrs(pbuf, qqcw_ptrs)
+    do m = 1, pcnst
+       if (c_associated(qqcw_ptrs(m))) then
+          qqcw_present(m) = 1_c_int64_t
+       else
+          qqcw_present(m) = 0_c_int64_t
        end if
     end do
+
+    call aero_model_gasaerexch_vmrcw_batch_codon( &
+         int(2, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(gas_pcnst, c_int64_t), int(im, c_int64_t), c_loc(qqcw_ptrs(1)), c_loc(qqcw_present(1)), &
+         c_loc(mbar(1,1)), c_loc(adv_mass_local(1)), c_loc(vmr(1,1,1)) &
+    )
 
   end subroutine aero_model_gasaerexch_store_vmrcw_codon
 
