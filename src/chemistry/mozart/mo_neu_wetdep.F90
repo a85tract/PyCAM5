@@ -53,12 +53,14 @@ module mo_neu_wetdep
   logical :: neu_wetdep_gas_micro_selector_proof_written = .false.
   logical :: neu_wetdep_disgas_wrap_proof_written = .false.
   logical :: neu_wetdep_raingas_wrap_proof_written = .false.
+  logical :: neu_wetdep_washgas_wrap_proof_written = .false.
   logical :: neu_wetdep_washo_use_native_impl = .false.
   logical :: neu_wetdep_washo_impl_selected = .false.
   logical :: neu_wetdep_washo_selector_proof_written = .false.
   logical :: neu_wetdep_washo_dempirical_use_native_impl = .true.
   logical :: neu_wetdep_washo_dempirical_impl_selected = .false.
   logical :: neu_wetdep_washo_dempirical_selector_proof_written = .false.
+  logical :: neu_wetdep_dempirical_wrap_proof_written = .false.
   logical :: neu_wetdep_washo_wrap_proof_written = .false.
 !
   real(r8), parameter  :: TICE=263._r8
@@ -453,6 +455,61 @@ subroutine neu_wetdep_raingas_codon_wrap(rrain, dtscav, clwx, cfx, qm, qt, qtdis
 
 end subroutine neu_wetdep_raingas_codon_wrap
 !
+subroutine neu_wetdep_washgas_codon_wrap(rwash, boxf, dtscav, qtrtop, hstar, tm, pr, qm, qt, qtwash, qtevap)
+
+  use iso_c_binding, only : c_double, c_loc, c_ptr
+
+  real(r8), intent(in) :: rwash, boxf, dtscav, qtrtop, hstar, tm, pr, qm, qt
+  real(r8), target, intent(out) :: qtwash, qtevap
+
+  interface
+     subroutine neu_wetdep_washgas_codon(rwash_c, boxf_c, dtscav_c, qtrtop_c, hstar_c, tm_c, pr_c, qm_c, qt_c, &
+          qtwash_p, qtevap_p) bind(c, name="neu_wetdep_washgas_codon")
+       use iso_c_binding, only : c_double, c_ptr
+       real(c_double), value :: rwash_c, boxf_c, dtscav_c, qtrtop_c, hstar_c, tm_c, pr_c, qm_c, qt_c
+       type(c_ptr), value :: qtwash_p, qtevap_p
+     end subroutine neu_wetdep_washgas_codon
+  end interface
+
+  if (masterproc .and. .not. neu_wetdep_washgas_wrap_proof_written) then
+     write(iulog,*) 'neu_wetdep_washgas_codon_wrap entered'
+     call neu_wetdep_gas_micro_append_impl_proof('neu_wetdep_washgas_codon_wrap entered')
+     neu_wetdep_washgas_wrap_proof_written = .true.
+     call flush(iulog)
+  end if
+
+  call neu_wetdep_washgas_codon(real(rwash, c_double), real(boxf, c_double), real(dtscav, c_double), &
+       real(qtrtop, c_double), real(hstar, c_double), real(tm, c_double), real(pr, c_double), &
+       real(qm, c_double), real(qt, c_double), c_loc(qtwash), c_loc(qtevap))
+
+end subroutine neu_wetdep_washgas_codon_wrap
+!
+subroutine neu_wetdep_dempirical_codon_wrap(cwater, rrate, dempirical)
+
+  use iso_c_binding, only : c_double, c_loc, c_ptr
+
+  real(r8), intent(in) :: cwater, rrate
+  real(r8), target, intent(out) :: dempirical
+
+  interface
+     subroutine neu_wetdep_dempirical_codon(cwater_c, rrate_c, dempirical_p) bind(c, name="neu_wetdep_dempirical_codon")
+       use iso_c_binding, only : c_double, c_ptr
+       real(c_double), value :: cwater_c, rrate_c
+       type(c_ptr), value :: dempirical_p
+     end subroutine neu_wetdep_dempirical_codon
+  end interface
+
+  if (masterproc .and. .not. neu_wetdep_dempirical_wrap_proof_written) then
+     write(iulog,*) 'neu_wetdep_dempirical_codon_wrap entered'
+     call neu_wetdep_washo_append_impl_proof('washo_dempirical_codon_wrap entered')
+     neu_wetdep_dempirical_wrap_proof_written = .true.
+     call flush(iulog)
+  end if
+
+  call neu_wetdep_dempirical_codon(real(cwater, c_double), real(rrate, c_double), c_loc(dempirical))
+
+end subroutine neu_wetdep_dempirical_codon_wrap
+!
 subroutine neu_wetdep_washo_append_impl_proof(proof_line)
 
   character(len=*), intent(in) :: proof_line
@@ -523,7 +580,7 @@ subroutine neu_wetdep_washo_dempirical_select_impl()
 
   if (neu_wetdep_washo_dempirical_impl_selected) return
 
-  impl_name = 'native'
+  impl_name = 'codon'
   call get_environment_variable('WASHO_DEMPIRICAL_IMPL', value=impl_name, length=n, status=status)
 
   if (status == 0 .and. n > 0) then
@@ -535,7 +592,7 @@ subroutine neu_wetdep_washo_dempirical_select_impl()
      end do
      neu_wetdep_washo_dempirical_use_native_impl = trim(adjustl(impl_name(:n))) /= 'codon'
   else
-     neu_wetdep_washo_dempirical_use_native_impl = .true.
+     neu_wetdep_washo_dempirical_use_native_impl = .false.
   end if
 
   neu_wetdep_washo_dempirical_impl_selected = .true.
@@ -1525,7 +1582,7 @@ is_freezing : &
                if( RPRECIP > zero ) then
                  WEMP = (CLWX*QM(L))/(GAREA*CFXX(L)*DELZ(L)) !kg/m3
                  REMP = RPRECIP/((RHORAIN/1.e3_r8))             !mm/s local
-                 DNEW = DEMPIRICAL( WEMP, REMP )
+                 DNEW = neu_wetdep_dempirical_eval( WEMP, REMP )
                  if ( debug ) then
                    if( is_hno3 .and. l >= 15 ) then
                      write(*,*) ' '
@@ -1547,7 +1604,7 @@ is_freezing : &
                if( FCXA > zero ) then
                  WEMP = (CLWX*QM(L)*(FCXA/CFXX(L)))/(GAREA*FCXA*DELZ(L)) !kg/m3
                  REMP = RCXA/((RHORAIN/1.e3_r8))                         !mm/s local
-                 DEMP = DEMPIRICAL( WEMP, REMP )
+                 DEMP = neu_wetdep_dempirical_eval( WEMP, REMP )
                  DCXA = ((RCA+DELTARIME)/RCXA)*DOR + (RPRECIP/RCXA)*DNEW
                  DCXA = max( DEMP,DCXA )
                  DCXA = max( DMIN,DCXA )
@@ -1577,11 +1634,10 @@ is_freezing : &
                  if( RPRECIP > zero ) then
                    if( LICETYP == 1 ) then
                      RRAIN = RPRECIP*GAREA                                  !kg/s local
-                     call DISGAS( CLWX, CFXX(L), TCMASS(N), HSTAR(L,N), &
-                                  TEM(L),POFL(L),QM(L),                 &
-                                  QTT(L)*CFXX(L),QTDISCF )
-                     call RAINGAS( RRAIN, DTSCAV, CLWX, CFXX(L),        &
-                                   QM(L), QTT(L), QTDISCF, QTRAIN )
+                     call neu_wetdep_disgas_eval( CLWX, CFXX(L), TCMASS(N), HSTAR(L,N), &
+                          TEM(L),POFL(L),QM(L), QTT(L)*CFXX(L),QTDISCF )
+                     call neu_wetdep_raingas_eval( RRAIN, DTSCAV, CLWX, CFXX(L), &
+                          QM(L), QTT(L), QTDISCF, QTRAIN )
                      WRK       = QTRAIN/CFXX(L)
                      QTRAINCXA = FCXA*WRK
                      QTRAINCXB = FCXB*WRK
@@ -1612,9 +1668,8 @@ is_freezing : &
                        RHOSNOW = 0.303_r8*(TEM(L) - TFROZ)*RHOSNOWFIX
                      endif
                      QTCXA = QTT(L)*FCXA
-                     call DISGAS( CLWX*(FCXA/CFXX(L)), FCXA, TCMASS(N),   &
-                                  HSTAR(L,N), TEM(L), POFL(L),            &
-                                  QM(L), QTCXA, QTDISRIME )       
+                     call neu_wetdep_disgas_eval( CLWX*(FCXA/CFXX(L)), FCXA, TCMASS(N), &
+                          HSTAR(L,N), TEM(L), POFL(L), QM(L), QTCXA, QTDISRIME )
                      QTDISSTAR = (QTDISRIME*QTCXA)/(QTDISRIME + QTCXA)
                      if ( debug ) then
                        if( is_hno3 .and. l >= 15 ) then
@@ -1686,11 +1741,10 @@ is_freezing : &
                if( QTT(L) > zero ) then
                  if( RPRECIP > zero ) then
                    RRAIN = (RPRECIP*GAREA) !kg/s local
-                   call DISGAS( CLWX, CFXX(L), TCMASS(N), HSTAR(L,N), &
-                                TEM(L), POFL(L), QM(L),               &
-                                QTT(L)*CFXX(L), QTDISCF )
-                   call RAINGAS( RRAIN, DTSCAV, CLWX, CFXX(L),        &
-                                 QM(L), QTT(L), QTDISCF, QTRAIN )
+                   call neu_wetdep_disgas_eval( CLWX, CFXX(L), TCMASS(N), HSTAR(L,N), &
+                        TEM(L), POFL(L), QM(L), QTT(L)*CFXX(L), QTDISCF )
+                   call neu_wetdep_raingas_eval( RRAIN, DTSCAV, CLWX, CFXX(L), &
+                        QM(L), QTT(L), QTDISCF, QTRAIN )
                    WRK       = QTRAIN/CFXX(L)
                    QTRAINCXA = FCXA*WRK
                    QTRAINCXB = FCXB*WRK
@@ -1710,9 +1764,8 @@ is_freezing : &
 !-----------------------------------------------------------------------
                  if( DELTARIME > zero ) then
                    QTCXA = QTT(L)*FCXA
-                   call DISGAS( CLWX*(FCXA/CFXX(L)), FCXA, TCMASS(N),    &
-                                HSTAR(L,N), TEM(L), POFL(L),             &
-                                QM(L), QTCXA, QTDISRIME )
+                   call neu_wetdep_disgas_eval( CLWX*(FCXA/CFXX(L)), FCXA, TCMASS(N), &
+                        HSTAR(L,N), TEM(L), POFL(L), QM(L), QTCXA, QTDISRIME )
                    QTDISSTAR = (QTDISRIME*QTCXA)/(QTDISRIME + QTCXA)
                    QTRIMECXA = QTCXA*                              &
                       (one - exp(-0.24_r8*COLEFFRAIN*                 &
@@ -1745,9 +1798,8 @@ is_freezing : &
                  elseif( LWASHTYP == 2 ) then
                    RWASH = RCA*GAREA                                !kg/s local
                    if( QTPRECIP > zero ) then
-                     call WASHGAS( RWASH, FCA, DTSCAV, QTTOPCA+QTRIMECXA, &
-                                   HSTAR(L,N), TEM(L), POFL(L),           &
-                                   QM(L), QTPRECIP, QTWASHCXA, QTEVAPCXA )
+                     call neu_wetdep_washgas_eval( RWASH, FCA, DTSCAV, QTTOPCA+QTRIMECXA, &
+                          HSTAR(L,N), TEM(L), POFL(L), QM(L), QTPRECIP, QTWASHCXA, QTEVAPCXA )
                    else
                      QTWASHCXA = zero
                      QTEVAPCXA = zero
@@ -1857,9 +1909,8 @@ is_freezing_a : &
 !-----------------------------------------------------------------------
 !  note-QTT doesn't matter b/c T<258K
 !-----------------------------------------------------------------------
-                     call DISGAS( (MASSLOSS/QM(L)), FCXA, TCMASS(N),   &
-                                   HSTAR(L,N), TEM(L), POFL(L),        &
-                                   QM(L), QTT(L), QTEVAPCXA )
+                     call neu_wetdep_disgas_eval( (MASSLOSS/QM(L)), FCXA, TCMASS(N), &
+                          HSTAR(L,N), TEM(L), POFL(L), QM(L), QTT(L), QTEVAPCXA )
                      QTEVAPCXA = min( QTTOPCA,QTEVAPCXA )
                    else
                      QTEVAPCXA = zero
@@ -1873,9 +1924,8 @@ is_freezing_a : &
                  QTCXA = FCXA*QTT(L)
                  if( LWASHTYP == 1 ) then
                    if( QTT(L) > zero ) then
-                     call DISGAS( CLWX*(FCXA/CFXX(L)), FCXA, TCMASS(N),   &
-                                  HSTAR(L,N), TEM(L), POFL(L),            &
-                                  QM(L), QTCXA, QTDISCXA )
+                     call neu_wetdep_disgas_eval( CLWX*(FCXA/CFXX(L)), FCXA, TCMASS(N), &
+                          HSTAR(L,N), TEM(L), POFL(L), QM(L), QTCXA, QTDISCXA )
                      if( QTCXA > QTDISCXA ) then
                        QTWASHCXA = (QTCXA - QTDISCXA)*(one - exp( -0.24_r8*COLEFFAER*((RCXA)**0.75_r8)*DTSCAV )) !local
                      else
@@ -1888,9 +1938,8 @@ is_freezing_a : &
                    endif
                  elseif (LWASHTYP == 2 ) then
                    RWASH = RCXA*GAREA                         !kg/s local
-                   call WASHGAS( RWASH, FCXA, DTSCAV, QTTOPCA, HSTAR(L,N), &
-                                 TEM(L), POFL(L), QM(L),                   &
-                                 QTCXA-QTDISCXA, QTWASHCXA, QTEVAPCXAW )
+                   call neu_wetdep_washgas_eval( RWASH, FCXA, DTSCAV, QTTOPCA, HSTAR(L,N), &
+                        TEM(L), POFL(L), QM(L), QTCXA-QTDISCXA, QTWASHCXA, QTEVAPCXAW )
                  endif
                  QTEVAPCXA = QTEVAPCXAP + QTEVAPCXAW
                endif is_freezing_a
@@ -1912,9 +1961,8 @@ is_freezing_a : &
                  QTEVAPAXW = zero
                elseif( LWASHTYP == 2 ) then
                  RWASH = RAX*GAREA   !kg/s local
-                 call WASHGAS( RWASH, FAX, DTSCAV, QTTOPAA, HSTAR(L,N), &
-                               TEM(L), POFL(L), QM(L), QTAX,            &
-                               QTWASHAX, QTEVAPAXW )
+                 call neu_wetdep_washgas_eval( RWASH, FAX, DTSCAV, QTTOPAA, HSTAR(L,N), &
+                      TEM(L), POFL(L), QM(L), QTAX, QTWASHAX, QTEVAPAXW )
                endif
              else
                QTEVAPAXW = zero
@@ -2338,6 +2386,12 @@ upper_level : &
       real(r8), parameter :: INV298 = 1._r8/298._r8
       real(r8)            :: FWASH, QTMAX, QTDIF
 
+      if (.not. neu_wetdep_gas_micro_impl_selected) call neu_wetdep_gas_micro_select_impl()
+      if (.not. neu_wetdep_gas_micro_use_native_impl) then
+        call neu_wetdep_washgas_codon_wrap(RWASH, BOXF, DTSCAV, QTRTOP, HSTAR, TM, PR, QM, QT, QTWASH, QTEVAP)
+        return
+      end if
+
 !---effective Henry's Law constant: H* = moles-T / liter-precip / press(atm-T)
 !---p(atm of tracer-T) = (QT/QM) * (.029/MolWt-T) * pressr(hPa)/1000
 !---limit temperature effects to T above freezing
@@ -2370,6 +2424,79 @@ upper_level : &
      
       return
       end subroutine WASHGAS
+
+!-----------------------------------------------------------------------
+      subroutine neu_wetdep_disgas_eval(CLWX,CFX,MOLMASS,HSTAR,TM,PR,QM,QT,QTDIS)
+!-----------------------------------------------------------------------
+      implicit none
+      real(r8), intent(in) :: CLWX,CFX,MOLMASS,HSTAR,TM,PR,QM,QT
+      real(r8), intent(out) :: QTDIS
+
+      if (.not. neu_wetdep_gas_micro_impl_selected) call neu_wetdep_gas_micro_select_impl()
+      if (.not. neu_wetdep_gas_micro_use_native_impl) then
+         call neu_wetdep_disgas_codon_wrap(CLWX, CFX, MOLMASS, HSTAR, TM, PR, QM, QT, QTDIS)
+      else
+         call DISGAS(CLWX, CFX, MOLMASS, HSTAR, TM, PR, QM, QT, QTDIS)
+      end if
+
+      return
+      end subroutine neu_wetdep_disgas_eval
+
+!-----------------------------------------------------------------------
+      subroutine neu_wetdep_raingas_eval(RRAIN,DTSCAV,CLWX,CFX,QM,QT,QTDIS,QTRAIN)
+!-----------------------------------------------------------------------
+      implicit none
+      real(r8), intent(in) :: RRAIN,DTSCAV,CLWX,CFX,QM,QT,QTDIS
+      real(r8), intent(out) :: QTRAIN
+
+      if (.not. neu_wetdep_gas_micro_impl_selected) call neu_wetdep_gas_micro_select_impl()
+      if (.not. neu_wetdep_gas_micro_use_native_impl) then
+         call neu_wetdep_raingas_codon_wrap(RRAIN, DTSCAV, CLWX, CFX, QM, QT, QTDIS, QTRAIN)
+      else
+         call RAINGAS(RRAIN, DTSCAV, CLWX, CFX, QM, QT, QTDIS, QTRAIN)
+      end if
+
+      return
+      end subroutine neu_wetdep_raingas_eval
+
+!-----------------------------------------------------------------------
+      subroutine neu_wetdep_washgas_eval(RWASH,BOXF,DTSCAV,QTRTOP,HSTAR,TM,PR,QM,QT,QTWASH,QTEVAP)
+!-----------------------------------------------------------------------
+      implicit none
+      real(r8), intent(in) :: RWASH,BOXF,DTSCAV,QTRTOP,HSTAR,TM,PR,QM,QT
+      real(r8), intent(out) :: QTWASH,QTEVAP
+
+      if (.not. neu_wetdep_gas_micro_impl_selected) call neu_wetdep_gas_micro_select_impl()
+      if (.not. neu_wetdep_gas_micro_use_native_impl) then
+         call neu_wetdep_washgas_codon_wrap(RWASH, BOXF, DTSCAV, QTRTOP, HSTAR, TM, PR, QM, QT, QTWASH, QTEVAP)
+      else
+         call WASHGAS(RWASH, BOXF, DTSCAV, QTRTOP, HSTAR, TM, PR, QM, QT, QTWASH, QTEVAP)
+      end if
+
+      return
+      end subroutine neu_wetdep_washgas_eval
+
+!-----------------------------------------------------------------------
+      function neu_wetdep_dempirical_eval(CWATER,RRATE)
+!-----------------------------------------------------------------------
+      implicit none
+      real(r8), intent(in)  :: CWATER
+      real(r8), intent(in)  :: RRATE
+
+      real(r8) :: neu_wetdep_dempirical_eval
+
+      if (.not. neu_wetdep_washo_dempirical_impl_selected) then
+        call neu_wetdep_washo_dempirical_select_impl()
+      end if
+
+      if (neu_wetdep_washo_dempirical_use_native_impl) then
+        neu_wetdep_dempirical_eval = DEMPIRICAL(CWATER,RRATE)
+      else
+        call neu_wetdep_dempirical_codon_wrap(CWATER,RRATE,neu_wetdep_dempirical_eval)
+      end if
+
+      return
+      end function neu_wetdep_dempirical_eval
 
 !-----------------------------------------------------------------------
       function DEMPIRICAL (CWATER,RRATE)
