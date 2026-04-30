@@ -3242,6 +3242,169 @@ def _neu_wetdep_washo_level(
     return 0
 
 
+@inline
+def _neu_wetdep_washo_species(
+    n: int,
+    le: int,
+    lpar: int,
+    hno3_ndx: int,
+    do_diag: int,
+    dempirical_impl: int,
+    dtscav: float,
+    garea: float,
+    adj_factor: float,
+    cfmin: float,
+    cwmin: float,
+    dmin: float,
+    volpow: float,
+    rhorain: float,
+    rhosnowfix: float,
+    coleffrain: float,
+    tmix: float,
+    tfroz: float,
+    coleffaer: float,
+    tice: float,
+    four: float,
+    qttjfl: Ptr[float],
+    qm: Ptr[float],
+    pofl: Ptr[float],
+    delz: Ptr[float],
+    rls: Ptr[float],
+    clwc: Ptr[float],
+    ciwc: Ptr[float],
+    cfr: Ptr[float],
+    tem: Ptr[float],
+    evaprate: Ptr[float],
+    hstar: Ptr[float],
+    tcmass: Ptr[float],
+    tckaqb: Ptr[int],
+    tcnion: Ptr[int],
+    qt_rain: Ptr[float],
+    qt_rime: Ptr[float],
+    qt_wash: Ptr[float],
+    qt_evap: Ptr[float],
+    cfxx: Ptr[float],
+    qtt: Ptr[float],
+    qttnew: Ptr[float],
+):
+    ll = 1
+    while ll <= lpar:
+        ln_idx = _idx2(ll, n, lpar)
+        qtt[ll - 1] = qttjfl[ln_idx]
+        qttnew[ll - 1] = qttjfl[ln_idx]
+        ll += 1
+
+    is_hno3 = 0
+    if n == hno3_ndx:
+        is_hno3 = 1
+        ll = 1
+        while ll <= lpar:
+            qt_rain[ll - 1] = 0.0
+            qt_rime[ll - 1] = 0.0
+            qt_wash[ll - 1] = 0.0
+            qt_evap[ll - 1] = 0.0
+            ll += 1
+
+    if tckaqb[n - 1] != 0:
+        lwashtyp = 1
+    else:
+        lwashtyp = 2
+
+    if tcnion[n - 1] != 0:
+        licetyp = 1
+    else:
+        licetyp = 2
+
+    qttopaa = 0.0
+    qttopca = 0.0
+    rca = 0.0
+    fca = 0.0
+    dca = 0.0
+    rama = 0.0
+    fama = 0.0
+    dama = 0.0
+
+    if le >= 1:
+        if rls[le - 1] > 0.0:
+            cfxx[le - 1] = max(cfmin, cfr[le - 1])
+        else:
+            cfxx[le - 1] = cfr[le - 1]
+
+    l = le
+    while l >= 1:
+        lm1 = l - 1
+        ln_idx = _idx2(l, n, lpar)
+        hstar_ln = hstar[ln_idx]
+
+        if (
+            _neu_wetdep_washo_level(
+                l,
+                lm1,
+                do_diag,
+                is_hno3,
+                licetyp,
+                lwashtyp,
+                dempirical_impl,
+                cfmin,
+                cwmin,
+                dmin,
+                volpow,
+                rhorain,
+                rhosnowfix,
+                coleffrain,
+                tmix,
+                tfroz,
+                coleffaer,
+                tice,
+                four,
+                dtscav,
+                garea,
+                adj_factor,
+                qtt[l - 1],
+                qm[l - 1],
+                pofl[l - 1],
+                delz[l - 1],
+                rls[l - 1],
+                clwc[l - 1],
+                ciwc[l - 1],
+                tem[l - 1],
+                evaprate[l - 1],
+                hstar_ln,
+                tcmass[n - 1],
+                cfxx,
+                cfr,
+                rls,
+                evaprate,
+                qt_rain,
+                qt_rime,
+                qt_wash,
+                qt_evap,
+                qttnew,
+                __ptr__(qttopaa),
+                __ptr__(qttopca),
+                __ptr__(rca),
+                __ptr__(fca),
+                __ptr__(dca),
+                __ptr__(rama),
+                __ptr__(fama),
+                __ptr__(dama),
+            )
+            != 0
+        ):
+            ll = 1
+            while ll <= lpar:
+                qttjfl[_idx2(ll, n, lpar)] = qtt[ll - 1]
+                ll += 1
+            return
+
+        l -= 1
+
+    ll = 1
+    while ll <= le:
+        qttjfl[_idx2(ll, n, lpar)] = qttnew[ll - 1]
+        ll += 1
+
+
 @export
 def neu_wetdep_disgas_codon(
     clwx: float,
@@ -3364,131 +3527,50 @@ def neu_wetdep_washo_codon(
     le = lpar - 1
     n = 1
     while n <= ntrace:
-        ll = 1
-        while ll <= lpar:
-            ln_idx = _idx2(ll, n, lpar)
-            qtt[ll - 1] = qttjfl[ln_idx]
-            qttnew[ll - 1] = qttjfl[ln_idx]
-            ll += 1
-
-        is_hno3 = 0
-        if n == hno3_ndx:
-            is_hno3 = 1
-            ll = 1
-            while ll <= lpar:
-                qt_rain[ll - 1] = zero
-                qt_rime[ll - 1] = zero
-                qt_wash[ll - 1] = zero
-                qt_evap[ll - 1] = zero
-                ll += 1
-
-        if tckaqb[n - 1] != 0:
-            lwashtyp = 1
-        else:
-            lwashtyp = 2
-
-        if tcnion[n - 1] != 0:
-            licetyp = 1
-        else:
-            licetyp = 2
-
-        qttopaa = zero
-        qttopca = zero
-        rca = zero
-        fca = zero
-        dca = zero
-        rama = zero
-        fama = zero
-        dama = zero
-        ampct = zero
-        amclpct = zero
-        clnewpct = zero
-        clnewampct = zero
-        cloldpct = zero
-        cloldampct = zero
-
-        if le >= 1:
-            if rls[le - 1] > zero:
-                cfxx[le - 1] = max(cfmin, cfr[le - 1])
-            else:
-                cfxx[le - 1] = cfr[le - 1]
-
-        skip_species = 0
-        l = le
-        while l >= 1:
-            lm1 = l - 1
-            ln_idx = _idx2(l, n, lpar)
-            hstar_ln = hstar[ln_idx]
-
-            if (
-                _neu_wetdep_washo_level(
-                    l,
-                    lm1,
-                    do_diag,
-                    is_hno3,
-                    licetyp,
-                    lwashtyp,
-                    dempirical_impl,
-                    cfmin,
-                    cwmin,
-                    dmin,
-                    volpow,
-                    rhorain,
-                    rhosnowfix,
-                    coleffrain,
-                    tmix,
-                    tfroz,
-                    coleffaer,
-                    tice,
-                    four,
-                    dtscav,
-                    garea,
-                    adj_factor,
-                    qtt[l - 1],
-                    qm[l - 1],
-                    pofl[l - 1],
-                    delz[l - 1],
-                    rls[l - 1],
-                    clwc[l - 1],
-                    ciwc[l - 1],
-                    tem[l - 1],
-                    evaprate[l - 1],
-                    hstar_ln,
-                    tcmass[n - 1],
-                    cfxx,
-                    cfr,
-                    rls,
-                    evaprate,
-                    qt_rain,
-                    qt_rime,
-                    qt_wash,
-                    qt_evap,
-                    qttnew,
-                    __ptr__(qttopaa),
-                    __ptr__(qttopca),
-                    __ptr__(rca),
-                    __ptr__(fca),
-                    __ptr__(dca),
-                    __ptr__(rama),
-                    __ptr__(fama),
-                    __ptr__(dama),
-                )
-                != 0
-            ):
-                ll = 1
-                while ll <= lpar:
-                    qttjfl[_idx2(ll, n, lpar)] = qtt[ll - 1]
-                    ll += 1
-                skip_species = 1
-                break
-
-            l -= 1
-
-        if skip_species == 0:
-            ll = 1
-            while ll <= le:
-                qttjfl[_idx2(ll, n, lpar)] = qttnew[ll - 1]
-                ll += 1
+        _neu_wetdep_washo_species(
+            n,
+            le,
+            lpar,
+            hno3_ndx,
+            do_diag,
+            dempirical_impl,
+            dtscav,
+            garea,
+            adj_factor,
+            cfmin,
+            cwmin,
+            dmin,
+            volpow,
+            rhorain,
+            rhosnowfix,
+            coleffrain,
+            tmix,
+            tfroz,
+            coleffaer,
+            tice,
+            four,
+            qttjfl,
+            qm,
+            pofl,
+            delz,
+            rls,
+            clwc,
+            ciwc,
+            cfr,
+            tem,
+            evaprate,
+            hstar,
+            tcmass,
+            tckaqb,
+            tcnion,
+            qt_rain,
+            qt_rime,
+            qt_wash,
+            qt_evap,
+            cfxx,
+            qtt,
+            qttnew,
+        )
 
         n += 1
 
