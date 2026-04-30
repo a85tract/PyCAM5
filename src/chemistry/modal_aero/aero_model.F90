@@ -1730,6 +1730,8 @@ contains
     real(r8), target, intent(inout) :: diag_sflx_ics(pcols,wetdep_mode_phase_nslot), diag_sflx_iss(pcols,wetdep_mode_phase_nslot)
     real(r8), target, intent(inout) :: diag_sflx_bcs(pcols,wetdep_mode_phase_nslot), diag_sflx_bss(pcols,wetdep_mode_phase_nslot)
 
+    integer, parameter :: wetdep_stage_prepare_tracer_local = 1
+    integer, parameter :: wetdep_stage_finish_interstitial_local = 2
     integer :: i, k, lspec, slot, mm_local, jnv_local
     real(r8) :: dgnum_mode, sol_factb_local, sol_facti_local, sol_factic_scalar, base_f_act_scalar, omsm
     integer(c_int64_t) :: is_coarse_interstitial
@@ -1747,6 +1749,11 @@ contains
     real(r8), target :: wetdep_conv_scav_ic(pcols), wetdep_conv_scav_bc(pcols), wetdep_st_scav_ic(pcols)
     real(r8), target :: wetdep_st_scav_bc(pcols), wetdep_odds(pcols), wetdep_dblchek(pcols), wetdep_trac_qqcw(pcols)
     real(r8), target :: wetdep_tracer_incu(pcols), wetdep_tracer_mean(pcols)
+    real(r8) :: diag_dqdt_work(pcols,pver), diag_icscavt_work(pcols,pver), diag_isscavt_work(pcols,pver)
+    real(r8) :: diag_bcscavt_work(pcols,pver), diag_bsscavt_work(pcols,pver)
+    real(r8) :: diag_sflx_work(pcols), diag_sflx_ics_work(pcols), diag_sflx_iss_work(pcols)
+    real(r8) :: diag_sflx_bcs_work(pcols), diag_sflx_bss_work(pcols)
+    real(r8) :: aerdep_tmp(pcols)
     real(r8), pointer :: fldcw(:,:)
     character(len=192) :: wrap_proof_line
 
@@ -1854,13 +1861,6 @@ contains
        end if
     end do
 
-    qqcw_mode_phase(:,:,:) = 0.0_r8
-    do slot = 1, wetdep_mode_phase_nslot
-       if (slot_active(slot) == 0_c_int64_t) cycle
-       call aero_model_wetdep_resolve_qqcw_ptr(qqcw_ptrs, int(slot_mm(slot)), fldcw)
-       qqcw_mode_phase(:ncol,:,slot) = fldcw(:ncol,:)
-    end do
-
     isprx_mask(:,:) = 0_c_int64_t
     do k = 1, pver
        do i = 1, ncol
@@ -1880,6 +1880,97 @@ contains
        aero_model_wetdep_mode_phase_wrap_proof_written = .true.
        call flush(iulog)
     end if
+
+    if (lphase == 1) then
+       hygro_sum_old(:,:) = 0.0_r8
+       hygro_sum_del(:,:) = 0.0_r8
+       call aero_model_wetdep_bcscavcoef_codon_wrap( m, ncol, isprx, dgnumwet, scavcoefnum, scavcoefvol )
+
+       do slot = 1, wetdep_mode_phase_nslot
+          if (slot_active(slot) == 0_c_int64_t) cycle
+
+          mm_local = int(slot_mm(slot))
+          jnv_local = int(slot_jnv(slot))
+
+          diag_dqdt_work(:,:) = 0.0_r8
+          diag_icscavt_work(:,:) = 0.0_r8
+          diag_isscavt_work(:,:) = 0.0_r8
+          diag_bcscavt_work(:,:) = 0.0_r8
+          diag_bsscavt_work(:,:) = 0.0_r8
+          diag_sflx_work(:) = 0.0_r8
+          diag_sflx_ics_work(:) = 0.0_r8
+          diag_sflx_iss_work(:) = 0.0_r8
+          diag_sflx_bcs_work(:) = 0.0_r8
+          diag_sflx_bss_work(:) = 0.0_r8
+
+          call aero_model_wetdep_resolve_qqcw_ptr(qqcw_ptrs, mm_local, fldcw)
+
+          do k = 1, pver
+             do i = 1, ncol
+                sol_factic_work(i,k) = sol_factic_scalar
+                if (jnv_local == 1) then
+                   scavcoef_work(i,k) = scavcoefnum(i,k)
+                else if (jnv_local == 2) then
+                   scavcoef_work(i,k) = scavcoefvol(i,k)
+                else
+                   scavcoef_work(i,k) = 0.0_r8
+                end if
+
+                if (is_coarse_interstitial /= 0_c_int64_t) then
+                   if (slot_mass_kind(slot) == 1_c_int64_t) then
+                      f_act_conv_work(i,k) = 0.40_r8
+                   else if (slot_mass_kind(slot) == 2_c_int64_t) then
+                      f_act_conv_work(i,k) = 0.80_r8
+                   else
+                      f_act_conv_work(i,k) = f_act_conv_coarse(i,k)
+                   end if
+                else
+                   f_act_conv_work(i,k) = base_f_act_scalar
+                end if
+             end do
+          end do
+
+          call aero_model_wetdep_codon_wrap( &
+               wetdep_stage_prepare_tracer_local, ncol, dt, 0.0_r8, pdel, state_q(:,:,mm_local), ptend_q(:,:,mm_local), &
+               q_tmp_work, diag_dqdt_work, diag_sflx_work, diag_sflx_ics_work, diag_sflx_iss_work, &
+               diag_sflx_bcs_work, diag_sflx_bss_work, hygro_sum_old, hygro_sum_del, qaerwat_mode, q_tmp_work, &
+               diag_icscavt_work, diag_isscavt_work, diag_bcscavt_work, diag_bsscavt_work, &
+               aerdep_tmp )
+
+          call aero_model_wetdep_scavenging_codon_wrap( &
+               2, ncol, dt, pmid, q1, pdel, cldt, cldcu, cmfdqr, evapc, conicw, prain, qme, evapr, totcond, q_tmp_work, &
+               diag_dqdt_work, iscavt_work, cldvcu, cldvst, dlf, fracis_full(:,:,mm_local), sol_factb_local, &
+               scavcoef_work, fldcw, f_act_conv_work, diag_icscavt_work, diag_isscavt_work, &
+               diag_bcscavt_work, diag_bsscavt_work, sol_facti_local, sol_factic_work )
+
+          call aero_model_wetdep_codon_wrap( &
+               wetdep_stage_finish_interstitial_local, ncol, dt, slot_hygro_scale(slot), pdel, state_q(:,:,mm_local), &
+               ptend_q(:,:,mm_local), q_tmp_work, diag_dqdt_work, diag_sflx_work, diag_sflx_ics_work, &
+               diag_sflx_iss_work, diag_sflx_bcs_work, diag_sflx_bss_work, hygro_sum_old, hygro_sum_del, &
+               qaerwat_mode, q_tmp_work, diag_icscavt_work, diag_isscavt_work, diag_bcscavt_work, &
+               diag_bsscavt_work, aerdep_tmp )
+
+          diag_dqdt(:,:,slot) = diag_dqdt_work(:,:)
+          diag_icscavt(:,:,slot) = diag_icscavt_work(:,:)
+          diag_isscavt(:,:,slot) = diag_isscavt_work(:,:)
+          diag_bcscavt(:,:,slot) = diag_bcscavt_work(:,:)
+          diag_bsscavt(:,:,slot) = diag_bsscavt_work(:,:)
+          diag_sflx(:,slot) = diag_sflx_work(:)
+          diag_sflx_ics(:,slot) = diag_sflx_ics_work(:)
+          diag_sflx_iss(:,slot) = diag_sflx_iss_work(:)
+          diag_sflx_bcs(:,slot) = diag_sflx_bcs_work(:)
+          diag_sflx_bss(:,slot) = diag_sflx_bss_work(:)
+       end do
+
+       return
+    end if
+
+    qqcw_mode_phase(:,:,:) = 0.0_r8
+    do slot = 1, wetdep_mode_phase_nslot
+       if (slot_active(slot) == 0_c_int64_t) cycle
+       call aero_model_wetdep_resolve_qqcw_ptr(qqcw_ptrs, int(slot_mm(slot)), fldcw)
+       qqcw_mode_phase(:ncol,:,slot) = fldcw(:ncol,:)
+    end do
 
     call aero_model_wetdep_mode_phase_codon( &
          int(m, c_int64_t), int(lphase, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
