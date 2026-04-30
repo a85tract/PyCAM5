@@ -2244,19 +2244,6 @@ def aero_model_wetdep_mode_phase_codon(
             ncol, pcols, pver, gravit, diag_bsscavt, slot_offset, pdel, diag_sflx_bss, sflx_offset
         )
 
-    if lphase == 1:
-        for k in range(1, pver + 1):
-            for i in range(1, ncol + 1):
-                idx2 = _idx2(i, k, pcols)
-                water_old = max(0.0, qaerwat_mode[idx2])
-                hygro_sum_old_ik = max(0.0, hygro_sum_old[idx2])
-                hygro_sum_new_ik = max(0.0, hygro_sum_old_ik + hygro_sum_del[idx2])
-                if hygro_sum_new_ik >= 10.0 * hygro_sum_old_ik:
-                    water_new = 10.0 * water_old
-                else:
-                    water_new = water_old * (hygro_sum_new_ik / hygro_sum_old_ik)
-                qaerwat_mode[idx2] = water_new
-
 
 @export
 def calcram_codon(
