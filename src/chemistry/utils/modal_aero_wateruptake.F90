@@ -47,6 +47,7 @@ logical :: modal_aero_wateruptake_dr_use_native_impl = .false.
 logical :: modal_aero_wateruptake_dr_impl_selected = .false.
 logical :: modal_aero_wateruptake_dr_proof_written = .false.
 logical :: modal_aero_wateruptake_dr_wrap_proof_written = .false.
+logical :: modal_aero_wateruptake_fullshell_wrap_proof_written = .false.
 logical :: modal_aero_wateruptake_dr_wet_stage_selected = .false.
 logical :: modal_aero_wateruptake_dr_kohler_stage_selected = .false.
 integer :: modal_aero_wateruptake_dr_wet_stage = 0
@@ -234,22 +235,29 @@ end subroutine modal_aero_wateruptake_dr_select_impl
 
 subroutine modal_aero_wateruptake_dr_select_wet_stage()
 
-  character(len=48) :: stage_name
+  character(len=48) :: stage_name, env_stage_name
   integer :: status, n, i, code
 
   if (modal_aero_wateruptake_dr_wet_stage_selected) return
 
-  stage_name = 'native'
-  call get_environment_variable('MODAL_AERO_WATERUPTAKE_DR_WET_STAGE', value=stage_name, length=n, status=status)
+  if (.not. modal_aero_wateruptake_dr_use_native_impl) then
+     stage_name = 'all_codon'
+  else
+     stage_name = 'native'
+  end if
+  env_stage_name = ''
+  call get_environment_variable('MODAL_AERO_WATERUPTAKE_DR_WET_STAGE', value=env_stage_name, length=n, status=status)
 
-  if (.not. modal_aero_wateruptake_dr_use_native_impl .and. status == 0 .and. n > 0) then
-     do i = 1, n
-        code = iachar(stage_name(i:i))
-        if (code >= iachar('A') .and. code <= iachar('Z')) then
-           stage_name(i:i) = achar(code + iachar('a') - iachar('A'))
-        end if
-     end do
-     stage_name = trim(adjustl(stage_name(:n)))
+  if (.not. modal_aero_wateruptake_dr_use_native_impl) then
+     if (status == 0 .and. n > 0) then
+        do i = 1, n
+           code = iachar(env_stage_name(i:i))
+           if (code >= iachar('A') .and. code <= iachar('Z')) then
+              env_stage_name(i:i) = achar(code + iachar('a') - iachar('A'))
+           end if
+        end do
+        stage_name = trim(adjustl(env_stage_name(:n)))
+     end if
   else
      stage_name = 'native'
   end if
@@ -292,23 +300,29 @@ end subroutine modal_aero_wateruptake_dr_select_wet_stage
 
 subroutine modal_aero_wateruptake_dr_select_kohler_stage()
 
-  character(len=48) :: stage_name
+  character(len=48) :: stage_name, env_stage_name
   integer :: status, n, i, code
 
   if (modal_aero_wateruptake_dr_kohler_stage_selected) return
 
-  stage_name = 'native'
-  call get_environment_variable('MODAL_AERO_WATERUPTAKE_DR_KOHLER_STAGE', value=stage_name, length=n, status=status)
+  if (.not. modal_aero_wateruptake_dr_use_native_impl .and. modal_aero_wateruptake_dr_wet_stage /= wet_stage_native) then
+     stage_name = 'quartic_sqrt_pow_native'
+  else
+     stage_name = 'native'
+  end if
+  env_stage_name = ''
+  call get_environment_variable('MODAL_AERO_WATERUPTAKE_DR_KOHLER_STAGE', value=env_stage_name, length=n, status=status)
 
-  if (.not. modal_aero_wateruptake_dr_use_native_impl .and. modal_aero_wateruptake_dr_wet_stage /= wet_stage_native .and. &
-      status == 0 .and. n > 0) then
-     do i = 1, n
-        code = iachar(stage_name(i:i))
-        if (code >= iachar('A') .and. code <= iachar('Z')) then
-           stage_name(i:i) = achar(code + iachar('a') - iachar('A'))
-        end if
-     end do
-     stage_name = trim(adjustl(stage_name(:n)))
+  if (.not. modal_aero_wateruptake_dr_use_native_impl .and. modal_aero_wateruptake_dr_wet_stage /= wet_stage_native) then
+     if (status == 0 .and. n > 0) then
+        do i = 1, n
+           code = iachar(env_stage_name(i:i))
+           if (code >= iachar('A') .and. code <= iachar('Z')) then
+              env_stage_name(i:i) = achar(code + iachar('a') - iachar('A'))
+           end if
+        end do
+        stage_name = trim(adjustl(env_stage_name(:n)))
+     end if
   else
      stage_name = 'native'
   end if
@@ -374,6 +388,7 @@ subroutine modal_aero_wateruptake_dr(state, pbuf, list_idx_in, dgnumdry_m, dgnum
    real(r8), optional,          pointer       :: wetdens_m(:,:,:)
 
    integer :: i, k, l, lchnk, list_idx, m, ncol, nmodes, nspec, stat, itim_old
+   logical :: use_fullshell_codon
 
    character(len=3) :: trnum
 
@@ -404,6 +419,9 @@ subroutine modal_aero_wateruptake_dr(state, pbuf, list_idx_in, dgnumdry_m, dgnum
    end if
    call modal_aero_wateruptake_dr_select_wet_stage()
    call modal_aero_wateruptake_dr_select_kohler_stage()
+
+   use_fullshell_codon = modal_aero_wateruptake_dr_wet_stage == wet_stage_all_codon .and. &
+        modal_aero_wateruptake_dr_kohler_stage /= kohler_stage_native
 
    lchnk = state%lchnk
    ncol = state%ncol
@@ -511,84 +529,91 @@ subroutine modal_aero_wateruptake_dr(state, pbuf, list_idx_in, dgnumdry_m, dgnum
       end do
    end do
 
-   call modal_aero_wateruptake_dr_codon_wrap( &
-        ncol, nmodes, rh, dgncur_a, dgncur_awet, qaerwat, wetdens, nspec_mode_c, sigmag_work, rhcrystal_work, &
-        rhdeliques_work, raer_work, specdens_work, spechygro_work, maer, hygro, naer, dryvol, drymass, dryrad, &
-        wetrad, wetvol, wtrvol, specdens_1, dryvolmr_work )
-
-   if (modal_aero_wateruptake_dr_wet_stage == wet_stage_native) then
-      call modal_aero_wateruptake_sub( &
-           ncol, nmodes, rhcrystal_work, rhdeliques_work, dryrad, &
-           hygro, rh, dryvol, so4dryvol, so4specdens, tropLev, &
-           wetrad, wetvol, wtrvol, sulden, wtpct)
+   if (use_fullshell_codon) then
+      call modal_aero_wateruptake_fullshell_codon_wrap( &
+           ncol, nmodes, modal_aero_wateruptake_dr_kohler_stage, rh, dgncur_a, dgncur_awet, qaerwat, wetdens, &
+           nspec_mode_c, sigmag_work, rhcrystal_work, rhdeliques_work, raer_work, specdens_work, spechygro_work, &
+           maer, hygro, naer, dryvol, drymass, dryrad, wetrad, wetvol, wtrvol, specdens_1, dryvolmr_work )
    else
-      if (modal_aero_wateruptake_dr_kohler_stage == kohler_stage_codon .or. &
-          modal_aero_wateruptake_dr_kohler_stage == kohler_stage_all_codon .or. &
-          modal_aero_wateruptake_dr_kohler_stage == kohler_stage_roots_native .or. &
-          modal_aero_wateruptake_dr_kohler_stage == kohler_stage_sat_native .or. &
-          modal_aero_wateruptake_dr_kohler_stage == kohler_stage_subsat_native .or. &
-          modal_aero_wateruptake_dr_kohler_stage == kohler_stage_quartic_native .or. &
-          modal_aero_wateruptake_dr_kohler_stage == kohler_stage_cubic_native .or. &
-          modal_aero_wateruptake_dr_kohler_stage == kohler_stage_quartic_sqrt_native .or. &
-          modal_aero_wateruptake_dr_kohler_stage == kohler_stage_quartic_pow_native .or. &
-          modal_aero_wateruptake_dr_kohler_stage == kohler_stage_quartic_sqrt_pow_native) then
-         call modal_aero_wateruptake_kohler_codon_wrap( &
-              ncol, nmodes, modal_aero_wateruptake_dr_kohler_stage, dryrad, hygro, rh, wetrad)
+      call modal_aero_wateruptake_dr_codon_wrap( &
+           ncol, nmodes, rh, dgncur_a, dgncur_awet, qaerwat, wetdens, nspec_mode_c, sigmag_work, rhcrystal_work, &
+           rhdeliques_work, raer_work, specdens_work, spechygro_work, maer, hygro, naer, dryvol, drymass, dryrad, &
+           wetrad, wetvol, wtrvol, specdens_1, dryvolmr_work )
+
+      if (modal_aero_wateruptake_dr_wet_stage == wet_stage_native) then
+         call modal_aero_wateruptake_sub( &
+              ncol, nmodes, rhcrystal_work, rhdeliques_work, dryrad, &
+              hygro, rh, dryvol, so4dryvol, so4specdens, tropLev, &
+              wetrad, wetvol, wtrvol, sulden, wtpct)
       else
-         call modal_aero_wateruptake_kohler_only_native( &
-              ncol, nmodes, dryrad, hygro, rh, wetrad)
+         if (modal_aero_wateruptake_dr_kohler_stage == kohler_stage_codon .or. &
+             modal_aero_wateruptake_dr_kohler_stage == kohler_stage_all_codon .or. &
+             modal_aero_wateruptake_dr_kohler_stage == kohler_stage_roots_native .or. &
+             modal_aero_wateruptake_dr_kohler_stage == kohler_stage_sat_native .or. &
+             modal_aero_wateruptake_dr_kohler_stage == kohler_stage_subsat_native .or. &
+             modal_aero_wateruptake_dr_kohler_stage == kohler_stage_quartic_native .or. &
+             modal_aero_wateruptake_dr_kohler_stage == kohler_stage_cubic_native .or. &
+             modal_aero_wateruptake_dr_kohler_stage == kohler_stage_quartic_sqrt_native .or. &
+             modal_aero_wateruptake_dr_kohler_stage == kohler_stage_quartic_pow_native .or. &
+             modal_aero_wateruptake_dr_kohler_stage == kohler_stage_quartic_sqrt_pow_native) then
+            call modal_aero_wateruptake_kohler_codon_wrap( &
+                 ncol, nmodes, modal_aero_wateruptake_dr_kohler_stage, dryrad, hygro, rh, wetrad)
+         else
+            call modal_aero_wateruptake_kohler_only_native( &
+                 ncol, nmodes, dryrad, hygro, rh, wetrad)
+         end if
+
+         if (modal_aero_wateruptake_dr_wet_stage == wet_stage_base_guard_codon) then
+            call modal_aero_wateruptake_base_guard_codon_wrap( &
+                 ncol, nmodes, dryrad, wetrad)
+            call modal_aero_wateruptake_base_native( &
+                 ncol, nmodes, dryrad, dryvol, wetrad, wetvol, wtrvol)
+         else if (modal_aero_wateruptake_dr_wet_stage == wet_stage_base_wtrvol_codon) then
+            call modal_aero_wateruptake_base_native( &
+                 ncol, nmodes, dryrad, dryvol, wetrad, wetvol, wtrvol)
+            call modal_aero_wateruptake_base_wtrvol_codon_wrap( &
+                 ncol, nmodes, dryvol, wetvol, wtrvol)
+         else if (modal_aero_wateruptake_dr_wet_stage == wet_stage_base_pow_codon) then
+            call modal_aero_wateruptake_base_guard_codon_wrap( &
+                 ncol, nmodes, dryrad, wetrad)
+            call modal_aero_wateruptake_base_pow_codon_wrap( &
+                 ncol, nmodes, wetrad, wetvol)
+            call modal_aero_wateruptake_base_clamp_native( &
+                 ncol, nmodes, dryvol, wetvol)
+            call modal_aero_wateruptake_base_wtrvol_codon_wrap( &
+                 ncol, nmodes, dryvol, wetvol, wtrvol)
+         else if (modal_aero_wateruptake_dr_wet_stage == wet_stage_base_clamp_codon) then
+            call modal_aero_wateruptake_base_guard_codon_wrap( &
+                 ncol, nmodes, dryrad, wetrad)
+            call modal_aero_wateruptake_base_pow_native( &
+                 ncol, nmodes, wetrad, wetvol)
+            call modal_aero_wateruptake_base_clamp_codon_wrap( &
+                 ncol, nmodes, dryvol, wetvol)
+            call modal_aero_wateruptake_base_wtrvol_codon_wrap( &
+                 ncol, nmodes, dryvol, wetvol, wtrvol)
+         else if (modal_aero_wateruptake_dr_wet_stage == wet_stage_base_codon .or. &
+                  modal_aero_wateruptake_dr_wet_stage == wet_stage_all_codon) then
+            call modal_aero_wateruptake_wet_shell_codon_wrap( &
+                 ncol, nmodes, modal_aero_wateruptake_dr_wet_stage == wet_stage_all_codon, &
+                 rhcrystal_work, rhdeliques_work, dryrad, rh, dryvol, wetrad, wetvol, wtrvol)
+         else
+            call modal_aero_wateruptake_base_native( &
+                 ncol, nmodes, dryrad, dryvol, wetrad, wetvol, wtrvol)
+         end if
+
+         if (modal_aero_wateruptake_dr_wet_stage == wet_stage_hyst_codon) then
+            call modal_aero_wateruptake_hyst_codon_wrap( &
+                 ncol, nmodes, rhcrystal_work, rhdeliques_work, dryrad, rh, dryvol, wetrad, wetvol, wtrvol)
+         else if (modal_aero_wateruptake_dr_wet_stage /= wet_stage_all_codon) then
+            call modal_aero_wateruptake_hyst_native( &
+                 ncol, nmodes, rhcrystal_work, rhdeliques_work, dryrad, rh, dryvol, wetrad, wetvol, wtrvol)
+         end if
       end if
 
-      if (modal_aero_wateruptake_dr_wet_stage == wet_stage_base_guard_codon) then
-         call modal_aero_wateruptake_base_guard_codon_wrap( &
-              ncol, nmodes, dryrad, wetrad)
-         call modal_aero_wateruptake_base_native( &
-              ncol, nmodes, dryrad, dryvol, wetrad, wetvol, wtrvol)
-      else if (modal_aero_wateruptake_dr_wet_stage == wet_stage_base_wtrvol_codon) then
-         call modal_aero_wateruptake_base_native( &
-              ncol, nmodes, dryrad, dryvol, wetrad, wetvol, wtrvol)
-         call modal_aero_wateruptake_base_wtrvol_codon_wrap( &
-              ncol, nmodes, dryvol, wetvol, wtrvol)
-      else if (modal_aero_wateruptake_dr_wet_stage == wet_stage_base_pow_codon) then
-         call modal_aero_wateruptake_base_guard_codon_wrap( &
-              ncol, nmodes, dryrad, wetrad)
-         call modal_aero_wateruptake_base_pow_codon_wrap( &
-              ncol, nmodes, wetrad, wetvol)
-         call modal_aero_wateruptake_base_clamp_native( &
-              ncol, nmodes, dryvol, wetvol)
-         call modal_aero_wateruptake_base_wtrvol_codon_wrap( &
-              ncol, nmodes, dryvol, wetvol, wtrvol)
-      else if (modal_aero_wateruptake_dr_wet_stage == wet_stage_base_clamp_codon) then
-         call modal_aero_wateruptake_base_guard_codon_wrap( &
-              ncol, nmodes, dryrad, wetrad)
-         call modal_aero_wateruptake_base_pow_native( &
-              ncol, nmodes, wetrad, wetvol)
-         call modal_aero_wateruptake_base_clamp_codon_wrap( &
-              ncol, nmodes, dryvol, wetvol)
-         call modal_aero_wateruptake_base_wtrvol_codon_wrap( &
-              ncol, nmodes, dryvol, wetvol, wtrvol)
-      else if (modal_aero_wateruptake_dr_wet_stage == wet_stage_base_codon .or. &
-               modal_aero_wateruptake_dr_wet_stage == wet_stage_all_codon) then
-         call modal_aero_wateruptake_wet_shell_codon_wrap( &
-              ncol, nmodes, modal_aero_wateruptake_dr_wet_stage == wet_stage_all_codon, &
-              rhcrystal_work, rhdeliques_work, dryrad, rh, dryvol, wetrad, wetvol, wtrvol)
-      else
-         call modal_aero_wateruptake_base_native( &
-              ncol, nmodes, dryrad, dryvol, wetrad, wetvol, wtrvol)
-      end if
-
-      if (modal_aero_wateruptake_dr_wet_stage == wet_stage_hyst_codon) then
-         call modal_aero_wateruptake_hyst_codon_wrap( &
-              ncol, nmodes, rhcrystal_work, rhdeliques_work, dryrad, rh, dryvol, wetrad, wetvol, wtrvol)
-      else if (modal_aero_wateruptake_dr_wet_stage /= wet_stage_all_codon) then
-         call modal_aero_wateruptake_hyst_native( &
-              ncol, nmodes, rhcrystal_work, rhdeliques_work, dryrad, rh, dryvol, wetrad, wetvol, wtrvol)
-      end if
+      call modal_aero_wateruptake_finalize_codon_wrap( &
+           ncol, nmodes, dgncur_a, dgncur_awet, qaerwat, wetdens, naer, dryrad, drymass, wetrad, wetvol, &
+           wtrvol, specdens_1 )
    end if
-
-   call modal_aero_wateruptake_finalize_codon_wrap( &
-        ncol, nmodes, dgncur_a, dgncur_awet, qaerwat, wetdens, naer, dryrad, drymass, wetrad, wetvol, wtrvol, &
-        specdens_1 )
 
    if (list_idx == 0) then
       do m = 1, nmodes
@@ -1025,6 +1050,69 @@ subroutine modal_aero_wateruptake_dr_codon_wrap( &
        c_loc(wetvol(1,1,1)), c_loc(wtrvol(1,1,1)), c_loc(specdens_1(1)), c_loc(dryvolmr_work(1,1)) )
 
 end subroutine modal_aero_wateruptake_dr_codon_wrap
+
+!===============================================================================
+
+subroutine modal_aero_wateruptake_fullshell_codon_wrap( &
+   ncol, nmodes, solver_stage, rh, dgncur_a, dgncur_awet, qaerwat, wetdens, nspec_mode_c, sigmag_work, &
+   rhcrystal_work, rhdeliques_work, raer_work, specdens_work, spechygro_work, maer, hygro, naer, dryvol, drymass, &
+   dryrad, wetrad, wetvol, wtrvol, specdens_1, dryvolmr_work)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+  integer, intent(in) :: ncol, nmodes, solver_stage
+  real(r8), target, intent(in) :: rh(pcols,pver), dgncur_a(pcols,pver,nmodes)
+  integer(c_int64_t), target, intent(in) :: nspec_mode_c(nmodes)
+  real(r8), target, intent(inout) :: dgncur_awet(pcols,pver,nmodes), qaerwat(pcols,pver,nmodes), wetdens(pcols,pver,nmodes)
+  real(r8), target, intent(in) :: sigmag_work(nmodes), rhcrystal_work(nmodes), rhdeliques_work(nmodes)
+  real(r8), target, intent(in) :: raer_work(pcols,pver,maxd_aspectype,nmodes)
+  real(r8), target, intent(in) :: specdens_work(maxd_aspectype,nmodes), spechygro_work(maxd_aspectype,nmodes)
+  real(r8), target, intent(inout) :: maer(pcols,pver,nmodes), hygro(pcols,pver,nmodes), naer(pcols,pver,nmodes)
+  real(r8), target, intent(inout) :: dryvol(pcols,pver,nmodes), drymass(pcols,pver,nmodes), dryrad(pcols,pver,nmodes)
+  real(r8), target, intent(inout) :: wetrad(pcols,pver,nmodes), wetvol(pcols,pver,nmodes), wtrvol(pcols,pver,nmodes)
+  real(r8), target, intent(inout) :: specdens_1(nmodes), dryvolmr_work(pcols,pver)
+
+  character(len=224) :: wrap_proof_line
+
+  interface
+     subroutine modal_aero_wateruptake_fullshell_codon( &
+          ncol_c, pcols_c, pver_c, top_lev_c, nmodes_c, solver_stage_c, maxd_aspectype_c, pi_c, pi43_c, rhoh2o_c, &
+          rh_p, dgncur_a_p, dgncur_awet_p, qaerwat_p, wetdens_p, nspec_mode_p, sigmag_p, rhcrystal_p, &
+          rhdeliques_p, raer_work_p, specdens_work_p, spechygro_work_p, maer_p, hygro_p, naer_p, dryvol_p, &
+          drymass_p, dryrad_p, wetrad_p, wetvol_p, wtrvol_p, specdens_1_p, dryvolmr_p) &
+          bind(c, name="modal_aero_wateruptake_fullshell_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, nmodes_c, solver_stage_c, maxd_aspectype_c
+       real(c_double), value :: pi_c, pi43_c, rhoh2o_c
+       type(c_ptr), value :: rh_p, dgncur_a_p, dgncur_awet_p, qaerwat_p, wetdens_p
+       type(c_ptr), value :: nspec_mode_p, sigmag_p, rhcrystal_p, rhdeliques_p
+       type(c_ptr), value :: raer_work_p, specdens_work_p, spechygro_work_p
+       type(c_ptr), value :: maer_p, hygro_p, naer_p, dryvol_p, drymass_p, dryrad_p
+       type(c_ptr), value :: wetrad_p, wetvol_p, wtrvol_p, specdens_1_p, dryvolmr_p
+     end subroutine modal_aero_wateruptake_fullshell_codon
+  end interface
+
+  if (masterproc .and. .not. modal_aero_wateruptake_fullshell_wrap_proof_written) then
+     write(wrap_proof_line,'(A,A,A,A,A)') &
+          'modal_aero_wateruptake_fullshell_codon_wrap entered (fullshell = codon, base_pow = native_array, kohler_stage = ', &
+          trim(modal_aero_wateruptake_dr_kohler_stage_name), ', wet_stage = ', trim(modal_aero_wateruptake_dr_wet_stage_name), ')'
+     write(iulog,'(A)') trim(wrap_proof_line)
+     call modal_aero_wateruptake_dr_append_impl_proof('MODAL_AERO_WATERUPTAKE_DR_PROOF_FILE', trim(wrap_proof_line))
+     modal_aero_wateruptake_fullshell_wrap_proof_written = .true.
+     call flush(iulog)
+  end if
+
+  call modal_aero_wateruptake_fullshell_codon( &
+       int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
+       int(nmodes, c_int64_t), int(solver_stage, c_int64_t), int(maxd_aspectype, c_int64_t), real(pi, c_double), &
+       real(pi43, c_double), real(rhoh2o, c_double), c_loc(rh(1,1)), c_loc(dgncur_a(1,1,1)), c_loc(dgncur_awet(1,1,1)), &
+       c_loc(qaerwat(1,1,1)), c_loc(wetdens(1,1,1)), c_loc(nspec_mode_c(1)), c_loc(sigmag_work(1)), &
+       c_loc(rhcrystal_work(1)), c_loc(rhdeliques_work(1)), c_loc(raer_work(1,1,1,1)), c_loc(specdens_work(1,1)), &
+       c_loc(spechygro_work(1,1)), c_loc(maer(1,1,1)), c_loc(hygro(1,1,1)), c_loc(naer(1,1,1)), c_loc(dryvol(1,1,1)), &
+       c_loc(drymass(1,1,1)), c_loc(dryrad(1,1,1)), c_loc(wetrad(1,1,1)), c_loc(wetvol(1,1,1)), c_loc(wtrvol(1,1,1)), &
+       c_loc(specdens_1(1)), c_loc(dryvolmr_work(1,1)) )
+
+end subroutine modal_aero_wateruptake_fullshell_codon_wrap
 
 !===============================================================================
 
@@ -1597,6 +1685,26 @@ function modal_aero_vol_from_radius_native_cb(radius_c) bind(c, name="modal_aero
   vol_c = real(pi43*radius**3._r8, c_double)
 
 end function modal_aero_vol_from_radius_native_cb
+
+!===============================================================================
+
+subroutine modal_aero_wateruptake_base_pow_array_native_cb( &
+     ncol_c, pcols_c, pver_c, top_lev_c, nmodes_c, wetrad_p, wetvol_p) &
+     bind(c, name="modal_aero_wateruptake_base_pow_array_native_cb")
+
+  use iso_c_binding, only: c_double, c_int64_t, c_ptr, c_f_pointer
+
+  integer(c_int64_t), value, intent(in) :: ncol_c, pcols_c, pver_c, top_lev_c, nmodes_c
+  type(c_ptr), value, intent(in) :: wetrad_p, wetvol_p
+
+  real(c_double), pointer :: wetrad_f(:,:,:), wetvol_f(:,:,:)
+
+  call c_f_pointer(wetrad_p, wetrad_f, (/ int(pcols_c), int(pver_c), int(nmodes_c) /))
+  call c_f_pointer(wetvol_p, wetvol_f, (/ int(pcols_c), int(pver_c), int(nmodes_c) /))
+
+  call modal_aero_wateruptake_base_pow_native( int(ncol_c), int(nmodes_c), wetrad_f, wetvol_f )
+
+end subroutine modal_aero_wateruptake_base_pow_array_native_cb
 
 !===============================================================================
 

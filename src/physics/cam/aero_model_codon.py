@@ -5,6 +5,7 @@ from C import modal_aero_kohler_quartic_real_root_native_cb(float, float, float,
 from C import modal_aero_complex_sqrt_native_cb(float, float, Ptr[float], Ptr[float]) -> None
 from C import modal_aero_complex_pow_third_native_cb(float, float, Ptr[float], Ptr[float]) -> None
 from C import modal_aero_vol_from_radius_native_cb(float) -> float
+from C import modal_aero_wateruptake_base_pow_array_native_cb(int, int, int, int, int, Ptr[float], Ptr[float]) -> None
 
 @inline
 def _idx2(i: int, k: int, ld1: int) -> int:
@@ -10087,3 +10088,136 @@ def modal_aero_wateruptake_finalize_codon(
                 i += 1
             k += 1
         m += 1
+
+
+@export
+def modal_aero_wateruptake_fullshell_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    nmodes: int,
+    solver_stage: int,
+    maxd_aspectype: int,
+    pi_const: float,
+    pi43_const: float,
+    rhoh2o_const: float,
+    rh_p: cobj,
+    dgncur_a_p: cobj,
+    dgncur_awet_p: cobj,
+    qaerwat_p: cobj,
+    wetdens_p: cobj,
+    nspec_mode_p: cobj,
+    sigmag_p: cobj,
+    rhcrystal_p: cobj,
+    rhdeliques_p: cobj,
+    raer_work_p: cobj,
+    specdens_work_p: cobj,
+    spechygro_work_p: cobj,
+    maer_p: cobj,
+    hygro_p: cobj,
+    naer_p: cobj,
+    dryvol_p: cobj,
+    drymass_p: cobj,
+    dryrad_p: cobj,
+    wetrad_p: cobj,
+    wetvol_p: cobj,
+    wtrvol_p: cobj,
+    specdens_1_p: cobj,
+    dryvolmr_p: cobj,
+):
+    modal_aero_wateruptake_dr_codon(
+        ncol,
+        pcols,
+        pver,
+        top_lev,
+        nmodes,
+        maxd_aspectype,
+        pi_const,
+        pi43_const,
+        rhoh2o_const,
+        rh_p,
+        dgncur_a_p,
+        dgncur_awet_p,
+        qaerwat_p,
+        wetdens_p,
+        nspec_mode_p,
+        sigmag_p,
+        rhcrystal_p,
+        rhdeliques_p,
+        raer_work_p,
+        specdens_work_p,
+        spechygro_work_p,
+        maer_p,
+        hygro_p,
+        naer_p,
+        dryvol_p,
+        drymass_p,
+        dryrad_p,
+        wetrad_p,
+        wetvol_p,
+        wtrvol_p,
+        specdens_1_p,
+        dryvolmr_p,
+    )
+
+    modal_aero_wateruptake_kohler_codon(
+        ncol,
+        pcols,
+        pver,
+        top_lev,
+        nmodes,
+        solver_stage,
+        dryrad_p,
+        hygro_p,
+        rh_p,
+        wetrad_p,
+    )
+
+    modal_aero_wateruptake_base_guard_codon(
+        ncol, pcols, pver, top_lev, nmodes, dryrad_p, wetrad_p
+    )
+
+    wetrad = Ptr[float](wetrad_p)
+    wetvol = Ptr[float](wetvol_p)
+    modal_aero_wateruptake_base_pow_array_native_cb(
+        ncol, pcols, pver, top_lev, nmodes, wetrad, wetvol
+    )
+
+    modal_aero_wateruptake_postpow_wet_shell_codon(
+        ncol,
+        pcols,
+        pver,
+        top_lev,
+        nmodes,
+        1,
+        pi43_const,
+        rhcrystal_p,
+        rhdeliques_p,
+        dryrad_p,
+        rh_p,
+        dryvol_p,
+        wetrad_p,
+        wetvol_p,
+        wtrvol_p,
+    )
+
+    modal_aero_wateruptake_finalize_codon(
+        ncol,
+        pcols,
+        pver,
+        top_lev,
+        nmodes,
+        rhoh2o_const,
+        dgncur_a_p,
+        dgncur_awet_p,
+        qaerwat_p,
+        wetdens_p,
+        naer_p,
+        dryrad_p,
+        drymass_p,
+        wetrad_p,
+        wetvol_p,
+        wtrvol_p,
+        specdens_1_p,
+    )
