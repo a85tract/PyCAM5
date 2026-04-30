@@ -23,7 +23,7 @@
   save
 
 ! !PUBLIC MEMBER FUNCTIONS:
-  public modal_aero_gasaerexch_sub, modal_aero_gasaerexch_init
+  public modal_aero_gasaerexch_sub, modal_aero_gasaerexch_sub_direct_codon, modal_aero_gasaerexch_init
 
 ! !PUBLIC DATA MEMBERS:
   integer, parameter :: pcnstxx = gas_pcnst
@@ -55,6 +55,7 @@
   logical :: modal_aero_gasaerexch_sub_use_native_impl = .false.
   logical :: modal_aero_gasaerexch_sub_impl_selected = .false.
   logical :: modal_aero_gasaerexch_sub_proof_written = .false.
+  logical :: modal_aero_gasaerexch_sub_direct_proof_written = .false.
   logical :: modal_aero_gasaerexch_sub_wrap_proof_written = .false.
   logical :: gas_aer_uptkrates_use_native_impl = .false.
   logical :: gas_aer_uptkrates_impl_selected = .false.
@@ -158,6 +159,65 @@ subroutine modal_aero_gasaerexch_sub_select_impl()
   end if
 
 end subroutine modal_aero_gasaerexch_sub_select_impl
+
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+subroutine modal_aero_gasaerexch_sub_direct_codon( &
+     lchnk,    ncol,     nstep,            &
+     loffset,            deltat,           &
+     t,        pmid,     pdel,             &
+     qh2o,               troplev,          &
+     q,                   qqcw,            &
+     dqdt_main,           dqqcwdt_main,    &
+     dgncur_a,            dgncur_awet,     &
+     sulfeq                              )
+
+  use cam_logfile, only: iulog
+  use spmd_utils, only: masterproc
+
+  implicit none
+
+  integer, intent(in) :: lchnk, ncol, nstep, loffset
+  real(r8), intent(in) :: deltat
+  real(r8), target, intent(in) :: t(pcols,pver), pmid(pcols,pver), pdel(pcols,pver)
+  real(r8), target, intent(in) :: qh2o(pcols,pver)
+  integer, target, intent(in) :: troplev(pcols)
+  real(r8), target, intent(inout) :: q(ncol,pver,pcnstxx), qqcw(ncol,pver,pcnstxx)
+  real(r8), target, intent(inout) :: dqdt_main(ncol,pver,pcnstxx), dqqcwdt_main(ncol,pver,pcnstxx)
+  real(r8), target, intent(in) :: dgncur_a(pcols,pver,ntot_amode), dgncur_awet(pcols,pver,ntot_amode)
+  real(r8), pointer, intent(in) :: sulfeq(:,:,:)
+
+  logical :: saved_use_native_impl, saved_impl_selected
+
+  saved_use_native_impl = modal_aero_gasaerexch_sub_use_native_impl
+  saved_impl_selected = modal_aero_gasaerexch_sub_impl_selected
+
+  modal_aero_gasaerexch_sub_use_native_impl = .false.
+  modal_aero_gasaerexch_sub_impl_selected = .true.
+
+  if (masterproc .and. .not. modal_aero_gasaerexch_sub_direct_proof_written) then
+     write(iulog,'(A)') 'modal_aero_gasaerexch_sub direct codon entered'
+     call modal_aero_gasaerexch_sub_append_impl_proof('MODAL_AERO_GASAEREXCH_SUB_PROOF_FILE', &
+          'modal_aero_gasaerexch_sub direct codon entered')
+     modal_aero_gasaerexch_sub_direct_proof_written = .true.
+     call flush(iulog)
+  end if
+
+  call modal_aero_gasaerexch_sub( &
+       lchnk,    ncol,     nstep,            &
+       loffset,            deltat,           &
+       t,        pmid,     pdel,             &
+       qh2o,               troplev,          &
+       q,                   qqcw,            &
+       dqdt_main,           dqqcwdt_main,    &
+       dgncur_a,            dgncur_awet,     &
+       sulfeq                              )
+
+  modal_aero_gasaerexch_sub_use_native_impl = saved_use_native_impl
+  modal_aero_gasaerexch_sub_impl_selected = saved_impl_selected
+
+end subroutine modal_aero_gasaerexch_sub_direct_codon
 
 
 !----------------------------------------------------------------------

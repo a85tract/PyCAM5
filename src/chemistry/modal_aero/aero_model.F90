@@ -1933,10 +1933,10 @@ contains
                                     vmr0, vmr, pbuf )
 
     use time_manager,          only : get_nstep
-    use modal_aero_coag,       only : modal_aero_coag_sub
-    use modal_aero_gasaerexch, only : modal_aero_gasaerexch_sub
-    use modal_aero_newnuc,     only : modal_aero_newnuc_sub
-    use mo_setsox,             only : setsox, has_sox
+    use modal_aero_coag,       only : modal_aero_coag_sub, modal_aero_coag_sub_direct_codon
+    use modal_aero_gasaerexch, only : modal_aero_gasaerexch_sub, modal_aero_gasaerexch_sub_direct_codon
+    use modal_aero_newnuc,     only : modal_aero_newnuc_sub, modal_aero_newnuc_sub_direct_codon
+    use mo_setsox,             only : setsox, has_sox, setsox_shell_codon_wrap
     use modal_aero_data,       only : cnst_name_cw, qqcw_get_field
 
     !-----------------------------------------------------------------------
@@ -2032,23 +2032,43 @@ contains
   ! aqueous chemistry ...
 
     if( has_sox ) then
-       call setsox(   &
-            ncol,     &
-            lchnk,    &
-            loffset,  &
-            delt,     &
-            pmid,     &
-            pdel,     &
-            tfld,     &
-            mbar,     &
-            cwat,     &
-            cldfr,    &
-            cldnum,   &
-            airdens,  &
-            invariants, &
-            vmrcw,    &
-            vmr       &
-            )
+       if (aero_model_gasaerexch_use_native_impl) then
+          call setsox(   &
+               ncol,     &
+               lchnk,    &
+               loffset,  &
+               delt,     &
+               pmid,     &
+               pdel,     &
+               tfld,     &
+               mbar,     &
+               cwat,     &
+               cldfr,    &
+               cldnum,   &
+               airdens,  &
+               invariants, &
+               vmrcw,    &
+               vmr       &
+               )
+       else
+          call setsox_shell_codon_wrap( &
+               ncol,     &
+               lchnk,    &
+               loffset,  &
+               delt,     &
+               pmid,     &
+               pdel,     &
+               tfld,     &
+               mbar,     &
+               cwat,     &
+               cldfr,    &
+               cldnum,   &
+               airdens,  &
+               invariants, &
+               vmrcw,    &
+               vmr       &
+               )
+       end if
     endif
 
 !   Tendency due to aqueous chemistry 
@@ -2083,15 +2103,27 @@ contains
        nullify( sulfeq )
     endif
 
-    call modal_aero_gasaerexch_sub(            &
-         lchnk,    ncol,     nstep,            &
-         loffset,            delt,             &
-         tfld,     pmid,     pdel,             &
-         qh2o,               troplev,          &
-         vmr,                vmrcw,            &
-         dvmrdt,             dvmrcwdt,         &
-         dgnum,              dgnumwet,         &
-         sulfeq     )
+    if (aero_model_gasaerexch_use_native_impl) then
+       call modal_aero_gasaerexch_sub(         &
+            lchnk,    ncol,     nstep,         &
+            loffset,            delt,          &
+            tfld,     pmid,     pdel,          &
+            qh2o,               troplev,       &
+            vmr,                vmrcw,         &
+            dvmrdt,             dvmrcwdt,      &
+            dgnum,              dgnumwet,      &
+            sulfeq     )
+    else
+       call modal_aero_gasaerexch_sub_direct_codon( &
+            lchnk,    ncol,     nstep,              &
+            loffset,            delt,               &
+            tfld,     pmid,     pdel,               &
+            qh2o,               troplev,            &
+            vmr,                vmrcw,              &
+            dvmrdt,             dvmrcwdt,           &
+            dgnum,              dgnumwet,           &
+            sulfeq     )
+    end if
 
     if (aero_model_gasaerexch_use_native_impl) then
        call aero_model_gasaerexch_h2so4_delta(ncol, ndx_h2so4, vmr, del_h2so4_aeruptk)
@@ -2105,27 +2137,48 @@ contains
     call t_startf('modal_nucl')
 
     ! do aerosol nucleation (new particle formation)
-    call modal_aero_newnuc_sub(                             &
-         lchnk,    ncol,     nstep,            &
-         loffset,            delt,             &
-         tfld,     pmid,     pdel,             &
-         zm,       pblh,                       &
-         qh2o,     cldfr,                      &
-         vmr,                                  &
-         del_h2so4_gasprod,  del_h2so4_aeruptk )
+    if (aero_model_gasaerexch_use_native_impl) then
+       call modal_aero_newnuc_sub(                          &
+            lchnk,    ncol,     nstep,         &
+            loffset,            delt,          &
+            tfld,     pmid,     pdel,          &
+            zm,       pblh,                    &
+            qh2o,     cldfr,                   &
+            vmr,                               &
+            del_h2so4_gasprod,  del_h2so4_aeruptk )
+    else
+       call modal_aero_newnuc_sub_direct_codon(            &
+            lchnk,    ncol,     nstep,         &
+            loffset,            delt,          &
+            tfld,     pmid,     pdel,          &
+            zm,       pblh,                    &
+            qh2o,     cldfr,                   &
+            vmr,                               &
+            del_h2so4_gasprod,  del_h2so4_aeruptk )
+    end if
 
     call t_stopf('modal_nucl')
 
     call t_startf('modal_coag')
 
     ! do aerosol coagulation
-    call modal_aero_coag_sub(                               &
-         lchnk,    ncol,     nstep,            &
-         loffset,            delt,             &
-         tfld,     pmid,     pdel,             &
-         vmr,                                  &
-         dgnum,              dgnumwet,         &
-         wetdens                          )
+    if (aero_model_gasaerexch_use_native_impl) then
+       call modal_aero_coag_sub(                            &
+            lchnk,    ncol,     nstep,         &
+            loffset,            delt,          &
+            tfld,     pmid,     pdel,          &
+            vmr,                               &
+            dgnum,              dgnumwet,      &
+            wetdens                          )
+    else
+       call modal_aero_coag_sub_direct_codon(              &
+            lchnk,    ncol,     nstep,         &
+            loffset,            delt,          &
+            tfld,     pmid,     pdel,          &
+            vmr,                               &
+            dgnum,              dgnumwet,      &
+            wetdens                          )
+    end if
 
     call t_stopf('modal_coag')
 
@@ -2340,7 +2393,7 @@ contains
     end if
 
     if (masterproc .and. .not. aero_model_gasaerexch_wrap_proof_written) then
-       wrap_proof_line = 'aero_model_gasaerexch_codon_wrap entered (setsox callback = native, qqcw direct = codon)'
+       wrap_proof_line = 'aero_model_gasaerexch_codon_wrap entered (setsox/gaexch/newnuc/coag/qqcw direct = codon)'
        write(iulog,'(A)') trim(wrap_proof_line)
        call aero_model_gasaerexch_append_impl_proof('AERO_MODEL_GASAEREXCH_PROOF_FILE', trim(wrap_proof_line))
        aero_model_gasaerexch_wrap_proof_written = .true.

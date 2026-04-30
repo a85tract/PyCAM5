@@ -20,7 +20,7 @@ module modal_aero_newnuc
   save
 
 ! !PUBLIC MEMBER FUNCTIONS:
-  public modal_aero_newnuc_sub, modal_aero_newnuc_init
+  public modal_aero_newnuc_sub, modal_aero_newnuc_sub_direct_codon, modal_aero_newnuc_init
 
 ! !PUBLIC DATA MEMBERS:
   integer, parameter  :: pcnstxx = gas_pcnst
@@ -28,6 +28,8 @@ module modal_aero_newnuc
   logical :: modal_aero_newnuc_sub_use_native_impl = .false.
   logical :: modal_aero_newnuc_sub_impl_selected = .false.
   logical :: modal_aero_newnuc_sub_fallback_reported = .false.
+  logical :: modal_aero_newnuc_sub_direct_proof_written = .false.
+  logical :: modal_aero_newnuc_sub_ternary_codon_proof_written = .false.
   logical :: modal_aero_newnuc_zero_tendencies_use_native_impl = .false.
   logical :: modal_aero_newnuc_zero_tendencies_impl_selected = .false.
   logical :: modal_aero_newnuc_prepare_box_inputs_use_native_impl = .false.
@@ -149,6 +151,62 @@ module modal_aero_newnuc
    end if
 
   end subroutine modal_aero_newnuc_sub_select_impl
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+  subroutine modal_aero_newnuc_sub_direct_codon(                             &
+                       lchnk,    ncol,     nstep,               &
+                       loffset,  deltat,                        &
+                       t,        pmid,     pdel,                &
+                       zm,       pblh,                          &
+                       qv,       cld,                           &
+                       q,                                       &
+                       del_h2so4_gasprod,  del_h2so4_aeruptk    )
+
+   use cam_logfile, only: iulog
+   use ppgrid,      only: pcols, pver
+   use spmd_utils,  only: masterproc
+
+   implicit none
+
+   integer, intent(in)  :: lchnk, ncol, nstep, loffset
+   real(r8), intent(in) :: deltat
+   real(r8), intent(in) :: t(pcols,pver), pmid(pcols,pver), pdel(pcols,pver)
+   real(r8), intent(in) :: zm(pcols,pver), pblh(pcols), qv(pcols,pver)
+   real(r8), intent(in) :: cld(ncol,pver)
+   real(r8), intent(inout) :: q(ncol,pver,pcnstxx)
+   real(r8), intent(in) :: del_h2so4_gasprod(ncol,pver), del_h2so4_aeruptk(ncol,pver)
+
+   logical :: saved_use_native_impl, saved_impl_selected
+
+   saved_use_native_impl = modal_aero_newnuc_sub_use_native_impl
+   saved_impl_selected = modal_aero_newnuc_sub_impl_selected
+
+   modal_aero_newnuc_sub_use_native_impl = .false.
+   modal_aero_newnuc_sub_impl_selected = .true.
+   modal_aero_newnuc_sub_fallback_reported = .false.
+
+   if (masterproc .and. .not. modal_aero_newnuc_sub_direct_proof_written) then
+      write(iulog,'(A)') 'modal_aero_newnuc_sub direct codon entered'
+      call modal_aero_newnuc_append_impl_proof('MODAL_AERO_NEWNUC_SUB_PROOF_FILE', &
+           'modal_aero_newnuc_sub direct codon entered')
+      modal_aero_newnuc_sub_direct_proof_written = .true.
+      call flush(iulog)
+   end if
+
+   call modal_aero_newnuc_sub(                             &
+        lchnk,    ncol,     nstep,               &
+        loffset,  deltat,                        &
+        t,        pmid,     pdel,                &
+        zm,       pblh,                          &
+        qv,       cld,                           &
+        q,                                       &
+        del_h2so4_gasprod,  del_h2so4_aeruptk    )
+
+   modal_aero_newnuc_sub_use_native_impl = saved_use_native_impl
+   modal_aero_newnuc_sub_impl_selected = saved_impl_selected
+
+  end subroutine modal_aero_newnuc_sub_direct_codon
 
 !----------------------------------------------------------------------
 !----------------------------------------------------------------------
@@ -1160,7 +1218,7 @@ module modal_aero_newnuc
 
 		integer, parameter :: nsrflx = 1     ! last dimension of qsrflx
 		integer(c_int64_t) :: active_mask(ncol,pver)
-		integer(c_int64_t) :: dotend_mask(pcnst), fallback_required
+		integer(c_int64_t) :: dotend_mask(pcnst), fallback_required, ternary_codon_used
 		real(r8) :: qsrflx(pcols,pcnst,nsrflx)
 	                              ! process-specific column tracer tendencies
 	                              ! 1 = nucleation (for aerocom)
@@ -1202,7 +1260,16 @@ module modal_aero_newnuc
            call modal_aero_newnuc_sub_codon_wrap( &
                 loffset, ncol, deltat, t, pmid, pdel, zm, pblh, qv, cld, q, del_h2so4_gasprod, del_h2so4_aeruptk, qv_sat, &
                 dqdt, qsrflx, dplom_mode, dphim_mode, active_mask, cldx_work, qh2so4_cur_work, qh2so4_avg_work, &
-                qnh3_cur_work, tmp_uptkrate_work, relhumnn_work, dotend_mask, fallback_required )
+                qnh3_cur_work, tmp_uptkrate_work, relhumnn_work, dotend_mask, fallback_required, ternary_codon_used )
+
+           if (masterproc .and. (ternary_codon_used /= 0_c_int64_t) .and. &
+                (.not. modal_aero_newnuc_sub_ternary_codon_proof_written)) then
+              write(iulog,'(A)') 'modal_aero_newnuc_sub ternary codon entered'
+              call modal_aero_newnuc_append_impl_proof('MODAL_AERO_NEWNUC_SUB_PROOF_FILE', &
+                   'modal_aero_newnuc_sub ternary codon entered')
+              call flush(iulog)
+              modal_aero_newnuc_sub_ternary_codon_proof_written = .true.
+           end if
 
            if (fallback_required == 0_c_int64_t) then
               do l = loffset+1, pcnst
@@ -1444,7 +1511,7 @@ main_i:	do i = 1, ncol
   subroutine modal_aero_newnuc_sub_codon_wrap( &
        loffset_in, ncol_in, deltat_in, t, pmid, pdel, zm, pblh, qv, cld, q, del_h2so4_gasprod, del_h2so4_aeruptk, qv_sat, &
        dqdt, qsrflx, dplom_mode, dphim_mode, active_mask, cldx_work, qh2so4_cur_work, qh2so4_avg_work, qnh3_cur_work, &
-       tmp_uptkrate_work, relhumnn_work, dotend_out, fallback_required_out )
+       tmp_uptkrate_work, relhumnn_work, dotend_out, fallback_required_out, ternary_codon_used_out )
 
    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
    use mo_constants, only: pi, rgas, avogad => avogadro
@@ -1466,6 +1533,7 @@ main_i:	do i = 1, ncol
    real(r8), target, intent(inout) :: q(ncol_in,pver,pcnstxx), dqdt(ncol_in,pver,pcnstxx), qsrflx(pcols,pcnst,1)
    real(r8), target, intent(out) :: dplom_mode(1), dphim_mode(1)
    integer(c_int64_t), target, intent(out) :: active_mask(ncol_in,pver), dotend_out(pcnst), fallback_required_out
+   integer(c_int64_t), target, intent(out) :: ternary_codon_used_out
    real(r8), target, intent(out) :: cldx_work(ncol_in,pver), qh2so4_cur_work(ncol_in,pver), qh2so4_avg_work(ncol_in,pver)
    real(r8), target, intent(out) :: qnh3_cur_work(ncol_in,pver), tmp_uptkrate_work(ncol_in,pver), relhumnn_work(ncol_in,pver)
 
@@ -1478,7 +1546,8 @@ main_i:	do i = 1, ncol
            dgnumhi_aitken_c, specdens_so4_amode_c, specmw_so4_amode_c, specmw_nh4_amode_c, pi_c, gravit_c, mwdry_c, &
            adv_mass_p, rgas_c, avogad_c, mw_so4a_c, mw_nh4a_c, t_p, pmid_p, pdel_p, zm_p, pblh_p, qv_p, cld_p, q_p, &
            qv_sat_p, del_h2so4_gasprod_p, del_h2so4_aeruptk_p, dqdt_p, qsrflx_p, dplom_mode_p, dphim_mode_p, active_mask_p, &
-           cldx_p, qh2so4_cur_p, qh2so4_avg_p, qnh3_cur_p, tmp_uptkrate_p, relhumnn_p, dotend_p, fallback_required_p ) &
+           cldx_p, qh2so4_cur_p, qh2so4_avg_p, qnh3_cur_p, tmp_uptkrate_p, relhumnn_p, dotend_p, fallback_required_p, &
+           ternary_codon_used_p ) &
            bind(c, name="modal_aero_newnuc_sub_codon")
         use iso_c_binding, only: c_double, c_int64_t, c_ptr
         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, pcnstxx_c, top_lev_c, loffset_c
@@ -1489,7 +1558,7 @@ main_i:	do i = 1, ncol
         type(c_ptr), value :: adv_mass_p, t_p, pmid_p, pdel_p, zm_p, pblh_p, qv_p, cld_p, q_p, qv_sat_p
         type(c_ptr), value :: del_h2so4_gasprod_p, del_h2so4_aeruptk_p, dqdt_p, qsrflx_p, dplom_mode_p, dphim_mode_p
         type(c_ptr), value :: active_mask_p, cldx_p, qh2so4_cur_p, qh2so4_avg_p, qnh3_cur_p, tmp_uptkrate_p, relhumnn_p
-        type(c_ptr), value :: dotend_p, fallback_required_p
+        type(c_ptr), value :: dotend_p, fallback_required_p, ternary_codon_used_p
       end subroutine modal_aero_newnuc_sub_codon
    end interface
 
@@ -1508,7 +1577,7 @@ main_i:	do i = 1, ncol
         c_loc(qv_sat(1,1)), c_loc(del_h2so4_gasprod(1,1)), c_loc(del_h2so4_aeruptk(1,1)), c_loc(dqdt(1,1,1)), &
         c_loc(qsrflx(1,1,1)), c_loc(dplom_mode(1)), c_loc(dphim_mode(1)), c_loc(active_mask(1,1)), c_loc(cldx_work(1,1)), &
         c_loc(qh2so4_cur_work(1,1)), c_loc(qh2so4_avg_work(1,1)), c_loc(qnh3_cur_work(1,1)), c_loc(tmp_uptkrate_work(1,1)), &
-        c_loc(relhumnn_work(1,1)), c_loc(dotend_out(1)), c_loc(fallback_required_out) )
+        c_loc(relhumnn_work(1,1)), c_loc(dotend_out(1)), c_loc(fallback_required_out), c_loc(ternary_codon_used_out) )
 
   end subroutine modal_aero_newnuc_sub_codon_wrap
 

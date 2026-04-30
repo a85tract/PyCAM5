@@ -1,4 +1,10 @@
 from math import atan, copysign, erfc, exp, log, pi, sqrt
+from C import modal_aero_kohler_native_cb(float, float, float) -> float
+from C import modal_aero_kohler_cubic_real_root_native_cb(float, float, float, float, float) -> float
+from C import modal_aero_kohler_quartic_real_root_native_cb(float, float, float, float, float, float) -> float
+from C import modal_aero_complex_sqrt_native_cb(float, float, Ptr[float], Ptr[float]) -> None
+from C import modal_aero_complex_pow_third_native_cb(float, float, Ptr[float], Ptr[float]) -> None
+from C import modal_aero_vol_from_radius_native_cb(float) -> float
 
 @inline
 def _idx2(i: int, k: int, ld1: int) -> int:
@@ -16,6 +22,570 @@ def _idx3(i: int, k: int, m: int, ld1: int, ld2: int) -> int:
 def _idx4(i: int, j: int, k: int, l: int, ld1: int, ld2: int, ld3: int) -> int:
     """Fortran array declared as (ld1, ld2, ld3, *)."""
     return (i - 1) + (j - 1) * ld1 + (k - 1) * ld1 * ld2 + (l - 1) * ld1 * ld2 * ld3
+
+
+@inline
+def _modal_aero_v2ncur(dgncur_a: float, pi_const: float, alnsg: float) -> float:
+    return 1.0 / ((pi_const / 6.0) * (dgncur_a**3.0) * exp(4.5 * (alnsg**2.0)))
+
+
+@inline
+def _modal_aero_radius_from_vol(vol: float, pi43_const: float) -> float:
+    return (vol / pi43_const) ** (1.0 / 3.0)
+
+
+def _complex_sqrt(z):
+    return z ** 0.5
+
+
+def _complex_sqrt_native(z):
+    root_re = 0.0
+    root_im = 0.0
+    modal_aero_complex_sqrt_native_cb(
+        z.real, z.imag, __ptr__(root_re), __ptr__(root_im)
+    )
+    return complex(root_re, root_im)
+
+
+def _complex_pow_third_native(z):
+    root_re = 0.0
+    root_im = 0.0
+    modal_aero_complex_pow_third_native_cb(
+        z.real, z.imag, __ptr__(root_re), __ptr__(root_im)
+    )
+    return complex(root_re, root_im)
+
+
+def _modal_aero_kohler_cubic_real_root(p2: float, p1: float, p0: float, rdry: float, eps: float) -> float:
+    third = 1.0 / 3.0
+    ci = complex(0.0, 1.0)
+    sqrt3 = sqrt(3.0)
+    cw = 0.5 * (-1.0 + ci * sqrt3)
+    cwsq = 0.5 * (-1.0 - ci * sqrt3)
+
+    if p1 == 0.0:
+        root = (-p0) ** third
+        return root
+
+    q = p1 / 3.0
+    r = p0 / 2.0
+    crad = complex(r * r + q * q * q, 0.0)
+    crad = _complex_sqrt(crad)
+
+    cy = complex(r, 0.0) - crad
+    if abs(cy) > eps:
+        cy = cy ** third
+    cq = complex(q, 0.0)
+    cz = -cq / cy
+
+    cx1 = -cy - cz
+    cx2 = -cw * cy - cwsq * cz
+    cx3 = -cwsq * cy - cw * cz
+
+    root = 1000.0 * rdry
+    nsol = 0
+
+    xr = cx1.real
+    xi = cx1.imag
+    if abs(xi) <= abs(xr) * eps:
+        if xr <= root:
+            if xr >= rdry * (1.0 - eps):
+                if xr == xr:
+                    root = xr
+                    nsol = 1
+
+    xr = cx2.real
+    xi = cx2.imag
+    if abs(xi) <= abs(xr) * eps:
+        if xr <= root:
+            if xr >= rdry * (1.0 - eps):
+                if xr == xr:
+                    root = xr
+                    nsol = 2
+
+    xr = cx3.real
+    xi = cx3.imag
+    if abs(xi) <= abs(xr) * eps:
+        if xr <= root:
+            if xr >= rdry * (1.0 - eps):
+                if xr == xr:
+                    root = xr
+                    nsol = 3
+
+    if nsol == 0:
+        root = rdry
+
+    return root
+
+
+def _modal_aero_kohler_quartic_real_root(
+    p3: float, p2: float, p1: float, p0: float, rdry: float, eps: float
+) -> float:
+    third = 1.0 / 3.0
+    czero = complex(0.0, 0.0)
+
+    q = -(p2 * p2) / 36.0 + (p3 * p1 - 4 * p0) / 12.0
+    r = -((p2 / 6) ** 3) + p2 * (p3 * p1 - 4 * p0) / 48.0 + (
+        4 * p0 * p2 - p0 * p3 * p3 - p1 * p1
+    ) / 16.0
+
+    crad = complex(r * r + q * q * q, 0.0)
+    crad = _complex_sqrt(crad)
+
+    cb = complex(r, 0.0) - crad
+    if cb == czero:
+        cx1 = complex((-p1) ** third, 0.0)
+        cx2 = cx1
+        cx3 = cx1
+        cx4 = cx1
+    else:
+        cb = cb ** third
+
+        cy = -cb + q / cb + p2 / 6
+
+        cb0 = _complex_sqrt(cy * cy - p0)
+        cb1 = (p3 * cy - p1) / (2 * cb0)
+
+        cb = p3 / 2 + cb1
+        crad = cb * cb - 4 * (cy + cb0)
+        crad = _complex_sqrt(crad)
+        cx1 = (-cb + crad) / 2.0
+        cx2 = (-cb - crad) / 2.0
+
+        cb = p3 / 2 - cb1
+        crad = cb * cb - 4 * (cy - cb0)
+        crad = _complex_sqrt(crad)
+        cx3 = (-cb + crad) / 2.0
+        cx4 = (-cb - crad) / 2.0
+
+    root = 1000.0 * rdry
+    nsol = 0
+
+    xr = cx1.real
+    xi = cx1.imag
+    if abs(xi) <= abs(xr) * eps:
+        if xr <= root:
+            if xr >= rdry * (1.0 - eps):
+                if xr == xr:
+                    root = xr
+                    nsol = 1
+
+    xr = cx2.real
+    xi = cx2.imag
+    if abs(xi) <= abs(xr) * eps:
+        if xr <= root:
+            if xr >= rdry * (1.0 - eps):
+                if xr == xr:
+                    root = xr
+                    nsol = 2
+
+    xr = cx3.real
+    xi = cx3.imag
+    if abs(xi) <= abs(xr) * eps:
+        if xr <= root:
+            if xr >= rdry * (1.0 - eps):
+                if xr == xr:
+                    root = xr
+                    nsol = 3
+
+    xr = cx4.real
+    xi = cx4.imag
+    if abs(xi) <= abs(xr) * eps:
+        if xr <= root:
+            if xr >= rdry * (1.0 - eps):
+                if xr == xr:
+                    root = xr
+                    nsol = 4
+
+    if nsol == 0:
+        root = rdry
+
+    return root
+
+
+def _modal_aero_kohler_quartic_real_root_sqrt_native(
+    p3: float, p2: float, p1: float, p0: float, rdry: float, eps: float
+) -> float:
+    third = 1.0 / 3.0
+    czero = complex(0.0, 0.0)
+
+    q = -(p2 * p2) / 36.0 + (p3 * p1 - 4 * p0) / 12.0
+    r = -((p2 / 6) ** 3) + p2 * (p3 * p1 - 4 * p0) / 48.0 + (
+        4 * p0 * p2 - p0 * p3 * p3 - p1 * p1
+    ) / 16.0
+
+    crad = complex(r * r + q * q * q, 0.0)
+    crad = _complex_sqrt_native(crad)
+
+    cb = complex(r, 0.0) - crad
+    if cb == czero:
+        cx1 = complex((-p1) ** third, 0.0)
+        cx2 = cx1
+        cx3 = cx1
+        cx4 = cx1
+    else:
+        cb = cb ** third
+
+        cy = -cb + q / cb + p2 / 6
+
+        cb0 = _complex_sqrt_native(cy * cy - p0)
+        cb1 = (p3 * cy - p1) / (2 * cb0)
+
+        cb = p3 / 2 + cb1
+        crad = cb * cb - 4 * (cy + cb0)
+        crad = _complex_sqrt_native(crad)
+        cx1 = (-cb + crad) / 2.0
+        cx2 = (-cb - crad) / 2.0
+
+        cb = p3 / 2 - cb1
+        crad = cb * cb - 4 * (cy - cb0)
+        crad = _complex_sqrt_native(crad)
+        cx3 = (-cb + crad) / 2.0
+        cx4 = (-cb - crad) / 2.0
+
+    root = 1000.0 * rdry
+    nsol = 0
+
+    xr = cx1.real
+    xi = cx1.imag
+    if abs(xi) <= abs(xr) * eps:
+        if xr <= root:
+            if xr >= rdry * (1.0 - eps):
+                if xr == xr:
+                    root = xr
+                    nsol = 1
+
+    xr = cx2.real
+    xi = cx2.imag
+    if abs(xi) <= abs(xr) * eps:
+        if xr <= root:
+            if xr >= rdry * (1.0 - eps):
+                if xr == xr:
+                    root = xr
+                    nsol = 2
+
+    xr = cx3.real
+    xi = cx3.imag
+    if abs(xi) <= abs(xr) * eps:
+        if xr <= root:
+            if xr >= rdry * (1.0 - eps):
+                if xr == xr:
+                    root = xr
+                    nsol = 3
+
+    xr = cx4.real
+    xi = cx4.imag
+    if abs(xi) <= abs(xr) * eps:
+        if xr <= root:
+            if xr >= rdry * (1.0 - eps):
+                if xr == xr:
+                    root = xr
+                    nsol = 4
+
+    if nsol == 0:
+        root = rdry
+
+    return root
+
+
+def _modal_aero_kohler_quartic_real_root_pow_native(
+    p3: float, p2: float, p1: float, p0: float, rdry: float, eps: float
+) -> float:
+    third = 1.0 / 3.0
+    czero = complex(0.0, 0.0)
+
+    q = -(p2 * p2) / 36.0 + (p3 * p1 - 4 * p0) / 12.0
+    r = -((p2 / 6) ** 3) + p2 * (p3 * p1 - 4 * p0) / 48.0 + (
+        4 * p0 * p2 - p0 * p3 * p3 - p1 * p1
+    ) / 16.0
+
+    crad = complex(r * r + q * q * q, 0.0)
+    crad = _complex_sqrt(crad)
+
+    cb = complex(r, 0.0) - crad
+    if cb == czero:
+        cx1 = complex((-p1) ** third, 0.0)
+        cx2 = cx1
+        cx3 = cx1
+        cx4 = cx1
+    else:
+        cb = _complex_pow_third_native(cb)
+
+        cy = -cb + q / cb + p2 / 6
+
+        cb0 = _complex_sqrt(cy * cy - p0)
+        cb1 = (p3 * cy - p1) / (2 * cb0)
+
+        cb = p3 / 2 + cb1
+        crad = cb * cb - 4 * (cy + cb0)
+        crad = _complex_sqrt(crad)
+        cx1 = (-cb + crad) / 2.0
+        cx2 = (-cb - crad) / 2.0
+
+        cb = p3 / 2 - cb1
+        crad = cb * cb - 4 * (cy - cb0)
+        crad = _complex_sqrt(crad)
+        cx3 = (-cb + crad) / 2.0
+        cx4 = (-cb - crad) / 2.0
+
+    root = 1000.0 * rdry
+    nsol = 0
+
+    xr = cx1.real
+    xi = cx1.imag
+    if abs(xi) <= abs(xr) * eps:
+        if xr <= root:
+            if xr >= rdry * (1.0 - eps):
+                if xr == xr:
+                    root = xr
+                    nsol = 1
+
+    xr = cx2.real
+    xi = cx2.imag
+    if abs(xi) <= abs(xr) * eps:
+        if xr <= root:
+            if xr >= rdry * (1.0 - eps):
+                if xr == xr:
+                    root = xr
+                    nsol = 2
+
+    xr = cx3.real
+    xi = cx3.imag
+    if abs(xi) <= abs(xr) * eps:
+        if xr <= root:
+            if xr >= rdry * (1.0 - eps):
+                if xr == xr:
+                    root = xr
+                    nsol = 3
+
+    xr = cx4.real
+    xi = cx4.imag
+    if abs(xi) <= abs(xr) * eps:
+        if xr <= root:
+            if xr >= rdry * (1.0 - eps):
+                if xr == xr:
+                    root = xr
+                    nsol = 4
+
+    if nsol == 0:
+        root = rdry
+
+    return root
+
+
+def _modal_aero_kohler_quartic_real_root_sqrt_pow_native(
+    p3: float, p2: float, p1: float, p0: float, rdry: float, eps: float
+) -> float:
+    third = 1.0 / 3.0
+    czero = complex(0.0, 0.0)
+
+    q = -(p2 * p2) / 36.0 + (p3 * p1 - 4 * p0) / 12.0
+    r = -((p2 / 6) ** 3) + p2 * (p3 * p1 - 4 * p0) / 48.0 + (
+        4 * p0 * p2 - p0 * p3 * p3 - p1 * p1
+    ) / 16.0
+
+    crad = complex(r * r + q * q * q, 0.0)
+    crad = _complex_sqrt_native(crad)
+
+    cb = complex(r, 0.0) - crad
+    if cb == czero:
+        cx1 = complex((-p1) ** third, 0.0)
+        cx2 = cx1
+        cx3 = cx1
+        cx4 = cx1
+    else:
+        cb = _complex_pow_third_native(cb)
+
+        cy = -cb + q / cb + p2 / 6
+
+        cb0 = _complex_sqrt_native(cy * cy - p0)
+        cb1 = (p3 * cy - p1) / (2 * cb0)
+
+        cb = p3 / 2 + cb1
+        crad = cb * cb - 4 * (cy + cb0)
+        crad = _complex_sqrt_native(crad)
+        cx1 = (-cb + crad) / 2.0
+        cx2 = (-cb - crad) / 2.0
+
+        cb = p3 / 2 - cb1
+        crad = cb * cb - 4 * (cy - cb0)
+        crad = _complex_sqrt_native(crad)
+        cx3 = (-cb + crad) / 2.0
+        cx4 = (-cb - crad) / 2.0
+
+    root = 1000.0 * rdry
+    nsol = 0
+
+    xr = cx1.real
+    xi = cx1.imag
+    if abs(xi) <= abs(xr) * eps:
+        if xr <= root:
+            if xr >= rdry * (1.0 - eps):
+                if xr == xr:
+                    root = xr
+                    nsol = 1
+
+    xr = cx2.real
+    xi = cx2.imag
+    if abs(xi) <= abs(xr) * eps:
+        if xr <= root:
+            if xr >= rdry * (1.0 - eps):
+                if xr == xr:
+                    root = xr
+                    nsol = 2
+
+    xr = cx3.real
+    xi = cx3.imag
+    if abs(xi) <= abs(xr) * eps:
+        if xr <= root:
+            if xr >= rdry * (1.0 - eps):
+                if xr == xr:
+                    root = xr
+                    nsol = 3
+
+    xr = cx4.real
+    xi = cx4.imag
+    if abs(xi) <= abs(xr) * eps:
+        if xr <= root:
+            if xr >= rdry * (1.0 - eps):
+                if xr == xr:
+                    root = xr
+                    nsol = 4
+
+    if nsol == 0:
+        root = rdry
+
+    return root
+
+
+def _modal_aero_kohler_scalar_selective(
+    dryrad_in: float, hygro: float, s: float, quartic_mode: int, cubic_mode: int
+) -> float:
+    eps = 1.0e-4
+    mw = 18.0
+    rhow = 1.0
+    surften = 76.0
+    tair = 273.0
+    third = 1.0 / 3.0
+    ugascon = 8.3e7
+
+    a = 2.0e4 * mw * surften / (ugascon * tair * rhow)
+
+    rdry = dryrad_in * 1.0e6
+    vol = rdry**3
+    b = vol * hygro
+
+    ss = min(s, 1.0 - eps)
+    ss = max(ss, 1.0e-10)
+    slog = log(ss)
+    p43 = -a / slog
+    p42 = 0.0
+    p41 = b / slog - vol
+    p40 = a * vol / slog
+    p32 = 0.0
+    p31 = -b / a
+    p30 = -vol
+    r = rdry
+    r3 = rdry
+    r4 = rdry
+
+    if vol <= 1.0e-12:
+        r = rdry
+    else:
+        p = abs(p31) / (rdry * rdry)
+        if p < eps:
+            r = rdry * (1.0 + p * third / (1.0 - slog * rdry / a))
+        else:
+            if quartic_mode == 1:
+                r = modal_aero_kohler_quartic_real_root_native_cb(
+                    p43, p42, p41, p40, rdry, eps
+                )
+            elif quartic_mode == 2:
+                r = _modal_aero_kohler_quartic_real_root_sqrt_native(
+                    p43, p42, p41, p40, rdry, eps
+                )
+            elif quartic_mode == 3:
+                r = _modal_aero_kohler_quartic_real_root_pow_native(
+                    p43, p42, p41, p40, rdry, eps
+                )
+            elif quartic_mode == 4:
+                r = _modal_aero_kohler_quartic_real_root_sqrt_pow_native(
+                    p43, p42, p41, p40, rdry, eps
+                )
+            else:
+                r = _modal_aero_kohler_quartic_real_root(
+                    p43, p42, p41, p40, rdry, eps
+                )
+
+    if s > 1.0 - eps:
+        r4 = r
+        p = abs(p31) / (rdry * rdry)
+        if p < eps:
+            r = rdry * (1.0 + p * third)
+        else:
+            if cubic_mode == 1:
+                r = modal_aero_kohler_cubic_real_root_native_cb(
+                    p32, p31, p30, rdry, eps
+                )
+            else:
+                r = _modal_aero_kohler_cubic_real_root(p32, p31, p30, rdry, eps)
+        r3 = r
+        r = (r4 * (1.0 - s) + r3 * (s - 1.0 + eps)) / eps
+
+    r = min(r, 30.0)
+    return r * 1.0e-6
+
+
+def _modal_aero_kohler_scalar_all_codon(dryrad_in: float, hygro: float, s: float) -> float:
+    return _modal_aero_kohler_scalar_selective(dryrad_in, hygro, s, 0, 0)
+
+
+def _modal_aero_kohler_scalar_native_roots(dryrad_in: float, hygro: float, s: float) -> float:
+    return _modal_aero_kohler_scalar_selective(dryrad_in, hygro, s, 1, 1)
+
+
+def _modal_aero_kohler_scalar_quartic_native(dryrad_in: float, hygro: float, s: float) -> float:
+    return _modal_aero_kohler_scalar_selective(dryrad_in, hygro, s, 1, 0)
+
+
+def _modal_aero_kohler_scalar_cubic_native(dryrad_in: float, hygro: float, s: float) -> float:
+    return _modal_aero_kohler_scalar_selective(dryrad_in, hygro, s, 0, 1)
+
+
+def _modal_aero_kohler_scalar_quartic_sqrt_native(
+    dryrad_in: float, hygro: float, s: float
+) -> float:
+    return _modal_aero_kohler_scalar_selective(dryrad_in, hygro, s, 2, 0)
+
+
+def _modal_aero_kohler_scalar_quartic_pow_native(
+    dryrad_in: float, hygro: float, s: float
+) -> float:
+    return _modal_aero_kohler_scalar_selective(dryrad_in, hygro, s, 3, 0)
+
+
+def _modal_aero_kohler_scalar_quartic_sqrt_pow_native(
+    dryrad_in: float, hygro: float, s: float
+) -> float:
+    return _modal_aero_kohler_scalar_selective(dryrad_in, hygro, s, 4, 0)
+
+
+def _modal_aero_kohler_scalar_sat_native(dryrad_in: float, hygro: float, s: float) -> float:
+    eps = 1.0e-4
+
+    if s > 1.0 - eps:
+        return modal_aero_kohler_native_cb(dryrad_in, hygro, s)
+
+    return _modal_aero_kohler_scalar_native_roots(dryrad_in, hygro, s)
+
+
+def _modal_aero_kohler_scalar_subsat_native(dryrad_in: float, hygro: float, s: float) -> float:
+    eps = 1.0e-4
+
+    if s > 1.0 - eps:
+        return _modal_aero_kohler_scalar_native_roots(dryrad_in, hygro, s)
+
+    return modal_aero_kohler_native_cb(dryrad_in, hygro, s)
 
 
 @inline
@@ -1943,6 +2513,239 @@ def binary_nuc_vehk2002_codon(
     radius_cluster[0] = exp(-1.6524245 + 0.42316402 * crit_x + 0.3346648 * log(cnum_tot[0]))
 
 
+def _ternary_nuc_merik2007_core(
+    t: float,
+    rh: float,
+    c2: float,
+    c3: float,
+):
+    j_log = 0.0
+    ntot = 0.0
+    nacid = 0.0
+    namm = 0.0
+    r = 0.0
+    log_c2 = log(c2)
+    log_c3 = log(c3)
+    log_rh = log(rh)
+    t_sq = t**2
+    t_cu = t**3
+    c3_cu = c3**3
+    log_c2_sq = log_c2**2
+    log_c3_sq = log_c3**2
+    log_c3_cu = log_c3**3
+
+    t_onset = (
+        143.6002929064716
+        + 1.0178856665693992 * rh
+        + 10.196398812974294 * log_c2
+        - 0.1849879416839113 * log_c2_sq
+        - 17.161783213150173 * log_c3
+        + (109.92469248546053 * log_c3) / log_c2
+        + 0.7734119613144357 * log_c2 * log_c3
+        - 0.15576469879527022 * log_c3_sq
+    )
+
+    if t_onset > t:
+        j_log = (
+            -12.861848898625231
+            + 4.905527742256349 * c3
+            - 358.2337705052991 * rh
+            - 0.05463019231872484 * c3 * t
+            + 4.8630382337426985 * rh * t
+            + 0.00020258394697064567 * c3 * t_sq
+            - 0.02175548069741675 * rh * t_sq
+            - 2.502406532869512e-7 * c3 * t_cu
+            + 0.00003212869941055865 * rh * t_cu
+            - 4.39129415725234e6 / log_c2_sq
+            + (56383.93843154586 * t) / log_c2_sq
+            - (239.835990963361 * t_sq) / log_c2_sq
+            + (0.33765136625580167 * t_cu) / log_c2_sq
+            - (629.7882041830943 * rh) / (c3_cu * log_c2)
+            + (7.772806552631709 * rh * t) / (c3_cu * log_c2)
+            - (0.031974053936299256 * rh * t_sq) / (c3_cu * log_c2)
+            + (0.00004383764128775082 * rh * t_cu) / (c3_cu * log_c2)
+            + 1200.472096232311 * log_c2
+            - 17.37107890065621 * t * log_c2
+            + 0.08170681335921742 * t_sq * log_c2
+            - 0.00012534476159729881 * t_cu * log_c2
+            - 14.833042158178936 * log_c2_sq
+            + 0.2932631303555295 * t * log_c2_sq
+            - 0.0016497524241142845 * t_sq * log_c2_sq
+            + 2.844074805239367e-6 * t_cu * log_c2_sq
+            - 231375.56676032578 * log_c3
+            - 100.21645273730675 * rh * log_c3
+            + 2919.2852552424706 * t * log_c3
+            + 0.977886555834732 * rh * t * log_c3
+            - 12.286497122264588 * t_sq * log_c3
+            - 0.0030511783284506377 * rh * t_sq * log_c3
+            + 0.017249301826661612 * t_cu * log_c3
+            + 2.967320346100855e-6 * rh * t_cu * log_c3
+            + (2.360931724951942e6 * log_c3) / log_c2
+            - (29752.130254319443 * t * log_c3) / log_c2
+            + (125.04965118142027 * t_sq * log_c3) / log_c2
+            - (0.1752996881934318 * t_cu * log_c3) / log_c2
+            + 5599.912337254629 * log_c2 * log_c3
+            - 70.70896612937771 * t * log_c2 * log_c3
+            + 0.2978801613269466 * t_sq * log_c2 * log_c3
+            - 0.00041866525019504 * t_cu * log_c2 * log_c3
+            + 75061.15281456841 * log_c3_sq
+            - 931.8802278173565 * t * log_c3_sq
+            + 3.863266220840964 * t_sq * log_c3_sq
+            - 0.005349472062284983 * t_cu * log_c3_sq
+            - (732006.8180571689 * log_c3_sq) / log_c2
+            + (9100.06398573816 * t * log_c3_sq) / log_c2
+            - (37.771091915932004 * t_sq * log_c3_sq) / log_c2
+            + (0.05235455395566905 * t_cu * log_c3_sq) / log_c2
+            - 1911.0303773001353 * log_c2 * log_c3_sq
+            + 23.6903969622286 * t * log_c2 * log_c3_sq
+            - 0.09807872005428583 * t_sq * log_c2 * log_c3_sq
+            + 0.00013564560238552576 * t_cu * log_c2 * log_c3_sq
+            - 3180.5610833308 * log_c3_cu
+            + 39.08268568672095 * t * log_c3_cu
+            - 0.16048521066690752 * t_sq * log_c3_cu
+            + 0.00022031380023793877 * t_cu * log_c3_cu
+            + (40751.075322248245 * log_c3_cu) / log_c2
+            - (501.66977622013934 * t * log_c3_cu) / log_c2
+            + (2.063469732254135 * t_sq * log_c3_cu) / log_c2
+            - (0.002836873785758324 * t_cu * log_c3_cu) / log_c2
+            + 2.792313345723013 * log_c2_sq * log_c3_cu
+            - 0.03422552111802899 * t * log_c2_sq * log_c3_cu
+            + 0.00014019195277521142 * t_sq * log_c2_sq * log_c3_cu
+            - 1.9201227328396297e-7 * t_cu * log_c2_sq * log_c3_cu
+            - 980.923146020468 * log_rh
+            + 10.054155220444462 * t * log_rh
+            - 0.03306644502023841 * t_sq * log_rh
+            + 0.000034274041225891804 * t_cu * log_rh
+            + (16597.75554295064 * log_rh) / log_c2
+            - (175.2365504237746 * t * log_rh) / log_c2
+            + (0.6033215603167458 * t_sq * log_rh) / log_c2
+            - (0.0006731787599587544 * t_cu * log_rh) / log_c2
+            - 89.38961120336789 * log_c3 * log_rh
+            + 1.153344219304926 * t * log_c3 * log_rh
+            - 0.004954549700267233 * t_sq * log_c3 * log_rh
+            + 7.096309866238719e-6 * t_cu * log_c3 * log_rh
+            + 3.1712136610383244 * log_c3_cu * log_rh
+            - 0.037822330602328806 * t * log_c3_cu * log_rh
+            + 0.0001500555743561457 * t_sq * log_c3_cu * log_rh
+            - 1.9828365865570703e-7 * t_cu * log_c3_cu * log_rh
+        )
+
+        j = exp(j_log)
+        log_j = log(j)
+        log_j_sq = log_j**2
+
+        ntot = (
+            57.40091052369212
+            - 0.2996341884645408 * t
+            + 0.0007395477768531926 * t_sq
+            - 5.090604835032423 * log_c2
+            + 0.011016634044531128 * t * log_c2
+            + 0.06750032251225707 * log_c2_sq
+            - 0.8102831333223962 * log_c3
+            + 0.015905081275952426 * t * log_c3
+            - 0.2044174683159531 * log_c2 * log_c3
+            + 0.08918159167625832 * log_c3_sq
+            - 0.0004969033586666147 * t * log_c3_sq
+            + 0.005704394549007816 * log_c3_cu
+            + 3.4098703903474368 * log_j
+            - 0.014916956508210809 * t * log_j
+            + 0.08459090011666293 * log_c3 * log_j
+            - 0.00014800625143907616 * t * log_c3 * log_j
+            + 0.00503804694656905 * log_j_sq
+        )
+
+        r = (
+            3.2888553966535506e-10
+            - 3.374171768439839e-12 * t
+            + 1.8347359507774313e-14 * t_sq
+            + 2.5419844298881856e-12 * log_c2
+            - 9.498107643050827e-14 * t * log_c2
+            + 7.446266520834559e-13 * log_c2_sq
+            + 2.4303397746137294e-11 * log_c3
+            + 1.589324325956633e-14 * t * log_c3
+            - 2.034596219775266e-12 * log_c2 * log_c3
+            - 5.59303954457172e-13 * log_c3_sq
+            - 4.889507104645867e-16 * t * log_c3_sq
+            + 1.3847024107506764e-13 * log_c3_cu
+            + 4.141077193427042e-15 * log_j
+            - 2.6813110884009767e-14 * t * log_j
+            + 1.2879071621313094e-12 * log_c3 * log_j
+            - 3.80352446061867e-15 * t * log_c3 * log_j
+            - 1.8790172502456827e-14 * log_j_sq
+        )
+
+        nacid = (
+            -4.7154180661803595
+            + 0.13436423483953885 * t
+            - 0.00047184686478816176 * t_sq
+            - 2.564010713640308 * log_c2
+            + 0.011353312899114723 * t * log_c2
+            + 0.0010801941974317014 * log_c2_sq
+            + 0.5171368624197119 * log_c3
+            - 0.0027882479896204665 * t * log_c3
+            + 0.8066971907026886 * log_c3_sq
+            - 0.0031849094214409335 * t * log_c3_sq
+            - 0.09951184152927882 * log_c3_cu
+            + 0.00040072788891745513 * t * log_c3_cu
+            + 1.3276469271073974 * log_j
+            - 0.006167654171986281 * t * log_j
+            - 0.11061390967822708 * log_c3 * log_j
+            + 0.0004367575329273496 * t * log_c3 * log_j
+            + 0.000916366357266258 * log_j_sq
+        )
+
+        namm = (
+            71.20073903979772
+            - 0.8409600103431923 * t
+            + 0.0024803006590334922 * t_sq
+            + 2.7798606841602607 * log_c2
+            - 0.01475023348171676 * t * log_c2
+            + 0.012264508212031405 * log_c2_sq
+            - 2.009926050440182 * log_c3
+            + 0.008689123511431527 * t * log_c3
+            - 0.009141180198955415 * log_c2 * log_c3
+            + 0.1374122553905617 * log_c3_sq
+            - 0.0006253227821679215 * t * log_c3_sq
+            + 0.00009377332742098946 * log_c3_cu
+            + 0.5202974341687757 * log_j
+            - 0.002419872323052805 * t * log_j
+            + 0.07916392322884074 * log_c3 * log_j
+            - 0.0003021586030317366 * t * log_c3 * log_j
+            + 0.0046977006608603395 * log_j_sq
+        )
+    else:
+        j_log = -300.0
+
+    return (j_log, ntot, nacid, namm, r)
+
+
+@export
+def ternary_nuc_merik2007_codon(
+    t: float,
+    rh: float,
+    c2: float,
+    c3: float,
+    j_log_p: cobj,
+    ntot_p: cobj,
+    nacid_p: cobj,
+    namm_p: cobj,
+    r_p: cobj,
+):
+    j_log = Ptr[float](j_log_p)
+    ntot = Ptr[float](ntot_p)
+    nacid = Ptr[float](nacid_p)
+    namm = Ptr[float](namm_p)
+    r = Ptr[float](r_p)
+
+    (
+        j_log[0],
+        ntot[0],
+        nacid[0],
+        namm[0],
+        r[0],
+    ) = _ternary_nuc_merik2007_core(t, rh, c2, c3)
+
+
 @export
 def mer07_veh02_nuc_mosaic_init_state_codon(
     newnuc_method_flagaa: int,
@@ -2415,6 +3218,11 @@ def _mer07_veh02_nuc_mosaic_1box_core(
     rh_bb = 0.0
     so4vol_bb = 0.0
     nh3ppt_bb = 0.0
+    crit_x = 0.0
+    cnum_tot = 0.0
+    cnum_h2so4 = 0.0
+    cnum_nh3 = 0.0
+    radius_cluster = 0.0
     use_ternary_rate = 0
     use_binary_rate = 0
     do_pbl_rate = 0
@@ -2440,81 +3248,266 @@ def _mer07_veh02_nuc_mosaic_1box_core(
             do_pbl_rate = 1
 
     if use_ternary_rate != 0:
-        return (1, 1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        log_c2 = log(so4vol_bb)
+        log_c3 = log(nh3ppt_bb)
+        log_rh = log(rh_bb)
+        temp_sq = temp_bb**2
+        temp_cu = temp_bb**3
+        nh3ppt_bb_cu = nh3ppt_bb**3
+        log_c2_sq = log_c2**2
+        log_c3_sq = log_c3**2
+        log_c3_cu = log_c3**3
 
-    if use_binary_rate != 0:
-        crit_x = (
-            0.740997
-            - 0.00266379 * temp_bb
-            - 0.00349998 * log(so4vol_bb)
-            + 0.0000504022 * temp_bb * log(so4vol_bb)
-            + 0.00201048 * log(rh_bb)
-            - 0.000183289 * temp_bb * log(rh_bb)
-            + 0.00157407 * (log(rh_bb)) ** 2.0
-            - 0.0000179059 * temp_bb * (log(rh_bb)) ** 2.0
-            + 0.000184403 * (log(rh_bb)) ** 3.0
-            - 1.50345e-6 * temp_bb * (log(rh_bb)) ** 3.0
+        t_onset = (
+            143.6002929064716
+            + 1.0178856665693992 * rh_bb
+            + 10.196398812974294 * log_c2
+            - 0.1849879416839113 * log_c2_sq
+            - 17.161783213150173 * log_c3
+            + (109.92469248546053 * log_c3) / log_c2
+            + 0.7734119613144357 * log_c2 * log_c3
+            - 0.15576469879527022 * log_c3_sq
         )
 
-        acoe = 0.14309 + 2.21956 * temp_bb - 0.0273911 * temp_bb**2.0 + 0.0000722811 * temp_bb**3.0 + 5.91822 / crit_x
-        bcoe = 0.117489 + 0.462532 * temp_bb - 0.0118059 * temp_bb**2.0 + 0.0000404196 * temp_bb**3.0 + 15.7963 / crit_x
-        ccoe = -0.215554 - 0.0810269 * temp_bb + 0.00143581 * temp_bb**2.0 - 4.7758e-6 * temp_bb**3.0 - 2.91297 / crit_x
-        dcoe = -3.58856 + 0.049508 * temp_bb - 0.00021382 * temp_bb**2.0 + 3.10801e-7 * temp_bb**3.0 - 0.0293333 / crit_x
-        ecoe = 1.14598 - 0.600796 * temp_bb + 0.00864245 * temp_bb**2.0 - 0.0000228947 * temp_bb**3.0 - 8.44985 / crit_x
-        fcoe = 2.15855 + 0.0808121 * temp_bb - 0.000407382 * temp_bb**2.0 - 4.01957e-7 * temp_bb**3.0 + 0.721326 / crit_x
-        gcoe = 1.6241 - 0.0160106 * temp_bb + 0.0000377124 * temp_bb**2.0 + 3.21794e-8 * temp_bb**3.0 - 0.0113255 / crit_x
-        hcoe = 9.71682 - 0.115048 * temp_bb + 0.000157098 * temp_bb**2.0 + 4.00914e-7 * temp_bb**3.0 + 0.71186 / crit_x
-        icoe = -1.05611 + 0.00903378 * temp_bb - 0.0000198417 * temp_bb**2.0 + 2.46048e-8 * temp_bb**3.0 - 0.0579087 / crit_x
-        jcoe = -0.148712 + 0.00283508 * temp_bb - 9.24619e-6 * temp_bb**2.0 + 5.00427e-9 * temp_bb**3.0 - 0.0127081 / crit_x
+        if t_onset > temp_bb:
+            rateloge = (
+                -12.861848898625231
+                + 4.905527742256349 * nh3ppt_bb
+                - 358.2337705052991 * rh_bb
+                - 0.05463019231872484 * nh3ppt_bb * temp_bb
+                + 4.8630382337426985 * rh_bb * temp_bb
+                + 0.00020258394697064567 * nh3ppt_bb * temp_sq
+                - 0.02175548069741675 * rh_bb * temp_sq
+                - 2.502406532869512e-7 * nh3ppt_bb * temp_cu
+                + 0.00003212869941055865 * rh_bb * temp_cu
+                - 4.39129415725234e6 / log_c2_sq
+                + (56383.93843154586 * temp_bb) / log_c2_sq
+                - (239.835990963361 * temp_sq) / log_c2_sq
+                + (0.33765136625580167 * temp_cu) / log_c2_sq
+                - (629.7882041830943 * rh_bb) / (nh3ppt_bb_cu * log_c2)
+                + (7.772806552631709 * rh_bb * temp_bb) / (nh3ppt_bb_cu * log_c2)
+                - (0.031974053936299256 * rh_bb * temp_sq) / (nh3ppt_bb_cu * log_c2)
+                + (0.00004383764128775082 * rh_bb * temp_cu) / (nh3ppt_bb_cu * log_c2)
+                + 1200.472096232311 * log_c2
+                - 17.37107890065621 * temp_bb * log_c2
+                + 0.08170681335921742 * temp_sq * log_c2
+                - 0.00012534476159729881 * temp_cu * log_c2
+                - 14.833042158178936 * log_c2_sq
+                + 0.2932631303555295 * temp_bb * log_c2_sq
+                - 0.0016497524241142845 * temp_sq * log_c2_sq
+                + 2.844074805239367e-6 * temp_cu * log_c2_sq
+                - 231375.56676032578 * log_c3
+                - 100.21645273730675 * rh_bb * log_c3
+                + 2919.2852552424706 * temp_bb * log_c3
+                + 0.977886555834732 * rh_bb * temp_bb * log_c3
+                - 12.286497122264588 * temp_sq * log_c3
+                - 0.0030511783284506377 * rh_bb * temp_sq * log_c3
+                + 0.017249301826661612 * temp_cu * log_c3
+                + 2.967320346100855e-6 * rh_bb * temp_cu * log_c3
+                + (2.360931724951942e6 * log_c3) / log_c2
+                - (29752.130254319443 * temp_bb * log_c3) / log_c2
+                + (125.04965118142027 * temp_sq * log_c3) / log_c2
+                - (0.1752996881934318 * temp_cu * log_c3) / log_c2
+                + 5599.912337254629 * log_c2 * log_c3
+                - 70.70896612937771 * temp_bb * log_c2 * log_c3
+                + 0.2978801613269466 * temp_sq * log_c2 * log_c3
+                - 0.00041866525019504 * temp_cu * log_c2 * log_c3
+                + 75061.15281456841 * log_c3_sq
+                - 931.8802278173565 * temp_bb * log_c3_sq
+                + 3.863266220840964 * temp_sq * log_c3_sq
+                - 0.005349472062284983 * temp_cu * log_c3_sq
+                - (732006.8180571689 * log_c3_sq) / log_c2
+                + (9100.06398573816 * temp_bb * log_c3_sq) / log_c2
+                - (37.771091915932004 * temp_sq * log_c3_sq) / log_c2
+                + (0.05235455395566905 * temp_cu * log_c3_sq) / log_c2
+                - 1911.0303773001353 * log_c2 * log_c3_sq
+                + 23.6903969622286 * temp_bb * log_c2 * log_c3_sq
+                - 0.09807872005428583 * temp_sq * log_c2 * log_c3_sq
+                + 0.00013564560238552576 * temp_cu * log_c2 * log_c3_sq
+                - 3180.5610833308 * log_c3_cu
+                + 39.08268568672095 * temp_bb * log_c3_cu
+                - 0.16048521066690752 * temp_sq * log_c3_cu
+                + 0.00022031380023793877 * temp_cu * log_c3_cu
+                + (40751.075322248245 * log_c3_cu) / log_c2
+                - (501.66977622013934 * temp_bb * log_c3_cu) / log_c2
+                + (2.063469732254135 * temp_sq * log_c3_cu) / log_c2
+                - (0.002836873785758324 * temp_cu * log_c3_cu) / log_c2
+                + 2.792313345723013 * log_c2_sq * log_c3_cu
+                - 0.03422552111802899 * temp_bb * log_c2_sq * log_c3_cu
+                + 0.00014019195277521142 * temp_sq * log_c2_sq * log_c3_cu
+                - 1.9201227328396297e-7 * temp_cu * log_c2_sq * log_c3_cu
+                - 980.923146020468 * log_rh
+                + 10.054155220444462 * temp_bb * log_rh
+                - 0.03306644502023841 * temp_sq * log_rh
+                + 0.000034274041225891804 * temp_cu * log_rh
+                + (16597.75554295064 * log_rh) / log_c2
+                - (175.2365504237746 * temp_bb * log_rh) / log_c2
+                + (0.6033215603167458 * temp_sq * log_rh) / log_c2
+                - (0.0006731787599587544 * temp_cu * log_rh) / log_c2
+                - 89.38961120336789 * log_c3 * log_rh
+                + 1.153344219304926 * temp_bb * log_c3 * log_rh
+                - 0.004954549700267233 * temp_sq * log_c3 * log_rh
+                + 7.096309866238719e-6 * temp_cu * log_c3 * log_rh
+                + 3.1712136610383244 * log_c3_cu * log_rh
+                - 0.037822330602328806 * temp_bb * log_c3_cu * log_rh
+                + 0.0001500555743561457 * temp_sq * log_c3_cu * log_rh
+                - 1.9828365865570703e-7 * temp_cu * log_c3_cu * log_rh
+            )
 
-        tmpa = (
-            acoe
-            + bcoe * log(rh_bb)
-            + ccoe * (log(rh_bb)) ** 2.0
-            + dcoe * (log(rh_bb)) ** 3.0
-            + ecoe * log(so4vol_bb)
-            + fcoe * (log(rh_bb)) * (log(so4vol_bb))
-            + gcoe * ((log(rh_bb)) ** 2.0) * (log(so4vol_bb))
-            + hcoe * (log(so4vol_bb)) ** 2.0
-            + icoe * log(rh_bb) * ((log(so4vol_bb)) ** 2.0)
-            + jcoe * (log(so4vol_bb)) ** 3.0
-        )
-        rateloge = tmpa
-        tmpa = min(tmpa, log(1.0e38))
-        ratenuclt = exp(tmpa)
+            j = exp(rateloge)
+            log_j = log(j)
+            log_j_sq = log_j**2
 
-        acoe = -0.00295413 - 0.0976834 * temp_bb + 0.00102485 * temp_bb**2.0 - 2.18646e-6 * temp_bb**3.0 - 0.101717 / crit_x
-        bcoe = -0.00205064 - 0.00758504 * temp_bb + 0.000192654 * temp_bb**2.0 - 6.7043e-7 * temp_bb**3.0 - 0.255774 / crit_x
-        ccoe = 0.00322308 + 0.000852637 * temp_bb - 0.0000154757 * temp_bb**2.0 + 5.66661e-8 * temp_bb**3.0 + 0.0338444 / crit_x
-        dcoe = 0.0474323 - 0.000625104 * temp_bb + 2.65066e-6 * temp_bb**2.0 - 3.67471e-9 * temp_bb**3.0 - 0.000267251 / crit_x
-        ecoe = -0.0125211 + 0.00580655 * temp_bb - 0.000101674 * temp_bb**2.0 + 2.88195e-7 * temp_bb**3.0 + 0.0942243 / crit_x
-        fcoe = -0.038546 - 0.000672316 * temp_bb + 2.60288e-6 * temp_bb**2.0 + 1.19416e-8 * temp_bb**3.0 - 0.00851515 / crit_x
-        gcoe = -0.0183749 + 0.000172072 * temp_bb - 3.71766e-7 * temp_bb**2.0 - 5.14875e-10 * temp_bb**3.0 + 0.00026866 / crit_x
-        hcoe = -0.0619974 + 0.000906958 * temp_bb - 9.11728e-7 * temp_bb**2.0 - 5.36796e-9 * temp_bb**3.0 - 0.00774234 / crit_x
-        icoe = 0.0121827 - 0.00010665 * temp_bb + 2.5346e-7 * temp_bb**2.0 - 3.63519e-10 * temp_bb**3.0 + 0.000610065 / crit_x
-        jcoe = 0.000320184 - 0.0000174762 * temp_bb + 6.06504e-8 * temp_bb**2.0 - 1.4177e-11 * temp_bb**3.0 + 0.000135751 / crit_x
+            cnum_tot = (
+                57.40091052369212
+                - 0.2996341884645408 * temp_bb
+                + 0.0007395477768531926 * temp_sq
+                - 5.090604835032423 * log_c2
+                + 0.011016634044531128 * temp_bb * log_c2
+                + 0.06750032251225707 * log_c2_sq
+                - 0.8102831333223962 * log_c3
+                + 0.015905081275952426 * temp_bb * log_c3
+                - 0.2044174683159531 * log_c2 * log_c3
+                + 0.08918159167625832 * log_c3_sq
+                - 0.0004969033586666147 * temp_bb * log_c3_sq
+                + 0.005704394549007816 * log_c3_cu
+                + 3.4098703903474368 * log_j
+                - 0.014916956508210809 * temp_bb * log_j
+                + 0.08459090011666293 * log_c3 * log_j
+                - 0.00014800625143907616 * temp_bb * log_c3 * log_j
+                + 0.00503804694656905 * log_j_sq
+            )
 
-        cnum_tot = exp(
-            acoe
-            + bcoe * log(rh_bb)
-            + ccoe * (log(rh_bb)) ** 2.0
-            + dcoe * (log(rh_bb)) ** 3.0
-            + ecoe * log(so4vol_bb)
-            + fcoe * (log(rh_bb)) * (log(so4vol_bb))
-            + gcoe * ((log(rh_bb)) ** 2.0) * (log(so4vol_bb))
-            + hcoe * (log(so4vol_bb)) ** 2.0
-            + icoe * log(rh_bb) * ((log(so4vol_bb)) ** 2.0)
-            + jcoe * (log(so4vol_bb)) ** 3.0
-        )
+            radius_cluster = (
+                3.2888553966535506e-10
+                - 3.374171768439839e-12 * temp_bb
+                + 1.8347359507774313e-14 * temp_sq
+                + 2.5419844298881856e-12 * log_c2
+                - 9.498107643050827e-14 * temp_bb * log_c2
+                + 7.446266520834559e-13 * log_c2_sq
+                + 2.4303397746137294e-11 * log_c3
+                + 1.589324325956633e-14 * temp_bb * log_c3
+                - 2.034596219775266e-12 * log_c2 * log_c3
+                - 5.59303954457172e-13 * log_c3_sq
+                - 4.889507104645867e-16 * temp_bb * log_c3_sq
+                + 1.3847024107506764e-13 * log_c3_cu
+                + 4.141077193427042e-15 * log_j
+                - 2.6813110884009767e-14 * temp_bb * log_j
+                + 1.2879071621313094e-12 * log_c3 * log_j
+                - 3.80352446061867e-15 * temp_bb * log_c3 * log_j
+                - 1.8790172502456827e-14 * log_j_sq
+            )
 
-        cnum_h2so4 = cnum_tot * crit_x
-        radius_cluster = exp(-1.6524245 + 0.42316402 * crit_x + 0.3346648 * log(cnum_tot))
+            cnum_h2so4 = (
+                -4.7154180661803595
+                + 0.13436423483953885 * temp_bb
+                - 0.00047184686478816176 * temp_sq
+                - 2.564010713640308 * log_c2
+                + 0.011353312899114723 * temp_bb * log_c2
+                + 0.0010801941974317014 * log_c2_sq
+                + 0.5171368624197119 * log_c3
+                - 0.0027882479896204665 * temp_bb * log_c3
+                + 0.8066971907026886 * log_c3_sq
+                - 0.0031849094214409335 * temp_bb * log_c3_sq
+                - 0.09951184152927882 * log_c3_cu
+                + 0.00040072788891745513 * temp_bb * log_c3_cu
+                + 1.3276469271073974 * log_j
+                - 0.006167654171986281 * temp_bb * log_j
+                - 0.11061390967822708 * log_c3 * log_j
+                + 0.0004367575329273496 * temp_bb * log_c3 * log_j
+                + 0.000916366357266258 * log_j_sq
+            )
+
+            cnum_nh3 = (
+                71.20073903979772
+                - 0.8409600103431923 * temp_bb
+                + 0.0024803006590334922 * temp_sq
+                + 2.7798606841602607 * log_c2
+                - 0.01475023348171676 * temp_bb * log_c2
+                + 0.012264508212031405 * log_c2_sq
+                - 2.009926050440182 * log_c3
+                + 0.008689123511431527 * temp_bb * log_c3
+                - 0.009141180198955415 * log_c2 * log_c3
+                + 0.1374122553905617 * log_c3_sq
+                - 0.0006253227821679215 * temp_bb * log_c3_sq
+                + 0.00009377332742098946 * log_c3_cu
+                + 0.5202974341687757 * log_j
+                - 0.002419872323052805 * temp_bb * log_j
+                + 0.07916392322884074 * log_c3 * log_j
+                - 0.0003021586030317366 * temp_bb * log_c3 * log_j
+                + 0.0046977006608603395 * log_j_sq
+            )
+        else:
+            rateloge = -300.0
     else:
-        cnum_tot = 0.0
-        cnum_h2so4 = 0.0
-        radius_cluster = 0.0
+        if use_binary_rate != 0:
+            crit_x = (
+                0.740997
+                - 0.00266379 * temp_bb
+                - 0.00349998 * log(so4vol_bb)
+                + 0.0000504022 * temp_bb * log(so4vol_bb)
+                + 0.00201048 * log(rh_bb)
+                - 0.000183289 * temp_bb * log(rh_bb)
+                + 0.00157407 * (log(rh_bb)) ** 2.0
+                - 0.0000179059 * temp_bb * (log(rh_bb)) ** 2.0
+                + 0.000184403 * (log(rh_bb)) ** 3.0
+                - 1.50345e-6 * temp_bb * (log(rh_bb)) ** 3.0
+            )
 
-    cnum_nh3 = 0.0
+            acoe = 0.14309 + 2.21956 * temp_bb - 0.0273911 * temp_bb**2.0 + 0.0000722811 * temp_bb**3.0 + 5.91822 / crit_x
+            bcoe = 0.117489 + 0.462532 * temp_bb - 0.0118059 * temp_bb**2.0 + 0.0000404196 * temp_bb**3.0 + 15.7963 / crit_x
+            ccoe = -0.215554 - 0.0810269 * temp_bb + 0.00143581 * temp_bb**2.0 - 4.7758e-6 * temp_bb**3.0 - 2.91297 / crit_x
+            dcoe = -3.58856 + 0.049508 * temp_bb - 0.00021382 * temp_bb**2.0 + 3.10801e-7 * temp_bb**3.0 - 0.0293333 / crit_x
+            ecoe = 1.14598 - 0.600796 * temp_bb + 0.00864245 * temp_bb**2.0 - 0.0000228947 * temp_bb**3.0 - 8.44985 / crit_x
+            fcoe = 2.15855 + 0.0808121 * temp_bb - 0.000407382 * temp_bb**2.0 - 4.01957e-7 * temp_bb**3.0 + 0.721326 / crit_x
+            gcoe = 1.6241 - 0.0160106 * temp_bb + 0.0000377124 * temp_bb**2.0 + 3.21794e-8 * temp_bb**3.0 - 0.0113255 / crit_x
+            hcoe = 9.71682 - 0.115048 * temp_bb + 0.000157098 * temp_bb**2.0 + 4.00914e-7 * temp_bb**3.0 + 0.71186 / crit_x
+            icoe = -1.05611 + 0.00903378 * temp_bb - 0.0000198417 * temp_bb**2.0 + 2.46048e-8 * temp_bb**3.0 - 0.0579087 / crit_x
+            jcoe = -0.148712 + 0.00283508 * temp_bb - 9.24619e-6 * temp_bb**2.0 + 5.00427e-9 * temp_bb**3.0 - 0.0127081 / crit_x
+
+            tmpa = (
+                acoe
+                + bcoe * log(rh_bb)
+                + ccoe * (log(rh_bb)) ** 2.0
+                + dcoe * (log(rh_bb)) ** 3.0
+                + ecoe * log(so4vol_bb)
+                + fcoe * (log(rh_bb)) * (log(so4vol_bb))
+                + gcoe * ((log(rh_bb)) ** 2.0) * (log(so4vol_bb))
+                + hcoe * (log(so4vol_bb)) ** 2.0
+                + icoe * log(rh_bb) * ((log(so4vol_bb)) ** 2.0)
+                + jcoe * (log(so4vol_bb)) ** 3.0
+            )
+            rateloge = tmpa
+            tmpa = min(tmpa, log(1.0e38))
+            ratenuclt = exp(tmpa)
+
+            acoe = -0.00295413 - 0.0976834 * temp_bb + 0.00102485 * temp_bb**2.0 - 2.18646e-6 * temp_bb**3.0 - 0.101717 / crit_x
+            bcoe = -0.00205064 - 0.00758504 * temp_bb + 0.000192654 * temp_bb**2.0 - 6.7043e-7 * temp_bb**3.0 - 0.255774 / crit_x
+            ccoe = 0.00322308 + 0.000852637 * temp_bb - 0.0000154757 * temp_bb**2.0 + 5.66661e-8 * temp_bb**3.0 + 0.0338444 / crit_x
+            dcoe = 0.0474323 - 0.000625104 * temp_bb + 2.65066e-6 * temp_bb**2.0 - 3.67471e-9 * temp_bb**3.0 - 0.000267251 / crit_x
+            ecoe = -0.0125211 + 0.00580655 * temp_bb - 0.000101674 * temp_bb**2.0 + 2.88195e-7 * temp_bb**3.0 + 0.0942243 / crit_x
+            fcoe = -0.038546 - 0.000672316 * temp_bb + 2.60288e-6 * temp_bb**2.0 + 1.19416e-8 * temp_bb**3.0 - 0.00851515 / crit_x
+            gcoe = -0.0183749 + 0.000172072 * temp_bb - 3.71766e-7 * temp_bb**2.0 - 5.14875e-10 * temp_bb**3.0 + 0.00026866 / crit_x
+            hcoe = -0.0619974 + 0.000906958 * temp_bb - 9.11728e-7 * temp_bb**2.0 - 5.36796e-9 * temp_bb**3.0 - 0.00774234 / crit_x
+            icoe = 0.0121827 - 0.00010665 * temp_bb + 2.5346e-7 * temp_bb**2.0 - 3.63519e-10 * temp_bb**3.0 + 0.000610065 / crit_x
+            jcoe = 0.000320184 - 0.0000174762 * temp_bb + 6.06504e-8 * temp_bb**2.0 - 1.4177e-11 * temp_bb**3.0 + 0.000135751 / crit_x
+
+            cnum_tot = exp(
+                acoe
+                + bcoe * log(rh_bb)
+                + ccoe * (log(rh_bb)) ** 2.0
+                + dcoe * (log(rh_bb)) ** 3.0
+                + ecoe * log(so4vol_bb)
+                + fcoe * (log(rh_bb)) * (log(so4vol_bb))
+                + gcoe * ((log(rh_bb)) ** 2.0) * (log(so4vol_bb))
+                + hcoe * (log(so4vol_bb)) ** 2.0
+                + icoe * log(rh_bb) * ((log(so4vol_bb)) ** 2.0)
+                + jcoe * (log(so4vol_bb)) ** 3.0
+            )
+
+            cnum_h2so4 = cnum_tot * crit_x
+            radius_cluster = exp(-1.6524245 + 0.42316402 * crit_x + 0.3346648 * log(cnum_tot))
+
     if do_pbl_rate != 0:
         if newnuc_method_flagaa == 11:
             tmp_ratenucl = 1.0e-6 * so4vol_in
@@ -5470,6 +6463,7 @@ def modal_aero_newnuc_sub_codon(
     relhumnn_p: cobj,
     dotend_p: cobj,
     fallback_required_p: cobj,
+    ternary_codon_used_p: cobj,
 ):
     t = Ptr[float](t_p)
     pmid = Ptr[float](pmid_p)
@@ -5484,11 +6478,13 @@ def modal_aero_newnuc_sub_codon(
     relhumnn_work = Ptr[float](relhumnn_p)
     dotend = Ptr[int](dotend_p)
     fallback_required = Ptr[int](fallback_required_p)
+    ternary_codon_used = Ptr[int](ternary_codon_used_p)
     dplom_mode = Ptr[float](dplom_mode_p)
     dphim_mode = Ptr[float](dphim_mode_p)
     adv_mass = Ptr[float](adv_mass_p)
 
     fallback_required[0] = 0
+    ternary_codon_used[0] = 0
     for l in range(1, pcnst + 1):
         dotend[l - 1] = 0
 
@@ -5572,26 +6568,20 @@ def modal_aero_newnuc_sub_codon(
     )
 
     newnuc_method_flagaa = 11
-    if newnuc_method_flagaa != 2:
-        for k in range(top_lev, pver + 1):
-            for i in range(1, ncol + 1):
-                idx = _idx2(i, k, ncol)
-                if active_mask[idx] == 0:
-                    continue
-                nh3ppt = qnh3_cur_work[idx] * 1.0e12
-                if nh3ppt < 0.1:
-                    continue
-                cair = pmid[_idx2(i, k, pcols)] / (t[_idx2(i, k, pcols)] * rgas)
-                so4vol_in = qh2so4_avg_work[idx] * cair * avogad * 1.0e-6
-                if so4vol_in >= 5.0e4:
-                    fallback_required[0] = 1
-                    return
 
     for k in range(top_lev, pver + 1):
         for i in range(1, ncol + 1):
             idx2 = _idx2(i, k, ncol)
             if active_mask[idx2] == 0:
                 continue
+
+            if newnuc_method_flagaa != 2:
+                nh3ppt = qnh3_cur_work[idx2] * 1.0e12
+                if nh3ppt >= 0.1:
+                    cair = pmid[_idx2(i, k, pcols)] / (t[_idx2(i, k, pcols)] * rgas)
+                    so4vol_in = qh2so4_avg_work[idx2] * cair * avogad * 1.0e-6
+                    if so4vol_in >= 5.0e4:
+                        ternary_codon_used[0] = 1
 
             (
                 _fallback_required,
@@ -5625,6 +6615,9 @@ def modal_aero_newnuc_sub_codon(
                 mw_so4a,
                 mw_nh4a,
             )
+            if _fallback_required != 0:
+                fallback_required[0] = 1
+                return
 
             (
                 _qnuma_del_work,
@@ -6695,3 +7688,545 @@ def modal_aero_calcsize_sub_codon(
                     i += 1
                 k += 1
         lc += 1
+
+
+@export
+def modal_aero_wateruptake_dr_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    nmodes: int,
+    maxd_aspectype: int,
+    pi_const: float,
+    pi43_const: float,
+    rhoh2o_const: float,
+    rh_p: cobj,
+    dgncur_a_p: cobj,
+    dgncur_awet_p: cobj,
+    qaerwat_p: cobj,
+    wetdens_p: cobj,
+    nspec_mode_p: cobj,
+    sigmag_p: cobj,
+    rhcrystal_p: cobj,
+    rhdeliques_p: cobj,
+    raer_work_p: cobj,
+    specdens_work_p: cobj,
+    spechygro_work_p: cobj,
+    maer_p: cobj,
+    hygro_p: cobj,
+    naer_p: cobj,
+    dryvol_p: cobj,
+    drymass_p: cobj,
+    dryrad_p: cobj,
+    wetrad_p: cobj,
+    wetvol_p: cobj,
+    wtrvol_p: cobj,
+    specdens_1_p: cobj,
+    dryvolmr_p: cobj,
+):
+    rh = Ptr[float](rh_p)
+    dgncur_a = Ptr[float](dgncur_a_p)
+    dgncur_awet = Ptr[float](dgncur_awet_p)
+    qaerwat = Ptr[float](qaerwat_p)
+    wetdens = Ptr[float](wetdens_p)
+    nspec_mode = Ptr[int](nspec_mode_p)
+    sigmag = Ptr[float](sigmag_p)
+    rhcrystal = Ptr[float](rhcrystal_p)
+    rhdeliques = Ptr[float](rhdeliques_p)
+    raer_work = Ptr[float](raer_work_p)
+    specdens_work = Ptr[float](specdens_work_p)
+    spechygro_work = Ptr[float](spechygro_work_p)
+    maer = Ptr[float](maer_p)
+    hygro_work = Ptr[float](hygro_p)
+    naer = Ptr[float](naer_p)
+    dryvol = Ptr[float](dryvol_p)
+    drymass = Ptr[float](drymass_p)
+    dryrad = Ptr[float](dryrad_p)
+    wetrad = Ptr[float](wetrad_p)
+    wetvol = Ptr[float](wetvol_p)
+    wtrvol = Ptr[float](wtrvol_p)
+    specdens_1 = Ptr[float](specdens_1_p)
+    dryvolmr = Ptr[float](dryvolmr_p)
+
+    m = 1
+    while m <= nmodes:
+        specdens_1[m - 1] = 0.0
+        spechygro_1 = 0.0
+
+        k = top_lev
+        while k <= pver:
+            i = 1
+            while i <= ncol:
+                idx2 = _idx2(i, k, pcols)
+                idx3m = _idx3(i, k, m, pcols, pver)
+                dryvolmr[idx2] = 0.0
+                maer[idx3m] = 0.0
+                hygro_work[idx3m] = 0.0
+                naer[idx3m] = 0.0
+                dryvol[idx3m] = 0.0
+                drymass[idx3m] = 0.0
+                dryrad[idx3m] = 0.0
+                wetrad[idx3m] = 0.0
+                wetvol[idx3m] = 0.0
+                wtrvol[idx3m] = 0.0
+                i += 1
+            k += 1
+
+        l = 1
+        while l <= nspec_mode[m - 1]:
+            specdens = specdens_work[_idx2(l, m, maxd_aspectype)]
+            spechygro = spechygro_work[_idx2(l, m, maxd_aspectype)]
+            if l == 1:
+                specdens_1[m - 1] = specdens
+                spechygro_1 = spechygro
+
+            k = top_lev
+            while k <= pver:
+                i = 1
+                while i <= ncol:
+                    idx2 = _idx2(i, k, pcols)
+                    idx3m = _idx3(i, k, m, pcols, pver)
+                    duma = raer_work[_idx4(i, k, l, m, pcols, pver, maxd_aspectype)]
+                    maer[idx3m] = maer[idx3m] + duma
+                    dumb = duma / specdens
+                    dryvolmr[idx2] = dryvolmr[idx2] + dumb
+                    hygro_work[idx3m] = hygro_work[idx3m] + dumb * spechygro
+                    i += 1
+                k += 1
+            l += 1
+
+        alnsg = log(sigmag[m - 1])
+        k = top_lev
+        while k <= pver:
+            i = 1
+            while i <= ncol:
+                idx2 = _idx2(i, k, pcols)
+                idx3m = _idx3(i, k, m, pcols, pver)
+
+                if dryvolmr[idx2] > 1.0e-30:
+                    hygro_work[idx3m] = hygro_work[idx3m] / dryvolmr[idx2]
+                else:
+                    hygro_work[idx3m] = spechygro_1
+
+                v2ncur_a = _modal_aero_v2ncur(dgncur_a[idx3m], pi_const, alnsg)
+                naer[idx3m] = dryvolmr[idx2] * v2ncur_a
+
+                if maer[idx3m] > 1.0e-31:
+                    drydens = maer[idx3m] / dryvolmr[idx2]
+                else:
+                    drydens = 1.0
+
+                dryvol[idx3m] = 1.0 / v2ncur_a
+                drymass[idx3m] = drydens * dryvol[idx3m]
+                dryrad[idx3m] = _modal_aero_radius_from_vol(dryvol[idx3m], pi43_const)
+                i += 1
+            k += 1
+
+        m += 1
+
+
+@export
+def modal_aero_wateruptake_kohler_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    nmodes: int,
+    solver_stage: int,
+    dryrad_p: cobj,
+    hygro_p: cobj,
+    rh_p: cobj,
+    wetrad_p: cobj,
+):
+    dryrad = Ptr[float](dryrad_p)
+    hygro = Ptr[float](hygro_p)
+    rh = Ptr[float](rh_p)
+    wetrad = Ptr[float](wetrad_p)
+
+    m = 1
+    while m <= nmodes:
+        k = top_lev
+        while k <= pver:
+            i = 1
+            while i <= ncol:
+                idx2 = _idx2(i, k, pcols)
+                idx3m = _idx3(i, k, m, pcols, pver)
+                if solver_stage == 1:
+                    wetrad[idx3m] = modal_aero_kohler_native_cb(
+                        dryrad[idx3m], hygro[idx3m], rh[idx2]
+                    )
+                elif solver_stage == 3:
+                    wetrad[idx3m] = _modal_aero_kohler_scalar_native_roots(
+                        dryrad[idx3m], hygro[idx3m], rh[idx2]
+                    )
+                elif solver_stage == 4:
+                    wetrad[idx3m] = _modal_aero_kohler_scalar_sat_native(
+                        dryrad[idx3m], hygro[idx3m], rh[idx2]
+                    )
+                elif solver_stage == 5:
+                    wetrad[idx3m] = _modal_aero_kohler_scalar_subsat_native(
+                        dryrad[idx3m], hygro[idx3m], rh[idx2]
+                    )
+                elif solver_stage == 6:
+                    wetrad[idx3m] = _modal_aero_kohler_scalar_quartic_native(
+                        dryrad[idx3m], hygro[idx3m], rh[idx2]
+                    )
+                elif solver_stage == 7:
+                    wetrad[idx3m] = _modal_aero_kohler_scalar_cubic_native(
+                        dryrad[idx3m], hygro[idx3m], rh[idx2]
+                    )
+                elif solver_stage == 8:
+                    wetrad[idx3m] = _modal_aero_kohler_scalar_quartic_sqrt_native(
+                        dryrad[idx3m], hygro[idx3m], rh[idx2]
+                    )
+                elif solver_stage == 9:
+                    wetrad[idx3m] = _modal_aero_kohler_scalar_quartic_pow_native(
+                        dryrad[idx3m], hygro[idx3m], rh[idx2]
+                    )
+                elif solver_stage == 10:
+                    wetrad[idx3m] = _modal_aero_kohler_scalar_quartic_sqrt_pow_native(
+                        dryrad[idx3m], hygro[idx3m], rh[idx2]
+                    )
+                else:
+                    wetrad[idx3m] = _modal_aero_kohler_scalar_all_codon(
+                        dryrad[idx3m], hygro[idx3m], rh[idx2]
+                    )
+                i += 1
+            k += 1
+        m += 1
+
+
+@export
+def modal_aero_wateruptake_base_guard_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    nmodes: int,
+    dryrad_p: cobj,
+    wetrad_p: cobj,
+):
+    dryrad = Ptr[float](dryrad_p)
+    wetrad = Ptr[float](wetrad_p)
+
+    m = 1
+    while m <= nmodes:
+        k = top_lev
+        while k <= pver:
+            i = 1
+            while i <= ncol:
+                idx3m = _idx3(i, k, m, pcols, pver)
+                if wetrad[idx3m] < dryrad[idx3m]:
+                    wetrad[idx3m] = dryrad[idx3m]
+                i += 1
+            k += 1
+        m += 1
+
+
+@export
+def modal_aero_wateruptake_base_wtrvol_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    nmodes: int,
+    dryvol_p: cobj,
+    wetvol_p: cobj,
+    wtrvol_p: cobj,
+):
+    dryvol = Ptr[float](dryvol_p)
+    wetvol = Ptr[float](wetvol_p)
+    wtrvol = Ptr[float](wtrvol_p)
+
+    m = 1
+    while m <= nmodes:
+        k = top_lev
+        while k <= pver:
+            i = 1
+            while i <= ncol:
+                idx3m = _idx3(i, k, m, pcols, pver)
+                wtrvol[idx3m] = wetvol[idx3m] - dryvol[idx3m]
+                if wtrvol[idx3m] < 0.0:
+                    wtrvol[idx3m] = 0.0
+                i += 1
+            k += 1
+        m += 1
+
+
+@export
+def modal_aero_wateruptake_base_pow_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    nmodes: int,
+    wetrad_p: cobj,
+    wetvol_p: cobj,
+):
+    wetrad = Ptr[float](wetrad_p)
+    wetvol = Ptr[float](wetvol_p)
+
+    m = 1
+    while m <= nmodes:
+        k = top_lev
+        while k <= pver:
+            i = 1
+            while i <= ncol:
+                idx3m = _idx3(i, k, m, pcols, pver)
+                wetvol[idx3m] = modal_aero_vol_from_radius_native_cb(wetrad[idx3m])
+                i += 1
+            k += 1
+        m += 1
+
+
+@export
+def modal_aero_wateruptake_base_clamp_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    nmodes: int,
+    dryvol_p: cobj,
+    wetvol_p: cobj,
+):
+    dryvol = Ptr[float](dryvol_p)
+    wetvol = Ptr[float](wetvol_p)
+
+    m = 1
+    while m <= nmodes:
+        k = top_lev
+        while k <= pver:
+            i = 1
+            while i <= ncol:
+                idx3m = _idx3(i, k, m, pcols, pver)
+                if wetvol[idx3m] < dryvol[idx3m]:
+                    wetvol[idx3m] = dryvol[idx3m]
+                i += 1
+            k += 1
+        m += 1
+
+
+@export
+def modal_aero_wateruptake_base_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    nmodes: int,
+    dryrad_p: cobj,
+    dryvol_p: cobj,
+    wetrad_p: cobj,
+    wetvol_p: cobj,
+    wtrvol_p: cobj,
+):
+    dryrad = Ptr[float](dryrad_p)
+    dryvol = Ptr[float](dryvol_p)
+    wetrad = Ptr[float](wetrad_p)
+    wetvol = Ptr[float](wetvol_p)
+    wtrvol = Ptr[float](wtrvol_p)
+
+    m = 1
+    while m <= nmodes:
+        k = top_lev
+        while k <= pver:
+            i = 1
+            while i <= ncol:
+                idx3m = _idx3(i, k, m, pcols, pver)
+
+                if wetrad[idx3m] < dryrad[idx3m]:
+                    wetrad[idx3m] = dryrad[idx3m]
+
+                wetvol[idx3m] = modal_aero_vol_from_radius_native_cb(wetrad[idx3m])
+                if wetvol[idx3m] < dryvol[idx3m]:
+                    wetvol[idx3m] = dryvol[idx3m]
+
+                wtrvol[idx3m] = wetvol[idx3m] - dryvol[idx3m]
+                if wtrvol[idx3m] < 0.0:
+                    wtrvol[idx3m] = 0.0
+
+                i += 1
+            k += 1
+        m += 1
+
+
+@export
+def modal_aero_wateruptake_hyst_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    nmodes: int,
+    pi43_const: float,
+    rhcrystal_p: cobj,
+    rhdeliques_p: cobj,
+    dryrad_p: cobj,
+    rh_p: cobj,
+    dryvol_p: cobj,
+    wetrad_p: cobj,
+    wetvol_p: cobj,
+    wtrvol_p: cobj,
+):
+    rhcrystal = Ptr[float](rhcrystal_p)
+    rhdeliques = Ptr[float](rhdeliques_p)
+    dryrad = Ptr[float](dryrad_p)
+    rh = Ptr[float](rh_p)
+    dryvol = Ptr[float](dryvol_p)
+    wetrad = Ptr[float](wetrad_p)
+    wetvol = Ptr[float](wetvol_p)
+    wtrvol = Ptr[float](wtrvol_p)
+
+    m = 1
+    while m <= nmodes:
+        hystfac = 1.0 / max(1.0e-5, rhdeliques[m - 1] - rhcrystal[m - 1])
+
+        k = top_lev
+        while k <= pver:
+            i = 1
+            while i <= ncol:
+                idx2 = _idx2(i, k, pcols)
+                idx3m = _idx3(i, k, m, pcols, pver)
+
+                if rh[idx2] < rhcrystal[m - 1]:
+                    wetrad[idx3m] = dryrad[idx3m]
+                    wetvol[idx3m] = dryvol[idx3m]
+                    wtrvol[idx3m] = 0.0
+                elif rh[idx2] < rhdeliques[m - 1]:
+                    wtrvol[idx3m] = wtrvol[idx3m] * hystfac * (rh[idx2] - rhcrystal[m - 1])
+                    if wtrvol[idx3m] < 0.0:
+                        wtrvol[idx3m] = 0.0
+                    wetvol[idx3m] = dryvol[idx3m] + wtrvol[idx3m]
+                    wetrad[idx3m] = _modal_aero_radius_from_vol(wetvol[idx3m], pi43_const)
+
+                i += 1
+            k += 1
+        m += 1
+
+
+@export
+def modal_aero_wateruptake_postpow_wet_shell_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    nmodes: int,
+    do_hyst: int,
+    pi43_const: float,
+    rhcrystal_p: cobj,
+    rhdeliques_p: cobj,
+    dryrad_p: cobj,
+    rh_p: cobj,
+    dryvol_p: cobj,
+    wetrad_p: cobj,
+    wetvol_p: cobj,
+    wtrvol_p: cobj,
+):
+    rhcrystal = Ptr[float](rhcrystal_p)
+    rhdeliques = Ptr[float](rhdeliques_p)
+    dryrad = Ptr[float](dryrad_p)
+    rh = Ptr[float](rh_p)
+    dryvol = Ptr[float](dryvol_p)
+    wetrad = Ptr[float](wetrad_p)
+    wetvol = Ptr[float](wetvol_p)
+    wtrvol = Ptr[float](wtrvol_p)
+
+    m = 1
+    while m <= nmodes:
+        k = top_lev
+        while k <= pver:
+            i = 1
+            while i <= ncol:
+                idx3m = _idx3(i, k, m, pcols, pver)
+
+                if wetvol[idx3m] < dryvol[idx3m]:
+                    wetvol[idx3m] = dryvol[idx3m]
+
+                wtrvol[idx3m] = wetvol[idx3m] - dryvol[idx3m]
+                if wtrvol[idx3m] < 0.0:
+                    wtrvol[idx3m] = 0.0
+
+                i += 1
+            k += 1
+        m += 1
+
+    if do_hyst != 0:
+        m = 1
+        while m <= nmodes:
+            hystfac = 1.0 / max(1.0e-5, rhdeliques[m - 1] - rhcrystal[m - 1])
+
+            k = top_lev
+            while k <= pver:
+                i = 1
+                while i <= ncol:
+                    idx2 = _idx2(i, k, pcols)
+                    idx3m = _idx3(i, k, m, pcols, pver)
+
+                    if rh[idx2] < rhcrystal[m - 1]:
+                        wetrad[idx3m] = dryrad[idx3m]
+                        wetvol[idx3m] = dryvol[idx3m]
+                        wtrvol[idx3m] = 0.0
+                    elif rh[idx2] < rhdeliques[m - 1]:
+                        wtrvol[idx3m] = wtrvol[idx3m] * hystfac * (rh[idx2] - rhcrystal[m - 1])
+                        if wtrvol[idx3m] < 0.0:
+                            wtrvol[idx3m] = 0.0
+                        wetvol[idx3m] = dryvol[idx3m] + wtrvol[idx3m]
+                        wetrad[idx3m] = _modal_aero_radius_from_vol(wetvol[idx3m], pi43_const)
+
+                    i += 1
+                k += 1
+            m += 1
+
+
+@export
+def modal_aero_wateruptake_finalize_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    nmodes: int,
+    rhoh2o_const: float,
+    dgncur_a_p: cobj,
+    dgncur_awet_p: cobj,
+    qaerwat_p: cobj,
+    wetdens_p: cobj,
+    naer_p: cobj,
+    dryrad_p: cobj,
+    drymass_p: cobj,
+    wetrad_p: cobj,
+    wetvol_p: cobj,
+    wtrvol_p: cobj,
+    specdens_1_p: cobj,
+):
+    dgncur_a = Ptr[float](dgncur_a_p)
+    dgncur_awet = Ptr[float](dgncur_awet_p)
+    qaerwat = Ptr[float](qaerwat_p)
+    wetdens = Ptr[float](wetdens_p)
+    naer = Ptr[float](naer_p)
+    dryrad = Ptr[float](dryrad_p)
+    drymass = Ptr[float](drymass_p)
+    wetrad = Ptr[float](wetrad_p)
+    wetvol = Ptr[float](wetvol_p)
+    wtrvol = Ptr[float](wtrvol_p)
+    specdens_1 = Ptr[float](specdens_1_p)
+
+    m = 1
+    while m <= nmodes:
+        k = top_lev
+        while k <= pver:
+            i = 1
+            while i <= ncol:
+                idx3m = _idx3(i, k, m, pcols, pver)
+
+                dgncur_awet[idx3m] = dgncur_a[idx3m] * (wetrad[idx3m] / dryrad[idx3m])
+                qaerwat[idx3m] = rhoh2o_const * naer[idx3m] * wtrvol[idx3m]
+
+                if wetvol[idx3m] > 1.0e-30:
+                    wetdens[idx3m] = (
+                        drymass[idx3m] + rhoh2o_const * wtrvol[idx3m]
+                    ) / wetvol[idx3m]
+                else:
+                    wetdens[idx3m] = specdens_1[m - 1]
+
+                i += 1
+            k += 1
+        m += 1

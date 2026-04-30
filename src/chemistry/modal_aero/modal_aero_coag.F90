@@ -19,7 +19,7 @@
   save
 
 ! !PUBLIC MEMBER FUNCTIONS:
-  public modal_aero_coag_sub, modal_aero_coag_init
+  public modal_aero_coag_sub, modal_aero_coag_sub_direct_codon, modal_aero_coag_init
 
 ! !PUBLIC DATA MEMBERS:
   integer, parameter :: pcnstxx = gas_pcnst
@@ -50,6 +50,7 @@
   logical :: modal_aero_coag_sub_use_native_impl = .false.
   logical :: modal_aero_coag_sub_impl_selected = .false.
   logical :: modal_aero_coag_sub_proof_written = .false.
+  logical :: modal_aero_coag_sub_direct_proof_written = .false.
   logical :: modal_aero_coag_sub_wrap_proof_written = .false.
 
 ! !DESCRIPTION: This module implements ...
@@ -142,6 +143,60 @@ subroutine modal_aero_coag_sub_select_impl()
   end if
 
 end subroutine modal_aero_coag_sub_select_impl
+
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+   subroutine modal_aero_coag_sub_direct_codon(                               &
+                        lchnk,    ncol,     nstep,               &
+                        loffset,  deltat_main,                   &
+                        t,        pmid,     pdel,                &
+                        q,                                       &
+                        dgncur_a,           dgncur_awet,         &
+                        wetdens_a                                )
+
+   use cam_logfile, only: iulog
+   use ppgrid,      only: pcols, pver
+   use spmd_utils,  only: masterproc
+
+   implicit none
+
+   integer, intent(in)  :: lchnk, ncol, nstep, loffset
+   real(r8), intent(in) :: deltat_main
+   real(r8), target, intent(in) :: t(pcols,pver), pmid(pcols,pver), pdel(pcols,pver)
+   real(r8), target, intent(inout) :: q(ncol,pver,pcnstxx)
+   real(r8), target, intent(in) :: dgncur_a(pcols,pver,ntot_amode)
+   real(r8), target, intent(in) :: dgncur_awet(pcols,pver,ntot_amode)
+   real(r8), target, intent(in) :: wetdens_a(pcols,pver,ntot_amode)
+
+   logical :: saved_use_native_impl, saved_impl_selected
+
+   saved_use_native_impl = modal_aero_coag_sub_use_native_impl
+   saved_impl_selected = modal_aero_coag_sub_impl_selected
+
+   modal_aero_coag_sub_use_native_impl = .false.
+   modal_aero_coag_sub_impl_selected = .true.
+
+   if (masterproc .and. .not. modal_aero_coag_sub_direct_proof_written) then
+      write(iulog,'(A)') 'modal_aero_coag_sub direct codon entered'
+      call modal_aero_coag_sub_append_impl_proof('MODAL_AERO_COAG_SUB_PROOF_FILE', &
+           'modal_aero_coag_sub direct codon entered')
+      modal_aero_coag_sub_direct_proof_written = .true.
+      call flush(iulog)
+   end if
+
+   call modal_aero_coag_sub(                               &
+        lchnk,    ncol,     nstep,               &
+        loffset,  deltat_main,                   &
+        t,        pmid,     pdel,                &
+        q,                                       &
+        dgncur_a,           dgncur_awet,         &
+        wetdens_a                                )
+
+   modal_aero_coag_sub_use_native_impl = saved_use_native_impl
+   modal_aero_coag_sub_impl_selected = saved_impl_selected
+
+   end subroutine modal_aero_coag_sub_direct_codon
 
 
 !----------------------------------------------------------------------

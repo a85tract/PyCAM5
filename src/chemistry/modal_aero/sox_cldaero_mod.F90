@@ -26,6 +26,7 @@ module sox_cldaero_mod
   public :: sox_cldaero_init
   public :: sox_cldaero_create_obj
   public :: sox_cldaero_update
+  public :: sox_cldaero_finalize
   public :: sox_cldaero_destroy_obj
 
   integer :: id_msa, id_h2so4, id_so2, id_h2o2, id_nh3
@@ -369,8 +370,7 @@ contains
 
     real(r8) :: dqdt_aqso4(ncol,pver,gas_pcnst), &
          dqdt_aqh2so4(ncol,pver,gas_pcnst), &
-         dqdt_aqhprxn(ncol,pver), dqdt_aqo3rxn(ncol,pver), &
-         sflx(1:ncol)
+         dqdt_aqhprxn(ncol,pver), dqdt_aqo3rxn(ncol,pver)
 
     real(r8) :: faqgain_msa(ntot_amode), faqgain_so4(ntot_amode), qnum_c(ntot_amode)
 
@@ -590,6 +590,25 @@ contains
             dqdt_aqo3rxn, faqgain_msa, faqgain_so4, qnum_c)
     end if
 
+    call sox_cldaero_finalize(ncol, lchnk, loffset, mbar, pdel, qcw, qin, dqdt_aqso4, &
+         dqdt_aqh2so4, dqdt_aqhprxn, dqdt_aqo3rxn)
+
+  end subroutine sox_cldaero_update
+
+  !----------------------------------------------------------------------------------
+  !----------------------------------------------------------------------------------
+  subroutine sox_cldaero_finalize(ncol, lchnk, loffset, mbar, pdel, qcw, qin, dqdt_aqso4, &
+       dqdt_aqh2so4, dqdt_aqhprxn, dqdt_aqo3rxn)
+
+    integer, intent(in) :: ncol, lchnk, loffset
+    real(r8), intent(in) :: mbar(:,:), pdel(:,:)
+    real(r8), intent(inout) :: qcw(:,:,:), qin(:,:,:)
+    real(r8), intent(in) :: dqdt_aqso4(ncol,pver,gas_pcnst), dqdt_aqh2so4(ncol,pver,gas_pcnst)
+    real(r8), intent(in) :: dqdt_aqhprxn(ncol,pver), dqdt_aqo3rxn(ncol,pver)
+
+    real(r8) :: sflx(1:ncol)
+    integer :: i, k, l, m, n
+
     !==============================================================
     ! ... Update the mixing ratios
     !==============================================================
@@ -663,7 +682,7 @@ contains
     enddo
     call outfld( 'AQSO4_O3', sflx(:ncol), ncol, lchnk)
 
-  end subroutine sox_cldaero_update
+  end subroutine sox_cldaero_finalize
 
   !----------------------------------------------------------------------------------
   !----------------------------------------------------------------------------------
