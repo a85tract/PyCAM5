@@ -26,6 +26,18 @@ def _idx4(i: int, j: int, k: int, l: int, ld1: int, ld2: int, ld3: int) -> int:
 
 
 @inline
+def _idx5(i: int, j: int, k: int, l: int, m: int, ld1: int, ld2: int, ld3: int, ld4: int) -> int:
+    """Fortran array declared as (ld1, ld2, ld3, ld4, *)."""
+    return (
+        (i - 1)
+        + (j - 1) * ld1
+        + (k - 1) * ld1 * ld2
+        + (l - 1) * ld1 * ld2 * ld3
+        + (m - 1) * ld1 * ld2 * ld3 * ld4
+    )
+
+
+@inline
 def _modal_aero_v2ncur(dgncur_a: float, pi_const: float, alnsg: float) -> float:
     return 1.0 / ((pi_const / 6.0) * (dgncur_a**3.0) * exp(4.5 * (alnsg**2.0)))
 
@@ -3164,6 +3176,184 @@ def dust_sediment_tend_codon(
 
     for i in range(1, ncol + 1):
         sfdust[i - 1] = fxdust[_idx2(i, pverp, pcols)] / (dtime * gravit)
+
+
+@export
+def aero_model_drydep_fullshell_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    ntot_amode: int,
+    nslot_max: int,
+    dt: float,
+    gravit: float,
+    mxsedfac: float,
+    pint_p: cobj,
+    pdel_p: cobj,
+    rho_p: cobj,
+    vlc_dry_p: cobj,
+    vlc_trb_p: cobj,
+    vlc_grv_p: cobj,
+    state_q_p: cobj,
+    ptend_q_p: cobj,
+    qqcw_mode_phase_p: cobj,
+    slot_active_p: cobj,
+    slot_mm_p: cobj,
+    slot_jvlc_p: cobj,
+    diag_ddv_p: cobj,
+    diag_dqdt_p: cobj,
+    diag_sflx_p: cobj,
+    diag_dep_trb_p: cobj,
+    diag_dep_grv_p: cobj,
+    q_work_p: cobj,
+    dqdt_work_p: cobj,
+    pvmzaer_work_p: cobj,
+    sflx_work_p: cobj,
+    fxdust_p: cobj,
+    psi_p: cobj,
+    fdot_p: cobj,
+    xxk_p: cobj,
+    fxdot_p: cobj,
+    fxdd_p: cobj,
+    psistar_p: cobj,
+    s_p: cobj,
+    sh_p: cobj,
+    d_p: cobj,
+    dh_p: cobj,
+    e_p: cobj,
+    eh_p: cobj,
+    ppl_p: cobj,
+    ppr_p: cobj,
+    delxh_p: cobj,
+    xins_p: cobj,
+    intz_p: cobj,
+    status_p: cobj,
+    fail_i_p: cobj,
+    fail_k_p: cobj,
+):
+    rho = Ptr[float](rho_p)
+    vlc_dry = Ptr[float](vlc_dry_p)
+    vlc_trb = Ptr[float](vlc_trb_p)
+    vlc_grv = Ptr[float](vlc_grv_p)
+    state_q = Ptr[float](state_q_p)
+    ptend_q = Ptr[float](ptend_q_p)
+    qqcw_mode_phase = Ptr[float](qqcw_mode_phase_p)
+    slot_active = Ptr[int](slot_active_p)
+    slot_mm = Ptr[int](slot_mm_p)
+    slot_jvlc = Ptr[int](slot_jvlc_p)
+    diag_ddv = Ptr[float](diag_ddv_p)
+    diag_dqdt = Ptr[float](diag_dqdt_p)
+    diag_sflx = Ptr[float](diag_sflx_p)
+    diag_dep_trb = Ptr[float](diag_dep_trb_p)
+    diag_dep_grv = Ptr[float](diag_dep_grv_p)
+    q_work = Ptr[float](q_work_p)
+    dqdt_work = Ptr[float](dqdt_work_p)
+    pvmzaer_work = Ptr[float](pvmzaer_work_p)
+    sflx_work = Ptr[float](sflx_work_p)
+    status = Ptr[int](status_p)
+    fail_i = Ptr[int](fail_i_p)
+    fail_k = Ptr[int](fail_k_p)
+
+    status[0] = 0
+    fail_i[0] = 0
+    fail_k[0] = 0
+
+    for m in range(1, ntot_amode + 1):
+        for lphase in range(1, 3):
+            for slot in range(1, nslot_max + 1):
+                slot_idx = _idx3(slot, lphase, m, nslot_max, 2)
+                if slot_active[slot_idx] == 0:
+                    continue
+
+                mm = slot_mm[slot_idx]
+                jvlc = slot_jvlc[slot_idx]
+
+                for i in range(1, ncol + 1):
+                    pvmzaer_work[_idx2(i, 1, pcols)] = 0.0
+
+                for k in range(1, pver + 1):
+                    for i in range(1, ncol + 1):
+                        if lphase == 1:
+                            q_work[_idx2(i, k, pcols)] = state_q[_idx3(i, k, mm, pcols, pver)]
+                        else:
+                            q_work[_idx2(i, k, pcols)] = qqcw_mode_phase[
+                                _idx5(i, k, slot, lphase, m, pcols, pver, nslot_max, 2)
+                            ]
+
+                        pvmzaer_work[_idx2(i, k + 1, pcols)] = vlc_dry[_idx4(i, k, jvlc, m, pcols, pver, 4)]
+                        if lphase == 1:
+                            diag_ddv[_idx5(i, k, slot, lphase, m, pcols, pver, nslot_max, 2)] = pvmzaer_work[
+                                _idx2(i, k + 1, pcols)
+                            ]
+                        pvmzaer_work[_idx2(i, k + 1, pcols)] = (
+                            pvmzaer_work[_idx2(i, k + 1, pcols)] * rho[_idx2(i, k, pcols)] * gravit
+                        )
+
+                dust_sediment_tend_codon(
+                    ncol,
+                    pcols,
+                    pver,
+                    pverp,
+                    dt,
+                    mxsedfac,
+                    gravit,
+                    pint_p,
+                    pdel_p,
+                    q_work_p,
+                    pvmzaer_work_p,
+                    dqdt_work_p,
+                    sflx_work_p,
+                    fxdust_p,
+                    psi_p,
+                    fdot_p,
+                    xxk_p,
+                    fxdot_p,
+                    fxdd_p,
+                    psistar_p,
+                    s_p,
+                    sh_p,
+                    d_p,
+                    dh_p,
+                    e_p,
+                    eh_p,
+                    ppl_p,
+                    ppr_p,
+                    delxh_p,
+                    xins_p,
+                    intz_p,
+                    status_p,
+                    fail_i_p,
+                    fail_k_p,
+                )
+                if status[0] != 0:
+                    return
+
+                for k in range(1, pver + 1):
+                    for i in range(1, ncol + 1):
+                        diag_dqdt[_idx5(i, k, slot, lphase, m, pcols, pver, nslot_max, 2)] = dqdt_work[
+                            _idx2(i, k, pcols)
+                        ]
+                        if lphase == 1:
+                            ptend_q[_idx3(i, k, mm, pcols, pver)] = dqdt_work[_idx2(i, k, pcols)]
+                        else:
+                            qqcw_mode_phase[_idx5(i, k, slot, lphase, m, pcols, pver, nslot_max, 2)] = (
+                                qqcw_mode_phase[_idx5(i, k, slot, lphase, m, pcols, pver, nslot_max, 2)]
+                                + dqdt_work[_idx2(i, k, pcols)] * dt
+                            )
+
+                for i in range(1, ncol + 1):
+                    diag_sflx[_idx4(i, slot, lphase, m, pcols, nslot_max, 2)] = sflx_work[i - 1]
+                    diag_dep_trb[_idx4(i, slot, lphase, m, pcols, nslot_max, 2)] = (
+                        sflx_work[i - 1]
+                        * vlc_trb[_idx3(i, jvlc, m, pcols, 4)]
+                        / vlc_dry[_idx4(i, pver, jvlc, m, pcols, pver, 4)]
+                    )
+                    diag_dep_grv[_idx4(i, slot, lphase, m, pcols, nslot_max, 2)] = (
+                        sflx_work[i - 1]
+                        * vlc_grv[_idx4(i, pver, jvlc, m, pcols, pver, 4)]
+                        / vlc_dry[_idx4(i, pver, jvlc, m, pcols, pver, 4)]
+                    )
 
 
 @export

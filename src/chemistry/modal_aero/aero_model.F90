@@ -57,6 +57,7 @@ module aero_model
   integer :: rprddp_idx          = 0 
   integer :: rprdsh_idx          = 0 
   integer :: sulfeq_idx = -1
+  integer, parameter :: drydep_mode_phase_nslot = nspec_amode_max + 2
   integer, parameter :: wetdep_mode_phase_nslot = nspec_amode_max + 2
 
   ! variables for table lookup of aerosol impaction/interception scavenging rates
@@ -90,6 +91,8 @@ module aero_model
   logical :: modal_accum_coarse_exch = .false.
   logical :: aero_model_drydep_use_native_impl = .false.
   logical :: aero_model_drydep_impl_selected = .false.
+  logical :: aero_model_drydep_proof_written = .false.
+  logical :: aero_model_drydep_fullshell_wrap_proof_written = .false.
   integer :: aero_model_drydep_branch_mask = 0
   logical :: aero_model_drydep_branch_selected = .false.
   logical :: aero_model_wetdep_use_native_impl = .false.
@@ -578,6 +581,7 @@ contains
     use drydep_mod,        only: d3ddflux, calcram
     use mo_drydep,         only: fraction_landuse
     use modal_aero_data,   only: qqcw_get_field
+    use modal_aero_data,   only: qqcw_fill_cptrs
     use modal_aero_data,   only: cnst_name_cw
     use modal_aero_data,   only: alnsg_amode
     use modal_aero_data,   only: sigmag_amode
@@ -587,6 +591,7 @@ contains
     use modal_aero_data,   only: lmassptr_amode
     use modal_aero_data,   only: lmassptrcw_amode
     use modal_aero_deposition, only: set_srf_drydep
+    use iso_c_binding, only: c_ptr, c_int64_t
 
   ! args 
     type(physics_state),    intent(in)    :: state     ! Physics state variables
@@ -635,9 +640,22 @@ contains
     real(r8) :: vlc_dry(pcols,pver,4)     ! dep velocity
     real(r8) :: vlc_grv(pcols,pver,4)     ! dep velocity
     real(r8)::  vlc_trb(pcols,4)          ! dep velocity
+    real(r8) :: vlc_dry_full(pcols,pver,4,ntot_amode)
+    real(r8) :: vlc_grv_full(pcols,pver,4,ntot_amode)
+    real(r8) :: vlc_trb_full(pcols,4,ntot_amode)
     real(r8) :: aerdepdryis(pcols,pcnst)  ! aerosol dry deposition (interstitial)
     real(r8) :: aerdepdrycw(pcols,pcnst)  ! aerosol dry deposition (cloud water)
     real(r8), pointer :: fldcw(:,:)
+    type(c_ptr) :: qqcw_ptrs(pcnst)
+    integer(c_int64_t) :: drydep_slot_active(drydep_mode_phase_nslot,2,ntot_amode)
+    integer(c_int64_t) :: drydep_slot_mm(drydep_mode_phase_nslot,2,ntot_amode)
+    integer(c_int64_t) :: drydep_slot_jvlc(drydep_mode_phase_nslot,2,ntot_amode)
+    real(r8) :: drydep_qqcw_mode_phase(pcols,pver,drydep_mode_phase_nslot,2,ntot_amode)
+    real(r8) :: drydep_diag_ddv(pcols,pver,drydep_mode_phase_nslot,2,ntot_amode)
+    real(r8) :: drydep_diag_dqdt(pcols,pver,drydep_mode_phase_nslot,2,ntot_amode)
+    real(r8) :: drydep_diag_sflx(pcols,drydep_mode_phase_nslot,2,ntot_amode)
+    real(r8) :: drydep_diag_dep_trb(pcols,drydep_mode_phase_nslot,2,ntot_amode)
+    real(r8) :: drydep_diag_dep_grv(pcols,drydep_mode_phase_nslot,2,ntot_amode)
     real(r8), pointer :: dgncur_awet(:,:,:)
     real(r8), pointer :: wetdens(:,:,:)
     real(r8), pointer :: qaerwat(:,:,:)
@@ -695,6 +713,66 @@ contains
     call modal_aero_depvel_part( ncol,state%t(:,:), state%pmid(:,:), ram1, fv,  &
                      vlc_dry(:,:,jvlc), vlc_trb(:,jvlc), vlc_grv(:,:,jvlc),  &
                      rad_drop(:,:), dens_drop(:,:), sg_drop(:,:), 3, fraction_landuse(:,:,lchnk))
+
+    aerdepdryis(:,:) = 0._r8
+    aerdepdrycw(:,:) = 0._r8
+
+    if (.not. aero_model_drydep_use_native_impl) then
+       do m = 1, ntot_amode
+          rad_aer(1:ncol,:) = 0.5_r8*dgncur_awet(1:ncol,:,m) * exp(1.5_r8*(alnsg_amode(m)**2))
+          dens_aer(1:ncol,:) = wetdens(1:ncol,:,m)
+          sg_aer(1:ncol,:) = sigmag_amode(m)
+
+          call modal_aero_depvel_part( ncol, state%t(:,:), state%pmid(:,:), ram1, fv, &
+               vlc_dry_full(:,:,1,m), vlc_trb_full(:,1,m), vlc_grv_full(:,:,1,m), &
+               rad_aer(:,:), dens_aer(:,:), sg_aer(:,:), 0, fraction_landuse(:,:,lchnk))
+          call modal_aero_depvel_part( ncol, state%t(:,:), state%pmid(:,:), ram1, fv, &
+               vlc_dry_full(:,:,2,m), vlc_trb_full(:,2,m), vlc_grv_full(:,:,2,m), &
+               rad_aer(:,:), dens_aer(:,:), sg_aer(:,:), 3, fraction_landuse(:,:,lchnk))
+
+          vlc_dry_full(:,:,3,m) = vlc_dry(:,:,3)
+          vlc_dry_full(:,:,4,m) = vlc_dry(:,:,4)
+          vlc_grv_full(:,:,3,m) = vlc_grv(:,:,3)
+          vlc_grv_full(:,:,4,m) = vlc_grv(:,:,4)
+          vlc_trb_full(:,3,m) = vlc_trb(:,3)
+          vlc_trb_full(:,4,m) = vlc_trb(:,4)
+       end do
+
+       call qqcw_fill_cptrs(pbuf, qqcw_ptrs)
+       call aero_model_drydep_fullshell_codon_wrap( &
+            ncol, dt, state%pint, state%pdel, rho, vlc_dry_full, vlc_trb_full, vlc_grv_full, state%q, ptend%q, &
+            qqcw_ptrs, drydep_slot_active, drydep_slot_mm, drydep_slot_jvlc, drydep_qqcw_mode_phase, &
+            drydep_diag_ddv, drydep_diag_dqdt, drydep_diag_sflx, drydep_diag_dep_trb, drydep_diag_dep_grv )
+
+       do m = 1, ntot_amode
+          do lphase = 1, 2
+             do lspec = 1, drydep_mode_phase_nslot
+                if (drydep_slot_active(lspec,lphase,m) == 0_c_int64_t) cycle
+                mm = int(drydep_slot_mm(lspec,lphase,m))
+
+                if (lphase == 1) then
+                   ptend%lq(mm) = .TRUE.
+                   call outfld( trim(cnst_name(mm))//'DDV', drydep_diag_ddv(:,:,lspec,lphase,m), pcols, lchnk )
+                   call outfld( trim(cnst_name(mm))//'DDF', drydep_diag_sflx(:,lspec,lphase,m), pcols, lchnk )
+                   call outfld( trim(cnst_name(mm))//'TBF', drydep_diag_dep_trb(:,lspec,lphase,m), pcols, lchnk )
+                   call outfld( trim(cnst_name(mm))//'GVF', drydep_diag_dep_grv(:,lspec,lphase,m), pcols, lchnk )
+                   call outfld( trim(cnst_name(mm))//'DTQ', ptend%q(:,:,mm), pcols, lchnk )
+                   aerdepdryis(:ncol,mm) = drydep_diag_sflx(:ncol,lspec,lphase,m)
+                else
+                   call outfld( trim(cnst_name_cw(mm))//'DDF', drydep_diag_sflx(:,lspec,lphase,m), pcols, lchnk )
+                   call outfld( trim(cnst_name_cw(mm))//'TBF', drydep_diag_dep_trb(:,lspec,lphase,m), pcols, lchnk )
+                   call outfld( trim(cnst_name_cw(mm))//'GVF', drydep_diag_dep_grv(:,lspec,lphase,m), pcols, lchnk )
+                   aerdepdrycw(:ncol,mm) = drydep_diag_sflx(:ncol,lspec,lphase,m)
+                end if
+             end do
+          end do
+       end do
+
+       if (apply_srf_drydep_local) then
+          call set_srf_drydep(aerdepdryis, aerdepdrycw, cam_out)
+       end if
+       return
+    end if
 
 
 
@@ -897,7 +975,13 @@ contains
           write(iulog,*) 'aero_model_drydep implementation = native'
        else
           write(iulog,*) 'aero_model_drydep implementation = codon'
+          if (.not. aero_model_drydep_proof_written) then
+             call aero_model_drydep_append_impl_proof('AERO_MODEL_DRYDEP_PROOF_FILE', &
+                  'aero_model_drydep selector entered implementation = codon')
+             aero_model_drydep_proof_written = .true.
+          end if
        end if
+       call flush(iulog)
     end if
 
   end subroutine aero_model_drydep_select_impl
@@ -933,6 +1017,170 @@ contains
     aero_model_drydep_branch_selected = .true.
 
   end subroutine aero_model_drydep_select_branches
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_drydep_append_impl_proof(env_name, proof_line)
+
+    character(len=*), intent(in) :: env_name, proof_line
+
+    character(len=512) :: proof_path
+    integer :: status, n, unit_id
+
+    call get_environment_variable(env_name, value=proof_path, length=n, status=status)
+    if (status /= 0 .or. n <= 0) return
+
+    open(newunit=unit_id, file=trim(adjustl(proof_path(:n))), status='unknown', action='write', &
+         position='append', iostat=status)
+    if (status /= 0) return
+
+    write(unit_id,'(A)') trim(proof_line)
+    close(unit_id)
+
+  end subroutine aero_model_drydep_append_impl_proof
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_drydep_fullshell_codon_wrap(ncol, dt, pint, pdel, rho, vlc_dry, vlc_trb, vlc_grv, &
+                                                    state_q, ptend_q, qqcw_ptrs, slot_active, slot_mm, slot_jvlc, &
+                                                    qqcw_mode_phase, diag_ddv, diag_dqdt, diag_sflx, diag_dep_trb, &
+                                                    diag_dep_grv)
+
+    use modal_aero_data
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), intent(in) :: dt
+    real(r8), target, intent(in) :: pint(pcols,pverp), pdel(pcols,pver), rho(pcols,pver)
+    real(r8), target, intent(in) :: vlc_dry(pcols,pver,4,ntot_amode), vlc_trb(pcols,4,ntot_amode)
+    real(r8), target, intent(in) :: vlc_grv(pcols,pver,4,ntot_amode)
+    real(r8), target, intent(in) :: state_q(pcols,pver,pcnst)
+    real(r8), target, intent(inout) :: ptend_q(pcols,pver,pcnst)
+    type(c_ptr), intent(in) :: qqcw_ptrs(pcnst)
+    integer(c_int64_t), target, intent(inout) :: slot_active(drydep_mode_phase_nslot,2,ntot_amode)
+    integer(c_int64_t), target, intent(inout) :: slot_mm(drydep_mode_phase_nslot,2,ntot_amode)
+    integer(c_int64_t), target, intent(inout) :: slot_jvlc(drydep_mode_phase_nslot,2,ntot_amode)
+    real(r8), target, intent(inout) :: qqcw_mode_phase(pcols,pver,drydep_mode_phase_nslot,2,ntot_amode)
+    real(r8), target, intent(inout) :: diag_ddv(pcols,pver,drydep_mode_phase_nslot,2,ntot_amode)
+    real(r8), target, intent(inout) :: diag_dqdt(pcols,pver,drydep_mode_phase_nslot,2,ntot_amode)
+    real(r8), target, intent(inout) :: diag_sflx(pcols,drydep_mode_phase_nslot,2,ntot_amode)
+    real(r8), target, intent(inout) :: diag_dep_trb(pcols,drydep_mode_phase_nslot,2,ntot_amode)
+    real(r8), target, intent(inout) :: diag_dep_grv(pcols,drydep_mode_phase_nslot,2,ntot_amode)
+
+    integer :: m, lphase, lspec, slot, mm_local, jvlc_local
+    real(r8), target :: q_work(pcols,pver), dqdt_work(pcols,pver), pvmzaer_work(pcols,pverp)
+    real(r8), target :: fxdust(pcols,pverp), psi(pcols,pverp), fdot(pcols,pverp), xxk(pcols,pver)
+    real(r8), target :: sflx_work(pcols), fxdot(pcols), fxdd(pcols), psistar(pcols), xins(pcols)
+    real(r8), target :: s(pcols,pverp), sh(pcols,pverp), d(pcols,pverp), dh(pcols,pverp)
+    real(r8), target :: e(pcols,pverp), eh(pcols,pverp), ppl(pcols,pverp), ppr(pcols,pverp)
+    real(r8), target :: delxh(pcols,pverp)
+    real(r8), parameter :: drydep_mxsedfac = 0.99_r8
+    integer(c_int64_t), target :: intz(pcols), status_code, fail_i, fail_k
+    real(r8), pointer :: fldcw(:,:)
+    character(len=192) :: wrap_proof_line
+
+    interface
+       subroutine aero_model_drydep_fullshell_codon(ncol_c, pcols_c, pver_c, pverp_c, ntot_amode_c, nslot_max_c, &
+            dt_c, gravit_c, mxsedfac_c, pint_p, pdel_p, rho_p, vlc_dry_p, vlc_trb_p, vlc_grv_p, state_q_p, &
+            ptend_q_p, qqcw_mode_phase_p, slot_active_p, slot_mm_p, slot_jvlc_p, diag_ddv_p, diag_dqdt_p, &
+            diag_sflx_p, diag_dep_trb_p, diag_dep_grv_p, q_work_p, dqdt_work_p, pvmzaer_work_p, sflx_work_p, &
+            fxdust_p, psi_p, fdot_p, xxk_p, fxdot_p, fxdd_p, psistar_p, s_p, sh_p, d_p, dh_p, e_p, eh_p, ppl_p, ppr_p, delxh_p, &
+            xins_p, intz_p, status_p, fail_i_p, fail_k_p) bind(c, name="aero_model_drydep_fullshell_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c, ntot_amode_c, nslot_max_c
+         real(c_double), value :: dt_c, gravit_c, mxsedfac_c
+         type(c_ptr), value :: pint_p, pdel_p, rho_p, vlc_dry_p, vlc_trb_p, vlc_grv_p, state_q_p, ptend_q_p
+         type(c_ptr), value :: qqcw_mode_phase_p, slot_active_p, slot_mm_p, slot_jvlc_p, diag_ddv_p, diag_dqdt_p
+         type(c_ptr), value :: diag_sflx_p, diag_dep_trb_p, diag_dep_grv_p, q_work_p, dqdt_work_p, pvmzaer_work_p
+         type(c_ptr), value :: sflx_work_p, fxdust_p, psi_p, fdot_p, xxk_p, fxdot_p, fxdd_p, psistar_p, s_p, sh_p, d_p
+         type(c_ptr), value :: dh_p, e_p, eh_p, ppl_p, ppr_p, delxh_p, xins_p, intz_p, status_p, fail_i_p, fail_k_p
+       end subroutine aero_model_drydep_fullshell_codon
+    end interface
+
+    slot_active(:,:,:) = 0_c_int64_t
+    slot_mm(:,:,:) = 0_c_int64_t
+    slot_jvlc(:,:,:) = 0_c_int64_t
+    qqcw_mode_phase(:,:,:,:,:) = 0._r8
+    diag_ddv(:,:,:,:,:) = 0._r8
+    diag_dqdt(:,:,:,:,:) = 0._r8
+    diag_sflx(:,:,:,:) = 0._r8
+    diag_dep_trb(:,:,:,:) = 0._r8
+    diag_dep_grv(:,:,:,:) = 0._r8
+
+    do m = 1, ntot_amode
+       do lphase = 1, 2
+          do lspec = 0, nspec_amode(m)+1
+             slot = lspec + 1
+             if (lspec == 0) then
+                if (lphase == 1) then
+                   mm_local = numptr_amode(m)
+                   jvlc_local = 1
+                else
+                   mm_local = numptrcw_amode(m)
+                   jvlc_local = 3
+                end if
+             else if (lspec <= nspec_amode(m)) then
+                if (lphase == 1) then
+                   mm_local = lmassptr_amode(lspec,m)
+                   jvlc_local = 2
+                else
+                   mm_local = lmassptrcw_amode(lspec,m)
+                   jvlc_local = 4
+                end if
+             else
+                cycle
+             end if
+
+             if (mm_local <= 0) cycle
+
+             slot_active(slot,lphase,m) = 1_c_int64_t
+             slot_mm(slot,lphase,m) = int(mm_local, c_int64_t)
+             slot_jvlc(slot,lphase,m) = int(jvlc_local, c_int64_t)
+
+             if (lphase == 2) then
+                call aero_model_wetdep_resolve_qqcw_ptr(qqcw_ptrs, mm_local, fldcw)
+                qqcw_mode_phase(:ncol,:,slot,lphase,m) = fldcw(:ncol,:)
+             end if
+          end do
+       end do
+    end do
+
+    if (masterproc .and. .not. aero_model_drydep_fullshell_wrap_proof_written) then
+       wrap_proof_line = 'aero_model_drydep_fullshell_codon_wrap entered (parent shell = codon)'
+       write(iulog,'(A)') trim(wrap_proof_line)
+       call aero_model_drydep_append_impl_proof('AERO_MODEL_DRYDEP_PROOF_FILE', trim(wrap_proof_line))
+       aero_model_drydep_fullshell_wrap_proof_written = .true.
+       call flush(iulog)
+    end if
+
+    status_code = 0_c_int64_t
+    fail_i = 0_c_int64_t
+    fail_k = 0_c_int64_t
+    call aero_model_drydep_fullshell_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
+         int(ntot_amode, c_int64_t), int(drydep_mode_phase_nslot, c_int64_t), real(dt, c_double), &
+         real(gravit, c_double), real(drydep_mxsedfac, c_double), c_loc(pint), c_loc(pdel), c_loc(rho), c_loc(vlc_dry), &
+         c_loc(vlc_trb), c_loc(vlc_grv), c_loc(state_q), c_loc(ptend_q), c_loc(qqcw_mode_phase), c_loc(slot_active), &
+         c_loc(slot_mm), c_loc(slot_jvlc), c_loc(diag_ddv), c_loc(diag_dqdt), c_loc(diag_sflx), c_loc(diag_dep_trb), &
+         c_loc(diag_dep_grv), c_loc(q_work), c_loc(dqdt_work), c_loc(pvmzaer_work), c_loc(sflx_work), c_loc(fxdust), c_loc(psi), &
+         c_loc(fdot), c_loc(xxk), c_loc(fxdot), c_loc(fxdd), c_loc(psistar), c_loc(s), c_loc(sh), c_loc(d), &
+         c_loc(dh), c_loc(e), c_loc(eh), c_loc(ppl), c_loc(ppr), c_loc(delxh), c_loc(xins), c_loc(intz), &
+         c_loc(status_code), c_loc(fail_i), c_loc(fail_k) )
+
+    if (status_code /= 0_c_int64_t) then
+       write(iulog,*) 'aero_model_drydep_fullshell_codon_wrap -- interval was not found ', int(fail_i), int(fail_k)
+       call endrun('aero_model_drydep_fullshell_codon_wrap -- interval was not found')
+    end if
+
+    do m = 1, ntot_amode
+       do slot = 1, drydep_mode_phase_nslot
+          if (slot_active(slot,2,m) == 0_c_int64_t) cycle
+          call aero_model_wetdep_resolve_qqcw_ptr(qqcw_ptrs, int(slot_mm(slot,2,m)), fldcw)
+          fldcw(:ncol,:) = qqcw_mode_phase(:ncol,:,slot,2,m)
+       end do
+    end do
+
+  end subroutine aero_model_drydep_fullshell_codon_wrap
 
   !=============================================================================
   !=============================================================================
