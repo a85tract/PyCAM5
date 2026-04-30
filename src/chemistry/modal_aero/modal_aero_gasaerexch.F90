@@ -579,6 +579,7 @@ implicit none
    integer(c_int64_t), target :: lptr_soa_a_c(ntot_amode), lptr_pom_a_c(ntot_amode)
    integer(c_int64_t), target :: lmassptr_c(maxd_aspectype,ntot_amode), nspec_amode_c(ntot_amode)
    integer(c_int64_t), target :: lspecfrm_c(maxspec_pcage), lspectoo_c(maxspec_pcage)
+   integer(c_int64_t), target :: numptr_c(ntot_amode)
    integer(c_int64_t), target :: troplev_c(pcols)
    integer(c_int64_t), target :: dotend_mask(pcnstxx), dotendqqcw_mask(pcnstxx)
    integer(c_int64_t), target :: dotendrn_mask(pcnstxx), dotendqqcwrn_mask(pcnstxx)
@@ -608,6 +609,7 @@ implicit none
    real (r8) :: tmp_so4a_bgn, tmp_so4a_end
    real (r8) :: tmp_so4g_avg, tmp_so4g_bgn, tmp_so4g_equ
    real (r8), target :: uptkrate(ntot_amode,pcols,pver)
+   real (r8), target :: sigmag_work(ntot_amode)
    real (r8), target :: uptkratebb(ntot_amode), uptkrate_soa(ntot_amode)
                 ! gas-to-aerosol mass transfer rates (1/s)
    real (r8) :: vol_core, vol_shell
@@ -768,6 +770,8 @@ implicit none
          lptr_soa_a_c(n) = int(lptr_soa_a_amode(n) - loffset, c_int64_t)
          lptr_pom_a_c(n) = int(lptr_pom_a_amode(n) - loffset, c_int64_t)
          nspec_amode_c(n) = int(nspec_amode(n), c_int64_t)
+         numptr_c(n) = int(numptr_amode(n) - loffset, c_int64_t)
+         sigmag_work(n) = sigmag_amode(n)
          do l = 1, maxd_aspectype
             lmassptr_c(l,n) = int(lmassptr_amode(l,n) - loffset, c_int64_t)
          end do
@@ -785,12 +789,12 @@ implicit none
 ! use this for tendency calcs to avoid generating very small negative values
    deltatxx = deltat * (1.0_r8 + 1.0e-15_r8)
 
-! zero out tendencies and other
+! zero tendencies, compute uptake rates, and run gas-exchange core
    if (.not. modal_aero_gasaerexch_sub_use_native_impl) then
       call modal_aero_gasaerexch_sub_codon_wrap( &
-           1, ncol, nsrflx, l_so4g, l_nh4g, l_msag, l_soag, do_nh4g, do_msag, do_soag, method_soa, ntot_soamode, &
+           100, ncol, nsrflx, l_so4g, l_nh4g, l_msag, l_soag, do_nh4g, do_msag, do_soag, method_soa, ntot_soamode, &
            deltat, deltatxx, q, qqcw, dqdt, dqqcwdt, qsrflx, qqcwsrflx, qold, qqcwold, dqdtsv1, dqqcwdtsv1, &
-           t, pmid, pdel, dgncur_a, uptkrate, sulfeq, troplev_c, ido_so4a_c, ido_nh4a_c, ido_soaa_c, &
+           t, pmid, pdel, dgncur_a, dgncur_awet, numptr_c, sigmag_work, uptkrate, sulfeq, troplev_c, ido_so4a_c, ido_nh4a_c, ido_soaa_c, &
            lptr_so4_a_c, lptr_nh4_a_c, lptr_soa_a_c, lptr_pom_a_c, lmassptr_c, nspec_amode_c, lspecfrm_c, lspectoo_c, &
            fac_m2v_so4, fac_m2v_nh4, fac_m2v_soa, fac_m2v_pcarbon, fac_volsfc_pcarbon, xferfrac_max, &
            dqdt_so4, dqdt_nh4, dqdt_soa, fgain_so4, fgain_nh4, fgain_soa, qold_so4, qold_nh4, qold_soa, qold_poa, &
@@ -798,26 +802,11 @@ implicit none
            g_soa_tend_work, adv_mass_work, dotend_mask, dotendqqcw_mask, dotendrn_mask, dotendqqcwrn_mask )
    else
       call modal_aero_gasaerexch_zero_tendencies(ncol, nsrflx, dqdt, dqqcwdt, qsrflx, qqcwsrflx)
-   end if
+      call gas_aer_uptkrates( ncol,       loffset,                &
+                              q,          t,          pmid,       &
+                              dgncur_awet,            uptkrate    )
 
-! compute gas-to-aerosol mass transfer rates
-   call gas_aer_uptkrates( ncol,       loffset,                &
-                           q,          t,          pmid,       &
-                           dgncur_awet,            uptkrate    )
-
-
-   jsrf = jsrflx_gaexch
-   if (.not. modal_aero_gasaerexch_sub_use_native_impl) then
-      call modal_aero_gasaerexch_sub_codon_wrap( &
-           100, ncol, nsrflx, l_so4g, l_nh4g, l_msag, l_soag, do_nh4g, do_msag, do_soag, method_soa, ntot_soamode, &
-           deltat, deltatxx, q, qqcw, dqdt, dqqcwdt, qsrflx, qqcwsrflx, qold, qqcwold, dqdtsv1, dqqcwdtsv1, &
-           t, pmid, pdel, dgncur_a, uptkrate, sulfeq, troplev_c, ido_so4a_c, ido_nh4a_c, ido_soaa_c, &
-           lptr_so4_a_c, lptr_nh4_a_c, lptr_soa_a_c, lptr_pom_a_c, lmassptr_c, nspec_amode_c, lspecfrm_c, lspectoo_c, &
-           fac_m2v_so4, fac_m2v_nh4, fac_m2v_soa, fac_m2v_pcarbon, fac_volsfc_pcarbon, xferfrac_max, &
-           dqdt_so4, dqdt_nh4, dqdt_soa, fgain_so4, fgain_nh4, fgain_soa, qold_so4, qold_nh4, qold_soa, qold_poa, &
-           uptkratebb, uptkrate_soa, a_opoa_soa, a_soa_work, beta_soa, g_star_soa, phi_soa, sat_soa, niter_soa_work, &
-           g_soa_tend_work, adv_mass_work, dotend_mask, dotendqqcw_mask, dotendrn_mask, dotendqqcwrn_mask )
-   else
+      jsrf = jsrflx_gaexch
    do k=top_lev,pver
      do i=1,ncol
 
@@ -1217,7 +1206,7 @@ implicit none
       call modal_aero_gasaerexch_sub_codon_wrap( &
            101, ncol, nsrflx, l_so4g, l_nh4g, l_msag, l_soag, do_nh4g, do_msag, do_soag, method_soa, ntot_soamode, &
            deltat, deltatxx, q, qqcw, dqdt, dqqcwdt, qsrflx, qqcwsrflx, qold, qqcwold, dqdtsv1, dqqcwdtsv1, &
-           t, pmid, pdel, dgncur_a, uptkrate, sulfeq, troplev_c, ido_so4a_c, ido_nh4a_c, ido_soaa_c, &
+           t, pmid, pdel, dgncur_a, dgncur_awet, numptr_c, sigmag_work, uptkrate, sulfeq, troplev_c, ido_so4a_c, ido_nh4a_c, ido_soaa_c, &
            lptr_so4_a_c, lptr_nh4_a_c, lptr_soa_a_c, lptr_pom_a_c, lmassptr_c, nspec_amode_c, lspecfrm_c, lspectoo_c, &
            fac_m2v_so4, fac_m2v_nh4, fac_m2v_soa, fac_m2v_pcarbon, fac_volsfc_pcarbon, xferfrac_max, &
            dqdt_so4, dqdt_nh4, dqdt_soa, fgain_so4, fgain_nh4, fgain_soa, qold_so4, qold_nh4, qold_soa, qold_poa, &
@@ -1373,7 +1362,7 @@ implicit none
 subroutine modal_aero_gasaerexch_sub_codon_wrap( &
      stage, ncol, nsrflx, l_so4g, l_nh4g, l_msag, l_soag, do_nh4g, do_msag, do_soag, method_soa, ntot_soamode, &
      deltat, deltatxx, q, qqcw, dqdt, dqqcwdt, qsrflx, qqcwsrflx, qold, qqcwold, dqdtsv1, dqqcwdtsv1, &
-     t, pmid, pdel, dgncur_a, uptkrate, sulfeq, troplev_c, ido_so4a_c, ido_nh4a_c, ido_soaa_c, &
+     t, pmid, pdel, dgncur_a, dgncur_awet, numptr_c, sigmag_work, uptkrate, sulfeq, troplev_c, ido_so4a_c, ido_nh4a_c, ido_soaa_c, &
      lptr_so4_a_c, lptr_nh4_a_c, lptr_soa_a_c, lptr_pom_a_c, lmassptr_c, nspec_amode_c, lspecfrm_c, lspectoo_c, &
      fac_m2v_so4, fac_m2v_nh4, fac_m2v_soa, fac_m2v_pcarbon, fac_volsfc_pcarbon, xferfrac_max, &
      dqdt_so4, dqdt_nh4, dqdt_soa, fgain_so4, fgain_nh4, fgain_soa, qold_so4, qold_nh4, qold_soa, qold_poa, &
@@ -1385,7 +1374,7 @@ subroutine modal_aero_gasaerexch_sub_codon_wrap( &
   use constituents, only: pcnst
   use modal_aero_data, only: modeptr_pcarbon
   use mo_constants, only: rgas
-  use physconst, only: gravit, mwdry
+  use physconst, only: gravit, mwdry, rair
   use spmd_utils, only: masterproc
 
   implicit none
@@ -1404,7 +1393,9 @@ subroutine modal_aero_gasaerexch_sub_codon_wrap( &
   real(r8), target, intent(inout) :: qold(ncol,pver,pcnstxx), qqcwold(ncol,pver,pcnstxx)
   real(r8), target, intent(inout) :: dqdtsv1(ncol,pver,pcnstxx), dqqcwdtsv1(ncol,pver,pcnstxx)
   real(r8), target, intent(in) :: t(pcols,pver), pmid(pcols,pver), pdel(pcols,pver)
-  real(r8), target, intent(in) :: dgncur_a(pcols,pver,ntot_amode)
+  real(r8), target, intent(in) :: dgncur_a(pcols,pver,ntot_amode), dgncur_awet(pcols,pver,ntot_amode)
+  integer(c_int64_t), target, intent(in) :: numptr_c(ntot_amode)
+  real(r8), target, intent(in) :: sigmag_work(ntot_amode)
   real(r8), target, intent(in) :: uptkrate(ntot_amode,pcols,pver)
   real(r8), pointer, intent(in) :: sulfeq(:,:,:)
   integer(c_int64_t), target, intent(in) :: troplev_c(pcols)
@@ -1468,10 +1459,10 @@ subroutine modal_aero_gasaerexch_sub_codon_wrap( &
           stage_c, ncol_c, pcols_c, pver_c, pcnstxx_c, pcnst_c, top_lev_c, ntot_amode_c, maxd_aspectype_c, &
           maxspec_pcage_c, nsrflx_c, jsrflx_gaexch_c, jsrflx_rename_c, l_so4g_c, l_nh4g_c, l_msag_c, l_soag_c, &
           do_nh4g_c, do_msag_c, do_soag_c, method_soa_c, ntot_soamode_c, modefrm_pcage_c, modetoo_pcage_c, &
-          modeptr_pcarbon_c, nspecfrm_pcage_c, has_sulfeq_c, deltat_c, deltatxx_c, gravit_c, mwdry_c, rgas_c, &
+          modeptr_pcarbon_c, nspecfrm_pcage_c, has_sulfeq_c, deltat_c, deltatxx_c, gravit_c, mwdry_c, rair_c, rgas_c, &
           fac_m2v_so4_c, fac_m2v_nh4_c, fac_m2v_soa_c, fac_volsfc_pcarbon_c, xferfrac_max_c, &
           soa_equivso4_factor_c, dr_so4_monolayers_pcage_c, q_p, qqcw_p, dqdt_p, dqqcwdt_p, qsrflx_p, qqcwsrflx_p, &
-          qold_p, qqcwold_p, dqdtsv1_p, dqqcwdtsv1_p, t_p, pmid_p, pdel_p, dgncur_a_p, uptkrate_p, sulfeq_p, troplev_p, &
+          qold_p, qqcwold_p, dqdtsv1_p, dqqcwdtsv1_p, t_p, pmid_p, pdel_p, dgncur_a_p, dgncur_awet_p, numptr_p, sigmag_p, uptkrate_p, sulfeq_p, troplev_p, &
           ido_so4a_p, ido_nh4a_p, ido_soaa_p, lptr_so4_a_p, lptr_nh4_a_p, lptr_soa_a_p, lptr_pom_a_p, lmassptr_p, &
           nspec_amode_p, lspecfrm_p, lspectoo_p, fac_m2v_pcarbon_p, dqdt_so4_p, dqdt_nh4_p, dqdt_soa_p, fgain_so4_p, &
           fgain_nh4_p, fgain_soa_p, qold_so4_p, qold_nh4_p, qold_soa_p, qold_poa_p, uptkratebb_p, uptkrate_soa_p, &
@@ -1483,12 +1474,12 @@ subroutine modal_aero_gasaerexch_sub_codon_wrap( &
        integer(c_int64_t), value :: l_so4g_c, l_nh4g_c, l_msag_c, l_soag_c, do_nh4g_c, do_msag_c, do_soag_c
        integer(c_int64_t), value :: method_soa_c, ntot_soamode_c, modefrm_pcage_c, modetoo_pcage_c, modeptr_pcarbon_c
        integer(c_int64_t), value :: nspecfrm_pcage_c, has_sulfeq_c
-       real(c_double), value :: deltat_c, deltatxx_c, gravit_c, mwdry_c, rgas_c
+       real(c_double), value :: deltat_c, deltatxx_c, gravit_c, mwdry_c, rair_c, rgas_c
        real(c_double), value :: fac_m2v_so4_c, fac_m2v_nh4_c, fac_m2v_soa_c, fac_volsfc_pcarbon_c, xferfrac_max_c
        real(c_double), value :: soa_equivso4_factor_c, dr_so4_monolayers_pcage_c
        type(c_ptr), value :: q_p, qqcw_p, dqdt_p, dqqcwdt_p, qsrflx_p, qqcwsrflx_p
        type(c_ptr), value :: qold_p, qqcwold_p, dqdtsv1_p, dqqcwdtsv1_p
-       type(c_ptr), value :: t_p, pmid_p, pdel_p, dgncur_a_p, uptkrate_p, sulfeq_p, troplev_p
+       type(c_ptr), value :: t_p, pmid_p, pdel_p, dgncur_a_p, dgncur_awet_p, numptr_p, sigmag_p, uptkrate_p, sulfeq_p, troplev_p
        type(c_ptr), value :: ido_so4a_p, ido_nh4a_p, ido_soaa_p, lptr_so4_a_p, lptr_nh4_a_p, lptr_soa_a_p, lptr_pom_a_p
        type(c_ptr), value :: lmassptr_p, nspec_amode_p, lspecfrm_p, lspectoo_p, fac_m2v_pcarbon_p
        type(c_ptr), value :: dqdt_so4_p, dqdt_nh4_p, dqdt_soa_p, fgain_so4_p, fgain_nh4_p, fgain_soa_p
@@ -1541,13 +1532,13 @@ subroutine modal_aero_gasaerexch_sub_codon_wrap( &
           do_nh4g_c, do_msag_c, do_soag_c, int(method_soa, c_int64_t), int(ntot_soamode, c_int64_t), &
           int(modefrm_pcage, c_int64_t), int(modetoo_pcage, c_int64_t), int(modeptr_pcarbon, c_int64_t), &
           int(nspecfrm_pcage, c_int64_t), has_sulfeq_c, real(deltat, c_double), real(deltatxx, c_double), &
-          real(gravit, c_double), real(mwdry, c_double), real(rgas, c_double), real(fac_m2v_so4, c_double), &
+          real(gravit, c_double), real(mwdry, c_double), real(rair, c_double), real(rgas, c_double), real(fac_m2v_so4, c_double), &
           real(fac_m2v_nh4, c_double), real(fac_m2v_soa, c_double), real(fac_volsfc_pcarbon, c_double), &
           real(xferfrac_max, c_double), real(soa_equivso4_factor, c_double), real(dr_so4_monolayers_pcage, c_double), &
           c_loc(q(1,1,1)), c_loc(qqcw(1,1,1)), c_loc(dqdt(1,1,1)), c_loc(dqqcwdt(1,1,1)), &
           c_loc(qsrflx(1,1,1)), c_loc(qqcwsrflx(1,1,1)), c_loc(qold(1,1,1)), c_loc(qqcwold(1,1,1)), &
           c_loc(dqdtsv1(1,1,1)), c_loc(dqqcwdtsv1(1,1,1)), c_loc(t(1,1)), c_loc(pmid(1,1)), c_loc(pdel(1,1)), &
-          c_loc(dgncur_a(1,1,1)), c_loc(uptkrate(1,1,1)), sulfeq_p, c_loc(troplev_c(1)), c_loc(ido_so4a_c(1)), &
+          c_loc(dgncur_a(1,1,1)), c_loc(dgncur_awet(1,1,1)), c_loc(numptr_c(1)), c_loc(sigmag_work(1)), c_loc(uptkrate(1,1,1)), sulfeq_p, c_loc(troplev_c(1)), c_loc(ido_so4a_c(1)), &
           c_loc(ido_nh4a_c(1)), c_loc(ido_soaa_c(1)), c_loc(lptr_so4_a_c(1)), c_loc(lptr_nh4_a_c(1)), &
           c_loc(lptr_soa_a_c(1)), c_loc(lptr_pom_a_c(1)), c_loc(lmassptr_c(1,1)), c_loc(nspec_amode_c(1)), &
           c_loc(lspecfrm_c(1)), c_loc(lspectoo_c(1)), c_loc(fac_m2v_pcarbon(1)), c_loc(dqdt_so4(1)), &

@@ -5146,6 +5146,7 @@ def modal_aero_gasaerexch_sub_shell_codon(
     deltatxx: float,
     gravit: float,
     mwdry: float,
+    rair: float,
     rgas: float,
     fac_m2v_so4: float,
     fac_m2v_nh4: float,
@@ -5168,6 +5169,9 @@ def modal_aero_gasaerexch_sub_shell_codon(
     pmid_p: cobj,
     pdel_p: cobj,
     dgncur_a_p: cobj,
+    dgncur_awet_p: cobj,
+    numptr_p: cobj,
+    sigmag_p: cobj,
     uptkrate_p: cobj,
     sulfeq_p: cobj,
     troplev_p: cobj,
@@ -5210,6 +5214,25 @@ def modal_aero_gasaerexch_sub_shell_codon(
     dotendqqcwrn_p: cobj,
 ):
     if stage == 100:
+        modal_aero_gasaerexch_zero_tendencies_codon(
+            ncol, pcols, pver, pcnstxx, nsrflx, dqdt_p, dqqcwdt_p, qsrflx_p, qqcwsrflx_p
+        )
+        gas_aer_uptkrates_codon(
+            ncol,
+            pcols,
+            pver,
+            top_lev,
+            ntot_amode,
+            q_p,
+            t_p,
+            pmid_p,
+            dgncur_awet_p,
+            numptr_p,
+            sigmag_p,
+            mwdry,
+            rair,
+            uptkrate_p,
+        )
         modal_aero_gasaerexch_sub_codon(
             2,
             ncol,
