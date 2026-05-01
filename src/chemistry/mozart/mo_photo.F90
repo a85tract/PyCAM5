@@ -96,6 +96,10 @@ module mo_photo
   logical :: table_photo_jlong_apply_impl_selected = .false.
   logical :: table_photo_jno_ho2no2_use_native_impl = .false.
   logical :: table_photo_jno_ho2no2_impl_selected = .false.
+  logical :: table_photo_use_native_impl = .false.
+  logical :: table_photo_impl_selected = .false.
+  logical :: table_photo_proof_written = .false.
+  logical :: table_photo_batch_proof_written = .false.
   logical :: set_xnox_photo_use_native_impl = .false.
   logical :: set_xnox_photo_impl_selected = .false.
 
@@ -684,7 +688,7 @@ contains
     use photo_bkgrnd, only : photo_bkgrnd_calc
     use cam_history, only : outfld
     use infnan,      only : nan, assignment(=)
-    use iso_c_binding, only : c_int64_t
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
     implicit none
 
@@ -694,7 +698,7 @@ contains
     integer,  intent(in)    :: lchnk
     integer,  intent(in)    :: ncol
     real(r8), intent(in)    :: esfact                       ! earth sun distance factor
-    real(r8), intent(in)    :: vmr(ncol,pver,max(1,gas_pcnst)) ! vmr
+    real(r8), target, intent(in)    :: vmr(ncol,pver,max(1,gas_pcnst)) ! vmr
     real(r8), target, intent(in)    :: col_dens(ncol,pver,ncol_abs) ! column densities (molecules/cm^2)
     real(r8), intent(in)    :: zen_angle(ncol)              ! solar zenith angle (radians)
     real(r8), intent(in)    :: srf_alb(pcols)               ! surface albedo
@@ -704,8 +708,8 @@ contains
     real(r8), target, intent(in)    :: pdel(pcols,pver)             ! pressure delta about midpoint (Pa)
     real(r8), target, intent(in)    :: temper(pcols,pver)           ! midpoint temperature (K)
     real(r8), target, intent(in)    :: zmid(ncol,pver)              ! midpoint height (km)
-    real(r8), intent(in)    :: zint(ncol,pver)              ! interface height (km)
-    real(r8), intent(in)    :: invariants(ncol,pver,max(1,nfs)) ! invariant densities (molecules/cm^3)
+    real(r8), target, intent(in)    :: zint(ncol,pver)              ! interface height (km)
+    real(r8), target, intent(in)    :: invariants(ncol,pver,max(1,nfs)) ! invariant densities (molecules/cm^3)
     real(r8), target, intent(inout) :: photos(ncol,pver,phtcnt)     ! photodissociation rates (1/s)
     type(physics_buffer_desc),pointer :: pbuf(:)
 
@@ -736,11 +740,11 @@ contains
 
     real(r8), allocatable, target :: zarg(:)
     real(r8), allocatable, target :: tline(:)               ! vertical temperature array
-    real(r8), allocatable :: o_den(:)               ! o density (molecules/cm^3)
-    real(r8), allocatable :: o2_den(:)              ! o2 density (molecules/cm^3)
-    real(r8), allocatable :: o3_den(:)              ! o3 density (molecules/cm^3)
-    real(r8), allocatable :: no_den(:)              ! no density (molecules/cm^3)
-    real(r8), allocatable :: n2_den(:)              ! n2 density (molecules/cm^3)
+    real(r8), allocatable, target :: o_den(:)               ! o density (molecules/cm^3)
+    real(r8), allocatable, target :: o2_den(:)              ! o2 density (molecules/cm^3)
+    real(r8), allocatable, target :: o3_den(:)              ! o3 density (molecules/cm^3)
+    real(r8), allocatable, target :: no_den(:)              ! no density (molecules/cm^3)
+    real(r8), allocatable, target :: n2_den(:)              ! n2 density (molecules/cm^3)
     real(r8), allocatable :: jno_sht(:)             ! no short photorate
     real(r8), allocatable :: jo2_sht(:,:)           ! o2 short photorate
 
@@ -757,6 +761,37 @@ contains
     real(r8) :: qbkno(ncol,pver)
     real(r8), target :: alias_mult2(phtcnt)
     integer(c_int64_t), target :: lng_indexer_c(phtcnt)
+    type(c_ptr) :: o_den_p, o2_den_p, o3_den_p, no_den_p, n2_den_p
+    type(c_ptr) :: lng_prates_p
+
+    interface
+       subroutine table_photo_daylight_prepare_batch_codon(ncol_c, pcols_c, pver_c, ncol_abs_c, nfs_c, gas_pcnst_c, &
+            i_c, p1_c, p2_c, do_jshort_c, ptop_gt_10_c, o_is_inv_c, o2_is_inv_c, o3_is_inv_c, n2_is_inv_c, &
+            no_is_inv_c, o_ndx_c, o2_ndx_c, o3_inv_ndx_c, o3_ndx_c, n2_ndx_c, no_ndx_c, indexm_c, pa2mb_c, &
+            pmid_p, pdel_p, col_dens_p, lwc_p, clouds_p, temper_p, zmid_p, zint_p, vmr_p, invariants_p, parg_p, &
+            colo3_p, fac1_p, lwc_line_p, cld_line_p, tline_p, zarg_p, o_den_p, o2_den_p, o3_den_p, no_den_p, &
+            n2_den_p) bind(c, name="table_photo_daylight_prepare_batch_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, ncol_abs_c, nfs_c, gas_pcnst_c
+         integer(c_int64_t), value :: i_c, p1_c, p2_c, do_jshort_c, ptop_gt_10_c
+         integer(c_int64_t), value :: o_is_inv_c, o2_is_inv_c, o3_is_inv_c, n2_is_inv_c, no_is_inv_c
+         integer(c_int64_t), value :: o_ndx_c, o2_ndx_c, o3_inv_ndx_c, o3_ndx_c, n2_ndx_c, no_ndx_c, indexm_c
+         real(c_double), value :: pa2mb_c
+         type(c_ptr), value :: pmid_p, pdel_p, col_dens_p, lwc_p, clouds_p, temper_p, zmid_p, zint_p
+         type(c_ptr), value :: vmr_p, invariants_p, parg_p, colo3_p, fac1_p, lwc_line_p, cld_line_p, tline_p, zarg_p
+         type(c_ptr), value :: o_den_p, o2_den_p, o3_den_p, no_den_p, n2_den_p
+       end subroutine table_photo_daylight_prepare_batch_codon
+
+       subroutine table_photo_postcloud_batch_codon(ncol_c, pver_c, phtcnt_c, nlng_c, i_c, jno_ndx_c, &
+            jho2no2_ndx_c, do_jshort_c, has_o2_col_c, has_o3_col_c, zen_angle_c, esfact_c, photos_p, lng_prates_p, &
+            cld_mult_p, col_dens_p, lng_indexer_p, alias_mult2_p) bind(c, name="table_photo_postcloud_batch_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, phtcnt_c, nlng_c, i_c, jno_ndx_c, jho2no2_ndx_c
+         integer(c_int64_t), value :: do_jshort_c, has_o2_col_c, has_o3_col_c
+         real(c_double), value :: zen_angle_c, esfact_c
+         type(c_ptr), value :: photos_p, lng_prates_p, cld_mult_p, col_dens_p, lng_indexer_p, alias_mult2_p
+       end subroutine table_photo_postcloud_batch_codon
+    end interface
 
     qbktot(:,:) = nan
     qbko1(:,:) = nan
@@ -770,6 +805,8 @@ contains
     if( phtcnt < 1 ) then
        return
     end if
+
+    call table_photo_select_impl()
 
     if ((.not.do_jshort) .or. (ptop_ref < 10._r8)) then
        n_jshrt_levs = pver
@@ -837,7 +874,7 @@ contains
     endif
 
     col_loop : do i = 1,ncol
-       if (do_jshort) then
+       if (do_jshort .and. table_photo_use_native_impl) then
 
           if ( o_is_inv ) then
              o_den(p1:p2) = invariants(i,:pver,o_ndx)
@@ -868,11 +905,47 @@ contains
        endif
        sza = zen_angle(i)*r2d
        daylight : if( sza >= 0._r8 .and. sza < max_zen_angle ) then
-          call table_photo_daylight_setup( ncol, i, p1, p2, pmid, pdel, col_dens, lwc, clouds, temper, zmid, &
-               parg, colo3, fac1, lwc_line, cld_line, tline, zarg )
+          if (table_photo_use_native_impl) then
+             call table_photo_daylight_setup( ncol, i, p1, p2, pmid, pdel, col_dens, lwc, clouds, temper, zmid, &
+                  parg, colo3, fac1, lwc_line, cld_line, tline, zarg )
+          else
+             if (do_jshort) then
+                o_den_p = c_loc(o_den)
+                o2_den_p = c_loc(o2_den)
+                o3_den_p = c_loc(o3_den)
+                no_den_p = c_loc(no_den)
+                n2_den_p = c_loc(n2_den)
+             else
+                o_den_p = c_null_ptr
+                o2_den_p = c_null_ptr
+                o3_den_p = c_null_ptr
+                no_den_p = c_null_ptr
+                n2_den_p = c_null_ptr
+             end if
+             call table_photo_daylight_prepare_batch_codon( &
+                  int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(ncol_abs, c_int64_t), &
+                  int(nfs, c_int64_t), int(gas_pcnst, c_int64_t), int(i, c_int64_t), int(p1, c_int64_t), &
+                  int(p2, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, do_jshort), &
+                  merge(1_c_int64_t, 0_c_int64_t, ptop_ref > 10._r8), merge(1_c_int64_t, 0_c_int64_t, o_is_inv), &
+                  merge(1_c_int64_t, 0_c_int64_t, o2_is_inv), merge(1_c_int64_t, 0_c_int64_t, o3_is_inv), &
+                  merge(1_c_int64_t, 0_c_int64_t, n2_is_inv), merge(1_c_int64_t, 0_c_int64_t, no_is_inv), &
+                  int(o_ndx, c_int64_t), int(o2_ndx, c_int64_t), int(o3_inv_ndx, c_int64_t), &
+                  int(o3_ndx, c_int64_t), int(n2_ndx, c_int64_t), int(no_ndx, c_int64_t), int(indexm, c_int64_t), &
+                  real(Pa2mb, c_double), c_loc(pmid), c_loc(pdel), c_loc(col_dens), c_loc(lwc), c_loc(clouds), &
+                  c_loc(temper), c_loc(zmid), c_loc(zint), c_loc(vmr), c_loc(invariants), c_loc(parg), c_loc(colo3), &
+                  c_loc(fac1), c_loc(lwc_line), c_loc(cld_line), c_loc(tline), c_loc(zarg), o_den_p, o2_den_p, &
+                  o3_den_p, no_den_p, n2_den_p &
+             )
+             if (masterproc .and. .not. table_photo_batch_proof_written) then
+                write(iulog,'(A)') 'table_photo direct batch entered (daylight/postcloud direct = codon)'
+                call table_photo_append_impl_proof('TABLE_PHOTO_PROOF_FILE', &
+                     'table_photo direct batch entered (daylight/postcloud direct = codon)')
+                table_photo_batch_proof_written = .true.
+             end if
+          end if
 
           if (do_jshort) then
-             if ( ptop_ref > 10._r8 ) then
+             if ( ptop_ref > 10._r8 .and. table_photo_use_native_impl ) then
                 !-----------------------------------------------------------------
                 ! Only for lower lid versions of CAM (i.e., not for WACCM)
                 ! Column O3 and O2 above the top of the model
@@ -939,20 +1012,32 @@ contains
           !-----------------------------------------------------------------
           call cloud_mod( zen_angle(i), cld_line, lwc_line, fac1, srf_alb(i), &
                           eff_alb, cld_mult )
-          call table_photo_scale_cld_mult(esfact, cld_mult)
 
           !-----------------------------------------------------------------
           !	... long wave length component
           !-----------------------------------------------------------------
           call jlong( pver, sza, eff_alb, parg, tline, colo3, lng_prates )          
-          if (nlng > 0) then
-             call table_photo_apply_jlong( ncol, i, photos, lng_prates, cld_mult, lng_indexer_c, alias_mult2 )
+          if (table_photo_use_native_impl) then
+             call table_photo_scale_cld_mult(esfact, cld_mult)
+             if (nlng > 0) then
+                call table_photo_apply_jlong( ncol, i, photos, lng_prates, cld_mult, lng_indexer_c, alias_mult2 )
+             end if
+             call table_photo_apply_jno_ho2no2( ncol, i, photos, col_dens, cld_mult, zen_angle(i) )
+          else
+             if (nlng > 0) then
+                lng_prates_p = c_loc(lng_prates)
+             else
+                lng_prates_p = c_null_ptr
+             end if
+             call table_photo_postcloud_batch_codon( &
+                  int(ncol, c_int64_t), int(pver, c_int64_t), int(phtcnt, c_int64_t), int(nlng, c_int64_t), &
+                  int(i, c_int64_t), int(jno_ndx, c_int64_t), int(jho2no2_ndx, c_int64_t), &
+                  merge(1_c_int64_t, 0_c_int64_t, do_jshort), merge(1_c_int64_t, 0_c_int64_t, has_o2_col), &
+                  merge(1_c_int64_t, 0_c_int64_t, has_o3_col), real(zen_angle(i), c_double), real(esfact, c_double), &
+                  c_loc(photos), lng_prates_p, c_loc(cld_mult), c_loc(col_dens), c_loc(lng_indexer_c), &
+                  c_loc(alias_mult2) &
+             )
           end if
-
-          !-----------------------------------------------------------------
-          !	... calculate j(no) from formula
-          !-----------------------------------------------------------------
-          call table_photo_apply_jno_ho2no2( ncol, i, photos, col_dens, cld_mult, zen_angle(i) )
 
           !  Save photo-ionization rates to physics buffer accessed in ionosphere module for WACCMX
           if (ion_rates_idx>0) then
@@ -1002,6 +1087,65 @@ contains
     call set_xnox_photo( photos, ncol  )
 
   end subroutine table_photo
+
+  subroutine table_photo_append_impl_proof(env_name, proof_line)
+
+    character(len=*), intent(in) :: env_name, proof_line
+
+    character(len=512) :: proof_path
+    integer :: status, n, unit_id
+
+    call get_environment_variable(env_name, value=proof_path, length=n, status=status)
+    if (status /= 0 .or. n <= 0) return
+
+    open(newunit=unit_id, file=trim(adjustl(proof_path(:n))), status='unknown', action='write', &
+         position='append', iostat=status)
+    if (status /= 0) return
+
+    write(unit_id,'(A)') trim(proof_line)
+    close(unit_id)
+
+  end subroutine table_photo_append_impl_proof
+
+  subroutine table_photo_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (table_photo_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('TABLE_PHOTO_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       table_photo_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       table_photo_use_native_impl = .false.
+    end if
+
+    table_photo_impl_selected = .true.
+
+    if (masterproc) then
+       if (table_photo_use_native_impl) then
+          write(iulog,*) 'table_photo implementation = native'
+       else
+          write(iulog,*) 'table_photo implementation = codon'
+          if (.not. table_photo_proof_written) then
+             call table_photo_append_impl_proof('TABLE_PHOTO_PROOF_FILE', &
+                  'table_photo selector entered implementation = codon')
+             table_photo_proof_written = .true.
+          end if
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine table_photo_select_impl
 
   subroutine table_photo_zero_photos(ncol, photos)
 

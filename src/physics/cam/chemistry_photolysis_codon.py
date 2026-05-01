@@ -642,6 +642,139 @@ def table_photo_zero_photos_codon(
             for i in range(1, ncol + 1):
                 photos[_idx3(i, k, m, ncol, pver)] = 0.0
 
+def table_photo_daylight_prepare_batch_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    ncol_abs: int,
+    nfs: int,
+    gas_pcnst: int,
+    i_col: int,
+    p1: int,
+    p2: int,
+    do_jshort_flag: int,
+    ptop_gt_10_flag: int,
+    o_is_inv_flag: int,
+    o2_is_inv_flag: int,
+    o3_is_inv_flag: int,
+    n2_is_inv_flag: int,
+    no_is_inv_flag: int,
+    o_ndx: int,
+    o2_ndx: int,
+    o3_inv_ndx: int,
+    o3_ndx: int,
+    n2_ndx: int,
+    no_ndx: int,
+    indexm: int,
+    pa2mb: float,
+    pmid_p: cobj,
+    pdel_p: cobj,
+    col_dens_p: cobj,
+    lwc_p: cobj,
+    clouds_p: cobj,
+    temper_p: cobj,
+    zmid_p: cobj,
+    zint_p: cobj,
+    vmr_p: cobj,
+    invariants_p: cobj,
+    parg_p: cobj,
+    colo3_p: cobj,
+    fac1_p: cobj,
+    lwc_line_p: cobj,
+    cld_line_p: cobj,
+    tline_p: cobj,
+    zarg_p: cobj,
+    o_den_p: cobj,
+    o2_den_p: cobj,
+    o3_den_p: cobj,
+    no_den_p: cobj,
+    n2_den_p: cobj,
+):
+    pmid = Ptr[float](pmid_p)
+    pdel = Ptr[float](pdel_p)
+    col_dens = Ptr[float](col_dens_p)
+    lwc = Ptr[float](lwc_p)
+    clouds = Ptr[float](clouds_p)
+    temper = Ptr[float](temper_p)
+    zmid = Ptr[float](zmid_p)
+    zint = Ptr[float](zint_p)
+    vmr = Ptr[float](vmr_p)
+    invariants = Ptr[float](invariants_p)
+    parg = Ptr[float](parg_p)
+    colo3 = Ptr[float](colo3_p)
+    fac1 = Ptr[float](fac1_p)
+    lwc_line = Ptr[float](lwc_line_p)
+    cld_line = Ptr[float](cld_line_p)
+    tline = Ptr[float](tline_p)
+    zarg = Ptr[float](zarg_p)
+
+    for k in range(1, pver + 1):
+        parg[k - 1] = pa2mb * pmid[_idx2(i_col, k, pcols)]
+        colo3[k - 1] = col_dens[_idx3(i_col, k, 1, ncol, pver)]
+        fac1[k - 1] = pdel[_idx2(i_col, k, pcols)]
+        lwc_line[k - 1] = lwc[_idx2(i_col, k, ncol)]
+        cld_line[k - 1] = clouds[_idx2(i_col, k, ncol)]
+
+    for k in range(p1, p2 + 1):
+        src_k = k - p1 + 1
+        tline[k - 1] = temper[_idx2(i_col, src_k, pcols)]
+        zarg[k - 1] = zmid[_idx2(i_col, src_k, ncol)]
+
+    if do_jshort_flag == 0:
+        return
+
+    o_den = Ptr[float](o_den_p)
+    o2_den = Ptr[float](o2_den_p)
+    o3_den = Ptr[float](o3_den_p)
+    no_den = Ptr[float](no_den_p)
+    n2_den = Ptr[float](n2_den_p)
+
+    for k in range(1, pver + 1):
+        dst_k = p1 + k - 1
+        if o_is_inv_flag != 0:
+            o_den[dst_k - 1] = invariants[_idx3(i_col, k, o_ndx, ncol, pver)]
+        else:
+            o_den[dst_k - 1] = (
+                vmr[_idx3(i_col, k, o_ndx, ncol, pver)] * invariants[_idx3(i_col, k, indexm, ncol, pver)]
+            )
+
+        if o2_is_inv_flag != 0:
+            o2_den[dst_k - 1] = invariants[_idx3(i_col, k, o2_ndx, ncol, pver)]
+        else:
+            o2_den[dst_k - 1] = (
+                vmr[_idx3(i_col, k, o2_ndx, ncol, pver)] * invariants[_idx3(i_col, k, indexm, ncol, pver)]
+            )
+
+        if o3_is_inv_flag != 0:
+            o3_den[dst_k - 1] = invariants[_idx3(i_col, k, o3_inv_ndx, ncol, pver)]
+        else:
+            o3_den[dst_k - 1] = (
+                vmr[_idx3(i_col, k, o3_ndx, ncol, pver)] * invariants[_idx3(i_col, k, indexm, ncol, pver)]
+            )
+
+        if n2_is_inv_flag != 0:
+            n2_den[dst_k - 1] = invariants[_idx3(i_col, k, n2_ndx, ncol, pver)]
+        else:
+            n2_den[dst_k - 1] = (
+                vmr[_idx3(i_col, k, n2_ndx, ncol, pver)] * invariants[_idx3(i_col, k, indexm, ncol, pver)]
+            )
+
+        if no_is_inv_flag != 0:
+            no_den[dst_k - 1] = invariants[_idx3(i_col, k, no_ndx, ncol, pver)]
+        else:
+            no_den[dst_k - 1] = (
+                vmr[_idx3(i_col, k, no_ndx, ncol, pver)] * invariants[_idx3(i_col, k, indexm, ncol, pver)]
+            )
+
+    if ptop_gt_10_flag != 0:
+        ideltaZkm = 1.0 / (zint[_idx2(i_col, 1, ncol)] - zint[_idx2(i_col, 2, ncol)])
+        o3_den[0] = o3_den[1] * 7.0 * ideltaZkm
+        o2_den[0] = o2_den[1] * 7.0 * ideltaZkm
+        no_den[0] = no_den[1] * 0.9
+        n2_den[0] = n2_den[1] * 0.9
+        tline[0] = tline[1] + 5.0
+        zarg[0] = zarg[1] + (zint[_idx2(i_col, 1, ncol)] - zint[_idx2(i_col, 2, ncol)])
+
 def table_photo_daylight_setup_codon(
     ncol: int,
     pcols: int,
@@ -818,6 +951,68 @@ def table_photo_jno_ho2no2_codon(
 
     if jno_ndx > 0 and do_jshort == 0:
         if has_o2_col != 0 and has_o3_col != 0:
+            for k in range(1, pver + 1):
+                fac1 = 1.0e-8 * (abs(col_dens[_idx3(i_col, k, 2, ncol, pver)] / cos(zen_angle))) ** 0.38
+                fac2 = 5.0e-19 * abs(col_dens[_idx3(i_col, k, 1, ncol, pver)] / cos(zen_angle))
+                photos[_idx3(i_col, k, jno_ndx, ncol, pver)] = (
+                    photos[_idx3(i_col, k, jno_ndx, ncol, pver)] + 4.5e-6 * exp(-(fac1 + fac2))
+                )
+
+    if jho2no2_ndx > 0:
+        for k in range(1, pver + 1):
+            photos[_idx3(i_col, k, jho2no2_ndx, ncol, pver)] = (
+                photos[_idx3(i_col, k, jho2no2_ndx, ncol, pver)] + 1.0e-5 * cld_mult[k - 1]
+            )
+
+def table_photo_postcloud_batch_codon(
+    ncol: int,
+    pver: int,
+    phtcnt: int,
+    nlng: int,
+    i_col: int,
+    jno_ndx: int,
+    jho2no2_ndx: int,
+    do_jshort_flag: int,
+    has_o2_col_flag: int,
+    has_o3_col_flag: int,
+    zen_angle: float,
+    esfact: float,
+    photos_p: cobj,
+    lng_prates_p: cobj,
+    cld_mult_p: cobj,
+    col_dens_p: cobj,
+    lng_indexer_p: cobj,
+    alias_mult2_p: cobj,
+):
+    photos = Ptr[float](photos_p)
+    lng_prates = Ptr[float](lng_prates_p)
+    cld_mult = Ptr[float](cld_mult_p)
+    col_dens = Ptr[float](col_dens_p)
+    lng_indexer = Ptr[int](lng_indexer_p)
+    alias_mult2 = Ptr[float](alias_mult2_p)
+
+    for k in range(1, pver + 1):
+        cld_mult[k - 1] = esfact * cld_mult[k - 1]
+
+    if nlng > 0:
+        for m in range(1, phtcnt + 1):
+            if lng_indexer[m - 1] > 0:
+                alias_factor = alias_mult2[m - 1]
+                idx_lng = lng_indexer[m - 1]
+                if alias_factor == 1.0:
+                    for k in range(1, pver + 1):
+                        photos[_idx3(i_col, k, m, ncol, pver)] = (
+                            photos[_idx3(i_col, k, m, ncol, pver)] + lng_prates[_idx2(idx_lng, k, nlng)]
+                        ) * cld_mult[k - 1]
+                else:
+                    for k in range(1, pver + 1):
+                        photos[_idx3(i_col, k, m, ncol, pver)] = (
+                            photos[_idx3(i_col, k, m, ncol, pver)]
+                            + alias_factor * lng_prates[_idx2(idx_lng, k, nlng)]
+                        ) * cld_mult[k - 1]
+
+    if jno_ndx > 0 and do_jshort_flag == 0:
+        if has_o2_col_flag != 0 and has_o3_col_flag != 0:
             for k in range(1, pver + 1):
                 fac1 = 1.0e-8 * (abs(col_dens[_idx3(i_col, k, 2, ncol, pver)] / cos(zen_angle))) ** 0.38
                 fac2 = 5.0e-19 * abs(col_dens[_idx3(i_col, k, 1, ncol, pver)] / cos(zen_angle))
