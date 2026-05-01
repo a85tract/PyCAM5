@@ -83,6 +83,20 @@ def jlong_get_xsqy_read_order_codon(
     )
 
 @export
+def jlong_get_xsqy_meta_batch_codon(
+    phtcnt: int,
+    lng_indexer_p: cobj,
+    numj_p: cobj,
+    read_varids_p: cobj,
+):
+    return _photolysis.jlong_get_xsqy_meta_batch_codon(
+        phtcnt,
+        lng_indexer_p,
+        numj_p,
+        read_varids_p,
+    )
+
+@export
 def jlong_get_xsqy_index_map_codon(
     phtcnt: int,
     lng_indexer_p: cobj,

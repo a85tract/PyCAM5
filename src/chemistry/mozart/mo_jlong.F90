@@ -84,6 +84,8 @@
       logical :: jlong_get_xsqy_numj_impl_selected = .false.
       logical :: jlong_get_xsqy_read_order_use_native_impl = .false.
       logical :: jlong_get_xsqy_read_order_impl_selected = .false.
+      logical :: jlong_get_xsqy_meta_batch_use_native_impl = .false.
+      logical :: jlong_get_xsqy_meta_batch_impl_selected = .false.
       logical :: jlong_get_xsqy_index_map_use_native_impl = .false.
       logical :: jlong_get_xsqy_index_map_impl_selected = .false.
       logical :: jlong_get_xsqy_dprs_use_native_impl = .false.
@@ -297,7 +299,7 @@
                end if
             end if
          end do
-         call jlong_get_xsqy_numj( phtcnt, lng_indexer, numj )
+         call jlong_get_xsqy_meta_batch( phtcnt, lng_indexer, numj, read_varids )
 
          !------------------------------------------------------------------------------
          !       ... allocate arrays
@@ -318,7 +320,6 @@
          !------------------------------------------------------------------------------
          !       ... read cross sections
          !------------------------------------------------------------------------------
-         call jlong_get_xsqy_read_order( phtcnt, numj, lng_indexer, read_varids )
          do ndx = 1,numj
             iret = nf90_get_var( ncid, read_varids(ndx), xsqy(ndx,:,:,:) )
          end do
@@ -328,11 +329,6 @@
          iret = nf90_get_var( ncid, varid, xs_o3a )
          iret = nf90_inq_varid( ncid, 'jo3_b', varid )
          iret = nf90_get_var( ncid, varid, xs_o3b )
-         !------------------------------------------------------------------------------
-         !       ... setup final lng_indexer
-         !------------------------------------------------------------------------------
-         call jlong_get_xsqy_index_map( phtcnt, lng_indexer )
-
          iret = nf90_inq_varid( ncid, 'pressure', varid )
          iret = nf90_get_var( ncid, varid, prs )
          iret = nf90_close( ncid )
@@ -376,6 +372,82 @@
       call jlong_get_xsqy_dprs( np_xs, prs, dprs )
 
       end subroutine get_xsqy
+
+      subroutine jlong_get_xsqy_meta_batch( phtcnt_in, lng_indexer_inout, numj_out, read_varids_out )
+
+      use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+      implicit none
+
+      integer, intent(in) :: phtcnt_in
+      integer, target, intent(inout) :: lng_indexer_inout(phtcnt_in)
+      integer, intent(out) :: numj_out
+      integer, target, intent(out) :: read_varids_out(phtcnt_in)
+
+      integer(c_int64_t), target :: numj_c
+
+      interface
+         subroutine jlong_get_xsqy_meta_batch_codon(phtcnt_c, lng_indexer_p, numj_p, read_varids_p) &
+              bind(c, name="jlong_get_xsqy_meta_batch_codon")
+            use iso_c_binding, only : c_int64_t, c_ptr
+            integer(c_int64_t), value :: phtcnt_c
+            type(c_ptr), value :: lng_indexer_p, numj_p, read_varids_p
+         end subroutine jlong_get_xsqy_meta_batch_codon
+      end interface
+
+      call jlong_get_xsqy_meta_batch_select_impl()
+
+      read_varids_out(:) = 0
+      if (jlong_get_xsqy_meta_batch_use_native_impl) then
+         call jlong_get_xsqy_numj( phtcnt_in, lng_indexer_inout, numj_out )
+         call jlong_get_xsqy_read_order( phtcnt_in, numj_out, lng_indexer_inout, read_varids_out )
+         call jlong_get_xsqy_index_map( phtcnt_in, lng_indexer_inout )
+         return
+      end if
+
+      numj_c = 0_c_int64_t
+      call jlong_get_xsqy_meta_batch_codon( int(phtcnt_in, c_int64_t), c_loc(lng_indexer_inout), c_loc(numj_c), &
+           c_loc(read_varids_out) )
+      numj_out = int(numj_c)
+
+      end subroutine jlong_get_xsqy_meta_batch
+
+      subroutine jlong_get_xsqy_meta_batch_select_impl()
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (jlong_get_xsqy_meta_batch_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('JLONG_GET_XSQY_META_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         jlong_get_xsqy_meta_batch_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         jlong_get_xsqy_meta_batch_use_native_impl = .false.
+      end if
+
+      jlong_get_xsqy_meta_batch_impl_selected = .true.
+
+      if (masterproc) then
+         if (jlong_get_xsqy_meta_batch_use_native_impl) then
+            write(iulog,*) 'jlong_get_xsqy_meta_batch implementation = native'
+         else
+            write(iulog,*) 'jlong_get_xsqy_meta_batch implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine jlong_get_xsqy_meta_batch_select_impl
 
       subroutine jlong_get_xsqy_numj( phtcnt_in, lng_indexer_in, numj_out )
 

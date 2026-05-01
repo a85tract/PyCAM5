@@ -132,6 +132,38 @@ def jlong_get_xsqy_read_order_codon(
                     read_varids[ndx] = value
                 ndx += 1
 
+def jlong_get_xsqy_meta_batch_codon(
+    phtcnt: int,
+    lng_indexer_p: cobj,
+    numj_p: cobj,
+    read_varids_p: cobj,
+):
+    lng_indexer = Ptr[int](lng_indexer_p)
+    numj_out = Ptr[int](numj_p)
+    read_varids = Ptr[int](read_varids_p)
+
+    count = 0
+    for m in range(1, phtcnt + 1):
+        if lng_indexer[m - 1] > 0:
+            seen = 0
+            for i in range(1, m):
+                if lng_indexer[i - 1] == lng_indexer[m - 1]:
+                    seen = 1
+                    break
+            if seen == 0:
+                count += 1
+                read_varids[count - 1] = lng_indexer[m - 1]
+
+    numj_out[0] = count
+
+    for m in range(1, phtcnt + 1):
+        value = lng_indexer[m - 1]
+        if value > 0:
+            for ndx in range(1, count + 1):
+                if read_varids[ndx - 1] == value:
+                    lng_indexer[m - 1] = ndx
+                    break
+
 def jlong_get_xsqy_index_map_codon(
     phtcnt: int,
     lng_indexer_p: cobj,
