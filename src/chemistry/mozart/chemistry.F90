@@ -135,6 +135,8 @@ module chemistry
   logical :: is_active = .false.
   logical :: chem_emissions_use_native_impl = .false.
   logical :: chem_emissions_impl_selected = .false.
+  logical :: chem_emissions_proof_written = .false.
+  logical :: chem_emissions_wrap_proof_written = .false.
   logical :: chem_timestep_init_use_native_impl = .false.
   logical :: chem_timestep_init_impl_selected = .false.
   logical :: chem_timestep_tend_use_native_impl = .false.
@@ -992,7 +994,7 @@ end function chem_is_active
     use mo_srf_emissions, only: set_srf_emissions
     use cam_cpl_indices,     only : index_x2a_Fall_flxvoc
     use cam_cpl_indices,     only : index_x2a_Fall_flxdst1
-    use iso_c_binding,    only: c_double, c_int64_t, c_loc, c_ptr
+    use iso_c_binding,    only: c_double, c_int64_t, c_loc, c_ptr, c_null_ptr
 
     ! Arguments:
 
@@ -1005,30 +1007,10 @@ end function chem_is_active
     integer :: i, m,n 
 
     integer(c_int64_t), target :: map2chm_c(pcnst)
+    integer(c_int64_t), target :: megan_indices_map_c(max(1,shr_megan_mechcomps_n))
+    real(c_double), target :: megan_wght_factors_c(max(1,shr_megan_mechcomps_n))
     real(r8), target :: sflx(pcols,gas_pcnst)
-    real(r8), target :: megflx(pcols)
-
-    interface
-       subroutine chem_emissions_zero_cflx_codon(pcols_c, pcnst_c, map2chm_p, cflx_p) &
-            bind(c, name="chem_emissions_zero_cflx_codon")
-         use iso_c_binding, only: c_int64_t, c_ptr
-         integer(c_int64_t), value :: pcols_c, pcnst_c
-         type(c_ptr), value :: map2chm_p, cflx_p
-       end subroutine chem_emissions_zero_cflx_codon
-       subroutine chem_emissions_megan_flux_codon(ncol_c, pcols_c, megan_index_c, megan_weight_c, meganflx_p, cflx_p, &
-            megflx_p) bind(c, name="chem_emissions_megan_flux_codon")
-         use iso_c_binding, only: c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: ncol_c, pcols_c, megan_index_c
-         real(c_double), value :: megan_weight_c
-         type(c_ptr), value :: meganflx_p, cflx_p, megflx_p
-       end subroutine chem_emissions_megan_flux_codon
-       subroutine chem_emissions_add_sflx_codon(ncol_c, pcols_c, pcnst_c, h2o_ndx_c, map2chm_p, cflx_p, sflx_p) &
-            bind(c, name="chem_emissions_add_sflx_codon")
-         use iso_c_binding, only: c_int64_t, c_ptr
-         integer(c_int64_t), value :: ncol_c, pcols_c, pcnst_c, h2o_ndx_c
-         type(c_ptr), value :: map2chm_p, cflx_p, sflx_p
-       end subroutine chem_emissions_add_sflx_codon
-    end interface
+    real(r8), target :: megflx(pcols,max(1,shr_megan_mechcomps_n))
 
     call chem_emissions_select_impl()
 
@@ -1042,8 +1024,9 @@ end function chem_is_active
     map2chm_c(:) = int(map2chm(:), c_int64_t)
     
     ! initialize chemistry constituent surface fluxes to zero
-    call chem_emissions_zero_cflx_codon( &
-         int(pcols, c_int64_t), int(pcnst, c_int64_t), c_loc(map2chm_c), c_loc(cam_in%cflx(1,1)) &
+    call chem_emissions_codon_wrap( &
+         1, ncol, 0, 0, c_loc(map2chm_c), c_null_ptr, c_null_ptr, c_null_ptr, c_loc(cam_in%cflx(1,1)), c_null_ptr, &
+         c_null_ptr &
     )
 
     ! aerosol emissions ...
@@ -1052,17 +1035,18 @@ end function chem_is_active
    ! MEGAN emissions ...
  
     if ( index_x2a_Fall_flxvoc>0 .and. shr_megan_mechcomps_n>0 ) then
+       megan_indices_map_c(:shr_megan_mechcomps_n) = int(megan_indices_map(:shr_megan_mechcomps_n), c_int64_t)
+       megan_wght_factors_c(:shr_megan_mechcomps_n) = real(megan_wght_factors(:shr_megan_mechcomps_n), c_double)
+
+       call chem_emissions_codon_wrap( &
+            2, ncol, shr_megan_mechcomps_n, 0, c_loc(map2chm_c), c_loc(megan_indices_map_c(1)), c_loc(megan_wght_factors_c(1)), &
+            c_loc(cam_in%meganflx(1,1)), c_loc(cam_in%cflx(1,1)), c_loc(megflx(1,1)), c_null_ptr &
+       )
 
        ! set MEGAN fluxes 
        do n = 1,shr_megan_mechcomps_n
-          call chem_emissions_megan_flux_codon( &
-               int(ncol, c_int64_t), int(pcols, c_int64_t), int(megan_indices_map(n), c_int64_t), &
-               real(megan_wght_factors(n), c_double), c_loc(cam_in%meganflx(1,n)), c_loc(cam_in%cflx(1,1)), &
-               c_loc(megflx(1)) &
-          )
-
           ! output MEGAN emis fluxes to history
-          call outfld('MEG_'//trim(shr_megan_mechcomps(n)%name), megflx(:ncol), ncol, lchnk)
+          call outfld('MEG_'//trim(shr_megan_mechcomps(n)%name), megflx(:ncol,n), ncol, lchnk)
        enddo
 
     endif
@@ -1076,9 +1060,9 @@ end function chem_is_active
     !-----------------------------------------------------------------------      
     call set_srf_emissions( lchnk, ncol, sflx(:,:) )
 
-    call chem_emissions_add_sflx_codon( &
-         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pcnst, c_int64_t), int(h2o_ndx, c_int64_t), &
-         c_loc(map2chm_c), c_loc(cam_in%cflx(1,1)), c_loc(sflx(1,1)) &
+    call chem_emissions_codon_wrap( &
+         3, ncol, 0, h2o_ndx, c_loc(map2chm_c), c_null_ptr, c_null_ptr, c_null_ptr, c_loc(cam_in%cflx(1,1)), c_null_ptr, &
+         c_loc(sflx(1,1)) &
     )
 
     do m = 1,pcnst
@@ -1090,6 +1074,65 @@ end function chem_is_active
 
 
   end subroutine chem_emissions
+
+!================================================================================
+
+  subroutine chem_emissions_append_impl_proof(env_name, proof_line)
+
+    character(len=*), intent(in) :: env_name, proof_line
+
+    character(len=512) :: proof_path
+    integer :: status, n, unit_id
+
+    call get_environment_variable(env_name, value=proof_path, length=n, status=status)
+    if (status /= 0 .or. n <= 0) return
+
+    open(newunit=unit_id, file=trim(adjustl(proof_path(:n))), status='unknown', action='write', &
+         position='append', iostat=status)
+    if (status /= 0) return
+
+    write(unit_id,'(A)') trim(proof_line)
+    close(unit_id)
+
+  end subroutine chem_emissions_append_impl_proof
+
+!================================================================================
+
+  subroutine chem_emissions_codon_wrap(stage, ncol, nmegan, h2o_ndx_in, map2chm_p, megan_indices_map_p, &
+                                       megan_wght_factors_p, meganflx_p, cflx_p, megflx_p, sflx_p)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_ptr
+
+    integer, intent(in) :: stage, ncol, nmegan, h2o_ndx_in
+    type(c_ptr), value :: map2chm_p, megan_indices_map_p, megan_wght_factors_p, meganflx_p, cflx_p, megflx_p, sflx_p
+
+    character(len=256) :: wrap_proof_line
+
+    interface
+       subroutine chem_emissions_shell_codon(stage_c, ncol_c, pcols_c, pcnst_c, nmegan_c, h2o_ndx_c, map2chm_p, &
+            megan_indices_map_p, megan_wght_factors_p, meganflx_p, cflx_p, megflx_p, sflx_p) &
+            bind(c, name="chem_emissions_shell_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pcnst_c, nmegan_c, h2o_ndx_c
+         type(c_ptr), value :: map2chm_p, megan_indices_map_p, megan_wght_factors_p, meganflx_p, cflx_p, megflx_p, sflx_p
+       end subroutine chem_emissions_shell_codon
+    end interface
+
+    if (masterproc .and. .not. chem_emissions_wrap_proof_written) then
+        wrap_proof_line = 'chem_emissions_codon_wrap entered (parent shell = codon)'
+        write(iulog,'(A)') trim(wrap_proof_line)
+        call chem_emissions_append_impl_proof('CHEM_EMISSIONS_PROOF_FILE', trim(wrap_proof_line))
+        chem_emissions_wrap_proof_written = .true.
+        call flush(iulog)
+    end if
+
+    call chem_emissions_shell_codon( &
+         int(stage, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pcnst, c_int64_t), int(nmegan, c_int64_t), &
+         int(h2o_ndx_in, c_int64_t), map2chm_p, megan_indices_map_p, megan_wght_factors_p, meganflx_p, cflx_p, megflx_p, &
+         sflx_p &
+    )
+
+  end subroutine chem_emissions_codon_wrap
 
 !================================================================================
 
@@ -1195,6 +1238,11 @@ end function chem_is_active
           write(iulog,*) 'chem_emissions implementation = native'
        else
           write(iulog,*) 'chem_emissions implementation = codon'
+          if (.not. chem_emissions_proof_written) then
+             call chem_emissions_append_impl_proof('CHEM_EMISSIONS_PROOF_FILE', &
+                  'chem_emissions selector entered implementation = codon')
+             chem_emissions_proof_written = .true.
+          end if
        end if
        call flush(iulog)
     end if

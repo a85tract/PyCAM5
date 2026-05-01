@@ -13,6 +13,9 @@ module seasalt_model
   public :: seasalt_nnum
   public :: seasalt_names
   public :: seasalt_indices
+  public :: seasalt_emis_scale
+  public :: seasalt_sz_range_lo
+  public :: seasalt_sz_range_hi
   public :: seasalt_init
   public :: seasalt_emis
   public :: seasalt_active
@@ -23,9 +26,15 @@ module seasalt_model
   integer, parameter :: seasalt_nnum = nnum
 
 #if  ( defined MODAL_AERO_7MODE )
+  real(r8), parameter :: seasalt_emis_scale = 1.62_r8
+  real(r8), parameter :: seasalt_sz_range_lo(nslt) = (/ 0.08e-6_r8, 0.02e-6_r8, 0.3e-6_r8,  1.0e-6_r8 /)
+  real(r8), parameter :: seasalt_sz_range_hi(nslt) = (/ 0.3e-6_r8,  0.08e-6_r8, 1.0e-6_r8, 10.0e-6_r8 /)
   character(len=6),parameter :: seasalt_names(nslt+nnum) = &
        (/ 'ncl_a1', 'ncl_a2', 'ncl_a4', 'ncl_a6', 'num_a1', 'num_a2', 'num_a4', 'num_a6' /)
 #elif( defined MODAL_AERO_3MODE || defined MODAL_AERO_4MODE )
+  real(r8), parameter :: seasalt_emis_scale = 1.35_r8
+  real(r8), parameter :: seasalt_sz_range_lo(nslt) = (/ 0.08e-6_r8,  0.02e-6_r8,  1.0e-6_r8 /)
+  real(r8), parameter :: seasalt_sz_range_hi(nslt) = (/ 1.0e-6_r8,   0.08e-6_r8, 10.0e-6_r8 /)
   character(len=6),parameter :: seasalt_names(nslt+nnum) = &
        (/ 'ncl_a1', 'ncl_a2', 'ncl_a3', 'num_a1', 'num_a2', 'num_a3'/)
 #endif
@@ -77,16 +86,6 @@ contains
     integer  :: mn, mm, ibin, isec, i
     real(r8) :: fi(ncol,nsections)
 
-#if  ( defined MODAL_AERO_7MODE )
-    real(r8), parameter :: emis_scale = 1.62_r8
-    real(r8), parameter :: sst_sz_range_lo (nslt) = (/ 0.08e-6_r8, 0.02e-6_r8, 0.3e-6_r8,  1.0e-6_r8 /)  ! accu, aitken, fine, coarse
-    real(r8), parameter :: sst_sz_range_hi (nslt) = (/ 0.3e-6_r8,  0.08e-6_r8, 1.0e-6_r8, 10.0e-6_r8 /)
-#elif( defined MODAL_AERO_3MODE || defined MODAL_AERO_4MODE )
-    real(r8), parameter :: emis_scale = 1.35_r8 
-    real(r8), parameter :: sst_sz_range_lo (nslt) =  (/ 0.08e-6_r8,  0.02e-6_r8,  1.0e-6_r8 /)  ! accu, aitken, coarse
-    real(r8), parameter :: sst_sz_range_hi (nslt) =  (/ 1.0e-6_r8,   0.08e-6_r8, 10.0e-6_r8 /)
-#endif
-
     fi(:ncol,:nsections) = fluxes( srf_temp, u10cubed, ncol )
 
     do ibin = 1,nslt
@@ -95,16 +94,16 @@ contains
        
        if (mn>0) then
           do i=1, nsections
-             if (Dg(i).ge.sst_sz_range_lo(ibin) .and. Dg(i).lt.sst_sz_range_hi(ibin)) then
-                cflx(:ncol,mn)=cflx(:ncol,mn)+fi(:ncol,i)*ocnfrc(:ncol)*emis_scale  !++ ag: scale sea-salt
+             if (Dg(i).ge.seasalt_sz_range_lo(ibin) .and. Dg(i).lt.seasalt_sz_range_hi(ibin)) then
+                cflx(:ncol,mn)=cflx(:ncol,mn)+fi(:ncol,i)*ocnfrc(:ncol)*seasalt_emis_scale  !++ ag: scale sea-salt
              endif
           enddo
        endif
 
        cflx(:ncol,mm)=0.0_r8
        do i=1, nsections
-          if (Dg(i).ge.sst_sz_range_lo(ibin) .and. Dg(i).lt.sst_sz_range_hi(ibin)) then
-             cflx(:ncol,mm)=cflx(:ncol,mm)+fi(:ncol,i)*ocnfrc(:ncol)*emis_scale  &   !++ ag: scale sea-salt
+          if (Dg(i).ge.seasalt_sz_range_lo(ibin) .and. Dg(i).lt.seasalt_sz_range_hi(ibin)) then
+             cflx(:ncol,mm)=cflx(:ncol,mm)+fi(:ncol,i)*ocnfrc(:ncol)*seasalt_emis_scale  &   !++ ag: scale sea-salt
                   *4._r8/3._r8*pi*rdry(i)**3*dns_aer_sst  ! should use dry size, convert from number to mass flux (kg/m2/s)
           endif
        enddo

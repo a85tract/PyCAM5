@@ -118,6 +118,10 @@ module aero_model
   logical :: aero_model_gasaerexch_gas_tend_impl_selected = .false.
   logical :: aero_model_gasaerexch_aq_tend_use_native_impl = .false.
   logical :: aero_model_gasaerexch_aq_tend_impl_selected = .false.
+  logical :: aero_model_emissions_use_native_impl = .false.
+  logical :: aero_model_emissions_impl_selected = .false.
+  logical :: aero_model_emissions_proof_written = .false.
+  logical :: aero_model_emissions_wrap_proof_written = .false.
   logical :: aero_model_emissions_seasalt_wind_use_native_impl = .false.
   logical :: aero_model_emissions_seasalt_wind_impl_selected = .false.
   logical :: aero_model_emissions_accumulate_sflx_use_native_impl = .false.
@@ -3725,32 +3729,132 @@ contains
   !=============================================================================
   !=============================================================================
   subroutine aero_model_emissions( state, cam_in )
-    use seasalt_model, only: seasalt_emis, seasalt_names, seasalt_indices, seasalt_active,seasalt_nbin
-    use dust_model,    only: dust_emis, dust_names, dust_indices, dust_active,dust_nbin, dust_nnum
+    use seasalt_model, only: seasalt_names, seasalt_indices, seasalt_active, seasalt_nbin, seasalt_nnum, &
+         seasalt_emis_scale, seasalt_sz_range_lo, seasalt_sz_range_hi
+    use dust_model,    only: dust_names, dust_indices, dust_active, dust_nbin, dust_nnum, dust_emis_sclfctr, dust_dmt_vwr
     use physics_types, only: physics_state
+    use soil_erod_mod, only: soil_erodibility, soil_erod_fact
+    use sslt_sections, only: nsections, fluxes, Dg, rdry
+    use mo_constants,  only: dust_density, dns_aer_sst=>seasalt_density
+    use physconst,     only: pi
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr, c_null_ptr
 
     ! Arguments:
 
-    type(physics_state),    intent(in)    :: state   ! Physics state variables
-    type(cam_in_t),         intent(inout) :: cam_in  ! import state
+    type(physics_state),    intent(in)           :: state   ! Physics state variables
+    type(cam_in_t), target, intent(inout) :: cam_in  ! import state
 
     ! local vars
 
-    integer :: lchnk, ncol
-    integer :: m, mm
-    real(r8) :: soil_erod_tmp(pcols)
-    real(r8) :: sflx(pcols)   ! accumulate over all bins for output
-    real(r8) :: u10cubed(pcols)
+    integer :: lchnk, ncol, ndstflx
+    integer :: i, m, mm, isec
+    integer(c_int64_t), target :: dust_indices_c(dust_nbin+dust_nnum)
+    integer(c_int64_t), target :: seasalt_indices_c(seasalt_nbin+seasalt_nnum)
+    real(c_double), target :: dust_emis_sclfctr_c(dust_nbin)
+    real(c_double), target :: dust_x_mton_c(dust_nbin)
+    real(c_double), target :: seasalt_sz_range_lo_c(seasalt_nbin)
+    real(c_double), target :: seasalt_sz_range_hi_c(seasalt_nbin)
+    real(c_double), target :: dg_c(nsections)
+    real(c_double), target :: rdry_c(nsections)
+    real(r8), target :: soil_erod_tmp(pcols)
+    real(r8), target :: dust_flux_sum(pcols)
+    real(r8), target :: sflx(pcols)   ! accumulate over all bins for output
+    real(r8), target :: u10cubed(pcols)
+    real(r8), target :: fi(pcols,nsections)
     real (r8), parameter :: z0=0.0001_r8  ! m roughness length over oceans--from ocean model
+    real(r8), parameter :: soil_erod_threshold = 0.1_r8
+
+    call aero_model_emissions_select_impl()
+
+    if (aero_model_emissions_use_native_impl) then
+       call aero_model_emissions_native(state, cam_in)
+       return
+    end if
 
     lchnk = state%lchnk
     ncol = state%ncol
 
     if (dust_active) then
+       ndstflx = size(cam_in%dstflx, 2)
+       dust_indices_c(:) = int(dust_indices(:), c_int64_t)
+       dust_emis_sclfctr_c(:) = real(dust_emis_sclfctr(:), c_double)
+       do m = 1, dust_nbin
+          dust_x_mton_c(m) = 6._r8 / (pi * dust_density * (dust_dmt_vwr(m)**3._r8))
+       end do
+       do i = 1, ncol
+          soil_erod_tmp(i) = soil_erodibility(i, lchnk)
+          if (soil_erod_tmp(i) .lt. soil_erod_threshold) soil_erod_tmp(i) = 0._r8
+          dust_flux_sum(i) = sum( -cam_in%dstflx(i,:ndstflx) )
+       end do
 
-       call dust_emis( ncol, lchnk, cam_in%dstflx, cam_in%cflx, soil_erod_tmp )
+       call aero_model_emissions_codon_wrap( &
+            1, ncol, ndstflx, real(soil_erod_fact, c_double), 0._c_double, c_loc(soil_erod_tmp(1)), c_loc(dust_flux_sum(1)), &
+            c_null_ptr, c_null_ptr, c_loc(cam_in%cflx(1,1)), c_loc(sflx(1)), c_loc(dust_indices_c(1)), c_loc(dust_emis_sclfctr_c(1)), &
+            c_loc(dust_x_mton_c(1)), c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr &
+       )
 
        ! some dust emis diagnostics ...
+       do m=1,dust_nbin+dust_nnum
+          mm = dust_indices(m)
+          call outfld(trim(dust_names(m))//'SF',cam_in%cflx(:,mm),pcols, lchnk)
+       enddo
+       call outfld('DSTSFMBL',sflx(:),pcols,lchnk)
+       call outfld('LND_MBL',soil_erod_tmp(:),pcols, lchnk )
+    endif
+
+    if (seasalt_active) then
+       seasalt_indices_c(:) = int(seasalt_indices(:), c_int64_t)
+       seasalt_sz_range_lo_c(:) = real(seasalt_sz_range_lo(:), c_double)
+       seasalt_sz_range_hi_c(:) = real(seasalt_sz_range_hi(:), c_double)
+       do isec = 1, nsections
+          dg_c(isec) = real(Dg(isec), c_double)
+          rdry_c(isec) = real(rdry(isec), c_double)
+       end do
+
+       u10cubed(:ncol)=sqrt(state%u(:ncol,pver)**2+state%v(:ncol,pver)**2)
+       u10cubed(:ncol)=u10cubed(:ncol)*log(10._r8/z0)/log(state%zm(:ncol,pver)/z0)
+       u10cubed(:ncol)=u10cubed(:ncol)**3.41_r8
+
+       fi(:ncol,:nsections) = fluxes( cam_in%sst, u10cubed, ncol )
+
+       call aero_model_emissions_codon_wrap( &
+            2, ncol, 0, 0._c_double, real(seasalt_emis_scale, c_double), c_null_ptr, c_null_ptr, c_loc(fi(1,1)), &
+            c_loc(cam_in%ocnfrac(1)), c_loc(cam_in%cflx(1,1)), c_loc(sflx(1)), c_null_ptr, c_null_ptr, c_null_ptr, &
+            c_loc(seasalt_indices_c(1)), c_loc(seasalt_sz_range_lo_c(1)), c_loc(seasalt_sz_range_hi_c(1)), c_loc(dg_c(1)), &
+            c_loc(rdry_c(1)) &
+       )
+
+       do m=1,seasalt_nbin
+          mm = seasalt_indices(m)
+          call outfld(trim(seasalt_names(m))//'SF',cam_in%cflx(:,mm),pcols,lchnk)
+       enddo
+       call outfld('SSTSFMBL',sflx(:),pcols,lchnk)
+    endif
+
+  end subroutine aero_model_emissions
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_emissions_native( state, cam_in )
+    use seasalt_model, only: seasalt_emis, seasalt_names, seasalt_indices, seasalt_active,seasalt_nbin
+    use dust_model,    only: dust_emis, dust_names, dust_indices, dust_active,dust_nbin, dust_nnum
+    use physics_types, only: physics_state
+
+    type(physics_state),    intent(in)    :: state
+    type(cam_in_t),         intent(inout) :: cam_in
+
+    integer :: lchnk, ncol
+    integer :: m, mm
+    real(r8) :: soil_erod_tmp(pcols)
+    real(r8) :: sflx(pcols)
+    real(r8) :: u10cubed(pcols)
+    real (r8), parameter :: z0=0.0001_r8
+
+    lchnk = state%lchnk
+    ncol = state%ncol
+
+    if (dust_active) then
+       call dust_emis( ncol, lchnk, cam_in%dstflx, cam_in%cflx, soil_erod_tmp )
        call aero_model_emissions_accumulate_sflx(ncol, dust_nbin, dust_indices(1:dust_nbin), cam_in%cflx, sflx)
        do m=1,dust_nbin+dust_nnum
           mm = dust_indices(m)
@@ -3762,10 +3866,8 @@ contains
 
     if (seasalt_active) then
        call aero_model_emissions_seasalt_wind(ncol, state%u, state%v, state%zm, z0, u10cubed)
-
        call seasalt_emis( u10cubed, cam_in%sst, cam_in%ocnfrac, ncol, cam_in%cflx )
        call aero_model_emissions_accumulate_sflx(ncol, seasalt_nbin, seasalt_indices(1:seasalt_nbin), cam_in%cflx, sflx)
-
        do m=1,seasalt_nbin
           mm = seasalt_indices(m)
           call outfld(trim(seasalt_names(m))//'SF',cam_in%cflx(:,mm),pcols,lchnk)
@@ -3773,7 +3875,123 @@ contains
        call outfld('SSTSFMBL',sflx(:),pcols,lchnk)
     endif
 
-  end subroutine aero_model_emissions
+  end subroutine aero_model_emissions_native
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_emissions_append_impl_proof(env_name, proof_line)
+
+    character(len=*), intent(in) :: env_name, proof_line
+
+    character(len=512) :: proof_path
+    integer :: status, n, unit_id
+
+    call get_environment_variable(env_name, value=proof_path, length=n, status=status)
+    if (status /= 0 .or. n <= 0) return
+
+    open(newunit=unit_id, file=trim(adjustl(proof_path(:n))), status='unknown', action='write', &
+         position='append', iostat=status)
+    if (status /= 0) return
+
+    write(unit_id,'(A)') trim(proof_line)
+    close(unit_id)
+
+  end subroutine aero_model_emissions_append_impl_proof
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_emissions_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (aero_model_emissions_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('AERO_MODEL_EMISSIONS_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       aero_model_emissions_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       aero_model_emissions_use_native_impl = .false.
+    end if
+
+    aero_model_emissions_impl_selected = .true.
+
+    if (masterproc) then
+       if (aero_model_emissions_use_native_impl) then
+          write(iulog,*) 'aero_model_emissions implementation = native'
+       else
+          write(iulog,*) 'aero_model_emissions implementation = codon'
+          if (.not. aero_model_emissions_proof_written) then
+             call aero_model_emissions_append_impl_proof('AERO_MODEL_EMISSIONS_PROOF_FILE', &
+                  'aero_model_emissions selector entered implementation = codon')
+             aero_model_emissions_proof_written = .true.
+          end if
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine aero_model_emissions_select_impl
+
+  !=============================================================================
+  !=============================================================================
+  subroutine aero_model_emissions_codon_wrap(stage, ncol, ndstflx, soil_erod_fact_in, seasalt_emis_scale_in, soil_erod_p, &
+                                             dust_flux_sum_p, fi_p, ocnfrac_p, cflx_p, sflx_p, dust_indices_p, &
+                                             dust_emis_sclfctr_p, dust_x_mton_p, seasalt_indices_p, seasalt_sz_range_lo_p, &
+                                             seasalt_sz_range_hi_p, dg_p, rdry_p)
+
+    use dust_model,       only: dust_nbin
+    use seasalt_model,    only: seasalt_nbin
+    use sslt_sections,    only: nsections
+    use mo_constants,     only: dns_aer_sst=>seasalt_density
+    use physconst,        only: pi
+    use iso_c_binding,    only: c_double, c_int64_t, c_ptr
+
+    integer, intent(in) :: stage, ncol, ndstflx
+    real(c_double), intent(in) :: soil_erod_fact_in, seasalt_emis_scale_in
+    type(c_ptr), value :: soil_erod_p, dust_flux_sum_p, fi_p, ocnfrac_p, cflx_p, sflx_p, dust_indices_p, dust_emis_sclfctr_p
+    type(c_ptr), value :: dust_x_mton_p, seasalt_indices_p, seasalt_sz_range_lo_p, seasalt_sz_range_hi_p
+    type(c_ptr), value :: dg_p, rdry_p
+
+    character(len=256) :: wrap_proof_line
+
+    interface
+       subroutine aero_model_emissions_shell_codon(stage_c, ncol_c, pcols_c, ndstflx_c, dust_nbin_c, seasalt_nbin_c, &
+            nsections_c, soil_erod_fact_c, seasalt_emis_scale_c, pi_c, seasalt_density_c, soil_erod_p, dust_flux_sum_p, &
+            fi_p, ocnfrac_p, cflx_p, sflx_p, dust_indices_p, dust_emis_sclfctr_p, dust_x_mton_p, seasalt_indices_p, &
+            seasalt_sz_range_lo_p, seasalt_sz_range_hi_p, dg_p, rdry_p) bind(c, name="aero_model_emissions_shell_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, ndstflx_c, dust_nbin_c, seasalt_nbin_c, nsections_c
+         real(c_double), value :: soil_erod_fact_c, seasalt_emis_scale_c, pi_c, seasalt_density_c
+         type(c_ptr), value :: soil_erod_p, dust_flux_sum_p, fi_p, ocnfrac_p, cflx_p, sflx_p, dust_indices_p, dust_emis_sclfctr_p
+         type(c_ptr), value :: dust_x_mton_p, seasalt_indices_p, seasalt_sz_range_lo_p, seasalt_sz_range_hi_p
+         type(c_ptr), value :: dg_p, rdry_p
+       end subroutine aero_model_emissions_shell_codon
+    end interface
+
+    if (masterproc .and. .not. aero_model_emissions_wrap_proof_written) then
+       wrap_proof_line = 'aero_model_emissions_codon_wrap entered (parent shell = codon)'
+       write(iulog,'(A)') trim(wrap_proof_line)
+       call aero_model_emissions_append_impl_proof('AERO_MODEL_EMISSIONS_PROOF_FILE', trim(wrap_proof_line))
+       aero_model_emissions_wrap_proof_written = .true.
+       call flush(iulog)
+    end if
+
+    call aero_model_emissions_shell_codon( &
+         int(stage, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(ndstflx, c_int64_t), int(dust_nbin, c_int64_t), &
+         int(seasalt_nbin, c_int64_t), int(nsections, c_int64_t), soil_erod_fact_in, seasalt_emis_scale_in, real(pi, c_double), &
+         real(dns_aer_sst, c_double), soil_erod_p, dust_flux_sum_p, fi_p, ocnfrac_p, cflx_p, sflx_p, dust_indices_p, &
+         dust_emis_sclfctr_p, dust_x_mton_p, seasalt_indices_p, seasalt_sz_range_lo_p, seasalt_sz_range_hi_p, dg_p, rdry_p &
+    )
+
+  end subroutine aero_model_emissions_codon_wrap
 
   !=============================================================================
   !=============================================================================

@@ -13,6 +13,8 @@ module dust_model
   public :: dust_nbin
   public :: dust_nnum
   public :: dust_indices
+  public :: dust_emis_sclfctr
+  public :: dust_dmt_vwr
   public :: dust_emis
   public :: dust_readnl
   public :: dust_init

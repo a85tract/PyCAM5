@@ -415,6 +415,38 @@ def chem_emissions_zero_cflx_codon(
     )
 
 @export
+def chem_emissions_shell_codon(
+    stage: int,
+    ncol: int,
+    pcols: int,
+    pcnst: int,
+    nmegan: int,
+    h2o_ndx: int,
+    map2chm_p: cobj,
+    megan_indices_map_p: cobj,
+    megan_wght_factors_p: cobj,
+    meganflx_p: cobj,
+    cflx_p: cobj,
+    megflx_p: cobj,
+    sflx_p: cobj,
+):
+    return _emissions.chem_emissions_shell_codon(
+        stage,
+        ncol,
+        pcols,
+        pcnst,
+        nmegan,
+        h2o_ndx,
+        map2chm_p,
+        megan_indices_map_p,
+        megan_wght_factors_p,
+        meganflx_p,
+        cflx_p,
+        megflx_p,
+        sflx_p,
+    )
+
+@export
 def gas_phase_chemdr_prepare_sza_codon(
     ncol: int,
     rad2deg: float,
@@ -1994,6 +2026,62 @@ def aero_model_emissions_seasalt_wind_codon(
         state_v_p,
         state_zm_p,
         u10cubed_p,
+    )
+
+@export
+def aero_model_emissions_shell_codon(
+    stage: int,
+    ncol: int,
+    pcols: int,
+    ndstflx: int,
+    dust_nbin: int,
+    seasalt_nbin: int,
+    nsections: int,
+    soil_erod_fact: float,
+    seasalt_emis_scale: float,
+    pi_val: float,
+    seasalt_density: float,
+    soil_erod_p: cobj,
+    dust_flux_sum_p: cobj,
+    fi_p: cobj,
+    ocnfrac_p: cobj,
+    cflx_p: cobj,
+    sflx_p: cobj,
+    dust_indices_p: cobj,
+    dust_emis_sclfctr_p: cobj,
+    dust_x_mton_p: cobj,
+    seasalt_indices_p: cobj,
+    seasalt_sz_range_lo_p: cobj,
+    seasalt_sz_range_hi_p: cobj,
+    dg_p: cobj,
+    rdry_p: cobj,
+):
+    return _emissions.aero_model_emissions_shell_codon(
+        stage,
+        ncol,
+        pcols,
+        ndstflx,
+        dust_nbin,
+        seasalt_nbin,
+        nsections,
+        soil_erod_fact,
+        seasalt_emis_scale,
+        pi_val,
+        seasalt_density,
+        soil_erod_p,
+        dust_flux_sum_p,
+        fi_p,
+        ocnfrac_p,
+        cflx_p,
+        sflx_p,
+        dust_indices_p,
+        dust_emis_sclfctr_p,
+        dust_x_mton_p,
+        seasalt_indices_p,
+        seasalt_sz_range_lo_p,
+        seasalt_sz_range_hi_p,
+        dg_p,
+        rdry_p,
     )
 
 @export
