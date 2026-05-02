@@ -100,6 +100,7 @@ module mo_photo
   logical :: table_photo_impl_selected = .false.
   logical :: table_photo_proof_written = .false.
   logical :: table_photo_batch_proof_written = .false.
+  logical :: table_photo_cloud_batch_proof_written = .false.
   logical :: set_xnox_photo_use_native_impl = .false.
   logical :: set_xnox_photo_impl_selected = .false.
 
@@ -724,14 +725,24 @@ contains
     real(r8) ::  sza
     real(r8) ::  alias_factor
     real(r8), target ::  fac1(pver)        ! work space for j(no) calc
-    real(r8) ::  fac2(pver)                ! work space for j(no) calc
+    real(r8), target ::  fac2(pver)        ! work space for j(no) calc
     real(r8), target ::  colo3(pver)       ! vertical o3 column density
     real(r8), target ::  parg(pver)        ! vertical pressure array (hPa)
 
     real(r8), target ::  cld_line(pver)    ! vertical cloud array
     real(r8), target ::  lwc_line(pver)    ! vertical lwc array
-    real(r8) ::  eff_alb(pver)             ! effective albedo from cloud modifications
+    real(r8), target ::  eff_alb(pver)     ! effective albedo from cloud modifications
     real(r8), target ::  cld_mult(pver)    ! clould multiplier
+    real(r8), target ::  del_lwp(pver)
+    real(r8), target ::  del_tau(pver)
+    real(r8), target ::  above_tau(pver)
+    real(r8), target ::  below_tau(pver)
+    real(r8), target ::  above_cld(pver)
+    real(r8), target ::  below_cld(pver)
+    real(r8), target ::  above_tra(pver)
+    real(r8), target ::  below_tra(pver)
+    real(r8), target ::  cloud_fac1(pver)
+    real(r8), target ::  cloud_fac2(pver)
     real(r8) ::  tmp(ncol,pver)            ! wrk array
     real(r8), allocatable, target ::  lng_prates(:,:) ! photorates matrix (1/s)
     real(r8), allocatable ::  sht_prates(:,:) ! photorates matrix (1/s)
@@ -752,6 +763,7 @@ contains
 
     integer :: n_jshrt_levs, p1, p2
     real(r8) :: ideltaZkm, factor
+    real(r8), parameter :: rgrav_cloud = 1._r8/9.80616_r8
 
     real(r8) :: qbktot(ncol,pver)
     real(r8) :: qbko1(ncol,pver)
@@ -791,6 +803,17 @@ contains
          real(c_double), value :: zen_angle_c, esfact_c
          type(c_ptr), value :: photos_p, lng_prates_p, cld_mult_p, col_dens_p, lng_indexer_p, alias_mult2_p
        end subroutine table_photo_postcloud_batch_codon
+
+       subroutine table_photo_cloud_mod_batch_codon(pver_c, zen_angle_c, srf_alb_c, rgrav_c, clouds_p, lwc_p, &
+            delp_p, eff_alb_p, cld_mult_p, del_lwp_p, del_tau_p, above_tau_p, below_tau_p, above_cld_p, &
+            below_cld_p, above_tra_p, below_tra_p, fac1_p, fac2_p) bind(c, name="table_photo_cloud_mod_batch_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: pver_c
+         real(c_double), value :: zen_angle_c, srf_alb_c, rgrav_c
+         type(c_ptr), value :: clouds_p, lwc_p, delp_p, eff_alb_p, cld_mult_p
+         type(c_ptr), value :: del_lwp_p, del_tau_p, above_tau_p, below_tau_p
+         type(c_ptr), value :: above_cld_p, below_cld_p, above_tra_p, below_tra_p, fac1_p, fac2_p
+       end subroutine table_photo_cloud_mod_batch_codon
     end interface
 
     qbktot(:,:) = nan
@@ -1010,8 +1033,24 @@ contains
           !-----------------------------------------------------------------
           !     ... compute eff_alb and cld_mult -- needs to be before jlong
           !-----------------------------------------------------------------
-          call cloud_mod( zen_angle(i), cld_line, lwc_line, fac1, srf_alb(i), &
-                          eff_alb, cld_mult )
+          if (table_photo_use_native_impl) then
+             call cloud_mod( zen_angle(i), cld_line, lwc_line, fac1, srf_alb(i), &
+                             eff_alb, cld_mult )
+          else
+             call table_photo_cloud_mod_batch_codon( &
+                  int(pver, c_int64_t), real(zen_angle(i), c_double), real(srf_alb(i), c_double), &
+                  real(rgrav_cloud, c_double), c_loc(cld_line), c_loc(lwc_line), c_loc(fac1), c_loc(eff_alb), &
+                  c_loc(cld_mult), c_loc(del_lwp), c_loc(del_tau), c_loc(above_tau), c_loc(below_tau), &
+                  c_loc(above_cld), c_loc(below_cld), c_loc(above_tra), c_loc(below_tra), c_loc(cloud_fac1), &
+                  c_loc(cloud_fac2) &
+             )
+             if (masterproc .and. .not. table_photo_cloud_batch_proof_written) then
+                write(iulog,'(A)') 'table_photo cloud batch entered (cloud_mod direct = codon)'
+                call table_photo_append_impl_proof('TABLE_PHOTO_PROOF_FILE', &
+                     'table_photo cloud batch entered (cloud_mod direct = codon)')
+                table_photo_cloud_batch_proof_written = .true.
+             end if
+          end if
 
           !-----------------------------------------------------------------
           !	... long wave length component

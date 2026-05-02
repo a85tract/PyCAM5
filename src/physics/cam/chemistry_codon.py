@@ -1107,6 +1107,50 @@ def table_photo_postcloud_batch_codon(
     )
 
 @export
+def table_photo_cloud_mod_batch_codon(
+    pver: int,
+    zen_angle: float,
+    srf_alb: float,
+    rgrav: float,
+    clouds_p: cobj,
+    lwc_p: cobj,
+    delp_p: cobj,
+    eff_alb_p: cobj,
+    cld_mult_p: cobj,
+    del_lwp_p: cobj,
+    del_tau_p: cobj,
+    above_tau_p: cobj,
+    below_tau_p: cobj,
+    above_cld_p: cobj,
+    below_cld_p: cobj,
+    above_tra_p: cobj,
+    below_tra_p: cobj,
+    fac1_p: cobj,
+    fac2_p: cobj,
+):
+    return _photolysis.table_photo_cloud_mod_batch_codon(
+        pver,
+        zen_angle,
+        srf_alb,
+        rgrav,
+        clouds_p,
+        lwc_p,
+        delp_p,
+        eff_alb_p,
+        cld_mult_p,
+        del_lwp_p,
+        del_tau_p,
+        above_tau_p,
+        below_tau_p,
+        above_cld_p,
+        below_cld_p,
+        above_tra_p,
+        below_tra_p,
+        fac1_p,
+        fac2_p,
+    )
+
+@export
 def gas_phase_chemdr_zero_sulfate_codon(
     ncol: int,
     pver: int,
