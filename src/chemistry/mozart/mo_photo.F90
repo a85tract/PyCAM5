@@ -805,6 +805,27 @@ contains
          type(c_ptr), value :: photos_p, lng_prates_p, cld_mult_p, col_dens_p, lng_indexer_p, alias_mult2_p
        end subroutine table_photo_postcloud_batch_codon
 
+       subroutine table_photo_prejlong_batch_codon(ncol_c, pcols_c, pver_c, ncol_abs_c, nfs_c, gas_pcnst_c, &
+            i_c, p1_c, p2_c, do_jshort_c, ptop_gt_10_c, o_is_inv_c, o2_is_inv_c, o3_is_inv_c, n2_is_inv_c, &
+            no_is_inv_c, o_ndx_c, o2_ndx_c, o3_inv_ndx_c, o3_ndx_c, n2_ndx_c, no_ndx_c, indexm_c, pa2mb_c, &
+            zen_angle_c, srf_alb_c, rgrav_c, pmid_p, pdel_p, col_dens_p, lwc_p, clouds_p, temper_p, zmid_p, &
+            zint_p, vmr_p, invariants_p, parg_p, colo3_p, fac1_p, lwc_line_p, cld_line_p, tline_p, zarg_p, &
+            o_den_p, o2_den_p, o3_den_p, no_den_p, n2_den_p, eff_alb_p, cld_mult_p, del_lwp_p, del_tau_p, &
+            above_tau_p, below_tau_p, above_cld_p, below_cld_p, above_tra_p, below_tra_p, cloud_fac1_p, &
+            cloud_fac2_p) bind(c, name="table_photo_prejlong_batch_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, ncol_abs_c, nfs_c, gas_pcnst_c
+         integer(c_int64_t), value :: i_c, p1_c, p2_c, do_jshort_c, ptop_gt_10_c
+         integer(c_int64_t), value :: o_is_inv_c, o2_is_inv_c, o3_is_inv_c, n2_is_inv_c, no_is_inv_c
+         integer(c_int64_t), value :: o_ndx_c, o2_ndx_c, o3_inv_ndx_c, o3_ndx_c, n2_ndx_c, no_ndx_c, indexm_c
+         real(c_double), value :: pa2mb_c, zen_angle_c, srf_alb_c, rgrav_c
+         type(c_ptr), value :: pmid_p, pdel_p, col_dens_p, lwc_p, clouds_p, temper_p, zmid_p, zint_p
+         type(c_ptr), value :: vmr_p, invariants_p, parg_p, colo3_p, fac1_p, lwc_line_p, cld_line_p, tline_p, zarg_p
+         type(c_ptr), value :: o_den_p, o2_den_p, o3_den_p, no_den_p, n2_den_p
+         type(c_ptr), value :: eff_alb_p, cld_mult_p, del_lwp_p, del_tau_p, above_tau_p, below_tau_p
+         type(c_ptr), value :: above_cld_p, below_cld_p, above_tra_p, below_tra_p, cloud_fac1_p, cloud_fac2_p
+       end subroutine table_photo_prejlong_batch_codon
+
        subroutine table_photo_cloud_mod_batch_codon(pver_c, zen_angle_c, srf_alb_c, rgrav_c, clouds_p, lwc_p, &
             delp_p, eff_alb_p, cld_mult_p, del_lwp_p, del_tau_p, above_tau_p, below_tau_p, above_cld_p, &
             below_cld_p, above_tra_p, below_tra_p, fac1_p, fac2_p) bind(c, name="table_photo_cloud_mod_batch_codon")
@@ -984,7 +1005,7 @@ contains
                 no_den_p = c_null_ptr
                 n2_den_p = c_null_ptr
              end if
-             call table_photo_daylight_prepare_batch_codon( &
+             call table_photo_prejlong_batch_codon( &
                   int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(ncol_abs, c_int64_t), &
                   int(nfs, c_int64_t), int(gas_pcnst, c_int64_t), int(i, c_int64_t), int(p1, c_int64_t), &
                   int(p2, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, do_jshort), &
@@ -993,16 +1014,25 @@ contains
                   merge(1_c_int64_t, 0_c_int64_t, n2_is_inv), merge(1_c_int64_t, 0_c_int64_t, no_is_inv), &
                   int(o_ndx, c_int64_t), int(o2_ndx, c_int64_t), int(o3_inv_ndx, c_int64_t), &
                   int(o3_ndx, c_int64_t), int(n2_ndx, c_int64_t), int(no_ndx, c_int64_t), int(indexm, c_int64_t), &
-                  real(Pa2mb, c_double), c_loc(pmid), c_loc(pdel), c_loc(col_dens), c_loc(lwc), c_loc(clouds), &
-                  c_loc(temper), c_loc(zmid), c_loc(zint), c_loc(vmr), c_loc(invariants), c_loc(parg), c_loc(colo3), &
-                  c_loc(fac1), c_loc(lwc_line), c_loc(cld_line), c_loc(tline), c_loc(zarg), o_den_p, o2_den_p, &
-                  o3_den_p, no_den_p, n2_den_p &
+                  real(Pa2mb, c_double), real(zen_angle(i), c_double), real(srf_alb(i), c_double), &
+                  real(rgrav_cloud, c_double), c_loc(pmid), c_loc(pdel), c_loc(col_dens), c_loc(lwc), &
+                  c_loc(clouds), c_loc(temper), c_loc(zmid), c_loc(zint), c_loc(vmr), c_loc(invariants), &
+                  c_loc(parg), c_loc(colo3), c_loc(fac1), c_loc(lwc_line), c_loc(cld_line), c_loc(tline), &
+                  c_loc(zarg), o_den_p, o2_den_p, o3_den_p, no_den_p, n2_den_p, c_loc(eff_alb), c_loc(cld_mult), &
+                  c_loc(del_lwp), c_loc(del_tau), c_loc(above_tau), c_loc(below_tau), c_loc(above_cld), &
+                  c_loc(below_cld), c_loc(above_tra), c_loc(below_tra), c_loc(cloud_fac1), c_loc(cloud_fac2) &
              )
              if (masterproc .and. .not. table_photo_batch_proof_written) then
                 write(iulog,'(A)') 'table_photo direct batch entered (daylight/postcloud direct = codon)'
                 call table_photo_append_impl_proof('TABLE_PHOTO_PROOF_FILE', &
                      'table_photo direct batch entered (daylight/postcloud direct = codon)')
                 table_photo_batch_proof_written = .true.
+             end if
+             if (masterproc .and. .not. table_photo_cloud_batch_proof_written) then
+                write(iulog,'(A)') 'table_photo pre-jlong batch entered (daylight/cloud direct = codon)'
+                call table_photo_append_impl_proof('TABLE_PHOTO_PROOF_FILE', &
+                     'table_photo pre-jlong batch entered (daylight/cloud direct = codon)')
+                table_photo_cloud_batch_proof_written = .true.
              end if
           end if
 
@@ -1075,20 +1105,6 @@ contains
           if (table_photo_use_native_impl) then
              call cloud_mod( zen_angle(i), cld_line, lwc_line, fac1, srf_alb(i), &
                              eff_alb, cld_mult )
-          else
-             call table_photo_cloud_mod_batch_codon( &
-                  int(pver, c_int64_t), real(zen_angle(i), c_double), real(srf_alb(i), c_double), &
-                  real(rgrav_cloud, c_double), c_loc(cld_line), c_loc(lwc_line), c_loc(fac1), c_loc(eff_alb), &
-                  c_loc(cld_mult), c_loc(del_lwp), c_loc(del_tau), c_loc(above_tau), c_loc(below_tau), &
-                  c_loc(above_cld), c_loc(below_cld), c_loc(above_tra), c_loc(below_tra), c_loc(cloud_fac1), &
-                  c_loc(cloud_fac2) &
-             )
-             if (masterproc .and. .not. table_photo_cloud_batch_proof_written) then
-                write(iulog,'(A)') 'table_photo cloud batch entered (cloud_mod direct = codon)'
-                call table_photo_append_impl_proof('TABLE_PHOTO_PROOF_FILE', &
-                     'table_photo cloud batch entered (cloud_mod direct = codon)')
-                table_photo_cloud_batch_proof_written = .true.
-             end if
           end if
 
           !-----------------------------------------------------------------
