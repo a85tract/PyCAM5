@@ -1296,6 +1296,32 @@ def _gas_phase_chemdr_shell_post_solver(
             ncol, pver, gas_pcnst, ndx_h2so4, vmr_p, del_h2so4_gasprod_p
         )
 
+def sulf_interp_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    begchunk: int,
+    lchnk: int,
+    read_sulf_flag: int,
+    fields_data_p: cobj,
+    ccm_sulf_p: cobj,
+):
+    ccm_sulf = Ptr[float](ccm_sulf_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            ccm_sulf[(i - 1) + ncol * (k - 1)] = 0.0
+
+    if read_sulf_flag == 0:
+        return
+
+    fields_data = Ptr[float](fields_data_p)
+    chunk0 = lchnk - begchunk
+    chunk_offset = pcols * pver * chunk0
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            ccm_sulf[(i - 1) + ncol * (k - 1)] = fields_data[chunk_offset + (i - 1) + pcols * (k - 1)]
+
 def gas_phase_chemdr_shell_codon(
     stage: int,
     ncol: int,

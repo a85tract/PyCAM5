@@ -40,6 +40,9 @@
       integer            :: fixed_tod = 0
 
       logical :: has_sulf = .false.
+      logical :: sulf_interp_use_native_impl = .false.
+      logical :: sulf_interp_impl_selected = .false.
+      logical :: sulf_interp_proof_written = .false.
 
       contains 
 
@@ -208,6 +211,7 @@ end subroutine sulf_readnl
 ! 	... Time interpolate sulfatei to current time
 !-----------------------------------------------------------------------
       use cam_history,  only : outfld
+      use iso_c_binding, only : c_int64_t, c_loc, c_null_ptr, c_ptr
 
       implicit none
 
@@ -216,20 +220,109 @@ end subroutine sulf_readnl
 !-----------------------------------------------------------------------
       integer, intent(in)   :: ncol              ! columns in chunk
       integer, intent(in)   :: lchnk             ! chunk number
-      real(r8), intent(out) :: ccm_sulf(:,:)     ! output sulfate
+      real(r8), target, intent(out) :: ccm_sulf(:,:)     ! output sulfate
 
 !-----------------------------------------------------------------------
 ! 	... Local variables
 !-----------------------------------------------------------------------
+      type(c_ptr) :: fields_data_p
 
-      ccm_sulf(:,:) = 0._r8
+      interface
+         subroutine sulf_interp_codon(ncol_c, pcols_c, pver_c, begchunk_c, lchnk_c, read_sulf_c, &
+              fields_data_p, ccm_sulf_p) bind(c, name="sulf_interp_codon")
+            use iso_c_binding, only : c_int64_t, c_ptr
+            integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, begchunk_c, lchnk_c, read_sulf_c
+            type(c_ptr), value :: fields_data_p, ccm_sulf_p
+         end subroutine sulf_interp_codon
+      end interface
+
+      call sulf_interp_select_impl()
+
+      if (sulf_interp_use_native_impl) then
+         ccm_sulf(:,:) = 0._r8
+         if ( .not. read_sulf ) return
+         ccm_sulf(:ncol,:) = fields(1)%data(:ncol,:,lchnk)
+      else
+         fields_data_p = c_null_ptr
+         if (read_sulf) fields_data_p = c_loc(fields(1)%data(1,1,begchunk))
+         call sulf_interp_codon( &
+              int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(begchunk, c_int64_t), &
+              int(lchnk, c_int64_t), int(merge(1, 0, read_sulf), c_int64_t), fields_data_p, c_loc(ccm_sulf) &
+         )
+         if (masterproc .and. .not. sulf_interp_proof_written) then
+            if (read_sulf) then
+               write(iulog,'(A)') 'sulf_interp entered (zero/copy direct = codon, read_sulf = true)'
+               call sulf_interp_append_proof('sulf_interp entered (zero/copy direct = codon, read_sulf = true)')
+            else
+               write(iulog,'(A)') 'sulf_interp entered (zero direct = codon, read_sulf = false)'
+               call sulf_interp_append_proof('sulf_interp entered (zero direct = codon, read_sulf = false)')
+            end if
+            sulf_interp_proof_written = .true.
+         end if
+      end if
 
       if ( .not. read_sulf ) return
-
-      ccm_sulf(:ncol,:) = fields(1)%data(:ncol,:,lchnk)
 
       call outfld( 'SULFATE', ccm_sulf(:ncol,:), ncol, lchnk )
 
       end subroutine sulf_interp
+
+      subroutine sulf_interp_select_impl()
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (sulf_interp_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('SULF_INTERP_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         sulf_interp_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         sulf_interp_use_native_impl = .false.
+      end if
+
+      sulf_interp_impl_selected = .true.
+
+      if (masterproc) then
+         if (sulf_interp_use_native_impl) then
+            write(iulog,*) 'sulf_interp implementation = native'
+         else
+            write(iulog,*) 'sulf_interp implementation = codon'
+            call sulf_interp_append_proof('sulf_interp implementation = codon')
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine sulf_interp_select_impl
+
+      subroutine sulf_interp_append_proof(proof_line)
+
+      implicit none
+
+      character(len=*), intent(in) :: proof_line
+      character(len=512) :: proof_file
+      integer :: status, n, proof_unit, ios
+
+      proof_file = ''
+      call get_environment_variable('SULF_INTERP_PROOF_FILE', value=proof_file, length=n, status=status)
+      if (status == 0 .and. n > 0) then
+         open(newunit=proof_unit, file=trim(proof_file(:n)), status='unknown', position='append', action='write', iostat=ios)
+         if (ios == 0) then
+            write(proof_unit,'(A)') trim(proof_line)
+            close(proof_unit)
+         end if
+      end if
+
+      end subroutine sulf_interp_append_proof
 
       end module mo_sulf

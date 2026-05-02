@@ -23,6 +23,28 @@ def rebin_codon(
     )
 
 @export
+def sulf_interp_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    begchunk: int,
+    lchnk: int,
+    read_sulf_flag: int,
+    fields_data_p: cobj,
+    ccm_sulf_p: cobj,
+):
+    return _gas_phase.sulf_interp_codon(
+        ncol,
+        pcols,
+        pver,
+        begchunk,
+        lchnk,
+        read_sulf_flag,
+        fields_data_p,
+        ccm_sulf_p,
+    )
+
+@export
 def jlong_timestep_init_codon(
     jlong_used_flag: int,
     nsrc: int,
