@@ -101,6 +101,7 @@ module mo_photo
   logical :: table_photo_proof_written = .false.
   logical :: table_photo_batch_proof_written = .false.
   logical :: table_photo_cloud_batch_proof_written = .false.
+  logical :: table_photo_zero_finalize_batch_proof_written = .false.
   logical :: set_xnox_photo_use_native_impl = .false.
   logical :: set_xnox_photo_impl_selected = .false.
 
@@ -814,6 +815,22 @@ contains
          type(c_ptr), value :: del_lwp_p, del_tau_p, above_tau_p, below_tau_p
          type(c_ptr), value :: above_cld_p, below_cld_p, above_tra_p, below_tra_p, fac1_p, fac2_p
        end subroutine table_photo_cloud_mod_batch_codon
+
+       subroutine table_photo_zero_finalize_batch_codon(stage_c, ncol_c, pver_c, phtcnt_c, photos_p, &
+            jno2a_ndx_c, jno2_ndx_c, jn2o5a_ndx_c, jn2o5_ndx_c, jn2o5b_ndx_c, &
+            jhno3a_ndx_c, jhno3_ndx_c, jno3a_ndx_c, jno3_ndx_c, &
+            jho2no2a_ndx_c, jho2no2_ndx_c, jmpana_ndx_c, jmpan_ndx_c, &
+            jpana_ndx_c, jpan_ndx_c, jonitra_ndx_c, jonitr_ndx_c, &
+            jo1da_ndx_c, jo1d_ndx_c, jo3pa_ndx_c, jo3p_ndx_c) bind(c, name="table_photo_zero_finalize_batch_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: stage_c, ncol_c, pver_c, phtcnt_c
+         type(c_ptr), value :: photos_p
+         integer(c_int64_t), value :: jno2a_ndx_c, jno2_ndx_c, jn2o5a_ndx_c, jn2o5_ndx_c, jn2o5b_ndx_c
+         integer(c_int64_t), value :: jhno3a_ndx_c, jhno3_ndx_c, jno3a_ndx_c, jno3_ndx_c
+         integer(c_int64_t), value :: jho2no2a_ndx_c, jho2no2_ndx_c, jmpana_ndx_c, jmpan_ndx_c
+         integer(c_int64_t), value :: jpana_ndx_c, jpan_ndx_c, jonitra_ndx_c, jonitr_ndx_c
+         integer(c_int64_t), value :: jo1da_ndx_c, jo1d_ndx_c, jo3pa_ndx_c, jo3p_ndx_c
+       end subroutine table_photo_zero_finalize_batch_codon
     end interface
 
     qbktot(:,:) = nan
@@ -885,7 +902,29 @@ contains
 !-----------------------------------------------------------------
 !	... zero all photorates
 !-----------------------------------------------------------------
-    call table_photo_zero_photos(ncol, photos)
+    if (table_photo_use_native_impl) then
+       call table_photo_zero_photos(ncol, photos)
+    else
+       call table_photo_zero_finalize_batch_codon( &
+            0_c_int64_t, int(ncol, c_int64_t), int(pver, c_int64_t), int(phtcnt, c_int64_t), c_loc(photos), &
+            int(jno2a_ndx, c_int64_t), int(jno2_ndx, c_int64_t), &
+            int(jn2o5a_ndx, c_int64_t), int(jn2o5_ndx, c_int64_t), int(jn2o5b_ndx, c_int64_t), &
+            int(jhno3a_ndx, c_int64_t), int(jhno3_ndx, c_int64_t), &
+            int(jno3a_ndx, c_int64_t), int(jno3_ndx, c_int64_t), &
+            int(jho2no2a_ndx, c_int64_t), int(jho2no2_ndx, c_int64_t), &
+            int(jmpana_ndx, c_int64_t), int(jmpan_ndx, c_int64_t), &
+            int(jpana_ndx, c_int64_t), int(jpan_ndx, c_int64_t), &
+            int(jonitra_ndx, c_int64_t), int(jonitr_ndx, c_int64_t), &
+            int(jo1da_ndx, c_int64_t), int(jo1d_ndx, c_int64_t), &
+            int(jo3pa_ndx, c_int64_t), int(jo3p_ndx, c_int64_t) &
+       )
+       if (masterproc .and. .not. table_photo_zero_finalize_batch_proof_written) then
+          write(iulog,'(A)') 'table_photo zero/finalize batch entered (zero/set_xnox direct = codon)'
+          call table_photo_append_impl_proof('TABLE_PHOTO_PROOF_FILE', &
+               'table_photo zero/finalize batch entered (zero/set_xnox direct = codon)')
+          table_photo_zero_finalize_batch_proof_written = .true.
+       end if
+    end if
 
 !------------------------------------------------------------------------------------------------------------
 !  Point to production rates array in physics buffer where rates will be stored for ionosphere module
@@ -1123,7 +1162,23 @@ contains
     if ( allocated(jno_sht) ) deallocate( jno_sht )
     if ( allocated(jo2_sht) ) deallocate( jo2_sht )
 
-    call set_xnox_photo( photos, ncol  )
+    if (table_photo_use_native_impl) then
+       call set_xnox_photo( photos, ncol  )
+    else
+       call table_photo_zero_finalize_batch_codon( &
+            1_c_int64_t, int(ncol, c_int64_t), int(pver, c_int64_t), int(phtcnt, c_int64_t), c_loc(photos), &
+            int(jno2a_ndx, c_int64_t), int(jno2_ndx, c_int64_t), &
+            int(jn2o5a_ndx, c_int64_t), int(jn2o5_ndx, c_int64_t), int(jn2o5b_ndx, c_int64_t), &
+            int(jhno3a_ndx, c_int64_t), int(jhno3_ndx, c_int64_t), &
+            int(jno3a_ndx, c_int64_t), int(jno3_ndx, c_int64_t), &
+            int(jho2no2a_ndx, c_int64_t), int(jho2no2_ndx, c_int64_t), &
+            int(jmpana_ndx, c_int64_t), int(jmpan_ndx, c_int64_t), &
+            int(jpana_ndx, c_int64_t), int(jpan_ndx, c_int64_t), &
+            int(jonitra_ndx, c_int64_t), int(jonitr_ndx, c_int64_t), &
+            int(jo1da_ndx, c_int64_t), int(jo1d_ndx, c_int64_t), &
+            int(jo3pa_ndx, c_int64_t), int(jo3p_ndx, c_int64_t) &
+       )
+    end if
 
   end subroutine table_photo
 

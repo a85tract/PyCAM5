@@ -733,6 +733,98 @@ def table_photo_zero_photos_codon(
             for i in range(1, ncol + 1):
                 photos[_idx3(i, k, m, ncol, pver)] = 0.0
 
+def table_photo_zero_finalize_batch_codon(
+    stage: int,
+    ncol: int,
+    pver: int,
+    phtcnt: int,
+    photos_p: cobj,
+    jno2a_ndx: int,
+    jno2_ndx: int,
+    jn2o5a_ndx: int,
+    jn2o5_ndx: int,
+    jn2o5b_ndx: int,
+    jhno3a_ndx: int,
+    jhno3_ndx: int,
+    jno3a_ndx: int,
+    jno3_ndx: int,
+    jho2no2a_ndx: int,
+    jho2no2_ndx: int,
+    jmpana_ndx: int,
+    jmpan_ndx: int,
+    jpana_ndx: int,
+    jpan_ndx: int,
+    jonitra_ndx: int,
+    jonitr_ndx: int,
+    jo1da_ndx: int,
+    jo1d_ndx: int,
+    jo3pa_ndx: int,
+    jo3p_ndx: int,
+):
+    photos = Ptr[float](photos_p)
+
+    if stage == 0:
+        for m in range(1, phtcnt + 1):
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    photos[_idx3(i, k, m, ncol, pver)] = 0.0
+        return
+
+    if jno2a_ndx > 0 and jno2_ndx > 0:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                photos[_idx3(i, k, jno2a_ndx, ncol, pver)] = photos[_idx3(i, k, jno2_ndx, ncol, pver)]
+
+    if jn2o5a_ndx > 0 and jn2o5_ndx > 0:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                photos[_idx3(i, k, jn2o5a_ndx, ncol, pver)] = photos[_idx3(i, k, jn2o5_ndx, ncol, pver)]
+
+    if jn2o5b_ndx > 0 and jn2o5_ndx > 0:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                photos[_idx3(i, k, jn2o5b_ndx, ncol, pver)] = photos[_idx3(i, k, jn2o5_ndx, ncol, pver)]
+
+    if jhno3a_ndx > 0 and jhno3_ndx > 0:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                photos[_idx3(i, k, jhno3a_ndx, ncol, pver)] = photos[_idx3(i, k, jhno3_ndx, ncol, pver)]
+
+    if jno3a_ndx > 0 and jno3_ndx > 0:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                photos[_idx3(i, k, jno3a_ndx, ncol, pver)] = photos[_idx3(i, k, jno3_ndx, ncol, pver)]
+
+    if jho2no2a_ndx > 0 and jho2no2_ndx > 0:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                photos[_idx3(i, k, jho2no2a_ndx, ncol, pver)] = photos[_idx3(i, k, jho2no2_ndx, ncol, pver)]
+
+    if jmpana_ndx > 0 and jmpan_ndx > 0:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                photos[_idx3(i, k, jmpana_ndx, ncol, pver)] = photos[_idx3(i, k, jmpan_ndx, ncol, pver)]
+
+    if jpana_ndx > 0 and jpan_ndx > 0:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                photos[_idx3(i, k, jpana_ndx, ncol, pver)] = photos[_idx3(i, k, jpan_ndx, ncol, pver)]
+
+    if jonitra_ndx > 0 and jonitr_ndx > 0:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                photos[_idx3(i, k, jonitra_ndx, ncol, pver)] = photos[_idx3(i, k, jonitr_ndx, ncol, pver)]
+
+    if jo1da_ndx > 0 and jo1d_ndx > 0:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                photos[_idx3(i, k, jo1da_ndx, ncol, pver)] = photos[_idx3(i, k, jo1d_ndx, ncol, pver)]
+
+    if jo3pa_ndx > 0 and jo3p_ndx > 0:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                photos[_idx3(i, k, jo3pa_ndx, ncol, pver)] = photos[_idx3(i, k, jo3p_ndx, ncol, pver)]
+
 def table_photo_daylight_prepare_batch_codon(
     ncol: int,
     pcols: int,
