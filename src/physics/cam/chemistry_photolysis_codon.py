@@ -277,6 +277,65 @@ def jlong_get_rsf_bde_codon(
             bde_o3_a[i - 1] = value
             bde_o3_b[i - 1] = value
 
+def jlong_get_rsf_postread_batch_codon(
+    nw: int,
+    nump: int,
+    numsza: int,
+    numalb: int,
+    numcolo3: int,
+    use_bde_flag: int,
+    hc_val: float,
+    wc_o2_b_val: float,
+    wc_o3_a_val: float,
+    wc_o3_b_val: float,
+    wc_p: cobj,
+    p_p: cobj,
+    sza_p: cobj,
+    alb_p: cobj,
+    o3rat_p: cobj,
+    bde_o2_b_p: cobj,
+    bde_o3_a_p: cobj,
+    bde_o3_b_p: cobj,
+    del_p_p: cobj,
+    del_sza_p: cobj,
+    del_alb_p: cobj,
+    del_o3rat_p: cobj,
+):
+    wc = Ptr[float](wc_p)
+    p = Ptr[float](p_p)
+    sza = Ptr[float](sza_p)
+    alb = Ptr[float](alb_p)
+    o3rat = Ptr[float](o3rat_p)
+    bde_o2_b = Ptr[float](bde_o2_b_p)
+    bde_o3_a = Ptr[float](bde_o3_a_p)
+    bde_o3_b = Ptr[float](bde_o3_b_p)
+    del_p = Ptr[float](del_p_p)
+    del_sza = Ptr[float](del_sza_p)
+    del_alb = Ptr[float](del_alb_p)
+    del_o3rat = Ptr[float](del_o3rat_p)
+
+    if use_bde_flag != 0:
+        for i in range(1, nw + 1):
+            wc_i = wc[i - 1]
+            bde_o2_b[i - 1] = max(0.0, hc_val * (wc_o2_b_val - wc_i) / (wc_o2_b_val * wc_i))
+            bde_o3_a[i - 1] = max(0.0, hc_val * (wc_o3_a_val - wc_i) / (wc_o3_a_val * wc_i))
+            bde_o3_b[i - 1] = max(0.0, hc_val * (wc_o3_b_val - wc_i) / (wc_o3_b_val * wc_i))
+    else:
+        for i in range(1, nw + 1):
+            wc_i = wc[i - 1]
+            bde_o2_b[i - 1] = hc_val / wc_i
+            bde_o3_a[i - 1] = hc_val / wc_i
+            bde_o3_b[i - 1] = hc_val / wc_i
+
+    for i in range(1, nump):
+        del_p[i - 1] = 1.0 / abs(p[i - 1] - p[i])
+    for i in range(1, numsza):
+        del_sza[i - 1] = 1.0 / (sza[i] - sza[i - 1])
+    for i in range(1, numalb):
+        del_alb[i - 1] = 1.0 / (alb[i] - alb[i - 1])
+    for i in range(1, numcolo3):
+        del_o3rat[i - 1] = 1.0 / (o3rat[i] - o3rat[i - 1])
+
 def zenith_codon(
     ncol: int,
     calday: float,

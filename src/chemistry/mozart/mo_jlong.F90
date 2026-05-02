@@ -96,6 +96,8 @@
       logical :: jlong_get_rsf_deltas_impl_selected = .false.
       logical :: jlong_get_rsf_bde_use_native_impl = .false.
       logical :: jlong_get_rsf_bde_impl_selected = .false.
+      logical :: jlong_get_rsf_postread_batch_use_native_impl = .false.
+      logical :: jlong_get_rsf_postread_batch_impl_selected = .false.
 
       contains
 
@@ -927,15 +929,99 @@
 #endif
 #ifdef USE_BDE
       if (masterproc) write(iulog,*) 'Jlong using bdes'
-      call jlong_get_rsf_bde( nw, 1, wc, bde_o2_b, bde_o3_a, bde_o3_b )
+      call jlong_get_rsf_postread_batch( nw, nump, numsza, numalb, numcolo3, 1, wc, p, sza, alb, o3rat, &
+           bde_o2_b, bde_o3_a, bde_o3_b, del_p, del_sza, del_alb, del_o3rat )
 #else
       if (masterproc) write(iulog,*) 'Jlong not using bdes'
-      call jlong_get_rsf_bde( nw, 0, wc, bde_o2_b, bde_o3_a, bde_o3_b )
+      call jlong_get_rsf_postread_batch( nw, nump, numsza, numalb, numcolo3, 0, wc, p, sza, alb, o3rat, &
+           bde_o2_b, bde_o3_a, bde_o3_b, del_p, del_sza, del_alb, del_o3rat )
 #endif
 
-      call jlong_get_rsf_deltas( nump, numsza, numalb, numcolo3, p, sza, alb, o3rat, del_p, del_sza, del_alb, del_o3rat )
-
       end subroutine get_rsf
+
+      subroutine jlong_get_rsf_postread_batch( nw_in, nump_in, numsza_in, numalb_in, numcolo3_in, use_bde_flag_in, &
+                                               wc_in, p_in, sza_in, alb_in, o3rat_in, &
+                                               bde_o2_b_out, bde_o3_a_out, bde_o3_b_out, &
+                                               del_p_out, del_sza_out, del_alb_out, del_o3rat_out )
+
+      use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+
+      implicit none
+
+      integer, intent(in) :: nw_in, nump_in, numsza_in, numalb_in, numcolo3_in, use_bde_flag_in
+      real(r8), target, intent(in) :: wc_in(nw_in), p_in(nump_in), sza_in(numsza_in), alb_in(numalb_in), &
+                                      o3rat_in(numcolo3_in)
+      real(r8), target, intent(inout) :: bde_o2_b_out(nw_in), bde_o3_a_out(nw_in), bde_o3_b_out(nw_in)
+      real(r8), target, intent(inout) :: del_p_out(nump_in-1), del_sza_out(numsza_in-1), del_alb_out(numalb_in-1), &
+                                         del_o3rat_out(numcolo3_in-1)
+
+      interface
+         subroutine jlong_get_rsf_postread_batch_codon(nw_c, nump_c, numsza_c, numalb_c, numcolo3_c, use_bde_flag_c, &
+              hc_c, wc_o2_b_c, wc_o3_a_c, wc_o3_b_c, wc_p, p_p, sza_p, alb_p, o3rat_p, bde_o2_b_p, bde_o3_a_p, &
+              bde_o3_b_p, del_p_p, del_sza_p, del_alb_p, del_o3rat_p) bind(c, name="jlong_get_rsf_postread_batch_codon")
+            use iso_c_binding, only : c_double, c_int64_t, c_ptr
+            integer(c_int64_t), value :: nw_c, nump_c, numsza_c, numalb_c, numcolo3_c, use_bde_flag_c
+            real(c_double), value :: hc_c, wc_o2_b_c, wc_o3_a_c, wc_o3_b_c
+            type(c_ptr), value :: wc_p, p_p, sza_p, alb_p, o3rat_p
+            type(c_ptr), value :: bde_o2_b_p, bde_o3_a_p, bde_o3_b_p, del_p_p, del_sza_p, del_alb_p, del_o3rat_p
+         end subroutine jlong_get_rsf_postread_batch_codon
+      end interface
+
+      call jlong_get_rsf_postread_batch_select_impl()
+
+      if (jlong_get_rsf_postread_batch_use_native_impl) then
+         call jlong_get_rsf_bde( nw_in, use_bde_flag_in, wc_in, bde_o2_b_out, bde_o3_a_out, bde_o3_b_out )
+         call jlong_get_rsf_deltas( nump_in, numsza_in, numalb_in, numcolo3_in, p_in, sza_in, alb_in, o3rat_in, &
+              del_p_out, del_sza_out, del_alb_out, del_o3rat_out )
+         return
+      end if
+
+      call jlong_get_rsf_postread_batch_codon( &
+           int(nw_in, c_int64_t), int(nump_in, c_int64_t), int(numsza_in, c_int64_t), int(numalb_in, c_int64_t), &
+           int(numcolo3_in, c_int64_t), int(use_bde_flag_in, c_int64_t), real(hc, c_double), real(wc_o2_b, c_double), &
+           real(wc_o3_a, c_double), real(wc_o3_b, c_double), c_loc(wc_in), c_loc(p_in), c_loc(sza_in), c_loc(alb_in), &
+           c_loc(o3rat_in), c_loc(bde_o2_b_out), c_loc(bde_o3_a_out), c_loc(bde_o3_b_out), c_loc(del_p_out), &
+           c_loc(del_sza_out), c_loc(del_alb_out), c_loc(del_o3rat_out) &
+      )
+
+      end subroutine jlong_get_rsf_postread_batch
+
+      subroutine jlong_get_rsf_postread_batch_select_impl()
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (jlong_get_rsf_postread_batch_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('JLONG_GET_RSF_POSTREAD_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         jlong_get_rsf_postread_batch_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         jlong_get_rsf_postread_batch_use_native_impl = .false.
+      end if
+
+      jlong_get_rsf_postread_batch_impl_selected = .true.
+
+      if (masterproc) then
+         if (jlong_get_rsf_postread_batch_use_native_impl) then
+            write(iulog,*) 'jlong_get_rsf_postread_batch implementation = native'
+         else
+            write(iulog,*) 'jlong_get_rsf_postread_batch implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine jlong_get_rsf_postread_batch_select_impl
 
       subroutine jlong_get_rsf_scale( nw_in, nump_in, numsza_in, numcolo3_in, numalb_in, wlintv_in, rsf_tab_inout )
 

@@ -197,6 +197,56 @@ def jlong_get_rsf_bde_codon(
     )
 
 @export
+def jlong_get_rsf_postread_batch_codon(
+    nw: int,
+    nump: int,
+    numsza: int,
+    numalb: int,
+    numcolo3: int,
+    use_bde_flag: int,
+    hc_val: float,
+    wc_o2_b_val: float,
+    wc_o3_a_val: float,
+    wc_o3_b_val: float,
+    wc_p: cobj,
+    p_p: cobj,
+    sza_p: cobj,
+    alb_p: cobj,
+    o3rat_p: cobj,
+    bde_o2_b_p: cobj,
+    bde_o3_a_p: cobj,
+    bde_o3_b_p: cobj,
+    del_p_p: cobj,
+    del_sza_p: cobj,
+    del_alb_p: cobj,
+    del_o3rat_p: cobj,
+):
+    return _photolysis.jlong_get_rsf_postread_batch_codon(
+        nw,
+        nump,
+        numsza,
+        numalb,
+        numcolo3,
+        use_bde_flag,
+        hc_val,
+        wc_o2_b_val,
+        wc_o3_a_val,
+        wc_o3_b_val,
+        wc_p,
+        p_p,
+        sza_p,
+        alb_p,
+        o3rat_p,
+        bde_o2_b_p,
+        bde_o3_a_p,
+        bde_o3_b_p,
+        del_p_p,
+        del_sza_p,
+        del_alb_p,
+        del_o3rat_p,
+    )
+
+@export
 def zenith_codon(
     ncol: int,
     calday: float,
