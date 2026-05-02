@@ -87,6 +87,19 @@ def jlong_init_set_we_codon(
         we[w - 1] = wc[w - 1] - 0.5 * wlintv[w - 1]
     we[nw] = wc[nw - 1] + 0.5 * wlintv[nw - 1]
 
+def jlong_init_solar_batch_codon(
+    data_nw: int,
+    nw: int,
+    data_we_p: cobj,
+    wc_p: cobj,
+    wlintv_p: cobj,
+    we_p: cobj,
+    data_etf_p: cobj,
+    etfphot_p: cobj,
+):
+    jlong_init_set_we_codon(nw, wc_p, wlintv_p, we_p)
+    rebin_codon(data_nw, nw, data_we_p, we_p, data_etf_p, etfphot_p)
+
 def jlong_get_xsqy_numj_codon(
     phtcnt: int,
     lng_indexer_p: cobj,

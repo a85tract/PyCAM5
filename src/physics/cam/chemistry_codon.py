@@ -57,6 +57,28 @@ def jlong_init_set_we_codon(
     )
 
 @export
+def jlong_init_solar_batch_codon(
+    data_nw: int,
+    nw: int,
+    data_we_p: cobj,
+    wc_p: cobj,
+    wlintv_p: cobj,
+    we_p: cobj,
+    data_etf_p: cobj,
+    etfphot_p: cobj,
+):
+    return _photolysis.jlong_init_solar_batch_codon(
+        data_nw,
+        nw,
+        data_we_p,
+        wc_p,
+        wlintv_p,
+        we_p,
+        data_etf_p,
+        etfphot_p,
+    )
+
+@export
 def jlong_get_xsqy_numj_codon(
     phtcnt: int,
     lng_indexer_p: cobj,

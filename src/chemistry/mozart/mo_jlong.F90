@@ -43,9 +43,9 @@
       integer               :: numalb  		! number of albedos in rsf
       integer               :: numcolo3		! number of o3 columns in rsf
       real(r4), allocatable, target :: xsqy(:,:,:,:)
-      real(r8), allocatable :: wc(:)
+      real(r8), allocatable, target :: wc(:)
       real(r8), allocatable, target :: we(:)
-      real(r8), allocatable :: wlintv(:)
+      real(r8), allocatable, target :: wlintv(:)
       real(r8), allocatable, target :: etfphot(:)
       real(r8), allocatable :: bde_o2_b(:)
       real(r8), allocatable :: bde_o3_a(:)
@@ -80,6 +80,9 @@
       logical :: jlong_timestep_init_impl_selected = .false.
       logical :: jlong_init_set_we_use_native_impl = .false.
       logical :: jlong_init_set_we_impl_selected = .false.
+      logical :: jlong_init_solar_batch_use_native_impl = .false.
+      logical :: jlong_init_solar_batch_impl_selected = .false.
+      logical :: jlong_init_solar_batch_proof_written = .false.
       logical :: jlong_get_xsqy_numj_use_native_impl = .false.
       logical :: jlong_get_xsqy_numj_impl_selected = .false.
       logical :: jlong_get_xsqy_read_order_use_native_impl = .false.
@@ -103,6 +106,7 @@
 
       subroutine jlong_init( xs_long_file, rsf_file, lng_indexer )
 
+      use iso_c_binding, only : c_int64_t, c_loc
       use ppgrid,         only : pver
       use time_manager,   only : is_end_curr_day
       use mo_util,        only : rebin
@@ -115,6 +119,15 @@
 !------------------------------------------------------------------------------
       integer, intent(inout)       :: lng_indexer(:)
       character(len=*), intent(in) :: xs_long_file, rsf_file
+
+      interface
+         subroutine jlong_init_solar_batch_codon(data_nw_c, nw_c, data_we_p, wc_p, wlintv_p, we_p, data_etf_p, &
+              etfphot_p) bind(c, name="jlong_init_solar_batch_codon")
+            use iso_c_binding, only : c_int64_t, c_ptr
+            integer(c_int64_t), value :: data_nw_c, nw_c
+            type(c_ptr), value :: data_we_p, wc_p, wlintv_p, we_p, data_etf_p, etfphot_p
+         end subroutine jlong_init_solar_batch_codon
+      end interface
 
 !------------------------------------------------------------------------------
 !     ... read Cross Section * QY NetCDF file
@@ -130,13 +143,29 @@
       call get_rsf(rsf_file)
       if(masterproc) write(iulog,*) 'jlong_init: after  get_rsf'
 
-      call jlong_init_set_we( nw, wc, wlintv, we )
+      call jlong_init_solar_batch_select_impl()
 
-      if (masterproc) then
-         write(iulog,*) ' '
-         write(iulog,*) '--------------------------------------------------'
-      endif
-      call rebin( data_nw, nw, data_we, we, data_etf, etfphot )
+      if (jlong_init_solar_batch_use_native_impl) then
+         call jlong_init_set_we( nw, wc, wlintv, we )
+         if (masterproc) then
+            write(iulog,*) ' '
+            write(iulog,*) '--------------------------------------------------'
+         endif
+         call rebin( data_nw, nw, data_we, we, data_etf, etfphot )
+      else
+         call jlong_init_solar_batch_codon( &
+              int(data_nw, c_int64_t), int(nw, c_int64_t), c_loc(data_we), c_loc(wc), c_loc(wlintv), c_loc(we), &
+              c_loc(data_etf), c_loc(etfphot) &
+         )
+         if (masterproc) then
+            if (.not. jlong_init_solar_batch_proof_written) then
+               write(iulog,'(A)') 'jlong_init solar batch entered (set_we/rebin direct = codon)'
+               jlong_init_solar_batch_proof_written = .true.
+            end if
+            write(iulog,*) ' '
+            write(iulog,*) '--------------------------------------------------'
+         endif
+      end if
       if (masterproc) then
          write(iulog,*) 'jlong_init: etfphot after data rebin'
          write(iulog,'(1p,5g15.7)') etfphot(:)
@@ -147,6 +176,43 @@
       jlong_used = .true.
  
       end subroutine jlong_init
+
+      subroutine jlong_init_solar_batch_select_impl()
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (jlong_init_solar_batch_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('JLONG_INIT_SOLAR_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         jlong_init_solar_batch_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         jlong_init_solar_batch_use_native_impl = .false.
+      end if
+
+      jlong_init_solar_batch_impl_selected = .true.
+
+      if (masterproc) then
+         if (jlong_init_solar_batch_use_native_impl) then
+            write(iulog,*) 'jlong_init_solar_batch implementation = native'
+         else
+            write(iulog,*) 'jlong_init_solar_batch implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine jlong_init_solar_batch_select_impl
 
       subroutine jlong_init_set_we( nw_in, wc_in, wlintv_in, we_out )
 
