@@ -101,8 +101,84 @@
       logical :: jlong_get_rsf_bde_impl_selected = .false.
       logical :: jlong_get_rsf_postread_batch_use_native_impl = .false.
       logical :: jlong_get_rsf_postread_batch_impl_selected = .false.
+      logical :: jlong_prep_batch_use_native_impl = .false.
+      logical :: jlong_prep_batch_impl_selected = .false.
+      logical :: jlong_prep_batch_entered_logged = .false.
 
       contains
+
+      subroutine jlong_prep_batch_append_proof(proof_line)
+
+      implicit none
+
+      character(len=*), intent(in) :: proof_line
+
+      character(len=512) :: proof_file
+      integer :: status, n, unitno
+
+      proof_file = ''
+      call get_environment_variable('JLONG_PREP_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+      if (status == 0 .and. n > 0) then
+         open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+         write(unitno,'(A)') trim(proof_line)
+         close(unitno)
+      end if
+
+      end subroutine jlong_prep_batch_append_proof
+
+      subroutine jlong_prep_batch_select_impl()
+
+      implicit none
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (jlong_prep_batch_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('JLONG_PREP_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         jlong_prep_batch_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         jlong_prep_batch_use_native_impl = .false.
+      end if
+
+      jlong_prep_batch_impl_selected = .true.
+
+      if (masterproc) then
+         if (jlong_prep_batch_use_native_impl) then
+            write(iulog,*) 'jlong_prep_batch implementation = native'
+            call jlong_prep_batch_append_proof('jlong_prep_batch selector entered implementation = native')
+         else
+            write(iulog,*) 'jlong_prep_batch implementation = codon'
+            call jlong_prep_batch_append_proof('jlong_prep_batch selector entered implementation = codon')
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine jlong_prep_batch_select_impl
+
+      subroutine jlong_prep_batch_log_entered()
+
+      implicit none
+
+      if (jlong_prep_batch_entered_logged) return
+      jlong_prep_batch_entered_logged = .true.
+
+      if (masterproc) then
+         write(iulog,'(A)') 'jlong_prep_batch entered (solar/xsqy/dprs/rsf scale/postread direct = codon)'
+         call jlong_prep_batch_append_proof('jlong_prep_batch entered (solar/xsqy/dprs/rsf scale/postread direct = codon)')
+         call flush(iulog)
+      end if
+
+      end subroutine jlong_prep_batch_log_entered
 
       subroutine jlong_init( xs_long_file, rsf_file, lng_indexer )
 
@@ -121,12 +197,12 @@
       character(len=*), intent(in) :: xs_long_file, rsf_file
 
       interface
-         subroutine jlong_init_solar_batch_codon(data_nw_c, nw_c, data_we_p, wc_p, wlintv_p, we_p, data_etf_p, &
-              etfphot_p) bind(c, name="jlong_init_solar_batch_codon")
+         subroutine jlong_prep_init_solar_batch_codon(data_nw_c, nw_c, data_we_p, wc_p, wlintv_p, we_p, data_etf_p, &
+              etfphot_p) bind(c, name="jlong_prep_init_solar_batch_codon")
             use iso_c_binding, only : c_int64_t, c_ptr
             integer(c_int64_t), value :: data_nw_c, nw_c
             type(c_ptr), value :: data_we_p, wc_p, wlintv_p, we_p, data_etf_p, etfphot_p
-         end subroutine jlong_init_solar_batch_codon
+         end subroutine jlong_prep_init_solar_batch_codon
       end interface
 
 !------------------------------------------------------------------------------
@@ -143,9 +219,9 @@
       call get_rsf(rsf_file)
       if(masterproc) write(iulog,*) 'jlong_init: after  get_rsf'
 
-      call jlong_init_solar_batch_select_impl()
+      call jlong_prep_batch_select_impl()
 
-      if (jlong_init_solar_batch_use_native_impl) then
+      if (jlong_prep_batch_use_native_impl) then
          call jlong_init_set_we( nw, wc, wlintv, we )
          if (masterproc) then
             write(iulog,*) ' '
@@ -153,7 +229,8 @@
          endif
          call rebin( data_nw, nw, data_we, we, data_etf, etfphot )
       else
-         call jlong_init_solar_batch_codon( &
+         call jlong_prep_batch_log_entered()
+         call jlong_prep_init_solar_batch_codon( &
               int(data_nw, c_int64_t), int(nw, c_int64_t), c_loc(data_we), c_loc(wc), c_loc(wlintv), c_loc(we), &
               c_loc(data_etf), c_loc(etfphot) &
          )
@@ -455,18 +532,18 @@
       integer(c_int64_t), target :: numj_c
 
       interface
-         subroutine jlong_get_xsqy_meta_batch_codon(phtcnt_c, lng_indexer_p, numj_p, read_varids_p) &
-              bind(c, name="jlong_get_xsqy_meta_batch_codon")
+         subroutine jlong_prep_get_xsqy_meta_batch_codon(phtcnt_c, lng_indexer_p, numj_p, read_varids_p) &
+              bind(c, name="jlong_prep_get_xsqy_meta_batch_codon")
             use iso_c_binding, only : c_int64_t, c_ptr
             integer(c_int64_t), value :: phtcnt_c
             type(c_ptr), value :: lng_indexer_p, numj_p, read_varids_p
-         end subroutine jlong_get_xsqy_meta_batch_codon
+         end subroutine jlong_prep_get_xsqy_meta_batch_codon
       end interface
 
-      call jlong_get_xsqy_meta_batch_select_impl()
+      call jlong_prep_batch_select_impl()
 
       read_varids_out(:) = 0
-      if (jlong_get_xsqy_meta_batch_use_native_impl) then
+      if (jlong_prep_batch_use_native_impl) then
          call jlong_get_xsqy_numj( phtcnt_in, lng_indexer_inout, numj_out )
          call jlong_get_xsqy_read_order( phtcnt_in, numj_out, lng_indexer_inout, read_varids_out )
          call jlong_get_xsqy_index_map( phtcnt_in, lng_indexer_inout )
@@ -474,7 +551,8 @@
       end if
 
       numj_c = 0_c_int64_t
-      call jlong_get_xsqy_meta_batch_codon( int(phtcnt_in, c_int64_t), c_loc(lng_indexer_inout), c_loc(numj_c), &
+      call jlong_prep_batch_log_entered()
+      call jlong_prep_get_xsqy_meta_batch_codon( int(phtcnt_in, c_int64_t), c_loc(lng_indexer_inout), c_loc(numj_c), &
            c_loc(read_varids_out) )
       numj_out = int(numj_c)
 
@@ -774,21 +852,22 @@
       real(r8), target, intent(inout) :: dprs_out(np_xs_in-1)
 
       interface
-         subroutine jlong_get_xsqy_dprs_codon(np_xs_c, prs_p, dprs_p) bind(c, name="jlong_get_xsqy_dprs_codon")
+         subroutine jlong_prep_get_xsqy_dprs_codon(np_xs_c, prs_p, dprs_p) bind(c, name="jlong_prep_get_xsqy_dprs_codon")
             use iso_c_binding, only : c_int64_t, c_ptr
             integer(c_int64_t), value :: np_xs_c
             type(c_ptr), value :: prs_p, dprs_p
-         end subroutine jlong_get_xsqy_dprs_codon
+         end subroutine jlong_prep_get_xsqy_dprs_codon
       end interface
 
-      call jlong_get_xsqy_dprs_select_impl()
+      call jlong_prep_batch_select_impl()
 
-      if (jlong_get_xsqy_dprs_use_native_impl) then
+      if (jlong_prep_batch_use_native_impl) then
          dprs_out(:np_xs_in-1) = 1._r8/(prs_in(1:np_xs_in-1) - prs_in(2:np_xs_in))
          return
       end if
 
-      call jlong_get_xsqy_dprs_codon( int(np_xs_in, c_int64_t), c_loc(prs_in), c_loc(dprs_out) )
+      call jlong_prep_batch_log_entered()
+      call jlong_prep_get_xsqy_dprs_codon( int(np_xs_in, c_int64_t), c_loc(prs_in), c_loc(dprs_out) )
 
       end subroutine jlong_get_xsqy_dprs
 
@@ -1022,27 +1101,28 @@
                                          del_o3rat_out(numcolo3_in-1)
 
       interface
-         subroutine jlong_get_rsf_postread_batch_codon(nw_c, nump_c, numsza_c, numalb_c, numcolo3_c, use_bde_flag_c, &
+         subroutine jlong_prep_get_rsf_postread_batch_codon(nw_c, nump_c, numsza_c, numalb_c, numcolo3_c, use_bde_flag_c, &
               hc_c, wc_o2_b_c, wc_o3_a_c, wc_o3_b_c, wc_p, p_p, sza_p, alb_p, o3rat_p, bde_o2_b_p, bde_o3_a_p, &
-              bde_o3_b_p, del_p_p, del_sza_p, del_alb_p, del_o3rat_p) bind(c, name="jlong_get_rsf_postread_batch_codon")
+              bde_o3_b_p, del_p_p, del_sza_p, del_alb_p, del_o3rat_p) bind(c, name="jlong_prep_get_rsf_postread_batch_codon")
             use iso_c_binding, only : c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: nw_c, nump_c, numsza_c, numalb_c, numcolo3_c, use_bde_flag_c
             real(c_double), value :: hc_c, wc_o2_b_c, wc_o3_a_c, wc_o3_b_c
             type(c_ptr), value :: wc_p, p_p, sza_p, alb_p, o3rat_p
             type(c_ptr), value :: bde_o2_b_p, bde_o3_a_p, bde_o3_b_p, del_p_p, del_sza_p, del_alb_p, del_o3rat_p
-         end subroutine jlong_get_rsf_postread_batch_codon
+         end subroutine jlong_prep_get_rsf_postread_batch_codon
       end interface
 
-      call jlong_get_rsf_postread_batch_select_impl()
+      call jlong_prep_batch_select_impl()
 
-      if (jlong_get_rsf_postread_batch_use_native_impl) then
+      if (jlong_prep_batch_use_native_impl) then
          call jlong_get_rsf_bde( nw_in, use_bde_flag_in, wc_in, bde_o2_b_out, bde_o3_a_out, bde_o3_b_out )
          call jlong_get_rsf_deltas( nump_in, numsza_in, numalb_in, numcolo3_in, p_in, sza_in, alb_in, o3rat_in, &
               del_p_out, del_sza_out, del_alb_out, del_o3rat_out )
          return
       end if
 
-      call jlong_get_rsf_postread_batch_codon( &
+      call jlong_prep_batch_log_entered()
+      call jlong_prep_get_rsf_postread_batch_codon( &
            int(nw_in, c_int64_t), int(nump_in, c_int64_t), int(numsza_in, c_int64_t), int(numalb_in, c_int64_t), &
            int(numcolo3_in, c_int64_t), int(use_bde_flag_in, c_int64_t), real(hc, c_double), real(wc_o2_b, c_double), &
            real(wc_o3_a, c_double), real(wc_o3_b, c_double), c_loc(wc_in), c_loc(p_in), c_loc(sza_in), c_loc(alb_in), &
@@ -1103,17 +1183,17 @@
       real(r8) :: wrk
 
       interface
-         subroutine jlong_get_rsf_scale_codon(nw_c, nump_c, numsza_c, numcolo3_c, numalb_c, wlintv_p, rsf_tab_p) &
-              bind(c, name="jlong_get_rsf_scale_codon")
+         subroutine jlong_prep_get_rsf_scale_codon(nw_c, nump_c, numsza_c, numcolo3_c, numalb_c, wlintv_p, rsf_tab_p) &
+              bind(c, name="jlong_prep_get_rsf_scale_codon")
             use iso_c_binding, only : c_int64_t, c_ptr
             integer(c_int64_t), value :: nw_c, nump_c, numsza_c, numcolo3_c, numalb_c
             type(c_ptr), value :: wlintv_p, rsf_tab_p
-         end subroutine jlong_get_rsf_scale_codon
+         end subroutine jlong_prep_get_rsf_scale_codon
       end interface
 
-      call jlong_get_rsf_scale_select_impl()
+      call jlong_prep_batch_select_impl()
 
-      if (jlong_get_rsf_scale_use_native_impl) then
+      if (jlong_prep_batch_use_native_impl) then
          do w = 1,nw_in
             wrk = wlintv_in(w)
             rsf_tab_inout(w,:,:,:,:) = wrk*rsf_tab_inout(w,:,:,:,:)
@@ -1121,7 +1201,8 @@
          return
       end if
 
-      call jlong_get_rsf_scale_codon( &
+      call jlong_prep_batch_log_entered()
+      call jlong_prep_get_rsf_scale_codon( &
            int(nw_in, c_int64_t), int(nump_in, c_int64_t), int(numsza_in, c_int64_t), int(numcolo3_in, c_int64_t), &
            int(numalb_in, c_int64_t), c_loc(wlintv_in), c_loc(rsf_tab_inout) &
       )
