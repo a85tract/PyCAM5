@@ -1174,6 +1174,26 @@ def gas_phase_chemdr_reform_hno3_hcl_codon(
             hcl_idx = _idx3(i, k, hcl_ndx, ncol, pver)
             vmr[hcl_idx] = vmr[hcl_idx] + hcl_cond[_idx2(i, k, ncol)]
 
+def gas_phase_chemdr_stratchem_finalize_batch_codon(
+    ncol: int,
+    pver: int,
+    gas_pcnst: int,
+    hno3_ndx: int,
+    hcl_ndx: int,
+    h2o_ndx: int,
+    delt_inverse: float,
+    vmr_p: cobj,
+    hno3_cond_p: cobj,
+    hcl_cond_p: cobj,
+    wrk_p: cobj,
+):
+    gas_phase_chemdr_reform_hno3_hcl_codon(
+        ncol, pver, gas_pcnst, hno3_ndx, hcl_ndx, vmr_p, hno3_cond_p, hcl_cond_p
+    )
+    gas_phase_chemdr_update_qdsett_wrk_codon(
+        ncol, pver, gas_pcnst, h2o_ndx, delt_inverse, vmr_p, wrk_p
+    )
+
 def gas_phase_chemdr_normalize_extfrc_codon(
     ncol: int,
     pver: int,
@@ -1335,6 +1355,9 @@ def gas_phase_chemdr_shell_codon(
     indexm: int,
     has_linoz_data_flag: int,
     h2o_ndx: int,
+    hno3_ndx: int,
+    hcl_ndx: int,
+    cldice_ndx: int,
     st80_25_ndx: int,
     aoa_nh_ndx: int,
     nh_5_ndx: int,
@@ -1400,6 +1423,13 @@ def gas_phase_chemdr_shell_codon(
     prect_p: cobj,
     cflx_p: cobj,
     drydepflx_p: cobj,
+    hcl_cond_p: cobj,
+    hcl_gas_p: cobj,
+    hno3_gas_p: cobj,
+    h2o_gas_p: cobj,
+    wrk_p: cobj,
+    cldice_p: cobj,
+    hno3_cond_p: cobj,
 ):
     if stage == 1:
         gas_phase_chemdr_prepare_sza_codon(ncol, rad2deg, zen_angle_p, sza_p)
@@ -1455,6 +1485,27 @@ def gas_phase_chemdr_shell_codon(
     elif stage == 15:
         gas_phase_chemdr_store_drydep_codon(
             ncol, pcols, gas_pcnst, pcnst, map2chm_p, sflx_p, cflx_p, drydepflx_p
+        )
+    elif stage == 16:
+        gas_phase_chemdr_init_stratchem_state_codon(
+            ncol, pcols, pver, gas_pcnst, pcnst, hno3_ndx, hcl_ndx, cldice_ndx, vmr_p, h2ovmr_p, q_p,
+            hcl_cond_p, hcl_gas_p, hno3_gas_p, h2o_gas_p, wrk_p, cldice_p, hno3_cond_p
+        )
+    elif stage == 17:
+        gas_phase_chemdr_restore_strat_gases_codon(
+            ncol, pver, gas_pcnst, hno3_ndx, h2o_ndx, delt_inverse, vmr_p, hno3_gas_p, h2o_gas_p, h2ovmr_p,
+            wrk_p
+        )
+    elif stage == 18:
+        gas_phase_chemdr_restore_hcl_gas_codon(ncol, pver, gas_pcnst, hcl_ndx, vmr_p, hcl_gas_p)
+    elif stage == 19:
+        gas_phase_chemdr_update_qdchem_wrk_codon(ncol, pver, gas_pcnst, h2o_ndx, delt_inverse, vmr_p, wrk_p)
+    elif stage == 20:
+        gas_phase_chemdr_copy_h2o_to_wrk_codon(ncol, pver, gas_pcnst, h2o_ndx, vmr_p, wrk_p)
+    elif stage == 21:
+        gas_phase_chemdr_stratchem_finalize_batch_codon(
+            ncol, pver, gas_pcnst, hno3_ndx, hcl_ndx, h2o_ndx, delt_inverse, vmr_p, hno3_cond_p, hcl_cond_p,
+            wrk_p
         )
 
 def set_xnox_photo_codon(

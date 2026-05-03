@@ -3312,6 +3312,9 @@ def gas_phase_chemdr_shell_codon(
     indexm: int,
     has_linoz_data_flag: int,
     h2o_ndx: int,
+    hno3_ndx: int,
+    hcl_ndx: int,
+    cldice_ndx: int,
     st80_25_ndx: int,
     aoa_nh_ndx: int,
     nh_5_ndx: int,
@@ -3377,6 +3380,13 @@ def gas_phase_chemdr_shell_codon(
     prect_p: cobj,
     cflx_p: cobj,
     drydepflx_p: cobj,
+    hcl_cond_p: cobj,
+    hcl_gas_p: cobj,
+    hno3_gas_p: cobj,
+    h2o_gas_p: cobj,
+    wrk_p: cobj,
+    cldice_p: cobj,
+    hno3_cond_p: cobj,
 ):
     return _gas_phase.gas_phase_chemdr_shell_codon(
         stage,
@@ -3391,6 +3401,9 @@ def gas_phase_chemdr_shell_codon(
         indexm,
         has_linoz_data_flag,
         h2o_ndx,
+        hno3_ndx,
+        hcl_ndx,
+        cldice_ndx,
         st80_25_ndx,
         aoa_nh_ndx,
         nh_5_ndx,
@@ -3456,6 +3469,13 @@ def gas_phase_chemdr_shell_codon(
         prect_p,
         cflx_p,
         drydepflx_p,
+        hcl_cond_p,
+        hcl_gas_p,
+        hno3_gas_p,
+        h2o_gas_p,
+        wrk_p,
+        cldice_p,
+        hno3_cond_p,
     )
 
 @export
