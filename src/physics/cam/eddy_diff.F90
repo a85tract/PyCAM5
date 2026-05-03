@@ -212,6 +212,9 @@
   logical                     :: use_native_trbintd_core_batch_impl = .false.
   logical                     :: trbintd_core_batch_impl_selected = .false.
   logical                     :: trbintd_core_batch_entered_logged = .false.
+  logical                     :: use_native_driver_tail_batch_impl = .false.
+  logical                     :: driver_tail_batch_impl_selected = .false.
+  logical                     :: driver_tail_batch_entered_logged = .false.
   logical                     :: use_native_zero_nonlocal_impl = .false.
   logical                     :: zero_nonlocal_impl_selected = .false.
   logical                     :: use_native_restore_fields_impl = .false.
@@ -1030,7 +1033,8 @@
            if (use_native_compute_path) then
               call eddy_diff_error_pbl_native(ncol, pcols, pver, kvh, kvh_out, errorPBL)
            else
-              call eddy_diff_error_pbl(ncol, pcols, pver, kvh, kvh_out, errorPBL)
+              call eddy_diff_driver_tail_batch_call(1, ncol, pcols, pver, ncvmax, lambda, kvh, kvh_out, errorPBL, kvm, &
+                   kvm_out, cgh, cgs, sl, qt, u, v, slfd, qtfd, ufd, vfd, ipbl, wstar, wstarPBL)
            end if
        end if
 
@@ -1041,7 +1045,8 @@
            if (use_native_compute_path) then
               call eddy_diff_kv_relax_native(ncol, pcols, pver, lambda, kvm, kvh, kvm_out, kvh_out)
            else
-              call eddy_diff_kv_relax(ncol, pcols, pver, lambda, kvm, kvh, kvm_out, kvh_out)
+              call eddy_diff_driver_tail_batch_call(2, ncol, pcols, pver, ncvmax, lambda, kvh, kvh_out, errorPBL, kvm, &
+                   kvm_out, cgh, cgs, sl, qt, u, v, slfd, qtfd, ufd, vfd, ipbl, wstar, wstarPBL)
            end if
        endif
 
@@ -1050,7 +1055,8 @@
        if (use_native_compute_path) then
           call eddy_diff_zero_nonlocal_native(ncol, pcols, pver, cgh, cgs)
        else
-          call eddy_diff_zero_nonlocal(ncol, pcols, pver, cgh, cgs)
+          call eddy_diff_driver_tail_batch_call(3, ncol, pcols, pver, ncvmax, lambda, kvh, kvh_out, errorPBL, kvm, &
+               kvm_out, cgh, cgs, sl, qt, u, v, slfd, qtfd, ufd, vfd, ipbl, wstar, wstarPBL)
        end if
 
        if( iturb .lt. nturb ) then
@@ -1060,7 +1066,8 @@
            if (use_native_compute_path) then
               call eddy_diff_restore_fields_native(ncol, pcols, pver, sl, qt, u, v, slfd, qtfd, ufd, vfd)
            else
-              call eddy_diff_restore_fields(ncol, pcols, pver, sl, qt, u, v, slfd, qtfd, ufd, vfd)
+              call eddy_diff_driver_tail_batch_call(4, ncol, pcols, pver, ncvmax, lambda, kvh, kvh_out, errorPBL, kvm, &
+                   kvm_out, cgh, cgs, sl, qt, u, v, slfd, qtfd, ufd, vfd, ipbl, wstar, wstarPBL)
            end if
 
          !------------------------------------------------------------------------ 
@@ -1126,7 +1133,8 @@
     if (use_native_compute_path) then
        call eddy_diff_wstar_pbl_native(ncol, pcols, ncvmax, ipbl, wstar, wstarPBL)
     else
-       call eddy_diff_wstar_pbl(ncol, pcols, ncvmax, ipbl, wstar, wstarPBL)
+       call eddy_diff_driver_tail_batch_call(5, ncol, pcols, pver, ncvmax, lambda, kvh, kvh_out, errorPBL, kvm, &
+            kvm_out, cgh, cgs, sl, qt, u, v, slfd, qtfd, ufd, vfd, ipbl, wstar, wstarPBL)
     end if
 
     ! --------------------------------------------------------------- !
@@ -1330,6 +1338,161 @@
     end if
 
   end subroutine eddy_diff_trbintd_core_batch_log_entered
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_driver_tail_batch_append_proof(proof_line)
+
+    implicit none
+
+    character(len=*), intent(in) :: proof_line
+
+    character(len=512) :: proof_file
+    integer :: status, n, unitno
+
+    proof_file = ''
+    call get_environment_variable('EDDY_DIFF_DRIVER_TAIL_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+       write(unitno,'(A)') trim(proof_line)
+       close(unitno)
+    end if
+
+  end subroutine eddy_diff_driver_tail_batch_append_proof
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_driver_tail_batch_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (driver_tail_batch_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_DRIVER_TAIL_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_driver_tail_batch_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_driver_tail_batch_impl = .false.
+    end if
+
+    driver_tail_batch_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_driver_tail_batch_impl) then
+          write(iulog,*) 'eddy_diff_driver_tail_batch implementation = native'
+          write(*,*) 'eddy_diff_driver_tail_batch implementation = native'
+          call eddy_diff_append_impl_trace('eddy_diff_driver_tail_batch implementation = native')
+          call eddy_diff_driver_tail_batch_append_proof('eddy_diff_driver_tail_batch selector entered implementation = native')
+       else
+          write(iulog,*) 'eddy_diff_driver_tail_batch implementation = codon'
+          write(*,*) 'eddy_diff_driver_tail_batch implementation = codon'
+          call eddy_diff_append_impl_trace('eddy_diff_driver_tail_batch implementation = codon')
+          call eddy_diff_driver_tail_batch_append_proof('eddy_diff_driver_tail_batch selector entered implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine eddy_diff_driver_tail_batch_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_driver_tail_batch_log_entered()
+
+    implicit none
+
+    if (driver_tail_batch_entered_logged) return
+    driver_tail_batch_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'eddy_diff_driver_tail_batch entered (error/relax/zero/restore/wstar direct = codon)'
+       write(*,*) 'eddy_diff_driver_tail_batch entered (error/relax/zero/restore/wstar direct = codon)'
+       call eddy_diff_append_impl_trace('eddy_diff_driver_tail_batch entered (error/relax/zero/restore/wstar direct = codon)')
+       call eddy_diff_driver_tail_batch_append_proof('eddy_diff_driver_tail_batch entered (error/relax/zero/restore/wstar direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine eddy_diff_driver_tail_batch_log_entered
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_driver_tail_batch_call(stage, ncol, pcols, pver, ncvmax_local, lambda_local, kvh_local, &
+       kvh_out_local, errorPBL_local, kvm_local, kvm_out_local, cgh_local, cgs_local, sl_local, qt_local, u_local, &
+       v_local, slfd_local, qtfd_local, ufd_local, vfd_local, ipbl_local, wstar_local, wstarPBL_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: stage, ncol, pcols, pver, ncvmax_local
+    real(r8), intent(in) :: lambda_local
+    real(r8), target, intent(in) :: kvh_local(pcols,pver+1), kvm_local(pcols,pver+1)
+    real(r8), target, intent(inout) :: kvh_out_local(pcols,pver+1), kvm_out_local(pcols,pver+1)
+    real(r8), target, intent(inout) :: errorPBL_local(pcols), cgh_local(pcols,pver+1), cgs_local(pcols,pver+1)
+    real(r8), target, intent(in) :: sl_local(pcols,pver), qt_local(pcols,pver), u_local(pcols,pver), v_local(pcols,pver)
+    real(r8), target, intent(inout) :: slfd_local(pcols,pver), qtfd_local(pcols,pver), ufd_local(pcols,pver), vfd_local(pcols,pver)
+    integer(i4), target, intent(in) :: ipbl_local(pcols)
+    real(r8), target, intent(in) :: wstar_local(pcols,ncvmax_local)
+    real(r8), target, intent(inout) :: wstarPBL_local(pcols)
+
+    interface
+       subroutine eddy_diff_driver_tail_batch_codon(stage_c, ncol_c, pcols_c, pver_c, ncvmax_c, lambda_c, kvh_p, &
+            kvh_out_p, errorPBL_p, kvm_p, kvm_out_p, cgh_p, cgs_p, sl_p, qt_p, u_p, v_p, slfd_p, qtfd_p, ufd_p, &
+            vfd_p, ipbl_p, wstar_p, wstarPBL_p) bind(c, name="eddy_diff_driver_tail_batch_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, ncvmax_c
+         real(c_double), value :: lambda_c
+         type(c_ptr), value :: kvh_p, kvh_out_p, errorPBL_p, kvm_p, kvm_out_p, cgh_p, cgs_p
+         type(c_ptr), value :: sl_p, qt_p, u_p, v_p, slfd_p, qtfd_p, ufd_p, vfd_p, ipbl_p, wstar_p, wstarPBL_p
+       end subroutine eddy_diff_driver_tail_batch_codon
+    end interface
+
+    call eddy_diff_driver_tail_batch_select_impl()
+
+    if (use_native_driver_tail_batch_impl) then
+       select case (stage)
+       case (1)
+          call eddy_diff_error_pbl(ncol, pcols, pver, kvh_local, kvh_out_local, errorPBL_local)
+       case (2)
+          call eddy_diff_kv_relax(ncol, pcols, pver, lambda_local, kvm_local, kvh_local, kvm_out_local, kvh_out_local)
+       case (3)
+          call eddy_diff_zero_nonlocal(ncol, pcols, pver, cgh_local, cgs_local)
+       case (4)
+          call eddy_diff_restore_fields(ncol, pcols, pver, sl_local, qt_local, u_local, v_local, slfd_local, qtfd_local, &
+               ufd_local, vfd_local)
+       case (5)
+          call eddy_diff_wstar_pbl(ncol, pcols, ncvmax_local, ipbl_local, wstar_local, wstarPBL_local)
+       end select
+       return
+    end if
+
+    call eddy_diff_driver_tail_batch_log_entered()
+    call eddy_diff_driver_tail_batch_codon( &
+         int(stage, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(ncvmax_local, c_int64_t), real(lambda_local, c_double), c_loc(kvh_local), c_loc(kvh_out_local), &
+         c_loc(errorPBL_local), c_loc(kvm_local), c_loc(kvm_out_local), c_loc(cgh_local), c_loc(cgs_local), &
+         c_loc(sl_local), c_loc(qt_local), c_loc(u_local), c_loc(v_local), c_loc(slfd_local), c_loc(qtfd_local), &
+         c_loc(ufd_local), c_loc(vfd_local), c_loc(ipbl_local), c_loc(wstar_local), c_loc(wstarPBL_local))
+
+  end subroutine eddy_diff_driver_tail_batch_call
 
   !=============================================================================== !
   !                                                                                !

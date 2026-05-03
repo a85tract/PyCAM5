@@ -899,6 +899,86 @@ def eddy_diff_wstar_pbl_codon(
 
 
 @export
+def eddy_diff_driver_tail_batch_codon(
+    stage: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    ncvmax: int,
+    lambda_v: float,
+    kvh_p: cobj,
+    kvh_out_p: cobj,
+    errorPBL_p: cobj,
+    kvm_p: cobj,
+    kvm_out_p: cobj,
+    cgh_p: cobj,
+    cgs_p: cobj,
+    sl_p: cobj,
+    qt_p: cobj,
+    u_p: cobj,
+    v_p: cobj,
+    slfd_p: cobj,
+    qtfd_p: cobj,
+    ufd_p: cobj,
+    vfd_p: cobj,
+    ipbl_p: cobj,
+    wstar_p: cobj,
+    wstarPBL_p: cobj,
+):
+    if stage == 1:
+        eddy_diff_error_pbl_codon(
+            ncol,
+            pcols,
+            pver,
+            kvh_p,
+            kvh_out_p,
+            errorPBL_p,
+        )
+    elif stage == 2:
+        eddy_diff_kv_relax_codon(
+            ncol,
+            pcols,
+            pver,
+            lambda_v,
+            kvm_p,
+            kvh_p,
+            kvm_out_p,
+            kvh_out_p,
+        )
+    elif stage == 3:
+        eddy_diff_zero_nonlocal_codon(
+            ncol,
+            pcols,
+            pver,
+            cgh_p,
+            cgs_p,
+        )
+    elif stage == 4:
+        eddy_diff_restore_fields_codon(
+            ncol,
+            pcols,
+            pver,
+            sl_p,
+            qt_p,
+            u_p,
+            v_p,
+            slfd_p,
+            qtfd_p,
+            ufd_p,
+            vfd_p,
+        )
+    elif stage == 5:
+        eddy_diff_wstar_pbl_codon(
+            ncol,
+            pcols,
+            ncvmax,
+            ipbl_p,
+            wstar_p,
+            wstarPBL_p,
+        )
+
+
+@export
 def eddy_diff_caleddy_init_codon(
     ncol: int,
     pcols: int,
