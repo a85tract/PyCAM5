@@ -24,7 +24,7 @@ module mo_gas_phase_chemdr
 
   integer :: synoz_ndx, so4_ndx, h2o_ndx, o2_ndx, o_ndx, h_ndx, n_ndx, hno3_ndx, hcl_ndx, dst_ndx, cldice_ndx
   integer :: elec_ndx, np_ndx, n2p_ndx, op_ndx, o2p_ndx, nop_ndx
-  integer :: o3_ndx, o3s_ndx
+  integer :: o3_ndx, o3s_ndx, jo1d_adj_ndx
   integer :: het1_ndx
   integer :: ndx_cldfr, ndx_cmfdqr, ndx_nevapr, ndx_cldtop, ndx_prain
   integer :: ndx_h2so4
@@ -79,6 +79,8 @@ module mo_gas_phase_chemdr
   integer, parameter :: gas_phase_chemdr_shell_stage_h2o_from_q = 23
   integer, parameter :: gas_phase_chemdr_shell_stage_charge_balance = 24
   integer, parameter :: gas_phase_chemdr_shell_stage_oxygen_mmr = 25
+  integer, parameter :: gas_phase_chemdr_shell_stage_adjrxt_setcol = 26
+  integer, parameter :: gas_phase_chemdr_shell_stage_o1d_to_2oh_adj = 27
 
 contains
 
@@ -149,6 +151,7 @@ contains
     call addfld('O3S_LOSS','mol/mol',pver,'I','O3S loss rate', phys_decomp )
 !
     het1_ndx= get_rxt_ndx('het1')
+    jo1d_adj_ndx = get_rxt_ndx('j2oh')
     o3_ndx  = get_spc_ndx('O3')
     o3s_ndx = get_spc_ndx('O3S')
     o_ndx   = get_spc_ndx('O')
@@ -763,15 +766,20 @@ contains
        call outfld( rxn_names(i-phtcnt), reaction_rates(:,:,i), ncol, lchnk )
     enddo
 
-    call adjrxt( reaction_rates, invariants, invariants(1,1,indexm), ncol )
+    if (gas_phase_chemdr_use_codon_shell_impl) then
+       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_adjrxt_setcol, ncol, &
+            reaction_rates=reaction_rates, invariants=invariants, col_delta=col_delta, col_dens=col_dens)
+    else
+       call adjrxt( reaction_rates, invariants, invariants(1,1,indexm), ncol )
 
-    !-----------------------------------------------------------------------
-    !        ... Compute the photolysis rates at time = t(n+1)
-    !-----------------------------------------------------------------------      
-    !-----------------------------------------------------------------------      
-    !     	... Set the column densities
-    !-----------------------------------------------------------------------      
-    call setcol( col_delta, col_dens, vmr, pdel,  ncol )
+       !-----------------------------------------------------------------------
+       !        ... Compute the photolysis rates at time = t(n+1)
+       !-----------------------------------------------------------------------
+       !-----------------------------------------------------------------------
+       !     	... Set the column densities
+       !-----------------------------------------------------------------------
+       call setcol( col_delta, col_dens, vmr, pdel,  ncol )
+    end if
 
     !-----------------------------------------------------------------------      
     !     	... Calculate the photodissociation rates
@@ -820,7 +828,12 @@ contains
     !-----------------------------------------------------------------------      
     !     	... Adjust the photodissociation rates
     !-----------------------------------------------------------------------  
-    call O1D_to_2OH_adj( reaction_rates, invariants, invariants(:,:,indexm), ncol, tfld )
+    if (gas_phase_chemdr_use_codon_shell_impl) then
+       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_o1d_to_2oh_adj, ncol, &
+            reaction_rates=reaction_rates, invariants=invariants, tfld=tfld)
+    else
+       call O1D_to_2OH_adj( reaction_rates, invariants, invariants(:,:,indexm), ncol, tfld )
+    end if
     call phtadj( reaction_rates, invariants, invariants(:,:,indexm), ncol )
 
     !-----------------------------------------------------------------------
@@ -2437,13 +2450,15 @@ contains
   subroutine gas_phase_chemdr_shell_codon_wrap(stage, ncol, rad2deg_in, delt_in, delt_inverse_in, &
        zen_angle, sza, phis, zi, zm, pmid, zsurf, zintr, zmidr, zmid, zint, pmb, q, mmr, mbar, vmr, qh2o, &
        h2ovmr, rlats, sulfate, satq, relhum, cldw, cwat, extfrc, invariants, het_rates, reaction_rates, &
+       col_delta, col_dens, &
        troplev, ltrop_sol, del_h2so4_gasprod, vmr0, o3s_loss, mmr_tend, mmr_new, qtend, tfld, tvs, sflx, &
        ufld, vfld, wind_speed, precc, precl, prect, cflx, drydepflx, o2mmr, ommr, &
        hcl_cond, hcl_gas, hno3_gas, h2o_gas, wrk, cldice, hno3_cond)
 
     use iso_c_binding, only : c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
     use physconst, only : rga, mwdry
-    use chem_mods, only : nfs, indexm, adv_mass
+    use chem_mods, only : nfs, indexm, adv_mass, nabscol
+    use mo_setinv, only : inv_n2_ndx => n2_ndx, inv_o2_ndx => o2_ndx, inv_h2o_ndx => h2o_ndx
     use linoz_data, only : has_linoz_data
     use phys_control, only : waccmx_is
 
@@ -2465,6 +2480,8 @@ contains
     real(r8), target, optional, intent(inout) :: extfrc(ncol,pver,max(1,extcnt))
     real(r8), target, optional, intent(inout) :: het_rates(ncol,pver,max(1,gas_pcnst))
     real(r8), target, optional, intent(inout) :: reaction_rates(ncol,pver,max(1,rxntot))
+    real(r8), target, optional, intent(inout) :: col_delta(ncol,0:pver,max(1,nabscol))
+    real(r8), target, optional, intent(inout) :: col_dens(ncol,pver,max(1,nabscol))
     real(r8), target, optional, intent(inout) :: del_h2so4_gasprod(ncol,pver), vmr0(ncol,pver,gas_pcnst)
     real(r8), target, optional, intent(inout) :: mmr_tend(pcols,pver,gas_pcnst), mmr_new(pcols,pver,gas_pcnst)
     real(r8), target, optional, intent(inout) :: qtend(pcols,pver,pcnst), tvs(pcols), sflx(pcols,gas_pcnst)
@@ -2489,6 +2506,7 @@ contains
     type(c_ptr) :: zen_angle_p, sza_p, phis_p, zi_p, zm_p, pmid_p, zsurf_p, zintr_p, zmidr_p, zmid_p
     type(c_ptr) :: zint_p, pmb_p, q_p, mmr_p, mbar_p, vmr_p, qh2o_p, h2ovmr_p, rlats_p, sulfate_p, satq_p
     type(c_ptr) :: relhum_p, cldw_p, cwat_p, extfrc_p, invariants_p, het_rates_p, reaction_rates_p
+    type(c_ptr) :: col_delta_p, col_dens_p
     type(c_ptr) :: del_h2so4_gasprod_p, vmr0_p, o3s_loss_p, mmr_tend_p, mmr_new_p, qtend_p
     type(c_ptr) :: tfld_p, tvs_p, sflx_p, ufld_p, vfld_p, wind_speed_p, precc_p, precl_p, prect_p
     type(c_ptr) :: cflx_p, drydepflx_p, o2mmr_p, ommr_p, adv_mass_p
@@ -2496,7 +2514,8 @@ contains
 
     interface
        subroutine gas_phase_chemdr_shell_codon(stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, pcnst_c, &
-            rxntot_c, extcnt_c, nfs_c, indexm_c, has_linoz_data_c, h2o_ndx_c, o2_ndx_c, o_ndx_c, &
+            rxntot_c, extcnt_c, nfs_c, indexm_c, nabscol_c, jo1d_adj_ndx_c, inv_n2_ndx_c, inv_o2_ndx_c, &
+            inv_h2o_ndx_c, has_linoz_data_c, h2o_ndx_c, o2_ndx_c, o_ndx_c, &
             hno3_ndx_c, hcl_ndx_c, cldice_ndx_c, st80_25_ndx_c, aoa_nh_ndx_c, nh_5_ndx_c, nh_50_ndx_c, nh_50w_ndx_c, so4_ndx_c, &
             st80_25_tau_ndx_c, ndx_h2so4_c, o3_ndx_c, &
             o3s_ndx_c, synoz_ndx_c, aoa_nh_ext_ndx_c, h_ndx_c, n_ndx_c, elec_ndx_c, np_ndx_c, n2p_ndx_c, &
@@ -2505,13 +2524,15 @@ contains
             sza_p, phis_p, zi_p, zm_p, pmid_p, &
             zsurf_p, zintr_p, zmidr_p, zmid_p, zint_p, pmb_p, q_p, mmr_p, mbar_p, vmr_p, qh2o_p, h2ovmr_p, rlats_p, &
             sulfate_p, satq_p, relhum_p, cldw_p, cwat_p, extfrc_p, invariants_p, het_rates_p, reaction_rates_p, &
+            col_delta_p, col_dens_p, &
             del_h2so4_gasprod_p, vmr0_p, o3s_loss_p, mmr_tend_p, mmr_new_p, qtend_p, tfld_p, tvs_p, sflx_p, &
             ufld_p, vfld_p, wind_speed_p, precc_p, precl_p, prect_p, cflx_p, drydepflx_p, o2mmr_p, ommr_p, hcl_cond_p, &
             hcl_gas_p, hno3_gas_p, h2o_gas_p, wrk_p, cldice_p, hno3_cond_p) &
             bind(c, name="gas_phase_chemdr_shell_codon")
          use iso_c_binding, only : c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, pcnst_c
-         integer(c_int64_t), value :: rxntot_c, extcnt_c, nfs_c, indexm_c, has_linoz_data_c
+         integer(c_int64_t), value :: rxntot_c, extcnt_c, nfs_c, indexm_c, nabscol_c
+         integer(c_int64_t), value :: jo1d_adj_ndx_c, inv_n2_ndx_c, inv_o2_ndx_c, inv_h2o_ndx_c, has_linoz_data_c
          integer(c_int64_t), value :: h2o_ndx_c, o2_ndx_c, o_ndx_c, hno3_ndx_c, hcl_ndx_c, cldice_ndx_c
          integer(c_int64_t), value :: st80_25_ndx_c, aoa_nh_ndx_c, nh_5_ndx_c, nh_50_ndx_c
          integer(c_int64_t), value :: nh_50w_ndx_c, so4_ndx_c, st80_25_tau_ndx_c, ndx_h2so4_c
@@ -2522,7 +2543,8 @@ contains
          type(c_ptr), value :: map2chm_p, adv_mass_p, troplev_p, ltrop_sol_p, zen_angle_p, sza_p, phis_p, zi_p, zm_p
          type(c_ptr), value :: pmid_p, zsurf_p, zintr_p, zmidr_p, zmid_p, zint_p, pmb_p, q_p, mmr_p, mbar_p, vmr_p
          type(c_ptr), value :: qh2o_p, h2ovmr_p, rlats_p, sulfate_p, satq_p, relhum_p, cldw_p, cwat_p
-         type(c_ptr), value :: extfrc_p, invariants_p, het_rates_p, reaction_rates_p, del_h2so4_gasprod_p
+         type(c_ptr), value :: extfrc_p, invariants_p, het_rates_p, reaction_rates_p, col_delta_p, col_dens_p
+         type(c_ptr), value :: del_h2so4_gasprod_p
          type(c_ptr), value :: vmr0_p, o3s_loss_p, mmr_tend_p, mmr_new_p, qtend_p, tfld_p, tvs_p, sflx_p
          type(c_ptr), value :: ufld_p, vfld_p, wind_speed_p, precc_p, precl_p, prect_p, cflx_p, drydepflx_p
          type(c_ptr), value :: o2mmr_p, ommr_p
@@ -2594,6 +2616,8 @@ contains
     invariants_p = c_null_ptr; if (present(invariants)) invariants_p = c_loc(invariants)
     het_rates_p = c_null_ptr; if (present(het_rates)) het_rates_p = c_loc(het_rates)
     reaction_rates_p = c_null_ptr; if (present(reaction_rates)) reaction_rates_p = c_loc(reaction_rates)
+    col_delta_p = c_null_ptr; if (present(col_delta)) col_delta_p = c_loc(col_delta)
+    col_dens_p = c_null_ptr; if (present(col_dens)) col_dens_p = c_loc(col_dens)
     del_h2so4_gasprod_p = c_null_ptr; if (present(del_h2so4_gasprod)) del_h2so4_gasprod_p = c_loc(del_h2so4_gasprod)
     vmr0_p = c_null_ptr; if (present(vmr0)) vmr0_p = c_loc(vmr0)
     o3s_loss_p = c_null_ptr; if (present(o3s_loss)) o3s_loss_p = c_loc(o3s_loss)
@@ -2624,7 +2648,9 @@ contains
     call gas_phase_chemdr_shell_codon( &
          int(stage, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          int(gas_pcnst, c_int64_t), int(pcnst, c_int64_t), int(rxntot, c_int64_t), int(extcnt, c_int64_t), &
-         int(nfs, c_int64_t), int(indexm, c_int64_t), int(merge(1, 0, has_linoz_data), c_int64_t), &
+         int(nfs, c_int64_t), int(indexm, c_int64_t), int(nabscol, c_int64_t), int(jo1d_adj_ndx, c_int64_t), &
+         int(inv_n2_ndx, c_int64_t), int(inv_o2_ndx, c_int64_t), int(inv_h2o_ndx, c_int64_t), &
+         int(merge(1, 0, has_linoz_data), c_int64_t), &
          int(h2o_ndx, c_int64_t), int(o2_ndx, c_int64_t), int(o_ndx, c_int64_t), &
          int(hno3_ndx, c_int64_t), int(hcl_ndx, c_int64_t), int(cldice_ndx, c_int64_t), int(st80_25_ndx, c_int64_t), int(aoa_nh_ndx, c_int64_t), &
          int(nh_5_ndx, c_int64_t), int(nh_50_ndx, c_int64_t), int(nh_50w_ndx, c_int64_t), &
@@ -2637,7 +2663,8 @@ contains
          map2chm_p, adv_mass_p, troplev_p, ltrop_sol_p, zen_angle_p, sza_p, &
          phis_p, zi_p, zm_p, pmid_p, zsurf_p, zintr_p, zmidr_p, zmid_p, zint_p, pmb_p, q_p, mmr_p, mbar_p, vmr_p, &
          qh2o_p, h2ovmr_p, rlats_p, sulfate_p, satq_p, relhum_p, cldw_p, cwat_p, extfrc_p, invariants_p, &
-         het_rates_p, reaction_rates_p, del_h2so4_gasprod_p, vmr0_p, o3s_loss_p, mmr_tend_p, mmr_new_p, &
+         het_rates_p, reaction_rates_p, col_delta_p, col_dens_p, del_h2so4_gasprod_p, vmr0_p, o3s_loss_p, &
+         mmr_tend_p, mmr_new_p, &
          qtend_p, tfld_p, tvs_p, sflx_p, ufld_p, vfld_p, wind_speed_p, precc_p, precl_p, prect_p, &
          cflx_p, drydepflx_p, o2mmr_p, ommr_p, hcl_cond_p, hcl_gas_p, hno3_gas_p, h2o_gas_p, wrk_p, cldice_p, &
          hno3_cond_p &

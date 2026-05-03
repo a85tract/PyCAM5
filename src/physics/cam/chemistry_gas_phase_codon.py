@@ -331,6 +331,42 @@ def setcol_codon(
                     col_delta[_idx3_k0(i, km1, m, ncol, pver + 1)] + col_delta[_idx3_k0(i, k, m, ncol, pver + 1)]
                 )
 
+@inline
+def _gas_phase_chemdr_shell_adjrxt_setcol(
+    ncol: int,
+    pver: int,
+    ncol_abs: int,
+    indexm: int,
+    reaction_rates_p: cobj,
+    invariants_p: cobj,
+    col_delta_p: cobj,
+    col_dens_p: cobj,
+):
+    rate = Ptr[float](reaction_rates_p)
+    inv = Ptr[float](invariants_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx_r2 = _idx3(i, k, 2, ncol, pver)
+            idx_r3 = _idx3(i, k, 3, ncol, pver)
+            idx_r4 = _idx3(i, k, 4, ncol, pver)
+            idx_r5 = _idx3(i, k, 5, ncol, pver)
+            idx_r6 = _idx3(i, k, 6, ncol, pver)
+            idx_r7 = _idx3(i, k, 7, ncol, pver)
+            inv6 = inv[_idx3(i, k, 6, ncol, pver)]
+            inv7 = inv[_idx3(i, k, 7, ncol, pver)]
+            inv8 = inv[_idx3(i, k, 8, ncol, pver)]
+            im = 1.0 / inv[_idx3(i, k, indexm, ncol, pver)]
+
+            rate[idx_r3] = rate[idx_r3] * inv6
+            rate[idx_r4] = rate[idx_r4] * inv6
+            rate[idx_r5] = rate[idx_r5] * inv6
+            rate[idx_r6] = rate[idx_r6] * inv6
+            rate[idx_r7] = rate[idx_r7] * inv7
+            rate[idx_r2] = rate[idx_r2] * inv8 * inv8 * im
+
+    setcol_codon(ncol, pver, ncol_abs, col_delta_p, col_dens_p)
+
 def set_ub_col_codon(
     ncol: int,
     pcols: int,
@@ -1423,6 +1459,11 @@ def gas_phase_chemdr_shell_codon(
     extcnt: int,
     nfs: int,
     indexm: int,
+    ncol_abs: int,
+    jo1d_adj_ndx: int,
+    inv_n2_ndx: int,
+    inv_o2_ndx: int,
+    inv_h2o_ndx: int,
     has_linoz_data_flag: int,
     h2o_ndx: int,
     o2_ndx: int,
@@ -1491,6 +1532,8 @@ def gas_phase_chemdr_shell_codon(
     invariants_p: cobj,
     het_rates_p: cobj,
     reaction_rates_p: cobj,
+    col_delta_p: cobj,
+    col_dens_p: cobj,
     del_h2so4_gasprod_p: cobj,
     vmr0_p: cobj,
     o3s_loss_p: cobj,
@@ -1607,6 +1650,15 @@ def gas_phase_chemdr_shell_codon(
         )
     elif stage == 25:
         gas_phase_chemdr_load_oxygen_mmr_codon(ncol, pcols, pver, o2_ndx, o_ndx, mmr_p, o2mmr_p, ommr_p)
+    elif stage == 26:
+        _gas_phase_chemdr_shell_adjrxt_setcol(
+            ncol, pver, ncol_abs, indexm, reaction_rates_p, invariants_p, col_delta_p, col_dens_p
+        )
+    elif stage == 27:
+        O1D_to_2OH_adj_codon(
+            ncol, pcols, pver, rxntot, nfs, jo1d_adj_ndx, inv_n2_ndx, inv_o2_ndx, inv_h2o_ndx,
+            reaction_rates_p, invariants_p, tfld_p
+        )
 
 def set_xnox_photo_codon(
     ncol: int,
