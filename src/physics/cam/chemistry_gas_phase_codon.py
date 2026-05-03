@@ -1999,6 +1999,43 @@ def nlnmat_codon(
     mat[20] = mat[20] - dti
     mat[21] = mat[21] - dti
 
+def imp_sol_inner_batch_codon(
+    mode: int,
+    factor_flag: int,
+    clscnt4: int,
+    dti: float,
+    lin_jac_p: cobj,
+    sys_jac_p: cobj,
+    prod_p: cobj,
+    loss_p: cobj,
+    lsol_p: cobj,
+    lrxt_p: cobj,
+    lhet_p: cobj,
+    solution_p: cobj,
+    iter_invariant_p: cobj,
+    forcing_p: cobj,
+):
+    if mode == 0:
+        linmat_codon(lin_jac_p, lrxt_p, lhet_p)
+        return
+
+    if factor_flag != 0:
+        nlnmat_codon(sys_jac_p, lin_jac_p, dti)
+        lu_fac_codon(sys_jac_p)
+
+    imp_prod_loss_codon(prod_p, loss_p, lsol_p, lrxt_p, lhet_p)
+
+    prod = Ptr[float](prod_p)
+    loss = Ptr[float](loss_p)
+    solution = Ptr[float](solution_p)
+    iter_invariant = Ptr[float](iter_invariant_p)
+    forcing = Ptr[float](forcing_p)
+
+    for m in range(0, clscnt4):
+        forcing[m] = solution[m] * dti - (iter_invariant[m] + prod[m] - loss[m])
+
+    lu_slv_codon(sys_jac_p, forcing_p)
+
 def indprd_codon(
     class_id: int,
     ncol: int,

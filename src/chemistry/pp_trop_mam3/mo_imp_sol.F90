@@ -35,6 +35,8 @@ module mo_imp_sol
   logical :: full_ozone_chem = .false.
   logical :: middle_atm_chem = .false.
   logical :: reduced_ozone_chem = .false.
+  logical :: imp_sol_inner_batch_use_native_impl = .false.
+  logical :: imp_sol_inner_batch_impl_selected = .false.
   ! for xnox ozone chemistry diagnostics
   integer :: o3a_ndx, xno2_ndx, no2xno3_ndx, xno2no3_ndx, xno3_ndx, o1da_ndx, xno_ndx
   integer :: usr4a_ndx, usr16a_ndx, usr16b_ndx, usr17b_ndx
@@ -435,6 +437,54 @@ contains
     enddo
     call addfld('H_PEROX_CHMP', '/cm3/s ', pver, 'I', 'total ROOH production rate', phys_decomp ) !PJY changed "RO2" to "ROOH"
   end subroutine imp_slv_inti
+
+  subroutine imp_sol_inner_batch_select_impl()
+    use spmd_utils, only : masterproc
+    implicit none
+    character(len=32) :: impl_name
+    character(len=512) :: proof_file
+    integer :: status, n, i, code, unitno
+
+    if (imp_sol_inner_batch_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('IMP_SOL_INNER_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       imp_sol_inner_batch_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       imp_sol_inner_batch_use_native_impl = .false.
+    end if
+
+    imp_sol_inner_batch_impl_selected = .true.
+
+    if (masterproc) then
+       if (imp_sol_inner_batch_use_native_impl) then
+          write(iulog,*) 'imp_sol_inner_batch implementation = native'
+       else
+          write(iulog,*) 'imp_sol_inner_batch implementation = codon'
+       end if
+       call flush(iulog)
+
+       proof_file = ''
+       call get_environment_variable('IMP_SOL_INNER_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+       if (status == 0 .and. n > 0) then
+          open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+          if (imp_sol_inner_batch_use_native_impl) then
+             write(unitno,*) 'imp_sol_inner_batch implementation = native'
+          else
+             write(unitno,*) 'imp_sol_inner_batch implementation = codon'
+          end if
+          close(unitno)
+       end if
+    end if
+  end subroutine imp_sol_inner_batch_select_impl
   subroutine imp_sol( base_sol, reaction_rates, het_rates, extfrc, delt, &
        xhnm, ncol, lchnk, ltrop, o3s_loss )
     !-----------------------------------------------------------------------
@@ -454,6 +504,7 @@ contains
     use mo_indprd, only : indprd
     use time_manager, only : get_nstep
     use cam_history, only : outfld
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
     implicit none
     !-----------------------------------------------------------------------
     ! ... dummy args
@@ -481,17 +532,17 @@ contains
     integer :: nstep
     real(r8) :: interval_done, dt, dti, wrk
     real(r8) :: max_delta(max(1,clscnt4))
-    real(r8) :: sys_jac(max(1,nzcnt))
-    real(r8) :: lin_jac(max(1,nzcnt))
-    real(r8), dimension(max(1,clscnt4)) :: &
+    real(r8), target :: sys_jac(max(1,nzcnt))
+    real(r8), target :: lin_jac(max(1,nzcnt))
+    real(r8), target, dimension(max(1,clscnt4)) :: &
          solution, &
          forcing, &
          iter_invariant, &
          prod, &
          loss
-    real(r8) :: lrxt(max(1,rxntot))
-    real(r8) :: lsol(max(1,gas_pcnst))
-    real(r8) :: lhet(max(1,gas_pcnst))
+    real(r8), target :: lrxt(max(1,rxntot))
+    real(r8), target :: lsol(max(1,gas_pcnst))
+    real(r8), target :: lhet(max(1,gas_pcnst))
     real(r8), dimension(ncol,pver,max(1,clscnt4)) :: &
          ind_prd
     logical :: convergence
@@ -499,6 +550,19 @@ contains
     logical :: converged(max(1,clscnt4))
     real(r8), dimension(ncol,pver,max(1,clscnt4)) :: prod_out, loss_out
     real(r8), dimension(ncol,pver) :: prod_hydrogen_peroxides_out
+    interface
+       subroutine imp_sol_inner_batch_codon(mode_c, factor_c, clscnt4_c, dti_c, &
+            lin_jac_p, sys_jac_p, prod_p, loss_p, lsol_p, lrxt_p, lhet_p, &
+            solution_p, iter_invariant_p, forcing_p) bind(c, name="imp_sol_inner_batch_codon")
+          use iso_c_binding, only : c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mode_c, factor_c, clscnt4_c
+          real(c_double), value :: dti_c
+          type(c_ptr), value :: lin_jac_p, sys_jac_p, prod_p, loss_p, lsol_p, lrxt_p, lhet_p
+          type(c_ptr), value :: solution_p, iter_invariant_p, forcing_p
+       end subroutine imp_sol_inner_batch_codon
+    end interface
+    call imp_sol_inner_batch_select_impl()
+
     if (present(o3s_loss)) then
        o3s_loss(:,:) = 0._r8
     endif
@@ -571,7 +635,13 @@ contains
              ! ... the linear component
              !-----------------------------------------------------------------------
              !if( cls_rxt_cnt(2,4) > 0 ) then
-                call linmat( lin_jac, lsol, lrxt, lhet )
+                if (imp_sol_inner_batch_use_native_impl) then
+                   call linmat( lin_jac, lsol, lrxt, lhet )
+                else
+                   call imp_sol_inner_batch_codon(0_c_int64_t, 0_c_int64_t, int(clscnt4, c_int64_t), real(dti, c_double), &
+                        c_loc(lin_jac), c_loc(sys_jac), c_loc(prod), c_loc(loss), c_loc(lsol), c_loc(lrxt), &
+                        c_loc(lhet), c_loc(solution), c_loc(iter_invariant), c_loc(forcing))
+                end if
              !end if
              !=======================================================================
              ! the newton-raphson iteration for f(y) = 0
@@ -580,24 +650,31 @@ contains
                 !-----------------------------------------------------------------------
                 ! ... the non-linear component
                 !-----------------------------------------------------------------------
-                if( factor(nr_iter) ) then
-                   call nlnmat( sys_jac, lsol, lrxt, lin_jac, dti )
+                if (imp_sol_inner_batch_use_native_impl) then
+                   if( factor(nr_iter) ) then
+                      call nlnmat( sys_jac, lsol, lrxt, lin_jac, dti )
+                      !-----------------------------------------------------------------------
+                      ! ... factor the "system" matrix
+                      !-----------------------------------------------------------------------
+                      call lu_fac( sys_jac )
+                   end if
                    !-----------------------------------------------------------------------
-                   ! ... factor the "system" matrix
+                   ! ... form f(y)
                    !-----------------------------------------------------------------------
-                   call lu_fac( sys_jac )
+                   call imp_prod_loss( prod, loss, lsol, lrxt, lhet )
+                   do m = 1,clscnt4
+                      forcing(m) = solution(m)*dti - (iter_invariant(m) + prod(m) - loss(m))
+                   end do
+                   !-----------------------------------------------------------------------
+                   ! ... solve for the mixing ratio at t(n+1)
+                   !-----------------------------------------------------------------------
+                   call lu_slv( sys_jac, forcing )
+                else
+                   call imp_sol_inner_batch_codon(1_c_int64_t, int(merge(1, 0, factor(nr_iter)), c_int64_t), &
+                        int(clscnt4, c_int64_t), real(dti, c_double), c_loc(lin_jac), c_loc(sys_jac), &
+                        c_loc(prod), c_loc(loss), c_loc(lsol), c_loc(lrxt), c_loc(lhet), c_loc(solution), &
+                        c_loc(iter_invariant), c_loc(forcing))
                 end if
-                !-----------------------------------------------------------------------
-                ! ... form f(y)
-                !-----------------------------------------------------------------------
-                call imp_prod_loss( prod, loss, lsol, lrxt, lhet )
-                do m = 1,clscnt4
-                   forcing(m) = solution(m)*dti - (iter_invariant(m) + prod(m) - loss(m))
-                end do
-                !-----------------------------------------------------------------------
-                ! ... solve for the mixing ratio at t(n+1)
-                !-----------------------------------------------------------------------
-                call lu_slv( sys_jac, forcing )
                 do m = 1,clscnt4
                    solution(m) = solution(m) + forcing(m)
                 end do

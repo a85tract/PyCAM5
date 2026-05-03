@@ -3671,6 +3671,40 @@ def nlnmat_codon(
     )
 
 @export
+def imp_sol_inner_batch_codon(
+    mode: int,
+    factor_flag: int,
+    clscnt4: int,
+    dti: float,
+    lin_jac_p: cobj,
+    sys_jac_p: cobj,
+    prod_p: cobj,
+    loss_p: cobj,
+    lsol_p: cobj,
+    lrxt_p: cobj,
+    lhet_p: cobj,
+    solution_p: cobj,
+    iter_invariant_p: cobj,
+    forcing_p: cobj,
+):
+    return _gas_phase.imp_sol_inner_batch_codon(
+        mode,
+        factor_flag,
+        clscnt4,
+        dti,
+        lin_jac_p,
+        sys_jac_p,
+        prod_p,
+        loss_p,
+        lsol_p,
+        lrxt_p,
+        lhet_p,
+        solution_p,
+        iter_invariant_p,
+        forcing_p,
+    )
+
+@export
 def indprd_codon(
     class_id: int,
     ncol: int,
