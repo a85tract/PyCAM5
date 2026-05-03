@@ -102,6 +102,9 @@ module physpkg
   logical           :: tphysbc_trace_water_clip_impl_selected = .false.
   logical           :: use_native_tphysbc_dadadj_lq_init_impl = .false.
   logical           :: tphysbc_dadadj_lq_init_impl_selected = .false.
+  logical           :: use_native_tphysbc_state_batch_impl = .false.
+  logical           :: tphysbc_state_batch_impl_selected = .false.
+  logical           :: tphysbc_state_batch_entered_logged = .false.
   logical           :: use_native_phys_inidat_qpert_expand_impl = .false.
   logical           :: phys_inidat_qpert_expand_impl_selected = .false.
   logical           :: use_native_phys_inidat_qpert_default_impl = .false.
@@ -3254,6 +3257,80 @@ end subroutine tphysac_q_snapshot_native
 
 !=======================================================================
 
+subroutine tphysbc_state_batch_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('TPHYSBC_STATE_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+     write(unitno,'(A)') trim(proof_line)
+     close(unitno)
+  end if
+
+end subroutine tphysbc_state_batch_append_proof
+
+!=======================================================================
+
+subroutine tphysbc_state_batch_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (tphysbc_state_batch_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('TPHYSBC_STATE_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_tphysbc_state_batch_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_tphysbc_state_batch_impl = .false.
+  end if
+
+  tphysbc_state_batch_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_tphysbc_state_batch_impl) then
+        write(iulog,*) 'tphysbc_state_batch implementation = native'
+        call tphysbc_state_batch_append_proof('tphysbc_state_batch selector entered implementation = native')
+     else
+        write(iulog,*) 'tphysbc_state_batch implementation = codon'
+        call tphysbc_state_batch_append_proof('tphysbc_state_batch selector entered implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine tphysbc_state_batch_select_impl
+
+!=======================================================================
+
+subroutine tphysbc_state_batch_log_entered()
+
+  if (tphysbc_state_batch_entered_logged) return
+  tphysbc_state_batch_entered_logged = .true.
+
+  if (masterproc) then
+     write(iulog,*) 'tphysbc_state_batch entered (zero/clip/init/tini/qini/dtcore/dadadj direct = codon)'
+     call tphysbc_state_batch_append_proof( &
+          'tphysbc_state_batch entered (zero/clip/init/tini/qini/dtcore/dadadj direct = codon)')
+     call flush(iulog)
+  end if
+
+end subroutine tphysbc_state_batch_log_entered
+
+!=======================================================================
+
 subroutine tphysbc_qini_snapshot_select_impl()
 
   character(len=32) :: impl_name
@@ -3316,8 +3393,8 @@ subroutine tphysbc_qini_snapshot(ncol, pcols_local, pver_local, pcnst_local, ixc
   integer(c_int64_t) :: ixcldice_c
 
   interface
-     subroutine tphysbc_qini_snapshot_codon(ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, &
-          state_q_p, qini_p, cldliqini_p, cldiceini_p) bind(c, name="tphysbc_qini_snapshot_codon")
+     subroutine tphysbc_state_batch_qini_snapshot_codon(ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, &
+          state_q_p, qini_p, cldliqini_p, cldiceini_p) bind(c, name="tphysbc_state_batch_qini_snapshot_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncol_c
        integer(c_int64_t), value :: pcols_c
@@ -3329,12 +3406,12 @@ subroutine tphysbc_qini_snapshot(ncol, pcols_local, pver_local, pcnst_local, ixc
        type(c_ptr), value :: qini_p
        type(c_ptr), value :: cldliqini_p
        type(c_ptr), value :: cldiceini_p
-     end subroutine tphysbc_qini_snapshot_codon
+     end subroutine tphysbc_state_batch_qini_snapshot_codon
   end interface
 
-  call tphysbc_qini_snapshot_select_impl()
+  call tphysbc_state_batch_select_impl()
 
-  if (use_native_tphysbc_qini_snapshot_impl) then
+  if (use_native_tphysbc_state_batch_impl) then
      call tphysbc_qini_snapshot_native(ncol, pcols_local, pver_local, pcnst_local, ixcldliq, ixcldice, &
           state_q, qini, cldliqini, cldiceini)
      return
@@ -3347,7 +3424,8 @@ subroutine tphysbc_qini_snapshot(ncol, pcols_local, pver_local, pcnst_local, ixc
   ixcldliq_c = int(ixcldliq, c_int64_t)
   ixcldice_c = int(ixcldice, c_int64_t)
 
-  call tphysbc_qini_snapshot_codon(ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, &
+  call tphysbc_state_batch_log_entered()
+  call tphysbc_state_batch_qini_snapshot_codon(ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, &
        c_loc(state_q), c_loc(qini), c_loc(cldliqini), c_loc(cldiceini))
 
 end subroutine tphysbc_qini_snapshot
@@ -3435,8 +3513,8 @@ subroutine tphysbc_dadadj_input(ncol, pcols_local, pver_local, pcnst_local, stat
   integer(c_int64_t) :: pcnst_c
 
   interface
-     subroutine tphysbc_dadadj_input_codon(ncol_c, pcols_c, pver_c, pcnst_c, state_t_p, state_q_p, ptend_s_p, ptend_q_p) &
-          bind(c, name="tphysbc_dadadj_input_codon")
+     subroutine tphysbc_state_batch_dadadj_input_codon(ncol_c, pcols_c, pver_c, pcnst_c, &
+          state_t_p, state_q_p, ptend_s_p, ptend_q_p) bind(c, name="tphysbc_state_batch_dadadj_input_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncol_c
        integer(c_int64_t), value :: pcols_c
@@ -3446,12 +3524,12 @@ subroutine tphysbc_dadadj_input(ncol, pcols_local, pver_local, pcnst_local, stat
        type(c_ptr), value :: state_q_p
        type(c_ptr), value :: ptend_s_p
        type(c_ptr), value :: ptend_q_p
-     end subroutine tphysbc_dadadj_input_codon
+     end subroutine tphysbc_state_batch_dadadj_input_codon
   end interface
 
-  call tphysbc_dadadj_input_select_impl()
+  call tphysbc_state_batch_select_impl()
 
-  if (use_native_tphysbc_dadadj_input_impl) then
+  if (use_native_tphysbc_state_batch_impl) then
      call tphysbc_dadadj_input_native(ncol, pcols_local, pver_local, pcnst_local, state_t, state_q, ptend_s, ptend_q)
      return
   end if
@@ -3461,7 +3539,8 @@ subroutine tphysbc_dadadj_input(ncol, pcols_local, pver_local, pcnst_local, stat
   pver_c = int(pver_local, c_int64_t)
   pcnst_c = int(pcnst_local, c_int64_t)
 
-  call tphysbc_dadadj_input_codon(ncol_c, pcols_c, pver_c, pcnst_c, &
+  call tphysbc_state_batch_log_entered()
+  call tphysbc_state_batch_dadadj_input_codon(ncol_c, pcols_c, pver_c, pcnst_c, &
        c_loc(state_t), c_loc(state_q), c_loc(ptend_s), c_loc(ptend_q))
 
 end subroutine tphysbc_dadadj_input
@@ -3548,8 +3627,8 @@ subroutine tphysbc_dadadj_output(ncol, pcols_local, pver_local, pcnst_local, zto
   integer(c_int64_t) :: pcnst_c
 
   interface
-     subroutine tphysbc_dadadj_output_codon(ncol_c, pcols_c, pver_c, pcnst_c, ztodt, cpair_local, &
-          state_t_p, state_q_p, ptend_s_p, ptend_q_p) bind(c, name="tphysbc_dadadj_output_codon")
+     subroutine tphysbc_state_batch_dadadj_output_codon(ncol_c, pcols_c, pver_c, pcnst_c, ztodt, cpair_local, &
+          state_t_p, state_q_p, ptend_s_p, ptend_q_p) bind(c, name="tphysbc_state_batch_dadadj_output_codon")
        use iso_c_binding, only: c_int64_t, c_double, c_ptr
        integer(c_int64_t), value :: ncol_c
        integer(c_int64_t), value :: pcols_c
@@ -3561,12 +3640,12 @@ subroutine tphysbc_dadadj_output(ncol, pcols_local, pver_local, pcnst_local, zto
        type(c_ptr), value :: state_q_p
        type(c_ptr), value :: ptend_s_p
        type(c_ptr), value :: ptend_q_p
-     end subroutine tphysbc_dadadj_output_codon
+     end subroutine tphysbc_state_batch_dadadj_output_codon
   end interface
 
-  call tphysbc_dadadj_output_select_impl()
+  call tphysbc_state_batch_select_impl()
 
-  if (use_native_tphysbc_dadadj_output_impl) then
+  if (use_native_tphysbc_state_batch_impl) then
      call tphysbc_dadadj_output_native(ncol, pcols_local, pver_local, pcnst_local, ztodt, cpair_local, &
           state_t, state_q, ptend_s, ptend_q)
      return
@@ -3577,7 +3656,8 @@ subroutine tphysbc_dadadj_output(ncol, pcols_local, pver_local, pcnst_local, zto
   pver_c = int(pver_local, c_int64_t)
   pcnst_c = int(pcnst_local, c_int64_t)
 
-  call tphysbc_dadadj_output_codon(ncol_c, pcols_c, pver_c, pcnst_c, ztodt, cpair_local, &
+  call tphysbc_state_batch_log_entered()
+  call tphysbc_state_batch_dadadj_output_codon(ncol_c, pcols_c, pver_c, pcnst_c, ztodt, cpair_local, &
        c_loc(state_t), c_loc(state_q), c_loc(ptend_s), c_loc(ptend_q))
 
 end subroutine tphysbc_dadadj_output
@@ -3662,8 +3742,8 @@ subroutine tphysbc_dtcore_update(ncol, pcols_local, pver_local, ztodt, tini, dtc
   integer(c_int64_t) :: pver_c
 
   interface
-     subroutine tphysbc_dtcore_update_codon(ncol_c, pcols_c, pver_c, ztodt, tini_p, dtcore_p, tend_dtdt_p) &
-          bind(c, name="tphysbc_dtcore_update_codon")
+     subroutine tphysbc_state_batch_dtcore_update_codon(ncol_c, pcols_c, pver_c, ztodt, tini_p, dtcore_p, tend_dtdt_p) &
+          bind(c, name="tphysbc_state_batch_dtcore_update_codon")
        use iso_c_binding, only: c_int64_t, c_double, c_ptr
        integer(c_int64_t), value :: ncol_c
        integer(c_int64_t), value :: pcols_c
@@ -3672,12 +3752,12 @@ subroutine tphysbc_dtcore_update(ncol, pcols_local, pver_local, ztodt, tini, dtc
        type(c_ptr), value :: tini_p
        type(c_ptr), value :: dtcore_p
        type(c_ptr), value :: tend_dtdt_p
-     end subroutine tphysbc_dtcore_update_codon
+     end subroutine tphysbc_state_batch_dtcore_update_codon
   end interface
 
-  call tphysbc_dtcore_update_select_impl()
+  call tphysbc_state_batch_select_impl()
 
-  if (use_native_tphysbc_dtcore_update_impl) then
+  if (use_native_tphysbc_state_batch_impl) then
      call tphysbc_dtcore_update_native(ncol, pcols_local, pver_local, ztodt, tini, dtcore, tend_dtdt)
      return
   end if
@@ -3686,7 +3766,9 @@ subroutine tphysbc_dtcore_update(ncol, pcols_local, pver_local, ztodt, tini, dtc
   pcols_c = int(pcols_local, c_int64_t)
   pver_c = int(pver_local, c_int64_t)
 
-  call tphysbc_dtcore_update_codon(ncol_c, pcols_c, pver_c, ztodt, c_loc(tini), c_loc(dtcore), c_loc(tend_dtdt))
+  call tphysbc_state_batch_log_entered()
+  call tphysbc_state_batch_dtcore_update_codon(ncol_c, pcols_c, pver_c, ztodt, &
+       c_loc(tini), c_loc(dtcore), c_loc(tend_dtdt))
 
 end subroutine tphysbc_dtcore_update
 
@@ -3767,20 +3849,20 @@ subroutine tphysbc_tini_copy(ncol, pcols_local, pver_local, state_t, tini)
   integer(c_int64_t) :: pver_c
 
   interface
-     subroutine tphysbc_tini_copy_codon(ncol_c, pcols_c, pver_c, state_t_p, tini_p) &
-          bind(c, name="tphysbc_tini_copy_codon")
+     subroutine tphysbc_state_batch_tini_copy_codon(ncol_c, pcols_c, pver_c, state_t_p, tini_p) &
+          bind(c, name="tphysbc_state_batch_tini_copy_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncol_c
        integer(c_int64_t), value :: pcols_c
        integer(c_int64_t), value :: pver_c
        type(c_ptr), value :: state_t_p
        type(c_ptr), value :: tini_p
-     end subroutine tphysbc_tini_copy_codon
+     end subroutine tphysbc_state_batch_tini_copy_codon
   end interface
 
-  call tphysbc_tini_copy_select_impl()
+  call tphysbc_state_batch_select_impl()
 
-  if (use_native_tphysbc_tini_copy_impl) then
+  if (use_native_tphysbc_state_batch_impl) then
      call tphysbc_tini_copy_native(ncol, pcols_local, pver_local, state_t, tini)
      return
   end if
@@ -3789,7 +3871,8 @@ subroutine tphysbc_tini_copy(ncol, pcols_local, pver_local, state_t, tini)
   pcols_c = int(pcols_local, c_int64_t)
   pver_c = int(pver_local, c_int64_t)
 
-  call tphysbc_tini_copy_codon(ncol_c, pcols_c, pver_c, c_loc(state_t), c_loc(tini))
+  call tphysbc_state_batch_log_entered()
+  call tphysbc_state_batch_tini_copy_codon(ncol_c, pcols_c, pver_c, c_loc(state_t), c_loc(tini))
 
 end subroutine tphysbc_tini_copy
 
@@ -4170,20 +4253,20 @@ subroutine tphysbc_zero_buffers(pcols_local, pcnst_local, zero_sc_len, zero_trac
   integer(c_int64_t) :: zero_sc_len_c
 
   interface
-     subroutine tphysbc_zero_buffers_codon(pcols_c, pcnst_c, zero_sc_len_c, zero_tracers_p, zero_sc_p) &
-          bind(c, name="tphysbc_zero_buffers_codon")
+     subroutine tphysbc_state_batch_zero_buffers_codon(pcols_c, pcnst_c, zero_sc_len_c, zero_tracers_p, zero_sc_p) &
+          bind(c, name="tphysbc_state_batch_zero_buffers_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: pcols_c
        integer(c_int64_t), value :: pcnst_c
        integer(c_int64_t), value :: zero_sc_len_c
        type(c_ptr), value :: zero_tracers_p
        type(c_ptr), value :: zero_sc_p
-     end subroutine tphysbc_zero_buffers_codon
+     end subroutine tphysbc_state_batch_zero_buffers_codon
   end interface
 
-  call tphysbc_zero_buffers_select_impl()
+  call tphysbc_state_batch_select_impl()
 
-  if (use_native_tphysbc_zero_buffers_impl) then
+  if (use_native_tphysbc_state_batch_impl) then
      call tphysbc_zero_buffers_native(pcols_local, pcnst_local, zero_sc_len, zero_tracers, zero_sc)
      return
   end if
@@ -4192,7 +4275,8 @@ subroutine tphysbc_zero_buffers(pcols_local, pcnst_local, zero_sc_len, zero_trac
   pcnst_c = int(pcnst_local, c_int64_t)
   zero_sc_len_c = int(zero_sc_len, c_int64_t)
 
-  call tphysbc_zero_buffers_codon(pcols_c, pcnst_c, zero_sc_len_c, c_loc(zero_tracers), c_loc(zero_sc))
+  call tphysbc_state_batch_log_entered()
+  call tphysbc_state_batch_zero_buffers_codon(pcols_c, pcnst_c, zero_sc_len_c, c_loc(zero_tracers), c_loc(zero_sc))
 
 end subroutine tphysbc_zero_buffers
 
@@ -4274,9 +4358,9 @@ subroutine tphysbc_trace_water_clip(lchnk, ncol, pcols_local, pver_local, pcnst_
   real(r8), target :: rstd_by_constituent(pcnst_local)
 
   interface
-     subroutine tphysbc_trace_water_clip_codon(ncol_c, pcols_c, pver_c, pcnst_c, pwtype_c, &
+     subroutine tphysbc_state_batch_trace_water_clip_codon(ncol_c, pcols_c, pver_c, pcnst_c, pwtype_c, &
           wtrc_nwset_c, wisotope_on_c, state_q_p, wtrc_iatype_p, tagged_p, rstd_p) &
-          bind(c, name="tphysbc_trace_water_clip_codon")
+          bind(c, name="tphysbc_state_batch_trace_water_clip_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncol_c
        integer(c_int64_t), value :: pcols_c
@@ -4289,12 +4373,12 @@ subroutine tphysbc_trace_water_clip(lchnk, ncol, pcols_local, pver_local, pcnst_
        type(c_ptr), value :: wtrc_iatype_p
        type(c_ptr), value :: tagged_p
        type(c_ptr), value :: rstd_p
-     end subroutine tphysbc_trace_water_clip_codon
+     end subroutine tphysbc_state_batch_trace_water_clip_codon
   end interface
 
-  call tphysbc_trace_water_clip_select_impl()
+  call tphysbc_state_batch_select_impl()
 
-  if (use_native_tphysbc_trace_water_clip_impl) then
+  if (use_native_tphysbc_state_batch_impl) then
      call tphysbc_trace_water_clip_native(lchnk, ncol, pcols_local, pver_local, pcnst_local, state_q)
      return
   end if
@@ -4310,7 +4394,8 @@ subroutine tphysbc_trace_water_clip(lchnk, ncol, pcols_local, pver_local, pcnst_
      rstd_by_constituent(m) = wtrc_get_rstd(iwspec(m))
   end do
 
-  call tphysbc_trace_water_clip_codon( &
+  call tphysbc_state_batch_log_entered()
+  call tphysbc_state_batch_trace_water_clip_codon( &
        int(ncol, c_int64_t), int(pcols_local, c_int64_t), int(pver_local, c_int64_t), &
        int(pcnst_local, c_int64_t), int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), &
        merge(1_c_int64_t, 0_c_int64_t, wisotope), c_loc(state_q), c_loc(wtrc_iatype64), &
@@ -4427,21 +4512,23 @@ subroutine tphysbc_dadadj_lq_init(pcnst_local, lq)
   integer(c_int64_t), target :: lq_mask(pcnst_local)
 
   interface
-     subroutine tphysbc_dadadj_lq_init_codon(pcnst_c, lq_mask_p) bind(c, name="tphysbc_dadadj_lq_init_codon")
+     subroutine tphysbc_state_batch_dadadj_lq_init_codon(pcnst_c, lq_mask_p) &
+          bind(c, name="tphysbc_state_batch_dadadj_lq_init_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: pcnst_c
        type(c_ptr), value :: lq_mask_p
-     end subroutine tphysbc_dadadj_lq_init_codon
+     end subroutine tphysbc_state_batch_dadadj_lq_init_codon
   end interface
 
-  call tphysbc_dadadj_lq_init_select_impl()
+  call tphysbc_state_batch_select_impl()
 
-  if (use_native_tphysbc_dadadj_lq_init_impl) then
+  if (use_native_tphysbc_state_batch_impl) then
      call tphysbc_dadadj_lq_init_native(pcnst_local, lq)
      return
   end if
 
-  call tphysbc_dadadj_lq_init_codon(int(pcnst_local, c_int64_t), c_loc(lq_mask))
+  call tphysbc_state_batch_log_entered()
+  call tphysbc_state_batch_dadadj_lq_init_codon(int(pcnst_local, c_int64_t), c_loc(lq_mask))
 
   do m = 1, pcnst_local
      lq(m) = lq_mask(m) /= 0_c_int64_t
@@ -6098,8 +6185,8 @@ subroutine tphysbc_init_fields(ncol, pcols_local, pver_local, pcnst_local, fraci
   integer(c_int64_t) :: pcnst_c
 
   interface
-     subroutine tphysbc_init_fields_codon(ncol_c, pcols_c, pver_c, pcnst_c, fracis_p, tend_dtdt_p, tend_dudt_p, tend_dvdt_p) &
-          bind(c, name="tphysbc_init_fields_codon")
+     subroutine tphysbc_state_batch_init_fields_codon(ncol_c, pcols_c, pver_c, pcnst_c, fracis_p, &
+          tend_dtdt_p, tend_dudt_p, tend_dvdt_p) bind(c, name="tphysbc_state_batch_init_fields_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncol_c
        integer(c_int64_t), value :: pcols_c
@@ -6109,12 +6196,12 @@ subroutine tphysbc_init_fields(ncol, pcols_local, pver_local, pcnst_local, fraci
        type(c_ptr), value :: tend_dtdt_p
        type(c_ptr), value :: tend_dudt_p
        type(c_ptr), value :: tend_dvdt_p
-     end subroutine tphysbc_init_fields_codon
+     end subroutine tphysbc_state_batch_init_fields_codon
   end interface
 
-  call tphysbc_init_fields_select_impl()
+  call tphysbc_state_batch_select_impl()
 
-  if (use_native_tphysbc_init_fields_impl) then
+  if (use_native_tphysbc_state_batch_impl) then
      call tphysbc_init_fields_native(ncol, pcols_local, pver_local, pcnst_local, fracis, tend_dtdt, tend_dudt, tend_dvdt)
      return
   end if
@@ -6124,7 +6211,8 @@ subroutine tphysbc_init_fields(ncol, pcols_local, pver_local, pcnst_local, fraci
   pver_c = int(pver_local, c_int64_t)
   pcnst_c = int(pcnst_local, c_int64_t)
 
-  call tphysbc_init_fields_codon(ncol_c, pcols_c, pver_c, pcnst_c, &
+  call tphysbc_state_batch_log_entered()
+  call tphysbc_state_batch_init_fields_codon(ncol_c, pcols_c, pver_c, pcnst_c, &
        c_loc(fracis), c_loc(tend_dtdt), c_loc(tend_dudt), c_loc(tend_dvdt))
 
 end subroutine tphysbc_init_fields

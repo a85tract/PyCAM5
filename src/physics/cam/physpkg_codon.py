@@ -469,6 +469,132 @@ def tphysbc_dadadj_lq_init_codon(
 
 
 @export
+def tphysbc_state_batch_qini_snapshot_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    ixcldliq: int,
+    ixcldice: int,
+    state_q_p: cobj,
+    qini_p: cobj,
+    cldliqini_p: cobj,
+    cldiceini_p: cobj,
+):
+    tphysbc_qini_snapshot_codon(
+        ncol, pcols, pver, pcnst, ixcldliq, ixcldice, state_q_p, qini_p, cldliqini_p, cldiceini_p
+    )
+
+
+@export
+def tphysbc_state_batch_dadadj_input_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    state_t_p: cobj,
+    state_q_p: cobj,
+    ptend_s_p: cobj,
+    ptend_q_p: cobj,
+):
+    tphysbc_dadadj_input_codon(ncol, pcols, pver, pcnst, state_t_p, state_q_p, ptend_s_p, ptend_q_p)
+
+
+@export
+def tphysbc_state_batch_dadadj_output_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    ztodt: float,
+    cpair_local: float,
+    state_t_p: cobj,
+    state_q_p: cobj,
+    ptend_s_p: cobj,
+    ptend_q_p: cobj,
+):
+    tphysbc_dadadj_output_codon(
+        ncol, pcols, pver, pcnst, ztodt, cpair_local, state_t_p, state_q_p, ptend_s_p, ptend_q_p
+    )
+
+
+@export
+def tphysbc_state_batch_dtcore_update_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    ztodt: float,
+    tini_p: cobj,
+    dtcore_p: cobj,
+    tend_dtdt_p: cobj,
+):
+    tphysbc_dtcore_update_codon(ncol, pcols, pver, ztodt, tini_p, dtcore_p, tend_dtdt_p)
+
+
+@export
+def tphysbc_state_batch_tini_copy_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    state_t_p: cobj,
+    tini_p: cobj,
+):
+    tphysbc_tini_copy_codon(ncol, pcols, pver, state_t_p, tini_p)
+
+
+@export
+def tphysbc_state_batch_zero_buffers_codon(
+    pcols: int,
+    pcnst: int,
+    zero_sc_len: int,
+    zero_tracers_p: cobj,
+    zero_sc_p: cobj,
+):
+    tphysbc_zero_buffers_codon(pcols, pcnst, zero_sc_len, zero_tracers_p, zero_sc_p)
+
+
+@export
+def tphysbc_state_batch_trace_water_clip_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    pwtype: int,
+    wtrc_nwset: int,
+    wisotope_on: int,
+    state_q_p: cobj,
+    wtrc_iatype_p: cobj,
+    tagged_p: cobj,
+    rstd_p: cobj,
+):
+    tphysbc_trace_water_clip_codon(
+        ncol, pcols, pver, pcnst, pwtype, wtrc_nwset, wisotope_on, state_q_p, wtrc_iatype_p, tagged_p, rstd_p
+    )
+
+
+@export
+def tphysbc_state_batch_dadadj_lq_init_codon(
+    pcnst: int,
+    lq_mask_p: cobj,
+):
+    tphysbc_dadadj_lq_init_codon(pcnst, lq_mask_p)
+
+
+@export
+def tphysbc_state_batch_init_fields_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    fracis_p: cobj,
+    tend_dtdt_p: cobj,
+    tend_dudt_p: cobj,
+    tend_dvdt_p: cobj,
+):
+    tphysbc_init_fields_codon(ncol, pcols, pver, pcnst, fracis_p, tend_dtdt_p, tend_dudt_p, tend_dvdt_p)
+
+
+@export
 def phys_inidat_qpert_default_codon(
     pcols: int,
     chunk_count: int,
