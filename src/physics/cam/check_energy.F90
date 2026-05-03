@@ -64,6 +64,9 @@ module check_energy
   logical  :: chng_impl_selected = .false.
   logical  :: use_native_gmean_impl = .false.
   logical  :: gmean_impl_selected = .false.
+  logical  :: use_native_energy_batch_impl = .false.
+  logical  :: energy_batch_impl_selected = .false.
+  logical  :: energy_batch_entered_logged = .false.
   logical  :: use_native_tracers_init_impl = .false.
   logical  :: tracers_init_impl_selected = .false.
   logical  :: use_native_tracers_chng_impl = .false.
@@ -227,6 +230,71 @@ subroutine check_energy_gmean_select_impl()
    end if
 
 end subroutine check_energy_gmean_select_impl
+
+subroutine check_energy_batch_append_proof(proof_line)
+
+   character(len=*), intent(in) :: proof_line
+
+   character(len=512) :: proof_file
+   integer :: status, n, unitno
+
+   proof_file = ''
+   call get_environment_variable('CHECK_ENERGY_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+   if (status == 0 .and. n > 0) then
+      open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+      write(unitno,'(A)') trim(proof_line)
+      close(unitno)
+   end if
+
+end subroutine check_energy_batch_append_proof
+
+subroutine check_energy_batch_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (energy_batch_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CHECK_ENERGY_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_energy_batch_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_energy_batch_impl = .false.
+   end if
+
+   energy_batch_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_energy_batch_impl) then
+         write(iulog,*) 'check_energy_batch implementation = native'
+         call check_energy_batch_append_proof('check_energy_batch selector entered implementation = native')
+      else
+         write(iulog,*) 'check_energy_batch implementation = codon'
+         call check_energy_batch_append_proof('check_energy_batch selector entered implementation = codon')
+      end if
+   end if
+
+end subroutine check_energy_batch_select_impl
+
+subroutine check_energy_batch_log_entered()
+
+   if (energy_batch_entered_logged) return
+   energy_batch_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,*) 'check_energy_batch entered (timestep_init/chng/gmean/fix direct = codon)'
+      call check_energy_batch_append_proof('check_energy_batch entered (timestep_init/chng/gmean/fix direct = codon)')
+   end if
+
+end subroutine check_energy_batch_log_entered
 
 subroutine check_tracers_init_select_impl()
 
@@ -438,22 +506,22 @@ end subroutine check_energy_get_integrals
     integer :: ixcldice, ixcldliq                  ! CLDICE and CLDLIQ indices
     integer :: ixrain, ixsnow                      ! RAINQM and SNOWQM indices
     interface
-       subroutine check_energy_timestep_init_codon(ncol_c, pver_c, psetcols_c, pcnst_c, &
+       subroutine check_energy_batch_timestep_init_codon(ncol_c, pver_c, psetcols_c, pcnst_c, &
             latvap_c, latice_c, gravit_c, ixcldliq_c, ixcldice_c, ixrain_c, ixsnow_c, &
             state_u_p, state_v_p, state_s_p, state_q_p, state_pdel_p, &
-            ke_p, se_p, wv_p, wl_p, wi_p, state_te_ini_p, state_tw_ini_p) bind(c, name="check_energy_timestep_init_codon")
+            ke_p, se_p, wv_p, wl_p, wi_p, state_te_ini_p, state_tw_ini_p) bind(c, name="check_energy_batch_timestep_init_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pver_c, psetcols_c, pcnst_c
          integer(c_int64_t), value :: ixcldliq_c, ixcldice_c, ixrain_c, ixsnow_c
          real(c_double), value :: latvap_c, latice_c, gravit_c
          type(c_ptr), value :: state_u_p, state_v_p, state_s_p, state_q_p, state_pdel_p
          type(c_ptr), value :: ke_p, se_p, wv_p, wl_p, wi_p, state_te_ini_p, state_tw_ini_p
-       end subroutine check_energy_timestep_init_codon
+       end subroutine check_energy_batch_timestep_init_codon
     end interface
 !-----------------------------------------------------------------------
 
-    call check_energy_timestep_init_select_impl()
-    if (use_native_timestep_init_impl) then
+    call check_energy_batch_select_impl()
+    if (use_native_energy_batch_impl) then
        call check_energy_timestep_init_native(state, tend, pbuf, col_type)
        return
     end if
@@ -464,7 +532,8 @@ end subroutine check_energy_get_integrals
     call cnst_get_ind('RAINQM', ixrain,   abort=.false.)
     call cnst_get_ind('SNOWQM', ixsnow,   abort=.false.)
 
-    call check_energy_timestep_init_codon( &
+    call check_energy_batch_log_entered()
+    call check_energy_batch_timestep_init_codon( &
          int(ncol, c_int64_t), int(pver, c_int64_t), int(state%psetcols, c_int64_t), int(pcnst, c_int64_t), &
          real(latvap, c_double), real(latice, c_double), real(gravit, c_double), &
          int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), int(ixrain, c_int64_t), int(ixsnow, c_int64_t), &
@@ -617,11 +686,11 @@ end subroutine check_energy_get_integrals
     integer :: ixcldice, ixcldliq                  ! CLDICE and CLDLIQ indices
     integer :: ixrain, ixsnow                      ! RAINQM and SNOWQM indices
     interface
-       subroutine check_energy_chng_codon(ncol_c, pver_c, psetcols_c, &
+       subroutine check_energy_batch_chng_codon(ncol_c, pver_c, psetcols_c, &
             latvap_c, latice_c, gravit_c, ixcldliq_c, ixcldice_c, ixrain_c, ixsnow_c, &
             state_u_p, state_v_p, state_s_p, state_q_p, state_pdel_p, &
             flx_vap_p, flx_cnd_p, flx_ice_p, flx_sen_p, &
-            ke_p, se_p, wv_p, wl_p, wi_p, tend_te_tnd_p, tend_tw_tnd_p, state_te_cur_p, state_tw_cur_p) bind(c, name="check_energy_chng_codon")
+            ke_p, se_p, wv_p, wl_p, wi_p, tend_te_tnd_p, tend_tw_tnd_p, state_te_cur_p, state_tw_cur_p) bind(c, name="check_energy_batch_chng_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pver_c, psetcols_c
          integer(c_int64_t), value :: ixcldliq_c, ixcldice_c, ixrain_c, ixsnow_c
@@ -630,12 +699,12 @@ end subroutine check_energy_get_integrals
          type(c_ptr), value :: flx_vap_p, flx_cnd_p, flx_ice_p, flx_sen_p
          type(c_ptr), value :: ke_p, se_p, wv_p, wl_p, wi_p
          type(c_ptr), value :: tend_te_tnd_p, tend_tw_tnd_p, state_te_cur_p, state_tw_cur_p
-       end subroutine check_energy_chng_codon
+       end subroutine check_energy_batch_chng_codon
     end interface
 !-----------------------------------------------------------------------
 
-    call check_energy_chng_select_impl()
-    if (use_native_chng_impl .or. print_energy_errors) then
+    call check_energy_batch_select_impl()
+    if (use_native_energy_batch_impl .or. print_energy_errors) then
        call check_energy_chng_native(state, tend, name, nstep, ztodt, flx_vap, flx_cnd, flx_ice, flx_sen)
        return
     end if
@@ -646,7 +715,8 @@ end subroutine check_energy_get_integrals
     call cnst_get_ind('RAINQM', ixrain,   abort=.false.)
     call cnst_get_ind('SNOWQM', ixsnow,   abort=.false.)
 
-    call check_energy_chng_codon( &
+    call check_energy_batch_log_entered()
+    call check_energy_batch_chng_codon( &
          int(ncol, c_int64_t), int(pver, c_int64_t), int(state%psetcols, c_int64_t), &
          real(latvap, c_double), real(latice, c_double), real(gravit, c_double), &
          int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), int(ixrain, c_int64_t), int(ixsnow, c_int64_t), &
@@ -848,18 +918,18 @@ end subroutine check_energy_get_integrals
     real(r8) :: te_glob(3)               ! global means of total energy
     real(r8), pointer :: teout(:)
     interface
-       subroutine check_energy_gmean_fill_codon(ncol_c, state_te_ini_p, teout_p, pint_surf_p, &
-            te1_p, te2_p, te3_p) bind(c, name="check_energy_gmean_fill_codon")
+       subroutine check_energy_batch_gmean_fill_codon(ncol_c, state_te_ini_p, teout_p, pint_surf_p, &
+            te1_p, te2_p, te3_p) bind(c, name="check_energy_batch_gmean_fill_codon")
          use iso_c_binding, only: c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c
          type(c_ptr), value :: state_te_ini_p, teout_p, pint_surf_p
          type(c_ptr), value :: te1_p, te2_p, te3_p
-       end subroutine check_energy_gmean_fill_codon
+       end subroutine check_energy_batch_gmean_fill_codon
     end interface
 !-----------------------------------------------------------------------
 
-    call check_energy_gmean_select_impl()
-    if (use_native_gmean_impl) then
+    call check_energy_batch_select_impl()
+    if (use_native_energy_batch_impl) then
        call check_energy_gmean_native(state, pbuf2d, dtime, nstep)
        return
     end if
@@ -870,7 +940,8 @@ end subroutine check_energy_get_integrals
        ncol = state(lchnk)%ncol
        call pbuf_get_field(pbuf_get_chunk(pbuf2d,lchnk),teout_idx, teout)
        if (ncol > 0) then
-          call check_energy_gmean_fill_codon( &
+          call check_energy_batch_log_entered()
+          call check_energy_batch_gmean_fill_codon( &
                int(ncol, c_int64_t), c_loc(state(lchnk)%te_ini(1)), c_loc(teout(1)), c_loc(state(lchnk)%pint(1,pver+1)), &
                c_loc(te(1,lchnk,1)), c_loc(te(1,lchnk,2)), c_loc(te(1,lchnk,3)) &
           )
@@ -994,20 +1065,20 @@ end subroutine check_energy_get_integrals
     real(r8) :: max_abs_s, max_abs_esh, max_abs_pint, diff
     real(r8) :: max_abs_hflux_srf, max_abs_hflux_top, max_abs_state_s, max_abs_te_cur
     interface
-       subroutine check_energy_fix_codon(ncol_c, pcols_c, pver_c, psetcols_c, heat_glob_c, gravit_c, &
-            state_pint_p, ptend_s_p, eshflx_p) bind(c, name="check_energy_fix_codon")
+       subroutine check_energy_batch_fix_codon(ncol_c, pcols_c, pver_c, psetcols_c, heat_glob_c, gravit_c, &
+            state_pint_p, ptend_s_p, eshflx_p) bind(c, name="check_energy_batch_fix_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, psetcols_c
          real(c_double), value :: heat_glob_c, gravit_c
          type(c_ptr), value :: state_pint_p, ptend_s_p, eshflx_p
-       end subroutine check_energy_fix_codon
+       end subroutine check_energy_batch_fix_codon
     end interface
 !-----------------------------------------------------------------------
     ncol = state%ncol
     debug_compare = .false.
     debug_env = ''
 
-    call check_energy_fix_select_impl()
+    call check_energy_batch_select_impl()
     call get_environment_variable('CHECK_ENERGY_FIX_DEBUG', value=debug_env, length=n, status=status)
     if (status == 0 .and. n > 0) then
        debug_compare = trim(adjustl(debug_env(:n))) /= '0'
@@ -1025,7 +1096,7 @@ end subroutine check_energy_get_integrals
     heat_glob = 0._r8
 #endif
 
-    if (use_native_fix_impl) then
+    if (use_native_energy_batch_impl) then
        call check_energy_fix_native(state, ptend, nstep, eshflx)
        return
     end if
@@ -1046,7 +1117,8 @@ end subroutine check_energy_get_integrals
        eshflx(:) = 0._r8
     end if
 
-    call check_energy_fix_codon( &
+    call check_energy_batch_log_entered()
+    call check_energy_batch_fix_codon( &
          int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(state%psetcols, c_int64_t), &
          real(heat_glob, c_double), real(gravit, c_double), c_loc(state%pint), c_loc(ptend%s), c_loc(eshflx) &
     )

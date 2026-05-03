@@ -247,3 +247,147 @@ def check_energy_gmean_fill_codon(
         te1[i - 1] = state_te_ini[i - 1]
         te2[i - 1] = teout[i - 1]
         te3[i - 1] = pint_surf[i - 1]
+
+
+@export
+def check_energy_batch_timestep_init_codon(
+    ncol: int,
+    pver: int,
+    psetcols: int,
+    pcnst: int,
+    latvap: float,
+    latice: float,
+    gravit: float,
+    ixcldliq: int,
+    ixcldice: int,
+    ixrain: int,
+    ixsnow: int,
+    state_u_p: cobj,
+    state_v_p: cobj,
+    state_s_p: cobj,
+    state_q_p: cobj,
+    state_pdel_p: cobj,
+    ke_p: cobj,
+    se_p: cobj,
+    wv_p: cobj,
+    wl_p: cobj,
+    wi_p: cobj,
+    state_te_ini_p: cobj,
+    state_tw_ini_p: cobj,
+):
+    check_energy_timestep_init_codon(
+        ncol,
+        pver,
+        psetcols,
+        pcnst,
+        latvap,
+        latice,
+        gravit,
+        ixcldliq,
+        ixcldice,
+        ixrain,
+        ixsnow,
+        state_u_p,
+        state_v_p,
+        state_s_p,
+        state_q_p,
+        state_pdel_p,
+        ke_p,
+        se_p,
+        wv_p,
+        wl_p,
+        wi_p,
+        state_te_ini_p,
+        state_tw_ini_p,
+    )
+
+
+@export
+def check_energy_batch_chng_codon(
+    ncol: int,
+    pver: int,
+    psetcols: int,
+    latvap: float,
+    latice: float,
+    gravit: float,
+    ixcldliq: int,
+    ixcldice: int,
+    ixrain: int,
+    ixsnow: int,
+    state_u_p: cobj,
+    state_v_p: cobj,
+    state_s_p: cobj,
+    state_q_p: cobj,
+    state_pdel_p: cobj,
+    flx_vap_p: cobj,
+    flx_cnd_p: cobj,
+    flx_ice_p: cobj,
+    flx_sen_p: cobj,
+    ke_p: cobj,
+    se_p: cobj,
+    wv_p: cobj,
+    wl_p: cobj,
+    wi_p: cobj,
+    tend_te_tnd_p: cobj,
+    tend_tw_tnd_p: cobj,
+    state_te_cur_p: cobj,
+    state_tw_cur_p: cobj,
+):
+    check_energy_chng_codon(
+        ncol,
+        pver,
+        psetcols,
+        latvap,
+        latice,
+        gravit,
+        ixcldliq,
+        ixcldice,
+        ixrain,
+        ixsnow,
+        state_u_p,
+        state_v_p,
+        state_s_p,
+        state_q_p,
+        state_pdel_p,
+        flx_vap_p,
+        flx_cnd_p,
+        flx_ice_p,
+        flx_sen_p,
+        ke_p,
+        se_p,
+        wv_p,
+        wl_p,
+        wi_p,
+        tend_te_tnd_p,
+        tend_tw_tnd_p,
+        state_te_cur_p,
+        state_tw_cur_p,
+    )
+
+
+@export
+def check_energy_batch_gmean_fill_codon(
+    ncol: int,
+    state_te_ini_p: cobj,
+    teout_p: cobj,
+    pint_surf_p: cobj,
+    te1_p: cobj,
+    te2_p: cobj,
+    te3_p: cobj,
+):
+    check_energy_gmean_fill_codon(ncol, state_te_ini_p, teout_p, pint_surf_p, te1_p, te2_p, te3_p)
+
+
+@export
+def check_energy_batch_fix_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    psetcols: int,
+    heat_glob: float,
+    gravit: float,
+    state_pint_p: cobj,
+    ptend_s_p: cobj,
+    eshflx_p: cobj,
+):
+    check_energy_fix_codon(ncol, pcols, pver, psetcols, heat_glob, gravit, state_pint_p, ptend_s_p, eshflx_p)
