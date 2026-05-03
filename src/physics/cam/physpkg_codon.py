@@ -398,6 +398,142 @@ def tphysbc_radheat_flx_net_codon(
 
 
 @export
+def tphyspkg_flux_batch_precip_ops_codon(
+    mode: int,
+    ncol: int,
+    pcols: int,
+    cld_macmic_num_steps: int,
+    prec_sed_macmic_p: cobj,
+    snow_sed_macmic_p: cobj,
+    prec_pcw_macmic_p: cobj,
+    snow_pcw_macmic_p: cobj,
+    prec_sed_p: cobj,
+    snow_sed_p: cobj,
+    prec_pcw_p: cobj,
+    snow_pcw_p: cobj,
+    prec_str_p: cobj,
+    snow_str_p: cobj,
+    prec_sed_carma_p: cobj,
+    snow_sed_carma_p: cobj,
+):
+    tphysbc_precip_ops_codon(
+        mode,
+        ncol,
+        pcols,
+        cld_macmic_num_steps,
+        prec_sed_macmic_p,
+        snow_sed_macmic_p,
+        prec_pcw_macmic_p,
+        snow_pcw_macmic_p,
+        prec_sed_p,
+        snow_sed_p,
+        prec_pcw_p,
+        snow_pcw_p,
+        prec_str_p,
+        snow_str_p,
+        prec_sed_carma_p,
+        snow_sed_carma_p,
+    )
+
+
+@export
+def tphyspkg_flux_batch_flx_net_update_codon(
+    ncol: int,
+    pcols: int,
+    tend_flx_net_p: cobj,
+    cam_in_shf_p: cobj,
+    cam_out_precc_p: cobj,
+    cam_out_precl_p: cobj,
+    cam_out_precsc_p: cobj,
+    cam_out_precsl_p: cobj,
+    latvap_local: float,
+    latice_local: float,
+    rhoh2o_local: float,
+):
+    tphysac_flx_net_update_codon(
+        ncol,
+        pcols,
+        tend_flx_net_p,
+        cam_in_shf_p,
+        cam_out_precc_p,
+        cam_out_precl_p,
+        cam_out_precsc_p,
+        cam_out_precsl_p,
+        latvap_local,
+        latice_local,
+        rhoh2o_local,
+    )
+
+
+@export
+def tphyspkg_flux_batch_t_update_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    ztodt: float,
+    state_t_p: cobj,
+    tini_p: cobj,
+    tend_dtdt_p: cobj,
+    dtcore_p: cobj,
+    tmp_t_p: cobj,
+):
+    tphysac_t_update_codon(ncol, pcols, pver, ztodt, state_t_p, tini_p, tend_dtdt_p, dtcore_p, tmp_t_p)
+
+
+@export
+def tphyspkg_flux_batch_q_snapshot_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    ixcldliq: int,
+    ixcldice: int,
+    state_q_p: cobj,
+    tmp_q_p: cobj,
+    tmp_cldliq_p: cobj,
+    tmp_cldice_p: cobj,
+):
+    tphysac_q_snapshot_codon(
+        ncol, pcols, pver, pcnst, ixcldliq, ixcldice, state_q_p, tmp_q_p, tmp_cldliq_p, tmp_cldice_p
+    )
+
+
+@export
+def tphyspkg_flux_batch_flx_cnd_sum_codon(
+    ncol: int,
+    pcols: int,
+    a_p: cobj,
+    b_p: cobj,
+    out_p: cobj,
+):
+    tphysbc_flx_cnd_sum_codon(ncol, pcols, a_p, b_p, out_p)
+
+
+@export
+def tphyspkg_flux_batch_macrop_fluxes_codon(
+    mode: int,
+    ncol: int,
+    pcols: int,
+    rliq_p: cobj,
+    det_s_p: cobj,
+    flx_cnd_p: cobj,
+    flx_heat_p: cobj,
+    shf_p: cobj,
+):
+    tphysbc_macrop_fluxes_codon(mode, ncol, pcols, rliq_p, det_s_p, flx_cnd_p, flx_heat_p, shf_p)
+
+
+@export
+def tphyspkg_flux_batch_radheat_flx_net_codon(
+    ncol: int,
+    pcols: int,
+    tend_flx_net_p: cobj,
+    net_flx_p: cobj,
+):
+    tphysbc_radheat_flx_net_codon(ncol, pcols, tend_flx_net_p, net_flx_p)
+
+
+@export
 def tphysbc_zero_buffers_codon(
     pcols: int,
     pcnst: int,

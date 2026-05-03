@@ -102,6 +102,9 @@ module physpkg
   logical           :: tphysbc_trace_water_clip_impl_selected = .false.
   logical           :: use_native_tphysbc_dadadj_lq_init_impl = .false.
   logical           :: tphysbc_dadadj_lq_init_impl_selected = .false.
+  logical           :: use_native_tphyspkg_flux_batch_impl = .false.
+  logical           :: tphyspkg_flux_batch_impl_selected = .false.
+  logical           :: tphyspkg_flux_batch_entered_logged = .false.
   logical           :: use_native_tphysbc_state_batch_impl = .false.
   logical           :: tphysbc_state_batch_impl_selected = .false.
   logical           :: tphysbc_state_batch_entered_logged = .false.
@@ -2726,6 +2729,80 @@ end subroutine phys_timestep_init_select_branches
 
 !=======================================================================
 
+subroutine tphyspkg_flux_batch_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('TPHYSPKG_FLUX_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+     write(unitno,'(A)') trim(proof_line)
+     close(unitno)
+  end if
+
+end subroutine tphyspkg_flux_batch_append_proof
+
+!=======================================================================
+
+subroutine tphyspkg_flux_batch_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (tphyspkg_flux_batch_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('TPHYSPKG_FLUX_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_tphyspkg_flux_batch_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_tphyspkg_flux_batch_impl = .false.
+  end if
+
+  tphyspkg_flux_batch_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_tphyspkg_flux_batch_impl) then
+        write(iulog,*) 'tphyspkg_flux_batch implementation = native'
+        call tphyspkg_flux_batch_append_proof('tphyspkg_flux_batch selector entered implementation = native')
+     else
+        write(iulog,*) 'tphyspkg_flux_batch implementation = codon'
+        call tphyspkg_flux_batch_append_proof('tphyspkg_flux_batch selector entered implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine tphyspkg_flux_batch_select_impl
+
+!=======================================================================
+
+subroutine tphyspkg_flux_batch_log_entered()
+
+  if (tphyspkg_flux_batch_entered_logged) return
+  tphyspkg_flux_batch_entered_logged = .true.
+
+  if (masterproc) then
+     write(iulog,*) 'tphyspkg_flux_batch entered (precip/flx_cnd/macrop/radheat/tphysac direct = codon)'
+     call tphyspkg_flux_batch_append_proof( &
+          'tphyspkg_flux_batch entered (precip/flx_cnd/macrop/radheat/tphysac direct = codon)')
+     call flush(iulog)
+  end if
+
+end subroutine tphyspkg_flux_batch_log_entered
+
+!=======================================================================
+
 subroutine tphysbc_precip_ops_select_impl()
 
   character(len=32) :: impl_name
@@ -2794,10 +2871,10 @@ subroutine tphysbc_precip_ops(mode, ncol, pcols_local, cld_macmic_num_steps_loca
   integer(c_int64_t), target :: cld_macmic_num_steps_c
 
   interface
-     subroutine tphysbc_precip_ops_codon(mode_c, ncol_c, pcols_c, cld_macmic_num_steps_c, &
+     subroutine tphyspkg_flux_batch_precip_ops_codon(mode_c, ncol_c, pcols_c, cld_macmic_num_steps_c, &
           prec_sed_macmic_p, snow_sed_macmic_p, prec_pcw_macmic_p, snow_pcw_macmic_p, &
           prec_sed_p, snow_sed_p, prec_pcw_p, snow_pcw_p, prec_str_p, snow_str_p, &
-          prec_sed_carma_p, snow_sed_carma_p) bind(c, name="tphysbc_precip_ops_codon")
+          prec_sed_carma_p, snow_sed_carma_p) bind(c, name="tphyspkg_flux_batch_precip_ops_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: mode_c
        integer(c_int64_t), value :: ncol_c
@@ -2815,12 +2892,12 @@ subroutine tphysbc_precip_ops(mode, ncol, pcols_local, cld_macmic_num_steps_loca
        type(c_ptr), value :: snow_str_p
        type(c_ptr), value :: prec_sed_carma_p
        type(c_ptr), value :: snow_sed_carma_p
-     end subroutine tphysbc_precip_ops_codon
+     end subroutine tphyspkg_flux_batch_precip_ops_codon
   end interface
 
-  call tphysbc_precip_ops_select_impl()
+  call tphyspkg_flux_batch_select_impl()
 
-  if (use_native_tphysbc_precip_ops_impl) then
+  if (use_native_tphyspkg_flux_batch_impl) then
      call tphysbc_precip_ops_native(mode, ncol, pcols_local, cld_macmic_num_steps_local, &
           prec_sed_macmic, snow_sed_macmic, prec_pcw_macmic, snow_pcw_macmic, &
           prec_sed, snow_sed, prec_pcw, snow_pcw, prec_str, snow_str, &
@@ -2833,7 +2910,8 @@ subroutine tphysbc_precip_ops(mode, ncol, pcols_local, cld_macmic_num_steps_loca
   pcols_c = int(pcols_local, c_int64_t)
   cld_macmic_num_steps_c = int(cld_macmic_num_steps_local, c_int64_t)
 
-  call tphysbc_precip_ops_codon(mode_c, ncol_c, pcols_c, cld_macmic_num_steps_c, &
+  call tphyspkg_flux_batch_log_entered()
+  call tphyspkg_flux_batch_precip_ops_codon(mode_c, ncol_c, pcols_c, cld_macmic_num_steps_c, &
        c_loc(prec_sed_macmic), c_loc(snow_sed_macmic), c_loc(prec_pcw_macmic), c_loc(snow_pcw_macmic), &
        c_loc(prec_sed), c_loc(snow_sed), c_loc(prec_pcw), c_loc(snow_pcw), c_loc(prec_str), c_loc(snow_str), &
        c_loc(prec_sed_carma), c_loc(snow_sed_carma))
@@ -2952,9 +3030,9 @@ subroutine tphysac_flx_net_update(ncol, pcols_local, tend_flx_net, cam_in_shf, c
   integer(c_int64_t) :: pcols_c
 
   interface
-     subroutine tphysac_flx_net_update_codon(ncol_c, pcols_c, tend_flx_net_p, cam_in_shf_p, cam_out_precc_p, &
+     subroutine tphyspkg_flux_batch_flx_net_update_codon(ncol_c, pcols_c, tend_flx_net_p, cam_in_shf_p, cam_out_precc_p, &
           cam_out_precl_p, cam_out_precsc_p, cam_out_precsl_p, latvap_local, latice_local, rhoh2o_local) &
-          bind(c, name="tphysac_flx_net_update_codon")
+          bind(c, name="tphyspkg_flux_batch_flx_net_update_codon")
        use iso_c_binding, only: c_int64_t, c_double, c_ptr
        integer(c_int64_t), value :: ncol_c
        integer(c_int64_t), value :: pcols_c
@@ -2967,12 +3045,12 @@ subroutine tphysac_flx_net_update(ncol, pcols_local, tend_flx_net, cam_in_shf, c
        real(c_double), value :: latvap_local
        real(c_double), value :: latice_local
        real(c_double), value :: rhoh2o_local
-     end subroutine tphysac_flx_net_update_codon
+     end subroutine tphyspkg_flux_batch_flx_net_update_codon
   end interface
 
-  call tphysac_flx_net_update_select_impl()
+  call tphyspkg_flux_batch_select_impl()
 
-  if (use_native_tphysac_flx_net_update_impl) then
+  if (use_native_tphyspkg_flux_batch_impl) then
      call tphysac_flx_net_update_native(ncol, pcols_local, tend_flx_net, cam_in_shf, cam_out_precc, &
           cam_out_precl, cam_out_precsc, cam_out_precsl, latvap_local, latice_local, rhoh2o_local)
      return
@@ -2981,7 +3059,8 @@ subroutine tphysac_flx_net_update(ncol, pcols_local, tend_flx_net, cam_in_shf, c
   ncol_c = int(ncol, c_int64_t)
   pcols_c = int(pcols_local, c_int64_t)
 
-  call tphysac_flx_net_update_codon(ncol_c, pcols_c, c_loc(tend_flx_net), c_loc(cam_in_shf), c_loc(cam_out_precc), &
+  call tphyspkg_flux_batch_log_entered()
+  call tphyspkg_flux_batch_flx_net_update_codon(ncol_c, pcols_c, c_loc(tend_flx_net), c_loc(cam_in_shf), c_loc(cam_out_precc), &
        c_loc(cam_out_precl), c_loc(cam_out_precsc), c_loc(cam_out_precsl), latvap_local, latice_local, rhoh2o_local)
 
 end subroutine tphysac_flx_net_update
@@ -3073,8 +3152,8 @@ subroutine tphysac_t_update(ncol, pcols_local, pver_local, ztodt, state_t, tini,
   integer(c_int64_t), target :: pver_c
 
   interface
-     subroutine tphysac_t_update_codon(ncol_c, pcols_c, pver_c, ztodt, state_t_p, tini_p, tend_dtdt_p, dtcore_p, tmp_t_p) &
-          bind(c, name="tphysac_t_update_codon")
+     subroutine tphyspkg_flux_batch_t_update_codon(ncol_c, pcols_c, pver_c, ztodt, &
+          state_t_p, tini_p, tend_dtdt_p, dtcore_p, tmp_t_p) bind(c, name="tphyspkg_flux_batch_t_update_codon")
        use iso_c_binding, only: c_int64_t, c_double, c_ptr
        integer(c_int64_t), value :: ncol_c
        integer(c_int64_t), value :: pcols_c
@@ -3085,12 +3164,12 @@ subroutine tphysac_t_update(ncol, pcols_local, pver_local, ztodt, state_t, tini,
        type(c_ptr), value :: tend_dtdt_p
        type(c_ptr), value :: dtcore_p
        type(c_ptr), value :: tmp_t_p
-     end subroutine tphysac_t_update_codon
+     end subroutine tphyspkg_flux_batch_t_update_codon
   end interface
 
-  call tphysac_t_update_select_impl()
+  call tphyspkg_flux_batch_select_impl()
 
-  if (use_native_tphysac_t_update_impl) then
+  if (use_native_tphyspkg_flux_batch_impl) then
      call tphysac_t_update_native(ncol, pcols_local, pver_local, ztodt, state_t, tini, tend_dtdt, dtcore, tmp_t)
      return
   end if
@@ -3099,7 +3178,8 @@ subroutine tphysac_t_update(ncol, pcols_local, pver_local, ztodt, state_t, tini,
   pcols_c = int(pcols_local, c_int64_t)
   pver_c = int(pver_local, c_int64_t)
 
-  call tphysac_t_update_codon(ncol_c, pcols_c, pver_c, ztodt, &
+  call tphyspkg_flux_batch_log_entered()
+  call tphyspkg_flux_batch_t_update_codon(ncol_c, pcols_c, pver_c, ztodt, &
        c_loc(state_t), c_loc(tini), c_loc(tend_dtdt), c_loc(dtcore), c_loc(tmp_t))
 
 end subroutine tphysac_t_update
@@ -3195,8 +3275,8 @@ subroutine tphysac_q_snapshot(ncol, pcols_local, pver_local, pcnst_local, ixcldl
   integer(c_int64_t) :: ixcldice_c
 
   interface
-     subroutine tphysac_q_snapshot_codon(ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, &
-          state_q_p, tmp_q_p, tmp_cldliq_p, tmp_cldice_p) bind(c, name="tphysac_q_snapshot_codon")
+     subroutine tphyspkg_flux_batch_q_snapshot_codon(ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, &
+          state_q_p, tmp_q_p, tmp_cldliq_p, tmp_cldice_p) bind(c, name="tphyspkg_flux_batch_q_snapshot_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncol_c
        integer(c_int64_t), value :: pcols_c
@@ -3208,12 +3288,12 @@ subroutine tphysac_q_snapshot(ncol, pcols_local, pver_local, pcnst_local, ixcldl
        type(c_ptr), value :: tmp_q_p
        type(c_ptr), value :: tmp_cldliq_p
        type(c_ptr), value :: tmp_cldice_p
-     end subroutine tphysac_q_snapshot_codon
+     end subroutine tphyspkg_flux_batch_q_snapshot_codon
   end interface
 
-  call tphysac_q_snapshot_select_impl()
+  call tphyspkg_flux_batch_select_impl()
 
-  if (use_native_tphysac_q_snapshot_impl) then
+  if (use_native_tphyspkg_flux_batch_impl) then
      call tphysac_q_snapshot_native(ncol, pcols_local, pver_local, pcnst_local, ixcldliq, ixcldice, &
           state_q, tmp_q, tmp_cldliq, tmp_cldice)
      return
@@ -3226,7 +3306,8 @@ subroutine tphysac_q_snapshot(ncol, pcols_local, pver_local, pcnst_local, ixcldl
   ixcldliq_c = int(ixcldliq, c_int64_t)
   ixcldice_c = int(ixcldice, c_int64_t)
 
-  call tphysac_q_snapshot_codon(ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, &
+  call tphyspkg_flux_batch_log_entered()
+  call tphyspkg_flux_batch_q_snapshot_codon(ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, &
        c_loc(state_q), c_loc(tmp_q), c_loc(tmp_cldliq), c_loc(tmp_cldice))
 
 end subroutine tphysac_q_snapshot
@@ -3946,20 +4027,20 @@ subroutine tphysbc_flx_cnd_sum(ncol, pcols_local, a, b, out)
   integer(c_int64_t) :: pcols_c
 
   interface
-     subroutine tphysbc_flx_cnd_sum_codon(ncol_c, pcols_c, a_p, b_p, out_p) &
-          bind(c, name="tphysbc_flx_cnd_sum_codon")
+     subroutine tphyspkg_flux_batch_flx_cnd_sum_codon(ncol_c, pcols_c, a_p, b_p, out_p) &
+          bind(c, name="tphyspkg_flux_batch_flx_cnd_sum_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncol_c
        integer(c_int64_t), value :: pcols_c
        type(c_ptr), value :: a_p
        type(c_ptr), value :: b_p
        type(c_ptr), value :: out_p
-     end subroutine tphysbc_flx_cnd_sum_codon
+     end subroutine tphyspkg_flux_batch_flx_cnd_sum_codon
   end interface
 
-  call tphysbc_flx_cnd_sum_select_impl()
+  call tphyspkg_flux_batch_select_impl()
 
-  if (use_native_tphysbc_flx_cnd_sum_impl) then
+  if (use_native_tphyspkg_flux_batch_impl) then
      call tphysbc_flx_cnd_sum_native(ncol, pcols_local, a, b, out)
      return
   end if
@@ -3967,7 +4048,8 @@ subroutine tphysbc_flx_cnd_sum(ncol, pcols_local, a, b, out)
   ncol_c = int(ncol, c_int64_t)
   pcols_c = int(pcols_local, c_int64_t)
 
-  call tphysbc_flx_cnd_sum_codon(ncol_c, pcols_c, c_loc(a), c_loc(b), c_loc(out))
+  call tphyspkg_flux_batch_log_entered()
+  call tphyspkg_flux_batch_flx_cnd_sum_codon(ncol_c, pcols_c, c_loc(a), c_loc(b), c_loc(out))
 
 end subroutine tphysbc_flx_cnd_sum
 
@@ -4046,8 +4128,8 @@ subroutine tphysbc_macrop_fluxes(mode, ncol, pcols_local, rliq, det_s, flx_cnd, 
   type(c_ptr) :: shf_p
 
   interface
-     subroutine tphysbc_macrop_fluxes_codon(mode_c, ncol_c, pcols_c, rliq_p, det_s_p, flx_cnd_p, flx_heat_p, shf_p) &
-          bind(c, name="tphysbc_macrop_fluxes_codon")
+     subroutine tphyspkg_flux_batch_macrop_fluxes_codon(mode_c, ncol_c, pcols_c, rliq_p, det_s_p, flx_cnd_p, flx_heat_p, shf_p) &
+          bind(c, name="tphyspkg_flux_batch_macrop_fluxes_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: mode_c
        integer(c_int64_t), value :: ncol_c
@@ -4057,12 +4139,12 @@ subroutine tphysbc_macrop_fluxes(mode, ncol, pcols_local, rliq, det_s, flx_cnd, 
        type(c_ptr), value :: flx_cnd_p
        type(c_ptr), value :: flx_heat_p
        type(c_ptr), value :: shf_p
-     end subroutine tphysbc_macrop_fluxes_codon
+     end subroutine tphyspkg_flux_batch_macrop_fluxes_codon
   end interface
 
-  call tphysbc_macrop_fluxes_select_impl()
+  call tphyspkg_flux_batch_select_impl()
 
-  if (use_native_tphysbc_macrop_fluxes_impl) then
+  if (use_native_tphyspkg_flux_batch_impl) then
      call tphysbc_macrop_fluxes_native(mode, ncol, pcols_local, rliq, det_s, flx_cnd, flx_heat, shf)
      return
   end if
@@ -4077,7 +4159,9 @@ subroutine tphysbc_macrop_fluxes(mode, ncol, pcols_local, rliq, det_s, flx_cnd, 
      shf_p = c_null_ptr
   end if
 
-  call tphysbc_macrop_fluxes_codon(mode_c, ncol_c, pcols_c, c_loc(rliq), c_loc(det_s), c_loc(flx_cnd), c_loc(flx_heat), shf_p)
+  call tphyspkg_flux_batch_log_entered()
+  call tphyspkg_flux_batch_macrop_fluxes_codon(mode_c, ncol_c, pcols_c, &
+       c_loc(rliq), c_loc(det_s), c_loc(flx_cnd), c_loc(flx_heat), shf_p)
 
 end subroutine tphysbc_macrop_fluxes
 
@@ -4159,19 +4243,19 @@ subroutine tphysbc_radheat_flx_net(ncol, pcols_local, tend_flx_net, net_flx)
   integer(c_int64_t) :: pcols_c
 
   interface
-     subroutine tphysbc_radheat_flx_net_codon(ncol_c, pcols_c, tend_flx_net_p, net_flx_p) &
-          bind(c, name="tphysbc_radheat_flx_net_codon")
+     subroutine tphyspkg_flux_batch_radheat_flx_net_codon(ncol_c, pcols_c, tend_flx_net_p, net_flx_p) &
+          bind(c, name="tphyspkg_flux_batch_radheat_flx_net_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncol_c
        integer(c_int64_t), value :: pcols_c
        type(c_ptr), value :: tend_flx_net_p
        type(c_ptr), value :: net_flx_p
-     end subroutine tphysbc_radheat_flx_net_codon
+     end subroutine tphyspkg_flux_batch_radheat_flx_net_codon
   end interface
 
-  call tphysbc_radheat_flx_net_select_impl()
+  call tphyspkg_flux_batch_select_impl()
 
-  if (use_native_tphysbc_radheat_flx_net_impl) then
+  if (use_native_tphyspkg_flux_batch_impl) then
      call tphysbc_radheat_flx_net_native(ncol, pcols_local, tend_flx_net, net_flx)
      return
   end if
@@ -4179,7 +4263,8 @@ subroutine tphysbc_radheat_flx_net(ncol, pcols_local, tend_flx_net, net_flx)
   ncol_c = int(ncol, c_int64_t)
   pcols_c = int(pcols_local, c_int64_t)
 
-  call tphysbc_radheat_flx_net_codon(ncol_c, pcols_c, c_loc(tend_flx_net), c_loc(net_flx))
+  call tphyspkg_flux_batch_log_entered()
+  call tphyspkg_flux_batch_radheat_flx_net_codon(ncol_c, pcols_c, c_loc(tend_flx_net), c_loc(net_flx))
 
 end subroutine tphysbc_radheat_flx_net
 
