@@ -325,3 +325,127 @@ def wtrc_add_rates_codon(
                     i, k, isrctype, idsttype, rtype, pcols, pver, pwtype
                 )
                 process_rates[src_idx] = process_rates[src_idx] - rate_val
+
+
+@export
+def wtrc_batch_mass_fixer_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    pwtype: int,
+    wtrc_nwset: int,
+    isphdo: int,
+    wisotope: int,
+    wtrc_qmin: float,
+    wtrc_limiter_18O_hgh: float,
+    wtrc_limiter_18O_low: float,
+    wtrc_limiter_HDO_hgh: float,
+    wtrc_limiter_HDO_low: float,
+    wtrc_limiter_phis_crit: float,
+    radtodeg: float,
+    state_q_p: cobj,
+    state_lat_p: cobj,
+    state_phis_p: cobj,
+    wtrc_iatype_p: cobj,
+    wtrc_bulk_indices_p: cobj,
+    iwspec_p: cobj,
+    rstd_p: cobj,
+):
+    wtrc_mass_fixer_codon(
+        ncol,
+        pcols,
+        pver,
+        pcnst,
+        pwtype,
+        wtrc_nwset,
+        isphdo,
+        wisotope,
+        wtrc_qmin,
+        wtrc_limiter_18O_hgh,
+        wtrc_limiter_18O_low,
+        wtrc_limiter_HDO_hgh,
+        wtrc_limiter_HDO_low,
+        wtrc_limiter_phis_crit,
+        radtodeg,
+        state_q_p,
+        state_lat_p,
+        state_phis_p,
+        wtrc_iatype_p,
+        wtrc_bulk_indices_p,
+        iwspec_p,
+        rstd_p,
+    )
+
+
+@export
+def wtrc_batch_check_h2o_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    pwtype: int,
+    wtrc_nwset: int,
+    wisotope: int,
+    wtrc_check_total_h2o: int,
+    wtrc_qchkmin: float,
+    dtime: float,
+    pstate_q_p: cobj,
+    pstate_pdel_p: cobj,
+    qloc_p: cobj,
+    wtrc_bulk_indices_p: cobj,
+    wtrc_iawset_p: cobj,
+    iwspec_p: cobj,
+    rstd_p: cobj,
+    ptend_present: int,
+    ptend_q_p: cobj,
+    result_p: cobj,
+    issue_p: cobj,
+):
+    wtrc_check_h2o_codon(
+        ncol,
+        pcols,
+        pver,
+        pcnst,
+        pwtype,
+        wtrc_nwset,
+        wisotope,
+        wtrc_check_total_h2o,
+        wtrc_qchkmin,
+        dtime,
+        pstate_q_p,
+        pstate_pdel_p,
+        qloc_p,
+        wtrc_bulk_indices_p,
+        wtrc_iawset_p,
+        iwspec_p,
+        rstd_p,
+        ptend_present,
+        ptend_q_p,
+        result_p,
+        issue_p,
+    )
+
+
+@export
+def wtrc_batch_clear_precip_codon(ncol: int, srfpcp_p: cobj):
+    wtrc_clear_precip_codon(ncol, srfpcp_p)
+
+
+@export
+def wtrc_batch_diagnose_bulk_precip_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    bulk_idx: int,
+    ptend_q_p: cobj,
+):
+    wtrc_diagnose_bulk_precip_codon(
+        ncol,
+        pcols,
+        pver,
+        top_lev,
+        bulk_idx,
+        ptend_q_p,
+    )

@@ -142,8 +142,81 @@ module water_tracers
   logical :: wtrc_diagnose_bulk_precip_impl_selected = .false.
   logical :: use_native_wtrc_add_rates_impl = .false.
   logical :: wtrc_add_rates_impl_selected = .false.
+  logical :: use_native_wtrc_batch_impl = .false.
+  logical :: wtrc_batch_impl_selected = .false.
+  logical :: wtrc_batch_entered_logged = .false.
 
 contains
+
+!=======================================================================
+subroutine wtrc_batch_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('WTRC_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+    open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+    write(unitno,'(A)') trim(proof_line)
+    close(unitno)
+  end if
+
+end subroutine wtrc_batch_append_proof
+
+!=======================================================================
+subroutine wtrc_batch_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (wtrc_batch_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('WTRC_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+    do i = 1, n
+      code = iachar(impl_name(i:i))
+      if (code >= iachar('A') .and. code <= iachar('Z')) then
+        impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+      end if
+    end do
+    use_native_wtrc_batch_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+    use_native_wtrc_batch_impl = .false.
+  end if
+
+  wtrc_batch_impl_selected = .true.
+
+  if (masterproc) then
+    if (use_native_wtrc_batch_impl) then
+      write(iulog,*) 'wtrc_batch implementation = native'
+      call wtrc_batch_append_proof('wtrc_batch selector entered implementation = native')
+    else
+      write(iulog,*) 'wtrc_batch implementation = codon'
+      call wtrc_batch_append_proof('wtrc_batch selector entered implementation = codon')
+    end if
+    call flush(iulog)
+  end if
+
+end subroutine wtrc_batch_select_impl
+
+!=======================================================================
+subroutine wtrc_batch_log_entered()
+
+  if (wtrc_batch_entered_logged) return
+  wtrc_batch_entered_logged = .true.
+
+  if (masterproc) then
+    write(iulog,'(A)') 'wtrc_batch entered (mass_fixer/check_h2o/clear_precip/diagnose_bulk_precip direct = codon)'
+    call wtrc_batch_append_proof('wtrc_batch entered (mass_fixer/check_h2o/clear_precip/diagnose_bulk_precip direct = codon)')
+    call flush(iulog)
+  end if
+
+end subroutine wtrc_batch_log_entered
 
 !=======================================================================
 subroutine wtrc_mass_fixer_select_impl()
@@ -2733,18 +2806,18 @@ end subroutine stewart_isoevap
   real(r8), pointer, dimension(:)    :: srfpcp      ! Surface precipitation (m/s)
 
   interface
-    subroutine wtrc_clear_precip_codon(ncol_c, srfpcp_p) bind(c, name="wtrc_clear_precip_codon")
+    subroutine wtrc_batch_clear_precip_codon(ncol_c, srfpcp_p) bind(c, name="wtrc_batch_clear_precip_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
       integer(c_int64_t), value :: ncol_c
       type(c_ptr), value :: srfpcp_p
-    end subroutine wtrc_clear_precip_codon
+    end subroutine wtrc_batch_clear_precip_codon
   end interface
 
 !-----------------------------------------------------------------------
 !
-  call wtrc_clear_precip_select_impl()
+  call wtrc_batch_select_impl()
 
-  if (use_native_wtrc_clear_precip_impl) then
+  if (use_native_wtrc_batch_impl) then
     call wtrc_clear_precip_native(pstate, pbuf, itype)
     return
   end if
@@ -2764,7 +2837,8 @@ end subroutine stewart_isoevap
 
       ! Calculate surface total.
       if (ncol > 0) then
-        call wtrc_clear_precip_codon(int(ncol, c_int64_t), c_loc(srfpcp(1)))
+        call wtrc_batch_log_entered()
+        call wtrc_batch_clear_precip_codon(int(ncol, c_int64_t), c_loc(srfpcp(1)))
       end if
     end do
   end if
@@ -3039,19 +3113,19 @@ end subroutine wtrc_diagnose_precip
   integer            :: bulk_idx
 
   interface
-    subroutine wtrc_diagnose_bulk_precip_codon(ncol_c, pcols_c, pver_c, top_lev_c, bulk_idx_c, ptend_q_p) &
-         bind(c, name="wtrc_diagnose_bulk_precip_codon")
+    subroutine wtrc_batch_diagnose_bulk_precip_codon(ncol_c, pcols_c, pver_c, top_lev_c, bulk_idx_c, ptend_q_p) &
+         bind(c, name="wtrc_batch_diagnose_bulk_precip_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, bulk_idx_c
       type(c_ptr), value :: ptend_q_p
-    end subroutine wtrc_diagnose_bulk_precip_codon
+    end subroutine wtrc_batch_diagnose_bulk_precip_codon
   end interface
 
 !-----------------------------------------------------------------------
 !
-  call wtrc_diagnose_bulk_precip_select_impl()
+  call wtrc_batch_select_impl()
 
-  if (use_native_wtrc_diagnose_bulk_precip_impl) then
+  if (use_native_wtrc_batch_impl) then
     call wtrc_diagnose_bulk_precip_native(pstate, ptend, top_lev, iwtype, dtime)
     return
   end if
@@ -3066,7 +3140,8 @@ end subroutine wtrc_diagnose_precip
       ! Clear out the 3-D bulk precipitation field.
       ptend%lq(bulk_idx) = .false.
       if (ncol > 0) then
-        call wtrc_diagnose_bulk_precip_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        call wtrc_batch_log_entered()
+        call wtrc_batch_diagnose_bulk_precip_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
              int(top_lev, c_int64_t), int(bulk_idx, c_int64_t), c_loc(ptend%q))
       end if
     end if
@@ -3213,11 +3288,11 @@ integer(c_int64_t), target :: iwspec64(pcnst)
 real(c_double), target :: rstd(pwtspec)
 
 interface
-  subroutine wtrc_mass_fixer_codon(ncol_c, pcols_c, pver_c, pcnst_c, pwtype_c, wtrc_nwset_c, &
+  subroutine wtrc_batch_mass_fixer_codon(ncol_c, pcols_c, pver_c, pcnst_c, pwtype_c, wtrc_nwset_c, &
        isphdo_c, wisotope_c, wtrc_qmin_c, wtrc_limiter_18O_hgh_c, wtrc_limiter_18O_low_c, &
        wtrc_limiter_HDO_hgh_c, wtrc_limiter_HDO_low_c, wtrc_limiter_phis_crit_c, radtodeg_c, &
        state_q_p, state_lat_p, state_phis_p, wtrc_iatype_p, wtrc_bulk_indices_p, iwspec_p, rstd_p) &
-       bind(c, name="wtrc_mass_fixer_codon")
+       bind(c, name="wtrc_batch_mass_fixer_codon")
     use iso_c_binding, only: c_int64_t, c_ptr, c_double
     integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, pwtype_c, wtrc_nwset_c
     integer(c_int64_t), value :: isphdo_c, wisotope_c
@@ -3226,12 +3301,12 @@ interface
     real(c_double), value :: wtrc_limiter_phis_crit_c, radtodeg_c
     type(c_ptr), value :: state_q_p, state_lat_p, state_phis_p
     type(c_ptr), value :: wtrc_iatype_p, wtrc_bulk_indices_p, iwspec_p, rstd_p
-  end subroutine wtrc_mass_fixer_codon
+  end subroutine wtrc_batch_mass_fixer_codon
 end interface
 
-call wtrc_mass_fixer_select_impl()
+call wtrc_batch_select_impl()
 
-if (use_native_wtrc_mass_fixer_impl) then
+if (use_native_wtrc_batch_impl) then
   call wtrc_mass_fixer_native(state)
   return
 end if
@@ -3252,7 +3327,8 @@ end do
 
 wisotope_c = merge(1_c_int64_t, 0_c_int64_t, wisotope)
 
-call wtrc_mass_fixer_codon(int(state%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+call wtrc_batch_log_entered()
+call wtrc_batch_mass_fixer_codon(int(state%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
      int(pcnst, c_int64_t), int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), int(isphdo, c_int64_t), &
      wisotope_c, real(wtrc_qmin, c_double), real(wtrc_limiter_18O_hgh, c_double), &
      real(wtrc_limiter_18O_low, c_double), real(wtrc_limiter_HDO_hgh, c_double), &
@@ -3445,10 +3521,10 @@ end subroutine wtrc_mass_fixer_native
   real(c_double), target :: rstd(pwtspec)
 
   interface
-    subroutine wtrc_check_h2o_codon(ncol_c, pcols_c, pver_c, pcnst_c, pwtype_c, wtrc_nwset_c, &
+    subroutine wtrc_batch_check_h2o_codon(ncol_c, pcols_c, pver_c, pcnst_c, pwtype_c, wtrc_nwset_c, &
          wisotope_c, wtrc_check_total_h2o_c, wtrc_qchkmin_c, dtime_c, pstate_q_p, pstate_pdel_p, &
          qloc_p, wtrc_bulk_indices_p, wtrc_iawset_p, iwspec_p, rstd_p, ptend_present_c, ptend_q_p, &
-         result_p, issue_p) bind(c, name="wtrc_check_h2o_codon")
+         result_p, issue_p) bind(c, name="wtrc_batch_check_h2o_codon")
       use iso_c_binding, only: c_int64_t, c_ptr, c_double
       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, pwtype_c, wtrc_nwset_c
       integer(c_int64_t), value :: wisotope_c, wtrc_check_total_h2o_c, ptend_present_c
@@ -3456,7 +3532,7 @@ end subroutine wtrc_mass_fixer_native
       type(c_ptr), value :: pstate_q_p, pstate_pdel_p, qloc_p
       type(c_ptr), value :: wtrc_bulk_indices_p, wtrc_iawset_p, iwspec_p, rstd_p
       type(c_ptr), value :: ptend_q_p, result_p, issue_p
-    end subroutine wtrc_check_h2o_codon
+    end subroutine wtrc_batch_check_h2o_codon
   end interface
  
 !-----------------------------------------------------------------------
@@ -3465,9 +3541,9 @@ end subroutine wtrc_mass_fixer_native
   
   if (.not. trace_water) return
 
-  call wtrc_check_h2o_select_impl()
+  call wtrc_batch_select_impl()
 
-  if (use_native_wtrc_check_h2o_impl) then
+  if (use_native_wtrc_batch_impl) then
     if (present(ptend)) then
       wtrc_check_h2o = wtrc_check_h2o_native(testname, pstate, qloc, dtime, ptend)
     else
@@ -3496,13 +3572,15 @@ end subroutine wtrc_mass_fixer_native
   issue_c = 0_c_int64_t
 
   if (present(ptend)) then
-    call wtrc_check_h2o_codon(int(pstate%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+    call wtrc_batch_log_entered()
+    call wtrc_batch_check_h2o_codon(int(pstate%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          int(pcnst, c_int64_t), int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), wisotope_c, &
          wtrc_check_total_h2o_c, real(wtrc_qchkmin, c_double), real(dtime, c_double), c_loc(pstate%q), &
          c_loc(pstate%pdel), c_loc(qloc), c_loc(wtrc_bulk_indices64), c_loc(wtrc_iawset64), c_loc(iwspec64), &
          c_loc(rstd), ptend_present_c, c_loc(ptend%q), c_loc(result_c), c_loc(issue_c))
   else
-    call wtrc_check_h2o_codon(int(pstate%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+    call wtrc_batch_log_entered()
+    call wtrc_batch_check_h2o_codon(int(pstate%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          int(pcnst, c_int64_t), int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), wisotope_c, &
          wtrc_check_total_h2o_c, real(wtrc_qchkmin, c_double), real(dtime, c_double), c_loc(pstate%q), &
          c_loc(pstate%pdel), c_loc(qloc), c_loc(wtrc_bulk_indices64), c_loc(wtrc_iawset64), c_loc(iwspec64), &
