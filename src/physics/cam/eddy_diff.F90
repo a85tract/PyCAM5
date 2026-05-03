@@ -274,6 +274,7 @@
   logical                     :: caleddy_clprep_impl_selected = .false.
   logical                     :: use_native_caleddy_closure_impl = .false.
   logical                     :: caleddy_closure_impl_selected = .false.
+  logical                     :: caleddy_closure_direct_from_core = .false.
   logical                     :: use_native_caleddy_srcl_impl = .false.
   logical                     :: caleddy_srcl_impl_selected = .false.
   logical                     :: use_native_caleddy_stl_impl = .false.
@@ -289,6 +290,9 @@
   logical                     :: use_native_caleddy_cloud_rad_batch_impl = .false.
   logical                     :: caleddy_cloud_rad_batch_impl_selected = .false.
   logical                     :: caleddy_cloud_rad_batch_entered_logged = .false.
+  logical                     :: use_native_caleddy_core_batch_impl = .false.
+  logical                     :: caleddy_core_batch_impl_selected = .false.
+  logical                     :: caleddy_core_batch_entered_logged = .false.
 
   CONTAINS
 
@@ -2262,6 +2266,193 @@
     end if
 
   end subroutine eddy_diff_caleddy_cloud_rad_batch_call
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_core_batch_append_proof(proof_line)
+
+    implicit none
+
+    character(len=*), intent(in) :: proof_line
+
+    character(len=512) :: proof_file
+    integer :: status, n, unitno
+
+    proof_file = ''
+    call get_environment_variable('EDDY_DIFF_CALEDDY_CORE_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+       write(unitno,'(A)') trim(proof_line)
+       close(unitno)
+    end if
+
+  end subroutine eddy_diff_caleddy_core_batch_append_proof
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_core_batch_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (caleddy_core_batch_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_CALEDDY_CORE_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_caleddy_core_batch_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_caleddy_core_batch_impl = .false.
+    end if
+
+    caleddy_core_batch_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_caleddy_core_batch_impl) then
+          write(iulog,*) 'eddy_diff_caleddy_core_batch implementation = native'
+          write(*,*) 'eddy_diff_caleddy_core_batch implementation = native'
+          call eddy_diff_append_impl_trace('eddy_diff_caleddy_core_batch implementation = native')
+          call eddy_diff_caleddy_core_batch_append_proof('eddy_diff_caleddy_core_batch selector entered implementation = native')
+       else
+          write(iulog,*) 'eddy_diff_caleddy_core_batch implementation = codon'
+          write(*,*) 'eddy_diff_caleddy_core_batch implementation = codon'
+          call eddy_diff_append_impl_trace('eddy_diff_caleddy_core_batch implementation = codon')
+          call eddy_diff_caleddy_core_batch_append_proof('eddy_diff_caleddy_core_batch selector entered implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine eddy_diff_caleddy_core_batch_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_core_batch_log_entered()
+
+    implicit none
+
+    if (caleddy_core_batch_entered_logged) return
+    caleddy_core_batch_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'eddy_diff_caleddy_core_batch entered (zisocl/closure direct = codon)'
+       write(*,*) 'eddy_diff_caleddy_core_batch entered (zisocl/closure direct = codon)'
+       call eddy_diff_append_impl_trace('eddy_diff_caleddy_core_batch entered (zisocl/closure direct = codon)')
+       call eddy_diff_caleddy_core_batch_append_proof('eddy_diff_caleddy_core_batch entered (zisocl/closure direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine eddy_diff_caleddy_core_batch_log_entered
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_core_batch_zisocl_call(i_local, pcols_local, pver_local, ncvmax_local, &
+       tunl_mode_local, leng_mode_local, use_dw_surf_mode_local, choice_tkes_ebprod_mode_local, z_local, zi_local, &
+       n2_local, s2_local, leng_max_local, bprod_local, sprod_local, bflxs_local, tkes_local, ncvfin_local, &
+       kbase_local, ktop_local, belongcv_local, ricl_local, ghcl_local, shcl_local, smcl_local, lbrk_local, &
+       wbrk_local, ebrk_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: i_local, pcols_local, pver_local, ncvmax_local
+    integer, intent(in) :: tunl_mode_local, leng_mode_local, use_dw_surf_mode_local, choice_tkes_ebprod_mode_local
+    real(r8), target, intent(in) :: z_local(pcols_local,pver_local), zi_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: n2_local(pcols_local,pver_local), s2_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: leng_max_local(pver_local)
+    real(r8), target, intent(in) :: bprod_local(pcols_local,pver_local+1), sprod_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: bflxs_local(pcols_local), tkes_local(pcols_local)
+    integer(i4), target, intent(inout) :: ncvfin_local(pcols_local), kbase_local(pcols_local,ncvmax_local)
+    integer(i4), target, intent(inout) :: ktop_local(pcols_local,ncvmax_local)
+    logical, intent(out) :: belongcv_local(pcols_local,pver_local+1)
+    real(r8), target, intent(out) :: ricl_local(pcols_local,ncvmax_local), ghcl_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(out) :: shcl_local(pcols_local,ncvmax_local), smcl_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(out) :: lbrk_local(pcols_local,ncvmax_local), wbrk_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(out) :: ebrk_local(pcols_local,ncvmax_local)
+
+    logical :: extend_local, extend_up_local, extend_dn_local
+    integer :: k
+    integer(i4), target :: belongcv_mask_local(pver_local+1)
+    integer(i4), target :: extend_codon, extend_up_codon, extend_dn_codon, zisocl_status_codon
+
+    interface
+       subroutine eddy_diff_caleddy_core_batch_zisocl_codon(i_c, pcols_c, pver_c, ncvmax_c, ntop_turb_c, &
+            use_dw_surf_c, choice_tkes_ebprod_c, tunl_mode_c, leng_mode_c, alph1_c, alph2_c, alph3_c, alph4_c, &
+            alph5_c, b1_c, vk_c, ntzero_c, ricrit_c, lbulk_max_c, tunl_c, ctunl_c, cleng_c, tkemax_c, rinc_c, &
+            z_p, zi_p, n2_p, s2_p, leng_max_p, bprod_p, sprod_p, bflxs_p, tkes_p, ncvfin_p, kbase_p, ktop_p, &
+            ricl_p, ghcl_p, shcl_p, smcl_p, lbrk_p, wbrk_p, ebrk_p, belong_mask_p, extend_p, extend_up_p, &
+            extend_dn_p, status_p) bind(c, name="eddy_diff_caleddy_core_batch_zisocl_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: i_c, pcols_c, pver_c, ncvmax_c, ntop_turb_c, use_dw_surf_c
+         integer(c_int64_t), value :: choice_tkes_ebprod_c, tunl_mode_c, leng_mode_c
+         real(c_double), value :: alph1_c, alph2_c, alph3_c, alph4_c, alph5_c, b1_c, vk_c, ntzero_c, ricrit_c
+         real(c_double), value :: lbulk_max_c, tunl_c, ctunl_c, cleng_c, tkemax_c, rinc_c
+         type(c_ptr), value :: z_p, zi_p, n2_p, s2_p, leng_max_p, bprod_p, sprod_p, bflxs_p, tkes_p, ncvfin_p
+         type(c_ptr), value :: kbase_p, ktop_p, ricl_p, ghcl_p, shcl_p, smcl_p, lbrk_p, wbrk_p, ebrk_p
+         type(c_ptr), value :: belong_mask_p, extend_p, extend_up_p, extend_dn_p, status_p
+       end subroutine eddy_diff_caleddy_core_batch_zisocl_codon
+    end interface
+
+    call eddy_diff_caleddy_core_batch_select_impl()
+
+    if (use_native_caleddy_core_batch_impl) then
+       call zisocl_native(pcols_local, pver_local, i_local, z_local, zi_local, n2_local, s2_local, bprod_local, &
+            sprod_local, bflxs_local, tkes_local, ncvfin_local, kbase_local, ktop_local, belongcv_local, ricl_local, &
+            ghcl_local, shcl_local, smcl_local, lbrk_local, wbrk_local, ebrk_local, extend_local, extend_up_local, &
+            extend_dn_local)
+       return
+    end if
+
+    extend_codon = 0_i4
+    extend_up_codon = 0_i4
+    extend_dn_codon = 0_i4
+    zisocl_status_codon = 0_i4
+
+    call eddy_diff_caleddy_core_batch_log_entered()
+    call eddy_diff_caleddy_core_batch_zisocl_codon(int(i_local, c_int64_t), int(pcols_local, c_int64_t), &
+         int(pver_local, c_int64_t), int(ncvmax_local, c_int64_t), int(ntop_turb, c_int64_t), &
+         int(use_dw_surf_mode_local, c_int64_t), int(choice_tkes_ebprod_mode_local, c_int64_t), &
+         int(tunl_mode_local, c_int64_t), int(leng_mode_local, c_int64_t), real(alph1, c_double), &
+         real(alph2, c_double), real(alph3, c_double), real(alph4, c_double), real(alph5, c_double), &
+         real(b1, c_double), real(vk, c_double), real(ntzero, c_double), real(ricrit, c_double), &
+         real(lbulk_max, c_double), real(tunl, c_double), real(ctunl, c_double), real(cleng, c_double), &
+         real(tkemax, c_double), real(rinc, c_double), c_loc(z_local), c_loc(zi_local), c_loc(n2_local), &
+         c_loc(s2_local), c_loc(leng_max_local), c_loc(bprod_local), c_loc(sprod_local), c_loc(bflxs_local), &
+         c_loc(tkes_local), c_loc(ncvfin_local), c_loc(kbase_local), c_loc(ktop_local), c_loc(ricl_local), &
+         c_loc(ghcl_local), c_loc(shcl_local), c_loc(smcl_local), c_loc(lbrk_local), c_loc(wbrk_local), &
+         c_loc(ebrk_local), c_loc(belongcv_mask_local), c_loc(extend_codon), c_loc(extend_up_codon), &
+         c_loc(extend_dn_codon), c_loc(zisocl_status_codon))
+
+    if (zisocl_status_codon .eq. 1_i4) then
+       write(iulog,*) 'zisocl: Error: Tried to extend CL to the model top'
+       call endrun('zisocl: Error: Tried to extend CL to the model top')
+    elseif (zisocl_status_codon .eq. 2_i4) then
+       write(iulog,*) 'Major mistake zisocl: the CL based at surface is not indexed 1'
+       call endrun('Major mistake zisocl: the CL based at surface is not indexed 1')
+    end if
+
+    do k = 1, pver_local + 1
+       belongcv_local(i_local,k) = belongcv_mask_local(k) .ne. 0_i4
+    end do
+
+  end subroutine eddy_diff_caleddy_core_batch_zisocl_call
 
   !=============================================================================== !
   !                                                                                !
@@ -8374,9 +8565,11 @@
        end subroutine eddy_diff_caleddy_closure_codon
     end interface
 
-    call eddy_diff_caleddy_closure_select_impl()
+    if (.not. caleddy_closure_direct_from_core) then
+       call eddy_diff_caleddy_closure_select_impl()
+    end if
 
-    if (use_native_caleddy_closure_impl) then
+    if (use_native_caleddy_closure_impl .and. .not. caleddy_closure_direct_from_core) then
        call eddy_diff_caleddy_closure_native(i_local, pcols_local, pver_local, ncvmax_local, tunl_mode_local, leng_mode_local, &
             evhc_mode_local, wstarent_mode_local, sedfact_mode_local, tunl_local, ctunl_local, cleng_local, lbulk_max_local, &
             tkemax_local, b1_local, ae_local, alph1_local, a1l_local, a1i_local, ccrit_local, wstar3factcrit_local, &
@@ -9325,13 +9518,9 @@
               call zisocl_native(pcols, pver, i, z, zi, n2, s2, bprod, sprod, bflxs, tkes, ncvfin, kbase, ktop, belongcv, &
                    ricl, ghcl, shcl, smcl, lbrk, wbrk, ebrk, extend, extend_up, extend_dn)
            else
-              call zisocl( pcols  , pver     , i        ,           &
-                           z      , zi       , n2       , s2      , & 
-                           bprod  , sprod    , bflxs    , tkes    , &
-                           ncvfin , kbase    , ktop     , belongcv, &
-                           ricl   , ghcl     , shcl     , smcl    , & 
-                           lbrk   , wbrk     , ebrk     ,           & 
-                           extend , extend_up, extend_dn )
+              call eddy_diff_caleddy_core_batch_zisocl_call(i, pcols, pver, ncvmax, tunl_mode, leng_mode, &
+                           use_dw_surf_mode, choice_tkes_ebprod_mode, z, zi, n2, s2, leng_max, bprod, sprod, bflxs, &
+                           tkes, ncvfin, kbase, ktop, belongcv, ricl, ghcl, shcl, smcl, lbrk, wbrk, ebrk)
            end if
            if( kbase(i,1) .eq. pver + 1 ) ncvsurf = 1
        else
@@ -9482,13 +9671,29 @@
                wstar_CL, wstar3fact_CL, leng, wcap, tke, kvh, kvm, turbtype, sm_aw, pblh, pblhp, wpert, tpert, qpert, ipbl, &
                kpblh, went, ncvsurf)
        else
-          call eddy_diff_caleddy_closure(i, pcols, pver, ncvmax, tunl_mode, leng_mode, evhc_mode, wstarent_mode, sedfact_mode, &
-               tunl, ctunl, cleng, lbulk_max, tkemax, b1, ae, alph1, a1l, a1i, ccrit, wstar3factcrit, ntzero, onet, rcapmin, &
-               rcapmax, wfac, wpertmin, tfac, qmin, g, vk, cpair, latvap, a2l, a3l, jbumin, evhcmax, ased, ql, slv, sl, qt, &
-               u, v, pi, zi, z, n2, s2, shflx, qflx, rrho, sfuh, sflh, chu, chs, cmu, cms, cldeff, bflxs, bprod, sprod, &
-               wsedl, ncvfin, kbase, ktop, belongcv, lbrk, ebrk, wbrk, ricl, shcl, smcl, radf_CL, wsed_CL, leng_max, wet_CL, &
-               web_CL, jtbu_CL, jbbu_CL, evhc_CL, jt2slv_CL, n2ht_CL, n2hb_CL, wstar_CL, wstar3fact_CL, leng, wcap, tke, kvh, &
-               kvm, turbtype, sm_aw, pblh, pblhp, wpert, tpert, qpert, ipbl, kpblh, went, ncvsurf)
+          call eddy_diff_caleddy_core_batch_select_impl()
+          if (use_native_caleddy_core_batch_impl) then
+             call eddy_diff_caleddy_closure_native(i, pcols, pver, ncvmax, tunl_mode, leng_mode, evhc_mode, wstarent_mode, &
+                  sedfact_mode, tunl, ctunl, cleng, lbulk_max, tkemax, b1, ae, alph1, a1l, a1i, ccrit, wstar3factcrit, &
+                  ntzero, onet, rcapmin, rcapmax, wfac, wpertmin, tfac, qmin, g, vk, cpair, latvap, a2l, a3l, jbumin, &
+                  evhcmax, ased, ql, slv, sl, qt, u, v, pi, zi, z, n2, s2, shflx, qflx, rrho, sfuh, sflh, chu, chs, cmu, &
+                  cms, cldeff, bflxs, bprod, sprod, wsedl, ncvfin, kbase, ktop, belongcv, lbrk, ebrk, wbrk, ricl, shcl, &
+                  smcl, radf_CL, wsed_CL, leng_max, wet_CL, web_CL, jtbu_CL, jbbu_CL, evhc_CL, jt2slv_CL, n2ht_CL, &
+                  n2hb_CL, wstar_CL, wstar3fact_CL, leng, wcap, tke, kvh, kvm, turbtype, sm_aw, pblh, pblhp, wpert, &
+                  tpert, qpert, ipbl, kpblh, went, ncvsurf)
+          else
+             call eddy_diff_caleddy_core_batch_log_entered()
+             caleddy_closure_direct_from_core = .true.
+             call eddy_diff_caleddy_closure(i, pcols, pver, ncvmax, tunl_mode, leng_mode, evhc_mode, wstarent_mode, sedfact_mode, &
+                  tunl, ctunl, cleng, lbulk_max, tkemax, b1, ae, alph1, a1l, a1i, ccrit, wstar3factcrit, ntzero, onet, &
+                  rcapmin, rcapmax, wfac, wpertmin, tfac, qmin, g, vk, cpair, latvap, a2l, a3l, jbumin, evhcmax, ased, &
+                  ql, slv, sl, qt, u, v, pi, zi, z, n2, s2, shflx, qflx, rrho, sfuh, sflh, chu, chs, cmu, cms, cldeff, &
+                  bflxs, bprod, sprod, wsedl, ncvfin, kbase, ktop, belongcv, lbrk, ebrk, wbrk, ricl, shcl, smcl, radf_CL, &
+                  wsed_CL, leng_max, wet_CL, web_CL, jtbu_CL, jbbu_CL, evhc_CL, jt2slv_CL, n2ht_CL, n2hb_CL, wstar_CL, &
+                  wstar3fact_CL, leng, wcap, tke, kvh, kvm, turbtype, sm_aw, pblh, pblhp, wpert, tpert, qpert, ipbl, kpblh, &
+                  went, ncvsurf)
+             caleddy_closure_direct_from_core = .false.
+          end if
        end if
 
        if (use_native_caleddy_impl) then
