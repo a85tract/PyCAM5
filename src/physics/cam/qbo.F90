@@ -13,6 +13,9 @@ logical :: use_native_impl = .false.
 logical :: impl_selected = .false.
 logical :: use_native_tstep_impl = .false.
 logical :: tstep_impl_selected = .false.
+logical :: qbo_batch_use_native_impl = .false.
+logical :: qbo_batch_impl_selected = .false.
+logical :: qbo_batch_entered_logged = .false.
 
 !---------------------------------------------------------------------
 ! Public methods
@@ -25,6 +28,73 @@ public               :: qbo_relax              ! relax zonal mean wind
 logical, public, parameter :: qbo_use_forcing  = .FALSE.
 
 contains
+
+subroutine qbo_batch_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('QBO_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+     write(unitno,'(A)') trim(proof_line)
+     close(unitno)
+  end if
+
+end subroutine qbo_batch_append_proof
+
+subroutine qbo_batch_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (qbo_batch_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('QBO_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     qbo_batch_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     qbo_batch_use_native_impl = .false.
+  end if
+
+  qbo_batch_impl_selected = .true.
+
+  if (masterproc) then
+     if (qbo_batch_use_native_impl) then
+        write(iulog,*) 'qbo_batch implementation = native'
+        call qbo_batch_append_proof('qbo_batch selector entered implementation = native')
+     else
+        write(iulog,*) 'qbo_batch implementation = codon'
+        call qbo_batch_append_proof('qbo_batch selector entered implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine qbo_batch_select_impl
+
+subroutine qbo_batch_log_entered()
+
+  if (qbo_batch_entered_logged) return
+  qbo_batch_entered_logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') 'qbo_batch entered (timestep_init/relax direct = codon)'
+     call qbo_batch_append_proof('qbo_batch entered (timestep_init/relax direct = codon)')
+     call flush(iulog)
+  end if
+
+end subroutine qbo_batch_log_entered
 
 subroutine qbo_relax_select_impl()
 
@@ -110,18 +180,19 @@ end subroutine qbo_init
 
 subroutine qbo_timestep_init
   interface
-     subroutine qbo_tstep_init_codon() bind(c, name="qbo_tstep_init_codon")
-     end subroutine qbo_tstep_init_codon
+     subroutine qbo_batch_tstep_init_codon() bind(c, name="qbo_batch_tstep_init_codon")
+     end subroutine qbo_batch_tstep_init_codon
   end interface
 
-  call qbo_timestep_init_select_impl()
+  call qbo_batch_select_impl()
 
-  if (use_native_tstep_impl) then
+  if (qbo_batch_use_native_impl) then
      call qbo_timestep_init_native()
      return
   end if
 
-  call qbo_tstep_init_codon()
+  call qbo_batch_log_entered()
+  call qbo_batch_tstep_init_codon()
 
 end subroutine qbo_timestep_init
 
@@ -138,8 +209,8 @@ subroutine qbo_relax( state, pbuf, ptend )
   use physics_buffer, only: physics_buffer_desc
 
   interface
-     subroutine qbo_relax_codon() bind(c, name="qbo_relax_codon")
-     end subroutine qbo_relax_codon
+     subroutine qbo_batch_relax_codon() bind(c, name="qbo_batch_relax_codon")
+     end subroutine qbo_batch_relax_codon
   end interface
 
 !--------------------------------------------------------------------------------
@@ -149,15 +220,16 @@ subroutine qbo_relax( state, pbuf, ptend )
   type(physics_buffer_desc), pointer :: pbuf(:)              ! Physics buffer
   type(physics_ptend), intent(out)   :: ptend                ! individual parameterization tendencies
 
-  call qbo_relax_select_impl()
+  call qbo_batch_select_impl()
 
-  if (use_native_impl) then
+  if (qbo_batch_use_native_impl) then
      call qbo_relax_native(state, pbuf, ptend)
      return
   end if
 
   call physics_ptend_init(ptend, state%psetcols, 'qbo (stub)')
-  call qbo_relax_codon()
+  call qbo_batch_log_entered()
+  call qbo_batch_relax_codon()
 
 end subroutine qbo_relax
 
