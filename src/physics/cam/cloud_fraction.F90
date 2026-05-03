@@ -86,6 +86,9 @@ module cloud_fraction
   logical :: cldfrc_ice_wilson_impl_selected = .false.
   logical :: use_native_cldfrc_total_cloud_impl = .false.
   logical :: cldfrc_total_cloud_impl_selected = .false.
+  logical :: use_native_cldfrc_batch_impl = .false.
+  logical :: cldfrc_batch_impl_selected = .false.
+  logical :: cldfrc_batch_entered_logged = .false.
 
 !================================================================================================
   contains
@@ -310,6 +313,79 @@ subroutine cldfrc_total_cloud_select_impl()
    end if
 
 end subroutine cldfrc_total_cloud_select_impl
+
+!================================================================================================
+
+subroutine cldfrc_batch_append_proof(proof_line)
+
+   character(len=*), intent(in) :: proof_line
+
+   character(len=512) :: proof_file
+   integer :: status, n, unitno
+
+   proof_file = ''
+   call get_environment_variable('CLDFRC_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+   if (status == 0 .and. n > 0) then
+      open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+      write(unitno,'(A)') trim(proof_line)
+      close(unitno)
+   end if
+
+end subroutine cldfrc_batch_append_proof
+
+!================================================================================================
+
+subroutine cldfrc_batch_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cldfrc_batch_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CLDFRC_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_cldfrc_batch_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_cldfrc_batch_impl = .false.
+   end if
+
+   cldfrc_batch_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_cldfrc_batch_impl) then
+         write(iulog,*) 'cldfrc_batch implementation = native'
+         call cldfrc_batch_append_proof('cldfrc_batch selector entered implementation = native')
+      else
+         write(iulog,*) 'cldfrc_batch implementation = codon'
+         call cldfrc_batch_append_proof('cldfrc_batch selector entered implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine cldfrc_batch_select_impl
+
+!================================================================================================
+
+subroutine cldfrc_batch_log_entered()
+
+   if (cldfrc_batch_entered_logged) return
+   cldfrc_batch_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,*) 'cldfrc_batch entered (state/layer/ice/convective/total/fice direct = codon)'
+      call cldfrc_batch_append_proof('cldfrc_batch entered (state/layer/ice/convective/total/fice direct = codon)')
+      call flush(iulog)
+   end if
+
+end subroutine cldfrc_batch_log_entered
 
 !================================================================================================
 
@@ -915,21 +991,21 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     integer(c_int64_t) :: cldfrc_freeze_dry_i
 
     interface
-       subroutine cldfrc_layer_rh_codon(ncol_c, pcols_c, pver_c, top_lev_c, cldfrc_freeze_dry_c, premib_c, &
+       subroutine cldfrc_batch_layer_rh_codon(ncol_c, pcols_c, pver_c, top_lev_c, cldfrc_freeze_dry_c, premib_c, &
             premit_c, rhminl_c, rhminl_adj_land_c, rhminh_c, rhminp_c, cldfrc_rhminp_botmb_c, unset_r8_c, pi_c, &
             landfrac_p, snowh_p, clat_p, pmid_p, pref_mid_p, q_p, rh_p, rhcloud_p, rhu00_p) &
-            bind(c, name="cldfrc_layer_rh_codon")
+            bind(c, name="cldfrc_batch_layer_rh_codon")
          use iso_c_binding, only: c_int64_t, c_ptr, c_double
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, cldfrc_freeze_dry_c
          real(c_double), value :: premib_c, premit_c, rhminl_c, rhminl_adj_land_c, rhminh_c, rhminp_c
          real(c_double), value :: cldfrc_rhminp_botmb_c, unset_r8_c, pi_c
          type(c_ptr), value :: landfrac_p, snowh_p, clat_p, pmid_p, pref_mid_p, q_p, rh_p, rhcloud_p, rhu00_p
-       end subroutine cldfrc_layer_rh_codon
+       end subroutine cldfrc_batch_layer_rh_codon
     end interface
 
-    call cldfrc_layer_rh_select_impl()
+    call cldfrc_batch_select_impl()
 
-    if (use_native_cldfrc_layer_rh_impl) then
+    if (use_native_cldfrc_batch_impl) then
        call cldfrc_layer_rh_native(ncol, landfrac_local, snowh_local, clat_local, pmid_local, pref_mid_local, &
             q_local, rh_local, rhcloud_local, rhu00_local)
        return
@@ -941,7 +1017,9 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
        cldfrc_freeze_dry_i = 0_c_int64_t
     end if
 
-    call cldfrc_layer_rh_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+    call cldfrc_batch_log_entered()
+
+    call cldfrc_batch_layer_rh_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          int(top_lev, c_int64_t), cldfrc_freeze_dry_i, real(premib, c_double), real(premit, c_double), &
          real(rhminl, c_double), real(rhminl_adj_land, c_double), real(rhminh, c_double), real(rhminp, c_double), &
          real(cldfrc_rhminp_botmb, c_double), real(unset_r8, c_double), real(pi, c_double), c_loc(landfrac_local), &
@@ -965,25 +1043,27 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     real(r8), target, intent(inout) :: cloud_local(pcols,pver)
 
     interface
-       subroutine cldfrc_ice_wilson_codon(ncol_c, pcols_c, pver_c, top_lev_c, icecrit_c, one_sixth_c, &
+       subroutine cldfrc_batch_ice_wilson_codon(ncol_c, pcols_c, pver_c, top_lev_c, icecrit_c, one_sixth_c, &
             two_thirds_c, two_pow_three_halves_c, phi_offset_c, cldice_p, qs_p, rhcloud_p, icecldf_p, liqcldf_p, &
-            cloud_p) bind(c, name="cldfrc_ice_wilson_codon")
+            cloud_p) bind(c, name="cldfrc_batch_ice_wilson_codon")
          use iso_c_binding, only: c_int64_t, c_ptr, c_double
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
          real(c_double), value :: icecrit_c, one_sixth_c, two_thirds_c, two_pow_three_halves_c, phi_offset_c
          type(c_ptr), value :: cldice_p, qs_p, rhcloud_p, icecldf_p, liqcldf_p, cloud_p
-       end subroutine cldfrc_ice_wilson_codon
+       end subroutine cldfrc_batch_ice_wilson_codon
     end interface
 
-    call cldfrc_ice_wilson_select_impl()
+    call cldfrc_batch_select_impl()
 
-    if (use_native_cldfrc_ice_wilson_impl) then
+    if (use_native_cldfrc_batch_impl) then
        call cldfrc_ice_wilson_native(ncol, cldice_local, qs_local, rhcloud_local, icecldf_local, liqcldf_local, &
             cloud_local)
        return
     end if
 
-    call cldfrc_ice_wilson_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+    call cldfrc_batch_log_entered()
+
+    call cldfrc_batch_ice_wilson_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          int(top_lev, c_int64_t), real(icecrit, c_double), real(1._r8/6._r8, c_double), real(2._r8/3._r8, c_double), &
          real(2._r8**(3._r8/2._r8), c_double), real(4._r8*3.1415927_r8, c_double), c_loc(cldice_local), &
          c_loc(qs_local), c_loc(rhcloud_local), c_loc(icecldf_local), c_loc(liqcldf_local), c_loc(cloud_local))
@@ -1012,25 +1092,27 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     real(r8), target, intent(inout) :: concld_local(pcols,pver)
 
     interface
-       subroutine cldfrc_state_init_codon(ncol_c, pcols_c, pver_c, top_lev_c, dindex_c, rhpert_c, q_p, qs_p, &
+       subroutine cldfrc_batch_state_init_codon(ncol_c, pcols_c, pver_c, top_lev_c, dindex_c, rhpert_c, q_p, qs_p, &
             relhum_p, rh_p, cloud_p, icecldf_p, liqcldf_p, rhcloud_p, cldst_p, concld_p) &
-            bind(c, name="cldfrc_state_init_codon")
+            bind(c, name="cldfrc_batch_state_init_codon")
          use iso_c_binding, only: c_int64_t, c_ptr, c_double
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, dindex_c
          real(c_double), value :: rhpert_c
          type(c_ptr), value :: q_p, qs_p, relhum_p, rh_p, cloud_p, icecldf_p, liqcldf_p, rhcloud_p, cldst_p, concld_p
-       end subroutine cldfrc_state_init_codon
+       end subroutine cldfrc_batch_state_init_codon
     end interface
 
-    call cldfrc_state_init_select_impl()
+    call cldfrc_batch_select_impl()
 
-    if (use_native_cldfrc_state_init_impl) then
+    if (use_native_cldfrc_batch_impl) then
        call cldfrc_state_init_native(ncol, q_local, qs_local, relhum_local, rh_local, cloud_local, icecldf_local, &
             liqcldf_local, rhcloud_local, cldst_local, concld_local, dindex_local, rhpert_local)
        return
     end if
 
-    call cldfrc_state_init_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+    call cldfrc_batch_log_entered()
+
+    call cldfrc_batch_state_init_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          int(top_lev, c_int64_t), int(dindex_local, c_int64_t), real(rhpert_local, c_double), c_loc(q_local), &
          c_loc(qs_local), c_loc(relhum_local), c_loc(rh_local), c_loc(cloud_local), c_loc(icecldf_local), &
          c_loc(liqcldf_local), c_loc(rhcloud_local), c_loc(cldst_local), c_loc(concld_local))
@@ -1182,22 +1264,24 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     real(r8), target, intent(inout) :: cloud_local(pcols,pver)
 
     interface
-       subroutine cldfrc_total_cloud_codon(ncol_c, pcols_c, pver_c, top_lev_c, rhcloud_p, cldst_p, concld_p, &
-            cloud_p) bind(c, name="cldfrc_total_cloud_codon")
+       subroutine cldfrc_batch_total_cloud_codon(ncol_c, pcols_c, pver_c, top_lev_c, rhcloud_p, cldst_p, concld_p, &
+            cloud_p) bind(c, name="cldfrc_batch_total_cloud_codon")
          use iso_c_binding, only: c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
          type(c_ptr), value :: rhcloud_p, cldst_p, concld_p, cloud_p
-       end subroutine cldfrc_total_cloud_codon
+       end subroutine cldfrc_batch_total_cloud_codon
     end interface
 
-    call cldfrc_total_cloud_select_impl()
+    call cldfrc_batch_select_impl()
 
-    if (use_native_cldfrc_total_cloud_impl) then
+    if (use_native_cldfrc_batch_impl) then
        call cldfrc_total_cloud_native(ncol, rhcloud_local, cldst_local, concld_local, cloud_local)
        return
     end if
 
-    call cldfrc_total_cloud_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+    call cldfrc_batch_log_entered()
+
+    call cldfrc_batch_total_cloud_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          int(top_lev, c_int64_t), c_loc(rhcloud_local), c_loc(cldst_local), c_loc(concld_local), c_loc(cloud_local))
 
   end subroutine cldfrc_total_cloud
@@ -1243,19 +1327,19 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     integer(c_int64_t) :: use_shfrc_c
 
     interface
-       subroutine cldfrc_convective_cover_codon(ncol_c, pcols_c, pver_c, top_lev_c, use_shfrc_c, &
+       subroutine cldfrc_batch_convective_cover_codon(ncol_c, pcols_c, pver_c, top_lev_c, use_shfrc_c, &
             sh1_c, sh2_c, dp1_c, dp2_c, shfrc_p, cmfmc_p, cmfmc2_p, shallowcu_p, deepcu_p, concld_p, rh_p) &
-            bind(c, name="cldfrc_convective_cover_codon")
+            bind(c, name="cldfrc_batch_convective_cover_codon")
          use iso_c_binding, only: c_int64_t, c_ptr, c_double
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, use_shfrc_c
          real(c_double), value :: sh1_c, sh2_c, dp1_c, dp2_c
          type(c_ptr), value :: shfrc_p, cmfmc_p, cmfmc2_p, shallowcu_p, deepcu_p, concld_p, rh_p
-       end subroutine cldfrc_convective_cover_codon
+       end subroutine cldfrc_batch_convective_cover_codon
     end interface
 
-    call cldfrc_convective_cover_select_impl()
+    call cldfrc_batch_select_impl()
 
-    if (use_native_cldfrc_convective_cover_impl) then
+    if (use_native_cldfrc_batch_impl) then
        call cldfrc_convective_cover_native(ncol, use_shfrc_local, shfrc_local, cmfmc_local, cmfmc2_local, &
             shallowcu_local, deepcu_local, concld_local, rh_local)
        return
@@ -1264,7 +1348,9 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     use_shfrc_c = 0_c_int64_t
     if (use_shfrc_local) use_shfrc_c = 1_c_int64_t
 
-    call cldfrc_convective_cover_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+    call cldfrc_batch_log_entered()
+
+    call cldfrc_batch_convective_cover_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          int(top_lev, c_int64_t), use_shfrc_c, sh1, sh2, dp1, dp2, c_loc(shfrc_local), c_loc(cmfmc_local), &
          c_loc(cmfmc2_local), c_loc(shallowcu_local), c_loc(deepcu_local), c_loc(concld_local), c_loc(rh_local))
 
@@ -1330,30 +1416,32 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     real(r8) :: tmin_fsnow                        ! min temperature for transition to convective snow
 
     interface
-       subroutine cldfrc_fice_codon(ncol_c, pcols_c, pver_c, top_lev_c, t_p, fice_p, fsnow_p, &
-            tmax_fice_c, tmin_fice_c, tmax_fsnow_c, tmin_fsnow_c) bind(c, name="cldfrc_fice_codon")
+       subroutine cldfrc_batch_fice_codon(ncol_c, pcols_c, pver_c, top_lev_c, t_p, fice_p, fsnow_p, &
+            tmax_fice_c, tmin_fice_c, tmax_fsnow_c, tmin_fsnow_c) bind(c, name="cldfrc_batch_fice_codon")
          use iso_c_binding, only: c_int64_t, c_ptr, c_double
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
          type(c_ptr), value :: t_p, fice_p, fsnow_p
          real(c_double), value :: tmax_fice_c, tmin_fice_c, tmax_fsnow_c, tmin_fsnow_c
-       end subroutine cldfrc_fice_codon
+       end subroutine cldfrc_batch_fice_codon
     end interface
 
 !-----------------------------------------------------------------------
 
-    call cldfrc_fice_select_impl()
+    call cldfrc_batch_select_impl()
 
     tmax_fice = tmelt - 10._r8        ! max temperature for cloud ice formation
     tmin_fice = tmax_fice - 30._r8    ! min temperature for cloud ice formation
     tmax_fsnow = tmelt                ! max temperature for transition to convective snow
     tmin_fsnow = tmelt - 5._r8        ! min temperature for transition to convective snow
 
-    if (use_native_cldfrc_fice_impl) then
+    if (use_native_cldfrc_batch_impl) then
        call cldfrc_fice_native(ncol, t, fice, fsnow)
        return
     end if
 
-    call cldfrc_fice_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
+    call cldfrc_batch_log_entered()
+
+    call cldfrc_batch_fice_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
          c_loc(t), c_loc(fice), c_loc(fsnow), tmax_fice, tmin_fice, tmax_fsnow, tmin_fsnow)
 
   end subroutine cldfrc_fice

@@ -369,3 +369,214 @@ def cldfrc_fice_codon(
                 fsnow[_field2_idx(i, k, pcols)] = 1.0
             else:
                 fsnow[_field2_idx(i, k, pcols)] = (tmax_fsnow - t_ik) / (tmax_fsnow - tmin_fsnow)
+
+
+@export
+def cldfrc_batch_layer_rh_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    cldfrc_freeze_dry_i: int,
+    premib: float,
+    premit: float,
+    rhminl: float,
+    rhminl_adj_land: float,
+    rhminh: float,
+    rhminp: float,
+    cldfrc_rhminp_botmb: float,
+    unset_r8: float,
+    pi: float,
+    landfrac_p: cobj,
+    snowh_p: cobj,
+    clat_p: cobj,
+    pmid_p: cobj,
+    pref_mid_p: cobj,
+    q_p: cobj,
+    rh_p: cobj,
+    rhcloud_p: cobj,
+    rhu00_p: cobj,
+):
+    cldfrc_layer_rh_codon(
+        ncol,
+        pcols,
+        pver,
+        top_lev,
+        cldfrc_freeze_dry_i,
+        premib,
+        premit,
+        rhminl,
+        rhminl_adj_land,
+        rhminh,
+        rhminp,
+        cldfrc_rhminp_botmb,
+        unset_r8,
+        pi,
+        landfrac_p,
+        snowh_p,
+        clat_p,
+        pmid_p,
+        pref_mid_p,
+        q_p,
+        rh_p,
+        rhcloud_p,
+        rhu00_p,
+    )
+
+
+@export
+def cldfrc_batch_ice_wilson_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    icecrit: float,
+    one_sixth: float,
+    two_thirds: float,
+    two_pow_three_halves: float,
+    phi_offset: float,
+    cldice_p: cobj,
+    qs_p: cobj,
+    rhcloud_p: cobj,
+    icecldf_p: cobj,
+    liqcldf_p: cobj,
+    cloud_p: cobj,
+):
+    cldfrc_ice_wilson_codon(
+        ncol,
+        pcols,
+        pver,
+        top_lev,
+        icecrit,
+        one_sixth,
+        two_thirds,
+        two_pow_three_halves,
+        phi_offset,
+        cldice_p,
+        qs_p,
+        rhcloud_p,
+        icecldf_p,
+        liqcldf_p,
+        cloud_p,
+    )
+
+
+@export
+def cldfrc_batch_state_init_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    dindex: int,
+    rhpert: float,
+    q_p: cobj,
+    qs_p: cobj,
+    relhum_p: cobj,
+    rh_p: cobj,
+    cloud_p: cobj,
+    icecldf_p: cobj,
+    liqcldf_p: cobj,
+    rhcloud_p: cobj,
+    cldst_p: cobj,
+    concld_p: cobj,
+):
+    cldfrc_state_init_codon(
+        ncol,
+        pcols,
+        pver,
+        top_lev,
+        dindex,
+        rhpert,
+        q_p,
+        qs_p,
+        relhum_p,
+        rh_p,
+        cloud_p,
+        icecldf_p,
+        liqcldf_p,
+        rhcloud_p,
+        cldst_p,
+        concld_p,
+    )
+
+
+@export
+def cldfrc_batch_total_cloud_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    rhcloud_p: cobj,
+    cldst_p: cobj,
+    concld_p: cobj,
+    cloud_p: cobj,
+):
+    cldfrc_total_cloud_codon(ncol, pcols, pver, top_lev, rhcloud_p, cldst_p, concld_p, cloud_p)
+
+
+@export
+def cldfrc_batch_convective_cover_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    use_shfrc_i: int,
+    sh1: float,
+    sh2: float,
+    dp1: float,
+    dp2: float,
+    shfrc_p: cobj,
+    cmfmc_p: cobj,
+    cmfmc2_p: cobj,
+    shallowcu_p: cobj,
+    deepcu_p: cobj,
+    concld_p: cobj,
+    rh_p: cobj,
+):
+    cldfrc_convective_cover_codon(
+        ncol,
+        pcols,
+        pver,
+        top_lev,
+        use_shfrc_i,
+        sh1,
+        sh2,
+        dp1,
+        dp2,
+        shfrc_p,
+        cmfmc_p,
+        cmfmc2_p,
+        shallowcu_p,
+        deepcu_p,
+        concld_p,
+        rh_p,
+    )
+
+
+@export
+def cldfrc_batch_fice_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    t_p: cobj,
+    fice_p: cobj,
+    fsnow_p: cobj,
+    tmax_fice: float,
+    tmin_fice: float,
+    tmax_fsnow: float,
+    tmin_fsnow: float,
+):
+    cldfrc_fice_codon(
+        ncol,
+        pcols,
+        pver,
+        top_lev,
+        t_p,
+        fice_p,
+        fsnow_p,
+        tmax_fice,
+        tmin_fice,
+        tmax_fsnow,
+        tmin_fsnow,
+    )
