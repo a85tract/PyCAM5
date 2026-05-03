@@ -734,3 +734,160 @@ def phys_inidat_tbot_init_codon(
 
     for i in range(1, pcols + 1):
         tbot[_idx(i)] = posinf_local
+
+
+@export
+def phys_inidat_batch_qpert_default_codon(
+    pcols: int,
+    chunk_count: int,
+    found_i: int,
+    tptr_p: cobj,
+):
+    phys_inidat_qpert_default_codon(pcols, chunk_count, found_i, tptr_p)
+
+
+@export
+def phys_inidat_batch_qpert_expand_codon(
+    pcols: int,
+    pcnst: int,
+    chunk_count: int,
+    tptr_p: cobj,
+    tptr3d_2_p: cobj,
+):
+    phys_inidat_qpert_expand_codon(pcols, pcnst, chunk_count, tptr_p, tptr3d_2_p)
+
+
+@export
+def phys_inidat_batch_pblh_default_codon(
+    pcols: int,
+    chunk_count: int,
+    found_i: int,
+    tptr_p: cobj,
+):
+    phys_inidat_pblh_default_codon(pcols, chunk_count, found_i, tptr_p)
+
+
+@export
+def phys_inidat_batch_tpert_default_codon(
+    pcols: int,
+    chunk_count: int,
+    found_i: int,
+    tptr_p: cobj,
+):
+    phys_inidat_tpert_default_codon(pcols, chunk_count, found_i, tptr_p)
+
+
+@export
+def phys_inidat_batch_cush_default_codon(
+    pcols: int,
+    chunk_count: int,
+    found_i: int,
+    tptr_p: cobj,
+    default_value: float,
+):
+    phys_inidat_cush_default_codon(pcols, chunk_count, found_i, tptr_p, default_value)
+
+
+@export
+def phys_inidat_batch_tke_default_codon(
+    pcols: int,
+    pverp: int,
+    chunk_count: int,
+    found_i: int,
+    tptr3d_p: cobj,
+    default_value: float,
+):
+    phys_inidat_tke_default_codon(pcols, pverp, chunk_count, found_i, tptr3d_p, default_value)
+
+
+@export
+def phys_inidat_batch_kvm_default_codon(
+    pcols: int,
+    pverp: int,
+    chunk_count: int,
+    found_i: int,
+    tptr3d_p: cobj,
+    default_value: float,
+):
+    phys_inidat_kvm_default_codon(pcols, pverp, chunk_count, found_i, tptr3d_p, default_value)
+
+
+@export
+def phys_inidat_batch_kvh_default_codon(
+    pcols: int,
+    pverp: int,
+    chunk_count: int,
+    found_i: int,
+    tptr3d_p: cobj,
+    default_value: float,
+):
+    phys_inidat_kvh_default_codon(pcols, pverp, chunk_count, found_i, tptr3d_p, default_value)
+
+
+@export
+def phys_inidat_batch_qcwat_default_codon(
+    primary_found_i: int,
+    fallback_found_i: int,
+    init_source_p: cobj,
+):
+    phys_inidat_qcwat_default_codon(primary_found_i, fallback_found_i, init_source_p)
+
+
+@export
+def phys_inidat_batch_iccwat_default_codon(
+    primary_found_i: int,
+    fallback_found_i: int,
+    init_source_p: cobj,
+):
+    phys_inidat_iccwat_default_codon(primary_found_i, fallback_found_i, init_source_p)
+
+
+@export
+def phys_inidat_batch_lcwat_default_codon(
+    primary_found_i: int,
+    cldice_found_i: int,
+    cldliq_found_i: int,
+    init_source_p: cobj,
+):
+    phys_inidat_lcwat_default_codon(primary_found_i, cldice_found_i, cldliq_found_i, init_source_p)
+
+
+@export
+def phys_inidat_batch_tcwat_default_codon(
+    primary_found_i: int,
+    init_source_p: cobj,
+):
+    phys_inidat_tcwat_default_codon(primary_found_i, init_source_p)
+
+
+@export
+def phys_inidat_batch_cloud_default_codon(
+    pcols: int,
+    pver: int,
+    chunk_count: int,
+    found_i: int,
+    tptr3d_p: cobj,
+    default_value: float,
+):
+    phys_inidat_cloud_default_codon(pcols, pver, chunk_count, found_i, tptr3d_p, default_value)
+
+
+@export
+def phys_inidat_batch_concld_default_codon(
+    pcols: int,
+    pver: int,
+    chunk_count: int,
+    found_i: int,
+    tptr3d_p: cobj,
+    default_value: float,
+):
+    phys_inidat_concld_default_codon(pcols, pver, chunk_count, found_i, tptr3d_p, default_value)
+
+
+@export
+def phys_inidat_batch_tbot_init_codon(
+    pcols: int,
+    tbot_p: cobj,
+    posinf_local: float,
+):
+    phys_inidat_tbot_init_codon(pcols, tbot_p, posinf_local)

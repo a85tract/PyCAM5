@@ -132,6 +132,9 @@ module physpkg
   logical           :: phys_inidat_concld_default_impl_selected = .false.
   logical           :: use_native_phys_inidat_tbot_init_impl = .false.
   logical           :: phys_inidat_tbot_init_impl_selected = .false.
+  logical           :: use_native_phys_inidat_batch_impl = .false.
+  logical           :: phys_inidat_batch_impl_selected = .false.
+  logical           :: phys_inidat_batch_entered_logged = .false.
 
   !  Physics buffer index
   integer ::  teout_idx          = 0  
@@ -4460,6 +4463,80 @@ end subroutine tphysbc_dadadj_lq_init_native
 
 !=======================================================================
 
+subroutine phys_inidat_batch_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('PHYS_INIDAT_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+     write(unitno,'(A)') trim(proof_line)
+     close(unitno)
+  end if
+
+end subroutine phys_inidat_batch_append_proof
+
+!=======================================================================
+
+subroutine phys_inidat_batch_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (phys_inidat_batch_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('PHYS_INIDAT_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_phys_inidat_batch_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_phys_inidat_batch_impl = .false.
+  end if
+
+  phys_inidat_batch_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_phys_inidat_batch_impl) then
+        write(iulog,*) 'phys_inidat_batch implementation = native'
+        call phys_inidat_batch_append_proof('phys_inidat_batch selector entered implementation = native')
+     else
+        write(iulog,*) 'phys_inidat_batch implementation = codon'
+        call phys_inidat_batch_append_proof('phys_inidat_batch selector entered implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine phys_inidat_batch_select_impl
+
+!=======================================================================
+
+subroutine phys_inidat_batch_log_entered()
+
+  if (phys_inidat_batch_entered_logged) return
+  phys_inidat_batch_entered_logged = .true.
+
+  if (masterproc) then
+     write(iulog,*) 'phys_inidat_batch entered (qpert/pblh/tpert/cush/tke/kvm/kvh/water/cloud/tbot direct = codon)'
+     call phys_inidat_batch_append_proof( &
+          'phys_inidat_batch entered (qpert/pblh/tpert/cush/tke/kvm/kvh/water/cloud/tbot direct = codon)')
+     call flush(iulog)
+  end if
+
+end subroutine phys_inidat_batch_log_entered
+
+!=======================================================================
+
 subroutine phys_inidat_qpert_default_select_impl()
 
   character(len=32) :: impl_name
@@ -4512,19 +4589,19 @@ subroutine phys_inidat_qpert_default(pcols_local, chunk_count_local, found_local
   integer(c_int64_t) :: found_c
 
   interface
-     subroutine phys_inidat_qpert_default_codon(pcols_c, chunk_count_c, found_c, tptr_p) &
-          bind(c, name="phys_inidat_qpert_default_codon")
+     subroutine phys_inidat_batch_qpert_default_codon(pcols_c, chunk_count_c, found_c, tptr_p) &
+          bind(c, name="phys_inidat_batch_qpert_default_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: pcols_c
        integer(c_int64_t), value :: chunk_count_c
        integer(c_int64_t), value :: found_c
        type(c_ptr), value :: tptr_p
-     end subroutine phys_inidat_qpert_default_codon
+     end subroutine phys_inidat_batch_qpert_default_codon
   end interface
 
-  call phys_inidat_qpert_default_select_impl()
+  call phys_inidat_batch_select_impl()
 
-  if (use_native_phys_inidat_qpert_default_impl) then
+  if (use_native_phys_inidat_batch_impl) then
      call phys_inidat_qpert_default_native(pcols_local, chunk_count_local, found_local, tptr)
      return
   end if
@@ -4534,7 +4611,8 @@ subroutine phys_inidat_qpert_default(pcols_local, chunk_count_local, found_local
   found_c = 0_c_int64_t
   if (found_local) found_c = 1_c_int64_t
 
-  call phys_inidat_qpert_default_codon(pcols_c, chunk_count_c, found_c, c_loc(tptr))
+  call phys_inidat_batch_log_entered()
+  call phys_inidat_batch_qpert_default_codon(pcols_c, chunk_count_c, found_c, c_loc(tptr))
 
 end subroutine phys_inidat_qpert_default
 
@@ -4610,20 +4688,20 @@ subroutine phys_inidat_qpert_expand(pcols_local, pcnst_local, chunk_count_local,
   integer(c_int64_t) :: chunk_count_c
 
   interface
-     subroutine phys_inidat_qpert_expand_codon(pcols_c, pcnst_c, chunk_count_c, tptr_p, tptr3d_2_p) &
-          bind(c, name="phys_inidat_qpert_expand_codon")
+     subroutine phys_inidat_batch_qpert_expand_codon(pcols_c, pcnst_c, chunk_count_c, tptr_p, tptr3d_2_p) &
+          bind(c, name="phys_inidat_batch_qpert_expand_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: pcols_c
        integer(c_int64_t), value :: pcnst_c
        integer(c_int64_t), value :: chunk_count_c
        type(c_ptr), value :: tptr_p
        type(c_ptr), value :: tptr3d_2_p
-     end subroutine phys_inidat_qpert_expand_codon
+     end subroutine phys_inidat_batch_qpert_expand_codon
   end interface
 
-  call phys_inidat_qpert_expand_select_impl()
+  call phys_inidat_batch_select_impl()
 
-  if (use_native_phys_inidat_qpert_expand_impl) then
+  if (use_native_phys_inidat_batch_impl) then
      call phys_inidat_qpert_expand_native(pcols_local, pcnst_local, chunk_count_local, tptr, tptr3d_2)
      return
   end if
@@ -4632,7 +4710,8 @@ subroutine phys_inidat_qpert_expand(pcols_local, pcnst_local, chunk_count_local,
   pcnst_c = int(pcnst_local, c_int64_t)
   chunk_count_c = int(chunk_count_local, c_int64_t)
 
-  call phys_inidat_qpert_expand_codon(pcols_c, pcnst_c, chunk_count_c, c_loc(tptr), c_loc(tptr3d_2))
+  call phys_inidat_batch_log_entered()
+  call phys_inidat_batch_qpert_expand_codon(pcols_c, pcnst_c, chunk_count_c, c_loc(tptr), c_loc(tptr3d_2))
 
 end subroutine phys_inidat_qpert_expand
 
@@ -4707,19 +4786,19 @@ subroutine phys_inidat_pblh_default(pcols_local, chunk_count_local, found_local,
   integer(c_int64_t) :: found_c
 
   interface
-     subroutine phys_inidat_pblh_default_codon(pcols_c, chunk_count_c, found_c, tptr_p) &
-          bind(c, name="phys_inidat_pblh_default_codon")
+     subroutine phys_inidat_batch_pblh_default_codon(pcols_c, chunk_count_c, found_c, tptr_p) &
+          bind(c, name="phys_inidat_batch_pblh_default_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: pcols_c
        integer(c_int64_t), value :: chunk_count_c
        integer(c_int64_t), value :: found_c
        type(c_ptr), value :: tptr_p
-     end subroutine phys_inidat_pblh_default_codon
+     end subroutine phys_inidat_batch_pblh_default_codon
   end interface
 
-  call phys_inidat_pblh_default_select_impl()
+  call phys_inidat_batch_select_impl()
 
-  if (use_native_phys_inidat_pblh_default_impl) then
+  if (use_native_phys_inidat_batch_impl) then
      call phys_inidat_pblh_default_native(pcols_local, chunk_count_local, found_local, tptr)
      return
   end if
@@ -4729,7 +4808,8 @@ subroutine phys_inidat_pblh_default(pcols_local, chunk_count_local, found_local,
   found_c = 0_c_int64_t
   if (found_local) found_c = 1_c_int64_t
 
-  call phys_inidat_pblh_default_codon(pcols_c, chunk_count_c, found_c, c_loc(tptr))
+  call phys_inidat_batch_log_entered()
+  call phys_inidat_batch_pblh_default_codon(pcols_c, chunk_count_c, found_c, c_loc(tptr))
 
 end subroutine phys_inidat_pblh_default
 
@@ -4804,19 +4884,19 @@ subroutine phys_inidat_tpert_default(pcols_local, chunk_count_local, found_local
   integer(c_int64_t) :: found_c
 
   interface
-     subroutine phys_inidat_tpert_default_codon(pcols_c, chunk_count_c, found_c, tptr_p) &
-          bind(c, name="phys_inidat_tpert_default_codon")
+     subroutine phys_inidat_batch_tpert_default_codon(pcols_c, chunk_count_c, found_c, tptr_p) &
+          bind(c, name="phys_inidat_batch_tpert_default_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: pcols_c
        integer(c_int64_t), value :: chunk_count_c
        integer(c_int64_t), value :: found_c
        type(c_ptr), value :: tptr_p
-     end subroutine phys_inidat_tpert_default_codon
+     end subroutine phys_inidat_batch_tpert_default_codon
   end interface
 
-  call phys_inidat_tpert_default_select_impl()
+  call phys_inidat_batch_select_impl()
 
-  if (use_native_phys_inidat_tpert_default_impl) then
+  if (use_native_phys_inidat_batch_impl) then
      call phys_inidat_tpert_default_native(pcols_local, chunk_count_local, found_local, tptr)
      return
   end if
@@ -4826,7 +4906,8 @@ subroutine phys_inidat_tpert_default(pcols_local, chunk_count_local, found_local
   found_c = 0_c_int64_t
   if (found_local) found_c = 1_c_int64_t
 
-  call phys_inidat_tpert_default_codon(pcols_c, chunk_count_c, found_c, c_loc(tptr))
+  call phys_inidat_batch_log_entered()
+  call phys_inidat_batch_tpert_default_codon(pcols_c, chunk_count_c, found_c, c_loc(tptr))
 
 end subroutine phys_inidat_tpert_default
 
@@ -4902,20 +4983,20 @@ subroutine phys_inidat_cush_default(pcols_local, chunk_count_local, found_local,
   integer(c_int64_t) :: found_c
 
   interface
-     subroutine phys_inidat_cush_default_codon(pcols_c, chunk_count_c, found_c, tptr_p, default_value) &
-          bind(c, name="phys_inidat_cush_default_codon")
+     subroutine phys_inidat_batch_cush_default_codon(pcols_c, chunk_count_c, found_c, tptr_p, default_value) &
+          bind(c, name="phys_inidat_batch_cush_default_codon")
        use iso_c_binding, only: c_int64_t, c_double, c_ptr
        integer(c_int64_t), value :: pcols_c
        integer(c_int64_t), value :: chunk_count_c
        integer(c_int64_t), value :: found_c
        type(c_ptr), value :: tptr_p
        real(c_double), value :: default_value
-     end subroutine phys_inidat_cush_default_codon
+     end subroutine phys_inidat_batch_cush_default_codon
   end interface
 
-  call phys_inidat_cush_default_select_impl()
+  call phys_inidat_batch_select_impl()
 
-  if (use_native_phys_inidat_cush_default_impl) then
+  if (use_native_phys_inidat_batch_impl) then
      call phys_inidat_cush_default_native(pcols_local, chunk_count_local, found_local, tptr, default_value)
      return
   end if
@@ -4925,7 +5006,8 @@ subroutine phys_inidat_cush_default(pcols_local, chunk_count_local, found_local,
   found_c = 0_c_int64_t
   if (found_local) found_c = 1_c_int64_t
 
-  call phys_inidat_cush_default_codon(pcols_c, chunk_count_c, found_c, c_loc(tptr), default_value)
+  call phys_inidat_batch_log_entered()
+  call phys_inidat_batch_cush_default_codon(pcols_c, chunk_count_c, found_c, c_loc(tptr), default_value)
 
 end subroutine phys_inidat_cush_default
 
@@ -5004,8 +5086,8 @@ subroutine phys_inidat_tke_default(pcols_local, pverp_local, chunk_count_local, 
   integer(c_int64_t) :: found_c
 
   interface
-     subroutine phys_inidat_tke_default_codon(pcols_c, pverp_c, chunk_count_c, found_c, tptr3d_p, default_value) &
-          bind(c, name="phys_inidat_tke_default_codon")
+     subroutine phys_inidat_batch_tke_default_codon(pcols_c, pverp_c, chunk_count_c, found_c, tptr3d_p, default_value) &
+          bind(c, name="phys_inidat_batch_tke_default_codon")
        use iso_c_binding, only: c_int64_t, c_double, c_ptr
        integer(c_int64_t), value :: pcols_c
        integer(c_int64_t), value :: pverp_c
@@ -5013,12 +5095,12 @@ subroutine phys_inidat_tke_default(pcols_local, pverp_local, chunk_count_local, 
        integer(c_int64_t), value :: found_c
        type(c_ptr), value :: tptr3d_p
        real(c_double), value :: default_value
-     end subroutine phys_inidat_tke_default_codon
+     end subroutine phys_inidat_batch_tke_default_codon
   end interface
 
-  call phys_inidat_tke_default_select_impl()
+  call phys_inidat_batch_select_impl()
 
-  if (use_native_phys_inidat_tke_default_impl) then
+  if (use_native_phys_inidat_batch_impl) then
      call phys_inidat_tke_default_native(pcols_local, pverp_local, chunk_count_local, found_local, tptr3d, default_value)
      return
   end if
@@ -5029,7 +5111,8 @@ subroutine phys_inidat_tke_default(pcols_local, pverp_local, chunk_count_local, 
   found_c = 0_c_int64_t
   if (found_local) found_c = 1_c_int64_t
 
-  call phys_inidat_tke_default_codon(pcols_c, pverp_c, chunk_count_c, found_c, c_loc(tptr3d), default_value)
+  call phys_inidat_batch_log_entered()
+  call phys_inidat_batch_tke_default_codon(pcols_c, pverp_c, chunk_count_c, found_c, c_loc(tptr3d), default_value)
 
 end subroutine phys_inidat_tke_default
 
@@ -5109,8 +5192,8 @@ subroutine phys_inidat_kvm_default(pcols_local, pverp_local, chunk_count_local, 
   integer(c_int64_t) :: found_c
 
   interface
-     subroutine phys_inidat_kvm_default_codon(pcols_c, pverp_c, chunk_count_c, found_c, tptr3d_p, default_value) &
-          bind(c, name="phys_inidat_kvm_default_codon")
+     subroutine phys_inidat_batch_kvm_default_codon(pcols_c, pverp_c, chunk_count_c, found_c, tptr3d_p, default_value) &
+          bind(c, name="phys_inidat_batch_kvm_default_codon")
        use iso_c_binding, only: c_int64_t, c_double, c_ptr
        integer(c_int64_t), value :: pcols_c
        integer(c_int64_t), value :: pverp_c
@@ -5118,12 +5201,12 @@ subroutine phys_inidat_kvm_default(pcols_local, pverp_local, chunk_count_local, 
        integer(c_int64_t), value :: found_c
        type(c_ptr), value :: tptr3d_p
        real(c_double), value :: default_value
-     end subroutine phys_inidat_kvm_default_codon
+     end subroutine phys_inidat_batch_kvm_default_codon
   end interface
 
-  call phys_inidat_kvm_default_select_impl()
+  call phys_inidat_batch_select_impl()
 
-  if (use_native_phys_inidat_kvm_default_impl) then
+  if (use_native_phys_inidat_batch_impl) then
      call phys_inidat_kvm_default_native(pcols_local, pverp_local, chunk_count_local, found_local, tptr3d, default_value)
      return
   end if
@@ -5134,7 +5217,8 @@ subroutine phys_inidat_kvm_default(pcols_local, pverp_local, chunk_count_local, 
   found_c = 0_c_int64_t
   if (found_local) found_c = 1_c_int64_t
 
-  call phys_inidat_kvm_default_codon(pcols_c, pverp_c, chunk_count_c, found_c, c_loc(tptr3d), default_value)
+  call phys_inidat_batch_log_entered()
+  call phys_inidat_batch_kvm_default_codon(pcols_c, pverp_c, chunk_count_c, found_c, c_loc(tptr3d), default_value)
 
 end subroutine phys_inidat_kvm_default
 
@@ -5214,8 +5298,8 @@ subroutine phys_inidat_kvh_default(pcols_local, pverp_local, chunk_count_local, 
   integer(c_int64_t) :: found_c
 
   interface
-     subroutine phys_inidat_kvh_default_codon(pcols_c, pverp_c, chunk_count_c, found_c, tptr3d_p, default_value) &
-          bind(c, name="phys_inidat_kvh_default_codon")
+     subroutine phys_inidat_batch_kvh_default_codon(pcols_c, pverp_c, chunk_count_c, found_c, tptr3d_p, default_value) &
+          bind(c, name="phys_inidat_batch_kvh_default_codon")
        use iso_c_binding, only: c_int64_t, c_double, c_ptr
        integer(c_int64_t), value :: pcols_c
        integer(c_int64_t), value :: pverp_c
@@ -5223,12 +5307,12 @@ subroutine phys_inidat_kvh_default(pcols_local, pverp_local, chunk_count_local, 
        integer(c_int64_t), value :: found_c
        type(c_ptr), value :: tptr3d_p
        real(c_double), value :: default_value
-     end subroutine phys_inidat_kvh_default_codon
+     end subroutine phys_inidat_batch_kvh_default_codon
   end interface
 
-  call phys_inidat_kvh_default_select_impl()
+  call phys_inidat_batch_select_impl()
 
-  if (use_native_phys_inidat_kvh_default_impl) then
+  if (use_native_phys_inidat_batch_impl) then
      call phys_inidat_kvh_default_native(pcols_local, pverp_local, chunk_count_local, found_local, tptr3d, default_value)
      return
   end if
@@ -5239,7 +5323,8 @@ subroutine phys_inidat_kvh_default(pcols_local, pverp_local, chunk_count_local, 
   found_c = 0_c_int64_t
   if (found_local) found_c = 1_c_int64_t
 
-  call phys_inidat_kvh_default_codon(pcols_c, pverp_c, chunk_count_c, found_c, c_loc(tptr3d), default_value)
+  call phys_inidat_batch_log_entered()
+  call phys_inidat_batch_kvh_default_codon(pcols_c, pverp_c, chunk_count_c, found_c, c_loc(tptr3d), default_value)
 
 end subroutine phys_inidat_kvh_default
 
@@ -5314,18 +5399,18 @@ subroutine phys_inidat_qcwat_default(primary_found_local, fallback_found_local, 
   integer(c_int64_t), target :: init_source_c
 
   interface
-     subroutine phys_inidat_qcwat_default_codon(primary_found_c, fallback_found_c, init_source_p) &
-          bind(c, name="phys_inidat_qcwat_default_codon")
+     subroutine phys_inidat_batch_qcwat_default_codon(primary_found_c, fallback_found_c, init_source_p) &
+          bind(c, name="phys_inidat_batch_qcwat_default_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: primary_found_c
        integer(c_int64_t), value :: fallback_found_c
        type(c_ptr), value :: init_source_p
-     end subroutine phys_inidat_qcwat_default_codon
+     end subroutine phys_inidat_batch_qcwat_default_codon
   end interface
 
-  call phys_inidat_qcwat_default_select_impl()
+  call phys_inidat_batch_select_impl()
 
-  if (use_native_phys_inidat_qcwat_default_impl) then
+  if (use_native_phys_inidat_batch_impl) then
      call phys_inidat_qcwat_default_native(primary_found_local, fallback_found_local, init_source_local)
      return
   end if
@@ -5336,7 +5421,8 @@ subroutine phys_inidat_qcwat_default(primary_found_local, fallback_found_local, 
   if (fallback_found_local) fallback_found_c = 1_c_int64_t
   init_source_c = 0_c_int64_t
 
-  call phys_inidat_qcwat_default_codon(primary_found_c, fallback_found_c, c_loc(init_source_c))
+  call phys_inidat_batch_log_entered()
+  call phys_inidat_batch_qcwat_default_codon(primary_found_c, fallback_found_c, c_loc(init_source_c))
   init_source_local = int(init_source_c)
 
 end subroutine phys_inidat_qcwat_default
@@ -5411,18 +5497,18 @@ subroutine phys_inidat_iccwat_default(primary_found_local, fallback_found_local,
   integer(c_int64_t), target :: init_source_c
 
   interface
-     subroutine phys_inidat_iccwat_default_codon(primary_found_c, fallback_found_c, init_source_p) &
-          bind(c, name="phys_inidat_iccwat_default_codon")
+     subroutine phys_inidat_batch_iccwat_default_codon(primary_found_c, fallback_found_c, init_source_p) &
+          bind(c, name="phys_inidat_batch_iccwat_default_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: primary_found_c
        integer(c_int64_t), value :: fallback_found_c
        type(c_ptr), value :: init_source_p
-     end subroutine phys_inidat_iccwat_default_codon
+     end subroutine phys_inidat_batch_iccwat_default_codon
   end interface
 
-  call phys_inidat_iccwat_default_select_impl()
+  call phys_inidat_batch_select_impl()
 
-  if (use_native_phys_inidat_iccwat_default_impl) then
+  if (use_native_phys_inidat_batch_impl) then
      call phys_inidat_iccwat_default_native(primary_found_local, fallback_found_local, init_source_local)
      return
   end if
@@ -5433,7 +5519,8 @@ subroutine phys_inidat_iccwat_default(primary_found_local, fallback_found_local,
   if (fallback_found_local) fallback_found_c = 1_c_int64_t
   init_source_c = 0_c_int64_t
 
-  call phys_inidat_iccwat_default_codon(primary_found_c, fallback_found_c, c_loc(init_source_c))
+  call phys_inidat_batch_log_entered()
+  call phys_inidat_batch_iccwat_default_codon(primary_found_c, fallback_found_c, c_loc(init_source_c))
   init_source_local = int(init_source_c)
 
 end subroutine phys_inidat_iccwat_default
@@ -5510,19 +5597,19 @@ subroutine phys_inidat_lcwat_default(primary_found_local, cldice_found_local, cl
   integer(c_int64_t), target :: init_source_c
 
   interface
-     subroutine phys_inidat_lcwat_default_codon(primary_found_c, cldice_found_c, cldliq_found_c, init_source_p) &
-          bind(c, name="phys_inidat_lcwat_default_codon")
+     subroutine phys_inidat_batch_lcwat_default_codon(primary_found_c, cldice_found_c, cldliq_found_c, init_source_p) &
+          bind(c, name="phys_inidat_batch_lcwat_default_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: primary_found_c
        integer(c_int64_t), value :: cldice_found_c
        integer(c_int64_t), value :: cldliq_found_c
        type(c_ptr), value :: init_source_p
-     end subroutine phys_inidat_lcwat_default_codon
+     end subroutine phys_inidat_batch_lcwat_default_codon
   end interface
 
-  call phys_inidat_lcwat_default_select_impl()
+  call phys_inidat_batch_select_impl()
 
-  if (use_native_phys_inidat_lcwat_default_impl) then
+  if (use_native_phys_inidat_batch_impl) then
      call phys_inidat_lcwat_default_native(primary_found_local, cldice_found_local, cldliq_found_local, init_source_local)
      return
   end if
@@ -5535,7 +5622,8 @@ subroutine phys_inidat_lcwat_default(primary_found_local, cldice_found_local, cl
   if (cldliq_found_local) cldliq_found_c = 1_c_int64_t
   init_source_c = 0_c_int64_t
 
-  call phys_inidat_lcwat_default_codon(primary_found_c, cldice_found_c, cldliq_found_c, c_loc(init_source_c))
+  call phys_inidat_batch_log_entered()
+  call phys_inidat_batch_lcwat_default_codon(primary_found_c, cldice_found_c, cldliq_found_c, c_loc(init_source_c))
   init_source_local = int(init_source_c)
 
 end subroutine phys_inidat_lcwat_default
@@ -5613,17 +5701,17 @@ subroutine phys_inidat_tcwat_default(primary_found_local, init_source_local)
   integer(c_int64_t), target :: init_source_c
 
   interface
-     subroutine phys_inidat_tcwat_default_codon(primary_found_c, init_source_p) &
-          bind(c, name="phys_inidat_tcwat_default_codon")
+     subroutine phys_inidat_batch_tcwat_default_codon(primary_found_c, init_source_p) &
+          bind(c, name="phys_inidat_batch_tcwat_default_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: primary_found_c
        type(c_ptr), value :: init_source_p
-     end subroutine phys_inidat_tcwat_default_codon
+     end subroutine phys_inidat_batch_tcwat_default_codon
   end interface
 
-  call phys_inidat_tcwat_default_select_impl()
+  call phys_inidat_batch_select_impl()
 
-  if (use_native_phys_inidat_tcwat_default_impl) then
+  if (use_native_phys_inidat_batch_impl) then
      call phys_inidat_tcwat_default_native(primary_found_local, init_source_local)
      return
   end if
@@ -5632,7 +5720,8 @@ subroutine phys_inidat_tcwat_default(primary_found_local, init_source_local)
   if (primary_found_local) primary_found_c = 1_c_int64_t
   init_source_c = 0_c_int64_t
 
-  call phys_inidat_tcwat_default_codon(primary_found_c, c_loc(init_source_c))
+  call phys_inidat_batch_log_entered()
+  call phys_inidat_batch_tcwat_default_codon(primary_found_c, c_loc(init_source_c))
   init_source_local = int(init_source_c)
 
 end subroutine phys_inidat_tcwat_default
@@ -5709,8 +5798,8 @@ subroutine phys_inidat_cloud_default(pcols_local, pver_local, chunk_count_local,
   integer(c_int64_t) :: found_c
 
   interface
-     subroutine phys_inidat_cloud_default_codon(pcols_c, pver_c, chunk_count_c, found_c, tptr3d_p, default_value) &
-          bind(c, name="phys_inidat_cloud_default_codon")
+     subroutine phys_inidat_batch_cloud_default_codon(pcols_c, pver_c, chunk_count_c, found_c, tptr3d_p, default_value) &
+          bind(c, name="phys_inidat_batch_cloud_default_codon")
        use iso_c_binding, only: c_int64_t, c_double, c_ptr
        integer(c_int64_t), value :: pcols_c
        integer(c_int64_t), value :: pver_c
@@ -5718,12 +5807,12 @@ subroutine phys_inidat_cloud_default(pcols_local, pver_local, chunk_count_local,
        integer(c_int64_t), value :: found_c
        type(c_ptr), value :: tptr3d_p
        real(c_double), value :: default_value
-     end subroutine phys_inidat_cloud_default_codon
+     end subroutine phys_inidat_batch_cloud_default_codon
   end interface
 
-  call phys_inidat_cloud_default_select_impl()
+  call phys_inidat_batch_select_impl()
 
-  if (use_native_phys_inidat_cloud_default_impl) then
+  if (use_native_phys_inidat_batch_impl) then
      call phys_inidat_cloud_default_native(pcols_local, pver_local, chunk_count_local, found_local, tptr3d, default_value)
      return
   end if
@@ -5734,7 +5823,8 @@ subroutine phys_inidat_cloud_default(pcols_local, pver_local, chunk_count_local,
   found_c = 0_c_int64_t
   if (found_local) found_c = 1_c_int64_t
 
-  call phys_inidat_cloud_default_codon(pcols_c, pver_c, chunk_count_c, found_c, c_loc(tptr3d), default_value)
+  call phys_inidat_batch_log_entered()
+  call phys_inidat_batch_cloud_default_codon(pcols_c, pver_c, chunk_count_c, found_c, c_loc(tptr3d), default_value)
 
 end subroutine phys_inidat_cloud_default
 
@@ -5814,8 +5904,8 @@ subroutine phys_inidat_concld_default(pcols_local, pver_local, chunk_count_local
   integer(c_int64_t) :: found_c
 
   interface
-     subroutine phys_inidat_concld_default_codon(pcols_c, pver_c, chunk_count_c, found_c, tptr3d_p, default_value) &
-          bind(c, name="phys_inidat_concld_default_codon")
+     subroutine phys_inidat_batch_concld_default_codon(pcols_c, pver_c, chunk_count_c, found_c, tptr3d_p, default_value) &
+          bind(c, name="phys_inidat_batch_concld_default_codon")
        use iso_c_binding, only: c_int64_t, c_double, c_ptr
        integer(c_int64_t), value :: pcols_c
        integer(c_int64_t), value :: pver_c
@@ -5823,12 +5913,12 @@ subroutine phys_inidat_concld_default(pcols_local, pver_local, chunk_count_local
        integer(c_int64_t), value :: found_c
        type(c_ptr), value :: tptr3d_p
        real(c_double), value :: default_value
-     end subroutine phys_inidat_concld_default_codon
+     end subroutine phys_inidat_batch_concld_default_codon
   end interface
 
-  call phys_inidat_concld_default_select_impl()
+  call phys_inidat_batch_select_impl()
 
-  if (use_native_phys_inidat_concld_default_impl) then
+  if (use_native_phys_inidat_batch_impl) then
      call phys_inidat_concld_default_native(pcols_local, pver_local, chunk_count_local, found_local, tptr3d, default_value)
      return
   end if
@@ -5839,7 +5929,8 @@ subroutine phys_inidat_concld_default(pcols_local, pver_local, chunk_count_local
   found_c = 0_c_int64_t
   if (found_local) found_c = 1_c_int64_t
 
-  call phys_inidat_concld_default_codon(pcols_c, pver_c, chunk_count_c, found_c, c_loc(tptr3d), default_value)
+  call phys_inidat_batch_log_entered()
+  call phys_inidat_batch_concld_default_codon(pcols_c, pver_c, chunk_count_c, found_c, c_loc(tptr3d), default_value)
 
 end subroutine phys_inidat_concld_default
 
@@ -5913,23 +6004,24 @@ subroutine phys_inidat_tbot_init(pcols_local, tbot, posinf_local)
   integer(c_int64_t) :: pcols_c
 
   interface
-     subroutine phys_inidat_tbot_init_codon(pcols_c, tbot_p, posinf_local) bind(c, name="phys_inidat_tbot_init_codon")
+     subroutine phys_inidat_batch_tbot_init_codon(pcols_c, tbot_p, posinf_local) bind(c, name="phys_inidat_batch_tbot_init_codon")
        use iso_c_binding, only: c_int64_t, c_double, c_ptr
        integer(c_int64_t), value :: pcols_c
        type(c_ptr), value :: tbot_p
        real(c_double), value :: posinf_local
-     end subroutine phys_inidat_tbot_init_codon
+     end subroutine phys_inidat_batch_tbot_init_codon
   end interface
 
-  call phys_inidat_tbot_init_select_impl()
+  call phys_inidat_batch_select_impl()
 
-  if (use_native_phys_inidat_tbot_init_impl) then
+  if (use_native_phys_inidat_batch_impl) then
      call phys_inidat_tbot_init_native(pcols_local, tbot, posinf_local)
      return
   end if
 
   pcols_c = int(pcols_local, c_int64_t)
-  call phys_inidat_tbot_init_codon(pcols_c, c_loc(tbot), posinf_local)
+  call phys_inidat_batch_log_entered()
+  call phys_inidat_batch_tbot_init_codon(pcols_c, c_loc(tbot), posinf_local)
 
 end subroutine phys_inidat_tbot_init
 
