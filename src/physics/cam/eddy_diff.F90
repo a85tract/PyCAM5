@@ -283,6 +283,9 @@
   logical                     :: use_native_caleddy_post_batch_impl = .false.
   logical                     :: caleddy_post_batch_impl_selected = .false.
   logical                     :: caleddy_post_batch_entered_logged = .false.
+  logical                     :: use_native_caleddy_setup_batch_impl = .false.
+  logical                     :: caleddy_setup_batch_impl_selected = .false.
+  logical                     :: caleddy_setup_batch_entered_logged = .false.
 
   CONTAINS
 
@@ -1841,6 +1844,214 @@
     end if
 
   end subroutine eddy_diff_caleddy_light_batch_call
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_setup_batch_append_proof(proof_line)
+
+    implicit none
+
+    character(len=*), intent(in) :: proof_line
+
+    character(len=512) :: proof_file
+    integer :: status, n, unitno
+
+    proof_file = ''
+    call get_environment_variable('EDDY_DIFF_CALEDDY_SETUP_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+       write(unitno,'(A)') trim(proof_line)
+       close(unitno)
+    end if
+
+  end subroutine eddy_diff_caleddy_setup_batch_append_proof
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_setup_batch_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (caleddy_setup_batch_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_CALEDDY_SETUP_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_caleddy_setup_batch_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_caleddy_setup_batch_impl = .false.
+    end if
+
+    caleddy_setup_batch_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_caleddy_setup_batch_impl) then
+          write(iulog,*) 'eddy_diff_caleddy_setup_batch implementation = native'
+          write(*,*) 'eddy_diff_caleddy_setup_batch implementation = native'
+          call eddy_diff_append_impl_trace('eddy_diff_caleddy_setup_batch implementation = native')
+          call eddy_diff_caleddy_setup_batch_append_proof('eddy_diff_caleddy_setup_batch selector entered implementation = native')
+       else
+          write(iulog,*) 'eddy_diff_caleddy_setup_batch implementation = codon'
+          write(*,*) 'eddy_diff_caleddy_setup_batch implementation = codon'
+          call eddy_diff_append_impl_trace('eddy_diff_caleddy_setup_batch implementation = codon')
+          call eddy_diff_caleddy_setup_batch_append_proof('eddy_diff_caleddy_setup_batch selector entered implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine eddy_diff_caleddy_setup_batch_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_setup_batch_log_entered()
+
+    implicit none
+
+    if (caleddy_setup_batch_entered_logged) return
+    caleddy_setup_batch_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'eddy_diff_caleddy_setup_batch entered (init/diaginit/exacol direct = codon)'
+       write(*,*) 'eddy_diff_caleddy_setup_batch entered (init/diaginit/exacol direct = codon)'
+       call eddy_diff_append_impl_trace('eddy_diff_caleddy_setup_batch entered (init/diaginit/exacol direct = codon)')
+       call eddy_diff_caleddy_setup_batch_append_proof('eddy_diff_caleddy_setup_batch entered (init/diaginit/exacol direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine eddy_diff_caleddy_setup_batch_log_entered
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_setup_batch_call(ncol_local, pcols_local, pver_local, ncvmax_local, ntop_turb_local, &
+       qrlzero_mode_local, cldeff_mode_local, tkes_mode_local, use_kvf_mode_local, qmin_local, vk_local, ql_local, qrlin_local, cld_local, &
+       kvf_local, kvh_in_local, kvm_in_local, n2_local, s2_local, shflx_local, qflx_local, rrho_local, ustar_local, &
+       z_local, chu_local, chs_local, cmu_local, cms_local, sflh_local, qrlw_local, cldeff_local, kvh_local, kvm_local, &
+       bflxs_local, bprod_local, sprod_local, wcap_local, leng_local, tke_local, turbtype_local, went_local, wet_CL_local, &
+       web_CL_local, jtbu_CL_local, jbbu_CL_local, evhc_CL_local, jt2slv_CL_local, n2ht_CL_local, n2hb_CL_local, &
+       lwp_CL_local, opt_depth_CL_local, radinvfrac_CL_local, radf_CL_local, wstar_CL_local, wstar3fact_CL_local, &
+       ricl_local, ghcl_local, shcl_local, smcl_local, ebrk_local, wbrk_local, lbrk_local, gh_a_local, sh_a_local, &
+       sm_a_local, ri_a_local, sm_aw_local, ipbl_local, kpblh_local, wsed_CL_local, ri_local, minpblh_local, zi_local, &
+       ktop_local, kbase_local, ncvfin_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: ncol_local, pcols_local, pver_local, ncvmax_local, ntop_turb_local
+    integer, intent(in) :: qrlzero_mode_local, cldeff_mode_local, tkes_mode_local, use_kvf_mode_local
+    real(r8), intent(in) :: qmin_local, vk_local
+    real(r8), target, intent(in) :: ql_local(pcols_local,pver_local), qrlin_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: cld_local(pcols_local,pver_local), kvf_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: kvh_in_local(pcols_local,pver_local+1), kvm_in_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: n2_local(pcols_local,pver_local), s2_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: shflx_local(pcols_local), qflx_local(pcols_local), rrho_local(pcols_local)
+    real(r8), target, intent(in) :: ustar_local(pcols_local), z_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: chu_local(pcols_local,pver_local+1), chs_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: cmu_local(pcols_local,pver_local+1), cms_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: sflh_local(pcols_local,pver_local)
+    real(r8), target, intent(inout) :: qrlw_local(pcols_local,pver_local), cldeff_local(pcols_local,pver_local)
+    real(r8), target, intent(inout) :: kvh_local(pcols_local,pver_local+1), kvm_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: bflxs_local(pcols_local), bprod_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: sprod_local(pcols_local,pver_local+1), wcap_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: leng_local(pcols_local,pver_local+1), tke_local(pcols_local,pver_local+1)
+    integer(i4), target, intent(inout) :: turbtype_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: went_local(pcols_local), wet_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: web_CL_local(pcols_local,ncvmax_local), jtbu_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: jbbu_CL_local(pcols_local,ncvmax_local), evhc_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: jt2slv_CL_local(pcols_local,ncvmax_local), n2ht_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: n2hb_CL_local(pcols_local,ncvmax_local), lwp_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: opt_depth_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: radinvfrac_CL_local(pcols_local,ncvmax_local), radf_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: wstar_CL_local(pcols_local,ncvmax_local), wstar3fact_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: ricl_local(pcols_local,ncvmax_local), ghcl_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: shcl_local(pcols_local,ncvmax_local), smcl_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: ebrk_local(pcols_local,ncvmax_local), wbrk_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: lbrk_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: gh_a_local(pcols_local,pver_local+1), sh_a_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: sm_a_local(pcols_local,pver_local+1), ri_a_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: sm_aw_local(pcols_local,pver_local+1), wsed_CL_local(pcols_local,ncvmax_local)
+    integer(i4), target, intent(inout) :: ipbl_local(pcols_local), kpblh_local(pcols_local)
+    real(r8), target, intent(in) :: ri_local(pcols_local,pver_local), minpblh_local(pcols_local), zi_local(pcols_local,pver_local+1)
+    integer(i4), target, intent(inout) :: ktop_local(pcols_local,ncvmax_local), kbase_local(pcols_local,ncvmax_local)
+    integer(i4), target, intent(inout) :: ncvfin_local(pcols_local)
+
+    interface
+       subroutine eddy_diff_caleddy_setup_batch_codon(ncol_c, pcols_c, pver_c, ncvmax_c, ntop_turb_c, qrlzero_mode_c, cldeff_mode_c, &
+            tkes_mode_c, use_kvf_mode_c, qmin_c, vk_c, ql_p, qrlin_p, cld_p, kvf_p, kvh_in_p, kvm_in_p, n2_p, s2_p, &
+            shflx_p, qflx_p, rrho_p, ustar_p, z_p, chu_p, chs_p, cmu_p, cms_p, sflh_p, qrlw_p, cldeff_p, kvh_p, kvm_p, &
+            bflxs_p, bprod_p, sprod_p, wcap_p, leng_p, tke_p, turbtype_p, went_p, wet_CL_p, web_CL_p, jtbu_CL_p, &
+            jbbu_CL_p, evhc_CL_p, jt2slv_CL_p, n2ht_CL_p, n2hb_CL_p, lwp_CL_p, opt_depth_CL_p, radinvfrac_CL_p, &
+            radf_CL_p, wstar_CL_p, wstar3fact_CL_p, ricl_p, ghcl_p, shcl_p, smcl_p, ebrk_p, wbrk_p, lbrk_p, gh_a_p, &
+            sh_a_p, sm_a_p, ri_a_p, sm_aw_p, ipbl_p, kpblh_p, wsed_CL_p, ri_p, ktop_p, kbase_p, ncvfin_p) &
+            bind(c, name="eddy_diff_caleddy_setup_batch_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, ncvmax_c, ntop_turb_c, qrlzero_mode_c, cldeff_mode_c, tkes_mode_c
+         integer(c_int64_t), value :: use_kvf_mode_c
+         real(c_double), value :: qmin_c, vk_c
+         type(c_ptr), value :: ql_p, qrlin_p, cld_p, kvf_p, kvh_in_p, kvm_in_p, n2_p, s2_p, shflx_p, qflx_p, rrho_p
+         type(c_ptr), value :: ustar_p, z_p, chu_p, chs_p, cmu_p, cms_p, sflh_p, qrlw_p, cldeff_p, kvh_p, kvm_p
+         type(c_ptr), value :: bflxs_p, bprod_p, sprod_p, wcap_p, leng_p, tke_p, turbtype_p, went_p, wet_CL_p, web_CL_p
+         type(c_ptr), value :: jtbu_CL_p, jbbu_CL_p, evhc_CL_p, jt2slv_CL_p, n2ht_CL_p, n2hb_CL_p, lwp_CL_p
+         type(c_ptr), value :: opt_depth_CL_p, radinvfrac_CL_p, radf_CL_p, wstar_CL_p, wstar3fact_CL_p, ricl_p, ghcl_p
+         type(c_ptr), value :: shcl_p, smcl_p, ebrk_p, wbrk_p, lbrk_p, gh_a_p, sh_a_p, sm_a_p, ri_a_p, sm_aw_p
+         type(c_ptr), value :: ipbl_p, kpblh_p, wsed_CL_p, ri_p, ktop_p, kbase_p, ncvfin_p
+       end subroutine eddy_diff_caleddy_setup_batch_codon
+    end interface
+
+    call eddy_diff_caleddy_setup_batch_select_impl()
+
+    if (use_native_caleddy_setup_batch_impl) then
+       call eddy_diff_caleddy_init_native(ncol_local, pcols_local, pver_local, qrlzero_mode_local, cldeff_mode_local, &
+            tkes_mode_local, use_kvf_mode_local, qmin_local, vk_local, ql_local, qrlin_local, cld_local, kvf_local, &
+            kvh_in_local, kvm_in_local, n2_local, s2_local, shflx_local, qflx_local, rrho_local, ustar_local, z_local, &
+            chu_local, chs_local, cmu_local, cms_local, sflh_local, qrlw_local, cldeff_local, kvh_local, kvm_local, &
+            bflxs_local, bprod_local, sprod_local, wcap_local, leng_local, tke_local, turbtype_local)
+       call eddy_diff_caleddy_diaginit_native(ncol_local, pcols_local, pver_local, ncvmax_local, went_local, wet_CL_local, &
+            web_CL_local, jtbu_CL_local, jbbu_CL_local, evhc_CL_local, jt2slv_CL_local, n2ht_CL_local, n2hb_CL_local, &
+            lwp_CL_local, opt_depth_CL_local, radinvfrac_CL_local, radf_CL_local, wstar_CL_local, wstar3fact_CL_local, &
+            ricl_local, ghcl_local, shcl_local, smcl_local, ebrk_local, wbrk_local, lbrk_local, gh_a_local, sh_a_local, &
+            sm_a_local, ri_a_local, sm_aw_local, ipbl_local, kpblh_local, wsed_CL_local)
+       call exacol_native(pcols_local, pver_local, ncol_local, ri_local, bflxs_local, minpblh_local, zi_local, &
+            ktop_local, kbase_local, ncvfin_local)
+       return
+    end if
+
+    call eddy_diff_caleddy_setup_batch_log_entered()
+    call eddy_diff_caleddy_setup_batch_codon( &
+         int(ncol_local, c_int64_t), int(pcols_local, c_int64_t), int(pver_local, c_int64_t), int(ncvmax_local, c_int64_t), &
+         int(ntop_turb_local, c_int64_t), int(qrlzero_mode_local, c_int64_t), int(cldeff_mode_local, c_int64_t), int(tkes_mode_local, c_int64_t), &
+         int(use_kvf_mode_local, c_int64_t), real(qmin_local, c_double), real(vk_local, c_double), c_loc(ql_local), &
+         c_loc(qrlin_local), c_loc(cld_local), c_loc(kvf_local), c_loc(kvh_in_local), c_loc(kvm_in_local), c_loc(n2_local), &
+         c_loc(s2_local), c_loc(shflx_local), c_loc(qflx_local), c_loc(rrho_local), c_loc(ustar_local), c_loc(z_local), &
+         c_loc(chu_local), c_loc(chs_local), c_loc(cmu_local), c_loc(cms_local), c_loc(sflh_local), c_loc(qrlw_local), &
+         c_loc(cldeff_local), c_loc(kvh_local), c_loc(kvm_local), c_loc(bflxs_local), c_loc(bprod_local), c_loc(sprod_local), &
+         c_loc(wcap_local), c_loc(leng_local), c_loc(tke_local), c_loc(turbtype_local), c_loc(went_local), c_loc(wet_CL_local), &
+         c_loc(web_CL_local), c_loc(jtbu_CL_local), c_loc(jbbu_CL_local), c_loc(evhc_CL_local), c_loc(jt2slv_CL_local), &
+         c_loc(n2ht_CL_local), c_loc(n2hb_CL_local), c_loc(lwp_CL_local), c_loc(opt_depth_CL_local), c_loc(radinvfrac_CL_local), &
+         c_loc(radf_CL_local), c_loc(wstar_CL_local), c_loc(wstar3fact_CL_local), c_loc(ricl_local), c_loc(ghcl_local), &
+         c_loc(shcl_local), c_loc(smcl_local), c_loc(ebrk_local), c_loc(wbrk_local), c_loc(lbrk_local), c_loc(gh_a_local), &
+         c_loc(sh_a_local), c_loc(sm_a_local), c_loc(ri_a_local), c_loc(sm_aw_local), c_loc(ipbl_local), c_loc(kpblh_local), &
+         c_loc(wsed_CL_local), c_loc(ri_local), c_loc(ktop_local), c_loc(kbase_local), c_loc(ncvfin_local))
+
+  end subroutine eddy_diff_caleddy_setup_batch_call
 
   !=============================================================================== !
   !                                                                                !
@@ -8796,28 +9007,22 @@
         srcl_mode = 2
     end if
 
+    ! Initialize main fields, diagnostics, and the initial CL regimes in one setup batch.
     if (use_native_caleddy_impl) then
        call eddy_diff_caleddy_init_native(ncol, pcols, pver, qrlzero_mode, cldeff_mode, tkes_mode, use_kvf_mode, qmin, vk, &
             ql, qrlin, cld, kvf, kvh_in, kvm_in, n2, s2, shflx, qflx, rrho, ustar, z, chu, chs, cmu, cms, sflh, qrlw, &
             cldeff, kvh, kvm, bflxs, bprod, sprod, wcap, leng, tke, turbtype)
-    else
-       call eddy_diff_caleddy_init(ncol, pcols, pver, qrlzero_mode, cldeff_mode, tkes_mode, use_kvf_mode, qmin, vk, ql, &
-            qrlin, cld, kvf, kvh_in, kvm_in, n2, s2, shflx, qflx, rrho, ustar, z, chu, chs, cmu, cms, sflh, qrlw, cldeff, &
-            kvh, kvm, bflxs, bprod, sprod, wcap, leng, tke, turbtype)
-    end if
-
-    !
-    ! Initialization of Diagnostic Output
-    !
-
-    if (use_native_caleddy_impl) then
        call eddy_diff_caleddy_diaginit_native(ncol, pcols, pver, ncvmax, went, wet_CL, web_CL, jtbu_CL, jbbu_CL, evhc_CL, &
             jt2slv_CL, n2ht_CL, n2hb_CL, lwp_CL, opt_depth_CL, radinvfrac_CL, radf_CL, wstar_CL, wstar3fact_CL, ricl, ghcl, &
             shcl, smcl, ebrk, wbrk, lbrk, gh_a, sh_a, sm_a, ri_a, sm_aw, ipbl, kpblh, wsed_CL)
+       call exacol_native(pcols, pver, ncol, ri, bflxs, minpblh, zi, ktop, kbase, ncvfin)
     else
-       call eddy_diff_caleddy_diaginit(ncol, pcols, pver, ncvmax, went, wet_CL, web_CL, jtbu_CL, jbbu_CL, evhc_CL, &
-            jt2slv_CL, n2ht_CL, n2hb_CL, lwp_CL, opt_depth_CL, radinvfrac_CL, radf_CL, wstar_CL, wstar3fact_CL, ricl, ghcl, &
-            shcl, smcl, ebrk, wbrk, lbrk, gh_a, sh_a, sm_a, ri_a, sm_aw, ipbl, kpblh, wsed_CL)
+       call eddy_diff_caleddy_setup_batch_call(ncol, pcols, pver, ncvmax, ntop_turb, qrlzero_mode, cldeff_mode, tkes_mode, &
+            use_kvf_mode, qmin, vk, ql, qrlin, cld, kvf, kvh_in, kvm_in, n2, s2, shflx, qflx, rrho, ustar, z, chu, chs, &
+            cmu, cms, sflh, qrlw, cldeff, kvh, kvm, bflxs, bprod, sprod, wcap, leng, tke, turbtype, went, wet_CL, web_CL, &
+            jtbu_CL, jbbu_CL, evhc_CL, jt2slv_CL, n2ht_CL, n2hb_CL, lwp_CL, opt_depth_CL, radinvfrac_CL, radf_CL, wstar_CL, &
+            wstar3fact_CL, ricl, ghcl, shcl, smcl, ebrk, wbrk, lbrk, gh_a, sh_a, sm_a, ri_a, sm_aw, ipbl, kpblh, wsed_CL, &
+            ri, minpblh, zi, ktop, kbase, ncvfin)
     end if
 
     ! Initially identify CL regimes in 'exacol'
@@ -8831,12 +9036,6 @@
     ! and ri(pver) >= 0, then surface interface is identified as a stable turbulent
     ! intereface (STL) as shown at the end of 'caleddy'. Even though a 'minpblh' is
     ! passed into 'exacol', it is not used in the 'exacol'.
-
-    if (use_native_caleddy_impl) then
-       call exacol_native(pcols, pver, ncol, ri, bflxs, minpblh, zi, ktop, kbase, ncvfin)
-    else
-       call exacol(pcols, pver, ncol, ri, bflxs, minpblh, zi, ktop, kbase, ncvfin)
-    end if
 
     ! Diagnostic output of CL interface indices before performing 'extending-merging'
     ! of CL regimes in 'zisocl'
