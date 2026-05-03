@@ -803,6 +803,51 @@ def gas_phase_chemdr_load_mmr_codon(
                     idx_mmr = _idx3(i, k, n, pcols, pver)
                     mmr[idx_mmr] = q[idx_q]
 
+def rate_diags_batch_codon(
+    ncol: int,
+    pver: int,
+    rxntot: int,
+    rxt_tag_cnt: int,
+    rxt_rates_p: cobj,
+    vmr_p: cobj,
+    m_p: cobj,
+    rxt_tag_map_p: cobj,
+):
+    rxt_rates = Ptr[float](rxt_rates_p)
+    vmr = Ptr[float](vmr_p)
+    air_density = Ptr[float](m_p)
+    rxt_tag_map = Ptr[int](rxt_tag_map_p)
+
+    # Active pp_trop_mam3 mo_rxt_rates_conv:set_rates, kept in source order.
+    if rxntot >= 7:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                rxt_rates[_idx3(i, k, 1, ncol, pver)] = (
+                    rxt_rates[_idx3(i, k, 1, ncol, pver)] * vmr[_idx3(i, k, 1, ncol, pver)]
+                )
+                rxt_rates[_idx3(i, k, 3, ncol, pver)] = (
+                    rxt_rates[_idx3(i, k, 3, ncol, pver)] * vmr[_idx3(i, k, 1, ncol, pver)]
+                )
+                rxt_rates[_idx3(i, k, 4, ncol, pver)] = (
+                    rxt_rates[_idx3(i, k, 4, ncol, pver)] * vmr[_idx3(i, k, 3, ncol, pver)]
+                )
+                rxt_rates[_idx3(i, k, 5, ncol, pver)] = (
+                    rxt_rates[_idx3(i, k, 5, ncol, pver)] * vmr[_idx3(i, k, 4, ncol, pver)]
+                )
+                rxt_rates[_idx3(i, k, 6, ncol, pver)] = (
+                    rxt_rates[_idx3(i, k, 6, ncol, pver)] * vmr[_idx3(i, k, 4, ncol, pver)]
+                )
+                rxt_rates[_idx3(i, k, 7, ncol, pver)] = (
+                    rxt_rates[_idx3(i, k, 7, ncol, pver)] * vmr[_idx3(i, k, 4, ncol, pver)]
+                )
+
+    for tag_i in range(1, rxt_tag_cnt + 1):
+        rxt_idx = rxt_tag_map[tag_i - 1]
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx3(i, k, rxt_idx, ncol, pver)
+                rxt_rates[idx] = rxt_rates[idx] * air_density[_idx2(i, k, ncol)]
+
 def gas_phase_chemdr_init_reaction_rates_codon(
     ncol: int,
     pver: int,

@@ -2749,6 +2749,28 @@ def gas_phase_chemdr_load_mmr_codon(
     )
 
 @export
+def rate_diags_batch_codon(
+    ncol: int,
+    pver: int,
+    rxntot: int,
+    rxt_tag_cnt: int,
+    rxt_rates_p: cobj,
+    vmr_p: cobj,
+    m_p: cobj,
+    rxt_tag_map_p: cobj,
+):
+    return _gas_phase.rate_diags_batch_codon(
+        ncol,
+        pver,
+        rxntot,
+        rxt_tag_cnt,
+        rxt_rates_p,
+        vmr_p,
+        m_p,
+        rxt_tag_map_p,
+    )
+
+@export
 def gas_phase_chemdr_init_reaction_rates_codon(
     ncol: int,
     pver: int,

@@ -33,8 +33,87 @@ module rate_diags
 
   integer, parameter :: maxsums = 100
   character(len=CX) :: rxn_rate_sums(maxsums) = ' '
+  logical :: rate_diags_batch_use_native_impl = .false.
+  logical :: rate_diags_batch_impl_selected = .false.
+  logical :: rate_diags_batch_entered_logged = .false.
 
 contains
+
+!-------------------------------------------------------------------
+!-------------------------------------------------------------------
+  subroutine rate_diags_batch_append_proof(proof_line)
+
+    character(len=*), intent(in) :: proof_line
+    character(len=512) :: proof_file
+    integer :: status, n, unitno
+
+    proof_file = ''
+    call get_environment_variable('RATE_DIAGS_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+       write(unitno,'(A)') trim(proof_line)
+       close(unitno)
+    end if
+
+  end subroutine rate_diags_batch_append_proof
+
+!-------------------------------------------------------------------
+!-------------------------------------------------------------------
+  subroutine rate_diags_batch_select_impl()
+
+    use cam_logfile, only : iulog
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (rate_diags_batch_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('RATE_DIAGS_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       rate_diags_batch_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       rate_diags_batch_use_native_impl = .false.
+    end if
+
+    rate_diags_batch_impl_selected = .true.
+
+    if (masterproc) then
+       if (rate_diags_batch_use_native_impl) then
+          write(iulog,*) 'rate_diags_batch implementation = native'
+          call rate_diags_batch_append_proof('rate_diags_batch selector entered implementation = native')
+       else
+          write(iulog,*) 'rate_diags_batch implementation = codon'
+          call rate_diags_batch_append_proof('rate_diags_batch selector entered implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine rate_diags_batch_select_impl
+
+!-------------------------------------------------------------------
+!-------------------------------------------------------------------
+  subroutine rate_diags_batch_log_entered()
+
+    use cam_logfile, only : iulog
+
+    if (rate_diags_batch_entered_logged) return
+    rate_diags_batch_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'rate_diags_batch entered (set_rates/tagged conversion direct = codon)'
+       call rate_diags_batch_append_proof('rate_diags_batch entered (set_rates/tagged conversion direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine rate_diags_batch_log_entered
 
 !-------------------------------------------------------------------
 !-------------------------------------------------------------------
@@ -109,21 +188,47 @@ contains
   subroutine rate_diags_calc( rxt_rates, vmr, m, ncol, lchnk )
 
     use mo_rxt_rates_conv, only: set_rates
+    use chem_mods, only : rxntot
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
 
-    real(r8), intent(inout) :: rxt_rates(:,:,:) ! 'molec/cm3/sec'
-    real(r8), intent(in)    :: vmr(:,:,:)
-    real(r8), intent(in)    :: m(:,:)           ! air density (molecules/cm3)
+    real(r8), target, intent(inout) :: rxt_rates(:,:,:) ! 'molec/cm3/sec'
+    real(r8), target, intent(in)    :: vmr(:,:,:)
+    real(r8), target, intent(in)    :: m(:,:)           ! air density (molecules/cm3)
     integer,  intent(in)    :: ncol, lchnk
 
     integer :: i, j
+    integer(c_int64_t), target :: rxt_tag_map_i64(max(1,rxt_tag_cnt))
     real(r8) :: group_rate(ncol,pver)
 
-    call set_rates( rxt_rates, vmr, ncol )
+    interface
+       subroutine rate_diags_batch_codon(ncol_c, pver_c, rxntot_c, rxt_tag_cnt_c, &
+            rxt_rates_p, vmr_p, m_p, rxt_tag_map_p) bind(c, name="rate_diags_batch_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, rxntot_c, rxt_tag_cnt_c
+         type(c_ptr), value :: rxt_rates_p, vmr_p, m_p, rxt_tag_map_p
+       end subroutine rate_diags_batch_codon
+    end interface
 
-    ! output individual tagged rates    
+    call rate_diags_batch_select_impl()
+
+    if (rate_diags_batch_use_native_impl) then
+       call set_rates( rxt_rates, vmr, ncol )
+
+       ! output individual tagged rates
+       do i = 1, rxt_tag_cnt
+          ! convert from vmr/sec to molecules/cm3/sec
+          rxt_rates(:ncol,:,rxt_tag_map(i)) = rxt_rates(:ncol,:,rxt_tag_map(i)) * m(:ncol,:)
+       enddo
+    else
+       call rate_diags_batch_log_entered()
+       do i = 1, rxt_tag_cnt
+          rxt_tag_map_i64(i) = int(rxt_tag_map(i), c_int64_t)
+       end do
+       call rate_diags_batch_codon(int(ncol, c_int64_t), int(pver, c_int64_t), int(rxntot, c_int64_t), &
+            int(rxt_tag_cnt, c_int64_t), c_loc(rxt_rates), c_loc(vmr), c_loc(m), c_loc(rxt_tag_map_i64))
+    end if
+
     do i = 1, rxt_tag_cnt
-       ! convert from vmr/sec to molecules/cm3/sec
-       rxt_rates(:ncol,:,rxt_tag_map(i)) = rxt_rates(:ncol,:,rxt_tag_map(i)) * m(:ncol,:)
        call outfld( rate_names(i), rxt_rates(:ncol,:,rxt_tag_map(i)), ncol, lchnk )
     enddo
 
