@@ -81,6 +81,9 @@ module mo_gas_phase_chemdr
   integer, parameter :: gas_phase_chemdr_shell_stage_oxygen_mmr = 25
   integer, parameter :: gas_phase_chemdr_shell_stage_adjrxt_setcol = 26
   integer, parameter :: gas_phase_chemdr_shell_stage_o1d_to_2oh_adj = 27
+  integer, parameter :: gas_phase_chemdr_shell_stage_setrxt = 28
+  integer, parameter :: gas_phase_chemdr_shell_stage_negtrc = 29
+  integer, parameter :: gas_phase_chemdr_shell_stage_vmr2mmr = 30
 
 contains
 
@@ -704,7 +707,12 @@ contains
     !-----------------------------------------------------------------------      
     !       ...  Set rates for "tabular" and user specified reactions
     !-----------------------------------------------------------------------      
-    call setrxt( reaction_rates, tfld, invariants(1,1,indexm), ncol )
+    if (gas_phase_chemdr_use_codon_shell_impl) then
+       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_setrxt, ncol, &
+            reaction_rates=reaction_rates, tfld=tfld)
+    else
+       call setrxt( reaction_rates, tfld, invariants(1,1,indexm), ncol )
+    end if
     
     if (gas_phase_chemdr_use_codon_shell_impl) then
        call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_zero_sulfate, ncol, sulfate=sulfate)
@@ -1039,7 +1047,11 @@ contains
     !-----------------------------------------------------------------------      
     !         ... Check for negative values and reset to zero
     !-----------------------------------------------------------------------      
-    call negtrc( 'After chemistry ', vmr, ncol )
+    if (gas_phase_chemdr_use_codon_shell_impl) then
+       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_negtrc, ncol, vmr=vmr)
+    else
+       call negtrc( 'After chemistry ', vmr, ncol )
+    end if
 
     !-----------------------------------------------------------------------      
     !         ... Set upper boundary mmr values
@@ -1063,7 +1075,12 @@ contains
     !-----------------------------------------------------------------------      
     !         ... Xform from vmr to mmr
     !-----------------------------------------------------------------------      
-    call vmr2mmr( vmr, mmr_tend, mbar, ncol )
+    if (gas_phase_chemdr_use_codon_shell_impl) then
+       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_vmr2mmr, ncol, &
+            vmr=vmr, mbar=mbar, mmr_tend=mmr_tend)
+    else
+       call vmr2mmr( vmr, mmr_tend, mbar, ncol )
+    end if
 
     call set_short_lived_species( mmr_tend, lchnk, ncol, pbuf )
 
