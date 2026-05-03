@@ -2036,6 +2036,138 @@ def imp_sol_inner_batch_codon(
 
     lu_slv_codon(sys_jac_p, forcing_p)
 
+def imp_sol_outer_batch_codon(
+    mode: int,
+    i: int,
+    lev: int,
+    nr_iter: int,
+    has_independent: int,
+    ncol: int,
+    pver: int,
+    gas_pcnst: int,
+    rxntot: int,
+    extcnt: int,
+    clscnt4: int,
+    dti: float,
+    small: float,
+    base_sol_p: cobj,
+    reaction_rates_p: cobj,
+    het_rates_p: cobj,
+    extfrc_p: cobj,
+    ind_prd_p: cobj,
+    clsmap4_p: cobj,
+    permute4_p: cobj,
+    epsilon_p: cobj,
+    max_delta_p: cobj,
+    converged_code_p: cobj,
+    convergence_code_p: cobj,
+    lrxt_p: cobj,
+    lhet_p: cobj,
+    lsol_p: cobj,
+    solution_p: cobj,
+    iter_invariant_p: cobj,
+    forcing_p: cobj,
+):
+    base_sol = Ptr[float](base_sol_p)
+    reaction_rates = Ptr[float](reaction_rates_p)
+    het_rates = Ptr[float](het_rates_p)
+    ind_prd = Ptr[float](ind_prd_p)
+    clsmap4 = Ptr[int](clsmap4_p)
+    permute4 = Ptr[int](permute4_p)
+    epsilon = Ptr[float](epsilon_p)
+    max_delta = Ptr[float](max_delta_p)
+    converged_code = Ptr[int](converged_code_p)
+    convergence_code = Ptr[int](convergence_code_p)
+    lrxt = Ptr[float](lrxt_p)
+    lhet = Ptr[float](lhet_p)
+    lsol = Ptr[float](lsol_p)
+    solution = Ptr[float](solution_p)
+    iter_invariant = Ptr[float](iter_invariant_p)
+    forcing = Ptr[float](forcing_p)
+
+    if mode == 0:
+        if has_independent != 0:
+            indprd_codon(4, ncol, pver, clscnt4, reaction_rates_p, extfrc_p, ind_prd_p)
+        else:
+            for m in range(1, clscnt4 + 1):
+                for k in range(1, pver + 1):
+                    for ii in range(1, ncol + 1):
+                        ind_prd[_idx3(ii, k, m, ncol, pver)] = 0.0
+        return
+
+    if mode == 1:
+        for m in range(1, rxntot + 1):
+            lrxt[m - 1] = reaction_rates[_idx3(i, lev, m, ncol, pver)]
+
+        for m in range(1, gas_pcnst + 1):
+            lhet[m - 1] = het_rates[_idx3(i, lev, m, ncol, pver)]
+
+        for m in range(1, gas_pcnst + 1):
+            lsol[m - 1] = base_sol[_idx3(i, lev, m, ncol, pver)]
+
+        for k in range(1, clscnt4 + 1):
+            j = clsmap4[k - 1]
+            m = permute4[k - 1]
+            solution[m - 1] = lsol[j - 1]
+
+        if has_independent != 0:
+            for m in range(1, clscnt4 + 1):
+                iter_invariant[m - 1] = dti * solution[m - 1] + ind_prd[_idx3(i, lev, m, ncol, pver)]
+        else:
+            for m in range(1, clscnt4 + 1):
+                iter_invariant[m - 1] = dti * solution[m - 1]
+        return
+
+    if mode == 2:
+        for m in range(1, clscnt4 + 1):
+            solution[m - 1] = solution[m - 1] + forcing[m - 1]
+
+        if nr_iter > 1:
+            for k in range(1, clscnt4 + 1):
+                m = permute4[k - 1]
+                if abs(solution[m - 1]) > 1.0e-20:
+                    max_delta[k - 1] = abs(forcing[m - 1] / solution[m - 1])
+                else:
+                    max_delta[k - 1] = 0.0
+
+        for m in range(1, clscnt4 + 1):
+            if solution[m - 1] < 0.0:
+                solution[m - 1] = 0.0
+
+        for k in range(1, clscnt4 + 1):
+            j = clsmap4[k - 1]
+            m = permute4[k - 1]
+            lsol[j - 1] = solution[m - 1]
+
+        for k in range(1, clscnt4 + 1):
+            converged_code[k - 1] = 1
+
+        convergence = 1
+        if nr_iter > 1:
+            for k in range(1, clscnt4 + 1):
+                m = permute4[k - 1]
+                if abs(forcing[m - 1]) > small:
+                    if abs(forcing[m - 1]) <= epsilon[k - 1] * abs(solution[m - 1]):
+                        converged_code[k - 1] = 1
+                    else:
+                        converged_code[k - 1] = 0
+                        convergence = 0
+                else:
+                    converged_code[k - 1] = 1
+        convergence_code[0] = convergence
+        return
+
+    if mode == 3:
+        for m in range(1, gas_pcnst + 1):
+            base_sol[_idx3(i, lev, m, ncol, pver)] = lsol[m - 1]
+        return
+
+    if mode == 4:
+        for k in range(1, clscnt4 + 1):
+            j = clsmap4[k - 1]
+            m = permute4[k - 1]
+            base_sol[_idx3(i, lev, j, ncol, pver)] = solution[m - 1]
+
 def indprd_codon(
     class_id: int,
     ncol: int,

@@ -14,7 +14,7 @@ module mo_imp_sol
   integer, parameter :: itermax = 11
   integer, parameter :: cut_limit = 5
   real(r8) :: small
-  real(r8) :: epsilon(clscnt4)
+  real(r8), target :: epsilon(clscnt4)
   logical :: factor(itermax)
   integer :: ox_ndx
   integer :: o1d_ndx = -1
@@ -37,6 +37,9 @@ module mo_imp_sol
   logical :: reduced_ozone_chem = .false.
   logical :: imp_sol_inner_batch_use_native_impl = .false.
   logical :: imp_sol_inner_batch_impl_selected = .false.
+  logical :: imp_sol_outer_batch_use_native_impl = .false.
+  logical :: imp_sol_outer_batch_impl_selected = .false.
+  logical :: imp_sol_outer_batch_entered_logged = .false.
   ! for xnox ozone chemistry diagnostics
   integer :: o3a_ndx, xno2_ndx, no2xno3_ndx, xno2no3_ndx, xno3_ndx, o1da_ndx, xno_ndx
   integer :: usr4a_ndx, usr16a_ndx, usr16b_ndx, usr17b_ndx
@@ -485,6 +488,77 @@ contains
        end if
     end if
   end subroutine imp_sol_inner_batch_select_impl
+
+  subroutine imp_sol_outer_batch_select_impl()
+    use spmd_utils, only : masterproc
+    implicit none
+    character(len=32) :: impl_name
+    character(len=512) :: proof_file
+    integer :: status, n, i, code, unitno
+
+    if (imp_sol_outer_batch_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('IMP_SOL_OUTER_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       imp_sol_outer_batch_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       imp_sol_outer_batch_use_native_impl = .false.
+    end if
+
+    imp_sol_outer_batch_impl_selected = .true.
+
+    if (masterproc) then
+       if (imp_sol_outer_batch_use_native_impl) then
+          write(iulog,*) 'imp_sol_outer_batch implementation = native'
+       else
+          write(iulog,*) 'imp_sol_outer_batch implementation = codon'
+       end if
+       call flush(iulog)
+
+       proof_file = ''
+       call get_environment_variable('IMP_SOL_OUTER_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+       if (status == 0 .and. n > 0) then
+          open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+          if (imp_sol_outer_batch_use_native_impl) then
+             write(unitno,*) 'imp_sol_outer_batch implementation = native'
+          else
+             write(unitno,*) 'imp_sol_outer_batch implementation = codon'
+          end if
+          close(unitno)
+       end if
+    end if
+  end subroutine imp_sol_outer_batch_select_impl
+
+  subroutine imp_sol_outer_batch_log_entered()
+    use spmd_utils, only : masterproc
+    implicit none
+    character(len=512) :: proof_file
+    integer :: status, n, unitno
+
+    if (imp_sol_outer_batch_entered_logged) return
+    imp_sol_outer_batch_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'imp_sol_outer_batch entered (indprd/setup/iteration/copyback direct = codon)'
+       call flush(iulog)
+
+       proof_file = ''
+       call get_environment_variable('IMP_SOL_OUTER_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+       if (status == 0 .and. n > 0) then
+          open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+          write(unitno,*) 'imp_sol_outer_batch entered (indprd/setup/iteration/copyback direct = codon)'
+          close(unitno)
+       end if
+    end if
+  end subroutine imp_sol_outer_batch_log_entered
   subroutine imp_sol( base_sol, reaction_rates, het_rates, extfrc, delt, &
        xhnm, ncol, lchnk, ltrop, o3s_loss )
     !-----------------------------------------------------------------------
@@ -512,10 +586,10 @@ contains
     integer, intent(in) :: ncol ! columns in chunck
     integer, intent(in) :: lchnk ! chunk id
     real(r8), intent(in) :: delt ! time step (s)
-    real(r8), intent(in) :: reaction_rates(ncol,pver,max(1,rxntot)), & ! rxt rates (1/cm^3/s)
+    real(r8), target, intent(in) :: reaction_rates(ncol,pver,max(1,rxntot)), & ! rxt rates (1/cm^3/s)
          extfrc(ncol,pver,max(1,extcnt)), & ! external in-situ forcing (1/cm^3/s)
          het_rates(ncol,pver,max(1,gas_pcnst)) ! washout rates (1/s)
-    real(r8), intent(inout) :: base_sol(ncol,pver,gas_pcnst) ! species mixing ratios (vmr)
+    real(r8), target, intent(inout) :: base_sol(ncol,pver,gas_pcnst) ! species mixing ratios (vmr)
     real(r8), intent(in) :: xhnm(ncol,pver)
     integer, intent(in) :: ltrop(ncol) ! chemistry troposphere boundary (index)
     real(r8), optional, intent(out) :: o3s_loss(ncol,pver)
@@ -530,8 +604,9 @@ contains
          m
     integer :: fail_cnt, cut_cnt, stp_con_cnt
     integer :: nstep
+    integer :: has_independent
     real(r8) :: interval_done, dt, dti, wrk
-    real(r8) :: max_delta(max(1,clscnt4))
+    real(r8), target :: max_delta(max(1,clscnt4))
     real(r8), target :: sys_jac(max(1,nzcnt))
     real(r8), target :: lin_jac(max(1,nzcnt))
     real(r8), target, dimension(max(1,clscnt4)) :: &
@@ -543,11 +618,15 @@ contains
     real(r8), target :: lrxt(max(1,rxntot))
     real(r8), target :: lsol(max(1,gas_pcnst))
     real(r8), target :: lhet(max(1,gas_pcnst))
-    real(r8), dimension(ncol,pver,max(1,clscnt4)) :: &
+    real(r8), target, dimension(ncol,pver,max(1,clscnt4)) :: &
          ind_prd
     logical :: convergence
     logical :: frc_mask, iter_conv
     logical :: converged(max(1,clscnt4))
+    integer(c_int64_t), target :: clsmap4_c(max(1,clscnt4))
+    integer(c_int64_t), target :: permute4_c(max(1,clscnt4))
+    integer(c_int64_t), target :: converged_code(max(1,clscnt4))
+    integer(c_int64_t), target :: convergence_code(1)
     real(r8), dimension(ncol,pver,max(1,clscnt4)) :: prod_out, loss_out
     real(r8), dimension(ncol,pver) :: prod_hydrogen_peroxides_out
     interface
@@ -560,8 +639,29 @@ contains
           type(c_ptr), value :: lin_jac_p, sys_jac_p, prod_p, loss_p, lsol_p, lrxt_p, lhet_p
           type(c_ptr), value :: solution_p, iter_invariant_p, forcing_p
        end subroutine imp_sol_inner_batch_codon
+       subroutine imp_sol_outer_batch_codon(mode_c, i_c, lev_c, nr_iter_c, has_independent_c, &
+            ncol_c, pver_c, gas_pcnst_c, rxntot_c, extcnt_c, clscnt4_c, dti_c, small_c, &
+            base_sol_p, reaction_rates_p, het_rates_p, extfrc_p, ind_prd_p, clsmap4_p, &
+            permute4_p, epsilon_p, max_delta_p, converged_code_p, convergence_code_p, &
+            lrxt_p, lhet_p, lsol_p, solution_p, iter_invariant_p, forcing_p) bind(c, name="imp_sol_outer_batch_codon")
+          use iso_c_binding, only : c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mode_c, i_c, lev_c, nr_iter_c, has_independent_c
+          integer(c_int64_t), value :: ncol_c, pver_c, gas_pcnst_c, rxntot_c, extcnt_c, clscnt4_c
+          real(c_double), value :: dti_c, small_c
+          type(c_ptr), value :: base_sol_p, reaction_rates_p, het_rates_p, extfrc_p, ind_prd_p
+          type(c_ptr), value :: clsmap4_p, permute4_p, epsilon_p, max_delta_p
+          type(c_ptr), value :: converged_code_p, convergence_code_p
+          type(c_ptr), value :: lrxt_p, lhet_p, lsol_p, solution_p, iter_invariant_p, forcing_p
+       end subroutine imp_sol_outer_batch_codon
     end interface
     call imp_sol_inner_batch_select_impl()
+    call imp_sol_outer_batch_select_impl()
+
+    do k = 1,clscnt4
+       clsmap4_c(k) = int(clsmap(k,4), c_int64_t)
+       permute4_c(k) = int(permute(k,4), c_int64_t)
+    end do
+    has_independent = merge(1, 0, cls_rxt_cnt(1,4) > 0 .or. extcnt > 0)
 
     if (present(o3s_loss)) then
        o3s_loss(:,:) = 0._r8
@@ -573,13 +673,24 @@ contains
     !-----------------------------------------------------------------------
     ! ... class independent forcing
     !-----------------------------------------------------------------------
-    if( cls_rxt_cnt(1,4) > 0 .or. extcnt > 0 ) then
-       call indprd( 4, ind_prd, clscnt4, base_sol, extfrc, &
-            reaction_rates, ncol )
+    if (imp_sol_outer_batch_use_native_impl) then
+       if( has_independent /= 0 ) then
+          call indprd( 4, ind_prd, clscnt4, base_sol, extfrc, &
+               reaction_rates, ncol )
+       else
+          do m = 1,max(1,clscnt4)
+             ind_prd(:,:,m) = 0._r8
+          end do
+       end if
     else
-       do m = 1,max(1,clscnt4)
-          ind_prd(:,:,m) = 0._r8
-       end do
+       call imp_sol_outer_batch_log_entered()
+       call imp_sol_outer_batch_codon(0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(has_independent, c_int64_t), &
+            int(ncol, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), int(rxntot, c_int64_t), &
+            int(extcnt, c_int64_t), int(clscnt4, c_int64_t), 0._c_double, real(small, c_double), &
+            c_loc(base_sol), c_loc(reaction_rates), c_loc(het_rates), c_loc(extfrc), c_loc(ind_prd), &
+            c_loc(clsmap4_c), c_loc(permute4_c), c_loc(epsilon), c_loc(max_delta), c_loc(converged_code), &
+            c_loc(convergence_code), c_loc(lrxt), c_loc(lhet), c_loc(lsol), c_loc(solution), &
+            c_loc(iter_invariant), c_loc(forcing))
     end if
     level_loop : do lev = 1,pver
        column_loop : do i = 1,ncol
@@ -587,13 +698,15 @@ contains
           !-----------------------------------------------------------------------
           ! ... transfer from base to local work arrays
           !-----------------------------------------------------------------------
-          do m = 1,rxntot
-             lrxt(m) = reaction_rates(i,lev,m)
-          end do
-          if( gas_pcnst > 0 ) then
-             do m = 1,gas_pcnst
-                lhet(m) = het_rates(i,lev,m)
+          if (imp_sol_outer_batch_use_native_impl) then
+             do m = 1,rxntot
+                lrxt(m) = reaction_rates(i,lev,m)
              end do
+             if( gas_pcnst > 0 ) then
+                do m = 1,gas_pcnst
+                   lhet(m) = het_rates(i,lev,m)
+                end do
+             end if
           end if
           !-----------------------------------------------------------------------
           ! ... time step loop
@@ -608,28 +721,39 @@ contains
              !-----------------------------------------------------------------------
              ! ... transfer from base to local work arrays
              !-----------------------------------------------------------------------
-             do m = 1,gas_pcnst
-                lsol(m) = base_sol(i,lev,m)
-             end do
-             !-----------------------------------------------------------------------
-             ! ... transfer from base to class array
-             !-----------------------------------------------------------------------
-             do k = 1,clscnt4
-                j = clsmap(k,4)
-                m = permute(k,4)
-                solution(m) = lsol(j)
-             end do
-             !-----------------------------------------------------------------------
-             ! ... set the iteration invariant part of the function f(y)
-             !-----------------------------------------------------------------------
-             if( cls_rxt_cnt(1,4) > 0 .or. extcnt > 0 ) then
-                do m = 1,clscnt4
-                   iter_invariant(m) = dti * solution(m) + ind_prd(i,lev,m)
+             if (imp_sol_outer_batch_use_native_impl) then
+                do m = 1,gas_pcnst
+                   lsol(m) = base_sol(i,lev,m)
                 end do
+                !-----------------------------------------------------------------------
+                ! ... transfer from base to class array
+                !-----------------------------------------------------------------------
+                do k = 1,clscnt4
+                   j = clsmap(k,4)
+                   m = permute(k,4)
+                   solution(m) = lsol(j)
+                end do
+                !-----------------------------------------------------------------------
+                ! ... set the iteration invariant part of the function f(y)
+                !-----------------------------------------------------------------------
+                if( has_independent /= 0 ) then
+                   do m = 1,clscnt4
+                      iter_invariant(m) = dti * solution(m) + ind_prd(i,lev,m)
+                   end do
+                else
+                   do m = 1,clscnt4
+                      iter_invariant(m) = dti * solution(m)
+                   end do
+                end if
              else
-                do m = 1,clscnt4
-                   iter_invariant(m) = dti * solution(m)
-                end do
+                call imp_sol_outer_batch_codon(1_c_int64_t, int(i, c_int64_t), int(lev, c_int64_t), 0_c_int64_t, &
+                     int(has_independent, c_int64_t), int(ncol, c_int64_t), int(pver, c_int64_t), &
+                     int(gas_pcnst, c_int64_t), int(rxntot, c_int64_t), int(extcnt, c_int64_t), &
+                     int(clscnt4, c_int64_t), real(dti, c_double), real(small, c_double), c_loc(base_sol), &
+                     c_loc(reaction_rates), c_loc(het_rates), c_loc(extfrc), c_loc(ind_prd), c_loc(clsmap4_c), &
+                     c_loc(permute4_c), c_loc(epsilon), c_loc(max_delta), c_loc(converged_code), &
+                     c_loc(convergence_code), c_loc(lrxt), c_loc(lhet), c_loc(lsol), c_loc(solution), &
+                     c_loc(iter_invariant), c_loc(forcing))
              end if
              !-----------------------------------------------------------------------
              ! ... the linear component
@@ -675,52 +799,70 @@ contains
                         c_loc(prod), c_loc(loss), c_loc(lsol), c_loc(lrxt), c_loc(lhet), c_loc(solution), &
                         c_loc(iter_invariant), c_loc(forcing))
                 end if
-                do m = 1,clscnt4
-                   solution(m) = solution(m) + forcing(m)
-                end do
-                !-----------------------------------------------------------------------
-                ! ... convergence measures
-                !-----------------------------------------------------------------------
-                if( nr_iter > 1 ) then
-                   do k = 1,clscnt4
-                      m = permute(k,4)
-                      if( abs(solution(m)) > 1.e-20_r8 ) then
-                         max_delta(k) = abs( forcing(m)/solution(m) )
-                      else
-                         max_delta(k) = 0._r8
-                      end if
+                if (imp_sol_outer_batch_use_native_impl) then
+                   do m = 1,clscnt4
+                      solution(m) = solution(m) + forcing(m)
                    end do
-                end if
-                !-----------------------------------------------------------------------
-                ! ... limit iterate
-                !-----------------------------------------------------------------------
-                where( solution(:) < 0._r8 )
-                   solution(:) = 0._r8
-                endwhere
-                !-----------------------------------------------------------------------
-                ! ... transfer latest solution back to work array
-                !-----------------------------------------------------------------------
-                do k = 1,clscnt4
-                   j = clsmap(k,4)
-                   m = permute(k,4)
-                   lsol(j) = solution(m)
-                end do
-                !-----------------------------------------------------------------------
-                ! ... check for convergence
-                !-----------------------------------------------------------------------
-                converged(:) = .true.
-                if( nr_iter > 1 ) then
+                   !-----------------------------------------------------------------------
+                   ! ... convergence measures
+                   !-----------------------------------------------------------------------
+                   if( nr_iter > 1 ) then
+                      do k = 1,clscnt4
+                         m = permute(k,4)
+                         if( abs(solution(m)) > 1.e-20_r8 ) then
+                            max_delta(k) = abs( forcing(m)/solution(m) )
+                         else
+                            max_delta(k) = 0._r8
+                         end if
+                      end do
+                   end if
+                   !-----------------------------------------------------------------------
+                   ! ... limit iterate
+                   !-----------------------------------------------------------------------
+                   where( solution(:) < 0._r8 )
+                      solution(:) = 0._r8
+                   endwhere
+                   !-----------------------------------------------------------------------
+                   ! ... transfer latest solution back to work array
+                   !-----------------------------------------------------------------------
                    do k = 1,clscnt4
+                      j = clsmap(k,4)
                       m = permute(k,4)
-                      frc_mask = abs( forcing(m) ) > small
-                      if( frc_mask ) then
-                         converged(k) = abs(forcing(m)) <= epsilon(k)*abs(solution(m))
-                      else
-                         converged(k) = .true.
-                      end if
+                      lsol(j) = solution(m)
                    end do
-                   convergence = all( converged(:) )
-                   if( convergence ) then
+                   !-----------------------------------------------------------------------
+                   ! ... check for convergence
+                   !-----------------------------------------------------------------------
+                   converged(:) = .true.
+                   if( nr_iter > 1 ) then
+                      do k = 1,clscnt4
+                         m = permute(k,4)
+                         frc_mask = abs( forcing(m) ) > small
+                         if( frc_mask ) then
+                            converged(k) = abs(forcing(m)) <= epsilon(k)*abs(solution(m))
+                         else
+                            converged(k) = .true.
+                         end if
+                      end do
+                      convergence = all( converged(:) )
+                      if( convergence ) then
+                         exit
+                      end if
+                   end if
+                else
+                   call imp_sol_outer_batch_codon(2_c_int64_t, int(i, c_int64_t), int(lev, c_int64_t), &
+                        int(nr_iter, c_int64_t), int(has_independent, c_int64_t), int(ncol, c_int64_t), &
+                        int(pver, c_int64_t), int(gas_pcnst, c_int64_t), int(rxntot, c_int64_t), &
+                        int(extcnt, c_int64_t), int(clscnt4, c_int64_t), real(dti, c_double), real(small, c_double), &
+                        c_loc(base_sol), c_loc(reaction_rates), c_loc(het_rates), c_loc(extfrc), c_loc(ind_prd), &
+                        c_loc(clsmap4_c), c_loc(permute4_c), c_loc(epsilon), c_loc(max_delta), c_loc(converged_code), &
+                        c_loc(convergence_code), c_loc(lrxt), c_loc(lhet), c_loc(lsol), c_loc(solution), &
+                        c_loc(iter_invariant), c_loc(forcing))
+                   do k = 1,clscnt4
+                      converged(k) = converged_code(k) /= 0_c_int64_t
+                   end do
+                   convergence = convergence_code(1) /= 0_c_int64_t
+                   if( nr_iter > 1 .and. convergence ) then
                       exit
                    end if
                 end if
@@ -771,9 +913,19 @@ contains
                 if( convergence ) then
                    stp_con_cnt = stp_con_cnt + 1
                 end if
-                do m = 1,gas_pcnst
-                   base_sol(i,lev,m) = lsol(m)
-                end do
+                if (imp_sol_outer_batch_use_native_impl) then
+                   do m = 1,gas_pcnst
+                      base_sol(i,lev,m) = lsol(m)
+                   end do
+                else
+                   call imp_sol_outer_batch_codon(3_c_int64_t, int(i, c_int64_t), int(lev, c_int64_t), 0_c_int64_t, &
+                        int(has_independent, c_int64_t), int(ncol, c_int64_t), int(pver, c_int64_t), &
+                        int(gas_pcnst, c_int64_t), int(rxntot, c_int64_t), int(extcnt, c_int64_t), int(clscnt4, c_int64_t), &
+                        real(dti, c_double), real(small, c_double), c_loc(base_sol), c_loc(reaction_rates), &
+                        c_loc(het_rates), c_loc(extfrc), c_loc(ind_prd), c_loc(clsmap4_c), c_loc(permute4_c), &
+                        c_loc(epsilon), c_loc(max_delta), c_loc(converged_code), c_loc(convergence_code), &
+                        c_loc(lrxt), c_loc(lhet), c_loc(lsol), c_loc(solution), c_loc(iter_invariant), c_loc(forcing))
+                end if
                 if( stp_con_cnt >= 2 ) then
                    dt = 2._r8*dt
                    stp_con_cnt = 0
@@ -785,11 +937,21 @@ contains
           !-----------------------------------------------------------------------
           ! ... Transfer latest solution back to base array
           !-----------------------------------------------------------------------
-          cls_loop: do k = 1,clscnt4
-             j = clsmap(k,4)
-             m = permute(k,4)
-             base_sol(i,lev,j) = solution(m)
-          end do cls_loop
+          if (imp_sol_outer_batch_use_native_impl) then
+             cls_loop: do k = 1,clscnt4
+                j = clsmap(k,4)
+                m = permute(k,4)
+                base_sol(i,lev,j) = solution(m)
+             end do cls_loop
+          else
+             call imp_sol_outer_batch_codon(4_c_int64_t, int(i, c_int64_t), int(lev, c_int64_t), 0_c_int64_t, &
+                  int(has_independent, c_int64_t), int(ncol, c_int64_t), int(pver, c_int64_t), &
+                  int(gas_pcnst, c_int64_t), int(rxntot, c_int64_t), int(extcnt, c_int64_t), int(clscnt4, c_int64_t), &
+                  real(dti, c_double), real(small, c_double), c_loc(base_sol), c_loc(reaction_rates), &
+                  c_loc(het_rates), c_loc(extfrc), c_loc(ind_prd), c_loc(clsmap4_c), c_loc(permute4_c), &
+                  c_loc(epsilon), c_loc(max_delta), c_loc(converged_code), c_loc(convergence_code), &
+                  c_loc(lrxt), c_loc(lhet), c_loc(lsol), c_loc(solution), c_loc(iter_invariant), c_loc(forcing))
+          end if
           !-----------------------------------------------------------------------
           ! ... Prod/Loss history buffers...
           !-----------------------------------------------------------------------
