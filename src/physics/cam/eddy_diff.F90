@@ -215,6 +215,9 @@
   logical                     :: use_native_driver_tail_batch_impl = .false.
   logical                     :: driver_tail_batch_impl_selected = .false.
   logical                     :: driver_tail_batch_entered_logged = .false.
+  logical                     :: use_native_driver_front_batch_impl = .false.
+  logical                     :: driver_front_batch_impl_selected = .false.
+  logical                     :: driver_front_batch_entered_logged = .false.
   logical                     :: use_native_zero_nonlocal_impl = .false.
   logical                     :: zero_nonlocal_impl_selected = .false.
   logical                     :: use_native_restore_fields_impl = .false.
@@ -916,7 +919,9 @@
     if (use_native_compute_path) then
        call eddy_diff_init_fields_native(ncol, pcols, pver, u, v, t, qv, ql, zero, zero2d, ufd, vfd, tfd, qvfd, qlfd)
     else
-       call eddy_diff_init_fields(ncol, pcols, pver, u, v, t, qv, ql, zero, zero2d, ufd, vfd, tfd, qvfd, qlfd)
+       call eddy_diff_driver_front_batch_call(1, ncol, pcols, pver, 0, kvinit, u, v, t, qv, ql, zero, zero2d, &
+            ufd, vfd, tfd, qvfd, qlfd, pmid, taux, tauy, ksrftms, rrho, ustar, minpblh, kvf, kvh_in, kvm_in, &
+            kvh_out, kvm_out, kvh, kvm, cpair, latvap, latsub, g, rair, slfd, qtfd, qi, z)
     end if
 
     ! ----------------------- !
@@ -942,8 +947,9 @@
           call eddy_diff_surface_stress_diag_native(ncol, pcols, pver, tfd, pmid, taux, tauy, ksrftms, ufd, vfd, rrho, &
                ustar, minpblh)
        else
-          call eddy_diff_surface_stress_diag(ncol, pcols, pver, tfd, pmid, taux, tauy, ksrftms, ufd, vfd, rrho, ustar, &
-               minpblh)
+          call eddy_diff_driver_front_batch_call(2, ncol, pcols, pver, iturb, kvinit, u, v, t, qv, ql, zero, zero2d, &
+               ufd, vfd, tfd, qvfd, qlfd, pmid, taux, tauy, ksrftms, rrho, ustar, minpblh, kvf, kvh_in, kvm_in, &
+               kvh_out, kvm_out, kvh, kvm, cpair, latvap, latsub, g, rair, slfd, qtfd, qi, z)
        end if
 
      ! Calculate (qt,sl,n2,s2,ri) from a given set of (t,qv,ql,qi,u,v)
@@ -983,7 +989,9 @@
           call eddy_diff_kv_init_native(ncol, pcols, pver, iturb, kvinit, kvf, kvh_in, kvm_in, kvh_out, kvm_out, kvh, &
                kvm)
        else
-          call eddy_diff_kv_init(ncol, pcols, pver, iturb, kvinit, kvf, kvh_in, kvm_in, kvh_out, kvm_out, kvh, kvm)
+          call eddy_diff_driver_front_batch_call(3, ncol, pcols, pver, iturb, kvinit, u, v, t, qv, ql, zero, zero2d, &
+               ufd, vfd, tfd, qvfd, qlfd, pmid, taux, tauy, ksrftms, rrho, ustar, minpblh, kvf, kvh_in, kvm_in, &
+               kvh_out, kvm_out, kvh, kvm, cpair, latvap, latsub, g, rair, slfd, qtfd, qi, z)
        end if
 
      ! Calculate eddy diffusivity (kvh_out,kvm_out) and (tke,bprod,sprod) using
@@ -1107,8 +1115,9 @@
              call eddy_diff_rebuild_thermo_native(ncol, pcols, pver, cpair, latvap, latsub, g, rair, slfd, qtfd, qi, z, &
                   pmid, qlfd, qvfd, tfd)
           else
-             call eddy_diff_rebuild_thermo(ncol, pcols, pver, cpair, latvap, latsub, g, rair, slfd, qtfd, qi, z, pmid, &
-                  qlfd, qvfd, tfd)
+             call eddy_diff_driver_front_batch_call(4, ncol, pcols, pver, iturb, kvinit, u, v, t, qv, ql, zero, zero2d, &
+                  ufd, vfd, tfd, qvfd, qlfd, pmid, taux, tauy, ksrftms, rrho, ustar, minpblh, kvf, kvh_in, kvm_in, &
+                  kvh_out, kvm_out, kvh, kvm, cpair, latvap, latsub, g, rair, slfd, qtfd, qi, z)
           end if
        endif
 
@@ -1493,6 +1502,173 @@
          c_loc(ufd_local), c_loc(vfd_local), c_loc(ipbl_local), c_loc(wstar_local), c_loc(wstarPBL_local))
 
   end subroutine eddy_diff_driver_tail_batch_call
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_driver_front_batch_append_proof(proof_line)
+
+    implicit none
+
+    character(len=*), intent(in) :: proof_line
+
+    character(len=512) :: proof_file
+    integer :: status, n, unitno
+
+    proof_file = ''
+    call get_environment_variable('EDDY_DIFF_DRIVER_FRONT_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+       write(unitno,'(A)') trim(proof_line)
+       close(unitno)
+    end if
+
+  end subroutine eddy_diff_driver_front_batch_append_proof
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_driver_front_batch_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (driver_front_batch_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_DRIVER_FRONT_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_driver_front_batch_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_driver_front_batch_impl = .false.
+    end if
+
+    driver_front_batch_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_driver_front_batch_impl) then
+          write(iulog,*) 'eddy_diff_driver_front_batch implementation = native'
+          write(*,*) 'eddy_diff_driver_front_batch implementation = native'
+          call eddy_diff_append_impl_trace('eddy_diff_driver_front_batch implementation = native')
+          call eddy_diff_driver_front_batch_append_proof('eddy_diff_driver_front_batch selector entered implementation = native')
+       else
+          write(iulog,*) 'eddy_diff_driver_front_batch implementation = codon'
+          write(*,*) 'eddy_diff_driver_front_batch implementation = codon'
+          call eddy_diff_append_impl_trace('eddy_diff_driver_front_batch implementation = codon')
+          call eddy_diff_driver_front_batch_append_proof('eddy_diff_driver_front_batch selector entered implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine eddy_diff_driver_front_batch_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_driver_front_batch_log_entered()
+
+    implicit none
+
+    if (driver_front_batch_entered_logged) return
+    driver_front_batch_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'eddy_diff_driver_front_batch entered (init/stress/kvinit/rebuild direct = codon)'
+       write(*,*) 'eddy_diff_driver_front_batch entered (init/stress/kvinit/rebuild direct = codon)'
+       call eddy_diff_append_impl_trace('eddy_diff_driver_front_batch entered (init/stress/kvinit/rebuild direct = codon)')
+       call eddy_diff_driver_front_batch_append_proof('eddy_diff_driver_front_batch entered (init/stress/kvinit/rebuild direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine eddy_diff_driver_front_batch_log_entered
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_driver_front_batch_call(stage, ncol, pcols, pver, iturb, kvinit_local, u_local, v_local, &
+       t_local, qv_local, ql_local, zero_local, zero2d_local, ufd_local, vfd_local, tfd_local, qvfd_local, &
+       qlfd_local, pmid_local, taux_local, tauy_local, ksrftms_local, rrho_local, ustar_local, minpblh_local, &
+       kvf_local, kvh_in_local, kvm_in_local, kvh_out_local, kvm_out_local, kvh_local, kvm_local, cpair_local, &
+       latvap_local, latsub_local, g_local, rair_local, slfd_local, qtfd_local, qi_local, z_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: stage, ncol, pcols, pver, iturb
+    logical, intent(in) :: kvinit_local
+    real(r8), intent(in) :: cpair_local, latvap_local, latsub_local, g_local, rair_local
+    real(r8), target, intent(in) :: u_local(pcols,pver), v_local(pcols,pver), t_local(pcols,pver), qv_local(pcols,pver), &
+         ql_local(pcols,pver), pmid_local(pcols,pver), taux_local(pcols), tauy_local(pcols), ksrftms_local(pcols)
+    real(r8), target, intent(inout) :: zero_local(pcols), zero2d_local(pcols,pver+1), ufd_local(pcols,pver), &
+         vfd_local(pcols,pver), tfd_local(pcols,pver), qvfd_local(pcols,pver), qlfd_local(pcols,pver)
+    real(r8), target, intent(inout) :: rrho_local(pcols), ustar_local(pcols), minpblh_local(pcols)
+    real(r8), target, intent(in) :: kvf_local(pcols,pver+1), kvh_in_local(pcols,pver+1), kvm_in_local(pcols,pver+1)
+    real(r8), target, intent(in) :: kvh_out_local(pcols,pver+1), kvm_out_local(pcols,pver+1)
+    real(r8), target, intent(inout) :: kvh_local(pcols,pver+1), kvm_local(pcols,pver+1)
+    real(r8), target, intent(in) :: slfd_local(pcols,pver), qtfd_local(pcols,pver), qi_local(pcols,pver), z_local(pcols,pver)
+
+    interface
+       subroutine eddy_diff_driver_front_batch_codon(stage_c, ncol_c, pcols_c, pver_c, iturb_c, kvinit_c, use_kvf_c, &
+            rair_c, ustar_min_c, cpair_c, latvap_c, latsub_c, g_c, u_p, v_p, t_p, qv_p, ql_p, zero_p, zero2d_p, &
+            ufd_p, vfd_p, tfd_p, qvfd_p, qlfd_p, pmid_p, taux_p, tauy_p, ksrftms_p, rrho_p, ustar_p, minpblh_p, &
+            kvf_p, kvh_in_p, kvm_in_p, kvh_out_p, kvm_out_p, kvh_p, kvm_p, slfd_p, qtfd_p, qi_p, z_p) &
+            bind(c, name="eddy_diff_driver_front_batch_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, iturb_c, kvinit_c, use_kvf_c
+         real(c_double), value :: rair_c, ustar_min_c, cpair_c, latvap_c, latsub_c, g_c
+         type(c_ptr), value :: u_p, v_p, t_p, qv_p, ql_p, zero_p, zero2d_p, ufd_p, vfd_p, tfd_p, qvfd_p, qlfd_p
+         type(c_ptr), value :: pmid_p, taux_p, tauy_p, ksrftms_p, rrho_p, ustar_p, minpblh_p
+         type(c_ptr), value :: kvf_p, kvh_in_p, kvm_in_p, kvh_out_p, kvm_out_p, kvh_p, kvm_p, slfd_p, qtfd_p, qi_p, z_p
+       end subroutine eddy_diff_driver_front_batch_codon
+    end interface
+
+    call eddy_diff_driver_front_batch_select_impl()
+
+    if (use_native_driver_front_batch_impl) then
+       select case (stage)
+       case (1)
+          call eddy_diff_init_fields(ncol, pcols, pver, u_local, v_local, t_local, qv_local, ql_local, zero_local, &
+               zero2d_local, ufd_local, vfd_local, tfd_local, qvfd_local, qlfd_local)
+       case (2)
+          call eddy_diff_surface_stress_diag(ncol, pcols, pver, tfd_local, pmid_local, taux_local, tauy_local, &
+               ksrftms_local, ufd_local, vfd_local, rrho_local, ustar_local, minpblh_local)
+       case (3)
+          call eddy_diff_kv_init(ncol, pcols, pver, iturb, kvinit_local, kvf_local, kvh_in_local, kvm_in_local, &
+               kvh_out_local, kvm_out_local, kvh_local, kvm_local)
+       case (4)
+          call eddy_diff_rebuild_thermo(ncol, pcols, pver, cpair_local, latvap_local, latsub_local, g_local, rair_local, &
+               slfd_local, qtfd_local, qi_local, z_local, pmid_local, qlfd_local, qvfd_local, tfd_local)
+       end select
+       return
+    end if
+
+    call eddy_diff_driver_front_batch_log_entered()
+    call eddy_diff_driver_front_batch_codon( &
+         int(stage, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(iturb, c_int64_t), &
+         int(merge(1, 0, kvinit_local), c_int64_t), int(merge(1, 0, use_kvf), c_int64_t), real(rair_local, c_double), &
+         real(0.01_r8, c_double), real(cpair_local, c_double), real(latvap_local, c_double), real(latsub_local, c_double), &
+         real(g_local, c_double), c_loc(u_local), c_loc(v_local), c_loc(t_local), c_loc(qv_local), c_loc(ql_local), &
+         c_loc(zero_local), c_loc(zero2d_local), c_loc(ufd_local), c_loc(vfd_local), c_loc(tfd_local), c_loc(qvfd_local), &
+         c_loc(qlfd_local), c_loc(pmid_local), c_loc(taux_local), c_loc(tauy_local), c_loc(ksrftms_local), &
+         c_loc(rrho_local), c_loc(ustar_local), c_loc(minpblh_local), c_loc(kvf_local), c_loc(kvh_in_local), &
+         c_loc(kvm_in_local), c_loc(kvh_out_local), c_loc(kvm_out_local), c_loc(kvh_local), c_loc(kvm_local), &
+         c_loc(slfd_local), c_loc(qtfd_local), c_loc(qi_local), c_loc(z_local))
+
+  end subroutine eddy_diff_driver_front_batch_call
 
   !=============================================================================== !
   !                                                                                !
