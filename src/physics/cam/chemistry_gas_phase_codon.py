@@ -80,6 +80,26 @@ def h2o_to_vmr_codon(
         for i in range(1, ncol + 1):
             h2o_vmr[_idx2(i, k, ncol)] = mbar[_idx2(i, k, ncol)] * h2o_mmr[_idx2(i, k, pcols)] / adv_mass_h2o
 
+@inline
+def _gas_phase_chemdr_shell_h2o_from_q(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    adv_mass_h2o: float,
+    q_p: cobj,
+    mbar_p: cobj,
+    qh2o_p: cobj,
+    h2ovmr_p: cobj,
+):
+    q = Ptr[float](q_p)
+    qh2o = Ptr[float](qh2o_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            qh2o[_idx2(i, k, pcols)] = q[_idx3(i, k, 1, pcols, pver)]
+
+    h2o_to_vmr_codon(ncol, pcols, pver, adv_mass_h2o, q_p, mbar_p, h2ovmr_p)
+
 def set_mean_mass_codon(
     ncol: int,
     pcols: int,
@@ -122,6 +142,29 @@ def set_mean_mass_codon(
             fo = mmr[_idx3(i, k, id_o, pcols, pver)] / adv_o
             fh = mmr[_idx3(i, k, id_h, pcols, pver)] / adv_h
             mbar[_idx2(i, k, ncol)] = 1.0 / (fn2 + fo2 + fo + fh)
+
+@inline
+def _gas_phase_chemdr_shell_mass_vmr(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    o2_ndx: int,
+    o_ndx: int,
+    h_ndx: int,
+    n_ndx: int,
+    fixed_mbar: int,
+    mwdry: float,
+    mmr_p: cobj,
+    adv_mass_p: cobj,
+    mbar_p: cobj,
+    vmr_p: cobj,
+):
+    set_mean_mass_codon(
+        ncol, pcols, pver, gas_pcnst, o2_ndx, o_ndx, h_ndx, n_ndx, fixed_mbar, mwdry, mmr_p,
+        adv_mass_p, mbar_p
+    )
+    mmr2vmr_codon(ncol, pcols, pver, gas_pcnst, mbar_p, mmr_p, adv_mass_p, vmr_p)
 
 def setinv_codon(
     ncol: int,
@@ -237,6 +280,33 @@ def charge_balance_codon(
         for k in range(1, pver + 1):
             for i in range(1, ncol + 1):
                 wrk[_idx2(i, k, ncol)] = wrk[_idx2(i, k, ncol)] + conc[_idx3(i, k, nop_ndx, ncol, pver)]
+
+@inline
+def _gas_phase_chemdr_shell_charge_balance(
+    ncol: int,
+    pver: int,
+    gas_pcnst: int,
+    elec_ndx: int,
+    np_ndx: int,
+    n2p_ndx: int,
+    op_ndx: int,
+    o2p_ndx: int,
+    nop_ndx: int,
+    vmr_p: cobj,
+    wrk_p: cobj,
+):
+    if elec_ndx > 0:
+        wrk = Ptr[float](wrk_p)
+        vmr = Ptr[float](vmr_p)
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                wrk[_idx2(i, k, ncol)] = 0.0
+
+        charge_balance_codon(ncol, pver, gas_pcnst, np_ndx, n2p_ndx, op_ndx, o2p_ndx, nop_ndx, vmr_p, wrk_p)
+
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                vmr[_idx3(i, k, elec_ndx, ncol, pver)] = wrk[_idx2(i, k, ncol)]
 
 def setcol_codon(
     ncol: int,
@@ -1355,6 +1425,8 @@ def gas_phase_chemdr_shell_codon(
     indexm: int,
     has_linoz_data_flag: int,
     h2o_ndx: int,
+    o2_ndx: int,
+    o_ndx: int,
     hno3_ndx: int,
     hcl_ndx: int,
     cldice_ndx: int,
@@ -1370,13 +1442,25 @@ def gas_phase_chemdr_shell_codon(
     o3s_ndx: int,
     synoz_ndx: int,
     aoa_nh_ext_ndx: int,
+    h_ndx: int,
+    n_ndx: int,
+    elec_ndx: int,
+    np_ndx: int,
+    n2p_ndx: int,
+    op_ndx: int,
+    o2p_ndx: int,
+    nop_ndx: int,
+    fixed_mbar: int,
     rad2deg: float,
     delt: float,
     delt_inverse: float,
     rga: float,
     m2km: float,
     pa2mb: float,
+    mwdry: float,
+    adv_mass_h2o: float,
     map2chm_p: cobj,
+    adv_mass_p: cobj,
     troplev_p: cobj,
     ltrop_sol_p: cobj,
     zen_angle_p: cobj,
@@ -1393,6 +1477,7 @@ def gas_phase_chemdr_shell_codon(
     pmb_p: cobj,
     q_p: cobj,
     mmr_p: cobj,
+    mbar_p: cobj,
     vmr_p: cobj,
     qh2o_p: cobj,
     h2ovmr_p: cobj,
@@ -1423,6 +1508,8 @@ def gas_phase_chemdr_shell_codon(
     prect_p: cobj,
     cflx_p: cobj,
     drydepflx_p: cobj,
+    o2mmr_p: cobj,
+    ommr_p: cobj,
     hcl_cond_p: cobj,
     hcl_gas_p: cobj,
     hno3_gas_p: cobj,
@@ -1507,6 +1594,19 @@ def gas_phase_chemdr_shell_codon(
             ncol, pver, gas_pcnst, hno3_ndx, hcl_ndx, h2o_ndx, delt_inverse, vmr_p, hno3_cond_p, hcl_cond_p,
             wrk_p
         )
+    elif stage == 22:
+        _gas_phase_chemdr_shell_mass_vmr(
+            ncol, pcols, pver, gas_pcnst, o2_ndx, o_ndx, h_ndx, n_ndx, fixed_mbar, mwdry, mmr_p, adv_mass_p,
+            mbar_p, vmr_p
+        )
+    elif stage == 23:
+        _gas_phase_chemdr_shell_h2o_from_q(ncol, pcols, pver, adv_mass_h2o, q_p, mbar_p, qh2o_p, h2ovmr_p)
+    elif stage == 24:
+        _gas_phase_chemdr_shell_charge_balance(
+            ncol, pver, gas_pcnst, elec_ndx, np_ndx, n2p_ndx, op_ndx, o2p_ndx, nop_ndx, vmr_p, wrk_p
+        )
+    elif stage == 25:
+        gas_phase_chemdr_load_oxygen_mmr_codon(ncol, pcols, pver, o2_ndx, o_ndx, mmr_p, o2mmr_p, ommr_p)
 
 def set_xnox_photo_codon(
     ncol: int,

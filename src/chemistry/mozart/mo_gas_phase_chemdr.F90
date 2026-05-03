@@ -22,7 +22,8 @@ module mo_gas_phase_chemdr
 
   integer :: map2chm(pcnst) = 0           ! index map to/from chemistry/constituents list
 
-  integer :: synoz_ndx, so4_ndx, h2o_ndx, o2_ndx, o_ndx, hno3_ndx, hcl_ndx, dst_ndx, cldice_ndx
+  integer :: synoz_ndx, so4_ndx, h2o_ndx, o2_ndx, o_ndx, h_ndx, n_ndx, hno3_ndx, hcl_ndx, dst_ndx, cldice_ndx
+  integer :: elec_ndx, np_ndx, n2p_ndx, op_ndx, o2p_ndx, nop_ndx
   integer :: o3_ndx, o3s_ndx
   integer :: het1_ndx
   integer :: ndx_cldfr, ndx_cmfdqr, ndx_nevapr, ndx_cldtop, ndx_prain
@@ -74,6 +75,10 @@ module mo_gas_phase_chemdr
   integer, parameter :: gas_phase_chemdr_shell_stage_qdchem = 19
   integer, parameter :: gas_phase_chemdr_shell_stage_h2o_snapshot = 20
   integer, parameter :: gas_phase_chemdr_shell_stage_stratchem_finalize = 21
+  integer, parameter :: gas_phase_chemdr_shell_stage_mass_vmr = 22
+  integer, parameter :: gas_phase_chemdr_shell_stage_h2o_from_q = 23
+  integer, parameter :: gas_phase_chemdr_shell_stage_charge_balance = 24
+  integer, parameter :: gas_phase_chemdr_shell_stage_oxygen_mmr = 25
 
 contains
 
@@ -148,6 +153,14 @@ contains
     o3s_ndx = get_spc_ndx('O3S')
     o_ndx   = get_spc_ndx('O')
     o2_ndx  = get_spc_ndx('O2')
+    h_ndx   = get_spc_ndx('H')
+    n_ndx   = get_spc_ndx('N')
+    elec_ndx = get_spc_ndx('e')
+    np_ndx   = get_spc_ndx('Np')
+    n2p_ndx  = get_spc_ndx('N2p')
+    op_ndx   = get_spc_ndx('Op')
+    o2p_ndx  = get_spc_ndx('O2p')
+    nop_ndx  = get_spc_ndx('NOp')
     so4_ndx = get_spc_ndx('SO4')
     h2o_ndx = get_spc_ndx('H2O')
     hno3_ndx = get_spc_ndx('HNO3')
@@ -515,12 +528,17 @@ contains
     !-----------------------------------------------------------------------      
     !        ... Set atmosphere mean mass
     !-----------------------------------------------------------------------      
-    call set_mean_mass( ncol, mmr, mbar )
+    if (gas_phase_chemdr_use_codon_shell_impl) then
+       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_mass_vmr, ncol, &
+            mmr=mmr, mbar=mbar, vmr=vmr)
+    else
+       call set_mean_mass( ncol, mmr, mbar )
 
-    !-----------------------------------------------------------------------      
-    !        ... Xform from mmr to vmr
-    !-----------------------------------------------------------------------      
-    call mmr2vmr( mmr, vmr, mbar, ncol )
+       !-----------------------------------------------------------------------
+       !        ... Xform from mmr to vmr
+       !-----------------------------------------------------------------------
+       call mmr2vmr( mmr, vmr, mbar, ncol )
+    end if
 
 !
 ! CCMI
@@ -558,11 +576,16 @@ contains
           call gas_phase_chemdr_load_h2o_fields(ncol, h2o_ndx, mmr, vmr, qh2o, h2ovmr)
        end if
     else
-       qh2o(:ncol,:) = q(:ncol,:,1)
-       !-----------------------------------------------------------------------      
-       !        ... Xform water vapor from mmr to vmr and set upper bndy values
-       !-----------------------------------------------------------------------      
-       call h2o_to_vmr( q(:,:,1), h2ovmr, mbar, ncol )
+       if (gas_phase_chemdr_use_codon_shell_impl) then
+          call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_h2o_from_q, ncol, &
+               q=q, mbar=mbar, qh2o=qh2o, h2ovmr=h2ovmr)
+       else
+          qh2o(:ncol,:) = q(:ncol,:,1)
+          !-----------------------------------------------------------------------
+          !        ... Xform water vapor from mmr to vmr and set upper bndy values
+          !-----------------------------------------------------------------------
+          call h2o_to_vmr( q(:,:,1), h2ovmr, mbar, ncol )
+       end if
 
        call set_fstrat_h2o( h2ovmr, pmid, troplev, calday, ncol, lchnk )
 
@@ -571,7 +594,11 @@ contains
     !-----------------------------------------------------------------------      
     !        ... force ion/electron balance
     !-----------------------------------------------------------------------      
-    call charge_balance( ncol, vmr )
+    if (gas_phase_chemdr_use_codon_shell_impl) then
+       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_charge_balance, ncol, vmr=vmr, wrk=wrk)
+    else
+       call charge_balance( ncol, vmr )
+    end if
 
     !-----------------------------------------------------------------------      
     !        ... Set the "invariants"
@@ -800,7 +827,12 @@ contains
     !        ... Compute the extraneous frcing at time = t(n+1)
     !-----------------------------------------------------------------------      
     if ( o2_ndx > 0 .and. o_ndx > 0 ) then
-       call gas_phase_chemdr_load_oxygen_mmr(ncol, o2_ndx, o_ndx, mmr, o2mmr, ommr)
+       if (gas_phase_chemdr_use_codon_shell_impl) then
+          call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_oxygen_mmr, ncol, &
+               mmr=mmr, o2mmr=o2mmr, ommr=ommr)
+       else
+          call gas_phase_chemdr_load_oxygen_mmr(ncol, o2_ndx, o_ndx, mmr, o2mmr, ommr)
+       end if
     endif
     !-----------------------------------------------------------------------
     !        ... Compute the extraneous frcing at time = t(n+1)
@@ -2403,16 +2435,17 @@ contains
   end subroutine gas_phase_chemdr_store_drydep
 
   subroutine gas_phase_chemdr_shell_codon_wrap(stage, ncol, rad2deg_in, delt_in, delt_inverse_in, &
-       zen_angle, sza, phis, zi, zm, pmid, zsurf, zintr, zmidr, zmid, zint, pmb, q, mmr, vmr, qh2o, &
+       zen_angle, sza, phis, zi, zm, pmid, zsurf, zintr, zmidr, zmid, zint, pmb, q, mmr, mbar, vmr, qh2o, &
        h2ovmr, rlats, sulfate, satq, relhum, cldw, cwat, extfrc, invariants, het_rates, reaction_rates, &
        troplev, ltrop_sol, del_h2so4_gasprod, vmr0, o3s_loss, mmr_tend, mmr_new, qtend, tfld, tvs, sflx, &
-       ufld, vfld, wind_speed, precc, precl, prect, cflx, drydepflx, &
+       ufld, vfld, wind_speed, precc, precl, prect, cflx, drydepflx, o2mmr, ommr, &
        hcl_cond, hcl_gas, hno3_gas, h2o_gas, wrk, cldice, hno3_cond)
 
     use iso_c_binding, only : c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
-    use physconst, only : rga
-    use chem_mods, only : nfs, indexm
+    use physconst, only : rga, mwdry
+    use chem_mods, only : nfs, indexm, adv_mass
     use linoz_data, only : has_linoz_data
+    use phys_control, only : waccmx_is
 
     integer, intent(in) :: stage
     integer, intent(in) :: ncol
@@ -2426,6 +2459,7 @@ contains
     real(r8), target, optional, intent(inout) :: zsurf(ncol), zintr(ncol,pver+1), zmidr(ncol,pver)
     real(r8), target, optional, intent(inout) :: zmid(ncol,pver), zint(ncol,pver+1), pmb(ncol,pver)
     real(r8), target, optional, intent(inout) :: mmr(pcols,pver,gas_pcnst), vmr(ncol,pver,gas_pcnst)
+    real(r8), target, optional, intent(inout) :: mbar(ncol,pver)
     real(r8), target, optional, intent(inout) :: qh2o(pcols,pver), h2ovmr(ncol,pver), sulfate(ncol,pver)
     real(r8), target, optional, intent(inout) :: relhum(ncol,pver), cwat(ncol,pver)
     real(r8), target, optional, intent(inout) :: extfrc(ncol,pver,max(1,extcnt))
@@ -2436,6 +2470,7 @@ contains
     real(r8), target, optional, intent(inout) :: qtend(pcols,pver,pcnst), tvs(pcols), sflx(pcols,gas_pcnst)
     real(r8), target, optional, intent(inout) :: wind_speed(pcols), prect(pcols)
     real(r8), target, optional, intent(inout) :: cflx(pcols,pcnst), drydepflx(pcols,pcnst)
+    real(r8), target, optional, intent(inout) :: o2mmr(ncol,pver), ommr(ncol,pver)
     real(r8), target, optional, intent(inout) :: hcl_cond(ncol,pver), hcl_gas(ncol,pver)
     real(r8), target, optional, intent(inout) :: hno3_gas(ncol,pver), h2o_gas(ncol,pver), wrk(ncol,pver)
     real(r8), target, optional, intent(inout) :: cldice(pcols,pver), hno3_cond(ncol,pver,2)
@@ -2444,46 +2479,53 @@ contains
 
     real(r8), parameter :: m2km  = 1.e-3_r8
     real(r8), parameter :: Pa2mb = 1.e-2_r8
-    real(c_double) :: rad2deg_c, delt_c, delt_inverse_c
+    real(c_double) :: rad2deg_c, delt_c, delt_inverse_c, mwdry_c, adv_mass_h2o_c
+    integer(c_int64_t) :: fixed_mbar_c
     integer(c_int64_t), target :: map2chm_c(pcnst)
+    real(c_double), target :: adv_mass_c(gas_pcnst)
     integer(c_int64_t), target :: troplev_c(pcols)
     integer(c_int64_t), target :: ltrop_sol_c(pcols)
     type(c_ptr) :: map2chm_p, troplev_p, ltrop_sol_p
     type(c_ptr) :: zen_angle_p, sza_p, phis_p, zi_p, zm_p, pmid_p, zsurf_p, zintr_p, zmidr_p, zmid_p
-    type(c_ptr) :: zint_p, pmb_p, q_p, mmr_p, vmr_p, qh2o_p, h2ovmr_p, rlats_p, sulfate_p, satq_p
+    type(c_ptr) :: zint_p, pmb_p, q_p, mmr_p, mbar_p, vmr_p, qh2o_p, h2ovmr_p, rlats_p, sulfate_p, satq_p
     type(c_ptr) :: relhum_p, cldw_p, cwat_p, extfrc_p, invariants_p, het_rates_p, reaction_rates_p
     type(c_ptr) :: del_h2so4_gasprod_p, vmr0_p, o3s_loss_p, mmr_tend_p, mmr_new_p, qtend_p
     type(c_ptr) :: tfld_p, tvs_p, sflx_p, ufld_p, vfld_p, wind_speed_p, precc_p, precl_p, prect_p
-    type(c_ptr) :: cflx_p, drydepflx_p
+    type(c_ptr) :: cflx_p, drydepflx_p, o2mmr_p, ommr_p, adv_mass_p
     type(c_ptr) :: hcl_cond_p, hcl_gas_p, hno3_gas_p, h2o_gas_p, wrk_p, cldice_p, hno3_cond_p
 
     interface
        subroutine gas_phase_chemdr_shell_codon(stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, pcnst_c, &
-            rxntot_c, extcnt_c, nfs_c, indexm_c, has_linoz_data_c, h2o_ndx_c, hno3_ndx_c, hcl_ndx_c, &
-            cldice_ndx_c, st80_25_ndx_c, aoa_nh_ndx_c, nh_5_ndx_c, nh_50_ndx_c, nh_50w_ndx_c, so4_ndx_c, &
+            rxntot_c, extcnt_c, nfs_c, indexm_c, has_linoz_data_c, h2o_ndx_c, o2_ndx_c, o_ndx_c, &
+            hno3_ndx_c, hcl_ndx_c, cldice_ndx_c, st80_25_ndx_c, aoa_nh_ndx_c, nh_5_ndx_c, nh_50_ndx_c, nh_50w_ndx_c, so4_ndx_c, &
             st80_25_tau_ndx_c, ndx_h2so4_c, o3_ndx_c, &
-            o3s_ndx_c, synoz_ndx_c, aoa_nh_ext_ndx_c, rad2deg_c, delt_c, delt_inverse_c, rga_c, m2km_c, &
-            pa2mb_c, map2chm_p, troplev_p, ltrop_sol_p, zen_angle_p, sza_p, phis_p, zi_p, zm_p, pmid_p, &
-            zsurf_p, zintr_p, zmidr_p, zmid_p, zint_p, pmb_p, q_p, mmr_p, vmr_p, qh2o_p, h2ovmr_p, rlats_p, &
+            o3s_ndx_c, synoz_ndx_c, aoa_nh_ext_ndx_c, h_ndx_c, n_ndx_c, elec_ndx_c, np_ndx_c, n2p_ndx_c, &
+            op_ndx_c, o2p_ndx_c, nop_ndx_c, fixed_mbar_c, rad2deg_c, delt_c, delt_inverse_c, rga_c, m2km_c, &
+            pa2mb_c, mwdry_c, adv_mass_h2o_c, map2chm_p, adv_mass_p, troplev_p, ltrop_sol_p, zen_angle_p, &
+            sza_p, phis_p, zi_p, zm_p, pmid_p, &
+            zsurf_p, zintr_p, zmidr_p, zmid_p, zint_p, pmb_p, q_p, mmr_p, mbar_p, vmr_p, qh2o_p, h2ovmr_p, rlats_p, &
             sulfate_p, satq_p, relhum_p, cldw_p, cwat_p, extfrc_p, invariants_p, het_rates_p, reaction_rates_p, &
             del_h2so4_gasprod_p, vmr0_p, o3s_loss_p, mmr_tend_p, mmr_new_p, qtend_p, tfld_p, tvs_p, sflx_p, &
-            ufld_p, vfld_p, wind_speed_p, precc_p, precl_p, prect_p, cflx_p, drydepflx_p, hcl_cond_p, &
+            ufld_p, vfld_p, wind_speed_p, precc_p, precl_p, prect_p, cflx_p, drydepflx_p, o2mmr_p, ommr_p, hcl_cond_p, &
             hcl_gas_p, hno3_gas_p, h2o_gas_p, wrk_p, cldice_p, hno3_cond_p) &
             bind(c, name="gas_phase_chemdr_shell_codon")
          use iso_c_binding, only : c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, pcnst_c
          integer(c_int64_t), value :: rxntot_c, extcnt_c, nfs_c, indexm_c, has_linoz_data_c
-         integer(c_int64_t), value :: h2o_ndx_c, hno3_ndx_c, hcl_ndx_c, cldice_ndx_c
+         integer(c_int64_t), value :: h2o_ndx_c, o2_ndx_c, o_ndx_c, hno3_ndx_c, hcl_ndx_c, cldice_ndx_c
          integer(c_int64_t), value :: st80_25_ndx_c, aoa_nh_ndx_c, nh_5_ndx_c, nh_50_ndx_c
          integer(c_int64_t), value :: nh_50w_ndx_c, so4_ndx_c, st80_25_tau_ndx_c, ndx_h2so4_c
          integer(c_int64_t), value :: o3_ndx_c, o3s_ndx_c, synoz_ndx_c, aoa_nh_ext_ndx_c
-         real(c_double), value :: rad2deg_c, delt_c, delt_inverse_c, rga_c, m2km_c, pa2mb_c
-         type(c_ptr), value :: map2chm_p, troplev_p, ltrop_sol_p, zen_angle_p, sza_p, phis_p, zi_p, zm_p
-         type(c_ptr), value :: pmid_p, zsurf_p, zintr_p, zmidr_p, zmid_p, zint_p, pmb_p, q_p, mmr_p, vmr_p
+         integer(c_int64_t), value :: h_ndx_c, n_ndx_c, elec_ndx_c, np_ndx_c, n2p_ndx_c, op_ndx_c, o2p_ndx_c
+         integer(c_int64_t), value :: nop_ndx_c, fixed_mbar_c
+         real(c_double), value :: rad2deg_c, delt_c, delt_inverse_c, rga_c, m2km_c, pa2mb_c, mwdry_c, adv_mass_h2o_c
+         type(c_ptr), value :: map2chm_p, adv_mass_p, troplev_p, ltrop_sol_p, zen_angle_p, sza_p, phis_p, zi_p, zm_p
+         type(c_ptr), value :: pmid_p, zsurf_p, zintr_p, zmidr_p, zmid_p, zint_p, pmb_p, q_p, mmr_p, mbar_p, vmr_p
          type(c_ptr), value :: qh2o_p, h2ovmr_p, rlats_p, sulfate_p, satq_p, relhum_p, cldw_p, cwat_p
          type(c_ptr), value :: extfrc_p, invariants_p, het_rates_p, reaction_rates_p, del_h2so4_gasprod_p
          type(c_ptr), value :: vmr0_p, o3s_loss_p, mmr_tend_p, mmr_new_p, qtend_p, tfld_p, tvs_p, sflx_p
          type(c_ptr), value :: ufld_p, vfld_p, wind_speed_p, precc_p, precl_p, prect_p, cflx_p, drydepflx_p
+         type(c_ptr), value :: o2mmr_p, ommr_p
          type(c_ptr), value :: hcl_cond_p, hcl_gas_p, hno3_gas_p, h2o_gas_p, wrk_p, cldice_p, hno3_cond_p
        end subroutine gas_phase_chemdr_shell_codon
     end interface
@@ -2494,9 +2536,22 @@ contains
     if (present(rad2deg_in)) rad2deg_c = real(rad2deg_in, c_double)
     if (present(delt_in)) delt_c = real(delt_in, c_double)
     if (present(delt_inverse_in)) delt_inverse_c = real(delt_inverse_in, c_double)
+    mwdry_c = real(mwdry, c_double)
+    if (h2o_ndx > 0) then
+       adv_mass_h2o_c = real(adv_mass(h2o_ndx), c_double)
+    else
+       adv_mass_h2o_c = 18._c_double
+    end if
+    if (waccmx_is('ionosphere') .or. waccmx_is('neutral')) then
+       fixed_mbar_c = 0_c_int64_t
+    else
+       fixed_mbar_c = 1_c_int64_t
+    end if
 
     map2chm_c(:) = int(map2chm(:), c_int64_t)
     map2chm_p = c_loc(map2chm_c)
+    adv_mass_c(:) = real(adv_mass(:), c_double)
+    adv_mass_p = c_loc(adv_mass_c)
 
     troplev_p = c_null_ptr
     if (present(troplev)) then
@@ -2525,6 +2580,7 @@ contains
     pmb_p = c_null_ptr; if (present(pmb)) pmb_p = c_loc(pmb)
     q_p = c_null_ptr; if (present(q)) q_p = c_loc(q)
     mmr_p = c_null_ptr; if (present(mmr)) mmr_p = c_loc(mmr)
+    mbar_p = c_null_ptr; if (present(mbar)) mbar_p = c_loc(mbar)
     vmr_p = c_null_ptr; if (present(vmr)) vmr_p = c_loc(vmr)
     qh2o_p = c_null_ptr; if (present(qh2o)) qh2o_p = c_loc(qh2o)
     h2ovmr_p = c_null_ptr; if (present(h2ovmr)) h2ovmr_p = c_loc(h2ovmr)
@@ -2555,6 +2611,8 @@ contains
     prect_p = c_null_ptr; if (present(prect)) prect_p = c_loc(prect)
     cflx_p = c_null_ptr; if (present(cflx)) cflx_p = c_loc(cflx)
     drydepflx_p = c_null_ptr; if (present(drydepflx)) drydepflx_p = c_loc(drydepflx)
+    o2mmr_p = c_null_ptr; if (present(o2mmr)) o2mmr_p = c_loc(o2mmr)
+    ommr_p = c_null_ptr; if (present(ommr)) ommr_p = c_loc(ommr)
     hcl_cond_p = c_null_ptr; if (present(hcl_cond)) hcl_cond_p = c_loc(hcl_cond)
     hcl_gas_p = c_null_ptr; if (present(hcl_gas)) hcl_gas_p = c_loc(hcl_gas)
     hno3_gas_p = c_null_ptr; if (present(hno3_gas)) hno3_gas_p = c_loc(hno3_gas)
@@ -2567,18 +2625,21 @@ contains
          int(stage, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          int(gas_pcnst, c_int64_t), int(pcnst, c_int64_t), int(rxntot, c_int64_t), int(extcnt, c_int64_t), &
          int(nfs, c_int64_t), int(indexm, c_int64_t), int(merge(1, 0, has_linoz_data), c_int64_t), &
-         int(h2o_ndx, c_int64_t), int(hno3_ndx, c_int64_t), int(hcl_ndx, c_int64_t), &
-         int(cldice_ndx, c_int64_t), int(st80_25_ndx, c_int64_t), int(aoa_nh_ndx, c_int64_t), &
+         int(h2o_ndx, c_int64_t), int(o2_ndx, c_int64_t), int(o_ndx, c_int64_t), &
+         int(hno3_ndx, c_int64_t), int(hcl_ndx, c_int64_t), int(cldice_ndx, c_int64_t), int(st80_25_ndx, c_int64_t), int(aoa_nh_ndx, c_int64_t), &
          int(nh_5_ndx, c_int64_t), int(nh_50_ndx, c_int64_t), int(nh_50w_ndx, c_int64_t), &
          int(so4_ndx, c_int64_t), int(st80_25_tau_ndx, c_int64_t), int(ndx_h2so4, c_int64_t), &
          int(o3_ndx, c_int64_t), int(o3s_ndx, c_int64_t), int(synoz_ndx, c_int64_t), &
-         int(aoa_nh_ext_ndx, c_int64_t), rad2deg_c, delt_c, delt_inverse_c, real(rga, c_double), &
-         real(m2km, c_double), real(Pa2mb, c_double), map2chm_p, troplev_p, ltrop_sol_p, zen_angle_p, sza_p, &
-         phis_p, zi_p, zm_p, pmid_p, zsurf_p, zintr_p, zmidr_p, zmid_p, zint_p, pmb_p, q_p, mmr_p, vmr_p, &
+         int(aoa_nh_ext_ndx, c_int64_t), int(h_ndx, c_int64_t), int(n_ndx, c_int64_t), &
+         int(elec_ndx, c_int64_t), int(np_ndx, c_int64_t), int(n2p_ndx, c_int64_t), int(op_ndx, c_int64_t), &
+         int(o2p_ndx, c_int64_t), int(nop_ndx, c_int64_t), fixed_mbar_c, rad2deg_c, delt_c, delt_inverse_c, &
+         real(rga, c_double), real(m2km, c_double), real(Pa2mb, c_double), mwdry_c, adv_mass_h2o_c, &
+         map2chm_p, adv_mass_p, troplev_p, ltrop_sol_p, zen_angle_p, sza_p, &
+         phis_p, zi_p, zm_p, pmid_p, zsurf_p, zintr_p, zmidr_p, zmid_p, zint_p, pmb_p, q_p, mmr_p, mbar_p, vmr_p, &
          qh2o_p, h2ovmr_p, rlats_p, sulfate_p, satq_p, relhum_p, cldw_p, cwat_p, extfrc_p, invariants_p, &
          het_rates_p, reaction_rates_p, del_h2so4_gasprod_p, vmr0_p, o3s_loss_p, mmr_tend_p, mmr_new_p, &
          qtend_p, tfld_p, tvs_p, sflx_p, ufld_p, vfld_p, wind_speed_p, precc_p, precl_p, prect_p, &
-         cflx_p, drydepflx_p, hcl_cond_p, hcl_gas_p, hno3_gas_p, h2o_gas_p, wrk_p, cldice_p, &
+         cflx_p, drydepflx_p, o2mmr_p, ommr_p, hcl_cond_p, hcl_gas_p, hno3_gas_p, h2o_gas_p, wrk_p, cldice_p, &
          hno3_cond_p &
     )
 
