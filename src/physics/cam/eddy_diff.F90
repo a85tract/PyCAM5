@@ -286,6 +286,9 @@
   logical                     :: use_native_caleddy_setup_batch_impl = .false.
   logical                     :: caleddy_setup_batch_impl_selected = .false.
   logical                     :: caleddy_setup_batch_entered_logged = .false.
+  logical                     :: use_native_caleddy_cloud_rad_batch_impl = .false.
+  logical                     :: caleddy_cloud_rad_batch_impl_selected = .false.
+  logical                     :: caleddy_cloud_rad_batch_entered_logged = .false.
 
   CONTAINS
 
@@ -2052,6 +2055,213 @@
          c_loc(wsed_CL_local), c_loc(ri_local), c_loc(ktop_local), c_loc(kbase_local), c_loc(ncvfin_local))
 
   end subroutine eddy_diff_caleddy_setup_batch_call
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_cloud_rad_batch_append_proof(proof_line)
+
+    implicit none
+
+    character(len=*), intent(in) :: proof_line
+
+    character(len=512) :: proof_file
+    integer :: status, n, unitno
+
+    proof_file = ''
+    call get_environment_variable('EDDY_DIFF_CALEDDY_CLOUD_RAD_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+       write(unitno,'(A)') trim(proof_line)
+       close(unitno)
+    end if
+
+  end subroutine eddy_diff_caleddy_cloud_rad_batch_append_proof
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_cloud_rad_batch_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (caleddy_cloud_rad_batch_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_CALEDDY_CLOUD_RAD_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_caleddy_cloud_rad_batch_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_caleddy_cloud_rad_batch_impl = .false.
+    end if
+
+    caleddy_cloud_rad_batch_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_caleddy_cloud_rad_batch_impl) then
+          write(iulog,*) 'eddy_diff_caleddy_cloud_rad_batch implementation = native'
+          write(*,*) 'eddy_diff_caleddy_cloud_rad_batch implementation = native'
+          call eddy_diff_append_impl_trace('eddy_diff_caleddy_cloud_rad_batch implementation = native')
+          call eddy_diff_caleddy_cloud_rad_batch_append_proof('eddy_diff_caleddy_cloud_rad_batch selector entered implementation = native')
+       else
+          write(iulog,*) 'eddy_diff_caleddy_cloud_rad_batch implementation = codon'
+          write(*,*) 'eddy_diff_caleddy_cloud_rad_batch implementation = codon'
+          call eddy_diff_append_impl_trace('eddy_diff_caleddy_cloud_rad_batch implementation = codon')
+          call eddy_diff_caleddy_cloud_rad_batch_append_proof('eddy_diff_caleddy_cloud_rad_batch selector entered implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine eddy_diff_caleddy_cloud_rad_batch_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_cloud_rad_batch_log_entered()
+
+    implicit none
+
+    if (caleddy_cloud_rad_batch_entered_logged) return
+    caleddy_cloud_rad_batch_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'eddy_diff_caleddy_cloud_rad_batch entered (srcl/radf direct = codon)'
+       write(*,*) 'eddy_diff_caleddy_cloud_rad_batch entered (srcl/radf direct = codon)'
+       call eddy_diff_append_impl_trace('eddy_diff_caleddy_cloud_rad_batch entered (srcl/radf direct = codon)')
+       call eddy_diff_caleddy_cloud_rad_batch_append_proof('eddy_diff_caleddy_cloud_rad_batch entered (srcl/radf direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine eddy_diff_caleddy_cloud_rad_batch_log_entered
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_cloud_rad_batch_call(stage, i_local, pcols_local, pver_local, ncvmax_local, ntop_turb_local, &
+       nbot_turb_local, srcl_mode_local, radf_mode_local, qmin_local, ricrit_local, b1_local, vk_local, alph1_local, &
+       alph2_local, alph3_local, alph4exs_local, alph5_local, ghmin_local, g_local, ql_local, qrlw_local, ri_local, &
+       sfuh_local, chu_local, chs_local, cmu_local, cms_local, slslope_local, qtslope_local, z_local, bflxs_local, &
+       tkes_local, bprod_local, sprod_local, ncvfin_local, kbase_local, ktop_local, belongcv_local, ricl_local, &
+       ghcl_local, shcl_local, smcl_local, lbrk_local, wbrk_local, ebrk_local, ncvsurf_local, srcl_status_local, &
+       pi_local, cldeff_local, zi_local, lwp_CL_local, opt_depth_CL_local, radinvfrac_CL_local, radf_CL_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: stage, i_local, pcols_local, pver_local, ncvmax_local, ntop_turb_local, nbot_turb_local
+    integer, intent(in) :: srcl_mode_local, radf_mode_local
+    real(r8), intent(in) :: qmin_local, ricrit_local, b1_local, vk_local, alph1_local, alph2_local, alph3_local
+    real(r8), intent(in) :: alph4exs_local, alph5_local, ghmin_local, g_local
+    real(r8), target, intent(in) :: ql_local(pcols_local,pver_local), qrlw_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: ri_local(pcols_local,pver_local), sfuh_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: chu_local(pcols_local,pver_local+1), chs_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: cmu_local(pcols_local,pver_local+1), cms_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: slslope_local(pcols_local,pver_local), qtslope_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: z_local(pcols_local,pver_local), bflxs_local(pcols_local), tkes_local(pcols_local)
+    real(r8), target, intent(in) :: bprod_local(pcols_local,pver_local+1), sprod_local(pcols_local,pver_local+1)
+    integer(i4), target, intent(inout) :: ncvfin_local(pcols_local), kbase_local(pcols_local,ncvmax_local)
+    integer(i4), target, intent(inout) :: ktop_local(pcols_local,ncvmax_local)
+    logical, intent(inout) :: belongcv_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: ricl_local(pcols_local,ncvmax_local), ghcl_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: shcl_local(pcols_local,ncvmax_local), smcl_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: lbrk_local(pcols_local,ncvmax_local), wbrk_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: ebrk_local(pcols_local,ncvmax_local)
+    integer(i4), intent(inout) :: ncvsurf_local
+    integer(i4), intent(out) :: srcl_status_local
+    real(r8), target, intent(in) :: pi_local(pcols_local,pver_local+1), cldeff_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: zi_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: lwp_CL_local(pcols_local,ncvmax_local), opt_depth_CL_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: radinvfrac_CL_local(pcols_local,ncvmax_local), radf_CL_local(pcols_local,ncvmax_local)
+
+    integer :: k, ncv
+    integer(i4), target :: belongcv_mask_local(pver_local+1)
+    integer(i4), target :: ncvsurf_codon, srcl_status_codon
+
+    interface
+       subroutine eddy_diff_caleddy_cloud_rad_batch_codon(stage_c, i_c, pcols_c, pver_c, ncvmax_c, ntop_turb_c, nbot_turb_c, &
+            srcl_mode_c, radf_mode_c, qmin_c, ricrit_c, b1_c, vk_c, alph1_c, alph2_c, alph3_c, alph4exs_c, alph5_c, &
+            ghmin_c, g_c, ql_p, qrlw_p, ri_p, sfuh_p, chu_p, chs_p, cmu_p, cms_p, slslope_p, qtslope_p, z_p, bflxs_p, &
+            tkes_p, bprod_p, sprod_p, ncvfin_p, kbase_p, ktop_p, ricl_p, ghcl_p, shcl_p, smcl_p, lbrk_p, wbrk_p, ebrk_p, &
+            belong_mask_p, ncvsurf_p, srcl_status_p, pi_p, cldeff_p, zi_p, lwp_CL_p, opt_depth_CL_p, radinvfrac_CL_p, &
+            radf_CL_p) bind(c, name="eddy_diff_caleddy_cloud_rad_batch_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: stage_c, i_c, pcols_c, pver_c, ncvmax_c, ntop_turb_c, nbot_turb_c, srcl_mode_c, radf_mode_c
+         real(c_double), value :: qmin_c, ricrit_c, b1_c, vk_c, alph1_c, alph2_c, alph3_c, alph4exs_c, alph5_c, ghmin_c, g_c
+         type(c_ptr), value :: ql_p, qrlw_p, ri_p, sfuh_p, chu_p, chs_p, cmu_p, cms_p, slslope_p, qtslope_p, z_p, bflxs_p
+         type(c_ptr), value :: tkes_p, bprod_p, sprod_p, ncvfin_p, kbase_p, ktop_p, ricl_p, ghcl_p, shcl_p, smcl_p
+         type(c_ptr), value :: lbrk_p, wbrk_p, ebrk_p, belong_mask_p, ncvsurf_p, srcl_status_p, pi_p, cldeff_p, zi_p
+         type(c_ptr), value :: lwp_CL_p, opt_depth_CL_p, radinvfrac_CL_p, radf_CL_p
+       end subroutine eddy_diff_caleddy_cloud_rad_batch_codon
+    end interface
+
+    call eddy_diff_caleddy_cloud_rad_batch_select_impl()
+    srcl_status_local = 0_i4
+
+    if (use_native_caleddy_cloud_rad_batch_impl) then
+       select case (stage)
+       case (1)
+          call eddy_diff_caleddy_srcl_native(choice_SRCL, i_local, pcols_local, pver_local, ncvmax_local, ntop_turb_local, &
+               nbot_turb_local, qmin_local, ricrit_local, b1_local, vk_local, alph1_local, alph2_local, alph3_local, &
+               alph4exs_local, alph5_local, ghmin_local, ql_local, qrlw_local, ri_local, sfuh_local, chu_local, chs_local, &
+               cmu_local, cms_local, slslope_local, qtslope_local, z_local, bflxs_local, tkes_local, bprod_local, sprod_local, &
+               ncvfin_local, kbase_local, ktop_local, belongcv_local, ricl_local, ghcl_local, shcl_local, smcl_local, lbrk_local, &
+               wbrk_local, ebrk_local, ncvsurf_local, srcl_status_local)
+       case (2)
+          call eddy_diff_compute_radf_native(choice_radf, i_local, pcols_local, pver_local, ncvmax_local, ncvfin_local, &
+               ktop_local, qmin_local, ql_local, pi_local, qrlw_local, g_local, cldeff_local, zi_local, chs_local, lwp_CL_local, &
+               opt_depth_CL_local, radinvfrac_CL_local, radf_CL_local)
+       end select
+       return
+    end if
+
+    ncvsurf_codon = ncvsurf_local
+    srcl_status_codon = 0_i4
+
+    call eddy_diff_caleddy_cloud_rad_batch_log_entered()
+    call eddy_diff_caleddy_cloud_rad_batch_codon(int(stage, c_int64_t), int(i_local, c_int64_t), int(pcols_local, c_int64_t), &
+         int(pver_local, c_int64_t), int(ncvmax_local, c_int64_t), int(ntop_turb_local, c_int64_t), int(nbot_turb_local, c_int64_t), &
+         int(srcl_mode_local, c_int64_t), int(radf_mode_local, c_int64_t), real(qmin_local, c_double), real(ricrit_local, c_double), &
+         real(b1_local, c_double), real(vk_local, c_double), real(alph1_local, c_double), real(alph2_local, c_double), &
+         real(alph3_local, c_double), real(alph4exs_local, c_double), real(alph5_local, c_double), real(ghmin_local, c_double), &
+         real(g_local, c_double), c_loc(ql_local), c_loc(qrlw_local), c_loc(ri_local), c_loc(sfuh_local), c_loc(chu_local), &
+         c_loc(chs_local), c_loc(cmu_local), c_loc(cms_local), c_loc(slslope_local), c_loc(qtslope_local), c_loc(z_local), &
+         c_loc(bflxs_local), c_loc(tkes_local), c_loc(bprod_local), c_loc(sprod_local), c_loc(ncvfin_local), c_loc(kbase_local), &
+         c_loc(ktop_local), c_loc(ricl_local), c_loc(ghcl_local), c_loc(shcl_local), c_loc(smcl_local), c_loc(lbrk_local), &
+         c_loc(wbrk_local), c_loc(ebrk_local), c_loc(belongcv_mask_local), c_loc(ncvsurf_codon), c_loc(srcl_status_codon), &
+         c_loc(pi_local), c_loc(cldeff_local), c_loc(zi_local), c_loc(lwp_CL_local), c_loc(opt_depth_CL_local), &
+         c_loc(radinvfrac_CL_local), c_loc(radf_CL_local))
+
+    if (stage == 1) then
+       ncvsurf_local = ncvsurf_codon
+       srcl_status_local = srcl_status_codon
+
+       do k = 1, pver_local + 1
+          belongcv_local(i_local,k) = .false.
+       end do
+
+       do ncv = 1, ncvfin_local(i_local)
+          do k = ktop_local(i_local,ncv), kbase_local(i_local,ncv)
+             belongcv_local(i_local,k) = .true.
+          end do
+       end do
+    end if
+
+  end subroutine eddy_diff_caleddy_cloud_rad_batch_call
 
   !=============================================================================== !
   !                                                                                !
@@ -9187,10 +9397,10 @@
                z, bflxs, tkes, bprod, sprod, ncvfin, kbase, ktop, belongcv, ricl, ghcl, shcl, smcl, lbrk, wbrk, ebrk, &
                ncvsurf, srcl_status)
        else
-          call eddy_diff_caleddy_srcl(choice_SRCL, i, pcols, pver, ncvmax, ntop_turb, nbot_turb, qmin, ricrit, b1, vk, &
-               alph1, alph2, alph3, alph4exs, alph5, ghmin, ql, qrlw, ri, sfuh, chu, chs, cmu, cms, slslope, qtslope, z, &
-               bflxs, tkes, bprod, sprod, ncvfin, kbase, ktop, belongcv, ricl, ghcl, shcl, smcl, lbrk, wbrk, ebrk, &
-               ncvsurf, srcl_status)
+          call eddy_diff_caleddy_cloud_rad_batch_call(1, i, pcols, pver, ncvmax, ntop_turb, nbot_turb, srcl_mode, radf_mode, &
+               qmin, ricrit, b1, vk, alph1, alph2, alph3, alph4exs, alph5, ghmin, g, ql, qrlw, ri, sfuh, chu, chs, cmu, &
+               cms, slslope, qtslope, z, bflxs, tkes, bprod, sprod, ncvfin, kbase, ktop, belongcv, ricl, ghcl, shcl, &
+               smcl, lbrk, wbrk, ebrk, ncvsurf, srcl_status, pi, cldeff, zi, lwp_CL, opt_depth_CL, radinvfrac_CL, radf_CL)
        end if
 
        if (srcl_status .ne. 0_i4) then
@@ -9236,8 +9446,10 @@
           call eddy_diff_compute_radf_native(choice_radf, i, pcols, pver, ncvmax, ncvfin, ktop, qmin, ql, pi, qrlw, g, &
                cldeff, zi, chs, lwp_CL, opt_depth_CL, radinvfrac_CL, radf_CL)
        else
-          call eddy_diff_compute_radf(choice_radf, i, pcols, pver, ncvmax, ncvfin, ktop, qmin, ql, pi, qrlw, g, cldeff, &
-               zi, chs, lwp_CL, opt_depth_CL, radinvfrac_CL, radf_CL)
+          call eddy_diff_caleddy_cloud_rad_batch_call(2, i, pcols, pver, ncvmax, ntop_turb, nbot_turb, srcl_mode, radf_mode, &
+               qmin, ricrit, b1, vk, alph1, alph2, alph3, alph4exs, alph5, ghmin, g, ql, qrlw, ri, sfuh, chu, chs, cmu, &
+               cms, slslope, qtslope, z, bflxs, tkes, bprod, sprod, ncvfin, kbase, ktop, belongcv, ricl, ghcl, shcl, &
+               smcl, lbrk, wbrk, ebrk, ncvsurf, srcl_status, pi, cldeff, zi, lwp_CL, opt_depth_CL, radinvfrac_CL, radf_CL)
        end if
 
        ! ---------------------------------------- !
