@@ -16,6 +16,11 @@ def radheat_timestep_init_codon():
 
 
 @export
+def radheat_batch_timestep_init_codon():
+    radheat_timestep_init_codon()
+
+
+@export
 def radheat_tend_codon(
     ncol: int,
     pcols: int,
@@ -52,3 +57,34 @@ def radheat_tend_codon(
             - flnt[_col_idx(i)]
             + flns[_col_idx(i)]
         )
+
+
+@export
+def radheat_batch_tend_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    psetcols: int,
+    qrl_p: cobj,
+    qrs_p: cobj,
+    ptend_s_p: cobj,
+    fsns_p: cobj,
+    fsnt_p: cobj,
+    flns_p: cobj,
+    flnt_p: cobj,
+    net_flx_p: cobj,
+):
+    radheat_tend_codon(
+        ncol,
+        pcols,
+        pver,
+        psetcols,
+        qrl_p,
+        qrs_p,
+        ptend_s_p,
+        fsns_p,
+        fsnt_p,
+        flns_p,
+        flnt_p,
+        net_flx_p,
+    )

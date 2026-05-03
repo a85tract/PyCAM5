@@ -27,6 +27,9 @@ logical :: use_native_impl = .false.
 logical :: impl_selected = .false.
 logical :: use_native_tstep_init_impl = .false.
 logical :: tstep_init_impl_selected = .false.
+logical :: radheat_batch_use_native_impl = .false.
+logical :: radheat_batch_impl_selected = .false.
+logical :: radheat_batch_entered_logged = .false.
 
 ! Public interfaces
 public  &
@@ -40,6 +43,73 @@ public :: radheat_disable_waccm ! disable waccm heating in the upper atm
 !===============================================================================
 contains
 !===============================================================================
+
+subroutine radheat_batch_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('RADHEAT_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+     write(unitno,'(A)') trim(proof_line)
+     close(unitno)
+  end if
+
+end subroutine radheat_batch_append_proof
+
+subroutine radheat_batch_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (radheat_batch_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('RADHEAT_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     radheat_batch_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     radheat_batch_use_native_impl = .false.
+  end if
+
+  radheat_batch_impl_selected = .true.
+
+  if (masterproc) then
+     if (radheat_batch_use_native_impl) then
+        write(iulog,*) 'radheat_batch implementation = native'
+        call radheat_batch_append_proof('radheat_batch selector entered implementation = native')
+     else
+        write(iulog,*) 'radheat_batch implementation = codon'
+        call radheat_batch_append_proof('radheat_batch selector entered implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine radheat_batch_select_impl
+
+subroutine radheat_batch_log_entered()
+
+  if (radheat_batch_entered_logged) return
+  radheat_batch_entered_logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') 'radheat_batch entered (timestep_init/tend direct = codon)'
+     call radheat_batch_append_proof('radheat_batch entered (timestep_init/tend direct = codon)')
+     call flush(iulog)
+  end if
+
+end subroutine radheat_batch_log_entered
 
 subroutine radheat_readnl(nlfile)
 
@@ -72,18 +142,19 @@ subroutine radheat_timestep_init (state, pbuf2d)
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
 
     interface
-       subroutine radheat_timestep_init_codon() bind(c, name="radheat_timestep_init_codon")
-       end subroutine radheat_timestep_init_codon
+       subroutine radheat_batch_timestep_init_codon() bind(c, name="radheat_batch_timestep_init_codon")
+       end subroutine radheat_batch_timestep_init_codon
     end interface
 
-    call radheat_timestep_init_select_impl()
+    call radheat_batch_select_impl()
 
-    if (use_native_tstep_init_impl) then
+    if (radheat_batch_use_native_impl) then
        call radheat_timestep_init_native(state, pbuf2d)
        return
     end if
 
-    call radheat_timestep_init_codon()
+    call radheat_batch_log_entered()
+    call radheat_batch_timestep_init_codon()
 
 
 end subroutine radheat_timestep_init
@@ -135,23 +206,23 @@ subroutine radheat_tend(state, pbuf,  ptend, qrl, qrs, fsns, &
    real(r8), target :: ptend_s_work(state%psetcols,pver)
 
    interface
-      subroutine radheat_tend_codon(ncol_c, pcols_c, pver_c, psetcols_c, &
-           qrl_p, qrs_p, ptend_s_p, fsns_p, fsnt_p, flns_p, flnt_p, net_flx_p) bind(c, name="radheat_tend_codon")
+      subroutine radheat_batch_tend_codon(ncol_c, pcols_c, pver_c, psetcols_c, &
+           qrl_p, qrs_p, ptend_s_p, fsns_p, fsnt_p, flns_p, flnt_p, net_flx_p) bind(c, name="radheat_batch_tend_codon")
          use iso_c_binding, only: c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, psetcols_c
          type(c_ptr), value :: qrl_p, qrs_p, ptend_s_p, fsns_p, fsnt_p, flns_p, flnt_p, net_flx_p
-      end subroutine radheat_tend_codon
+      end subroutine radheat_batch_tend_codon
    end interface
 !-----------------------------------------------------------------------
 
-   call radheat_select_impl()
+   call radheat_batch_select_impl()
 
 #if ( defined OFFLINE_DYN )
    call radheat_tend_native(state, pbuf, ptend, qrl, qrs, fsns, fsnt, flns, flnt, asdir, net_flx)
    return
 #endif
 
-   if (use_native_impl) then
+   if (radheat_batch_use_native_impl) then
       call radheat_tend_native(state, pbuf, ptend, qrl, qrs, fsns, fsnt, flns, flnt, asdir, net_flx)
       return
    end if
@@ -161,7 +232,8 @@ subroutine radheat_tend(state, pbuf,  ptend, qrl, qrs, fsns, &
    call physics_ptend_init(ptend,state%psetcols, 'radheat', ls=.true.)
    ptend_s_work = 0._r8
 
-   call radheat_tend_codon( &
+   call radheat_batch_log_entered()
+   call radheat_batch_tend_codon( &
         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(state%psetcols, c_int64_t), &
         c_loc(qrl), c_loc(qrs), c_loc(ptend_s_work), c_loc(fsns), c_loc(fsnt), c_loc(flns), c_loc(flnt), c_loc(net_flx) &
    )
