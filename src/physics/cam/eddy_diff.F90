@@ -280,6 +280,9 @@
   logical                     :: caleddy_stl_impl_selected = .false.
   logical                     :: use_native_caleddy_diag_impl = .false.
   logical                     :: caleddy_diag_impl_selected = .false.
+  logical                     :: use_native_caleddy_post_batch_impl = .false.
+  logical                     :: caleddy_post_batch_impl_selected = .false.
+  logical                     :: caleddy_post_batch_entered_logged = .false.
 
   CONTAINS
 
@@ -1838,6 +1841,196 @@
     end if
 
   end subroutine eddy_diff_caleddy_light_batch_call
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_post_batch_append_proof(proof_line)
+
+    implicit none
+
+    character(len=*), intent(in) :: proof_line
+
+    character(len=512) :: proof_file
+    integer :: status, n, unitno
+
+    proof_file = ''
+    call get_environment_variable('EDDY_DIFF_CALEDDY_POST_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+       write(unitno,'(A)') trim(proof_line)
+       close(unitno)
+    end if
+
+  end subroutine eddy_diff_caleddy_post_batch_append_proof
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_post_batch_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (caleddy_post_batch_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_CALEDDY_POST_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_caleddy_post_batch_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_caleddy_post_batch_impl = .false.
+    end if
+
+    caleddy_post_batch_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_caleddy_post_batch_impl) then
+          write(iulog,*) 'eddy_diff_caleddy_post_batch implementation = native'
+          write(*,*) 'eddy_diff_caleddy_post_batch implementation = native'
+          call eddy_diff_append_impl_trace('eddy_diff_caleddy_post_batch implementation = native')
+          call eddy_diff_caleddy_post_batch_append_proof('eddy_diff_caleddy_post_batch selector entered implementation = native')
+       else
+          write(iulog,*) 'eddy_diff_caleddy_post_batch implementation = codon'
+          write(*,*) 'eddy_diff_caleddy_post_batch implementation = codon'
+          call eddy_diff_append_impl_trace('eddy_diff_caleddy_post_batch implementation = codon')
+          call eddy_diff_caleddy_post_batch_append_proof('eddy_diff_caleddy_post_batch selector entered implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine eddy_diff_caleddy_post_batch_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_post_batch_log_entered()
+
+    implicit none
+
+    if (caleddy_post_batch_entered_logged) return
+    caleddy_post_batch_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'eddy_diff_caleddy_post_batch entered (stl/diag direct = codon)'
+       write(*,*) 'eddy_diff_caleddy_post_batch entered (stl/diag direct = codon)'
+       call eddy_diff_append_impl_trace('eddy_diff_caleddy_post_batch entered (stl/diag direct = codon)')
+       call eddy_diff_caleddy_post_batch_append_proof('eddy_diff_caleddy_post_batch entered (stl/diag direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine eddy_diff_caleddy_post_batch_log_entered
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_post_batch_call(stage, i_local, pcols_local, pver_local, ncvmax_local, tunl_mode_local, &
+       leng_mode_local, ricrit_local, tunl_local, ctunl_local, cleng_local, lbulk_max_local, tkemax_local, b1_local, &
+       ae_local, alph1_local, alph2_local, alph3_local, alph4_local, alph4exs_local, alph5_local, ghmin_local, vk_local, &
+       fak_local, cpair_local, ri_local, z_local, zi_local, pi_local, n2_local, s2_local, shflx_local, qflx_local, &
+       rrho_local, ustar_local, leng_max_local, ncvfin_local, ktop_local, kbase_local, kvh_local, kvm_local, leng_local, &
+       tke_local, wcap_local, bprod_local, sprod_local, turbtype_local, sm_aw_local, pblh_local, pblhp_local, &
+       wpert_local, tpert_local, qpert_local, ipbl_local, kpblh_local, tkes_local, bflxs_local, gh_a_local, sh_a_local, &
+       sm_a_local, ri_a_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: stage, i_local, pcols_local, pver_local, ncvmax_local
+    integer, intent(in) :: tunl_mode_local, leng_mode_local
+    real(r8), intent(in) :: ricrit_local, tunl_local, ctunl_local, cleng_local, lbulk_max_local, tkemax_local
+    real(r8), intent(in) :: b1_local, ae_local, alph1_local, alph2_local, alph3_local, alph4_local, alph4exs_local
+    real(r8), intent(in) :: alph5_local, ghmin_local, vk_local, fak_local, cpair_local
+    real(r8), target, intent(in) :: ri_local(pcols_local,pver_local), z_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: zi_local(pcols_local,pver_local+1), pi_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: n2_local(pcols_local,pver_local), s2_local(pcols_local,pver_local)
+    real(r8), target, intent(in) :: shflx_local(pcols_local), qflx_local(pcols_local), rrho_local(pcols_local)
+    real(r8), target, intent(in) :: ustar_local(pcols_local), leng_max_local(pver_local+1)
+    integer(i4), target, intent(in) :: ncvfin_local(pcols_local), ktop_local(pcols_local,ncvmax_local)
+    integer(i4), target, intent(in) :: kbase_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: kvh_local(pcols_local,pver_local+1), kvm_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: leng_local(pcols_local,pver_local+1), tke_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: wcap_local(pcols_local,pver_local+1), bprod_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: sprod_local(pcols_local,pver_local+1), sm_aw_local(pcols_local,pver_local+1)
+    integer(i4), target, intent(inout) :: turbtype_local(pcols_local,pver_local+1)
+    integer(i4), target, intent(inout) :: ipbl_local(pcols_local), kpblh_local(pcols_local)
+    real(r8), target, intent(inout) :: pblh_local(pcols_local), pblhp_local(pcols_local), wpert_local(pcols_local)
+    real(r8), target, intent(inout) :: tpert_local(pcols_local), qpert_local(pcols_local)
+    real(r8), target, intent(in) :: tkes_local(pcols_local), bflxs_local(pcols_local)
+    real(r8), target, intent(inout) :: gh_a_local(pcols_local,pver_local+1), sh_a_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: sm_a_local(pcols_local,pver_local+1), ri_a_local(pcols_local,pver_local+1)
+
+    integer(i4), target :: clmask_local(pver_local+1), stlmask_local(pver_local+1)
+
+    interface
+       subroutine eddy_diff_caleddy_post_batch_codon(stage_c, i_c, pcols_c, pver_c, ncvmax_c, tunl_mode_c, leng_mode_c, &
+            ricrit_c, tunl_c, ctunl_c, cleng_c, lbulk_max_c, tkemax_c, b1_c, ae_c, alph1_c, alph2_c, alph3_c, alph4_c, &
+            alph4exs_c, alph5_c, ghmin_c, vk_c, fak_c, cpair_c, ri_p, z_p, zi_p, pi_p, n2_p, s2_p, shflx_p, qflx_p, &
+            rrho_p, ustar_p, leng_max_p, ncvfin_p, ktop_p, kbase_p, kvh_p, kvm_p, leng_p, tke_p, wcap_p, bprod_p, &
+            sprod_p, turbtype_p, sm_aw_p, pblh_p, pblhp_p, wpert_p, tpert_p, qpert_p, ipbl_p, kpblh_p, tkes_p, bflxs_p, &
+            gh_a_p, sh_a_p, sm_a_p, ri_a_p, clmask_p, stlmask_p) bind(c, name="eddy_diff_caleddy_post_batch_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: stage_c, i_c, pcols_c, pver_c, ncvmax_c, tunl_mode_c, leng_mode_c
+         real(c_double), value :: ricrit_c, tunl_c, ctunl_c, cleng_c, lbulk_max_c, tkemax_c, b1_c, ae_c, alph1_c
+         real(c_double), value :: alph2_c, alph3_c, alph4_c, alph4exs_c, alph5_c, ghmin_c, vk_c, fak_c, cpair_c
+         type(c_ptr), value :: ri_p, z_p, zi_p, pi_p, n2_p, s2_p, shflx_p, qflx_p, rrho_p, ustar_p, leng_max_p
+         type(c_ptr), value :: ncvfin_p, ktop_p, kbase_p, kvh_p, kvm_p, leng_p, tke_p, wcap_p, bprod_p, sprod_p
+         type(c_ptr), value :: turbtype_p, sm_aw_p, pblh_p, pblhp_p, wpert_p, tpert_p, qpert_p, ipbl_p, kpblh_p
+         type(c_ptr), value :: tkes_p, bflxs_p, gh_a_p, sh_a_p, sm_a_p, ri_a_p, clmask_p, stlmask_p
+       end subroutine eddy_diff_caleddy_post_batch_codon
+    end interface
+
+    call eddy_diff_caleddy_post_batch_select_impl()
+
+    if (use_native_caleddy_post_batch_impl) then
+       select case (stage)
+       case (1)
+          call eddy_diff_caleddy_stl(i_local, pcols_local, pver_local, ncvmax_local, tunl_mode_local, leng_mode_local, &
+               ricrit_local, tunl_local, ctunl_local, cleng_local, lbulk_max_local, tkemax_local, b1_local, ae_local, &
+               alph1_local, alph2_local, alph3_local, alph4exs_local, alph5_local, ghmin_local, vk_local, fak_local, &
+               cpair_local, ri_local, z_local, zi_local, pi_local, n2_local, s2_local, shflx_local, qflx_local, rrho_local, &
+               ustar_local, leng_max_local, ncvfin_local, ktop_local, kbase_local, kvh_local, kvm_local, leng_local, &
+               tke_local, wcap_local, bprod_local, sprod_local, turbtype_local, sm_aw_local, pblh_local, pblhp_local, &
+               wpert_local, tpert_local, qpert_local, ipbl_local, kpblh_local)
+       case (2)
+          call eddy_diff_caleddy_diag(i_local, pcols_local, pver_local, ricrit_local, tkes_local, b1_local, alph1_local, &
+               alph2_local, alph3_local, alph4_local, alph4exs_local, alph5_local, ghmin_local, vk_local, z_local, ri_local, &
+               bflxs_local, bprod_local, sprod_local, gh_a_local, sh_a_local, sm_a_local, ri_a_local, sm_aw_local)
+       end select
+       return
+    end if
+
+    call eddy_diff_caleddy_post_batch_log_entered()
+    call eddy_diff_caleddy_post_batch_codon( &
+         int(stage, c_int64_t), int(i_local, c_int64_t), int(pcols_local, c_int64_t), int(pver_local, c_int64_t), &
+         int(ncvmax_local, c_int64_t), int(tunl_mode_local, c_int64_t), int(leng_mode_local, c_int64_t), &
+         real(ricrit_local, c_double), real(tunl_local, c_double), real(ctunl_local, c_double), real(cleng_local, c_double), &
+         real(lbulk_max_local, c_double), real(tkemax_local, c_double), real(b1_local, c_double), real(ae_local, c_double), &
+         real(alph1_local, c_double), real(alph2_local, c_double), real(alph3_local, c_double), real(alph4_local, c_double), &
+         real(alph4exs_local, c_double), real(alph5_local, c_double), real(ghmin_local, c_double), real(vk_local, c_double), &
+         real(fak_local, c_double), real(cpair_local, c_double), c_loc(ri_local), c_loc(z_local), c_loc(zi_local), c_loc(pi_local), &
+         c_loc(n2_local), c_loc(s2_local), c_loc(shflx_local), c_loc(qflx_local), c_loc(rrho_local), c_loc(ustar_local), &
+         c_loc(leng_max_local), c_loc(ncvfin_local), c_loc(ktop_local), c_loc(kbase_local), c_loc(kvh_local), c_loc(kvm_local), &
+         c_loc(leng_local), c_loc(tke_local), c_loc(wcap_local), c_loc(bprod_local), c_loc(sprod_local), c_loc(turbtype_local), &
+         c_loc(sm_aw_local), c_loc(pblh_local), c_loc(pblhp_local), c_loc(wpert_local), c_loc(tpert_local), c_loc(qpert_local), &
+         c_loc(ipbl_local), c_loc(kpblh_local), c_loc(tkes_local), c_loc(bflxs_local), c_loc(gh_a_local), c_loc(sh_a_local), &
+         c_loc(sm_a_local), c_loc(ri_a_local), c_loc(clmask_local), c_loc(stlmask_local))
+
+  end subroutine eddy_diff_caleddy_post_batch_call
 
   !=============================================================================== !
   !                                                                                !
@@ -8893,10 +9086,11 @@
                s2, shflx, qflx, rrho, ustar, leng_max, ncvfin, ktop, kbase, kvh, kvm, leng, tke, wcap, bprod, sprod, &
                turbtype, sm_aw, pblh, pblhp, wpert, tpert, qpert, ipbl, kpblh)
        else
-          call eddy_diff_caleddy_stl(i, pcols, pver, ncvmax, tunl_mode, leng_mode, ricrit, tunl, ctunl, cleng, lbulk_max, &
-               tkemax, b1, ae, alph1, alph2, alph3, alph4exs, alph5, ghmin, vk, fak, cpair, ri, z, zi, pi, n2, s2, shflx, &
-               qflx, rrho, ustar, leng_max, ncvfin, ktop, kbase, kvh, kvm, leng, tke, wcap, bprod, sprod, turbtype, sm_aw, &
-               pblh, pblhp, wpert, tpert, qpert, ipbl, kpblh)
+          call eddy_diff_caleddy_post_batch_call(1, i, pcols, pver, ncvmax, tunl_mode, leng_mode, ricrit, tunl, ctunl, &
+               cleng, lbulk_max, tkemax, b1, ae, alph1, alph2, alph3, alph4, alph4exs, alph5, ghmin, vk, fak, cpair, ri, &
+               z, zi, pi, n2, s2, shflx, qflx, rrho, ustar, leng_max, ncvfin, ktop, kbase, kvh, kvm, leng, tke, wcap, &
+               bprod, sprod, turbtype, sm_aw, pblh, pblhp, wpert, tpert, qpert, ipbl, kpblh, tkes, bflxs, gh_a, sh_a, &
+               sm_a, ri_a)
        end if
 
        ! As an option, we can impose a certain minimum back-ground diffusivity.
@@ -8926,8 +9120,11 @@
           call eddy_diff_caleddy_diag_native(i, pcols, pver, ricrit, tkes, b1, alph1, alph2, alph3, alph4, alph4exs, alph5, &
                ghmin, vk, z, ri, bflxs, bprod, sprod, gh_a, sh_a, sm_a, ri_a, sm_aw)
        else
-          call eddy_diff_caleddy_diag(i, pcols, pver, ricrit, tkes, b1, alph1, alph2, alph3, alph4, alph4exs, alph5, ghmin, &
-               vk, z, ri, bflxs, bprod, sprod, gh_a, sh_a, sm_a, ri_a, sm_aw)
+          call eddy_diff_caleddy_post_batch_call(2, i, pcols, pver, ncvmax, tunl_mode, leng_mode, ricrit, tunl, ctunl, &
+               cleng, lbulk_max, tkemax, b1, ae, alph1, alph2, alph3, alph4, alph4exs, alph5, ghmin, vk, fak, cpair, ri, &
+               z, zi, pi, n2, s2, shflx, qflx, rrho, ustar, leng_max, ncvfin, ktop, kbase, kvh, kvm, leng, tke, wcap, &
+               bprod, sprod, turbtype, sm_aw, pblh, pblhp, wpert, tpert, qpert, ipbl, kpblh, tkes, bflxs, gh_a, sh_a, &
+               sm_a, ri_a)
        end if
 
     end do   ! End of column index loop, i
