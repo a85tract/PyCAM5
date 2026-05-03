@@ -243,6 +243,9 @@
   logical                     :: caleddy_stable_config_impl_selected = .false.
   logical                     :: use_native_caleddy_surface_tke_impl = .false.
   logical                     :: caleddy_surface_tke_impl_selected = .false.
+  logical                     :: use_native_caleddy_light_batch_impl = .false.
+  logical                     :: caleddy_light_batch_impl_selected = .false.
+  logical                     :: caleddy_light_batch_entered_logged = .false.
   logical                     :: use_native_zisocl_surface_energy_impl = .false.
   logical                     :: zisocl_surface_energy_impl_selected = .false.
   logical                     :: use_native_zisocl_surface_state_impl = .false.
@@ -1669,6 +1672,172 @@
          c_loc(slfd_local), c_loc(qtfd_local), c_loc(qi_local), c_loc(z_local))
 
   end subroutine eddy_diff_driver_front_batch_call
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_light_batch_append_proof(proof_line)
+
+    implicit none
+
+    character(len=*), intent(in) :: proof_line
+
+    character(len=512) :: proof_file
+    integer :: status, n, unitno
+
+    proof_file = ''
+    call get_environment_variable('EDDY_DIFF_CALEDDY_LIGHT_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+       write(unitno,'(A)') trim(proof_line)
+       close(unitno)
+    end if
+
+  end subroutine eddy_diff_caleddy_light_batch_append_proof
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_light_batch_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (caleddy_light_batch_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_CALEDDY_LIGHT_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_caleddy_light_batch_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_caleddy_light_batch_impl = .false.
+    end if
+
+    caleddy_light_batch_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_caleddy_light_batch_impl) then
+          write(iulog,*) 'eddy_diff_caleddy_light_batch implementation = native'
+          write(*,*) 'eddy_diff_caleddy_light_batch implementation = native'
+          call eddy_diff_append_impl_trace('eddy_diff_caleddy_light_batch implementation = native')
+          call eddy_diff_caleddy_light_batch_append_proof('eddy_diff_caleddy_light_batch selector entered implementation = native')
+       else
+          write(iulog,*) 'eddy_diff_caleddy_light_batch implementation = codon'
+          write(*,*) 'eddy_diff_caleddy_light_batch implementation = codon'
+          call eddy_diff_append_impl_trace('eddy_diff_caleddy_light_batch implementation = codon')
+          call eddy_diff_caleddy_light_batch_append_proof('eddy_diff_caleddy_light_batch selector entered implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine eddy_diff_caleddy_light_batch_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_light_batch_log_entered()
+
+    implicit none
+
+    if (caleddy_light_batch_entered_logged) return
+    caleddy_light_batch_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'eddy_diff_caleddy_light_batch entered (stable/regime/surface_tke direct = codon)'
+       write(*,*) 'eddy_diff_caleddy_light_batch entered (stable/regime/surface_tke direct = codon)'
+       call eddy_diff_append_impl_trace('eddy_diff_caleddy_light_batch entered (stable/regime/surface_tke direct = codon)')
+       call eddy_diff_caleddy_light_batch_append_proof('eddy_diff_caleddy_light_batch entered (stable/regime/surface_tke direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine eddy_diff_caleddy_light_batch_log_entered
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine eddy_diff_caleddy_light_batch_call(stage, i_local, pcols_local, pver_local, ncvmax_local, ricrit_local, &
+       b1_local, alph2_local, alph3_local, alph4_local, alph5_local, vk_local, tkemax_local, alph4exs_local, ghmin_local, &
+       stable_config_status_local, kbase_local, ktop_local, ncvfin_local, kbase_diag_local, ktop_diag_local, &
+       ncvfin_diag_local, z_local, bprod_local, sprod_local, tkes_local, tke_local, wcap_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer, intent(in) :: stage, i_local, pcols_local, pver_local, ncvmax_local
+    real(r8), intent(in) :: ricrit_local, b1_local, alph2_local, alph3_local, alph4_local, alph5_local
+    real(r8), intent(in) :: vk_local, tkemax_local
+    real(r8), target, intent(inout) :: alph4exs_local, ghmin_local
+    integer(i4), target, intent(inout) :: stable_config_status_local
+    integer(i4), target, intent(in) :: kbase_local(pcols_local,ncvmax_local), ktop_local(pcols_local,ncvmax_local)
+    integer(i4), target, intent(in) :: ncvfin_local(pcols_local)
+    real(r8), target, intent(inout) :: kbase_diag_local(pcols_local,ncvmax_local)
+    real(r8), target, intent(inout) :: ktop_diag_local(pcols_local,ncvmax_local), ncvfin_diag_local(pcols_local)
+    real(r8), target, intent(in) :: z_local(pcols_local,pver_local), bprod_local(pcols_local,pver_local+1)
+    real(r8), target, intent(in) :: sprod_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: tkes_local(pcols_local), tke_local(pcols_local,pver_local+1)
+    real(r8), target, intent(inout) :: wcap_local(pcols_local,pver_local+1)
+
+    interface
+       subroutine eddy_diff_caleddy_light_batch_codon(stage_c, i_c, pcols_c, pver_c, ncvmax_c, ricrit_c, b1_c, &
+            alph2_c, alph3_c, alph4_c, alph5_c, vk_c, tkemax_c, alph4exs_p, ghmin_p, status_p, kbase_p, ktop_p, &
+            ncvfin_p, kbase_diag_p, ktop_diag_p, ncvfin_diag_p, z_p, bprod_p, sprod_p, tkes_p, tke_p, wcap_p) &
+            bind(c, name="eddy_diff_caleddy_light_batch_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: stage_c, i_c, pcols_c, pver_c, ncvmax_c
+         real(c_double), value :: ricrit_c, b1_c, alph2_c, alph3_c, alph4_c, alph5_c, vk_c, tkemax_c
+         type(c_ptr), value :: alph4exs_p, ghmin_p, status_p, kbase_p, ktop_p, ncvfin_p
+         type(c_ptr), value :: kbase_diag_p, ktop_diag_p, ncvfin_diag_p, z_p, bprod_p, sprod_p, tkes_p, tke_p, wcap_p
+       end subroutine eddy_diff_caleddy_light_batch_codon
+    end interface
+
+    call eddy_diff_caleddy_light_batch_select_impl()
+
+    if (use_native_caleddy_light_batch_impl) then
+       select case (stage)
+       case (1)
+          call eddy_diff_caleddy_stable_config(ricrit_local, b1_local, alph2_local, alph3_local, alph4_local, &
+               alph5_local, alph4exs_local, ghmin_local)
+       case (2)
+          call eddy_diff_caleddy_regime_diag(i_local, pcols_local, ncvmax_local, kbase_local, ktop_local, ncvfin_local, &
+               kbase_diag_local, ktop_diag_local, ncvfin_diag_local)
+       case (3)
+          call eddy_diff_caleddy_surface_tke(i_local, pcols_local, pver_local, b1_local, vk_local, tkemax_local, z_local, &
+               bprod_local, sprod_local, tkes_local, tke_local, wcap_local)
+       end select
+       return
+    end if
+
+    call eddy_diff_caleddy_light_batch_log_entered()
+    call eddy_diff_caleddy_light_batch_codon( &
+         int(stage, c_int64_t), int(i_local, c_int64_t), int(pcols_local, c_int64_t), int(pver_local, c_int64_t), &
+         int(ncvmax_local, c_int64_t), real(ricrit_local, c_double), real(b1_local, c_double), &
+         real(alph2_local, c_double), real(alph3_local, c_double), real(alph4_local, c_double), &
+         real(alph5_local, c_double), real(vk_local, c_double), real(tkemax_local, c_double), &
+         c_loc(alph4exs_local), c_loc(ghmin_local), c_loc(stable_config_status_local), c_loc(kbase_local), &
+         c_loc(ktop_local), c_loc(ncvfin_local), c_loc(kbase_diag_local), c_loc(ktop_diag_local), &
+         c_loc(ncvfin_diag_local), c_loc(z_local), c_loc(bprod_local), c_loc(sprod_local), c_loc(tkes_local), &
+         c_loc(tke_local), c_loc(wcap_local))
+
+    if (stage == 1 .and. stable_config_status_local .ne. 0_i4) then
+       write(iulog,*) 'Error : ricrit should be larger than 0.19 in UW PBL'
+       call endrun('CALEDDY Error: ricrit should be larger than 0.19 in UW PBL')
+    end if
+
+  end subroutine eddy_diff_caleddy_light_batch_call
 
   !=============================================================================== !
   !                                                                                !
@@ -8269,8 +8438,8 @@
     real(r8) :: tke_imsi                              !
     real(r8) :: kvh_imsi                              !
     real(r8) :: kvm_imsi                              !
-    real(r8) :: alph4exs                              ! For extended stability function in the stable regime
-    real(r8) :: ghmin                                 !   
+    real(r8), target :: alph4exs                      ! For extended stability function in the stable regime
+    real(r8), target :: ghmin
 
     real(r8) :: sedfact                               ! For 'sedimentation-entrainment feedback' 
 
@@ -8293,7 +8462,7 @@
     integer(i4), target :: belongcv_mask_local(pver+1), stlmask_local(pver+1), zero_tke_mask_local(pver+1)
     integer(i4), target :: extend_codon, extend_up_codon, extend_dn_codon, zisocl_status_codon
     integer(i4), target :: ncvsurf_codon, srcl_status_codon, closure_status_local(3), caleddy_status_local(3)
-    integer(i4) :: stable_config_status_local
+    integer(i4), target :: stable_config_status_local
 
     interface
        subroutine eddy_diff_caleddy_codon(pcols_c, pver_c, ncol_c, ncvmax_c, ntop_turb_c, nbot_turb_c, qrlzero_mode_c, &
@@ -8355,7 +8524,10 @@
           call endrun('CALEDDY Error: ricrit should be larger than 0.19 in UW PBL')
        end if
     else
-       call eddy_diff_caleddy_stable_config(ricrit, b1, alph2, alph3, alph4, alph5, alph4exs, ghmin)
+       stable_config_status_local = 0_i4
+       call eddy_diff_caleddy_light_batch_call(1, 1, pcols, pver, ncvmax, ricrit, b1, alph2, alph3, alph4, alph5, vk, &
+            tkemax, alph4exs, ghmin, stable_config_status_local, kbase, ktop, ncvfin, kbase_o, ktop_o, ncvfin_o, z, &
+            bprod, sprod, tkes, tke, wcap)
     end if
 
     tunl_mode = 0
@@ -8479,7 +8651,9 @@
        if (use_native_caleddy_impl) then
           call eddy_diff_caleddy_regime_diag_native(i, pcols, ncvmax, kbase, ktop, ncvfin, kbase_o, ktop_o, ncvfin_o)
        else
-          call eddy_diff_caleddy_regime_diag(i, pcols, ncvmax, kbase, ktop, ncvfin, kbase_o, ktop_o, ncvfin_o)
+          call eddy_diff_caleddy_light_batch_call(2, i, pcols, pver, ncvmax, ricrit, b1, alph2, alph3, alph4, alph5, vk, &
+               tkemax, alph4exs, ghmin, stable_config_status_local, kbase, ktop, ncvfin, kbase_o, ktop_o, ncvfin_o, z, &
+               bprod, sprod, tkes, tke, wcap)
        end if
     end do
 
@@ -8509,7 +8683,9 @@
        if (use_native_caleddy_impl) then
           call eddy_diff_caleddy_surface_tke_native(i, pcols, pver, b1, vk, tkemax, z, bprod, sprod, tkes, tke, wcap)
        else
-          call eddy_diff_caleddy_surface_tke(i, pcols, pver, b1, vk, tkemax, z, bprod, sprod, tkes, tke, wcap)
+          call eddy_diff_caleddy_light_batch_call(3, i, pcols, pver, ncvmax, ricrit, b1, alph2, alph3, alph4, alph5, vk, &
+               tkemax, alph4exs, ghmin, stable_config_status_local, kbase, ktop, ncvfin, kbase_o, ktop_o, ncvfin_o, z, &
+               bprod, sprod, tkes, tke, wcap)
        end if
 
        ! Extend and merge the initially identified CLs, relabel the CLs, and calculate
@@ -8566,7 +8742,9 @@
        if (use_native_caleddy_impl) then
           call eddy_diff_caleddy_regime_diag_native(i, pcols, ncvmax, kbase, ktop, ncvfin, kbase_mg, ktop_mg, ncvfin_mg)
        else
-          call eddy_diff_caleddy_regime_diag(i, pcols, ncvmax, kbase, ktop, ncvfin, kbase_mg, ktop_mg, ncvfin_mg)
+          call eddy_diff_caleddy_light_batch_call(2, i, pcols, pver, ncvmax, ricrit, b1, alph2, alph3, alph4, alph5, vk, &
+               tkemax, alph4exs, ghmin, stable_config_status_local, kbase, ktop, ncvfin, kbase_mg, ktop_mg, ncvfin_mg, z, &
+               bprod, sprod, tkes, tke, wcap)
        end if
 
        ! ----------------------- !
@@ -8654,7 +8832,9 @@
        if (use_native_caleddy_impl) then
           call eddy_diff_caleddy_regime_diag_native(i, pcols, ncvmax, kbase, ktop, ncvfin, kbase_f, ktop_f, ncvfin_f)
        else
-          call eddy_diff_caleddy_regime_diag(i, pcols, ncvmax, kbase, ktop, ncvfin, kbase_f, ktop_f, ncvfin_f)
+          call eddy_diff_caleddy_light_batch_call(2, i, pcols, pver, ncvmax, ricrit, b1, alph2, alph3, alph4, alph5, vk, &
+               tkemax, alph4exs, ghmin, stable_config_status_local, kbase, ktop, ncvfin, kbase_f, ktop_f, ncvfin_f, z, &
+               bprod, sprod, tkes, tke, wcap)
        end if
 
        ! --------------------------------------------------------------------- !

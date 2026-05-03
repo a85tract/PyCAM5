@@ -1307,6 +1307,78 @@ def eddy_diff_caleddy_surface_tke_codon(
     wcap[surf_idx] = tkes[i - 1] / b1
 
 
+@export
+def eddy_diff_caleddy_light_batch_codon(
+    stage: int,
+    i_col: int,
+    pcols: int,
+    pver: int,
+    ncvmax: int,
+    ricrit: float,
+    b1: float,
+    alph2: float,
+    alph3: float,
+    alph4: float,
+    alph5: float,
+    vk: float,
+    tkemax: float,
+    alph4exs_p: cobj,
+    ghmin_p: cobj,
+    status_p: cobj,
+    kbase_p: cobj,
+    ktop_p: cobj,
+    ncvfin_p: cobj,
+    kbase_diag_p: cobj,
+    ktop_diag_p: cobj,
+    ncvfin_diag_p: cobj,
+    z_p: cobj,
+    bprod_p: cobj,
+    sprod_p: cobj,
+    tkes_p: cobj,
+    tke_p: cobj,
+    wcap_p: cobj,
+):
+    if stage == 1:
+        eddy_diff_caleddy_stable_config_codon(
+            ricrit,
+            b1,
+            alph2,
+            alph3,
+            alph4,
+            alph5,
+            alph4exs_p,
+            ghmin_p,
+            status_p,
+        )
+    elif stage == 2:
+        eddy_diff_caleddy_regime_diag_codon(
+            i_col,
+            pcols,
+            ncvmax,
+            kbase_p,
+            ktop_p,
+            ncvfin_p,
+            kbase_diag_p,
+            ktop_diag_p,
+            ncvfin_diag_p,
+        )
+    elif stage == 3:
+        eddy_diff_caleddy_surface_tke_codon(
+            i_col,
+            pcols,
+            pver,
+            b1,
+            vk,
+            tkemax,
+            z_p,
+            bprod_p,
+            sprod_p,
+            tkes_p,
+            tke_p,
+            wcap_p,
+        )
+
+
 @inline
 def _eddy_diff_zisocl_surface_energy_values(
     alph1: float,
