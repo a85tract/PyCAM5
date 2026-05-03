@@ -155,6 +155,9 @@ module vertical_diffusion
   logical              :: pre_qsat_rh_impl_selected = .false.
   logical              :: use_native_post_qsat_diag_impl = .false.
   logical              :: post_qsat_diag_impl_selected = .false.
+  logical              :: use_native_diag_batch_impl = .false.
+  logical              :: diag_batch_impl_selected = .false.
+  logical              :: diag_batch_entered_logged = .false.
   integer              :: tend_branch_mask = 0
   logical              :: tend_branch_selected = .false.
   integer              :: pmam_ncnst = 0               ! number of prognostic modal aerosol constituents
@@ -826,6 +829,206 @@ contains
   !                                                                                 !
   ! =============================================================================== !
 
+  subroutine vertical_diffusion_diag_batch_append_proof(proof_line)
+
+    character(len=*), intent(in) :: proof_line
+    character(len=512) :: proof_file
+    integer :: status, n, unitno
+
+    proof_file = ''
+    call get_environment_variable('VERTICAL_DIFFUSION_DIAG_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+       write(unitno,'(A)') trim(proof_line)
+       close(unitno)
+    end if
+
+  end subroutine vertical_diffusion_diag_batch_append_proof
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_diag_batch_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (diag_batch_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('VERTICAL_DIFFUSION_DIAG_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_diag_batch_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_diag_batch_impl = .false.
+    end if
+
+    diag_batch_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_diag_batch_impl) then
+          write(iulog,*) 'vertical_diffusion_diag_batch implementation = native'
+          call vertical_diffusion_diag_batch_append_proof('vertical_diffusion_diag_batch selector entered implementation = native')
+       else
+          write(iulog,*) 'vertical_diffusion_diag_batch implementation = codon'
+          call vertical_diffusion_diag_batch_append_proof('vertical_diffusion_diag_batch selector entered implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine vertical_diffusion_diag_batch_select_impl
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_diag_batch_log_entered()
+
+    if (diag_batch_entered_logged) return
+    diag_batch_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'vertical_diffusion_diag_batch entered (pre/post PBL diagnostics direct = codon)'
+       call vertical_diffusion_diag_batch_append_proof('vertical_diffusion_diag_batch entered (pre/post PBL diagnostics direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine vertical_diffusion_diag_batch_log_entered
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_diag_batch_call(stage, ncol, psetcols_local, rztodt_local, ztodt_local, &
+       state_q_local, state_s_local, state_u_local, state_v_local, state_t_local, state_zm_local, &
+       q_tmp_local, s_tmp_local, u_tmp_local, v_tmp_local, sl_prePBL_local, qt_prePBL_local, slv_prePBL_local, &
+       ftem_local, ftem_prePBL_local, ptend_q_local, ptend_s_local, ptend_u_local, ptend_v_local, &
+       qv_aft_PBL_local, ql_aft_PBL_local, qi_aft_PBL_local, s_aft_PBL_local, t_aftPBL_local, &
+       u_aft_PBL_local, v_aft_PBL_local, ftem_aftPBL_local, tten_local, rhten_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
+
+    integer, intent(in) :: stage
+    integer, intent(in) :: ncol
+    integer, optional, intent(in) :: psetcols_local
+    real(r8), optional, intent(in) :: rztodt_local, ztodt_local
+    real(r8), target, optional, intent(in) :: state_q_local(pcols,pver,pcnst)
+    real(r8), target, optional, intent(in) :: state_s_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: state_u_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: state_v_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: state_t_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: state_zm_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: q_tmp_local(pcols,pver,pcnst)
+    real(r8), target, optional, intent(in) :: s_tmp_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: u_tmp_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: v_tmp_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: sl_prePBL_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: qt_prePBL_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: slv_prePBL_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: ftem_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: ftem_prePBL_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: ptend_q_local(:,:,:)
+    real(r8), target, optional, intent(in) :: ptend_s_local(:,:)
+    real(r8), target, optional, intent(in) :: ptend_u_local(:,:)
+    real(r8), target, optional, intent(in) :: ptend_v_local(:,:)
+    real(r8), target, optional, intent(in) :: qv_aft_PBL_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: ql_aft_PBL_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: qi_aft_PBL_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: s_aft_PBL_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: t_aftPBL_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: u_aft_PBL_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: v_aft_PBL_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: ftem_aftPBL_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: tten_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: rhten_local(pcols,pver)
+
+    integer(c_int64_t) :: psetcols_c
+    real(c_double) :: rztodt_c, ztodt_c
+    type(c_ptr) :: state_q_p, state_s_p, state_u_p, state_v_p, state_t_p, state_zm_p
+    type(c_ptr) :: q_tmp_p, s_tmp_p, u_tmp_p, v_tmp_p, sl_prePBL_p, qt_prePBL_p, slv_prePBL_p
+    type(c_ptr) :: ftem_p, ftem_prePBL_p, ptend_q_p, ptend_s_p, ptend_u_p, ptend_v_p
+    type(c_ptr) :: qv_aft_PBL_p, ql_aft_PBL_p, qi_aft_PBL_p, s_aft_PBL_p, t_aftPBL_p
+    type(c_ptr) :: u_aft_PBL_p, v_aft_PBL_p, ftem_aftPBL_p, tten_p, rhten_p
+
+    interface
+       subroutine vertical_diffusion_diag_batch_codon(stage_c, ncol_c, pcols_c, pver_c, pcnst_c, psetcols_c, &
+            ixcldliq_c, ixcldice_c, latvap_c, latice_c, zvir_c, rztodt_c, ztodt_c, gravit_c, cpair_c, &
+            state_q_p, state_s_p, state_u_p, state_v_p, state_t_p, state_zm_p, q_tmp_p, s_tmp_p, u_tmp_p, v_tmp_p, &
+            sl_prePBL_p, qt_prePBL_p, slv_prePBL_p, ftem_p, ftem_prePBL_p, ptend_q_p, ptend_s_p, ptend_u_p, &
+            ptend_v_p, qv_aft_PBL_p, ql_aft_PBL_p, qi_aft_PBL_p, s_aft_PBL_p, t_aftPBL_p, u_aft_PBL_p, &
+            v_aft_PBL_p, ftem_aftPBL_p, tten_p, rhten_p) bind(c, name="vertical_diffusion_diag_batch_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, pcnst_c, psetcols_c, ixcldliq_c, ixcldice_c
+         real(c_double), value :: latvap_c, latice_c, zvir_c, rztodt_c, ztodt_c, gravit_c, cpair_c
+         type(c_ptr), value :: state_q_p, state_s_p, state_u_p, state_v_p, state_t_p, state_zm_p
+         type(c_ptr), value :: q_tmp_p, s_tmp_p, u_tmp_p, v_tmp_p, sl_prePBL_p, qt_prePBL_p, slv_prePBL_p
+         type(c_ptr), value :: ftem_p, ftem_prePBL_p, ptend_q_p, ptend_s_p, ptend_u_p, ptend_v_p
+         type(c_ptr), value :: qv_aft_PBL_p, ql_aft_PBL_p, qi_aft_PBL_p, s_aft_PBL_p, t_aftPBL_p
+         type(c_ptr), value :: u_aft_PBL_p, v_aft_PBL_p, ftem_aftPBL_p, tten_p, rhten_p
+       end subroutine vertical_diffusion_diag_batch_codon
+    end interface
+
+    psetcols_c = int(pcols, c_int64_t)
+    if (present(psetcols_local)) psetcols_c = int(psetcols_local, c_int64_t)
+    rztodt_c = 0._c_double
+    ztodt_c = 0._c_double
+    if (present(rztodt_local)) rztodt_c = real(rztodt_local, c_double)
+    if (present(ztodt_local)) ztodt_c = real(ztodt_local, c_double)
+
+    state_q_p = c_null_ptr; if (present(state_q_local)) state_q_p = c_loc(state_q_local)
+    state_s_p = c_null_ptr; if (present(state_s_local)) state_s_p = c_loc(state_s_local)
+    state_u_p = c_null_ptr; if (present(state_u_local)) state_u_p = c_loc(state_u_local)
+    state_v_p = c_null_ptr; if (present(state_v_local)) state_v_p = c_loc(state_v_local)
+    state_t_p = c_null_ptr; if (present(state_t_local)) state_t_p = c_loc(state_t_local)
+    state_zm_p = c_null_ptr; if (present(state_zm_local)) state_zm_p = c_loc(state_zm_local)
+    q_tmp_p = c_null_ptr; if (present(q_tmp_local)) q_tmp_p = c_loc(q_tmp_local)
+    s_tmp_p = c_null_ptr; if (present(s_tmp_local)) s_tmp_p = c_loc(s_tmp_local)
+    u_tmp_p = c_null_ptr; if (present(u_tmp_local)) u_tmp_p = c_loc(u_tmp_local)
+    v_tmp_p = c_null_ptr; if (present(v_tmp_local)) v_tmp_p = c_loc(v_tmp_local)
+    sl_prePBL_p = c_null_ptr; if (present(sl_prePBL_local)) sl_prePBL_p = c_loc(sl_prePBL_local)
+    qt_prePBL_p = c_null_ptr; if (present(qt_prePBL_local)) qt_prePBL_p = c_loc(qt_prePBL_local)
+    slv_prePBL_p = c_null_ptr; if (present(slv_prePBL_local)) slv_prePBL_p = c_loc(slv_prePBL_local)
+    ftem_p = c_null_ptr; if (present(ftem_local)) ftem_p = c_loc(ftem_local)
+    ftem_prePBL_p = c_null_ptr; if (present(ftem_prePBL_local)) ftem_prePBL_p = c_loc(ftem_prePBL_local)
+    ptend_q_p = c_null_ptr; if (present(ptend_q_local)) ptend_q_p = c_loc(ptend_q_local)
+    ptend_s_p = c_null_ptr; if (present(ptend_s_local)) ptend_s_p = c_loc(ptend_s_local)
+    ptend_u_p = c_null_ptr; if (present(ptend_u_local)) ptend_u_p = c_loc(ptend_u_local)
+    ptend_v_p = c_null_ptr; if (present(ptend_v_local)) ptend_v_p = c_loc(ptend_v_local)
+    qv_aft_PBL_p = c_null_ptr; if (present(qv_aft_PBL_local)) qv_aft_PBL_p = c_loc(qv_aft_PBL_local)
+    ql_aft_PBL_p = c_null_ptr; if (present(ql_aft_PBL_local)) ql_aft_PBL_p = c_loc(ql_aft_PBL_local)
+    qi_aft_PBL_p = c_null_ptr; if (present(qi_aft_PBL_local)) qi_aft_PBL_p = c_loc(qi_aft_PBL_local)
+    s_aft_PBL_p = c_null_ptr; if (present(s_aft_PBL_local)) s_aft_PBL_p = c_loc(s_aft_PBL_local)
+    t_aftPBL_p = c_null_ptr; if (present(t_aftPBL_local)) t_aftPBL_p = c_loc(t_aftPBL_local)
+    u_aft_PBL_p = c_null_ptr; if (present(u_aft_PBL_local)) u_aft_PBL_p = c_loc(u_aft_PBL_local)
+    v_aft_PBL_p = c_null_ptr; if (present(v_aft_PBL_local)) v_aft_PBL_p = c_loc(v_aft_PBL_local)
+    ftem_aftPBL_p = c_null_ptr; if (present(ftem_aftPBL_local)) ftem_aftPBL_p = c_loc(ftem_aftPBL_local)
+    tten_p = c_null_ptr; if (present(tten_local)) tten_p = c_loc(tten_local)
+    rhten_p = c_null_ptr; if (present(rhten_local)) rhten_p = c_loc(rhten_local)
+
+    call vertical_diffusion_diag_batch_log_entered()
+    call vertical_diffusion_diag_batch_codon( &
+         int(stage, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(pcnst, c_int64_t), psetcols_c, int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), &
+         real(latvap, c_double), real(latice, c_double), real(zvir, c_double), rztodt_c, ztodt_c, &
+         real(gravit, c_double), real(cpair, c_double), state_q_p, state_s_p, state_u_p, state_v_p, state_t_p, &
+         state_zm_p, q_tmp_p, s_tmp_p, u_tmp_p, v_tmp_p, sl_prePBL_p, qt_prePBL_p, slv_prePBL_p, ftem_p, &
+         ftem_prePBL_p, ptend_q_p, ptend_s_p, ptend_u_p, ptend_v_p, qv_aft_PBL_p, ql_aft_PBL_p, qi_aft_PBL_p, &
+         s_aft_PBL_p, t_aftPBL_p, u_aft_PBL_p, v_aft_PBL_p, ftem_aftPBL_p, tten_p, rhten_p)
+
+  end subroutine vertical_diffusion_diag_batch_call
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
   subroutine vertical_diffusion_flux_diag_select_impl()
 
     character(len=32) :: impl_name
@@ -1246,21 +1449,18 @@ contains
        end subroutine vertical_diffusion_pre_pbl_diag_codon
     end interface
 
-    call vertical_diffusion_pre_pbl_diag_select_impl()
+    call vertical_diffusion_diag_batch_select_impl()
 
-    if (use_native_pre_pbl_diag_impl) then
+    if (use_native_diag_batch_impl) then
        call vertical_diffusion_pre_pbl_diag_native(ncol, state_q_local, state_s_local, state_u_local, state_v_local, &
             q_tmp_local, s_tmp_local, u_tmp_local, v_tmp_local, sl_prePBL_local, qt_prePBL_local, slv_prePBL_local)
        return
     end if
 
-    call vertical_diffusion_pre_pbl_diag_codon( &
-         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
-         int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), real(latvap, c_double), real(latice, c_double), &
-         real(zvir, c_double), c_loc(state_q_local), c_loc(state_s_local), c_loc(state_u_local), c_loc(state_v_local), &
-         c_loc(q_tmp_local), c_loc(s_tmp_local), c_loc(u_tmp_local), c_loc(v_tmp_local), c_loc(sl_prePBL_local), &
-         c_loc(qt_prePBL_local), c_loc(slv_prePBL_local) &
-    )
+    call vertical_diffusion_diag_batch_call(1, ncol, state_q_local=state_q_local, state_s_local=state_s_local, &
+         state_u_local=state_u_local, state_v_local=state_v_local, q_tmp_local=q_tmp_local, s_tmp_local=s_tmp_local, &
+         u_tmp_local=u_tmp_local, v_tmp_local=v_tmp_local, sl_prePBL_local=sl_prePBL_local, &
+         qt_prePBL_local=qt_prePBL_local, slv_prePBL_local=slv_prePBL_local)
 
   end subroutine vertical_diffusion_pre_pbl_diag
 
@@ -1381,9 +1581,9 @@ contains
        end subroutine vertical_diffusion_post_pbl_state_codon
     end interface
 
-    call vertical_diffusion_post_pbl_state_select_impl()
+    call vertical_diffusion_diag_batch_select_impl()
 
-    if (use_native_post_pbl_state_impl) then
+    if (use_native_diag_batch_impl) then
       call vertical_diffusion_post_pbl_state_native(ncol, psetcols_local, state_q_local, state_s_local, state_u_local, &
            state_v_local, state_zm_local, ptend_q_local, ptend_s_local, ptend_u_local, ptend_v_local, ztodt_local, &
            qv_aft_PBL_local, ql_aft_PBL_local, qi_aft_PBL_local, s_aft_PBL_local, t_aftPBL_local, u_aft_PBL_local, &
@@ -1391,15 +1591,13 @@ contains
       return
     end if
 
-    call vertical_diffusion_post_pbl_state_codon( &
-         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
-         int(psetcols_local, c_int64_t), int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), &
-         real(ztodt_local, c_double), real(gravit, c_double), real(cpair, c_double), c_loc(state_q_local), &
-         c_loc(state_s_local), c_loc(state_u_local), c_loc(state_v_local), c_loc(state_zm_local), c_loc(ptend_q_local), &
-         c_loc(ptend_s_local), c_loc(ptend_u_local), c_loc(ptend_v_local), c_loc(qv_aft_PBL_local), &
-         c_loc(ql_aft_PBL_local), c_loc(qi_aft_PBL_local), c_loc(s_aft_PBL_local), c_loc(t_aftPBL_local), &
-         c_loc(u_aft_PBL_local), c_loc(v_aft_PBL_local) &
-    )
+    call vertical_diffusion_diag_batch_call(3, ncol, psetcols_local=psetcols_local, ztodt_local=ztodt_local, &
+         state_q_local=state_q_local, state_s_local=state_s_local, state_u_local=state_u_local, &
+         state_v_local=state_v_local, state_zm_local=state_zm_local, ptend_q_local=ptend_q_local, &
+         ptend_s_local=ptend_s_local, ptend_u_local=ptend_u_local, ptend_v_local=ptend_v_local, &
+         qv_aft_PBL_local=qv_aft_PBL_local, ql_aft_PBL_local=ql_aft_PBL_local, qi_aft_PBL_local=qi_aft_PBL_local, &
+         s_aft_PBL_local=s_aft_PBL_local, t_aftPBL_local=t_aftPBL_local, u_aft_PBL_local=u_aft_PBL_local, &
+         v_aft_PBL_local=v_aft_PBL_local)
 
   end subroutine vertical_diffusion_post_pbl_state
 
@@ -1710,17 +1908,15 @@ contains
        end subroutine vertical_diffusion_pre_qsat_rh_codon
     end interface
 
-    call vertical_diffusion_pre_qsat_rh_select_impl()
+    call vertical_diffusion_diag_batch_select_impl()
 
-    if (use_native_pre_qsat_rh_impl) then
+    if (use_native_diag_batch_impl) then
        call vertical_diffusion_pre_qsat_rh_native(ncol, state_q_local, ftem_local, ftem_prePBL_local)
        return
     end if
 
-    call vertical_diffusion_pre_qsat_rh_codon( &
-         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), c_loc(state_q_local), c_loc(ftem_local), &
-         c_loc(ftem_prePBL_local) &
-    )
+    call vertical_diffusion_diag_batch_call(2, ncol, state_q_local=state_q_local, ftem_local=ftem_local, &
+         ftem_prePBL_local=ftem_prePBL_local)
 
   end subroutine vertical_diffusion_pre_qsat_rh
 
@@ -1809,19 +2005,17 @@ contains
        end subroutine vertical_diffusion_post_qsat_diag_codon
     end interface
 
-    call vertical_diffusion_post_qsat_diag_select_impl()
+    call vertical_diffusion_diag_batch_select_impl()
 
-    if (use_native_post_qsat_diag_impl) then
+    if (use_native_diag_batch_impl) then
        call vertical_diffusion_post_qsat_diag_native(ncol, state_t_local, qv_aft_PBL_local, ftem_prePBL_local, &
             t_aftPBL_local, ftem_local, rztodt_local, ftem_aftPBL_local, tten_local, rhten_local)
        return
     end if
 
-    call vertical_diffusion_post_qsat_diag_codon( &
-         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(rztodt_local, c_double), &
-         c_loc(state_t_local), c_loc(qv_aft_PBL_local), c_loc(ftem_prePBL_local), c_loc(t_aftPBL_local), &
-         c_loc(ftem_local), c_loc(ftem_aftPBL_local), c_loc(tten_local), c_loc(rhten_local) &
-    )
+    call vertical_diffusion_diag_batch_call(4, ncol, rztodt_local=rztodt_local, state_t_local=state_t_local, &
+         qv_aft_PBL_local=qv_aft_PBL_local, ftem_prePBL_local=ftem_prePBL_local, t_aftPBL_local=t_aftPBL_local, &
+         ftem_local=ftem_local, ftem_aftPBL_local=ftem_aftPBL_local, tten_local=tten_local, rhten_local=rhten_local)
 
   end subroutine vertical_diffusion_post_qsat_diag
 
