@@ -80,6 +80,41 @@ def h2o_to_vmr_codon(
         for i in range(1, ncol + 1):
             h2o_vmr[_idx2(i, k, ncol)] = mbar[_idx2(i, k, ncol)] * h2o_mmr[_idx2(i, k, pcols)] / adv_mass_h2o
 
+def mass_xforms_batch_mmr2vmr_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    mbar_p: cobj,
+    mmr_p: cobj,
+    adv_mass_p: cobj,
+    vmr_p: cobj,
+):
+    mmr2vmr_codon(ncol, pcols, pver, gas_pcnst, mbar_p, mmr_p, adv_mass_p, vmr_p)
+
+def mass_xforms_batch_vmr2mmr_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    mbar_p: cobj,
+    vmr_p: cobj,
+    adv_mass_p: cobj,
+    mmr_p: cobj,
+):
+    vmr2mmr_codon(ncol, pcols, pver, gas_pcnst, mbar_p, vmr_p, adv_mass_p, mmr_p)
+
+def mass_xforms_batch_h2o_to_vmr_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    adv_mass_h2o: float,
+    h2o_mmr_p: cobj,
+    mbar_p: cobj,
+    h2o_vmr_p: cobj,
+):
+    h2o_to_vmr_codon(ncol, pcols, pver, adv_mass_h2o, h2o_mmr_p, mbar_p, h2o_vmr_p)
+
 @inline
 def _gas_phase_chemdr_shell_h2o_from_q(
     ncol: int,

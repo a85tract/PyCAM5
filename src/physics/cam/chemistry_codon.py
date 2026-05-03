@@ -983,6 +983,70 @@ def h2o_to_vmr_codon(
     )
 
 @export
+def mass_xforms_batch_mmr2vmr_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    mbar_p: cobj,
+    mmr_p: cobj,
+    adv_mass_p: cobj,
+    vmr_p: cobj,
+):
+    return _gas_phase.mass_xforms_batch_mmr2vmr_codon(
+        ncol,
+        pcols,
+        pver,
+        gas_pcnst,
+        mbar_p,
+        mmr_p,
+        adv_mass_p,
+        vmr_p,
+    )
+
+@export
+def mass_xforms_batch_vmr2mmr_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    mbar_p: cobj,
+    vmr_p: cobj,
+    adv_mass_p: cobj,
+    mmr_p: cobj,
+):
+    return _gas_phase.mass_xforms_batch_vmr2mmr_codon(
+        ncol,
+        pcols,
+        pver,
+        gas_pcnst,
+        mbar_p,
+        vmr_p,
+        adv_mass_p,
+        mmr_p,
+    )
+
+@export
+def mass_xforms_batch_h2o_to_vmr_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    adv_mass_h2o: float,
+    h2o_mmr_p: cobj,
+    mbar_p: cobj,
+    h2o_vmr_p: cobj,
+):
+    return _gas_phase.mass_xforms_batch_h2o_to_vmr_codon(
+        ncol,
+        pcols,
+        pver,
+        adv_mass_h2o,
+        h2o_mmr_p,
+        mbar_p,
+        h2o_vmr_p,
+    )
+
+@export
 def set_mean_mass_codon(
     ncol: int,
     pcols: int,
