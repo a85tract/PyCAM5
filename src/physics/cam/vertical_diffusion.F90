@@ -158,6 +158,9 @@ module vertical_diffusion
   logical              :: use_native_diag_batch_impl = .false.
   logical              :: diag_batch_impl_selected = .false.
   logical              :: diag_batch_entered_logged = .false.
+  logical              :: use_native_core_batch_impl = .false.
+  logical              :: core_batch_impl_selected = .false.
+  logical              :: core_batch_entered_logged = .false.
   integer              :: tend_branch_mask = 0
   logical              :: tend_branch_selected = .false.
   integer              :: pmam_ncnst = 0               ! number of prognostic modal aerosol constituents
@@ -1024,6 +1027,232 @@ contains
          s_aft_PBL_p, t_aftPBL_p, u_aft_PBL_p, v_aft_PBL_p, ftem_aftPBL_p, tten_p, rhten_p)
 
   end subroutine vertical_diffusion_diag_batch_call
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_core_batch_append_proof(proof_line)
+
+    character(len=*), intent(in) :: proof_line
+    character(len=512) :: proof_file
+    integer :: status, n, unitno
+
+    proof_file = ''
+    call get_environment_variable('VERTICAL_DIFFUSION_CORE_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+       write(unitno,'(A)') trim(proof_line)
+       close(unitno)
+    end if
+
+  end subroutine vertical_diffusion_core_batch_append_proof
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_core_batch_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (core_batch_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('VERTICAL_DIFFUSION_CORE_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_core_batch_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_core_batch_impl = .false.
+    end if
+
+    core_batch_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_core_batch_impl) then
+          write(iulog,*) 'vertical_diffusion_core_batch implementation = native'
+          call vertical_diffusion_core_batch_append_proof('vertical_diffusion_core_batch selector entered implementation = native')
+       else
+          write(iulog,*) 'vertical_diffusion_core_batch implementation = codon'
+          call vertical_diffusion_core_batch_append_proof('vertical_diffusion_core_batch selector entered implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine vertical_diffusion_core_batch_select_impl
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_core_batch_log_entered()
+
+    if (core_batch_entered_logged) return
+    core_batch_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'vertical_diffusion_core_batch entered (modal/flux/ptend direct = codon)'
+       call vertical_diffusion_core_batch_append_proof('vertical_diffusion_core_batch entered (modal/flux/ptend direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine vertical_diffusion_core_batch_log_entered
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_core_batch_call(stage, ncol, psetcols_local, rztodt_local, ztodt_local, &
+       q_tmp_local, s_tmp_local, u_tmp_local, v_tmp_local, state_q_local, state_s_local, state_u_local, &
+       state_v_local, state_rpdel_local, pint_local, zi_local, zm_local, cflx_local, kvh_local, kvm_local, &
+       cgs_local, cgh_local, shflx_local, tautotx_local, tautoty_local, sl_local, qt_local, slv_local, &
+       sl_prePBL_local, qt_prePBL_local, slflx_local, qtflx_local, uflx_local, vflx_local, slflx_cg_local, &
+       qtflx_cg_local, uflx_cg_local, vflx_cg_local, ptend_q_local, ptend_s_local, ptend_u_local, &
+       ptend_v_local, slten_local, qtten_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
+
+    integer, intent(in) :: stage
+    integer, intent(in) :: ncol
+    integer, optional, intent(in) :: psetcols_local
+    real(r8), optional, intent(in) :: rztodt_local, ztodt_local
+    real(r8), target, optional, intent(in) :: q_tmp_local(pcols,pver,pcnst)
+    real(r8), target, optional, intent(in) :: s_tmp_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: u_tmp_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: v_tmp_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: state_q_local(pcols,pver,pcnst)
+    real(r8), target, optional, intent(in) :: state_s_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: state_u_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: state_v_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: state_rpdel_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: pint_local(pcols,pverp)
+    real(r8), target, optional, intent(in) :: zi_local(pcols,pverp)
+    real(r8), target, optional, intent(in) :: zm_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: cflx_local(pcols,pcnst)
+    real(r8), target, optional, intent(in) :: kvh_local(pcols,pverp)
+    real(r8), target, optional, intent(in) :: kvm_local(pcols,pverp)
+    real(r8), target, optional, intent(in) :: cgs_local(pcols,pverp)
+    real(r8), target, optional, intent(in) :: cgh_local(pcols,pverp)
+    real(r8), target, optional, intent(in) :: shflx_local(pcols)
+    real(r8), target, optional, intent(in) :: tautotx_local(pcols)
+    real(r8), target, optional, intent(in) :: tautoty_local(pcols)
+    real(r8), target, optional, intent(in) :: sl_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: qt_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: slv_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: sl_prePBL_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: qt_prePBL_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: slflx_local(pcols,pverp)
+    real(r8), target, optional, intent(in) :: qtflx_local(pcols,pverp)
+    real(r8), target, optional, intent(in) :: uflx_local(pcols,pverp)
+    real(r8), target, optional, intent(in) :: vflx_local(pcols,pverp)
+    real(r8), target, optional, intent(in) :: slflx_cg_local(pcols,pverp)
+    real(r8), target, optional, intent(in) :: qtflx_cg_local(pcols,pverp)
+    real(r8), target, optional, intent(in) :: uflx_cg_local(pcols,pverp)
+    real(r8), target, optional, intent(in) :: vflx_cg_local(pcols,pverp)
+    real(r8), target, optional, intent(in) :: ptend_q_local(:,:,:)
+    real(r8), target, optional, intent(in) :: ptend_s_local(:,:)
+    real(r8), target, optional, intent(in) :: ptend_u_local(:,:)
+    real(r8), target, optional, intent(in) :: ptend_v_local(:,:)
+    real(r8), target, optional, intent(in) :: slten_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: qtten_local(pcols,pver)
+
+    integer(c_int64_t) :: psetcols_c
+    real(c_double) :: rztodt_c, ztodt_c
+    type(c_ptr) :: q_tmp_p, s_tmp_p, u_tmp_p, v_tmp_p, state_q_p, state_s_p, state_u_p, state_v_p
+    type(c_ptr) :: state_rpdel_p, pint_p, zi_p, zm_p, cflx_p, kvh_p, kvm_p, cgs_p, cgh_p
+    type(c_ptr) :: shflx_p, tautotx_p, tautoty_p, sl_p, qt_p, slv_p, sl_prePBL_p, qt_prePBL_p
+    type(c_ptr) :: slflx_p, qtflx_p, uflx_p, vflx_p, slflx_cg_p, qtflx_cg_p, uflx_cg_p, vflx_cg_p
+    type(c_ptr) :: ptend_q_p, ptend_s_p, ptend_u_p, ptend_v_p, slten_p, qtten_p, pmam_cnst_idx_p
+
+    interface
+       subroutine vertical_diffusion_core_batch_codon(stage_c, ncol_c, pcols_c, pver_c, pverp_c, pcnst_c, &
+            psetcols_c, pmam_ncnst_c, ixcldliq_c, ixcldice_c, latvap_c, latice_c, zvir_c, rair_c, gravit_c, &
+            cpair_c, rztodt_c, ztodt_c, q_tmp_p, s_tmp_p, u_tmp_p, v_tmp_p, state_q_p, state_s_p, state_u_p, &
+            state_v_p, state_rpdel_p, pint_p, zi_p, zm_p, cflx_p, kvh_p, kvm_p, cgs_p, cgh_p, shflx_p, &
+            tautotx_p, tautoty_p, sl_p, qt_p, slv_p, sl_prePBL_p, qt_prePBL_p, slflx_p, qtflx_p, uflx_p, &
+            vflx_p, slflx_cg_p, qtflx_cg_p, uflx_cg_p, vflx_cg_p, pmam_cnst_idx_p, ptend_q_p, ptend_s_p, &
+            ptend_u_p, ptend_v_p, slten_p, qtten_p) bind(c, name="vertical_diffusion_core_batch_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, pverp_c, pcnst_c, psetcols_c, pmam_ncnst_c
+         integer(c_int64_t), value :: ixcldliq_c, ixcldice_c
+         real(c_double), value :: latvap_c, latice_c, zvir_c, rair_c, gravit_c, cpair_c, rztodt_c, ztodt_c
+         type(c_ptr), value :: q_tmp_p, s_tmp_p, u_tmp_p, v_tmp_p, state_q_p, state_s_p, state_u_p, state_v_p
+         type(c_ptr), value :: state_rpdel_p, pint_p, zi_p, zm_p, cflx_p, kvh_p, kvm_p, cgs_p, cgh_p
+         type(c_ptr), value :: shflx_p, tautotx_p, tautoty_p, sl_p, qt_p, slv_p, sl_prePBL_p, qt_prePBL_p
+         type(c_ptr), value :: slflx_p, qtflx_p, uflx_p, vflx_p, slflx_cg_p, qtflx_cg_p, uflx_cg_p, vflx_cg_p
+         type(c_ptr), value :: pmam_cnst_idx_p, ptend_q_p, ptend_s_p, ptend_u_p, ptend_v_p, slten_p, qtten_p
+       end subroutine vertical_diffusion_core_batch_codon
+    end interface
+
+    psetcols_c = int(pcols, c_int64_t)
+    if (present(psetcols_local)) psetcols_c = int(psetcols_local, c_int64_t)
+    rztodt_c = 0._c_double
+    ztodt_c = 0._c_double
+    if (present(rztodt_local)) rztodt_c = real(rztodt_local, c_double)
+    if (present(ztodt_local)) ztodt_c = real(ztodt_local, c_double)
+
+    q_tmp_p = c_null_ptr; if (present(q_tmp_local)) q_tmp_p = c_loc(q_tmp_local)
+    s_tmp_p = c_null_ptr; if (present(s_tmp_local)) s_tmp_p = c_loc(s_tmp_local)
+    u_tmp_p = c_null_ptr; if (present(u_tmp_local)) u_tmp_p = c_loc(u_tmp_local)
+    v_tmp_p = c_null_ptr; if (present(v_tmp_local)) v_tmp_p = c_loc(v_tmp_local)
+    state_q_p = c_null_ptr; if (present(state_q_local)) state_q_p = c_loc(state_q_local)
+    state_s_p = c_null_ptr; if (present(state_s_local)) state_s_p = c_loc(state_s_local)
+    state_u_p = c_null_ptr; if (present(state_u_local)) state_u_p = c_loc(state_u_local)
+    state_v_p = c_null_ptr; if (present(state_v_local)) state_v_p = c_loc(state_v_local)
+    state_rpdel_p = c_null_ptr; if (present(state_rpdel_local)) state_rpdel_p = c_loc(state_rpdel_local)
+    pint_p = c_null_ptr; if (present(pint_local)) pint_p = c_loc(pint_local)
+    zi_p = c_null_ptr; if (present(zi_local)) zi_p = c_loc(zi_local)
+    zm_p = c_null_ptr; if (present(zm_local)) zm_p = c_loc(zm_local)
+    cflx_p = c_null_ptr; if (present(cflx_local)) cflx_p = c_loc(cflx_local)
+    kvh_p = c_null_ptr; if (present(kvh_local)) kvh_p = c_loc(kvh_local)
+    kvm_p = c_null_ptr; if (present(kvm_local)) kvm_p = c_loc(kvm_local)
+    cgs_p = c_null_ptr; if (present(cgs_local)) cgs_p = c_loc(cgs_local)
+    cgh_p = c_null_ptr; if (present(cgh_local)) cgh_p = c_loc(cgh_local)
+    shflx_p = c_null_ptr; if (present(shflx_local)) shflx_p = c_loc(shflx_local)
+    tautotx_p = c_null_ptr; if (present(tautotx_local)) tautotx_p = c_loc(tautotx_local)
+    tautoty_p = c_null_ptr; if (present(tautoty_local)) tautoty_p = c_loc(tautoty_local)
+    sl_p = c_null_ptr; if (present(sl_local)) sl_p = c_loc(sl_local)
+    qt_p = c_null_ptr; if (present(qt_local)) qt_p = c_loc(qt_local)
+    slv_p = c_null_ptr; if (present(slv_local)) slv_p = c_loc(slv_local)
+    sl_prePBL_p = c_null_ptr; if (present(sl_prePBL_local)) sl_prePBL_p = c_loc(sl_prePBL_local)
+    qt_prePBL_p = c_null_ptr; if (present(qt_prePBL_local)) qt_prePBL_p = c_loc(qt_prePBL_local)
+    slflx_p = c_null_ptr; if (present(slflx_local)) slflx_p = c_loc(slflx_local)
+    qtflx_p = c_null_ptr; if (present(qtflx_local)) qtflx_p = c_loc(qtflx_local)
+    uflx_p = c_null_ptr; if (present(uflx_local)) uflx_p = c_loc(uflx_local)
+    vflx_p = c_null_ptr; if (present(vflx_local)) vflx_p = c_loc(vflx_local)
+    slflx_cg_p = c_null_ptr; if (present(slflx_cg_local)) slflx_cg_p = c_loc(slflx_cg_local)
+    qtflx_cg_p = c_null_ptr; if (present(qtflx_cg_local)) qtflx_cg_p = c_loc(qtflx_cg_local)
+    uflx_cg_p = c_null_ptr; if (present(uflx_cg_local)) uflx_cg_p = c_loc(uflx_cg_local)
+    vflx_cg_p = c_null_ptr; if (present(vflx_cg_local)) vflx_cg_p = c_loc(vflx_cg_local)
+    ptend_q_p = c_null_ptr; if (present(ptend_q_local)) ptend_q_p = c_loc(ptend_q_local)
+    ptend_s_p = c_null_ptr; if (present(ptend_s_local)) ptend_s_p = c_loc(ptend_s_local)
+    ptend_u_p = c_null_ptr; if (present(ptend_u_local)) ptend_u_p = c_loc(ptend_u_local)
+    ptend_v_p = c_null_ptr; if (present(ptend_v_local)) ptend_v_p = c_loc(ptend_v_local)
+    slten_p = c_null_ptr; if (present(slten_local)) slten_p = c_loc(slten_local)
+    qtten_p = c_null_ptr; if (present(qtten_local)) qtten_p = c_loc(qtten_local)
+    pmam_cnst_idx_p = c_null_ptr
+    if (allocated(pmam_cnst_idx_c)) pmam_cnst_idx_p = c_loc(pmam_cnst_idx_c)
+
+    call vertical_diffusion_core_batch_log_entered()
+    call vertical_diffusion_core_batch_codon( &
+         int(stage, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(pverp, c_int64_t), int(pcnst, c_int64_t), psetcols_c, int(pmam_ncnst, c_int64_t), &
+         int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), real(latvap, c_double), real(latice, c_double), &
+         real(zvir, c_double), real(rair, c_double), real(gravit, c_double), real(cpair, c_double), &
+         rztodt_c, ztodt_c, q_tmp_p, s_tmp_p, u_tmp_p, v_tmp_p, state_q_p, state_s_p, state_u_p, state_v_p, &
+         state_rpdel_p, pint_p, zi_p, zm_p, cflx_p, kvh_p, kvm_p, cgs_p, cgh_p, shflx_p, tautotx_p, tautoty_p, &
+         sl_p, qt_p, slv_p, sl_prePBL_p, qt_prePBL_p, slflx_p, qtflx_p, uflx_p, vflx_p, slflx_cg_p, qtflx_cg_p, &
+         uflx_cg_p, vflx_cg_p, pmam_cnst_idx_p, ptend_q_p, ptend_s_p, ptend_u_p, ptend_v_p, slten_p, qtten_p)
+
+  end subroutine vertical_diffusion_core_batch_call
 
   ! =============================================================================== !
   !                                                                                 !
@@ -2549,16 +2778,32 @@ contains
        ! Modal aerosol species not diffused, so just add the explicit surface fluxes to the
        ! lowest layer
 
-       call vertical_diffusion_modal_aero_flux(ncol, state%rpdel, cflx, ztodt, q_tmp)
+       call vertical_diffusion_core_batch_select_impl()
+       if (use_native_core_batch_impl) then
+          call vertical_diffusion_modal_aero_flux(ncol, state%rpdel, cflx, ztodt, q_tmp)
+       else
+          call vertical_diffusion_core_batch_call(1, ncol, ztodt_local=ztodt, state_rpdel_local=state%rpdel, &
+               cflx_local=cflx, q_tmp_local=q_tmp)
+       end if
     end if
 
     ! -------------------------------------------------------- !
     ! Diagnostics and output writing after applying PBL scheme !
     ! -------------------------------------------------------- !
 
-    call vertical_diffusion_flux_diag(ncol, q_tmp, s_tmp, u_tmp, v_tmp, state%pint, state%zi, state%zm, &
-         cflx, kvh, kvm, cgs, cgh, shflx, tautotx, tautoty, sl, qt, slv, slflx, qtflx, uflx, vflx, &
-         slflx_cg, qtflx_cg, uflx_cg, vflx_cg)
+    call vertical_diffusion_core_batch_select_impl()
+    if (use_native_core_batch_impl) then
+       call vertical_diffusion_flux_diag(ncol, q_tmp, s_tmp, u_tmp, v_tmp, state%pint, state%zi, state%zm, &
+            cflx, kvh, kvm, cgs, cgh, shflx, tautotx, tautoty, sl, qt, slv, slflx, qtflx, uflx, vflx, &
+            slflx_cg, qtflx_cg, uflx_cg, vflx_cg)
+    else
+       call vertical_diffusion_core_batch_call(2, ncol, q_tmp_local=q_tmp, s_tmp_local=s_tmp, u_tmp_local=u_tmp, &
+            v_tmp_local=v_tmp, pint_local=state%pint, zi_local=state%zi, zm_local=state%zm, cflx_local=cflx, &
+            kvh_local=kvh, kvm_local=kvm, cgs_local=cgs, cgh_local=cgh, shflx_local=shflx, &
+            tautotx_local=tautotx, tautoty_local=tautoty, sl_local=sl, qt_local=qt, slv_local=slv, &
+            slflx_local=slflx, qtflx_local=qtflx, uflx_local=uflx, vflx_local=vflx, &
+            slflx_cg_local=slflx_cg, qtflx_cg_local=qtflx_cg, uflx_cg_local=uflx_cg, vflx_cg_local=vflx_cg)
+    end if
 
     if (shallow_unicon_local) then
        call pbuf_get_field(pbuf, qtl_flx_idx,  qtl_flx)
@@ -2593,9 +2838,18 @@ contains
     call physics_ptend_init(ptend,state%psetcols, "vertical diffusion", &
          ls=.true., lu=.true., lv=.true., lq=lq)
 
-    call vertical_diffusion_ptend_core(ncol, state%psetcols, q_tmp, s_tmp, u_tmp, v_tmp, state%q, state%s, &
-         state%u, state%v, sl, qt, sl_prePBL, qt_prePBL, rztodt, ptend%q, ptend%s, ptend%u, ptend%v, slten, &
-         qtten)
+    call vertical_diffusion_core_batch_select_impl()
+    if (use_native_core_batch_impl) then
+       call vertical_diffusion_ptend_core(ncol, state%psetcols, q_tmp, s_tmp, u_tmp, v_tmp, state%q, state%s, &
+            state%u, state%v, sl, qt, sl_prePBL, qt_prePBL, rztodt, ptend%q, ptend%s, ptend%u, ptend%v, slten, &
+            qtten)
+    else
+       call vertical_diffusion_core_batch_call(3, ncol, psetcols_local=state%psetcols, rztodt_local=rztodt, &
+            q_tmp_local=q_tmp, s_tmp_local=s_tmp, u_tmp_local=u_tmp, v_tmp_local=v_tmp, state_q_local=state%q, &
+            state_s_local=state%s, state_u_local=state%u, state_v_local=state%v, sl_local=sl, qt_local=qt, &
+            sl_prePBL_local=sl_prePBL, qt_prePBL_local=qt_prePBL, ptend_q_local=ptend%q, ptend_s_local=ptend%s, &
+            ptend_u_local=ptend%u, ptend_v_local=ptend%v, slten_local=slten, qtten_local=qtten)
+    end if
 
     ! ----------------------------------------------------------- !
     ! In order to perform 'pseudo-conservative varible diffusion' !
