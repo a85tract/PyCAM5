@@ -1227,6 +1227,38 @@ def photo_timestep_init_exo_time_codon(
     )
 
 @export
+def photo_prep_fixed_press_setup_codon(
+    pinterp: float,
+    n_exo_levs: int,
+    levs_p: cobj,
+    ki_p: cobj,
+    delp_p: cobj,
+):
+    return _photolysis.photo_prep_fixed_press_setup_codon(
+        pinterp,
+        n_exo_levs,
+        levs_p,
+        ki_p,
+        delp_p,
+    )
+
+@export
+def photo_prep_timestep_init_exo_time_codon(
+    calday: float,
+    days_p: cobj,
+    next_p: cobj,
+    last_p: cobj,
+    dels_p: cobj,
+):
+    return _photolysis.photo_prep_timestep_init_exo_time_codon(
+        calday,
+        days_p,
+        next_p,
+        last_p,
+        dels_p,
+    )
+
+@export
 def table_photo_jlong_apply_codon(
     ncol: int,
     pver: int,

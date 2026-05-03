@@ -104,10 +104,86 @@ module mo_photo
   logical :: table_photo_zero_finalize_batch_proof_written = .false.
   logical :: set_xnox_photo_use_native_impl = .false.
   logical :: set_xnox_photo_impl_selected = .false.
+  logical :: photo_prep_batch_use_native_impl = .false.
+  logical :: photo_prep_batch_impl_selected = .false.
+  logical :: photo_prep_batch_entered_logged = .false.
 
   integer :: ion_rates_idx = -1
 
 contains
+
+  subroutine photo_prep_batch_append_proof(proof_line)
+
+    implicit none
+
+    character(len=*), intent(in) :: proof_line
+
+    character(len=512) :: proof_file
+    integer :: status, n, unitno
+
+    proof_file = ''
+    call get_environment_variable('PHOTO_PREP_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+       write(unitno,'(A)') trim(proof_line)
+       close(unitno)
+    end if
+
+  end subroutine photo_prep_batch_append_proof
+
+  subroutine photo_prep_batch_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (photo_prep_batch_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('PHOTO_PREP_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       photo_prep_batch_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       photo_prep_batch_use_native_impl = .false.
+    end if
+
+    photo_prep_batch_impl_selected = .true.
+
+    if (masterproc) then
+       if (photo_prep_batch_use_native_impl) then
+          write(iulog,*) 'photo_prep_batch implementation = native'
+          call photo_prep_batch_append_proof('photo_prep_batch selector entered implementation = native')
+       else
+          write(iulog,*) 'photo_prep_batch implementation = codon'
+          call photo_prep_batch_append_proof('photo_prep_batch selector entered implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine photo_prep_batch_select_impl
+
+  subroutine photo_prep_batch_log_entered()
+
+    implicit none
+
+    if (photo_prep_batch_entered_logged) return
+    photo_prep_batch_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'photo_prep_batch entered (fixed_press/exo_time direct = codon)'
+       call photo_prep_batch_append_proof('photo_prep_batch entered (fixed_press/exo_time direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine photo_prep_batch_log_entered
 
   
   !----------------------------------------------------------------------
@@ -603,18 +679,18 @@ contains
     real(c_double), target :: delp_c
 
     interface
-       subroutine photo_inti_fixed_press_setup_codon(pinterp_c, n_exo_levs_c, levs_p, ki_p, delp_p) &
-            bind(c, name="photo_inti_fixed_press_setup_codon")
+       subroutine photo_prep_fixed_press_setup_codon(pinterp_c, n_exo_levs_c, levs_p, ki_p, delp_p) &
+            bind(c, name="photo_prep_fixed_press_setup_codon")
          use iso_c_binding, only : c_double, c_int64_t, c_ptr
          real(c_double), value :: pinterp_c
          integer(c_int64_t), value :: n_exo_levs_c
          type(c_ptr), value :: levs_p, ki_p, delp_p
-       end subroutine photo_inti_fixed_press_setup_codon
+       end subroutine photo_prep_fixed_press_setup_codon
     end interface
 
-    call photo_inti_fixed_press_setup_select_impl()
+    call photo_prep_batch_select_impl()
 
-    if (photo_inti_fixed_press_setup_use_native_impl) then
+    if (photo_prep_batch_use_native_impl) then
        if( pinterp_in <= levs_in(1) ) then
           ki_out   = 1
           delp_out = 0._r8
@@ -630,7 +706,8 @@ contains
        return
     end if
 
-    call photo_inti_fixed_press_setup_codon( real(pinterp_in, c_double), int(n_exo_levs_in, c_int64_t), c_loc(levs_in), &
+    call photo_prep_batch_log_entered()
+    call photo_prep_fixed_press_setup_codon( real(pinterp_in, c_double), int(n_exo_levs_in, c_int64_t), c_loc(levs_in), &
          c_loc(ki_c), c_loc(delp_c) )
     ki_out = int(ki_c)
     delp_out = real(delp_c, r8)
@@ -2598,12 +2675,12 @@ secant_in_bounds : &
     real(c_double), target :: dels_c
 
     interface
-       subroutine photo_timestep_init_exo_time_codon(calday_c, days_p, next_p, last_p, dels_p) &
-            bind(c, name="photo_timestep_init_exo_time_codon")
+       subroutine photo_prep_timestep_init_exo_time_codon(calday_c, days_p, next_p, last_p, dels_p) &
+            bind(c, name="photo_prep_timestep_init_exo_time_codon")
          use iso_c_binding, only : c_double, c_int64_t, c_ptr
          real(c_double), value :: calday_c
          type(c_ptr), value :: days_p, next_p, last_p, dels_p
-       end subroutine photo_timestep_init_exo_time_codon
+       end subroutine photo_prep_timestep_init_exo_time_codon
     end interface
 
     if ( do_jeuv ) then
@@ -2614,9 +2691,10 @@ secant_in_bounds : &
     endif
 
     if( has_o2_col .or. has_o3_col ) then
-       call photo_timestep_init_exo_time_select_impl()
-       if (.not. photo_timestep_init_exo_time_use_native_impl) then
-          call photo_timestep_init_exo_time_codon( &
+       call photo_prep_batch_select_impl()
+       if (.not. photo_prep_batch_use_native_impl) then
+          call photo_prep_batch_log_entered()
+          call photo_prep_timestep_init_exo_time_codon( &
                real(calday, c_double), c_loc(days), c_loc(next_c), c_loc(last_c), c_loc(dels_c) &
           )
           next = int(next_c)

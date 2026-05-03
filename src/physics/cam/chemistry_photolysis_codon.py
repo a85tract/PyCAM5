@@ -1186,6 +1186,27 @@ def photo_timestep_init_exo_time_codon(
     next_v[0] = m + 2
     dels_v[0] = (calday - days[m]) / (days[m + 1] - days[m])
 
+
+def photo_prep_fixed_press_setup_codon(
+    pinterp: float,
+    n_exo_levs: int,
+    levs_p: cobj,
+    ki_p: cobj,
+    delp_p: cobj,
+):
+    photo_inti_fixed_press_setup_codon(pinterp, n_exo_levs, levs_p, ki_p, delp_p)
+
+
+def photo_prep_timestep_init_exo_time_codon(
+    calday: float,
+    days_p: cobj,
+    next_p: cobj,
+    last_p: cobj,
+    dels_p: cobj,
+):
+    photo_timestep_init_exo_time_codon(calday, days_p, next_p, last_p, dels_p)
+
+
 def table_photo_jlong_apply_codon(
     ncol: int,
     pver: int,
