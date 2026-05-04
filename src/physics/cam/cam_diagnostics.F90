@@ -61,7 +61,7 @@ logical, public :: inithist_all = .false. ! Flag to indicate set of fields to be
 integer :: dqcond_num                     ! number of constituents to compute convective
 character(len=16) :: dcconnam(pcnst)      ! names of convection tendencies
                                           ! tendencies for
-real(r8), allocatable :: dtcond(:,:,:)    ! temperature tendency due to convection
+real(r8), allocatable, target :: dtcond(:,:,:)    ! temperature tendency due to convection
 type dqcond_t
    real(r8), allocatable :: cnst(:,:,:)   ! constituent tendency due to convection
 end type dqcond_t
@@ -108,6 +108,10 @@ logical :: diag_phys_writeout_use_native_impl = .false.
 logical :: diag_phys_writeout_impl_selected = .false.
 logical :: diag_physvar_ic_use_native_impl = .false.
 logical :: diag_physvar_ic_impl_selected = .false.
+logical :: cam_diag_conv_batch_use_native_impl = .false.
+logical :: cam_diag_conv_batch_impl_selected = .false.
+logical :: cam_diag_conv_tend_ini_entered_logged = .false.
+logical :: cam_diag_conv_entered_logged = .false.
 
 contains
 
@@ -749,14 +753,96 @@ subroutine diag_deallocate()
 end subroutine diag_deallocate
 !===============================================================================
 
+subroutine cam_diag_conv_batch_append_proof(proof_line)
+
+   character(len=*), intent(in) :: proof_line
+   character(len=512) :: proof_file
+   integer :: status, n, unitno
+
+   proof_file = ''
+   call get_environment_variable('CAM_DIAG_CONV_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+   if (status == 0 .and. n > 0) then
+      open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+      write(unitno,'(A)') trim(proof_line)
+      close(unitno)
+   end if
+
+end subroutine cam_diag_conv_batch_append_proof
+
+subroutine cam_diag_conv_batch_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cam_diag_conv_batch_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CAM_DIAG_CONV_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      cam_diag_conv_batch_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      cam_diag_conv_batch_use_native_impl = .false.
+   end if
+
+   cam_diag_conv_batch_impl_selected = .true.
+
+   if (masterproc) then
+      if (cam_diag_conv_batch_use_native_impl) then
+         write(iulog,*) 'cam_diag_conv_batch implementation = native'
+         call cam_diag_conv_batch_append_proof('cam_diag_conv_batch selector entered implementation = native')
+      else
+         write(iulog,*) 'cam_diag_conv_batch implementation = codon'
+         call cam_diag_conv_batch_append_proof('cam_diag_conv_batch selector entered implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine cam_diag_conv_batch_select_impl
+
+subroutine cam_diag_conv_batch_log_tend_ini_entered()
+
+   if (cam_diag_conv_tend_ini_entered_logged) return
+   cam_diag_conv_tend_ini_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'cam_diag_conv_batch entered (diag_conv_tend_ini direct = codon)'
+      call cam_diag_conv_batch_append_proof('cam_diag_conv_batch entered (diag_conv_tend_ini direct = codon)')
+      call flush(iulog)
+   end if
+
+end subroutine cam_diag_conv_batch_log_tend_ini_entered
+
+subroutine cam_diag_conv_batch_log_diag_conv_entered()
+
+   if (cam_diag_conv_entered_logged) return
+   cam_diag_conv_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'cam_diag_conv_batch entered (diag_conv direct = codon)'
+      call cam_diag_conv_batch_append_proof('cam_diag_conv_batch entered (diag_conv direct = codon)')
+      call flush(iulog)
+   end if
+
+end subroutine cam_diag_conv_batch_log_diag_conv_entered
+
+!===============================================================================
+
 subroutine diag_conv_tend_ini(state,pbuf)
 
 ! Initialize convective tendency calcs.
 
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
 
 ! Argument:
 
-   type(physics_state), intent(in) :: state
+   type(physics_state), target, intent(in) :: state
 
    type(physics_buffer_desc), pointer :: pbuf(:)
 
@@ -764,29 +850,79 @@ subroutine diag_conv_tend_ini(state,pbuf)
 
    integer :: i, k, m, lchnk, ncol
    real(r8), pointer, dimension(:,:) :: t_ttend
+   real(r8), target :: dqcond_work(pcols,pver)
+
+   interface
+      subroutine diag_conv_tend_ini_copy_s_codon(ncol_c, pcols_c, pver_c, state_s_p, dtcond_p) &
+           bind(c, name="diag_conv_tend_ini_copy_s_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: state_s_p, dtcond_p
+      end subroutine diag_conv_tend_ini_copy_s_codon
+
+      subroutine diag_conv_tend_ini_copy_q_m_codon(ncol_c, pcols_c, pver_c, pcnst_c, m_c, state_q_p, dqcond_p) &
+           bind(c, name="diag_conv_tend_ini_copy_q_m_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, m_c
+         type(c_ptr), value :: state_q_p, dqcond_p
+      end subroutine diag_conv_tend_ini_copy_q_m_codon
+
+      subroutine diag_conv_tend_ini_copy_2d_codon(ncol_c, pcols_c, pver_c, src_p, dst_p) &
+           bind(c, name="diag_conv_tend_ini_copy_2d_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: src_p, dst_p
+      end subroutine diag_conv_tend_ini_copy_2d_codon
+   end interface
 
    lchnk = state%lchnk
    ncol  = state%ncol
 
-   do k = 1, pver
-      do i = 1, ncol
-         dtcond(i,k,lchnk) = state%s(i,k)
-      end do
-   end do
+   call cam_diag_conv_batch_select_impl()
 
-   do m = 1, dqcond_num
+   if (cam_diag_conv_batch_use_native_impl) then
       do k = 1, pver
          do i = 1, ncol
-            dqcond(m)%cnst(i,k,lchnk) = state%q(i,k,m)
+            dtcond(i,k,lchnk) = state%s(i,k)
          end do
       end do
-   end do
+
+      do m = 1, dqcond_num
+         do k = 1, pver
+            do i = 1, ncol
+               dqcond(m)%cnst(i,k,lchnk) = state%q(i,k,m)
+            end do
+         end do
+      end do
+   else
+      call cam_diag_conv_batch_log_tend_ini_entered()
+
+      call diag_conv_tend_ini_copy_s_codon( &
+           int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+           c_loc(state%s), c_loc(dtcond(1,1,lchnk)) &
+      )
+
+      do m = 1, dqcond_num
+         call diag_conv_tend_ini_copy_q_m_codon( &
+              int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+              int(m, c_int64_t), c_loc(state%q), c_loc(dqcond_work) &
+         )
+         dqcond(m)%cnst(:,:,lchnk) = dqcond_work(:,:)
+      end do
+   end if
 
    !! initialize to pbuf T_TTEND to temperature at first timestep
    if (is_first_step()) then
       do m = 1, dyn_time_lvls
          call pbuf_get_field(pbuf, t_ttend_idx, t_ttend, start=(/1,1,m/), kount=(/pcols,pver,1/))
-         t_ttend(:ncol,:) = state%t(:ncol,:)
+         if (cam_diag_conv_batch_use_native_impl) then
+            t_ttend(:ncol,:) = state%t(:ncol,:)
+         else
+            call diag_conv_tend_ini_copy_2d_codon( &
+                 int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+                 c_loc(state%t), c_loc(t_ttend) &
+            )
+         end if
       end do
    end if
 
@@ -1694,11 +1830,12 @@ subroutine diag_conv(state, ztodt, pbuf)
 !-----------------------------------------------------------------------
    use physconst,     only: cpair
    use tidal_diag,    only: get_tidal_coeffs
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
 ! Arguments:
 
    real(r8),            intent(in) :: ztodt   ! timestep for computing physics tendencies
-   type(physics_state), intent(in) :: state
+   type(physics_state), target, intent(in) :: state
    type(physics_buffer_desc), pointer :: pbuf(:)
 
 ! convective precipitation variables
@@ -1713,7 +1850,8 @@ subroutine diag_conv(state, ztodt, pbuf)
 
    !water tracers/isotopes:
    real(r8), pointer :: wtprec(:)                  !water tracer precipitation
-   real(r8)          :: wtprect(pcols)             !total water tracer precipitation
+   real(r8), pointer :: wtprec_cvrain(:), wtprec_cvsnow(:), wtprec_strain(:), wtprec_stsnow(:)
+   real(r8), target  :: wtprect(pcols)             !total water tracer precipitation
 
 ! Local variables:
 
@@ -1721,17 +1859,55 @@ subroutine diag_conv(state, ztodt, pbuf)
 
    real(r8) :: rtdt
 
-   real(r8):: precc(pcols)                ! convective precip rate
-   real(r8):: precl(pcols)                ! stratiform precip rate
-   real(r8):: snowc(pcols)                ! convective snow rate
-   real(r8):: snowl(pcols)                ! stratiform snow rate
-   real(r8):: prect(pcols)                ! total (conv+large scale) precip rate
+   real(r8), target :: precc(pcols)       ! convective precip rate
+   real(r8), target :: precl(pcols)       ! stratiform precip rate
+   real(r8), target :: snowc(pcols)       ! convective snow rate
+   real(r8), target :: snowl(pcols)       ! stratiform snow rate
+   real(r8), target :: prect(pcols)       ! total (conv+large scale) precip rate
+   real(r8), target :: dqcond_work(pcols,pver)
    real(r8) :: dcoef(4)                   ! for tidal component of T tend
+
+   interface
+      subroutine diag_conv_precip_codon(ncol_c, pcols_c, prec_dp_p, snow_dp_p, prec_sh_p, snow_sh_p, &
+           prec_sed_p, snow_sed_p, prec_pcw_p, snow_pcw_p, precc_p, precl_p, snowc_p, snowl_p, prect_p) &
+           bind(c, name="diag_conv_precip_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c
+         type(c_ptr), value :: prec_dp_p, snow_dp_p, prec_sh_p, snow_sh_p
+         type(c_ptr), value :: prec_sed_p, snow_sed_p, prec_pcw_p, snow_pcw_p
+         type(c_ptr), value :: precc_p, precl_p, snowc_p, snowl_p, prect_p
+      end subroutine diag_conv_precip_codon
+
+      subroutine diag_conv_wtprect_codon(ncol_c, pcols_c, wtprec1_p, wtprec2_p, wtprec3_p, wtprec4_p, wtprect_p) &
+           bind(c, name="diag_conv_wtprect_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c
+         type(c_ptr), value :: wtprec1_p, wtprec2_p, wtprec3_p, wtprec4_p, wtprect_p
+      end subroutine diag_conv_wtprect_codon
+
+      subroutine diag_conv_dtcond_codon(ncol_c, pcols_c, pver_c, rtdt_c, cpair_c, state_s_p, dtcond_p) &
+           bind(c, name="diag_conv_dtcond_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: rtdt_c, cpair_c
+         type(c_ptr), value :: state_s_p, dtcond_p
+      end subroutine diag_conv_dtcond_codon
+
+      subroutine diag_conv_dqcond_codon(ncol_c, pcols_c, pver_c, pcnst_c, m_c, rtdt_c, state_q_p, dqcond_p) &
+           bind(c, name="diag_conv_dqcond_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, m_c
+         real(c_double), value :: rtdt_c
+         type(c_ptr), value :: state_q_p, dqcond_p
+      end subroutine diag_conv_dqcond_codon
+   end interface
 
    lchnk = state%lchnk
    ncol  = state%ncol
 
    rtdt = 1._r8/ztodt
+
+   call cam_diag_conv_batch_select_impl()
 
    call pbuf_get_field(pbuf, prec_dp_idx, prec_dp)
    call pbuf_get_field(pbuf, snow_dp_idx, snow_dp)
@@ -1743,11 +1919,21 @@ subroutine diag_conv(state, ztodt, pbuf)
    call pbuf_get_field(pbuf, snow_pcw_idx, snow_pcw)
 
 ! Precipitation rates (multi-process)
-   precc(:ncol) = prec_dp(:ncol)  + prec_sh(:ncol)
-   precl(:ncol) = prec_sed(:ncol) + prec_pcw(:ncol)
-   snowc(:ncol) = snow_dp(:ncol)  + snow_sh(:ncol)
-   snowl(:ncol) = snow_sed(:ncol) + snow_pcw(:ncol)
-   prect(:ncol) = precc(:ncol)    + precl(:ncol)
+   if (cam_diag_conv_batch_use_native_impl) then
+      precc(:ncol) = prec_dp(:ncol)  + prec_sh(:ncol)
+      precl(:ncol) = prec_sed(:ncol) + prec_pcw(:ncol)
+      snowc(:ncol) = snow_dp(:ncol)  + snow_sh(:ncol)
+      snowl(:ncol) = snow_sed(:ncol) + snow_pcw(:ncol)
+      prect(:ncol) = precc(:ncol)    + precl(:ncol)
+   else
+      call cam_diag_conv_batch_log_diag_conv_entered()
+      call diag_conv_precip_codon( &
+           int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           c_loc(prec_dp), c_loc(snow_dp), c_loc(prec_sh), c_loc(snow_sh), &
+           c_loc(prec_sed), c_loc(snow_sed), c_loc(prec_pcw), c_loc(snow_pcw), &
+           c_loc(precc), c_loc(precl), c_loc(snowc), c_loc(snowl), c_loc(prect) &
+      )
+   end if
 
    call outfld('PRECC   ', precc, pcols, lchnk )
    call outfld('PRECL   ', precl, pcols, lchnk )
@@ -1764,17 +1950,24 @@ subroutine diag_conv(state, ztodt, pbuf)
     if(trace_water) then
       do m=1,wtrc_nwset
         !convective rain:
-        call pbuf_get_field(pbuf, wtrc_srfpcp_indices(iwtcvrain,m), wtprec)
-        wtprect(:ncol) = wtprec(:ncol) !add to sum
+        call pbuf_get_field(pbuf, wtrc_srfpcp_indices(iwtcvrain,m), wtprec_cvrain)
         !convective snow:
-        call pbuf_get_field(pbuf, wtrc_srfpcp_indices(iwtcvsnow,m), wtprec)
-        wtprect(:ncol) = wtprect(:ncol) + wtprec(:ncol)
+        call pbuf_get_field(pbuf, wtrc_srfpcp_indices(iwtcvsnow,m), wtprec_cvsnow)
         !stratiform rain:
-        call pbuf_get_field(pbuf, wtrc_srfpcp_indices(iwtstrain,m), wtprec)
-        wtprect(:ncol) = wtprect(:ncol) + wtprec(:ncol)
+        call pbuf_get_field(pbuf, wtrc_srfpcp_indices(iwtstrain,m), wtprec_strain)
         !stratiform snow:
-        call pbuf_get_field(pbuf, wtrc_srfpcp_indices(iwtstsnow,m), wtprec)
-        wtprect(:ncol) = wtprect(:ncol) + wtprec(:ncol)
+        call pbuf_get_field(pbuf, wtrc_srfpcp_indices(iwtstsnow,m), wtprec_stsnow)
+        if (cam_diag_conv_batch_use_native_impl) then
+           wtprect(:ncol) = wtprec_cvrain(:ncol) !add to sum
+           wtprect(:ncol) = wtprect(:ncol) + wtprec_cvsnow(:ncol)
+           wtprect(:ncol) = wtprect(:ncol) + wtprec_strain(:ncol)
+           wtprect(:ncol) = wtprect(:ncol) + wtprec_stsnow(:ncol)
+        else
+           call diag_conv_wtprect_codon( &
+                int(ncol, c_int64_t), int(pcols, c_int64_t), &
+                c_loc(wtprec_cvrain), c_loc(wtprec_cvsnow), c_loc(wtprec_strain), c_loc(wtprec_stsnow), c_loc(wtprect) &
+           )
+        end if
         !add to output variable:
         call outfld('PRECT_'//trim(wtrc_out_names(m)), wtprect, pcols, lchnk)
       end do
@@ -1790,11 +1983,18 @@ subroutine diag_conv(state, ztodt, pbuf)
 
    ! Total convection tendencies.
 
-   do k = 1, pver
-      do i = 1, ncol
-         dtcond(i,k,lchnk) = (state%s(i,k) - dtcond(i,k,lchnk))*rtdt / cpair
+   if (cam_diag_conv_batch_use_native_impl) then
+      do k = 1, pver
+         do i = 1, ncol
+            dtcond(i,k,lchnk) = (state%s(i,k) - dtcond(i,k,lchnk))*rtdt / cpair
+         end do
       end do
-   end do
+   else
+      call diag_conv_dtcond_codon( &
+           int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+           real(rtdt, c_double), real(cpair, c_double), c_loc(state%s), c_loc(dtcond(1,1,lchnk)) &
+      )
+   end if
    call outfld('DTCOND  ', dtcond(:,:,lchnk), pcols, lchnk)
 
    ! output tidal coefficients
@@ -1806,11 +2006,20 @@ subroutine diag_conv(state, ztodt, pbuf)
 
    do m = 1, dqcond_num
       if ( cnst_cam_outfld(m) ) then
-         do k = 1, pver
-            do i = 1, ncol
-               dqcond(m)%cnst(i,k,lchnk) = (state%q(i,k,m) - dqcond(m)%cnst(i,k,lchnk))*rtdt
+         if (cam_diag_conv_batch_use_native_impl) then
+            do k = 1, pver
+               do i = 1, ncol
+                  dqcond(m)%cnst(i,k,lchnk) = (state%q(i,k,m) - dqcond(m)%cnst(i,k,lchnk))*rtdt
+               end do
             end do
-         end do
+         else
+            dqcond_work(:,:) = dqcond(m)%cnst(:,:,lchnk)
+            call diag_conv_dqcond_codon( &
+                 int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+                 int(m, c_int64_t), real(rtdt, c_double), c_loc(state%q), c_loc(dqcond_work) &
+            )
+            dqcond(m)%cnst(:,:,lchnk) = dqcond_work(:,:)
+         end if
          call outfld(dcconnam(m), dqcond(m)%cnst(:,:,lchnk), pcols, lchnk)
       end if
    end do

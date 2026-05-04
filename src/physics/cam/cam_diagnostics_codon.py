@@ -11,6 +11,165 @@ def _idx2(i: int, k: int, ld1: int) -> int:
     return (i - 1) + (k - 1) * ld1
 
 
+@inline
+def _idx3(i: int, k: int, m: int, ld1: int, ld2: int) -> int:
+    return (i - 1) + (k - 1) * ld1 + (m - 1) * ld1 * ld2
+
+
+@export
+def diag_conv_tend_ini_copy_s_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    state_s_p: cobj,
+    dtcond_p: cobj,
+):
+    state_s = Ptr[float](state_s_p)
+    dtcond = Ptr[float](dtcond_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            dtcond[_idx2(i, k, pcols)] = state_s[_idx2(i, k, pcols)]
+
+
+@export
+def diag_conv_tend_ini_copy_q_m_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    m: int,
+    state_q_p: cobj,
+    dqcond_p: cobj,
+):
+    state_q = Ptr[float](state_q_p)
+    dqcond = Ptr[float](dqcond_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            dqcond[_idx2(i, k, pcols)] = state_q[_idx3(i, k, m, pcols, pver)]
+
+
+@export
+def diag_conv_tend_ini_copy_2d_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    src_p: cobj,
+    dst_p: cobj,
+):
+    src = Ptr[float](src_p)
+    dst = Ptr[float](dst_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            dst[_idx2(i, k, pcols)] = src[_idx2(i, k, pcols)]
+
+
+@export
+def diag_conv_precip_codon(
+    ncol: int,
+    pcols: int,
+    prec_dp_p: cobj,
+    snow_dp_p: cobj,
+    prec_sh_p: cobj,
+    snow_sh_p: cobj,
+    prec_sed_p: cobj,
+    snow_sed_p: cobj,
+    prec_pcw_p: cobj,
+    snow_pcw_p: cobj,
+    precc_p: cobj,
+    precl_p: cobj,
+    snowc_p: cobj,
+    snowl_p: cobj,
+    prect_p: cobj,
+):
+    prec_dp = Ptr[float](prec_dp_p)
+    snow_dp = Ptr[float](snow_dp_p)
+    prec_sh = Ptr[float](prec_sh_p)
+    snow_sh = Ptr[float](snow_sh_p)
+    prec_sed = Ptr[float](prec_sed_p)
+    snow_sed = Ptr[float](snow_sed_p)
+    prec_pcw = Ptr[float](prec_pcw_p)
+    snow_pcw = Ptr[float](snow_pcw_p)
+    precc = Ptr[float](precc_p)
+    precl = Ptr[float](precl_p)
+    snowc = Ptr[float](snowc_p)
+    snowl = Ptr[float](snowl_p)
+    prect = Ptr[float](prect_p)
+
+    for i in range(1, ncol + 1):
+        idx = _idx(i)
+        precc[idx] = prec_dp[idx] + prec_sh[idx]
+        precl[idx] = prec_sed[idx] + prec_pcw[idx]
+        snowc[idx] = snow_dp[idx] + snow_sh[idx]
+        snowl[idx] = snow_sed[idx] + snow_pcw[idx]
+        prect[idx] = precc[idx] + precl[idx]
+
+
+@export
+def diag_conv_wtprect_codon(
+    ncol: int,
+    pcols: int,
+    wtprec1_p: cobj,
+    wtprec2_p: cobj,
+    wtprec3_p: cobj,
+    wtprec4_p: cobj,
+    wtprect_p: cobj,
+):
+    wtprec1 = Ptr[float](wtprec1_p)
+    wtprec2 = Ptr[float](wtprec2_p)
+    wtprec3 = Ptr[float](wtprec3_p)
+    wtprec4 = Ptr[float](wtprec4_p)
+    wtprect = Ptr[float](wtprect_p)
+
+    for i in range(1, ncol + 1):
+        idx = _idx(i)
+        wtprect[idx] = wtprec1[idx]
+        wtprect[idx] = wtprect[idx] + wtprec2[idx]
+        wtprect[idx] = wtprect[idx] + wtprec3[idx]
+        wtprect[idx] = wtprect[idx] + wtprec4[idx]
+
+
+@export
+def diag_conv_dtcond_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    rtdt: float,
+    cpair: float,
+    state_s_p: cobj,
+    dtcond_p: cobj,
+):
+    state_s = Ptr[float](state_s_p)
+    dtcond = Ptr[float](dtcond_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            dtcond[idx] = (state_s[idx] - dtcond[idx]) * rtdt / cpair
+
+
+@export
+def diag_conv_dqcond_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    m: int,
+    rtdt: float,
+    state_q_p: cobj,
+    dqcond_p: cobj,
+):
+    state_q = Ptr[float](state_q_p)
+    dqcond = Ptr[float](dqcond_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            dqcond[idx] = (state_q[_idx3(i, k, m, pcols, pver)] - dqcond[idx]) * rtdt
+
+
 @export
 def diag_surf_codon(
     ncol: int,
