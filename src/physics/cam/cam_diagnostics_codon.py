@@ -546,6 +546,86 @@ def diag_phys_writeout_ivt_codon(
 
 
 @export
+def diag_phys_writeout_transport_moisture_codon(
+    mode: int,
+    submode: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    scalar: float,
+    a_p: cobj,
+    b_p: cobj,
+    c_p: cobj,
+    d_p: cobj,
+    out1_p: cobj,
+    out2_p: cobj,
+    out3_p: cobj,
+):
+    a = Ptr[float](a_p)
+    b = Ptr[float](b_p)
+    c = Ptr[float](c_p)
+    d = Ptr[float](d_p)
+    out1 = Ptr[float](out1_p)
+    out2 = Ptr[float](out2_p)
+    out3 = Ptr[float](out3_p)
+
+    if mode == 1:
+        # water tracer column: a=qtr, b=wind, c=pdel, out1=out.
+        if submode == 1:
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    idx = _idx2(i, k, pcols)
+                    out1[idx] = a[idx] * c[idx] * scalar
+        else:
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    idx = _idx2(i, k, pcols)
+                    out1[idx] = b[idx] * a[idx] * c[idx] * scalar
+
+        for k in range(2, pver + 1):
+            for i in range(1, ncol + 1):
+                out1[_idx2(i, 1, pcols)] = out1[_idx2(i, 1, pcols)] + out1[
+                    _idx2(i, k, pcols)
+                ]
+    elif mode == 2:
+        # IVT: a=q, b=u, c=v, d=pdel, out1=uqdp, out2=vqdp, out3=ivt.
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                out1[idx] = a[idx] * b[idx] * d[idx] * scalar
+                out2[idx] = a[idx] * c[idx] * d[idx] * scalar
+
+        for k in range(2, pver + 1):
+            for i in range(1, ncol + 1):
+                idx1 = _idx2(i, 1, pcols)
+                out1[idx1] = out1[idx1] + out1[_idx2(i, k, pcols)]
+                out2[idx1] = out2[idx1] + out2[_idx2(i, k, pcols)]
+
+        for i in range(1, ncol + 1):
+            idx1 = _idx2(i, 1, pcols)
+            out3[idx1] = sqrt(out1[idx1] ** 2 + out2[idx1] ** 2)
+    elif mode == 3:
+        # RHI/RHCFMIP: a=t, b=esl, c=esi, d=rhw, out1=rhi, out2=rhcfmip.
+        for i in range(1, ncol + 1):
+            for k in range(1, pver + 1):
+                idx = _idx2(i, k, pcols)
+                out1[idx] = d[idx] * b[idx] / c[idx]
+
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                out2[idx] = d[idx]
+
+        for i in range(1, ncol + 1):
+            for k in range(1, pver + 1):
+                idx = _idx2(i, k, pcols)
+                if a[idx] > 273.0:
+                    out2[idx] = d[idx]
+                else:
+                    out2[idx] = out1[idx]
+
+
+@export
 def diag_phys_writeout_copy_col1_codon(
     ncol: int,
     pcols: int,

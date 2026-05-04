@@ -1775,13 +1775,13 @@ end subroutine diag_conv_tend_ini
     integer :: k
 
     interface
-       subroutine diag_phys_writeout_wtrc_column_codon(ncol_c, pcols_c, pver_c, mode_c, rga_c, &
-            qtr_p, wind_p, pdel_p, out_p) bind(c, name="diag_phys_writeout_wtrc_column_codon")
+       subroutine diag_phys_writeout_transport_moisture_codon(mode_c, submode_c, ncol_c, pcols_c, pver_c, &
+            scalar_c, a_p, b_p, c_p, d_p, out1_p, out2_p, out3_p) bind(c, name="diag_phys_writeout_transport_moisture_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, mode_c
-         real(c_double), value :: rga_c
-         type(c_ptr), value :: qtr_p, wind_p, pdel_p, out_p
-       end subroutine diag_phys_writeout_wtrc_column_codon
+         integer(c_int64_t), value :: mode_c, submode_c, ncol_c, pcols_c, pver_c
+         real(c_double), value :: scalar_c
+         type(c_ptr), value :: a_p, b_p, c_p, d_p, out1_p, out2_p, out3_p
+       end subroutine diag_phys_writeout_transport_moisture_codon
     end interface
 
     if (diag_phys_writeout_use_native_impl) then
@@ -1796,9 +1796,10 @@ end subroutine diag_conv_tend_ini
        return
     end if
 
-    call diag_phys_writeout_wtrc_column_codon( &
-         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(mode, c_int64_t), &
-         real(rga_in, c_double), c_loc(qtr), c_loc(wind), c_loc(pdel), c_loc(out) &
+    call diag_phys_writeout_transport_moisture_codon( &
+         1_c_int64_t, int(mode, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         real(rga_in, c_double), c_loc(qtr), c_loc(wind), c_loc(pdel), c_loc(qtr), c_loc(out), &
+         c_loc(out), c_loc(out) &
     )
 
   end subroutine diag_phys_writeout_wtrc_column
@@ -1817,13 +1818,13 @@ end subroutine diag_conv_tend_ini
     integer :: k
 
     interface
-       subroutine diag_phys_writeout_ivt_codon(ncol_c, pcols_c, pver_c, rga_c, &
-            q_p, u_p, v_p, pdel_p, uqdp_p, vqdp_p, ivt_p) bind(c, name="diag_phys_writeout_ivt_codon")
+       subroutine diag_phys_writeout_transport_moisture_codon(mode_c, submode_c, ncol_c, pcols_c, pver_c, &
+            scalar_c, a_p, b_p, c_p, d_p, out1_p, out2_p, out3_p) bind(c, name="diag_phys_writeout_transport_moisture_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
-         real(c_double), value :: rga_c
-         type(c_ptr), value :: q_p, u_p, v_p, pdel_p, uqdp_p, vqdp_p, ivt_p
-       end subroutine diag_phys_writeout_ivt_codon
+         integer(c_int64_t), value :: mode_c, submode_c, ncol_c, pcols_c, pver_c
+         real(c_double), value :: scalar_c
+         type(c_ptr), value :: a_p, b_p, c_p, d_p, out1_p, out2_p, out3_p
+       end subroutine diag_phys_writeout_transport_moisture_codon
     end interface
 
     if (diag_phys_writeout_use_native_impl) then
@@ -1837,9 +1838,9 @@ end subroutine diag_conv_tend_ini
        return
     end if
 
-    call diag_phys_writeout_ivt_codon( &
-         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(rga_in, c_double), &
-         c_loc(q), c_loc(u), c_loc(v), c_loc(pdel), c_loc(uqdp), c_loc(vqdp), c_loc(ivt) &
+    call diag_phys_writeout_transport_moisture_codon( &
+         2_c_int64_t, 0_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         real(rga_in, c_double), c_loc(q), c_loc(u), c_loc(v), c_loc(pdel), c_loc(uqdp), c_loc(vqdp), c_loc(ivt) &
     )
 
   end subroutine diag_phys_writeout_ivt
@@ -1912,7 +1913,7 @@ end subroutine diag_conv_tend_ini
 
   subroutine diag_phys_writeout_rhi_rhcfmip(ncol, t, esl, esi, rhw, rhi, rhcfmip)
 
-    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
     integer, intent(in) :: ncol
     real(r8), target, intent(in) :: t(pcols,pver), esl(pcols,pver), esi(pcols,pver), rhw(pcols,pver)
@@ -1921,12 +1922,13 @@ end subroutine diag_conv_tend_ini
     integer :: i, k
 
     interface
-       subroutine diag_phys_writeout_rhi_rhcfmip_codon(ncol_c, pcols_c, pver_c, t_p, esl_p, esi_p, rhw_p, &
-            rhi_p, rhcfmip_p) bind(c, name="diag_phys_writeout_rhi_rhcfmip_codon")
-         use iso_c_binding, only: c_int64_t, c_ptr
-         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
-         type(c_ptr), value :: t_p, esl_p, esi_p, rhw_p, rhi_p, rhcfmip_p
-       end subroutine diag_phys_writeout_rhi_rhcfmip_codon
+       subroutine diag_phys_writeout_transport_moisture_codon(mode_c, submode_c, ncol_c, pcols_c, pver_c, &
+            scalar_c, a_p, b_p, c_p, d_p, out1_p, out2_p, out3_p) bind(c, name="diag_phys_writeout_transport_moisture_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: mode_c, submode_c, ncol_c, pcols_c, pver_c
+         real(c_double), value :: scalar_c
+         type(c_ptr), value :: a_p, b_p, c_p, d_p, out1_p, out2_p, out3_p
+       end subroutine diag_phys_writeout_transport_moisture_codon
     end interface
 
     if (diag_phys_writeout_use_native_impl) then
@@ -1950,9 +1952,9 @@ end subroutine diag_conv_tend_ini
        return
     end if
 
-    call diag_phys_writeout_rhi_rhcfmip_codon( &
-         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-         c_loc(t), c_loc(esl), c_loc(esi), c_loc(rhw), c_loc(rhi), c_loc(rhcfmip) &
+    call diag_phys_writeout_transport_moisture_codon( &
+         3_c_int64_t, 0_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         0._c_double, c_loc(t), c_loc(esl), c_loc(esi), c_loc(rhw), c_loc(rhi), c_loc(rhcfmip), c_loc(rhcfmip) &
     )
 
   end subroutine diag_phys_writeout_rhi_rhcfmip
@@ -1981,8 +1983,8 @@ subroutine diag_phys_writeout_batch_log_entered()
    diag_phys_writeout_batch_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'diag_phys_writeout_batch entered (basic_fields/column_reduce/water_tracer_column/ivt/relhum/rhi/tt direct = codon)'
-      call diag_phys_writeout_batch_append_proof('diag_phys_writeout_batch entered (basic_fields/column_reduce/water_tracer_column/ivt/relhum/rhi/tt direct = codon)')
+      write(iulog,'(A)') 'diag_phys_writeout_batch entered (basic_fields/column_reduce/transport_moisture/relhum/tt direct = codon)'
+      call diag_phys_writeout_batch_append_proof('diag_phys_writeout_batch entered (basic_fields/column_reduce/transport_moisture/relhum/tt direct = codon)')
       call flush(iulog)
    end if
 
