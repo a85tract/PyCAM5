@@ -6,6 +6,8 @@ module gw_common
 !
 use gw_utils, only: r8
 use coords_1d, only: Coords1D
+use spmd_utils, only: masterproc
+use cam_logfile, only: iulog
 
 
 implicit none
@@ -79,6 +81,10 @@ real(r8), parameter :: tndmax = 400._r8 / 86400._r8
 real(r8), parameter :: umcfac = 0.5_r8
 ! Minimum value of (u-c)**2.
 real(r8), parameter :: ubmc2mn = 0.01_r8
+
+logical :: use_native_gw_prof_impl = .false.
+logical :: gw_prof_impl_selected = .false.
+logical :: gw_prof_entered_logged = .false.
 
 ! Type describing a band of wavelengths into which gravity waves can be
 ! emitted.
@@ -172,6 +178,141 @@ end subroutine gw_common_init
 
 subroutine gw_prof (ncol, p, cpair, t, rhoi, nm, ni)
   !-----------------------------------------------------------------------
+  ! Selectable wrapper for background gravity-wave profile calculations.
+  !-----------------------------------------------------------------------
+  integer, intent(in) :: ncol
+  type(Coords1D), intent(in) :: p
+  real(r8), intent(in) :: cpair
+  real(r8), intent(in) :: t(ncol,pver)
+  real(r8), intent(out) :: rhoi(ncol,pver+1)
+  real(r8), intent(out) :: nm(ncol,pver), ni(ncol,pver+1)
+
+  real(r8), target :: ti(ncol,pver+1)
+
+  call gw_prof_select_impl()
+
+  if (use_native_gw_prof_impl) then
+     call gw_prof_native(ncol, p, cpair, t, rhoi, nm, ni)
+  else
+     call gw_prof_note_entered()
+     call gw_prof_codon_wrap(ncol, pver, cpair, rair, gravit, p%ifc, p%rdst, &
+          t, rhoi, nm, ni, ti)
+  end if
+
+end subroutine gw_prof
+
+!==========================================================================
+
+subroutine gw_prof_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('GW_PROF_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+     write(unitno,'(A)') trim(proof_line)
+     close(unitno)
+  end if
+
+end subroutine gw_prof_append_proof
+
+!==========================================================================
+
+subroutine gw_prof_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (gw_prof_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('GW_PROF_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_gw_prof_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_gw_prof_impl = .false.
+  end if
+
+  gw_prof_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_gw_prof_impl) then
+        write(iulog,*) 'gw_prof implementation = native'
+        call gw_prof_append_proof('gw_prof selector entered implementation = native')
+     else
+        write(iulog,*) 'gw_prof implementation = codon'
+        call gw_prof_append_proof('gw_prof selector entered implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine gw_prof_select_impl
+
+!==========================================================================
+
+subroutine gw_prof_note_entered()
+
+  if (gw_prof_entered_logged) return
+  gw_prof_entered_logged = .true.
+
+  if (masterproc) then
+     write(iulog,*) 'gw_prof entered (background profile direct = codon)'
+     call gw_prof_append_proof('gw_prof entered (background profile direct = codon)')
+     call flush(iulog)
+  end if
+
+end subroutine gw_prof_note_entered
+
+!==========================================================================
+
+subroutine gw_prof_codon_wrap(ncol_local, pver_local, cpair_local, rair_local, gravit_local, &
+     p_ifc_local, p_rdst_local, t_local, rhoi_local, nm_local, ni_local, ti_local)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+  integer, intent(in) :: ncol_local, pver_local
+  real(r8), intent(in) :: cpair_local, rair_local, gravit_local
+  real(r8), target, intent(in) :: p_ifc_local(ncol_local,pver_local+1)
+  real(r8), target, intent(in) :: p_rdst_local(ncol_local,pver_local-1)
+  real(r8), target, intent(in) :: t_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: rhoi_local(ncol_local,pver_local+1)
+  real(r8), target, intent(inout) :: nm_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: ni_local(ncol_local,pver_local+1)
+  real(r8), target, intent(inout) :: ti_local(ncol_local,pver_local+1)
+
+  interface
+     subroutine gw_prof_codon(ncol_c, pver_c, cpair_c, rair_c, gravit_c, &
+          p_ifc_p, p_rdst_p, t_p, rhoi_p, nm_p, ni_p, ti_p) &
+          bind(c, name="gw_prof_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pver_c
+       real(c_double), value :: cpair_c, rair_c, gravit_c
+       type(c_ptr), value :: p_ifc_p, p_rdst_p, t_p, rhoi_p, nm_p, ni_p, ti_p
+     end subroutine gw_prof_codon
+  end interface
+
+  call gw_prof_codon(int(ncol_local, c_int64_t), int(pver_local, c_int64_t), &
+       real(cpair_local, c_double), real(rair_local, c_double), real(gravit_local, c_double), &
+       c_loc(p_ifc_local), c_loc(p_rdst_local), c_loc(t_local), c_loc(rhoi_local), &
+       c_loc(nm_local), c_loc(ni_local), c_loc(ti_local))
+
+end subroutine gw_prof_codon_wrap
+
+!==========================================================================
+
+subroutine gw_prof_native (ncol, p, cpair, t, rhoi, nm, ni)
+  !-----------------------------------------------------------------------
   ! Compute profiles of background state quantities for the multiple
   ! gravity wave drag parameterization.
   !
@@ -248,7 +389,7 @@ subroutine gw_prof (ncol, p, cpair, t, rhoi, nm, ni)
   !------------------------------------------------------------------------
   nm = midpoint_interp(ni)
 
-end subroutine gw_prof
+end subroutine gw_prof_native
 
 !==========================================================================
 

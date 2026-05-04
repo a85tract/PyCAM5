@@ -55,6 +55,59 @@ def _idx_c(i: int, l: int, ncol: int, ngwv: int) -> int:
 
 
 @export
+def gw_prof_codon(
+    ncol: int,
+    pver: int,
+    cpair: float,
+    rair: float,
+    gravit: float,
+    p_ifc_p: cobj,
+    p_rdst_p: cobj,
+    t_p: cobj,
+    rhoi_p: cobj,
+    nm_p: cobj,
+    ni_p: cobj,
+    ti_p: cobj,
+):
+    p_ifc = Ptr[float](p_ifc_p)
+    p_rdst = Ptr[float](p_rdst_p)
+    t = Ptr[float](t_p)
+    rhoi = Ptr[float](rhoi_p)
+    nm = Ptr[float](nm_p)
+    ni = Ptr[float](ni_p)
+    ti = Ptr[float](ti_p)
+
+    n2min = 5.0e-5
+
+    k = 1
+    for i in range(1, ncol + 1):
+        ti[_idx2(i, k, ncol)] = t[_idx2(i, k, ncol)]
+        rhoi[_idx2(i, k, ncol)] = p_ifc[_idx2(i, k, ncol)] / (rair * ti[_idx2(i, k, ncol)])
+        ni[_idx2(i, k, ncol)] = sqrt((gravit * gravit) / (cpair * ti[_idx2(i, k, ncol)]))
+
+    for k_mid in range(1, pver):
+        for i in range(1, ncol + 1):
+            ti[_idx2(i, k_mid + 1, ncol)] = 0.5 * (t[_idx2(i, k_mid, ncol)] + t[_idx2(i, k_mid + 1, ncol)])
+
+    for k in range(2, pver + 1):
+        for i in range(1, ncol + 1):
+            rhoi[_idx2(i, k, ncol)] = p_ifc[_idx2(i, k, ncol)] / (rair * ti[_idx2(i, k, ncol)])
+            dtdp = (t[_idx2(i, k, ncol)] - t[_idx2(i, k - 1, ncol)]) * p_rdst[_idx2(i, k - 1, ncol)]
+            n2 = ((gravit * gravit) / ti[_idx2(i, k, ncol)]) * ((1.0 / cpair) - (rhoi[_idx2(i, k, ncol)] * dtdp))
+            ni[_idx2(i, k, ncol)] = sqrt(max(n2min, n2))
+
+    k = pver + 1
+    for i in range(1, ncol + 1):
+        ti[_idx2(i, k, ncol)] = t[_idx2(i, k - 1, ncol)]
+        rhoi[_idx2(i, k, ncol)] = p_ifc[_idx2(i, k, ncol)] / (rair * ti[_idx2(i, k, ncol)])
+        ni[_idx2(i, k, ncol)] = ni[_idx2(i, k - 1, ncol)]
+
+    for k_mid in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            nm[_idx2(i, k_mid, ncol)] = 0.5 * (ni[_idx2(i, k_mid, ncol)] + ni[_idx2(i, k_mid + 1, ncol)])
+
+
+@export
 def gw_oro_src_codon(
     ncol: int,
     pver: int,
