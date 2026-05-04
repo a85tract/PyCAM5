@@ -91,6 +91,9 @@ logical :: energy_change_entered_logged = .false.
 logical :: use_native_gw_drag_prof_core_impl = .false.
 logical :: gw_drag_prof_core_impl_selected = .false.
 logical :: gw_drag_prof_core_entered_logged = .false.
+logical :: use_native_gw_diff_solver_impl = .false.
+logical :: gw_diff_solver_impl_selected = .false.
+logical :: gw_diff_solver_entered_logged = .false.
 
 ! Type describing a band of wavelengths into which gravity waves can be
 ! emitted.
@@ -507,8 +510,23 @@ subroutine gw_drag_prof(ncol, band, p, src_level, tend_level, dt, &
   real(r8) :: wrk(ncol)
   ! Ratio used for ubt tndmax limiting.
   real(r8) :: ubt_lim_ratio(ncol)
+  ! Workspaces for Codon diffusion solver path.
+  real(r8), target :: egwdffm(ncol,pver)
+  real(r8), target :: egwdff_lev(ncol)
+  real(r8), target :: dpidz_sq(ncol,pver+1)
+  real(r8), target :: gw_diff_coef(ncol,pver+1)
+  real(r8), target :: gw_diff_qnew(ncol,pver)
+  real(r8), target :: gw_diff_spr(ncol,pver)
+  real(r8), target :: gw_diff_sub(ncol,pver)
+  real(r8), target :: gw_diff_diag(ncol,pver)
+  real(r8), target :: gw_diff_ca(ncol,pver)
+  real(r8), target :: gw_diff_ze(ncol,pver)
+  real(r8), target :: gw_diff_dnom(ncol,pver)
+  real(r8), target :: gw_diff_zf(ncol,pver)
   ! Whether to keep this core in native Fortran.
   logical :: use_native_core
+  ! Whether to keep the diffusion solver cluster in native Fortran.
+  logical :: use_native_diff_solver
 
   ! LU decomposition.
   type(TriDiagDecomp) :: decomp
@@ -521,6 +539,8 @@ subroutine gw_drag_prof(ncol, band, p, src_level, tend_level, dt, &
 
   call gw_drag_prof_core_select_impl()
   use_native_core = use_native_gw_drag_prof_core_impl .or. present(ro_adjust)
+  call gw_diff_solver_select_impl()
+  use_native_diff_solver = use_native_gw_diff_solver_impl .or. present(ro_adjust)
 
   if (use_native_core) then
 
@@ -693,22 +713,46 @@ subroutine gw_drag_prof(ncol, band, p, src_level, tend_level, dt, &
 
   end if
 
-  ! Calculate effective diffusivity and LU decomposition for the
-  ! vertical diffusion solver.
-  call gw_ediff (ncol, pver, band%ngwv, kbot_tend, ktop, tend_level, &
-       gwut, ubm, nm, rhoi, dt, gravit, p, c, &
-       egwdffi, decomp, ro_adjust=ro_adjust)
+  if (use_native_diff_solver) then
 
-  ! Calculate tendency on each constituent.
-  do m = 1, size(q,3)
+     ! Calculate effective diffusivity and LU decomposition for the
+     ! vertical diffusion solver.
+     call gw_ediff (ncol, pver, band%ngwv, kbot_tend, ktop, tend_level, &
+          gwut, ubm, nm, rhoi, dt, gravit, p, c, &
+          egwdffi, decomp, ro_adjust=ro_adjust)
 
-     call gw_diff_tend(ncol, pver, kbot_tend, ktop, q(:,:,m), &
-          dt, decomp, qtgw(:,:,m))
+     ! Calculate tendency on each constituent.
+     do m = 1, size(q,3)
 
-  enddo
+        call gw_diff_tend(ncol, pver, kbot_tend, ktop, q(:,:,m), &
+             dt, decomp, qtgw(:,:,m))
 
-  ! Calculate tendency from diffusing dry static energy (dttdf).
-  call gw_diff_tend(ncol, pver, kbot_tend, ktop, dse, dt, decomp, dttdf)
+     enddo
+
+     ! Calculate tendency from diffusing dry static energy (dttdf).
+     call gw_diff_tend(ncol, pver, kbot_tend, ktop, dse, dt, decomp, dttdf)
+
+  else
+
+     call gw_diff_solver_note_entered()
+     call gw_diff_solver_codon_wrap(1, ncol, pver, pver+1, size(q,3), band%ngwv, &
+          kbot_tend, ktop, dt, gravit, gwut, ubm, nm, rhoi, c, tend_level, &
+          p%del, p%rdel, p%rdst, q, dse, egwdffi, qtgw, dttdf, &
+          egwdffm, egwdff_lev, dpidz_sq, gw_diff_coef, gw_diff_qnew, &
+          gw_diff_spr, gw_diff_sub, gw_diff_diag, gw_diff_ca, gw_diff_ze, &
+          gw_diff_dnom, gw_diff_zf)
+
+     gw_diff_coef(:,1:kbot_tend-ktop+2) = &
+          egwdffi(:,ktop:kbot_tend+1) * dpidz_sq(:,ktop:kbot_tend+1)
+
+     call gw_diff_solver_codon_wrap(2, ncol, pver, pver+1, size(q,3), band%ngwv, &
+          kbot_tend, ktop, dt, gravit, gwut, ubm, nm, rhoi, c, tend_level, &
+          p%del, p%rdel, p%rdst, q, dse, egwdffi, qtgw, dttdf, &
+          egwdffm, egwdff_lev, dpidz_sq, gw_diff_coef, gw_diff_qnew, &
+          gw_diff_spr, gw_diff_sub, gw_diff_diag, gw_diff_ca, gw_diff_ze, &
+          gw_diff_dnom, gw_diff_zf)
+
+  end if
 
   ! Evaluate second temperature tendency term: Conversion of kinetic
   ! energy into thermal.
@@ -730,7 +774,7 @@ subroutine gw_drag_prof(ncol, band, p, src_level, tend_level, dt, &
   end if
 
   ! Deallocate decomp.
-  call decomp%finalize()
+  if (use_native_diff_solver) call decomp%finalize()
 
 end subroutine gw_drag_prof
 
@@ -891,6 +935,158 @@ subroutine gw_drag_prof_core_codon_wrap(stage, ncol_local, pver_local, pverp_loc
        c_loc(ubt_lim_ratio_local))
 
 end subroutine gw_drag_prof_core_codon_wrap
+
+!==========================================================================
+
+subroutine gw_diff_solver_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('GW_DIFF_SOLVER_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+     write(unitno,'(A)') trim(proof_line)
+     close(unitno)
+  end if
+
+end subroutine gw_diff_solver_append_proof
+
+!==========================================================================
+
+subroutine gw_diff_solver_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (gw_diff_solver_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('GW_DIFF_SOLVER_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_gw_diff_solver_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_gw_diff_solver_impl = .false.
+  end if
+
+  gw_diff_solver_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_gw_diff_solver_impl) then
+        write(iulog,*) 'gw_diff_solver implementation = native'
+        call gw_diff_solver_append_proof('gw_diff_solver selector entered implementation = native')
+     else
+        write(iulog,*) 'gw_diff_solver implementation = codon'
+        call gw_diff_solver_append_proof('gw_diff_solver selector entered implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine gw_diff_solver_select_impl
+
+!==========================================================================
+
+subroutine gw_diff_solver_note_entered()
+
+  if (gw_diff_solver_entered_logged) return
+  gw_diff_solver_entered_logged = .true.
+
+  if (masterproc) then
+     write(iulog,*) 'gw_diff_solver entered (diffusivity/LU/left_div direct = codon; coef_q_diff array expression = native)'
+     call gw_diff_solver_append_proof('gw_diff_solver entered (diffusivity/LU/left_div direct = codon; ' // &
+          'coef_q_diff array expression = native)')
+     call flush(iulog)
+  end if
+
+end subroutine gw_diff_solver_note_entered
+
+!==========================================================================
+
+subroutine gw_diff_solver_codon_wrap(stage, ncol_local, pver_local, pverp_local, pcnst_local, ngwv_local, &
+     kbot_local, ktop_local, dt_local, gravit_local, gwut_local, ubm_local, nm_local, rho_local, c_local, &
+     tend_level_local, p_del_local, p_rdel_local, p_rdst_local, q_local, dse_local, egwdffi_local, &
+     qtgw_local, dttdf_local, egwdffm_local, egwdff_lev_local, dpidz_sq_local, coef_q_diff_local, &
+     qnew_local, spr_local, sub_local, diag_local, ca_local, ze_local, dnom_local, zf_local)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+  integer, intent(in) :: stage
+  integer, intent(in) :: ncol_local, pver_local, pverp_local, pcnst_local, ngwv_local
+  integer, intent(in) :: kbot_local, ktop_local
+  real(r8), intent(in) :: dt_local, gravit_local
+  real(r8), target, intent(in) :: gwut_local(ncol_local,pver_local,-ngwv_local:ngwv_local)
+  real(r8), target, intent(in) :: ubm_local(ncol_local,pver_local), nm_local(ncol_local,pver_local)
+  real(r8), target, intent(in) :: rho_local(ncol_local,pverp_local)
+  real(r8), target, intent(in) :: c_local(ncol_local,-ngwv_local:ngwv_local)
+  integer, intent(in) :: tend_level_local(ncol_local)
+  real(r8), target, intent(in) :: p_del_local(ncol_local,pver_local)
+  real(r8), target, intent(in) :: p_rdel_local(ncol_local,pver_local)
+  real(r8), target, intent(in) :: p_rdst_local(ncol_local,pver_local-1)
+  real(r8), target, intent(in) :: q_local(ncol_local,pver_local,pcnst_local)
+  real(r8), target, intent(in) :: dse_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: egwdffi_local(ncol_local,pverp_local)
+  real(r8), target, intent(inout) :: qtgw_local(ncol_local,pver_local,pcnst_local)
+  real(r8), target, intent(inout) :: dttdf_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: egwdffm_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: egwdff_lev_local(ncol_local)
+  real(r8), target, intent(inout) :: dpidz_sq_local(ncol_local,pverp_local)
+  real(r8), target, intent(inout) :: coef_q_diff_local(ncol_local,pverp_local)
+  real(r8), target, intent(inout) :: qnew_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: spr_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: sub_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: diag_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: ca_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: ze_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: dnom_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: zf_local(ncol_local,pver_local)
+
+  integer(c_int64_t), target :: tend_level_i8(ncol_local)
+  integer :: i
+
+  interface
+     subroutine gw_diff_solver_codon(stage_c, ncol_c, pver_c, pverp_c, pcnst_c, ngwv_c, &
+          kbot_c, ktop_c, dt_c, gravit_c, gwut_p, ubm_p, nm_p, rho_p, c_p, tend_level_p, &
+          p_del_p, p_rdel_p, p_rdst_p, q_p, dse_p, egwdffi_p, qtgw_p, dttdf_p, &
+          egwdffm_p, egwdff_lev_p, dpidz_sq_p, coef_q_diff_p, qnew_p, spr_p, sub_p, &
+          diag_p, ca_p, ze_p, dnom_p, zf_p) &
+          bind(c, name="gw_diff_solver_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: stage_c, ncol_c, pver_c, pverp_c, pcnst_c, ngwv_c
+       integer(c_int64_t), value :: kbot_c, ktop_c
+       real(c_double), value :: dt_c, gravit_c
+       type(c_ptr), value :: gwut_p, ubm_p, nm_p, rho_p, c_p, tend_level_p
+       type(c_ptr), value :: p_del_p, p_rdel_p, p_rdst_p, q_p, dse_p, egwdffi_p
+       type(c_ptr), value :: qtgw_p, dttdf_p, egwdffm_p, egwdff_lev_p, dpidz_sq_p
+       type(c_ptr), value :: coef_q_diff_p, qnew_p, spr_p, sub_p, diag_p, ca_p, ze_p, dnom_p, zf_p
+     end subroutine gw_diff_solver_codon
+  end interface
+
+  do i = 1, ncol_local
+     tend_level_i8(i) = int(tend_level_local(i), c_int64_t)
+  end do
+
+  call gw_diff_solver_codon(int(stage, c_int64_t), int(ncol_local, c_int64_t), &
+       int(pver_local, c_int64_t), int(pverp_local, c_int64_t), int(pcnst_local, c_int64_t), &
+       int(ngwv_local, c_int64_t), int(kbot_local, c_int64_t), int(ktop_local, c_int64_t), &
+       real(dt_local, c_double), real(gravit_local, c_double), c_loc(gwut_local), c_loc(ubm_local), &
+       c_loc(nm_local), c_loc(rho_local), c_loc(c_local), c_loc(tend_level_i8), c_loc(p_del_local), &
+       c_loc(p_rdel_local), c_loc(p_rdst_local), c_loc(q_local), c_loc(dse_local), c_loc(egwdffi_local), &
+       c_loc(qtgw_local), c_loc(dttdf_local), c_loc(egwdffm_local), c_loc(egwdff_lev_local), &
+       c_loc(dpidz_sq_local), c_loc(coef_q_diff_local), c_loc(qnew_local), c_loc(spr_local), &
+       c_loc(sub_local), c_loc(diag_local), c_loc(ca_local), c_loc(ze_local), c_loc(dnom_local), &
+       c_loc(zf_local))
+
+end subroutine gw_diff_solver_codon_wrap
 
 !==========================================================================
 

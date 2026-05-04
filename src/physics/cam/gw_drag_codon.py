@@ -491,6 +491,251 @@ def gw_diff_tend_prepost_codon(
 
 
 @export
+def gw_diff_solver_codon(
+    stage: int,
+    ncol: int,
+    pver: int,
+    pverp: int,
+    pcnst: int,
+    ngwv: int,
+    kbot: int,
+    ktop: int,
+    dt: float,
+    gravit: float,
+    gwut_p: cobj,
+    ubm_p: cobj,
+    nm_p: cobj,
+    rho_p: cobj,
+    c_p: cobj,
+    tend_level_p: cobj,
+    p_del_p: cobj,
+    p_rdel_p: cobj,
+    p_rdst_p: cobj,
+    q_p: cobj,
+    dse_p: cobj,
+    egwdffi_p: cobj,
+    qtgw_p: cobj,
+    dttdf_p: cobj,
+    egwdffm_p: cobj,
+    egwdff_lev_p: cobj,
+    dpidz_sq_p: cobj,
+    coef_q_diff_p: cobj,
+    qnew_p: cobj,
+    spr_p: cobj,
+    sub_p: cobj,
+    diag_p: cobj,
+    ca_p: cobj,
+    ze_p: cobj,
+    dnom_p: cobj,
+    zf_p: cobj,
+):
+    gwut = Ptr[float](gwut_p)
+    ubm = Ptr[float](ubm_p)
+    nm = Ptr[float](nm_p)
+    rho = Ptr[float](rho_p)
+    c = Ptr[float](c_p)
+    tend_level = Ptr[int](tend_level_p)
+    p_del = Ptr[float](p_del_p)
+    p_rdel = Ptr[float](p_rdel_p)
+    p_rdst = Ptr[float](p_rdst_p)
+    q = Ptr[float](q_p)
+    dse = Ptr[float](dse_p)
+    egwdffi = Ptr[float](egwdffi_p)
+    qtgw = Ptr[float](qtgw_p)
+    dttdf = Ptr[float](dttdf_p)
+    egwdffm = Ptr[float](egwdffm_p)
+    egwdff_lev = Ptr[float](egwdff_lev_p)
+    dpidz_sq = Ptr[float](dpidz_sq_p)
+    coef_q_diff = Ptr[float](coef_q_diff_p)
+    qnew = Ptr[float](qnew_p)
+    spr = Ptr[float](spr_p)
+    sub = Ptr[float](sub_p)
+    diag = Ptr[float](diag_p)
+    ca = Ptr[float](ca_p)
+    ze = Ptr[float](ze_p)
+    dnom = Ptr[float](dnom_p)
+    zf = Ptr[float](zf_p)
+
+    prndl = 0.25
+    ncel = kbot - ktop + 1
+
+    if stage == 1:
+        for k in range(1, pverp + 1):
+            for i in range(1, ncol + 1):
+                egwdffi[_idx2(i, k, ncol)] = 0.0
+
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                egwdffm[_idx2(i, k, ncol)] = 0.0
+
+        for l in range(-ngwv, ngwv + 1):
+            for k in range(ktop, kbot + 1):
+                for i in range(1, ncol + 1):
+                    idx = _idx2(i, k, ncol)
+                    egwdff_lev[i - 1] = (
+                        prndl
+                        * 0.5
+                        * gwut[_idx_gwut(i, k, l, ncol, pver, ngwv)]
+                        * (c[_idx_c(i, l, ncol, ngwv)] - ubm[idx])
+                        / (nm[idx] ** 2)
+                    )
+
+                for i in range(1, ncol + 1):
+                    idx = _idx2(i, k, ncol)
+                    egwdffm[idx] = egwdffm[idx] + egwdff_lev[i - 1]
+
+        for k in range(ktop + 1, kbot + 1):
+            for i in range(1, ncol + 1):
+                egwdffi[_idx2(i, k, ncol)] = 0.5 * (
+                    egwdffm[_idx2(i, k - 1, ncol)] + egwdffm[_idx2(i, k, ncol)]
+                )
+
+        for k in range(ktop + 1, kbot + 1):
+            for i in range(1, ncol + 1):
+                if k > tend_level[i - 1]:
+                    egwdffi[_idx2(i, k, ncol)] = 0.0
+
+        for k in range(1, pverp + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, ncol)
+                dpidz_sq[idx] = rho[idx] * gravit
+
+        for k in range(1, pverp + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, ncol)
+                dpidz_sq[idx] = dpidz_sq[idx] * dpidz_sq[idx]
+
+    elif stage == 2:
+        for sk in range(1, ncel):
+            k = ktop + sk - 1
+            for i in range(1, ncol + 1):
+                spr[_idx2(i, sk, ncol)] = (
+                    coef_q_diff[_idx2(i, sk + 1, ncol)]
+                    * p_rdst[_idx2(i, k, ncol)]
+                    * p_rdel[_idx2(i, k, ncol)]
+                )
+                sub[_idx2(i, sk, ncol)] = (
+                    coef_q_diff[_idx2(i, sk + 1, ncol)]
+                    * p_rdst[_idx2(i, k, ncol)]
+                    * p_rdel[_idx2(i, k + 1, ncol)]
+                )
+
+        for sk in range(1, ncel):
+            for i in range(1, ncol + 1):
+                diag[_idx2(i, sk, ncol)] = -spr[_idx2(i, sk, ncol)]
+
+        for i in range(1, ncol + 1):
+            diag[_idx2(i, ncel, ncol)] = -0.0
+
+        for sk in range(2, ncel + 1):
+            for i in range(1, ncol + 1):
+                diag[_idx2(i, sk, ncol)] = diag[_idx2(i, sk, ncol)] - sub[_idx2(i, sk - 1, ncol)]
+
+        for sk in range(1, ncel):
+            for i in range(1, ncol + 1):
+                spr[_idx2(i, sk, ncol)] = spr[_idx2(i, sk, ncol)] * (-dt)
+
+        for sk in range(1, ncel):
+            for i in range(1, ncol + 1):
+                sub[_idx2(i, sk, ncol)] = sub[_idx2(i, sk, ncol)] * (-dt)
+
+        for sk in range(1, ncel + 1):
+            for i in range(1, ncol + 1):
+                diag[_idx2(i, sk, ncol)] = diag[_idx2(i, sk, ncol)] * (-dt)
+
+        for sk in range(1, ncel + 1):
+            for i in range(1, ncol + 1):
+                diag[_idx2(i, sk, ncol)] = diag[_idx2(i, sk, ncol)] + 1.0
+
+        for sk in range(1, ncel):
+            for i in range(1, ncol + 1):
+                ca[_idx2(i, sk, ncol)] = -spr[_idx2(i, sk, ncol)]
+
+        for i in range(1, ncol + 1):
+            ca[_idx2(i, ncel, ncol)] = -0.0
+
+        for i in range(1, ncol + 1):
+            dnom[_idx2(i, ncel, ncol)] = 1.0 / diag[_idx2(i, ncel, ncol)]
+
+        for sk in range(ncel - 1, 0, -1):
+            for i in range(1, ncol + 1):
+                ze[_idx2(i, sk + 1, ncol)] = -sub[_idx2(i, sk, ncol)] * dnom[_idx2(i, sk + 1, ncol)]
+
+            for i in range(1, ncol + 1):
+                dnom[_idx2(i, sk, ncol)] = 1.0 / (
+                    diag[_idx2(i, sk, ncol)] - ca[_idx2(i, sk, ncol)] * ze[_idx2(i, sk + 1, ncol)]
+                )
+
+        for i in range(1, ncol + 1):
+            ze[_idx2(i, 1, ncol)] = -0.0
+
+        for m in range(1, pcnst + 1):
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    idx2 = _idx2(i, k, ncol)
+                    idx3 = _idx3(i, k, m, ncol, pver)
+                    qtgw[idx3] = 0.0
+                    qnew[idx2] = q[idx3]
+
+            for i in range(1, ncol + 1):
+                zf[_idx2(i, ncel, ncol)] = qnew[_idx2(i, kbot, ncol)] * dnom[_idx2(i, ncel, ncol)]
+
+            for sk in range(ncel - 1, 0, -1):
+                k = ktop + sk - 1
+                for i in range(1, ncol + 1):
+                    zf[_idx2(i, sk, ncol)] = (
+                        qnew[_idx2(i, k, ncol)] + ca[_idx2(i, sk, ncol)] * zf[_idx2(i, sk + 1, ncol)]
+                    ) * dnom[_idx2(i, sk, ncol)]
+
+            for i in range(1, ncol + 1):
+                qnew[_idx2(i, ktop, ncol)] = zf[_idx2(i, 1, ncol)]
+
+            for sk in range(2, ncel + 1):
+                k = ktop + sk - 1
+                for i in range(1, ncol + 1):
+                    qnew[_idx2(i, k, ncol)] = (
+                        zf[_idx2(i, sk, ncol)] + ze[_idx2(i, sk, ncol)] * qnew[_idx2(i, k - 1, ncol)]
+                    )
+
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    idx2 = _idx2(i, k, ncol)
+                    idx3 = _idx3(i, k, m, ncol, pver)
+                    qtgw[idx3] = (qnew[idx2] - q[idx3]) / dt
+
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, ncol)
+                dttdf[idx] = 0.0
+                qnew[idx] = dse[idx]
+
+        for i in range(1, ncol + 1):
+            zf[_idx2(i, ncel, ncol)] = qnew[_idx2(i, kbot, ncol)] * dnom[_idx2(i, ncel, ncol)]
+
+        for sk in range(ncel - 1, 0, -1):
+            k = ktop + sk - 1
+            for i in range(1, ncol + 1):
+                zf[_idx2(i, sk, ncol)] = (
+                    qnew[_idx2(i, k, ncol)] + ca[_idx2(i, sk, ncol)] * zf[_idx2(i, sk + 1, ncol)]
+                ) * dnom[_idx2(i, sk, ncol)]
+
+        for i in range(1, ncol + 1):
+            qnew[_idx2(i, ktop, ncol)] = zf[_idx2(i, 1, ncol)]
+
+        for sk in range(2, ncel + 1):
+            k = ktop + sk - 1
+            for i in range(1, ncol + 1):
+                qnew[_idx2(i, k, ncol)] = (
+                    zf[_idx2(i, sk, ncol)] + ze[_idx2(i, sk, ncol)] * qnew[_idx2(i, k - 1, ncol)]
+                )
+
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, ncol)
+                dttdf[idx] = (qnew[idx] - dse[idx]) / dt
+
+
+@export
 def gw_oro_src_codon(
     ncol: int,
     pver: int,
