@@ -7,6 +7,8 @@ module gw_diffusion
 
 use gw_utils, only: r8
 use linear_1d_operators, only: TriDiagDecomp
+use spmd_utils, only: masterproc
+use cam_logfile, only: iulog
 
 implicit none
 private
@@ -14,6 +16,10 @@ save
 
 public :: gw_ediff
 public :: gw_diff_tend
+
+logical :: use_native_gw_ediff_prep_impl = .false.
+logical :: gw_ediff_prep_impl_selected = .false.
+logical :: gw_ediff_prep_entered_logged = .false.
 
 contains
 
@@ -81,49 +87,187 @@ subroutine gw_ediff(ncol, pver, ngwv, kbot, ktop, tend_level, &
   real(r8), parameter :: prndl=0.25_r8
   ! Density scale height.
   real(r8), parameter :: dscale=7000._r8
+  ! Whether to keep the pre-decomposition diffusivity prep native.
+  logical :: use_native_prep
 
 !--------------------------------------------------------------------------
 
-  egwdffi = 0._r8
-  egwdffm = 0._r8
+  call gw_ediff_prep_select_impl()
+  use_native_prep = use_native_gw_ediff_prep_impl .or. present(ro_adjust)
 
-  ! Calculate effective diffusivity at midpoints.
-  do l = -ngwv, ngwv
-     do k = ktop, kbot
+  if (use_native_prep) then
 
-        egwdff_lev = &
-             prndl * 0.5_r8 * gwut(:,k,l) * (c(:,l)-ubm(:,k)) / nm(:,k)**2
+     egwdffi = 0._r8
+     egwdffm = 0._r8
 
-        ! IGWs have a different Prandtl number, and need ro_adjust factor.
-        if (present(ro_adjust)) then
-           egwdff_lev = egwdff_lev * 4._r8 * ro_adjust(:,l,k)**2
-        end if
+     ! Calculate effective diffusivity at midpoints.
+     do l = -ngwv, ngwv
+        do k = ktop, kbot
 
-        egwdffm(:,k) = egwdffm(:,k) + egwdff_lev
+           egwdff_lev = &
+                prndl * 0.5_r8 * gwut(:,k,l) * (c(:,l)-ubm(:,k)) / nm(:,k)**2
 
+           ! IGWs have a different Prandtl number, and need ro_adjust factor.
+           if (present(ro_adjust)) then
+              egwdff_lev = egwdff_lev * 4._r8 * ro_adjust(:,l,k)**2
+           end if
+
+           egwdffm(:,k) = egwdffm(:,k) + egwdff_lev
+
+        end do
      end do
-  end do
 
 
-  ! Interpolate effective diffusivity to interfaces.
-  ! Assume zero at top and bottom interfaces.
-  egwdffi(:,ktop+1:kbot) = midpoint_interp(egwdffm(:,ktop:kbot))
+     ! Interpolate effective diffusivity to interfaces.
+     ! Assume zero at top and bottom interfaces.
+     egwdffi(:,ktop+1:kbot) = midpoint_interp(egwdffm(:,ktop:kbot))
 
-  ! Do not calculate diffusivities below level where tendencies are
-  ! actually allowed.
-  do k = ktop+1, kbot
-     where (k > tend_level) egwdffi(:,k) = 0.0_r8
-  enddo
+     ! Do not calculate diffusivities below level where tendencies are
+     ! actually allowed.
+     do k = ktop+1, kbot
+        where (k > tend_level) egwdffi(:,k) = 0.0_r8
+     enddo
 
-  ! Calculate (dp/dz)^2.
-  dpidz_sq = rho*gravit
-  dpidz_sq = dpidz_sq*dpidz_sq
+     ! Calculate (dp/dz)^2.
+     dpidz_sq = rho*gravit
+     dpidz_sq = dpidz_sq*dpidz_sq
+
+  else
+
+     call gw_ediff_prep_note_entered()
+     call gw_ediff_prep_codon_wrap(ncol, pver, pver+1, ngwv, kbot, ktop, prndl, gravit, &
+          gwut, ubm, nm, rho, c, tend_level, egwdffi, egwdffm, egwdff_lev, dpidz_sq)
+
+  end if
 
   ! Decompose the diffusion matrix.
   decomp = fin_vol_lu_decomp(dt, p%section([1,ncol],[ktop,kbot]), &
        coef_q_diff=egwdffi(:,ktop:kbot+1)*dpidz_sq(:,ktop:kbot+1))
 
 end subroutine gw_ediff
+
+!==========================================================================
+
+subroutine gw_ediff_prep_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('GW_EDIFF_PREP_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+     write(unitno,'(A)') trim(proof_line)
+     close(unitno)
+  end if
+
+end subroutine gw_ediff_prep_append_proof
+
+!==========================================================================
+
+subroutine gw_ediff_prep_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (gw_ediff_prep_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('GW_EDIFF_PREP_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_gw_ediff_prep_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_gw_ediff_prep_impl = .false.
+  end if
+
+  gw_ediff_prep_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_gw_ediff_prep_impl) then
+        write(iulog,*) 'gw_ediff_prep implementation = native'
+        call gw_ediff_prep_append_proof('gw_ediff_prep selector entered implementation = native')
+     else
+        write(iulog,*) 'gw_ediff_prep implementation = codon'
+        call gw_ediff_prep_append_proof('gw_ediff_prep selector entered implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine gw_ediff_prep_select_impl
+
+!==========================================================================
+
+subroutine gw_ediff_prep_note_entered()
+
+  if (gw_ediff_prep_entered_logged) return
+  gw_ediff_prep_entered_logged = .true.
+
+  if (masterproc) then
+     write(iulog,*) 'gw_ediff_prep entered (diffusivity prep direct = codon)'
+     call gw_ediff_prep_append_proof('gw_ediff_prep entered (diffusivity prep direct = codon)')
+     call flush(iulog)
+  end if
+
+end subroutine gw_ediff_prep_note_entered
+
+!==========================================================================
+
+subroutine gw_ediff_prep_codon_wrap(ncol_local, pver_local, pverp_local, ngwv_local, &
+     kbot_local, ktop_local, prndl_local, gravit_local, gwut_local, ubm_local, nm_local, &
+     rho_local, c_local, tend_level_local, egwdffi_local, egwdffm_local, egwdff_lev_local, dpidz_sq_local)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+  integer, intent(in) :: ncol_local, pver_local, pverp_local, ngwv_local
+  integer, intent(in) :: kbot_local, ktop_local
+  real(r8), intent(in) :: prndl_local, gravit_local
+  real(r8), target, intent(in) :: gwut_local(ncol_local,pver_local,-ngwv_local:ngwv_local)
+  real(r8), target, intent(in) :: ubm_local(ncol_local,pver_local), nm_local(ncol_local,pver_local)
+  real(r8), target, intent(in) :: rho_local(ncol_local,pverp_local)
+  real(r8), target, intent(in) :: c_local(ncol_local,-ngwv_local:ngwv_local)
+  integer, intent(in) :: tend_level_local(ncol_local)
+  real(r8), target, intent(inout) :: egwdffi_local(ncol_local,pverp_local)
+  real(r8), target, intent(inout) :: egwdffm_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: egwdff_lev_local(ncol_local)
+  real(r8), target, intent(inout) :: dpidz_sq_local(ncol_local,pverp_local)
+
+  integer(c_int64_t), target :: tend_level_i8(ncol_local)
+  integer :: i
+
+  interface
+     subroutine gw_ediff_prep_codon(ncol_c, pver_c, pverp_c, ngwv_c, kbot_c, ktop_c, &
+          prndl_c, gravit_c, gwut_p, ubm_p, nm_p, rho_p, c_p, tend_level_p, &
+          egwdffi_p, egwdffm_p, egwdff_lev_p, dpidz_sq_p) &
+          bind(c, name="gw_ediff_prep_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pver_c, pverp_c, ngwv_c, kbot_c, ktop_c
+       real(c_double), value :: prndl_c, gravit_c
+       type(c_ptr), value :: gwut_p, ubm_p, nm_p, rho_p, c_p, tend_level_p
+       type(c_ptr), value :: egwdffi_p, egwdffm_p, egwdff_lev_p, dpidz_sq_p
+     end subroutine gw_ediff_prep_codon
+  end interface
+
+  do i = 1, ncol_local
+     tend_level_i8(i) = int(tend_level_local(i), c_int64_t)
+  end do
+
+  call gw_ediff_prep_codon(int(ncol_local, c_int64_t), int(pver_local, c_int64_t), &
+       int(pverp_local, c_int64_t), int(ngwv_local, c_int64_t), int(kbot_local, c_int64_t), &
+       int(ktop_local, c_int64_t), real(prndl_local, c_double), real(gravit_local, c_double), &
+       c_loc(gwut_local), c_loc(ubm_local), c_loc(nm_local), c_loc(rho_local), c_loc(c_local), &
+       c_loc(tend_level_i8), c_loc(egwdffi_local), c_loc(egwdffm_local), c_loc(egwdff_lev_local), &
+       c_loc(dpidz_sq_local))
+
+end subroutine gw_ediff_prep_codon_wrap
 
 !==========================================================================
 

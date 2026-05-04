@@ -387,6 +387,82 @@ def gw_drag_prof_core_codon(
 
 
 @export
+def gw_ediff_prep_codon(
+    ncol: int,
+    pver: int,
+    pverp: int,
+    ngwv: int,
+    kbot: int,
+    ktop: int,
+    prndl: float,
+    gravit: float,
+    gwut_p: cobj,
+    ubm_p: cobj,
+    nm_p: cobj,
+    rho_p: cobj,
+    c_p: cobj,
+    tend_level_p: cobj,
+    egwdffi_p: cobj,
+    egwdffm_p: cobj,
+    egwdff_lev_p: cobj,
+    dpidz_sq_p: cobj,
+):
+    gwut = Ptr[float](gwut_p)
+    ubm = Ptr[float](ubm_p)
+    nm = Ptr[float](nm_p)
+    rho = Ptr[float](rho_p)
+    c = Ptr[float](c_p)
+    tend_level = Ptr[int](tend_level_p)
+    egwdffi = Ptr[float](egwdffi_p)
+    egwdffm = Ptr[float](egwdffm_p)
+    egwdff_lev = Ptr[float](egwdff_lev_p)
+    dpidz_sq = Ptr[float](dpidz_sq_p)
+
+    for k in range(1, pverp + 1):
+        for i in range(1, ncol + 1):
+            egwdffi[_idx2(i, k, ncol)] = 0.0
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            egwdffm[_idx2(i, k, ncol)] = 0.0
+
+    for l in range(-ngwv, ngwv + 1):
+        for k in range(ktop, kbot + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, ncol)
+                egwdff_lev[i - 1] = (
+                    prndl
+                    * 0.5
+                    * gwut[_idx_gwut(i, k, l, ncol, pver, ngwv)]
+                    * (c[_idx_c(i, l, ncol, ngwv)] - ubm[idx])
+                    / (nm[idx] ** 2)
+                )
+
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, ncol)
+                egwdffm[idx] = egwdffm[idx] + egwdff_lev[i - 1]
+
+    for k in range(ktop + 1, kbot + 1):
+        for i in range(1, ncol + 1):
+            egwdffi[_idx2(i, k, ncol)] = 0.5 * (egwdffm[_idx2(i, k - 1, ncol)] + egwdffm[_idx2(i, k, ncol)])
+
+    for k in range(ktop + 1, kbot + 1):
+        for i in range(1, ncol + 1):
+            if k > tend_level[i - 1]:
+                egwdffi[_idx2(i, k, ncol)] = 0.0
+
+    for k in range(1, pverp + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, ncol)
+            dpidz_sq[idx] = rho[idx] * gravit
+
+    for k in range(1, pverp + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, ncol)
+            dpidz_sq[idx] = dpidz_sq[idx] * dpidz_sq[idx]
+
+
+@export
 def gw_oro_src_codon(
     ncol: int,
     pver: int,
