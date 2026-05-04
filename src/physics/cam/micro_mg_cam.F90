@@ -127,7 +127,7 @@ logical :: use_native_postmg_diag_impl = .false.
 logical :: postmg_diag_impl_selected = .false.
 logical :: use_native_grid_diag_impl = .false.
 logical :: grid_diag_impl_selected = .false.
-logical :: use_native_tail_shell_impl = .true.
+logical :: use_native_tail_shell_impl = .false.
 logical :: tail_shell_impl_selected = .false.
 logical :: use_native_wtrc_shell_impl = .false.
 logical :: wtrc_shell_impl_selected = .false.
@@ -2894,7 +2894,7 @@ subroutine micro_mg_cam_select_tail_shell_impl()
 
   if (tail_shell_impl_selected) return
 
-  impl_name = 'native'
+  impl_name = 'codon'
   call get_environment_variable('MICRO_MG_CAM_TAIL_SHELL_IMPL', value=impl_name, length=n, status=status)
 
   if (status == 0 .and. n > 0) then
@@ -2906,7 +2906,7 @@ subroutine micro_mg_cam_select_tail_shell_impl()
      end do
      use_native_tail_shell_impl = trim(adjustl(impl_name(:n))) == 'native'
   else
-     use_native_tail_shell_impl = .true.
+     use_native_tail_shell_impl = .false.
   end if
 
   tail_shell_impl_selected = .true.

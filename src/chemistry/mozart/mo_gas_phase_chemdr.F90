@@ -51,7 +51,7 @@ module mo_gas_phase_chemdr
   logical :: pm25_srf_diag_soa
   logical :: gas_phase_chemdr_use_native_impl = .false.
   logical :: gas_phase_chemdr_impl_selected = .false.
-  logical :: gas_phase_chemdr_use_codon_shell_impl = .false.
+  logical :: gas_phase_chemdr_use_codon_shell_impl = .true.
   logical :: gas_phase_chemdr_shell_impl_selected = .false.
 
   integer, parameter :: gas_phase_chemdr_shell_stage_prepare_sza = 1
@@ -2701,7 +2701,7 @@ contains
 
     if (gas_phase_chemdr_shell_impl_selected) return
 
-    impl_name = 'native'
+    impl_name = 'codon'
     call get_environment_variable('GAS_PHASE_CHEMDR_SHELL_IMPL', value=impl_name, length=n, status=status)
 
     if (status == 0 .and. n > 0) then
@@ -2713,7 +2713,7 @@ contains
        end do
        gas_phase_chemdr_use_codon_shell_impl = trim(adjustl(impl_name(:n))) == 'codon'
     else
-       gas_phase_chemdr_use_codon_shell_impl = .false.
+       gas_phase_chemdr_use_codon_shell_impl = .true.
     end if
 
     gas_phase_chemdr_shell_impl_selected = .true.
