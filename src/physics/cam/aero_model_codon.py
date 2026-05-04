@@ -8948,6 +8948,227 @@ def modal_aero_coag_getcoags_prep_codon(
 
 
 @export
+def modal_aero_getcoags_core_codon(
+    lamda: float,
+    kfmatac: float,
+    kfmat: float,
+    kfmac: float,
+    knc: float,
+    dgatk: float,
+    dgacc: float,
+    xxlsgat: float,
+    xxlsgac: float,
+    n1: int,
+    n2n: int,
+    n2a: int,
+    constii: float,
+    bm0_p: cobj,
+    bm0ij_p: cobj,
+    bm3i_p: cobj,
+    bm2ii_p: cobj,
+    bm2iitt_p: cobj,
+    bm2ij_p: cobj,
+    bm2ji_p: cobj,
+    qs11_p: cobj,
+    qn11_p: cobj,
+    qs22_p: cobj,
+    qn22_p: cobj,
+    qs12_p: cobj,
+    qs21_p: cobj,
+    qn12_p: cobj,
+    qv12_p: cobj,
+):
+    bm0 = Ptr[float](bm0_p)
+    bm0ij = Ptr[float](bm0ij_p)
+    bm3i = Ptr[float](bm3i_p)
+    bm2ii = Ptr[float](bm2ii_p)
+    bm2iitt = Ptr[float](bm2iitt_p)
+    bm2ij = Ptr[float](bm2ij_p)
+    bm2ji = Ptr[float](bm2ji_p)
+    qs11_out = Ptr[float](qs11_p)
+    qn11_out = Ptr[float](qn11_p)
+    qs22_out = Ptr[float](qs22_p)
+    qn22_out = Ptr[float](qn22_p)
+    qs12_out = Ptr[float](qs12_p)
+    qs21_out = Ptr[float](qs21_p)
+    qn12_out = Ptr[float](qn12_p)
+    qv12_out = Ptr[float](qv12_p)
+
+    one = 1.0
+    two = 2.0
+    a = 1.246
+    two3rds = 2.0 / 3.0
+
+    esat01 = exp(0.125 * xxlsgat * xxlsgat)
+    esac01 = exp(0.125 * xxlsgac * xxlsgac)
+    esat04 = esat01 ** 4
+    esac04 = esac01 ** 4
+    esat05 = esat04 * esat01
+    esac05 = esac04 * esac01
+    esat08 = esat04 * esat04
+    esac08 = esac04 * esac04
+    esat09 = esat08 * esat01
+    esac09 = esac08 * esac01
+    esat16 = esat08 * esat08
+    esac16 = esac08 * esac08
+    esat20 = esat16 * esat04
+    esac20 = esac16 * esac04
+    esat24 = esat20 * esat04
+    esac24 = esac20 * esac04
+    esat25 = esat20 * esat05
+    esac25 = esac20 * esac05
+    esat36 = esat20 * esat16
+    esac36 = esac20 * esac16
+    esat49 = esat24 * esat25
+    esat64 = esat20 * esat20 * esat24
+    esac64 = esac20 * esac20 * esac24
+    esat100 = esat64 * esat36
+
+    dgat2 = dgatk * dgatk
+    dgat3 = dgatk * dgatk * dgatk
+    dgac2 = dgacc * dgacc
+
+    sqdgat = sqrt(dgatk)
+    sqdgac = sqrt(dgacc)
+    sqdgat5 = dgat2 * sqdgat
+    sqdgac5 = dgac2 * sqdgac
+    sqdgat7 = dgat3 * sqdgat
+
+    r = sqdgac / sqdgat
+    r2 = r * r
+    r3 = r2 * r
+    rx4 = r2 * r2
+    r6 = r3 * r3
+    ri1 = one / r
+    ri2 = one / r2
+    ri3 = one / r3
+    ri4 = ri2 * ri2
+    kngat = two * lamda / dgatk
+    kngac = two * lamda / dgacc
+
+    bm0ij_n = bm0ij[_idx3(n1, n2n, n2a, 10, 10)]
+    bm2ij_n = bm2ij[_idx3(n1, n2n, n2a, 10, 10)]
+    bm2ji_n = bm2ji[_idx3(n1, n2n, n2a, 10, 10)]
+    bm3i_n = bm3i[_idx3(n1, n2n, n2a, 10, 10)]
+
+    coagnc0 = knc * (
+        two
+        + a
+        * (
+            kngat * (esat04 + r2 * esat16 * esac04)
+            + kngac * (esac04 + ri2 * esac16 * esat04)
+        )
+        + (r2 + ri2) * esat04 * esac04
+    )
+    coagfm0 = kfmatac * sqdgat * bm0ij_n * (
+        esat01
+        + r * esac01
+        + two * r2 * esat01 * esac04
+        + rx4 * esat09 * esac16
+        + ri3 * esat16 * esac09
+        + two * ri1 * esat04
+        + esac01
+    )
+    coagatac0 = coagnc0 * coagfm0 / (coagnc0 + coagfm0)
+    qn12 = coagatac0
+
+    i1nc = knc * dgat2 * (
+        two * esat16
+        + r2 * esat04 * esac04
+        + ri2 * esat36 * esac04
+        + a
+        * kngat
+        * (esat04 + ri2 * esat16 * esac04 + ri4 * esat36 * esac16 + r2 * esac04)
+    )
+    i1fm = kfmatac * sqdgat5 * bm2ij_n * (
+        esat25
+        + two * r2 * esat09 * esac04
+        + rx4 * esat01 * esac16
+        + ri3 * esat64 * esac09
+        + two * ri1 * esat36 * esac01
+        + r * esat16 * esac01
+    )
+    i1 = (i1fm * i1nc) / (i1fm + i1nc)
+    coagatac2 = i1
+    qs12 = coagatac2
+    coagacat2 = ((one + r6) ** two3rds - rx4) * i1
+    qs21 = coagacat2 * bm2ji_n
+
+    coagnc3 = knc * dgat3 * (
+        two * esat36
+        + a * kngat * (esat16 + r2 * esat04 * esac04)
+        + a * kngac * (esat36 * esac04 + ri2 * esat64 * esac16)
+        + r2 * esat16 * esac04
+        + ri2 * esat64 * esac04
+    )
+    coagfm3 = kfmatac * sqdgat7 * bm3i_n * (
+        esat49
+        + r * esat36 * esac01
+        + two * r2 * esat25 * esac04
+        + rx4 * esat09 * esac16
+        + ri3 * esat100 * esac09
+        + two * ri1 * esat64 * esac01
+    )
+    coagatac3 = coagnc3 * coagfm3 / (coagnc3 + coagfm3)
+    qv12 = coagatac3
+
+    coagnc_at = knc * (one + esat08 + a * kngat * (esat20 + esat04))
+    coagfm_at = kfmat * sqdgat * bm0[n2n - 1] * (esat01 + esat25 + two * esat05)
+    coagatat0 = coagfm_at * coagnc_at / (coagfm_at + coagnc_at)
+    qn11 = coagatat0
+
+    coagnc_ac = knc * (one + esac08 + a * kngac * (esac20 + esac04))
+    coagfm_ac = kfmac * sqdgac * bm0[n2a - 1] * (esac01 + esac25 + two * esac05)
+    coagacac0 = coagfm_ac * coagnc_ac / (coagfm_ac + coagnc_ac)
+    qn22 = coagacac0
+
+    i1nc_at = knc * dgat2 * (
+        two * esat16
+        + esat04 * esat04
+        + esat36 * esat04
+        + a * kngat * (two * esat04 + esat16 * esat04 + esat36 * esat16)
+    )
+    i1fm_at = kfmat * sqdgat5 * bm2ii[n2n - 1] * (
+        esat25
+        + two * esat09 * esat04
+        + esat01 * esat16
+        + esat64 * esat09
+        + two * esat36 * esat01
+        + esat16 * esat01
+    )
+    i1_at = (i1nc_at * i1fm_at) / (i1nc_at + i1fm_at)
+    coagatat2 = constii * i1_at
+    qs11 = coagatat2 * bm2iitt[n2n - 1]
+
+    i1nc_ac = knc * dgac2 * (
+        two * esac16
+        + esac04 * esac04
+        + esac36 * esac04
+        + a * kngac * (two * esac04 + esac16 * esac04 + esac36 * esac16)
+    )
+    i1fm_ac = kfmac * sqdgac5 * bm2ii[n2a - 1] * (
+        esac25
+        + two * esac09 * esac04
+        + esac01 * esac16
+        + esac64 * esac09
+        + two * esac36 * esac01
+        + esac16 * esac01
+    )
+    i1_ac = (i1nc_ac * i1fm_ac) / (i1nc_ac + i1fm_ac)
+    coagacac2 = constii * i1_ac
+    qs22 = coagacac2 * bm2iitt[n2a - 1]
+
+    qs11_out[0] = qs11
+    qn11_out[0] = qn11
+    qs22_out[0] = qs22
+    qn22_out[0] = qn22
+    qs12_out[0] = qs12
+    qs21_out[0] = qs21
+    qn12_out[0] = qn12
+    qv12_out[0] = qv12
+
+
+@export
 def modal_aero_coag_sub_codon(
     stage: int,
     ncol: int,

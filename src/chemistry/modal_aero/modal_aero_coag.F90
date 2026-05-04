@@ -57,6 +57,10 @@
   logical :: modal_aero_coag_getcoags_prep_impl_selected = .false.
   logical :: modal_aero_coag_getcoags_prep_proof_written = .false.
   logical :: modal_aero_coag_getcoags_prep_entered_proof_written = .false.
+  logical :: modal_aero_getcoags_core_use_native_impl = .false.
+  logical :: modal_aero_getcoags_core_impl_selected = .false.
+  logical :: modal_aero_getcoags_core_proof_written = .false.
+  logical :: modal_aero_getcoags_core_entered_proof_written = .false.
 
 ! !DESCRIPTION: This module implements ...
 !
@@ -201,6 +205,59 @@ subroutine modal_aero_coag_getcoags_prep_select_impl()
   end if
 
 end subroutine modal_aero_coag_getcoags_prep_select_impl
+
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+subroutine modal_aero_getcoags_core_select_impl()
+
+  use cam_logfile, only: iulog
+  use spmd_utils, only: masterproc
+
+  implicit none
+
+  character(len=48) :: impl_name
+  integer :: status, n, i, code
+
+  if (modal_aero_getcoags_core_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MODAL_AERO_GETCOAGS_CORE_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     modal_aero_getcoags_core_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     modal_aero_getcoags_core_use_native_impl = .false.
+  end if
+
+  modal_aero_getcoags_core_impl_selected = .true.
+
+  if (masterproc) then
+     if (modal_aero_getcoags_core_use_native_impl) then
+        write(iulog,*) 'modal_aero_getcoags_core implementation = native'
+        if (.not. modal_aero_getcoags_core_proof_written) then
+           call modal_aero_coag_sub_append_impl_proof('MODAL_AERO_GETCOAGS_CORE_PROOF_FILE', &
+                'modal_aero_getcoags_core implementation = native')
+           modal_aero_getcoags_core_proof_written = .true.
+        end if
+     else
+        write(iulog,*) 'modal_aero_getcoags_core implementation = codon'
+        if (.not. modal_aero_getcoags_core_proof_written) then
+           call modal_aero_coag_sub_append_impl_proof('MODAL_AERO_GETCOAGS_CORE_PROOF_FILE', &
+                'modal_aero_getcoags_core implementation = codon')
+           modal_aero_getcoags_core_proof_written = .true.
+        end if
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine modal_aero_getcoags_core_select_impl
 
 
 !----------------------------------------------------------------------
@@ -1267,10 +1324,18 @@ main_ipair2: do ipair = 1, npair_acoag
         end subroutine modal_aero_coag_getcoags_prep_codon
      end interface
 
+     call modal_aero_getcoags_core_select_impl()
+
      if (masterproc .and. .not. modal_aero_coag_getcoags_prep_entered_proof_written) then
-        write(iulog,'(A)') 'modal_aero_coag_getcoags_prep entered (wrapper prep = codon, getcoags core = native)'
-        call modal_aero_coag_sub_append_impl_proof('MODAL_AERO_COAG_GETCOAGS_PREP_PROOF_FILE', &
-             'modal_aero_coag_getcoags_prep entered (wrapper prep = codon, getcoags core = native)')
+        if (modal_aero_getcoags_core_use_native_impl) then
+           write(iulog,'(A)') 'modal_aero_coag_getcoags_prep entered (wrapper prep = codon, getcoags core = native)'
+           call modal_aero_coag_sub_append_impl_proof('MODAL_AERO_COAG_GETCOAGS_PREP_PROOF_FILE', &
+                'modal_aero_coag_getcoags_prep entered (wrapper prep = codon, getcoags core = native)')
+        else
+           write(iulog,'(A)') 'modal_aero_coag_getcoags_prep entered (wrapper prep = codon, getcoags formula core = codon, correction tables = native)'
+           call modal_aero_coag_sub_append_impl_proof('MODAL_AERO_COAG_GETCOAGS_PREP_PROOF_FILE', &
+                'modal_aero_coag_getcoags_prep entered (wrapper prep = codon, getcoags formula core = codon, correction tables = native)')
+        end if
         modal_aero_coag_getcoags_prep_entered_proof_written = .true.
         call flush(iulog)
      end if
@@ -1376,8 +1441,10 @@ main_ipair2: do ipair = 1, npair_acoag
      if (masterproc .and. .not. modal_aero_coag_sub_fullshell_proof_written) then
         if (modal_aero_coag_getcoags_prep_use_native_impl) then
            wrap_proof_line = 'modal_aero_coag_sub fullshell codon entered (getcoags prep = native)'
-        else
+        else if (modal_aero_getcoags_core_use_native_impl) then
            wrap_proof_line = 'modal_aero_coag_sub fullshell codon entered (getcoags wrapper prep = codon, getcoags core = native)'
+        else
+           wrap_proof_line = 'modal_aero_coag_sub fullshell codon entered (getcoags wrapper prep = codon, getcoags formula core = codon)'
         end if
         write(iulog,'(A)') trim(wrap_proof_line)
         call modal_aero_coag_sub_append_impl_proof('MODAL_AERO_COAG_SUB_PROOF_FILE', trim(wrap_proof_line))
@@ -1782,6 +1849,61 @@ aa_iqfrm: do iqfrm = 1, nspec_amode(mfrm)
       end subroutine getcoags_wrapper_f
 
 
+      subroutine modal_aero_getcoags_core_codon_wrap( lamda, kfmatac, kfmat, kfmac, knc, &
+                           dgatk, dgacc, xxlsgat, xxlsgac, n1, n2n, n2a, constii, &
+                           bm0, bm0ij, bm3i, bm2ii, bm2iitt, bm2ij, bm2ji, &
+                           qs11, qn11, qs22, qn22, qs12, qs21, qn12, qv12 )
+
+      use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+
+      implicit none
+
+      real(r8), intent(in) :: lamda, kfmatac, kfmat, kfmac, knc
+      real(r8), intent(in) :: dgatk, dgacc, xxlsgat, xxlsgac, constii
+      integer, intent(in) :: n1, n2n, n2a
+      real(r8), target, intent(in) :: bm0(10)
+      real(r8), target, intent(in) :: bm0ij(10,10,10), bm3i(10,10,10)
+      real(r8), target, intent(in) :: bm2ii(10), bm2iitt(10)
+      real(r8), target, intent(in) :: bm2ij(10,10,10), bm2ji(10,10,10)
+      real(r8), target, intent(out) :: qs11, qn11, qs22, qn22, qs12, qs21, qn12, qv12
+
+      interface
+         subroutine modal_aero_getcoags_core_codon( &
+              lamda_c, kfmatac_c, kfmat_c, kfmac_c, knc_c, dgatk_c, dgacc_c, xxlsgat_c, xxlsgac_c, &
+              n1_c, n2n_c, n2a_c, constii_c, bm0_p, bm0ij_p, bm3i_p, bm2ii_p, bm2iitt_p, &
+              bm2ij_p, bm2ji_p, qs11_p, qn11_p, qs22_p, qn22_p, qs12_p, qs21_p, qn12_p, qv12_p) &
+              bind(c, name="modal_aero_getcoags_core_codon")
+           use iso_c_binding, only: c_double, c_int64_t, c_ptr
+           real(c_double), value :: lamda_c, kfmatac_c, kfmat_c, kfmac_c, knc_c
+           real(c_double), value :: dgatk_c, dgacc_c, xxlsgat_c, xxlsgac_c, constii_c
+           integer(c_int64_t), value :: n1_c, n2n_c, n2a_c
+           type(c_ptr), value :: bm0_p, bm0ij_p, bm3i_p, bm2ii_p, bm2iitt_p, bm2ij_p, bm2ji_p
+           type(c_ptr), value :: qs11_p, qn11_p, qs22_p, qn22_p, qs12_p, qs21_p, qn12_p, qv12_p
+         end subroutine modal_aero_getcoags_core_codon
+      end interface
+
+      if (masterproc .and. .not. modal_aero_getcoags_core_entered_proof_written) then
+         write(iulog,'(A)') 'modal_aero_getcoags_core entered (formula core = codon, correction tables = native Fortran-owned)'
+         call modal_aero_coag_sub_append_impl_proof('MODAL_AERO_GETCOAGS_CORE_PROOF_FILE', &
+              'modal_aero_getcoags_core entered (formula core = codon, correction tables = native Fortran-owned)')
+         modal_aero_getcoags_core_entered_proof_written = .true.
+         call flush(iulog)
+      end if
+
+      call modal_aero_getcoags_core_codon( &
+           real(lamda, c_double), real(kfmatac, c_double), real(kfmat, c_double), real(kfmac, c_double), &
+           real(knc, c_double), real(dgatk, c_double), real(dgacc, c_double), real(xxlsgat, c_double), &
+           real(xxlsgac, c_double), int(n1, c_int64_t), int(n2n, c_int64_t), int(n2a, c_int64_t), &
+           real(constii, c_double), c_loc(bm0(1)), c_loc(bm0ij(1,1,1)), c_loc(bm3i(1,1,1)), &
+           c_loc(bm2ii(1)), c_loc(bm2iitt(1)), c_loc(bm2ij(1,1,1)), c_loc(bm2ji(1,1,1)), &
+           c_loc(qs11), c_loc(qn11), c_loc(qs22), c_loc(qn22), c_loc(qs12), c_loc(qs21), &
+           c_loc(qn12), c_loc(qv12) )
+
+      end subroutine modal_aero_getcoags_core_codon_wrap
+
+
       subroutine modal_aero_getcoags_core_native_cb( lamda_c, kfmatac_c, kfmat_c, kfmac_c, knc_c, &
                            dgatk_c, dgacc_c, sgatk_c, sgacc_c, xxlsgat_c, xxlsgac_c, &
                            qs11_c, qn11_c, qs22_c, qn22_c, qs12_c, qs21_c, qn12_c, qv12_c ) &
@@ -1979,13 +2101,13 @@ aa_iqfrm: do iqfrm = 1, nspec_amode(mfrm)
       real(r8) xm2at, xm3at, xm2ac, xm3ac
 
 ! *** correction factors for coagulation rates
-      real(r8), save :: bm0( 10 )          ! m0 intramodal fm - rpm values
-      real(r8), save :: bm0ij( 10, 10, 10 ) ! m0 intermodal fm
-      real(r8), save :: bm3i( 10, 10, 10 ) ! m3 intermodal fm- rpm values
-      real(r8), save :: bm2ii(10) ! m2 intramodal fm
-      real(r8), save :: bm2iitt(10) ! m2 intramodal total
-      real(r8), save :: bm2ij(10,10,10) ! m2 intermodal fm i to j
-      real(r8), save :: bm2ji(10,10,10) ! m2 total intermodal  j from i
+      real(r8), save, target :: bm0( 10 )          ! m0 intramodal fm - rpm values
+      real(r8), save, target :: bm0ij( 10, 10, 10 ) ! m0 intermodal fm
+      real(r8), save, target :: bm3i( 10, 10, 10 ) ! m3 intermodal fm- rpm values
+      real(r8), save, target :: bm2ii(10) ! m2 intramodal fm
+      real(r8), save, target :: bm2iitt(10) ! m2 intramodal total
+      real(r8), save, target :: bm2ij(10,10,10) ! m2 intermodal fm i to j
+      real(r8), save, target :: bm2ji(10,10,10) ! m2 total intermodal  j from i
 
 ! *** populate the arrays for the correction factors.
 
@@ -3227,6 +3349,26 @@ aa_iqfrm: do iqfrm = 1, nspec_amode(mfrm)
 
 
 ! *** start calculations:
+
+      call modal_aero_getcoags_core_select_impl()
+      if (.not. modal_aero_getcoags_core_use_native_impl) then
+         constii = abs( half * ( two ) ** two3rds - one )
+         sqrttwo = sqrt(two)
+         dlgsqt2 = one / log( sqrttwo )
+         rat = dgacc / dgatk
+         n2n = max( 1, min( 10,   &
+               nint( 4.0_r8 * ( sgatk - 0.75_r8 ) ) ) )
+         n2a = max( 1, min( 10,   &
+               nint( 4.0_r8 * ( sgacc - 0.75_r8 ) ) ) )
+         n1  = max( 1, min( 10,   &
+                1 + nint( dlgsqt2 * log( rat ) ) ) )
+
+         call modal_aero_getcoags_core_codon_wrap( lamda, kfmatac, kfmat, kfmac, knc, &
+              dgatk, dgacc, xxlsgat, xxlsgac, n1, n2n, n2a, constii, &
+              bm0, bm0ij, bm3i, bm2ii, bm2iitt, bm2ij, bm2ji, &
+              qs11, qn11, qs22, qn22, qs12, qs21, qn12, qv12 )
+         return
+      end if
 
       constii = abs( half * ( two ) ** two3rds - one )
       sqrttwo = sqrt(two)
