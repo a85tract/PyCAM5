@@ -109,6 +109,9 @@ logical :: diag_phys_writeout_impl_selected = .false.
 logical :: diag_phys_writeout_batch_entered_logged = .false.
 logical :: diag_physvar_ic_use_native_impl = .false.
 logical :: diag_physvar_ic_impl_selected = .false.
+logical :: diag_phys_tend_use_native_impl = .false.
+logical :: diag_phys_tend_impl_selected = .false.
+logical :: diag_phys_tend_entered_logged = .false.
 logical :: cam_diag_conv_batch_use_native_impl = .false.
 logical :: cam_diag_conv_batch_impl_selected = .false.
 logical :: cam_diag_conv_tend_ini_entered_logged = .false.
@@ -832,6 +835,74 @@ subroutine cam_diag_conv_batch_log_diag_conv_entered()
    end if
 
 end subroutine cam_diag_conv_batch_log_diag_conv_entered
+
+!===============================================================================
+
+subroutine diag_phys_tend_append_proof(proof_line)
+
+   character(len=*), intent(in) :: proof_line
+   character(len=512) :: proof_file
+   integer :: status, n, unitno
+
+   proof_file = ''
+   call get_environment_variable('DIAG_PHYS_TEND_PROOF_FILE', value=proof_file, length=n, status=status)
+   if (status == 0 .and. n > 0) then
+      open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+      write(unitno,'(A)') trim(proof_line)
+      close(unitno)
+   end if
+
+end subroutine diag_phys_tend_append_proof
+
+subroutine diag_phys_tend_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (diag_phys_tend_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('DIAG_PHYS_TEND_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      diag_phys_tend_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      diag_phys_tend_use_native_impl = .false.
+   end if
+
+   diag_phys_tend_impl_selected = .true.
+
+   if (masterproc) then
+      if (diag_phys_tend_use_native_impl) then
+         write(iulog,*) 'diag_phys_tend implementation = native'
+         call diag_phys_tend_append_proof('diag_phys_tend selector entered implementation = native')
+      else
+         write(iulog,*) 'diag_phys_tend implementation = codon'
+         call diag_phys_tend_append_proof('diag_phys_tend selector entered implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine diag_phys_tend_select_impl
+
+subroutine diag_phys_tend_log_entered()
+
+   if (diag_phys_tend_entered_logged) return
+   diag_phys_tend_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'diag_phys_tend entered (temperature/moisture tendency updates direct = codon)'
+      call diag_phys_tend_append_proof('diag_phys_tend entered (temperature/moisture tendency updates direct = codon)')
+      call flush(iulog)
+   end if
+
+end subroutine diag_phys_tend_log_entered
 
 !===============================================================================
 
@@ -2730,35 +2801,45 @@ subroutine diag_phys_tend_writeout(state, pbuf,  tend, ztodt, tmp_q, tmp_cldliq,
 
    use check_energy,    only: check_energy_get_integrals
    use physconst,       only: cpair
+   use iso_c_binding,   only: c_double, c_int64_t, c_loc, c_ptr
 
    ! Arguments
 
-   type(physics_state), intent(in   ) :: state
+   type(physics_state), target, intent(in   ) :: state
 
    type(physics_buffer_desc), pointer :: pbuf(:)
-   type(physics_tend ), intent(in   ) :: tend
+   type(physics_tend ), target, intent(in   ) :: tend
    real(r8)           , intent(in   ) :: ztodt                  ! physics timestep
-   real(r8)           , intent(inout) :: tmp_q     (pcols,pver) ! As input, holds pre-adjusted tracers (FV)
-   real(r8)           , intent(inout) :: tmp_cldliq(pcols,pver) ! As input, holds pre-adjusted tracers (FV)
-   real(r8)           , intent(inout) :: tmp_cldice(pcols,pver) ! As input, holds pre-adjusted tracers (FV)
-   real(r8)           , intent(inout) :: tmp_t     (pcols,pver) ! holds last physics_updated T (FV)
-   real(r8)           , intent(in   ) :: qini      (pcols,pver) ! tracer fields at beginning of physics
-   real(r8)           , intent(in   ) :: cldliqini (pcols,pver) ! tracer fields at beginning of physics
-   real(r8)           , intent(in   ) :: cldiceini (pcols,pver) ! tracer fields at beginning of physics
+   real(r8) , target   , intent(inout) :: tmp_q     (pcols,pver) ! As input, holds pre-adjusted tracers (FV)
+   real(r8) , target   , intent(inout) :: tmp_cldliq(pcols,pver) ! As input, holds pre-adjusted tracers (FV)
+   real(r8) , target   , intent(inout) :: tmp_cldice(pcols,pver) ! As input, holds pre-adjusted tracers (FV)
+   real(r8) , target   , intent(inout) :: tmp_t     (pcols,pver) ! holds last physics_updated T (FV)
+   real(r8) , target   , intent(in   ) :: qini      (pcols,pver) ! tracer fields at beginning of physics
+   real(r8) , target   , intent(in   ) :: cldliqini (pcols,pver) ! tracer fields at beginning of physics
+   real(r8) , target   , intent(in   ) :: cldiceini (pcols,pver) ! tracer fields at beginning of physics
 
    !---------------------------Local workspace-----------------------------
 
    integer  :: m      ! constituent index
    integer  :: lchnk  ! chunk index
    integer  :: ncol   ! number of columns in chunk
-   real(r8) :: ftem2(pcols     ) ! Temporary workspace for outfld variables
-   real(r8) :: ftem3(pcols,pver) ! Temporary workspace for outfld variables
+   real(r8), target :: ftem2(pcols     ) ! Temporary workspace for outfld variables
+   real(r8), target :: ftem3(pcols,pver) ! Temporary workspace for outfld variables
    real(r8) :: rtdt
    real(r8) :: heat_glob         ! global energy integral (FV only)
    integer  :: ixcldice, ixcldliq! constituent indices for cloud liquid and ice water.
    ! CAM pointers to get variables from the physics buffer
    real(r8), pointer, dimension(:,:) :: t_ttend
    integer  :: itim_old
+   interface
+      subroutine diag_phys_tend_update_codon(mode_c, ncol_c, pcols_c, pver_c, pcnst_c, m_c, &
+           scalar1_c, scalar2_c, a_p, b_p, out_p) bind(c, name="diag_phys_tend_update_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: mode_c, ncol_c, pcols_c, pver_c, pcnst_c, m_c
+         real(c_double), value :: scalar1_c, scalar2_c
+         type(c_ptr), value :: a_p, b_p, out_p
+      end subroutine diag_phys_tend_update_codon
+   end interface
 
    !-----------------------------------------------------------------------
 
@@ -2767,11 +2848,23 @@ subroutine diag_phys_tend_writeout(state, pbuf,  tend, ztodt, tmp_q, tmp_cldliq,
    rtdt  = 1._r8/ztodt
    call cnst_get_ind('CLDLIQ', ixcldliq)
    call cnst_get_ind('CLDICE', ixcldice)
+   call diag_phys_tend_select_impl()
+   if (.not. diag_phys_tend_use_native_impl) then
+      call diag_phys_tend_log_entered()
+   end if
 
    ! Dump out post-physics state (FV only)
 
    if (dycore_is('LR')) then
-      tmp_t(:ncol,:pver) = (tmp_t(:ncol,:pver) - state%t(:ncol,:pver))/ztodt
+      if (diag_phys_tend_use_native_impl) then
+         tmp_t(:ncol,:pver) = (tmp_t(:ncol,:pver) - state%t(:ncol,:pver))/ztodt
+      else
+         call diag_phys_tend_update_codon( &
+              1_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+              int(pcnst, c_int64_t), 0_c_int64_t, real(ztodt, c_double), 0._c_double, &
+              c_loc(state%t), c_loc(state%t), c_loc(tmp_t) &
+         )
+      end if
       call outfld('PTTEND_RESID', tmp_t, pcols, lchnk   )
    end if
    call outfld('TAP', state%t, pcols, lchnk   )
@@ -2786,11 +2879,35 @@ subroutine diag_phys_tend_writeout(state, pbuf,  tend, ztodt, tmp_q, tmp_cldliq,
 
    if (dycore_is('LR')) then
       call check_energy_get_integrals( heat_glob_out=heat_glob )
-      ftem2(:ncol)  = heat_glob/cpair
+      if (diag_phys_tend_use_native_impl) then
+         ftem2(:ncol)  = heat_glob/cpair
+      else
+         call diag_phys_tend_update_codon( &
+              2_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+              int(pcnst, c_int64_t), 0_c_int64_t, real(heat_glob, c_double), real(cpair, c_double), &
+              c_loc(ftem2), c_loc(ftem2), c_loc(ftem2) &
+         )
+      end if
       call outfld('TFIX', ftem2, pcols, lchnk   )
-      ftem3(:ncol,:pver)  = tend%dtdt(:ncol,:pver) - heat_glob/cpair
+      if (diag_phys_tend_use_native_impl) then
+         ftem3(:ncol,:pver)  = tend%dtdt(:ncol,:pver) - heat_glob/cpair
+      else
+         call diag_phys_tend_update_codon( &
+              3_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+              int(pcnst, c_int64_t), 1_c_int64_t, real(heat_glob, c_double), real(cpair, c_double), &
+              c_loc(tend%dtdt), c_loc(ftem3), c_loc(ftem3) &
+         )
+      end if
    else
-      ftem3(:ncol,:pver)  = tend%dtdt(:ncol,:pver)
+      if (diag_phys_tend_use_native_impl) then
+         ftem3(:ncol,:pver)  = tend%dtdt(:ncol,:pver)
+      else
+         call diag_phys_tend_update_codon( &
+              3_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+              int(pcnst, c_int64_t), 0_c_int64_t, 0._c_double, 1._c_double, &
+              c_loc(tend%dtdt), c_loc(ftem3), c_loc(ftem3) &
+         )
+      end if
    end if
 
    ! Total physics tendency for Temperature
@@ -2800,9 +2917,27 @@ subroutine diag_phys_tend_writeout(state, pbuf,  tend, ztodt, tmp_q, tmp_cldliq,
    ! Tendency for dry mass adjustment of q (valid for FV only)
 
    if (dycore_is('LR')) then
-      tmp_q     (:ncol,:pver) = (state%q(:ncol,:pver,       1) - tmp_q     (:ncol,:pver))*rtdt
-      tmp_cldliq(:ncol,:pver) = (state%q(:ncol,:pver,ixcldliq) - tmp_cldliq(:ncol,:pver))*rtdt
-      tmp_cldice(:ncol,:pver) = (state%q(:ncol,:pver,ixcldice) - tmp_cldice(:ncol,:pver))*rtdt
+      if (diag_phys_tend_use_native_impl) then
+         tmp_q     (:ncol,:pver) = (state%q(:ncol,:pver,       1) - tmp_q     (:ncol,:pver))*rtdt
+         tmp_cldliq(:ncol,:pver) = (state%q(:ncol,:pver,ixcldliq) - tmp_cldliq(:ncol,:pver))*rtdt
+         tmp_cldice(:ncol,:pver) = (state%q(:ncol,:pver,ixcldice) - tmp_cldice(:ncol,:pver))*rtdt
+      else
+         call diag_phys_tend_update_codon( &
+              4_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+              int(pcnst, c_int64_t), 1_c_int64_t, real(rtdt, c_double), 0._c_double, &
+              c_loc(state%q), c_loc(tmp_q), c_loc(tmp_q) &
+         )
+         call diag_phys_tend_update_codon( &
+              4_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+              int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), real(rtdt, c_double), 0._c_double, &
+              c_loc(state%q), c_loc(tmp_cldliq), c_loc(tmp_cldliq) &
+         )
+         call diag_phys_tend_update_codon( &
+              4_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+              int(pcnst, c_int64_t), int(ixcldice, c_int64_t), real(rtdt, c_double), 0._c_double, &
+              c_loc(state%q), c_loc(tmp_cldice), c_loc(tmp_cldice) &
+         )
+      end if
       if ( cnst_cam_outfld(       1) ) call outfld (dmetendnam(       1), tmp_q     , pcols, lchnk)
       if ( cnst_cam_outfld(ixcldliq) ) call outfld (dmetendnam(ixcldliq), tmp_cldliq, pcols, lchnk)
       if ( cnst_cam_outfld(ixcldice) ) call outfld (dmetendnam(ixcldice), tmp_cldice, pcols, lchnk)
@@ -2811,15 +2946,39 @@ subroutine diag_phys_tend_writeout(state, pbuf,  tend, ztodt, tmp_q, tmp_cldliq,
    ! Total physics tendency for moisture and other tracers
 
    if ( cnst_cam_outfld(       1) ) then
-      ftem3(:ncol,:pver) = (state%q(:ncol,:pver,       1) - qini     (:ncol,:pver) )*rtdt
+      if (diag_phys_tend_use_native_impl) then
+         ftem3(:ncol,:pver) = (state%q(:ncol,:pver,       1) - qini     (:ncol,:pver) )*rtdt
+      else
+         call diag_phys_tend_update_codon( &
+              5_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+              int(pcnst, c_int64_t), 1_c_int64_t, real(rtdt, c_double), 0._c_double, &
+              c_loc(state%q), c_loc(qini), c_loc(ftem3) &
+         )
+      end if
       call outfld (ptendnam(       1), ftem3, pcols, lchnk)
    end if
    if ( cnst_cam_outfld(ixcldliq) ) then
-      ftem3(:ncol,:pver) = (state%q(:ncol,:pver,ixcldliq) - cldliqini(:ncol,:pver) )*rtdt
+      if (diag_phys_tend_use_native_impl) then
+         ftem3(:ncol,:pver) = (state%q(:ncol,:pver,ixcldliq) - cldliqini(:ncol,:pver) )*rtdt
+      else
+         call diag_phys_tend_update_codon( &
+              5_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+              int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), real(rtdt, c_double), 0._c_double, &
+              c_loc(state%q), c_loc(cldliqini), c_loc(ftem3) &
+         )
+      end if
       call outfld (ptendnam(ixcldliq), ftem3, pcols, lchnk)
    end if
    if ( cnst_cam_outfld(ixcldice) ) then
-      ftem3(:ncol,:pver) = (state%q(:ncol,:pver,ixcldice) - cldiceini(:ncol,:pver) )*rtdt
+      if (diag_phys_tend_use_native_impl) then
+         ftem3(:ncol,:pver) = (state%q(:ncol,:pver,ixcldice) - cldiceini(:ncol,:pver) )*rtdt
+      else
+         call diag_phys_tend_update_codon( &
+              5_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+              int(pcnst, c_int64_t), int(ixcldice, c_int64_t), real(rtdt, c_double), 0._c_double, &
+              c_loc(state%q), c_loc(cldiceini), c_loc(ftem3) &
+         )
+      end if
       call outfld (ptendnam(ixcldice), ftem3, pcols, lchnk)
    end if
 
@@ -2830,11 +2989,27 @@ subroutine diag_phys_tend_writeout(state, pbuf,  tend, ztodt, tmp_q, tmp_cldliq,
    call pbuf_get_field(pbuf, t_ttend_idx, t_ttend, start=(/1,1,itim_old/), kount=(/pcols,pver,1/))
 
    !! calculate and outfld the total temperature tendency
-   ftem3(:ncol,:) = (state%t(:ncol,:) - t_ttend(:ncol,:))/ztodt
+   if (diag_phys_tend_use_native_impl) then
+      ftem3(:ncol,:) = (state%t(:ncol,:) - t_ttend(:ncol,:))/ztodt
+   else
+      call diag_phys_tend_update_codon( &
+           6_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+           int(pcnst, c_int64_t), 0_c_int64_t, real(ztodt, c_double), 0._c_double, &
+           c_loc(state%t), c_loc(t_ttend), c_loc(ftem3) &
+      )
+   end if
    call outfld('TTEND_TOT', ftem3, pcols, lchnk)
 
    !! update physics buffer with this time-step's temperature
-   t_ttend(:ncol,:) = state%t(:ncol,:)
+   if (diag_phys_tend_use_native_impl) then
+      t_ttend(:ncol,:) = state%t(:ncol,:)
+   else
+      call diag_phys_tend_update_codon( &
+           7_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+           int(pcnst, c_int64_t), 0_c_int64_t, 0._c_double, 0._c_double, &
+           c_loc(state%t), c_loc(t_ttend), c_loc(t_ttend) &
+      )
+   end if
 
 end subroutine diag_phys_tend_writeout
 

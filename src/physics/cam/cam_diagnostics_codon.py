@@ -306,6 +306,70 @@ def diag_physvar_ic_codon():
 
 
 @export
+def diag_phys_tend_update_codon(
+    mode: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    m: int,
+    scalar1: float,
+    scalar2: float,
+    a_p: cobj,
+    b_p: cobj,
+    out_p: cobj,
+):
+    a = Ptr[float](a_p)
+    b = Ptr[float](b_p)
+    out = Ptr[float](out_p)
+
+    if mode == 1:
+        # tmp_t = (tmp_t - state%t) / ztodt; a=state%t, out=tmp_t.
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                out[idx] = (out[idx] - a[idx]) / scalar1
+    elif mode == 2:
+        # ftem2(:ncol) = heat_glob / cpair.
+        val = scalar1 / scalar2
+        for i in range(1, ncol + 1):
+            out[_idx(i)] = val
+    elif mode == 3:
+        # ftem3 = tend%dtdt or tend%dtdt - heat_glob/cpair when m==1.
+        offset = 0.0
+        if m == 1:
+            offset = scalar1 / scalar2
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                out[idx] = a[idx] - offset
+    elif mode == 4:
+        # dry-mass q tendency: out=(state%q(:,:,m)-out)*rtdt.
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                out[idx] = (a[_idx3(i, k, m, pcols, pver)] - out[idx]) * scalar1
+    elif mode == 5:
+        # physics q tendency: out=(state%q(:,:,m)-initial_field)*rtdt.
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                out[idx] = (a[_idx3(i, k, m, pcols, pver)] - b[idx]) * scalar1
+    elif mode == 6:
+        # total temperature tendency: out=(state%t-t_ttend)/ztodt.
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                out[idx] = (a[idx] - b[idx]) / scalar1
+    elif mode == 7:
+        # copy 2D field, used for t_ttend update.
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                out[idx] = a[idx]
+
+
+@export
 def diag_phys_writeout_z3_codon(
     ncol: int,
     pcols: int,
