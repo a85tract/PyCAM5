@@ -6,6 +6,8 @@ module gw_oro
 !
 use gw_utils, only: r8
 use coords_1d, only: Coords1D
+use spmd_utils, only: masterproc
+use cam_logfile, only: iulog
 
 implicit none
 private
@@ -14,11 +16,194 @@ save
 ! Public interface
 public :: gw_oro_src
 
+logical :: use_native_gw_oro_src_impl = .false.
+logical :: gw_oro_src_impl_selected = .false.
+logical :: gw_oro_src_entered_logged = .false.
+
 contains
 
 !==========================================================================
 
 subroutine gw_oro_src(ncol, band, p, &
+     u, v, t, sgh, zm, nm, &
+     src_level, tend_level, tau, ubm, ubi, xv, yv, c)
+  use gw_common, only: GWBand, pver, rair
+  use iso_c_binding, only: c_int64_t
+  !-----------------------------------------------------------------------
+  ! Selectable wrapper for the active fixed-case orographic source helper.
+  ! The Codon path receives only Fortran-owned arrays/workspaces.
+  !-----------------------------------------------------------------------
+  integer, intent(in) :: ncol
+  type(GWBand), intent(in) :: band
+  type(Coords1D), intent(in) :: p
+  real(r8), intent(in) :: u(ncol,pver), v(ncol,pver)
+  real(r8), intent(in) :: t(ncol,pver)
+  real(r8), intent(in) :: sgh(ncol)
+  real(r8), intent(in) :: zm(ncol,pver)
+  real(r8), intent(in) :: nm(ncol,pver)
+  integer, intent(out) :: src_level(ncol)
+  integer, intent(out) :: tend_level(ncol)
+  real(r8), intent(out) :: tau(ncol,-band%ngwv:band%ngwv,pver+1)
+  real(r8), intent(out) :: ubm(ncol,pver), ubi(ncol,pver+1)
+  real(r8), intent(out) :: xv(ncol), yv(ncol)
+  real(r8), intent(out) :: c(ncol,-band%ngwv:band%ngwv)
+
+  integer :: i
+  integer(c_int64_t), target :: src_level64(ncol), tend_level64(ncol)
+  real(r8), target :: hdsp(ncol), tauoro(ncol), nsrc(ncol), rsrc(ncol)
+  real(r8), target :: usrc(ncol), vsrc(ncol), dpsrc(ncol)
+
+  call gw_oro_src_select_impl()
+
+  if (use_native_gw_oro_src_impl) then
+     call gw_oro_src_native(ncol, band, p, u, v, t, sgh, zm, nm, &
+          src_level, tend_level, tau, ubm, ubi, xv, yv, c)
+  else
+     call gw_oro_src_note_entered()
+     call gw_oro_src_codon_wrap(ncol, pver, band%ngwv, band%fcrit2, band%kwv, rair, &
+          p%mid, p%del, p%ifc, u, v, t, sgh, zm, nm, src_level64, tend_level64, &
+          tau, ubm, ubi, xv, yv, c, hdsp, tauoro, nsrc, rsrc, usrc, vsrc, dpsrc)
+     do i = 1, ncol
+        src_level(i) = int(src_level64(i))
+        tend_level(i) = int(tend_level64(i))
+     end do
+  end if
+
+end subroutine gw_oro_src
+
+!==========================================================================
+
+subroutine gw_oro_src_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('GW_ORO_SRC_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+     write(unitno,'(A)') trim(proof_line)
+     close(unitno)
+  end if
+
+end subroutine gw_oro_src_append_proof
+
+!==========================================================================
+
+subroutine gw_oro_src_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (gw_oro_src_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('GW_ORO_SRC_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_gw_oro_src_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_gw_oro_src_impl = .false.
+  end if
+
+  gw_oro_src_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_gw_oro_src_impl) then
+        write(iulog,*) 'gw_oro_src implementation = native'
+        call gw_oro_src_append_proof('gw_oro_src selector entered implementation = native')
+     else
+        write(iulog,*) 'gw_oro_src implementation = codon'
+        call gw_oro_src_append_proof('gw_oro_src selector entered implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine gw_oro_src_select_impl
+
+!==========================================================================
+
+subroutine gw_oro_src_note_entered()
+
+  if (gw_oro_src_entered_logged) return
+  gw_oro_src_entered_logged = .true.
+
+  if (masterproc) then
+     write(iulog,*) 'gw_oro_src entered (orographic source direct = codon)'
+     call gw_oro_src_append_proof('gw_oro_src entered (orographic source direct = codon)')
+     call flush(iulog)
+  end if
+
+end subroutine gw_oro_src_note_entered
+
+!==========================================================================
+
+subroutine gw_oro_src_codon_wrap(ncol_local, pver_local, ngwv_local, fcrit2_local, kwv_local, rair_local, &
+     p_mid_local, p_del_local, p_ifc_local, u_local, v_local, t_local, sgh_local, zm_local, nm_local, &
+     src_level64_local, tend_level64_local, tau_local, ubm_local, ubi_local, xv_local, yv_local, c_local, &
+     hdsp_local, tauoro_local, nsrc_local, rsrc_local, usrc_local, vsrc_local, dpsrc_local)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+  integer, intent(in) :: ncol_local, pver_local, ngwv_local
+  real(r8), intent(in) :: fcrit2_local, kwv_local, rair_local
+  real(r8), target, intent(in) :: p_mid_local(ncol_local,pver_local)
+  real(r8), target, intent(in) :: p_del_local(ncol_local,pver_local)
+  real(r8), target, intent(in) :: p_ifc_local(ncol_local,pver_local+1)
+  real(r8), target, intent(in) :: u_local(ncol_local,pver_local)
+  real(r8), target, intent(in) :: v_local(ncol_local,pver_local)
+  real(r8), target, intent(in) :: t_local(ncol_local,pver_local)
+  real(r8), target, intent(in) :: sgh_local(ncol_local)
+  real(r8), target, intent(in) :: zm_local(ncol_local,pver_local)
+  real(r8), target, intent(in) :: nm_local(ncol_local,pver_local)
+  integer(c_int64_t), target, intent(inout) :: src_level64_local(ncol_local)
+  integer(c_int64_t), target, intent(inout) :: tend_level64_local(ncol_local)
+  real(r8), target, intent(inout) :: tau_local(ncol_local,-ngwv_local:ngwv_local,pver_local+1)
+  real(r8), target, intent(inout) :: ubm_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: ubi_local(ncol_local,pver_local+1)
+  real(r8), target, intent(inout) :: xv_local(ncol_local)
+  real(r8), target, intent(inout) :: yv_local(ncol_local)
+  real(r8), target, intent(inout) :: c_local(ncol_local,-ngwv_local:ngwv_local)
+  real(r8), target, intent(inout) :: hdsp_local(ncol_local), tauoro_local(ncol_local)
+  real(r8), target, intent(inout) :: nsrc_local(ncol_local), rsrc_local(ncol_local)
+  real(r8), target, intent(inout) :: usrc_local(ncol_local), vsrc_local(ncol_local), dpsrc_local(ncol_local)
+
+  interface
+     subroutine gw_oro_src_codon(ncol_c, pver_c, ngwv_c, fcrit2_c, kwv_c, rair_c, &
+          p_mid_p, p_del_p, p_ifc_p, u_p, v_p, t_p, sgh_p, zm_p, nm_p, &
+          src_level_p, tend_level_p, tau_p, ubm_p, ubi_p, xv_p, yv_p, c_p, &
+          hdsp_p, tauoro_p, nsrc_p, rsrc_p, usrc_p, vsrc_p, dpsrc_p) &
+          bind(c, name="gw_oro_src_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pver_c, ngwv_c
+       real(c_double), value :: fcrit2_c, kwv_c, rair_c
+       type(c_ptr), value :: p_mid_p, p_del_p, p_ifc_p, u_p, v_p, t_p, sgh_p, zm_p, nm_p
+       type(c_ptr), value :: src_level_p, tend_level_p, tau_p, ubm_p, ubi_p, xv_p, yv_p, c_p
+       type(c_ptr), value :: hdsp_p, tauoro_p, nsrc_p, rsrc_p, usrc_p, vsrc_p, dpsrc_p
+     end subroutine gw_oro_src_codon
+  end interface
+
+  call gw_oro_src_codon(int(ncol_local, c_int64_t), int(pver_local, c_int64_t), int(ngwv_local, c_int64_t), &
+       real(fcrit2_local, c_double), real(kwv_local, c_double), real(rair_local, c_double), &
+       c_loc(p_mid_local), c_loc(p_del_local), c_loc(p_ifc_local), c_loc(u_local), c_loc(v_local), c_loc(t_local), &
+       c_loc(sgh_local), c_loc(zm_local), c_loc(nm_local), c_loc(src_level64_local), c_loc(tend_level64_local), &
+       c_loc(tau_local), c_loc(ubm_local), c_loc(ubi_local), c_loc(xv_local), c_loc(yv_local), c_loc(c_local), &
+       c_loc(hdsp_local), c_loc(tauoro_local), c_loc(nsrc_local), c_loc(rsrc_local), c_loc(usrc_local), &
+       c_loc(vsrc_local), c_loc(dpsrc_local))
+
+end subroutine gw_oro_src_codon_wrap
+
+!==========================================================================
+
+subroutine gw_oro_src_native(ncol, band, p, &
      u, v, t, sgh, zm, nm, &
      src_level, tend_level, tau, ubm, ubi, xv, yv, c)
   use gw_common, only: GWBand, pver, rair
@@ -172,6 +357,6 @@ subroutine gw_oro_src(ncol, band, p, &
   ! No spectrum; phase speed is just 0.
   c = 0._r8
 
-end subroutine gw_oro_src
+end subroutine gw_oro_src_native
 
 end module gw_oro
