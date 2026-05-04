@@ -138,6 +138,9 @@ module gw_drag
   logical          :: use_native_oro_post_impl = .false.
   logical          :: gw_tend_oro_post_impl_selected = .false.
   logical          :: gw_tend_oro_post_entered_logged = .false.
+  logical          :: use_native_prep_impl = .false.
+  logical          :: gw_tend_prep_impl_selected = .false.
+  logical          :: gw_tend_prep_entered_logged = .false.
 
 !==========================================================================
 contains
@@ -931,13 +934,22 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
 
   p = Coords1D(state%pint(:ncol,:))
 
-  dse = state%s(:ncol,:)
-  t = state%t(:ncol,:)
-  u = state%u(:ncol,:)
-  v = state%v(:ncol,:)
-  q = state%q(:ncol,:,:)
-  piln = state%lnpint(:ncol,:)
-  zm = state%zm(:ncol,:)
+  if (.not. use_native_tend_impl) call gw_tend_prep_select_impl()
+
+  if (use_native_tend_impl .or. use_native_prep_impl) then
+     dse = state%s(:ncol,:)
+     t = state%t(:ncol,:)
+     u = state%u(:ncol,:)
+     v = state%v(:ncol,:)
+     q = state%q(:ncol,:,:)
+     piln = state%lnpint(:ncol,:)
+     zm = state%zm(:ncol,:)
+  else
+     call gw_tend_prep_note_entered()
+     call gw_tend_prep_codon_wrap(1, ncol, state%psetcols, pcols, pver, pver+1, pcnst, effgw_oro, epsilon(1._r8), &
+          state%s, state%t, state%u, state%v, state%q, state%lnpint, state%zm, &
+          dse, t, u, v, q, piln, zm, egwdffi_tot, flx_heat, cam_in%landfrac, sgh, effgw, sgh_scaled)
+  end if
 
   lq = .true.
   call physics_ptend_init(ptend, state%psetcols, "Gravity wave drag", &
@@ -978,8 +990,10 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
   end if
 
   ! Totals that accumulate over different sources.
-  egwdffi_tot = 0._r8
-  flx_heat = 0._r8
+  if (use_native_tend_impl .or. use_native_prep_impl) then
+     egwdffi_tot = 0._r8
+     flx_heat = 0._r8
+  end if
   
   if (use_gw_convect_dp_local) then
      !------------------------------------------------------------------
@@ -1314,13 +1328,19 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
 
      ! Efficiency of gravity wave momentum transfer.
      ! Take into account that wave sources are only over land.
-     where (cam_in%landfrac(:ncol) >= epsilon(1._r8))
-        effgw = effgw_oro * cam_in%landfrac(:ncol)
-        sgh_scaled = sgh(:ncol) / sqrt(cam_in%landfrac(:ncol))
-     elsewhere
-        effgw = 0._r8
-        sgh_scaled = 0._r8
-     end where
+     if (use_native_tend_impl .or. use_native_prep_impl) then
+        where (cam_in%landfrac(:ncol) >= epsilon(1._r8))
+           effgw = effgw_oro * cam_in%landfrac(:ncol)
+           sgh_scaled = sgh(:ncol) / sqrt(cam_in%landfrac(:ncol))
+        elsewhere
+           effgw = 0._r8
+           sgh_scaled = 0._r8
+        end where
+     else
+        call gw_tend_prep_codon_wrap(2, ncol, state%psetcols, pcols, pver, pver+1, pcnst, effgw_oro, epsilon(1._r8), &
+             state%s, state%t, state%u, state%v, state%q, state%lnpint, state%zm, &
+             dse, t, u, v, q, piln, zm, egwdffi_tot, flx_heat, cam_in%landfrac, sgh, effgw, sgh_scaled)
+     end if
 
      ! Determine the orographic wave source
      call gw_oro_src(ncol, band_oro, p, &
@@ -1408,6 +1428,136 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
   call p%finalize()
 
 end subroutine gw_tend
+
+!==========================================================================
+
+subroutine gw_tend_prep_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('GW_TEND_PREP_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+     write(unitno,'(A)') trim(proof_line)
+     close(unitno)
+  end if
+
+end subroutine gw_tend_prep_append_proof
+
+!==========================================================================
+
+subroutine gw_tend_prep_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (gw_tend_prep_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('GW_TEND_PREP_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_prep_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_prep_impl = .false.
+  end if
+
+  gw_tend_prep_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_prep_impl) then
+        write(iulog,*) 'gw_tend_prep implementation = native'
+        call gw_tend_prep_append_proof('gw_tend_prep selector entered implementation = native')
+     else
+        write(iulog,*) 'gw_tend_prep implementation = codon'
+        call gw_tend_prep_append_proof('gw_tend_prep selector entered implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine gw_tend_prep_select_impl
+
+!==========================================================================
+
+subroutine gw_tend_prep_note_entered()
+
+  if (gw_tend_prep_entered_logged) return
+  gw_tend_prep_entered_logged = .true.
+
+  if (masterproc) then
+     write(iulog,*) 'gw_tend_prep entered (state copy/init/orographic prep direct = codon)'
+     call gw_tend_prep_append_proof('gw_tend_prep entered (state copy/init/orographic prep direct = codon)')
+     call flush(iulog)
+  end if
+
+end subroutine gw_tend_prep_note_entered
+
+!==========================================================================
+
+subroutine gw_tend_prep_codon_wrap(stage, ncol_local, psetcols_local, pcols_local, pver_local, pverp_local, pcnst_local, &
+     effgw_oro_local, eps_local, state_s_local, state_t_local, state_u_local, state_v_local, state_q_local, &
+     state_lnpint_local, state_zm_local, dse_local, t_local, u_local, v_local, q_local, piln_local, zm_local, &
+     egwdffi_tot_local, flx_heat_local, landfrac_local, sgh_local, effgw_local, sgh_scaled_local)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+  integer, intent(in) :: stage
+  integer, intent(in) :: ncol_local, psetcols_local, pcols_local, pver_local, pverp_local, pcnst_local
+  real(r8), intent(in) :: effgw_oro_local, eps_local
+  real(r8), target, intent(in) :: state_s_local(psetcols_local,pver_local)
+  real(r8), target, intent(in) :: state_t_local(psetcols_local,pver_local)
+  real(r8), target, intent(in) :: state_u_local(psetcols_local,pver_local)
+  real(r8), target, intent(in) :: state_v_local(psetcols_local,pver_local)
+  real(r8), target, intent(in) :: state_q_local(psetcols_local,pver_local,pcnst_local)
+  real(r8), target, intent(in) :: state_lnpint_local(psetcols_local,pverp_local)
+  real(r8), target, intent(in) :: state_zm_local(psetcols_local,pver_local)
+  real(r8), target, intent(inout) :: dse_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: t_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: u_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: v_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: q_local(ncol_local,pver_local,pcnst_local)
+  real(r8), target, intent(inout) :: piln_local(ncol_local,pverp_local)
+  real(r8), target, intent(inout) :: zm_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: egwdffi_tot_local(ncol_local,pverp_local)
+  real(r8), target, intent(inout) :: flx_heat_local(pcols_local)
+  real(r8), target, intent(in) :: landfrac_local(pcols_local)
+  real(r8), target, intent(in) :: sgh_local(pcols_local)
+  real(r8), target, intent(inout) :: effgw_local(ncol_local)
+  real(r8), target, intent(inout) :: sgh_scaled_local(ncol_local)
+
+  interface
+     subroutine gw_tend_prep_codon(stage_c, ncol_c, psetcols_c, pcols_c, pver_c, pverp_c, pcnst_c, &
+          effgw_oro_c, eps_c, state_s_p, state_t_p, state_u_p, state_v_p, state_q_p, state_lnpint_p, state_zm_p, &
+          dse_p, t_p, u_p, v_p, q_p, piln_p, zm_p, egwdffi_tot_p, flx_heat_p, landfrac_p, sgh_p, effgw_p, sgh_scaled_p) &
+          bind(c, name="gw_tend_prep_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: stage_c, ncol_c, psetcols_c, pcols_c, pver_c, pverp_c, pcnst_c
+       real(c_double), value :: effgw_oro_c, eps_c
+       type(c_ptr), value :: state_s_p, state_t_p, state_u_p, state_v_p, state_q_p, state_lnpint_p, state_zm_p
+       type(c_ptr), value :: dse_p, t_p, u_p, v_p, q_p, piln_p, zm_p, egwdffi_tot_p, flx_heat_p
+       type(c_ptr), value :: landfrac_p, sgh_p, effgw_p, sgh_scaled_p
+     end subroutine gw_tend_prep_codon
+  end interface
+
+  call gw_tend_prep_codon(int(stage, c_int64_t), int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), &
+       int(pcols_local, c_int64_t), int(pver_local, c_int64_t), int(pverp_local, c_int64_t), int(pcnst_local, c_int64_t), &
+       real(effgw_oro_local, c_double), real(eps_local, c_double), c_loc(state_s_local), c_loc(state_t_local), &
+       c_loc(state_u_local), c_loc(state_v_local), c_loc(state_q_local), c_loc(state_lnpint_local), c_loc(state_zm_local), &
+       c_loc(dse_local), c_loc(t_local), c_loc(u_local), c_loc(v_local), c_loc(q_local), c_loc(piln_local), c_loc(zm_local), &
+       c_loc(egwdffi_tot_local), c_loc(flx_heat_local), c_loc(landfrac_local), c_loc(sgh_local), c_loc(effgw_local), &
+       c_loc(sgh_scaled_local))
+
+end subroutine gw_tend_prep_codon_wrap
 
 !==========================================================================
 

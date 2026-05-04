@@ -1,3 +1,6 @@
+from math import sqrt
+
+
 @export
 def gw_tend_select_branches_codon(
     do_molec_diff: int,
@@ -37,6 +40,94 @@ def _idx2(i: int, k: int, ld1: int) -> int:
 def _idx3(i: int, k: int, m: int, ld1: int, ld2: int) -> int:
     """Fortran array(i,k,m) with dimensions (ld1,ld2,*)."""
     return (i - 1) + (k - 1) * ld1 + (m - 1) * ld1 * ld2
+
+
+@export
+def gw_tend_prep_codon(
+    stage: int,
+    ncol: int,
+    psetcols: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    pcnst: int,
+    effgw_oro: float,
+    eps: float,
+    state_s_p: cobj,
+    state_t_p: cobj,
+    state_u_p: cobj,
+    state_v_p: cobj,
+    state_q_p: cobj,
+    state_lnpint_p: cobj,
+    state_zm_p: cobj,
+    dse_p: cobj,
+    t_p: cobj,
+    u_p: cobj,
+    v_p: cobj,
+    q_p: cobj,
+    piln_p: cobj,
+    zm_p: cobj,
+    egwdffi_tot_p: cobj,
+    flx_heat_p: cobj,
+    landfrac_p: cobj,
+    sgh_p: cobj,
+    effgw_p: cobj,
+    sgh_scaled_p: cobj,
+):
+    state_s = Ptr[float](state_s_p)
+    state_t = Ptr[float](state_t_p)
+    state_u = Ptr[float](state_u_p)
+    state_v = Ptr[float](state_v_p)
+    state_q = Ptr[float](state_q_p)
+    state_lnpint = Ptr[float](state_lnpint_p)
+    state_zm = Ptr[float](state_zm_p)
+    dse = Ptr[float](dse_p)
+    t = Ptr[float](t_p)
+    u = Ptr[float](u_p)
+    v = Ptr[float](v_p)
+    q = Ptr[float](q_p)
+    piln = Ptr[float](piln_p)
+    zm = Ptr[float](zm_p)
+    egwdffi_tot = Ptr[float](egwdffi_tot_p)
+    flx_heat = Ptr[float](flx_heat_p)
+    landfrac = Ptr[float](landfrac_p)
+    sgh = Ptr[float](sgh_p)
+    effgw = Ptr[float](effgw_p)
+    sgh_scaled = Ptr[float](sgh_scaled_p)
+
+    if stage == 1:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                src_idx = _idx2(i, k, psetcols)
+                dst_idx = _idx2(i, k, ncol)
+                dse[dst_idx] = state_s[src_idx]
+                t[dst_idx] = state_t[src_idx]
+                u[dst_idx] = state_u[src_idx]
+                v[dst_idx] = state_v[src_idx]
+                zm[dst_idx] = state_zm[src_idx]
+
+        for k in range(1, pverp + 1):
+            for i in range(1, ncol + 1):
+                piln[_idx2(i, k, ncol)] = state_lnpint[_idx2(i, k, psetcols)]
+                egwdffi_tot[_idx2(i, k, ncol)] = 0.0
+
+        for m in range(1, pcnst + 1):
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    q[_idx3(i, k, m, ncol, pver)] = state_q[_idx3(i, k, m, psetcols, pver)]
+
+        for i in range(1, pcols + 1):
+            flx_heat[i - 1] = 0.0
+
+    elif stage == 2:
+        for i in range(1, ncol + 1):
+            landfrac_i = landfrac[i - 1]
+            if landfrac_i >= eps:
+                effgw[i - 1] = effgw_oro * landfrac_i
+                sgh_scaled[i - 1] = sgh[i - 1] / sqrt(landfrac_i)
+            else:
+                effgw[i - 1] = 0.0
+                sgh_scaled[i - 1] = 0.0
 
 
 @export
