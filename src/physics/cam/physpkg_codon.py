@@ -36,6 +36,46 @@ def _field3_idx(i: int, k: int, m: int, ld1: int, ld2: int) -> int:
 
 
 @export
+def tropopause_output_prep_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    notfound: int,
+    fillvalue: float,
+    trop_lev_p: cobj,
+    trop_z_p: cobj,
+    state_zm_p: cobj,
+    trop_pdf_p: cobj,
+    trop_found_p: cobj,
+    trop_dz_p: cobj,
+):
+    trop_lev = Ptr[int](trop_lev_p)
+    trop_z = Ptr[float](trop_z_p)
+    state_zm = Ptr[float](state_zm_p)
+    trop_pdf = Ptr[float](trop_pdf_p)
+    trop_found = Ptr[float](trop_found_p)
+    trop_dz = Ptr[float](trop_dz_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, pcols + 1):
+            trop_pdf[_field2_idx(i, k, pcols)] = 0.0
+            trop_dz[_field2_idx(i, k, pcols)] = fillvalue
+
+    for i in range(1, pcols + 1):
+        trop_found[_idx(i)] = 0.0
+
+    for i in range(1, ncol + 1):
+        lev = trop_lev[_idx(i)]
+        if lev != notfound:
+            trop_pdf[_field2_idx(i, lev, pcols)] = 1.0
+            trop_found[_idx(i)] = 1.0
+            for k in range(1, pver + 1):
+                trop_dz[_field2_idx(i, k, pcols)] = (
+                    state_zm[_field2_idx(i, k, pcols)] - trop_z[_idx(i)]
+                )
+
+
+@export
 def tphysbc_precip_ops_codon(
     mode: int,
     ncol: int,

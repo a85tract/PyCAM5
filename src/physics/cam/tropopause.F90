@@ -79,6 +79,10 @@ module tropopause
   real(r8) :: cnst_faktor  ! = -gravit/rair
   real(r8) :: cnst_ka1     ! = cnst_kap - 1._r8
 
+  logical :: use_native_tropopause_output_prep_impl = .false.
+  logical :: tropopause_output_prep_impl_selected = .false.
+  logical :: tropopause_output_prep_entered_logged = .false.
+
 !================================================================================================
 contains
 !================================================================================================
@@ -1064,6 +1068,111 @@ contains
     return
   end subroutine tropopause_findUsing
 
+  !===============================================================================
+
+  subroutine tropopause_output_prep_append_proof(proof_line)
+
+    character(len=*), intent(in) :: proof_line
+
+    character(len=512) :: proof_file
+    integer :: status, n, unitno
+
+    proof_file = ''
+    call get_environment_variable('TROPOPAUSE_OUTPUT_PREP_PROOF_FILE', value=proof_file, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+       write(unitno,'(A)') trim(proof_line)
+       close(unitno)
+    end if
+
+  end subroutine tropopause_output_prep_append_proof
+
+  !===============================================================================
+
+  subroutine tropopause_output_prep_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (tropopause_output_prep_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('TROPOPAUSE_OUTPUT_PREP_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_tropopause_output_prep_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_tropopause_output_prep_impl = .false.
+    end if
+
+    tropopause_output_prep_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_tropopause_output_prep_impl) then
+          write(iulog,*) 'tropopause_output_prep implementation = native'
+          call tropopause_output_prep_append_proof('tropopause_output_prep selector entered implementation = native')
+       else
+          write(iulog,*) 'tropopause_output_prep implementation = codon'
+          call tropopause_output_prep_append_proof('tropopause_output_prep selector entered implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine tropopause_output_prep_select_impl
+
+  !===============================================================================
+
+  subroutine tropopause_output_prep_codon_wrap(ncol, tropLev, tropZ, state_zm, tropPdf, tropFound, tropDZ)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    integer, intent(in), target :: tropLev(pcols)
+    real(r8), intent(in), target :: tropZ(pcols)
+    real(r8), intent(in), target :: state_zm(pcols,pver)
+    real(r8), intent(inout), target :: tropPdf(pcols,pver)
+    real(r8), intent(inout), target :: tropFound(pcols)
+    real(r8), intent(inout), target :: tropDZ(pcols,pver)
+
+    integer(c_int64_t), target :: tropLev_i8(pcols)
+    integer :: i
+
+    interface
+       subroutine tropopause_output_prep_codon(ncol_c, pcols_c, pver_c, notfound_c, fillvalue_c, &
+            trop_lev_p, trop_z_p, state_zm_p, trop_pdf_p, trop_found_p, trop_dz_p) &
+            bind(c, name="tropopause_output_prep_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, notfound_c
+         real(c_double), value :: fillvalue_c
+         type(c_ptr), value :: trop_lev_p, trop_z_p, state_zm_p, trop_pdf_p, trop_found_p, trop_dz_p
+       end subroutine tropopause_output_prep_codon
+    end interface
+
+    do i = 1, pcols
+       tropLev_i8(i) = int(tropLev(i), c_int64_t)
+    end do
+
+    if (masterproc .and. .not. tropopause_output_prep_entered_logged) then
+       write(iulog,*) 'tropopause_output_prep entered (TROP/TROPP output arrays direct = codon; tropopause_find = native)'
+       call tropopause_output_prep_append_proof('tropopause_output_prep entered (TROP/TROPP output arrays direct = codon; ' // &
+            'tropopause_find = native)')
+       tropopause_output_prep_entered_logged = .true.
+       call flush(iulog)
+    end if
+
+    call tropopause_output_prep_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(NOTFOUND, c_int64_t), &
+         real(fillvalue, c_double), c_loc(tropLev_i8(1)), c_loc(tropZ(1)), c_loc(state_zm(1,1)), &
+         c_loc(tropPdf(1,1)), c_loc(tropFound(1)), c_loc(tropDZ(1,1)) )
+
+  end subroutine tropopause_output_prep_codon_wrap
+
 
   ! This routine interpolates the temperatures in the physics state to
   ! find the temperature at the specified tropopause pressure.
@@ -1176,20 +1285,25 @@ contains
     ! Information about the chunk.  
     lchnk = pstate%lchnk
     ncol  = pstate%ncol
+    call tropopause_output_prep_select_impl()
 
     ! Find the tropopause using the default algorithm backed by the climatology.
     call tropopause_find(pstate, tropLev, tropP=tropP, tropT=tropT, tropZ=tropZ)
     
-    tropPdf(:,:) = 0._r8
-    tropFound(:) = 0._r8
-    tropDZ(:,:) = fillvalue 
-    do i = 1, ncol
-      if (tropLev(i) /= NOTFOUND) then
-        tropPdf(i, tropLev(i)) = 1._r8
-        tropFound(i) = 1._r8
-        tropDZ(i,:) = pstate%zm(i,:) - tropZ(i) 
-      end if
-    end do
+    if (use_native_tropopause_output_prep_impl) then
+      tropPdf(:,:) = 0._r8
+      tropFound(:) = 0._r8
+      tropDZ(:,:) = fillvalue
+      do i = 1, ncol
+        if (tropLev(i) /= NOTFOUND) then
+          tropPdf(i, tropLev(i)) = 1._r8
+          tropFound(i) = 1._r8
+          tropDZ(i,:) = pstate%zm(i,:) - tropZ(i)
+        end if
+      end do
+    else
+      call tropopause_output_prep_codon_wrap(ncol, tropLev, tropZ, pstate%zm, tropPdf, tropFound, tropDZ)
+    end if
 
     call outfld('TROP_P',   tropP(:ncol),      ncol, lchnk)
     call outfld('TROP_T',   tropT(:ncol),      ncol, lchnk)
@@ -1202,17 +1316,21 @@ contains
     ! Find the tropopause using just the primary algorithm.
     call tropopause_find(pstate, tropLev, tropP=tropP, tropT=tropT, tropZ=tropZ, backup=TROP_ALG_NONE)
 
-    tropPdf(:,:) = 0._r8
-    tropFound(:) = 0._r8
-    tropDZ(:,:) = fillvalue 
-    
-    do i = 1, ncol
-      if (tropLev(i) /= NOTFOUND) then
-        tropPdf(i, tropLev(i)) = 1._r8
-        tropFound(i) = 1._r8
-        tropDZ(i,:) = pstate%zm(i,:) - tropZ(i) 
-      end if
-    end do
+    if (use_native_tropopause_output_prep_impl) then
+      tropPdf(:,:) = 0._r8
+      tropFound(:) = 0._r8
+      tropDZ(:,:) = fillvalue
+
+      do i = 1, ncol
+        if (tropLev(i) /= NOTFOUND) then
+          tropPdf(i, tropLev(i)) = 1._r8
+          tropFound(i) = 1._r8
+          tropDZ(i,:) = pstate%zm(i,:) - tropZ(i)
+        end if
+      end do
+    else
+      call tropopause_output_prep_codon_wrap(ncol, tropLev, tropZ, pstate%zm, tropPdf, tropFound, tropDZ)
+    end if
 
     call outfld('TROPP_P',   tropP(:ncol),      ncol, lchnk)
     call outfld('TROPP_T',   tropT(:ncol),      ncol, lchnk)
