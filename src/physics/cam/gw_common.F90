@@ -88,6 +88,9 @@ logical :: gw_prof_entered_logged = .false.
 logical :: use_native_energy_change_impl = .false.
 logical :: energy_change_impl_selected = .false.
 logical :: energy_change_entered_logged = .false.
+logical :: use_native_gw_drag_prof_core_impl = .false.
+logical :: gw_drag_prof_core_impl_selected = .false.
+logical :: gw_drag_prof_core_entered_logged = .false.
 
 ! Type describing a band of wavelengths into which gravity waves can be
 ! emitted.
@@ -504,6 +507,8 @@ subroutine gw_drag_prof(ncol, band, p, src_level, tend_level, dt, &
   real(r8) :: wrk(ncol)
   ! Ratio used for ubt tndmax limiting.
   real(r8) :: ubt_lim_ratio(ncol)
+  ! Whether to keep this core in native Fortran.
+  logical :: use_native_core
 
   ! LU decomposition.
   type(TriDiagDecomp) :: decomp
@@ -513,6 +518,11 @@ subroutine gw_drag_prof(ncol, band, p, src_level, tend_level, dt, &
   ! Lowest levels that loops need to iterate over.
   kbot_tend = maxval(tend_level)
   kbot_src = maxval(src_level)
+
+  call gw_drag_prof_core_select_impl()
+  use_native_core = use_native_gw_drag_prof_core_impl .or. present(ro_adjust)
+
+  if (use_native_core) then
 
   ! Initialize gravity wave drag tendencies to zero.
 
@@ -671,6 +681,18 @@ subroutine gw_drag_prof(ncol, band, p, src_level, tend_level, dt, &
      ! End of level loop.
   end do
 
+  else
+
+     call gw_drag_prof_core_note_entered()
+     call gw_drag_prof_core_codon_wrap(1, ncol, pver, pver+1, band%ngwv, ktop, kbot_tend, kbot_src, &
+          merge(1, 0, tau_0_ubc), dback, taumin, tndmax, umcfac, ubmc2mn, &
+          band%effkwv, band%kwv, gravit, rog, dt, alpha, p%del, p%rdel, &
+          t, piln, rhoi, ni, ubm, ubi, xv, yv, effgw, c, kvtt, src_level, tend_level, tau, &
+          utgw, vtgw, ttgw, gwut, dttdf, dttke, d, mi, taudmp, tausat, ubmc, ubmc2, &
+          ubt, ubtl, wrk, ubt_lim_ratio)
+
+  end if
+
   ! Calculate effective diffusivity and LU decomposition for the
   ! vertical diffusion solver.
   call gw_ediff (ncol, pver, band%ngwv, kbot_tend, ktop, tend_level, &
@@ -690,18 +712,185 @@ subroutine gw_drag_prof(ncol, band, p, src_level, tend_level, dt, &
 
   ! Evaluate second temperature tendency term: Conversion of kinetic
   ! energy into thermal.
-  do l = -band%ngwv, band%ngwv
-     do k = ktop, kbot_tend
-        dttke(:,k) = dttke(:,k) - (ubm(:,k) - c(:,l)) * gwut(:,k,l)
+  if (use_native_core) then
+     do l = -band%ngwv, band%ngwv
+        do k = ktop, kbot_tend
+           dttke(:,k) = dttke(:,k) - (ubm(:,k) - c(:,l)) * gwut(:,k,l)
+        end do
      end do
-  end do
 
-  ttgw = dttke + dttdf
+     ttgw = dttke + dttdf
+  else
+     call gw_drag_prof_core_codon_wrap(2, ncol, pver, pver+1, band%ngwv, ktop, kbot_tend, kbot_src, &
+          merge(1, 0, tau_0_ubc), dback, taumin, tndmax, umcfac, ubmc2mn, &
+          band%effkwv, band%kwv, gravit, rog, dt, alpha, p%del, p%rdel, &
+          t, piln, rhoi, ni, ubm, ubi, xv, yv, effgw, c, kvtt, src_level, tend_level, tau, &
+          utgw, vtgw, ttgw, gwut, dttdf, dttke, d, mi, taudmp, tausat, ubmc, ubmc2, &
+          ubt, ubtl, wrk, ubt_lim_ratio)
+  end if
 
   ! Deallocate decomp.
   call decomp%finalize()
 
 end subroutine gw_drag_prof
+
+!==========================================================================
+
+subroutine gw_drag_prof_core_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('GW_DRAG_PROF_CORE_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+     write(unitno,'(A)') trim(proof_line)
+     close(unitno)
+  end if
+
+end subroutine gw_drag_prof_core_append_proof
+
+!==========================================================================
+
+subroutine gw_drag_prof_core_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (gw_drag_prof_core_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('GW_DRAG_PROF_CORE_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_gw_drag_prof_core_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_gw_drag_prof_core_impl = .false.
+  end if
+
+  gw_drag_prof_core_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_gw_drag_prof_core_impl) then
+        write(iulog,*) 'gw_drag_prof_core implementation = native'
+        call gw_drag_prof_core_append_proof('gw_drag_prof_core selector entered implementation = native')
+     else
+        write(iulog,*) 'gw_drag_prof_core implementation = codon'
+        call gw_drag_prof_core_append_proof('gw_drag_prof_core selector entered implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine gw_drag_prof_core_select_impl
+
+!==========================================================================
+
+subroutine gw_drag_prof_core_note_entered()
+
+  if (gw_drag_prof_core_entered_logged) return
+  gw_drag_prof_core_entered_logged = .true.
+
+  if (masterproc) then
+     write(iulog,*) 'gw_drag_prof_core entered (stress/tendency/heating loops direct = codon)'
+     call gw_drag_prof_core_append_proof('gw_drag_prof_core entered (stress/tendency/heating loops direct = codon)')
+     call flush(iulog)
+  end if
+
+end subroutine gw_drag_prof_core_note_entered
+
+!==========================================================================
+
+subroutine gw_drag_prof_core_codon_wrap(stage, ncol_local, pver_local, pverp_local, ngwv_local, &
+     ktop_local, kbot_tend_local, kbot_src_local, tau_0_ubc_local, dback_local, taumin_local, &
+     tndmax_local, umcfac_local, ubmc2mn_local, effkwv_local, kwv_local, gravit_local, rog_local, &
+     dt_local, alpha_local, p_del_local, p_rdel_local, t_local, piln_local, rhoi_local, ni_local, &
+     ubm_local, ubi_local, xv_local, yv_local, effgw_local, c_local, kvtt_local, src_level_local, &
+     tend_level_local, tau_local, utgw_local, vtgw_local, ttgw_local, gwut_local, dttdf_local, &
+     dttke_local, d_local, mi_local, taudmp_local, tausat_local, ubmc_local, ubmc2_local, &
+     ubt_local, ubtl_local, wrk_local, ubt_lim_ratio_local)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+  integer, intent(in) :: stage
+  integer, intent(in) :: ncol_local, pver_local, pverp_local, ngwv_local
+  integer, intent(in) :: ktop_local, kbot_tend_local, kbot_src_local, tau_0_ubc_local
+  real(r8), intent(in) :: dback_local, taumin_local, tndmax_local, umcfac_local, ubmc2mn_local
+  real(r8), intent(in) :: effkwv_local, kwv_local, gravit_local, rog_local, dt_local
+  real(r8), target, intent(in) :: alpha_local(pverp_local)
+  real(r8), target, intent(in) :: p_del_local(ncol_local,pver_local), p_rdel_local(ncol_local,pver_local)
+  real(r8), target, intent(in) :: t_local(ncol_local,pver_local), piln_local(ncol_local,pverp_local)
+  real(r8), target, intent(in) :: rhoi_local(ncol_local,pverp_local), ni_local(ncol_local,pverp_local)
+  real(r8), target, intent(in) :: ubm_local(ncol_local,pver_local), ubi_local(ncol_local,pverp_local)
+  real(r8), target, intent(in) :: xv_local(ncol_local), yv_local(ncol_local), effgw_local(ncol_local)
+  real(r8), target, intent(in) :: c_local(ncol_local,-ngwv_local:ngwv_local)
+  real(r8), target, intent(in) :: kvtt_local(ncol_local,pverp_local)
+  integer, intent(in) :: src_level_local(ncol_local), tend_level_local(ncol_local)
+  real(r8), target, intent(inout) :: tau_local(ncol_local,-ngwv_local:ngwv_local,pverp_local)
+  real(r8), target, intent(inout) :: utgw_local(ncol_local,pver_local), vtgw_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: ttgw_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: gwut_local(ncol_local,pver_local,-ngwv_local:ngwv_local)
+  real(r8), target, intent(in) :: dttdf_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: dttke_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: d_local(ncol_local), mi_local(ncol_local), taudmp_local(ncol_local)
+  real(r8), target, intent(inout) :: tausat_local(ncol_local), ubmc_local(ncol_local), ubmc2_local(ncol_local)
+  real(r8), target, intent(inout) :: ubt_local(ncol_local,pver_local), ubtl_local(ncol_local)
+  real(r8), target, intent(inout) :: wrk_local(ncol_local), ubt_lim_ratio_local(ncol_local)
+
+  integer(c_int64_t), target :: src_level_i8(ncol_local), tend_level_i8(ncol_local)
+  integer :: i
+
+  interface
+     subroutine gw_drag_prof_core_codon(stage_c, ncol_c, pver_c, pverp_c, ngwv_c, &
+          ktop_c, kbot_tend_c, kbot_src_c, tau_0_ubc_c, dback_c, taumin_c, tndmax_c, &
+          umcfac_c, ubmc2mn_c, effkwv_c, kwv_c, gravit_c, rog_c, dt_c, alpha_p, &
+          p_del_p, p_rdel_p, t_p, piln_p, rhoi_p, ni_p, ubm_p, ubi_p, xv_p, yv_p, &
+          effgw_p, c_p, kvtt_p, src_level_p, tend_level_p, tau_p, utgw_p, vtgw_p, &
+          ttgw_p, gwut_p, dttdf_p, dttke_p, d_p, mi_p, taudmp_p, tausat_p, ubmc_p, &
+          ubmc2_p, ubt_p, ubtl_p, wrk_p, ubt_lim_ratio_p) &
+          bind(c, name="gw_drag_prof_core_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: stage_c, ncol_c, pver_c, pverp_c, ngwv_c
+       integer(c_int64_t), value :: ktop_c, kbot_tend_c, kbot_src_c, tau_0_ubc_c
+       real(c_double), value :: dback_c, taumin_c, tndmax_c, umcfac_c, ubmc2mn_c
+       real(c_double), value :: effkwv_c, kwv_c, gravit_c, rog_c, dt_c
+       type(c_ptr), value :: alpha_p, p_del_p, p_rdel_p, t_p, piln_p, rhoi_p, ni_p
+       type(c_ptr), value :: ubm_p, ubi_p, xv_p, yv_p, effgw_p, c_p, kvtt_p
+       type(c_ptr), value :: src_level_p, tend_level_p, tau_p, utgw_p, vtgw_p, ttgw_p, gwut_p
+       type(c_ptr), value :: dttdf_p, dttke_p, d_p, mi_p, taudmp_p, tausat_p, ubmc_p, ubmc2_p
+       type(c_ptr), value :: ubt_p, ubtl_p, wrk_p, ubt_lim_ratio_p
+     end subroutine gw_drag_prof_core_codon
+  end interface
+
+  do i = 1, ncol_local
+     src_level_i8(i) = int(src_level_local(i), c_int64_t)
+     tend_level_i8(i) = int(tend_level_local(i), c_int64_t)
+  end do
+
+  call gw_drag_prof_core_codon(int(stage, c_int64_t), int(ncol_local, c_int64_t), &
+       int(pver_local, c_int64_t), int(pverp_local, c_int64_t), int(ngwv_local, c_int64_t), &
+       int(ktop_local, c_int64_t), int(kbot_tend_local, c_int64_t), int(kbot_src_local, c_int64_t), &
+       int(tau_0_ubc_local, c_int64_t), real(dback_local, c_double), real(taumin_local, c_double), &
+       real(tndmax_local, c_double), real(umcfac_local, c_double), real(ubmc2mn_local, c_double), &
+       real(effkwv_local, c_double), real(kwv_local, c_double), real(gravit_local, c_double), &
+       real(rog_local, c_double), real(dt_local, c_double), c_loc(alpha_local), c_loc(p_del_local), &
+       c_loc(p_rdel_local), c_loc(t_local), c_loc(piln_local), c_loc(rhoi_local), c_loc(ni_local), &
+       c_loc(ubm_local), c_loc(ubi_local), c_loc(xv_local), c_loc(yv_local), c_loc(effgw_local), &
+       c_loc(c_local), c_loc(kvtt_local), c_loc(src_level_i8), c_loc(tend_level_i8), c_loc(tau_local), &
+       c_loc(utgw_local), c_loc(vtgw_local), c_loc(ttgw_local), c_loc(gwut_local), c_loc(dttdf_local), &
+       c_loc(dttke_local), c_loc(d_local), c_loc(mi_local), c_loc(taudmp_local), c_loc(tausat_local), &
+       c_loc(ubmc_local), c_loc(ubmc2_local), c_loc(ubt_local), c_loc(ubtl_local), c_loc(wrk_local), &
+       c_loc(ubt_lim_ratio_local))
+
+end subroutine gw_drag_prof_core_codon_wrap
 
 !==========================================================================
 

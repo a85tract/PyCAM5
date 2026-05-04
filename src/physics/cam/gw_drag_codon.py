@@ -1,4 +1,4 @@
-from math import sqrt
+from math import exp, sqrt
 
 
 @export
@@ -52,6 +52,19 @@ def _idx_tau(i: int, l: int, k: int, ncol: int, ngwv: int) -> int:
 def _idx_c(i: int, l: int, ncol: int, ngwv: int) -> int:
     """Fortran c(i,l) with dimensions (ncol,-ngwv:ngwv)."""
     return (i - 1) + (l + ngwv) * ncol
+
+
+@inline
+def _idx_gwut(i: int, k: int, l: int, ncol: int, pver: int, ngwv: int) -> int:
+    """Fortran gwut(i,k,l) with dimensions (ncol,pver,-ngwv:ngwv)."""
+    return (i - 1) + (k - 1) * ncol + (l + ngwv) * ncol * pver
+
+
+@inline
+def _sign_fortran(a: float, b: float) -> float:
+    if b >= 0.0:
+        return abs(a)
+    return -abs(a)
 
 
 @export
@@ -140,6 +153,237 @@ def gw_energy_change_codon(
                 + dudt[idx] * (u[idx] + dudt[idx] * 0.5 * dt)
                 + dvdt[idx] * (v[idx] + dvdt[idx] * 0.5 * dt)
             )
+
+
+@export
+def gw_drag_prof_core_codon(
+    stage: int,
+    ncol: int,
+    pver: int,
+    pverp: int,
+    ngwv: int,
+    ktop: int,
+    kbot_tend: int,
+    kbot_src: int,
+    tau_0_ubc: int,
+    dback: float,
+    taumin: float,
+    tndmax: float,
+    umcfac: float,
+    ubmc2mn: float,
+    effkwv: float,
+    kwv: float,
+    gravit: float,
+    rog: float,
+    dt: float,
+    alpha_p: cobj,
+    p_del_p: cobj,
+    p_rdel_p: cobj,
+    t_p: cobj,
+    piln_p: cobj,
+    rhoi_p: cobj,
+    ni_p: cobj,
+    ubm_p: cobj,
+    ubi_p: cobj,
+    xv_p: cobj,
+    yv_p: cobj,
+    effgw_p: cobj,
+    c_p: cobj,
+    kvtt_p: cobj,
+    src_level_p: cobj,
+    tend_level_p: cobj,
+    tau_p: cobj,
+    utgw_p: cobj,
+    vtgw_p: cobj,
+    ttgw_p: cobj,
+    gwut_p: cobj,
+    dttdf_p: cobj,
+    dttke_p: cobj,
+    d_p: cobj,
+    mi_p: cobj,
+    taudmp_p: cobj,
+    tausat_p: cobj,
+    ubmc_p: cobj,
+    ubmc2_p: cobj,
+    ubt_p: cobj,
+    ubtl_p: cobj,
+    wrk_p: cobj,
+    ubt_lim_ratio_p: cobj,
+):
+    alpha = Ptr[float](alpha_p)
+    p_del = Ptr[float](p_del_p)
+    p_rdel = Ptr[float](p_rdel_p)
+    t = Ptr[float](t_p)
+    piln = Ptr[float](piln_p)
+    rhoi = Ptr[float](rhoi_p)
+    ni = Ptr[float](ni_p)
+    ubm = Ptr[float](ubm_p)
+    ubi = Ptr[float](ubi_p)
+    xv = Ptr[float](xv_p)
+    yv = Ptr[float](yv_p)
+    effgw = Ptr[float](effgw_p)
+    c = Ptr[float](c_p)
+    kvtt = Ptr[float](kvtt_p)
+    src_level = Ptr[int](src_level_p)
+    tend_level = Ptr[int](tend_level_p)
+    tau = Ptr[float](tau_p)
+    utgw = Ptr[float](utgw_p)
+    vtgw = Ptr[float](vtgw_p)
+    ttgw = Ptr[float](ttgw_p)
+    gwut = Ptr[float](gwut_p)
+    dttdf = Ptr[float](dttdf_p)
+    dttke = Ptr[float](dttke_p)
+    d = Ptr[float](d_p)
+    mi = Ptr[float](mi_p)
+    taudmp = Ptr[float](taudmp_p)
+    tausat = Ptr[float](tausat_p)
+    ubmc = Ptr[float](ubmc_p)
+    ubmc2 = Ptr[float](ubmc2_p)
+    ubt = Ptr[float](ubt_p)
+    ubtl = Ptr[float](ubtl_p)
+    wrk = Ptr[float](wrk_p)
+    ubt_lim_ratio = Ptr[float](ubt_lim_ratio_p)
+
+    if stage == 1:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, ncol)
+                utgw[idx] = 0.0
+                vtgw[idx] = 0.0
+                dttke[idx] = 0.0
+                ttgw[idx] = 0.0
+
+        for l in range(-ngwv, ngwv + 1):
+            for k in range(1, pver + 1):
+                for i in range(1, ncol + 1):
+                    gwut[_idx_gwut(i, k, l, ncol, pver, ngwv)] = 0.0
+
+        for i in range(1, ncol + 1):
+            mi[i - 1] = 0.0
+            taudmp[i - 1] = 0.0
+            tausat[i - 1] = 0.0
+            ubmc[i - 1] = 0.0
+            ubmc2[i - 1] = 0.0
+            wrk[i - 1] = 0.0
+
+        for k in range(kbot_src, ktop - 1, -1):
+            for i in range(1, ncol + 1):
+                d[i - 1] = dback + kvtt[_idx2(i, k, ncol)]
+
+            for l in range(-ngwv, ngwv + 1):
+                for i in range(1, ncol + 1):
+                    ubmc[i - 1] = ubi[_idx2(i, k, ncol)] - c[_idx_c(i, l, ncol, ngwv)]
+
+                for i in range(1, ncol + 1):
+                    tausat[i - 1] = 0.0
+
+                for i in range(1, ncol + 1):
+                    c_val = c[_idx_c(i, l, ncol, ngwv)]
+                    if src_level[i - 1] >= k:
+                        if (ubmc[i - 1] > 0.0) == (ubi[_idx2(i, k + 1, ncol)] > c_val):
+                            tausat[i - 1] = abs(
+                                effkwv * rhoi[_idx2(i, k, ncol)] * ubmc[i - 1] ** 3
+                                / (2.0 * ni[_idx2(i, k, ncol)])
+                            )
+
+                for i in range(1, ncol + 1):
+                    if src_level[i - 1] >= k:
+                        idx = _idx2(i, k, ncol)
+                        c_idx = _idx_c(i, l, ncol, ngwv)
+                        tau_idx_next = _idx_tau(i, l, k + 1, ncol, ngwv)
+                        tau_idx = _idx_tau(i, l, k, ncol, ngwv)
+
+                        ubmc2[i - 1] = max(ubmc[i - 1] ** 2, ubmc2mn)
+                        mi[i - 1] = ni[idx] / (2.0 * kwv * ubmc2[i - 1]) * (
+                            alpha[k - 1] + ni[idx] ** 2 / ubmc2[i - 1] * d[i - 1]
+                        )
+                        wrk[i - 1] = -2.0 * mi[i - 1] * rog * t[idx] * (
+                            piln[_idx2(i, k + 1, ncol)] - piln[idx]
+                        )
+
+                        taudmp[i - 1] = tau[tau_idx_next] * exp(wrk[i - 1])
+
+                        if tausat[i - 1] <= taumin:
+                            tausat[i - 1] = 0.0
+                        if taudmp[i - 1] <= taumin:
+                            taudmp[i - 1] = 0.0
+
+                        tau[tau_idx] = min(taudmp[i - 1], tausat[i - 1])
+
+        if tau_0_ubc != 0:
+            for l in range(-ngwv, ngwv + 1):
+                for i in range(1, ncol + 1):
+                    tau[_idx_tau(i, l, ktop, ncol, ngwv)] = 0.0
+
+        for k in range(ktop, kbot_tend + 2):
+            for l in range(-ngwv, ngwv + 1):
+                for i in range(1, ncol + 1):
+                    if k - 1 <= tend_level[i - 1]:
+                        tau_idx = _idx_tau(i, l, k, ncol, ngwv)
+                        tau[tau_idx] = tau[tau_idx] * effgw[i - 1]
+
+        for k in range(ktop, kbot_tend + 1):
+            for i in range(1, ncol + 1):
+                ubt[_idx2(i, k, ncol)] = 0.0
+
+            for l in range(-ngwv, ngwv + 1):
+                for i in range(1, ncol + 1):
+                    ubtl[i - 1] = (
+                        gravit
+                        * (tau[_idx_tau(i, l, k + 1, ncol, ngwv)] - tau[_idx_tau(i, l, k, ncol, ngwv)])
+                        * p_rdel[_idx2(i, k, ncol)]
+                    )
+
+                for i in range(1, ncol + 1):
+                    c_val = c[_idx_c(i, l, ncol, ngwv)]
+                    ubtl[i - 1] = min(ubtl[i - 1], umcfac * abs(c_val - ubm[_idx2(i, k, ncol)]) / dt)
+
+                for i in range(1, ncol + 1):
+                    if k <= tend_level[i - 1]:
+                        idx = _idx2(i, k, ncol)
+                        gwut_idx = _idx_gwut(i, k, l, ncol, pver, ngwv)
+                        gwut[gwut_idx] = _sign_fortran(ubtl[i - 1], c[_idx_c(i, l, ncol, ngwv)] - ubm[idx])
+                        ubt[idx] = ubt[idx] + gwut[gwut_idx]
+
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, ncol)
+                if abs(ubt[idx]) > tndmax:
+                    ubt_lim_ratio[i - 1] = tndmax / abs(ubt[idx])
+                    ubt[idx] = ubt_lim_ratio[i - 1] * ubt[idx]
+                else:
+                    ubt_lim_ratio[i - 1] = 1.0
+
+            for l in range(-ngwv, ngwv + 1):
+                for i in range(1, ncol + 1):
+                    gwut_idx = _idx_gwut(i, k, l, ncol, pver, ngwv)
+                    gwut[gwut_idx] = ubt_lim_ratio[i - 1] * gwut[gwut_idx]
+
+                for i in range(1, ncol + 1):
+                    if k <= tend_level[i - 1]:
+                        tau[_idx_tau(i, l, k + 1, ncol, ngwv)] = tau[_idx_tau(i, l, k, ncol, ngwv)] + (
+                            abs(gwut[_idx_gwut(i, k, l, ncol, pver, ngwv)]) * p_del[_idx2(i, k, ncol)] / gravit
+                        )
+
+            for i in range(1, ncol + 1):
+                if k <= tend_level[i - 1]:
+                    idx = _idx2(i, k, ncol)
+                    utgw[idx] = ubt[idx] * xv[i - 1]
+                    vtgw[idx] = ubt[idx] * yv[i - 1]
+
+    elif stage == 2:
+        for l in range(-ngwv, ngwv + 1):
+            for k in range(ktop, kbot_tend + 1):
+                for i in range(1, ncol + 1):
+                    idx = _idx2(i, k, ncol)
+                    dttke[idx] = dttke[idx] - (
+                        (ubm[idx] - c[_idx_c(i, l, ncol, ngwv)])
+                        * gwut[_idx_gwut(i, k, l, ncol, pver, ngwv)]
+                    )
+
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, ncol)
+                ttgw[idx] = dttke[idx] + dttdf[idx]
 
 
 @export
