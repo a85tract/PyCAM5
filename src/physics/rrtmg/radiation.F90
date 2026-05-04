@@ -17,7 +17,7 @@ use shr_kind_mod,    only: r8=>shr_kind_r8
 use spmd_utils,      only: masterproc
 use ppgrid,          only: pcols, pver, pverp, begchunk, endchunk
 use physics_types,   only: physics_state, physics_ptend
-use physconst,       only: cappa
+use physconst,       only: cappa, cpair
 use time_manager,    only: get_nstep, is_first_restart_step
 use cam_abortutils,  only: endrun
 use error_messages,  only: handle_err
@@ -78,6 +78,9 @@ logical :: dohirs = .false. ! diagnostic  brightness temperatures at the top of 
                             ! channels (1,2,3,4).
 integer :: ihirsfq = 1      ! frequency (timesteps) of brightness temperature calcs
 
+logical :: use_native_radiation_diag_prep_impl = .false.
+logical :: radiation_diag_prep_impl_selected = .false.
+logical :: radiation_diag_prep_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -573,6 +576,155 @@ end function radiation_nextsw_cday
   end subroutine radiation_init
 
 !===============================================================================
+
+  subroutine radiation_diag_prep_append_proof(proof_line)
+
+    character(len=*), intent(in) :: proof_line
+
+    character(len=512) :: proof_file
+    integer :: status, n, unitno
+
+    proof_file = ''
+    call get_environment_variable('RADIATION_DIAG_PREP_PROOF_FILE', value=proof_file, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+       write(unitno,'(A)') trim(proof_line)
+       close(unitno)
+    end if
+
+  end subroutine radiation_diag_prep_append_proof
+
+!===============================================================================
+
+  subroutine radiation_diag_prep_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (radiation_diag_prep_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('RADIATION_DIAG_PREP_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_radiation_diag_prep_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_radiation_diag_prep_impl = .false.
+    end if
+
+    radiation_diag_prep_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_radiation_diag_prep_impl) then
+          write(iulog,*) 'radiation_diag_prep implementation = native'
+          call radiation_diag_prep_append_proof('radiation_diag_prep selector entered implementation = native')
+       else
+          write(iulog,*) 'radiation_diag_prep implementation = codon'
+          call radiation_diag_prep_append_proof('radiation_diag_prep selector entered implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine radiation_diag_prep_select_impl
+
+!===============================================================================
+
+  subroutine radiation_diag_prep_log_entered()
+
+    if (radiation_diag_prep_entered_logged) return
+    radiation_diag_prep_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'radiation_diag_prep entered (qrs-qrl qdp loops direct = codon; history diagnostics/rrtmg core = native)'
+       call radiation_diag_prep_append_proof('radiation_diag_prep entered (qrs-qrl qdp loops direct = codon; history diagnostics/rrtmg core = native)')
+       call flush(iulog)
+    end if
+
+  end subroutine radiation_diag_prep_log_entered
+
+!===============================================================================
+
+  subroutine radiation_diag_prep_codon_call(stage, ncol, mode, cpair_local, fillvalue_local, &
+       scalar_p, a_p, b_p, c_p, d_p, e_p, f_p, g_p, h_p, i_p, j_p, k_p, l_p, m_p, n_p, o_p, p_p, q_p, r_p)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_ptr
+
+    integer, intent(in) :: stage, ncol, mode
+    real(r8), intent(in) :: cpair_local, fillvalue_local
+    type(c_ptr), intent(in) :: scalar_p, a_p, b_p, c_p, d_p, e_p, f_p, g_p, h_p, i_p, j_p, k_p, l_p, m_p
+    type(c_ptr), intent(in) :: n_p, o_p, p_p, q_p, r_p
+
+    interface
+       subroutine radiation_diag_prep_codon(stage_c, ncol_c, pcols_c, pver_c, nday_c, nnite_c, cpair_c, cgs2mks_c, &
+            fillvalue_c, scalar_p, a_p, b_p, c_p, d_p, e_p, f_p, g_p, h_p, i_p, j_p, k_p, l_p, m_p, n_p, o_p, p_p, &
+            q_p, r_p, idxday_p, idxnite_p) bind(c, name="radiation_diag_prep_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, nday_c, nnite_c
+         real(c_double), value :: cpair_c, cgs2mks_c, fillvalue_c
+         type(c_ptr), value :: scalar_p, a_p, b_p, c_p, d_p, e_p, f_p, g_p, h_p, i_p, j_p, k_p, l_p, m_p
+         type(c_ptr), value :: n_p, o_p, p_p, q_p, r_p, idxday_p, idxnite_p
+       end subroutine radiation_diag_prep_codon
+    end interface
+
+    call radiation_diag_prep_codon(int(stage, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), &
+         int(pver, c_int64_t), int(mode, c_int64_t), int(0, c_int64_t), real(cpair_local, c_double), &
+         real(1._r8, c_double), real(fillvalue_local, c_double), scalar_p, a_p, b_p, c_p, d_p, e_p, &
+         f_p, g_p, h_p, i_p, j_p, k_p, l_p, m_p, n_p, o_p, p_p, q_p, r_p, scalar_p, scalar_p)
+
+  end subroutine radiation_diag_prep_codon_call
+
+!===============================================================================
+
+  subroutine radiation_diag_prep_div_field(ncol, input_p, output_p, dummy_p)
+
+    use iso_c_binding, only: c_ptr
+
+    integer, intent(in) :: ncol
+    type(c_ptr), intent(in) :: input_p, output_p, dummy_p
+
+    call radiation_diag_prep_codon_call(2, ncol, 0, cpair, 0._r8, dummy_p, input_p, output_p, dummy_p, dummy_p, &
+         dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
+         dummy_p, dummy_p, dummy_p)
+
+  end subroutine radiation_diag_prep_div_field
+
+!===============================================================================
+
+  subroutine radiation_diag_prep_diff_field(ncol, a_p, b_p, output_p, dummy_p)
+
+    use iso_c_binding, only: c_ptr
+
+    integer, intent(in) :: ncol
+    type(c_ptr), intent(in) :: a_p, b_p, output_p, dummy_p
+
+    call radiation_diag_prep_codon_call(6, ncol, 0, cpair, 0._r8, dummy_p, a_p, b_p, output_p, dummy_p, &
+         dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
+         dummy_p, dummy_p, dummy_p)
+
+  end subroutine radiation_diag_prep_diff_field
+
+!===============================================================================
+
+  subroutine radiation_diag_prep_qdp(ncol, mode, qrs_p, pdel_p, qrl_p, dummy_p)
+
+    use iso_c_binding, only: c_ptr
+
+    integer, intent(in) :: ncol, mode
+    type(c_ptr), intent(in) :: qrs_p, pdel_p, qrl_p, dummy_p
+
+    call radiation_diag_prep_codon_call(5, ncol, mode, cpair, 0._r8, dummy_p, qrs_p, pdel_p, qrl_p, dummy_p, &
+         dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
+         dummy_p, dummy_p, dummy_p)
+
+  end subroutine radiation_diag_prep_qdp
+
+!===============================================================================
   
   subroutine radiation_tend(state,ptend, pbuf, &
        cam_out, cam_in, &
@@ -599,6 +751,7 @@ end function radiation_nextsw_cday
     !-----------------------------------------------------------------------
 
 
+    use iso_c_binding,  only: c_loc
     use physics_buffer, only : physics_buffer_desc, pbuf_get_field, pbuf_old_tim_idx
     
     use phys_grid,       only: get_rlat_all_p, get_rlon_all_p
@@ -615,7 +768,7 @@ end function radiation_nextsw_cday
     use radheat,         only: radheat_tend
     use ppgrid
     use pspect
-    use physconst,        only: cpair, stebol
+    use physconst,        only: stebol
     use radconstants,     only: nlwbands,idx_sw_diag
     use radsw,            only: rad_rrtmg_sw
     use radlw,            only: rad_rrtmg_lw
@@ -636,12 +789,12 @@ end function radiation_nextsw_cday
     real(r8), intent(in)    :: landfrac(pcols)  ! land fraction
     real(r8), intent(in)    :: icefrac(pcols)   ! land fraction
     real(r8), intent(in)    :: snowh(pcols)     ! Snow depth (liquid water equivalent)
-    real(r8), intent(inout) :: fsns(pcols)      ! Surface solar absorbed flux
-    real(r8), intent(inout) :: fsnt(pcols)      ! Net column abs solar flux at model top
-    real(r8), intent(inout) :: flns(pcols)      ! Srf longwave cooling (up-down) flux
-    real(r8), intent(inout) :: flnt(pcols)      ! Net outgoing lw flux at model top
-    real(r8), intent(inout) :: fsds(pcols)      ! Surface solar down flux
-    real(r8), intent(inout) :: net_flx(pcols)
+    real(r8), target, intent(inout) :: fsns(pcols)      ! Surface solar absorbed flux
+    real(r8), target, intent(inout) :: fsnt(pcols)      ! Net column abs solar flux at model top
+    real(r8), target, intent(inout) :: flns(pcols)      ! Srf longwave cooling (up-down) flux
+    real(r8), target, intent(inout) :: flnt(pcols)      ! Net outgoing lw flux at model top
+    real(r8), target, intent(inout) :: fsds(pcols)      ! Surface solar down flux
+    real(r8), target, intent(inout) :: net_flx(pcols)
 
     type(physics_state), intent(in), target :: state
     type(physics_ptend), intent(out)        :: ptend
@@ -674,7 +827,7 @@ end function radiation_nextsw_cday
     real(r8) cllow(pcols)                      !       "     low  cloud cover
     real(r8) clmed(pcols)                      !       "     mid  cloud cover
     real(r8) clhgh(pcols)                      !       "     hgh  cloud cover
-    real(r8) :: ftem(pcols,pver)              ! Temporary workspace for outfld variables
+    real(r8), target :: ftem(pcols,pver)      ! Temporary workspace for outfld variables
 
     ! combined cloud radiative parameters are "in cloud" not "in cell"
     real(r8) :: c_cld_tau    (nbndsw,pcols,pver) ! cloud extinction optical depth
@@ -723,10 +876,10 @@ end function radiation_nextsw_cday
     real(r8), pointer, dimension(:,:) :: cld      ! cloud fraction
     real(r8), pointer, dimension(:,:) :: cldfsnow ! cloud fraction of just "snow clouds- whatever they are"
     real(r8) :: cldfprime(pcols,pver)             ! combined cloud fraction (snow plus regular)
-    real(r8), pointer, dimension(:,:) :: qrs      ! shortwave radiative heating rate 
-    real(r8), pointer, dimension(:,:) :: qrl      ! longwave  radiative heating rate 
-    real(r8) :: qrsc(pcols,pver)                  ! clearsky shortwave radiative heating rate 
-    real(r8) :: qrlc(pcols,pver)                  ! clearsky longwave  radiative heating rate 
+    real(r8), pointer, dimension(:,:) :: qrs      ! shortwave radiative heating rate
+    real(r8), pointer, dimension(:,:) :: qrl      ! longwave  radiative heating rate
+    real(r8), target :: qrsc(pcols,pver)          ! clearsky shortwave radiative heating rate
+    real(r8), target :: qrlc(pcols,pver)          ! clearsky longwave  radiative heating rate
 
     integer lchnk, ncol, lw
     real(r8) :: calday                        ! current calendar day
@@ -739,19 +892,19 @@ end function radiation_nextsw_cday
     integer i, k                  ! index
     integer :: istat
     real(r8) solin(pcols)         ! Solar incident flux
-    real(r8) fsntoa(pcols)        ! Net solar flux at TOA
+    real(r8), target :: fsntoa(pcols) ! Net solar flux at TOA
     real(r8) fsutoa(pcols)        ! Upwelling solar flux at TOA
-    real(r8) fsntoac(pcols)       ! Clear sky net solar flux at TOA
+    real(r8), target :: fsntoac(pcols) ! Clear sky net solar flux at TOA
     real(r8) fsnirt(pcols)        ! Near-IR flux absorbed at toa
     real(r8) fsnrtc(pcols)        ! Clear sky near-IR flux absorbed at toa
     real(r8) fsnirtsq(pcols)      ! Near-IR flux absorbed at toa >= 0.7 microns
     real(r8) fsntc(pcols)         ! Clear sky total column abs solar flux
     real(r8) fsnsc(pcols)         ! Clear sky surface abs solar flux
     real(r8) fsdsc(pcols)         ! Clear sky surface downwelling solar flux
-    real(r8) flut(pcols)          ! Upward flux at top of model
-    real(r8) lwcf(pcols)          ! longwave cloud forcing
-    real(r8) swcf(pcols)          ! shortwave cloud forcing
-    real(r8) flutc(pcols)         ! Upward Clear Sky flux at top of model
+    real(r8), target :: flut(pcols) ! Upward flux at top of model
+    real(r8), target :: lwcf(pcols) ! longwave cloud forcing
+    real(r8), target :: swcf(pcols) ! shortwave cloud forcing
+    real(r8), target :: flutc(pcols) ! Upward Clear Sky flux at top of model
     real(r8) flntc(pcols)         ! Clear sky lw flux at model top
     real(r8) flnsc(pcols)         ! Clear sky lw flux at srf (up-down)
     real(r8) fldsc(pcols)         ! Clear sky lw flux at srf (down)
@@ -768,6 +921,7 @@ end function radiation_nextsw_cday
     real(r8) pnm(pcols,pverp)     ! Model interface pressures (dynes/cm2)
     real(r8) eccf                 ! Earth/sun distance factor
     real(r8) lwupcgs(pcols)       ! Upward longwave flux in cgs units
+    real(r8), target :: radiation_diag_dummy(1)
 
     real(r8) dy                   ! Temporary layer pressure thickness
     real(r8) tint(pcols,pverp)    ! Model interface temperature
@@ -814,6 +968,8 @@ end function radiation_nextsw_cday
 
     lchnk = state%lchnk
     ncol = state%ncol
+    radiation_diag_dummy(1) = 0._r8
+    call radiation_diag_prep_select_impl()
 
     calday = get_curr_calday()
 
@@ -1276,14 +1432,20 @@ end function radiation_nextsw_cday
 
        ! convert radiative heating rates from Q*dp to Q for energy conservation
        if (conserve_energy) then
+          if (use_native_radiation_diag_prep_impl) then
 !DIR$ CONCURRENT
-          do k =1 , pver
+             do k =1 , pver
 !DIR$ CONCURRENT
-             do i = 1, ncol
-                qrs(i,k) = qrs(i,k)/state%pdel(i,k)
-                qrl(i,k) = qrl(i,k)/state%pdel(i,k)
+                do i = 1, ncol
+                   qrs(i,k) = qrs(i,k)/state%pdel(i,k)
+                   qrl(i,k) = qrl(i,k)/state%pdel(i,k)
+                end do
              end do
-          end do
+          else
+             call radiation_diag_prep_log_entered()
+             call radiation_diag_prep_qdp(ncol, 1, c_loc(qrs), c_loc(state%pdel), c_loc(qrl), &
+                  c_loc(radiation_diag_dummy))
+          end if
        end if
 
     end if   !  if (dosw .or. dolw) then
@@ -1305,14 +1467,20 @@ end function radiation_nextsw_cday
 
     ! convert radiative heating rates to Q*dp for energy conservation
     if (conserve_energy) then
+       if (use_native_radiation_diag_prep_impl) then
 !DIR$ CONCURRENT
-       do k =1 , pver
+          do k =1 , pver
 !DIR$ CONCURRENT
-          do i = 1, ncol
-             qrs(i,k) = qrs(i,k)*state%pdel(i,k)
-             qrl(i,k) = qrl(i,k)*state%pdel(i,k)
+             do i = 1, ncol
+                qrs(i,k) = qrs(i,k)*state%pdel(i,k)
+                qrl(i,k) = qrl(i,k)*state%pdel(i,k)
+             end do
           end do
-       end do
+       else
+          call radiation_diag_prep_log_entered()
+          call radiation_diag_prep_qdp(ncol, 2, c_loc(qrs), c_loc(state%pdel), c_loc(qrl), &
+               c_loc(radiation_diag_dummy))
+       end if
     end if
  
     cam_out%netsw(:ncol) = fsns(:ncol)
@@ -1416,4 +1584,3 @@ end subroutine calc_col_mean
 !===============================================================================
 
 end module radiation
-
