@@ -67,6 +67,32 @@ def diag_conv_tend_ini_copy_2d_codon(
 
 
 @export
+def diag_conv_tend_ini_copy_batch_codon(
+    mode: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    m: int,
+    src_p: cobj,
+    dst_p: cobj,
+):
+    src = Ptr[float](src_p)
+    dst = Ptr[float](dst_p)
+
+    if mode == 1 or mode == 3:
+        # mode 1: state%s -> dtcond; mode 3: state%t -> t_ttend.
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                dst[_idx2(i, k, pcols)] = src[_idx2(i, k, pcols)]
+    elif mode == 2:
+        # state%q(pcols,pver,pcnst) tracer m -> dqcond_work(pcols,pver).
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                dst[_idx2(i, k, pcols)] = src[_idx3(i, k, m, pcols, pver)]
+
+
+@export
 def diag_conv_precip_codon(
     ncol: int,
     pcols: int,
