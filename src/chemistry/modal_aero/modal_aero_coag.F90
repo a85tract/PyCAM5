@@ -53,6 +53,10 @@
   logical :: modal_aero_coag_sub_direct_proof_written = .false.
   logical :: modal_aero_coag_sub_wrap_proof_written = .false.
   logical :: modal_aero_coag_sub_fullshell_proof_written = .false.
+  logical :: modal_aero_coag_getcoags_prep_use_native_impl = .false.
+  logical :: modal_aero_coag_getcoags_prep_impl_selected = .false.
+  logical :: modal_aero_coag_getcoags_prep_proof_written = .false.
+  logical :: modal_aero_coag_getcoags_prep_entered_proof_written = .false.
 
 ! !DESCRIPTION: This module implements ...
 !
@@ -144,6 +148,59 @@ subroutine modal_aero_coag_sub_select_impl()
   end if
 
 end subroutine modal_aero_coag_sub_select_impl
+
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+subroutine modal_aero_coag_getcoags_prep_select_impl()
+
+  use cam_logfile, only: iulog
+  use spmd_utils, only: masterproc
+
+  implicit none
+
+  character(len=48) :: impl_name
+  integer :: status, n, i, code
+
+  if (modal_aero_coag_getcoags_prep_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MODAL_AERO_COAG_GETCOAGS_PREP_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     modal_aero_coag_getcoags_prep_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     modal_aero_coag_getcoags_prep_use_native_impl = .false.
+  end if
+
+  modal_aero_coag_getcoags_prep_impl_selected = .true.
+
+  if (masterproc) then
+     if (modal_aero_coag_getcoags_prep_use_native_impl) then
+        write(iulog,*) 'modal_aero_coag_getcoags_prep implementation = native'
+        if (.not. modal_aero_coag_getcoags_prep_proof_written) then
+           call modal_aero_coag_sub_append_impl_proof('MODAL_AERO_COAG_GETCOAGS_PREP_PROOF_FILE', &
+                'modal_aero_coag_getcoags_prep implementation = native')
+           modal_aero_coag_getcoags_prep_proof_written = .true.
+        end if
+     else
+        write(iulog,*) 'modal_aero_coag_getcoags_prep implementation = codon'
+        if (.not. modal_aero_coag_getcoags_prep_proof_written) then
+           call modal_aero_coag_sub_append_impl_proof('MODAL_AERO_COAG_GETCOAGS_PREP_PROOF_FILE', &
+                'modal_aero_coag_getcoags_prep implementation = codon')
+           modal_aero_coag_getcoags_prep_proof_written = .true.
+        end if
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine modal_aero_coag_getcoags_prep_select_impl
 
 
 !----------------------------------------------------------------------
@@ -332,6 +389,8 @@ end subroutine modal_aero_coag_sub_select_impl
         real(r8), target :: adv_mass_work(pcnstxx)
         real(r8), target :: fac_m2v_aitage_work(maxd_aspectype)
         real(r8), target :: fac_m2v_pcarbon_work(maxd_aspectype)
+        real(r8), target :: sigmag_amode_work(ntot_amode)
+        real(r8), target :: alnsg_amode_work(ntot_amode)
         integer(c_int64_t), target :: dotend_mask(pcnstxx)
         integer(c_int64_t), target :: idomode_c(ntot_amode)
         integer(c_int64_t), target :: iselfcoagdone_work(pcols,pver,ntot_amode)
@@ -469,31 +528,40 @@ end subroutine modal_aero_coag_sub_select_impl
             end if
 
             adv_mass_work(:) = adv_mass(1:pcnstxx)
+            sigmag_amode_work(:) = sigmag_amode(:)
+            alnsg_amode_work(:) = alnsg_amode(:)
 
             ybetaij0_work(:,:,:) = 0.0_r8
             ybetaij3_work(:,:,:) = 0.0_r8
             ybetaii0_work(:,:,:) = 0.0_r8
             ybetajj0_work(:,:,:) = 0.0_r8
-            do k = top_lev, pver
-            do i = 1, ncol
-            do ipair = 1, npair_acoag
-               modefrm = modefrm_acoag(ipair)
-               modetoo = modetoo_acoag(ipair)
-               call getcoags_wrapper_f(                                       &
-                    t(i,k), pmid(i,k),                                        &
-                    dgncur_awet(i,k,modefrm),     dgncur_awet(i,k,modetoo),   &
-                    sigmag_amode(modefrm),        sigmag_amode(modetoo),      &
-                    alnsg_amode(modefrm),         alnsg_amode(modetoo),       &
-                    wetdens_a(i,k,modefrm),       wetdens_a(i,k,modetoo),     &
-                    xbetaij0, xbetaij2i, xbetaij2j, xbetaij3,                 &
-                    xbetaii0, xbetaii2,  xbetajj0,  xbetajj2                  )
-               ybetaij0_work(i,k,ipair) = xbetaij0
-               ybetaij3_work(i,k,ipair) = xbetaij3
-               ybetaii0_work(i,k,ipair) = xbetaii0
-               ybetajj0_work(i,k,ipair) = xbetajj0
-            end do
-            end do
-            end do
+            call modal_aero_coag_getcoags_prep_select_impl()
+            if (modal_aero_coag_getcoags_prep_use_native_impl) then
+               do k = top_lev, pver
+               do i = 1, ncol
+               do ipair = 1, npair_acoag
+                  modefrm = modefrm_acoag(ipair)
+                  modetoo = modetoo_acoag(ipair)
+                  call getcoags_wrapper_f(                                       &
+                       t(i,k), pmid(i,k),                                        &
+                       dgncur_awet(i,k,modefrm),     dgncur_awet(i,k,modetoo),   &
+                       sigmag_amode(modefrm),        sigmag_amode(modetoo),      &
+                       alnsg_amode(modefrm),         alnsg_amode(modetoo),       &
+                       wetdens_a(i,k,modefrm),       wetdens_a(i,k,modetoo),     &
+                       xbetaij0, xbetaij2i, xbetaij2j, xbetaij3,                 &
+                       xbetaii0, xbetaii2,  xbetajj0,  xbetajj2                  )
+                  ybetaij0_work(i,k,ipair) = xbetaij0
+                  ybetaij3_work(i,k,ipair) = xbetaij3
+                  ybetaii0_work(i,k,ipair) = xbetaii0
+                  ybetajj0_work(i,k,ipair) = xbetajj0
+               end do
+               end do
+               end do
+            else
+               call modal_aero_coag_getcoags_prep_codon_wrap(ncol, t, pmid, dgncur_awet, wetdens_a, &
+                    sigmag_amode_work, alnsg_amode_work, modefrm_acoag_c, modetoo_acoag_c, &
+                    ybetaij0_work, ybetaij3_work, ybetaii0_work, ybetajj0_work)
+            end if
 
             call modal_aero_coag_sub_fullshell_codon_wrap( &
                  ncol, deltat, deltatinv_main, xferfrac_max, dr_so4_monolayers_pcage, fac_volsfc_pcarbon, &
@@ -1158,6 +1226,69 @@ main_ipair2: do ipair = 1, npair_acoag
 
 !----------------------------------------------------------------------
 !----------------------------------------------------------------------
+   subroutine modal_aero_coag_getcoags_prep_codon_wrap( &
+        ncol, t, pmid, dgncur_awet, wetdens_a, sigmag_amode_work, alnsg_amode_work, &
+        modefrm_acoag_c, modetoo_acoag_c, ybetaij0_work, ybetaij3_work, ybetaii0_work, ybetajj0_work )
+
+     use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+     use cam_logfile, only: iulog
+     use physconst, only: p0 => pstd, tmelt, boltz
+     use ppgrid, only: pcols, pver
+     use ref_pres, only: top_lev => clim_modal_aero_top_lev
+     use spmd_utils, only: masterproc
+
+     implicit none
+
+     integer, intent(in) :: ncol
+     real(r8), target, intent(in) :: t(pcols,pver), pmid(pcols,pver)
+     real(r8), target, intent(in) :: dgncur_awet(pcols,pver,ntot_amode)
+     real(r8), target, intent(in) :: wetdens_a(pcols,pver,ntot_amode)
+     real(r8), target, intent(in) :: sigmag_amode_work(ntot_amode), alnsg_amode_work(ntot_amode)
+     integer(c_int64_t), target, intent(in) :: modefrm_acoag_c(maxpair_acoag)
+     integer(c_int64_t), target, intent(in) :: modetoo_acoag_c(maxpair_acoag)
+     real(r8), target, intent(inout) :: ybetaij0_work(pcols,pver,maxpair_acoag)
+     real(r8), target, intent(inout) :: ybetaij3_work(pcols,pver,maxpair_acoag)
+     real(r8), target, intent(inout) :: ybetaii0_work(pcols,pver,maxpair_acoag)
+     real(r8), target, intent(inout) :: ybetajj0_work(pcols,pver,maxpair_acoag)
+
+     interface
+        subroutine modal_aero_coag_getcoags_prep_codon( &
+             ncol_c, pcols_c, pver_c, top_lev_c, ntot_amode_c, maxpair_acoag_c, npair_acoag_c, &
+             p0_c, tmelt_c, boltz_c, t_p, pmid_p, dgncur_awet_p, wetdens_a_p, sigmag_amode_p, &
+             alnsg_amode_p, modefrm_acoag_p, modetoo_acoag_p, ybetaij0_p, ybetaij3_p, ybetaii0_p, ybetajj0_p) &
+             bind(c, name="modal_aero_coag_getcoags_prep_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, ntot_amode_c
+          integer(c_int64_t), value :: maxpair_acoag_c, npair_acoag_c
+          real(c_double), value :: p0_c, tmelt_c, boltz_c
+          type(c_ptr), value :: t_p, pmid_p, dgncur_awet_p, wetdens_a_p
+          type(c_ptr), value :: sigmag_amode_p, alnsg_amode_p, modefrm_acoag_p, modetoo_acoag_p
+          type(c_ptr), value :: ybetaij0_p, ybetaij3_p, ybetaii0_p, ybetajj0_p
+        end subroutine modal_aero_coag_getcoags_prep_codon
+     end interface
+
+     if (masterproc .and. .not. modal_aero_coag_getcoags_prep_entered_proof_written) then
+        write(iulog,'(A)') 'modal_aero_coag_getcoags_prep entered (wrapper prep = codon, getcoags core = native)'
+        call modal_aero_coag_sub_append_impl_proof('MODAL_AERO_COAG_GETCOAGS_PREP_PROOF_FILE', &
+             'modal_aero_coag_getcoags_prep entered (wrapper prep = codon, getcoags core = native)')
+        modal_aero_coag_getcoags_prep_entered_proof_written = .true.
+        call flush(iulog)
+     end if
+
+     call modal_aero_coag_getcoags_prep_codon( &
+          int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
+          int(ntot_amode, c_int64_t), int(maxpair_acoag, c_int64_t), int(npair_acoag, c_int64_t), &
+          real(p0, c_double), real(tmelt, c_double), real(boltz, c_double), c_loc(t(1,1)), c_loc(pmid(1,1)), &
+          c_loc(dgncur_awet(1,1,1)), c_loc(wetdens_a(1,1,1)), c_loc(sigmag_amode_work(1)), &
+          c_loc(alnsg_amode_work(1)), c_loc(modefrm_acoag_c(1)), c_loc(modetoo_acoag_c(1)), &
+          c_loc(ybetaij0_work(1,1,1)), c_loc(ybetaij3_work(1,1,1)), c_loc(ybetaii0_work(1,1,1)), &
+          c_loc(ybetajj0_work(1,1,1)) )
+
+   end subroutine modal_aero_coag_getcoags_prep_codon_wrap
+
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
    subroutine modal_aero_coag_sub_fullshell_codon_wrap( &
         ncol, deltat, deltatinv_main, xferfrac_max, dr_so4_monolayers_pcage, fac_volsfc_pcarbon, &
         ip_aitacc, ip_pcaacc, ip_aitpca, macc, mait, mpca, t, pmid, pdel, dgncur_a, q, dqdt, qsrflx_work, &
@@ -1243,7 +1374,11 @@ main_ipair2: do ipair = 1, npair_acoag
      end interface
 
      if (masterproc .and. .not. modal_aero_coag_sub_fullshell_proof_written) then
-        wrap_proof_line = 'modal_aero_coag_sub fullshell codon entered (getcoags prep = native)'
+        if (modal_aero_coag_getcoags_prep_use_native_impl) then
+           wrap_proof_line = 'modal_aero_coag_sub fullshell codon entered (getcoags prep = native)'
+        else
+           wrap_proof_line = 'modal_aero_coag_sub fullshell codon entered (getcoags wrapper prep = codon, getcoags core = native)'
+        end if
         write(iulog,'(A)') trim(wrap_proof_line)
         call modal_aero_coag_sub_append_impl_proof('MODAL_AERO_COAG_SUB_PROOF_FILE', trim(wrap_proof_line))
         modal_aero_coag_sub_fullshell_proof_written = .true.
@@ -1645,6 +1780,39 @@ aa_iqfrm: do iqfrm = 1, nspec_amode(mfrm)
 
       return
       end subroutine getcoags_wrapper_f
+
+
+      subroutine modal_aero_getcoags_core_native_cb( lamda_c, kfmatac_c, kfmat_c, kfmac_c, knc_c, &
+                           dgatk_c, dgacc_c, sgatk_c, sgacc_c, xxlsgat_c, xxlsgac_c, &
+                           qs11_c, qn11_c, qs22_c, qn22_c, qs12_c, qs21_c, qn12_c, qv12_c ) &
+                           bind(c, name="modal_aero_getcoags_core_native_cb")
+
+      use iso_c_binding, only: c_double
+
+      implicit none
+
+      real(c_double), value, intent(in) :: lamda_c, kfmatac_c, kfmat_c, kfmac_c, knc_c
+      real(c_double), value, intent(in) :: dgatk_c, dgacc_c, sgatk_c, sgacc_c, xxlsgat_c, xxlsgac_c
+      real(c_double), intent(out) :: qs11_c, qn11_c, qs22_c, qn22_c
+      real(c_double), intent(out) :: qs12_c, qs21_c, qn12_c, qv12_c
+
+      real(r8) :: qs11, qn11, qs22, qn22, qs12, qs21, qn12, qv12
+
+      call getcoags( real(lamda_c, r8), real(kfmatac_c, r8), real(kfmat_c, r8), real(kfmac_c, r8), &
+                     real(knc_c, r8), real(dgatk_c, r8), real(dgacc_c, r8), real(sgatk_c, r8), &
+                     real(sgacc_c, r8), real(xxlsgat_c, r8), real(xxlsgac_c, r8), &
+                     qs11, qn11, qs22, qn22, qs12, qs21, qn12, qv12 )
+
+      qs11_c = real(qs11, c_double)
+      qn11_c = real(qn11, c_double)
+      qs22_c = real(qs22, c_double)
+      qn22_c = real(qn22, c_double)
+      qs12_c = real(qs12, c_double)
+      qs21_c = real(qs21, c_double)
+      qn12_c = real(qn12, c_double)
+      qv12_c = real(qv12, c_double)
+
+      end subroutine modal_aero_getcoags_core_native_cb
 
 
 

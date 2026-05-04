@@ -6,6 +6,7 @@ from C import modal_aero_complex_sqrt_native_cb(float, float, Ptr[float], Ptr[fl
 from C import modal_aero_complex_pow_third_native_cb(float, float, Ptr[float], Ptr[float]) -> None
 from C import modal_aero_vol_from_radius_native_cb(float) -> float
 from C import modal_aero_wateruptake_base_pow_array_native_cb(int, int, int, int, int, Ptr[float], Ptr[float]) -> None
+from C import modal_aero_getcoags_core_native_cb(float, float, float, float, float, float, float, float, float, float, float, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float]) -> None
 
 @inline
 def _idx2(i: int, k: int, ld1: int) -> int:
@@ -8852,6 +8853,98 @@ def modal_aero_newnuc_sub_codon(
             mwdry_c,
             qsrflx_p,
         )
+
+
+@export
+def modal_aero_coag_getcoags_prep_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    ntot_amode: int,
+    maxpair_acoag: int,
+    npair_acoag: int,
+    p0: float,
+    tmelt: float,
+    boltz: float,
+    t_p: cobj,
+    pmid_p: cobj,
+    dgncur_awet_p: cobj,
+    wetdens_a_p: cobj,
+    sigmag_amode_p: cobj,
+    alnsg_amode_p: cobj,
+    modefrm_acoag_p: cobj,
+    modetoo_acoag_p: cobj,
+    ybetaij0_p: cobj,
+    ybetaij3_p: cobj,
+    ybetaii0_p: cobj,
+    ybetajj0_p: cobj,
+):
+    t = Ptr[float](t_p)
+    pmid = Ptr[float](pmid_p)
+    dgncur_awet = Ptr[float](dgncur_awet_p)
+    wetdens_a = Ptr[float](wetdens_a_p)
+    sigmag_amode = Ptr[float](sigmag_amode_p)
+    alnsg_amode = Ptr[float](alnsg_amode_p)
+    modefrm_acoag = Ptr[int](modefrm_acoag_p)
+    modetoo_acoag = Ptr[int](modetoo_acoag_p)
+    ybetaij0 = Ptr[float](ybetaij0_p)
+    ybetaij3 = Ptr[float](ybetaij3_p)
+    ybetaii0 = Ptr[float](ybetaii0_p)
+    ybetajj0 = Ptr[float](ybetajj0_p)
+
+    t0 = tmelt + 15.0
+    two3 = 2.0 / 3.0
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            airtemp = t[_idx2(i, k, pcols)]
+            airprs = pmid[_idx2(i, k, pcols)]
+            sqrt_temp = sqrt(airtemp)
+            lamda = 6.6328e-8 * p0 * airtemp / (t0 * airprs)
+            amu = 1.458e-6 * airtemp * sqrt_temp / (airtemp + 110.4)
+            knc = two3 * boltz * airtemp / amu
+
+            for ipair in range(1, npair_acoag + 1):
+                modefrm = modefrm_acoag[ipair - 1]
+                modetoo = modetoo_acoag[ipair - 1]
+                dgatk = dgncur_awet[_idx3(i, k, modefrm, pcols, pver)]
+                dgacc = dgncur_awet[_idx3(i, k, modetoo, pcols, pver)]
+                sgatk = sigmag_amode[modefrm - 1]
+                sgacc = sigmag_amode[modetoo - 1]
+                xxlsgat = alnsg_amode[modefrm - 1]
+                xxlsgac = alnsg_amode[modetoo - 1]
+                pdensat = wetdens_a[_idx3(i, k, modefrm, pcols, pver)]
+                pdensac = wetdens_a[_idx3(i, k, modetoo, pcols, pver)]
+
+                kfmat = sqrt(3.0 * boltz * airtemp / pdensat)
+                kfmac = sqrt(3.0 * boltz * airtemp / pdensac)
+                kfmatac = sqrt(6.0 * boltz * airtemp / (pdensat + pdensac))
+
+                qs11 = 0.0
+                qn11 = 0.0
+                qs22 = 0.0
+                qn22 = 0.0
+                qs12 = 0.0
+                qs21 = 0.0
+                qn12 = 0.0
+                qv12 = 0.0
+                modal_aero_getcoags_core_native_cb(
+                    lamda, kfmatac, kfmat, kfmac, knc,
+                    dgatk, dgacc, sgatk, sgacc, xxlsgat, xxlsgac,
+                    __ptr__(qs11), __ptr__(qn11), __ptr__(qs22), __ptr__(qn22),
+                    __ptr__(qs12), __ptr__(qs21), __ptr__(qn12), __ptr__(qv12),
+                )
+
+                dumacc2 = (dgacc ** 2) * exp(2.0 * xxlsgac * xxlsgac)
+                dumatk2 = (dgatk ** 2) * exp(2.0 * xxlsgat * xxlsgat)
+                dumatk3 = (dgatk ** 3) * exp(4.5 * xxlsgat * xxlsgat)
+                idx_pair = _idx3(i, k, ipair, pcols, pver)
+
+                ybetaii0[idx_pair] = max(0.0, qn11)
+                ybetajj0[idx_pair] = max(0.0, qn22)
+                ybetaij0[idx_pair] = max(0.0, qn12)
+                ybetaij3[idx_pair] = max(0.0, qv12 / dumatk3)
 
 
 @export
