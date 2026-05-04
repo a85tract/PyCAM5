@@ -71,6 +71,9 @@ module check_energy
   logical  :: tracers_init_impl_selected = .false.
   logical  :: use_native_tracers_chng_impl = .false.
   logical  :: tracers_chng_impl_selected = .false.
+  logical  :: use_native_tracers_batch_impl = .false.
+  logical  :: tracers_batch_impl_selected = .false.
+  logical  :: tracers_batch_entered_logged = .false.
 
   real(r8) :: teout_glob           ! global mean energy of output state
   real(r8) :: teinp_glob           ! global mean energy of input state
@@ -363,6 +366,73 @@ subroutine check_tracers_chng_select_impl()
    end if
 
 end subroutine check_tracers_chng_select_impl
+
+subroutine check_tracers_batch_append_proof(proof_line)
+
+   character(len=*), intent(in) :: proof_line
+
+   character(len=512) :: proof_file
+   integer :: status, n, unitno
+
+   proof_file = ''
+   call get_environment_variable('CHECK_TRACERS_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+   if (status == 0 .and. n > 0) then
+      open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+      write(unitno,'(A)') trim(proof_line)
+      close(unitno)
+   end if
+
+end subroutine check_tracers_batch_append_proof
+
+subroutine check_tracers_batch_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (tracers_batch_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CHECK_TRACERS_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_tracers_batch_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_tracers_batch_impl = .false.
+   end if
+
+   tracers_batch_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_tracers_batch_impl) then
+         write(iulog,*) 'check_tracers_batch implementation = native'
+         call check_tracers_batch_append_proof('check_tracers_batch selector entered implementation = native')
+      else
+         write(iulog,*) 'check_tracers_batch implementation = codon'
+         call check_tracers_batch_append_proof('check_tracers_batch selector entered implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine check_tracers_batch_select_impl
+
+subroutine check_tracers_batch_log_entered()
+
+   if (tracers_batch_entered_logged) return
+   tracers_batch_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'check_tracers_batch entered (init/chng direct = codon)'
+      call check_tracers_batch_append_proof('check_tracers_batch entered (init/chng direct = codon)')
+      call flush(iulog)
+   end if
+
+end subroutine check_tracers_batch_log_entered
 
 subroutine check_energy_defaultopts( &
    print_energy_errors_out)
@@ -1311,19 +1381,20 @@ end subroutine check_energy_get_integrals
     type(physics_state),   intent(in)    :: state
     type(check_tracers_data), intent(out)   :: tracerint
     interface
-       subroutine check_tracers_init_codon() bind(c, name="check_tracers_init_codon")
-       end subroutine check_tracers_init_codon
+       subroutine check_tracers_batch_init_codon() bind(c, name="check_tracers_batch_init_codon")
+       end subroutine check_tracers_batch_init_codon
     end interface
 
 !-----------------------------------------------------------------------
 
-    call check_tracers_init_select_impl()
-    if (use_native_tracers_init_impl) then
+    call check_tracers_batch_select_impl()
+    if (use_native_tracers_batch_impl) then
        call check_tracers_init_native(state, tracerint)
        return
     end if
 
-    call check_tracers_init_codon()
+    call check_tracers_batch_log_entered()
+    call check_tracers_batch_init_codon()
 
     return
   end subroutine check_tracers_init
@@ -1417,17 +1488,18 @@ end subroutine check_energy_get_integrals
     real(r8), intent(in   ) :: ztodt               ! 2 delta t (model time increment)
     real(r8), intent(in   ) :: cflx(pcols,pcnst)       ! boundary flux of tracers       (kg/m2/s)
     interface
-       subroutine check_tracers_chng_codon() bind(c, name="check_tracers_chng_codon")
-       end subroutine check_tracers_chng_codon
+       subroutine check_tracers_batch_chng_codon() bind(c, name="check_tracers_batch_chng_codon")
+       end subroutine check_tracers_batch_chng_codon
     end interface
 
-    call check_tracers_chng_select_impl()
-    if (use_native_tracers_chng_impl) then
+    call check_tracers_batch_select_impl()
+    if (use_native_tracers_batch_impl) then
        call check_tracers_chng_native(state, tracerint, name, nstep, ztodt, cflx)
        return
     end if
 
-    call check_tracers_chng_codon()
+    call check_tracers_batch_log_entered()
+    call check_tracers_batch_chng_codon()
 
     return
   end subroutine check_tracers_chng

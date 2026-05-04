@@ -227,6 +227,16 @@ def check_tracers_chng_codon():
 
 
 @export
+def check_tracers_batch_init_codon():
+    check_tracers_init_codon()
+
+
+@export
+def check_tracers_batch_chng_codon():
+    check_tracers_chng_codon()
+
+
+@export
 def check_energy_gmean_fill_codon(
     ncol: int,
     state_te_ini_p: cobj,
