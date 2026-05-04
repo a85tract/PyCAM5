@@ -1131,6 +1131,64 @@ def setinv_codon(
     )
 
 @export
+def setinv_apply_tracer_cnst_codon(
+    ncol: int,
+    pver: int,
+    nfs: int,
+    ndx: int,
+    m_ndx: int,
+    cnst_offline_p: cobj,
+    invariants_p: cobj,
+):
+    return _gas_phase.setinv_apply_tracer_cnst_codon(
+        ncol,
+        pver,
+        nfs,
+        ndx,
+        m_ndx,
+        cnst_offline_p,
+        invariants_p,
+    )
+
+@export
+def setinv_copy_invariant_codon(
+    ncol: int,
+    pver: int,
+    nfs: int,
+    inv_ndx: int,
+    invariants_p: cobj,
+    tmp_out_p: cobj,
+):
+    return _gas_phase.setinv_copy_invariant_codon(
+        ncol,
+        pver,
+        nfs,
+        inv_ndx,
+        invariants_p,
+        tmp_out_p,
+    )
+
+@export
+def setinv_vmr_output_codon(
+    ncol: int,
+    pver: int,
+    nfs: int,
+    inv_ndx: int,
+    m_ndx: int,
+    invariants_p: cobj,
+    tmp_out_p: cobj,
+):
+    return _gas_phase.setinv_vmr_output_codon(
+        ncol,
+        pver,
+        nfs,
+        inv_ndx,
+        m_ndx,
+        invariants_p,
+        tmp_out_p,
+    )
+
+@export
 def charge_balance_codon(
     ncol: int,
     pver: int,

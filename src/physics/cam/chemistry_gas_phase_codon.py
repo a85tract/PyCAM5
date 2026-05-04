@@ -276,6 +276,58 @@ def setinv_codon(
                     h2ovmr[_idx2(i, k, ncol)] * invariants[_idx3(i, k, m_ndx, ncol, pver)]
                 )
 
+def setinv_apply_tracer_cnst_codon(
+    ncol: int,
+    pver: int,
+    nfs: int,
+    ndx: int,
+    m_ndx: int,
+    cnst_offline_p: cobj,
+    invariants_p: cobj,
+):
+    cnst_offline = Ptr[float](cnst_offline_p)
+    invariants = Ptr[float](invariants_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _idx2(i, k, ncol)
+            invariants[_idx3(i, k, ndx, ncol, pver)] = (
+                cnst_offline[idx2] * invariants[_idx3(i, k, m_ndx, ncol, pver)]
+            )
+
+def setinv_copy_invariant_codon(
+    ncol: int,
+    pver: int,
+    nfs: int,
+    inv_ndx: int,
+    invariants_p: cobj,
+    tmp_out_p: cobj,
+):
+    invariants = Ptr[float](invariants_p)
+    tmp_out = Ptr[float](tmp_out_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            tmp_out[_idx2(i, k, ncol)] = invariants[_idx3(i, k, inv_ndx, ncol, pver)]
+
+def setinv_vmr_output_codon(
+    ncol: int,
+    pver: int,
+    nfs: int,
+    inv_ndx: int,
+    m_ndx: int,
+    invariants_p: cobj,
+    tmp_out_p: cobj,
+):
+    invariants = Ptr[float](invariants_p)
+    tmp_out = Ptr[float](tmp_out_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            tmp_out[_idx2(i, k, ncol)] = (
+                invariants[_idx3(i, k, inv_ndx, ncol, pver)] / invariants[_idx3(i, k, m_ndx, ncol, pver)]
+            )
+
 def charge_balance_codon(
     ncol: int,
     pver: int,

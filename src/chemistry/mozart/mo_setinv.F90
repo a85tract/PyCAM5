@@ -16,11 +16,43 @@ module mo_setinv
   logical :: has_o2, has_n2, has_h2o, has_o3, has_var_o2
   logical :: setinv_use_native_impl = .false.
   logical :: setinv_impl_selected = .false.
+  logical :: setinv_postprocess_entered_logged = .false.
 
   private
   public :: setinv_inti, setinv, has_h2o, o2_ndx, h2o_ndx, n2_ndx
 
 contains
+
+  subroutine setinv_append_impl_proof(proof_line)
+
+    character(len=*), intent(in) :: proof_line
+    character(len=512) :: proof_file
+    integer :: status, n, unitno
+
+    proof_file = ''
+    call get_environment_variable('SETINV_PROOF_FILE', value=proof_file, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+       write(unitno,'(A)') trim(proof_line)
+       close(unitno)
+    end if
+
+  end subroutine setinv_append_impl_proof
+
+  subroutine setinv_log_postprocess_entered()
+
+    use spmd_utils, only : masterproc
+
+    if (setinv_postprocess_entered_logged) return
+    setinv_postprocess_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'setinv postprocess entered (tracer_const/output workspaces direct = codon)'
+       call setinv_append_impl_proof('setinv postprocess entered (tracer_const/output workspaces direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine setinv_log_postprocess_entered
 
   subroutine setinv_inti
     !-----------------------------------------------------------------
@@ -87,7 +119,7 @@ contains
     type(physics_buffer_desc), pointer :: pbuf(:)
 
 
-    real(r8) :: cnst_offline( ncol, pver )
+    real(r8), target :: cnst_offline( ncol, pver )
 
     !-----------------------------------------------------------------
     !        .. local variables
@@ -95,7 +127,7 @@ contains
     integer :: k, i, ndx
     real(r8), parameter ::  Pa_xfac = 10._r8                 ! Pascals to dyne/cm^2
     real(r8) :: sum1(ncol)
-    real(r8) :: tmp_out(ncol,pver)
+    real(r8), target :: tmp_out(ncol,pver)
 
     interface
        subroutine setinv_codon(ncol_c, pcols_c, pver_c, gas_pcnst_c, nfs_c, m_ndx_c, n2_ndx_c, o2_ndx_c, h2o_ndx_c, &
@@ -109,6 +141,24 @@ contains
          real(c_double), value :: pa_xfac_c, boltz_cgs_c
          type(c_ptr), value :: tfld_p, h2ovmr_p, vmr_p, pmid_p, invariants_p
        end subroutine setinv_codon
+       subroutine setinv_apply_tracer_cnst_codon(ncol_c, pver_c, nfs_c, ndx_c, m_ndx_c, cnst_offline_p, &
+            invariants_p) bind(c, name="setinv_apply_tracer_cnst_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, nfs_c, ndx_c, m_ndx_c
+         type(c_ptr), value :: cnst_offline_p, invariants_p
+       end subroutine setinv_apply_tracer_cnst_codon
+       subroutine setinv_copy_invariant_codon(ncol_c, pver_c, nfs_c, inv_ndx_c, invariants_p, tmp_out_p) &
+            bind(c, name="setinv_copy_invariant_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, nfs_c, inv_ndx_c
+         type(c_ptr), value :: invariants_p, tmp_out_p
+       end subroutine setinv_copy_invariant_codon
+       subroutine setinv_vmr_output_codon(ncol_c, pver_c, nfs_c, inv_ndx_c, m_ndx_c, invariants_p, tmp_out_p) &
+            bind(c, name="setinv_vmr_output_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, nfs_c, inv_ndx_c, m_ndx_c
+         type(c_ptr), value :: invariants_p, tmp_out_p
+       end subroutine setinv_vmr_output_codon
     end interface
 
     call setinv_select_impl()
@@ -166,16 +216,39 @@ contains
        call get_cnst_data( tracer_cnst_flds(i), cnst_offline,  ncol, lchnk, pbuf )
        ndx =  get_inv_ndx( tracer_cnst_flds(i) )
 
-       do k = 1,pver
-          invariants(:ncol,k,ndx) = cnst_offline(:ncol,k)*invariants(:ncol,k,m_ndx)
-       enddo
+       if (setinv_use_native_impl) then
+          do k = 1,pver
+             invariants(:ncol,k,ndx) = cnst_offline(:ncol,k)*invariants(:ncol,k,m_ndx)
+          enddo
+       else
+          call setinv_log_postprocess_entered()
+          call setinv_apply_tracer_cnst_codon( &
+               int(ncol, c_int64_t), int(pver, c_int64_t), int(nfs, c_int64_t), int(ndx, c_int64_t), &
+               int(m_ndx, c_int64_t), c_loc(cnst_offline), c_loc(invariants) &
+          )
+       end if
 
     enddo
 
     do i = 1,nfs
-      tmp_out(:ncol,:) =  invariants(:ncol,:,i) 
+      if (setinv_use_native_impl) then
+        tmp_out(:ncol,:) =  invariants(:ncol,:,i)
+      else
+        call setinv_log_postprocess_entered()
+        call setinv_copy_invariant_codon( &
+             int(ncol, c_int64_t), int(pver, c_int64_t), int(nfs, c_int64_t), int(i, c_int64_t), &
+             c_loc(invariants), c_loc(tmp_out) &
+        )
+      end if
       call outfld( trim(inv_lst(i))//'_dens', tmp_out(:ncol,:), ncol, lchnk )
-      tmp_out(:ncol,:) =  invariants(:ncol,:,i) / invariants(:ncol,:,m_ndx)
+      if (setinv_use_native_impl) then
+        tmp_out(:ncol,:) =  invariants(:ncol,:,i) / invariants(:ncol,:,m_ndx)
+      else
+        call setinv_vmr_output_codon( &
+             int(ncol, c_int64_t), int(pver, c_int64_t), int(nfs, c_int64_t), int(i, c_int64_t), int(m_ndx, c_int64_t), &
+             c_loc(invariants), c_loc(tmp_out) &
+        )
+      end if
       call outfld( trim(inv_lst(i))//'_vmr',  tmp_out(:ncol,:), ncol, lchnk )
     enddo
 
@@ -210,8 +283,10 @@ contains
     if (masterproc) then
        if (setinv_use_native_impl) then
           write(iulog,*) 'setinv implementation = native'
+          call setinv_append_impl_proof('setinv selector entered implementation = native')
        else
           write(iulog,*) 'setinv implementation = codon'
+          call setinv_append_impl_proof('setinv selector entered implementation = codon')
        end if
        call flush(iulog)
     end if
