@@ -20,6 +20,9 @@ public :: gw_diff_tend
 logical :: use_native_gw_ediff_prep_impl = .false.
 logical :: gw_ediff_prep_impl_selected = .false.
 logical :: gw_ediff_prep_entered_logged = .false.
+logical :: use_native_gw_diff_tend_prepost_impl = .false.
+logical :: gw_diff_tend_prepost_impl_selected = .false.
+logical :: gw_diff_tend_prepost_entered_logged = .false.
 
 contains
 
@@ -318,18 +321,133 @@ subroutine gw_diff_tend(ncol, pver, kbot, ktop, q, dt, decomp, dq)
 !--------------------------Local Workspace---------------------------------
 
   ! Temporary storage for constituent.
-  real(r8) :: qnew(ncol,pver)
+  real(r8), target :: qnew(ncol,pver)
+  ! Whether to keep pre/post solve copies and tendency conversion native.
+  logical :: use_native_prepost
 
 !--------------------------------------------------------------------------
 
-  dq   = 0.0_r8
-  qnew = q
+  call gw_diff_tend_prepost_select_impl()
+  use_native_prepost = use_native_gw_diff_tend_prepost_impl
+
+  if (use_native_prepost) then
+     dq   = 0.0_r8
+     qnew = q
+  else
+     call gw_diff_tend_prepost_note_entered()
+     call gw_diff_tend_prepost_codon_wrap(1, ncol, pver, dt, q, qnew, dq)
+  end if
 
   call decomp%left_div(qnew(:,ktop:kbot))
 
   ! Evaluate tendency to be reported back.
-  dq = (qnew-q) / dt
+  if (use_native_prepost) then
+     dq = (qnew-q) / dt
+  else
+     call gw_diff_tend_prepost_codon_wrap(2, ncol, pver, dt, q, qnew, dq)
+  end if
 
 end subroutine gw_diff_tend
+
+!==========================================================================
+
+subroutine gw_diff_tend_prepost_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('GW_DIFF_TEND_PREPOST_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+     write(unitno,'(A)') trim(proof_line)
+     close(unitno)
+  end if
+
+end subroutine gw_diff_tend_prepost_append_proof
+
+!==========================================================================
+
+subroutine gw_diff_tend_prepost_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (gw_diff_tend_prepost_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('GW_DIFF_TEND_PREPOST_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_gw_diff_tend_prepost_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_gw_diff_tend_prepost_impl = .false.
+  end if
+
+  gw_diff_tend_prepost_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_gw_diff_tend_prepost_impl) then
+        write(iulog,*) 'gw_diff_tend_prepost implementation = native'
+        call gw_diff_tend_prepost_append_proof('gw_diff_tend_prepost selector entered implementation = native')
+     else
+        write(iulog,*) 'gw_diff_tend_prepost implementation = codon'
+        call gw_diff_tend_prepost_append_proof('gw_diff_tend_prepost selector entered implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine gw_diff_tend_prepost_select_impl
+
+!==========================================================================
+
+subroutine gw_diff_tend_prepost_note_entered()
+
+  if (gw_diff_tend_prepost_entered_logged) return
+  gw_diff_tend_prepost_entered_logged = .true.
+
+  if (masterproc) then
+     write(iulog,*) 'gw_diff_tend_prepost entered (copy/tendency direct = codon)'
+     call gw_diff_tend_prepost_append_proof('gw_diff_tend_prepost entered (copy/tendency direct = codon)')
+     call flush(iulog)
+  end if
+
+end subroutine gw_diff_tend_prepost_note_entered
+
+!==========================================================================
+
+subroutine gw_diff_tend_prepost_codon_wrap(stage, ncol_local, pver_local, dt_local, q_local, qnew_local, dq_local)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+  integer, intent(in) :: stage
+  integer, intent(in) :: ncol_local, pver_local
+  real(r8), intent(in) :: dt_local
+  real(r8), target, intent(in) :: q_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: qnew_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: dq_local(ncol_local,pver_local)
+
+  interface
+     subroutine gw_diff_tend_prepost_codon(stage_c, ncol_c, pver_c, dt_c, q_p, qnew_p, dq_p) &
+          bind(c, name="gw_diff_tend_prepost_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: stage_c, ncol_c, pver_c
+       real(c_double), value :: dt_c
+       type(c_ptr), value :: q_p, qnew_p, dq_p
+     end subroutine gw_diff_tend_prepost_codon
+  end interface
+
+  call gw_diff_tend_prepost_codon(int(stage, c_int64_t), int(ncol_local, c_int64_t), &
+       int(pver_local, c_int64_t), real(dt_local, c_double), c_loc(q_local), c_loc(qnew_local), c_loc(dq_local))
+
+end subroutine gw_diff_tend_prepost_codon_wrap
 
 end module gw_diffusion

@@ -463,6 +463,34 @@ def gw_ediff_prep_codon(
 
 
 @export
+def gw_diff_tend_prepost_codon(
+    stage: int,
+    ncol: int,
+    pver: int,
+    dt: float,
+    q_p: cobj,
+    qnew_p: cobj,
+    dq_p: cobj,
+):
+    q = Ptr[float](q_p)
+    qnew = Ptr[float](qnew_p)
+    dq = Ptr[float](dq_p)
+
+    if stage == 1:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, ncol)
+                dq[idx] = 0.0
+                qnew[idx] = q[idx]
+
+    elif stage == 2:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, ncol)
+                dq[idx] = (qnew[idx] - q[idx]) / dt
+
+
+@export
 def gw_oro_src_codon(
     ncol: int,
     pver: int,
