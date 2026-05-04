@@ -1511,13 +1511,13 @@ end subroutine diag_conv_tend_ini
     integer :: k
 
     interface
-       subroutine diag_phys_writeout_z3_codon(ncol_c, pcols_c, pver_c, rga_c, zm_p, phis_p, z3_p) &
-            bind(c, name="diag_phys_writeout_z3_codon")
+       subroutine diag_phys_writeout_basic_2d_codon(mode_c, ncol_c, pcols_c, pver_c, scale_c, a_p, b_p, out_p) &
+            bind(c, name="diag_phys_writeout_basic_2d_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
-         real(c_double), value :: rga_c
-         type(c_ptr), value :: zm_p, phis_p, z3_p
-       end subroutine diag_phys_writeout_z3_codon
+         integer(c_int64_t), value :: mode_c, ncol_c, pcols_c, pver_c
+         real(c_double), value :: scale_c
+         type(c_ptr), value :: a_p, b_p, out_p
+       end subroutine diag_phys_writeout_basic_2d_codon
     end interface
 
     if (diag_phys_writeout_use_native_impl) then
@@ -1527,8 +1527,8 @@ end subroutine diag_conv_tend_ini
        return
     end if
 
-    call diag_phys_writeout_z3_codon( &
-         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(rga, c_double), &
+    call diag_phys_writeout_basic_2d_codon( &
+         1_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(rga, c_double), &
          c_loc(zm), c_loc(phis), c_loc(z3) &
     )
 
@@ -1538,7 +1538,7 @@ end subroutine diag_conv_tend_ini
 
   subroutine diag_phys_writeout_mul_field(ncol, a, b, out)
 
-    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
     integer, intent(in) :: ncol
     real(r8), target, intent(in) :: a(pcols,pver), b(pcols,pver)
@@ -1547,12 +1547,13 @@ end subroutine diag_conv_tend_ini
     integer :: k
 
     interface
-       subroutine diag_phys_writeout_mul_codon(ncol_c, pcols_c, pver_c, a_p, b_p, out_p) &
-            bind(c, name="diag_phys_writeout_mul_codon")
-         use iso_c_binding, only: c_int64_t, c_ptr
-         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+       subroutine diag_phys_writeout_basic_2d_codon(mode_c, ncol_c, pcols_c, pver_c, scale_c, a_p, b_p, out_p) &
+            bind(c, name="diag_phys_writeout_basic_2d_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: mode_c, ncol_c, pcols_c, pver_c
+         real(c_double), value :: scale_c
          type(c_ptr), value :: a_p, b_p, out_p
-       end subroutine diag_phys_writeout_mul_codon
+       end subroutine diag_phys_writeout_basic_2d_codon
     end interface
 
     if (diag_phys_writeout_use_native_impl) then
@@ -1562,8 +1563,8 @@ end subroutine diag_conv_tend_ini
        return
     end if
 
-    call diag_phys_writeout_mul_codon( &
-         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+    call diag_phys_writeout_basic_2d_codon( &
+         2_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), 0._c_double, &
          c_loc(a), c_loc(b), c_loc(out) &
     )
 
@@ -1583,13 +1584,13 @@ end subroutine diag_conv_tend_ini
     integer :: k
 
     interface
-       subroutine diag_phys_writeout_mul_scalar_codon(ncol_c, pcols_c, pver_c, scale_c, a_p, b_p, out_p) &
-            bind(c, name="diag_phys_writeout_mul_scalar_codon")
+       subroutine diag_phys_writeout_basic_2d_codon(mode_c, ncol_c, pcols_c, pver_c, scale_c, a_p, b_p, out_p) &
+            bind(c, name="diag_phys_writeout_basic_2d_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         integer(c_int64_t), value :: mode_c, ncol_c, pcols_c, pver_c
          real(c_double), value :: scale_c
          type(c_ptr), value :: a_p, b_p, out_p
-       end subroutine diag_phys_writeout_mul_scalar_codon
+       end subroutine diag_phys_writeout_basic_2d_codon
     end interface
 
     if (diag_phys_writeout_use_native_impl) then
@@ -1599,8 +1600,8 @@ end subroutine diag_conv_tend_ini
        return
     end if
 
-    call diag_phys_writeout_mul_scalar_codon( &
-         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(scale, c_double), &
+    call diag_phys_writeout_basic_2d_codon( &
+         3_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(scale, c_double), &
          c_loc(a), c_loc(b), c_loc(out) &
     )
 
@@ -1610,7 +1611,7 @@ end subroutine diag_conv_tend_ini
 
   subroutine diag_phys_writeout_square_field(ncol, a, out)
 
-    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
     integer, intent(in) :: ncol
     real(r8), target, intent(in) :: a(pcols,pver)
@@ -1619,12 +1620,13 @@ end subroutine diag_conv_tend_ini
     integer :: k
 
     interface
-       subroutine diag_phys_writeout_square_codon(ncol_c, pcols_c, pver_c, a_p, out_p) &
-            bind(c, name="diag_phys_writeout_square_codon")
-         use iso_c_binding, only: c_int64_t, c_ptr
-         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
-         type(c_ptr), value :: a_p, out_p
-       end subroutine diag_phys_writeout_square_codon
+       subroutine diag_phys_writeout_basic_2d_codon(mode_c, ncol_c, pcols_c, pver_c, scale_c, a_p, b_p, out_p) &
+            bind(c, name="diag_phys_writeout_basic_2d_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: mode_c, ncol_c, pcols_c, pver_c
+         real(c_double), value :: scale_c
+         type(c_ptr), value :: a_p, b_p, out_p
+       end subroutine diag_phys_writeout_basic_2d_codon
     end interface
 
     if (diag_phys_writeout_use_native_impl) then
@@ -1634,9 +1636,9 @@ end subroutine diag_conv_tend_ini
        return
     end if
 
-    call diag_phys_writeout_square_codon( &
-         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-         c_loc(a), c_loc(out) &
+    call diag_phys_writeout_basic_2d_codon( &
+         4_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), 0._c_double, &
+         c_loc(a), c_loc(a), c_loc(out) &
     )
 
   end subroutine diag_phys_writeout_square_field
@@ -1645,19 +1647,20 @@ end subroutine diag_conv_tend_ini
 
   subroutine diag_phys_writeout_wspeed_field(ncol, u, v, out)
 
-    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
     integer, intent(in) :: ncol
     real(r8), target, intent(in) :: u(pcols,pver), v(pcols,pver)
     real(r8), target, intent(out) :: out(pcols,pver)
 
     interface
-       subroutine diag_phys_writeout_wspeed_codon(ncol_c, pcols_c, pver_c, u_p, v_p, out_p) &
-            bind(c, name="diag_phys_writeout_wspeed_codon")
-         use iso_c_binding, only: c_int64_t, c_ptr
-         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
-         type(c_ptr), value :: u_p, v_p, out_p
-       end subroutine diag_phys_writeout_wspeed_codon
+       subroutine diag_phys_writeout_basic_2d_codon(mode_c, ncol_c, pcols_c, pver_c, scale_c, a_p, b_p, out_p) &
+            bind(c, name="diag_phys_writeout_basic_2d_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: mode_c, ncol_c, pcols_c, pver_c
+         real(c_double), value :: scale_c
+         type(c_ptr), value :: a_p, b_p, out_p
+       end subroutine diag_phys_writeout_basic_2d_codon
     end interface
 
     if (diag_phys_writeout_use_native_impl) then
@@ -1665,8 +1668,8 @@ end subroutine diag_conv_tend_ini
        return
     end if
 
-    call diag_phys_writeout_wspeed_codon( &
-         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+    call diag_phys_writeout_basic_2d_codon( &
+         5_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), 0._c_double, &
          c_loc(u), c_loc(v), c_loc(out) &
     )
 
@@ -1971,8 +1974,8 @@ subroutine diag_phys_writeout_batch_log_entered()
    diag_phys_writeout_batch_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'diag_phys_writeout_batch entered (water_tracer_column/ivt/relhum/rhi/tt direct = codon)'
-      call diag_phys_writeout_batch_append_proof('diag_phys_writeout_batch entered (water_tracer_column/ivt/relhum/rhi/tt direct = codon)')
+      write(iulog,'(A)') 'diag_phys_writeout_batch entered (basic_fields/water_tracer_column/ivt/relhum/rhi/tt direct = codon)'
+      call diag_phys_writeout_batch_append_proof('diag_phys_writeout_batch entered (basic_fields/water_tracer_column/ivt/relhum/rhi/tt direct = codon)')
       call flush(iulog)
    end if
 

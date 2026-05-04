@@ -229,6 +229,49 @@ def diag_phys_writeout_z3_codon(
 
 
 @export
+def diag_phys_writeout_basic_2d_codon(
+    mode: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    scale: float,
+    a_p: cobj,
+    b_p: cobj,
+    out_p: cobj,
+):
+    a = Ptr[float](a_p)
+    b = Ptr[float](b_p)
+    out = Ptr[float](out_p)
+
+    if mode == 1:
+        # z3 = zm + phis*rga; b is phis(pcols) for this mode.
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                out[_idx2(i, k, pcols)] = a[_idx2(i, k, pcols)] + b[_idx(i)] * scale
+    elif mode == 2:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                out[_idx2(i, k, pcols)] = a[_idx2(i, k, pcols)] * b[_idx2(i, k, pcols)]
+    elif mode == 3:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                out[_idx2(i, k, pcols)] = (
+                    a[_idx2(i, k, pcols)] * b[_idx2(i, k, pcols)] * scale
+                )
+    elif mode == 4:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                val = a[_idx2(i, k, pcols)]
+                out[_idx2(i, k, pcols)] = val * val
+    elif mode == 5:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                uval = a[_idx2(i, k, pcols)]
+                vval = b[_idx2(i, k, pcols)]
+                out[_idx2(i, k, pcols)] = sqrt(uval * uval + vval * vval)
+
+
+@export
 def diag_phys_writeout_mul_codon(
     ncol: int,
     pcols: int,
