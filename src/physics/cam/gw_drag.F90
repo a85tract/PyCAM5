@@ -135,6 +135,9 @@ module gw_drag
   logical          :: gw_tend_impl_selected = .false.
   integer          :: gw_tend_branch_mask = 0
   logical          :: gw_tend_branch_selected = .false.
+  logical          :: use_native_oro_post_impl = .false.
+  logical          :: gw_tend_oro_post_impl_selected = .false.
+  logical          :: gw_tend_oro_post_entered_logged = .false.
 
 !==========================================================================
 contains
@@ -1334,21 +1337,30 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
      ! For orographic waves, don't bother with taucd, since there are no
      ! momentum conservation routines or directional diagnostics.
 
-     !  add the diffusion coefficients
-     do k = 1, pver+1
-        egwdffi_tot(:,k) = egwdffi_tot(:,k) + egwdffi(:,k)
-     end do
+     if (.not. use_native_tend_impl) call gw_tend_oro_post_select_impl()
 
-     ! Add the orographic tendencies to the spectrum tendencies.
-     ! Don't calculate fixers, since we are too close to the ground to
-     ! spread momentum/energy differences across low layers.
-     do k = 1, pver
-        ptend%u(:ncol,k) = ptend%u(:ncol,k) + utgw(:,k)
-        ptend%v(:ncol,k) = ptend%v(:ncol,k) + vtgw(:,k)
-        ptend%s(:ncol,k) = ptend%s(:ncol,k) + ttgw(:,k)
-        ! Convert to temperature tendency for output.
-        ttgw(:,k) = ttgw(:,k) / cpairv(:ncol, k, lchnk)
-     end do
+     if (use_native_tend_impl .or. use_native_oro_post_impl) then
+        !  add the diffusion coefficients
+        do k = 1, pver+1
+           egwdffi_tot(:,k) = egwdffi_tot(:,k) + egwdffi(:,k)
+        end do
+
+        ! Add the orographic tendencies to the spectrum tendencies.
+        ! Don't calculate fixers, since we are too close to the ground to
+        ! spread momentum/energy differences across low layers.
+        do k = 1, pver
+           ptend%u(:ncol,k) = ptend%u(:ncol,k) + utgw(:,k)
+           ptend%v(:ncol,k) = ptend%v(:ncol,k) + vtgw(:,k)
+           ptend%s(:ncol,k) = ptend%s(:ncol,k) + ttgw(:,k)
+           ! Convert to temperature tendency for output.
+           ttgw(:,k) = ttgw(:,k) / cpairv(:ncol, k, lchnk)
+        end do
+     else
+        call gw_tend_oro_post_note_entered()
+        call gw_tend_oro_post_codon_wrap(1, ncol, state%psetcols, pcols, pver, pcnst, pver+1, &
+             egwdffi_tot, egwdffi, utgw, vtgw, ttgw, cpairv(:,:,lchnk), &
+             ptend%u, ptend%v, ptend%s, qtgw, ptend%q, tau, xv, yv, tau0x, tau0y)
+     end if
 
      ! Calculate energy change for output to CAM's energy checker.
      ! This is sort of cheating; we don't have a good a priori idea of the
@@ -1358,11 +1370,17 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
           ptend%v(:ncol,:), ptend%s(:ncol,:), de)
      flx_heat(:ncol) = de
 
-     do m = 1, pcnst
-        do k = 1, pver
-           ptend%q(:ncol,k,m) = ptend%q(:ncol,k,m) + qtgw(:,k,m)
+     if (use_native_tend_impl .or. use_native_oro_post_impl) then
+        do m = 1, pcnst
+           do k = 1, pver
+              ptend%q(:ncol,k,m) = ptend%q(:ncol,k,m) + qtgw(:,k,m)
+           end do
         end do
-     end do
+     else
+        call gw_tend_oro_post_codon_wrap(2, ncol, state%psetcols, pcols, pver, pcnst, pver+1, &
+             egwdffi_tot, egwdffi, utgw, vtgw, ttgw, cpairv(:,:,lchnk), &
+             ptend%u, ptend%v, ptend%s, qtgw, ptend%q, tau, xv, yv, tau0x, tau0y)
+     end if
 
      ! Write output fields to history file
      call outfld('UTGWORO', utgw,  ncol, lchnk)
@@ -1370,8 +1388,10 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
      call outfld('TTGWORO', ttgw,  ncol, lchnk)
      call outfld('TTGWSDFORO', dttdf / cpair,  ncol, lchnk)
      call outfld('TTGWSKEORO', dttke / cpair,  ncol, lchnk)
-     tau0x = tau(:,0,pver+1) * xv
-     tau0y = tau(:,0,pver+1) * yv
+     if (use_native_tend_impl .or. use_native_oro_post_impl) then
+        tau0x = tau(:,0,pver+1) * xv
+        tau0y = tau(:,0,pver+1) * yv
+     end if
      call outfld('TAUGWX', tau0x, ncol, lchnk)
      call outfld('TAUGWY', tau0y, ncol, lchnk)
      call outfld('SGH   ',   sgh,pcols, lchnk)
@@ -1388,6 +1408,124 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
   call p%finalize()
 
 end subroutine gw_tend
+
+!==========================================================================
+
+subroutine gw_tend_oro_post_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('GW_TEND_ORO_POST_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+     write(unitno,'(A)') trim(proof_line)
+     close(unitno)
+  end if
+
+end subroutine gw_tend_oro_post_append_proof
+
+!==========================================================================
+
+subroutine gw_tend_oro_post_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (gw_tend_oro_post_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('GW_TEND_ORO_POST_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_oro_post_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_oro_post_impl = .false.
+  end if
+
+  gw_tend_oro_post_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_oro_post_impl) then
+        write(iulog,*) 'gw_tend_oro_post implementation = native'
+        call gw_tend_oro_post_append_proof('gw_tend_oro_post selector entered implementation = native')
+     else
+        write(iulog,*) 'gw_tend_oro_post implementation = codon'
+        call gw_tend_oro_post_append_proof('gw_tend_oro_post selector entered implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine gw_tend_oro_post_select_impl
+
+!==========================================================================
+
+subroutine gw_tend_oro_post_note_entered()
+
+  if (gw_tend_oro_post_entered_logged) return
+  gw_tend_oro_post_entered_logged = .true.
+
+  if (masterproc) then
+     write(iulog,*) 'gw_tend_oro_post entered (orographic post loops direct = codon)'
+     call gw_tend_oro_post_append_proof('gw_tend_oro_post entered (orographic post loops direct = codon)')
+     call flush(iulog)
+  end if
+
+end subroutine gw_tend_oro_post_note_entered
+
+!==========================================================================
+
+subroutine gw_tend_oro_post_codon_wrap(stage, ncol_local, psetcols_local, pcols_local, pver_local, pcnst_local, pverp_local, &
+     egwdffi_tot_local, egwdffi_local, utgw_local, vtgw_local, ttgw_local, cpairv_local, &
+     ptend_u_local, ptend_v_local, ptend_s_local, qtgw_local, ptend_q_local, tau_local, xv_local, yv_local, tau0x_local, tau0y_local)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+  integer, intent(in) :: stage
+  integer, intent(in) :: ncol_local, psetcols_local, pcols_local, pver_local, pcnst_local, pverp_local
+  real(r8), target, intent(inout) :: egwdffi_tot_local(ncol_local,pverp_local)
+  real(r8), target, intent(in) :: egwdffi_local(ncol_local,pverp_local)
+  real(r8), target, intent(in) :: utgw_local(ncol_local,pver_local), vtgw_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: ttgw_local(ncol_local,pver_local)
+  real(r8), target, intent(in) :: cpairv_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: ptend_u_local(psetcols_local,pver_local), ptend_v_local(psetcols_local,pver_local)
+  real(r8), target, intent(inout) :: ptend_s_local(psetcols_local,pver_local)
+  real(r8), target, intent(in) :: qtgw_local(ncol_local,pver_local,pcnst_local)
+  real(r8), target, intent(inout) :: ptend_q_local(psetcols_local,pver_local,pcnst_local)
+  real(r8), target, intent(in) :: tau_local(ncol_local,1,pverp_local)
+  real(r8), target, intent(in) :: xv_local(ncol_local), yv_local(ncol_local)
+  real(r8), target, intent(inout) :: tau0x_local(ncol_local), tau0y_local(ncol_local)
+
+  interface
+     subroutine gw_tend_oro_post_codon(stage_c, ncol_c, psetcols_c, pcols_c, pver_c, pcnst_c, pverp_c, &
+          egwdffi_tot_p, egwdffi_p, utgw_p, vtgw_p, ttgw_p, cpairv_p, &
+          ptend_u_p, ptend_v_p, ptend_s_p, qtgw_p, ptend_q_p, tau_p, xv_p, yv_p, tau0x_p, tau0y_p) &
+          bind(c, name="gw_tend_oro_post_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: stage_c, ncol_c, psetcols_c, pcols_c, pver_c, pcnst_c, pverp_c
+       type(c_ptr), value :: egwdffi_tot_p, egwdffi_p, utgw_p, vtgw_p, ttgw_p, cpairv_p
+       type(c_ptr), value :: ptend_u_p, ptend_v_p, ptend_s_p, qtgw_p, ptend_q_p, tau_p, xv_p, yv_p, tau0x_p, tau0y_p
+     end subroutine gw_tend_oro_post_codon
+  end interface
+
+  call gw_tend_oro_post_codon(int(stage, c_int64_t), int(ncol_local, c_int64_t), &
+       int(psetcols_local, c_int64_t), int(pcols_local, c_int64_t), int(pver_local, c_int64_t), &
+       int(pcnst_local, c_int64_t), int(pverp_local, c_int64_t), &
+       c_loc(egwdffi_tot_local), c_loc(egwdffi_local), c_loc(utgw_local), c_loc(vtgw_local), &
+       c_loc(ttgw_local), c_loc(cpairv_local), c_loc(ptend_u_local), c_loc(ptend_v_local), &
+       c_loc(ptend_s_local), c_loc(qtgw_local), c_loc(ptend_q_local), c_loc(tau_local), &
+       c_loc(xv_local), c_loc(yv_local), c_loc(tau0x_local), c_loc(tau0y_local))
+
+end subroutine gw_tend_oro_post_codon_wrap
 
 !==========================================================================
 
