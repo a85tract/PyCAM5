@@ -53,22 +53,23 @@ subroutine qneg3 (subnam  ,idx     ,ncol    ,ncold   ,lver    ,lconst_beg  , &
    real(c_double), target :: worst(lconst_beg:lconst_end)
 
    interface
-      subroutine qneg3_codon(ncol_c, ncold_c, lver_c, nconst_c, &
-           qmin_p, q_p, indx_p, nval_p, nvals_p, worst_p, iw_p, kw_p) bind(c, name="qneg3_codon")
+      subroutine qneg_batch_3_codon(ncol_c, ncold_c, lver_c, nconst_c, &
+           qmin_p, q_p, indx_p, nval_p, nvals_p, worst_p, iw_p, kw_p) bind(c, name="qneg_batch_3_codon")
          use iso_c_binding, only: c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, ncold_c, lver_c, nconst_c
          type(c_ptr), value :: qmin_p, q_p, indx_p, nval_p, nvals_p, worst_p, iw_p, kw_p
-      end subroutine qneg3_codon
+      end subroutine qneg_batch_3_codon
    end interface
 
-   call qneg3_select_impl()
+   call qneg3_batch_select_impl()
 
    if (use_native_impl) then
       call qneg3_native(subnam, idx, ncol, ncold, lver, lconst_beg, lconst_end, qmin, q)
       return
    end if
 
-   call qneg3_codon( &
+   call qneg3_batch_log_entered()
+   call qneg_batch_3_codon( &
         int(ncol, c_int64_t), int(ncold, c_int64_t), int(lver, c_int64_t), &
         int(lconst_end-lconst_beg+1, c_int64_t), &
         c_loc(qmin), c_loc(q), c_loc(indx), c_loc(nval), c_loc(nvals), c_loc(worst), c_loc(iw), c_loc(kw) &
@@ -88,14 +89,28 @@ subroutine qneg3 (subnam  ,idx     ,ncol    ,ncold   ,lver    ,lconst_beg  , &
 
 contains
 
-   subroutine qneg3_select_impl()
+   subroutine qneg3_batch_append_proof(proof_line)
+      character(len=*), intent(in) :: proof_line
+      character(len=512) :: proof_file
+      integer :: status, n, unitno
+
+      proof_file = ''
+      call get_environment_variable('QNEG_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+      if (status == 0 .and. n > 0) then
+         open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+         write(unitno,'(A)') trim(proof_line)
+         close(unitno)
+      end if
+   end subroutine qneg3_batch_append_proof
+
+   subroutine qneg3_batch_select_impl()
       character(len=32) :: impl_name
       integer :: status, n, i, code
 
       if (impl_selected) return
 
       impl_name = 'codon'
-      call get_environment_variable('QNEG3_IMPL', value=impl_name, length=n, status=status)
+      call get_environment_variable('QNEG_BATCH_IMPL', value=impl_name, length=n, status=status)
 
       if (status == 0 .and. n > 0) then
          do i = 1, n
@@ -113,12 +128,28 @@ contains
 
       if (masterproc) then
          if (use_native_impl) then
-            write(iulog,*) 'qneg3 implementation = native'
+            write(iulog,*) 'qneg_batch qneg3 implementation = native'
+            call qneg3_batch_append_proof('qneg_batch selector entered implementation = native (qneg3)')
          else
-            write(iulog,*) 'qneg3 implementation = codon'
+            write(iulog,*) 'qneg_batch qneg3 implementation = codon'
+            call qneg3_batch_append_proof('qneg_batch selector entered implementation = codon (qneg3)')
          end if
+         call flush(iulog)
       end if
-   end subroutine qneg3_select_impl
+   end subroutine qneg3_batch_select_impl
+
+   subroutine qneg3_batch_log_entered()
+      logical, save :: entered_logged = .false.
+
+      if (entered_logged) return
+      entered_logged = .true.
+
+      if (masterproc) then
+         write(iulog,'(A)') 'qneg_batch entered (qneg3 direct = codon)'
+         call qneg3_batch_append_proof('qneg_batch entered (qneg3 direct = codon)')
+         call flush(iulog)
+      end if
+   end subroutine qneg3_batch_log_entered
 
 end subroutine qneg3
 
@@ -237,4 +268,3 @@ subroutine qneg3_native (subnam  ,idx     ,ncol    ,ncold   ,lver    ,lconst_beg
             ' Min. mixing ratio violated at ',i4,' points.  Reset to ', &
             1p,e8.1,' Worst =',e8.1,' at i,k=',i4,i3)
 end subroutine qneg3_native
-
