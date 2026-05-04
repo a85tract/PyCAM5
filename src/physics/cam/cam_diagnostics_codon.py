@@ -197,6 +197,76 @@ def diag_conv_dqcond_codon(
 
 
 @export
+def diag_conv_update_batch_codon(
+    mode: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    m: int,
+    scalar1: float,
+    scalar2: float,
+    a_p: cobj,
+    b_p: cobj,
+    c_p: cobj,
+    d_p: cobj,
+    e_p: cobj,
+    f_p: cobj,
+    g_p: cobj,
+    h_p: cobj,
+    out1_p: cobj,
+    out2_p: cobj,
+    out3_p: cobj,
+    out4_p: cobj,
+    out5_p: cobj,
+):
+    a = Ptr[float](a_p)
+    b = Ptr[float](b_p)
+    c = Ptr[float](c_p)
+    d = Ptr[float](d_p)
+    e = Ptr[float](e_p)
+    f = Ptr[float](f_p)
+    g = Ptr[float](g_p)
+    h = Ptr[float](h_p)
+    out1 = Ptr[float](out1_p)
+    out2 = Ptr[float](out2_p)
+    out3 = Ptr[float](out3_p)
+    out4 = Ptr[float](out4_p)
+    out5 = Ptr[float](out5_p)
+
+    if mode == 1:
+        # precip: a=prec_dp, b=snow_dp, c=prec_sh, d=snow_sh,
+        # e=prec_sed, f=snow_sed, g=prec_pcw, h=snow_pcw.
+        for i in range(1, ncol + 1):
+            idx = _idx(i)
+            out1[idx] = a[idx] + c[idx]
+            out2[idx] = e[idx] + g[idx]
+            out3[idx] = b[idx] + d[idx]
+            out4[idx] = f[idx] + h[idx]
+            out5[idx] = out1[idx] + out2[idx]
+    elif mode == 2:
+        # water tracer precip total: a/b/c/d are the four precip components.
+        for i in range(1, ncol + 1):
+            idx = _idx(i)
+            out1[idx] = a[idx]
+            out1[idx] = out1[idx] + b[idx]
+            out1[idx] = out1[idx] + c[idx]
+            out1[idx] = out1[idx] + d[idx]
+    elif mode == 3:
+        # dtcond: a=state%s, out1=dtcond, scalar1=rtdt, scalar2=cpair.
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                out1[idx] = (a[idx] - out1[idx]) * scalar1 / scalar2
+    elif mode == 4:
+        # dqcond: a=state%q(pcols,pver,pcnst), out1=dqcond_work, scalar1=rtdt.
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                out1[idx] = (a[_idx3(i, k, m, pcols, pver)] - out1[idx]) * scalar1
+
+
+@export
 def diag_surf_codon(
     ncol: int,
     pcols: int,
