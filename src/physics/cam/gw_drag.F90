@@ -138,6 +138,9 @@ module gw_drag
   logical          :: use_native_oro_post_impl = .false.
   logical          :: gw_tend_oro_post_impl_selected = .false.
   logical          :: gw_tend_oro_post_entered_logged = .false.
+  logical          :: use_native_history_prep_impl = .false.
+  logical          :: gw_tend_history_prep_impl_selected = .false.
+  logical          :: gw_tend_history_prep_entered_logged = .false.
   logical          :: use_native_prep_impl = .false.
   logical          :: gw_tend_prep_impl_selected = .false.
   logical          :: gw_tend_prep_entered_logged = .false.
@@ -907,6 +910,9 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
   real(r8) :: q(state%ncol,pver,pcnst)
   real(r8) :: piln(state%ncol,pver+1)
   real(r8) :: zm(state%ncol,pver)
+  real(r8) :: ttgwsdf_oro(state%ncol,pver)
+  real(r8) :: ttgwske_oro(state%ncol,pver)
+  real(r8) :: ttgw_total(pcols,pver)
 
   !------------------------------------------------------------------------
 
@@ -935,6 +941,7 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
   p = Coords1D(state%pint(:ncol,:))
 
   if (.not. use_native_tend_impl) call gw_tend_prep_select_impl()
+  if (.not. use_native_tend_impl) call gw_tend_history_prep_select_impl()
 
   if (use_native_tend_impl .or. use_native_prep_impl) then
      dse = state%s(:ncol,:)
@@ -1406,8 +1413,16 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
      call outfld('UTGWORO', utgw,  ncol, lchnk)
      call outfld('VTGWORO', vtgw,  ncol, lchnk)
      call outfld('TTGWORO', ttgw,  ncol, lchnk)
-     call outfld('TTGWSDFORO', dttdf / cpair,  ncol, lchnk)
-     call outfld('TTGWSKEORO', dttke / cpair,  ncol, lchnk)
+     if (use_native_tend_impl .or. use_native_history_prep_impl) then
+        call outfld('TTGWSDFORO', dttdf / cpair,  ncol, lchnk)
+        call outfld('TTGWSKEORO', dttke / cpair,  ncol, lchnk)
+     else
+        call gw_tend_history_prep_note_entered()
+        call gw_tend_history_prep_codon_wrap(1, ncol, state%psetcols, pcols, pver, cpair, &
+             dttdf, dttke, ptend%s, cpairv(:,:,lchnk), ttgwsdf_oro, ttgwske_oro, ttgw_total)
+        call outfld('TTGWSDFORO', ttgwsdf_oro,  ncol, lchnk)
+        call outfld('TTGWSKEORO', ttgwske_oro,  ncol, lchnk)
+     end if
      if (use_native_tend_impl .or. use_native_oro_post_impl) then
         tau0x = tau(:,0,pver+1) * xv
         tau0y = tau(:,0,pver+1) * yv
@@ -1422,7 +1437,14 @@ subroutine gw_tend(state, sgh, pbuf, dt, ptend, cam_in, flx_heat)
 
   ! Write totals to history file.
   call outfld ('EKGW', egwdffi_tot , ncol, lchnk)
-  call outfld ('TTGW', ptend%s/cpairv(:,:,lchnk),  pcols, lchnk)
+  if (use_native_tend_impl .or. use_native_history_prep_impl) then
+     call outfld ('TTGW', ptend%s/cpairv(:,:,lchnk),  pcols, lchnk)
+  else
+     call gw_tend_history_prep_note_entered()
+     call gw_tend_history_prep_codon_wrap(2, ncol, state%psetcols, pcols, pver, cpair, &
+          dttdf, dttke, ptend%s, cpairv(:,:,lchnk), ttgwsdf_oro, ttgwske_oro, ttgw_total)
+     call outfld ('TTGW', ttgw_total,  pcols, lchnk)
+  end if
 
   ! Destroy objects.
   call p%finalize()
@@ -1558,6 +1580,116 @@ subroutine gw_tend_prep_codon_wrap(stage, ncol_local, psetcols_local, pcols_loca
        c_loc(sgh_scaled_local))
 
 end subroutine gw_tend_prep_codon_wrap
+
+!==========================================================================
+
+subroutine gw_tend_history_prep_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('GW_TEND_HISTORY_PREP_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+     write(unitno,'(A)') trim(proof_line)
+     close(unitno)
+  end if
+
+end subroutine gw_tend_history_prep_append_proof
+
+!==========================================================================
+
+subroutine gw_tend_history_prep_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (gw_tend_history_prep_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('GW_TEND_HISTORY_PREP_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_history_prep_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_history_prep_impl = .false.
+  end if
+
+  gw_tend_history_prep_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_history_prep_impl) then
+        write(iulog,*) 'gw_tend_history_prep implementation = native'
+        call gw_tend_history_prep_append_proof('gw_tend_history_prep selector entered implementation = native')
+     else
+        write(iulog,*) 'gw_tend_history_prep implementation = codon'
+        call gw_tend_history_prep_append_proof('gw_tend_history_prep selector entered implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine gw_tend_history_prep_select_impl
+
+!==========================================================================
+
+subroutine gw_tend_history_prep_note_entered()
+
+  if (gw_tend_history_prep_entered_logged) return
+  gw_tend_history_prep_entered_logged = .true.
+
+  if (masterproc) then
+     write(iulog,*) 'gw_tend_history_prep entered (TTGWSDFORO/TTGWSKEORO/TTGW prep direct = codon)'
+     call gw_tend_history_prep_append_proof('gw_tend_history_prep entered (TTGWSDFORO/TTGWSKEORO/TTGW prep direct = codon)')
+     call flush(iulog)
+  end if
+
+end subroutine gw_tend_history_prep_note_entered
+
+!==========================================================================
+
+subroutine gw_tend_history_prep_codon_wrap(stage, ncol_local, psetcols_local, pcols_local, pver_local, cpair_local, &
+     dttdf_local, dttke_local, ptend_s_local, cpairv_local, ttgwsdf_oro_local, ttgwske_oro_local, ttgw_total_local)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+  integer, intent(in) :: stage
+  integer, intent(in) :: ncol_local, psetcols_local, pcols_local, pver_local
+  real(r8), intent(in) :: cpair_local
+  real(r8), target, intent(in) :: dttdf_local(ncol_local,pver_local)
+  real(r8), target, intent(in) :: dttke_local(ncol_local,pver_local)
+  real(r8), target, intent(in) :: ptend_s_local(psetcols_local,pver_local)
+  real(r8), target, intent(in) :: cpairv_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: ttgwsdf_oro_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: ttgwske_oro_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: ttgw_total_local(pcols_local,pver_local)
+
+  interface
+     subroutine gw_tend_history_prep_codon(stage_c, ncol_c, psetcols_c, pcols_c, pver_c, cpair_c, &
+          dttdf_p, dttke_p, ptend_s_p, cpairv_p, ttgwsdf_oro_p, ttgwske_oro_p, ttgw_total_p) &
+          bind(c, name="gw_tend_history_prep_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: stage_c, ncol_c, psetcols_c, pcols_c, pver_c
+       real(c_double), value :: cpair_c
+       type(c_ptr), value :: dttdf_p, dttke_p, ptend_s_p, cpairv_p
+       type(c_ptr), value :: ttgwsdf_oro_p, ttgwske_oro_p, ttgw_total_p
+     end subroutine gw_tend_history_prep_codon
+  end interface
+
+  call gw_tend_history_prep_codon(int(stage, c_int64_t), int(ncol_local, c_int64_t), &
+       int(psetcols_local, c_int64_t), int(pcols_local, c_int64_t), int(pver_local, c_int64_t), &
+       real(cpair_local, c_double), c_loc(dttdf_local), c_loc(dttke_local), c_loc(ptend_s_local), &
+       c_loc(cpairv_local), c_loc(ttgwsdf_oro_local), c_loc(ttgwske_oro_local), c_loc(ttgw_total_local))
+
+end subroutine gw_tend_history_prep_codon_wrap
 
 !==========================================================================
 

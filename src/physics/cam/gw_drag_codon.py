@@ -978,6 +978,43 @@ def gw_tend_prep_codon(
 
 
 @export
+def gw_tend_history_prep_codon(
+    stage: int,
+    ncol: int,
+    psetcols: int,
+    pcols: int,
+    pver: int,
+    cpair: float,
+    dttdf_p: cobj,
+    dttke_p: cobj,
+    ptend_s_p: cobj,
+    cpairv_p: cobj,
+    ttgwsdf_oro_p: cobj,
+    ttgwske_oro_p: cobj,
+    ttgw_total_p: cobj,
+):
+    dttdf = Ptr[float](dttdf_p)
+    dttke = Ptr[float](dttke_p)
+    ptend_s = Ptr[float](ptend_s_p)
+    cpairv = Ptr[float](cpairv_p)
+    ttgwsdf_oro = Ptr[float](ttgwsdf_oro_p)
+    ttgwske_oro = Ptr[float](ttgwske_oro_p)
+    ttgw_total = Ptr[float](ttgw_total_p)
+
+    if stage == 1:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, ncol)
+                ttgwsdf_oro[idx] = dttdf[idx] / cpair
+                ttgwske_oro[idx] = dttke[idx] / cpair
+
+    elif stage == 2:
+        for k in range(1, pver + 1):
+            for i in range(1, pcols + 1):
+                ttgw_total[_idx2(i, k, pcols)] = ptend_s[_idx2(i, k, psetcols)] / cpairv[_idx2(i, k, pcols)]
+
+
+@export
 def gw_tend_oro_post_codon(
     stage: int,
     ncol: int,
