@@ -108,6 +108,41 @@ def gw_prof_codon(
 
 
 @export
+def gw_energy_change_codon(
+    ncol: int,
+    pver: int,
+    dt: float,
+    gravit: float,
+    p_del_p: cobj,
+    u_p: cobj,
+    v_p: cobj,
+    dudt_p: cobj,
+    dvdt_p: cobj,
+    dsdt_p: cobj,
+    de_p: cobj,
+):
+    p_del = Ptr[float](p_del_p)
+    u = Ptr[float](u_p)
+    v = Ptr[float](v_p)
+    dudt = Ptr[float](dudt_p)
+    dvdt = Ptr[float](dvdt_p)
+    dsdt = Ptr[float](dsdt_p)
+    de = Ptr[float](de_p)
+
+    for i in range(1, ncol + 1):
+        de[i - 1] = 0.0
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, ncol)
+            de[i - 1] = de[i - 1] + p_del[idx] / gravit * (
+                dsdt[idx]
+                + dudt[idx] * (u[idx] + dudt[idx] * 0.5 * dt)
+                + dvdt[idx] * (v[idx] + dvdt[idx] * 0.5 * dt)
+            )
+
+
+@export
 def gw_oro_src_codon(
     ncol: int,
     pver: int,

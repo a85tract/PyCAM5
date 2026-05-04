@@ -85,6 +85,9 @@ real(r8), parameter :: ubmc2mn = 0.01_r8
 logical :: use_native_gw_prof_impl = .false.
 logical :: gw_prof_impl_selected = .false.
 logical :: gw_prof_entered_logged = .false.
+logical :: use_native_energy_change_impl = .false.
+logical :: energy_change_impl_selected = .false.
+logical :: energy_change_entered_logged = .false.
 
 ! Type describing a band of wavelengths into which gravity waves can be
 ! emitted.
@@ -853,6 +856,144 @@ end subroutine momentum_fixer
 ! Calculate the change in total energy from tendencies up to this point.
 subroutine energy_change(dt, p, u, v, dudt, dvdt, dsdt, de)
 
+  ! Selectable wrapper for total-column gravity-wave energy diagnostics.
+  ! The Codon path receives explicit-shape Fortran dummies so array sections
+  ! such as ptend%u(:ncol,:) are materialized with the original ncol stride.
+
+  ! Time step.
+  real(r8), intent(in) :: dt
+  ! Pressure coordinates.
+  type(Coords1D), intent(in) :: p
+  ! Winds at start of time step.
+  real(r8), intent(in) :: u(:,:), v(:,:)
+  ! Wind tendencies.
+  real(r8), intent(in) :: dudt(:,:), dvdt(:,:)
+  ! Heating tendency.
+  real(r8), intent(in) :: dsdt(:,:)
+  ! Change in energy.
+  real(r8), intent(out) :: de(:)
+
+  call energy_change_select_impl()
+
+  if (use_native_energy_change_impl) then
+     call energy_change_native(dt, p, u, v, dudt, dvdt, dsdt, de)
+  else
+     call energy_change_note_entered()
+     call energy_change_codon_wrap(size(de), pver, dt, gravit, p%del, u, v, dudt, dvdt, dsdt, de)
+  end if
+
+end subroutine energy_change
+
+!==========================================================================
+
+subroutine energy_change_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('GW_ENERGY_CHANGE_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+     write(unitno,'(A)') trim(proof_line)
+     close(unitno)
+  end if
+
+end subroutine energy_change_append_proof
+
+!==========================================================================
+
+subroutine energy_change_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (energy_change_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('GW_ENERGY_CHANGE_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_energy_change_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_energy_change_impl = .false.
+  end if
+
+  energy_change_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_energy_change_impl) then
+        write(iulog,*) 'gw_energy_change implementation = native'
+        call energy_change_append_proof('gw_energy_change selector entered implementation = native')
+     else
+        write(iulog,*) 'gw_energy_change implementation = codon'
+        call energy_change_append_proof('gw_energy_change selector entered implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine energy_change_select_impl
+
+!==========================================================================
+
+subroutine energy_change_note_entered()
+
+  if (energy_change_entered_logged) return
+  energy_change_entered_logged = .true.
+
+  if (masterproc) then
+     write(iulog,*) 'gw_energy_change entered (column energy direct = codon)'
+     call energy_change_append_proof('gw_energy_change entered (column energy direct = codon)')
+     call flush(iulog)
+  end if
+
+end subroutine energy_change_note_entered
+
+!==========================================================================
+
+subroutine energy_change_codon_wrap(ncol_local, pver_local, dt_local, gravit_local, &
+     p_del_local, u_local, v_local, dudt_local, dvdt_local, dsdt_local, de_local)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+  integer, intent(in) :: ncol_local, pver_local
+  real(r8), intent(in) :: dt_local, gravit_local
+  real(r8), target, intent(in) :: p_del_local(ncol_local,pver_local)
+  real(r8), target, intent(in) :: u_local(ncol_local,pver_local), v_local(ncol_local,pver_local)
+  real(r8), target, intent(in) :: dudt_local(ncol_local,pver_local), dvdt_local(ncol_local,pver_local)
+  real(r8), target, intent(in) :: dsdt_local(ncol_local,pver_local)
+  real(r8), target, intent(inout) :: de_local(ncol_local)
+
+  interface
+     subroutine gw_energy_change_codon(ncol_c, pver_c, dt_c, gravit_c, &
+          p_del_p, u_p, v_p, dudt_p, dvdt_p, dsdt_p, de_p) &
+          bind(c, name="gw_energy_change_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pver_c
+       real(c_double), value :: dt_c, gravit_c
+       type(c_ptr), value :: p_del_p, u_p, v_p, dudt_p, dvdt_p, dsdt_p, de_p
+     end subroutine gw_energy_change_codon
+  end interface
+
+  call gw_energy_change_codon(int(ncol_local, c_int64_t), int(pver_local, c_int64_t), &
+       real(dt_local, c_double), real(gravit_local, c_double), &
+       c_loc(p_del_local), c_loc(u_local), c_loc(v_local), c_loc(dudt_local), &
+       c_loc(dvdt_local), c_loc(dsdt_local), c_loc(de_local))
+
+end subroutine energy_change_codon_wrap
+
+!==========================================================================
+
+subroutine energy_change_native(dt, p, u, v, dudt, dvdt, dsdt, de)
+
   ! Time step.
   real(r8), intent(in) :: dt
   ! Pressure coordinates.
@@ -877,7 +1018,7 @@ subroutine energy_change(dt, p, u, v, dudt, dvdt, dsdt, de)
           dvdt(:,k)*(v(:,k)+dvdt(:,k)*0.5_r8*dt) )
   end do
 
-end subroutine energy_change
+end subroutine energy_change_native
 
 !==========================================================================
 
