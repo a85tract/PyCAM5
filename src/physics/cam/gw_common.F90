@@ -742,9 +742,6 @@ subroutine gw_drag_prof(ncol, band, p, src_level, tend_level, dt, &
           gw_diff_spr, gw_diff_sub, gw_diff_diag, gw_diff_ca, gw_diff_ze, &
           gw_diff_dnom, gw_diff_zf)
 
-     gw_diff_coef(:,1:kbot_tend-ktop+2) = &
-          egwdffi(:,ktop:kbot_tend+1) * dpidz_sq(:,ktop:kbot_tend+1)
-
      call gw_diff_solver_codon_wrap(2, ncol, pver, pver+1, size(q,3), band%ngwv, &
           kbot_tend, ktop, dt, gravit, gwut, ubm, nm, rhoi, c, tend_level, &
           p%del, p%rdel, p%rdst, q, dse, egwdffi, qtgw, dttdf, &
@@ -1002,9 +999,9 @@ subroutine gw_diff_solver_note_entered()
   gw_diff_solver_entered_logged = .true.
 
   if (masterproc) then
-     write(iulog,*) 'gw_diff_solver entered (diffusivity/LU/left_div direct = codon; coef_q_diff array expression = native)'
+     write(iulog,*) 'gw_diff_solver entered (diffusivity/LU/coef_q_diff/left_div direct = codon)'
      call gw_diff_solver_append_proof('gw_diff_solver entered (diffusivity/LU/left_div direct = codon; ' // &
-          'coef_q_diff array expression = native)')
+          'coef_q_diff direct = codon)')
      call flush(iulog)
   end if
 

@@ -605,6 +605,13 @@ def gw_diff_solver_codon(
                 idx = _idx2(i, k, ncol)
                 dpidz_sq[idx] = dpidz_sq[idx] * dpidz_sq[idx]
 
+        for sk in range(1, ncel + 2):
+            k = ktop + sk - 1
+            for i in range(1, ncol + 1):
+                coef_q_diff[_idx2(i, sk, ncol)] = (
+                    egwdffi[_idx2(i, k, ncol)] * dpidz_sq[_idx2(i, k, ncol)]
+                )
+
     elif stage == 2:
         for sk in range(1, ncel):
             k = ktop + sk - 1
