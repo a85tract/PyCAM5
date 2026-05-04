@@ -269,6 +269,14 @@ def diag_phys_writeout_basic_2d_codon(
                 uval = a[_idx2(i, k, pcols)]
                 vval = b[_idx2(i, k, pcols)]
                 out[_idx2(i, k, pcols)] = sqrt(uval * uval + vval * vval)
+    elif mode == 6:
+        for i in range(1, ncol + 1):
+            out[_idx2(i, 1, pcols)] = a[_idx2(i, 1, pcols)]
+    elif mode == 7:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                out[idx] = a[idx] / out[idx] * scale
 
 
 @export
@@ -408,6 +416,61 @@ def diag_phys_writeout_atmeint_codon(
                 + 0.5 * (uval * uval + vval * vval)
             ) * (pdel[_idx2(i, k, pcols)] / gravit)
         atmeint[_idx(i)] = total
+
+
+@export
+def diag_phys_writeout_column_reduce_codon(
+    mode: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    scalar1: float,
+    scalar2: float,
+    scalar3: float,
+    a_p: cobj,
+    b_p: cobj,
+    c_p: cobj,
+    d_p: cobj,
+    e_p: cobj,
+    f_p: cobj,
+    out2d_p: cobj,
+    out1d_p: cobj,
+):
+    a = Ptr[float](a_p)
+    b = Ptr[float](b_p)
+    c = Ptr[float](c_p)
+    d = Ptr[float](d_p)
+    e = Ptr[float](e_p)
+    f = Ptr[float](f_p)
+    out2d = Ptr[float](out2d_p)
+    out1d = Ptr[float](out1d_p)
+
+    if mode == 1:
+        # mass_and_tmq: a=q, b=pdel, scalar1=rga.
+        for i in range(1, ncol + 1):
+            total = 0.0
+            for k in range(1, pver + 1):
+                val = a[_idx2(i, k, pcols)] * b[_idx2(i, k, pcols)] * scalar1
+                out2d[_idx2(i, k, pcols)] = val
+                total += val
+            out1d[_idx(i)] = total
+    elif mode == 2:
+        # atmeint: a=t, b=q, c=u, d=v, e=pdel, f=phis.
+        cpair = scalar1
+        latvap = scalar2
+        gravit = scalar3
+        for i in range(1, ncol + 1):
+            total = 0.0
+            for k in range(1, pver + 1):
+                uval = c[_idx2(i, k, pcols)]
+                vval = d[_idx2(i, k, pcols)]
+                total += (
+                    cpair * a[_idx2(i, k, pcols)]
+                    + f[_idx(i)]
+                    + latvap * b[_idx2(i, k, pcols)]
+                    + 0.5 * (uval * uval + vval * vval)
+                ) * (e[_idx2(i, k, pcols)] / gravit)
+            out1d[_idx(i)] = total
 
 
 @export
