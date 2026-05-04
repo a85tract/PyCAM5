@@ -106,6 +106,7 @@ logical :: diag_surf_use_native_impl = .false.
 logical :: diag_surf_impl_selected = .false.
 logical :: diag_phys_writeout_use_native_impl = .false.
 logical :: diag_phys_writeout_impl_selected = .false.
+logical :: diag_phys_writeout_batch_entered_logged = .false.
 logical :: diag_physvar_ic_use_native_impl = .false.
 logical :: diag_physvar_ic_impl_selected = .false.
 logical :: cam_diag_conv_batch_use_native_impl = .false.
@@ -980,6 +981,9 @@ end subroutine diag_conv_tend_ini
     ncol  = state%ncol
 
     call diag_phys_writeout_select_impl()
+    if (.not. diag_phys_writeout_use_native_impl) then
+       call diag_phys_writeout_batch_log_entered()
+    end if
 
     ! Output NSTEP for debugging
     nstep = get_nstep()
@@ -1161,22 +1165,16 @@ end subroutine diag_conv_tend_ini
      if(trace_water) then
        do m=1,wtrc_nwset
        !-----------
-         ftem(:ncol,:) = state%q(:ncol,:,wtrc_iatype(m,iwtvap)) * state%pdel(:ncol,:) * rga
-         do k=2,pver
-           ftem(:ncol,1) = ftem(:ncol,1) + ftem(:ncol,k)
-         end do
+         call diag_phys_writeout_wtrc_column(ncol, state%q(:,:,wtrc_iatype(m,iwtvap)), state%v, state%pdel, &
+              rga, 1, ftem)
          call outfld ('TMQ_'//trim(wtrc_out_names(m)), ftem, pcols, lchnk)
        !-----------
-         ftem(:ncol,:) = state%v(:ncol,:)*state%q(:ncol,:,wtrc_iatype(m,iwtvap)) * state%pdel(:ncol,:) * rga
-         do k=2,pver
-           ftem(:ncol,1) = ftem(:ncol,1) + ftem(:ncol,k)
-         end do
+         call diag_phys_writeout_wtrc_column(ncol, state%q(:,:,wtrc_iatype(m,iwtvap)), state%v, state%pdel, &
+              rga, 2, ftem)
          call outfld ('TVQ_'//trim(wtrc_out_names(m)), ftem, pcols, lchnk)
        !-----------
-         ftem(:ncol,:) = state%u(:ncol,:)*state%q(:ncol,:,wtrc_iatype(m,iwtvap)) * state%pdel(:ncol,:) * rga
-         do k=2,pver
-           ftem(:ncol,1) = ftem(:ncol,1) + ftem(:ncol,k)
-         end do
+         call diag_phys_writeout_wtrc_column(ncol, state%q(:,:,wtrc_iatype(m,iwtvap)), state%u, state%pdel, &
+              rga, 2, ftem)
          call outfld ('TUQ_'//trim(wtrc_out_names(m)), ftem, pcols, lchnk)
        end do
        !-----------
@@ -1185,26 +1183,16 @@ end subroutine diag_conv_tend_ini
 
 !CAS integrated vapor transport calculation
 
-    !compute uq*dp/g and vq*dp/g
-    ftem4(:ncol,:) = state%q(:ncol,:,1) * state%u(:ncol,:) *state%pdel(:ncol,:) * rga
-    ftem5(:ncol,:) = state%q(:ncol,:,1) * state%v(:ncol,:) *state%pdel(:ncol,:) * rga
-
-    !integrate each component
-    do k=2,pver
-       ftem4(:ncol,1) = ftem4(:ncol,1) + ftem4(:ncol,k)
-       ftem5(:ncol,1) = ftem5(:ncol,1) + ftem5(:ncol,k)
-    end do
-    !compute ivt
-    ftem(:ncol,1) = sqrt( ftem4(:ncol,1)**2 + ftem5(:ncol,1)**2)
+    call diag_phys_writeout_ivt(ncol, state%q(:,:,1), state%u, state%v, state%pdel, rga, ftem4, ftem5, ftem)
 
     call outfld ('IVT     ',ftem, pcols   ,lchnk     )
 
     !just output uq*dp/g
-    ftem(:ncol,1) =  ftem4(:ncol,1)
+    call diag_phys_writeout_copy_col1(ncol, ftem4, ftem)
     call outfld ('uIVT     ',ftem, pcols   ,lchnk     )
 
     !just output vq*dp/g
-    ftem(:ncol,1) = ftem5(:ncol,1)
+    call diag_phys_writeout_copy_col1(ncol, ftem5, ftem)
     call outfld ('vIVT     ',ftem, pcols   ,lchnk     )
 
 !CAS
@@ -1216,7 +1204,7 @@ end subroutine diag_conv_tend_ini
        if (hist_fld_active('RELHUM')) then
           call qsat(state%t(:ncol,:), state%pmid(:ncol,:), &
                tem2(:ncol,:), ftem(:ncol,:))
-          ftem(:ncol,:) = state%q(:ncol,:,1)/ftem(:ncol,:)*100._r8
+          call diag_phys_writeout_scale_relhum(ncol, state%q(:,:,1), ftem)
           call outfld ('RELHUM  ',ftem    ,pcols   ,lchnk     )
        end if
 
@@ -1225,31 +1213,17 @@ end subroutine diag_conv_tend_ini
           ! RH w.r.t liquid (water)
           call qsat_water (state%t(:ncol,:), state%pmid(:ncol,:), &
                esl(:ncol,:), ftem(:ncol,:))
-          ftem(:ncol,:) = state%q(:ncol,:,1)/ftem(:ncol,:)*100._r8
+          call diag_phys_writeout_scale_relhum(ncol, state%q(:,:,1), ftem)
           call outfld ('RHW  ',ftem    ,pcols   ,lchnk     )
 
           ! Convert to RHI (ice)
           do i=1,ncol
              do k=1,pver
                 esi(i,k)=svp_ice(state%t(i,k))
-                ftem1(i,k)=ftem(i,k)*esl(i,k)/esi(i,k)
              end do
           end do
+          call diag_phys_writeout_rhi_rhcfmip(ncol, state%t, esl, esi, ftem, ftem1, ftem2)
           call outfld ('RHI  ',ftem1    ,pcols   ,lchnk     )
-
-	  ! use temperature to decide if you populate with ftem (liquid, above 0 C) or ftem1 (ice, below 0 C)
-
-	  ftem2(:ncol,:)=ftem(:ncol,:)
-
-          do i=1,ncol
-             do k=1,pver
-		if (state%t(i,k) .gt. 273) then
-                   ftem2(i,k)=ftem(i,k)  !!wrt water
- 		else
-                   ftem2(i,k)=ftem1(i,k) !!wrt ice
-		end if
-             end do
-          end do
 
           call outfld ('RHCFMIP  ',ftem2    ,pcols   ,lchnk     )
 
@@ -1362,7 +1336,7 @@ end subroutine diag_conv_tend_ini
     end if
 ! -- end
 
-    ftem(:ncol,:) = state%t(:ncol,:)*state%t(:ncol,:)
+    call diag_phys_writeout_square_field(ncol, state%t, ftem)
     call outfld('TT      ',ftem    ,pcols   ,lchnk   )
 !
 ! Output U, V, T, Q, P and Z at bottom level
@@ -1782,6 +1756,227 @@ end subroutine diag_conv_tend_ini
     )
 
   end subroutine diag_phys_writeout_atmeint
+
+!===============================================================================
+
+  subroutine diag_phys_writeout_wtrc_column(ncol, qtr, wind, pdel, rga_in, mode, out)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol, mode
+    real(r8), intent(in) :: rga_in
+    real(r8), target, intent(in) :: qtr(pcols,pver), wind(pcols,pver), pdel(pcols,pver)
+    real(r8), target, intent(out) :: out(pcols,pver)
+
+    integer :: k
+
+    interface
+       subroutine diag_phys_writeout_wtrc_column_codon(ncol_c, pcols_c, pver_c, mode_c, rga_c, &
+            qtr_p, wind_p, pdel_p, out_p) bind(c, name="diag_phys_writeout_wtrc_column_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, mode_c
+         real(c_double), value :: rga_c
+         type(c_ptr), value :: qtr_p, wind_p, pdel_p, out_p
+       end subroutine diag_phys_writeout_wtrc_column_codon
+    end interface
+
+    if (diag_phys_writeout_use_native_impl) then
+       if (mode == 1) then
+          out(:ncol,:) = qtr(:ncol,:) * pdel(:ncol,:) * rga_in
+       else
+          out(:ncol,:) = wind(:ncol,:)*qtr(:ncol,:) * pdel(:ncol,:) * rga_in
+       end if
+       do k=2,pver
+          out(:ncol,1) = out(:ncol,1) + out(:ncol,k)
+       end do
+       return
+    end if
+
+    call diag_phys_writeout_wtrc_column_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(mode, c_int64_t), &
+         real(rga_in, c_double), c_loc(qtr), c_loc(wind), c_loc(pdel), c_loc(out) &
+    )
+
+  end subroutine diag_phys_writeout_wtrc_column
+
+!===============================================================================
+
+  subroutine diag_phys_writeout_ivt(ncol, q, u, v, pdel, rga_in, uqdp, vqdp, ivt)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), intent(in) :: rga_in
+    real(r8), target, intent(in) :: q(pcols,pver), u(pcols,pver), v(pcols,pver), pdel(pcols,pver)
+    real(r8), target, intent(out) :: uqdp(pcols,pver), vqdp(pcols,pver), ivt(pcols,pver)
+
+    integer :: k
+
+    interface
+       subroutine diag_phys_writeout_ivt_codon(ncol_c, pcols_c, pver_c, rga_c, &
+            q_p, u_p, v_p, pdel_p, uqdp_p, vqdp_p, ivt_p) bind(c, name="diag_phys_writeout_ivt_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: rga_c
+         type(c_ptr), value :: q_p, u_p, v_p, pdel_p, uqdp_p, vqdp_p, ivt_p
+       end subroutine diag_phys_writeout_ivt_codon
+    end interface
+
+    if (diag_phys_writeout_use_native_impl) then
+       uqdp(:ncol,:) = q(:ncol,:) * u(:ncol,:) *pdel(:ncol,:) * rga_in
+       vqdp(:ncol,:) = q(:ncol,:) * v(:ncol,:) *pdel(:ncol,:) * rga_in
+       do k=2,pver
+          uqdp(:ncol,1) = uqdp(:ncol,1) + uqdp(:ncol,k)
+          vqdp(:ncol,1) = vqdp(:ncol,1) + vqdp(:ncol,k)
+       end do
+       ivt(:ncol,1) = sqrt( uqdp(:ncol,1)**2 + vqdp(:ncol,1)**2)
+       return
+    end if
+
+    call diag_phys_writeout_ivt_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(rga_in, c_double), &
+         c_loc(q), c_loc(u), c_loc(v), c_loc(pdel), c_loc(uqdp), c_loc(vqdp), c_loc(ivt) &
+    )
+
+  end subroutine diag_phys_writeout_ivt
+
+!===============================================================================
+
+  subroutine diag_phys_writeout_copy_col1(ncol, src, dst)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: src(pcols,pver)
+    real(r8), target, intent(inout) :: dst(pcols,pver)
+
+    interface
+       subroutine diag_phys_writeout_copy_col1_codon(ncol_c, pcols_c, src_p, dst_p) &
+            bind(c, name="diag_phys_writeout_copy_col1_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c
+         type(c_ptr), value :: src_p, dst_p
+       end subroutine diag_phys_writeout_copy_col1_codon
+    end interface
+
+    if (diag_phys_writeout_use_native_impl) then
+       dst(:ncol,1) = src(:ncol,1)
+       return
+    end if
+
+    call diag_phys_writeout_copy_col1_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), c_loc(src), c_loc(dst))
+
+  end subroutine diag_phys_writeout_copy_col1
+
+!===============================================================================
+
+  subroutine diag_phys_writeout_scale_relhum(ncol, q, rh)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: q(pcols,pver)
+    real(r8), target, intent(inout) :: rh(pcols,pver)
+
+    interface
+       subroutine diag_phys_writeout_scale_relhum_codon(ncol_c, pcols_c, pver_c, q_p, rh_p) &
+            bind(c, name="diag_phys_writeout_scale_relhum_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: q_p, rh_p
+       end subroutine diag_phys_writeout_scale_relhum_codon
+    end interface
+
+    if (diag_phys_writeout_use_native_impl) then
+       rh(:ncol,:) = q(:ncol,:)/rh(:ncol,:)*100._r8
+       return
+    end if
+
+    call diag_phys_writeout_scale_relhum_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), c_loc(q), c_loc(rh) &
+    )
+
+  end subroutine diag_phys_writeout_scale_relhum
+
+!===============================================================================
+
+  subroutine diag_phys_writeout_rhi_rhcfmip(ncol, t, esl, esi, rhw, rhi, rhcfmip)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: t(pcols,pver), esl(pcols,pver), esi(pcols,pver), rhw(pcols,pver)
+    real(r8), target, intent(out) :: rhi(pcols,pver), rhcfmip(pcols,pver)
+
+    integer :: i, k
+
+    interface
+       subroutine diag_phys_writeout_rhi_rhcfmip_codon(ncol_c, pcols_c, pver_c, t_p, esl_p, esi_p, rhw_p, &
+            rhi_p, rhcfmip_p) bind(c, name="diag_phys_writeout_rhi_rhcfmip_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: t_p, esl_p, esi_p, rhw_p, rhi_p, rhcfmip_p
+       end subroutine diag_phys_writeout_rhi_rhcfmip_codon
+    end interface
+
+    if (diag_phys_writeout_use_native_impl) then
+       do i=1,ncol
+          do k=1,pver
+             rhi(i,k)=rhw(i,k)*esl(i,k)/esi(i,k)
+          end do
+       end do
+
+       rhcfmip(:ncol,:)=rhw(:ncol,:)
+
+       do i=1,ncol
+          do k=1,pver
+             if (t(i,k) .gt. 273) then
+                rhcfmip(i,k)=rhw(i,k)
+             else
+                rhcfmip(i,k)=rhi(i,k)
+             end if
+          end do
+       end do
+       return
+    end if
+
+    call diag_phys_writeout_rhi_rhcfmip_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         c_loc(t), c_loc(esl), c_loc(esi), c_loc(rhw), c_loc(rhi), c_loc(rhcfmip) &
+    )
+
+  end subroutine diag_phys_writeout_rhi_rhcfmip
+
+!===============================================================================
+
+subroutine diag_phys_writeout_batch_append_proof(proof_line)
+
+   character(len=*), intent(in) :: proof_line
+   character(len=512) :: proof_file
+   integer :: status, n, unitno
+
+   proof_file = ''
+   call get_environment_variable('DIAG_PHYS_WRITEOUT_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+   if (status == 0 .and. n > 0) then
+      open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+      write(unitno,'(A)') trim(proof_line)
+      close(unitno)
+   end if
+
+end subroutine diag_phys_writeout_batch_append_proof
+
+subroutine diag_phys_writeout_batch_log_entered()
+
+   if (diag_phys_writeout_batch_entered_logged) return
+   diag_phys_writeout_batch_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'diag_phys_writeout_batch entered (water_tracer_column/ivt/relhum/rhi/tt direct = codon)'
+      call diag_phys_writeout_batch_append_proof('diag_phys_writeout_batch entered (water_tracer_column/ivt/relhum/rhi/tt direct = codon)')
+      call flush(iulog)
+   end if
+
+end subroutine diag_phys_writeout_batch_log_entered
 
 !===============================================================================
 

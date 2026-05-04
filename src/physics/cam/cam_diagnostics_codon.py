@@ -365,3 +365,144 @@ def diag_phys_writeout_atmeint_codon(
                 + 0.5 * (uval * uval + vval * vval)
             ) * (pdel[_idx2(i, k, pcols)] / gravit)
         atmeint[_idx(i)] = total
+
+
+@export
+def diag_phys_writeout_wtrc_column_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    mode: int,
+    rga: float,
+    qtr_p: cobj,
+    wind_p: cobj,
+    pdel_p: cobj,
+    out_p: cobj,
+):
+    qtr = Ptr[float](qtr_p)
+    wind = Ptr[float](wind_p)
+    pdel = Ptr[float](pdel_p)
+    out = Ptr[float](out_p)
+
+    if mode == 1:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                out[idx] = qtr[idx] * pdel[idx] * rga
+    else:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                out[idx] = wind[idx] * qtr[idx] * pdel[idx] * rga
+
+    for k in range(2, pver + 1):
+        for i in range(1, ncol + 1):
+            out[_idx2(i, 1, pcols)] = out[_idx2(i, 1, pcols)] + out[_idx2(i, k, pcols)]
+
+
+@export
+def diag_phys_writeout_ivt_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    rga: float,
+    q_p: cobj,
+    u_p: cobj,
+    v_p: cobj,
+    pdel_p: cobj,
+    uqdp_p: cobj,
+    vqdp_p: cobj,
+    ivt_p: cobj,
+):
+    q = Ptr[float](q_p)
+    u = Ptr[float](u_p)
+    v = Ptr[float](v_p)
+    pdel = Ptr[float](pdel_p)
+    uqdp = Ptr[float](uqdp_p)
+    vqdp = Ptr[float](vqdp_p)
+    ivt = Ptr[float](ivt_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            uqdp[idx] = q[idx] * u[idx] * pdel[idx] * rga
+            vqdp[idx] = q[idx] * v[idx] * pdel[idx] * rga
+
+    for k in range(2, pver + 1):
+        for i in range(1, ncol + 1):
+            idx1 = _idx2(i, 1, pcols)
+            uqdp[idx1] = uqdp[idx1] + uqdp[_idx2(i, k, pcols)]
+            vqdp[idx1] = vqdp[idx1] + vqdp[_idx2(i, k, pcols)]
+
+    for i in range(1, ncol + 1):
+        idx1 = _idx2(i, 1, pcols)
+        ivt[idx1] = sqrt(uqdp[idx1] ** 2 + vqdp[idx1] ** 2)
+
+
+@export
+def diag_phys_writeout_copy_col1_codon(
+    ncol: int,
+    pcols: int,
+    src_p: cobj,
+    dst_p: cobj,
+):
+    src = Ptr[float](src_p)
+    dst = Ptr[float](dst_p)
+
+    for i in range(1, ncol + 1):
+        dst[_idx2(i, 1, pcols)] = src[_idx2(i, 1, pcols)]
+
+
+@export
+def diag_phys_writeout_scale_relhum_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    q_p: cobj,
+    rh_p: cobj,
+):
+    q = Ptr[float](q_p)
+    rh = Ptr[float](rh_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            rh[idx] = q[idx] / rh[idx] * 100.0
+
+
+@export
+def diag_phys_writeout_rhi_rhcfmip_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    t_p: cobj,
+    esl_p: cobj,
+    esi_p: cobj,
+    rhw_p: cobj,
+    rhi_p: cobj,
+    rhcfmip_p: cobj,
+):
+    t = Ptr[float](t_p)
+    esl = Ptr[float](esl_p)
+    esi = Ptr[float](esi_p)
+    rhw = Ptr[float](rhw_p)
+    rhi = Ptr[float](rhi_p)
+    rhcfmip = Ptr[float](rhcfmip_p)
+
+    for i in range(1, ncol + 1):
+        for k in range(1, pver + 1):
+            idx = _idx2(i, k, pcols)
+            rhi[idx] = rhw[idx] * esl[idx] / esi[idx]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            rhcfmip[idx] = rhw[idx]
+
+    for i in range(1, ncol + 1):
+        for k in range(1, pver + 1):
+            idx = _idx2(i, k, pcols)
+            if t[idx] > 273.0:
+                rhcfmip[idx] = rhw[idx]
+            else:
+                rhcfmip[idx] = rhi[idx]
