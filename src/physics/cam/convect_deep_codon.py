@@ -212,6 +212,588 @@ def zm_convr_post_shell_codon(
 
 
 @export
+def zm_convr_init_shell_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    qtnd_p: cobj,
+    heat_p: cobj,
+    mcon_p: cobj,
+    rliq_p: cobj,
+    prec_p: cobj,
+    dqdt_p: cobj,
+    dsdt_p: cobj,
+    dudt_p: cobj,
+    dvdt_p: cobj,
+    pflx_p: cobj,
+    pflxg_p: cobj,
+    cme_p: cobj,
+    rprd_p: cobj,
+    zdu_p: cobj,
+    ql_p: cobj,
+    qlg_p: cobj,
+    dlf_p: cobj,
+    dlg_p: cobj,
+    tug_p: cobj,
+    tdg_p: cobj,
+    tu_p: cobj,
+    td_p: cobj,
+    cu_p: cobj,
+    evp_p: cobj,
+    wtcu_p: cobj,
+    t_p: cobj,
+    pblt_p: cobj,
+    dsubcld_p: cobj,
+    jctop_p: cobj,
+    jcbot_p: cobj,
+):
+    qtnd = Ptr[float](qtnd_p)
+    heat = Ptr[float](heat_p)
+    mcon = Ptr[float](mcon_p)
+    rliq = Ptr[float](rliq_p)
+    prec = Ptr[float](prec_p)
+    dqdt = Ptr[float](dqdt_p)
+    dsdt = Ptr[float](dsdt_p)
+    dudt = Ptr[float](dudt_p)
+    dvdt = Ptr[float](dvdt_p)
+    pflx = Ptr[float](pflx_p)
+    pflxg = Ptr[float](pflxg_p)
+    cme = Ptr[float](cme_p)
+    rprd = Ptr[float](rprd_p)
+    zdu = Ptr[float](zdu_p)
+    ql = Ptr[float](ql_p)
+    qlg = Ptr[float](qlg_p)
+    dlf = Ptr[float](dlf_p)
+    dlg = Ptr[float](dlg_p)
+    tug = Ptr[float](tug_p)
+    tdg = Ptr[float](tdg_p)
+    tu = Ptr[float](tu_p)
+    td = Ptr[float](td_p)
+    cu = Ptr[float](cu_p)
+    evp = Ptr[float](evp_p)
+    wtcu = Ptr[float](wtcu_p)
+    t = Ptr[float](t_p)
+    pblt = Ptr[float](pblt_p)
+    dsubcld = Ptr[float](dsubcld_p)
+    jctop = Ptr[float](jctop_p)
+    jcbot = Ptr[float](jcbot_p)
+
+    k = 0
+    while k < pver:
+        i = 0
+        while i < pcols:
+            idx = i + k * pcols
+            qtnd[idx] = 0.0
+            heat[idx] = 0.0
+            i += 1
+        k += 1
+    k = 0
+    while k < pverp:
+        i = 0
+        while i < pcols:
+            mcon[i + k * pcols] = 0.0
+            i += 1
+        k += 1
+    i = 0
+    while i < ncol:
+        rliq[i] = 0.0
+        prec[i] = 0.0
+        i += 1
+
+    k = 0
+    while k < pver:
+        i = 0
+        while i < ncol:
+            idx = i + k * pcols
+            dqdt[idx] = 0.0
+            dsdt[idx] = 0.0
+            dudt[idx] = 0.0
+            dvdt[idx] = 0.0
+            pflx[idx] = 0.0
+            pflxg[idx] = 0.0
+            cme[idx] = 0.0
+            rprd[idx] = 0.0
+            zdu[idx] = 0.0
+            ql[idx] = 0.0
+            qlg[idx] = 0.0
+            dlf[idx] = 0.0
+            dlg[idx] = 0.0
+            tug[idx] = 0.0
+            tdg[idx] = 0.0
+            tu[idx] = t[idx]
+            td[idx] = t[idx]
+            cu[idx] = 0.0
+            evp[idx] = 0.0
+            wtcu[idx] = 0.0
+            i += 1
+        k += 1
+
+    i = 0
+    while i < ncol:
+        pflx[i + (pverp - 1) * pcols] = 0.0
+        pflxg[i + (pverp - 1) * pcols] = 0.0
+        pblt[i] = float(pver)
+        dsubcld[i] = 0.0
+        jctop[i] = float(pver)
+        jcbot[i] = 1.0
+        i += 1
+
+
+@export
+def zm_convr_pressure_state_shell_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    msg: int,
+    rgrav: float,
+    grav: float,
+    cpres: float,
+    geos_p: cobj,
+    zi_p: cobj,
+    paph_p: cobj,
+    pap_p: cobj,
+    zm_p: cobj,
+    pblh_p: cobj,
+    t_p: cobj,
+    qh_p: cobj,
+    zs_p: cobj,
+    pf_p: cobj,
+    zf_p: cobj,
+    p_p: cobj,
+    z_p: cobj,
+    q_p: cobj,
+    s_p: cobj,
+    tp_p: cobj,
+    shat_p: cobj,
+    qhat_p: cobj,
+    pblt_p: cobj,
+):
+    geos = Ptr[float](geos_p)
+    zi = Ptr[float](zi_p)
+    paph = Ptr[float](paph_p)
+    pap = Ptr[float](pap_p)
+    zm = Ptr[float](zm_p)
+    pblh = Ptr[float](pblh_p)
+    t = Ptr[float](t_p)
+    qh = Ptr[float](qh_p)
+    zs = Ptr[float](zs_p)
+    pf = Ptr[float](pf_p)
+    zf = Ptr[float](zf_p)
+    p = Ptr[float](p_p)
+    z = Ptr[float](z_p)
+    q = Ptr[float](q_p)
+    s = Ptr[float](s_p)
+    tp = Ptr[float](tp_p)
+    shat = Ptr[float](shat_p)
+    qhat = Ptr[float](qhat_p)
+    pblt = Ptr[float](pblt_p)
+
+    i = 0
+    while i < ncol:
+        zs[i] = geos[i] * rgrav
+        pf[i + (pverp - 1) * pcols] = paph[i + (pverp - 1) * pcols] * 0.01
+        zf[i + (pverp - 1) * pcols] = zi[i + (pverp - 1) * pcols] + zs[i]
+        i += 1
+
+    k = 0
+    while k < pver:
+        i = 0
+        while i < ncol:
+            idx = i + k * pcols
+            p[idx] = pap[idx] * 0.01
+            pf[idx] = paph[idx] * 0.01
+            z[idx] = zm[idx] + zs[i]
+            zf[idx] = zi[idx] + zs[i]
+            i += 1
+        k += 1
+
+    kk = pver - 1
+    while kk >= msg + 1:
+        k = kk - 1
+        i = 0
+        while i < ncol:
+            if abs(z[i + k * pcols] - zs[i] - pblh[i]) < (zf[i + k * pcols] - zf[i + (k + 1) * pcols]) * 0.5:
+                pblt[i] = float(kk)
+            i += 1
+        kk -= 1
+
+    k = 0
+    while k < pver:
+        i = 0
+        while i < ncol:
+            idx = i + k * pcols
+            q[idx] = qh[idx]
+            s[idx] = t[idx] + (grav / cpres) * z[idx]
+            tp[idx] = 0.0
+            shat[idx] = s[idx]
+            qhat[idx] = q[idx]
+            i += 1
+        k += 1
+
+
+@export
+def zm_convr_gather_interface_shell_codon(
+    lengath: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    msg: int,
+    dpp_p: cobj,
+    q_p: cobj,
+    t_p: cobj,
+    p_p: cobj,
+    z_p: cobj,
+    s_p: cobj,
+    tp_p: cobj,
+    zf_p: cobj,
+    qstp_p: cobj,
+    ideep_p: cobj,
+    dp_p: cobj,
+    qg_p: cobj,
+    tg_p: cobj,
+    pg_p: cobj,
+    zg_p: cobj,
+    sg_p: cobj,
+    tpg_p: cobj,
+    zfg_p: cobj,
+    qstpg_p: cobj,
+    ug_p: cobj,
+    vg_p: cobj,
+    shat_p: cobj,
+    qhat_p: cobj,
+):
+    dpp = Ptr[float](dpp_p)
+    q = Ptr[float](q_p)
+    t = Ptr[float](t_p)
+    p = Ptr[float](p_p)
+    z = Ptr[float](z_p)
+    s = Ptr[float](s_p)
+    tp = Ptr[float](tp_p)
+    zf = Ptr[float](zf_p)
+    qstp = Ptr[float](qstp_p)
+    ideep = Ptr[int](ideep_p)
+    dp = Ptr[float](dp_p)
+    qg = Ptr[float](qg_p)
+    tg = Ptr[float](tg_p)
+    pg = Ptr[float](pg_p)
+    zg = Ptr[float](zg_p)
+    sg = Ptr[float](sg_p)
+    tpg = Ptr[float](tpg_p)
+    zfg = Ptr[float](zfg_p)
+    qstpg = Ptr[float](qstpg_p)
+    ug = Ptr[float](ug_p)
+    vg = Ptr[float](vg_p)
+    shat = Ptr[float](shat_p)
+    qhat = Ptr[float](qhat_p)
+
+    k = 0
+    while k < pver:
+        i = 0
+        while i < lengath:
+            ii = ideep[i] - 1
+            gidx = i + k * pcols
+            sidx = ii + k * pcols
+            dp[gidx] = 0.01 * dpp[sidx]
+            qg[gidx] = q[sidx]
+            tg[gidx] = t[sidx]
+            pg[gidx] = p[sidx]
+            zg[gidx] = z[sidx]
+            sg[gidx] = s[sidx]
+            tpg[gidx] = tp[sidx]
+            zfg[gidx] = zf[sidx]
+            qstpg[gidx] = qstp[sidx]
+            ug[gidx] = 0.0
+            vg[gidx] = 0.0
+            i += 1
+        k += 1
+
+    i = 0
+    while i < lengath:
+        zfg[i + (pverp - 1) * pcols] = zf[(ideep[i] - 1) + (pverp - 1) * pcols]
+        i += 1
+
+    kk = msg + 2
+    while kk <= pver:
+        k = kk - 1
+        km1 = kk - 2
+        i = 0
+        while i < lengath:
+            idx = i + k * pcols
+            km1idx = i + km1 * pcols
+            sdifr = 0.0
+            qdifr = 0.0
+            if sg[idx] > 0.0 or sg[km1idx] > 0.0:
+                sdifr = abs((sg[idx] - sg[km1idx]) / max(sg[km1idx], sg[idx]))
+            if qg[idx] > 0.0 or qg[km1idx] > 0.0:
+                qdifr = abs((qg[idx] - qg[km1idx]) / max(qg[km1idx], qg[idx]))
+            if sdifr > 1.0e-6:
+                shat[idx] = log(sg[km1idx] / sg[idx]) * sg[km1idx] * sg[idx] / (sg[km1idx] - sg[idx])
+            else:
+                shat[idx] = 0.5 * (sg[idx] + sg[km1idx])
+            if qdifr > 1.0e-6:
+                qhat[idx] = log(qg[km1idx] / qg[idx]) * qg[km1idx] * qg[idx] / (qg[km1idx] - qg[idx])
+            else:
+                qhat[idx] = 0.5 * (qg[idx] + qg[km1idx])
+            i += 1
+        kk += 1
+
+
+@export
+def zm_convr_unit_shell_codon(
+    lengath: int,
+    pcols: int,
+    pver: int,
+    msg: int,
+    zfg_p: cobj,
+    dp_p: cobj,
+    du_p: cobj,
+    eu_p: cobj,
+    ed_p: cobj,
+    cug_p: cobj,
+    cmeg_p: cobj,
+    rprdg_p: cobj,
+    evpg_p: cobj,
+    rppe_p: cobj,
+):
+    zfg = Ptr[float](zfg_p)
+    dp = Ptr[float](dp_p)
+    du = Ptr[float](du_p)
+    eu = Ptr[float](eu_p)
+    ed = Ptr[float](ed_p)
+    cug = Ptr[float](cug_p)
+    cmeg = Ptr[float](cmeg_p)
+    rprdg = Ptr[float](rprdg_p)
+    evpg = Ptr[float](evpg_p)
+    rppe = Ptr[float](rppe_p)
+
+    kk = msg + 1
+    while kk <= pver:
+        k = kk - 1
+        i = 0
+        while i < lengath:
+            idx = i + k * pcols
+            next_idx = i + (k + 1) * pcols
+            du[idx] = du[idx] * (zfg[idx] - zfg[next_idx]) / dp[idx]
+            eu[idx] = eu[idx] * (zfg[idx] - zfg[next_idx]) / dp[idx]
+            ed[idx] = ed[idx] * (zfg[idx] - zfg[next_idx]) / dp[idx]
+            cug[idx] = cug[idx] * (zfg[idx] - zfg[next_idx]) / dp[idx]
+            cmeg[idx] = cmeg[idx] * (zfg[idx] - zfg[next_idx]) / dp[idx]
+            rprdg[idx] = rprdg[idx] * (zfg[idx] - zfg[next_idx]) / dp[idx]
+            evpg[idx] = evpg[idx] * (zfg[idx] - zfg[next_idx]) / dp[idx]
+            rppe[idx] = rppe[idx] * (zfg[idx] - zfg[next_idx]) / dp[idx]
+            i += 1
+        kk += 1
+
+
+@export
+def zm_convr_mflux_shell_codon(
+    lengath: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    msg: int,
+    gravit: float,
+    mb_p: cobj,
+    mu_p: cobj,
+    md_p: cobj,
+    mc_p: cobj,
+    du_p: cobj,
+    eu_p: cobj,
+    ed_p: cobj,
+    cmeg_p: cobj,
+    rprdg_p: cobj,
+    cug_p: cobj,
+    evpg_p: cobj,
+    pflxg_p: cobj,
+    rppe_p: cobj,
+):
+    mb = Ptr[float](mb_p)
+    mu = Ptr[float](mu_p)
+    md = Ptr[float](md_p)
+    mc = Ptr[float](mc_p)
+    du = Ptr[float](du_p)
+    eu = Ptr[float](eu_p)
+    ed = Ptr[float](ed_p)
+    cmeg = Ptr[float](cmeg_p)
+    rprdg = Ptr[float](rprdg_p)
+    cug = Ptr[float](cug_p)
+    evpg = Ptr[float](evpg_p)
+    pflxg = Ptr[float](pflxg_p)
+    rppe = Ptr[float](rppe_p)
+
+    kk = msg + 1
+    while kk <= pver:
+        k = kk - 1
+        i = 0
+        while i < lengath:
+            idx = i + k * pcols
+            mu[idx] = mu[idx] * mb[i]
+            md[idx] = md[idx] * mb[i]
+            mc[idx] = mc[idx] * mb[i]
+            du[idx] = du[idx] * mb[i]
+            eu[idx] = eu[idx] * mb[i]
+            ed[idx] = ed[idx] * mb[i]
+            cmeg[idx] = cmeg[idx] * mb[i]
+            rprdg[idx] = rprdg[idx] * mb[i]
+            cug[idx] = cug[idx] * mb[i]
+            evpg[idx] = evpg[idx] * mb[i]
+            pflxg[i + (k + 1) * pcols] = pflxg[i + (k + 1) * pcols] * mb[i] * 100.0 / gravit
+            rppe[idx] = rppe[idx] * mb[i]
+            i += 1
+        kk += 1
+
+
+@export
+def zm_convr_tail_shell_codon(
+    ncol: int,
+    lengath: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    msg: int,
+    delt: float,
+    cpres: float,
+    rgrav: float,
+    gravit: float,
+    ideep_p: cobj,
+    jt_p: cobj,
+    maxg_p: cobj,
+    qh_p: cobj,
+    dpp_p: cobj,
+    q_p: cobj,
+    dqdt_p: cobj,
+    dsdt_p: cobj,
+    cmeg_p: cobj,
+    rprdg_p: cobj,
+    du_p: cobj,
+    mc_p: cobj,
+    dlg_p: cobj,
+    cug_p: cobj,
+    evpg_p: cobj,
+    tug_p: cobj,
+    tdg_p: cobj,
+    pflxg_p: cobj,
+    qlg_p: cobj,
+    qtnd_p: cobj,
+    cme_p: cobj,
+    rprd_p: cobj,
+    zdu_p: cobj,
+    mcon_p: cobj,
+    heat_p: cobj,
+    dlf_p: cobj,
+    cu_p: cobj,
+    evp_p: cobj,
+    tu_p: cobj,
+    td_p: cobj,
+    pflx_p: cobj,
+    ql_p: cobj,
+    jctop_p: cobj,
+    jcbot_p: cobj,
+    prec_p: cobj,
+    rliq_p: cobj,
+):
+    ideep = Ptr[int](ideep_p)
+    jt = Ptr[int](jt_p)
+    maxg = Ptr[int](maxg_p)
+    qh = Ptr[float](qh_p)
+    dpp = Ptr[float](dpp_p)
+    q = Ptr[float](q_p)
+    dqdt = Ptr[float](dqdt_p)
+    dsdt = Ptr[float](dsdt_p)
+    cmeg = Ptr[float](cmeg_p)
+    rprdg = Ptr[float](rprdg_p)
+    du = Ptr[float](du_p)
+    mc = Ptr[float](mc_p)
+    dlg = Ptr[float](dlg_p)
+    cug = Ptr[float](cug_p)
+    evpg = Ptr[float](evpg_p)
+    tug = Ptr[float](tug_p)
+    tdg = Ptr[float](tdg_p)
+    pflxg = Ptr[float](pflxg_p)
+    qlg = Ptr[float](qlg_p)
+    qtnd = Ptr[float](qtnd_p)
+    cme = Ptr[float](cme_p)
+    rprd = Ptr[float](rprd_p)
+    zdu = Ptr[float](zdu_p)
+    mcon = Ptr[float](mcon_p)
+    heat = Ptr[float](heat_p)
+    dlf = Ptr[float](dlf_p)
+    cu = Ptr[float](cu_p)
+    evp = Ptr[float](evp_p)
+    tu = Ptr[float](tu_p)
+    td = Ptr[float](td_p)
+    pflx = Ptr[float](pflx_p)
+    ql = Ptr[float](ql_p)
+    jctop = Ptr[float](jctop_p)
+    jcbot = Ptr[float](jcbot_p)
+    prec = Ptr[float](prec_p)
+    rliq = Ptr[float](rliq_p)
+
+    kk = msg + 1
+    while kk <= pver:
+        k = kk - 1
+        i = 0
+        while i < lengath:
+            ii = ideep[i] - 1
+            gidx = i + k * pcols
+            sidx = ii + k * pcols
+            q[sidx] = qh[sidx] + 2.0 * delt * dqdt[gidx]
+            qtnd[sidx] = dqdt[gidx]
+            cme[sidx] = cmeg[gidx]
+            rprd[sidx] = rprdg[gidx]
+            zdu[sidx] = du[gidx]
+            mcon[sidx] = mc[gidx]
+            heat[sidx] = dsdt[gidx] * cpres
+            dlf[sidx] = dlg[gidx]
+            cu[sidx] = cug[gidx]
+            evp[sidx] = evpg[gidx]
+            tu[sidx] = tug[gidx]
+            td[sidx] = tdg[gidx]
+            pflx[sidx] = pflxg[gidx]
+            ql[sidx] = qlg[gidx]
+            i += 1
+        kk += 1
+
+    i = 0
+    while i < lengath:
+        ii = ideep[i] - 1
+        jctop[ii] = float(jt[i])
+        jcbot[ii] = float(maxg[i])
+        pflx[ii + (pverp - 1) * pcols] = pflxg[i + (pverp - 1) * pcols]
+        i += 1
+
+    kk = pver
+    while kk >= msg + 1:
+        k = kk - 1
+        i = 0
+        while i < ncol:
+            idx = i + k * pcols
+            prec[i] = prec[i] - dpp[idx] * (q[idx] - qh[idx]) - dpp[idx] * dlf[idx] * 2 * delt
+            i += 1
+        kk -= 1
+
+    i = 0
+    while i < ncol:
+        prec[i] = rgrav * max(prec[i], 0.0) / (2.0 * delt) / 1000.0
+        i += 1
+
+    k = 0
+    while k < pver:
+        i = 0
+        while i < ncol:
+            idx = i + k * pcols
+            rliq[i] = rliq[i] + dlf[idx] * dpp[idx] / gravit
+            i += 1
+        k += 1
+
+    i = 0
+    while i < ncol:
+        rliq[i] = rliq[i] / 1000.0
+        i += 1
+
+@export
 def zm_conv_workspace_init_shell_codon(
     ncol: int,
     pcols: int,
