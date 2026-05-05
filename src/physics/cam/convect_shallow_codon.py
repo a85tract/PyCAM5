@@ -1915,6 +1915,97 @@ def uwshcu_column_thermo_state_shell_codon(
 
 
 @export
+def uwshcu_pbl_source_shell_codon(
+    mkx: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    kinv: int,
+    zvir: float,
+    ps0_p: cobj,
+    p0_p: cobj,
+    tke_p: cobj,
+    thvl0bot_p: cobj,
+    thvl0top_p: cobj,
+    qt0_p: cobj,
+    u0_p: cobj,
+    v0_p: cobj,
+    ssu0_p: cobj,
+    ssv0_p: cobj,
+    tr0_p: cobj,
+    wt0_p: cobj,
+    tkeavg_p: cobj,
+    thvlmin_p: cobj,
+    qtsrc_p: cobj,
+    thvlsrc_p: cobj,
+    thlsrc_p: cobj,
+    usrc_p: cobj,
+    vsrc_p: cobj,
+    trsrc_p: cobj,
+    wtsrc_p: cobj,
+):
+    ps0 = Ptr[float](ps0_p)
+    p0 = Ptr[float](p0_p)
+    tke = Ptr[float](tke_p)
+    thvl0bot = Ptr[float](thvl0bot_p)
+    thvl0top = Ptr[float](thvl0top_p)
+    qt0 = Ptr[float](qt0_p)
+    u0 = Ptr[float](u0_p)
+    v0 = Ptr[float](v0_p)
+    ssu0 = Ptr[float](ssu0_p)
+    ssv0 = Ptr[float](ssv0_p)
+    tr0 = Ptr[float](tr0_p)
+    wt0 = Ptr[float](wt0_p)
+    tkeavg = Ptr[float](tkeavg_p)
+    thvlmin = Ptr[float](thvlmin_p)
+    qtsrc = Ptr[float](qtsrc_p)
+    thvlsrc = Ptr[float](thvlsrc_p)
+    thlsrc = Ptr[float](thlsrc_p)
+    usrc = Ptr[float](usrc_p)
+    vsrc = Ptr[float](vsrc_p)
+    trsrc = Ptr[float](trsrc_p)
+    wtsrc = Ptr[float](wtsrc_p)
+
+    dpsum = 0.0
+    tkeavg_val = 0.0
+    thvlmin_val = 1000.0
+    k = 0
+    while k < kinv:
+        if k == 0:
+            dpi = ps0[0] - p0[0]
+        elif k == kinv - 1:
+            dpi = p0[kinv - 2] - ps0[kinv - 1]
+        else:
+            dpi = p0[k - 1] - p0[k]
+        dpsum = dpsum + dpi
+        tkeavg_val = tkeavg_val + dpi * tke[k]
+        if k != 0:
+            thvl_layer_min = thvl0bot[k - 1]
+            if thvl0top[k - 1] < thvl_layer_min:
+                thvl_layer_min = thvl0top[k - 1]
+            if thvl_layer_min < thvlmin_val:
+                thvlmin_val = thvl_layer_min
+        k += 1
+
+    tkeavg[0] = tkeavg_val / dpsum
+    thvlmin[0] = thvlmin_val
+    qtsrc[0] = qt0[0]
+    thvlsrc[0] = thvlmin[0]
+    thlsrc[0] = thvlsrc[0] / (1.0 + zvir * qtsrc[0])
+    usrc[0] = u0[kinv - 2] + ssu0[kinv - 2] * (ps0[kinv - 1] - p0[kinv - 2])
+    vsrc[0] = v0[kinv - 2] + ssv0[kinv - 2] * (ps0[kinv - 1] - p0[kinv - 2])
+
+    m = 0
+    while m < ncnst:
+        trsrc[m] = tr0[m * mkx]
+        m += 1
+
+    m = 0
+    while m < wtrc_nwset:
+        wtsrc[m] = wt0[m * mkx]
+        m += 1
+
+
+@export
 def uwshcu_column_input_load_shell_codon(
     mix: int,
     mkx: int,

@@ -49,6 +49,7 @@
   logical :: column_init_shell_entered_logged = .false.
   logical :: column_input_shell_entered_logged = .false.
   logical :: column_thermo_shell_entered_logged = .false.
+  logical :: pbl_source_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -324,6 +325,21 @@ contains
     end if
 
   end subroutine uwshcu_log_column_thermo_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_pbl_source_shell_entered()
+
+    if (pbl_source_shell_entered_logged) return
+    pbl_source_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu pbl source shell entered (tke/source/tracer prep direct = codon)'
+       call uwshcu_append_proof('uwshcu pbl source shell entered (tke/source/tracer prep direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_pbl_source_shell_entered
 
 !===============================================================================
   
@@ -1258,15 +1274,17 @@ end subroutine uwshcu_readnl
     logical     id_exit   
     logical     forcedCu                                      !  If 'true', cumulus updraft cannot overcome the buoyancy barrier
                                                               ! just above the PBL top.
-    real(r8)    thlsrc, qtsrc, usrc, vsrc, thvlsrc            !  Updraft source air properties
+    real(r8), target :: thlsrc, qtsrc, usrc, vsrc, thvlsrc    !  Updraft source air properties
     real(r8)    PGFc, uplus, vplus
-    real(r8)    trsrc(ncnst), tre(ncnst)
+    real(r8), target :: trsrc(ncnst)
+    real(r8)    tre(ncnst)
     real(r8)    plcl, plfc, prel, wrel
     real(r8)    frc_rasn
     real(r8)    ee2, ud2, wtw, wtwb, wtwh
     real(r8)    xc, xc_2                                       
     real(r8)    cldhgt, scaleh, tscaleh, cridis, rle, rkm
-    real(r8)    rkfre, sigmaw, epsvarw, tkeavg, dpsum, dpi, thvlmin
+    real(r8), target :: tkeavg, thvlmin
+    real(r8)    rkfre, sigmaw, epsvarw, dpsum, dpi
     real(r8)    thlxsat, qtxsat, thvxsat, x_cu, x_en, thv_x0, thv_x1
     real(r8)    thj, qvj, qlj, qij, thvj, tj, thv0j, rho0j, rhos0j, qse 
     real(r8)    cin, cinlcl
@@ -1289,7 +1307,7 @@ end subroutine uwshcu_readnl
 
    !Water tracers:
     real(r8)   wte(wtrc_nwset)              ! Total water tracer humidity at release level [ kg/kg ]
-    real(r8)   wtsrc(wtrc_nwset)            ! Total water tracer humidity at surface [ kg/kg ]
+    real(r8), target :: wtsrc(wtrc_nwset)   ! Total water tracer humidity at surface [ kg/kg ]
     real(r8)   wtout(wtrc_nwset,3)          ! Output for water tracers from conden (1=vapor,2=liquid,3=ice)
     real(r8)   wtout_emf_kbup(wtrc_nwset,3) ! Output from conden during penetrative entrainment [ kg/kg ]
     real(r8)   wtexql(wtrc_nwset)           ! Expelled (detrained) water tracer liquid (not completely necessary)
@@ -1722,6 +1740,19 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: qv0_p, ql0_p, qi0_p, t0_p, exn0_p, tr0_p, wtrc_iatype_p
           type(c_ptr), value :: qt0_p, thl0_p, thvl0_p, wt0_p
        end subroutine uwshcu_column_thermo_state_shell_codon
+
+       subroutine uwshcu_pbl_source_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, zvir_c, &
+            ps0_p, p0_p, tke_p, thvl0bot_p, thvl0top_p, qt0_p, u0_p, v0_p, ssu0_p, ssv0_p, &
+            tr0_p, wt0_p, tkeavg_p, thvlmin_p, qtsrc_p, thvlsrc_p, thlsrc_p, usrc_p, vsrc_p, &
+            trsrc_p, wtsrc_p) bind(c, name="uwshcu_pbl_source_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kinv_c
+          real(c_double), value :: zvir_c
+          type(c_ptr), value :: ps0_p, p0_p, tke_p, thvl0bot_p, thvl0top_p, qt0_p
+          type(c_ptr), value :: u0_p, v0_p, ssu0_p, ssv0_p, tr0_p, wt0_p
+          type(c_ptr), value :: tkeavg_p, thvlmin_p, qtsrc_p, thvlsrc_p, thlsrc_p, usrc_p, vsrc_p
+          type(c_ptr), value :: trsrc_p, wtsrc_p
+       end subroutine uwshcu_pbl_source_shell_codon
 
        subroutine uwshcu_column_env_save_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, &
@@ -2536,49 +2567,60 @@ end subroutine uwshcu_readnl
        ! interface values of 'thvl' in each layers within the PBL.                  !
        ! -------------------------------------------------------------------------- !
        
-       dpsum    = 0._r8
-       tkeavg   = 0._r8
-       thvlmin  = 1000._r8
-       do k = 0, kinv - 1   ! Here, 'k' is an interfacial layer index.  
-          if( k .eq. 0 ) then
-              dpi = ps0(0) - p0(1)
-          elseif( k .eq. (kinv-1) ) then 
-              dpi = p0(kinv-1) - ps0(kinv-1)
-          else
-              dpi = p0(k) - p0(k+1)
-          endif 
-          dpsum  = dpsum  + dpi  
-          tkeavg = tkeavg + dpi*tke(k) 
-          if( k .ne. 0 ) thvlmin = min(thvlmin,min(thvl0bot(k),thvl0top(k)))
-       end do
-       tkeavg  = tkeavg/dpsum
-
-       ! ------------------------------------------------------------------ !
-       ! Find characteristics of cumulus source air: qtsrc,thlsrc,usrc,vsrc !
-       ! Note that 'thlsrc' was con-cocked using 'thvlsrc' and 'qtsrc'.     !
-       ! 'qtsrc' is defined as the lowest layer mid-point value;   'thlsrc' !
-       ! is from 'qtsrc' and 'thvlmin=thvlsrc'; 'usrc' & 'vsrc' are defined !
-       ! as the values just below the PBL top interface.                    !
-       ! ------------------------------------------------------------------ !
-
-       qtsrc   = qt0(1)                     
-       thvlsrc = thvlmin 
-       thlsrc  = thvlsrc / ( 1._r8 + zvir * qtsrc )  
-       usrc    = u0(kinv-1) + ssu0(kinv-1) * ( ps0(kinv-1) - p0(kinv-1) )             
-       vsrc    = v0(kinv-1) + ssv0(kinv-1) * ( ps0(kinv-1) - p0(kinv-1) )             
-       do m = 1, ncnst
-          trsrc(m) = tr0(1,m)
-       enddo 
-
-       !*************
-       !Water tracers
-       !*************
-        if(trace_water) then
-          do m=1,wtrc_nwset
-           wtsrc(m) = wt0(1,m)
+       if (use_native_init_shell_impl) then
+          dpsum    = 0._r8
+          tkeavg   = 0._r8
+          thvlmin  = 1000._r8
+          do k = 0, kinv - 1   ! Here, 'k' is an interfacial layer index.
+             if( k .eq. 0 ) then
+                 dpi = ps0(0) - p0(1)
+             elseif( k .eq. (kinv-1) ) then
+                 dpi = p0(kinv-1) - ps0(kinv-1)
+             else
+                 dpi = p0(k) - p0(k+1)
+             endif
+             dpsum  = dpsum  + dpi
+             tkeavg = tkeavg + dpi*tke(k)
+             if( k .ne. 0 ) thvlmin = min(thvlmin,min(thvl0bot(k),thvl0top(k)))
           end do
-        end if
-       !*************
+          tkeavg  = tkeavg/dpsum
+
+          ! ------------------------------------------------------------------ !
+          ! Find characteristics of cumulus source air: qtsrc,thlsrc,usrc,vsrc !
+          ! Note that 'thlsrc' was con-cocked using 'thvlsrc' and 'qtsrc'.     !
+          ! 'qtsrc' is defined as the lowest layer mid-point value;   'thlsrc' !
+          ! is from 'qtsrc' and 'thvlmin=thvlsrc'; 'usrc' & 'vsrc' are defined !
+          ! as the values just below the PBL top interface.                    !
+          ! ------------------------------------------------------------------ !
+
+          qtsrc   = qt0(1)
+          thvlsrc = thvlmin
+          thlsrc  = thvlsrc / ( 1._r8 + zvir * qtsrc )
+          usrc    = u0(kinv-1) + ssu0(kinv-1) * ( ps0(kinv-1) - p0(kinv-1) )
+          vsrc    = v0(kinv-1) + ssv0(kinv-1) * ( ps0(kinv-1) - p0(kinv-1) )
+          do m = 1, ncnst
+             trsrc(m) = tr0(1,m)
+          enddo
+
+          !*************
+          !Water tracers
+          !*************
+           if(trace_water) then
+             do m=1,wtrc_nwset
+              wtsrc(m) = wt0(1,m)
+             end do
+           end if
+          !*************
+       else
+          wtrc_nwset_post_c = 0_c_int64_t
+          if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
+          call uwshcu_log_pbl_source_shell_entered()
+          call uwshcu_pbl_source_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+               wtrc_nwset_post_c, int(kinv, c_int64_t), zvir, c_loc(ps0), c_loc(p0), c_loc(tke), &
+               c_loc(thvl0bot), c_loc(thvl0top), c_loc(qt0), c_loc(u0), c_loc(v0), c_loc(ssu0), &
+               c_loc(ssv0), c_loc(tr0), c_loc(wt0), c_loc(tkeavg), c_loc(thvlmin), c_loc(qtsrc), &
+               c_loc(thvlsrc), c_loc(thlsrc), c_loc(usrc), c_loc(vsrc), c_loc(trsrc), c_loc(wtsrc))
+       end if
 
        ! ------------------------------------------------------------------ !
        ! Find LCL of the source air and a layer index containing LCL (klcl) !
