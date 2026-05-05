@@ -82,7 +82,9 @@ module zm_conv
    logical :: zm_convr_pressure_logged = .false.
    logical :: zm_convr_gather_logged = .false.
    logical :: zm_convr_unit_logged = .false.
+   logical :: zm_convr_limit_logged = .false.
    logical :: zm_convr_mflux_logged = .false.
+   logical :: zm_q1q2_logged = .false.
    logical :: zm_convr_tail_logged = .false.
 
 contains
@@ -546,7 +548,7 @@ subroutine zm_convr(lchnk   ,ncol    , &
    real(r8), target :: evpg(pcols,pver)   ! gathered evap rate of rain in downdraft
    real(r8) orgavg(pcols)
    real(r8) dptot(pcols)
-   real(r8) mumax(pcols)
+   real(r8), target :: mumax(pcols)
    integer jt(pcols)                          ! wg top  level index of deep cumulus convection.
    integer maxg(pcols)                        ! wg gathered values of maxi.
    integer ideep(pcols)                       ! w holds position of gathered points vs longitude index.
@@ -656,6 +658,7 @@ subroutine zm_convr(lchnk   ,ncol    , &
    integer ii
    integer k
    integer msg                      !  ic number of missing moisture levels at the top of model.
+   integer(c_int64_t) :: no_deep_pbl_flag
    real(r8) qdifr
    real(r8) sdifr
 
@@ -707,6 +710,25 @@ subroutine zm_convr(lchnk   ,ncol    , &
          type(c_ptr), value :: mb_p, mu_p, md_p, mc_p, du_p, eu_p, ed_p, cmeg_p, rprdg_p, cug_p, evpg_p
          type(c_ptr), value :: pflxg_p, rppe_p
       end subroutine zm_convr_mflux_shell_codon
+
+      subroutine zm_convr_closure_limit_shell_codon(lengath_c, pcols_c, pver_c, msg_c, no_deep_pbl_c, &
+           delt_c, ideep_p, jt_p, zm_p, pblh_p, mu_p, dp_p, mb_p, mumax_p) &
+           bind(c, name="zm_convr_closure_limit_shell_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, msg_c, no_deep_pbl_c
+         real(c_double), value :: delt_c
+         type(c_ptr), value :: ideep_p, jt_p, zm_p, pblh_p, mu_p, dp_p, mb_p, mumax_p
+      end subroutine zm_convr_closure_limit_shell_codon
+
+      subroutine zm_q1q2_pjr_codon(lengath_c, pcols_c, pver_c, msg_c, cpres_c, rl_c, q_p, qu_p, su_p, du_p, &
+           qhat_p, shat_p, dp_p, mu_p, md_p, sd_p, qd_p, ql_p, dsubcld_p, jt_p, mx_p, dl_p, evp_p, cu_p, &
+           dqdt_p, dsdt_p) bind(c, name="zm_q1q2_pjr_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, msg_c
+         real(c_double), value :: cpres_c, rl_c
+         type(c_ptr), value :: q_p, qu_p, su_p, du_p, qhat_p, shat_p, dp_p, mu_p, md_p, sd_p, qd_p, ql_p
+         type(c_ptr), value :: dsubcld_p, jt_p, mx_p, dl_p, evp_p, cu_p, dqdt_p, dsdt_p
+      end subroutine zm_q1q2_pjr_codon
 
       subroutine zm_convr_tail_shell_codon(ncol_c, lengath_c, pcols_c, pver_c, pverp_c, msg_c, delt_c, &
            cpres_c, rgrav_c, gravit_c, ideep_p, jt_p, maxg_p, qh_p, dpp_p, q_p, dqdt_p, dsdt_p, cmeg_p, &
@@ -1079,29 +1101,49 @@ wtrpd(:,:) = rprdg(:,:)
 !
 ! limit cloud base mass flux to theoretical upper bound.
 !
-   do i=1,lengath
-      mumax(i) = 0
-   end do
-   do k=msg + 2,pver
-      do i=1,lengath
-        mumax(i) = max(mumax(i), mu(i,k)/dp(i,k))
+   if (.not. use_native_zm_convr_shell) then
+      do i = 1,lengath
+         jt64(i) = int(jt(i), c_int64_t)
       end do
-   end do
-
-   do i=1,lengath
-      if (mumax(i) > 0._r8) then
-         mb(i) = min(mb(i),0.5_r8/(delt*mumax(i)))
+      if (no_deep_pbl) then
+         no_deep_pbl_flag = 1_c_int64_t
       else
-         mb(i) = 0._r8
-      endif
-   end do
-   ! If no_deep_pbl = .true., don't allow convection entirely
-   ! within PBL (suggestion of Bjorn Stevens, 8-2000)
-
-   if (no_deep_pbl) then
+         no_deep_pbl_flag = 0_c_int64_t
+      end if
+      if (masterproc .and. .not. zm_convr_limit_logged) then
+         write(iulog,*) 'zm_convr closure limiter shell entered (mb upper bound direct = codon)'
+         call zm_conv_evap_append_impl_proof('zm_convr closure limiter shell entered (mb upper bound direct = codon)')
+         call flush(iulog)
+         zm_convr_limit_logged = .true.
+      end if
+      call zm_convr_closure_limit_shell_codon(int(lengath, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(msg, c_int64_t), no_deep_pbl_flag, delt, c_loc(ideep64), c_loc(jt64), &
+           c_loc(zm), c_loc(pblh), c_loc(mu), c_loc(dp), c_loc(mb), c_loc(mumax))
+   else
       do i=1,lengath
-         if (zm(ideep(i),jt(i)) < pblh(ideep(i))) mb(i) = 0
+         mumax(i) = 0
       end do
+      do k=msg + 2,pver
+         do i=1,lengath
+           mumax(i) = max(mumax(i), mu(i,k)/dp(i,k))
+         end do
+      end do
+
+      do i=1,lengath
+         if (mumax(i) > 0._r8) then
+            mb(i) = min(mb(i),0.5_r8/(delt*mumax(i)))
+         else
+            mb(i) = 0._r8
+         endif
+      end do
+      ! If no_deep_pbl = .true., don't allow convection entirely
+      ! within PBL (suggestion of Bjorn Stevens, 8-2000)
+
+      if (no_deep_pbl) then
+         do i=1,lengath
+            if (zm(ideep(i),jt(i)) < pblh(ideep(i))) mb(i) = 0
+         end do
+      end if
    end if
 
    if (.not. use_native_zm_convr_shell) then
@@ -1137,13 +1179,31 @@ wtrpd(:,:) = rprdg(:,:)
 !
 ! compute temperature and moisture changes due to convection.
 !
-   call q1q2_pjr(lchnk   , &
-                 dqdt    ,dsdt    ,qg      ,qs      ,qu      , &
-                 su      ,du      ,qhat    ,shat    ,dp      , &
-                 mu      ,md      ,sd      ,qd      ,qlg     , &
-                 dsubcld ,jt      ,maxg    ,1       ,lengath , &
-                 cpres   ,rl      ,msg     ,          &
-                 dlg     ,evpg    ,cug     )
+   if (.not. use_native_zm_convr_shell) then
+      do i = 1,lengath
+         jt64(i) = int(jt(i), c_int64_t)
+         maxg64(i) = int(maxg(i), c_int64_t)
+      end do
+      if (masterproc .and. .not. zm_q1q2_logged) then
+         write(iulog,*) 'zm_q1q2_pjr entered (convective tendency direct = codon)'
+         call zm_conv_evap_append_impl_proof('zm_q1q2_pjr entered (convective tendency direct = codon)')
+         call flush(iulog)
+         zm_q1q2_logged = .true.
+      end if
+      call zm_q1q2_pjr_codon(int(lengath, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+           int(msg, c_int64_t), cpres, rl, c_loc(qg), c_loc(qu), c_loc(su), c_loc(du), c_loc(qhat), &
+           c_loc(shat), c_loc(dp), c_loc(mu), c_loc(md), c_loc(sd), c_loc(qd), c_loc(qlg), &
+           c_loc(dsubcld), c_loc(jt64), c_loc(maxg64), c_loc(dlg), c_loc(evpg), c_loc(cug), &
+           c_loc(dqdt), c_loc(dsdt))
+   else
+      call q1q2_pjr(lchnk   , &
+                    dqdt    ,dsdt    ,qg      ,qs      ,qu      , &
+                    su      ,du      ,qhat    ,shat    ,dp      , &
+                    mu      ,md      ,sd      ,qd      ,qlg     , &
+                    dsubcld ,jt      ,maxg    ,1       ,lengath , &
+                    cpres   ,rl      ,msg     ,          &
+                    dlg     ,evpg    ,cug     )
+   end if
 
 
 !

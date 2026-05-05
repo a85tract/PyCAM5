@@ -646,6 +646,183 @@ def zm_convr_mflux_shell_codon(
 
 
 @export
+def zm_convr_closure_limit_shell_codon(
+    lengath: int,
+    pcols: int,
+    pver: int,
+    msg: int,
+    no_deep_pbl_flag: int,
+    delt: float,
+    ideep_p: cobj,
+    jt_p: cobj,
+    zm_p: cobj,
+    pblh_p: cobj,
+    mu_p: cobj,
+    dp_p: cobj,
+    mb_p: cobj,
+    mumax_p: cobj,
+):
+    ideep = Ptr[int](ideep_p)
+    jt = Ptr[int](jt_p)
+    zm = Ptr[float](zm_p)
+    pblh = Ptr[float](pblh_p)
+    mu = Ptr[float](mu_p)
+    dp = Ptr[float](dp_p)
+    mb = Ptr[float](mb_p)
+    mumax = Ptr[float](mumax_p)
+
+    i = 0
+    while i < lengath:
+        mumax[i] = 0.0
+        i += 1
+
+    kk = msg + 2
+    while kk <= pver:
+        k = kk - 1
+        i = 0
+        while i < lengath:
+            idx = i + k * pcols
+            mumax[i] = max(mumax[i], mu[idx] / dp[idx])
+            i += 1
+        kk += 1
+
+    i = 0
+    while i < lengath:
+        if mumax[i] > 0.0:
+            mb[i] = min(mb[i], 0.5 / (delt * mumax[i]))
+        else:
+            mb[i] = 0.0
+        i += 1
+
+    if no_deep_pbl_flag != 0:
+        i = 0
+        while i < lengath:
+            ii = ideep[i] - 1
+            k = jt[i] - 1
+            if zm[ii + k * pcols] < pblh[ii]:
+                mb[i] = 0.0
+            i += 1
+
+
+@export
+def zm_q1q2_pjr_codon(
+    lengath: int,
+    pcols: int,
+    pver: int,
+    msg: int,
+    cp: float,
+    rl: float,
+    q_p: cobj,
+    qu_p: cobj,
+    su_p: cobj,
+    du_p: cobj,
+    qhat_p: cobj,
+    shat_p: cobj,
+    dp_p: cobj,
+    mu_p: cobj,
+    md_p: cobj,
+    sd_p: cobj,
+    qd_p: cobj,
+    ql_p: cobj,
+    dsubcld_p: cobj,
+    jt_p: cobj,
+    mx_p: cobj,
+    dl_p: cobj,
+    evp_p: cobj,
+    cu_p: cobj,
+    dqdt_p: cobj,
+    dsdt_p: cobj,
+):
+    q = Ptr[float](q_p)
+    qu = Ptr[float](qu_p)
+    su = Ptr[float](su_p)
+    du = Ptr[float](du_p)
+    qhat = Ptr[float](qhat_p)
+    shat = Ptr[float](shat_p)
+    dp = Ptr[float](dp_p)
+    mu = Ptr[float](mu_p)
+    md = Ptr[float](md_p)
+    sd = Ptr[float](sd_p)
+    qd = Ptr[float](qd_p)
+    ql = Ptr[float](ql_p)
+    dsubcld = Ptr[float](dsubcld_p)
+    jt = Ptr[int](jt_p)
+    mx = Ptr[int](mx_p)
+    dl = Ptr[float](dl_p)
+    evp = Ptr[float](evp_p)
+    cu = Ptr[float](cu_p)
+    dqdt = Ptr[float](dqdt_p)
+    dsdt = Ptr[float](dsdt_p)
+
+    kk = msg + 1
+    while kk <= pver:
+        k = kk - 1
+        i = 0
+        while i < lengath:
+            idx = i + k * pcols
+            dsdt[idx] = 0.0
+            dqdt[idx] = 0.0
+            dl[idx] = 0.0
+            i += 1
+        kk += 1
+
+    ktm = pver
+    kbm = pver
+    i = 0
+    while i < lengath:
+        ktm = min(ktm, jt[i])
+        kbm = min(kbm, mx[i])
+        i += 1
+
+    kk = ktm
+    while kk <= pver - 1:
+        k = kk - 1
+        kp1 = kk
+        i = 0
+        while i < lengath:
+            idx = i + k * pcols
+            kp1idx = i + kp1 * pcols
+            emc = -cu[idx] + evp[idx]
+            dsdt[idx] = -rl / cp * emc + (
+                +mu[kp1idx] * (su[kp1idx] - shat[kp1idx])
+                - mu[idx] * (su[idx] - shat[idx])
+                + md[kp1idx] * (sd[kp1idx] - shat[kp1idx])
+                - md[idx] * (sd[idx] - shat[idx])
+            ) / dp[idx]
+            dqdt[idx] = emc + (
+                +mu[kp1idx] * (qu[kp1idx] - qhat[kp1idx])
+                - mu[idx] * (qu[idx] - qhat[idx])
+                + md[kp1idx] * (qd[kp1idx] - qhat[kp1idx])
+                - md[idx] * (qd[idx] - qhat[idx])
+            ) / dp[idx]
+            dl[idx] = du[idx] * ql[kp1idx]
+            i += 1
+        kk += 1
+
+    kk = kbm
+    while kk <= pver:
+        k = kk - 1
+        i = 0
+        while i < lengath:
+            idx = i + k * pcols
+            if kk == mx[i]:
+                dsdt[idx] = (1.0 / dsubcld[i]) * (
+                    -mu[idx] * (su[idx] - shat[idx])
+                    - md[idx] * (sd[idx] - shat[idx])
+                )
+                dqdt[idx] = (1.0 / dsubcld[i]) * (
+                    -mu[idx] * (qu[idx] - qhat[idx])
+                    - md[idx] * (qd[idx] - qhat[idx])
+                )
+            elif kk > mx[i]:
+                km1idx = i + (k - 1) * pcols
+                dsdt[idx] = dsdt[km1idx]
+                dqdt[idx] = dqdt[km1idx]
+            i += 1
+        kk += 1
+
+
+@export
 def zm_convr_tail_shell_codon(
     ncol: int,
     lengath: int,
