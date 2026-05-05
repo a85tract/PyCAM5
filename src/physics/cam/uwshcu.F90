@@ -51,6 +51,7 @@
   logical :: column_thermo_shell_entered_logged = .false.
   logical :: pbl_precheck_shell_entered_logged = .false.
   logical :: pbl_source_shell_entered_logged = .false.
+  logical :: lcl_prep_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -356,6 +357,21 @@ contains
     end if
 
   end subroutine uwshcu_log_pbl_source_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_lcl_prep_shell_entered()
+
+    if (lcl_prep_shell_entered_logged) return
+    lcl_prep_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu lcl prep shell entered (klcl search and lcl state direct = codon)'
+       call uwshcu_append_proof('uwshcu lcl prep shell entered (klcl search and lcl state direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_lcl_prep_shell_entered
 
 !===============================================================================
   
@@ -1311,7 +1327,8 @@ end subroutine uwshcu_readnl
     real(r8)    criqc, exql, exqi, ppen
     real(r8)    thl0top, thl0bot, qt0bot, qt0top, thvubot, thvutop
     real(r8)    thlu_top, qtu_top, qlu_top, qiu_top, qlu_mid, qiu_mid, exntop
-    real(r8)    thl0lcl, qt0lcl, thv0lcl, thv0rel, rho0inv, autodet
+    real(r8), target :: thl0lcl, qt0lcl
+    real(r8)    thv0lcl, thv0rel, rho0inv, autodet
     real(r8)    aquad, bquad, cquad, xc1, xc2, excessu, excess0, xsat, xs1, xs2
     real(r8)    bogbot, bogtop, delbog, drage, expfac, rbuoy, rdrag
     real(r8)    rcwp, rlwp, riwp, qcubelow, qlubelow, qiubelow
@@ -1513,6 +1530,7 @@ end subroutine uwshcu_readnl
     integer                          :: ixnumliq, ixnumice, ixcldliq, ixcldice
     integer(c_int64_t), target       :: wtrc_iatype_post(wtrc_nwset,3)
     integer(c_int64_t), target       :: kinv_precheck_c, pbl_exit_code_c
+    integer(c_int64_t), target       :: klcl_prep_c, lcl_exit_code_c
     integer(c_int64_t)               :: wtrc_nwset_post_c
 
     interface
@@ -1779,6 +1797,16 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: tkeavg_p, thvlmin_p, qtsrc_p, thvlsrc_p, thlsrc_p, usrc_p, vsrc_p
           type(c_ptr), value :: trsrc_p, wtsrc_p
        end subroutine uwshcu_pbl_source_shell_codon
+
+       subroutine uwshcu_lcl_prep_shell_codon(mkx_c, plcl_c, ps0_p, p0_p, thl0_p, ssthl0_p, &
+            qt0_p, ssqt0_p, klcl_out_p, exit_code_p, thl0lcl_p, qt0lcl_p) &
+            bind(c, name="uwshcu_lcl_prep_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c
+          real(c_double), value :: plcl_c
+          type(c_ptr), value :: ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p
+          type(c_ptr), value :: klcl_out_p, exit_code_p, thl0lcl_p, qt0lcl_p
+       end subroutine uwshcu_lcl_prep_shell_codon
 
        subroutine uwshcu_column_env_save_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, &
@@ -2673,17 +2701,27 @@ end subroutine uwshcu_readnl
        ! ------------------------------------------------------------------ !
 
        plcl = qsinvert(qtsrc,thlsrc,ps0(0))
-       do k = 0, mkx
-          if( ps0(k) .lt. plcl ) then
-              klcl = k
-              go to 25
-          endif           
-       end do
-       klcl = mkx
-25     continue
-       klcl = max(1,klcl)
-     
-       if( plcl .lt. 30000._r8 ) then               
+       if (use_native_init_shell_impl) then
+          do k = 0, mkx
+             if( ps0(k) .lt. plcl ) then
+                 klcl = k
+                 go to 25
+             endif
+          end do
+          klcl = mkx
+25        continue
+          klcl = max(1,klcl)
+          lcl_exit_code_c = 0_c_int64_t
+          if( plcl .lt. 30000._r8 ) lcl_exit_code_c = 1_c_int64_t
+       else
+          call uwshcu_log_lcl_prep_shell_entered()
+          call uwshcu_lcl_prep_shell_codon(int(mkx, c_int64_t), plcl, c_loc(ps0), c_loc(p0), &
+               c_loc(thl0), c_loc(ssthl0), c_loc(qt0), c_loc(ssqt0), c_loc(klcl_prep_c), &
+               c_loc(lcl_exit_code_c), c_loc(thl0lcl), c_loc(qt0lcl))
+          klcl = int(klcl_prep_c)
+       end if
+
+       if( lcl_exit_code_c .ne. 0_c_int64_t ) then
      ! if( klcl .eq. mkx ) then          
            exit_klclmkx(i) = 1._r8
            id_exit = .true.
@@ -2701,8 +2739,10 @@ end subroutine uwshcu_readnl
        !NOTE:  This section of code appears to be purely for calculating thermodynamic
        !variables, and thus does not need any water tracer code - JN.
 
-       thl0lcl = thl0(klcl) + ssthl0(klcl) * ( plcl - p0(klcl) )
-       qt0lcl  = qt0(klcl)  + ssqt0(klcl)  * ( plcl - p0(klcl) )
+       if (use_native_init_shell_impl) then
+          thl0lcl = thl0(klcl) + ssthl0(klcl) * ( plcl - p0(klcl) )
+          qt0lcl  = qt0(klcl)  + ssqt0(klcl)  * ( plcl - p0(klcl) )
+       end if
        call conden(plcl,thl0lcl,qt0lcl,thj,qvj,qlj,qij,qse,id_check,ncnst)
        if( id_check .eq. 1 ) then
            exit_conden(i) = 1._r8

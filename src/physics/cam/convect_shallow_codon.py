@@ -2039,6 +2039,53 @@ def uwshcu_pbl_source_shell_codon(
 
 
 @export
+def uwshcu_lcl_prep_shell_codon(
+    mkx: int,
+    plcl: float,
+    ps0_p: cobj,
+    p0_p: cobj,
+    thl0_p: cobj,
+    ssthl0_p: cobj,
+    qt0_p: cobj,
+    ssqt0_p: cobj,
+    klcl_out_p: cobj,
+    exit_code_p: cobj,
+    thl0lcl_p: cobj,
+    qt0lcl_p: cobj,
+):
+    ps0 = Ptr[float](ps0_p)
+    p0 = Ptr[float](p0_p)
+    thl0 = Ptr[float](thl0_p)
+    ssthl0 = Ptr[float](ssthl0_p)
+    qt0 = Ptr[float](qt0_p)
+    ssqt0 = Ptr[float](ssqt0_p)
+    klcl_out = Ptr[int](klcl_out_p)
+    exit_code = Ptr[int](exit_code_p)
+    thl0lcl = Ptr[float](thl0lcl_p)
+    qt0lcl = Ptr[float](qt0lcl_p)
+
+    klcl = mkx
+    k = 0
+    while k <= mkx:
+        if ps0[k] < plcl:
+            klcl = k
+            break
+        k += 1
+    if klcl < 1:
+        klcl = 1
+
+    klcl_out[0] = klcl
+    exit_code[0] = 0
+    if plcl < 30000.0:
+        exit_code[0] = 1
+        return
+
+    idx = klcl - 1
+    thl0lcl[0] = thl0[idx] + ssthl0[idx] * (plcl - p0[idx])
+    qt0lcl[0] = qt0[idx] + ssqt0[idx] * (plcl - p0[idx])
+
+
+@export
 def uwshcu_column_input_load_shell_codon(
     mix: int,
     mkx: int,
