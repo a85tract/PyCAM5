@@ -209,6 +209,105 @@ def zm_convr_post_shell_codon(
 
 
 @export
+def zm_conv_workspace_init_shell_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    ftem_p: cobj,
+    mu_out_p: cobj,
+    md_out_p: cobj,
+    wind_tends_p: cobj,
+):
+    ftem = Ptr[float](ftem_p)
+    mu_out = Ptr[float](mu_out_p)
+    md_out = Ptr[float](md_out_p)
+    wind_tends = Ptr[float](wind_tends_p)
+    plane = pcols * pver
+
+    k = 0
+    while k < pver:
+        i = 0
+        while i < pcols:
+            idx = i + k * pcols
+            ftem[idx] = 0.0
+            mu_out[idx] = 0.0
+            md_out[idx] = 0.0
+            i += 1
+        k += 1
+
+    k = 0
+    while k < pver:
+        i = 0
+        while i < ncol:
+            idx = i + k * pcols
+            wind_tends[idx] = 0.0
+            wind_tends[idx + plane] = 0.0
+            i += 1
+        k += 1
+
+
+@export
+def zm_wtrc_convr_prep_shell_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    wtrc_nwset: int,
+    wtdlf_p: cobj,
+    wtrprd_p: cobj,
+    wtprect_p: cobj,
+    rprd_p: cobj,
+    prec_p: cobj,
+):
+    wtdlf = Ptr[float](wtdlf_p)
+    wtrprd = Ptr[float](wtrprd_p)
+    wtprect = Ptr[float](wtprect_p)
+    rprd = Ptr[float](rprd_p)
+    prec = Ptr[float](prec_p)
+    plane = pcols * pver
+
+    m = 0
+    while m < wtrc_nwset:
+        k = 0
+        while k < pver:
+            i = 0
+            while i < ncol:
+                wtdlf[i + k * pcols + m * plane] = 0.0
+                i += 1
+            k += 1
+        m += 1
+
+    m = 0
+    while m < pcnst:
+        k = 0
+        while k < pver:
+            i = 0
+            while i < ncol:
+                wtrprd[i + k * pcols + m * plane] = 0.0
+                i += 1
+            k += 1
+        i = 0
+        while i < ncol:
+            wtprect[i + m * pcols] = 0.0
+            i += 1
+        m += 1
+
+    k = 0
+    while k < pver:
+        i = 0
+        while i < ncol:
+            idx = i + k * pcols
+            wtrprd[idx] = rprd[idx]
+            i += 1
+        k += 1
+
+    i = 0
+    while i < ncol:
+        wtprect[i] = prec[i]
+        i += 1
+
+
+@export
 def zm_conv_evap_prep_shell_codon(
     ncol: int,
     pcols: int,

@@ -17,7 +17,7 @@ module zm_conv_intr
    use cam_history,  only: outfld, addfld, phys_decomp
    use perf_mod
    use cam_logfile,  only: iulog
-   use constituents, only: cnst_add
+   use constituents, only: cnst_add, pcnst
    use spmd_utils,   only: masterproc
    
    implicit none
@@ -90,6 +90,8 @@ module zm_conv_intr
    logical :: zm_momtran_post_logged = .false.
    logical :: zm_convtran1_ratio_logged = .false.
    logical :: zm_convtran2_dpdry_logged = .false.
+   logical :: zm_workspace_init_logged = .false.
+   logical :: zm_wtrc_convr_prep_logged = .false.
 
 
 !=========================================================================================
@@ -397,7 +399,7 @@ subroutine zm_conv_tend(pblh    ,mcon    ,cme     , &
    real(r8), intent(out) :: rliq(pcols) ! reserved liquid (not yet in cldliq) for energy integrals
 
    !Water tracers:
-   real(r8), intent(out) :: wtdlf(pcols,pver,wtrc_nwset) ! Detraining water tracer cld from convection
+   real(r8), target, intent(out) :: wtdlf(pcols,pver,wtrc_nwset) ! Detraining water tracer cld from convection
 
    ! Local variables
 
@@ -421,7 +423,7 @@ subroutine zm_conv_tend(pblh    ,mcon    ,cme     , &
    !Local water tracer variables (should probably be cleaned up)
    !---------------------- 
 !   real(r8) wtdlft(pcols,pver,pcnst)      ! Temporary Detraining water tracer cld from convection
-   real(r8) wtprect(pcols,pcnst)          ! Temporary tracer total precipitation from ZM convection
+   real(r8), target :: wtprect(pcols,pcnst)          ! Temporary tracer total precipitation from ZM convection
    real(r8) wtsnowt(pcols,pcnst)          ! Temproary tracer snow from ZM convection
 !   real(r8) wtcmet(pcols,pver,pcnst)      ! Temporary condensation - evaporation 
 !   real(r8) wtql(pcols,pver,pcnst)        ! updraft cloud liquid water ZM scheme
@@ -436,7 +438,7 @@ subroutine zm_conv_tend(pblh    ,mcon    ,cme     , &
    real(r8) tu(pcols,pver)                ! temperature of updraft
    real(r8) td(pcols,pver)                ! temperature of downdraft   
 !   real(r8) wtqd(pcols,pver,pcnst)        ! downdraft water vapour ZM scheme
-   real(r8) wtrprd(pcols,pver,pcnst)      ! rain production in ZM convection
+   real(r8), target :: wtrprd(pcols,pver,pcnst)      ! rain production in ZM convection
    real(r8) rppe(pcols,pver)              ! ZM rain production pre-evaporation
    real(r8) evpstore(pcols,pver)          ! bulk precipiation evaporation rate
    real(r8) substore(pcols,pver)          ! bulk snow sublimation rate
@@ -529,10 +531,7 @@ subroutine zm_conv_tend(pblh    ,mcon    ,cme     , &
    ncol  = state%ncol
    nstep = get_nstep()
 
-   ftem = 0._r8   
-   mu_out(:,:) = 0._r8
-   md_out(:,:) = 0._r8
-   wind_tends(:ncol,:pver,:) = 0.0_r8
+   call zm_conv_workspace_init_shell(ncol, ftem, mu_out, md_out, wind_tends)
 
    call physics_state_copy(state,state1)             ! copy state to local state1.
 
@@ -639,19 +638,7 @@ subroutine zm_conv_tend(pblh    ,mcon    ,cme     , &
  !      wtqi(:ncol,:,:) = 0._r8
  !      wtqu(:ncol,:,:) = 0._r8
  !      wtqd(:ncol,:,:) = 0._r8
-       wtdlf(:ncol,:,:) = 0._r8
-       wtrprd(:ncol,:,:) = 0._r8
-       wtprect(:ncol,:) = 0._r8
-!
-! assign totals 
-!       wtcmet(:ncol,:,1) = cme(:ncol,:)
-!       wtdlft(:ncol,:,1) = dlf(:ncol,:)
-!       wtql(:ncol,:,1) = ql(:ncol,:) ! partitioned to liquid on output
-!       wtqi(:ncol,:,1) = 0.0         ! partitioned to ice on output
-!       wtqu(:ncol,:,1) = qu(:ncol,:)
-!       wtqd(:ncol,:,1) = qd(:ncol,:)
-       wtrprd(:ncol,:,1) = rprd(:ncol,:)
-       wtprect(:ncol,1) = prec(:ncol)
+       call zm_wtrc_convr_prep_shell(ncol, wtrc_nwset, wtdlf, wtrprd, wtprect, rprd, prec)
 
 !       isOk = wtrc_check_h2o("before-deep", state, state%q, ztodt,ptend=ptend_loc) !check water tracers before
 
@@ -950,6 +937,92 @@ subroutine zm_conv_select_post_shell_impl()
    end if
 
 end subroutine zm_conv_select_post_shell_impl
+
+!=========================================================================================
+
+subroutine zm_conv_workspace_init_shell(ncol_local, ftem_local, mu_out_local, md_out_local, wind_tends_local)
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+   integer, intent(in) :: ncol_local
+   real(r8), target, intent(inout) :: ftem_local(pcols,pver), mu_out_local(pcols,pver), md_out_local(pcols,pver)
+   real(r8), target, intent(inout) :: wind_tends_local(pcols,pver,2)
+
+   interface
+      subroutine zm_conv_workspace_init_shell_codon(ncol_c, pcols_c, pver_c, ftem_p, mu_out_p, md_out_p, &
+           wind_tends_p) bind(c, name="zm_conv_workspace_init_shell_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: ftem_p, mu_out_p, md_out_p, wind_tends_p
+      end subroutine zm_conv_workspace_init_shell_codon
+   end interface
+
+   call zm_conv_select_post_shell_impl()
+
+   if (use_native_zm_post_shell) then
+      ftem_local = 0._r8
+      mu_out_local(:,:) = 0._r8
+      md_out_local(:,:) = 0._r8
+      wind_tends_local(:ncol_local,:pver,:) = 0.0_r8
+      return
+   end if
+
+   if (masterproc .and. .not. zm_workspace_init_logged) then
+      write(iulog,*) 'zm_conv workspace init shell entered (history/massflux/wind workspaces direct = codon)'
+      call zm_conv_append_post_shell_proof('zm_conv workspace init shell entered (history/massflux/wind workspaces direct = codon)')
+      call flush(iulog)
+      zm_workspace_init_logged = .true.
+   end if
+
+   call zm_conv_workspace_init_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        c_loc(ftem_local), c_loc(mu_out_local), c_loc(md_out_local), c_loc(wind_tends_local))
+
+end subroutine zm_conv_workspace_init_shell
+
+!=========================================================================================
+
+subroutine zm_wtrc_convr_prep_shell(ncol_local, wtrc_nwset_local, wtdlf_local, wtrprd_local, wtprect_local, &
+     rprd_local, prec_local)
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+   integer, intent(in) :: ncol_local, wtrc_nwset_local
+   real(r8), target, intent(inout) :: wtdlf_local(pcols,pver,wtrc_nwset_local)
+   real(r8), target, intent(inout) :: wtrprd_local(pcols,pver,pcnst), wtprect_local(pcols,pcnst)
+   real(r8), pointer, intent(in) :: rprd_local(:,:), prec_local(:)
+
+   interface
+      subroutine zm_wtrc_convr_prep_shell_codon(ncol_c, pcols_c, pver_c, pcnst_c, wtrc_nwset_c, &
+           wtdlf_p, wtrprd_p, wtprect_p, rprd_p, prec_p) bind(c, name="zm_wtrc_convr_prep_shell_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, wtrc_nwset_c
+         type(c_ptr), value :: wtdlf_p, wtrprd_p, wtprect_p, rprd_p, prec_p
+      end subroutine zm_wtrc_convr_prep_shell_codon
+   end interface
+
+   call zm_conv_select_post_shell_impl()
+
+   if (use_native_zm_post_shell) then
+      wtdlf_local(:ncol_local,:,:) = 0._r8
+      wtrprd_local(:ncol_local,:,:) = 0._r8
+      wtprect_local(:ncol_local,:) = 0._r8
+      wtrprd_local(:ncol_local,:,1) = rprd_local(:ncol_local,:)
+      wtprect_local(:ncol_local,1) = prec_local(:ncol_local)
+      return
+   end if
+
+   if (masterproc .and. .not. zm_wtrc_convr_prep_logged) then
+      write(iulog,*) 'zm_wtrc_convr prep shell entered (water tracer workspaces direct = codon)'
+      call zm_conv_append_post_shell_proof('zm_wtrc_convr prep shell entered (water tracer workspaces direct = codon)')
+      call flush(iulog)
+      zm_wtrc_convr_prep_logged = .true.
+   end if
+
+   call zm_wtrc_convr_prep_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        int(pcnst, c_int64_t), int(wtrc_nwset_local, c_int64_t), c_loc(wtdlf_local), c_loc(wtrprd_local), &
+        c_loc(wtprect_local), c_loc(rprd_local), c_loc(prec_local))
+
+end subroutine zm_wtrc_convr_prep_shell
 
 !=========================================================================================
 
