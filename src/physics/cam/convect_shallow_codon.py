@@ -140,6 +140,73 @@ def convect_shallow_select_scheme_codon(
 
 
 @export
+def convect_shallow_diag_shell_codon(
+    mode: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    ixcldliq: int,
+    ixcldice: int,
+    ztodt: float,
+    latvap: float,
+    latice: float,
+    zvir: float,
+    state_s_p: cobj,
+    state_t_p: cobj,
+    state_q_p: cobj,
+    sat_rh_p: cobj,
+    sl_p: cobj,
+    qt_p: cobj,
+    slv_p: cobj,
+    t_precu_p: cobj,
+    rh_precu_p: cobj,
+    tten_p: cobj,
+    rhten_p: cobj,
+):
+    state_s = Ptr[float](state_s_p)
+    state_t = Ptr[float](state_t_p)
+    state_q = Ptr[float](state_q_p)
+    sat_rh = Ptr[float](sat_rh_p)
+    sl = Ptr[float](sl_p)
+    qt = Ptr[float](qt_p)
+    slv = Ptr[float](slv_p)
+    t_precu = Ptr[float](t_precu_p)
+    rh_precu = Ptr[float](rh_precu_p)
+    tten = Ptr[float](tten_p)
+    rhten = Ptr[float](rhten_p)
+
+    if mode == 1 or mode == 3:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                sl[idx] = (
+                    state_s[idx]
+                    - latvap * state_q[_idx3(i, k, ixcldliq, pcols, pver)]
+                    - (latvap + latice) * state_q[_idx3(i, k, ixcldice, pcols, pver)]
+                )
+                qt[idx] = (
+                    state_q[_idx3(i, k, 1, pcols, pver)]
+                    + state_q[_idx3(i, k, ixcldliq, pcols, pver)]
+                    + state_q[_idx3(i, k, ixcldice, pcols, pver)]
+                )
+                slv[idx] = sl[idx] * (1.0 + zvir * qt[idx])
+                if mode == 1:
+                    t_precu[idx] = state_t[idx]
+    elif mode == 2:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                rh_precu[idx] = state_q[_idx3(i, k, 1, pcols, pver)] / sat_rh[idx] * 100.0
+    elif mode == 4:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                sat_rh[idx] = state_q[_idx3(i, k, 1, pcols, pver)] / sat_rh[idx] * 100.0
+                tten[idx] = (state_t[idx] - t_precu[idx]) / ztodt
+                rhten[idx] = (sat_rh[idx] - rh_precu[idx]) / ztodt
+
+
+@export
 def convect_shallow_uw_post_shell_codon(
     ncol: int,
     pcols: int,

@@ -66,6 +66,7 @@
    logical    :: impl_selected      = .false.
    integer    :: codon_scheme_code  = 0
    logical    :: codon_scheme_selected = .false.
+   logical    :: convect_shallow_diag_shell_logged = .false.
 
    integer :: & ! field index in physics buffer
       sh_flxprc_idx, &
@@ -492,7 +493,7 @@ end subroutine convect_shallow_init_cnst
    real(r8),  pointer   :: precc(:)                                      ! Shallow convective precipitation (rain+snow) rate at surface [ m/s ]
    real(r8),  pointer   :: snow(:)                                       ! Shallow convective snow rate at surface [ m/s ]
 
-   real(r8) :: ftem(pcols,pver)                                          ! Temporary workspace for outfld variables
+   real(r8), target :: ftem(pcols,pver)                                  ! Temporary workspace for outfld variables
    real(r8) :: cnt2(pcols)                                               ! Top level of shallow convective activity
    real(r8) :: cnb2(pcols)                                               ! Bottom level of convective activity
    real(r8) :: tpert(pcols)                                              ! PBL perturbation theta
@@ -519,11 +520,11 @@ end subroutine convect_shallow_init_cnst
    real(r8) :: cmflq(pcols,pverp )                                       ! Convective flux of total water in energy unit
    real(r8) :: rprdtot(pcols,pver)                                       ! Total shallow+deep rain production tendency
    
-   real(r8) :: ftem_preCu(pcols,pver)                                    ! Saturation vapor pressure after shallow Cu convection
-   real(r8) :: tem2(pcols,pver)                                          ! Saturation specific humidity and RH
-   real(r8) :: t_preCu(pcols,pver)                                       ! Temperature after shallow Cu convection
-   real(r8) :: tten(pcols,pver)                                          ! Temperature tendency after shallow Cu convection
-   real(r8) :: rhten(pcols,pver)                                         ! RH tendency after shallow Cu convection
+   real(r8), target :: ftem_preCu(pcols,pver)                            ! Saturation vapor pressure after shallow Cu convection
+   real(r8), target :: tem2(pcols,pver)                                  ! Saturation specific humidity and RH
+   real(r8), target :: t_preCu(pcols,pver)                               ! Temperature after shallow Cu convection
+   real(r8), target :: tten(pcols,pver)                                  ! Temperature tendency after shallow Cu convection
+   real(r8), target :: rhten(pcols,pver)                                 ! RH tendency after shallow Cu convection
    real(r8) :: iccmr_UW(pcols,pver)                                      ! In-cloud Cumulus LWC+IWC [ kg/m2 ]
    real(r8) :: icwmr_UW(pcols,pver)                                      ! In-cloud Cumulus LWC     [ kg/m2 ]
    real(r8) :: icimr_UW(pcols,pver)                                      ! In-cloud Cumulus IWC     [ kg/m2 ]
@@ -545,10 +546,10 @@ end subroutine convect_shallow_init_cnst
    logical  :: isOk                          !Used to check mass balance
    !**********************
 
-   real(r8), dimension(pcols,pver) :: sl, qt, slv
-   real(r8), dimension(pcols,pver) :: sl_preCu, qt_preCu, slv_preCu
+   real(r8), target, dimension(pcols,pver) :: sl, qt, slv
+   real(r8), target, dimension(pcols,pver) :: sl_preCu, qt_preCu, slv_preCu
 
-   type(physics_state) :: state1                                         ! Locally modify for evaporation to use, not returned
+   type(physics_state), target :: state1                                 ! Locally modify for evaporation to use, not returned
    type(physics_ptend) :: ptend_loc                                      ! Local tendency from processes, added up to return as ptend_all
 
    integer itim_old, ifld
@@ -896,16 +897,26 @@ end subroutine convect_shallow_init_cnst
    ! For diagnostic purpose, print out 'QT,SL,SLV,T,RH' just before cumulus scheme !
    ! ----------------------------------------------------------------------------- !
 
-   sl_preCu(:ncol,:pver)  = state1%s(:ncol,:pver) -   latvap           * state1%q(:ncol,:pver,ixcldliq) &
-                                                  - ( latvap + latice) * state1%q(:ncol,:pver,ixcldice)
-   qt_preCu(:ncol,:pver)  = state1%q(:ncol,:pver,1) + state1%q(:ncol,:pver,ixcldliq) &
-                                                    + state1%q(:ncol,:pver,ixcldice)
-   slv_preCu(:ncol,:pver) = sl_preCu(:ncol,:pver) * ( 1._r8 + zvir * qt_preCu(:ncol,:pver) )
+   if (use_native_impl) then
+      sl_preCu(:ncol,:pver)  = state1%s(:ncol,:pver) -   latvap           * state1%q(:ncol,:pver,ixcldliq) &
+                                                     - ( latvap + latice) * state1%q(:ncol,:pver,ixcldice)
+      qt_preCu(:ncol,:pver)  = state1%q(:ncol,:pver,1) + state1%q(:ncol,:pver,ixcldliq) &
+                                                       + state1%q(:ncol,:pver,ixcldice)
+      slv_preCu(:ncol,:pver) = sl_preCu(:ncol,:pver) * ( 1._r8 + zvir * qt_preCu(:ncol,:pver) )
 
-   t_preCu(:ncol,:)       = state1%t(:ncol,:pver)
+      t_preCu(:ncol,:)       = state1%t(:ncol,:pver)
+   else
+      call convect_shallow_diag_shell(1, ncol, ixcldliq, ixcldice, ztodt, state1%s, state1%t, state1%q, ftem, &
+           sl_preCu, qt_preCu, slv_preCu, t_preCu, ftem_preCu, tten, rhten)
+   end if
    call qsat(state1%t(:ncol,:), state1%pmid(:ncol,:), &
         tem2(:ncol,:), ftem(:ncol,:))
-   ftem_preCu(:ncol,:)    = state1%q(:ncol,:,1) / ftem(:ncol,:) * 100._r8
+   if (use_native_impl) then
+      ftem_preCu(:ncol,:)    = state1%q(:ncol,:,1) / ftem(:ncol,:) * 100._r8
+   else
+      call convect_shallow_diag_shell(2, ncol, ixcldliq, ixcldice, ztodt, state1%s, state1%t, state1%q, ftem, &
+           sl_preCu, qt_preCu, slv_preCu, t_preCu, ftem_preCu, tten, rhten)
+   end if
 
    call outfld( 'qt_pre_Cu      ', qt_preCu               , pcols, lchnk )
    call outfld( 'sl_pre_Cu      ', sl_preCu               , pcols, lchnk )
@@ -949,15 +960,25 @@ end subroutine convect_shallow_init_cnst
    ! For diagnostic purpose, print out 'QT,SL,SLV,t,RH' just after cumulus scheme  !
    ! ----------------------------------------------------------------------------- !
 
-   sl(:ncol,:pver)  = state1%s(:ncol,:pver) -   latvap           * state1%q(:ncol,:pver,ixcldliq) &
-                                            - ( latvap + latice) * state1%q(:ncol,:pver,ixcldice)
-   qt(:ncol,:pver)  = state1%q(:ncol,:pver,1) + state1%q(:ncol,:pver,ixcldliq) &
-                                              + state1%q(:ncol,:pver,ixcldice)
-   slv(:ncol,:pver) = sl(:ncol,:pver) * ( 1._r8 + zvir * qt(:ncol,:pver) )
+   if (use_native_impl) then
+      sl(:ncol,:pver)  = state1%s(:ncol,:pver) -   latvap           * state1%q(:ncol,:pver,ixcldliq) &
+                                               - ( latvap + latice) * state1%q(:ncol,:pver,ixcldice)
+      qt(:ncol,:pver)  = state1%q(:ncol,:pver,1) + state1%q(:ncol,:pver,ixcldliq) &
+                                                 + state1%q(:ncol,:pver,ixcldice)
+      slv(:ncol,:pver) = sl(:ncol,:pver) * ( 1._r8 + zvir * qt(:ncol,:pver) )
+   else
+      call convect_shallow_diag_shell(3, ncol, ixcldliq, ixcldice, ztodt, state1%s, state1%t, state1%q, ftem, &
+           sl, qt, slv, t_preCu, ftem_preCu, tten, rhten)
+   end if
 
    call qsat(state1%t(:ncol,:), state1%pmid(:ncol,:), &
         tem2(:ncol,:), ftem(:ncol,:))
-   ftem(:ncol,:)    = state1%q(:ncol,:,1) / ftem(:ncol,:) * 100._r8
+   if (use_native_impl) then
+      ftem(:ncol,:)    = state1%q(:ncol,:,1) / ftem(:ncol,:) * 100._r8
+   else
+      call convect_shallow_diag_shell(4, ncol, ixcldliq, ixcldice, ztodt, state1%s, state1%t, state1%q, ftem, &
+           sl, qt, slv, t_preCu, ftem_preCu, tten, rhten)
+   end if
 
    call outfld( 'qt_aft_Cu      ', qt                     , pcols, lchnk )
    call outfld( 'sl_aft_Cu      ', sl                     , pcols, lchnk )
@@ -970,8 +991,10 @@ end subroutine convect_shallow_init_cnst
    call outfld( 't_aft_Cu       ', state1%t               , pcols, lchnk )
    call outfld( 'rh_aft_Cu      ', ftem                   , pcols, lchnk )
 
-   tten(:ncol,:)  = ( state1%t(:ncol,:pver) - t_preCu(:ncol,:) ) / ztodt 
-   rhten(:ncol,:) = ( ftem(:ncol,:) - ftem_preCu(:ncol,:) ) / ztodt 
+   if (use_native_impl) then
+      tten(:ncol,:)  = ( state1%t(:ncol,:pver) - t_preCu(:ncol,:) ) / ztodt
+      rhten(:ncol,:) = ( ftem(:ncol,:) - ftem_preCu(:ncol,:) ) / ztodt
+   end if
 
    call outfld( 'tten_Cu        ', tten                           , pcols, lchnk )
    call outfld( 'rhten_Cu       ', rhten                          , pcols, lchnk )
@@ -1121,15 +1144,87 @@ subroutine convect_shallow_select_impl()
    if (masterproc) then
       if (use_native_impl) then
          write(iulog,*) 'convect_shallow_tend implementation = native'
+         call convect_shallow_append_proof('convect_shallow selector entered implementation = native')
       else
          write(iulog,*) 'convect_shallow_tend implementation = codon'
+         call convect_shallow_append_proof('convect_shallow selector entered implementation = codon')
       end if
       call flush(iulog)
    end if
 
 end subroutine convect_shallow_select_impl
 
-subroutine convect_shallow_uw_post_shell(ncol_local, state_pmid_local, cmfmc_local, cmfmc2_local, cnt_local, cnt2_local, cnb_local, &
+subroutine convect_shallow_append_proof(proof_line)
+
+   character(len=*), intent(in) :: proof_line
+   character(len=512) :: proof_file
+   integer :: status, n, unitno
+
+   proof_file = ''
+   call get_environment_variable('CONVECT_SHALLOW_PROOF_FILE', value=proof_file, length=n, status=status)
+   if (status == 0 .and. n > 0) then
+      open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+      write(unitno,'(A)') trim(proof_line)
+      close(unitno)
+   end if
+
+end subroutine convect_shallow_append_proof
+
+subroutine convect_shallow_log_diag_shell_entered()
+
+   use spmd_utils, only: masterproc
+
+   if (convect_shallow_diag_shell_logged) return
+   convect_shallow_diag_shell_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'convect_shallow diag shell entered (pre/aft Cu thermo/RH/tendency diagnostics direct = codon)'
+      call convect_shallow_append_proof('convect_shallow diag shell entered (pre/aft Cu thermo/RH/tendency diagnostics direct = codon)')
+      call flush(iulog)
+   end if
+
+end subroutine convect_shallow_log_diag_shell_entered
+
+subroutine convect_shallow_diag_shell(mode, ncol_local, ixcldliq_local, ixcldice_local, ztodt_local, &
+     state_s_local, state_t_local, state_q_local, sat_rh_local, sl_local, qt_local, slv_local, &
+     t_precu_local, rh_precu_local, tten_local, rhten_local)
+
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+   use physconst, only: latvap, latice, zvir
+   use constituents, only: pcnst
+
+   integer, intent(in) :: mode, ncol_local, ixcldliq_local, ixcldice_local
+   real(r8), intent(in) :: ztodt_local
+   real(r8), target, intent(in) :: state_s_local(pcols,pver), state_t_local(pcols,pver)
+   real(r8), target, intent(in) :: state_q_local(pcols,pver,pcnst)
+   real(r8), target, intent(inout) :: sat_rh_local(pcols,pver)
+   real(r8), target, intent(inout) :: sl_local(pcols,pver), qt_local(pcols,pver), slv_local(pcols,pver)
+   real(r8), target, intent(inout) :: t_precu_local(pcols,pver), rh_precu_local(pcols,pver)
+   real(r8), target, intent(inout) :: tten_local(pcols,pver), rhten_local(pcols,pver)
+
+   interface
+      subroutine convect_shallow_diag_shell_codon(mode_c, ncol_c, pcols_c, pver_c, ixcldliq_c, ixcldice_c, &
+           ztodt_c, latvap_c, latice_c, zvir_c, state_s_p, state_t_p, state_q_p, sat_rh_p, sl_p, qt_p, slv_p, &
+           t_precu_p, rh_precu_p, tten_p, rhten_p) bind(c, name="convect_shallow_diag_shell_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: mode_c, ncol_c, pcols_c, pver_c, ixcldliq_c, ixcldice_c
+         real(c_double), value :: ztodt_c, latvap_c, latice_c, zvir_c
+         type(c_ptr), value :: state_s_p, state_t_p, state_q_p, sat_rh_p, sl_p, qt_p, slv_p
+         type(c_ptr), value :: t_precu_p, rh_precu_p, tten_p, rhten_p
+      end subroutine convect_shallow_diag_shell_codon
+   end interface
+
+   call convect_shallow_log_diag_shell_entered()
+
+   call convect_shallow_diag_shell_codon(int(mode, c_int64_t), int(ncol_local, c_int64_t), int(pcols, c_int64_t), &
+        int(pver, c_int64_t), int(ixcldliq_local, c_int64_t), int(ixcldice_local, c_int64_t), real(ztodt_local, c_double), &
+        real(latvap, c_double), real(latice, c_double), real(zvir, c_double), c_loc(state_s_local), c_loc(state_t_local), &
+        c_loc(state_q_local), c_loc(sat_rh_local), c_loc(sl_local), c_loc(qt_local), c_loc(slv_local), c_loc(t_precu_local), &
+        c_loc(rh_precu_local), c_loc(tten_local), c_loc(rhten_local))
+
+end subroutine convect_shallow_diag_shell
+
+	subroutine convect_shallow_uw_post_shell(ncol_local, state_pmid_local, cmfmc_local, cmfmc2_local, cnt_local, cnt2_local, cnb_local, &
      cnb2_local, pcnt_local, pcnb_local, qc_local, qc2_local, rliq_local, rliq2_local, wtqc_local, wtdlf_local, freqsh_local, &
      icwmr_local, iccmr_uw_local, rprdsh_local, cmfdqs_local, ptend_q_local, ptend_tracer_local, cmfsl_local, cmflq_local, &
      slflx_local, qtflx_local, rprddp_local, rprdtot_local, ptend_s_local, ftem_local)
