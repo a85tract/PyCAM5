@@ -22,6 +22,10 @@ module camsrfexch
   logical :: cam_export_use_native_impl = .false.
   logical :: cam_export_impl_selected = .false.
   logical :: cam_export_entered_logged = .false.
+  logical :: alloc_init_use_native_impl = .false.
+  logical :: alloc_init_impl_selected = .false.
+  logical :: hub2atm_alloc_init_entered_logged = .false.
+  logical :: atm2hub_alloc_init_entered_logged = .false.
 
 !----------------------------------------------------------------------- 
 ! PRIVATE: Make default data and interfaces private
@@ -148,6 +152,87 @@ module camsrfexch
 CONTAINS
 !===============================================================================
 
+subroutine camsrfexch_alloc_init_append_proof(proof_line)
+
+   character(len=*), intent(in) :: proof_line
+   character(len=512) :: proof_file
+   integer :: status, n, unitno
+
+   proof_file = ''
+   call get_environment_variable('CAMSRFEXCH_ALLOC_INIT_PROOF_FILE', value=proof_file, length=n, status=status)
+   if (status == 0 .and. n > 0) then
+      open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+      write(unitno,'(A)') trim(proof_line)
+      close(unitno)
+   end if
+
+end subroutine camsrfexch_alloc_init_append_proof
+
+subroutine camsrfexch_alloc_init_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (alloc_init_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CAMSRFEXCH_ALLOC_INIT_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      alloc_init_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      alloc_init_use_native_impl = .false.
+   end if
+
+   alloc_init_impl_selected = .true.
+
+   if (masterproc) then
+      if (alloc_init_use_native_impl) then
+         write(iulog,*) 'camsrfexch_alloc_init implementation = native'
+         call camsrfexch_alloc_init_append_proof('camsrfexch_alloc_init selector entered implementation = native')
+      else
+         write(iulog,*) 'camsrfexch_alloc_init implementation = codon'
+         call camsrfexch_alloc_init_append_proof('camsrfexch_alloc_init selector entered implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine camsrfexch_alloc_init_select_impl
+
+subroutine hub2atm_alloc_init_log_entered()
+
+   if (hub2atm_alloc_init_entered_logged) return
+   hub2atm_alloc_init_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'hub2atm_alloc_init entered (surface input init arrays direct = codon)'
+      call camsrfexch_alloc_init_append_proof('hub2atm_alloc_init entered (surface input init arrays direct = codon)')
+      call flush(iulog)
+   end if
+
+end subroutine hub2atm_alloc_init_log_entered
+
+subroutine atm2hub_alloc_init_log_entered()
+
+   if (atm2hub_alloc_init_entered_logged) return
+   atm2hub_alloc_init_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'atm2hub_alloc_init entered (surface output init arrays direct = codon)'
+      call camsrfexch_alloc_init_append_proof('atm2hub_alloc_init entered (surface output init arrays direct = codon)')
+      call flush(iulog)
+   end if
+
+end subroutine atm2hub_alloc_init_log_entered
+
+!===============================================================================
+
 !----------------------------------------------------------------------- 
 ! 
 ! BOP
@@ -168,6 +253,7 @@ CONTAINS
     use cam_cpl_indices, only: index_x2a_Sl_ram1, index_x2a_Sl_fv, index_x2a_Sl_soilw, index_x2a_Fall_flxdst1
     use cam_cpl_indices, only: index_x2a_Fall_flxvoc
     use shr_megan_mod,   only: shr_megan_mechcomps_n
+    use iso_c_binding,   only: c_double, c_int64_t, c_loc, c_ptr
 
    use water_tracer_vars, only: wtrc_srf_bucket_mode
 !
@@ -179,6 +265,30 @@ CONTAINS
 !
     integer :: c        ! chunk index
     integer :: ierror   ! Error code
+    real(r8) :: posinf_r8
+    real(r8), target :: dummy_1d(1)
+    real(r8), target :: dummy_2d(1,1)
+    type(c_ptr) :: ram1_p, fv_p, soilw_p, dstflx_p, meganflx_p, depvel_p
+    interface
+       subroutine hub2atm_alloc_init_codon(pcols_c, pcnst_c, n_drydep_c, n_megan_c, posinf_c, &
+            init_bucket_c, has_ram1_c, has_fv_c, has_soilw_c, has_dstflx_c, has_meganflx_c, has_depvel_c, &
+            asdir_p, asdif_p, aldir_p, aldif_p, lwup_p, lhf_p, shf_p, wsx_p, wsy_p, tref_p, qref_p, &
+            u10_p, ts_p, sst_p, snowhland_p, snowhice_p, fco2_lnd_p, fco2_ocn_p, fdms_p, &
+            landfrac_p, icefrac_p, ocnfrac_p, ram1_p, fv_p, soilw_p, cflx_p, ustar_p, re_p, ssq_p, &
+            dstflx_p, meganflx_p, depvel_p, buckH_p, buck16_p, buckD_p, buck18_p) &
+            bind(c, name="hub2atm_alloc_init_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: pcols_c, pcnst_c, n_drydep_c, n_megan_c
+         real(c_double), value :: posinf_c
+         integer(c_int64_t), value :: init_bucket_c, has_ram1_c, has_fv_c, has_soilw_c
+         integer(c_int64_t), value :: has_dstflx_c, has_meganflx_c, has_depvel_c
+         type(c_ptr), value :: asdir_p, asdif_p, aldir_p, aldif_p, lwup_p, lhf_p, shf_p, wsx_p, wsy_p
+         type(c_ptr), value :: tref_p, qref_p, u10_p, ts_p, sst_p, snowhland_p, snowhice_p
+         type(c_ptr), value :: fco2_lnd_p, fco2_ocn_p, fdms_p, landfrac_p, icefrac_p, ocnfrac_p
+         type(c_ptr), value :: ram1_p, fv_p, soilw_p, cflx_p, ustar_p, re_p, ssq_p
+         type(c_ptr), value :: dstflx_p, meganflx_p, depvel_p, buckH_p, buck16_p, buckD_p, buck18_p
+       end subroutine hub2atm_alloc_init_codon
+    end interface
 !----------------------------------------------------------------------- 
 ! 
 ! EOP
@@ -229,56 +339,117 @@ CONTAINS
        end do
     endif
 
+    call camsrfexch_alloc_init_select_impl()
+
+    posinf_r8 = posinf
+    dummy_1d(:) = 0._r8
+    dummy_2d(:,:) = 0._r8
     do c = begchunk,endchunk
        cam_in(c)%lchnk = c
        cam_in(c)%ncol  = get_ncols_p(c)
-       cam_in(c)%asdir    (:) = 0._r8
-       cam_in(c)%asdif    (:) = 0._r8
-       cam_in(c)%aldir    (:) = 0._r8
-       cam_in(c)%aldif    (:) = 0._r8
-       cam_in(c)%lwup     (:) = 0._r8
-       cam_in(c)%lhf      (:) = 0._r8
-       cam_in(c)%shf      (:) = 0._r8
-       cam_in(c)%wsx      (:) = 0._r8
-       cam_in(c)%wsy      (:) = 0._r8
-       cam_in(c)%tref     (:) = 0._r8
-       cam_in(c)%qref     (:) = 0._r8
-       cam_in(c)%u10      (:) = 0._r8
-       cam_in(c)%ts       (:) = 0._r8
-       cam_in(c)%sst      (:) = 0._r8
-       cam_in(c)%snowhland(:) = 0._r8
-       cam_in(c)%snowhice (:) = 0._r8
-       cam_in(c)%fco2_lnd (:) = 0._r8
-       cam_in(c)%fco2_ocn (:) = 0._r8
-       cam_in(c)%fdms     (:) = 0._r8
-       cam_in(c)%landfrac (:) = posinf
-       cam_in(c)%icefrac  (:) = posinf
-       cam_in(c)%ocnfrac  (:) = posinf
+       if (alloc_init_use_native_impl) then
+          cam_in(c)%asdir    (:) = 0._r8
+          cam_in(c)%asdif    (:) = 0._r8
+          cam_in(c)%aldir    (:) = 0._r8
+          cam_in(c)%aldif    (:) = 0._r8
+          cam_in(c)%lwup     (:) = 0._r8
+          cam_in(c)%lhf      (:) = 0._r8
+          cam_in(c)%shf      (:) = 0._r8
+          cam_in(c)%wsx      (:) = 0._r8
+          cam_in(c)%wsy      (:) = 0._r8
+          cam_in(c)%tref     (:) = 0._r8
+          cam_in(c)%qref     (:) = 0._r8
+          cam_in(c)%u10      (:) = 0._r8
+          cam_in(c)%ts       (:) = 0._r8
+          cam_in(c)%sst      (:) = 0._r8
+          cam_in(c)%snowhland(:) = 0._r8
+          cam_in(c)%snowhice (:) = 0._r8
+          cam_in(c)%fco2_lnd (:) = 0._r8
+          cam_in(c)%fco2_ocn (:) = 0._r8
+          cam_in(c)%fdms     (:) = 0._r8
+          cam_in(c)%landfrac (:) = posinf
+          cam_in(c)%icefrac  (:) = posinf
+          cam_in(c)%ocnfrac  (:) = posinf
 
-       if (associated(cam_in(c)%ram1)) &
-            cam_in(c)%ram1  (:) = 0.1_r8
-       if (associated(cam_in(c)%fv)) &
-            cam_in(c)%fv    (:) = 0.1_r8
-       if (associated(cam_in(c)%soilw)) &
-            cam_in(c)%soilw (:) = 0.0_r8
-       if (associated(cam_in(c)%dstflx)) &
-            cam_in(c)%dstflx(:,:) = 0.0_r8
-       if (associated(cam_in(c)%meganflx)) &
-            cam_in(c)%meganflx(:,:) = 0.0_r8
+          if (associated(cam_in(c)%ram1)) &
+               cam_in(c)%ram1  (:) = 0.1_r8
+          if (associated(cam_in(c)%fv)) &
+               cam_in(c)%fv    (:) = 0.1_r8
+          if (associated(cam_in(c)%soilw)) &
+               cam_in(c)%soilw (:) = 0.0_r8
+          if (associated(cam_in(c)%dstflx)) &
+               cam_in(c)%dstflx(:,:) = 0.0_r8
+          if (associated(cam_in(c)%meganflx)) &
+               cam_in(c)%meganflx(:,:) = 0.0_r8
 
-       cam_in(c)%cflx   (:,:) = 0._r8
-       cam_in(c)%ustar    (:) = 0._r8
-       cam_in(c)%re       (:) = 0._r8
-       cam_in(c)%ssq      (:) = 0._r8
-       if (lnd_drydep .and. n_drydep>0) then
-          cam_in(c)%depvel (:,:) = 0._r8
-       endif
-       !For simple land model:
-       if ( wtrc_srf_bucket_mode ) then
-          cam_in(c)%buckH(:)    = 0.021_r8 !initalize as half-full bucket
-          cam_in(c)%buck16(:)   = 0.021_r8
-          cam_in(c)%buckD(:)    = 0.021_r8
-          cam_in(c)%buck18(:)   = 0.021_r8
+          cam_in(c)%cflx   (:,:) = 0._r8
+          cam_in(c)%ustar    (:) = 0._r8
+          cam_in(c)%re       (:) = 0._r8
+          cam_in(c)%ssq      (:) = 0._r8
+          if (lnd_drydep .and. n_drydep>0) then
+             cam_in(c)%depvel (:,:) = 0._r8
+          endif
+          !For simple land model:
+          if ( wtrc_srf_bucket_mode ) then
+             cam_in(c)%buckH(:)    = 0.021_r8 !initalize as half-full bucket
+             cam_in(c)%buck16(:)   = 0.021_r8
+             cam_in(c)%buckD(:)    = 0.021_r8
+             cam_in(c)%buck18(:)   = 0.021_r8
+          end if
+       else
+          if (associated(cam_in(c)%ram1)) then
+             ram1_p = c_loc(cam_in(c)%ram1(1))
+          else
+             ram1_p = c_loc(dummy_1d(1))
+          end if
+          if (associated(cam_in(c)%fv)) then
+             fv_p = c_loc(cam_in(c)%fv(1))
+          else
+             fv_p = c_loc(dummy_1d(1))
+          end if
+          if (associated(cam_in(c)%soilw)) then
+             soilw_p = c_loc(cam_in(c)%soilw(1))
+          else
+             soilw_p = c_loc(dummy_1d(1))
+          end if
+          if (associated(cam_in(c)%dstflx)) then
+             dstflx_p = c_loc(cam_in(c)%dstflx(1,1))
+          else
+             dstflx_p = c_loc(dummy_2d(1,1))
+          end if
+          if (associated(cam_in(c)%meganflx)) then
+             meganflx_p = c_loc(cam_in(c)%meganflx(1,1))
+          else
+             meganflx_p = c_loc(dummy_2d(1,1))
+          end if
+          if (associated(cam_in(c)%depvel)) then
+             depvel_p = c_loc(cam_in(c)%depvel(1,1))
+          else
+             depvel_p = c_loc(dummy_2d(1,1))
+          end if
+          call hub2atm_alloc_init_log_entered()
+          call hub2atm_alloc_init_codon( &
+               int(pcols, c_int64_t), int(pcnst, c_int64_t), int(n_drydep, c_int64_t), &
+               int(shr_megan_mechcomps_n, c_int64_t), real(posinf_r8, c_double), &
+               merge(1_c_int64_t, 0_c_int64_t, wtrc_srf_bucket_mode), &
+               merge(1_c_int64_t, 0_c_int64_t, associated(cam_in(c)%ram1)), &
+               merge(1_c_int64_t, 0_c_int64_t, associated(cam_in(c)%fv)), &
+               merge(1_c_int64_t, 0_c_int64_t, associated(cam_in(c)%soilw)), &
+               merge(1_c_int64_t, 0_c_int64_t, associated(cam_in(c)%dstflx)), &
+               merge(1_c_int64_t, 0_c_int64_t, associated(cam_in(c)%meganflx)), &
+               merge(1_c_int64_t, 0_c_int64_t, associated(cam_in(c)%depvel)), &
+               c_loc(cam_in(c)%asdir(1)), c_loc(cam_in(c)%asdif(1)), c_loc(cam_in(c)%aldir(1)), &
+               c_loc(cam_in(c)%aldif(1)), c_loc(cam_in(c)%lwup(1)), c_loc(cam_in(c)%lhf(1)), &
+               c_loc(cam_in(c)%shf(1)), c_loc(cam_in(c)%wsx(1)), c_loc(cam_in(c)%wsy(1)), &
+               c_loc(cam_in(c)%tref(1)), c_loc(cam_in(c)%qref(1)), c_loc(cam_in(c)%u10(1)), &
+               c_loc(cam_in(c)%ts(1)), c_loc(cam_in(c)%sst(1)), c_loc(cam_in(c)%snowhland(1)), &
+               c_loc(cam_in(c)%snowhice(1)), c_loc(cam_in(c)%fco2_lnd(1)), c_loc(cam_in(c)%fco2_ocn(1)), &
+               c_loc(cam_in(c)%fdms(1)), c_loc(cam_in(c)%landfrac(1)), c_loc(cam_in(c)%icefrac(1)), &
+               c_loc(cam_in(c)%ocnfrac(1)), ram1_p, fv_p, soilw_p, c_loc(cam_in(c)%cflx(1,1)), &
+               c_loc(cam_in(c)%ustar(1)), c_loc(cam_in(c)%re(1)), c_loc(cam_in(c)%ssq(1)), &
+               dstflx_p, meganflx_p, depvel_p, c_loc(cam_in(c)%buckH(1)), c_loc(cam_in(c)%buck16(1)), &
+               c_loc(cam_in(c)%buckD(1)), c_loc(cam_in(c)%buck18(1)) &
+          )
        end if
     end do
 
@@ -307,6 +478,7 @@ CONTAINS
 !
 !!USES:
    use water_tracer_vars, only: wtrc_srf_bucket_mode
+   use iso_c_binding,     only: c_int64_t, c_loc, c_ptr
 !
 !
 !!ARGUMENTS:
@@ -317,6 +489,25 @@ CONTAINS
 !
     integer :: c            ! chunk index
     integer :: ierror       ! Error code
+    interface
+       subroutine atm2hub_alloc_init_codon(pcols_c, pcnst_c, tbot_p, zbot_p, ubot_p, vbot_p, qbot_p, &
+            pbot_p, rho_p, netsw_p, flwds_p, precsc_p, precsl_p, precc_p, precl_p, soll_p, sols_p, &
+            solld_p, solsd_p, thbot_p, co2prog_p, co2diag_p, psl_p, bcphidry_p, bcphodry_p, bcphiwet_p, &
+            ocphidry_p, ocphodry_p, ocphiwet_p, dstdry1_p, dstwet1_p, dstdry2_p, dstwet2_p, &
+            dstdry3_p, dstwet3_p, dstdry4_p, dstwet4_p, precrl_16O_p, precrl_HDO_p, precrl_18O_p, &
+            precsl_16O_p, precsl_HDO_p, precsl_18O_p, precrc_16O_p, precrc_HDO_p, precrc_18O_p, &
+            precsc_16O_p, precsc_HDO_p, precsc_18O_p) bind(c, name="atm2hub_alloc_init_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: pcols_c, pcnst_c
+         type(c_ptr), value :: tbot_p, zbot_p, ubot_p, vbot_p, qbot_p, pbot_p, rho_p
+         type(c_ptr), value :: netsw_p, flwds_p, precsc_p, precsl_p, precc_p, precl_p
+         type(c_ptr), value :: soll_p, sols_p, solld_p, solsd_p, thbot_p, co2prog_p, co2diag_p, psl_p
+         type(c_ptr), value :: bcphidry_p, bcphodry_p, bcphiwet_p, ocphidry_p, ocphodry_p, ocphiwet_p
+         type(c_ptr), value :: dstdry1_p, dstwet1_p, dstdry2_p, dstwet2_p, dstdry3_p, dstwet3_p, dstdry4_p, dstwet4_p
+         type(c_ptr), value :: precrl_16O_p, precrl_HDO_p, precrl_18O_p, precsl_16O_p, precsl_HDO_p, precsl_18O_p
+         type(c_ptr), value :: precrc_16O_p, precrc_HDO_p, precrc_18O_p, precsc_16O_p, precsc_HDO_p, precsc_18O_p
+       end subroutine atm2hub_alloc_init_codon
+    end interface
     !----------------------------------------------------------------------- 
 
     if ( .not. phys_grid_initialized() ) call endrun( "ATM2HUB_ALLOC error: phys_grid not called yet" )
@@ -326,57 +517,82 @@ CONTAINS
       call endrun('ATM2HUB_ALLOC error: allocation error')
     end if
 
+    call camsrfexch_alloc_init_select_impl()
+
     do c = begchunk,endchunk
        cam_out(c)%lchnk       = c
        cam_out(c)%ncol        = get_ncols_p(c)
-       cam_out(c)%tbot(:)     = 0._r8
-       cam_out(c)%zbot(:)     = 0._r8
-       cam_out(c)%ubot(:)     = 0._r8
-       cam_out(c)%vbot(:)     = 0._r8
-       cam_out(c)%qbot(:,:)   = 0._r8
-       cam_out(c)%pbot(:)     = 0._r8
-       cam_out(c)%rho(:)      = 0._r8
-       cam_out(c)%netsw(:)    = 0._r8
-       cam_out(c)%flwds(:)    = 0._r8
-       cam_out(c)%precsc(:)   = 0._r8
-       cam_out(c)%precsl(:)   = 0._r8
-       cam_out(c)%precc(:)    = 0._r8
-       cam_out(c)%precl(:)    = 0._r8
-       cam_out(c)%soll(:)     = 0._r8
-       cam_out(c)%sols(:)     = 0._r8
-       cam_out(c)%solld(:)    = 0._r8
-       cam_out(c)%solsd(:)    = 0._r8
-       cam_out(c)%thbot(:)    = 0._r8
-       cam_out(c)%co2prog(:)  = 0._r8
-       cam_out(c)%co2diag(:)  = 0._r8
-       cam_out(c)%psl(:)      = 0._r8
-       cam_out(c)%bcphidry(:) = 0._r8
-       cam_out(c)%bcphodry(:) = 0._r8
-       cam_out(c)%bcphiwet(:) = 0._r8
-       cam_out(c)%ocphidry(:) = 0._r8
-       cam_out(c)%ocphodry(:) = 0._r8
-       cam_out(c)%ocphiwet(:) = 0._r8
-       cam_out(c)%dstdry1(:)  = 0._r8
-       cam_out(c)%dstwet1(:)  = 0._r8
-       cam_out(c)%dstdry2(:)  = 0._r8
-       cam_out(c)%dstwet2(:)  = 0._r8
-       cam_out(c)%dstdry3(:)  = 0._r8
-       cam_out(c)%dstwet3(:)  = 0._r8
-       cam_out(c)%dstdry4(:)  = 0._r8
-       cam_out(c)%dstwet4(:)  = 0._r8
-       !water tracers/isotopes:
-       cam_out(c)%precrl_16O  = 0._r8
-       cam_out(c)%precrl_HDO  = 0._r8
-       cam_out(c)%precrl_18O  = 0._r8
-       cam_out(c)%precsl_16O  = 0._r8
-       cam_out(c)%precsl_HDO  = 0._r8
-       cam_out(c)%precsl_18O  = 0._r8
-       cam_out(c)%precrc_16O  = 0._r8
-       cam_out(c)%precrc_HDO  = 0._r8
-       cam_out(c)%precrc_18O  = 0._r8
-       cam_out(c)%precsc_16O  = 0._r8
-       cam_out(c)%precsc_HDO  = 0._r8
-       cam_out(c)%precsc_18O  = 0._r8
+       if (alloc_init_use_native_impl) then
+          cam_out(c)%tbot(:)     = 0._r8
+          cam_out(c)%zbot(:)     = 0._r8
+          cam_out(c)%ubot(:)     = 0._r8
+          cam_out(c)%vbot(:)     = 0._r8
+          cam_out(c)%qbot(:,:)   = 0._r8
+          cam_out(c)%pbot(:)     = 0._r8
+          cam_out(c)%rho(:)      = 0._r8
+          cam_out(c)%netsw(:)    = 0._r8
+          cam_out(c)%flwds(:)    = 0._r8
+          cam_out(c)%precsc(:)   = 0._r8
+          cam_out(c)%precsl(:)   = 0._r8
+          cam_out(c)%precc(:)    = 0._r8
+          cam_out(c)%precl(:)    = 0._r8
+          cam_out(c)%soll(:)     = 0._r8
+          cam_out(c)%sols(:)     = 0._r8
+          cam_out(c)%solld(:)    = 0._r8
+          cam_out(c)%solsd(:)    = 0._r8
+          cam_out(c)%thbot(:)    = 0._r8
+          cam_out(c)%co2prog(:)  = 0._r8
+          cam_out(c)%co2diag(:)  = 0._r8
+          cam_out(c)%psl(:)      = 0._r8
+          cam_out(c)%bcphidry(:) = 0._r8
+          cam_out(c)%bcphodry(:) = 0._r8
+          cam_out(c)%bcphiwet(:) = 0._r8
+          cam_out(c)%ocphidry(:) = 0._r8
+          cam_out(c)%ocphodry(:) = 0._r8
+          cam_out(c)%ocphiwet(:) = 0._r8
+          cam_out(c)%dstdry1(:)  = 0._r8
+          cam_out(c)%dstwet1(:)  = 0._r8
+          cam_out(c)%dstdry2(:)  = 0._r8
+          cam_out(c)%dstwet2(:)  = 0._r8
+          cam_out(c)%dstdry3(:)  = 0._r8
+          cam_out(c)%dstwet3(:)  = 0._r8
+          cam_out(c)%dstdry4(:)  = 0._r8
+          cam_out(c)%dstwet4(:)  = 0._r8
+          !water tracers/isotopes:
+          cam_out(c)%precrl_16O  = 0._r8
+          cam_out(c)%precrl_HDO  = 0._r8
+          cam_out(c)%precrl_18O  = 0._r8
+          cam_out(c)%precsl_16O  = 0._r8
+          cam_out(c)%precsl_HDO  = 0._r8
+          cam_out(c)%precsl_18O  = 0._r8
+          cam_out(c)%precrc_16O  = 0._r8
+          cam_out(c)%precrc_HDO  = 0._r8
+          cam_out(c)%precrc_18O  = 0._r8
+          cam_out(c)%precsc_16O  = 0._r8
+          cam_out(c)%precsc_HDO  = 0._r8
+          cam_out(c)%precsc_18O  = 0._r8
+       else
+          call atm2hub_alloc_init_log_entered()
+          call atm2hub_alloc_init_codon( &
+               int(pcols, c_int64_t), int(pcnst, c_int64_t), c_loc(cam_out(c)%tbot(1)), &
+               c_loc(cam_out(c)%zbot(1)), c_loc(cam_out(c)%ubot(1)), c_loc(cam_out(c)%vbot(1)), &
+               c_loc(cam_out(c)%qbot(1,1)), c_loc(cam_out(c)%pbot(1)), c_loc(cam_out(c)%rho(1)), &
+               c_loc(cam_out(c)%netsw(1)), c_loc(cam_out(c)%flwds(1)), c_loc(cam_out(c)%precsc(1)), &
+               c_loc(cam_out(c)%precsl(1)), c_loc(cam_out(c)%precc(1)), c_loc(cam_out(c)%precl(1)), &
+               c_loc(cam_out(c)%soll(1)), c_loc(cam_out(c)%sols(1)), c_loc(cam_out(c)%solld(1)), &
+               c_loc(cam_out(c)%solsd(1)), c_loc(cam_out(c)%thbot(1)), c_loc(cam_out(c)%co2prog(1)), &
+               c_loc(cam_out(c)%co2diag(1)), c_loc(cam_out(c)%psl(1)), c_loc(cam_out(c)%bcphidry(1)), &
+               c_loc(cam_out(c)%bcphodry(1)), c_loc(cam_out(c)%bcphiwet(1)), c_loc(cam_out(c)%ocphidry(1)), &
+               c_loc(cam_out(c)%ocphodry(1)), c_loc(cam_out(c)%ocphiwet(1)), c_loc(cam_out(c)%dstdry1(1)), &
+               c_loc(cam_out(c)%dstwet1(1)), c_loc(cam_out(c)%dstdry2(1)), c_loc(cam_out(c)%dstwet2(1)), &
+               c_loc(cam_out(c)%dstdry3(1)), c_loc(cam_out(c)%dstwet3(1)), c_loc(cam_out(c)%dstdry4(1)), &
+               c_loc(cam_out(c)%dstwet4(1)), c_loc(cam_out(c)%precrl_16O(1)), c_loc(cam_out(c)%precrl_HDO(1)), &
+               c_loc(cam_out(c)%precrl_18O(1)), c_loc(cam_out(c)%precsl_16O(1)), c_loc(cam_out(c)%precsl_HDO(1)), &
+               c_loc(cam_out(c)%precsl_18O(1)), c_loc(cam_out(c)%precrc_16O(1)), c_loc(cam_out(c)%precrc_HDO(1)), &
+               c_loc(cam_out(c)%precrc_18O(1)), c_loc(cam_out(c)%precsc_16O(1)), c_loc(cam_out(c)%precsc_HDO(1)), &
+               c_loc(cam_out(c)%precsc_18O(1)) &
+          )
+       end if
     end do
 
   end subroutine atm2hub_alloc

@@ -306,6 +306,307 @@ def diag_physvar_ic_codon():
 
 
 @export
+def hub2atm_alloc_init_codon(
+    pcols: int,
+    pcnst: int,
+    n_drydep: int,
+    n_megan: int,
+    posinf: float,
+    init_bucket: int,
+    has_ram1: int,
+    has_fv: int,
+    has_soilw: int,
+    has_dstflx: int,
+    has_meganflx: int,
+    has_depvel: int,
+    asdir_p: cobj,
+    asdif_p: cobj,
+    aldir_p: cobj,
+    aldif_p: cobj,
+    lwup_p: cobj,
+    lhf_p: cobj,
+    shf_p: cobj,
+    wsx_p: cobj,
+    wsy_p: cobj,
+    tref_p: cobj,
+    qref_p: cobj,
+    u10_p: cobj,
+    ts_p: cobj,
+    sst_p: cobj,
+    snowhland_p: cobj,
+    snowhice_p: cobj,
+    fco2_lnd_p: cobj,
+    fco2_ocn_p: cobj,
+    fdms_p: cobj,
+    landfrac_p: cobj,
+    icefrac_p: cobj,
+    ocnfrac_p: cobj,
+    ram1_p: cobj,
+    fv_p: cobj,
+    soilw_p: cobj,
+    cflx_p: cobj,
+    ustar_p: cobj,
+    re_p: cobj,
+    ssq_p: cobj,
+    dstflx_p: cobj,
+    meganflx_p: cobj,
+    depvel_p: cobj,
+    buckH_p: cobj,
+    buck16_p: cobj,
+    buckD_p: cobj,
+    buck18_p: cobj,
+):
+    asdir = Ptr[float](asdir_p)
+    asdif = Ptr[float](asdif_p)
+    aldir = Ptr[float](aldir_p)
+    aldif = Ptr[float](aldif_p)
+    lwup = Ptr[float](lwup_p)
+    lhf = Ptr[float](lhf_p)
+    shf = Ptr[float](shf_p)
+    wsx = Ptr[float](wsx_p)
+    wsy = Ptr[float](wsy_p)
+    tref = Ptr[float](tref_p)
+    qref = Ptr[float](qref_p)
+    u10 = Ptr[float](u10_p)
+    ts = Ptr[float](ts_p)
+    sst = Ptr[float](sst_p)
+    snowhland = Ptr[float](snowhland_p)
+    snowhice = Ptr[float](snowhice_p)
+    fco2_lnd = Ptr[float](fco2_lnd_p)
+    fco2_ocn = Ptr[float](fco2_ocn_p)
+    fdms = Ptr[float](fdms_p)
+    landfrac = Ptr[float](landfrac_p)
+    icefrac = Ptr[float](icefrac_p)
+    ocnfrac = Ptr[float](ocnfrac_p)
+    ram1 = Ptr[float](ram1_p)
+    fv = Ptr[float](fv_p)
+    soilw = Ptr[float](soilw_p)
+    cflx = Ptr[float](cflx_p)
+    ustar = Ptr[float](ustar_p)
+    re = Ptr[float](re_p)
+    ssq = Ptr[float](ssq_p)
+    dstflx = Ptr[float](dstflx_p)
+    meganflx = Ptr[float](meganflx_p)
+    depvel = Ptr[float](depvel_p)
+    buckH = Ptr[float](buckH_p)
+    buck16 = Ptr[float](buck16_p)
+    buckD = Ptr[float](buckD_p)
+    buck18 = Ptr[float](buck18_p)
+
+    for i in range(1, pcols + 1):
+        idx = _idx(i)
+        asdir[idx] = 0.0
+        asdif[idx] = 0.0
+        aldir[idx] = 0.0
+        aldif[idx] = 0.0
+        lwup[idx] = 0.0
+        lhf[idx] = 0.0
+        shf[idx] = 0.0
+        wsx[idx] = 0.0
+        wsy[idx] = 0.0
+        tref[idx] = 0.0
+        qref[idx] = 0.0
+        u10[idx] = 0.0
+        ts[idx] = 0.0
+        sst[idx] = 0.0
+        snowhland[idx] = 0.0
+        snowhice[idx] = 0.0
+        fco2_lnd[idx] = 0.0
+        fco2_ocn[idx] = 0.0
+        fdms[idx] = 0.0
+        landfrac[idx] = posinf
+        icefrac[idx] = posinf
+        ocnfrac[idx] = posinf
+        ustar[idx] = 0.0
+        re[idx] = 0.0
+        ssq[idx] = 0.0
+        if has_ram1 != 0:
+            ram1[idx] = 0.1
+        if has_fv != 0:
+            fv[idx] = 0.1
+        if has_soilw != 0:
+            soilw[idx] = 0.0
+        if init_bucket != 0:
+            buckH[idx] = 0.021
+            buck16[idx] = 0.021
+            buckD[idx] = 0.021
+            buck18[idx] = 0.021
+
+    for m in range(1, pcnst + 1):
+        for i in range(1, pcols + 1):
+            cflx[_idx2(i, m, pcols)] = 0.0
+
+    if has_dstflx != 0:
+        for m in range(1, 4 + 1):
+            for i in range(1, pcols + 1):
+                dstflx[_idx2(i, m, pcols)] = 0.0
+
+    if has_meganflx != 0:
+        for m in range(1, n_megan + 1):
+            for i in range(1, pcols + 1):
+                meganflx[_idx2(i, m, pcols)] = 0.0
+
+    if has_depvel != 0:
+        for m in range(1, n_drydep + 1):
+            for i in range(1, pcols + 1):
+                depvel[_idx2(i, m, pcols)] = 0.0
+
+
+@export
+def atm2hub_alloc_init_codon(
+    pcols: int,
+    pcnst: int,
+    tbot_p: cobj,
+    zbot_p: cobj,
+    ubot_p: cobj,
+    vbot_p: cobj,
+    qbot_p: cobj,
+    pbot_p: cobj,
+    rho_p: cobj,
+    netsw_p: cobj,
+    flwds_p: cobj,
+    precsc_p: cobj,
+    precsl_p: cobj,
+    precc_p: cobj,
+    precl_p: cobj,
+    soll_p: cobj,
+    sols_p: cobj,
+    solld_p: cobj,
+    solsd_p: cobj,
+    thbot_p: cobj,
+    co2prog_p: cobj,
+    co2diag_p: cobj,
+    psl_p: cobj,
+    bcphidry_p: cobj,
+    bcphodry_p: cobj,
+    bcphiwet_p: cobj,
+    ocphidry_p: cobj,
+    ocphodry_p: cobj,
+    ocphiwet_p: cobj,
+    dstdry1_p: cobj,
+    dstwet1_p: cobj,
+    dstdry2_p: cobj,
+    dstwet2_p: cobj,
+    dstdry3_p: cobj,
+    dstwet3_p: cobj,
+    dstdry4_p: cobj,
+    dstwet4_p: cobj,
+    precrl_16O_p: cobj,
+    precrl_HDO_p: cobj,
+    precrl_18O_p: cobj,
+    precsl_16O_p: cobj,
+    precsl_HDO_p: cobj,
+    precsl_18O_p: cobj,
+    precrc_16O_p: cobj,
+    precrc_HDO_p: cobj,
+    precrc_18O_p: cobj,
+    precsc_16O_p: cobj,
+    precsc_HDO_p: cobj,
+    precsc_18O_p: cobj,
+):
+    tbot = Ptr[float](tbot_p)
+    zbot = Ptr[float](zbot_p)
+    ubot = Ptr[float](ubot_p)
+    vbot = Ptr[float](vbot_p)
+    qbot = Ptr[float](qbot_p)
+    pbot = Ptr[float](pbot_p)
+    rho = Ptr[float](rho_p)
+    netsw = Ptr[float](netsw_p)
+    flwds = Ptr[float](flwds_p)
+    precsc = Ptr[float](precsc_p)
+    precsl = Ptr[float](precsl_p)
+    precc = Ptr[float](precc_p)
+    precl = Ptr[float](precl_p)
+    soll = Ptr[float](soll_p)
+    sols = Ptr[float](sols_p)
+    solld = Ptr[float](solld_p)
+    solsd = Ptr[float](solsd_p)
+    thbot = Ptr[float](thbot_p)
+    co2prog = Ptr[float](co2prog_p)
+    co2diag = Ptr[float](co2diag_p)
+    psl = Ptr[float](psl_p)
+    bcphidry = Ptr[float](bcphidry_p)
+    bcphodry = Ptr[float](bcphodry_p)
+    bcphiwet = Ptr[float](bcphiwet_p)
+    ocphidry = Ptr[float](ocphidry_p)
+    ocphodry = Ptr[float](ocphodry_p)
+    ocphiwet = Ptr[float](ocphiwet_p)
+    dstdry1 = Ptr[float](dstdry1_p)
+    dstwet1 = Ptr[float](dstwet1_p)
+    dstdry2 = Ptr[float](dstdry2_p)
+    dstwet2 = Ptr[float](dstwet2_p)
+    dstdry3 = Ptr[float](dstdry3_p)
+    dstwet3 = Ptr[float](dstwet3_p)
+    dstdry4 = Ptr[float](dstdry4_p)
+    dstwet4 = Ptr[float](dstwet4_p)
+    precrl_16O = Ptr[float](precrl_16O_p)
+    precrl_HDO = Ptr[float](precrl_HDO_p)
+    precrl_18O = Ptr[float](precrl_18O_p)
+    precsl_16O = Ptr[float](precsl_16O_p)
+    precsl_HDO = Ptr[float](precsl_HDO_p)
+    precsl_18O = Ptr[float](precsl_18O_p)
+    precrc_16O = Ptr[float](precrc_16O_p)
+    precrc_HDO = Ptr[float](precrc_HDO_p)
+    precrc_18O = Ptr[float](precrc_18O_p)
+    precsc_16O = Ptr[float](precsc_16O_p)
+    precsc_HDO = Ptr[float](precsc_HDO_p)
+    precsc_18O = Ptr[float](precsc_18O_p)
+
+    for i in range(1, pcols + 1):
+        idx = _idx(i)
+        tbot[idx] = 0.0
+        zbot[idx] = 0.0
+        ubot[idx] = 0.0
+        vbot[idx] = 0.0
+        pbot[idx] = 0.0
+        rho[idx] = 0.0
+        netsw[idx] = 0.0
+        flwds[idx] = 0.0
+        precsc[idx] = 0.0
+        precsl[idx] = 0.0
+        precc[idx] = 0.0
+        precl[idx] = 0.0
+        soll[idx] = 0.0
+        sols[idx] = 0.0
+        solld[idx] = 0.0
+        solsd[idx] = 0.0
+        thbot[idx] = 0.0
+        co2prog[idx] = 0.0
+        co2diag[idx] = 0.0
+        psl[idx] = 0.0
+        bcphidry[idx] = 0.0
+        bcphodry[idx] = 0.0
+        bcphiwet[idx] = 0.0
+        ocphidry[idx] = 0.0
+        ocphodry[idx] = 0.0
+        ocphiwet[idx] = 0.0
+        dstdry1[idx] = 0.0
+        dstwet1[idx] = 0.0
+        dstdry2[idx] = 0.0
+        dstwet2[idx] = 0.0
+        dstdry3[idx] = 0.0
+        dstwet3[idx] = 0.0
+        dstdry4[idx] = 0.0
+        dstwet4[idx] = 0.0
+        precrl_16O[idx] = 0.0
+        precrl_HDO[idx] = 0.0
+        precrl_18O[idx] = 0.0
+        precsl_16O[idx] = 0.0
+        precsl_HDO[idx] = 0.0
+        precsl_18O[idx] = 0.0
+        precrc_16O[idx] = 0.0
+        precrc_HDO[idx] = 0.0
+        precrc_18O[idx] = 0.0
+        precsc_16O[idx] = 0.0
+        precsc_HDO[idx] = 0.0
+        precsc_18O[idx] = 0.0
+
+    for m in range(1, pcnst + 1):
+        for i in range(1, pcols + 1):
+            qbot[_idx2(i, m, pcols)] = 0.0
+
+
+@export
 def cam_export_core_codon(
     ncol: int,
     pcols: int,
