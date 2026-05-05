@@ -151,6 +151,7 @@ module water_tracers
   logical :: wtrc_precip_evap_prep_logged = .false.
   logical :: wtrc_precip_evap_tail_logged = .false.
   logical :: wtrc_q1q2_init_logged = .false.
+  logical :: wtrc_q1q2_tail_logged = .false.
 
 contains
 
@@ -5285,7 +5286,7 @@ subroutine wtrc_q1q2_pjr(dqdt        , ideep, lengath, &
 
  use physconst,       only: cpair, latvap, rair, epsilo
  use ppgrid,          only: pverp
- use iso_c_binding,   only: c_int64_t, c_loc, c_ptr
+ use iso_c_binding,   only: c_double, c_int64_t, c_loc, c_ptr
 
 !********************
 !Variable decleration
@@ -5300,7 +5301,7 @@ subroutine wtrc_q1q2_pjr(dqdt        , ideep, lengath, &
    integer, intent(in) :: lcl(pcols)       !lifted condensation level (LCL)    
    integer, intent(in) :: mx(pcols)        !Bottom of updraft
    integer, intent(in) :: jd(pcols)        !Top of downdraft
-   integer, intent(in) :: jt(pcols)        !Top of updraft 
+   integer, intent(in) :: jt(pcols)        !Top of updraft
    integer, intent(in) :: il2g
    integer, intent(in) :: msg
    integer, intent(in) :: ideep(pcols)         !location of deep convection
@@ -5313,30 +5314,30 @@ subroutine wtrc_q1q2_pjr(dqdt        , ideep, lengath, &
    real(r8), intent(in) :: hmn(pcols,pver)     !bulk environmental moist static energy
    real(r8), intent(in) :: hsatb(pcols,pver)   !bulk saturated env. moist static energy
    real(r8), intent(in) :: hsthatb(pcols,pver) !hsat at interfaces
-   real(r8), intent(in) :: dp(pcols,pver)      !layer thickness [mb]
-   real(r8), intent(in) :: mdpc(pcols,pver)    !md before unit-change
-   real(r8), intent(in) :: dupc(pcols,pver)    !detrainment rate in updraft pre-unit change
-   real(r8), intent(in) :: du(pcols,pver)      !input detrainment rate in updraft 
-   real(r8), intent(in) :: mupc(pcols,pver)    !mu before unit-change
+   real(r8), target, intent(in) :: dp(pcols,pver)      !layer thickness [mb]
+   real(r8), target, intent(in) :: mdpc(pcols,pver)    !md before unit-change
+   real(r8), target, intent(in) :: dupc(pcols,pver)    !detrainment rate in updraft pre-unit change
+   real(r8), target, intent(in) :: du(pcols,pver)      !input detrainment rate in updraft
+   real(r8), target, intent(in) :: mupc(pcols,pver)    !mu before unit-change
    real(r8), intent(in) :: eu(pcols,pver)      !input updraft entraiment rate
-   real(r8), intent(in) :: mu(pcols,pver)      !mass flux in updraft 
-   real(r8), intent(in) :: md(pcols,pver)      !mass flux in downdraft
+   real(r8), target, intent(in) :: mu(pcols,pver)      !mass flux in updraft
+   real(r8), target, intent(in) :: md(pcols,pver)      !mass flux in downdraft
    real(r8), intent(in) :: qdb(pcols,pver)     !bulk water vapor mixing ratio in downdraft [kg/kg]
    real(r8), intent(in) :: tu(pcols,pver)      !temperature in updraft [K?]
    real(r8), intent(in) :: td(pcols,pver)      !temperature in downdraft [K?]
    real(r8), intent(in) :: ed(pcols,pver)     !downdraft entrainment rate [?]
    real(r8), intent(in) :: evpc(pcols,pver)    !evaporation rate pre-unit change [kg/m3/s]
-   real(r8), intent(in) :: evp(pcols,pver)     !evaporation rate in downdraft
+   real(r8), target, intent(in) :: evp(pcols,pver)     !evaporation rate in downdraft
    real(r8), intent(in) :: cupc(pcols,pver)    !condensation rate pre-unit change [kg/m3/s]
-   real(r8), intent(in) :: cu(pcols,pver)      !condensation rate in updraft
+   real(r8), target, intent(in) :: cu(pcols,pver)      !condensation rate in updraft
    real(r8), intent(in) :: rppe(pcols,pver)    !g: rain production pre-evaporation [?]
-   real(r8), intent(in) :: dsubcld(pcols)      !sub-cloud layer thickness [mb]
+   real(r8), target, intent(in) :: dsubcld(pcols)      !sub-cloud layer thickness [mb]
    real(r8), intent(in) :: pap(pcols,pver)     !Pressure at interfaces [Pa]
-   real(r8), intent(in) :: dz(pcols,pver)      !Layer thickness in height [m] 
+   real(r8), target, intent(in) :: dz(pcols,pver)      !Layer thickness in height [m]
    real(r8), intent(in) :: qds(pcols,pver)     !bulk water saturation value in downdraft [kg/kg]
-   real(r8), intent(in) :: rpdpc(pcols,pver)   !precipitation production pre-unit change [?]
-   real(r8), intent(in) :: c0mask(pcols)       !Autoconversion rates [1/m]
-   real(r8), intent(in) :: eps0(pcols)         !Not quite sure, should look up... 
+   real(r8), target, intent(in) :: rpdpc(pcols,pver)   !precipitation production pre-unit change [?]
+   real(r8), target, intent(in) :: c0mask(pcols)       !Autoconversion rates [1/m]
+   real(r8), target, intent(in) :: eps0(pcols)         !Not quite sure, should look up...
    real(r8), intent(in) :: dtime               !2xdt (model timestep)
 !
 ! Output fields:
@@ -5397,10 +5398,10 @@ subroutine wtrc_q1q2_pjr(dqdt        , ideep, lengath, &
    !For precip production:
    real(r8), target :: totpcp(pcols,wtrc_ntype(iwtvap))     !Total precipitation [?]
    real(r8), target :: totevp(pcols,wtrc_ntype(iwtvap))     !Total evaporation [?]
-   real(r8) rprd(pcols,pver)                     !Precipitation production pre-unit change [?]
+   real(r8), target :: rprd(pcols,pver)          !Precipitation production pre-unit change [?]
    !NOTE:  Might need to make "pevp" the evaporation term used in the actual
    !tendency calculation! - JN
-   real(r8) pevp(pcols,pver)                     !precipitation evaporation 
+   real(r8), target :: pevp(pcols,pver)          !precipitation evaporation
    real(r8), target :: ql(pcols,pver,wtrc_nwset)            !precipitable liquid [kg/kg]
    real(r8) ql1                                  !temporary precipitable liquid storage [kg/kg]
    real(r8) Rr                                   !precipitation production ratio [unitless] 
@@ -5418,7 +5419,13 @@ subroutine wtrc_q1q2_pjr(dqdt        , ideep, lengath, &
    real(r8) emc
    real(r8) mdt
    integer(c_int64_t), target :: ideep64(pcols)
+   integer(c_int64_t), target :: jd64(pcols)
+   integer(c_int64_t), target :: mx64(pcols)
+   integer(c_int64_t), target :: jt64(pcols)
    integer(c_int64_t), target :: wtrc_iatype64(wtrc_nwset,pwtype)
+   integer(c_int64_t), target :: iwspec64(pcnst)
+   real(c_double), target :: rstd(pwtspec)
+   integer :: ispec
 
    interface
       subroutine wtrc_q1q2_init_qhat_shell_codon(lengath_c, pcols_c, pver_c, pcnst_c, pwtype_c, &
@@ -5433,6 +5440,20 @@ subroutine wtrc_q1q2_pjr(dqdt        , ideep, lengath, &
          type(c_ptr), value :: wtcu_p, wtevp_p, wthmn_p, hsat_p, qst_p, gamma_p, hsthat_p, qsthat_p
          type(c_ptr), value :: gamhat_p, hu_p, hd_p, totpcp_p, totevp_p, ru_p, rd_p, ql_p
       end subroutine wtrc_q1q2_init_qhat_shell_codon
+
+      subroutine wtrc_q1q2_tail_shell_codon(lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, iwtvap_c, &
+           wtrc_qmin_c, ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, jd_p, mx_p, jt_p, dp_p, dsubcld_p, &
+           dz_p, mdpc_p, qd_p, totpcp_p, totevp_p, wtcu_p, dupc_p, ql_p, c0mask_p, mupc_p, wtevp_p, &
+           rpdpc_p, wtrprd_p, cu_p, evp_p, mu_p, md_p, qu_p, qhat_p, dqdt_p, wtdlf_p, du_p, pevp_p, &
+           rprd_p, eps0_p) bind(c, name="wtrc_q1q2_tail_shell_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, iwtvap_c
+         real(c_double), value :: wtrc_qmin_c
+         type(c_ptr), value :: ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, jd_p, mx_p, jt_p, dp_p, dsubcld_p
+         type(c_ptr), value :: dz_p, mdpc_p, qd_p, totpcp_p, totevp_p, wtcu_p, dupc_p, ql_p, c0mask_p
+         type(c_ptr), value :: mupc_p, wtevp_p, rpdpc_p, wtrprd_p, cu_p, evp_p, mu_p, md_p, qu_p, qhat_p
+         type(c_ptr), value :: dqdt_p, wtdlf_p, du_p, pevp_p, rprd_p, eps0_p
+      end subroutine wtrc_q1q2_tail_shell_codon
    end interface
 
 !***************************************
@@ -5460,9 +5481,18 @@ else
 
     do i = 1,pcols
       ideep64(i) = int(ideep(i), c_int64_t)
+      jd64(i) = int(jd(i), c_int64_t)
+      mx64(i) = int(mx(i), c_int64_t)
+      jt64(i) = int(jt(i), c_int64_t)
     end do
     do m = 1,wtrc_nwset
       wtrc_iatype64(m,:) = int(wtrc_iatype(m,:), c_int64_t)
+    end do
+    do ispec = 1,pcnst
+      iwspec64(ispec) = int(iwspec(ispec), c_int64_t)
+    end do
+    do ispec = 1,pwtspec
+      rstd(ispec) = real(wtrc_get_rstd(ispec), c_double)
     end do
 
     if (masterproc .and. .not. wtrc_q1q2_init_logged) then
@@ -5753,6 +5783,26 @@ else
 !calculate total evaporation
 !***************************
 
+if (.not. use_native_wtrc_batch_impl) then
+
+  if (masterproc .and. .not. wtrc_q1q2_tail_logged) then
+    write(iulog,*) 'wtrc_q1q2 tail shell entered (precip/tendency tail direct = codon; isotope core = native)'
+    call wtrc_batch_append_proof('wtrc_q1q2 tail shell entered (precip/tendency tail direct = codon; isotope core = native)')
+    call flush(iulog)
+    wtrc_q1q2_tail_logged = .true.
+  end if
+
+  call wtrc_q1q2_tail_shell_codon(int(lengath, c_int64_t), int(pcols, c_int64_t), &
+       int(pver, c_int64_t), int(wtrc_nwset, c_int64_t), int(msg, c_int64_t), int(iwtvap, c_int64_t), &
+       real(wtrc_qmin, c_double), c_loc(ideep64), c_loc(wtrc_iatype64), c_loc(iwspec64), c_loc(rstd), &
+       c_loc(jd64), c_loc(mx64), c_loc(jt64), c_loc(dp), c_loc(dsubcld), c_loc(dz), c_loc(mdpc), &
+       c_loc(qd), c_loc(totpcp), c_loc(totevp), c_loc(wtcu), c_loc(dupc), c_loc(ql), c_loc(c0mask), &
+       c_loc(mupc), c_loc(wtevp), c_loc(rpdpc), c_loc(wtrprd), c_loc(cu), c_loc(evp), c_loc(mu), &
+       c_loc(md), c_loc(qu), c_loc(qhat), c_loc(dqdt), c_loc(wtdlf), c_loc(du), c_loc(pevp), c_loc(rprd), &
+       c_loc(eps0))
+
+else
+
 do m=1,wtrc_nwset
  do i= 1,lengath
    totevp(i,m) = totevp(i,m) + mdpc(i,jd(i))*qd(i,jd(i),m) - mdpc(i,mx(i))*qd(i,mx(i),m)
@@ -5888,6 +5938,8 @@ end do
     end do
 
   end do  !Water tracers
+
+end if
 
 !******************
 !End deep-con check

@@ -176,6 +176,257 @@ def wtrc_q1q2_init_qhat_shell_codon(
         m += 1
 
 
+@export
+def wtrc_q1q2_tail_shell_codon(
+    lengath: int,
+    pcols: int,
+    pver: int,
+    wtrc_nwset: int,
+    msg: int,
+    iwtvap: int,
+    wtrc_qmin: float,
+    ideep_p: cobj,
+    wtrc_iatype_p: cobj,
+    iwspec_p: cobj,
+    rstd_p: cobj,
+    jd_p: cobj,
+    mx_p: cobj,
+    jt_p: cobj,
+    dp_p: cobj,
+    dsubcld_p: cobj,
+    dz_p: cobj,
+    mdpc_p: cobj,
+    qd_p: cobj,
+    totpcp_p: cobj,
+    totevp_p: cobj,
+    wtcu_p: cobj,
+    dupc_p: cobj,
+    ql_p: cobj,
+    c0mask_p: cobj,
+    mupc_p: cobj,
+    wtevp_p: cobj,
+    rpdpc_p: cobj,
+    wtrprd_p: cobj,
+    cu_p: cobj,
+    evp_p: cobj,
+    mu_p: cobj,
+    md_p: cobj,
+    qu_p: cobj,
+    qhat_p: cobj,
+    dqdt_p: cobj,
+    wtdlf_p: cobj,
+    du_p: cobj,
+    pevp_p: cobj,
+    rprd_p: cobj,
+    eps0_p: cobj,
+):
+    ideep = Ptr[int](ideep_p)
+    wtrc_iatype = Ptr[int](wtrc_iatype_p)
+    iwspec = Ptr[int](iwspec_p)
+    rstd = Ptr[float](rstd_p)
+    jd = Ptr[int](jd_p)
+    mx = Ptr[int](mx_p)
+    jt = Ptr[int](jt_p)
+    dp = Ptr[float](dp_p)
+    dsubcld = Ptr[float](dsubcld_p)
+    dz = Ptr[float](dz_p)
+    mdpc = Ptr[float](mdpc_p)
+    qd = Ptr[float](qd_p)
+    totpcp = Ptr[float](totpcp_p)
+    totevp = Ptr[float](totevp_p)
+    wtcu = Ptr[float](wtcu_p)
+    dupc = Ptr[float](dupc_p)
+    ql = Ptr[float](ql_p)
+    c0mask = Ptr[float](c0mask_p)
+    mupc = Ptr[float](mupc_p)
+    wtevp = Ptr[float](wtevp_p)
+    rpdpc = Ptr[float](rpdpc_p)
+    wtrprd = Ptr[float](wtrprd_p)
+    cu = Ptr[float](cu_p)
+    evp = Ptr[float](evp_p)
+    mu = Ptr[float](mu_p)
+    md = Ptr[float](md_p)
+    qu = Ptr[float](qu_p)
+    qhat = Ptr[float](qhat_p)
+    dqdt = Ptr[float](dqdt_p)
+    wtdlf = Ptr[float](wtdlf_p)
+    du = Ptr[float](du_p)
+    pevp = Ptr[float](pevp_p)
+    rprd = Ptr[float](rprd_p)
+    eps0 = Ptr[float](eps0_p)
+
+    m = 0
+    while m < wtrc_nwset:
+        i = 0
+        while i < lengath:
+            jdi = jd[i] - 1
+            mxi = mx[i] - 1
+            totevp[i + m * pcols] = (
+                totevp[i + m * pcols]
+                + mdpc[_field2_idx(i + 1, jdi + 1, pcols)] * qd[_wtrc_q1q2_3d_idx(i, jdi, m, pcols, pver)]
+                - mdpc[_field2_idx(i + 1, mxi + 1, pcols)] * qd[_wtrc_q1q2_3d_idx(i, mxi, m, pcols, pver)]
+            )
+            i += 1
+        m += 1
+
+    m = 0
+    while m < wtrc_nwset:
+        vap_idx = wtrc_iatype[m + (iwtvap - 1) * wtrc_nwset] - 1
+        ispec = iwspec[vap_idx]
+
+        k = 0
+        while k < pver:
+            i = 0
+            while i < pcols:
+                pevp[_field2_idx(i + 1, k + 1, pcols)] = 0.0
+                rprd[_field2_idx(i + 1, k + 1, pcols)] = 0.0
+                i += 1
+            k += 1
+
+        kk = pver
+        while kk >= msg + 2:
+            k = kk - 1
+            i = 0
+            while i < lengath:
+                if kk >= jt[i] and kk < mx[i] and eps0[i] > 0.0 and mupc[_field2_idx(i + 1, kk, pcols)] >= 0.0:
+                    totpcp[i + m * pcols] = (
+                        totpcp[i + m * pcols]
+                        + dz[_field2_idx(i + 1, kk, pcols)]
+                        * (
+                            wtcu[_wtrc_q1q2_3d_idx(i, k, m, pcols, pver)]
+                            - dupc[_field2_idx(i + 1, kk, pcols)] * ql[_wtrc_q1q2_3d_idx(i, k + 1, m, pcols, pver)]
+                        )
+                    )
+                    rprd[_field2_idx(i + 1, kk, pcols)] = (
+                        c0mask[i] * mupc[_field2_idx(i + 1, kk, pcols)] * ql[_wtrc_q1q2_3d_idx(i, k, m, pcols, pver)]
+                    )
+                i += 1
+            kk -= 1
+
+        kk = msg + 2
+        while kk <= pver:
+            k = kk - 1
+            i = 0
+            while i < lengath:
+                ii = ideep[i] - 1
+                totpcp[i + m * pcols] = max(totpcp[i + m * pcols], 0.0)
+                totevp[i + m * pcols] = max(totevp[i + m * pcols], 0.0)
+                if totevp[i + m * pcols] > 0.0 and totpcp[i + m * pcols] > 0.0:
+                    pevp[_field2_idx(i + 1, kk, pcols)] = wtevp[_wtrc_q1q2_3d_idx(i, k, m, pcols, pver)] * min(
+                        1.0, totpcp[i + m * pcols] / (totevp[i + m * pcols] + totpcp[i + m * pcols])
+                    )
+                else:
+                    pevp[_field2_idx(i + 1, kk, pcols)] = 0.0
+                rprd[_field2_idx(i + 1, kk, pcols)] = rprd[_field2_idx(i + 1, kk, pcols)] - pevp[
+                    _field2_idx(i + 1, kk, pcols)
+                ]
+                rr = _wtrc_ratio(
+                    ispec,
+                    rprd[_field2_idx(i + 1, kk, pcols)],
+                    rpdpc[_field2_idx(i + 1, kk, pcols)],
+                    wtrc_qmin,
+                    rstd,
+                )
+                wtrprd[_wtrc_q1q2_q_idx(ii, k, vap_idx, pcols, pver)] = (
+                    rr * wtrprd[_wtrc_q1q2_q_idx(ii, k, 0, pcols, pver)]
+                )
+                i += 1
+            kk += 1
+        m += 1
+
+    ktm = pver
+    kbm = pver
+    i = 0
+    while i < lengath:
+        ktm = min(ktm, jt[i])
+        kbm = min(kbm, mx[i])
+        i += 1
+
+    m = 0
+    while m < wtrc_nwset:
+        vap_idx = wtrc_iatype[m + (iwtvap - 1) * wtrc_nwset] - 1
+        ispec = iwspec[vap_idx]
+        kk = ktm
+        while kk <= pver - 1:
+            k = kk - 1
+            kp1 = k + 1
+            i = 0
+            while i < lengath:
+                ii = ideep[i] - 1
+                rc = _wtrc_ratio(
+                    ispec,
+                    wtcu[_wtrc_q1q2_3d_idx(i, k, m, pcols, pver)],
+                    wtcu[_wtrc_q1q2_3d_idx(i, k, 0, pcols, pver)],
+                    wtrc_qmin,
+                    rstd,
+                )
+                re = _wtrc_ratio(
+                    ispec,
+                    wtevp[_wtrc_q1q2_3d_idx(i, k, m, pcols, pver)],
+                    wtevp[_wtrc_q1q2_3d_idx(i, k, 0, pcols, pver)],
+                    wtrc_qmin,
+                    rstd,
+                )
+                emc = -rc * cu[_field2_idx(ii + 1, kk, pcols)] + re * evp[_field2_idx(ii + 1, kk, pcols)]
+                if dp[_field2_idx(i + 1, kk, pcols)] > 0.0:
+                    dqdt[_wtrc_q1q2_q_idx(ii, k, vap_idx, pcols, pver)] = emc + (
+                        +mu[_field2_idx(i + 1, kk + 1, pcols)]
+                        * (
+                            qu[_wtrc_q1q2_3d_idx(i, kp1, m, pcols, pver)]
+                            - qhat[_wtrc_q1q2_3d_idx(i, kp1, m, pcols, pver)]
+                        )
+                        - mu[_field2_idx(i + 1, kk, pcols)]
+                        * (
+                            qu[_wtrc_q1q2_3d_idx(i, k, m, pcols, pver)]
+                            - qhat[_wtrc_q1q2_3d_idx(i, k, m, pcols, pver)]
+                        )
+                        + md[_field2_idx(i + 1, kk + 1, pcols)]
+                        * (
+                            qd[_wtrc_q1q2_3d_idx(i, kp1, m, pcols, pver)]
+                            - qhat[_wtrc_q1q2_3d_idx(i, kp1, m, pcols, pver)]
+                        )
+                        - md[_field2_idx(i + 1, kk, pcols)]
+                        * (
+                            qd[_wtrc_q1q2_3d_idx(i, k, m, pcols, pver)]
+                            - qhat[_wtrc_q1q2_3d_idx(i, k, m, pcols, pver)]
+                        )
+                    ) / dp[_field2_idx(i + 1, kk, pcols)]
+                else:
+                    dqdt[_wtrc_q1q2_q_idx(ii, k, vap_idx, pcols, pver)] = emc
+                wtdlf[_wtrc_q1q2_3d_idx(ii, k, m, pcols, pver)] = du[_field2_idx(i + 1, kk, pcols)] * ql[
+                    _wtrc_q1q2_3d_idx(i, kp1, m, pcols, pver)
+                ]
+                i += 1
+            kk += 1
+
+        kk = kbm
+        while kk <= pver:
+            k = kk - 1
+            i = 0
+            while i < lengath:
+                ii = ideep[i] - 1
+                if kk == mx[i]:
+                    dqdt[_wtrc_q1q2_q_idx(ii, k, vap_idx, pcols, pver)] = (1.0 / dsubcld[i]) * (
+                        -mu[_field2_idx(i + 1, kk, pcols)]
+                        * (
+                            qu[_wtrc_q1q2_3d_idx(i, k, m, pcols, pver)]
+                            - qhat[_wtrc_q1q2_3d_idx(i, k, m, pcols, pver)]
+                        )
+                        - md[_field2_idx(i + 1, kk, pcols)]
+                        * (
+                            qd[_wtrc_q1q2_3d_idx(i, k, m, pcols, pver)]
+                            - qhat[_wtrc_q1q2_3d_idx(i, k, m, pcols, pver)]
+                        )
+                    )
+                elif kk > mx[i]:
+                    dqdt[_wtrc_q1q2_q_idx(ii, k, vap_idx, pcols, pver)] = dqdt[
+                        _wtrc_q1q2_q_idx(ii, k - 1, vap_idx, pcols, pver)
+                    ]
+                i += 1
+            kk += 1
+        m += 1
+
+
 @inline
 def _process_rates_idx(
     i: int,
