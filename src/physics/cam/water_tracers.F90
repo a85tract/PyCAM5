@@ -145,6 +145,11 @@ module water_tracers
   logical :: use_native_wtrc_batch_impl = .false.
   logical :: wtrc_batch_impl_selected = .false.
   logical :: wtrc_batch_entered_logged = .false.
+  logical :: use_native_wtrc_precip_evap_shell_impl = .false.
+  logical :: wtrc_precip_evap_shell_impl_selected = .false.
+  logical :: wtrc_precip_evap_init_logged = .false.
+  logical :: wtrc_precip_evap_prep_logged = .false.
+  logical :: wtrc_precip_evap_tail_logged = .false.
 
 contains
 
@@ -217,6 +222,62 @@ subroutine wtrc_batch_log_entered()
   end if
 
 end subroutine wtrc_batch_log_entered
+
+!=======================================================================
+subroutine wtrc_precip_evap_shell_append_proof(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  character(len=512) :: proof_file
+  integer :: status, n, unitno
+
+  proof_file = ''
+  call get_environment_variable('WTRC_PRECIP_EVAP_SHELL_PROOF_FILE', value=proof_file, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+    open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+    write(unitno,'(A)') trim(proof_line)
+    close(unitno)
+  end if
+
+end subroutine wtrc_precip_evap_shell_append_proof
+
+!=======================================================================
+subroutine wtrc_precip_evap_shell_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (wtrc_precip_evap_shell_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('WTRC_PRECIP_EVAP_SHELL_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+    do i = 1, n
+      code = iachar(impl_name(i:i))
+      if (code >= iachar('A') .and. code <= iachar('Z')) then
+        impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+      end if
+    end do
+    use_native_wtrc_precip_evap_shell_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+    use_native_wtrc_precip_evap_shell_impl = .false.
+  end if
+
+  wtrc_precip_evap_shell_impl_selected = .true.
+
+  if (masterproc) then
+    if (use_native_wtrc_precip_evap_shell_impl) then
+      write(iulog,*) 'wtrc_precip_evap_shell implementation = native'
+      call wtrc_precip_evap_shell_append_proof('wtrc_precip_evap_shell selector entered implementation = native')
+    else
+      write(iulog,*) 'wtrc_precip_evap_shell implementation = codon'
+      call wtrc_precip_evap_shell_append_proof('wtrc_precip_evap_shell selector entered implementation = codon')
+    end if
+    call flush(iulog)
+  end if
+
+end subroutine wtrc_precip_evap_shell_select_impl
 
 !=======================================================================
 subroutine wtrc_mass_fixer_select_impl()
@@ -4499,6 +4560,7 @@ subroutine wtrc_precip_evap(state,rprd,deltat,evpbulk,subbulk,dqdt,prec,snow)
 
 
 use shr_kind_mod,          only: r8 => shr_kind_r8
+use iso_c_binding,         only: c_double, c_int64_t, c_loc, c_ptr
 use physics_types,         only: physics_state
 use ppgrid,                only: pcols, pver, pverp
 use physconst,             only: gravit, tmelt
@@ -4516,41 +4578,41 @@ implicit none
 
 type(physics_state), intent(in)    :: state          ! Physics state variabiles
 
-real(r8), intent(in)    :: rprd(pcols,pver,pcnst) ! precip production (kg/kg/s)
+real(r8), target, intent(in)    :: rprd(pcols,pver,pcnst) ! precip production (kg/kg/s)
 real(r8), intent(in)    :: deltat                 ! time step
 
-real(r8), intent(in)    :: evpbulk(pcols,pver)    ! bulk evaporation rate (kg/kg/s)
-real(r8), intent(in)    :: subbulk(pcols,pver)    ! bulk sublimation rate (kg/kg/s)
+real(r8), target, intent(in)    :: evpbulk(pcols,pver)    ! bulk evaporation rate (kg/kg/s)
+real(r8), target, intent(in)    :: subbulk(pcols,pver)    ! bulk sublimation rate (kg/kg/s)
 
 !real(r8), intent(in)    :: cldfrc(pcols,pver)     ! cloud fraction !TESTING!!!
 
-real(r8), intent(inout) :: dqdt(pcols,pver,pcnst) ! Change in water vapor (kg/kg/s)
-real(r8), intent(inout) :: prec(pcols,pcnst)      ! Conv.-scale precip. rate (m/s)
-real(r8), intent(inout) :: snow(pcols,pcnst)      ! Conv.-scale snowfall rate (m/s)
+real(r8), target, intent(inout) :: dqdt(pcols,pver,pcnst) ! Change in water vapor (kg/kg/s)
+real(r8), target, intent(inout) :: prec(pcols,pcnst)      ! Conv.-scale precip. rate (m/s)
+real(r8), target, intent(inout) :: snow(pcols,pcnst)      ! Conv.-scale snowfall rate (m/s)
 
 !Local variables:
 
-real(r8) :: rnbulk(pcols,pver)                  !bulk rain evaporation rate (prec-snow) (kg/kg/s)
+real(r8), target :: rnbulk(pcols,pver)                  !bulk rain evaporation rate (prec-snow) (kg/kg/s)
 
-real(r8) :: evp(pcols,pver,wtrc_ntype(iwtvap))  !Water tracer evaporation (kg/kg/s)
-real(r8) :: mlt(pcols,pver,wtrc_ntype(iwtvap))  !Water tracer snow melt   (kg/kg/s)
-real(r8) :: frz(pcols,pver,wtrc_ntype(iwtvap))  !Water tracer rain freeze (kg/kg/s)
-real(r8) :: sub(pcols,pver,wtrc_ntype(iwtvap))  !Water tracer snow sublimation (kg/kg/s)
+real(r8), target :: evp(pcols,pver,wtrc_ntype(iwtvap))  !Water tracer evaporation (kg/kg/s)
+real(r8), target :: mlt(pcols,pver,wtrc_ntype(iwtvap))  !Water tracer snow melt   (kg/kg/s)
+real(r8), target :: frz(pcols,pver,wtrc_ntype(iwtvap))  !Water tracer rain freeze (kg/kg/s)
+real(r8), target :: sub(pcols,pver,wtrc_ntype(iwtvap))  !Water tracer snow sublimation (kg/kg/s)
 
-real(r8) :: flxpr(pcols,pverp,wtrc_ntype(iwtvap)) !precip flux  (kg/m2/s)
-real(r8) :: flxsn(pcols,pverp,wtrc_ntype(iwtvap)) !Snow flux  (kg/m2/s)
-real(r8) :: dldt(pcols,pver,wtrc_ntype(iwtvap))   !Rain tendency (kg/kg/s)
-real(r8) :: dsdt(pcols,pver,wtrc_ntype(iwtvap))   !Snow tendency
+real(r8), target :: flxpr(pcols,pverp,wtrc_ntype(iwtvap)) !precip flux  (kg/m2/s)
+real(r8), target :: flxsn(pcols,pverp,wtrc_ntype(iwtvap)) !Snow flux  (kg/m2/s)
+real(r8), target :: dldt(pcols,pver,wtrc_ntype(iwtvap))   !Rain tendency (kg/kg/s)
+real(r8), target :: dsdt(pcols,pver,wtrc_ntype(iwtvap))   !Snow tendency
 
 real(r8) :: Rp(pcols,pver)      !Water tracer precip ratio
 real(r8) :: Rr(pcols,pver)      !Water tracer rain ratio
 real(r8) :: Rv(pcols,pver)      !Water tracer vapor ratio
 real(r8) :: Rs(pcols,pver)      !Water tracer snow ratio <-Not used?
-real(r8) :: fice(pcols,pver)    !Fraction of ice in layer
-real(r8) :: fsnow(pcols,pver)   !Fraction that becomes snow
+real(r8), target :: fice(pcols,pver)    !Fraction of ice in layer
+real(r8), target :: fsnow(pcols,pver)   !Fraction that becomes snow
 real(r8) :: est(pcols,pver)     !Saturation vapor pressure
-real(r8) :: qst(pcols,pver)     !Saturation specific humidity
-real(r8) :: rh(pcols,pver)      !Relative humidity
+real(r8), target :: qst(pcols,pver)     !Saturation specific humidity
+real(r8), target :: rh(pcols,pver)      !Relative humidity
 real(r8) :: heff(pcols,pver)    !Effective humidity
 
 real(r8) :: alpliq              !Equilibrium liquid-vapor fractionation factor
@@ -4564,7 +4626,7 @@ real(r8) :: dliqiso             !Change in isotopic liquid to due equilibration
 real(r8) :: Re                  !Rain evaporation ratio (includes fractionation)
 
 !For Stewart rain re-evaporation:
-real(r8) :: totrnfx(pcols,pverp) !Total precipitation flux
+real(r8), target :: totrnfx(pcols,pverp) !Total precipitation flux
 real(r8) :: gam,bet              !Stewart equation parameters
 real(r8) :: fr                   !Fraction of precip remaining after rain evaporation
 real(r8) :: Rstw                 !precipitation ratio after application of Stewart equation
@@ -4577,7 +4639,7 @@ real(r8)  :: dkfac              !Diffusivity power law factor
 
 !For partial equilibration calculation:
 integer     :: ispec                    !water isotope species
-real(r8)    :: dz(pcols,pver)           !layer thickness in height
+real(r8), target :: dz(pcols,pver)           !layer thickness in height
 real(r8)    :: fequil                   !fraction equilibrated (unitless)
 !real(r8), parameter :: radius=0.001_r8  !assumed radius of raindrop (m)
 real(r8)    :: radius                   !assumed radius of raindrop (m)
@@ -4594,23 +4656,66 @@ real(r8) :: sdiff
 real(r8) :: pmass0
 real(r8) :: smass0
 real(r8) :: Rd
+integer(c_int64_t), target :: wtrc_iatype64(wtrc_nwset,pwtype)
+integer(c_int64_t), target :: iwspec64(pcnst)
+real(c_double), target :: rstd(pwtspec)
+
+interface
+  subroutine wtrc_precip_evap_init_shell_codon(pcols_c, pver_c, pverp_c, nwvap_c, &
+       evp_p, mlt_p, frz_p, sub_p, fice_p, fsnow_p, rnbulk_p, flxpr_p, flxsn_p, totrnfx_p, dz_p) &
+       bind(c, name="wtrc_precip_evap_init_shell_codon")
+    use iso_c_binding, only: c_int64_t, c_ptr
+    integer(c_int64_t), value :: pcols_c, pver_c, pverp_c, nwvap_c
+    type(c_ptr), value :: evp_p, mlt_p, frz_p, sub_p, fice_p, fsnow_p, rnbulk_p, flxpr_p, flxsn_p
+    type(c_ptr), value :: totrnfx_p, dz_p
+  end subroutine wtrc_precip_evap_init_shell_codon
+
+  subroutine wtrc_precip_evap_prep_shell_codon(pcols_c, pver_c, evpbulk_p, subbulk_p, rnbulk_p) &
+       bind(c, name="wtrc_precip_evap_prep_shell_codon")
+    use iso_c_binding, only: c_int64_t, c_ptr
+    integer(c_int64_t), value :: pcols_c, pver_c
+    type(c_ptr), value :: evpbulk_p, subbulk_p, rnbulk_p
+  end subroutine wtrc_precip_evap_prep_shell_codon
+
+  subroutine wtrc_precip_evap_tail_shell_codon(ncol_c, pcols_c, pver_c, pverp_c, pcnst_c, nwvap_c, &
+       wtrc_nwset_c, iwtvap_c, wtrc_qmin_c, prec_p, snow_p, flxpr_p, flxsn_p, wtrc_iatype_p, iwspec_p, rstd_p) &
+       bind(c, name="wtrc_precip_evap_tail_shell_codon")
+    use iso_c_binding, only: c_double, c_int64_t, c_ptr
+    integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c, pcnst_c, nwvap_c, wtrc_nwset_c, iwtvap_c
+    real(c_double), value :: wtrc_qmin_c
+    type(c_ptr), value :: prec_p, snow_p, flxpr_p, flxsn_p, wtrc_iatype_p, iwspec_p, rstd_p
+  end subroutine wtrc_precip_evap_tail_shell_codon
+end interface
 
 !********************
 !Initialize variables
 !********************
 
 !Set variables to zero:
-evp(:,:,:)   = 0._r8
-mlt(:,:,:)   = 0._r8
-frz(:,:,:)   = 0._r8
-sub(:,:,:)   = 0._r8
-fice(:,:)    = 0._r8
-fsnow(:,:)   = 0._r8
-rnbulk(:,:)  = 0._r8
-flxpr(:,:,:) = 0._r8
-flxsn(:,:,:) = 0._r8
-totrnfx(:,:) = 0._r8
-dz(:,:)      = 0._r8
+call wtrc_precip_evap_shell_select_impl()
+if (.not. use_native_wtrc_precip_evap_shell_impl) then
+  if (masterproc .and. .not. wtrc_precip_evap_init_logged) then
+    write(iulog,*) 'wtrc_precip_evap init shell entered (work arrays zero direct = codon)'
+    call wtrc_precip_evap_shell_append_proof('wtrc_precip_evap init shell entered (work arrays zero direct = codon)')
+    call flush(iulog)
+    wtrc_precip_evap_init_logged = .true.
+  end if
+  call wtrc_precip_evap_init_shell_codon(int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
+       int(wtrc_ntype(iwtvap), c_int64_t), c_loc(evp), c_loc(mlt), c_loc(frz), c_loc(sub), c_loc(fice), &
+       c_loc(fsnow), c_loc(rnbulk), c_loc(flxpr), c_loc(flxsn), c_loc(totrnfx), c_loc(dz))
+else
+  evp(:,:,:)   = 0._r8
+  mlt(:,:,:)   = 0._r8
+  frz(:,:,:)   = 0._r8
+  sub(:,:,:)   = 0._r8
+  fice(:,:)    = 0._r8
+  fsnow(:,:)   = 0._r8
+  rnbulk(:,:)  = 0._r8
+  flxpr(:,:,:) = 0._r8
+  flxsn(:,:,:) = 0._r8
+  totrnfx(:,:) = 0._r8
+  dz(:,:)      = 0._r8
+end if
 
 ncol = state%ncol
 
@@ -4642,7 +4747,18 @@ end do
 !Calculate bulk rain re-evaporation
 !**********************************
 
-rnbulk(:,:) = evpbulk(:,:)-subbulk(:,:)
+if (.not. use_native_wtrc_precip_evap_shell_impl) then
+  if (masterproc .and. .not. wtrc_precip_evap_prep_logged) then
+    write(iulog,*) 'wtrc_precip_evap prep shell entered (rnbulk direct = codon; rh/dz = native)'
+    call wtrc_precip_evap_shell_append_proof('wtrc_precip_evap prep shell entered (rnbulk direct = codon; rh/dz = native)')
+    call flush(iulog)
+    wtrc_precip_evap_prep_logged = .true.
+  end if
+  call wtrc_precip_evap_prep_shell_codon(int(pcols, c_int64_t), int(pver, c_int64_t), &
+       c_loc(evpbulk), c_loc(subbulk), c_loc(rnbulk))
+else
+  rnbulk(:,:) = evpbulk(:,:)-subbulk(:,:)
+end if
 
 !**************************
 !loop through water tracers
@@ -4871,48 +4987,73 @@ end do !water tracers
     end do !pver
   end do   !pcols
 
-!Dividing by 1000 converts kg/m2/s to m/s for H2O (aka density of liquid water is 1000 kg/m3) -JN
-
-do m=1,wtrc_nwset
-
-  !Set surface Rain (Precip.) values:
-  prec(:ncol,wtrc_iatype(m,iwtvap)) = flxpr(:ncol,pverp,m)/1000_r8
-
-  !Set surface Snow values:
-  snow(:ncol,wtrc_iatype(m,iwtvap)) = flxsn(:ncol,pverp,m)/1000_r8
-
-end do
-
-!-----------------------
-!correct for mass errors:
-!-----------------------
-do i=1,ncol
- !Calculate differences:
-  pmass0 = prec(i,wtrc_iatype(2,iwtvap))
-  smass0 = snow(i,wtrc_iatype(2,iwtvap))
-  pdiff  = pmass0 - prec(i,wtrc_iatype(1,iwtvap))
-  sdiff  = smass0 - snow(i,wtrc_iatype(1,iwtvap))
-  do m=2,wtrc_nwset
-   !Total precip errors:
-    Rd = wtrc_ratio(iwspec(wtrc_iatype(m,iwtvap)),(prec(i,wtrc_iatype(m,iwtvap))-snow(i,wtrc_iatype(m,iwtvap))),pmass0)
-    prec(i,wtrc_iatype(m,iwtvap)) = max(0._r8, prec(i,wtrc_iatype(m,iwtvap))-Rd*pdiff)
-   !Snow errors:
-    Rd = wtrc_ratio(iwspec(wtrc_iatype(m,iwtvap)),snow(i,wtrc_iatype(m,iwtvap)),smass0)
-    snow(i,wtrc_iatype(m,iwtvap)) = max(0._r8, snow(i,wtrc_iatype(m,iwtvap))-Rd*sdiff)
-   !Giant error check:
-   !NOTE:  !Seems to occur baout once every seven years. -JN
-    if(prec(i,wtrc_iatype(m,iwtvap)) .gt. 10._r8*prec(i,wtrc_iatype(1,iwtvap))) then
-      if(prec(i,wtrc_iatype(1,iwtvap)) .gt. wtrc_qmin) &
-      write(*,*) 'ERROR:  Isotopic deep-conv precip error!',prec(i,wtrc_iatype(m,iwtvap)),prec(i,wtrc_iatype(1,iwtvap)),&
-                  snow(i,wtrc_iatype(m,iwtvap)),snow(i,wtrc_iatype(1,iwtvap)),i,m
-     !Set the tracer precip back to bulk water (it violates mass-conservation,
-     !but is probably due to a numerical/non-physical error anyways).
-      prec(i,wtrc_iatype(m,iwtvap)) = prec(i,wtrc_iatype(1,iwtvap))
-      snow(i,wtrc_iatype(m,iwtvap)) = snow(i,wtrc_iatype(1,iwtvap))
-    end if
+if (.not. use_native_wtrc_precip_evap_shell_impl) then
+  do m = 1, wtrc_nwset
+    wtrc_iatype64(m,:) = int(wtrc_iatype(m,:), c_int64_t)
   end do
-end do
-!----------------------
+  do m = 1, pcnst
+    iwspec64(m) = int(iwspec(m), c_int64_t)
+  end do
+  do m = 1, pwtspec
+    rstd(m) = real(wtrc_get_rstd(m), c_double)
+  end do
+
+  if (masterproc .and. .not. wtrc_precip_evap_tail_logged) then
+    write(iulog,*) 'wtrc_precip_evap tail shell entered (surface precip/mass-fix direct = codon)'
+    call wtrc_precip_evap_shell_append_proof( &
+         'wtrc_precip_evap tail shell entered (surface precip/mass-fix direct = codon)')
+    call flush(iulog)
+    wtrc_precip_evap_tail_logged = .true.
+  end if
+
+  call wtrc_precip_evap_tail_shell_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(pverp, c_int64_t), int(pcnst, c_int64_t), int(wtrc_ntype(iwtvap), c_int64_t), &
+       int(wtrc_nwset, c_int64_t), int(iwtvap, c_int64_t), real(wtrc_qmin, c_double), c_loc(prec), c_loc(snow), &
+       c_loc(flxpr), c_loc(flxsn), c_loc(wtrc_iatype64), c_loc(iwspec64), c_loc(rstd))
+else
+  !Dividing by 1000 converts kg/m2/s to m/s for H2O (aka density of liquid water is 1000 kg/m3) -JN
+
+  do m=1,wtrc_nwset
+
+    !Set surface Rain (Precip.) values:
+    prec(:ncol,wtrc_iatype(m,iwtvap)) = flxpr(:ncol,pverp,m)/1000_r8
+
+    !Set surface Snow values:
+    snow(:ncol,wtrc_iatype(m,iwtvap)) = flxsn(:ncol,pverp,m)/1000_r8
+
+  end do
+
+  !-----------------------
+  !correct for mass errors:
+  !-----------------------
+  do i=1,ncol
+   !Calculate differences:
+    pmass0 = prec(i,wtrc_iatype(2,iwtvap))
+    smass0 = snow(i,wtrc_iatype(2,iwtvap))
+    pdiff  = pmass0 - prec(i,wtrc_iatype(1,iwtvap))
+    sdiff  = smass0 - snow(i,wtrc_iatype(1,iwtvap))
+    do m=2,wtrc_nwset
+     !Total precip errors:
+      Rd = wtrc_ratio(iwspec(wtrc_iatype(m,iwtvap)),(prec(i,wtrc_iatype(m,iwtvap))-snow(i,wtrc_iatype(m,iwtvap))),pmass0)
+      prec(i,wtrc_iatype(m,iwtvap)) = max(0._r8, prec(i,wtrc_iatype(m,iwtvap))-Rd*pdiff)
+     !Snow errors:
+      Rd = wtrc_ratio(iwspec(wtrc_iatype(m,iwtvap)),snow(i,wtrc_iatype(m,iwtvap)),smass0)
+      snow(i,wtrc_iatype(m,iwtvap)) = max(0._r8, snow(i,wtrc_iatype(m,iwtvap))-Rd*sdiff)
+     !Giant error check:
+     !NOTE:  !Seems to occur baout once every seven years. -JN
+      if(prec(i,wtrc_iatype(m,iwtvap)) .gt. 10._r8*prec(i,wtrc_iatype(1,iwtvap))) then
+        if(prec(i,wtrc_iatype(1,iwtvap)) .gt. wtrc_qmin) &
+        write(*,*) 'ERROR:  Isotopic deep-conv precip error!',prec(i,wtrc_iatype(m,iwtvap)),prec(i,wtrc_iatype(1,iwtvap)),&
+                    snow(i,wtrc_iatype(m,iwtvap)),snow(i,wtrc_iatype(1,iwtvap)),i,m
+       !Set the tracer precip back to bulk water (it violates mass-conservation,
+       !but is probably due to a numerical/non-physical error anyways).
+        prec(i,wtrc_iatype(m,iwtvap)) = prec(i,wtrc_iatype(1,iwtvap))
+        snow(i,wtrc_iatype(m,iwtvap)) = snow(i,wtrc_iatype(1,iwtvap))
+      end if
+    end do
+  end do
+  !----------------------
+end if
 
 !**************
 !End subroutine
