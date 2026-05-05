@@ -92,6 +92,9 @@ module zm_conv_intr
    logical :: zm_convtran2_dpdry_logged = .false.
    logical :: zm_workspace_init_logged = .false.
    logical :: zm_wtrc_convr_prep_logged = .false.
+   logical :: zm_wtrc_precip_assign_logged = .false.
+   logical :: zm_momtran_prep_logged = .false.
+   logical :: zm_convtran1_prep_logged = .false.
 
 
 !=========================================================================================
@@ -417,14 +420,14 @@ subroutine zm_conv_tend(pblh    ,mcon    ,cme     , &
    real(r8) :: ntsnprd(pcols,pver)    ! evap outfld: net snow production in layer
    real(r8), target :: tend_s_snwprd  (pcols,pver) ! Heating rate of snow production
    real(r8), target :: tend_s_snwevmlt(pcols,pver) ! Heating rate of evap/melting of snow
-   real(r8) :: fake_dpdry(pcols,pver) ! used in convtran call
+   real(r8), target :: fake_dpdry(pcols,pver) ! used in convtran call
 
    !----------------------
    !Local water tracer variables (should probably be cleaned up)
    !---------------------- 
 !   real(r8) wtdlft(pcols,pver,pcnst)      ! Temporary Detraining water tracer cld from convection
    real(r8), target :: wtprect(pcols,pcnst)          ! Temporary tracer total precipitation from ZM convection
-   real(r8) wtsnowt(pcols,pcnst)          ! Temproary tracer snow from ZM convection
+   real(r8), target :: wtsnowt(pcols,pcnst)          ! Temproary tracer snow from ZM convection
 !   real(r8) wtcmet(pcols,pver,pcnst)      ! Temporary condensation - evaporation 
 !   real(r8) wtql(pcols,pver,pcnst)        ! updraft cloud liquid water ZM scheme
 !   real(r8) wtqi(pcols,pver,pcnst)        ! updraft cloud ice water ZM scheme
@@ -506,7 +509,7 @@ subroutine zm_conv_tend(pblh    ,mcon    ,cme     , &
    real(r8), target :: md_out(pcols,pver)
 
    ! used in momentum transport calculation
-   real(r8) :: winds(pcols, pver, 2)
+   real(r8), target :: winds(pcols, pver, 2)
    real(r8), target :: wind_tends(pcols, pver, 2)
    real(r8) :: pguall(pcols, pver, 2)
    real(r8) :: pgdall(pcols, pver, 2)
@@ -733,8 +736,7 @@ end if
        call pbuf_get_field(pbuf, wtrc_srfpcp_indices(iwtcvrain,i), wtprec)
        call pbuf_get_field(pbuf, wtrc_srfpcp_indices(iwtcvsnow,i), wtsnow)
 
-       wtprec(:) = wtprect(:,wtrc_iatype(i,iwtvap)) - wtsnowt(:,wtrc_iatype(i,iwtvap)) !assign values (should be rain only)
-       wtsnow(:) = wtsnowt(:,wtrc_iatype(i,iwtvap))                                    !(snow only)
+       call zm_wtrc_precip_assign_shell(int(wtrc_iatype(i,iwtvap), c_int64_t), wtprect, wtsnowt, wtprec, wtsnow)
      end do
    end if
 !----------------------------------------------------------
@@ -783,8 +785,7 @@ end if
 
      call physics_ptend_init(ptend_loc, state1%psetcols, 'momtran', ls=.true., lu=.true., lv=.true.)
 
-     winds(:ncol,:pver,1) = state1%u(:ncol,:pver)
-     winds(:ncol,:pver,2) = state1%v(:ncol,:pver)
+     call zm_momtran_prep_shell(ncol, state1%u, state1%v, winds)
    
      l_windt(1) = .true.
      l_windt(2) = .true.
@@ -846,7 +847,7 @@ end if
 
    ! dpdry is not used in this call to convtran since the cloud liquid and ice mixing
    ! ratios are moist
-   fake_dpdry(:,:) = 0._r8
+   call zm_convtran1_prep_shell(fake_dpdry)
 
    call t_startf ('convtran1')
    call convtran (lchnk,                                        &
@@ -1023,6 +1024,45 @@ subroutine zm_wtrc_convr_prep_shell(ncol_local, wtrc_nwset_local, wtdlf_local, w
         c_loc(wtprect_local), c_loc(rprd_local), c_loc(prec_local))
 
 end subroutine zm_wtrc_convr_prep_shell
+
+!=========================================================================================
+
+subroutine zm_wtrc_precip_assign_shell(vap_type64_local, wtprect_local, wtsnowt_local, wtprec_local, wtsnow_local)
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+   integer(c_int64_t), intent(in) :: vap_type64_local
+   real(r8), target, intent(in) :: wtprect_local(pcols,pcnst), wtsnowt_local(pcols,pcnst)
+   real(r8), pointer, intent(inout) :: wtprec_local(:), wtsnow_local(:)
+
+   interface
+      subroutine zm_wtrc_precip_assign_shell_codon(pcols_c, vap_type_c, wtprect_p, wtsnowt_p, wtprec_p, wtsnow_p) &
+           bind(c, name="zm_wtrc_precip_assign_shell_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: pcols_c, vap_type_c
+         type(c_ptr), value :: wtprect_p, wtsnowt_p, wtprec_p, wtsnow_p
+      end subroutine zm_wtrc_precip_assign_shell_codon
+   end interface
+
+   call zm_conv_select_post_shell_impl()
+
+   if (use_native_zm_post_shell) then
+      wtprec_local(:) = wtprect_local(:,int(vap_type64_local)) - wtsnowt_local(:,int(vap_type64_local))
+      wtsnow_local(:) = wtsnowt_local(:,int(vap_type64_local))
+      return
+   end if
+
+   if (masterproc .and. .not. zm_wtrc_precip_assign_logged) then
+      write(iulog,*) 'zm_wtrc_precip assign shell entered (rain/snow pbuf values direct = codon)'
+      call zm_conv_append_post_shell_proof('zm_wtrc_precip assign shell entered (rain/snow pbuf values direct = codon)')
+      call flush(iulog)
+      zm_wtrc_precip_assign_logged = .true.
+   end if
+
+   call zm_wtrc_precip_assign_shell_codon(int(pcols, c_int64_t), vap_type64_local, c_loc(wtprect_local), &
+        c_loc(wtsnowt_local), c_loc(wtprec_local), c_loc(wtsnow_local))
+
+end subroutine zm_wtrc_precip_assign_shell
 
 !=========================================================================================
 
@@ -1272,6 +1312,45 @@ end subroutine zm_conv_evap_hist_shell
 
 !=========================================================================================
 
+subroutine zm_momtran_prep_shell(ncol_local, state_u_local, state_v_local, winds_local)
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+   integer, intent(in) :: ncol_local
+   real(r8), target, intent(in) :: state_u_local(pcols,pver), state_v_local(pcols,pver)
+   real(r8), target, intent(inout) :: winds_local(pcols,pver,2)
+
+   interface
+      subroutine zm_momtran_prep_shell_codon(ncol_c, pcols_c, pver_c, state_u_p, state_v_p, winds_p) &
+           bind(c, name="zm_momtran_prep_shell_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: state_u_p, state_v_p, winds_p
+      end subroutine zm_momtran_prep_shell_codon
+   end interface
+
+   call zm_conv_select_post_shell_impl()
+
+   if (use_native_zm_post_shell) then
+      winds_local(:ncol_local,:pver,1) = state_u_local(:ncol_local,:pver)
+      winds_local(:ncol_local,:pver,2) = state_v_local(:ncol_local,:pver)
+      return
+   end if
+
+   if (masterproc .and. .not. zm_momtran_prep_logged) then
+      write(iulog,*) 'zm_momtran prep shell entered (wind inputs direct = codon)'
+      call zm_conv_append_post_shell_proof('zm_momtran prep shell entered (wind inputs direct = codon)')
+      call flush(iulog)
+      zm_momtran_prep_logged = .true.
+   end if
+
+   call zm_momtran_prep_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        c_loc(state_u_local), c_loc(state_v_local), c_loc(winds_local))
+
+end subroutine zm_momtran_prep_shell
+
+!=========================================================================================
+
 subroutine zm_momtran_post_shell(ncol_local, cpair_local, wind_tends_local, seten_local, ptend_u_local, ptend_v_local, &
      ptend_s_local, ftem_local)
 
@@ -1315,6 +1394,41 @@ subroutine zm_momtran_post_shell(ncol_local, cpair_local, wind_tends_local, sete
         c_loc(ptend_v_local), c_loc(ptend_s_local), c_loc(ftem_local))
 
 end subroutine zm_momtran_post_shell
+
+!=========================================================================================
+
+subroutine zm_convtran1_prep_shell(fake_dpdry_local)
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+   real(r8), target, intent(inout) :: fake_dpdry_local(pcols,pver)
+
+   interface
+      subroutine zm_convtran1_prep_shell_codon(pcols_c, pver_c, fake_dpdry_p) &
+           bind(c, name="zm_convtran1_prep_shell_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: pcols_c, pver_c
+         type(c_ptr), value :: fake_dpdry_p
+      end subroutine zm_convtran1_prep_shell_codon
+   end interface
+
+   call zm_conv_select_post_shell_impl()
+
+   if (use_native_zm_post_shell) then
+      fake_dpdry_local(:,:) = 0._r8
+      return
+   end if
+
+   if (masterproc .and. .not. zm_convtran1_prep_logged) then
+      write(iulog,*) 'zm_convtran1 prep shell entered (fake_dpdry zero direct = codon)'
+      call zm_conv_append_post_shell_proof('zm_convtran1 prep shell entered (fake_dpdry zero direct = codon)')
+      call flush(iulog)
+      zm_convtran1_prep_logged = .true.
+   end if
+
+   call zm_convtran1_prep_shell_codon(int(pcols, c_int64_t), int(pver, c_int64_t), c_loc(fake_dpdry_local))
+
+end subroutine zm_convtran1_prep_shell
 
 !=========================================================================================
 

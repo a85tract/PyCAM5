@@ -308,6 +308,29 @@ def zm_wtrc_convr_prep_shell_codon(
 
 
 @export
+def zm_wtrc_precip_assign_shell_codon(
+    pcols: int,
+    vap_type: int,
+    wtprect_p: cobj,
+    wtsnowt_p: cobj,
+    wtprec_p: cobj,
+    wtsnow_p: cobj,
+):
+    wtprect = Ptr[float](wtprect_p)
+    wtsnowt = Ptr[float](wtsnowt_p)
+    wtprec = Ptr[float](wtprec_p)
+    wtsnow = Ptr[float](wtsnow_p)
+    offset = (vap_type - 1) * pcols
+
+    i = 0
+    while i < pcols:
+        snow_val = wtsnowt[i + offset]
+        wtprec[i] = wtprect[i + offset] - snow_val
+        wtsnow[i] = snow_val
+        i += 1
+
+
+@export
 def zm_conv_evap_prep_shell_codon(
     ncol: int,
     pcols: int,
@@ -406,6 +429,31 @@ def zm_conv_evap_hist_shell_codon(
 
 
 @export
+def zm_momtran_prep_shell_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    state_u_p: cobj,
+    state_v_p: cobj,
+    winds_p: cobj,
+):
+    state_u = Ptr[float](state_u_p)
+    state_v = Ptr[float](state_v_p)
+    winds = Ptr[float](winds_p)
+    plane = pcols * pver
+
+    k = 0
+    while k < pver:
+        i = 0
+        while i < ncol:
+            idx = i + k * pcols
+            winds[idx] = state_u[idx]
+            winds[idx + plane] = state_v[idx]
+            i += 1
+        k += 1
+
+
+@export
 def zm_momtran_post_shell_codon(
     ncol: int,
     pcols: int,
@@ -435,6 +483,23 @@ def zm_momtran_post_shell_codon(
             ptend_v[idx] = wind_tends[idx + plane]
             ptend_s[idx] = seten[idx]
             ftem[idx] = seten[idx] / cpair
+            i += 1
+        k += 1
+
+
+@export
+def zm_convtran1_prep_shell_codon(
+    pcols: int,
+    pver: int,
+    fake_dpdry_p: cobj,
+):
+    fake_dpdry = Ptr[float](fake_dpdry_p)
+
+    k = 0
+    while k < pver:
+        i = 0
+        while i < pcols:
+            fake_dpdry[i + k * pcols] = 0.0
             i += 1
         k += 1
 
