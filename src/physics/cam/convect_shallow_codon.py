@@ -1859,6 +1859,62 @@ def uwshcu_iter_restore_diag_shell_codon(
 
 
 @export
+def uwshcu_column_thermo_state_shell_codon(
+    mkx: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    xlv: float,
+    xls: float,
+    cp: float,
+    zvir: float,
+    qv0_p: cobj,
+    ql0_p: cobj,
+    qi0_p: cobj,
+    t0_p: cobj,
+    exn0_p: cobj,
+    tr0_p: cobj,
+    wtrc_iatype_p: cobj,
+    qt0_p: cobj,
+    thl0_p: cobj,
+    thvl0_p: cobj,
+    wt0_p: cobj,
+):
+    qv0 = Ptr[float](qv0_p)
+    ql0 = Ptr[float](ql0_p)
+    qi0 = Ptr[float](qi0_p)
+    t0 = Ptr[float](t0_p)
+    exn0 = Ptr[float](exn0_p)
+    tr0 = Ptr[float](tr0_p)
+    wtrc_iatype = Ptr[int](wtrc_iatype_p)
+    qt0 = Ptr[float](qt0_p)
+    thl0 = Ptr[float](thl0_p)
+    thvl0 = Ptr[float](thvl0_p)
+    wt0 = Ptr[float](wt0_p)
+
+    k = 0
+    while k < mkx:
+        qt0[k] = qv0[k] + ql0[k] + qi0[k]
+        thl0[k] = (t0[k] - xlv * ql0[k] / cp - xls * qi0[k] / cp) / exn0[k]
+        thvl0[k] = (1.0 + zvir * qt0[k]) * thl0[k]
+        k += 1
+
+    m = 0
+    while m < wtrc_nwset:
+        vap = wtrc_iatype[m] - 1
+        liq = wtrc_iatype[m + wtrc_nwset] - 1
+        ice = wtrc_iatype[m + 2 * wtrc_nwset] - 1
+        dst_offset = m * mkx
+        vap_offset = vap * mkx
+        liq_offset = liq * mkx
+        ice_offset = ice * mkx
+        k = 0
+        while k < mkx:
+            wt0[k + dst_offset] = tr0[k + vap_offset] + tr0[k + liq_offset] + tr0[k + ice_offset]
+            k += 1
+        m += 1
+
+
+@export
 def uwshcu_column_input_load_shell_codon(
     mix: int,
     mkx: int,

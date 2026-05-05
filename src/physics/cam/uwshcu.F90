@@ -48,6 +48,7 @@
   logical :: iter_save_shell_entered_logged = .false.
   logical :: column_init_shell_entered_logged = .false.
   logical :: column_input_shell_entered_logged = .false.
+  logical :: column_thermo_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -308,6 +309,21 @@ contains
     end if
 
   end subroutine uwshcu_log_column_input_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_column_thermo_shell_entered()
+
+    if (column_thermo_shell_entered_logged) return
+    column_thermo_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu column thermo shell entered (qt/thl/thvl/wt0 state direct = codon)'
+       call uwshcu_append_proof('uwshcu column thermo shell entered (qt/thl/thvl/wt0 state direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_column_thermo_shell_entered
 
 !===============================================================================
   
@@ -1012,7 +1028,7 @@ end subroutine uwshcu_readnl
                                                               ! at the bottom of each layer [ K ]
     real(r8), target :: thvl0top(mkx)                         !  Environmental liquid virtual potential temperature
                                                               ! at the top of each layer [ K ]
-    real(r8)    exn0(mkx)                                     !  Exner function at the layer mid points [ no ]
+    real(r8), target :: exn0(mkx)                             !  Exner function at the layer mid points [ no ]
     real(r8)    exns0(0:mkx)                                  !  Exner function at the interfaces [ no ]
     real(r8), target :: sstr0(mkx,ncnst)                      !  Linear slope of environmental tracers [ #/Pa, kg/kg/Pa ]
 
@@ -1092,7 +1108,7 @@ end subroutine uwshcu_readnl
     !       of constituents, which can be a wasteful use of memory. - JN
     !NOTE:  Probably only need one detrainment variable. - JN
     real(r8), target :: wtflx(0:mkx,wtrc_nwset)               !  Flux of total water tracer humidity due to convection [ kg/kg * kg/m2/s ]
-    real(r8)    wt0(mkx,wtrc_nwset)                           !  Total water tracer amount pre-convection [ kg/kg/s ]
+    real(r8), target :: wt0(mkx,wtrc_nwset)                   !  Total water tracer amount pre-convection [ kg/kg/s ]
     real(r8), target :: sswt0(mkx,wtrc_nwset)                 !  Linear vertical slope of total water tracer amount [ kg/kg/Pa ]
     real(r8), target :: wtdwten(mkx,wtrc_nwset)               !  Water tracer detraining liquid tendency [ kg/kg/s ]
     real(r8), target :: wtditen(mkx,wtrc_nwset)               !  Water tracer detraining ice tendency    [ kg/kg/s ]
@@ -1696,6 +1712,17 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: t0_p, s0_p, tke_p, cldfrct_p, concldfrct_p, tr0_p
        end subroutine uwshcu_column_input_load_shell_codon
 
+       subroutine uwshcu_column_thermo_state_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
+            xlv_c, xls_c, cp_c, zvir_c, qv0_p, ql0_p, qi0_p, t0_p, exn0_p, tr0_p, &
+            wtrc_iatype_p, qt0_p, thl0_p, thvl0_p, wt0_p) &
+            bind(c, name="uwshcu_column_thermo_state_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c
+          real(c_double), value :: xlv_c, xls_c, cp_c, zvir_c
+          type(c_ptr), value :: qv0_p, ql0_p, qi0_p, t0_p, exn0_p, tr0_p, wtrc_iatype_p
+          type(c_ptr), value :: qt0_p, thl0_p, thvl0_p, wt0_p
+       end subroutine uwshcu_column_thermo_state_shell_codon
+
        subroutine uwshcu_column_env_save_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, &
             ssthl0_p, ssqt0_p, thv0bot_p, thv0top_p, thvl0bot_p, thvl0top_p, &
@@ -2168,9 +2195,26 @@ end subroutine uwshcu_readnl
       
       exn0(:mkx)   = (p0(:mkx)/p00)**rovcp
       exns0(0:mkx) = (ps0(0:mkx)/p00)**rovcp
-      qt0(:mkx)    = (qv0(:mkx) + ql0(:mkx) + qi0(:mkx))
-      thl0(:mkx)   = (t0(:mkx) - xlv*ql0(:mkx)/cp - xls*qi0(:mkx)/cp)/exn0(:mkx)
-      thvl0(:mkx)  = (1._r8 + zvir*qt0(:mkx))*thl0(:mkx)
+      if (use_native_init_shell_impl) then
+         qt0(:mkx)    = (qv0(:mkx) + ql0(:mkx) + qi0(:mkx))
+         thl0(:mkx)   = (t0(:mkx) - xlv*ql0(:mkx)/cp - xls*qi0(:mkx)/cp)/exn0(:mkx)
+         thvl0(:mkx)  = (1._r8 + zvir*qt0(:mkx))*thl0(:mkx)
+      else
+         wtrc_nwset_post_c = 0_c_int64_t
+         if (trace_water) then
+            wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
+            do m = 1, wtrc_nwset
+               wtrc_iatype_post(m,1) = int(wtrc_iatype(m,iwtvap), c_int64_t)
+               wtrc_iatype_post(m,2) = int(wtrc_iatype(m,iwtliq), c_int64_t)
+               wtrc_iatype_post(m,3) = int(wtrc_iatype(m,iwtice), c_int64_t)
+            end do
+         end if
+         call uwshcu_log_column_thermo_shell_entered()
+         call uwshcu_column_thermo_state_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+              wtrc_nwset_post_c, xlv, xls, cp, zvir, c_loc(qv0), c_loc(ql0), c_loc(qi0), &
+              c_loc(t0), c_loc(exn0), c_loc(tr0), c_loc(wtrc_iatype_post), c_loc(qt0), &
+              c_loc(thl0), c_loc(thvl0), c_loc(wt0))
+      end if
 
       !----- 2. Compute slopes of environmental variables in each layer
       !         Dimension of ssthl0(:mkx) is implicit.
@@ -2193,7 +2237,9 @@ end subroutine uwshcu_readnl
       ! - JN.
       if(trace_water) then
         do m=1,wtrc_nwset
-          wt0(:mkx,m) = tr0(:mkx,wtrc_iatype(m,iwtvap)) + tr0(:mkx,wtrc_iatype(m,iwtliq)) + tr0(:mkx,wtrc_iatype(m,iwtice))
+          if (use_native_init_shell_impl) then
+            wt0(:mkx,m) = tr0(:mkx,wtrc_iatype(m,iwtvap)) + tr0(:mkx,wtrc_iatype(m,iwtliq)) + tr0(:mkx,wtrc_iatype(m,iwtice))
+          end if
           sswt0(:,m) = slope(mkx,wt0(:mkx,m) ,p0)
         end do
       end if
@@ -6230,9 +6276,17 @@ end subroutine uwshcu_readnl
           s0(:mkx)    = s0_s(:mkx)
           t0(:mkx)    = t0_s(:mkx)
       
-          qt0(:mkx)   = (qv0(:mkx) + ql0(:mkx) + qi0(:mkx))
-          thl0(:mkx)  = (t0(:mkx) - xlv*ql0(:mkx)/cp - xls*qi0(:mkx)/cp)/exn0(:mkx)
-          thvl0(:mkx) = (1._r8 + zvir*qt0(:mkx))*thl0(:mkx)
+          if (use_native_init_shell_impl) then
+             qt0(:mkx)   = (qv0(:mkx) + ql0(:mkx) + qi0(:mkx))
+             thl0(:mkx)  = (t0(:mkx) - xlv*ql0(:mkx)/cp - xls*qi0(:mkx)/cp)/exn0(:mkx)
+             thvl0(:mkx) = (1._r8 + zvir*qt0(:mkx))*thl0(:mkx)
+          else
+             call uwshcu_log_column_thermo_shell_entered()
+             call uwshcu_column_thermo_state_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+                  0_c_int64_t, xlv, xls, cp, zvir, c_loc(qv0), c_loc(ql0), c_loc(qi0), &
+                  c_loc(t0), c_loc(exn0), c_loc(tr0), c_loc(wtrc_iatype_post), c_loc(qt0), &
+                  c_loc(thl0), c_loc(thvl0), c_loc(wt0))
+          end if
 
           ssthl0      = slope(mkx,thl0,p0) ! Dimension of ssthl0(:mkx) is implicit
           ssqt0       = slope(mkx,qt0 ,p0)
