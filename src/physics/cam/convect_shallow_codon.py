@@ -1915,6 +1915,39 @@ def uwshcu_column_thermo_state_shell_codon(
 
 
 @export
+def uwshcu_pbl_precheck_shell_codon(
+    mkx: int,
+    pblh: float,
+    zs0_p: cobj,
+    cush_p: cobj,
+    tscaleh_p: cobj,
+    kinv_out_p: cobj,
+    exit_code_p: cobj,
+):
+    zs0 = Ptr[float](zs0_p)
+    cush = Ptr[float](cush_p)
+    tscaleh = Ptr[float](tscaleh_p)
+    kinv_out = Ptr[int](kinv_out_p)
+    exit_code = Ptr[int](exit_code_p)
+
+    tscaleh[0] = cush[0]
+    cush[0] = -1.0
+
+    kinv = 1
+    k = mkx - 1
+    while k >= 1:
+        if (pblh + 5.0 - zs0[k]) * (pblh + 5.0 - zs0[k + 1]) < 0.0:
+            kinv = k + 1
+            break
+        k -= 1
+
+    kinv_out[0] = kinv
+    exit_code[0] = 0
+    if kinv <= 1:
+        exit_code[0] = 1
+
+
+@export
 def uwshcu_pbl_source_shell_codon(
     mkx: int,
     ncnst: int,

@@ -49,6 +49,7 @@
   logical :: column_init_shell_entered_logged = .false.
   logical :: column_input_shell_entered_logged = .false.
   logical :: column_thermo_shell_entered_logged = .false.
+  logical :: pbl_precheck_shell_entered_logged = .false.
   logical :: pbl_source_shell_entered_logged = .false.
 
 !===============================================================================
@@ -325,6 +326,21 @@ contains
     end if
 
   end subroutine uwshcu_log_column_thermo_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_pbl_precheck_shell_entered()
+
+    if (pbl_precheck_shell_entered_logged) return
+    pbl_precheck_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu pbl precheck shell entered (scale height and kinv search direct = codon)'
+       call uwshcu_append_proof('uwshcu pbl precheck shell entered (scale height and kinv search direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_pbl_precheck_shell_entered
 
 !===============================================================================
 
@@ -1022,7 +1038,7 @@ end subroutine uwshcu_readnl
     real(r8), target :: t0(mkx)                               !  Environmental temperature [ K ]
     real(r8), target :: s0(mkx)                               !  Environmental dry static energy [ J/kg ]
     real(r8)    pblh                                          !  Height of PBL [ m ]
-    real(r8)    cush                                          !  Convective scale height [ m ]
+    real(r8), target :: cush                                  !  Convective scale height [ m ]
     real(r8), target :: tr0(mkx,ncnst)                        !  Environmental tracers [ #, kg/kg ]
 
     ! 2. Environmental variables directly derived from the input variables
@@ -1281,8 +1297,9 @@ end subroutine uwshcu_readnl
     real(r8)    plcl, plfc, prel, wrel
     real(r8)    frc_rasn
     real(r8)    ee2, ud2, wtw, wtwb, wtwh
-    real(r8)    xc, xc_2                                       
-    real(r8)    cldhgt, scaleh, tscaleh, cridis, rle, rkm
+    real(r8)    xc, xc_2
+    real(r8), target :: tscaleh
+    real(r8)    cldhgt, scaleh, cridis, rle, rkm
     real(r8), target :: tkeavg, thvlmin
     real(r8)    rkfre, sigmaw, epsvarw, dpsum, dpi
     real(r8)    thlxsat, qtxsat, thvxsat, x_cu, x_en, thv_x0, thv_x1
@@ -1495,6 +1512,7 @@ end subroutine uwshcu_readnl
     real(r8), target, dimension(mkx,wtrc_nwset) :: sswt0_o !Water tracers
     integer                          :: ixnumliq, ixnumice, ixcldliq, ixcldice
     integer(c_int64_t), target       :: wtrc_iatype_post(wtrc_nwset,3)
+    integer(c_int64_t), target       :: kinv_precheck_c, pbl_exit_code_c
     integer(c_int64_t)               :: wtrc_nwset_post_c
 
     interface
@@ -1740,6 +1758,14 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: qv0_p, ql0_p, qi0_p, t0_p, exn0_p, tr0_p, wtrc_iatype_p
           type(c_ptr), value :: qt0_p, thl0_p, thvl0_p, wt0_p
        end subroutine uwshcu_column_thermo_state_shell_codon
+
+       subroutine uwshcu_pbl_precheck_shell_codon(mkx_c, pblh_c, zs0_p, cush_p, tscaleh_p, &
+            kinv_out_p, exit_code_p) bind(c, name="uwshcu_pbl_precheck_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c
+          real(c_double), value :: pblh_c
+          type(c_ptr), value :: zs0_p, cush_p, tscaleh_p, kinv_out_p, exit_code_p
+       end subroutine uwshcu_pbl_precheck_shell_codon
 
        subroutine uwshcu_pbl_source_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, zvir_c, &
             ps0_p, p0_p, tke_p, thvl0bot_p, thvl0top_p, qt0_p, u0_p, v0_p, ssu0_p, ssv0_p, &
@@ -2514,9 +2540,6 @@ end subroutine uwshcu_readnl
        ! of the iterative cin loop.                                             !
        ! ---------------------------------------------------------------------- !
 
-       tscaleh = cush                        
-       cush    = -1._r8
-
        ! ----------------------------------------------------------------------- !
        ! Find PBL top height interface index, 'kinv-1' where 'kinv' is the layer !
        ! index with PBLH in it. When PBLH is exactly at interface, 'kinv' is the !
@@ -2537,17 +2560,29 @@ end subroutine uwshcu_readnl
        ! fication of 'kinv' for general case including SBCL, I imposed an offset !
        ! of 5 [m] in the below 'kinv' finding block.                             !
        ! ----------------------------------------------------------------------- !
-       
-       do k = mkx - 1, 1, -1 
-          if( (pblh + 5._r8 - zs0(k))*(pblh + 5._r8 - zs0(k+1)) .lt. 0._r8 ) then
-               kinv = k + 1 
-               go to 15
-          endif 
-       end do
-       kinv = 1
-15     continue    
 
-       if( kinv .le. 1 ) then          
+       if (use_native_init_shell_impl) then
+          tscaleh = cush
+          cush    = -1._r8
+
+          do k = mkx - 1, 1, -1
+             if( (pblh + 5._r8 - zs0(k))*(pblh + 5._r8 - zs0(k+1)) .lt. 0._r8 ) then
+                  kinv = k + 1
+                  go to 15
+             endif
+          end do
+          kinv = 1
+15        continue
+          pbl_exit_code_c = 0_c_int64_t
+          if (kinv .le. 1) pbl_exit_code_c = 1_c_int64_t
+       else
+          call uwshcu_log_pbl_precheck_shell_entered()
+          call uwshcu_pbl_precheck_shell_codon(int(mkx, c_int64_t), pblh, c_loc(zs0), c_loc(cush), &
+               c_loc(tscaleh), c_loc(kinv_precheck_c), c_loc(pbl_exit_code_c))
+          kinv = int(kinv_precheck_c)
+       end if
+
+       if( pbl_exit_code_c .ne. 0_c_int64_t ) then
            exit_kinv1(i) = 1._r8
            id_exit = .true.
            go to 333
