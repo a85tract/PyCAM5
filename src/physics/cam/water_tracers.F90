@@ -150,6 +150,7 @@ module water_tracers
   logical :: wtrc_precip_evap_init_logged = .false.
   logical :: wtrc_precip_evap_prep_logged = .false.
   logical :: wtrc_precip_evap_tail_logged = .false.
+  logical :: wtrc_q1q2_init_logged = .false.
 
 contains
 
@@ -5284,6 +5285,7 @@ subroutine wtrc_q1q2_pjr(dqdt        , ideep, lengath, &
 
  use physconst,       only: cpair, latvap, rair, epsilo
  use ppgrid,          only: pverp
+ use iso_c_binding,   only: c_int64_t, c_loc, c_ptr
 
 !********************
 !Variable decleration
@@ -5304,7 +5306,7 @@ subroutine wtrc_q1q2_pjr(dqdt        , ideep, lengath, &
    integer, intent(in) :: ideep(pcols)         !location of deep convection
    integer, intent(in) :: lengath              !number of grid spaces with deep convection
 
-   real(r8), intent(in) :: q(pcols,pver,pcnst) !Environmental water vapor mixing ratio (state%q) [kg/kg]
+   real(r8), target, intent(in) :: q(pcols,pver,pcnst) !Environmental water vapor mixing ratio (state%q) [kg/kg]
    real(r8), intent(in) :: qstb(pcols,pver)    !bulk saturated env. water vapor mixing ratio [kg/kg]
    real(r8), intent(in) :: qsthatb(pcols,pver) !qst at interfaces
    real(r8), intent(in) :: qub(pcols,pver)     !bulk water vapor mixing ratio in updraft [kg/kg]
@@ -5339,9 +5341,9 @@ subroutine wtrc_q1q2_pjr(dqdt        , ideep, lengath, &
 !
 ! Output fields:
 !
-   real(r8),intent(out) :: dqdt(pcols,pver,pcnst)     !water tracer tendency [kg/kg/s]
-   real(r8),intent(out) :: wtrprd(pcols,pver,pcnst)     !precipitation production rate [kg/kg/s]
-   real(r8),intent(out) :: wtdlf(pcols,pver,wtrc_nwset) !tendency due to condensate detrainment [kg/kg/s] 
+   real(r8), target, intent(out) :: dqdt(pcols,pver,pcnst)     !water tracer tendency [kg/kg/s]
+   real(r8), target, intent(out) :: wtrprd(pcols,pver,pcnst)     !precipitation production rate [kg/kg/s]
+   real(r8), target, intent(out) :: wtdlf(pcols,pver,wtrc_nwset) !tendency due to condensate detrainment [kg/kg/s]
 !
 ! Work fields:
 !
@@ -5357,22 +5359,22 @@ subroutine wtrc_q1q2_pjr(dqdt        , ideep, lengath, &
   !NOTE:  These variables below may not need to be 3-D arrays, and could simply be reset
   !after every tracer loop.  However, for now it should be left as is (because it works) - JN
 
-   real(r8) qhat(pcols,pver,wtrc_ntype(iwtvap))  !water vapor mixing ratios at level interfaces [kg/kg]
-   real(r8) qu(pcols,pver,wtrc_ntype(iwtvap))    !water vapor mixing ratio in updraft [kg/kg]
-   real(r8) qd(pcols,pver,wtrc_ntype(iwtvap))    !water vapor mixing ratio in downdraft [kg/kg]
-   real(r8) wtcu(pcols,pver,wtrc_ntype(iwtvap))  !water tracer condensation rate [?]
-   real(r8) wtevp(pcols,pver,wtrc_ntype(iwtvap)) !water tracer evaporation rate [?]
-   real(r8) hu(pcols,pver,wtrc_ntype(iwtvap))    !tracer moist static energy in updraft
-   real(r8) hd(pcols,pver,wtrc_ntype(iwtvap))    !tracer moist static energy in downdraft
-   real(r8) wthmn(pcols,pver,wtrc_ntype(iwtvap)) !tracer environmental moist static energy
-   real(r8) hsat(pcols,pver,wtrc_ntype(iwtvap))  !tracer saturated env. moist static energy
-   real(r8) qst(pcols,pver,wtrc_ntype(iwtvap))   !tracer saturated env. vapor mixing ratio
-   real(r8) gamma(pcols,pver,wtrc_ntype(iwtvap)) !No clue, just need it for parameterization
-   real(r8) hsthat(pcols,pver,wtrc_ntype(iwtvap))!hsat at interfaces 
-   real(r8) qsthat(pcols,pver,wtrc_ntype(iwtvap))!qsat at interfaces 
-   real(r8) gamhat(pcols,pver,wtrc_ntype(iwtvap))!Gamma at interfaces 
-   real(r8) Ru(pcols,pver,wtrc_ntype(iwtvap))    !water tracer updraft ratio [unitless]
-   real(r8) Rd(pcols,pver,wtrc_ntype(iwtvap))    !water tracer downdraft ratio [unitless]
+   real(r8), target :: qhat(pcols,pver,wtrc_ntype(iwtvap))  !water vapor mixing ratios at level interfaces [kg/kg]
+   real(r8), target :: qu(pcols,pver,wtrc_ntype(iwtvap))    !water vapor mixing ratio in updraft [kg/kg]
+   real(r8), target :: qd(pcols,pver,wtrc_ntype(iwtvap))    !water vapor mixing ratio in downdraft [kg/kg]
+   real(r8), target :: wtcu(pcols,pver,wtrc_ntype(iwtvap))  !water tracer condensation rate [?]
+   real(r8), target :: wtevp(pcols,pver,wtrc_ntype(iwtvap)) !water tracer evaporation rate [?]
+   real(r8), target :: hu(pcols,pver,wtrc_ntype(iwtvap))    !tracer moist static energy in updraft
+   real(r8), target :: hd(pcols,pver,wtrc_ntype(iwtvap))    !tracer moist static energy in downdraft
+   real(r8), target :: wthmn(pcols,pver,wtrc_ntype(iwtvap)) !tracer environmental moist static energy
+   real(r8), target :: hsat(pcols,pver,wtrc_ntype(iwtvap))  !tracer saturated env. moist static energy
+   real(r8), target :: qst(pcols,pver,wtrc_ntype(iwtvap))   !tracer saturated env. vapor mixing ratio
+   real(r8), target :: gamma(pcols,pver,wtrc_ntype(iwtvap)) !No clue, just need it for parameterization
+   real(r8), target :: hsthat(pcols,pver,wtrc_ntype(iwtvap))!hsat at interfaces
+   real(r8), target :: qsthat(pcols,pver,wtrc_ntype(iwtvap))!qsat at interfaces
+   real(r8), target :: gamhat(pcols,pver,wtrc_ntype(iwtvap))!Gamma at interfaces
+   real(r8), target :: Ru(pcols,pver,wtrc_ntype(iwtvap))    !water tracer updraft ratio [unitless]
+   real(r8), target :: Rd(pcols,pver,wtrc_ntype(iwtvap))    !water tracer downdraft ratio [unitless]
    real(r8) huct(pcols,pver)                     !MSE storage variable for cloud top height
 
    !For isotopic fractionation:
@@ -5393,13 +5395,13 @@ subroutine wtrc_q1q2_pjr(dqdt        , ideep, lengath, &
    real(r8) iltmp                                !temporary isotopic liquid amount [kg/kg]
 
    !For precip production:
-   real(r8) totpcp(pcols,wtrc_ntype(iwtvap))     !Total precipitation [?] 
-   real(r8) totevp(pcols,wtrc_ntype(iwtvap))     !Total evaporation [?] 
+   real(r8), target :: totpcp(pcols,wtrc_ntype(iwtvap))     !Total precipitation [?]
+   real(r8), target :: totevp(pcols,wtrc_ntype(iwtvap))     !Total evaporation [?]
    real(r8) rprd(pcols,pver)                     !Precipitation production pre-unit change [?]
    !NOTE:  Might need to make "pevp" the evaporation term used in the actual
    !tendency calculation! - JN
    real(r8) pevp(pcols,pver)                     !precipitation evaporation 
-   real(r8) ql(pcols,pver,wtrc_nwset)            !precipitable liquid [kg/kg]
+   real(r8), target :: ql(pcols,pver,wtrc_nwset)            !precipitable liquid [kg/kg]
    real(r8) ql1                                  !temporary precipitable liquid storage [kg/kg]
    real(r8) Rr                                   !precipitation production ratio [unitless] 
 
@@ -5415,6 +5417,23 @@ subroutine wtrc_q1q2_pjr(dqdt        , ideep, lengath, &
    real(r8) qdifr
    real(r8) emc
    real(r8) mdt
+   integer(c_int64_t), target :: ideep64(pcols)
+   integer(c_int64_t), target :: wtrc_iatype64(wtrc_nwset,pwtype)
+
+   interface
+      subroutine wtrc_q1q2_init_qhat_shell_codon(lengath_c, pcols_c, pver_c, pcnst_c, pwtype_c, &
+           wtrc_nwset_c, msg_c, iwtvap_c, ideep_p, wtrc_iatype_p, q_p, dqdt_p, wtrprd_p, wtdlf_p, &
+           qhat_p, qu_p, qd_p, wtcu_p, wtevp_p, wthmn_p, hsat_p, qst_p, gamma_p, hsthat_p, qsthat_p, &
+           gamhat_p, hu_p, hd_p, totpcp_p, totevp_p, ru_p, rd_p, ql_p) &
+           bind(c, name="wtrc_q1q2_init_qhat_shell_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, pcnst_c, pwtype_c
+         integer(c_int64_t), value :: wtrc_nwset_c, msg_c, iwtvap_c
+         type(c_ptr), value :: ideep_p, wtrc_iatype_p, q_p, dqdt_p, wtrprd_p, wtdlf_p, qhat_p, qu_p, qd_p
+         type(c_ptr), value :: wtcu_p, wtevp_p, wthmn_p, hsat_p, qst_p, gamma_p, hsthat_p, qsthat_p
+         type(c_ptr), value :: gamhat_p, hu_p, hd_p, totpcp_p, totevp_p, ru_p, rd_p, ql_p
+      end subroutine wtrc_q1q2_init_qhat_shell_codon
+   end interface
 
 !***************************************
 !Exit if no deep convection is occurring
@@ -5434,6 +5453,36 @@ else
 !***********************
 !Loop over water tracers
 !***********************
+
+  call wtrc_batch_select_impl()
+
+  if (.not. use_native_wtrc_batch_impl) then
+
+    do i = 1,pcols
+      ideep64(i) = int(ideep(i), c_int64_t)
+    end do
+    do m = 1,wtrc_nwset
+      wtrc_iatype64(m,:) = int(wtrc_iatype(m,:), c_int64_t)
+    end do
+
+    if (masterproc .and. .not. wtrc_q1q2_init_logged) then
+      write(iulog,*) 'wtrc_q1q2 init/qhat shell entered (workspace init and vapor interface direct = codon)'
+      call wtrc_batch_append_proof('wtrc_q1q2 init/qhat shell entered (workspace init and vapor interface direct = codon)')
+      call flush(iulog)
+      wtrc_q1q2_init_logged = .true.
+    end if
+
+    call wtrc_q1q2_init_qhat_shell_codon(int(lengath, c_int64_t), int(pcols, c_int64_t), &
+         int(pver, c_int64_t), int(pcnst, c_int64_t), int(pwtype, c_int64_t), &
+         int(wtrc_nwset, c_int64_t), int(msg, c_int64_t), int(iwtvap, c_int64_t), &
+         c_loc(ideep64), c_loc(wtrc_iatype64), c_loc(q), c_loc(dqdt), c_loc(wtrprd), c_loc(wtdlf), &
+         c_loc(qhat), c_loc(qu), c_loc(qd), c_loc(wtcu), c_loc(wtevp), c_loc(wthmn), c_loc(hsat), &
+         c_loc(qst), c_loc(gamma), c_loc(hsthat), c_loc(qsthat), c_loc(gamhat), c_loc(hu), c_loc(hd), &
+         c_loc(totpcp), c_loc(totevp), c_loc(Ru), c_loc(Rd), c_loc(ql))
+    uqdiff = 0.0_r8
+    dqdiff = 0.0_r8
+
+  else
 
   do m=1,wtrc_nwset 
 
@@ -5499,6 +5548,8 @@ else
       end do
     end do
   end do
+
+  end if
 
 !***********************************************************
 !calculate updraft humidity with cloud condensate production

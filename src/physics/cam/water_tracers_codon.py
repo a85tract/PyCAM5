@@ -1,3 +1,6 @@
+from math import log
+
+
 @inline
 def _state_q_idx(i: int, k: int, m: int, pcols: int, pver: int) -> int:
     """state%q(pcols, pver, pcnst)"""
@@ -14,6 +17,163 @@ def _field1_idx(i: int) -> int:
 def _field2_idx(i: int, k: int, pcols: int) -> int:
     """state%pdel(pcols, pver)"""
     return (i - 1) + (k - 1) * pcols
+
+
+@inline
+def _wtrc_q1q2_3d_idx(i: int, k: int, m: int, pcols: int, pver: int) -> int:
+    """work(pcols, pver, wtrc_nwset)"""
+    return i + k * pcols + m * pcols * pver
+
+
+@inline
+def _wtrc_q1q2_q_idx(i: int, k: int, m: int, pcols: int, pver: int) -> int:
+    """q/dqdt/wtrprd(pcols, pver, pcnst)"""
+    return i + k * pcols + m * pcols * pver
+
+
+@export
+def wtrc_q1q2_init_qhat_shell_codon(
+    lengath: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    pwtype: int,
+    wtrc_nwset: int,
+    msg: int,
+    iwtvap: int,
+    ideep_p: cobj,
+    wtrc_iatype_p: cobj,
+    q_p: cobj,
+    dqdt_p: cobj,
+    wtrprd_p: cobj,
+    wtdlf_p: cobj,
+    qhat_p: cobj,
+    qu_p: cobj,
+    qd_p: cobj,
+    wtcu_p: cobj,
+    wtevp_p: cobj,
+    wthmn_p: cobj,
+    hsat_p: cobj,
+    qst_p: cobj,
+    gamma_p: cobj,
+    hsthat_p: cobj,
+    qsthat_p: cobj,
+    gamhat_p: cobj,
+    hu_p: cobj,
+    hd_p: cobj,
+    totpcp_p: cobj,
+    totevp_p: cobj,
+    ru_p: cobj,
+    rd_p: cobj,
+    ql_p: cobj,
+):
+    ideep = Ptr[int](ideep_p)
+    wtrc_iatype = Ptr[int](wtrc_iatype_p)
+    q = Ptr[float](q_p)
+    dqdt = Ptr[float](dqdt_p)
+    wtrprd = Ptr[float](wtrprd_p)
+    wtdlf = Ptr[float](wtdlf_p)
+    qhat = Ptr[float](qhat_p)
+    qu = Ptr[float](qu_p)
+    qd = Ptr[float](qd_p)
+    wtcu = Ptr[float](wtcu_p)
+    wtevp = Ptr[float](wtevp_p)
+    wthmn = Ptr[float](wthmn_p)
+    hsat = Ptr[float](hsat_p)
+    qst = Ptr[float](qst_p)
+    gamma = Ptr[float](gamma_p)
+    hsthat = Ptr[float](hsthat_p)
+    qsthat = Ptr[float](qsthat_p)
+    gamhat = Ptr[float](gamhat_p)
+    hu = Ptr[float](hu_p)
+    hd = Ptr[float](hd_p)
+    totpcp = Ptr[float](totpcp_p)
+    totevp = Ptr[float](totevp_p)
+    ru = Ptr[float](ru_p)
+    rd = Ptr[float](rd_p)
+    ql = Ptr[float](ql_p)
+
+    m = 0
+    while m < wtrc_nwset:
+        vap_idx = wtrc_iatype[m + (iwtvap - 1) * wtrc_nwset] - 1
+        wt = 0
+        while wt < pwtype:
+            q_idx = wtrc_iatype[m + wt * wtrc_nwset] - 1
+            k = 0
+            while k < pver:
+                i = 0
+                while i < pcols:
+                    dqdt[_wtrc_q1q2_q_idx(i, k, q_idx, pcols, pver)] = 0.0
+                    i += 1
+                k += 1
+            wt += 1
+
+        k = 0
+        while k < pver:
+            i = 0
+            while i < pcols:
+                qidx = _wtrc_q1q2_q_idx(i, k, vap_idx, pcols, pver)
+                widx = _wtrc_q1q2_3d_idx(i, k, m, pcols, pver)
+                wtrprd[qidx] = 0.0
+                wtdlf[widx] = 0.0
+                qhat[widx] = q[qidx]
+                qu[widx] = 0.0
+                qd[widx] = 0.0
+                ql[widx] = 0.0
+                wtcu[widx] = 0.0
+                wtevp[widx] = 0.0
+                wthmn[widx] = 0.0
+                hsat[widx] = 0.0
+                qst[widx] = 0.0
+                gamma[widx] = 0.0
+                hsthat[widx] = 0.0
+                qsthat[widx] = 0.0
+                gamhat[widx] = 0.0
+                hu[widx] = 0.0
+                hd[widx] = 0.0
+                ru[widx] = 0.0
+                rd[widx] = 0.0
+                i += 1
+            i = 0
+            while i < lengath:
+                ii = ideep[i] - 1
+                widx = _wtrc_q1q2_3d_idx(i, k, m, pcols, pver)
+                qidx = _wtrc_q1q2_q_idx(ii, k, vap_idx, pcols, pver)
+                qu[widx] = q[qidx]
+                qd[widx] = q[qidx]
+                i += 1
+            k += 1
+
+        i = 0
+        while i < pcols:
+            totpcp[i + m * pcols] = 0.0
+            totevp[i + m * pcols] = 0.0
+            i += 1
+        m += 1
+
+    m = 0
+    while m < wtrc_nwset:
+        vap_idx = wtrc_iatype[m + (iwtvap - 1) * wtrc_nwset] - 1
+        kk = msg + 2
+        while kk <= pver:
+            k = kk - 1
+            km1 = kk - 2
+            i = 0
+            while i < lengath:
+                ii = ideep[i] - 1
+                idx = _wtrc_q1q2_3d_idx(i, k, m, pcols, pver)
+                qidx = _wtrc_q1q2_q_idx(ii, k, vap_idx, pcols, pver)
+                qm1idx = _wtrc_q1q2_q_idx(ii, km1, vap_idx, pcols, pver)
+                qdifr = 0.0
+                if q[qidx] > 0.0 or q[qm1idx] > 0.0:
+                    qdifr = abs((q[qidx] - q[qm1idx]) / max(q[qm1idx], q[qidx]))
+                if qdifr > 1.0e-6 and qdifr != 1.0:
+                    qhat[idx] = log(q[qm1idx] / q[qidx]) * q[qm1idx] * q[qidx] / (q[qm1idx] - q[qidx])
+                else:
+                    qhat[idx] = 0.5 * (q[qidx] + q[qm1idx])
+                i += 1
+            kk += 1
+        m += 1
 
 
 @inline
