@@ -18,6 +18,7 @@ module zm_conv_intr
    use perf_mod
    use cam_logfile,  only: iulog
    use constituents, only: cnst_add
+   use spmd_utils,   only: masterproc
    
    implicit none
    private
@@ -34,12 +35,12 @@ module zm_conv_intr
 
    ! Private module data
 
-   real(r8), allocatable, dimension(:,:,:) :: mu  !(pcols,pver,begchunk:endchunk)
-   real(r8), allocatable, dimension(:,:,:) :: eu  !(pcols,pver,begchunk:endchunk)
-   real(r8), allocatable, dimension(:,:,:) :: du  !(pcols,pver,begchunk:endchunk)
-   real(r8), allocatable, dimension(:,:,:) :: md  !(pcols,pver,begchunk:endchunk)
-   real(r8), allocatable, dimension(:,:,:) :: ed  !(pcols,pver,begchunk:endchunk)
-   real(r8), allocatable, dimension(:,:,:) :: dp  !(pcols,pver,begchunk:endchunk) 
+   real(r8), allocatable, target, dimension(:,:,:) :: mu  !(pcols,pver,begchunk:endchunk)
+   real(r8), allocatable, target, dimension(:,:,:) :: eu  !(pcols,pver,begchunk:endchunk)
+   real(r8), allocatable, target, dimension(:,:,:) :: du  !(pcols,pver,begchunk:endchunk)
+   real(r8), allocatable, target, dimension(:,:,:) :: md  !(pcols,pver,begchunk:endchunk)
+   real(r8), allocatable, target, dimension(:,:,:) :: ed  !(pcols,pver,begchunk:endchunk)
+   real(r8), allocatable, target, dimension(:,:,:) :: dp  !(pcols,pver,begchunk:endchunk)
         ! wg layer thickness in mbs (between upper/lower interface).
    real(r8), allocatable, dimension(:,:)   :: dsubcld  !(pcols,begchunk:endchunk)
         ! wg layer thickness in mbs between lcl and maxi.
@@ -79,6 +80,14 @@ module zm_conv_intr
    integer  ::    rprddp_idx       = 0    
    integer  ::    fracis_idx       = 0   
    integer  ::    nevapr_dpcu_idx  = 0    
+
+   logical :: use_native_zm_post_shell = .false.
+   logical :: zm_post_shell_selected = .false.
+   logical :: zm_convr_post_logged = .false.
+   logical :: zm_conv_evap_prep_logged = .false.
+   logical :: zm_conv_evap_post_logged = .false.
+   logical :: zm_conv_evap_hist_logged = .false.
+   logical :: zm_momtran_post_logged = .false.
 
 
 !=========================================================================================
@@ -364,6 +373,7 @@ subroutine zm_conv_tend(pblh    ,mcon    ,cme     , &
                                 wtrc_srfpcp_indices, wtrc_bulk_indices
    use water_tracers, only: wtrc_check_h2o, wtrc_precip_evap, wtrc_q1q2_pjr
    use constituents,  only: cnst_name
+   use iso_c_binding, only: c_int64_t
 
    ! Arguments
 
@@ -376,7 +386,7 @@ subroutine zm_conv_tend(pblh    ,mcon    ,cme     , &
    real(r8), intent(in) :: tpert(pcols)                ! Thermal temperature excess
    real(r8), intent(in) :: landfrac(pcols)             ! RBN - Landfrac 
 
-   real(r8), intent(out) :: mcon(pcols,pverp)  ! Convective mass flux--m sub c
+   real(r8), target, intent(out) :: mcon(pcols,pverp)  ! Convective mass flux--m sub c
    real(r8), intent(out) :: dlf(pcols,pver)    ! scattrd version of the detraining cld h2o tend
    real(r8), intent(out) :: pflx(pcols,pverp)  ! scattered precip flux at each level
    real(r8), intent(out) :: cme(pcols,pver)    ! cmf condensation - evaporation
@@ -398,11 +408,11 @@ subroutine zm_conv_tend(pblh    ,mcon    ,cme     , &
    integer :: ncol                    ! number of atmospheric columns
    integer :: itim_old                ! for physics buffer fields
 
-   real(r8) :: ftem(pcols,pver)              ! Temporary workspace for outfld variables
+   real(r8), target :: ftem(pcols,pver)              ! Temporary workspace for outfld variables
    real(r8) :: ntprprd(pcols,pver)    ! evap outfld: net precip production in layer
    real(r8) :: ntsnprd(pcols,pver)    ! evap outfld: net snow production in layer
-   real(r8) :: tend_s_snwprd  (pcols,pver) ! Heating rate of snow production
-   real(r8) :: tend_s_snwevmlt(pcols,pver) ! Heating rate of evap/melting of snow
+   real(r8), target :: tend_s_snwprd  (pcols,pver) ! Heating rate of snow production
+   real(r8), target :: tend_s_snwevmlt(pcols,pver) ! Heating rate of evap/melting of snow
    real(r8) :: fake_dpdry(pcols,pver) ! used in convtran call
 
    !----------------------
@@ -484,24 +494,25 @@ subroutine zm_conv_tend(pblh    ,mcon    ,cme     , &
    real(r8) :: jctop(pcols)  ! o row of top-of-deep-convection indices passed out.
    real(r8) :: jcbot(pcols)  ! o row of base of cloud indices passed out.
 
-   real(r8) :: pcont(pcols), pconb(pcols), freqzm(pcols)
+   real(r8), target :: pcont(pcols), pconb(pcols), freqzm(pcols)
 
    ! history output fields
    real(r8) :: cape(pcols)        ! w  convective available potential energy.
-   real(r8) :: mu_out(pcols,pver)
-   real(r8) :: md_out(pcols,pver)
+   real(r8), target :: mu_out(pcols,pver)
+   real(r8), target :: md_out(pcols,pver)
 
    ! used in momentum transport calculation
    real(r8) :: winds(pcols, pver, 2)
-   real(r8) :: wind_tends(pcols, pver, 2)
+   real(r8), target :: wind_tends(pcols, pver, 2)
    real(r8) :: pguall(pcols, pver, 2)
    real(r8) :: pgdall(pcols, pver, 2)
    real(r8) :: icwu(pcols,pver, 2)
    real(r8) :: icwd(pcols,pver, 2)
-   real(r8) :: seten(pcols, pver)
+   real(r8), target :: seten(pcols, pver)
    logical  :: l_windt(2)
    real(r8) :: tfinal1, tfinal2
    integer  :: ii
+   integer(c_int64_t), target :: ideep64(pcols), jt64(pcols), maxg64(pcols)
    
    real(r8),pointer :: zm_org2d(:,:)
    real(r8),pointer :: orgt(:,:), org(:,:)
@@ -583,45 +594,29 @@ subroutine zm_conv_tend(pblh    ,mcon    ,cme     , &
 !
 ! Output fractional occurance of ZM convection
 !
-   freqzm(:) = 0._r8
-   do i = 1,lengath(lchnk)
-      freqzm(ideep(i,lchnk)) = 1.0_r8
+   do i = 1, lengath(lchnk)
+      ideep64(i) = int(ideep(i,lchnk), c_int64_t)
+      jt64(i) = int(jt(i,lchnk), c_int64_t)
+      maxg64(i) = int(maxg(i,lchnk), c_int64_t)
    end do
+
+   call zm_convr_post_shell(ncol, lengath(lchnk), gravit, cpair, &
+        mcon, mu(1,1,lchnk), md(1,1,lchnk), ideep64, jt64, maxg64, &
+        ptend_loc%s, state%ps, state%pmid, freqzm, mu_out, md_out, ftem, pcont, pconb)
+
    call outfld('FREQZM  ',freqzm          ,pcols   ,lchnk   )
 !
 ! Convert mass flux from reported mb/s to kg/m^2/s
 !
-   mcon(:ncol,:pver) = mcon(:ncol,:pver) * 100._r8/gravit
-
-   ! Store upward and downward mass fluxes in un-gathered arrays
-   ! + convert from mb/s to kg/m^2/s
-   do i=1,lengath(lchnk) 
-      do k=1,pver
-         ii = ideep(i,lchnk)
-         mu_out(ii,k) = mu(i,k,lchnk) * 100._r8/gravit
-         md_out(ii,k) = md(i,k,lchnk) * 100._r8/gravit
-      end do
-   end do
-
    call outfld('ZMMU', mu_out(1,1), pcols, lchnk)
    call outfld('ZMMD', md_out(1,1), pcols, lchnk)
 
-   ftem(:ncol,:pver) = ptend_loc%s(:ncol,:pver)/cpair
    call outfld('ZMDT    ',ftem           ,pcols   ,lchnk   )
    call outfld('ZMDQ    ',ptend_loc%q(1,1,1) ,pcols   ,lchnk   )
    call t_stopf ('zm_convr')
 
 !    do i = 1,pcols
 !    do i = 1,nco
-   pcont(:ncol) = state%ps(:ncol)
-   pconb(:ncol) = state%ps(:ncol)
-   do i = 1,lengath(lchnk)
-       if (maxg(i,lchnk).gt.jt(i,lchnk)) then
-          pcont(ideep(i,lchnk)) = state%pmid(ideep(i,lchnk),jt(i,lchnk))  ! gathered array (or jctop ungathered)
-          pconb(ideep(i,lchnk)) = state%pmid(ideep(i,lchnk),maxg(i,lchnk))! gathered array
-       endif
-       !     write(iulog,*) ' pcont, pconb ', pcont(i), pconb(i), cnt(i), cnb(i)
-    end do
     call outfld('PCONVT  ',pcont          ,pcols   ,lchnk   )
     call outfld('PCONVB  ',pconb          ,pcols   ,lchnk   )
 
@@ -717,8 +712,7 @@ end if
     call pbuf_get_field(pbuf, dp_flxsnw_idx, flxsnow    )
     call pbuf_get_field(pbuf, dp_cldliq_idx, dp_cldliq  )
     call pbuf_get_field(pbuf, dp_cldice_idx, dp_cldice  )
-    dp_cldliq(:ncol,:) = 0._r8
-    dp_cldice(:ncol,:) = 0._r8
+    call zm_conv_evap_prep_shell(ncol, dp_cldliq, dp_cldice)
 
     call zm_conv_evap(state1%ncol,state1%lchnk, &
          state1%t,state1%pmid,state1%pdel,state1%q(:pcols,:pver,1), &
@@ -727,13 +721,7 @@ end if
          rprd, cld, ztodt, prec, snow, &
          evpstore, substore, ntprprd, ntsnprd, flxprec, flxsnow)
 
-    evapcdp(:ncol,:pver) = ptend_loc%q(:ncol,:pver,1)
-    
-     if (zmconv_org) then
-         ptend_loc%q(:ncol,:pver,ixorg) = min(1._r8,max(0._r8,(50._r8*1000._r8*1000._r8*abs(evapcdp(:ncol,:pver))) &
-                                          -(state%q(:ncol,:pver,ixorg)/10800._r8)))
-         ptend_loc%q(:ncol,:pver,ixorg) = (ptend_loc%q(:ncol,:pver,ixorg) - state%q(:ncol,:pver,ixorg))/ztodt 
-     endif    
+    call zm_conv_evap_post_shell(ncol, ztodt, zmconv_org, ixorg, evapcdp, ptend_loc%q, state%q)
     
 
 !----------------------------------------------------------
@@ -764,11 +752,11 @@ end if
 !
 ! Write out variables from zm_conv_evap
 !
-   ftem(:ncol,:pver) = ptend_loc%s(:ncol,:pver)/cpair
+   call zm_conv_evap_hist_shell(1, ncol, cpair, ptend_loc%s, tend_s_snwprd, tend_s_snwevmlt, ftem)
    call outfld('EVAPTZM ',ftem           ,pcols   ,lchnk   )
-   ftem(:ncol,:pver) = tend_s_snwprd  (:ncol,:pver)/cpair
+   call zm_conv_evap_hist_shell(2, ncol, cpair, ptend_loc%s, tend_s_snwprd, tend_s_snwevmlt, ftem)
    call outfld('FZSNTZM ',ftem           ,pcols   ,lchnk   )
-   ftem(:ncol,:pver) = tend_s_snwevmlt(:ncol,:pver)/cpair
+   call zm_conv_evap_hist_shell(3, ncol, cpair, ptend_loc%s, tend_s_snwprd, tend_s_snwevmlt, ftem)
    call outfld('EVSNTZM ',ftem           ,pcols   ,lchnk   )
    call outfld('EVAPQZM ',ptend_loc%q(1,1,1) ,pcols   ,lchnk   )
    call outfld('ZMFLXPRC', flxprec, pcols, lchnk)
@@ -819,16 +807,13 @@ end if
                    nstep,  wind_tends, pguall, pgdall, icwu, icwd, ztodt, seten )  
      call t_stopf ('momtran')
 
-     ptend_loc%u(:ncol,:pver) = wind_tends(:ncol,:pver,1)
-     ptend_loc%v(:ncol,:pver) = wind_tends(:ncol,:pver,2)
-     ptend_loc%s(:ncol,:pver) = seten(:ncol,:pver)  
+     call zm_momtran_post_shell(ncol, cpair, wind_tends, seten, ptend_loc%u, ptend_loc%v, ptend_loc%s, ftem)
 
      call physics_ptend_sum(ptend_loc,ptend_all, ncol)
 
      ! update physics state type state1 with ptend_loc 
      call physics_update(state1, ptend_loc, ztodt)
 
-     ftem(:ncol,:pver) = seten(:ncol,:pver)/cpair
      if (zmconv_org) then
         call outfld('ZM_ORG', state%q(:,:,ixorg), pcols, lchnk)
         call outfld('ZM_ORG2D', zm_org2d, pcols, lchnk)
@@ -906,6 +891,358 @@ end if
    end if
 
 end subroutine zm_conv_tend
+!=========================================================================================
+
+subroutine zm_conv_append_post_shell_proof(proof_line)
+
+   character(len=*), intent(in) :: proof_line
+   character(len=512) :: proof_path
+   integer :: status, n, unit_id
+
+   proof_path = ''
+   call get_environment_variable('ZM_CONV_POST_SHELL_PROOF_FILE', value=proof_path, length=n, status=status)
+   if (status /= 0 .or. n <= 0) return
+
+   open(newunit=unit_id, file=trim(adjustl(proof_path(:n))), status='unknown', action='write', &
+        position='append', iostat=status)
+   if (status /= 0) return
+
+   write(unit_id,'(A)') trim(proof_line)
+   close(unit_id)
+
+end subroutine zm_conv_append_post_shell_proof
+
+!=========================================================================================
+
+subroutine zm_conv_select_post_shell_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (zm_post_shell_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('ZM_CONV_POST_SHELL_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_zm_post_shell = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_zm_post_shell = .false.
+   end if
+
+   zm_post_shell_selected = .true.
+
+   if (masterproc) then
+      if (use_native_zm_post_shell) then
+         write(iulog,*) 'zm_conv_post_shell implementation = native'
+         call zm_conv_append_post_shell_proof('zm_conv_post_shell implementation = native')
+      else
+         write(iulog,*) 'zm_conv_post_shell implementation = codon'
+         call zm_conv_append_post_shell_proof('zm_conv_post_shell implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine zm_conv_select_post_shell_impl
+
+!=========================================================================================
+
+subroutine zm_convr_post_shell(ncol_local, lengath_local, gravit_local, cpair_local, &
+     mcon_local, mu_local, md_local, ideep64_local, jt64_local, maxg64_local, ptend_s_local, &
+     state_ps_local, state_pmid_local, freqzm_local, mu_out_local, md_out_local, ftem_local, pcont_local, pconb_local)
+
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+   integer, intent(in) :: ncol_local, lengath_local
+   real(r8), intent(in) :: gravit_local, cpair_local
+   real(r8), target, intent(inout) :: mcon_local(pcols,pverp)
+   real(r8), target, intent(in) :: mu_local(pcols,pver), md_local(pcols,pver)
+   integer(c_int64_t), target, intent(in) :: ideep64_local(pcols), jt64_local(pcols), maxg64_local(pcols)
+   real(r8), target, intent(in) :: ptend_s_local(pcols,pver), state_ps_local(pcols), state_pmid_local(pcols,pver)
+   real(r8), target, intent(inout) :: freqzm_local(pcols), mu_out_local(pcols,pver), md_out_local(pcols,pver)
+   real(r8), target, intent(inout) :: ftem_local(pcols,pver), pcont_local(pcols), pconb_local(pcols)
+
+   interface
+      subroutine zm_convr_post_shell_codon(ncol_c, pcols_c, pver_c, pverp_c, lengath_c, gravit_c, cpair_c, &
+           mcon_p, mu_p, md_p, ideep_p, jt_p, maxg_p, ptend_s_p, state_ps_p, state_pmid_p, freqzm_p, &
+           mu_out_p, md_out_p, ftem_p, pcont_p, pconb_p) bind(c, name="zm_convr_post_shell_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c, lengath_c
+         real(c_double), value :: gravit_c, cpair_c
+         type(c_ptr), value :: mcon_p, mu_p, md_p, ideep_p, jt_p, maxg_p, ptend_s_p, state_ps_p, state_pmid_p
+         type(c_ptr), value :: freqzm_p, mu_out_p, md_out_p, ftem_p, pcont_p, pconb_p
+      end subroutine zm_convr_post_shell_codon
+   end interface
+
+   call zm_conv_select_post_shell_impl()
+
+   if (use_native_zm_post_shell) then
+      call zm_convr_post_shell_native(ncol_local, lengath_local, gravit_local, cpair_local, &
+           mcon_local, mu_local, md_local, ideep64_local, jt64_local, maxg64_local, ptend_s_local, &
+           state_ps_local, state_pmid_local, freqzm_local, mu_out_local, md_out_local, ftem_local, pcont_local, pconb_local)
+      return
+   end if
+
+   if (masterproc .and. .not. zm_convr_post_logged) then
+      write(iulog,*) 'zm_convr post shell entered (freq/massflux/history/base-top direct = codon)'
+      call zm_conv_append_post_shell_proof('zm_convr post shell entered (freq/massflux/history/base-top direct = codon)')
+      call flush(iulog)
+      zm_convr_post_logged = .true.
+   end if
+
+   call zm_convr_post_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        int(pverp, c_int64_t), int(lengath_local, c_int64_t), real(gravit_local, c_double), real(cpair_local, c_double), &
+        c_loc(mcon_local), c_loc(mu_local), c_loc(md_local), c_loc(ideep64_local), c_loc(jt64_local), c_loc(maxg64_local), &
+        c_loc(ptend_s_local), c_loc(state_ps_local), c_loc(state_pmid_local), c_loc(freqzm_local), &
+        c_loc(mu_out_local), c_loc(md_out_local), c_loc(ftem_local), c_loc(pcont_local), c_loc(pconb_local))
+
+end subroutine zm_convr_post_shell
+
+!=========================================================================================
+
+subroutine zm_convr_post_shell_native(ncol_local, lengath_local, gravit_local, cpair_local, &
+     mcon_local, mu_local, md_local, ideep64_local, jt64_local, maxg64_local, ptend_s_local, &
+     state_ps_local, state_pmid_local, freqzm_local, mu_out_local, md_out_local, ftem_local, pcont_local, pconb_local)
+
+   use iso_c_binding, only: c_int64_t
+
+   integer, intent(in) :: ncol_local, lengath_local
+   real(r8), intent(in) :: gravit_local, cpair_local
+   real(r8), intent(inout) :: mcon_local(pcols,pverp)
+   real(r8), intent(in) :: mu_local(pcols,pver), md_local(pcols,pver)
+   integer(c_int64_t), intent(in) :: ideep64_local(pcols), jt64_local(pcols), maxg64_local(pcols)
+   real(r8), intent(in) :: ptend_s_local(pcols,pver), state_ps_local(pcols), state_pmid_local(pcols,pver)
+   real(r8), intent(inout) :: freqzm_local(pcols), mu_out_local(pcols,pver), md_out_local(pcols,pver)
+   real(r8), intent(inout) :: ftem_local(pcols,pver), pcont_local(pcols), pconb_local(pcols)
+   integer :: i, k, ii
+
+   freqzm_local(:) = 0._r8
+   do i = 1, lengath_local
+      freqzm_local(int(ideep64_local(i))) = 1.0_r8
+   end do
+
+   mcon_local(:ncol_local,:pver) = mcon_local(:ncol_local,:pver) * 100._r8/gravit_local
+
+   mu_out_local(:,:) = 0._r8
+   md_out_local(:,:) = 0._r8
+   do i = 1, lengath_local
+      do k = 1, pver
+         ii = int(ideep64_local(i))
+         mu_out_local(ii,k) = mu_local(i,k) * 100._r8/gravit_local
+         md_out_local(ii,k) = md_local(i,k) * 100._r8/gravit_local
+      end do
+   end do
+
+   ftem_local(:ncol_local,:pver) = ptend_s_local(:ncol_local,:pver)/cpair_local
+
+   pcont_local(:ncol_local) = state_ps_local(:ncol_local)
+   pconb_local(:ncol_local) = state_ps_local(:ncol_local)
+   do i = 1, lengath_local
+      if (maxg64_local(i) .gt. jt64_local(i)) then
+         ii = int(ideep64_local(i))
+         pcont_local(ii) = state_pmid_local(ii,int(jt64_local(i)))
+         pconb_local(ii) = state_pmid_local(ii,int(maxg64_local(i)))
+      endif
+   end do
+
+end subroutine zm_convr_post_shell_native
+
+!=========================================================================================
+
+subroutine zm_conv_evap_prep_shell(ncol_local, dp_cldliq_local, dp_cldice_local)
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+   integer, intent(in) :: ncol_local
+   real(r8), pointer, intent(inout) :: dp_cldliq_local(:,:), dp_cldice_local(:,:)
+
+   interface
+      subroutine zm_conv_evap_prep_shell_codon(ncol_c, pcols_c, pver_c, dp_cldliq_p, dp_cldice_p) &
+           bind(c, name="zm_conv_evap_prep_shell_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: dp_cldliq_p, dp_cldice_p
+      end subroutine zm_conv_evap_prep_shell_codon
+   end interface
+
+   call zm_conv_select_post_shell_impl()
+
+   if (use_native_zm_post_shell) then
+      dp_cldliq_local(:ncol_local,:) = 0._r8
+      dp_cldice_local(:ncol_local,:) = 0._r8
+      return
+   end if
+
+   if (masterproc .and. .not. zm_conv_evap_prep_logged) then
+      write(iulog,*) 'zm_conv_evap prep shell entered (cloud buffers zero direct = codon)'
+      call zm_conv_append_post_shell_proof('zm_conv_evap prep shell entered (cloud buffers zero direct = codon)')
+      call flush(iulog)
+      zm_conv_evap_prep_logged = .true.
+   end if
+
+   call zm_conv_evap_prep_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        c_loc(dp_cldliq_local), c_loc(dp_cldice_local))
+
+end subroutine zm_conv_evap_prep_shell
+
+!=========================================================================================
+
+subroutine zm_conv_evap_post_shell(ncol_local, ztodt_local, do_org_local, ixorg_local, evapcdp_local, ptend_q_local, state_q_local)
+
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+   integer, intent(in) :: ncol_local, ixorg_local
+   real(r8), intent(in) :: ztodt_local
+   logical, intent(in) :: do_org_local
+   real(r8), pointer, intent(inout) :: evapcdp_local(:,:)
+   real(r8), target, intent(inout) :: ptend_q_local(pcols,pver,*)
+   real(r8), target, intent(in) :: state_q_local(pcols,pver,*)
+   integer(c_int64_t) :: do_org_c
+
+   interface
+      subroutine zm_conv_evap_post_shell_codon(ncol_c, pcols_c, pver_c, ixorg_c, do_org_c, ztodt_c, &
+           evapcdp_p, ptend_q_p, state_q_p) bind(c, name="zm_conv_evap_post_shell_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, ixorg_c, do_org_c
+         real(c_double), value :: ztodt_c
+         type(c_ptr), value :: evapcdp_p, ptend_q_p, state_q_p
+      end subroutine zm_conv_evap_post_shell_codon
+   end interface
+
+   call zm_conv_select_post_shell_impl()
+
+   if (use_native_zm_post_shell) then
+      evapcdp_local(:ncol_local,:pver) = ptend_q_local(:ncol_local,:pver,1)
+      if (do_org_local) then
+         ptend_q_local(:ncol_local,:pver,ixorg_local) = &
+              min(1._r8,max(0._r8,(50._r8*1000._r8*1000._r8*abs(evapcdp_local(:ncol_local,:pver))) &
+              -(state_q_local(:ncol_local,:pver,ixorg_local)/10800._r8)))
+         ptend_q_local(:ncol_local,:pver,ixorg_local) = &
+              (ptend_q_local(:ncol_local,:pver,ixorg_local) - state_q_local(:ncol_local,:pver,ixorg_local))/ztodt_local
+      endif
+      return
+   end if
+
+   if (do_org_local) then
+      do_org_c = 1_c_int64_t
+   else
+      do_org_c = 0_c_int64_t
+   end if
+
+   if (masterproc .and. .not. zm_conv_evap_post_logged) then
+      write(iulog,*) 'zm_conv_evap post shell entered (evap/org tendencies direct = codon)'
+      call zm_conv_append_post_shell_proof('zm_conv_evap post shell entered (evap/org tendencies direct = codon)')
+      call flush(iulog)
+      zm_conv_evap_post_logged = .true.
+   end if
+
+   call zm_conv_evap_post_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        int(ixorg_local, c_int64_t), do_org_c, real(ztodt_local, c_double), c_loc(evapcdp_local), &
+        c_loc(ptend_q_local), c_loc(state_q_local))
+
+end subroutine zm_conv_evap_post_shell
+
+!=========================================================================================
+
+subroutine zm_conv_evap_hist_shell(mode, ncol_local, cpair_local, ptend_s_local, tend_s_snwprd_local, tend_s_snwevmlt_local, &
+     ftem_local)
+
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+   integer, intent(in) :: mode, ncol_local
+   real(r8), intent(in) :: cpair_local
+   real(r8), target, intent(in) :: ptend_s_local(pcols,pver), tend_s_snwprd_local(pcols,pver), tend_s_snwevmlt_local(pcols,pver)
+   real(r8), target, intent(inout) :: ftem_local(pcols,pver)
+
+   interface
+      subroutine zm_conv_evap_hist_shell_codon(mode_c, ncol_c, pcols_c, pver_c, cpair_c, ptend_s_p, &
+           tend_s_snwprd_p, tend_s_snwevmlt_p, ftem_p) bind(c, name="zm_conv_evap_hist_shell_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: mode_c, ncol_c, pcols_c, pver_c
+         real(c_double), value :: cpair_c
+         type(c_ptr), value :: ptend_s_p, tend_s_snwprd_p, tend_s_snwevmlt_p, ftem_p
+      end subroutine zm_conv_evap_hist_shell_codon
+   end interface
+
+   call zm_conv_select_post_shell_impl()
+
+   if (use_native_zm_post_shell) then
+      select case (mode)
+      case (1)
+         ftem_local(:ncol_local,:pver) = ptend_s_local(:ncol_local,:pver)/cpair_local
+      case (2)
+         ftem_local(:ncol_local,:pver) = tend_s_snwprd_local(:ncol_local,:pver)/cpair_local
+      case (3)
+         ftem_local(:ncol_local,:pver) = tend_s_snwevmlt_local(:ncol_local,:pver)/cpair_local
+      end select
+      return
+   end if
+
+   if (masterproc .and. .not. zm_conv_evap_hist_logged) then
+      write(iulog,*) 'zm_conv_evap hist shell entered (evap heating prep direct = codon)'
+      call zm_conv_append_post_shell_proof('zm_conv_evap hist shell entered (evap heating prep direct = codon)')
+      call flush(iulog)
+      zm_conv_evap_hist_logged = .true.
+   end if
+
+   call zm_conv_evap_hist_shell_codon(int(mode, c_int64_t), int(ncol_local, c_int64_t), &
+        int(pcols, c_int64_t), int(pver, c_int64_t), real(cpair_local, c_double), c_loc(ptend_s_local), &
+        c_loc(tend_s_snwprd_local), c_loc(tend_s_snwevmlt_local), c_loc(ftem_local))
+
+end subroutine zm_conv_evap_hist_shell
+
+!=========================================================================================
+
+subroutine zm_momtran_post_shell(ncol_local, cpair_local, wind_tends_local, seten_local, ptend_u_local, ptend_v_local, &
+     ptend_s_local, ftem_local)
+
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+   integer, intent(in) :: ncol_local
+   real(r8), intent(in) :: cpair_local
+   real(r8), target, intent(in) :: wind_tends_local(pcols,pver,2), seten_local(pcols,pver)
+   real(r8), target, intent(inout) :: ptend_u_local(pcols,pver), ptend_v_local(pcols,pver), ptend_s_local(pcols,pver)
+   real(r8), target, intent(inout) :: ftem_local(pcols,pver)
+
+   interface
+      subroutine zm_momtran_post_shell_codon(ncol_c, pcols_c, pver_c, cpair_c, wind_tends_p, seten_p, &
+           ptend_u_p, ptend_v_p, ptend_s_p, ftem_p) bind(c, name="zm_momtran_post_shell_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: cpair_c
+         type(c_ptr), value :: wind_tends_p, seten_p, ptend_u_p, ptend_v_p, ptend_s_p, ftem_p
+      end subroutine zm_momtran_post_shell_codon
+   end interface
+
+   call zm_conv_select_post_shell_impl()
+
+   if (use_native_zm_post_shell) then
+      ptend_u_local(:ncol_local,:pver) = wind_tends_local(:ncol_local,:pver,1)
+      ptend_v_local(:ncol_local,:pver) = wind_tends_local(:ncol_local,:pver,2)
+      ptend_s_local(:ncol_local,:pver) = seten_local(:ncol_local,:pver)
+      ftem_local(:ncol_local,:pver) = seten_local(:ncol_local,:pver)/cpair_local
+      return
+   end if
+
+   if (masterproc .and. .not. zm_momtran_post_logged) then
+      write(iulog,*) 'zm_momtran post shell entered (wind/static tendencies direct = codon)'
+      call zm_conv_append_post_shell_proof('zm_momtran post shell entered (wind/static tendencies direct = codon)')
+      call flush(iulog)
+      zm_momtran_post_logged = .true.
+   end if
+
+   call zm_momtran_post_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        real(cpair_local, c_double), c_loc(wind_tends_local), c_loc(seten_local), c_loc(ptend_u_local), &
+        c_loc(ptend_v_local), c_loc(ptend_s_local), c_loc(ftem_local))
+
+end subroutine zm_momtran_post_shell
+
 !=========================================================================================
 
 

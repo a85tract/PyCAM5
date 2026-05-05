@@ -108,3 +108,233 @@ def convect_deep_select_scheme_codon(
             return
 
     status[0] = 1
+
+
+@export
+def zm_convr_post_shell_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    lengath: int,
+    gravit: float,
+    cpair: float,
+    mcon_p: cobj,
+    mu_p: cobj,
+    md_p: cobj,
+    ideep_p: cobj,
+    jt_p: cobj,
+    maxg_p: cobj,
+    ptend_s_p: cobj,
+    state_ps_p: cobj,
+    state_pmid_p: cobj,
+    freqzm_p: cobj,
+    mu_out_p: cobj,
+    md_out_p: cobj,
+    ftem_p: cobj,
+    pcont_p: cobj,
+    pconb_p: cobj,
+):
+    mcon = Ptr[float](mcon_p)
+    mu = Ptr[float](mu_p)
+    md = Ptr[float](md_p)
+    ideep = Ptr[int](ideep_p)
+    jt = Ptr[int](jt_p)
+    maxg = Ptr[int](maxg_p)
+    ptend_s = Ptr[float](ptend_s_p)
+    state_ps = Ptr[float](state_ps_p)
+    state_pmid = Ptr[float](state_pmid_p)
+    freqzm = Ptr[float](freqzm_p)
+    mu_out = Ptr[float](mu_out_p)
+    md_out = Ptr[float](md_out_p)
+    ftem = Ptr[float](ftem_p)
+    pcont = Ptr[float](pcont_p)
+    pconb = Ptr[float](pconb_p)
+
+    i = 0
+    while i < pcols:
+        freqzm[i] = 0.0
+        i += 1
+
+    i = 0
+    while i < lengath:
+        freqzm[ideep[i] - 1] = 1.0
+        i += 1
+
+    k = 0
+    while k < pver:
+        i = 0
+        while i < ncol:
+            idx = i + k * pcols
+            mcon[idx] = mcon[idx] * 100.0 / gravit
+            ftem[idx] = ptend_s[idx] / cpair
+            i += 1
+        k += 1
+
+    k = 0
+    while k < pver:
+        i = 0
+        while i < pcols:
+            idx = i + k * pcols
+            mu_out[idx] = 0.0
+            md_out[idx] = 0.0
+            i += 1
+        k += 1
+
+    i = 0
+    while i < lengath:
+        ii = ideep[i] - 1
+        k = 0
+        while k < pver:
+            gathered_idx = i + k * pcols
+            out_idx = ii + k * pcols
+            mu_out[out_idx] = mu[gathered_idx] * 100.0 / gravit
+            md_out[out_idx] = md[gathered_idx] * 100.0 / gravit
+            k += 1
+        i += 1
+
+    i = 0
+    while i < ncol:
+        pcont[i] = state_ps[i]
+        pconb[i] = state_ps[i]
+        i += 1
+
+    i = 0
+    while i < lengath:
+        if maxg[i] > jt[i]:
+            ii = ideep[i] - 1
+            pcont[ii] = state_pmid[ii + (jt[i] - 1) * pcols]
+            pconb[ii] = state_pmid[ii + (maxg[i] - 1) * pcols]
+        i += 1
+
+
+@export
+def zm_conv_evap_prep_shell_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    dp_cldliq_p: cobj,
+    dp_cldice_p: cobj,
+):
+    dp_cldliq = Ptr[float](dp_cldliq_p)
+    dp_cldice = Ptr[float](dp_cldice_p)
+
+    k = 0
+    while k < pver:
+        i = 0
+        while i < ncol:
+            idx = i + k * pcols
+            dp_cldliq[idx] = 0.0
+            dp_cldice[idx] = 0.0
+            i += 1
+        k += 1
+
+
+@export
+def zm_conv_evap_post_shell_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    ixorg: int,
+    do_org: int,
+    ztodt: float,
+    evapcdp_p: cobj,
+    ptend_q_p: cobj,
+    state_q_p: cobj,
+):
+    evapcdp = Ptr[float](evapcdp_p)
+    ptend_q = Ptr[float](ptend_q_p)
+    state_q = Ptr[float](state_q_p)
+    plane = pcols * pver
+
+    k = 0
+    while k < pver:
+        i = 0
+        while i < ncol:
+            idx = i + k * pcols
+            evapcdp[idx] = ptend_q[idx]
+            i += 1
+        k += 1
+
+    if do_org != 0:
+        org_offset = (ixorg - 1) * plane
+        k = 0
+        while k < pver:
+            i = 0
+            while i < ncol:
+                idx = i + k * pcols
+                org_idx = idx + org_offset
+                val = (50.0 * 1000.0 * 1000.0 * abs(evapcdp[idx])) - (state_q[org_idx] / 10800.0)
+                if val < 0.0:
+                    val = 0.0
+                if val > 1.0:
+                    val = 1.0
+                ptend_q[org_idx] = (val - state_q[org_idx]) / ztodt
+                i += 1
+            k += 1
+
+
+@export
+def zm_conv_evap_hist_shell_codon(
+    mode: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    cpair: float,
+    ptend_s_p: cobj,
+    tend_s_snwprd_p: cobj,
+    tend_s_snwevmlt_p: cobj,
+    ftem_p: cobj,
+):
+    ptend_s = Ptr[float](ptend_s_p)
+    tend_s_snwprd = Ptr[float](tend_s_snwprd_p)
+    tend_s_snwevmlt = Ptr[float](tend_s_snwevmlt_p)
+    ftem = Ptr[float](ftem_p)
+
+    k = 0
+    while k < pver:
+        i = 0
+        while i < ncol:
+            idx = i + k * pcols
+            if mode == 1:
+                ftem[idx] = ptend_s[idx] / cpair
+            elif mode == 2:
+                ftem[idx] = tend_s_snwprd[idx] / cpair
+            else:
+                ftem[idx] = tend_s_snwevmlt[idx] / cpair
+            i += 1
+        k += 1
+
+
+@export
+def zm_momtran_post_shell_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    cpair: float,
+    wind_tends_p: cobj,
+    seten_p: cobj,
+    ptend_u_p: cobj,
+    ptend_v_p: cobj,
+    ptend_s_p: cobj,
+    ftem_p: cobj,
+):
+    wind_tends = Ptr[float](wind_tends_p)
+    seten = Ptr[float](seten_p)
+    ptend_u = Ptr[float](ptend_u_p)
+    ptend_v = Ptr[float](ptend_v_p)
+    ptend_s = Ptr[float](ptend_s_p)
+    ftem = Ptr[float](ftem_p)
+    plane = pcols * pver
+
+    k = 0
+    while k < pver:
+        i = 0
+        while i < ncol:
+            idx = i + k * pcols
+            ptend_u[idx] = wind_tends[idx]
+            ptend_v[idx] = wind_tends[idx + plane]
+            ptend_s[idx] = seten[idx]
+            ftem[idx] = seten[idx] / cpair
+            i += 1
+        k += 1
