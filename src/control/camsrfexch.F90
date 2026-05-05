@@ -669,8 +669,8 @@ subroutine cam_export_log_entered()
    cam_export_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'cam_export entered (state/qbot/precip transfer direct = codon)'
-      call cam_export_append_proof('cam_export entered (state/qbot/precip transfer direct = codon)')
+      write(iulog,'(A)') 'cam_export entered (state/qbot/precip/surface/co2/water transfer direct = codon)'
+      call cam_export_append_proof('cam_export entered (state/qbot/precip/surface/co2/water transfer direct = codon)')
       call flush(iulog)
    end if
 
@@ -760,6 +760,11 @@ subroutine cam_export(state,cam_out,pbuf)
    integer :: ncol
    integer :: prec_dp_idx, snow_dp_idx, prec_sh_idx, snow_sh_idx
    integer :: prec_sed_idx,snow_sed_idx,prec_pcw_idx,snow_pcw_idx
+   real(r8), target :: dummy_1d(1)
+   real(r8) :: co2diag_val
+   type(c_ptr) :: precrl_16O_p, precsl_16O_p, precrc_16O_p, precsc_16O_p
+   type(c_ptr) :: precrl_HDO_p, precsl_HDO_p, precrc_HDO_p, precsc_HDO_p
+   type(c_ptr) :: precrl_18O_p, precsl_18O_p, precrc_18O_p, precsc_18O_p
 
    real(r8), pointer :: prec_dp(:)                 ! total precipitation   from ZM convection
    real(r8), pointer :: snow_dp(:)                 ! snow from ZM   convection
@@ -787,17 +792,36 @@ subroutine cam_export(state,cam_out,pbuf)
 
    interface
       subroutine cam_export_core_codon(ncol_c, pcols_c, pver_c, pcnst_c, rair_c, &
+           mwdry_c, mwco2_c, co2diag_val_c, co2_transport_c, co2_idx_c, trace_water_c, &
+           exist16_c, existD_c, exist18_c, &
            state_t_p, state_exner_p, state_zm_p, state_u_p, state_v_p, state_pmid_p, state_q_p, &
+           state_ps_p, state_rpdel_p, psm1_p, srfrpdel_p, co2diag_p, co2prog_p, prcsnw_p, &
            prec_dp_p, snow_dp_p, prec_sh_p, snow_sh_p, prec_sed_p, snow_sed_p, prec_pcw_p, snow_pcw_p, &
            tbot_p, thbot_p, zbot_p, ubot_p, vbot_p, pbot_p, rho_p, qbot_p, &
-           precc_p, precl_p, precsc_p, precsl_p) bind(c, name="cam_export_core_codon")
+           precc_p, precl_p, precsc_p, precsl_p, &
+           precrl_16O_in_p, precsl_16O_in_p, precrc_16O_in_p, precsc_16O_in_p, &
+           precrl_HDO_in_p, precsl_HDO_in_p, precrc_HDO_in_p, precsc_HDO_in_p, &
+           precrl_18O_in_p, precsl_18O_in_p, precrc_18O_in_p, precsc_18O_in_p, &
+           precrl_16O_out_p, precsl_16O_out_p, precrc_16O_out_p, precsc_16O_out_p, &
+           precrl_HDO_out_p, precsl_HDO_out_p, precrc_HDO_out_p, precsc_HDO_out_p, &
+           precrl_18O_out_p, precsl_18O_out_p, precrc_18O_out_p, precsc_18O_out_p) &
+           bind(c, name="cam_export_core_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c
-         real(c_double), value :: rair_c
+         integer(c_int64_t), value :: co2_transport_c, co2_idx_c, trace_water_c
+         integer(c_int64_t), value :: exist16_c, existD_c, exist18_c
+         real(c_double), value :: rair_c, mwdry_c, mwco2_c, co2diag_val_c
          type(c_ptr), value :: state_t_p, state_exner_p, state_zm_p, state_u_p, state_v_p, state_pmid_p, state_q_p
+         type(c_ptr), value :: state_ps_p, state_rpdel_p, psm1_p, srfrpdel_p, co2diag_p, co2prog_p, prcsnw_p
          type(c_ptr), value :: prec_dp_p, snow_dp_p, prec_sh_p, snow_sh_p, prec_sed_p, snow_sed_p, prec_pcw_p, snow_pcw_p
          type(c_ptr), value :: tbot_p, thbot_p, zbot_p, ubot_p, vbot_p, pbot_p, rho_p, qbot_p
          type(c_ptr), value :: precc_p, precl_p, precsc_p, precsl_p
+         type(c_ptr), value :: precrl_16O_in_p, precsl_16O_in_p, precrc_16O_in_p, precsc_16O_in_p
+         type(c_ptr), value :: precrl_HDO_in_p, precsl_HDO_in_p, precrc_HDO_in_p, precsc_HDO_in_p
+         type(c_ptr), value :: precrl_18O_in_p, precsl_18O_in_p, precrc_18O_in_p, precsc_18O_in_p
+         type(c_ptr), value :: precrl_16O_out_p, precsl_16O_out_p, precrc_16O_out_p, precsc_16O_out_p
+         type(c_ptr), value :: precrl_HDO_out_p, precsl_HDO_out_p, precrc_HDO_out_p, precsc_HDO_out_p
+         type(c_ptr), value :: precrl_18O_out_p, precsl_18O_out_p, precrc_18O_out_p, precsc_18O_out_p
       end subroutine cam_export_core_codon
    end interface
 
@@ -810,6 +834,7 @@ subroutine cam_export(state,cam_out,pbuf)
 
    lchnk = state%lchnk
    ncol  = state%ncol
+   dummy_1d(:) = 0._r8
    call cam_export_select_impl()
 
    prec_dp_idx = pbuf_get_index('PREC_DP')
@@ -832,13 +857,13 @@ subroutine cam_export(state,cam_out,pbuf)
 
   !water tracers/isotopes:
   !----------------------
+   exist16 = .false.
+   existD  = .false.
+   exist18 = .false.
+   pass16  = .true.
+   passD   = .true.
+   pass18  = .true.
    if(trace_water) then
-     exist16 = .false. !Initalize logicals
-     existD  = .false.
-     exist18 = .false.
-     pass16  = .true.
-     passD   = .true.
-     pass18  = .true.
      do m=1, wtrc_nwset !loop over water tracer precip.
        select case(iwspec(wtrc_iatype(m,iwtstrain))) !determine water species
          case(isph2o) !H2O
@@ -875,6 +900,38 @@ subroutine cam_export(state,cam_out,pbuf)
    end if
   !-------------------------
 
+   precrl_16O_p = c_loc(dummy_1d(1))
+   precsl_16O_p = c_loc(dummy_1d(1))
+   precrc_16O_p = c_loc(dummy_1d(1))
+   precsc_16O_p = c_loc(dummy_1d(1))
+   precrl_HDO_p = c_loc(dummy_1d(1))
+   precsl_HDO_p = c_loc(dummy_1d(1))
+   precrc_HDO_p = c_loc(dummy_1d(1))
+   precsc_HDO_p = c_loc(dummy_1d(1))
+   precrl_18O_p = c_loc(dummy_1d(1))
+   precsl_18O_p = c_loc(dummy_1d(1))
+   precrc_18O_p = c_loc(dummy_1d(1))
+   precsc_18O_p = c_loc(dummy_1d(1))
+   if (trace_water .and. exist16) then
+      precrl_16O_p = c_loc(precrl_16O(1))
+      precsl_16O_p = c_loc(precsl_16O(1))
+      precrc_16O_p = c_loc(precrc_16O(1))
+      precsc_16O_p = c_loc(precsc_16O(1))
+   end if
+   if (trace_water .and. existD) then
+      precrl_HDO_p = c_loc(precrl_HDO(1))
+      precsl_HDO_p = c_loc(precsl_HDO(1))
+      precrc_HDO_p = c_loc(precrc_HDO(1))
+      precsc_HDO_p = c_loc(precsc_HDO(1))
+   end if
+   if (trace_water .and. exist18) then
+      precrl_18O_p = c_loc(precrl_18O(1))
+      precsl_18O_p = c_loc(precsl_18O(1))
+      precrc_18O_p = c_loc(precrc_18O(1))
+      precsc_18O_p = c_loc(precsc_18O(1))
+   end if
+   co2diag_val = chem_surfvals_get('CO2VMR') * 1.0e+6_r8
+
    if (cam_export_use_native_impl) then
       do i=1,ncol
          cam_out%tbot(i)  = state%t(i,pver)
@@ -896,22 +953,35 @@ subroutine cam_export(state,cam_out,pbuf)
       call cam_export_log_entered()
       call cam_export_core_codon( &
            int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
-           real(rair, c_double), c_loc(state%t), c_loc(state%exner), c_loc(state%zm), c_loc(state%u), &
-           c_loc(state%v), c_loc(state%pmid), c_loc(state%q), c_loc(prec_dp(1)), c_loc(snow_dp(1)), &
+           real(rair, c_double), real(mwdry, c_double), real(mwco2, c_double), real(co2diag_val, c_double), &
+           merge(1_c_int64_t, 0_c_int64_t, co2_transport()), int(c_i(4), c_int64_t), &
+           merge(1_c_int64_t, 0_c_int64_t, trace_water), merge(1_c_int64_t, 0_c_int64_t, exist16), &
+           merge(1_c_int64_t, 0_c_int64_t, existD), merge(1_c_int64_t, 0_c_int64_t, exist18), &
+           c_loc(state%t), c_loc(state%exner), c_loc(state%zm), c_loc(state%u), &
+           c_loc(state%v), c_loc(state%pmid), c_loc(state%q), c_loc(state%ps), c_loc(state%rpdel), &
+           c_loc(psm1(1,lchnk)), c_loc(srfrpdel(1,lchnk)), c_loc(cam_out%co2diag(1)), &
+           c_loc(cam_out%co2prog(1)), c_loc(prcsnw(1,lchnk)), c_loc(prec_dp(1)), c_loc(snow_dp(1)), &
            c_loc(prec_sh(1)), c_loc(snow_sh(1)), c_loc(prec_sed(1)), c_loc(snow_sed(1)), &
            c_loc(prec_pcw(1)), c_loc(snow_pcw(1)), c_loc(cam_out%tbot(1)), c_loc(cam_out%thbot(1)), &
            c_loc(cam_out%zbot(1)), c_loc(cam_out%ubot(1)), c_loc(cam_out%vbot(1)), c_loc(cam_out%pbot(1)), &
            c_loc(cam_out%rho(1)), c_loc(cam_out%qbot(1,1)), c_loc(cam_out%precc(1)), c_loc(cam_out%precl(1)), &
-           c_loc(cam_out%precsc(1)), c_loc(cam_out%precsl(1)) &
+           c_loc(cam_out%precsc(1)), c_loc(cam_out%precsl(1)), &
+           precrl_16O_p, precsl_16O_p, precrc_16O_p, precsc_16O_p, &
+           precrl_HDO_p, precsl_HDO_p, precrc_HDO_p, precsc_HDO_p, &
+           precrl_18O_p, precsl_18O_p, precrc_18O_p, precsc_18O_p, &
+           c_loc(cam_out%precrl_16O(1)), c_loc(cam_out%precsl_16O(1)), &
+           c_loc(cam_out%precrc_16O(1)), c_loc(cam_out%precsc_16O(1)), &
+           c_loc(cam_out%precrl_HDO(1)), c_loc(cam_out%precsl_HDO(1)), &
+           c_loc(cam_out%precrc_HDO(1)), c_loc(cam_out%precsc_HDO(1)), &
+           c_loc(cam_out%precrl_18O(1)), c_loc(cam_out%precsl_18O(1)), &
+           c_loc(cam_out%precrc_18O(1)), c_loc(cam_out%precsc_18O(1)) &
       )
-      do i=1,ncol
-         psm1(i,lchnk)    = state%ps(i)
-         srfrpdel(i,lchnk)= state%rpdel(i,pver)
-      end do
    end if
 
-   cam_out%co2diag(:ncol) = chem_surfvals_get('CO2VMR') * 1.0e+6_r8 
-   if (co2_transport()) then
+   if (cam_export_use_native_impl) then
+      cam_out%co2diag(:ncol) = co2diag_val
+   end if
+   if (cam_export_use_native_impl .and. co2_transport()) then
       do i=1,ncol
          cam_out%co2prog(i) = state%q(i,pver,c_i(4)) * 1.0e+6_r8 *mwdry/mwco2
       end do
@@ -972,44 +1042,12 @@ subroutine cam_export(state,cam_out,pbuf)
          end if
          !----------------------
       end do
-   else if (trace_water) then
-      do i=1,ncol
-        if(exist16) then 
-          cam_out%precrl_16O(i)  = precrl_16O(i)
-          cam_out%precsl_16O(i)  = precsl_16O(i)  
-          cam_out%precrc_16O(i)  = precrc_16O(i)
-          cam_out%precsc_16O(i)  = precsc_16O(i)
-        end if
-        if(existD) then 
-          cam_out%precrl_HDO(i)  = precrl_HDO(i)
-          cam_out%precsl_HDO(i)  = precsl_HDO(i)
-          cam_out%precrc_HDO(i)  = precrc_HDO(i)
-          cam_out%precsc_HDO(i)  = precsc_HDO(i) 
-        end if
-        if(exist18) then 
-          cam_out%precrl_18O(i)  = precrl_18O(i)
-          cam_out%precsl_18O(i)  = precsl_18O(i)
-          cam_out%precrc_18O(i)  = precrc_18O(i)
-          cam_out%precsc_18O(i)  = precsc_18O(i)  
-        end if
-       !negative value prevention:
-        if (cam_out%precrl_16O(i) .lt. 0._r8) cam_out%precrl_16O(i)=0._r8
-        if (cam_out%precrl_HDO(i) .lt. 0._r8) cam_out%precrl_HDO(i)=0._r8
-        if (cam_out%precrl_18O(i) .lt. 0._r8) cam_out%precrl_18O(i)=0._r8
-        if (cam_out%precsl_16O(i) .lt. 0._r8) cam_out%precsl_16O(i)=0._r8
-        if (cam_out%precsl_HDO(i) .lt. 0._r8) cam_out%precsl_HDO(i)=0._r8
-        if (cam_out%precsl_18O(i) .lt. 0._r8) cam_out%precsl_18O(i)=0._r8
-        if (cam_out%precrc_16O(i) .lt. 0._r8) cam_out%precrc_16O(i)=0._r8
-        if (cam_out%precrc_HDO(i) .lt. 0._r8) cam_out%precrc_HDO(i)=0._r8
-        if (cam_out%precrc_18O(i) .lt. 0._r8) cam_out%precrc_18O(i)=0._r8
-        if (cam_out%precsc_16O(i) .lt. 0._r8) cam_out%precsc_16O(i)=0._r8
-        if (cam_out%precsc_HDO(i) .lt. 0._r8) cam_out%precsc_HDO(i)=0._r8
-        if (cam_out%precsc_18O(i) .lt. 0._r8) cam_out%precsc_18O(i)=0._r8
-      end do
    end if
 
    ! total snowfall rate: needed by slab ocean model
-   prcsnw(:ncol,lchnk) = cam_out%precsc(:ncol) + cam_out%precsl(:ncol)   
+   if (cam_export_use_native_impl) then
+      prcsnw(:ncol,lchnk) = cam_out%precsc(:ncol) + cam_out%precsl(:ncol)
+   end if
 
 end subroutine cam_export
 

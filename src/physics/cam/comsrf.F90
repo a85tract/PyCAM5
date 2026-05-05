@@ -49,9 +49,9 @@ module comsrf
   real(r8), allocatable:: fsnt(:,:)      ! Net column abs solar flux at model top
   real(r8), allocatable:: flns(:,:)      ! Srf longwave cooling (up-down) flux
   real(r8), allocatable:: flnt(:,:)      ! Net outgoing lw flux at model top
-  real(r8), allocatable:: srfrpdel(:,:)  ! 1./(pint(k+1)-pint(k))
-  real(r8), allocatable:: psm1(:,:)      ! surface pressure
-  real(r8), allocatable:: prcsnw(:,:)    ! cam tot snow precip
+  real(r8), allocatable, target :: srfrpdel(:,:)  ! 1./(pint(k+1)-pint(k))
+  real(r8), allocatable, target :: psm1(:,:)      ! surface pressure
+  real(r8), allocatable, target :: prcsnw(:,:)    ! cam tot snow precip
   real(r8), allocatable:: trefmxav(:,:)  ! diagnostic: tref max over the day
   real(r8), allocatable:: trefmnav(:,:)  ! diagnostic: tref min over the day
 

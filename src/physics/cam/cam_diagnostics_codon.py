@@ -613,6 +613,15 @@ def cam_export_core_codon(
     pver: int,
     pcnst: int,
     rair: float,
+    mwdry: float,
+    mwco2: float,
+    co2diag_val: float,
+    co2_transport: int,
+    co2_idx: int,
+    trace_water: int,
+    exist16: int,
+    existD: int,
+    exist18: int,
     state_t_p: cobj,
     state_exner_p: cobj,
     state_zm_p: cobj,
@@ -620,6 +629,13 @@ def cam_export_core_codon(
     state_v_p: cobj,
     state_pmid_p: cobj,
     state_q_p: cobj,
+    state_ps_p: cobj,
+    state_rpdel_p: cobj,
+    psm1_p: cobj,
+    srfrpdel_p: cobj,
+    co2diag_p: cobj,
+    co2prog_p: cobj,
+    prcsnw_p: cobj,
     prec_dp_p: cobj,
     snow_dp_p: cobj,
     prec_sh_p: cobj,
@@ -640,6 +656,30 @@ def cam_export_core_codon(
     precl_p: cobj,
     precsc_p: cobj,
     precsl_p: cobj,
+    precrl_16O_in_p: cobj,
+    precsl_16O_in_p: cobj,
+    precrc_16O_in_p: cobj,
+    precsc_16O_in_p: cobj,
+    precrl_HDO_in_p: cobj,
+    precsl_HDO_in_p: cobj,
+    precrc_HDO_in_p: cobj,
+    precsc_HDO_in_p: cobj,
+    precrl_18O_in_p: cobj,
+    precsl_18O_in_p: cobj,
+    precrc_18O_in_p: cobj,
+    precsc_18O_in_p: cobj,
+    precrl_16O_out_p: cobj,
+    precsl_16O_out_p: cobj,
+    precrc_16O_out_p: cobj,
+    precsc_16O_out_p: cobj,
+    precrl_HDO_out_p: cobj,
+    precsl_HDO_out_p: cobj,
+    precrc_HDO_out_p: cobj,
+    precsc_HDO_out_p: cobj,
+    precrl_18O_out_p: cobj,
+    precsl_18O_out_p: cobj,
+    precrc_18O_out_p: cobj,
+    precsc_18O_out_p: cobj,
 ):
     state_t = Ptr[float](state_t_p)
     state_exner = Ptr[float](state_exner_p)
@@ -648,6 +688,13 @@ def cam_export_core_codon(
     state_v = Ptr[float](state_v_p)
     state_pmid = Ptr[float](state_pmid_p)
     state_q = Ptr[float](state_q_p)
+    state_ps = Ptr[float](state_ps_p)
+    state_rpdel = Ptr[float](state_rpdel_p)
+    psm1 = Ptr[float](psm1_p)
+    srfrpdel = Ptr[float](srfrpdel_p)
+    co2diag = Ptr[float](co2diag_p)
+    co2prog = Ptr[float](co2prog_p)
+    prcsnw = Ptr[float](prcsnw_p)
     prec_dp = Ptr[float](prec_dp_p)
     snow_dp = Ptr[float](snow_dp_p)
     prec_sh = Ptr[float](prec_sh_p)
@@ -668,6 +715,30 @@ def cam_export_core_codon(
     precl = Ptr[float](precl_p)
     precsc = Ptr[float](precsc_p)
     precsl = Ptr[float](precsl_p)
+    precrl_16O_in = Ptr[float](precrl_16O_in_p)
+    precsl_16O_in = Ptr[float](precsl_16O_in_p)
+    precrc_16O_in = Ptr[float](precrc_16O_in_p)
+    precsc_16O_in = Ptr[float](precsc_16O_in_p)
+    precrl_HDO_in = Ptr[float](precrl_HDO_in_p)
+    precsl_HDO_in = Ptr[float](precsl_HDO_in_p)
+    precrc_HDO_in = Ptr[float](precrc_HDO_in_p)
+    precsc_HDO_in = Ptr[float](precsc_HDO_in_p)
+    precrl_18O_in = Ptr[float](precrl_18O_in_p)
+    precsl_18O_in = Ptr[float](precsl_18O_in_p)
+    precrc_18O_in = Ptr[float](precrc_18O_in_p)
+    precsc_18O_in = Ptr[float](precsc_18O_in_p)
+    precrl_16O_out = Ptr[float](precrl_16O_out_p)
+    precsl_16O_out = Ptr[float](precsl_16O_out_p)
+    precrc_16O_out = Ptr[float](precrc_16O_out_p)
+    precsc_16O_out = Ptr[float](precsc_16O_out_p)
+    precrl_HDO_out = Ptr[float](precrl_HDO_out_p)
+    precsl_HDO_out = Ptr[float](precsl_HDO_out_p)
+    precrc_HDO_out = Ptr[float](precrc_HDO_out_p)
+    precsc_HDO_out = Ptr[float](precsc_HDO_out_p)
+    precrl_18O_out = Ptr[float](precrl_18O_out_p)
+    precsl_18O_out = Ptr[float](precsl_18O_out_p)
+    precrc_18O_out = Ptr[float](precrc_18O_out_p)
+    precsc_18O_out = Ptr[float](precsc_18O_out_p)
 
     for i in range(1, ncol + 1):
         src = _idx2(i, pver, pcols)
@@ -679,6 +750,8 @@ def cam_export_core_codon(
         vbot[dst] = state_v[src]
         pbot[dst] = state_pmid[src]
         rho[dst] = pbot[dst] / (rair * tbot[dst])
+        psm1[dst] = state_ps[dst]
+        srfrpdel[dst] = state_rpdel[src]
 
     for m in range(1, pcnst + 1):
         for i in range(1, ncol + 1):
@@ -702,6 +775,50 @@ def cam_export_core_codon(
             precsc[idx] = precc[idx]
         if precsl[idx] > precl[idx]:
             precsl[idx] = precl[idx]
+        co2diag[idx] = co2diag_val
+        if co2_transport != 0:
+            co2prog[idx] = state_q[_idx3(i, pver, co2_idx, pcols, pver)] * 1.0e6 * mwdry / mwco2
+        if trace_water != 0:
+            if exist16 != 0:
+                precrl_16O_out[idx] = precrl_16O_in[idx]
+                precsl_16O_out[idx] = precsl_16O_in[idx]
+                precrc_16O_out[idx] = precrc_16O_in[idx]
+                precsc_16O_out[idx] = precsc_16O_in[idx]
+            if existD != 0:
+                precrl_HDO_out[idx] = precrl_HDO_in[idx]
+                precsl_HDO_out[idx] = precsl_HDO_in[idx]
+                precrc_HDO_out[idx] = precrc_HDO_in[idx]
+                precsc_HDO_out[idx] = precsc_HDO_in[idx]
+            if exist18 != 0:
+                precrl_18O_out[idx] = precrl_18O_in[idx]
+                precsl_18O_out[idx] = precsl_18O_in[idx]
+                precrc_18O_out[idx] = precrc_18O_in[idx]
+                precsc_18O_out[idx] = precsc_18O_in[idx]
+            if precrl_16O_out[idx] < 0.0:
+                precrl_16O_out[idx] = 0.0
+            if precrl_HDO_out[idx] < 0.0:
+                precrl_HDO_out[idx] = 0.0
+            if precrl_18O_out[idx] < 0.0:
+                precrl_18O_out[idx] = 0.0
+            if precsl_16O_out[idx] < 0.0:
+                precsl_16O_out[idx] = 0.0
+            if precsl_HDO_out[idx] < 0.0:
+                precsl_HDO_out[idx] = 0.0
+            if precsl_18O_out[idx] < 0.0:
+                precsl_18O_out[idx] = 0.0
+            if precrc_16O_out[idx] < 0.0:
+                precrc_16O_out[idx] = 0.0
+            if precrc_HDO_out[idx] < 0.0:
+                precrc_HDO_out[idx] = 0.0
+            if precrc_18O_out[idx] < 0.0:
+                precrc_18O_out[idx] = 0.0
+            if precsc_16O_out[idx] < 0.0:
+                precsc_16O_out[idx] = 0.0
+            if precsc_HDO_out[idx] < 0.0:
+                precsc_HDO_out[idx] = 0.0
+            if precsc_18O_out[idx] < 0.0:
+                precsc_18O_out[idx] = 0.0
+        prcsnw[idx] = precsc[idx] + precsl[idx]
 
 
 @export
