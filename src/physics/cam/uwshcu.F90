@@ -46,6 +46,7 @@
   logical :: iter_restore_shell_entered_logged = .false.
   logical :: delcin_reset_shell_entered_logged = .false.
   logical :: iter_save_shell_entered_logged = .false.
+  logical :: column_init_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -276,6 +277,21 @@ contains
     end if
 
   end subroutine uwshcu_log_iter_save_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_column_init_shell_entered()
+
+    if (column_init_shell_entered_logged) return
+    column_init_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu column init shell entered (environment save and workspace reset direct = codon)'
+       call uwshcu_append_proof('uwshcu column init shell entered (environment save and workspace reset direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_column_init_shell_entered
 
 !===============================================================================
   
@@ -1080,8 +1096,8 @@ end subroutine uwshcu_readnl
     !NOTE:  wtevp and wtsub may not need to be a function of height. - JN
     real(r8)    wtflxrn(0:mkx,wtrc_nwset)                     !  water tracer rain flux [ kg/m2/s ]
     real(r8)    wtflxsn(0:mkx,wtrc_nwset)                     !  water tracer snow flux [ kg/m2/s ]
-    real(r8)    wtevp(mkx,wtrc_nwset)                         !  water tracer rain evaporation [ kg/kg/s ]
-    real(r8)    wtsub(mkx,wtrc_nwset)                         !  water tracer snow sublimation [ kg/kg/s ]
+    real(r8), target :: wtevp(mkx,wtrc_nwset)                 !  water tracer rain evaporation [ kg/kg/s ]
+    real(r8), target :: wtsub(mkx,wtrc_nwset)                 !  water tracer snow sublimation [ kg/kg/s ]
     real(r8)    difrm(4)                                      !  Isotopic diffusivity ratios [ unitless ]
     real(r8)    dkfac                                         !  kinetic fractionation exponent
     real(r8)    phi                                           !  phi value from Bony et. al., 2008
@@ -1104,7 +1120,7 @@ end subroutine uwshcu_readnl
     real(r8)    fr                                            !  Fraction of rain remaining [ unitless ].
     real(r8)    rain_radius                                   !  raindrop radius [m]
     real(r8)    fequil                                        !  fraction of rain that has experience equilibration 
-    real(r8)    dz(0:mkx)                                     !  layer thickness [m] 
+    real(r8), target :: dz(0:mkx)                             !  layer thickness [m]
     integer     ispec                                         !  water isotope species 
     !************
 
@@ -1112,15 +1128,15 @@ end subroutine uwshcu_readnl
     !      In the current code, this 'sink' tendency is simply set to be zero.
 
     real(r8), target :: uemf(0:mkx)                           !  Net updraft mass flux at the interface ( emf + umf ) [ kg/m2/s ]
-    real(r8)    comsub(mkx)                                   !  Compensating subsidence
+    real(r8), target :: comsub(mkx)                           !  Compensating subsidence
                                                               ! at the layer mid-point ( unit of mass flux, umf ) [ kg/m2/s ]
-    real(r8)    qlten_sink(mkx)                               !  Liquid condensate tendency
+    real(r8), target :: qlten_sink(mkx)                       !  Liquid condensate tendency
                                                               ! by compensating subsidence/upwelling [ kg/kg/s ]
-    real(r8)    qiten_sink(mkx)                               !  Ice    condensate tendency
+    real(r8), target :: qiten_sink(mkx)                       !  Ice    condensate tendency
                                                               ! by compensating subsidence/upwelling [ kg/kg/s ]
-    real(r8)    nlten_sink(mkx)                               !  Liquid droplets # tendency
+    real(r8), target :: nlten_sink(mkx)                       !  Liquid droplets # tendency
                                                               ! by compensating subsidence/upwelling [ kg/kg/s ]
-    real(r8)    niten_sink(mkx)                               !  Ice    droplets # tendency
+    real(r8), target :: niten_sink(mkx)                       !  Ice    droplets # tendency
                                                               ! by compensating subsidence/upwelling [ kg/kg/s ]
     real(r8)    thlten_sub, qtten_sub                         !  Tendency of conservative scalars
                                                               ! by compensating subsidence/upwelling
@@ -1134,8 +1150,8 @@ end subroutine uwshcu_readnl
    !Water tracers:
    !*************
     real(r8), target :: wttotten(mkx,wtrc_nwset)              ! Total water tracer tendency
-    real(r8)    wtten_sink_liq(mkx,wtrc_nwset)                ! Tendency of water tracer liquid due to subsidence or upwelling [ kg/kg/s ]
-    real(r8)    wtten_sink_ice(mkx,wtrc_nwset)                ! Tendency of water trace ice due to subsidenc or upwelling [ kg/kg/s ]
+    real(r8), target :: wtten_sink_liq(mkx,wtrc_nwset)        ! Tendency of water tracer liquid due to subsidence or upwelling [ kg/kg/s ]
+    real(r8), target :: wtten_sink_ice(mkx,wtrc_nwset)        ! Tendency of water trace ice due to subsidenc or upwelling [ kg/kg/s ]
     real(r8)    wtlten_sub(wtrc_nwset)                        ! Tendency of water tracer cloud liquid by sub/up.
     real(r8)    wtiten_sub(wtrc_nwset)                        ! Tendency of water tracer cloud ice by sub/up.
    !*************
@@ -1649,6 +1665,34 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: bogtop_out_p, trflx_out_p, tru_out_p, tru_emf_out_p
        end subroutine uwshcu_iter_restore_diag_shell_codon
 
+       subroutine uwshcu_column_env_save_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
+            qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, &
+            ssthl0_p, ssqt0_p, thv0bot_p, thv0top_p, thvl0bot_p, thvl0top_p, &
+            ssu0_p, ssv0_p, tr0_p, sstr0_p, sswt0_p, qv0_o_p, ql0_o_p, qi0_o_p, &
+            t0_o_p, s0_o_p, u0_o_p, v0_o_p, qt0_o_p, thl0_o_p, thvl0_o_p, &
+            ssthl0_o_p, ssqt0_o_p, thv0bot_o_p, thv0top_o_p, thvl0bot_o_p, &
+            thvl0top_o_p, ssu0_o_p, ssv0_o_p, tr0_o_p, sstr0_o_p, sswt0_o_p) &
+            bind(c, name="uwshcu_column_env_save_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c
+          type(c_ptr), value :: qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p
+          type(c_ptr), value :: ssthl0_p, ssqt0_p, thv0bot_p, thv0top_p, thvl0bot_p, thvl0top_p
+          type(c_ptr), value :: ssu0_p, ssv0_p, tr0_p, sstr0_p, sswt0_p, qv0_o_p, ql0_o_p, qi0_o_p
+          type(c_ptr), value :: t0_o_p, s0_o_p, u0_o_p, v0_o_p, qt0_o_p, thl0_o_p, thvl0_o_p
+          type(c_ptr), value :: ssthl0_o_p, ssqt0_o_p, thv0bot_o_p, thv0top_o_p, thvl0bot_o_p
+          type(c_ptr), value :: thvl0top_o_p, ssu0_o_p, ssv0_o_p, tr0_o_p, sstr0_o_p, sswt0_o_p
+       end subroutine uwshcu_column_env_save_shell_codon
+
+       subroutine uwshcu_column_extra_workspace_reset_shell_codon(mkx_c, wtrc_nwset_c, &
+            comsub_p, qlten_sink_p, qiten_sink_p, nlten_sink_p, niten_sink_p, wtten_sink_liq_p, &
+            wtten_sink_ice_p, wtevp_p, wtsub_p, dz_p, uemf_p) &
+            bind(c, name="uwshcu_column_extra_workspace_reset_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c
+          type(c_ptr), value :: comsub_p, qlten_sink_p, qiten_sink_p, nlten_sink_p, niten_sink_p
+          type(c_ptr), value :: wtten_sink_liq_p, wtten_sink_ice_p, wtevp_p, wtsub_p, dz_p, uemf_p
+       end subroutine uwshcu_column_extra_workspace_reset_shell_codon
+
        subroutine uwshcu_iter_save_env_shell_codon(mkx_c, ncnst_c, dt_c, cp_c, &
             qv0_p, ql0_p, qi0_p, s0_p, u0_p, v0_p, t0_p, qvten_p, qlten_p, qiten_p, &
             sten_p, uten_p, vten_p, tr0_p, trten_p, qv0_s_p, ql0_s_p, qi0_s_p, s0_s_p, &
@@ -2147,6 +2191,7 @@ end subroutine uwshcu_readnl
       ! for use at "iter_cin=2" when "del_CIN >= 0"                  !
       ! ------------------------------------------------------------ !
 
+      if (use_native_init_shell_impl) then
       qv0_o(:mkx)          = qv0(:mkx)
       ql0_o(:mkx)          = ql0(:mkx)
       qi0_o(:mkx)          = qi0(:mkx)
@@ -2174,11 +2219,26 @@ end subroutine uwshcu_readnl
       if(trace_water) then
         sswt0_o(:mkx,:)      =  sswt0(:mkx,:)
       end if
+      else
+        wtrc_nwset_post_c = 0_c_int64_t
+        if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
+        call uwshcu_log_column_init_shell_entered()
+        call uwshcu_column_env_save_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+             wtrc_nwset_post_c, c_loc(qv0), c_loc(ql0), c_loc(qi0), c_loc(t0), c_loc(s0), &
+             c_loc(u0), c_loc(v0), c_loc(qt0), c_loc(thl0), c_loc(thvl0), c_loc(ssthl0), &
+             c_loc(ssqt0), c_loc(thv0bot), c_loc(thv0top), c_loc(thvl0bot), c_loc(thvl0top), &
+             c_loc(ssu0), c_loc(ssv0), c_loc(tr0), c_loc(sstr0), c_loc(sswt0), c_loc(qv0_o), &
+             c_loc(ql0_o), c_loc(qi0_o), c_loc(t0_o), c_loc(s0_o), c_loc(u0_o), c_loc(v0_o), &
+             c_loc(qt0_o), c_loc(thl0_o), c_loc(thvl0_o), c_loc(ssthl0_o), c_loc(ssqt0_o), &
+             c_loc(thv0bot_o), c_loc(thv0top_o), c_loc(thvl0bot_o), c_loc(thvl0top_o), &
+             c_loc(ssu0_o), c_loc(ssv0_o), c_loc(tr0_o), c_loc(sstr0_o), c_loc(sswt0_o))
+      end if
 
       ! ---------------------------------------------- !
       ! Initialize output variables at each grid point !
       ! ---------------------------------------------- !
 
+      if (use_native_init_shell_impl) then
       umf(0:mkx)          = 0.0_r8
       emf(0:mkx)          = 0.0_r8
       slflx(0:mkx)        = 0.0_r8
@@ -2274,6 +2334,42 @@ end subroutine uwshcu_readnl
       dz(:mkx)               = 0.0_r8
       wtprec                 = 0.0_r8 !<-may not be needed
       wtsnow                 = 0.0_r8 !<-may not be needed
+      else
+        wtrc_nwset_post_c = 0_c_int64_t
+        if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
+        call uwshcu_log_column_init_shell_entered()
+        call uwshcu_delcin_workspace_reset_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+             wtrc_nwset_post_c, c_loc(umf), c_loc(emf), c_loc(slflx), c_loc(qtflx), c_loc(uflx), &
+             c_loc(vflx), c_loc(qvten), c_loc(qlten), c_loc(qiten), c_loc(sten), c_loc(uten), &
+             c_loc(vten), c_loc(qrten), c_loc(qsten), c_loc(dwten), c_loc(diten), c_loc(evapc), &
+             c_loc(cufrc), c_loc(qcu), c_loc(qlu), c_loc(qiu), c_loc(fer), c_loc(fdr), &
+             c_loc(qc), c_loc(qc_l), c_loc(qc_i), c_loc(qtten), c_loc(slten), c_loc(ufrc), &
+             c_loc(thlu), c_loc(qtu), c_loc(uu), c_loc(vu), c_loc(wu), c_loc(thvu), &
+             c_loc(thlu_emf), c_loc(qtu_emf), c_loc(uu_emf), c_loc(vu_emf), c_loc(trflx), &
+             c_loc(trten), c_loc(tru), c_loc(tru_emf), c_loc(wtdwten), c_loc(wtditen), &
+             c_loc(wtrpten), c_loc(wtspten), c_loc(wtqc_liq), c_loc(wtqc_ice), c_loc(wtu), &
+             c_loc(wtu_emf), c_loc(wtflx), c_loc(wttotten), c_loc(wtprec), c_loc(wtsnow), &
+             c_loc(excessu_arr), c_loc(excess0_arr), c_loc(xc_arr), c_loc(aquad_arr), &
+             c_loc(bquad_arr), c_loc(cquad_arr), c_loc(bogbot_arr), c_loc(bogtop_arr))
+        call uwshcu_column_extra_workspace_reset_shell_codon(int(mkx, c_int64_t), wtrc_nwset_post_c, &
+             c_loc(comsub), c_loc(qlten_sink), c_loc(qiten_sink), c_loc(nlten_sink), c_loc(niten_sink), &
+             c_loc(wtten_sink_liq), c_loc(wtten_sink_ice), c_loc(wtevp), c_loc(wtsub), c_loc(dz), c_loc(uemf))
+        precip              = 0.0_r8
+        snow                = 0.0_r8
+        cin                 = 0.0_r8
+        cbmf                = 0.0_r8
+        rliq                = 0.0_r8
+        cnt                 = real(mkx, r8)
+        cnb                 = 0.0_r8
+        ufrcinvbase         = 0.0_r8
+        ufrclcl             = 0.0_r8
+        winvbase            = 0.0_r8
+        wlcl                = 0.0_r8
+        emfkbup             = 0.0_r8
+        cbmflimit           = 0.0_r8
+        wtprec              = 0.0_r8
+        wtsnow              = 0.0_r8
+      end if
 
     !-----------------------------------------------! 
     ! Below 'iter' loop is for implicit CIN closure !

@@ -1859,6 +1859,198 @@ def uwshcu_iter_restore_diag_shell_codon(
 
 
 @export
+def uwshcu_column_env_save_shell_codon(
+    mkx: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    qv0_p: cobj,
+    ql0_p: cobj,
+    qi0_p: cobj,
+    t0_p: cobj,
+    s0_p: cobj,
+    u0_p: cobj,
+    v0_p: cobj,
+    qt0_p: cobj,
+    thl0_p: cobj,
+    thvl0_p: cobj,
+    ssthl0_p: cobj,
+    ssqt0_p: cobj,
+    thv0bot_p: cobj,
+    thv0top_p: cobj,
+    thvl0bot_p: cobj,
+    thvl0top_p: cobj,
+    ssu0_p: cobj,
+    ssv0_p: cobj,
+    tr0_p: cobj,
+    sstr0_p: cobj,
+    sswt0_p: cobj,
+    qv0_o_p: cobj,
+    ql0_o_p: cobj,
+    qi0_o_p: cobj,
+    t0_o_p: cobj,
+    s0_o_p: cobj,
+    u0_o_p: cobj,
+    v0_o_p: cobj,
+    qt0_o_p: cobj,
+    thl0_o_p: cobj,
+    thvl0_o_p: cobj,
+    ssthl0_o_p: cobj,
+    ssqt0_o_p: cobj,
+    thv0bot_o_p: cobj,
+    thv0top_o_p: cobj,
+    thvl0bot_o_p: cobj,
+    thvl0top_o_p: cobj,
+    ssu0_o_p: cobj,
+    ssv0_o_p: cobj,
+    tr0_o_p: cobj,
+    sstr0_o_p: cobj,
+    sswt0_o_p: cobj,
+):
+    qv0 = Ptr[float](qv0_p)
+    ql0 = Ptr[float](ql0_p)
+    qi0 = Ptr[float](qi0_p)
+    t0 = Ptr[float](t0_p)
+    s0 = Ptr[float](s0_p)
+    u0 = Ptr[float](u0_p)
+    v0 = Ptr[float](v0_p)
+    qt0 = Ptr[float](qt0_p)
+    thl0 = Ptr[float](thl0_p)
+    thvl0 = Ptr[float](thvl0_p)
+    ssthl0 = Ptr[float](ssthl0_p)
+    ssqt0 = Ptr[float](ssqt0_p)
+    thv0bot = Ptr[float](thv0bot_p)
+    thv0top = Ptr[float](thv0top_p)
+    thvl0bot = Ptr[float](thvl0bot_p)
+    thvl0top = Ptr[float](thvl0top_p)
+    ssu0 = Ptr[float](ssu0_p)
+    ssv0 = Ptr[float](ssv0_p)
+    tr0 = Ptr[float](tr0_p)
+    sstr0 = Ptr[float](sstr0_p)
+    sswt0 = Ptr[float](sswt0_p)
+    qv0_o = Ptr[float](qv0_o_p)
+    ql0_o = Ptr[float](ql0_o_p)
+    qi0_o = Ptr[float](qi0_o_p)
+    t0_o = Ptr[float](t0_o_p)
+    s0_o = Ptr[float](s0_o_p)
+    u0_o = Ptr[float](u0_o_p)
+    v0_o = Ptr[float](v0_o_p)
+    qt0_o = Ptr[float](qt0_o_p)
+    thl0_o = Ptr[float](thl0_o_p)
+    thvl0_o = Ptr[float](thvl0_o_p)
+    ssthl0_o = Ptr[float](ssthl0_o_p)
+    ssqt0_o = Ptr[float](ssqt0_o_p)
+    thv0bot_o = Ptr[float](thv0bot_o_p)
+    thv0top_o = Ptr[float](thv0top_o_p)
+    thvl0bot_o = Ptr[float](thvl0bot_o_p)
+    thvl0top_o = Ptr[float](thvl0top_o_p)
+    ssu0_o = Ptr[float](ssu0_o_p)
+    ssv0_o = Ptr[float](ssv0_o_p)
+    tr0_o = Ptr[float](tr0_o_p)
+    sstr0_o = Ptr[float](sstr0_o_p)
+    sswt0_o = Ptr[float](sswt0_o_p)
+
+    k = 0
+    while k < mkx:
+        qv0_o[k] = qv0[k]
+        ql0_o[k] = ql0[k]
+        qi0_o[k] = qi0[k]
+        t0_o[k] = t0[k]
+        s0_o[k] = s0[k]
+        u0_o[k] = u0[k]
+        v0_o[k] = v0[k]
+        qt0_o[k] = qt0[k]
+        thl0_o[k] = thl0[k]
+        thvl0_o[k] = thvl0[k]
+        ssthl0_o[k] = ssthl0[k]
+        ssqt0_o[k] = ssqt0[k]
+        thv0bot_o[k] = thv0bot[k]
+        thv0top_o[k] = thv0top[k]
+        thvl0bot_o[k] = thvl0bot[k]
+        thvl0top_o[k] = thvl0top[k]
+        ssu0_o[k] = ssu0[k]
+        ssv0_o[k] = ssv0[k]
+        k += 1
+
+    m = 0
+    while m < ncnst:
+        offset = m * mkx
+        k = 0
+        while k < mkx:
+            idx = k + offset
+            tr0_o[idx] = tr0[idx]
+            sstr0_o[idx] = sstr0[idx]
+            k += 1
+        m += 1
+
+    m = 0
+    while m < wtrc_nwset:
+        offset = m * mkx
+        k = 0
+        while k < mkx:
+            idx = k + offset
+            sswt0_o[idx] = sswt0[idx]
+            k += 1
+        m += 1
+
+
+@export
+def uwshcu_column_extra_workspace_reset_shell_codon(
+    mkx: int,
+    wtrc_nwset: int,
+    comsub_p: cobj,
+    qlten_sink_p: cobj,
+    qiten_sink_p: cobj,
+    nlten_sink_p: cobj,
+    niten_sink_p: cobj,
+    wtten_sink_liq_p: cobj,
+    wtten_sink_ice_p: cobj,
+    wtevp_p: cobj,
+    wtsub_p: cobj,
+    dz_p: cobj,
+    uemf_p: cobj,
+):
+    comsub = Ptr[float](comsub_p)
+    qlten_sink = Ptr[float](qlten_sink_p)
+    qiten_sink = Ptr[float](qiten_sink_p)
+    nlten_sink = Ptr[float](nlten_sink_p)
+    niten_sink = Ptr[float](niten_sink_p)
+    wtten_sink_liq = Ptr[float](wtten_sink_liq_p)
+    wtten_sink_ice = Ptr[float](wtten_sink_ice_p)
+    wtevp = Ptr[float](wtevp_p)
+    wtsub = Ptr[float](wtsub_p)
+    dz = Ptr[float](dz_p)
+    uemf = Ptr[float](uemf_p)
+
+    k = 0
+    while k < mkx:
+        comsub[k] = 0.0
+        qlten_sink[k] = 0.0
+        qiten_sink[k] = 0.0
+        nlten_sink[k] = 0.0
+        niten_sink[k] = 0.0
+        k += 1
+
+    k = 0
+    while k <= mkx:
+        dz[k] = 0.0
+        uemf[k] = 0.0
+        k += 1
+
+    m = 0
+    while m < wtrc_nwset:
+        offset = m * mkx
+        k = 0
+        while k < mkx:
+            idx = k + offset
+            wtten_sink_liq[idx] = 0.0
+            wtten_sink_ice[idx] = 0.0
+            wtevp[idx] = 0.0
+            wtsub[idx] = 0.0
+            k += 1
+        m += 1
+
+
+@export
 def uwshcu_iter_save_env_shell_codon(
     mkx: int,
     ncnst: int,
