@@ -1,3 +1,6 @@
+from math import sqrt
+
+
 @export
 def convect_deep_select_scheme_codon(
     scheme_len: int,
@@ -426,6 +429,187 @@ def zm_conv_evap_hist_shell_codon(
                 ftem[idx] = tend_s_snwevmlt[idx] / cpair
             i += 1
         k += 1
+
+
+@export
+def zm_conv_evap_main_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    pergro: int,
+    do_org: int,
+    gravit: float,
+    latvap: float,
+    latice: float,
+    tmelt: float,
+    ke: float,
+    ke_lnd: float,
+    deltat: float,
+    t_p: cobj,
+    q_p: cobj,
+    pdel_p: cobj,
+    landfrac_p: cobj,
+    prdprec_p: cobj,
+    cldfrc_p: cobj,
+    qs_p: cobj,
+    fsnow_conv_p: cobj,
+    prec_p: cobj,
+    snow_p: cobj,
+    tend_s_p: cobj,
+    tend_q_p: cobj,
+    tend_s_snwprd_p: cobj,
+    tend_s_snwevmlt_p: cobj,
+    evpstore_p: cobj,
+    substore_p: cobj,
+    ntprprd_p: cobj,
+    ntsnprd_p: cobj,
+    flxprec_p: cobj,
+    flxsnow_p: cobj,
+    evpvint_p: cobj,
+):
+    t = Ptr[float](t_p)
+    q = Ptr[float](q_p)
+    pdel = Ptr[float](pdel_p)
+    landfrac = Ptr[float](landfrac_p)
+    prdprec = Ptr[float](prdprec_p)
+    cldfrc = Ptr[float](cldfrc_p)
+    qs = Ptr[float](qs_p)
+    fsnow_conv = Ptr[float](fsnow_conv_p)
+    prec = Ptr[float](prec_p)
+    snow = Ptr[float](snow_p)
+    tend_s = Ptr[float](tend_s_p)
+    tend_q = Ptr[float](tend_q_p)
+    tend_s_snwprd = Ptr[float](tend_s_snwprd_p)
+    tend_s_snwevmlt = Ptr[float](tend_s_snwevmlt_p)
+    evpstore = Ptr[float](evpstore_p)
+    substore = Ptr[float](substore_p)
+    ntprprd = Ptr[float](ntprprd_p)
+    ntsnprd = Ptr[float](ntsnprd_p)
+    flxprec = Ptr[float](flxprec_p)
+    flxsnow = Ptr[float](flxsnow_p)
+    evpvint = Ptr[float](evpvint_p)
+
+    i = 0
+    while i < ncol:
+        flxprec[i] = 0.0
+        flxsnow[i] = 0.0
+        evpvint[i] = 0.0
+        i += 1
+
+    k = 0
+    while k < pver:
+        i = 0
+        while i < pcols:
+            idx = i + k * pcols
+            evpstore[idx] = 0.0
+            substore[idx] = 0.0
+            i += 1
+        k += 1
+
+    k = 0
+    while k < pver:
+        i = 0
+        while i < ncol:
+            idx = i + k * pcols
+            flx_idx = i + k * pcols
+            flx_next_idx = i + (k + 1) * pcols
+
+            if t[idx] > tmelt:
+                flxsntm = 0.0
+                snowmlt = flxsnow[flx_idx] * gravit / pdel[idx]
+            else:
+                flxsntm = flxsnow[flx_idx]
+                snowmlt = 0.0
+
+            evplimit = 1.0 - q[idx] / qs[idx]
+            if evplimit < 0.0:
+                evplimit = 0.0
+
+            if do_org != 0:
+                kemask = ke * (1.0 - landfrac[i]) + ke_lnd * landfrac[i]
+            else:
+                kemask = ke
+
+            evpprec = kemask * (1.0 - cldfrc[idx]) * evplimit * sqrt(flxprec[flx_idx])
+
+            evplimit = (qs[idx] - q[idx]) / deltat
+            if evplimit < 0.0:
+                evplimit = 0.0
+
+            limit2 = flxprec[flx_idx] * gravit / pdel[idx]
+            if limit2 < evplimit:
+                evplimit = limit2
+
+            limit2 = (prec[i] - evpvint[i]) * gravit / pdel[idx]
+            if limit2 < evplimit:
+                evplimit = limit2
+
+            if evplimit < evpprec:
+                evpprec = evplimit
+
+            if flxprec[flx_idx] > 0.0:
+                work1 = flxsntm / flxprec[flx_idx]
+                if work1 < 0.0:
+                    work1 = 0.0
+                if work1 > 1.0:
+                    work1 = 1.0
+                evpsnow = evpprec * work1
+            else:
+                evpsnow = 0.0
+
+            evpstore[idx] = evpprec
+            substore[idx] = evpsnow
+
+            evpvint[i] = evpvint[i] + evpprec * pdel[idx] / gravit
+            ntprprd[idx] = prdprec[idx] - evpprec
+
+            if pergro != 0:
+                work1 = flxsnow[flx_idx] / (flxprec[flx_idx] + 8.64e-11)
+                if work1 < 0.0:
+                    work1 = 0.0
+                if work1 > 1.0:
+                    work1 = 1.0
+            else:
+                if flxprec[flx_idx] > 0.0:
+                    work1 = flxsnow[flx_idx] / flxprec[flx_idx]
+                    if work1 < 0.0:
+                        work1 = 0.0
+                    if work1 > 1.0:
+                        work1 = 1.0
+                else:
+                    work1 = 0.0
+
+            if fsnow_conv[idx] > work1:
+                work2 = fsnow_conv[idx]
+            else:
+                work2 = work1
+            if snowmlt > 0.0:
+                work2 = 0.0
+
+            ntsnprd[idx] = prdprec[idx] * work2 - evpsnow - snowmlt
+            tend_s_snwprd[idx] = prdprec[idx] * work2 * latice
+            tend_s_snwevmlt[idx] = -(evpsnow + snowmlt) * latice
+
+            flxprec[flx_next_idx] = flxprec[flx_idx] + ntprprd[idx] * pdel[idx] / gravit
+            flxsnow[flx_next_idx] = flxsnow[flx_idx] + ntsnprd[idx] * pdel[idx] / gravit
+
+            if flxprec[flx_next_idx] < 0.0:
+                flxprec[flx_next_idx] = 0.0
+            if flxsnow[flx_next_idx] < 0.0:
+                flxsnow[flx_next_idx] = 0.0
+
+            tend_s[idx] = -evpprec * latvap + ntsnprd[idx] * latice
+            tend_q[idx] = evpprec
+            i += 1
+        k += 1
+
+    i = 0
+    while i < ncol:
+        bottom_idx = i + pver * pcols
+        prec[i] = flxprec[bottom_idx] / 1000.0
+        snow[i] = flxsnow[bottom_idx] / 1000.0
+        i += 1
 
 
 @export

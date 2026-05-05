@@ -66,7 +66,10 @@ module zm_conv
    
    integer  limcnv       ! top interface level limit for convection
 
-   real(r8),parameter ::  tiedke_add = 0.5_r8   
+   real(r8),parameter ::  tiedke_add = 0.5_r8
+   logical :: use_native_zm_conv_evap_main = .false.
+   logical :: zm_conv_evap_main_selected = .false.
+   logical :: zm_conv_evap_main_logged = .false.
 
 contains
 
@@ -127,6 +130,63 @@ subroutine zm_convi(limcnv_in, zmconv_c0_lnd, zmconv_c0_ocn, zmconv_ke, zmconv_k
 
 end subroutine zm_convi
 
+
+subroutine zm_conv_evap_append_impl_proof(proof_line)
+
+   character(len=*), intent(in) :: proof_line
+   character(len=512) :: proof_path
+   integer :: status, n, unit_id
+
+   proof_path = ''
+   call get_environment_variable('ZM_CONV_POST_SHELL_PROOF_FILE', value=proof_path, length=n, status=status)
+   if (status /= 0 .or. n <= 0) return
+
+   open(newunit=unit_id, file=trim(adjustl(proof_path(:n))), status='unknown', action='write', &
+        position='append', iostat=status)
+   if (status /= 0) return
+
+   write(unit_id,'(A)') trim(proof_line)
+   close(unit_id)
+
+end subroutine zm_conv_evap_append_impl_proof
+
+
+subroutine zm_conv_evap_main_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (zm_conv_evap_main_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('ZM_CONV_POST_SHELL_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_zm_conv_evap_main = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_zm_conv_evap_main = .false.
+   end if
+
+   zm_conv_evap_main_selected = .true.
+
+   if (masterproc) then
+      if (use_native_zm_conv_evap_main) then
+         write(iulog,*) 'zm_conv_evap main implementation = native'
+         call zm_conv_evap_append_impl_proof('zm_conv_evap main implementation = native')
+      else
+         write(iulog,*) 'zm_conv_evap main implementation = codon'
+         call zm_conv_evap_append_impl_proof('zm_conv_evap main implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine zm_conv_evap_main_select_impl
 
 
 subroutine zm_convr(lchnk   ,ncol    , &
@@ -877,49 +937,50 @@ subroutine zm_conv_evap(ncol,lchnk, &
 ! Evaporate some of the precip directly into the environment using a Sundqvist type algorithm
 !-----------------------------------------------------------------------
 
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
     use wv_saturation,  only: qsat
     use phys_grid, only: get_rlat_all_p
 
 !------------------------------Arguments--------------------------------
     integer,intent(in) :: ncol, lchnk                        ! number of columns and chunk index
-    real(r8),intent(in), dimension(pcols,pver) :: t          ! temperature (K)
+    real(r8),target,intent(in), dimension(pcols,pver) :: t          ! temperature (K)
     real(r8),intent(in), dimension(pcols,pver) :: pmid       ! midpoint pressure (Pa) 
-    real(r8),intent(in), dimension(pcols,pver) :: pdel       ! layer thickness (Pa)
-    real(r8),intent(in), dimension(pcols,pver) :: q          ! water vapor (kg/kg)
-    real(r8),intent(in), dimension(pcols) :: landfrac
-    real(r8),intent(inout), dimension(pcols,pver) :: tend_s     ! heating rate (J/kg/s)
-    real(r8),intent(inout), dimension(pcols,pver) :: tend_q     ! water vapor tendency (kg/kg/s)
-    real(r8),intent(out  ), dimension(pcols,pver) :: tend_s_snwprd ! Heating rate of snow production
-    real(r8),intent(out  ), dimension(pcols,pver) :: tend_s_snwevmlt ! Heating rate of evap/melting of snow
+    real(r8),target,intent(in), dimension(pcols,pver) :: pdel       ! layer thickness (Pa)
+    real(r8),target,intent(in), dimension(pcols,pver) :: q          ! water vapor (kg/kg)
+    real(r8),target,intent(in), dimension(pcols) :: landfrac
+    real(r8),target,intent(inout), dimension(pcols,pver) :: tend_s     ! heating rate (J/kg/s)
+    real(r8),target,intent(inout), dimension(pcols,pver) :: tend_q     ! water vapor tendency (kg/kg/s)
+    real(r8),target,intent(out  ), dimension(pcols,pver) :: tend_s_snwprd ! Heating rate of snow production
+    real(r8),target,intent(out  ), dimension(pcols,pver) :: tend_s_snwevmlt ! Heating rate of evap/melting of snow
     
 
 
-    real(r8), intent(in   ) :: prdprec(pcols,pver)! precipitation production (kg/ks/s)
-    real(r8), intent(in   ) :: cldfrc(pcols,pver) ! cloud fraction
+    real(r8), target, intent(in   ) :: prdprec(pcols,pver)! precipitation production (kg/ks/s)
+    real(r8), target, intent(in   ) :: cldfrc(pcols,pver) ! cloud fraction
     real(r8), intent(in   ) :: deltat             ! time step
 
-    real(r8), intent(inout) :: prec(pcols)        ! Convective-scale preciptn rate
-    real(r8), intent(out)   :: snow(pcols)        ! Convective-scale snowfall rate
+    real(r8), target, intent(inout) :: prec(pcols)        ! Convective-scale preciptn rate
+    real(r8), target, intent(out)   :: snow(pcols)        ! Convective-scale snowfall rate
 !
 !---------------------------Local storage-------------------------------
 
     real(r8) :: es    (pcols,pver)    ! Saturation vapor pressure
     real(r8) :: fice   (pcols,pver)    ! ice fraction in precip production
-    real(r8) :: fsnow_conv(pcols,pver) ! snow fraction in precip production
-    real(r8) :: qs   (pcols,pver)    ! saturation specific humidity
-    real(r8),intent(out) :: flxprec(pcols,pverp)   ! Convective-scale flux of precip at interfaces (kg/m2/s)
-    real(r8),intent(out) :: flxsnow(pcols,pverp)   ! Convective-scale flux of snow   at interfaces (kg/m2/s)
-    real(r8),intent(out) :: ntprprd(pcols,pver)    ! net precip production in layer
-    real(r8),intent(out) :: ntsnprd(pcols,pver)    ! net snow production in layer
+    real(r8), target :: fsnow_conv(pcols,pver) ! snow fraction in precip production
+    real(r8), target :: qs   (pcols,pver)    ! saturation specific humidity
+    real(r8),target,intent(out) :: flxprec(pcols,pverp)   ! Convective-scale flux of precip at interfaces (kg/m2/s)
+    real(r8),target,intent(out) :: flxsnow(pcols,pverp)   ! Convective-scale flux of snow   at interfaces (kg/m2/s)
+    real(r8),target,intent(out) :: ntprprd(pcols,pver)    ! net precip production in layer
+    real(r8),target,intent(out) :: ntsnprd(pcols,pver)    ! net snow production in layer
  
     !Needed for water tracers:   
-    real(r8), intent(out) :: evpstore(pcols,pver) !preciptation evaporation
-    real(r8), intent(out) :: substore(pcols,pver) !snow sublimation
+    real(r8), target, intent(out) :: evpstore(pcols,pver) !preciptation evaporation
+    real(r8), target, intent(out) :: substore(pcols,pver) !snow sublimation
 
     real(r8) :: work1                  ! temp variable (pjr)
     real(r8) :: work2                  ! temp variable (pjr)
 
-    real(r8) :: evpvint(pcols)         ! vertical integral of evaporation
+    real(r8), target :: evpvint(pcols)         ! vertical integral of evaporation
     real(r8) :: evpprec(pcols)         ! evaporation of precipitation (kg/kg/s)
     real(r8) :: evpsnow(pcols)         ! evaporation of snowfall (kg/kg/s)
     real(r8) :: snowmlt(pcols)         ! snow melt tendency in layer
@@ -930,6 +991,22 @@ subroutine zm_conv_evap(ncol,lchnk, &
     real(r8) :: rlat(pcols)
 
     integer :: i,k                     ! longitude,level indices
+    integer(c_int64_t) :: do_org_c, pergro_c
+
+    interface
+       subroutine zm_conv_evap_main_codon(ncol_c, pcols_c, pver_c, pverp_c, pergro_c, do_org_c, &
+            gravit_c, latvap_c, latice_c, tmelt_c, ke_c, ke_lnd_c, deltat_c, t_p, q_p, pdel_p, &
+            landfrac_p, prdprec_p, cldfrc_p, qs_p, fsnow_conv_p, prec_p, snow_p, tend_s_p, &
+            tend_q_p, tend_s_snwprd_p, tend_s_snwevmlt_p, evpstore_p, substore_p, ntprprd_p, &
+            ntsnprd_p, flxprec_p, flxsnow_p, evpvint_p) bind(c, name="zm_conv_evap_main_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c, pergro_c, do_org_c
+          real(c_double), value :: gravit_c, latvap_c, latice_c, tmelt_c, ke_c, ke_lnd_c, deltat_c
+          type(c_ptr), value :: t_p, q_p, pdel_p, landfrac_p, prdprec_p, cldfrc_p, qs_p, fsnow_conv_p
+          type(c_ptr), value :: prec_p, snow_p, tend_s_p, tend_q_p, tend_s_snwprd_p, tend_s_snwevmlt_p
+          type(c_ptr), value :: evpstore_p, substore_p, ntprprd_p, ntsnprd_p, flxprec_p, flxsnow_p, evpvint_p
+       end subroutine zm_conv_evap_main_codon
+    end interface
 
 
 !-----------------------------------------------------------------------
@@ -943,6 +1020,37 @@ subroutine zm_conv_evap(ncol,lchnk, &
 
 ! determine ice fraction in rain production (use cloud water parameterization fraction at present)
     call cldfrc_fice(ncol, t, fice, fsnow_conv)
+
+#ifdef PERGRO
+    pergro_c = 1_c_int64_t
+#else
+    pergro_c = 0_c_int64_t
+#endif
+    if (zm_org) then
+       do_org_c = 1_c_int64_t
+    else
+       do_org_c = 0_c_int64_t
+    end if
+
+    call zm_conv_evap_main_select_impl()
+    if (.not. use_native_zm_conv_evap_main) then
+       if (masterproc .and. .not. zm_conv_evap_main_logged) then
+          write(iulog,*) 'zm_conv_evap main loop entered (evaporation/snow/flux/tendency direct = codon; qsat/fice = native)'
+          call zm_conv_evap_append_impl_proof( &
+               'zm_conv_evap main loop entered (evaporation/snow/flux/tendency direct = codon; qsat/fice = native)')
+          call flush(iulog)
+          zm_conv_evap_main_logged = .true.
+       end if
+
+       call zm_conv_evap_main_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+            int(pverp, c_int64_t), pergro_c, do_org_c, real(gravit, c_double), real(latvap, c_double), &
+            real(latice, c_double), real(tmelt, c_double), real(ke, c_double), real(ke_lnd, c_double), &
+            real(deltat, c_double), c_loc(t), c_loc(q), c_loc(pdel), c_loc(landfrac), c_loc(prdprec), &
+            c_loc(cldfrc), c_loc(qs), c_loc(fsnow_conv), c_loc(prec), c_loc(snow), c_loc(tend_s), &
+            c_loc(tend_q), c_loc(tend_s_snwprd), c_loc(tend_s_snwevmlt), c_loc(evpstore), c_loc(substore), &
+            c_loc(ntprprd), c_loc(ntsnprd), c_loc(flxprec), c_loc(flxsnow), c_loc(evpvint))
+       return
+    end if
 
 ! zero the flux integrals on the top boundary
     flxprec(:ncol,1) = 0._r8
