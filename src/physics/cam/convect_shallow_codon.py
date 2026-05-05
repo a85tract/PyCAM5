@@ -1023,6 +1023,50 @@ def uwshcu_main_post_shell_codon(
 
 
 @export
+def uwshcu_wtrc_post_shell_codon(
+    mix: int,
+    mkx: int,
+    i_col: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    wtqc_liq_p: cobj,
+    wtqc_ice_p: cobj,
+    wtprec_p: cobj,
+    wtsnow_p: cobj,
+    wtrc_iatype_p: cobj,
+    wtqc_out_p: cobj,
+    wtprec_out_p: cobj,
+    wtsnow_out_p: cobj,
+):
+    wtqc_liq = Ptr[float](wtqc_liq_p)
+    wtqc_ice = Ptr[float](wtqc_ice_p)
+    wtprec = Ptr[float](wtprec_p)
+    wtsnow = Ptr[float](wtsnow_p)
+    wtrc_iatype = Ptr[int](wtrc_iatype_p)
+    wtqc_out = Ptr[float](wtqc_out_p)
+    wtprec_out = Ptr[float](wtprec_out_p)
+    wtsnow_out = Ptr[float](wtsnow_out_p)
+
+    col = i_col - 1
+    m = 0
+    while m < wtrc_nwset:
+        vap = wtrc_iatype[m] - 1
+        liq = wtrc_iatype[m + wtrc_nwset] - 1
+        ice = wtrc_iatype[m + 2 * wtrc_nwset] - 1
+        src_offset = m * mkx
+        liq_offset = liq * mix * mkx
+        ice_offset = ice * mix * mkx
+        k = 0
+        while k < mkx:
+            wtqc_out[col + k * mix + liq_offset] = wtqc_liq[k + src_offset]
+            wtqc_out[col + k * mix + ice_offset] = wtqc_ice[k + src_offset]
+            k += 1
+        wtprec_out[col + vap * mix] = wtprec[m]
+        wtsnow_out[col + vap * mix] = wtsnow[m]
+        m += 1
+
+
+@export
 def uwshcu_inv_prep_shell_codon(
     mix: int,
     mkx: int,

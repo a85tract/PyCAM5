@@ -41,6 +41,7 @@
   logical :: inv_post_shell_entered_logged = .false.
   logical :: diag_post_shell_entered_logged = .false.
   logical :: main_post_shell_entered_logged = .false.
+  logical :: wtrc_post_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -196,6 +197,21 @@ contains
     end if
 
   end subroutine uwshcu_log_main_post_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_wtrc_post_shell_entered()
+
+    if (wtrc_post_shell_entered_logged) return
+    wtrc_post_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu wtrc post shell entered (water tracer output mapping direct = codon)'
+       call uwshcu_append_proof('uwshcu wtrc post shell entered (water tracer output mapping direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_wtrc_post_shell_entered
 
 !===============================================================================
   
@@ -989,12 +1005,12 @@ end subroutine uwshcu_readnl
     real(r8)    wtlten_det(mkx,wtrc_nwset)                    !  Water tracer non-precip liquid detrainment tendency [ kg/kg/s ]
     real(r8)    wtiten_det(mkx,wtrc_nwset)                    !  Water tracer non-precip frozen detrainment tendency [ kg/kg/s ]
     real(r8)    wt0_star(mkx,wtrc_nwset,3)                    !  Water tracer state post-tendency (used for corrections) [ kg/kg ]
-    real(r8)    wtqc_liq(mkx,wtrc_nwset)                      !  Water tracer tendency due to liquid detrained 'cloud condensate' [ kg/kg/s ]
-    real(r8)    wtqc_ice(mkx,wtrc_nwset)                      !  Water tracer tendency due to frozen detrained 'cloud condensate' [ kg/kg/s ]
+    real(r8), target :: wtqc_liq(mkx,wtrc_nwset)              !  Water tracer tendency due to liquid detrained 'cloud condensate' [ kg/kg/s ]
+    real(r8), target :: wtqc_ice(mkx,wtrc_nwset)              !  Water tracer tendency due to frozen detrained 'cloud condensate' [ kg/kg/s ]
     real(r8)    wtqcm_liq(wtrc_nwset)                         !  Water tracer tendency due to liquid detrainment at midlevels [ kg/kg/s ]
     real(r8)    wtqcm_ice(wtrc_nwset)                         !  Water tracer tendency due to frozen detrainment at midlevels [ kg/kg/s ]
-    real(r8)    wtprec(wtrc_nwset)                            !  Surface water tracer precipitation rate [ m/s ]
-    real(r8)    wtsnow(wtrc_nwset)                            !  Surface water tracer snow rate [ m/s ]
+    real(r8), target :: wtprec(wtrc_nwset)                    !  Surface water tracer precipitation rate [ m/s ]
+    real(r8), target :: wtsnow(wtrc_nwset)                    !  Surface water tracer snow rate [ m/s ]
 
     !Water tracer precipitation evaporation:
     !NOTE:  wtevp and wtsub may not need to be a function of height. - JN
@@ -1348,6 +1364,7 @@ end subroutine uwshcu_readnl
     real(r8), dimension(ncnst)       :: trsrc_o
     real(r8), dimension(mkx,wtrc_nwset) :: sswt0_o !Water tracers
     integer                          :: ixnumliq, ixnumice, ixcldliq, ixcldice
+    integer(c_int64_t), target       :: wtrc_iatype_post(wtrc_nwset,3)
 
     interface
        subroutine uwshcu_output_init_shell_codon(mix_c, mkx_c, iend_c, ncnst_c, &
@@ -1452,6 +1469,15 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: qlu_out_p, qiu_out_p, cush_out_p, cbmf_out_p, rliq_out_p, qc_out_p
           type(c_ptr), value :: cnt_out_p, cnb_out_p, trten_out_p
        end subroutine uwshcu_main_post_shell_codon
+
+       subroutine uwshcu_wtrc_post_shell_codon(mix_c, mkx_c, i_c, ncnst_c, wtrc_nwset_c, &
+            wtqc_liq_p, wtqc_ice_p, wtprec_p, wtsnow_p, wtrc_iatype_p, wtqc_out_p, wtprec_out_p, &
+            wtsnow_out_p) bind(c, name="uwshcu_wtrc_post_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: mix_c, mkx_c, i_c, ncnst_c, wtrc_nwset_c
+          type(c_ptr), value :: wtqc_liq_p, wtqc_ice_p, wtprec_p, wtsnow_p, wtrc_iatype_p
+          type(c_ptr), value :: wtqc_out_p, wtprec_out_p, wtsnow_out_p
+       end subroutine uwshcu_wtrc_post_shell_codon
     end interface
 
     ! ------------------ !
@@ -5744,12 +5770,25 @@ end subroutine uwshcu_readnl
     !Water tracers:
     !*************
      if(trace_water) then
-       do m=1, wtrc_nwset  
-         wtqc_out(i,:mkx,wtrc_iatype(m,iwtliq)) = wtqc_liq(:mkx,m)
-         wtqc_out(i,:mkx,wtrc_iatype(m,iwtice)) = wtqc_ice(:mkx,m)
-         wtprec_out(i,wtrc_iatype(m,iwtvap))    = wtprec(m)
-         wtsnow_out(i,wtrc_iatype(m,iwtvap))    = wtsnow(m)
-       end do
+       if (use_native_init_shell_impl) then
+         do m=1, wtrc_nwset
+           wtqc_out(i,:mkx,wtrc_iatype(m,iwtliq)) = wtqc_liq(:mkx,m)
+           wtqc_out(i,:mkx,wtrc_iatype(m,iwtice)) = wtqc_ice(:mkx,m)
+           wtprec_out(i,wtrc_iatype(m,iwtvap))    = wtprec(m)
+           wtsnow_out(i,wtrc_iatype(m,iwtvap))    = wtsnow(m)
+         end do
+       else
+         do m=1, wtrc_nwset
+           wtrc_iatype_post(m,1) = int(wtrc_iatype(m,iwtvap), c_int64_t)
+           wtrc_iatype_post(m,2) = int(wtrc_iatype(m,iwtliq), c_int64_t)
+           wtrc_iatype_post(m,3) = int(wtrc_iatype(m,iwtice), c_int64_t)
+         end do
+         call uwshcu_log_wtrc_post_shell_entered()
+         call uwshcu_wtrc_post_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), int(i, c_int64_t), &
+              int(ncnst, c_int64_t), int(wtrc_nwset, c_int64_t), c_loc(wtqc_liq), c_loc(wtqc_ice), &
+              c_loc(wtprec), c_loc(wtsnow), c_loc(wtrc_iatype_post), c_loc(wtqc_out), c_loc(wtprec_out), &
+              c_loc(wtsnow_out))
+       end if
      end if
     !*************
 
