@@ -325,6 +325,253 @@ def uwshcu_output_init_shell_codon(
 
 
 @export
+def uwshcu_diag_init_shell_codon(
+    mix: int,
+    mkx: int,
+    iend: int,
+    ncnst: int,
+    ufrcinvbase_p: cobj,
+    ufrclcl_p: cobj,
+    winvbase_p: cobj,
+    wlcl_p: cobj,
+    plcl_p: cobj,
+    pinv_p: cobj,
+    plfc_p: cobj,
+    pbup_p: cobj,
+    ppen_p: cobj,
+    qtsrc_p: cobj,
+    thlsrc_p: cobj,
+    thvlsrc_p: cobj,
+    emfkbup_p: cobj,
+    cbmflimit_p: cobj,
+    tkeavg_p: cobj,
+    zinv_p: cobj,
+    rcwp_p: cobj,
+    rlwp_p: cobj,
+    riwp_p: cobj,
+    wu_p: cobj,
+    qtu_p: cobj,
+    thlu_p: cobj,
+    thvu_p: cobj,
+    uu_p: cobj,
+    vu_p: cobj,
+    qtu_emf_p: cobj,
+    thlu_emf_p: cobj,
+    uu_emf_p: cobj,
+    vu_emf_p: cobj,
+    uemf_p: cobj,
+    tru_p: cobj,
+    tru_emf_p: cobj,
+    dwten_p: cobj,
+    diten_p: cobj,
+    flxrain_p: cobj,
+    flxsnow_p: cobj,
+    ntraprd_p: cobj,
+    ntsnprd_p: cobj,
+    excessu_p: cobj,
+    excess0_p: cobj,
+    xc_p: cobj,
+    aquad_p: cobj,
+    bquad_p: cobj,
+    cquad_p: cobj,
+    bogbot_p: cobj,
+    bogtop_p: cobj,
+    exit_uwcu_p: cobj,
+    exit_conden_p: cobj,
+    exit_klclmkx_p: cobj,
+    exit_klfcmkx_p: cobj,
+    exit_ufrc_p: cobj,
+    exit_wtw_p: cobj,
+    exit_drycore_p: cobj,
+    exit_wu_p: cobj,
+    exit_cufilter_p: cobj,
+    exit_kinv1_p: cobj,
+    exit_rei_p: cobj,
+    limit_shcu_p: cobj,
+    limit_negcon_p: cobj,
+    limit_ufrc_p: cobj,
+    limit_ppen_p: cobj,
+    limit_emf_p: cobj,
+    limit_cinlcl_p: cobj,
+    limit_cin_p: cobj,
+    limit_cbmf_p: cobj,
+    limit_rei_p: cobj,
+    ind_delcin_p: cobj,
+):
+    ufrcinvbase = Ptr[float](ufrcinvbase_p)
+    ufrclcl = Ptr[float](ufrclcl_p)
+    winvbase = Ptr[float](winvbase_p)
+    wlcl = Ptr[float](wlcl_p)
+    plcl = Ptr[float](plcl_p)
+    pinv = Ptr[float](pinv_p)
+    plfc = Ptr[float](plfc_p)
+    pbup = Ptr[float](pbup_p)
+    ppen = Ptr[float](ppen_p)
+    qtsrc = Ptr[float](qtsrc_p)
+    thlsrc = Ptr[float](thlsrc_p)
+    thvlsrc = Ptr[float](thvlsrc_p)
+    emfkbup = Ptr[float](emfkbup_p)
+    cbmflimit = Ptr[float](cbmflimit_p)
+    tkeavg = Ptr[float](tkeavg_p)
+    zinv = Ptr[float](zinv_p)
+    rcwp = Ptr[float](rcwp_p)
+    rlwp = Ptr[float](rlwp_p)
+    riwp = Ptr[float](riwp_p)
+    wu = Ptr[float](wu_p)
+    qtu = Ptr[float](qtu_p)
+    thlu = Ptr[float](thlu_p)
+    thvu = Ptr[float](thvu_p)
+    uu = Ptr[float](uu_p)
+    vu = Ptr[float](vu_p)
+    qtu_emf = Ptr[float](qtu_emf_p)
+    thlu_emf = Ptr[float](thlu_emf_p)
+    uu_emf = Ptr[float](uu_emf_p)
+    vu_emf = Ptr[float](vu_emf_p)
+    uemf = Ptr[float](uemf_p)
+    tru = Ptr[float](tru_p)
+    tru_emf = Ptr[float](tru_emf_p)
+    dwten = Ptr[float](dwten_p)
+    diten = Ptr[float](diten_p)
+    flxrain = Ptr[float](flxrain_p)
+    flxsnow = Ptr[float](flxsnow_p)
+    ntraprd = Ptr[float](ntraprd_p)
+    ntsnprd = Ptr[float](ntsnprd_p)
+    excessu = Ptr[float](excessu_p)
+    excess0 = Ptr[float](excess0_p)
+    xc = Ptr[float](xc_p)
+    aquad = Ptr[float](aquad_p)
+    bquad = Ptr[float](bquad_p)
+    cquad = Ptr[float](cquad_p)
+    bogbot = Ptr[float](bogbot_p)
+    bogtop = Ptr[float](bogtop_p)
+    exit_uwcu = Ptr[float](exit_uwcu_p)
+    exit_conden = Ptr[float](exit_conden_p)
+    exit_klclmkx = Ptr[float](exit_klclmkx_p)
+    exit_klfcmkx = Ptr[float](exit_klfcmkx_p)
+    exit_ufrc = Ptr[float](exit_ufrc_p)
+    exit_wtw = Ptr[float](exit_wtw_p)
+    exit_drycore = Ptr[float](exit_drycore_p)
+    exit_wu = Ptr[float](exit_wu_p)
+    exit_cufilter = Ptr[float](exit_cufilter_p)
+    exit_kinv1 = Ptr[float](exit_kinv1_p)
+    exit_rei = Ptr[float](exit_rei_p)
+    limit_shcu = Ptr[float](limit_shcu_p)
+    limit_negcon = Ptr[float](limit_negcon_p)
+    limit_ufrc = Ptr[float](limit_ufrc_p)
+    limit_ppen = Ptr[float](limit_ppen_p)
+    limit_emf = Ptr[float](limit_emf_p)
+    limit_cinlcl = Ptr[float](limit_cinlcl_p)
+    limit_cin = Ptr[float](limit_cin_p)
+    limit_cbmf = Ptr[float](limit_cbmf_p)
+    limit_rei = Ptr[float](limit_rei_p)
+    ind_delcin = Ptr[float](ind_delcin_p)
+
+    i = 0
+    while i < iend:
+        ufrcinvbase[i] = 0.0
+        ufrclcl[i] = 0.0
+        winvbase[i] = 0.0
+        wlcl[i] = 0.0
+        plcl[i] = 0.0
+        pinv[i] = 0.0
+        plfc[i] = 0.0
+        pbup[i] = 0.0
+        ppen[i] = 0.0
+        qtsrc[i] = 0.0
+        thlsrc[i] = 0.0
+        thvlsrc[i] = 0.0
+        emfkbup[i] = 0.0
+        cbmflimit[i] = 0.0
+        tkeavg[i] = 0.0
+        zinv[i] = 0.0
+        rcwp[i] = 0.0
+        rlwp[i] = 0.0
+        riwp[i] = 0.0
+        exit_uwcu[i] = 0.0
+        exit_conden[i] = 0.0
+        exit_klclmkx[i] = 0.0
+        exit_klfcmkx[i] = 0.0
+        exit_ufrc[i] = 0.0
+        exit_wtw[i] = 0.0
+        exit_drycore[i] = 0.0
+        exit_wu[i] = 0.0
+        exit_cufilter[i] = 0.0
+        exit_kinv1[i] = 0.0
+        exit_rei[i] = 0.0
+        limit_shcu[i] = 0.0
+        limit_negcon[i] = 0.0
+        limit_ufrc[i] = 0.0
+        limit_ppen[i] = 0.0
+        limit_emf[i] = 0.0
+        limit_cinlcl[i] = 0.0
+        limit_cin[i] = 0.0
+        limit_cbmf[i] = 0.0
+        limit_rei[i] = 0.0
+        ind_delcin[i] = 0.0
+        i += 1
+
+    k = 0
+    while k <= mkx:
+        i = 0
+        while i < iend:
+            idx = i + k * mix
+            wu[idx] = 0.0
+            qtu[idx] = 0.0
+            thlu[idx] = 0.0
+            thvu[idx] = 0.0
+            uu[idx] = 0.0
+            vu[idx] = 0.0
+            qtu_emf[idx] = 0.0
+            thlu_emf[idx] = 0.0
+            uu_emf[idx] = 0.0
+            vu_emf[idx] = 0.0
+            uemf[idx] = 0.0
+            flxrain[idx] = 0.0
+            flxsnow[idx] = 0.0
+            i += 1
+        k += 1
+
+    k = 0
+    while k < mkx:
+        i = 0
+        while i < iend:
+            idx = i + k * mix
+            dwten[idx] = 0.0
+            diten[idx] = 0.0
+            excessu[idx] = 0.0
+            excess0[idx] = 0.0
+            xc[idx] = 0.0
+            aquad[idx] = 0.0
+            bquad[idx] = 0.0
+            cquad[idx] = 0.0
+            bogbot[idx] = 0.0
+            bogtop[idx] = 0.0
+            i += 1
+        k += 1
+
+    last_k_idx = mkx - 1
+    i = 0
+    while i < iend:
+        ntraprd[i + last_k_idx * mix] = 0.0
+        ntsnprd[i + last_k_idx * mix] = 0.0
+        i += 1
+
+    m = 0
+    while m < ncnst:
+        offset = m * mix * (mkx + 1)
+        k = 0
+        while k <= mkx:
+            i = 0
+            while i < iend:
+                idx = i + k * mix + offset
+                tru[idx] = 0.0
+                tru_emf[idx] = 0.0
+                i += 1
+            k += 1
+        m += 1
+
+
+@export
 def convect_shallow_diag_shell_codon(
     mode: int,
     ncol: int,

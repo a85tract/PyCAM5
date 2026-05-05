@@ -36,6 +36,7 @@
   logical :: use_native_init_shell_impl = .false.
   logical :: init_shell_impl_selected = .false.
   logical :: init_shell_entered_logged = .false.
+  logical :: diag_init_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -116,6 +117,21 @@ contains
     end if
 
   end subroutine uwshcu_log_init_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_diag_init_shell_entered()
+
+    if (diag_init_shell_entered_logged) return
+    diag_init_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu diag init shell entered (diagnostic/exit/limit arrays init direct = codon)'
+       call uwshcu_append_proof('uwshcu diag init shell entered (diagnostic/exit/limit arrays init direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_diag_init_shell_entered
 
 !===============================================================================
   
@@ -1034,43 +1050,43 @@ end subroutine uwshcu_readnl
 
     !----- Some diagnostic internal output variables
 
-    real(r8)  ufrcinvbase_out(mix)                            !  Cumulus updraft fraction at the PBL top [ fraction ]
-    real(r8)  ufrclcl_out(mix)                                !  Cumulus updraft fraction at the LCL
+    real(r8), target :: ufrcinvbase_out(mix)                  !  Cumulus updraft fraction at the PBL top [ fraction ]
+    real(r8), target :: ufrclcl_out(mix)                      !  Cumulus updraft fraction at the LCL
                                                               ! ( or PBL top when LCL is below PBL top ) [ fraction ]
-    real(r8)  winvbase_out(mix)                               !  Cumulus updraft velocity at the PBL top [ m/s ]
-    real(r8)  wlcl_out(mix)                                   !  Cumulus updraft velocity at the LCL
+    real(r8), target :: winvbase_out(mix)                     !  Cumulus updraft velocity at the PBL top [ m/s ]
+    real(r8), target :: wlcl_out(mix)                         !  Cumulus updraft velocity at the LCL
                                                               ! ( or PBL top when LCL is below PBL top ) [ m/s ]
-    real(r8)  plcl_out(mix)                                   !  LCL of source air [ Pa ]
-    real(r8)  pinv_out(mix)                                   !  PBL top pressure [ Pa ]
-    real(r8)  plfc_out(mix)                                   !  LFC of source air [ Pa ]
-    real(r8)  pbup_out(mix)                                   !  Highest interface level of positive buoyancy [ Pa ]
-    real(r8)  ppen_out(mix)                                   !  Highest interface evel where Cu w = 0 [ Pa ]
-    real(r8)  qtsrc_out(mix)                                  !  Sourse air qt [ kg/kg ]
-    real(r8)  thlsrc_out(mix)                                 !  Sourse air thl [ K ]
-    real(r8)  thvlsrc_out(mix)                                !  Sourse air thvl [ K ]
-    real(r8)  emfkbup_out(mix)                                !  Penetrative downward mass flux at 'kbup' interface [ kg/m2/s ]
+    real(r8), target :: plcl_out(mix)                         !  LCL of source air [ Pa ]
+    real(r8), target :: pinv_out(mix)                         !  PBL top pressure [ Pa ]
+    real(r8), target :: plfc_out(mix)                         !  LFC of source air [ Pa ]
+    real(r8), target :: pbup_out(mix)                         !  Highest interface level of positive buoyancy [ Pa ]
+    real(r8), target :: ppen_out(mix)                         !  Highest interface evel where Cu w = 0 [ Pa ]
+    real(r8), target :: qtsrc_out(mix)                        !  Sourse air qt [ kg/kg ]
+    real(r8), target :: thlsrc_out(mix)                       !  Sourse air thl [ K ]
+    real(r8), target :: thvlsrc_out(mix)                      !  Sourse air thvl [ K ]
+    real(r8), target :: emfkbup_out(mix)                      !  Penetrative downward mass flux at 'kbup' interface [ kg/m2/s ]
     real(r8), target :: cinlclh_out(mix)                      !  Convective INhibition upto LCL (CIN) [ J/kg = m2/s2 ]
-    real(r8)  tkeavg_out(mix)                                 !  Average tke over the PBL [ m2/s2 ]
-    real(r8)  cbmflimit_out(mix)                              !  Cloud base mass flux limiter [ kg/m2/s ]
-    real(r8)  zinv_out(mix)                                   !  PBL top height [ m ]
-    real(r8)  rcwp_out(mix)                                   !  Layer mean Cumulus LWP+IWP [ kg/m2 ] 
-    real(r8)  rlwp_out(mix)                                   !  Layer mean Cumulus LWP [ kg/m2 ] 
-    real(r8)  riwp_out(mix)                                   !  Layer mean Cumulus IWP [ kg/m2 ] 
-    real(r8)  wu_out(mix,0:mkx)                               !  Updraft vertical velocity
+    real(r8), target :: tkeavg_out(mix)                       !  Average tke over the PBL [ m2/s2 ]
+    real(r8), target :: cbmflimit_out(mix)                    !  Cloud base mass flux limiter [ kg/m2/s ]
+    real(r8), target :: zinv_out(mix)                         !  PBL top height [ m ]
+    real(r8), target :: rcwp_out(mix)                         !  Layer mean Cumulus LWP+IWP [ kg/m2 ]
+    real(r8), target :: rlwp_out(mix)                         !  Layer mean Cumulus LWP [ kg/m2 ]
+    real(r8), target :: riwp_out(mix)                         !  Layer mean Cumulus IWP [ kg/m2 ]
+    real(r8), target :: wu_out(mix,0:mkx)                     !  Updraft vertical velocity
                                                               ! ( defined from the release level to 'kpen-1' interface )
-    real(r8)  qtu_out(mix,0:mkx)                              !  Updraft qt [ kg/kg ]
-    real(r8)  thlu_out(mix,0:mkx)                             !  Updraft thl [ K ]
-    real(r8)  thvu_out(mix,0:mkx)                             !  Updraft thv [ K ]
-    real(r8)  uu_out(mix,0:mkx)                               !  Updraft zonal wind [ m/s ] 
-    real(r8)  vu_out(mix,0:mkx)                               !  Updraft meridional wind [ m/s ]
-    real(r8)  qtu_emf_out(mix,0:mkx)                          !  Penetratively entrained qt [ kg/kg ]   
-    real(r8)  thlu_emf_out(mix,0:mkx)                         !  Penetratively entrained thl [ K ]
-    real(r8)  uu_emf_out(mix,0:mkx)                           !  Penetratively entrained u [ m/s ]
-    real(r8)  vu_emf_out(mix,0:mkx)                           !  Penetratively entrained v [ m/s ]
-    real(r8)  uemf_out(mix,0:mkx)                             !  Net upward mass flux
+    real(r8), target :: qtu_out(mix,0:mkx)                    !  Updraft qt [ kg/kg ]
+    real(r8), target :: thlu_out(mix,0:mkx)                   !  Updraft thl [ K ]
+    real(r8), target :: thvu_out(mix,0:mkx)                   !  Updraft thv [ K ]
+    real(r8), target :: uu_out(mix,0:mkx)                     !  Updraft zonal wind [ m/s ]
+    real(r8), target :: vu_out(mix,0:mkx)                     !  Updraft meridional wind [ m/s ]
+    real(r8), target :: qtu_emf_out(mix,0:mkx)                !  Penetratively entrained qt [ kg/kg ]
+    real(r8), target :: thlu_emf_out(mix,0:mkx)               !  Penetratively entrained thl [ K ]
+    real(r8), target :: uu_emf_out(mix,0:mkx)                 !  Penetratively entrained u [ m/s ]
+    real(r8), target :: vu_emf_out(mix,0:mkx)                 !  Penetratively entrained v [ m/s ]
+    real(r8), target :: uemf_out(mix,0:mkx)                   !  Net upward mass flux
                                                               ! including penetrative entrainment (umf+emf) [ kg/m2/s ]
-    real(r8)  tru_out(mix,0:mkx,ncnst)                        !  Updraft tracers [ #, kg/kg ]   
-    real(r8)  tru_emf_out(mix,0:mkx,ncnst)                    !  Penetratively entrained tracers [ #, kg/kg ]
+    real(r8), target :: tru_out(mix,0:mkx,ncnst)              !  Updraft tracers [ #, kg/kg ]
+    real(r8), target :: tru_emf_out(mix,0:mkx,ncnst)          !  Penetratively entrained tracers [ #, kg/kg ]
 
     real(r8)  wu_s(0:mkx)                                     !  Same as above but for implicit CIN
     real(r8)  qtu_s(0:mkx)
@@ -1086,12 +1102,12 @@ end subroutine uwshcu_readnl
     real(r8)  tru_s(0:mkx,ncnst)
     real(r8)  tru_emf_s(0:mkx,ncnst)   
 
-    real(r8)  dwten_out(mix,mkx)
-    real(r8)  diten_out(mix,mkx)
-    real(r8)  flxrain_out(mix,0:mkx)  
-    real(r8)  flxsnow_out(mix,0:mkx)  
-    real(r8)  ntraprd_out(mix,mkx)    
-    real(r8)  ntsnprd_out(mix,mkx)    
+    real(r8), target :: dwten_out(mix,mkx)
+    real(r8), target :: diten_out(mix,mkx)
+    real(r8), target :: flxrain_out(mix,0:mkx)
+    real(r8), target :: flxsnow_out(mix,0:mkx)
+    real(r8), target :: ntraprd_out(mix,mkx)
+    real(r8), target :: ntsnprd_out(mix,mkx)
 
     real(r8)  dwten_s(mkx)
     real(r8)  diten_s(mkx)
@@ -1106,53 +1122,53 @@ end subroutine uwshcu_readnl
     real(r8) wtflxsn_s(0:mkx,wtrc_nwset)
     !*************
 
-    real(r8)  excessu_arr_out(mix,mkx)
+    real(r8), target :: excessu_arr_out(mix,mkx)
     real(r8)  excessu_arr(mkx) 
     real(r8)  excessu_arr_s(mkx)
-    real(r8)  excess0_arr_out(mix,mkx)
+    real(r8), target :: excess0_arr_out(mix,mkx)
     real(r8)  excess0_arr(mkx)
     real(r8)  excess0_arr_s(mkx)
-    real(r8)  xc_arr_out(mix,mkx)
+    real(r8), target :: xc_arr_out(mix,mkx)
     real(r8)  xc_arr(mkx)
     real(r8)  xc_arr_s(mkx)
-    real(r8)  aquad_arr_out(mix,mkx)
+    real(r8), target :: aquad_arr_out(mix,mkx)
     real(r8)  aquad_arr(mkx)
     real(r8)  aquad_arr_s(mkx)
-    real(r8)  bquad_arr_out(mix,mkx)
+    real(r8), target :: bquad_arr_out(mix,mkx)
     real(r8)  bquad_arr(mkx)
     real(r8)  bquad_arr_s(mkx)
-    real(r8)  cquad_arr_out(mix,mkx) 
+    real(r8), target :: cquad_arr_out(mix,mkx)
     real(r8)  cquad_arr(mkx)
     real(r8)  cquad_arr_s(mkx)
-    real(r8)  bogbot_arr_out(mix,mkx)
+    real(r8), target :: bogbot_arr_out(mix,mkx)
     real(r8)  bogbot_arr(mkx)
     real(r8)  bogbot_arr_s(mkx)
-    real(r8)  bogtop_arr_out(mix,mkx)
+    real(r8), target :: bogtop_arr_out(mix,mkx)
     real(r8)  bogtop_arr(mkx)
     real(r8)  bogtop_arr_s(mkx)
 
-    real(r8)  exit_UWCu(mix)
-    real(r8)  exit_conden(mix)
-    real(r8)  exit_klclmkx(mix)
-    real(r8)  exit_klfcmkx(mix)
-    real(r8)  exit_ufrc(mix)
-    real(r8)  exit_wtw(mix)
-    real(r8)  exit_drycore(mix)
-    real(r8)  exit_wu(mix)
-    real(r8)  exit_cufilter(mix)
-    real(r8)  exit_kinv1(mix)
-    real(r8)  exit_rei(mix)
+    real(r8), target :: exit_UWCu(mix)
+    real(r8), target :: exit_conden(mix)
+    real(r8), target :: exit_klclmkx(mix)
+    real(r8), target :: exit_klfcmkx(mix)
+    real(r8), target :: exit_ufrc(mix)
+    real(r8), target :: exit_wtw(mix)
+    real(r8), target :: exit_drycore(mix)
+    real(r8), target :: exit_wu(mix)
+    real(r8), target :: exit_cufilter(mix)
+    real(r8), target :: exit_kinv1(mix)
+    real(r8), target :: exit_rei(mix)
 
-    real(r8)  limit_shcu(mix)
-    real(r8)  limit_negcon(mix)
-    real(r8)  limit_ufrc(mix)
-    real(r8)  limit_ppen(mix)
-    real(r8)  limit_emf(mix)
-    real(r8)  limit_cinlcl(mix)
-    real(r8)  limit_cin(mix)
-    real(r8)  limit_cbmf(mix)
-    real(r8)  limit_rei(mix)
-    real(r8)  ind_delcin(mix)
+    real(r8), target :: limit_shcu(mix)
+    real(r8), target :: limit_negcon(mix)
+    real(r8), target :: limit_ufrc(mix)
+    real(r8), target :: limit_ppen(mix)
+    real(r8), target :: limit_emf(mix)
+    real(r8), target :: limit_cinlcl(mix)
+    real(r8), target :: limit_cin(mix)
+    real(r8), target :: limit_cbmf(mix)
+    real(r8), target :: limit_rei(mix)
+    real(r8), target :: ind_delcin(mix)
 
     real(r8) :: ufrcinvbase_s, ufrclcl_s, winvbase_s, wlcl_s, plcl_s, pinv_s, plfc_s, &
                 qtsrc_s, thlsrc_s, thvlsrc_s, emfkbup_s, cinlcl_s, pbup_s, ppen_s, cbmflimit_s, &
@@ -1218,6 +1234,32 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: trten_p, trflx_p, wtqc_p, wtprec_p, wtsnow_p
           type(c_ptr), value :: precip_p, snow_p, cinh_p, cinlclh_p, cbmf_p, rliq_p, cnt_p, cnb_p
        end subroutine uwshcu_output_init_shell_codon
+
+       subroutine uwshcu_diag_init_shell_codon(mix_c, mkx_c, iend_c, ncnst_c, &
+            ufrcinvbase_p, ufrclcl_p, winvbase_p, wlcl_p, plcl_p, pinv_p, plfc_p, &
+            pbup_p, ppen_p, qtsrc_p, thlsrc_p, thvlsrc_p, emfkbup_p, cbmflimit_p, &
+            tkeavg_p, zinv_p, rcwp_p, rlwp_p, riwp_p, wu_p, qtu_p, thlu_p, thvu_p, &
+            uu_p, vu_p, qtu_emf_p, thlu_emf_p, uu_emf_p, vu_emf_p, uemf_p, tru_p, &
+            tru_emf_p, dwten_p, diten_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p, &
+            excessu_p, excess0_p, xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p, &
+            exit_uwcu_p, exit_conden_p, exit_klclmkx_p, exit_klfcmkx_p, exit_ufrc_p, &
+            exit_wtw_p, exit_drycore_p, exit_wu_p, exit_cufilter_p, exit_kinv1_p, exit_rei_p, &
+            limit_shcu_p, limit_negcon_p, limit_ufrc_p, limit_ppen_p, limit_emf_p, &
+            limit_cinlcl_p, limit_cin_p, limit_cbmf_p, limit_rei_p, ind_delcin_p) &
+            bind(c, name="uwshcu_diag_init_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: mix_c, mkx_c, iend_c, ncnst_c
+          type(c_ptr), value :: ufrcinvbase_p, ufrclcl_p, winvbase_p, wlcl_p, plcl_p, pinv_p, plfc_p
+          type(c_ptr), value :: pbup_p, ppen_p, qtsrc_p, thlsrc_p, thvlsrc_p, emfkbup_p, cbmflimit_p
+          type(c_ptr), value :: tkeavg_p, zinv_p, rcwp_p, rlwp_p, riwp_p, wu_p, qtu_p, thlu_p, thvu_p
+          type(c_ptr), value :: uu_p, vu_p, qtu_emf_p, thlu_emf_p, uu_emf_p, vu_emf_p, uemf_p
+          type(c_ptr), value :: tru_p, tru_emf_p, dwten_p, diten_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p
+          type(c_ptr), value :: excessu_p, excess0_p, xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p
+          type(c_ptr), value :: exit_uwcu_p, exit_conden_p, exit_klclmkx_p, exit_klfcmkx_p, exit_ufrc_p
+          type(c_ptr), value :: exit_wtw_p, exit_drycore_p, exit_wu_p, exit_cufilter_p, exit_kinv1_p, exit_rei_p
+          type(c_ptr), value :: limit_shcu_p, limit_negcon_p, limit_ufrc_p, limit_ppen_p, limit_emf_p
+          type(c_ptr), value :: limit_cinlcl_p, limit_cin_p, limit_cbmf_p, limit_rei_p, ind_delcin_p
+       end subroutine uwshcu_diag_init_shell_codon
     end interface
 
     ! ------------------ !
@@ -1407,80 +1449,99 @@ end subroutine uwshcu_readnl
             c_loc(rliq_out), c_loc(cnt_out), c_loc(cnb_out))
     end if
 
-    ufrcinvbase_out(:iend)       = 0.0_r8
-    ufrclcl_out(:iend)           = 0.0_r8
-    winvbase_out(:iend)          = 0.0_r8
-    wlcl_out(:iend)              = 0.0_r8
-    plcl_out(:iend)              = 0.0_r8
-    pinv_out(:iend)              = 0.0_r8
-    plfc_out(:iend)              = 0.0_r8
-    pbup_out(:iend)              = 0.0_r8
-    ppen_out(:iend)              = 0.0_r8
-    qtsrc_out(:iend)             = 0.0_r8
-    thlsrc_out(:iend)            = 0.0_r8
-    thvlsrc_out(:iend)           = 0.0_r8
-    emfkbup_out(:iend)           = 0.0_r8
-    cbmflimit_out(:iend)         = 0.0_r8
-    tkeavg_out(:iend)            = 0.0_r8
-    zinv_out(:iend)              = 0.0_r8
-    rcwp_out(:iend)              = 0.0_r8
-    rlwp_out(:iend)              = 0.0_r8
-    riwp_out(:iend)              = 0.0_r8
+    if (use_native_init_shell_impl) then
+       ufrcinvbase_out(:iend)       = 0.0_r8
+       ufrclcl_out(:iend)           = 0.0_r8
+       winvbase_out(:iend)          = 0.0_r8
+       wlcl_out(:iend)              = 0.0_r8
+       plcl_out(:iend)              = 0.0_r8
+       pinv_out(:iend)              = 0.0_r8
+       plfc_out(:iend)              = 0.0_r8
+       pbup_out(:iend)              = 0.0_r8
+       ppen_out(:iend)              = 0.0_r8
+       qtsrc_out(:iend)             = 0.0_r8
+       thlsrc_out(:iend)            = 0.0_r8
+       thvlsrc_out(:iend)           = 0.0_r8
+       emfkbup_out(:iend)           = 0.0_r8
+       cbmflimit_out(:iend)         = 0.0_r8
+       tkeavg_out(:iend)            = 0.0_r8
+       zinv_out(:iend)              = 0.0_r8
+       rcwp_out(:iend)              = 0.0_r8
+       rlwp_out(:iend)              = 0.0_r8
+       riwp_out(:iend)              = 0.0_r8
 
-    wu_out(:iend,0:mkx)          = 0.0_r8
-    qtu_out(:iend,0:mkx)         = 0.0_r8
-    thlu_out(:iend,0:mkx)        = 0.0_r8
-    thvu_out(:iend,0:mkx)        = 0.0_r8
-    uu_out(:iend,0:mkx)          = 0.0_r8
-    vu_out(:iend,0:mkx)          = 0.0_r8
-    qtu_emf_out(:iend,0:mkx)     = 0.0_r8
-    thlu_emf_out(:iend,0:mkx)    = 0.0_r8
-    uu_emf_out(:iend,0:mkx)      = 0.0_r8
-    vu_emf_out(:iend,0:mkx)      = 0.0_r8
-    uemf_out(:iend,0:mkx)        = 0.0_r8
+       wu_out(:iend,0:mkx)          = 0.0_r8
+       qtu_out(:iend,0:mkx)         = 0.0_r8
+       thlu_out(:iend,0:mkx)        = 0.0_r8
+       thvu_out(:iend,0:mkx)        = 0.0_r8
+       uu_out(:iend,0:mkx)          = 0.0_r8
+       vu_out(:iend,0:mkx)          = 0.0_r8
+       qtu_emf_out(:iend,0:mkx)     = 0.0_r8
+       thlu_emf_out(:iend,0:mkx)    = 0.0_r8
+       uu_emf_out(:iend,0:mkx)      = 0.0_r8
+       vu_emf_out(:iend,0:mkx)      = 0.0_r8
+       uemf_out(:iend,0:mkx)        = 0.0_r8
 
-    tru_out(:iend,0:mkx,:ncnst)     = 0.0_r8
-    tru_emf_out(:iend,0:mkx,:ncnst) = 0.0_r8
+       tru_out(:iend,0:mkx,:ncnst)     = 0.0_r8
+       tru_emf_out(:iend,0:mkx,:ncnst) = 0.0_r8
 
-    dwten_out(:iend,:mkx)        = 0.0_r8
-    diten_out(:iend,:mkx)        = 0.0_r8
-    flxrain_out(:iend,0:mkx)     = 0.0_r8  
-    flxsnow_out(:iend,0:mkx)     = 0.0_r8
-    ntraprd_out(:iend,mkx)       = 0.0_r8
-    ntsnprd_out(:iend,mkx)       = 0.0_r8
+       dwten_out(:iend,:mkx)        = 0.0_r8
+       diten_out(:iend,:mkx)        = 0.0_r8
+       flxrain_out(:iend,0:mkx)     = 0.0_r8
+       flxsnow_out(:iend,0:mkx)     = 0.0_r8
+       ntraprd_out(:iend,mkx)       = 0.0_r8
+       ntsnprd_out(:iend,mkx)       = 0.0_r8
 
-    excessu_arr_out(:iend,:mkx)  = 0.0_r8
-    excess0_arr_out(:iend,:mkx)  = 0.0_r8
-    xc_arr_out(:iend,:mkx)       = 0.0_r8
-    aquad_arr_out(:iend,:mkx)    = 0.0_r8
-    bquad_arr_out(:iend,:mkx)    = 0.0_r8
-    cquad_arr_out(:iend,:mkx)    = 0.0_r8
-    bogbot_arr_out(:iend,:mkx)   = 0.0_r8
-    bogtop_arr_out(:iend,:mkx)   = 0.0_r8
+       excessu_arr_out(:iend,:mkx)  = 0.0_r8
+       excess0_arr_out(:iend,:mkx)  = 0.0_r8
+       xc_arr_out(:iend,:mkx)       = 0.0_r8
+       aquad_arr_out(:iend,:mkx)    = 0.0_r8
+       bquad_arr_out(:iend,:mkx)    = 0.0_r8
+       cquad_arr_out(:iend,:mkx)    = 0.0_r8
+       bogbot_arr_out(:iend,:mkx)   = 0.0_r8
+       bogtop_arr_out(:iend,:mkx)   = 0.0_r8
 
-    exit_UWCu(:iend)             = 0.0_r8 
-    exit_conden(:iend)           = 0.0_r8 
-    exit_klclmkx(:iend)          = 0.0_r8 
-    exit_klfcmkx(:iend)          = 0.0_r8 
-    exit_ufrc(:iend)             = 0.0_r8 
-    exit_wtw(:iend)              = 0.0_r8 
-    exit_drycore(:iend)          = 0.0_r8 
-    exit_wu(:iend)               = 0.0_r8 
-    exit_cufilter(:iend)         = 0.0_r8 
-    exit_kinv1(:iend)            = 0.0_r8 
-    exit_rei(:iend)              = 0.0_r8 
+       exit_UWCu(:iend)             = 0.0_r8
+       exit_conden(:iend)           = 0.0_r8
+       exit_klclmkx(:iend)          = 0.0_r8
+       exit_klfcmkx(:iend)          = 0.0_r8
+       exit_ufrc(:iend)             = 0.0_r8
+       exit_wtw(:iend)              = 0.0_r8
+       exit_drycore(:iend)          = 0.0_r8
+       exit_wu(:iend)               = 0.0_r8
+       exit_cufilter(:iend)         = 0.0_r8
+       exit_kinv1(:iend)            = 0.0_r8
+       exit_rei(:iend)              = 0.0_r8
 
-    limit_shcu(:iend)            = 0.0_r8 
-    limit_negcon(:iend)          = 0.0_r8 
-    limit_ufrc(:iend)            = 0.0_r8
-    limit_ppen(:iend)            = 0.0_r8
-    limit_emf(:iend)             = 0.0_r8
-    limit_cinlcl(:iend)          = 0.0_r8
-    limit_cin(:iend)             = 0.0_r8
-    limit_cbmf(:iend)            = 0.0_r8
-    limit_rei(:iend)             = 0.0_r8
+       limit_shcu(:iend)            = 0.0_r8
+       limit_negcon(:iend)          = 0.0_r8
+       limit_ufrc(:iend)            = 0.0_r8
+       limit_ppen(:iend)            = 0.0_r8
+       limit_emf(:iend)             = 0.0_r8
+       limit_cinlcl(:iend)          = 0.0_r8
+       limit_cin(:iend)             = 0.0_r8
+       limit_cbmf(:iend)            = 0.0_r8
+       limit_rei(:iend)             = 0.0_r8
 
-    ind_delcin(:iend)            = 0.0_r8
+       ind_delcin(:iend)            = 0.0_r8
+    else
+       call uwshcu_log_diag_init_shell_entered()
+       call uwshcu_diag_init_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), int(iend, c_int64_t), &
+            int(ncnst, c_int64_t), c_loc(ufrcinvbase_out), c_loc(ufrclcl_out), c_loc(winvbase_out), &
+            c_loc(wlcl_out), c_loc(plcl_out), c_loc(pinv_out), c_loc(plfc_out), c_loc(pbup_out), c_loc(ppen_out), &
+            c_loc(qtsrc_out), c_loc(thlsrc_out), c_loc(thvlsrc_out), c_loc(emfkbup_out), c_loc(cbmflimit_out), &
+            c_loc(tkeavg_out), c_loc(zinv_out), c_loc(rcwp_out), c_loc(rlwp_out), c_loc(riwp_out), c_loc(wu_out), &
+            c_loc(qtu_out), c_loc(thlu_out), c_loc(thvu_out), c_loc(uu_out), c_loc(vu_out), c_loc(qtu_emf_out), &
+            c_loc(thlu_emf_out), c_loc(uu_emf_out), c_loc(vu_emf_out), c_loc(uemf_out), c_loc(tru_out), &
+            c_loc(tru_emf_out), c_loc(dwten_out), c_loc(diten_out), c_loc(flxrain_out), c_loc(flxsnow_out), &
+            c_loc(ntraprd_out), c_loc(ntsnprd_out), c_loc(excessu_arr_out), c_loc(excess0_arr_out), &
+            c_loc(xc_arr_out), c_loc(aquad_arr_out), c_loc(bquad_arr_out), c_loc(cquad_arr_out), &
+            c_loc(bogbot_arr_out), c_loc(bogtop_arr_out), c_loc(exit_UWCu), c_loc(exit_conden), &
+            c_loc(exit_klclmkx), c_loc(exit_klfcmkx), c_loc(exit_ufrc), c_loc(exit_wtw), c_loc(exit_drycore), &
+            c_loc(exit_wu), c_loc(exit_cufilter), c_loc(exit_kinv1), c_loc(exit_rei), c_loc(limit_shcu), &
+            c_loc(limit_negcon), c_loc(limit_ufrc), c_loc(limit_ppen), c_loc(limit_emf), c_loc(limit_cinlcl), &
+            c_loc(limit_cin), c_loc(limit_cbmf), c_loc(limit_rei), c_loc(ind_delcin))
+    end if
 
     !--------------------------------------------------------------!
     !                                                              !
