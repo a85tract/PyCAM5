@@ -1383,6 +1383,482 @@ def uwshcu_exit_diag_zero_shell_codon(
 
 
 @export
+def uwshcu_iter_restore_main_shell_codon(
+    mix: int,
+    mkx: int,
+    i_col: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    precip_v: float,
+    snow_v: float,
+    cush_v: float,
+    cbmf_v: float,
+    rliq_v: float,
+    cnt_v: float,
+    cnb_v: float,
+    umf_p: cobj,
+    qvten_p: cobj,
+    qlten_p: cobj,
+    qiten_p: cobj,
+    sten_p: cobj,
+    uten_p: cobj,
+    vten_p: cobj,
+    qrten_p: cobj,
+    qsten_p: cobj,
+    evapc_p: cobj,
+    cufrc_p: cobj,
+    slflx_p: cobj,
+    qtflx_p: cobj,
+    qcu_p: cobj,
+    qlu_p: cobj,
+    qiu_p: cobj,
+    qc_p: cobj,
+    trten_p: cobj,
+    wtqc_liq_p: cobj,
+    wtqc_ice_p: cobj,
+    wtprec_p: cobj,
+    wtsnow_p: cobj,
+    wtrc_iatype_p: cobj,
+    umf_out_p: cobj,
+    qvten_out_p: cobj,
+    qlten_out_p: cobj,
+    qiten_out_p: cobj,
+    sten_out_p: cobj,
+    uten_out_p: cobj,
+    vten_out_p: cobj,
+    qrten_out_p: cobj,
+    qsten_out_p: cobj,
+    precip_out_p: cobj,
+    snow_out_p: cobj,
+    evapc_out_p: cobj,
+    cush_out_p: cobj,
+    cufrc_out_p: cobj,
+    slflx_out_p: cobj,
+    qtflx_out_p: cobj,
+    qcu_out_p: cobj,
+    qlu_out_p: cobj,
+    qiu_out_p: cobj,
+    cbmf_out_p: cobj,
+    qc_out_p: cobj,
+    rliq_out_p: cobj,
+    cnt_out_p: cobj,
+    cnb_out_p: cobj,
+    trten_out_p: cobj,
+    wtqc_out_p: cobj,
+    wtprec_out_p: cobj,
+    wtsnow_out_p: cobj,
+):
+    umf = Ptr[float](umf_p)
+    qvten = Ptr[float](qvten_p)
+    qlten = Ptr[float](qlten_p)
+    qiten = Ptr[float](qiten_p)
+    sten = Ptr[float](sten_p)
+    uten = Ptr[float](uten_p)
+    vten = Ptr[float](vten_p)
+    qrten = Ptr[float](qrten_p)
+    qsten = Ptr[float](qsten_p)
+    evapc = Ptr[float](evapc_p)
+    cufrc = Ptr[float](cufrc_p)
+    slflx = Ptr[float](slflx_p)
+    qtflx = Ptr[float](qtflx_p)
+    qcu = Ptr[float](qcu_p)
+    qlu = Ptr[float](qlu_p)
+    qiu = Ptr[float](qiu_p)
+    qc = Ptr[float](qc_p)
+    trten = Ptr[float](trten_p)
+    wtqc_liq = Ptr[float](wtqc_liq_p)
+    wtqc_ice = Ptr[float](wtqc_ice_p)
+    wtprec = Ptr[float](wtprec_p)
+    wtsnow = Ptr[float](wtsnow_p)
+    wtrc_iatype = Ptr[int](wtrc_iatype_p)
+    umf_out = Ptr[float](umf_out_p)
+    qvten_out = Ptr[float](qvten_out_p)
+    qlten_out = Ptr[float](qlten_out_p)
+    qiten_out = Ptr[float](qiten_out_p)
+    sten_out = Ptr[float](sten_out_p)
+    uten_out = Ptr[float](uten_out_p)
+    vten_out = Ptr[float](vten_out_p)
+    qrten_out = Ptr[float](qrten_out_p)
+    qsten_out = Ptr[float](qsten_out_p)
+    precip_out = Ptr[float](precip_out_p)
+    snow_out = Ptr[float](snow_out_p)
+    evapc_out = Ptr[float](evapc_out_p)
+    cush_out = Ptr[float](cush_out_p)
+    cufrc_out = Ptr[float](cufrc_out_p)
+    slflx_out = Ptr[float](slflx_out_p)
+    qtflx_out = Ptr[float](qtflx_out_p)
+    qcu_out = Ptr[float](qcu_out_p)
+    qlu_out = Ptr[float](qlu_out_p)
+    qiu_out = Ptr[float](qiu_out_p)
+    cbmf_out = Ptr[float](cbmf_out_p)
+    qc_out = Ptr[float](qc_out_p)
+    rliq_out = Ptr[float](rliq_out_p)
+    cnt_out = Ptr[float](cnt_out_p)
+    cnb_out = Ptr[float](cnb_out_p)
+    trten_out = Ptr[float](trten_out_p)
+    wtqc_out = Ptr[float](wtqc_out_p)
+    wtprec_out = Ptr[float](wtprec_out_p)
+    wtsnow_out = Ptr[float](wtsnow_out_p)
+
+    col = i_col - 1
+    precip_out[col] = precip_v
+    snow_out[col] = snow_v
+    cush_out[col] = cush_v
+    cbmf_out[col] = cbmf_v
+    rliq_out[col] = rliq_v
+    cnt_out[col] = cnt_v
+    cnb_out[col] = cnb_v
+
+    k = 0
+    while k <= mkx:
+        dst = col + k * mix
+        umf_out[dst] = umf[k]
+        slflx_out[dst] = slflx[k]
+        qtflx_out[dst] = qtflx[k]
+        k += 1
+
+    k = 0
+    while k < mkx:
+        dst = col + k * mix
+        qvten_out[dst] = qvten[k]
+        qlten_out[dst] = qlten[k]
+        qiten_out[dst] = qiten[k]
+        sten_out[dst] = sten[k]
+        uten_out[dst] = uten[k]
+        vten_out[dst] = vten[k]
+        qrten_out[dst] = qrten[k]
+        qsten_out[dst] = qsten[k]
+        evapc_out[dst] = evapc[k]
+        cufrc_out[dst] = cufrc[k]
+        qcu_out[dst] = qcu[k]
+        qlu_out[dst] = qlu[k]
+        qiu_out[dst] = qiu[k]
+        qc_out[dst] = qc[k]
+        k += 1
+
+    m = 0
+    while m < ncnst:
+        offset = m * mix * mkx
+        src_offset = m * mkx
+        k = 0
+        while k < mkx:
+            trten_out[col + k * mix + offset] = trten[k + src_offset]
+            k += 1
+        m += 1
+
+    m = 0
+    while m < wtrc_nwset:
+        vap = wtrc_iatype[m] - 1
+        liq = wtrc_iatype[m + wtrc_nwset] - 1
+        ice = wtrc_iatype[m + 2 * wtrc_nwset] - 1
+        src_offset = m * mkx
+        liq_offset = liq * mix * mkx
+        ice_offset = ice * mix * mkx
+        k = 0
+        while k < mkx:
+            wtqc_out[col + k * mix + liq_offset] = wtqc_liq[k + src_offset]
+            wtqc_out[col + k * mix + ice_offset] = wtqc_ice[k + src_offset]
+            k += 1
+        wtprec_out[col + vap * mix] = wtprec[m]
+        wtsnow_out[col + vap * mix] = wtsnow[m]
+        m += 1
+
+
+@export
+def uwshcu_iter_restore_diag_shell_codon(
+    mix: int,
+    mkx: int,
+    i_col: int,
+    ncnst: int,
+    cin_v: float,
+    cinlcl_v: float,
+    ufrcinvbase_v: float,
+    ufrclcl_v: float,
+    winvbase_v: float,
+    wlcl_v: float,
+    plcl_v: float,
+    pinv_v: float,
+    plfc_v: float,
+    pbup_v: float,
+    ppen_v: float,
+    qtsrc_v: float,
+    thlsrc_v: float,
+    thvlsrc_v: float,
+    emfkbup_v: float,
+    cbmflimit_v: float,
+    tkeavg_v: float,
+    zinv_v: float,
+    rcwp_v: float,
+    rlwp_v: float,
+    riwp_v: float,
+    fer_p: cobj,
+    fdr_p: cobj,
+    qtten_p: cobj,
+    slten_p: cobj,
+    ufrc_p: cobj,
+    uflx_p: cobj,
+    vflx_p: cobj,
+    wu_p: cobj,
+    qtu_p: cobj,
+    thlu_p: cobj,
+    thvu_p: cobj,
+    uu_p: cobj,
+    vu_p: cobj,
+    qtu_emf_p: cobj,
+    thlu_emf_p: cobj,
+    uu_emf_p: cobj,
+    vu_emf_p: cobj,
+    uemf_p: cobj,
+    dwten_p: cobj,
+    diten_p: cobj,
+    flxrain_p: cobj,
+    flxsnow_p: cobj,
+    ntraprd_p: cobj,
+    ntsnprd_p: cobj,
+    excessu_p: cobj,
+    excess0_p: cobj,
+    xc_p: cobj,
+    aquad_p: cobj,
+    bquad_p: cobj,
+    cquad_p: cobj,
+    bogbot_p: cobj,
+    bogtop_p: cobj,
+    trflx_p: cobj,
+    tru_p: cobj,
+    tru_emf_p: cobj,
+    fer_out_p: cobj,
+    fdr_out_p: cobj,
+    cinh_out_p: cobj,
+    cinlclh_out_p: cobj,
+    qtten_out_p: cobj,
+    slten_out_p: cobj,
+    ufrc_out_p: cobj,
+    uflx_out_p: cobj,
+    vflx_out_p: cobj,
+    ufrcinvbase_out_p: cobj,
+    ufrclcl_out_p: cobj,
+    winvbase_out_p: cobj,
+    wlcl_out_p: cobj,
+    plcl_out_p: cobj,
+    pinv_out_p: cobj,
+    plfc_out_p: cobj,
+    pbup_out_p: cobj,
+    ppen_out_p: cobj,
+    qtsrc_out_p: cobj,
+    thlsrc_out_p: cobj,
+    thvlsrc_out_p: cobj,
+    emfkbup_out_p: cobj,
+    cbmflimit_out_p: cobj,
+    tkeavg_out_p: cobj,
+    zinv_out_p: cobj,
+    rcwp_out_p: cobj,
+    rlwp_out_p: cobj,
+    riwp_out_p: cobj,
+    wu_out_p: cobj,
+    qtu_out_p: cobj,
+    thlu_out_p: cobj,
+    thvu_out_p: cobj,
+    uu_out_p: cobj,
+    vu_out_p: cobj,
+    qtu_emf_out_p: cobj,
+    thlu_emf_out_p: cobj,
+    uu_emf_out_p: cobj,
+    vu_emf_out_p: cobj,
+    uemf_out_p: cobj,
+    dwten_out_p: cobj,
+    diten_out_p: cobj,
+    flxrain_out_p: cobj,
+    flxsnow_out_p: cobj,
+    ntraprd_out_p: cobj,
+    ntsnprd_out_p: cobj,
+    excessu_out_p: cobj,
+    excess0_out_p: cobj,
+    xc_out_p: cobj,
+    aquad_out_p: cobj,
+    bquad_out_p: cobj,
+    cquad_out_p: cobj,
+    bogbot_out_p: cobj,
+    bogtop_out_p: cobj,
+    trflx_out_p: cobj,
+    tru_out_p: cobj,
+    tru_emf_out_p: cobj,
+):
+    fer = Ptr[float](fer_p)
+    fdr = Ptr[float](fdr_p)
+    qtten = Ptr[float](qtten_p)
+    slten = Ptr[float](slten_p)
+    ufrc = Ptr[float](ufrc_p)
+    uflx = Ptr[float](uflx_p)
+    vflx = Ptr[float](vflx_p)
+    wu = Ptr[float](wu_p)
+    qtu = Ptr[float](qtu_p)
+    thlu = Ptr[float](thlu_p)
+    thvu = Ptr[float](thvu_p)
+    uu = Ptr[float](uu_p)
+    vu = Ptr[float](vu_p)
+    qtu_emf = Ptr[float](qtu_emf_p)
+    thlu_emf = Ptr[float](thlu_emf_p)
+    uu_emf = Ptr[float](uu_emf_p)
+    vu_emf = Ptr[float](vu_emf_p)
+    uemf = Ptr[float](uemf_p)
+    dwten = Ptr[float](dwten_p)
+    diten = Ptr[float](diten_p)
+    flxrain = Ptr[float](flxrain_p)
+    flxsnow = Ptr[float](flxsnow_p)
+    ntraprd = Ptr[float](ntraprd_p)
+    ntsnprd = Ptr[float](ntsnprd_p)
+    excessu = Ptr[float](excessu_p)
+    excess0 = Ptr[float](excess0_p)
+    xc = Ptr[float](xc_p)
+    aquad = Ptr[float](aquad_p)
+    bquad = Ptr[float](bquad_p)
+    cquad = Ptr[float](cquad_p)
+    bogbot = Ptr[float](bogbot_p)
+    bogtop = Ptr[float](bogtop_p)
+    trflx = Ptr[float](trflx_p)
+    tru = Ptr[float](tru_p)
+    tru_emf = Ptr[float](tru_emf_p)
+    fer_out = Ptr[float](fer_out_p)
+    fdr_out = Ptr[float](fdr_out_p)
+    cinh_out = Ptr[float](cinh_out_p)
+    cinlclh_out = Ptr[float](cinlclh_out_p)
+    qtten_out = Ptr[float](qtten_out_p)
+    slten_out = Ptr[float](slten_out_p)
+    ufrc_out = Ptr[float](ufrc_out_p)
+    uflx_out = Ptr[float](uflx_out_p)
+    vflx_out = Ptr[float](vflx_out_p)
+    ufrcinvbase_out = Ptr[float](ufrcinvbase_out_p)
+    ufrclcl_out = Ptr[float](ufrclcl_out_p)
+    winvbase_out = Ptr[float](winvbase_out_p)
+    wlcl_out = Ptr[float](wlcl_out_p)
+    plcl_out = Ptr[float](plcl_out_p)
+    pinv_out = Ptr[float](pinv_out_p)
+    plfc_out = Ptr[float](plfc_out_p)
+    pbup_out = Ptr[float](pbup_out_p)
+    ppen_out = Ptr[float](ppen_out_p)
+    qtsrc_out = Ptr[float](qtsrc_out_p)
+    thlsrc_out = Ptr[float](thlsrc_out_p)
+    thvlsrc_out = Ptr[float](thvlsrc_out_p)
+    emfkbup_out = Ptr[float](emfkbup_out_p)
+    cbmflimit_out = Ptr[float](cbmflimit_out_p)
+    tkeavg_out = Ptr[float](tkeavg_out_p)
+    zinv_out = Ptr[float](zinv_out_p)
+    rcwp_out = Ptr[float](rcwp_out_p)
+    rlwp_out = Ptr[float](rlwp_out_p)
+    riwp_out = Ptr[float](riwp_out_p)
+    wu_out = Ptr[float](wu_out_p)
+    qtu_out = Ptr[float](qtu_out_p)
+    thlu_out = Ptr[float](thlu_out_p)
+    thvu_out = Ptr[float](thvu_out_p)
+    uu_out = Ptr[float](uu_out_p)
+    vu_out = Ptr[float](vu_out_p)
+    qtu_emf_out = Ptr[float](qtu_emf_out_p)
+    thlu_emf_out = Ptr[float](thlu_emf_out_p)
+    uu_emf_out = Ptr[float](uu_emf_out_p)
+    vu_emf_out = Ptr[float](vu_emf_out_p)
+    uemf_out = Ptr[float](uemf_out_p)
+    dwten_out = Ptr[float](dwten_out_p)
+    diten_out = Ptr[float](diten_out_p)
+    flxrain_out = Ptr[float](flxrain_out_p)
+    flxsnow_out = Ptr[float](flxsnow_out_p)
+    ntraprd_out = Ptr[float](ntraprd_out_p)
+    ntsnprd_out = Ptr[float](ntsnprd_out_p)
+    excessu_out = Ptr[float](excessu_out_p)
+    excess0_out = Ptr[float](excess0_out_p)
+    xc_out = Ptr[float](xc_out_p)
+    aquad_out = Ptr[float](aquad_out_p)
+    bquad_out = Ptr[float](bquad_out_p)
+    cquad_out = Ptr[float](cquad_out_p)
+    bogbot_out = Ptr[float](bogbot_out_p)
+    bogtop_out = Ptr[float](bogtop_out_p)
+    trflx_out = Ptr[float](trflx_out_p)
+    tru_out = Ptr[float](tru_out_p)
+    tru_emf_out = Ptr[float](tru_emf_out_p)
+
+    col = i_col - 1
+    cinh_out[col] = cin_v
+    cinlclh_out[col] = cinlcl_v
+    ufrcinvbase_out[col] = ufrcinvbase_v
+    ufrclcl_out[col] = ufrclcl_v
+    winvbase_out[col] = winvbase_v
+    wlcl_out[col] = wlcl_v
+    plcl_out[col] = plcl_v
+    pinv_out[col] = pinv_v
+    plfc_out[col] = plfc_v
+    pbup_out[col] = pbup_v
+    ppen_out[col] = ppen_v
+    qtsrc_out[col] = qtsrc_v
+    thlsrc_out[col] = thlsrc_v
+    thvlsrc_out[col] = thvlsrc_v
+    emfkbup_out[col] = emfkbup_v
+    cbmflimit_out[col] = cbmflimit_v
+    tkeavg_out[col] = tkeavg_v
+    zinv_out[col] = zinv_v
+    rcwp_out[col] = rcwp_v
+    rlwp_out[col] = rlwp_v
+    riwp_out[col] = riwp_v
+
+    k = 0
+    while k < mkx:
+        dst_k = mkx - k - 1
+        dst = col + dst_k * mix
+        fer_out[dst] = fer[k]
+        fdr_out[dst] = fdr[k]
+        qtten_out[dst] = qtten[k]
+        slten_out[dst] = slten[k]
+        dwten_out[dst] = dwten[k]
+        diten_out[dst] = diten[k]
+        ntraprd_out[dst] = ntraprd[k]
+        ntsnprd_out[dst] = ntsnprd[k]
+        excessu_out[dst] = excessu[k]
+        excess0_out[dst] = excess0[k]
+        xc_out[dst] = xc[k]
+        aquad_out[dst] = aquad[k]
+        bquad_out[dst] = bquad[k]
+        cquad_out[dst] = cquad[k]
+        bogbot_out[dst] = bogbot[k]
+        bogtop_out[dst] = bogtop[k]
+        k += 1
+
+    k = 0
+    while k <= mkx:
+        dst_k = mkx - k
+        dst = col + dst_k * mix
+        ufrc_out[dst] = ufrc[k]
+        uflx_out[dst] = uflx[k]
+        vflx_out[dst] = vflx[k]
+        wu_out[dst] = wu[k]
+        qtu_out[dst] = qtu[k]
+        thlu_out[dst] = thlu[k]
+        thvu_out[dst] = thvu[k]
+        uu_out[dst] = uu[k]
+        vu_out[dst] = vu[k]
+        qtu_emf_out[dst] = qtu_emf[k]
+        thlu_emf_out[dst] = thlu_emf[k]
+        uu_emf_out[dst] = uu_emf[k]
+        vu_emf_out[dst] = vu_emf[k]
+        uemf_out[dst] = uemf[k]
+        flxrain_out[dst] = flxrain[k]
+        flxsnow_out[dst] = flxsnow[k]
+        k += 1
+
+    m = 0
+    while m < ncnst:
+        offset = m * mix * (mkx + 1)
+        src_offset = m * (mkx + 1)
+        k = 0
+        while k <= mkx:
+            dst_k = mkx - k
+            dst = col + dst_k * mix + offset
+            src = k + src_offset
+            trflx_out[dst] = trflx[src]
+            tru_out[dst] = tru[src]
+            tru_emf_out[dst] = tru_emf[src]
+            k += 1
+        m += 1
+
+
+@export
 def uwshcu_inv_prep_shell_codon(
     mix: int,
     mkx: int,
