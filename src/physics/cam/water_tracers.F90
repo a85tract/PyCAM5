@@ -151,6 +151,7 @@ module water_tracers
   logical :: wtrc_precip_evap_prep_logged = .false.
   logical :: wtrc_precip_evap_tail_logged = .false.
   logical :: wtrc_q1q2_init_logged = .false.
+  logical :: wtrc_q1q2_downdraft_logged = .false.
   logical :: wtrc_q1q2_tail_logged = .false.
 
 contains
@@ -5322,11 +5323,11 @@ subroutine wtrc_q1q2_pjr(dqdt        , ideep, lengath, &
    real(r8), intent(in) :: eu(pcols,pver)      !input updraft entraiment rate
    real(r8), target, intent(in) :: mu(pcols,pver)      !mass flux in updraft
    real(r8), target, intent(in) :: md(pcols,pver)      !mass flux in downdraft
-   real(r8), intent(in) :: qdb(pcols,pver)     !bulk water vapor mixing ratio in downdraft [kg/kg]
+   real(r8), target, intent(in) :: qdb(pcols,pver)     !bulk water vapor mixing ratio in downdraft [kg/kg]
    real(r8), intent(in) :: tu(pcols,pver)      !temperature in updraft [K?]
    real(r8), intent(in) :: td(pcols,pver)      !temperature in downdraft [K?]
-   real(r8), intent(in) :: ed(pcols,pver)     !downdraft entrainment rate [?]
-   real(r8), intent(in) :: evpc(pcols,pver)    !evaporation rate pre-unit change [kg/m3/s]
+   real(r8), target, intent(in) :: ed(pcols,pver)     !downdraft entrainment rate [?]
+   real(r8), target, intent(in) :: evpc(pcols,pver)    !evaporation rate pre-unit change [kg/m3/s]
    real(r8), target, intent(in) :: evp(pcols,pver)     !evaporation rate in downdraft
    real(r8), intent(in) :: cupc(pcols,pver)    !condensation rate pre-unit change [kg/m3/s]
    real(r8), target, intent(in) :: cu(pcols,pver)      !condensation rate in updraft
@@ -5334,7 +5335,7 @@ subroutine wtrc_q1q2_pjr(dqdt        , ideep, lengath, &
    real(r8), target, intent(in) :: dsubcld(pcols)      !sub-cloud layer thickness [mb]
    real(r8), intent(in) :: pap(pcols,pver)     !Pressure at interfaces [Pa]
    real(r8), target, intent(in) :: dz(pcols,pver)      !Layer thickness in height [m]
-   real(r8), intent(in) :: qds(pcols,pver)     !bulk water saturation value in downdraft [kg/kg]
+   real(r8), target, intent(in) :: qds(pcols,pver)     !bulk water saturation value in downdraft [kg/kg]
    real(r8), target, intent(in) :: rpdpc(pcols,pver)   !precipitation production pre-unit change [?]
    real(r8), target, intent(in) :: c0mask(pcols)       !Autoconversion rates [1/m]
    real(r8), target, intent(in) :: eps0(pcols)         !Not quite sure, should look up...
@@ -5454,6 +5455,17 @@ subroutine wtrc_q1q2_pjr(dqdt        , ideep, lengath, &
          type(c_ptr), value :: mupc_p, wtevp_p, rpdpc_p, wtrprd_p, cu_p, evp_p, mu_p, md_p, qu_p, qhat_p
          type(c_ptr), value :: dqdt_p, wtdlf_p, du_p, pevp_p, rprd_p, eps0_p
       end subroutine wtrc_q1q2_tail_shell_codon
+
+      subroutine wtrc_q1q2_downdraft_shell_codon(lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, &
+           iwtvap_c, wtrc_qmin_c, ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, jd_p, mx_p, eps0_p, &
+           qu_p, qds_p, rd_p, qd_p, dz_p, wtevp_p, evpc_p, ed_p, q_p, mdpc_p, qdb_p, totevp_p) &
+           bind(c, name="wtrc_q1q2_downdraft_shell_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, iwtvap_c
+         real(c_double), value :: wtrc_qmin_c
+         type(c_ptr), value :: ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, jd_p, mx_p, eps0_p, qu_p, qds_p
+         type(c_ptr), value :: rd_p, qd_p, dz_p, wtevp_p, evpc_p, ed_p, q_p, mdpc_p, qdb_p, totevp_p
+      end subroutine wtrc_q1q2_downdraft_shell_codon
    end interface
 
 !***************************************
@@ -5734,6 +5746,23 @@ else
 !longer than normal, it is assumed that the precipitation is always rain, and
 !that it equilibrates isotopically with the downdraft air. - JN 
 
+if (.not. use_native_wtrc_batch_impl) then
+
+   if (masterproc .and. .not. wtrc_q1q2_downdraft_logged) then
+     write(iulog,*) 'wtrc_q1q2 downdraft shell entered (downdraft humidity/evap direct = codon; isotope core = native)'
+     call wtrc_batch_append_proof('wtrc_q1q2 downdraft shell entered (downdraft humidity/evap direct = codon; isotope core = native)')
+     call flush(iulog)
+     wtrc_q1q2_downdraft_logged = .true.
+   end if
+
+   call wtrc_q1q2_downdraft_shell_codon(int(lengath, c_int64_t), int(pcols, c_int64_t), &
+        int(pver, c_int64_t), int(wtrc_nwset, c_int64_t), int(msg, c_int64_t), int(iwtvap, c_int64_t), &
+        real(wtrc_qmin, c_double), c_loc(ideep64), c_loc(wtrc_iatype64), c_loc(iwspec64), c_loc(rstd), &
+        c_loc(jd64), c_loc(mx64), c_loc(eps0), c_loc(qu), c_loc(qds), c_loc(Rd), c_loc(qd), c_loc(dz), &
+        c_loc(wtevp), c_loc(evpc), c_loc(ed), c_loc(q), c_loc(mdpc), c_loc(qdb), c_loc(totevp))
+
+else
+
    do i = 1,lengath
      do m=1,wtrc_nwset
        Rd(i,jd(i),m) = wtrc_ratio(iwspec(wtrc_iatype(m,iwtvap)),qu(i,jd(i),m),qu(i,jd(i),1))
@@ -5778,6 +5807,8 @@ else
       !---------------
      end do
    end do
+
+end if
 
 !***************************
 !calculate total evaporation

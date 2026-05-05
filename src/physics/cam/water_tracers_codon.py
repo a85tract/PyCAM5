@@ -427,6 +427,133 @@ def wtrc_q1q2_tail_shell_codon(
         m += 1
 
 
+@export
+def wtrc_q1q2_downdraft_shell_codon(
+    lengath: int,
+    pcols: int,
+    pver: int,
+    wtrc_nwset: int,
+    msg: int,
+    iwtvap: int,
+    wtrc_qmin: float,
+    ideep_p: cobj,
+    wtrc_iatype_p: cobj,
+    iwspec_p: cobj,
+    rstd_p: cobj,
+    jd_p: cobj,
+    mx_p: cobj,
+    eps0_p: cobj,
+    qu_p: cobj,
+    qds_p: cobj,
+    rd_p: cobj,
+    qd_p: cobj,
+    dz_p: cobj,
+    wtevp_p: cobj,
+    evpc_p: cobj,
+    ed_p: cobj,
+    q_p: cobj,
+    mdpc_p: cobj,
+    qdb_p: cobj,
+    totevp_p: cobj,
+):
+    ideep = Ptr[int](ideep_p)
+    wtrc_iatype = Ptr[int](wtrc_iatype_p)
+    iwspec = Ptr[int](iwspec_p)
+    rstd = Ptr[float](rstd_p)
+    jd = Ptr[int](jd_p)
+    mx = Ptr[int](mx_p)
+    eps0 = Ptr[float](eps0_p)
+    qu = Ptr[float](qu_p)
+    qds = Ptr[float](qds_p)
+    rd = Ptr[float](rd_p)
+    qd = Ptr[float](qd_p)
+    dz = Ptr[float](dz_p)
+    wtevp = Ptr[float](wtevp_p)
+    evpc = Ptr[float](evpc_p)
+    ed = Ptr[float](ed_p)
+    q = Ptr[float](q_p)
+    mdpc = Ptr[float](mdpc_p)
+    qdb = Ptr[float](qdb_p)
+    totevp = Ptr[float](totevp_p)
+
+    i = 0
+    while i < lengath:
+        jdi = jd[i] - 1
+        m = 0
+        while m < wtrc_nwset:
+            vap_idx = wtrc_iatype[m + (iwtvap - 1) * wtrc_nwset] - 1
+            ispec = iwspec[vap_idx]
+            rd[_wtrc_q1q2_3d_idx(i, jdi, m, pcols, pver)] = _wtrc_ratio(
+                ispec,
+                qu[_wtrc_q1q2_3d_idx(i, jdi, m, pcols, pver)],
+                qu[_wtrc_q1q2_3d_idx(i, jdi, 0, pcols, pver)],
+                wtrc_qmin,
+                rstd,
+            )
+            qd[_wtrc_q1q2_3d_idx(i, jdi, m, pcols, pver)] = (
+                rd[_wtrc_q1q2_3d_idx(i, jdi, m, pcols, pver)] * qds[_field2_idx(i + 1, jdi + 1, pcols)]
+            )
+            m += 1
+        i += 1
+
+    kk = msg + 2
+    while kk <= pver:
+        k = kk - 1
+        kp1 = k + 1
+        i = 0
+        while i < lengath:
+            if kk >= jd[i] and kk < mx[i] and eps0[i] > 0.0:
+                oval = 0.0
+                dqdiff = 0.0
+                ii = ideep[i] - 1
+                m = 0
+                while m < wtrc_nwset:
+                    vap_idx = wtrc_iatype[m + (iwtvap - 1) * wtrc_nwset] - 1
+                    ispec = iwspec[vap_idx]
+                    rd[_wtrc_q1q2_3d_idx(i, k, m, pcols, pver)] = _wtrc_ratio(
+                        ispec,
+                        qd[_wtrc_q1q2_3d_idx(i, k, m, pcols, pver)],
+                        qd[_wtrc_q1q2_3d_idx(i, k, 0, pcols, pver)],
+                        wtrc_qmin,
+                        rstd,
+                    )
+                    wtevp[_wtrc_q1q2_3d_idx(i, k, m, pcols, pver)] = (
+                        rd[_wtrc_q1q2_3d_idx(i, k, m, pcols, pver)] * evpc[_field2_idx(i + 1, kk, pcols)]
+                    )
+                    qd[_wtrc_q1q2_3d_idx(i, kp1, m, pcols, pver)] = (
+                        dz[_field2_idx(i + 1, kk, pcols)]
+                        * (
+                            wtevp[_wtrc_q1q2_3d_idx(i, k, m, pcols, pver)]
+                            + ed[_field2_idx(i + 1, kk, pcols)] * q[_wtrc_q1q2_q_idx(ii, k, vap_idx, pcols, pver)]
+                        )
+                        - mdpc[_field2_idx(i + 1, kk, pcols)] * qd[_wtrc_q1q2_3d_idx(i, k, m, pcols, pver)]
+                    ) / (-mdpc[_field2_idx(i + 1, kk + 1, pcols)])
+                    if m == 0:
+                        oval = qd[_wtrc_q1q2_3d_idx(i, kp1, m, pcols, pver)]
+                        dqdiff = qdb[_field2_idx(i + 1, kk + 1, pcols)] - qd[
+                            _wtrc_q1q2_3d_idx(i, kp1, m, pcols, pver)
+                        ]
+                    rfix = _wtrc_ratio(
+                        ispec,
+                        qd[_wtrc_q1q2_3d_idx(i, kp1, m, pcols, pver)],
+                        oval,
+                        wtrc_qmin,
+                        rstd,
+                    )
+                    qd[_wtrc_q1q2_3d_idx(i, kp1, m, pcols, pver)] = (
+                        qd[_wtrc_q1q2_3d_idx(i, kp1, m, pcols, pver)] + rfix * dqdiff
+                    )
+                    totevp[i + m * pcols] = (
+                        totevp[i + m * pcols]
+                        - dz[_field2_idx(i + 1, kk, pcols)]
+                        * ed[_field2_idx(i + 1, kk, pcols)]
+                        * q[_wtrc_q1q2_q_idx(ii, k, vap_idx, pcols, pver)]
+                    )
+                    m += 1
+            i += 1
+        kk += 1
+
+
 @inline
 def _process_rates_idx(
     i: int,
