@@ -45,6 +45,7 @@
   logical :: exit_zero_shell_entered_logged = .false.
   logical :: iter_restore_shell_entered_logged = .false.
   logical :: delcin_reset_shell_entered_logged = .false.
+  logical :: iter_save_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -260,6 +261,21 @@ contains
     end if
 
   end subroutine uwshcu_log_delcin_reset_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_iter_save_shell_entered()
+
+    if (iter_save_shell_entered_logged) return
+    iter_save_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu iter save shell entered (first iteration saved-state direct = codon)'
+       call uwshcu_append_proof('uwshcu iter save shell entered (first iteration saved-state direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_iter_save_shell_entered
 
 !===============================================================================
   
@@ -1632,6 +1648,62 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: xc_out_p, aquad_out_p, bquad_out_p, cquad_out_p, bogbot_out_p
           type(c_ptr), value :: bogtop_out_p, trflx_out_p, tru_out_p, tru_emf_out_p
        end subroutine uwshcu_iter_restore_diag_shell_codon
+
+       subroutine uwshcu_iter_save_env_shell_codon(mkx_c, ncnst_c, dt_c, cp_c, &
+            qv0_p, ql0_p, qi0_p, s0_p, u0_p, v0_p, t0_p, qvten_p, qlten_p, qiten_p, &
+            sten_p, uten_p, vten_p, tr0_p, trten_p, qv0_s_p, ql0_s_p, qi0_s_p, s0_s_p, &
+            u0_s_p, v0_s_p, qt0_s_p, t0_s_p, tr0_s_p) bind(c, name="uwshcu_iter_save_env_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c
+          real(c_double), value :: dt_c, cp_c
+          type(c_ptr), value :: qv0_p, ql0_p, qi0_p, s0_p, u0_p, v0_p, t0_p, qvten_p, qlten_p
+          type(c_ptr), value :: qiten_p, sten_p, uten_p, vten_p, tr0_p, trten_p, qv0_s_p, ql0_s_p
+          type(c_ptr), value :: qi0_s_p, s0_s_p, u0_s_p, v0_s_p, qt0_s_p, t0_s_p, tr0_s_p
+       end subroutine uwshcu_iter_save_env_shell_codon
+
+       subroutine uwshcu_iter_save_main_arrays_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
+            umf_p, qvten_p, qlten_p, qiten_p, sten_p, uten_p, vten_p, qrten_p, qsten_p, &
+            evapc_p, cufrc_p, slflx_p, qtflx_p, qcu_p, qlu_p, qiu_p, qc_p, trten_p, &
+            wtqc_liq_p, wtqc_ice_p, wtprec_p, wtsnow_p, umf_s_p, qvten_s_p, qlten_s_p, &
+            qiten_s_p, sten_s_p, uten_s_p, vten_s_p, qrten_s_p, qsten_s_p, evapc_s_p, &
+            cufrc_s_p, slflx_s_p, qtflx_s_p, qcu_s_p, qlu_s_p, qiu_s_p, qc_s_p, trten_s_p, &
+            wtqc_liq_s_p, wtqc_ice_s_p, wtprec_s_p, wtsnow_s_p) &
+            bind(c, name="uwshcu_iter_save_main_arrays_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c
+          type(c_ptr), value :: umf_p, qvten_p, qlten_p, qiten_p, sten_p, uten_p, vten_p, qrten_p, qsten_p
+          type(c_ptr), value :: evapc_p, cufrc_p, slflx_p, qtflx_p, qcu_p, qlu_p, qiu_p, qc_p, trten_p
+          type(c_ptr), value :: wtqc_liq_p, wtqc_ice_p, wtprec_p, wtsnow_p, umf_s_p, qvten_s_p, qlten_s_p
+          type(c_ptr), value :: qiten_s_p, sten_s_p, uten_s_p, vten_s_p, qrten_s_p, qsten_s_p, evapc_s_p
+          type(c_ptr), value :: cufrc_s_p, slflx_s_p, qtflx_s_p, qcu_s_p, qlu_s_p, qiu_s_p, qc_s_p
+          type(c_ptr), value :: trten_s_p, wtqc_liq_s_p, wtqc_ice_s_p, wtprec_s_p, wtsnow_s_p
+       end subroutine uwshcu_iter_save_main_arrays_shell_codon
+
+       subroutine uwshcu_iter_save_diag_arrays_shell_codon(mkx_c, ncnst_c, &
+            fer_p, fdr_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p, wu_p, qtu_p, thlu_p, &
+            thvu_p, uu_p, vu_p, qtu_emf_p, thlu_emf_p, uu_emf_p, vu_emf_p, uemf_p, &
+            dwten_p, diten_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p, excessu_p, &
+            excess0_p, xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p, trflx_p, &
+            tru_p, tru_emf_p, fer_s_p, fdr_s_p, qtten_s_p, slten_s_p, ufrc_s_p, &
+            uflx_s_p, vflx_s_p, wu_s_p, qtu_s_p, thlu_s_p, thvu_s_p, uu_s_p, vu_s_p, &
+            qtu_emf_s_p, thlu_emf_s_p, uu_emf_s_p, vu_emf_s_p, uemf_s_p, dwten_s_p, &
+            diten_s_p, flxrain_s_p, flxsnow_s_p, ntraprd_s_p, ntsnprd_s_p, excessu_s_p, &
+            excess0_s_p, xc_s_p, aquad_s_p, bquad_s_p, cquad_s_p, bogbot_s_p, bogtop_s_p, &
+            trflx_s_p, tru_s_p, tru_emf_s_p) bind(c, name="uwshcu_iter_save_diag_arrays_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c
+          type(c_ptr), value :: fer_p, fdr_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p, wu_p, qtu_p
+          type(c_ptr), value :: thlu_p, thvu_p, uu_p, vu_p, qtu_emf_p, thlu_emf_p, uu_emf_p, vu_emf_p
+          type(c_ptr), value :: uemf_p, dwten_p, diten_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p
+          type(c_ptr), value :: excessu_p, excess0_p, xc_p, aquad_p, bquad_p, cquad_p, bogbot_p
+          type(c_ptr), value :: bogtop_p, trflx_p, tru_p, tru_emf_p, fer_s_p, fdr_s_p, qtten_s_p
+          type(c_ptr), value :: slten_s_p, ufrc_s_p, uflx_s_p, vflx_s_p, wu_s_p, qtu_s_p, thlu_s_p
+          type(c_ptr), value :: thvu_s_p, uu_s_p, vu_s_p, qtu_emf_s_p, thlu_emf_s_p, uu_emf_s_p
+          type(c_ptr), value :: vu_emf_s_p, uemf_s_p, dwten_s_p, diten_s_p, flxrain_s_p, flxsnow_s_p
+          type(c_ptr), value :: ntraprd_s_p, ntsnprd_s_p, excessu_s_p, excess0_s_p, xc_s_p, aquad_s_p
+          type(c_ptr), value :: bquad_s_p, cquad_s_p, bogbot_s_p, bogtop_s_p, trflx_s_p, tru_s_p
+          type(c_ptr), value :: tru_emf_s_p
+       end subroutine uwshcu_iter_save_diag_arrays_shell_codon
 
        subroutine uwshcu_delcin_env_restore_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             qv0_o_p, ql0_o_p, qi0_o_p, t0_o_p, s0_o_p, u0_o_p, v0_o_p, qt0_o_p, thl0_o_p, &
@@ -5825,6 +5897,7 @@ end subroutine uwshcu_readnl
           ! for some reasons.                                                   !
           ! ------------------------------------------------------------------- !
 
+          if (use_native_init_shell_impl) then
           qv0_s(:mkx)           = qv0(:mkx) + qvten(:mkx) * dt
           ql0_s(:mkx)           = ql0(:mkx) + qlten(:mkx) * dt
           qi0_s(:mkx)           = qi0(:mkx) + qiten(:mkx) * dt
@@ -5936,6 +6009,71 @@ end subroutine uwshcu_readnl
              wtprec_s(:)        = wtprec(:)
              wtsnow_s(:)        = wtsnow(:)
            end if
+
+          else
+             wtrc_nwset_post_c = 0_c_int64_t
+             if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
+             call uwshcu_log_iter_save_shell_entered()
+             call uwshcu_iter_save_env_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), dt, cp, &
+                  c_loc(qv0), c_loc(ql0), c_loc(qi0), c_loc(s0), c_loc(u0), c_loc(v0), c_loc(t0), &
+                  c_loc(qvten), c_loc(qlten), c_loc(qiten), c_loc(sten), c_loc(uten), c_loc(vten), &
+                  c_loc(tr0), c_loc(trten), c_loc(qv0_s), c_loc(ql0_s), c_loc(qi0_s), c_loc(s0_s), &
+                  c_loc(u0_s), c_loc(v0_s), c_loc(qt0_s), c_loc(t0_s), c_loc(tr0_s))
+             call uwshcu_iter_save_main_arrays_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+                  wtrc_nwset_post_c, c_loc(umf), c_loc(qvten), c_loc(qlten), c_loc(qiten), c_loc(sten), &
+                  c_loc(uten), c_loc(vten), c_loc(qrten), c_loc(qsten), c_loc(evapc), c_loc(cufrc), &
+                  c_loc(slflx), c_loc(qtflx), c_loc(qcu), c_loc(qlu), c_loc(qiu), c_loc(qc), &
+                  c_loc(trten), c_loc(wtqc_liq), c_loc(wtqc_ice), c_loc(wtprec), c_loc(wtsnow), &
+                  c_loc(umf_s), c_loc(qvten_s), c_loc(qlten_s), c_loc(qiten_s), c_loc(sten_s), &
+                  c_loc(uten_s), c_loc(vten_s), c_loc(qrten_s), c_loc(qsten_s), c_loc(evapc_s), &
+                  c_loc(cufrc_s), c_loc(slflx_s), c_loc(qtflx_s), c_loc(qcu_s), c_loc(qlu_s), &
+                  c_loc(qiu_s), c_loc(qc_s), c_loc(trten_s), c_loc(wtqc_liq_s), c_loc(wtqc_ice_s), &
+                  c_loc(wtprec_s), c_loc(wtsnow_s))
+             precip_s              = precip
+             snow_s                = snow
+             cush_s                = cush
+             cin_s                 = cin
+             cinlcl_s              = cinlcl
+             cbmf_s                = cbmf
+             rliq_s                = rliq
+             cnt_s                 = cnt
+             cnb_s                 = cnb
+             ufrcinvbase_s         = ufrcinvbase
+             ufrclcl_s             = ufrclcl
+             winvbase_s            = winvbase
+             wlcl_s                = wlcl
+             plcl_s                = plcl
+             pinv_s                = ps0(kinv-1)
+             plfc_s                = plfc
+             pbup_s                = ps0(kbup)
+             ppen_s                = ps0(kpen-1) + ppen
+             qtsrc_s               = qtsrc
+             thlsrc_s              = thlsrc
+             thvlsrc_s             = thvlsrc
+             emfkbup_s             = emf(kbup)
+             cbmflimit_s           = cbmflimit
+             tkeavg_s              = tkeavg
+             zinv_s                = zs0(kinv-1)
+             rcwp_s                = rcwp
+             rlwp_s                = rlwp
+             riwp_s                = riwp
+             call uwshcu_iter_save_diag_arrays_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+                  c_loc(fer), c_loc(fdr), c_loc(qtten), c_loc(slten), c_loc(ufrc), c_loc(uflx), &
+                  c_loc(vflx), c_loc(wu), c_loc(qtu), c_loc(thlu), c_loc(thvu), c_loc(uu), &
+                  c_loc(vu), c_loc(qtu_emf), c_loc(thlu_emf), c_loc(uu_emf), c_loc(vu_emf), &
+                  c_loc(uemf), c_loc(dwten), c_loc(diten), c_loc(flxrain), c_loc(flxsnow), &
+                  c_loc(ntraprd), c_loc(ntsnprd), c_loc(excessu_arr), c_loc(excess0_arr), &
+                  c_loc(xc_arr), c_loc(aquad_arr), c_loc(bquad_arr), c_loc(cquad_arr), &
+                  c_loc(bogbot_arr), c_loc(bogtop_arr), c_loc(trflx), c_loc(tru), c_loc(tru_emf), &
+                  c_loc(fer_s), c_loc(fdr_s), c_loc(qtten_s), c_loc(slten_s), c_loc(ufrc_s), &
+                  c_loc(uflx_s), c_loc(vflx_s), c_loc(wu_s), c_loc(qtu_s), c_loc(thlu_s), &
+                  c_loc(thvu_s), c_loc(uu_s), c_loc(vu_s), c_loc(qtu_emf_s), c_loc(thlu_emf_s), &
+                  c_loc(uu_emf_s), c_loc(vu_emf_s), c_loc(uemf_s), c_loc(dwten_s), c_loc(diten_s), &
+                  c_loc(flxrain_s), c_loc(flxsnow_s), c_loc(ntraprd_s), c_loc(ntsnprd_s), &
+                  c_loc(excessu_arr_s), c_loc(excess0_arr_s), c_loc(xc_arr_s), c_loc(aquad_arr_s), &
+                  c_loc(bquad_arr_s), c_loc(cquad_arr_s), c_loc(bogbot_arr_s), c_loc(bogtop_arr_s), &
+                  c_loc(trflx_s), c_loc(tru_s), c_loc(tru_emf_s))
+          end if
 
           ! ----------------------------------------------------------------------------- ! 
           ! Recalculate environmental variables for new cin calculation at "iter_cin = 2" ! 
