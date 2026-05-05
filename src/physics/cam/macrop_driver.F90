@@ -111,6 +111,11 @@
   logical :: detrain_init_shell_logged = .false.
   logical :: detrain_post_shell_logged = .false.
   logical :: mmacro_config_check_logged = .false.
+  logical :: detrain_core_logged = .false.
+  logical :: clr_old_diag_logged = .false.
+  logical :: forcing_prep_logged = .false.
+  logical :: ptend_assign_logged = .false.
+  logical :: store_state_logged = .false.
 
   contains
 
@@ -1283,6 +1288,14 @@ subroutine macrop_driver_detrain_core(ncol_local, do_detrain_local, cu_det_st_lo
           shdlfice_ref, dpdlft_ref, shdlft_ref)
   end if
 
+  if (masterproc .and. .not. detrain_core_logged) then
+     write(iulog,*) 'macrop_driver detrain core entered = codon'
+     call macrop_driver_append_impl_proof('MACROP_DRIVER_DETRAIN_SHELL_PROOF_FILE', &
+          'macrop_driver detrain core entered = codon')
+     call flush(iulog)
+     detrain_core_logged = .true.
+  end if
+
   call macrop_driver_detrain_core_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
        int(top_lev, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, do_detrain_local), &
        merge(1_c_int64_t, 0_c_int64_t, cu_det_st_local), cpair, gravit, latice, nl_denom_a_local, nl_denom_b_local, &
@@ -1826,6 +1839,14 @@ subroutine macrop_driver_clr_old_diag(ncol_local, concld_local, alst_local, ast_
      return
   end if
 
+  if (masterproc .and. .not. clr_old_diag_logged) then
+     write(iulog,*) 'macrop_driver clr old diag entered = codon'
+     call macrop_driver_append_impl_proof('MACROP_DRIVER_MMPCOND_SHELL_PROOF_FILE', &
+          'macrop_driver clr old diag entered = codon')
+     call flush(iulog)
+     clr_old_diag_logged = .true.
+  end if
+
   call macrop_driver_clr_old_diag_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
        int(top_lev, c_int64_t), c_loc(concld_local), c_loc(alst_local), c_loc(ast_local), c_loc(clrw_old_local), &
        c_loc(clri_old_local))
@@ -1900,6 +1921,14 @@ subroutine macrop_driver_forcing_prep(ncol_local, nstep_local, rdtime_local, sta
           qtend_local, ltend_local, itend_local, nltend_local, nitend_local, lmitend_local, t_inout_local, qv_inout_local, &
           ql_inout_local, qi_inout_local, nl_inout_local, ni_inout_local)
      return
+  end if
+
+  if (masterproc .and. .not. forcing_prep_logged) then
+     write(iulog,*) 'macrop_driver forcing prep entered = codon'
+     call macrop_driver_append_impl_proof('MACROP_DRIVER_MMPCOND_SHELL_PROOF_FILE', &
+          'macrop_driver forcing prep entered = codon')
+     call flush(iulog)
+     forcing_prep_logged = .true.
   end if
 
   call macrop_driver_forcing_prep_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
@@ -2014,6 +2043,14 @@ subroutine macrop_driver_ptend_assign(ncol_local, tlat_local, qvlat_local, qcten
      call macrop_driver_ptend_assign_native(ncol_local, tlat_local, qvlat_local, qcten_local, qiten_local, ncten_local, &
           niten_local, ptend_s_local, ptend_qv_local, ptend_ql_local, ptend_qi_local, ptend_nl_local, ptend_ni_local)
      return
+  end if
+
+  if (masterproc .and. .not. ptend_assign_logged) then
+     write(iulog,*) 'macrop_driver ptend assign entered = codon'
+     call macrop_driver_append_impl_proof('MACROP_DRIVER_MMPCOND_SHELL_PROOF_FILE', &
+          'macrop_driver ptend assign entered = codon')
+     call flush(iulog)
+     ptend_assign_logged = .true.
   end if
 
   call macrop_driver_ptend_assign_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
@@ -2198,6 +2235,14 @@ subroutine macrop_driver_store_state(ncol_local, state_t_local, state_qv_local, 
           state_nl_local, state_ni_local, tcwat_local, qcwat_local, lcwat_local, iccwat_local, nlwat_local, niwat_local, &
           cldsice_local)
      return
+  end if
+
+  if (masterproc .and. .not. store_state_logged) then
+     write(iulog,*) 'macrop_driver store state entered = codon'
+     call macrop_driver_append_impl_proof('MACROP_DRIVER_MMPCOND_SHELL_PROOF_FILE', &
+          'macrop_driver store state entered = codon')
+     call flush(iulog)
+     store_state_logged = .true.
   end if
 
   call macrop_driver_store_state_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
