@@ -33,9 +33,90 @@
 
   ! Tuning parameters set via namelist
   real(r8) :: rpen          !  For penetrative entrainment efficiency
+  logical :: use_native_init_shell_impl = .false.
+  logical :: init_shell_impl_selected = .false.
+  logical :: init_shell_entered_logged = .false.
 
 !===============================================================================
 contains
+!===============================================================================
+
+  subroutine uwshcu_append_proof(proof_line)
+
+    character(len=*), intent(in) :: proof_line
+    character(len=512) :: proof_file
+    integer :: status, n, unit_id
+
+    if (.not. masterproc) return
+
+    proof_file = ''
+    call get_environment_variable('CONVECT_SHALLOW_PROOF_FILE', value=proof_file, length=n, status=status)
+    if (status /= 0 .or. n <= 0) return
+
+    open(newunit=unit_id, file=trim(adjustl(proof_file(:n))), status='unknown', action='write', &
+         position='append', iostat=status)
+    if (status /= 0) return
+
+    write(unit_id,'(A)') trim(proof_line)
+    close(unit_id)
+
+  end subroutine uwshcu_append_proof
+
+!===============================================================================
+
+  subroutine uwshcu_select_init_shell_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (init_shell_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('UWSHCU_INIT_SHELL_IMPL', value=impl_name, length=n, status=status)
+    if (status /= 0 .or. n <= 0) then
+       call get_environment_variable('CONVECT_SHALLOW_IMPL', value=impl_name, length=n, status=status)
+    end if
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+       end do
+       use_native_init_shell_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_init_shell_impl = .false.
+    end if
+
+    init_shell_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_init_shell_impl) then
+          write(iulog,'(A)') 'uwshcu init shell implementation = native'
+          call uwshcu_append_proof('uwshcu init shell implementation = native')
+       else
+          write(iulog,'(A)') 'uwshcu init shell implementation = codon'
+          call uwshcu_append_proof('uwshcu init shell implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_select_init_shell_impl
+
+!===============================================================================
+
+  subroutine uwshcu_log_init_shell_entered()
+
+    if (init_shell_entered_logged) return
+    init_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu init shell entered (output/work arrays init direct = codon)'
+       call uwshcu_append_proof('uwshcu init shell entered (output/work arrays init direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_init_shell_entered
+
 !===============================================================================
   
   real(r8) function exnf(pressure)
@@ -530,6 +611,7 @@ end subroutine uwshcu_readnl
     use cam_history,     only : outfld, addfld, phys_decomp
     use constituents,    only : qmin, cnst_get_type_byind, cnst_get_ind
     use wv_saturation,   only : findsp_vc
+    use iso_c_binding,   only : c_double, c_int64_t, c_loc, c_ptr
 
    !Water tracers:
     use water_tracer_vars, only : trace_water, wisotope, wtrc_iatype, wtrc_nwset, &
@@ -575,55 +657,55 @@ end subroutine uwshcu_readnl
     real(r8)                   tw0_in(mix,mkx)                !  Wet bulb temperature [ K ]
     real(r8)                   qw0_in(mix,mkx)                !  Wet-bulb specific humidity [ kg/kg ]
 
-    real(r8), intent(out)   :: umf_out(mix,0:mkx)             !  Updraft mass flux at the interfaces [ kg/m2/s ]
-    real(r8), intent(out)   :: qvten_out(mix,mkx)             !  Tendency of water vapor specific humidity [ kg/kg/s ]
-    real(r8), intent(out)   :: qlten_out(mix,mkx)             !  Tendency of liquid water specific humidity [ kg/kg/s ]
-    real(r8), intent(out)   :: qiten_out(mix,mkx)             !  Tendency of ice specific humidity [ kg/kg/s ]
-    real(r8), intent(out)   :: sten_out(mix,mkx)              !  Tendency of dry static energy [ J/kg/s ]
-    real(r8), intent(out)   :: uten_out(mix,mkx)              !  Tendency of zonal wind [ m/s2 ]
-    real(r8), intent(out)   :: vten_out(mix,mkx)              !  Tendency of meridional wind [ m/s2 ]
-    real(r8), intent(out)   :: trten_out(mix,mkx,ncnst)       !  Tendency of tracers [ #/s, kg/kg/s ]
-    real(r8), intent(out)   :: qrten_out(mix,mkx)             !  Tendency of rain water specific humidity [ kg/kg/s ]
-    real(r8), intent(out)   :: qsten_out(mix,mkx)             !  Tendency of snow specific humidity [ kg/kg/s ]
-    real(r8), intent(out)   :: precip_out(mix)                !  Precipitation ( rain + snow ) rate at surface [ m/s ]
-    real(r8), intent(out)   :: snow_out(mix)                  !  Snow rate at surface [ m/s ]
-    real(r8), intent(out)   :: evapc_out(mix,mkx)             !  Tendency of evaporation of precipitation [ kg/kg/s ]
-    real(r8), intent(out)   :: slflx_out(mix,0:mkx)           !  Updraft/pen.entrainment liquid static energy flux
+    real(r8), target, intent(out)   :: umf_out(mix,0:mkx)     !  Updraft mass flux at the interfaces [ kg/m2/s ]
+    real(r8), target, intent(out)   :: qvten_out(mix,mkx)     !  Tendency of water vapor specific humidity [ kg/kg/s ]
+    real(r8), target, intent(out)   :: qlten_out(mix,mkx)     !  Tendency of liquid water specific humidity [ kg/kg/s ]
+    real(r8), target, intent(out)   :: qiten_out(mix,mkx)     !  Tendency of ice specific humidity [ kg/kg/s ]
+    real(r8), target, intent(out)   :: sten_out(mix,mkx)      !  Tendency of dry static energy [ J/kg/s ]
+    real(r8), target, intent(out)   :: uten_out(mix,mkx)      !  Tendency of zonal wind [ m/s2 ]
+    real(r8), target, intent(out)   :: vten_out(mix,mkx)      !  Tendency of meridional wind [ m/s2 ]
+    real(r8), target, intent(out)   :: trten_out(mix,mkx,ncnst) !  Tendency of tracers [ #/s, kg/kg/s ]
+    real(r8), target, intent(out)   :: qrten_out(mix,mkx)     !  Tendency of rain water specific humidity [ kg/kg/s ]
+    real(r8), target, intent(out)   :: qsten_out(mix,mkx)     !  Tendency of snow specific humidity [ kg/kg/s ]
+    real(r8), target, intent(out)   :: precip_out(mix)        !  Precipitation ( rain + snow ) rate at surface [ m/s ]
+    real(r8), target, intent(out)   :: snow_out(mix)          !  Snow rate at surface [ m/s ]
+    real(r8), target, intent(out)   :: evapc_out(mix,mkx)     !  Tendency of evaporation of precipitation [ kg/kg/s ]
+    real(r8), target, intent(out)   :: slflx_out(mix,0:mkx)   !  Updraft/pen.entrainment liquid static energy flux
                                                               ! [ J/kg * kg/m2/s ]
-    real(r8), intent(out)   :: qtflx_out(mix,0:mkx)           !  updraft/pen.entrainment total water flux [ kg/kg * kg/m2/s ]
-    real(r8), intent(out)   :: flxprc1_out(mix,0:mkx)         ! precip (rain+snow) flux
-    real(r8), intent(out)   :: flxsnow1_out(mix,0:mkx)        ! snow flux
-    real(r8), intent(out)   :: cufrc_out(mix,mkx)             !  Shallow cumulus cloud fraction at the layer mid-point [ fraction ]
-    real(r8), intent(out)   :: qcu_out(mix,mkx)               !  Condensate water specific humidity within cumulus updraft [ kg/kg ]
-    real(r8), intent(out)   :: qlu_out(mix,mkx)               !  Liquid water specific humidity within cumulus updraft [ kg/kg ]
-    real(r8), intent(out)   :: qiu_out(mix,mkx)               !  Ice specific humidity within cumulus updraft [ kg/kg ]
-    real(r8), intent(out)   :: cbmf_out(mix)                  !  Cloud base mass flux [ kg/m2/s ]
-    real(r8), intent(out)   :: qc_out(mix,mkx)                !  Tendency of detrained cumulus condensate
+    real(r8), target, intent(out)   :: qtflx_out(mix,0:mkx)   !  updraft/pen.entrainment total water flux [ kg/kg * kg/m2/s ]
+    real(r8), target, intent(out)   :: flxprc1_out(mix,0:mkx) ! precip (rain+snow) flux
+    real(r8), target, intent(out)   :: flxsnow1_out(mix,0:mkx)! snow flux
+    real(r8), target, intent(out)   :: cufrc_out(mix,mkx)     !  Shallow cumulus cloud fraction at the layer mid-point [ fraction ]
+    real(r8), target, intent(out)   :: qcu_out(mix,mkx)       !  Condensate water specific humidity within cumulus updraft [ kg/kg ]
+    real(r8), target, intent(out)   :: qlu_out(mix,mkx)       !  Liquid water specific humidity within cumulus updraft [ kg/kg ]
+    real(r8), target, intent(out)   :: qiu_out(mix,mkx)       !  Ice specific humidity within cumulus updraft [ kg/kg ]
+    real(r8), target, intent(out)   :: cbmf_out(mix)          !  Cloud base mass flux [ kg/m2/s ]
+    real(r8), target, intent(out)   :: qc_out(mix,mkx)        !  Tendency of detrained cumulus condensate
                                                               ! into the environment [ kg/kg/s ]
-    real(r8), intent(out)   :: rliq_out(mix)                  !  Vertical integral of qc_out [ m/s ]
-    real(r8), intent(out)   :: cnt_out(mix)                   !  Cumulus top  interface index, cnt = kpen [ no ]
-    real(r8), intent(out)   :: cnb_out(mix)                   !  Cumulus base interface index, cnb = krel - 1 [ no ] 
+    real(r8), target, intent(out)   :: rliq_out(mix)          !  Vertical integral of qc_out [ m/s ]
+    real(r8), target, intent(out)   :: cnt_out(mix)           !  Cumulus top  interface index, cnt = kpen [ no ]
+    real(r8), target, intent(out)   :: cnb_out(mix)           !  Cumulus base interface index, cnb = krel - 1 [ no ]
 
     !Water tracers:
     !*************
-    real(r8), intent(out)  :: wtqc_out(mix,mkx,ncnst)         ! Tendency of detrained condensate [ kg/kg/s ]
-    real(r8), intent(out)  :: wtprec_out(mix,ncnst)           ! Water tracer precipitation [ m/s ]
-    real(r8), intent(out)  :: wtsnow_out(mix,ncnst)           ! Water tracer snow [ m/s ]
+    real(r8), target, intent(out)  :: wtqc_out(mix,mkx,ncnst) ! Tendency of detrained condensate [ kg/kg/s ]
+    real(r8), target, intent(out)  :: wtprec_out(mix,ncnst)   ! Water tracer precipitation [ m/s ]
+    real(r8), target, intent(out)  :: wtsnow_out(mix,ncnst)   ! Water tracer snow [ m/s ]
     !*************
 
     !
     ! Internal Output Variables
     !
 
-    real(r8)                   qtten_out(mix,mkx)             !  Tendency of qt [ kg/kg/s ]
-    real(r8)                   slten_out(mix,mkx)             !  Tendency of sl [ J/kg/s ]
-    real(r8)                   ufrc_out(mix,0:mkx)            !  Updraft fractional area at the interfaces [ fraction ]
-    real(r8)                   uflx_out(mix,0:mkx)            !  Updraft/pen.entrainment zonal momentum flux [ m/s/m2/s ]
-    real(r8)                   vflx_out(mix,0:mkx)            !  Updraft/pen.entrainment meridional momentum flux [ m/s/m2/s ]
-    real(r8)                   fer_out(mix,mkx)               !  Fractional lateral entrainment rate [ 1/Pa ]
-    real(r8)                   fdr_out(mix,mkx)               !  Fractional lateral detrainment rate [ 1/Pa ]
-    real(r8)                   cinh_out(mix)                  !  Convective INhibition upto LFC (CIN) [ J/kg ]
-    real(r8)                   trflx_out(mix,0:mkx,ncnst)     !  Updraft/pen.entrainment tracer flux [ #/m2/s, kg/kg/m2/s ] 
+    real(r8), target           :: qtten_out(mix,mkx)          !  Tendency of qt [ kg/kg/s ]
+    real(r8), target           :: slten_out(mix,mkx)          !  Tendency of sl [ J/kg/s ]
+    real(r8), target           :: ufrc_out(mix,0:mkx)         !  Updraft fractional area at the interfaces [ fraction ]
+    real(r8), target           :: uflx_out(mix,0:mkx)         !  Updraft/pen.entrainment zonal momentum flux [ m/s/m2/s ]
+    real(r8), target           :: vflx_out(mix,0:mkx)         !  Updraft/pen.entrainment meridional momentum flux [ m/s/m2/s ]
+    real(r8), target           :: fer_out(mix,mkx)            !  Fractional lateral entrainment rate [ 1/Pa ]
+    real(r8), target           :: fdr_out(mix,mkx)            !  Fractional lateral detrainment rate [ 1/Pa ]
+    real(r8), target           :: cinh_out(mix)               !  Convective INhibition upto LFC (CIN) [ J/kg ]
+    real(r8), target           :: trflx_out(mix,0:mkx,ncnst)  !  Updraft/pen.entrainment tracer flux [ #/m2/s, kg/kg/m2/s ]
    
     ! -------------------------------------------- !
     ! One-dimensional variables at each grid point !
@@ -967,7 +1049,7 @@ end subroutine uwshcu_readnl
     real(r8)  thlsrc_out(mix)                                 !  Sourse air thl [ K ]
     real(r8)  thvlsrc_out(mix)                                !  Sourse air thvl [ K ]
     real(r8)  emfkbup_out(mix)                                !  Penetrative downward mass flux at 'kbup' interface [ kg/m2/s ]
-    real(r8)  cinlclh_out(mix)                                !  Convective INhibition upto LCL (CIN) [ J/kg = m2/s2 ]
+    real(r8), target :: cinlclh_out(mix)                      !  Convective INhibition upto LCL (CIN) [ J/kg = m2/s2 ]
     real(r8)  tkeavg_out(mix)                                 !  Average tke over the PBL [ m2/s2 ]
     real(r8)  cbmflimit_out(mix)                              !  Cloud base mass flux limiter [ kg/m2/s ]
     real(r8)  zinv_out(mix)                                   !  PBL top height [ m ]
@@ -1120,6 +1202,24 @@ end subroutine uwshcu_readnl
     real(r8), dimension(mkx,wtrc_nwset) :: sswt0_o !Water tracers
     integer                          :: ixnumliq, ixnumice, ixcldliq, ixcldice
 
+    interface
+       subroutine uwshcu_output_init_shell_codon(mix_c, mkx_c, iend_c, ncnst_c, &
+            umf_p, slflx_p, qtflx_p, flxprc1_p, flxsnow1_p, qvten_p, qlten_p, qiten_p, &
+            sten_p, uten_p, vten_p, qrten_p, qsten_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, &
+            fer_p, fdr_p, qc_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p, trten_p, trflx_p, &
+            wtqc_p, wtprec_p, wtsnow_p, precip_p, snow_p, cinh_p, cinlclh_p, cbmf_p, rliq_p, &
+            cnt_p, cnb_p) bind(c, name="uwshcu_output_init_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: mix_c, mkx_c, iend_c, ncnst_c
+          type(c_ptr), value :: umf_p, slflx_p, qtflx_p, flxprc1_p, flxsnow1_p
+          type(c_ptr), value :: qvten_p, qlten_p, qiten_p, sten_p, uten_p, vten_p
+          type(c_ptr), value :: qrten_p, qsten_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p
+          type(c_ptr), value :: fer_p, fdr_p, qc_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p
+          type(c_ptr), value :: trten_p, trflx_p, wtqc_p, wtprec_p, wtsnow_p
+          type(c_ptr), value :: precip_p, snow_p, cinh_p, cinlclh_p, cbmf_p, rliq_p, cnt_p, cnb_p
+       end subroutine uwshcu_output_init_shell_codon
+    end interface
+
     ! ------------------ !
     !                    !
     ! Define Parameters  !
@@ -1252,49 +1352,60 @@ end subroutine uwshcu_readnl
     ! Initialize output variables defined for all grid points !
     ! ------------------------------------------------------- !
 
-    umf_out(:iend,0:mkx)         = 0.0_r8
-    slflx_out(:iend,0:mkx)       = 0.0_r8
-    qtflx_out(:iend,0:mkx)       = 0.0_r8
-    flxprc1_out(:iend,0:mkx)     = 0.0_r8
-    flxsnow1_out(:iend,0:mkx)    = 0.0_r8
-    qvten_out(:iend,:mkx)        = 0.0_r8
-    qlten_out(:iend,:mkx)        = 0.0_r8
-    qiten_out(:iend,:mkx)        = 0.0_r8
-    sten_out(:iend,:mkx)         = 0.0_r8
-    uten_out(:iend,:mkx)         = 0.0_r8
-    vten_out(:iend,:mkx)         = 0.0_r8
-    qrten_out(:iend,:mkx)        = 0.0_r8
-    qsten_out(:iend,:mkx)        = 0.0_r8
-    precip_out(:iend)            = 0.0_r8
-    snow_out(:iend)              = 0.0_r8
-    evapc_out(:iend,:mkx)        = 0.0_r8
-    cufrc_out(:iend,:mkx)        = 0.0_r8
-    qcu_out(:iend,:mkx)          = 0.0_r8
-    qlu_out(:iend,:mkx)          = 0.0_r8
-    qiu_out(:iend,:mkx)          = 0.0_r8
-    fer_out(:iend,:mkx)          = 0.0_r8
-    fdr_out(:iend,:mkx)          = 0.0_r8
-    cinh_out(:iend)              = -1.0_r8
-    cinlclh_out(:iend)           = -1.0_r8
-    cbmf_out(:iend)              = 0.0_r8
-    qc_out(:iend,:mkx)           = 0.0_r8
-    rliq_out(:iend)              = 0.0_r8
-    cnt_out(:iend)               = real(mkx, r8)
-    cnb_out(:iend)               = 0.0_r8
-    qtten_out(:iend,:mkx)        = 0.0_r8
-    slten_out(:iend,:mkx)        = 0.0_r8
-    ufrc_out(:iend,0:mkx)        = 0.0_r8
-
-    uflx_out(:iend,0:mkx)        = 0.0_r8
-    vflx_out(:iend,0:mkx)        = 0.0_r8
-
-    trten_out(:iend,:mkx,:ncnst) = 0.0_r8
-    trflx_out(:iend,0:mkx,:ncnst)= 0.0_r8
-    
-   !Water tracers:
-    wtqc_out(:iend,:mkx,:ncnst)  = 0.0_r8
-    wtprec_out(:iend,:ncnst)     = 0.0_r8
-    wtsnow_out(:iend,:ncnst)     = 0.0_r8
+    call uwshcu_select_init_shell_impl()
+    if (use_native_init_shell_impl) then
+       umf_out(:iend,0:mkx)         = 0.0_r8
+       slflx_out(:iend,0:mkx)       = 0.0_r8
+       qtflx_out(:iend,0:mkx)       = 0.0_r8
+       flxprc1_out(:iend,0:mkx)     = 0.0_r8
+       flxsnow1_out(:iend,0:mkx)    = 0.0_r8
+       qvten_out(:iend,:mkx)        = 0.0_r8
+       qlten_out(:iend,:mkx)        = 0.0_r8
+       qiten_out(:iend,:mkx)        = 0.0_r8
+       sten_out(:iend,:mkx)         = 0.0_r8
+       uten_out(:iend,:mkx)         = 0.0_r8
+       vten_out(:iend,:mkx)         = 0.0_r8
+       qrten_out(:iend,:mkx)        = 0.0_r8
+       qsten_out(:iend,:mkx)        = 0.0_r8
+       precip_out(:iend)            = 0.0_r8
+       snow_out(:iend)              = 0.0_r8
+       evapc_out(:iend,:mkx)        = 0.0_r8
+       cufrc_out(:iend,:mkx)        = 0.0_r8
+       qcu_out(:iend,:mkx)          = 0.0_r8
+       qlu_out(:iend,:mkx)          = 0.0_r8
+       qiu_out(:iend,:mkx)          = 0.0_r8
+       fer_out(:iend,:mkx)          = 0.0_r8
+       fdr_out(:iend,:mkx)          = 0.0_r8
+       cinh_out(:iend)              = -1.0_r8
+       cinlclh_out(:iend)           = -1.0_r8
+       cbmf_out(:iend)              = 0.0_r8
+       qc_out(:iend,:mkx)           = 0.0_r8
+       rliq_out(:iend)              = 0.0_r8
+       cnt_out(:iend)               = real(mkx, r8)
+       cnb_out(:iend)               = 0.0_r8
+       qtten_out(:iend,:mkx)        = 0.0_r8
+       slten_out(:iend,:mkx)        = 0.0_r8
+       ufrc_out(:iend,0:mkx)        = 0.0_r8
+       uflx_out(:iend,0:mkx)        = 0.0_r8
+       vflx_out(:iend,0:mkx)        = 0.0_r8
+       trten_out(:iend,:mkx,:ncnst) = 0.0_r8
+       trflx_out(:iend,0:mkx,:ncnst)= 0.0_r8
+       wtqc_out(:iend,:mkx,:ncnst)  = 0.0_r8
+       wtprec_out(:iend,:ncnst)     = 0.0_r8
+       wtsnow_out(:iend,:ncnst)     = 0.0_r8
+    else
+       call uwshcu_log_init_shell_entered()
+       call uwshcu_output_init_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), &
+            int(iend, c_int64_t), int(ncnst, c_int64_t), c_loc(umf_out), c_loc(slflx_out), &
+            c_loc(qtflx_out), c_loc(flxprc1_out), c_loc(flxsnow1_out), c_loc(qvten_out), &
+            c_loc(qlten_out), c_loc(qiten_out), c_loc(sten_out), c_loc(uten_out), c_loc(vten_out), &
+            c_loc(qrten_out), c_loc(qsten_out), c_loc(evapc_out), c_loc(cufrc_out), c_loc(qcu_out), &
+            c_loc(qlu_out), c_loc(qiu_out), c_loc(fer_out), c_loc(fdr_out), c_loc(qc_out), &
+            c_loc(qtten_out), c_loc(slten_out), c_loc(ufrc_out), c_loc(uflx_out), c_loc(vflx_out), &
+            c_loc(trten_out), c_loc(trflx_out), c_loc(wtqc_out), c_loc(wtprec_out), c_loc(wtsnow_out), &
+            c_loc(precip_out), c_loc(snow_out), c_loc(cinh_out), c_loc(cinlclh_out), c_loc(cbmf_out), &
+            c_loc(rliq_out), c_loc(cnt_out), c_loc(cnb_out))
+    end if
 
     ufrcinvbase_out(:iend)       = 0.0_r8
     ufrclcl_out(:iend)           = 0.0_r8
@@ -6354,4 +6465,3 @@ end subroutine uwshcu_readnl
   ! ------------------------ !
 
   end module uwshcu
-

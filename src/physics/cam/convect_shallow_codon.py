@@ -156,6 +156,175 @@ def convect_shallow_init_shell_codon(
 
 
 @export
+def uwshcu_output_init_shell_codon(
+    mix: int,
+    mkx: int,
+    iend: int,
+    ncnst: int,
+    umf_p: cobj,
+    slflx_p: cobj,
+    qtflx_p: cobj,
+    flxprc1_p: cobj,
+    flxsnow1_p: cobj,
+    qvten_p: cobj,
+    qlten_p: cobj,
+    qiten_p: cobj,
+    sten_p: cobj,
+    uten_p: cobj,
+    vten_p: cobj,
+    qrten_p: cobj,
+    qsten_p: cobj,
+    evapc_p: cobj,
+    cufrc_p: cobj,
+    qcu_p: cobj,
+    qlu_p: cobj,
+    qiu_p: cobj,
+    fer_p: cobj,
+    fdr_p: cobj,
+    qc_p: cobj,
+    qtten_p: cobj,
+    slten_p: cobj,
+    ufrc_p: cobj,
+    uflx_p: cobj,
+    vflx_p: cobj,
+    trten_p: cobj,
+    trflx_p: cobj,
+    wtqc_p: cobj,
+    wtprec_p: cobj,
+    wtsnow_p: cobj,
+    precip_p: cobj,
+    snow_p: cobj,
+    cinh_p: cobj,
+    cinlclh_p: cobj,
+    cbmf_p: cobj,
+    rliq_p: cobj,
+    cnt_p: cobj,
+    cnb_p: cobj,
+):
+    umf = Ptr[float](umf_p)
+    slflx = Ptr[float](slflx_p)
+    qtflx = Ptr[float](qtflx_p)
+    flxprc1 = Ptr[float](flxprc1_p)
+    flxsnow1 = Ptr[float](flxsnow1_p)
+    qvten = Ptr[float](qvten_p)
+    qlten = Ptr[float](qlten_p)
+    qiten = Ptr[float](qiten_p)
+    sten = Ptr[float](sten_p)
+    uten = Ptr[float](uten_p)
+    vten = Ptr[float](vten_p)
+    qrten = Ptr[float](qrten_p)
+    qsten = Ptr[float](qsten_p)
+    evapc = Ptr[float](evapc_p)
+    cufrc = Ptr[float](cufrc_p)
+    qcu = Ptr[float](qcu_p)
+    qlu = Ptr[float](qlu_p)
+    qiu = Ptr[float](qiu_p)
+    fer = Ptr[float](fer_p)
+    fdr = Ptr[float](fdr_p)
+    qc = Ptr[float](qc_p)
+    qtten = Ptr[float](qtten_p)
+    slten = Ptr[float](slten_p)
+    ufrc = Ptr[float](ufrc_p)
+    uflx = Ptr[float](uflx_p)
+    vflx = Ptr[float](vflx_p)
+    trten = Ptr[float](trten_p)
+    trflx = Ptr[float](trflx_p)
+    wtqc = Ptr[float](wtqc_p)
+    wtprec = Ptr[float](wtprec_p)
+    wtsnow = Ptr[float](wtsnow_p)
+    precip = Ptr[float](precip_p)
+    snow = Ptr[float](snow_p)
+    cinh = Ptr[float](cinh_p)
+    cinlclh = Ptr[float](cinlclh_p)
+    cbmf = Ptr[float](cbmf_p)
+    rliq = Ptr[float](rliq_p)
+    cnt = Ptr[float](cnt_p)
+    cnb = Ptr[float](cnb_p)
+
+    k = 0
+    while k <= mkx:
+        i = 0
+        while i < iend:
+            idx = i + k * mix
+            umf[idx] = 0.0
+            slflx[idx] = 0.0
+            qtflx[idx] = 0.0
+            flxprc1[idx] = 0.0
+            flxsnow1[idx] = 0.0
+            ufrc[idx] = 0.0
+            uflx[idx] = 0.0
+            vflx[idx] = 0.0
+            i += 1
+        k += 1
+
+    k = 0
+    while k < mkx:
+        i = 0
+        while i < iend:
+            idx = i + k * mix
+            qvten[idx] = 0.0
+            qlten[idx] = 0.0
+            qiten[idx] = 0.0
+            sten[idx] = 0.0
+            uten[idx] = 0.0
+            vten[idx] = 0.0
+            qrten[idx] = 0.0
+            qsten[idx] = 0.0
+            evapc[idx] = 0.0
+            cufrc[idx] = 0.0
+            qcu[idx] = 0.0
+            qlu[idx] = 0.0
+            qiu[idx] = 0.0
+            fer[idx] = 0.0
+            fdr[idx] = 0.0
+            qc[idx] = 0.0
+            qtten[idx] = 0.0
+            slten[idx] = 0.0
+            i += 1
+        k += 1
+
+    i = 0
+    while i < iend:
+        precip[i] = 0.0
+        snow[i] = 0.0
+        cinh[i] = -1.0
+        cinlclh[i] = -1.0
+        cbmf[i] = 0.0
+        rliq[i] = 0.0
+        cnt[i] = float(mkx)
+        cnb[i] = 0.0
+        i += 1
+
+    m = 0
+    while m < ncnst:
+        offset_2d = m * mix
+        offset_3d = m * mix * mkx
+        offset_3dz = m * mix * (mkx + 1)
+        i = 0
+        while i < iend:
+            wtprec[i + offset_2d] = 0.0
+            wtsnow[i + offset_2d] = 0.0
+            i += 1
+        k = 0
+        while k < mkx:
+            i = 0
+            while i < iend:
+                idx = i + k * mix
+                trten[idx + offset_3d] = 0.0
+                wtqc[idx + offset_3d] = 0.0
+                i += 1
+            k += 1
+        k = 0
+        while k <= mkx:
+            i = 0
+            while i < iend:
+                trflx[i + k * mix + offset_3dz] = 0.0
+                i += 1
+            k += 1
+        m += 1
+
+
+@export
 def convect_shallow_diag_shell_codon(
     mode: int,
     ncol: int,
