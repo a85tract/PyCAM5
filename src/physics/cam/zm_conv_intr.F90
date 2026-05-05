@@ -88,6 +88,8 @@ module zm_conv_intr
    logical :: zm_conv_evap_post_logged = .false.
    logical :: zm_conv_evap_hist_logged = .false.
    logical :: zm_momtran_post_logged = .false.
+   logical :: zm_convtran1_ratio_logged = .false.
+   logical :: zm_convtran2_dpdry_logged = .false.
 
 
 !=========================================================================================
@@ -454,7 +456,7 @@ subroutine zm_conv_tend(pblh    ,mcon    ,cme     , &
    real(r8) rpdpc(pcols,pver)             ! rprd pre-unit conversion
    real(r8) qds(pcols,pver)               ! bulk water saturation mixing ratio in downdraft
 
-   real(r8) Rwt(pcols,pver,wtrc_nwset,2)  !Convtran water tracer ratio
+   real(r8), target :: Rwt(pcols,pver,wtrc_nwset,2)  !Convtran water tracer ratio
 
    logical done(pcols,pver)               ! end of convr updraft loop
    real(r8) c0mask(pcols)                 ! autoconversion rates
@@ -513,6 +515,7 @@ subroutine zm_conv_tend(pblh    ,mcon    ,cme     , &
    real(r8) :: tfinal1, tfinal2
    integer  :: ii
    integer(c_int64_t), target :: ideep64(pcols), jt64(pcols), maxg64(pcols)
+   integer(c_int64_t), target :: liq_type64(wtrc_nwset), ice_type64(wtrc_nwset)
    
    real(r8),pointer :: zm_org2d(:,:)
    real(r8),pointer :: orgt(:,:), org(:,:)
@@ -866,14 +869,11 @@ end if
                   nstep,   fracis,  ptend_loc%q, fake_dpdry, Rwt)
  
    !Modify water tendencies via ratios:
-   do m = 2,wtrc_nwset
-     do k=1,pver
-       do i=1,ncol
-         ptend_loc%q(i,k,wtrc_iatype(m,iwtliq)) = Rwt(i,k,m,1)*ptend_loc%q(i,k,wtrc_iatype(1,iwtliq))
-         ptend_loc%q(i,k,wtrc_iatype(m,iwtice)) = Rwt(i,k,m,2)*ptend_loc%q(i,k,wtrc_iatype(1,iwtice))
-       end do
-     end do
-   end do  
+   do m = 1,wtrc_nwset
+      liq_type64(m) = int(wtrc_iatype(m,iwtliq), c_int64_t)
+      ice_type64(m) = int(wtrc_iatype(m,iwtice), c_int64_t)
+   end do
+   call zm_convtran1_ratio_shell(ncol, wtrc_nwset, Rwt, ptend_loc%q, liq_type64, ice_type64)
 
    call t_stopf ('convtran1')
 
@@ -1245,6 +1245,128 @@ end subroutine zm_momtran_post_shell
 
 !=========================================================================================
 
+subroutine zm_convtran1_ratio_shell(ncol_local, wtrc_nwset_local, Rwt_local, ptend_q_local, liq_type64_local, ice_type64_local)
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+   integer, intent(in) :: ncol_local, wtrc_nwset_local
+   real(r8), target, intent(in) :: Rwt_local(pcols,pver,wtrc_nwset_local,2)
+   real(r8), target, intent(inout) :: ptend_q_local(pcols,pver,*)
+   integer(c_int64_t), target, intent(in) :: liq_type64_local(wtrc_nwset_local), ice_type64_local(wtrc_nwset_local)
+
+   interface
+      subroutine zm_convtran1_ratio_shell_codon(ncol_c, pcols_c, pver_c, wtrc_nwset_c, Rwt_p, ptend_q_p, &
+           liq_type_p, ice_type_p) bind(c, name="zm_convtran1_ratio_shell_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, wtrc_nwset_c
+         type(c_ptr), value :: Rwt_p, ptend_q_p, liq_type_p, ice_type_p
+      end subroutine zm_convtran1_ratio_shell_codon
+   end interface
+
+   call zm_conv_select_post_shell_impl()
+
+   if (use_native_zm_post_shell) then
+      call zm_convtran1_ratio_shell_native(ncol_local, wtrc_nwset_local, Rwt_local, ptend_q_local, &
+           liq_type64_local, ice_type64_local)
+      return
+   end if
+
+   if (masterproc .and. .not. zm_convtran1_ratio_logged) then
+      write(iulog,*) 'zm_convtran1 ratio shell entered (water tracer ratios direct = codon)'
+      call zm_conv_append_post_shell_proof('zm_convtran1 ratio shell entered (water tracer ratios direct = codon)')
+      call flush(iulog)
+      zm_convtran1_ratio_logged = .true.
+   end if
+
+   call zm_convtran1_ratio_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        int(wtrc_nwset_local, c_int64_t), c_loc(Rwt_local), c_loc(ptend_q_local), c_loc(liq_type64_local), &
+        c_loc(ice_type64_local))
+
+end subroutine zm_convtran1_ratio_shell
+
+!=========================================================================================
+
+subroutine zm_convtran1_ratio_shell_native(ncol_local, wtrc_nwset_local, Rwt_local, ptend_q_local, &
+     liq_type64_local, ice_type64_local)
+
+   use iso_c_binding, only: c_int64_t
+
+   integer, intent(in) :: ncol_local, wtrc_nwset_local
+   real(r8), intent(in) :: Rwt_local(pcols,pver,wtrc_nwset_local,2)
+   real(r8), intent(inout) :: ptend_q_local(pcols,pver,*)
+   integer(c_int64_t), intent(in) :: liq_type64_local(wtrc_nwset_local), ice_type64_local(wtrc_nwset_local)
+   integer :: i, k, m
+
+   do m = 2,wtrc_nwset_local
+     do k=1,pver
+       do i=1,ncol_local
+         ptend_q_local(i,k,int(liq_type64_local(m))) = Rwt_local(i,k,m,1)*ptend_q_local(i,k,int(liq_type64_local(1)))
+         ptend_q_local(i,k,int(ice_type64_local(m))) = Rwt_local(i,k,m,2)*ptend_q_local(i,k,int(ice_type64_local(1)))
+       end do
+     end do
+   end do
+
+end subroutine zm_convtran1_ratio_shell_native
+
+!=========================================================================================
+
+subroutine zm_convtran2_dpdry_shell(lengath_local, state_pdeldry_local, ideep64_local, dpdry_local)
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+   integer, intent(in) :: lengath_local
+   real(r8), target, intent(in) :: state_pdeldry_local(pcols,pver)
+   integer(c_int64_t), target, intent(in) :: ideep64_local(pcols)
+   real(r8), target, intent(inout) :: dpdry_local(pcols,pver)
+
+   interface
+      subroutine zm_convtran2_dpdry_shell_codon(pcols_c, pver_c, lengath_c, state_pdeldry_p, ideep_p, dpdry_p) &
+           bind(c, name="zm_convtran2_dpdry_shell_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: pcols_c, pver_c, lengath_c
+         type(c_ptr), value :: state_pdeldry_p, ideep_p, dpdry_p
+      end subroutine zm_convtran2_dpdry_shell_codon
+   end interface
+
+   call zm_conv_select_post_shell_impl()
+
+   if (use_native_zm_post_shell) then
+      call zm_convtran2_dpdry_shell_native(lengath_local, state_pdeldry_local, ideep64_local, dpdry_local)
+      return
+   end if
+
+   if (masterproc .and. .not. zm_convtran2_dpdry_logged) then
+      write(iulog,*) 'zm_convtran2 dpdry shell entered (dry pressure prep direct = codon)'
+      call zm_conv_append_post_shell_proof('zm_convtran2 dpdry shell entered (dry pressure prep direct = codon)')
+      call flush(iulog)
+      zm_convtran2_dpdry_logged = .true.
+   end if
+
+   call zm_convtran2_dpdry_shell_codon(int(pcols, c_int64_t), int(pver, c_int64_t), int(lengath_local, c_int64_t), &
+        c_loc(state_pdeldry_local), c_loc(ideep64_local), c_loc(dpdry_local))
+
+end subroutine zm_convtran2_dpdry_shell
+
+!=========================================================================================
+
+subroutine zm_convtran2_dpdry_shell_native(lengath_local, state_pdeldry_local, ideep64_local, dpdry_local)
+
+   use iso_c_binding, only: c_int64_t
+
+   integer, intent(in) :: lengath_local
+   real(r8), intent(in) :: state_pdeldry_local(pcols,pver)
+   integer(c_int64_t), intent(in) :: ideep64_local(pcols)
+   real(r8), intent(inout) :: dpdry_local(pcols,pver)
+   integer :: i
+
+   dpdry_local = 0._r8
+   do i = 1,lengath_local
+      dpdry_local(i,:) = state_pdeldry_local(int(ideep64_local(i)),:)/100._r8
+   end do
+
+end subroutine zm_convtran2_dpdry_shell_native
+
+!=========================================================================================
 
 subroutine zm_conv_tend_2( state,  ptend,  ztodt, pbuf)
 
@@ -1255,6 +1377,7 @@ subroutine zm_conv_tend_2( state,  ptend,  ztodt, pbuf)
    use error_messages, only: alloc_err
    use water_types,   only: iwtvap, iwtcvsnow 
    use water_tracer_vars, only: trace_water, wtrc_iatype, wtrc_nwset
+   use iso_c_binding, only: c_int64_t
  
 ! Arguments
    type(physics_state), intent(in )   :: state          ! Physics state variables
@@ -1267,11 +1390,12 @@ subroutine zm_conv_tend_2( state,  ptend,  ztodt, pbuf)
 ! Local variables
    integer :: i, lchnk, istat
    integer :: nstep
-   real(r8), dimension(pcols,pver) :: dpdry
+   real(r8), target, dimension(pcols,pver) :: dpdry
 
    !water tracers (not necessary, could make variable optional - JN):
    real(r8) :: Rwt(pcols,pver,wtrc_nwset,2) !water tracer ratio
    integer  :: m                            !loop variable 
+   integer(c_int64_t), target :: ideep64(pcols)
 
 ! physics buffer fields 
    integer ifld
@@ -1313,10 +1437,10 @@ subroutine zm_conv_tend_2( state,  ptend,  ztodt, pbuf)
    if (any(ptend%lq(:))) then
       ! initialize dpdry for call to convtran
       ! it is used for tracers of dry mixing ratio type
-      dpdry = 0._r8
       do i = 1,lengath(lchnk)
-         dpdry(i,:) = state%pdeldry(ideep(i,lchnk),:)/100._r8
+         ideep64(i) = int(ideep(i,lchnk), c_int64_t)
       end do
+      call zm_convtran2_dpdry_shell(lengath(lchnk), state%pdeldry, ideep64, dpdry)
 
       call t_startf ('convtran2')
       call convtran (lchnk,                                        &

@@ -338,3 +338,71 @@ def zm_momtran_post_shell_codon(
             ftem[idx] = seten[idx] / cpair
             i += 1
         k += 1
+
+
+@export
+def zm_convtran1_ratio_shell_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    wtrc_nwset: int,
+    Rwt_p: cobj,
+    ptend_q_p: cobj,
+    liq_type_p: cobj,
+    ice_type_p: cobj,
+):
+    Rwt = Ptr[float](Rwt_p)
+    ptend_q = Ptr[float](ptend_q_p)
+    liq_type = Ptr[int](liq_type_p)
+    ice_type = Ptr[int](ice_type_p)
+    plane = pcols * pver
+
+    m = 1
+    while m < wtrc_nwset:
+        liq_idx = (liq_type[m] - 1) * plane
+        ice_idx = (ice_type[m] - 1) * plane
+        base_liq_idx = (liq_type[0] - 1) * plane
+        base_ice_idx = (ice_type[0] - 1) * plane
+        ratio_m_offset = m * plane
+        ratio_ice_offset = wtrc_nwset * plane + m * plane
+        k = 0
+        while k < pver:
+            i = 0
+            while i < ncol:
+                idx = i + k * pcols
+                ptend_q[idx + liq_idx] = Rwt[idx + ratio_m_offset] * ptend_q[idx + base_liq_idx]
+                ptend_q[idx + ice_idx] = Rwt[idx + ratio_ice_offset] * ptend_q[idx + base_ice_idx]
+                i += 1
+            k += 1
+        m += 1
+
+
+@export
+def zm_convtran2_dpdry_shell_codon(
+    pcols: int,
+    pver: int,
+    lengath: int,
+    state_pdeldry_p: cobj,
+    ideep_p: cobj,
+    dpdry_p: cobj,
+):
+    state_pdeldry = Ptr[float](state_pdeldry_p)
+    ideep = Ptr[int](ideep_p)
+    dpdry = Ptr[float](dpdry_p)
+
+    k = 0
+    while k < pver:
+        i = 0
+        while i < pcols:
+            dpdry[i + k * pcols] = 0.0
+            i += 1
+        k += 1
+
+    i = 0
+    while i < lengath:
+        src_i = ideep[i] - 1
+        k = 0
+        while k < pver:
+            dpdry[i + k * pcols] = state_pdeldry[src_i + k * pcols] / 100.0
+            k += 1
+        i += 1
