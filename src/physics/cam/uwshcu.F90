@@ -52,6 +52,8 @@
   logical :: pbl_precheck_shell_entered_logged = .false.
   logical :: pbl_source_shell_entered_logged = .false.
   logical :: lcl_prep_shell_entered_logged = .false.
+  logical :: cin_save_shell_entered_logged = .false.
+  logical :: cin_restore_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -372,6 +374,36 @@ contains
     end if
 
   end subroutine uwshcu_log_lcl_prep_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_cin_save_shell_entered()
+
+    if (cin_save_shell_entered_logged) return
+    cin_save_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu cin save shell entered (initial cin/source state save direct = codon)'
+       call uwshcu_append_proof('uwshcu cin save shell entered (initial cin/source state save direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_cin_save_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_cin_restore_shell_entered()
+
+    if (cin_restore_shell_entered_logged) return
+    cin_restore_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu cin restore shell entered (implicit cin scalar/source restore direct = codon)'
+       call uwshcu_append_proof('uwshcu cin restore shell entered (implicit cin scalar/source restore direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_cin_restore_shell_entered
 
 !===============================================================================
   
@@ -1310,7 +1342,8 @@ end subroutine uwshcu_readnl
     real(r8)    PGFc, uplus, vplus
     real(r8), target :: trsrc(ncnst)
     real(r8)    tre(ncnst)
-    real(r8)    plcl, plfc, prel, wrel
+    real(r8), target :: plcl, plfc
+    real(r8)    prel, wrel
     real(r8)    frc_rasn
     real(r8)    ee2, ud2, wtw, wtwb, wtwh
     real(r8)    xc, xc_2
@@ -1320,7 +1353,7 @@ end subroutine uwshcu_readnl
     real(r8)    rkfre, sigmaw, epsvarw, dpsum, dpi
     real(r8)    thlxsat, qtxsat, thvxsat, x_cu, x_en, thv_x0, thv_x1
     real(r8)    thj, qvj, qlj, qij, thvj, tj, thv0j, rho0j, rhos0j, qse 
-    real(r8)    cin, cinlcl
+    real(r8), target :: cin, cinlcl
     real(r8)    pe, dpe, exne, thvebot, thle, qte, ue, ve, thlue, qtue, wue
     real(r8)    mu, mumin0, mumin1, mumin2, mulcl, mulclstar
     real(r8)    cbmf, wcrit, winv, wlcl, ufrcinv, ufrclcl, rmaxfrac
@@ -1328,7 +1361,8 @@ end subroutine uwshcu_readnl
     real(r8)    thl0top, thl0bot, qt0bot, qt0top, thvubot, thvutop
     real(r8)    thlu_top, qtu_top, qlu_top, qiu_top, qlu_mid, qiu_mid, exntop
     real(r8), target :: thl0lcl, qt0lcl
-    real(r8)    thv0lcl, thv0rel, rho0inv, autodet
+    real(r8), target :: thv0lcl
+    real(r8)    thv0rel, rho0inv, autodet
     real(r8)    aquad, bquad, cquad, xc1, xc2, excessu, excess0, xsat, xs1, xs2
     real(r8)    bogbot, bogtop, delbog, drage, expfac, rbuoy, rdrag
     real(r8)    rcwp, rlwp, riwp, qcubelow, qlubelow, qiubelow
@@ -1495,8 +1529,8 @@ end subroutine uwshcu_readnl
                                         fer_s  , fdr_s   , qc_s    , qtten_s , slten_s 
     real(r8), target, dimension(0:mkx) :: umf_s, slflx_s, qtflx_s, ufrc_s, uflx_s, vflx_s
     real(r8)                         :: cush_s , precip_s, snow_s  , cin_s   , rliq_s, cbmf_s, cnt_s, cnb_s
-    real(r8)                         :: cin_i,cin_f,del_CIN,ke,alpha,thlj
-    real(r8)                         :: cinlcl_i,cinlcl_f,del_cinlcl
+    real(r8), target                 :: cin_i,cin_f,del_CIN,ke,alpha,thlj
+    real(r8), target                 :: cinlcl_i,cinlcl_f,del_cinlcl
     real(r8), target, dimension(mkx,wtrc_nwset) :: wtqc_liq_s, wtqc_ice_s  !Water tracers
     real(r8), target, dimension(wtrc_nwset)     :: wtprec_s , wtsnow_s     !Water tracers
     integer                          :: iter
@@ -1517,7 +1551,7 @@ end subroutine uwshcu_readnl
     real(r8), dimension(0:mkx)       :: umf_o    , slflx_o  , qtflx_o   , ufrc_o 
     real(r8), dimension(mix)         :: cush_o   , precip_o , snow_o    , rliq_o, cbmf_o, cnt_o, cnb_o
     real(r8), dimension(0:mkx)       :: uflx_o   , vflx_o
-    real(r8)                         :: tkeavg_o , thvlmin_o, qtsrc_o  , thvlsrc_o, thlsrc_o ,    &
+    real(r8), target                 :: tkeavg_o , thvlmin_o, qtsrc_o  , thvlsrc_o, thlsrc_o ,    &
                                         usrc_o   , vsrc_o   , plcl_o   , plfc_o   ,               &
                                         thv0lcl_o, cinlcl_o 
     integer                          :: kinv_o   , klcl_o   , klfc_o  
@@ -1525,12 +1559,13 @@ end subroutine uwshcu_readnl
     real(r8), target, dimension(mkx,ncnst) :: tr0_o
     real(r8), target, dimension(mkx,ncnst) :: trten_o, sstr0_o
     real(r8), dimension(0:mkx,ncnst) :: trflx_o
-    real(r8), dimension(ncnst)       :: trsrc_o
+    real(r8), target, dimension(ncnst) :: trsrc_o
     real(r8), target, dimension(mkx,wtrc_nwset) :: sswt0_o !Water tracers
     integer                          :: ixnumliq, ixnumice, ixcldliq, ixcldice
     integer(c_int64_t), target       :: wtrc_iatype_post(wtrc_nwset,3)
     integer(c_int64_t), target       :: kinv_precheck_c, pbl_exit_code_c
     integer(c_int64_t), target       :: klcl_prep_c, lcl_exit_code_c
+    integer(c_int64_t), target       :: kinv_cin_state_c, klcl_cin_state_c, klfc_cin_state_c
     integer(c_int64_t)               :: wtrc_nwset_post_c
 
     interface
@@ -1807,6 +1842,38 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p
           type(c_ptr), value :: klcl_out_p, exit_code_p, thl0lcl_p, qt0lcl_p
        end subroutine uwshcu_lcl_prep_shell_codon
+
+       subroutine uwshcu_cin_state_save_shell_codon(ncnst_c, cin_c, cinlcl_c, rbuoy_c, rkfre_c, &
+            tkeavg_c, epsvarw_c, kinv_c, klcl_c, klfc_c, plcl_c, plfc_c, thvlmin_c, qtsrc_c, &
+            thvlsrc_c, thlsrc_c, usrc_c, vsrc_c, thv0lcl_c, trsrc_p, cin_i_p, cinlcl_i_p, &
+            ke_p, kinv_o_p, klcl_o_p, klfc_o_p, plcl_o_p, plfc_o_p, tkeavg_o_p, thvlmin_o_p, &
+            qtsrc_o_p, thvlsrc_o_p, thlsrc_o_p, usrc_o_p, vsrc_o_p, thv0lcl_o_p, trsrc_o_p) &
+            bind(c, name="uwshcu_cin_state_save_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: ncnst_c, kinv_c, klcl_c, klfc_c
+          real(c_double), value :: cin_c, cinlcl_c, rbuoy_c, rkfre_c, tkeavg_c, epsvarw_c
+          real(c_double), value :: plcl_c, plfc_c, thvlmin_c, qtsrc_c, thvlsrc_c, thlsrc_c
+          real(c_double), value :: usrc_c, vsrc_c, thv0lcl_c
+          type(c_ptr), value :: trsrc_p, cin_i_p, cinlcl_i_p, ke_p, kinv_o_p, klcl_o_p, klfc_o_p
+          type(c_ptr), value :: plcl_o_p, plfc_o_p, tkeavg_o_p, thvlmin_o_p, qtsrc_o_p, thvlsrc_o_p
+          type(c_ptr), value :: thlsrc_o_p, usrc_o_p, vsrc_o_p, thv0lcl_o_p, trsrc_o_p
+       end subroutine uwshcu_cin_state_save_shell_codon
+
+       subroutine uwshcu_cin_state_restore_shell_codon(ncnst_c, use_cincin_c, cin_i_c, cinlcl_i_c, &
+            alpha_c, del_cin_c, del_cinlcl_c, kinv_o_c, klcl_o_c, klfc_o_c, plcl_o_c, plfc_o_c, &
+            tkeavg_o_c, thvlmin_o_c, qtsrc_o_c, thvlsrc_o_c, thlsrc_o_c, usrc_o_c, vsrc_o_c, &
+            thv0lcl_o_c, trsrc_o_p, cin_p, cinlcl_p, kinv_p, klcl_p, klfc_p, plcl_p, plfc_p, &
+            tkeavg_p, thvlmin_p, qtsrc_p, thvlsrc_p, thlsrc_p, usrc_p, vsrc_p, thv0lcl_p, trsrc_p) &
+            bind(c, name="uwshcu_cin_state_restore_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: ncnst_c, use_cincin_c, kinv_o_c, klcl_o_c, klfc_o_c
+          real(c_double), value :: cin_i_c, cinlcl_i_c, alpha_c, del_cin_c, del_cinlcl_c
+          real(c_double), value :: plcl_o_c, plfc_o_c, tkeavg_o_c, thvlmin_o_c, qtsrc_o_c
+          real(c_double), value :: thvlsrc_o_c, thlsrc_o_c, usrc_o_c, vsrc_o_c, thv0lcl_o_c
+          type(c_ptr), value :: trsrc_o_p, cin_p, cinlcl_p, kinv_p, klcl_p, klfc_p, plcl_p, plfc_p
+          type(c_ptr), value :: tkeavg_p, thvlmin_p, qtsrc_p, thvlsrc_p, thlsrc_p, usrc_p, vsrc_p
+          type(c_ptr), value :: thv0lcl_p, trsrc_p
+       end subroutine uwshcu_cin_state_restore_shell_codon
 
        subroutine uwshcu_column_env_save_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, &
@@ -2876,25 +2943,40 @@ end subroutine uwshcu_readnl
        ! ---------------------------------------------------------------------- !
 
        if( iter .eq. 1 ) then 
-           cin_i       = cin
-           cinlcl_i    = cinlcl
-           ke          = rbuoy / ( rkfre * tkeavg + epsvarw ) 
-           kinv_o      = kinv     
-           klcl_o      = klcl     
-           klfc_o      = klfc    
-           plcl_o      = plcl    
-           plfc_o      = plfc     
-           tkeavg_o    = tkeavg   
-           thvlmin_o   = thvlmin
-           qtsrc_o     = qtsrc    
-           thvlsrc_o   = thvlsrc  
-           thlsrc_o    = thlsrc
-           usrc_o      = usrc     
-           vsrc_o      = vsrc     
-           thv0lcl_o   = thv0lcl  
-           do m = 1, ncnst
-              trsrc_o(m) = trsrc(m)
-           enddo
+           if (use_native_init_shell_impl) then
+              cin_i       = cin
+              cinlcl_i    = cinlcl
+              ke          = rbuoy / ( rkfre * tkeavg + epsvarw )
+              kinv_o      = kinv
+              klcl_o      = klcl
+              klfc_o      = klfc
+              plcl_o      = plcl
+              plfc_o      = plfc
+              tkeavg_o    = tkeavg
+              thvlmin_o   = thvlmin
+              qtsrc_o     = qtsrc
+              thvlsrc_o   = thvlsrc
+              thlsrc_o    = thlsrc
+              usrc_o      = usrc
+              vsrc_o      = vsrc
+              thv0lcl_o   = thv0lcl
+              do m = 1, ncnst
+                 trsrc_o(m) = trsrc(m)
+              enddo
+           else
+              call uwshcu_log_cin_save_shell_entered()
+              call uwshcu_cin_state_save_shell_codon(int(ncnst, c_int64_t), cin, cinlcl, rbuoy, &
+                   rkfre, tkeavg, epsvarw, int(kinv, c_int64_t), int(klcl, c_int64_t), &
+                   int(klfc, c_int64_t), plcl, plfc, thvlmin, qtsrc, thvlsrc, thlsrc, usrc, vsrc, &
+                   thv0lcl, c_loc(trsrc), c_loc(cin_i), c_loc(cinlcl_i), c_loc(ke), &
+                   c_loc(kinv_cin_state_c), c_loc(klcl_cin_state_c), c_loc(klfc_cin_state_c), &
+                   c_loc(plcl_o), c_loc(plfc_o), c_loc(tkeavg_o), c_loc(thvlmin_o), c_loc(qtsrc_o), &
+                   c_loc(thvlsrc_o), c_loc(thlsrc_o), c_loc(usrc_o), c_loc(vsrc_o), &
+                   c_loc(thv0lcl_o), c_loc(trsrc_o))
+              kinv_o = int(kinv_cin_state_c)
+              klcl_o = int(klcl_cin_state_c)
+              klfc_o = int(klfc_cin_state_c)
+           endif
        endif   
 
      ! Modification : If I impose w = max(0.1_r8, w) up to the top interface of
@@ -2954,22 +3036,38 @@ end subroutine uwshcu_readnl
                ! to compute correct tendencies for (n+1) time step by implicit CIN !
                ! ----------------------------------------------------------------- !
 
-               kinv      = kinv_o     
-               klcl      = klcl_o     
-               klfc      = klfc_o    
-               plcl      = plcl_o    
-               plfc      = plfc_o     
-               tkeavg    = tkeavg_o   
-               thvlmin   = thvlmin_o
-               qtsrc     = qtsrc_o    
-               thvlsrc   = thvlsrc_o  
-               thlsrc    = thlsrc_o
-               usrc      = usrc_o     
-               vsrc      = vsrc_o     
-               thv0lcl   = thv0lcl_o  
-               do m = 1, ncnst
-                  trsrc(m) = trsrc_o(m)
-               enddo
+               if (use_native_init_shell_impl) then
+                  kinv      = kinv_o
+                  klcl      = klcl_o
+                  klfc      = klfc_o
+                  plcl      = plcl_o
+                  plfc      = plfc_o
+                  tkeavg    = tkeavg_o
+                  thvlmin   = thvlmin_o
+                  qtsrc     = qtsrc_o
+                  thvlsrc   = thvlsrc_o
+                  thlsrc    = thlsrc_o
+                  usrc      = usrc_o
+                  vsrc      = vsrc_o
+                  thv0lcl   = thv0lcl_o
+                  do m = 1, ncnst
+                     trsrc(m) = trsrc_o(m)
+                  enddo
+               else
+                  call uwshcu_log_cin_restore_shell_entered()
+                  call uwshcu_cin_state_restore_shell_codon(int(ncnst, c_int64_t), &
+                       merge(1_c_int64_t, 0_c_int64_t, use_CINcin), &
+                       cin_i, cinlcl_i, alpha, del_CIN, del_cinlcl, int(kinv_o, c_int64_t), &
+                       int(klcl_o, c_int64_t), int(klfc_o, c_int64_t), plcl_o, plfc_o, tkeavg_o, &
+                       thvlmin_o, qtsrc_o, thvlsrc_o, thlsrc_o, usrc_o, vsrc_o, thv0lcl_o, &
+                       c_loc(trsrc_o), c_loc(cin), c_loc(cinlcl), c_loc(kinv_cin_state_c), &
+                       c_loc(klcl_cin_state_c), c_loc(klfc_cin_state_c), c_loc(plcl), c_loc(plfc), &
+                       c_loc(tkeavg), c_loc(thvlmin), c_loc(qtsrc), c_loc(thvlsrc), c_loc(thlsrc), &
+                       c_loc(usrc), c_loc(vsrc), c_loc(thv0lcl), c_loc(trsrc))
+                  kinv = int(kinv_cin_state_c)
+                  klcl = int(klcl_cin_state_c)
+                  klfc = int(klfc_cin_state_c)
+               endif
 
                if (use_native_init_shell_impl) then
                qv0(:mkx)            = qv0_o(:mkx)

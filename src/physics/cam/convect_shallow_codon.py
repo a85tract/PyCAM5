@@ -2086,6 +2086,172 @@ def uwshcu_lcl_prep_shell_codon(
 
 
 @export
+def uwshcu_cin_state_save_shell_codon(
+    ncnst: int,
+    cin_v: float,
+    cinlcl_v: float,
+    rbuoy: float,
+    rkfre: float,
+    tkeavg_v: float,
+    epsvarw: float,
+    kinv_v: int,
+    klcl_v: int,
+    klfc_v: int,
+    plcl_v: float,
+    plfc_v: float,
+    thvlmin_v: float,
+    qtsrc_v: float,
+    thvlsrc_v: float,
+    thlsrc_v: float,
+    usrc_v: float,
+    vsrc_v: float,
+    thv0lcl_v: float,
+    trsrc_p: cobj,
+    cin_i_p: cobj,
+    cinlcl_i_p: cobj,
+    ke_p: cobj,
+    kinv_o_p: cobj,
+    klcl_o_p: cobj,
+    klfc_o_p: cobj,
+    plcl_o_p: cobj,
+    plfc_o_p: cobj,
+    tkeavg_o_p: cobj,
+    thvlmin_o_p: cobj,
+    qtsrc_o_p: cobj,
+    thvlsrc_o_p: cobj,
+    thlsrc_o_p: cobj,
+    usrc_o_p: cobj,
+    vsrc_o_p: cobj,
+    thv0lcl_o_p: cobj,
+    trsrc_o_p: cobj,
+):
+    trsrc = Ptr[float](trsrc_p)
+    cin_i = Ptr[float](cin_i_p)
+    cinlcl_i = Ptr[float](cinlcl_i_p)
+    ke = Ptr[float](ke_p)
+    kinv_o = Ptr[int](kinv_o_p)
+    klcl_o = Ptr[int](klcl_o_p)
+    klfc_o = Ptr[int](klfc_o_p)
+    plcl_o = Ptr[float](plcl_o_p)
+    plfc_o = Ptr[float](plfc_o_p)
+    tkeavg_o = Ptr[float](tkeavg_o_p)
+    thvlmin_o = Ptr[float](thvlmin_o_p)
+    qtsrc_o = Ptr[float](qtsrc_o_p)
+    thvlsrc_o = Ptr[float](thvlsrc_o_p)
+    thlsrc_o = Ptr[float](thlsrc_o_p)
+    usrc_o = Ptr[float](usrc_o_p)
+    vsrc_o = Ptr[float](vsrc_o_p)
+    thv0lcl_o = Ptr[float](thv0lcl_o_p)
+    trsrc_o = Ptr[float](trsrc_o_p)
+
+    cin_i[0] = cin_v
+    cinlcl_i[0] = cinlcl_v
+    ke[0] = rbuoy / (rkfre * tkeavg_v + epsvarw)
+    kinv_o[0] = kinv_v
+    klcl_o[0] = klcl_v
+    klfc_o[0] = klfc_v
+    plcl_o[0] = plcl_v
+    plfc_o[0] = plfc_v
+    tkeavg_o[0] = tkeavg_v
+    thvlmin_o[0] = thvlmin_v
+    qtsrc_o[0] = qtsrc_v
+    thvlsrc_o[0] = thvlsrc_v
+    thlsrc_o[0] = thlsrc_v
+    usrc_o[0] = usrc_v
+    vsrc_o[0] = vsrc_v
+    thv0lcl_o[0] = thv0lcl_v
+
+    m = 0
+    while m < ncnst:
+        trsrc_o[m] = trsrc[m]
+        m += 1
+
+
+@export
+def uwshcu_cin_state_restore_shell_codon(
+    ncnst: int,
+    use_cincin: int,
+    cin_i_v: float,
+    cinlcl_i_v: float,
+    alpha: float,
+    del_cin: float,
+    del_cinlcl: float,
+    kinv_o_v: int,
+    klcl_o_v: int,
+    klfc_o_v: int,
+    plcl_o_v: float,
+    plfc_o_v: float,
+    tkeavg_o_v: float,
+    thvlmin_o_v: float,
+    qtsrc_o_v: float,
+    thvlsrc_o_v: float,
+    thlsrc_o_v: float,
+    usrc_o_v: float,
+    vsrc_o_v: float,
+    thv0lcl_o_v: float,
+    trsrc_o_p: cobj,
+    cin_p: cobj,
+    cinlcl_p: cobj,
+    kinv_p: cobj,
+    klcl_p: cobj,
+    klfc_p: cobj,
+    plcl_p: cobj,
+    plfc_p: cobj,
+    tkeavg_p: cobj,
+    thvlmin_p: cobj,
+    qtsrc_p: cobj,
+    thvlsrc_p: cobj,
+    thlsrc_p: cobj,
+    usrc_p: cobj,
+    vsrc_p: cobj,
+    thv0lcl_p: cobj,
+    trsrc_p: cobj,
+):
+    trsrc_o = Ptr[float](trsrc_o_p)
+    cin = Ptr[float](cin_p)
+    cinlcl = Ptr[float](cinlcl_p)
+    kinv = Ptr[int](kinv_p)
+    klcl = Ptr[int](klcl_p)
+    klfc = Ptr[int](klfc_p)
+    plcl = Ptr[float](plcl_p)
+    plfc = Ptr[float](plfc_p)
+    tkeavg = Ptr[float](tkeavg_p)
+    thvlmin = Ptr[float](thvlmin_p)
+    qtsrc = Ptr[float](qtsrc_p)
+    thvlsrc = Ptr[float](thvlsrc_p)
+    thlsrc = Ptr[float](thlsrc_p)
+    usrc = Ptr[float](usrc_p)
+    vsrc = Ptr[float](vsrc_p)
+    thv0lcl = Ptr[float](thv0lcl_p)
+    trsrc = Ptr[float](trsrc_p)
+
+    cin[0] = cin_i_v + alpha * del_cin
+    if use_cincin != 0:
+        cinlcl[0] = cinlcl_i_v
+    else:
+        cinlcl[0] = cinlcl_i_v + alpha * del_cinlcl
+
+    kinv[0] = kinv_o_v
+    klcl[0] = klcl_o_v
+    klfc[0] = klfc_o_v
+    plcl[0] = plcl_o_v
+    plfc[0] = plfc_o_v
+    tkeavg[0] = tkeavg_o_v
+    thvlmin[0] = thvlmin_o_v
+    qtsrc[0] = qtsrc_o_v
+    thvlsrc[0] = thvlsrc_o_v
+    thlsrc[0] = thlsrc_o_v
+    usrc[0] = usrc_o_v
+    vsrc[0] = vsrc_o_v
+    thv0lcl[0] = thv0lcl_o_v
+
+    m = 0
+    while m < ncnst:
+        trsrc[m] = trsrc_o[m]
+        m += 1
+
+
+@export
 def uwshcu_column_input_load_shell_codon(
     mix: int,
     mkx: int,
