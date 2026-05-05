@@ -604,6 +604,76 @@ def macrop_driver_select_branches_codon(
 
 
 @export
+def macrop_driver_detrain_init_shell_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    dlf_T_p: cobj,
+    dlf_qv_p: cobj,
+    dlf_ql_p: cobj,
+    dlf_qi_p: cobj,
+    dlf_nl_p: cobj,
+    dlf_ni_p: cobj,
+    det_s_p: cobj,
+    det_ice_p: cobj,
+    dpdlfliq_p: cobj,
+    dpdlfice_p: cobj,
+    shdlfliq_p: cobj,
+    shdlfice_p: cobj,
+    dpdlft_p: cobj,
+    shdlft_p: cobj,
+):
+    dlf_T = Ptr[float](dlf_T_p)
+    dlf_qv = Ptr[float](dlf_qv_p)
+    dlf_ql = Ptr[float](dlf_ql_p)
+    dlf_qi = Ptr[float](dlf_qi_p)
+    dlf_nl = Ptr[float](dlf_nl_p)
+    dlf_ni = Ptr[float](dlf_ni_p)
+    det_s = Ptr[float](det_s_p)
+    det_ice = Ptr[float](det_ice_p)
+    dpdlfliq = Ptr[float](dpdlfliq_p)
+    dpdlfice = Ptr[float](dpdlfice_p)
+    shdlfliq = Ptr[float](shdlfliq_p)
+    shdlfice = Ptr[float](shdlfice_p)
+    dpdlft = Ptr[float](dpdlft_p)
+    shdlft = Ptr[float](shdlft_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, pcols + 1):
+            idx2 = _idx2(i, k, pcols)
+            dlf_T[idx2] = 0.0
+            dlf_qv[idx2] = 0.0
+            dlf_ql[idx2] = 0.0
+            dlf_qi[idx2] = 0.0
+            dlf_nl[idx2] = 0.0
+            dlf_ni[idx2] = 0.0
+            dpdlfliq[idx2] = 0.0
+            dpdlfice[idx2] = 0.0
+            shdlfliq[idx2] = 0.0
+            shdlfice[idx2] = 0.0
+            dpdlft[idx2] = 0.0
+            shdlft[idx2] = 0.0
+
+    for i in range(1, pcols + 1):
+        idx1 = i - 1
+        det_s[idx1] = 0.0
+        det_ice[idx1] = 0.0
+
+
+@export
+def macrop_driver_detrain_post_shell_codon(
+    ncol: int,
+    pcols: int,
+    det_ice_p: cobj,
+):
+    det_ice = Ptr[float](det_ice_p)
+
+    for i in range(1, ncol + 1):
+        idx1 = i - 1
+        det_ice[idx1] = det_ice[idx1] / 1000.0
+
+
+@export
 def macrop_driver_mmacro_input_shell_codon(
     ncol: int,
     pcols: int,
@@ -667,6 +737,60 @@ def macrop_driver_mmacro_post_fields_shell_codon(
             idx2 = _idx2(i, k, pcols)
             fice_ql[idx2] = fice[idx2]
             ast[idx2] = max(alst[idx2], aist[idx2])
+
+
+@export
+def macrop_driver_mmacro_config_check_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    do_cldice: int,
+    do_cldliq: int,
+    qiten_p: cobj,
+    niten_p: cobj,
+    qcten_p: cobj,
+    ncten_p: cobj,
+    mask_p: cobj,
+):
+    qiten = Ptr[float](qiten_p)
+    niten = Ptr[float](niten_p)
+    qcten = Ptr[float](qcten_p)
+    ncten = Ptr[float](ncten_p)
+    mask_out = Ptr[int](mask_p)
+
+    mask = 0
+    if do_cldice == 0:
+        qiten_nonzero = False
+        niten_nonzero = False
+        for k in range(top_lev, pver + 1):
+            for i in range(1, ncol + 1):
+                idx2 = _idx2(i, k, pcols)
+                if qiten[idx2] != 0.0:
+                    qiten_nonzero = True
+                if niten[idx2] != 0.0:
+                    niten_nonzero = True
+        if qiten_nonzero:
+            mask |= 1
+        if niten_nonzero:
+            mask |= 2
+
+    if do_cldliq == 0:
+        qcten_nonzero = False
+        ncten_nonzero = False
+        for k in range(top_lev, pver + 1):
+            for i in range(1, ncol + 1):
+                idx2 = _idx2(i, k, pcols)
+                if qcten[idx2] != 0.0:
+                    qcten_nonzero = True
+                if ncten[idx2] != 0.0:
+                    ncten_nonzero = True
+        if qcten_nonzero:
+            mask |= 4
+        if ncten_nonzero:
+            mask |= 8
+
+    mask_out[0] = mask
 
 
 @export

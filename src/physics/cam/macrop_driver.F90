@@ -108,6 +108,9 @@
   logical :: mmacro_input_shell_logged = .false.
   logical :: mmacro_post_fields_shell_logged = .false.
   logical :: cfmip_diag_shell_logged = .false.
+  logical :: detrain_init_shell_logged = .false.
+  logical :: detrain_post_shell_logged = .false.
+  logical :: mmacro_config_check_logged = .false.
 
   contains
 
@@ -627,6 +630,7 @@ end subroutine macrop_driver_readnl
   real(r8) nqctn(pcols,pver)
   real(r8) pqitn(pcols,pver)
   real(r8) nqitn(pcols,pver)
+  integer :: mmacro_config_mask
 
   ! ======================================================================
 
@@ -698,12 +702,8 @@ end subroutine macrop_driver_readnl
 
   ! Initialize convective detrainment tendency
 
-  dlf_T(:,:)  = 0._r8
-  dlf_qv(:,:) = 0._r8
-  dlf_ql(:,:) = 0._r8
-  dlf_qi(:,:) = 0._r8
-  dlf_nl(:,:) = 0._r8
-  dlf_ni(:,:) = 0._r8
+  call macrop_driver_detrain_init_shell(ncol, dlf_T, dlf_qv, dlf_ql, dlf_qi, dlf_nl, dlf_ni, det_s, det_ice, &
+       dpdlfliq, dpdlfice, shdlfliq, shdlfice, dpdlft, shdlft)
 
    ! ------------------------------------- !
    ! From here, process computation begins ! 
@@ -745,16 +745,6 @@ end subroutine macrop_driver_readnl
      ! This is the key procesure generating upper-level cirrus clouds.
      ! The unit of dlf : [ kg/kg/s ]
 
-   det_s(:)   = 0._r8
-   det_ice(:) = 0._r8
-
-   dpdlfliq = 0._r8
-   dpdlfice = 0._r8
-   shdlfliq = 0._r8
-   shdlfice = 0._r8
-   dpdlft   = 0._r8
-   shdlft   = 0._r8
-
    call macrop_driver_detrain_core(ncol, do_detrain_local, cu_det_st_local, state_loc%t, state_loc%pdel, dlf, dlf2, ptend_loc%q(:,:,ixcldliq), &
         ptend_loc%q(:,:,ixcldice), ptend_loc%q(:,:,ixnumliq), ptend_loc%q(:,:,ixnumice), ptend_loc%s, det_s, det_ice, &
         dlf_t, dlf_qv, dlf_ql, dlf_qi, dlf_nl, dlf_ni, dpdlfliq, dpdlfice, shdlfliq, shdlfice, dpdlft, shdlft)
@@ -772,7 +762,7 @@ end subroutine macrop_driver_readnl
 
    call outfld( 'ZMDLF',     dlf     , pcols, state_loc%lchnk )
 
-   det_ice(:ncol) = det_ice(:ncol)/1000._r8  ! divide by density of water
+   call macrop_driver_detrain_post_shell(ncol, det_ice)  ! divide by density of water
 
    ! Add the detrainment tendency to the output tendency
    call physics_ptend_init(ptend, state%psetcols, 'macrop')
@@ -967,19 +957,20 @@ end subroutine macrop_driver_readnl
    call macrop_driver_ptend_assign(ncol, tlat, qvlat, qcten, qiten, ncten, niten, ptend_loc%s, ptend_loc%q(:,:,1), &
         ptend_loc%q(:,:,ixcldliq), ptend_loc%q(:,:,ixcldice), ptend_loc%q(:,:,ixnumliq), ptend_loc%q(:,:,ixnumice))
 
-   if ((.not. do_cldice_local) .and. any(qiten(:ncol,top_lev:pver) /= 0.0_r8)) then
+   mmacro_config_mask = macrop_driver_mmacro_config_check(ncol, do_cldice_local, do_cldliq_local, qiten, niten, qcten, ncten)
+   if (iand(mmacro_config_mask, 1) /= 0) then
       call endrun("macrop_driver:ERROR - "// &
            "Cldwat is configured not to prognose cloud ice, but mmacro_pcond has ice mass tendencies.")
    end if
-   if ((.not. do_cldice_local) .and. any(niten(:ncol,top_lev:pver) /= 0.0_r8)) then
+   if (iand(mmacro_config_mask, 2) /= 0) then
       call endrun("macrop_driver:ERROR -"// &
            " Cldwat is configured not to prognose cloud ice, but mmacro_pcond has ice number tendencies.")
    end if
-   if ((.not. do_cldliq_local) .and. any(qcten(:ncol,top_lev:pver) /= 0.0_r8)) then
+   if (iand(mmacro_config_mask, 4) /= 0) then
       call endrun("macrop_driver:ERROR - "// &
            "Cldwat is configured not to prognose cloud liquid, but mmacro_pcond has liquid mass tendencies.")
    end if
-   if ((.not. do_cldliq_local) .and. any(ncten(:ncol,top_lev:pver) /= 0.0_r8)) then
+   if (iand(mmacro_config_mask, 8) /= 0) then
       call endrun("macrop_driver:ERROR - "// &
            "Cldwat is configured not to prognose cloud liquid, but mmacro_pcond has liquid number tendencies.")
    end if
@@ -1425,6 +1416,132 @@ end subroutine macrop_driver_detrain_core_native
 
 !============================================================================ !
 
+subroutine macrop_driver_detrain_init_shell(ncol_local, dlf_T_local, dlf_qv_local, dlf_ql_local, dlf_qi_local, &
+     dlf_nl_local, dlf_ni_local, det_s_local, det_ice_local, dpdlfliq_local, dpdlfice_local, shdlfliq_local, &
+     shdlfice_local, dpdlft_local, shdlft_local)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+  integer, intent(in) :: ncol_local
+  real(r8), target, intent(inout) :: dlf_T_local(pcols,pver), dlf_qv_local(pcols,pver), dlf_ql_local(pcols,pver)
+  real(r8), target, intent(inout) :: dlf_qi_local(pcols,pver), dlf_nl_local(pcols,pver), dlf_ni_local(pcols,pver)
+  real(r8), target, intent(inout) :: det_s_local(pcols), det_ice_local(pcols)
+  real(r8), target, intent(inout) :: dpdlfliq_local(pcols,pver), dpdlfice_local(pcols,pver)
+  real(r8), target, intent(inout) :: shdlfliq_local(pcols,pver), shdlfice_local(pcols,pver)
+  real(r8), target, intent(inout) :: dpdlft_local(pcols,pver), shdlft_local(pcols,pver)
+
+  interface
+     subroutine macrop_driver_detrain_init_shell_codon(ncol_c, pcols_c, pver_c, dlf_T_p, dlf_qv_p, dlf_ql_p, &
+          dlf_qi_p, dlf_nl_p, dlf_ni_p, det_s_p, det_ice_p, dpdlfliq_p, dpdlfice_p, shdlfliq_p, shdlfice_p, &
+          dpdlft_p, shdlft_p) bind(c, name="macrop_driver_detrain_init_shell_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+       type(c_ptr), value :: dlf_T_p, dlf_qv_p, dlf_ql_p, dlf_qi_p, dlf_nl_p, dlf_ni_p, det_s_p, det_ice_p
+       type(c_ptr), value :: dpdlfliq_p, dpdlfice_p, shdlfliq_p, shdlfice_p, dpdlft_p, shdlft_p
+     end subroutine macrop_driver_detrain_init_shell_codon
+  end interface
+
+  if (use_native_impl) then
+     call macrop_driver_detrain_init_shell_native(ncol_local, dlf_T_local, dlf_qv_local, dlf_ql_local, dlf_qi_local, &
+          dlf_nl_local, dlf_ni_local, det_s_local, det_ice_local, dpdlfliq_local, dpdlfice_local, shdlfliq_local, &
+          shdlfice_local, dpdlft_local, shdlft_local)
+     return
+  end if
+
+  if (masterproc .and. .not. detrain_init_shell_logged) then
+     write(iulog,*) 'macrop_driver detrain init shell entered = codon'
+     call macrop_driver_append_impl_proof('MACROP_DRIVER_DETRAIN_SHELL_PROOF_FILE', &
+          'macrop_driver detrain init shell entered = codon')
+     call flush(iulog)
+     detrain_init_shell_logged = .true.
+  end if
+
+  call macrop_driver_detrain_init_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       c_loc(dlf_T_local), c_loc(dlf_qv_local), c_loc(dlf_ql_local), c_loc(dlf_qi_local), c_loc(dlf_nl_local), &
+       c_loc(dlf_ni_local), c_loc(det_s_local), c_loc(det_ice_local), c_loc(dpdlfliq_local), c_loc(dpdlfice_local), &
+       c_loc(shdlfliq_local), c_loc(shdlfice_local), c_loc(dpdlft_local), c_loc(shdlft_local))
+
+end subroutine macrop_driver_detrain_init_shell
+
+!============================================================================ !
+
+subroutine macrop_driver_detrain_init_shell_native(ncol_local, dlf_T_local, dlf_qv_local, dlf_ql_local, dlf_qi_local, &
+     dlf_nl_local, dlf_ni_local, det_s_local, det_ice_local, dpdlfliq_local, dpdlfice_local, shdlfliq_local, &
+     shdlfice_local, dpdlft_local, shdlft_local)
+
+  integer, intent(in) :: ncol_local
+  real(r8), intent(inout) :: dlf_T_local(pcols,pver), dlf_qv_local(pcols,pver), dlf_ql_local(pcols,pver)
+  real(r8), intent(inout) :: dlf_qi_local(pcols,pver), dlf_nl_local(pcols,pver), dlf_ni_local(pcols,pver)
+  real(r8), intent(inout) :: det_s_local(pcols), det_ice_local(pcols)
+  real(r8), intent(inout) :: dpdlfliq_local(pcols,pver), dpdlfice_local(pcols,pver)
+  real(r8), intent(inout) :: shdlfliq_local(pcols,pver), shdlfice_local(pcols,pver)
+  real(r8), intent(inout) :: dpdlft_local(pcols,pver), shdlft_local(pcols,pver)
+
+  dlf_T_local(:,:) = 0._r8
+  dlf_qv_local(:,:) = 0._r8
+  dlf_ql_local(:,:) = 0._r8
+  dlf_qi_local(:,:) = 0._r8
+  dlf_nl_local(:,:) = 0._r8
+  dlf_ni_local(:,:) = 0._r8
+  det_s_local(:) = 0._r8
+  det_ice_local(:) = 0._r8
+  dpdlfliq_local(:,:) = 0._r8
+  dpdlfice_local(:,:) = 0._r8
+  shdlfliq_local(:,:) = 0._r8
+  shdlfice_local(:,:) = 0._r8
+  dpdlft_local(:,:) = 0._r8
+  shdlft_local(:,:) = 0._r8
+
+end subroutine macrop_driver_detrain_init_shell_native
+
+!============================================================================ !
+
+subroutine macrop_driver_detrain_post_shell(ncol_local, det_ice_local)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+  integer, intent(in) :: ncol_local
+  real(r8), target, intent(inout) :: det_ice_local(pcols)
+
+  interface
+     subroutine macrop_driver_detrain_post_shell_codon(ncol_c, pcols_c, det_ice_p) &
+          bind(c, name="macrop_driver_detrain_post_shell_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c
+       type(c_ptr), value :: det_ice_p
+     end subroutine macrop_driver_detrain_post_shell_codon
+  end interface
+
+  if (use_native_impl) then
+     call macrop_driver_detrain_post_shell_native(ncol_local, det_ice_local)
+     return
+  end if
+
+  if (masterproc .and. .not. detrain_post_shell_logged) then
+     write(iulog,*) 'macrop_driver detrain post shell entered = codon'
+     call macrop_driver_append_impl_proof('MACROP_DRIVER_DETRAIN_SHELL_PROOF_FILE', &
+          'macrop_driver detrain post shell entered = codon')
+     call flush(iulog)
+     detrain_post_shell_logged = .true.
+  end if
+
+  call macrop_driver_detrain_post_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), c_loc(det_ice_local))
+
+end subroutine macrop_driver_detrain_post_shell
+
+!============================================================================ !
+
+subroutine macrop_driver_detrain_post_shell_native(ncol_local, det_ice_local)
+
+  integer, intent(in) :: ncol_local
+  real(r8), intent(inout) :: det_ice_local(pcols)
+
+  det_ice_local(:ncol_local) = det_ice_local(:ncol_local) / 1000._r8
+
+end subroutine macrop_driver_detrain_post_shell_native
+
+!============================================================================ !
+
 subroutine macrop_driver_mmacro_input_shell(ncol_local, state_q_local, zeros_local, qc_local, qi_local, nc_local, ni_local)
 
   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
@@ -1542,6 +1659,73 @@ subroutine macrop_driver_mmacro_post_fields_shell_native(ncol_local, fice_local,
   ast_local(:ncol_local,top_lev:pver) = max(alst_local(:ncol_local,top_lev:pver), aist_local(:ncol_local,top_lev:pver))
 
 end subroutine macrop_driver_mmacro_post_fields_shell_native
+
+!============================================================================ !
+
+integer function macrop_driver_mmacro_config_check(ncol_local, do_cldice_local, do_cldliq_local, qiten_local, niten_local, &
+     qcten_local, ncten_local) result(mask)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  logical, intent(in) :: do_cldice_local, do_cldliq_local
+  real(r8), target, intent(in) :: qiten_local(pcols,pver), niten_local(pcols,pver)
+  real(r8), target, intent(in) :: qcten_local(pcols,pver), ncten_local(pcols,pver)
+  integer(c_int64_t), target :: mask64
+
+  interface
+     subroutine macrop_driver_mmacro_config_check_codon(ncol_c, pcols_c, pver_c, top_lev_c, do_cldice_c, &
+          do_cldliq_c, qiten_p, niten_p, qcten_p, ncten_p, mask_p) &
+          bind(c, name="macrop_driver_mmacro_config_check_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, do_cldice_c, do_cldliq_c
+       type(c_ptr), value :: qiten_p, niten_p, qcten_p, ncten_p, mask_p
+     end subroutine macrop_driver_mmacro_config_check_codon
+  end interface
+
+  if (use_native_impl) then
+     mask = macrop_driver_mmacro_config_check_native(ncol_local, do_cldice_local, do_cldliq_local, qiten_local, niten_local, &
+          qcten_local, ncten_local)
+     return
+  end if
+
+  if (masterproc .and. .not. mmacro_config_check_logged) then
+     write(iulog,*) 'macrop_driver mmacro config check entered = codon'
+     call macrop_driver_append_impl_proof('MACROP_DRIVER_MMPCOND_SHELL_PROOF_FILE', &
+          'macrop_driver mmacro config check entered = codon')
+     call flush(iulog)
+     mmacro_config_check_logged = .true.
+  end if
+
+  mask64 = 0_c_int64_t
+  call macrop_driver_mmacro_config_check_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(top_lev, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, do_cldice_local), &
+       merge(1_c_int64_t, 0_c_int64_t, do_cldliq_local), c_loc(qiten_local), c_loc(niten_local), c_loc(qcten_local), &
+       c_loc(ncten_local), c_loc(mask64))
+  mask = int(mask64)
+
+end function macrop_driver_mmacro_config_check
+
+!============================================================================ !
+
+integer function macrop_driver_mmacro_config_check_native(ncol_local, do_cldice_local, do_cldliq_local, qiten_local, niten_local, &
+     qcten_local, ncten_local) result(mask)
+
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  logical, intent(in) :: do_cldice_local, do_cldliq_local
+  real(r8), intent(in) :: qiten_local(pcols,pver), niten_local(pcols,pver)
+  real(r8), intent(in) :: qcten_local(pcols,pver), ncten_local(pcols,pver)
+
+  mask = 0
+  if ((.not. do_cldice_local) .and. any(qiten_local(:ncol_local,top_lev:pver) /= 0.0_r8)) mask = ior(mask, 1)
+  if ((.not. do_cldice_local) .and. any(niten_local(:ncol_local,top_lev:pver) /= 0.0_r8)) mask = ior(mask, 2)
+  if ((.not. do_cldliq_local) .and. any(qcten_local(:ncol_local,top_lev:pver) /= 0.0_r8)) mask = ior(mask, 4)
+  if ((.not. do_cldliq_local) .and. any(ncten_local(:ncol_local,top_lev:pver) /= 0.0_r8)) mask = ior(mask, 8)
+
+end function macrop_driver_mmacro_config_check_native
 
 !============================================================================ !
 
