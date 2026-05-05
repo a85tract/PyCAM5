@@ -1859,6 +1859,121 @@ def uwshcu_iter_restore_diag_shell_codon(
 
 
 @export
+def uwshcu_column_input_load_shell_codon(
+    mix: int,
+    mkx: int,
+    i_col: int,
+    ncnst: int,
+    ps0_in_p: cobj,
+    zs0_in_p: cobj,
+    p0_in_p: cobj,
+    z0_in_p: cobj,
+    dp0_in_p: cobj,
+    dpdry0_in_p: cobj,
+    u0_in_p: cobj,
+    v0_in_p: cobj,
+    qv0_in_p: cobj,
+    ql0_in_p: cobj,
+    qi0_in_p: cobj,
+    t0_in_p: cobj,
+    s0_in_p: cobj,
+    tke_in_p: cobj,
+    cldfrct_in_p: cobj,
+    concldfrct_in_p: cobj,
+    tr0_in_p: cobj,
+    ps0_p: cobj,
+    zs0_p: cobj,
+    p0_p: cobj,
+    z0_p: cobj,
+    dp0_p: cobj,
+    dpdry0_p: cobj,
+    u0_p: cobj,
+    v0_p: cobj,
+    qv0_p: cobj,
+    ql0_p: cobj,
+    qi0_p: cobj,
+    t0_p: cobj,
+    s0_p: cobj,
+    tke_p: cobj,
+    cldfrct_p: cobj,
+    concldfrct_p: cobj,
+    tr0_p: cobj,
+):
+    ps0_in = Ptr[float](ps0_in_p)
+    zs0_in = Ptr[float](zs0_in_p)
+    p0_in = Ptr[float](p0_in_p)
+    z0_in = Ptr[float](z0_in_p)
+    dp0_in = Ptr[float](dp0_in_p)
+    dpdry0_in = Ptr[float](dpdry0_in_p)
+    u0_in = Ptr[float](u0_in_p)
+    v0_in = Ptr[float](v0_in_p)
+    qv0_in = Ptr[float](qv0_in_p)
+    ql0_in = Ptr[float](ql0_in_p)
+    qi0_in = Ptr[float](qi0_in_p)
+    t0_in = Ptr[float](t0_in_p)
+    s0_in = Ptr[float](s0_in_p)
+    tke_in = Ptr[float](tke_in_p)
+    cldfrct_in = Ptr[float](cldfrct_in_p)
+    concldfrct_in = Ptr[float](concldfrct_in_p)
+    tr0_in = Ptr[float](tr0_in_p)
+    ps0 = Ptr[float](ps0_p)
+    zs0 = Ptr[float](zs0_p)
+    p0 = Ptr[float](p0_p)
+    z0 = Ptr[float](z0_p)
+    dp0 = Ptr[float](dp0_p)
+    dpdry0 = Ptr[float](dpdry0_p)
+    u0 = Ptr[float](u0_p)
+    v0 = Ptr[float](v0_p)
+    qv0 = Ptr[float](qv0_p)
+    ql0 = Ptr[float](ql0_p)
+    qi0 = Ptr[float](qi0_p)
+    t0 = Ptr[float](t0_p)
+    s0 = Ptr[float](s0_p)
+    tke = Ptr[float](tke_p)
+    cldfrct = Ptr[float](cldfrct_p)
+    concldfrct = Ptr[float](concldfrct_p)
+    tr0 = Ptr[float](tr0_p)
+
+    col = i_col - 1
+
+    k = 0
+    while k <= mkx:
+        src = col + k * mix
+        ps0[k] = ps0_in[src]
+        zs0[k] = zs0_in[src]
+        tke[k] = tke_in[src]
+        k += 1
+
+    k = 0
+    while k < mkx:
+        src = col + k * mix
+        p0[k] = p0_in[src]
+        z0[k] = z0_in[src]
+        dp0[k] = dp0_in[src]
+        dpdry0[k] = dpdry0_in[src]
+        u0[k] = u0_in[src]
+        v0[k] = v0_in[src]
+        qv0[k] = qv0_in[src]
+        ql0[k] = ql0_in[src]
+        qi0[k] = qi0_in[src]
+        t0[k] = t0_in[src]
+        s0[k] = s0_in[src]
+        cldfrct[k] = cldfrct_in[src]
+        concldfrct[k] = concldfrct_in[src]
+        k += 1
+
+    m = 0
+    while m < ncnst:
+        src_offset = m * mix * mkx
+        dst_offset = m * mkx
+        k = 0
+        while k < mkx:
+            tr0[k + dst_offset] = tr0_in[col + k * mix + src_offset]
+            k += 1
+        m += 1
+
+
+@export
 def uwshcu_column_env_save_shell_codon(
     mkx: int,
     ncnst: int,

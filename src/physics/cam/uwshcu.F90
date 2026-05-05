@@ -47,6 +47,7 @@
   logical :: delcin_reset_shell_entered_logged = .false.
   logical :: iter_save_shell_entered_logged = .false.
   logical :: column_init_shell_entered_logged = .false.
+  logical :: column_input_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -292,6 +293,21 @@ contains
     end if
 
   end subroutine uwshcu_log_column_init_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_column_input_shell_entered()
+
+    if (column_input_shell_entered_logged) return
+    column_input_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu column input shell entered (per-column input load direct = codon)'
+       call uwshcu_append_proof('uwshcu column input shell entered (per-column input load direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_column_input_shell_entered
 
 !===============================================================================
   
@@ -876,23 +892,23 @@ end subroutine uwshcu_readnl
     integer , intent(in)    :: iend
     integer , intent(in)    :: ncnst
     real(r8), intent(in)    :: dt                             !  Time step : 2*delta_t [ s ]
-    real(r8), intent(in)    :: ps0_in(mix,0:mkx)              !  Environmental pressure at the interfaces [ Pa ]
-    real(r8), intent(in)    :: zs0_in(mix,0:mkx)              !  Environmental height at the interfaces [ m ]
-    real(r8), intent(in)    :: p0_in(mix,mkx)                 !  Environmental pressure at the layer mid-point [ Pa ]
-    real(r8), intent(in)    :: z0_in(mix,mkx)                 !  Environmental height at the layer mid-point [ m ]
-    real(r8), intent(in)    :: dp0_in(mix,mkx)                !  Environmental layer pressure thickness [ Pa ] > 0.
-    real(r8), intent(in)    :: dpdry0_in(mix,mkx)             !  Environmental dry layer pressure thickness [ Pa ]
-    real(r8), intent(in)    :: u0_in(mix,mkx)                 !  Environmental zonal wind [ m/s ]
-    real(r8), intent(in)    :: v0_in(mix,mkx)                 !  Environmental meridional wind [ m/s ]
-    real(r8), intent(in)    :: qv0_in(mix,mkx)                !  Environmental water vapor specific humidity [ kg/kg ]
-    real(r8), intent(in)    :: ql0_in(mix,mkx)                !  Environmental liquid water specific humidity [ kg/kg ]
-    real(r8), intent(in)    :: qi0_in(mix,mkx)                !  Environmental ice specific humidity [ kg/kg ]
-    real(r8), intent(in)    :: t0_in(mix,mkx)                 !  Environmental temperature [ K ]
-    real(r8), intent(in)    :: s0_in(mix,mkx)                 !  Environmental dry static energy [ J/kg ]
-    real(r8), intent(in)    :: tr0_in(mix,mkx,ncnst)          !  Environmental tracers [ #, kg/kg ]
-    real(r8), intent(in)    :: tke_in(mix,0:mkx)              !  Turbulent kinetic energy at the interfaces [ m2/s2 ]
-    real(r8), intent(in)    :: cldfrct_in(mix,mkx)            !  Total cloud fraction at the previous time step [ fraction ]
-    real(r8), intent(in)    :: concldfrct_in(mix,mkx)         !  Total convective cloud fraction
+    real(r8), target, intent(in) :: ps0_in(mix,0:mkx)         !  Environmental pressure at the interfaces [ Pa ]
+    real(r8), target, intent(in) :: zs0_in(mix,0:mkx)         !  Environmental height at the interfaces [ m ]
+    real(r8), target, intent(in) :: p0_in(mix,mkx)            !  Environmental pressure at the layer mid-point [ Pa ]
+    real(r8), target, intent(in) :: z0_in(mix,mkx)            !  Environmental height at the layer mid-point [ m ]
+    real(r8), target, intent(in) :: dp0_in(mix,mkx)           !  Environmental layer pressure thickness [ Pa ] > 0.
+    real(r8), target, intent(in) :: dpdry0_in(mix,mkx)        !  Environmental dry layer pressure thickness [ Pa ]
+    real(r8), target, intent(in) :: u0_in(mix,mkx)            !  Environmental zonal wind [ m/s ]
+    real(r8), target, intent(in) :: v0_in(mix,mkx)            !  Environmental meridional wind [ m/s ]
+    real(r8), target, intent(in) :: qv0_in(mix,mkx)           !  Environmental water vapor specific humidity [ kg/kg ]
+    real(r8), target, intent(in) :: ql0_in(mix,mkx)           !  Environmental liquid water specific humidity [ kg/kg ]
+    real(r8), target, intent(in) :: qi0_in(mix,mkx)           !  Environmental ice specific humidity [ kg/kg ]
+    real(r8), target, intent(in) :: t0_in(mix,mkx)            !  Environmental temperature [ K ]
+    real(r8), target, intent(in) :: s0_in(mix,mkx)            !  Environmental dry static energy [ J/kg ]
+    real(r8), target, intent(in) :: tr0_in(mix,mkx,ncnst)     !  Environmental tracers [ #, kg/kg ]
+    real(r8), target, intent(in) :: tke_in(mix,0:mkx)         !  Turbulent kinetic energy at the interfaces [ m2/s2 ]
+    real(r8), target, intent(in) :: cldfrct_in(mix,mkx)       !  Total cloud fraction at the previous time step [ fraction ]
+    real(r8), target, intent(in) :: concldfrct_in(mix,mkx)    !  Total convective cloud fraction
                                                               ! at the previous time step [ fraction ]
     real(r8), intent(in)    :: pblh_in(mix)                   !  Height of PBL [ m ]
     real(r8), target, intent(inout) :: cush_inout(mix)        !  Convective scale height [ m ]
@@ -956,17 +972,17 @@ end subroutine uwshcu_readnl
 
     ! 1. Input variables
 
-    real(r8)    ps0(0:mkx)                                    !  Environmental pressure at the interfaces [ Pa ]
-    real(r8)    zs0(0:mkx)                                    !  Environmental height at the interfaces [ m ]
-    real(r8)    p0(mkx)                                       !  Environmental pressure at the layer mid-point [ Pa ]
-    real(r8)    z0(mkx)                                       !  Environmental height at the layer mid-point [ m ]
-    real(r8)    dp0(mkx)                                      !  Environmental layer pressure thickness [ Pa ] > 0.
-    real(r8)    dpdry0(mkx)                                   !  Environmental dry layer pressure thickness [ Pa ]
+    real(r8), target :: ps0(0:mkx)                            !  Environmental pressure at the interfaces [ Pa ]
+    real(r8), target :: zs0(0:mkx)                            !  Environmental height at the interfaces [ m ]
+    real(r8), target :: p0(mkx)                               !  Environmental pressure at the layer mid-point [ Pa ]
+    real(r8), target :: z0(mkx)                               !  Environmental height at the layer mid-point [ m ]
+    real(r8), target :: dp0(mkx)                              !  Environmental layer pressure thickness [ Pa ] > 0.
+    real(r8), target :: dpdry0(mkx)                           !  Environmental dry layer pressure thickness [ Pa ]
     real(r8), target :: u0(mkx)                               !  Environmental zonal wind [ m/s ]
     real(r8), target :: v0(mkx)                               !  Environmental meridional wind [ m/s ]
-    real(r8)    tke(0:mkx)                                    !  Turbulent kinetic energy at the interfaces [ m2/s2 ]
-    real(r8)    cldfrct(mkx)                                  !  Total cloud fraction at the previous time step [ fraction ]
-    real(r8)    concldfrct(mkx)                               !  Total convective cloud fraction
+    real(r8), target :: tke(0:mkx)                            !  Turbulent kinetic energy at the interfaces [ m2/s2 ]
+    real(r8), target :: cldfrct(mkx)                          !  Total cloud fraction at the previous time step [ fraction ]
+    real(r8), target :: concldfrct(mkx)                       !  Total convective cloud fraction
                                                               !  at the previous time step [ fraction ]
     real(r8), target :: qv0(mkx)                              !  Environmental water vapor specific humidity [ kg/kg ]
     real(r8), target :: ql0(mkx)                              !  Environmental liquid water specific humidity [ kg/kg ]
@@ -1665,6 +1681,21 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: bogtop_out_p, trflx_out_p, tru_out_p, tru_emf_out_p
        end subroutine uwshcu_iter_restore_diag_shell_codon
 
+       subroutine uwshcu_column_input_load_shell_codon(mix_c, mkx_c, i_c, ncnst_c, &
+            ps0_in_p, zs0_in_p, p0_in_p, z0_in_p, dp0_in_p, dpdry0_in_p, u0_in_p, v0_in_p, &
+            qv0_in_p, ql0_in_p, qi0_in_p, t0_in_p, s0_in_p, tke_in_p, cldfrct_in_p, &
+            concldfrct_in_p, tr0_in_p, ps0_p, zs0_p, p0_p, z0_p, dp0_p, dpdry0_p, u0_p, &
+            v0_p, qv0_p, ql0_p, qi0_p, t0_p, s0_p, tke_p, cldfrct_p, concldfrct_p, tr0_p) &
+            bind(c, name="uwshcu_column_input_load_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: mix_c, mkx_c, i_c, ncnst_c
+          type(c_ptr), value :: ps0_in_p, zs0_in_p, p0_in_p, z0_in_p, dp0_in_p, dpdry0_in_p
+          type(c_ptr), value :: u0_in_p, v0_in_p, qv0_in_p, ql0_in_p, qi0_in_p, t0_in_p, s0_in_p
+          type(c_ptr), value :: tke_in_p, cldfrct_in_p, concldfrct_in_p, tr0_in_p, ps0_p, zs0_p
+          type(c_ptr), value :: p0_p, z0_p, dp0_p, dpdry0_p, u0_p, v0_p, qv0_p, ql0_p, qi0_p
+          type(c_ptr), value :: t0_p, s0_p, tke_p, cldfrct_p, concldfrct_p, tr0_p
+       end subroutine uwshcu_column_input_load_shell_codon
+
        subroutine uwshcu_column_env_save_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, &
             ssthl0_p, ssqt0_p, thv0bot_p, thv0top_p, thvl0bot_p, thvl0top_p, &
@@ -2092,6 +2123,7 @@ end subroutine uwshcu_readnl
       ! Define 1D input variables at each grid point !
       ! -------------------------------------------- !
 
+      if (use_native_init_shell_impl) then
       ps0(0:mkx)       = ps0_in(i,0:mkx)
       zs0(0:mkx)       = zs0_in(i,0:mkx)
       p0(:mkx)         = p0_in(i,:mkx)
@@ -2113,6 +2145,19 @@ end subroutine uwshcu_readnl
       do m = 1, ncnst
          tr0(:mkx,m)   = tr0_in(i,:mkx,m)
       enddo
+      else
+         call uwshcu_log_column_input_shell_entered()
+         call uwshcu_column_input_load_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), &
+              int(i, c_int64_t), int(ncnst, c_int64_t), c_loc(ps0_in), c_loc(zs0_in), c_loc(p0_in), &
+              c_loc(z0_in), c_loc(dp0_in), c_loc(dpdry0_in), c_loc(u0_in), c_loc(v0_in), &
+              c_loc(qv0_in), c_loc(ql0_in), c_loc(qi0_in), c_loc(t0_in), c_loc(s0_in), &
+              c_loc(tke_in), c_loc(cldfrct_in), c_loc(concldfrct_in), c_loc(tr0_in), c_loc(ps0), &
+              c_loc(zs0), c_loc(p0), c_loc(z0), c_loc(dp0), c_loc(dpdry0), c_loc(u0), c_loc(v0), &
+              c_loc(qv0), c_loc(ql0), c_loc(qi0), c_loc(t0), c_loc(s0), c_loc(tke), c_loc(cldfrct), &
+              c_loc(concldfrct), c_loc(tr0))
+      end if
+      pblh             = pblh_in(i)
+      cush             = cush_inout(i)
 
       ! --------------------------------------------------------- !
       ! Compute other basic thermodynamic variables directly from ! 
