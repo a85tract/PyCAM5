@@ -140,6 +140,22 @@ def convect_shallow_select_scheme_codon(
 
 
 @export
+def convect_shallow_init_shell_codon(
+    ncol: int,
+    pcols: int,
+    tpert_p: cobj,
+    landfracdum_p: cobj,
+):
+    tpert = Ptr[float](tpert_p)
+    landfracdum = Ptr[float](landfracdum_p)
+
+    for i in range(1, ncol + 1):
+        idx1 = i - 1
+        tpert[idx1] = 0.0
+        landfracdum[idx1] = 0.0
+
+
+@export
 def convect_shallow_diag_shell_codon(
     mode: int,
     ncol: int,

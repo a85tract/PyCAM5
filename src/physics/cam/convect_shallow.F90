@@ -67,6 +67,7 @@
    integer    :: codon_scheme_code  = 0
    logical    :: codon_scheme_selected = .false.
    logical    :: convect_shallow_diag_shell_logged = .false.
+   logical    :: convect_shallow_init_shell_logged = .false.
 
    integer :: & ! field index in physics buffer
       sh_flxprc_idx, &
@@ -624,8 +625,7 @@ end subroutine convect_shallow_init_cnst
    call pbuf_get_field(pbuf, pblh_idx, pblh)
 
    !  This field probably should reference the pbuf tpert field but it doesnt
-   tpert(:ncol)         = 0._r8
-   landfracdum(:ncol)   = 0._r8
+   call convect_shallow_init_shell(ncol, tpert, landfracdum)
 
    if (use_native_impl) then
       select case (shallow_scheme)
@@ -1169,6 +1169,58 @@ subroutine convect_shallow_append_proof(proof_line)
    end if
 
 end subroutine convect_shallow_append_proof
+
+subroutine convect_shallow_log_init_shell_entered()
+
+   use spmd_utils, only: masterproc
+
+   if (convect_shallow_init_shell_logged) return
+   convect_shallow_init_shell_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'convect_shallow init shell entered (tpert/landfracdum init direct = codon)'
+      call convect_shallow_append_proof('convect_shallow init shell entered (tpert/landfracdum init direct = codon)')
+      call flush(iulog)
+   end if
+
+end subroutine convect_shallow_log_init_shell_entered
+
+subroutine convect_shallow_init_shell(ncol_local, tpert_local, landfracdum_local)
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+   integer, intent(in) :: ncol_local
+   real(r8), target, intent(inout) :: tpert_local(pcols), landfracdum_local(pcols)
+
+   interface
+      subroutine convect_shallow_init_shell_codon(ncol_c, pcols_c, tpert_p, landfracdum_p) &
+           bind(c, name="convect_shallow_init_shell_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c
+         type(c_ptr), value :: tpert_p, landfracdum_p
+      end subroutine convect_shallow_init_shell_codon
+   end interface
+
+   if (use_native_impl) then
+      call convect_shallow_init_shell_native(ncol_local, tpert_local, landfracdum_local)
+      return
+   end if
+
+   call convect_shallow_log_init_shell_entered()
+   call convect_shallow_init_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), &
+        c_loc(tpert_local), c_loc(landfracdum_local))
+
+end subroutine convect_shallow_init_shell
+
+subroutine convect_shallow_init_shell_native(ncol_local, tpert_local, landfracdum_local)
+
+   integer, intent(in) :: ncol_local
+   real(r8), intent(inout) :: tpert_local(pcols), landfracdum_local(pcols)
+
+   tpert_local(:ncol_local) = 0._r8
+   landfracdum_local(:ncol_local) = 0._r8
+
+end subroutine convect_shallow_init_shell_native
 
 subroutine convect_shallow_log_diag_shell_entered()
 
