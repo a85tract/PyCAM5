@@ -139,6 +139,9 @@ logical :: use_native_reff_calc_impl = .false.
 logical :: reff_calc_impl_selected = .false.
 logical :: use_native_diag_shell_impl = .false.
 logical :: diag_shell_impl_selected = .false.
+logical :: use_native_pbuf_copy_impl = .false.
+logical :: pbuf_copy_impl_selected = .false.
+logical :: pbuf_copy_entered_logged = .false.
 logical :: use_reff_calc_compare = .false.
 logical :: reff_calc_compare_selected = .false.
 logical :: reff_calc_compare_done = .false.
@@ -2722,10 +2725,8 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    end if
 
    ! Assign the values to the pbuf pointers if they exist in pbuf
-   if (qrain_idx > 0)  qrout_grid_ptr = qrout_grid
-   if (qsnow_idx > 0)  qsout_grid_ptr = qsout_grid
-   if (nrain_idx > 0)  nrout_grid_ptr = nrout_grid
-   if (nsnow_idx > 0)  nsout_grid_ptr = nsout_grid
+   call micro_mg_cam_pbuf_copy(ncol, qrain_idx > 0, qsnow_idx > 0, nrain_idx > 0, nsnow_idx > 0, &
+        qrout_grid, qsout_grid, nrout_grid, nsout_grid, qrout_grid_ptr, qsout_grid_ptr, nrout_grid_ptr, nsout_grid_ptr)
 
    ! --------------------------------------------- !
    ! General outfield calls for microphysics       !
@@ -3096,6 +3097,113 @@ subroutine micro_mg_cam_diag_shell_codon_wrap(ngrdcol_local, micro_mg_version_lo
        c_loc(prcio_grid_local), c_loc(praio_grid_local), c_loc(budget_ftem_grid_local))
 
 end subroutine micro_mg_cam_diag_shell_codon_wrap
+
+subroutine micro_mg_cam_select_pbuf_copy_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (pbuf_copy_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MICRO_MG_CAM_PBUF_COPY_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_pbuf_copy_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_pbuf_copy_impl = .false.
+  end if
+
+  pbuf_copy_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_pbuf_copy_impl) then
+        write(iulog,*) 'micro_mg_cam_pbuf_copy implementation = native'
+        call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_PBUF_COPY_PROOF_FILE', &
+             'micro_mg_cam_pbuf_copy implementation = native')
+     else
+        write(iulog,*) 'micro_mg_cam_pbuf_copy implementation = codon'
+        call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_PBUF_COPY_PROOF_FILE', &
+             'micro_mg_cam_pbuf_copy implementation = codon')
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine micro_mg_cam_select_pbuf_copy_impl
+
+subroutine micro_mg_cam_pbuf_copy_log_entered()
+
+  if (pbuf_copy_entered_logged) return
+  pbuf_copy_entered_logged = .true.
+
+  if (masterproc) then
+     write(iulog,*) 'micro_mg_cam_pbuf_copy entered (QRAIN/QSNOW/NRAIN/NSNOW pbuf copies direct = codon)'
+     call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_PBUF_COPY_PROOF_FILE', &
+          'micro_mg_cam_pbuf_copy entered (QRAIN/QSNOW/NRAIN/NSNOW pbuf copies direct = codon)')
+     call flush(iulog)
+  end if
+
+end subroutine micro_mg_cam_pbuf_copy_log_entered
+
+subroutine micro_mg_cam_pbuf_copy(ncol_local, copy_qrain_local, copy_qsnow_local, copy_nrain_local, copy_nsnow_local, &
+     qrout_grid_local, qsout_grid_local, nrout_grid_local, nsout_grid_local, qrout_grid_ptr_local, qsout_grid_ptr_local, &
+     nrout_grid_ptr_local, nsout_grid_ptr_local)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+  integer, intent(in) :: ncol_local
+  logical, intent(in) :: copy_qrain_local, copy_qsnow_local, copy_nrain_local, copy_nsnow_local
+  real(r8), target, intent(in) :: qrout_grid_local(pcols,pver), qsout_grid_local(pcols,pver)
+  real(r8), target, intent(in) :: nrout_grid_local(pcols,pver), nsout_grid_local(pcols,pver)
+  real(r8), pointer, intent(inout) :: qrout_grid_ptr_local(:,:), qsout_grid_ptr_local(:,:)
+  real(r8), pointer, intent(inout) :: nrout_grid_ptr_local(:,:), nsout_grid_ptr_local(:,:)
+  type(c_ptr) :: qrout_dst_p, qsout_dst_p, nrout_dst_p, nsout_dst_p
+
+  interface
+     subroutine micro_mg_cam_pbuf_copy_codon(ncol_c, pcols_c, pver_c, copy_qrain_c, copy_qsnow_c, copy_nrain_c, &
+          copy_nsnow_c, qrout_grid_p, qsout_grid_p, nrout_grid_p, nsout_grid_p, qrout_grid_ptr_p, qsout_grid_ptr_p, &
+          nrout_grid_ptr_p, nsout_grid_ptr_p) bind(c, name="micro_mg_cam_pbuf_copy_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, copy_qrain_c, copy_qsnow_c, copy_nrain_c, copy_nsnow_c
+       type(c_ptr), value :: qrout_grid_p, qsout_grid_p, nrout_grid_p, nsout_grid_p
+       type(c_ptr), value :: qrout_grid_ptr_p, qsout_grid_ptr_p, nrout_grid_ptr_p, nsout_grid_ptr_p
+     end subroutine micro_mg_cam_pbuf_copy_codon
+  end interface
+
+  call micro_mg_cam_select_pbuf_copy_impl()
+
+  if (use_native_pbuf_copy_impl) then
+     if (copy_qrain_local) qrout_grid_ptr_local = qrout_grid_local
+     if (copy_qsnow_local) qsout_grid_ptr_local = qsout_grid_local
+     if (copy_nrain_local) nrout_grid_ptr_local = nrout_grid_local
+     if (copy_nsnow_local) nsout_grid_ptr_local = nsout_grid_local
+     return
+  end if
+
+  call micro_mg_cam_pbuf_copy_log_entered()
+
+  qrout_dst_p = c_loc(qrout_grid_local)
+  qsout_dst_p = c_loc(qsout_grid_local)
+  nrout_dst_p = c_loc(nrout_grid_local)
+  nsout_dst_p = c_loc(nsout_grid_local)
+  if (copy_qrain_local) qrout_dst_p = c_loc(qrout_grid_ptr_local)
+  if (copy_qsnow_local) qsout_dst_p = c_loc(qsout_grid_ptr_local)
+  if (copy_nrain_local) nrout_dst_p = c_loc(nrout_grid_ptr_local)
+  if (copy_nsnow_local) nsout_dst_p = c_loc(nsout_grid_ptr_local)
+
+  call micro_mg_cam_pbuf_copy_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(merge(1, 0, copy_qrain_local), c_int64_t), int(merge(1, 0, copy_qsnow_local), c_int64_t), &
+       int(merge(1, 0, copy_nrain_local), c_int64_t), int(merge(1, 0, copy_nsnow_local), c_int64_t), &
+       c_loc(qrout_grid_local), c_loc(qsout_grid_local), c_loc(nrout_grid_local), c_loc(nsout_grid_local), &
+       qrout_dst_p, qsout_dst_p, nrout_dst_p, nsout_dst_p)
+
+end subroutine micro_mg_cam_pbuf_copy
 
 subroutine micro_mg_cam_select_wtrc_shell_impl()
 

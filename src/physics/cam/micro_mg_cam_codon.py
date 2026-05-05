@@ -902,6 +902,46 @@ def micro_mg_cam_budget_diag_codon(
 
 
 @export
+def micro_mg_cam_pbuf_copy_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    copy_qrain: int,
+    copy_qsnow: int,
+    copy_nrain: int,
+    copy_nsnow: int,
+    qrout_grid_p: cobj,
+    qsout_grid_p: cobj,
+    nrout_grid_p: cobj,
+    nsout_grid_p: cobj,
+    qrout_grid_ptr_p: cobj,
+    qsout_grid_ptr_p: cobj,
+    nrout_grid_ptr_p: cobj,
+    nsout_grid_ptr_p: cobj,
+):
+    qrout_grid = Ptr[float](qrout_grid_p)
+    qsout_grid = Ptr[float](qsout_grid_p)
+    nrout_grid = Ptr[float](nrout_grid_p)
+    nsout_grid = Ptr[float](nsout_grid_p)
+    qrout_grid_ptr = Ptr[float](qrout_grid_ptr_p)
+    qsout_grid_ptr = Ptr[float](qsout_grid_ptr_p)
+    nrout_grid_ptr = Ptr[float](nrout_grid_ptr_p)
+    nsout_grid_ptr = Ptr[float](nsout_grid_ptr_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, pcols + 1):
+            idx2 = _idx2(i, k, pcols)
+            if copy_qrain == 1:
+                qrout_grid_ptr[idx2] = qrout_grid[idx2]
+            if copy_qsnow == 1:
+                qsout_grid_ptr[idx2] = qsout_grid[idx2]
+            if copy_nrain == 1:
+                nrout_grid_ptr[idx2] = nrout_grid[idx2]
+            if copy_nsnow == 1:
+                nsout_grid_ptr[idx2] = nsout_grid[idx2]
+
+
+@export
 def micro_mg_cam_reff_calc_codon(
     ngrdcol: int,
     pcols: int,
