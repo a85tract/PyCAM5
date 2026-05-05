@@ -73,6 +73,9 @@ module zm_conv
    logical :: use_native_zm_momtran_main = .false.
    logical :: zm_momtran_main_selected = .false.
    logical :: zm_momtran_main_logged = .false.
+   logical :: use_native_zm_convtran_main = .false.
+   logical :: zm_convtran_main_selected = .false.
+   logical :: zm_convtran_main_logged = .false.
 
 contains
 
@@ -234,6 +237,50 @@ subroutine zm_momtran_main_select_impl()
    end if
 
 end subroutine zm_momtran_main_select_impl
+
+
+subroutine zm_convtran_main_select_impl()
+
+   character(len=32) :: impl_name, convtran_impl_name
+   integer :: status, convtran_status, n, convtran_n, i, code
+
+   if (zm_convtran_main_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('ZM_CONV_POST_SHELL_IMPL', value=impl_name, length=n, status=status)
+   call get_environment_variable('ZM_CONVTRAN_MAIN_IMPL', value=convtran_impl_name, length=convtran_n, status=convtran_status)
+   if (convtran_status == 0 .and. convtran_n > 0) then
+      impl_name = convtran_impl_name
+      n = convtran_n
+      status = convtran_status
+   end if
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_zm_convtran_main = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_zm_convtran_main = .false.
+   end if
+
+   zm_convtran_main_selected = .true.
+
+   if (masterproc) then
+      if (use_native_zm_convtran_main) then
+         write(iulog,*) 'zm_convtran main implementation = native'
+         call zm_conv_evap_append_impl_proof('zm_convtran main implementation = native')
+      else
+         write(iulog,*) 'zm_convtran main implementation = codon'
+         call zm_conv_evap_append_impl_proof('zm_convtran main implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine zm_convtran_main_select_impl
 
 
 subroutine zm_convr(lchnk   ,ncol    , &
@@ -1245,6 +1292,7 @@ subroutine convtran(lchnk   , &
 ! Rwt added by J. Nusbaumer to fix mystery variable passing error 
 !
 !-----------------------------------------------------------------------
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
    use shr_kind_mod,    only: r8 => shr_kind_r8
    use constituents,    only: cnst_get_type_byind
    use ppgrid
@@ -1263,29 +1311,29 @@ subroutine convtran(lchnk   , &
    integer, intent(in) :: lchnk                 ! chunk identifier
    integer, intent(in) :: ncnst                 ! number of tracers to transport
    logical, intent(in) :: doconvtran(ncnst)     ! flag for doing convective transport
-   real(r8), intent(in) :: q(pcols,pver,ncnst)  ! Tracer array including moisture
-   real(r8), intent(in) :: mu(pcols,pver)       ! Mass flux up
-   real(r8), intent(in) :: md(pcols,pver)       ! Mass flux down
-   real(r8), intent(in) :: du(pcols,pver)       ! Mass detraining from updraft
-   real(r8), intent(in) :: eu(pcols,pver)       ! Mass entraining from updraft
-   real(r8), intent(in) :: ed(pcols,pver)       ! Mass entraining from downdraft
-   real(r8), intent(in) :: dp(pcols,pver)       ! Delta pressure between interfaces
+   real(r8), target, intent(in) :: q(pcols,pver,ncnst)  ! Tracer array including moisture
+   real(r8), target, intent(in) :: mu(pcols,pver)       ! Mass flux up
+   real(r8), target, intent(in) :: md(pcols,pver)       ! Mass flux down
+   real(r8), target, intent(in) :: du(pcols,pver)       ! Mass detraining from updraft
+   real(r8), target, intent(in) :: eu(pcols,pver)       ! Mass entraining from updraft
+   real(r8), target, intent(in) :: ed(pcols,pver)       ! Mass entraining from downdraft
+   real(r8), target, intent(in) :: dp(pcols,pver)       ! Delta pressure between interfaces
    real(r8), intent(in) :: dsubcld(pcols)       ! Delta pressure from cloud base to sfc
-   real(r8), intent(in) :: fracis(pcols,pver,ncnst) ! fraction of tracer that is insoluble
+   real(r8), target, intent(in) :: fracis(pcols,pver,ncnst) ! fraction of tracer that is insoluble
 
-   integer, intent(in) :: jt(pcols)         ! Index of cloud top for each column
-   integer, intent(in) :: mx(pcols)         ! Index of cloud top for each column
-   integer, intent(in) :: ideep(pcols)      ! Gathering array
+   integer, target, intent(in) :: jt(pcols)         ! Index of cloud top for each column
+   integer, target, intent(in) :: mx(pcols)         ! Index of cloud top for each column
+   integer, target, intent(in) :: ideep(pcols)      ! Gathering array
    integer, intent(in) :: il1g              ! Gathered min lon indices over which to operate
    integer, intent(in) :: il2g              ! Gathered max lon indices over which to operate
    integer, intent(in) :: nstep             ! Time step index
 
-   real(r8), intent(in) :: dpdry(pcols,pver)       ! Delta pressure between interfaces
+   real(r8), target, intent(in) :: dpdry(pcols,pver)       ! Delta pressure between interfaces
 
 
 ! input/output
 
-   real(r8), intent(out) :: dqdt(pcols,pver,ncnst)  ! Tracer tendency array
+   real(r8), target, intent(out) :: dqdt(pcols,pver,ncnst)  ! Tracer tendency array
   
 !water tracers:
    !NOTE:  the 2 at the end is for liquid and ice - JN
@@ -1306,12 +1354,12 @@ subroutine convtran(lchnk   , &
    real(r8) cabv                 ! Mix ratio of constituent above
    real(r8) cbel                 ! Mix ratio of constituent below
    real(r8) cdifr                ! Normalized diff between cabv and cbel
-   real(r8) chat(pcols,pver)     ! Mix ratio in env at interfaces
-   real(r8) cond(pcols,pver)     ! Mix ratio in downdraft at interfaces
-   real(r8) const(pcols,pver)    ! Gathered tracer array
-   real(r8) fisg(pcols,pver)     ! gathered insoluble fraction of tracer
-   real(r8) conu(pcols,pver)     ! Mix ratio in updraft at interfaces
-   real(r8) dcondt(pcols,pver)   ! Gathered tend array
+   real(r8), target :: chat(pcols,pver)     ! Mix ratio in env at interfaces
+   real(r8), target :: cond(pcols,pver)     ! Mix ratio in downdraft at interfaces
+   real(r8), target :: const(pcols,pver)    ! Gathered tracer array
+   real(r8), target :: fisg(pcols,pver)     ! gathered insoluble fraction of tracer
+   real(r8), target :: conu(pcols,pver)     ! Mix ratio in updraft at interfaces
+   real(r8), target :: dcondt(pcols,pver)   ! Gathered tend array
    real(r8) small                ! A small number
    real(r8) mbsth                ! Threshold for mass fluxes
    real(r8) mupdudp              ! A work variable
@@ -1321,18 +1369,69 @@ subroutine convtran(lchnk   , &
    real(r8) fluxout              ! A work variable
    real(r8) netflux              ! A work variable
 
-   real(r8) dutmp(pcols,pver)       ! Mass detraining from updraft
-   real(r8) eutmp(pcols,pver)       ! Mass entraining from updraft
-   real(r8) edtmp(pcols,pver)       ! Mass entraining from downdraft
-   real(r8) dptmp(pcols,pver)    ! Delta pressure between interfaces
+   real(r8), target :: dutmp(pcols,pver)       ! Mass detraining from updraft
+   real(r8), target :: eutmp(pcols,pver)       ! Mass entraining from updraft
+   real(r8), target :: edtmp(pcols,pver)       ! Mass entraining from downdraft
+   real(r8), target :: dptmp(pcols,pver)    ! Delta pressure between interfaces
 
    !Water tracers?
    real(r8) chtmp(pcols,pver)       !Use for debugging...
+   integer(c_int64_t), target :: doconvtran64(ncnst), is_dry64(ncnst), jt64(pcols), mx64(pcols), ideep64(pcols)
+
+   interface
+      subroutine zm_convtran_main_codon(pcols_c, pver_c, ncnst_c, il1g_c, il2g_c, &
+           doconvtran_p, is_dry_p, q_p, mu_p, md_p, du_p, eu_p, ed_p, dp_p, fracis_p, dpdry_p, &
+           jt_p, mx_p, ideep_p, dqdt_p, chat_p, cond_p, const_p, fisg_p, conu_p, dcondt_p, &
+           dutmp_p, eutmp_p, edtmp_p, dptmp_p) bind(c, name="zm_convtran_main_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: pcols_c, pver_c, ncnst_c, il1g_c, il2g_c
+         type(c_ptr), value :: doconvtran_p, is_dry_p, q_p, mu_p, md_p, du_p, eu_p, ed_p, dp_p
+         type(c_ptr), value :: fracis_p, dpdry_p, jt_p, mx_p, ideep_p, dqdt_p, chat_p, cond_p, const_p
+         type(c_ptr), value :: fisg_p, conu_p, dcondt_p, dutmp_p, eutmp_p, edtmp_p, dptmp_p
+      end subroutine zm_convtran_main_codon
+   end interface
 
 !NOTE:  ixcldice = 3  - JN
 
 !-----------------------------------------------------------------------
 !
+
+   do m = 1, ncnst
+      if (doconvtran(m)) then
+         doconvtran64(m) = 1_c_int64_t
+      else
+         doconvtran64(m) = 0_c_int64_t
+      end if
+      if (cnst_get_type_byind(m).eq.'dry') then
+         is_dry64(m) = 1_c_int64_t
+      else
+         is_dry64(m) = 0_c_int64_t
+      end if
+   end do
+
+   do i = 1, pcols
+      jt64(i) = int(jt(i), c_int64_t)
+      mx64(i) = int(mx(i), c_int64_t)
+      ideep64(i) = int(ideep(i), c_int64_t)
+   end do
+
+   call zm_convtran_main_select_impl()
+   if (.not. use_native_zm_convtran_main) then
+      if (masterproc .and. .not. zm_convtran_main_logged) then
+         write(iulog,*) 'zm_convtran main loop entered (tracer transport direct = codon; Rwt ratio = native)'
+         call zm_conv_evap_append_impl_proof( &
+              'zm_convtran main loop entered (tracer transport direct = codon; Rwt ratio = native)')
+         call flush(iulog)
+         zm_convtran_main_logged = .true.
+      end if
+
+      call zm_convtran_main_codon(int(pcols, c_int64_t), int(pver, c_int64_t), int(ncnst, c_int64_t), &
+           int(il1g, c_int64_t), int(il2g, c_int64_t), c_loc(doconvtran64), c_loc(is_dry64), c_loc(q), &
+           c_loc(mu), c_loc(md), c_loc(du), c_loc(eu), c_loc(ed), c_loc(dp), c_loc(fracis), c_loc(dpdry), &
+           c_loc(jt64), c_loc(mx64), c_loc(ideep64), c_loc(dqdt), c_loc(chat), c_loc(cond), c_loc(const), &
+           c_loc(fisg), c_loc(conu), c_loc(dcondt), c_loc(dutmp), c_loc(eutmp), c_loc(edtmp), c_loc(dptmp))
+   else
+
    small = 1.e-36_r8
 ! mbsth is the threshold below which we treat the mass fluxes as zero (in mb/s)
    mbsth = 1.e-15_r8
@@ -1541,6 +1640,8 @@ subroutine convtran(lchnk   , &
       end if      ! for doconvtran
 
    end do
+
+   end if
 
    if ( trace_water )then
 !Calculate the water tracer ratio:

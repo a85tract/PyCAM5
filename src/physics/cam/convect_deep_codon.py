@@ -1,4 +1,4 @@
-from math import sqrt
+from math import log, sqrt
 
 
 @export
@@ -1024,6 +1024,258 @@ def zm_momtran_main_codon(
             seten[ii + k * pcols] = gseten[i + k * pcols]
             i += 1
         k += 1
+
+
+@export
+def zm_convtran_main_codon(
+    pcols: int,
+    pver: int,
+    ncnst: int,
+    il1g: int,
+    il2g: int,
+    doconvtran_p: cobj,
+    is_dry_p: cobj,
+    q_p: cobj,
+    mu_p: cobj,
+    md_p: cobj,
+    du_p: cobj,
+    eu_p: cobj,
+    ed_p: cobj,
+    dp_p: cobj,
+    fracis_p: cobj,
+    dpdry_p: cobj,
+    jt_p: cobj,
+    mx_p: cobj,
+    ideep_p: cobj,
+    dqdt_p: cobj,
+    chat_p: cobj,
+    cond_p: cobj,
+    const_p: cobj,
+    fisg_p: cobj,
+    conu_p: cobj,
+    dcondt_p: cobj,
+    dutmp_p: cobj,
+    eutmp_p: cobj,
+    edtmp_p: cobj,
+    dptmp_p: cobj,
+):
+    doconvtran = Ptr[int](doconvtran_p)
+    is_dry = Ptr[int](is_dry_p)
+    q = Ptr[float](q_p)
+    mu = Ptr[float](mu_p)
+    md = Ptr[float](md_p)
+    du = Ptr[float](du_p)
+    eu = Ptr[float](eu_p)
+    ed = Ptr[float](ed_p)
+    dp = Ptr[float](dp_p)
+    fracis = Ptr[float](fracis_p)
+    dpdry = Ptr[float](dpdry_p)
+    jt = Ptr[int](jt_p)
+    mx = Ptr[int](mx_p)
+    ideep = Ptr[int](ideep_p)
+    dqdt = Ptr[float](dqdt_p)
+    chat = Ptr[float](chat_p)
+    cond = Ptr[float](cond_p)
+    const = Ptr[float](const_p)
+    fisg = Ptr[float](fisg_p)
+    conu = Ptr[float](conu_p)
+    dcondt = Ptr[float](dcondt_p)
+    dutmp = Ptr[float](dutmp_p)
+    eutmp = Ptr[float](eutmp_p)
+    edtmp = Ptr[float](edtmp_p)
+    dptmp = Ptr[float](dptmp_p)
+    plane = pcols * pver
+    ilo = il1g - 1
+    ihi = il2g - 1
+    small = 1.0e-36
+    mbsth = 1.0e-15
+
+    ktm = pver
+    kbm = pver
+    i = ilo
+    while i <= ihi:
+        if jt[i] < ktm:
+            ktm = jt[i]
+        if mx[i] < kbm:
+            kbm = mx[i]
+        i += 1
+
+    m = 1
+    while m < ncnst:
+        moff = m * plane
+        if doconvtran[m] != 0:
+            if is_dry[m] != 0:
+                k = 0
+                while k < pver:
+                    i = ilo
+                    while i <= ihi:
+                        idx = i + k * pcols
+                        dptmp[idx] = dpdry[idx]
+                        dutmp[idx] = du[idx] * dp[idx] / dpdry[idx]
+                        eutmp[idx] = eu[idx] * dp[idx] / dpdry[idx]
+                        edtmp[idx] = ed[idx] * dp[idx] / dpdry[idx]
+                        i += 1
+                    k += 1
+            else:
+                k = 0
+                while k < pver:
+                    i = ilo
+                    while i <= ihi:
+                        idx = i + k * pcols
+                        dptmp[idx] = dp[idx]
+                        dutmp[idx] = du[idx]
+                        eutmp[idx] = eu[idx]
+                        edtmp[idx] = ed[idx]
+                        i += 1
+                    k += 1
+
+            k = 0
+            while k < pver:
+                i = ilo
+                while i <= ihi:
+                    ii = ideep[i] - 1
+                    idx = i + k * pcols
+                    const[idx] = q[ii + k * pcols + moff]
+                    fisg[idx] = fracis[ii + k * pcols + moff]
+                    i += 1
+                k += 1
+
+            k = 0
+            while k < pver:
+                km1 = k - 1
+                if km1 < 0:
+                    km1 = 0
+                i = ilo
+                while i <= ihi:
+                    idx = i + k * pcols
+                    km1idx = i + km1 * pcols
+                    minc = min(const[km1idx], const[idx])
+                    maxc = max(const[km1idx], const[idx])
+                    if minc < 0.0:
+                        cdifr = 0.0
+                    else:
+                        cdifr = abs(const[idx] - const[km1idx]) / max(maxc, small)
+                    if cdifr > 1.0e-6:
+                        cabv = max(const[km1idx], maxc * 1.0e-12)
+                        cbel = max(const[idx], maxc * 1.0e-12)
+                        chat[idx] = log(cabv / cbel) / (cabv - cbel) * cabv * cbel
+                    else:
+                        chat[idx] = 0.5 * (const[idx] + const[km1idx])
+                    conu[idx] = chat[idx]
+                    cond[idx] = chat[idx]
+                    dcondt[idx] = 0.0
+                    i += 1
+                k += 1
+
+            k = 1
+            km1 = 0
+            kk = pver - 1
+            i = ilo
+            while i <= ihi:
+                kkidx = i + kk * pcols
+                mupdudp = mu[kkidx] + dutmp[kkidx] * dptmp[kkidx]
+                if mupdudp > mbsth:
+                    conu[kkidx] = (+eutmp[kkidx] * fisg[kkidx] * const[kkidx] * dptmp[kkidx]) / mupdudp
+                idx = i + k * pcols
+                km1idx = i + km1 * pcols
+                if md[idx] < -mbsth:
+                    cond[idx] = (-edtmp[km1idx] * fisg[km1idx] * const[km1idx] * dptmp[km1idx]) / md[idx]
+                i += 1
+
+            kk = pver - 2
+            while kk >= 0:
+                kkp1 = kk + 1
+                i = ilo
+                while i <= ihi:
+                    idx = i + kk * pcols
+                    mupdudp = mu[idx] + dutmp[idx] * dptmp[idx]
+                    if mupdudp > mbsth:
+                        conu[idx] = (
+                            mu[i + kkp1 * pcols] * conu[i + kkp1 * pcols]
+                            + eutmp[idx] * fisg[idx] * const[idx] * dptmp[idx]
+                        ) / mupdudp
+                    i += 1
+                kk -= 1
+
+            k = 2
+            while k < pver:
+                km1 = k - 1
+                i = ilo
+                while i <= ihi:
+                    idx = i + k * pcols
+                    km1idx = i + km1 * pcols
+                    if md[idx] < -mbsth:
+                        cond[idx] = (
+                            md[km1idx] * cond[km1idx]
+                            - edtmp[km1idx] * fisg[km1idx] * const[km1idx] * dptmp[km1idx]
+                        ) / md[idx]
+                    i += 1
+                k += 1
+
+            k = ktm - 1
+            while k < pver:
+                km1 = k - 1
+                if km1 < 0:
+                    km1 = 0
+                kp1 = k + 1
+                if kp1 >= pver:
+                    kp1 = pver - 1
+                i = ilo
+                while i <= ihi:
+                    idx = i + k * pcols
+                    km1idx = i + km1 * pcols
+                    kp1idx = i + kp1 * pcols
+                    fluxin = mu[kp1idx] * conu[kp1idx] + mu[idx] * min(chat[idx], const[km1idx]) - (
+                        md[idx] * cond[idx] + md[kp1idx] * min(chat[kp1idx], const[kp1idx])
+                    )
+                    fluxout = mu[idx] * conu[idx] + mu[kp1idx] * min(chat[kp1idx], const[idx]) - (
+                        md[kp1idx] * cond[kp1idx] + md[idx] * min(chat[idx], const[idx])
+                    )
+                    netflux = fluxin - fluxout
+                    if abs(netflux) < max(fluxin, fluxout) * 1.0e-12:
+                        netflux = 0.0
+                    dcondt[idx] = netflux / dptmp[idx]
+                    i += 1
+                k += 1
+
+            k = kbm - 1
+            while k < pver:
+                km1 = k - 1
+                if km1 < 0:
+                    km1 = 0
+                i = ilo
+                while i <= ihi:
+                    idx = i + k * pcols
+                    km1idx = i + km1 * pcols
+                    if k + 1 == mx[i]:
+                        fluxin = mu[idx] * min(chat[idx], const[km1idx]) - md[idx] * cond[idx]
+                        fluxout = mu[idx] * conu[idx] - md[idx] * min(chat[idx], const[idx])
+                        netflux = fluxin - fluxout
+                        if abs(netflux) < max(fluxin, fluxout) * 1.0e-12:
+                            netflux = 0.0
+                        dcondt[idx] = netflux / dptmp[idx]
+                    elif k + 1 > mx[i]:
+                        dcondt[idx] = 0.0
+                    i += 1
+                k += 1
+
+            k = 0
+            while k < pver:
+                i = 0
+                while i < pcols:
+                    dqdt[i + k * pcols + moff] = 0.0
+                    i += 1
+                k += 1
+
+            k = 0
+            while k < pver:
+                i = ilo
+                while i <= ihi:
+                    ii = ideep[i] - 1
+                    dqdt[ii + k * pcols + moff] = dcondt[i + k * pcols]
+                    i += 1
+                k += 1
+        m += 1
 
 
 @export
