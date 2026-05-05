@@ -82,6 +82,9 @@ module tropopause
   logical :: use_native_tropopause_output_prep_impl = .false.
   logical :: tropopause_output_prep_impl_selected = .false.
   logical :: tropopause_output_prep_entered_logged = .false.
+  logical :: use_native_tropopause_find_impl = .false.
+  logical :: tropopause_find_impl_selected = .false.
+  logical :: tropopause_twmo_entered_logged = .false.
 
 !================================================================================================
 contains
@@ -814,7 +817,7 @@ contains
 
     implicit none
 
-    type(physics_state), intent(in)    :: pstate 
+    type(physics_state), intent(in), target :: pstate
     integer,            intent(inout)  :: tropLev(pcols)            ! tropopause level index   
     real(r8), optional, intent(inout)  :: tropP(pcols)              ! tropopause pressure (Pa)   
     real(r8), optional, intent(inout)  :: tropT(pcols)              ! tropopause temperature (K)
@@ -830,6 +833,12 @@ contains
     integer                 :: ncol                         ! number of columns in the chunk
     integer                 :: lchnk                        ! chunk identifier
     real(r8)                :: tP                       ! tropopause pressure (Pa)
+
+    call tropopause_find_select_impl()
+    if (.not. use_native_tropopause_find_impl) then
+      call tropopause_twmo_codon_wrap(pstate, tropLev, tropP, tropT, tropZ)
+      return
+    end if
 
     ! Information about the chunk.  
     lchnk = pstate%lchnk
@@ -1128,6 +1137,131 @@ contains
 
   !===============================================================================
 
+  subroutine tropopause_find_append_proof(proof_line)
+
+    character(len=*), intent(in) :: proof_line
+
+    character(len=512) :: proof_file
+    integer :: status, n, unitno
+
+    if (.not. masterproc) return
+
+    proof_file = ''
+    call get_environment_variable('TROPOPAUSE_FIND_PROOF_FILE', value=proof_file, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+       write(unitno,'(A)') trim(proof_line)
+       close(unitno)
+    end if
+
+  end subroutine tropopause_find_append_proof
+
+  !===============================================================================
+
+  subroutine tropopause_find_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (tropopause_find_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('TROPOPAUSE_FIND_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_tropopause_find_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_tropopause_find_impl = .false.
+    end if
+
+    tropopause_find_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_tropopause_find_impl) then
+          write(iulog,*) 'tropopause_find implementation = native'
+          call tropopause_find_append_proof('tropopause_find selector entered implementation = native')
+       else
+          write(iulog,*) 'tropopause_find implementation = codon'
+          call tropopause_find_append_proof('tropopause_find selector entered implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine tropopause_find_select_impl
+
+  !===============================================================================
+
+  subroutine tropopause_twmo_codon_wrap(pstate, tropLev, tropP, tropT, tropZ)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
+
+    type(physics_state), intent(in), target :: pstate
+    integer,            intent(inout)       :: tropLev(pcols)
+    real(r8), optional, intent(inout), target :: tropP(pcols)
+    real(r8), optional, intent(inout), target :: tropT(pcols)
+    real(r8), optional, intent(inout), target :: tropZ(pcols)
+
+    integer(c_int64_t), target :: tropLev_i8(pcols)
+    real(r8), target :: dummy(pcols)
+    type(c_ptr) :: tropP_p, tropT_p, tropZ_p
+    integer :: i
+
+    interface
+       subroutine tropopause_twmo_codon(ncol_c, pcols_c, pver_c, notfound_c, write_tropp_c, write_tropt_c, &
+            write_tropz_c, cnst_kap_c, cnst_ka1_c, cnst_faktor_c, state_t_p, state_pmid_p, state_pint_p, &
+            state_zm_p, state_zi_p, trop_lev_p, trop_p_p, trop_t_p, trop_z_p) bind(c, name="tropopause_twmo_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, notfound_c, write_tropp_c, write_tropt_c, write_tropz_c
+         real(c_double), value :: cnst_kap_c, cnst_ka1_c, cnst_faktor_c
+         type(c_ptr), value :: state_t_p, state_pmid_p, state_pint_p, state_zm_p, state_zi_p
+         type(c_ptr), value :: trop_lev_p, trop_p_p, trop_t_p, trop_z_p
+       end subroutine tropopause_twmo_codon
+    end interface
+
+    do i = 1, pcols
+       tropLev_i8(i) = int(tropLev(i), c_int64_t)
+    end do
+
+    tropP_p = c_null_ptr
+    tropT_p = c_null_ptr
+    tropZ_p = c_null_ptr
+    dummy(:) = 0._r8
+    if (present(tropP)) tropP_p = c_loc(tropP(1))
+    if (present(tropT)) tropT_p = c_loc(tropT(1))
+    if (present(tropZ)) tropZ_p = c_loc(tropZ(1))
+    if (.not. present(tropP)) tropP_p = c_loc(dummy(1))
+    if (.not. present(tropT)) tropT_p = c_loc(dummy(1))
+    if (.not. present(tropZ)) tropZ_p = c_loc(dummy(1))
+
+    if (masterproc .and. .not. tropopause_twmo_entered_logged) then
+       write(iulog,*) 'tropopause_twmo entered (TROP_ALG_TWMO pressure/level/interp direct = codon; other algorithms = native)'
+       call tropopause_find_append_proof('tropopause_twmo entered (TROP_ALG_TWMO pressure/level/interp direct = codon; ' // &
+            'other algorithms = native)')
+       tropopause_twmo_entered_logged = .true.
+       call flush(iulog)
+    end if
+
+    call tropopause_twmo_codon(int(pstate%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(NOTFOUND, c_int64_t), int(merge(1, 0, present(tropP)), c_int64_t), &
+         int(merge(1, 0, present(tropT)), c_int64_t), int(merge(1, 0, present(tropZ)), c_int64_t), &
+         real(cnst_kap, c_double), real(cnst_ka1, c_double), real(cnst_faktor, c_double), &
+         c_loc(pstate%t(1,1)), c_loc(pstate%pmid(1,1)), c_loc(pstate%pint(1,1)), &
+         c_loc(pstate%zm(1,1)), c_loc(pstate%zi(1,1)), c_loc(tropLev_i8(1)), tropP_p, tropT_p, tropZ_p)
+
+    do i = 1, pcols
+       tropLev(i) = int(tropLev_i8(i))
+    end do
+
+  end subroutine tropopause_twmo_codon_wrap
+
+  !===============================================================================
+
   subroutine tropopause_output_prep_codon_wrap(ncol, tropLev, tropZ, state_zm, tropPdf, tropFound, tropDZ)
 
     use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
@@ -1159,9 +1293,9 @@ contains
     end do
 
     if (masterproc .and. .not. tropopause_output_prep_entered_logged) then
-       write(iulog,*) 'tropopause_output_prep entered (TROP/TROPP output arrays direct = codon; tropopause_find = native)'
+       write(iulog,*) 'tropopause_output_prep entered (TROP/TROPP output arrays direct = codon; tropopause_find selected separately)'
        call tropopause_output_prep_append_proof('tropopause_output_prep entered (TROP/TROPP output arrays direct = codon; ' // &
-            'tropopause_find = native)')
+            'tropopause_find selected separately)')
        tropopause_output_prep_entered_logged = .true.
        call flush(iulog)
     end if

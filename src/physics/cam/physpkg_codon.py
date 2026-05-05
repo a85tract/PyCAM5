@@ -1,3 +1,5 @@
+from math import exp, log
+
 @export
 def phys_timestep_init_select_branches_codon(
     cam3_aero_on: int,
@@ -73,6 +75,258 @@ def tropopause_output_prep_codon(
                 trop_dz[_field2_idx(i, k, pcols)] = (
                     state_zm[_field2_idx(i, k, pcols)] - trop_z[_idx(i)]
                 )
+
+
+@inline
+def _tropopause_interp_t(
+    i: int,
+    lev: int,
+    trop_p: float,
+    pcols: int,
+    pver: int,
+    state_t: Ptr[float],
+    state_pmid: Ptr[float],
+) -> float:
+    trop_t = 0.0
+    if trop_p == state_pmid[_field2_idx(i, lev, pcols)]:
+        trop_t = state_t[_field2_idx(i, lev, pcols)]
+    elif trop_p < state_pmid[_field2_idx(i, lev, pcols)]:
+        if lev > 1:
+            dtdlogp = (
+                state_t[_field2_idx(i, lev, pcols)]
+                - state_t[_field2_idx(i, lev - 1, pcols)]
+            ) / (
+                log(state_pmid[_field2_idx(i, lev, pcols)])
+                - log(state_pmid[_field2_idx(i, lev - 1, pcols)])
+            )
+            trop_t = state_t[_field2_idx(i, lev, pcols)] + (
+                log(trop_p) - log(state_pmid[_field2_idx(i, lev, pcols)])
+            ) * dtdlogp
+    else:
+        if lev < pver:
+            dtdlogp = (
+                state_t[_field2_idx(i, lev + 1, pcols)]
+                - state_t[_field2_idx(i, lev, pcols)]
+            ) / (
+                log(state_pmid[_field2_idx(i, lev + 1, pcols)])
+                - log(state_pmid[_field2_idx(i, lev, pcols)])
+            )
+            trop_t = state_t[_field2_idx(i, lev, pcols)] + (
+                log(trop_p) - log(state_pmid[_field2_idx(i, lev, pcols)])
+            ) * dtdlogp
+    return trop_t
+
+
+@inline
+def _tropopause_interp_z(
+    i: int,
+    lev: int,
+    trop_p: float,
+    pcols: int,
+    state_zm: Ptr[float],
+    state_zi: Ptr[float],
+    state_pmid: Ptr[float],
+    state_pint: Ptr[float],
+) -> float:
+    trop_z = 0.0
+    if trop_p == state_pmid[_field2_idx(i, lev, pcols)]:
+        trop_z = state_zm[_field2_idx(i, lev, pcols)]
+    elif trop_p < state_pmid[_field2_idx(i, lev, pcols)]:
+        dzdlogp = (
+            state_zm[_field2_idx(i, lev, pcols)] - state_zi[_field2_idx(i, lev, pcols)]
+        ) / (
+            log(state_pmid[_field2_idx(i, lev, pcols)])
+            - log(state_pint[_field2_idx(i, lev, pcols)])
+        )
+        trop_z = state_zm[_field2_idx(i, lev, pcols)] + (
+            log(trop_p) - log(state_pmid[_field2_idx(i, lev, pcols)])
+        ) * dzdlogp
+    else:
+        dzdlogp = (
+            state_zm[_field2_idx(i, lev, pcols)] - state_zi[_field2_idx(i, lev + 1, pcols)]
+        ) / (
+            log(state_pmid[_field2_idx(i, lev, pcols)])
+            - log(state_pint[_field2_idx(i, lev + 1, pcols)])
+        )
+        trop_z = state_zm[_field2_idx(i, lev, pcols)] + (
+            log(trop_p) - log(state_pmid[_field2_idx(i, lev, pcols)])
+        ) * dzdlogp
+    return trop_z
+
+
+@inline
+def _tropopause_twmo_pressure(
+    i: int,
+    pcols: int,
+    pver: int,
+    cnst_kap: float,
+    cnst_ka1: float,
+    cnst_faktor: float,
+    state_t: Ptr[float],
+    state_pmid: Ptr[float],
+) -> float:
+    gam = -0.002
+    plimu = 45000.0
+    pliml = 7500.0
+    deltaz = 2000.0
+
+    trp = -99.0
+    level = pver
+    pmk = 0.5 * (
+        state_pmid[_field2_idx(i, level - 1, pcols)] ** cnst_kap
+        + state_pmid[_field2_idx(i, level, pcols)] ** cnst_kap
+    )
+    pm = pmk ** (1 / cnst_kap)
+    a = (
+        state_t[_field2_idx(i, level - 1, pcols)]
+        - state_t[_field2_idx(i, level, pcols)]
+    ) / (
+        state_pmid[_field2_idx(i, level - 1, pcols)] ** cnst_kap
+        - state_pmid[_field2_idx(i, level, pcols)] ** cnst_kap
+    )
+    b = state_t[_field2_idx(i, level, pcols)] - (
+        a * state_pmid[_field2_idx(i, level, pcols)] ** cnst_kap
+    )
+    tm = a * pmk + b
+    dtdp = a * cnst_kap * (pm ** cnst_ka1)
+    dtdz = cnst_faktor * dtdp * pm / tm
+
+    for j in range(level - 1, 1, -1):
+        pm0 = pm
+        pmk0 = pmk
+        dtdz0 = dtdz
+
+        pmk = 0.5 * (
+            state_pmid[_field2_idx(i, j - 1, pcols)] ** cnst_kap
+            + state_pmid[_field2_idx(i, j, pcols)] ** cnst_kap
+        )
+        pm = pmk ** (1 / cnst_kap)
+        a = (
+            state_t[_field2_idx(i, j - 1, pcols)]
+            - state_t[_field2_idx(i, j, pcols)]
+        ) / (
+            state_pmid[_field2_idx(i, j - 1, pcols)] ** cnst_kap
+            - state_pmid[_field2_idx(i, j, pcols)] ** cnst_kap
+        )
+        b = state_t[_field2_idx(i, j, pcols)] - (
+            a * state_pmid[_field2_idx(i, j, pcols)] ** cnst_kap
+        )
+        tm = a * pmk + b
+        dtdp = a * cnst_kap * (pm ** cnst_ka1)
+        dtdz = cnst_faktor * dtdp * pm / tm
+
+        if dtdz <= gam:
+            continue
+        if pm > plimu:
+            continue
+
+        if dtdz0 < gam:
+            ag = (dtdz - dtdz0) / (pmk - pmk0)
+            bg = dtdz0 - (ag * pmk0)
+            ptph = exp(log((gam - bg) / ag) / cnst_kap)
+        else:
+            ptph = pm
+
+        if ptph < pliml:
+            continue
+        if ptph > plimu:
+            continue
+
+        p2km = ptph + deltaz * (pm / tm) * cnst_faktor
+        asum = 0.0
+        icount = 0
+        valid = True
+
+        for jj in range(j, 1, -1):
+            pmk2 = 0.5 * (
+                state_pmid[_field2_idx(i, jj - 1, pcols)] ** cnst_kap
+                + state_pmid[_field2_idx(i, jj, pcols)] ** cnst_kap
+            )
+            pm2 = pmk2 ** (1 / cnst_kap)
+            if pm2 > ptph:
+                continue
+            if pm2 < p2km:
+                break
+
+            a2 = state_t[_field2_idx(i, jj - 1, pcols)] - state_t[_field2_idx(i, jj, pcols)]
+            a2 = a2 / (
+                state_pmid[_field2_idx(i, jj - 1, pcols)] ** cnst_kap
+                - state_pmid[_field2_idx(i, jj, pcols)] ** cnst_kap
+            )
+            b2 = state_t[_field2_idx(i, jj, pcols)] - (
+                a2 * state_pmid[_field2_idx(i, jj, pcols)] ** cnst_kap
+            )
+            tm2 = a2 * pmk2 + b2
+            dtdp2 = a2 * cnst_kap * (pm2 ** (cnst_kap - 1))
+            dtdz2 = cnst_faktor * dtdp2 * pm2 / tm2
+            asum = asum + dtdz2
+            icount = icount + 1
+            aquer = asum / float(icount)
+            if aquer <= gam:
+                valid = False
+                break
+
+        if not valid:
+            continue
+
+        trp = ptph
+        break
+
+    return trp
+
+
+@export
+def tropopause_twmo_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    notfound: int,
+    write_tropp: int,
+    write_tropt: int,
+    write_tropz: int,
+    cnst_kap: float,
+    cnst_ka1: float,
+    cnst_faktor: float,
+    state_t_p: cobj,
+    state_pmid_p: cobj,
+    state_pint_p: cobj,
+    state_zm_p: cobj,
+    state_zi_p: cobj,
+    trop_lev_p: cobj,
+    trop_p_p: cobj,
+    trop_t_p: cobj,
+    trop_z_p: cobj,
+):
+    state_t = Ptr[float](state_t_p)
+    state_pmid = Ptr[float](state_pmid_p)
+    state_pint = Ptr[float](state_pint_p)
+    state_zm = Ptr[float](state_zm_p)
+    state_zi = Ptr[float](state_zi_p)
+    trop_lev = Ptr[int](trop_lev_p)
+    trop_p = Ptr[float](trop_p_p)
+    trop_t = Ptr[float](trop_t_p)
+    trop_z = Ptr[float](trop_z_p)
+
+    for i in range(1, ncol + 1):
+        if trop_lev[_idx(i)] == notfound:
+            tp = _tropopause_twmo_pressure(
+                i, pcols, pver, cnst_kap, cnst_ka1, cnst_faktor, state_t, state_pmid
+            )
+            if tp > 0.0:
+                for k in range(pver, 1, -1):
+                    if tp >= state_pint[_field2_idx(i, k, pcols)]:
+                        trop_lev[_idx(i)] = k
+                        break
+
+                lev = trop_lev[_idx(i)]
+                if write_tropp != 0:
+                    trop_p[_idx(i)] = tp
+                if write_tropt != 0:
+                    trop_t[_idx(i)] = _tropopause_interp_t(i, lev, tp, pcols, pver, state_t, state_pmid)
+                if write_tropz != 0:
+                    trop_z[_idx(i)] = _tropopause_interp_z(
+                        i, lev, tp, pcols, state_zm, state_zi, state_pmid, state_pint
+                    )
 
 
 @export
