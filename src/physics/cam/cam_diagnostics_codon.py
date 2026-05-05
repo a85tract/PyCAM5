@@ -306,6 +306,104 @@ def diag_physvar_ic_codon():
 
 
 @export
+def cam_export_core_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    rair: float,
+    state_t_p: cobj,
+    state_exner_p: cobj,
+    state_zm_p: cobj,
+    state_u_p: cobj,
+    state_v_p: cobj,
+    state_pmid_p: cobj,
+    state_q_p: cobj,
+    prec_dp_p: cobj,
+    snow_dp_p: cobj,
+    prec_sh_p: cobj,
+    snow_sh_p: cobj,
+    prec_sed_p: cobj,
+    snow_sed_p: cobj,
+    prec_pcw_p: cobj,
+    snow_pcw_p: cobj,
+    tbot_p: cobj,
+    thbot_p: cobj,
+    zbot_p: cobj,
+    ubot_p: cobj,
+    vbot_p: cobj,
+    pbot_p: cobj,
+    rho_p: cobj,
+    qbot_p: cobj,
+    precc_p: cobj,
+    precl_p: cobj,
+    precsc_p: cobj,
+    precsl_p: cobj,
+):
+    state_t = Ptr[float](state_t_p)
+    state_exner = Ptr[float](state_exner_p)
+    state_zm = Ptr[float](state_zm_p)
+    state_u = Ptr[float](state_u_p)
+    state_v = Ptr[float](state_v_p)
+    state_pmid = Ptr[float](state_pmid_p)
+    state_q = Ptr[float](state_q_p)
+    prec_dp = Ptr[float](prec_dp_p)
+    snow_dp = Ptr[float](snow_dp_p)
+    prec_sh = Ptr[float](prec_sh_p)
+    snow_sh = Ptr[float](snow_sh_p)
+    prec_sed = Ptr[float](prec_sed_p)
+    snow_sed = Ptr[float](snow_sed_p)
+    prec_pcw = Ptr[float](prec_pcw_p)
+    snow_pcw = Ptr[float](snow_pcw_p)
+    tbot = Ptr[float](tbot_p)
+    thbot = Ptr[float](thbot_p)
+    zbot = Ptr[float](zbot_p)
+    ubot = Ptr[float](ubot_p)
+    vbot = Ptr[float](vbot_p)
+    pbot = Ptr[float](pbot_p)
+    rho = Ptr[float](rho_p)
+    qbot = Ptr[float](qbot_p)
+    precc = Ptr[float](precc_p)
+    precl = Ptr[float](precl_p)
+    precsc = Ptr[float](precsc_p)
+    precsl = Ptr[float](precsl_p)
+
+    for i in range(1, ncol + 1):
+        src = _idx2(i, pver, pcols)
+        dst = _idx(i)
+        tbot[dst] = state_t[src]
+        thbot[dst] = state_t[src] * state_exner[src]
+        zbot[dst] = state_zm[src]
+        ubot[dst] = state_u[src]
+        vbot[dst] = state_v[src]
+        pbot[dst] = state_pmid[src]
+        rho[dst] = pbot[dst] / (rair * tbot[dst])
+
+    for m in range(1, pcnst + 1):
+        for i in range(1, ncol + 1):
+            qbot[_idx2(i, m, pcols)] = state_q[_idx3(i, pver, m, pcols, pver)]
+
+    for i in range(1, ncol + 1):
+        idx = _idx(i)
+        precc[idx] = prec_dp[idx] + prec_sh[idx]
+        precl[idx] = prec_sed[idx] + prec_pcw[idx]
+        precsc[idx] = snow_dp[idx] + snow_sh[idx]
+        precsl[idx] = snow_sed[idx] + snow_pcw[idx]
+        if precc[idx] < 0.0:
+            precc[idx] = 0.0
+        if precl[idx] < 0.0:
+            precl[idx] = 0.0
+        if precsc[idx] < 0.0:
+            precsc[idx] = 0.0
+        if precsl[idx] < 0.0:
+            precsl[idx] = 0.0
+        if precsc[idx] > precc[idx]:
+            precsc[idx] = precc[idx]
+        if precsl[idx] > precl[idx]:
+            precsl[idx] = precl[idx]
+
+
+@export
 def diag_phys_tend_update_codon(
     mode: int,
     ncol: int,

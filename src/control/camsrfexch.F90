@@ -15,8 +15,13 @@ module camsrfexch
   use infnan,        only: posinf, assignment(=)
   use cam_abortutils,only: endrun
   use cam_logfile,   only: iulog
+  use spmd_utils,    only: masterproc
 
   implicit none
+
+  logical :: cam_export_use_native_impl = .false.
+  logical :: cam_export_impl_selected = .false.
+  logical :: cam_export_entered_logged = .false.
 
 !----------------------------------------------------------------------- 
 ! PRIVATE: Make default data and interfaces private
@@ -426,6 +431,74 @@ CONTAINS
 
 !======================================================================
 
+subroutine cam_export_append_proof(proof_line)
+
+   character(len=*), intent(in) :: proof_line
+   character(len=512) :: proof_file
+   integer :: status, n, unitno
+
+   proof_file = ''
+   call get_environment_variable('CAM_EXPORT_PROOF_FILE', value=proof_file, length=n, status=status)
+   if (status == 0 .and. n > 0) then
+      open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+      write(unitno,'(A)') trim(proof_line)
+      close(unitno)
+   end if
+
+end subroutine cam_export_append_proof
+
+subroutine cam_export_log_entered()
+
+   if (cam_export_entered_logged) return
+   cam_export_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'cam_export entered (state/qbot/precip transfer direct = codon)'
+      call cam_export_append_proof('cam_export entered (state/qbot/precip transfer direct = codon)')
+      call flush(iulog)
+   end if
+
+end subroutine cam_export_log_entered
+
+subroutine cam_export_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cam_export_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CAM_EXPORT_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      cam_export_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      cam_export_use_native_impl = .false.
+   end if
+
+   cam_export_impl_selected = .true.
+
+   if (masterproc) then
+      if (cam_export_use_native_impl) then
+         write(iulog,*) 'cam_export implementation = native'
+         call cam_export_append_proof('cam_export selector entered implementation = native')
+      else
+         write(iulog,*) 'cam_export implementation = codon'
+         call cam_export_append_proof('cam_export selector entered implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine cam_export_select_impl
+
+!======================================================================
+
 subroutine cam_export(state,cam_out,pbuf)
 
 !----------------------------------------------------------------------- 
@@ -451,14 +524,15 @@ subroutine cam_export(state,cam_out,pbuf)
                                iwspec
    use water_types,      only: iwtstrain, iwtstsnow, iwtcvrain, iwtcvsnow
    use water_isotopes,   only: isph2o, isph216o, isphdo, isph218o
+   use iso_c_binding,    only: c_double, c_int64_t, c_loc, c_ptr
    implicit none
 
    !------------------------------Arguments--------------------------------
    !
    ! Input arguments
    !
-   type(physics_state),  intent(in)    :: state
-   type (cam_out_t),     intent(inout) :: cam_out
+   type(physics_state),  target, intent(in)    :: state
+   type (cam_out_t),     target, intent(inout) :: cam_out
    type(physics_buffer_desc), pointer  :: pbuf(:)
 
    !
@@ -495,6 +569,22 @@ subroutine cam_export(state,cam_out,pbuf)
    real(r8), pointer :: precsc_HDO(:)
    real(r8), pointer :: precsc_18O(:)
 
+   interface
+      subroutine cam_export_core_codon(ncol_c, pcols_c, pver_c, pcnst_c, rair_c, &
+           state_t_p, state_exner_p, state_zm_p, state_u_p, state_v_p, state_pmid_p, state_q_p, &
+           prec_dp_p, snow_dp_p, prec_sh_p, snow_sh_p, prec_sed_p, snow_sed_p, prec_pcw_p, snow_pcw_p, &
+           tbot_p, thbot_p, zbot_p, ubot_p, vbot_p, pbot_p, rho_p, qbot_p, &
+           precc_p, precl_p, precsc_p, precsl_p) bind(c, name="cam_export_core_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c
+         real(c_double), value :: rair_c
+         type(c_ptr), value :: state_t_p, state_exner_p, state_zm_p, state_u_p, state_v_p, state_pmid_p, state_q_p
+         type(c_ptr), value :: prec_dp_p, snow_dp_p, prec_sh_p, snow_sh_p, prec_sed_p, snow_sed_p, prec_pcw_p, snow_pcw_p
+         type(c_ptr), value :: tbot_p, thbot_p, zbot_p, ubot_p, vbot_p, pbot_p, rho_p, qbot_p
+         type(c_ptr), value :: precc_p, precl_p, precsc_p, precsl_p
+      end subroutine cam_export_core_codon
+   end interface
+
    !NOTE:  This water tracer code can currently only handle three water tracers/isotopes.
    !It might be beneficial in the future to make this setup more flexible, with
    !a few variables containing all of the needed data [e.g., prec(n), where n is the
@@ -504,6 +594,7 @@ subroutine cam_export(state,cam_out,pbuf)
 
    lchnk = state%lchnk
    ncol  = state%ncol
+   call cam_export_select_impl()
 
    prec_dp_idx = pbuf_get_index('PREC_DP')
    snow_dp_idx = pbuf_get_index('SNOW_DP')
@@ -568,22 +659,40 @@ subroutine cam_export(state,cam_out,pbuf)
    end if
   !-------------------------
 
-   do i=1,ncol
-      cam_out%tbot(i)  = state%t(i,pver)
-      cam_out%thbot(i) = state%t(i,pver) * state%exner(i,pver)
-      cam_out%zbot(i)  = state%zm(i,pver)
-      cam_out%ubot(i)  = state%u(i,pver)
-      cam_out%vbot(i)  = state%v(i,pver)
-      cam_out%pbot(i)  = state%pmid(i,pver)
-      cam_out%rho(i)   = cam_out%pbot(i)/(rair*cam_out%tbot(i))
-      psm1(i,lchnk)    = state%ps(i)
-      srfrpdel(i,lchnk)= state%rpdel(i,pver)
-   end do
-   do m = 1, pcnst
-     do i = 1, ncol
-        cam_out%qbot(i,m) = state%q(i,pver,m) 
-     end do
-   end do
+   if (cam_export_use_native_impl) then
+      do i=1,ncol
+         cam_out%tbot(i)  = state%t(i,pver)
+         cam_out%thbot(i) = state%t(i,pver) * state%exner(i,pver)
+         cam_out%zbot(i)  = state%zm(i,pver)
+         cam_out%ubot(i)  = state%u(i,pver)
+         cam_out%vbot(i)  = state%v(i,pver)
+         cam_out%pbot(i)  = state%pmid(i,pver)
+         cam_out%rho(i)   = cam_out%pbot(i)/(rair*cam_out%tbot(i))
+         psm1(i,lchnk)    = state%ps(i)
+         srfrpdel(i,lchnk)= state%rpdel(i,pver)
+      end do
+      do m = 1, pcnst
+        do i = 1, ncol
+           cam_out%qbot(i,m) = state%q(i,pver,m)
+        end do
+      end do
+   else
+      call cam_export_log_entered()
+      call cam_export_core_codon( &
+           int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+           real(rair, c_double), c_loc(state%t), c_loc(state%exner), c_loc(state%zm), c_loc(state%u), &
+           c_loc(state%v), c_loc(state%pmid), c_loc(state%q), c_loc(prec_dp(1)), c_loc(snow_dp(1)), &
+           c_loc(prec_sh(1)), c_loc(snow_sh(1)), c_loc(prec_sed(1)), c_loc(snow_sed(1)), &
+           c_loc(prec_pcw(1)), c_loc(snow_pcw(1)), c_loc(cam_out%tbot(1)), c_loc(cam_out%thbot(1)), &
+           c_loc(cam_out%zbot(1)), c_loc(cam_out%ubot(1)), c_loc(cam_out%vbot(1)), c_loc(cam_out%pbot(1)), &
+           c_loc(cam_out%rho(1)), c_loc(cam_out%qbot(1,1)), c_loc(cam_out%precc(1)), c_loc(cam_out%precl(1)), &
+           c_loc(cam_out%precsc(1)), c_loc(cam_out%precsl(1)) &
+      )
+      do i=1,ncol
+         psm1(i,lchnk)    = state%ps(i)
+         srfrpdel(i,lchnk)= state%rpdel(i,pver)
+      end do
+   end if
 
    cam_out%co2diag(:ncol) = chem_surfvals_get('CO2VMR') * 1.0e+6_r8 
    if (co2_transport()) then
@@ -595,23 +704,60 @@ subroutine cam_export(state,cam_out,pbuf)
    ! Precipation and snow rates from shallow convection, deep convection and stratiform processes.
    ! Compute total convective and stratiform precipitation and snow rates
    !
-   do i=1,ncol
-      cam_out%precc (i) = prec_dp(i)  + prec_sh(i)
-      cam_out%precl (i) = prec_sed(i) + prec_pcw(i)
-      cam_out%precsc(i) = snow_dp(i)  + snow_sh(i)
-      cam_out%precsl(i) = snow_sed(i) + snow_pcw(i)
+   if (cam_export_use_native_impl) then
+      do i=1,ncol
+         cam_out%precc (i) = prec_dp(i)  + prec_sh(i)
+         cam_out%precl (i) = prec_sed(i) + prec_pcw(i)
+         cam_out%precsc(i) = snow_dp(i)  + snow_sh(i)
+         cam_out%precsl(i) = snow_sed(i) + snow_pcw(i)
 
-      ! jrm These checks should not be necessary if they exist in the parameterizations
-      if (cam_out%precc(i) .lt.0._r8) cam_out%precc(i)=0._r8
-      if (cam_out%precl(i) .lt.0._r8) cam_out%precl(i)=0._r8
-      if (cam_out%precsc(i).lt.0._r8) cam_out%precsc(i)=0._r8
-      if (cam_out%precsl(i).lt.0._r8) cam_out%precsl(i)=0._r8
-      if (cam_out%precsc(i).gt.cam_out%precc(i)) cam_out%precsc(i)=cam_out%precc(i)
-      if (cam_out%precsl(i).gt.cam_out%precl(i)) cam_out%precsl(i)=cam_out%precl(i)
-      ! end jrm
-      !water tracers/isotopes:
-      !----------------------
-      if(trace_water) then
+         ! jrm These checks should not be necessary if they exist in the parameterizations
+         if (cam_out%precc(i) .lt.0._r8) cam_out%precc(i)=0._r8
+         if (cam_out%precl(i) .lt.0._r8) cam_out%precl(i)=0._r8
+         if (cam_out%precsc(i).lt.0._r8) cam_out%precsc(i)=0._r8
+         if (cam_out%precsl(i).lt.0._r8) cam_out%precsl(i)=0._r8
+         if (cam_out%precsc(i).gt.cam_out%precc(i)) cam_out%precsc(i)=cam_out%precc(i)
+         if (cam_out%precsl(i).gt.cam_out%precl(i)) cam_out%precsl(i)=cam_out%precl(i)
+         ! end jrm
+         !water tracers/isotopes:
+         !----------------------
+         if(trace_water) then
+           if(exist16) then
+             cam_out%precrl_16O(i)  = precrl_16O(i)
+             cam_out%precsl_16O(i)  = precsl_16O(i)
+             cam_out%precrc_16O(i)  = precrc_16O(i)
+             cam_out%precsc_16O(i)  = precsc_16O(i)
+           end if
+           if(existD) then
+             cam_out%precrl_HDO(i)  = precrl_HDO(i)
+             cam_out%precsl_HDO(i)  = precsl_HDO(i)
+             cam_out%precrc_HDO(i)  = precrc_HDO(i)
+             cam_out%precsc_HDO(i)  = precsc_HDO(i)
+           end if
+           if(exist18) then
+             cam_out%precrl_18O(i)  = precrl_18O(i)
+             cam_out%precsl_18O(i)  = precsl_18O(i)
+             cam_out%precrc_18O(i)  = precrc_18O(i)
+             cam_out%precsc_18O(i)  = precsc_18O(i)
+           end if
+          !negative value prevention:
+           if (cam_out%precrl_16O(i) .lt. 0._r8) cam_out%precrl_16O(i)=0._r8
+           if (cam_out%precrl_HDO(i) .lt. 0._r8) cam_out%precrl_HDO(i)=0._r8
+           if (cam_out%precrl_18O(i) .lt. 0._r8) cam_out%precrl_18O(i)=0._r8
+           if (cam_out%precsl_16O(i) .lt. 0._r8) cam_out%precsl_16O(i)=0._r8
+           if (cam_out%precsl_HDO(i) .lt. 0._r8) cam_out%precsl_HDO(i)=0._r8
+           if (cam_out%precsl_18O(i) .lt. 0._r8) cam_out%precsl_18O(i)=0._r8
+           if (cam_out%precrc_16O(i) .lt. 0._r8) cam_out%precrc_16O(i)=0._r8
+           if (cam_out%precrc_HDO(i) .lt. 0._r8) cam_out%precrc_HDO(i)=0._r8
+           if (cam_out%precrc_18O(i) .lt. 0._r8) cam_out%precrc_18O(i)=0._r8
+           if (cam_out%precsc_16O(i) .lt. 0._r8) cam_out%precsc_16O(i)=0._r8
+           if (cam_out%precsc_HDO(i) .lt. 0._r8) cam_out%precsc_HDO(i)=0._r8
+           if (cam_out%precsc_18O(i) .lt. 0._r8) cam_out%precsc_18O(i)=0._r8
+         end if
+         !----------------------
+      end do
+   else if (trace_water) then
+      do i=1,ncol
         if(exist16) then 
           cam_out%precrl_16O(i)  = precrl_16O(i)
           cam_out%precsl_16O(i)  = precsl_16O(i)  
@@ -643,9 +789,8 @@ subroutine cam_export(state,cam_out,pbuf)
         if (cam_out%precsc_16O(i) .lt. 0._r8) cam_out%precsc_16O(i)=0._r8
         if (cam_out%precsc_HDO(i) .lt. 0._r8) cam_out%precsc_HDO(i)=0._r8
         if (cam_out%precsc_18O(i) .lt. 0._r8) cam_out%precsc_18O(i)=0._r8
-      end if
-      !----------------------
-   end do
+      end do
+   end if
 
    ! total snowfall rate: needed by slab ocean model
    prcsnw(:ncol,lchnk) = cam_out%precsc(:ncol) + cam_out%precsl(:ncol)   
