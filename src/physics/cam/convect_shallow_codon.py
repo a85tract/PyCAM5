@@ -572,6 +572,282 @@ def uwshcu_diag_init_shell_codon(
 
 
 @export
+def uwshcu_inv_prep_shell_codon(
+    mix: int,
+    mkx: int,
+    iend: int,
+    ncnst: int,
+    ps0_inv_p: cobj,
+    zs0_inv_p: cobj,
+    p0_inv_p: cobj,
+    z0_inv_p: cobj,
+    dp0_inv_p: cobj,
+    dpdry0_inv_p: cobj,
+    u0_inv_p: cobj,
+    v0_inv_p: cobj,
+    qv0_inv_p: cobj,
+    ql0_inv_p: cobj,
+    qi0_inv_p: cobj,
+    t0_inv_p: cobj,
+    s0_inv_p: cobj,
+    tr0_inv_p: cobj,
+    tke_inv_p: cobj,
+    cldfrct_inv_p: cobj,
+    concldfrct_inv_p: cobj,
+    ps0_p: cobj,
+    zs0_p: cobj,
+    p0_p: cobj,
+    z0_p: cobj,
+    dp0_p: cobj,
+    dpdry0_p: cobj,
+    u0_p: cobj,
+    v0_p: cobj,
+    qv0_p: cobj,
+    ql0_p: cobj,
+    qi0_p: cobj,
+    t0_p: cobj,
+    s0_p: cobj,
+    tr0_p: cobj,
+    tke_p: cobj,
+    cldfrct_p: cobj,
+    concldfrct_p: cobj,
+):
+    ps0_inv = Ptr[float](ps0_inv_p)
+    zs0_inv = Ptr[float](zs0_inv_p)
+    p0_inv = Ptr[float](p0_inv_p)
+    z0_inv = Ptr[float](z0_inv_p)
+    dp0_inv = Ptr[float](dp0_inv_p)
+    dpdry0_inv = Ptr[float](dpdry0_inv_p)
+    u0_inv = Ptr[float](u0_inv_p)
+    v0_inv = Ptr[float](v0_inv_p)
+    qv0_inv = Ptr[float](qv0_inv_p)
+    ql0_inv = Ptr[float](ql0_inv_p)
+    qi0_inv = Ptr[float](qi0_inv_p)
+    t0_inv = Ptr[float](t0_inv_p)
+    s0_inv = Ptr[float](s0_inv_p)
+    tr0_inv = Ptr[float](tr0_inv_p)
+    tke_inv = Ptr[float](tke_inv_p)
+    cldfrct_inv = Ptr[float](cldfrct_inv_p)
+    concldfrct_inv = Ptr[float](concldfrct_inv_p)
+    ps0 = Ptr[float](ps0_p)
+    zs0 = Ptr[float](zs0_p)
+    p0 = Ptr[float](p0_p)
+    z0 = Ptr[float](z0_p)
+    dp0 = Ptr[float](dp0_p)
+    dpdry0 = Ptr[float](dpdry0_p)
+    u0 = Ptr[float](u0_p)
+    v0 = Ptr[float](v0_p)
+    qv0 = Ptr[float](qv0_p)
+    ql0 = Ptr[float](ql0_p)
+    qi0 = Ptr[float](qi0_p)
+    t0 = Ptr[float](t0_p)
+    s0 = Ptr[float](s0_p)
+    tr0 = Ptr[float](tr0_p)
+    tke = Ptr[float](tke_p)
+    cldfrct = Ptr[float](cldfrct_p)
+    concldfrct = Ptr[float](concldfrct_p)
+
+    k = 0
+    while k < mkx:
+        src_k = mkx - k - 1
+        i = 0
+        while i < iend:
+            dst = i + k * mix
+            src = i + src_k * mix
+            p0[dst] = p0_inv[src]
+            u0[dst] = u0_inv[src]
+            v0[dst] = v0_inv[src]
+            z0[dst] = z0_inv[src]
+            dp0[dst] = dp0_inv[src]
+            dpdry0[dst] = dpdry0_inv[src]
+            qv0[dst] = qv0_inv[src]
+            ql0[dst] = ql0_inv[src]
+            qi0[dst] = qi0_inv[src]
+            t0[dst] = t0_inv[src]
+            s0[dst] = s0_inv[src]
+            cldfrct[dst] = cldfrct_inv[src]
+            concldfrct[dst] = concldfrct_inv[src]
+            i += 1
+        m = 0
+        while m < ncnst:
+            offset = m * mix * mkx
+            i = 0
+            while i < iend:
+                tr0[i + k * mix + offset] = tr0_inv[i + src_k * mix + offset]
+                i += 1
+            m += 1
+        k += 1
+
+    k = 0
+    while k <= mkx:
+        src_k = mkx - k
+        i = 0
+        while i < iend:
+            dst = i + k * mix
+            src = i + src_k * mix
+            ps0[dst] = ps0_inv[src]
+            zs0[dst] = zs0_inv[src]
+            tke[dst] = tke_inv[src]
+            i += 1
+        k += 1
+
+
+@export
+def uwshcu_inv_post_shell_codon(
+    mix: int,
+    mkx: int,
+    iend: int,
+    ncnst: int,
+    umf_p: cobj,
+    qvten_p: cobj,
+    qlten_p: cobj,
+    qiten_p: cobj,
+    sten_p: cobj,
+    uten_p: cobj,
+    vten_p: cobj,
+    trten_p: cobj,
+    qrten_p: cobj,
+    qsten_p: cobj,
+    evapc_p: cobj,
+    slflx_p: cobj,
+    qtflx_p: cobj,
+    flxprc1_p: cobj,
+    flxsnow1_p: cobj,
+    cufrc_p: cobj,
+    qcu_p: cobj,
+    qlu_p: cobj,
+    qiu_p: cobj,
+    qc_p: cobj,
+    cnt_p: cobj,
+    cnb_p: cobj,
+    wtqc_p: cobj,
+    umf_inv_p: cobj,
+    qvten_inv_p: cobj,
+    qlten_inv_p: cobj,
+    qiten_inv_p: cobj,
+    sten_inv_p: cobj,
+    uten_inv_p: cobj,
+    vten_inv_p: cobj,
+    trten_inv_p: cobj,
+    qrten_inv_p: cobj,
+    qsten_inv_p: cobj,
+    evapc_inv_p: cobj,
+    slflx_inv_p: cobj,
+    qtflx_inv_p: cobj,
+    flxprc1_inv_p: cobj,
+    flxsnow1_inv_p: cobj,
+    cufrc_inv_p: cobj,
+    qcu_inv_p: cobj,
+    qlu_inv_p: cobj,
+    qiu_inv_p: cobj,
+    qc_inv_p: cobj,
+    cnt_inv_p: cobj,
+    cnb_inv_p: cobj,
+    wtqc_inv_p: cobj,
+):
+    umf = Ptr[float](umf_p)
+    qvten = Ptr[float](qvten_p)
+    qlten = Ptr[float](qlten_p)
+    qiten = Ptr[float](qiten_p)
+    sten = Ptr[float](sten_p)
+    uten = Ptr[float](uten_p)
+    vten = Ptr[float](vten_p)
+    trten = Ptr[float](trten_p)
+    qrten = Ptr[float](qrten_p)
+    qsten = Ptr[float](qsten_p)
+    evapc = Ptr[float](evapc_p)
+    slflx = Ptr[float](slflx_p)
+    qtflx = Ptr[float](qtflx_p)
+    flxprc1 = Ptr[float](flxprc1_p)
+    flxsnow1 = Ptr[float](flxsnow1_p)
+    cufrc = Ptr[float](cufrc_p)
+    qcu = Ptr[float](qcu_p)
+    qlu = Ptr[float](qlu_p)
+    qiu = Ptr[float](qiu_p)
+    qc = Ptr[float](qc_p)
+    cnt = Ptr[float](cnt_p)
+    cnb = Ptr[float](cnb_p)
+    wtqc = Ptr[float](wtqc_p)
+    umf_inv = Ptr[float](umf_inv_p)
+    qvten_inv = Ptr[float](qvten_inv_p)
+    qlten_inv = Ptr[float](qlten_inv_p)
+    qiten_inv = Ptr[float](qiten_inv_p)
+    sten_inv = Ptr[float](sten_inv_p)
+    uten_inv = Ptr[float](uten_inv_p)
+    vten_inv = Ptr[float](vten_inv_p)
+    trten_inv = Ptr[float](trten_inv_p)
+    qrten_inv = Ptr[float](qrten_inv_p)
+    qsten_inv = Ptr[float](qsten_inv_p)
+    evapc_inv = Ptr[float](evapc_inv_p)
+    slflx_inv = Ptr[float](slflx_inv_p)
+    qtflx_inv = Ptr[float](qtflx_inv_p)
+    flxprc1_inv = Ptr[float](flxprc1_inv_p)
+    flxsnow1_inv = Ptr[float](flxsnow1_inv_p)
+    cufrc_inv = Ptr[float](cufrc_inv_p)
+    qcu_inv = Ptr[float](qcu_inv_p)
+    qlu_inv = Ptr[float](qlu_inv_p)
+    qiu_inv = Ptr[float](qiu_inv_p)
+    qc_inv = Ptr[float](qc_inv_p)
+    cnt_inv = Ptr[float](cnt_inv_p)
+    cnb_inv = Ptr[float](cnb_inv_p)
+    wtqc_inv = Ptr[float](wtqc_inv_p)
+
+    i = 0
+    while i < iend:
+        cnt_inv[i] = float(mkx + 1) - cnt[i]
+        cnb_inv[i] = float(mkx + 1) - cnb[i]
+        i += 1
+
+    k = 0
+    while k <= mkx:
+        dst_k = mkx - k
+        i = 0
+        while i < iend:
+            src = i + k * mix
+            dst = i + dst_k * mix
+            umf_inv[dst] = umf[src]
+            slflx_inv[dst] = slflx[src]
+            qtflx_inv[dst] = qtflx[src]
+            flxprc1_inv[dst] = flxprc1[src]
+            flxsnow1_inv[dst] = flxsnow1[src]
+            i += 1
+        k += 1
+
+    k = 0
+    while k < mkx:
+        dst_k = mkx - k - 1
+        i = 0
+        while i < iend:
+            src = i + k * mix
+            dst = i + dst_k * mix
+            qvten_inv[dst] = qvten[src]
+            qlten_inv[dst] = qlten[src]
+            qiten_inv[dst] = qiten[src]
+            sten_inv[dst] = sten[src]
+            uten_inv[dst] = uten[src]
+            vten_inv[dst] = vten[src]
+            qrten_inv[dst] = qrten[src]
+            qsten_inv[dst] = qsten[src]
+            evapc_inv[dst] = evapc[src]
+            cufrc_inv[dst] = cufrc[src]
+            qcu_inv[dst] = qcu[src]
+            qlu_inv[dst] = qlu[src]
+            qiu_inv[dst] = qiu[src]
+            qc_inv[dst] = qc[src]
+            i += 1
+        m = 0
+        while m < ncnst:
+            offset = m * mix * mkx
+            i = 0
+            while i < iend:
+                trten_inv[i + dst_k * mix + offset] = trten[i + k * mix + offset]
+                wtqc_inv[i + dst_k * mix + offset] = wtqc[i + k * mix + offset]
+                i += 1
+            m += 1
+        k += 1
+
+
+@export
 def convect_shallow_diag_shell_codon(
     mode: int,
     ncol: int,
