@@ -70,6 +70,9 @@ module zm_conv
    logical :: use_native_zm_conv_evap_main = .false.
    logical :: zm_conv_evap_main_selected = .false.
    logical :: zm_conv_evap_main_logged = .false.
+   logical :: use_native_zm_momtran_main = .false.
+   logical :: zm_momtran_main_selected = .false.
+   logical :: zm_momtran_main_logged = .false.
 
 contains
 
@@ -187,6 +190,50 @@ subroutine zm_conv_evap_main_select_impl()
    end if
 
 end subroutine zm_conv_evap_main_select_impl
+
+
+subroutine zm_momtran_main_select_impl()
+
+   character(len=32) :: impl_name, mom_impl_name
+   integer :: status, mom_status, n, mom_n, i, code
+
+   if (zm_momtran_main_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('ZM_CONV_POST_SHELL_IMPL', value=impl_name, length=n, status=status)
+   call get_environment_variable('ZM_MOMTRAN_MAIN_IMPL', value=mom_impl_name, length=mom_n, status=mom_status)
+   if (mom_status == 0 .and. mom_n > 0) then
+      impl_name = mom_impl_name
+      n = mom_n
+      status = mom_status
+   end if
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_zm_momtran_main = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_zm_momtran_main = .false.
+   end if
+
+   zm_momtran_main_selected = .true.
+
+   if (masterproc) then
+      if (use_native_zm_momtran_main) then
+         write(iulog,*) 'zm_momtran main implementation = native'
+         call zm_conv_evap_append_impl_proof('zm_momtran main implementation = native')
+      else
+         write(iulog,*) 'zm_momtran main implementation = codon'
+         call zm_conv_evap_append_impl_proof('zm_momtran main implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine zm_momtran_main_select_impl
 
 
 subroutine zm_convr(lchnk   ,ncol    , &
@@ -1538,6 +1585,7 @@ subroutine momtran(lchnk, ncol, &
 ! Author: J. Richter and P. Rasch
 ! 
 !-----------------------------------------------------------------------
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
    use shr_kind_mod,    only: r8 => shr_kind_r8
    use constituents,    only: cnst_get_type_byind
    use ppgrid
@@ -1551,14 +1599,14 @@ subroutine momtran(lchnk, ncol, &
    integer, intent(in) :: ncol                  ! number of atmospheric columns
    integer, intent(in) :: ncnst                 ! number of tracers to transport
    logical, intent(in) :: domomtran(ncnst)      ! flag for doing convective transport
-   real(r8), intent(in) :: q(pcols,pver,ncnst)  ! Wind array
-   real(r8), intent(in) :: mu(pcols,pver)       ! Mass flux up
-   real(r8), intent(in) :: md(pcols,pver)       ! Mass flux down
-   real(r8), intent(in) :: du(pcols,pver)       ! Mass detraining from updraft
-   real(r8), intent(in) :: eu(pcols,pver)       ! Mass entraining from updraft
-   real(r8), intent(in) :: ed(pcols,pver)       ! Mass entraining from downdraft
-   real(r8), intent(in) :: dp(pcols,pver)       ! Delta pressure between interfaces
-   real(r8), intent(in) :: dsubcld(pcols)       ! Delta pressure from cloud base to sfc
+   real(r8), target, intent(in) :: q(pcols,pver,ncnst)  ! Wind array
+   real(r8), target, intent(in) :: mu(pcols,pver)       ! Mass flux up
+   real(r8), target, intent(in) :: md(pcols,pver)       ! Mass flux down
+   real(r8), target, intent(in) :: du(pcols,pver)       ! Mass detraining from updraft
+   real(r8), target, intent(in) :: eu(pcols,pver)       ! Mass entraining from updraft
+   real(r8), target, intent(in) :: ed(pcols,pver)       ! Mass entraining from downdraft
+   real(r8), target, intent(in) :: dp(pcols,pver)       ! Delta pressure between interfaces
+   real(r8), target, intent(in) :: dsubcld(pcols)       ! Delta pressure from cloud base to sfc
    real(r8), intent(in)    :: dt                       !  time step in seconds : 2*delta_t
 
    integer, intent(in) :: jt(pcols)         ! Index of cloud top for each column
@@ -1572,7 +1620,7 @@ subroutine momtran(lchnk, ncol, &
 
 ! input/output
 
-   real(r8), intent(out) :: dqdt(pcols,pver,ncnst)  ! Tracer tendency array
+   real(r8), target, intent(out) :: dqdt(pcols,pver,ncnst)  ! Tracer tendency array
 
 !--------------------------Local Variables------------------------------
 
@@ -1591,11 +1639,11 @@ subroutine momtran(lchnk, ncol, &
    real(r8) cabv                 ! Mix ratio of constituent above
    real(r8) cbel                 ! Mix ratio of constituent below
    real(r8) cdifr                ! Normalized diff between cabv and cbel
-   real(r8) chat(pcols,pver)     ! Mix ratio in env at interfaces
-   real(r8) cond(pcols,pver)     ! Mix ratio in downdraft at interfaces
-   real(r8) const(pcols,pver)    ! Gathered wind array
-   real(r8) conu(pcols,pver)     ! Mix ratio in updraft at interfaces
-   real(r8) dcondt(pcols,pver)   ! Gathered tend array
+   real(r8), target :: chat(pcols,pver)     ! Mix ratio in env at interfaces
+   real(r8), target :: cond(pcols,pver)     ! Mix ratio in downdraft at interfaces
+   real(r8), target :: const(pcols,pver)    ! Gathered wind array
+   real(r8), target :: conu(pcols,pver)     ! Mix ratio in updraft at interfaces
+   real(r8), target :: dcondt(pcols,pver)   ! Gathered tend array
    real(r8) small                ! A small number
    real(r8) mbsth                ! Threshold for mass fluxes
    real(r8) mupdudp              ! A work variable
@@ -1610,30 +1658,80 @@ subroutine momtran(lchnk, ncol, &
    real(r8) sum                  ! sum
    real(r8) sum2                  ! sum2
  
-   real(r8) mududp(pcols,pver) ! working variable
-   real(r8) mddudp(pcols,pver)     ! working variable
+   real(r8), target :: mududp(pcols,pver) ! working variable
+   real(r8), target :: mddudp(pcols,pver)     ! working variable
 
-   real(r8) pgu(pcols,pver)      ! Pressure gradient term for updraft
-   real(r8) pgd(pcols,pver)      ! Pressure gradient term for downdraft
+   real(r8), target :: pgu(pcols,pver)      ! Pressure gradient term for updraft
+   real(r8), target :: pgd(pcols,pver)      ! Pressure gradient term for downdraft
 
-   real(r8),intent(out) ::  pguall(pcols,pver,ncnst)      ! Apparent force from  updraft PG
-   real(r8),intent(out) ::  pgdall(pcols,pver,ncnst)      ! Apparent force from  downdraft PG
+   real(r8),target,intent(out) ::  pguall(pcols,pver,ncnst)      ! Apparent force from  updraft PG
+   real(r8),target,intent(out) ::  pgdall(pcols,pver,ncnst)      ! Apparent force from  downdraft PG
 
-   real(r8),intent(out) ::  icwu(pcols,pver,ncnst)      ! In-cloud winds in updraft
-   real(r8),intent(out) ::  icwd(pcols,pver,ncnst)      ! In-cloud winds in downdraft
+   real(r8),target,intent(out) ::  icwu(pcols,pver,ncnst)      ! In-cloud winds in updraft
+   real(r8),target,intent(out) ::  icwd(pcols,pver,ncnst)      ! In-cloud winds in downdraft
 
-   real(r8),intent(out) ::  seten(pcols,pver) ! Dry static energy tendency
-   real(r8)                 gseten(pcols,pver) ! Gathered dry static energy tendency
+   real(r8),target,intent(out) ::  seten(pcols,pver) ! Dry static energy tendency
+   real(r8),target ::          gseten(pcols,pver) ! Gathered dry static energy tendency
 
-   real(r8)  mflux(pcols,pverp,ncnst)   ! Gathered momentum flux
+   real(r8),target :: mflux(pcols,pverp,ncnst)   ! Gathered momentum flux
 
-   real(r8)  wind0(pcols,pver,ncnst)       !  gathered  wind before time step
-   real(r8)  windf(pcols,pver,ncnst)       !  gathered  wind after time step
+   real(r8),target :: wind0(pcols,pver,ncnst)       !  gathered  wind before time step
+   real(r8),target :: windf(pcols,pver,ncnst)       !  gathered  wind after time step
    real(r8) fkeb, fket, ketend_cons, ketend, utop, ubot, vtop, vbot, gset2
+   integer(c_int64_t), target :: domomtran64(ncnst), jt64(pcols), mx64(pcols), ideep64(pcols)
+
+   interface
+      subroutine zm_momtran_main_codon(ncol_c, pcols_c, pver_c, pverp_c, ncnst_c, il1g_c, il2g_c, dt_c, &
+           domomtran_p, q_p, mu_p, md_p, du_p, eu_p, ed_p, dp_p, dsubcld_p, jt_p, mx_p, ideep_p, dqdt_p, &
+           pguall_p, pgdall_p, icwu_p, icwd_p, seten_p, chat_p, cond_p, const_p, conu_p, dcondt_p, mududp_p, &
+           mddudp_p, pgu_p, pgd_p, gseten_p, mflux_p, wind0_p, windf_p) bind(c, name="zm_momtran_main_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c, ncnst_c, il1g_c, il2g_c
+         real(c_double), value :: dt_c
+         type(c_ptr), value :: domomtran_p, q_p, mu_p, md_p, du_p, eu_p, ed_p, dp_p, dsubcld_p
+         type(c_ptr), value :: jt_p, mx_p, ideep_p, dqdt_p, pguall_p, pgdall_p, icwu_p, icwd_p, seten_p
+         type(c_ptr), value :: chat_p, cond_p, const_p, conu_p, dcondt_p, mududp_p, mddudp_p, pgu_p, pgd_p
+         type(c_ptr), value :: gseten_p, mflux_p, wind0_p, windf_p
+      end subroutine zm_momtran_main_codon
+   end interface
    
 
 !-----------------------------------------------------------------------
 !
+
+   do m = 1, ncnst
+      if (domomtran(m)) then
+         domomtran64(m) = 1_c_int64_t
+      else
+         domomtran64(m) = 0_c_int64_t
+      end if
+   end do
+
+   do i = 1, pcols
+      jt64(i) = int(jt(i), c_int64_t)
+      mx64(i) = int(mx(i), c_int64_t)
+      ideep64(i) = int(ideep(i), c_int64_t)
+   end do
+
+   call zm_momtran_main_select_impl()
+   if (.not. use_native_zm_momtran_main) then
+      if (masterproc .and. .not. zm_momtran_main_logged) then
+         write(iulog,*) 'zm_momtran main loop entered (momentum transport/PG/KE fix direct = codon)'
+         call zm_conv_evap_append_impl_proof( &
+              'zm_momtran main loop entered (momentum transport/PG/KE fix direct = codon)')
+         call flush(iulog)
+         zm_momtran_main_logged = .true.
+      end if
+
+      call zm_momtran_main_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+           int(pverp, c_int64_t), int(ncnst, c_int64_t), int(il1g, c_int64_t), int(il2g, c_int64_t), &
+           real(dt, c_double), c_loc(domomtran64), c_loc(q), c_loc(mu), c_loc(md), c_loc(du), c_loc(eu), &
+           c_loc(ed), c_loc(dp), c_loc(dsubcld), c_loc(jt64), c_loc(mx64), c_loc(ideep64), c_loc(dqdt), &
+           c_loc(pguall), c_loc(pgdall), c_loc(icwu), c_loc(icwd), c_loc(seten), c_loc(chat), c_loc(cond), &
+           c_loc(const), c_loc(conu), c_loc(dcondt), c_loc(mududp), c_loc(mddudp), c_loc(pgu), c_loc(pgd), &
+           c_loc(gseten), c_loc(mflux), c_loc(wind0), c_loc(windf))
+      return
+   end if
 
 ! Initialize outgoing fields
    pguall(:,:,:)     = 0.0_r8
