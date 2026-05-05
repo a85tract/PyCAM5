@@ -151,6 +151,7 @@ module water_tracers
   logical :: wtrc_precip_evap_prep_logged = .false.
   logical :: wtrc_precip_evap_tail_logged = .false.
   logical :: wtrc_q1q2_init_logged = .false.
+  logical :: wtrc_q1q2_updraft_h2o_logged = .false.
   logical :: wtrc_q1q2_downdraft_logged = .false.
   logical :: wtrc_q1q2_tail_logged = .false.
 
@@ -5309,9 +5310,9 @@ subroutine wtrc_q1q2_pjr(dqdt        , ideep, lengath, &
    integer, intent(in) :: lengath              !number of grid spaces with deep convection
 
    real(r8), target, intent(in) :: q(pcols,pver,pcnst) !Environmental water vapor mixing ratio (state%q) [kg/kg]
-   real(r8), intent(in) :: qstb(pcols,pver)    !bulk saturated env. water vapor mixing ratio [kg/kg]
+   real(r8), target, intent(in) :: qstb(pcols,pver)    !bulk saturated env. water vapor mixing ratio [kg/kg]
    real(r8), intent(in) :: qsthatb(pcols,pver) !qst at interfaces
-   real(r8), intent(in) :: qub(pcols,pver)     !bulk water vapor mixing ratio in updraft [kg/kg]
+   real(r8), target, intent(in) :: qub(pcols,pver)     !bulk water vapor mixing ratio in updraft [kg/kg]
    real(r8), intent(in) :: hmn(pcols,pver)     !bulk environmental moist static energy
    real(r8), intent(in) :: hsatb(pcols,pver)   !bulk saturated env. moist static energy
    real(r8), intent(in) :: hsthatb(pcols,pver) !hsat at interfaces
@@ -5320,16 +5321,16 @@ subroutine wtrc_q1q2_pjr(dqdt        , ideep, lengath, &
    real(r8), target, intent(in) :: dupc(pcols,pver)    !detrainment rate in updraft pre-unit change
    real(r8), target, intent(in) :: du(pcols,pver)      !input detrainment rate in updraft
    real(r8), target, intent(in) :: mupc(pcols,pver)    !mu before unit-change
-   real(r8), intent(in) :: eu(pcols,pver)      !input updraft entraiment rate
+   real(r8), target, intent(in) :: eu(pcols,pver)      !input updraft entraiment rate
    real(r8), target, intent(in) :: mu(pcols,pver)      !mass flux in updraft
    real(r8), target, intent(in) :: md(pcols,pver)      !mass flux in downdraft
    real(r8), target, intent(in) :: qdb(pcols,pver)     !bulk water vapor mixing ratio in downdraft [kg/kg]
-   real(r8), intent(in) :: tu(pcols,pver)      !temperature in updraft [K?]
+   real(r8), target, intent(in) :: tu(pcols,pver)      !temperature in updraft [K?]
    real(r8), intent(in) :: td(pcols,pver)      !temperature in downdraft [K?]
    real(r8), target, intent(in) :: ed(pcols,pver)     !downdraft entrainment rate [?]
    real(r8), target, intent(in) :: evpc(pcols,pver)    !evaporation rate pre-unit change [kg/m3/s]
    real(r8), target, intent(in) :: evp(pcols,pver)     !evaporation rate in downdraft
-   real(r8), intent(in) :: cupc(pcols,pver)    !condensation rate pre-unit change [kg/m3/s]
+   real(r8), target, intent(in) :: cupc(pcols,pver)    !condensation rate pre-unit change [kg/m3/s]
    real(r8), target, intent(in) :: cu(pcols,pver)      !condensation rate in updraft
    real(r8), intent(in) :: rppe(pcols,pver)    !g: rain production pre-evaporation [?]
    real(r8), target, intent(in) :: dsubcld(pcols)      !sub-cloud layer thickness [mb]
@@ -5404,6 +5405,8 @@ subroutine wtrc_q1q2_pjr(dqdt        , ideep, lengath, &
    !tendency calculation! - JN
    real(r8), target :: pevp(pcols,pver)          !precipitation evaporation
    real(r8), target :: ql(pcols,pver,wtrc_nwset)            !precipitable liquid [kg/kg]
+   real(r8), target :: uqdiff_work(pcols,pver)
+   real(r8), target :: oval_work(pcols,pver)
    real(r8) ql1                                  !temporary precipitable liquid storage [kg/kg]
    real(r8) Rr                                   !precipitation production ratio [unitless] 
 
@@ -5466,6 +5469,18 @@ subroutine wtrc_q1q2_pjr(dqdt        , ideep, lengath, &
          type(c_ptr), value :: ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, jd_p, mx_p, eps0_p, qu_p, qds_p
          type(c_ptr), value :: rd_p, qd_p, dz_p, wtevp_p, evpc_p, ed_p, q_p, mdpc_p, qdb_p, totevp_p
       end subroutine wtrc_q1q2_downdraft_shell_codon
+
+      subroutine wtrc_q1q2_updraft_h2o_shell_codon(lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, &
+           iwtvap_c, wtrc_qmin_c, ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, mx_p, jt_p, eps0_p, &
+           tu_p, mupc_p, qu_p, ru_p, wtcu_p, cupc_p, dz_p, eu_p, q_p, dupc_p, qstb_p, qub_p, ql_p, &
+           c0mask_p, oval_work_p, uqdiff_work_p) bind(c, name="wtrc_q1q2_updraft_h2o_shell_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, iwtvap_c
+         real(c_double), value :: wtrc_qmin_c
+         type(c_ptr), value :: ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, mx_p, jt_p, eps0_p, tu_p, mupc_p
+         type(c_ptr), value :: qu_p, ru_p, wtcu_p, cupc_p, dz_p, eu_p, q_p, dupc_p, qstb_p, qub_p, ql_p
+         type(c_ptr), value :: c0mask_p, oval_work_p, uqdiff_work_p
+      end subroutine wtrc_q1q2_updraft_h2o_shell_codon
    end interface
 
 !***************************************
@@ -5603,6 +5618,79 @@ else
 !these differences.  As this qdiff appears to be directly proportional to the original tracer ratio,
 !it should only need to be calculated once. - JN
 
+if (.not. use_native_wtrc_batch_impl) then
+
+  if (masterproc .and. .not. wtrc_q1q2_updraft_h2o_logged) then
+    write(iulog,*) 'wtrc_q1q2 updraft h2o shell entered (H2O/no-massflux updraft direct = codon; isotope core = native)'
+    call wtrc_batch_append_proof('wtrc_q1q2 updraft h2o shell entered (H2O/no-massflux updraft direct = codon; isotope core = native)')
+    call flush(iulog)
+    wtrc_q1q2_updraft_h2o_logged = .true.
+  end if
+
+  call wtrc_q1q2_updraft_h2o_shell_codon(int(lengath, c_int64_t), int(pcols, c_int64_t), &
+       int(pver, c_int64_t), int(wtrc_nwset, c_int64_t), int(msg, c_int64_t), int(iwtvap, c_int64_t), &
+       real(wtrc_qmin, c_double), c_loc(ideep64), c_loc(wtrc_iatype64), c_loc(iwspec64), c_loc(rstd), &
+       c_loc(mx64), c_loc(jt64), c_loc(eps0), c_loc(tu), c_loc(mupc), c_loc(qu), c_loc(Ru), c_loc(wtcu), &
+       c_loc(cupc), c_loc(dz), c_loc(eu), c_loc(q), c_loc(dupc), c_loc(qstb), c_loc(qub), c_loc(ql), &
+       c_loc(c0mask), c_loc(oval_work), c_loc(uqdiff_work))
+
+  do k = pver,msg + 2,-1
+    do i = 1,lengath
+      if ((k > 1 .and. k < mx(i)) .and. eps0(i) > 0._r8) then
+        if(mupc(i,k) > 0._r8) then
+          if(tu(ideep(i),k) > 268.15_r8) then
+            nu = 0.0_r8
+          elseif(tu(ideep(i),k) < 238.15_r8) then
+            nu = 1.0_r8
+          else
+            nu = (268.15_r8 - tu(ideep(i),k)) / 30._r8
+          endif
+
+          do m=2,wtrc_nwset
+            Ru(i,k,m) = wtrc_ratio(iwspec(wtrc_iatype(m,iwtvap)),qu(i,k+1,m),qu(i,k+1,1))
+            wtcu(i,k,m) = Ru(i,k,m)*cupc(i,k)
+
+            if(wisotope) then
+              alpha = wtrc_get_alpha(qub(i,k+1),tu(ideep(i),k+1),iwspec(wtrc_iatype(m,iwtvap)),&
+                                iwtvap,iwtliq,.false.,1._r8,.false.)
+              cue = wtcu(i,k,m)*dz(i,k)/mupc(i,k)
+              cuh = wtcu(i,k,1)*dz(i,k)/mupc(i,k)
+              call wtrc_liqvap_equil(alpha, 1._r8, qu(i,k+1,1), cuh,&
+                                     qu(i,k+1,m), cue, dliqiso)
+              cue = wtcu(i,k,m) + (dliqiso*mupc(i,k)/dz(i,k))
+              cue = cue * (1._r8 - nu)
+              alpha = wtrc_get_alpha(qub(i,k+1),tu(ideep(i),k+1),iwspec(wtrc_iatype(m,iwtvap)),&
+                              iwtvap,iwtice,.true.,pap(i,k),.true.)
+              fr = (qu(i,k+1,1)-cuh)/qu(i,k+1,1)
+              fr = min(1._r8,max(0._r8,fr))
+              qur = qu(i,k+1,m)*fr**alpha
+              cur = qu(i,k+1,m)-qur
+              cur = cur*mupc(i,k)/dz(i,k)
+              cur = cur * nu
+              wtcu(i,k,m) = cue + cur
+            end if
+
+            qu(i,k,m) = mupc(i,k+1)/mupc(i,k)*qu(i,k+1,m) + dz(i,k)/mupc(i,k)* &
+                        (eu(i,k)*q(ideep(i),k,wtrc_iatype(m,iwtvap))- &
+                        dupc(i,k)*Ru(i,k,m)*qstb(i,k) - wtcu(i,k,m))
+            Rfix      = wtrc_ratio(iwspec(wtrc_iatype(m,iwtvap)),qu(i,k,m),oval_work(i,k))
+            qu(i,k,m) = qu(i,k,m)+Rfix*uqdiff_work(i,k)
+
+            if (k >= jt(i)) then
+              ql1 = 1._r8/mupc(i,k)* (mupc(i,k+1)*ql(i,k+1,m)- &
+              dz(i,k)*dupc(i,k)*ql(i,k+1,m)+dz(i,k)*wtcu(i,k,m))
+              ql(i,k,m) = ql1/ (1._r8+dz(i,k)*c0mask(i))
+            else
+              ql(i,k,m) = 0._r8
+            end if
+          end do
+        end if
+      end if
+    end do
+  end do
+
+else
+
   do k = pver,msg + 2,-1
     do i = 1,lengath
       if ((k > 1 .and. k < mx(i)) .and. eps0(i) > 0._r8) then !Not sure why this is needed, but it errors without it - JN
@@ -5722,6 +5810,8 @@ else
       !---------------
     end do
   end do
+
+end if
 
 !********************************************
 !Calculate downdraft humidity and evaporation
