@@ -865,6 +865,164 @@ def uwshcu_diag_post_shell_codon(
 
 
 @export
+def uwshcu_main_post_shell_codon(
+    mix: int,
+    mkx: int,
+    i_col: int,
+    ncnst: int,
+    precip_v: float,
+    snow_v: float,
+    cush_v: float,
+    cbmf_v: float,
+    rliq_v: float,
+    cnt_v: float,
+    cnb_v: float,
+    umf_p: cobj,
+    slflx_p: cobj,
+    qtflx_p: cobj,
+    flxrain_p: cobj,
+    flxsnow_p: cobj,
+    qvten_p: cobj,
+    qlten_p: cobj,
+    qiten_p: cobj,
+    sten_p: cobj,
+    uten_p: cobj,
+    vten_p: cobj,
+    qrten_p: cobj,
+    qsten_p: cobj,
+    evapc_p: cobj,
+    cufrc_p: cobj,
+    qcu_p: cobj,
+    qlu_p: cobj,
+    qiu_p: cobj,
+    qc_p: cobj,
+    trten_p: cobj,
+    umf_out_p: cobj,
+    slflx_out_p: cobj,
+    qtflx_out_p: cobj,
+    flxprc1_out_p: cobj,
+    flxsnow1_out_p: cobj,
+    qvten_out_p: cobj,
+    qlten_out_p: cobj,
+    qiten_out_p: cobj,
+    sten_out_p: cobj,
+    uten_out_p: cobj,
+    vten_out_p: cobj,
+    qrten_out_p: cobj,
+    qsten_out_p: cobj,
+    precip_out_p: cobj,
+    snow_out_p: cobj,
+    evapc_out_p: cobj,
+    cufrc_out_p: cobj,
+    qcu_out_p: cobj,
+    qlu_out_p: cobj,
+    qiu_out_p: cobj,
+    cush_out_p: cobj,
+    cbmf_out_p: cobj,
+    rliq_out_p: cobj,
+    qc_out_p: cobj,
+    cnt_out_p: cobj,
+    cnb_out_p: cobj,
+    trten_out_p: cobj,
+):
+    umf = Ptr[float](umf_p)
+    slflx = Ptr[float](slflx_p)
+    qtflx = Ptr[float](qtflx_p)
+    flxrain = Ptr[float](flxrain_p)
+    flxsnow = Ptr[float](flxsnow_p)
+    qvten = Ptr[float](qvten_p)
+    qlten = Ptr[float](qlten_p)
+    qiten = Ptr[float](qiten_p)
+    sten = Ptr[float](sten_p)
+    uten = Ptr[float](uten_p)
+    vten = Ptr[float](vten_p)
+    qrten = Ptr[float](qrten_p)
+    qsten = Ptr[float](qsten_p)
+    evapc = Ptr[float](evapc_p)
+    cufrc = Ptr[float](cufrc_p)
+    qcu = Ptr[float](qcu_p)
+    qlu = Ptr[float](qlu_p)
+    qiu = Ptr[float](qiu_p)
+    qc = Ptr[float](qc_p)
+    trten = Ptr[float](trten_p)
+    umf_out = Ptr[float](umf_out_p)
+    slflx_out = Ptr[float](slflx_out_p)
+    qtflx_out = Ptr[float](qtflx_out_p)
+    flxprc1_out = Ptr[float](flxprc1_out_p)
+    flxsnow1_out = Ptr[float](flxsnow1_out_p)
+    qvten_out = Ptr[float](qvten_out_p)
+    qlten_out = Ptr[float](qlten_out_p)
+    qiten_out = Ptr[float](qiten_out_p)
+    sten_out = Ptr[float](sten_out_p)
+    uten_out = Ptr[float](uten_out_p)
+    vten_out = Ptr[float](vten_out_p)
+    qrten_out = Ptr[float](qrten_out_p)
+    qsten_out = Ptr[float](qsten_out_p)
+    precip_out = Ptr[float](precip_out_p)
+    snow_out = Ptr[float](snow_out_p)
+    evapc_out = Ptr[float](evapc_out_p)
+    cufrc_out = Ptr[float](cufrc_out_p)
+    qcu_out = Ptr[float](qcu_out_p)
+    qlu_out = Ptr[float](qlu_out_p)
+    qiu_out = Ptr[float](qiu_out_p)
+    cush_out = Ptr[float](cush_out_p)
+    cbmf_out = Ptr[float](cbmf_out_p)
+    rliq_out = Ptr[float](rliq_out_p)
+    qc_out = Ptr[float](qc_out_p)
+    cnt_out = Ptr[float](cnt_out_p)
+    cnb_out = Ptr[float](cnb_out_p)
+    trten_out = Ptr[float](trten_out_p)
+
+    col = i_col - 1
+    precip_out[col] = precip_v
+    snow_out[col] = snow_v
+    cush_out[col] = cush_v
+    cbmf_out[col] = cbmf_v
+    rliq_out[col] = rliq_v
+    cnt_out[col] = cnt_v
+    cnb_out[col] = cnb_v
+
+    k = 0
+    while k <= mkx:
+        dst = col + k * mix
+        umf_out[dst] = umf[k]
+        slflx_out[dst] = slflx[k]
+        qtflx_out[dst] = qtflx[k]
+        flxprc1_out[dst] = flxrain[k] + flxsnow[k]
+        flxsnow1_out[dst] = flxsnow[k]
+        k += 1
+
+    k = 0
+    while k < mkx:
+        dst = col + k * mix
+        qvten_out[dst] = qvten[k]
+        qlten_out[dst] = qlten[k]
+        qiten_out[dst] = qiten[k]
+        sten_out[dst] = sten[k]
+        uten_out[dst] = uten[k]
+        vten_out[dst] = vten[k]
+        qrten_out[dst] = qrten[k]
+        qsten_out[dst] = qsten[k]
+        evapc_out[dst] = evapc[k]
+        cufrc_out[dst] = cufrc[k]
+        qcu_out[dst] = qcu[k]
+        qlu_out[dst] = qlu[k]
+        qiu_out[dst] = qiu[k]
+        qc_out[dst] = qc[k]
+        k += 1
+
+    m = 0
+    while m < ncnst:
+        offset = m * mix * mkx
+        src_offset = m * mkx
+        k = 0
+        while k < mkx:
+            trten_out[col + k * mix + offset] = trten[k + src_offset]
+            k += 1
+        m += 1
+
+
+@export
 def uwshcu_inv_prep_shell_codon(
     mix: int,
     mkx: int,

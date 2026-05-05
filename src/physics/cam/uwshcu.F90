@@ -40,6 +40,7 @@
   logical :: inv_shell_entered_logged = .false.
   logical :: inv_post_shell_entered_logged = .false.
   logical :: diag_post_shell_entered_logged = .false.
+  logical :: main_post_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -180,6 +181,21 @@ contains
     end if
 
   end subroutine uwshcu_log_diag_post_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_main_post_shell_entered()
+
+    if (main_post_shell_entered_logged) return
+    main_post_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu main post shell entered (main output scatter direct = codon)'
+       call uwshcu_append_proof('uwshcu main post shell entered (main output scatter direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_main_post_shell_entered
 
 !===============================================================================
   
@@ -783,7 +799,7 @@ end subroutine uwshcu_readnl
     real(r8), intent(in)    :: concldfrct_in(mix,mkx)         !  Total convective cloud fraction
                                                               ! at the previous time step [ fraction ]
     real(r8), intent(in)    :: pblh_in(mix)                   !  Height of PBL [ m ]
-    real(r8), intent(inout) :: cush_inout(mix)                !  Convective scale height [ m ]
+    real(r8), target, intent(inout) :: cush_inout(mix)        !  Convective scale height [ m ]
 
     real(r8)                   tw0_in(mix,mkx)                !  Wet bulb temperature [ K ]
     real(r8)                   qw0_in(mix,mkx)                !  Wet-bulb specific humidity [ kg/kg ]
@@ -898,36 +914,36 @@ end subroutine uwshcu_readnl
 
    ! 3. Variables associated with cumulus convection
 
-    real(r8)    umf(0:mkx)                                    !  Updraft mass flux at the interfaces [ kg/m2/s ]
+    real(r8), target :: umf(0:mkx)                            !  Updraft mass flux at the interfaces [ kg/m2/s ]
     real(r8)    emf(0:mkx)                                    !  Penetrative entrainment mass flux at the interfaces [ kg/m2/s ]
-    real(r8)    qvten(mkx)                                    !  Tendency of water vapor specific humidity [ kg/kg/s ]
-    real(r8)    qlten(mkx)                                    !  Tendency of liquid water specific humidity [ kg/kg/s ]
-    real(r8)    qiten(mkx)                                    !  Tendency of ice specific humidity [ kg/kg/s ]
-    real(r8)    sten(mkx)                                     !  Tendency of dry static energy [ J/kg ]
-    real(r8)    uten(mkx)                                     !  Tendency of zonal wind [ m/s2 ]
-    real(r8)    vten(mkx)                                     !  Tendency of meridional wind [ m/s2 ]
-    real(r8)    qrten(mkx)                                    !  Tendency of rain water specific humidity [ kg/kg/s ]
-    real(r8)    qsten(mkx)                                    !  Tendency of snow specific humidity [ kg/kg/s ]
+    real(r8), target :: qvten(mkx)                            !  Tendency of water vapor specific humidity [ kg/kg/s ]
+    real(r8), target :: qlten(mkx)                            !  Tendency of liquid water specific humidity [ kg/kg/s ]
+    real(r8), target :: qiten(mkx)                            !  Tendency of ice specific humidity [ kg/kg/s ]
+    real(r8), target :: sten(mkx)                             !  Tendency of dry static energy [ J/kg ]
+    real(r8), target :: uten(mkx)                             !  Tendency of zonal wind [ m/s2 ]
+    real(r8), target :: vten(mkx)                             !  Tendency of meridional wind [ m/s2 ]
+    real(r8), target :: qrten(mkx)                            !  Tendency of rain water specific humidity [ kg/kg/s ]
+    real(r8), target :: qsten(mkx)                            !  Tendency of snow specific humidity [ kg/kg/s ]
     real(r8)    precip                                        !  Precipitation rate ( rain + snow) at the surface [ m/s ]
     real(r8)    snow                                          !  Snow rate at the surface [ m/s ]
-    real(r8)    evapc(mkx)                                    !  Tendency of evaporation of precipitation [ kg/kg/s ]
-    real(r8)    slflx(0:mkx)                                  !  Updraft/pen.entrainment liquid static energy flux
+    real(r8), target :: evapc(mkx)                            !  Tendency of evaporation of precipitation [ kg/kg/s ]
+    real(r8), target :: slflx(0:mkx)                          !  Updraft/pen.entrainment liquid static energy flux
                                                               ! [ J/kg * kg/m2/s ]
-    real(r8)    qtflx(0:mkx)                                  !  Updraft/pen.entrainment total water flux [ kg/kg * kg/m2/s ]
+    real(r8), target :: qtflx(0:mkx)                          !  Updraft/pen.entrainment total water flux [ kg/kg * kg/m2/s ]
     real(r8), target :: uflx(0:mkx)                           !  Updraft/pen.entrainment flux of zonal momentum [ m/s/m2/s ]
     real(r8), target :: vflx(0:mkx)                           !  Updraft/pen.entrainment flux of meridional momentum [ m/s/m2/s ]
-    real(r8)    cufrc(mkx)                                    !  Shallow cumulus cloud fraction at the layer mid-point [ fraction ]
-    real(r8)    qcu(mkx)                                      !  Condensate water specific humidity
+    real(r8), target :: cufrc(mkx)                            !  Shallow cumulus cloud fraction at the layer mid-point [ fraction ]
+    real(r8), target :: qcu(mkx)                              !  Condensate water specific humidity
                                                               ! within convective updraft [ kg/kg ]
-    real(r8)    qlu(mkx)                                      !  Liquid water specific humidity within convective updraft [ kg/kg ]
-    real(r8)    qiu(mkx)                                      !  Ice specific humidity within convective updraft [ kg/kg ]
+    real(r8), target :: qlu(mkx)                              !  Liquid water specific humidity within convective updraft [ kg/kg ]
+    real(r8), target :: qiu(mkx)                              !  Ice specific humidity within convective updraft [ kg/kg ]
     real(r8), target :: dwten(mkx)                            !  Detrained water tendency from cumulus updraft [ kg/kg/s ]
     real(r8), target :: diten(mkx)                            !  Detrained ice   tendency from cumulus updraft [ kg/kg/s ]
     real(r8), target :: fer(mkx)                              !  Fractional lateral entrainment rate [ 1/Pa ]
     real(r8), target :: fdr(mkx)                              !  Fractional lateral detrainment rate [ 1/Pa ]
     real(r8)    uf(mkx)                                       !  Zonal wind at the provisional time step [ m/s ]
     real(r8)    vf(mkx)                                       !  Meridional wind at the provisional time step [ m/s ]
-    real(r8)    qc(mkx)                                       !  Tendency due to detrained 'cloud water + cloud ice'
+    real(r8), target :: qc(mkx)                               !  Tendency due to detrained 'cloud water + cloud ice'
                                                               ! (without rain-snow contribution) [ kg/kg/s ]
     real(r8)    qc_l(mkx)                                     !  Tendency due to detrained 'cloud water'
                                                               ! (without rain-snow contribution) [ kg/kg/s ]
@@ -949,7 +965,7 @@ end subroutine uwshcu_readnl
     real(r8), target :: qtten(mkx)                            !  Tendency of qt [ kg/kg/s ]
     real(r8), target :: slten(mkx)                            !  Tendency of sl [ J/kg/s ]
     real(r8), target :: ufrc(0:mkx)                           !  Updraft fractional area [ fraction ]
-    real(r8)    trten(mkx,ncnst)                              !  Tendency of tracers [ #/s, kg/kg/s ]
+    real(r8), target :: trten(mkx,ncnst)                      !  Tendency of tracers [ #/s, kg/kg/s ]
     real(r8), target :: trflx(0:mkx,ncnst)                    !  Flux of tracers due to convection [ # * kg/m2/s, kg/kg * kg/m2/s ]
     real(r8)    trflx_d(0:mkx)                                !  Adjustive downward flux of tracers to prevent negative tracers
     real(r8)    trflx_u(0:mkx)                                !  Adjustive upward   flux of tracers to prevent negative tracers
@@ -1415,6 +1431,27 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: bquad_out_p, cquad_out_p, bogbot_out_p, bogtop_out_p
           type(c_ptr), value :: trflx_out_p, tru_out_p, tru_emf_out_p
        end subroutine uwshcu_diag_post_shell_codon
+
+       subroutine uwshcu_main_post_shell_codon(mix_c, mkx_c, i_c, ncnst_c, precip_c, snow_c, cush_c, &
+            cbmf_c, rliq_c, cnt_c, cnb_c, umf_p, slflx_p, qtflx_p, flxrain_p, flxsnow_p, qvten_p, &
+            qlten_p, qiten_p, sten_p, uten_p, vten_p, qrten_p, qsten_p, evapc_p, cufrc_p, qcu_p, &
+            qlu_p, qiu_p, qc_p, trten_p, umf_out_p, slflx_out_p, qtflx_out_p, flxprc1_out_p, &
+            flxsnow1_out_p, qvten_out_p, qlten_out_p, qiten_out_p, sten_out_p, uten_out_p, &
+            vten_out_p, qrten_out_p, qsten_out_p, precip_out_p, snow_out_p, evapc_out_p, &
+            cufrc_out_p, qcu_out_p, qlu_out_p, qiu_out_p, cush_out_p, cbmf_out_p, rliq_out_p, &
+            qc_out_p, cnt_out_p, cnb_out_p, trten_out_p) bind(c, name="uwshcu_main_post_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mix_c, mkx_c, i_c, ncnst_c
+          real(c_double), value :: precip_c, snow_c, cush_c, cbmf_c, rliq_c, cnt_c, cnb_c
+          type(c_ptr), value :: umf_p, slflx_p, qtflx_p, flxrain_p, flxsnow_p, qvten_p, qlten_p, qiten_p
+          type(c_ptr), value :: sten_p, uten_p, vten_p, qrten_p, qsten_p, evapc_p, cufrc_p, qcu_p
+          type(c_ptr), value :: qlu_p, qiu_p, qc_p, trten_p, umf_out_p, slflx_out_p, qtflx_out_p
+          type(c_ptr), value :: flxprc1_out_p, flxsnow1_out_p, qvten_out_p, qlten_out_p, qiten_out_p
+          type(c_ptr), value :: sten_out_p, uten_out_p, vten_out_p, qrten_out_p, qsten_out_p
+          type(c_ptr), value :: precip_out_p, snow_out_p, evapc_out_p, cufrc_out_p, qcu_out_p
+          type(c_ptr), value :: qlu_out_p, qiu_out_p, cush_out_p, cbmf_out_p, rliq_out_p, qc_out_p
+          type(c_ptr), value :: cnt_out_p, cnb_out_p, trten_out_p
+       end subroutine uwshcu_main_post_shell_codon
     end interface
 
     ! ------------------ !
@@ -5657,37 +5694,51 @@ end subroutine uwshcu_readnl
      ! Update Output Variables !
      ! ----------------------- !
 
-     umf_out(i,0:mkx)             = umf(0:mkx)
-     slflx_out(i,0:mkx)           = slflx(0:mkx)
-     qtflx_out(i,0:mkx)           = qtflx(0:mkx)
-!the indices are not reversed, these variables go into compute_mcshallow_inv, this is why they are called "flxprc1" and "flxsnow1". 
-     flxprc1_out(i,0:mkx)         = flxrain(0:mkx) + flxsnow(0:mkx)
-     flxsnow1_out(i,0:mkx)        = flxsnow(0:mkx)
-     qvten_out(i,:mkx)            = qvten(:mkx)
-     qlten_out(i,:mkx)            = qlten(:mkx)
-     qiten_out(i,:mkx)            = qiten(:mkx)
-     sten_out(i,:mkx)             = sten(:mkx)
-     uten_out(i,:mkx)             = uten(:mkx)
-     vten_out(i,:mkx)             = vten(:mkx)
-     qrten_out(i,:mkx)            = qrten(:mkx)
-     qsten_out(i,:mkx)            = qsten(:mkx)
-     precip_out(i)                = precip
-     snow_out(i)                  = snow
-     evapc_out(i,:mkx)            = evapc(:mkx)
-     cufrc_out(i,:mkx)            = cufrc(:mkx)
-     qcu_out(i,:mkx)              = qcu(:mkx)
-     qlu_out(i,:mkx)              = qlu(:mkx)
-     qiu_out(i,:mkx)              = qiu(:mkx)
-     cush_inout(i)                = cush
-     cbmf_out(i)                  = cbmf
-     rliq_out(i)                  = rliq
-     qc_out(i,:mkx)               = qc(:mkx)
-     cnt_out(i)                   = cnt
-     cnb_out(i)                   = cnb
+     if (use_native_init_shell_impl) then
+        umf_out(i,0:mkx)             = umf(0:mkx)
+        slflx_out(i,0:mkx)           = slflx(0:mkx)
+        qtflx_out(i,0:mkx)           = qtflx(0:mkx)
+!the indices are not reversed, these variables go into compute_mcshallow_inv, this is why they are called "flxprc1" and "flxsnow1".
+        flxprc1_out(i,0:mkx)         = flxrain(0:mkx) + flxsnow(0:mkx)
+        flxsnow1_out(i,0:mkx)        = flxsnow(0:mkx)
+        qvten_out(i,:mkx)            = qvten(:mkx)
+        qlten_out(i,:mkx)            = qlten(:mkx)
+        qiten_out(i,:mkx)            = qiten(:mkx)
+        sten_out(i,:mkx)             = sten(:mkx)
+        uten_out(i,:mkx)             = uten(:mkx)
+        vten_out(i,:mkx)             = vten(:mkx)
+        qrten_out(i,:mkx)            = qrten(:mkx)
+        qsten_out(i,:mkx)            = qsten(:mkx)
+        precip_out(i)                = precip
+        snow_out(i)                  = snow
+        evapc_out(i,:mkx)            = evapc(:mkx)
+        cufrc_out(i,:mkx)            = cufrc(:mkx)
+        qcu_out(i,:mkx)              = qcu(:mkx)
+        qlu_out(i,:mkx)              = qlu(:mkx)
+        qiu_out(i,:mkx)              = qiu(:mkx)
+        cush_inout(i)                = cush
+        cbmf_out(i)                  = cbmf
+        rliq_out(i)                  = rliq
+        qc_out(i,:mkx)               = qc(:mkx)
+        cnt_out(i)                   = cnt
+        cnb_out(i)                   = cnb
 
-     do m = 1, ncnst !<- Water tracers handled here. -JN
-        trten_out(i,:mkx,m)       = trten(:mkx,m)
-     enddo
+        do m = 1, ncnst !<- Water tracers handled here. -JN
+           trten_out(i,:mkx,m)       = trten(:mkx,m)
+        enddo
+     else
+        call uwshcu_log_main_post_shell_entered()
+        call uwshcu_main_post_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), int(i, c_int64_t), &
+             int(ncnst, c_int64_t), precip, snow, cush, cbmf, rliq, cnt, cnb, c_loc(umf), c_loc(slflx), &
+             c_loc(qtflx), c_loc(flxrain), c_loc(flxsnow), c_loc(qvten), c_loc(qlten), c_loc(qiten), &
+             c_loc(sten), c_loc(uten), c_loc(vten), c_loc(qrten), c_loc(qsten), c_loc(evapc), &
+             c_loc(cufrc), c_loc(qcu), c_loc(qlu), c_loc(qiu), c_loc(qc), c_loc(trten), c_loc(umf_out), &
+             c_loc(slflx_out), c_loc(qtflx_out), c_loc(flxprc1_out), c_loc(flxsnow1_out), c_loc(qvten_out), &
+             c_loc(qlten_out), c_loc(qiten_out), c_loc(sten_out), c_loc(uten_out), c_loc(vten_out), &
+             c_loc(qrten_out), c_loc(qsten_out), c_loc(precip_out), c_loc(snow_out), c_loc(evapc_out), &
+             c_loc(cufrc_out), c_loc(qcu_out), c_loc(qlu_out), c_loc(qiu_out), c_loc(cush_inout), &
+             c_loc(cbmf_out), c_loc(rliq_out), c_loc(qc_out), c_loc(cnt_out), c_loc(cnb_out), c_loc(trten_out))
+     end if
   
     !*************
     !Water tracers:
