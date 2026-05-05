@@ -125,20 +125,28 @@ logical, public :: do_cldice ! Prognose cldice flag
 
 logical :: use_native_postmg_diag_impl = .false.
 logical :: postmg_diag_impl_selected = .false.
+logical :: postmg_diag_entered_logged = .false.
 logical :: use_native_grid_diag_impl = .false.
 logical :: grid_diag_impl_selected = .false.
+logical :: grid_diag_entered_logged = .false.
 logical :: use_native_tail_shell_impl = .false.
 logical :: tail_shell_impl_selected = .false.
+logical :: tail_shell_entered_logged = .false.
 logical :: use_native_wtrc_shell_impl = .false.
 logical :: wtrc_shell_impl_selected = .false.
+logical :: wtrc_shell_entered_logged = .false.
 logical :: use_native_wtrc_prep_impl = .false.
 logical :: wtrc_prep_impl_selected = .false.
+logical :: wtrc_prep_entered_logged = .false.
 logical :: use_native_budget_diag_impl = .false.
 logical :: budget_diag_impl_selected = .false.
+logical :: budget_diag_entered_logged = .false.
 logical :: use_native_reff_calc_impl = .false.
 logical :: reff_calc_impl_selected = .false.
+logical :: reff_calc_entered_logged = .false.
 logical :: use_native_diag_shell_impl = .false.
 logical :: diag_shell_impl_selected = .false.
+logical :: diag_shell_entered_logged = .false.
 logical :: use_native_pbuf_copy_impl = .false.
 logical :: pbuf_copy_impl_selected = .false.
 logical :: pbuf_copy_entered_logged = .false.
@@ -2665,6 +2673,9 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
 
    else
 
+      call micro_mg_cam_log_entered_once(tail_shell_entered_logged, 'MICRO_MG_CAM_TAIL_SHELL_PROOF_FILE', &
+           'micro_mg_cam_tail_shell entered (water/size/diagnostic tail direct = codon; MG core = native)')
+
       if (trace_water) then
 
          if (use_subcol_microp) then
@@ -3070,6 +3081,9 @@ subroutine micro_mg_cam_diag_shell_codon_wrap(ngrdcol_local, micro_mg_version_lo
      end subroutine micro_mg_cam_diag_shell_codon
   end interface
 
+  call micro_mg_cam_log_entered_once(diag_shell_entered_logged, 'MICRO_MG_CAM_DIAG_SHELL_PROOF_FILE', &
+       'micro_mg_cam_diag_shell entered (reff/grid/budget diagnostic tail direct = codon; liquid reff = native)')
+
   call micro_mg_cam_diag_shell_codon(int(ngrdcol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
        int(top_lev, c_int64_t), int(micro_mg_version_local, c_int64_t), qsmall, mincld, mg_liq_props%rho, &
        mg_liq_props%eff_dim, mg_liq_props%min_mean_mass, mg_ice_props%eff_dim, mg_ice_props%shape_coef, &
@@ -3288,6 +3302,9 @@ subroutine micro_mg_cam_wtrc_shell_codon_wrap(ncol_local, preo_grid_local, prdso
      end subroutine micro_mg_cam_wtrc_shell_codon
   end interface
 
+  call micro_mg_cam_log_entered_once(wtrc_shell_entered_logged, 'MICRO_MG_CAM_WTRC_SHELL_PROOF_FILE', &
+       'micro_mg_cam_wtrc_shell entered (water tracer rates direct = codon)')
+
   call micro_mg_cam_wtrc_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
        int(top_lev, c_int64_t), int(pwtype, c_int64_t), int(iwtvap, c_int64_t), int(iwtliq, c_int64_t), int(iwtice, c_int64_t), &
        int(iwtstrain, c_int64_t), int(iwtstsnow, c_int64_t), c_loc(preo_grid_local), c_loc(prdso_grid_local), &
@@ -3370,6 +3387,9 @@ subroutine micro_mg_cam_wtrc_prep(ncol_local, cmeiout_grid_local, meltso_grid_lo
           qisedten_grid_local, pcmei_grid_local, ncmei_grid_local, pmelts_grid_local, nmelts_grid_local, sed_rates_grid_local)
      return
   end if
+
+  call micro_mg_cam_log_entered_once(wtrc_prep_entered_logged, 'MICRO_MG_CAM_WTRC_PREP_PROOF_FILE', &
+       'micro_mg_cam_wtrc_prep entered (water tracer prep direct = codon)')
 
   call micro_mg_cam_wtrc_prep_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
        int(top_lev, c_int64_t), int(pwtype, c_int64_t), int(iwtliq, c_int64_t), int(iwtice, c_int64_t), &
@@ -3507,6 +3527,9 @@ subroutine micro_mg_cam_budget_diag(mode_local, ncol_local, qcreso_grid_local, m
      return
   end if
 
+  call micro_mg_cam_log_entered_once(budget_diag_entered_logged, 'MICRO_MG_CAM_BUDGET_DIAG_PROOF_FILE', &
+       'micro_mg_cam_budget_diag entered (budget diagnostics direct = codon)')
+
   call micro_mg_cam_budget_diag_codon(int(mode_local, c_int64_t), int(ncol_local, c_int64_t), int(pcols, c_int64_t), &
        int(pver, c_int64_t), int(top_lev, c_int64_t), c_loc(qcreso_grid_local), c_loc(melto_grid_local), &
        c_loc(mnuccco_grid_local), c_loc(mnuccto_grid_local), c_loc(bergo_grid_local), c_loc(homoo_grid_local), &
@@ -3570,6 +3593,8 @@ subroutine micro_mg_cam_append_impl_proof(env_name, proof_line)
   character(len=512) :: proof_path
   integer :: status, n, unit_id
 
+  if (.not. masterproc) return
+
   proof_path = ''
   call get_environment_variable(env_name, value=proof_path, length=n, status=status)
   if (status /= 0 .or. n <= 0) return
@@ -3582,6 +3607,22 @@ subroutine micro_mg_cam_append_impl_proof(env_name, proof_line)
   close(unit_id)
 
 end subroutine micro_mg_cam_append_impl_proof
+
+subroutine micro_mg_cam_log_entered_once(entered_logged, env_name, proof_line)
+
+  logical, intent(inout) :: entered_logged
+  character(len=*), intent(in) :: env_name, proof_line
+
+  if (entered_logged) return
+  entered_logged = .true.
+
+  if (masterproc) then
+     write(iulog,*) trim(proof_line)
+     call micro_mg_cam_append_impl_proof(env_name, proof_line)
+     call flush(iulog)
+  end if
+
+end subroutine micro_mg_cam_log_entered_once
 
 subroutine micro_mg_cam_select_reff_calc_impl()
 
@@ -3748,6 +3789,9 @@ subroutine micro_mg_cam_reff_calc_codon_invoke(ngrdcol_local, micro_mg_version_l
 
   call micro_mg_cam_reff_liq_native(ngrdcol_local, rho_grid_local, icwmrst_grid_local, liqcldf_grid_local, nc_grid_local, &
        mu_grid_local, lambdac_grid_local, rel_fn_grid_local, ncic_grid_local, rel_grid_local)
+
+  call micro_mg_cam_log_entered_once(reff_calc_entered_logged, 'MICRO_MG_CAM_REFF_PROOF_FILE', &
+       'micro_mg_cam_reff_calc entered (ice/rain/snow effective radius direct = codon; liquid reff = native)')
 
   call micro_mg_cam_reff_calc_codon(int(ngrdcol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
        int(top_lev, c_int64_t), int(micro_mg_version_local, c_int64_t), qsmall, mincld, mg_liq_props%rho, &
@@ -4251,6 +4295,9 @@ subroutine micro_mg_cam_postmg_diag(ncol_local, psetcols_local, micro_mg_version
      return
   end if
 
+  call micro_mg_cam_log_entered_once(postmg_diag_entered_logged, 'MICRO_MG_CAM_POSTMG_PROOF_FILE', &
+       'micro_mg_cam_postmg_diag entered (post-MG diagnostics direct = codon)')
+
   call micro_mg_cam_postmg_diag_codon(int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), int(pver, c_int64_t), &
        int(pverp, c_int64_t), int(top_lev, c_int64_t), int(micro_mg_version_local, c_int64_t), &
        int(rate1_cw2pr_st_idx_local, c_int64_t), int(ixcldliq_local, c_int64_t), int(ixcldice_local, c_int64_t), &
@@ -4520,6 +4567,9 @@ subroutine micro_mg_cam_grid_diag(ngrdcol_local, minlwp_local, iclwpst_grid_loca
           ctni_grid_local, evprain_st_grid_local)
      return
   end if
+
+  call micro_mg_cam_log_entered_once(grid_diag_entered_logged, 'MICRO_MG_CAM_GRID_DIAG_PROOF_FILE', &
+       'micro_mg_cam_grid_diag entered (precipitation efficiency/grid diagnostics direct = codon)')
 
   call micro_mg_cam_grid_diag_codon(int(ngrdcol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
        int(top_lev, c_int64_t), minlwp_local, gravit, rhoh2o, c_loc(iclwpst_grid_local), c_loc(cld_grid_local), &
