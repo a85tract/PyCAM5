@@ -68,6 +68,7 @@
    logical    :: codon_scheme_selected = .false.
    logical    :: convect_shallow_diag_shell_logged = .false.
    logical    :: convect_shallow_init_shell_logged = .false.
+   logical    :: convect_shallow_uw_post_shell_logged = .false.
 
    integer :: & ! field index in physics buffer
       sh_flxprc_idx, &
@@ -1276,7 +1277,22 @@ subroutine convect_shallow_diag_shell(mode, ncol_local, ixcldliq_local, ixcldice
 
 end subroutine convect_shallow_diag_shell
 
-	subroutine convect_shallow_uw_post_shell(ncol_local, state_pmid_local, cmfmc_local, cmfmc2_local, cnt_local, cnt2_local, cnb_local, &
+subroutine convect_shallow_log_uw_post_shell_entered()
+
+   use spmd_utils, only: masterproc
+
+   if (convect_shallow_uw_post_shell_logged) return
+   convect_shallow_uw_post_shell_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'convect_shallow uw post shell entered (UW postmerge/flux/history prep direct = codon)'
+      call convect_shallow_append_proof('convect_shallow uw post shell entered (UW postmerge/flux/history prep direct = codon)')
+      call flush(iulog)
+   end if
+
+end subroutine convect_shallow_log_uw_post_shell_entered
+
+subroutine convect_shallow_uw_post_shell(ncol_local, state_pmid_local, cmfmc_local, cmfmc2_local, cnt_local, cnt2_local, cnb_local, &
      cnb2_local, pcnt_local, pcnb_local, qc_local, qc2_local, rliq_local, rliq2_local, wtqc_local, wtdlf_local, freqsh_local, &
      icwmr_local, iccmr_uw_local, rprdsh_local, cmfdqs_local, ptend_q_local, ptend_tracer_local, cmfsl_local, cmflq_local, &
      slflx_local, qtflx_local, rprddp_local, rprdtot_local, ptend_s_local, ftem_local)
@@ -1321,6 +1337,7 @@ end subroutine convect_shallow_diag_shell
       ice_type_c(m) = int(wtrc_iatype(m,iwtice), c_int64_t)
    end do
 
+   call convect_shallow_log_uw_post_shell_entered()
    call convect_shallow_uw_post_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
         int(pverp, c_int64_t), int(pcnst, c_int64_t), int(wtrc_nwset, c_int64_t), real(latvap, c_double), real(cpair, c_double), &
         c_loc(state_pmid_local), c_loc(cmfmc_local), c_loc(cmfmc2_local), c_loc(cnt_local), c_loc(cnt2_local), c_loc(cnb_local), &
