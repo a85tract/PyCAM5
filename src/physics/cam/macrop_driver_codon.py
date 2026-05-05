@@ -604,6 +604,113 @@ def macrop_driver_select_branches_codon(
 
 
 @export
+def macrop_driver_mmacro_input_shell_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    top_lev: int,
+    ixcldliq: int,
+    ixcldice: int,
+    ixnumliq: int,
+    ixnumice: int,
+    state_q_p: cobj,
+    zeros_p: cobj,
+    qc_p: cobj,
+    qi_p: cobj,
+    nc_p: cobj,
+    ni_p: cobj,
+):
+    state_q = Ptr[float](state_q_p)
+    zeros = Ptr[float](zeros_p)
+    qc = Ptr[float](qc_p)
+    qi = Ptr[float](qi_p)
+    nc = Ptr[float](nc_p)
+    ni = Ptr[float](ni_p)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _idx2(i, k, pcols)
+            zeros[idx2] = 0.0
+            qc[idx2] = state_q[_idx3(i, k, ixcldliq, pcols, pver)]
+            qi[idx2] = state_q[_idx3(i, k, ixcldice, pcols, pver)]
+            nc[idx2] = state_q[_idx3(i, k, ixnumliq, pcols, pver)]
+            ni[idx2] = state_q[_idx3(i, k, ixnumice, pcols, pver)]
+
+
+@export
+def macrop_driver_mmacro_post_fields_shell_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    fice_p: cobj,
+    alst_p: cobj,
+    aist_p: cobj,
+    fice_ql_p: cobj,
+    ast_p: cobj,
+):
+    fice = Ptr[float](fice_p)
+    alst = Ptr[float](alst_p)
+    aist = Ptr[float](aist_p)
+    fice_ql = Ptr[float](fice_ql_p)
+    ast = Ptr[float](ast_p)
+
+    for k in range(1, top_lev):
+        for i in range(1, ncol + 1):
+            idx2 = _idx2(i, k, pcols)
+            fice_ql[idx2] = 0.0
+            ast[idx2] = 0.0
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _idx2(i, k, pcols)
+            fice_ql[idx2] = fice[idx2]
+            ast[idx2] = max(alst[idx2], aist[idx2])
+
+
+@export
+def macrop_driver_cfmip_diag_shell_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    cld_p: cobj,
+    state_ql_p: cobj,
+    state_qi_p: cobj,
+    mr_ccliq_p: cobj,
+    mr_ccice_p: cobj,
+    mr_lsliq_p: cobj,
+    mr_lsice_p: cobj,
+):
+    cld = Ptr[float](cld_p)
+    state_ql = Ptr[float](state_ql_p)
+    state_qi = Ptr[float](state_qi_p)
+    mr_ccliq = Ptr[float](mr_ccliq_p)
+    mr_ccice = Ptr[float](mr_ccice_p)
+    mr_lsliq = Ptr[float](mr_lsliq_p)
+    mr_lsice = Ptr[float](mr_lsice_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, pcols + 1):
+            idx2 = _idx2(i, k, pcols)
+            mr_ccliq[idx2] = 0.0
+            mr_ccice[idx2] = 0.0
+            mr_lsliq[idx2] = 0.0
+            mr_lsice[idx2] = 0.0
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _idx2(i, k, pcols)
+            if cld[idx2] > 0.0:
+                mr_lsliq[idx2] = state_ql[idx2]
+                mr_lsice[idx2] = state_qi[idx2]
+            else:
+                mr_lsliq[idx2] = 0.0
+                mr_lsice[idx2] = 0.0
+
+
+@export
 def macrop_driver_wtrc_detrain_codon(
     ncol: int,
     pcols: int,

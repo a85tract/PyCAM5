@@ -105,6 +105,9 @@
   logical :: wtrc_shell_impl_selected = .false.
   logical :: use_native_wtrc_process_impl = .false.
   logical :: wtrc_process_impl_selected = .false.
+  logical :: mmacro_input_shell_logged = .false.
+  logical :: mmacro_post_fields_shell_logged = .false.
+  logical :: cfmip_diag_shell_logged = .false.
 
   contains
 
@@ -924,11 +927,7 @@ end subroutine macrop_driver_readnl
 
    call t_startf('mmacro_pcond')
 
-   zeros(:ncol,top_lev:pver)  = 0._r8
-   qc(:ncol,top_lev:pver) = state_loc%q(:ncol,top_lev:pver,ixcldliq)
-   qi(:ncol,top_lev:pver) = state_loc%q(:ncol,top_lev:pver,ixcldice)
-   nc(:ncol,top_lev:pver) = state_loc%q(:ncol,top_lev:pver,ixnumliq)
-   ni(:ncol,top_lev:pver) = state_loc%q(:ncol,top_lev:pver,ixnumice)
+   call macrop_driver_mmacro_input_shell(ncol, state_loc%q, zeros, qc, qi, nc, ni)
 
  ! In CAM5, 'microphysical forcing' ( CC_... ) and 'the other advective forcings' ( ttend, ... ) 
  ! are separately provided into the prognostic microp_driver macrophysics scheme. This is an
@@ -959,12 +958,9 @@ end subroutine macrop_driver_readnl
  ! Copy of concld/fice to put in physics buffer
  ! Below are used only for convective cloud.
 
-   fice_ql(:ncol,:top_lev-1)     = 0._r8
-   fice_ql(:ncol,top_lev:pver)   = fice(:ncol,top_lev:pver)
+   call macrop_driver_mmacro_post_fields_shell(ncol, fice, alst, aist, fice_ql, ast)
 
  ! Compute net stratus fraction using maximum over-lapping assumption
-   ast(:ncol,:top_lev-1) = 0._r8
-   ast(:ncol,top_lev:pver) = max( alst(:ncol,top_lev:pver), aist(:ncol,top_lev:pver) )
 
    call t_stopf('mmacro_pcond')
 
@@ -1087,13 +1083,8 @@ end subroutine macrop_driver_readnl
 
    ! calculations and outfld calls for CLDLIQSTR, CLDICESTR, CLDLIQCON, CLDICECON for CFMIP
 
-   ! initialize local variables
-   mr_ccliq = 0._r8   !! not seen by radiation, so setting to 0 
-   mr_ccice = 0._r8   !! not seen by radiation, so setting to 0
-   mr_lsliq = 0._r8
-   mr_lsice = 0._r8
-
-   call macrop_driver_cloud_mixing_diag(ncol, cld, state_loc%q(:,:,ixcldliq), state_loc%q(:,:,ixcldice), mr_lsliq, mr_lsice)
+   call macrop_driver_cfmip_diag_shell(ncol, cld, state_loc%q(:,:,ixcldliq), state_loc%q(:,:,ixcldice), &
+        mr_ccliq, mr_ccice, mr_lsliq, mr_lsice)
 
    call outfld( 'CLDLIQSTR  ', mr_lsliq,    pcols, lchnk )
    call outfld( 'CLDICESTR  ', mr_lsice,    pcols, lchnk )
@@ -1431,6 +1422,200 @@ subroutine macrop_driver_detrain_core_native(ncol_local, do_detrain_local, cu_de
   end do
 
 end subroutine macrop_driver_detrain_core_native
+
+!============================================================================ !
+
+subroutine macrop_driver_mmacro_input_shell(ncol_local, state_q_local, zeros_local, qc_local, qi_local, nc_local, ni_local)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use constituents, only: pcnst
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  real(r8), target, intent(in) :: state_q_local(pcols,pver,pcnst)
+  real(r8), target, intent(inout) :: zeros_local(pcols,pver), qc_local(pcols,pver), qi_local(pcols,pver)
+  real(r8), target, intent(inout) :: nc_local(pcols,pver), ni_local(pcols,pver)
+
+  interface
+     subroutine macrop_driver_mmacro_input_shell_codon(ncol_c, pcols_c, pver_c, pcnst_c, top_lev_c, ixcldliq_c, &
+          ixcldice_c, ixnumliq_c, ixnumice_c, state_q_p, zeros_p, qc_p, qi_p, nc_p, ni_p) &
+          bind(c, name="macrop_driver_mmacro_input_shell_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, top_lev_c
+       integer(c_int64_t), value :: ixcldliq_c, ixcldice_c, ixnumliq_c, ixnumice_c
+       type(c_ptr), value :: state_q_p, zeros_p, qc_p, qi_p, nc_p, ni_p
+     end subroutine macrop_driver_mmacro_input_shell_codon
+  end interface
+
+  if (use_native_impl) then
+     call macrop_driver_mmacro_input_shell_native(ncol_local, state_q_local, zeros_local, qc_local, qi_local, nc_local, ni_local)
+     return
+  end if
+
+  if (masterproc .and. .not. mmacro_input_shell_logged) then
+     write(iulog,*) 'macrop_driver mmacro input shell entered = codon'
+     call macrop_driver_append_impl_proof('MACROP_DRIVER_MMPCOND_SHELL_PROOF_FILE', &
+          'macrop_driver mmacro input shell entered = codon')
+     call flush(iulog)
+     mmacro_input_shell_logged = .true.
+  end if
+
+  call macrop_driver_mmacro_input_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), &
+       int(pver, c_int64_t), int(pcnst, c_int64_t), int(top_lev, c_int64_t), int(ixcldliq, c_int64_t), &
+       int(ixcldice, c_int64_t), int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), c_loc(state_q_local), &
+       c_loc(zeros_local), c_loc(qc_local), c_loc(qi_local), c_loc(nc_local), c_loc(ni_local))
+
+end subroutine macrop_driver_mmacro_input_shell
+
+!============================================================================ !
+
+subroutine macrop_driver_mmacro_input_shell_native(ncol_local, state_q_local, zeros_local, qc_local, qi_local, nc_local, ni_local)
+
+  use constituents, only: pcnst
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  real(r8), intent(in) :: state_q_local(pcols,pver,pcnst)
+  real(r8), intent(inout) :: zeros_local(pcols,pver), qc_local(pcols,pver), qi_local(pcols,pver)
+  real(r8), intent(inout) :: nc_local(pcols,pver), ni_local(pcols,pver)
+
+  zeros_local(:ncol_local,top_lev:pver) = 0._r8
+  qc_local(:ncol_local,top_lev:pver) = state_q_local(:ncol_local,top_lev:pver,ixcldliq)
+  qi_local(:ncol_local,top_lev:pver) = state_q_local(:ncol_local,top_lev:pver,ixcldice)
+  nc_local(:ncol_local,top_lev:pver) = state_q_local(:ncol_local,top_lev:pver,ixnumliq)
+  ni_local(:ncol_local,top_lev:pver) = state_q_local(:ncol_local,top_lev:pver,ixnumice)
+
+end subroutine macrop_driver_mmacro_input_shell_native
+
+!============================================================================ !
+
+subroutine macrop_driver_mmacro_post_fields_shell(ncol_local, fice_local, alst_local, aist_local, fice_ql_local, ast_local)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  real(r8), target, intent(in) :: fice_local(pcols,pver), alst_local(pcols,pver), aist_local(pcols,pver)
+  real(r8), target, intent(inout) :: fice_ql_local(pcols,pver), ast_local(pcols,pver)
+
+  interface
+     subroutine macrop_driver_mmacro_post_fields_shell_codon(ncol_c, pcols_c, pver_c, top_lev_c, fice_p, &
+          alst_p, aist_p, fice_ql_p, ast_p) bind(c, name="macrop_driver_mmacro_post_fields_shell_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+       type(c_ptr), value :: fice_p, alst_p, aist_p, fice_ql_p, ast_p
+     end subroutine macrop_driver_mmacro_post_fields_shell_codon
+  end interface
+
+  if (use_native_impl) then
+     call macrop_driver_mmacro_post_fields_shell_native(ncol_local, fice_local, alst_local, aist_local, fice_ql_local, ast_local)
+     return
+  end if
+
+  if (masterproc .and. .not. mmacro_post_fields_shell_logged) then
+     write(iulog,*) 'macrop_driver mmacro post fields shell entered = codon'
+     call macrop_driver_append_impl_proof('MACROP_DRIVER_MMPCOND_SHELL_PROOF_FILE', &
+          'macrop_driver mmacro post fields shell entered = codon')
+     call flush(iulog)
+     mmacro_post_fields_shell_logged = .true.
+  end if
+
+  call macrop_driver_mmacro_post_fields_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), &
+       int(pver, c_int64_t), int(top_lev, c_int64_t), c_loc(fice_local), c_loc(alst_local), c_loc(aist_local), &
+       c_loc(fice_ql_local), c_loc(ast_local))
+
+end subroutine macrop_driver_mmacro_post_fields_shell
+
+!============================================================================ !
+
+subroutine macrop_driver_mmacro_post_fields_shell_native(ncol_local, fice_local, alst_local, aist_local, fice_ql_local, ast_local)
+
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  real(r8), intent(in) :: fice_local(pcols,pver), alst_local(pcols,pver), aist_local(pcols,pver)
+  real(r8), intent(inout) :: fice_ql_local(pcols,pver), ast_local(pcols,pver)
+
+  fice_ql_local(:ncol_local,:top_lev-1) = 0._r8
+  fice_ql_local(:ncol_local,top_lev:pver) = fice_local(:ncol_local,top_lev:pver)
+  ast_local(:ncol_local,:top_lev-1) = 0._r8
+  ast_local(:ncol_local,top_lev:pver) = max(alst_local(:ncol_local,top_lev:pver), aist_local(:ncol_local,top_lev:pver))
+
+end subroutine macrop_driver_mmacro_post_fields_shell_native
+
+!============================================================================ !
+
+subroutine macrop_driver_cfmip_diag_shell(ncol_local, cld_local, state_ql_local, state_qi_local, mr_ccliq_local, &
+     mr_ccice_local, mr_lsliq_local, mr_lsice_local)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  real(r8), target, intent(in) :: cld_local(pcols,pver), state_ql_local(pcols,pver), state_qi_local(pcols,pver)
+  real(r8), target, intent(inout) :: mr_ccliq_local(pcols,pver), mr_ccice_local(pcols,pver)
+  real(r8), target, intent(inout) :: mr_lsliq_local(pcols,pver), mr_lsice_local(pcols,pver)
+
+  interface
+     subroutine macrop_driver_cfmip_diag_shell_codon(ncol_c, pcols_c, pver_c, top_lev_c, cld_p, state_ql_p, &
+          state_qi_p, mr_ccliq_p, mr_ccice_p, mr_lsliq_p, mr_lsice_p) bind(c, name="macrop_driver_cfmip_diag_shell_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+       type(c_ptr), value :: cld_p, state_ql_p, state_qi_p, mr_ccliq_p, mr_ccice_p, mr_lsliq_p, mr_lsice_p
+     end subroutine macrop_driver_cfmip_diag_shell_codon
+  end interface
+
+  if (use_native_impl) then
+     call macrop_driver_cfmip_diag_shell_native(ncol_local, cld_local, state_ql_local, state_qi_local, mr_ccliq_local, &
+          mr_ccice_local, mr_lsliq_local, mr_lsice_local)
+     return
+  end if
+
+  if (masterproc .and. .not. cfmip_diag_shell_logged) then
+     write(iulog,*) 'macrop_driver cfmip diag shell entered = codon'
+     call macrop_driver_append_impl_proof('MACROP_DRIVER_CFMIP_DIAG_SHELL_PROOF_FILE', &
+          'macrop_driver cfmip diag shell entered = codon')
+     call flush(iulog)
+     cfmip_diag_shell_logged = .true.
+  end if
+
+  call macrop_driver_cfmip_diag_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(top_lev, c_int64_t), c_loc(cld_local), c_loc(state_ql_local), c_loc(state_qi_local), c_loc(mr_ccliq_local), &
+       c_loc(mr_ccice_local), c_loc(mr_lsliq_local), c_loc(mr_lsice_local))
+
+end subroutine macrop_driver_cfmip_diag_shell
+
+!============================================================================ !
+
+subroutine macrop_driver_cfmip_diag_shell_native(ncol_local, cld_local, state_ql_local, state_qi_local, mr_ccliq_local, &
+     mr_ccice_local, mr_lsliq_local, mr_lsice_local)
+
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  real(r8), intent(in) :: cld_local(pcols,pver), state_ql_local(pcols,pver), state_qi_local(pcols,pver)
+  real(r8), intent(inout) :: mr_ccliq_local(pcols,pver), mr_ccice_local(pcols,pver)
+  real(r8), intent(inout) :: mr_lsliq_local(pcols,pver), mr_lsice_local(pcols,pver)
+  integer :: i, k
+
+  mr_ccliq_local = 0._r8
+  mr_ccice_local = 0._r8
+  mr_lsliq_local = 0._r8
+  mr_lsice_local = 0._r8
+
+  do k = top_lev, pver
+     do i = 1, ncol_local
+        if (cld_local(i,k) .gt. 0._r8) then
+           mr_lsliq_local(i,k) = state_ql_local(i,k)
+           mr_lsice_local(i,k) = state_qi_local(i,k)
+        else
+           mr_lsliq_local(i,k) = 0._r8
+           mr_lsice_local(i,k) = 0._r8
+        end if
+     end do
+  end do
+
+end subroutine macrop_driver_cfmip_diag_shell_native
 
 !============================================================================ !
 
