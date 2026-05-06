@@ -56,6 +56,7 @@
   logical :: cin_restore_shell_entered_logged = .false.
   logical :: release_prep_shell_entered_logged = .false.
   logical :: scaleh_iter_init_shell_entered_logged = .false.
+  logical :: penent_prep_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -439,6 +440,22 @@ contains
     end if
 
   end subroutine uwshcu_log_scaleh_iter_init_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_penent_prep_shell_entered()
+
+    if (penent_prep_shell_entered_logged) return
+    penent_prep_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu penent prep shell entered (post-scaleh reset and penetrative entrainment prep direct = codon)'
+       call uwshcu_append_proof( &
+            'uwshcu penent prep shell entered (post-scaleh reset and penetrative entrainment prep direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_penent_prep_shell_entered
 
 !===============================================================================
   
@@ -1144,7 +1161,7 @@ end subroutine uwshcu_readnl
     real(r8), target :: thvl0top(mkx)                         !  Environmental liquid virtual potential temperature
                                                               ! at the top of each layer [ K ]
     real(r8), target :: exn0(mkx)                             !  Exner function at the layer mid points [ no ]
-    real(r8)    exns0(0:mkx)                                  !  Exner function at the interfaces [ no ]
+    real(r8), target :: exns0(0:mkx)                          !  Exner function at the interfaces [ no ]
     real(r8), target :: sstr0(mkx,ncnst)                      !  Linear slope of environmental tracers [ #/Pa, kg/kg/Pa ]
 
    ! 2-1. For preventing negative condensate at the provisional time step
@@ -1311,7 +1328,7 @@ end subroutine uwshcu_readnl
     real(r8), target :: uu(0:mkx)                             !  Updraft zonal wind at the interface [ m/s ]
     real(r8), target :: vu(0:mkx)                             !  Updraft meridional wind at the interface [ m/s ]
     real(r8), target :: thvu(0:mkx)                           !  Updraft virtual potential temperature at the interface [ m/s ]
-    real(r8)    rei(mkx)                                      !  Updraft fractional mixing rate with the environment [ 1/Pa ]
+    real(r8), target :: rei(mkx)                              !  Updraft fractional mixing rate with the environment [ 1/Pa ]
     real(r8), target :: tru(0:mkx,ncnst)                      !  Updraft tracers [ #, kg/kg ]
 
     !----- Variables describing conservative scalars of entraining downdrafts  at the 
@@ -1971,6 +1988,25 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: kbup_p, kpen_p, wtw_p, pe_p, dpe_p, thvebot_p, thle_p, qte_p
           type(c_ptr), value :: ue_p, ve_p, tre_p, wte_p
        end subroutine uwshcu_scaleh_iter_init_shell_codon
+
+       subroutine uwshcu_penent_prep_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, kbup_c, kpen_c, &
+            r_c, g_c, dt_c, rpen_c, ppen_c, ps0_p, p0_p, dp0_p, thv0bot_p, thv0top_p, &
+            exns0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p, u0_p, ssu0_p, v0_p, ssv0_p, &
+            tr0_p, sstr0_p, wt0_p, sswt0_p, umf_p, emf_p, ufrc_p, dwten_p, diten_p, &
+            fer_p, fdr_p, rei_p, thlu_p, qtu_p, uu_p, vu_p, tru_p, wtu_p, thlu_emf_p, &
+            qtu_emf_p, uu_emf_p, vu_emf_p, tru_emf_p, wtu_emf_p, wtdwten_p, wtditen_p, &
+            limit_emf_p) bind(c, name="uwshcu_penent_prep_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kbup_c, kpen_c
+          real(c_double), value :: r_c, g_c, dt_c, rpen_c, ppen_c
+          type(c_ptr), value :: ps0_p, p0_p, dp0_p, thv0bot_p, thv0top_p, exns0_p
+          type(c_ptr), value :: thl0_p, ssthl0_p, qt0_p, ssqt0_p, u0_p, ssu0_p
+          type(c_ptr), value :: v0_p, ssv0_p, tr0_p, sstr0_p, wt0_p, sswt0_p
+          type(c_ptr), value :: umf_p, emf_p, ufrc_p, dwten_p, diten_p, fer_p, fdr_p
+          type(c_ptr), value :: rei_p, thlu_p, qtu_p, uu_p, vu_p, tru_p, wtu_p
+          type(c_ptr), value :: thlu_emf_p, qtu_emf_p, uu_emf_p, vu_emf_p, tru_emf_p
+          type(c_ptr), value :: wtu_emf_p, wtdwten_p, wtditen_p, limit_emf_p
+       end subroutine uwshcu_penent_prep_shell_codon
 
        subroutine uwshcu_column_env_save_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, &
@@ -4706,6 +4742,7 @@ end subroutine uwshcu_readnl
        ! expelled cloud condensate in the 'kpen' layer.                                 !
        ! ------------------------------------------------------------------------------ !
 
+       if (use_native_init_shell_impl) then
        umf(kpen:mkx)     = 0._r8
        emf(kpen:mkx)     = 0._r8
        ufrc(kpen:mkx)    = 0._r8
@@ -4931,6 +4968,20 @@ end subroutine uwshcu_readnl
           ! ---------------------------------------------------------------------------- !
           
        end do
+       else
+          wtrc_nwset_post_c = 0_c_int64_t
+          if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
+          call uwshcu_log_penent_prep_shell_entered()
+          call uwshcu_penent_prep_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+               wtrc_nwset_post_c, int(kbup, c_int64_t), int(kpen, c_int64_t), r, g, dt, rpen, ppen, &
+               c_loc(ps0), c_loc(p0), c_loc(dp0), c_loc(thv0bot), c_loc(thv0top), c_loc(exns0), &
+               c_loc(thl0), c_loc(ssthl0), c_loc(qt0), c_loc(ssqt0), c_loc(u0), c_loc(ssu0), &
+               c_loc(v0), c_loc(ssv0), c_loc(tr0), c_loc(sstr0), c_loc(wt0), c_loc(sswt0), &
+               c_loc(umf), c_loc(emf), c_loc(ufrc), c_loc(dwten), c_loc(diten), c_loc(fer), &
+               c_loc(fdr), c_loc(rei), c_loc(thlu), c_loc(qtu), c_loc(uu), c_loc(vu), c_loc(tru), &
+               c_loc(wtu), c_loc(thlu_emf), c_loc(qtu_emf), c_loc(uu_emf), c_loc(vu_emf), &
+               c_loc(tru_emf), c_loc(wtu_emf), c_loc(wtdwten), c_loc(wtditen), c_loc(limit_emf(i)))
+       endif
 
        !------------------------------------------------------------------ !
        !                                                                   ! 

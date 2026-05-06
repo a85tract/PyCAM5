@@ -2566,6 +2566,226 @@ def uwshcu_scaleh_iter_init_shell_codon(
 
 
 @export
+def uwshcu_penent_prep_shell_codon(
+    mkx: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    kbup: int,
+    kpen: int,
+    r: float,
+    g: float,
+    dt: float,
+    rpen: float,
+    ppen: float,
+    ps0_p: cobj,
+    p0_p: cobj,
+    dp0_p: cobj,
+    thv0bot_p: cobj,
+    thv0top_p: cobj,
+    exns0_p: cobj,
+    thl0_p: cobj,
+    ssthl0_p: cobj,
+    qt0_p: cobj,
+    ssqt0_p: cobj,
+    u0_p: cobj,
+    ssu0_p: cobj,
+    v0_p: cobj,
+    ssv0_p: cobj,
+    tr0_p: cobj,
+    sstr0_p: cobj,
+    wt0_p: cobj,
+    sswt0_p: cobj,
+    umf_p: cobj,
+    emf_p: cobj,
+    ufrc_p: cobj,
+    dwten_p: cobj,
+    diten_p: cobj,
+    fer_p: cobj,
+    fdr_p: cobj,
+    rei_p: cobj,
+    thlu_p: cobj,
+    qtu_p: cobj,
+    uu_p: cobj,
+    vu_p: cobj,
+    tru_p: cobj,
+    wtu_p: cobj,
+    thlu_emf_p: cobj,
+    qtu_emf_p: cobj,
+    uu_emf_p: cobj,
+    vu_emf_p: cobj,
+    tru_emf_p: cobj,
+    wtu_emf_p: cobj,
+    wtdwten_p: cobj,
+    wtditen_p: cobj,
+    limit_emf_p: cobj,
+):
+    ps0 = Ptr[float](ps0_p)
+    p0 = Ptr[float](p0_p)
+    dp0 = Ptr[float](dp0_p)
+    thv0bot = Ptr[float](thv0bot_p)
+    thv0top = Ptr[float](thv0top_p)
+    exns0 = Ptr[float](exns0_p)
+    thl0 = Ptr[float](thl0_p)
+    ssthl0 = Ptr[float](ssthl0_p)
+    qt0 = Ptr[float](qt0_p)
+    ssqt0 = Ptr[float](ssqt0_p)
+    u0 = Ptr[float](u0_p)
+    ssu0 = Ptr[float](ssu0_p)
+    v0 = Ptr[float](v0_p)
+    ssv0 = Ptr[float](ssv0_p)
+    tr0 = Ptr[float](tr0_p)
+    sstr0 = Ptr[float](sstr0_p)
+    wt0 = Ptr[float](wt0_p)
+    sswt0 = Ptr[float](sswt0_p)
+    umf = Ptr[float](umf_p)
+    emf = Ptr[float](emf_p)
+    ufrc = Ptr[float](ufrc_p)
+    dwten = Ptr[float](dwten_p)
+    diten = Ptr[float](diten_p)
+    fer = Ptr[float](fer_p)
+    fdr = Ptr[float](fdr_p)
+    rei = Ptr[float](rei_p)
+    thlu = Ptr[float](thlu_p)
+    qtu = Ptr[float](qtu_p)
+    uu = Ptr[float](uu_p)
+    vu = Ptr[float](vu_p)
+    tru = Ptr[float](tru_p)
+    wtu = Ptr[float](wtu_p)
+    thlu_emf = Ptr[float](thlu_emf_p)
+    qtu_emf = Ptr[float](qtu_emf_p)
+    uu_emf = Ptr[float](uu_emf_p)
+    vu_emf = Ptr[float](vu_emf_p)
+    tru_emf = Ptr[float](tru_emf_p)
+    wtu_emf = Ptr[float](wtu_emf_p)
+    wtdwten = Ptr[float](wtdwten_p)
+    wtditen = Ptr[float](wtditen_p)
+    limit_emf = Ptr[float](limit_emf_p)
+
+    iface_stride = mkx + 1
+
+    k = kpen
+    while k <= mkx:
+        umf[k] = 0.0
+        emf[k] = 0.0
+        ufrc[k] = 0.0
+        k += 1
+
+    k = kpen + 1
+    while k <= mkx:
+        layer_idx = k - 1
+        dwten[layer_idx] = 0.0
+        diten[layer_idx] = 0.0
+        fer[layer_idx] = 0.0
+        fdr[layer_idx] = 0.0
+        m = 0
+        while m < wtrc_nwset:
+            wt_idx = layer_idx + m * mkx
+            wtdwten[wt_idx] = 0.0
+            wtditen[wt_idx] = 0.0
+            m += 1
+        k += 1
+
+    k = 0
+    while k <= mkx:
+        thlu_emf[k] = thlu[k]
+        qtu_emf[k] = qtu[k]
+        uu_emf[k] = uu[k]
+        vu_emf[k] = vu[k]
+        m = 0
+        while m < ncnst:
+            idx = k + m * iface_stride
+            tru_emf[idx] = tru[idx]
+            m += 1
+        m = 0
+        while m < wtrc_nwset:
+            idx = k + m * iface_stride
+            wtu_emf[idx] = wtu[idx]
+            m += 1
+        k += 1
+
+    k = kpen - 1
+    while k >= kbup:
+        rhos0j = ps0[k] / (r * 0.5 * (thv0bot[k] + thv0top[k - 1]) * exns0[k])
+
+        if k == kpen - 1:
+            emf_trial = umf[k] * ppen * rei[kpen - 1] * rpen
+            if emf_trial < -0.1 * rhos0j:
+                limit_emf[0] = 1.0
+            if emf_trial < -0.9 * dp0[kpen - 1] / g / dt:
+                limit_emf[0] = 1.0
+
+            emf[k] = max(max(emf_trial, -0.1 * rhos0j), -0.9 * dp0[kpen - 1] / g / dt)
+            layer_idx = kpen - 1
+            p_delta = ps0[k] - p0[layer_idx]
+            thlu_emf[k] = thl0[layer_idx] + ssthl0[layer_idx] * p_delta
+            qtu_emf[k] = qt0[layer_idx] + ssqt0[layer_idx] * p_delta
+            uu_emf[k] = u0[layer_idx] + ssu0[layer_idx] * p_delta
+            vu_emf[k] = v0[layer_idx] + ssv0[layer_idx] * p_delta
+
+            m = 0
+            while m < ncnst:
+                idx_layer = layer_idx + m * mkx
+                idx_iface = k + m * iface_stride
+                tru_emf[idx_iface] = tr0[idx_layer] + sstr0[idx_layer] * p_delta
+                m += 1
+
+            m = 0
+            while m < wtrc_nwset:
+                idx_layer = layer_idx + m * mkx
+                idx_iface = k + m * iface_stride
+                wtu_emf[idx_iface] = wt0[idx_layer] + sswt0[idx_layer] * p_delta
+                m += 1
+        else:
+            layer_idx = k
+            emf_trial = emf[k + 1] - umf[k] * dp0[layer_idx] * rei[layer_idx] * rpen
+            if emf_trial < -0.1 * rhos0j:
+                limit_emf[0] = 1.0
+            if emf_trial < -0.9 * dp0[layer_idx] / g / dt:
+                limit_emf[0] = 1.0
+            emf[k] = max(max(emf_trial, -0.1 * rhos0j), -0.9 * dp0[layer_idx] / g / dt)
+
+            if abs(emf[k]) > abs(emf[k + 1]):
+                emf_delta = emf[k] - emf[k + 1]
+                thlu_emf[k] = (thlu_emf[k + 1] * emf[k + 1] + thl0[layer_idx] * emf_delta) / emf[k]
+                qtu_emf[k] = (qtu_emf[k + 1] * emf[k + 1] + qt0[layer_idx] * emf_delta) / emf[k]
+                uu_emf[k] = (uu_emf[k + 1] * emf[k + 1] + u0[layer_idx] * emf_delta) / emf[k]
+                vu_emf[k] = (vu_emf[k + 1] * emf[k + 1] + v0[layer_idx] * emf_delta) / emf[k]
+
+                m = 0
+                while m < ncnst:
+                    idx_layer = layer_idx + m * mkx
+                    idx_iface = k + m * iface_stride
+                    idx_next = k + 1 + m * iface_stride
+                    tru_emf[idx_iface] = (tru_emf[idx_next] * emf[k + 1] + tr0[idx_layer] * emf_delta) / emf[k]
+                    m += 1
+
+                m = 0
+                while m < wtrc_nwset:
+                    idx_layer = layer_idx + m * mkx
+                    idx_iface = k + m * iface_stride
+                    idx_next = k + 1 + m * iface_stride
+                    wtu_emf[idx_iface] = (wtu_emf[idx_next] * emf[k + 1] + wt0[idx_layer] * emf_delta) / emf[k]
+                    m += 1
+            else:
+                thlu_emf[k] = thl0[layer_idx]
+                qtu_emf[k] = qt0[layer_idx]
+                uu_emf[k] = u0[layer_idx]
+                vu_emf[k] = v0[layer_idx]
+
+                m = 0
+                while m < ncnst:
+                    tru_emf[k + m * iface_stride] = tr0[layer_idx + m * mkx]
+                    m += 1
+
+                m = 0
+                while m < wtrc_nwset:
+                    wtu_emf[k + m * iface_stride] = wt0[layer_idx + m * mkx]
+                    m += 1
+
+        k -= 1
+
+
+@export
 def uwshcu_column_input_load_shell_codon(
     mix: int,
     mkx: int,
