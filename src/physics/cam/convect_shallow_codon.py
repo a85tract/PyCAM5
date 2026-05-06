@@ -4072,6 +4072,152 @@ def uwshcu_precip_surface_finalize_shell_codon(
 
 
 @export
+def uwshcu_precip_bulk_init_shell_codon(
+    mkx: int,
+    wtrc_nwset: int,
+    trace_water: int,
+    evpint_rain_p: cobj,
+    evpint_snow_p: cobj,
+    flxrain_p: cobj,
+    flxsnow_p: cobj,
+    ntraprd_p: cobj,
+    ntsnprd_p: cobj,
+    wtflxrn_p: cobj,
+    wtflxsn_p: cobj,
+):
+    evpint_rain = Ptr[float](evpint_rain_p)
+    evpint_snow = Ptr[float](evpint_snow_p)
+    flxrain = Ptr[float](flxrain_p)
+    flxsnow = Ptr[float](flxsnow_p)
+    ntraprd = Ptr[float](ntraprd_p)
+    ntsnprd = Ptr[float](ntsnprd_p)
+    wtflxrn = Ptr[float](wtflxrn_p)
+    wtflxsn = Ptr[float](wtflxsn_p)
+
+    evpint_rain[0] = 0.0
+    evpint_snow[0] = 0.0
+
+    iface = 0
+    while iface <= mkx:
+        flxrain[iface] = 0.0
+        flxsnow[iface] = 0.0
+        iface += 1
+
+    k = 0
+    while k < mkx:
+        ntraprd[k] = 0.0
+        ntsnprd[k] = 0.0
+        k += 1
+
+    if trace_water != 0:
+        m = 0
+        while m < wtrc_nwset:
+            iface = 0
+            while iface <= mkx:
+                idx = iface + m * (mkx + 1)
+                wtflxrn[idx] = 0.0
+                wtflxsn[idx] = 0.0
+                iface += 1
+            m += 1
+
+
+@export
+def uwshcu_precip_bulk_layer_shell_codon(
+    mkx: int,
+    mix: int,
+    i: int,
+    k: int,
+    rainflx: float,
+    snowflx: float,
+    snowmlt: float,
+    evprain: float,
+    evpsnow: float,
+    g: float,
+    dt: float,
+    xlv: float,
+    xls: float,
+    qmin_vap: float,
+    qmin_liq: float,
+    qmin_ice: float,
+    dp0_p: cobj,
+    qv0_p: cobj,
+    ql0_p: cobj,
+    qi0_p: cobj,
+    qrten_p: cobj,
+    qsten_p: cobj,
+    evapc_p: cobj,
+    evpint_rain_p: cobj,
+    evpint_snow_p: cobj,
+    ntraprd_p: cobj,
+    ntsnprd_p: cobj,
+    flxrain_p: cobj,
+    flxsnow_p: cobj,
+    qvten_p: cobj,
+    qlten_p: cobj,
+    qiten_p: cobj,
+    qtten_p: cobj,
+    sten_p: cobj,
+    slten_p: cobj,
+    limit_negcon_p: cobj,
+):
+    dp0 = Ptr[float](dp0_p)
+    qv0 = Ptr[float](qv0_p)
+    ql0 = Ptr[float](ql0_p)
+    qi0 = Ptr[float](qi0_p)
+    qrten = Ptr[float](qrten_p)
+    qsten = Ptr[float](qsten_p)
+    evapc = Ptr[float](evapc_p)
+    evpint_rain = Ptr[float](evpint_rain_p)
+    evpint_snow = Ptr[float](evpint_snow_p)
+    ntraprd = Ptr[float](ntraprd_p)
+    ntsnprd = Ptr[float](ntsnprd_p)
+    flxrain = Ptr[float](flxrain_p)
+    flxsnow = Ptr[float](flxsnow_p)
+    qvten = Ptr[float](qvten_p)
+    qlten = Ptr[float](qlten_p)
+    qiten = Ptr[float](qiten_p)
+    qtten = Ptr[float](qtten_p)
+    sten = Ptr[float](sten_p)
+    slten = Ptr[float](slten_p)
+    limit_negcon = Ptr[float](limit_negcon_p)
+
+    kk = k - 1
+    km1 = k - 1
+
+    evapc[kk] = evprain + evpsnow
+
+    evpint_rain[0] = evpint_rain[0] + evprain * dp0[kk] / g
+    evpint_snow[0] = evpint_snow[0] + evpsnow * dp0[kk] / g
+
+    ntraprd[kk] = qrten[kk] - evprain + snowmlt
+    ntsnprd[kk] = qsten[kk] - evpsnow - snowmlt
+
+    flxrain[km1] = flxrain[k] + ntraprd[kk] * dp0[kk] / g
+    flxsnow[km1] = flxsnow[k] + ntsnprd[kk] * dp0[kk] / g
+    if flxrain[km1] < 0.0:
+        flxrain[km1] = 0.0
+    if flxrain[km1] == 0.0:
+        ntraprd[kk] = -flxrain[k] * g / dp0[kk]
+    if flxsnow[km1] < 0.0:
+        flxsnow[km1] = 0.0
+    if flxsnow[km1] == 0.0:
+        ntsnprd[kk] = -flxsnow[k] * g / dp0[kk]
+
+    qlten[kk] = qlten[kk] - qrten[kk]
+    qiten[kk] = qiten[kk] - qsten[kk]
+    qvten[kk] = qvten[kk] + evprain + evpsnow
+    qtten[kk] = qlten[kk] + qiten[kk] + qvten[kk]
+    if (
+        (qv0[kk] + qvten[kk] * dt) < qmin_vap
+        or (ql0[kk] + qlten[kk] * dt) < qmin_liq
+        or (qi0[kk] + qiten[kk] * dt) < qmin_ice
+    ):
+        limit_negcon[i - 1] = 1.0
+    sten[kk] = sten[kk] - xlv * evprain - xls * evpsnow - (xls - xlv) * snowmlt
+    slten[kk] = sten[kk] - xlv * qlten[kk] - xls * qiten[kk]
+
+
+@export
 def uwshcu_column_input_load_shell_codon(
     mix: int,
     mkx: int,

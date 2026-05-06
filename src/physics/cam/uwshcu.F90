@@ -67,6 +67,7 @@
   logical :: cloud_diag_shell_entered_logged = .false.
   logical :: positive_moisture_prep_shell_entered_logged = .false.
   logical :: precip_surface_finalize_shell_entered_logged = .false.
+  logical :: precip_bulk_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -626,6 +627,22 @@ contains
     end if
 
   end subroutine uwshcu_log_precip_surface_finalize_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_precip_bulk_shell_entered()
+
+    if (precip_bulk_shell_entered_logged) return
+    precip_bulk_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu precip bulk shell entered (bulk precip flux/tendency direct = codon; qsat/sqrt/water tracers native)'
+       call uwshcu_append_proof( &
+            'uwshcu precip bulk shell entered (bulk precip flux/tendency direct = codon; qsat/sqrt/water tracers native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_precip_bulk_shell_entered
 
 !===============================================================================
   
@@ -1548,8 +1565,8 @@ end subroutine uwshcu_readnl
     real(r8)    evplimit                                      !  Limiter of 'evprain + evpsnow' [ kg/kg/s ]
     real(r8)    evplimit_rain                                 !  Limiter of 'evprain' [ kg/kg/s ]
     real(r8)    evplimit_snow                                 !  Limiter of 'evpsnow' [ kg/kg/s ]
-    real(r8)    evpint_rain                                   !  Vertically-integrated evaporative flux of rain [ kg/m2/s ]
-    real(r8)    evpint_snow                                   !  Vertically-integrated evaporative flux of snow [ kg/m2/s ]
+    real(r8), target :: evpint_rain                           !  Vertically-integrated evaporative flux of rain [ kg/m2/s ]
+    real(r8), target :: evpint_snow                           !  Vertically-integrated evaporative flux of snow [ kg/m2/s ]
     real(r8)    kevp                                          !  Evaporative efficiency [ complex unit ]
 
     !----- Other internal variables
@@ -2362,6 +2379,31 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: flxrain_p, flxsnow_p, wtflxrn_p, wtflxsn_p
           type(c_ptr), value :: precip_p, snow_p, wtprec_p, wtsnow_p
        end subroutine uwshcu_precip_surface_finalize_shell_codon
+
+       subroutine uwshcu_precip_bulk_init_shell_codon(mkx_c, wtrc_nwset_c, trace_water_c, &
+            evpint_rain_p, evpint_snow_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p, &
+            wtflxrn_p, wtflxsn_p) bind(c, name="uwshcu_precip_bulk_init_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, trace_water_c
+          type(c_ptr), value :: evpint_rain_p, evpint_snow_p, flxrain_p, flxsnow_p
+          type(c_ptr), value :: ntraprd_p, ntsnprd_p, wtflxrn_p, wtflxsn_p
+       end subroutine uwshcu_precip_bulk_init_shell_codon
+
+       subroutine uwshcu_precip_bulk_layer_shell_codon(mkx_c, mix_c, i_c, k_c, &
+            rainflx_c, snowflx_c, snowmlt_c, evprain_c, evpsnow_c, g_c, dt_c, xlv_c, xls_c, &
+            qmin_vap_c, qmin_liq_c, qmin_ice_c, dp0_p, qv0_p, ql0_p, qi0_p, qrten_p, qsten_p, &
+            evapc_p, evpint_rain_p, evpint_snow_p, ntraprd_p, ntsnprd_p, flxrain_p, flxsnow_p, &
+            qvten_p, qlten_p, qiten_p, qtten_p, sten_p, slten_p, limit_negcon_p) &
+            bind(c, name="uwshcu_precip_bulk_layer_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, mix_c, i_c, k_c
+          real(c_double), value :: rainflx_c, snowflx_c, snowmlt_c, evprain_c, evpsnow_c
+          real(c_double), value :: g_c, dt_c, xlv_c, xls_c, qmin_vap_c, qmin_liq_c, qmin_ice_c
+          type(c_ptr), value :: dp0_p, qv0_p, ql0_p, qi0_p, qrten_p, qsten_p
+          type(c_ptr), value :: evapc_p, evpint_rain_p, evpint_snow_p, ntraprd_p, ntsnprd_p
+          type(c_ptr), value :: flxrain_p, flxsnow_p, qvten_p, qlten_p, qiten_p, qtten_p
+          type(c_ptr), value :: sten_p, slten_p, limit_negcon_p
+       end subroutine uwshcu_precip_bulk_layer_shell_codon
 
        subroutine uwshcu_column_env_save_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, &
@@ -6404,18 +6446,31 @@ end subroutine uwshcu_readnl
        ! 'zm_conv_evap' is not performed when I choose UW PBL-Cu schemes. !                                          
        ! ---------------------------------------------------------------- !
 
-       evpint_rain    = 0._r8 
-       evpint_snow    = 0._r8
-       flxrain(0:mkx) = 0._r8
-       flxsnow(0:mkx) = 0._r8
-       ntraprd(:mkx)  = 0._r8
-       ntsnprd(:mkx)  = 0._r8
-      !Water tracers:
-      !*************
-       if(trace_water) then
-         wtflxrn(0:mkx,:) = 0._r8
-         wtflxsn(0:mkx,:) = 0._r8
-       end if
+       if (use_native_init_shell_impl) then
+          evpint_rain    = 0._r8
+          evpint_snow    = 0._r8
+          flxrain(0:mkx) = 0._r8
+          flxsnow(0:mkx) = 0._r8
+          ntraprd(:mkx)  = 0._r8
+          ntsnprd(:mkx)  = 0._r8
+         !Water tracers:
+         !*************
+          if(trace_water) then
+            wtflxrn(0:mkx,:) = 0._r8
+            wtflxsn(0:mkx,:) = 0._r8
+          end if
+       else
+          call uwshcu_log_precip_bulk_shell_entered()
+          if(trace_water) then
+             call uwshcu_precip_bulk_init_shell_codon(int(mkx, c_int64_t), wtrc_nwset_post_c, &
+                  1_c_int64_t, c_loc(evpint_rain), c_loc(evpint_snow), c_loc(flxrain), &
+                  c_loc(flxsnow), c_loc(ntraprd), c_loc(ntsnprd), c_loc(wtflxrn), c_loc(wtflxsn))
+          else
+             call uwshcu_precip_bulk_init_shell_codon(int(mkx, c_int64_t), wtrc_nwset_post_c, &
+                  0_c_int64_t, c_loc(evpint_rain), c_loc(evpint_snow), c_loc(flxrain), &
+                  c_loc(flxsnow), c_loc(ntraprd), c_loc(ntsnprd), c_loc(wtflxrn), c_loc(wtflxsn))
+          end if
+       endif
 
        do k = mkx, 1, -1  ! 'k' is a layer index : 'mkx'('1') is the top ('bottom') layer
           
@@ -6470,60 +6525,70 @@ end subroutine uwshcu_readnl
                 evpsnow = tmp2
           endif
 
-          evapc(k) = evprain + evpsnow
+          if (use_native_init_shell_impl) then
+             evapc(k) = evprain + evpsnow
 
-          ! ------------------------------------------------------------- !
-          ! Vertically-integrated evaporative fluxes of 'rain' and 'snow' !
-          ! ------------------------------------------------------------- !
+             ! ------------------------------------------------------------- !
+             ! Vertically-integrated evaporative fluxes of 'rain' and 'snow' !
+             ! ------------------------------------------------------------- !
 
-          evpint_rain = evpint_rain + evprain * dp0(k) / g
-          evpint_snow = evpint_snow + evpsnow * dp0(k) / g
+             evpint_rain = evpint_rain + evprain * dp0(k) / g
+             evpint_snow = evpint_snow + evpsnow * dp0(k) / g
 
-          ! -------------------------------------------------------------- !
-          ! Net 'rain' and 'snow' production rate in the layer [ kg/kg/s ] !
-          ! -------------------------------------------------------------- !         
+             ! -------------------------------------------------------------- !
+             ! Net 'rain' and 'snow' production rate in the layer [ kg/kg/s ] !
+             ! -------------------------------------------------------------- !
 
-          ntraprd(k) = qrten(k) - evprain + snowmlt
-          ntsnprd(k) = qsten(k) - evpsnow - snowmlt
-         
-          ! -------------------------------------------------------------------------------- !
-          ! Downward fluxes of 'rain' and 'snow' fluxes at the base of the layer [ kg/m2/s ] !
-          ! Note that layer index increases with height.                                     !
-          ! -------------------------------------------------------------------------------- !
+             ntraprd(k) = qrten(k) - evprain + snowmlt
+             ntsnprd(k) = qsten(k) - evpsnow - snowmlt
 
-          flxrain(k-1) = flxrain(k) + ntraprd(k) * dp0(k) / g
-          flxsnow(k-1) = flxsnow(k) + ntsnprd(k) * dp0(k) / g
-          flxrain(k-1) = max( flxrain(k-1), 0._r8 )
-          if( flxrain(k-1) .eq. 0._r8 ) ntraprd(k) = -flxrain(k) * g / dp0(k)
-          flxsnow(k-1) = max( flxsnow(k-1), 0._r8 )         
-          if( flxsnow(k-1) .eq. 0._r8 ) ntsnprd(k) = -flxsnow(k) * g / dp0(k)
+             ! -------------------------------------------------------------------------------- !
+             ! Downward fluxes of 'rain' and 'snow' fluxes at the base of the layer [ kg/m2/s ] !
+             ! Note that layer index increases with height.                                     !
+             ! -------------------------------------------------------------------------------- !
 
-          ! ---------------------------------- !
-          ! Calculate thermodynamic tendencies !
-          ! --------------------------------------------------------------------------- !
-          ! Note that equivalently, we can write tendency formula of 'sten' and 'slten' !
-          ! by 'sten(k)  = sten(k) - xlv*evprain  - xls*evpsnow - (xls-xlv)*snowmlt' &  !
-          !    'slten(k) = sten(k) - xlv*qlten(k) - xls*qiten(k)'.                      !
-          ! The above formula is equivalent to the below formula. However below formula !
-          ! is preferred since we have already imposed explicit constraint on 'ntraprd' !
-          ! and 'ntsnprd' in case that flxrain(k-1) < 0 & flxsnow(k-1) < 0._r8          !
-          ! Note : In future, I can elborate the limiting of 'qlten','qvten','qiten'    !
-          !        such that that energy and moisture conservation error is completely  !
-          !        suppressed.                                                          !
-          ! Re-storation to the positive condensate will be performed later below       !
-          ! --------------------------------------------------------------------------- !
+             flxrain(k-1) = flxrain(k) + ntraprd(k) * dp0(k) / g
+             flxsnow(k-1) = flxsnow(k) + ntsnprd(k) * dp0(k) / g
+             flxrain(k-1) = max( flxrain(k-1), 0._r8 )
+             if( flxrain(k-1) .eq. 0._r8 ) ntraprd(k) = -flxrain(k) * g / dp0(k)
+             flxsnow(k-1) = max( flxsnow(k-1), 0._r8 )
+             if( flxsnow(k-1) .eq. 0._r8 ) ntsnprd(k) = -flxsnow(k) * g / dp0(k)
 
-          qlten(k) = qlten(k) - qrten(k)
-          qiten(k) = qiten(k) - qsten(k)
-          qvten(k) = qvten(k) + evprain  + evpsnow
-          qtten(k) = qlten(k) + qiten(k) + qvten(k)
-          if( ( qv0(k) + qvten(k)*dt ) .lt. qmin(1) .or. &
-              ( ql0(k) + qlten(k)*dt ) .lt. qmin(ixcldliq) .or. &
-              ( qi0(k) + qiten(k)*dt ) .lt. qmin(ixcldice) ) then
-               limit_negcon(i) = 1._r8
-          end if
-          sten(k)  = sten(k) - xlv*evprain  - xls*evpsnow - (xls-xlv)*snowmlt
-          slten(k) = sten(k) - xlv*qlten(k) - xls*qiten(k)
+             ! ---------------------------------- !
+             ! Calculate thermodynamic tendencies !
+             ! --------------------------------------------------------------------------- !
+             ! Note that equivalently, we can write tendency formula of 'sten' and 'slten' !
+             ! by 'sten(k)  = sten(k) - xlv*evprain  - xls*evpsnow - (xls-xlv)*snowmlt' &  !
+             !    'slten(k) = sten(k) - xlv*qlten(k) - xls*qiten(k)'.                      !
+             ! The above formula is equivalent to the below formula. However below formula !
+             ! is preferred since we have already imposed explicit constraint on 'ntraprd' !
+             ! and 'ntsnprd' in case that flxrain(k-1) < 0 & flxsnow(k-1) < 0._r8          !
+             ! Note : In future, I can elborate the limiting of 'qlten','qvten','qiten'    !
+             !        such that that energy and moisture conservation error is completely  !
+             !        suppressed.                                                          !
+             ! Re-storation to the positive condensate will be performed later below       !
+             ! --------------------------------------------------------------------------- !
+
+             qlten(k) = qlten(k) - qrten(k)
+             qiten(k) = qiten(k) - qsten(k)
+             qvten(k) = qvten(k) + evprain  + evpsnow
+             qtten(k) = qlten(k) + qiten(k) + qvten(k)
+             if( ( qv0(k) + qvten(k)*dt ) .lt. qmin(1) .or. &
+                 ( ql0(k) + qlten(k)*dt ) .lt. qmin(ixcldliq) .or. &
+                 ( qi0(k) + qiten(k)*dt ) .lt. qmin(ixcldice) ) then
+                  limit_negcon(i) = 1._r8
+             end if
+             sten(k)  = sten(k) - xlv*evprain  - xls*evpsnow - (xls-xlv)*snowmlt
+             slten(k) = sten(k) - xlv*qlten(k) - xls*qiten(k)
+          else
+             call uwshcu_precip_bulk_layer_shell_codon(int(mkx, c_int64_t), int(mix, c_int64_t), &
+                  int(i, c_int64_t), int(k, c_int64_t), rainflx, snowflx, snowmlt, evprain, &
+                  evpsnow, g, dt, xlv, xls, qmin(1), qmin(ixcldliq), qmin(ixcldice), &
+                  c_loc(dp0), c_loc(qv0), c_loc(ql0), c_loc(qi0), c_loc(qrten), c_loc(qsten), &
+                  c_loc(evapc), c_loc(evpint_rain), c_loc(evpint_snow), c_loc(ntraprd), &
+                  c_loc(ntsnprd), c_loc(flxrain), c_loc(flxsnow), c_loc(qvten), c_loc(qlten), &
+                  c_loc(qiten), c_loc(qtten), c_loc(sten), c_loc(slten), c_loc(limit_negcon))
+          endif
 
         !  slten(k) = slten(k) + xlv * ntraprd(k) + xls * ntsnprd(k)         
         !  sten(k)  = slten(k) + xlv * qlten(k)   + xls * qiten(k)
