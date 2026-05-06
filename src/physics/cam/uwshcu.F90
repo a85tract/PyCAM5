@@ -54,6 +54,7 @@
   logical :: lcl_prep_shell_entered_logged = .false.
   logical :: cin_save_shell_entered_logged = .false.
   logical :: cin_restore_shell_entered_logged = .false.
+  logical :: release_prep_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -404,6 +405,23 @@ contains
     end if
 
   end subroutine uwshcu_log_cin_restore_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_release_prep_shell_entered()
+
+    if (release_prep_shell_entered_logged) return
+    release_prep_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu release prep shell entered (release level/base/env prep direct = codon; conden/exnf native)'
+       call uwshcu_append_proof( &
+            'uwshcu release prep shell entered (release level/base/env prep direct = codon; conden/exnf native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_release_prep_shell_entered
 
 !===============================================================================
   
@@ -1341,9 +1359,9 @@ end subroutine uwshcu_readnl
     real(r8), target :: thlsrc, qtsrc, usrc, vsrc, thvlsrc    !  Updraft source air properties
     real(r8)    PGFc, uplus, vplus
     real(r8), target :: trsrc(ncnst)
-    real(r8)    tre(ncnst)
-    real(r8), target :: plcl, plfc
-    real(r8)    prel, wrel
+    real(r8), target :: tre(ncnst)
+    real(r8), target :: plcl, plfc, prel
+    real(r8)    wrel
     real(r8)    frc_rasn
     real(r8)    ee2, ud2, wtw, wtwb, wtwh
     real(r8)    xc, xc_2
@@ -1354,7 +1372,8 @@ end subroutine uwshcu_readnl
     real(r8)    thlxsat, qtxsat, thvxsat, x_cu, x_en, thv_x0, thv_x1
     real(r8)    thj, qvj, qlj, qij, thvj, tj, thv0j, rho0j, rhos0j, qse 
     real(r8), target :: cin, cinlcl
-    real(r8)    pe, dpe, exne, thvebot, thle, qte, ue, ve, thlue, qtue, wue
+    real(r8), target :: pe, dpe, thvebot, thle, qte, ue, ve
+    real(r8)    exne, thlue, qtue, wue
     real(r8)    mu, mumin0, mumin1, mumin2, mulcl, mulclstar
     real(r8)    cbmf, wcrit, winv, wlcl, ufrcinv, ufrclcl, rmaxfrac
     real(r8)    criqc, exql, exqi, ppen
@@ -1362,7 +1381,8 @@ end subroutine uwshcu_readnl
     real(r8)    thlu_top, qtu_top, qlu_top, qiu_top, qlu_mid, qiu_mid, exntop
     real(r8), target :: thl0lcl, qt0lcl
     real(r8), target :: thv0lcl
-    real(r8)    thv0rel, rho0inv, autodet
+    real(r8), target :: thv0rel
+    real(r8)    rho0inv, autodet
     real(r8)    aquad, bquad, cquad, xc1, xc2, excessu, excess0, xsat, xs1, xs2
     real(r8)    bogbot, bogtop, delbog, drage, expfac, rbuoy, rdrag
     real(r8)    rcwp, rlwp, riwp, qcubelow, qlubelow, qiubelow
@@ -1374,7 +1394,7 @@ end subroutine uwshcu_readnl
     real(r8)    tmp1, tmp2
 
    !Water tracers:
-    real(r8)   wte(wtrc_nwset)              ! Total water tracer humidity at release level [ kg/kg ]
+    real(r8), target :: wte(wtrc_nwset)     ! Total water tracer humidity at release level [ kg/kg ]
     real(r8), target :: wtsrc(wtrc_nwset)   ! Total water tracer humidity at surface [ kg/kg ]
     real(r8)   wtout(wtrc_nwset,3)          ! Output for water tracers from conden (1=vapor,2=liquid,3=ice)
     real(r8)   wtout_emf_kbup(wtrc_nwset,3) ! Output from conden during penetrative entrainment [ kg/kg ]
@@ -1518,7 +1538,8 @@ end subroutine uwshcu_readnl
     real(r8) :: ufrcinvbase_s, ufrclcl_s, winvbase_s, wlcl_s, plcl_s, pinv_s, plfc_s, &
                 qtsrc_s, thlsrc_s, thvlsrc_s, emfkbup_s, cinlcl_s, pbup_s, ppen_s, cbmflimit_s, &
                 tkeavg_s, zinv_s, rcwp_s, rlwp_s, riwp_s 
-    real(r8) :: ufrcinvbase, winvbase, pinv, zinv, emfkbup, cbmflimit, rho0rel  
+    real(r8), target :: ufrcinvbase, winvbase
+    real(r8) :: pinv, zinv, emfkbup, cbmflimit, rho0rel
 
     !----- Variables for implicit CIN computation
 
@@ -1566,6 +1587,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: kinv_precheck_c, pbl_exit_code_c
     integer(c_int64_t), target       :: klcl_prep_c, lcl_exit_code_c
     integer(c_int64_t), target       :: kinv_cin_state_c, klcl_cin_state_c, klfc_cin_state_c
+    integer(c_int64_t), target       :: krel_release_c
     integer(c_int64_t)               :: wtrc_nwset_post_c
 
     interface
@@ -1874,6 +1896,41 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: tkeavg_p, thvlmin_p, qtsrc_p, thvlsrc_p, thlsrc_p, usrc_p, vsrc_p
           type(c_ptr), value :: thv0lcl_p, trsrc_p
        end subroutine uwshcu_cin_state_restore_shell_codon
+
+       subroutine uwshcu_release_level_shell_codon(kinv_c, klcl_c, plcl_c, thv0lcl_c, ps0_p, &
+            thv0bot_p, krel_p, prel_p, thv0rel_p) bind(c, name="uwshcu_release_level_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: kinv_c, klcl_c
+          real(c_double), value :: plcl_c, thv0lcl_c
+          type(c_ptr), value :: ps0_p, thv0bot_p, krel_p, prel_p, thv0rel_p
+       end subroutine uwshcu_release_level_shell_codon
+
+       subroutine uwshcu_release_base_shell_codon(mkx_c, kinv_c, krel_c, cbmf_c, wrel_c, winv_c, &
+            ufrcinv_c, ufrclcl_c, thlsrc_c, qtsrc_c, prel_c, ps0_p, ufrc_p, umf_p, wu_p, &
+            emf_p, thlu_p, qtu_p, ufrcinvbase_p, winvbase_p, pe_p, dpe_p) &
+            bind(c, name="uwshcu_release_base_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, kinv_c, krel_c
+          real(c_double), value :: cbmf_c, wrel_c, winv_c, ufrcinv_c, ufrclcl_c, thlsrc_c, qtsrc_c, prel_c
+          type(c_ptr), value :: ps0_p, ufrc_p, umf_p, wu_p, emf_p, thlu_p, qtu_p
+          type(c_ptr), value :: ufrcinvbase_p, winvbase_p, pe_p, dpe_p
+       end subroutine uwshcu_release_base_shell_codon
+
+       subroutine uwshcu_release_env_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, krel_c, zvir_c, &
+            pgfc_c, usrc_c, vsrc_c, prel_c, pe_c, thv0rel_c, thj_c, qvj_c, qlj_c, qij_c, &
+            ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p, u0_p, ssu0_p, v0_p, ssv0_p, &
+            tr0_p, sstr0_p, wt0_p, sswt0_p, trsrc_p, wtsrc_p, thvu_p, uu_p, vu_p, &
+            tru_p, wtu_p, thvebot_p, thle_p, qte_p, ue_p, ve_p, tre_p, wte_p) &
+            bind(c, name="uwshcu_release_env_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, krel_c
+          real(c_double), value :: zvir_c, pgfc_c, usrc_c, vsrc_c, prel_c, pe_c, thv0rel_c
+          real(c_double), value :: thj_c, qvj_c, qlj_c, qij_c
+          type(c_ptr), value :: ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p, u0_p, ssu0_p
+          type(c_ptr), value :: v0_p, ssv0_p, tr0_p, sstr0_p, wt0_p, sswt0_p, trsrc_p, wtsrc_p
+          type(c_ptr), value :: thvu_p, uu_p, vu_p, tru_p, wtu_p, thvebot_p, thle_p, qte_p
+          type(c_ptr), value :: ue_p, ve_p, tre_p, wte_p
+       end subroutine uwshcu_release_env_shell_codon
 
        subroutine uwshcu_column_env_save_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, &
@@ -3421,15 +3478,22 @@ end subroutine uwshcu_readnl
        ! we simply assume that no lateral mixing occurs in this range.      !
        ! ------------------------------------------------------------------ !
 
-       if( klcl .lt. kinv ) then
-           krel    = kinv
-           prel    = ps0(krel-1)
-           thv0rel = thv0bot(krel) 
+       if (use_native_init_shell_impl) then
+          if( klcl .lt. kinv ) then
+              krel    = kinv
+              prel    = ps0(krel-1)
+              thv0rel = thv0bot(krel)
+          else
+              krel    = klcl
+              prel    = plcl
+              thv0rel = thv0lcl
+          endif
        else
-           krel    = klcl
-           prel    = plcl 
-           thv0rel = thv0lcl
-       endif  
+          call uwshcu_log_release_prep_shell_entered()
+          call uwshcu_release_level_shell_codon(int(kinv, c_int64_t), int(klcl, c_int64_t), &
+               plcl, thv0lcl, c_loc(ps0), c_loc(thv0bot), c_loc(krel_release_c), c_loc(prel), c_loc(thv0rel))
+          krel = int(krel_release_c)
+       endif
 
        ! --------------------------------------------------------------------------- !
        ! Calculate cumulus base mass flux ('cbmf'), fractional area ('ufrcinv'), and !
@@ -3550,16 +3614,24 @@ end subroutine uwshcu_readnl
            id_exit = .true.
            go to 333
        endif
-       ufrc(krel-1) = ufrclcl
+       if (use_native_init_shell_impl) then
+          ufrc(krel-1) = ufrclcl
 
-       ! ----------------------------------------------------------------------- !
-       ! Below is just diagnostic output for detailed analysis of cumulus scheme !
-       ! ----------------------------------------------------------------------- !
+          ! ----------------------------------------------------------------------- !
+          ! Below is just diagnostic output for detailed analysis of cumulus scheme !
+          ! ----------------------------------------------------------------------- !
 
-       ufrcinvbase        = ufrcinv
-       winvbase           = winv
-       umf(kinv-1:krel-1) = cbmf   
-       wu(kinv-1:krel-1)  = winv   
+          ufrcinvbase        = ufrcinv
+          winvbase           = winv
+          umf(kinv-1:krel-1) = cbmf
+          wu(kinv-1:krel-1)  = winv
+       else
+          call uwshcu_release_base_shell_codon(int(mkx, c_int64_t), int(kinv, c_int64_t), &
+               int(krel, c_int64_t), cbmf, wrel, winv, ufrcinv, ufrclcl, thlsrc, qtsrc, prel, &
+               c_loc(ps0), c_loc(ufrc), c_loc(umf), c_loc(wu), c_loc(emf), c_loc(thlu), c_loc(qtu), &
+               c_loc(ufrcinvbase), c_loc(winvbase), c_loc(pe), c_loc(dpe))
+          exne = exnf(pe)
+       endif
 
        ! -------------------------------------------------------------------------- ! 
        ! Define updraft properties at the level where buoyancy sorting starts to be !
@@ -3583,48 +3655,52 @@ end subroutine uwshcu_readnl
        !NOTE:  The condensation call below appears to only impact the thermodynamics, and
        !thus does not probably need to be replicated. - JN.
 
-       emf(krel-1)  = 0._r8
-       umf(krel-1)  = cbmf
-       wu(krel-1)   = wrel
-       thlu(krel-1) = thlsrc
-       qtu(krel-1)  = qtsrc
+       if (use_native_init_shell_impl) then
+          emf(krel-1)  = 0._r8
+          umf(krel-1)  = cbmf
+          wu(krel-1)   = wrel
+          thlu(krel-1) = thlsrc
+          qtu(krel-1)  = qtsrc
+       endif
        call conden(prel,thlsrc,qtsrc,thj,qvj,qlj,qij,qse,id_check,ncnst)
        if( id_check .eq. 1 ) then
            exit_conden(i) = 1._r8
            id_exit = .true.
            go to 333
        end if
-       thvu(krel-1) = thj * ( 1._r8 + zvir*qvj - qlj - qij )
+       if (use_native_init_shell_impl) then
+          thvu(krel-1) = thj * ( 1._r8 + zvir*qvj - qlj - qij )
 
-       uplus = 0._r8
-       vplus = 0._r8
-       if( krel .eq. kinv ) then
-           uplus = PGFc * ssu0(kinv) * ( prel - ps0(kinv-1) )
-           vplus = PGFc * ssv0(kinv) * ( prel - ps0(kinv-1) )
-       else
-           do k = kinv, max(krel-1,kinv)
-              uplus = uplus + PGFc * ssu0(k) * ( ps0(k) - ps0(k-1) )
-              vplus = vplus + PGFc * ssv0(k) * ( ps0(k) - ps0(k-1) )
-           end do
-           uplus = uplus + PGFc * ssu0(krel) * ( prel - ps0(krel-1) )
-           vplus = vplus + PGFc * ssv0(krel) * ( prel - ps0(krel-1) )
-       end if
-       uu(krel-1) = usrc + uplus
-       vu(krel-1) = vsrc + vplus
+          uplus = 0._r8
+          vplus = 0._r8
+          if( krel .eq. kinv ) then
+              uplus = PGFc * ssu0(kinv) * ( prel - ps0(kinv-1) )
+              vplus = PGFc * ssv0(kinv) * ( prel - ps0(kinv-1) )
+          else
+              do k = kinv, max(krel-1,kinv)
+                 uplus = uplus + PGFc * ssu0(k) * ( ps0(k) - ps0(k-1) )
+                 vplus = vplus + PGFc * ssv0(k) * ( ps0(k) - ps0(k-1) )
+              end do
+              uplus = uplus + PGFc * ssu0(krel) * ( prel - ps0(krel-1) )
+              vplus = vplus + PGFc * ssv0(krel) * ( prel - ps0(krel-1) )
+          end if
+          uu(krel-1) = usrc + uplus
+          vu(krel-1) = vsrc + vplus
 
-       do m = 1, ncnst
-          tru(krel-1,m)  = trsrc(m)  !<-Includes water tracers 
-       enddo
+          do m = 1, ncnst
+             tru(krel-1,m)  = trsrc(m)  !<-Includes water tracers
+          enddo
 
-       !*************
-       !Water tracers
-       !*************
-       if(trace_water) then
-         do m=1,wtrc_nwset
-            wtu(krel-1,m) = wtsrc(m)
-         end do
-       end if
-       !*************
+          !*************
+          !Water tracers
+          !*************
+          if(trace_water) then
+            do m=1,wtrc_nwset
+               wtu(krel-1,m) = wtsrc(m)
+            end do
+          end if
+          !*************
+       endif
 
        ! -------------------------------------------------------------------------- !
        ! Define environmental properties at the level where buoyancy sorting occurs !
@@ -3633,27 +3709,39 @@ end subroutine uwshcu_readnl
        ! differently because LCL is regarded as lower interface for mixing purpose. !
        ! -------------------------------------------------------------------------- !
 
-       pe      = 0.5_r8 * ( prel + ps0(krel) )
-       dpe     = prel - ps0(krel)
-       exne    = exnf(pe)
-       thvebot = thv0rel
-       thle    = thl0(krel) + ssthl0(krel) * ( pe - p0(krel) )
-       qte     = qt0(krel)  + ssqt0(krel)  * ( pe - p0(krel) )
-       ue      = u0(krel)   + ssu0(krel)   * ( pe - p0(krel) )
-       ve      = v0(krel)   + ssv0(krel)   * ( pe - p0(krel) )
-       do m = 1, ncnst
-          tre(m) = tr0(krel,m)  + sstr0(krel,m) * ( pe - p0(krel) )
-       enddo
+       if (use_native_init_shell_impl) then
+          pe      = 0.5_r8 * ( prel + ps0(krel) )
+          dpe     = prel - ps0(krel)
+          exne    = exnf(pe)
+          thvebot = thv0rel
+          thle    = thl0(krel) + ssthl0(krel) * ( pe - p0(krel) )
+          qte     = qt0(krel)  + ssqt0(krel)  * ( pe - p0(krel) )
+          ue      = u0(krel)   + ssu0(krel)   * ( pe - p0(krel) )
+          ve      = v0(krel)   + ssv0(krel)   * ( pe - p0(krel) )
+          do m = 1, ncnst
+             tre(m) = tr0(krel,m)  + sstr0(krel,m) * ( pe - p0(krel) )
+          enddo
 
-       !*************
-       !Water tracers
-       !*************
-       if(trace_water) then
-         do m=1,wtrc_nwset
-            wte(m) = wt0(krel,m) + sswt0(krel,m) * ( pe - p0(krel) )
-         end do
-       end if
-       !*************
+          !*************
+          !Water tracers
+          !*************
+          if(trace_water) then
+            do m=1,wtrc_nwset
+               wte(m) = wt0(krel,m) + sswt0(krel,m) * ( pe - p0(krel) )
+            end do
+          end if
+          !*************
+       else
+          wtrc_nwset_post_c = 0_c_int64_t
+          if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
+          call uwshcu_release_env_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+               wtrc_nwset_post_c, int(kinv, c_int64_t), int(krel, c_int64_t), zvir, PGFc, usrc, vsrc, &
+               prel, pe, thv0rel, thj, qvj, qlj, qij, c_loc(ps0), c_loc(p0), c_loc(thl0), &
+               c_loc(ssthl0), c_loc(qt0), c_loc(ssqt0), c_loc(u0), c_loc(ssu0), c_loc(v0), &
+               c_loc(ssv0), c_loc(tr0), c_loc(sstr0), c_loc(wt0), c_loc(sswt0), c_loc(trsrc), &
+               c_loc(wtsrc), c_loc(thvu), c_loc(uu), c_loc(vu), c_loc(tru), c_loc(wtu), &
+               c_loc(thvebot), c_loc(thle), c_loc(qte), c_loc(ue), c_loc(ve), c_loc(tre), c_loc(wte))
+       endif
 
        !-------------------------! 
        ! Buoyancy-Sorting Mixing !

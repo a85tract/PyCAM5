@@ -2252,6 +2252,219 @@ def uwshcu_cin_state_restore_shell_codon(
 
 
 @export
+def uwshcu_release_level_shell_codon(
+    kinv: int,
+    klcl: int,
+    plcl: float,
+    thv0lcl_v: float,
+    ps0_p: cobj,
+    thv0bot_p: cobj,
+    krel_p: cobj,
+    prel_p: cobj,
+    thv0rel_p: cobj,
+):
+    ps0 = Ptr[float](ps0_p)
+    thv0bot = Ptr[float](thv0bot_p)
+    krel_out = Ptr[int](krel_p)
+    prel = Ptr[float](prel_p)
+    thv0rel = Ptr[float](thv0rel_p)
+
+    if klcl < kinv:
+        krel = kinv
+        prel[0] = ps0[krel - 1]
+        thv0rel[0] = thv0bot[krel - 1]
+    else:
+        krel = klcl
+        prel[0] = plcl
+        thv0rel[0] = thv0lcl_v
+    krel_out[0] = krel
+
+
+@export
+def uwshcu_release_base_shell_codon(
+    mkx: int,
+    kinv: int,
+    krel: int,
+    cbmf: float,
+    wrel: float,
+    winv: float,
+    ufrcinv: float,
+    ufrclcl: float,
+    thlsrc: float,
+    qtsrc: float,
+    prel: float,
+    ps0_p: cobj,
+    ufrc_p: cobj,
+    umf_p: cobj,
+    wu_p: cobj,
+    emf_p: cobj,
+    thlu_p: cobj,
+    qtu_p: cobj,
+    ufrcinvbase_p: cobj,
+    winvbase_p: cobj,
+    pe_p: cobj,
+    dpe_p: cobj,
+):
+    ps0 = Ptr[float](ps0_p)
+    ufrc = Ptr[float](ufrc_p)
+    umf = Ptr[float](umf_p)
+    wu = Ptr[float](wu_p)
+    emf = Ptr[float](emf_p)
+    thlu = Ptr[float](thlu_p)
+    qtu = Ptr[float](qtu_p)
+    ufrcinvbase = Ptr[float](ufrcinvbase_p)
+    winvbase = Ptr[float](winvbase_p)
+    pe = Ptr[float](pe_p)
+    dpe = Ptr[float](dpe_p)
+
+    km1_rel = krel - 1
+    ufrc[km1_rel] = ufrclcl
+    ufrcinvbase[0] = ufrcinv
+    winvbase[0] = winv
+
+    k = kinv - 1
+    while k <= km1_rel:
+        umf[k] = cbmf
+        wu[k] = winv
+        k += 1
+
+    emf[km1_rel] = 0.0
+    umf[km1_rel] = cbmf
+    wu[km1_rel] = wrel
+    thlu[km1_rel] = thlsrc
+    qtu[km1_rel] = qtsrc
+    pe[0] = 0.5 * (prel + ps0[krel])
+    dpe[0] = prel - ps0[krel]
+
+
+@export
+def uwshcu_release_env_shell_codon(
+    mkx: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    kinv: int,
+    krel: int,
+    zvir: float,
+    pgfc: float,
+    usrc: float,
+    vsrc: float,
+    prel: float,
+    pe_v: float,
+    thv0rel_v: float,
+    thj: float,
+    qvj: float,
+    qlj: float,
+    qij: float,
+    ps0_p: cobj,
+    p0_p: cobj,
+    thl0_p: cobj,
+    ssthl0_p: cobj,
+    qt0_p: cobj,
+    ssqt0_p: cobj,
+    u0_p: cobj,
+    ssu0_p: cobj,
+    v0_p: cobj,
+    ssv0_p: cobj,
+    tr0_p: cobj,
+    sstr0_p: cobj,
+    wt0_p: cobj,
+    sswt0_p: cobj,
+    trsrc_p: cobj,
+    wtsrc_p: cobj,
+    thvu_p: cobj,
+    uu_p: cobj,
+    vu_p: cobj,
+    tru_p: cobj,
+    wtu_p: cobj,
+    thvebot_p: cobj,
+    thle_p: cobj,
+    qte_p: cobj,
+    ue_p: cobj,
+    ve_p: cobj,
+    tre_p: cobj,
+    wte_p: cobj,
+):
+    ps0 = Ptr[float](ps0_p)
+    p0 = Ptr[float](p0_p)
+    thl0 = Ptr[float](thl0_p)
+    ssthl0 = Ptr[float](ssthl0_p)
+    qt0 = Ptr[float](qt0_p)
+    ssqt0 = Ptr[float](ssqt0_p)
+    u0 = Ptr[float](u0_p)
+    ssu0 = Ptr[float](ssu0_p)
+    v0 = Ptr[float](v0_p)
+    ssv0 = Ptr[float](ssv0_p)
+    tr0 = Ptr[float](tr0_p)
+    sstr0 = Ptr[float](sstr0_p)
+    wt0 = Ptr[float](wt0_p)
+    sswt0 = Ptr[float](sswt0_p)
+    trsrc = Ptr[float](trsrc_p)
+    wtsrc = Ptr[float](wtsrc_p)
+    thvu = Ptr[float](thvu_p)
+    uu = Ptr[float](uu_p)
+    vu = Ptr[float](vu_p)
+    tru = Ptr[float](tru_p)
+    wtu = Ptr[float](wtu_p)
+    thvebot = Ptr[float](thvebot_p)
+    thle = Ptr[float](thle_p)
+    qte = Ptr[float](qte_p)
+    ue = Ptr[float](ue_p)
+    ve = Ptr[float](ve_p)
+    tre = Ptr[float](tre_p)
+    wte = Ptr[float](wte_p)
+
+    km1_rel = krel - 1
+    thvu[km1_rel] = thj * (1.0 + zvir * qvj - qlj - qij)
+
+    uplus = 0.0
+    vplus = 0.0
+    if krel == kinv:
+        uplus = pgfc * ssu0[kinv - 1] * (prel - ps0[kinv - 1])
+        vplus = pgfc * ssv0[kinv - 1] * (prel - ps0[kinv - 1])
+    else:
+        k = kinv
+        while k <= krel - 1:
+            uplus = uplus + pgfc * ssu0[k - 1] * (ps0[k] - ps0[k - 1])
+            vplus = vplus + pgfc * ssv0[k - 1] * (ps0[k] - ps0[k - 1])
+            k += 1
+        uplus = uplus + pgfc * ssu0[krel - 1] * (prel - ps0[krel - 1])
+        vplus = vplus + pgfc * ssv0[krel - 1] * (prel - ps0[krel - 1])
+
+    uu[km1_rel] = usrc + uplus
+    vu[km1_rel] = vsrc + vplus
+
+    m = 0
+    iface_stride = mkx + 1
+    while m < ncnst:
+        tru[km1_rel + m * iface_stride] = trsrc[m]
+        m += 1
+
+    m = 0
+    while m < wtrc_nwset:
+        wtu[km1_rel + m * iface_stride] = wtsrc[m]
+        m += 1
+
+    layer_idx = krel - 1
+    thvebot[0] = thv0rel_v
+    thle[0] = thl0[layer_idx] + ssthl0[layer_idx] * (pe_v - p0[layer_idx])
+    qte[0] = qt0[layer_idx] + ssqt0[layer_idx] * (pe_v - p0[layer_idx])
+    ue[0] = u0[layer_idx] + ssu0[layer_idx] * (pe_v - p0[layer_idx])
+    ve[0] = v0[layer_idx] + ssv0[layer_idx] * (pe_v - p0[layer_idx])
+
+    m = 0
+    while m < ncnst:
+        idx = layer_idx + m * mkx
+        tre[m] = tr0[idx] + sstr0[idx] * (pe_v - p0[layer_idx])
+        m += 1
+
+    m = 0
+    while m < wtrc_nwset:
+        idx = layer_idx + m * mkx
+        wte[m] = wt0[idx] + sswt0[idx] * (pe_v - p0[layer_idx])
+        m += 1
+
+
+@export
 def uwshcu_column_input_load_shell_codon(
     mix: int,
     mkx: int,
