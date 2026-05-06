@@ -3064,6 +3064,105 @@ def uwshcu_turbulent_flux_shell_codon(
 
 
 @export
+def uwshcu_massflux_comsub_shell_codon(
+    mkx: int,
+    kinv: int,
+    krel: int,
+    kbup: int,
+    kpen: int,
+    cbmf: float,
+    ps0_p: cobj,
+    umf_p: cobj,
+    emf_p: cobj,
+    uemf_p: cobj,
+    comsub_p: cobj,
+):
+    ps0 = Ptr[float](ps0_p)
+    umf = Ptr[float](umf_p)
+    emf = Ptr[float](emf_p)
+    uemf = Ptr[float](uemf_p)
+    comsub = Ptr[float](comsub_p)
+
+    k = 0
+    while k <= mkx:
+        uemf[k] = 0.0
+        k += 1
+
+    k = 0
+    while k <= kinv - 2:
+        uemf[k] = cbmf * (ps0[0] - ps0[k]) / (ps0[0] - ps0[kinv - 1])
+        k += 1
+
+    k = kinv - 1
+    while k <= krel - 1:
+        uemf[k] = cbmf
+        k += 1
+
+    k = krel
+    while k <= kbup - 1:
+        uemf[k] = umf[k]
+        k += 1
+
+    k = kbup
+    while k <= kpen - 1:
+        uemf[k] = emf[k]
+        k += 1
+
+    k = 0
+    while k < mkx:
+        comsub[k] = 0.0
+        k += 1
+
+    k = 1
+    while k <= kpen:
+        comsub[k - 1] = 0.5 * (uemf[k] + uemf[k - 1])
+        k += 1
+
+
+@export
+def uwshcu_momentum_detrainment_shell_codon(
+    mkx: int,
+    wtrc_nwset: int,
+    kpen: int,
+    g_v: float,
+    dt_v: float,
+    dp0_p: cobj,
+    u0_p: cobj,
+    v0_p: cobj,
+    uflx_p: cobj,
+    vflx_p: cobj,
+    umf_p: cobj,
+    uten_p: cobj,
+    vten_p: cobj,
+    uf_p: cobj,
+    vf_p: cobj,
+    dwten_p: cobj,
+    diten_p: cobj,
+    wtdwten_p: cobj,
+    wtditen_p: cobj,
+):
+    dp0 = Ptr[float](dp0_p)
+    u0 = Ptr[float](u0_p)
+    v0 = Ptr[float](v0_p)
+    uflx = Ptr[float](uflx_p)
+    vflx = Ptr[float](vflx_p)
+    uten = Ptr[float](uten_p)
+    vten = Ptr[float](vten_p)
+    uf = Ptr[float](uf_p)
+    vf = Ptr[float](vf_p)
+
+    k = 1
+    while k <= kpen:
+        km1 = k - 1
+        layer_idx = k - 1
+        uten[layer_idx] = (uflx[km1] - uflx[k]) * g_v / dp0[layer_idx]
+        vten[layer_idx] = (vflx[km1] - vflx[k]) * g_v / dp0[layer_idx]
+        uf[layer_idx] = u0[layer_idx] + uten[layer_idx] * dt_v
+        vf[layer_idx] = v0[layer_idx] + vten[layer_idx] * dt_v
+        k += 1
+
+
+@export
 def uwshcu_column_input_load_shell_codon(
     mix: int,
     mkx: int,

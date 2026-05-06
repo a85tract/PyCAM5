@@ -58,6 +58,7 @@
   logical :: scaleh_iter_init_shell_entered_logged = .false.
   logical :: penent_prep_shell_entered_logged = .false.
   logical :: turbulent_flux_shell_entered_logged = .false.
+  logical :: tendency_prep_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -473,6 +474,22 @@ contains
     end if
 
   end subroutine uwshcu_log_turbulent_flux_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_tendency_prep_shell_entered()
+
+    if (tendency_prep_shell_entered_logged) return
+    tendency_prep_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu tendency prep shell entered (uemf/comsub and momentum direct = codon; detrainment scaling native)'
+       call uwshcu_append_proof( &
+            'uwshcu tendency prep shell entered (uemf/comsub and momentum direct = codon; detrainment scaling native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_tendency_prep_shell_entered
 
 !===============================================================================
   
@@ -1218,8 +1235,8 @@ end subroutine uwshcu_readnl
     real(r8), target :: diten(mkx)                            !  Detrained ice   tendency from cumulus updraft [ kg/kg/s ]
     real(r8), target :: fer(mkx)                              !  Fractional lateral entrainment rate [ 1/Pa ]
     real(r8), target :: fdr(mkx)                              !  Fractional lateral detrainment rate [ 1/Pa ]
-    real(r8)    uf(mkx)                                       !  Zonal wind at the provisional time step [ m/s ]
-    real(r8)    vf(mkx)                                       !  Meridional wind at the provisional time step [ m/s ]
+    real(r8), target :: uf(mkx)                               !  Zonal wind at the provisional time step [ m/s ]
+    real(r8), target :: vf(mkx)                               !  Meridional wind at the provisional time step [ m/s ]
     real(r8), target :: qc(mkx)                               !  Tendency due to detrained 'cloud water + cloud ice'
                                                               ! (without rain-snow contribution) [ kg/kg/s ]
     real(r8), target :: qc_l(mkx)                             !  Tendency due to detrained 'cloud water'
@@ -2044,6 +2061,26 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: tru_emf_p, wtu_emf_p, slflx_p, qtflx_p, uflx_p, vflx_p
           type(c_ptr), value :: trflx_p, wtflx_p
        end subroutine uwshcu_turbulent_flux_shell_codon
+
+       subroutine uwshcu_massflux_comsub_shell_codon(mkx_c, kinv_c, krel_c, kbup_c, kpen_c, &
+            cbmf_c, ps0_p, umf_p, emf_p, uemf_p, comsub_p) &
+            bind(c, name="uwshcu_massflux_comsub_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, kinv_c, krel_c, kbup_c, kpen_c
+          real(c_double), value :: cbmf_c
+          type(c_ptr), value :: ps0_p, umf_p, emf_p, uemf_p, comsub_p
+       end subroutine uwshcu_massflux_comsub_shell_codon
+
+       subroutine uwshcu_momentum_detrainment_shell_codon(mkx_c, wtrc_nwset_c, kpen_c, &
+            g_c, dt_c, dp0_p, u0_p, v0_p, uflx_p, vflx_p, umf_p, uten_p, vten_p, &
+            uf_p, vf_p, dwten_p, diten_p, wtdwten_p, wtditen_p) &
+            bind(c, name="uwshcu_momentum_detrainment_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, kpen_c
+          real(c_double), value :: g_c, dt_c
+          type(c_ptr), value :: dp0_p, u0_p, v0_p, uflx_p, vflx_p, umf_p, uten_p, vten_p
+          type(c_ptr), value :: uf_p, vf_p, dwten_p, diten_p, wtdwten_p, wtditen_p
+       end subroutine uwshcu_momentum_detrainment_shell_codon
 
        subroutine uwshcu_column_env_save_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, &
@@ -5309,6 +5346,7 @@ end subroutine uwshcu_readnl
        ! Condensate tendency by compensating subsidence/upwelling !
        ! -------------------------------------------------------- !
        
+       if (use_native_init_shell_impl) then
        uemf(0:mkx)         = 0._r8
        do k = 0, kinv - 2  ! Assume linear updraft mass flux within the PBL.
           uemf(k) = cbmf * ( ps0(0) - ps0(k) ) / ( ps0(0) - ps0(kinv-1) ) 
@@ -5321,6 +5359,12 @@ end subroutine uwshcu_readnl
        do k = 1, kpen
           comsub(k)  = 0.5_r8 * ( uemf(k) + uemf(k-1) ) 
        end do    
+       else
+          call uwshcu_log_tendency_prep_shell_entered()
+          call uwshcu_massflux_comsub_shell_codon(int(mkx, c_int64_t), int(kinv, c_int64_t), &
+               int(krel, c_int64_t), int(kbup, c_int64_t), int(kpen, c_int64_t), cbmf, &
+               c_loc(ps0), c_loc(umf), c_loc(emf), c_loc(uemf), c_loc(comsub))
+       endif
 
        do k = 1, kpen
           if( comsub(k) .ge. 0._r8 ) then
@@ -5426,6 +5470,7 @@ end subroutine uwshcu_readnl
        ! Momentum tendency !
        ! ----------------- !
        
+       if (use_native_init_shell_impl) then
        do k = 1, kpen
           km1 = k - 1 
           uten(k) = ( uflx(km1) - uflx(k) ) * g / dp0(k)
@@ -5440,6 +5485,14 @@ end subroutine uwshcu_readnl
         !    trten(k,m) = max(trten(k,m),-tr0(k,m)/dt)              
         ! enddo
        end do        
+       else
+          wtrc_nwset_post_c = 0_c_int64_t
+          if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
+          call uwshcu_momentum_detrainment_shell_codon(int(mkx, c_int64_t), wtrc_nwset_post_c, &
+               int(kpen, c_int64_t), g, dt, c_loc(dp0), c_loc(u0), c_loc(v0), c_loc(uflx), &
+               c_loc(vflx), c_loc(umf), c_loc(uten), c_loc(vten), c_loc(uf), c_loc(vf), &
+               c_loc(dwten), c_loc(diten), c_loc(wtdwten), c_loc(wtditen))
+       endif
 
        ! ----------------------------------------------------------------- !
        ! Tendencies of thermodynamic variables.                            ! 
