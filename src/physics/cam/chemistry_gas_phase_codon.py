@@ -328,6 +328,26 @@ def setinv_vmr_output_codon(
                 invariants[_idx3(i, k, inv_ndx, ncol, pver)] / invariants[_idx3(i, k, m_ndx, ncol, pver)]
             )
 
+def setinv_output_pair_codon(
+    ncol: int,
+    pver: int,
+    nfs: int,
+    inv_ndx: int,
+    m_ndx: int,
+    invariants_p: cobj,
+    tmp_dens_p: cobj,
+    tmp_vmr_p: cobj,
+):
+    invariants = Ptr[float](invariants_p)
+    tmp_dens = Ptr[float](tmp_dens_p)
+    tmp_vmr = Ptr[float](tmp_vmr_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            inv = invariants[_idx3(i, k, inv_ndx, ncol, pver)]
+            tmp_dens[_idx2(i, k, ncol)] = inv
+            tmp_vmr[_idx2(i, k, ncol)] = inv / invariants[_idx3(i, k, m_ndx, ncol, pver)]
+
 def charge_balance_codon(
     ncol: int,
     pver: int,

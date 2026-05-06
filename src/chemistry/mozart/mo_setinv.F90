@@ -47,8 +47,8 @@ contains
     setinv_postprocess_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'setinv postprocess entered (tracer_const/output workspaces direct = codon)'
-       call setinv_append_impl_proof('setinv postprocess entered (tracer_const/output workspaces direct = codon)')
+       write(iulog,*) 'setinv postprocess entered (tracer_const/dens-vmr output workspaces direct = codon)'
+       call setinv_append_impl_proof('setinv postprocess entered (tracer_const/dens-vmr output workspaces direct = codon)')
        call flush(iulog)
     end if
 
@@ -128,6 +128,7 @@ contains
     real(r8), parameter ::  Pa_xfac = 10._r8                 ! Pascals to dyne/cm^2
     real(r8) :: sum1(ncol)
     real(r8), target :: tmp_out(ncol,pver)
+    real(r8), target :: tmp_vmr_out(ncol,pver)
 
     interface
        subroutine setinv_codon(ncol_c, pcols_c, pver_c, gas_pcnst_c, nfs_c, m_ndx_c, n2_ndx_c, o2_ndx_c, h2o_ndx_c, &
@@ -159,6 +160,12 @@ contains
          integer(c_int64_t), value :: ncol_c, pver_c, nfs_c, inv_ndx_c, m_ndx_c
          type(c_ptr), value :: invariants_p, tmp_out_p
        end subroutine setinv_vmr_output_codon
+       subroutine setinv_output_pair_codon(ncol_c, pver_c, nfs_c, inv_ndx_c, m_ndx_c, invariants_p, tmp_dens_p, tmp_vmr_p) &
+            bind(c, name="setinv_output_pair_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, nfs_c, inv_ndx_c, m_ndx_c
+         type(c_ptr), value :: invariants_p, tmp_dens_p, tmp_vmr_p
+       end subroutine setinv_output_pair_codon
     end interface
 
     call setinv_select_impl()
@@ -235,21 +242,18 @@ contains
         tmp_out(:ncol,:) =  invariants(:ncol,:,i)
       else
         call setinv_log_postprocess_entered()
-        call setinv_copy_invariant_codon( &
-             int(ncol, c_int64_t), int(pver, c_int64_t), int(nfs, c_int64_t), int(i, c_int64_t), &
-             c_loc(invariants), c_loc(tmp_out) &
+        call setinv_output_pair_codon( &
+             int(ncol, c_int64_t), int(pver, c_int64_t), int(nfs, c_int64_t), int(i, c_int64_t), int(m_ndx, c_int64_t), &
+             c_loc(invariants), c_loc(tmp_out), c_loc(tmp_vmr_out) &
         )
       end if
       call outfld( trim(inv_lst(i))//'_dens', tmp_out(:ncol,:), ncol, lchnk )
       if (setinv_use_native_impl) then
         tmp_out(:ncol,:) =  invariants(:ncol,:,i) / invariants(:ncol,:,m_ndx)
+        call outfld( trim(inv_lst(i))//'_vmr',  tmp_out(:ncol,:), ncol, lchnk )
       else
-        call setinv_vmr_output_codon( &
-             int(ncol, c_int64_t), int(pver, c_int64_t), int(nfs, c_int64_t), int(i, c_int64_t), int(m_ndx, c_int64_t), &
-             c_loc(invariants), c_loc(tmp_out) &
-        )
+        call outfld( trim(inv_lst(i))//'_vmr',  tmp_vmr_out(:ncol,:), ncol, lchnk )
       end if
-      call outfld( trim(inv_lst(i))//'_vmr',  tmp_out(:ncol,:), ncol, lchnk )
     enddo
 
   end subroutine setinv
