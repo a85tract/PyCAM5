@@ -3163,6 +3163,211 @@ def uwshcu_momentum_detrainment_shell_codon(
 
 
 @export
+def uwshcu_comp_sub_tendency_shell_codon(
+    mkx: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    kpen: int,
+    ixnumliq: int,
+    ixnumice: int,
+    g_v: float,
+    p0_p: cobj,
+    thl0_p: cobj,
+    qt0_p: cobj,
+    ql0_p: cobj,
+    qi0_p: cobj,
+    tr0_p: cobj,
+    wtrc_iatype_p: cobj,
+    comsub_p: cobj,
+    thlten_sub_p: cobj,
+    qtten_sub_p: cobj,
+    qlten_sub_p: cobj,
+    qiten_sub_p: cobj,
+    nlten_sub_p: cobj,
+    niten_sub_p: cobj,
+    wtlten_sub_p: cobj,
+    wtiten_sub_p: cobj,
+):
+    p0 = Ptr[float](p0_p)
+    thl0 = Ptr[float](thl0_p)
+    qt0 = Ptr[float](qt0_p)
+    ql0 = Ptr[float](ql0_p)
+    qi0 = Ptr[float](qi0_p)
+    tr0 = Ptr[float](tr0_p)
+    wtrc_iatype = Ptr[int](wtrc_iatype_p)
+    comsub = Ptr[float](comsub_p)
+    thlten_sub = Ptr[float](thlten_sub_p)
+    qtten_sub = Ptr[float](qtten_sub_p)
+    qlten_sub = Ptr[float](qlten_sub_p)
+    qiten_sub = Ptr[float](qiten_sub_p)
+    nlten_sub = Ptr[float](nlten_sub_p)
+    niten_sub = Ptr[float](niten_sub_p)
+    wtlten_sub = Ptr[float](wtlten_sub_p)
+    wtiten_sub = Ptr[float](wtiten_sub_p)
+
+    liq_idx = ixnumliq - 1
+    ice_idx = ixnumice - 1
+    k_fortran = 1
+    while k_fortran <= kpen:
+        k = k_fortran - 1
+        if comsub[k] >= 0.0:
+            if k_fortran == mkx:
+                thlten_sub[k] = 0.0
+                qtten_sub[k] = 0.0
+                qlten_sub[k] = 0.0
+                qiten_sub[k] = 0.0
+                nlten_sub[k] = 0.0
+                niten_sub[k] = 0.0
+                m = 0
+                while m < wtrc_nwset:
+                    wt_idx = k + m * mkx
+                    wtlten_sub[wt_idx] = 0.0
+                    wtiten_sub[wt_idx] = 0.0
+                    m += 1
+            else:
+                kp1 = k + 1
+                denom = p0[k] - p0[kp1]
+                thlten_sub[k] = g_v * comsub[k] * (thl0[kp1] - thl0[k]) / denom
+                qtten_sub[k] = g_v * comsub[k] * (qt0[kp1] - qt0[k]) / denom
+                qlten_sub[k] = g_v * comsub[k] * (ql0[kp1] - ql0[k]) / denom
+                qiten_sub[k] = g_v * comsub[k] * (qi0[kp1] - qi0[k]) / denom
+                nlten_sub[k] = g_v * comsub[k] * (tr0[kp1 + liq_idx * mkx] - tr0[k + liq_idx * mkx]) / denom
+                niten_sub[k] = g_v * comsub[k] * (tr0[kp1 + ice_idx * mkx] - tr0[k + ice_idx * mkx]) / denom
+                m = 0
+                while m < wtrc_nwset:
+                    liq = wtrc_iatype[m + wtrc_nwset] - 1
+                    ice = wtrc_iatype[m + 2 * wtrc_nwset] - 1
+                    wt_idx = k + m * mkx
+                    wtlten_sub[wt_idx] = g_v * comsub[k] * (tr0[kp1 + liq * mkx] - tr0[k + liq * mkx]) / denom
+                    wtiten_sub[wt_idx] = g_v * comsub[k] * (tr0[kp1 + ice * mkx] - tr0[k + ice * mkx]) / denom
+                    m += 1
+        else:
+            if k_fortran == 1:
+                thlten_sub[k] = 0.0
+                qtten_sub[k] = 0.0
+                qlten_sub[k] = 0.0
+                qiten_sub[k] = 0.0
+                nlten_sub[k] = 0.0
+                niten_sub[k] = 0.0
+                m = 0
+                while m < wtrc_nwset:
+                    wt_idx = k + m * mkx
+                    wtlten_sub[wt_idx] = 0.0
+                    wtiten_sub[wt_idx] = 0.0
+                    m += 1
+            else:
+                km1 = k - 1
+                denom = p0[km1] - p0[k]
+                thlten_sub[k] = g_v * comsub[k] * (thl0[k] - thl0[km1]) / denom
+                qtten_sub[k] = g_v * comsub[k] * (qt0[k] - qt0[km1]) / denom
+                qlten_sub[k] = g_v * comsub[k] * (ql0[k] - ql0[km1]) / denom
+                qiten_sub[k] = g_v * comsub[k] * (qi0[k] - qi0[km1]) / denom
+                nlten_sub[k] = g_v * comsub[k] * (tr0[k + liq_idx * mkx] - tr0[km1 + liq_idx * mkx]) / denom
+                niten_sub[k] = g_v * comsub[k] * (tr0[k + ice_idx * mkx] - tr0[km1 + ice_idx * mkx]) / denom
+                m = 0
+                while m < wtrc_nwset:
+                    liq = wtrc_iatype[m + wtrc_nwset] - 1
+                    ice = wtrc_iatype[m + 2 * wtrc_nwset] - 1
+                    wt_idx = k + m * mkx
+                    wtlten_sub[wt_idx] = g_v * comsub[k] * (tr0[k + liq * mkx] - tr0[km1 + liq * mkx]) / denom
+                    wtiten_sub[wt_idx] = g_v * comsub[k] * (tr0[k + ice * mkx] - tr0[km1 + ice * mkx]) / denom
+                    m += 1
+        k_fortran += 1
+
+
+@export
+def uwshcu_comp_sub_sink_shell_codon(
+    mkx: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    kpen: int,
+    ixnumliq: int,
+    ixnumice: int,
+    dt_v: float,
+    ql0_p: cobj,
+    qi0_p: cobj,
+    tr0_p: cobj,
+    wtrc_iatype_p: cobj,
+    qlten_sub_p: cobj,
+    qiten_sub_p: cobj,
+    nlten_sub_p: cobj,
+    niten_sub_p: cobj,
+    wtlten_sub_p: cobj,
+    wtiten_sub_p: cobj,
+    qlten_sink_p: cobj,
+    qiten_sink_p: cobj,
+    nlten_sink_p: cobj,
+    niten_sink_p: cobj,
+    wtten_sink_liq_p: cobj,
+    wtten_sink_ice_p: cobj,
+):
+    ql0 = Ptr[float](ql0_p)
+    qi0 = Ptr[float](qi0_p)
+    tr0 = Ptr[float](tr0_p)
+    wtrc_iatype = Ptr[int](wtrc_iatype_p)
+    qlten_sub = Ptr[float](qlten_sub_p)
+    qiten_sub = Ptr[float](qiten_sub_p)
+    nlten_sub = Ptr[float](nlten_sub_p)
+    niten_sub = Ptr[float](niten_sub_p)
+    wtlten_sub = Ptr[float](wtlten_sub_p)
+    wtiten_sub = Ptr[float](wtiten_sub_p)
+    qlten_sink = Ptr[float](qlten_sink_p)
+    qiten_sink = Ptr[float](qiten_sink_p)
+    nlten_sink = Ptr[float](nlten_sink_p)
+    niten_sink = Ptr[float](niten_sink_p)
+    wtten_sink_liq = Ptr[float](wtten_sink_liq_p)
+    wtten_sink_ice = Ptr[float](wtten_sink_ice_p)
+
+    liq_idx = ixnumliq - 1
+    ice_idx = ixnumice - 1
+    k = 0
+    while k < kpen:
+        ql_floor = -ql0[k] / dt_v
+        qi_floor = -qi0[k] / dt_v
+        nl_floor = -tr0[k + liq_idx * mkx] / dt_v
+        ni_floor = -tr0[k + ice_idx * mkx] / dt_v
+
+        if qlten_sub[k] > ql_floor:
+            qlten_sink[k] = qlten_sub[k]
+        else:
+            qlten_sink[k] = ql_floor
+
+        if qiten_sub[k] > qi_floor:
+            qiten_sink[k] = qiten_sub[k]
+        else:
+            qiten_sink[k] = qi_floor
+
+        if nlten_sub[k] > nl_floor:
+            nlten_sink[k] = nlten_sub[k]
+        else:
+            nlten_sink[k] = nl_floor
+
+        if niten_sub[k] > ni_floor:
+            niten_sink[k] = niten_sub[k]
+        else:
+            niten_sink[k] = ni_floor
+
+        m = 0
+        while m < wtrc_nwset:
+            liq = wtrc_iatype[m + wtrc_nwset] - 1
+            ice = wtrc_iatype[m + 2 * wtrc_nwset] - 1
+            wt_idx = k + m * mkx
+            wt_liq_floor = -tr0[k + liq * mkx] / dt_v
+            wt_ice_floor = -tr0[k + ice * mkx] / dt_v
+            if wtlten_sub[wt_idx] > wt_liq_floor:
+                wtten_sink_liq[wt_idx] = wtlten_sub[wt_idx]
+            else:
+                wtten_sink_liq[wt_idx] = wt_liq_floor
+            if wtiten_sub[wt_idx] > wt_ice_floor:
+                wtten_sink_ice[wt_idx] = wtiten_sub[wt_idx]
+            else:
+                wtten_sink_ice[wt_idx] = wt_ice_floor
+            m += 1
+
+        k += 1
+
+
+@export
 def uwshcu_column_input_load_shell_codon(
     mix: int,
     mkx: int,

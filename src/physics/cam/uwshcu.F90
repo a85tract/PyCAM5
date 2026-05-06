@@ -59,6 +59,7 @@
   logical :: penent_prep_shell_entered_logged = .false.
   logical :: turbulent_flux_shell_entered_logged = .false.
   logical :: tendency_prep_shell_entered_logged = .false.
+  logical :: comp_sub_sink_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -490,6 +491,22 @@ contains
     end if
 
   end subroutine uwshcu_log_tendency_prep_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_comp_sub_sink_shell_entered()
+
+    if (comp_sub_sink_shell_entered_logged) return
+    comp_sub_sink_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu comp sub sink shell entered (subsidence tendency/sink direct = codon; conden check native)'
+       call uwshcu_append_proof( &
+            'uwshcu comp sub sink shell entered (subsidence tendency/sink direct = codon; conden check native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_comp_sub_sink_shell_entered
 
 !===============================================================================
   
@@ -1342,6 +1359,9 @@ end subroutine uwshcu_readnl
                                                               ! by compensating subsidence/upwelling
     real(r8)    nlten_sub, niten_sub                          !  Tendency of nl0, ni0
                                                               ! by compensating subsidence/upwelling
+    real(r8), target :: thlten_sub_tmp(mkx), qtten_sub_tmp(mkx)
+    real(r8), target :: qlten_sub_tmp(mkx), qiten_sub_tmp(mkx)
+    real(r8), target :: nlten_sub_tmp(mkx), niten_sub_tmp(mkx)
     real(r8)    thl_prog, qt_prog                             !  Prognosed 'thl, qt'
                                                               ! by compensating subsidence/upwelling 
 
@@ -1352,6 +1372,8 @@ end subroutine uwshcu_readnl
     real(r8), target :: wtten_sink_ice(mkx,wtrc_nwset)        ! Tendency of water trace ice due to subsidenc or upwelling [ kg/kg/s ]
     real(r8)    wtlten_sub(wtrc_nwset)                        ! Tendency of water tracer cloud liquid by sub/up.
     real(r8)    wtiten_sub(wtrc_nwset)                        ! Tendency of water tracer cloud ice by sub/up.
+    real(r8), target :: wtlten_sub_tmp(mkx,wtrc_nwset)
+    real(r8), target :: wtiten_sub_tmp(mkx,wtrc_nwset)
    !*************
 
     !----- Variables describing cumulus updraft
@@ -2081,6 +2103,32 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: dp0_p, u0_p, v0_p, uflx_p, vflx_p, umf_p, uten_p, vten_p
           type(c_ptr), value :: uf_p, vf_p, dwten_p, diten_p, wtdwten_p, wtditen_p
        end subroutine uwshcu_momentum_detrainment_shell_codon
+
+       subroutine uwshcu_comp_sub_tendency_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, kpen_c, &
+            ixnumliq_c, ixnumice_c, g_c, p0_p, thl0_p, qt0_p, ql0_p, qi0_p, tr0_p, &
+            wtrc_iatype_p, comsub_p, thlten_sub_p, qtten_sub_p, qlten_sub_p, qiten_sub_p, &
+            nlten_sub_p, niten_sub_p, wtlten_sub_p, wtiten_sub_p) &
+            bind(c, name="uwshcu_comp_sub_tendency_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kpen_c, ixnumliq_c, ixnumice_c
+          real(c_double), value :: g_c
+          type(c_ptr), value :: p0_p, thl0_p, qt0_p, ql0_p, qi0_p, tr0_p, wtrc_iatype_p, comsub_p
+          type(c_ptr), value :: thlten_sub_p, qtten_sub_p, qlten_sub_p, qiten_sub_p
+          type(c_ptr), value :: nlten_sub_p, niten_sub_p, wtlten_sub_p, wtiten_sub_p
+       end subroutine uwshcu_comp_sub_tendency_shell_codon
+
+       subroutine uwshcu_comp_sub_sink_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, kpen_c, &
+            ixnumliq_c, ixnumice_c, dt_c, ql0_p, qi0_p, tr0_p, wtrc_iatype_p, qlten_sub_p, &
+            qiten_sub_p, nlten_sub_p, niten_sub_p, wtlten_sub_p, wtiten_sub_p, qlten_sink_p, &
+            qiten_sink_p, nlten_sink_p, niten_sink_p, wtten_sink_liq_p, wtten_sink_ice_p) &
+            bind(c, name="uwshcu_comp_sub_sink_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kpen_c, ixnumliq_c, ixnumice_c
+          real(c_double), value :: dt_c
+          type(c_ptr), value :: ql0_p, qi0_p, tr0_p, wtrc_iatype_p, qlten_sub_p, qiten_sub_p
+          type(c_ptr), value :: nlten_sub_p, niten_sub_p, wtlten_sub_p, wtiten_sub_p, qlten_sink_p
+          type(c_ptr), value :: qiten_sink_p, nlten_sink_p, niten_sink_p, wtten_sink_liq_p, wtten_sink_ice_p
+       end subroutine uwshcu_comp_sub_sink_shell_codon
 
        subroutine uwshcu_column_env_save_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, &
@@ -5366,6 +5414,7 @@ end subroutine uwshcu_readnl
                c_loc(ps0), c_loc(umf), c_loc(emf), c_loc(uemf), c_loc(comsub))
        endif
 
+       if (use_native_init_shell_impl) then
        do k = 1, kpen
           if( comsub(k) .ge. 0._r8 ) then
               if( k .eq. mkx ) then
@@ -5459,6 +5508,38 @@ end subroutine uwshcu_readnl
           end if
          !**************
        end do
+       else
+          wtrc_nwset_post_c = 0_c_int64_t
+          if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
+          call uwshcu_log_comp_sub_sink_shell_entered()
+          call uwshcu_comp_sub_tendency_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+               wtrc_nwset_post_c, int(kpen, c_int64_t), int(ixnumliq, c_int64_t), &
+               int(ixnumice, c_int64_t), g, c_loc(p0), c_loc(thl0), c_loc(qt0), c_loc(ql0), &
+               c_loc(qi0), c_loc(tr0), c_loc(wtrc_iatype_post), c_loc(comsub), &
+               c_loc(thlten_sub_tmp), c_loc(qtten_sub_tmp), c_loc(qlten_sub_tmp), &
+               c_loc(qiten_sub_tmp), c_loc(nlten_sub_tmp), c_loc(niten_sub_tmp), &
+               c_loc(wtlten_sub_tmp), c_loc(wtiten_sub_tmp))
+
+          do k = 1, kpen
+             thlten_sub = thlten_sub_tmp(k)
+             qtten_sub  = qtten_sub_tmp(k)
+             thl_prog = thl0(k) + thlten_sub * dt
+             qt_prog  = max( qt0(k) + qtten_sub * dt, 1.e-12_r8 )
+             call conden(p0(k),thl_prog,qt_prog,thj,qvj,qlj,qij,qse,id_check,ncnst)
+             if( id_check .eq. 1 ) then
+                 id_exit = .true.
+                 go to 333
+             endif
+          end do
+
+          call uwshcu_comp_sub_sink_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+               wtrc_nwset_post_c, int(kpen, c_int64_t), int(ixnumliq, c_int64_t), &
+               int(ixnumice, c_int64_t), dt, c_loc(ql0), c_loc(qi0), c_loc(tr0), &
+               c_loc(wtrc_iatype_post), c_loc(qlten_sub_tmp), c_loc(qiten_sub_tmp), &
+               c_loc(nlten_sub_tmp), c_loc(niten_sub_tmp), c_loc(wtlten_sub_tmp), &
+               c_loc(wtiten_sub_tmp), c_loc(qlten_sink), c_loc(qiten_sink), c_loc(nlten_sink), &
+               c_loc(niten_sink), c_loc(wtten_sink_liq), c_loc(wtten_sink_ice))
+       endif
 
        ! --------------------------------------------- !
        !                                               !
