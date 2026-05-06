@@ -45,7 +45,7 @@
 
 
 
-      real(r8) :: adv_mass(gas_pcnst) = 0._r8
+      real(r8), target :: adv_mass(gas_pcnst) = 0._r8
       real(r8) :: crb_mass(gas_pcnst) = 0._r8
       real(r8) :: fix_mass(max(1,nfs))
 

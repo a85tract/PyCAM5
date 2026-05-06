@@ -109,6 +109,7 @@ module aero_model
   logical :: aero_model_gasaerexch_proof_written = .false.
   logical :: aero_model_gasaerexch_wrap_proof_written = .false.
   logical :: aero_model_gasaerexch_load_snapshot_proof_written = .false.
+  logical :: aero_model_gasaerexch_presetsox_proof_written = .false.
   logical :: aero_model_gasaerexch_column_flux_use_native_impl = .false.
   logical :: aero_model_gasaerexch_column_flux_impl_selected = .false.
   logical :: aero_model_gasaerexch_h2so4_save_use_native_impl = .false.
@@ -2898,8 +2899,7 @@ contains
     if (aero_model_gasaerexch_use_native_impl) then
        call aero_model_gasaerexch_gas_tend(ncol, delt, vmr0, vmr, dvmrdt)
     else
-       call aero_model_gasaerexch_presetsox_codon( &
-            lchnk, vmr0, vmr, vmrcw, dvmrdt, dvmrcwdt, mbar, pdel, ncol, loffset, pbuf, delt, wrk )
+       call aero_model_gasaerexch_presetsox_codon(vmr0, vmr, dvmrdt, mbar, pdel, ncol, delt, wrk)
     end if
     do m = 1, gas_pcnst
       if (aero_model_gasaerexch_use_native_impl) then
@@ -3108,7 +3108,6 @@ contains
     type(physics_buffer_desc), pointer :: pbuf(:)
 
     integer :: m
-    real(r8), target :: adv_mass_local(gas_pcnst)
     type(c_ptr), target :: qqcw_ptrs(pcnst)
     integer(c_int64_t), target :: qqcw_present(pcnst)
     character(len=160) :: proof_line
@@ -3123,7 +3122,6 @@ contains
        end subroutine aero_model_gasaerexch_load_snapshot_codon
     end interface
 
-    adv_mass_local(:) = adv_mass(:)
     call qqcw_fill_cptrs(pbuf, qqcw_ptrs)
     do m = 1, pcnst
        if (c_associated(qqcw_ptrs(m))) then
@@ -3144,7 +3142,7 @@ contains
     call aero_model_gasaerexch_load_snapshot_codon( &
          int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          int(gas_pcnst, c_int64_t), int(im, c_int64_t), int(ncol, c_int64_t), c_loc(qqcw_ptrs(1)), c_loc(qqcw_present(1)), &
-         c_loc(mbar(1,1)), c_loc(adv_mass_local(1)), c_loc(vmr(1,1,1)), c_loc(vmrcw(1,1,1)), &
+         c_loc(mbar(1,1)), c_loc(adv_mass(1)), c_loc(vmr(1,1,1)), c_loc(vmrcw(1,1,1)), &
          c_loc(dvmrdt(1,1,1)), c_loc(dvmrcwdt(1,1,1)) &
     )
 
@@ -3152,54 +3150,41 @@ contains
 
   !=============================================================================
   !=============================================================================
-  subroutine aero_model_gasaerexch_presetsox_codon(lchnk, vmr0, vmr, vmrcw, dvmrdt, dvmrcwdt, mbar, pdel, ncol, im, pbuf, delt, wrk)
+  subroutine aero_model_gasaerexch_presetsox_codon(vmr0, vmr, dvmrdt, mbar, pdel, ncol, delt, wrk)
 
-    use modal_aero_data, only : qqcw_fill_cptrs
-    use physics_buffer, only : physics_buffer_desc
-    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr, c_associated
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
 
-    integer, intent(in) :: lchnk, ncol, im
+    integer, intent(in) :: ncol
     real(r8), intent(in) :: delt
     real(r8), target, intent(in) :: vmr0(ncol,pver,gas_pcnst), vmr(ncol,pver,gas_pcnst)
     real(r8), target, intent(in) :: mbar(pcols,pver), pdel(pcols,pver)
-    real(r8), target, intent(inout) :: vmrcw(ncol,pver,gas_pcnst), dvmrdt(ncol,pver,gas_pcnst), dvmrcwdt(ncol,pver,gas_pcnst)
+    real(r8), target, intent(inout) :: dvmrdt(ncol,pver,gas_pcnst)
     real(r8), target, intent(inout) :: wrk(ncol,gas_pcnst)
-    type(physics_buffer_desc), pointer :: pbuf(:)
 
-    integer :: m
-    real(r8), target :: mbar_local(ncol,pver)
-    real(r8), target :: adv_mass_local(gas_pcnst)
-    type(c_ptr), target :: qqcw_ptrs(pcnst)
-    integer(c_int64_t), target :: qqcw_present(pcnst)
+    character(len=160) :: proof_line
 
     interface
-       subroutine aero_model_gasaerexch_presetsox_shell_codon(ncol_c, pcols_c, pver_c, gas_pcnst_c, qqcw_offset_c, &
-            delt_c, gravit_c, qqcw_ptrs_p, qqcw_present_p, vmr0_p, vmr_p, vmrcw_p, dvmrdt_p, dvmrcwdt_p, &
-            mbar_p, mbar_vmrcw_p, pdel_p, adv_mass_p, wrk_p) bind(c, name="aero_model_gasaerexch_presetsox_shell_codon")
+       subroutine aero_model_gasaerexch_presetsox_shell_codon(ncol_c, pcols_c, pver_c, gas_pcnst_c, delt_c, gravit_c, &
+            vmr0_p, vmr_p, dvmrdt_p, mbar_p, pdel_p, adv_mass_p, wrk_p) bind(c, name="aero_model_gasaerexch_presetsox_shell_codon")
          use iso_c_binding, only : c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, gas_pcnst_c, qqcw_offset_c
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, gas_pcnst_c
          real(c_double), value :: delt_c, gravit_c
-         type(c_ptr), value :: qqcw_ptrs_p, qqcw_present_p, vmr0_p, vmr_p, vmrcw_p, dvmrdt_p, dvmrcwdt_p
-         type(c_ptr), value :: mbar_p, mbar_vmrcw_p, pdel_p, adv_mass_p, wrk_p
+         type(c_ptr), value :: vmr0_p, vmr_p, dvmrdt_p, mbar_p, pdel_p, adv_mass_p, wrk_p
        end subroutine aero_model_gasaerexch_presetsox_shell_codon
     end interface
 
-    adv_mass_local(:) = adv_mass(:)
-    mbar_local(:,:) = mbar(:ncol,:)
-    call qqcw_fill_cptrs(pbuf, qqcw_ptrs)
-    do m = 1, pcnst
-       if (c_associated(qqcw_ptrs(m))) then
-          qqcw_present(m) = 1_c_int64_t
-       else
-          qqcw_present(m) = 0_c_int64_t
-       end if
-    end do
+    if (masterproc .and. .not. aero_model_gasaerexch_presetsox_proof_written) then
+       proof_line = 'aero_model_gasaerexch presetsox shell entered (gas tendency/column flux direct = codon)'
+       write(iulog,'(A)') trim(proof_line)
+       call aero_model_gasaerexch_append_impl_proof('AERO_MODEL_GASAEREXCH_PROOF_FILE', trim(proof_line))
+       aero_model_gasaerexch_presetsox_proof_written = .true.
+       call flush(iulog)
+    end if
 
     call aero_model_gasaerexch_presetsox_shell_codon( &
          int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), &
-         int(im, c_int64_t), real(delt, c_double), real(gravit, c_double), c_loc(qqcw_ptrs(1)), c_loc(qqcw_present(1)), &
-         c_loc(vmr0(1,1,1)), c_loc(vmr(1,1,1)), c_loc(vmrcw(1,1,1)), c_loc(dvmrdt(1,1,1)), c_loc(dvmrcwdt(1,1,1)), &
-         c_loc(mbar(1,1)), c_loc(mbar_local(1,1)), c_loc(pdel(1,1)), c_loc(adv_mass_local(1)), c_loc(wrk(1,1)) &
+         real(delt, c_double), real(gravit, c_double), c_loc(vmr0(1,1,1)), c_loc(vmr(1,1,1)), c_loc(dvmrdt(1,1,1)), &
+         c_loc(mbar(1,1)), c_loc(pdel(1,1)), c_loc(adv_mass(1)), c_loc(wrk(1,1)) &
     )
 
   end subroutine aero_model_gasaerexch_presetsox_codon
@@ -3218,7 +3203,6 @@ contains
     type(physics_buffer_desc), pointer :: pbuf(:)
 
     integer :: m
-    real(r8), target :: adv_mass_local(gas_pcnst)
     type(c_ptr), target :: qqcw_ptrs(pcnst)
     integer(c_int64_t), target :: qqcw_present(pcnst)
 
@@ -3231,7 +3215,6 @@ contains
        end subroutine aero_model_gasaerexch_vmrcw_batch_codon
     end interface
 
-    adv_mass_local(:) = adv_mass(:)
     call qqcw_fill_cptrs(pbuf, qqcw_ptrs)
     do m = 1, pcnst
        if (c_associated(qqcw_ptrs(m))) then
@@ -3244,7 +3227,7 @@ contains
     call aero_model_gasaerexch_vmrcw_batch_codon( &
          int(2, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          int(gas_pcnst, c_int64_t), int(im, c_int64_t), int(ncol, c_int64_t), c_loc(qqcw_ptrs(1)), c_loc(qqcw_present(1)), &
-         c_loc(mbar(1,1)), c_loc(adv_mass_local(1)), c_loc(vmr(1,1,1)) &
+         c_loc(mbar(1,1)), c_loc(adv_mass(1)), c_loc(vmr(1,1,1)) &
     )
 
   end subroutine aero_model_gasaerexch_store_vmrcw_codon
