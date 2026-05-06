@@ -588,6 +588,53 @@ def zm_convr_unit_shell_codon(
 
 
 @export
+def zm_convr_deep_state_shell_codon(
+    lengath: int,
+    pcols: int,
+    pver: int,
+    msg: int,
+    ideep_p: cobj,
+    maxg_p: cobj,
+    cape_p: cobj,
+    tl_p: cobj,
+    landfrac_p: cobj,
+    dp_p: cobj,
+    capeg_p: cobj,
+    tlg_p: cobj,
+    landfracg_p: cobj,
+    dsubcld_p: cobj,
+):
+    ideep = Ptr[int](ideep_p)
+    maxg = Ptr[int](maxg_p)
+    cape = Ptr[float](cape_p)
+    tl = Ptr[float](tl_p)
+    landfrac = Ptr[float](landfrac_p)
+    dp = Ptr[float](dp_p)
+    capeg = Ptr[float](capeg_p)
+    tlg = Ptr[float](tlg_p)
+    landfracg = Ptr[float](landfracg_p)
+    dsubcld = Ptr[float](dsubcld_p)
+
+    i = 0
+    while i < lengath:
+        ii = ideep[i] - 1
+        capeg[i] = cape[ii]
+        tlg[i] = tl[ii]
+        landfracg[i] = landfrac[ii]
+        i += 1
+
+    kk = msg + 1
+    while kk <= pver:
+        k = kk - 1
+        i = 0
+        while i < lengath:
+            if kk >= maxg[i]:
+                dsubcld[i] = dsubcld[i] + dp[i + k * pcols]
+            i += 1
+        kk += 1
+
+
+@export
 def zm_convr_mflux_shell_codon(
     lengath: int,
     pcols: int,

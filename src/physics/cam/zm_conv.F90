@@ -81,6 +81,7 @@ module zm_conv
    logical :: zm_convr_init_logged = .false.
    logical :: zm_convr_pressure_logged = .false.
    logical :: zm_convr_gather_logged = .false.
+   logical :: zm_convr_deep_state_logged = .false.
    logical :: zm_convr_unit_logged = .false.
    logical :: zm_convr_limit_logged = .false.
    logical :: zm_convr_mflux_logged = .false.
@@ -575,7 +576,7 @@ subroutine zm_convr(lchnk   ,ncol    , &
    real(r8), target :: pf(pcols,pver+1)           ! w  grid slice of ambient interface pressure in mbs.
    real(r8), target :: qstp(pcols,pver)           ! w  grid slice of parcel temp. saturation mixing ratio.
 
-   real(r8) tl(pcols)                  ! w  row of parcel temperature at lcl.
+   real(r8), target :: tl(pcols)                  ! w  row of parcel temperature at lcl.
 
    integer lcl(pcols)                  ! w  base level index of deep cumulus convection.
  !  integer lel(pcols)                  ! w  index of highest theoretical convective plume.
@@ -600,9 +601,9 @@ subroutine zm_convr(lchnk   ,ncol    , &
    real(r8), target :: cmeg(pcols,pver)
 
    real(r8), target :: rprdg(pcols,pver)          ! wg gathered rain production rate
-   real(r8) capeg(pcols)               ! wg gathered convective available potential energy.
-   real(r8) tlg(pcols)                 ! wg grid slice of gathered values of tl.
-   real(r8) landfracg(pcols)           ! wg grid slice of landfrac
+   real(r8), target :: capeg(pcols)               ! wg gathered convective available potential energy.
+   real(r8), target :: tlg(pcols)                 ! wg grid slice of gathered values of tl.
+   real(r8), target :: landfracg(pcols)           ! wg grid slice of landfrac
 
    integer lclg(pcols)                 ! wg gathered values of lcl.
    integer lelg(pcols)
@@ -693,6 +694,15 @@ subroutine zm_convr(lchnk   ,ncol    , &
          type(c_ptr), value :: dpp_p, q_p, t_p, p_p, z_p, s_p, tp_p, zf_p, qstp_p, ideep_p, dp_p, qg_p
          type(c_ptr), value :: tg_p, pg_p, zg_p, sg_p, tpg_p, zfg_p, qstpg_p, ug_p, vg_p, shat_p, qhat_p
       end subroutine zm_convr_gather_interface_shell_codon
+
+      subroutine zm_convr_deep_state_shell_codon(lengath_c, pcols_c, pver_c, msg_c, ideep_p, maxg_p, &
+           cape_p, tl_p, landfrac_p, dp_p, capeg_p, tlg_p, landfracg_p, dsubcld_p) &
+           bind(c, name="zm_convr_deep_state_shell_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, msg_c
+         type(c_ptr), value :: ideep_p, maxg_p, cape_p, tl_p, landfrac_p, dp_p
+         type(c_ptr), value :: capeg_p, tlg_p, landfracg_p, dsubcld_p
+      end subroutine zm_convr_deep_state_shell_codon
 
       subroutine zm_convr_unit_shell_codon(lengath_c, pcols_c, pver_c, msg_c, zfg_p, dp_p, du_p, eu_p, &
            ed_p, cug_p, cmeg_p, rprdg_p, evpg_p, rppe_p) bind(c, name="zm_convr_unit_shell_codon")
@@ -990,25 +1000,44 @@ subroutine zm_convr(lchnk   ,ncol    , &
          zfg(i,pver+1) = zf(ideep(i),pver+1)
       end do
    end if
-   do i = 1,lengath
-      capeg(i) = cape(ideep(i))
-      lclg(i) = lcl(ideep(i))
-      lelg(i) = lel(ideep(i))
-      maxg(i) = maxi(ideep(i))
-      tlg(i) = tl(ideep(i))
-      landfracg(i) = landfrac(ideep(i))
-   end do
+   if (.not. use_native_zm_convr_shell) then
+      do i = 1,lengath
+         lclg(i) = lcl(ideep(i))
+         lelg(i) = lel(ideep(i))
+         maxg(i) = maxi(ideep(i))
+         maxg64(i) = int(maxg(i), c_int64_t)
+      end do
+      if (masterproc .and. .not. zm_convr_deep_state_logged) then
+         write(iulog,*) 'zm_convr deep state shell entered (buoyancy gather/subcloud thickness direct = codon)'
+         call zm_conv_evap_append_impl_proof( &
+              'zm_convr deep state shell entered (buoyancy gather/subcloud thickness direct = codon)')
+         call flush(iulog)
+         zm_convr_deep_state_logged = .true.
+      end if
+      call zm_convr_deep_state_shell_codon(int(lengath, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(msg, c_int64_t), c_loc(ideep64), c_loc(maxg64), c_loc(cape), &
+           c_loc(tl), c_loc(landfrac), c_loc(dp), c_loc(capeg), c_loc(tlg), c_loc(landfracg), c_loc(dsubcld))
+   else
+      do i = 1,lengath
+         capeg(i) = cape(ideep(i))
+         lclg(i) = lcl(ideep(i))
+         lelg(i) = lel(ideep(i))
+         maxg(i) = maxi(ideep(i))
+         tlg(i) = tl(ideep(i))
+         landfracg(i) = landfrac(ideep(i))
+      end do
 !
 ! calculate sub-cloud layer pressure "thickness" for use in
 ! closure and tendency routines.
 !
-   do k = msg + 1,pver
-      do i = 1,lengath
-         if (k >= maxg(i)) then
-            dsubcld(i) = dsubcld(i) + dp(i,k)
-         end if
+      do k = msg + 1,pver
+         do i = 1,lengath
+            if (k >= maxg(i)) then
+               dsubcld(i) = dsubcld(i) + dp(i,k)
+            end if
+         end do
       end do
-   end do
+   end if
 !
 ! define array of factors (alpha) which defines interfacial
 ! values, as well as interfacial values for (q,s) used in
