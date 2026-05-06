@@ -219,3 +219,25 @@ def radiation_diag_prep_codon(
         # Cloud forcing diagnostics: out = all-sky clear/up flux difference.
         for i in range(1, ncol + 1):
             c[_col_idx(i)] = a[_col_idx(i)] - b[_col_idx(i)]
+    elif stage == 7:
+        # radinp pressure conversion: pmid/pint Pa -> dynes/cm2.
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                c[_field_idx(i, k, pcols)] = a[_field_idx(i, k, pcols)] * cpair
+                d[_field_idx(i, k, pcols)] = b[_field_idx(i, k, pcols)] * cpair
+
+        for i in range(1, ncol + 1):
+            d[_field_idx(i, pver + 1, pcols)] = b[_field_idx(i, pver + 1, pcols)] * cpair
+    elif stage == 8:
+        # calc_col_mean: preserve Fortran k-outer accumulation order.
+        for i in range(1, pcols + 1):
+            c[_col_idx(i)] = 0.0
+            d[_col_idx(i)] = 0.0
+
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                c[_col_idx(i)] += a[_field_idx(i, k, pcols)] * b[_field_idx(i, k, pcols)]
+                d[_col_idx(i)] += b[_field_idx(i, k, pcols)]
+
+        for i in range(1, ncol + 1):
+            c[_col_idx(i)] = c[_col_idx(i)] / d[_col_idx(i)]

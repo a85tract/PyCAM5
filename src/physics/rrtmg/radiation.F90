@@ -641,8 +641,8 @@ end function radiation_nextsw_cday
     radiation_diag_prep_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'radiation_diag_prep entered (qrs-qrl qdp loops direct = codon; history diagnostics/rrtmg core = native)'
-       call radiation_diag_prep_append_proof('radiation_diag_prep entered (qrs-qrl qdp loops direct = codon; history diagnostics/rrtmg core = native)')
+       write(iulog,*) 'radiation_diag_prep entered (pressure/column_mean/qrs-qrl qdp loops direct = codon; history diagnostics/rrtmg core = native)'
+       call radiation_diag_prep_append_proof('radiation_diag_prep entered (pressure/column_mean/qrs-qrl qdp loops direct = codon; history diagnostics/rrtmg core = native)')
        call flush(iulog)
     end if
 
@@ -723,6 +723,36 @@ end function radiation_nextsw_cday
          dummy_p, dummy_p, dummy_p)
 
   end subroutine radiation_diag_prep_qdp
+
+!===============================================================================
+
+  subroutine radiation_diag_prep_pressure(ncol, pmid_p, pint_p, pmidrd_p, pintrd_p, dummy_p)
+
+    use iso_c_binding, only: c_ptr
+
+    integer, intent(in) :: ncol
+    type(c_ptr), intent(in) :: pmid_p, pint_p, pmidrd_p, pintrd_p, dummy_p
+
+    call radiation_diag_prep_codon_call(7, ncol, 0, 10._r8, 0._r8, dummy_p, pmid_p, pint_p, &
+         pmidrd_p, pintrd_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
+         dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p)
+
+  end subroutine radiation_diag_prep_pressure
+
+!===============================================================================
+
+  subroutine radiation_diag_prep_col_mean(ncol, mmr_p, pdeldry_p, mean_p, ptot_p, dummy_p)
+
+    use iso_c_binding, only: c_ptr
+
+    integer, intent(in) :: ncol
+    type(c_ptr), intent(in) :: mmr_p, pdeldry_p, mean_p, ptot_p, dummy_p
+
+    call radiation_diag_prep_codon_call(8, ncol, 0, cpair, 0._r8, dummy_p, mmr_p, pdeldry_p, &
+         mean_p, ptot_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
+         dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p)
+
+  end subroutine radiation_diag_prep_col_mean
 
 !===============================================================================
   
@@ -1500,6 +1530,7 @@ subroutine radinp(ncol, pmid, pint, pmidrd, pintrd, eccf)
 ! Author: CCM1, CMS Contact J. Kiehl
 !-----------------------------------------------------------------------
    use shr_orb_mod
+   use iso_c_binding, only: c_loc
    use time_manager, only: get_curr_calday
 
 !------------------------------Arguments--------------------------------
@@ -1508,13 +1539,13 @@ subroutine radinp(ncol, pmid, pint, pmidrd, pintrd, eccf)
 !
    integer, intent(in) :: ncol                 ! number of atmospheric columns
 
-   real(r8), intent(in) :: pmid(pcols,pver)    ! Pressure at model mid-levels (pascals)
-   real(r8), intent(in) :: pint(pcols,pverp)   ! Pressure at model interfaces (pascals)
+   real(r8), target, intent(in) :: pmid(pcols,pver)    ! Pressure at model mid-levels (pascals)
+   real(r8), target, intent(in) :: pint(pcols,pverp)   ! Pressure at model interfaces (pascals)
 !
 ! Output arguments
 !
-   real(r8), intent(out) :: pmidrd(pcols,pver)  ! Pressure at mid-levels (dynes/cm*2)
-   real(r8), intent(out) :: pintrd(pcols,pverp) ! Pressure at interfaces (dynes/cm*2)
+   real(r8), target, intent(out) :: pmidrd(pcols,pver)  ! Pressure at mid-levels (dynes/cm*2)
+   real(r8), target, intent(out) :: pintrd(pcols,pverp) ! Pressure at interfaces (dynes/cm*2)
    real(r8), intent(out) :: eccf                ! Earth-sun distance factor
 
 !
@@ -1531,18 +1562,25 @@ subroutine radinp(ncol, pmid, pint, pmidrd, pintrd, eccf)
    call shr_orb_decl (calday  ,eccen     ,mvelpp  ,lambm0  ,obliqr  , &
                       delta   ,eccf)
 
+   call radiation_diag_prep_select_impl()
+   if (use_native_radiation_diag_prep_impl) then
 !
 ! Convert pressure from pascals to dynes/cm2
 !
-   do k=1,pver
-      do i=1,ncol
-         pmidrd(i,k) = pmid(i,k)*10.0_r8
-         pintrd(i,k) = pint(i,k)*10.0_r8
+      do k=1,pver
+         do i=1,ncol
+            pmidrd(i,k) = pmid(i,k)*10.0_r8
+            pintrd(i,k) = pint(i,k)*10.0_r8
+         end do
       end do
-   end do
-   do i=1,ncol
-      pintrd(i,pverp) = pint(i,pverp)*10.0_r8
-   end do
+      do i=1,ncol
+         pintrd(i,pverp) = pint(i,pverp)*10.0_r8
+      end do
+   else
+      call radiation_diag_prep_log_entered()
+      call radiation_diag_prep_pressure(ncol, c_loc(pmid(1,1)), c_loc(pint(1,1)), &
+           c_loc(pmidrd(1,1)), c_loc(pintrd(1,1)), c_loc(pmidrd(1,1)))
+   end if
 
 end subroutine radinp
 
@@ -1556,28 +1594,37 @@ subroutine calc_col_mean(state, mmr_pointer, mean_value)
 !-----------------------------------------------------------------------
 
    use cam_logfile,  only: iulog
+   use iso_c_binding, only: c_loc
 
-   type(physics_state),        intent(in)  :: state
+   type(physics_state),        target, intent(in)  :: state
    real(r8), dimension(:,:),   pointer     :: mmr_pointer  ! mass mixing ratio (lev)
-   real(r8), dimension(pcols), intent(out) :: mean_value   ! column mean mmr
+   real(r8), dimension(pcols), target, intent(out) :: mean_value   ! column mean mmr
 
    integer  :: i, k, ncol
-   real(r8) :: ptot(pcols)
+   real(r8), target :: ptot(pcols)
    !-----------------------------------------------------------------------
 
-   ncol         = state%ncol
-   mean_value   = 0.0_r8
-   ptot         = 0.0_r8
+   ncol = state%ncol
 
-   do k=1,pver
-      do i=1,ncol
-         mean_value(i) = mean_value(i) + mmr_pointer(i,k)*state%pdeldry(i,k)
-         ptot(i)         = ptot(i) + state%pdeldry(i,k)
+   call radiation_diag_prep_select_impl()
+   if (use_native_radiation_diag_prep_impl) then
+      mean_value   = 0.0_r8
+      ptot         = 0.0_r8
+
+      do k=1,pver
+         do i=1,ncol
+            mean_value(i) = mean_value(i) + mmr_pointer(i,k)*state%pdeldry(i,k)
+            ptot(i)         = ptot(i) + state%pdeldry(i,k)
+         end do
       end do
-   end do
-   do i=1,ncol
-      mean_value(i) = mean_value(i) / ptot(i)
-   end do
+      do i=1,ncol
+         mean_value(i) = mean_value(i) / ptot(i)
+      end do
+   else
+      call radiation_diag_prep_log_entered()
+      call radiation_diag_prep_col_mean(ncol, c_loc(mmr_pointer(1,1)), c_loc(state%pdeldry(1,1)), &
+           c_loc(mean_value(1)), c_loc(ptot(1)), c_loc(ptot(1)))
+   end if
 
 end subroutine calc_col_mean
 
