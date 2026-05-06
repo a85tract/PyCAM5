@@ -99,6 +99,7 @@ def radheat_batch_tend_codon(
 @export
 def radiation_diag_prep_codon(
     stage: int,
+    mode: int,
     ncol: int,
     pcols: int,
     pver: int,
@@ -333,3 +334,34 @@ def radiation_diag_prep_codon(
                     snowfrac = a[idx2]
                     if snowfrac > 0.0:
                         c[idx2] = b[_band3_idx(selected_band, i, kk, nbnd, pcols)] * snowfrac
+    elif stage == 12:
+        # Visible optical-depth diagnostics. a=c_cld_tau, b=liq_tau, c=ice_tau,
+        # d=snow_tau, e=cldfprime, f=tot_cld, g=tot_icld, h=liq_icld,
+        # i=ice_icld, j=snow_icld. abs(nday)=nbndsw, nday>0 when snow is active,
+        # nnite=selected band, mode=Nnite, idxnite is an int64 copy of IdxNite.
+        nbnd = nday
+        if nbnd < 0:
+            nbnd = -nbnd
+        selected_band = nnite
+        has_snow = nday > 0
+        for kk in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx2 = _field_idx(i, kk, pcols)
+                band_idx = _band3_idx(selected_band, i, kk, nbnd, pcols)
+                g[idx2] = a[band_idx]
+                h[idx2] = b[band_idx]
+                iarr[idx2] = c[band_idx]
+                if has_snow:
+                    jarr[idx2] = d[band_idx]
+                f[idx2] = a[band_idx] * e[idx2]
+
+        for ii in range(1, mode + 1):
+            col = idxnite[_col_idx(ii)]
+            for kk in range(1, pver + 1):
+                idx2 = _field_idx(col, kk, pcols)
+                f[idx2] = fillvalue
+                g[idx2] = fillvalue
+                h[idx2] = fillvalue
+                iarr[idx2] = fillvalue
+                if has_snow:
+                    jarr[idx2] = fillvalue

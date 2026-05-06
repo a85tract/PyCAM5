@@ -641,8 +641,8 @@ end function radiation_nextsw_cday
     radiation_diag_prep_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'radiation_diag_prep entered (diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)'
-       call radiation_diag_prep_append_proof('radiation_diag_prep entered (diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)')
+       write(iulog,*) 'radiation_diag_prep entered (visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)'
+       call radiation_diag_prep_append_proof('radiation_diag_prep entered (visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)')
        call flush(iulog)
     end if
 
@@ -652,7 +652,7 @@ end function radiation_nextsw_cday
 
   subroutine radiation_diag_prep_codon_call(stage, ncol, mode, cpair_local, fillvalue_local, &
        scalar_p, a_p, b_p, c_p, d_p, e_p, f_p, g_p, h_p, i_p, j_p, k_p, l_p, m_p, n_p, o_p, p_p, q_p, r_p, &
-       nday_override, nnite_override)
+       nday_override, nnite_override, idxday_override_p, idxnite_override_p)
 
     use iso_c_binding, only: c_double, c_int64_t, c_ptr
 
@@ -661,14 +661,16 @@ end function radiation_nextsw_cday
     real(r8), intent(in) :: cpair_local, fillvalue_local
     type(c_ptr), intent(in) :: scalar_p, a_p, b_p, c_p, d_p, e_p, f_p, g_p, h_p, i_p, j_p, k_p, l_p, m_p
     type(c_ptr), intent(in) :: n_p, o_p, p_p, q_p, r_p
+    type(c_ptr), intent(in), optional :: idxday_override_p, idxnite_override_p
+    type(c_ptr) :: idxday_arg_p, idxnite_arg_p
     integer :: nday_arg, nnite_arg
 
     interface
-       subroutine radiation_diag_prep_codon(stage_c, ncol_c, pcols_c, pver_c, nday_c, nnite_c, cpair_c, cgs2mks_c, &
-            fillvalue_c, scalar_p, a_p, b_p, c_p, d_p, e_p, f_p, g_p, h_p, i_p, j_p, k_p, l_p, m_p, n_p, o_p, p_p, &
-            q_p, r_p, idxday_p, idxnite_p) bind(c, name="radiation_diag_prep_codon")
+       subroutine radiation_diag_prep_codon(stage_c, mode_c, ncol_c, pcols_c, pver_c, nday_c, nnite_c, cpair_c, &
+            cgs2mks_c, fillvalue_c, scalar_p, a_p, b_p, c_p, d_p, e_p, f_p, g_p, h_p, i_p, j_p, k_p, l_p, m_p, &
+            n_p, o_p, p_p, q_p, r_p, idxday_p, idxnite_p) bind(c, name="radiation_diag_prep_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, nday_c, nnite_c
+         integer(c_int64_t), value :: stage_c, mode_c, ncol_c, pcols_c, pver_c, nday_c, nnite_c
          real(c_double), value :: cpair_c, cgs2mks_c, fillvalue_c
          type(c_ptr), value :: scalar_p, a_p, b_p, c_p, d_p, e_p, f_p, g_p, h_p, i_p, j_p, k_p, l_p, m_p
          type(c_ptr), value :: n_p, o_p, p_p, q_p, r_p, idxday_p, idxnite_p
@@ -677,13 +679,18 @@ end function radiation_nextsw_cday
 
     nday_arg = mode
     nnite_arg = 0
+    idxday_arg_p = scalar_p
+    idxnite_arg_p = scalar_p
     if (present(nday_override)) nday_arg = nday_override
     if (present(nnite_override)) nnite_arg = nnite_override
+    if (present(idxday_override_p)) idxday_arg_p = idxday_override_p
+    if (present(idxnite_override_p)) idxnite_arg_p = idxnite_override_p
 
-    call radiation_diag_prep_codon(int(stage, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), &
-         int(pver, c_int64_t), int(nday_arg, c_int64_t), int(nnite_arg, c_int64_t), real(cpair_local, c_double), &
-         real(1._r8, c_double), real(fillvalue_local, c_double), scalar_p, a_p, b_p, c_p, d_p, e_p, &
-         f_p, g_p, h_p, i_p, j_p, k_p, l_p, m_p, n_p, o_p, p_p, q_p, r_p, scalar_p, scalar_p)
+    call radiation_diag_prep_codon(int(stage, c_int64_t), int(mode, c_int64_t), int(ncol, c_int64_t), &
+         int(pcols, c_int64_t), int(pver, c_int64_t), int(nday_arg, c_int64_t), int(nnite_arg, c_int64_t), &
+         real(cpair_local, c_double), real(1._r8, c_double), real(fillvalue_local, c_double), &
+         scalar_p, a_p, b_p, c_p, d_p, e_p, f_p, g_p, h_p, i_p, j_p, k_p, l_p, m_p, &
+         n_p, o_p, p_p, q_p, r_p, idxday_arg_p, idxnite_arg_p)
 
   end subroutine radiation_diag_prep_codon_call
 
@@ -818,6 +825,29 @@ end function radiation_nextsw_cday
   end subroutine radiation_diag_prep_snow_diag_field
 
 !===============================================================================
+
+  subroutine radiation_diag_prep_visible_tau(ncol, nbnd, band, has_snow, nnite, c_cld_tau_p, liq_tau_p, &
+       ice_tau_p, snow_tau_p, cldfprime_p, tot_cld_p, tot_icld_p, liq_icld_p, ice_icld_p, snow_icld_p, &
+       idxnite_p, dummy_p)
+
+    use iso_c_binding, only: c_ptr
+    use cam_history_support, only: fillvalue
+
+    integer, intent(in) :: ncol, nbnd, band, nnite
+    logical, intent(in) :: has_snow
+    type(c_ptr), intent(in) :: c_cld_tau_p, liq_tau_p, ice_tau_p, snow_tau_p, cldfprime_p
+    type(c_ptr), intent(in) :: tot_cld_p, tot_icld_p, liq_icld_p, ice_icld_p, snow_icld_p
+    type(c_ptr), intent(in) :: idxnite_p, dummy_p
+
+    call radiation_diag_prep_codon_call(12, ncol, nnite, cpair, fillvalue, dummy_p, c_cld_tau_p, &
+         liq_tau_p, ice_tau_p, snow_tau_p, cldfprime_p, tot_cld_p, tot_icld_p, liq_icld_p, &
+         ice_icld_p, snow_icld_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
+         dummy_p, dummy_p, nday_override=merge(nbnd, -nbnd, has_snow), nnite_override=band, &
+         idxnite_override_p=idxnite_p)
+
+  end subroutine radiation_diag_prep_visible_tau
+
+!===============================================================================
   
   subroutine radiation_tend(state,ptend, pbuf, &
        cam_out, cam_in, &
@@ -844,7 +874,7 @@ end function radiation_nextsw_cday
     !-----------------------------------------------------------------------
 
 
-    use iso_c_binding,  only: c_loc
+    use iso_c_binding,  only: c_int64_t, c_loc
     use physics_buffer, only : physics_buffer_desc, pbuf_get_field, pbuf_old_tim_idx
     
     use phys_grid,       only: get_rlat_all_p, get_rlon_all_p
@@ -937,7 +967,7 @@ end function radiation_nextsw_cday
     real(r8), target :: cld_lw_abs (nbndlw,pcols,pver) ! cloud absorption optics depth (LW)
 
     ! cloud radiative parameters are "in cloud" not "in cell"
-    real(r8) :: ice_tau    (nbndsw,pcols,pver) ! ice extinction optical depth
+    real(r8), target :: ice_tau    (nbndsw,pcols,pver) ! ice extinction optical depth
     real(r8) :: ice_tau_w  (nbndsw,pcols,pver) ! ice single scattering albedo * tau
     real(r8) :: ice_tau_w_g(nbndsw,pcols,pver) ! ice assymetry parameter * tau * w
     real(r8) :: ice_tau_w_f(nbndsw,pcols,pver) ! ice forward scattered fraction * tau * w
@@ -953,17 +983,17 @@ end function radiation_nextsw_cday
     real(r8), target :: gb_snow_lw         (pcols,pver) ! grid-box mean LW snow optical depth for COSP only
 
     ! cloud radiative parameters are "in cloud" not "in cell"
-    real(r8) :: liq_tau    (nbndsw,pcols,pver) ! liquid extinction optical depth
+    real(r8), target :: liq_tau    (nbndsw,pcols,pver) ! liquid extinction optical depth
     real(r8) :: liq_tau_w  (nbndsw,pcols,pver) ! liquid single scattering albedo * tau
     real(r8) :: liq_tau_w_g(nbndsw,pcols,pver) ! liquid assymetry parameter * tau * w
     real(r8) :: liq_tau_w_f(nbndsw,pcols,pver) ! liquid forward scattered fraction * tau * w
     real(r8) :: liq_lw_abs (nbndlw,pcols,pver) ! liquid absorption optics depth (LW)
 
-    real(r8) :: tot_cld_vistau(pcols,pver)  ! tot gbx cloud visible sw optical depth for output on history files
-    real(r8) :: tot_icld_vistau(pcols,pver) ! tot in-cloud visible sw optical depth for output on history files
-    real(r8) :: liq_icld_vistau(pcols,pver) ! liq in-cloud visible sw optical depth for output on history files
-    real(r8) :: ice_icld_vistau(pcols,pver) ! ice in-cloud visible sw optical depth for output on history files
-    real(r8) :: snow_icld_vistau(pcols,pver) ! snow in-cloud visible sw optical depth for output on history files
+    real(r8), target :: tot_cld_vistau(pcols,pver)  ! tot gbx cloud visible sw optical depth for output on history files
+    real(r8), target :: tot_icld_vistau(pcols,pver) ! tot in-cloud visible sw optical depth for output on history files
+    real(r8), target :: liq_icld_vistau(pcols,pver) ! liq in-cloud visible sw optical depth for output on history files
+    real(r8), target :: ice_icld_vistau(pcols,pver) ! ice in-cloud visible sw optical depth for output on history files
+    real(r8), target :: snow_icld_vistau(pcols,pver) ! snow in-cloud visible sw optical depth for output on history files
 
     integer itim_old, ifld
     real(r8), pointer, dimension(:,:) :: cld      ! cloud fraction
@@ -1043,6 +1073,7 @@ end function radiation_nextsw_cday
     integer :: Nnite                     ! Number of night columns
     integer, dimension(pcols) :: IdxDay  ! Indicies of daylight coumns
     integer, dimension(pcols) :: IdxNite ! Indicies of night coumns
+    integer(c_int64_t), target :: IdxNite64(pcols)
 
     integer :: icall                     ! index through climate/diagnostic radiation calls
     logical :: active_calls(0:N_DIAG)
@@ -1111,6 +1142,7 @@ end function radiation_nextsw_cday
        else
           Nnite = Nnite + 1
           IdxNite(Nnite) = i
+          IdxNite64(Nnite) = int(i, c_int64_t)
        end if
     end do
 
@@ -1285,9 +1317,8 @@ end function radiation_nextsw_cday
                         call vertinterp(1, 1, pverp, state%pint(i,:), p_trop(i), fns(i,:), fsnr(i))
                      enddo
                   endif
-                  do i=1,ncol
-                     swcf(i)=fsntoa(i) - fsntoac(i)
-                  end do
+                  call radiation_diag_prep_diff_field(ncol, c_loc(fsntoa(1)), c_loc(fsntoac(1)), &
+                       c_loc(swcf(1)), c_loc(radiation_diag_dummy(1)))
                   ! Dump shortwave radiation information to history tape buffer (diagnostics)
                   call radiation_diag_prep_div_field(ncol, c_loc(qrs(1,1)), c_loc(ftem(1,1)), &
                        c_loc(radiation_diag_dummy(1)))
@@ -1322,25 +1353,11 @@ end function radiation_nextsw_cday
 
 
           ! Output cloud optical depth fields for the visible band
-          tot_icld_vistau(:ncol,:)  = c_cld_tau(idx_sw_diag,:ncol,:)
-          liq_icld_vistau(:ncol,:)  = liq_tau(idx_sw_diag,:ncol,:)
-          ice_icld_vistau(:ncol,:)  = ice_tau(idx_sw_diag,:ncol,:)
-          if (cldfsnow_idx > 0) then
-             snow_icld_vistau(:ncol,:) = snow_tau(idx_sw_diag,:ncol,:)
-          endif
-	  ! multiply by total cloud fraction to get gridbox value
-	  tot_cld_vistau(:ncol,:) = c_cld_tau(idx_sw_diag,:ncol,:)*cldfprime(:ncol,:)
-
-	  ! add fillvalue for night columns
-          do i = 1, Nnite
-              tot_cld_vistau(IdxNite(i),:)   = fillvalue
-              tot_icld_vistau(IdxNite(i),:)  = fillvalue
-              liq_icld_vistau(IdxNite(i),:)  = fillvalue
-              ice_icld_vistau(IdxNite(i),:)  = fillvalue
-              if (cldfsnow_idx > 0) then
-                 snow_icld_vistau(IdxNite(i),:) = fillvalue
-              endif
-          end do
+          call radiation_diag_prep_visible_tau(ncol, nbndsw, idx_sw_diag, cldfsnow_idx > 0, Nnite, &
+               c_loc(c_cld_tau(1,1,1)), c_loc(liq_tau(1,1,1)), c_loc(ice_tau(1,1,1)), &
+               c_loc(snow_tau(1,1,1)), c_loc(cldfprime(1,1)), c_loc(tot_cld_vistau(1,1)), &
+               c_loc(tot_icld_vistau(1,1)), c_loc(liq_icld_vistau(1,1)), c_loc(ice_icld_vistau(1,1)), &
+               c_loc(snow_icld_vistau(1,1)), c_loc(IdxNite64(1)), c_loc(radiation_diag_dummy(1)))
 
           call outfld('TOT_CLD_VISTAU', tot_cld_vistau, pcols, lchnk)       
           call outfld('TOT_ICLD_VISTAU', tot_icld_vistau, pcols, lchnk)
