@@ -2828,6 +2828,8 @@ def aero_model_emissions_shell_codon(
     seasalt_sz_range_hi_p: cobj,
     dg_p: cobj,
     rdry_p: cobj,
+    soil_erodibility_p: cobj,
+    soil_erod_threshold: float,
 ):
     return _emissions.aero_model_emissions_shell_codon(
         stage,
@@ -2856,6 +2858,8 @@ def aero_model_emissions_shell_codon(
         seasalt_sz_range_hi_p,
         dg_p,
         rdry_p,
+        soil_erodibility_p,
+        soil_erod_threshold,
     )
 
 @export

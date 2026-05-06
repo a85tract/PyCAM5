@@ -247,8 +247,10 @@ def _aero_model_emissions_dust_shell(
     dust_nbin: int,
     ndstflx: int,
     soil_erod_fact: float,
+    soil_erod_threshold: float,
     dstflx_p: cobj,
     soil_erod_p: cobj,
+    soil_erodibility_p: cobj,
     dust_flux_sum_p: cobj,
     cflx_p: cobj,
     sflx_p: cobj,
@@ -258,6 +260,7 @@ def _aero_model_emissions_dust_shell(
 ):
     dstflx = Ptr[float](dstflx_p)
     soil_erod = Ptr[float](soil_erod_p)
+    soil_erodibility = Ptr[float](soil_erodibility_p)
     dust_flux_sum = Ptr[float](dust_flux_sum_p)
     cflx = Ptr[float](cflx_p)
     sflx = Ptr[float](sflx_p)
@@ -266,6 +269,11 @@ def _aero_model_emissions_dust_shell(
     dust_x_mton = Ptr[float](dust_x_mton_p)
 
     for i in range(1, ncol + 1):
+        soil_erod_value = soil_erodibility[i - 1]
+        if soil_erod_value < soil_erod_threshold:
+            soil_erod_value = 0.0
+        soil_erod[i - 1] = soil_erod_value
+
         dust_flux = 0.0
         for m in range(1, ndstflx + 1):
             dust_flux = dust_flux + (-dstflx[_idx2(i, m, pcols)])
@@ -383,6 +391,8 @@ def aero_model_emissions_shell_codon(
     seasalt_sz_range_hi_p: cobj,
     dg_p: cobj,
     rdry_p: cobj,
+    soil_erodibility_p: cobj,
+    soil_erod_threshold: float,
 ):
     if stage == 1:
         _aero_model_emissions_dust_shell(
@@ -391,8 +401,10 @@ def aero_model_emissions_shell_codon(
             dust_nbin,
             ndstflx,
             soil_erod_fact,
+            soil_erod_threshold,
             dstflx_p,
             soil_erod_p,
+            soil_erodibility_p,
             dust_flux_sum_p,
             cflx_p,
             sflx_p,

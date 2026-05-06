@@ -13,7 +13,7 @@ module soil_erod_mod
   public :: soil_erodibility
   public :: soil_erod_fact
 
-  real(r8), allocatable ::  soil_erodibility(:,:)  ! soil erodibility factor
+  real(r8), allocatable, target ::  soil_erodibility(:,:)  ! soil erodibility factor
   real(r8) :: soil_erod_fact                       ! tuning parameter for dust emissions
 
 contains
