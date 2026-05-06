@@ -1817,6 +1817,15 @@ def zm_convtran_main_codon(
     eutmp_p: cobj,
     edtmp_p: cobj,
     dptmp_p: cobj,
+    trace_water: int,
+    nwt_liq: int,
+    nwt_ice: int,
+    wtrc_qmin: float,
+    wtrc_liq_iatype_p: cobj,
+    wtrc_ice_iatype_p: cobj,
+    iwspec_p: cobj,
+    rstd_p: cobj,
+    Rwt_p: cobj,
 ):
     doconvtran = Ptr[int](doconvtran_p)
     is_dry = Ptr[int](is_dry_p)
@@ -1843,6 +1852,11 @@ def zm_convtran_main_codon(
     eutmp = Ptr[float](eutmp_p)
     edtmp = Ptr[float](edtmp_p)
     dptmp = Ptr[float](dptmp_p)
+    wtrc_liq_iatype = Ptr[int](wtrc_liq_iatype_p)
+    wtrc_ice_iatype = Ptr[int](wtrc_ice_iatype_p)
+    iwspec = Ptr[int](iwspec_p)
+    rstd = Ptr[float](rstd_p)
+    Rwt = Ptr[float](Rwt_p)
     plane = pcols * pver
     ilo = il1g - 1
     ihi = il2g - 1
@@ -2035,6 +2049,43 @@ def zm_convtran_main_codon(
                     i += 1
                 k += 1
         m += 1
+
+    if trace_water != 0:
+        n = 0
+        while n < plane * nwt_ice * 2:
+            Rwt[n] = 1.0
+            n += 1
+
+        base_liq = wtrc_liq_iatype[0] - 1
+        if doconvtran[base_liq] != 0:
+            base_ice = wtrc_ice_iatype[0] - 1
+            m = 1
+            while m < nwt_liq:
+                liq_trc = wtrc_liq_iatype[m] - 1
+                ice_trc = wtrc_ice_iatype[m] - 1
+                liq_ispec = iwspec[liq_trc]
+                ice_ispec = iwspec[ice_trc]
+                k = 0
+                while k < pver:
+                    i = ilo
+                    while i <= ihi:
+                        ii = ideep[i] - 1
+                        idx = ii + k * pcols
+                        liq_base_val = dqdt[idx + base_liq * plane]
+                        ice_base_val = dqdt[idx + base_ice * plane]
+                        liq_ratio_idx = idx + m * plane
+                        ice_ratio_idx = idx + m * plane + nwt_ice * plane
+                        if abs(liq_base_val) < wtrc_qmin:
+                            Rwt[liq_ratio_idx] = rstd[liq_ispec - 1]
+                        else:
+                            Rwt[liq_ratio_idx] = dqdt[idx + liq_trc * plane] / liq_base_val
+                        if abs(ice_base_val) < wtrc_qmin:
+                            Rwt[ice_ratio_idx] = rstd[ice_ispec - 1]
+                        else:
+                            Rwt[ice_ratio_idx] = dqdt[idx + ice_trc * plane] / ice_base_val
+                        i += 1
+                    k += 1
+                m += 1
 
 
 @export

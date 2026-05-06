@@ -1566,13 +1566,14 @@ subroutine convtran(lchnk   , &
 !-----------------------------------------------------------------------
    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
    use shr_kind_mod,    only: r8 => shr_kind_r8
-   use constituents,    only: cnst_get_type_byind
+   use constituents,    only: cnst_get_type_byind, pcnst
    use ppgrid
 
    !Needed for water tracers?
-   use water_tracer_vars, only: wtrc_iatype, wtrc_ntype, iwspec
+   use water_tracer_vars, only: WTRC_MAX_CNST, wtrc_iatype, wtrc_ntype, iwspec, wtrc_qmin
    use water_tracer_vars, only: trace_water
-   use water_tracers, only: wtrc_ratio
+   use water_tracers, only: wtrc_ratio, wtrc_get_rstd
+   use water_isotopes, only: pwtspec
    use water_types,   only: iwtliq, iwtice
 
    implicit none
@@ -1609,7 +1610,7 @@ subroutine convtran(lchnk   , &
 
 !water tracers:
    !NOTE:  the 2 at the end is for liquid and ice - JN
-   real(r8), intent(out) :: Rwt(pcols,pver,wtrc_ntype(iwtice),2) !water tracer ratio
+   real(r8), target, intent(out) :: Rwt(pcols,pver,wtrc_ntype(iwtice),2) !water tracer ratio
 
 !--------------------------Local Variables------------------------------
 
@@ -1649,17 +1650,26 @@ subroutine convtran(lchnk   , &
    !Water tracers?
    real(r8) chtmp(pcols,pver)       !Use for debugging...
    integer(c_int64_t), target :: doconvtran64(ncnst), is_dry64(ncnst), jt64(pcols), mx64(pcols), ideep64(pcols)
+   integer(c_int64_t), target :: wtrc_liq_iatype64(WTRC_MAX_CNST), wtrc_ice_iatype64(WTRC_MAX_CNST)
+   integer(c_int64_t), target :: iwspec64(pcnst)
+   integer(c_int64_t) :: trace_water64
+   real(c_double), target :: rstd(pwtspec)
+   integer ispec
 
    interface
       subroutine zm_convtran_main_codon(pcols_c, pver_c, ncnst_c, il1g_c, il2g_c, &
            doconvtran_p, is_dry_p, q_p, mu_p, md_p, du_p, eu_p, ed_p, dp_p, fracis_p, dpdry_p, &
            jt_p, mx_p, ideep_p, dqdt_p, chat_p, cond_p, const_p, fisg_p, conu_p, dcondt_p, &
-           dutmp_p, eutmp_p, edtmp_p, dptmp_p) bind(c, name="zm_convtran_main_codon")
-         use iso_c_binding, only: c_int64_t, c_ptr
+           dutmp_p, eutmp_p, edtmp_p, dptmp_p, trace_water_c, nwt_liq_c, nwt_ice_c, wtrc_qmin_c, &
+           wtrc_liq_iatype_p, wtrc_ice_iatype_p, iwspec_p, rstd_p, Rwt_p) bind(c, name="zm_convtran_main_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: pcols_c, pver_c, ncnst_c, il1g_c, il2g_c
+         integer(c_int64_t), value :: trace_water_c, nwt_liq_c, nwt_ice_c
+         real(c_double), value :: wtrc_qmin_c
          type(c_ptr), value :: doconvtran_p, is_dry_p, q_p, mu_p, md_p, du_p, eu_p, ed_p, dp_p
          type(c_ptr), value :: fracis_p, dpdry_p, jt_p, mx_p, ideep_p, dqdt_p, chat_p, cond_p, const_p
          type(c_ptr), value :: fisg_p, conu_p, dcondt_p, dutmp_p, eutmp_p, edtmp_p, dptmp_p
+         type(c_ptr), value :: wtrc_liq_iatype_p, wtrc_ice_iatype_p, iwspec_p, rstd_p, Rwt_p
       end subroutine zm_convtran_main_codon
    end interface
 
@@ -1687,12 +1697,30 @@ subroutine convtran(lchnk   , &
       ideep64(i) = int(ideep(i), c_int64_t)
    end do
 
+   if (trace_water) then
+      trace_water64 = 1_c_int64_t
+      do m = 1, wtrc_ntype(iwtliq)
+         wtrc_liq_iatype64(m) = int(wtrc_iatype(m,iwtliq), c_int64_t)
+      end do
+      do m = 1, wtrc_ntype(iwtice)
+         wtrc_ice_iatype64(m) = int(wtrc_iatype(m,iwtice), c_int64_t)
+      end do
+      do m = 1, pcnst
+         iwspec64(m) = int(iwspec(m), c_int64_t)
+      end do
+      do ispec = 1, pwtspec
+         rstd(ispec) = real(wtrc_get_rstd(ispec), c_double)
+      end do
+   else
+      trace_water64 = 0_c_int64_t
+   end if
+
    call zm_convtran_main_select_impl()
    if (.not. use_native_zm_convtran_main) then
       if (masterproc .and. .not. zm_convtran_main_logged) then
-         write(iulog,*) 'zm_convtran main loop entered (tracer transport direct = codon; Rwt ratio = native)'
+         write(iulog,*) 'zm_convtran main loop entered (tracer transport/Rwt ratio direct = codon)'
          call zm_conv_evap_append_impl_proof( &
-              'zm_convtran main loop entered (tracer transport direct = codon; Rwt ratio = native)')
+              'zm_convtran main loop entered (tracer transport/Rwt ratio direct = codon)')
          call flush(iulog)
          zm_convtran_main_logged = .true.
       end if
@@ -1701,7 +1729,10 @@ subroutine convtran(lchnk   , &
            int(il1g, c_int64_t), int(il2g, c_int64_t), c_loc(doconvtran64), c_loc(is_dry64), c_loc(q), &
            c_loc(mu), c_loc(md), c_loc(du), c_loc(eu), c_loc(ed), c_loc(dp), c_loc(fracis), c_loc(dpdry), &
            c_loc(jt64), c_loc(mx64), c_loc(ideep64), c_loc(dqdt), c_loc(chat), c_loc(cond), c_loc(const), &
-           c_loc(fisg), c_loc(conu), c_loc(dcondt), c_loc(dutmp), c_loc(eutmp), c_loc(edtmp), c_loc(dptmp))
+           c_loc(fisg), c_loc(conu), c_loc(dcondt), c_loc(dutmp), c_loc(eutmp), c_loc(edtmp), c_loc(dptmp), &
+           trace_water64, int(wtrc_ntype(iwtliq), c_int64_t), int(wtrc_ntype(iwtice), c_int64_t), &
+           real(wtrc_qmin, c_double), c_loc(wtrc_liq_iatype64), c_loc(wtrc_ice_iatype64), c_loc(iwspec64), &
+           c_loc(rstd), c_loc(Rwt))
    else
 
    small = 1.e-36_r8
@@ -1915,7 +1946,7 @@ subroutine convtran(lchnk   , &
 
    end if
 
-   if ( trace_water )then
+   if ( use_native_zm_convtran_main .and. trace_water )then
 !Calculate the water tracer ratio:
 Rwt(:,:,:,:) = 1._r8 !initalize ratio
 if(doconvtran(wtrc_iatype(1,iwtliq))) then !are water tracers being transported?
