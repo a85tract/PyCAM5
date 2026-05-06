@@ -3697,6 +3697,85 @@ def uwshcu_thermo_final_shell_codon(
 
 
 @export
+def uwshcu_reserved_condensate_adjust_shell_codon(
+    mkx: int,
+    wtrc_nwset: int,
+    kpen: int,
+    xlv_v: float,
+    xls_v: float,
+    qtten_p: cobj,
+    qlten_p: cobj,
+    qiten_p: cobj,
+    slten_p: cobj,
+    sten_p: cobj,
+    qc_p: cobj,
+    qc_l_p: cobj,
+    qc_i_p: cobj,
+    trten_p: cobj,
+    wtrc_iatype_p: cobj,
+    wtqc_liq_p: cobj,
+    wtqc_ice_p: cobj,
+):
+    qtten = Ptr[float](qtten_p)
+    qlten = Ptr[float](qlten_p)
+    qiten = Ptr[float](qiten_p)
+    slten = Ptr[float](slten_p)
+    sten = Ptr[float](sten_p)
+    qc = Ptr[float](qc_p)
+    qc_l = Ptr[float](qc_l_p)
+    qc_i = Ptr[float](qc_i_p)
+    trten = Ptr[float](trten_p)
+    wtrc_iatype = Ptr[int](wtrc_iatype_p)
+    wtqc_liq = Ptr[float](wtqc_liq_p)
+    wtqc_ice = Ptr[float](wtqc_ice_p)
+
+    k = 0
+    while k < kpen:
+        qtten[k] = qtten[k] - qc[k]
+        qlten[k] = qlten[k] - qc_l[k]
+        qiten[k] = qiten[k] - qc_i[k]
+        slten[k] = slten[k] + (xlv_v * qc_l[k] + xls_v * qc_i[k])
+        sten[k] = sten[k] - (xls_v - xlv_v) * qc_i[k]
+
+        m = 0
+        while m < wtrc_nwset:
+            wt_idx = k + m * mkx
+            liq = wtrc_iatype[m + wtrc_nwset] - 1
+            ice = wtrc_iatype[m + 2 * wtrc_nwset] - 1
+            trten[k + liq * mkx] = trten[k + liq * mkx] - wtqc_liq[wt_idx]
+            trten[k + ice * mkx] = trten[k + ice * mkx] - wtqc_ice[wt_idx]
+            m += 1
+
+        k += 1
+
+
+@export
+def uwshcu_post_positive_thermo_shell_codon(
+    mkx: int,
+    xlv_v: float,
+    xls_v: float,
+    qvten_p: cobj,
+    qlten_p: cobj,
+    qiten_p: cobj,
+    sten_p: cobj,
+    qtten_p: cobj,
+    slten_p: cobj,
+):
+    qvten = Ptr[float](qvten_p)
+    qlten = Ptr[float](qlten_p)
+    qiten = Ptr[float](qiten_p)
+    sten = Ptr[float](sten_p)
+    qtten = Ptr[float](qtten_p)
+    slten = Ptr[float](slten_p)
+
+    k = 0
+    while k < mkx:
+        qtten[k] = qvten[k] + qlten[k] + qiten[k]
+        slten[k] = sten[k] - xlv_v * qlten[k] - xls_v * qiten[k]
+        k += 1
+
+
+@export
 def uwshcu_column_input_load_shell_codon(
     mix: int,
     mkx: int,

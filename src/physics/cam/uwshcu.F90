@@ -62,6 +62,7 @@
   logical :: comp_sub_sink_shell_entered_logged = .false.
   logical :: thermo_prelim_shell_entered_logged = .false.
   logical :: thermo_final_shell_entered_logged = .false.
+  logical :: post_precip_adjust_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -541,6 +542,22 @@ contains
     end if
 
   end subroutine uwshcu_log_thermo_final_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_post_precip_adjust_shell_entered()
+
+    if (post_precip_adjust_shell_entered_logged) return
+    post_precip_adjust_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu post precip adjust shell entered (reserved condensate and post-positive thermo direct = codon; precip evap native)'
+       call uwshcu_append_proof( &
+            'uwshcu post precip adjust shell entered (reserved condensate and post-positive thermo direct = codon; precip evap native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_post_precip_adjust_shell_entered
 
 !===============================================================================
   
@@ -2198,6 +2215,26 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: wtten_sink_liq_p, wtten_sink_ice_p, wtqc_liq_p, wtqc_ice_p
           type(c_ptr), value :: wtqcm_liq_p, wtqcm_ice_p, wtlten_det_p, wtiten_det_p, qc_p, rliq_p
        end subroutine uwshcu_thermo_final_shell_codon
+
+       subroutine uwshcu_reserved_condensate_adjust_shell_codon(mkx_c, wtrc_nwset_c, kpen_c, &
+            xlv_c, xls_c, qtten_p, qlten_p, qiten_p, slten_p, sten_p, qc_p, qc_l_p, qc_i_p, &
+            trten_p, wtrc_iatype_p, wtqc_liq_p, wtqc_ice_p) &
+            bind(c, name="uwshcu_reserved_condensate_adjust_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, kpen_c
+          real(c_double), value :: xlv_c, xls_c
+          type(c_ptr), value :: qtten_p, qlten_p, qiten_p, slten_p, sten_p, qc_p, qc_l_p, qc_i_p
+          type(c_ptr), value :: trten_p, wtrc_iatype_p, wtqc_liq_p, wtqc_ice_p
+       end subroutine uwshcu_reserved_condensate_adjust_shell_codon
+
+       subroutine uwshcu_post_positive_thermo_shell_codon(mkx_c, xlv_c, xls_c, &
+            qvten_p, qlten_p, qiten_p, sten_p, qtten_p, slten_p) &
+            bind(c, name="uwshcu_post_positive_thermo_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c
+          real(c_double), value :: xlv_c, xls_c
+          type(c_ptr), value :: qvten_p, qlten_p, qiten_p, sten_p, qtten_p, slten_p
+       end subroutine uwshcu_post_positive_thermo_shell_codon
 
        subroutine uwshcu_column_env_save_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, &
@@ -6571,6 +6608,7 @@ end subroutine uwshcu_readnl
        ! prec_zmc(i) + prec_cmf(i)' which is also correct.                           !
        ! --------------------------------------------------------------------------- !
 
+       if (use_native_init_shell_impl) then
        do k = 1, kpen       
           qtten(k) = qtten(k) - qc(k)
           qlten(k) = qlten(k) - qc_l(k)
@@ -6599,6 +6637,13 @@ end subroutine uwshcu_readnl
          !***************
 
        end do
+       else
+          call uwshcu_log_post_precip_adjust_shell_entered()
+          call uwshcu_reserved_condensate_adjust_shell_codon(int(mkx, c_int64_t), &
+               wtrc_nwset_post_c, int(kpen, c_int64_t), xlv, xls, c_loc(qtten), c_loc(qlten), &
+               c_loc(qiten), c_loc(slten), c_loc(sten), c_loc(qc), c_loc(qc_l), c_loc(qc_i), &
+               c_loc(trten), c_loc(wtrc_iatype_post), c_loc(wtqc_liq), c_loc(wtqc_ice))
+       endif
 
        ! --------------------------------------------------------------- !
        ! Prevent the onset-of negative condensate at the next time step  !
@@ -6634,8 +6679,14 @@ end subroutine uwshcu_readnl
                dp0, qv0_star, ql0_star, qi0_star, s0_star, qvten, qlten, qiten, sten, ncnst )
         end if !water tracers
         !************
+        if (use_native_init_shell_impl) then
         qtten(:mkx)    = qvten(:mkx) + qlten(:mkx) + qiten(:mkx)
         slten(:mkx)    = sten(:mkx)  - xlv * qlten(:mkx) - xls * qiten(:mkx)
+        else
+          call uwshcu_log_post_precip_adjust_shell_entered()
+          call uwshcu_post_positive_thermo_shell_codon(int(mkx, c_int64_t), xlv, xls, &
+               c_loc(qvten), c_loc(qlten), c_loc(qiten), c_loc(sten), c_loc(qtten), c_loc(slten))
+        endif
 
        ! --------------------- !
        ! Tendencies of tracers !
