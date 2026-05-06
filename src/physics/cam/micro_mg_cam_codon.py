@@ -50,6 +50,52 @@ def _add_process_rate(
 
 
 @export
+def micro_mg_cam_premg_diag_codon(
+    ncol: int,
+    psetcols: int,
+    pver: int,
+    top_lev: int,
+    ixcldliq: int,
+    ixcldice: int,
+    mincld: float,
+    gravit: float,
+    state_q_p: cobj,
+    state_pdel_p: cobj,
+    ast_p: cobj,
+    cldo_p: cobj,
+    iclwpi_p: cobj,
+    iciwpi_p: cobj,
+):
+    state_q = Ptr[float](state_q_p)
+    state_pdel = Ptr[float](state_pdel_p)
+    ast = Ptr[float](ast_p)
+    cldo = Ptr[float](cldo_p)
+    iclwpi = Ptr[float](iclwpi_p)
+    iciwpi = Ptr[float](iciwpi_p)
+
+    for i in range(1, psetcols + 1):
+        iclwpi[i - 1] = 0.0
+        iciwpi[i - 1] = 0.0
+
+    for i in range(1, ncol + 1):
+        for k in range(top_lev, pver + 1):
+            idx2 = _idx2(i, k, psetcols)
+            idx_q_liq = _idx3(i, k, ixcldliq, psetcols, pver)
+            idx_q_ice = _idx3(i, k, ixcldice, psetcols, pver)
+            iclwpi[i - 1] = iclwpi[i - 1] + min(
+                state_q[idx_q_liq] / max(mincld, ast[idx2]), 0.005
+            ) * state_pdel[idx2] / gravit
+            iciwpi[i - 1] = iciwpi[i - 1] + min(
+                state_q[idx_q_ice] / max(mincld, ast[idx2]), 0.005
+            ) * state_pdel[idx2] / gravit
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _idx2(i, k, psetcols)
+            cldo[idx2] = ast[idx2]
+
+
+@export
 def micro_mg_cam_wtrc_shell_codon(
     ncol: int,
     pcols: int,

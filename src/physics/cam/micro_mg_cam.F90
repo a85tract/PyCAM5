@@ -123,6 +123,9 @@ real(r8)          :: micro_mg_berg_eff_factor    = 1.0_r8        ! berg efficien
 logical, public :: do_cldliq ! Prognose cldliq flag
 logical, public :: do_cldice ! Prognose cldice flag
 
+logical :: use_native_premg_diag_impl = .false.
+logical :: premg_diag_impl_selected = .false.
+logical :: premg_diag_entered_logged = .false.
 logical :: use_native_postmg_diag_impl = .false.
 logical :: postmg_diag_impl_selected = .false.
 logical :: postmg_diag_entered_logged = .false.
@@ -1373,8 +1376,8 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    real(r8) :: icinc(state%psetcols,pver)   ! In cloud ice number conc
    real(r8) :: icwnc(state%psetcols,pver)   ! In cloud water number conc
 
-   real(r8) :: iclwpi(state%psetcols)       ! Vertically-integrated in-cloud Liquid WP before microphysics
-   real(r8) :: iciwpi(state%psetcols)       ! Vertically-integrated in-cloud Ice WP before microphysics
+   real(r8), target :: iclwpi(state%psetcols)       ! Vertically-integrated in-cloud Liquid WP before microphysics
+   real(r8), target :: iciwpi(state%psetcols)       ! Vertically-integrated in-cloud Ice WP before microphysics
 
    ! Averaging arrays for effective radius and number....
    real(r8) :: efiout_grid(pcols,pver)
@@ -1753,21 +1756,8 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
 
    ! Output initial in-cloud LWP (before microphysics)
 
-   iclwpi = 0._r8
-   iciwpi = 0._r8
-
-   do i = 1, ncol
-      do k = top_lev, pver
-         iclwpi(i) = iclwpi(i) + &
-              min(state%q(i,k,ixcldliq) / max(mincld,ast(i,k)),0.005_r8) &
-              * state%pdel(i,k) / gravit
-         iciwpi(i) = iciwpi(i) + &
-              min(state%q(i,k,ixcldice) / max(mincld,ast(i,k)),0.005_r8) &
-              * state%pdel(i,k) / gravit
-      end do
-   end do
-
-   cldo(:ncol,top_lev:pver)=ast(:ncol,top_lev:pver)
+   call micro_mg_cam_premg_diag(ncol, state%psetcols, ixcldliq, ixcldice, state%q, state%pdel, ast, cldo, &
+        iclwpi, iciwpi)
 
    ! Initialize local state from input.
    call physics_state_copy(state, state_loc)
@@ -3662,6 +3652,116 @@ subroutine micro_mg_cam_log_entered_once(entered_logged, env_name, proof_line)
   end if
 
 end subroutine micro_mg_cam_log_entered_once
+
+subroutine micro_mg_cam_select_premg_diag_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (premg_diag_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MICRO_MG_CAM_PREMG_DIAG_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_premg_diag_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_premg_diag_impl = .false.
+  end if
+
+  premg_diag_impl_selected = .true.
+
+  if (use_native_premg_diag_impl) then
+     write(iulog,*) 'micro_mg_cam_premg_diag implementation = native'
+     call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_PREMG_DIAG_PROOF_FILE', &
+          'micro_mg_cam_premg_diag implementation = native')
+  else
+     write(iulog,*) 'micro_mg_cam_premg_diag implementation = codon'
+     call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_PREMG_DIAG_PROOF_FILE', &
+          'micro_mg_cam_premg_diag implementation = codon')
+  end if
+  call flush(iulog)
+
+end subroutine micro_mg_cam_select_premg_diag_impl
+
+subroutine micro_mg_cam_premg_diag(ncol_local, psetcols_local, ixcldliq_local, ixcldice_local, state_q_local, &
+     state_pdel_local, ast_local, cldo_local, iclwpi_local, iciwpi_local)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  use micro_mg_utils, only: mincld
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local, psetcols_local, ixcldliq_local, ixcldice_local
+  real(r8), target, intent(in) :: state_q_local(psetcols_local,pver,pcnst)
+  real(r8), target, intent(in) :: state_pdel_local(psetcols_local,pver), ast_local(psetcols_local,pver)
+  real(r8), target, intent(inout) :: cldo_local(psetcols_local,pver)
+  real(r8), target, intent(inout) :: iclwpi_local(psetcols_local), iciwpi_local(psetcols_local)
+
+  interface
+     subroutine micro_mg_cam_premg_diag_codon(ncol_c, psetcols_c, pver_c, top_lev_c, ixcldliq_c, ixcldice_c, &
+          mincld_c, gravit_c, state_q_p, state_pdel_p, ast_p, cldo_p, iclwpi_p, iciwpi_p) &
+          bind(c, name="micro_mg_cam_premg_diag_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, psetcols_c, pver_c, top_lev_c, ixcldliq_c, ixcldice_c
+       real(c_double), value :: mincld_c, gravit_c
+       type(c_ptr), value :: state_q_p, state_pdel_p, ast_p, cldo_p, iclwpi_p, iciwpi_p
+     end subroutine micro_mg_cam_premg_diag_codon
+  end interface
+
+  call micro_mg_cam_select_premg_diag_impl()
+
+  if (use_native_premg_diag_impl) then
+     call micro_mg_cam_premg_diag_native(ncol_local, psetcols_local, ixcldliq_local, ixcldice_local, &
+          state_q_local, state_pdel_local, ast_local, cldo_local, iclwpi_local, iciwpi_local)
+     return
+  end if
+
+  call micro_mg_cam_log_entered_once(premg_diag_entered_logged, 'MICRO_MG_CAM_PREMG_DIAG_PROOF_FILE', &
+       'micro_mg_cam_premg_diag entered (iclwpi/iciwpi/cldo pre-MG diagnostics direct = codon)')
+
+  call micro_mg_cam_premg_diag_codon(int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), &
+       int(pver, c_int64_t), int(top_lev, c_int64_t), int(ixcldliq_local, c_int64_t), &
+       int(ixcldice_local, c_int64_t), mincld, gravit, c_loc(state_q_local), c_loc(state_pdel_local), &
+       c_loc(ast_local), c_loc(cldo_local), c_loc(iclwpi_local), c_loc(iciwpi_local))
+
+end subroutine micro_mg_cam_premg_diag
+
+subroutine micro_mg_cam_premg_diag_native(ncol_local, psetcols_local, ixcldliq_local, ixcldice_local, state_q_local, &
+     state_pdel_local, ast_local, cldo_local, iclwpi_local, iciwpi_local)
+
+  use micro_mg_utils, only: mincld
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local, psetcols_local, ixcldliq_local, ixcldice_local
+  real(r8), intent(in) :: state_q_local(psetcols_local,pver,pcnst)
+  real(r8), intent(in) :: state_pdel_local(psetcols_local,pver), ast_local(psetcols_local,pver)
+  real(r8), intent(inout) :: cldo_local(psetcols_local,pver)
+  real(r8), intent(inout) :: iclwpi_local(psetcols_local), iciwpi_local(psetcols_local)
+  integer :: i, k
+
+  iclwpi_local = 0._r8
+  iciwpi_local = 0._r8
+
+  do i = 1, ncol_local
+     do k = top_lev, pver
+        iclwpi_local(i) = iclwpi_local(i) + &
+             min(state_q_local(i,k,ixcldliq_local) / max(mincld,ast_local(i,k)),0.005_r8) &
+             * state_pdel_local(i,k) / gravit
+        iciwpi_local(i) = iciwpi_local(i) + &
+             min(state_q_local(i,k,ixcldice_local) / max(mincld,ast_local(i,k)),0.005_r8) &
+             * state_pdel_local(i,k) / gravit
+     end do
+  end do
+
+  cldo_local(:ncol_local,top_lev:pver)=ast_local(:ncol_local,top_lev:pver)
+
+end subroutine micro_mg_cam_premg_diag_native
 
 subroutine micro_mg_cam_select_reff_calc_impl()
 
