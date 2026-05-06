@@ -877,18 +877,27 @@ def macrop_driver_clr_old_diag_codon(
     concld_p: cobj,
     alst_p: cobj,
     ast_p: cobj,
+    concld_old_p: cobj,
     clrw_old_p: cobj,
     clri_old_p: cobj,
 ):
     concld = Ptr[float](concld_p)
     alst = Ptr[float](alst_p)
     ast = Ptr[float](ast_p)
+    concld_old = Ptr[float](concld_old_p)
     clrw_old = Ptr[float](clrw_old_p)
     clri_old = Ptr[float](clri_old_p)
+
+    for k in range(1, top_lev):
+        for i in range(1, ncol + 1):
+            idx2 = _idx2(i, k, pcols)
+            clrw_old[idx2] = 0.0
+            clri_old[idx2] = 0.0
 
     for k in range(top_lev, pver + 1):
         for i in range(1, ncol + 1):
             idx2 = _idx2(i, k, pcols)
+            concld_old[idx2] = concld[idx2]
             clrw_old[idx2] = max(0.0, min(1.0, 1.0 - concld[idx2] - alst[idx2]))
             clri_old[idx2] = max(0.0, min(1.0, 1.0 - concld[idx2] - ast[idx2]))
 
@@ -1243,6 +1252,10 @@ def macrop_driver_store_state_codon(
     nlwat = Ptr[float](nlwat_p)
     niwat = Ptr[float](niwat_p)
     cldsice = Ptr[float](cldsice_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, pcols + 1):
+            cldsice[_idx2(i, k, pcols)] = 0.0
 
     for k in range(top_lev, pver + 1):
         for i in range(1, ncol + 1):

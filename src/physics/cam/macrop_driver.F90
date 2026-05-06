@@ -844,8 +844,6 @@ end subroutine macrop_driver_readnl
    !     . Cumulus ( both Deep and Shallow ) has its own LWC and IWC.              !
    ! ----------------------------------------------------------------------------- ! 
 
-   concld_old(:ncol,top_lev:pver) = concld(:ncol,top_lev:pver)
-
    nullify(tke, qtl_flx, qti_flx, cmfr_det, qlr_det, qir_det)
    if (tke_idx      > 0) call pbuf_get_field(pbuf, tke_idx, tke)
    if (qtl_flx_idx  > 0) call pbuf_get_field(pbuf, qtl_flx_idx,  qtl_flx)
@@ -854,9 +852,7 @@ end subroutine macrop_driver_readnl
    if (qlr_det_idx  > 0) call pbuf_get_field(pbuf, qlr_det_idx,  qlr_det)
    if (qir_det_idx  > 0) call pbuf_get_field(pbuf, qir_det_idx,  qir_det)
 
-   clrw_old(:ncol,:top_lev-1) = 0._r8
-   clri_old(:ncol,:top_lev-1) = 0._r8
-   call macrop_driver_clr_old_diag(ncol, concld, alst, ast, clrw_old, clri_old)
+   call macrop_driver_clr_old_diag(ncol, concld, alst, ast, concld_old, clrw_old, clri_old)
 
    if( use_shfrc_local ) then
        call pbuf_get_field(pbuf, shfrc_idx, shfrc )
@@ -1091,7 +1087,6 @@ end subroutine macrop_driver_readnl
    ! Save equilibrium state variables for macrophysics !        
    ! at the next time step                             !
    ! ------------------------------------------------- !
-   cldsice = 0._r8
    call macrop_driver_store_state(ncol, state_loc%t, state_loc%q(:,:,1), state_loc%q(:,:,ixcldliq), &
         state_loc%q(:,:,ixcldice), state_loc%q(:,:,ixnumliq), state_loc%q(:,:,ixnumice), tcwat, qcwat, lcwat, iccwat, &
         nlwat, niwat, cldsice)
@@ -1816,56 +1811,62 @@ end subroutine macrop_driver_cfmip_diag_shell_native
 
 !============================================================================ !
 
-subroutine macrop_driver_clr_old_diag(ncol_local, concld_local, alst_local, ast_local, clrw_old_local, clri_old_local)
+subroutine macrop_driver_clr_old_diag(ncol_local, concld_local, alst_local, ast_local, concld_old_local, clrw_old_local, clri_old_local)
 
   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
   use ref_pres, only: top_lev => trop_cloud_top_lev
 
   integer, intent(in) :: ncol_local
   real(r8), target, intent(in) :: concld_local(pcols,pver), alst_local(pcols,pver), ast_local(pcols,pver)
+  real(r8), target, intent(inout) :: concld_old_local(pcols,pver)
   real(r8), target, intent(inout) :: clrw_old_local(pcols,pver), clri_old_local(pcols,pver)
 
   interface
      subroutine macrop_driver_clr_old_diag_codon(ncol_c, pcols_c, pver_c, top_lev_c, concld_p, alst_p, ast_p, &
-          clrw_old_p, clri_old_p) bind(c, name="macrop_driver_clr_old_diag_codon")
+          concld_old_p, clrw_old_p, clri_old_p) bind(c, name="macrop_driver_clr_old_diag_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
-       type(c_ptr), value :: concld_p, alst_p, ast_p, clrw_old_p, clri_old_p
+       type(c_ptr), value :: concld_p, alst_p, ast_p, concld_old_p, clrw_old_p, clri_old_p
      end subroutine macrop_driver_clr_old_diag_codon
   end interface
 
   if (use_native_impl) then
-     call macrop_driver_clr_old_diag_native(ncol_local, concld_local, alst_local, ast_local, clrw_old_local, clri_old_local)
+     call macrop_driver_clr_old_diag_native(ncol_local, concld_local, alst_local, ast_local, concld_old_local, clrw_old_local, clri_old_local)
      return
   end if
 
   if (masterproc .and. .not. clr_old_diag_logged) then
-     write(iulog,*) 'macrop_driver clr old diag entered = codon'
+     write(iulog,*) 'macrop_driver clr old diag entered = codon (concld_old copy/top clear)'
      call macrop_driver_append_impl_proof('MACROP_DRIVER_MMPCOND_SHELL_PROOF_FILE', &
-          'macrop_driver clr old diag entered = codon')
+          'macrop_driver clr old diag entered = codon (concld_old copy/top clear)')
      call flush(iulog)
      clr_old_diag_logged = .true.
   end if
 
   call macrop_driver_clr_old_diag_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-       int(top_lev, c_int64_t), c_loc(concld_local), c_loc(alst_local), c_loc(ast_local), c_loc(clrw_old_local), &
-       c_loc(clri_old_local))
+       int(top_lev, c_int64_t), c_loc(concld_local), c_loc(alst_local), c_loc(ast_local), c_loc(concld_old_local), &
+       c_loc(clrw_old_local), c_loc(clri_old_local))
 
 end subroutine macrop_driver_clr_old_diag
 
 !============================================================================ !
 
-subroutine macrop_driver_clr_old_diag_native(ncol_local, concld_local, alst_local, ast_local, clrw_old_local, clri_old_local)
+subroutine macrop_driver_clr_old_diag_native(ncol_local, concld_local, alst_local, ast_local, concld_old_local, clrw_old_local, clri_old_local)
 
   use ref_pres, only: top_lev => trop_cloud_top_lev
 
   integer, intent(in) :: ncol_local
   real(r8), intent(in) :: concld_local(pcols,pver), alst_local(pcols,pver), ast_local(pcols,pver)
+  real(r8), intent(inout) :: concld_old_local(pcols,pver)
   real(r8), intent(inout) :: clrw_old_local(pcols,pver), clri_old_local(pcols,pver)
   integer :: i, k
 
+  clrw_old_local(:ncol_local,:top_lev-1) = 0._r8
+  clri_old_local(:ncol_local,:top_lev-1) = 0._r8
+
   do k = top_lev, pver
      do i = 1, ncol_local
+        concld_old_local(i,k) = concld_local(i,k)
         clrw_old_local(i,k) = max( 0._r8, min( 1._r8, 1._r8 - concld_local(i,k) - alst_local(i,k) ) )
         clri_old_local(i,k) = max( 0._r8, min( 1._r8, 1._r8 - concld_local(i,k) -  ast_local(i,k) ) )
      end do
@@ -2238,9 +2239,9 @@ subroutine macrop_driver_store_state(ncol_local, state_t_local, state_qv_local, 
   end if
 
   if (masterproc .and. .not. store_state_logged) then
-     write(iulog,*) 'macrop_driver store state entered = codon'
+     write(iulog,*) 'macrop_driver store state entered = codon (cldsice zero/store)'
      call macrop_driver_append_impl_proof('MACROP_DRIVER_MMPCOND_SHELL_PROOF_FILE', &
-          'macrop_driver store state entered = codon')
+          'macrop_driver store state entered = codon (cldsice zero/store)')
      call flush(iulog)
      store_state_logged = .true.
   end if
