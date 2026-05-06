@@ -62,6 +62,7 @@ module water_tracers
   use water_isotopes, only: pwtspec, ispundef, isph2o, isphdo, isph218o
   use water_types,    only: pwtype, iwtundef, iwtvap, iwtliq, iwtice, iwtstrain, iwtstsnow, iwtcvrain, iwtcvsnow
   use water_tracer_vars
+  use iso_c_binding,  only: c_int64_t
 
   implicit none
   
@@ -720,6 +721,7 @@ end subroutine wtrc_init
 ! Initialize all tracers as non-water, with unknown species
 !
     iwater(:)  = iwtundef
+    iwater_is_water(:) = 0_c_int64_t
     iwspec(:)  = ispundef
     iwistag(:) = .false.
 
@@ -1141,6 +1143,7 @@ end subroutine wtrc_register
 ! Knowing the tracer index assign water type and species
 !
     iwater(ind)  = iwt
+    iwater_is_water(ind) = 1_c_int64_t
     iwspec(ind)  = isp
     iwistag(ind) = is_tag
 !

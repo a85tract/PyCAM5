@@ -19,6 +19,7 @@ module constituents
   use spmd_utils,       only: masterproc
   use cam_abortutils,   only: endrun
   use cam_logfile,      only: iulog
+  use iso_c_binding,    only: c_int64_t
 
   implicit none
   private
@@ -54,8 +55,9 @@ module constituents
   character*3, public :: cnst_type(pcnst)          ! wet or dry mixing ratio
   character*5, public :: cnst_molec(pcnst)         ! major or minor species molecular diffusion
   real(r8),    public :: cnst_rgas(pcnst)          ! gas constant ()
-  real(r8),    public :: qmin     (pcnst)          ! minimum permitted constituent concentration (kg/kg)
+  real(r8),    public, target :: qmin     (pcnst)  ! minimum permitted constituent concentration (kg/kg)
   real(r8),    public :: qmincg   (pcnst)          ! for backward compatibility only
+  integer(c_int64_t), public, target :: cnst_type_is_wet(pcnst) = 0_c_int64_t  ! 1 when cnst_type == 'wet'
   logical,     public :: cnst_fixed_ubc(pcnst) = .false.  ! upper bndy condition = fixed ?
   logical,     public :: cnst_fixed_ubflx(pcnst) = .false.! upper boundary non-zero fixed constituent flux
   logical,     public :: cnst_is_convtran1(pcnst) = .false.  ! convective transport : phase 1 or phase 2?
@@ -152,6 +154,8 @@ CONTAINS
     else
        cnst_type(ind) = 'wet'
     end if
+    cnst_type_is_wet(ind) = 0_c_int64_t
+    if (cnst_type(ind) .eq. 'wet') cnst_type_is_wet(ind) = 1_c_int64_t
 
 ! set constituent molecular diffusion type
     if ( present(molectype) )then

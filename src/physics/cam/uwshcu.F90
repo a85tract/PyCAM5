@@ -573,9 +573,9 @@ contains
     tracer_limiter_shell_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'uwshcu tracer limiter shell entered (ordinary tracer flux limiter direct = codon; tracer type flags native)'
+       write(iulog,'(A)') 'uwshcu tracer limiter shell entered (ordinary tracer flux limiter/metadata direct = codon)'
        call uwshcu_append_proof( &
-            'uwshcu tracer limiter shell entered (ordinary tracer flux limiter direct = codon; tracer type flags native)')
+            'uwshcu tracer limiter shell entered (ordinary tracer flux limiter/metadata direct = codon)')
        call flush(iulog)
     end if
 
@@ -1220,13 +1220,13 @@ end subroutine uwshcu_readnl
     ! ------------------------------------------------------------ !
  
     use cam_history,     only : outfld, addfld, phys_decomp
-    use constituents,    only : qmin, cnst_get_type_byind, cnst_get_ind
+    use constituents,    only : qmin, cnst_get_type_byind, cnst_get_ind, cnst_type_is_wet
     use wv_saturation,   only : findsp_vc
     use iso_c_binding,   only : c_double, c_int64_t, c_loc, c_ptr
 
    !Water tracers:
     use water_tracer_vars, only : trace_water, wisotope, wtrc_iatype, wtrc_nwset, &
-                                  iwspec
+                                  iwspec, iwater_is_water
     use water_tracers,     only : wtrc_ratio, wtrc_get_alpha, wtrc_liqvap_equil, &
                                   wtrc_is_wtrc, wtrc_get_rstd, wtrc_equil_time
     use water_types,       only : iwtvap, iwtliq, iwtice
@@ -1433,9 +1433,6 @@ end subroutine uwshcu_readnl
     real(r8), target :: trflx(0:mkx,ncnst)                    !  Flux of tracers due to convection [ # * kg/m2/s, kg/kg * kg/m2/s ]
     real(r8), target :: trflx_d(0:mkx)                        !  Adjustive downward flux of tracers to prevent negative tracers
     real(r8), target :: trflx_u(0:mkx)                        !  Adjustive upward   flux of tracers to prevent negative tracers
-    real(r8), target :: tracer_limiter_qmin(ncnst)
-    integer(c_int64_t), target :: tracer_limiter_active(ncnst)
-    integer(c_int64_t), target :: tracer_limiter_wet(ncnst)
     real(r8)    trmin                                         !  Minimum concentration of tracers allowed
     real(r8)    pdelx, dum 
     
@@ -2357,13 +2354,13 @@ end subroutine uwshcu_readnl
        end subroutine uwshcu_post_positive_thermo_shell_codon
 
        subroutine uwshcu_tracer_limiter_shell_codon(mkx_c, ncnst_c, g_c, dt_c, ixnumliq_c, ixnumice_c, &
-            dp0_p, dpdry0_p, tr0_p, trflx_p, trten_p, trflx_d_p, trflx_u_p, qmin_p, active_p, wet_p) &
+            dp0_p, dpdry0_p, tr0_p, trflx_p, trten_p, trflx_d_p, trflx_u_p, qmin_p, is_water_p, wet_p) &
             bind(c, name="uwshcu_tracer_limiter_shell_codon")
           use iso_c_binding, only: c_double, c_int64_t, c_ptr
           integer(c_int64_t), value :: mkx_c, ncnst_c, ixnumliq_c, ixnumice_c
           real(c_double), value :: g_c, dt_c
           type(c_ptr), value :: dp0_p, dpdry0_p, tr0_p, trflx_p, trten_p, trflx_d_p, trflx_u_p
-          type(c_ptr), value :: qmin_p, active_p, wet_p
+          type(c_ptr), value :: qmin_p, is_water_p, wet_p
        end subroutine uwshcu_tracer_limiter_shell_codon
 
        subroutine uwshcu_cloud_diag_init_shell_codon(qlj_c, qij_c, qcubelow_p, qlubelow_p, qiubelow_p, &
@@ -7006,25 +7003,11 @@ end subroutine uwshcu_readnl
 
        enddo
        else
-          do m = 1, ncnst
-             tracer_limiter_qmin(m) = qmin(m)
-             if (m .ne. ixnumliq .and. m .ne. ixnumice .and. (.not. wtrc_is_wtrc(m))) then
-                tracer_limiter_active(m) = 1_c_int64_t
-             else
-                tracer_limiter_active(m) = 0_c_int64_t
-             endif
-             if (cnst_get_type_byind(m) .eq. 'wet') then
-                tracer_limiter_wet(m) = 1_c_int64_t
-             else
-                tracer_limiter_wet(m) = 0_c_int64_t
-             endif
-          enddo
           call uwshcu_log_tracer_limiter_shell_entered()
           call uwshcu_tracer_limiter_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
                g, dt, int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), c_loc(dp0), &
                c_loc(dpdry0), c_loc(tr0), c_loc(trflx), c_loc(trten), c_loc(trflx_d), &
-               c_loc(trflx_u), c_loc(tracer_limiter_qmin), c_loc(tracer_limiter_active), &
-               c_loc(tracer_limiter_wet))
+               c_loc(trflx_u), c_loc(qmin), c_loc(iwater_is_water), c_loc(cnst_type_is_wet))
        endif
 
        ! ---------------------------------------------------------------- !

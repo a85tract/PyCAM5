@@ -3880,7 +3880,7 @@ def uwshcu_tracer_limiter_shell_codon(
     trflx_d_p: cobj,
     trflx_u_p: cobj,
     qmin_p: cobj,
-    active_p: cobj,
+    is_water_p: cobj,
     wet_p: cobj,
 ):
     dp0 = Ptr[float](dp0_p)
@@ -3891,12 +3891,13 @@ def uwshcu_tracer_limiter_shell_codon(
     trflx_d = Ptr[float](trflx_d_p)
     trflx_u = Ptr[float](trflx_u_p)
     qmin = Ptr[float](qmin_p)
-    active = Ptr[int](active_p)
+    is_water = Ptr[int](is_water_p)
     wet = Ptr[int](wet_p)
 
     sp = 3
     while sp < ncnst:
-        if active[sp] != 0:
+        m_fortran = sp + 1
+        if m_fortran != ixnumliq and m_fortran != ixnumice and is_water[sp] == 0:
             trmin = qmin[sp]
 
             iface = 0
