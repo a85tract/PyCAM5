@@ -962,6 +962,7 @@ def eddy_diff_driver_tail_batch_codon(
     pver: int,
     ncvmax: int,
     lambda_v: float,
+    rair: float,
     kvh_p: cobj,
     kvh_out_p: cobj,
     errorPBL_p: cobj,
@@ -980,6 +981,8 @@ def eddy_diff_driver_tail_batch_codon(
     ipbl_p: cobj,
     wstar_p: cobj,
     wstarPBL_p: cobj,
+    rairi_p: cobj,
+    kvq_p: cobj,
 ):
     if stage == 1:
         eddy_diff_error_pbl_codon(
@@ -1032,6 +1035,17 @@ def eddy_diff_driver_tail_batch_codon(
             wstar_p,
             wstarPBL_p,
         )
+    elif stage == 6:
+        rairi = Ptr[float](rairi_p)
+        for k in range(1, pver + 2):
+            for i in range(1, ncol + 1):
+                rairi[_idx2(i, k, pcols)] = rair
+    elif stage == 7:
+        kvh_out = Ptr[float](kvh_out_p)
+        kvq = Ptr[float](kvq_p)
+        for k in range(1, pver + 2):
+            for i in range(1, ncol + 1):
+                kvq[_idx2(i, k, pcols)] = kvh_out[_idx2(i, k, pcols)]
 
 
 @export
