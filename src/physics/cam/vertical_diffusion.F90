@@ -161,6 +161,9 @@ module vertical_diffusion
   logical              :: use_native_core_batch_impl = .false.
   logical              :: core_batch_impl_selected = .false.
   logical              :: core_batch_entered_logged = .false.
+  logical              :: use_native_tend_misc_batch_impl = .false.
+  logical              :: tend_misc_batch_impl_selected = .false.
+  logical              :: tend_misc_batch_entered_logged = .false.
   integer              :: tend_branch_mask = 0
   logical              :: tend_branch_selected = .false.
   integer              :: pmam_ncnst = 0               ! number of prognostic modal aerosol constituents
@@ -827,6 +830,154 @@ contains
     tend_branch_selected = .true.
 
   end subroutine vertical_diffusion_tend_select_branches
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_tend_misc_batch_append_proof(proof_line)
+
+    character(len=*), intent(in) :: proof_line
+    character(len=512) :: proof_file
+    integer :: status, n, unitno
+
+    proof_file = ''
+    call get_environment_variable('VERTICAL_DIFFUSION_TEND_MISC_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+       write(unitno,'(A)') trim(proof_line)
+       close(unitno)
+    end if
+
+  end subroutine vertical_diffusion_tend_misc_batch_append_proof
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_tend_misc_batch_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (tend_misc_batch_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('VERTICAL_DIFFUSION_TEND_MISC_BATCH_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_tend_misc_batch_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_tend_misc_batch_impl = .false.
+    end if
+
+    tend_misc_batch_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_tend_misc_batch_impl) then
+          write(iulog,*) 'vertical_diffusion_tend_misc_batch implementation = native'
+          call vertical_diffusion_tend_misc_batch_append_proof( &
+               'vertical_diffusion_tend_misc_batch selector entered implementation = native')
+       else
+          write(iulog,*) 'vertical_diffusion_tend_misc_batch implementation = codon'
+          call vertical_diffusion_tend_misc_batch_append_proof( &
+               'vertical_diffusion_tend_misc_batch selector entered implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine vertical_diffusion_tend_misc_batch_select_impl
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_tend_misc_batch_log_entered()
+
+    if (tend_misc_batch_entered_logged) return
+    tend_misc_batch_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'vertical_diffusion_tend_misc_batch entered (tms surface totals/history dtk direct = codon)'
+       call vertical_diffusion_tend_misc_batch_append_proof( &
+            'vertical_diffusion_tend_misc_batch entered (tms surface totals/history dtk direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine vertical_diffusion_tend_misc_batch_log_entered
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_tend_misc_batch_call(stage, ncol, psetcols_local, do_tms_local, cpair_local, &
+       taux_local, tauy_local, tautmsx_local, tautmsy_local, ksrftms_local, tautotx_local, tautoty_local, &
+       dtk_local, ptend_s_local)
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
+
+    integer, intent(in) :: stage
+    integer, intent(in) :: ncol
+    integer, optional, intent(in) :: psetcols_local
+    logical, optional, intent(in) :: do_tms_local
+    real(r8), optional, intent(in) :: cpair_local
+    real(r8), target, optional, intent(in) :: taux_local(pcols)
+    real(r8), target, optional, intent(in) :: tauy_local(pcols)
+    real(r8), target, optional, intent(in) :: tautmsx_local(pcols)
+    real(r8), target, optional, intent(in) :: tautmsy_local(pcols)
+    real(r8), target, optional, intent(in) :: ksrftms_local(pcols)
+    real(r8), target, optional, intent(in) :: tautotx_local(pcols)
+    real(r8), target, optional, intent(in) :: tautoty_local(pcols)
+    real(r8), target, optional, intent(in) :: dtk_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: ptend_s_local(:,:)
+
+    integer(c_int64_t) :: psetcols_c, do_tms_c
+    real(c_double) :: cpair_c
+    type(c_ptr) :: taux_p, tauy_p, tautmsx_p, tautmsy_p, ksrftms_p, tautotx_p, tautoty_p
+    type(c_ptr) :: dtk_p, ptend_s_p
+
+    interface
+       subroutine vertical_diffusion_tend_misc_batch_codon(stage_c, ncol_c, pcols_c, pver_c, psetcols_c, &
+            do_tms_c, cpair_c, taux_p, tauy_p, tautmsx_p, tautmsy_p, ksrftms_p, tautotx_p, tautoty_p, &
+            dtk_p, ptend_s_p) bind(c, name="vertical_diffusion_tend_misc_batch_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, psetcols_c, do_tms_c
+         real(c_double), value :: cpair_c
+         type(c_ptr), value :: taux_p, tauy_p, tautmsx_p, tautmsy_p, ksrftms_p, tautotx_p, tautoty_p
+         type(c_ptr), value :: dtk_p, ptend_s_p
+       end subroutine vertical_diffusion_tend_misc_batch_codon
+    end interface
+
+    psetcols_c = int(pcols, c_int64_t)
+    if (present(psetcols_local)) psetcols_c = int(psetcols_local, c_int64_t)
+    do_tms_c = 0_c_int64_t
+    if (present(do_tms_local)) do_tms_c = merge(1_c_int64_t, 0_c_int64_t, do_tms_local)
+    cpair_c = 0._c_double
+    if (present(cpair_local)) cpair_c = real(cpair_local, c_double)
+
+    taux_p = c_null_ptr; if (present(taux_local)) taux_p = c_loc(taux_local)
+    tauy_p = c_null_ptr; if (present(tauy_local)) tauy_p = c_loc(tauy_local)
+    tautmsx_p = c_null_ptr; if (present(tautmsx_local)) tautmsx_p = c_loc(tautmsx_local)
+    tautmsy_p = c_null_ptr; if (present(tautmsy_local)) tautmsy_p = c_loc(tautmsy_local)
+    ksrftms_p = c_null_ptr; if (present(ksrftms_local)) ksrftms_p = c_loc(ksrftms_local)
+    tautotx_p = c_null_ptr; if (present(tautotx_local)) tautotx_p = c_loc(tautotx_local)
+    tautoty_p = c_null_ptr; if (present(tautoty_local)) tautoty_p = c_loc(tautoty_local)
+    dtk_p = c_null_ptr; if (present(dtk_local)) dtk_p = c_loc(dtk_local)
+    ptend_s_p = c_null_ptr; if (present(ptend_s_local)) ptend_s_p = c_loc(ptend_s_local)
+
+    call vertical_diffusion_tend_misc_batch_log_entered()
+    call vertical_diffusion_tend_misc_batch_codon( &
+         int(stage, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         psetcols_c, do_tms_c, cpair_c, taux_p, tauy_p, tautmsx_p, tautmsy_p, ksrftms_p, tautotx_p, &
+         tautoty_p, dtk_p, ptend_s_p)
+
+  end subroutine vertical_diffusion_tend_misc_batch_call
 
   ! =============================================================================== !
   !                                                                                 !
@@ -2524,23 +2675,36 @@ contains
     ! the raw input (u,v) to compute 'ksrftms', not the provisionally-marched 'u,v' 
     ! within the iteration loop of the PBL scheme. 
 
-    if( do_tms_local ) then
-        call compute_tms( pcols      , pver     , ncol    ,              &
-                          state%u    , state%v  , state%t , state%pmid , & 
-                          state%exner, state%zm , sgh     , ksrftms    , & 
-                          tautmsx    , tautmsy  , landfrac )
-      ! Here, both 'taux, tautmsx' are explicit surface stresses.        
-      ! Note that this 'tautotx, tautoty' are different from the total stress
-      ! that has been actually added into the atmosphere. This is because both
-      ! taux and tautmsx are fully implicitly treated within compute_vdiff.
-      ! However, 'tautotx, tautoty' are not used in the actual numerical
-      ! computation in this module.   
-        tautotx(:ncol) = taux(:ncol) + tautmsx(:ncol)
-        tautoty(:ncol) = tauy(:ncol) + tautmsy(:ncol)
+    call vertical_diffusion_tend_misc_batch_select_impl()
+    if (use_native_tend_misc_batch_impl) then
+       if( do_tms_local ) then
+           call compute_tms( pcols      , pver     , ncol    ,              &
+                             state%u    , state%v  , state%t , state%pmid , &
+                             state%exner, state%zm , sgh     , ksrftms    , &
+                             tautmsx    , tautmsy  , landfrac )
+         ! Here, both 'taux, tautmsx' are explicit surface stresses.
+         ! Note that this 'tautotx, tautoty' are different from the total stress
+         ! that has been actually added into the atmosphere. This is because both
+         ! taux and tautmsx are fully implicitly treated within compute_vdiff.
+         ! However, 'tautotx, tautoty' are not used in the actual numerical
+         ! computation in this module.
+           tautotx(:ncol) = taux(:ncol) + tautmsx(:ncol)
+           tautoty(:ncol) = tauy(:ncol) + tautmsy(:ncol)
+       else
+           ksrftms(:ncol) = 0._r8
+           tautotx(:ncol) = taux(:ncol)
+           tautoty(:ncol) = tauy(:ncol)
+       endif
     else
-        ksrftms(:ncol) = 0._r8
-        tautotx(:ncol) = taux(:ncol)
-        tautoty(:ncol) = tauy(:ncol)
+       if( do_tms_local ) then
+           call compute_tms( pcols      , pver     , ncol    ,              &
+                             state%u    , state%v  , state%t , state%pmid , &
+                             state%exner, state%zm , sgh     , ksrftms    , &
+                             tautmsx    , tautmsy  , landfrac )
+       endif
+       call vertical_diffusion_tend_misc_batch_call(1, ncol, do_tms_local=do_tms_local, &
+            taux_local=taux, tauy_local=tauy, tautmsx_local=tautmsx, tautmsy_local=tautmsy, &
+            ksrftms_local=ksrftms, tautotx_local=tautotx, tautoty_local=tautoty)
     endif
 
     !----------------------------------------------------------------------- !
@@ -3007,9 +3171,18 @@ contains
     call outfld( 'KVT'          , kvt,                       pcols, lchnk )
     call outfld( 'KVM'          , kvm,                       pcols, lchnk )
     call outfld( 'CGS'          , cgs,                       pcols, lchnk )
-    dtk(:ncol,:) = dtk(:ncol,:) / cpair              ! Normalize heating for history
+    if (use_native_tend_misc_batch_impl) then
+       dtk(:ncol,:) = dtk(:ncol,:) / cpair           ! Normalize heating for history
+    else
+       call vertical_diffusion_tend_misc_batch_call(2, ncol, cpair_local=cpair, dtk_local=dtk)
+    end if
     call outfld( 'DTVKE'        , dtk,                       pcols, lchnk )
-    dtk(:ncol,:) = ptend%s(:ncol,:) / cpair          ! Normalize heating for history using dtk
+    if (use_native_tend_misc_batch_impl) then
+       dtk(:ncol,:) = ptend%s(:ncol,:) / cpair       ! Normalize heating for history using dtk
+    else
+       call vertical_diffusion_tend_misc_batch_call(3, ncol, psetcols_local=state%psetcols, cpair_local=cpair, &
+            dtk_local=dtk, ptend_s_local=ptend%s)
+    end if
     call outfld( 'DTV'          , dtk,                       pcols, lchnk ) 
     call outfld( 'DUV'          , ptend%u,                   pcols, lchnk )
     call outfld( 'DVV'          , ptend%v,                   pcols, lchnk )

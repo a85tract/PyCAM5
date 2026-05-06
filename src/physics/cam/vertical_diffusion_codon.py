@@ -54,6 +54,56 @@ def vertical_diffusion_tend_select_branches_codon(
     branch_mask[0] = mask
 
 
+@export
+def vertical_diffusion_tend_misc_batch_codon(
+    stage: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    psetcols: int,
+    do_tms: int,
+    cpair: float,
+    taux_p: cobj,
+    tauy_p: cobj,
+    tautmsx_p: cobj,
+    tautmsy_p: cobj,
+    ksrftms_p: cobj,
+    tautotx_p: cobj,
+    tautoty_p: cobj,
+    dtk_p: cobj,
+    ptend_s_p: cobj,
+):
+    if stage == 1:
+        taux = Ptr[float](taux_p)
+        tauy = Ptr[float](tauy_p)
+        tautmsx = Ptr[float](tautmsx_p)
+        tautmsy = Ptr[float](tautmsy_p)
+        ksrftms = Ptr[float](ksrftms_p)
+        tautotx = Ptr[float](tautotx_p)
+        tautoty = Ptr[float](tautoty_p)
+
+        if do_tms != 0:
+            for i in range(1, ncol + 1):
+                tautotx[i - 1] = taux[i - 1] + tautmsx[i - 1]
+                tautoty[i - 1] = tauy[i - 1] + tautmsy[i - 1]
+        else:
+            for i in range(1, ncol + 1):
+                ksrftms[i - 1] = 0.0
+                tautotx[i - 1] = taux[i - 1]
+                tautoty[i - 1] = tauy[i - 1]
+    elif stage == 2:
+        dtk = Ptr[float](dtk_p)
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                dtk[_idx2(i, k, pcols)] = dtk[_idx2(i, k, pcols)] / cpair
+    elif stage == 3:
+        dtk = Ptr[float](dtk_p)
+        ptend_s = Ptr[float](ptend_s_p)
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                dtk[_idx2(i, k, pcols)] = ptend_s[_idx2(i, k, psetcols)] / cpair
+
+
 @inline
 def _idx2(i: int, k: int, ld1: int) -> int:
     """Fortran arrays declared as (ld1, nlev)."""
