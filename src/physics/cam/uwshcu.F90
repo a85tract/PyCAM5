@@ -60,6 +60,7 @@
   logical :: turbulent_flux_shell_entered_logged = .false.
   logical :: tendency_prep_shell_entered_logged = .false.
   logical :: comp_sub_sink_shell_entered_logged = .false.
+  logical :: thermo_prelim_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -507,6 +508,22 @@ contains
     end if
 
   end subroutine uwshcu_log_comp_sub_sink_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_thermo_prelim_shell_entered()
+
+    if (thermo_prelim_shell_entered_logged) return
+    thermo_prelim_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu thermo prelim shell entered (condensate scale/flux/tendency prelim direct = codon; condensate solve native)'
+       call uwshcu_append_proof( &
+            'uwshcu thermo prelim shell entered (condensate scale/flux/tendency prelim direct = codon; condensate solve native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_thermo_prelim_shell_entered
 
 !===============================================================================
   
@@ -1478,7 +1495,7 @@ end subroutine uwshcu_readnl
     real(r8)    aquad, bquad, cquad, xc1, xc2, excessu, excess0, xsat, xs1, xs2
     real(r8)    bogbot, bogtop, delbog, drage, expfac, rbuoy, rdrag
     real(r8)    rcwp, rlwp, riwp, qcubelow, qlubelow, qiubelow
-    real(r8)    rainflx, snowflx                     
+    real(r8), target :: rainflx, snowflx
     real(r8)    es
     real(r8)    qs
     real(r8)    qsat_arg             
@@ -2129,6 +2146,20 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: nlten_sub_p, niten_sub_p, wtlten_sub_p, wtiten_sub_p, qlten_sink_p
           type(c_ptr), value :: qiten_sink_p, nlten_sink_p, niten_sink_p, wtten_sink_liq_p, wtten_sink_ice_p
        end subroutine uwshcu_comp_sub_sink_shell_codon
+
+       subroutine uwshcu_thermo_prelim_shell_codon(mkx_c, wtrc_nwset_c, kpen_c, &
+            frc_rasn_c, g_c, dp0_p, umf_p, dwten_p, diten_p, wtdwten_p, wtditen_p, &
+            qrten_p, qsten_p, wtrpten_p, wtspten_p, slflx_p, qtflx_p, uflx_p, vflx_p, &
+            uf_p, vf_p, u0_p, v0_p, wtflx_p, slten_p, qtten_p, wttotten_p, &
+            rainflx_p, snowflx_p) bind(c, name="uwshcu_thermo_prelim_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, kpen_c
+          real(c_double), value :: frc_rasn_c, g_c
+          type(c_ptr), value :: dp0_p, umf_p, dwten_p, diten_p, wtdwten_p, wtditen_p
+          type(c_ptr), value :: qrten_p, qsten_p, wtrpten_p, wtspten_p, slflx_p, qtflx_p
+          type(c_ptr), value :: uflx_p, vflx_p, uf_p, vf_p, u0_p, v0_p, wtflx_p
+          type(c_ptr), value :: slten_p, qtten_p, wttotten_p, rainflx_p, snowflx_p
+       end subroutine uwshcu_thermo_prelim_shell_codon
 
        subroutine uwshcu_column_env_save_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, &
@@ -5587,6 +5618,18 @@ end subroutine uwshcu_readnl
        rainflx = 0._r8
        snowflx = 0._r8
 
+       if (.not. use_native_init_shell_impl) then
+          wtrc_nwset_post_c = 0_c_int64_t
+          if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
+          call uwshcu_log_thermo_prelim_shell_entered()
+          call uwshcu_thermo_prelim_shell_codon(int(mkx, c_int64_t), wtrc_nwset_post_c, &
+               int(kpen, c_int64_t), frc_rasn, g, c_loc(dp0), c_loc(umf), c_loc(dwten), &
+               c_loc(diten), c_loc(wtdwten), c_loc(wtditen), c_loc(qrten), c_loc(qsten), &
+               c_loc(wtrpten), c_loc(wtspten), c_loc(slflx), c_loc(qtflx), c_loc(uflx), &
+               c_loc(vflx), c_loc(uf), c_loc(vf), c_loc(u0), c_loc(v0), c_loc(wtflx), &
+               c_loc(slten), c_loc(qtten), c_loc(wttotten), c_loc(rainflx), c_loc(snowflx))
+       endif
+
        do k = 1, kpen
 
           km1 = k - 1
@@ -5627,6 +5670,7 @@ end subroutine uwshcu_readnl
           ! This will cause no precipitation flux at 'kpen' layer since umf(kpen)=0.  !
           ! ------------------------------------------------------------------------- !
 
+          if (use_native_init_shell_impl) then
           dwten(k) = dwten(k) * 0.5_r8 * ( umf(k-1) + umf(k) ) * g / dp0(k) ! [ kg/kg/s ]
           diten(k) = diten(k) * 0.5_r8 * ( umf(k-1) + umf(k) ) * g / dp0(k) ! [ kg/kg/s ]  
 
@@ -5728,6 +5772,7 @@ end subroutine uwshcu_readnl
             end do
           end if
           !****************************************************************
+          endif
 
           ! ---------------------------------------------------------------------------- !
           ! Compute condensate tendency, including reserved condensate                   !

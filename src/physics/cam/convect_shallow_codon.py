@@ -3368,6 +3368,125 @@ def uwshcu_comp_sub_sink_shell_codon(
 
 
 @export
+def uwshcu_thermo_prelim_shell_codon(
+    mkx: int,
+    wtrc_nwset: int,
+    kpen: int,
+    frc_rasn: float,
+    g_v: float,
+    dp0_p: cobj,
+    umf_p: cobj,
+    dwten_p: cobj,
+    diten_p: cobj,
+    wtdwten_p: cobj,
+    wtditen_p: cobj,
+    qrten_p: cobj,
+    qsten_p: cobj,
+    wtrpten_p: cobj,
+    wtspten_p: cobj,
+    slflx_p: cobj,
+    qtflx_p: cobj,
+    uflx_p: cobj,
+    vflx_p: cobj,
+    uf_p: cobj,
+    vf_p: cobj,
+    u0_p: cobj,
+    v0_p: cobj,
+    wtflx_p: cobj,
+    slten_p: cobj,
+    qtten_p: cobj,
+    wttotten_p: cobj,
+    rainflx_p: cobj,
+    snowflx_p: cobj,
+):
+    dp0 = Ptr[float](dp0_p)
+    umf = Ptr[float](umf_p)
+    dwten = Ptr[float](dwten_p)
+    diten = Ptr[float](diten_p)
+    wtdwten = Ptr[float](wtdwten_p)
+    wtditen = Ptr[float](wtditen_p)
+    qrten = Ptr[float](qrten_p)
+    qsten = Ptr[float](qsten_p)
+    wtrpten = Ptr[float](wtrpten_p)
+    wtspten = Ptr[float](wtspten_p)
+    slflx = Ptr[float](slflx_p)
+    qtflx = Ptr[float](qtflx_p)
+    uflx = Ptr[float](uflx_p)
+    vflx = Ptr[float](vflx_p)
+    uf = Ptr[float](uf_p)
+    vf = Ptr[float](vf_p)
+    u0 = Ptr[float](u0_p)
+    v0 = Ptr[float](v0_p)
+    wtflx = Ptr[float](wtflx_p)
+    slten = Ptr[float](slten_p)
+    qtten = Ptr[float](qtten_p)
+    wttotten = Ptr[float](wttotten_p)
+    rainflx = Ptr[float](rainflx_p)
+    snowflx = Ptr[float](snowflx_p)
+
+    rainflx[0] = 0.0
+    snowflx[0] = 0.0
+
+    k_fortran = 1
+    while k_fortran <= kpen:
+        k = k_fortran - 1
+        km1 = k_fortran - 1
+
+        dwten[k] = dwten[k] * 0.5 * (umf[k_fortran - 1] + umf[k_fortran]) * g_v / dp0[k]
+        diten[k] = diten[k] * 0.5 * (umf[k_fortran - 1] + umf[k_fortran]) * g_v / dp0[k]
+
+        m = 0
+        while m < wtrc_nwset:
+            wt_idx = k + m * mkx
+            wtdwten[wt_idx] = wtdwten[wt_idx] * 0.5 * (umf[k_fortran - 1] + umf[k_fortran]) * g_v / dp0[k]
+            wtditen[wt_idx] = wtditen[wt_idx] * 0.5 * (umf[k_fortran - 1] + umf[k_fortran]) * g_v / dp0[k]
+            m += 1
+
+        qrten[k] = frc_rasn * dwten[k]
+        qsten[k] = frc_rasn * diten[k]
+
+        m = 0
+        while m < wtrc_nwset:
+            wt_idx = k + m * mkx
+            wtrpten[wt_idx] = frc_rasn * wtdwten[wt_idx]
+            wtspten[wt_idx] = frc_rasn * wtditen[wt_idx]
+            m += 1
+
+        rainflx[0] = rainflx[0] + qrten[k] * dp0[k] / g_v
+        snowflx[0] = snowflx[0] + qsten[k] * dp0[k] / g_v
+
+        slten[k] = (slflx[km1] - slflx[k_fortran]) * g_v / dp0[k]
+        if k_fortran == 1:
+            slten[k] = slten[k] - g_v / 4.0 / dp0[k] * (
+                uflx[k_fortran] * (uf[k + 1] - uf[k] + u0[k + 1] - u0[k])
+                + vflx[k_fortran] * (vf[k + 1] - vf[k] + v0[k + 1] - v0[k])
+            )
+        elif k_fortran >= 2 and k_fortran <= kpen - 1:
+            slten[k] = slten[k] - g_v / 4.0 / dp0[k] * (
+                uflx[k_fortran] * (uf[k + 1] - uf[k] + u0[k + 1] - u0[k])
+                + uflx[k_fortran - 1] * (uf[k] - uf[k - 1] + u0[k] - u0[k - 1])
+                + vflx[k_fortran] * (vf[k + 1] - vf[k] + v0[k + 1] - v0[k])
+                + vflx[k_fortran - 1] * (vf[k] - vf[k - 1] + v0[k] - v0[k - 1])
+            )
+        elif k_fortran == kpen:
+            slten[k] = slten[k] - g_v / 4.0 / dp0[k] * (
+                uflx[k_fortran - 1] * (uf[k] - uf[k - 1] + u0[k] - u0[k - 1])
+                + vflx[k_fortran - 1] * (vf[k] - vf[k - 1] + v0[k] - v0[k - 1])
+            )
+
+        qtten[k] = (qtflx[km1] - qtflx[k_fortran]) * g_v / dp0[k]
+
+        m = 0
+        while m < wtrc_nwset:
+            wt_idx = k + m * mkx
+            wtflx_offset = m * (mkx + 1)
+            wttotten[wt_idx] = (wtflx[km1 + wtflx_offset] - wtflx[k_fortran + wtflx_offset]) * g_v / dp0[k]
+            m += 1
+
+        k_fortran += 1
+
+
+@export
 def uwshcu_column_input_load_shell_codon(
     mix: int,
     mkx: int,
