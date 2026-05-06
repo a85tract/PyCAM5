@@ -1,3 +1,6 @@
+from math import exp
+
+
 @inline
 def _field_idx(icol: int, klev: int, ld1: int) -> int:
     """qrl/qrs declared as (pcols, pver); ptend%s declared as (psetcols, pver)"""
@@ -391,3 +394,16 @@ def radiation_diag_prep_codon(
         for kk in range(1, pver + 1):
             for i in range(1, ncol + 1):
                 b[_field_idx(i, kk, out_ld)] = a[_field_idx(i, kk, pcols)] / cpair
+    elif stage == 16:
+        # EMIS diagnostic: a=cld_lw_abs(nbndlw,pcols,pver), b=emis(pcols,pver).
+        nbnd = nday
+        selected_band = nnite
+        for kk in range(1, pver + 1):
+            for i in range(1, pcols + 1):
+                b[_field_idx(i, kk, pcols)] = 0.0
+
+        for kk in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                b[_field_idx(i, kk, pcols)] = 1.0 - exp(
+                    -a[_band3_idx(selected_band, i, kk, nbnd, pcols)]
+                )

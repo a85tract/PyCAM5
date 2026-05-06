@@ -641,8 +641,8 @@ end function radiation_nextsw_cday
     radiation_diag_prep_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'radiation_diag_prep entered (compact_qrl/cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)'
-       call radiation_diag_prep_append_proof('radiation_diag_prep entered (compact_qrl/cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)')
+       write(iulog,*) 'radiation_diag_prep entered (emis/compact_qrl/cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)'
+       call radiation_diag_prep_append_proof('radiation_diag_prep entered (emis/compact_qrl/cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)')
        call flush(iulog)
     end if
 
@@ -877,6 +877,22 @@ end function radiation_nextsw_cday
 
 !===============================================================================
 
+  subroutine radiation_diag_prep_emis_field(ncol, nbnd, band, cld_lw_abs_p, emis_p, dummy_p)
+
+    use iso_c_binding, only: c_ptr
+
+    integer, intent(in) :: ncol, nbnd, band
+    type(c_ptr), intent(in) :: cld_lw_abs_p, emis_p, dummy_p
+
+    call radiation_diag_prep_codon_call(16, ncol, 0, cpair, 0._r8, dummy_p, cld_lw_abs_p, emis_p, &
+         dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
+         dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
+         nday_override=nbnd, nnite_override=band)
+
+  end subroutine radiation_diag_prep_emis_field
+
+!===============================================================================
+
   subroutine radiation_diag_prep_visible_tau(ncol, nbnd, band, has_snow, nnite, c_cld_tau_p, liq_tau_p, &
        ice_tau_p, snow_tau_p, cldfprime_p, tot_cld_p, tot_icld_p, liq_icld_p, ice_icld_p, snow_icld_p, &
        idxnite_p, dummy_p)
@@ -993,7 +1009,7 @@ end function radiation_nextsw_cday
                                                !    0->pmxrgn(i,1) is range of pressure for
                                                !    1st region,pmxrgn(i,1)->pmxrgn(i,2) for
                                                !    2nd region, etc
-    real(r8) emis(pcols,pver)                  ! Cloud longwave emissivity
+    real(r8), target :: emis(pcols,pver)       ! Cloud longwave emissivity
     real(r8) :: cldtau(pcols,pver)             ! Cloud longwave optical depth
     real(r8) :: cicewp(pcols,pver)             ! in-cloud cloud ice water path
     real(r8) :: cliqwp(pcols,pver)             ! in-cloud cloud liquid water path
@@ -1549,8 +1565,8 @@ end function radiation_nextsw_cday
        end if
 
        !! initialize and calculate emis
-       emis(:,:) = 0._r8
-       emis(:ncol,:) = 1._r8 - exp(-cld_lw_abs(rrtmg_lw_cloudsim_band,:ncol,:))
+       call radiation_diag_prep_emis_field(ncol, nbndlw, rrtmg_lw_cloudsim_band, &
+            c_loc(cld_lw_abs(1,1,1)), c_loc(emis(1,1)), c_loc(radiation_diag_dummy(1)))
        call outfld('EMIS', emis, pcols, lchnk)
 
        !! compute grid-box mean SW and LW snow optical depth for use by COSP
