@@ -3966,6 +3966,80 @@ def uwshcu_cloud_diag_index_shell_codon(
 
 
 @export
+def uwshcu_positive_moisture_prep_shell_codon(
+    mkx: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    dt_v: float,
+    qv0_p: cobj,
+    ql0_p: cobj,
+    qi0_p: cobj,
+    s0_p: cobj,
+    qvten_p: cobj,
+    qlten_p: cobj,
+    qiten_p: cobj,
+    sten_p: cobj,
+    tr0_p: cobj,
+    trten_p: cobj,
+    wtrc_iatype_p: cobj,
+    qv0_star_p: cobj,
+    ql0_star_p: cobj,
+    qi0_star_p: cobj,
+    s0_star_p: cobj,
+    wt0_star_p: cobj,
+):
+    qv0 = Ptr[float](qv0_p)
+    ql0 = Ptr[float](ql0_p)
+    qi0 = Ptr[float](qi0_p)
+    s0 = Ptr[float](s0_p)
+    qvten = Ptr[float](qvten_p)
+    qlten = Ptr[float](qlten_p)
+    qiten = Ptr[float](qiten_p)
+    sten = Ptr[float](sten_p)
+    tr0 = Ptr[float](tr0_p)
+    trten = Ptr[float](trten_p)
+    wtrc_iatype = Ptr[int](wtrc_iatype_p)
+    qv0_star = Ptr[float](qv0_star_p)
+    ql0_star = Ptr[float](ql0_star_p)
+    qi0_star = Ptr[float](qi0_star_p)
+    s0_star = Ptr[float](s0_star_p)
+    wt0_star = Ptr[float](wt0_star_p)
+
+    k = 0
+    while k < mkx:
+        qv0_star[k] = qv0[k] + qvten[k] * dt_v
+        ql0_star[k] = ql0[k] + qlten[k] * dt_v
+        qi0_star[k] = qi0[k] + qiten[k] * dt_v
+        s0_star[k] = s0[k] + sten[k] * dt_v
+        k += 1
+
+    if wtrc_nwset > 0:
+        comp = 0
+        while comp < 3:
+            m = 0
+            while m < wtrc_nwset:
+                k = 0
+                while k < mkx:
+                    wt0_star[k + m * mkx + comp * mkx * wtrc_nwset] = 0.0
+                    k += 1
+                m += 1
+            comp += 1
+
+        m = 0
+        while m < wtrc_nwset:
+            vap = wtrc_iatype[m] - 1
+            liq = wtrc_iatype[m + wtrc_nwset] - 1
+            ice = wtrc_iatype[m + 2 * wtrc_nwset] - 1
+            k = 0
+            while k < mkx:
+                wt0_star[k + m * mkx] = tr0[k + vap * mkx] + trten[k + vap * mkx] * dt_v
+                wt0_star[k + m * mkx + mkx * wtrc_nwset] = tr0[k + liq * mkx] + trten[k + liq * mkx] * dt_v
+                wt0_star[k + m * mkx + 2 * mkx * wtrc_nwset] = tr0[k + ice * mkx] + trten[k + ice * mkx] * dt_v
+                k += 1
+            m += 1
+
+
+@export
 def uwshcu_column_input_load_shell_codon(
     mix: int,
     mkx: int,

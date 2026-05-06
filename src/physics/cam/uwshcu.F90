@@ -65,6 +65,7 @@
   logical :: post_precip_adjust_shell_entered_logged = .false.
   logical :: tracer_limiter_shell_entered_logged = .false.
   logical :: cloud_diag_shell_entered_logged = .false.
+  logical :: positive_moisture_prep_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -592,6 +593,22 @@ contains
     end if
 
   end subroutine uwshcu_log_cloud_diag_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_positive_moisture_prep_shell_entered()
+
+    if (positive_moisture_prep_shell_entered_logged) return
+    positive_moisture_prep_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu positive moisture prep shell entered (state prep direct = codon; correction native)'
+       call uwshcu_append_proof( &
+            'uwshcu positive moisture prep shell entered (state prep direct = codon; correction native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_positive_moisture_prep_shell_entered
 
 !===============================================================================
   
@@ -1302,11 +1319,11 @@ end subroutine uwshcu_readnl
 
    ! 2-1. For preventing negative condensate at the provisional time step
 
-    real(r8)    qv0_star(mkx)                                 !  Environmental water vapor specific humidity [ kg/kg ]
-    real(r8)    ql0_star(mkx)                                 !  Environmental liquid water specific humidity [ kg/kg ]
-    real(r8)    qi0_star(mkx)                                 !  Environmental ice specific humidity [ kg/kg ]
+    real(r8), target :: qv0_star(mkx)                         !  Environmental water vapor specific humidity [ kg/kg ]
+    real(r8), target :: ql0_star(mkx)                         !  Environmental liquid water specific humidity [ kg/kg ]
+    real(r8), target :: qi0_star(mkx)                         !  Environmental ice specific humidity [ kg/kg ]
     real(r8)    t0_star(mkx)                                  !  Environmental temperature [ K ]
-    real(r8)    s0_star(mkx)                                  !  Environmental dry static energy [ J/kg ]
+    real(r8), target :: s0_star(mkx)                          !  Environmental dry static energy [ J/kg ]
 
    ! 3. Variables associated with cumulus convection
 
@@ -1387,7 +1404,7 @@ end subroutine uwshcu_readnl
     real(r8), target :: wtspten(mkx,wtrc_nwset)               !  Water tracer snow tendency [ kg/kg/s ]
     real(r8), target :: wtlten_det(mkx,wtrc_nwset)            !  Water tracer non-precip liquid detrainment tendency [ kg/kg/s ]
     real(r8), target :: wtiten_det(mkx,wtrc_nwset)            !  Water tracer non-precip frozen detrainment tendency [ kg/kg/s ]
-    real(r8)    wt0_star(mkx,wtrc_nwset,3)                    !  Water tracer state post-tendency (used for corrections) [ kg/kg ]
+    real(r8), target :: wt0_star(mkx,wtrc_nwset,3)            !  Water tracer state post-tendency (used for corrections) [ kg/kg ]
     real(r8), target :: wtqc_liq(mkx,wtrc_nwset)              !  Water tracer tendency due to liquid detrained 'cloud condensate' [ kg/kg/s ]
     real(r8), target :: wtqc_ice(mkx,wtrc_nwset)              !  Water tracer tendency due to frozen detrained 'cloud condensate' [ kg/kg/s ]
     real(r8), target :: wtqcm_liq(wtrc_nwset)                 !  Water tracer tendency due to liquid detrainment at midlevels [ kg/kg/s ]
@@ -2307,6 +2324,18 @@ end subroutine uwshcu_readnl
           integer(c_int64_t), value :: kpen_c, krel_c
           type(c_ptr), value :: cnt_p, cnb_p
        end subroutine uwshcu_cloud_diag_index_shell_codon
+
+       subroutine uwshcu_positive_moisture_prep_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
+            dt_c, qv0_p, ql0_p, qi0_p, s0_p, qvten_p, qlten_p, qiten_p, sten_p, &
+            tr0_p, trten_p, wtrc_iatype_p, qv0_star_p, ql0_star_p, qi0_star_p, &
+            s0_star_p, wt0_star_p) bind(c, name="uwshcu_positive_moisture_prep_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c
+          real(c_double), value :: dt_c
+          type(c_ptr), value :: qv0_p, ql0_p, qi0_p, s0_p, qvten_p, qlten_p, qiten_p, sten_p
+          type(c_ptr), value :: tr0_p, trten_p, wtrc_iatype_p, qv0_star_p, ql0_star_p, qi0_star_p
+          type(c_ptr), value :: s0_star_p, wt0_star_p
+       end subroutine uwshcu_positive_moisture_prep_shell_codon
 
        subroutine uwshcu_column_env_save_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, &
@@ -6729,6 +6758,7 @@ end subroutine uwshcu_readnl
        !                in combination with the original computation of qlten, qiten. However,
        !                if we use new 'qlten,qiten', there is no problem.
 
+        if (use_native_init_shell_impl) then
         qv0_star(:mkx) = qv0(:mkx) + qvten(:mkx) * dt
         ql0_star(:mkx) = ql0(:mkx) + qlten(:mkx) * dt
         qi0_star(:mkx) = qi0(:mkx) + qiten(:mkx) * dt
@@ -6743,6 +6773,16 @@ end subroutine uwshcu_readnl
             wt0_star(:mkx,m,2) = tr0(:mkx,wtrc_iatype(m,iwtliq)) + trten(:mkx,wtrc_iatype(m,iwtliq)) * dt
             wt0_star(:mkx,m,3) = tr0(:mkx,wtrc_iatype(m,iwtice)) + trten(:mkx,wtrc_iatype(m,iwtice)) * dt
           end do
+        end if
+        else
+          call uwshcu_log_positive_moisture_prep_shell_entered()
+          call uwshcu_positive_moisture_prep_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+               wtrc_nwset_post_c, dt, c_loc(qv0), c_loc(ql0), c_loc(qi0), c_loc(s0), &
+               c_loc(qvten), c_loc(qlten), c_loc(qiten), c_loc(sten), c_loc(tr0), c_loc(trten), &
+               c_loc(wtrc_iatype_post), c_loc(qv0_star), c_loc(ql0_star), c_loc(qi0_star), &
+               c_loc(s0_star), c_loc(wt0_star))
+        endif
+        if(trace_water) then
           call positive_moisture_single( xlv, xls, mkx, dt, qmin(1), qmin(ixcldliq), &
                                          qmin(ixcldice), dp0, qv0_star, ql0_star, qi0_star, s0_star, &
                                          qvten, qlten, qiten, sten, ncnst, wtr=wt0_star, wtten=trten )
