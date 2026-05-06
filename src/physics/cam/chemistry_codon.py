@@ -1965,6 +1965,40 @@ def aero_model_gasaerexch_vmrcw_batch_codon(
     )
 
 @export
+def aero_model_gasaerexch_load_snapshot_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    qqcw_offset: int,
+    mbar_ld1: int,
+    qqcw_ptrs_p: cobj,
+    qqcw_present_p: cobj,
+    mbar_p: cobj,
+    adv_mass_p: cobj,
+    vmr_p: cobj,
+    vmrcw_p: cobj,
+    dvmrdt_p: cobj,
+    dvmrcwdt_p: cobj,
+):
+    return _aero_bridge.aero_model_gasaerexch_load_snapshot_codon(
+        ncol,
+        pcols,
+        pver,
+        gas_pcnst,
+        qqcw_offset,
+        mbar_ld1,
+        qqcw_ptrs_p,
+        qqcw_present_p,
+        mbar_p,
+        adv_mass_p,
+        vmr_p,
+        vmrcw_p,
+        dvmrdt_p,
+        dvmrcwdt_p,
+    )
+
+@export
 def neu_wetdep_aux_prepare_codon(
     ncol: int,
     pcols: int,

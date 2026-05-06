@@ -358,3 +358,33 @@ def aero_model_gasaerexch_vmrcw_batch_codon(
     _aero_model_gasaerexch_vmrcw_batch(
         mode, ncol, pcols, pver, gas_pcnst, qqcw_offset, mbar_ld1, qqcw_ptrs, qqcw_present, mbar, adv_mass, vmr
     )
+
+def aero_model_gasaerexch_load_snapshot_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    qqcw_offset: int,
+    mbar_ld1: int,
+    qqcw_ptrs_p: cobj,
+    qqcw_present_p: cobj,
+    mbar_p: cobj,
+    adv_mass_p: cobj,
+    vmr_p: cobj,
+    vmrcw_p: cobj,
+    dvmrdt_p: cobj,
+    dvmrcwdt_p: cobj,
+):
+    qqcw_ptrs = Ptr[cobj](qqcw_ptrs_p)
+    qqcw_present = Ptr[int](qqcw_present_p)
+    mbar = Ptr[float](mbar_p)
+    adv_mass = Ptr[float](adv_mass_p)
+    vmr = Ptr[float](vmr_p)
+    vmrcw = Ptr[float](vmrcw_p)
+    dvmrdt = Ptr[float](dvmrdt_p)
+    dvmrcwdt = Ptr[float](dvmrcwdt_p)
+
+    _aero_model_gasaerexch_vmrcw_batch(
+        1, ncol, pcols, pver, gas_pcnst, qqcw_offset, mbar_ld1, qqcw_ptrs, qqcw_present, mbar, adv_mass, vmrcw
+    )
+    _aero_model_gasaerexch_snapshot_state(ncol, pver, gas_pcnst, vmr, vmrcw, dvmrdt, dvmrcwdt)

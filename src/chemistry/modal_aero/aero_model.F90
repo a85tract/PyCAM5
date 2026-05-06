@@ -108,6 +108,7 @@ module aero_model
   logical :: aero_model_gasaerexch_impl_selected = .false.
   logical :: aero_model_gasaerexch_proof_written = .false.
   logical :: aero_model_gasaerexch_wrap_proof_written = .false.
+  logical :: aero_model_gasaerexch_load_snapshot_proof_written = .false.
   logical :: aero_model_gasaerexch_column_flux_use_native_impl = .false.
   logical :: aero_model_gasaerexch_column_flux_impl_selected = .false.
   logical :: aero_model_gasaerexch_h2so4_save_use_native_impl = .false.
@@ -2914,11 +2915,13 @@ contains
     if (aero_model_gasaerexch_use_native_impl) then
        call qqcw2vmr( lchnk, vmrcw, mbar, ncol, loffset, pbuf )
     else
-       call aero_model_gasaerexch_load_vmrcw_codon( lchnk, vmrcw, mbar, ncol, loffset, pbuf )
+       call aero_model_gasaerexch_load_vmrcw_codon( lchnk, vmr, vmrcw, mbar, ncol, loffset, pbuf, dvmrdt, dvmrcwdt )
     end if
 
-    dvmrdt(:ncol,:,:) = vmr(:ncol,:,:)
-    dvmrcwdt(:ncol,:,:) = vmrcw(:ncol,:,:)
+    if (aero_model_gasaerexch_use_native_impl) then
+       dvmrdt(:ncol,:,:) = vmr(:ncol,:,:)
+       dvmrcwdt(:ncol,:,:) = vmrcw(:ncol,:,:)
+    end if
 
   ! aqueous chemistry ...
 
@@ -3091,7 +3094,7 @@ contains
 
   !=============================================================================
   !=============================================================================
-  subroutine aero_model_gasaerexch_load_vmrcw_codon(lchnk, vmr, mbar, ncol, im, pbuf)
+  subroutine aero_model_gasaerexch_load_vmrcw_codon(lchnk, vmr, vmrcw, mbar, ncol, im, pbuf, dvmrdt, dvmrcwdt)
 
     use modal_aero_data, only : qqcw_fill_cptrs
     use physics_buffer, only : physics_buffer_desc
@@ -3099,21 +3102,25 @@ contains
 
     integer, intent(in) :: lchnk, ncol, im
     real(r8), target, intent(in) :: mbar(ncol,pver)
-    real(r8), target, intent(inout) :: vmr(ncol,pver,gas_pcnst)
+    real(r8), target, intent(in) :: vmr(ncol,pver,gas_pcnst)
+    real(r8), target, intent(inout) :: vmrcw(ncol,pver,gas_pcnst)
+    real(r8), target, intent(inout) :: dvmrdt(ncol,pver,gas_pcnst), dvmrcwdt(ncol,pver,gas_pcnst)
     type(physics_buffer_desc), pointer :: pbuf(:)
 
     integer :: m
     real(r8), target :: adv_mass_local(gas_pcnst)
     type(c_ptr), target :: qqcw_ptrs(pcnst)
     integer(c_int64_t), target :: qqcw_present(pcnst)
+    character(len=160) :: proof_line
 
     interface
-       subroutine aero_model_gasaerexch_vmrcw_batch_codon(mode_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, qqcw_offset_c, mbar_ld1_c, &
-            qqcw_ptrs_p, qqcw_present_p, mbar_p, adv_mass_p, vmr_p) bind(c, name="aero_model_gasaerexch_vmrcw_batch_codon")
+       subroutine aero_model_gasaerexch_load_snapshot_codon(ncol_c, pcols_c, pver_c, gas_pcnst_c, qqcw_offset_c, mbar_ld1_c, &
+            qqcw_ptrs_p, qqcw_present_p, mbar_p, adv_mass_p, vmr_p, vmrcw_p, dvmrdt_p, dvmrcwdt_p) &
+            bind(c, name="aero_model_gasaerexch_load_snapshot_codon")
          use iso_c_binding, only : c_int64_t, c_ptr
-         integer(c_int64_t), value :: mode_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, qqcw_offset_c, mbar_ld1_c
-         type(c_ptr), value :: qqcw_ptrs_p, qqcw_present_p, mbar_p, adv_mass_p, vmr_p
-       end subroutine aero_model_gasaerexch_vmrcw_batch_codon
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, gas_pcnst_c, qqcw_offset_c, mbar_ld1_c
+         type(c_ptr), value :: qqcw_ptrs_p, qqcw_present_p, mbar_p, adv_mass_p, vmr_p, vmrcw_p, dvmrdt_p, dvmrcwdt_p
+       end subroutine aero_model_gasaerexch_load_snapshot_codon
     end interface
 
     adv_mass_local(:) = adv_mass(:)
@@ -3126,10 +3133,19 @@ contains
        end if
     end do
 
-    call aero_model_gasaerexch_vmrcw_batch_codon( &
-         int(1, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+    if (masterproc .and. .not. aero_model_gasaerexch_load_snapshot_proof_written) then
+       proof_line = 'aero_model_gasaerexch load snapshot entered (qqcw load/dvmr snapshots direct = codon)'
+       write(iulog,'(A)') trim(proof_line)
+       call aero_model_gasaerexch_append_impl_proof('AERO_MODEL_GASAEREXCH_PROOF_FILE', trim(proof_line))
+       aero_model_gasaerexch_load_snapshot_proof_written = .true.
+       call flush(iulog)
+    end if
+
+    call aero_model_gasaerexch_load_snapshot_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          int(gas_pcnst, c_int64_t), int(im, c_int64_t), int(ncol, c_int64_t), c_loc(qqcw_ptrs(1)), c_loc(qqcw_present(1)), &
-         c_loc(mbar(1,1)), c_loc(adv_mass_local(1)), c_loc(vmr(1,1,1)) &
+         c_loc(mbar(1,1)), c_loc(adv_mass_local(1)), c_loc(vmr(1,1,1)), c_loc(vmrcw(1,1,1)), &
+         c_loc(dvmrdt(1,1,1)), c_loc(dvmrcwdt(1,1,1)) &
     )
 
   end subroutine aero_model_gasaerexch_load_vmrcw_codon
