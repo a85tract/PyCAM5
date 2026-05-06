@@ -3487,6 +3487,216 @@ def uwshcu_thermo_prelim_shell_codon(
 
 
 @export
+def uwshcu_thermo_final_shell_codon(
+    mkx: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    k_fortran: int,
+    use_expconten: int,
+    use_unicondet: int,
+    ixnumliq: int,
+    ixnumice: int,
+    frc_rasn: float,
+    dt_v: float,
+    xlv_v: float,
+    xls_v: float,
+    g_v: float,
+    qc_lm_v: float,
+    qc_im_v: float,
+    nc_lm_v: float,
+    nc_im_v: float,
+    dp0_p: cobj,
+    qt0_p: cobj,
+    ql0_p: cobj,
+    qi0_p: cobj,
+    dwten_p: cobj,
+    diten_p: cobj,
+    qtten_p: cobj,
+    slten_p: cobj,
+    qlten_sink_p: cobj,
+    qiten_sink_p: cobj,
+    nlten_sink_p: cobj,
+    niten_sink_p: cobj,
+    qc_l_p: cobj,
+    qc_i_p: cobj,
+    qlten_p: cobj,
+    qiten_p: cobj,
+    qvten_p: cobj,
+    sten_p: cobj,
+    tr0_p: cobj,
+    trten_p: cobj,
+    wtrc_iatype_p: cobj,
+    wt0_p: cobj,
+    wtdwten_p: cobj,
+    wtditen_p: cobj,
+    wttotten_p: cobj,
+    wtten_sink_liq_p: cobj,
+    wtten_sink_ice_p: cobj,
+    wtqc_liq_p: cobj,
+    wtqc_ice_p: cobj,
+    wtqcm_liq_p: cobj,
+    wtqcm_ice_p: cobj,
+    wtlten_det_p: cobj,
+    wtiten_det_p: cobj,
+    qc_p: cobj,
+    rliq_p: cobj,
+):
+    dp0 = Ptr[float](dp0_p)
+    qt0 = Ptr[float](qt0_p)
+    ql0 = Ptr[float](ql0_p)
+    qi0 = Ptr[float](qi0_p)
+    dwten = Ptr[float](dwten_p)
+    diten = Ptr[float](diten_p)
+    qtten = Ptr[float](qtten_p)
+    slten = Ptr[float](slten_p)
+    qlten_sink = Ptr[float](qlten_sink_p)
+    qiten_sink = Ptr[float](qiten_sink_p)
+    nlten_sink = Ptr[float](nlten_sink_p)
+    niten_sink = Ptr[float](niten_sink_p)
+    qc_l = Ptr[float](qc_l_p)
+    qc_i = Ptr[float](qc_i_p)
+    qlten = Ptr[float](qlten_p)
+    qiten = Ptr[float](qiten_p)
+    qvten = Ptr[float](qvten_p)
+    sten = Ptr[float](sten_p)
+    tr0 = Ptr[float](tr0_p)
+    trten = Ptr[float](trten_p)
+    wtrc_iatype = Ptr[int](wtrc_iatype_p)
+    wt0 = Ptr[float](wt0_p)
+    wtdwten = Ptr[float](wtdwten_p)
+    wtditen = Ptr[float](wtditen_p)
+    wttotten = Ptr[float](wttotten_p)
+    wtten_sink_liq = Ptr[float](wtten_sink_liq_p)
+    wtten_sink_ice = Ptr[float](wtten_sink_ice_p)
+    wtqc_liq = Ptr[float](wtqc_liq_p)
+    wtqc_ice = Ptr[float](wtqc_ice_p)
+    wtqcm_liq = Ptr[float](wtqcm_liq_p)
+    wtqcm_ice = Ptr[float](wtqcm_ice_p)
+    wtlten_det = Ptr[float](wtlten_det_p)
+    wtiten_det = Ptr[float](wtiten_det_p)
+    qc = Ptr[float](qc_p)
+    rliq = Ptr[float](rliq_p)
+
+    k = k_fortran - 1
+    liq_idx = ixnumliq - 1
+    ice_idx = ixnumice - 1
+    qlten_det = qc_l[k] + qc_lm_v
+    qiten_det = qc_i[k] + qc_im_v
+
+    m = 0
+    while m < wtrc_nwset:
+        wt_idx = k + m * mkx
+        wtlten_det[wt_idx] = wtqc_liq[wt_idx] + wtqcm_liq[m]
+        wtiten_det[wt_idx] = wtqc_ice[wt_idx] + wtqcm_ice[m]
+        m += 1
+
+    if use_expconten != 0:
+        if use_unicondet != 0:
+            qc_l[k] = 0.0
+            qc_i[k] = 0.0
+            qlten[k] = frc_rasn * dwten[k] + qlten_sink[k] + qlten_det
+            qiten[k] = frc_rasn * diten[k] + qiten_sink[k] + qiten_det
+            m = 0
+            while m < wtrc_nwset:
+                wt_idx = k + m * mkx
+                liq = wtrc_iatype[m + wtrc_nwset] - 1
+                ice = wtrc_iatype[m + 2 * wtrc_nwset] - 1
+                wtqc_liq[wt_idx] = 0.0
+                wtqc_ice[wt_idx] = 0.0
+                trten[k + liq * mkx] = frc_rasn * wtdwten[wt_idx] + wtten_sink_liq[wt_idx] + wtlten_det[wt_idx]
+                trten[k + ice * mkx] = frc_rasn * wtditen[wt_idx] + wtten_sink_ice[wt_idx] + wtiten_det[wt_idx]
+                m += 1
+        else:
+            ql_tmp = ql0[k] + (qc_lm_v + qlten_sink[k]) * dt_v
+            if ql_tmp > 0.0:
+                ql_pos = ql_tmp
+            else:
+                ql_pos = 0.0
+            qi_tmp = qi0[k] + (qc_im_v + qiten_sink[k]) * dt_v
+            if qi_tmp > 0.0:
+                qi_pos = qi_tmp
+            else:
+                qi_pos = 0.0
+            qlten[k] = qc_l[k] + frc_rasn * dwten[k] + (ql_pos - ql0[k]) / dt_v
+            qiten[k] = qc_i[k] + frc_rasn * diten[k] + (qi_pos - qi0[k]) / dt_v
+
+            nl_val = nc_lm_v + nlten_sink[k]
+            nl_floor = -tr0[k + liq_idx * mkx] / dt_v
+            if nl_val > nl_floor:
+                trten[k + liq_idx * mkx] = nl_val
+            else:
+                trten[k + liq_idx * mkx] = nl_floor
+            ni_val = nc_im_v + niten_sink[k]
+            ni_floor = -tr0[k + ice_idx * mkx] / dt_v
+            if ni_val > ni_floor:
+                trten[k + ice_idx * mkx] = ni_val
+            else:
+                trten[k + ice_idx * mkx] = ni_floor
+
+            m = 0
+            while m < wtrc_nwset:
+                wt_idx = k + m * mkx
+                liq = wtrc_iatype[m + wtrc_nwset] - 1
+                ice = wtrc_iatype[m + 2 * wtrc_nwset] - 1
+                wt_liq_tmp = tr0[k + liq * mkx] + (wtqcm_liq[m] + wtten_sink_liq[wt_idx]) * dt_v
+                if wt_liq_tmp > 0.0:
+                    wt_liq_pos = wt_liq_tmp
+                else:
+                    wt_liq_pos = 0.0
+                wt_ice_tmp = tr0[k + ice * mkx] + (wtqcm_ice[m] + wtten_sink_ice[wt_idx]) * dt_v
+                if wt_ice_tmp > 0.0:
+                    wt_ice_pos = wt_ice_tmp
+                else:
+                    wt_ice_pos = 0.0
+                trten[k + liq * mkx] = wtqc_liq[wt_idx] + frc_rasn * wtdwten[wt_idx] + (
+                    wt_liq_pos - tr0[k + liq * mkx]
+                ) / dt_v
+                trten[k + ice * mkx] = wtqc_ice[wt_idx] + frc_rasn * wtditen[wt_idx] + (
+                    wt_ice_pos - tr0[k + ice * mkx]
+                ) / dt_v
+                m += 1
+    else:
+        if use_unicondet != 0:
+            qc_l[k] = 0.0
+            qc_i[k] = 0.0
+            m = 0
+            while m < wtrc_nwset:
+                wt_idx = k + m * mkx
+                wtqc_liq[wt_idx] = 0.0
+                wtqc_ice[wt_idx] = 0.0
+                m += 1
+        qlten[k] = dwten[k] + (qtten[k] - dwten[k] - diten[k]) * (ql0[k] / qt0[k])
+        qiten[k] = diten[k] + (qtten[k] - dwten[k] - diten[k]) * (qi0[k] / qt0[k])
+        m = 0
+        while m < wtrc_nwset:
+            wt_idx = k + m * mkx
+            liq = wtrc_iatype[m + wtrc_nwset] - 1
+            ice = wtrc_iatype[m + 2 * wtrc_nwset] - 1
+            trten[k + liq * mkx] = wtdwten[wt_idx] + (wttotten[wt_idx] - wtdwten[wt_idx] - wtditen[wt_idx]) * (
+                tr0[k + liq * mkx] / wt0[wt_idx]
+            )
+            trten[k + ice * mkx] = wtditen[wt_idx] + (wttotten[wt_idx] - wtdwten[wt_idx] - wtditen[wt_idx]) * (
+                tr0[k + ice * mkx] / wt0[wt_idx]
+            )
+            m += 1
+
+    qvten[k] = qtten[k] - qlten[k] - qiten[k]
+    sten[k] = slten[k] + xlv_v * qlten[k] + xls_v * qiten[k]
+
+    m = 0
+    while m < wtrc_nwset:
+        wt_idx = k + m * mkx
+        vap = wtrc_iatype[m] - 1
+        liq = wtrc_iatype[m + wtrc_nwset] - 1
+        ice = wtrc_iatype[m + 2 * wtrc_nwset] - 1
+        trten[k + vap * mkx] = wttotten[wt_idx] - trten[k + liq * mkx] - trten[k + ice * mkx]
+        m += 1
+
+    qc[k] = qc_l[k] + qc_i[k]
+    rliq[0] = rliq[0] + qc[k] * dp0[k] / g_v / 1000.0
+
+
+@export
 def uwshcu_column_input_load_shell_codon(
     mix: int,
     mkx: int,

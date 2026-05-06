@@ -61,6 +61,7 @@
   logical :: tendency_prep_shell_entered_logged = .false.
   logical :: comp_sub_sink_shell_entered_logged = .false.
   logical :: thermo_prelim_shell_entered_logged = .false.
+  logical :: thermo_final_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -524,6 +525,22 @@ contains
     end if
 
   end subroutine uwshcu_log_thermo_prelim_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_thermo_final_shell_entered()
+
+    if (thermo_final_shell_entered_logged) return
+    thermo_final_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu thermo final shell entered (final thermodynamic/tracer tendencies direct = codon; condensate solve native)'
+       call uwshcu_append_proof( &
+            'uwshcu thermo final shell entered (final thermodynamic/tracer tendencies direct = codon; condensate solve native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_thermo_final_shell_entered
 
 !===============================================================================
   
@@ -1287,7 +1304,7 @@ end subroutine uwshcu_readnl
     real(r8)    ni_emf_kbup
     real(r8)    qlten_det
     real(r8)    qiten_det
-    real(r8)    rliq                                          !  Vertical integral of qc [ m/s ] 
+    real(r8), target :: rliq                                  !  Vertical integral of qc [ m/s ]
     real(r8)    cnt                                           !  Cumulus top  interface index, cnt = kpen [ no ]
     real(r8)    cnb                                           !  Cumulus base interface index, cnb = krel - 1 [ no ] 
     real(r8), target :: qtten(mkx)                            !  Tendency of qt [ kg/kg/s ]
@@ -1314,13 +1331,13 @@ end subroutine uwshcu_readnl
     real(r8), target :: wtditen(mkx,wtrc_nwset)               !  Water tracer detraining ice tendency    [ kg/kg/s ]
     real(r8), target :: wtrpten(mkx,wtrc_nwset)               !  Water tracer rain tendency [ kg/kg/s ]
     real(r8), target :: wtspten(mkx,wtrc_nwset)               !  Water tracer snow tendency [ kg/kg/s ]
-    real(r8)    wtlten_det(mkx,wtrc_nwset)                    !  Water tracer non-precip liquid detrainment tendency [ kg/kg/s ]
-    real(r8)    wtiten_det(mkx,wtrc_nwset)                    !  Water tracer non-precip frozen detrainment tendency [ kg/kg/s ]
+    real(r8), target :: wtlten_det(mkx,wtrc_nwset)            !  Water tracer non-precip liquid detrainment tendency [ kg/kg/s ]
+    real(r8), target :: wtiten_det(mkx,wtrc_nwset)            !  Water tracer non-precip frozen detrainment tendency [ kg/kg/s ]
     real(r8)    wt0_star(mkx,wtrc_nwset,3)                    !  Water tracer state post-tendency (used for corrections) [ kg/kg ]
     real(r8), target :: wtqc_liq(mkx,wtrc_nwset)              !  Water tracer tendency due to liquid detrained 'cloud condensate' [ kg/kg/s ]
     real(r8), target :: wtqc_ice(mkx,wtrc_nwset)              !  Water tracer tendency due to frozen detrained 'cloud condensate' [ kg/kg/s ]
-    real(r8)    wtqcm_liq(wtrc_nwset)                         !  Water tracer tendency due to liquid detrainment at midlevels [ kg/kg/s ]
-    real(r8)    wtqcm_ice(wtrc_nwset)                         !  Water tracer tendency due to frozen detrainment at midlevels [ kg/kg/s ]
+    real(r8), target :: wtqcm_liq(wtrc_nwset)                 !  Water tracer tendency due to liquid detrainment at midlevels [ kg/kg/s ]
+    real(r8), target :: wtqcm_ice(wtrc_nwset)                 !  Water tracer tendency due to frozen detrainment at midlevels [ kg/kg/s ]
     real(r8), target :: wtprec(wtrc_nwset)                    !  Surface water tracer precipitation rate [ m/s ]
     real(r8), target :: wtsnow(wtrc_nwset)                    !  Surface water tracer snow rate [ m/s ]
 
@@ -2160,6 +2177,27 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: uflx_p, vflx_p, uf_p, vf_p, u0_p, v0_p, wtflx_p
           type(c_ptr), value :: slten_p, qtten_p, wttotten_p, rainflx_p, snowflx_p
        end subroutine uwshcu_thermo_prelim_shell_codon
+
+       subroutine uwshcu_thermo_final_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, k_c, &
+            use_expconten_c, use_unicondet_c, ixnumliq_c, ixnumice_c, frc_rasn_c, &
+            dt_c, xlv_c, xls_c, g_c, qc_lm_c, qc_im_c, nc_lm_c, nc_im_c, dp0_p, qt0_p, &
+            ql0_p, qi0_p, dwten_p, diten_p, qtten_p, slten_p, qlten_sink_p, qiten_sink_p, &
+            nlten_sink_p, niten_sink_p, qc_l_p, qc_i_p, qlten_p, qiten_p, qvten_p, sten_p, &
+            tr0_p, trten_p, wtrc_iatype_p, wt0_p, wtdwten_p, wtditen_p, wttotten_p, &
+            wtten_sink_liq_p, wtten_sink_ice_p, wtqc_liq_p, wtqc_ice_p, wtqcm_liq_p, &
+            wtqcm_ice_p, wtlten_det_p, wtiten_det_p, qc_p, rliq_p) &
+            bind(c, name="uwshcu_thermo_final_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, k_c
+          integer(c_int64_t), value :: use_expconten_c, use_unicondet_c, ixnumliq_c, ixnumice_c
+          real(c_double), value :: frc_rasn_c, dt_c, xlv_c, xls_c, g_c, qc_lm_c, qc_im_c, nc_lm_c, nc_im_c
+          type(c_ptr), value :: dp0_p, qt0_p, ql0_p, qi0_p, dwten_p, diten_p, qtten_p, slten_p
+          type(c_ptr), value :: qlten_sink_p, qiten_sink_p, nlten_sink_p, niten_sink_p
+          type(c_ptr), value :: qc_l_p, qc_i_p, qlten_p, qiten_p, qvten_p, sten_p, tr0_p, trten_p
+          type(c_ptr), value :: wtrc_iatype_p, wt0_p, wtdwten_p, wtditen_p, wttotten_p
+          type(c_ptr), value :: wtten_sink_liq_p, wtten_sink_ice_p, wtqc_liq_p, wtqc_ice_p
+          type(c_ptr), value :: wtqcm_liq_p, wtqcm_ice_p, wtlten_det_p, wtiten_det_p, qc_p, rliq_p
+       end subroutine uwshcu_thermo_final_shell_codon
 
        subroutine uwshcu_column_env_save_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, &
@@ -6041,6 +6079,7 @@ end subroutine uwshcu_readnl
              !*************
           endif 
 
+          if (use_native_init_shell_impl) then
           qlten_det   = qc_l(k) + qc_lm
           qiten_det   = qc_i(k) + qc_im
  
@@ -6168,6 +6207,21 @@ end subroutine uwshcu_readnl
 
           qc(k)  =  qc_l(k) +  qc_i(k)   
           rliq   =  rliq    + qc(k) * dp0(k) / g / 1000._r8    ! [ m/s ]
+          else
+             call uwshcu_log_thermo_final_shell_entered()
+             call uwshcu_thermo_final_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+                  wtrc_nwset_post_c, int(k, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, use_expconten), &
+                  merge(1_c_int64_t, 0_c_int64_t, use_unicondet), int(ixnumliq, c_int64_t), &
+                  int(ixnumice, c_int64_t), frc_rasn, dt, xlv, xls, g, qc_lm, qc_im, nc_lm, nc_im, &
+                  c_loc(dp0), c_loc(qt0), c_loc(ql0), c_loc(qi0), c_loc(dwten), c_loc(diten), &
+                  c_loc(qtten), c_loc(slten), c_loc(qlten_sink), c_loc(qiten_sink), &
+                  c_loc(nlten_sink), c_loc(niten_sink), c_loc(qc_l), c_loc(qc_i), c_loc(qlten), &
+                  c_loc(qiten), c_loc(qvten), c_loc(sten), c_loc(tr0), c_loc(trten), &
+                  c_loc(wtrc_iatype_post), c_loc(wt0), c_loc(wtdwten), c_loc(wtditen), &
+                  c_loc(wttotten), c_loc(wtten_sink_liq), c_loc(wtten_sink_ice), c_loc(wtqc_liq), &
+                  c_loc(wtqc_ice), c_loc(wtqcm_liq), c_loc(wtqcm_ice), c_loc(wtlten_det), &
+                  c_loc(wtiten_det), c_loc(qc), c_loc(rliq))
+          endif
 
        end do
 
