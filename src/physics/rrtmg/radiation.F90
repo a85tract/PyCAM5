@@ -641,8 +641,8 @@ end function radiation_nextsw_cday
     radiation_diag_prep_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'radiation_diag_prep entered (pressure/column_mean/qrs-qrl qdp loops direct = codon; history diagnostics/rrtmg core = native)'
-       call radiation_diag_prep_append_proof('radiation_diag_prep entered (pressure/column_mean/qrs-qrl qdp loops direct = codon; history diagnostics/rrtmg core = native)')
+       write(iulog,*) 'radiation_diag_prep entered (cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history diagnostics/rrtmg core = native)'
+       call radiation_diag_prep_append_proof('radiation_diag_prep entered (cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history diagnostics/rrtmg core = native)')
        call flush(iulog)
     end if
 
@@ -651,14 +651,17 @@ end function radiation_nextsw_cday
 !===============================================================================
 
   subroutine radiation_diag_prep_codon_call(stage, ncol, mode, cpair_local, fillvalue_local, &
-       scalar_p, a_p, b_p, c_p, d_p, e_p, f_p, g_p, h_p, i_p, j_p, k_p, l_p, m_p, n_p, o_p, p_p, q_p, r_p)
+       scalar_p, a_p, b_p, c_p, d_p, e_p, f_p, g_p, h_p, i_p, j_p, k_p, l_p, m_p, n_p, o_p, p_p, q_p, r_p, &
+       nday_override, nnite_override)
 
     use iso_c_binding, only: c_double, c_int64_t, c_ptr
 
     integer, intent(in) :: stage, ncol, mode
+    integer, intent(in), optional :: nday_override, nnite_override
     real(r8), intent(in) :: cpair_local, fillvalue_local
     type(c_ptr), intent(in) :: scalar_p, a_p, b_p, c_p, d_p, e_p, f_p, g_p, h_p, i_p, j_p, k_p, l_p, m_p
     type(c_ptr), intent(in) :: n_p, o_p, p_p, q_p, r_p
+    integer :: nday_arg, nnite_arg
 
     interface
        subroutine radiation_diag_prep_codon(stage_c, ncol_c, pcols_c, pver_c, nday_c, nnite_c, cpair_c, cgs2mks_c, &
@@ -672,8 +675,13 @@ end function radiation_nextsw_cday
        end subroutine radiation_diag_prep_codon
     end interface
 
+    nday_arg = mode
+    nnite_arg = 0
+    if (present(nday_override)) nday_arg = nday_override
+    if (present(nnite_override)) nnite_arg = nnite_override
+
     call radiation_diag_prep_codon(int(stage, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), &
-         int(pver, c_int64_t), int(mode, c_int64_t), int(0, c_int64_t), real(cpair_local, c_double), &
+         int(pver, c_int64_t), int(nday_arg, c_int64_t), int(nnite_arg, c_int64_t), real(cpair_local, c_double), &
          real(1._r8, c_double), real(fillvalue_local, c_double), scalar_p, a_p, b_p, c_p, d_p, e_p, &
          f_p, g_p, h_p, i_p, j_p, k_p, l_p, m_p, n_p, o_p, p_p, q_p, r_p, scalar_p, scalar_p)
 
@@ -753,6 +761,44 @@ end function radiation_nextsw_cday
          dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p)
 
   end subroutine radiation_diag_prep_col_mean
+
+  subroutine radiation_diag_prep_cloud_sw(ncol, nbnd, has_snow, cld_p, cldfsnow_p, cld_tau_p, cld_tau_w_p, &
+       cld_tau_w_g_p, cld_tau_w_f_p, snow_tau_p, snow_tau_w_p, snow_tau_w_g_p, snow_tau_w_f_p, &
+       c_cld_tau_p, c_cld_tau_w_p, c_cld_tau_w_g_p, c_cld_tau_w_f_p, cldfprime_p, dummy_p)
+
+    use iso_c_binding, only: c_ptr
+
+    integer, intent(in) :: ncol, nbnd
+    logical, intent(in) :: has_snow
+    type(c_ptr), intent(in) :: cld_p, cldfsnow_p, cld_tau_p, cld_tau_w_p, cld_tau_w_g_p, cld_tau_w_f_p
+    type(c_ptr), intent(in) :: snow_tau_p, snow_tau_w_p, snow_tau_w_g_p, snow_tau_w_f_p
+    type(c_ptr), intent(in) :: c_cld_tau_p, c_cld_tau_w_p, c_cld_tau_w_g_p, c_cld_tau_w_f_p
+    type(c_ptr), intent(in) :: cldfprime_p, dummy_p
+
+    call radiation_diag_prep_codon_call(9, ncol, 0, cpair, 0._r8, dummy_p, cld_p, cldfsnow_p, &
+         cld_tau_p, cld_tau_w_p, cld_tau_w_g_p, cld_tau_w_f_p, snow_tau_p, snow_tau_w_p, &
+         snow_tau_w_g_p, snow_tau_w_f_p, c_cld_tau_p, c_cld_tau_w_p, c_cld_tau_w_g_p, &
+         c_cld_tau_w_f_p, cldfprime_p, dummy_p, dummy_p, dummy_p, &
+         nday_override=nbnd, nnite_override=merge(1, 0, has_snow))
+
+  end subroutine radiation_diag_prep_cloud_sw
+
+  subroutine radiation_diag_prep_cloud_lw(ncol, nbnd, has_snow, cld_p, cldfsnow_p, cld_lw_abs_p, &
+       snow_lw_abs_p, c_cld_lw_abs_p, cldfprime_p, dummy_p)
+
+    use iso_c_binding, only: c_ptr
+
+    integer, intent(in) :: ncol, nbnd
+    logical, intent(in) :: has_snow
+    type(c_ptr), intent(in) :: cld_p, cldfsnow_p, cld_lw_abs_p, snow_lw_abs_p, c_cld_lw_abs_p
+    type(c_ptr), intent(in) :: cldfprime_p, dummy_p
+
+    call radiation_diag_prep_codon_call(10, ncol, 0, cpair, 0._r8, dummy_p, cld_p, cldfsnow_p, &
+         cld_lw_abs_p, snow_lw_abs_p, c_cld_lw_abs_p, dummy_p, dummy_p, dummy_p, dummy_p, &
+         dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, cldfprime_p, dummy_p, dummy_p, &
+         dummy_p, nday_override=nbnd, nnite_override=merge(1, 0, has_snow))
+
+  end subroutine radiation_diag_prep_cloud_lw
 
 !===============================================================================
   
@@ -860,18 +906,18 @@ end function radiation_nextsw_cday
     real(r8), target :: ftem(pcols,pver)      ! Temporary workspace for outfld variables
 
     ! combined cloud radiative parameters are "in cloud" not "in cell"
-    real(r8) :: c_cld_tau    (nbndsw,pcols,pver) ! cloud extinction optical depth
-    real(r8) :: c_cld_tau_w  (nbndsw,pcols,pver) ! cloud single scattering albedo * tau
-    real(r8) :: c_cld_tau_w_g(nbndsw,pcols,pver) ! cloud assymetry parameter * w * tau
-    real(r8) :: c_cld_tau_w_f(nbndsw,pcols,pver) ! cloud forward scattered fraction * w * tau
-    real(r8) :: c_cld_lw_abs (nbndlw,pcols,pver) ! cloud absorption optics depth (LW)
+    real(r8), target :: c_cld_tau    (nbndsw,pcols,pver) ! cloud extinction optical depth
+    real(r8), target :: c_cld_tau_w  (nbndsw,pcols,pver) ! cloud single scattering albedo * tau
+    real(r8), target :: c_cld_tau_w_g(nbndsw,pcols,pver) ! cloud assymetry parameter * w * tau
+    real(r8), target :: c_cld_tau_w_f(nbndsw,pcols,pver) ! cloud forward scattered fraction * w * tau
+    real(r8), target :: c_cld_lw_abs (nbndlw,pcols,pver) ! cloud absorption optics depth (LW)
 
     ! cloud radiative parameters are "in cloud" not "in cell"
-    real(r8) :: cld_tau    (nbndsw,pcols,pver) ! cloud extinction optical depth
-    real(r8) :: cld_tau_w  (nbndsw,pcols,pver) ! cloud single scattering albedo * tau
-    real(r8) :: cld_tau_w_g(nbndsw,pcols,pver) ! cloud assymetry parameter * w * tau
-    real(r8) :: cld_tau_w_f(nbndsw,pcols,pver) ! cloud forward scattered fraction * w * tau
-    real(r8) :: cld_lw_abs (nbndlw,pcols,pver) ! cloud absorption optics depth (LW)
+    real(r8), target :: cld_tau    (nbndsw,pcols,pver) ! cloud extinction optical depth
+    real(r8), target :: cld_tau_w  (nbndsw,pcols,pver) ! cloud single scattering albedo * tau
+    real(r8), target :: cld_tau_w_g(nbndsw,pcols,pver) ! cloud assymetry parameter * w * tau
+    real(r8), target :: cld_tau_w_f(nbndsw,pcols,pver) ! cloud forward scattered fraction * w * tau
+    real(r8), target :: cld_lw_abs (nbndlw,pcols,pver) ! cloud absorption optics depth (LW)
 
     ! cloud radiative parameters are "in cloud" not "in cell"
     real(r8) :: ice_tau    (nbndsw,pcols,pver) ! ice extinction optical depth
@@ -881,11 +927,11 @@ end function radiation_nextsw_cday
     real(r8) :: ice_lw_abs (nbndlw,pcols,pver)   ! ice absorption optics depth (LW)
 
     ! cloud radiative parameters are "in cloud" not "in cell"
-    real(r8) :: snow_tau    (nbndsw,pcols,pver) ! snow extinction optical depth
-    real(r8) :: snow_tau_w  (nbndsw,pcols,pver) ! snow single scattering albedo * tau
-    real(r8) :: snow_tau_w_g(nbndsw,pcols,pver) ! snow assymetry parameter * tau * w
-    real(r8) :: snow_tau_w_f(nbndsw,pcols,pver) ! snow forward scattered fraction * tau * w
-    real(r8) :: snow_lw_abs (nbndlw,pcols,pver)   ! snow absorption optics depth (LW)
+    real(r8), target :: snow_tau    (nbndsw,pcols,pver) ! snow extinction optical depth
+    real(r8), target :: snow_tau_w  (nbndsw,pcols,pver) ! snow single scattering albedo * tau
+    real(r8), target :: snow_tau_w_g(nbndsw,pcols,pver) ! snow assymetry parameter * tau * w
+    real(r8), target :: snow_tau_w_f(nbndsw,pcols,pver) ! snow forward scattered fraction * tau * w
+    real(r8), target :: snow_lw_abs (nbndlw,pcols,pver)   ! snow absorption optics depth (LW)
     real(r8) :: gb_snow_tau        (pcols,pver) ! grid-box mean snow_tau for COSP only
     real(r8) :: gb_snow_lw         (pcols,pver) ! grid-box mean LW snow optical depth for COSP only
 
@@ -905,7 +951,7 @@ end function radiation_nextsw_cday
     integer itim_old, ifld
     real(r8), pointer, dimension(:,:) :: cld      ! cloud fraction
     real(r8), pointer, dimension(:,:) :: cldfsnow ! cloud fraction of just "snow clouds- whatever they are"
-    real(r8) :: cldfprime(pcols,pver)             ! combined cloud fraction (snow plus regular)
+    real(r8), target :: cldfprime(pcols,pver)             ! combined cloud fraction (snow plus regular)
     real(r8), pointer, dimension(:,:) :: qrs      ! shortwave radiative heating rate
     real(r8), pointer, dimension(:,:) :: qrl      ! longwave  radiative heating rate
     real(r8), target :: qrsc(pcols,pver)          ! clearsky shortwave radiative heating rate
@@ -1103,31 +1149,21 @@ end function radiation_nextsw_cday
           if (cldfsnow_idx > 0) then
             ! add in snow
              call get_snow_optics_sw(state, pbuf, snow_tau, snow_tau_w, snow_tau_w_g, snow_tau_w_f)
-             do i=1,ncol
-                do k=1,pver
-                   cldfprime(i,k)=max(cld(i,k),cldfsnow(i,k))
-                   if(cldfprime(i,k) > 0.)then
-                      c_cld_tau    (1:nbndsw,i,k)= &
-                           (cldfsnow(i,k)*snow_tau    (1:nbndsw,i,k) + cld(i,k)*cld_tau    (1:nbndsw,i,k))/cldfprime(i,k)
-                      c_cld_tau_w  (1:nbndsw,i,k)= &
-                           (cldfsnow(i,k)*snow_tau_w  (1:nbndsw,i,k) + cld(i,k)*cld_tau_w  (1:nbndsw,i,k))/cldfprime(i,k)
-                      c_cld_tau_w_g(1:nbndsw,i,k)= &
-                           (cldfsnow(i,k)*snow_tau_w_g(1:nbndsw,i,k) + cld(i,k)*cld_tau_w_g(1:nbndsw,i,k))/cldfprime(i,k)
-                      c_cld_tau_w_f(1:nbndsw,i,k)= &
-                           (cldfsnow(i,k)*snow_tau_w_f(1:nbndsw,i,k) + cld(i,k)*cld_tau_w_f(1:nbndsw,i,k))/cldfprime(i,k)
-                   else
-                      c_cld_tau    (1:nbndsw,i,k)= 0._r8
-                      c_cld_tau_w  (1:nbndsw,i,k)= 0._r8
-                      c_cld_tau_w_g(1:nbndsw,i,k)= 0._r8
-                      c_cld_tau_w_f(1:nbndsw,i,k)= 0._r8
-                   endif
-                enddo
-             enddo
+             call radiation_diag_prep_log_entered()
+             call radiation_diag_prep_cloud_sw(ncol, nbndsw, .true., c_loc(cld(1,1)), c_loc(cldfsnow(1,1)), &
+                  c_loc(cld_tau(1,1,1)), c_loc(cld_tau_w(1,1,1)), c_loc(cld_tau_w_g(1,1,1)), &
+                  c_loc(cld_tau_w_f(1,1,1)), c_loc(snow_tau(1,1,1)), c_loc(snow_tau_w(1,1,1)), &
+                  c_loc(snow_tau_w_g(1,1,1)), c_loc(snow_tau_w_f(1,1,1)), c_loc(c_cld_tau(1,1,1)), &
+                  c_loc(c_cld_tau_w(1,1,1)), c_loc(c_cld_tau_w_g(1,1,1)), c_loc(c_cld_tau_w_f(1,1,1)), &
+                  c_loc(cldfprime(1,1)), c_loc(radiation_diag_dummy))
           else
-             c_cld_tau    (1:nbndsw,1:ncol,:)= cld_tau    (:,1:ncol,:)
-             c_cld_tau_w  (1:nbndsw,1:ncol,:)= cld_tau_w  (:,1:ncol,:)
-             c_cld_tau_w_g(1:nbndsw,1:ncol,:)= cld_tau_w_g(:,1:ncol,:)
-             c_cld_tau_w_f(1:nbndsw,1:ncol,:)= cld_tau_w_f(:,1:ncol,:)
+             call radiation_diag_prep_log_entered()
+             call radiation_diag_prep_cloud_sw(ncol, nbndsw, .false., c_loc(cld(1,1)), c_loc(cld(1,1)), &
+                  c_loc(cld_tau(1,1,1)), c_loc(cld_tau_w(1,1,1)), c_loc(cld_tau_w_g(1,1,1)), &
+                  c_loc(cld_tau_w_f(1,1,1)), c_loc(snow_tau(1,1,1)), c_loc(snow_tau_w(1,1,1)), &
+                  c_loc(snow_tau_w_g(1,1,1)), c_loc(snow_tau_w_f(1,1,1)), c_loc(c_cld_tau(1,1,1)), &
+                  c_loc(c_cld_tau_w(1,1,1)), c_loc(c_cld_tau_w_g(1,1,1)), c_loc(c_cld_tau_w_f(1,1,1)), &
+                  c_loc(cldfprime(1,1)), c_loc(radiation_diag_dummy))
           endif
        endif
 
@@ -1160,24 +1196,16 @@ end function radiation_nextsw_cday
           if (cldfsnow_idx > 0) then
             ! add in snow
              call snow_cloud_get_rad_props_lw(state, pbuf, snow_lw_abs)
-             do i=1,ncol
-                do k=1,pver
-                   cldfprime(i,k)=max(cld(i,k),cldfsnow(i,k))
-                   if(cldfprime(i,k) > 0.)then
-                      c_cld_lw_abs(1:nbndlw,i,k)= &
-                           (cldfsnow(i,k)*snow_lw_abs(1:nbndlw,i,k) + cld(i,k)*cld_lw_abs(1:nbndlw,i,k))/cldfprime(i,k)
-                   else
-                      c_cld_lw_abs(1:nbndlw,i,k)= 0._r8
-                   endif
-                enddo
-             enddo
+             call radiation_diag_prep_log_entered()
+             call radiation_diag_prep_cloud_lw(ncol, nbndlw, .true., c_loc(cld(1,1)), c_loc(cldfsnow(1,1)), &
+                  c_loc(cld_lw_abs(1,1,1)), c_loc(snow_lw_abs(1,1,1)), c_loc(c_cld_lw_abs(1,1,1)), &
+                  c_loc(cldfprime(1,1)), c_loc(radiation_diag_dummy))
           else
-             c_cld_lw_abs(1:nbndlw,1:ncol,:)=cld_lw_abs(:,1:ncol,:)
+             call radiation_diag_prep_log_entered()
+             call radiation_diag_prep_cloud_lw(ncol, nbndlw, .false., c_loc(cld(1,1)), c_loc(cld(1,1)), &
+                  c_loc(cld_lw_abs(1,1,1)), c_loc(snow_lw_abs(1,1,1)), c_loc(c_cld_lw_abs(1,1,1)), &
+                  c_loc(cldfprime(1,1)), c_loc(radiation_diag_dummy))
           endif
-       endif
-
-       if (.not.(cldfsnow_idx > 0)) then
-          cldfprime(1:ncol,:)=cld(1:ncol,:)
        endif
 
        call t_stopf('cldoptics')

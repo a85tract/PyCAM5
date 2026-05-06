@@ -5,6 +5,12 @@ def _field_idx(icol: int, klev: int, ld1: int) -> int:
 
 
 @inline
+def _band3_idx(ibnd: int, icol: int, klev: int, nbnd: int, pcols: int) -> int:
+    """cloud optics arrays declared as (nbnd, pcols, pver)"""
+    return (ibnd - 1) + (icol - 1) * nbnd + (klev - 1) * nbnd * pcols
+
+
+@inline
 def _col_idx(icol: int) -> int:
     """fsns/fsnt/flns/flnt/net_flx declared as (pcols)"""
     return icol - 1
@@ -241,3 +247,73 @@ def radiation_diag_prep_codon(
 
         for i in range(1, ncol + 1):
             c[_col_idx(i)] = c[_col_idx(i)] / d[_col_idx(i)]
+    elif stage == 9:
+        # SW cloud/snow optics combine. a=cld, b=cldfsnow, c-f=cld_tau*, g-j=snow_tau*,
+        # k-n=c_cld_tau*, o=cldfprime. nday carries nbndsw, nnite is has_snow.
+        nbnd = nday
+        has_snow = nnite != 0
+        if has_snow:
+            for i in range(1, ncol + 1):
+                for kk in range(1, pver + 1):
+                    idx2 = _field_idx(i, kk, pcols)
+                    cldval = a[idx2]
+                    snowval = b[idx2]
+                    prime = cldval
+                    if snowval > prime:
+                        prime = snowval
+                    oarr[idx2] = prime
+                    if prime > 0.0:
+                        for ib in range(1, nbnd + 1):
+                            idx3 = _band3_idx(ib, i, kk, nbnd, pcols)
+                            karr[idx3] = (snowval * g[idx3] + cldval * c[idx3]) / prime
+                            larr[idx3] = (snowval * h[idx3] + cldval * d[idx3]) / prime
+                            marr[idx3] = (snowval * iarr[idx3] + cldval * e[idx3]) / prime
+                            narr[idx3] = (snowval * jarr[idx3] + cldval * f[idx3]) / prime
+                    else:
+                        for ib in range(1, nbnd + 1):
+                            idx3 = _band3_idx(ib, i, kk, nbnd, pcols)
+                            karr[idx3] = 0.0
+                            larr[idx3] = 0.0
+                            marr[idx3] = 0.0
+                            narr[idx3] = 0.0
+        else:
+            for i in range(1, ncol + 1):
+                for kk in range(1, pver + 1):
+                    idx2 = _field_idx(i, kk, pcols)
+                    oarr[idx2] = a[idx2]
+                    for ib in range(1, nbnd + 1):
+                        idx3 = _band3_idx(ib, i, kk, nbnd, pcols)
+                        karr[idx3] = c[idx3]
+                        larr[idx3] = d[idx3]
+                        marr[idx3] = e[idx3]
+                        narr[idx3] = f[idx3]
+    elif stage == 10:
+        # LW cloud/snow absorption combine. a=cld, b=cldfsnow, c=cld_lw_abs,
+        # d=snow_lw_abs, e=c_cld_lw_abs, o=cldfprime. nday carries nbndlw.
+        nbnd = nday
+        has_snow = nnite != 0
+        if has_snow:
+            for i in range(1, ncol + 1):
+                for kk in range(1, pver + 1):
+                    idx2 = _field_idx(i, kk, pcols)
+                    cldval = a[idx2]
+                    snowval = b[idx2]
+                    prime = cldval
+                    if snowval > prime:
+                        prime = snowval
+                    oarr[idx2] = prime
+                    if prime > 0.0:
+                        for ib in range(1, nbnd + 1):
+                            idx3 = _band3_idx(ib, i, kk, nbnd, pcols)
+                            e[idx3] = (snowval * d[idx3] + cldval * c[idx3]) / prime
+                    else:
+                        for ib in range(1, nbnd + 1):
+                            e[_band3_idx(ib, i, kk, nbnd, pcols)] = 0.0
+        else:
+            for i in range(1, ncol + 1):
+                for kk in range(1, pver + 1):
+                    idx2 = _field_idx(i, kk, pcols)
+                    oarr[idx2] = a[idx2]
+                    for ib in range(1, nbnd + 1):
+                        idx3 = _band3_idx(ib, i, kk, nbnd, pcols)
+                        e[idx3] = c[idx3]
