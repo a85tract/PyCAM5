@@ -641,8 +641,8 @@ end function radiation_nextsw_cday
     radiation_diag_prep_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'radiation_diag_prep entered (cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)'
-       call radiation_diag_prep_append_proof('radiation_diag_prep entered (cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)')
+       write(iulog,*) 'radiation_diag_prep entered (compact_qrl/cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)'
+       call radiation_diag_prep_append_proof('radiation_diag_prep entered (compact_qrl/cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)')
        call flush(iulog)
     end if
 
@@ -708,6 +708,21 @@ end function radiation_nextsw_cday
          dummy_p, dummy_p, dummy_p)
 
   end subroutine radiation_diag_prep_div_field
+
+!===============================================================================
+
+  subroutine radiation_diag_prep_compact_div_field(ncol, input_p, output_p, dummy_p)
+
+    use iso_c_binding, only: c_ptr
+
+    integer, intent(in) :: ncol
+    type(c_ptr), intent(in) :: input_p, output_p, dummy_p
+
+    call radiation_diag_prep_codon_call(15, ncol, 0, cpair, 0._r8, dummy_p, input_p, output_p, &
+         dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
+         dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, nday_override=ncol)
+
+  end subroutine radiation_diag_prep_compact_div_field
 
 !===============================================================================
 
@@ -1039,6 +1054,8 @@ end function radiation_nextsw_cday
     real(r8), pointer, dimension(:,:) :: qrl      ! longwave  radiative heating rate
     real(r8), target :: qrsc(pcols,pver)          ! clearsky shortwave radiative heating rate
     real(r8), target :: qrlc(pcols,pver)          ! clearsky longwave  radiative heating rate
+    real(r8), allocatable, target :: qrl_hist(:,:)   ! compact QRL history workspace
+    real(r8), allocatable, target :: qrlc_hist(:,:)  ! compact QRLC history workspace
 
     integer lchnk, ncol, lw
     real(r8) :: calday                        ! current calendar day
@@ -1128,6 +1145,7 @@ end function radiation_nextsw_cday
 
     lchnk = state%lchnk
     ncol = state%ncol
+    allocate(qrl_hist(ncol,pver), qrlc_hist(ncol,pver))
     radiation_diag_dummy(1) = 0._r8
     call radiation_diag_prep_select_impl()
 
@@ -1456,8 +1474,12 @@ end function radiation_nextsw_cday
                   endif
 
                   ! Dump longwave radiation information to history tape buffer (diagnostics)
-                  call outfld('QRL'//diag(icall),qrl (:ncol,:)/cpair,ncol,lchnk)
-                  call outfld('QRLC'//diag(icall),qrlc(:ncol,:)/cpair,ncol,lchnk)
+                  call radiation_diag_prep_compact_div_field(ncol, c_loc(qrl(1,1)), c_loc(qrl_hist(1,1)), &
+                       c_loc(radiation_diag_dummy(1)))
+                  call outfld('QRL'//diag(icall),qrl_hist,ncol,lchnk)
+                  call radiation_diag_prep_compact_div_field(ncol, c_loc(qrlc(1,1)), c_loc(qrlc_hist(1,1)), &
+                       c_loc(radiation_diag_dummy(1)))
+                  call outfld('QRLC'//diag(icall),qrlc_hist,ncol,lchnk)
                   call outfld('FLNT'//diag(icall),flnt  ,pcols,lchnk)
                   call outfld('FLUT'//diag(icall),flut  ,pcols,lchnk)
                   call outfld('FLUTC'//diag(icall),flutc ,pcols,lchnk)

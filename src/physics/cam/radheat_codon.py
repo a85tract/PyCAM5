@@ -384,3 +384,10 @@ def radiation_diag_prep_codon(
                 for ib in range(1, nbnd + 1):
                     idx3 = _band3_idx(ib, i, kk, nbnd, pcols)
                     c[idx3] = a[idx3] + b[idx3]
+    elif stage == 15:
+        # Compact longwave history workspace: input has pcols leading dimension,
+        # output matches the original compiler temporary shape (ncol, pver).
+        out_ld = nday
+        for kk in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                b[_field_idx(i, kk, out_ld)] = a[_field_idx(i, kk, pcols)] / cpair
