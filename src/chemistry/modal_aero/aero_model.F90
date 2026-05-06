@@ -3809,9 +3809,7 @@ contains
           rdry_c(isec) = real(rdry(isec), c_double)
        end do
 
-       u10cubed(:ncol)=sqrt(state%u(:ncol,pver)**2+state%v(:ncol,pver)**2)
-       u10cubed(:ncol)=u10cubed(:ncol)*log(10._r8/z0)/log(state%zm(:ncol,pver)/z0)
-       u10cubed(:ncol)=u10cubed(:ncol)**3.41_r8
+       call aero_model_emissions_seasalt_wind(ncol, state%u, state%v, state%zm, z0, u10cubed)
 
        call aero_model_emissions_codon_wrap( &
             2, ncol, 0, 0._c_double, real(seasalt_emis_scale, c_double), c_null_ptr, c_null_ptr, c_null_ptr, &
@@ -3993,7 +3991,11 @@ contains
        aero_model_emissions_dust_stage_proof_written = .true.
        call flush(iulog)
     else if (masterproc .and. stage == 2 .and. .not. aero_model_emissions_seasalt_stage_proof_written) then
-       wrap_proof_line = 'aero_model_emissions seasalt shell entered (section fluxes/seasalt flux direct = codon; wind = native)'
+       if (aero_model_emissions_seasalt_wind_use_native_impl) then
+          wrap_proof_line = 'aero_model_emissions seasalt shell entered (section fluxes/seasalt flux direct = codon; wind = native)'
+       else
+          wrap_proof_line = 'aero_model_emissions seasalt shell entered (wind/section fluxes/seasalt flux direct = codon)'
+       end if
        write(iulog,'(A)') trim(wrap_proof_line)
        call aero_model_emissions_append_impl_proof('AERO_MODEL_EMISSIONS_PROOF_FILE', trim(wrap_proof_line))
        aero_model_emissions_seasalt_stage_proof_written = .true.
