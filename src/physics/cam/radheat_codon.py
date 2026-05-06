@@ -317,3 +317,19 @@ def radiation_diag_prep_codon(
                     for ib in range(1, nbnd + 1):
                         idx3 = _band3_idx(ib, i, kk, nbnd, pcols)
                         e[idx3] = c[idx3]
+    elif stage == 11:
+        # COSP snow diagnostic band extract. a=cldfsnow, b=band3 input, c=output2D.
+        # nday carries the band3 leading dimension; nnite carries selected band or 0.
+        nbnd = nday
+        selected_band = nnite
+        for kk in range(1, pver + 1):
+            for i in range(1, pcols + 1):
+                c[_field_idx(i, kk, pcols)] = 0.0
+
+        if selected_band != 0:
+            for i in range(1, ncol + 1):
+                for kk in range(1, pver + 1):
+                    idx2 = _field_idx(i, kk, pcols)
+                    snowfrac = a[idx2]
+                    if snowfrac > 0.0:
+                        c[idx2] = b[_band3_idx(selected_band, i, kk, nbnd, pcols)] * snowfrac

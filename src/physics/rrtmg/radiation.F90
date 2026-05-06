@@ -641,8 +641,8 @@ end function radiation_nextsw_cday
     radiation_diag_prep_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'radiation_diag_prep entered (cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history diagnostics/rrtmg core = native)'
-       call radiation_diag_prep_append_proof('radiation_diag_prep entered (cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history diagnostics/rrtmg core = native)')
+       write(iulog,*) 'radiation_diag_prep entered (diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)'
+       call radiation_diag_prep_append_proof('radiation_diag_prep entered (diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)')
        call flush(iulog)
     end if
 
@@ -801,6 +801,23 @@ end function radiation_nextsw_cday
   end subroutine radiation_diag_prep_cloud_lw
 
 !===============================================================================
+
+  subroutine radiation_diag_prep_snow_diag_field(ncol, nbnd, band, has_snow, cldfsnow_p, band_input_p, output_p, dummy_p)
+
+    use iso_c_binding, only: c_ptr
+
+    integer, intent(in) :: ncol, nbnd, band
+    logical, intent(in) :: has_snow
+    type(c_ptr), intent(in) :: cldfsnow_p, band_input_p, output_p, dummy_p
+
+    call radiation_diag_prep_codon_call(11, ncol, 0, cpair, 0._r8, dummy_p, cldfsnow_p, band_input_p, &
+         output_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
+         dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
+         nday_override=nbnd, nnite_override=merge(band, 0, has_snow))
+
+  end subroutine radiation_diag_prep_snow_diag_field
+
+!===============================================================================
   
   subroutine radiation_tend(state,ptend, pbuf, &
        cam_out, cam_in, &
@@ -932,8 +949,8 @@ end function radiation_nextsw_cday
     real(r8), target :: snow_tau_w_g(nbndsw,pcols,pver) ! snow assymetry parameter * tau * w
     real(r8), target :: snow_tau_w_f(nbndsw,pcols,pver) ! snow forward scattered fraction * tau * w
     real(r8), target :: snow_lw_abs (nbndlw,pcols,pver)   ! snow absorption optics depth (LW)
-    real(r8) :: gb_snow_tau        (pcols,pver) ! grid-box mean snow_tau for COSP only
-    real(r8) :: gb_snow_lw         (pcols,pver) ! grid-box mean LW snow optical depth for COSP only
+    real(r8), target :: gb_snow_tau        (pcols,pver) ! grid-box mean snow_tau for COSP only
+    real(r8), target :: gb_snow_lw         (pcols,pver) ! grid-box mean LW snow optical depth for COSP only
 
     ! cloud radiative parameters are "in cloud" not "in cell"
     real(r8) :: liq_tau    (nbndsw,pcols,pver) ! liquid extinction optical depth
@@ -1272,9 +1289,11 @@ end function radiation_nextsw_cday
                      swcf(i)=fsntoa(i) - fsntoac(i)
                   end do
                   ! Dump shortwave radiation information to history tape buffer (diagnostics)
-                  ftem(:ncol,:pver) = qrs(:ncol,:pver)/cpair
+                  call radiation_diag_prep_div_field(ncol, c_loc(qrs(1,1)), c_loc(ftem(1,1)), &
+                       c_loc(radiation_diag_dummy(1)))
                   call outfld('QRS'//diag(icall),ftem  ,pcols,lchnk)
-                  ftem(:ncol,:pver) = qrsc(:ncol,:pver)/cpair
+                  call radiation_diag_prep_div_field(ncol, c_loc(qrsc(1,1)), c_loc(ftem(1,1)), &
+                       c_loc(radiation_diag_dummy(1)))
                   call outfld('QRSC'//diag(icall),ftem  ,pcols,lchnk)
                   call outfld('SOLIN'//diag(icall),solin ,pcols,lchnk)
                   call outfld('FSDS'//diag(icall),fsds  ,pcols,lchnk)
@@ -1367,9 +1386,8 @@ end function radiation_nextsw_cday
                        flut,         flutc,        fnl,             fcnl,         fldsc, &
                        lu,           ld)
 
-                  do i=1,ncol
-                     lwcf(i)=flutc(i) - flut(i)
-                  end do
+                  call radiation_diag_prep_diff_field(ncol, c_loc(flutc(1)), c_loc(flut(1)), &
+                       c_loc(lwcf(1)), c_loc(radiation_diag_dummy(1)))
 
                   !  Output fluxes at 200 mb
                   call vertinterp(ncol, pcols, pverp, state%pint, 20000._r8, fnl, fln200)
@@ -1457,17 +1475,20 @@ end function radiation_nextsw_cday
        call outfld('EMIS', emis, pcols, lchnk)
 
        !! compute grid-box mean SW and LW snow optical depth for use by COSP
-       gb_snow_tau(:,:) = 0._r8
-       gb_snow_lw(:,:) = 0._r8
        if (cldfsnow_idx > 0) then
-          do i=1,ncol
-             do k=1,pver
-                if(cldfsnow(i,k) > 0.)then
-                   gb_snow_tau(i,k) = snow_tau(rrtmg_sw_cloudsim_band,i,k)*cldfsnow(i,k)
-                   gb_snow_lw(i,k) = snow_lw_abs(rrtmg_lw_cloudsim_band,i,k)*cldfsnow(i,k)
-                end if
-             enddo
-          enddo
+          call radiation_diag_prep_snow_diag_field(ncol, nbndsw, rrtmg_sw_cloudsim_band, .true., &
+               c_loc(cldfsnow(1,1)), c_loc(snow_tau(1,1,1)), c_loc(gb_snow_tau(1,1)), &
+               c_loc(radiation_diag_dummy(1)))
+          call radiation_diag_prep_snow_diag_field(ncol, nbndlw, rrtmg_lw_cloudsim_band, .true., &
+               c_loc(cldfsnow(1,1)), c_loc(snow_lw_abs(1,1,1)), c_loc(gb_snow_lw(1,1)), &
+               c_loc(radiation_diag_dummy(1)))
+       else
+          call radiation_diag_prep_snow_diag_field(ncol, nbndsw, rrtmg_sw_cloudsim_band, .false., &
+               c_loc(radiation_diag_dummy(1)), c_loc(snow_tau(1,1,1)), c_loc(gb_snow_tau(1,1)), &
+               c_loc(radiation_diag_dummy(1)))
+          call radiation_diag_prep_snow_diag_field(ncol, nbndlw, rrtmg_lw_cloudsim_band, .false., &
+               c_loc(radiation_diag_dummy(1)), c_loc(snow_lw_abs(1,1,1)), c_loc(gb_snow_lw(1,1)), &
+               c_loc(radiation_diag_dummy(1)))
        end if
 
        if (docosp) then
