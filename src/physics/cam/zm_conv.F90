@@ -1377,8 +1377,12 @@ subroutine zm_conv_evap(ncol,lchnk, &
 
 !-----------------------------------------------------------------------
 
+    call zm_conv_evap_main_select_impl()
+
 ! convert input precip to kg/m2/s
-    prec(:ncol) = prec(:ncol)*1000._r8
+    if (use_native_zm_conv_evap_main) then
+       prec(:ncol) = prec(:ncol)*1000._r8
+    end if
 
 ! determine saturation vapor pressure
     call qsat(t(1:ncol, 1:pver), pmid(1:ncol, 1:pver), &
@@ -1398,12 +1402,13 @@ subroutine zm_conv_evap(ncol,lchnk, &
        do_org_c = 0_c_int64_t
     end if
 
-    call zm_conv_evap_main_select_impl()
     if (.not. use_native_zm_conv_evap_main) then
        if (masterproc .and. .not. zm_conv_evap_main_logged) then
-          write(iulog,*) 'zm_conv_evap main loop entered (evaporation/snow/flux/tendency direct = codon; qsat/fice = native)'
+          write(iulog,*) 'zm_conv_evap main loop entered (precip unit/evaporation/snow/flux/tendency direct = codon; ' // &
+               'qsat = native; fice = cldfrc_batch codon)'
           call zm_conv_evap_append_impl_proof( &
-               'zm_conv_evap main loop entered (evaporation/snow/flux/tendency direct = codon; qsat/fice = native)')
+               'zm_conv_evap main loop entered (precip unit/evaporation/snow/flux/tendency direct = codon; ' // &
+               'qsat = native; fice = cldfrc_batch codon)')
           call flush(iulog)
           zm_conv_evap_main_logged = .true.
        end if

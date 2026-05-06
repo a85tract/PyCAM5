@@ -1251,6 +1251,7 @@ def zm_conv_evap_main_codon(
 
     i = 0
     while i < ncol:
+        prec[i] = prec[i] * 1000.0
         flxprec[i] = 0.0
         flxsnow[i] = 0.0
         evpvint[i] = 0.0
