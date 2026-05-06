@@ -432,3 +432,11 @@ def radiation_diag_prep_codon(
             for kk in range(1, pver + 1):
                 f[_field_idx(i, kk, pcols)] = c[_field_idx(i, kk, pcols)] * 1.0e-2
             f[_field_idx(i, pver + 1, pcols)] = c[_field_idx(i, pver + 1, pcols)] * 1.0e-2
+    elif stage == 19:
+        # Longwave upward flux CGS conversion. a=cam_in%lwup, b=lwupcgs.
+        for i in range(1, ncol + 1):
+            b[_col_idx(i)] = a[_col_idx(i)] * 1000.0
+    elif stage == 20:
+        # Final net shortwave export copy. a=fsns, b=cam_out%netsw.
+        for i in range(1, ncol + 1):
+            b[_col_idx(i)] = a[_col_idx(i)]

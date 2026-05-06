@@ -641,8 +641,8 @@ end function radiation_nextsw_cday
     radiation_diag_prep_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'radiation_diag_prep entered (hirs_tint/emis/compact_qrl/cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)'
-       call radiation_diag_prep_append_proof('radiation_diag_prep entered (hirs_tint/emis/compact_qrl/cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)')
+       write(iulog,*) 'radiation_diag_prep entered (lwupcgs_netsw/hirs_tint/emis/compact_qrl/cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)'
+       call radiation_diag_prep_append_proof('radiation_diag_prep entered (lwupcgs_netsw/hirs_tint/emis/compact_qrl/cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)')
        call flush(iulog)
     end if
 
@@ -923,6 +923,36 @@ end function radiation_nextsw_cday
 
 !===============================================================================
 
+  subroutine radiation_diag_prep_lwupcgs(ncol, lwup_p, lwupcgs_p, dummy_p)
+
+    use iso_c_binding, only: c_ptr
+
+    integer, intent(in) :: ncol
+    type(c_ptr), intent(in) :: lwup_p, lwupcgs_p, dummy_p
+
+    call radiation_diag_prep_codon_call(19, ncol, 0, cpair, 0._r8, dummy_p, lwup_p, lwupcgs_p, &
+         dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
+         dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p)
+
+  end subroutine radiation_diag_prep_lwupcgs
+
+!===============================================================================
+
+  subroutine radiation_diag_prep_netsw_copy(ncol, fsns_p, netsw_p, dummy_p)
+
+    use iso_c_binding, only: c_ptr
+
+    integer, intent(in) :: ncol
+    type(c_ptr), intent(in) :: fsns_p, netsw_p, dummy_p
+
+    call radiation_diag_prep_codon_call(20, ncol, 0, cpair, 0._r8, dummy_p, fsns_p, netsw_p, &
+         dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
+         dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p)
+
+  end subroutine radiation_diag_prep_netsw_copy
+
+!===============================================================================
+
   subroutine radiation_diag_prep_visible_tau(ncol, nbnd, band, has_snow, nnite, c_cld_tau_p, liq_tau_p, &
        ice_tau_p, snow_tau_p, cldfprime_p, tot_cld_p, tot_icld_p, liq_icld_p, ice_icld_p, snow_icld_p, &
        idxnite_p, dummy_p)
@@ -1020,7 +1050,7 @@ end function radiation_nextsw_cday
     type(physics_ptend), intent(out)        :: ptend
     
     type(physics_buffer_desc), pointer      :: pbuf(:)
-    type(cam_out_t),     intent(inout)      :: cam_out
+    type(cam_out_t),     target, intent(inout) :: cam_out
     type(cam_in_t),      target, intent(in) :: cam_in
 
     ! Local variables
@@ -1142,7 +1172,7 @@ end function radiation_nextsw_cday
     real(r8) pbr(pcols,pver)      ! Model mid-level pressures (dynes/cm2)
     real(r8) pnm(pcols,pverp)     ! Model interface pressures (dynes/cm2)
     real(r8) eccf                 ! Earth/sun distance factor
-    real(r8) lwupcgs(pcols)       ! Upward longwave flux in cgs units
+    real(r8), target :: lwupcgs(pcols) ! Upward longwave flux in cgs units
     real(r8), target :: radiation_diag_dummy(1)
 
     real(r8), target :: tint(pcols,pverp) ! Model interface temperature
@@ -1475,11 +1505,14 @@ end function radiation_nextsw_cday
           !
           ! Convert upward longwave flux units to CGS
           !
-          do i=1,ncol
-             lwupcgs(i) = cam_in%lwup(i)*1000._r8
-             if(single_column.and.scm_crm_mode.and.have_tg) &
-                  lwupcgs(i) = 1000*stebol*tground(1)**4
-          end do
+          if (single_column.and.scm_crm_mode.and.have_tg) then
+             do i=1,ncol
+                lwupcgs(i) = 1000*stebol*tground(1)**4
+             end do
+          else
+             call radiation_diag_prep_lwupcgs(ncol, c_loc(cam_in%lwup(1)), c_loc(lwupcgs(1)), &
+                  c_loc(radiation_diag_dummy(1)))
+          end if
 
           call rad_cnst_get_call_list(active_calls)
 
@@ -1669,7 +1702,8 @@ end function radiation_nextsw_cday
        end if
     end if
  
-    cam_out%netsw(:ncol) = fsns(:ncol)
+    call radiation_diag_prep_netsw_copy(ncol, c_loc(fsns(1)), c_loc(cam_out%netsw(1)), &
+         c_loc(radiation_diag_dummy(1)))
 
  end subroutine radiation_tend
 
