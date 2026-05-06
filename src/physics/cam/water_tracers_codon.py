@@ -846,12 +846,24 @@ def wtrc_precip_evap_init_shell_codon(
 
 @export
 def wtrc_precip_evap_prep_shell_codon(
+    ncol: int,
     pcols: int,
     pver: int,
+    pverp: int,
+    state_q_p: cobj,
+    qst_p: cobj,
+    rh_p: cobj,
+    state_zi_p: cobj,
+    dz_p: cobj,
     evpbulk_p: cobj,
     subbulk_p: cobj,
     rnbulk_p: cobj,
 ):
+    state_q = Ptr[float](state_q_p)
+    qst = Ptr[float](qst_p)
+    rh = Ptr[float](rh_p)
+    state_zi = Ptr[float](state_zi_p)
+    dz = Ptr[float](dz_p)
     evpbulk = Ptr[float](evpbulk_p)
     subbulk = Ptr[float](subbulk_p)
     rnbulk = Ptr[float](rnbulk_p)
@@ -859,6 +871,12 @@ def wtrc_precip_evap_prep_shell_codon(
     k = 0
     while k < pver:
         i = 0
+        while i < ncol:
+            idx = i + k * pcols
+            rh[idx] = state_q[idx] / qst[idx]
+            dz[idx] = state_zi[i + k * pcols] - state_zi[i + (k + 1) * pcols]
+            rnbulk[idx] = evpbulk[idx] - subbulk[idx]
+            i += 1
         while i < pcols:
             idx = i + k * pcols
             rnbulk[idx] = evpbulk[idx] - subbulk[idx]

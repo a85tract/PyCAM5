@@ -4617,6 +4617,7 @@ real(r8), target :: fsnow(pcols,pver)   !Fraction that becomes snow
 real(r8) :: est(pcols,pver)     !Saturation vapor pressure
 real(r8), target :: qst(pcols,pver)     !Saturation specific humidity
 real(r8), target :: rh(pcols,pver)      !Relative humidity
+real(r8), target :: qvap(pcols,pver)    !Standard vapor workspace for Codon prep
 real(r8) :: heff(pcols,pver)    !Effective humidity
 
 real(r8) :: alpliq              !Equilibrium liquid-vapor fractionation factor
@@ -4644,6 +4645,7 @@ real(r8)  :: dkfac              !Diffusivity power law factor
 !For partial equilibration calculation:
 integer     :: ispec                    !water isotope species
 real(r8), target :: dz(pcols,pver)           !layer thickness in height
+real(r8), target :: zi_work(pcols,pverp)      !Interface height workspace for Codon prep
 real(r8)    :: fequil                   !fraction equilibrated (unitless)
 !real(r8), parameter :: radius=0.001_r8  !assumed radius of raindrop (m)
 real(r8)    :: radius                   !assumed radius of raindrop (m)
@@ -4674,11 +4676,12 @@ interface
     type(c_ptr), value :: totrnfx_p, dz_p
   end subroutine wtrc_precip_evap_init_shell_codon
 
-  subroutine wtrc_precip_evap_prep_shell_codon(pcols_c, pver_c, evpbulk_p, subbulk_p, rnbulk_p) &
+  subroutine wtrc_precip_evap_prep_shell_codon(ncol_c, pcols_c, pver_c, pverp_c, state_q_p, qst_p, rh_p, &
+       state_zi_p, dz_p, evpbulk_p, subbulk_p, rnbulk_p) &
        bind(c, name="wtrc_precip_evap_prep_shell_codon")
     use iso_c_binding, only: c_int64_t, c_ptr
-    integer(c_int64_t), value :: pcols_c, pver_c
-    type(c_ptr), value :: evpbulk_p, subbulk_p, rnbulk_p
+    integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c
+    type(c_ptr), value :: state_q_p, qst_p, rh_p, state_zi_p, dz_p, evpbulk_p, subbulk_p, rnbulk_p
   end subroutine wtrc_precip_evap_prep_shell_codon
 
   subroutine wtrc_precip_evap_tail_shell_codon(ncol_c, pcols_c, pver_c, pverp_c, pcnst_c, nwvap_c, &
@@ -4730,9 +4733,6 @@ call cldfrc_fice(ncol, state%t, fice, fsnow)
 call qsat(state%t(1:ncol, 1:pver), state%pmid(1:ncol, 1:pver), &
            est(1:ncol, 1:pver), qst(1:ncol, 1:pver))
 
-!calculate relative humidity:
-rh(:ncol,:) = state%q(:ncol,:,1)/qst(:ncol,:)
-
 !Diffusivity ratios and powers (should be called from water_isotopes.F90 eventually):
 difrm = (/ 1._r8, 1._r8, 0.9836504_r8, 0.9686999_r8 /)   ! kinetic theory
 dkfac = 0.58_r8                                          ! From Stewart, 1975?
@@ -4740,27 +4740,33 @@ dkfac = 0.58_r8                                          ! From Stewart, 1975?
 !phi value given in Bony et. al., 2008:
 phi = 0.9_r8
 
-!calculate layer thickness:
-do i = 1,ncol
-  do k = 1,pver
-    dz(i,k) = state%zi(i,k) - state%zi(i,k+1)
-  end do
-end do
-
 !**********************************
 !Calculate bulk rain re-evaporation
 !**********************************
 
 if (.not. use_native_wtrc_precip_evap_shell_impl) then
   if (masterproc .and. .not. wtrc_precip_evap_prep_logged) then
-    write(iulog,*) 'wtrc_precip_evap prep shell entered (rnbulk direct = codon; rh/dz = native)'
-    call wtrc_precip_evap_shell_append_proof('wtrc_precip_evap prep shell entered (rnbulk direct = codon; rh/dz = native)')
+    write(iulog,*) 'wtrc_precip_evap prep shell entered (rh/dz/rnbulk direct = codon; qsat = native)'
+    call wtrc_precip_evap_shell_append_proof('wtrc_precip_evap prep shell entered (rh/dz/rnbulk direct = codon; qsat = native)')
     call flush(iulog)
     wtrc_precip_evap_prep_logged = .true.
   end if
-  call wtrc_precip_evap_prep_shell_codon(int(pcols, c_int64_t), int(pver, c_int64_t), &
+  qvap(:ncol,:) = state%q(:ncol,:,1)
+  zi_work(:ncol,:) = state%zi(:ncol,:)
+  call wtrc_precip_evap_prep_shell_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(pverp, c_int64_t), c_loc(qvap), c_loc(qst), c_loc(rh), c_loc(zi_work), c_loc(dz), &
        c_loc(evpbulk), c_loc(subbulk), c_loc(rnbulk))
 else
+  !calculate relative humidity:
+  rh(:ncol,:) = state%q(:ncol,:,1)/qst(:ncol,:)
+
+  !calculate layer thickness:
+  do i = 1,ncol
+    do k = 1,pver
+      dz(i,k) = state%zi(i,k) - state%zi(i,k+1)
+    end do
+  end do
+
   rnbulk(:,:) = evpbulk(:,:)-subbulk(:,:)
 end if
 
