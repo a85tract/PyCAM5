@@ -1,4 +1,4 @@
-from math import exp
+from math import exp, sqrt
 
 
 @inline
@@ -407,3 +407,28 @@ def radiation_diag_prep_codon(
                 b[_field_idx(i, kk, pcols)] = 1.0 - exp(
                     -a[_band3_idx(selected_band, i, kk, nbnd, pcols)]
                 )
+    elif stage == 17:
+        # Interface temperature prep. a=state%t, b=state%lnpint,
+        # c=state%lnpmid, d=cam_in%lwup, e=tint.
+        for i in range(1, ncol + 1):
+            e[_field_idx(i, 1, pcols)] = a[_field_idx(i, 1, pcols)]
+            e[_field_idx(i, pver + 1, pcols)] = sqrt(sqrt(d[_col_idx(i)] / cpair))
+            for kk in range(2, pver + 1):
+                dy = (b[_field_idx(i, kk, pcols)] - c[_field_idx(i, kk, pcols)]) / (
+                    c[_field_idx(i, kk - 1, pcols)] - c[_field_idx(i, kk, pcols)]
+                )
+                e[_field_idx(i, kk, pcols)] = a[_field_idx(i, kk, pcols)] - dy * (
+                    a[_field_idx(i, kk, pcols)] - a[_field_idx(i, kk - 1, pcols)]
+                )
+    elif stage == 18:
+        # HIRS prep. a=cam_in%lwup, b=landfrac, c=state%pint,
+        # d=ts, e=oro, f=pintmb.
+        for i in range(1, ncol + 1):
+            d[_col_idx(i)] = sqrt(sqrt(a[_col_idx(i)] / cpair))
+            if b[_col_idx(i)] >= 0.001:
+                e[_col_idx(i)] = 1.0
+            else:
+                e[_col_idx(i)] = 0.0
+            for kk in range(1, pver + 1):
+                f[_field_idx(i, kk, pcols)] = c[_field_idx(i, kk, pcols)] * 1.0e-2
+            f[_field_idx(i, pver + 1, pcols)] = c[_field_idx(i, pver + 1, pcols)] * 1.0e-2

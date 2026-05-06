@@ -17,7 +17,7 @@ use shr_kind_mod,    only: r8=>shr_kind_r8
 use spmd_utils,      only: masterproc
 use ppgrid,          only: pcols, pver, pverp, begchunk, endchunk
 use physics_types,   only: physics_state, physics_ptend
-use physconst,       only: cappa, cpair
+use physconst,       only: cappa, cpair, stebol
 use time_manager,    only: get_nstep, is_first_restart_step
 use cam_abortutils,  only: endrun
 use error_messages,  only: handle_err
@@ -641,8 +641,8 @@ end function radiation_nextsw_cday
     radiation_diag_prep_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'radiation_diag_prep entered (emis/compact_qrl/cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)'
-       call radiation_diag_prep_append_proof('radiation_diag_prep entered (emis/compact_qrl/cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)')
+       write(iulog,*) 'radiation_diag_prep entered (hirs_tint/emis/compact_qrl/cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)'
+       call radiation_diag_prep_append_proof('radiation_diag_prep entered (hirs_tint/emis/compact_qrl/cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)')
        call flush(iulog)
     end if
 
@@ -893,6 +893,36 @@ end function radiation_nextsw_cday
 
 !===============================================================================
 
+  subroutine radiation_diag_prep_tint(ncol, t_p, lnpint_p, lnpmid_p, lwup_p, tint_p, dummy_p)
+
+    use iso_c_binding, only: c_ptr
+
+    integer, intent(in) :: ncol
+    type(c_ptr), intent(in) :: t_p, lnpint_p, lnpmid_p, lwup_p, tint_p, dummy_p
+
+    call radiation_diag_prep_codon_call(17, ncol, 0, stebol, 0._r8, dummy_p, t_p, lnpint_p, &
+         lnpmid_p, lwup_p, tint_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
+         dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p)
+
+  end subroutine radiation_diag_prep_tint
+
+!===============================================================================
+
+  subroutine radiation_diag_prep_hirs(ncol, lwup_p, landfrac_p, pint_p, ts_p, oro_p, pintmb_p, dummy_p)
+
+    use iso_c_binding, only: c_ptr
+
+    integer, intent(in) :: ncol
+    type(c_ptr), intent(in) :: lwup_p, landfrac_p, pint_p, ts_p, oro_p, pintmb_p, dummy_p
+
+    call radiation_diag_prep_codon_call(18, ncol, 0, stebol, 0._r8, dummy_p, lwup_p, landfrac_p, &
+         pint_p, ts_p, oro_p, pintmb_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
+         dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p)
+
+  end subroutine radiation_diag_prep_hirs
+
+!===============================================================================
+
   subroutine radiation_diag_prep_visible_tau(ncol, nbnd, band, has_snow, nnite, c_cld_tau_p, liq_tau_p, &
        ice_tau_p, snow_tau_p, cldfprime_p, tot_cld_p, tot_icld_p, liq_icld_p, ice_icld_p, snow_icld_p, &
        idxnite_p, dummy_p)
@@ -976,7 +1006,7 @@ end function radiation_nextsw_cday
     use tropopause,       only: tropopause_find, TROP_ALG_HYBSTOB, TROP_ALG_CLIMATE
 
     ! Arguments
-    real(r8), intent(in)    :: landfrac(pcols)  ! land fraction
+    real(r8), target, intent(in) :: landfrac(pcols)  ! land fraction
     real(r8), intent(in)    :: icefrac(pcols)   ! land fraction
     real(r8), intent(in)    :: snowh(pcols)     ! Snow depth (liquid water equivalent)
     real(r8), target, intent(inout) :: fsns(pcols)      ! Surface solar absorbed flux
@@ -991,7 +1021,7 @@ end function radiation_nextsw_cday
     
     type(physics_buffer_desc), pointer      :: pbuf(:)
     type(cam_out_t),     intent(inout)      :: cam_out
-    type(cam_in_t),      intent(in)         :: cam_in
+    type(cam_in_t),      target, intent(in) :: cam_in
 
     ! Local variables
 
@@ -999,9 +1029,9 @@ end function radiation_nextsw_cday
     integer nstep                       ! current timestep number
     real(r8) britemp(pcols,pnf_msu)     ! Microwave brightness temperature
     real(r8) tb_ir(pcols,pnb_hirs)      ! Infrared brightness temperature
-    real(r8) ts(pcols)                  ! surface temperature
-    real(r8) pintmb(pcols,pverp)        ! Model interface pressures (hPa)
-    real(r8) oro(pcols)                 ! Land surface flag, sea=0, land=1
+    real(r8), target :: ts(pcols)        ! surface temperature
+    real(r8), target :: pintmb(pcols,pverp) ! Model interface pressures (hPa)
+    real(r8), target :: oro(pcols)       ! Land surface flag, sea=0, land=1
 
     integer nmxrgn(pcols)                      ! Number of maximally overlapped regions
     real(r8) pmxrgn(pcols,pverp)               ! Maximum values of pressure for each
@@ -1115,8 +1145,7 @@ end function radiation_nextsw_cday
     real(r8) lwupcgs(pcols)       ! Upward longwave flux in cgs units
     real(r8), target :: radiation_diag_dummy(1)
 
-    real(r8) dy                   ! Temporary layer pressure thickness
-    real(r8) tint(pcols,pverp)    ! Model interface temperature
+    real(r8), target :: tint(pcols,pverp) ! Model interface temperature
     real(r8) :: sfac(1:nswbands)  ! time varying scaling factors due to Solar Spectral Irrad at 1 A.U. per band
 
     real(r8), pointer, dimension(:,:) :: o3     ! Ozone mass mixing ratio
@@ -1339,14 +1368,9 @@ end function radiation_nextsw_cday
        ! Calculate interface temperatures (following method
        ! used in radtpl for the longwave), using surface upward flux and
        ! stebol constant in mks units
-       do i = 1,ncol
-          tint(i,1) = state%t(i,1)
-          tint(i,pverp) = sqrt(sqrt(cam_in%lwup(i)/stebol))
-          do k = 2,pver
-             dy = (state%lnpint(i,k) - state%lnpmid(i,k)) / (state%lnpmid(i,k-1) - state%lnpmid(i,k))
-             tint(i,k) = state%t(i,k) - dy * (state%t(i,k) - state%t(i,k-1))
-          end do
-       end do
+       call radiation_diag_prep_tint(ncol, c_loc(state%t(1,1)), c_loc(state%lnpint(1,1)), &
+            c_loc(state%lnpmid(1,1)), c_loc(cam_in%lwup(1)), c_loc(tint(1,1)), &
+            c_loc(radiation_diag_dummy(1)))
 
        ! Solar radiation computation
 
@@ -1527,21 +1551,9 @@ end function radiation_nextsw_cday
 
        if ( dohirs .and. (mod(nstep-1,ihirsfq) .eq. 0) ) then
 
-          do i= 1, ncol
-             ts(i) = sqrt(sqrt(cam_in%lwup(i)/stebol))
-             ! Set oro (land/sea flag) for compatibility with landfrac/icefrac/ocnfrac
-             ! oro=0 (sea or ice); oro=1 (land)
-             if (landfrac(i).ge.0.001) then
-                oro(i)=1.
-             else
-                oro(i)=0.
-             endif
-             ! Convert pressure from Pa to hPa
-             do k = 1, pver
-                pintmb(i,k) = state%pint(i,k)*1.e-2_r8        
-             end do
-             pintmb(i,pverp) = state%pint(i,pverp)*1.e-2_r8 
-          end do
+          call radiation_diag_prep_hirs(ncol, c_loc(cam_in%lwup(1)), c_loc(landfrac(1)), &
+               c_loc(state%pint(1,1)), c_loc(ts(1)), c_loc(oro(1)), c_loc(pintmb(1,1)), &
+               c_loc(radiation_diag_dummy(1)))
           
           ! Get specific humidity
           call rad_cnst_get_gas(0,'H2O', state, pbuf, sp_hum)
