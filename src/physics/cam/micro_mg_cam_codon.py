@@ -1332,6 +1332,35 @@ def micro_mg_cam_reff_calc_codon(
 
 
 @export
+def micro_mg_cam_rho_grid_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    psetcols: int,
+    top_lev: int,
+    rair: float,
+    rho_p: cobj,
+    pmid_p: cobj,
+    t_p: cobj,
+    rho_grid_p: cobj,
+):
+    rho = Ptr[float](rho_p)
+    pmid = Ptr[float](pmid_p)
+    t = Ptr[float](t_p)
+    rho_grid = Ptr[float](rho_grid_p)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            rho[_idx2(i, k, psetcols)] = pmid[_idx2(i, k, psetcols)] / (
+                rair * t[_idx2(i, k, psetcols)]
+            )
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            rho_grid[_idx2(i, k, pcols)] = rho[_idx2(i, k, psetcols)]
+
+
+@export
 def micro_mg_cam_diag_shell_codon(
     ngrdcol: int,
     pcols: int,

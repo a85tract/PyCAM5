@@ -1092,7 +1092,7 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    real(r8), pointer :: lambdac(:,:)      ! Size distribution slope parameter for radiation
    real(r8), pointer :: des(:,:)          ! Snow effective diameter (m)
 
-   real(r8) :: rho(state%psetcols,pver)
+   real(r8), target :: rho(state%psetcols,pver)
    real(r8) :: cldmax(state%psetcols,pver)
 
    real(r8), target :: rate1cld(state%psetcols,pver) ! array to hold rate1ord_cw2pr_st from microphysics
@@ -1438,7 +1438,7 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    real(r8), pointer :: des_grid(:,:)
    real(r8), pointer :: iclwpst_grid(:,:)
 
-   real(r8) :: rho_grid(pcols,pver)
+   real(r8), target :: rho_grid(pcols,pver)
    real(r8) :: liqcldf_grid(pcols,pver)
    real(r8) :: qsout_grid(pcols,pver)
    real(r8) :: ncic_grid(pcols,pver)
@@ -2608,12 +2608,12 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
       !
       ! State instead of state_loc to preserve answers for MG1 (and in any
       ! case, it is unlikely to make much difference).
-      rho(:ncol,top_lev:) = state%pmid(:ncol,top_lev:) / &
-           (rair*state%t(:ncol,top_lev:))
       if (use_subcol_microp) then
+         rho(:ncol,top_lev:) = state%pmid(:ncol,top_lev:) / &
+              (rair*state%t(:ncol,top_lev:))
          call subcol_field_avg(rho, ngrdcol, lchnk, rho_grid)
       else
-         rho_grid = rho
+         call micro_mg_cam_rho_grid_codon_wrap(ncol, state%psetcols, rho, state%pmid, state%t, rho_grid)
       end if
 
       call micro_mg_cam_select_diag_shell_impl()
@@ -2659,7 +2659,7 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    else
 
       call micro_mg_cam_log_entered_once(tail_shell_entered_logged, 'MICRO_MG_CAM_TAIL_SHELL_PROOF_FILE', &
-           'micro_mg_cam_tail_shell entered (water/size/diagnostic/pbuf tail direct = codon; MG core = native)')
+           'micro_mg_cam_tail_shell entered (rho_grid/water/size/diagnostic/pbuf tail direct = codon; MG core = native)')
 
       if (trace_water) then
 
@@ -2694,12 +2694,12 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
 
       end if
 
-      rho(:ncol,top_lev:) = state%pmid(:ncol,top_lev:) / &
-           (rair*state%t(:ncol,top_lev:))
       if (use_subcol_microp) then
+         rho(:ncol,top_lev:) = state%pmid(:ncol,top_lev:) / &
+              (rair*state%t(:ncol,top_lev:))
          call subcol_field_avg(rho, ngrdcol, lchnk, rho_grid)
       else
-         rho_grid = rho
+         call micro_mg_cam_rho_grid_codon_wrap(ncol, state%psetcols, rho, state%pmid, state%t, rho_grid)
       end if
 
       minlwp = 0.01_r8
@@ -2959,6 +2959,31 @@ subroutine micro_mg_cam_select_diag_shell_impl()
   call flush(iulog)
 
 end subroutine micro_mg_cam_select_diag_shell_impl
+
+subroutine micro_mg_cam_rho_grid_codon_wrap(ncol_local, psetcols_local, rho_local, pmid_local, t_local, rho_grid_local)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+  integer, intent(in) :: ncol_local, psetcols_local
+  real(r8), target, intent(out) :: rho_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: pmid_local(psetcols_local,pver), t_local(psetcols_local,pver)
+  real(r8), target, intent(out) :: rho_grid_local(pcols,pver)
+
+  interface
+     subroutine micro_mg_cam_rho_grid_codon(ncol_c, pcols_c, pver_c, psetcols_c, top_lev_c, rair_c, &
+          rho_p, pmid_p, t_p, rho_grid_p) bind(c, name="micro_mg_cam_rho_grid_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, psetcols_c, top_lev_c
+       real(c_double), value :: rair_c
+       type(c_ptr), value :: rho_p, pmid_p, t_p, rho_grid_p
+     end subroutine micro_mg_cam_rho_grid_codon
+  end interface
+
+  call micro_mg_cam_rho_grid_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), &
+       int(pver, c_int64_t), int(psetcols_local, c_int64_t), int(top_lev, c_int64_t), real(rair, c_double), &
+       c_loc(rho_local), c_loc(pmid_local), c_loc(t_local), c_loc(rho_grid_local))
+
+end subroutine micro_mg_cam_rho_grid_codon_wrap
 
 subroutine micro_mg_cam_diag_shell_codon_wrap(ngrdcol_local, micro_mg_version_local, minlwp_local, rho_grid_local, &
      icwmrst_grid_local, liqcldf_grid_local, nc_grid_local, qr_grid_local, nr_grid_local, qs_grid_local, ns_grid_local, &
