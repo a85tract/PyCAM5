@@ -899,8 +899,9 @@ contains
     diag_batch_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'vertical_diffusion_diag_batch entered (pre/post PBL diagnostics direct = codon)'
-       call vertical_diffusion_diag_batch_append_proof('vertical_diffusion_diag_batch entered (pre/post PBL diagnostics direct = codon)')
+       write(iulog,*) 'vertical_diffusion_diag_batch entered (pre/post PBL/obklen diagnostics direct = codon)'
+       call vertical_diffusion_diag_batch_append_proof( &
+            'vertical_diffusion_diag_batch entered (pre/post PBL/obklen diagnostics direct = codon)')
        call flush(iulog)
     end if
 
@@ -911,11 +912,13 @@ contains
   ! =============================================================================== !
 
   subroutine vertical_diffusion_diag_batch_call(stage, ncol, psetcols_local, rztodt_local, ztodt_local, &
-       state_q_local, state_s_local, state_u_local, state_v_local, state_t_local, state_zm_local, &
+       state_q_local, state_s_local, state_u_local, state_v_local, state_t_local, state_exner_local, state_zm_local, &
+       cflx_local, shflx_local, rrho_local, ustar_local, &
        q_tmp_local, s_tmp_local, u_tmp_local, v_tmp_local, sl_prePBL_local, qt_prePBL_local, slv_prePBL_local, &
        ftem_local, ftem_prePBL_local, ptend_q_local, ptend_s_local, ptend_u_local, ptend_v_local, &
        qv_aft_PBL_local, ql_aft_PBL_local, qi_aft_PBL_local, s_aft_PBL_local, t_aftPBL_local, &
-       u_aft_PBL_local, v_aft_PBL_local, ftem_aftPBL_local, tten_local, rhten_local)
+       u_aft_PBL_local, v_aft_PBL_local, ftem_aftPBL_local, tten_local, rhten_local, &
+       th_local, thvs_local, khfs_local, kqfs_local, kbfs_local, obklen_local)
 
     use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
@@ -928,7 +931,10 @@ contains
     real(r8), target, optional, intent(in) :: state_u_local(pcols,pver)
     real(r8), target, optional, intent(in) :: state_v_local(pcols,pver)
     real(r8), target, optional, intent(in) :: state_t_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: state_exner_local(pcols,pver)
     real(r8), target, optional, intent(in) :: state_zm_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: cflx_local(pcols,pcnst), shflx_local(pcols)
+    real(r8), target, optional, intent(in) :: rrho_local(pcols), ustar_local(pcols)
     real(r8), target, optional, intent(in) :: q_tmp_local(pcols,pver,pcnst)
     real(r8), target, optional, intent(in) :: s_tmp_local(pcols,pver)
     real(r8), target, optional, intent(in) :: u_tmp_local(pcols,pver)
@@ -952,30 +958,39 @@ contains
     real(r8), target, optional, intent(in) :: ftem_aftPBL_local(pcols,pver)
     real(r8), target, optional, intent(in) :: tten_local(pcols,pver)
     real(r8), target, optional, intent(in) :: rhten_local(pcols,pver)
+    real(r8), target, optional, intent(in) :: th_local(pcols,pver), thvs_local(pcols)
+    real(r8), target, optional, intent(in) :: khfs_local(pcols), kqfs_local(pcols), kbfs_local(pcols)
+    real(r8), target, optional, intent(in) :: obklen_local(pcols)
 
     integer(c_int64_t) :: psetcols_c
     real(c_double) :: rztodt_c, ztodt_c
-    type(c_ptr) :: state_q_p, state_s_p, state_u_p, state_v_p, state_t_p, state_zm_p
+    type(c_ptr) :: state_q_p, state_s_p, state_u_p, state_v_p, state_t_p, state_exner_p, state_zm_p
+    type(c_ptr) :: cflx_p, shflx_p, rrho_p, ustar_p
     type(c_ptr) :: q_tmp_p, s_tmp_p, u_tmp_p, v_tmp_p, sl_prePBL_p, qt_prePBL_p, slv_prePBL_p
     type(c_ptr) :: ftem_p, ftem_prePBL_p, ptend_q_p, ptend_s_p, ptend_u_p, ptend_v_p
     type(c_ptr) :: qv_aft_PBL_p, ql_aft_PBL_p, qi_aft_PBL_p, s_aft_PBL_p, t_aftPBL_p
     type(c_ptr) :: u_aft_PBL_p, v_aft_PBL_p, ftem_aftPBL_p, tten_p, rhten_p
+    type(c_ptr) :: th_p, thvs_p, khfs_p, kqfs_p, kbfs_p, obklen_p
 
     interface
        subroutine vertical_diffusion_diag_batch_codon(stage_c, ncol_c, pcols_c, pver_c, pcnst_c, psetcols_c, &
             ixcldliq_c, ixcldice_c, latvap_c, latice_c, zvir_c, rztodt_c, ztodt_c, gravit_c, cpair_c, &
-            state_q_p, state_s_p, state_u_p, state_v_p, state_t_p, state_zm_p, q_tmp_p, s_tmp_p, u_tmp_p, v_tmp_p, &
+            karman_c, state_q_p, state_s_p, state_u_p, state_v_p, state_t_p, state_exner_p, state_zm_p, &
+            cflx_p, shflx_p, rrho_p, ustar_p, q_tmp_p, s_tmp_p, u_tmp_p, v_tmp_p, &
             sl_prePBL_p, qt_prePBL_p, slv_prePBL_p, ftem_p, ftem_prePBL_p, ptend_q_p, ptend_s_p, ptend_u_p, &
             ptend_v_p, qv_aft_PBL_p, ql_aft_PBL_p, qi_aft_PBL_p, s_aft_PBL_p, t_aftPBL_p, u_aft_PBL_p, &
-            v_aft_PBL_p, ftem_aftPBL_p, tten_p, rhten_p) bind(c, name="vertical_diffusion_diag_batch_codon")
+            v_aft_PBL_p, ftem_aftPBL_p, tten_p, rhten_p, th_p, thvs_p, khfs_p, kqfs_p, kbfs_p, obklen_p) &
+            bind(c, name="vertical_diffusion_diag_batch_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, pcnst_c, psetcols_c, ixcldliq_c, ixcldice_c
-         real(c_double), value :: latvap_c, latice_c, zvir_c, rztodt_c, ztodt_c, gravit_c, cpair_c
-         type(c_ptr), value :: state_q_p, state_s_p, state_u_p, state_v_p, state_t_p, state_zm_p
+         real(c_double), value :: latvap_c, latice_c, zvir_c, rztodt_c, ztodt_c, gravit_c, cpair_c, karman_c
+         type(c_ptr), value :: state_q_p, state_s_p, state_u_p, state_v_p, state_t_p, state_exner_p, state_zm_p
+         type(c_ptr), value :: cflx_p, shflx_p, rrho_p, ustar_p
          type(c_ptr), value :: q_tmp_p, s_tmp_p, u_tmp_p, v_tmp_p, sl_prePBL_p, qt_prePBL_p, slv_prePBL_p
          type(c_ptr), value :: ftem_p, ftem_prePBL_p, ptend_q_p, ptend_s_p, ptend_u_p, ptend_v_p
          type(c_ptr), value :: qv_aft_PBL_p, ql_aft_PBL_p, qi_aft_PBL_p, s_aft_PBL_p, t_aftPBL_p
          type(c_ptr), value :: u_aft_PBL_p, v_aft_PBL_p, ftem_aftPBL_p, tten_p, rhten_p
+         type(c_ptr), value :: th_p, thvs_p, khfs_p, kqfs_p, kbfs_p, obklen_p
        end subroutine vertical_diffusion_diag_batch_codon
     end interface
 
@@ -991,7 +1006,12 @@ contains
     state_u_p = c_null_ptr; if (present(state_u_local)) state_u_p = c_loc(state_u_local)
     state_v_p = c_null_ptr; if (present(state_v_local)) state_v_p = c_loc(state_v_local)
     state_t_p = c_null_ptr; if (present(state_t_local)) state_t_p = c_loc(state_t_local)
+    state_exner_p = c_null_ptr; if (present(state_exner_local)) state_exner_p = c_loc(state_exner_local)
     state_zm_p = c_null_ptr; if (present(state_zm_local)) state_zm_p = c_loc(state_zm_local)
+    cflx_p = c_null_ptr; if (present(cflx_local)) cflx_p = c_loc(cflx_local)
+    shflx_p = c_null_ptr; if (present(shflx_local)) shflx_p = c_loc(shflx_local)
+    rrho_p = c_null_ptr; if (present(rrho_local)) rrho_p = c_loc(rrho_local)
+    ustar_p = c_null_ptr; if (present(ustar_local)) ustar_p = c_loc(ustar_local)
     q_tmp_p = c_null_ptr; if (present(q_tmp_local)) q_tmp_p = c_loc(q_tmp_local)
     s_tmp_p = c_null_ptr; if (present(s_tmp_local)) s_tmp_p = c_loc(s_tmp_local)
     u_tmp_p = c_null_ptr; if (present(u_tmp_local)) u_tmp_p = c_loc(u_tmp_local)
@@ -1015,16 +1035,24 @@ contains
     ftem_aftPBL_p = c_null_ptr; if (present(ftem_aftPBL_local)) ftem_aftPBL_p = c_loc(ftem_aftPBL_local)
     tten_p = c_null_ptr; if (present(tten_local)) tten_p = c_loc(tten_local)
     rhten_p = c_null_ptr; if (present(rhten_local)) rhten_p = c_loc(rhten_local)
+    th_p = c_null_ptr; if (present(th_local)) th_p = c_loc(th_local)
+    thvs_p = c_null_ptr; if (present(thvs_local)) thvs_p = c_loc(thvs_local)
+    khfs_p = c_null_ptr; if (present(khfs_local)) khfs_p = c_loc(khfs_local)
+    kqfs_p = c_null_ptr; if (present(kqfs_local)) kqfs_p = c_loc(kqfs_local)
+    kbfs_p = c_null_ptr; if (present(kbfs_local)) kbfs_p = c_loc(kbfs_local)
+    obklen_p = c_null_ptr; if (present(obklen_local)) obklen_p = c_loc(obklen_local)
 
     call vertical_diffusion_diag_batch_log_entered()
     call vertical_diffusion_diag_batch_codon( &
          int(stage, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          int(pcnst, c_int64_t), psetcols_c, int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), &
          real(latvap, c_double), real(latice, c_double), real(zvir, c_double), rztodt_c, ztodt_c, &
-         real(gravit, c_double), real(cpair, c_double), state_q_p, state_s_p, state_u_p, state_v_p, state_t_p, &
-         state_zm_p, q_tmp_p, s_tmp_p, u_tmp_p, v_tmp_p, sl_prePBL_p, qt_prePBL_p, slv_prePBL_p, ftem_p, &
+         real(gravit, c_double), real(cpair, c_double), real(karman, c_double), state_q_p, state_s_p, state_u_p, &
+         state_v_p, state_t_p, state_exner_p, state_zm_p, cflx_p, shflx_p, rrho_p, ustar_p, &
+         q_tmp_p, s_tmp_p, u_tmp_p, v_tmp_p, sl_prePBL_p, qt_prePBL_p, slv_prePBL_p, ftem_p, &
          ftem_prePBL_p, ptend_q_p, ptend_s_p, ptend_u_p, ptend_v_p, qv_aft_PBL_p, ql_aft_PBL_p, qi_aft_PBL_p, &
-         s_aft_PBL_p, t_aftPBL_p, u_aft_PBL_p, v_aft_PBL_p, ftem_aftPBL_p, tten_p, rhten_p)
+         s_aft_PBL_p, t_aftPBL_p, u_aft_PBL_p, v_aft_PBL_p, ftem_aftPBL_p, tten_p, rhten_p, &
+         th_p, thvs_p, khfs_p, kqfs_p, kbfs_p, obklen_p)
 
   end subroutine vertical_diffusion_diag_batch_call
 
@@ -2014,8 +2042,6 @@ contains
   subroutine vertical_diffusion_obklen_diag(ncol, state_t_local, state_exner_local, state_q_local, cflx_local, &
        shflx_local, rrho_local, ustar_local, th_local, thvs_local, khfs_local, kqfs_local, kbfs_local, obklen_local)
 
-    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
-
     integer, intent(in) :: ncol
     real(r8), target, intent(in) :: state_t_local(pcols,pver), state_exner_local(pcols,pver)
     real(r8), target, intent(in) :: state_q_local(pcols,pver,pcnst), cflx_local(pcols,pcnst), shflx_local(pcols)
@@ -2023,34 +2049,19 @@ contains
     real(r8), target, intent(inout) :: th_local(pcols,pver), thvs_local(pcols)
     real(r8), target, intent(inout) :: khfs_local(pcols), kqfs_local(pcols), kbfs_local(pcols), obklen_local(pcols)
 
-    interface
-       subroutine vertical_diffusion_obklen_diag_codon(ncol_c, pcols_c, pver_c, cpair_c, zvir_c, gravit_c, karman_c, &
-            state_t_p, state_exner_p, state_q_p, cflx_p, shflx_p, rrho_p, ustar_p, th_p, thvs_p, khfs_p, kqfs_p, &
-            kbfs_p, obklen_p) bind(c, name="vertical_diffusion_obklen_diag_codon")
-         use iso_c_binding, only: c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
-         real(c_double), value :: cpair_c, zvir_c, gravit_c, karman_c
-         type(c_ptr), value :: state_t_p, state_exner_p, state_q_p, cflx_p, shflx_p, rrho_p, ustar_p
-         type(c_ptr), value :: th_p, thvs_p, khfs_p, kqfs_p, kbfs_p, obklen_p
-       end subroutine vertical_diffusion_obklen_diag_codon
-    end interface
+    call vertical_diffusion_diag_batch_select_impl()
 
-    call vertical_diffusion_obklen_diag_select_impl()
-
-    if (use_native_obklen_diag_impl) then
+    if (use_native_diag_batch_impl) then
        call vertical_diffusion_obklen_diag_native(ncol, state_t_local, state_exner_local, state_q_local, cflx_local, &
             shflx_local, rrho_local, ustar_local, th_local, thvs_local, khfs_local, kqfs_local, kbfs_local, &
             obklen_local)
        return
     end if
 
-    call vertical_diffusion_obklen_diag_codon( &
-         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(cpair, c_double), &
-         real(zvir, c_double), real(gravit, c_double), real(karman, c_double), c_loc(state_t_local), &
-         c_loc(state_exner_local), c_loc(state_q_local), c_loc(cflx_local), c_loc(shflx_local), c_loc(rrho_local), &
-         c_loc(ustar_local), c_loc(th_local), c_loc(thvs_local), c_loc(khfs_local), c_loc(kqfs_local), c_loc(kbfs_local), &
-         c_loc(obklen_local) &
-    )
+    call vertical_diffusion_diag_batch_call(5, ncol, state_t_local=state_t_local, state_exner_local=state_exner_local, &
+         state_q_local=state_q_local, cflx_local=cflx_local, shflx_local=shflx_local, rrho_local=rrho_local, &
+         ustar_local=ustar_local, th_local=th_local, thvs_local=thvs_local, khfs_local=khfs_local, &
+         kqfs_local=kqfs_local, kbfs_local=kbfs_local, obklen_local=obklen_local)
 
   end subroutine vertical_diffusion_obklen_diag
 
