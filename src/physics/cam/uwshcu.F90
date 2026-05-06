@@ -47,6 +47,7 @@
   logical :: delcin_reset_shell_entered_logged = .false.
   logical :: iter_save_shell_entered_logged = .false.
   logical :: column_init_shell_entered_logged = .false.
+  logical :: column_workspace_reset_shell_entered_logged = .false.
   logical :: column_input_shell_entered_logged = .false.
   logical :: column_thermo_shell_entered_logged = .false.
   logical :: pbl_precheck_shell_entered_logged = .false.
@@ -314,6 +315,22 @@ contains
     end if
 
   end subroutine uwshcu_log_column_init_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_column_workspace_reset_shell_entered()
+
+    if (column_workspace_reset_shell_entered_logged) return
+    column_workspace_reset_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu column workspace reset shell entered (main/extra workspace and scalar reset direct = codon)'
+       call uwshcu_append_proof( &
+            'uwshcu column workspace reset shell entered (main/extra workspace and scalar reset direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_column_workspace_reset_shell_entered
 
 !===============================================================================
 
@@ -1620,7 +1637,8 @@ end subroutine uwshcu_readnl
     real(r8), target :: pe, dpe, thvebot, thle, qte, ue, ve
     real(r8)    exne, thlue, qtue, wue
     real(r8)    mu, mumin0, mumin1, mumin2, mulcl, mulclstar
-    real(r8)    cbmf, wcrit, winv, wlcl, ufrcinv, ufrclcl, rmaxfrac
+    real(r8), target :: cbmf, wlcl, ufrclcl
+    real(r8)    wcrit, winv, ufrcinv, rmaxfrac
     real(r8)    criqc, exql, exqi, ppen
     real(r8)    thl0top, thl0bot, qt0bot, qt0top, thvubot, thvutop
     real(r8)    thlu_top, qtu_top, qlu_top, qiu_top, qlu_mid, qiu_mid, exntop
@@ -1784,7 +1802,8 @@ end subroutine uwshcu_readnl
                 qtsrc_s, thlsrc_s, thvlsrc_s, emfkbup_s, cinlcl_s, pbup_s, ppen_s, cbmflimit_s, &
                 tkeavg_s, zinv_s, rcwp_s, rlwp_s, riwp_s 
     real(r8), target :: ufrcinvbase, winvbase
-    real(r8) :: pinv, zinv, emfkbup, cbmflimit, rho0rel
+    real(r8), target :: emfkbup, cbmflimit
+    real(r8) :: pinv, zinv, rho0rel
 
     !----- Variables for implicit CIN computation
 
@@ -2471,6 +2490,34 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: wtten_sink_liq_p, wtten_sink_ice_p, wtevp_p, wtsub_p, dz_p, uemf_p
        end subroutine uwshcu_column_extra_workspace_reset_shell_codon
 
+       subroutine uwshcu_initial_workspace_reset_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
+            umf_p, emf_p, slflx_p, qtflx_p, uflx_p, vflx_p, qvten_p, qlten_p, qiten_p, sten_p, &
+            uten_p, vten_p, qrten_p, qsten_p, dwten_p, diten_p, evapc_p, cufrc_p, qcu_p, qlu_p, &
+            qiu_p, fer_p, fdr_p, qc_p, qc_l_p, qc_i_p, qtten_p, slten_p, ufrc_p, thlu_p, qtu_p, &
+            uu_p, vu_p, wu_p, thvu_p, thlu_emf_p, qtu_emf_p, uu_emf_p, vu_emf_p, trflx_p, &
+            trten_p, tru_p, tru_emf_p, wtdwten_p, wtditen_p, wtrpten_p, wtspten_p, wtqc_liq_p, &
+            wtqc_ice_p, wtu_p, wtu_emf_p, wtflx_p, wttotten_p, wtprec_p, wtsnow_p, excessu_p, &
+            excess0_p, xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p, comsub_p, qlten_sink_p, &
+            qiten_sink_p, nlten_sink_p, niten_sink_p, wtten_sink_liq_p, wtten_sink_ice_p, wtevp_p, &
+            wtsub_p, dz_p, uemf_p, precip_p, snow_p, cin_p, cbmf_p, rliq_p, cnt_p, cnb_p, &
+            ufrcinvbase_p, ufrclcl_p, winvbase_p, wlcl_p, emfkbup_p, cbmflimit_p) &
+            bind(c, name="uwshcu_initial_workspace_reset_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c
+          type(c_ptr), value :: umf_p, emf_p, slflx_p, qtflx_p, uflx_p, vflx_p, qvten_p, qlten_p, qiten_p
+          type(c_ptr), value :: sten_p, uten_p, vten_p, qrten_p, qsten_p, dwten_p, diten_p, evapc_p
+          type(c_ptr), value :: cufrc_p, qcu_p, qlu_p, qiu_p, fer_p, fdr_p, qc_p, qc_l_p, qc_i_p
+          type(c_ptr), value :: qtten_p, slten_p, ufrc_p, thlu_p, qtu_p, uu_p, vu_p, wu_p, thvu_p
+          type(c_ptr), value :: thlu_emf_p, qtu_emf_p, uu_emf_p, vu_emf_p, trflx_p, trten_p, tru_p, tru_emf_p
+          type(c_ptr), value :: wtdwten_p, wtditen_p, wtrpten_p, wtspten_p, wtqc_liq_p, wtqc_ice_p
+          type(c_ptr), value :: wtu_p, wtu_emf_p, wtflx_p, wttotten_p, wtprec_p, wtsnow_p
+          type(c_ptr), value :: excessu_p, excess0_p, xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p
+          type(c_ptr), value :: comsub_p, qlten_sink_p, qiten_sink_p, nlten_sink_p, niten_sink_p
+          type(c_ptr), value :: wtten_sink_liq_p, wtten_sink_ice_p, wtevp_p, wtsub_p, dz_p, uemf_p
+          type(c_ptr), value :: precip_p, snow_p, cin_p, cbmf_p, rliq_p, cnt_p, cnb_p, ufrcinvbase_p
+          type(c_ptr), value :: ufrclcl_p, winvbase_p, wlcl_p, emfkbup_p, cbmflimit_p
+       end subroutine uwshcu_initial_workspace_reset_shell_codon
+
        subroutine uwshcu_iter_save_env_shell_codon(mkx_c, ncnst_c, dt_c, cp_c, &
             qv0_p, ql0_p, qi0_p, s0_p, u0_p, v0_p, t0_p, qvten_p, qlten_p, qiten_p, &
             sten_p, uten_p, vten_p, tr0_p, trten_p, qv0_s_p, ql0_s_p, qi0_s_p, s0_s_p, &
@@ -3154,8 +3201,8 @@ end subroutine uwshcu_readnl
       else
         wtrc_nwset_post_c = 0_c_int64_t
         if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-        call uwshcu_log_column_init_shell_entered()
-        call uwshcu_delcin_workspace_reset_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+        call uwshcu_log_column_workspace_reset_shell_entered()
+        call uwshcu_initial_workspace_reset_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
              wtrc_nwset_post_c, c_loc(umf), c_loc(emf), c_loc(slflx), c_loc(qtflx), c_loc(uflx), &
              c_loc(vflx), c_loc(qvten), c_loc(qlten), c_loc(qiten), c_loc(sten), c_loc(uten), &
              c_loc(vten), c_loc(qrten), c_loc(qsten), c_loc(dwten), c_loc(diten), c_loc(evapc), &
@@ -3167,25 +3214,12 @@ end subroutine uwshcu_readnl
              c_loc(wtrpten), c_loc(wtspten), c_loc(wtqc_liq), c_loc(wtqc_ice), c_loc(wtu), &
              c_loc(wtu_emf), c_loc(wtflx), c_loc(wttotten), c_loc(wtprec), c_loc(wtsnow), &
              c_loc(excessu_arr), c_loc(excess0_arr), c_loc(xc_arr), c_loc(aquad_arr), &
-             c_loc(bquad_arr), c_loc(cquad_arr), c_loc(bogbot_arr), c_loc(bogtop_arr))
-        call uwshcu_column_extra_workspace_reset_shell_codon(int(mkx, c_int64_t), wtrc_nwset_post_c, &
+             c_loc(bquad_arr), c_loc(cquad_arr), c_loc(bogbot_arr), c_loc(bogtop_arr), &
              c_loc(comsub), c_loc(qlten_sink), c_loc(qiten_sink), c_loc(nlten_sink), c_loc(niten_sink), &
-             c_loc(wtten_sink_liq), c_loc(wtten_sink_ice), c_loc(wtevp), c_loc(wtsub), c_loc(dz), c_loc(uemf))
-        precip              = 0.0_r8
-        snow                = 0.0_r8
-        cin                 = 0.0_r8
-        cbmf                = 0.0_r8
-        rliq                = 0.0_r8
-        cnt                 = real(mkx, r8)
-        cnb                 = 0.0_r8
-        ufrcinvbase         = 0.0_r8
-        ufrclcl             = 0.0_r8
-        winvbase            = 0.0_r8
-        wlcl                = 0.0_r8
-        emfkbup             = 0.0_r8
-        cbmflimit           = 0.0_r8
-        wtprec              = 0.0_r8
-        wtsnow              = 0.0_r8
+             c_loc(wtten_sink_liq), c_loc(wtten_sink_ice), c_loc(wtevp), c_loc(wtsub), c_loc(dz), &
+             c_loc(uemf), c_loc(precip), c_loc(snow), c_loc(cin), c_loc(cbmf), c_loc(rliq), &
+             c_loc(cnt), c_loc(cnb), c_loc(ufrcinvbase), c_loc(ufrclcl), c_loc(winvbase), &
+             c_loc(wlcl), c_loc(emfkbup), c_loc(cbmflimit))
       end if
 
     !-----------------------------------------------! 
