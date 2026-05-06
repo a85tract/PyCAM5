@@ -55,6 +55,7 @@
   logical :: cin_save_shell_entered_logged = .false.
   logical :: cin_restore_shell_entered_logged = .false.
   logical :: release_prep_shell_entered_logged = .false.
+  logical :: scaleh_iter_init_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -422,6 +423,22 @@ contains
     end if
 
   end subroutine uwshcu_log_release_prep_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_scaleh_iter_init_shell_entered()
+
+    if (scaleh_iter_init_shell_entered_logged) return
+    scaleh_iter_init_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu scaleh iter init shell entered (scaleh and per-iteration env reset direct = codon)'
+       call uwshcu_append_proof( &
+            'uwshcu scaleh iter init shell entered (scaleh and per-iteration env reset direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_scaleh_iter_init_shell_entered
 
 !===============================================================================
   
@@ -1363,10 +1380,12 @@ end subroutine uwshcu_readnl
     real(r8), target :: plcl, plfc, prel
     real(r8)    wrel
     real(r8)    frc_rasn
-    real(r8)    ee2, ud2, wtw, wtwb, wtwh
+    real(r8), target :: wtw
+    real(r8)    ee2, ud2, wtwb, wtwh
     real(r8)    xc, xc_2
     real(r8), target :: tscaleh
-    real(r8)    cldhgt, scaleh, cridis, rle, rkm
+    real(r8), target :: scaleh
+    real(r8)    cldhgt, cridis, rle, rkm
     real(r8), target :: tkeavg, thvlmin
     real(r8)    rkfre, sigmaw, epsvarw, dpsum, dpi
     real(r8)    thlxsat, qtxsat, thvxsat, x_cu, x_en, thv_x0, thv_x1
@@ -1588,6 +1607,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: klcl_prep_c, lcl_exit_code_c
     integer(c_int64_t), target       :: kinv_cin_state_c, klcl_cin_state_c, klfc_cin_state_c
     integer(c_int64_t), target       :: krel_release_c
+    integer(c_int64_t), target       :: kbup_iter_c, kpen_iter_c
     integer(c_int64_t)               :: wtrc_nwset_post_c
 
     interface
@@ -1931,6 +1951,26 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: thvu_p, uu_p, vu_p, tru_p, wtu_p, thvebot_p, thle_p, qte_p
           type(c_ptr), value :: ue_p, ve_p, tre_p, wte_p
        end subroutine uwshcu_release_env_shell_codon
+
+       subroutine uwshcu_scaleh_set_codon(tscaleh_c, scaleh_p) bind(c, name="uwshcu_scaleh_set_codon")
+          use iso_c_binding, only: c_double, c_ptr
+          real(c_double), value :: tscaleh_c
+          type(c_ptr), value :: scaleh_p
+       end subroutine uwshcu_scaleh_set_codon
+
+       subroutine uwshcu_scaleh_iter_init_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, krel_c, &
+            wlcl_c, prel_c, thv0rel_c, ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, &
+            ssqt0_p, u0_p, ssu0_p, v0_p, ssv0_p, tr0_p, sstr0_p, wt0_p, sswt0_p, &
+            kbup_p, kpen_p, wtw_p, pe_p, dpe_p, thvebot_p, thle_p, qte_p, &
+            ue_p, ve_p, tre_p, wte_p) bind(c, name="uwshcu_scaleh_iter_init_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, krel_c
+          real(c_double), value :: wlcl_c, prel_c, thv0rel_c
+          type(c_ptr), value :: ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p, u0_p, ssu0_p
+          type(c_ptr), value :: v0_p, ssv0_p, tr0_p, sstr0_p, wt0_p, sswt0_p
+          type(c_ptr), value :: kbup_p, kpen_p, wtw_p, pe_p, dpe_p, thvebot_p, thle_p, qte_p
+          type(c_ptr), value :: ue_p, ve_p, tre_p, wte_p
+       end subroutine uwshcu_scaleh_iter_init_shell_codon
 
        subroutine uwshcu_column_env_save_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, &
@@ -3782,8 +3822,13 @@ end subroutine uwshcu_readnl
        ! variation of precipitation amount.                                       !
        ! ------------------------------------------------------------------------ !   
 
-       scaleh = tscaleh
-       if( tscaleh .lt. 0.0_r8 ) scaleh = 1000._r8
+       if (use_native_init_shell_impl) then
+          scaleh = tscaleh
+          if( tscaleh .lt. 0.0_r8 ) scaleh = 1000._r8
+       else
+          call uwshcu_log_scaleh_iter_init_shell_entered()
+          call uwshcu_scaleh_set_codon(tscaleh, c_loc(scaleh))
+       endif
 
      ! Save time : Set iter_scaleh = 1. This will automatically use 'cush' from the previous time step
      !             at the first implicit iteration. At the second implicit iteration, it will use
@@ -3843,38 +3888,53 @@ end subroutine uwshcu_readnl
        ! as explained in detail in turbulent flux calculation part.       !
        ! ---------------------------------------------------------------- ! 
 
-       kbup    = krel
-       kpen    = krel
+       if (use_native_init_shell_impl) then
+          kbup    = krel
+          kpen    = krel
 
-       ! ------------------------------------------------------------ !
-       ! Since 'wtw' is continuously updated during vertical motion,  !
-       ! I need below initialization command within this 'iter_scaleh'!
-       ! do loop. Similarily, I need initializations of environmental !
-       ! properties at 'krel' layer as below.                         !
-       ! ------------------------------------------------------------ !
+          ! ------------------------------------------------------------ !
+          ! Since 'wtw' is continuously updated during vertical motion,  !
+          ! I need below initialization command within this 'iter_scaleh'!
+          ! do loop. Similarily, I need initializations of environmental !
+          ! properties at 'krel' layer as below.                         !
+          ! ------------------------------------------------------------ !
 
-       wtw     = wlcl * wlcl
-       pe      = 0.5_r8 * ( prel + ps0(krel) )
-       dpe     = prel - ps0(krel)
-       exne    = exnf(pe)
-       thvebot = thv0rel
-       thle    = thl0(krel) + ssthl0(krel) * ( pe - p0(krel) )
-       qte     = qt0(krel)  + ssqt0(krel)  * ( pe - p0(krel) )
-       ue      = u0(krel)   + ssu0(krel)   * ( pe - p0(krel) )
-       ve      = v0(krel)   + ssv0(krel)   * ( pe - p0(krel) )
-       do m = 1, ncnst
-          tre(m) = tr0(krel,m)  + sstr0(krel,m)  * ( pe - p0(krel) )
-       enddo
+          wtw     = wlcl * wlcl
+          pe      = 0.5_r8 * ( prel + ps0(krel) )
+          dpe     = prel - ps0(krel)
+          exne    = exnf(pe)
+          thvebot = thv0rel
+          thle    = thl0(krel) + ssthl0(krel) * ( pe - p0(krel) )
+          qte     = qt0(krel)  + ssqt0(krel)  * ( pe - p0(krel) )
+          ue      = u0(krel)   + ssu0(krel)   * ( pe - p0(krel) )
+          ve      = v0(krel)   + ssv0(krel)   * ( pe - p0(krel) )
+          do m = 1, ncnst
+             tre(m) = tr0(krel,m)  + sstr0(krel,m)  * ( pe - p0(krel) )
+          enddo
 
-      !*************
-      !Water tracers
-      !*************
-      if(trace_water) then
-        do m=1,wtrc_nwset
-          wte(m) = wt0(krel,m) + sswt0(krel,m) * ( pe - p0(krel) )
-        end do
-      end if
-      !*************
+         !*************
+         !Water tracers
+         !*************
+          if(trace_water) then
+            do m=1,wtrc_nwset
+              wte(m) = wt0(krel,m) + sswt0(krel,m) * ( pe - p0(krel) )
+            end do
+          end if
+         !*************
+       else
+          wtrc_nwset_post_c = 0_c_int64_t
+          if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
+          call uwshcu_scaleh_iter_init_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+               wtrc_nwset_post_c, int(krel, c_int64_t), wlcl, prel, thv0rel, c_loc(ps0), &
+               c_loc(p0), c_loc(thl0), c_loc(ssthl0), c_loc(qt0), c_loc(ssqt0), c_loc(u0), &
+               c_loc(ssu0), c_loc(v0), c_loc(ssv0), c_loc(tr0), c_loc(sstr0), c_loc(wt0), &
+               c_loc(sswt0), c_loc(kbup_iter_c), c_loc(kpen_iter_c), c_loc(wtw), &
+               c_loc(pe), c_loc(dpe), c_loc(thvebot), c_loc(thle), c_loc(qte), c_loc(ue), c_loc(ve), &
+               c_loc(tre), c_loc(wte))
+          kbup = int(kbup_iter_c)
+          kpen = int(kpen_iter_c)
+          exne = exnf(pe)
+       endif
 
        ! ----------------------------------------------------------------------- !
        ! Cumulus rises upward from 'prel' ( or base interface of  'krel' layer ) !

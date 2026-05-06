@@ -2465,6 +2465,107 @@ def uwshcu_release_env_shell_codon(
 
 
 @export
+def uwshcu_scaleh_set_codon(
+    tscaleh: float,
+    scaleh_p: cobj,
+):
+    scaleh = Ptr[float](scaleh_p)
+
+    scaleh[0] = tscaleh
+    if tscaleh < 0.0:
+        scaleh[0] = 1000.0
+
+
+@export
+def uwshcu_scaleh_iter_init_shell_codon(
+    mkx: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    krel: int,
+    wlcl: float,
+    prel: float,
+    thv0rel_v: float,
+    ps0_p: cobj,
+    p0_p: cobj,
+    thl0_p: cobj,
+    ssthl0_p: cobj,
+    qt0_p: cobj,
+    ssqt0_p: cobj,
+    u0_p: cobj,
+    ssu0_p: cobj,
+    v0_p: cobj,
+    ssv0_p: cobj,
+    tr0_p: cobj,
+    sstr0_p: cobj,
+    wt0_p: cobj,
+    sswt0_p: cobj,
+    kbup_p: cobj,
+    kpen_p: cobj,
+    wtw_p: cobj,
+    pe_p: cobj,
+    dpe_p: cobj,
+    thvebot_p: cobj,
+    thle_p: cobj,
+    qte_p: cobj,
+    ue_p: cobj,
+    ve_p: cobj,
+    tre_p: cobj,
+    wte_p: cobj,
+):
+    ps0 = Ptr[float](ps0_p)
+    p0 = Ptr[float](p0_p)
+    thl0 = Ptr[float](thl0_p)
+    ssthl0 = Ptr[float](ssthl0_p)
+    qt0 = Ptr[float](qt0_p)
+    ssqt0 = Ptr[float](ssqt0_p)
+    u0 = Ptr[float](u0_p)
+    ssu0 = Ptr[float](ssu0_p)
+    v0 = Ptr[float](v0_p)
+    ssv0 = Ptr[float](ssv0_p)
+    tr0 = Ptr[float](tr0_p)
+    sstr0 = Ptr[float](sstr0_p)
+    wt0 = Ptr[float](wt0_p)
+    sswt0 = Ptr[float](sswt0_p)
+    kbup = Ptr[int](kbup_p)
+    kpen = Ptr[int](kpen_p)
+    wtw = Ptr[float](wtw_p)
+    pe = Ptr[float](pe_p)
+    dpe = Ptr[float](dpe_p)
+    thvebot = Ptr[float](thvebot_p)
+    thle = Ptr[float](thle_p)
+    qte = Ptr[float](qte_p)
+    ue = Ptr[float](ue_p)
+    ve = Ptr[float](ve_p)
+    tre = Ptr[float](tre_p)
+    wte = Ptr[float](wte_p)
+
+    kbup[0] = krel
+    kpen[0] = krel
+    wtw[0] = wlcl * wlcl
+    pe[0] = 0.5 * (prel + ps0[krel])
+    dpe[0] = prel - ps0[krel]
+    thvebot[0] = thv0rel_v
+
+    layer_idx = krel - 1
+    thle[0] = thl0[layer_idx] + ssthl0[layer_idx] * (pe[0] - p0[layer_idx])
+    qte[0] = qt0[layer_idx] + ssqt0[layer_idx] * (pe[0] - p0[layer_idx])
+    ue[0] = u0[layer_idx] + ssu0[layer_idx] * (pe[0] - p0[layer_idx])
+    ve[0] = v0[layer_idx] + ssv0[layer_idx] * (pe[0] - p0[layer_idx])
+
+    m = 0
+    while m < ncnst:
+        idx = layer_idx + m * mkx
+        tre[m] = tr0[idx] + sstr0[idx] * (pe[0] - p0[layer_idx])
+        m += 1
+
+    m = 0
+    while m < wtrc_nwset:
+        idx = layer_idx + m * mkx
+        wte[m] = wt0[idx] + sswt0[idx] * (pe[0] - p0[layer_idx])
+        m += 1
+
+
+@export
 def uwshcu_column_input_load_shell_codon(
     mix: int,
     mkx: int,
