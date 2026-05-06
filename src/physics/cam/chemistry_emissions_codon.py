@@ -241,6 +241,48 @@ def aero_model_emissions_seasalt_wind_codon(
         u10cubed[i - 1] = wind ** 3.41
 
 
+def _aero_model_emissions_seasalt_fluxes(
+    ncol: int,
+    pcols: int,
+    nsections: int,
+    sst_p: cobj,
+    u10cubed_p: cobj,
+    whitecap_p: cobj,
+    consta_p: cobj,
+    constb_p: cobj,
+    fi_p: cobj,
+):
+    sst = Ptr[float](sst_p)
+    u10cubed = Ptr[float](u10cubed_p)
+    whitecap = Ptr[float](whitecap_p)
+    consta = Ptr[float](consta_p)
+    constb = Ptr[float](constb_p)
+    fi = Ptr[float](fi_p)
+
+    for i in range(1, ncol + 1):
+        whitecap[i - 1] = 3.84e-6 * u10cubed[i - 1] * 0.1
+
+    for isec in range(1, nsections + 1):
+        if isec <= 9:
+            for i in range(1, ncol + 1):
+                fi[_idx2(i, isec, pcols)] = whitecap[i - 1] * (
+                    (sst[i - 1]) * consta[_idx2(1, isec, 4)] + constb[_idx2(1, isec, 4)]
+                )
+        elif isec >= 10 and isec <= 13:
+            for i in range(1, ncol + 1):
+                fi[_idx2(i, isec, pcols)] = whitecap[i - 1] * (
+                    (sst[i - 1]) * consta[_idx2(2, isec, 4)] + constb[_idx2(2, isec, 4)]
+                )
+        elif isec >= 14 and isec < 22:
+            for i in range(1, ncol + 1):
+                fi[_idx2(i, isec, pcols)] = whitecap[i - 1] * (
+                    (sst[i - 1]) * consta[_idx2(3, isec, 4)] + constb[_idx2(3, isec, 4)]
+                )
+        elif isec >= 22 and isec <= 40:
+            for i in range(1, ncol + 1):
+                fi[_idx2(i, isec, pcols)] = consta[_idx2(4, isec, 4)] * u10cubed[i - 1]
+
+
 def _aero_model_emissions_dust_shell(
     ncol: int,
     pcols: int,
@@ -317,7 +359,24 @@ def _aero_model_emissions_seasalt_shell(
     seasalt_sz_range_hi_p: cobj,
     dg_p: cobj,
     rdry_p: cobj,
+    sst_p: cobj,
+    u10cubed_p: cobj,
+    whitecap_p: cobj,
+    consta_p: cobj,
+    constb_p: cobj,
 ):
+    _aero_model_emissions_seasalt_fluxes(
+        ncol,
+        pcols,
+        nsections,
+        sst_p,
+        u10cubed_p,
+        whitecap_p,
+        consta_p,
+        constb_p,
+        fi_p,
+    )
+
     fi = Ptr[float](fi_p)
     ocnfrac = Ptr[float](ocnfrac_p)
     cflx = Ptr[float](cflx_p)
@@ -393,6 +452,11 @@ def aero_model_emissions_shell_codon(
     rdry_p: cobj,
     soil_erodibility_p: cobj,
     soil_erod_threshold: float,
+    sst_p: cobj,
+    u10cubed_p: cobj,
+    whitecap_p: cobj,
+    consta_p: cobj,
+    constb_p: cobj,
 ):
     if stage == 1:
         _aero_model_emissions_dust_shell(
@@ -430,4 +494,9 @@ def aero_model_emissions_shell_codon(
             seasalt_sz_range_hi_p,
             dg_p,
             rdry_p,
+            sst_p,
+            u10cubed_p,
+            whitecap_p,
+            consta_p,
+            constb_p,
         )

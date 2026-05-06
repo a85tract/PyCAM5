@@ -13,6 +13,8 @@ module sslt_sections
   public :: nsections
   public :: Dg
   public :: rdry
+  public :: consta
+  public :: constb
 
   integer,parameter :: nsections = 31
 
@@ -31,7 +33,7 @@ module sslt_sections
        2.3742e-5_r8 /)
 
   real(r8), dimension(nsections) :: bm, rdry, rm
-  real(r8), dimension(4,nsections) :: consta, constb  !constants for calculating emission polynomial
+  real(r8), target, dimension(4,nsections) :: consta, constb  !constants for calculating emission polynomial
 
 contains
   

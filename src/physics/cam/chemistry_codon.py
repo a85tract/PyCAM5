@@ -2852,6 +2852,11 @@ def aero_model_emissions_shell_codon(
     rdry_p: cobj,
     soil_erodibility_p: cobj,
     soil_erod_threshold: float,
+    sst_p: cobj,
+    u10cubed_p: cobj,
+    whitecap_p: cobj,
+    consta_p: cobj,
+    constb_p: cobj,
 ):
     return _emissions.aero_model_emissions_shell_codon(
         stage,
@@ -2882,6 +2887,11 @@ def aero_model_emissions_shell_codon(
         rdry_p,
         soil_erodibility_p,
         soil_erod_threshold,
+        sst_p,
+        u10cubed_p,
+        whitecap_p,
+        consta_p,
+        constb_p,
     )
 
 @export
