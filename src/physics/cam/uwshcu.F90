@@ -493,9 +493,9 @@ contains
     tendency_prep_shell_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'uwshcu tendency prep shell entered (uemf/comsub and momentum direct = codon; detrainment scaling native)'
+       write(iulog,'(A)') 'uwshcu tendency prep shell entered (uemf/comsub/momentum/detrainment prelim direct = codon)'
        call uwshcu_append_proof( &
-            'uwshcu tendency prep shell entered (uemf/comsub and momentum direct = codon; detrainment scaling native)')
+            'uwshcu tendency prep shell entered (uemf/comsub/momentum/detrainment prelim direct = codon)')
        call flush(iulog)
     end if
 
@@ -2299,6 +2299,21 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: uflx_p, vflx_p, uf_p, vf_p, u0_p, v0_p, wtflx_p
           type(c_ptr), value :: slten_p, qtten_p, wttotten_p, rainflx_p, snowflx_p
        end subroutine uwshcu_thermo_prelim_shell_codon
+
+       subroutine uwshcu_tendency_prep_shell_codon(mkx_c, wtrc_nwset_c, kpen_c, &
+            frc_rasn_c, g_c, dt_c, dp0_p, u0_p, v0_p, uflx_p, vflx_p, umf_p, &
+            uten_p, vten_p, uf_p, vf_p, dwten_p, diten_p, wtdwten_p, wtditen_p, &
+            qrten_p, qsten_p, wtrpten_p, wtspten_p, slflx_p, qtflx_p, wtflx_p, &
+            slten_p, qtten_p, wttotten_p, rainflx_p, snowflx_p) &
+            bind(c, name="uwshcu_tendency_prep_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, kpen_c
+          real(c_double), value :: frc_rasn_c, g_c, dt_c
+          type(c_ptr), value :: dp0_p, u0_p, v0_p, uflx_p, vflx_p, umf_p
+          type(c_ptr), value :: uten_p, vten_p, uf_p, vf_p, dwten_p, diten_p, wtdwten_p, wtditen_p
+          type(c_ptr), value :: qrten_p, qsten_p, wtrpten_p, wtspten_p, slflx_p, qtflx_p, wtflx_p
+          type(c_ptr), value :: slten_p, qtten_p, wttotten_p, rainflx_p, snowflx_p
+       end subroutine uwshcu_tendency_prep_shell_codon
 
        subroutine uwshcu_thermo_final_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, k_c, &
             use_expconten_c, use_unicondet_c, ixnumliq_c, ixnumice_c, frc_rasn_c, &
@@ -5873,13 +5888,6 @@ end subroutine uwshcu_readnl
         !    trten(k,m) = max(trten(k,m),-tr0(k,m)/dt)              
         ! enddo
        end do        
-       else
-          wtrc_nwset_post_c = 0_c_int64_t
-          if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-          call uwshcu_momentum_detrainment_shell_codon(int(mkx, c_int64_t), wtrc_nwset_post_c, &
-               int(kpen, c_int64_t), g, dt, c_loc(dp0), c_loc(u0), c_loc(v0), c_loc(uflx), &
-               c_loc(vflx), c_loc(umf), c_loc(uten), c_loc(vten), c_loc(uf), c_loc(vf), &
-               c_loc(dwten), c_loc(diten), c_loc(wtdwten), c_loc(wtditen))
        endif
 
        ! ----------------------------------------------------------------- !
@@ -5898,11 +5906,11 @@ end subroutine uwshcu_readnl
           wtrc_nwset_post_c = 0_c_int64_t
           if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
           call uwshcu_log_thermo_prelim_shell_entered()
-          call uwshcu_thermo_prelim_shell_codon(int(mkx, c_int64_t), wtrc_nwset_post_c, &
-               int(kpen, c_int64_t), frc_rasn, g, c_loc(dp0), c_loc(umf), c_loc(dwten), &
-               c_loc(diten), c_loc(wtdwten), c_loc(wtditen), c_loc(qrten), c_loc(qsten), &
-               c_loc(wtrpten), c_loc(wtspten), c_loc(slflx), c_loc(qtflx), c_loc(uflx), &
-               c_loc(vflx), c_loc(uf), c_loc(vf), c_loc(u0), c_loc(v0), c_loc(wtflx), &
+          call uwshcu_tendency_prep_shell_codon(int(mkx, c_int64_t), wtrc_nwset_post_c, &
+               int(kpen, c_int64_t), frc_rasn, g, dt, c_loc(dp0), c_loc(u0), c_loc(v0), &
+               c_loc(uflx), c_loc(vflx), c_loc(umf), c_loc(uten), c_loc(vten), c_loc(uf), &
+               c_loc(vf), c_loc(dwten), c_loc(diten), c_loc(wtdwten), c_loc(wtditen), &
+               c_loc(qrten), c_loc(qsten), c_loc(wtrpten), c_loc(wtspten), c_loc(slflx), c_loc(qtflx), c_loc(wtflx), &
                c_loc(slten), c_loc(qtten), c_loc(wttotten), c_loc(rainflx), c_loc(snowflx))
        endif
 
