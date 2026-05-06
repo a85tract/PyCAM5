@@ -1,4 +1,4 @@
-from math import pi
+from math import gamma, pi
 
 
 def _idx2(i: int, k: int, ld1: int):
@@ -253,6 +253,42 @@ def _size_dist_param_basic_codon(
 
 def _avg_diameter_codon(q: float, n: float, rho_air: float, rho_sub: float):
     return (pi * rho_sub * n / (q * rho_air)) ** (-1.0 / 3.0)
+
+
+def _size_dist_param_liq_codon(
+    qsmall: float,
+    qcic: float,
+    ncic: float,
+    rho_air: float,
+    liq_rho: float,
+    liq_eff_dim: float,
+    liq_min_mean_mass: float,
+):
+    pgam = -100.0
+    lamc = 0.0
+    ncic_out = ncic
+
+    if qcic > qsmall:
+        pgam = 0.0005714 * (ncic / 1.0e6 * rho_air) + 0.2714
+        pgam = 1.0 / (pgam ** 2) - 1.0
+        pgam = max(pgam, 2.0)
+        pgam = min(pgam, 15.0)
+
+        shape_coef = pi * liq_rho / 6.0 * (gamma(pgam + 1.0 + liq_eff_dim) / gamma(pgam + 1.0))
+        lambda_lo = (pgam + 1.0) * 1.0 / 50.0e-6
+        lambda_hi = (pgam + 1.0) * 1.0 / 2.0e-6
+        lamc, ncic_out = _size_dist_param_basic_codon(
+            qsmall,
+            qcic,
+            ncic_out,
+            liq_eff_dim,
+            shape_coef,
+            lambda_lo,
+            lambda_hi,
+            liq_min_mean_mass,
+        )
+
+    return pgam, lamc, ncic_out
 
 
 @export
@@ -1101,6 +1137,54 @@ def micro_mg_cam_reff_calc_codon(
     dei_grid = Ptr[float](dei_grid_p)
     mgreffrain_grid = Ptr[float](mgreffrain_grid_p)
     mgreffsnow_grid = Ptr[float](mgreffsnow_grid_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, pcols + 1):
+            idx2 = _idx2(i, k, pcols)
+            mu_grid[idx2] = 0.0
+            lambdac_grid[idx2] = 0.0
+            rel_fn_grid[idx2] = 10.0
+            ncic_grid[idx2] = 1.0e8
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ngrdcol + 1):
+            idx2 = _idx2(i, k, pcols)
+            mu_grid[idx2], lambdac_grid[idx2], ncic_grid[idx2] = _size_dist_param_liq_codon(
+                qsmall,
+                icwmrst_grid[idx2],
+                ncic_grid[idx2],
+                rho_grid[idx2],
+                liq_rho,
+                liq_eff_dim,
+                liq_min_mean_mass,
+            )
+            if icwmrst_grid[idx2] > qsmall:
+                rel_fn_grid[idx2] = (mu_grid[idx2] + 3.0) / lambdac_grid[idx2] / 2.0 * 1.0e6
+
+    for k in range(1, pver + 1):
+        for i in range(1, pcols + 1):
+            idx2 = _idx2(i, k, pcols)
+            mu_grid[idx2] = 0.0
+            lambdac_grid[idx2] = 0.0
+            rel_grid[idx2] = 10.0
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ngrdcol + 1):
+            idx2 = _idx2(i, k, pcols)
+            ncic_grid[idx2] = nc_grid[idx2] / max(mincld, liqcldf_grid[idx2])
+            mu_grid[idx2], lambdac_grid[idx2], ncic_grid[idx2] = _size_dist_param_liq_codon(
+                qsmall,
+                icwmrst_grid[idx2],
+                ncic_grid[idx2],
+                rho_grid[idx2],
+                liq_rho,
+                liq_eff_dim,
+                liq_min_mean_mass,
+            )
+            if icwmrst_grid[idx2] >= qsmall:
+                rel_grid[idx2] = (mu_grid[idx2] + 3.0) / lambdac_grid[idx2] / 2.0 * 1.0e6
+            else:
+                mu_grid[idx2] = 0.0
 
     for k in range(1, pver + 1):
         for i in range(1, pcols + 1):

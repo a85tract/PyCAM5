@@ -2653,11 +2653,6 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
       else
          minlwp = 0.01_r8        !minimum lwp threshold (kg/m3)
 
-         ! Keep the liquid effective-radius branch native; the remaining active
-         ! diagnostic tail is combined into one Codon shell.
-         call micro_mg_cam_reff_liq_native(ngrdcol, rho_grid, icwmrst_grid, liqcldf_grid, nc_grid, mu_grid, lambdac_grid, &
-              rel_fn_grid, ncic_grid, rel_grid)
-
          call micro_mg_cam_diag_shell_codon_wrap(ngrdcol, micro_mg_version, minlwp, rho_grid, icwmrst_grid, liqcldf_grid, &
               nc_grid, qr_grid, nr_grid, qs_grid, ns_grid, qrout_grid, nrout_grid, qsout_grid, nsout_grid, ni_grid, &
               icecldf_grid, icimrst_grid, ast_grid, mu_grid, lambdac_grid, rel_fn_grid, ncic_grid, rel_grid, drout2_grid, &
@@ -2718,9 +2713,6 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
       end if
 
       minlwp = 0.01_r8
-      call micro_mg_cam_reff_liq_native(ngrdcol, rho_grid, icwmrst_grid, liqcldf_grid, nc_grid, mu_grid, lambdac_grid, &
-           rel_fn_grid, ncic_grid, rel_grid)
-
       call micro_mg_cam_diag_shell_codon_wrap(ngrdcol, micro_mg_version, minlwp, rho_grid, icwmrst_grid, liqcldf_grid, &
            nc_grid, qr_grid, nr_grid, qs_grid, ns_grid, qrout_grid, nrout_grid, qsout_grid, nsout_grid, ni_grid, &
            icecldf_grid, icimrst_grid, ast_grid, mu_grid, lambdac_grid, rel_fn_grid, ncic_grid, rel_grid, drout2_grid, &
@@ -3087,7 +3079,7 @@ subroutine micro_mg_cam_diag_shell_codon_wrap(ngrdcol_local, micro_mg_version_lo
   end interface
 
   call micro_mg_cam_log_entered_once(diag_shell_entered_logged, 'MICRO_MG_CAM_DIAG_SHELL_PROOF_FILE', &
-       'micro_mg_cam_diag_shell entered (reff/grid/budget diagnostic tail direct = codon; liquid reff = native)')
+       'micro_mg_cam_diag_shell entered (liquid reff/reff/grid/budget diagnostic tail direct = codon)')
 
   call micro_mg_cam_diag_shell_codon(int(ngrdcol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
        int(top_lev, c_int64_t), int(micro_mg_version_local, c_int64_t), qsmall, mincld, mg_liq_props%rho, &
@@ -3834,11 +3826,8 @@ subroutine micro_mg_cam_reff_calc_codon_invoke(ngrdcol_local, micro_mg_version_l
      end subroutine micro_mg_cam_reff_calc_codon
   end interface
 
-  call micro_mg_cam_reff_liq_native(ngrdcol_local, rho_grid_local, icwmrst_grid_local, liqcldf_grid_local, nc_grid_local, &
-       mu_grid_local, lambdac_grid_local, rel_fn_grid_local, ncic_grid_local, rel_grid_local)
-
   call micro_mg_cam_log_entered_once(reff_calc_entered_logged, 'MICRO_MG_CAM_REFF_PROOF_FILE', &
-       'micro_mg_cam_reff_calc entered (ice/rain/snow effective radius direct = codon; liquid reff = native)')
+       'micro_mg_cam_reff_calc entered (liquid/ice/rain/snow effective radius direct = codon)')
 
   call micro_mg_cam_reff_calc_codon(int(ngrdcol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
        int(top_lev, c_int64_t), int(micro_mg_version_local, c_int64_t), qsmall, mincld, mg_liq_props%rho, &
