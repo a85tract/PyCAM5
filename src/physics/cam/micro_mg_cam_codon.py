@@ -901,8 +901,7 @@ def micro_mg_cam_budget_diag_codon(
                 ftem_grid[idx2] = -prcio_grid[idx2] - praio_grid[idx2]
 
 
-@export
-def micro_mg_cam_pbuf_copy_codon(
+def _micro_mg_cam_pbuf_copy_fields(
     ncol: int,
     pcols: int,
     pver: int,
@@ -939,6 +938,80 @@ def micro_mg_cam_pbuf_copy_codon(
                 nrout_grid_ptr[idx2] = nrout_grid[idx2]
             if copy_nsnow == 1:
                 nsout_grid_ptr[idx2] = nsout_grid[idx2]
+
+
+@export
+def micro_mg_cam_pbuf_copy_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    copy_qrain: int,
+    copy_qsnow: int,
+    copy_nrain: int,
+    copy_nsnow: int,
+    qrout_grid_p: cobj,
+    qsout_grid_p: cobj,
+    nrout_grid_p: cobj,
+    nsout_grid_p: cobj,
+    qrout_grid_ptr_p: cobj,
+    qsout_grid_ptr_p: cobj,
+    nrout_grid_ptr_p: cobj,
+    nsout_grid_ptr_p: cobj,
+):
+    _micro_mg_cam_pbuf_copy_fields(
+        ncol,
+        pcols,
+        pver,
+        copy_qrain,
+        copy_qsnow,
+        copy_nrain,
+        copy_nsnow,
+        qrout_grid_p,
+        qsout_grid_p,
+        nrout_grid_p,
+        nsout_grid_p,
+        qrout_grid_ptr_p,
+        qsout_grid_ptr_p,
+        nrout_grid_ptr_p,
+        nsout_grid_ptr_p,
+    )
+
+
+@export
+def micro_mg_cam_tail_pbuf_copy_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    copy_qrain: int,
+    copy_qsnow: int,
+    copy_nrain: int,
+    copy_nsnow: int,
+    qrout_grid_p: cobj,
+    qsout_grid_p: cobj,
+    nrout_grid_p: cobj,
+    nsout_grid_p: cobj,
+    qrout_grid_ptr_p: cobj,
+    qsout_grid_ptr_p: cobj,
+    nrout_grid_ptr_p: cobj,
+    nsout_grid_ptr_p: cobj,
+):
+    _micro_mg_cam_pbuf_copy_fields(
+        ncol,
+        pcols,
+        pver,
+        copy_qrain,
+        copy_qsnow,
+        copy_nrain,
+        copy_nsnow,
+        qrout_grid_p,
+        qsout_grid_p,
+        nrout_grid_p,
+        nsout_grid_p,
+        qrout_grid_ptr_p,
+        qsout_grid_ptr_p,
+        nrout_grid_ptr_p,
+        nsout_grid_ptr_p,
+    )
 
 
 @export
