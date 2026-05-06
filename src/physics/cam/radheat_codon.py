@@ -440,3 +440,9 @@ def radiation_diag_prep_codon(
         # Final net shortwave export copy. a=fsns, b=cam_out%netsw.
         for i in range(1, ncol + 1):
             b[_col_idx(i)] = a[_col_idx(i)]
+    elif stage == 21:
+        # HR diagnostic workspace. a=qrs, b=qrl, c=native-computed theta factor, d=ftem.
+        for kk in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx2 = _field_idx(i, kk, pcols)
+                d[idx2] = (a[idx2] + b[idx2]) / cpair * c[idx2]

@@ -641,8 +641,8 @@ end function radiation_nextsw_cday
     radiation_diag_prep_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'radiation_diag_prep entered (lwupcgs_netsw/hirs_tint/emis/compact_qrl/cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)'
-       call radiation_diag_prep_append_proof('radiation_diag_prep entered (lwupcgs_netsw/hirs_tint/emis/compact_qrl/cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)')
+       write(iulog,*) 'radiation_diag_prep entered (hr_nativepow/lwupcgs_netsw/hirs_tint/emis/compact_qrl/cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)'
+       call radiation_diag_prep_append_proof('radiation_diag_prep entered (hr_nativepow/lwupcgs_netsw/hirs_tint/emis/compact_qrl/cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)')
        call flush(iulog)
     end if
 
@@ -953,6 +953,21 @@ end function radiation_nextsw_cday
 
 !===============================================================================
 
+  subroutine radiation_diag_prep_hr_field(ncol, qrs_p, qrl_p, hr_factor_p, ftem_p, dummy_p)
+
+    use iso_c_binding, only: c_ptr
+
+    integer, intent(in) :: ncol
+    type(c_ptr), intent(in) :: qrs_p, qrl_p, hr_factor_p, ftem_p, dummy_p
+
+    call radiation_diag_prep_codon_call(21, ncol, 0, cpair, 0._r8, dummy_p, qrs_p, qrl_p, &
+         hr_factor_p, ftem_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
+         dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p)
+
+  end subroutine radiation_diag_prep_hr_field
+
+!===============================================================================
+
   subroutine radiation_diag_prep_visible_tau(ncol, nbnd, band, has_snow, nnite, c_cld_tau_p, liq_tau_p, &
        ice_tau_p, snow_tau_p, cldfprime_p, tot_cld_p, tot_icld_p, liq_icld_p, ice_icld_p, snow_icld_p, &
        idxnite_p, dummy_p)
@@ -1078,6 +1093,7 @@ end function radiation_nextsw_cday
     real(r8) clmed(pcols)                      !       "     mid  cloud cover
     real(r8) clhgh(pcols)                      !       "     hgh  cloud cover
     real(r8), target :: ftem(pcols,pver)      ! Temporary workspace for outfld variables
+    real(r8), target :: hr_factor(pcols,pver) ! Native pow factor for HR diagnostic
 
     ! combined cloud radiative parameters are "in cloud" not "in cell"
     real(r8), target :: c_cld_tau    (nbndsw,pcols,pver) ! cloud extinction optical depth
@@ -1679,9 +1695,11 @@ end function radiation_nextsw_cday
     ! Compute heating rate for dtheta/dt 
     do k=1,pver
        do i=1,ncol
-          ftem(i,k) = (qrs(i,k) + qrl(i,k))/cpair * (1.e5_r8/state%pmid(i,k))**cappa
+          hr_factor(i,k) = (1.e5_r8/state%pmid(i,k))**cappa
        end do
     end do
+    call radiation_diag_prep_hr_field(ncol, c_loc(qrs(1,1)), c_loc(qrl(1,1)), &
+         c_loc(hr_factor(1,1)), c_loc(ftem(1,1)), c_loc(radiation_diag_dummy(1)))
     call outfld('HR      ',ftem    ,pcols   ,lchnk   )
 
     ! convert radiative heating rates to Q*dp for energy conservation
