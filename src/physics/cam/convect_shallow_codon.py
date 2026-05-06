@@ -4040,6 +4040,38 @@ def uwshcu_positive_moisture_prep_shell_codon(
 
 
 @export
+def uwshcu_precip_surface_finalize_shell_codon(
+    mkx: int,
+    wtrc_nwset: int,
+    flxrain_p: cobj,
+    flxsnow_p: cobj,
+    wtflxrn_p: cobj,
+    wtflxsn_p: cobj,
+    precip_p: cobj,
+    snow_p: cobj,
+    wtprec_p: cobj,
+    wtsnow_p: cobj,
+):
+    flxrain = Ptr[float](flxrain_p)
+    flxsnow = Ptr[float](flxsnow_p)
+    wtflxrn = Ptr[float](wtflxrn_p)
+    wtflxsn = Ptr[float](wtflxsn_p)
+    precip = Ptr[float](precip_p)
+    snow = Ptr[float](snow_p)
+    wtprec = Ptr[float](wtprec_p)
+    wtsnow = Ptr[float](wtsnow_p)
+
+    precip[0] = (flxrain[0] + flxsnow[0]) / 1000.0
+    snow[0] = flxsnow[0] / 1000.0
+
+    m = 0
+    while m < wtrc_nwset:
+        wtprec[m] = (wtflxrn[m * (mkx + 1)] + wtflxsn[m * (mkx + 1)]) / 1000.0
+        wtsnow[m] = wtflxsn[m * (mkx + 1)] / 1000.0
+        m += 1
+
+
+@export
 def uwshcu_column_input_load_shell_codon(
     mix: int,
     mkx: int,

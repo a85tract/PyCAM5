@@ -66,6 +66,7 @@
   logical :: tracer_limiter_shell_entered_logged = .false.
   logical :: cloud_diag_shell_entered_logged = .false.
   logical :: positive_moisture_prep_shell_entered_logged = .false.
+  logical :: precip_surface_finalize_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -609,6 +610,22 @@ contains
     end if
 
   end subroutine uwshcu_log_positive_moisture_prep_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_precip_surface_finalize_shell_entered()
+
+    if (precip_surface_finalize_shell_entered_logged) return
+    precip_surface_finalize_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu precip surface finalize shell entered (surface precip flux direct = codon; evaporation native)'
+       call uwshcu_append_proof( &
+            'uwshcu precip surface finalize shell entered (surface precip flux direct = codon; evaporation native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_precip_surface_finalize_shell_entered
 
 !===============================================================================
   
@@ -1337,8 +1354,8 @@ end subroutine uwshcu_readnl
     real(r8), target :: vten(mkx)                             !  Tendency of meridional wind [ m/s2 ]
     real(r8), target :: qrten(mkx)                            !  Tendency of rain water specific humidity [ kg/kg/s ]
     real(r8), target :: qsten(mkx)                            !  Tendency of snow specific humidity [ kg/kg/s ]
-    real(r8)    precip                                        !  Precipitation rate ( rain + snow) at the surface [ m/s ]
-    real(r8)    snow                                          !  Snow rate at the surface [ m/s ]
+    real(r8), target :: precip                                !  Precipitation rate ( rain + snow) at the surface [ m/s ]
+    real(r8), target :: snow                                  !  Snow rate at the surface [ m/s ]
     real(r8), target :: evapc(mkx)                            !  Tendency of evaporation of precipitation [ kg/kg/s ]
     real(r8), target :: slflx(0:mkx)                          !  Updraft/pen.entrainment liquid static energy flux
                                                               ! [ J/kg * kg/m2/s ]
@@ -1414,8 +1431,8 @@ end subroutine uwshcu_readnl
 
     !Water tracer precipitation evaporation:
     !NOTE:  wtevp and wtsub may not need to be a function of height. - JN
-    real(r8)    wtflxrn(0:mkx,wtrc_nwset)                     !  water tracer rain flux [ kg/m2/s ]
-    real(r8)    wtflxsn(0:mkx,wtrc_nwset)                     !  water tracer snow flux [ kg/m2/s ]
+    real(r8), target :: wtflxrn(0:mkx,wtrc_nwset)             !  water tracer rain flux [ kg/m2/s ]
+    real(r8), target :: wtflxsn(0:mkx,wtrc_nwset)             !  water tracer snow flux [ kg/m2/s ]
     real(r8), target :: wtevp(mkx,wtrc_nwset)                 !  water tracer rain evaporation [ kg/kg/s ]
     real(r8), target :: wtsub(mkx,wtrc_nwset)                 !  water tracer snow sublimation [ kg/kg/s ]
     real(r8)    difrm(4)                                      !  Isotopic diffusivity ratios [ unitless ]
@@ -2336,6 +2353,15 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: tr0_p, trten_p, wtrc_iatype_p, qv0_star_p, ql0_star_p, qi0_star_p
           type(c_ptr), value :: s0_star_p, wt0_star_p
        end subroutine uwshcu_positive_moisture_prep_shell_codon
+
+       subroutine uwshcu_precip_surface_finalize_shell_codon(mkx_c, wtrc_nwset_c, &
+            flxrain_p, flxsnow_p, wtflxrn_p, wtflxsn_p, precip_p, snow_p, wtprec_p, wtsnow_p) &
+            bind(c, name="uwshcu_precip_surface_finalize_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c
+          type(c_ptr), value :: flxrain_p, flxsnow_p, wtflxrn_p, wtflxsn_p
+          type(c_ptr), value :: precip_p, snow_p, wtprec_p, wtsnow_p
+       end subroutine uwshcu_precip_surface_finalize_shell_codon
 
        subroutine uwshcu_column_env_save_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, &
@@ -6655,6 +6681,7 @@ end subroutine uwshcu_readnl
        ! Convert unit to [m/s] for use in 'check_energy_chng'.         !  
        ! ------------------------------------------------------------- !
 
+       if (use_native_init_shell_impl) then
        precip  = ( flxrain(0) + flxsnow(0) ) / 1000._r8
        snow    =   flxsnow(0) / 1000._r8       
 
@@ -6678,6 +6705,27 @@ end subroutine uwshcu_readnl
          end do
        end if
        !*************
+       else
+          call uwshcu_log_precip_surface_finalize_shell_entered()
+          call uwshcu_precip_surface_finalize_shell_codon(int(mkx, c_int64_t), wtrc_nwset_post_c, &
+               c_loc(flxrain), c_loc(flxsnow), c_loc(wtflxrn), c_loc(wtflxsn), c_loc(precip), &
+               c_loc(snow), c_loc(wtprec), c_loc(wtsnow))
+          if(trace_water) then
+            do m=1,wtrc_nwset
+              !----------
+              !Mass fixer:
+              !----------
+              if((m .gt. 1) .and. (wtprec(m) .gt. 2._r8*wtprec(1))) then
+                if(wtprec(1) .gt. 1e-18_r8) &
+                write(*,*) 'ERROR:  Isotopic shallow-conv precip error!',wtprec(m),wtprec(1),wtsnow(m),wtsnow(1),m
+               ! wtprec(m) = wtprec(1)
+               ! wtsnow(m) = wtsnow(1)
+              end if
+              !-----------
+            end do
+          end if
+          !*************
+       endif
 
        ! --------------------------------------------------------------------------- !
        ! Until now, all the calculations are done completely in this shallow cumulus !
