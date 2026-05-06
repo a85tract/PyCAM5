@@ -641,8 +641,8 @@ end function radiation_nextsw_cday
     radiation_diag_prep_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'radiation_diag_prep entered (visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)'
-       call radiation_diag_prep_append_proof('radiation_diag_prep entered (visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)')
+       write(iulog,*) 'radiation_diag_prep entered (cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)'
+       call radiation_diag_prep_append_proof('radiation_diag_prep entered (cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)')
        call flush(iulog)
     end if
 
@@ -809,6 +809,42 @@ end function radiation_nextsw_cday
 
 !===============================================================================
 
+  subroutine radiation_diag_prep_cloud_sw_sum(ncol, nbnd, liq_tau_p, liq_tau_w_p, liq_tau_w_g_p, &
+       liq_tau_w_f_p, ice_tau_p, ice_tau_w_p, ice_tau_w_g_p, ice_tau_w_f_p, cld_tau_p, &
+       cld_tau_w_p, cld_tau_w_g_p, cld_tau_w_f_p, dummy_p)
+
+    use iso_c_binding, only: c_ptr
+
+    integer, intent(in) :: ncol, nbnd
+    type(c_ptr), intent(in) :: liq_tau_p, liq_tau_w_p, liq_tau_w_g_p, liq_tau_w_f_p
+    type(c_ptr), intent(in) :: ice_tau_p, ice_tau_w_p, ice_tau_w_g_p, ice_tau_w_f_p
+    type(c_ptr), intent(in) :: cld_tau_p, cld_tau_w_p, cld_tau_w_g_p, cld_tau_w_f_p, dummy_p
+
+    call radiation_diag_prep_codon_call(13, ncol, 0, cpair, 0._r8, dummy_p, liq_tau_p, &
+         liq_tau_w_p, liq_tau_w_g_p, liq_tau_w_f_p, ice_tau_p, ice_tau_w_p, ice_tau_w_g_p, &
+         ice_tau_w_f_p, cld_tau_p, cld_tau_w_p, cld_tau_w_g_p, cld_tau_w_f_p, dummy_p, &
+         dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, nday_override=nbnd)
+
+  end subroutine radiation_diag_prep_cloud_sw_sum
+
+!===============================================================================
+
+  subroutine radiation_diag_prep_cloud_lw_sum(ncol, nbnd, liq_lw_abs_p, ice_lw_abs_p, cld_lw_abs_p, dummy_p)
+
+    use iso_c_binding, only: c_ptr
+
+    integer, intent(in) :: ncol, nbnd
+    type(c_ptr), intent(in) :: liq_lw_abs_p, ice_lw_abs_p, cld_lw_abs_p, dummy_p
+
+    call radiation_diag_prep_codon_call(14, ncol, 0, cpair, 0._r8, dummy_p, liq_lw_abs_p, &
+         ice_lw_abs_p, cld_lw_abs_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
+         dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, dummy_p, &
+         dummy_p, dummy_p, nday_override=nbnd)
+
+  end subroutine radiation_diag_prep_cloud_lw_sum
+
+!===============================================================================
+
   subroutine radiation_diag_prep_snow_diag_field(ncol, nbnd, band, has_snow, cldfsnow_p, band_input_p, output_p, dummy_p)
 
     use iso_c_binding, only: c_ptr
@@ -968,10 +1004,10 @@ end function radiation_nextsw_cday
 
     ! cloud radiative parameters are "in cloud" not "in cell"
     real(r8), target :: ice_tau    (nbndsw,pcols,pver) ! ice extinction optical depth
-    real(r8) :: ice_tau_w  (nbndsw,pcols,pver) ! ice single scattering albedo * tau
-    real(r8) :: ice_tau_w_g(nbndsw,pcols,pver) ! ice assymetry parameter * tau * w
-    real(r8) :: ice_tau_w_f(nbndsw,pcols,pver) ! ice forward scattered fraction * tau * w
-    real(r8) :: ice_lw_abs (nbndlw,pcols,pver)   ! ice absorption optics depth (LW)
+    real(r8), target :: ice_tau_w  (nbndsw,pcols,pver) ! ice single scattering albedo * tau
+    real(r8), target :: ice_tau_w_g(nbndsw,pcols,pver) ! ice assymetry parameter * tau * w
+    real(r8), target :: ice_tau_w_f(nbndsw,pcols,pver) ! ice forward scattered fraction * tau * w
+    real(r8), target :: ice_lw_abs (nbndlw,pcols,pver)   ! ice absorption optics depth (LW)
 
     ! cloud radiative parameters are "in cloud" not "in cell"
     real(r8), target :: snow_tau    (nbndsw,pcols,pver) ! snow extinction optical depth
@@ -984,10 +1020,10 @@ end function radiation_nextsw_cday
 
     ! cloud radiative parameters are "in cloud" not "in cell"
     real(r8), target :: liq_tau    (nbndsw,pcols,pver) ! liquid extinction optical depth
-    real(r8) :: liq_tau_w  (nbndsw,pcols,pver) ! liquid single scattering albedo * tau
-    real(r8) :: liq_tau_w_g(nbndsw,pcols,pver) ! liquid assymetry parameter * tau * w
-    real(r8) :: liq_tau_w_f(nbndsw,pcols,pver) ! liquid forward scattered fraction * tau * w
-    real(r8) :: liq_lw_abs (nbndlw,pcols,pver) ! liquid absorption optics depth (LW)
+    real(r8), target :: liq_tau_w  (nbndsw,pcols,pver) ! liquid single scattering albedo * tau
+    real(r8), target :: liq_tau_w_g(nbndsw,pcols,pver) ! liquid assymetry parameter * tau * w
+    real(r8), target :: liq_tau_w_f(nbndsw,pcols,pver) ! liquid forward scattered fraction * tau * w
+    real(r8), target :: liq_lw_abs (nbndlw,pcols,pver) ! liquid absorption optics depth (LW)
 
     real(r8), target :: tot_cld_vistau(pcols,pver)  ! tot gbx cloud visible sw optical depth for output on history files
     real(r8), target :: tot_icld_vistau(pcols,pver) ! tot in-cloud visible sw optical depth for output on history files
@@ -1190,10 +1226,12 @@ end function radiation_nextsw_cday
                 call endrun('liqcldoptics must be either slingo or gammadist')
              end select
           endif
-          cld_tau    (:,1:ncol,:) =  liq_tau    (:,1:ncol,:) + ice_tau    (:,1:ncol,:)
-          cld_tau_w  (:,1:ncol,:) =  liq_tau_w  (:,1:ncol,:) + ice_tau_w  (:,1:ncol,:)
-          cld_tau_w_g(:,1:ncol,:) =  liq_tau_w_g(:,1:ncol,:) + ice_tau_w_g(:,1:ncol,:)
-          cld_tau_w_f(:,1:ncol,:) =  liq_tau_w_f(:,1:ncol,:) + ice_tau_w_f(:,1:ncol,:)
+          call radiation_diag_prep_log_entered()
+          call radiation_diag_prep_cloud_sw_sum(ncol, nbndsw, c_loc(liq_tau(1,1,1)), &
+               c_loc(liq_tau_w(1,1,1)), c_loc(liq_tau_w_g(1,1,1)), c_loc(liq_tau_w_f(1,1,1)), &
+               c_loc(ice_tau(1,1,1)), c_loc(ice_tau_w(1,1,1)), c_loc(ice_tau_w_g(1,1,1)), &
+               c_loc(ice_tau_w_f(1,1,1)), c_loc(cld_tau(1,1,1)), c_loc(cld_tau_w(1,1,1)), &
+               c_loc(cld_tau_w_g(1,1,1)), c_loc(cld_tau_w_f(1,1,1)), c_loc(radiation_diag_dummy(1)))
  
           if (cldfsnow_idx > 0) then
             ! add in snow
@@ -1236,7 +1274,9 @@ end function radiation_nextsw_cday
              case default
                 call endrun('liqcldoptics must be either slingo or gammadist')
              end select
-             cld_lw_abs(:,1:ncol,:) = liq_lw_abs(:,1:ncol,:) + ice_lw_abs(:,1:ncol,:)
+             call radiation_diag_prep_log_entered()
+             call radiation_diag_prep_cloud_lw_sum(ncol, nbndlw, c_loc(liq_lw_abs(1,1,1)), &
+                  c_loc(ice_lw_abs(1,1,1)), c_loc(cld_lw_abs(1,1,1)), c_loc(radiation_diag_dummy(1)))
           endif
           !call cloud_rad_props_get_lw(state,  pbuf, cld_lw_abs, oldliq=.true., oldice=.true.)
           !call cloud_rad_props_get_lw(state,  pbuf, cld_lw_abs, oldcloud=.true.)

@@ -365,3 +365,22 @@ def radiation_diag_prep_codon(
                 iarr[idx2] = fillvalue
                 if has_snow:
                     jarr[idx2] = fillvalue
+    elif stage == 13:
+        # SW cloud optics sum. a-d=liq_tau*, e-h=ice_tau*, i-l=cld_tau*.
+        nbnd = nday
+        for kk in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                for ib in range(1, nbnd + 1):
+                    idx3 = _band3_idx(ib, i, kk, nbnd, pcols)
+                    iarr[idx3] = a[idx3] + e[idx3]
+                    jarr[idx3] = b[idx3] + f[idx3]
+                    karr[idx3] = c[idx3] + g[idx3]
+                    larr[idx3] = d[idx3] + h[idx3]
+    elif stage == 14:
+        # LW cloud absorption sum. a=liq_lw_abs, b=ice_lw_abs, c=cld_lw_abs.
+        nbnd = nday
+        for kk in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                for ib in range(1, nbnd + 1):
+                    idx3 = _band3_idx(ib, i, kk, nbnd, pcols)
+                    c[idx3] = a[idx3] + b[idx3]
