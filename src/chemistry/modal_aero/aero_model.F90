@@ -3752,7 +3752,6 @@ contains
     integer(c_int64_t), target :: dust_indices_c(dust_nbin+dust_nnum)
     integer(c_int64_t), target :: seasalt_indices_c(seasalt_nbin+seasalt_nnum)
     real(c_double), target :: dust_emis_sclfctr_c(dust_nbin)
-    real(c_double), target :: dust_x_mton_c(dust_nbin)
     real(c_double), target :: seasalt_sz_range_lo_c(seasalt_nbin)
     real(c_double), target :: seasalt_sz_range_hi_c(seasalt_nbin)
     real(c_double), target :: dg_c(nsections)
@@ -3780,13 +3779,10 @@ contains
        ndstflx = size(cam_in%dstflx, 2)
        dust_indices_c(:) = int(dust_indices(:), c_int64_t)
        dust_emis_sclfctr_c(:) = real(dust_emis_sclfctr(:), c_double)
-       do m = 1, dust_nbin
-          dust_x_mton_c(m) = 6._r8 / (pi * dust_density * (dust_dmt_vwr(m)**3._r8))
-       end do
        call aero_model_emissions_codon_wrap( &
-            1, ncol, ndstflx, real(soil_erod_fact, c_double), 0._c_double, c_loc(cam_in%dstflx(1,1)), &
+            1, ncol, ndstflx, real(soil_erod_fact, c_double), 0._c_double, real(dust_density, c_double), c_loc(cam_in%dstflx(1,1)), &
             c_loc(soil_erod_tmp(1)), c_loc(dust_flux_sum(1)), c_null_ptr, c_null_ptr, c_loc(cam_in%cflx(1,1)), &
-            c_loc(sflx(1)), c_loc(dust_indices_c(1)), c_loc(dust_emis_sclfctr_c(1)), c_loc(dust_x_mton_c(1)), &
+            c_loc(sflx(1)), c_loc(dust_indices_c(1)), c_loc(dust_emis_sclfctr_c(1)), c_loc(dust_dmt_vwr(1)), &
             c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(soil_erodibility(1,lchnk)), &
             real(soil_erod_threshold, c_double), c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr &
        )
@@ -3812,7 +3808,7 @@ contains
        call aero_model_emissions_seasalt_wind(ncol, state%u, state%v, state%zm, z0, u10cubed)
 
        call aero_model_emissions_codon_wrap( &
-            2, ncol, 0, 0._c_double, real(seasalt_emis_scale, c_double), c_null_ptr, c_null_ptr, c_null_ptr, &
+            2, ncol, 0, 0._c_double, real(seasalt_emis_scale, c_double), real(dns_aer_sst, c_double), c_null_ptr, c_null_ptr, c_null_ptr, &
             c_loc(fi(1,1)), c_loc(cam_in%ocnfrac(1)), c_loc(cam_in%cflx(1,1)), c_loc(sflx(1)), c_null_ptr, c_null_ptr, &
             c_null_ptr, c_loc(seasalt_indices_c(1)), c_loc(seasalt_sz_range_lo_c(1)), c_loc(seasalt_sz_range_hi_c(1)), &
             c_loc(dg_c(1)), c_loc(rdry_c(1)), c_null_ptr, 0._c_double, c_loc(cam_in%sst(1)), c_loc(u10cubed(1)), &
@@ -3937,7 +3933,7 @@ contains
 
   !=============================================================================
   !=============================================================================
-  subroutine aero_model_emissions_codon_wrap(stage, ncol, ndstflx, soil_erod_fact_in, seasalt_emis_scale_in, dstflx_p, &
+  subroutine aero_model_emissions_codon_wrap(stage, ncol, ndstflx, soil_erod_fact_in, seasalt_emis_scale_in, aero_density_in, dstflx_p, &
                                              soil_erod_p, dust_flux_sum_p, fi_p, ocnfrac_p, cflx_p, sflx_p, dust_indices_p, &
                                              dust_emis_sclfctr_p, dust_x_mton_p, seasalt_indices_p, seasalt_sz_range_lo_p, &
                                              seasalt_sz_range_hi_p, dg_p, rdry_p, soil_erodibility_p, soil_erod_threshold_in, &
@@ -3946,12 +3942,11 @@ contains
     use dust_model,       only: dust_nbin
     use seasalt_model,    only: seasalt_nbin
     use sslt_sections,    only: nsections
-    use mo_constants,     only: dns_aer_sst=>seasalt_density
     use physconst,        only: pi
     use iso_c_binding,    only: c_double, c_int64_t, c_ptr
 
     integer, intent(in) :: stage, ncol, ndstflx
-    real(c_double), intent(in) :: soil_erod_fact_in, seasalt_emis_scale_in, soil_erod_threshold_in
+    real(c_double), intent(in) :: soil_erod_fact_in, seasalt_emis_scale_in, aero_density_in, soil_erod_threshold_in
     type(c_ptr), value :: dstflx_p, soil_erod_p, dust_flux_sum_p, fi_p, ocnfrac_p, cflx_p, sflx_p, dust_indices_p, dust_emis_sclfctr_p
     type(c_ptr), value :: dust_x_mton_p, seasalt_indices_p, seasalt_sz_range_lo_p, seasalt_sz_range_hi_p
     type(c_ptr), value :: dg_p, rdry_p, soil_erodibility_p
@@ -3961,14 +3956,14 @@ contains
 
     interface
        subroutine aero_model_emissions_shell_codon(stage_c, ncol_c, pcols_c, ndstflx_c, dust_nbin_c, seasalt_nbin_c, &
-            nsections_c, soil_erod_fact_c, seasalt_emis_scale_c, pi_c, seasalt_density_c, dstflx_p, soil_erod_p, &
+            nsections_c, soil_erod_fact_c, seasalt_emis_scale_c, pi_c, aero_density_c, dstflx_p, soil_erod_p, &
             dust_flux_sum_p, fi_p, ocnfrac_p, cflx_p, sflx_p, dust_indices_p, dust_emis_sclfctr_p, dust_x_mton_p, seasalt_indices_p, &
             seasalt_sz_range_lo_p, seasalt_sz_range_hi_p, dg_p, rdry_p, soil_erodibility_p, soil_erod_threshold_c, &
             sst_p, u10cubed_p, whitecap_p, consta_p, constb_p) &
             bind(c, name="aero_model_emissions_shell_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, ndstflx_c, dust_nbin_c, seasalt_nbin_c, nsections_c
-         real(c_double), value :: soil_erod_fact_c, seasalt_emis_scale_c, pi_c, seasalt_density_c, soil_erod_threshold_c
+         real(c_double), value :: soil_erod_fact_c, seasalt_emis_scale_c, pi_c, aero_density_c, soil_erod_threshold_c
          type(c_ptr), value :: dstflx_p, soil_erod_p, dust_flux_sum_p, fi_p, ocnfrac_p, cflx_p, sflx_p, dust_indices_p, dust_emis_sclfctr_p
          type(c_ptr), value :: dust_x_mton_p, seasalt_indices_p, seasalt_sz_range_lo_p, seasalt_sz_range_hi_p
          type(c_ptr), value :: dg_p, rdry_p, soil_erodibility_p
@@ -3985,7 +3980,7 @@ contains
     end if
 
     if (masterproc .and. stage == 1 .and. .not. aero_model_emissions_dust_stage_proof_written) then
-       wrap_proof_line = 'aero_model_emissions dust shell entered (soil erodibility/dstflx sum/dust flux direct = codon)'
+       wrap_proof_line = 'aero_model_emissions dust shell entered (soil erodibility/dstflx sum/dust mass-number flux direct = codon)'
        write(iulog,'(A)') trim(wrap_proof_line)
        call aero_model_emissions_append_impl_proof('AERO_MODEL_EMISSIONS_PROOF_FILE', trim(wrap_proof_line))
        aero_model_emissions_dust_stage_proof_written = .true.
@@ -4005,7 +4000,7 @@ contains
     call aero_model_emissions_shell_codon( &
          int(stage, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(ndstflx, c_int64_t), int(dust_nbin, c_int64_t), &
          int(seasalt_nbin, c_int64_t), int(nsections, c_int64_t), soil_erod_fact_in, seasalt_emis_scale_in, real(pi, c_double), &
-         real(dns_aer_sst, c_double), dstflx_p, soil_erod_p, dust_flux_sum_p, fi_p, ocnfrac_p, cflx_p, sflx_p, dust_indices_p, &
+         aero_density_in, dstflx_p, soil_erod_p, dust_flux_sum_p, fi_p, ocnfrac_p, cflx_p, sflx_p, dust_indices_p, &
          dust_emis_sclfctr_p, dust_x_mton_p, seasalt_indices_p, seasalt_sz_range_lo_p, seasalt_sz_range_hi_p, dg_p, rdry_p, &
          soil_erodibility_p, soil_erod_threshold_in, sst_p, u10cubed_p, whitecap_p, consta_p, constb_p &
     )

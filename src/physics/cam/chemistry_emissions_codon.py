@@ -289,6 +289,8 @@ def _aero_model_emissions_dust_shell(
     dust_nbin: int,
     ndstflx: int,
     soil_erod_fact: float,
+    pi_val: float,
+    dust_density: float,
     soil_erod_threshold: float,
     dstflx_p: cobj,
     soil_erod_p: cobj,
@@ -298,7 +300,7 @@ def _aero_model_emissions_dust_shell(
     sflx_p: cobj,
     dust_indices_p: cobj,
     dust_emis_sclfctr_p: cobj,
-    dust_x_mton_p: cobj,
+    dust_dmt_vwr_p: cobj,
 ):
     dstflx = Ptr[float](dstflx_p)
     soil_erod = Ptr[float](soil_erod_p)
@@ -308,7 +310,7 @@ def _aero_model_emissions_dust_shell(
     sflx = Ptr[float](sflx_p)
     dust_indices = Ptr[int](dust_indices_p)
     dust_emis_sclfctr = Ptr[float](dust_emis_sclfctr_p)
-    dust_x_mton = Ptr[float](dust_x_mton_p)
+    dust_dmt_vwr = Ptr[float](dust_dmt_vwr_p)
 
     for i in range(1, ncol + 1):
         soil_erod_value = soil_erodibility[i - 1]
@@ -330,7 +332,8 @@ def _aero_model_emissions_dust_shell(
             cflx[_flux_idx(i, idst, pcols)] = value
 
             inum = dust_indices[dust_nbin + m - 1]
-            cflx[_flux_idx(i, inum, pcols)] = value * dust_x_mton[m - 1]
+            dust_x_mton = 6.0 / (pi_val * dust_density * (dust_dmt_vwr[m - 1] ** 3.0))
+            cflx[_flux_idx(i, inum, pcols)] = value * dust_x_mton
 
     _aero_model_emissions_accumulate_sflx(
         ncol,
@@ -349,7 +352,7 @@ def _aero_model_emissions_seasalt_shell(
     nsections: int,
     seasalt_emis_scale: float,
     pi_val: float,
-    seasalt_density: float,
+    aero_density: float,
     fi_p: cobj,
     ocnfrac_p: cobj,
     cflx_p: cobj,
@@ -410,7 +413,7 @@ def _aero_model_emissions_seasalt_shell(
                     term = term / 3.0
                     term = term * pi_val
                     term = term * rdry[isec - 1] ** 3
-                    term = term * seasalt_density
+                    term = term * aero_density
                     cflx[_flux_idx(i, mm, pcols)] += term
 
     _aero_model_emissions_accumulate_sflx(
@@ -434,7 +437,7 @@ def aero_model_emissions_shell_codon(
     soil_erod_fact: float,
     seasalt_emis_scale: float,
     pi_val: float,
-    seasalt_density: float,
+    aero_density: float,
     dstflx_p: cobj,
     soil_erod_p: cobj,
     dust_flux_sum_p: cobj,
@@ -444,7 +447,7 @@ def aero_model_emissions_shell_codon(
     sflx_p: cobj,
     dust_indices_p: cobj,
     dust_emis_sclfctr_p: cobj,
-    dust_x_mton_p: cobj,
+    dust_dmt_vwr_p: cobj,
     seasalt_indices_p: cobj,
     seasalt_sz_range_lo_p: cobj,
     seasalt_sz_range_hi_p: cobj,
@@ -465,6 +468,8 @@ def aero_model_emissions_shell_codon(
             dust_nbin,
             ndstflx,
             soil_erod_fact,
+            pi_val,
+            aero_density,
             soil_erod_threshold,
             dstflx_p,
             soil_erod_p,
@@ -474,7 +479,7 @@ def aero_model_emissions_shell_codon(
             sflx_p,
             dust_indices_p,
             dust_emis_sclfctr_p,
-            dust_x_mton_p,
+            dust_dmt_vwr_p,
         )
     elif stage == 2:
         _aero_model_emissions_seasalt_shell(
@@ -484,7 +489,7 @@ def aero_model_emissions_shell_codon(
             nsections,
             seasalt_emis_scale,
             pi_val,
-            seasalt_density,
+            aero_density,
             fi_p,
             ocnfrac_p,
             cflx_p,

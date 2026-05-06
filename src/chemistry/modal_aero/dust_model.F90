@@ -44,7 +44,7 @@ module dust_model
 #endif
 
   integer  :: dust_indices(dust_nbin+dust_nnum)
-  real(r8) :: dust_dmt_vwr(dust_nbin)
+  real(r8), target :: dust_dmt_vwr(dust_nbin)
   real(r8) :: dust_stk_crc(dust_nbin)
 
   real(r8)          :: dust_emis_fact = -1.e36_r8        ! tuning parameter for dust emissions
