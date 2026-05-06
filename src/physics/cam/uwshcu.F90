@@ -64,6 +64,7 @@
   logical :: thermo_final_shell_entered_logged = .false.
   logical :: post_precip_adjust_shell_entered_logged = .false.
   logical :: tracer_limiter_shell_entered_logged = .false.
+  logical :: cloud_diag_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -575,6 +576,22 @@ contains
     end if
 
   end subroutine uwshcu_log_tracer_limiter_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_cloud_diag_shell_entered()
+
+    if (cloud_diag_shell_entered_logged) return
+    cloud_diag_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu cloud diag shell entered (cloud diagnostic accumulators direct = codon; conden native)'
+       call uwshcu_append_proof( &
+            'uwshcu cloud diag shell entered (cloud diagnostic accumulators direct = codon; conden native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_cloud_diag_shell_entered
 
 !===============================================================================
   
@@ -1339,8 +1356,8 @@ end subroutine uwshcu_readnl
     real(r8)    qlten_det
     real(r8)    qiten_det
     real(r8), target :: rliq                                  !  Vertical integral of qc [ m/s ]
-    real(r8)    cnt                                           !  Cumulus top  interface index, cnt = kpen [ no ]
-    real(r8)    cnb                                           !  Cumulus base interface index, cnb = krel - 1 [ no ] 
+    real(r8), target :: cnt                                   !  Cumulus top  interface index, cnt = kpen [ no ]
+    real(r8), target :: cnb                                   !  Cumulus base interface index, cnb = krel - 1 [ no ]
     real(r8), target :: qtten(mkx)                            !  Tendency of qt [ kg/kg/s ]
     real(r8), target :: slten(mkx)                            !  Tendency of sl [ J/kg/s ]
     real(r8), target :: ufrc(0:mkx)                           !  Updraft fractional area [ fraction ]
@@ -1548,7 +1565,7 @@ end subroutine uwshcu_readnl
     real(r8)    rho0inv, autodet
     real(r8)    aquad, bquad, cquad, xc1, xc2, excessu, excess0, xsat, xs1, xs2
     real(r8)    bogbot, bogtop, delbog, drage, expfac, rbuoy, rdrag
-    real(r8)    rcwp, rlwp, riwp, qcubelow, qlubelow, qiubelow
+    real(r8), target :: rcwp, rlwp, riwp, qcubelow, qlubelow, qiubelow
     real(r8), target :: rainflx, snowflx
     real(r8)    es
     real(r8)    qs
@@ -2265,6 +2282,31 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: dp0_p, dpdry0_p, tr0_p, trflx_p, trten_p, trflx_d_p, trflx_u_p
           type(c_ptr), value :: qmin_p, active_p, wet_p
        end subroutine uwshcu_tracer_limiter_shell_codon
+
+       subroutine uwshcu_cloud_diag_init_shell_codon(qlj_c, qij_c, qcubelow_p, qlubelow_p, qiubelow_p, &
+            rcwp_p, rlwp_p, riwp_p) bind(c, name="uwshcu_cloud_diag_init_shell_codon")
+          use iso_c_binding, only: c_double, c_ptr
+          real(c_double), value :: qlj_c, qij_c
+          type(c_ptr), value :: qcubelow_p, qlubelow_p, qiubelow_p, rcwp_p, rlwp_p, riwp_p
+       end subroutine uwshcu_cloud_diag_init_shell_codon
+
+       subroutine uwshcu_cloud_diag_layer_shell_codon(mkx_c, k_c, krel_c, kpen_c, &
+            qlj_c, qij_c, criqc_c, prel_c, ppen_c, ufrclcl_c, g_c, ps0_p, ufrc_p, &
+            qcu_p, qlu_p, qiu_p, cufrc_p, qcubelow_p, qlubelow_p, qiubelow_p, &
+            rcwp_p, rlwp_p, riwp_p) bind(c, name="uwshcu_cloud_diag_layer_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, k_c, krel_c, kpen_c
+          real(c_double), value :: qlj_c, qij_c, criqc_c, prel_c, ppen_c, ufrclcl_c, g_c
+          type(c_ptr), value :: ps0_p, ufrc_p, qcu_p, qlu_p, qiu_p, cufrc_p
+          type(c_ptr), value :: qcubelow_p, qlubelow_p, qiubelow_p, rcwp_p, rlwp_p, riwp_p
+       end subroutine uwshcu_cloud_diag_layer_shell_codon
+
+       subroutine uwshcu_cloud_diag_index_shell_codon(kpen_c, krel_c, cnt_p, cnb_p) &
+            bind(c, name="uwshcu_cloud_diag_index_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: kpen_c, krel_c
+          type(c_ptr), value :: cnt_p, cnb_p
+       end subroutine uwshcu_cloud_diag_index_shell_codon
 
        subroutine uwshcu_column_env_save_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, &
@@ -6808,12 +6850,18 @@ end subroutine uwshcu_readnl
            id_exit = .true.
            go to 333
        end if
+       if (use_native_init_shell_impl) then
        qcubelow = qlj + qij
        qlubelow = qlj       
        qiubelow = qij       
        rcwp     = 0._r8
        rlwp     = 0._r8
        riwp     = 0._r8
+       else
+          call uwshcu_log_cloud_diag_shell_entered()
+          call uwshcu_cloud_diag_init_shell_codon(qlj, qij, c_loc(qcubelow), c_loc(qlubelow), &
+               c_loc(qiubelow), c_loc(rcwp), c_loc(rlwp), c_loc(riwp))
+       endif
 
        ! --------------------------------------------------------------------- !
        ! In the below calculations, I explicitly considered cloud base ( LCL ) !
@@ -6843,32 +6891,45 @@ end subroutine uwshcu_readnl
           ! is assumed to be twice of core updraft fractional area. Thus LWP !
           ! and IWP will be twice of actual value coming from our scheme.    !
           ! ---------------------------------------------------------------- !
-          qcu(k)   = 0.5_r8 * ( qcubelow + qlj + qij )
-          qlu(k)   = 0.5_r8 * ( qlubelow + qlj )
-          qiu(k)   = 0.5_r8 * ( qiubelow + qij )
-          cufrc(k) = ( ufrc(k-1) + ufrc(k) )
-          if( k .eq. krel ) then
-              cufrc(k) = ( ufrclcl + ufrc(k) )*( prel - ps0(k) )/( ps0(k-1) - ps0(k) )
-          else if( k .eq. kpen ) then
-              cufrc(k) = ( ufrc(k-1) + 0._r8 )*( -ppen )        /( ps0(k-1) - ps0(k) )
-              if( (qlj + qij) .gt. criqc ) then           
-                   qcu(k) = 0.5_r8 * ( qcubelow + criqc )
-                   qlu(k) = 0.5_r8 * ( qlubelow + criqc * qlj / ( qlj + qij ) )
-                   qiu(k) = 0.5_r8 * ( qiubelow + criqc * qij / ( qlj + qij ) )
-              endif
-          endif  
-          rcwp = rcwp + ( qlu(k) + qiu(k) ) * ( ps0(k-1) - ps0(k) ) / g * cufrc(k)
-          rlwp = rlwp +   qlu(k)            * ( ps0(k-1) - ps0(k) ) / g * cufrc(k)
-          riwp = riwp +   qiu(k)            * ( ps0(k-1) - ps0(k) ) / g * cufrc(k)
-          qcubelow = qlj + qij
-          qlubelow = qlj
-          qiubelow = qij
+          if (use_native_init_shell_impl) then
+             qcu(k)   = 0.5_r8 * ( qcubelow + qlj + qij )
+             qlu(k)   = 0.5_r8 * ( qlubelow + qlj )
+             qiu(k)   = 0.5_r8 * ( qiubelow + qij )
+             cufrc(k) = ( ufrc(k-1) + ufrc(k) )
+             if( k .eq. krel ) then
+                 cufrc(k) = ( ufrclcl + ufrc(k) )*( prel - ps0(k) )/( ps0(k-1) - ps0(k) )
+             else if( k .eq. kpen ) then
+                 cufrc(k) = ( ufrc(k-1) + 0._r8 )*( -ppen )        /( ps0(k-1) - ps0(k) )
+                 if( (qlj + qij) .gt. criqc ) then
+                      qcu(k) = 0.5_r8 * ( qcubelow + criqc )
+                      qlu(k) = 0.5_r8 * ( qlubelow + criqc * qlj / ( qlj + qij ) )
+                      qiu(k) = 0.5_r8 * ( qiubelow + criqc * qij / ( qlj + qij ) )
+                 endif
+             endif
+             rcwp = rcwp + ( qlu(k) + qiu(k) ) * ( ps0(k-1) - ps0(k) ) / g * cufrc(k)
+             rlwp = rlwp +   qlu(k)            * ( ps0(k-1) - ps0(k) ) / g * cufrc(k)
+             riwp = riwp +   qiu(k)            * ( ps0(k-1) - ps0(k) ) / g * cufrc(k)
+             qcubelow = qlj + qij
+             qlubelow = qlj
+             qiubelow = qij
+          else
+             call uwshcu_cloud_diag_layer_shell_codon(int(mkx, c_int64_t), int(k, c_int64_t), &
+                  int(krel, c_int64_t), int(kpen, c_int64_t), qlj, qij, criqc, prel, ppen, &
+                  ufrclcl, g, c_loc(ps0), c_loc(ufrc), c_loc(qcu), c_loc(qlu), c_loc(qiu), &
+                  c_loc(cufrc), c_loc(qcubelow), c_loc(qlubelow), c_loc(qiubelow), &
+                  c_loc(rcwp), c_loc(rlwp), c_loc(riwp))
+          endif
        end do
        ! ------------------------------------ !      
        ! Cloud top and base interface indices !
        ! ------------------------------------ !
+       if (use_native_init_shell_impl) then
        cnt = real( kpen, r8 )
        cnb = real( krel - 1, r8 )
+       else
+          call uwshcu_cloud_diag_index_shell_codon(int(kpen, c_int64_t), int(krel, c_int64_t), &
+               c_loc(cnt), c_loc(cnb))
+       endif
 
        ! ------------------------------------------------------------------------- !
        ! End of formal calculation. Below blocks are for implicit CIN calculations ! 

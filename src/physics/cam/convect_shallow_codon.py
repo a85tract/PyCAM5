@@ -3864,6 +3864,108 @@ def uwshcu_tracer_limiter_shell_codon(
 
 
 @export
+def uwshcu_cloud_diag_init_shell_codon(
+    qlj_v: float,
+    qij_v: float,
+    qcubelow_p: cobj,
+    qlubelow_p: cobj,
+    qiubelow_p: cobj,
+    rcwp_p: cobj,
+    rlwp_p: cobj,
+    riwp_p: cobj,
+):
+    qcubelow = Ptr[float](qcubelow_p)
+    qlubelow = Ptr[float](qlubelow_p)
+    qiubelow = Ptr[float](qiubelow_p)
+    rcwp = Ptr[float](rcwp_p)
+    rlwp = Ptr[float](rlwp_p)
+    riwp = Ptr[float](riwp_p)
+
+    qcubelow[0] = qlj_v + qij_v
+    qlubelow[0] = qlj_v
+    qiubelow[0] = qij_v
+    rcwp[0] = 0.0
+    rlwp[0] = 0.0
+    riwp[0] = 0.0
+
+
+@export
+def uwshcu_cloud_diag_layer_shell_codon(
+    mkx: int,
+    k_fortran: int,
+    krel: int,
+    kpen: int,
+    qlj_v: float,
+    qij_v: float,
+    criqc_v: float,
+    prel_v: float,
+    ppen_v: float,
+    ufrclcl_v: float,
+    g_v: float,
+    ps0_p: cobj,
+    ufrc_p: cobj,
+    qcu_p: cobj,
+    qlu_p: cobj,
+    qiu_p: cobj,
+    cufrc_p: cobj,
+    qcubelow_p: cobj,
+    qlubelow_p: cobj,
+    qiubelow_p: cobj,
+    rcwp_p: cobj,
+    rlwp_p: cobj,
+    riwp_p: cobj,
+):
+    ps0 = Ptr[float](ps0_p)
+    ufrc = Ptr[float](ufrc_p)
+    qcu = Ptr[float](qcu_p)
+    qlu = Ptr[float](qlu_p)
+    qiu = Ptr[float](qiu_p)
+    cufrc = Ptr[float](cufrc_p)
+    qcubelow = Ptr[float](qcubelow_p)
+    qlubelow = Ptr[float](qlubelow_p)
+    qiubelow = Ptr[float](qiubelow_p)
+    rcwp = Ptr[float](rcwp_p)
+    rlwp = Ptr[float](rlwp_p)
+    riwp = Ptr[float](riwp_p)
+
+    k = k_fortran
+    idx = k - 1
+    qcu[idx] = 0.5 * (qcubelow[0] + qlj_v + qij_v)
+    qlu[idx] = 0.5 * (qlubelow[0] + qlj_v)
+    qiu[idx] = 0.5 * (qiubelow[0] + qij_v)
+    cufrc[idx] = ufrc[k - 1] + ufrc[k]
+    if k == krel:
+        cufrc[idx] = (ufrclcl_v + ufrc[k]) * (prel_v - ps0[k]) / (ps0[k - 1] - ps0[k])
+    elif k == kpen:
+        cufrc[idx] = (ufrc[k - 1] + 0.0) * (-ppen_v) / (ps0[k - 1] - ps0[k])
+        if qlj_v + qij_v > criqc_v:
+            qcu[idx] = 0.5 * (qcubelow[0] + criqc_v)
+            qlu[idx] = 0.5 * (qlubelow[0] + criqc_v * qlj_v / (qlj_v + qij_v))
+            qiu[idx] = 0.5 * (qiubelow[0] + criqc_v * qij_v / (qlj_v + qij_v))
+
+    rcwp[0] = rcwp[0] + (qlu[idx] + qiu[idx]) * (ps0[k - 1] - ps0[k]) / g_v * cufrc[idx]
+    rlwp[0] = rlwp[0] + qlu[idx] * (ps0[k - 1] - ps0[k]) / g_v * cufrc[idx]
+    riwp[0] = riwp[0] + qiu[idx] * (ps0[k - 1] - ps0[k]) / g_v * cufrc[idx]
+    qcubelow[0] = qlj_v + qij_v
+    qlubelow[0] = qlj_v
+    qiubelow[0] = qij_v
+
+
+@export
+def uwshcu_cloud_diag_index_shell_codon(
+    kpen: int,
+    krel: int,
+    cnt_p: cobj,
+    cnb_p: cobj,
+):
+    cnt = Ptr[float](cnt_p)
+    cnb = Ptr[float](cnb_p)
+
+    cnt[0] = float(kpen)
+    cnb[0] = float(krel - 1)
+
+
+@export
 def uwshcu_column_input_load_shell_codon(
     mix: int,
     mkx: int,
