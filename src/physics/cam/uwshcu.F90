@@ -57,6 +57,7 @@
   logical :: release_prep_shell_entered_logged = .false.
   logical :: scaleh_iter_init_shell_entered_logged = .false.
   logical :: penent_prep_shell_entered_logged = .false.
+  logical :: turbulent_flux_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -456,6 +457,22 @@ contains
     end if
 
   end subroutine uwshcu_log_penent_prep_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_turbulent_flux_shell_entered()
+
+    if (turbulent_flux_shell_entered_logged) return
+    turbulent_flux_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu turbulent flux shell entered (pbl/nonbuoy/buoy/penent flux direct = codon)'
+       call uwshcu_append_proof( &
+            'uwshcu turbulent flux shell entered (pbl/nonbuoy/buoy/penent flux direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_turbulent_flux_shell_entered
 
 !===============================================================================
   
@@ -2007,6 +2024,26 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: thlu_emf_p, qtu_emf_p, uu_emf_p, vu_emf_p, tru_emf_p
           type(c_ptr), value :: wtu_emf_p, wtdwten_p, wtditen_p, limit_emf_p
        end subroutine uwshcu_penent_prep_shell_codon
+
+       subroutine uwshcu_turbulent_flux_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, krel_c, &
+            kbup_c, kpen_c, use_momenflx_c, cbmf_c, g_c, dt_c, cp_c, pgfc_c, qtsrc_c, &
+            thlsrc_c, usrc_c, vsrc_c, ps0_p, p0_p, exns0_p, qt0_p, ssqt0_p, thl0_p, &
+            ssthl0_p, u0_p, ssu0_p, v0_p, ssv0_p, tr0_p, sstr0_p, wt0_p, sswt0_p, &
+            trsrc_p, wtsrc_p, umf_p, emf_p, thlu_p, qtu_p, uu_p, vu_p, tru_p, wtu_p, &
+            thlu_emf_p, qtu_emf_p, uu_emf_p, vu_emf_p, tru_emf_p, wtu_emf_p, slflx_p, &
+            qtflx_p, uflx_p, vflx_p, trflx_p, wtflx_p) bind(c, name="uwshcu_turbulent_flux_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, krel_c
+          integer(c_int64_t), value :: kbup_c, kpen_c, use_momenflx_c
+          real(c_double), value :: cbmf_c, g_c, dt_c, cp_c, pgfc_c, qtsrc_c, thlsrc_c
+          real(c_double), value :: usrc_c, vsrc_c
+          type(c_ptr), value :: ps0_p, p0_p, exns0_p, qt0_p, ssqt0_p, thl0_p, ssthl0_p
+          type(c_ptr), value :: u0_p, ssu0_p, v0_p, ssv0_p, tr0_p, sstr0_p, wt0_p, sswt0_p
+          type(c_ptr), value :: trsrc_p, wtsrc_p, umf_p, emf_p, thlu_p, qtu_p, uu_p, vu_p
+          type(c_ptr), value :: tru_p, wtu_p, thlu_emf_p, qtu_emf_p, uu_emf_p, vu_emf_p
+          type(c_ptr), value :: tru_emf_p, wtu_emf_p, slflx_p, qtflx_p, uflx_p, vflx_p
+          type(c_ptr), value :: trflx_p, wtflx_p
+       end subroutine uwshcu_turbulent_flux_shell_codon
 
        subroutine uwshcu_column_env_save_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, &
@@ -5053,6 +5090,7 @@ end subroutine uwshcu_readnl
        !    height are passed to 'fluxbelowinv'.             !
        ! --------------------------------------------------- !
 
+       if (use_native_init_shell_impl) then
        xsrc  = qtsrc
        xmean = qt0(kinv)
        xtop  = qt0(kinv+1) + ssqt0(kinv+1) * ( ps0(kinv)   - p0(kinv+1) )
@@ -5251,6 +5289,21 @@ end subroutine uwshcu_readnl
            uflx(0:mkx) = 0._r8
            vflx(0:mkx) = 0._r8
        endif       
+       else
+          wtrc_nwset_post_c = 0_c_int64_t
+          if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
+          call uwshcu_log_turbulent_flux_shell_entered()
+          call uwshcu_turbulent_flux_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+               wtrc_nwset_post_c, int(kinv, c_int64_t), int(krel, c_int64_t), int(kbup, c_int64_t), &
+               int(kpen, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, use_momenflx), cbmf, g, dt, cp, &
+               PGFc, qtsrc, thlsrc, usrc, vsrc, c_loc(ps0), c_loc(p0), c_loc(exns0), c_loc(qt0), &
+               c_loc(ssqt0), c_loc(thl0), c_loc(ssthl0), c_loc(u0), c_loc(ssu0), c_loc(v0), &
+               c_loc(ssv0), c_loc(tr0), c_loc(sstr0), c_loc(wt0), c_loc(sswt0), c_loc(trsrc), &
+               c_loc(wtsrc), c_loc(umf), c_loc(emf), c_loc(thlu), c_loc(qtu), c_loc(uu), c_loc(vu), &
+               c_loc(tru), c_loc(wtu), c_loc(thlu_emf), c_loc(qtu_emf), c_loc(uu_emf), &
+               c_loc(vu_emf), c_loc(tru_emf), c_loc(wtu_emf), c_loc(slflx), c_loc(qtflx), &
+               c_loc(uflx), c_loc(vflx), c_loc(trflx), c_loc(wtflx))
+       endif
 
        ! -------------------------------------------------------- !
        ! Condensate tendency by compensating subsidence/upwelling !

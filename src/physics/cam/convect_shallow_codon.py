@@ -2785,6 +2785,284 @@ def uwshcu_penent_prep_shell_codon(
         k -= 1
 
 
+def _uwshcu_fluxbelowinv_value(
+    cbmf: float,
+    g_v: float,
+    dt_v: float,
+    ps0: Ptr[float],
+    kinv: int,
+    xsrc: float,
+    xmean: float,
+    xtop_in: float,
+    xbot_in: float,
+    k: int,
+) -> float:
+    dp = ps0[kinv - 1] - ps0[kinv]
+    xbot = xbot_in
+    xtop = xtop_in
+
+    xtop_ori = xtop
+    xbot_ori = xbot
+    rcbmf = (cbmf * g_v * dt_v) / dp
+
+    if xbot >= xtop:
+        rpeff = (xmean - xtop) / max(1.0e-20, xbot - xtop)
+    else:
+        rpeff = (xmean - xtop) / min(-1.0e-20, xbot - xtop)
+
+    rpeff = min(max(0.0, rpeff), 1.0)
+    if rpeff == 0.0 or rpeff == 1.0:
+        xbot = xmean
+        xtop = xmean
+
+    rr = rpeff / rcbmf
+    pinv = ps0[kinv - 1] - rpeff * dp
+    xflx = cbmf * (xsrc - xbot) * (ps0[0] - ps0[k]) / (ps0[0] - pinv)
+    if k == kinv - 1 and rr <= 1.0:
+        xflx = xflx - (1.0 - rr) * cbmf * (xtop_ori - xbot_ori)
+    return xflx
+
+
+@export
+def uwshcu_turbulent_flux_shell_codon(
+    mkx: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    kinv: int,
+    krel: int,
+    kbup: int,
+    kpen: int,
+    use_momenflx: int,
+    cbmf: float,
+    g_v: float,
+    dt_v: float,
+    cp: float,
+    pgfc: float,
+    qtsrc: float,
+    thlsrc: float,
+    usrc: float,
+    vsrc: float,
+    ps0_p: cobj,
+    p0_p: cobj,
+    exns0_p: cobj,
+    qt0_p: cobj,
+    ssqt0_p: cobj,
+    thl0_p: cobj,
+    ssthl0_p: cobj,
+    u0_p: cobj,
+    ssu0_p: cobj,
+    v0_p: cobj,
+    ssv0_p: cobj,
+    tr0_p: cobj,
+    sstr0_p: cobj,
+    wt0_p: cobj,
+    sswt0_p: cobj,
+    trsrc_p: cobj,
+    wtsrc_p: cobj,
+    umf_p: cobj,
+    emf_p: cobj,
+    thlu_p: cobj,
+    qtu_p: cobj,
+    uu_p: cobj,
+    vu_p: cobj,
+    tru_p: cobj,
+    wtu_p: cobj,
+    thlu_emf_p: cobj,
+    qtu_emf_p: cobj,
+    uu_emf_p: cobj,
+    vu_emf_p: cobj,
+    tru_emf_p: cobj,
+    wtu_emf_p: cobj,
+    slflx_p: cobj,
+    qtflx_p: cobj,
+    uflx_p: cobj,
+    vflx_p: cobj,
+    trflx_p: cobj,
+    wtflx_p: cobj,
+):
+    ps0 = Ptr[float](ps0_p)
+    p0 = Ptr[float](p0_p)
+    exns0 = Ptr[float](exns0_p)
+    qt0 = Ptr[float](qt0_p)
+    ssqt0 = Ptr[float](ssqt0_p)
+    thl0 = Ptr[float](thl0_p)
+    ssthl0 = Ptr[float](ssthl0_p)
+    u0 = Ptr[float](u0_p)
+    ssu0 = Ptr[float](ssu0_p)
+    v0 = Ptr[float](v0_p)
+    ssv0 = Ptr[float](ssv0_p)
+    tr0 = Ptr[float](tr0_p)
+    sstr0 = Ptr[float](sstr0_p)
+    wt0 = Ptr[float](wt0_p)
+    sswt0 = Ptr[float](sswt0_p)
+    trsrc = Ptr[float](trsrc_p)
+    wtsrc = Ptr[float](wtsrc_p)
+    umf = Ptr[float](umf_p)
+    emf = Ptr[float](emf_p)
+    thlu = Ptr[float](thlu_p)
+    qtu = Ptr[float](qtu_p)
+    uu = Ptr[float](uu_p)
+    vu = Ptr[float](vu_p)
+    tru = Ptr[float](tru_p)
+    wtu = Ptr[float](wtu_p)
+    thlu_emf = Ptr[float](thlu_emf_p)
+    qtu_emf = Ptr[float](qtu_emf_p)
+    uu_emf = Ptr[float](uu_emf_p)
+    vu_emf = Ptr[float](vu_emf_p)
+    tru_emf = Ptr[float](tru_emf_p)
+    wtu_emf = Ptr[float](wtu_emf_p)
+    slflx = Ptr[float](slflx_p)
+    qtflx = Ptr[float](qtflx_p)
+    uflx = Ptr[float](uflx_p)
+    vflx = Ptr[float](vflx_p)
+    trflx = Ptr[float](trflx_p)
+    wtflx = Ptr[float](wtflx_p)
+
+    iface_stride = mkx + 1
+
+    xmean = qt0[kinv - 1]
+    xtop = qt0[kinv] + ssqt0[kinv] * (ps0[kinv] - p0[kinv])
+    xbot = qt0[kinv - 2] + ssqt0[kinv - 2] * (ps0[kinv - 1] - p0[kinv - 2])
+    k = 0
+    while k <= kinv - 1:
+        qtflx[k] = _uwshcu_fluxbelowinv_value(cbmf, g_v, dt_v, ps0, kinv, qtsrc, xmean, xtop, xbot, k)
+        k += 1
+
+    xmean = thl0[kinv - 1]
+    xtop = thl0[kinv] + ssthl0[kinv] * (ps0[kinv] - p0[kinv])
+    xbot = thl0[kinv - 2] + ssthl0[kinv - 2] * (ps0[kinv - 1] - p0[kinv - 2])
+    k = 0
+    while k <= kinv - 1:
+        xflx = _uwshcu_fluxbelowinv_value(cbmf, g_v, dt_v, ps0, kinv, thlsrc, xmean, xtop, xbot, k)
+        slflx[k] = cp * exns0[k] * xflx
+        k += 1
+
+    xmean = u0[kinv - 1]
+    xtop = u0[kinv] + ssu0[kinv] * (ps0[kinv] - p0[kinv])
+    xbot = u0[kinv - 2] + ssu0[kinv - 2] * (ps0[kinv - 1] - p0[kinv - 2])
+    k = 0
+    while k <= kinv - 1:
+        uflx[k] = _uwshcu_fluxbelowinv_value(cbmf, g_v, dt_v, ps0, kinv, usrc, xmean, xtop, xbot, k)
+        k += 1
+
+    xmean = v0[kinv - 1]
+    xtop = v0[kinv] + ssv0[kinv] * (ps0[kinv] - p0[kinv])
+    xbot = v0[kinv - 2] + ssv0[kinv - 2] * (ps0[kinv - 1] - p0[kinv - 2])
+    k = 0
+    while k <= kinv - 1:
+        vflx[k] = _uwshcu_fluxbelowinv_value(cbmf, g_v, dt_v, ps0, kinv, vsrc, xmean, xtop, xbot, k)
+        k += 1
+
+    m = 0
+    while m < ncnst:
+        xmean = tr0[kinv - 1 + m * mkx]
+        xtop = tr0[kinv + m * mkx] + sstr0[kinv + m * mkx] * (ps0[kinv] - p0[kinv])
+        xbot = tr0[kinv - 2 + m * mkx] + sstr0[kinv - 2 + m * mkx] * (ps0[kinv - 1] - p0[kinv - 2])
+        k = 0
+        while k <= kinv - 1:
+            trflx[k + m * iface_stride] = _uwshcu_fluxbelowinv_value(
+                cbmf, g_v, dt_v, ps0, kinv, trsrc[m], xmean, xtop, xbot, k
+            )
+            k += 1
+        m += 1
+
+    m = 0
+    while m < wtrc_nwset:
+        xmean = wt0[kinv - 1 + m * mkx]
+        xtop = wt0[kinv + m * mkx] + sswt0[kinv + m * mkx] * (ps0[kinv] - p0[kinv])
+        xbot = wt0[kinv - 2 + m * mkx] + sswt0[kinv - 2 + m * mkx] * (ps0[kinv - 1] - p0[kinv - 2])
+        k = 0
+        while k <= kinv - 1:
+            wtflx[k + m * iface_stride] = _uwshcu_fluxbelowinv_value(
+                cbmf, g_v, dt_v, ps0, kinv, wtsrc[m], xmean, xtop, xbot, k
+            )
+            k += 1
+        m += 1
+
+    uplus = 0.0
+    vplus = 0.0
+    k = kinv
+    while k <= krel - 1:
+        kp1_idx = k
+        p_delta = ps0[k] - p0[kp1_idx]
+        qtflx[k] = cbmf * (qtsrc - (qt0[kp1_idx] + ssqt0[kp1_idx] * p_delta))
+        slflx[k] = cbmf * (thlsrc - (thl0[kp1_idx] + ssthl0[kp1_idx] * p_delta)) * cp * exns0[k]
+        uplus = uplus + pgfc * ssu0[k - 1] * (ps0[k] - ps0[k - 1])
+        vplus = vplus + pgfc * ssv0[k - 1] * (ps0[k] - ps0[k - 1])
+        uflx[k] = cbmf * (usrc + uplus - (u0[kp1_idx] + ssu0[kp1_idx] * p_delta))
+        vflx[k] = cbmf * (vsrc + vplus - (v0[kp1_idx] + ssv0[kp1_idx] * p_delta))
+
+        m = 0
+        while m < ncnst:
+            trflx[k + m * iface_stride] = cbmf * (
+                trsrc[m] - (tr0[kp1_idx + m * mkx] + sstr0[kp1_idx + m * mkx] * p_delta)
+            )
+            m += 1
+
+        m = 0
+        while m < wtrc_nwset:
+            wtflx[k + m * iface_stride] = cbmf * (
+                wtsrc[m] - (wt0[kp1_idx + m * mkx] + sswt0[kp1_idx + m * mkx] * p_delta)
+            )
+            m += 1
+        k += 1
+
+    k = krel
+    while k <= kbup - 1:
+        kp1_idx = k
+        p_delta = ps0[k] - p0[kp1_idx]
+        slflx[k] = cp * exns0[k] * umf[k] * (thlu[k] - (thl0[kp1_idx] + ssthl0[kp1_idx] * p_delta))
+        qtflx[k] = umf[k] * (qtu[k] - (qt0[kp1_idx] + ssqt0[kp1_idx] * p_delta))
+        uflx[k] = umf[k] * (uu[k] - (u0[kp1_idx] + ssu0[kp1_idx] * p_delta))
+        vflx[k] = umf[k] * (vu[k] - (v0[kp1_idx] + ssv0[kp1_idx] * p_delta))
+
+        m = 0
+        while m < ncnst:
+            trflx[k + m * iface_stride] = umf[k] * (
+                tru[k + m * iface_stride] - (tr0[kp1_idx + m * mkx] + sstr0[kp1_idx + m * mkx] * p_delta)
+            )
+            m += 1
+
+        m = 0
+        while m < wtrc_nwset:
+            wtflx[k + m * iface_stride] = umf[k] * (
+                wtu[k + m * iface_stride] - (wt0[kp1_idx + m * mkx] + sswt0[kp1_idx + m * mkx] * p_delta)
+            )
+            m += 1
+        k += 1
+
+    k = kbup
+    while k <= kpen - 1:
+        layer_idx = k - 1
+        p_delta = ps0[k] - p0[layer_idx]
+        slflx[k] = cp * exns0[k] * emf[k] * (thlu_emf[k] - (thl0[layer_idx] + ssthl0[layer_idx] * p_delta))
+        qtflx[k] = emf[k] * (qtu_emf[k] - (qt0[layer_idx] + ssqt0[layer_idx] * p_delta))
+        uflx[k] = emf[k] * (uu_emf[k] - (u0[layer_idx] + ssu0[layer_idx] * p_delta))
+        vflx[k] = emf[k] * (vu_emf[k] - (v0[layer_idx] + ssv0[layer_idx] * p_delta))
+
+        m = 0
+        while m < ncnst:
+            trflx[k + m * iface_stride] = emf[k] * (
+                tru_emf[k + m * iface_stride] - (tr0[layer_idx + m * mkx] + sstr0[layer_idx + m * mkx] * p_delta)
+            )
+            m += 1
+
+        m = 0
+        while m < wtrc_nwset:
+            wtflx[k + m * iface_stride] = emf[k] * (
+                wtu_emf[k + m * iface_stride] - (wt0[layer_idx + m * mkx] + sswt0[layer_idx + m * mkx] * p_delta)
+            )
+            m += 1
+        k += 1
+
+    if use_momenflx == 0:
+        k = 0
+        while k <= mkx:
+            uflx[k] = 0.0
+            vflx[k] = 0.0
+            k += 1
+
+
 @export
 def uwshcu_column_input_load_shell_codon(
     mix: int,
