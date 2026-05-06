@@ -68,6 +68,7 @@
   logical :: positive_moisture_prep_shell_entered_logged = .false.
   logical :: precip_surface_finalize_shell_entered_logged = .false.
   logical :: precip_bulk_shell_entered_logged = .false.
+  logical :: slope_recon_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -643,6 +644,22 @@ contains
     end if
 
   end subroutine uwshcu_log_precip_bulk_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_slope_recon_shell_entered()
+
+    if (slope_recon_shell_entered_logged) return
+    slope_recon_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu slope recon shell entered (column slope reconstruction direct = codon; conden native)'
+       call uwshcu_append_proof( &
+            'uwshcu slope recon shell entered (column slope reconstruction direct = codon; conden native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_slope_recon_shell_entered
 
 !===============================================================================
   
@@ -2405,6 +2422,15 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: sten_p, slten_p, limit_negcon_p
        end subroutine uwshcu_precip_bulk_layer_shell_codon
 
+       subroutine uwshcu_slope_reconstruction_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
+            p0_p, thl0_p, qt0_p, u0_p, v0_p, tr0_p, wt0_p, ssthl0_p, ssqt0_p, &
+            ssu0_p, ssv0_p, sstr0_p, sswt0_p) bind(c, name="uwshcu_slope_reconstruction_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c
+          type(c_ptr), value :: p0_p, thl0_p, qt0_p, u0_p, v0_p, tr0_p, wt0_p
+          type(c_ptr), value :: ssthl0_p, ssqt0_p, ssu0_p, ssv0_p, sstr0_p, sswt0_p
+       end subroutine uwshcu_slope_reconstruction_shell_codon
+
        subroutine uwshcu_column_env_save_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, &
             ssthl0_p, ssqt0_p, thv0bot_p, thv0top_p, thvl0bot_p, thvl0top_p, &
@@ -2901,31 +2927,37 @@ end subroutine uwshcu_readnl
       !----- 2. Compute slopes of environmental variables in each layer
       !         Dimension of ssthl0(:mkx) is implicit.
 
-      ssthl0       = slope(mkx,thl0,p0) 
-      ssqt0        = slope(mkx,qt0 ,p0)
-      ssu0         = slope(mkx,u0  ,p0)
-      ssv0         = slope(mkx,v0  ,p0)
-      do m = 1, ncnst
-         sstr0(:mkx,m) = slope(mkx,tr0(:mkx,m),p0)
-      enddo     
+      if (use_native_init_shell_impl) then
+         ssthl0       = slope(mkx,thl0,p0)
+         ssqt0        = slope(mkx,qt0 ,p0)
+         ssu0         = slope(mkx,u0  ,p0)
+         ssv0         = slope(mkx,v0  ,p0)
+         do m = 1, ncnst
+            sstr0(:mkx,m) = slope(mkx,tr0(:mkx,m),p0)
+         enddo
 
-      !*************
-      !Water tracers
-      !*************
-      !NOTE:  This variables is needed since slope(sum) /= sum(slope) - JN
-      !NOTE:  The actual slope function they use has min/max calls which don't make
-      !any sense to me, since you should be able to calculate the slope directly
-      !without too many problems.  I should probably talk to someone about that
-      ! - JN.
-      if(trace_water) then
-        do m=1,wtrc_nwset
-          if (use_native_init_shell_impl) then
-            wt0(:mkx,m) = tr0(:mkx,wtrc_iatype(m,iwtvap)) + tr0(:mkx,wtrc_iatype(m,iwtliq)) + tr0(:mkx,wtrc_iatype(m,iwtice))
-          end if
-          sswt0(:,m) = slope(mkx,wt0(:mkx,m) ,p0)
-        end do
-      end if
-      !*************
+         !*************
+         !Water tracers
+         !*************
+         !NOTE:  This variables is needed since slope(sum) /= sum(slope) - JN
+         !NOTE:  The actual slope function they use has min/max calls which don't make
+         !any sense to me, since you should be able to calculate the slope directly
+         !without too many problems.  I should probably talk to someone about that
+         ! - JN.
+         if(trace_water) then
+           do m=1,wtrc_nwset
+             wt0(:mkx,m) = tr0(:mkx,wtrc_iatype(m,iwtvap)) + tr0(:mkx,wtrc_iatype(m,iwtliq)) + tr0(:mkx,wtrc_iatype(m,iwtice))
+             sswt0(:,m) = slope(mkx,wt0(:mkx,m) ,p0)
+           end do
+         end if
+         !*************
+      else
+         call uwshcu_log_slope_recon_shell_entered()
+         call uwshcu_slope_reconstruction_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+              wtrc_nwset_post_c, c_loc(p0), c_loc(thl0), c_loc(qt0), c_loc(u0), c_loc(v0), &
+              c_loc(tr0), c_loc(wt0), c_loc(ssthl0), c_loc(ssqt0), c_loc(ssu0), c_loc(ssv0), &
+              c_loc(sstr0), c_loc(sswt0))
+      endif
  
       !----- 3. Compute "thv0" and "thvl0" at the top/bottom interfaces in each layer
       !         There are computed from the reconstructed thl, qt at the top/bottom.
@@ -7305,13 +7337,21 @@ end subroutine uwshcu_readnl
                   c_loc(thl0), c_loc(thvl0), c_loc(wt0))
           end if
 
-          ssthl0      = slope(mkx,thl0,p0) ! Dimension of ssthl0(:mkx) is implicit
-          ssqt0       = slope(mkx,qt0 ,p0)
-          ssu0        = slope(mkx,u0  ,p0)
-          ssv0        = slope(mkx,v0  ,p0)
-          do m = 1, ncnst
-             sstr0(:mkx,m) = slope(mkx,tr0(:mkx,m),p0)
-          enddo
+          if (use_native_init_shell_impl) then
+             ssthl0      = slope(mkx,thl0,p0) ! Dimension of ssthl0(:mkx) is implicit
+             ssqt0       = slope(mkx,qt0 ,p0)
+             ssu0        = slope(mkx,u0  ,p0)
+             ssv0        = slope(mkx,v0  ,p0)
+             do m = 1, ncnst
+                sstr0(:mkx,m) = slope(mkx,tr0(:mkx,m),p0)
+             enddo
+          else
+             call uwshcu_log_slope_recon_shell_entered()
+             call uwshcu_slope_reconstruction_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+                  0_c_int64_t, c_loc(p0), c_loc(thl0), c_loc(qt0), c_loc(u0), c_loc(v0), &
+                  c_loc(tr0), c_loc(wt0), c_loc(ssthl0), c_loc(ssqt0), c_loc(ssu0), c_loc(ssv0), &
+                  c_loc(sstr0), c_loc(sswt0))
+          endif
 
           do k = 1, mkx
 

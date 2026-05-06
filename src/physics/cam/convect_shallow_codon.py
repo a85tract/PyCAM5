@@ -4217,6 +4217,83 @@ def uwshcu_precip_bulk_layer_shell_codon(
     slten[kk] = sten[kk] - xlv * qlten[kk] - xls * qiten[kk]
 
 
+def _uwshcu_slope_column(
+    mkx: int,
+    p0: Ptr[float],
+    field: Ptr[float],
+    field_offset: int,
+    field_stride: int,
+    out: Ptr[float],
+    out_offset: int,
+    out_stride: int,
+):
+    below = (field[field_offset + field_stride] - field[field_offset]) / (p0[1] - p0[0])
+
+    k = 2
+    while k <= mkx:
+        cur_idx = field_offset + (k - 1) * field_stride
+        prev_idx = field_offset + (k - 2) * field_stride
+        above = (field[cur_idx] - field[prev_idx]) / (p0[k - 1] - p0[k - 2])
+        out_idx = out_offset + (k - 2) * out_stride
+        if above > 0.0:
+            out[out_idx] = max(0.0, min(above, below))
+        else:
+            out[out_idx] = min(0.0, max(above, below))
+        below = above
+        k += 1
+
+    out[out_offset + (mkx - 1) * out_stride] = out[out_offset + (mkx - 2) * out_stride]
+
+
+@export
+def uwshcu_slope_reconstruction_shell_codon(
+    mkx: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    p0_p: cobj,
+    thl0_p: cobj,
+    qt0_p: cobj,
+    u0_p: cobj,
+    v0_p: cobj,
+    tr0_p: cobj,
+    wt0_p: cobj,
+    ssthl0_p: cobj,
+    ssqt0_p: cobj,
+    ssu0_p: cobj,
+    ssv0_p: cobj,
+    sstr0_p: cobj,
+    sswt0_p: cobj,
+):
+    p0 = Ptr[float](p0_p)
+    thl0 = Ptr[float](thl0_p)
+    qt0 = Ptr[float](qt0_p)
+    u0 = Ptr[float](u0_p)
+    v0 = Ptr[float](v0_p)
+    tr0 = Ptr[float](tr0_p)
+    wt0 = Ptr[float](wt0_p)
+    ssthl0 = Ptr[float](ssthl0_p)
+    ssqt0 = Ptr[float](ssqt0_p)
+    ssu0 = Ptr[float](ssu0_p)
+    ssv0 = Ptr[float](ssv0_p)
+    sstr0 = Ptr[float](sstr0_p)
+    sswt0 = Ptr[float](sswt0_p)
+
+    _uwshcu_slope_column(mkx, p0, thl0, 0, 1, ssthl0, 0, 1)
+    _uwshcu_slope_column(mkx, p0, qt0, 0, 1, ssqt0, 0, 1)
+    _uwshcu_slope_column(mkx, p0, u0, 0, 1, ssu0, 0, 1)
+    _uwshcu_slope_column(mkx, p0, v0, 0, 1, ssv0, 0, 1)
+
+    m = 0
+    while m < ncnst:
+        _uwshcu_slope_column(mkx, p0, tr0, m * mkx, 1, sstr0, m * mkx, 1)
+        m += 1
+
+    m = 0
+    while m < wtrc_nwset:
+        _uwshcu_slope_column(mkx, p0, wt0, m * mkx, 1, sswt0, m * mkx, 1)
+        m += 1
+
+
 @export
 def uwshcu_column_input_load_shell_codon(
     mix: int,
