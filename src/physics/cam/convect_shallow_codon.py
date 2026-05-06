@@ -3776,6 +3776,94 @@ def uwshcu_post_positive_thermo_shell_codon(
 
 
 @export
+def uwshcu_tracer_limiter_shell_codon(
+    mkx: int,
+    ncnst: int,
+    g_v: float,
+    dt_v: float,
+    ixnumliq: int,
+    ixnumice: int,
+    dp0_p: cobj,
+    dpdry0_p: cobj,
+    tr0_p: cobj,
+    trflx_p: cobj,
+    trten_p: cobj,
+    trflx_d_p: cobj,
+    trflx_u_p: cobj,
+    qmin_p: cobj,
+    active_p: cobj,
+    wet_p: cobj,
+):
+    dp0 = Ptr[float](dp0_p)
+    dpdry0 = Ptr[float](dpdry0_p)
+    tr0 = Ptr[float](tr0_p)
+    trflx = Ptr[float](trflx_p)
+    trten = Ptr[float](trten_p)
+    trflx_d = Ptr[float](trflx_d_p)
+    trflx_u = Ptr[float](trflx_u_p)
+    qmin = Ptr[float](qmin_p)
+    active = Ptr[int](active_p)
+    wet = Ptr[int](wet_p)
+
+    sp = 3
+    while sp < ncnst:
+        if active[sp] != 0:
+            trmin = qmin[sp]
+
+            iface = 0
+            while iface <= mkx:
+                trflx_d[iface] = 0.0
+                trflx_u[iface] = 0.0
+                iface += 1
+
+            k = 0
+            while k < mkx - 1:
+                if wet[sp] != 0:
+                    pdelx = dp0[k]
+                else:
+                    pdelx = dpdry0[k]
+                km1 = k
+                col = sp * (mkx + 1)
+                dum = (tr0[k + sp * mkx] - trmin) * pdelx / g_v / dt_v + trflx[km1 + col] - trflx[k + 1 + col] + trflx_d[km1]
+                if dum < 0.0:
+                    trflx_d[k + 1] = dum
+                else:
+                    trflx_d[k + 1] = 0.0
+                k += 1
+
+            k = mkx - 1
+            while k >= 1:
+                if wet[sp] != 0:
+                    pdelx = dp0[k]
+                else:
+                    pdelx = dpdry0[k]
+                km1 = k
+                col = sp * (mkx + 1)
+                dum = (tr0[k + sp * mkx] - trmin) * pdelx / g_v / dt_v + trflx[km1 + col] - trflx[k + 1 + col] + trflx_d[km1] - trflx_d[k + 1] - trflx_u[k + 1]
+                if -dum > 0.0:
+                    trflx_u[km1] = -dum
+                else:
+                    trflx_u[km1] = 0.0
+                k -= 1
+
+            k = 0
+            while k < mkx:
+                if wet[sp] != 0:
+                    pdelx = dp0[k]
+                else:
+                    pdelx = dpdry0[k]
+                km1 = k
+                col = sp * (mkx + 1)
+                trten[k + sp * mkx] = (
+                    trflx[km1 + col] - trflx[k + 1 + col]
+                    + trflx_d[km1] - trflx_d[k + 1]
+                    + trflx_u[km1] - trflx_u[k + 1]
+                ) * g_v / pdelx
+                k += 1
+        sp += 1
+
+
+@export
 def uwshcu_column_input_load_shell_codon(
     mix: int,
     mkx: int,

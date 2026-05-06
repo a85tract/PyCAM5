@@ -63,6 +63,7 @@
   logical :: thermo_prelim_shell_entered_logged = .false.
   logical :: thermo_final_shell_entered_logged = .false.
   logical :: post_precip_adjust_shell_entered_logged = .false.
+  logical :: tracer_limiter_shell_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -558,6 +559,22 @@ contains
     end if
 
   end subroutine uwshcu_log_post_precip_adjust_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_tracer_limiter_shell_entered()
+
+    if (tracer_limiter_shell_entered_logged) return
+    tracer_limiter_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu tracer limiter shell entered (ordinary tracer flux limiter direct = codon; tracer type flags native)'
+       call uwshcu_append_proof( &
+            'uwshcu tracer limiter shell entered (ordinary tracer flux limiter direct = codon; tracer type flags native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_tracer_limiter_shell_entered
 
 !===============================================================================
   
@@ -1329,8 +1346,11 @@ end subroutine uwshcu_readnl
     real(r8), target :: ufrc(0:mkx)                           !  Updraft fractional area [ fraction ]
     real(r8), target :: trten(mkx,ncnst)                      !  Tendency of tracers [ #/s, kg/kg/s ]
     real(r8), target :: trflx(0:mkx,ncnst)                    !  Flux of tracers due to convection [ # * kg/m2/s, kg/kg * kg/m2/s ]
-    real(r8)    trflx_d(0:mkx)                                !  Adjustive downward flux of tracers to prevent negative tracers
-    real(r8)    trflx_u(0:mkx)                                !  Adjustive upward   flux of tracers to prevent negative tracers
+    real(r8), target :: trflx_d(0:mkx)                        !  Adjustive downward flux of tracers to prevent negative tracers
+    real(r8), target :: trflx_u(0:mkx)                        !  Adjustive upward   flux of tracers to prevent negative tracers
+    real(r8), target :: tracer_limiter_qmin(ncnst)
+    integer(c_int64_t), target :: tracer_limiter_active(ncnst)
+    integer(c_int64_t), target :: tracer_limiter_wet(ncnst)
     real(r8)    trmin                                         !  Minimum concentration of tracers allowed
     real(r8)    pdelx, dum 
     
@@ -2235,6 +2255,16 @@ end subroutine uwshcu_readnl
           real(c_double), value :: xlv_c, xls_c
           type(c_ptr), value :: qvten_p, qlten_p, qiten_p, sten_p, qtten_p, slten_p
        end subroutine uwshcu_post_positive_thermo_shell_codon
+
+       subroutine uwshcu_tracer_limiter_shell_codon(mkx_c, ncnst_c, g_c, dt_c, ixnumliq_c, ixnumice_c, &
+            dp0_p, dpdry0_p, tr0_p, trflx_p, trten_p, trflx_d_p, trflx_u_p, qmin_p, active_p, wet_p) &
+            bind(c, name="uwshcu_tracer_limiter_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, ixnumliq_c, ixnumice_c
+          real(c_double), value :: g_c, dt_c
+          type(c_ptr), value :: dp0_p, dpdry0_p, tr0_p, trflx_p, trten_p, trflx_d_p, trflx_u_p
+          type(c_ptr), value :: qmin_p, active_p, wet_p
+       end subroutine uwshcu_tracer_limiter_shell_codon
 
        subroutine uwshcu_column_env_save_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             qv0_p, ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, &
@@ -6692,6 +6722,7 @@ end subroutine uwshcu_readnl
        ! Tendencies of tracers !
        ! --------------------- !
 
+       if (use_native_init_shell_impl) then
        do m = 4, ncnst
 
        !Do not modify water tracers here.
@@ -6739,6 +6770,27 @@ end subroutine uwshcu_readnl
        endif
 
        enddo
+       else
+          do m = 1, ncnst
+             tracer_limiter_qmin(m) = qmin(m)
+             if (m .ne. ixnumliq .and. m .ne. ixnumice .and. (.not. wtrc_is_wtrc(m))) then
+                tracer_limiter_active(m) = 1_c_int64_t
+             else
+                tracer_limiter_active(m) = 0_c_int64_t
+             endif
+             if (cnst_get_type_byind(m) .eq. 'wet') then
+                tracer_limiter_wet(m) = 1_c_int64_t
+             else
+                tracer_limiter_wet(m) = 0_c_int64_t
+             endif
+          enddo
+          call uwshcu_log_tracer_limiter_shell_entered()
+          call uwshcu_tracer_limiter_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+               g, dt, int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), c_loc(dp0), &
+               c_loc(dpdry0), c_loc(tr0), c_loc(trflx), c_loc(trten), c_loc(trflx_d), &
+               c_loc(trflx_u), c_loc(tracer_limiter_qmin), c_loc(tracer_limiter_active), &
+               c_loc(tracer_limiter_wet))
+       endif
 
        ! ---------------------------------------------------------------- !
        ! Cumpute default diagnostic outputs                               !
