@@ -904,9 +904,9 @@ contains
     tend_misc_batch_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'vertical_diffusion_tend_misc_batch entered (tms surface totals/history dtk direct = codon)'
+       write(iulog,*) 'vertical_diffusion_tend_misc_batch entered (tms surface totals/rairi/history dtk direct = codon)'
        call vertical_diffusion_tend_misc_batch_append_proof( &
-            'vertical_diffusion_tend_misc_batch entered (tms surface totals/history dtk direct = codon)')
+            'vertical_diffusion_tend_misc_batch entered (tms surface totals/rairi/history dtk direct = codon)')
        call flush(iulog)
     end if
 
@@ -918,7 +918,7 @@ contains
 
   subroutine vertical_diffusion_tend_misc_batch_call(stage, ncol, psetcols_local, do_tms_local, cpair_local, &
        taux_local, tauy_local, tautmsx_local, tautmsy_local, ksrftms_local, tautotx_local, tautoty_local, &
-       dtk_local, ptend_s_local)
+       dtk_local, ptend_s_local, rairi_local)
 
     use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
@@ -936,21 +936,22 @@ contains
     real(r8), target, optional, intent(in) :: tautoty_local(pcols)
     real(r8), target, optional, intent(in) :: dtk_local(pcols,pver)
     real(r8), target, optional, intent(in) :: ptend_s_local(:,:)
+    real(r8), target, optional, intent(in) :: rairi_local(pcols,pverp)
 
     integer(c_int64_t) :: psetcols_c, do_tms_c
     real(c_double) :: cpair_c
     type(c_ptr) :: taux_p, tauy_p, tautmsx_p, tautmsy_p, ksrftms_p, tautotx_p, tautoty_p
-    type(c_ptr) :: dtk_p, ptend_s_p
+    type(c_ptr) :: dtk_p, ptend_s_p, rairi_p
 
     interface
        subroutine vertical_diffusion_tend_misc_batch_codon(stage_c, ncol_c, pcols_c, pver_c, psetcols_c, &
             do_tms_c, cpair_c, taux_p, tauy_p, tautmsx_p, tautmsy_p, ksrftms_p, tautotx_p, tautoty_p, &
-            dtk_p, ptend_s_p) bind(c, name="vertical_diffusion_tend_misc_batch_codon")
+            dtk_p, ptend_s_p, rairi_p) bind(c, name="vertical_diffusion_tend_misc_batch_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, psetcols_c, do_tms_c
          real(c_double), value :: cpair_c
          type(c_ptr), value :: taux_p, tauy_p, tautmsx_p, tautmsy_p, ksrftms_p, tautotx_p, tautoty_p
-         type(c_ptr), value :: dtk_p, ptend_s_p
+         type(c_ptr), value :: dtk_p, ptend_s_p, rairi_p
        end subroutine vertical_diffusion_tend_misc_batch_codon
     end interface
 
@@ -970,12 +971,13 @@ contains
     tautoty_p = c_null_ptr; if (present(tautoty_local)) tautoty_p = c_loc(tautoty_local)
     dtk_p = c_null_ptr; if (present(dtk_local)) dtk_p = c_loc(dtk_local)
     ptend_s_p = c_null_ptr; if (present(ptend_s_local)) ptend_s_p = c_loc(ptend_s_local)
+    rairi_p = c_null_ptr; if (present(rairi_local)) rairi_p = c_loc(rairi_local)
 
     call vertical_diffusion_tend_misc_batch_log_entered()
     call vertical_diffusion_tend_misc_batch_codon( &
          int(stage, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          psetcols_c, do_tms_c, cpair_c, taux_p, tauy_p, tautmsx_p, tautmsy_p, ksrftms_p, tautotx_p, &
-         tautoty_p, dtk_p, ptend_s_p)
+         tautoty_p, dtk_p, ptend_s_p, rairi_p)
 
   end subroutine vertical_diffusion_tend_misc_batch_call
 
@@ -2895,7 +2897,11 @@ contains
         end do
       end do
     else
-      rairi(:ncol,:pver+1) = rair 
+      if (use_native_tend_misc_batch_impl) then
+        rairi(:ncol,:pver+1) = rair
+      else
+        call vertical_diffusion_tend_misc_batch_call(4, ncol, cpair_local=rair, rairi_local=rairi)
+      end if
     endif
 
     ! Modification : We may need to output 'tautotx_im,tautoty_im' from below 'compute_vdiff' and

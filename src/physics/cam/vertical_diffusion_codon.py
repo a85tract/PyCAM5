@@ -72,6 +72,7 @@ def vertical_diffusion_tend_misc_batch_codon(
     tautoty_p: cobj,
     dtk_p: cobj,
     ptend_s_p: cobj,
+    rairi_p: cobj,
 ):
     if stage == 1:
         taux = Ptr[float](taux_p)
@@ -102,6 +103,11 @@ def vertical_diffusion_tend_misc_batch_codon(
         for k in range(1, pver + 1):
             for i in range(1, ncol + 1):
                 dtk[_idx2(i, k, pcols)] = ptend_s[_idx2(i, k, psetcols)] / cpair
+    elif stage == 4:
+        rairi = Ptr[float](rairi_p)
+        for k in range(1, pver + 2):
+            for i in range(1, ncol + 1):
+                rairi[_idx2(i, k, pcols)] = cpair
 
 
 @inline
