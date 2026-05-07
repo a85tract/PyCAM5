@@ -50,6 +50,7 @@
   logical :: column_workspace_reset_shell_entered_logged = .false.
   logical :: column_input_shell_entered_logged = .false.
   logical :: column_thermo_shell_entered_logged = .false.
+  logical :: column_thermo_slope_shell_entered_logged = .false.
   logical :: pbl_precheck_shell_entered_logged = .false.
   logical :: pbl_source_shell_entered_logged = .false.
   logical :: lcl_prep_shell_entered_logged = .false.
@@ -362,6 +363,23 @@ contains
     end if
 
   end subroutine uwshcu_log_column_thermo_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_column_thermo_slope_shell_entered()
+
+    if (column_thermo_slope_shell_entered_logged) return
+    column_thermo_slope_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu column thermo/slope shell entered (qt/thl/thvl/wt0 and slope reconstruction direct = codon; exnf/conden native)'
+       call uwshcu_append_proof( &
+            'uwshcu column thermo/slope shell entered (qt/thl/thvl/wt0 and slope reconstruction direct = codon; exnf/conden native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_column_thermo_slope_shell_entered
 
 !===============================================================================
 
@@ -2159,6 +2177,19 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: qt0_p, thl0_p, thvl0_p, wt0_p
        end subroutine uwshcu_column_thermo_state_shell_codon
 
+       subroutine uwshcu_column_thermo_slope_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
+            xlv_c, xls_c, cp_c, zvir_c, qv0_p, ql0_p, qi0_p, t0_p, exn0_p, tr0_p, &
+            wtrc_iatype_p, p0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, wt0_p, &
+            ssthl0_p, ssqt0_p, ssu0_p, ssv0_p, sstr0_p, sswt0_p) &
+            bind(c, name="uwshcu_column_thermo_slope_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c
+          real(c_double), value :: xlv_c, xls_c, cp_c, zvir_c
+          type(c_ptr), value :: qv0_p, ql0_p, qi0_p, t0_p, exn0_p, tr0_p, wtrc_iatype_p
+          type(c_ptr), value :: p0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, wt0_p
+          type(c_ptr), value :: ssthl0_p, ssqt0_p, ssu0_p, ssv0_p, sstr0_p, sswt0_p
+       end subroutine uwshcu_column_thermo_slope_shell_codon
+
        subroutine uwshcu_pbl_precheck_shell_codon(mkx_c, pblh_c, zs0_p, cush_p, tscaleh_p, &
             kinv_out_p, exit_code_p) bind(c, name="uwshcu_pbl_precheck_shell_codon")
           use iso_c_binding, only: c_double, c_int64_t, c_ptr
@@ -3142,11 +3173,12 @@ end subroutine uwshcu_readnl
                wtrc_iatype_post(m,3) = int(wtrc_iatype(m,iwtice), c_int64_t)
             end do
          end if
-         call uwshcu_log_column_thermo_shell_entered()
-         call uwshcu_column_thermo_state_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+         call uwshcu_log_column_thermo_slope_shell_entered()
+         call uwshcu_column_thermo_slope_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
               wtrc_nwset_post_c, xlv, xls, cp, zvir, c_loc(qv0), c_loc(ql0), c_loc(qi0), &
-              c_loc(t0), c_loc(exn0), c_loc(tr0), c_loc(wtrc_iatype_post), c_loc(qt0), &
-              c_loc(thl0), c_loc(thvl0), c_loc(wt0))
+              c_loc(t0), c_loc(exn0), c_loc(tr0), c_loc(wtrc_iatype_post), c_loc(p0), &
+              c_loc(u0), c_loc(v0), c_loc(qt0), c_loc(thl0), c_loc(thvl0), c_loc(wt0), &
+              c_loc(ssthl0), c_loc(ssqt0), c_loc(ssu0), c_loc(ssv0), c_loc(sstr0), c_loc(sswt0))
       end if
 
       !----- 2. Compute slopes of environmental variables in each layer
@@ -3176,12 +3208,6 @@ end subroutine uwshcu_readnl
            end do
          end if
          !*************
-      else
-         call uwshcu_log_slope_recon_shell_entered()
-         call uwshcu_slope_reconstruction_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-              wtrc_nwset_post_c, c_loc(p0), c_loc(thl0), c_loc(qt0), c_loc(u0), c_loc(v0), &
-              c_loc(tr0), c_loc(wt0), c_loc(ssthl0), c_loc(ssqt0), c_loc(ssu0), c_loc(ssv0), &
-              c_loc(sstr0), c_loc(sswt0))
       endif
  
       !----- 3. Compute "thv0" and "thvl0" at the top/bottom interfaces in each layer
@@ -7498,11 +7524,12 @@ end subroutine uwshcu_readnl
              thl0(:mkx)  = (t0(:mkx) - xlv*ql0(:mkx)/cp - xls*qi0(:mkx)/cp)/exn0(:mkx)
              thvl0(:mkx) = (1._r8 + zvir*qt0(:mkx))*thl0(:mkx)
           else
-             call uwshcu_log_column_thermo_shell_entered()
-             call uwshcu_column_thermo_state_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+             call uwshcu_log_column_thermo_slope_shell_entered()
+             call uwshcu_column_thermo_slope_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
                   0_c_int64_t, xlv, xls, cp, zvir, c_loc(qv0), c_loc(ql0), c_loc(qi0), &
-                  c_loc(t0), c_loc(exn0), c_loc(tr0), c_loc(wtrc_iatype_post), c_loc(qt0), &
-                  c_loc(thl0), c_loc(thvl0), c_loc(wt0))
+                  c_loc(t0), c_loc(exn0), c_loc(tr0), c_loc(wtrc_iatype_post), c_loc(p0), &
+                  c_loc(u0), c_loc(v0), c_loc(qt0), c_loc(thl0), c_loc(thvl0), c_loc(wt0), &
+                  c_loc(ssthl0), c_loc(ssqt0), c_loc(ssu0), c_loc(ssv0), c_loc(sstr0), c_loc(sswt0))
           end if
 
           if (use_native_init_shell_impl) then
@@ -7513,12 +7540,6 @@ end subroutine uwshcu_readnl
              do m = 1, ncnst
                 sstr0(:mkx,m) = slope(mkx,tr0(:mkx,m),p0)
              enddo
-          else
-             call uwshcu_log_slope_recon_shell_entered()
-             call uwshcu_slope_reconstruction_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-                  0_c_int64_t, c_loc(p0), c_loc(thl0), c_loc(qt0), c_loc(u0), c_loc(v0), &
-                  c_loc(tr0), c_loc(wt0), c_loc(ssthl0), c_loc(ssqt0), c_loc(ssu0), c_loc(ssv0), &
-                  c_loc(sstr0), c_loc(sswt0))
           endif
 
           do k = 1, mkx
