@@ -1,0 +1,63 @@
+version: 1
+
+paths:
+  validation_case: /glade/u/home/ruitong/cases/test_icesm_se_ne16_f1850c5_build_20260417
+  pristine_baseline: /glade/derecho/scratch/ruitong/tmp/icesm_se_ne16_f1850c5_pristine_run_20260421_cpudev_retry1/run
+  compare_script: /glade/u/home/ruitong/code/fortran2python/compare_cesm_runpair.py
+  worklog: /glade/u/home/ruitong/code/fortran2python/CAM_WORKLOG_SINCE_09c8a19_ZH.md
+
+forbidden_staged_globs:
+  - "**/__pycache__/**"
+  - "__pycache__/**"
+  - "**/*.pyc"
+  - "*.pyc"
+  - "**/*.pyo"
+  - "*.pyo"
+  - "**/*.so"
+  - "*.so"
+  - "logs/**"
+  - "run/**"
+  - "bld/**"
+  - "Buildconf/**"
+  - "compare*.txt"
+  - "**/compare*.txt"
+
+high_risk_staged_globs:
+  - "src/physics/rrtmg/**"
+  - "src/physics/cam/conden*"
+  - "src/physics/cam/qsat*"
+  - "src/physics/cam/*sqrt*"
+  - "src/physics/cam/micro_mg_cam.F90"
+
+numeric_hazard_override_env: CAM_CODON_GUARD_ALLOW_NUMERIC_HAZARD
+
+numeric_hazard_rules:
+  - name: added-sensitive-math-in-codon
+    policy: warn
+    polarity: added
+    file_glob: "src/physics/cam/*_codon.py"
+    regex: "\\b(sqrt|exp|erfc)\\s*\\(|\\b(qsat|conden)\\b|\\*\\*\\s*(0\\.5|\\.5)|\\*\\*\\s*\\([^\\n]*(1\\.0|1\\.d0|1\\.e0|1d0)\\s*/\\s*3"
+  - name: removed-sensitive-math-from-fortran
+    policy: require_override
+    polarity: removed
+    file_glob: "src/physics/cam/*.F90"
+    regex: "\\b(sqrt|exp|erfc)\\s*\\(|\\b(qsat|conden)\\b|\\*\\*\\s*(0\\.5|\\.5)|\\*\\*\\s*\\([^\\n]*(1\\.0|1\\.d0|1\\.e0|1d0)\\s*/\\s*3"
+  - name: removed-codon-fp-contract-off
+    policy: hard_fail
+    polarity: removed
+    file_glob: "cime_config/buildlib"
+    regex: "--fp-contract=off"
+
+python_compile_staged_globs:
+  - "scripts/*.py"
+  - "src/physics/cam/*_codon.py"
+  - "src/chemistry/utils/*_codon.py"
+  - "src/dynamics/se/*_codon.py"
+
+allowed_metadata_char_diff_vars:
+  - date_written
+  - time_written
+  - cpath
+  - hrestpath
+  - nfpath
+  - nhfil
