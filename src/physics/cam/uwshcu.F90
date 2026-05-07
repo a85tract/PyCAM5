@@ -294,8 +294,9 @@ contains
     iter_save_shell_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'uwshcu iter save shell entered (first iteration saved-state direct = codon)'
-       call uwshcu_append_proof('uwshcu iter save shell entered (first iteration saved-state direct = codon)')
+       write(iulog,'(A)') 'uwshcu iter save shell entered (first iteration saved-state arrays/scalars direct = codon)'
+       call uwshcu_append_proof( &
+            'uwshcu iter save shell entered (first iteration saved-state arrays/scalars direct = codon)')
        call flush(iulog)
     end if
 
@@ -1798,9 +1799,9 @@ end subroutine uwshcu_readnl
     real(r8), target :: limit_rei(mix)
     real(r8), target :: ind_delcin(mix)
 
-    real(r8) :: ufrcinvbase_s, ufrclcl_s, winvbase_s, wlcl_s, plcl_s, pinv_s, plfc_s, &
-                qtsrc_s, thlsrc_s, thvlsrc_s, emfkbup_s, cinlcl_s, pbup_s, ppen_s, cbmflimit_s, &
-                tkeavg_s, zinv_s, rcwp_s, rlwp_s, riwp_s 
+    real(r8), target :: ufrcinvbase_s, ufrclcl_s, winvbase_s, wlcl_s, plcl_s, pinv_s, plfc_s, &
+                         qtsrc_s, thlsrc_s, thvlsrc_s, emfkbup_s, cinlcl_s, pbup_s, ppen_s, &
+                         cbmflimit_s, tkeavg_s, zinv_s, rcwp_s, rlwp_s, riwp_s
     real(r8), target :: ufrcinvbase, winvbase
     real(r8), target :: emfkbup, cbmflimit
     real(r8) :: pinv, zinv, rho0rel
@@ -1813,7 +1814,7 @@ end subroutine uwshcu_readnl
                                         uten_s , vten_s  , cufrc_s , qcu_s   , qlu_s   , qiu_s   , &
                                         fer_s  , fdr_s   , qc_s    , qtten_s , slten_s 
     real(r8), target, dimension(0:mkx) :: umf_s, slflx_s, qtflx_s, ufrc_s, uflx_s, vflx_s
-    real(r8)                         :: cush_s , precip_s, snow_s  , cin_s   , rliq_s, cbmf_s, cnt_s, cnb_s
+    real(r8), target                 :: cush_s , precip_s, snow_s  , cin_s   , rliq_s, cbmf_s, cnt_s, cnb_s
     real(r8), target                 :: cin_i,cin_f,del_CIN,ke,alpha,thlj
     real(r8), target                 :: cinlcl_i,cinlcl_f,del_cinlcl
     real(r8), target, dimension(mkx,wtrc_nwset) :: wtqc_liq_s, wtqc_ice_s  !Water tracers
@@ -2573,6 +2574,63 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: bquad_s_p, cquad_s_p, bogbot_s_p, bogtop_s_p, trflx_s_p, tru_s_p
           type(c_ptr), value :: tru_emf_s_p
        end subroutine uwshcu_iter_save_diag_arrays_shell_codon
+
+       subroutine uwshcu_iter_save_all_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, kbup_c, kpen_c, &
+            dt_c, cp_c, ppen_c, precip_c, snow_c, cush_c, cin_c, cinlcl_c, cbmf_c, rliq_c, cnt_c, cnb_c, &
+            ufrcinvbase_c, ufrclcl_c, winvbase_c, wlcl_c, plcl_c, plfc_c, qtsrc_c, thlsrc_c, &
+            thvlsrc_c, cbmflimit_c, tkeavg_c, rcwp_c, rlwp_c, riwp_c, &
+            qv0_p, ql0_p, qi0_p, s0_p, u0_p, v0_p, t0_p, qvten_p, qlten_p, qiten_p, sten_p, &
+            uten_p, vten_p, tr0_p, trten_p, qv0_s_p, ql0_s_p, qi0_s_p, s0_s_p, u0_s_p, &
+            v0_s_p, qt0_s_p, t0_s_p, tr0_s_p, umf_p, qrten_p, qsten_p, evapc_p, cufrc_p, &
+            slflx_p, qtflx_p, qcu_p, qlu_p, qiu_p, qc_p, wtqc_liq_p, wtqc_ice_p, wtprec_p, &
+            wtsnow_p, umf_s_p, qvten_s_p, qlten_s_p, qiten_s_p, sten_s_p, uten_s_p, vten_s_p, &
+            qrten_s_p, qsten_s_p, evapc_s_p, cufrc_s_p, slflx_s_p, qtflx_s_p, qcu_s_p, &
+            qlu_s_p, qiu_s_p, qc_s_p, trten_s_p, wtqc_liq_s_p, wtqc_ice_s_p, wtprec_s_p, &
+            wtsnow_s_p, fer_p, fdr_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p, wu_p, qtu_p, &
+            thlu_p, thvu_p, uu_p, vu_p, qtu_emf_p, thlu_emf_p, uu_emf_p, vu_emf_p, uemf_p, &
+            dwten_p, diten_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p, excessu_p, excess0_p, &
+            xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p, trflx_p, tru_p, tru_emf_p, &
+            fer_s_p, fdr_s_p, qtten_s_p, slten_s_p, ufrc_s_p, uflx_s_p, vflx_s_p, wu_s_p, &
+            qtu_s_p, thlu_s_p, thvu_s_p, uu_s_p, vu_s_p, qtu_emf_s_p, thlu_emf_s_p, &
+            uu_emf_s_p, vu_emf_s_p, uemf_s_p, dwten_s_p, diten_s_p, flxrain_s_p, flxsnow_s_p, &
+            ntraprd_s_p, ntsnprd_s_p, excessu_s_p, excess0_s_p, xc_s_p, aquad_s_p, bquad_s_p, &
+            cquad_s_p, bogbot_s_p, bogtop_s_p, trflx_s_p, tru_s_p, tru_emf_s_p, ps0_p, zs0_p, &
+            emf_p, precip_s_p, snow_s_p, cush_s_p, cin_s_p, cinlcl_s_p, cbmf_s_p, rliq_s_p, &
+            cnt_s_p, cnb_s_p, ufrcinvbase_s_p, ufrclcl_s_p, winvbase_s_p, wlcl_s_p, plcl_s_p, &
+            pinv_s_p, plfc_s_p, pbup_s_p, ppen_s_p, qtsrc_s_p, thlsrc_s_p, thvlsrc_s_p, &
+            emfkbup_s_p, cbmflimit_s_p, tkeavg_s_p, zinv_s_p, rcwp_s_p, rlwp_s_p, riwp_s_p) &
+            bind(c, name="uwshcu_iter_save_all_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, kbup_c, kpen_c
+          real(c_double), value :: dt_c, cp_c, ppen_c, precip_c, snow_c, cush_c, cin_c, cinlcl_c
+          real(c_double), value :: cbmf_c, rliq_c, cnt_c, cnb_c, ufrcinvbase_c, ufrclcl_c, winvbase_c
+          real(c_double), value :: wlcl_c, plcl_c, plfc_c, qtsrc_c, thlsrc_c, thvlsrc_c, cbmflimit_c
+          real(c_double), value :: tkeavg_c, rcwp_c, rlwp_c, riwp_c
+          type(c_ptr), value :: qv0_p, ql0_p, qi0_p, s0_p, u0_p, v0_p, t0_p, qvten_p, qlten_p
+          type(c_ptr), value :: qiten_p, sten_p, uten_p, vten_p, tr0_p, trten_p, qv0_s_p, ql0_s_p
+          type(c_ptr), value :: qi0_s_p, s0_s_p, u0_s_p, v0_s_p, qt0_s_p, t0_s_p, tr0_s_p
+          type(c_ptr), value :: umf_p, qrten_p, qsten_p, evapc_p, cufrc_p, slflx_p, qtflx_p, qcu_p
+          type(c_ptr), value :: qlu_p, qiu_p, qc_p, wtqc_liq_p, wtqc_ice_p, wtprec_p, wtsnow_p
+          type(c_ptr), value :: umf_s_p, qvten_s_p, qlten_s_p, qiten_s_p, sten_s_p, uten_s_p, vten_s_p
+          type(c_ptr), value :: qrten_s_p, qsten_s_p, evapc_s_p, cufrc_s_p, slflx_s_p, qtflx_s_p
+          type(c_ptr), value :: qcu_s_p, qlu_s_p, qiu_s_p, qc_s_p, trten_s_p, wtqc_liq_s_p
+          type(c_ptr), value :: wtqc_ice_s_p, wtprec_s_p, wtsnow_s_p, fer_p, fdr_p, qtten_p, slten_p
+          type(c_ptr), value :: ufrc_p, uflx_p, vflx_p, wu_p, qtu_p, thlu_p, thvu_p, uu_p, vu_p
+          type(c_ptr), value :: qtu_emf_p, thlu_emf_p, uu_emf_p, vu_emf_p, uemf_p, dwten_p, diten_p
+          type(c_ptr), value :: flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p, excessu_p, excess0_p
+          type(c_ptr), value :: xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p, trflx_p, tru_p
+          type(c_ptr), value :: tru_emf_p, fer_s_p, fdr_s_p, qtten_s_p, slten_s_p, ufrc_s_p, uflx_s_p
+          type(c_ptr), value :: vflx_s_p, wu_s_p, qtu_s_p, thlu_s_p, thvu_s_p, uu_s_p, vu_s_p
+          type(c_ptr), value :: qtu_emf_s_p, thlu_emf_s_p, uu_emf_s_p, vu_emf_s_p, uemf_s_p
+          type(c_ptr), value :: dwten_s_p, diten_s_p, flxrain_s_p, flxsnow_s_p, ntraprd_s_p, ntsnprd_s_p
+          type(c_ptr), value :: excessu_s_p, excess0_s_p, xc_s_p, aquad_s_p, bquad_s_p, cquad_s_p
+          type(c_ptr), value :: bogbot_s_p, bogtop_s_p, trflx_s_p, tru_s_p, tru_emf_s_p, ps0_p, zs0_p
+          type(c_ptr), value :: emf_p, precip_s_p, snow_s_p, cush_s_p, cin_s_p, cinlcl_s_p, cbmf_s_p
+          type(c_ptr), value :: rliq_s_p, cnt_s_p, cnb_s_p, ufrcinvbase_s_p, ufrclcl_s_p, winvbase_s_p
+          type(c_ptr), value :: wlcl_s_p, plcl_s_p, pinv_s_p, plfc_s_p, pbup_s_p, ppen_s_p, qtsrc_s_p
+          type(c_ptr), value :: thlsrc_s_p, thvlsrc_s_p, emfkbup_s_p, cbmflimit_s_p, tkeavg_s_p
+          type(c_ptr), value :: zinv_s_p, rcwp_s_p, rlwp_s_p, riwp_s_p
+       end subroutine uwshcu_iter_save_all_shell_codon
 
        subroutine uwshcu_delcin_env_restore_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             qv0_o_p, ql0_o_p, qi0_o_p, t0_o_p, s0_o_p, u0_o_p, v0_o_p, qt0_o_p, thl0_o_p, &
@@ -7275,50 +7333,23 @@ end subroutine uwshcu_readnl
              wtrc_nwset_post_c = 0_c_int64_t
              if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
              call uwshcu_log_iter_save_shell_entered()
-             call uwshcu_iter_save_env_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), dt, cp, &
+             call uwshcu_iter_save_all_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+                  wtrc_nwset_post_c, int(kinv, c_int64_t), int(kbup, c_int64_t), int(kpen, c_int64_t), &
+                  dt, cp, ppen, precip, snow, cush, cin, cinlcl, cbmf, rliq, cnt, cnb, &
+                  ufrcinvbase, ufrclcl, winvbase, wlcl, plcl, plfc, qtsrc, thlsrc, thvlsrc, &
+                  cbmflimit, tkeavg, rcwp, rlwp, riwp, &
                   c_loc(qv0), c_loc(ql0), c_loc(qi0), c_loc(s0), c_loc(u0), c_loc(v0), c_loc(t0), &
                   c_loc(qvten), c_loc(qlten), c_loc(qiten), c_loc(sten), c_loc(uten), c_loc(vten), &
                   c_loc(tr0), c_loc(trten), c_loc(qv0_s), c_loc(ql0_s), c_loc(qi0_s), c_loc(s0_s), &
-                  c_loc(u0_s), c_loc(v0_s), c_loc(qt0_s), c_loc(t0_s), c_loc(tr0_s))
-             call uwshcu_iter_save_main_arrays_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-                  wtrc_nwset_post_c, c_loc(umf), c_loc(qvten), c_loc(qlten), c_loc(qiten), c_loc(sten), &
-                  c_loc(uten), c_loc(vten), c_loc(qrten), c_loc(qsten), c_loc(evapc), c_loc(cufrc), &
+                  c_loc(u0_s), c_loc(v0_s), c_loc(qt0_s), c_loc(t0_s), c_loc(tr0_s), &
+                  c_loc(umf), c_loc(qrten), c_loc(qsten), c_loc(evapc), c_loc(cufrc), &
                   c_loc(slflx), c_loc(qtflx), c_loc(qcu), c_loc(qlu), c_loc(qiu), c_loc(qc), &
-                  c_loc(trten), c_loc(wtqc_liq), c_loc(wtqc_ice), c_loc(wtprec), c_loc(wtsnow), &
-                  c_loc(umf_s), c_loc(qvten_s), c_loc(qlten_s), c_loc(qiten_s), c_loc(sten_s), &
+                  c_loc(wtqc_liq), c_loc(wtqc_ice), c_loc(wtprec), c_loc(wtsnow), c_loc(umf_s), &
+                  c_loc(qvten_s), c_loc(qlten_s), c_loc(qiten_s), c_loc(sten_s), &
                   c_loc(uten_s), c_loc(vten_s), c_loc(qrten_s), c_loc(qsten_s), c_loc(evapc_s), &
                   c_loc(cufrc_s), c_loc(slflx_s), c_loc(qtflx_s), c_loc(qcu_s), c_loc(qlu_s), &
                   c_loc(qiu_s), c_loc(qc_s), c_loc(trten_s), c_loc(wtqc_liq_s), c_loc(wtqc_ice_s), &
-                  c_loc(wtprec_s), c_loc(wtsnow_s))
-             precip_s              = precip
-             snow_s                = snow
-             cush_s                = cush
-             cin_s                 = cin
-             cinlcl_s              = cinlcl
-             cbmf_s                = cbmf
-             rliq_s                = rliq
-             cnt_s                 = cnt
-             cnb_s                 = cnb
-             ufrcinvbase_s         = ufrcinvbase
-             ufrclcl_s             = ufrclcl
-             winvbase_s            = winvbase
-             wlcl_s                = wlcl
-             plcl_s                = plcl
-             pinv_s                = ps0(kinv-1)
-             plfc_s                = plfc
-             pbup_s                = ps0(kbup)
-             ppen_s                = ps0(kpen-1) + ppen
-             qtsrc_s               = qtsrc
-             thlsrc_s              = thlsrc
-             thvlsrc_s             = thvlsrc
-             emfkbup_s             = emf(kbup)
-             cbmflimit_s           = cbmflimit
-             tkeavg_s              = tkeavg
-             zinv_s                = zs0(kinv-1)
-             rcwp_s                = rcwp
-             rlwp_s                = rlwp
-             riwp_s                = riwp
-             call uwshcu_iter_save_diag_arrays_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+                  c_loc(wtprec_s), c_loc(wtsnow_s), &
                   c_loc(fer), c_loc(fdr), c_loc(qtten), c_loc(slten), c_loc(ufrc), c_loc(uflx), &
                   c_loc(vflx), c_loc(wu), c_loc(qtu), c_loc(thlu), c_loc(thvu), c_loc(uu), &
                   c_loc(vu), c_loc(qtu_emf), c_loc(thlu_emf), c_loc(uu_emf), c_loc(vu_emf), &
@@ -7333,7 +7364,13 @@ end subroutine uwshcu_readnl
                   c_loc(flxrain_s), c_loc(flxsnow_s), c_loc(ntraprd_s), c_loc(ntsnprd_s), &
                   c_loc(excessu_arr_s), c_loc(excess0_arr_s), c_loc(xc_arr_s), c_loc(aquad_arr_s), &
                   c_loc(bquad_arr_s), c_loc(cquad_arr_s), c_loc(bogbot_arr_s), c_loc(bogtop_arr_s), &
-                  c_loc(trflx_s), c_loc(tru_s), c_loc(tru_emf_s))
+                  c_loc(trflx_s), c_loc(tru_s), c_loc(tru_emf_s), c_loc(ps0), c_loc(zs0), c_loc(emf), &
+                  c_loc(precip_s), c_loc(snow_s), c_loc(cush_s), c_loc(cin_s), c_loc(cinlcl_s), &
+                  c_loc(cbmf_s), c_loc(rliq_s), c_loc(cnt_s), c_loc(cnb_s), c_loc(ufrcinvbase_s), &
+                  c_loc(ufrclcl_s), c_loc(winvbase_s), c_loc(wlcl_s), c_loc(plcl_s), c_loc(pinv_s), &
+                  c_loc(plfc_s), c_loc(pbup_s), c_loc(ppen_s), c_loc(qtsrc_s), c_loc(thlsrc_s), &
+                  c_loc(thvlsrc_s), c_loc(emfkbup_s), c_loc(cbmflimit_s), c_loc(tkeavg_s), &
+                  c_loc(zinv_s), c_loc(rcwp_s), c_loc(rlwp_s), c_loc(riwp_s))
           end if
 
           ! ----------------------------------------------------------------------------- ! 
