@@ -1066,6 +1066,61 @@ def macrop_driver_ptend_assign_codon(
 
 
 @export
+def macrop_driver_ptend_config_shell_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    do_cldice: int,
+    do_cldliq: int,
+    tlat_p: cobj,
+    qvlat_p: cobj,
+    qcten_p: cobj,
+    qiten_p: cobj,
+    ncten_p: cobj,
+    niten_p: cobj,
+    ptend_s_p: cobj,
+    ptend_qv_p: cobj,
+    ptend_ql_p: cobj,
+    ptend_qi_p: cobj,
+    ptend_nl_p: cobj,
+    ptend_ni_p: cobj,
+    mask_p: cobj,
+):
+    macrop_driver_ptend_assign_codon(
+        ncol,
+        pcols,
+        pver,
+        top_lev,
+        tlat_p,
+        qvlat_p,
+        qcten_p,
+        qiten_p,
+        ncten_p,
+        niten_p,
+        ptend_s_p,
+        ptend_qv_p,
+        ptend_ql_p,
+        ptend_qi_p,
+        ptend_nl_p,
+        ptend_ni_p,
+    )
+    macrop_driver_mmacro_config_check_codon(
+        ncol,
+        pcols,
+        pver,
+        top_lev,
+        do_cldice,
+        do_cldliq,
+        qiten_p,
+        niten_p,
+        qcten_p,
+        ncten_p,
+        mask_p,
+    )
+
+
+@export
 def macrop_driver_wtrc_split_tend_codon(
     ncol: int,
     pcols: int,

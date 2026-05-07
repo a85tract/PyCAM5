@@ -115,6 +115,7 @@
   logical :: clr_old_diag_logged = .false.
   logical :: forcing_prep_logged = .false.
   logical :: ptend_assign_logged = .false.
+  logical :: ptend_config_shell_logged = .false.
   logical :: store_state_logged = .false.
 
   contains
@@ -955,10 +956,9 @@ end subroutine macrop_driver_readnl
 
    call t_stopf('mmacro_pcond')
 
-   call macrop_driver_ptend_assign(ncol, tlat, qvlat, qcten, qiten, ncten, niten, ptend_loc%s, ptend_loc%q(:,:,1), &
-        ptend_loc%q(:,:,ixcldliq), ptend_loc%q(:,:,ixcldice), ptend_loc%q(:,:,ixnumliq), ptend_loc%q(:,:,ixnumice))
-
-   mmacro_config_mask = macrop_driver_mmacro_config_check(ncol, do_cldice_local, do_cldliq_local, qiten, niten, qcten, ncten)
+   mmacro_config_mask = macrop_driver_ptend_config_shell(ncol, do_cldice_local, do_cldliq_local, tlat, qvlat, qcten, &
+        qiten, ncten, niten, ptend_loc%s, ptend_loc%q(:,:,1), ptend_loc%q(:,:,ixcldliq), ptend_loc%q(:,:,ixcldice), &
+        ptend_loc%q(:,:,ixnumliq), ptend_loc%q(:,:,ixnumice))
    if (iand(mmacro_config_mask, 1) /= 0) then
       call endrun("macrop_driver:ERROR - "// &
            "Cldwat is configured not to prognose cloud ice, but mmacro_pcond has ice mass tendencies.")
@@ -1734,6 +1734,61 @@ integer function macrop_driver_mmacro_config_check_native(ncol_local, do_cldice_
   if ((.not. do_cldliq_local) .and. any(ncten_local(:ncol_local,top_lev:pver) /= 0.0_r8)) mask = ior(mask, 8)
 
 end function macrop_driver_mmacro_config_check_native
+
+!============================================================================ !
+
+integer function macrop_driver_ptend_config_shell(ncol_local, do_cldice_local, do_cldliq_local, tlat_local, qvlat_local, &
+     qcten_local, qiten_local, ncten_local, niten_local, ptend_s_local, ptend_qv_local, ptend_ql_local, ptend_qi_local, &
+     ptend_nl_local, ptend_ni_local) result(mask)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local
+  logical, intent(in) :: do_cldice_local, do_cldliq_local
+  real(r8), target, intent(in) :: tlat_local(pcols,pver), qvlat_local(pcols,pver), qcten_local(pcols,pver)
+  real(r8), target, intent(in) :: qiten_local(pcols,pver), ncten_local(pcols,pver), niten_local(pcols,pver)
+  real(r8), target, intent(inout) :: ptend_s_local(pcols,pver), ptend_qv_local(pcols,pver), ptend_ql_local(pcols,pver)
+  real(r8), target, intent(inout) :: ptend_qi_local(pcols,pver), ptend_nl_local(pcols,pver), ptend_ni_local(pcols,pver)
+  integer(c_int64_t), target :: mask64
+  character(len=*), parameter :: proof_msg = 'macrop_driver ptend/config shell entered ('// &
+       'ptend assign/config check direct = codon; mmacro_pcond = native)'
+
+  interface
+     subroutine macrop_driver_ptend_config_shell_codon(ncol_c, pcols_c, pver_c, top_lev_c, do_cldice_c, do_cldliq_c, &
+          tlat_p, qvlat_p, qcten_p, qiten_p, ncten_p, niten_p, ptend_s_p, ptend_qv_p, ptend_ql_p, ptend_qi_p, &
+          ptend_nl_p, ptend_ni_p, mask_p) bind(c, name="macrop_driver_ptend_config_shell_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, do_cldice_c, do_cldliq_c
+       type(c_ptr), value :: tlat_p, qvlat_p, qcten_p, qiten_p, ncten_p, niten_p, ptend_s_p, ptend_qv_p
+       type(c_ptr), value :: ptend_ql_p, ptend_qi_p, ptend_nl_p, ptend_ni_p, mask_p
+     end subroutine macrop_driver_ptend_config_shell_codon
+  end interface
+
+  if (use_native_impl) then
+     call macrop_driver_ptend_assign_native(ncol_local, tlat_local, qvlat_local, qcten_local, qiten_local, ncten_local, &
+          niten_local, ptend_s_local, ptend_qv_local, ptend_ql_local, ptend_qi_local, ptend_nl_local, ptend_ni_local)
+     mask = macrop_driver_mmacro_config_check_native(ncol_local, do_cldice_local, do_cldliq_local, qiten_local, &
+          niten_local, qcten_local, ncten_local)
+     return
+  end if
+
+  if (masterproc .and. .not. ptend_config_shell_logged) then
+     write(iulog,*) proof_msg
+     call macrop_driver_append_impl_proof('MACROP_DRIVER_MMPCOND_SHELL_PROOF_FILE', proof_msg)
+     call flush(iulog)
+     ptend_config_shell_logged = .true.
+  end if
+
+  mask64 = 0_c_int64_t
+  call macrop_driver_ptend_config_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(top_lev, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, do_cldice_local), &
+       merge(1_c_int64_t, 0_c_int64_t, do_cldliq_local), c_loc(tlat_local), c_loc(qvlat_local), c_loc(qcten_local), &
+       c_loc(qiten_local), c_loc(ncten_local), c_loc(niten_local), c_loc(ptend_s_local), c_loc(ptend_qv_local), &
+       c_loc(ptend_ql_local), c_loc(ptend_qi_local), c_loc(ptend_nl_local), c_loc(ptend_ni_local), c_loc(mask64))
+  mask = int(mask64)
+
+end function macrop_driver_ptend_config_shell
 
 !============================================================================ !
 
