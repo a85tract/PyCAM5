@@ -264,8 +264,8 @@ contains
     iter_restore_shell_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'uwshcu iter restore shell entered (saved output restore direct = codon)'
-       call uwshcu_append_proof('uwshcu iter restore shell entered (saved output restore direct = codon)')
+       write(iulog,'(A)') 'uwshcu iter restore all shell entered (main/diag saved output restore direct = codon)'
+       call uwshcu_append_proof('uwshcu iter restore all shell entered (main/diag saved output restore direct = codon)')
        call flush(iulog)
     end if
 
@@ -279,8 +279,8 @@ contains
     delcin_reset_shell_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'uwshcu delcin reset shell entered (implicit CIN workspace restore/reset direct = codon)'
-       call uwshcu_append_proof('uwshcu delcin reset shell entered (implicit CIN workspace restore/reset direct = codon)')
+       write(iulog,'(A)') 'uwshcu delcin restore/reset all shell entered (cin/source/env/workspace/scalars restore/reset direct = codon)'
+       call uwshcu_append_proof('uwshcu delcin restore/reset all shell entered (cin/source/env/workspace/scalars restore/reset direct = codon)')
        call flush(iulog)
     end if
 
@@ -2074,6 +2074,65 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: bogtop_out_p, trflx_out_p, tru_out_p, tru_emf_out_p
        end subroutine uwshcu_iter_restore_diag_shell_codon
 
+       subroutine uwshcu_iter_restore_all_shell_codon(mix_c, mkx_c, i_c, ncnst_c, wtrc_nwset_c, &
+            precip_c, snow_c, cush_c, cbmf_c, rliq_c, cnt_c, cnb_c, umf_p, qvten_p, qlten_p, &
+            qiten_p, sten_p, uten_p, vten_p, qrten_p, qsten_p, evapc_p, cufrc_p, slflx_p, qtflx_p, &
+            qcu_p, qlu_p, qiu_p, qc_p, trten_p, wtqc_liq_p, wtqc_ice_p, wtprec_p, wtsnow_p, &
+            wtrc_iatype_p, umf_out_p, qvten_out_p, qlten_out_p, qiten_out_p, sten_out_p, &
+            uten_out_p, vten_out_p, qrten_out_p, qsten_out_p, precip_out_p, snow_out_p, &
+            evapc_out_p, cush_out_p, cufrc_out_p, slflx_out_p, qtflx_out_p, qcu_out_p, qlu_out_p, &
+            qiu_out_p, cbmf_out_p, qc_out_p, rliq_out_p, cnt_out_p, cnb_out_p, trten_out_p, &
+            wtqc_out_p, wtprec_out_p, wtsnow_out_p, cin_c, cinlcl_c, ufrcinvbase_c, ufrclcl_c, &
+            winvbase_c, wlcl_c, plcl_c, pinv_c, plfc_c, pbup_c, ppen_c, qtsrc_c, thlsrc_c, &
+            thvlsrc_c, emfkbup_c, cbmflimit_c, tkeavg_c, zinv_c, rcwp_c, rlwp_c, riwp_c, &
+            fer_p, fdr_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p, wu_p, qtu_p, thlu_p, &
+            thvu_p, uu_p, vu_p, qtu_emf_p, thlu_emf_p, uu_emf_p, vu_emf_p, uemf_p, &
+            dwten_p, diten_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p, excessu_p, &
+            excess0_p, xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p, trflx_p, &
+            tru_p, tru_emf_p, fer_out_p, fdr_out_p, cinh_out_p, cinlclh_out_p, qtten_out_p, &
+            slten_out_p, ufrc_out_p, uflx_out_p, vflx_out_p, ufrcinvbase_out_p, ufrclcl_out_p, &
+            winvbase_out_p, wlcl_out_p, plcl_out_p, pinv_out_p, plfc_out_p, pbup_out_p, &
+            ppen_out_p, qtsrc_out_p, thlsrc_out_p, thvlsrc_out_p, emfkbup_out_p, &
+            cbmflimit_out_p, tkeavg_out_p, zinv_out_p, rcwp_out_p, rlwp_out_p, riwp_out_p, &
+            wu_out_p, qtu_out_p, thlu_out_p, thvu_out_p, uu_out_p, vu_out_p, qtu_emf_out_p, &
+            thlu_emf_out_p, uu_emf_out_p, vu_emf_out_p, uemf_out_p, dwten_out_p, diten_out_p, &
+            flxrain_out_p, flxsnow_out_p, ntraprd_out_p, ntsnprd_out_p, excessu_out_p, &
+            excess0_out_p, xc_out_p, aquad_out_p, bquad_out_p, cquad_out_p, bogbot_out_p, &
+            bogtop_out_p, trflx_out_p, tru_out_p, tru_emf_out_p) &
+            bind(c, name="uwshcu_iter_restore_all_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mix_c, mkx_c, i_c, ncnst_c, wtrc_nwset_c
+          real(c_double), value :: precip_c, snow_c, cush_c, cbmf_c, rliq_c, cnt_c, cnb_c
+          real(c_double), value :: cin_c, cinlcl_c, ufrcinvbase_c, ufrclcl_c, winvbase_c, wlcl_c
+          real(c_double), value :: plcl_c, pinv_c, plfc_c, pbup_c, ppen_c, qtsrc_c, thlsrc_c, thvlsrc_c
+          real(c_double), value :: emfkbup_c, cbmflimit_c, tkeavg_c, zinv_c, rcwp_c, rlwp_c, riwp_c
+          type(c_ptr), value :: umf_p, qvten_p, qlten_p, qiten_p, sten_p, uten_p, vten_p
+          type(c_ptr), value :: qrten_p, qsten_p, evapc_p, cufrc_p, slflx_p, qtflx_p, qcu_p, qlu_p
+          type(c_ptr), value :: qiu_p, qc_p, trten_p, wtqc_liq_p, wtqc_ice_p, wtprec_p, wtsnow_p
+          type(c_ptr), value :: wtrc_iatype_p, umf_out_p, qvten_out_p, qlten_out_p, qiten_out_p
+          type(c_ptr), value :: sten_out_p, uten_out_p, vten_out_p, qrten_out_p, qsten_out_p
+          type(c_ptr), value :: precip_out_p, snow_out_p, evapc_out_p, cush_out_p, cufrc_out_p
+          type(c_ptr), value :: slflx_out_p, qtflx_out_p, qcu_out_p, qlu_out_p, qiu_out_p
+          type(c_ptr), value :: cbmf_out_p, qc_out_p, rliq_out_p, cnt_out_p, cnb_out_p, trten_out_p
+          type(c_ptr), value :: wtqc_out_p, wtprec_out_p, wtsnow_out_p, fer_p, fdr_p, qtten_p
+          type(c_ptr), value :: slten_p, ufrc_p, uflx_p, vflx_p, wu_p, qtu_p, thlu_p, thvu_p, uu_p
+          type(c_ptr), value :: vu_p, qtu_emf_p, thlu_emf_p, uu_emf_p, vu_emf_p, uemf_p, dwten_p
+          type(c_ptr), value :: diten_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p, excessu_p
+          type(c_ptr), value :: excess0_p, xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p
+          type(c_ptr), value :: trflx_p, tru_p, tru_emf_p, fer_out_p, fdr_out_p, cinh_out_p
+          type(c_ptr), value :: cinlclh_out_p, qtten_out_p, slten_out_p, ufrc_out_p, uflx_out_p
+          type(c_ptr), value :: vflx_out_p, ufrcinvbase_out_p, ufrclcl_out_p, winvbase_out_p
+          type(c_ptr), value :: wlcl_out_p, plcl_out_p, pinv_out_p, plfc_out_p, pbup_out_p
+          type(c_ptr), value :: ppen_out_p, qtsrc_out_p, thlsrc_out_p, thvlsrc_out_p, emfkbup_out_p
+          type(c_ptr), value :: cbmflimit_out_p, tkeavg_out_p, zinv_out_p, rcwp_out_p, rlwp_out_p
+          type(c_ptr), value :: riwp_out_p, wu_out_p, qtu_out_p, thlu_out_p, thvu_out_p, uu_out_p
+          type(c_ptr), value :: vu_out_p, qtu_emf_out_p, thlu_emf_out_p, uu_emf_out_p, vu_emf_out_p
+          type(c_ptr), value :: uemf_out_p, dwten_out_p, diten_out_p, flxrain_out_p, flxsnow_out_p
+          type(c_ptr), value :: ntraprd_out_p, ntsnprd_out_p, excessu_out_p, excess0_out_p, xc_out_p
+          type(c_ptr), value :: aquad_out_p, bquad_out_p, cquad_out_p, bogbot_out_p, bogtop_out_p
+          type(c_ptr), value :: trflx_out_p, tru_out_p, tru_emf_out_p
+       end subroutine uwshcu_iter_restore_all_shell_codon
+
        subroutine uwshcu_column_input_load_shell_codon(mix_c, mkx_c, i_c, ncnst_c, &
             ps0_in_p, zs0_in_p, p0_in_p, z0_in_p, dp0_in_p, dpdry0_in_p, u0_in_p, v0_in_p, &
             qv0_in_p, ql0_in_p, qi0_in_p, t0_in_p, s0_in_p, tke_in_p, cldfrct_in_p, &
@@ -2669,6 +2728,55 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: wtu_p, wtu_emf_p, wtflx_p, wttotten_p, wtprec_p, wtsnow_p
           type(c_ptr), value :: excessu_p, excess0_p, xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p
        end subroutine uwshcu_delcin_workspace_reset_shell_codon
+
+       subroutine uwshcu_delcin_restore_reset_all_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
+            use_cincin_c, cin_i_c, cinlcl_i_c, alpha_c, del_cin_c, del_cinlcl_c, kinv_o_c, &
+            klcl_o_c, klfc_o_c, plcl_o_c, plfc_o_c, tkeavg_o_c, thvlmin_o_c, qtsrc_o_c, &
+            thvlsrc_o_c, thlsrc_o_c, usrc_o_c, vsrc_o_c, thv0lcl_o_c, cnt_reset_c, &
+            trsrc_o_p, cin_p, cinlcl_p, kinv_p, klcl_p, klfc_p, plcl_p, plfc_p, tkeavg_p, &
+            thvlmin_p, qtsrc_p, thvlsrc_p, thlsrc_p, usrc_p, vsrc_p, thv0lcl_p, trsrc_p, &
+            qv0_o_p, ql0_o_p, qi0_o_p, t0_o_p, s0_o_p, u0_o_p, v0_o_p, qt0_o_p, thl0_o_p, &
+            thvl0_o_p, ssthl0_o_p, ssqt0_o_p, thv0bot_o_p, thv0top_o_p, thvl0bot_o_p, &
+            thvl0top_o_p, ssu0_o_p, ssv0_o_p, tr0_o_p, sstr0_o_p, sswt0_o_p, qv0_p, &
+            ql0_p, qi0_p, t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, ssthl0_p, &
+            ssqt0_p, thv0bot_p, thv0top_p, thvl0bot_p, thvl0top_p, ssu0_p, ssv0_p, tr0_p, &
+            sstr0_p, sswt0_p, umf_p, emf_p, slflx_p, qtflx_p, uflx_p, vflx_p, qvten_p, &
+            qlten_p, qiten_p, sten_p, uten_p, vten_p, qrten_p, qsten_p, dwten_p, diten_p, &
+            evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, fer_p, fdr_p, qc_p, qc_l_p, qc_i_p, &
+            qtten_p, slten_p, ufrc_p, thlu_p, qtu_p, uu_p, vu_p, wu_p, thvu_p, thlu_emf_p, &
+            qtu_emf_p, uu_emf_p, vu_emf_p, trflx_p, trten_p, tru_p, tru_emf_p, wtdwten_p, &
+            wtditen_p, wtrpten_p, wtspten_p, wtqc_liq_p, wtqc_ice_p, wtu_p, wtu_emf_p, &
+            wtflx_p, wttotten_p, wtprec_p, wtsnow_p, excessu_p, excess0_p, xc_p, aquad_p, &
+            bquad_p, cquad_p, bogbot_p, bogtop_p, precip_p, snow_p, rliq_p, cbmf_p, cnt_p, &
+            cnb_p, ufrcinvbase_p, ufrclcl_p, winvbase_p, wlcl_p, emfkbup_p, cbmflimit_p) &
+            bind(c, name="uwshcu_delcin_restore_reset_all_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, use_cincin_c
+          integer(c_int64_t), value :: kinv_o_c, klcl_o_c, klfc_o_c
+          real(c_double), value :: cin_i_c, cinlcl_i_c, alpha_c, del_cin_c, del_cinlcl_c
+          real(c_double), value :: plcl_o_c, plfc_o_c, tkeavg_o_c, thvlmin_o_c, qtsrc_o_c
+          real(c_double), value :: thvlsrc_o_c, thlsrc_o_c, usrc_o_c, vsrc_o_c, thv0lcl_o_c
+          real(c_double), value :: cnt_reset_c
+          type(c_ptr), value :: trsrc_o_p, cin_p, cinlcl_p, kinv_p, klcl_p, klfc_p, plcl_p, plfc_p
+          type(c_ptr), value :: tkeavg_p, thvlmin_p, qtsrc_p, thvlsrc_p, thlsrc_p, usrc_p, vsrc_p
+          type(c_ptr), value :: thv0lcl_p, trsrc_p, qv0_o_p, ql0_o_p, qi0_o_p, t0_o_p, s0_o_p
+          type(c_ptr), value :: u0_o_p, v0_o_p, qt0_o_p, thl0_o_p, thvl0_o_p, ssthl0_o_p, ssqt0_o_p
+          type(c_ptr), value :: thv0bot_o_p, thv0top_o_p, thvl0bot_o_p, thvl0top_o_p, ssu0_o_p
+          type(c_ptr), value :: ssv0_o_p, tr0_o_p, sstr0_o_p, sswt0_o_p, qv0_p, ql0_p, qi0_p
+          type(c_ptr), value :: t0_p, s0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, ssthl0_p, ssqt0_p
+          type(c_ptr), value :: thv0bot_p, thv0top_p, thvl0bot_p, thvl0top_p, ssu0_p, ssv0_p, tr0_p
+          type(c_ptr), value :: sstr0_p, sswt0_p, umf_p, emf_p, slflx_p, qtflx_p, uflx_p, vflx_p
+          type(c_ptr), value :: qvten_p, qlten_p, qiten_p, sten_p, uten_p, vten_p, qrten_p, qsten_p
+          type(c_ptr), value :: dwten_p, diten_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, fer_p, fdr_p
+          type(c_ptr), value :: qc_p, qc_l_p, qc_i_p, qtten_p, slten_p, ufrc_p, thlu_p, qtu_p, uu_p
+          type(c_ptr), value :: vu_p, wu_p, thvu_p, thlu_emf_p, qtu_emf_p, uu_emf_p, vu_emf_p
+          type(c_ptr), value :: trflx_p, trten_p, tru_p, tru_emf_p, wtdwten_p, wtditen_p, wtrpten_p
+          type(c_ptr), value :: wtspten_p, wtqc_liq_p, wtqc_ice_p, wtu_p, wtu_emf_p, wtflx_p
+          type(c_ptr), value :: wttotten_p, wtprec_p, wtsnow_p, excessu_p, excess0_p, xc_p, aquad_p
+          type(c_ptr), value :: bquad_p, cquad_p, bogbot_p, bogtop_p, precip_p, snow_p, rliq_p
+          type(c_ptr), value :: cbmf_p, cnt_p, cnb_p, ufrcinvbase_p, ufrclcl_p, winvbase_p, wlcl_p
+          type(c_ptr), value :: emfkbup_p, cbmflimit_p
+       end subroutine uwshcu_delcin_restore_reset_all_shell_codon
     end interface
 
     ! ------------------ !
@@ -3720,19 +3828,7 @@ end subroutine uwshcu_readnl
                      trsrc(m) = trsrc_o(m)
                   enddo
                else
-                  call uwshcu_log_cin_restore_shell_entered()
-                  call uwshcu_cin_state_restore_shell_codon(int(ncnst, c_int64_t), &
-                       merge(1_c_int64_t, 0_c_int64_t, use_CINcin), &
-                       cin_i, cinlcl_i, alpha, del_CIN, del_cinlcl, int(kinv_o, c_int64_t), &
-                       int(klcl_o, c_int64_t), int(klfc_o, c_int64_t), plcl_o, plfc_o, tkeavg_o, &
-                       thvlmin_o, qtsrc_o, thvlsrc_o, thlsrc_o, usrc_o, vsrc_o, thv0lcl_o, &
-                       c_loc(trsrc_o), c_loc(cin), c_loc(cinlcl), c_loc(kinv_cin_state_c), &
-                       c_loc(klcl_cin_state_c), c_loc(klfc_cin_state_c), c_loc(plcl), c_loc(plfc), &
-                       c_loc(tkeavg), c_loc(thvlmin), c_loc(qtsrc), c_loc(thvlsrc), c_loc(thlsrc), &
-                       c_loc(usrc), c_loc(vsrc), c_loc(thv0lcl), c_loc(trsrc))
-                  kinv = int(kinv_cin_state_c)
-                  klcl = int(klcl_cin_state_c)
-                  klfc = int(klfc_cin_state_c)
+                  ! Restored together with the delcin env/workspace reset below.
                endif
 
                if (use_native_init_shell_impl) then
@@ -3861,29 +3957,40 @@ end subroutine uwshcu_readnl
                   wtrc_nwset_post_c = 0_c_int64_t
                   if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
                   call uwshcu_log_delcin_reset_shell_entered()
-                  call uwshcu_delcin_env_restore_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-                       wtrc_nwset_post_c, c_loc(qv0_o), c_loc(ql0_o), c_loc(qi0_o), c_loc(t0_o), &
-                       c_loc(s0_o), c_loc(u0_o), c_loc(v0_o), c_loc(qt0_o), c_loc(thl0_o), &
+                  call uwshcu_delcin_restore_reset_all_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+                       wtrc_nwset_post_c, merge(1_c_int64_t, 0_c_int64_t, use_CINcin), cin_i, cinlcl_i, &
+                       alpha, del_CIN, del_cinlcl, int(kinv_o, c_int64_t), int(klcl_o, c_int64_t), &
+                       int(klfc_o, c_int64_t), plcl_o, plfc_o, tkeavg_o, thvlmin_o, qtsrc_o, thvlsrc_o, &
+                       thlsrc_o, usrc_o, vsrc_o, thv0lcl_o, real(mkx, r8), c_loc(trsrc_o), c_loc(cin), &
+                       c_loc(cinlcl), c_loc(kinv_cin_state_c), c_loc(klcl_cin_state_c), &
+                       c_loc(klfc_cin_state_c), c_loc(plcl), c_loc(plfc), c_loc(tkeavg), c_loc(thvlmin), &
+                       c_loc(qtsrc), c_loc(thvlsrc), c_loc(thlsrc), c_loc(usrc), c_loc(vsrc), &
+                       c_loc(thv0lcl), c_loc(trsrc), c_loc(qv0_o), c_loc(ql0_o), c_loc(qi0_o), &
+                       c_loc(t0_o), c_loc(s0_o), c_loc(u0_o), c_loc(v0_o), c_loc(qt0_o), c_loc(thl0_o), &
                        c_loc(thvl0_o), c_loc(ssthl0_o), c_loc(ssqt0_o), c_loc(thv0bot_o), &
                        c_loc(thv0top_o), c_loc(thvl0bot_o), c_loc(thvl0top_o), c_loc(ssu0_o), &
                        c_loc(ssv0_o), c_loc(tr0_o), c_loc(sstr0_o), c_loc(sswt0_o), c_loc(qv0), &
-                       c_loc(ql0), c_loc(qi0), c_loc(t0), c_loc(s0), c_loc(u0), c_loc(v0), &
-                       c_loc(qt0), c_loc(thl0), c_loc(thvl0), c_loc(ssthl0), c_loc(ssqt0), &
-                       c_loc(thv0bot), c_loc(thv0top), c_loc(thvl0bot), c_loc(thvl0top), &
-                       c_loc(ssu0), c_loc(ssv0), c_loc(tr0), c_loc(sstr0), c_loc(sswt0))
-                  call uwshcu_delcin_workspace_reset_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-                       wtrc_nwset_post_c, c_loc(umf), c_loc(emf), c_loc(slflx), c_loc(qtflx), c_loc(uflx), &
-                       c_loc(vflx), c_loc(qvten), c_loc(qlten), c_loc(qiten), c_loc(sten), c_loc(uten), &
-                       c_loc(vten), c_loc(qrten), c_loc(qsten), c_loc(dwten), c_loc(diten), c_loc(evapc), &
-                       c_loc(cufrc), c_loc(qcu), c_loc(qlu), c_loc(qiu), c_loc(fer), c_loc(fdr), &
-                       c_loc(qc), c_loc(qc_l), c_loc(qc_i), c_loc(qtten), c_loc(slten), c_loc(ufrc), &
-                       c_loc(thlu), c_loc(qtu), c_loc(uu), c_loc(vu), c_loc(wu), c_loc(thvu), &
-                       c_loc(thlu_emf), c_loc(qtu_emf), c_loc(uu_emf), c_loc(vu_emf), c_loc(trflx), &
-                       c_loc(trten), c_loc(tru), c_loc(tru_emf), c_loc(wtdwten), c_loc(wtditen), &
-                       c_loc(wtrpten), c_loc(wtspten), c_loc(wtqc_liq), c_loc(wtqc_ice), c_loc(wtu), &
-                       c_loc(wtu_emf), c_loc(wtflx), c_loc(wttotten), c_loc(wtprec), c_loc(wtsnow), &
-                       c_loc(excessu_arr), c_loc(excess0_arr), c_loc(xc_arr), c_loc(aquad_arr), &
-                       c_loc(bquad_arr), c_loc(cquad_arr), c_loc(bogbot_arr), c_loc(bogtop_arr))
+                       c_loc(ql0), c_loc(qi0), c_loc(t0), c_loc(s0), c_loc(u0), c_loc(v0), c_loc(qt0), &
+                       c_loc(thl0), c_loc(thvl0), c_loc(ssthl0), c_loc(ssqt0), c_loc(thv0bot), &
+                       c_loc(thv0top), c_loc(thvl0bot), c_loc(thvl0top), c_loc(ssu0), c_loc(ssv0), &
+                       c_loc(tr0), c_loc(sstr0), c_loc(sswt0), c_loc(umf), c_loc(emf), c_loc(slflx), &
+                       c_loc(qtflx), c_loc(uflx), c_loc(vflx), c_loc(qvten), c_loc(qlten), c_loc(qiten), &
+                       c_loc(sten), c_loc(uten), c_loc(vten), c_loc(qrten), c_loc(qsten), c_loc(dwten), &
+                       c_loc(diten), c_loc(evapc), c_loc(cufrc), c_loc(qcu), c_loc(qlu), c_loc(qiu), &
+                       c_loc(fer), c_loc(fdr), c_loc(qc), c_loc(qc_l), c_loc(qc_i), c_loc(qtten), &
+                       c_loc(slten), c_loc(ufrc), c_loc(thlu), c_loc(qtu), c_loc(uu), c_loc(vu), &
+                       c_loc(wu), c_loc(thvu), c_loc(thlu_emf), c_loc(qtu_emf), c_loc(uu_emf), &
+                       c_loc(vu_emf), c_loc(trflx), c_loc(trten), c_loc(tru), c_loc(tru_emf), &
+                       c_loc(wtdwten), c_loc(wtditen), c_loc(wtrpten), c_loc(wtspten), c_loc(wtqc_liq), &
+                       c_loc(wtqc_ice), c_loc(wtu), c_loc(wtu_emf), c_loc(wtflx), c_loc(wttotten), &
+                       c_loc(wtprec), c_loc(wtsnow), c_loc(excessu_arr), c_loc(excess0_arr), &
+                       c_loc(xc_arr), c_loc(aquad_arr), c_loc(bquad_arr), c_loc(cquad_arr), &
+                       c_loc(bogbot_arr), c_loc(bogtop_arr), c_loc(precip), c_loc(snow), c_loc(rliq), &
+                       c_loc(cbmf), c_loc(cnt), c_loc(cnb), c_loc(ufrcinvbase), c_loc(ufrclcl), &
+                       c_loc(winvbase), c_loc(wlcl), c_loc(emfkbup), c_loc(cbmflimit))
+                  kinv = int(kinv_cin_state_c)
+                  klcl = int(klcl_cin_state_c)
+                  klfc = int(klfc_cin_state_c)
                end if
 
           else ! When 'del_CIN < 0', use explicit CIN instead of implicit CIN.
@@ -4018,7 +4125,7 @@ end subroutine uwshcu_readnl
                     end do
                   end if
                   call uwshcu_log_iter_restore_shell_entered()
-                  call uwshcu_iter_restore_main_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), &
+                  call uwshcu_iter_restore_all_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), &
                        int(i, c_int64_t), int(ncnst, c_int64_t), wtrc_nwset_post_c, precip_s, snow_s, &
                        cush_s, cbmf_s, rliq_s, cnt_s, cnb_s, c_loc(umf_s), c_loc(qvten_s), c_loc(qlten_s), &
                        c_loc(qiten_s), c_loc(sten_s), c_loc(uten_s), c_loc(vten_s), c_loc(qrten_s), &
@@ -4031,10 +4138,9 @@ end subroutine uwshcu_readnl
                        c_loc(evapc_out), c_loc(cush_inout), c_loc(cufrc_out), c_loc(slflx_out), &
                        c_loc(qtflx_out), c_loc(qcu_out), c_loc(qlu_out), c_loc(qiu_out), c_loc(cbmf_out), &
                        c_loc(qc_out), c_loc(rliq_out), c_loc(cnt_out), c_loc(cnb_out), c_loc(trten_out), &
-                       c_loc(wtqc_out), c_loc(wtprec_out), c_loc(wtsnow_out))
-                  call uwshcu_iter_restore_diag_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), &
-                       int(i, c_int64_t), int(ncnst, c_int64_t), cin_s, cinlcl_s, ufrcinvbase_s, &
-                       ufrclcl_s, winvbase_s, wlcl_s, plcl_s, pinv_s, plfc_s, pbup_s, ppen_s, qtsrc_s, &
+                       c_loc(wtqc_out), c_loc(wtprec_out), c_loc(wtsnow_out), cin_s, cinlcl_s, &
+                       ufrcinvbase_s, ufrclcl_s, winvbase_s, wlcl_s, plcl_s, pinv_s, plfc_s, pbup_s, &
+                       ppen_s, qtsrc_s, &
                        thlsrc_s, thvlsrc_s, emfkbup_s, cbmflimit_s, tkeavg_s, zinv_s, rcwp_s, rlwp_s, &
                        riwp_s, c_loc(fer_s), c_loc(fdr_s), c_loc(qtten_s), c_loc(slten_s), &
                        c_loc(ufrc_s), c_loc(uflx_s), c_loc(vflx_s), c_loc(wu_s), c_loc(qtu_s), &
