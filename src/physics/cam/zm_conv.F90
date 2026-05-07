@@ -87,6 +87,7 @@ module zm_conv
    logical :: zm_convr_mflux_logged = .false.
    logical :: zm_q1q2_logged = .false.
    logical :: zm_convr_tail_logged = .false.
+   logical :: zm_convr_finish_logged = .false.
 
 contains
 
@@ -753,6 +754,24 @@ subroutine zm_convr(lchnk   ,ncol    , &
          type(c_ptr), value :: cme_p, rprd_p, zdu_p, mcon_p, heat_p, dlf_p, cu_p, evp_p, tu_p, td_p
          type(c_ptr), value :: pflx_p, ql_p, jctop_p, jcbot_p, prec_p, rliq_p
       end subroutine zm_convr_tail_shell_codon
+
+      subroutine zm_convr_finish_shell_codon(ncol_c, lengath_c, pcols_c, pver_c, pverp_c, msg_c, &
+           no_deep_pbl_c, delt_c, cpres_c, rl_c, rgrav_c, grav_c, gravit_c, ideep_p, jt_p, maxg_p, zm_p, &
+           pblh_p, mb_p, mumax_p, qg_p, qu_p, su_p, qhat_p, shat_p, dp_p, mu_p, md_p, sd_p, qd_p, &
+           qlg_p, dsubcld_p, dlg_p, evpg_p, cug_p, dqdt_p, dsdt_p, mc_p, du_p, eu_p, ed_p, cmeg_p, &
+           rprdg_p, pflxg_p, rppe_p, qh_p, dpp_p, q_p, tug_p, tdg_p, qtnd_p, cme_p, rprd_p, zdu_p, &
+           mcon_p, heat_p, dlf_p, cu_p, evp_p, tu_p, td_p, pflx_p, ql_p, jctop_p, jcbot_p, prec_p, &
+           rliq_p) bind(c, name="zm_convr_finish_shell_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, lengath_c, pcols_c, pver_c, pverp_c, msg_c, no_deep_pbl_c
+         real(c_double), value :: delt_c, cpres_c, rl_c, rgrav_c, grav_c, gravit_c
+         type(c_ptr), value :: ideep_p, jt_p, maxg_p, zm_p, pblh_p, mb_p, mumax_p, qg_p, qu_p, su_p
+         type(c_ptr), value :: qhat_p, shat_p, dp_p, mu_p, md_p, sd_p, qd_p, qlg_p, dsubcld_p
+         type(c_ptr), value :: dlg_p, evpg_p, cug_p, dqdt_p, dsdt_p, mc_p, du_p, eu_p, ed_p, cmeg_p
+         type(c_ptr), value :: rprdg_p, pflxg_p, rppe_p, qh_p, dpp_p, q_p, tug_p, tdg_p, qtnd_p
+         type(c_ptr), value :: cme_p, rprd_p, zdu_p, mcon_p, heat_p, dlf_p, cu_p, evp_p, tu_p, td_p
+         type(c_ptr), value :: pflx_p, ql_p, jctop_p, jcbot_p, prec_p, rliq_p
+      end subroutine zm_convr_finish_shell_codon
    end interface
 
 !
@@ -1133,21 +1152,31 @@ wtrpd(:,:) = rprdg(:,:)
    if (.not. use_native_zm_convr_shell) then
       do i = 1,lengath
          jt64(i) = int(jt(i), c_int64_t)
+         maxg64(i) = int(maxg(i), c_int64_t)
       end do
       if (no_deep_pbl) then
          no_deep_pbl_flag = 1_c_int64_t
       else
          no_deep_pbl_flag = 0_c_int64_t
       end if
-      if (masterproc .and. .not. zm_convr_limit_logged) then
-         write(iulog,*) 'zm_convr closure limiter shell entered (mb upper bound direct = codon)'
-         call zm_conv_evap_append_impl_proof('zm_convr closure limiter shell entered (mb upper bound direct = codon)')
+      if (masterproc .and. .not. zm_convr_finish_logged) then
+         write(iulog,*) 'zm_convr finish shell entered (closure/mflux/q1q2/tail direct = codon)'
+         call zm_conv_evap_append_impl_proof( &
+              'zm_convr finish shell entered (closure/mflux/q1q2/tail direct = codon)')
          call flush(iulog)
-         zm_convr_limit_logged = .true.
+         zm_convr_finish_logged = .true.
       end if
-      call zm_convr_closure_limit_shell_codon(int(lengath, c_int64_t), int(pcols, c_int64_t), &
-           int(pver, c_int64_t), int(msg, c_int64_t), no_deep_pbl_flag, delt, c_loc(ideep64), c_loc(jt64), &
-           c_loc(zm), c_loc(pblh), c_loc(mu), c_loc(dp), c_loc(mb), c_loc(mumax))
+      call zm_convr_finish_shell_codon(int(ncol, c_int64_t), int(lengath, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(pverp, c_int64_t), int(msg, c_int64_t), no_deep_pbl_flag, &
+           delt, cpres, rl, rgrav, grav, gravit, c_loc(ideep64), c_loc(jt64), c_loc(maxg64), c_loc(zm), &
+           c_loc(pblh), c_loc(mb), c_loc(mumax), c_loc(qg), c_loc(qu), c_loc(su), c_loc(qhat), &
+           c_loc(shat), c_loc(dp), c_loc(mu), c_loc(md), c_loc(sd), c_loc(qd), c_loc(qlg), &
+           c_loc(dsubcld), c_loc(dlg), c_loc(evpg), c_loc(cug), c_loc(dqdt), c_loc(dsdt), &
+           c_loc(mc), c_loc(du), c_loc(eu), c_loc(ed), c_loc(cmeg), c_loc(rprdg), c_loc(pflxg), &
+           c_loc(rppe), c_loc(qh), c_loc(dpp), c_loc(q), c_loc(tug), c_loc(tdg), c_loc(qtnd), &
+           c_loc(cme), c_loc(rprd), c_loc(zdu), c_loc(mcon), c_loc(heat), c_loc(dlf), c_loc(cu), &
+           c_loc(evp), c_loc(tu), c_loc(td), c_loc(pflx), c_loc(ql), c_loc(jctop), c_loc(jcbot), &
+           c_loc(prec), c_loc(rliq))
    else
       do i=1,lengath
          mumax(i) = 0
@@ -1173,20 +1202,7 @@ wtrpd(:,:) = rprdg(:,:)
             if (zm(ideep(i),jt(i)) < pblh(ideep(i))) mb(i) = 0
          end do
       end if
-   end if
 
-   if (.not. use_native_zm_convr_shell) then
-      if (masterproc .and. .not. zm_convr_mflux_logged) then
-         write(iulog,*) 'zm_convr mflux shell entered (cloud mass flux scaling direct = codon)'
-         call zm_conv_evap_append_impl_proof('zm_convr mflux shell entered (cloud mass flux scaling direct = codon)')
-         call flush(iulog)
-         zm_convr_mflux_logged = .true.
-      end if
-      call zm_convr_mflux_shell_codon(int(lengath, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-           int(pverp, c_int64_t), int(msg, c_int64_t), grav, c_loc(mb), c_loc(mu), c_loc(md), c_loc(mc), &
-           c_loc(du), c_loc(eu), c_loc(ed), c_loc(cmeg), c_loc(rprdg), c_loc(cug), c_loc(evpg), &
-           c_loc(pflxg), c_loc(rppe))
-   else
       do k=msg+1,pver
          do i=1,lengath
             mu   (i,k)  = mu   (i,k)*mb(i)
@@ -1204,27 +1220,9 @@ wtrpd(:,:) = rprdg(:,:)
             rppe(i,k)  = rppe(i,k)*mb(i)
          end do
       end do
-   end if
 !
 ! compute temperature and moisture changes due to convection.
 !
-   if (.not. use_native_zm_convr_shell) then
-      do i = 1,lengath
-         jt64(i) = int(jt(i), c_int64_t)
-         maxg64(i) = int(maxg(i), c_int64_t)
-      end do
-      if (masterproc .and. .not. zm_q1q2_logged) then
-         write(iulog,*) 'zm_q1q2_pjr entered (convective tendency direct = codon)'
-         call zm_conv_evap_append_impl_proof('zm_q1q2_pjr entered (convective tendency direct = codon)')
-         call flush(iulog)
-         zm_q1q2_logged = .true.
-      end if
-      call zm_q1q2_pjr_codon(int(lengath, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-           int(msg, c_int64_t), cpres, rl, c_loc(qg), c_loc(qu), c_loc(su), c_loc(du), c_loc(qhat), &
-           c_loc(shat), c_loc(dp), c_loc(mu), c_loc(md), c_loc(sd), c_loc(qd), c_loc(qlg), &
-           c_loc(dsubcld), c_loc(jt64), c_loc(maxg64), c_loc(dlg), c_loc(evpg), c_loc(cug), &
-           c_loc(dqdt), c_loc(dsdt))
-   else
       call q1q2_pjr(lchnk   , &
                     dqdt    ,dsdt    ,qg      ,qs      ,qu      , &
                     su      ,du      ,qhat    ,shat    ,dp      , &
@@ -1232,32 +1230,10 @@ wtrpd(:,:) = rprdg(:,:)
                     dsubcld ,jt      ,maxg    ,1       ,lengath , &
                     cpres   ,rl      ,msg     ,          &
                     dlg     ,evpg    ,cug     )
-   end if
-
 
 !
 ! gather back temperature and mixing ratio.
 !
-
-   if (.not. use_native_zm_convr_shell) then
-      do i = 1,lengath
-         jt64(i) = int(jt(i), c_int64_t)
-         maxg64(i) = int(maxg(i), c_int64_t)
-      end do
-      if (masterproc .and. .not. zm_convr_tail_logged) then
-         write(iulog,*) 'zm_convr tail shell entered (scatter/precip/rliq direct = codon)'
-         call zm_conv_evap_append_impl_proof('zm_convr tail shell entered (scatter/precip/rliq direct = codon)')
-         call flush(iulog)
-         zm_convr_tail_logged = .true.
-      end if
-      call zm_convr_tail_shell_codon(int(ncol, c_int64_t), int(lengath, c_int64_t), int(pcols, c_int64_t), &
-           int(pver, c_int64_t), int(pverp, c_int64_t), int(msg, c_int64_t), delt, cpres, rgrav, gravit, &
-           c_loc(ideep64), c_loc(jt64), c_loc(maxg64), c_loc(qh), c_loc(dpp), c_loc(q), c_loc(dqdt), &
-           c_loc(dsdt), c_loc(cmeg), c_loc(rprdg), c_loc(du), c_loc(mc), c_loc(dlg), c_loc(cug), &
-           c_loc(evpg), c_loc(tug), c_loc(tdg), c_loc(pflxg), c_loc(qlg), c_loc(qtnd), c_loc(cme), &
-           c_loc(rprd), c_loc(zdu), c_loc(mcon), c_loc(heat), c_loc(dlf), c_loc(cu), c_loc(evp), &
-           c_loc(tu), c_loc(td), c_loc(pflx), c_loc(ql), c_loc(jctop), c_loc(jcbot), c_loc(prec), c_loc(rliq))
-   else
       do k = msg + 1,pver
 !DIR$ CONCURRENT
          do i = 1,lengath
