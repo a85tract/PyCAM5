@@ -65,8 +65,19 @@ logical            :: use_shfrc                       ! Local copy of flag from 
 logical            :: do_cnst = .false. ! True when this module has registered constituents.
 logical            :: use_native_impl = .false.
 logical            :: impl_selected = .false.
+logical            :: stratiform_entered_logged = .false.
 logical            :: use_native_microphys_shell_impl = .false.
 logical            :: microphys_shell_impl_selected = .false.
+logical            :: microphys_shell_entered_logged = .false.
+logical            :: detrain_assign_entered_logged = .false.
+logical            :: sedimentation_diag_entered_logged = .false.
+logical            :: rhdfda_entered_logged = .false.
+logical            :: repartition_entered_logged = .false.
+logical            :: forcing_prep_entered_logged = .false.
+logical            :: microphys_tend_diag_entered_logged = .false.
+logical            :: cloud_mixing_diag_entered_logged = .false.
+logical            :: postcloud_diag_entered_logged = .false.
+logical            :: store_oldcloud_entered_logged = .false.
 integer            :: branch_mask = 0
 logical            :: branch_selected = .false.
 
@@ -513,6 +524,8 @@ subroutine stratiform_tend( &
 
    call stratiform_select_impl()
    if (.not. use_native_impl) then
+      call stratiform_log_entered_once(stratiform_entered_logged, 'STRATIFORM_PROOF_FILE', &
+           'stratiform_tend entered (active helper shells direct = codon; pcond/cldfrc = native)')
       call stratiform_select_branches(use_shfrc, cam_physpkg_is('cam3'))
       use_shfrc_local = iand(branch_mask, 1) /= 0
       cam3_local = iand(branch_mask, 2) /= 0
@@ -760,10 +773,16 @@ subroutine stratiform_tend( &
 
    call stratiform_select_microphys_shell_impl()
 
-   call stratiform_microphys_tend_diag(ncol, dtime, cld, fice, qme, nevapr, evapheat, prfzheat, meltheat, ice2pr, liq2pr, &
-        state1%q, prec_pcw, snow_pcw, repartht, ptend_loc%q, ptend_loc%s, ast, icimr, icwmr, cmeheat, cmeice, cmeliq)
+   if (use_native_microphys_shell_impl) then
+      call stratiform_microphys_tend_diag(ncol, dtime, cld, fice, qme, nevapr, evapheat, prfzheat, meltheat, ice2pr, liq2pr, &
+           state1%q, prec_pcw, snow_pcw, repartht, ptend_loc%q, ptend_loc%s, ast, icimr, icwmr, cmeheat, cmeice, cmeliq)
 
-   call stratiform_cloud_mixing_diag(ncol, state%q, cld, concld, mr_ccliq, mr_ccice, mr_lsliq, mr_lsice)
+      call stratiform_cloud_mixing_diag(ncol, state%q, cld, concld, mr_ccliq, mr_ccice, mr_lsliq, mr_lsice)
+   else
+      call stratiform_microphys_shell_codon_wrap(ncol, dtime, cld, concld, fice, qme, nevapr, evapheat, prfzheat, meltheat, &
+           ice2pr, liq2pr, state1%q, prec_pcw, snow_pcw, repartht, ptend_loc%q, ptend_loc%s, ast, icimr, icwmr, cmeheat, &
+           cmeice, cmeliq, mr_ccliq, mr_ccice, mr_lsliq, mr_lsice)
+   end if
 
    ! Record history variables
 
@@ -880,6 +899,9 @@ subroutine stratiform_detrain_assign(ncol_local, dlf_local, ptend_q_local)
       return
    end if
 
+   call stratiform_log_entered_once(detrain_assign_entered_logged, 'STRATIFORM_PROOF_FILE', &
+        'stratiform_detrain_assign entered (detrain cloud liquid assign direct = codon)')
+
    call stratiform_detrain_assign_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
         int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), c_loc(dlf_local), c_loc(ptend_q_local))
 
@@ -913,6 +935,8 @@ subroutine stratiform_append_impl_proof(env_name, proof_line)
    character(len=512) :: proof_path
    integer :: status, n, unit_id
 
+   if (.not. masterproc) return
+
    proof_path = ''
    call get_environment_variable(env_name, value=proof_path, length=n, status=status)
    if (status /= 0 .or. n <= 0) return
@@ -925,6 +949,24 @@ subroutine stratiform_append_impl_proof(env_name, proof_line)
    close(unit_id)
 
 end subroutine stratiform_append_impl_proof
+
+!===============================================================================
+
+subroutine stratiform_log_entered_once(entered_logged, env_name, proof_line)
+
+   logical, intent(inout) :: entered_logged
+   character(len=*), intent(in) :: env_name, proof_line
+
+   if (entered_logged) return
+   entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,*) trim(proof_line)
+      call stratiform_append_impl_proof(env_name, proof_line)
+      call flush(iulog)
+   end if
+
+end subroutine stratiform_log_entered_once
 
 !===============================================================================
 
@@ -1003,6 +1045,9 @@ subroutine stratiform_microphys_shell_codon_wrap(ncol_local, dtime_local, cld_lo
       end subroutine stratiform_microphys_shell_codon
    end interface
 
+   call stratiform_log_entered_once(microphys_shell_entered_logged, 'STRATIFORM_MICROPHYS_SHELL_PROOF_FILE', &
+        'stratiform_microphys_shell entered (microphysics tendency/mixing diagnostics direct = codon)')
+
    call stratiform_microphys_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
         int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), dtime_local, latvap, latice, &
         c_loc(cld_local), c_loc(concld_local), c_loc(fice_local), c_loc(qme_local), c_loc(nevapr_local), c_loc(evapheat_local), &
@@ -1042,6 +1087,9 @@ subroutine stratiform_sedimentation_diag(ncol_local, state_pmid_local, state_t_l
            rain_local, snow_sed_local, prec_sed_local)
       return
    end if
+
+   call stratiform_log_entered_once(sedimentation_diag_entered_logged, 'STRATIFORM_PROOF_FILE', &
+        'stratiform_sedimentation_diag entered (sedimentation diagnostics direct = codon)')
 
    call stratiform_sedimentation_diag_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
         gravit, c_loc(state_pmid_local), c_loc(state_t_local), c_loc(pvliq_local), c_loc(wsedl_local), c_loc(rain_local), &
@@ -1101,6 +1149,9 @@ subroutine stratiform_rhdfda(ncol_local, relhum_local, rhu00_local, cld_local, c
       call stratiform_rhdfda_native(ncol_local, relhum_local, rhu00_local, cld_local, cld2_local, rhdfda_local)
       return
    end if
+
+   call stratiform_log_entered_once(rhdfda_entered_logged, 'STRATIFORM_PROOF_FILE', &
+        'stratiform_rhdfda entered (RH perturbation diagnostic direct = codon)')
 
    call stratiform_rhdfda_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), c_loc(relhum_local), &
         c_loc(rhu00_local), c_loc(cld_local), c_loc(cld2_local), c_loc(rhdfda_local))
@@ -1169,6 +1220,9 @@ subroutine stratiform_repartition(ncol_local, rdtime_local, fice_local, state_q_
       return
    end if
 
+   call stratiform_log_entered_once(repartition_entered_logged, 'STRATIFORM_PROOF_FILE', &
+        'stratiform_repartition entered (cloud condensate repartition direct = codon)')
+
    call stratiform_repartition_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
         int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), rdtime_local, c_loc(fice_local), &
         c_loc(state_q_local), c_loc(totcw_local), c_loc(repartht_local), c_loc(ptend_q_local))
@@ -1230,6 +1284,9 @@ subroutine stratiform_forcing_prep(ncol_local, dtime_local, state_q_local, state
            lcwat_local, totcw_local, repartht_local, qtend_local, ttend_local, ltend_local)
       return
    end if
+
+   call stratiform_log_entered_once(forcing_prep_entered_logged, 'STRATIFORM_PROOF_FILE', &
+        'stratiform_forcing_prep entered (pcond forcing prep direct = codon)')
 
    call stratiform_forcing_prep_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
         int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), dtime_local, latice, &
@@ -1573,10 +1630,15 @@ subroutine stratiform_select_impl()
       if (use_native_impl) then
          write(iulog,*) 'stratiform_tend implementation = native'
          write(*,*) 'stratiform_tend implementation = native'
+         call stratiform_append_impl_proof('STRATIFORM_PROOF_FILE', &
+              'stratiform_tend implementation = native')
       else
          write(iulog,*) 'stratiform_tend implementation = codon'
          write(*,*) 'stratiform_tend implementation = codon'
+         call stratiform_append_impl_proof('STRATIFORM_PROOF_FILE', &
+              'stratiform_tend implementation = codon')
       end if
+      call flush(iulog)
    end if
 
 end subroutine stratiform_select_impl
