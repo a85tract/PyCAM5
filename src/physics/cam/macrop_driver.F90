@@ -111,6 +111,7 @@
   logical :: detrain_init_shell_logged = .false.
   logical :: detrain_post_shell_logged = .false.
   logical :: mmacro_config_check_logged = .false.
+  logical :: mmacro_prepare_shell_logged = .false.
   logical :: detrain_core_logged = .false.
   logical :: clr_old_diag_logged = .false.
   logical :: forcing_prep_logged = .false.
@@ -919,15 +920,14 @@ end subroutine macrop_driver_readnl
 
    call t_startf('mmacro_pcond')
 
-   call macrop_driver_mmacro_input_shell(ncol, state_loc%q, zeros, qc, qi, nc, ni)
+   call macrop_driver_mmacro_prepare_shell(ncol, get_nstep(), rdtime, state_loc%q, state_loc%t, state_loc%q(:,:,1), &
+        zeros, qc, qi, nc, ni, tcwat, qcwat, lcwat, iccwat, nlwat, niwat, cc_t, cc_qv, cc_ql, cc_qi, cc_nl, cc_ni, &
+        cc_qlst, ttend, qtend, ltend, itend, nltend, nitend, lmitend, t_inout, qv_inout, ql_inout, qi_inout, &
+        nl_inout, ni_inout)
 
  ! In CAM5, 'microphysical forcing' ( CC_... ) and 'the other advective forcings' ( ttend, ... ) 
  ! are separately provided into the prognostic microp_driver macrophysics scheme. This is an
  ! attempt to resolve in-cloud and out-cloud forcings. 
-
-   call macrop_driver_forcing_prep(ncol, get_nstep(), rdtime, state_loc%t, state_loc%q(:,:,1), qc, qi, nc, ni, tcwat, &
-        qcwat, lcwat, iccwat, nlwat, niwat, cc_t, cc_qv, cc_ql, cc_qi, cc_nl, cc_ni, cc_qlst, ttend, qtend, ltend, &
-        itend, nltend, nitend, lmitend, t_inout, qv_inout, ql_inout, qi_inout, nl_inout, ni_inout)
 
  ! Liquid Microp_Driver Macrophysics.
  ! The main roles of this subroutines are
@@ -2070,6 +2070,84 @@ subroutine macrop_driver_forcing_prep_native(ncol_local, nstep_local, rdtime_loc
   end do
 
 end subroutine macrop_driver_forcing_prep_native
+
+!============================================================================ !
+
+subroutine macrop_driver_mmacro_prepare_shell(ncol_local, nstep_local, rdtime_local, state_q_local, state_t_local, &
+     state_qv_local, zeros_local, qc_local, qi_local, nc_local, ni_local, tcwat_local, qcwat_local, lcwat_local, &
+     iccwat_local, nlwat_local, niwat_local, cc_t_local, cc_qv_local, cc_ql_local, cc_qi_local, cc_nl_local, &
+     cc_ni_local, cc_qlst_local, ttend_local, qtend_local, ltend_local, itend_local, nltend_local, nitend_local, &
+     lmitend_local, t_inout_local, qv_inout_local, ql_inout_local, qi_inout_local, nl_inout_local, ni_inout_local)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  use constituents, only: pcnst
+  use ref_pres, only: top_lev => trop_cloud_top_lev
+
+  integer, intent(in) :: ncol_local, nstep_local
+  real(r8), intent(in) :: rdtime_local
+  real(r8), target, intent(in) :: state_q_local(pcols,pver,pcnst), state_t_local(pcols,pver), state_qv_local(pcols,pver)
+  real(r8), target, intent(inout) :: zeros_local(pcols,pver), qc_local(pcols,pver), qi_local(pcols,pver)
+  real(r8), target, intent(inout) :: nc_local(pcols,pver), ni_local(pcols,pver)
+  real(r8), target, intent(inout) :: tcwat_local(pcols,pver), qcwat_local(pcols,pver), lcwat_local(pcols,pver)
+  real(r8), target, intent(inout) :: iccwat_local(pcols,pver), nlwat_local(pcols,pver), niwat_local(pcols,pver)
+  real(r8), target, intent(inout) :: cc_t_local(pcols,pver), cc_qv_local(pcols,pver), cc_ql_local(pcols,pver)
+  real(r8), target, intent(inout) :: cc_qi_local(pcols,pver), cc_nl_local(pcols,pver), cc_ni_local(pcols,pver)
+  real(r8), target, intent(inout) :: cc_qlst_local(pcols,pver)
+  real(r8), target, intent(inout) :: ttend_local(pcols,pver), qtend_local(pcols,pver), ltend_local(pcols,pver)
+  real(r8), target, intent(inout) :: itend_local(pcols,pver), nltend_local(pcols,pver), nitend_local(pcols,pver)
+  real(r8), target, intent(inout) :: lmitend_local(pcols,pver), t_inout_local(pcols,pver), qv_inout_local(pcols,pver)
+  real(r8), target, intent(inout) :: ql_inout_local(pcols,pver), qi_inout_local(pcols,pver)
+  real(r8), target, intent(inout) :: nl_inout_local(pcols,pver), ni_inout_local(pcols,pver)
+  character(len=*), parameter :: proof_msg = 'macrop_driver mmacro prepare shell entered ('// &
+       'input/forcing prep direct = codon; mmacro_pcond = native)'
+
+  interface
+     subroutine macrop_driver_mmacro_prepare_shell_codon(ncol_c, pcols_c, pver_c, pcnst_c, top_lev_c, ixcldliq_c, &
+          ixcldice_c, ixnumliq_c, ixnumice_c, nstep_c, rdtime_c, state_q_p, state_t_p, state_qv_p, zeros_p, qc_p, &
+          qi_p, nc_p, ni_p, tcwat_p, qcwat_p, lcwat_p, iccwat_p, nlwat_p, niwat_p, cc_t_p, cc_qv_p, cc_ql_p, &
+          cc_qi_p, cc_nl_p, cc_ni_p, cc_qlst_p, ttend_p, qtend_p, ltend_p, itend_p, nltend_p, nitend_p, &
+          lmitend_p, t_inout_p, qv_inout_p, ql_inout_p, qi_inout_p, nl_inout_p, ni_inout_p) &
+          bind(c, name="macrop_driver_mmacro_prepare_shell_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, top_lev_c
+       integer(c_int64_t), value :: ixcldliq_c, ixcldice_c, ixnumliq_c, ixnumice_c, nstep_c
+       real(c_double), value :: rdtime_c
+       type(c_ptr), value :: state_q_p, state_t_p, state_qv_p, zeros_p, qc_p, qi_p, nc_p, ni_p, tcwat_p, qcwat_p
+       type(c_ptr), value :: lcwat_p, iccwat_p, nlwat_p, niwat_p, cc_t_p, cc_qv_p, cc_ql_p, cc_qi_p, cc_nl_p
+       type(c_ptr), value :: cc_ni_p, cc_qlst_p, ttend_p, qtend_p, ltend_p, itend_p, nltend_p, nitend_p, lmitend_p
+       type(c_ptr), value :: t_inout_p, qv_inout_p, ql_inout_p, qi_inout_p, nl_inout_p, ni_inout_p
+     end subroutine macrop_driver_mmacro_prepare_shell_codon
+  end interface
+
+  if (use_native_impl) then
+     call macrop_driver_mmacro_input_shell_native(ncol_local, state_q_local, zeros_local, qc_local, qi_local, nc_local, ni_local)
+     call macrop_driver_forcing_prep_native(ncol_local, nstep_local, rdtime_local, state_t_local, state_qv_local, &
+          qc_local, qi_local, nc_local, ni_local, tcwat_local, qcwat_local, lcwat_local, iccwat_local, nlwat_local, &
+          niwat_local, cc_t_local, cc_qv_local, cc_ql_local, cc_qi_local, cc_nl_local, cc_ni_local, cc_qlst_local, &
+          ttend_local, qtend_local, ltend_local, itend_local, nltend_local, nitend_local, lmitend_local, t_inout_local, &
+          qv_inout_local, ql_inout_local, qi_inout_local, nl_inout_local, ni_inout_local)
+     return
+  end if
+
+  if (masterproc .and. .not. mmacro_prepare_shell_logged) then
+     write(iulog,*) proof_msg
+     call macrop_driver_append_impl_proof('MACROP_DRIVER_MMPCOND_SHELL_PROOF_FILE', proof_msg)
+     call flush(iulog)
+     mmacro_prepare_shell_logged = .true.
+  end if
+
+  call macrop_driver_mmacro_prepare_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), &
+       int(pver, c_int64_t), int(pcnst, c_int64_t), int(top_lev, c_int64_t), int(ixcldliq, c_int64_t), &
+       int(ixcldice, c_int64_t), int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), int(nstep_local, c_int64_t), &
+       real(rdtime_local, c_double), c_loc(state_q_local), c_loc(state_t_local), c_loc(state_qv_local), c_loc(zeros_local), &
+       c_loc(qc_local), c_loc(qi_local), c_loc(nc_local), c_loc(ni_local), c_loc(tcwat_local), c_loc(qcwat_local), &
+       c_loc(lcwat_local), c_loc(iccwat_local), c_loc(nlwat_local), c_loc(niwat_local), c_loc(cc_t_local), &
+       c_loc(cc_qv_local), c_loc(cc_ql_local), c_loc(cc_qi_local), c_loc(cc_nl_local), c_loc(cc_ni_local), &
+       c_loc(cc_qlst_local), c_loc(ttend_local), c_loc(qtend_local), c_loc(ltend_local), c_loc(itend_local), &
+       c_loc(nltend_local), c_loc(nitend_local), c_loc(lmitend_local), c_loc(t_inout_local), c_loc(qv_inout_local), &
+       c_loc(ql_inout_local), c_loc(qi_inout_local), c_loc(nl_inout_local), c_loc(ni_inout_local))
+
+end subroutine macrop_driver_mmacro_prepare_shell
 
 !============================================================================ !
 
