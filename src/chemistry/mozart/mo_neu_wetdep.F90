@@ -48,6 +48,7 @@ module mo_neu_wetdep
   logical :: neu_wetdep_henry_impl_selected = .false.
   logical :: neu_wetdep_henry_selector_proof_written = .false.
   logical :: neu_wetdep_henry_wrap_proof_written = .false.
+  logical :: neu_wetdep_prepare_henry_proof_written = .false.
   logical :: neu_wetdep_gas_micro_use_native_impl = .false.
   logical :: neu_wetdep_gas_micro_impl_selected = .false.
   logical :: neu_wetdep_gas_micro_selector_proof_written = .false.
@@ -740,6 +741,80 @@ subroutine neu_wetdep_henry_codon_wrap(ncol, pcols_in, pver_in, gas_cnt, nh3_ndx
 
 end subroutine neu_wetdep_henry_codon_wrap
 !
+subroutine neu_wetdep_prepare_henry_codon_wrap(ncol, pcols_in, pver_in, pcnst_in, gas_cnt, &
+     index_cldice_in, index_cldliq_in, nh3_ndx_in, co2_ndx_in, gravit_in, t0_in, ph_in, &
+     ph_inv_in, mapping_to_mmr_c, mapping_to_heff_c, area, mmr, pmid, pdel, zint, tfld, &
+     prain, nevapr, cld, cmfdqr, dheff_in, mass_in_layer, cldice, cldliq, cldfrc, totprec, &
+     totevap, delz, delp, p, rls, evaprate, temp, trc_mass, dtwr, heff, wrk, dk1s, dk2s, &
+     tckaqb_c)
+
+  use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+
+  integer, intent(in) :: ncol, pcols_in, pver_in, pcnst_in, gas_cnt
+  integer, intent(in) :: index_cldice_in, index_cldliq_in, nh3_ndx_in, co2_ndx_in
+  real(r8), intent(in) :: gravit_in, t0_in, ph_in, ph_inv_in
+  integer(c_int64_t), target, intent(in) :: mapping_to_mmr_c(gas_cnt), mapping_to_heff_c(gas_cnt)
+  real(r8), target, intent(in) :: area(ncol)
+  real(r8), target, intent(in) :: mmr(pcols_in,pver_in,pcnst_in)
+  real(r8), target, intent(in) :: pmid(pcols_in,pver_in), pdel(pcols_in,pver_in)
+  real(r8), target, intent(in) :: zint(pcols_in,pver_in+1), tfld(pcols_in,pver_in)
+  real(r8), target, intent(in) :: prain(ncol,pver_in), nevapr(ncol,pver_in)
+  real(r8), target, intent(in) :: cld(ncol,pver_in), cmfdqr(ncol,pver_in)
+  real(r8), target, intent(in) :: dheff_in(n_species_table*6)
+  real(r8), target, intent(out) :: mass_in_layer(ncol,pver_in)
+  real(r8), target, intent(out) :: cldice(ncol,pver_in), cldliq(ncol,pver_in), cldfrc(ncol,pver_in)
+  real(r8), target, intent(out) :: totprec(ncol,pver_in), totevap(ncol,pver_in), delz(ncol,pver_in)
+  real(r8), target, intent(out) :: delp(ncol,pver_in), p(ncol,pver_in), rls(ncol,pver_in)
+  real(r8), target, intent(out) :: evaprate(ncol,pver_in), temp(ncol,pver_in)
+  real(r8), target, intent(out) :: trc_mass(ncol,pver_in,gas_cnt), dtwr(ncol,pver_in,gas_cnt)
+  real(r8), target, intent(out) :: heff(ncol,pver_in,gas_cnt)
+  real(r8), target, intent(out) :: wrk(ncol), dk1s(ncol), dk2s(ncol)
+  integer(c_int64_t), target, intent(out) :: tckaqb_c(gas_cnt)
+
+  interface
+     subroutine neu_wetdep_prepare_henry_shell_codon(ncol_c, pcols_c, pver_c, pcnst_c, gas_cnt_c, &
+          index_cldice_c, index_cldliq_c, nh3_ndx_c, co2_ndx_c, gravit_c, t0_c, ph_c, ph_inv_c, &
+          mapping_to_mmr_p, mapping_to_heff_p, area_p, mmr_p, pmid_p, pdel_p, zint_p, tfld_p, &
+          prain_p, nevapr_p, cld_p, cmfdqr_p, dheff_p, mass_in_layer_p, cldice_p, cldliq_p, &
+          cldfrc_p, totprec_p, totevap_p, delz_p, delp_p, p_p, rls_p, evaprate_p, temp_p, &
+          trc_mass_p, dtwr_p, heff_p, wrk_p, dk1s_p, dk2s_p, tckaqb_p) &
+          bind(c, name="neu_wetdep_prepare_henry_shell_codon")
+       use iso_c_binding, only : c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, gas_cnt_c
+       integer(c_int64_t), value :: index_cldice_c, index_cldliq_c, nh3_ndx_c, co2_ndx_c
+       real(c_double), value :: gravit_c, t0_c, ph_c, ph_inv_c
+       type(c_ptr), value :: mapping_to_mmr_p, mapping_to_heff_p, area_p, mmr_p, pmid_p, pdel_p
+       type(c_ptr), value :: zint_p, tfld_p, prain_p, nevapr_p, cld_p, cmfdqr_p, dheff_p
+       type(c_ptr), value :: mass_in_layer_p, cldice_p, cldliq_p, cldfrc_p, totprec_p, totevap_p
+       type(c_ptr), value :: delz_p, delp_p, p_p, rls_p, evaprate_p, temp_p, trc_mass_p, dtwr_p
+       type(c_ptr), value :: heff_p, wrk_p, dk1s_p, dk2s_p, tckaqb_p
+     end subroutine neu_wetdep_prepare_henry_shell_codon
+  end interface
+
+  if (masterproc .and. .not. neu_wetdep_prepare_henry_proof_written) then
+     write(iulog,*) 'neu_wetdep prepare/henry shell entered (aux prepare + henry flags direct = codon)'
+     call neu_wetdep_aux_append_impl_proof( &
+          'neu_wetdep prepare/henry shell entered (aux prepare + henry flags direct = codon)')
+     call neu_wetdep_henry_append_impl_proof( &
+          'neu_wetdep prepare/henry shell entered (aux prepare + henry flags direct = codon)')
+     neu_wetdep_prepare_henry_proof_written = .true.
+     call flush(iulog)
+  end if
+
+  call neu_wetdep_prepare_henry_shell_codon( &
+       int(ncol, c_int64_t), int(pcols_in, c_int64_t), int(pver_in, c_int64_t), int(pcnst_in, c_int64_t), &
+       int(gas_cnt, c_int64_t), int(index_cldice_in, c_int64_t), int(index_cldliq_in, c_int64_t), &
+       int(nh3_ndx_in, c_int64_t), int(co2_ndx_in, c_int64_t), real(gravit_in, c_double), &
+       real(t0_in, c_double), real(ph_in, c_double), real(ph_inv_in, c_double), c_loc(mapping_to_mmr_c), &
+       c_loc(mapping_to_heff_c), c_loc(area), c_loc(mmr), c_loc(pmid), c_loc(pdel), c_loc(zint), c_loc(tfld), &
+       c_loc(prain), c_loc(nevapr), c_loc(cld), c_loc(cmfdqr), c_loc(dheff_in), c_loc(mass_in_layer), &
+       c_loc(cldice), c_loc(cldliq), c_loc(cldfrc), c_loc(totprec), c_loc(totevap), c_loc(delz), &
+       c_loc(delp), c_loc(p), c_loc(rls), c_loc(evaprate), c_loc(temp), c_loc(trc_mass), c_loc(dtwr), &
+       c_loc(heff), c_loc(wrk), c_loc(dk1s), c_loc(dk2s), c_loc(tckaqb_c) &
+  )
+
+end subroutine neu_wetdep_prepare_henry_codon_wrap
+!
 subroutine neu_wetdep_aux_prepare_codon_wrap(ncol, pcols_in, pver_in, pcnst_in, gas_cnt, &
      index_cldice_in, index_cldliq_in, gravit_in, mapping_to_mmr_c, area, mmr, pmid, pdel, &
      zint, tfld, prain, nevapr, cld, cmfdqr, mass_in_layer, cldice, cldliq, cldfrc, totprec, &
@@ -937,6 +1012,17 @@ subroutine neu_wetdep_tend(lchnk,ncol,mmr,pmid,pdel,zint,tfld,delt, &
 ! reverse order along the vertical before calling
 ! J. Neu's wet removal subroutine
 !
+  if (.not. neu_wetdep_aux_use_native_impl .and. .not. neu_wetdep_henry_use_native_impl) then
+    call neu_wetdep_prepare_henry_codon_wrap(ncol, pcols, pver, pcnst, gas_wetdep_cnt, &
+         index_cldice, index_cldliq, nh3_ndx, co2_ndx, gravit, t0, ph, ph_inv, &
+         mapping_to_mmr_c, mapping_to_heff_c, area, mmr, pmid, pdel, zint, tfld, &
+         prain, nevapr, cld, cmfdqr, dheff_cache, mass_in_layer, cldice, cldliq, cldfrc, &
+         totprec, totevap, delz, delp, p, rls, evaprate, temp, trc_mass, dtwr, heff, &
+         wrk, dk1s, dk2s, tckaqb_c)
+    do m = 1, gas_wetdep_cnt
+      tckaqb(m) = tckaqb_c(m) /= 0
+    end do
+  else
   if (.not. neu_wetdep_aux_use_native_impl) then
     call neu_wetdep_aux_prepare_codon_wrap(ncol, pcols, pver, pcnst, gas_wetdep_cnt, &
          index_cldice, index_cldliq, gravit, mapping_to_mmr_c, area, mmr, pmid, pdel, &
@@ -1057,6 +1143,7 @@ subroutine neu_wetdep_tend(lchnk,ncol,mmr,pmid,pdel,zint,tfld,delt, &
         tckaqb(m) = .false.
       end if
     end do
+  end if
   end if
 !
   if ( debug ) then
