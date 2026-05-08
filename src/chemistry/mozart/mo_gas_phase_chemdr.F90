@@ -53,6 +53,8 @@ module mo_gas_phase_chemdr
   logical :: gas_phase_chemdr_impl_selected = .false.
   logical :: gas_phase_chemdr_use_codon_shell_impl = .true.
   logical :: gas_phase_chemdr_shell_impl_selected = .false.
+  logical :: gas_phase_chemdr_rxn_sulfate_prep_proof_written = .false.
+  logical :: gas_phase_chemdr_wetdep_presolve_proof_written = .false.
 
   integer, parameter :: gas_phase_chemdr_shell_stage_prepare_sza = 1
   integer, parameter :: gas_phase_chemdr_shell_stage_prepare_state_load_mmr = 2
@@ -84,6 +86,8 @@ module mo_gas_phase_chemdr
   integer, parameter :: gas_phase_chemdr_shell_stage_setrxt = 28
   integer, parameter :: gas_phase_chemdr_shell_stage_negtrc = 29
   integer, parameter :: gas_phase_chemdr_shell_stage_vmr2mmr = 30
+  integer, parameter :: gas_phase_chemdr_shell_stage_wetdep_presolve = 31
+  integer, parameter :: gas_phase_chemdr_shell_stage_rxn_sulfate_prep = 32
 
 contains
 
@@ -708,15 +712,15 @@ contains
     !       ...  Set rates for "tabular" and user specified reactions
     !-----------------------------------------------------------------------      
     if (gas_phase_chemdr_use_codon_shell_impl) then
-       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_setrxt, ncol, &
-            reaction_rates=reaction_rates, tfld=tfld)
+       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_rxn_sulfate_prep, ncol, &
+            reaction_rates=reaction_rates, tfld=tfld, sulfate=sulfate)
+       if (masterproc .and. .not. gas_phase_chemdr_rxn_sulfate_prep_proof_written) then
+          call gas_phase_chemdr_shell_write_proof_line( &
+               'gas_phase_chemdr reaction/sulfate prep shell entered (setrxt/sulfate reset direct = codon)')
+          gas_phase_chemdr_rxn_sulfate_prep_proof_written = .true.
+       end if
     else
        call setrxt( reaction_rates, tfld, invariants(1,1,indexm), ncol )
-    end if
-    
-    if (gas_phase_chemdr_use_codon_shell_impl) then
-       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_zero_sulfate, ncol, sulfate=sulfate)
-    else
        call gas_phase_chemdr_zero_sulfate(ncol, sulfate)
     end if
     if ( .not. carma_hetchem_feedback ) then
@@ -873,34 +877,33 @@ contains
     end do
 
     !-----------------------------------------------------------------------
-    !        ... Form the washout rates
+    !        ... Form the washout rates and reset CCMI ST80 loss below the tropopause
     !-----------------------------------------------------------------------      
     if ( do_neu_wetdep ) then
       if (gas_phase_chemdr_use_codon_shell_impl) then
-         call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_zero_het_rates, ncol, het_rates=het_rates)
+         call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_wetdep_presolve, ncol, &
+              troplev=troplev, het_rates=het_rates, reaction_rates=reaction_rates)
+         if (masterproc .and. .not. gas_phase_chemdr_wetdep_presolve_proof_written) then
+            call gas_phase_chemdr_shell_write_proof_line( &
+                 'gas_phase_chemdr wetdep presolve shell entered (het rates/ST80 tau reset direct = codon)')
+            gas_phase_chemdr_wetdep_presolve_proof_written = .true.
+         end if
       else
          call gas_phase_chemdr_zero_het_rates(ncol, het_rates)
+         call gas_phase_chemdr_zero_st80_tau(ncol, rxntot, st80_25_tau_ndx, troplev, reaction_rates)
       end if
     else
       call sethet( het_rates, pmid, zmid, phis, tfld, &
                    cmfdqr, prain, nevapr, delt, invariants(:,:,indexm), &
                    vmr, ncol, lchnk )
       call het_diags( het_rates(:ncol,:,:), mmr(:ncol,:,:), pdel(:ncol,:), lchnk, ncol )
+      if (gas_phase_chemdr_use_codon_shell_impl) then
+         call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_zero_st80_tau, ncol, &
+              troplev=troplev, reaction_rates=reaction_rates)
+      else
+         call gas_phase_chemdr_zero_st80_tau(ncol, rxntot, st80_25_tau_ndx, troplev, reaction_rates)
+      end if
     end if
-!
-! CCMI
-!
-! set loss to below the tropopause only
-!
-    if (gas_phase_chemdr_use_codon_shell_impl) then
-       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_zero_st80_tau, ncol, &
-            troplev=troplev, reaction_rates=reaction_rates)
-    else
-       call gas_phase_chemdr_zero_st80_tau(ncol, rxntot, st80_25_tau_ndx, troplev, reaction_rates)
-    end if
-
-!
-
     do i = phtcnt+1,rxt_tag_cnt
        call outfld( tag_names(i), reaction_rates(:ncol,:,rxt_tag_map(i)), ncol, lchnk )
     enddo
@@ -2692,6 +2695,29 @@ contains
     end if
 
   end subroutine gas_phase_chemdr_shell_codon_wrap
+
+  subroutine gas_phase_chemdr_shell_write_proof_line(line)
+
+    character(len=*), intent(in) :: line
+    character(len=512) :: proof_file
+    integer :: status, n, proof_unit, ios
+
+    write(iulog,*) trim(line)
+    proof_file = ''
+    call get_environment_variable('GAS_PHASE_CHEMDR_SHELL_PROOF_FILE', value=proof_file, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       open(newunit=proof_unit, file=trim(proof_file(:n)), status='old', position='append', action='write', iostat=ios)
+       if (ios /= 0) then
+          open(newunit=proof_unit, file=trim(proof_file(:n)), status='replace', action='write', iostat=ios)
+       end if
+       if (ios == 0) then
+          write(proof_unit,'(A)') trim(line)
+          close(proof_unit)
+       end if
+    end if
+    call flush(iulog)
+
+  end subroutine gas_phase_chemdr_shell_write_proof_line
 
   subroutine gas_phase_chemdr_select_shell_impl()
 

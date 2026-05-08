@@ -1817,6 +1817,12 @@ def gas_phase_chemdr_shell_codon(
         negtrc_codon(ncol, pver, gas_pcnst, vmr_p)
     elif stage == 30:
         vmr2mmr_codon(ncol, pcols, pver, gas_pcnst, mbar_p, vmr_p, adv_mass_p, mmr_tend_p)
+    elif stage == 31:
+        gas_phase_chemdr_zero_het_rates_codon(ncol, pver, gas_pcnst, het_rates_p)
+        gas_phase_chemdr_zero_st80_tau_codon(ncol, pver, rxntot, st80_25_tau_ndx, troplev_p, reaction_rates_p)
+    elif stage == 32:
+        setrxt_codon(ncol, pcols, pver, tfld_p, reaction_rates_p)
+        gas_phase_chemdr_zero_sulfate_codon(ncol, pver, sulfate_p)
 
 def set_xnox_photo_codon(
     ncol: int,
