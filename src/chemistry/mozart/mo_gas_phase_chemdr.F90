@@ -55,6 +55,7 @@ module mo_gas_phase_chemdr
   logical :: gas_phase_chemdr_shell_impl_selected = .false.
   logical :: gas_phase_chemdr_rxn_sulfate_prep_proof_written = .false.
   logical :: gas_phase_chemdr_wetdep_presolve_proof_written = .false.
+  logical :: gas_phase_chemdr_surface_diag_proof_written = .false.
 
   integer, parameter :: gas_phase_chemdr_shell_stage_prepare_sza = 1
   integer, parameter :: gas_phase_chemdr_shell_stage_prepare_state_load_mmr = 2
@@ -349,8 +350,8 @@ contains
     real(r8),       intent(in)    :: tfld(pcols,pver)               ! midpoint temperature (K)
     real(r8),       intent(in)    :: pmid(pcols,pver)               ! midpoint pressures (Pa)
     real(r8),       intent(in)    :: pdel(pcols,pver)               ! pressure delta about midpoints (Pa)
-    real(r8),       intent(in)    :: ufld(pcols,pver)               ! zonal velocity (m/s)
-    real(r8),       intent(in)    :: vfld(pcols,pver)               ! meridional velocity (m/s)
+    real(r8), target, intent(in)  :: ufld(pcols,pver)               ! zonal velocity (m/s)
+    real(r8), target, intent(in)  :: vfld(pcols,pver)               ! meridional velocity (m/s)
     real(r8),       intent(in)    :: cldw(pcols,pver)               ! cloud water (kg/kg)
     real(r8),       intent(in)    :: ncldwtr(pcols,pver)            ! droplet number concentration (#/kg)
     real(r8),       intent(in)    :: zm(pcols,pver)                 ! midpoint geopotential height above the surface (m)
@@ -451,7 +452,7 @@ contains
     real(r8) :: o2mmr(ncol,pver)               ! o2 concentration (kg/kg)
     real(r8) :: ommr(ncol,pver)                ! o concentration (kg/kg)
     real(r8) :: mmr(pcols,pver,gas_pcnst)      ! chem working concentrations (kg/kg)
-    real(r8) :: mmr_new(pcols,pver,gas_pcnst)      ! chem working concentrations (kg/kg)
+    real(r8), target :: mmr_new(pcols,pver,gas_pcnst)      ! chem working concentrations (kg/kg)
     real(r8) :: hno3_gas(ncol,pver)            ! hno3 gas phase concentration (mol/mol)
     real(r8) :: hno3_cond(ncol,pver,2)         ! hno3 condensed phase concentration (mol/mol)
     real(r8) :: hcl_gas(ncol,pver)             ! hcl gas phase concentration (mol/mol)
@@ -462,7 +463,7 @@ contains
     real(r8) :: radius_strat(ncol,pver,3)      ! radius of sulfate, nat, & ice ( cm )
     real(r8) :: sad_strat(ncol,pver,3)         ! surf area density of sulfate, nat, & ice ( cm^2/cm^3 )
     real(r8) :: mmr_tend(pcols,pver,gas_pcnst) ! chemistry species tendencies (kg/kg/s)
-    real(r8) :: qh2o(pcols,pver)               ! specific humidity (kg/kg)
+    real(r8), target :: qh2o(pcols,pver)               ! specific humidity (kg/kg)
     real(r8) :: delta
 
   ! for aerosol formation....  
@@ -473,7 +474,8 @@ contains
 ! CCMI
 !
     real(r8) :: xlat
-    real(r8) :: pm25(ncol)
+    real(r8), target :: pm25(ncol), pm25_soa(ncol)
+    real(r8), target :: q_srf(ncol), u_srf(ncol), v_srf(ncol)
     real(r8) :: reaction_rates_nan
     real(r8), dimension(ncol,pver) :: o3s_loss             ! tropospheric ozone loss for o3s
 !
@@ -1149,47 +1151,103 @@ contains
 !
 ! surface vmr
 !
+    if (gas_phase_chemdr_use_codon_shell_impl) then
+       call gas_phase_chemdr_surface_diag_codon_wrap(ncol, mmr_new, qh2o, ufld, vfld, pm25, pm25_soa, &
+            q_srf, u_srf, v_srf)
+       if (masterproc .and. .not. gas_phase_chemdr_surface_diag_proof_written) then
+          call gas_phase_chemdr_shell_write_proof_line( &
+               'gas_phase_chemdr surface diag shell entered (PM25/Q/U/V surface diagnostics direct = codon)')
+          gas_phase_chemdr_surface_diag_proof_written = .true.
+       end if
+    else
+       if ( pm25_srf_diag ) then
+          pm25(:ncol) = mmr_new(:ncol,pver,cb1_ndx)   &
+               + mmr_new(:ncol,pver,cb2_ndx)   &
+               + mmr_new(:ncol,pver,oc1_ndx)   &
+               + mmr_new(:ncol,pver,oc2_ndx)   &
+               + mmr_new(:ncol,pver,dst1_ndx)  &
+               + mmr_new(:ncol,pver,dst2_ndx)  &
+               + mmr_new(:ncol,pver,sslt1_ndx) &
+               + mmr_new(:ncol,pver,sslt2_ndx) &
+               + mmr_new(:ncol,pver,soa_ndx)   &
+               + mmr_new(:ncol,pver,so4_ndx)
+       endif
+       if ( pm25_srf_diag_soa ) then
+          pm25_soa(:ncol) = mmr_new(:ncol,pver,cb1_ndx)   &
+               + mmr_new(:ncol,pver,cb2_ndx)   &
+               + mmr_new(:ncol,pver,oc1_ndx)   &
+               + mmr_new(:ncol,pver,oc2_ndx)   &
+               + mmr_new(:ncol,pver,dst1_ndx)  &
+               + mmr_new(:ncol,pver,dst2_ndx)  &
+               + mmr_new(:ncol,pver,sslt1_ndx) &
+               + mmr_new(:ncol,pver,sslt2_ndx) &
+               + mmr_new(:ncol,pver,soam_ndx)   &
+               + mmr_new(:ncol,pver,soai_ndx)   &
+               + mmr_new(:ncol,pver,soat_ndx)   &
+               + mmr_new(:ncol,pver,soab_ndx)   &
+               + mmr_new(:ncol,pver,soax_ndx)   &
+               + mmr_new(:ncol,pver,so4_ndx)
+       endif
+       q_srf(:ncol) = qh2o(:ncol,pver)
+       u_srf(:ncol) = ufld(:ncol,pver)
+       v_srf(:ncol) = vfld(:ncol,pver)
+    end if
     if ( pm25_srf_diag ) then
-       pm25(:ncol) = mmr_new(:ncol,pver,cb1_ndx)   &
-            + mmr_new(:ncol,pver,cb2_ndx)   &
-            + mmr_new(:ncol,pver,oc1_ndx)   &
-            + mmr_new(:ncol,pver,oc2_ndx)   &
-            + mmr_new(:ncol,pver,dst1_ndx)  &
-            + mmr_new(:ncol,pver,dst2_ndx)  &
-            + mmr_new(:ncol,pver,sslt1_ndx) &
-            + mmr_new(:ncol,pver,sslt2_ndx) &
-            + mmr_new(:ncol,pver,soa_ndx)   &
-            + mmr_new(:ncol,pver,so4_ndx)
        call outfld('PM25_SRF',pm25(:ncol) , ncol, lchnk )
     endif
     if ( pm25_srf_diag_soa ) then
-       pm25(:ncol) = mmr_new(:ncol,pver,cb1_ndx)   &
-            + mmr_new(:ncol,pver,cb2_ndx)   &
-            + mmr_new(:ncol,pver,oc1_ndx)   &
-            + mmr_new(:ncol,pver,oc2_ndx)   &
-            + mmr_new(:ncol,pver,dst1_ndx)  &
-            + mmr_new(:ncol,pver,dst2_ndx)  &
-            + mmr_new(:ncol,pver,sslt1_ndx) &
-            + mmr_new(:ncol,pver,sslt2_ndx) &
-            + mmr_new(:ncol,pver,soam_ndx)   &
-            + mmr_new(:ncol,pver,soai_ndx)   &
-            + mmr_new(:ncol,pver,soat_ndx)   &
-            + mmr_new(:ncol,pver,soab_ndx)   &
-            + mmr_new(:ncol,pver,soax_ndx)   &
-            + mmr_new(:ncol,pver,so4_ndx)
-       call outfld('PM25_SRF',pm25(:ncol) , ncol, lchnk )
+       call outfld('PM25_SRF',pm25_soa(:ncol) , ncol, lchnk )
     endif
 !
 !
-    call outfld('Q_SRF',qh2o(:ncol,pver) , ncol, lchnk )
-    call outfld('U_SRF',ufld(:ncol,pver) , ncol, lchnk )
-    call outfld('V_SRF',vfld(:ncol,pver) , ncol, lchnk )
+    call outfld('Q_SRF',q_srf(:ncol) , ncol, lchnk )
+    call outfld('U_SRF',u_srf(:ncol) , ncol, lchnk )
+    call outfld('V_SRF',v_srf(:ncol) , ncol, lchnk )
 !
     if (.not.sad_pbf_ndx>0) then
        deallocate(strato_sad)
     endif
 
   end subroutine gas_phase_chemdr
+
+  subroutine gas_phase_chemdr_surface_diag_codon_wrap(ncol, mmr_new, qh2o, ufld, vfld, pm25, pm25_soa, &
+       q_srf, u_srf, v_srf)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: mmr_new(pcols,pver,gas_pcnst)
+    real(r8), target, intent(in) :: qh2o(pcols,pver), ufld(pcols,pver), vfld(pcols,pver)
+    real(r8), target, intent(out) :: pm25(ncol), pm25_soa(ncol), q_srf(ncol), u_srf(ncol), v_srf(ncol)
+
+    interface
+       subroutine gas_phase_chemdr_surface_diag_codon(ncol_c, pcols_c, pver_c, gas_pcnst_c, pm25_flag_c, &
+            pm25_soa_flag_c, cb1_ndx_c, cb2_ndx_c, oc1_ndx_c, oc2_ndx_c, dst1_ndx_c, dst2_ndx_c, &
+            sslt1_ndx_c, sslt2_ndx_c, soa_ndx_c, soam_ndx_c, soai_ndx_c, soat_ndx_c, soab_ndx_c, &
+            soax_ndx_c, so4_ndx_c, mmr_new_p, qh2o_p, ufld_p, vfld_p, pm25_p, pm25_soa_p, q_srf_p, &
+            u_srf_p, v_srf_p) bind(c, name="gas_phase_chemdr_surface_diag_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, gas_pcnst_c, pm25_flag_c, pm25_soa_flag_c
+         integer(c_int64_t), value :: cb1_ndx_c, cb2_ndx_c, oc1_ndx_c, oc2_ndx_c, dst1_ndx_c, dst2_ndx_c
+         integer(c_int64_t), value :: sslt1_ndx_c, sslt2_ndx_c, soa_ndx_c, soam_ndx_c, soai_ndx_c
+         integer(c_int64_t), value :: soat_ndx_c, soab_ndx_c, soax_ndx_c, so4_ndx_c
+         type(c_ptr), value :: mmr_new_p, qh2o_p, ufld_p, vfld_p, pm25_p, pm25_soa_p, q_srf_p, u_srf_p
+         type(c_ptr), value :: v_srf_p
+       end subroutine gas_phase_chemdr_surface_diag_codon
+    end interface
+
+    call gas_phase_chemdr_surface_diag_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), &
+         int(merge(1, 0, pm25_srf_diag), c_int64_t), int(merge(1, 0, pm25_srf_diag_soa), c_int64_t), &
+         int(cb1_ndx, c_int64_t), int(cb2_ndx, c_int64_t), int(oc1_ndx, c_int64_t), int(oc2_ndx, c_int64_t), &
+         int(dst1_ndx, c_int64_t), int(dst2_ndx, c_int64_t), int(sslt1_ndx, c_int64_t), int(sslt2_ndx, c_int64_t), &
+         int(soa_ndx, c_int64_t), int(soam_ndx, c_int64_t), int(soai_ndx, c_int64_t), int(soat_ndx, c_int64_t), &
+         int(soab_ndx, c_int64_t), int(soax_ndx, c_int64_t), int(so4_ndx, c_int64_t), c_loc(mmr_new), &
+         c_loc(qh2o), c_loc(ufld), c_loc(vfld), c_loc(pm25), c_loc(pm25_soa), c_loc(q_srf), c_loc(u_srf), &
+         c_loc(v_srf) &
+    )
+
+  end subroutine gas_phase_chemdr_surface_diag_codon_wrap
 
   subroutine gas_phase_chemdr_finalize_tendencies(ncol, delt_inverse, mmr, mmr_tend, mmr_new, qtend)
 

@@ -1213,6 +1213,81 @@ def gas_phase_chemdr_compute_tvs_codon(
     for i in range(1, ncol + 1):
         tvs[i - 1] = tfld[_idx2(i, pver, pcols)] * (1.0 + qh2o[_idx2(i, pver, pcols)])
 
+def gas_phase_chemdr_surface_diag_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    pm25_flag: int,
+    pm25_soa_flag: int,
+    cb1_ndx: int,
+    cb2_ndx: int,
+    oc1_ndx: int,
+    oc2_ndx: int,
+    dst1_ndx: int,
+    dst2_ndx: int,
+    sslt1_ndx: int,
+    sslt2_ndx: int,
+    soa_ndx: int,
+    soam_ndx: int,
+    soai_ndx: int,
+    soat_ndx: int,
+    soab_ndx: int,
+    soax_ndx: int,
+    so4_ndx: int,
+    mmr_new_p: cobj,
+    qh2o_p: cobj,
+    ufld_p: cobj,
+    vfld_p: cobj,
+    pm25_p: cobj,
+    pm25_soa_p: cobj,
+    q_srf_p: cobj,
+    u_srf_p: cobj,
+    v_srf_p: cobj,
+):
+    mmr_new = Ptr[float](mmr_new_p)
+    qh2o = Ptr[float](qh2o_p)
+    ufld = Ptr[float](ufld_p)
+    vfld = Ptr[float](vfld_p)
+    pm25 = Ptr[float](pm25_p)
+    pm25_soa = Ptr[float](pm25_soa_p)
+    q_srf = Ptr[float](q_srf_p)
+    u_srf = Ptr[float](u_srf_p)
+    v_srf = Ptr[float](v_srf_p)
+
+    for i in range(1, ncol + 1):
+        q_srf[i - 1] = qh2o[_idx2(i, pver, pcols)]
+        u_srf[i - 1] = ufld[_idx2(i, pver, pcols)]
+        v_srf[i - 1] = vfld[_idx2(i, pver, pcols)]
+
+        if pm25_flag != 0:
+            val = mmr_new[_idx3(i, pver, cb1_ndx, pcols, pver)] + mmr_new[_idx3(i, pver, cb2_ndx, pcols, pver)]
+            val = val + mmr_new[_idx3(i, pver, oc1_ndx, pcols, pver)]
+            val = val + mmr_new[_idx3(i, pver, oc2_ndx, pcols, pver)]
+            val = val + mmr_new[_idx3(i, pver, dst1_ndx, pcols, pver)]
+            val = val + mmr_new[_idx3(i, pver, dst2_ndx, pcols, pver)]
+            val = val + mmr_new[_idx3(i, pver, sslt1_ndx, pcols, pver)]
+            val = val + mmr_new[_idx3(i, pver, sslt2_ndx, pcols, pver)]
+            val = val + mmr_new[_idx3(i, pver, soa_ndx, pcols, pver)]
+            val = val + mmr_new[_idx3(i, pver, so4_ndx, pcols, pver)]
+            pm25[i - 1] = val
+
+        if pm25_soa_flag != 0:
+            val_soa = mmr_new[_idx3(i, pver, cb1_ndx, pcols, pver)] + mmr_new[_idx3(i, pver, cb2_ndx, pcols, pver)]
+            val_soa = val_soa + mmr_new[_idx3(i, pver, oc1_ndx, pcols, pver)]
+            val_soa = val_soa + mmr_new[_idx3(i, pver, oc2_ndx, pcols, pver)]
+            val_soa = val_soa + mmr_new[_idx3(i, pver, dst1_ndx, pcols, pver)]
+            val_soa = val_soa + mmr_new[_idx3(i, pver, dst2_ndx, pcols, pver)]
+            val_soa = val_soa + mmr_new[_idx3(i, pver, sslt1_ndx, pcols, pver)]
+            val_soa = val_soa + mmr_new[_idx3(i, pver, sslt2_ndx, pcols, pver)]
+            val_soa = val_soa + mmr_new[_idx3(i, pver, soam_ndx, pcols, pver)]
+            val_soa = val_soa + mmr_new[_idx3(i, pver, soai_ndx, pcols, pver)]
+            val_soa = val_soa + mmr_new[_idx3(i, pver, soat_ndx, pcols, pver)]
+            val_soa = val_soa + mmr_new[_idx3(i, pver, soab_ndx, pcols, pver)]
+            val_soa = val_soa + mmr_new[_idx3(i, pver, soax_ndx, pcols, pver)]
+            val_soa = val_soa + mmr_new[_idx3(i, pver, so4_ndx, pcols, pver)]
+            pm25_soa[i - 1] = val_soa
+
 def gas_phase_chemdr_copy_cldw_to_cwat_codon(
     ncol: int,
     pcols: int,
