@@ -604,6 +604,49 @@ def macrop_driver_select_branches_codon(
 
 
 @export
+def macrop_driver_ptend_lq_mask_shell_codon(
+    mode: int,
+    pcnst: int,
+    wtrc_nwset: int,
+    wtrc_ncnst: int,
+    use_water_tracers: int,
+    ixcldliq: int,
+    ixcldice: int,
+    ixnumliq: int,
+    ixnumice: int,
+    lq_mask_p: cobj,
+    liq_type_p: cobj,
+    ice_type_p: cobj,
+    wtrc_indices_p: cobj,
+):
+    lq_mask = Ptr[int](lq_mask_p)
+    liq_type = Ptr[int](liq_type_p)
+    ice_type = Ptr[int](ice_type_p)
+    wtrc_indices = Ptr[int](wtrc_indices_p)
+
+    for m in range(1, pcnst + 1):
+        lq_mask[m - 1] = 0
+
+    if mode == 1:
+        lq_mask[ixcldliq - 1] = 1
+        lq_mask[ixcldice - 1] = 1
+        lq_mask[ixnumliq - 1] = 1
+        lq_mask[ixnumice - 1] = 1
+        if use_water_tracers != 0:
+            for m in range(1, wtrc_nwset + 1):
+                lq_mask[liq_type[m - 1] - 1] = 1
+                lq_mask[ice_type[m - 1] - 1] = 1
+    elif mode == 2:
+        lq_mask[0] = 1
+        lq_mask[ixcldice - 1] = 1
+        lq_mask[ixcldliq - 1] = 1
+        lq_mask[ixnumliq - 1] = 1
+        lq_mask[ixnumice - 1] = 1
+        for m in range(1, wtrc_ncnst + 1):
+            lq_mask[wtrc_indices[m - 1] - 1] = 1
+
+
+@export
 def macrop_driver_detrain_init_shell_codon(
     ncol: int,
     pcols: int,

@@ -117,6 +117,7 @@
   logical :: forcing_prep_logged = .false.
   logical :: ptend_assign_logged = .false.
   logical :: ptend_config_shell_logged = .false.
+  logical :: ptend_lq_mask_shell_logged = .false.
   logical :: store_state_logged = .false.
 
   contains
@@ -720,19 +721,8 @@ end subroutine macrop_driver_readnl
    ! Detrainment of convective condensate into the environment or stratiform cloud !
    ! ----------------------------------------------------------------------------- !
 
-   lq(:)        = .FALSE.
-   lq(ixcldliq) = .TRUE.
-   lq(ixcldice) = .TRUE.
-   lq(ixnumliq) = .TRUE.
-   lq(ixnumice) = .TRUE.
-
-   !allow water tracers to change:
-   if ((trace_water_local) .and. (wtrc_detrain_in_macrop_local)) then
-     do m=1,wtrc_nwset
-       lq(wtrc_iatype(m,iwtliq)) = .TRUE.
-       lq(wtrc_iatype(m,iwtice)) = .TRUE.
-     end do  
-   end if
+   call macrop_driver_ptend_lq_mask_shell(1, trace_water_local .and. wtrc_detrain_in_macrop_local, &
+        ixcldliq, ixcldice, ixnumliq, ixnumice, lq)
 
    call physics_ptend_init(ptend_loc, state%psetcols, 'pcwdetrain', ls=.true., lq=lq)   ! Initialize local physics_ptend object
 
@@ -896,19 +886,7 @@ end subroutine macrop_driver_readnl
    call cldfrc_fice( ncol, state_loc%t, fice, fsnow )
 
 
-   lq(:)        = .FALSE.
-
-   lq(1)        = .true.
-   lq(ixcldice) = .true.
-   lq(ixcldliq) = .true.
-
-   lq(ixnumliq) = .true.
-   lq(ixnumice) = .true.
-
-   !Water tracers:
-   do m=1,wtrc_ncnst
-     lq(wtrc_indices(m)) = .true.
-   end do
+   call macrop_driver_ptend_lq_mask_shell(2, .true., ixcldliq, ixcldice, ixnumliq, ixnumice, lq)
 
    ! Initialize local physics_ptend object again
    call physics_ptend_init(ptend_loc, state%psetcols, 'macro_park', &
@@ -1100,6 +1078,110 @@ end subroutine macrop_driver_tend
 
 !============================================================================ !
 !                                                                             !
+!============================================================================ !
+
+subroutine macrop_driver_ptend_lq_mask_shell(mode_local, use_water_tracers_local, ixcldliq_local, ixcldice_local, &
+     ixnumliq_local, ixnumice_local, lq_local)
+
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use constituents, only: pcnst
+  use water_tracer_vars, only: wtrc_nwset, wtrc_ncnst, wtrc_iatype, wtrc_indices
+  use water_types, only: iwtliq, iwtice
+
+  integer, intent(in) :: mode_local
+  logical, intent(in) :: use_water_tracers_local
+  integer, intent(in) :: ixcldliq_local, ixcldice_local, ixnumliq_local, ixnumice_local
+  logical, intent(out) :: lq_local(pcnst)
+
+  integer(c_int64_t), target :: lq_mask_c(pcnst)
+  integer(c_int64_t), target :: liq_type_c(wtrc_nwset), ice_type_c(wtrc_nwset)
+  integer(c_int64_t), target :: wtrc_indices_c(wtrc_ncnst)
+  integer :: m
+
+  interface
+     subroutine macrop_driver_ptend_lq_mask_shell_codon(mode_c, pcnst_c, wtrc_nwset_c, wtrc_ncnst_c, &
+          use_water_tracers_c, ixcldliq_c, ixcldice_c, ixnumliq_c, ixnumice_c, lq_mask_p, liq_type_p, &
+          ice_type_p, wtrc_indices_p) bind(c, name="macrop_driver_ptend_lq_mask_shell_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: mode_c, pcnst_c, wtrc_nwset_c, wtrc_ncnst_c, use_water_tracers_c
+       integer(c_int64_t), value :: ixcldliq_c, ixcldice_c, ixnumliq_c, ixnumice_c
+       type(c_ptr), value :: lq_mask_p, liq_type_p, ice_type_p, wtrc_indices_p
+     end subroutine macrop_driver_ptend_lq_mask_shell_codon
+  end interface
+
+  if (use_native_impl) then
+     call macrop_driver_ptend_lq_mask_shell_native(mode_local, use_water_tracers_local, ixcldliq_local, ixcldice_local, &
+          ixnumliq_local, ixnumice_local, lq_local)
+     return
+  end if
+
+  if (masterproc .and. .not. ptend_lq_mask_shell_logged) then
+     write(iulog,*) 'macrop_driver ptend lq mask shell entered (detrain/macro_park lq mask direct = codon)'
+     call macrop_driver_append_impl_proof('MACROP_DRIVER_MMPCOND_SHELL_PROOF_FILE', &
+          'macrop_driver ptend lq mask shell entered (detrain/macro_park lq mask direct = codon)')
+     call flush(iulog)
+     ptend_lq_mask_shell_logged = .true.
+  end if
+
+  do m = 1, wtrc_nwset
+     liq_type_c(m) = int(wtrc_iatype(m,iwtliq), c_int64_t)
+     ice_type_c(m) = int(wtrc_iatype(m,iwtice), c_int64_t)
+  end do
+  do m = 1, wtrc_ncnst
+     wtrc_indices_c(m) = int(wtrc_indices(m), c_int64_t)
+  end do
+
+  call macrop_driver_ptend_lq_mask_shell_codon(int(mode_local, c_int64_t), int(pcnst, c_int64_t), &
+       int(wtrc_nwset, c_int64_t), int(wtrc_ncnst, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, use_water_tracers_local), &
+       int(ixcldliq_local, c_int64_t), int(ixcldice_local, c_int64_t), int(ixnumliq_local, c_int64_t), &
+       int(ixnumice_local, c_int64_t), c_loc(lq_mask_c), c_loc(liq_type_c), c_loc(ice_type_c), c_loc(wtrc_indices_c))
+
+  lq_local(:) = lq_mask_c(:) /= 0_c_int64_t
+
+end subroutine macrop_driver_ptend_lq_mask_shell
+
+!============================================================================ !
+
+subroutine macrop_driver_ptend_lq_mask_shell_native(mode_local, use_water_tracers_local, ixcldliq_local, ixcldice_local, &
+     ixnumliq_local, ixnumice_local, lq_local)
+
+  use constituents, only: pcnst
+  use water_tracer_vars, only: wtrc_nwset, wtrc_ncnst, wtrc_iatype, wtrc_indices
+  use water_types, only: iwtliq, iwtice
+
+  integer, intent(in) :: mode_local
+  logical, intent(in) :: use_water_tracers_local
+  integer, intent(in) :: ixcldliq_local, ixcldice_local, ixnumliq_local, ixnumice_local
+  logical, intent(out) :: lq_local(pcnst)
+  integer :: m
+
+  lq_local(:) = .false.
+
+  select case (mode_local)
+  case (1)
+     lq_local(ixcldliq_local) = .true.
+     lq_local(ixcldice_local) = .true.
+     lq_local(ixnumliq_local) = .true.
+     lq_local(ixnumice_local) = .true.
+     if (use_water_tracers_local) then
+        do m = 1, wtrc_nwset
+           lq_local(wtrc_iatype(m,iwtliq)) = .true.
+           lq_local(wtrc_iatype(m,iwtice)) = .true.
+        end do
+     end if
+  case (2)
+     lq_local(1) = .true.
+     lq_local(ixcldice_local) = .true.
+     lq_local(ixcldliq_local) = .true.
+     lq_local(ixnumliq_local) = .true.
+     lq_local(ixnumice_local) = .true.
+     do m = 1, wtrc_ncnst
+        lq_local(wtrc_indices(m)) = .true.
+     end do
+  end select
+
+end subroutine macrop_driver_ptend_lq_mask_shell_native
+
 !============================================================================ !
 
 subroutine macrop_driver_wtrc_detrain(ncol_local, state_t_local, wtdlf_local, ptend_q_local)
