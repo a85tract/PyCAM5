@@ -68,6 +68,7 @@
    logical    :: codon_scheme_selected = .false.
    logical    :: convect_shallow_diag_shell_logged = .false.
    logical    :: convect_shallow_init_shell_logged = .false.
+   logical    :: convect_shallow_ptend_lq_mask_shell_logged = .false.
    logical    :: convect_shallow_uw_post_shell_logged = .false.
    logical    :: convect_shallow_wtrc_precip_shell_logged = .false.
 
@@ -650,7 +651,7 @@ end subroutine convect_shallow_init_cnst
 
    case(1) ! off, CLUBB_SGS
 
-      lq(:) = .TRUE.
+      call convect_shallow_ptend_lq_mask_shell(pcnst, lq)
       call physics_ptend_init( ptend_loc, state%psetcols, 'convect_shallow (off)', ls=.true., lq=lq ) ! Initialize local ptend type
 
       cmfmc2      = 0._r8
@@ -678,7 +679,7 @@ end subroutine convect_shallow_init_cnst
 
    case(2) ! Hack scheme
                                    
-      lq(:) = .TRUE.
+      call convect_shallow_ptend_lq_mask_shell(pcnst, lq)
       call physics_ptend_init( ptend_loc, state%psetcols, 'cmfmca', ls=.true., lq=lq  ) ! Initialize local ptend type
 
       call pbuf_get_field(pbuf, qpert_idx, qpert)
@@ -699,7 +700,7 @@ end subroutine convect_shallow_init_cnst
       ! -------------------------------------- !
 
       ! Initialize local ptend type
-      lq(:) = .TRUE.
+      call convect_shallow_ptend_lq_mask_shell(pcnst, lq)
       call physics_ptend_init( ptend_loc, state%psetcols, 'UWSHCU', ls=.true., lu=.true., lv=.true., lq=lq  ) 
 
       call pbuf_get_field(pbuf, cush_idx, cush  ,(/1,itim_old/),  (/pcols,1/))
@@ -1227,6 +1228,55 @@ subroutine convect_shallow_init_shell_native(ncol_local, tpert_local, landfracdu
    landfracdum_local(:ncol_local) = 0._r8
 
 end subroutine convect_shallow_init_shell_native
+
+subroutine convect_shallow_log_ptend_lq_mask_shell_entered()
+
+   use spmd_utils, only: masterproc
+
+   if (convect_shallow_ptend_lq_mask_shell_logged) return
+   convect_shallow_ptend_lq_mask_shell_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'convect_shallow ptend lq mask shell entered (scheme ptend constituent mask direct = codon)'
+      call convect_shallow_append_proof( &
+           'convect_shallow ptend lq mask shell entered (scheme ptend constituent mask direct = codon)')
+      call flush(iulog)
+   end if
+
+end subroutine convect_shallow_log_ptend_lq_mask_shell_entered
+
+subroutine convect_shallow_ptend_lq_mask_shell(pcnst_local, lq_local)
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+   integer, intent(in) :: pcnst_local
+   logical, intent(out) :: lq_local(pcnst_local)
+
+   integer :: m
+   integer(c_int64_t), target :: lq_mask_c(pcnst_local)
+
+   interface
+      subroutine convect_shallow_ptend_lq_mask_shell_codon(pcnst_c, lq_mask_p) &
+           bind(c, name="convect_shallow_ptend_lq_mask_shell_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: pcnst_c
+         type(c_ptr), value :: lq_mask_p
+      end subroutine convect_shallow_ptend_lq_mask_shell_codon
+   end interface
+
+   if (use_native_impl) then
+      lq_local(:) = .TRUE.
+      return
+   end if
+
+   call convect_shallow_log_ptend_lq_mask_shell_entered()
+   call convect_shallow_ptend_lq_mask_shell_codon(int(pcnst_local, c_int64_t), c_loc(lq_mask_c))
+
+   do m = 1, pcnst_local
+      lq_local(m) = lq_mask_c(m) /= 0_c_int64_t
+   end do
+
+end subroutine convect_shallow_ptend_lq_mask_shell
 
 subroutine convect_shallow_log_wtrc_precip_shell_entered()
 
