@@ -69,6 +69,7 @@
    logical    :: convect_shallow_diag_shell_logged = .false.
    logical    :: convect_shallow_init_shell_logged = .false.
    logical    :: convect_shallow_uw_post_shell_logged = .false.
+   logical    :: convect_shallow_wtrc_precip_shell_logged = .false.
 
    integer :: & ! field index in physics buffer
       sh_flxprc_idx, &
@@ -952,8 +953,12 @@ end subroutine convect_shallow_init_cnst
     do m=1,wtrc_ntype(iwtcvrain)
        call pbuf_get_field(pbuf, wtrc_srfpcp_indices(iwtcvrain,m), wtprec)
        call pbuf_get_field(pbuf, wtrc_srfpcp_indices(iwtcvsnow,m), wtsnow)
-       wtprec(:) = wtprec(:) + (wtprect(:,wtrc_iatype(m,iwtvap)) - wtsnowt(:,wtrc_iatype(m,iwtvap))) !assign values (should be rain only)
-       wtsnow(:) = wtsnow(:) + wtsnowt(:,wtrc_iatype(m,iwtvap))                                      !(snow only)
+       if (use_native_impl) then
+          wtprec(:) = wtprec(:) + (wtprect(:,wtrc_iatype(m,iwtvap)) - wtsnowt(:,wtrc_iatype(m,iwtvap))) !assign values (should be rain only)
+          wtsnow(:) = wtsnow(:) + wtsnowt(:,wtrc_iatype(m,iwtvap))                                      !(snow only)
+       else
+          call convect_shallow_wtrc_precip_shell(wtrc_iatype(m,iwtvap), wtprect, wtsnowt, wtprec, wtsnow)
+       end if
     end do
   !**********************
 
@@ -1222,6 +1227,46 @@ subroutine convect_shallow_init_shell_native(ncol_local, tpert_local, landfracdu
    landfracdum_local(:ncol_local) = 0._r8
 
 end subroutine convect_shallow_init_shell_native
+
+subroutine convect_shallow_log_wtrc_precip_shell_entered()
+
+   use spmd_utils, only: masterproc
+
+   if (convect_shallow_wtrc_precip_shell_logged) return
+   convect_shallow_wtrc_precip_shell_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'convect_shallow wtrc precip shell entered (surface rain/snow water-tracer pbuf update direct = codon)'
+      call convect_shallow_append_proof( &
+           'convect_shallow wtrc precip shell entered (surface rain/snow water-tracer pbuf update direct = codon)')
+      call flush(iulog)
+   end if
+
+end subroutine convect_shallow_log_wtrc_precip_shell_entered
+
+subroutine convect_shallow_wtrc_precip_shell(vap_idx, wtprect_local, wtsnowt_local, wtprec_local, wtsnow_local)
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+   use constituents, only: pcnst
+
+   integer, intent(in) :: vap_idx
+   real(r8), target, intent(in) :: wtprect_local(pcols,pcnst), wtsnowt_local(pcols,pcnst)
+   real(r8), pointer, intent(inout) :: wtprec_local(:), wtsnow_local(:)
+
+   interface
+      subroutine convect_shallow_wtrc_precip_shell_codon(pcols_c, vap_idx_c, wtprect_p, wtsnowt_p, &
+           wtprec_p, wtsnow_p) bind(c, name="convect_shallow_wtrc_precip_shell_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: pcols_c, vap_idx_c
+         type(c_ptr), value :: wtprect_p, wtsnowt_p, wtprec_p, wtsnow_p
+      end subroutine convect_shallow_wtrc_precip_shell_codon
+   end interface
+
+   call convect_shallow_log_wtrc_precip_shell_entered()
+   call convect_shallow_wtrc_precip_shell_codon(int(pcols, c_int64_t), int(vap_idx, c_int64_t), &
+        c_loc(wtprect_local), c_loc(wtsnowt_local), c_loc(wtprec_local), c_loc(wtsnow_local))
+
+end subroutine convect_shallow_wtrc_precip_shell
 
 subroutine convect_shallow_log_diag_shell_entered()
 

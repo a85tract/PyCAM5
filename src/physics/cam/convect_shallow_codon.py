@@ -6746,6 +6746,29 @@ def convect_shallow_diag_shell_codon(
 
 
 @export
+def convect_shallow_wtrc_precip_shell_codon(
+    pcols: int,
+    vap_idx: int,
+    wtprect_p: cobj,
+    wtsnowt_p: cobj,
+    wtprec_p: cobj,
+    wtsnow_p: cobj,
+):
+    wtprect = Ptr[float](wtprect_p)
+    wtsnowt = Ptr[float](wtsnowt_p)
+    wtprec = Ptr[float](wtprec_p)
+    wtsnow = Ptr[float](wtsnow_p)
+
+    i = 1
+    while i <= pcols:
+        src_idx = _idx2(i, vap_idx, pcols)
+        dst_idx = i - 1
+        wtprec[dst_idx] = wtprec[dst_idx] + (wtprect[src_idx] - wtsnowt[src_idx])
+        wtsnow[dst_idx] = wtsnow[dst_idx] + wtsnowt[src_idx]
+        i += 1
+
+
+@export
 def convect_shallow_uw_post_shell_codon(
     ncol: int,
     pcols: int,
