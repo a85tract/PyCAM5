@@ -55,6 +55,14 @@ def vertical_diffusion_tend_select_branches_codon(
 
 
 @export
+def vertical_diffusion_core_lq_mask_shell_codon(pcnst: int, lq_mask_p: cobj):
+    lq_mask = Ptr[int](lq_mask_p)
+
+    for m in range(0, pcnst):
+        lq_mask[m] = 1
+
+
+@export
 def vertical_diffusion_tend_misc_batch_codon(
     stage: int,
     ncol: int,

@@ -161,6 +161,7 @@ module vertical_diffusion
   logical              :: use_native_core_batch_impl = .false.
   logical              :: core_batch_impl_selected = .false.
   logical              :: core_batch_entered_logged = .false.
+  logical              :: core_batch_lq_mask_logged = .false.
   logical              :: use_native_tend_misc_batch_impl = .false.
   logical              :: tend_misc_batch_impl_selected = .false.
   logical              :: tend_misc_batch_entered_logged = .false.
@@ -1286,6 +1287,45 @@ contains
     end if
 
   end subroutine vertical_diffusion_core_batch_log_entered
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine vertical_diffusion_core_lq_mask_shell(pcnst_local, lq_local)
+
+    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+    integer, intent(in) :: pcnst_local
+    logical, intent(out) :: lq_local(pcnst_local)
+
+    integer :: m
+    integer(c_int64_t), target :: lq_mask_c(pcnst_local)
+
+    interface
+       subroutine vertical_diffusion_core_lq_mask_shell_codon(pcnst_c, lq_mask_p) &
+            bind(c, name="vertical_diffusion_core_lq_mask_shell_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: pcnst_c
+         type(c_ptr), value :: lq_mask_p
+       end subroutine vertical_diffusion_core_lq_mask_shell_codon
+    end interface
+
+    if (masterproc .and. .not. core_batch_lq_mask_logged) then
+       write(iulog,*) 'vertical_diffusion core lq mask shell entered (ptend constituent mask direct = codon)'
+       call vertical_diffusion_core_batch_append_proof( &
+            'vertical_diffusion core lq mask shell entered (ptend constituent mask direct = codon)')
+       call flush(iulog)
+       core_batch_lq_mask_logged = .true.
+    end if
+
+    call vertical_diffusion_core_lq_mask_shell_codon(int(pcnst_local, c_int64_t), c_loc(lq_mask_c))
+
+    do m = 1, pcnst_local
+       lq_local(m) = lq_mask_c(m) /= 0_c_int64_t
+    end do
+
+  end subroutine vertical_diffusion_core_lq_mask_shell
 
   ! =============================================================================== !
   !                                                                                 !
@@ -3015,7 +3055,12 @@ contains
 
     ! All variables are modified by vertical diffusion
 
-    lq(:) = .TRUE.
+    call vertical_diffusion_core_batch_select_impl()
+    if (use_native_core_batch_impl) then
+       lq(:) = .TRUE.
+    else
+       call vertical_diffusion_core_lq_mask_shell(pcnst, lq)
+    end if
     call physics_ptend_init(ptend,state%psetcols, "vertical diffusion", &
          ls=.true., lu=.true., lv=.true., lq=lq)
 
