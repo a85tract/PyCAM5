@@ -114,6 +114,30 @@ def convect_deep_select_scheme_codon(
 
 
 @export
+def zm_conv_ptend_lq_mask_shell_codon(
+    pcnst: int,
+    wtrc_nwset: int,
+    org_enabled: int,
+    ixorg: int,
+    vap_type_p: cobj,
+    lq_mask_p: cobj,
+):
+    vap_type = Ptr[int](vap_type_p)
+    lq_mask = Ptr[int](lq_mask_p)
+
+    for m in range(0, pcnst):
+        lq_mask[m] = 0
+
+    lq_mask[0] = 1
+
+    if org_enabled != 0:
+        lq_mask[ixorg - 1] = 1
+
+    for m in range(0, wtrc_nwset):
+        lq_mask[vap_type[m] - 1] = 1
+
+
+@export
 def zm_convr_post_shell_codon(
     ncol: int,
     pcols: int,

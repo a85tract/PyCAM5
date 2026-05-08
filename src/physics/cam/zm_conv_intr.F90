@@ -95,6 +95,7 @@ module zm_conv_intr
    logical :: zm_wtrc_precip_assign_logged = .false.
    logical :: zm_momtran_prep_logged = .false.
    logical :: zm_convtran1_prep_logged = .false.
+   logical :: zm_ptend_lq_mask_logged = .false.
 
 
 !=========================================================================================
@@ -520,7 +521,7 @@ subroutine zm_conv_tend(pblh    ,mcon    ,cme     , &
    real(r8) :: tfinal1, tfinal2
    integer  :: ii
    integer(c_int64_t), target :: ideep64(pcols), jt64(pcols), maxg64(pcols)
-   integer(c_int64_t), target :: liq_type64(wtrc_nwset), ice_type64(wtrc_nwset)
+   integer(c_int64_t), target :: vap_type64(wtrc_nwset), liq_type64(wtrc_nwset), ice_type64(wtrc_nwset)
    
    real(r8),pointer :: zm_org2d(:,:)
    real(r8),pointer :: orgt(:,:), org(:,:)
@@ -542,16 +543,10 @@ subroutine zm_conv_tend(pblh    ,mcon    ,cme     , &
      isOk = wtrc_check_h2o("before-deep", state1, state1%q, ztodt)
    end if
 
-   lq(:) = .FALSE.
-   lq(1) = .TRUE.
-   if (zmconv_org) then
-      lq(ixorg) = .TRUE.
-   endif
-
-   !water tracers:
    do ii=1,wtrc_nwset
-     lq(wtrc_iatype(ii,iwtvap)) = .TRUE.
+      vap_type64(ii) = int(wtrc_iatype(ii,iwtvap), c_int64_t)
    end do
+   call zm_conv_ptend_lq_mask_shell(pcnst, wtrc_nwset, zmconv_org, ixorg, vap_type64, lq)
 
    call physics_ptend_init(ptend_loc, state%psetcols, 'zm_convr', ls=.true., lq=lq)! initialize local ptend type
 
@@ -680,16 +675,10 @@ end if
 !-----------------------
 
   ! initialize ptend for next process
-  lq(:) = .FALSE.
-  lq(1) = .TRUE.
-  if (zmconv_org) then
-     lq(ixorg) = .TRUE.
-  endif
- 
-  !Water tracers:  
   do ii=1,wtrc_nwset
-    lq(wtrc_iatype(ii,iwtvap)) = .TRUE.
+     vap_type64(ii) = int(wtrc_iatype(ii,iwtvap), c_int64_t)
   end do
+  call zm_conv_ptend_lq_mask_shell(pcnst, wtrc_nwset, zmconv_org, ixorg, vap_type64, lq)
 
   call physics_ptend_init(ptend_loc, state1%psetcols, 'zm_conv_evap', ls=.true., lq=lq)
 
@@ -979,6 +968,68 @@ subroutine zm_conv_workspace_init_shell(ncol_local, ftem_local, mu_out_local, md
         c_loc(ftem_local), c_loc(mu_out_local), c_loc(md_out_local), c_loc(wind_tends_local))
 
 end subroutine zm_conv_workspace_init_shell
+
+!=========================================================================================
+
+subroutine zm_conv_ptend_lq_mask_shell(pcnst_local, wtrc_nwset_local, zmconv_org_local, ixorg_local, &
+     vap_type64_local, lq_local)
+
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+   integer, intent(in) :: pcnst_local, wtrc_nwset_local, ixorg_local
+   logical, intent(in) :: zmconv_org_local
+   integer(c_int64_t), target, intent(in) :: vap_type64_local(wtrc_nwset_local)
+   logical, intent(out) :: lq_local(pcnst_local)
+
+   integer :: m
+   integer(c_int64_t) :: org_enabled_c
+   integer(c_int64_t), target :: lq_mask_c(pcnst_local)
+
+   interface
+      subroutine zm_conv_ptend_lq_mask_shell_codon(pcnst_c, wtrc_nwset_c, org_enabled_c, ixorg_c, &
+           vap_type_p, lq_mask_p) bind(c, name="zm_conv_ptend_lq_mask_shell_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: pcnst_c, wtrc_nwset_c, org_enabled_c, ixorg_c
+         type(c_ptr), value :: vap_type_p, lq_mask_p
+      end subroutine zm_conv_ptend_lq_mask_shell_codon
+   end interface
+
+   call zm_conv_select_post_shell_impl()
+
+   if (use_native_zm_post_shell) then
+      lq_local(:) = .FALSE.
+      lq_local(1) = .TRUE.
+      if (zmconv_org_local) then
+         lq_local(ixorg_local) = .TRUE.
+      end if
+      do m = 1, wtrc_nwset_local
+         lq_local(int(vap_type64_local(m))) = .TRUE.
+      end do
+      return
+   end if
+
+   if (masterproc .and. .not. zm_ptend_lq_mask_logged) then
+      write(iulog,*) 'zm_conv ptend lq mask shell entered (zm_convr/evap vapor mask direct = codon)'
+      call zm_conv_append_post_shell_proof( &
+           'zm_conv ptend lq mask shell entered (zm_convr/evap vapor mask direct = codon)')
+      call flush(iulog)
+      zm_ptend_lq_mask_logged = .true.
+   end if
+
+   if (zmconv_org_local) then
+      org_enabled_c = 1_c_int64_t
+   else
+      org_enabled_c = 0_c_int64_t
+   end if
+
+   call zm_conv_ptend_lq_mask_shell_codon(int(pcnst_local, c_int64_t), int(wtrc_nwset_local, c_int64_t), &
+        org_enabled_c, int(ixorg_local, c_int64_t), c_loc(vap_type64_local), c_loc(lq_mask_c))
+
+   do m = 1, pcnst_local
+      lq_local(m) = lq_mask_c(m) /= 0_c_int64_t
+   end do
+
+end subroutine zm_conv_ptend_lq_mask_shell
 
 !=========================================================================================
 
