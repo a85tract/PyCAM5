@@ -3133,7 +3133,7 @@ contains
 
     use modal_aero_data, only : qqcw_fill_cptrs
     use physics_buffer, only : physics_buffer_desc
-    use iso_c_binding, only : c_int64_t, c_loc, c_ptr, c_associated
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr, c_associated, c_null_ptr
 
     integer, intent(in) :: lchnk, ncol, im
     real(r8), target, intent(in) :: mbar(ncol,pver)
@@ -3148,13 +3148,15 @@ contains
     character(len=160) :: proof_line
 
     interface
-       subroutine aero_model_gasaerexch_load_snapshot_codon(ncol_c, pcols_c, pver_c, gas_pcnst_c, qqcw_offset_c, mbar_ld1_c, &
-            qqcw_ptrs_p, qqcw_present_p, mbar_p, adv_mass_p, vmr_p, vmrcw_p, dvmrdt_p, dvmrcwdt_p) &
-            bind(c, name="aero_model_gasaerexch_load_snapshot_codon")
-         use iso_c_binding, only : c_int64_t, c_ptr
-         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, gas_pcnst_c, qqcw_offset_c, mbar_ld1_c
-         type(c_ptr), value :: qqcw_ptrs_p, qqcw_present_p, mbar_p, adv_mass_p, vmr_p, vmrcw_p, dvmrdt_p, dvmrcwdt_p
-       end subroutine aero_model_gasaerexch_load_snapshot_codon
+       subroutine aero_model_gasaerexch_preset_load_stage_codon(stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, &
+            qqcw_offset_c, mbar_ld1_c, delt_c, gravit_c, qqcw_ptrs_p, qqcw_present_p, vmr0_p, vmr_p, vmrcw_p, &
+            dvmrdt_p, dvmrcwdt_p, mbar_p, pdel_p, adv_mass_p, wrk_p) bind(c, name="aero_model_gasaerexch_preset_load_stage_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, qqcw_offset_c, mbar_ld1_c
+         real(c_double), value :: delt_c, gravit_c
+         type(c_ptr), value :: qqcw_ptrs_p, qqcw_present_p, vmr0_p, vmr_p, vmrcw_p, dvmrdt_p, dvmrcwdt_p
+         type(c_ptr), value :: mbar_p, pdel_p, adv_mass_p, wrk_p
+       end subroutine aero_model_gasaerexch_preset_load_stage_codon
     end interface
 
     call qqcw_fill_cptrs(pbuf, qqcw_ptrs)
@@ -3167,18 +3169,18 @@ contains
     end do
 
     if (masterproc .and. .not. aero_model_gasaerexch_load_snapshot_proof_written) then
-       proof_line = 'aero_model_gasaerexch load snapshot entered (qqcw load/dvmr snapshots direct = codon)'
+       proof_line = 'aero_model_gasaerexch preset/load stage shell entered (load snapshot: qqcw load/dvmr snapshots direct = codon)'
        write(iulog,'(A)') trim(proof_line)
        call aero_model_gasaerexch_append_impl_proof('AERO_MODEL_GASAEREXCH_PROOF_FILE', trim(proof_line))
        aero_model_gasaerexch_load_snapshot_proof_written = .true.
        call flush(iulog)
     end if
 
-    call aero_model_gasaerexch_load_snapshot_codon( &
-         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-         int(gas_pcnst, c_int64_t), int(im, c_int64_t), int(ncol, c_int64_t), c_loc(qqcw_ptrs(1)), c_loc(qqcw_present(1)), &
-         c_loc(mbar(1,1)), c_loc(adv_mass(1)), c_loc(vmr(1,1,1)), c_loc(vmrcw(1,1,1)), &
-         c_loc(dvmrdt(1,1,1)), c_loc(dvmrcwdt(1,1,1)) &
+    call aero_model_gasaerexch_preset_load_stage_codon( &
+         2_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(gas_pcnst, c_int64_t), int(im, c_int64_t), int(ncol, c_int64_t), 0.0_c_double, real(gravit, c_double), &
+         c_loc(qqcw_ptrs(1)), c_loc(qqcw_present(1)), c_null_ptr, c_loc(vmr(1,1,1)), c_loc(vmrcw(1,1,1)), &
+         c_loc(dvmrdt(1,1,1)), c_loc(dvmrcwdt(1,1,1)), c_loc(mbar(1,1)), c_null_ptr, c_loc(adv_mass(1)), c_null_ptr &
     )
 
   end subroutine aero_model_gasaerexch_load_vmrcw_codon
@@ -3187,7 +3189,7 @@ contains
   !=============================================================================
   subroutine aero_model_gasaerexch_presetsox_codon(vmr0, vmr, dvmrdt, mbar, pdel, ncol, delt, wrk)
 
-    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr, c_null_ptr
 
     integer, intent(in) :: ncol
     real(r8), intent(in) :: delt
@@ -3199,27 +3201,30 @@ contains
     character(len=160) :: proof_line
 
     interface
-       subroutine aero_model_gasaerexch_presetsox_shell_codon(ncol_c, pcols_c, pver_c, gas_pcnst_c, delt_c, gravit_c, &
-            vmr0_p, vmr_p, dvmrdt_p, mbar_p, pdel_p, adv_mass_p, wrk_p) bind(c, name="aero_model_gasaerexch_presetsox_shell_codon")
+       subroutine aero_model_gasaerexch_preset_load_stage_codon(stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, &
+            qqcw_offset_c, mbar_ld1_c, delt_c, gravit_c, qqcw_ptrs_p, qqcw_present_p, vmr0_p, vmr_p, vmrcw_p, &
+            dvmrdt_p, dvmrcwdt_p, mbar_p, pdel_p, adv_mass_p, wrk_p) bind(c, name="aero_model_gasaerexch_preset_load_stage_codon")
          use iso_c_binding, only : c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, gas_pcnst_c
+         integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, qqcw_offset_c, mbar_ld1_c
          real(c_double), value :: delt_c, gravit_c
-         type(c_ptr), value :: vmr0_p, vmr_p, dvmrdt_p, mbar_p, pdel_p, adv_mass_p, wrk_p
-       end subroutine aero_model_gasaerexch_presetsox_shell_codon
+         type(c_ptr), value :: qqcw_ptrs_p, qqcw_present_p, vmr0_p, vmr_p, vmrcw_p, dvmrdt_p, dvmrcwdt_p
+         type(c_ptr), value :: mbar_p, pdel_p, adv_mass_p, wrk_p
+       end subroutine aero_model_gasaerexch_preset_load_stage_codon
     end interface
 
     if (masterproc .and. .not. aero_model_gasaerexch_presetsox_proof_written) then
-       proof_line = 'aero_model_gasaerexch presetsox shell entered (gas tendency/column flux direct = codon)'
+       proof_line = 'aero_model_gasaerexch preset/load stage shell entered (presetsox: gas tendency/column flux direct = codon)'
        write(iulog,'(A)') trim(proof_line)
        call aero_model_gasaerexch_append_impl_proof('AERO_MODEL_GASAEREXCH_PROOF_FILE', trim(proof_line))
        aero_model_gasaerexch_presetsox_proof_written = .true.
        call flush(iulog)
     end if
 
-    call aero_model_gasaerexch_presetsox_shell_codon( &
-         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), &
-         real(delt, c_double), real(gravit, c_double), c_loc(vmr0(1,1,1)), c_loc(vmr(1,1,1)), c_loc(dvmrdt(1,1,1)), &
-         c_loc(mbar(1,1)), c_loc(pdel(1,1)), c_loc(adv_mass(1)), c_loc(wrk(1,1)) &
+    call aero_model_gasaerexch_preset_load_stage_codon( &
+         1_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(gas_pcnst, c_int64_t), 0_c_int64_t, int(pcols, c_int64_t), real(delt, c_double), real(gravit, c_double), &
+         c_null_ptr, c_null_ptr, c_loc(vmr0(1,1,1)), c_loc(vmr(1,1,1)), c_null_ptr, c_loc(dvmrdt(1,1,1)), &
+         c_null_ptr, c_loc(mbar(1,1)), c_loc(pdel(1,1)), c_loc(adv_mass(1)), c_loc(wrk(1,1)) &
     )
 
   end subroutine aero_model_gasaerexch_presetsox_codon

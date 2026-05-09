@@ -2289,6 +2289,52 @@ def aero_model_gasaerexch_load_snapshot_codon(
     )
 
 @export
+def aero_model_gasaerexch_preset_load_stage_codon(
+    stage: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    qqcw_offset: int,
+    mbar_ld1: int,
+    delt: float,
+    gravit: float,
+    qqcw_ptrs_p: cobj,
+    qqcw_present_p: cobj,
+    vmr0_p: cobj,
+    vmr_p: cobj,
+    vmrcw_p: cobj,
+    dvmrdt_p: cobj,
+    dvmrcwdt_p: cobj,
+    mbar_p: cobj,
+    pdel_p: cobj,
+    adv_mass_p: cobj,
+    wrk_p: cobj,
+):
+    return _aero_bridge.aero_model_gasaerexch_preset_load_stage_codon(
+        stage,
+        ncol,
+        pcols,
+        pver,
+        gas_pcnst,
+        qqcw_offset,
+        mbar_ld1,
+        delt,
+        gravit,
+        qqcw_ptrs_p,
+        qqcw_present_p,
+        vmr0_p,
+        vmr_p,
+        vmrcw_p,
+        dvmrdt_p,
+        dvmrcwdt_p,
+        mbar_p,
+        pdel_p,
+        adv_mass_p,
+        wrk_p,
+    )
+
+@export
 def neu_wetdep_aux_prepare_codon(
     ncol: int,
     pcols: int,

@@ -396,3 +396,49 @@ def aero_model_gasaerexch_load_snapshot_codon(
         1, ncol, pcols, pver, gas_pcnst, qqcw_offset, mbar_ld1, qqcw_ptrs, qqcw_present, mbar, adv_mass, vmrcw
     )
     _aero_model_gasaerexch_snapshot_state(ncol, pver, gas_pcnst, vmr, vmrcw, dvmrdt, dvmrcwdt)
+
+def aero_model_gasaerexch_preset_load_stage_codon(
+    stage: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    qqcw_offset: int,
+    mbar_ld1: int,
+    delt: float,
+    gravit: float,
+    qqcw_ptrs_p: cobj,
+    qqcw_present_p: cobj,
+    vmr0_p: cobj,
+    vmr_p: cobj,
+    vmrcw_p: cobj,
+    dvmrdt_p: cobj,
+    dvmrcwdt_p: cobj,
+    mbar_p: cobj,
+    pdel_p: cobj,
+    adv_mass_p: cobj,
+    wrk_p: cobj,
+):
+    if stage == 1:
+        aero_model_gasaerexch_presetsox_shell_codon(
+            ncol, pcols, pver, gas_pcnst, delt, gravit, vmr0_p, vmr_p, dvmrdt_p, mbar_p, pdel_p, adv_mass_p, wrk_p
+        )
+        return
+
+    if stage == 2:
+        aero_model_gasaerexch_load_snapshot_codon(
+            ncol,
+            pcols,
+            pver,
+            gas_pcnst,
+            qqcw_offset,
+            mbar_ld1,
+            qqcw_ptrs_p,
+            qqcw_present_p,
+            mbar_p,
+            adv_mass_p,
+            vmr_p,
+            vmrcw_p,
+            dvmrdt_p,
+            dvmrcwdt_p,
+        )
