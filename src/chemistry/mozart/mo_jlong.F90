@@ -104,6 +104,7 @@
       logical :: jlong_prep_batch_use_native_impl = .false.
       logical :: jlong_prep_batch_impl_selected = .false.
       logical :: jlong_prep_batch_entered_logged = .false.
+      logical :: jlong_prep_batch_timestep_logged = .false.
 
       interface
          subroutine jlong_prep_batch_codon(stage_c, data_nw_c, nw_c, phtcnt_c, np_xs_c, nump_c, numsza_c, &
@@ -190,9 +191,11 @@
       jlong_prep_batch_entered_logged = .true.
 
       if (masterproc) then
-         write(iulog,'(A)') 'jlong_prep_batch entered (solar/xsqy/dprs/rsf scale/postread batch dispatcher direct = codon)'
+         write(iulog,'(A)') 'jlong_prep_batch entered ' // &
+              '(solar/xsqy/dprs/rsf scale/postread/timestep batch dispatcher direct = codon)'
          call jlong_prep_batch_append_proof( &
-              'jlong_prep_batch entered (solar/xsqy/dprs/rsf scale/postread batch dispatcher direct = codon)')
+              'jlong_prep_batch entered ' // &
+              '(solar/xsqy/dprs/rsf scale/postread/timestep batch dispatcher direct = codon)')
          call flush(iulog)
       end if
 
@@ -1459,7 +1462,7 @@
 
       use time_manager,   only : is_end_curr_day
       use mo_util,        only : rebin
-      use iso_c_binding,  only : c_int64_t, c_loc, c_ptr
+      use iso_c_binding,  only : c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
       use solar_data,  only : data_nw => nbins, data_we => we, data_etf => sol_etf
 
@@ -1477,10 +1480,30 @@
       call jlong_timestep_init_select_impl()
 
       if (.not. jlong_timestep_init_use_native_impl) then
-         call jlong_timestep_init_codon( &
-              merge(1_c_int64_t, 0_c_int64_t, jlong_used), int(data_nw, c_int64_t), int(nw, c_int64_t), &
-              c_loc(data_we), c_loc(we), c_loc(data_etf), c_loc(etfphot) &
-         )
+         call jlong_prep_batch_select_impl()
+         if (jlong_prep_batch_use_native_impl) then
+            call jlong_timestep_init_codon( &
+                 merge(1_c_int64_t, 0_c_int64_t, jlong_used), int(data_nw, c_int64_t), int(nw, c_int64_t), &
+                 c_loc(data_we), c_loc(we), c_loc(data_etf), c_loc(etfphot) &
+            )
+         else if (jlong_used) then
+            call jlong_prep_batch_log_entered()
+            call jlong_prep_batch_codon( &
+                 6_c_int64_t, int(data_nw, c_int64_t), int(nw, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
+                 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+                 0.0_c_double, 0.0_c_double, 0.0_c_double, 0.0_c_double, c_loc(data_we), c_null_ptr, &
+                 c_null_ptr, c_loc(we), c_loc(data_etf), c_loc(etfphot), c_null_ptr, c_null_ptr, c_null_ptr, &
+                 c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+                 c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr &
+            )
+            if (masterproc .and. .not. jlong_prep_batch_timestep_logged) then
+               write(iulog,'(A)') 'jlong_prep_batch timestep entered (daily etfphot rebin direct = codon)'
+               call jlong_prep_batch_append_proof( &
+                    'jlong_prep_batch timestep entered (daily etfphot rebin direct = codon)')
+               jlong_prep_batch_timestep_logged = .true.
+               call flush(iulog)
+            end if
+         end if
          return
       end if
 

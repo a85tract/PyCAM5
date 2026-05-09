@@ -514,6 +514,8 @@ def jlong_prep_batch_codon(
             del_alb_p,
             del_o3rat_p,
         )
+    elif stage == 6:
+        jlong_timestep_init_codon(1, data_nw, nw, data_we_p, we_p, data_etf_p, etfphot_p)
 
 
 def zenith_codon(
