@@ -671,23 +671,26 @@ contains
     real(r8), pointer :: wetdens(:,:,:)
     real(r8), pointer :: qaerwat(:,:,:)
     logical  :: apply_srf_drydep_local
+    integer(c_int64_t), target :: branch_mask_c
 
     interface
-       subroutine aero_model_drydep_prepare_shell_codon(ncol_c, pcols_c, pver_c, pcnst_c, rair_c, rhoh2o_c, &
-            state_t_p, state_pmid_p, rho_p, rad_drop_p, dens_drop_p, sg_drop_p, aerdepdryis_p, aerdepdrycw_p) &
-            bind(c, name="aero_model_drydep_prepare_shell_codon")
+       subroutine aero_model_drydep_init_shell_codon(apply_srf_drydep_c, branch_mask_p, &
+            ncol_c, pcols_c, pver_c, pcnst_c, rair_c, rhoh2o_c, state_t_p, state_pmid_p, &
+            rho_p, rad_drop_p, dens_drop_p, sg_drop_p, aerdepdryis_p, aerdepdrycw_p) &
+            bind(c, name="aero_model_drydep_init_shell_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: apply_srf_drydep_c
+         type(c_ptr), value :: branch_mask_p
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c
          real(c_double), value :: rair_c, rhoh2o_c
          type(c_ptr), value :: state_t_p, state_pmid_p, rho_p, rad_drop_p, dens_drop_p, sg_drop_p
          type(c_ptr), value :: aerdepdryis_p, aerdepdrycw_p
-       end subroutine aero_model_drydep_prepare_shell_codon
+       end subroutine aero_model_drydep_init_shell_codon
     end interface
 
     call aero_model_drydep_select_impl()
     if (.not. aero_model_drydep_use_native_impl) then
-       call aero_model_drydep_select_branches(.not. aerodep_flx_prescribed())
-       apply_srf_drydep_local = iand(aero_model_drydep_branch_mask, 1) /= 0
+       apply_srf_drydep_local = .false.
     else
        apply_srf_drydep_local = .not. aerodep_flx_prescribed()
     end if
@@ -719,15 +722,19 @@ contains
     call pbuf_get_field(pbuf, qaerwat_idx,    qaerwat,     start=(/1,1,1/), kount=(/pcols,pver,nmodes/) ) 
 
     if (.not. aero_model_drydep_use_native_impl) then
-       call aero_model_drydep_prepare_shell_codon( &
+       call aero_model_drydep_init_shell_codon( &
+            merge(1_c_int64_t, 0_c_int64_t, .not. aerodep_flx_prescribed()), c_loc(branch_mask_c), &
             int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
             real(rair, c_double), real(rhoh2o, c_double), c_loc(state%t), c_loc(state%pmid), c_loc(rho), &
             c_loc(rad_drop), c_loc(dens_drop), c_loc(sg_drop), c_loc(aerdepdryis), c_loc(aerdepdrycw) &
        )
+       aero_model_drydep_branch_mask = int(branch_mask_c)
+       aero_model_drydep_branch_selected = .true.
+       apply_srf_drydep_local = iand(aero_model_drydep_branch_mask, 1) /= 0
        if (masterproc .and. .not. aero_model_drydep_prepare_shell_proof_written) then
-          write(iulog,'(A)') 'aero_model_drydep prepare shell entered (rho/drop/aerdep work arrays direct = codon)'
+          write(iulog,'(A)') 'aero_model_drydep init shell entered (branch select/rho/drop/aerdep work arrays direct = codon)'
           call aero_model_drydep_append_impl_proof('AERO_MODEL_DRYDEP_PROOF_FILE', &
-               'aero_model_drydep prepare shell entered (rho/drop/aerdep work arrays direct = codon)')
+               'aero_model_drydep init shell entered (branch select/rho/drop/aerdep work arrays direct = codon)')
           aero_model_drydep_prepare_shell_proof_written = .true.
           call flush(iulog)
        end if

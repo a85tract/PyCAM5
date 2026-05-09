@@ -2753,6 +2753,44 @@ def aero_model_drydep_prepare_shell_codon(
             aerdepdrycw[_idx2(i, m, pcols)] = 0.0
 
 
+@export
+def aero_model_drydep_init_shell_codon(
+    apply_srf_drydep: int,
+    branch_mask_p: cobj,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    rair: float,
+    rhoh2o: float,
+    state_t_p: cobj,
+    state_pmid_p: cobj,
+    rho_p: cobj,
+    rad_drop_p: cobj,
+    dens_drop_p: cobj,
+    sg_drop_p: cobj,
+    aerdepdryis_p: cobj,
+    aerdepdrycw_p: cobj,
+):
+    aero_model_drydep_select_branches_codon(apply_srf_drydep, branch_mask_p)
+    aero_model_drydep_prepare_shell_codon(
+        ncol,
+        pcols,
+        pver,
+        pcnst,
+        rair,
+        rhoh2o,
+        state_t_p,
+        state_pmid_p,
+        rho_p,
+        rad_drop_p,
+        dens_drop_p,
+        sg_drop_p,
+        aerdepdryis_p,
+        aerdepdrycw_p,
+    )
+
+
 def _dust_cfint2(
     ncol: int,
     pcols: int,
