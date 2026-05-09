@@ -116,6 +116,7 @@ logical :: cam_diag_conv_batch_use_native_impl = .false.
 logical :: cam_diag_conv_batch_impl_selected = .false.
 logical :: cam_diag_conv_tend_ini_entered_logged = .false.
 logical :: cam_diag_conv_entered_logged = .false.
+logical :: cam_diag_conv_precip_dtcond_entered_logged = .false.
 
 contains
 
@@ -835,6 +836,21 @@ subroutine cam_diag_conv_batch_log_diag_conv_entered()
    end if
 
 end subroutine cam_diag_conv_batch_log_diag_conv_entered
+
+!===============================================================================
+
+subroutine cam_diag_conv_batch_log_precip_dtcond_entered()
+
+   if (cam_diag_conv_precip_dtcond_entered_logged) return
+   cam_diag_conv_precip_dtcond_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'cam_diag_conv_batch entered (precip totals + dtcond direct = codon)'
+      call cam_diag_conv_batch_append_proof('cam_diag_conv_batch entered (precip totals + dtcond direct = codon)')
+      call flush(iulog)
+   end if
+
+end subroutine cam_diag_conv_batch_log_precip_dtcond_entered
 
 !===============================================================================
 
@@ -2143,6 +2159,17 @@ subroutine diag_conv(state, ztodt, pbuf)
          type(c_ptr), value :: a_p, b_p, c_p, d_p, e_p, f_p, g_p, h_p
          type(c_ptr), value :: out1_p, out2_p, out3_p, out4_p, out5_p
       end subroutine diag_conv_update_batch_codon
+      subroutine diag_conv_precip_dtcond_batch_codon(ncol_c, pcols_c, pver_c, pcnst_c, rtdt_c, cpair_c, &
+           prec_dp_p, snow_dp_p, prec_sh_p, snow_sh_p, prec_sed_p, snow_sed_p, prec_pcw_p, snow_pcw_p, &
+           precc_p, precl_p, snowc_p, snowl_p, prect_p, state_s_p, dtcond_p) &
+           bind(c, name="diag_conv_precip_dtcond_batch_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c
+         real(c_double), value :: rtdt_c, cpair_c
+         type(c_ptr), value :: prec_dp_p, snow_dp_p, prec_sh_p, snow_sh_p
+         type(c_ptr), value :: prec_sed_p, snow_sed_p, prec_pcw_p, snow_pcw_p
+         type(c_ptr), value :: precc_p, precl_p, snowc_p, snowl_p, prect_p, state_s_p, dtcond_p
+      end subroutine diag_conv_precip_dtcond_batch_codon
    end interface
 
    lchnk = state%lchnk
@@ -2170,12 +2197,14 @@ subroutine diag_conv(state, ztodt, pbuf)
       prect(:ncol) = precc(:ncol)    + precl(:ncol)
    else
       call cam_diag_conv_batch_log_diag_conv_entered()
-      call diag_conv_update_batch_codon( &
-           1_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-           int(pcnst, c_int64_t), 0_c_int64_t, 0._c_double, 0._c_double, &
+      call cam_diag_conv_batch_log_precip_dtcond_entered()
+      call diag_conv_precip_dtcond_batch_codon( &
+           int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+           real(rtdt, c_double), real(cpair, c_double), &
            c_loc(prec_dp), c_loc(snow_dp), c_loc(prec_sh), c_loc(snow_sh), &
            c_loc(prec_sed), c_loc(snow_sed), c_loc(prec_pcw), c_loc(snow_pcw), &
-           c_loc(precc), c_loc(precl), c_loc(snowc), c_loc(snowl), c_loc(prect) &
+           c_loc(precc), c_loc(precl), c_loc(snowc), c_loc(snowl), c_loc(prect), &
+           c_loc(state%s), c_loc(dtcond(1,1,lchnk)) &
       )
    end if
 
@@ -2236,15 +2265,6 @@ subroutine diag_conv(state, ztodt, pbuf)
             dtcond(i,k,lchnk) = (state%s(i,k) - dtcond(i,k,lchnk))*rtdt / cpair
          end do
       end do
-   else
-      call diag_conv_update_batch_codon( &
-           3_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-           int(pcnst, c_int64_t), 0_c_int64_t, real(rtdt, c_double), real(cpair, c_double), &
-           c_loc(state%s), c_loc(state%s), c_loc(state%s), c_loc(state%s), &
-           c_loc(state%s), c_loc(state%s), c_loc(state%s), c_loc(state%s), &
-           c_loc(dtcond(1,1,lchnk)), c_loc(dtcond(1,1,lchnk)), c_loc(dtcond(1,1,lchnk)), &
-           c_loc(dtcond(1,1,lchnk)), c_loc(dtcond(1,1,lchnk)) &
-      )
    end if
    call outfld('DTCOND  ', dtcond(:,:,lchnk), pcols, lchnk)
 
