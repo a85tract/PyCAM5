@@ -1213,6 +1213,38 @@ def gas_phase_chemdr_compute_tvs_codon(
     for i in range(1, ncol + 1):
         tvs[i - 1] = tfld[_idx2(i, pver, pcols)] * (1.0 + qh2o[_idx2(i, pver, pcols)])
 
+def _gas_phase_chemdr_shell_final_surface_prep(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    pcnst: int,
+    delt_inverse: float,
+    map2chm_p: cobj,
+    mmr_p: cobj,
+    mmr_tend_p: cobj,
+    mmr_new_p: cobj,
+    qtend_p: cobj,
+    tfld_p: cobj,
+    qh2o_p: cobj,
+    tvs_p: cobj,
+    sflx_p: cobj,
+    ufld_p: cobj,
+    vfld_p: cobj,
+    wind_speed_p: cobj,
+    precc_p: cobj,
+    precl_p: cobj,
+    prect_p: cobj,
+):
+    gas_phase_chemdr_finalize_tendencies_codon(
+        ncol, pcols, pver, gas_pcnst, pcnst, delt_inverse, map2chm_p, mmr_p, mmr_tend_p, mmr_new_p,
+        qtend_p
+    )
+    gas_phase_chemdr_compute_tvs_codon(ncol, pcols, pver, tfld_p, qh2o_p, tvs_p)
+    gas_phase_chemdr_zero_sflx_codon(pcols, gas_pcnst, sflx_p)
+    gas_phase_chemdr_compute_wind_speed_codon(ncol, pcols, pver, ufld_p, vfld_p, wind_speed_p)
+    gas_phase_chemdr_compute_prect_codon(ncol, pcols, precc_p, precl_p, prect_p)
+
 def gas_phase_chemdr_surface_diag_codon(
     ncol: int,
     pcols: int,
@@ -1898,6 +1930,12 @@ def gas_phase_chemdr_shell_codon(
     elif stage == 32:
         setrxt_codon(ncol, pcols, pver, tfld_p, reaction_rates_p)
         gas_phase_chemdr_zero_sulfate_codon(ncol, pver, sulfate_p)
+    elif stage == 33:
+        _gas_phase_chemdr_shell_final_surface_prep(
+            ncol, pcols, pver, gas_pcnst, pcnst, delt_inverse, map2chm_p, mmr_p, mmr_tend_p, mmr_new_p,
+            qtend_p, tfld_p, qh2o_p, tvs_p, sflx_p, ufld_p, vfld_p, wind_speed_p, precc_p, precl_p,
+            prect_p
+        )
 
 def set_xnox_photo_codon(
     ncol: int,

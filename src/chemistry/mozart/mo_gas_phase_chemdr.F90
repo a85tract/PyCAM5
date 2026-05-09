@@ -56,6 +56,7 @@ module mo_gas_phase_chemdr
   logical :: gas_phase_chemdr_rxn_sulfate_prep_proof_written = .false.
   logical :: gas_phase_chemdr_wetdep_presolve_proof_written = .false.
   logical :: gas_phase_chemdr_surface_diag_proof_written = .false.
+  logical :: gas_phase_chemdr_final_surface_prep_proof_written = .false.
 
   integer, parameter :: gas_phase_chemdr_shell_stage_prepare_sza = 1
   integer, parameter :: gas_phase_chemdr_shell_stage_prepare_state_load_mmr = 2
@@ -89,6 +90,7 @@ module mo_gas_phase_chemdr
   integer, parameter :: gas_phase_chemdr_shell_stage_vmr2mmr = 30
   integer, parameter :: gas_phase_chemdr_shell_stage_wetdep_presolve = 31
   integer, parameter :: gas_phase_chemdr_shell_stage_rxn_sulfate_prep = 32
+  integer, parameter :: gas_phase_chemdr_shell_stage_final_surface_prep = 33
 
 contains
 
@@ -1093,9 +1095,15 @@ contains
     !         ... Form the tendencies
     !----------------------------------------------------------------------- 
     if (gas_phase_chemdr_use_codon_shell_impl) then
-       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_final_tendencies, ncol, &
+       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_final_surface_prep, ncol, &
             delt_inverse_in=delt_inverse, mmr=mmr, mmr_tend=mmr_tend, mmr_new=mmr_new, qtend=qtend, &
-            tfld=tfld, qh2o=qh2o, tvs=tvs, sflx=sflx)
+            tfld=tfld, qh2o=qh2o, tvs=tvs, sflx=sflx, &
+            ufld=ufld, vfld=vfld, wind_speed=wind_speed, precc=precc, precl=precl, prect=prect)
+       if (masterproc .and. .not. gas_phase_chemdr_final_surface_prep_proof_written) then
+          call gas_phase_chemdr_shell_write_proof_line( &
+               'gas_phase_chemdr final/surface prep shell entered (tendencies/tvs/sflx/wind/prect direct = codon)')
+          gas_phase_chemdr_final_surface_prep_proof_written = .true.
+       end if
     else
        call gas_phase_chemdr_finalize_tendencies(ncol, delt_inverse, mmr, mmr_tend, mmr_new, qtend)
 
@@ -1105,10 +1113,7 @@ contains
     end if
     call get_ref_date(yr, mon, day, sec)
     ncdate = yr*10000 + mon*100 + day
-    if (gas_phase_chemdr_use_codon_shell_impl) then
-       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_surface_prep, ncol, &
-            ufld=ufld, vfld=vfld, wind_speed=wind_speed, precc=precc, precl=precl, prect=prect)
-    else
+    if (.not. gas_phase_chemdr_use_codon_shell_impl) then
        call gas_phase_chemdr_compute_wind_speed(ncol, ufld, vfld, wind_speed)
        call gas_phase_chemdr_compute_prect(ncol, precc, precl, prect)
     end if
