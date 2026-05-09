@@ -442,6 +442,80 @@ def jlong_prep_get_rsf_postread_batch_codon(
     )
 
 
+def jlong_prep_batch_codon(
+    stage: int,
+    data_nw: int,
+    nw: int,
+    phtcnt: int,
+    np_xs: int,
+    nump: int,
+    numsza: int,
+    numalb: int,
+    numcolo3: int,
+    use_bde_flag: int,
+    hc_val: float,
+    wc_o2_b_val: float,
+    wc_o3_a_val: float,
+    wc_o3_b_val: float,
+    data_we_p: cobj,
+    wc_p: cobj,
+    wlintv_p: cobj,
+    we_p: cobj,
+    data_etf_p: cobj,
+    etfphot_p: cobj,
+    lng_indexer_p: cobj,
+    numj_p: cobj,
+    read_varids_p: cobj,
+    prs_p: cobj,
+    dprs_p: cobj,
+    rsf_tab_p: cobj,
+    p_p: cobj,
+    sza_p: cobj,
+    alb_p: cobj,
+    o3rat_p: cobj,
+    bde_o2_b_p: cobj,
+    bde_o3_a_p: cobj,
+    bde_o3_b_p: cobj,
+    del_p_p: cobj,
+    del_sza_p: cobj,
+    del_alb_p: cobj,
+    del_o3rat_p: cobj,
+):
+    if stage == 1:
+        jlong_prep_init_solar_batch_codon(data_nw, nw, data_we_p, wc_p, wlintv_p, we_p, data_etf_p, etfphot_p)
+    elif stage == 2:
+        jlong_prep_get_xsqy_meta_batch_codon(phtcnt, lng_indexer_p, numj_p, read_varids_p)
+    elif stage == 3:
+        jlong_prep_get_xsqy_dprs_codon(np_xs, prs_p, dprs_p)
+    elif stage == 4:
+        jlong_prep_get_rsf_scale_codon(nw, nump, numsza, numcolo3, numalb, wlintv_p, rsf_tab_p)
+    elif stage == 5:
+        jlong_prep_get_rsf_postread_batch_codon(
+            nw,
+            nump,
+            numsza,
+            numalb,
+            numcolo3,
+            use_bde_flag,
+            hc_val,
+            wc_o2_b_val,
+            wc_o3_a_val,
+            wc_o3_b_val,
+            wc_p,
+            p_p,
+            sza_p,
+            alb_p,
+            o3rat_p,
+            bde_o2_b_p,
+            bde_o3_a_p,
+            bde_o3_b_p,
+            del_p_p,
+            del_sza_p,
+            del_alb_p,
+            del_o3rat_p,
+        )
+
+
 def zenith_codon(
     ncol: int,
     calday: float,

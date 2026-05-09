@@ -105,6 +105,23 @@
       logical :: jlong_prep_batch_impl_selected = .false.
       logical :: jlong_prep_batch_entered_logged = .false.
 
+      interface
+         subroutine jlong_prep_batch_codon(stage_c, data_nw_c, nw_c, phtcnt_c, np_xs_c, nump_c, numsza_c, &
+              numalb_c, numcolo3_c, use_bde_flag_c, hc_c, wc_o2_b_c, wc_o3_a_c, wc_o3_b_c, data_we_p, wc_p, &
+              wlintv_p, we_p, data_etf_p, etfphot_p, lng_indexer_p, numj_p, read_varids_p, prs_p, dprs_p, &
+              rsf_tab_p, p_p, sza_p, alb_p, o3rat_p, bde_o2_b_p, bde_o3_a_p, bde_o3_b_p, del_p_p, &
+              del_sza_p, del_alb_p, del_o3rat_p) bind(c, name="jlong_prep_batch_codon")
+            use iso_c_binding, only : c_double, c_int64_t, c_ptr
+            integer(c_int64_t), value :: stage_c, data_nw_c, nw_c, phtcnt_c, np_xs_c, nump_c, numsza_c
+            integer(c_int64_t), value :: numalb_c, numcolo3_c, use_bde_flag_c
+            real(c_double), value :: hc_c, wc_o2_b_c, wc_o3_a_c, wc_o3_b_c
+            type(c_ptr), value :: data_we_p, wc_p, wlintv_p, we_p, data_etf_p, etfphot_p
+            type(c_ptr), value :: lng_indexer_p, numj_p, read_varids_p, prs_p, dprs_p, rsf_tab_p
+            type(c_ptr), value :: p_p, sza_p, alb_p, o3rat_p, bde_o2_b_p, bde_o3_a_p, bde_o3_b_p
+            type(c_ptr), value :: del_p_p, del_sza_p, del_alb_p, del_o3rat_p
+         end subroutine jlong_prep_batch_codon
+      end interface
+
       contains
 
       subroutine jlong_prep_batch_append_proof(proof_line)
@@ -173,8 +190,9 @@
       jlong_prep_batch_entered_logged = .true.
 
       if (masterproc) then
-         write(iulog,'(A)') 'jlong_prep_batch entered (solar/xsqy/dprs/rsf scale/postread direct = codon)'
-         call jlong_prep_batch_append_proof('jlong_prep_batch entered (solar/xsqy/dprs/rsf scale/postread direct = codon)')
+         write(iulog,'(A)') 'jlong_prep_batch entered (solar/xsqy/dprs/rsf scale/postread batch dispatcher direct = codon)'
+         call jlong_prep_batch_append_proof( &
+              'jlong_prep_batch entered (solar/xsqy/dprs/rsf scale/postread batch dispatcher direct = codon)')
          call flush(iulog)
       end if
 
@@ -182,7 +200,7 @@
 
       subroutine jlong_init( xs_long_file, rsf_file, lng_indexer )
 
-      use iso_c_binding, only : c_int64_t, c_loc
+      use iso_c_binding, only : c_double, c_int64_t, c_loc, c_null_ptr
       use ppgrid,         only : pver
       use time_manager,   only : is_end_curr_day
       use mo_util,        only : rebin
@@ -230,9 +248,13 @@
          call rebin( data_nw, nw, data_we, we, data_etf, etfphot )
       else
          call jlong_prep_batch_log_entered()
-         call jlong_prep_init_solar_batch_codon( &
-              int(data_nw, c_int64_t), int(nw, c_int64_t), c_loc(data_we), c_loc(wc), c_loc(wlintv), c_loc(we), &
-              c_loc(data_etf), c_loc(etfphot) &
+         call jlong_prep_batch_codon( &
+              1_c_int64_t, int(data_nw, c_int64_t), int(nw, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
+              0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+              0.0_c_double, 0.0_c_double, 0.0_c_double, 0.0_c_double, c_loc(data_we), c_loc(wc), c_loc(wlintv), &
+              c_loc(we), c_loc(data_etf), c_loc(etfphot), c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+              c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+              c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr &
          )
          if (masterproc) then
             if (.not. jlong_init_solar_batch_proof_written) then
@@ -520,7 +542,7 @@
 
       subroutine jlong_get_xsqy_meta_batch( phtcnt_in, lng_indexer_inout, numj_out, read_varids_out )
 
-      use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+      use iso_c_binding, only : c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
       implicit none
 
@@ -552,8 +574,14 @@
 
       numj_c = 0_c_int64_t
       call jlong_prep_batch_log_entered()
-      call jlong_prep_get_xsqy_meta_batch_codon( int(phtcnt_in, c_int64_t), c_loc(lng_indexer_inout), c_loc(numj_c), &
-           c_loc(read_varids_out) )
+      call jlong_prep_batch_codon( &
+           2_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(phtcnt_in, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
+           0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0_c_double, 0.0_c_double, 0.0_c_double, &
+           0.0_c_double, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+           c_loc(lng_indexer_inout), c_loc(numj_c), c_loc(read_varids_out), c_null_ptr, c_null_ptr, &
+           c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+           c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr &
+      )
       numj_out = int(numj_c)
 
       end subroutine jlong_get_xsqy_meta_batch
@@ -843,7 +871,7 @@
 
       subroutine jlong_get_xsqy_dprs( np_xs_in, prs_in, dprs_out )
 
-      use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+      use iso_c_binding, only : c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
       implicit none
 
@@ -867,7 +895,14 @@
       end if
 
       call jlong_prep_batch_log_entered()
-      call jlong_prep_get_xsqy_dprs_codon( int(np_xs_in, c_int64_t), c_loc(prs_in), c_loc(dprs_out) )
+      call jlong_prep_batch_codon( &
+           3_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(np_xs_in, c_int64_t), 0_c_int64_t, &
+           0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0_c_double, 0.0_c_double, 0.0_c_double, &
+           0.0_c_double, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+           c_null_ptr, c_null_ptr, c_null_ptr, c_loc(prs_in), c_loc(dprs_out), c_null_ptr, c_null_ptr, &
+           c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+           c_null_ptr, c_null_ptr, c_null_ptr &
+      )
 
       end subroutine jlong_get_xsqy_dprs
 
@@ -1089,7 +1124,7 @@
                                                bde_o2_b_out, bde_o3_a_out, bde_o3_b_out, &
                                                del_p_out, del_sza_out, del_alb_out, del_o3rat_out )
 
-      use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+      use iso_c_binding, only : c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
       implicit none
 
@@ -1122,12 +1157,14 @@
       end if
 
       call jlong_prep_batch_log_entered()
-      call jlong_prep_get_rsf_postread_batch_codon( &
-           int(nw_in, c_int64_t), int(nump_in, c_int64_t), int(numsza_in, c_int64_t), int(numalb_in, c_int64_t), &
-           int(numcolo3_in, c_int64_t), int(use_bde_flag_in, c_int64_t), real(hc, c_double), real(wc_o2_b, c_double), &
-           real(wc_o3_a, c_double), real(wc_o3_b, c_double), c_loc(wc_in), c_loc(p_in), c_loc(sza_in), c_loc(alb_in), &
-           c_loc(o3rat_in), c_loc(bde_o2_b_out), c_loc(bde_o3_a_out), c_loc(bde_o3_b_out), c_loc(del_p_out), &
-           c_loc(del_sza_out), c_loc(del_alb_out), c_loc(del_o3rat_out) &
+      call jlong_prep_batch_codon( &
+           5_c_int64_t, 0_c_int64_t, int(nw_in, c_int64_t), 0_c_int64_t, 0_c_int64_t, int(nump_in, c_int64_t), &
+           int(numsza_in, c_int64_t), int(numalb_in, c_int64_t), int(numcolo3_in, c_int64_t), &
+           int(use_bde_flag_in, c_int64_t), real(hc, c_double), real(wc_o2_b, c_double), real(wc_o3_a, c_double), &
+           real(wc_o3_b, c_double), c_null_ptr, c_loc(wc_in), c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+           c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(p_in), c_loc(sza_in), &
+           c_loc(alb_in), c_loc(o3rat_in), c_loc(bde_o2_b_out), c_loc(bde_o3_a_out), c_loc(bde_o3_b_out), &
+           c_loc(del_p_out), c_loc(del_sza_out), c_loc(del_alb_out), c_loc(del_o3rat_out) &
       )
 
       end subroutine jlong_get_rsf_postread_batch
@@ -1171,7 +1208,7 @@
 
       subroutine jlong_get_rsf_scale( nw_in, nump_in, numsza_in, numcolo3_in, numalb_in, wlintv_in, rsf_tab_inout )
 
-      use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+      use iso_c_binding, only : c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
       implicit none
 
@@ -1202,9 +1239,14 @@
       end if
 
       call jlong_prep_batch_log_entered()
-      call jlong_prep_get_rsf_scale_codon( &
-           int(nw_in, c_int64_t), int(nump_in, c_int64_t), int(numsza_in, c_int64_t), int(numcolo3_in, c_int64_t), &
-           int(numalb_in, c_int64_t), c_loc(wlintv_in), c_loc(rsf_tab_inout) &
+      call jlong_prep_batch_codon( &
+           4_c_int64_t, 0_c_int64_t, int(nw_in, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
+           int(nump_in, c_int64_t), int(numsza_in, c_int64_t), int(numalb_in, c_int64_t), &
+           int(numcolo3_in, c_int64_t), 0_c_int64_t, 0.0_c_double, 0.0_c_double, 0.0_c_double, 0.0_c_double, &
+           c_null_ptr, c_null_ptr, c_loc(wlintv_in), c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+           c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(rsf_tab_inout), c_null_ptr, c_null_ptr, &
+           c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+           c_null_ptr, c_null_ptr &
       )
 
       end subroutine jlong_get_rsf_scale
