@@ -227,6 +227,20 @@ def aero_model_gasaerexch_codon(
         _aero_model_gasaerexch_h2so4_save_or_delta(
             ncol, pver, ndx_h2so4, stage3_mode, vmr, del_h2so4_aeruptk
         )
+        return
+
+    if stage == 4:
+        vmrcw = Ptr[float](vmrcw_p)
+        dvmrcwdt = Ptr[float](dvmrcwdt_p)
+        mbar = Ptr[float](mbar_p)
+        pdel = Ptr[float](pdel_p)
+        adv_mass = Ptr[float](adv_mass_p)
+        wrk = Ptr[float](wrk_p)
+        del_h2so4_aeruptk = Ptr[float](del_h2so4_aeruptk_p)
+
+        _aero_model_gasaerexch_aq_tend(ncol, pver, gas_pcnst, delt, vmr, vmrcw, dvmrdt, dvmrcwdt)
+        _aero_model_gasaerexch_all_column_fluxes(ncol, pcols, pver, gas_pcnst, gravit, dvmrdt, mbar, pdel, adv_mass, wrk)
+        _aero_model_gasaerexch_h2so4_save_or_delta(ncol, pver, ndx_h2so4, stage3_mode, vmr, del_h2so4_aeruptk)
 
 def aero_model_gasaerexch_presetsox_shell_codon(
     ncol: int,

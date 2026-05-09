@@ -111,6 +111,7 @@ module aero_model
   logical :: aero_model_gasaerexch_wrap_proof_written = .false.
   logical :: aero_model_gasaerexch_load_snapshot_proof_written = .false.
   logical :: aero_model_gasaerexch_presetsox_proof_written = .false.
+  logical :: aero_model_gasaerexch_aq_save_proof_written = .false.
   logical :: aero_model_gasaerexch_column_flux_use_native_impl = .false.
   logical :: aero_model_gasaerexch_column_flux_impl_selected = .false.
   logical :: aero_model_gasaerexch_h2so4_save_use_native_impl = .false.
@@ -2893,6 +2894,7 @@ contains
     integer :: nstep
     integer, parameter :: gasaerexch_stage3_save = 0
     integer, parameter :: gasaerexch_stage3_delta = 1
+    integer, parameter :: gasaerexch_stage_aq_save = 4
 
     real(r8) :: del_h2so4_aeruptk(ncol,pver)
 
@@ -2998,7 +3000,8 @@ contains
        call aero_model_gasaerexch_aq_tend(ncol, delt, vmr, vmrcw, dvmrdt, dvmrcwdt)
     else
        call aero_model_gasaerexch_codon_wrap( &
-            2, 0, ncol, delt, ndx_h2so4, vmr0, vmr, vmrcw, dvmrdt, dvmrcwdt, mbar, pdel, adv_mass, wrk, del_h2so4_aeruptk )
+            gasaerexch_stage_aq_save, gasaerexch_stage3_save, ncol, delt, ndx_h2so4, vmr0, vmr, vmrcw, dvmrdt, dvmrcwdt, &
+            mbar, pdel, adv_mass, wrk, del_h2so4_aeruptk )
     end if
     do m = 1, gas_pcnst
       if (aero_model_gasaerexch_use_native_impl) then
@@ -3012,9 +3015,6 @@ contains
 
     if (aero_model_gasaerexch_use_native_impl) then
        call aero_model_gasaerexch_h2so4_save(ncol, ndx_h2so4, vmr, del_h2so4_aeruptk)
-    else
-       call aero_model_gasaerexch_codon_wrap( &
-            3, gasaerexch_stage3_save, ncol, delt, ndx_h2so4, vmr0, vmr, vmrcw, dvmrdt, dvmrcwdt, mbar, pdel, adv_mass, wrk, del_h2so4_aeruptk )
     end if
 
     call t_startf('modal_gas-aer_exchng')
@@ -3354,7 +3354,7 @@ contains
        end subroutine aero_model_gasaerexch_codon
     end interface
 
-    if (stage == 2) then
+    if (stage == 2 .or. stage == 4) then
        vmrcw_p = c_loc(vmrcw(1,1,1))
        dvmrcwdt_p = c_loc(dvmrcwdt(1,1,1))
     else
@@ -3362,13 +3362,13 @@ contains
        dvmrcwdt_p = c_null_ptr
     end if
 
-    if (stage <= 2) then
+    if (stage <= 2 .or. stage == 4) then
        wrk_p = c_loc(wrk(1,1))
     else
        wrk_p = c_null_ptr
     end if
 
-    if (stage == 3) then
+    if (stage == 3 .or. stage == 4) then
        del_h2so4_aeruptk_p = c_loc(del_h2so4_aeruptk(1,1))
     else
        del_h2so4_aeruptk_p = c_null_ptr
@@ -3379,6 +3379,14 @@ contains
        write(iulog,'(A)') trim(wrap_proof_line)
        call aero_model_gasaerexch_append_impl_proof('AERO_MODEL_GASAEREXCH_PROOF_FILE', trim(wrap_proof_line))
        aero_model_gasaerexch_wrap_proof_written = .true.
+       call flush(iulog)
+    end if
+
+    if (masterproc .and. stage == 4 .and. .not. aero_model_gasaerexch_aq_save_proof_written) then
+       wrap_proof_line = 'aero_model_gasaerexch aq/save shell entered (aq tendency/column flux/H2SO4 save direct = codon)'
+       write(iulog,'(A)') trim(wrap_proof_line)
+       call aero_model_gasaerexch_append_impl_proof('AERO_MODEL_GASAEREXCH_PROOF_FILE', trim(wrap_proof_line))
+       aero_model_gasaerexch_aq_save_proof_written = .true.
        call flush(iulog)
     end if
 
