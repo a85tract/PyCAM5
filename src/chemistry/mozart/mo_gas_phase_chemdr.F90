@@ -93,6 +93,7 @@ module mo_gas_phase_chemdr
   integer, parameter :: gas_phase_chemdr_shell_stage_rxn_sulfate_prep = 32
   integer, parameter :: gas_phase_chemdr_shell_stage_final_surface_prep = 33
   integer, parameter :: gas_phase_chemdr_shell_stage_mass_h2o_setup = 34
+  integer, parameter :: gas_phase_chemdr_shell_stage_mass_h2o_charge_setup = 35
 
 contains
 
@@ -545,12 +546,18 @@ contains
     !        ... Set atmosphere mean mass
     !-----------------------------------------------------------------------      
     if (gas_phase_chemdr_use_codon_shell_impl) then
-       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_mass_h2o_setup, ncol, &
-            rad2deg_in=rad2deg, pmid=pmid, q=q, mmr=mmr, mbar=mbar, vmr=vmr, qh2o=qh2o, &
-            h2ovmr=h2ovmr, rlats=rlats)
+       if (h2o_ndx > 0) then
+          call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_mass_h2o_charge_setup, ncol, &
+               rad2deg_in=rad2deg, pmid=pmid, q=q, mmr=mmr, mbar=mbar, vmr=vmr, qh2o=qh2o, &
+               h2ovmr=h2ovmr, rlats=rlats, wrk=wrk)
+       else
+          call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_mass_h2o_setup, ncol, &
+               rad2deg_in=rad2deg, pmid=pmid, q=q, mmr=mmr, mbar=mbar, vmr=vmr, qh2o=qh2o, &
+               h2ovmr=h2ovmr, rlats=rlats)
+       end if
        if (masterproc .and. .not. gas_phase_chemdr_mass_h2o_setup_proof_written) then
           call gas_phase_chemdr_shell_write_proof_line( &
-               'gas_phase_chemdr mass/H2O setup shell entered (mbar/vmr/ST80/AOA/H2O direct = codon)')
+               'gas_phase_chemdr mass/H2O/charge setup shell entered (mbar/vmr/ST80/AOA/H2O/charge direct = codon)')
           gas_phase_chemdr_mass_h2o_setup_proof_written = .true.
        end if
     else
@@ -609,7 +616,9 @@ contains
     !        ... force ion/electron balance
     !-----------------------------------------------------------------------      
     if (gas_phase_chemdr_use_codon_shell_impl) then
-       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_charge_balance, ncol, vmr=vmr, wrk=wrk)
+       if (h2o_ndx <= 0) then
+          call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_charge_balance, ncol, vmr=vmr, wrk=wrk)
+       end if
     else
        call charge_balance( ncol, vmr )
     end if

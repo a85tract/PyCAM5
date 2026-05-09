@@ -1691,6 +1691,52 @@ def _gas_phase_chemdr_shell_mass_h2o_setup(
         _gas_phase_chemdr_shell_h2o_from_q(ncol, pcols, pver, adv_mass_h2o, q_p, mbar_p, qh2o_p, h2ovmr_p)
 
 @inline
+def _gas_phase_chemdr_shell_mass_h2o_charge_setup(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    o2_ndx: int,
+    o_ndx: int,
+    h_ndx: int,
+    n_ndx: int,
+    h2o_ndx: int,
+    st80_25_ndx: int,
+    aoa_nh_ndx: int,
+    nh_5_ndx: int,
+    nh_50_ndx: int,
+    nh_50w_ndx: int,
+    elec_ndx: int,
+    np_ndx: int,
+    n2p_ndx: int,
+    op_ndx: int,
+    o2p_ndx: int,
+    nop_ndx: int,
+    fixed_mbar: int,
+    mwdry: float,
+    rad2deg: float,
+    adv_mass_h2o: float,
+    mmr_p: cobj,
+    adv_mass_p: cobj,
+    mbar_p: cobj,
+    vmr_p: cobj,
+    pmid_p: cobj,
+    rlats_p: cobj,
+    q_p: cobj,
+    qh2o_p: cobj,
+    h2ovmr_p: cobj,
+    wrk_p: cobj,
+):
+    _gas_phase_chemdr_shell_mass_h2o_setup(
+        ncol, pcols, pver, gas_pcnst, o2_ndx, o_ndx, h_ndx, n_ndx, h2o_ndx, st80_25_ndx, aoa_nh_ndx,
+        nh_5_ndx, nh_50_ndx, nh_50w_ndx, fixed_mbar, mwdry, rad2deg, adv_mass_h2o, mmr_p, adv_mass_p,
+        mbar_p, vmr_p, pmid_p, rlats_p, q_p, qh2o_p, h2ovmr_p
+    )
+    _gas_phase_chemdr_shell_charge_balance(
+        ncol, pver, gas_pcnst, elec_ndx, np_ndx, n2p_ndx, op_ndx, o2p_ndx, nop_ndx, vmr_p, wrk_p
+    )
+
+@inline
 def _gas_phase_chemdr_shell_post_solver(
     ncol: int,
     pcols: int,
@@ -1982,6 +2028,13 @@ def gas_phase_chemdr_shell_codon(
             ncol, pcols, pver, gas_pcnst, o2_ndx, o_ndx, h_ndx, n_ndx, h2o_ndx, st80_25_ndx, aoa_nh_ndx,
             nh_5_ndx, nh_50_ndx, nh_50w_ndx, fixed_mbar, mwdry, rad2deg, adv_mass_h2o, mmr_p, adv_mass_p,
             mbar_p, vmr_p, pmid_p, rlats_p, q_p, qh2o_p, h2ovmr_p
+        )
+    elif stage == 35:
+        _gas_phase_chemdr_shell_mass_h2o_charge_setup(
+            ncol, pcols, pver, gas_pcnst, o2_ndx, o_ndx, h_ndx, n_ndx, h2o_ndx, st80_25_ndx, aoa_nh_ndx,
+            nh_5_ndx, nh_50_ndx, nh_50w_ndx, elec_ndx, np_ndx, n2p_ndx, op_ndx, o2p_ndx, nop_ndx,
+            fixed_mbar, mwdry, rad2deg, adv_mass_h2o, mmr_p, adv_mass_p, mbar_p, vmr_p, pmid_p, rlats_p,
+            q_p, qh2o_p, h2ovmr_p, wrk_p
         )
 
 def set_xnox_photo_codon(
