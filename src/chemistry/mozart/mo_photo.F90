@@ -893,7 +893,10 @@ contains
             cld_line_p, tline_p, zarg_p, o_den_p, o2_den_p, o3_den_p, no_den_p, n2_den_p, eff_alb_p, &
             cld_mult_p, del_lwp_p, del_tau_p, above_tau_p, below_tau_p, above_cld_p, below_cld_p, &
             above_tra_p, below_tra_p, cloud_fac1_p, cloud_fac2_p, photos_p, lng_prates_p, lng_indexer_p, &
-            alias_mult2_p) bind(c, name="table_photo_direct_batch_codon")
+            alias_mult2_p, jno2a_ndx_c, jno2_ndx_c, jn2o5a_ndx_c, jn2o5_ndx_c, jn2o5b_ndx_c, &
+            jhno3a_ndx_c, jhno3_ndx_c, jno3a_ndx_c, jno3_ndx_c, jho2no2a_ndx_c, jho2no2_finalize_ndx_c, &
+            jmpana_ndx_c, jmpan_ndx_c, jpana_ndx_c, jpan_ndx_c, jonitra_ndx_c, jonitr_ndx_c, &
+            jo1da_ndx_c, jo1d_ndx_c, jo3pa_ndx_c, jo3p_ndx_c) bind(c, name="table_photo_direct_batch_codon")
          use iso_c_binding, only : c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, ncol_abs_c, nfs_c, gas_pcnst_c
          integer(c_int64_t), value :: phtcnt_c, nlng_c, i_c, p1_c, p2_c, do_jshort_c, ptop_gt_10_c
@@ -907,6 +910,11 @@ contains
          type(c_ptr), value :: eff_alb_p, cld_mult_p, del_lwp_p, del_tau_p, above_tau_p, below_tau_p
          type(c_ptr), value :: above_cld_p, below_cld_p, above_tra_p, below_tra_p, cloud_fac1_p, cloud_fac2_p
          type(c_ptr), value :: photos_p, lng_prates_p, lng_indexer_p, alias_mult2_p
+         integer(c_int64_t), value :: jno2a_ndx_c, jno2_ndx_c, jn2o5a_ndx_c, jn2o5_ndx_c, jn2o5b_ndx_c
+         integer(c_int64_t), value :: jhno3a_ndx_c, jhno3_ndx_c, jno3a_ndx_c, jno3_ndx_c
+         integer(c_int64_t), value :: jho2no2a_ndx_c, jho2no2_finalize_ndx_c, jmpana_ndx_c, jmpan_ndx_c
+         integer(c_int64_t), value :: jpana_ndx_c, jpan_ndx_c, jonitra_ndx_c, jonitr_ndx_c
+         integer(c_int64_t), value :: jo1da_ndx_c, jo1d_ndx_c, jo3pa_ndx_c, jo3p_ndx_c
        end subroutine table_photo_direct_batch_codon
 
        subroutine table_photo_prejlong_batch_codon(ncol_c, pcols_c, pver_c, ncol_abs_c, nfs_c, gas_pcnst_c, &
@@ -1030,8 +1038,19 @@ contains
     if (table_photo_use_native_impl) then
        call table_photo_zero_photos(ncol, photos)
     else
-       call table_photo_zero_finalize_batch_codon( &
-            0_c_int64_t, int(ncol, c_int64_t), int(pver, c_int64_t), int(phtcnt, c_int64_t), c_loc(photos), &
+       call table_photo_direct_batch_codon( &
+            0_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+            0_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(phtcnt, c_int64_t), 0_c_int64_t, &
+            0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+            0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+            0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+            0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0_c_double, 0.0_c_double, &
+            0.0_c_double, 0.0_c_double, 0.0_c_double, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+            c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+            c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+            c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+            c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+            c_loc(photos), c_null_ptr, c_null_ptr, c_null_ptr, &
             int(jno2a_ndx, c_int64_t), int(jno2_ndx, c_int64_t), &
             int(jn2o5a_ndx, c_int64_t), int(jn2o5_ndx, c_int64_t), int(jn2o5b_ndx, c_int64_t), &
             int(jhno3a_ndx, c_int64_t), int(jhno3_ndx, c_int64_t), &
@@ -1110,7 +1129,7 @@ contains
                 n2_den_p = c_null_ptr
              end if
              call table_photo_direct_batch_codon( &
-                  0_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+                  1_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
                   int(ncol_abs, c_int64_t), int(nfs, c_int64_t), int(gas_pcnst, c_int64_t), &
                   int(phtcnt, c_int64_t), int(nlng, c_int64_t), int(i, c_int64_t), int(p1, c_int64_t), &
                   int(p2, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, do_jshort), &
@@ -1128,7 +1147,15 @@ contains
                   c_loc(zarg), o_den_p, o2_den_p, o3_den_p, no_den_p, n2_den_p, c_loc(eff_alb), c_loc(cld_mult), &
                   c_loc(del_lwp), c_loc(del_tau), c_loc(above_tau), c_loc(below_tau), c_loc(above_cld), &
                   c_loc(below_cld), c_loc(above_tra), c_loc(below_tra), c_loc(cloud_fac1), c_loc(cloud_fac2), &
-                  c_loc(photos), c_null_ptr, c_loc(lng_indexer_c), c_loc(alias_mult2) &
+                  c_loc(photos), c_null_ptr, c_loc(lng_indexer_c), c_loc(alias_mult2), &
+                  int(jno2a_ndx, c_int64_t), int(jno2_ndx, c_int64_t), &
+                  int(jn2o5a_ndx, c_int64_t), int(jn2o5_ndx, c_int64_t), int(jn2o5b_ndx, c_int64_t), &
+                  int(jhno3a_ndx, c_int64_t), int(jhno3_ndx, c_int64_t), int(jno3a_ndx, c_int64_t), &
+                  int(jno3_ndx, c_int64_t), int(jho2no2a_ndx, c_int64_t), int(jho2no2_ndx, c_int64_t), &
+                  int(jmpana_ndx, c_int64_t), int(jmpan_ndx, c_int64_t), int(jpana_ndx, c_int64_t), &
+                  int(jpan_ndx, c_int64_t), int(jonitra_ndx, c_int64_t), int(jonitr_ndx, c_int64_t), &
+                  int(jo1da_ndx, c_int64_t), int(jo1d_ndx, c_int64_t), int(jo3pa_ndx, c_int64_t), &
+                  int(jo3p_ndx, c_int64_t) &
              )
           end if
 
@@ -1220,7 +1247,7 @@ contains
                 lng_prates_p = c_null_ptr
              end if
              call table_photo_direct_batch_codon( &
-                  1_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+                  2_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
                   int(ncol_abs, c_int64_t), int(nfs, c_int64_t), int(gas_pcnst, c_int64_t), &
                   int(phtcnt, c_int64_t), int(nlng, c_int64_t), int(i, c_int64_t), int(p1, c_int64_t), &
                   int(p2, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, do_jshort), &
@@ -1238,14 +1265,22 @@ contains
                   c_loc(zarg), o_den_p, o2_den_p, o3_den_p, no_den_p, n2_den_p, c_loc(eff_alb), c_loc(cld_mult), &
                   c_loc(del_lwp), c_loc(del_tau), c_loc(above_tau), c_loc(below_tau), c_loc(above_cld), &
                   c_loc(below_cld), c_loc(above_tra), c_loc(below_tra), c_loc(cloud_fac1), c_loc(cloud_fac2), &
-                  c_loc(photos), lng_prates_p, c_loc(lng_indexer_c), c_loc(alias_mult2) &
+                  c_loc(photos), lng_prates_p, c_loc(lng_indexer_c), c_loc(alias_mult2), &
+                  int(jno2a_ndx, c_int64_t), int(jno2_ndx, c_int64_t), &
+                  int(jn2o5a_ndx, c_int64_t), int(jn2o5_ndx, c_int64_t), int(jn2o5b_ndx, c_int64_t), &
+                  int(jhno3a_ndx, c_int64_t), int(jhno3_ndx, c_int64_t), int(jno3a_ndx, c_int64_t), &
+                  int(jno3_ndx, c_int64_t), int(jho2no2a_ndx, c_int64_t), int(jho2no2_ndx, c_int64_t), &
+                  int(jmpana_ndx, c_int64_t), int(jmpan_ndx, c_int64_t), int(jpana_ndx, c_int64_t), &
+                  int(jpan_ndx, c_int64_t), int(jonitra_ndx, c_int64_t), int(jonitr_ndx, c_int64_t), &
+                  int(jo1da_ndx, c_int64_t), int(jo1d_ndx, c_int64_t), int(jo3pa_ndx, c_int64_t), &
+                  int(jo3p_ndx, c_int64_t) &
              )
              if (masterproc .and. .not. table_photo_batch_proof_written) then
                 write(iulog,'(A)') 'table_photo direct dispatcher entered ' // &
-                     '(pre-jlong/postcloud batch direct = codon; jlong = native boundary)'
+                     '(zero/pre-jlong/postcloud/finalize batch direct = codon; jlong = native boundary)'
                 call table_photo_append_impl_proof('TABLE_PHOTO_PROOF_FILE', &
                      'table_photo direct dispatcher entered ' // &
-                     '(pre-jlong/postcloud batch direct = codon; jlong = native boundary)')
+                     '(zero/pre-jlong/postcloud/finalize batch direct = codon; jlong = native boundary)')
                 table_photo_batch_proof_written = .true.
              end if
           end if
@@ -1298,8 +1333,19 @@ contains
     if (table_photo_use_native_impl) then
        call set_xnox_photo( photos, ncol  )
     else
-       call table_photo_zero_finalize_batch_codon( &
-            1_c_int64_t, int(ncol, c_int64_t), int(pver, c_int64_t), int(phtcnt, c_int64_t), c_loc(photos), &
+       call table_photo_direct_batch_codon( &
+            3_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+            0_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(phtcnt, c_int64_t), 0_c_int64_t, &
+            0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+            0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+            0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+            0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0_c_double, 0.0_c_double, &
+            0.0_c_double, 0.0_c_double, 0.0_c_double, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+            c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+            c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+            c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+            c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+            c_loc(photos), c_null_ptr, c_null_ptr, c_null_ptr, &
             int(jno2a_ndx, c_int64_t), int(jno2_ndx, c_int64_t), &
             int(jn2o5a_ndx, c_int64_t), int(jn2o5_ndx, c_int64_t), int(jn2o5b_ndx, c_int64_t), &
             int(jhno3a_ndx, c_int64_t), int(jhno3_ndx, c_int64_t), &
