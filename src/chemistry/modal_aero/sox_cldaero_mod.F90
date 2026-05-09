@@ -36,6 +36,7 @@ module sox_cldaero_mod
   logical :: sox_cldaero_update_core_impl_selected = .false.
   logical :: sox_cldaero_update_core_proof_written = .false.
   logical :: sox_cldaero_update_core_wrap_proof_written = .false.
+  logical :: sox_cldaero_finalize_wrap_proof_written = .false.
 
 contains
 
@@ -601,13 +602,34 @@ contains
        dqdt_aqh2so4, dqdt_aqhprxn, dqdt_aqo3rxn)
 
     integer, intent(in) :: ncol, lchnk, loffset
-    real(r8), intent(in) :: mbar(:,:), pdel(:,:)
-    real(r8), intent(inout) :: qcw(:,:,:), qin(:,:,:)
-    real(r8), intent(in) :: dqdt_aqso4(ncol,pver,gas_pcnst), dqdt_aqh2so4(ncol,pver,gas_pcnst)
-    real(r8), intent(in) :: dqdt_aqhprxn(ncol,pver), dqdt_aqo3rxn(ncol,pver)
+    real(r8), target, intent(in) :: mbar(:,:), pdel(:,:)
+    real(r8), target, intent(inout) :: qcw(:,:,:), qin(:,:,:)
+    real(r8), target, intent(in) :: dqdt_aqso4(ncol,pver,gas_pcnst), dqdt_aqh2so4(ncol,pver,gas_pcnst)
+    real(r8), target, intent(in) :: dqdt_aqhprxn(ncol,pver), dqdt_aqo3rxn(ncol,pver)
 
     real(r8) :: sflx(1:ncol)
+    real(r8), target :: sflx_aqso4(ncol,ntot_amode), sflx_aqh2so4(ncol,ntot_amode)
+    real(r8), target :: sflx_aqhprxn(ncol), sflx_aqo3rxn(ncol)
     integer :: i, k, l, m, n
+
+    call sox_cldaero_update_core_select_impl()
+    if (.not. sox_cldaero_update_core_use_native_impl) then
+       call sox_cldaero_finalize_codon_wrap(ncol, loffset, mbar, pdel, qcw, qin, dqdt_aqso4, &
+            dqdt_aqh2so4, dqdt_aqhprxn, dqdt_aqo3rxn, sflx_aqso4, sflx_aqh2so4, sflx_aqhprxn, sflx_aqo3rxn)
+
+       do n = 1, ntot_amode
+          m = lptr_so4_cw_amode(n)
+          l = m - loffset
+          if (l > 0) then
+             call outfld( trim(cnst_name_cw(m))//'AQSO4', sflx_aqso4(:ncol,n), ncol, lchnk)
+             call outfld( trim(cnst_name_cw(m))//'AQH2SO4', sflx_aqh2so4(:ncol,n), ncol, lchnk)
+          endif
+       end do
+
+       call outfld( 'AQSO4_H2O2', sflx_aqhprxn(:ncol), ncol, lchnk)
+       call outfld( 'AQSO4_O3', sflx_aqo3rxn(:ncol), ncol, lchnk)
+       return
+    end if
 
     !==============================================================
     ! ... Update the mixing ratios
@@ -683,6 +705,67 @@ contains
     call outfld( 'AQSO4_O3', sflx(:ncol), ncol, lchnk)
 
   end subroutine sox_cldaero_finalize
+
+  subroutine sox_cldaero_finalize_codon_wrap(ncol, loffset, mbar, pdel, qcw, qin, dqdt_aqso4, &
+       dqdt_aqh2so4, dqdt_aqhprxn, dqdt_aqo3rxn, sflx_aqso4, sflx_aqh2so4, sflx_aqhprxn, sflx_aqo3rxn)
+
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+    use cam_logfile,   only : iulog
+    use spmd_utils,    only : masterproc
+
+    implicit none
+
+    integer, intent(in) :: ncol, loffset
+    real(r8), target, intent(in) :: mbar(:,:), pdel(:,:)
+    real(r8), target, intent(inout) :: qcw(:,:,:), qin(:,:,:)
+    real(r8), target, intent(in) :: dqdt_aqso4(ncol,pver,gas_pcnst), dqdt_aqh2so4(ncol,pver,gas_pcnst)
+    real(r8), target, intent(in) :: dqdt_aqhprxn(ncol,pver), dqdt_aqo3rxn(ncol,pver)
+    real(r8), target, intent(out) :: sflx_aqso4(ncol,ntot_amode), sflx_aqh2so4(ncol,ntot_amode)
+    real(r8), target, intent(out) :: sflx_aqhprxn(ncol), sflx_aqo3rxn(ncol)
+
+    integer(c_int64_t), target :: lptr_so4_cw_amode_c(ntot_amode), lptr_msa_cw_amode_c(ntot_amode)
+    integer(c_int64_t), target :: lptr_nh4_cw_amode_c(ntot_amode)
+    character(len=160) :: proof_line
+
+    interface
+       subroutine sox_cldaero_finalize_codon(ncol_c, pver_c, gas_pcnst_c, ntot_amode_c, loffset_c, &
+            id_so2_c, id_nh3_c, small_value_c, specmw_so4_amode_c, gravit_c, mbar_p, pdel_p, qcw_p, &
+            qin_p, dqdt_aqso4_p, dqdt_aqh2so4_p, dqdt_aqhprxn_p, dqdt_aqo3rxn_p, sflx_aqso4_p, &
+            sflx_aqh2so4_p, sflx_aqhprxn_p, sflx_aqo3rxn_p, adv_mass_p, lptr_so4_cw_amode_p, &
+            lptr_msa_cw_amode_p, lptr_nh4_cw_amode_p) bind(c, name="sox_cldaero_finalize_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pver_c, gas_pcnst_c, ntot_amode_c, loffset_c
+         integer(c_int64_t), value :: id_so2_c, id_nh3_c
+         real(c_double), value :: small_value_c, specmw_so4_amode_c, gravit_c
+         type(c_ptr), value :: mbar_p, pdel_p, qcw_p, qin_p, dqdt_aqso4_p, dqdt_aqh2so4_p
+         type(c_ptr), value :: dqdt_aqhprxn_p, dqdt_aqo3rxn_p, sflx_aqso4_p, sflx_aqh2so4_p
+         type(c_ptr), value :: sflx_aqhprxn_p, sflx_aqo3rxn_p, adv_mass_p, lptr_so4_cw_amode_p
+         type(c_ptr), value :: lptr_msa_cw_amode_p, lptr_nh4_cw_amode_p
+       end subroutine sox_cldaero_finalize_codon
+    end interface
+
+    if (masterproc .and. .not. sox_cldaero_finalize_wrap_proof_written) then
+       proof_line = 'sox_cldaero_finalize_codon_wrap entered (clamp/diagnostic flux sums direct = codon; outfld = native)'
+       write(iulog,'(A)') trim(proof_line)
+       call sox_cldaero_append_impl_proof(trim(proof_line))
+       sox_cldaero_finalize_wrap_proof_written = .true.
+       call flush(iulog)
+    end if
+
+    lptr_so4_cw_amode_c(:) = int(lptr_so4_cw_amode(:), c_int64_t)
+    lptr_msa_cw_amode_c(:) = int(lptr_msa_cw_amode(:), c_int64_t)
+    lptr_nh4_cw_amode_c(:) = int(lptr_nh4_cw_amode(:), c_int64_t)
+
+    call sox_cldaero_finalize_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), &
+         int(ntot_amode, c_int64_t), int(loffset, c_int64_t), int(id_so2, c_int64_t), &
+         int(id_nh3, c_int64_t), real(small_value, c_double), real(specmw_so4_amode, c_double), &
+         real(gravit, c_double), c_loc(mbar), c_loc(pdel), c_loc(qcw), c_loc(qin), c_loc(dqdt_aqso4), &
+         c_loc(dqdt_aqh2so4), c_loc(dqdt_aqhprxn), c_loc(dqdt_aqo3rxn), c_loc(sflx_aqso4), &
+         c_loc(sflx_aqh2so4), c_loc(sflx_aqhprxn), c_loc(sflx_aqo3rxn), c_loc(adv_mass), &
+         c_loc(lptr_so4_cw_amode_c), c_loc(lptr_msa_cw_amode_c), c_loc(lptr_nh4_cw_amode_c) )
+
+  end subroutine sox_cldaero_finalize_codon_wrap
 
   !----------------------------------------------------------------------------------
   !----------------------------------------------------------------------------------

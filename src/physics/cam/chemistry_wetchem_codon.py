@@ -2629,6 +2629,114 @@ def sox_cldaero_update_core_codon(
                     dqdt_aqhprxn[idx] = dso4dt_hprxn * cldfrc[idxp]
                     dqdt_aqo3rxn[idx] = (dso4dt_aqrxn - dso4dt_hprxn) * cldfrc[idxp]
 
+def sox_cldaero_finalize_codon(
+    ncol: int,
+    pver: int,
+    gas_pcnst: int,
+    ntot_amode: int,
+    loffset: int,
+    id_so2: int,
+    id_nh3: int,
+    small_value: float,
+    specmw_so4_amode: float,
+    gravit: float,
+    mbar_p: cobj,
+    pdel_p: cobj,
+    qcw_p: cobj,
+    qin_p: cobj,
+    dqdt_aqso4_p: cobj,
+    dqdt_aqh2so4_p: cobj,
+    dqdt_aqhprxn_p: cobj,
+    dqdt_aqo3rxn_p: cobj,
+    sflx_aqso4_p: cobj,
+    sflx_aqh2so4_p: cobj,
+    sflx_aqhprxn_p: cobj,
+    sflx_aqo3rxn_p: cobj,
+    adv_mass_p: cobj,
+    lptr_so4_cw_amode_p: cobj,
+    lptr_msa_cw_amode_p: cobj,
+    lptr_nh4_cw_amode_p: cobj,
+):
+    mbar = Ptr[float](mbar_p)
+    pdel = Ptr[float](pdel_p)
+    qcw = Ptr[float](qcw_p)
+    qin = Ptr[float](qin_p)
+    dqdt_aqso4 = Ptr[float](dqdt_aqso4_p)
+    dqdt_aqh2so4 = Ptr[float](dqdt_aqh2so4_p)
+    dqdt_aqhprxn = Ptr[float](dqdt_aqhprxn_p)
+    dqdt_aqo3rxn = Ptr[float](dqdt_aqo3rxn_p)
+    sflx_aqso4 = Ptr[float](sflx_aqso4_p)
+    sflx_aqh2so4 = Ptr[float](sflx_aqh2so4_p)
+    sflx_aqhprxn = Ptr[float](sflx_aqhprxn_p)
+    sflx_aqo3rxn = Ptr[float](sflx_aqo3rxn_p)
+    adv_mass = Ptr[float](adv_mass_p)
+    lptr_so4_cw_amode = Ptr[int](lptr_so4_cw_amode_p)
+    lptr_msa_cw_amode = Ptr[int](lptr_msa_cw_amode_p)
+    lptr_nh4_cw_amode = Ptr[int](lptr_nh4_cw_amode_p)
+
+    for n in range(1, ntot_amode + 1):
+        for i in range(1, ncol + 1):
+            sflx_aqso4[_idx2(i, n, ncol)] = 0.0
+            sflx_aqh2so4[_idx2(i, n, ncol)] = 0.0
+
+    for i in range(1, ncol + 1):
+        sflx_aqhprxn[i - 1] = 0.0
+        sflx_aqo3rxn[i - 1] = 0.0
+
+    for k in range(1, pver + 1):
+        for n in range(1, ntot_amode + 1):
+            l = lptr_so4_cw_amode[n - 1] - loffset
+            if l > 0:
+                for i in range(1, ncol + 1):
+                    idx = _idx3(i, k, l, ncol, pver)
+                    qcw[idx] = max(qcw[idx], small_value)
+
+            l = lptr_msa_cw_amode[n - 1] - loffset
+            if l > 0:
+                for i in range(1, ncol + 1):
+                    idx = _idx3(i, k, l, ncol, pver)
+                    qcw[idx] = max(qcw[idx], small_value)
+
+            l = lptr_nh4_cw_amode[n - 1] - loffset
+            if l > 0:
+                for i in range(1, ncol + 1):
+                    idx = _idx3(i, k, l, ncol, pver)
+                    qcw[idx] = max(qcw[idx], small_value)
+
+        for i in range(1, ncol + 1):
+            idx_so2 = _idx3(i, k, id_so2, ncol, pver)
+            qin[idx_so2] = max(qin[idx_so2], small_value)
+            if id_nh3 > 0:
+                idx_nh3 = _idx3(i, k, id_nh3, ncol, pver)
+                qin[idx_nh3] = max(qin[idx_nh3], small_value)
+
+    for n in range(1, ntot_amode + 1):
+        m = lptr_so4_cw_amode[n - 1]
+        l = m - loffset
+        if l > 0:
+            adv = adv_mass[l - 1]
+            for i in range(1, ncol + 1):
+                sum_aqso4 = 0.0
+                sum_aqh2so4 = 0.0
+                for k in range(1, pver + 1):
+                    midx = _idx2(i, k, ncol)
+                    idx = _idx3(i, k, l, ncol, pver)
+                    sum_aqso4 = sum_aqso4 + dqdt_aqso4[idx] * adv / mbar[midx] * pdel[midx] / gravit
+                    sum_aqh2so4 = sum_aqh2so4 + dqdt_aqh2so4[idx] * adv / mbar[midx] * pdel[midx] / gravit
+                sflx_aqso4[_idx2(i, n, ncol)] = sum_aqso4
+                sflx_aqh2so4[_idx2(i, n, ncol)] = sum_aqh2so4
+
+    for i in range(1, ncol + 1):
+        sum_hprxn = 0.0
+        sum_o3rxn = 0.0
+        for k in range(1, pver + 1):
+            midx = _idx2(i, k, ncol)
+            idx = _idx2(i, k, ncol)
+            sum_hprxn = sum_hprxn + dqdt_aqhprxn[idx] * specmw_so4_amode / mbar[midx] * pdel[midx] / gravit
+            sum_o3rxn = sum_o3rxn + dqdt_aqo3rxn[idx] * specmw_so4_amode / mbar[midx] * pdel[midx] / gravit
+        sflx_aqhprxn[i - 1] = sum_hprxn
+        sflx_aqo3rxn[i - 1] = sum_o3rxn
+
 def setsox_shell_codon(
     stage: int,
     ncol: int,
