@@ -57,6 +57,7 @@ module mo_gas_phase_chemdr
   logical :: gas_phase_chemdr_wetdep_presolve_proof_written = .false.
   logical :: gas_phase_chemdr_surface_diag_proof_written = .false.
   logical :: gas_phase_chemdr_final_surface_prep_proof_written = .false.
+  logical :: gas_phase_chemdr_mass_h2o_setup_proof_written = .false.
 
   integer, parameter :: gas_phase_chemdr_shell_stage_prepare_sza = 1
   integer, parameter :: gas_phase_chemdr_shell_stage_prepare_state_load_mmr = 2
@@ -91,6 +92,7 @@ module mo_gas_phase_chemdr
   integer, parameter :: gas_phase_chemdr_shell_stage_wetdep_presolve = 31
   integer, parameter :: gas_phase_chemdr_shell_stage_rxn_sulfate_prep = 32
   integer, parameter :: gas_phase_chemdr_shell_stage_final_surface_prep = 33
+  integer, parameter :: gas_phase_chemdr_shell_stage_mass_h2o_setup = 34
 
 contains
 
@@ -543,8 +545,14 @@ contains
     !        ... Set atmosphere mean mass
     !-----------------------------------------------------------------------      
     if (gas_phase_chemdr_use_codon_shell_impl) then
-       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_mass_vmr, ncol, &
-            mmr=mmr, mbar=mbar, vmr=vmr)
+       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_mass_h2o_setup, ncol, &
+            rad2deg_in=rad2deg, pmid=pmid, q=q, mmr=mmr, mbar=mbar, vmr=vmr, qh2o=qh2o, &
+            h2ovmr=h2ovmr, rlats=rlats)
+       if (masterproc .and. .not. gas_phase_chemdr_mass_h2o_setup_proof_written) then
+          call gas_phase_chemdr_shell_write_proof_line( &
+               'gas_phase_chemdr mass/H2O setup shell entered (mbar/vmr/ST80/AOA/H2O direct = codon)')
+          gas_phase_chemdr_mass_h2o_setup_proof_written = .true.
+       end if
     else
        call set_mean_mass( ncol, mmr, mbar )
 
@@ -552,17 +560,12 @@ contains
        !        ... Xform from mmr to vmr
        !-----------------------------------------------------------------------
        call mmr2vmr( mmr, vmr, mbar, ncol )
-    end if
 
 !
 ! CCMI
 !
 ! reset STE tracer to specific vmr of 200 ppbv
 !
-    if (gas_phase_chemdr_use_codon_shell_impl) then
-       call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_h2o_setup, ncol, &
-            rad2deg_in=rad2deg, pmid=pmid, vmr=vmr, rlats=rlats, mmr=mmr, qh2o=qh2o, h2ovmr=h2ovmr)
-    else
        if ( st80_25_ndx > 0 ) then
           call gas_phase_chemdr_reset_ste_tracer(ncol, st80_25_ndx, 80.e+2_r8, 200.e-9_r8, pmid, vmr)
        end if
@@ -590,10 +593,7 @@ contains
           call gas_phase_chemdr_load_h2o_fields(ncol, h2o_ndx, mmr, vmr, qh2o, h2ovmr)
        end if
     else
-       if (gas_phase_chemdr_use_codon_shell_impl) then
-          call gas_phase_chemdr_shell_codon_wrap(gas_phase_chemdr_shell_stage_h2o_from_q, ncol, &
-               q=q, mbar=mbar, qh2o=qh2o, h2ovmr=h2ovmr)
-       else
+       if (.not. gas_phase_chemdr_use_codon_shell_impl) then
           qh2o(:ncol,:) = q(:ncol,:,1)
           !-----------------------------------------------------------------------
           !        ... Xform water vapor from mmr to vmr and set upper bndy values

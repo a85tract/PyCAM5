@@ -1650,6 +1650,47 @@ def _gas_phase_chemdr_shell_h2o_setup(
         )
 
 @inline
+def _gas_phase_chemdr_shell_mass_h2o_setup(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gas_pcnst: int,
+    o2_ndx: int,
+    o_ndx: int,
+    h_ndx: int,
+    n_ndx: int,
+    h2o_ndx: int,
+    st80_25_ndx: int,
+    aoa_nh_ndx: int,
+    nh_5_ndx: int,
+    nh_50_ndx: int,
+    nh_50w_ndx: int,
+    fixed_mbar: int,
+    mwdry: float,
+    rad2deg: float,
+    adv_mass_h2o: float,
+    mmr_p: cobj,
+    adv_mass_p: cobj,
+    mbar_p: cobj,
+    vmr_p: cobj,
+    pmid_p: cobj,
+    rlats_p: cobj,
+    q_p: cobj,
+    qh2o_p: cobj,
+    h2ovmr_p: cobj,
+):
+    _gas_phase_chemdr_shell_mass_vmr(
+        ncol, pcols, pver, gas_pcnst, o2_ndx, o_ndx, h_ndx, n_ndx, fixed_mbar, mwdry, mmr_p,
+        adv_mass_p, mbar_p, vmr_p
+    )
+    _gas_phase_chemdr_shell_h2o_setup(
+        ncol, pcols, pver, gas_pcnst, h2o_ndx, st80_25_ndx, aoa_nh_ndx, nh_5_ndx, nh_50_ndx,
+        nh_50w_ndx, rad2deg, pmid_p, vmr_p, rlats_p, mmr_p, qh2o_p, h2ovmr_p
+    )
+    if h2o_ndx <= 0:
+        _gas_phase_chemdr_shell_h2o_from_q(ncol, pcols, pver, adv_mass_h2o, q_p, mbar_p, qh2o_p, h2ovmr_p)
+
+@inline
 def _gas_phase_chemdr_shell_post_solver(
     ncol: int,
     pcols: int,
@@ -1935,6 +1976,12 @@ def gas_phase_chemdr_shell_codon(
             ncol, pcols, pver, gas_pcnst, pcnst, delt_inverse, map2chm_p, mmr_p, mmr_tend_p, mmr_new_p,
             qtend_p, tfld_p, qh2o_p, tvs_p, sflx_p, ufld_p, vfld_p, wind_speed_p, precc_p, precl_p,
             prect_p
+        )
+    elif stage == 34:
+        _gas_phase_chemdr_shell_mass_h2o_setup(
+            ncol, pcols, pver, gas_pcnst, o2_ndx, o_ndx, h_ndx, n_ndx, h2o_ndx, st80_25_ndx, aoa_nh_ndx,
+            nh_5_ndx, nh_50_ndx, nh_50w_ndx, fixed_mbar, mwdry, rad2deg, adv_mass_h2o, mmr_p, adv_mass_p,
+            mbar_p, vmr_p, pmid_p, rlats_p, q_p, qh2o_p, h2ovmr_p
         )
 
 def set_xnox_photo_codon(
