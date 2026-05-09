@@ -1371,6 +1371,34 @@ def photo_timestep_init_exo_time_codon(
     )
 
 @export
+def photo_prep_batch_codon(
+    stage: int,
+    pinterp: float,
+    calday: float,
+    n_exo_levs: int,
+    levs_p: cobj,
+    days_p: cobj,
+    ki_p: cobj,
+    next_p: cobj,
+    last_p: cobj,
+    delp_p: cobj,
+    dels_p: cobj,
+):
+    return _photolysis.photo_prep_batch_codon(
+        stage,
+        pinterp,
+        calday,
+        n_exo_levs,
+        levs_p,
+        days_p,
+        ki_p,
+        next_p,
+        last_p,
+        delp_p,
+        dels_p,
+    )
+
+@export
 def photo_prep_fixed_press_setup_codon(
     pinterp: float,
     n_exo_levs: int,

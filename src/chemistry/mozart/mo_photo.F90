@@ -178,8 +178,8 @@ contains
     photo_prep_batch_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'photo_prep_batch entered (fixed_press/exo_time direct = codon)'
-       call photo_prep_batch_append_proof('photo_prep_batch entered (fixed_press/exo_time direct = codon)')
+       write(iulog,'(A)') 'photo_prep_batch entered (fixed_press/exo_time batch dispatcher direct = codon)'
+       call photo_prep_batch_append_proof('photo_prep_batch entered (fixed_press/exo_time batch dispatcher direct = codon)')
        call flush(iulog)
     end if
 
@@ -664,7 +664,7 @@ contains
 
   subroutine photo_inti_fixed_press_setup( pinterp_in, n_exo_levs_in, levs_in, ki_out, delp_out )
 
-    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
     implicit none
 
@@ -679,13 +679,13 @@ contains
     real(c_double), target :: delp_c
 
     interface
-       subroutine photo_prep_fixed_press_setup_codon(pinterp_c, n_exo_levs_c, levs_p, ki_p, delp_p) &
-            bind(c, name="photo_prep_fixed_press_setup_codon")
+       subroutine photo_prep_batch_codon(stage_c, pinterp_c, calday_c, n_exo_levs_c, levs_p, days_p, ki_p, &
+            next_p, last_p, delp_p, dels_p) bind(c, name="photo_prep_batch_codon")
          use iso_c_binding, only : c_double, c_int64_t, c_ptr
-         real(c_double), value :: pinterp_c
-         integer(c_int64_t), value :: n_exo_levs_c
-         type(c_ptr), value :: levs_p, ki_p, delp_p
-       end subroutine photo_prep_fixed_press_setup_codon
+         integer(c_int64_t), value :: stage_c, n_exo_levs_c
+         real(c_double), value :: pinterp_c, calday_c
+         type(c_ptr), value :: levs_p, days_p, ki_p, next_p, last_p, delp_p, dels_p
+       end subroutine photo_prep_batch_codon
     end interface
 
     call photo_prep_batch_select_impl()
@@ -707,8 +707,10 @@ contains
     end if
 
     call photo_prep_batch_log_entered()
-    call photo_prep_fixed_press_setup_codon( real(pinterp_in, c_double), int(n_exo_levs_in, c_int64_t), c_loc(levs_in), &
-         c_loc(ki_c), c_loc(delp_c) )
+    call photo_prep_batch_codon( &
+         1_c_int64_t, real(pinterp_in, c_double), 0._c_double, int(n_exo_levs_in, c_int64_t), c_loc(levs_in), &
+         c_null_ptr, c_loc(ki_c), c_null_ptr, c_null_ptr, c_loc(delp_c), c_null_ptr &
+    )
     ki_out = int(ki_c)
     delp_out = real(delp_c, r8)
 
@@ -2652,7 +2654,7 @@ secant_in_bounds : &
     use mo_solar_parms, only : solar_parms_get
     use mo_jshort,      only : jshort_timestep_init
     use mo_jlong,       only : jlong_timestep_init
-    use iso_c_binding,  only : c_double, c_int64_t, c_loc, c_ptr
+    use iso_c_binding,  only : c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
     !-----------------------------------------------------------------------------
     !	... setup the time interpolation
@@ -2675,12 +2677,13 @@ secant_in_bounds : &
     real(c_double), target :: dels_c
 
     interface
-       subroutine photo_prep_timestep_init_exo_time_codon(calday_c, days_p, next_p, last_p, dels_p) &
-            bind(c, name="photo_prep_timestep_init_exo_time_codon")
+       subroutine photo_prep_batch_codon(stage_c, pinterp_c, calday_c, n_exo_levs_c, levs_p, days_p, ki_p, &
+            next_p, last_p, delp_p, dels_p) bind(c, name="photo_prep_batch_codon")
          use iso_c_binding, only : c_double, c_int64_t, c_ptr
-         real(c_double), value :: calday_c
-         type(c_ptr), value :: days_p, next_p, last_p, dels_p
-       end subroutine photo_prep_timestep_init_exo_time_codon
+         integer(c_int64_t), value :: stage_c, n_exo_levs_c
+         real(c_double), value :: pinterp_c, calday_c
+         type(c_ptr), value :: levs_p, days_p, ki_p, next_p, last_p, delp_p, dels_p
+       end subroutine photo_prep_batch_codon
     end interface
 
     if ( do_jeuv ) then
@@ -2694,8 +2697,9 @@ secant_in_bounds : &
        call photo_prep_batch_select_impl()
        if (.not. photo_prep_batch_use_native_impl) then
           call photo_prep_batch_log_entered()
-          call photo_prep_timestep_init_exo_time_codon( &
-               real(calday, c_double), c_loc(days), c_loc(next_c), c_loc(last_c), c_loc(dels_c) &
+          call photo_prep_batch_codon( &
+               2_c_int64_t, 0._c_double, real(calday, c_double), 0_c_int64_t, c_null_ptr, c_loc(days), &
+               c_null_ptr, c_loc(next_c), c_loc(last_c), c_null_ptr, c_loc(dels_c) &
           )
           next = int(next_c)
           last = int(last_c)
