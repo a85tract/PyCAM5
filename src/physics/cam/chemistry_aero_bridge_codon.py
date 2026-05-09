@@ -442,3 +442,21 @@ def aero_model_gasaerexch_preset_load_stage_codon(
             dvmrdt_p,
             dvmrcwdt_p,
         )
+        return
+
+    if stage == 3:
+        aero_model_gasaerexch_vmrcw_batch_codon(
+            2,
+            ncol,
+            pcols,
+            pver,
+            gas_pcnst,
+            qqcw_offset,
+            mbar_ld1,
+            qqcw_ptrs_p,
+            qqcw_present_p,
+            mbar_p,
+            adv_mass_p,
+            vmr_p,
+        )
+        return

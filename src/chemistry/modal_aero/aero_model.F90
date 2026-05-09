@@ -111,6 +111,7 @@ module aero_model
   logical :: aero_model_gasaerexch_wrap_proof_written = .false.
   logical :: aero_model_gasaerexch_load_snapshot_proof_written = .false.
   logical :: aero_model_gasaerexch_presetsox_proof_written = .false.
+  logical :: aero_model_gasaerexch_store_snapshot_proof_written = .false.
   logical :: aero_model_gasaerexch_aq_save_proof_written = .false.
   logical :: aero_model_gasaerexch_column_flux_use_native_impl = .false.
   logical :: aero_model_gasaerexch_column_flux_impl_selected = .false.
@@ -3235,7 +3236,7 @@ contains
 
     use modal_aero_data, only : qqcw_fill_cptrs
     use physics_buffer, only : physics_buffer_desc
-    use iso_c_binding, only : c_int64_t, c_loc, c_ptr, c_associated
+    use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr, c_associated, c_null_ptr
 
     integer, intent(in) :: lchnk, ncol, im
     real(r8), target, intent(in) :: mbar(ncol,pver)
@@ -3245,14 +3246,18 @@ contains
     integer :: m
     type(c_ptr), target :: qqcw_ptrs(pcnst)
     integer(c_int64_t), target :: qqcw_present(pcnst)
+    character(len=160) :: proof_line
 
     interface
-       subroutine aero_model_gasaerexch_vmrcw_batch_codon(mode_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, qqcw_offset_c, mbar_ld1_c, &
-            qqcw_ptrs_p, qqcw_present_p, mbar_p, adv_mass_p, vmr_p) bind(c, name="aero_model_gasaerexch_vmrcw_batch_codon")
-         use iso_c_binding, only : c_int64_t, c_ptr
-         integer(c_int64_t), value :: mode_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, qqcw_offset_c, mbar_ld1_c
-         type(c_ptr), value :: qqcw_ptrs_p, qqcw_present_p, mbar_p, adv_mass_p, vmr_p
-       end subroutine aero_model_gasaerexch_vmrcw_batch_codon
+       subroutine aero_model_gasaerexch_preset_load_stage_codon(stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, &
+            qqcw_offset_c, mbar_ld1_c, delt_c, gravit_c, qqcw_ptrs_p, qqcw_present_p, vmr0_p, vmr_p, vmrcw_p, &
+            dvmrdt_p, dvmrcwdt_p, mbar_p, pdel_p, adv_mass_p, wrk_p) bind(c, name="aero_model_gasaerexch_preset_load_stage_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, qqcw_offset_c, mbar_ld1_c
+         real(c_double), value :: delt_c, gravit_c
+         type(c_ptr), value :: qqcw_ptrs_p, qqcw_present_p, vmr0_p, vmr_p, vmrcw_p, dvmrdt_p, dvmrcwdt_p
+         type(c_ptr), value :: mbar_p, pdel_p, adv_mass_p, wrk_p
+       end subroutine aero_model_gasaerexch_preset_load_stage_codon
     end interface
 
     call qqcw_fill_cptrs(pbuf, qqcw_ptrs)
@@ -3264,10 +3269,19 @@ contains
        end if
     end do
 
-    call aero_model_gasaerexch_vmrcw_batch_codon( &
-         int(2, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-         int(gas_pcnst, c_int64_t), int(im, c_int64_t), int(ncol, c_int64_t), c_loc(qqcw_ptrs(1)), c_loc(qqcw_present(1)), &
-         c_loc(mbar(1,1)), c_loc(adv_mass(1)), c_loc(vmr(1,1,1)) &
+    if (masterproc .and. .not. aero_model_gasaerexch_store_snapshot_proof_written) then
+       proof_line = 'aero_model_gasaerexch preset/load/store stage shell entered (store snapshot: qqcw store direct = codon)'
+       write(iulog,'(A)') trim(proof_line)
+       call aero_model_gasaerexch_append_impl_proof('AERO_MODEL_GASAEREXCH_PROOF_FILE', trim(proof_line))
+       aero_model_gasaerexch_store_snapshot_proof_written = .true.
+       call flush(iulog)
+    end if
+
+    call aero_model_gasaerexch_preset_load_stage_codon( &
+         3_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(gas_pcnst, c_int64_t), int(im, c_int64_t), int(ncol, c_int64_t), 0.0_c_double, real(gravit, c_double), &
+         c_loc(qqcw_ptrs(1)), c_loc(qqcw_present(1)), c_null_ptr, c_loc(vmr(1,1,1)), c_null_ptr, &
+         c_null_ptr, c_null_ptr, c_loc(mbar(1,1)), c_null_ptr, c_loc(adv_mass(1)), c_null_ptr &
     )
 
   end subroutine aero_model_gasaerexch_store_vmrcw_codon
