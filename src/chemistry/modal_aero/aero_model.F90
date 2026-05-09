@@ -92,6 +92,7 @@ module aero_model
   logical :: aero_model_drydep_use_native_impl = .false.
   logical :: aero_model_drydep_impl_selected = .false.
   logical :: aero_model_drydep_proof_written = .false.
+  logical :: aero_model_drydep_prepare_shell_proof_written = .false.
   logical :: aero_model_drydep_fullshell_wrap_proof_written = .false.
   integer :: aero_model_drydep_branch_mask = 0
   logical :: aero_model_drydep_branch_selected = .false.
@@ -599,10 +600,10 @@ contains
     use modal_aero_data,   only: lmassptr_amode
     use modal_aero_data,   only: lmassptrcw_amode
     use modal_aero_deposition, only: set_srf_drydep
-    use iso_c_binding, only: c_ptr, c_int64_t
+    use iso_c_binding, only: c_double, c_ptr, c_int64_t, c_loc
 
   ! args 
-    type(physics_state),    intent(in)    :: state     ! Physics state variables
+    type(physics_state), target, intent(in)    :: state     ! Physics state variables
     real(r8),               intent(in)    :: obklen(:)          
     real(r8),               intent(in)    :: ustar(:)  ! sfc fric vel
     type(cam_in_t), target, intent(in)    :: cam_in    ! import state
@@ -631,16 +632,16 @@ contains
     integer :: i
 
     real(r8) :: tvs(pcols,pver)
-    real(r8) :: rho(pcols,pver)      ! air density in kg/m3
+    real(r8), target :: rho(pcols,pver)      ! air density in kg/m3
     real(r8) :: sflx(pcols)          ! deposition flux
     real(r8) :: dep_trb(pcols)       !kg/m2/s
     real(r8) :: dep_grv(pcols)       !kg/m2/s (total of grav and trb)
     real(r8) :: pvmzaer(pcols,pverp) ! sedimentation velocity in Pa
     real(r8) :: dqdt_tmp(pcols,pver) ! temporary array to hold tendency for 1 species
 
-    real(r8) :: rad_drop(pcols,pver)
-    real(r8) :: dens_drop(pcols,pver)
-    real(r8) :: sg_drop(pcols,pver)
+    real(r8), target :: rad_drop(pcols,pver)
+    real(r8), target :: dens_drop(pcols,pver)
+    real(r8), target :: sg_drop(pcols,pver)
     real(r8) :: rad_aer(pcols,pver)
     real(r8) :: dens_aer(pcols,pver)
     real(r8) :: sg_aer(pcols,pver)
@@ -651,8 +652,8 @@ contains
     real(r8) :: vlc_dry_full(pcols,pver,4,ntot_amode)
     real(r8) :: vlc_grv_full(pcols,pver,4,ntot_amode)
     real(r8) :: vlc_trb_full(pcols,4,ntot_amode)
-    real(r8) :: aerdepdryis(pcols,pcnst)  ! aerosol dry deposition (interstitial)
-    real(r8) :: aerdepdrycw(pcols,pcnst)  ! aerosol dry deposition (cloud water)
+    real(r8), target :: aerdepdryis(pcols,pcnst)  ! aerosol dry deposition (interstitial)
+    real(r8), target :: aerdepdrycw(pcols,pcnst)  ! aerosol dry deposition (cloud water)
     real(r8), pointer :: fldcw(:,:)
     type(c_ptr) :: qqcw_ptrs(pcnst)
     integer(c_int64_t) :: drydep_slot_active(drydep_mode_phase_nslot,2,ntot_amode)
@@ -668,6 +669,18 @@ contains
     real(r8), pointer :: wetdens(:,:,:)
     real(r8), pointer :: qaerwat(:,:,:)
     logical  :: apply_srf_drydep_local
+
+    interface
+       subroutine aero_model_drydep_prepare_shell_codon(ncol_c, pcols_c, pver_c, pcnst_c, rair_c, rhoh2o_c, &
+            state_t_p, state_pmid_p, rho_p, rad_drop_p, dens_drop_p, sg_drop_p, aerdepdryis_p, aerdepdrycw_p) &
+            bind(c, name="aero_model_drydep_prepare_shell_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c
+         real(c_double), value :: rair_c, rhoh2o_c
+         type(c_ptr), value :: state_t_p, state_pmid_p, rho_p, rad_drop_p, dens_drop_p, sg_drop_p
+         type(c_ptr), value :: aerdepdryis_p, aerdepdrycw_p
+       end subroutine aero_model_drydep_prepare_shell_codon
+    end interface
 
     call aero_model_drydep_select_impl()
     if (.not. aero_model_drydep_use_native_impl) then
@@ -703,16 +716,33 @@ contains
     call pbuf_get_field(pbuf, wetdens_ap_idx, wetdens,     start=(/1,1,1/), kount=(/pcols,pver,nmodes/) ) 
     call pbuf_get_field(pbuf, qaerwat_idx,    qaerwat,     start=(/1,1,1/), kount=(/pcols,pver,nmodes/) ) 
 
-    tvs(:ncol,:) = state%t(:ncol,:)!*(1+state%q(:ncol,k)
-    rho(:ncol,:)=  state%pmid(:ncol,:)/(rair*state%t(:ncol,:))
+    if (.not. aero_model_drydep_use_native_impl) then
+       call aero_model_drydep_prepare_shell_codon( &
+            int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+            real(rair, c_double), real(rhoh2o, c_double), c_loc(state%t), c_loc(state%pmid), c_loc(rho), &
+            c_loc(rad_drop), c_loc(dens_drop), c_loc(sg_drop), c_loc(aerdepdryis), c_loc(aerdepdrycw) &
+       )
+       if (masterproc .and. .not. aero_model_drydep_prepare_shell_proof_written) then
+          write(iulog,'(A)') 'aero_model_drydep prepare shell entered (rho/drop/aerdep work arrays direct = codon)'
+          call aero_model_drydep_append_impl_proof('AERO_MODEL_DRYDEP_PROOF_FILE', &
+               'aero_model_drydep prepare shell entered (rho/drop/aerdep work arrays direct = codon)')
+          aero_model_drydep_prepare_shell_proof_written = .true.
+          call flush(iulog)
+       end if
+    else
+       tvs(:ncol,:) = state%t(:ncol,:)!*(1+state%q(:ncol,k)
+       rho(:ncol,:)=  state%pmid(:ncol,:)/(rair*state%t(:ncol,:))
+       rad_drop(:,:) = 5.0e-6_r8
+       dens_drop(:,:) = rhoh2o
+       sg_drop(:,:) = 1.46_r8
+       aerdepdryis(:,:) = 0._r8
+       aerdepdrycw(:,:) = 0._r8
+    end if
 
 !
 ! calc settling/deposition velocities for cloud droplets (and cloud-borne aerosols)
 !
 ! *** mean drop radius should eventually be computed from ndrop and qcldwtr
-    rad_drop(:,:) = 5.0e-6_r8
-    dens_drop(:,:) = rhoh2o
-    sg_drop(:,:) = 1.46_r8
     jvlc = 3
     call modal_aero_depvel_part( ncol,state%t(:,:), state%pmid(:,:), ram1, fv,  &
                      vlc_dry(:,:,jvlc), vlc_trb(:,jvlc), vlc_grv(:,:,jvlc),  &
@@ -721,9 +751,6 @@ contains
     call modal_aero_depvel_part( ncol,state%t(:,:), state%pmid(:,:), ram1, fv,  &
                      vlc_dry(:,:,jvlc), vlc_trb(:,jvlc), vlc_grv(:,:,jvlc),  &
                      rad_drop(:,:), dens_drop(:,:), sg_drop(:,:), 3, fraction_landuse(:,:,lchnk))
-
-    aerdepdryis(:,:) = 0._r8
-    aerdepdrycw(:,:) = 0._r8
 
     if (.not. aero_model_drydep_use_native_impl) then
        do m = 1, ntot_amode

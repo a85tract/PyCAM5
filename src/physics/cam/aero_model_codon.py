@@ -2711,6 +2711,48 @@ def calcram_codon(
             fv[i - 1] = 1.0e-12
 
 
+@export
+def aero_model_drydep_prepare_shell_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    rair: float,
+    rhoh2o: float,
+    state_t_p: cobj,
+    state_pmid_p: cobj,
+    rho_p: cobj,
+    rad_drop_p: cobj,
+    dens_drop_p: cobj,
+    sg_drop_p: cobj,
+    aerdepdryis_p: cobj,
+    aerdepdrycw_p: cobj,
+):
+    state_t = Ptr[float](state_t_p)
+    state_pmid = Ptr[float](state_pmid_p)
+    rho = Ptr[float](rho_p)
+    rad_drop = Ptr[float](rad_drop_p)
+    dens_drop = Ptr[float](dens_drop_p)
+    sg_drop = Ptr[float](sg_drop_p)
+    aerdepdryis = Ptr[float](aerdepdryis_p)
+    aerdepdrycw = Ptr[float](aerdepdrycw_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            rho[_idx2(i, k, pcols)] = state_pmid[_idx2(i, k, pcols)] / (rair * state_t[_idx2(i, k, pcols)])
+
+    for k in range(1, pver + 1):
+        for i in range(1, pcols + 1):
+            rad_drop[_idx2(i, k, pcols)] = 5.0e-6
+            dens_drop[_idx2(i, k, pcols)] = rhoh2o
+            sg_drop[_idx2(i, k, pcols)] = 1.46
+
+    for m in range(1, pcnst + 1):
+        for i in range(1, pcols + 1):
+            aerdepdryis[_idx2(i, m, pcols)] = 0.0
+            aerdepdrycw[_idx2(i, m, pcols)] = 0.0
+
+
 def _dust_cfint2(
     ncol: int,
     pcols: int,
