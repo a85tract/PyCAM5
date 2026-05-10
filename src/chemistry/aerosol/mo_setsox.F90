@@ -37,6 +37,7 @@ module MO_SETSOX
   logical :: setsox_xph_lwc_diag_proof_written = .false.
   logical :: setsox_xph_lwc_diag_wrap_proof_written = .false.
   logical :: setsox_shell_wrap_proof_written = .false.
+  logical :: setsox_shell_finalize_wrap_proof_written = .false.
 
 contains
 
@@ -375,12 +376,13 @@ contains
 
     use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
     use ppgrid,        only : pcols, pver
-    use chem_mods,     only : gas_pcnst, nfs
+    use chem_mods,     only : gas_pcnst, nfs, adv_mass
     use modal_aero_data, only : ntot_amode, modeptr_accum, numptrcw_amode, lptr_so4_cw_amode, &
-         lptr_msa_cw_amode, lptr_nh4_cw_amode
+         lptr_msa_cw_amode, lptr_nh4_cw_amode, cnst_name_cw, specmw_so4_amode
     use cam_history,   only : outfld
+    use physconst,     only : gravit
     use spmd_utils,    only : masterproc
-    use sox_cldaero_mod, only : sox_cldaero_create_obj, sox_cldaero_destroy_obj, sox_cldaero_finalize
+    use sox_cldaero_mod, only : sox_cldaero_create_obj, sox_cldaero_destroy_obj
     use cldaero_mod,   only : cldaero_conc_t
     use mo_constants,  only : pi
 
@@ -413,13 +415,16 @@ contains
     real(r8), target :: dqdt_aqso4(ncol,pver,gas_pcnst), dqdt_aqh2so4(ncol,pver,gas_pcnst)
     real(r8), target :: dqdt_aqhprxn(ncol,pver), dqdt_aqo3rxn(ncol,pver)
     real(r8), target :: faqgain_msa(ntot_amode), faqgain_so4(ntot_amode), qnum_c(ntot_amode)
+    real(r8), target :: sflx_aqso4(ncol,ntot_amode), sflx_aqh2so4(ncol,ntot_amode)
+    real(r8), target :: sflx_aqhprxn(ncol), sflx_aqo3rxn(ncol)
+    real(r8), target :: adv_mass_work(gas_pcnst)
     real(r8), pointer :: xso4c(:,:), xnh4c(:,:), xno3c(:,:)
     type(cldaero_conc_t), pointer :: cldconc
     integer(c_int64_t), target :: numptrcw_amode_c(ntot_amode), lptr_so4_cw_amode_c(ntot_amode)
     integer(c_int64_t), target :: lptr_msa_cw_amode_c(ntot_amode), lptr_nh4_cw_amode_c(ntot_amode)
     integer(c_int64_t) :: cloud_borne_c, modal_aerosols_c, inv_so2_c, inv_h2o2_c, inv_o3_c, inv_ho2_c
     character(len=160) :: proof_line
-    integer :: n
+    integer :: l, m, n
 
     interface
        subroutine setsox_shell_codon(stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, nfs_c, ntot_amode_c, &
@@ -450,6 +455,39 @@ contains
          type(c_ptr), value :: faqgain_msa_p, faqgain_so4_p, qnum_c_p, numptrcw_amode_p
          type(c_ptr), value :: lptr_so4_cw_amode_p, lptr_msa_cw_amode_p, lptr_nh4_cw_amode_p
        end subroutine setsox_shell_codon
+
+       subroutine setsox_shell_finalize_codon(ncol_c, pcols_c, pver_c, gas_pcnst_c, nfs_c, ntot_amode_c, &
+            loffset_c, itermax_c, cloud_borne_c, modal_aerosols_c, inv_so2_c, inv_h2o2_c, inv_o3_c, &
+            inv_ho2_c, id_so2_c, id_hno3_c, id_h2o2_c, id_nh3_c, id_o3_c, id_ho2_c, id_h2so4_c, &
+            id_so4_c, id_msa_c, modeptr_accum_c, dtime_c, ph0_c, const0_c, kh0_c, kh1_c, kh2_c, kh3_c, &
+            ra_c, xkw_c, so4_fact_c, pi_c, small_value_c, specmw_so4_amode_c, gravit_c, xhnm_p, &
+            invariants_p, qin_p, cfact_p, xph_p, xso2_p, xhno3_p, xh2o2_p, xnh3_p, xo3_p, xho2_p, &
+            xh2so4_p, xso4_p, xno3_p, xnh4_p, xmsa_p, press_p, tfld_p, cldfrc_p, cldnum_p, lwc_p, &
+            xlwc_p, xso4c_p, xnh4c_p, xno3c_p, xso4_init_p, xdelso4hp_p, hno3g_p, nh3g_p, hehno3_p, &
+            heh2o2_p, heso2_p, henh3_p, heo3_p, xphlwc_p, qcw_p, dqdt_aqso4_p, dqdt_aqh2so4_p, &
+            dqdt_aqhprxn_p, dqdt_aqo3rxn_p, faqgain_msa_p, faqgain_so4_p, qnum_c_p, numptrcw_amode_p, &
+            lptr_so4_cw_amode_p, lptr_msa_cw_amode_p, lptr_nh4_cw_amode_p, mbar_p, pdel_p, &
+            sflx_aqso4_p, sflx_aqh2so4_p, sflx_aqhprxn_p, sflx_aqo3rxn_p, adv_mass_p) &
+            bind(c, name="setsox_shell_finalize_codon")
+         use iso_c_binding, only : c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, gas_pcnst_c, nfs_c, ntot_amode_c
+         integer(c_int64_t), value :: loffset_c, itermax_c, cloud_borne_c, modal_aerosols_c
+         integer(c_int64_t), value :: inv_so2_c, inv_h2o2_c, inv_o3_c, inv_ho2_c
+         integer(c_int64_t), value :: id_so2_c, id_hno3_c, id_h2o2_c, id_nh3_c, id_o3_c, id_ho2_c
+         integer(c_int64_t), value :: id_h2so4_c, id_so4_c, id_msa_c, modeptr_accum_c
+         real(c_double), value :: dtime_c, ph0_c, const0_c, kh0_c, kh1_c, kh2_c, kh3_c, ra_c, xkw_c
+         real(c_double), value :: so4_fact_c, pi_c, small_value_c, specmw_so4_amode_c, gravit_c
+         type(c_ptr), value :: xhnm_p, invariants_p, qin_p, cfact_p, xph_p, xso2_p, xhno3_p
+         type(c_ptr), value :: xh2o2_p, xnh3_p, xo3_p, xho2_p, xh2so4_p, xso4_p, xno3_p, xnh4_p
+         type(c_ptr), value :: xmsa_p, press_p, tfld_p, cldfrc_p, cldnum_p, lwc_p, xlwc_p, xso4c_p
+         type(c_ptr), value :: xnh4c_p, xno3c_p, xso4_init_p, xdelso4hp_p, hno3g_p, nh3g_p
+         type(c_ptr), value :: hehno3_p, heh2o2_p, heso2_p, henh3_p, heo3_p, xphlwc_p, qcw_p
+         type(c_ptr), value :: dqdt_aqso4_p, dqdt_aqh2so4_p, dqdt_aqhprxn_p, dqdt_aqo3rxn_p
+         type(c_ptr), value :: faqgain_msa_p, faqgain_so4_p, qnum_c_p, numptrcw_amode_p
+         type(c_ptr), value :: lptr_so4_cw_amode_p, lptr_msa_cw_amode_p, lptr_nh4_cw_amode_p
+         type(c_ptr), value :: mbar_p, pdel_p, sflx_aqso4_p, sflx_aqh2so4_p, sflx_aqhprxn_p
+         type(c_ptr), value :: sflx_aqo3rxn_p, adv_mass_p
+       end subroutine setsox_shell_finalize_codon
     end interface
 
     if (masterproc .and. .not. setsox_shell_wrap_proof_written) then
@@ -502,9 +540,18 @@ contains
        lptr_msa_cw_amode_c(n) = int(lptr_msa_cw_amode(n), c_int64_t)
        lptr_nh4_cw_amode_c(n) = int(lptr_nh4_cw_amode(n), c_int64_t)
     end do
+    adv_mass_work(:) = adv_mass(:)
 
-    call setsox_shell_codon( &
-         2_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+    if (masterproc .and. .not. setsox_shell_finalize_wrap_proof_written) then
+       proof_line = 'setsox shell/finalize dispatcher entered (setsox stage2/aq finalize direct = codon; outfld = native)'
+       write(iulog,'(A)') trim(proof_line)
+       call setsox_append_impl_proof(trim(proof_line))
+       setsox_shell_finalize_wrap_proof_written = .true.
+       call flush(iulog)
+    end if
+
+    call setsox_shell_finalize_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          int(gas_pcnst, c_int64_t), int(nfs, c_int64_t), int(ntot_amode, c_int64_t), int(loffset, c_int64_t), &
          int(itermax, c_int64_t), cloud_borne_c, modal_aerosols_c, inv_so2_c, inv_h2o2_c, inv_o3_c, inv_ho2_c, &
          int(id_so2, c_int64_t), int(id_hno3, c_int64_t), int(id_h2o2, c_int64_t), int(id_nh3, c_int64_t), &
@@ -512,6 +559,7 @@ contains
          int(id_msa, c_int64_t), int(modeptr_accum, c_int64_t), real(dtime, c_double), real(ph0, c_double), &
          real(const0, c_double), real(kh0, c_double), real(kh1, c_double), real(kh2, c_double), real(kh3, c_double), &
          real(ra, c_double), real(xkw, c_double), real(cldconc%so4_fact, c_double), real(pi, c_double), &
+         real(1.e-20_r8, c_double), real(specmw_so4_amode, c_double), real(gravit, c_double), &
          c_loc(xhnm), c_loc(invariants), c_loc(qin), c_loc(cfact), c_loc(xph), c_loc(xso2), c_loc(xhno3), &
          c_loc(xh2o2), c_loc(xnh3), c_loc(xo3), c_loc(xho2), c_loc(xh2so4), c_loc(xso4), c_loc(xno3), &
          c_loc(xnh4), c_loc(xmsa), c_loc(press), c_loc(tfld), c_loc(cldfrc), c_loc(cldnum), c_loc(lwc), &
@@ -519,10 +567,21 @@ contains
          c_loc(hno3g), c_loc(nh3g), c_loc(hehno3), c_loc(heh2o2), c_loc(heso2), &
          c_loc(henh3), c_loc(heo3), c_loc(xphlwc), c_loc(qcw), c_loc(dqdt_aqso4), c_loc(dqdt_aqh2so4), c_loc(dqdt_aqhprxn), &
          c_loc(dqdt_aqo3rxn), c_loc(faqgain_msa), c_loc(faqgain_so4), c_loc(qnum_c), c_loc(numptrcw_amode_c), &
-         c_loc(lptr_so4_cw_amode_c), c_loc(lptr_msa_cw_amode_c), c_loc(lptr_nh4_cw_amode_c) )
+         c_loc(lptr_so4_cw_amode_c), c_loc(lptr_msa_cw_amode_c), c_loc(lptr_nh4_cw_amode_c), &
+         c_loc(mbar), c_loc(pdel), c_loc(sflx_aqso4), c_loc(sflx_aqh2so4), c_loc(sflx_aqhprxn), &
+         c_loc(sflx_aqo3rxn), c_loc(adv_mass_work) )
 
-    call sox_cldaero_finalize(ncol, lchnk, loffset, mbar, pdel, qcw, qin, dqdt_aqso4, dqdt_aqh2so4, &
-         dqdt_aqhprxn, dqdt_aqo3rxn)
+    do n = 1, ntot_amode
+       m = lptr_so4_cw_amode(n)
+       l = m - loffset
+       if (l > 0) then
+          call outfld( trim(cnst_name_cw(m))//'AQSO4', sflx_aqso4(:ncol,n), ncol, lchnk)
+          call outfld( trim(cnst_name_cw(m))//'AQH2SO4', sflx_aqh2so4(:ncol,n), ncol, lchnk)
+       endif
+    end do
+
+    call outfld( 'AQSO4_H2O2', sflx_aqhprxn(:ncol), ncol, lchnk)
+    call outfld( 'AQSO4_O3', sflx_aqo3rxn(:ncol), ncol, lchnk)
     call outfld('XPH_LWC', xphlwc(:ncol,:), ncol, lchnk)
 
     call sox_cldaero_destroy_obj(cldconc)
