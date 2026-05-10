@@ -42,6 +42,7 @@
   logical :: diag_post_shell_entered_logged = .false.
   logical :: main_post_shell_entered_logged = .false.
   logical :: wtrc_post_shell_entered_logged = .false.
+  logical :: main_wtrc_post_shell_entered_logged = .false.
   logical :: exit_zero_shell_entered_logged = .false.
   logical :: iter_restore_shell_entered_logged = .false.
   logical :: delcin_reset_shell_entered_logged = .false.
@@ -243,6 +244,22 @@ contains
     end if
 
   end subroutine uwshcu_log_wtrc_post_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_main_wtrc_post_shell_entered()
+
+    if (main_wtrc_post_shell_entered_logged) return
+    main_wtrc_post_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu main/wtrc post shell entered (main and water-tracer output writeback direct = codon)'
+       call uwshcu_append_proof( &
+            'uwshcu main/wtrc post shell entered (main and water-tracer output writeback direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_main_wtrc_post_shell_entered
 
 !===============================================================================
 
@@ -2024,6 +2041,30 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: wtqc_liq_p, wtqc_ice_p, wtprec_p, wtsnow_p, wtrc_iatype_p
           type(c_ptr), value :: wtqc_out_p, wtprec_out_p, wtsnow_out_p
        end subroutine uwshcu_wtrc_post_shell_codon
+
+       subroutine uwshcu_main_wtrc_post_shell_codon(mix_c, mkx_c, i_c, ncnst_c, wtrc_nwset_c, &
+            precip_c, snow_c, cush_c, cbmf_c, rliq_c, cnt_c, cnb_c, umf_p, slflx_p, qtflx_p, &
+            flxrain_p, flxsnow_p, qvten_p, qlten_p, qiten_p, sten_p, uten_p, vten_p, qrten_p, &
+            qsten_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, qc_p, trten_p, wtqc_liq_p, &
+            wtqc_ice_p, wtprec_p, wtsnow_p, wtrc_iatype_p, umf_out_p, slflx_out_p, qtflx_out_p, &
+            flxprc1_out_p, flxsnow1_out_p, qvten_out_p, qlten_out_p, qiten_out_p, sten_out_p, &
+            uten_out_p, vten_out_p, qrten_out_p, qsten_out_p, precip_out_p, snow_out_p, &
+            evapc_out_p, cufrc_out_p, qcu_out_p, qlu_out_p, qiu_out_p, cush_out_p, cbmf_out_p, &
+            rliq_out_p, qc_out_p, cnt_out_p, cnb_out_p, trten_out_p, wtqc_out_p, wtprec_out_p, &
+            wtsnow_out_p) bind(c, name="uwshcu_main_wtrc_post_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mix_c, mkx_c, i_c, ncnst_c, wtrc_nwset_c
+          real(c_double), value :: precip_c, snow_c, cush_c, cbmf_c, rliq_c, cnt_c, cnb_c
+          type(c_ptr), value :: umf_p, slflx_p, qtflx_p, flxrain_p, flxsnow_p, qvten_p, qlten_p, qiten_p
+          type(c_ptr), value :: sten_p, uten_p, vten_p, qrten_p, qsten_p, evapc_p, cufrc_p, qcu_p
+          type(c_ptr), value :: qlu_p, qiu_p, qc_p, trten_p, wtqc_liq_p, wtqc_ice_p, wtprec_p
+          type(c_ptr), value :: wtsnow_p, wtrc_iatype_p, umf_out_p, slflx_out_p, qtflx_out_p
+          type(c_ptr), value :: flxprc1_out_p, flxsnow1_out_p, qvten_out_p, qlten_out_p, qiten_out_p
+          type(c_ptr), value :: sten_out_p, uten_out_p, vten_out_p, qrten_out_p, qsten_out_p
+          type(c_ptr), value :: precip_out_p, snow_out_p, evapc_out_p, cufrc_out_p, qcu_out_p
+          type(c_ptr), value :: qlu_out_p, qiu_out_p, cush_out_p, cbmf_out_p, rliq_out_p, qc_out_p
+          type(c_ptr), value :: cnt_out_p, cnb_out_p, trten_out_p, wtqc_out_p, wtprec_out_p, wtsnow_out_p
+       end subroutine uwshcu_main_wtrc_post_shell_codon
 
        subroutine uwshcu_exit_main_zero_shell_codon(mix_c, mkx_c, i_c, ncnst_c, &
             umf_out_p, slflx_out_p, qtflx_out_p, qvten_out_p, qlten_out_p, qiten_out_p, &
@@ -7701,18 +7742,6 @@ end subroutine uwshcu_readnl
         do m = 1, ncnst !<- Water tracers handled here. -JN
            trten_out(i,:mkx,m)       = trten(:mkx,m)
         enddo
-     else
-        call uwshcu_log_main_post_shell_entered()
-        call uwshcu_main_post_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), int(i, c_int64_t), &
-             int(ncnst, c_int64_t), precip, snow, cush, cbmf, rliq, cnt, cnb, c_loc(umf), c_loc(slflx), &
-             c_loc(qtflx), c_loc(flxrain), c_loc(flxsnow), c_loc(qvten), c_loc(qlten), c_loc(qiten), &
-             c_loc(sten), c_loc(uten), c_loc(vten), c_loc(qrten), c_loc(qsten), c_loc(evapc), &
-             c_loc(cufrc), c_loc(qcu), c_loc(qlu), c_loc(qiu), c_loc(qc), c_loc(trten), c_loc(umf_out), &
-             c_loc(slflx_out), c_loc(qtflx_out), c_loc(flxprc1_out), c_loc(flxsnow1_out), c_loc(qvten_out), &
-             c_loc(qlten_out), c_loc(qiten_out), c_loc(sten_out), c_loc(uten_out), c_loc(vten_out), &
-             c_loc(qrten_out), c_loc(qsten_out), c_loc(precip_out), c_loc(snow_out), c_loc(evapc_out), &
-             c_loc(cufrc_out), c_loc(qcu_out), c_loc(qlu_out), c_loc(qiu_out), c_loc(cush_inout), &
-             c_loc(cbmf_out), c_loc(rliq_out), c_loc(qc_out), c_loc(cnt_out), c_loc(cnb_out), c_loc(trten_out))
      end if
   
     !*************
@@ -7732,14 +7761,28 @@ end subroutine uwshcu_readnl
            wtrc_iatype_post(m,2) = int(wtrc_iatype(m,iwtliq), c_int64_t)
            wtrc_iatype_post(m,3) = int(wtrc_iatype(m,iwtice), c_int64_t)
          end do
-         call uwshcu_log_wtrc_post_shell_entered()
-         call uwshcu_wtrc_post_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), int(i, c_int64_t), &
-              int(ncnst, c_int64_t), int(wtrc_nwset, c_int64_t), c_loc(wtqc_liq), c_loc(wtqc_ice), &
-              c_loc(wtprec), c_loc(wtsnow), c_loc(wtrc_iatype_post), c_loc(wtqc_out), c_loc(wtprec_out), &
-              c_loc(wtsnow_out))
        end if
      end if
     !*************
+
+     if (.not. use_native_init_shell_impl) then
+        wtrc_nwset_post_c = 0_c_int64_t
+        if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
+        call uwshcu_log_main_wtrc_post_shell_entered()
+        call uwshcu_main_wtrc_post_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), &
+             int(i, c_int64_t), int(ncnst, c_int64_t), wtrc_nwset_post_c, precip, snow, cush, &
+             cbmf, rliq, cnt, cnb, c_loc(umf), c_loc(slflx), c_loc(qtflx), c_loc(flxrain), &
+             c_loc(flxsnow), c_loc(qvten), c_loc(qlten), c_loc(qiten), c_loc(sten), c_loc(uten), &
+             c_loc(vten), c_loc(qrten), c_loc(qsten), c_loc(evapc), c_loc(cufrc), c_loc(qcu), &
+             c_loc(qlu), c_loc(qiu), c_loc(qc), c_loc(trten), c_loc(wtqc_liq), c_loc(wtqc_ice), &
+             c_loc(wtprec), c_loc(wtsnow), c_loc(wtrc_iatype_post), c_loc(umf_out), c_loc(slflx_out), &
+             c_loc(qtflx_out), c_loc(flxprc1_out), c_loc(flxsnow1_out), c_loc(qvten_out), &
+             c_loc(qlten_out), c_loc(qiten_out), c_loc(sten_out), c_loc(uten_out), c_loc(vten_out), &
+             c_loc(qrten_out), c_loc(qsten_out), c_loc(precip_out), c_loc(snow_out), c_loc(evapc_out), &
+             c_loc(cufrc_out), c_loc(qcu_out), c_loc(qlu_out), c_loc(qiu_out), c_loc(cush_inout), &
+             c_loc(cbmf_out), c_loc(rliq_out), c_loc(qc_out), c_loc(cnt_out), c_loc(cnb_out), &
+             c_loc(trten_out), c_loc(wtqc_out), c_loc(wtprec_out), c_loc(wtsnow_out))
+     end if
 
      ! ------------------------------------------------- !
      ! Below are specific diagnostic output for detailed !
