@@ -2446,7 +2446,7 @@ contains
     omsm = 1._r8 - 2*epsilon(1._r8)
 
     if (masterproc .and. .not. aero_model_wetdep_mode_phase_wrap_proof_written) then
-       wrap_proof_line = 'aero_model_wetdep_mode_phase_codon_wrap entered (wetdep_inputs/clddiag/qqcw_gather_scatter/bcscavcoef/wetdepa/mode_phase direct = codon)'
+       wrap_proof_line = 'aero_model_wetdep_mode_phase_codon_wrap entered (wetdep_inputs_cldst/clddiag/qqcw_gather_scatter/bcscavcoef/wetdepa/mode_phase direct = codon)'
        write(iulog,'(A)') trim(wrap_proof_line)
        call aero_model_wetdep_append_impl_proof('AERO_MODEL_WETDEP_PROOF_FILE', trim(wrap_proof_line))
        aero_model_wetdep_mode_phase_wrap_proof_written = .true.
@@ -2583,7 +2583,7 @@ contains
     end interface
 
     if (masterproc .and. .not. aero_model_wetdep_wrap_proof_written) then
-       wrap_proof_line = 'aero_model_wetdep_codon_wrap entered (wetdep_inputs/clddiag/prec_isprx/qqcw_ptr/wetdepa/bcscavcoef/set_srf_wetdep direct = codon)'
+       wrap_proof_line = 'aero_model_wetdep_codon_wrap entered (wetdep_inputs_cldst/clddiag/prec_isprx/qqcw_ptr/wetdepa/bcscavcoef/set_srf_wetdep direct = codon)'
        write(iulog,'(A)') trim(wrap_proof_line)
        call aero_model_wetdep_append_impl_proof('AERO_MODEL_WETDEP_PROOF_FILE', trim(wrap_proof_line))
        aero_model_wetdep_wrap_proof_written = .true.

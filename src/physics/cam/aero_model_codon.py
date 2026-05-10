@@ -976,6 +976,66 @@ def aero_model_wetdep_inputs_codon(
 
 
 @export
+def aero_model_wetdep_inputs_cldst_codon(
+    cam5_flag: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    qliq_p: cobj,
+    qice_p: cobj,
+    icwmrdp_p: cobj,
+    icwmrsh_p: cobj,
+    rprddp_p: cobj,
+    rprdsh_p: cobj,
+    sh_frac_p: cobj,
+    dp_frac_p: cobj,
+    evapcsh_p: cobj,
+    evapcdp_p: cobj,
+    cldcu_p: cobj,
+    evapc_p: cobj,
+    cmfdqr_p: cobj,
+    conicw_p: cobj,
+    totcond_p: cobj,
+    cldt_p: cobj,
+    cldst_p: cobj,
+):
+    qliq = Ptr[float](qliq_p)
+    qice = Ptr[float](qice_p)
+    icwmrdp = Ptr[float](icwmrdp_p)
+    icwmrsh = Ptr[float](icwmrsh_p)
+    rprddp = Ptr[float](rprddp_p)
+    rprdsh = Ptr[float](rprdsh_p)
+    sh_frac = Ptr[float](sh_frac_p)
+    dp_frac = Ptr[float](dp_frac_p)
+    evapcsh = Ptr[float](evapcsh_p)
+    evapcdp = Ptr[float](evapcdp_p)
+    cldcu = Ptr[float](cldcu_p)
+    evapc = Ptr[float](evapc_p)
+    cmfdqr = Ptr[float](cmfdqr_p)
+    conicw = Ptr[float](conicw_p)
+    totcond = Ptr[float](totcond_p)
+    cldt = Ptr[float](cldt_p)
+    cldst = Ptr[float](cldst_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            cldcu[idx] = dp_frac[idx] + sh_frac[idx]
+            cldst[idx] = cldt[idx] - cldcu[idx]
+            evapc[idx] = evapcsh[idx] + evapcdp[idx]
+            cmfdqr[idx] = rprddp[idx] + rprdsh[idx]
+
+            if cam5_flag != 0:
+                conicw[idx] = (
+                    icwmrdp[idx] * dp_frac[idx] + icwmrsh[idx] * sh_frac[idx]
+                ) / max(0.01, sh_frac[idx] + dp_frac[idx])
+            else:
+                conicw[idx] = icwmrdp[idx] + icwmrsh[idx]
+
+            totcond[idx] = qliq[idx] + qice[idx]
+
+
+@export
 def aero_model_wetdep_precip_mask_codon(
     ncol: int,
     pcols: int,

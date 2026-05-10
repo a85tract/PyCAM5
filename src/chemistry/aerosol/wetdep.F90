@@ -188,20 +188,21 @@ subroutine wetdep_inputs_set_codon_direct(state, pbuf, inputs, prec, isprx)
   real(r8), pointer :: evapcdp(:,:)
 
   real(r8) :: rainmr(pcols,pver)
-  real(r8) :: cldst(pcols,pver)
+  real(r8), target :: cldst(pcols,pver)
   integer(c_int64_t), target :: isprx_mask(pcols,pver)
   integer :: cam5_flag
   integer :: i, k, itim
 
   interface
-     subroutine aero_model_wetdep_inputs_codon(cam5_flag_c, ncol_c, pcols_c, pver_c, qliq_p, qice_p, icwmrdp_p, &
+     subroutine aero_model_wetdep_inputs_cldst_codon(cam5_flag_c, ncol_c, pcols_c, pver_c, qliq_p, qice_p, icwmrdp_p, &
           icwmrsh_p, rprddp_p, rprdsh_p, sh_frac_p, dp_frac_p, evapcsh_p, evapcdp_p, cldcu_p, evapc_p, cmfdqr_p, &
-          conicw_p, totcond_p) bind(c, name="aero_model_wetdep_inputs_codon")
+          conicw_p, totcond_p, cldt_p, cldst_p) bind(c, name="aero_model_wetdep_inputs_cldst_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: cam5_flag_c, ncol_c, pcols_c, pver_c
        type(c_ptr), value :: qliq_p, qice_p, icwmrdp_p, icwmrsh_p, rprddp_p, rprdsh_p, sh_frac_p, dp_frac_p
        type(c_ptr), value :: evapcsh_p, evapcdp_p, cldcu_p, evapc_p, cmfdqr_p, conicw_p, totcond_p
-     end subroutine aero_model_wetdep_inputs_codon
+       type(c_ptr), value :: cldt_p, cldst_p
+     end subroutine aero_model_wetdep_inputs_cldst_codon
 
      subroutine aero_model_wetdep_precip_mask_codon(ncol_c, pcols_c, pver_c, gravit_c, pdel_p, prain_p, cmfdqr_p, &
           evapr_p, prec_p, isprx_mask_p) bind(c, name="aero_model_wetdep_precip_mask_codon")
@@ -235,15 +236,13 @@ subroutine wetdep_inputs_set_codon_direct(state, pbuf, inputs, prec, isprx)
   cam5_flag = 0
   if (cam_physpkg_is('cam5')) cam5_flag = 1
 
-  call aero_model_wetdep_inputs_codon( &
+  call aero_model_wetdep_inputs_cldst_codon( &
        int(cam5_flag, c_int64_t), int(state%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
        c_loc(state%q(1,1,ixcldliq)), c_loc(state%q(1,1,ixcldice)), c_loc(icwmrdp(1,1)), c_loc(icwmrsh(1,1)), &
        c_loc(rprddp(1,1)), c_loc(rprdsh(1,1)), c_loc(sh_frac(1,1)), c_loc(dp_frac(1,1)), c_loc(evapcsh(1,1)), &
        c_loc(evapcdp(1,1)), c_loc(inputs%cldcu(1,1)), c_loc(inputs%evapc(1,1)), c_loc(inputs%cmfdqr(1,1)), &
-       c_loc(inputs%conicw(1,1)), c_loc(inputs%totcond(1,1)) &
+       c_loc(inputs%conicw(1,1)), c_loc(inputs%totcond(1,1)), c_loc(cldt(1,1)), c_loc(cldst(1,1)) &
   )
-
-  cldst(:state%ncol,:) = inputs%cldt(:state%ncol,:) - inputs%cldcu(:state%ncol,:)
 
   call clddiag_codon_invoke( state%t, state%pmid, state%pdel, inputs%cmfdqr, inputs%evapc, inputs%cldt, &
        inputs%cldcu, cldst, inputs%qme, inputs%evapr, inputs%prain, inputs%cldv, inputs%cldvcu, &
