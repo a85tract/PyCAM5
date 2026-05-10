@@ -63,6 +63,7 @@ module mo_neu_wetdep
   logical :: neu_wetdep_washo_dempirical_selector_proof_written = .false.
   logical :: neu_wetdep_dempirical_wrap_proof_written = .false.
   logical :: neu_wetdep_washo_wrap_proof_written = .false.
+  logical :: neu_wetdep_washo_columns_wrap_proof_written = .false.
 !
   real(r8), parameter  :: TICE=263._r8
 
@@ -699,6 +700,109 @@ subroutine neu_wetdep_washo_codon_wrap(lpar, ntrace, dtscav, qttjfl, qm, pofl, d
 
 end subroutine neu_wetdep_washo_codon_wrap
 !
+subroutine neu_wetdep_washo_columns_codon_wrap(ncol, lpar, ntrace, dtscav, trc_mass, qm, pofl, delz, &
+     rls, clwc, ciwc, cfr, tem, evaprate, garea, hstar, tcmass, tckaqb, tcnion, &
+     qt_rain, qt_rime, qt_wash, qt_evap)
+
+  use iso_c_binding, only : c_double, c_int64_t, c_loc, c_ptr
+
+  integer, intent(in) :: ncol, lpar, ntrace
+  real(r8), intent(in) :: dtscav
+  real(r8), target, intent(inout) :: trc_mass(ncol,lpar,ntrace)
+  real(r8), target, intent(in) :: qm(ncol,lpar), pofl(ncol,lpar), delz(ncol,lpar), rls(ncol,lpar)
+  real(r8), target, intent(in) :: clwc(ncol,lpar), ciwc(ncol,lpar), cfr(ncol,lpar)
+  real(r8), target, intent(in) :: tem(ncol,lpar), evaprate(ncol,lpar), garea(ncol)
+  real(r8), target, intent(in) :: hstar(ncol,lpar,ntrace), tcmass(ntrace)
+  logical, intent(in) :: tckaqb(ntrace), tcnion(ntrace)
+  real(r8), target, intent(inout) :: qt_rain(ncol,lpar), qt_rime(ncol,lpar)
+  real(r8), target, intent(inout) :: qt_wash(ncol,lpar), qt_evap(ncol,lpar)
+
+  real(r8), target :: qttjfl_work(lpar,ntrace,ncol), hstar_work(lpar,ntrace,ncol)
+  real(r8), target :: qm_work(lpar,ncol), pofl_work(lpar,ncol), delz_work(lpar,ncol)
+  real(r8), target :: rls_work(lpar,ncol), clwc_work(lpar,ncol), ciwc_work(lpar,ncol)
+  real(r8), target :: cfr_work(lpar,ncol), tem_work(lpar,ncol), evaprate_work(lpar,ncol)
+  real(r8), target :: qt_rain_work(lpar,ncol), qt_rime_work(lpar,ncol)
+  real(r8), target :: qt_wash_work(lpar,ncol), qt_evap_work(lpar,ncol)
+  real(r8), target :: cfxx_work(lpar,ncol), qtt_work(lpar,ncol), qttnew_work(lpar,ncol)
+  integer(c_int64_t), target :: tckaqb_c(ntrace), tcnion_c(ntrace)
+
+  integer(c_int64_t) :: do_diag_c, dempirical_impl_c
+  character(len=32) :: dempirical_impl_name
+  integer :: n
+
+  interface
+     subroutine neu_wetdep_washo_columns_codon(ncol_c, lpar_c, ntrace_c, hno3_ndx_c, do_diag_c, &
+          dempirical_impl_c, dtscav_c, adj_factor_c, trc_mass_p, qm_p, pofl_p, delz_p, rls_p, &
+          clwc_p, ciwc_p, cfr_p, tem_p, evaprate_p, garea_p, hstar_p, tcmass_p, tckaqb_p, &
+          tcnion_p, qt_rain_p, qt_rime_p, qt_wash_p, qt_evap_p, qttjfl_work_p, hstar_work_p, &
+          qm_work_p, pofl_work_p, delz_work_p, rls_work_p, clwc_work_p, ciwc_work_p, cfr_work_p, &
+          tem_work_p, evaprate_work_p, qt_rain_work_p, qt_rime_work_p, qt_wash_work_p, &
+          qt_evap_work_p, cfxx_work_p, qtt_work_p, qttnew_work_p) bind(c, name="neu_wetdep_washo_columns_codon")
+       use iso_c_binding, only : c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, lpar_c, ntrace_c, hno3_ndx_c, do_diag_c, dempirical_impl_c
+       real(c_double), value :: dtscav_c, adj_factor_c
+       type(c_ptr), value :: trc_mass_p, qm_p, pofl_p, delz_p, rls_p, clwc_p, ciwc_p, cfr_p
+       type(c_ptr), value :: tem_p, evaprate_p, garea_p, hstar_p, tcmass_p, tckaqb_p, tcnion_p
+       type(c_ptr), value :: qt_rain_p, qt_rime_p, qt_wash_p, qt_evap_p, qttjfl_work_p, hstar_work_p
+       type(c_ptr), value :: qm_work_p, pofl_work_p, delz_work_p, rls_work_p, clwc_work_p
+       type(c_ptr), value :: ciwc_work_p, cfr_work_p, tem_work_p, evaprate_work_p
+       type(c_ptr), value :: qt_rain_work_p, qt_rime_work_p, qt_wash_work_p, qt_evap_work_p
+       type(c_ptr), value :: cfxx_work_p, qtt_work_p, qttnew_work_p
+     end subroutine neu_wetdep_washo_columns_codon
+  end interface
+
+  if (.not. neu_wetdep_washo_dempirical_impl_selected) call neu_wetdep_washo_dempirical_select_impl()
+
+  if (neu_wetdep_washo_dempirical_use_native_impl) then
+     dempirical_impl_c = 0_c_int64_t
+     dempirical_impl_name = 'native'
+  else
+     dempirical_impl_c = 1_c_int64_t
+     dempirical_impl_name = 'codon'
+  end if
+
+  if (masterproc .and. .not. neu_wetdep_washo_columns_wrap_proof_written) then
+     write(iulog,'(3A)') 'neu_wetdep_washo_columns_codon_wrap entered (washo column dispatcher = codon, dempirical implementation = ', &
+          trim(dempirical_impl_name), ')'
+     call neu_wetdep_washo_append_impl_proof('washo columns dispatcher entered shell = codon, dempirical implementation = ' // &
+          trim(dempirical_impl_name))
+     neu_wetdep_washo_columns_wrap_proof_written = .true.
+     call flush(iulog)
+  end if
+
+  do n = 1, ntrace
+     if (tckaqb(n)) then
+        tckaqb_c(n) = 1_c_int64_t
+     else
+        tckaqb_c(n) = 0_c_int64_t
+     end if
+     if (tcnion(n)) then
+        tcnion_c(n) = 1_c_int64_t
+     else
+        tcnion_c(n) = 0_c_int64_t
+     end if
+  end do
+
+  if (do_diag) then
+     do_diag_c = 1_c_int64_t
+  else
+     do_diag_c = 0_c_int64_t
+  end if
+
+  call neu_wetdep_washo_columns_codon( &
+       int(ncol, c_int64_t), int(lpar, c_int64_t), int(ntrace, c_int64_t), int(hno3_ndx, c_int64_t), &
+       do_diag_c, dempirical_impl_c, real(dtscav, c_double), real(one + 10._r8*epsilon(one), c_double), &
+       c_loc(trc_mass), c_loc(qm), c_loc(pofl), c_loc(delz), c_loc(rls), c_loc(clwc), c_loc(ciwc), &
+       c_loc(cfr), c_loc(tem), c_loc(evaprate), c_loc(garea), c_loc(hstar), c_loc(tcmass), &
+       c_loc(tckaqb_c), c_loc(tcnion_c), c_loc(qt_rain), c_loc(qt_rime), c_loc(qt_wash), c_loc(qt_evap), &
+       c_loc(qttjfl_work), c_loc(hstar_work), c_loc(qm_work), c_loc(pofl_work), c_loc(delz_work), &
+       c_loc(rls_work), c_loc(clwc_work), c_loc(ciwc_work), c_loc(cfr_work), c_loc(tem_work), &
+       c_loc(evaprate_work), c_loc(qt_rain_work), c_loc(qt_rime_work), c_loc(qt_wash_work), &
+       c_loc(qt_evap_work), c_loc(cfxx_work), c_loc(qtt_work), c_loc(qttnew_work) &
+  )
+
+end subroutine neu_wetdep_washo_columns_codon_wrap
+!
 subroutine neu_wetdep_henry_codon_wrap(ncol, pcols_in, pver_in, gas_cnt, nh3_ndx_in, co2_ndx_in, &
      t0_in, ph_in, ph_inv_in, mapping_to_heff_c, dheff_in, tfld, heff, wrk, dk1s, dk2s, tckaqb_c)
 
@@ -1157,14 +1261,21 @@ subroutine neu_wetdep_tend(lchnk,ncol,mmr,pmid,pdel,zint,tfld,delt, &
 !
 ! call J. Neu's subroutine
 !
-  do i=1,ncol
+  if (.not. neu_wetdep_washo_impl_selected) call neu_wetdep_washo_select_impl()
+  if (debug .or. neu_wetdep_washo_use_native_impl) then
+    do i=1,ncol
 !
-    call washo(pver,gas_wetdep_cnt,delt,trc_mass(i,:,:),mass_in_layer(i,:),p(i,:),delz(i,:) &
-              ,rls(i,:),cldliq(i,:),cldice(i,:),cldfrc(i,:),temp(i,:),evaprate(i,:) &
-              ,area(i),heff(i,:,:),mol_weight(:),tckaqb(:),ice_uptake(:) &
-              ,qt_rain(i,:),qt_rime(i,:),qt_wash(i,:),qt_evap(i,:) )
+      call washo(pver,gas_wetdep_cnt,delt,trc_mass(i,:,:),mass_in_layer(i,:),p(i,:),delz(i,:) &
+                ,rls(i,:),cldliq(i,:),cldice(i,:),cldfrc(i,:),temp(i,:),evaprate(i,:) &
+                ,area(i),heff(i,:,:),mol_weight(:),tckaqb(:),ice_uptake(:) &
+                ,qt_rain(i,:),qt_rime(i,:),qt_wash(i,:),qt_evap(i,:) )
 !
-  end do
+    end do
+  else
+    call neu_wetdep_washo_columns_codon_wrap(ncol, pver, gas_wetdep_cnt, delt, trc_mass, &
+         mass_in_layer, p, delz, rls, cldliq, cldice, cldfrc, temp, evaprate, area, heff, &
+         mol_weight, tckaqb, ice_uptake, qt_rain, qt_rime, qt_wash, qt_evap)
+  end if
 !
 ! compute tendencies and convert back to mmr
 ! on original vertical grid

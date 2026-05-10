@@ -1897,6 +1897,212 @@ def neu_wetdep_washo_codon(
 
         n += 1
 
+def neu_wetdep_washo_columns_codon(
+    ncol: int,
+    lpar: int,
+    ntrace: int,
+    hno3_ndx: int,
+    do_diag: int,
+    dempirical_impl: int,
+    dtscav: float,
+    adj_factor: float,
+    trc_mass_p: cobj,
+    qm_p: cobj,
+    pofl_p: cobj,
+    delz_p: cobj,
+    rls_p: cobj,
+    clwc_p: cobj,
+    ciwc_p: cobj,
+    cfr_p: cobj,
+    tem_p: cobj,
+    evaprate_p: cobj,
+    garea_p: cobj,
+    hstar_p: cobj,
+    tcmass_p: cobj,
+    tckaqb_p: cobj,
+    tcnion_p: cobj,
+    qt_rain_p: cobj,
+    qt_rime_p: cobj,
+    qt_wash_p: cobj,
+    qt_evap_p: cobj,
+    qttjfl_work_p: cobj,
+    hstar_work_p: cobj,
+    qm_work_p: cobj,
+    pofl_work_p: cobj,
+    delz_work_p: cobj,
+    rls_work_p: cobj,
+    clwc_work_p: cobj,
+    ciwc_work_p: cobj,
+    cfr_work_p: cobj,
+    tem_work_p: cobj,
+    evaprate_work_p: cobj,
+    qt_rain_work_p: cobj,
+    qt_rime_work_p: cobj,
+    qt_wash_work_p: cobj,
+    qt_evap_work_p: cobj,
+    cfxx_work_p: cobj,
+    qtt_work_p: cobj,
+    qttnew_work_p: cobj,
+):
+    trc_mass = Ptr[float](trc_mass_p)
+    qm = Ptr[float](qm_p)
+    pofl = Ptr[float](pofl_p)
+    delz = Ptr[float](delz_p)
+    rls = Ptr[float](rls_p)
+    clwc = Ptr[float](clwc_p)
+    ciwc = Ptr[float](ciwc_p)
+    cfr = Ptr[float](cfr_p)
+    tem = Ptr[float](tem_p)
+    evaprate = Ptr[float](evaprate_p)
+    garea = Ptr[float](garea_p)
+    hstar = Ptr[float](hstar_p)
+    tcmass = Ptr[float](tcmass_p)
+    tckaqb = Ptr[int](tckaqb_p)
+    tcnion = Ptr[int](tcnion_p)
+    qt_rain = Ptr[float](qt_rain_p)
+    qt_rime = Ptr[float](qt_rime_p)
+    qt_wash = Ptr[float](qt_wash_p)
+    qt_evap = Ptr[float](qt_evap_p)
+    qttjfl_work = Ptr[float](qttjfl_work_p)
+    hstar_work = Ptr[float](hstar_work_p)
+    qm_work = Ptr[float](qm_work_p)
+    pofl_work = Ptr[float](pofl_work_p)
+    delz_work = Ptr[float](delz_work_p)
+    rls_work = Ptr[float](rls_work_p)
+    clwc_work = Ptr[float](clwc_work_p)
+    ciwc_work = Ptr[float](ciwc_work_p)
+    cfr_work = Ptr[float](cfr_work_p)
+    tem_work = Ptr[float](tem_work_p)
+    evaprate_work = Ptr[float](evaprate_work_p)
+    qt_rain_work = Ptr[float](qt_rain_work_p)
+    qt_rime_work = Ptr[float](qt_rime_work_p)
+    qt_wash_work = Ptr[float](qt_wash_work_p)
+    qt_evap_work = Ptr[float](qt_evap_work_p)
+    cfxx_work = Ptr[float](cfxx_work_p)
+    qtt_work = Ptr[float](qtt_work_p)
+    qttnew_work = Ptr[float](qttnew_work_p)
+
+    cfmin = 0.1
+    cwmin = 1.0e-5
+    dmin = 1.0e-1
+    volpow = 1.0 / 3.0
+    rhorain = 1.0e3
+    rhosnowfix = 1.0e2
+    coleffrain = 0.7
+    tmix = 258.0
+    tfroz = 240.0
+    coleffaer = 0.05
+    tice = 263.0
+    four = 4.0
+    le = lpar - 1
+
+    for i in range(1, ncol + 1):
+        work_1d_offset = (i - 1) * lpar
+        work_2d_offset = (i - 1) * lpar * ntrace
+
+        for l in range(1, lpar + 1):
+            src_idx = _idx2(i, l, ncol)
+            work_idx = _idx2(l, i, lpar)
+            qm_work[work_idx] = qm[src_idx]
+            pofl_work[work_idx] = pofl[src_idx]
+            delz_work[work_idx] = delz[src_idx]
+            rls_work[work_idx] = rls[src_idx]
+            clwc_work[work_idx] = clwc[src_idx]
+            ciwc_work[work_idx] = ciwc[src_idx]
+            cfr_work[work_idx] = cfr[src_idx]
+            tem_work[work_idx] = tem[src_idx]
+            evaprate_work[work_idx] = evaprate[src_idx]
+            qt_rain_work[work_idx] = qt_rain[src_idx]
+            qt_rime_work[work_idx] = qt_rime[src_idx]
+            qt_wash_work[work_idx] = qt_wash[src_idx]
+            qt_evap_work[work_idx] = qt_evap[src_idx]
+
+        for n in range(1, ntrace + 1):
+            for l in range(1, lpar + 1):
+                src_idx = _idx3(i, l, n, ncol, lpar)
+                work_idx = _idx3(l, n, i, lpar, ntrace)
+                qttjfl_work[work_idx] = trc_mass[src_idx]
+                hstar_work[work_idx] = hstar[src_idx]
+
+        qttjfl_col = qttjfl_work + work_2d_offset
+        hstar_col = hstar_work + work_2d_offset
+        qm_col = qm_work + work_1d_offset
+        pofl_col = pofl_work + work_1d_offset
+        delz_col = delz_work + work_1d_offset
+        rls_col = rls_work + work_1d_offset
+        clwc_col = clwc_work + work_1d_offset
+        ciwc_col = ciwc_work + work_1d_offset
+        cfr_col = cfr_work + work_1d_offset
+        tem_col = tem_work + work_1d_offset
+        evaprate_col = evaprate_work + work_1d_offset
+        qt_rain_col = qt_rain_work + work_1d_offset
+        qt_rime_col = qt_rime_work + work_1d_offset
+        qt_wash_col = qt_wash_work + work_1d_offset
+        qt_evap_col = qt_evap_work + work_1d_offset
+        cfxx_col = cfxx_work + work_1d_offset
+        qtt_col = qtt_work + work_1d_offset
+        qttnew_col = qttnew_work + work_1d_offset
+
+        n = 1
+        while n <= ntrace:
+            _neu_wetdep_washo_species(
+                n,
+                le,
+                lpar,
+                hno3_ndx,
+                do_diag,
+                dempirical_impl,
+                dtscav,
+                garea[i - 1],
+                adj_factor,
+                cfmin,
+                cwmin,
+                dmin,
+                volpow,
+                rhorain,
+                rhosnowfix,
+                coleffrain,
+                tmix,
+                tfroz,
+                coleffaer,
+                tice,
+                four,
+                qttjfl_col,
+                qm_col,
+                pofl_col,
+                delz_col,
+                rls_col,
+                clwc_col,
+                ciwc_col,
+                cfr_col,
+                tem_col,
+                evaprate_col,
+                hstar_col,
+                tcmass,
+                tckaqb,
+                tcnion,
+                qt_rain_col,
+                qt_rime_col,
+                qt_wash_col,
+                qt_evap_col,
+                cfxx_col,
+                qtt_col,
+                qttnew_col,
+            )
+            n += 1
+
+        for n in range(1, ntrace + 1):
+            for l in range(1, lpar + 1):
+                trc_mass[_idx3(i, l, n, ncol, lpar)] = qttjfl_work[_idx3(l, n, i, lpar, ntrace)]
+
+        for l in range(1, lpar + 1):
+            src_idx = _idx2(l, i, lpar)
+            dst_idx = _idx2(i, l, ncol)
+            qt_rain[dst_idx] = qt_rain_work[src_idx]
+            qt_rime[dst_idx] = qt_rime_work[src_idx]
+            qt_wash[dst_idx] = qt_wash_work[src_idx]
+            qt_evap[dst_idx] = qt_evap_work[src_idx]
+
 def setsox_init_fields_codon(
     stage: int,
     ncol: int,
