@@ -155,6 +155,7 @@ module water_tracers
   logical :: wtrc_q1q2_updraft_h2o_logged = .false.
   logical :: wtrc_q1q2_downdraft_logged = .false.
   logical :: wtrc_q1q2_tail_logged = .false.
+  logical :: wtrc_q1q2_downdraft_tail_logged = .false.
 
 contains
 
@@ -5479,6 +5480,22 @@ subroutine wtrc_q1q2_pjr(dqdt        , ideep, lengath, &
          type(c_ptr), value :: rd_p, qd_p, dz_p, wtevp_p, evpc_p, ed_p, q_p, mdpc_p, qdb_p, totevp_p
       end subroutine wtrc_q1q2_downdraft_shell_codon
 
+      subroutine wtrc_q1q2_downdraft_tail_shell_codon(lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, &
+           iwtvap_c, wtrc_qmin_c, ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, jd_p, mx_p, jt_p, eps0_p, &
+           qu_p, qds_p, rd_p, qd_p, dz_p, wtevp_p, evpc_p, ed_p, q_p, mdpc_p, qdb_p, totevp_p, &
+           dp_p, dsubcld_p, totpcp_p, wtcu_p, dupc_p, ql_p, c0mask_p, mupc_p, rpdpc_p, wtrprd_p, &
+           cu_p, evp_p, mu_p, md_p, qhat_p, dqdt_p, wtdlf_p, du_p, pevp_p, rprd_p) &
+           bind(c, name="wtrc_q1q2_downdraft_tail_shell_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, iwtvap_c
+         real(c_double), value :: wtrc_qmin_c
+         type(c_ptr), value :: ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, jd_p, mx_p, jt_p, eps0_p
+         type(c_ptr), value :: qu_p, qds_p, rd_p, qd_p, dz_p, wtevp_p, evpc_p, ed_p, q_p, mdpc_p
+         type(c_ptr), value :: qdb_p, totevp_p, dp_p, dsubcld_p, totpcp_p, wtcu_p, dupc_p, ql_p
+         type(c_ptr), value :: c0mask_p, mupc_p, rpdpc_p, wtrprd_p, cu_p, evp_p, mu_p, md_p, qhat_p
+         type(c_ptr), value :: dqdt_p, wtdlf_p, du_p, pevp_p, rprd_p
+      end subroutine wtrc_q1q2_downdraft_tail_shell_codon
+
       subroutine wtrc_q1q2_updraft_h2o_shell_codon(lengath_c, pcols_c, pver_c, wtrc_nwset_c, msg_c, &
            iwtvap_c, wtrc_qmin_c, ideep_p, wtrc_iatype_p, iwspec_p, rstd_p, mx_p, jt_p, eps0_p, &
            tu_p, mupc_p, qu_p, ru_p, wtcu_p, cupc_p, dz_p, eu_p, q_p, dupc_p, qstb_p, qub_p, ql_p, &
@@ -5847,18 +5864,22 @@ end if
 
 if (.not. use_native_wtrc_batch_impl) then
 
-   if (masterproc .and. .not. wtrc_q1q2_downdraft_logged) then
-     write(iulog,*) 'wtrc_q1q2 downdraft shell entered (downdraft humidity/evap direct = codon; isotope core = native)'
-     call wtrc_batch_append_proof('wtrc_q1q2 downdraft shell entered (downdraft humidity/evap direct = codon; isotope core = native)')
+   if (masterproc .and. .not. wtrc_q1q2_downdraft_tail_logged) then
+     write(iulog,*) 'wtrc_q1q2 downdraft/tail shell entered (downdraft/tail direct = codon; isotope core = native)'
+     call wtrc_batch_append_proof( &
+          'wtrc_q1q2 downdraft/tail shell entered (downdraft/tail direct = codon; isotope core = native)')
      call flush(iulog)
-     wtrc_q1q2_downdraft_logged = .true.
+     wtrc_q1q2_downdraft_tail_logged = .true.
    end if
 
-   call wtrc_q1q2_downdraft_shell_codon(int(lengath, c_int64_t), int(pcols, c_int64_t), &
+   call wtrc_q1q2_downdraft_tail_shell_codon(int(lengath, c_int64_t), int(pcols, c_int64_t), &
         int(pver, c_int64_t), int(wtrc_nwset, c_int64_t), int(msg, c_int64_t), int(iwtvap, c_int64_t), &
         real(wtrc_qmin, c_double), c_loc(ideep64), c_loc(wtrc_iatype64), c_loc(iwspec64), c_loc(rstd), &
-        c_loc(jd64), c_loc(mx64), c_loc(eps0), c_loc(qu), c_loc(qds), c_loc(Rd), c_loc(qd), c_loc(dz), &
-        c_loc(wtevp), c_loc(evpc), c_loc(ed), c_loc(q), c_loc(mdpc), c_loc(qdb), c_loc(totevp))
+        c_loc(jd64), c_loc(mx64), c_loc(jt64), c_loc(eps0), c_loc(qu), c_loc(qds), c_loc(Rd), c_loc(qd), &
+        c_loc(dz), c_loc(wtevp), c_loc(evpc), c_loc(ed), c_loc(q), c_loc(mdpc), c_loc(qdb), c_loc(totevp), &
+        c_loc(dp), c_loc(dsubcld), c_loc(totpcp), c_loc(wtcu), c_loc(dupc), c_loc(ql), c_loc(c0mask), &
+        c_loc(mupc), c_loc(rpdpc), c_loc(wtrprd), c_loc(cu), c_loc(evp), c_loc(mu), c_loc(md), &
+        c_loc(qhat), c_loc(dqdt), c_loc(wtdlf), c_loc(du), c_loc(pevp), c_loc(rprd))
 
 else
 
@@ -5913,25 +5934,7 @@ end if
 !calculate total evaporation
 !***************************
 
-if (.not. use_native_wtrc_batch_impl) then
-
-  if (masterproc .and. .not. wtrc_q1q2_tail_logged) then
-    write(iulog,*) 'wtrc_q1q2 tail shell entered (precip/tendency tail direct = codon; isotope core = native)'
-    call wtrc_batch_append_proof('wtrc_q1q2 tail shell entered (precip/tendency tail direct = codon; isotope core = native)')
-    call flush(iulog)
-    wtrc_q1q2_tail_logged = .true.
-  end if
-
-  call wtrc_q1q2_tail_shell_codon(int(lengath, c_int64_t), int(pcols, c_int64_t), &
-       int(pver, c_int64_t), int(wtrc_nwset, c_int64_t), int(msg, c_int64_t), int(iwtvap, c_int64_t), &
-       real(wtrc_qmin, c_double), c_loc(ideep64), c_loc(wtrc_iatype64), c_loc(iwspec64), c_loc(rstd), &
-       c_loc(jd64), c_loc(mx64), c_loc(jt64), c_loc(dp), c_loc(dsubcld), c_loc(dz), c_loc(mdpc), &
-       c_loc(qd), c_loc(totpcp), c_loc(totevp), c_loc(wtcu), c_loc(dupc), c_loc(ql), c_loc(c0mask), &
-       c_loc(mupc), c_loc(wtevp), c_loc(rpdpc), c_loc(wtrprd), c_loc(cu), c_loc(evp), c_loc(mu), &
-       c_loc(md), c_loc(qu), c_loc(qhat), c_loc(dqdt), c_loc(wtdlf), c_loc(du), c_loc(pevp), c_loc(rprd), &
-       c_loc(eps0))
-
-else
+if (use_native_wtrc_batch_impl) then
 
 do m=1,wtrc_nwset
  do i= 1,lengath
