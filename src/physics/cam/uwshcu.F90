@@ -529,9 +529,10 @@ contains
     tendency_prep_shell_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'uwshcu tendency prep shell entered (uemf/comsub/momentum/detrainment prelim direct = codon)'
+       write(iulog,'(A)') &
+            'uwshcu comp sub prepare shell entered (uemf/comsub/subsidence tendency direct = codon; conden check native)'
        call uwshcu_append_proof( &
-            'uwshcu tendency prep shell entered (uemf/comsub/momentum/detrainment prelim direct = codon)')
+            'uwshcu comp sub prepare shell entered (uemf/comsub/subsidence tendency direct = codon; conden check native)')
        call flush(iulog)
     end if
 
@@ -2379,6 +2380,22 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: thlten_sub_p, qtten_sub_p, qlten_sub_p, qiten_sub_p
           type(c_ptr), value :: nlten_sub_p, niten_sub_p, wtlten_sub_p, wtiten_sub_p
        end subroutine uwshcu_comp_sub_tendency_shell_codon
+
+       subroutine uwshcu_comp_sub_prepare_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, &
+            krel_c, kbup_c, kpen_c, ixnumliq_c, ixnumice_c, cbmf_c, g_c, ps0_p, umf_p, &
+            emf_p, uemf_p, comsub_p, p0_p, thl0_p, qt0_p, ql0_p, qi0_p, tr0_p, &
+            wtrc_iatype_p, thlten_sub_p, qtten_sub_p, qlten_sub_p, qiten_sub_p, &
+            nlten_sub_p, niten_sub_p, wtlten_sub_p, wtiten_sub_p) &
+            bind(c, name="uwshcu_comp_sub_prepare_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, krel_c, kbup_c
+          integer(c_int64_t), value :: kpen_c, ixnumliq_c, ixnumice_c
+          real(c_double), value :: cbmf_c, g_c
+          type(c_ptr), value :: ps0_p, umf_p, emf_p, uemf_p, comsub_p, p0_p, thl0_p, qt0_p
+          type(c_ptr), value :: ql0_p, qi0_p, tr0_p, wtrc_iatype_p, thlten_sub_p, qtten_sub_p
+          type(c_ptr), value :: qlten_sub_p, qiten_sub_p, nlten_sub_p, niten_sub_p
+          type(c_ptr), value :: wtlten_sub_p, wtiten_sub_p
+       end subroutine uwshcu_comp_sub_prepare_shell_codon
 
        subroutine uwshcu_comp_sub_sink_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, kpen_c, &
             ixnumliq_c, ixnumice_c, dt_c, ql0_p, qi0_p, tr0_p, wtrc_iatype_p, qlten_sub_p, &
@@ -5951,10 +5968,16 @@ end subroutine uwshcu_readnl
           comsub(k)  = 0.5_r8 * ( uemf(k) + uemf(k-1) ) 
        end do    
        else
+          wtrc_nwset_post_c = 0_c_int64_t
+          if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
           call uwshcu_log_tendency_prep_shell_entered()
-          call uwshcu_massflux_comsub_shell_codon(int(mkx, c_int64_t), int(kinv, c_int64_t), &
-               int(krel, c_int64_t), int(kbup, c_int64_t), int(kpen, c_int64_t), cbmf, &
-               c_loc(ps0), c_loc(umf), c_loc(emf), c_loc(uemf), c_loc(comsub))
+          call uwshcu_comp_sub_prepare_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+               wtrc_nwset_post_c, int(kinv, c_int64_t), int(krel, c_int64_t), int(kbup, c_int64_t), &
+               int(kpen, c_int64_t), int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), cbmf, g, &
+               c_loc(ps0), c_loc(umf), c_loc(emf), c_loc(uemf), c_loc(comsub), c_loc(p0), &
+               c_loc(thl0), c_loc(qt0), c_loc(ql0), c_loc(qi0), c_loc(tr0), c_loc(wtrc_iatype_post), &
+               c_loc(thlten_sub_tmp), c_loc(qtten_sub_tmp), c_loc(qlten_sub_tmp), c_loc(qiten_sub_tmp), &
+               c_loc(nlten_sub_tmp), c_loc(niten_sub_tmp), c_loc(wtlten_sub_tmp), c_loc(wtiten_sub_tmp))
        endif
 
        if (use_native_init_shell_impl) then
@@ -6054,15 +6077,6 @@ end subroutine uwshcu_readnl
        else
           wtrc_nwset_post_c = 0_c_int64_t
           if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-          call uwshcu_log_comp_sub_sink_shell_entered()
-          call uwshcu_comp_sub_tendency_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-               wtrc_nwset_post_c, int(kpen, c_int64_t), int(ixnumliq, c_int64_t), &
-               int(ixnumice, c_int64_t), g, c_loc(p0), c_loc(thl0), c_loc(qt0), c_loc(ql0), &
-               c_loc(qi0), c_loc(tr0), c_loc(wtrc_iatype_post), c_loc(comsub), &
-               c_loc(thlten_sub_tmp), c_loc(qtten_sub_tmp), c_loc(qlten_sub_tmp), &
-               c_loc(qiten_sub_tmp), c_loc(nlten_sub_tmp), c_loc(niten_sub_tmp), &
-               c_loc(wtlten_sub_tmp), c_loc(wtiten_sub_tmp))
-
           do k = 1, kpen
              thlten_sub = thlten_sub_tmp(k)
              qtten_sub  = qtten_sub_tmp(k)
@@ -6075,6 +6089,7 @@ end subroutine uwshcu_readnl
              endif
           end do
 
+          call uwshcu_log_comp_sub_sink_shell_entered()
           call uwshcu_comp_sub_sink_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
                wtrc_nwset_post_c, int(kpen, c_int64_t), int(ixnumliq, c_int64_t), &
                int(ixnumice, c_int64_t), dt, c_loc(ql0), c_loc(qi0), c_loc(tr0), &
