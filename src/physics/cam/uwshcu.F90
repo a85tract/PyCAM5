@@ -65,6 +65,8 @@
   logical :: thermo_prelim_shell_entered_logged = .false.
   logical :: thermo_final_shell_entered_logged = .false.
   logical :: post_precip_adjust_shell_entered_logged = .false.
+  logical :: post_precip_positive_prep_shell_entered_logged = .false.
+  logical :: post_positive_tracer_limiter_shell_entered_logged = .false.
   logical :: tracer_limiter_shell_entered_logged = .false.
   logical :: cloud_diag_shell_entered_logged = .false.
   logical :: positive_moisture_prep_shell_entered_logged = .false.
@@ -650,6 +652,40 @@ contains
     end if
 
   end subroutine uwshcu_log_positive_moisture_prep_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_post_precip_positive_prep_shell_entered()
+
+    if (post_precip_positive_prep_shell_entered_logged) return
+    post_precip_positive_prep_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu post precip positive prep shell entered (reserved condensate adjust/positive moisture prep direct = codon; correction native)'
+       call uwshcu_append_proof( &
+            'uwshcu post precip positive prep shell entered (reserved condensate adjust/positive moisture prep direct = codon; correction native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_post_precip_positive_prep_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_post_positive_tracer_limiter_shell_entered()
+
+    if (post_positive_tracer_limiter_shell_entered_logged) return
+    post_positive_tracer_limiter_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu post positive tracer limiter shell entered (post-positive thermo/tracer limiter direct = codon; correction native)'
+       call uwshcu_append_proof( &
+            'uwshcu post positive tracer limiter shell entered (post-positive thermo/tracer limiter direct = codon; correction native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_post_positive_tracer_limiter_shell_entered
 
 !===============================================================================
 
@@ -2549,6 +2585,34 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: tr0_p, trten_p, wtrc_iatype_p, qv0_star_p, ql0_star_p, qi0_star_p
           type(c_ptr), value :: s0_star_p, wt0_star_p
        end subroutine uwshcu_positive_moisture_prep_shell_codon
+
+       subroutine uwshcu_post_precip_positive_prep_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
+            kpen_c, xlv_c, xls_c, dt_c, qtten_p, qlten_p, qiten_p, slten_p, sten_p, &
+            qc_p, qc_l_p, qc_i_p, trten_p, wtrc_iatype_p, wtqc_liq_p, wtqc_ice_p, &
+            qv0_p, ql0_p, qi0_p, s0_p, qvten_p, tr0_p, qv0_star_p, ql0_star_p, &
+            qi0_star_p, s0_star_p, wt0_star_p) &
+            bind(c, name="uwshcu_post_precip_positive_prep_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kpen_c
+          real(c_double), value :: xlv_c, xls_c, dt_c
+          type(c_ptr), value :: qtten_p, qlten_p, qiten_p, slten_p, sten_p, qc_p, qc_l_p, qc_i_p
+          type(c_ptr), value :: trten_p, wtrc_iatype_p, wtqc_liq_p, wtqc_ice_p
+          type(c_ptr), value :: qv0_p, ql0_p, qi0_p, s0_p, qvten_p, tr0_p
+          type(c_ptr), value :: qv0_star_p, ql0_star_p, qi0_star_p, s0_star_p, wt0_star_p
+       end subroutine uwshcu_post_precip_positive_prep_shell_codon
+
+       subroutine uwshcu_post_positive_tracer_limiter_shell_codon(mkx_c, ncnst_c, g_c, dt_c, &
+            ixnumliq_c, ixnumice_c, xlv_c, xls_c, qvten_p, qlten_p, qiten_p, sten_p, &
+            qtten_p, slten_p, dp0_p, dpdry0_p, tr0_p, trflx_p, trten_p, trflx_d_p, &
+            trflx_u_p, qmin_p, is_water_p, wet_p) &
+            bind(c, name="uwshcu_post_positive_tracer_limiter_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, ixnumliq_c, ixnumice_c
+          real(c_double), value :: g_c, dt_c, xlv_c, xls_c
+          type(c_ptr), value :: qvten_p, qlten_p, qiten_p, sten_p, qtten_p, slten_p
+          type(c_ptr), value :: dp0_p, dpdry0_p, tr0_p, trflx_p, trten_p, trflx_d_p, trflx_u_p
+          type(c_ptr), value :: qmin_p, is_water_p, wet_p
+       end subroutine uwshcu_post_positive_tracer_limiter_shell_codon
 
        subroutine uwshcu_precip_surface_finalize_shell_codon(mkx_c, wtrc_nwset_c, &
             flxrain_p, flxsnow_p, wtflxrn_p, wtflxsn_p, precip_p, snow_p, wtprec_p, wtsnow_p) &
@@ -7148,12 +7212,6 @@ end subroutine uwshcu_readnl
          !***************
 
        end do
-       else
-          call uwshcu_log_post_precip_adjust_shell_entered()
-          call uwshcu_reserved_condensate_adjust_shell_codon(int(mkx, c_int64_t), &
-               wtrc_nwset_post_c, int(kpen, c_int64_t), xlv, xls, c_loc(qtten), c_loc(qlten), &
-               c_loc(qiten), c_loc(slten), c_loc(sten), c_loc(qc), c_loc(qc_l), c_loc(qc_i), &
-               c_loc(trten), c_loc(wtrc_iatype_post), c_loc(wtqc_liq), c_loc(wtqc_ice))
        endif
 
        ! --------------------------------------------------------------- !
@@ -7185,12 +7243,13 @@ end subroutine uwshcu_readnl
           end do
         end if
         else
-          call uwshcu_log_positive_moisture_prep_shell_entered()
-          call uwshcu_positive_moisture_prep_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-               wtrc_nwset_post_c, dt, c_loc(qv0), c_loc(ql0), c_loc(qi0), c_loc(s0), &
-               c_loc(qvten), c_loc(qlten), c_loc(qiten), c_loc(sten), c_loc(tr0), c_loc(trten), &
-               c_loc(wtrc_iatype_post), c_loc(qv0_star), c_loc(ql0_star), c_loc(qi0_star), &
-               c_loc(s0_star), c_loc(wt0_star))
+          call uwshcu_log_post_precip_positive_prep_shell_entered()
+          call uwshcu_post_precip_positive_prep_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+               wtrc_nwset_post_c, int(kpen, c_int64_t), xlv, xls, dt, c_loc(qtten), c_loc(qlten), &
+               c_loc(qiten), c_loc(slten), c_loc(sten), c_loc(qc), c_loc(qc_l), c_loc(qc_i), &
+               c_loc(trten), c_loc(wtrc_iatype_post), c_loc(wtqc_liq), c_loc(wtqc_ice), &
+               c_loc(qv0), c_loc(ql0), c_loc(qi0), c_loc(s0), c_loc(qvten), c_loc(tr0), &
+               c_loc(qv0_star), c_loc(ql0_star), c_loc(qi0_star), c_loc(s0_star), c_loc(wt0_star))
         endif
         if(trace_water) then
           call positive_moisture_single( xlv, xls, mkx, dt, qmin(1), qmin(ixcldliq), &
@@ -7204,10 +7263,6 @@ end subroutine uwshcu_readnl
         if (use_native_init_shell_impl) then
         qtten(:mkx)    = qvten(:mkx) + qlten(:mkx) + qiten(:mkx)
         slten(:mkx)    = sten(:mkx)  - xlv * qlten(:mkx) - xls * qiten(:mkx)
-        else
-          call uwshcu_log_post_precip_adjust_shell_entered()
-          call uwshcu_post_positive_thermo_shell_codon(int(mkx, c_int64_t), xlv, xls, &
-               c_loc(qvten), c_loc(qlten), c_loc(qiten), c_loc(sten), c_loc(qtten), c_loc(slten))
         endif
 
        ! --------------------- !
@@ -7263,11 +7318,13 @@ end subroutine uwshcu_readnl
 
        enddo
        else
-          call uwshcu_log_tracer_limiter_shell_entered()
-          call uwshcu_tracer_limiter_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-               g, dt, int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), c_loc(dp0), &
-               c_loc(dpdry0), c_loc(tr0), c_loc(trflx), c_loc(trten), c_loc(trflx_d), &
-               c_loc(trflx_u), c_loc(qmin), c_loc(iwater_is_water), c_loc(cnst_type_is_wet))
+          call uwshcu_log_post_positive_tracer_limiter_shell_entered()
+          call uwshcu_post_positive_tracer_limiter_shell_codon(int(mkx, c_int64_t), &
+               int(ncnst, c_int64_t), g, dt, int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), &
+               xlv, xls, c_loc(qvten), c_loc(qlten), c_loc(qiten), c_loc(sten), c_loc(qtten), &
+               c_loc(slten), c_loc(dp0), c_loc(dpdry0), c_loc(tr0), c_loc(trflx), c_loc(trten), &
+               c_loc(trflx_d), c_loc(trflx_u), c_loc(qmin), c_loc(iwater_is_water), &
+               c_loc(cnst_type_is_wet))
        endif
 
        ! ---------------------------------------------------------------- !
