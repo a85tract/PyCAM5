@@ -353,9 +353,10 @@ contains
     iter_save_shell_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'uwshcu iter save shell entered (first iteration saved-state arrays/scalars direct = codon)'
+       write(iulog,'(A)') &
+            'uwshcu iter save/restore thermo-slope shell entered (first iteration save and CIN env rebuild direct = codon)'
        call uwshcu_append_proof( &
-            'uwshcu iter save shell entered (first iteration saved-state arrays/scalars direct = codon)')
+            'uwshcu iter save/restore thermo-slope shell entered (first iteration save and CIN env rebuild direct = codon)')
        call flush(iulog)
     end if
 
@@ -3204,14 +3205,16 @@ end subroutine uwshcu_readnl
             emf_p, precip_s_p, snow_s_p, cush_s_p, cin_s_p, cinlcl_s_p, cbmf_s_p, rliq_s_p, &
             cnt_s_p, cnb_s_p, ufrcinvbase_s_p, ufrclcl_s_p, winvbase_s_p, wlcl_s_p, plcl_s_p, &
             pinv_s_p, plfc_s_p, pbup_s_p, ppen_s_p, qtsrc_s_p, thlsrc_s_p, thvlsrc_s_p, &
-            emfkbup_s_p, cbmflimit_s_p, tkeavg_s_p, zinv_s_p, rcwp_s_p, rlwp_s_p, riwp_s_p) &
+            emfkbup_s_p, cbmflimit_s_p, tkeavg_s_p, zinv_s_p, rcwp_s_p, rlwp_s_p, riwp_s_p, &
+            xlv_c, xls_c, zvir_c, exn0_p, wtrc_iatype_p, p0_p, qt0_p, thl0_p, thvl0_p, wt0_p, &
+            ssthl0_p, ssqt0_p, ssu0_p, ssv0_p, sstr0_p, sswt0_p) &
             bind(c, name="uwshcu_iter_save_all_shell_codon")
           use iso_c_binding, only: c_double, c_int64_t, c_ptr
           integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, kbup_c, kpen_c
           real(c_double), value :: dt_c, cp_c, ppen_c, precip_c, snow_c, cush_c, cin_c, cinlcl_c
           real(c_double), value :: cbmf_c, rliq_c, cnt_c, cnb_c, ufrcinvbase_c, ufrclcl_c, winvbase_c
           real(c_double), value :: wlcl_c, plcl_c, plfc_c, qtsrc_c, thlsrc_c, thvlsrc_c, cbmflimit_c
-          real(c_double), value :: tkeavg_c, rcwp_c, rlwp_c, riwp_c
+          real(c_double), value :: tkeavg_c, rcwp_c, rlwp_c, riwp_c, xlv_c, xls_c, zvir_c
           type(c_ptr), value :: qv0_p, ql0_p, qi0_p, s0_p, u0_p, v0_p, t0_p, qvten_p, qlten_p
           type(c_ptr), value :: qiten_p, sten_p, uten_p, vten_p, tr0_p, trten_p, qv0_s_p, ql0_s_p
           type(c_ptr), value :: qi0_s_p, s0_s_p, u0_s_p, v0_s_p, qt0_s_p, t0_s_p, tr0_s_p
@@ -3236,6 +3239,8 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: wlcl_s_p, plcl_s_p, pinv_s_p, plfc_s_p, pbup_s_p, ppen_s_p, qtsrc_s_p
           type(c_ptr), value :: thlsrc_s_p, thvlsrc_s_p, emfkbup_s_p, cbmflimit_s_p, tkeavg_s_p
           type(c_ptr), value :: zinv_s_p, rcwp_s_p, rlwp_s_p, riwp_s_p
+          type(c_ptr), value :: exn0_p, wtrc_iatype_p, p0_p, qt0_p, thl0_p, thvl0_p, wt0_p
+          type(c_ptr), value :: ssthl0_p, ssqt0_p, ssu0_p, ssv0_p, sstr0_p, sswt0_p
        end subroutine uwshcu_iter_save_all_shell_codon
 
        subroutine uwshcu_delcin_env_restore_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
@@ -7960,7 +7965,10 @@ end subroutine uwshcu_readnl
                   c_loc(ufrclcl_s), c_loc(winvbase_s), c_loc(wlcl_s), c_loc(plcl_s), c_loc(pinv_s), &
                   c_loc(plfc_s), c_loc(pbup_s), c_loc(ppen_s), c_loc(qtsrc_s), c_loc(thlsrc_s), &
                   c_loc(thvlsrc_s), c_loc(emfkbup_s), c_loc(cbmflimit_s), c_loc(tkeavg_s), &
-                  c_loc(zinv_s), c_loc(rcwp_s), c_loc(rlwp_s), c_loc(riwp_s))
+                  c_loc(zinv_s), c_loc(rcwp_s), c_loc(rlwp_s), c_loc(riwp_s), &
+                  xlv, xls, zvir, c_loc(exn0), c_loc(wtrc_iatype_post), c_loc(p0), &
+                  c_loc(qt0), c_loc(thl0), c_loc(thvl0), c_loc(wt0), c_loc(ssthl0), &
+                  c_loc(ssqt0), c_loc(ssu0), c_loc(ssv0), c_loc(sstr0), c_loc(sswt0))
           end if
 
           ! ----------------------------------------------------------------------------- ! 
@@ -7987,15 +7995,6 @@ end subroutine uwshcu_readnl
              do m = 1, ncnst
                 sstr0(:mkx,m) = slope(mkx,tr0(:mkx,m),p0)
              enddo
-          else
-             call uwshcu_log_iter_env_restore_thermo_slope_shell_entered()
-             call uwshcu_iter_env_restore_thermo_slope_shell_codon(int(mkx, c_int64_t), &
-                  int(ncnst, c_int64_t), 0_c_int64_t, xlv, xls, cp, zvir, c_loc(qv0_s), &
-                  c_loc(ql0_s), c_loc(qi0_s), c_loc(s0_s), c_loc(t0_s), c_loc(qv0), c_loc(ql0), &
-                  c_loc(qi0), c_loc(s0), c_loc(t0), c_loc(exn0), c_loc(tr0), c_loc(wtrc_iatype_post), &
-                  c_loc(p0), c_loc(u0), c_loc(v0), c_loc(qt0), c_loc(thl0), c_loc(thvl0), &
-                  c_loc(wt0), c_loc(ssthl0), c_loc(ssqt0), c_loc(ssu0), c_loc(ssv0), &
-                  c_loc(sstr0), c_loc(sswt0))
           end if
 
           do k = 1, mkx

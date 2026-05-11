@@ -7619,6 +7619,22 @@ def uwshcu_iter_save_all_shell_codon(
     rcwp_s_p: cobj,
     rlwp_s_p: cobj,
     riwp_s_p: cobj,
+    xlv: float,
+    xls: float,
+    zvir: float,
+    exn0_p: cobj,
+    wtrc_iatype_p: cobj,
+    p0_p: cobj,
+    qt0_p: cobj,
+    thl0_p: cobj,
+    thvl0_p: cobj,
+    wt0_p: cobj,
+    ssthl0_p: cobj,
+    ssqt0_p: cobj,
+    ssu0_p: cobj,
+    ssv0_p: cobj,
+    sstr0_p: cobj,
+    sswt0_p: cobj,
 ):
     uwshcu_iter_save_env_shell_codon(
         mkx, ncnst, dt, cp, qv0_p, ql0_p, qi0_p, s0_p, u0_p, v0_p, t0_p,
@@ -7681,6 +7697,13 @@ def uwshcu_iter_save_all_shell_codon(
         diten_s_p, flxrain_s_p, flxsnow_s_p, ntraprd_s_p, ntsnprd_s_p,
         excessu_s_p, excess0_s_p, xc_s_p, aquad_s_p, bquad_s_p, cquad_s_p,
         bogbot_s_p, bogtop_s_p, trflx_s_p, tru_s_p, tru_emf_s_p,
+    )
+
+    uwshcu_iter_env_restore_thermo_slope_shell_codon(
+        mkx, ncnst, 0, xlv, xls, cp, zvir, qv0_s_p, ql0_s_p, qi0_s_p,
+        s0_s_p, t0_s_p, qv0_p, ql0_p, qi0_p, s0_p, t0_p, exn0_p, tr0_p,
+        wtrc_iatype_p, p0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, wt0_p,
+        ssthl0_p, ssqt0_p, ssu0_p, ssv0_p, sstr0_p, sswt0_p,
     )
 
 
