@@ -37,6 +37,7 @@
   logical :: init_shell_impl_selected = .false.
   logical :: init_shell_entered_logged = .false.
   logical :: diag_init_shell_entered_logged = .false.
+  logical :: output_diag_init_shell_entered_logged = .false.
   logical :: inv_shell_entered_logged = .false.
   logical :: inv_post_shell_entered_logged = .false.
   logical :: diag_post_shell_entered_logged = .false.
@@ -171,6 +172,23 @@ contains
     end if
 
   end subroutine uwshcu_log_diag_init_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_output_diag_init_shell_entered()
+
+    if (output_diag_init_shell_entered_logged) return
+    output_diag_init_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu output/diag init shell entered (all output, diagnostic, exit and limit arrays init direct = codon)'
+       call uwshcu_append_proof( &
+            'uwshcu output/diag init shell entered (all output, diagnostic, exit and limit arrays init direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_output_diag_init_shell_entered
 
 !===============================================================================
 
@@ -2007,6 +2025,42 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: limit_cinlcl_p, limit_cin_p, limit_cbmf_p, limit_rei_p, ind_delcin_p
        end subroutine uwshcu_diag_init_shell_codon
 
+       subroutine uwshcu_output_diag_init_shell_codon(mix_c, mkx_c, iend_c, ncnst_c, &
+            umf_p, slflx_p, qtflx_p, flxprc1_p, flxsnow1_p, qvten_p, qlten_p, qiten_p, &
+            sten_p, uten_p, vten_p, qrten_p, qsten_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, &
+            fer_p, fdr_p, qc_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p, trten_p, trflx_p, &
+            wtqc_p, wtprec_p, wtsnow_p, precip_p, snow_p, cinh_p, cinlclh_p, cbmf_p, rliq_p, &
+            cnt_p, cnb_p, ufrcinvbase_p, ufrclcl_p, winvbase_p, wlcl_p, plcl_p, pinv_p, plfc_p, &
+            pbup_p, ppen_p, qtsrc_p, thlsrc_p, thvlsrc_p, emfkbup_p, cbmflimit_p, tkeavg_p, &
+            zinv_p, rcwp_p, rlwp_p, riwp_p, wu_p, qtu_p, thlu_p, thvu_p, uu_p, vu_p, &
+            qtu_emf_p, thlu_emf_p, uu_emf_p, vu_emf_p, uemf_p, tru_p, tru_emf_p, dwten_p, &
+            diten_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p, excessu_p, excess0_p, &
+            xc_p, aquad_p, bquad_p, cquad_p, bogbot_p, bogtop_p, exit_uwcu_p, exit_conden_p, &
+            exit_klclmkx_p, exit_klfcmkx_p, exit_ufrc_p, exit_wtw_p, exit_drycore_p, exit_wu_p, &
+            exit_cufilter_p, exit_kinv1_p, exit_rei_p, limit_shcu_p, limit_negcon_p, &
+            limit_ufrc_p, limit_ppen_p, limit_emf_p, limit_cinlcl_p, limit_cin_p, limit_cbmf_p, &
+            limit_rei_p, ind_delcin_p) bind(c, name="uwshcu_output_diag_init_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: mix_c, mkx_c, iend_c, ncnst_c
+          type(c_ptr), value :: umf_p, slflx_p, qtflx_p, flxprc1_p, flxsnow1_p
+          type(c_ptr), value :: qvten_p, qlten_p, qiten_p, sten_p, uten_p, vten_p
+          type(c_ptr), value :: qrten_p, qsten_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p
+          type(c_ptr), value :: fer_p, fdr_p, qc_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p
+          type(c_ptr), value :: trten_p, trflx_p, wtqc_p, wtprec_p, wtsnow_p
+          type(c_ptr), value :: precip_p, snow_p, cinh_p, cinlclh_p, cbmf_p, rliq_p, cnt_p, cnb_p
+          type(c_ptr), value :: ufrcinvbase_p, ufrclcl_p, winvbase_p, wlcl_p, plcl_p, pinv_p, plfc_p
+          type(c_ptr), value :: pbup_p, ppen_p, qtsrc_p, thlsrc_p, thvlsrc_p, emfkbup_p, cbmflimit_p
+          type(c_ptr), value :: tkeavg_p, zinv_p, rcwp_p, rlwp_p, riwp_p, wu_p, qtu_p, thlu_p, thvu_p
+          type(c_ptr), value :: uu_p, vu_p, qtu_emf_p, thlu_emf_p, uu_emf_p, vu_emf_p, uemf_p
+          type(c_ptr), value :: tru_p, tru_emf_p, dwten_p, diten_p, flxrain_p, flxsnow_p, ntraprd_p
+          type(c_ptr), value :: ntsnprd_p, excessu_p, excess0_p, xc_p, aquad_p, bquad_p, cquad_p
+          type(c_ptr), value :: bogbot_p, bogtop_p, exit_uwcu_p, exit_conden_p, exit_klclmkx_p
+          type(c_ptr), value :: exit_klfcmkx_p, exit_ufrc_p, exit_wtw_p, exit_drycore_p, exit_wu_p
+          type(c_ptr), value :: exit_cufilter_p, exit_kinv1_p, exit_rei_p, limit_shcu_p, limit_negcon_p
+          type(c_ptr), value :: limit_ufrc_p, limit_ppen_p, limit_emf_p, limit_cinlcl_p, limit_cin_p
+          type(c_ptr), value :: limit_cbmf_p, limit_rei_p, ind_delcin_p
+       end subroutine uwshcu_output_diag_init_shell_codon
+
        subroutine uwshcu_diag_post_shell_codon(mix_c, mkx_c, i_c, ncnst_c, &
             cin_c, cinlcl_c, ufrcinvbase_c, ufrclcl_c, winvbase_c, wlcl_c, plcl_c, pinv_c, plfc_c, &
             pbup_c, ppen_c, qtsrc_c, thlsrc_c, thvlsrc_c, emfkbup_c, cbmflimit_c, tkeavg_c, &
@@ -3268,8 +3322,8 @@ end subroutine uwshcu_readnl
        wtprec_out(:iend,:ncnst)     = 0.0_r8
        wtsnow_out(:iend,:ncnst)     = 0.0_r8
     else
-       call uwshcu_log_init_shell_entered()
-       call uwshcu_output_init_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), &
+       call uwshcu_log_output_diag_init_shell_entered()
+       call uwshcu_output_diag_init_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), &
             int(iend, c_int64_t), int(ncnst, c_int64_t), c_loc(umf_out), c_loc(slflx_out), &
             c_loc(qtflx_out), c_loc(flxprc1_out), c_loc(flxsnow1_out), c_loc(qvten_out), &
             c_loc(qlten_out), c_loc(qiten_out), c_loc(sten_out), c_loc(uten_out), c_loc(vten_out), &
@@ -3278,7 +3332,22 @@ end subroutine uwshcu_readnl
             c_loc(qtten_out), c_loc(slten_out), c_loc(ufrc_out), c_loc(uflx_out), c_loc(vflx_out), &
             c_loc(trten_out), c_loc(trflx_out), c_loc(wtqc_out), c_loc(wtprec_out), c_loc(wtsnow_out), &
             c_loc(precip_out), c_loc(snow_out), c_loc(cinh_out), c_loc(cinlclh_out), c_loc(cbmf_out), &
-            c_loc(rliq_out), c_loc(cnt_out), c_loc(cnb_out))
+            c_loc(rliq_out), c_loc(cnt_out), c_loc(cnb_out), c_loc(ufrcinvbase_out), c_loc(ufrclcl_out), &
+            c_loc(winvbase_out), c_loc(wlcl_out), c_loc(plcl_out), c_loc(pinv_out), c_loc(plfc_out), &
+            c_loc(pbup_out), c_loc(ppen_out), c_loc(qtsrc_out), c_loc(thlsrc_out), c_loc(thvlsrc_out), &
+            c_loc(emfkbup_out), c_loc(cbmflimit_out), c_loc(tkeavg_out), c_loc(zinv_out), &
+            c_loc(rcwp_out), c_loc(rlwp_out), c_loc(riwp_out), c_loc(wu_out), c_loc(qtu_out), &
+            c_loc(thlu_out), c_loc(thvu_out), c_loc(uu_out), c_loc(vu_out), c_loc(qtu_emf_out), &
+            c_loc(thlu_emf_out), c_loc(uu_emf_out), c_loc(vu_emf_out), c_loc(uemf_out), &
+            c_loc(tru_out), c_loc(tru_emf_out), c_loc(dwten_out), c_loc(diten_out), c_loc(flxrain_out), &
+            c_loc(flxsnow_out), c_loc(ntraprd_out), c_loc(ntsnprd_out), c_loc(excessu_arr_out), &
+            c_loc(excess0_arr_out), c_loc(xc_arr_out), c_loc(aquad_arr_out), c_loc(bquad_arr_out), &
+            c_loc(cquad_arr_out), c_loc(bogbot_arr_out), c_loc(bogtop_arr_out), c_loc(exit_UWCu), &
+            c_loc(exit_conden), c_loc(exit_klclmkx), c_loc(exit_klfcmkx), c_loc(exit_ufrc), &
+            c_loc(exit_wtw), c_loc(exit_drycore), c_loc(exit_wu), c_loc(exit_cufilter), &
+            c_loc(exit_kinv1), c_loc(exit_rei), c_loc(limit_shcu), c_loc(limit_negcon), &
+            c_loc(limit_ufrc), c_loc(limit_ppen), c_loc(limit_emf), c_loc(limit_cinlcl), &
+            c_loc(limit_cin), c_loc(limit_cbmf), c_loc(limit_rei), c_loc(ind_delcin))
     end if
 
     if (use_native_init_shell_impl) then
@@ -3356,23 +3425,6 @@ end subroutine uwshcu_readnl
        limit_rei(:iend)             = 0.0_r8
 
        ind_delcin(:iend)            = 0.0_r8
-    else
-       call uwshcu_log_diag_init_shell_entered()
-       call uwshcu_diag_init_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), int(iend, c_int64_t), &
-            int(ncnst, c_int64_t), c_loc(ufrcinvbase_out), c_loc(ufrclcl_out), c_loc(winvbase_out), &
-            c_loc(wlcl_out), c_loc(plcl_out), c_loc(pinv_out), c_loc(plfc_out), c_loc(pbup_out), c_loc(ppen_out), &
-            c_loc(qtsrc_out), c_loc(thlsrc_out), c_loc(thvlsrc_out), c_loc(emfkbup_out), c_loc(cbmflimit_out), &
-            c_loc(tkeavg_out), c_loc(zinv_out), c_loc(rcwp_out), c_loc(rlwp_out), c_loc(riwp_out), c_loc(wu_out), &
-            c_loc(qtu_out), c_loc(thlu_out), c_loc(thvu_out), c_loc(uu_out), c_loc(vu_out), c_loc(qtu_emf_out), &
-            c_loc(thlu_emf_out), c_loc(uu_emf_out), c_loc(vu_emf_out), c_loc(uemf_out), c_loc(tru_out), &
-            c_loc(tru_emf_out), c_loc(dwten_out), c_loc(diten_out), c_loc(flxrain_out), c_loc(flxsnow_out), &
-            c_loc(ntraprd_out), c_loc(ntsnprd_out), c_loc(excessu_arr_out), c_loc(excess0_arr_out), &
-            c_loc(xc_arr_out), c_loc(aquad_arr_out), c_loc(bquad_arr_out), c_loc(cquad_arr_out), &
-            c_loc(bogbot_arr_out), c_loc(bogtop_arr_out), c_loc(exit_UWCu), c_loc(exit_conden), &
-            c_loc(exit_klclmkx), c_loc(exit_klfcmkx), c_loc(exit_ufrc), c_loc(exit_wtw), c_loc(exit_drycore), &
-            c_loc(exit_wu), c_loc(exit_cufilter), c_loc(exit_kinv1), c_loc(exit_rei), c_loc(limit_shcu), &
-            c_loc(limit_negcon), c_loc(limit_ufrc), c_loc(limit_ppen), c_loc(limit_emf), c_loc(limit_cinlcl), &
-            c_loc(limit_cin), c_loc(limit_cbmf), c_loc(limit_rei), c_loc(ind_delcin))
     end if
 
     !--------------------------------------------------------------!
