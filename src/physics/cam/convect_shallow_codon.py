@@ -3575,10 +3575,13 @@ def uwshcu_scaleh_iter_init_shell_codon(
     mkx: int,
     ncnst: int,
     wtrc_nwset: int,
+    iter_scaleh: int,
     krel: int,
+    tscaleh: float,
     wlcl: float,
     prel: float,
     thv0rel_v: float,
+    scaleh_p: cobj,
     ps0_p: cobj,
     p0_p: cobj,
     thl0_p: cobj,
@@ -3606,6 +3609,7 @@ def uwshcu_scaleh_iter_init_shell_codon(
     tre_p: cobj,
     wte_p: cobj,
 ):
+    scaleh = Ptr[float](scaleh_p)
     ps0 = Ptr[float](ps0_p)
     p0 = Ptr[float](p0_p)
     thl0 = Ptr[float](thl0_p)
@@ -3632,6 +3636,11 @@ def uwshcu_scaleh_iter_init_shell_codon(
     ve = Ptr[float](ve_p)
     tre = Ptr[float](tre_p)
     wte = Ptr[float](wte_p)
+
+    if iter_scaleh == 1:
+        scaleh[0] = tscaleh
+        if tscaleh < 0.0:
+            scaleh[0] = 1000.0
 
     kbup[0] = krel
     kpen[0] = krel

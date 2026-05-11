@@ -2628,15 +2628,15 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: scaleh_p
        end subroutine uwshcu_scaleh_set_codon
 
-       subroutine uwshcu_scaleh_iter_init_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, krel_c, &
-            wlcl_c, prel_c, thv0rel_c, ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, &
+       subroutine uwshcu_scaleh_iter_init_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, iter_scaleh_c, &
+            krel_c, tscaleh_c, wlcl_c, prel_c, thv0rel_c, scaleh_p, ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, &
             ssqt0_p, u0_p, ssu0_p, v0_p, ssv0_p, tr0_p, sstr0_p, wt0_p, sswt0_p, &
             kbup_p, kpen_p, wtw_p, pe_p, dpe_p, thvebot_p, thle_p, qte_p, &
             ue_p, ve_p, tre_p, wte_p) bind(c, name="uwshcu_scaleh_iter_init_shell_codon")
           use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, krel_c
-          real(c_double), value :: wlcl_c, prel_c, thv0rel_c
-          type(c_ptr), value :: ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p, u0_p, ssu0_p
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, iter_scaleh_c, krel_c
+          real(c_double), value :: tscaleh_c, wlcl_c, prel_c, thv0rel_c
+          type(c_ptr), value :: scaleh_p, ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p, u0_p, ssu0_p
           type(c_ptr), value :: v0_p, ssv0_p, tr0_p, sstr0_p, wt0_p, sswt0_p
           type(c_ptr), value :: kbup_p, kpen_p, wtw_p, pe_p, dpe_p, thvebot_p, thle_p, qte_p
           type(c_ptr), value :: ue_p, ve_p, tre_p, wte_p
@@ -5014,7 +5014,6 @@ end subroutine uwshcu_readnl
           if( tscaleh .lt. 0.0_r8 ) scaleh = 1000._r8
        else
           call uwshcu_log_scaleh_iter_init_shell_entered()
-          call uwshcu_scaleh_set_codon(tscaleh, c_loc(scaleh))
        endif
 
      ! Save time : Set iter_scaleh = 1. This will automatically use 'cush' from the previous time step
@@ -5112,7 +5111,8 @@ end subroutine uwshcu_readnl
           wtrc_nwset_post_c = 0_c_int64_t
           if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
           call uwshcu_scaleh_iter_init_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-               wtrc_nwset_post_c, int(krel, c_int64_t), wlcl, prel, thv0rel, c_loc(ps0), &
+               wtrc_nwset_post_c, int(iter_scaleh, c_int64_t), int(krel, c_int64_t), tscaleh, &
+               wlcl, prel, thv0rel, c_loc(scaleh), c_loc(ps0), &
                c_loc(p0), c_loc(thl0), c_loc(ssthl0), c_loc(qt0), c_loc(ssqt0), c_loc(u0), &
                c_loc(ssu0), c_loc(v0), c_loc(ssv0), c_loc(tr0), c_loc(sstr0), c_loc(wt0), &
                c_loc(sswt0), c_loc(kbup_iter_c), c_loc(kpen_iter_c), c_loc(wtw), &
