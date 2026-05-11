@@ -5527,6 +5527,8 @@ def uwshcu_cloud_diag_layer_shell_codon(
     rcwp_p: cobj,
     rlwp_p: cobj,
     riwp_p: cobj,
+    cnt_p: cobj,
+    cnb_p: cobj,
 ):
     ps0 = Ptr[float](ps0_p)
     ufrc = Ptr[float](ufrc_p)
@@ -5540,6 +5542,8 @@ def uwshcu_cloud_diag_layer_shell_codon(
     rcwp = Ptr[float](rcwp_p)
     rlwp = Ptr[float](rlwp_p)
     riwp = Ptr[float](riwp_p)
+    cnt = Ptr[float](cnt_p)
+    cnb = Ptr[float](cnb_p)
 
     k = k_fortran
     idx = k - 1
@@ -5562,6 +5566,9 @@ def uwshcu_cloud_diag_layer_shell_codon(
     qcubelow[0] = qlj_v + qij_v
     qlubelow[0] = qlj_v
     qiubelow[0] = qij_v
+    if k == kpen:
+        cnt[0] = float(kpen)
+        cnb[0] = float(krel - 1)
 
 
 @export

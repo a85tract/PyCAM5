@@ -2885,12 +2885,13 @@ end subroutine uwshcu_readnl
        subroutine uwshcu_cloud_diag_layer_shell_codon(mkx_c, k_c, krel_c, kpen_c, &
             qlj_c, qij_c, criqc_c, prel_c, ppen_c, ufrclcl_c, g_c, ps0_p, ufrc_p, &
             qcu_p, qlu_p, qiu_p, cufrc_p, qcubelow_p, qlubelow_p, qiubelow_p, &
-            rcwp_p, rlwp_p, riwp_p) bind(c, name="uwshcu_cloud_diag_layer_shell_codon")
+            rcwp_p, rlwp_p, riwp_p, cnt_p, cnb_p) bind(c, name="uwshcu_cloud_diag_layer_shell_codon")
           use iso_c_binding, only: c_double, c_int64_t, c_ptr
           integer(c_int64_t), value :: mkx_c, k_c, krel_c, kpen_c
           real(c_double), value :: qlj_c, qij_c, criqc_c, prel_c, ppen_c, ufrclcl_c, g_c
           type(c_ptr), value :: ps0_p, ufrc_p, qcu_p, qlu_p, qiu_p, cufrc_p
           type(c_ptr), value :: qcubelow_p, qlubelow_p, qiubelow_p, rcwp_p, rlwp_p, riwp_p
+          type(c_ptr), value :: cnt_p, cnb_p
        end subroutine uwshcu_cloud_diag_layer_shell_codon
 
        subroutine uwshcu_cloud_diag_index_shell_codon(kpen_c, krel_c, cnt_p, cnb_p) &
@@ -7767,7 +7768,7 @@ end subroutine uwshcu_readnl
                   int(krel, c_int64_t), int(kpen, c_int64_t), qlj, qij, criqc, prel, ppen, &
                   ufrclcl, g, c_loc(ps0), c_loc(ufrc), c_loc(qcu), c_loc(qlu), c_loc(qiu), &
                   c_loc(cufrc), c_loc(qcubelow), c_loc(qlubelow), c_loc(qiubelow), &
-                  c_loc(rcwp), c_loc(rlwp), c_loc(riwp))
+                  c_loc(rcwp), c_loc(rlwp), c_loc(riwp), c_loc(cnt), c_loc(cnb))
           endif
        end do
        ! ------------------------------------ !      
@@ -7776,9 +7777,6 @@ end subroutine uwshcu_readnl
        if (use_native_init_shell_impl) then
        cnt = real( kpen, r8 )
        cnb = real( krel - 1, r8 )
-       else
-          call uwshcu_cloud_diag_index_shell_codon(int(kpen, c_int64_t), int(krel, c_int64_t), &
-               c_loc(cnt), c_loc(cnb))
        endif
 
        ! ------------------------------------------------------------------------- !
