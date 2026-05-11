@@ -590,9 +590,10 @@ contains
     scaleh_iter_init_shell_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'uwshcu scaleh iter init shell entered (scaleh and per-iteration env reset direct = codon)'
+       write(iulog,'(A)') &
+            'uwshcu release env/scaleh iter init shell entered (release env, scaleh and per-iteration env reset direct = codon)'
        call uwshcu_append_proof( &
-            'uwshcu scaleh iter init shell entered (scaleh and per-iteration env reset direct = codon)')
+            'uwshcu release env/scaleh iter init shell entered (release env, scaleh and per-iteration env reset direct = codon)')
        call flush(iulog)
     end if
 
@@ -2641,6 +2642,24 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: kbup_p, kpen_p, wtw_p, pe_p, dpe_p, thvebot_p, thle_p, qte_p
           type(c_ptr), value :: ue_p, ve_p, tre_p, wte_p
        end subroutine uwshcu_scaleh_iter_init_shell_codon
+
+       subroutine uwshcu_release_env_scaleh_iter_init_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
+            iter_scaleh_c, kinv_c, krel_c, zvir_c, pgfc_c, usrc_c, vsrc_c, prel_c, pe_c, &
+            thv0rel_c, thj_c, qvj_c, qlj_c, qij_c, tscaleh_c, wlcl_c, ps0_p, p0_p, thl0_p, &
+            ssthl0_p, qt0_p, ssqt0_p, u0_p, ssu0_p, v0_p, ssv0_p, tr0_p, sstr0_p, wt0_p, &
+            sswt0_p, trsrc_p, wtsrc_p, scaleh_p, thvu_p, uu_p, vu_p, tru_p, wtu_p, &
+            kbup_p, kpen_p, wtw_p, pe_p, dpe_p, thvebot_p, thle_p, qte_p, ue_p, ve_p, &
+            tre_p, wte_p) bind(c, name="uwshcu_release_env_scaleh_iter_init_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, iter_scaleh_c, kinv_c, krel_c
+          real(c_double), value :: zvir_c, pgfc_c, usrc_c, vsrc_c, prel_c, pe_c, thv0rel_c
+          real(c_double), value :: thj_c, qvj_c, qlj_c, qij_c, tscaleh_c, wlcl_c
+          type(c_ptr), value :: ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p, u0_p, ssu0_p
+          type(c_ptr), value :: v0_p, ssv0_p, tr0_p, sstr0_p, wt0_p, sswt0_p, trsrc_p, wtsrc_p
+          type(c_ptr), value :: scaleh_p, thvu_p, uu_p, vu_p, tru_p, wtu_p
+          type(c_ptr), value :: kbup_p, kpen_p, wtw_p, pe_p, dpe_p, thvebot_p, thle_p, qte_p
+          type(c_ptr), value :: ue_p, ve_p, tre_p, wte_p
+       end subroutine uwshcu_release_env_scaleh_iter_init_shell_codon
 
        subroutine uwshcu_penent_prep_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, kbup_c, kpen_c, &
             r_c, g_c, dt_c, rpen_c, ppen_c, ps0_p, p0_p, dp0_p, thv0bot_p, thv0top_p, &
@@ -4958,16 +4977,6 @@ end subroutine uwshcu_readnl
             end do
           end if
           !*************
-       else
-          wtrc_nwset_post_c = 0_c_int64_t
-          if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-          call uwshcu_release_env_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-               wtrc_nwset_post_c, int(kinv, c_int64_t), int(krel, c_int64_t), zvir, PGFc, usrc, vsrc, &
-               prel, pe, thv0rel, thj, qvj, qlj, qij, c_loc(ps0), c_loc(p0), c_loc(thl0), &
-               c_loc(ssthl0), c_loc(qt0), c_loc(ssqt0), c_loc(u0), c_loc(ssu0), c_loc(v0), &
-               c_loc(ssv0), c_loc(tr0), c_loc(sstr0), c_loc(wt0), c_loc(sswt0), c_loc(trsrc), &
-               c_loc(wtsrc), c_loc(thvu), c_loc(uu), c_loc(vu), c_loc(tru), c_loc(wtu), &
-               c_loc(thvebot), c_loc(thle), c_loc(qte), c_loc(ue), c_loc(ve), c_loc(tre), c_loc(wte))
        endif
 
        !-------------------------! 
@@ -5110,14 +5119,15 @@ end subroutine uwshcu_readnl
        else
           wtrc_nwset_post_c = 0_c_int64_t
           if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-          call uwshcu_scaleh_iter_init_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-               wtrc_nwset_post_c, int(iter_scaleh, c_int64_t), int(krel, c_int64_t), tscaleh, &
-               wlcl, prel, thv0rel, c_loc(scaleh), c_loc(ps0), &
-               c_loc(p0), c_loc(thl0), c_loc(ssthl0), c_loc(qt0), c_loc(ssqt0), c_loc(u0), &
-               c_loc(ssu0), c_loc(v0), c_loc(ssv0), c_loc(tr0), c_loc(sstr0), c_loc(wt0), &
-               c_loc(sswt0), c_loc(kbup_iter_c), c_loc(kpen_iter_c), c_loc(wtw), &
-               c_loc(pe), c_loc(dpe), c_loc(thvebot), c_loc(thle), c_loc(qte), c_loc(ue), c_loc(ve), &
-               c_loc(tre), c_loc(wte))
+          call uwshcu_release_env_scaleh_iter_init_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+               wtrc_nwset_post_c, int(iter_scaleh, c_int64_t), int(kinv, c_int64_t), int(krel, c_int64_t), &
+               zvir, PGFc, usrc, vsrc, prel, pe, thv0rel, thj, qvj, qlj, qij, tscaleh, wlcl, &
+               c_loc(ps0), c_loc(p0), c_loc(thl0), c_loc(ssthl0), c_loc(qt0), c_loc(ssqt0), &
+               c_loc(u0), c_loc(ssu0), c_loc(v0), c_loc(ssv0), c_loc(tr0), c_loc(sstr0), &
+               c_loc(wt0), c_loc(sswt0), c_loc(trsrc), c_loc(wtsrc), c_loc(scaleh), &
+               c_loc(thvu), c_loc(uu), c_loc(vu), c_loc(tru), c_loc(wtu), &
+               c_loc(kbup_iter_c), c_loc(kpen_iter_c), c_loc(wtw), c_loc(pe), c_loc(dpe), &
+               c_loc(thvebot), c_loc(thle), c_loc(qte), c_loc(ue), c_loc(ve), c_loc(tre), c_loc(wte))
           kbup = int(kbup_iter_c)
           kpen = int(kpen_iter_c)
           exne = exnf(pe)
