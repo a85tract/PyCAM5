@@ -60,6 +60,7 @@
   logical :: cin_save_shell_entered_logged = .false.
   logical :: cin_restore_shell_entered_logged = .false.
   logical :: iter_env_restore_shell_entered_logged = .false.
+  logical :: iter_env_restore_thermo_slope_shell_entered_logged = .false.
   logical :: release_prep_shell_entered_logged = .false.
   logical :: scaleh_iter_init_shell_entered_logged = .false.
   logical :: penent_prep_shell_entered_logged = .false.
@@ -527,6 +528,23 @@ contains
     end if
 
   end subroutine uwshcu_log_iter_env_restore_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_iter_env_restore_thermo_slope_shell_entered()
+
+    if (iter_env_restore_thermo_slope_shell_entered_logged) return
+    iter_env_restore_thermo_slope_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu iter env restore thermo/slope shell entered (saved state restore and CIN env slope rebuild direct = codon)'
+       call uwshcu_append_proof( &
+            'uwshcu iter env restore thermo/slope shell entered (saved state restore and CIN env slope rebuild direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_iter_env_restore_thermo_slope_shell_entered
 
 !===============================================================================
 
@@ -3001,6 +3019,20 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: qv0_s_p, ql0_s_p, qi0_s_p, s0_s_p, t0_s_p
           type(c_ptr), value :: qv0_p, ql0_p, qi0_p, s0_p, t0_p
        end subroutine uwshcu_iter_env_restore_state_shell_codon
+
+       subroutine uwshcu_iter_env_restore_thermo_slope_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
+            xlv_c, xls_c, cp_c, zvir_c, qv0_s_p, ql0_s_p, qi0_s_p, s0_s_p, t0_s_p, &
+            qv0_p, ql0_p, qi0_p, s0_p, t0_p, exn0_p, tr0_p, wtrc_iatype_p, p0_p, &
+            u0_p, v0_p, qt0_p, thl0_p, thvl0_p, wt0_p, ssthl0_p, ssqt0_p, ssu0_p, &
+            ssv0_p, sstr0_p, sswt0_p) bind(c, name="uwshcu_iter_env_restore_thermo_slope_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c
+          real(c_double), value :: xlv_c, xls_c, cp_c, zvir_c
+          type(c_ptr), value :: qv0_s_p, ql0_s_p, qi0_s_p, s0_s_p, t0_s_p
+          type(c_ptr), value :: qv0_p, ql0_p, qi0_p, s0_p, t0_p, exn0_p, tr0_p, wtrc_iatype_p
+          type(c_ptr), value :: p0_p, u0_p, v0_p, qt0_p, thl0_p, thvl0_p, wt0_p
+          type(c_ptr), value :: ssthl0_p, ssqt0_p, ssu0_p, ssv0_p, sstr0_p, sswt0_p
+       end subroutine uwshcu_iter_env_restore_thermo_slope_shell_codon
 
        subroutine uwshcu_iter_save_main_arrays_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             umf_p, qvten_p, qlten_p, qiten_p, sten_p, uten_p, vten_p, qrten_p, qsten_p, &
@@ -7880,27 +7912,9 @@ end subroutine uwshcu_readnl
              qi0(:mkx)   = qi0_s(:mkx)
              s0(:mkx)    = s0_s(:mkx)
              t0(:mkx)    = t0_s(:mkx)
-          else
-             call uwshcu_log_iter_env_restore_shell_entered()
-             call uwshcu_iter_env_restore_state_shell_codon(int(mkx, c_int64_t), &
-                  c_loc(qv0_s), c_loc(ql0_s), c_loc(qi0_s), c_loc(s0_s), c_loc(t0_s), &
-                  c_loc(qv0), c_loc(ql0), c_loc(qi0), c_loc(s0), c_loc(t0))
-          end if
-      
-          if (use_native_init_shell_impl) then
              qt0(:mkx)   = (qv0(:mkx) + ql0(:mkx) + qi0(:mkx))
              thl0(:mkx)  = (t0(:mkx) - xlv*ql0(:mkx)/cp - xls*qi0(:mkx)/cp)/exn0(:mkx)
              thvl0(:mkx) = (1._r8 + zvir*qt0(:mkx))*thl0(:mkx)
-          else
-             call uwshcu_log_column_thermo_slope_shell_entered()
-             call uwshcu_column_thermo_slope_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-                  0_c_int64_t, xlv, xls, cp, zvir, c_loc(qv0), c_loc(ql0), c_loc(qi0), &
-                  c_loc(t0), c_loc(exn0), c_loc(tr0), c_loc(wtrc_iatype_post), c_loc(p0), &
-                  c_loc(u0), c_loc(v0), c_loc(qt0), c_loc(thl0), c_loc(thvl0), c_loc(wt0), &
-                  c_loc(ssthl0), c_loc(ssqt0), c_loc(ssu0), c_loc(ssv0), c_loc(sstr0), c_loc(sswt0))
-          end if
-
-          if (use_native_init_shell_impl) then
              ssthl0      = slope(mkx,thl0,p0) ! Dimension of ssthl0(:mkx) is implicit
              ssqt0       = slope(mkx,qt0 ,p0)
              ssu0        = slope(mkx,u0  ,p0)
@@ -7908,7 +7922,16 @@ end subroutine uwshcu_readnl
              do m = 1, ncnst
                 sstr0(:mkx,m) = slope(mkx,tr0(:mkx,m),p0)
              enddo
-          endif
+          else
+             call uwshcu_log_iter_env_restore_thermo_slope_shell_entered()
+             call uwshcu_iter_env_restore_thermo_slope_shell_codon(int(mkx, c_int64_t), &
+                  int(ncnst, c_int64_t), 0_c_int64_t, xlv, xls, cp, zvir, c_loc(qv0_s), &
+                  c_loc(ql0_s), c_loc(qi0_s), c_loc(s0_s), c_loc(t0_s), c_loc(qv0), c_loc(ql0), &
+                  c_loc(qi0), c_loc(s0), c_loc(t0), c_loc(exn0), c_loc(tr0), c_loc(wtrc_iatype_post), &
+                  c_loc(p0), c_loc(u0), c_loc(v0), c_loc(qt0), c_loc(thl0), c_loc(thvl0), &
+                  c_loc(wt0), c_loc(ssthl0), c_loc(ssqt0), c_loc(ssu0), c_loc(ssv0), &
+                  c_loc(sstr0), c_loc(sswt0))
+          end if
 
           do k = 1, mkx
 

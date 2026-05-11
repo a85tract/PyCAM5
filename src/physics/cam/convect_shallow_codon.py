@@ -6546,6 +6546,54 @@ def uwshcu_iter_env_restore_state_shell_codon(
 
 
 @export
+def uwshcu_iter_env_restore_thermo_slope_shell_codon(
+    mkx: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    xlv: float,
+    xls: float,
+    cp: float,
+    zvir: float,
+    qv0_s_p: cobj,
+    ql0_s_p: cobj,
+    qi0_s_p: cobj,
+    s0_s_p: cobj,
+    t0_s_p: cobj,
+    qv0_p: cobj,
+    ql0_p: cobj,
+    qi0_p: cobj,
+    s0_p: cobj,
+    t0_p: cobj,
+    exn0_p: cobj,
+    tr0_p: cobj,
+    wtrc_iatype_p: cobj,
+    p0_p: cobj,
+    u0_p: cobj,
+    v0_p: cobj,
+    qt0_p: cobj,
+    thl0_p: cobj,
+    thvl0_p: cobj,
+    wt0_p: cobj,
+    ssthl0_p: cobj,
+    ssqt0_p: cobj,
+    ssu0_p: cobj,
+    ssv0_p: cobj,
+    sstr0_p: cobj,
+    sswt0_p: cobj,
+):
+    uwshcu_iter_env_restore_state_shell_codon(
+        mkx, qv0_s_p, ql0_s_p, qi0_s_p, s0_s_p, t0_s_p,
+        qv0_p, ql0_p, qi0_p, s0_p, t0_p
+    )
+    uwshcu_column_thermo_slope_shell_codon(
+        mkx, ncnst, wtrc_nwset, xlv, xls, cp, zvir, qv0_p, ql0_p,
+        qi0_p, t0_p, exn0_p, tr0_p, wtrc_iatype_p, p0_p, u0_p, v0_p,
+        qt0_p, thl0_p, thvl0_p, wt0_p, ssthl0_p, ssqt0_p, ssu0_p,
+        ssv0_p, sstr0_p, sswt0_p
+    )
+
+
+@export
 def uwshcu_iter_save_main_arrays_shell_codon(
     mkx: int,
     ncnst: int,
