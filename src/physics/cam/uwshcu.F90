@@ -58,6 +58,7 @@
   logical :: lcl_prep_shell_entered_logged = .false.
   logical :: cin_save_shell_entered_logged = .false.
   logical :: cin_restore_shell_entered_logged = .false.
+  logical :: iter_env_restore_shell_entered_logged = .false.
   logical :: release_prep_shell_entered_logged = .false.
   logical :: scaleh_iter_init_shell_entered_logged = .false.
   logical :: penent_prep_shell_entered_logged = .false.
@@ -491,6 +492,23 @@ contains
     end if
 
   end subroutine uwshcu_log_cin_restore_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_iter_env_restore_shell_entered()
+
+    if (iter_env_restore_shell_entered_logged) return
+    iter_env_restore_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu iter env restore shell entered (saved first-iteration thermodynamic state restore direct = codon)'
+       call uwshcu_append_proof( &
+            'uwshcu iter env restore shell entered (saved first-iteration thermodynamic state restore direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_iter_env_restore_shell_entered
 
 !===============================================================================
 
@@ -2877,6 +2895,15 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: qiten_p, sten_p, uten_p, vten_p, tr0_p, trten_p, qv0_s_p, ql0_s_p
           type(c_ptr), value :: qi0_s_p, s0_s_p, u0_s_p, v0_s_p, qt0_s_p, t0_s_p, tr0_s_p
        end subroutine uwshcu_iter_save_env_shell_codon
+
+       subroutine uwshcu_iter_env_restore_state_shell_codon(mkx_c, qv0_s_p, ql0_s_p, qi0_s_p, &
+            s0_s_p, t0_s_p, qv0_p, ql0_p, qi0_p, s0_p, t0_p) &
+            bind(c, name="uwshcu_iter_env_restore_state_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c
+          type(c_ptr), value :: qv0_s_p, ql0_s_p, qi0_s_p, s0_s_p, t0_s_p
+          type(c_ptr), value :: qv0_p, ql0_p, qi0_p, s0_p, t0_p
+       end subroutine uwshcu_iter_env_restore_state_shell_codon
 
        subroutine uwshcu_iter_save_main_arrays_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             umf_p, qvten_p, qlten_p, qiten_p, sten_p, uten_p, vten_p, qrten_p, qsten_p, &
@@ -7759,11 +7786,18 @@ end subroutine uwshcu_readnl
           
           !NOTE:  Water tracers not needed for CIN calculation. -JN
 
-          qv0(:mkx)   = qv0_s(:mkx)
-          ql0(:mkx)   = ql0_s(:mkx)
-          qi0(:mkx)   = qi0_s(:mkx)
-          s0(:mkx)    = s0_s(:mkx)
-          t0(:mkx)    = t0_s(:mkx)
+          if (use_native_init_shell_impl) then
+             qv0(:mkx)   = qv0_s(:mkx)
+             ql0(:mkx)   = ql0_s(:mkx)
+             qi0(:mkx)   = qi0_s(:mkx)
+             s0(:mkx)    = s0_s(:mkx)
+             t0(:mkx)    = t0_s(:mkx)
+          else
+             call uwshcu_log_iter_env_restore_shell_entered()
+             call uwshcu_iter_env_restore_state_shell_codon(int(mkx, c_int64_t), &
+                  c_loc(qv0_s), c_loc(ql0_s), c_loc(qi0_s), c_loc(s0_s), c_loc(t0_s), &
+                  c_loc(qv0), c_loc(ql0), c_loc(qi0), c_loc(s0), c_loc(t0))
+          end if
       
           if (use_native_init_shell_impl) then
              qt0(:mkx)   = (qv0(:mkx) + ql0(:mkx) + qi0(:mkx))

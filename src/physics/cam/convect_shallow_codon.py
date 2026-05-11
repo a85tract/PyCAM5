@@ -6108,6 +6108,41 @@ def uwshcu_iter_save_env_shell_codon(
 
 
 @export
+def uwshcu_iter_env_restore_state_shell_codon(
+    mkx: int,
+    qv0_s_p: cobj,
+    ql0_s_p: cobj,
+    qi0_s_p: cobj,
+    s0_s_p: cobj,
+    t0_s_p: cobj,
+    qv0_p: cobj,
+    ql0_p: cobj,
+    qi0_p: cobj,
+    s0_p: cobj,
+    t0_p: cobj,
+):
+    qv0_s = Ptr[float](qv0_s_p)
+    ql0_s = Ptr[float](ql0_s_p)
+    qi0_s = Ptr[float](qi0_s_p)
+    s0_s = Ptr[float](s0_s_p)
+    t0_s = Ptr[float](t0_s_p)
+    qv0 = Ptr[float](qv0_p)
+    ql0 = Ptr[float](ql0_p)
+    qi0 = Ptr[float](qi0_p)
+    s0 = Ptr[float](s0_p)
+    t0 = Ptr[float](t0_p)
+
+    k = 0
+    while k < mkx:
+        qv0[k] = qv0_s[k]
+        ql0[k] = ql0_s[k]
+        qi0[k] = qi0_s[k]
+        s0[k] = s0_s[k]
+        t0[k] = t0_s[k]
+        k += 1
+
+
+@export
 def uwshcu_iter_save_main_arrays_shell_codon(
     mkx: int,
     ncnst: int,
