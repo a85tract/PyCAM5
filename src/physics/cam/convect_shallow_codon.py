@@ -4946,9 +4946,18 @@ def uwshcu_comp_sub_sink_thermo_prelim_shell_codon(
     slten_p: cobj,
     qtten_p: cobj,
     wttotten_p: cobj,
+    rliq_p: cobj,
     rainflx_p: cobj,
     snowflx_p: cobj,
 ):
+    rliq = Ptr[float](rliq_p)
+    rainflx = Ptr[float](rainflx_p)
+    snowflx = Ptr[float](snowflx_p)
+
+    rliq[0] = 0.0
+    rainflx[0] = 0.0
+    snowflx[0] = 0.0
+
     uwshcu_comp_sub_sink_shell_codon(
         mkx,
         ncnst,
@@ -5735,6 +5744,10 @@ def uwshcu_precip_bulk_init_shell_codon(
     mkx: int,
     wtrc_nwset: int,
     trace_water: int,
+    rainflx: float,
+    snowflx: float,
+    precip_p: cobj,
+    snow_p: cobj,
     evpint_rain_p: cobj,
     evpint_snow_p: cobj,
     flxrain_p: cobj,
@@ -5744,6 +5757,8 @@ def uwshcu_precip_bulk_init_shell_codon(
     wtflxrn_p: cobj,
     wtflxsn_p: cobj,
 ):
+    precip = Ptr[float](precip_p)
+    snow = Ptr[float](snow_p)
     evpint_rain = Ptr[float](evpint_rain_p)
     evpint_snow = Ptr[float](evpint_snow_p)
     flxrain = Ptr[float](flxrain_p)
@@ -5753,6 +5768,8 @@ def uwshcu_precip_bulk_init_shell_codon(
     wtflxrn = Ptr[float](wtflxrn_p)
     wtflxsn = Ptr[float](wtflxsn_p)
 
+    precip[0] = rainflx + snowflx
+    snow[0] = snowflx
     evpint_rain[0] = 0.0
     evpint_snow[0] = 0.0
 

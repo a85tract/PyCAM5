@@ -2776,7 +2776,7 @@ end subroutine uwshcu_readnl
             wtten_sink_liq_p, wtten_sink_ice_p, dp0_p, u0_p, v0_p, uflx_p, vflx_p, umf_p, &
             uten_p, vten_p, uf_p, vf_p, dwten_p, diten_p, wtdwten_p, wtditen_p, &
             qrten_p, qsten_p, wtrpten_p, wtspten_p, slflx_p, qtflx_p, wtflx_p, &
-            slten_p, qtten_p, wttotten_p, rainflx_p, snowflx_p) &
+            slten_p, qtten_p, wttotten_p, rliq_p, rainflx_p, snowflx_p) &
             bind(c, name="uwshcu_comp_sub_sink_thermo_prelim_shell_codon")
           use iso_c_binding, only: c_double, c_int64_t, c_ptr
           integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kpen_c
@@ -2788,7 +2788,7 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: wtten_sink_ice_p, dp0_p, u0_p, v0_p, uflx_p, vflx_p, umf_p
           type(c_ptr), value :: uten_p, vten_p, uf_p, vf_p, dwten_p, diten_p, wtdwten_p, wtditen_p
           type(c_ptr), value :: qrten_p, qsten_p, wtrpten_p, wtspten_p, slflx_p, qtflx_p, wtflx_p
-          type(c_ptr), value :: slten_p, qtten_p, wttotten_p, rainflx_p, snowflx_p
+          type(c_ptr), value :: slten_p, qtten_p, wttotten_p, rliq_p, rainflx_p, snowflx_p
        end subroutine uwshcu_comp_sub_sink_thermo_prelim_shell_codon
 
        subroutine uwshcu_thermo_final_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, k_c, &
@@ -2917,10 +2917,12 @@ end subroutine uwshcu_readnl
        end subroutine uwshcu_precip_surface_finalize_shell_codon
 
        subroutine uwshcu_precip_bulk_init_shell_codon(mkx_c, wtrc_nwset_c, trace_water_c, &
-            evpint_rain_p, evpint_snow_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p, &
+            rainflx_c, snowflx_c, precip_p, snow_p, evpint_rain_p, evpint_snow_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p, &
             wtflxrn_p, wtflxsn_p) bind(c, name="uwshcu_precip_bulk_init_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
           integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, trace_water_c
+          real(c_double), value :: rainflx_c, snowflx_c
+          type(c_ptr), value :: precip_p, snow_p
           type(c_ptr), value :: evpint_rain_p, evpint_snow_p, flxrain_p, flxsnow_p
           type(c_ptr), value :: ntraprd_p, ntsnprd_p, wtflxrn_p, wtflxsn_p
        end subroutine uwshcu_precip_bulk_init_shell_codon
@@ -6542,11 +6544,11 @@ end subroutine uwshcu_readnl
        ! finishing the below 'do-loop'.                                    !        
        ! ----------------------------------------------------------------- !
        
-       rliq    = 0._r8
-       rainflx = 0._r8
-       snowflx = 0._r8
-
-       if (.not. use_native_init_shell_impl) then
+       if (use_native_init_shell_impl) then
+          rliq    = 0._r8
+          rainflx = 0._r8
+          snowflx = 0._r8
+       else
           wtrc_nwset_post_c = 0_c_int64_t
           if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
           call uwshcu_log_thermo_prelim_shell_entered()
@@ -6562,7 +6564,7 @@ end subroutine uwshcu_readnl
                c_loc(vf), c_loc(dwten), c_loc(diten), c_loc(wtdwten), c_loc(wtditen), &
                c_loc(qrten), c_loc(qsten), c_loc(wtrpten), c_loc(wtspten), c_loc(slflx), &
                c_loc(qtflx), c_loc(wtflx), c_loc(slten), c_loc(qtten), c_loc(wttotten), &
-               c_loc(rainflx), c_loc(snowflx))
+               c_loc(rliq), c_loc(rainflx), c_loc(snowflx))
        endif
 
        do k = 1, kpen
@@ -7122,9 +7124,6 @@ end subroutine uwshcu_readnl
 
        end do
 
-          precip  =  rainflx + snowflx                       ! [ kg/m2/s ]
-          snow    =  snowflx                                 ! [ kg/m2/s ] 
-
        ! ---------------------------------------------------------------- !
        ! Now treats the 'evaporation' and 'melting' of rain ( qrten ) and ! 
        ! snow ( qsten ) during falling process. Below algorithms are from !
@@ -7138,6 +7137,8 @@ end subroutine uwshcu_readnl
        ! ---------------------------------------------------------------- !
 
        if (use_native_init_shell_impl) then
+          precip  =  rainflx + snowflx                       ! [ kg/m2/s ]
+          snow    =  snowflx                                 ! [ kg/m2/s ]
           evpint_rain    = 0._r8
           evpint_snow    = 0._r8
           flxrain(0:mkx) = 0._r8
@@ -7152,15 +7153,10 @@ end subroutine uwshcu_readnl
           end if
        else
           call uwshcu_log_precip_bulk_shell_entered()
-          if(trace_water) then
-             call uwshcu_precip_bulk_init_shell_codon(int(mkx, c_int64_t), wtrc_nwset_post_c, &
-                  1_c_int64_t, c_loc(evpint_rain), c_loc(evpint_snow), c_loc(flxrain), &
-                  c_loc(flxsnow), c_loc(ntraprd), c_loc(ntsnprd), c_loc(wtflxrn), c_loc(wtflxsn))
-          else
-             call uwshcu_precip_bulk_init_shell_codon(int(mkx, c_int64_t), wtrc_nwset_post_c, &
-                  0_c_int64_t, c_loc(evpint_rain), c_loc(evpint_snow), c_loc(flxrain), &
-                  c_loc(flxsnow), c_loc(ntraprd), c_loc(ntsnprd), c_loc(wtflxrn), c_loc(wtflxsn))
-          end if
+          call uwshcu_precip_bulk_init_shell_codon(int(mkx, c_int64_t), wtrc_nwset_post_c, &
+               merge(1_c_int64_t, 0_c_int64_t, trace_water), rainflx, snowflx, c_loc(precip), &
+               c_loc(snow), c_loc(evpint_rain), c_loc(evpint_snow), c_loc(flxrain), c_loc(flxsnow), &
+               c_loc(ntraprd), c_loc(ntsnprd), c_loc(wtflxrn), c_loc(wtflxsn))
        endif
 
        do k = mkx, 1, -1  ! 'k' is a layer index : 'mkx'('1') is the top ('bottom') layer
