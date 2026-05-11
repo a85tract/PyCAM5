@@ -5768,6 +5768,8 @@ def uwshcu_column_input_load_shell_codon(
     mkx: int,
     i_col: int,
     ncnst: int,
+    pblh_v: float,
+    cush_v: float,
     ps0_in_p: cobj,
     zs0_in_p: cobj,
     p0_in_p: cobj,
@@ -5802,6 +5804,8 @@ def uwshcu_column_input_load_shell_codon(
     cldfrct_p: cobj,
     concldfrct_p: cobj,
     tr0_p: cobj,
+    pblh_p: cobj,
+    cush_p: cobj,
 ):
     ps0_in = Ptr[float](ps0_in_p)
     zs0_in = Ptr[float](zs0_in_p)
@@ -5837,8 +5841,13 @@ def uwshcu_column_input_load_shell_codon(
     cldfrct = Ptr[float](cldfrct_p)
     concldfrct = Ptr[float](concldfrct_p)
     tr0 = Ptr[float](tr0_p)
+    pblh = Ptr[float](pblh_p)
+    cush = Ptr[float](cush_p)
 
     col = i_col - 1
+
+    pblh[0] = pblh_v
+    cush[0] = cush_v
 
     k = 0
     while k <= mkx:

@@ -1485,7 +1485,7 @@ end subroutine uwshcu_readnl
     real(r8), target :: qi0(mkx)                              !  Environmental ice specific humidity [ kg/kg ]
     real(r8), target :: t0(mkx)                               !  Environmental temperature [ K ]
     real(r8), target :: s0(mkx)                               !  Environmental dry static energy [ J/kg ]
-    real(r8)    pblh                                          !  Height of PBL [ m ]
+    real(r8), target :: pblh                                  !  Height of PBL [ m ]
     real(r8), target :: cush                                  !  Convective scale height [ m ]
     real(r8), target :: tr0(mkx,ncnst)                        !  Environmental tracers [ #, kg/kg ]
 
@@ -2414,19 +2414,21 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: trflx_out_p, tru_out_p, tru_emf_out_p
        end subroutine uwshcu_iter_restore_all_shell_codon
 
-       subroutine uwshcu_column_input_load_shell_codon(mix_c, mkx_c, i_c, ncnst_c, &
+       subroutine uwshcu_column_input_load_shell_codon(mix_c, mkx_c, i_c, ncnst_c, pblh_c, cush_c, &
             ps0_in_p, zs0_in_p, p0_in_p, z0_in_p, dp0_in_p, dpdry0_in_p, u0_in_p, v0_in_p, &
             qv0_in_p, ql0_in_p, qi0_in_p, t0_in_p, s0_in_p, tke_in_p, cldfrct_in_p, &
             concldfrct_in_p, tr0_in_p, ps0_p, zs0_p, p0_p, z0_p, dp0_p, dpdry0_p, u0_p, &
-            v0_p, qv0_p, ql0_p, qi0_p, t0_p, s0_p, tke_p, cldfrct_p, concldfrct_p, tr0_p) &
+            v0_p, qv0_p, ql0_p, qi0_p, t0_p, s0_p, tke_p, cldfrct_p, concldfrct_p, tr0_p, &
+            pblh_p, cush_p) &
             bind(c, name="uwshcu_column_input_load_shell_codon")
-          use iso_c_binding, only: c_int64_t, c_ptr
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
           integer(c_int64_t), value :: mix_c, mkx_c, i_c, ncnst_c
+          real(c_double), value :: pblh_c, cush_c
           type(c_ptr), value :: ps0_in_p, zs0_in_p, p0_in_p, z0_in_p, dp0_in_p, dpdry0_in_p
           type(c_ptr), value :: u0_in_p, v0_in_p, qv0_in_p, ql0_in_p, qi0_in_p, t0_in_p, s0_in_p
           type(c_ptr), value :: tke_in_p, cldfrct_in_p, concldfrct_in_p, tr0_in_p, ps0_p, zs0_p
           type(c_ptr), value :: p0_p, z0_p, dp0_p, dpdry0_p, u0_p, v0_p, qv0_p, ql0_p, qi0_p
-          type(c_ptr), value :: t0_p, s0_p, tke_p, cldfrct_p, concldfrct_p, tr0_p
+          type(c_ptr), value :: t0_p, s0_p, tke_p, cldfrct_p, concldfrct_p, tr0_p, pblh_p, cush_p
        end subroutine uwshcu_column_input_load_shell_codon
 
        subroutine uwshcu_column_thermo_state_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
@@ -3516,16 +3518,15 @@ end subroutine uwshcu_readnl
       else
          call uwshcu_log_column_input_shell_entered()
          call uwshcu_column_input_load_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), &
-              int(i, c_int64_t), int(ncnst, c_int64_t), c_loc(ps0_in), c_loc(zs0_in), c_loc(p0_in), &
-              c_loc(z0_in), c_loc(dp0_in), c_loc(dpdry0_in), c_loc(u0_in), c_loc(v0_in), &
-              c_loc(qv0_in), c_loc(ql0_in), c_loc(qi0_in), c_loc(t0_in), c_loc(s0_in), &
-              c_loc(tke_in), c_loc(cldfrct_in), c_loc(concldfrct_in), c_loc(tr0_in), c_loc(ps0), &
-              c_loc(zs0), c_loc(p0), c_loc(z0), c_loc(dp0), c_loc(dpdry0), c_loc(u0), c_loc(v0), &
-              c_loc(qv0), c_loc(ql0), c_loc(qi0), c_loc(t0), c_loc(s0), c_loc(tke), c_loc(cldfrct), &
-              c_loc(concldfrct), c_loc(tr0))
+              int(i, c_int64_t), int(ncnst, c_int64_t), pblh_in(i), cush_inout(i), &
+              c_loc(ps0_in), c_loc(zs0_in), c_loc(p0_in), c_loc(z0_in), c_loc(dp0_in), &
+              c_loc(dpdry0_in), c_loc(u0_in), c_loc(v0_in), c_loc(qv0_in), c_loc(ql0_in), &
+              c_loc(qi0_in), c_loc(t0_in), c_loc(s0_in), c_loc(tke_in), c_loc(cldfrct_in), &
+              c_loc(concldfrct_in), c_loc(tr0_in), c_loc(ps0), c_loc(zs0), c_loc(p0), c_loc(z0), &
+              c_loc(dp0), c_loc(dpdry0), c_loc(u0), c_loc(v0), c_loc(qv0), c_loc(ql0), c_loc(qi0), &
+              c_loc(t0), c_loc(s0), c_loc(tke), c_loc(cldfrct), c_loc(concldfrct), c_loc(tr0), &
+              c_loc(pblh), c_loc(cush))
       end if
-      pblh             = pblh_in(i)
-      cush             = cush_inout(i)
 
       ! --------------------------------------------------------- !
       ! Compute other basic thermodynamic variables directly from ! 
