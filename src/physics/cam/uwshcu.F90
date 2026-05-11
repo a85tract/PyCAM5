@@ -56,6 +56,7 @@
   logical :: column_thermo_slope_shell_entered_logged = .false.
   logical :: pbl_precheck_shell_entered_logged = .false.
   logical :: pbl_source_shell_entered_logged = .false.
+  logical :: pbl_precheck_source_shell_entered_logged = .false.
   logical :: lcl_prep_shell_entered_logged = .false.
   logical :: cin_save_shell_entered_logged = .false.
   logical :: cin_restore_shell_entered_logged = .false.
@@ -467,6 +468,23 @@ contains
     end if
 
   end subroutine uwshcu_log_pbl_source_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_pbl_precheck_source_shell_entered()
+
+    if (pbl_precheck_source_shell_entered_logged) return
+    pbl_precheck_source_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu pbl precheck/source shell entered (kinv search and tke/source prep direct = codon)'
+       call uwshcu_append_proof( &
+            'uwshcu pbl precheck/source shell entered (kinv search and tke/source prep direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_pbl_precheck_source_shell_entered
 
 !===============================================================================
 
@@ -2512,6 +2530,21 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: trsrc_p, wtsrc_p
        end subroutine uwshcu_pbl_source_shell_codon
 
+       subroutine uwshcu_pbl_precheck_source_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
+            pblh_c, zvir_c, zs0_p, cush_p, tscaleh_p, kinv_out_p, exit_code_p, &
+            ps0_p, p0_p, tke_p, thvl0bot_p, thvl0top_p, qt0_p, u0_p, v0_p, ssu0_p, &
+            ssv0_p, tr0_p, wt0_p, tkeavg_p, thvlmin_p, qtsrc_p, thvlsrc_p, thlsrc_p, &
+            usrc_p, vsrc_p, trsrc_p, wtsrc_p) bind(c, name="uwshcu_pbl_precheck_source_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c
+          real(c_double), value :: pblh_c, zvir_c
+          type(c_ptr), value :: zs0_p, cush_p, tscaleh_p, kinv_out_p, exit_code_p
+          type(c_ptr), value :: ps0_p, p0_p, tke_p, thvl0bot_p, thvl0top_p, qt0_p
+          type(c_ptr), value :: u0_p, v0_p, ssu0_p, ssv0_p, tr0_p, wt0_p
+          type(c_ptr), value :: tkeavg_p, thvlmin_p, qtsrc_p, thvlsrc_p, thlsrc_p, usrc_p, vsrc_p
+          type(c_ptr), value :: trsrc_p, wtsrc_p
+       end subroutine uwshcu_pbl_precheck_source_shell_codon
+
        subroutine uwshcu_lcl_prep_shell_codon(mkx_c, plcl_c, ps0_p, p0_p, thl0_p, ssthl0_p, &
             qt0_p, ssqt0_p, klcl_out_p, exit_code_p, thl0lcl_p, qt0lcl_p) &
             bind(c, name="uwshcu_lcl_prep_shell_codon")
@@ -3925,9 +3958,16 @@ end subroutine uwshcu_readnl
           pbl_exit_code_c = 0_c_int64_t
           if (kinv .le. 1) pbl_exit_code_c = 1_c_int64_t
        else
-          call uwshcu_log_pbl_precheck_shell_entered()
-          call uwshcu_pbl_precheck_shell_codon(int(mkx, c_int64_t), pblh, c_loc(zs0), c_loc(cush), &
-               c_loc(tscaleh), c_loc(kinv_precheck_c), c_loc(pbl_exit_code_c))
+          wtrc_nwset_post_c = 0_c_int64_t
+          if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
+          call uwshcu_log_pbl_precheck_source_shell_entered()
+          call uwshcu_pbl_precheck_source_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+               wtrc_nwset_post_c, pblh, zvir, c_loc(zs0), c_loc(cush), c_loc(tscaleh), &
+               c_loc(kinv_precheck_c), c_loc(pbl_exit_code_c), c_loc(ps0), c_loc(p0), &
+               c_loc(tke), c_loc(thvl0bot), c_loc(thvl0top), c_loc(qt0), c_loc(u0), c_loc(v0), &
+               c_loc(ssu0), c_loc(ssv0), c_loc(tr0), c_loc(wt0), c_loc(tkeavg), c_loc(thvlmin), &
+               c_loc(qtsrc), c_loc(thvlsrc), c_loc(thlsrc), c_loc(usrc), c_loc(vsrc), &
+               c_loc(trsrc), c_loc(wtsrc))
           kinv = int(kinv_precheck_c)
        end if
 
@@ -3995,15 +4035,6 @@ end subroutine uwshcu_readnl
              end do
            end if
           !*************
-       else
-          wtrc_nwset_post_c = 0_c_int64_t
-          if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-          call uwshcu_log_pbl_source_shell_entered()
-          call uwshcu_pbl_source_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-               wtrc_nwset_post_c, int(kinv, c_int64_t), zvir, c_loc(ps0), c_loc(p0), c_loc(tke), &
-               c_loc(thvl0bot), c_loc(thvl0top), c_loc(qt0), c_loc(u0), c_loc(v0), c_loc(ssu0), &
-               c_loc(ssv0), c_loc(tr0), c_loc(wt0), c_loc(tkeavg), c_loc(thvlmin), c_loc(qtsrc), &
-               c_loc(thvlsrc), c_loc(thlsrc), c_loc(usrc), c_loc(vsrc), c_loc(trsrc), c_loc(wtsrc))
        end if
 
        ! ------------------------------------------------------------------ !

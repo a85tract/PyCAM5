@@ -3054,6 +3054,85 @@ def uwshcu_pbl_source_shell_codon(
 
 
 @export
+def uwshcu_pbl_precheck_source_shell_codon(
+    mkx: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    pblh: float,
+    zvir: float,
+    zs0_p: cobj,
+    cush_p: cobj,
+    tscaleh_p: cobj,
+    kinv_out_p: cobj,
+    exit_code_p: cobj,
+    ps0_p: cobj,
+    p0_p: cobj,
+    tke_p: cobj,
+    thvl0bot_p: cobj,
+    thvl0top_p: cobj,
+    qt0_p: cobj,
+    u0_p: cobj,
+    v0_p: cobj,
+    ssu0_p: cobj,
+    ssv0_p: cobj,
+    tr0_p: cobj,
+    wt0_p: cobj,
+    tkeavg_p: cobj,
+    thvlmin_p: cobj,
+    qtsrc_p: cobj,
+    thvlsrc_p: cobj,
+    thlsrc_p: cobj,
+    usrc_p: cobj,
+    vsrc_p: cobj,
+    trsrc_p: cobj,
+    wtsrc_p: cobj,
+):
+    uwshcu_pbl_precheck_shell_codon(
+        mkx,
+        pblh,
+        zs0_p,
+        cush_p,
+        tscaleh_p,
+        kinv_out_p,
+        exit_code_p,
+    )
+
+    kinv_out = Ptr[int](kinv_out_p)
+    exit_code = Ptr[int](exit_code_p)
+    if exit_code[0] != 0:
+        return
+
+    uwshcu_pbl_source_shell_codon(
+        mkx,
+        ncnst,
+        wtrc_nwset,
+        kinv_out[0],
+        zvir,
+        ps0_p,
+        p0_p,
+        tke_p,
+        thvl0bot_p,
+        thvl0top_p,
+        qt0_p,
+        u0_p,
+        v0_p,
+        ssu0_p,
+        ssv0_p,
+        tr0_p,
+        wt0_p,
+        tkeavg_p,
+        thvlmin_p,
+        qtsrc_p,
+        thvlsrc_p,
+        thlsrc_p,
+        usrc_p,
+        vsrc_p,
+        trsrc_p,
+        wtsrc_p,
+    )
+
+
+@export
 def uwshcu_lcl_prep_shell_codon(
     mkx: int,
     plcl: float,
