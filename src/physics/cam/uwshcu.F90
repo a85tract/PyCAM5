@@ -66,6 +66,7 @@
   logical :: penent_prep_shell_entered_logged = .false.
   logical :: turbulent_flux_shell_entered_logged = .false.
   logical :: tendency_prep_shell_entered_logged = .false.
+  logical :: penent_flux_comp_sub_prep_shell_entered_logged = .false.
   logical :: comp_sub_sink_shell_entered_logged = .false.
   logical :: thermo_prelim_shell_entered_logged = .false.
   logical :: thermo_final_shell_entered_logged = .false.
@@ -627,6 +628,23 @@ contains
     end if
 
   end subroutine uwshcu_log_tendency_prep_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_penent_flux_comp_sub_prep_shell_entered()
+
+    if (penent_flux_comp_sub_prep_shell_entered_logged) return
+    penent_flux_comp_sub_prep_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu penent/flux/comp-sub prep shell entered (penetrative entrainment, turbulent flux and comp-sub prep direct = codon)'
+       call uwshcu_append_proof( &
+            'uwshcu penent/flux/comp-sub prep shell entered (penetrative entrainment, turbulent flux and comp-sub prep direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_penent_flux_comp_sub_prep_shell_entered
 
 !===============================================================================
 
@@ -2678,6 +2696,36 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: qlten_sub_p, qiten_sub_p, nlten_sub_p, niten_sub_p
           type(c_ptr), value :: wtlten_sub_p, wtiten_sub_p
        end subroutine uwshcu_comp_sub_prepare_shell_codon
+
+       subroutine uwshcu_penent_flux_comp_sub_prep_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
+            kinv_c, krel_c, kbup_c, kpen_c, ixnumliq_c, ixnumice_c, use_momenflx_c, r_c, &
+            g_c, dt_c, rpen_c, ppen_c, cbmf_c, cp_c, pgfc_c, qtsrc_c, thlsrc_c, usrc_c, &
+            vsrc_c, ps0_p, p0_p, dp0_p, thv0bot_p, thv0top_p, exns0_p, thl0_p, &
+            ssthl0_p, qt0_p, ssqt0_p, u0_p, ssu0_p, v0_p, ssv0_p, tr0_p, sstr0_p, &
+            wt0_p, sswt0_p, umf_p, emf_p, ufrc_p, dwten_p, diten_p, fer_p, fdr_p, &
+            rei_p, thlu_p, qtu_p, uu_p, vu_p, tru_p, wtu_p, thlu_emf_p, qtu_emf_p, &
+            uu_emf_p, vu_emf_p, tru_emf_p, wtu_emf_p, wtdwten_p, wtditen_p, &
+            limit_emf_p, trsrc_p, wtsrc_p, slflx_p, qtflx_p, uflx_p, vflx_p, trflx_p, &
+            wtflx_p, uemf_p, comsub_p, ql0_p, qi0_p, wtrc_iatype_p, thlten_sub_p, &
+            qtten_sub_p, qlten_sub_p, qiten_sub_p, nlten_sub_p, niten_sub_p, &
+            wtlten_sub_p, wtiten_sub_p) bind(c, name="uwshcu_penent_flux_comp_sub_prep_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, krel_c
+          integer(c_int64_t), value :: kbup_c, kpen_c, ixnumliq_c, ixnumice_c, use_momenflx_c
+          real(c_double), value :: r_c, g_c, dt_c, rpen_c, ppen_c, cbmf_c, cp_c, pgfc_c
+          real(c_double), value :: qtsrc_c, thlsrc_c, usrc_c, vsrc_c
+          type(c_ptr), value :: ps0_p, p0_p, dp0_p, thv0bot_p, thv0top_p, exns0_p
+          type(c_ptr), value :: thl0_p, ssthl0_p, qt0_p, ssqt0_p, u0_p, ssu0_p
+          type(c_ptr), value :: v0_p, ssv0_p, tr0_p, sstr0_p, wt0_p, sswt0_p
+          type(c_ptr), value :: umf_p, emf_p, ufrc_p, dwten_p, diten_p, fer_p, fdr_p
+          type(c_ptr), value :: rei_p, thlu_p, qtu_p, uu_p, vu_p, tru_p, wtu_p
+          type(c_ptr), value :: thlu_emf_p, qtu_emf_p, uu_emf_p, vu_emf_p, tru_emf_p
+          type(c_ptr), value :: wtu_emf_p, wtdwten_p, wtditen_p, limit_emf_p, trsrc_p
+          type(c_ptr), value :: wtsrc_p, slflx_p, qtflx_p, uflx_p, vflx_p, trflx_p
+          type(c_ptr), value :: wtflx_p, uemf_p, comsub_p, ql0_p, qi0_p, wtrc_iatype_p
+          type(c_ptr), value :: thlten_sub_p, qtten_sub_p, qlten_sub_p, qiten_sub_p
+          type(c_ptr), value :: nlten_sub_p, niten_sub_p, wtlten_sub_p, wtiten_sub_p
+       end subroutine uwshcu_penent_flux_comp_sub_prep_shell_codon
 
        subroutine uwshcu_comp_sub_sink_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, kpen_c, &
             ixnumliq_c, ixnumice_c, dt_c, ql0_p, qi0_p, tr0_p, wtrc_iatype_p, qlten_sub_p, &
@@ -6040,16 +6088,23 @@ end subroutine uwshcu_readnl
        else
           wtrc_nwset_post_c = 0_c_int64_t
           if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-          call uwshcu_log_penent_prep_shell_entered()
-          call uwshcu_penent_prep_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-               wtrc_nwset_post_c, int(kbup, c_int64_t), int(kpen, c_int64_t), r, g, dt, rpen, ppen, &
-               c_loc(ps0), c_loc(p0), c_loc(dp0), c_loc(thv0bot), c_loc(thv0top), c_loc(exns0), &
-               c_loc(thl0), c_loc(ssthl0), c_loc(qt0), c_loc(ssqt0), c_loc(u0), c_loc(ssu0), &
-               c_loc(v0), c_loc(ssv0), c_loc(tr0), c_loc(sstr0), c_loc(wt0), c_loc(sswt0), &
-               c_loc(umf), c_loc(emf), c_loc(ufrc), c_loc(dwten), c_loc(diten), c_loc(fer), &
-               c_loc(fdr), c_loc(rei), c_loc(thlu), c_loc(qtu), c_loc(uu), c_loc(vu), c_loc(tru), &
-               c_loc(wtu), c_loc(thlu_emf), c_loc(qtu_emf), c_loc(uu_emf), c_loc(vu_emf), &
-               c_loc(tru_emf), c_loc(wtu_emf), c_loc(wtdwten), c_loc(wtditen), c_loc(limit_emf(i)))
+          call uwshcu_log_penent_flux_comp_sub_prep_shell_entered()
+          call uwshcu_penent_flux_comp_sub_prep_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+               wtrc_nwset_post_c, int(kinv, c_int64_t), int(krel, c_int64_t), int(kbup, c_int64_t), &
+               int(kpen, c_int64_t), int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), &
+               merge(1_c_int64_t, 0_c_int64_t, use_momenflx), r, g, dt, rpen, ppen, cbmf, cp, PGFc, &
+               qtsrc, thlsrc, usrc, vsrc, c_loc(ps0), c_loc(p0), c_loc(dp0), c_loc(thv0bot), &
+               c_loc(thv0top), c_loc(exns0), c_loc(thl0), c_loc(ssthl0), c_loc(qt0), c_loc(ssqt0), &
+               c_loc(u0), c_loc(ssu0), c_loc(v0), c_loc(ssv0), c_loc(tr0), c_loc(sstr0), &
+               c_loc(wt0), c_loc(sswt0), c_loc(umf), c_loc(emf), c_loc(ufrc), c_loc(dwten), &
+               c_loc(diten), c_loc(fer), c_loc(fdr), c_loc(rei), c_loc(thlu), c_loc(qtu), c_loc(uu), &
+               c_loc(vu), c_loc(tru), c_loc(wtu), c_loc(thlu_emf), c_loc(qtu_emf), c_loc(uu_emf), &
+               c_loc(vu_emf), c_loc(tru_emf), c_loc(wtu_emf), c_loc(wtdwten), c_loc(wtditen), &
+               c_loc(limit_emf(i)), c_loc(trsrc), c_loc(wtsrc), c_loc(slflx), c_loc(qtflx), &
+               c_loc(uflx), c_loc(vflx), c_loc(trflx), c_loc(wtflx), c_loc(uemf), c_loc(comsub), &
+               c_loc(ql0), c_loc(qi0), c_loc(wtrc_iatype_post), c_loc(thlten_sub_tmp), &
+               c_loc(qtten_sub_tmp), c_loc(qlten_sub_tmp), c_loc(qiten_sub_tmp), c_loc(nlten_sub_tmp), &
+               c_loc(niten_sub_tmp), c_loc(wtlten_sub_tmp), c_loc(wtiten_sub_tmp))
        endif
 
        !------------------------------------------------------------------ !
@@ -6321,20 +6376,6 @@ end subroutine uwshcu_readnl
            uflx(0:mkx) = 0._r8
            vflx(0:mkx) = 0._r8
        endif       
-       else
-          wtrc_nwset_post_c = 0_c_int64_t
-          if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-          call uwshcu_log_turbulent_flux_shell_entered()
-          call uwshcu_turbulent_flux_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-               wtrc_nwset_post_c, int(kinv, c_int64_t), int(krel, c_int64_t), int(kbup, c_int64_t), &
-               int(kpen, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, use_momenflx), cbmf, g, dt, cp, &
-               PGFc, qtsrc, thlsrc, usrc, vsrc, c_loc(ps0), c_loc(p0), c_loc(exns0), c_loc(qt0), &
-               c_loc(ssqt0), c_loc(thl0), c_loc(ssthl0), c_loc(u0), c_loc(ssu0), c_loc(v0), &
-               c_loc(ssv0), c_loc(tr0), c_loc(sstr0), c_loc(wt0), c_loc(sswt0), c_loc(trsrc), &
-               c_loc(wtsrc), c_loc(umf), c_loc(emf), c_loc(thlu), c_loc(qtu), c_loc(uu), c_loc(vu), &
-               c_loc(tru), c_loc(wtu), c_loc(thlu_emf), c_loc(qtu_emf), c_loc(uu_emf), &
-               c_loc(vu_emf), c_loc(tru_emf), c_loc(wtu_emf), c_loc(slflx), c_loc(qtflx), &
-               c_loc(uflx), c_loc(vflx), c_loc(trflx), c_loc(wtflx))
        endif
 
        ! -------------------------------------------------------- !
@@ -6354,17 +6395,6 @@ end subroutine uwshcu_readnl
        do k = 1, kpen
           comsub(k)  = 0.5_r8 * ( uemf(k) + uemf(k-1) ) 
        end do    
-       else
-          wtrc_nwset_post_c = 0_c_int64_t
-          if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-          call uwshcu_log_tendency_prep_shell_entered()
-          call uwshcu_comp_sub_prepare_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-               wtrc_nwset_post_c, int(kinv, c_int64_t), int(krel, c_int64_t), int(kbup, c_int64_t), &
-               int(kpen, c_int64_t), int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), cbmf, g, &
-               c_loc(ps0), c_loc(umf), c_loc(emf), c_loc(uemf), c_loc(comsub), c_loc(p0), &
-               c_loc(thl0), c_loc(qt0), c_loc(ql0), c_loc(qi0), c_loc(tr0), c_loc(wtrc_iatype_post), &
-               c_loc(thlten_sub_tmp), c_loc(qtten_sub_tmp), c_loc(qlten_sub_tmp), c_loc(qiten_sub_tmp), &
-               c_loc(nlten_sub_tmp), c_loc(niten_sub_tmp), c_loc(wtlten_sub_tmp), c_loc(wtiten_sub_tmp))
        endif
 
        if (use_native_init_shell_impl) then
