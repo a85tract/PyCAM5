@@ -58,6 +58,7 @@
   logical :: pbl_source_shell_entered_logged = .false.
   logical :: pbl_precheck_source_shell_entered_logged = .false.
   logical :: lcl_prep_shell_entered_logged = .false.
+  logical :: cin_scalar_shell_entered_logged = .false.
   logical :: cin_save_shell_entered_logged = .false.
   logical :: cin_restore_shell_entered_logged = .false.
   logical :: iter_env_restore_shell_entered_logged = .false.
@@ -502,6 +503,23 @@ contains
     end if
 
   end subroutine uwshcu_log_lcl_prep_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_cin_scalar_shell_entered()
+
+    if (cin_scalar_shell_entered_logged) return
+    cin_scalar_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu cin scalar shell entered (lcl init/postcheck/save direct = codon; buoyancy/conden native)'
+       call uwshcu_append_proof( &
+            'uwshcu cin scalar shell entered (lcl init/postcheck/save direct = codon; buoyancy/conden native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_cin_scalar_shell_entered
 
 !===============================================================================
 
@@ -2056,6 +2074,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: kinv_precheck_c, pbl_exit_code_c
     integer(c_int64_t), target       :: klcl_prep_c, lcl_exit_code_c
     integer(c_int64_t), target       :: kinv_cin_state_c, klcl_cin_state_c, klfc_cin_state_c
+    integer(c_int64_t), target       :: cin_post_exit_code_c
     integer(c_int64_t), target       :: krel_release_c
     integer(c_int64_t), target       :: kbup_iter_c, kpen_iter_c
     integer(c_int64_t), target       :: post_scaleh_exit_code_c
@@ -2580,6 +2599,14 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: klcl_out_p, exit_code_p, thl0lcl_p, qt0lcl_p
        end subroutine uwshcu_lcl_prep_shell_codon
 
+       subroutine uwshcu_cin_lcl_init_shell_codon(mkx_c, zvir_c, thj_c, qvj_c, qlj_c, qij_c, &
+            thv0lcl_p, cin_p, cinlcl_p, plfc_p, klfc_p) bind(c, name="uwshcu_cin_lcl_init_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c
+          real(c_double), value :: zvir_c, thj_c, qvj_c, qlj_c, qij_c
+          type(c_ptr), value :: thv0lcl_p, cin_p, cinlcl_p, plfc_p, klfc_p
+       end subroutine uwshcu_cin_lcl_init_shell_codon
+
        subroutine uwshcu_cin_state_save_shell_codon(ncnst_c, cin_c, cinlcl_c, rbuoy_c, rkfre_c, &
             tkeavg_c, epsvarw_c, kinv_c, klcl_c, klfc_c, plcl_c, plfc_c, thvlmin_c, qtsrc_c, &
             thvlsrc_c, thlsrc_c, usrc_c, vsrc_c, thv0lcl_c, trsrc_p, cin_i_p, cinlcl_i_p, &
@@ -2595,6 +2622,24 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: plcl_o_p, plfc_o_p, tkeavg_o_p, thvlmin_o_p, qtsrc_o_p, thvlsrc_o_p
           type(c_ptr), value :: thlsrc_o_p, usrc_o_p, vsrc_o_p, thv0lcl_o_p, trsrc_o_p
        end subroutine uwshcu_cin_state_save_shell_codon
+
+       subroutine uwshcu_cin_postcheck_save_shell_codon(iter_c, ncnst_c, mkx_c, cinlcl_c, rbuoy_c, &
+            rkfre_c, tkeavg_c, epsvarw_c, kinv_c, klcl_c, klfc_c, plcl_c, plfc_c, thvlmin_c, &
+            qtsrc_c, thvlsrc_c, thlsrc_c, usrc_c, vsrc_c, thv0lcl_c, trsrc_p, limit_cin_p, &
+            cin_p, klfc_p, exit_code_p, cin_i_p, cinlcl_i_p, ke_p, kinv_o_p, klcl_o_p, klfc_o_p, &
+            plcl_o_p, plfc_o_p, tkeavg_o_p, thvlmin_o_p, qtsrc_o_p, thvlsrc_o_p, thlsrc_o_p, &
+            usrc_o_p, vsrc_o_p, thv0lcl_o_p, trsrc_o_p) &
+            bind(c, name="uwshcu_cin_postcheck_save_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: iter_c, ncnst_c, mkx_c, kinv_c, klcl_c, klfc_c
+          real(c_double), value :: cinlcl_c, rbuoy_c, rkfre_c, tkeavg_c, epsvarw_c
+          real(c_double), value :: plcl_c, plfc_c, thvlmin_c, qtsrc_c, thvlsrc_c, thlsrc_c
+          real(c_double), value :: usrc_c, vsrc_c, thv0lcl_c
+          type(c_ptr), value :: trsrc_p, limit_cin_p, cin_p, klfc_p, exit_code_p
+          type(c_ptr), value :: cin_i_p, cinlcl_i_p, ke_p, kinv_o_p, klcl_o_p, klfc_o_p
+          type(c_ptr), value :: plcl_o_p, plfc_o_p, tkeavg_o_p, thvlmin_o_p, qtsrc_o_p, thvlsrc_o_p
+          type(c_ptr), value :: thlsrc_o_p, usrc_o_p, vsrc_o_p, thv0lcl_o_p, trsrc_o_p
+       end subroutine uwshcu_cin_postcheck_save_shell_codon
 
        subroutine uwshcu_cin_state_restore_shell_codon(ncnst_c, use_cincin_c, cin_i_c, cinlcl_i_c, &
             alpha_c, del_cin_c, del_cinlcl_c, kinv_o_c, klcl_o_c, klfc_o_c, plcl_o_c, plfc_o_c, &
@@ -4238,7 +4283,14 @@ end subroutine uwshcu_readnl
            id_exit = .true.
            go to 333
        end if
-       thv0lcl = thj * ( 1._r8 + zvir * qvj - qlj - qij )
+       if (use_native_init_shell_impl) then
+          thv0lcl = thj * ( 1._r8 + zvir * qvj - qlj - qij )
+       else
+          call uwshcu_log_cin_scalar_shell_entered()
+          call uwshcu_cin_lcl_init_shell_codon(int(mkx, c_int64_t), zvir, thj, qvj, qlj, qij, &
+               c_loc(thv0lcl), c_loc(cin), c_loc(cinlcl), c_loc(plfc), c_loc(klfc_cin_state_c))
+          klfc = int(klfc_cin_state_c)
+       end if
 
        ! ------------------------------------------------------------------------ !
        ! Compute Convective Inhibition, 'cin' & 'cinlcl' [J/kg]=[m2/s2] TKE unit. !
@@ -4263,10 +4315,12 @@ end subroutine uwshcu_readnl
        ! 'kinv' and 'klcl'.                                                       !
        ! ------------------------------------------------------------------------ !
 
-        cin    = 0._r8
-        cinlcl = 0._r8
-        plfc   = 0._r8
-        klfc   = mkx
+        if (use_native_init_shell_impl) then
+           cin    = 0._r8
+           cinlcl = 0._r8
+           plfc   = 0._r8
+           klfc   = mkx
+        end if
 
         ! ------------------------------------------------------------------------- !
         ! Case 1. LCL height is higher than PBL interface ( 'pLCL <= ps0(kinv-1)' ) !
@@ -4348,10 +4402,32 @@ end subroutine uwshcu_readnl
        endif  ! End of CIN case selection
 
  35    continue
-       if( cin .lt. 0._r8 ) limit_cin(i) = 1._r8
-       cin = max(0._r8,cin)
-       if( klfc .ge. mkx ) then
-           klfc = mkx
+       cin_post_exit_code_c = 0_c_int64_t
+       if (use_native_init_shell_impl) then
+          if( cin .lt. 0._r8 ) limit_cin(i) = 1._r8
+          cin = max(0._r8,cin)
+          if( klfc .ge. mkx ) then
+              klfc = mkx
+              cin_post_exit_code_c = 1_c_int64_t
+          endif
+       else
+          call uwshcu_cin_postcheck_save_shell_codon(int(iter, c_int64_t), int(ncnst, c_int64_t), &
+               int(mkx, c_int64_t), cinlcl, rbuoy, rkfre, tkeavg, epsvarw, int(kinv, c_int64_t), &
+               int(klcl, c_int64_t), int(klfc, c_int64_t), plcl, plfc, thvlmin, qtsrc, thvlsrc, &
+               thlsrc, usrc, vsrc, thv0lcl, c_loc(trsrc), c_loc(limit_cin(i)), c_loc(cin), &
+               c_loc(klfc_cin_state_c), c_loc(cin_post_exit_code_c), c_loc(cin_i), c_loc(cinlcl_i), &
+               c_loc(ke), c_loc(kinv_cin_state_c), c_loc(klcl_cin_state_c), c_loc(klfc_cin_state_c), &
+               c_loc(plcl_o), c_loc(plfc_o), c_loc(tkeavg_o), c_loc(thvlmin_o), c_loc(qtsrc_o), &
+               c_loc(thvlsrc_o), c_loc(thlsrc_o), c_loc(usrc_o), c_loc(vsrc_o), c_loc(thv0lcl_o), &
+               c_loc(trsrc_o))
+          klfc = int(klfc_cin_state_c)
+          if( iter .eq. 1 .and. cin_post_exit_code_c .eq. 0_c_int64_t ) then
+             kinv_o = int(kinv_cin_state_c)
+             klcl_o = int(klcl_cin_state_c)
+             klfc_o = int(klfc_cin_state_c)
+          endif
+       endif
+       if( cin_post_exit_code_c .ne. 0_c_int64_t ) then
          ! write(iulog,*) 'klfc >= mkx'
            exit_klfcmkx(i) = 1._r8
            id_exit = .true.
@@ -4364,7 +4440,7 @@ end subroutine uwshcu_readnl
        ! be restored after calculating implicit CIN.                            !
        ! ---------------------------------------------------------------------- !
 
-       if( iter .eq. 1 ) then 
+       if( iter .eq. 1 ) then
            if (use_native_init_shell_impl) then
               cin_i       = cin
               cinlcl_i    = cinlcl
@@ -4385,21 +4461,8 @@ end subroutine uwshcu_readnl
               do m = 1, ncnst
                  trsrc_o(m) = trsrc(m)
               enddo
-           else
-              call uwshcu_log_cin_save_shell_entered()
-              call uwshcu_cin_state_save_shell_codon(int(ncnst, c_int64_t), cin, cinlcl, rbuoy, &
-                   rkfre, tkeavg, epsvarw, int(kinv, c_int64_t), int(klcl, c_int64_t), &
-                   int(klfc, c_int64_t), plcl, plfc, thvlmin, qtsrc, thvlsrc, thlsrc, usrc, vsrc, &
-                   thv0lcl, c_loc(trsrc), c_loc(cin_i), c_loc(cinlcl_i), c_loc(ke), &
-                   c_loc(kinv_cin_state_c), c_loc(klcl_cin_state_c), c_loc(klfc_cin_state_c), &
-                   c_loc(plcl_o), c_loc(plfc_o), c_loc(tkeavg_o), c_loc(thvlmin_o), c_loc(qtsrc_o), &
-                   c_loc(thvlsrc_o), c_loc(thlsrc_o), c_loc(usrc_o), c_loc(vsrc_o), &
-                   c_loc(thv0lcl_o), c_loc(trsrc_o))
-              kinv_o = int(kinv_cin_state_c)
-              klcl_o = int(klcl_cin_state_c)
-              klfc_o = int(klfc_cin_state_c)
            endif
-       endif   
+       endif
 
      ! Modification : If I impose w = max(0.1_r8, w) up to the top interface of
      !                klfc, I should only use cinlfc.  That is, if I want to

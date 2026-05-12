@@ -3180,6 +3180,33 @@ def uwshcu_lcl_prep_shell_codon(
 
 
 @export
+def uwshcu_cin_lcl_init_shell_codon(
+    mkx: int,
+    zvir: float,
+    thj: float,
+    qvj: float,
+    qlj: float,
+    qij: float,
+    thv0lcl_p: cobj,
+    cin_p: cobj,
+    cinlcl_p: cobj,
+    plfc_p: cobj,
+    klfc_p: cobj,
+):
+    thv0lcl = Ptr[float](thv0lcl_p)
+    cin = Ptr[float](cin_p)
+    cinlcl = Ptr[float](cinlcl_p)
+    plfc = Ptr[float](plfc_p)
+    klfc = Ptr[int](klfc_p)
+
+    thv0lcl[0] = thj * (1.0 + zvir * qvj - qlj - qij)
+    cin[0] = 0.0
+    cinlcl[0] = 0.0
+    plfc[0] = 0.0
+    klfc[0] = mkx
+
+
+@export
 def uwshcu_cin_state_save_shell_codon(
     ncnst: int,
     cin_v: float,
@@ -3259,6 +3286,110 @@ def uwshcu_cin_state_save_shell_codon(
     while m < ncnst:
         trsrc_o[m] = trsrc[m]
         m += 1
+
+
+@export
+def uwshcu_cin_postcheck_save_shell_codon(
+    iter_v: int,
+    ncnst: int,
+    mkx: int,
+    cinlcl_v: float,
+    rbuoy: float,
+    rkfre: float,
+    tkeavg_v: float,
+    epsvarw: float,
+    kinv_v: int,
+    klcl_v: int,
+    klfc_v: int,
+    plcl_v: float,
+    plfc_v: float,
+    thvlmin_v: float,
+    qtsrc_v: float,
+    thvlsrc_v: float,
+    thlsrc_v: float,
+    usrc_v: float,
+    vsrc_v: float,
+    thv0lcl_v: float,
+    trsrc_p: cobj,
+    limit_cin_p: cobj,
+    cin_p: cobj,
+    klfc_p: cobj,
+    exit_code_p: cobj,
+    cin_i_p: cobj,
+    cinlcl_i_p: cobj,
+    ke_p: cobj,
+    kinv_o_p: cobj,
+    klcl_o_p: cobj,
+    klfc_o_p: cobj,
+    plcl_o_p: cobj,
+    plfc_o_p: cobj,
+    tkeavg_o_p: cobj,
+    thvlmin_o_p: cobj,
+    qtsrc_o_p: cobj,
+    thvlsrc_o_p: cobj,
+    thlsrc_o_p: cobj,
+    usrc_o_p: cobj,
+    vsrc_o_p: cobj,
+    thv0lcl_o_p: cobj,
+    trsrc_o_p: cobj,
+):
+    limit_cin = Ptr[float](limit_cin_p)
+    cin = Ptr[float](cin_p)
+    klfc = Ptr[int](klfc_p)
+    exit_code = Ptr[int](exit_code_p)
+
+    exit_code[0] = 0
+    if cin[0] < 0.0:
+        limit_cin[0] = 1.0
+        cin[0] = 0.0
+
+    if klfc_v >= mkx:
+        klfc[0] = mkx
+        exit_code[0] = 1
+        return
+
+    klfc[0] = klfc_v
+
+    if iter_v == 1:
+        uwshcu_cin_state_save_shell_codon(
+            ncnst,
+            cin[0],
+            cinlcl_v,
+            rbuoy,
+            rkfre,
+            tkeavg_v,
+            epsvarw,
+            kinv_v,
+            klcl_v,
+            klfc_v,
+            plcl_v,
+            plfc_v,
+            thvlmin_v,
+            qtsrc_v,
+            thvlsrc_v,
+            thlsrc_v,
+            usrc_v,
+            vsrc_v,
+            thv0lcl_v,
+            trsrc_p,
+            cin_i_p,
+            cinlcl_i_p,
+            ke_p,
+            kinv_o_p,
+            klcl_o_p,
+            klfc_o_p,
+            plcl_o_p,
+            plfc_o_p,
+            tkeavg_o_p,
+            thvlmin_o_p,
+            qtsrc_o_p,
+            thvlsrc_o_p,
+            thlsrc_o_p,
+            usrc_o_p,
+            vsrc_o_p,
+            thv0lcl_o_p,
+            trsrc_o_p,
+        )
 
 
 @export
