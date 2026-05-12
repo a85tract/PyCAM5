@@ -55,6 +55,7 @@
   logical :: column_thermo_shell_entered_logged = .false.
   logical :: column_thermo_slope_shell_entered_logged = .false.
   logical :: interface_thv_shell_entered_logged = .false.
+  logical :: iter_interface_thv_shell_entered_logged = .false.
   logical :: pbl_precheck_shell_entered_logged = .false.
   logical :: pbl_source_shell_entered_logged = .false.
   logical :: pbl_precheck_source_shell_entered_logged = .false.
@@ -459,6 +460,23 @@ contains
     end if
 
   end subroutine uwshcu_log_interface_thv_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_iter_interface_thv_shell_entered()
+
+    if (iter_interface_thv_shell_entered_logged) return
+    iter_interface_thv_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu iter interface thv shell entered (post-conden implicit-CIN interface virtual theta direct = codon)'
+       call uwshcu_append_proof( &
+            'uwshcu iter interface thv shell entered (post-conden implicit-CIN interface virtual theta direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_iter_interface_thv_shell_entered
 
 !===============================================================================
 
@@ -8236,8 +8254,14 @@ end subroutine uwshcu_readnl
                  id_exit = .true.
                  go to 333
              end if
-             thv0bot(k)  = thj * ( 1._r8 + zvir*qvj - qlj - qij )
-             thvl0bot(k) = thl0bot * ( 1._r8 + zvir*qt0bot )
+             if (use_native_init_shell_impl) then
+                thv0bot(k)  = thj * ( 1._r8 + zvir*qvj - qlj - qij )
+                thvl0bot(k) = thl0bot * ( 1._r8 + zvir*qt0bot )
+             else
+                call uwshcu_log_iter_interface_thv_shell_entered()
+                call uwshcu_interface_thv_shell_codon(int(k, c_int64_t), zvir, thj, qvj, qlj, qij, &
+                     thl0bot, qt0bot, c_loc(thv0bot), c_loc(thvl0bot))
+             endif
           
              thl0top = thl0(k) + ssthl0(k) * ( ps0(k) - p0(k) )
              qt0top  =  qt0(k) + ssqt0(k)  * ( ps0(k) - p0(k) )
@@ -8247,8 +8271,13 @@ end subroutine uwshcu_readnl
                  id_exit = .true.
                  go to 333
              end if
-             thv0top(k)  = thj * ( 1._r8 + zvir*qvj - qlj - qij )
-             thvl0top(k) = thl0top * ( 1._r8 + zvir*qt0top )
+             if (use_native_init_shell_impl) then
+                thv0top(k)  = thj * ( 1._r8 + zvir*qvj - qlj - qij )
+                thvl0top(k) = thl0top * ( 1._r8 + zvir*qt0top )
+             else
+                call uwshcu_interface_thv_shell_codon(int(k, c_int64_t), zvir, thj, qvj, qlj, qij, &
+                     thl0top, qt0top, c_loc(thv0top), c_loc(thvl0top))
+             endif
 
           end do
 
