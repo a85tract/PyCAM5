@@ -3180,6 +3180,27 @@ def uwshcu_lcl_prep_shell_codon(
 
 
 @export
+def uwshcu_interface_thv_shell_codon(
+    k_fortran: int,
+    zvir: float,
+    thj: float,
+    qvj: float,
+    qlj: float,
+    qij: float,
+    thl0edge: float,
+    qt0edge: float,
+    thv0_p: cobj,
+    thvl0_p: cobj,
+):
+    thv0 = Ptr[float](thv0_p)
+    thvl0 = Ptr[float](thvl0_p)
+
+    idx = k_fortran - 1
+    thv0[idx] = thj * (1.0 + zvir * qvj - qlj - qij)
+    thvl0[idx] = thl0edge * (1.0 + zvir * qt0edge)
+
+
+@export
 def uwshcu_cin_lcl_init_shell_codon(
     mkx: int,
     zvir: float,
