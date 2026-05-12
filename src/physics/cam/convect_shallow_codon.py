@@ -6372,6 +6372,9 @@ def uwshcu_precip_bulk_layer_shell_codon(
     mix: int,
     i: int,
     k: int,
+    wtrc_nwset: int,
+    trace_water: int,
+    t0_v: float,
     rainflx: float,
     snowflx: float,
     snowmlt: float,
@@ -6404,6 +6407,14 @@ def uwshcu_precip_bulk_layer_shell_codon(
     sten_p: cobj,
     slten_p: cobj,
     limit_negcon_p: cobj,
+    wtrc_iatype_p: cobj,
+    wtrpten_p: cobj,
+    wtspten_p: cobj,
+    wtevp_p: cobj,
+    wtsub_p: cobj,
+    wtflxrn_p: cobj,
+    wtflxsn_p: cobj,
+    trten_p: cobj,
 ):
     dp0 = Ptr[float](dp0_p)
     qv0 = Ptr[float](qv0_p)
@@ -6425,6 +6436,14 @@ def uwshcu_precip_bulk_layer_shell_codon(
     sten = Ptr[float](sten_p)
     slten = Ptr[float](slten_p)
     limit_negcon = Ptr[float](limit_negcon_p)
+    wtrc_iatype = Ptr[int](wtrc_iatype_p)
+    wtrpten = Ptr[float](wtrpten_p)
+    wtspten = Ptr[float](wtspten_p)
+    wtevp = Ptr[float](wtevp_p)
+    wtsub = Ptr[float](wtsub_p)
+    wtflxrn = Ptr[float](wtflxrn_p)
+    wtflxsn = Ptr[float](wtflxsn_p)
+    trten = Ptr[float](trten_p)
 
     kk = k - 1
     km1 = k - 1
@@ -6460,6 +6479,36 @@ def uwshcu_precip_bulk_layer_shell_codon(
         limit_negcon[i - 1] = 1.0
     sten[kk] = sten[kk] - xlv * evprain - xls * evpsnow - (xls - xlv) * snowmlt
     slten[kk] = sten[kk] - xlv * qlten[kk] - xls * qiten[kk]
+
+    if trace_water != 0:
+        iface_stride = mkx + 1
+        m = 0
+        while m < wtrc_nwset:
+            wt_layer = kk + m * mkx
+            wt_top = k + m * iface_stride
+            wt_bottom = kk + m * iface_stride
+
+            if t0_v > 273.16:
+                wtsnwmlt = wtflxsn[wt_top] * g / dp0[kk]
+                if wtsnwmlt < 0.0:
+                    wtsnwmlt = 0.0
+            else:
+                wtsnwmlt = 0.0
+
+            wtflxrn[wt_bottom] = wtflxrn[wt_top] + (wtrpten[wt_layer] - wtevp[wt_layer] + wtsnwmlt) * dp0[kk] / g
+            wtflxsn[wt_bottom] = wtflxsn[wt_top] + (wtspten[wt_layer] - wtsub[wt_layer] - wtsnwmlt) * dp0[kk] / g
+            if wtflxrn[wt_bottom] < 0.0:
+                wtflxrn[wt_bottom] = 0.0
+            if wtflxsn[wt_bottom] < 0.0:
+                wtflxsn[wt_bottom] = 0.0
+
+            vap = wtrc_iatype[m] - 1
+            liq = wtrc_iatype[m + wtrc_nwset] - 1
+            ice = wtrc_iatype[m + 2 * wtrc_nwset] - 1
+            trten[kk + liq * mkx] = trten[kk + liq * mkx] - wtrpten[wt_layer]
+            trten[kk + ice * mkx] = trten[kk + ice * mkx] - wtspten[wt_layer]
+            trten[kk + vap * mkx] = trten[kk + vap * mkx] + wtevp[wt_layer] + wtsub[wt_layer]
+            m += 1
 
 
 def _uwshcu_slope_column(

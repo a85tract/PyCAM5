@@ -857,9 +857,9 @@ contains
     precip_bulk_shell_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'uwshcu precip bulk shell entered (bulk precip flux/tendency direct = codon; qsat/sqrt/water tracers native)'
+       write(iulog,'(A)') 'uwshcu precip bulk shell entered (bulk/wtrc finalize direct = codon; qsat/sqrt/isotope native)'
        call uwshcu_append_proof( &
-            'uwshcu precip bulk shell entered (bulk precip flux/tendency direct = codon; qsat/sqrt/water tracers native)')
+            'uwshcu precip bulk shell entered (bulk/wtrc finalize direct = codon; qsat/sqrt/isotope native)')
        call flush(iulog)
     end if
 
@@ -3076,20 +3076,23 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: ntraprd_p, ntsnprd_p, wtflxrn_p, wtflxsn_p
        end subroutine uwshcu_precip_bulk_init_shell_codon
 
-       subroutine uwshcu_precip_bulk_layer_shell_codon(mkx_c, mix_c, i_c, k_c, &
+       subroutine uwshcu_precip_bulk_layer_shell_codon(mkx_c, mix_c, i_c, k_c, wtrc_nwset_c, trace_water_c, t0_c, &
             rainflx_c, snowflx_c, snowmlt_c, evprain_c, evpsnow_c, g_c, dt_c, xlv_c, xls_c, &
             qmin_vap_c, qmin_liq_c, qmin_ice_c, dp0_p, qv0_p, ql0_p, qi0_p, qrten_p, qsten_p, &
             evapc_p, evpint_rain_p, evpint_snow_p, ntraprd_p, ntsnprd_p, flxrain_p, flxsnow_p, &
-            qvten_p, qlten_p, qiten_p, qtten_p, sten_p, slten_p, limit_negcon_p) &
+            qvten_p, qlten_p, qiten_p, qtten_p, sten_p, slten_p, limit_negcon_p, wtrc_iatype_p, &
+            wtrpten_p, wtspten_p, wtevp_p, wtsub_p, wtflxrn_p, wtflxsn_p, trten_p) &
             bind(c, name="uwshcu_precip_bulk_layer_shell_codon")
           use iso_c_binding, only: c_double, c_int64_t, c_ptr
-          integer(c_int64_t), value :: mkx_c, mix_c, i_c, k_c
+          integer(c_int64_t), value :: mkx_c, mix_c, i_c, k_c, wtrc_nwset_c, trace_water_c
+          real(c_double), value :: t0_c
           real(c_double), value :: rainflx_c, snowflx_c, snowmlt_c, evprain_c, evpsnow_c
           real(c_double), value :: g_c, dt_c, xlv_c, xls_c, qmin_vap_c, qmin_liq_c, qmin_ice_c
           type(c_ptr), value :: dp0_p, qv0_p, ql0_p, qi0_p, qrten_p, qsten_p
           type(c_ptr), value :: evapc_p, evpint_rain_p, evpint_snow_p, ntraprd_p, ntsnprd_p
           type(c_ptr), value :: flxrain_p, flxsnow_p, qvten_p, qlten_p, qiten_p, qtten_p
-          type(c_ptr), value :: sten_p, slten_p, limit_negcon_p
+          type(c_ptr), value :: sten_p, slten_p, limit_negcon_p, wtrc_iatype_p
+          type(c_ptr), value :: wtrpten_p, wtspten_p, wtevp_p, wtsub_p, wtflxrn_p, wtflxsn_p, trten_p
        end subroutine uwshcu_precip_bulk_layer_shell_codon
 
        subroutine uwshcu_slope_reconstruction_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
@@ -7305,6 +7308,8 @@ end subroutine uwshcu_readnl
           end if
        endif
 
+       if (.not. use_native_init_shell_impl) call uwshcu_log_precip_bulk_shell_entered()
+
        do k = mkx, 1, -1  ! 'k' is a layer index : 'mkx'('1') is the top ('bottom') layer
           
           ! ----------------------------------------------------------------------------- !
@@ -7413,14 +7418,6 @@ end subroutine uwshcu_readnl
              end if
              sten(k)  = sten(k) - xlv*evprain  - xls*evpsnow - (xls-xlv)*snowmlt
              slten(k) = sten(k) - xlv*qlten(k) - xls*qiten(k)
-          else
-             call uwshcu_precip_bulk_layer_shell_codon(int(mkx, c_int64_t), int(mix, c_int64_t), &
-                  int(i, c_int64_t), int(k, c_int64_t), rainflx, snowflx, snowmlt, evprain, &
-                  evpsnow, g, dt, xlv, xls, qmin(1), qmin(ixcldliq), qmin(ixcldice), &
-                  c_loc(dp0), c_loc(qv0), c_loc(ql0), c_loc(qi0), c_loc(qrten), c_loc(qsten), &
-                  c_loc(evapc), c_loc(evpint_rain), c_loc(evpint_snow), c_loc(ntraprd), &
-                  c_loc(ntsnprd), c_loc(flxrain), c_loc(flxsnow), c_loc(qvten), c_loc(qlten), &
-                  c_loc(qiten), c_loc(qtten), c_loc(sten), c_loc(slten), c_loc(limit_negcon))
           endif
 
         !  slten(k) = slten(k) + xlv * ntraprd(k) + xls * ntsnprd(k)         
@@ -7548,6 +7545,8 @@ end subroutine uwshcu_readnl
            !Calculate snow sublimation (No fractionation occurs during sublimation):
             wtsub(k,m) = evpsnow*Rs
 
+            if (use_native_init_shell_impl) then
+
            !Calculate snow melt
             if( t0(k) .gt. 273.16_r8 ) then
               wtsnwmlt = max( 0._r8, wtflxsn(k,m) * g / dp0(k) )
@@ -7567,10 +7566,26 @@ end subroutine uwshcu_readnl
             trten(k,wtrc_iatype(m,iwtliq)) = trten(k,wtrc_iatype(m,iwtliq)) - wtrpten(k,m)
             trten(k,wtrc_iatype(m,iwtice)) = trten(k,wtrc_iatype(m,iwtice)) - wtspten(k,m)
             trten(k,wtrc_iatype(m,iwtvap)) = trten(k,wtrc_iatype(m,iwtvap)) + wtevp(k,m) + wtsub(k,m)
+            endif
 
           end do !Water species
         end if   !water tracers?
         !*****************************************************************
+
+          if (.not. use_native_init_shell_impl) then
+             wtrc_nwset_post_c = 0_c_int64_t
+             if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
+             call uwshcu_precip_bulk_layer_shell_codon(int(mkx, c_int64_t), int(mix, c_int64_t), &
+                  int(i, c_int64_t), int(k, c_int64_t), wtrc_nwset_post_c, &
+                  merge(1_c_int64_t, 0_c_int64_t, trace_water), t0(k), rainflx, snowflx, snowmlt, &
+                  evprain, evpsnow, g, dt, xlv, xls, qmin(1), qmin(ixcldliq), qmin(ixcldice), &
+                  c_loc(dp0), c_loc(qv0), c_loc(ql0), c_loc(qi0), c_loc(qrten), c_loc(qsten), &
+                  c_loc(evapc), c_loc(evpint_rain), c_loc(evpint_snow), c_loc(ntraprd), &
+                  c_loc(ntsnprd), c_loc(flxrain), c_loc(flxsnow), c_loc(qvten), c_loc(qlten), &
+                  c_loc(qiten), c_loc(qtten), c_loc(sten), c_loc(slten), c_loc(limit_negcon), &
+                  c_loc(wtrc_iatype_post), c_loc(wtrpten), c_loc(wtspten), c_loc(wtevp), &
+                  c_loc(wtsub), c_loc(wtflxrn), c_loc(wtflxsn), c_loc(trten))
+          endif
 
        end do !vertical levels (k)
 
