@@ -3201,6 +3201,20 @@ def uwshcu_interface_thv_shell_codon(
 
 
 @export
+def uwshcu_thv_scalar_shell_codon(
+    zvir: float,
+    thj: float,
+    qvj: float,
+    qlj: float,
+    qij: float,
+    thv_p: cobj,
+):
+    thv = Ptr[float](thv_p)
+
+    thv[0] = thj * (1.0 + zvir * qvj - qlj - qij)
+
+
+@export
 def uwshcu_cin_lcl_init_shell_codon(
     mkx: int,
     zvir: float,

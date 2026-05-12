@@ -56,6 +56,7 @@
   logical :: column_thermo_slope_shell_entered_logged = .false.
   logical :: interface_thv_shell_entered_logged = .false.
   logical :: iter_interface_thv_shell_entered_logged = .false.
+  logical :: cin_thv_scalar_shell_entered_logged = .false.
   logical :: pbl_precheck_shell_entered_logged = .false.
   logical :: pbl_source_shell_entered_logged = .false.
   logical :: pbl_precheck_source_shell_entered_logged = .false.
@@ -477,6 +478,23 @@ contains
     end if
 
   end subroutine uwshcu_log_iter_interface_thv_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_cin_thv_scalar_shell_entered()
+
+    if (cin_thv_scalar_shell_entered_logged) return
+    cin_thv_scalar_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu cin thv scalar shell entered (post-conden CIN buoyancy virtual theta direct = codon; getbuoy native)'
+       call uwshcu_append_proof( &
+            'uwshcu cin thv scalar shell entered (post-conden CIN buoyancy virtual theta direct = codon; getbuoy native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_cin_thv_scalar_shell_entered
 
 !===============================================================================
 
@@ -1897,7 +1915,8 @@ end subroutine uwshcu_readnl
     real(r8), target :: cbmf, wlcl, ufrclcl
     real(r8)    wcrit, winv, ufrcinv, rmaxfrac
     real(r8)    criqc, exql, exqi, ppen
-    real(r8)    thl0top, thl0bot, qt0bot, qt0top, thvubot, thvutop
+    real(r8)    thl0top, thl0bot, qt0bot, qt0top
+    real(r8), target :: thvubot, thvutop
     real(r8)    thlu_top, qtu_top, qlu_top, qiu_top, qlu_mid, qiu_mid, exntop
     real(r8), target :: thl0lcl, qt0lcl
     real(r8), target :: thv0lcl
@@ -2642,6 +2661,13 @@ end subroutine uwshcu_readnl
           real(c_double), value :: zvir_c, thj_c, qvj_c, qlj_c, qij_c, thl0edge_c, qt0edge_c
           type(c_ptr), value :: thv0_p, thvl0_p
        end subroutine uwshcu_interface_thv_shell_codon
+
+       subroutine uwshcu_thv_scalar_shell_codon(zvir_c, thj_c, qvj_c, qlj_c, qij_c, thv_p) &
+            bind(c, name="uwshcu_thv_scalar_shell_codon")
+          use iso_c_binding, only: c_double, c_ptr
+          real(c_double), value :: zvir_c, thj_c, qvj_c, qlj_c, qij_c
+          type(c_ptr), value :: thv_p
+       end subroutine uwshcu_thv_scalar_shell_codon
 
        subroutine uwshcu_cin_lcl_init_shell_codon(mkx_c, zvir_c, thj_c, qvj_c, qlj_c, qij_c, &
             thv0lcl_p, cin_p, cinlcl_p, plfc_p, klfc_p) bind(c, name="uwshcu_cin_lcl_init_shell_codon")
@@ -4404,7 +4430,12 @@ end subroutine uwshcu_readnl
                        id_exit = .true.
                        go to 333
                    end if
-                   thvutop = thj * ( 1._r8 + zvir*qvj - qlj - qij )
+                   if (use_native_init_shell_impl) then
+                      thvutop = thj * ( 1._r8 + zvir*qvj - qlj - qij )
+                   else
+                      call uwshcu_log_cin_thv_scalar_shell_entered()
+                      call uwshcu_thv_scalar_shell_codon(zvir, thj, qvj, qlj, qij, c_loc(thvutop))
+                   endif
                    call getbuoy(plcl,thv0lcl,ps0(k),thv0top(k),thvubot,thvutop,plfc,cin)
                    if( plfc .gt. 0._r8 ) then 
                        klfc = k 
@@ -4418,7 +4449,12 @@ end subroutine uwshcu_readnl
                        id_exit = .true.
                        go to 333
                    end if
-                   thvutop = thj * ( 1._r8 + zvir*qvj - qlj - qij )
+                   if (use_native_init_shell_impl) then
+                      thvutop = thj * ( 1._r8 + zvir*qvj - qlj - qij )
+                   else
+                      call uwshcu_log_cin_thv_scalar_shell_entered()
+                      call uwshcu_thv_scalar_shell_codon(zvir, thj, qvj, qlj, qij, c_loc(thvutop))
+                   endif
                    call getbuoy(ps0(k-1),thv0bot(k),ps0(k),thv0top(k),thvubot,thvutop,plfc,cin)
                    if( plfc .gt. 0._r8 ) then 
                        klfc = k
@@ -4440,14 +4476,23 @@ end subroutine uwshcu_readnl
                  id_exit = .true.
                  go to 333
              end if
-             thvubot = thj * ( 1._r8 + zvir*qvj - qlj - qij )
+             if (use_native_init_shell_impl) then
+                thvubot = thj * ( 1._r8 + zvir*qvj - qlj - qij )
+             else
+                call uwshcu_log_cin_thv_scalar_shell_entered()
+                call uwshcu_thv_scalar_shell_codon(zvir, thj, qvj, qlj, qij, c_loc(thvubot))
+             endif
              call conden(ps0(k),thlsrc,qtsrc,thj,qvj,qlj,qij,qse,id_check,ncnst)
              if( id_check .eq. 1 ) then
                  exit_conden(i) = 1._r8
                  id_exit = .true.
                  go to 333
              end if
-             thvutop = thj * ( 1._r8 + zvir*qvj - qlj - qij )
+             if (use_native_init_shell_impl) then
+                thvutop = thj * ( 1._r8 + zvir*qvj - qlj - qij )
+             else
+                call uwshcu_thv_scalar_shell_codon(zvir, thj, qvj, qlj, qij, c_loc(thvutop))
+             endif
              call getbuoy(ps0(k-1),thv0bot(k),ps0(k),thv0top(k),thvubot,thvutop,plfc,cin)
              if( plfc .gt. 0._r8 ) then 
                  klfc = k
