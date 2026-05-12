@@ -6001,6 +6001,82 @@ def uwshcu_cloud_diag_layer_shell_codon(
 
 
 @export
+def uwshcu_cloud_diag_all_shell_codon(
+    mkx: int,
+    krel: int,
+    kpen: int,
+    qlj_base: float,
+    qij_base: float,
+    criqc_v: float,
+    prel_v: float,
+    ppen_v: float,
+    ufrclcl_v: float,
+    g_v: float,
+    cloud_qlj_p: cobj,
+    cloud_qij_p: cobj,
+    ps0_p: cobj,
+    ufrc_p: cobj,
+    qcu_p: cobj,
+    qlu_p: cobj,
+    qiu_p: cobj,
+    cufrc_p: cobj,
+    qcubelow_p: cobj,
+    qlubelow_p: cobj,
+    qiubelow_p: cobj,
+    rcwp_p: cobj,
+    rlwp_p: cobj,
+    riwp_p: cobj,
+    cnt_p: cobj,
+    cnb_p: cobj,
+):
+    cloud_qlj = Ptr[float](cloud_qlj_p)
+    cloud_qij = Ptr[float](cloud_qij_p)
+
+    uwshcu_cloud_diag_init_shell_codon(
+        qlj_base,
+        qij_base,
+        qcubelow_p,
+        qlubelow_p,
+        qiubelow_p,
+        rcwp_p,
+        rlwp_p,
+        riwp_p,
+    )
+
+    k = krel
+    while k <= kpen:
+        idx = k - 1
+        uwshcu_cloud_diag_layer_shell_codon(
+            mkx,
+            k,
+            krel,
+            kpen,
+            cloud_qlj[idx],
+            cloud_qij[idx],
+            criqc_v,
+            prel_v,
+            ppen_v,
+            ufrclcl_v,
+            g_v,
+            ps0_p,
+            ufrc_p,
+            qcu_p,
+            qlu_p,
+            qiu_p,
+            cufrc_p,
+            qcubelow_p,
+            qlubelow_p,
+            qiubelow_p,
+            rcwp_p,
+            rlwp_p,
+            riwp_p,
+            cnt_p,
+            cnb_p,
+        )
+        k += 1
+
+
+@export
 def uwshcu_cloud_diag_index_shell_codon(
     kpen: int,
     krel: int,

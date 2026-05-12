@@ -774,9 +774,9 @@ contains
     cloud_diag_shell_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'uwshcu cloud diag shell entered (cloud diagnostic accumulators direct = codon; conden native)'
+       write(iulog,'(A)') 'uwshcu cloud diag shell entered (batched cloud diagnostic accumulators direct = codon; conden native)'
        call uwshcu_append_proof( &
-            'uwshcu cloud diag shell entered (cloud diagnostic accumulators direct = codon; conden native)')
+            'uwshcu cloud diag shell entered (batched cloud diagnostic accumulators direct = codon; conden native)')
        call flush(iulog)
     end if
 
@@ -1852,6 +1852,8 @@ end subroutine uwshcu_readnl
     real(r8)    aquad, bquad, cquad, xc1, xc2, excessu, excess0, xsat, xs1, xs2
     real(r8)    bogbot, bogtop, delbog, drage, expfac, rbuoy, rdrag
     real(r8), target :: rcwp, rlwp, riwp, qcubelow, qlubelow, qiubelow
+    real(r8)         :: cloud_diag_qlj0, cloud_diag_qij0
+    real(r8), target :: cloud_diag_qlj(mkx), cloud_diag_qij(mkx)
     real(r8), target :: rainflx, snowflx
     real(r8)    es
     real(r8)    qs
@@ -2992,6 +2994,18 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: qcubelow_p, qlubelow_p, qiubelow_p, rcwp_p, rlwp_p, riwp_p
           type(c_ptr), value :: cnt_p, cnb_p
        end subroutine uwshcu_cloud_diag_layer_shell_codon
+
+       subroutine uwshcu_cloud_diag_all_shell_codon(mkx_c, krel_c, kpen_c, qlj0_c, qij0_c, &
+            criqc_c, prel_c, ppen_c, ufrclcl_c, g_c, cloud_qlj_p, cloud_qij_p, ps0_p, ufrc_p, &
+            qcu_p, qlu_p, qiu_p, cufrc_p, qcubelow_p, qlubelow_p, qiubelow_p, &
+            rcwp_p, rlwp_p, riwp_p, cnt_p, cnb_p) bind(c, name="uwshcu_cloud_diag_all_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, krel_c, kpen_c
+          real(c_double), value :: qlj0_c, qij0_c, criqc_c, prel_c, ppen_c, ufrclcl_c, g_c
+          type(c_ptr), value :: cloud_qlj_p, cloud_qij_p, ps0_p, ufrc_p, qcu_p, qlu_p, qiu_p, cufrc_p
+          type(c_ptr), value :: qcubelow_p, qlubelow_p, qiubelow_p, rcwp_p, rlwp_p, riwp_p
+          type(c_ptr), value :: cnt_p, cnb_p
+       end subroutine uwshcu_cloud_diag_all_shell_codon
 
        subroutine uwshcu_cloud_diag_index_shell_codon(kpen_c, krel_c, cnt_p, cnb_p) &
             bind(c, name="uwshcu_cloud_diag_index_shell_codon")
@@ -7836,8 +7850,8 @@ end subroutine uwshcu_readnl
        riwp     = 0._r8
        else
           call uwshcu_log_cloud_diag_shell_entered()
-          call uwshcu_cloud_diag_init_shell_codon(qlj, qij, c_loc(qcubelow), c_loc(qlubelow), &
-               c_loc(qiubelow), c_loc(rcwp), c_loc(rlwp), c_loc(riwp))
+          cloud_diag_qlj0 = qlj
+          cloud_diag_qij0 = qij
        endif
 
        ! --------------------------------------------------------------------- !
@@ -7890,11 +7904,8 @@ end subroutine uwshcu_readnl
              qlubelow = qlj
              qiubelow = qij
           else
-             call uwshcu_cloud_diag_layer_shell_codon(int(mkx, c_int64_t), int(k, c_int64_t), &
-                  int(krel, c_int64_t), int(kpen, c_int64_t), qlj, qij, criqc, prel, ppen, &
-                  ufrclcl, g, c_loc(ps0), c_loc(ufrc), c_loc(qcu), c_loc(qlu), c_loc(qiu), &
-                  c_loc(cufrc), c_loc(qcubelow), c_loc(qlubelow), c_loc(qiubelow), &
-                  c_loc(rcwp), c_loc(rlwp), c_loc(riwp), c_loc(cnt), c_loc(cnb))
+             cloud_diag_qlj(k) = qlj
+             cloud_diag_qij(k) = qij
           endif
        end do
        ! ------------------------------------ !      
@@ -7903,6 +7914,13 @@ end subroutine uwshcu_readnl
        if (use_native_init_shell_impl) then
        cnt = real( kpen, r8 )
        cnb = real( krel - 1, r8 )
+       else
+          call uwshcu_cloud_diag_all_shell_codon(int(mkx, c_int64_t), int(krel, c_int64_t), &
+               int(kpen, c_int64_t), cloud_diag_qlj0, cloud_diag_qij0, criqc, prel, ppen, &
+               ufrclcl, g, c_loc(cloud_diag_qlj), c_loc(cloud_diag_qij), c_loc(ps0), c_loc(ufrc), &
+               c_loc(qcu), c_loc(qlu), c_loc(qiu), c_loc(cufrc), c_loc(qcubelow), &
+               c_loc(qlubelow), c_loc(qiubelow), c_loc(rcwp), c_loc(rlwp), c_loc(riwp), &
+               c_loc(cnt), c_loc(cnb))
        endif
 
        ! ------------------------------------------------------------------------- !
