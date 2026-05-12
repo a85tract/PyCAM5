@@ -5979,6 +5979,60 @@ def uwshcu_precip_surface_finalize_shell_codon(
 
 
 @export
+def uwshcu_precip_surface_positive_prep_shell_codon(
+    mkx: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    kpen: int,
+    xlv_v: float,
+    xls_v: float,
+    dt_v: float,
+    flxrain_p: cobj,
+    flxsnow_p: cobj,
+    wtflxrn_p: cobj,
+    wtflxsn_p: cobj,
+    precip_p: cobj,
+    snow_p: cobj,
+    wtprec_p: cobj,
+    wtsnow_p: cobj,
+    qtten_p: cobj,
+    qlten_p: cobj,
+    qiten_p: cobj,
+    slten_p: cobj,
+    sten_p: cobj,
+    qc_p: cobj,
+    qc_l_p: cobj,
+    qc_i_p: cobj,
+    trten_p: cobj,
+    wtrc_iatype_p: cobj,
+    wtqc_liq_p: cobj,
+    wtqc_ice_p: cobj,
+    qv0_p: cobj,
+    ql0_p: cobj,
+    qi0_p: cobj,
+    s0_p: cobj,
+    qvten_p: cobj,
+    tr0_p: cobj,
+    qv0_star_p: cobj,
+    ql0_star_p: cobj,
+    qi0_star_p: cobj,
+    s0_star_p: cobj,
+    wt0_star_p: cobj,
+):
+    uwshcu_precip_surface_finalize_shell_codon(
+        mkx, wtrc_nwset, flxrain_p, flxsnow_p, wtflxrn_p, wtflxsn_p,
+        precip_p, snow_p, wtprec_p, wtsnow_p,
+    )
+    uwshcu_post_precip_positive_prep_shell_codon(
+        mkx, ncnst, wtrc_nwset, kpen, xlv_v, xls_v, dt_v, qtten_p,
+        qlten_p, qiten_p, slten_p, sten_p, qc_p, qc_l_p, qc_i_p,
+        trten_p, wtrc_iatype_p, wtqc_liq_p, wtqc_ice_p, qv0_p, ql0_p,
+        qi0_p, s0_p, qvten_p, tr0_p, qv0_star_p, ql0_star_p,
+        qi0_star_p, s0_star_p, wt0_star_p,
+    )
+
+
+@export
 def uwshcu_precip_bulk_init_shell_codon(
     mkx: int,
     wtrc_nwset: int,

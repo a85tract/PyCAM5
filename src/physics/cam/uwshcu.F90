@@ -821,9 +821,10 @@ contains
     precip_surface_finalize_shell_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'uwshcu precip surface finalize shell entered (surface precip flux direct = codon; evaporation native)'
+       write(iulog,'(A)') &
+            'uwshcu precip surface/positive prep shell entered (surface precip finalize and positive-moisture prep direct = codon; correction native)'
        call uwshcu_append_proof( &
-            'uwshcu precip surface finalize shell entered (surface precip flux direct = codon; evaporation native)')
+            'uwshcu precip surface/positive prep shell entered (surface precip finalize and positive-moisture prep direct = codon; correction native)')
        call flush(iulog)
     end if
 
@@ -2969,6 +2970,22 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: flxrain_p, flxsnow_p, wtflxrn_p, wtflxsn_p
           type(c_ptr), value :: precip_p, snow_p, wtprec_p, wtsnow_p
        end subroutine uwshcu_precip_surface_finalize_shell_codon
+
+       subroutine uwshcu_precip_surface_positive_prep_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
+            kpen_c, xlv_c, xls_c, dt_c, flxrain_p, flxsnow_p, wtflxrn_p, wtflxsn_p, precip_p, &
+            snow_p, wtprec_p, wtsnow_p, qtten_p, qlten_p, qiten_p, slten_p, sten_p, qc_p, &
+            qc_l_p, qc_i_p, trten_p, wtrc_iatype_p, wtqc_liq_p, wtqc_ice_p, qv0_p, ql0_p, &
+            qi0_p, s0_p, qvten_p, tr0_p, qv0_star_p, ql0_star_p, qi0_star_p, s0_star_p, &
+            wt0_star_p) bind(c, name="uwshcu_precip_surface_positive_prep_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, kpen_c
+          real(c_double), value :: xlv_c, xls_c, dt_c
+          type(c_ptr), value :: flxrain_p, flxsnow_p, wtflxrn_p, wtflxsn_p, precip_p, snow_p
+          type(c_ptr), value :: wtprec_p, wtsnow_p, qtten_p, qlten_p, qiten_p, slten_p, sten_p
+          type(c_ptr), value :: qc_p, qc_l_p, qc_i_p, trten_p, wtrc_iatype_p, wtqc_liq_p, wtqc_ice_p
+          type(c_ptr), value :: qv0_p, ql0_p, qi0_p, s0_p, qvten_p, tr0_p
+          type(c_ptr), value :: qv0_star_p, ql0_star_p, qi0_star_p, s0_star_p, wt0_star_p
+       end subroutine uwshcu_precip_surface_positive_prep_shell_codon
 
        subroutine uwshcu_precip_bulk_init_shell_codon(mkx_c, wtrc_nwset_c, trace_water_c, &
             rainflx_c, snowflx_c, precip_p, snow_p, evpint_rain_p, evpint_snow_p, flxrain_p, flxsnow_p, ntraprd_p, ntsnprd_p, &
@@ -7506,9 +7523,14 @@ end subroutine uwshcu_readnl
        !*************
        else
           call uwshcu_log_precip_surface_finalize_shell_entered()
-          call uwshcu_precip_surface_finalize_shell_codon(int(mkx, c_int64_t), wtrc_nwset_post_c, &
+          call uwshcu_precip_surface_positive_prep_shell_codon(int(mkx, c_int64_t), &
+               int(ncnst, c_int64_t), wtrc_nwset_post_c, int(kpen, c_int64_t), xlv, xls, dt, &
                c_loc(flxrain), c_loc(flxsnow), c_loc(wtflxrn), c_loc(wtflxsn), c_loc(precip), &
-               c_loc(snow), c_loc(wtprec), c_loc(wtsnow))
+               c_loc(snow), c_loc(wtprec), c_loc(wtsnow), c_loc(qtten), c_loc(qlten), &
+               c_loc(qiten), c_loc(slten), c_loc(sten), c_loc(qc), c_loc(qc_l), c_loc(qc_i), &
+               c_loc(trten), c_loc(wtrc_iatype_post), c_loc(wtqc_liq), c_loc(wtqc_ice), &
+               c_loc(qv0), c_loc(ql0), c_loc(qi0), c_loc(s0), c_loc(qvten), c_loc(tr0), &
+               c_loc(qv0_star), c_loc(ql0_star), c_loc(qi0_star), c_loc(s0_star), c_loc(wt0_star))
           if(trace_water) then
             do m=1,wtrc_nwset
               !----------
@@ -7615,14 +7637,6 @@ end subroutine uwshcu_readnl
             wt0_star(:mkx,m,3) = tr0(:mkx,wtrc_iatype(m,iwtice)) + trten(:mkx,wtrc_iatype(m,iwtice)) * dt
           end do
         end if
-        else
-          call uwshcu_log_post_precip_positive_prep_shell_entered()
-          call uwshcu_post_precip_positive_prep_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-               wtrc_nwset_post_c, int(kpen, c_int64_t), xlv, xls, dt, c_loc(qtten), c_loc(qlten), &
-               c_loc(qiten), c_loc(slten), c_loc(sten), c_loc(qc), c_loc(qc_l), c_loc(qc_i), &
-               c_loc(trten), c_loc(wtrc_iatype_post), c_loc(wtqc_liq), c_loc(wtqc_ice), &
-               c_loc(qv0), c_loc(ql0), c_loc(qi0), c_loc(s0), c_loc(qvten), c_loc(tr0), &
-               c_loc(qv0_star), c_loc(ql0_star), c_loc(qi0_star), c_loc(s0_star), c_loc(wt0_star))
         endif
         if(trace_water) then
           call positive_moisture_single( xlv, xls, mkx, dt, qmin(1), qmin(ixcldliq), &
