@@ -3881,6 +3881,18 @@ def uwshcu_buoy_wu_exit_shell_codon(
 
 
 @export
+def uwshcu_release_mu_exit_shell_codon(
+    mu_v: float,
+    exit_code_p: cobj,
+):
+    exit_code = Ptr[int](exit_code_p)
+
+    exit_code[0] = 0
+    if mu_v >= 3.0:
+        exit_code[0] = 1
+
+
+@export
 def uwshcu_release_wtw_exit_shell_codon(
     wtw_v: float,
     exit_wtw_p: cobj,

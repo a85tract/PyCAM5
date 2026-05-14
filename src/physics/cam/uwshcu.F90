@@ -84,6 +84,7 @@
   logical :: iter_env_restore_shell_entered_logged = .false.
   logical :: iter_env_restore_thermo_slope_shell_entered_logged = .false.
   logical :: release_prep_shell_entered_logged = .false.
+  logical :: release_mu_exit_shell_entered_logged = .false.
   logical :: release_base_exit_shell_entered_logged = .false.
   logical :: release_conden_exit_shell_entered_logged = .false.
   logical :: scaleh_iter_init_shell_entered_logged = .false.
@@ -807,6 +808,23 @@ contains
     end if
 
   end subroutine uwshcu_log_buoy_wu_exit_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_release_mu_exit_shell_entered()
+
+    if (release_mu_exit_shell_entered_logged) return
+    release_mu_exit_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu release mu exit shell entered (mu threshold exit direct = codon; sqrt/goto native)'
+       call uwshcu_append_proof( &
+            'uwshcu release mu exit shell entered (mu threshold exit direct = codon; sqrt/goto native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_release_mu_exit_shell_entered
 
 !===============================================================================
 
@@ -2555,6 +2573,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: interface_conden_exit_code_c
     integer(c_int64_t), target       :: cin_conden_exit_code_c
     integer(c_int64_t), target       :: krel_release_c
+    integer(c_int64_t), target       :: release_mu_exit_code_c
     integer(c_int64_t), target       :: release_base_exit_code_c
     integer(c_int64_t), target       :: release_conden_exit_code_c
     integer(c_int64_t), target       :: kbup_iter_c, kpen_iter_c
@@ -3293,6 +3312,13 @@ end subroutine uwshcu_readnl
           real(c_double), value :: wu_c
           type(c_ptr), value :: exit_wu_p, exit_code_p
        end subroutine uwshcu_buoy_wu_exit_shell_codon
+
+       subroutine uwshcu_release_mu_exit_shell_codon(mu_c, exit_code_p) &
+            bind(c, name="uwshcu_release_mu_exit_shell_codon")
+          use iso_c_binding, only: c_double, c_ptr
+          real(c_double), value :: mu_c
+          type(c_ptr), value :: exit_code_p
+       end subroutine uwshcu_release_mu_exit_shell_codon
 
        subroutine uwshcu_release_wtw_exit_shell_codon(wtw_c, exit_wtw_p, exit_code_p) &
             bind(c, name="uwshcu_release_wtw_exit_shell_codon")
@@ -5823,10 +5849,19 @@ end subroutine uwshcu_readnl
        endif
        sigmaw = sqrt( rkfre * tkeavg + epsvarw )
        mu = wcrit/sigmaw/1.4142_r8                  
-       if( mu .ge. 3._r8 ) then
-         ! write(iulog,*) 'mu >= 3'
-           id_exit = .true.
-           go to 333
+       if (use_native_init_shell_impl) then
+          if( mu .ge. 3._r8 ) then
+            ! write(iulog,*) 'mu >= 3'
+              id_exit = .true.
+              go to 333
+          endif
+       else
+          call uwshcu_log_release_mu_exit_shell_entered()
+          call uwshcu_release_mu_exit_shell_codon(mu, c_loc(release_mu_exit_code_c))
+          if( release_mu_exit_code_c .ne. 0_c_int64_t ) then
+             id_exit = .true.
+             go to 333
+          endif
        endif
        rho0inv = ps0(kinv-1)/(r*thv0top(kinv-1)*exns0(kinv-1))
        cbmf = (rho0inv*sigmaw/2.5066_r8)*exp(-mu**2)
