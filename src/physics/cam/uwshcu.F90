@@ -61,6 +61,7 @@
   logical :: buoy_top_state_shell_entered_logged = .false.
   logical :: buoy_top_shell_entered_logged = .false.
   logical :: buoy_diag_env_shell_entered_logged = .false.
+  logical :: buoy_reach_shell_entered_logged = .false.
   logical :: pbl_precheck_shell_entered_logged = .false.
   logical :: pbl_source_shell_entered_logged = .false.
   logical :: pbl_precheck_source_shell_entered_logged = .false.
@@ -567,6 +568,23 @@ contains
     end if
 
   end subroutine uwshcu_log_buoy_diag_env_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_buoy_reach_shell_entered()
+
+    if (buoy_reach_shell_entered_logged) return
+    buoy_reach_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu buoy reach shell entered (kbup/kpen reach update direct = codon; sqrt/log/goto native)'
+       call uwshcu_append_proof( &
+            'uwshcu buoy reach shell entered (kbup/kpen reach update direct = codon; sqrt/log/goto native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_buoy_reach_shell_entered
 
 !===============================================================================
 
@@ -2209,6 +2227,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: cin_post_exit_code_c
     integer(c_int64_t), target       :: krel_release_c
     integer(c_int64_t), target       :: kbup_iter_c, kpen_iter_c
+    integer(c_int64_t), target       :: buoy_reach_exit_code_c
     integer(c_int64_t), target       :: post_scaleh_exit_code_c
     integer(c_int64_t)               :: wtrc_nwset_post_c
 
@@ -2825,6 +2844,14 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: excessu_arr_p, excess0_arr_p, xc_arr_p, aquad_arr_p, bquad_arr_p
           type(c_ptr), value :: cquad_arr_p, bogbot_arr_p, bogtop_arr_p
        end subroutine uwshcu_buoy_diag_update_shell_codon
+
+       subroutine uwshcu_buoy_reach_update_shell_codon(k_c, bogtop_c, wtw_c, kbup_c, kpen_c, &
+            kbup_p, kpen_p, exit_code_p) bind(c, name="uwshcu_buoy_reach_update_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: k_c, kbup_c, kpen_c
+          real(c_double), value :: bogtop_c, wtw_c
+          type(c_ptr), value :: kbup_p, kpen_p, exit_code_p
+       end subroutine uwshcu_buoy_reach_update_shell_codon
 
        subroutine uwshcu_buoy_next_env_load_shell_codon(k_c, mkx_c, ncnst_c, wtrc_nwset_c, &
             p0_p, dp0_p, exn0_p, thv0bot_p, thl0_p, qt0_p, u0_p, v0_p, tr0_p, wt0_p, &
@@ -6103,18 +6130,29 @@ end subroutine uwshcu_readnl
           ! in order to describe shallow continental cumulus convection.        !
           ! ------------------------------------------------------------------- !
           
-        ! if( bogbot .gt. 0._r8 .and. bogtop .gt. 0._r8 ) then 
-        ! if( bogtop .gt. 0._r8 ) then          
-          if( bogtop .gt. 0._r8 .and. wtw .gt. 0._r8 ) then 
-              kbup = k
-          end if
+	        ! if( bogbot .gt. 0._r8 .and. bogtop .gt. 0._r8 ) then
+	        ! if( bogtop .gt. 0._r8 ) then
+	          if (use_native_init_shell_impl) then
+	             if( bogtop .gt. 0._r8 .and. wtw .gt. 0._r8 ) then
+	                 kbup = k
+	             end if
 
-          if( wtw .le. 0._r8 ) then
-              kpen = k
-              go to 45
-          end if
+	             if( wtw .le. 0._r8 ) then
+	                 kpen = k
+	                 go to 45
+	             end if
+	          else
+	             buoy_reach_exit_code_c = 0_c_int64_t
+	             call uwshcu_log_buoy_reach_shell_entered()
+	             call uwshcu_buoy_reach_update_shell_codon(int(k, c_int64_t), bogtop, wtw, &
+	                  int(kbup, c_int64_t), int(kpen, c_int64_t), c_loc(kbup_iter_c), &
+	                  c_loc(kpen_iter_c), c_loc(buoy_reach_exit_code_c))
+	             kbup = int(kbup_iter_c)
+	             kpen = int(kpen_iter_c)
+	             if( buoy_reach_exit_code_c .ne. 0_c_int64_t ) go to 45
+	          endif
 
-          wu(k) = sqrt(wtw)
+	          wu(k) = sqrt(wtw)
           if( wu(k) .gt. 100._r8 ) then
               exit_wu(i) = 1._r8
               id_exit = .true.

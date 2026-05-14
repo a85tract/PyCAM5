@@ -3508,6 +3508,33 @@ def uwshcu_buoy_diag_update_shell_codon(
 
 
 @export
+def uwshcu_buoy_reach_update_shell_codon(
+    k_fortran: int,
+    bogtop: float,
+    wtw: float,
+    kbup_v: int,
+    kpen_v: int,
+    kbup_p: cobj,
+    kpen_p: cobj,
+    exit_code_p: cobj,
+):
+    kbup = Ptr[int](kbup_p)
+    kpen = Ptr[int](kpen_p)
+    exit_code = Ptr[int](exit_code_p)
+
+    kbup[0] = kbup_v
+    kpen[0] = kpen_v
+    exit_code[0] = 0
+
+    if bogtop > 0.0 and wtw > 0.0:
+        kbup[0] = k_fortran
+
+    if wtw <= 0.0:
+        kpen[0] = k_fortran
+        exit_code[0] = 1
+
+
+@export
 def uwshcu_buoy_next_env_load_shell_codon(
     k_fortran: int,
     mkx: int,
