@@ -97,6 +97,7 @@
   logical :: post_positive_tracer_limiter_shell_entered_logged = .false.
   logical :: tracer_limiter_shell_entered_logged = .false.
   logical :: cloud_diag_shell_entered_logged = .false.
+  logical :: cloud_diag_conden_exit_shell_entered_logged = .false.
   logical :: positive_moisture_prep_shell_entered_logged = .false.
   logical :: precip_surface_finalize_shell_entered_logged = .false.
   logical :: precip_bulk_shell_entered_logged = .false.
@@ -1141,6 +1142,23 @@ contains
     end if
 
   end subroutine uwshcu_log_cloud_diag_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_cloud_diag_conden_exit_shell_entered()
+
+    if (cloud_diag_conden_exit_shell_entered_logged) return
+    cloud_diag_conden_exit_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu cloud diag conden exit shell entered (cloud diag conden exit flags direct = codon; conden native)'
+       call uwshcu_append_proof( &
+            'uwshcu cloud diag conden exit shell entered (cloud diag conden exit flags direct = codon; conden native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_cloud_diag_conden_exit_shell_entered
 
 !===============================================================================
 
@@ -2434,6 +2452,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: buoy_reach_exit_code_c
     integer(c_int64_t), target       :: buoy_conden_exit_code_c
     integer(c_int64_t), target       :: buoy_top_conden_exit_code_c
+    integer(c_int64_t), target       :: cloud_diag_conden_exit_code_c
     integer(c_int64_t), target       :: post_scaleh_exit_code_c
     integer(c_int64_t)               :: wtrc_nwset_post_c
 
@@ -3099,6 +3118,13 @@ end subroutine uwshcu_readnl
           integer(c_int64_t), value :: id_check_c
           type(c_ptr), value :: exit_conden_p, exit_code_p
        end subroutine uwshcu_buoy_top_conden_exit_shell_codon
+
+       subroutine uwshcu_cloud_diag_conden_exit_shell_codon(id_check_c, exit_conden_p, exit_code_p) &
+            bind(c, name="uwshcu_cloud_diag_conden_exit_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: id_check_c
+          type(c_ptr), value :: exit_conden_p, exit_code_p
+       end subroutine uwshcu_cloud_diag_conden_exit_shell_codon
 
        subroutine uwshcu_buoy_top_expel_final_shell_codon(kpen_c, criqc_c, xlv_c, xls_c, cp_c, &
             exntop_c, qlj_c, qij_c, thlu_top_p, qtu_top_p, dwten_p, diten_p) &
@@ -8806,10 +8832,20 @@ end subroutine uwshcu_readnl
        !NOTE:  This section of code is solely for diagnostic output, which doesn't impact water tracers. - JN
 
        call conden(prel,thlu(krel-1),qtu(krel-1),thj,qvj,qlj,qij,qse,id_check,ncnst)
-       if( id_check .eq. 1 ) then
-           exit_conden(i) = 1._r8
-           id_exit = .true.
-           go to 333
+       if (use_native_init_shell_impl) then
+          if( id_check .eq. 1 ) then
+              exit_conden(i) = 1._r8
+              id_exit = .true.
+              go to 333
+          end if
+       else
+          call uwshcu_log_cloud_diag_conden_exit_shell_entered()
+          call uwshcu_cloud_diag_conden_exit_shell_codon(int(id_check, c_int64_t), &
+               c_loc(exit_conden(i)), c_loc(cloud_diag_conden_exit_code_c))
+          if( cloud_diag_conden_exit_code_c .ne. 0_c_int64_t ) then
+              id_exit = .true.
+              go to 333
+          end if
        end if
        if (use_native_init_shell_impl) then
        qcubelow = qlj + qij
@@ -8839,10 +8875,20 @@ end subroutine uwshcu_readnl
           else
               call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,ncnst)
           endif
-          if( id_check .eq. 1 ) then
-              exit_conden(i) = 1._r8
-              id_exit = .true.
-              go to 333
+          if (use_native_init_shell_impl) then
+             if( id_check .eq. 1 ) then
+                 exit_conden(i) = 1._r8
+                 id_exit = .true.
+                 go to 333
+             end if
+          else
+             call uwshcu_log_cloud_diag_conden_exit_shell_entered()
+             call uwshcu_cloud_diag_conden_exit_shell_codon(int(id_check, c_int64_t), &
+                  c_loc(exit_conden(i)), c_loc(cloud_diag_conden_exit_code_c))
+             if( cloud_diag_conden_exit_code_c .ne. 0_c_int64_t ) then
+                 id_exit = .true.
+                 go to 333
+             end if
           end if
           ! ---------------------------------------------------------------- !
           ! Calculate in-cloud mean LWC ( qlu(k) ), IWC ( qiu(k) ),  & layer !
