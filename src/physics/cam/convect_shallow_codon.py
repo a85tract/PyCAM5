@@ -5984,6 +5984,18 @@ def uwshcu_comp_sub_sink_shell_codon(
 
 
 @export
+def uwshcu_comp_sub_conden_exit_shell_codon(
+    id_check: int,
+    exit_code_p: cobj,
+):
+    exit_code = Ptr[int](exit_code_p)
+
+    exit_code[0] = 0
+    if id_check == 1:
+        exit_code[0] = 1
+
+
+@export
 def uwshcu_thermo_prelim_shell_codon(
     mkx: int,
     wtrc_nwset: int,

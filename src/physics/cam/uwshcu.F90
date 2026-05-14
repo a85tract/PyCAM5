@@ -90,6 +90,7 @@
   logical :: penent_flux_comp_sub_prep_shell_entered_logged = .false.
   logical :: scaleh_filter_prep_shell_entered_logged = .false.
   logical :: comp_sub_sink_shell_entered_logged = .false.
+  logical :: comp_sub_conden_exit_shell_entered_logged = .false.
   logical :: thermo_prelim_shell_entered_logged = .false.
   logical :: thermo_final_shell_entered_logged = .false.
   logical :: post_precip_adjust_shell_entered_logged = .false.
@@ -1060,6 +1061,23 @@ contains
     end if
 
   end subroutine uwshcu_log_comp_sub_sink_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_comp_sub_conden_exit_shell_entered()
+
+    if (comp_sub_conden_exit_shell_entered_logged) return
+    comp_sub_conden_exit_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu comp sub conden exit shell entered (subsidence conden exit flag direct = codon; conden/goto native)'
+       call uwshcu_append_proof( &
+            'uwshcu comp sub conden exit shell entered (subsidence conden exit flag direct = codon; conden/goto native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_comp_sub_conden_exit_shell_entered
 
 !===============================================================================
 
@@ -2453,6 +2471,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: buoy_conden_exit_code_c
     integer(c_int64_t), target       :: buoy_top_conden_exit_code_c
     integer(c_int64_t), target       :: cloud_diag_conden_exit_code_c
+    integer(c_int64_t), target       :: comp_sub_conden_exit_code_c
     integer(c_int64_t), target       :: post_scaleh_exit_code_c
     integer(c_int64_t)               :: wtrc_nwset_post_c
 
@@ -3475,6 +3494,13 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: nlten_sub_p, niten_sub_p, wtlten_sub_p, wtiten_sub_p, qlten_sink_p
           type(c_ptr), value :: qiten_sink_p, nlten_sink_p, niten_sink_p, wtten_sink_liq_p, wtten_sink_ice_p
        end subroutine uwshcu_comp_sub_sink_shell_codon
+
+       subroutine uwshcu_comp_sub_conden_exit_shell_codon(id_check_c, exit_code_p) &
+            bind(c, name="uwshcu_comp_sub_conden_exit_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: id_check_c
+          type(c_ptr), value :: exit_code_p
+       end subroutine uwshcu_comp_sub_conden_exit_shell_codon
 
        subroutine uwshcu_thermo_prelim_shell_codon(mkx_c, wtrc_nwset_c, kpen_c, &
             frc_rasn_c, g_c, dp0_p, umf_p, dwten_p, diten_p, wtdwten_p, wtditen_p, &
@@ -7663,7 +7689,10 @@ end subroutine uwshcu_readnl
              thl_prog = thl0(k) + thlten_sub * dt
              qt_prog  = max( qt0(k) + qtten_sub * dt, 1.e-12_r8 )
              call conden(p0(k),thl_prog,qt_prog,thj,qvj,qlj,qij,qse,id_check,ncnst)
-             if( id_check .eq. 1 ) then
+             call uwshcu_log_comp_sub_conden_exit_shell_entered()
+             call uwshcu_comp_sub_conden_exit_shell_codon(int(id_check, c_int64_t), &
+                  c_loc(comp_sub_conden_exit_code_c))
+             if( comp_sub_conden_exit_code_c .ne. 0_c_int64_t ) then
                  id_exit = .true.
                  go to 333
              endif
