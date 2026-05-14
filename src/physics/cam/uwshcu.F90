@@ -57,6 +57,7 @@
   logical :: interface_thv_shell_entered_logged = .false.
   logical :: iter_interface_thv_shell_entered_logged = .false.
   logical :: cin_thv_scalar_shell_entered_logged = .false.
+  logical :: buoy_sort_scalar_shell_entered_logged = .false.
   logical :: pbl_precheck_shell_entered_logged = .false.
   logical :: pbl_source_shell_entered_logged = .false.
   logical :: pbl_precheck_source_shell_entered_logged = .false.
@@ -495,6 +496,23 @@ contains
     end if
 
   end subroutine uwshcu_log_cin_thv_scalar_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_buoy_sort_scalar_shell_entered()
+
+    if (buoy_sort_scalar_shell_entered_logged) return
+    buoy_sort_scalar_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu buoy sort scalar shell entered (post-conden pre-qsat/excess scalars direct = codon; conden/qsat native)'
+       call uwshcu_append_proof( &
+            'uwshcu buoy sort scalar shell entered (post-conden pre-qsat/excess scalars direct = codon; conden/qsat native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_buoy_sort_scalar_shell_entered
 
 !===============================================================================
 
@@ -1907,10 +1925,12 @@ end subroutine uwshcu_readnl
     real(r8), target :: tkeavg, thvlmin
     real(r8)    rkfre, sigmaw, epsvarw, dpsum, dpi
     real(r8)    thlxsat, qtxsat, thvxsat, x_cu, x_en, thv_x0, thv_x1
-    real(r8)    thj, qvj, qlj, qij, thvj, tj, thv0j, rho0j, rhos0j, qse 
+    real(r8)    thj, qvj, qlj, qij, rhos0j, qse
+    real(r8), target :: thvj, tj, thv0j, rho0j
     real(r8), target :: cin, cinlcl
     real(r8), target :: pe, dpe, thvebot, thle, qte, ue, ve
-    real(r8)    exne, thlue, qtue, wue
+    real(r8)    exne, wue
+    real(r8), target :: thlue, qtue
     real(r8)    mu, mumin0, mumin1, mumin2, mulcl, mulclstar
     real(r8), target :: cbmf, wlcl, ufrclcl
     real(r8)    wcrit, winv, ufrcinv, rmaxfrac
@@ -1922,7 +1942,8 @@ end subroutine uwshcu_readnl
     real(r8), target :: thv0lcl
     real(r8), target :: thv0rel
     real(r8)    rho0inv, autodet
-    real(r8)    aquad, bquad, cquad, xc1, xc2, excessu, excess0, xsat, xs1, xs2
+    real(r8)    aquad, bquad, cquad, xc1, xc2, xsat, xs1, xs2
+    real(r8), target :: excessu, excess0
     real(r8)    bogbot, bogtop, delbog, drage, expfac, rbuoy, rdrag
     real(r8), target :: rcwp, rlwp, riwp, qcubelow, qlubelow, qiubelow
     real(r8)         :: cloud_diag_qlj0, cloud_diag_qij0
@@ -1930,7 +1951,7 @@ end subroutine uwshcu_readnl
     real(r8), target :: rainflx, snowflx
     real(r8)    es
     real(r8)    qs
-    real(r8)    qsat_arg             
+    real(r8), target :: qsat_arg
     real(r8)    xsrc, xmean, xtop, xbot, xflx(0:mkx)
     real(r8)    tmp1, tmp2
 
@@ -2668,6 +2689,36 @@ end subroutine uwshcu_readnl
           real(c_double), value :: zvir_c, thj_c, qvj_c, qlj_c, qij_c
           type(c_ptr), value :: thv_p
        end subroutine uwshcu_thv_scalar_shell_codon
+
+       subroutine uwshcu_buoy_env_pre_qsat_shell_codon(zvir_c, r_c, pe_c, thj_c, qvj_c, qlj_c, &
+            qij_c, exne_c, thle_c, thv0j_p, rho0j_p, qsat_arg_p) &
+            bind(c, name="uwshcu_buoy_env_pre_qsat_shell_codon")
+          use iso_c_binding, only: c_double, c_ptr
+          real(c_double), value :: zvir_c, r_c, pe_c, thj_c, qvj_c, qlj_c, qij_c, exne_c, thle_c
+          type(c_ptr), value :: thv0j_p, rho0j_p, qsat_arg_p
+       end subroutine uwshcu_buoy_env_pre_qsat_shell_codon
+
+       subroutine uwshcu_buoy_excess_shell_codon(qt_c, qs_c, excess_p) &
+            bind(c, name="uwshcu_buoy_excess_shell_codon")
+          use iso_c_binding, only: c_double, c_ptr
+          real(c_double), value :: qt_c, qs_c
+          type(c_ptr), value :: excess_p
+       end subroutine uwshcu_buoy_excess_shell_codon
+
+       subroutine uwshcu_buoy_detrain_excess_shell_codon(criqc_c, xlv_c, xls_c, cp_c, exne_c, &
+            qlj_c, qij_c, thlue_p, qtue_p) bind(c, name="uwshcu_buoy_detrain_excess_shell_codon")
+          use iso_c_binding, only: c_double, c_ptr
+          real(c_double), value :: criqc_c, xlv_c, xls_c, cp_c, exne_c, qlj_c, qij_c
+          type(c_ptr), value :: thlue_p, qtue_p
+       end subroutine uwshcu_buoy_detrain_excess_shell_codon
+
+       subroutine uwshcu_buoy_up_pre_qsat_shell_codon(zvir_c, exne_c, thj_c, qvj_c, qlj_c, &
+            qij_c, thlue_c, thvj_p, tj_p, qsat_arg_p) &
+            bind(c, name="uwshcu_buoy_up_pre_qsat_shell_codon")
+          use iso_c_binding, only: c_double, c_ptr
+          real(c_double), value :: zvir_c, exne_c, thj_c, qvj_c, qlj_c, qij_c, thlue_c
+          type(c_ptr), value :: thvj_p, tj_p, qsat_arg_p
+       end subroutine uwshcu_buoy_up_pre_qsat_shell_codon
 
        subroutine uwshcu_cin_lcl_init_shell_codon(mkx_c, zvir_c, thj_c, qvj_c, qlj_c, qij_c, &
             thv0lcl_p, cin_p, cinlcl_p, plfc_p, klfc_p) bind(c, name="uwshcu_cin_lcl_init_shell_codon")
@@ -5462,11 +5513,21 @@ end subroutine uwshcu_readnl
               id_exit = .true.
               go to 333
           end if
-          thv0j    = thj * ( 1._r8 + zvir*qvj - qlj - qij )
-          rho0j    = pe / ( r * thv0j * exne )
-          qsat_arg = thle*exne     
+          if (use_native_init_shell_impl) then
+             thv0j    = thj * ( 1._r8 + zvir*qvj - qlj - qij )
+             rho0j    = pe / ( r * thv0j * exne )
+             qsat_arg = thle*exne
+          else
+             call uwshcu_log_buoy_sort_scalar_shell_entered()
+             call uwshcu_buoy_env_pre_qsat_shell_codon(zvir, r, pe, thj, qvj, qlj, qij, &
+                  exne, thle, c_loc(thv0j), c_loc(rho0j), c_loc(qsat_arg))
+          endif
           call qsat(qsat_arg, pe, es, qs)
-          excess0  = qte - qs
+          if (use_native_init_shell_impl) then
+             excess0  = qte - qs
+          else
+             call uwshcu_buoy_excess_shell_codon(qte, qs, c_loc(excess0))
+          endif
 
           call conden(pe,thlue,qtue,thj,qvj,qlj,qij,qse,id_check,ncnst)
           if( id_check .eq. 1 ) then
@@ -5483,11 +5544,16 @@ end subroutine uwshcu_readnl
           ! 'niter_xc >= 2',  detraining excessive condensate before buoyancy !
           ! sorting has negligible influence on the buoyancy sorting results. !   
           ! ----------------------------------------------------------------- !
-          if( (qlj + qij) .gt. criqc ) then
-               exql  = ( ( qlj + qij ) - criqc ) * qlj / ( qlj + qij )
-               exqi  = ( ( qlj + qij ) - criqc ) * qij / ( qlj + qij )
-               qtue  = qtue - exql - exqi
-               thlue = thlue + (xlv/cp/exne)*exql + (xls/cp/exne)*exqi 
+          if (use_native_init_shell_impl) then
+             if( (qlj + qij) .gt. criqc ) then
+                  exql  = ( ( qlj + qij ) - criqc ) * qlj / ( qlj + qij )
+                  exqi  = ( ( qlj + qij ) - criqc ) * qij / ( qlj + qij )
+                  qtue  = qtue - exql - exqi
+                  thlue = thlue + (xlv/cp/exne)*exql + (xls/cp/exne)*exqi
+             endif
+          else
+             call uwshcu_buoy_detrain_excess_shell_codon(criqc, xlv, xls, cp, exne, qlj, qij, &
+                  c_loc(thlue), c_loc(qtue))
           endif
           call conden(pe,thlue,qtue,thj,qvj,qlj,qij,qse,id_check,ncnst)
           if( id_check .eq. 1 ) then
@@ -5495,11 +5561,20 @@ end subroutine uwshcu_readnl
               id_exit = .true.
               go to 333
           end if
-          thvj     = thj * ( 1._r8 + zvir * qvj - qlj - qij )
-          tj       = thj * exne ! This 'tj' is used for computing thermo. coeffs. below
-          qsat_arg = thlue*exne
+          if (use_native_init_shell_impl) then
+             thvj     = thj * ( 1._r8 + zvir * qvj - qlj - qij )
+             tj       = thj * exne ! This 'tj' is used for computing thermo. coeffs. below
+             qsat_arg = thlue*exne
+          else
+             call uwshcu_buoy_up_pre_qsat_shell_codon(zvir, exne, thj, qvj, qlj, qij, &
+                  thlue, c_loc(thvj), c_loc(tj), c_loc(qsat_arg))
+          endif
           call qsat(qsat_arg, pe, es, qs)
-          excessu  = qtue - qs
+          if (use_native_init_shell_impl) then
+             excessu  = qtue - qs
+          else
+             call uwshcu_buoy_excess_shell_codon(qtue, qs, c_loc(excessu))
+          endif
 
           ! ------------------------------------------------------------------- !
           ! Calculate critical mixing fraction, 'xc'. Mixture with mixing ratio !

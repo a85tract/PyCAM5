@@ -3215,6 +3215,85 @@ def uwshcu_thv_scalar_shell_codon(
 
 
 @export
+def uwshcu_buoy_env_pre_qsat_shell_codon(
+    zvir: float,
+    r_v: float,
+    pe_v: float,
+    thj: float,
+    qvj: float,
+    qlj: float,
+    qij: float,
+    exne: float,
+    thle: float,
+    thv0j_p: cobj,
+    rho0j_p: cobj,
+    qsat_arg_p: cobj,
+):
+    thv0j = Ptr[float](thv0j_p)
+    rho0j = Ptr[float](rho0j_p)
+    qsat_arg = Ptr[float](qsat_arg_p)
+
+    thv0j[0] = thj * (1.0 + zvir * qvj - qlj - qij)
+    rho0j[0] = pe_v / (r_v * thv0j[0] * exne)
+    qsat_arg[0] = thle * exne
+
+
+@export
+def uwshcu_buoy_excess_shell_codon(
+    qt_v: float,
+    qs_v: float,
+    excess_p: cobj,
+):
+    excess = Ptr[float](excess_p)
+
+    excess[0] = qt_v - qs_v
+
+
+@export
+def uwshcu_buoy_detrain_excess_shell_codon(
+    criqc: float,
+    xlv: float,
+    xls: float,
+    cp: float,
+    exne: float,
+    qlj: float,
+    qij: float,
+    thlue_p: cobj,
+    qtue_p: cobj,
+):
+    thlue = Ptr[float](thlue_p)
+    qtue = Ptr[float](qtue_p)
+
+    if (qlj + qij) > criqc:
+        exql = ((qlj + qij) - criqc) * qlj / (qlj + qij)
+        exqi = ((qlj + qij) - criqc) * qij / (qlj + qij)
+        qtue[0] = qtue[0] - exql - exqi
+        thlue[0] = thlue[0] + (xlv / cp / exne) * exql + (xls / cp / exne) * exqi
+
+
+@export
+def uwshcu_buoy_up_pre_qsat_shell_codon(
+    zvir: float,
+    exne: float,
+    thj: float,
+    qvj: float,
+    qlj: float,
+    qij: float,
+    thlue: float,
+    thvj_p: cobj,
+    tj_p: cobj,
+    qsat_arg_p: cobj,
+):
+    thvj = Ptr[float](thvj_p)
+    tj = Ptr[float](tj_p)
+    qsat_arg = Ptr[float](qsat_arg_p)
+
+    thvj[0] = thj * (1.0 + zvir * qvj - qlj - qij)
+    tj[0] = thj * exne
+    qsat_arg[0] = thlue * exne
+
+
+@export
 def uwshcu_cin_lcl_init_shell_codon(
     mkx: int,
     zvir: float,
