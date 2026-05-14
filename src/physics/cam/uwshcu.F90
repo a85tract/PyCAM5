@@ -61,6 +61,7 @@
   logical :: buoy_top_state_shell_entered_logged = .false.
   logical :: buoy_top_shell_entered_logged = .false.
   logical :: buoy_updraft_state_shell_entered_logged = .false.
+  logical :: buoy_velocity_shell_entered_logged = .false.
   logical :: buoy_diag_env_shell_entered_logged = .false.
   logical :: buoy_reach_shell_entered_logged = .false.
   logical :: pbl_precheck_shell_entered_logged = .false.
@@ -569,6 +570,23 @@ contains
     end if
 
   end subroutine uwshcu_log_buoy_updraft_state_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_buoy_velocity_shell_entered()
+
+    if (buoy_velocity_shell_entered_logged) return
+    buoy_velocity_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu buoy velocity shell entered (cloud buoyancy and wtw update direct = codon; exp/sqrt native)'
+       call uwshcu_append_proof( &
+            'uwshcu buoy velocity shell entered (cloud buoyancy and wtw update direct = codon; exp/sqrt native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_buoy_velocity_shell_entered
 
 !===============================================================================
 
@@ -2007,7 +2025,8 @@ end subroutine uwshcu_readnl
     real(r8)    wrel
     real(r8)    frc_rasn
     real(r8), target :: wtw
-    real(r8)    ee2, ud2, wtwb, wtwh
+    real(r8)    ee2, ud2, wtwh
+    real(r8), target :: wtwb
     real(r8)    xc, xc_2
     real(r8), target :: tscaleh
     real(r8), target :: scaleh
@@ -2036,7 +2055,8 @@ end subroutine uwshcu_readnl
     real(r8)    rho0inv, autodet
     real(r8)    aquad, bquad, cquad, xc1, xc2, xsat, xs1, xs2
     real(r8), target :: excessu, excess0
-    real(r8)    bogbot, bogtop, delbog, drage, expfac, top_expfac, rbuoy, rdrag
+    real(r8), target :: bogbot, bogtop, delbog
+    real(r8)    drage, expfac, top_expfac, rbuoy, rdrag
     real(r8), target :: rcwp, rlwp, riwp, qcubelow, qlubelow, qiubelow
     real(r8)         :: cloud_diag_qlj0, cloud_diag_qij0
     real(r8), target :: cloud_diag_qlj(mkx), cloud_diag_qij(mkx)
@@ -2843,6 +2863,15 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: thlu_p, qtu_p, uu_p, vu_p, tru_p, wtu_p, ssthl0_p, ssqt0_p
           type(c_ptr), value :: ssu0_p, ssv0_p, tre_p, sstr0_p, wte_p, sswt0_p
        end subroutine uwshcu_buoy_updraft_state_shell_codon
+
+       subroutine uwshcu_buoy_velocity_shell_codon(rbuoy_c, thvu_km1_c, thvebot_c, thvu_k_c, &
+            thv0top_k_c, drage_c, dpe_c, expfac_c, rho0j_c, bogbot_p, bogtop_p, delbog_p, &
+            wtwb_p, wtw_p) bind(c, name="uwshcu_buoy_velocity_shell_codon")
+          use iso_c_binding, only: c_double, c_ptr
+          real(c_double), value :: rbuoy_c, thvu_km1_c, thvebot_c, thvu_k_c, thv0top_k_c
+          real(c_double), value :: drage_c, dpe_c, expfac_c, rho0j_c
+          type(c_ptr), value :: bogbot_p, bogtop_p, delbog_p, wtwb_p, wtw_p
+       end subroutine uwshcu_buoy_velocity_shell_codon
 
        subroutine uwshcu_buoy_top_expel_final_shell_codon(kpen_c, criqc_c, xlv_c, xls_c, cp_c, &
             exntop_c, qlj_c, qij_c, thlu_top_p, qtu_top_p, dwten_p, diten_p) &
@@ -6077,18 +6106,27 @@ end subroutine uwshcu_readnl
           ! updated as cumulus updraft rises.                           !
           ! ----------------------------------------------------------- !
 
-          bogbot = rbuoy * ( thvu(km1) / thvebot  - 1._r8 ) ! Cloud buoyancy at base interface
-          bogtop = rbuoy * ( thvu(k) / thv0top(k) - 1._r8 ) ! Cloud buoyancy at top  interface
+          if (use_native_init_shell_impl) then
+             bogbot = rbuoy * ( thvu(km1) / thvebot  - 1._r8 ) ! Cloud buoyancy at base interface
+             bogtop = rbuoy * ( thvu(k) / thv0top(k) - 1._r8 ) ! Cloud buoyancy at top  interface
 
-          delbog = bogtop - bogbot
-          drage  = fer(k) * ( 1._r8 + rdrag )
-          expfac = exp(-2._r8*drage*dpe)
+             delbog = bogtop - bogbot
+             drage  = fer(k) * ( 1._r8 + rdrag )
+             expfac = exp(-2._r8*drage*dpe)
 
-          wtwb = wtw
-          if( drage*dpe .gt. 1.e-3_r8 ) then
-              wtw = wtw*expfac + (delbog + (1._r8-expfac)*(bogbot + delbog/(-2._r8*drage*dpe)))/(rho0j*drage)
+             wtwb = wtw
+             if( drage*dpe .gt. 1.e-3_r8 ) then
+                 wtw = wtw*expfac + (delbog + (1._r8-expfac)*(bogbot + delbog/(-2._r8*drage*dpe)))/(rho0j*drage)
+             else
+                 wtw = wtw + dpe * ( bogbot + bogtop ) / rho0j
+             endif
           else
-              wtw = wtw + dpe * ( bogbot + bogtop ) / rho0j
+             drage  = fer(k) * ( 1._r8 + rdrag )
+             expfac = exp(-2._r8*drage*dpe)
+             call uwshcu_log_buoy_velocity_shell_entered()
+             call uwshcu_buoy_velocity_shell_codon(rbuoy, thvu(km1), thvebot, thvu(k), &
+                  thv0top(k), drage, dpe, expfac, rho0j, c_loc(bogbot), c_loc(bogtop), &
+                  c_loc(delbog), c_loc(wtwb), c_loc(wtw))
           endif
 
         ! Force the plume rise at least to klfc of the undiluted plume.

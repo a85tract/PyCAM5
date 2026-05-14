@@ -3536,6 +3536,42 @@ def uwshcu_buoy_updraft_state_shell_codon(
 
 
 @export
+def uwshcu_buoy_velocity_shell_codon(
+    rbuoy: float,
+    thvu_km1: float,
+    thvebot: float,
+    thvu_k: float,
+    thv0top_k: float,
+    drage: float,
+    dpe: float,
+    expfac: float,
+    rho0j: float,
+    bogbot_p: cobj,
+    bogtop_p: cobj,
+    delbog_p: cobj,
+    wtwb_p: cobj,
+    wtw_p: cobj,
+):
+    bogbot = Ptr[float](bogbot_p)
+    bogtop = Ptr[float](bogtop_p)
+    delbog = Ptr[float](delbog_p)
+    wtwb = Ptr[float](wtwb_p)
+    wtw = Ptr[float](wtw_p)
+
+    bogbot[0] = rbuoy * (thvu_km1 / thvebot - 1.0)
+    bogtop[0] = rbuoy * (thvu_k / thv0top_k - 1.0)
+    delbog[0] = bogtop[0] - bogbot[0]
+    wtwb[0] = wtw[0]
+
+    if drage * dpe > 1.0e-3:
+        wtw[0] = wtw[0] * expfac + (
+            delbog[0] + (1.0 - expfac) * (bogbot[0] + delbog[0] / (-2.0 * drage * dpe))
+        ) / (rho0j * drage)
+    else:
+        wtw[0] = wtw[0] + dpe * (bogbot[0] + bogtop[0]) / rho0j
+
+
+@export
 def uwshcu_buoy_top_expel_final_shell_codon(
     kpen: int,
     criqc: float,
