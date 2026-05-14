@@ -3331,6 +3331,79 @@ def uwshcu_buoy_top_expel_shell_codon(
 
 
 @export
+def uwshcu_buoy_top_state_shell_codon(
+    mkx: int,
+    wtrc_nwset: int,
+    kpen: int,
+    trace_water: int,
+    linear_branch: int,
+    ppen: float,
+    top_expfac: float,
+    fer_kpen: float,
+    thl0_kpen: float,
+    ssthl0_kpen: float,
+    qt0_kpen: float,
+    ssqt0_kpen: float,
+    thlu_p: cobj,
+    qtu_p: cobj,
+    wt0_p: cobj,
+    sswt0_p: cobj,
+    wtu_p: cobj,
+    thlu_top_p: cobj,
+    qtu_top_p: cobj,
+    wtu_top_p: cobj,
+):
+    # thlu/qtu/wtu use Fortran interface lower bound 0; wt0/sswt0/wtu_top lower bound 1.
+    thlu = Ptr[float](thlu_p)
+    qtu = Ptr[float](qtu_p)
+    wt0 = Ptr[float](wt0_p)
+    sswt0 = Ptr[float](sswt0_p)
+    wtu = Ptr[float](wtu_p)
+    thlu_top = Ptr[float](thlu_top_p)
+    qtu_top = Ptr[float](qtu_top_p)
+    wtu_top = Ptr[float](wtu_top_p)
+
+    km1 = kpen - 1
+    neg_ppen = -ppen
+    iface_stride = mkx + 1
+
+    if linear_branch != 0:
+        thlu_top[0] = thlu[km1] + (thl0_kpen + ssthl0_kpen * neg_ppen / 2.0 - thlu[km1]) * fer_kpen * neg_ppen
+        qtu_top[0] = qtu[km1] + (qt0_kpen + ssqt0_kpen * neg_ppen / 2.0 - qtu[km1]) * fer_kpen * neg_ppen
+
+        if trace_water != 0:
+            m = 0
+            while m < wtrc_nwset:
+                layer_idx = km1 + m * mkx
+                iface_idx = km1 + m * iface_stride
+                wtu_top[m] = wtu[iface_idx] + (wt0[layer_idx] + sswt0[layer_idx] * neg_ppen / 2.0 - wtu[iface_idx]) * fer_kpen * neg_ppen
+                m += 1
+    else:
+        thlu_top[0] = (
+            thl0_kpen + ssthl0_kpen / fer_kpen - ssthl0_kpen * neg_ppen / 2.0
+        ) - (
+            thl0_kpen + ssthl0_kpen * neg_ppen / 2.0 - thlu[km1] + ssthl0_kpen / fer_kpen
+        ) * top_expfac
+        qtu_top[0] = (
+            qt0_kpen + ssqt0_kpen / fer_kpen - ssqt0_kpen * neg_ppen / 2.0
+        ) - (
+            qt0_kpen + ssqt0_kpen * neg_ppen / 2.0 - qtu[km1] + ssqt0_kpen / fer_kpen
+        ) * top_expfac
+
+        if trace_water != 0:
+            m = 0
+            while m < wtrc_nwset:
+                layer_idx = km1 + m * mkx
+                iface_idx = km1 + m * iface_stride
+                wtu_top[m] = (
+                    wt0[layer_idx] + sswt0[layer_idx] / fer_kpen - sswt0[layer_idx] * neg_ppen / 2.0
+                ) - (
+                    wt0[layer_idx] + sswt0[layer_idx] * neg_ppen / 2.0 - wtu[iface_idx] + sswt0[layer_idx] / fer_kpen
+                ) * top_expfac
+                m += 1
+
+
+@export
 def uwshcu_buoy_top_expel_final_shell_codon(
     kpen: int,
     criqc: float,

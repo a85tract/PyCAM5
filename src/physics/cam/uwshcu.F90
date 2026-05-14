@@ -58,6 +58,7 @@
   logical :: iter_interface_thv_shell_entered_logged = .false.
   logical :: cin_thv_scalar_shell_entered_logged = .false.
   logical :: buoy_sort_scalar_shell_entered_logged = .false.
+  logical :: buoy_top_state_shell_entered_logged = .false.
   logical :: buoy_top_shell_entered_logged = .false.
   logical :: buoy_diag_env_shell_entered_logged = .false.
   logical :: pbl_precheck_shell_entered_logged = .false.
@@ -515,6 +516,23 @@ contains
     end if
 
   end subroutine uwshcu_log_buoy_sort_scalar_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_buoy_top_state_shell_entered()
+
+    if (buoy_top_state_shell_entered_logged) return
+    buoy_top_state_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu buoy top state shell entered (top conservative state direct = codon; exp/ppen/conden native)'
+       call uwshcu_append_proof( &
+            'uwshcu buoy top state shell entered (top conservative state direct = codon; exp/ppen/conden native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_buoy_top_state_shell_entered
 
 !===============================================================================
 
@@ -1982,7 +2000,7 @@ end subroutine uwshcu_readnl
     real(r8)    rho0inv, autodet
     real(r8)    aquad, bquad, cquad, xc1, xc2, xsat, xs1, xs2
     real(r8), target :: excessu, excess0
-    real(r8)    bogbot, bogtop, delbog, drage, expfac, rbuoy, rdrag
+    real(r8)    bogbot, bogtop, delbog, drage, expfac, top_expfac, rbuoy, rdrag
     real(r8), target :: rcwp, rlwp, riwp, qcubelow, qlubelow, qiubelow
     real(r8)         :: cloud_diag_qlj0, cloud_diag_qij0
     real(r8), target :: cloud_diag_qlj(mkx), cloud_diag_qij(mkx)
@@ -2000,7 +2018,7 @@ end subroutine uwshcu_readnl
     real(r8)   wtout_emf_kbup(wtrc_nwset,3) ! Output from conden during penetrative entrainment [ kg/kg ]
     real(r8)   wtexql(wtrc_nwset)           ! Expelled (detrained) water tracer liquid (not completely necessary)
     real(r8)   wtexqi(wtrc_nwset)           ! Expelled (detrained) water tracer ice    (not completely necessary)
-    real(r8)   wtu_top(wtrc_nwset)          ! Tracer updraft flux at top of cloud (not sure if needed at all).
+    real(r8), target :: wtu_top(wtrc_nwset) ! Tracer updraft flux at top of cloud (not sure if needed at all).
     real(r8)   wlu_top(wtrc_nwset)          ! Tracer liquid flux in updraft at top of cloud (?)
     real(r8)   wiu_top(wtrc_nwset)          ! Tracer ice flux in updraft at top of cloud (?)
     real(r8)   wtu_mid(wtrc_nwset)          ! midlevel condensate (?)
@@ -2766,6 +2784,17 @@ end subroutine uwshcu_readnl
           real(c_double), value :: criqc_c, xlv_c, xls_c, cp_c, exn_c, qlj_c, qij_c
           type(c_ptr), value :: qtu_p, thlu_p, dwten_p, diten_p
        end subroutine uwshcu_buoy_top_expel_shell_codon
+
+       subroutine uwshcu_buoy_top_state_shell_codon(mkx_c, wtrc_nwset_c, kpen_c, trace_water_c, &
+            linear_branch_c, ppen_c, top_expfac_c, fer_kpen_c, thl0_kpen_c, ssthl0_kpen_c, &
+            qt0_kpen_c, ssqt0_kpen_c, thlu_p, qtu_p, wt0_p, sswt0_p, wtu_p, thlu_top_p, &
+            qtu_top_p, wtu_top_p) bind(c, name="uwshcu_buoy_top_state_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, kpen_c, trace_water_c, linear_branch_c
+          real(c_double), value :: ppen_c, top_expfac_c, fer_kpen_c, thl0_kpen_c, ssthl0_kpen_c
+          real(c_double), value :: qt0_kpen_c, ssqt0_kpen_c
+          type(c_ptr), value :: thlu_p, qtu_p, wt0_p, sswt0_p, wtu_p, thlu_top_p, qtu_top_p, wtu_top_p
+       end subroutine uwshcu_buoy_top_state_shell_codon
 
        subroutine uwshcu_buoy_top_expel_final_shell_codon(kpen_c, criqc_c, xlv_c, xls_c, cp_c, &
             exntop_c, qlj_c, qij_c, thlu_top_p, qtu_top_p, dwten_p, diten_p) &
@@ -6234,36 +6263,48 @@ end subroutine uwshcu_readnl
        ! using non-zero 'fer(kpen)'.                                          !    
        ! -------------------------------------------------------------------- !
 
-       if( fer(kpen)*(-ppen) .lt. 1.e-4_r8 ) then
-           thlu_top = thlu(kpen-1) + ( thl0(kpen) + ssthl0(kpen) * (-ppen) / 2._r8 - thlu(kpen-1) ) * fer(kpen) * (-ppen)
-           qtu_top  =  qtu(kpen-1) + (  qt0(kpen) +  ssqt0(kpen) * (-ppen) / 2._r8  - qtu(kpen-1) ) * fer(kpen) * (-ppen)
-          !Water tracers:
-          !************* 
-           if(trace_water) then
-             do m=1,wtrc_nwset
-               wtu_top(m) = wtu(kpen-1,m) + ( wt0(kpen,m) +  sswt0(kpen,m) * &
-                            (-ppen) / 2._r8  - wtu(kpen-1,m) ) * fer(kpen) * (-ppen)
-             end do
-           end if
-          !*************
-       else
-           thlu_top = ( thl0(kpen) + ssthl0(kpen) / fer(kpen) - ssthl0(kpen) * (-ppen) / 2._r8 ) - &
-                      ( thl0(kpen) + ssthl0(kpen) * (-ppen) / 2._r8 - thlu(kpen-1) + ssthl0(kpen) / fer(kpen) ) &
-                      * exp(-fer(kpen) * (-ppen))
-           qtu_top  = ( qt0(kpen)  +  ssqt0(kpen) / fer(kpen) -  ssqt0(kpen) * (-ppen) / 2._r8 ) - &  
-                      ( qt0(kpen)  +  ssqt0(kpen) * (-ppen) / 2._r8 -  qtu(kpen-1) +  ssqt0(kpen) / fer(kpen) ) &
-                      * exp(-fer(kpen) * (-ppen))
-          !Water tracers:
-          !*************
-           if(trace_water) then
-             do m=1,wtrc_nwset
-               wtu_top(m) = ( wt0(kpen,m)  +  sswt0(kpen,m) / fer(kpen) -  sswt0(kpen,m) * (-ppen) / 2._r8 ) - &
-               ( wt0(kpen,m)  +  sswt0(kpen,m) * (-ppen) / 2._r8 -  wtu(kpen-1,m) +  sswt0(kpen,m) / fer(kpen) ) &
-               * exp(-fer(kpen) * (-ppen))
-             end do
-           end if
-          !************* 
-       end if
+	       if (use_native_init_shell_impl) then
+	       if( fer(kpen)*(-ppen) .lt. 1.e-4_r8 ) then
+	           thlu_top = thlu(kpen-1) + ( thl0(kpen) + ssthl0(kpen) * (-ppen) / 2._r8 - thlu(kpen-1) ) * fer(kpen) * (-ppen)
+	           qtu_top  =  qtu(kpen-1) + (  qt0(kpen) +  ssqt0(kpen) * (-ppen) / 2._r8  - qtu(kpen-1) ) * fer(kpen) * (-ppen)
+	          !Water tracers:
+	          !*************
+	           if(trace_water) then
+	             do m=1,wtrc_nwset
+	               wtu_top(m) = wtu(kpen-1,m) + ( wt0(kpen,m) +  sswt0(kpen,m) * &
+	                            (-ppen) / 2._r8  - wtu(kpen-1,m) ) * fer(kpen) * (-ppen)
+	             end do
+	           end if
+	          !*************
+	       else
+	           thlu_top = ( thl0(kpen) + ssthl0(kpen) / fer(kpen) - ssthl0(kpen) * (-ppen) / 2._r8 ) - &
+	                      ( thl0(kpen) + ssthl0(kpen) * (-ppen) / 2._r8 - thlu(kpen-1) + ssthl0(kpen) / fer(kpen) ) &
+	                      * exp(-fer(kpen) * (-ppen))
+	           qtu_top  = ( qt0(kpen)  +  ssqt0(kpen) / fer(kpen) -  ssqt0(kpen) * (-ppen) / 2._r8 ) - &
+	                      ( qt0(kpen)  +  ssqt0(kpen) * (-ppen) / 2._r8 -  qtu(kpen-1) +  ssqt0(kpen) / fer(kpen) ) &
+	                      * exp(-fer(kpen) * (-ppen))
+	          !Water tracers:
+	          !*************
+	           if(trace_water) then
+	             do m=1,wtrc_nwset
+	               wtu_top(m) = ( wt0(kpen,m)  +  sswt0(kpen,m) / fer(kpen) -  sswt0(kpen,m) * (-ppen) / 2._r8 ) - &
+	               ( wt0(kpen,m)  +  sswt0(kpen,m) * (-ppen) / 2._r8 -  wtu(kpen-1,m) +  sswt0(kpen,m) / fer(kpen) ) &
+	               * exp(-fer(kpen) * (-ppen))
+	             end do
+	           end if
+	          !*************
+	       end if
+	       else
+	          top_expfac = 0._r8
+	          if( fer(kpen)*(-ppen) .ge. 1.e-4_r8 ) top_expfac = exp(-fer(kpen) * (-ppen))
+	          call uwshcu_log_buoy_top_state_shell_entered()
+	          call uwshcu_buoy_top_state_shell_codon(int(mkx, c_int64_t), int(wtrc_nwset, c_int64_t), &
+	               int(kpen, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, trace_water), &
+	               merge(1_c_int64_t, 0_c_int64_t, fer(kpen)*(-ppen) .lt. 1.e-4_r8), ppen, &
+	               top_expfac, fer(kpen), thl0(kpen), ssthl0(kpen), qt0(kpen), ssqt0(kpen), &
+	               c_loc(thlu), c_loc(qtu), c_loc(wt0), c_loc(sswt0), c_loc(wtu), c_loc(thlu_top), &
+	               c_loc(qtu_top), c_loc(wtu_top))
+	       endif
 
        !NOTE:  Not 100% sure if using qv0/tr0 to calculate R is appropriate here
        !(versus some sort of updraft quantity) - JN 
