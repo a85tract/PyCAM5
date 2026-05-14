@@ -3855,6 +3855,36 @@ def uwshcu_buoy_wu_exit_shell_codon(
 
 
 @export
+def uwshcu_release_wtw_exit_shell_codon(
+    wtw_v: float,
+    exit_wtw_p: cobj,
+    exit_code_p: cobj,
+):
+    exit_wtw = Ptr[float](exit_wtw_p)
+    exit_code = Ptr[int](exit_code_p)
+
+    exit_code[0] = 0
+    if wtw_v <= 0.0:
+        exit_wtw[0] = 1.0
+        exit_code[0] = 1
+
+
+@export
+def uwshcu_release_ufrc_exit_shell_codon(
+    ufrclcl_v: float,
+    exit_ufrc_p: cobj,
+    exit_code_p: cobj,
+):
+    exit_ufrc = Ptr[float](exit_ufrc_p)
+    exit_code = Ptr[int](exit_code_p)
+
+    exit_code[0] = 0
+    if ufrclcl_v <= 0.0001:
+        exit_ufrc[0] = 1.0
+        exit_code[0] = 1
+
+
+@export
 def uwshcu_buoy_next_env_load_shell_codon(
     k_fortran: int,
     mkx: int,

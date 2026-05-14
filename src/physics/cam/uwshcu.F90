@@ -83,6 +83,7 @@
   logical :: iter_env_restore_shell_entered_logged = .false.
   logical :: iter_env_restore_thermo_slope_shell_entered_logged = .false.
   logical :: release_prep_shell_entered_logged = .false.
+  logical :: release_base_exit_shell_entered_logged = .false.
   logical :: release_conden_exit_shell_entered_logged = .false.
   logical :: scaleh_iter_init_shell_entered_logged = .false.
   logical :: penent_prep_shell_entered_logged = .false.
@@ -788,6 +789,23 @@ contains
     end if
 
   end subroutine uwshcu_log_buoy_wu_exit_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_release_base_exit_shell_entered()
+
+    if (release_base_exit_shell_entered_logged) return
+    release_base_exit_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu release base exit shell entered (wlcl/ufrclcl exit flags direct = codon; sqrt/goto native)'
+       call uwshcu_append_proof( &
+            'uwshcu release base exit shell entered (wlcl/ufrclcl exit flags direct = codon; sqrt/goto native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_release_base_exit_shell_entered
 
 !===============================================================================
 
@@ -2519,6 +2537,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: interface_conden_exit_code_c
     integer(c_int64_t), target       :: cin_conden_exit_code_c
     integer(c_int64_t), target       :: krel_release_c
+    integer(c_int64_t), target       :: release_base_exit_code_c
     integer(c_int64_t), target       :: release_conden_exit_code_c
     integer(c_int64_t), target       :: kbup_iter_c, kpen_iter_c
     integer(c_int64_t), target       :: buoy_reach_exit_code_c
@@ -3246,6 +3265,20 @@ end subroutine uwshcu_readnl
           real(c_double), value :: wu_c
           type(c_ptr), value :: exit_wu_p, exit_code_p
        end subroutine uwshcu_buoy_wu_exit_shell_codon
+
+       subroutine uwshcu_release_wtw_exit_shell_codon(wtw_c, exit_wtw_p, exit_code_p) &
+            bind(c, name="uwshcu_release_wtw_exit_shell_codon")
+          use iso_c_binding, only: c_double, c_ptr
+          real(c_double), value :: wtw_c
+          type(c_ptr), value :: exit_wtw_p, exit_code_p
+       end subroutine uwshcu_release_wtw_exit_shell_codon
+
+       subroutine uwshcu_release_ufrc_exit_shell_codon(ufrclcl_c, exit_ufrc_p, exit_code_p) &
+            bind(c, name="uwshcu_release_ufrc_exit_shell_codon")
+          use iso_c_binding, only: c_double, c_ptr
+          real(c_double), value :: ufrclcl_c
+          type(c_ptr), value :: exit_ufrc_p, exit_code_p
+       end subroutine uwshcu_release_ufrc_exit_shell_codon
 
        subroutine uwshcu_buoy_next_env_load_shell_codon(k_c, mkx_c, ncnst_c, wtrc_nwset_c, &
             p0_p, dp0_p, exn0_p, thv0bot_p, thl0_p, qt0_p, u0_p, v0_p, tr0_p, wt0_p, &
@@ -5812,20 +5845,38 @@ end subroutine uwshcu_readnl
        ! ------------------------------------------------------------------- !
 
        wtw = winv * winv - 2._r8 * cinlcl * rbuoy
-       if( wtw .le. 0._r8 ) then
-         ! write(iulog,*) 'wlcl < 0 at the LCL'
-           exit_wtw(i) = 1._r8
-           id_exit = .true.
-           go to 333
+       if (use_native_init_shell_impl) then
+          if( wtw .le. 0._r8 ) then
+            ! write(iulog,*) 'wlcl < 0 at the LCL'
+              exit_wtw(i) = 1._r8
+              id_exit = .true.
+              go to 333
+          endif
+       else
+          call uwshcu_log_release_base_exit_shell_entered()
+          call uwshcu_release_wtw_exit_shell_codon(wtw, c_loc(exit_wtw(i)), c_loc(release_base_exit_code_c))
+          if( release_base_exit_code_c .ne. 0_c_int64_t ) then
+             id_exit = .true.
+             go to 333
+          endif
        endif
        wlcl = sqrt(wtw)
        ufrclcl = cbmf/wlcl/rho0inv
        wrel = wlcl
-       if( ufrclcl .le. 0.0001_r8 ) then
-         ! write(iulog,*) 'ufrclcl <= 0.0001' 
-           exit_ufrc(i) = 1._r8
-           id_exit = .true.
-           go to 333
+       if (use_native_init_shell_impl) then
+          if( ufrclcl .le. 0.0001_r8 ) then
+            ! write(iulog,*) 'ufrclcl <= 0.0001'
+              exit_ufrc(i) = 1._r8
+              id_exit = .true.
+              go to 333
+          endif
+       else
+          call uwshcu_log_release_base_exit_shell_entered()
+          call uwshcu_release_ufrc_exit_shell_codon(ufrclcl, c_loc(exit_ufrc(i)), c_loc(release_base_exit_code_c))
+          if( release_base_exit_code_c .ne. 0_c_int64_t ) then
+             id_exit = .true.
+             go to 333
+          endif
        endif
        if (use_native_init_shell_impl) then
           ufrc(krel-1) = ufrclcl
