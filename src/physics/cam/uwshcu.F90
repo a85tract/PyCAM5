@@ -67,6 +67,7 @@
   logical :: buoy_midstate_shell_entered_logged = .false.
   logical :: buoy_self_detrain_shell_entered_logged = .false.
   logical :: buoy_ufrc_init_shell_entered_logged = .false.
+  logical :: buoy_ufrc_limit_shell_entered_logged = .false.
   logical :: buoy_ppen_limit_shell_entered_logged = .false.
   logical :: buoy_conden_exit_shell_entered_logged = .false.
   logical :: buoy_top_conden_exit_shell_entered_logged = .false.
@@ -687,6 +688,23 @@ contains
     end if
 
   end subroutine uwshcu_log_buoy_ufrc_init_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_buoy_ufrc_limit_shell_entered()
+
+    if (buoy_ufrc_limit_shell_entered_logged) return
+    buoy_ufrc_limit_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu buoy ufrc limit shell entered (rmaxfrac limit flag and capped flux direct = codon; log native)'
+       call uwshcu_append_proof( &
+            'uwshcu buoy ufrc limit shell entered (rmaxfrac limit flag and capped flux direct = codon; log native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_buoy_ufrc_limit_shell_entered
 
 !===============================================================================
 
@@ -2542,6 +2560,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: kbup_iter_c, kpen_iter_c
     integer(c_int64_t), target       :: buoy_reach_exit_code_c
     integer(c_int64_t), target       :: buoy_wu_exit_code_c
+    integer(c_int64_t), target       :: buoy_ufrc_limit_code_c
     integer(c_int64_t), target       :: buoy_conden_exit_code_c
     integer(c_int64_t), target       :: buoy_top_conden_exit_code_c
     integer(c_int64_t), target       :: cloud_diag_conden_exit_code_c
@@ -3192,6 +3211,15 @@ end subroutine uwshcu_readnl
           real(c_double), value :: r_c
           type(c_ptr), value :: ps0_p, thv0bot_p, thv0top_p, exns0_p, umf_p, wu_p, ufrc_p, rhos0j_p
        end subroutine uwshcu_buoy_ufrc_init_shell_codon
+
+       subroutine uwshcu_buoy_ufrc_limit_shell_codon(k_c, rmaxfrac_c, rhos0j_c, &
+            ufrc_p, umf_p, wu_p, limit_ufrc_p, limit_code_p) &
+            bind(c, name="uwshcu_buoy_ufrc_limit_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: k_c
+          real(c_double), value :: rmaxfrac_c, rhos0j_c
+          type(c_ptr), value :: ufrc_p, umf_p, wu_p, limit_ufrc_p, limit_code_p
+       end subroutine uwshcu_buoy_ufrc_limit_shell_codon
 
        subroutine uwshcu_buoy_ppen_limit_shell_codon(ppen_c, dp0_kpen_c, limit_ppen_p) &
             bind(c, name="uwshcu_buoy_ppen_limit_shell_codon")
@@ -6850,11 +6878,20 @@ end subroutine uwshcu_readnl
                   c_loc(thv0bot), c_loc(thv0top), c_loc(exns0), c_loc(umf), c_loc(wu), &
                   c_loc(ufrc), c_loc(rhos0j))
           endif
-          if( ufrc(k) .gt. rmaxfrac ) then
-              limit_ufrc(i) = 1._r8 
-              ufrc(k) = rmaxfrac
-              umf(k)  = rmaxfrac * rhos0j * wu(k)
-              fdr(k)  = fer(k) - log( umf(k) / umf(km1) ) / dpe
+          if (use_native_init_shell_impl) then
+             if( ufrc(k) .gt. rmaxfrac ) then
+                 limit_ufrc(i) = 1._r8
+                 ufrc(k) = rmaxfrac
+                 umf(k)  = rmaxfrac * rhos0j * wu(k)
+                 fdr(k)  = fer(k) - log( umf(k) / umf(km1) ) / dpe
+             endif
+          else
+             call uwshcu_log_buoy_ufrc_limit_shell_entered()
+             call uwshcu_buoy_ufrc_limit_shell_codon(int(k, c_int64_t), rmaxfrac, rhos0j, &
+                  c_loc(ufrc), c_loc(umf), c_loc(wu), c_loc(limit_ufrc(i)), c_loc(buoy_ufrc_limit_code_c))
+             if( buoy_ufrc_limit_code_c .ne. 0_c_int64_t ) then
+                fdr(k)  = fer(k) - log( umf(k) / umf(km1) ) / dpe
+             endif
           endif
 
           ! ------------------------------------------------------------ !

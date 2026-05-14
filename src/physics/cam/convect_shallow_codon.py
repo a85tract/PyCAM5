@@ -3667,6 +3667,32 @@ def uwshcu_buoy_ufrc_init_shell_codon(
 
 
 @export
+def uwshcu_buoy_ufrc_limit_shell_codon(
+    k_fortran: int,
+    rmaxfrac_v: float,
+    rhos0j_v: float,
+    ufrc_p: cobj,
+    umf_p: cobj,
+    wu_p: cobj,
+    limit_ufrc_p: cobj,
+    limit_code_p: cobj,
+):
+    # ufrc/umf/wu: Fortran real(r8) arrays with lower bound 0.
+    ufrc = Ptr[float](ufrc_p)
+    umf = Ptr[float](umf_p)
+    wu = Ptr[float](wu_p)
+    limit_ufrc = Ptr[float](limit_ufrc_p)
+    limit_code = Ptr[int](limit_code_p)
+
+    limit_code[0] = 0
+    if ufrc[k_fortran] > rmaxfrac_v:
+        limit_ufrc[0] = 1.0
+        ufrc[k_fortran] = rmaxfrac_v
+        umf[k_fortran] = rmaxfrac_v * rhos0j_v * wu[k_fortran]
+        limit_code[0] = 1
+
+
+@export
 def uwshcu_buoy_ppen_limit_shell_codon(
     ppen: float,
     dp0_kpen: float,
