@@ -66,6 +66,7 @@
   logical :: buoy_self_detrain_shell_entered_logged = .false.
   logical :: buoy_ufrc_init_shell_entered_logged = .false.
   logical :: buoy_ppen_limit_shell_entered_logged = .false.
+  logical :: buoy_top_conden_exit_shell_entered_logged = .false.
   logical :: buoy_diag_env_shell_entered_logged = .false.
   logical :: buoy_reach_shell_entered_logged = .false.
   logical :: pbl_precheck_shell_entered_logged = .false.
@@ -659,6 +660,23 @@ contains
     end if
 
   end subroutine uwshcu_log_buoy_ppen_limit_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_buoy_top_conden_exit_shell_entered()
+
+    if (buoy_top_conden_exit_shell_entered_logged) return
+    buoy_top_conden_exit_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu buoy top conden exit shell entered (top conden exit flag direct = codon; conden/goto native)'
+       call uwshcu_append_proof( &
+            'uwshcu buoy top conden exit shell entered (top conden exit flag direct = codon; conden/goto native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_buoy_top_conden_exit_shell_entered
 
 !===============================================================================
 
@@ -2339,6 +2357,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: krel_release_c
     integer(c_int64_t), target       :: kbup_iter_c, kpen_iter_c
     integer(c_int64_t), target       :: buoy_reach_exit_code_c
+    integer(c_int64_t), target       :: buoy_top_conden_exit_code_c
     integer(c_int64_t), target       :: post_scaleh_exit_code_c
     integer(c_int64_t)               :: wtrc_nwset_post_c
 
@@ -2976,6 +2995,13 @@ end subroutine uwshcu_readnl
           real(c_double), value :: ppen_c, dp0_kpen_c
           type(c_ptr), value :: limit_ppen_p
        end subroutine uwshcu_buoy_ppen_limit_shell_codon
+
+       subroutine uwshcu_buoy_top_conden_exit_shell_codon(id_check_c, exit_conden_p, exit_code_p) &
+            bind(c, name="uwshcu_buoy_top_conden_exit_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: id_check_c
+          type(c_ptr), value :: exit_conden_p, exit_code_p
+       end subroutine uwshcu_buoy_top_conden_exit_shell_codon
 
        subroutine uwshcu_buoy_top_expel_final_shell_codon(kpen_c, criqc_c, xlv_c, xls_c, cp_c, &
             exntop_c, qlj_c, qij_c, thlu_top_p, qtu_top_p, dwten_p, diten_p) &
@@ -6568,11 +6594,21 @@ end subroutine uwshcu_readnl
        else
          call conden(ps0(kpen-1)+ppen,thlu_top,qtu_top,thj,qvj,qlj,qij,qse,id_check,ncnst)
        end if
-       if( id_check .eq. 1 ) then
-           exit_conden(i) = 1._r8
-           id_exit = .true.
-           go to 333
-	       end if
+       if (use_native_init_shell_impl) then
+          if( id_check .eq. 1 ) then
+              exit_conden(i) = 1._r8
+              id_exit = .true.
+              go to 333
+          end if
+       else
+          call uwshcu_log_buoy_top_conden_exit_shell_entered()
+          call uwshcu_buoy_top_conden_exit_shell_codon(int(id_check, c_int64_t), &
+               c_loc(exit_conden(i)), c_loc(buoy_top_conden_exit_code_c))
+          if( buoy_top_conden_exit_code_c .ne. 0_c_int64_t ) then
+              id_exit = .true.
+              go to 333
+          end if
+       endif
 	       exntop = ((ps0(kpen-1)+ppen)/p00)**rovcp
 	       if (use_native_init_shell_impl) then
 	          if( (qlj + qij) .gt. criqc ) then
