@@ -60,6 +60,7 @@
   logical :: buoy_sort_scalar_shell_entered_logged = .false.
   logical :: buoy_top_state_shell_entered_logged = .false.
   logical :: buoy_top_shell_entered_logged = .false.
+  logical :: buoy_updraft_state_shell_entered_logged = .false.
   logical :: buoy_diag_env_shell_entered_logged = .false.
   logical :: buoy_reach_shell_entered_logged = .false.
   logical :: pbl_precheck_shell_entered_logged = .false.
@@ -551,6 +552,23 @@ contains
     end if
 
   end subroutine uwshcu_log_buoy_top_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_buoy_updraft_state_shell_entered()
+
+    if (buoy_updraft_state_shell_entered_logged) return
+    buoy_updraft_state_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu buoy updraft state shell entered (top-interface updraft state direct = codon; exp native)'
+       call uwshcu_append_proof( &
+            'uwshcu buoy updraft state shell entered (top-interface updraft state direct = codon; exp native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_buoy_updraft_state_shell_entered
 
 !===============================================================================
 
@@ -2814,6 +2832,17 @@ end subroutine uwshcu_readnl
           real(c_double), value :: qt0_kpen_c, ssqt0_kpen_c
           type(c_ptr), value :: thlu_p, qtu_p, wt0_p, sswt0_p, wtu_p, thlu_top_p, qtu_top_p, wtu_top_p
        end subroutine uwshcu_buoy_top_state_shell_codon
+
+       subroutine uwshcu_buoy_updraft_state_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, k_c, &
+            trace_water_c, linear_branch_c, dpe_c, expfac_c, fer_k_c, PGFc_c, thle_c, qte_c, &
+            ue_c, ve_c, thlu_p, qtu_p, uu_p, vu_p, tru_p, wtu_p, ssthl0_p, ssqt0_p, ssu0_p, &
+            ssv0_p, tre_p, sstr0_p, wte_p, sswt0_p) bind(c, name="uwshcu_buoy_updraft_state_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, wtrc_nwset_c, k_c, trace_water_c, linear_branch_c
+          real(c_double), value :: dpe_c, expfac_c, fer_k_c, PGFc_c, thle_c, qte_c, ue_c, ve_c
+          type(c_ptr), value :: thlu_p, qtu_p, uu_p, vu_p, tru_p, wtu_p, ssthl0_p, ssqt0_p
+          type(c_ptr), value :: ssu0_p, ssv0_p, tre_p, sstr0_p, wte_p, sswt0_p
+       end subroutine uwshcu_buoy_updraft_state_shell_codon
 
        subroutine uwshcu_buoy_top_expel_final_shell_codon(kpen_c, criqc_c, xlv_c, xls_c, cp_c, &
             exntop_c, qlj_c, qij_c, thlu_top_p, qtu_top_p, dwten_p, diten_p) &
@@ -5846,46 +5875,59 @@ end subroutine uwshcu_readnl
           ! Also use Tayler expansion in order to treat limiting case !
           ! --------------------------------------------------------- !
 
-          if( fer(k)*dpe .lt. 1.e-4_r8 ) then
-              thlu(k) = thlu(km1) + ( thle + ssthl0(k) * dpe / 2._r8 - thlu(km1) ) * fer(k) * dpe
-              qtu(k)  =  qtu(km1) + ( qte  +  ssqt0(k) * dpe / 2._r8 -  qtu(km1) ) * fer(k) * dpe
-              uu(k)   =   uu(km1) + ( ue   +   ssu0(k) * dpe / 2._r8 -   uu(km1) ) * fer(k) * dpe - PGFc * ssu0(k) * dpe
-              vu(k)   =   vu(km1) + ( ve   +   ssv0(k) * dpe / 2._r8 -   vu(km1) ) * fer(k) * dpe - PGFc * ssv0(k) * dpe
-              do m = 1, ncnst !<-Handles water tracers
-                 tru(k,m)  =  tru(km1,m) + ( tre(m)  + sstr0(k,m) * dpe / 2._r8  -  tru(km1,m) ) * fer(k) * dpe
-              enddo
-             !*************
-             !Water tracers
-             !*************
-              if(trace_water) then
-                do m=1,wtrc_nwset
-                  wtu(k,m) = wtu(km1,m) + ( wte(m)  +  sswt0(k,m) * dpe / 2._r8 -  wtu(km1,m) ) * fer(k) * dpe
-                end do
-              end if
-             !*************
+          if (use_native_init_shell_impl) then
+             if( fer(k)*dpe .lt. 1.e-4_r8 ) then
+                 thlu(k) = thlu(km1) + ( thle + ssthl0(k) * dpe / 2._r8 - thlu(km1) ) * fer(k) * dpe
+                 qtu(k)  =  qtu(km1) + ( qte  +  ssqt0(k) * dpe / 2._r8 -  qtu(km1) ) * fer(k) * dpe
+                 uu(k)   =   uu(km1) + ( ue   +   ssu0(k) * dpe / 2._r8 -   uu(km1) ) * fer(k) * dpe - PGFc * ssu0(k) * dpe
+                 vu(k)   =   vu(km1) + ( ve   +   ssv0(k) * dpe / 2._r8 -   vu(km1) ) * fer(k) * dpe - PGFc * ssv0(k) * dpe
+                 do m = 1, ncnst !<-Handles water tracers
+                    tru(k,m)  =  tru(km1,m) + ( tre(m)  + sstr0(k,m) * dpe / 2._r8  -  tru(km1,m) ) * fer(k) * dpe
+                 enddo
+                !*************
+                !Water tracers
+                !*************
+                 if(trace_water) then
+                   do m=1,wtrc_nwset
+                     wtu(k,m) = wtu(km1,m) + ( wte(m)  +  sswt0(k,m) * dpe / 2._r8 -  wtu(km1,m) ) * fer(k) * dpe
+                   end do
+                 end if
+                !*************
+             else
+                 thlu(k) = ( thle + ssthl0(k) / fer(k) - ssthl0(k) * dpe / 2._r8 ) -          &
+                           ( thle + ssthl0(k) * dpe / 2._r8 - thlu(km1) + ssthl0(k) / fer(k) ) * exp(-fer(k) * dpe)
+                 qtu(k)  = ( qte  +  ssqt0(k) / fer(k) -  ssqt0(k) * dpe / 2._r8 ) -          &
+                           ( qte  +  ssqt0(k) * dpe / 2._r8 -  qtu(km1) +  ssqt0(k) / fer(k) ) * exp(-fer(k) * dpe)
+                 uu(k) =   ( ue + ( 1._r8 - PGFc ) * ssu0(k) / fer(k) - ssu0(k) * dpe / 2._r8 ) - &
+                           ( ue +     ssu0(k) * dpe / 2._r8 -   uu(km1) + ( 1._r8 - PGFc ) * ssu0(k) / fer(k) ) * exp(-fer(k) * dpe)
+                 vu(k) =   ( ve + ( 1._r8 - PGFc ) * ssv0(k) / fer(k) - ssv0(k) * dpe / 2._r8 ) - &
+                           ( ve +     ssv0(k) * dpe / 2._r8 -   vu(km1) + ( 1._r8 - PGFc ) * ssv0(k) / fer(k) ) * exp(-fer(k) * dpe)
+                 do m = 1, ncnst !<-Handles water tracers
+                    tru(k,m)  = ( tre(m)  + sstr0(k,m) / fer(k) - sstr0(k,m) * dpe / 2._r8 ) - &
+                                ( tre(m)  + sstr0(k,m) * dpe / 2._r8 - tru(km1,m) + sstr0(k,m) / fer(k) ) * exp(-fer(k) * dpe)
+                 enddo
+                !*************
+                !Water tracers
+                !*************
+                 if(trace_water) then
+                   do m=1,wtrc_nwset
+                     wtu(k,m) = ( wte(m)  +  sswt0(k,m) / fer(k) -  sswt0(k,m) * dpe / 2._r8 ) -          &
+                             ( wte(m)  +  sswt0(k,m) * dpe / 2._r8 -  wtu(km1,m) +  sswt0(k,m) / fer(k) ) * exp(-fer(k) * dpe)
+                   end do
+                 end if
+                !*************
+             end if
           else
-              thlu(k) = ( thle + ssthl0(k) / fer(k) - ssthl0(k) * dpe / 2._r8 ) -          &
-                        ( thle + ssthl0(k) * dpe / 2._r8 - thlu(km1) + ssthl0(k) / fer(k) ) * exp(-fer(k) * dpe)
-              qtu(k)  = ( qte  +  ssqt0(k) / fer(k) -  ssqt0(k) * dpe / 2._r8 ) -          &  
-                        ( qte  +  ssqt0(k) * dpe / 2._r8 -  qtu(km1) +  ssqt0(k) / fer(k) ) * exp(-fer(k) * dpe)
-              uu(k) =   ( ue + ( 1._r8 - PGFc ) * ssu0(k) / fer(k) - ssu0(k) * dpe / 2._r8 ) - &
-                        ( ue +     ssu0(k) * dpe / 2._r8 -   uu(km1) + ( 1._r8 - PGFc ) * ssu0(k) / fer(k) ) * exp(-fer(k) * dpe)
-              vu(k) =   ( ve + ( 1._r8 - PGFc ) * ssv0(k) / fer(k) - ssv0(k) * dpe / 2._r8 ) - &
-                        ( ve +     ssv0(k) * dpe / 2._r8 -   vu(km1) + ( 1._r8 - PGFc ) * ssv0(k) / fer(k) ) * exp(-fer(k) * dpe)
-              do m = 1, ncnst !<-Handles water tracers
-                 tru(k,m)  = ( tre(m)  + sstr0(k,m) / fer(k) - sstr0(k,m) * dpe / 2._r8 ) - &  
-                             ( tre(m)  + sstr0(k,m) * dpe / 2._r8 - tru(km1,m) + sstr0(k,m) / fer(k) ) * exp(-fer(k) * dpe)
-              enddo
-             !*************
-             !Water tracers
-             !*************
-              if(trace_water) then
-                do m=1,wtrc_nwset
-                  wtu(k,m) = ( wte(m)  +  sswt0(k,m) / fer(k) -  sswt0(k,m) * dpe / 2._r8 ) -          &
-                          ( wte(m)  +  sswt0(k,m) * dpe / 2._r8 -  wtu(km1,m) +  sswt0(k,m) / fer(k) ) * exp(-fer(k) * dpe)
-                end do
-              end if
-             !*************
+             expfac = 0._r8
+             if( fer(k)*dpe .ge. 1.e-4_r8 ) expfac = exp(-fer(k) * dpe)
+             call uwshcu_log_buoy_updraft_state_shell_entered()
+             call uwshcu_buoy_updraft_state_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+                  int(wtrc_nwset, c_int64_t), int(k, c_int64_t), &
+                  merge(1_c_int64_t, 0_c_int64_t, trace_water), &
+                  merge(1_c_int64_t, 0_c_int64_t, fer(k)*dpe .lt. 1.e-4_r8), dpe, expfac, &
+                  fer(k), PGFc, thle, qte, ue, ve, c_loc(thlu), c_loc(qtu), c_loc(uu), &
+                  c_loc(vu), c_loc(tru), c_loc(wtu), c_loc(ssthl0), c_loc(ssqt0), &
+                  c_loc(ssu0), c_loc(ssv0), c_loc(tre), c_loc(sstr0), c_loc(wte), c_loc(sswt0))
           end if
 
           !------------------------------------------------------------------- !

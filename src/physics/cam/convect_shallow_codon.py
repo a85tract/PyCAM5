@@ -3404,6 +3404,138 @@ def uwshcu_buoy_top_state_shell_codon(
 
 
 @export
+def uwshcu_buoy_updraft_state_shell_codon(
+    mkx: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    k_fortran: int,
+    trace_water: int,
+    linear_branch: int,
+    dpe: float,
+    expfac: float,
+    fer_k: float,
+    PGFc: float,
+    thle: float,
+    qte: float,
+    ue: float,
+    ve: float,
+    thlu_p: cobj,
+    qtu_p: cobj,
+    uu_p: cobj,
+    vu_p: cobj,
+    tru_p: cobj,
+    wtu_p: cobj,
+    ssthl0_p: cobj,
+    ssqt0_p: cobj,
+    ssu0_p: cobj,
+    ssv0_p: cobj,
+    tre_p: cobj,
+    sstr0_p: cobj,
+    wte_p: cobj,
+    sswt0_p: cobj,
+):
+    # thlu/qtu/uu/vu/wtu/tru have first-dimension lower bound 0; slope arrays use layer lower bound 1.
+    thlu = Ptr[float](thlu_p)
+    qtu = Ptr[float](qtu_p)
+    uu = Ptr[float](uu_p)
+    vu = Ptr[float](vu_p)
+    tru = Ptr[float](tru_p)
+    wtu = Ptr[float](wtu_p)
+    ssthl0 = Ptr[float](ssthl0_p)
+    ssqt0 = Ptr[float](ssqt0_p)
+    ssu0 = Ptr[float](ssu0_p)
+    ssv0 = Ptr[float](ssv0_p)
+    tre = Ptr[float](tre_p)
+    sstr0 = Ptr[float](sstr0_p)
+    wte = Ptr[float](wte_p)
+    sswt0 = Ptr[float](sswt0_p)
+
+    layer_idx = k_fortran - 1
+    iface_idx = k_fortran
+    km1_idx = k_fortran - 1
+    iface_stride = mkx + 1
+
+    if linear_branch != 0:
+        thlu[iface_idx] = thlu[km1_idx] + (thle + ssthl0[layer_idx] * dpe / 2.0 - thlu[km1_idx]) * fer_k * dpe
+        qtu[iface_idx] = qtu[km1_idx] + (qte + ssqt0[layer_idx] * dpe / 2.0 - qtu[km1_idx]) * fer_k * dpe
+        uu[iface_idx] = (
+            uu[km1_idx] + (ue + ssu0[layer_idx] * dpe / 2.0 - uu[km1_idx]) * fer_k * dpe
+            - PGFc * ssu0[layer_idx] * dpe
+        )
+        vu[iface_idx] = (
+            vu[km1_idx] + (ve + ssv0[layer_idx] * dpe / 2.0 - vu[km1_idx]) * fer_k * dpe
+            - PGFc * ssv0[layer_idx] * dpe
+        )
+
+        m = 0
+        while m < ncnst:
+            layer_m_idx = layer_idx + m * mkx
+            iface_m_idx = iface_idx + m * iface_stride
+            km1_m_idx = km1_idx + m * iface_stride
+            tru[iface_m_idx] = (
+                tru[km1_m_idx] + (tre[m] + sstr0[layer_m_idx] * dpe / 2.0 - tru[km1_m_idx]) * fer_k * dpe
+            )
+            m += 1
+
+        if trace_water != 0:
+            m = 0
+            while m < wtrc_nwset:
+                layer_m_idx = layer_idx + m * mkx
+                iface_m_idx = iface_idx + m * iface_stride
+                km1_m_idx = km1_idx + m * iface_stride
+                wtu[iface_m_idx] = (
+                    wtu[km1_m_idx] + (wte[m] + sswt0[layer_m_idx] * dpe / 2.0 - wtu[km1_m_idx]) * fer_k * dpe
+                )
+                m += 1
+    else:
+        thlu[iface_idx] = (
+            thle + ssthl0[layer_idx] / fer_k - ssthl0[layer_idx] * dpe / 2.0
+        ) - (
+            thle + ssthl0[layer_idx] * dpe / 2.0 - thlu[km1_idx] + ssthl0[layer_idx] / fer_k
+        ) * expfac
+        qtu[iface_idx] = (
+            qte + ssqt0[layer_idx] / fer_k - ssqt0[layer_idx] * dpe / 2.0
+        ) - (
+            qte + ssqt0[layer_idx] * dpe / 2.0 - qtu[km1_idx] + ssqt0[layer_idx] / fer_k
+        ) * expfac
+        uu[iface_idx] = (
+            ue + (1.0 - PGFc) * ssu0[layer_idx] / fer_k - ssu0[layer_idx] * dpe / 2.0
+        ) - (
+            ue + ssu0[layer_idx] * dpe / 2.0 - uu[km1_idx] + (1.0 - PGFc) * ssu0[layer_idx] / fer_k
+        ) * expfac
+        vu[iface_idx] = (
+            ve + (1.0 - PGFc) * ssv0[layer_idx] / fer_k - ssv0[layer_idx] * dpe / 2.0
+        ) - (
+            ve + ssv0[layer_idx] * dpe / 2.0 - vu[km1_idx] + (1.0 - PGFc) * ssv0[layer_idx] / fer_k
+        ) * expfac
+
+        m = 0
+        while m < ncnst:
+            layer_m_idx = layer_idx + m * mkx
+            iface_m_idx = iface_idx + m * iface_stride
+            km1_m_idx = km1_idx + m * iface_stride
+            tru[iface_m_idx] = (
+                tre[m] + sstr0[layer_m_idx] / fer_k - sstr0[layer_m_idx] * dpe / 2.0
+            ) - (
+                tre[m] + sstr0[layer_m_idx] * dpe / 2.0 - tru[km1_m_idx] + sstr0[layer_m_idx] / fer_k
+            ) * expfac
+            m += 1
+
+        if trace_water != 0:
+            m = 0
+            while m < wtrc_nwset:
+                layer_m_idx = layer_idx + m * mkx
+                iface_m_idx = iface_idx + m * iface_stride
+                km1_m_idx = km1_idx + m * iface_stride
+                wtu[iface_m_idx] = (
+                    wte[m] + sswt0[layer_m_idx] / fer_k - sswt0[layer_m_idx] * dpe / 2.0
+                ) - (
+                    wte[m] + sswt0[layer_m_idx] * dpe / 2.0 - wtu[km1_m_idx] + sswt0[layer_m_idx] / fer_k
+                ) * expfac
+                m += 1
+
+
+@export
 def uwshcu_buoy_top_expel_final_shell_codon(
     kpen: int,
     criqc: float,
