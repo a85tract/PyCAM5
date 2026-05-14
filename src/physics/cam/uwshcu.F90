@@ -91,6 +91,7 @@
   logical :: scaleh_filter_prep_shell_entered_logged = .false.
   logical :: comp_sub_sink_shell_entered_logged = .false.
   logical :: comp_sub_conden_exit_shell_entered_logged = .false.
+  logical :: thermo_conden_exit_shell_entered_logged = .false.
   logical :: thermo_prelim_shell_entered_logged = .false.
   logical :: thermo_final_shell_entered_logged = .false.
   logical :: post_precip_adjust_shell_entered_logged = .false.
@@ -1078,6 +1079,23 @@ contains
     end if
 
   end subroutine uwshcu_log_comp_sub_conden_exit_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_thermo_conden_exit_shell_entered()
+
+    if (thermo_conden_exit_shell_entered_logged) return
+    thermo_conden_exit_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu thermo conden exit shell entered (thermo condensate exit flags direct = codon; conden/goto native)'
+       call uwshcu_append_proof( &
+            'uwshcu thermo conden exit shell entered (thermo condensate exit flags direct = codon; conden/goto native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_thermo_conden_exit_shell_entered
 
 !===============================================================================
 
@@ -2472,6 +2490,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: buoy_top_conden_exit_code_c
     integer(c_int64_t), target       :: cloud_diag_conden_exit_code_c
     integer(c_int64_t), target       :: comp_sub_conden_exit_code_c
+    integer(c_int64_t), target       :: thermo_conden_exit_code_c
     integer(c_int64_t), target       :: post_scaleh_exit_code_c
     integer(c_int64_t)               :: wtrc_nwset_post_c
 
@@ -3501,6 +3520,13 @@ end subroutine uwshcu_readnl
           integer(c_int64_t), value :: id_check_c
           type(c_ptr), value :: exit_code_p
        end subroutine uwshcu_comp_sub_conden_exit_shell_codon
+
+       subroutine uwshcu_thermo_conden_exit_shell_codon(id_check_c, exit_conden_p, exit_code_p) &
+            bind(c, name="uwshcu_thermo_conden_exit_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: id_check_c
+          type(c_ptr), value :: exit_conden_p, exit_code_p
+       end subroutine uwshcu_thermo_conden_exit_shell_codon
 
        subroutine uwshcu_thermo_prelim_shell_codon(mkx_c, wtrc_nwset_c, kpen_c, &
             frc_rasn_c, g_c, dp0_p, umf_p, dwten_p, diten_p, wtdwten_p, wtditen_p, &
@@ -7933,10 +7959,20 @@ end subroutine uwshcu_readnl
               else
                 call conden(prel,thlu(krel-1),qtu(krel-1),thj,qvj,qlj,qij,qse,id_check,ncnst)
               end if
-              if( id_check .eq. 1 ) then
-                  exit_conden(i) = 1._r8
-                  id_exit = .true.
-                  go to 333
+              if (use_native_init_shell_impl) then
+                 if( id_check .eq. 1 ) then
+                     exit_conden(i) = 1._r8
+                     id_exit = .true.
+                     go to 333
+                 endif
+              else
+                 call uwshcu_log_thermo_conden_exit_shell_entered()
+                 call uwshcu_thermo_conden_exit_shell_codon(int(id_check, c_int64_t), &
+                      c_loc(exit_conden(i)), c_loc(thermo_conden_exit_code_c))
+                 if( thermo_conden_exit_code_c .ne. 0_c_int64_t ) then
+                     id_exit = .true.
+                     go to 333
+                 endif
               endif
               qlubelow = qlj       
               qiubelow = qij     
@@ -7958,11 +7994,21 @@ end subroutine uwshcu_readnl
               else
                 call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,ncnst)
               end if
-              if( id_check .eq. 1 ) then
-                  exit_conden(i) = 1._r8
-                  id_exit = .true.
-                  go to 333
-              end if
+              if (use_native_init_shell_impl) then
+                 if( id_check .eq. 1 ) then
+                     exit_conden(i) = 1._r8
+                     id_exit = .true.
+                     go to 333
+                 end if
+              else
+                 call uwshcu_log_thermo_conden_exit_shell_entered()
+                 call uwshcu_thermo_conden_exit_shell_codon(int(id_check, c_int64_t), &
+                      c_loc(exit_conden(i)), c_loc(thermo_conden_exit_code_c))
+                 if( thermo_conden_exit_code_c .ne. 0_c_int64_t ) then
+                     id_exit = .true.
+                     go to 333
+                 endif
+              endif
               qlu_mid = 0.5_r8 * ( qlubelow + qlj ) * ( prel - ps0(k) )/( ps0(k-1) - ps0(k) )
               qiu_mid = 0.5_r8 * ( qiubelow + qij ) * ( prel - ps0(k) )/( ps0(k-1) - ps0(k) )
              !*************
@@ -7985,11 +8031,21 @@ end subroutine uwshcu_readnl
               else
                 call conden(ps0(k-1)+ppen,thlu_top,qtu_top,thj,qvj,qlj,qij,qse,id_check,ncnst)
               end if
-              if( id_check .eq. 1 ) then
-                  exit_conden(i) = 1._r8
-                  id_exit = .true.
-                  go to 333
-              end if
+              if (use_native_init_shell_impl) then
+                 if( id_check .eq. 1 ) then
+                     exit_conden(i) = 1._r8
+                     id_exit = .true.
+                     go to 333
+                 end if
+              else
+                 call uwshcu_log_thermo_conden_exit_shell_entered()
+                 call uwshcu_thermo_conden_exit_shell_codon(int(id_check, c_int64_t), &
+                      c_loc(exit_conden(i)), c_loc(thermo_conden_exit_code_c))
+                 if( thermo_conden_exit_code_c .ne. 0_c_int64_t ) then
+                     id_exit = .true.
+                     go to 333
+                 endif
+              endif
               qlu_mid = 0.5_r8 * ( qlubelow + qlj ) * ( -ppen )        /( ps0(k-1) - ps0(k) )
               qiu_mid = 0.5_r8 * ( qiubelow + qij ) * ( -ppen )        /( ps0(k-1) - ps0(k) )
               qlu_top = qlj
@@ -8015,11 +8071,21 @@ end subroutine uwshcu_readnl
               else
                 call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,ncnst)
               end if
-              if( id_check .eq. 1 ) then
-                  exit_conden(i) = 1._r8
-                  id_exit = .true.
-                  go to 333
-              end if
+              if (use_native_init_shell_impl) then
+                 if( id_check .eq. 1 ) then
+                     exit_conden(i) = 1._r8
+                     id_exit = .true.
+                     go to 333
+                 end if
+              else
+                 call uwshcu_log_thermo_conden_exit_shell_entered()
+                 call uwshcu_thermo_conden_exit_shell_codon(int(id_check, c_int64_t), &
+                      c_loc(exit_conden(i)), c_loc(thermo_conden_exit_code_c))
+                 if( thermo_conden_exit_code_c .ne. 0_c_int64_t ) then
+                     id_exit = .true.
+                     go to 333
+                 endif
+              endif
               qlu_mid = 0.5_r8 * ( qlubelow + qlj )
               qiu_mid = 0.5_r8 * ( qiubelow + qij )
              !*************
