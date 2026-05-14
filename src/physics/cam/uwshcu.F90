@@ -82,6 +82,7 @@
   logical :: iter_env_restore_shell_entered_logged = .false.
   logical :: iter_env_restore_thermo_slope_shell_entered_logged = .false.
   logical :: release_prep_shell_entered_logged = .false.
+  logical :: release_conden_exit_shell_entered_logged = .false.
   logical :: scaleh_iter_init_shell_entered_logged = .false.
   logical :: penent_prep_shell_entered_logged = .false.
   logical :: turbulent_flux_shell_entered_logged = .false.
@@ -925,6 +926,23 @@ contains
     end if
 
   end subroutine uwshcu_log_release_prep_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_release_conden_exit_shell_entered()
+
+    if (release_conden_exit_shell_entered_logged) return
+    release_conden_exit_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu release conden exit shell entered (release-level conden exit flag direct = codon; conden/goto native)'
+       call uwshcu_append_proof( &
+            'uwshcu release conden exit shell entered (release-level conden exit flag direct = codon; conden/goto native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_release_conden_exit_shell_entered
 
 !===============================================================================
 
@@ -2411,6 +2429,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: interface_conden_exit_code_c
     integer(c_int64_t), target       :: cin_conden_exit_code_c
     integer(c_int64_t), target       :: krel_release_c
+    integer(c_int64_t), target       :: release_conden_exit_code_c
     integer(c_int64_t), target       :: kbup_iter_c, kpen_iter_c
     integer(c_int64_t), target       :: buoy_reach_exit_code_c
     integer(c_int64_t), target       :: buoy_conden_exit_code_c
@@ -3206,6 +3225,13 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: ps0_p, ufrc_p, umf_p, wu_p, emf_p, thlu_p, qtu_p
           type(c_ptr), value :: ufrcinvbase_p, winvbase_p, pe_p, dpe_p
        end subroutine uwshcu_release_base_shell_codon
+
+       subroutine uwshcu_release_conden_exit_shell_codon(id_check_c, exit_conden_p, exit_code_p) &
+            bind(c, name="uwshcu_release_conden_exit_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: id_check_c
+          type(c_ptr), value :: exit_conden_p, exit_code_p
+       end subroutine uwshcu_release_conden_exit_shell_codon
 
        subroutine uwshcu_release_env_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, kinv_c, krel_c, zvir_c, &
             pgfc_c, usrc_c, vsrc_c, prel_c, pe_c, thv0rel_c, thj_c, qvj_c, qlj_c, qij_c, &
@@ -5720,11 +5746,21 @@ end subroutine uwshcu_readnl
           qtu(krel-1)  = qtsrc
        endif
        call conden(prel,thlsrc,qtsrc,thj,qvj,qlj,qij,qse,id_check,ncnst)
-       if( id_check .eq. 1 ) then
-           exit_conden(i) = 1._r8
-           id_exit = .true.
-           go to 333
-       end if
+       if (use_native_init_shell_impl) then
+          if( id_check .eq. 1 ) then
+              exit_conden(i) = 1._r8
+              id_exit = .true.
+              go to 333
+          end if
+       else
+          call uwshcu_log_release_conden_exit_shell_entered()
+          call uwshcu_release_conden_exit_shell_codon(int(id_check, c_int64_t), &
+               c_loc(exit_conden(i)), c_loc(release_conden_exit_code_c))
+          if( release_conden_exit_code_c .ne. 0_c_int64_t ) then
+              id_exit = .true.
+              go to 333
+          end if
+       endif
        if (use_native_init_shell_impl) then
           thvu(krel-1) = thj * ( 1._r8 + zvir*qvj - qlj - qij )
 
