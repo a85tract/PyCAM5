@@ -3394,6 +3394,118 @@ def uwshcu_buoy_scaleh_shell_codon(
 
 
 @export
+def uwshcu_buoy_diag_update_shell_codon(
+    k_fortran: int,
+    excessu_v: float,
+    excess0_v: float,
+    xc_v: float,
+    aquad_v: float,
+    bquad_v: float,
+    cquad_v: float,
+    bogbot_v: float,
+    bogtop_v: float,
+    excessu_arr_p: cobj,
+    excess0_arr_p: cobj,
+    xc_arr_p: cobj,
+    aquad_arr_p: cobj,
+    bquad_arr_p: cobj,
+    cquad_arr_p: cobj,
+    bogbot_arr_p: cobj,
+    bogtop_arr_p: cobj,
+):
+    # Diagnostic arrays: Fortran real(r8) *_arr(mkx).
+    excessu_arr = Ptr[float](excessu_arr_p)
+    excess0_arr = Ptr[float](excess0_arr_p)
+    xc_arr = Ptr[float](xc_arr_p)
+    aquad_arr = Ptr[float](aquad_arr_p)
+    bquad_arr = Ptr[float](bquad_arr_p)
+    cquad_arr = Ptr[float](cquad_arr_p)
+    bogbot_arr = Ptr[float](bogbot_arr_p)
+    bogtop_arr = Ptr[float](bogtop_arr_p)
+
+    idx = k_fortran - 1
+    excessu_arr[idx] = excessu_v
+    excess0_arr[idx] = excess0_v
+    xc_arr[idx] = xc_v
+    aquad_arr[idx] = aquad_v
+    bquad_arr[idx] = bquad_v
+    cquad_arr[idx] = cquad_v
+    bogbot_arr[idx] = bogbot_v
+    bogtop_arr[idx] = bogtop_v
+
+
+@export
+def uwshcu_buoy_next_env_load_shell_codon(
+    k_fortran: int,
+    mkx: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    p0_p: cobj,
+    dp0_p: cobj,
+    exn0_p: cobj,
+    thv0bot_p: cobj,
+    thl0_p: cobj,
+    qt0_p: cobj,
+    u0_p: cobj,
+    v0_p: cobj,
+    tr0_p: cobj,
+    wt0_p: cobj,
+    pe_p: cobj,
+    dpe_p: cobj,
+    exne_p: cobj,
+    thvebot_p: cobj,
+    thle_p: cobj,
+    qte_p: cobj,
+    ue_p: cobj,
+    ve_p: cobj,
+    tre_p: cobj,
+    wte_p: cobj,
+):
+    # p0/dp0/exn0/thv0bot/thl0/qt0/u0/v0: Fortran real(r8) arrays with extent mkx.
+    # tr0/wt0: Fortran real(r8) tr0(mkx,ncnst), wt0(mkx,wtrc_nwset).
+    p0 = Ptr[float](p0_p)
+    dp0 = Ptr[float](dp0_p)
+    exn0 = Ptr[float](exn0_p)
+    thv0bot = Ptr[float](thv0bot_p)
+    thl0 = Ptr[float](thl0_p)
+    qt0 = Ptr[float](qt0_p)
+    u0 = Ptr[float](u0_p)
+    v0 = Ptr[float](v0_p)
+    tr0 = Ptr[float](tr0_p)
+    wt0 = Ptr[float](wt0_p)
+    pe = Ptr[float](pe_p)
+    dpe = Ptr[float](dpe_p)
+    exne = Ptr[float](exne_p)
+    thvebot = Ptr[float](thvebot_p)
+    thle = Ptr[float](thle_p)
+    qte = Ptr[float](qte_p)
+    ue = Ptr[float](ue_p)
+    ve = Ptr[float](ve_p)
+    tre = Ptr[float](tre_p)
+    wte = Ptr[float](wte_p)
+
+    layer_idx = k_fortran
+    pe[0] = p0[layer_idx]
+    dpe[0] = dp0[layer_idx]
+    exne[0] = exn0[layer_idx]
+    thvebot[0] = thv0bot[layer_idx]
+    thle[0] = thl0[layer_idx]
+    qte[0] = qt0[layer_idx]
+    ue[0] = u0[layer_idx]
+    ve[0] = v0[layer_idx]
+
+    m = 0
+    while m < ncnst:
+        tre[m] = tr0[layer_idx + m * mkx]
+        m += 1
+
+    m = 0
+    while m < wtrc_nwset:
+        wte[m] = wt0[layer_idx + m * mkx]
+        m += 1
+
+
+@export
 def uwshcu_cin_lcl_init_shell_codon(
     mkx: int,
     zvir: float,

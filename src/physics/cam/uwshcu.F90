@@ -59,6 +59,7 @@
   logical :: cin_thv_scalar_shell_entered_logged = .false.
   logical :: buoy_sort_scalar_shell_entered_logged = .false.
   logical :: buoy_top_shell_entered_logged = .false.
+  logical :: buoy_diag_env_shell_entered_logged = .false.
   logical :: pbl_precheck_shell_entered_logged = .false.
   logical :: pbl_source_shell_entered_logged = .false.
   logical :: pbl_precheck_source_shell_entered_logged = .false.
@@ -531,6 +532,23 @@ contains
     end if
 
   end subroutine uwshcu_log_buoy_top_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_buoy_diag_env_shell_entered()
+
+    if (buoy_diag_env_shell_entered_logged) return
+    buoy_diag_env_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu buoy diag/env shell entered (diagnostic arrays and next-layer env load direct = codon)'
+       call uwshcu_append_proof( &
+            'uwshcu buoy diag/env shell entered (diagnostic arrays and next-layer env load direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_buoy_diag_env_shell_entered
 
 !===============================================================================
 
@@ -1947,7 +1965,8 @@ end subroutine uwshcu_readnl
     real(r8), target :: thvj, tj, thv0j, rho0j
     real(r8), target :: cin, cinlcl
     real(r8), target :: pe, dpe, thvebot, thle, qte, ue, ve
-    real(r8)    exne, wue
+    real(r8), target :: exne
+    real(r8)    wue
     real(r8), target :: thlue, qtue
     real(r8)    mu, mumin0, mumin1, mumin2, mulcl, mulclstar
     real(r8), target :: cbmf, wlcl, ufrclcl
@@ -2765,6 +2784,29 @@ end subroutine uwshcu_readnl
           real(c_double), value :: r_c, g_c, ppen_c
           type(c_ptr), value :: ps0_p, zs0_p, thv0bot_p, thv0top_p, exns0_p, cush_p, scaleh_p
        end subroutine uwshcu_buoy_scaleh_shell_codon
+
+       subroutine uwshcu_buoy_diag_update_shell_codon(k_c, excessu_c, excess0_c, xc_c, &
+            aquad_c, bquad_c, cquad_c, bogbot_c, bogtop_c, excessu_arr_p, excess0_arr_p, &
+            xc_arr_p, aquad_arr_p, bquad_arr_p, cquad_arr_p, bogbot_arr_p, bogtop_arr_p) &
+            bind(c, name="uwshcu_buoy_diag_update_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: k_c
+          real(c_double), value :: excessu_c, excess0_c, xc_c, aquad_c, bquad_c, cquad_c
+          real(c_double), value :: bogbot_c, bogtop_c
+          type(c_ptr), value :: excessu_arr_p, excess0_arr_p, xc_arr_p, aquad_arr_p, bquad_arr_p
+          type(c_ptr), value :: cquad_arr_p, bogbot_arr_p, bogtop_arr_p
+       end subroutine uwshcu_buoy_diag_update_shell_codon
+
+       subroutine uwshcu_buoy_next_env_load_shell_codon(k_c, mkx_c, ncnst_c, wtrc_nwset_c, &
+            p0_p, dp0_p, exn0_p, thv0bot_p, thl0_p, qt0_p, u0_p, v0_p, tr0_p, wt0_p, &
+            pe_p, dpe_p, exne_p, thvebot_p, thle_p, qte_p, ue_p, ve_p, tre_p, wte_p) &
+            bind(c, name="uwshcu_buoy_next_env_load_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: k_c, mkx_c, ncnst_c, wtrc_nwset_c
+          type(c_ptr), value :: p0_p, dp0_p, exn0_p, thv0bot_p, thl0_p, qt0_p, u0_p, v0_p
+          type(c_ptr), value :: tr0_p, wt0_p, pe_p, dpe_p, exne_p, thvebot_p, thle_p, qte_p
+          type(c_ptr), value :: ue_p, ve_p, tre_p, wte_p
+       end subroutine uwshcu_buoy_next_env_load_shell_codon
 
        subroutine uwshcu_cin_lcl_init_shell_codon(mkx_c, zvir_c, thj_c, qvj_c, qlj_c, qij_c, &
             thv0lcl_p, cin_p, cinlcl_p, plfc_p, klfc_p) bind(c, name="uwshcu_cin_lcl_init_shell_codon")
@@ -6003,14 +6045,22 @@ end subroutine uwshcu_readnl
           ! Below block is just a dignostic output !
           ! -------------------------------------- ! 
 
-          excessu_arr(k) = excessu
-          excess0_arr(k) = excess0
-          xc_arr(k)      = xc
-          aquad_arr(k)   = aquad
-          bquad_arr(k)   = bquad
-          cquad_arr(K)   = cquad
-          bogbot_arr(k)  = bogbot
-          bogtop_arr(k)  = bogtop
+          if (use_native_init_shell_impl) then
+             excessu_arr(k) = excessu
+             excess0_arr(k) = excess0
+             xc_arr(k)      = xc
+             aquad_arr(k)   = aquad
+             bquad_arr(k)   = bquad
+             cquad_arr(K)   = cquad
+             bogbot_arr(k)  = bogbot
+             bogtop_arr(k)  = bogtop
+          else
+             call uwshcu_log_buoy_diag_env_shell_entered()
+             call uwshcu_buoy_diag_update_shell_codon(int(k, c_int64_t), excessu, excess0, xc, &
+                  aquad, bquad, cquad, bogbot, bogtop, c_loc(excessu_arr), c_loc(excess0_arr), &
+                  c_loc(xc_arr), c_loc(aquad_arr), c_loc(bquad_arr), c_loc(cquad_arr), &
+                  c_loc(bogbot_arr), c_loc(bogtop_arr))
+          endif
 
           ! ------------------------------------------------------------------- !
           ! 'kbup' is the upper most layer in which cloud buoyancy  is positive ! 
@@ -6076,27 +6126,37 @@ end subroutine uwshcu_readnl
           ! upper layer for use in buoyancy sorting.                     !
           ! ------------------------------------------------------------ ! 
 
-          pe      = p0(k+1)
-          dpe     = dp0(k+1)
-          exne    = exn0(k+1)
-          thvebot = thv0bot(k+1)
-          thle    = thl0(k+1)
-          qte     = qt0(k+1)
-          ue      = u0(k+1)
-          ve      = v0(k+1) 
-          do m = 1, ncnst
-             tre(m)  = tr0(k+1,m) !<-Water tracers handled here (may need to modify).
-          enddo
+          if (use_native_init_shell_impl) then
+             pe      = p0(k+1)
+             dpe     = dp0(k+1)
+             exne    = exn0(k+1)
+             thvebot = thv0bot(k+1)
+             thle    = thl0(k+1)
+             qte     = qt0(k+1)
+             ue      = u0(k+1)
+             ve      = v0(k+1)
+             do m = 1, ncnst
+                tre(m)  = tr0(k+1,m) !<-Water tracers handled here (may need to modify).
+             enddo
 
-          !*************
-          !Water tracers
-          !*************
-          if(trace_water) then
-            do m=1,wtrc_nwset
-              wte(m) = wt0(k+1,m)
-            end do
-          end if
-          !*************
+             !*************
+             !Water tracers
+             !*************
+             if(trace_water) then
+               do m=1,wtrc_nwset
+                 wte(m) = wt0(k+1,m)
+               end do
+             end if
+             !*************
+          else
+             wtrc_nwset_post_c = 0_c_int64_t
+             if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
+             call uwshcu_buoy_next_env_load_shell_codon(int(k, c_int64_t), int(mkx, c_int64_t), &
+                  int(ncnst, c_int64_t), wtrc_nwset_post_c, c_loc(p0), c_loc(dp0), c_loc(exn0), &
+                  c_loc(thv0bot), c_loc(thl0), c_loc(qt0), c_loc(u0), c_loc(v0), c_loc(tr0), &
+                  c_loc(wt0), c_loc(pe), c_loc(dpe), c_loc(exne), c_loc(thvebot), c_loc(thle), &
+                  c_loc(qte), c_loc(ue), c_loc(ve), c_loc(tre), c_loc(wte))
+          endif
 
        end do   ! End of cumulus updraft loop from the 'krel' layer to 'kpen' layer.
        
