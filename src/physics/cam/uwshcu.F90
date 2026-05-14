@@ -64,6 +64,7 @@
   logical :: buoy_velocity_shell_entered_logged = .false.
   logical :: buoy_midstate_shell_entered_logged = .false.
   logical :: buoy_self_detrain_shell_entered_logged = .false.
+  logical :: buoy_ufrc_init_shell_entered_logged = .false.
   logical :: buoy_diag_env_shell_entered_logged = .false.
   logical :: buoy_reach_shell_entered_logged = .false.
   logical :: pbl_precheck_shell_entered_logged = .false.
@@ -623,6 +624,23 @@ contains
     end if
 
   end subroutine uwshcu_log_buoy_self_detrain_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_buoy_ufrc_init_shell_entered()
+
+    if (buoy_ufrc_init_shell_entered_logged) return
+    buoy_ufrc_init_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu buoy ufrc init shell entered (rhos0j and ufrc pre-limiter direct = codon; limiter/log native)'
+       call uwshcu_append_proof( &
+            'uwshcu buoy ufrc init shell entered (rhos0j and ufrc pre-limiter direct = codon; limiter/log native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_buoy_ufrc_init_shell_entered
 
 !===============================================================================
 
@@ -2070,7 +2088,8 @@ end subroutine uwshcu_readnl
     real(r8), target :: tkeavg, thvlmin
     real(r8)    rkfre, sigmaw, epsvarw, dpsum, dpi
     real(r8)    thlxsat, qtxsat, thvxsat, x_cu, x_en, thv_x0, thv_x1
-    real(r8)    thj, qvj, qlj, qij, rhos0j, qse
+    real(r8), target :: rhos0j
+    real(r8)    thj, qvj, qlj, qij, qse
     real(r8), target :: thvj, tj, thv0j, rho0j
     real(r8), target :: cin, cinlcl
     real(r8), target :: pe, dpe, thvebot, thle, qte, ue, ve
@@ -2923,6 +2942,15 @@ end subroutine uwshcu_readnl
           real(c_double), value :: expfac_c
           type(c_ptr), value :: umf_p, wtw_p
        end subroutine uwshcu_buoy_self_detrain_shell_codon
+
+       subroutine uwshcu_buoy_ufrc_init_shell_codon(k_c, r_c, ps0_p, thv0bot_p, thv0top_p, &
+            exns0_p, umf_p, wu_p, ufrc_p, rhos0j_p) &
+            bind(c, name="uwshcu_buoy_ufrc_init_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: k_c
+          real(c_double), value :: r_c
+          type(c_ptr), value :: ps0_p, thv0bot_p, thv0top_p, exns0_p, umf_p, wu_p, ufrc_p, rhos0j_p
+       end subroutine uwshcu_buoy_ufrc_init_shell_codon
 
        subroutine uwshcu_buoy_top_expel_final_shell_codon(kpen_c, criqc_c, xlv_c, xls_c, cp_c, &
             exntop_c, qlj_c, qij_c, thlu_top_p, qtu_top_p, dwten_p, diten_p) &
@@ -6328,8 +6356,15 @@ end subroutine uwshcu_readnl
           ! If we update 'fer' however, we should go through above iteration loop. !
           ! ---------------------------------------------------------------------- !
             
-          rhos0j  = ps0(k) / ( r * 0.5_r8 * ( thv0bot(k+1) + thv0top(k) ) * exns0(k) )
-          ufrc(k) = umf(k) / ( rhos0j * wu(k) )
+          if (use_native_init_shell_impl) then
+             rhos0j  = ps0(k) / ( r * 0.5_r8 * ( thv0bot(k+1) + thv0top(k) ) * exns0(k) )
+             ufrc(k) = umf(k) / ( rhos0j * wu(k) )
+          else
+             call uwshcu_log_buoy_ufrc_init_shell_entered()
+             call uwshcu_buoy_ufrc_init_shell_codon(int(k, c_int64_t), r, c_loc(ps0), &
+                  c_loc(thv0bot), c_loc(thv0top), c_loc(exns0), c_loc(umf), c_loc(wu), &
+                  c_loc(ufrc), c_loc(rhos0j))
+          endif
           if( ufrc(k) .gt. rmaxfrac ) then
               limit_ufrc(i) = 1._r8 
               ufrc(k) = rmaxfrac

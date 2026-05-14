@@ -3609,6 +3609,34 @@ def uwshcu_buoy_self_detrain_shell_codon(
 
 
 @export
+def uwshcu_buoy_ufrc_init_shell_codon(
+    k_fortran: int,
+    r_v: float,
+    ps0_p: cobj,
+    thv0bot_p: cobj,
+    thv0top_p: cobj,
+    exns0_p: cobj,
+    umf_p: cobj,
+    wu_p: cobj,
+    ufrc_p: cobj,
+    rhos0j_p: cobj,
+):
+    # ps0/exns0/umf/wu/ufrc: Fortran real(r8) arrays with lower bound 0.
+    # thv0bot/thv0top: Fortran real(r8) arrays with lower bound 1.
+    ps0 = Ptr[float](ps0_p)
+    thv0bot = Ptr[float](thv0bot_p)
+    thv0top = Ptr[float](thv0top_p)
+    exns0 = Ptr[float](exns0_p)
+    umf = Ptr[float](umf_p)
+    wu = Ptr[float](wu_p)
+    ufrc = Ptr[float](ufrc_p)
+    rhos0j = Ptr[float](rhos0j_p)
+
+    rhos0j[0] = ps0[k_fortran] / (r_v * 0.5 * (thv0bot[k_fortran] + thv0top[k_fortran - 1]) * exns0[k_fortran])
+    ufrc[k_fortran] = umf[k_fortran] / (rhos0j[0] * wu[k_fortran])
+
+
+@export
 def uwshcu_buoy_top_expel_final_shell_codon(
     kpen: int,
     criqc: float,
