@@ -72,6 +72,7 @@
   logical :: buoy_top_conden_exit_shell_entered_logged = .false.
   logical :: buoy_diag_env_shell_entered_logged = .false.
   logical :: buoy_reach_shell_entered_logged = .false.
+  logical :: buoy_wu_exit_shell_entered_logged = .false.
   logical :: pbl_precheck_shell_entered_logged = .false.
   logical :: pbl_source_shell_entered_logged = .false.
   logical :: pbl_precheck_source_shell_entered_logged = .false.
@@ -770,6 +771,23 @@ contains
     end if
 
   end subroutine uwshcu_log_buoy_reach_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_buoy_wu_exit_shell_entered()
+
+    if (buoy_wu_exit_shell_entered_logged) return
+    buoy_wu_exit_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu buoy wu exit shell entered (updraft velocity exit flag direct = codon; sqrt/goto native)'
+       call uwshcu_append_proof( &
+            'uwshcu buoy wu exit shell entered (updraft velocity exit flag direct = codon; sqrt/goto native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_buoy_wu_exit_shell_entered
 
 !===============================================================================
 
@@ -2504,6 +2522,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: release_conden_exit_code_c
     integer(c_int64_t), target       :: kbup_iter_c, kpen_iter_c
     integer(c_int64_t), target       :: buoy_reach_exit_code_c
+    integer(c_int64_t), target       :: buoy_wu_exit_code_c
     integer(c_int64_t), target       :: buoy_conden_exit_code_c
     integer(c_int64_t), target       :: buoy_top_conden_exit_code_c
     integer(c_int64_t), target       :: cloud_diag_conden_exit_code_c
@@ -3220,6 +3239,13 @@ end subroutine uwshcu_readnl
           real(c_double), value :: bogtop_c, wtw_c
           type(c_ptr), value :: kbup_p, kpen_p, exit_code_p
        end subroutine uwshcu_buoy_reach_update_shell_codon
+
+       subroutine uwshcu_buoy_wu_exit_shell_codon(wu_c, exit_wu_p, exit_code_p) &
+            bind(c, name="uwshcu_buoy_wu_exit_shell_codon")
+          use iso_c_binding, only: c_double, c_ptr
+          real(c_double), value :: wu_c
+          type(c_ptr), value :: exit_wu_p, exit_code_p
+       end subroutine uwshcu_buoy_wu_exit_shell_codon
 
        subroutine uwshcu_buoy_next_env_load_shell_codon(k_c, mkx_c, ncnst_c, wtrc_nwset_c, &
             p0_p, dp0_p, exn0_p, thv0bot_p, thl0_p, qt0_p, u0_p, v0_p, tr0_p, wt0_p, &
@@ -6729,10 +6755,19 @@ end subroutine uwshcu_readnl
 	          endif
 
 	          wu(k) = sqrt(wtw)
-          if( wu(k) .gt. 100._r8 ) then
-              exit_wu(i) = 1._r8
-              id_exit = .true.
-              go to 333
+          if (use_native_init_shell_impl) then
+             if( wu(k) .gt. 100._r8 ) then
+                 exit_wu(i) = 1._r8
+                 id_exit = .true.
+                 go to 333
+             endif
+          else
+             call uwshcu_log_buoy_wu_exit_shell_entered()
+             call uwshcu_buoy_wu_exit_shell_codon(wu(k), c_loc(exit_wu(i)), c_loc(buoy_wu_exit_code_c))
+             if( buoy_wu_exit_code_c .ne. 0_c_int64_t ) then
+                 id_exit = .true.
+                 go to 333
+             endif
           endif
 
           ! ---------------------------------------------------------------------------- !

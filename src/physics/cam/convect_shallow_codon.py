@@ -3840,6 +3840,21 @@ def uwshcu_buoy_reach_update_shell_codon(
 
 
 @export
+def uwshcu_buoy_wu_exit_shell_codon(
+    wu_v: float,
+    exit_wu_p: cobj,
+    exit_code_p: cobj,
+):
+    exit_wu = Ptr[float](exit_wu_p)
+    exit_code = Ptr[int](exit_code_p)
+
+    exit_code[0] = 0
+    if wu_v > 100.0:
+        exit_wu[0] = 1.0
+        exit_code[0] = 1
+
+
+@export
 def uwshcu_buoy_next_env_load_shell_codon(
     k_fortran: int,
     mkx: int,
