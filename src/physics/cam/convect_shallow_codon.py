@@ -3637,6 +3637,18 @@ def uwshcu_buoy_ufrc_init_shell_codon(
 
 
 @export
+def uwshcu_buoy_ppen_limit_shell_codon(
+    ppen: float,
+    dp0_kpen: float,
+    limit_ppen_p: cobj,
+):
+    limit_ppen = Ptr[float](limit_ppen_p)
+
+    if ppen == -dp0_kpen or ppen == 0.0:
+        limit_ppen[0] = 1.0
+
+
+@export
 def uwshcu_buoy_top_expel_final_shell_codon(
     kpen: int,
     criqc: float,

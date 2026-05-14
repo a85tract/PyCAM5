@@ -65,6 +65,7 @@
   logical :: buoy_midstate_shell_entered_logged = .false.
   logical :: buoy_self_detrain_shell_entered_logged = .false.
   logical :: buoy_ufrc_init_shell_entered_logged = .false.
+  logical :: buoy_ppen_limit_shell_entered_logged = .false.
   logical :: buoy_diag_env_shell_entered_logged = .false.
   logical :: buoy_reach_shell_entered_logged = .false.
   logical :: pbl_precheck_shell_entered_logged = .false.
@@ -641,6 +642,23 @@ contains
     end if
 
   end subroutine uwshcu_log_buoy_ufrc_init_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_buoy_ppen_limit_shell_entered()
+
+    if (buoy_ppen_limit_shell_entered_logged) return
+    buoy_ppen_limit_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu buoy ppen limit shell entered (ppen endpoint limit flag direct = codon; roots/compute_ppen native)'
+       call uwshcu_append_proof( &
+            'uwshcu buoy ppen limit shell entered (ppen endpoint limit flag direct = codon; roots/compute_ppen native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_buoy_ppen_limit_shell_entered
 
 !===============================================================================
 
@@ -2951,6 +2969,13 @@ end subroutine uwshcu_readnl
           real(c_double), value :: r_c
           type(c_ptr), value :: ps0_p, thv0bot_p, thv0top_p, exns0_p, umf_p, wu_p, ufrc_p, rhos0j_p
        end subroutine uwshcu_buoy_ufrc_init_shell_codon
+
+       subroutine uwshcu_buoy_ppen_limit_shell_codon(ppen_c, dp0_kpen_c, limit_ppen_p) &
+            bind(c, name="uwshcu_buoy_ppen_limit_shell_codon")
+          use iso_c_binding, only: c_double, c_ptr
+          real(c_double), value :: ppen_c, dp0_kpen_c
+          type(c_ptr), value :: limit_ppen_p
+       end subroutine uwshcu_buoy_ppen_limit_shell_codon
 
        subroutine uwshcu_buoy_top_expel_final_shell_codon(kpen_c, criqc_c, xlv_c, xls_c, cp_c, &
             exntop_c, qlj_c, qij_c, thlu_top_p, qtu_top_p, dwten_p, diten_p) &
@@ -6475,7 +6500,12 @@ end subroutine uwshcu_readnl
        else 
            ppen = compute_ppen(wtwb,drage,bogbot,bogtop,rho0j,dp0(kpen))
        endif
-       if( ppen .eq. -dp0(kpen) .or. ppen .eq. 0._r8 ) limit_ppen(i) = 1._r8
+       if (use_native_init_shell_impl) then
+          if( ppen .eq. -dp0(kpen) .or. ppen .eq. 0._r8 ) limit_ppen(i) = 1._r8
+       else
+          call uwshcu_log_buoy_ppen_limit_shell_entered()
+          call uwshcu_buoy_ppen_limit_shell_codon(ppen, dp0(kpen), c_loc(limit_ppen(i)))
+       endif
 
        ! -------------------------------------------------------------------- !
        ! Re-calculate the amount of expelled condensate from cloud updraft    !
