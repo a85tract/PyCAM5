@@ -3590,6 +3590,25 @@ def uwshcu_buoy_midstate_shell_codon(
 
 
 @export
+def uwshcu_buoy_self_detrain_shell_codon(
+    k_fortran: int,
+    use_self_detrain: int,
+    expfac: float,
+    umf_p: cobj,
+    wtw_p: cobj,
+):
+    # umf: Fortran real(r8) umf(0:mkx); wtw is a scalar.
+    umf = Ptr[float](umf_p)
+    wtw = Ptr[float](wtw_p)
+
+    if use_self_detrain != 0:
+        umf[k_fortran] = umf[k_fortran] * expfac
+
+    if umf[k_fortran] == 0.0:
+        wtw[0] = -1.0
+
+
+@export
 def uwshcu_buoy_top_expel_final_shell_codon(
     kpen: int,
     criqc: float,

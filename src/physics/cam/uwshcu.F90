@@ -63,6 +63,7 @@
   logical :: buoy_updraft_state_shell_entered_logged = .false.
   logical :: buoy_velocity_shell_entered_logged = .false.
   logical :: buoy_midstate_shell_entered_logged = .false.
+  logical :: buoy_self_detrain_shell_entered_logged = .false.
   logical :: buoy_diag_env_shell_entered_logged = .false.
   logical :: buoy_reach_shell_entered_logged = .false.
   logical :: pbl_precheck_shell_entered_logged = .false.
@@ -605,6 +606,23 @@ contains
     end if
 
   end subroutine uwshcu_log_buoy_midstate_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_buoy_self_detrain_shell_entered()
+
+    if (buoy_self_detrain_shell_entered_logged) return
+    buoy_self_detrain_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu buoy self-detrain shell entered (self-detrain apply and zero-wtw direct = codon; autodet/exp native)'
+       call uwshcu_append_proof( &
+            'uwshcu buoy self-detrain shell entered (self-detrain apply and zero-wtw direct = codon; autodet/exp native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_buoy_self_detrain_shell_entered
 
 !===============================================================================
 
@@ -2070,7 +2088,7 @@ end subroutine uwshcu_readnl
     real(r8), target :: thl0lcl, qt0lcl
     real(r8), target :: thv0lcl
     real(r8), target :: thv0rel
-    real(r8)    rho0inv, autodet
+    real(r8)    rho0inv, autodet, self_detrain_expfac
     real(r8)    aquad, bquad, cquad, xc1, xc2, xsat, xs1, xs2
     real(r8), target :: excessu, excess0
     real(r8), target :: bogbot, bogtop, delbog
@@ -2897,6 +2915,14 @@ end subroutine uwshcu_readnl
           integer(c_int64_t), value :: k_c
           type(c_ptr), value :: thlu_p, qtu_p, thlue_p, qtue_p
        end subroutine uwshcu_buoy_midstate_shell_codon
+
+       subroutine uwshcu_buoy_self_detrain_shell_codon(k_c, use_self_detrain_c, expfac_c, &
+            umf_p, wtw_p) bind(c, name="uwshcu_buoy_self_detrain_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: k_c, use_self_detrain_c
+          real(c_double), value :: expfac_c
+          type(c_ptr), value :: umf_p, wtw_p
+       end subroutine uwshcu_buoy_self_detrain_shell_codon
 
        subroutine uwshcu_buoy_top_expel_final_shell_codon(kpen_c, criqc_c, xlv_c, xls_c, cp_c, &
             exntop_c, qlj_c, qij_c, thlu_top_p, qtu_top_p, dwten_p, diten_p) &
@@ -6202,11 +6228,23 @@ end subroutine uwshcu_readnl
           ! determined by setting 'use_self_detrain=.true.' in the parameter sentence.  !
           ! --------------------------------------------------------------------------- !
      
-          if( use_self_detrain ) then
-              autodet = min( 0.5_r8*g*(bogbot+bogtop)/(max(wtw,0._r8)+1.e-4_r8), 0._r8 ) 
-              umf(k)  = umf(k) * exp( 0.637_r8*(dpe/rho0j/g) * autodet )   
-          end if      
-          if( umf(k) .eq. 0._r8 ) wtw = -1._r8
+          if (use_native_init_shell_impl) then
+             if( use_self_detrain ) then
+                 autodet = min( 0.5_r8*g*(bogbot+bogtop)/(max(wtw,0._r8)+1.e-4_r8), 0._r8 )
+                 umf(k)  = umf(k) * exp( 0.637_r8*(dpe/rho0j/g) * autodet )
+             end if
+             if( umf(k) .eq. 0._r8 ) wtw = -1._r8
+          else
+             self_detrain_expfac = 1._r8
+             if( use_self_detrain ) then
+                 autodet = min( 0.5_r8*g*(bogbot+bogtop)/(max(wtw,0._r8)+1.e-4_r8), 0._r8 )
+                 self_detrain_expfac = exp( 0.637_r8*(dpe/rho0j/g) * autodet )
+             end if
+             call uwshcu_log_buoy_self_detrain_shell_entered()
+             call uwshcu_buoy_self_detrain_shell_codon(int(k, c_int64_t), &
+                  merge(1_c_int64_t, 0_c_int64_t, use_self_detrain), self_detrain_expfac, &
+                  c_loc(umf), c_loc(wtw))
+          endif
 
           ! -------------------------------------- !
           ! Below block is just a dignostic output !
