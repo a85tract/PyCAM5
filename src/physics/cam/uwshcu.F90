@@ -62,6 +62,7 @@
   logical :: buoy_top_shell_entered_logged = .false.
   logical :: buoy_updraft_state_shell_entered_logged = .false.
   logical :: buoy_velocity_shell_entered_logged = .false.
+  logical :: buoy_midstate_shell_entered_logged = .false.
   logical :: buoy_diag_env_shell_entered_logged = .false.
   logical :: buoy_reach_shell_entered_logged = .false.
   logical :: pbl_precheck_shell_entered_logged = .false.
@@ -587,6 +588,23 @@ contains
     end if
 
   end subroutine uwshcu_log_buoy_velocity_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_buoy_midstate_shell_entered()
+
+    if (buoy_midstate_shell_entered_logged) return
+    buoy_midstate_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu buoy midstate shell entered (positive-wtw midpoint state direct = codon; sqrt/goto native)'
+       call uwshcu_append_proof( &
+            'uwshcu buoy midstate shell entered (positive-wtw midpoint state direct = codon; sqrt/goto native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_buoy_midstate_shell_entered
 
 !===============================================================================
 
@@ -2872,6 +2890,13 @@ end subroutine uwshcu_readnl
           real(c_double), value :: drage_c, dpe_c, expfac_c, rho0j_c
           type(c_ptr), value :: bogbot_p, bogtop_p, delbog_p, wtwb_p, wtw_p
        end subroutine uwshcu_buoy_velocity_shell_codon
+
+       subroutine uwshcu_buoy_midstate_shell_codon(k_c, thlu_p, qtu_p, thlue_p, qtue_p) &
+            bind(c, name="uwshcu_buoy_midstate_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: k_c
+          type(c_ptr), value :: thlu_p, qtu_p, thlue_p, qtue_p
+       end subroutine uwshcu_buoy_midstate_shell_codon
 
        subroutine uwshcu_buoy_top_expel_final_shell_codon(kpen_c, criqc_c, xlv_c, xls_c, cp_c, &
             exntop_c, qlj_c, qij_c, thlu_top_p, qtu_top_p, dwten_p, diten_p) &
@@ -6141,9 +6166,15 @@ end subroutine uwshcu_readnl
           ! Also treat the case even when wtw < 0 at the 'kpen' interface. !
           ! -------------------------------------------------------------- !  
           
-          if( wtw .gt. 0._r8 ) then   
-              thlue = 0.5_r8 * ( thlu(km1) + thlu(k) )
-              qtue  = 0.5_r8 * ( qtu(km1)  +  qtu(k) )         
+          if( wtw .gt. 0._r8 ) then
+              if (use_native_init_shell_impl) then
+                 thlue = 0.5_r8 * ( thlu(km1) + thlu(k) )
+                 qtue  = 0.5_r8 * ( qtu(km1)  +  qtu(k) )
+              else
+                 call uwshcu_log_buoy_midstate_shell_entered()
+                 call uwshcu_buoy_midstate_shell_codon(int(k, c_int64_t), c_loc(thlu), c_loc(qtu), &
+                      c_loc(thlue), c_loc(qtue))
+              endif
               wue   = 0.5_r8 *   sqrt( max( wtwb + wtw, 0._r8 ) )
           else
               go to 111

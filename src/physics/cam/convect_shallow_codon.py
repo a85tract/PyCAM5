@@ -3572,6 +3572,24 @@ def uwshcu_buoy_velocity_shell_codon(
 
 
 @export
+def uwshcu_buoy_midstate_shell_codon(
+    k_fortran: int,
+    thlu_p: cobj,
+    qtu_p: cobj,
+    thlue_p: cobj,
+    qtue_p: cobj,
+):
+    # thlu/qtu: Fortran real(r8) thlu(0:mkx), qtu(0:mkx).
+    thlu = Ptr[float](thlu_p)
+    qtu = Ptr[float](qtu_p)
+    thlue = Ptr[float](thlue_p)
+    qtue = Ptr[float](qtue_p)
+
+    thlue[0] = 0.5 * (thlu[k_fortran - 1] + thlu[k_fortran])
+    qtue[0] = 0.5 * (qtu[k_fortran - 1] + qtu[k_fortran])
+
+
+@export
 def uwshcu_buoy_top_expel_final_shell_codon(
     kpen: int,
     criqc: float,
