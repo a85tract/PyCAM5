@@ -85,6 +85,7 @@
   logical :: iter_env_restore_thermo_slope_shell_entered_logged = .false.
   logical :: release_prep_shell_entered_logged = .false.
   logical :: release_mu_exit_shell_entered_logged = .false.
+  logical :: release_mu_limit_shell_entered_logged = .false.
   logical :: release_base_exit_shell_entered_logged = .false.
   logical :: release_conden_exit_shell_entered_logged = .false.
   logical :: scaleh_iter_init_shell_entered_logged = .false.
@@ -825,6 +826,23 @@ contains
     end if
 
   end subroutine uwshcu_log_release_mu_exit_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_release_mu_limit_shell_entered()
+
+    if (release_mu_limit_shell_entered_logged) return
+    release_mu_limit_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu release mu limit shell entered (mumin limit flags direct = codon; exp/erfc/compute_mumin2 native)'
+       call uwshcu_append_proof( &
+            'uwshcu release mu limit shell entered (mumin limit flags direct = codon; exp/erfc/compute_mumin2 native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_release_mu_limit_shell_entered
 
 !===============================================================================
 
@@ -3319,6 +3337,20 @@ end subroutine uwshcu_readnl
           real(c_double), value :: mu_c
           type(c_ptr), value :: exit_code_p
        end subroutine uwshcu_release_mu_exit_shell_codon
+
+       subroutine uwshcu_release_mumin2_limit_shell_codon(mu_c, mumin2_c, limit_ufrc_p) &
+            bind(c, name="uwshcu_release_mumin2_limit_shell_codon")
+          use iso_c_binding, only: c_double, c_ptr
+          real(c_double), value :: mu_c, mumin2_c
+          type(c_ptr), value :: limit_ufrc_p
+       end subroutine uwshcu_release_mumin2_limit_shell_codon
+
+       subroutine uwshcu_release_mu_limit_flags_shell_codon(mu_c, mumin0_c, mumin1_c, &
+            limit_cbmf_p, limit_ufrc_p) bind(c, name="uwshcu_release_mu_limit_flags_shell_codon")
+          use iso_c_binding, only: c_double, c_ptr
+          real(c_double), value :: mu_c, mumin0_c, mumin1_c
+          type(c_ptr), value :: limit_cbmf_p, limit_ufrc_p
+       end subroutine uwshcu_release_mu_limit_flags_shell_codon
 
        subroutine uwshcu_release_wtw_exit_shell_codon(wtw_c, exit_wtw_p, exit_code_p) &
             bind(c, name="uwshcu_release_wtw_exit_shell_codon")
@@ -5881,10 +5913,21 @@ end subroutine uwshcu_readnl
                call endrun
            endif
            mu = max(mu,mumin2)
-           if( mu .eq. mumin2 ) limit_ufrc(i) = 1._r8
+           if (use_native_init_shell_impl) then
+              if( mu .eq. mumin2 ) limit_ufrc(i) = 1._r8
+           else
+              call uwshcu_log_release_mu_limit_shell_entered()
+              call uwshcu_release_mumin2_limit_shell_codon(mu, mumin2, c_loc(limit_ufrc(i)))
+           endif
        endif
-       if( mu .eq. mumin0 ) limit_cbmf(i) = 1._r8
-       if( mu .eq. mumin1 ) limit_ufrc(i) = 1._r8
+       if (use_native_init_shell_impl) then
+          if( mu .eq. mumin0 ) limit_cbmf(i) = 1._r8
+          if( mu .eq. mumin1 ) limit_ufrc(i) = 1._r8
+       else
+          call uwshcu_log_release_mu_limit_shell_entered()
+          call uwshcu_release_mu_limit_flags_shell_codon(mu, mumin0, mumin1, &
+               c_loc(limit_cbmf(i)), c_loc(limit_ufrc(i)))
+       endif
 
        ! ------------------------------------------------------------------- !    
        ! Calculate final ['cbmf','ufrcinv','winv'] at the PBL top interface. !

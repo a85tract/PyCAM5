@@ -3893,6 +3893,35 @@ def uwshcu_release_mu_exit_shell_codon(
 
 
 @export
+def uwshcu_release_mumin2_limit_shell_codon(
+    mu_v: float,
+    mumin2_v: float,
+    limit_ufrc_p: cobj,
+):
+    limit_ufrc = Ptr[float](limit_ufrc_p)
+
+    if mu_v == mumin2_v:
+        limit_ufrc[0] = 1.0
+
+
+@export
+def uwshcu_release_mu_limit_flags_shell_codon(
+    mu_v: float,
+    mumin0_v: float,
+    mumin1_v: float,
+    limit_cbmf_p: cobj,
+    limit_ufrc_p: cobj,
+):
+    limit_cbmf = Ptr[float](limit_cbmf_p)
+    limit_ufrc = Ptr[float](limit_ufrc_p)
+
+    if mu_v == mumin0_v:
+        limit_cbmf[0] = 1.0
+    if mu_v == mumin1_v:
+        limit_ufrc[0] = 1.0
+
+
+@export
 def uwshcu_release_wtw_exit_shell_codon(
     wtw_v: float,
     exit_wtw_p: cobj,
