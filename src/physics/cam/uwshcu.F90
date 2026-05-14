@@ -58,6 +58,7 @@
   logical :: iter_interface_thv_shell_entered_logged = .false.
   logical :: cin_thv_scalar_shell_entered_logged = .false.
   logical :: buoy_sort_scalar_shell_entered_logged = .false.
+  logical :: buoy_top_shell_entered_logged = .false.
   logical :: pbl_precheck_shell_entered_logged = .false.
   logical :: pbl_source_shell_entered_logged = .false.
   logical :: pbl_precheck_source_shell_entered_logged = .false.
@@ -513,6 +514,23 @@ contains
     end if
 
   end subroutine uwshcu_log_buoy_sort_scalar_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_buoy_top_shell_entered()
+
+    if (buoy_top_shell_entered_logged) return
+    buoy_top_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu buoy top shell entered (top condensate/thv/scaleh scalars direct = codon; conden/exnf/wtrc_ratio native)'
+       call uwshcu_append_proof( &
+            'uwshcu buoy top shell entered (top condensate/thv/scaleh scalars direct = codon; conden/exnf/wtrc_ratio native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_buoy_top_shell_entered
 
 !===============================================================================
 
@@ -1937,7 +1955,8 @@ end subroutine uwshcu_readnl
     real(r8)    criqc, exql, exqi, ppen
     real(r8)    thl0top, thl0bot, qt0bot, qt0top
     real(r8), target :: thvubot, thvutop
-    real(r8)    thlu_top, qtu_top, qlu_top, qiu_top, qlu_mid, qiu_mid, exntop
+    real(r8), target :: thlu_top, qtu_top
+    real(r8)    qlu_top, qiu_top, qlu_mid, qiu_mid, exntop
     real(r8), target :: thl0lcl, qt0lcl
     real(r8), target :: thv0lcl
     real(r8), target :: thv0rel
@@ -2719,6 +2738,33 @@ end subroutine uwshcu_readnl
           real(c_double), value :: zvir_c, exne_c, thj_c, qvj_c, qlj_c, qij_c, thlue_c
           type(c_ptr), value :: thvj_p, tj_p, qsat_arg_p
        end subroutine uwshcu_buoy_up_pre_qsat_shell_codon
+
+       subroutine uwshcu_buoy_top_expel_shell_codon(k_c, criqc_c, xlv_c, xls_c, cp_c, exn_c, &
+            qlj_c, qij_c, qtu_p, thlu_p, dwten_p, diten_p) &
+            bind(c, name="uwshcu_buoy_top_expel_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: k_c
+          real(c_double), value :: criqc_c, xlv_c, xls_c, cp_c, exn_c, qlj_c, qij_c
+          type(c_ptr), value :: qtu_p, thlu_p, dwten_p, diten_p
+       end subroutine uwshcu_buoy_top_expel_shell_codon
+
+       subroutine uwshcu_buoy_top_expel_final_shell_codon(kpen_c, criqc_c, xlv_c, xls_c, cp_c, &
+            exntop_c, qlj_c, qij_c, thlu_top_p, qtu_top_p, dwten_p, diten_p) &
+            bind(c, name="uwshcu_buoy_top_expel_final_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: kpen_c
+          real(c_double), value :: criqc_c, xlv_c, xls_c, cp_c, exntop_c, qlj_c, qij_c
+          type(c_ptr), value :: thlu_top_p, qtu_top_p, dwten_p, diten_p
+       end subroutine uwshcu_buoy_top_expel_final_shell_codon
+
+       subroutine uwshcu_buoy_scaleh_shell_codon(kpen_c, r_c, g_c, ppen_c, ps0_p, zs0_p, &
+            thv0bot_p, thv0top_p, exns0_p, cush_p, scaleh_p) &
+            bind(c, name="uwshcu_buoy_scaleh_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: kpen_c
+          real(c_double), value :: r_c, g_c, ppen_c
+          type(c_ptr), value :: ps0_p, zs0_p, thv0bot_p, thv0top_p, exns0_p, cush_p, scaleh_p
+       end subroutine uwshcu_buoy_scaleh_shell_codon
 
        subroutine uwshcu_cin_lcl_init_shell_codon(mkx_c, zvir_c, thj_c, qvj_c, qlj_c, qij_c, &
             thv0lcl_p, cin_p, cinlcl_p, plfc_p, klfc_p) bind(c, name="uwshcu_cin_lcl_init_shell_codon")
@@ -5780,66 +5826,90 @@ end subroutine uwshcu_readnl
               id_exit = .true.
               go to 333
           end if
-          if( (qlj + qij) .gt. criqc ) then
-               exql    = ( ( qlj + qij ) - criqc ) * qlj / ( qlj + qij )
-               exqi    = ( ( qlj + qij ) - criqc ) * qij / ( qlj + qij )
-               ! ---------------------------------------------------------------- !
-               ! It is very important to re-update 'qtu' and 'thlu'  at the upper ! 
-               ! interface after expelling condensate from cumulus updraft at the !
-               ! top interface of the layer. As mentioned above, this is a 'sink' !
-               ! of cumulus qt (or equivalently, a 'source' of environmentasl qt),!
-               ! not a regular convective'detrainment'.                           !
-               ! ---------------------------------------------------------------- !
-               qtu(k)  = qtu(k) - exql - exqi
-               thlu(k) = thlu(k) + (xlv/cp/exns0(k))*exql + (xls/cp/exns0(k))*exqi 
-               ! ---------------------------------------------------------------- !
-               ! Expelled cloud condensate into the environment from the updraft. ! 
-               ! After all the calculation later, 'dwten' and 'diten' will have a !
-               ! unit of [ kg/kg/s ], because it is a tendency of qt. Restoration !
-               ! of 'dwten' and 'diten' to this correct unit through  multiplying !
-               ! 'umf(k)*g/dp0(k)' will be performed later after finally updating !
-               ! 'umf' using a 'rmaxfrac' constraint near the end of this updraft !
-               ! buoyancy sorting loop.                                           !
-               ! ---------------------------------------------------------------- !
-               dwten(k) = exql   
-               diten(k) = exqi
+          if (use_native_init_shell_impl) then
+             if( (qlj + qij) .gt. criqc ) then
+                  exql    = ( ( qlj + qij ) - criqc ) * qlj / ( qlj + qij )
+                  exqi    = ( ( qlj + qij ) - criqc ) * qij / ( qlj + qij )
+                  ! ---------------------------------------------------------------- !
+                  ! It is very important to re-update 'qtu' and 'thlu'  at the upper !
+                  ! interface after expelling condensate from cumulus updraft at the !
+                  ! top interface of the layer. As mentioned above, this is a 'sink' !
+                  ! of cumulus qt (or equivalently, a 'source' of environmentasl qt),!
+                  ! not a regular convective'detrainment'.                           !
+                  ! ---------------------------------------------------------------- !
+                  qtu(k)  = qtu(k) - exql - exqi
+                  thlu(k) = thlu(k) + (xlv/cp/exns0(k))*exql + (xls/cp/exns0(k))*exqi
+                  ! ---------------------------------------------------------------- !
+                  ! Expelled cloud condensate into the environment from the updraft. !
+                  ! After all the calculation later, 'dwten' and 'diten' will have a !
+                  ! unit of [ kg/kg/s ], because it is a tendency of qt. Restoration !
+                  ! of 'dwten' and 'diten' to this correct unit through  multiplying !
+                  ! 'umf(k)*g/dp0(k)' will be performed later after finally updating !
+                  ! 'umf' using a 'rmaxfrac' constraint near the end of this updraft !
+                  ! buoyancy sorting loop.                                           !
+                  ! ---------------------------------------------------------------- !
+                  dwten(k) = exql
+                  diten(k) = exqi
 
-               if(trace_water) then
-               !**********************************************************
-               !Generate condensate detrainment for water tracers/isotopes
-               !**********************************************************
-               !Method one:  Calculate condensate ratio, and adjust detrainment
-               !values accordingly. - JN
-                 do m=1,wtrc_nwset !Loop over water species
+                  if(trace_water) then
+                  !**********************************************************
+                  !Generate condensate detrainment for water tracers/isotopes
+                  !**********************************************************
+                  !Method one:  Calculate condensate ratio, and adjust detrainment
+                  !values accordingly. - JN
+                    do m=1,wtrc_nwset !Loop over water species
 
-                   Rldt = wtrc_ratio(iwspec(wtrc_iatype(m,iwtliq)),wtout(m,2),&
-                                     wtout(1,2))  !Calculate liquid ratio
-                   Ridt = wtrc_ratio(iwspec(wtrc_iatype(m,iwtice)),wtout(m,3),&
-                                     wtout(1,3))  !Calculate ice ratio
+                      Rldt = wtrc_ratio(iwspec(wtrc_iatype(m,iwtliq)),wtout(m,2),&
+                                        wtout(1,2))  !Calculate liquid ratio
+                      Ridt = wtrc_ratio(iwspec(wtrc_iatype(m,iwtice)),wtout(m,3),&
+                                        wtout(1,3))  !Calculate ice ratio
 
-                   wtexql(m) = Rldt*exql  !Modify detrainment by tracer ratio
-                   wtexqi(m) = Ridt*exqi
+                      wtexql(m) = Rldt*exql  !Modify detrainment by tracer ratio
+                      wtexqi(m) = Ridt*exqi
 
-                  !Remove detrained condensate from updraft values:
-                   tru(k,wtrc_iatype(m,iwtliq)) = tru(k,wtrc_iatype(m,iwtliq)) - wtexql(m)
-                   tru(k,wtrc_iatype(m,iwtice)) = tru(k,wtrc_iatype(m,iwtice)) - wtexqi(m)
+                     !Remove detrained condensate from updraft values:
+                      tru(k,wtrc_iatype(m,iwtliq)) = tru(k,wtrc_iatype(m,iwtliq)) - wtexql(m)
+                      tru(k,wtrc_iatype(m,iwtice)) = tru(k,wtrc_iatype(m,iwtice)) - wtexqi(m)
 
-                   wtu(k,m) = wtu(k,m) - wtexql(m) - wtexqi(m)
+                      wtu(k,m) = wtu(k,m) - wtexql(m) - wtexqi(m)
 
-                  !Add detrained condensate to detrainment tendency:
-                   wtdwten(k,m) = wtexql(m)
-                   wtditen(k,m) = wtexqi(m)
-                 end do
-               !**********************************************************
-               end if
+                     !Add detrained condensate to detrainment tendency:
+                      wtdwten(k,m) = wtexql(m)
+                      wtditen(k,m) = wtexqi(m)
+                    end do
+                  !**********************************************************
+                  end if
 
+             else
+                  dwten(k) = 0._r8
+                  diten(k) = 0._r8
+
+                 !Water tracers:
+                  wtdwten(k,:) = 0._r8
+                  wtditen(k,:) = 0._r8
+             endif
           else
-               dwten(k) = 0._r8
-               diten(k) = 0._r8
-
-              !Water tracers:
-               wtdwten(k,:) = 0._r8
-               wtditen(k,:) = 0._r8
+             call uwshcu_log_buoy_top_shell_entered()
+             call uwshcu_buoy_top_expel_shell_codon(int(k, c_int64_t), criqc, xlv, xls, cp, exns0(k), &
+                  qlj, qij, c_loc(qtu), c_loc(thlu), c_loc(dwten), c_loc(diten))
+             if(trace_water) then
+                if( (qlj + qij) .gt. criqc ) then
+                   do m=1,wtrc_nwset
+                      Rldt = wtrc_ratio(iwspec(wtrc_iatype(m,iwtliq)),wtout(m,2),wtout(1,2))
+                      Ridt = wtrc_ratio(iwspec(wtrc_iatype(m,iwtice)),wtout(m,3),wtout(1,3))
+                      wtexql(m) = Rldt*dwten(k)
+                      wtexqi(m) = Ridt*diten(k)
+                      tru(k,wtrc_iatype(m,iwtliq)) = tru(k,wtrc_iatype(m,iwtliq)) - wtexql(m)
+                      tru(k,wtrc_iatype(m,iwtice)) = tru(k,wtrc_iatype(m,iwtice)) - wtexqi(m)
+                      wtu(k,m) = wtu(k,m) - wtexql(m) - wtexqi(m)
+                      wtdwten(k,m) = wtexql(m)
+                      wtditen(k,m) = wtexqi(m)
+                   end do
+                else
+                   wtdwten(k,:) = 0._r8
+                   wtditen(k,:) = 0._r8
+                endif
+             endif
           endif
           ! ----------------------------------------------------------------- ! 
           ! Update 'thvu(k)' after detraining condensate from cumulus updraft.!
@@ -5854,7 +5924,11 @@ end subroutine uwshcu_readnl
               id_exit = .true.
               go to 333
           end if  
-          thvu(k) = thj * ( 1._r8 + zvir * qvj - qlj - qij )
+          if (use_native_init_shell_impl) then
+             thvu(k) = thj * ( 1._r8 + zvir * qvj - qlj - qij )
+          else
+             call uwshcu_thv_scalar_shell_codon(zvir, thj, qvj, qlj, qij, c_loc(thvu(k)))
+          endif
 
           ! ----------------------------------------------------------- ! 
           ! Calculate updraft vertical velocity at the upper interface. !
@@ -6145,60 +6219,85 @@ end subroutine uwshcu_readnl
            exit_conden(i) = 1._r8
            id_exit = .true.
            go to 333
-       end if
-       exntop = ((ps0(kpen-1)+ppen)/p00)**rovcp
-       if( (qlj + qij) .gt. criqc ) then
-            dwten(kpen) = ( ( qlj + qij ) - criqc ) * qlj / ( qlj + qij )
-            diten(kpen) = ( ( qlj + qij ) - criqc ) * qij / ( qlj + qij )
-            qtu_top  = qtu_top - dwten(kpen) - diten(kpen)
-            thlu_top = thlu_top + (xlv/cp/exntop)*dwten(kpen) + (xls/cp/exntop)*diten(kpen) 
+	       end if
+	       exntop = ((ps0(kpen-1)+ppen)/p00)**rovcp
+	       if (use_native_init_shell_impl) then
+	          if( (qlj + qij) .gt. criqc ) then
+	               dwten(kpen) = ( ( qlj + qij ) - criqc ) * qlj / ( qlj + qij )
+	               diten(kpen) = ( ( qlj + qij ) - criqc ) * qij / ( qlj + qij )
+	               qtu_top  = qtu_top - dwten(kpen) - diten(kpen)
+	               thlu_top = thlu_top + (xlv/cp/exntop)*dwten(kpen) + (xls/cp/exntop)*diten(kpen)
 
-            if(trace_water) then 
-            !*********************************************
-            !Re-calculate water tracer expelled condensate
-            !*********************************************
+	               if(trace_water) then
+	               !*********************************************
+	               !Re-calculate water tracer expelled condensate
+	               !*********************************************
 
-            !Method one:  Calculate condensate ratio, and adjust detrainment
-            !values accordingly. - JN
+	               !Method one:  Calculate condensate ratio, and adjust detrainment
+	               !values accordingly. - JN
 
-              do m=1,wtrc_nwset !Loop over water species
+	                 do m=1,wtrc_nwset !Loop over water species
 
-                 Rldt = wtrc_ratio(iwspec(wtrc_iatype(m,iwtliq)),wtout(m,2),&
-                                   wtout(1,2))  !Calculate liquid ratio
-                 Ridt = wtrc_ratio(iwspec(wtrc_iatype(m,iwtice)),wtout(m,3),&
-                                   wtout(1,3))  !Calculate ice ratio
+	                    Rldt = wtrc_ratio(iwspec(wtrc_iatype(m,iwtliq)),wtout(m,2),&
+	                                      wtout(1,2))  !Calculate liquid ratio
+	                    Ridt = wtrc_ratio(iwspec(wtrc_iatype(m,iwtice)),wtout(m,3),&
+	                                      wtout(1,3))  !Calculate ice ratio
 
-                !Add detrained condensate to detrainment tendency:
-                wtdwten(kpen,m) = Rldt*dwten(kpen)
-                wtditen(kpen,m) = Ridt*diten(kpen)
+	                   !Add detrained condensate to detrainment tendency:
+	                   wtdwten(kpen,m) = Rldt*dwten(kpen)
+	                   wtditen(kpen,m) = Ridt*diten(kpen)
 
-                !Remove detrained condensate from updraft values:
-                 wtu_top(m) = wtu_top(m)-wtdwten(kpen,m) - wtditen(kpen,m)
+	                   !Remove detrained condensate from updraft values:
+	                    wtu_top(m) = wtu_top(m)-wtdwten(kpen,m) - wtditen(kpen,m)
 
-              end do
-            !*********************************************
-            end if
+	                 end do
+	               !*********************************************
+	               end if
 
-       else
-            dwten(kpen) = 0._r8
-            diten(kpen) = 0._r8
-           !Water tracers:
-           !*************
-            if(trace_water) then
-              wtdwten(kpen,:) = 0._r8
-              wtditen(kpen,:) = 0._r8
-            end if
-           !************ 
-       endif      
+	          else
+	               dwten(kpen) = 0._r8
+	               diten(kpen) = 0._r8
+	              !Water tracers:
+	              !*************
+	               if(trace_water) then
+	                 wtdwten(kpen,:) = 0._r8
+	                 wtditen(kpen,:) = 0._r8
+	               end if
+	              !************
+	          endif
+	       else
+	          call uwshcu_log_buoy_top_shell_entered()
+	          call uwshcu_buoy_top_expel_final_shell_codon(int(kpen, c_int64_t), criqc, xlv, xls, cp, &
+	               exntop, qlj, qij, c_loc(thlu_top), c_loc(qtu_top), c_loc(dwten), c_loc(diten))
+	          if(trace_water) then
+	             if( (qlj + qij) .gt. criqc ) then
+	                do m=1,wtrc_nwset
+	                   Rldt = wtrc_ratio(iwspec(wtrc_iatype(m,iwtliq)),wtout(m,2),wtout(1,2))
+	                   Ridt = wtrc_ratio(iwspec(wtrc_iatype(m,iwtice)),wtout(m,3),wtout(1,3))
+	                   wtdwten(kpen,m) = Rldt*dwten(kpen)
+	                   wtditen(kpen,m) = Ridt*diten(kpen)
+	                   wtu_top(m) = wtu_top(m)-wtdwten(kpen,m) - wtditen(kpen,m)
+	                end do
+	             else
+	                wtdwten(kpen,:) = 0._r8
+	                wtditen(kpen,:) = 0._r8
+	             endif
+	          endif
+	       endif
  
 
        ! ----------------------------------------------------------------------- !
        ! Calculate cumulus scale height as the top height that cumulus can reach.!
        ! ----------------------------------------------------------------------- !
        
-       rhos0j = ps0(kpen-1)/(r*0.5_r8*(thv0bot(kpen)+thv0top(kpen-1))*exns0(kpen-1))  
-       cush   = zs0(kpen-1) - ppen/rhos0j/g
-       scaleh = cush 
+	       if (use_native_init_shell_impl) then
+	          rhos0j = ps0(kpen-1)/(r*0.5_r8*(thv0bot(kpen)+thv0top(kpen-1))*exns0(kpen-1))
+	          cush   = zs0(kpen-1) - ppen/rhos0j/g
+	          scaleh = cush
+	       else
+	          call uwshcu_buoy_scaleh_shell_codon(int(kpen, c_int64_t), r, g, ppen, c_loc(ps0), &
+	               c_loc(zs0), c_loc(thv0bot), c_loc(thv0top), c_loc(exns0), c_loc(cush), c_loc(scaleh))
+	       endif
 
     end do   ! End of 'iter_scaleh' loop.   
 

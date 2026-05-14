@@ -3294,6 +3294,106 @@ def uwshcu_buoy_up_pre_qsat_shell_codon(
 
 
 @export
+def uwshcu_buoy_top_expel_shell_codon(
+    k_fortran: int,
+    criqc: float,
+    xlv: float,
+    xls: float,
+    cp: float,
+    exn: float,
+    qlj: float,
+    qij: float,
+    qtu_p: cobj,
+    thlu_p: cobj,
+    dwten_p: cobj,
+    diten_p: cobj,
+):
+    # qtu/thlu: Fortran real(r8) qtu(0:mkx), thlu(0:mkx).
+    # dwten/diten: Fortran real(r8) dwten(mkx), diten(mkx).
+    qtu = Ptr[float](qtu_p)
+    thlu = Ptr[float](thlu_p)
+    dwten = Ptr[float](dwten_p)
+    diten = Ptr[float](diten_p)
+
+    iface_idx = k_fortran
+    layer_idx = k_fortran - 1
+    condensate = qlj + qij
+    if condensate > criqc:
+        exql = (condensate - criqc) * qlj / condensate
+        exqi = (condensate - criqc) * qij / condensate
+        qtu[iface_idx] = qtu[iface_idx] - exql - exqi
+        thlu[iface_idx] = thlu[iface_idx] + (xlv / cp / exn) * exql + (xls / cp / exn) * exqi
+        dwten[layer_idx] = exql
+        diten[layer_idx] = exqi
+    else:
+        dwten[layer_idx] = 0.0
+        diten[layer_idx] = 0.0
+
+
+@export
+def uwshcu_buoy_top_expel_final_shell_codon(
+    kpen: int,
+    criqc: float,
+    xlv: float,
+    xls: float,
+    cp: float,
+    exntop: float,
+    qlj: float,
+    qij: float,
+    thlu_top_p: cobj,
+    qtu_top_p: cobj,
+    dwten_p: cobj,
+    diten_p: cobj,
+):
+    # dwten/diten: Fortran real(r8) dwten(mkx), diten(mkx).
+    thlu_top = Ptr[float](thlu_top_p)
+    qtu_top = Ptr[float](qtu_top_p)
+    dwten = Ptr[float](dwten_p)
+    diten = Ptr[float](diten_p)
+
+    layer_idx = kpen - 1
+    condensate = qlj + qij
+    if condensate > criqc:
+        dwten[layer_idx] = (condensate - criqc) * qlj / condensate
+        diten[layer_idx] = (condensate - criqc) * qij / condensate
+        qtu_top[0] = qtu_top[0] - dwten[layer_idx] - diten[layer_idx]
+        thlu_top[0] = thlu_top[0] + (xlv / cp / exntop) * dwten[layer_idx] + (xls / cp / exntop) * diten[layer_idx]
+    else:
+        dwten[layer_idx] = 0.0
+        diten[layer_idx] = 0.0
+
+
+@export
+def uwshcu_buoy_scaleh_shell_codon(
+    kpen: int,
+    r_v: float,
+    g_v: float,
+    ppen: float,
+    ps0_p: cobj,
+    zs0_p: cobj,
+    thv0bot_p: cobj,
+    thv0top_p: cobj,
+    exns0_p: cobj,
+    cush_p: cobj,
+    scaleh_p: cobj,
+):
+    # ps0/zs0/exns0: Fortran real(r8) ps0(0:mkx), zs0(0:mkx), exns0(0:mkx).
+    # thv0bot/thv0top: Fortran real(r8) thv0bot(mkx), thv0top(mkx).
+    ps0 = Ptr[float](ps0_p)
+    zs0 = Ptr[float](zs0_p)
+    thv0bot = Ptr[float](thv0bot_p)
+    thv0top = Ptr[float](thv0top_p)
+    exns0 = Ptr[float](exns0_p)
+    cush = Ptr[float](cush_p)
+    scaleh = Ptr[float](scaleh_p)
+
+    iface_idx = kpen - 1
+    rho = ps0[iface_idx] / (r_v * 0.5 * (thv0bot[kpen - 1] + thv0top[kpen - 2]) * exns0[iface_idx])
+    cush[0] = zs0[iface_idx] - ppen / rho / g_v
+    scaleh[0] = cush[0]
+
+
+@export
 def uwshcu_cin_lcl_init_shell_codon(
     mkx: int,
     zvir: float,
