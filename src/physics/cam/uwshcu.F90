@@ -92,6 +92,7 @@
   logical :: comp_sub_sink_shell_entered_logged = .false.
   logical :: comp_sub_conden_exit_shell_entered_logged = .false.
   logical :: thermo_conden_exit_shell_entered_logged = .false.
+  logical :: thermo_emf_conden_exit_shell_entered_logged = .false.
   logical :: thermo_prelim_shell_entered_logged = .false.
   logical :: thermo_final_shell_entered_logged = .false.
   logical :: post_precip_adjust_shell_entered_logged = .false.
@@ -1096,6 +1097,23 @@ contains
     end if
 
   end subroutine uwshcu_log_thermo_conden_exit_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_thermo_emf_conden_exit_shell_entered()
+
+    if (thermo_emf_conden_exit_shell_entered_logged) return
+    thermo_emf_conden_exit_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu thermo emf conden exit shell entered (kbup EMF conden exit flag direct = codon; conden/goto native)'
+       call uwshcu_append_proof( &
+            'uwshcu thermo emf conden exit shell entered (kbup EMF conden exit flag direct = codon; conden/goto native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_thermo_emf_conden_exit_shell_entered
 
 !===============================================================================
 
@@ -2491,6 +2509,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: cloud_diag_conden_exit_code_c
     integer(c_int64_t), target       :: comp_sub_conden_exit_code_c
     integer(c_int64_t), target       :: thermo_conden_exit_code_c
+    integer(c_int64_t), target       :: thermo_emf_conden_exit_code_c
     integer(c_int64_t), target       :: post_scaleh_exit_code_c
     integer(c_int64_t)               :: wtrc_nwset_post_c
 
@@ -3527,6 +3546,13 @@ end subroutine uwshcu_readnl
           integer(c_int64_t), value :: id_check_c
           type(c_ptr), value :: exit_conden_p, exit_code_p
        end subroutine uwshcu_thermo_conden_exit_shell_codon
+
+       subroutine uwshcu_thermo_emf_conden_exit_shell_codon(id_check_c, exit_code_p) &
+            bind(c, name="uwshcu_thermo_emf_conden_exit_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: id_check_c
+          type(c_ptr), value :: exit_code_p
+       end subroutine uwshcu_thermo_emf_conden_exit_shell_codon
 
        subroutine uwshcu_thermo_prelim_shell_codon(mkx_c, wtrc_nwset_c, kpen_c, &
             frc_rasn_c, g_c, dp0_p, umf_p, dwten_p, diten_p, wtdwten_p, wtditen_p, &
@@ -8202,9 +8228,19 @@ end subroutine uwshcu_readnl
               else
                 call conden(p0(k),thlu_emf(k),qtu_emf(k),thj,qvj,ql_emf_kbup,qi_emf_kbup,qse,id_check,ncnst)
               end if
-              if( id_check .eq. 1 ) then
-                  id_exit = .true.
-                  go to 333
+              if (use_native_init_shell_impl) then
+                 if( id_check .eq. 1 ) then
+                     id_exit = .true.
+                     go to 333
+                 endif
+              else
+                 call uwshcu_log_thermo_emf_conden_exit_shell_entered()
+                 call uwshcu_thermo_emf_conden_exit_shell_codon(int(id_check, c_int64_t), &
+                      c_loc(thermo_emf_conden_exit_code_c))
+                 if( thermo_emf_conden_exit_code_c .ne. 0_c_int64_t ) then
+                     id_exit = .true.
+                     go to 333
+                 endif
               endif
               if( ql_emf_kbup .gt. 0._r8 ) then
                   nl_emf_kbup = tru_emf(k,ixnumliq)
