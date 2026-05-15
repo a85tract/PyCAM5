@@ -6658,6 +6658,174 @@ def uwshcu_thermo_condensate_batch_shell_codon(
 
 
 @export
+def uwshcu_thermo_conden_condensate_batch_shell_codon(
+    kind: int,
+    k_fortran: int,
+    mkx: int,
+    ixnumliq: int,
+    ixnumice: int,
+    id_check: int,
+    flag1: int,
+    flag2: int,
+    frc_rasn: float,
+    g_v: float,
+    dwten_k: float,
+    diten_k: float,
+    umf_km1: float,
+    umf_k: float,
+    fdr_k: float,
+    qlj: float,
+    qij: float,
+    ql0_k: float,
+    qi0_k: float,
+    tr0_liq_k: float,
+    tr0_ice_k: float,
+    ps0_km1: float,
+    ps0_k: float,
+    prel_v: float,
+    ppen_v: float,
+    emf_k: float,
+    ql_emf_kbup: float,
+    qi_emf_kbup: float,
+    qlubelow_p: cobj,
+    qiubelow_p: cobj,
+    qlu_mid_p: cobj,
+    qiu_mid_p: cobj,
+    qlu_top_p: cobj,
+    qiu_top_p: cobj,
+    exit_conden_p: cobj,
+    exit_code_p: cobj,
+    tru_emf_p: cobj,
+    qc_l_k_p: cobj,
+    qc_i_k_p: cobj,
+    qc_lm_p: cobj,
+    qc_im_p: cobj,
+    nc_lm_p: cobj,
+    nc_im_p: cobj,
+    nl_emf_kbup_p: cobj,
+    ni_emf_kbup_p: cobj,
+):
+    exit_code = Ptr[int](exit_code_p)
+
+    exit_code[0] = 0
+    if id_check == 1:
+        if kind != 5:
+            exit_conden = Ptr[float](exit_conden_p)
+            exit_conden[0] = 1.0
+        exit_code[0] = 1
+        return
+
+    if kind == 5:
+        uwshcu_thermo_condensate_batch_shell_codon(
+            2,
+            k_fortran,
+            mkx,
+            ixnumliq,
+            ixnumice,
+            0,
+            0,
+            0.0,
+            g_v,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            ql0_k,
+            qi0_k,
+            tr0_liq_k,
+            tr0_ice_k,
+            ps0_km1,
+            ps0_k,
+            emf_k,
+            ql_emf_kbup,
+            qi_emf_kbup,
+            tru_emf_p,
+            qc_l_k_p,
+            qc_i_k_p,
+            qc_lm_p,
+            qc_im_p,
+            nc_lm_p,
+            nc_im_p,
+            nl_emf_kbup_p,
+            ni_emf_kbup_p,
+        )
+        return
+
+    qlubelow = Ptr[float](qlubelow_p)
+    qiubelow = Ptr[float](qiubelow_p)
+    qlu_mid = Ptr[float](qlu_mid_p)
+    qiu_mid = Ptr[float](qiu_mid_p)
+
+    if kind == 0:
+        qlu_mid[0] = 0.0
+        qiu_mid[0] = 0.0
+    elif kind == 1:
+        qlubelow[0] = qlj
+        qiubelow[0] = qij
+        return
+    elif kind == 2:
+        qlu_mid[0] = (0.5 * (qlubelow[0] + qlj) * (prel_v - ps0_k)) / (ps0_km1 - ps0_k)
+        qiu_mid[0] = (0.5 * (qiubelow[0] + qij) * (prel_v - ps0_k)) / (ps0_km1 - ps0_k)
+    elif kind == 3:
+        qlu_top = Ptr[float](qlu_top_p)
+        qiu_top = Ptr[float](qiu_top_p)
+        qlu_mid[0] = (0.5 * (qlubelow[0] + qlj) * (-ppen_v)) / (ps0_km1 - ps0_k)
+        qiu_mid[0] = (0.5 * (qiubelow[0] + qij) * (-ppen_v)) / (ps0_km1 - ps0_k)
+        qlu_top[0] = qlj
+        qiu_top[0] = qij
+    elif kind == 4:
+        qlu_mid[0] = 0.5 * (qlubelow[0] + qlj)
+        qiu_mid[0] = 0.5 * (qiubelow[0] + qij)
+
+    qlubelow[0] = qlj
+    qiubelow[0] = qij
+
+    uwshcu_thermo_condensate_batch_shell_codon(
+        1,
+        k_fortran,
+        mkx,
+        ixnumliq,
+        ixnumice,
+        flag1,
+        flag2,
+        frc_rasn,
+        g_v,
+        dwten_k,
+        diten_k,
+        umf_km1,
+        umf_k,
+        fdr_k,
+        qlu_mid[0],
+        qiu_mid[0],
+        qlj,
+        qij,
+        ql0_k,
+        qi0_k,
+        tr0_liq_k,
+        tr0_ice_k,
+        ps0_km1,
+        ps0_k,
+        0.0,
+        0.0,
+        0.0,
+        tru_emf_p,
+        qc_l_k_p,
+        qc_i_k_p,
+        qc_lm_p,
+        qc_im_p,
+        nc_lm_p,
+        nc_im_p,
+        nl_emf_kbup_p,
+        ni_emf_kbup_p,
+    )
+
+
+@export
 def uwshcu_thermo_prelim_shell_codon(
     mkx: int,
     wtrc_nwset: int,
