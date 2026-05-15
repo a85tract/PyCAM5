@@ -4669,6 +4669,142 @@ def uwshcu_release_base_shell_codon(
 
 
 @export
+def uwshcu_release_scaleh_batch_shell_codon(
+    kind: int,
+    mkx: int,
+    kinv: int,
+    klcl: int,
+    krel: int,
+    code_in: int,
+    plcl: float,
+    thv0lcl_v: float,
+    mu_v: float,
+    mumin2_v: float,
+    mumin0_v: float,
+    mumin1_v: float,
+    wtw_v: float,
+    ufrclcl_v: float,
+    cbmf: float,
+    wrel: float,
+    winv: float,
+    ufrcinv: float,
+    thlsrc: float,
+    qtsrc: float,
+    prel_v: float,
+    ppen_v: float,
+    dp0_kpen: float,
+    ps0_p: cobj,
+    thv0bot_p: cobj,
+    krel_p: cobj,
+    prel_p: cobj,
+    thv0rel_p: cobj,
+    limit_ufrc_p: cobj,
+    limit_cbmf_p: cobj,
+    limit_ppen_p: cobj,
+    exit_wtw_p: cobj,
+    exit_ufrc_p: cobj,
+    exit_conden_p: cobj,
+    exit_cufilter_p: cobj,
+    exit_code_p: cobj,
+    ufrc_p: cobj,
+    umf_p: cobj,
+    wu_p: cobj,
+    emf_p: cobj,
+    thlu_p: cobj,
+    qtu_p: cobj,
+    ufrcinvbase_p: cobj,
+    winvbase_p: cobj,
+    pe_p: cobj,
+    dpe_p: cobj,
+):
+    if kind == 0:
+        uwshcu_release_level_shell_codon(
+            kinv,
+            klcl,
+            plcl,
+            thv0lcl_v,
+            ps0_p,
+            thv0bot_p,
+            krel_p,
+            prel_p,
+            thv0rel_p,
+        )
+    elif kind == 1:
+        exit_code = Ptr[int](exit_code_p)
+        exit_code[0] = 0
+        if mu_v >= 3.0:
+            exit_code[0] = 1
+    elif kind == 2:
+        limit_ufrc = Ptr[float](limit_ufrc_p)
+        if mu_v == mumin2_v:
+            limit_ufrc[0] = 1.0
+    elif kind == 3:
+        limit_cbmf = Ptr[float](limit_cbmf_p)
+        limit_ufrc = Ptr[float](limit_ufrc_p)
+        if mu_v == mumin0_v:
+            limit_cbmf[0] = 1.0
+        if mu_v == mumin1_v:
+            limit_ufrc[0] = 1.0
+    elif kind == 4:
+        exit_wtw = Ptr[float](exit_wtw_p)
+        exit_code = Ptr[int](exit_code_p)
+        exit_code[0] = 0
+        if wtw_v <= 0.0:
+            exit_wtw[0] = 1.0
+            exit_code[0] = 1
+    elif kind == 5:
+        exit_ufrc = Ptr[float](exit_ufrc_p)
+        exit_code = Ptr[int](exit_code_p)
+        exit_code[0] = 0
+        if ufrclcl_v <= 0.0001:
+            exit_ufrc[0] = 1.0
+            exit_code[0] = 1
+    elif kind == 6:
+        uwshcu_release_base_shell_codon(
+            mkx,
+            kinv,
+            krel,
+            cbmf,
+            wrel,
+            winv,
+            ufrcinv,
+            ufrclcl_v,
+            thlsrc,
+            qtsrc,
+            prel_v,
+            ps0_p,
+            ufrc_p,
+            umf_p,
+            wu_p,
+            emf_p,
+            thlu_p,
+            qtu_p,
+            ufrcinvbase_p,
+            winvbase_p,
+            pe_p,
+            dpe_p,
+        )
+    elif kind == 7:
+        exit_conden = Ptr[float](exit_conden_p)
+        exit_code = Ptr[int](exit_code_p)
+        exit_code[0] = 0
+        if code_in == 1:
+            exit_conden[0] = 1.0
+            exit_code[0] = 1
+    elif kind == 8:
+        limit_ppen = Ptr[float](limit_ppen_p)
+        if ppen_v == -dp0_kpen or ppen_v == 0.0:
+            limit_ppen[0] = 1.0
+    elif kind == 9:
+        exit_cufilter = Ptr[float](exit_cufilter_p)
+        exit_code = Ptr[int](exit_code_p)
+        exit_code[0] = 0
+        if code_in != 0:
+            exit_cufilter[0] = 1.0
+            exit_code[0] = 1
+
+
+@export
 def uwshcu_release_conden_exit_shell_codon(
     id_check: int,
     exit_conden_p: cobj,
