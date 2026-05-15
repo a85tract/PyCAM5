@@ -95,6 +95,7 @@
   logical :: penent_flux_comp_sub_prep_shell_entered_logged = .false.
   logical :: scaleh_filter_prep_shell_entered_logged = .false.
   logical :: scaleh_cufilter_exit_shell_entered_logged = .false.
+  logical :: scalar_exit_limit_batch_shell_entered_logged = .false.
   logical :: comp_sub_sink_shell_entered_logged = .false.
   logical :: comp_sub_conden_exit_shell_entered_logged = .false.
   logical :: thermo_conden_exit_shell_entered_logged = .false.
@@ -1163,6 +1164,23 @@ contains
 
 !===============================================================================
 
+  subroutine uwshcu_log_scalar_exit_limit_batch_shell_entered()
+
+    if (scalar_exit_limit_batch_shell_entered_logged) return
+    scalar_exit_limit_batch_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu scalar exit/limit batch shell entered (release/buoy/scaleh/conden flags direct = codon; math/goto native)'
+       call uwshcu_append_proof( &
+            'uwshcu scalar exit/limit batch shell entered (release/buoy/scaleh/conden flags direct = codon; math/goto native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_scalar_exit_limit_batch_shell_entered
+
+!===============================================================================
+
   subroutine uwshcu_log_comp_sub_sink_shell_entered()
 
     if (comp_sub_sink_shell_entered_logged) return
@@ -2072,7 +2090,7 @@ end subroutine uwshcu_readnl
     use cam_history,     only : outfld, addfld, phys_decomp
     use constituents,    only : qmin, cnst_get_type_byind, cnst_get_ind, cnst_type_is_wet
     use wv_saturation,   only : findsp_vc
-    use iso_c_binding,   only : c_double, c_int64_t, c_loc, c_ptr
+    use iso_c_binding,   only : c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
    !Water tracers:
     use water_tracer_vars, only : trace_water, wisotope, wtrc_iatype, wtrc_nwset, &
@@ -3432,6 +3450,15 @@ end subroutine uwshcu_readnl
           real(c_double), value :: bogtop_c, wtw_c
           type(c_ptr), value :: kbup_p, kpen_p, exit_code_p
        end subroutine uwshcu_buoy_reach_update_shell_codon
+
+       subroutine uwshcu_scalar_exit_limit_batch_shell_codon(kind_c, idx_c, code_in_c, &
+            v1_c, v2_c, v3_c, field1_p, field2_p, field3_p, flag1_p, flag2_p, code_out_p) &
+            bind(c, name="uwshcu_scalar_exit_limit_batch_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: kind_c, idx_c, code_in_c
+          real(c_double), value :: v1_c, v2_c, v3_c
+          type(c_ptr), value :: field1_p, field2_p, field3_p, flag1_p, flag2_p, code_out_p
+       end subroutine uwshcu_scalar_exit_limit_batch_shell_codon
 
        subroutine uwshcu_buoy_wu_exit_shell_codon(wu_c, exit_wu_p, exit_code_p) &
             bind(c, name="uwshcu_buoy_wu_exit_shell_codon")
@@ -6052,7 +6079,10 @@ end subroutine uwshcu_readnl
           endif
        else
           call uwshcu_log_release_mu_exit_shell_entered()
-          call uwshcu_release_mu_exit_shell_codon(mu, c_loc(release_mu_exit_code_c))
+          call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+          call uwshcu_scalar_exit_limit_batch_shell_codon(3_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+               mu, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+               c_loc(release_mu_exit_code_c))
           if( release_mu_exit_code_c .ne. 0_c_int64_t ) then
              id_exit = .true.
              go to 333
@@ -6080,7 +6110,10 @@ end subroutine uwshcu_readnl
               if( mu .eq. mumin2 ) limit_ufrc(i) = 1._r8
            else
               call uwshcu_log_release_mu_limit_shell_entered()
-              call uwshcu_release_mumin2_limit_shell_codon(mu, mumin2, c_loc(limit_ufrc(i)))
+              call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+              call uwshcu_scalar_exit_limit_batch_shell_codon(4_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+                   mu, mumin2, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(limit_ufrc(i)), &
+                   c_null_ptr, c_null_ptr)
            endif
        endif
        if (use_native_init_shell_impl) then
@@ -6088,8 +6121,10 @@ end subroutine uwshcu_readnl
           if( mu .eq. mumin1 ) limit_ufrc(i) = 1._r8
        else
           call uwshcu_log_release_mu_limit_shell_entered()
-          call uwshcu_release_mu_limit_flags_shell_codon(mu, mumin0, mumin1, &
-               c_loc(limit_cbmf(i)), c_loc(limit_ufrc(i)))
+          call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+          call uwshcu_scalar_exit_limit_batch_shell_codon(5_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+               mu, mumin0, mumin1, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(limit_cbmf(i)), &
+               c_loc(limit_ufrc(i)), c_null_ptr)
        endif
 
        ! ------------------------------------------------------------------- !    
@@ -6123,7 +6158,10 @@ end subroutine uwshcu_readnl
           endif
        else
           call uwshcu_log_release_base_exit_shell_entered()
-          call uwshcu_release_wtw_exit_shell_codon(wtw, c_loc(exit_wtw(i)), c_loc(release_base_exit_code_c))
+          call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+          call uwshcu_scalar_exit_limit_batch_shell_codon(6_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+               wtw, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(exit_wtw(i)), &
+               c_null_ptr, c_loc(release_base_exit_code_c))
           if( release_base_exit_code_c .ne. 0_c_int64_t ) then
              id_exit = .true.
              go to 333
@@ -6141,7 +6179,10 @@ end subroutine uwshcu_readnl
           endif
        else
           call uwshcu_log_release_base_exit_shell_entered()
-          call uwshcu_release_ufrc_exit_shell_codon(ufrclcl, c_loc(exit_ufrc(i)), c_loc(release_base_exit_code_c))
+          call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+          call uwshcu_scalar_exit_limit_batch_shell_codon(7_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+               ufrclcl, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(exit_ufrc(i)), &
+               c_null_ptr, c_loc(release_base_exit_code_c))
           if( release_base_exit_code_c .ne. 0_c_int64_t ) then
              id_exit = .true.
              go to 333
@@ -7083,7 +7124,10 @@ end subroutine uwshcu_readnl
              endif
           else
              call uwshcu_log_buoy_wu_exit_shell_entered()
-             call uwshcu_buoy_wu_exit_shell_codon(wu(k), c_loc(exit_wu(i)), c_loc(buoy_wu_exit_code_c))
+             call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+             call uwshcu_scalar_exit_limit_batch_shell_codon(8_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+                  wu(k), 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(exit_wu(i)), &
+                  c_null_ptr, c_loc(buoy_wu_exit_code_c))
              if( buoy_wu_exit_code_c .ne. 0_c_int64_t ) then
                  id_exit = .true.
                  go to 333
@@ -7128,8 +7172,10 @@ end subroutine uwshcu_readnl
              endif
           else
              call uwshcu_log_buoy_ufrc_limit_shell_entered()
-             call uwshcu_buoy_ufrc_limit_shell_codon(int(k, c_int64_t), rmaxfrac, rhos0j, &
-                  c_loc(ufrc), c_loc(umf), c_loc(wu), c_loc(limit_ufrc(i)), c_loc(buoy_ufrc_limit_code_c))
+             call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+             call uwshcu_scalar_exit_limit_batch_shell_codon(9_c_int64_t, int(k, c_int64_t), 0_c_int64_t, &
+                  rmaxfrac, rhos0j, 0._r8, c_loc(ufrc), c_loc(umf), c_loc(wu), c_loc(limit_ufrc(i)), &
+                  c_null_ptr, c_loc(buoy_ufrc_limit_code_c))
              if( buoy_ufrc_limit_code_c .ne. 0_c_int64_t ) then
                 fdr(k)  = fer(k) - log( umf(k) / umf(km1) ) / dpe
              endif
@@ -7242,7 +7288,10 @@ end subroutine uwshcu_readnl
           if( ppen .eq. -dp0(kpen) .or. ppen .eq. 0._r8 ) limit_ppen(i) = 1._r8
        else
           call uwshcu_log_buoy_ppen_limit_shell_entered()
-          call uwshcu_buoy_ppen_limit_shell_codon(ppen, dp0(kpen), c_loc(limit_ppen(i)))
+          call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+          call uwshcu_scalar_exit_limit_batch_shell_codon(10_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+               ppen, dp0(kpen), 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(limit_ppen(i)), &
+               c_null_ptr, c_null_ptr)
        endif
 
        ! -------------------------------------------------------------------- !
@@ -7470,8 +7519,10 @@ end subroutine uwshcu_readnl
           end if
        else
           call uwshcu_log_scaleh_cufilter_exit_shell_entered()
-          call uwshcu_scaleh_cufilter_exit_shell_codon(post_scaleh_exit_code_c, &
-               c_loc(exit_cufilter(i)), c_loc(scaleh_cufilter_exit_code_c))
+          call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+          call uwshcu_scalar_exit_limit_batch_shell_codon(11_c_int64_t, 0_c_int64_t, post_scaleh_exit_code_c, &
+               0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(exit_cufilter(i)), &
+               c_null_ptr, c_loc(scaleh_cufilter_exit_code_c))
           if( scaleh_cufilter_exit_code_c .ne. 0_c_int64_t ) then
               id_exit = .true.
               go to 333
@@ -8116,8 +8167,10 @@ end subroutine uwshcu_readnl
              qt_prog  = max( qt0(k) + qtten_sub * dt, 1.e-12_r8 )
              call conden(p0(k),thl_prog,qt_prog,thj,qvj,qlj,qij,qse,id_check,ncnst)
              call uwshcu_log_comp_sub_conden_exit_shell_entered()
-             call uwshcu_comp_sub_conden_exit_shell_codon(int(id_check, c_int64_t), &
-                  c_loc(comp_sub_conden_exit_code_c))
+             call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+             call uwshcu_scalar_exit_limit_batch_shell_codon(2_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                  0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+                  c_null_ptr, c_loc(comp_sub_conden_exit_code_c))
              if( comp_sub_conden_exit_code_c .ne. 0_c_int64_t ) then
                  id_exit = .true.
                  go to 333
@@ -8637,8 +8690,10 @@ end subroutine uwshcu_readnl
                  endif
               else
                  call uwshcu_log_thermo_emf_conden_exit_shell_entered()
-                 call uwshcu_thermo_emf_conden_exit_shell_codon(int(id_check, c_int64_t), &
-                      c_loc(thermo_emf_conden_exit_code_c))
+                 call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+                 call uwshcu_scalar_exit_limit_batch_shell_codon(2_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                      0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+                      c_null_ptr, c_loc(thermo_emf_conden_exit_code_c))
                  if( thermo_emf_conden_exit_code_c .ne. 0_c_int64_t ) then
                      id_exit = .true.
                      go to 333

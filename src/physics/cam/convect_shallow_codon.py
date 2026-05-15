@@ -3866,6 +3866,95 @@ def uwshcu_buoy_reach_update_shell_codon(
 
 
 @export
+def uwshcu_scalar_exit_limit_batch_shell_codon(
+    kind: int,
+    idx: int,
+    code_in: int,
+    v1: float,
+    v2: float,
+    v3: float,
+    field1_p: cobj,
+    field2_p: cobj,
+    field3_p: cobj,
+    flag1_p: cobj,
+    flag2_p: cobj,
+    code_out_p: cobj,
+):
+    if kind == 1:
+        flag1 = Ptr[float](flag1_p)
+        code_out = Ptr[int](code_out_p)
+        code_out[0] = 0
+        if code_in == 1:
+            flag1[0] = 1.0
+            code_out[0] = 1
+    elif kind == 2:
+        code_out = Ptr[int](code_out_p)
+        code_out[0] = 0
+        if code_in == 1:
+            code_out[0] = 1
+    elif kind == 3:
+        code_out = Ptr[int](code_out_p)
+        code_out[0] = 0
+        if v1 >= 3.0:
+            code_out[0] = 1
+    elif kind == 4:
+        flag1 = Ptr[float](flag1_p)
+        if v1 == v2:
+            flag1[0] = 1.0
+    elif kind == 5:
+        flag1 = Ptr[float](flag1_p)
+        flag2 = Ptr[float](flag2_p)
+        if v1 == v2:
+            flag1[0] = 1.0
+        if v1 == v3:
+            flag2[0] = 1.0
+    elif kind == 6:
+        flag1 = Ptr[float](flag1_p)
+        code_out = Ptr[int](code_out_p)
+        code_out[0] = 0
+        if v1 <= 0.0:
+            flag1[0] = 1.0
+            code_out[0] = 1
+    elif kind == 7:
+        flag1 = Ptr[float](flag1_p)
+        code_out = Ptr[int](code_out_p)
+        code_out[0] = 0
+        if v1 <= 0.0001:
+            flag1[0] = 1.0
+            code_out[0] = 1
+    elif kind == 8:
+        flag1 = Ptr[float](flag1_p)
+        code_out = Ptr[int](code_out_p)
+        code_out[0] = 0
+        if v1 > 100.0:
+            flag1[0] = 1.0
+            code_out[0] = 1
+    elif kind == 9:
+        ufrc = Ptr[float](field1_p)
+        umf = Ptr[float](field2_p)
+        wu = Ptr[float](field3_p)
+        flag1 = Ptr[float](flag1_p)
+        code_out = Ptr[int](code_out_p)
+        code_out[0] = 0
+        if ufrc[idx] > v1:
+            flag1[0] = 1.0
+            ufrc[idx] = v1
+            umf[idx] = v1 * v2 * wu[idx]
+            code_out[0] = 1
+    elif kind == 10:
+        flag1 = Ptr[float](flag1_p)
+        if v1 == -v2 or v1 == 0.0:
+            flag1[0] = 1.0
+    elif kind == 11:
+        flag1 = Ptr[float](flag1_p)
+        code_out = Ptr[int](code_out_p)
+        code_out[0] = 0
+        if code_in != 0:
+            flag1[0] = 1.0
+            code_out[0] = 1
+
+
+@export
 def uwshcu_buoy_wu_exit_shell_codon(
     wu_v: float,
     exit_wu_p: cobj,
