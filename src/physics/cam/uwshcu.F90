@@ -120,6 +120,7 @@
   logical :: post_precip_positive_prep_shell_entered_logged = .false.
   logical :: post_positive_tracer_limiter_shell_entered_logged = .false.
   logical :: tracer_limiter_shell_entered_logged = .false.
+  logical :: cloud_diag_batch_shell_entered_logged = .false.
   logical :: cloud_diag_shell_entered_logged = .false.
   logical :: cloud_diag_conden_exit_shell_entered_logged = .false.
   logical :: positive_moisture_prep_shell_entered_logged = .false.
@@ -1568,6 +1569,24 @@ contains
 
 !===============================================================================
 
+  subroutine uwshcu_log_cloud_diag_batch_shell_entered()
+
+    if (cloud_diag_batch_shell_entered_logged) return
+    cloud_diag_batch_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu cloud diag batch shell entered ' // &
+            '(conden exit/store/final diagnostics direct = codon; conden/goto native)'
+       call uwshcu_append_proof( &
+            'uwshcu cloud diag batch shell entered ' // &
+            '(conden exit/store/final diagnostics direct = codon; conden/goto native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_cloud_diag_batch_shell_entered
+
+!===============================================================================
+
   subroutine uwshcu_log_cloud_diag_shell_entered()
 
     if (cloud_diag_shell_entered_logged) return
@@ -2680,7 +2699,7 @@ end subroutine uwshcu_readnl
     real(r8), target :: bogbot, bogtop, delbog
     real(r8)    drage, expfac, top_expfac, rbuoy, rdrag
     real(r8), target :: rcwp, rlwp, riwp, qcubelow, qlubelow, qiubelow
-    real(r8)         :: cloud_diag_qlj0, cloud_diag_qij0
+    real(r8), target :: cloud_diag_qlj0, cloud_diag_qij0
     real(r8), target :: cloud_diag_qlj(mkx), cloud_diag_qij(mkx)
     real(r8), target :: rainflx, snowflx
     real(r8)    es
@@ -3617,6 +3636,20 @@ end subroutine uwshcu_readnl
           integer(c_int64_t), value :: id_check_c
           type(c_ptr), value :: exit_conden_p, exit_code_p
        end subroutine uwshcu_cloud_diag_conden_exit_shell_codon
+
+       subroutine uwshcu_cloud_diag_batch_shell_codon(kind_c, mkx_c, k_c, krel_c, kpen_c, id_check_c, &
+            qlj_c, qij_c, criqc_c, prel_c, ppen_c, ufrclcl_c, g_c, exit_conden_p, exit_code_p, &
+            cloud_qlj0_p, cloud_qij0_p, cloud_qlj_p, cloud_qij_p, ps0_p, ufrc_p, &
+            qcu_p, qlu_p, qiu_p, cufrc_p, qcubelow_p, qlubelow_p, qiubelow_p, &
+            rcwp_p, rlwp_p, riwp_p, cnt_p, cnb_p) bind(c, name="uwshcu_cloud_diag_batch_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: kind_c, mkx_c, k_c, krel_c, kpen_c, id_check_c
+          real(c_double), value :: qlj_c, qij_c, criqc_c, prel_c, ppen_c, ufrclcl_c, g_c
+          type(c_ptr), value :: exit_conden_p, exit_code_p, cloud_qlj0_p, cloud_qij0_p
+          type(c_ptr), value :: cloud_qlj_p, cloud_qij_p, ps0_p, ufrc_p, qcu_p, qlu_p, qiu_p
+          type(c_ptr), value :: cufrc_p, qcubelow_p, qlubelow_p, qiubelow_p
+          type(c_ptr), value :: rcwp_p, rlwp_p, riwp_p, cnt_p, cnb_p
+       end subroutine uwshcu_cloud_diag_batch_shell_codon
 
        subroutine uwshcu_buoy_top_expel_final_shell_codon(kpen_c, criqc_c, xlv_c, xls_c, cp_c, &
             exntop_c, qlj_c, qij_c, thlu_top_p, qtu_top_p, dwten_p, diten_p) &
@@ -9963,11 +9996,14 @@ end subroutine uwshcu_readnl
               go to 333
           end if
        else
-          call uwshcu_log_cloud_diag_conden_exit_shell_entered()
-          call uwshcu_log_scalar_exit_limit_batch_shell_entered()
-          call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
-                0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
-                c_loc(exit_conden(i)), c_null_ptr, c_loc(cloud_diag_conden_exit_code_c))
+          call uwshcu_log_cloud_diag_batch_shell_entered()
+          call uwshcu_cloud_diag_batch_shell_codon(0_c_int64_t, int(mkx, c_int64_t), 0_c_int64_t, &
+                int(krel, c_int64_t), int(kpen, c_int64_t), int(id_check, c_int64_t), qlj, qij, &
+                criqc, prel, ppen, ufrclcl, g, c_loc(exit_conden(i)), c_loc(cloud_diag_conden_exit_code_c), &
+                c_loc(cloud_diag_qlj0), c_loc(cloud_diag_qij0), c_loc(cloud_diag_qlj), c_loc(cloud_diag_qij), &
+                c_loc(ps0), c_loc(ufrc), c_loc(qcu), c_loc(qlu), c_loc(qiu), c_loc(cufrc), &
+                c_loc(qcubelow), c_loc(qlubelow), c_loc(qiubelow), c_loc(rcwp), c_loc(rlwp), c_loc(riwp), &
+                c_loc(cnt), c_loc(cnb))
           if( cloud_diag_conden_exit_code_c .ne. 0_c_int64_t ) then
               id_exit = .true.
               go to 333
@@ -9980,10 +10016,6 @@ end subroutine uwshcu_readnl
        rcwp     = 0._r8
        rlwp     = 0._r8
        riwp     = 0._r8
-       else
-          call uwshcu_log_cloud_diag_shell_entered()
-          cloud_diag_qlj0 = qlj
-          cloud_diag_qij0 = qij
        endif
 
        ! --------------------------------------------------------------------- !
@@ -10008,11 +10040,14 @@ end subroutine uwshcu_readnl
                  go to 333
              end if
           else
-             call uwshcu_log_cloud_diag_conden_exit_shell_entered()
-             call uwshcu_log_scalar_exit_limit_batch_shell_entered()
-             call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
-                   0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
-                   c_loc(exit_conden(i)), c_null_ptr, c_loc(cloud_diag_conden_exit_code_c))
+             call uwshcu_log_cloud_diag_batch_shell_entered()
+             call uwshcu_cloud_diag_batch_shell_codon(1_c_int64_t, int(mkx, c_int64_t), int(k, c_int64_t), &
+                   int(krel, c_int64_t), int(kpen, c_int64_t), int(id_check, c_int64_t), qlj, qij, &
+                   criqc, prel, ppen, ufrclcl, g, c_loc(exit_conden(i)), c_loc(cloud_diag_conden_exit_code_c), &
+                   c_loc(cloud_diag_qlj0), c_loc(cloud_diag_qij0), c_loc(cloud_diag_qlj), c_loc(cloud_diag_qij), &
+                   c_loc(ps0), c_loc(ufrc), c_loc(qcu), c_loc(qlu), c_loc(qiu), c_loc(cufrc), &
+                   c_loc(qcubelow), c_loc(qlubelow), c_loc(qiubelow), c_loc(rcwp), c_loc(rlwp), c_loc(riwp), &
+                   c_loc(cnt), c_loc(cnb))
              if( cloud_diag_conden_exit_code_c .ne. 0_c_int64_t ) then
                  id_exit = .true.
                  go to 333
@@ -10047,9 +10082,6 @@ end subroutine uwshcu_readnl
              qcubelow = qlj + qij
              qlubelow = qlj
              qiubelow = qij
-          else
-             cloud_diag_qlj(k) = qlj
-             cloud_diag_qij(k) = qij
           endif
        end do
        ! ------------------------------------ !      
@@ -10059,11 +10091,13 @@ end subroutine uwshcu_readnl
        cnt = real( kpen, r8 )
        cnb = real( krel - 1, r8 )
        else
-          call uwshcu_cloud_diag_all_shell_codon(int(mkx, c_int64_t), int(krel, c_int64_t), &
-               int(kpen, c_int64_t), cloud_diag_qlj0, cloud_diag_qij0, criqc, prel, ppen, &
-               ufrclcl, g, c_loc(cloud_diag_qlj), c_loc(cloud_diag_qij), c_loc(ps0), c_loc(ufrc), &
-               c_loc(qcu), c_loc(qlu), c_loc(qiu), c_loc(cufrc), c_loc(qcubelow), &
-               c_loc(qlubelow), c_loc(qiubelow), c_loc(rcwp), c_loc(rlwp), c_loc(riwp), &
+          call uwshcu_log_cloud_diag_batch_shell_entered()
+          call uwshcu_cloud_diag_batch_shell_codon(2_c_int64_t, int(mkx, c_int64_t), 0_c_int64_t, &
+               int(krel, c_int64_t), int(kpen, c_int64_t), 0_c_int64_t, 0._r8, 0._r8, &
+               criqc, prel, ppen, ufrclcl, g, c_loc(exit_conden(i)), c_loc(cloud_diag_conden_exit_code_c), &
+               c_loc(cloud_diag_qlj0), c_loc(cloud_diag_qij0), c_loc(cloud_diag_qlj), c_loc(cloud_diag_qij), &
+               c_loc(ps0), c_loc(ufrc), c_loc(qcu), c_loc(qlu), c_loc(qiu), c_loc(cufrc), &
+               c_loc(qcubelow), c_loc(qlubelow), c_loc(qiubelow), c_loc(rcwp), c_loc(rlwp), c_loc(riwp), &
                c_loc(cnt), c_loc(cnb))
        endif
 
