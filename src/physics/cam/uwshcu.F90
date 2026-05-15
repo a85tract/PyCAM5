@@ -65,6 +65,7 @@
   logical :: buoy_top_state_shell_entered_logged = .false.
   logical :: buoy_top_shell_entered_logged = .false.
   logical :: buoy_updraft_state_shell_entered_logged = .false.
+  logical :: buoy_loop_batch_shell_entered_logged = .false.
   logical :: buoy_velocity_shell_entered_logged = .false.
   logical :: buoy_midstate_shell_entered_logged = .false.
   logical :: buoy_self_detrain_shell_entered_logged = .false.
@@ -672,6 +673,23 @@ contains
     end if
 
   end subroutine uwshcu_log_buoy_updraft_state_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_buoy_loop_batch_shell_entered()
+
+    if (buoy_loop_batch_shell_entered_logged) return
+    buoy_loop_batch_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu buoy loop batch shell entered (updraft state/conden exits/thv/limits/env load direct = codon; conden/wtrc/sqrt/log native)'
+       call uwshcu_append_proof( &
+            'uwshcu buoy loop batch shell entered (updraft state/conden exits/thv/limits/env load direct = codon; conden/wtrc/sqrt/log native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_buoy_loop_batch_shell_entered
 
 !===============================================================================
 
@@ -3681,6 +3699,20 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: tr0_p, wt0_p, pe_p, dpe_p, exne_p, thvebot_p, thle_p, qte_p
           type(c_ptr), value :: ue_p, ve_p, tre_p, wte_p
        end subroutine uwshcu_buoy_next_env_load_shell_codon
+
+       subroutine uwshcu_buoy_loop_batch_shell_codon(kind_c, k_c, mkx_c, ncnst_c, wtrc_nwset_c, &
+            flag1_c, flag2_c, id_check_c, v1_c, v2_c, v3_c, v4_c, v5_c, v6_c, v7_c, v8_c, &
+            v9_c, v10_c, p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p, p9_p, p10_p, &
+            p11_p, p12_p, p13_p, p14_p, p15_p, p16_p, p17_p, p18_p, p19_p, p20_p) &
+            bind(c, name="uwshcu_buoy_loop_batch_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: kind_c, k_c, mkx_c, ncnst_c, wtrc_nwset_c
+          integer(c_int64_t), value :: flag1_c, flag2_c, id_check_c
+          real(c_double), value :: v1_c, v2_c, v3_c, v4_c, v5_c, v6_c, v7_c, v8_c
+          real(c_double), value :: v9_c, v10_c
+          type(c_ptr), value :: p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p, p9_p, p10_p
+          type(c_ptr), value :: p11_p, p12_p, p13_p, p14_p, p15_p, p16_p, p17_p, p18_p, p19_p, p20_p
+       end subroutine uwshcu_buoy_loop_batch_shell_codon
 
        subroutine uwshcu_cin_lcl_init_shell_codon(mkx_c, zvir_c, thj_c, qvj_c, qlj_c, qij_c, &
             thv0lcl_p, cin_p, cinlcl_p, plfc_p, klfc_p) bind(c, name="uwshcu_cin_lcl_init_shell_codon")
@@ -7102,14 +7134,16 @@ end subroutine uwshcu_readnl
           else
              expfac = 0._r8
              if( fer(k)*dpe .ge. 1.e-4_r8 ) expfac = exp(-fer(k) * dpe)
-             call uwshcu_log_buoy_updraft_state_shell_entered()
-             call uwshcu_buoy_updraft_state_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
-                  int(wtrc_nwset, c_int64_t), int(k, c_int64_t), &
+             call uwshcu_log_buoy_loop_batch_shell_entered()
+             call uwshcu_buoy_loop_batch_shell_codon(0_c_int64_t, int(k, c_int64_t), int(mkx, c_int64_t), &
+                  int(ncnst, c_int64_t), int(wtrc_nwset, c_int64_t), &
                   merge(1_c_int64_t, 0_c_int64_t, trace_water), &
-                  merge(1_c_int64_t, 0_c_int64_t, fer(k)*dpe .lt. 1.e-4_r8), dpe, expfac, &
-                  fer(k), PGFc, thle, qte, ue, ve, c_loc(thlu), c_loc(qtu), c_loc(uu), &
-                  c_loc(vu), c_loc(tru), c_loc(wtu), c_loc(ssthl0), c_loc(ssqt0), &
-                  c_loc(ssu0), c_loc(ssv0), c_loc(tre), c_loc(sstr0), c_loc(wte), c_loc(sswt0))
+                  merge(1_c_int64_t, 0_c_int64_t, fer(k)*dpe .lt. 1.e-4_r8), 0_c_int64_t, &
+                  dpe, expfac, fer(k), PGFc, thle, qte, ue, ve, 0._r8, 0._r8, &
+                  c_loc(thlu), c_loc(qtu), c_loc(uu), c_loc(vu), c_loc(tru), c_loc(wtu), &
+                  c_loc(ssthl0), c_loc(ssqt0), c_loc(ssu0), c_loc(ssv0), c_loc(tre), &
+                  c_loc(sstr0), c_loc(wte), c_loc(sswt0), c_null_ptr, c_null_ptr, &
+                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
           end if
 
           !------------------------------------------------------------------- !
@@ -7150,11 +7184,14 @@ end subroutine uwshcu_readnl
                  go to 333
              end if
           else
-             call uwshcu_log_buoy_conden_exit_shell_entered()
-             call uwshcu_log_scalar_exit_limit_batch_shell_entered()
-             call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
-                   0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
-                   c_loc(exit_conden(i)), c_null_ptr, c_loc(buoy_conden_exit_code_c))
+             call uwshcu_log_buoy_loop_batch_shell_entered()
+             call uwshcu_buoy_loop_batch_shell_codon(1_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+                   0_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                   0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
+                   c_loc(exit_conden(i)), c_loc(buoy_conden_exit_code_c), c_null_ptr, c_null_ptr, &
+                   c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+                   c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+                   c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
              if( buoy_conden_exit_code_c .ne. 0_c_int64_t ) then
                  id_exit = .true.
                  go to 333
@@ -7262,11 +7299,14 @@ end subroutine uwshcu_readnl
                  go to 333
              end if
           else
-             call uwshcu_log_buoy_conden_exit_shell_entered()
-             call uwshcu_log_conden_exit_thv_batch_shell_entered()
-             call uwshcu_conden_exit_thv_batch_shell_codon(1_c_int64_t, 0_c_int64_t, &
-                   int(id_check, c_int64_t), zvir, thj, qvj, qlj, qij, 0._r8, 0._r8, &
-                   c_loc(exit_conden(i)), c_loc(buoy_conden_exit_code_c), c_loc(thvu(k)), c_null_ptr)
+             call uwshcu_log_buoy_loop_batch_shell_entered()
+             call uwshcu_buoy_loop_batch_shell_codon(2_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+                   0_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                   zvir, thj, qvj, qlj, qij, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
+                   c_loc(exit_conden(i)), c_loc(buoy_conden_exit_code_c), c_loc(thvu(k)), c_null_ptr, &
+                   c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+                   c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+                   c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
              if( buoy_conden_exit_code_c .ne. 0_c_int64_t ) then
                  id_exit = .true.
                  go to 333
@@ -7443,11 +7483,14 @@ end subroutine uwshcu_readnl
                  go to 333
              endif
           else
-             call uwshcu_log_buoy_wu_exit_shell_entered()
-             call uwshcu_log_scalar_exit_limit_batch_shell_entered()
-             call uwshcu_scalar_exit_limit_batch_shell_codon(8_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
-                  wu(k), 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(exit_wu(i)), &
-                  c_null_ptr, c_loc(buoy_wu_exit_code_c))
+             call uwshcu_log_buoy_loop_batch_shell_entered()
+             call uwshcu_buoy_loop_batch_shell_codon(3_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+                  0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, wu(k), 0._r8, &
+                  0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
+                  c_loc(exit_wu(i)), c_loc(buoy_wu_exit_code_c), c_null_ptr, c_null_ptr, &
+                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
              if( buoy_wu_exit_code_c .ne. 0_c_int64_t ) then
                  id_exit = .true.
                  go to 333
@@ -7492,11 +7535,14 @@ end subroutine uwshcu_readnl
                  fdr(k)  = fer(k) - log( umf(k) / umf(km1) ) / dpe
              endif
           else
-             call uwshcu_log_buoy_ufrc_limit_shell_entered()
-             call uwshcu_log_scalar_exit_limit_batch_shell_entered()
-             call uwshcu_scalar_exit_limit_batch_shell_codon(9_c_int64_t, int(k, c_int64_t), 0_c_int64_t, &
-                  rmaxfrac, rhos0j, 0._r8, c_loc(ufrc), c_loc(umf), c_loc(wu), c_loc(limit_ufrc(i)), &
-                  c_null_ptr, c_loc(buoy_ufrc_limit_code_c))
+             call uwshcu_log_buoy_loop_batch_shell_entered()
+             call uwshcu_buoy_loop_batch_shell_codon(4_c_int64_t, int(k, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
+                  0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, rmaxfrac, rhos0j, &
+                  0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
+                  c_loc(ufrc), c_loc(umf), c_loc(wu), c_loc(limit_ufrc(i)), c_loc(buoy_ufrc_limit_code_c), &
+                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+                  c_null_ptr, c_null_ptr, c_null_ptr)
              if( buoy_ufrc_limit_code_c .ne. 0_c_int64_t ) then
                 fdr(k)  = fer(k) - log( umf(k) / umf(km1) ) / dpe
              endif
@@ -7532,11 +7578,14 @@ end subroutine uwshcu_readnl
           else
              wtrc_nwset_post_c = 0_c_int64_t
              if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-             call uwshcu_buoy_next_env_load_shell_codon(int(k, c_int64_t), int(mkx, c_int64_t), &
-                  int(ncnst, c_int64_t), wtrc_nwset_post_c, c_loc(p0), c_loc(dp0), c_loc(exn0), &
-                  c_loc(thv0bot), c_loc(thl0), c_loc(qt0), c_loc(u0), c_loc(v0), c_loc(tr0), &
-                  c_loc(wt0), c_loc(pe), c_loc(dpe), c_loc(exne), c_loc(thvebot), c_loc(thle), &
-                  c_loc(qte), c_loc(ue), c_loc(ve), c_loc(tre), c_loc(wte))
+             call uwshcu_log_buoy_loop_batch_shell_entered()
+             call uwshcu_buoy_loop_batch_shell_codon(5_c_int64_t, int(k, c_int64_t), int(mkx, c_int64_t), &
+                  int(ncnst, c_int64_t), wtrc_nwset_post_c, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+                  0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
+                  c_loc(p0), c_loc(dp0), c_loc(exn0), c_loc(thv0bot), c_loc(thl0), c_loc(qt0), &
+                  c_loc(u0), c_loc(v0), c_loc(tr0), c_loc(wt0), c_loc(pe), c_loc(dpe), &
+                  c_loc(exne), c_loc(thvebot), c_loc(thle), c_loc(qte), c_loc(ue), c_loc(ve), &
+                  c_loc(tre), c_loc(wte))
           endif
 
        end do   ! End of cumulus updraft loop from the 'krel' layer to 'kpen' layer.
@@ -7688,11 +7737,14 @@ end subroutine uwshcu_readnl
               go to 333
           end if
        else
-          call uwshcu_log_buoy_top_conden_exit_shell_entered()
-          call uwshcu_log_scalar_exit_limit_batch_shell_entered()
-          call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
-                0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
-                c_loc(exit_conden(i)), c_null_ptr, c_loc(buoy_top_conden_exit_code_c))
+          call uwshcu_log_buoy_loop_batch_shell_entered()
+          call uwshcu_buoy_loop_batch_shell_codon(1_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+                0_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
+                c_loc(exit_conden(i)), c_loc(buoy_top_conden_exit_code_c), c_null_ptr, c_null_ptr, &
+                c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+                c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+                c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
           if( buoy_top_conden_exit_code_c .ne. 0_c_int64_t ) then
               id_exit = .true.
               go to 333
