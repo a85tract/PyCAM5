@@ -96,6 +96,7 @@
   logical :: scaleh_filter_prep_shell_entered_logged = .false.
   logical :: scaleh_cufilter_exit_shell_entered_logged = .false.
   logical :: scalar_exit_limit_batch_shell_entered_logged = .false.
+  logical :: conden_exit_thv_batch_shell_entered_logged = .false.
   logical :: comp_sub_sink_shell_entered_logged = .false.
   logical :: comp_sub_conden_exit_shell_entered_logged = .false.
   logical :: thermo_conden_exit_shell_entered_logged = .false.
@@ -1178,6 +1179,23 @@ contains
     end if
 
   end subroutine uwshcu_log_scalar_exit_limit_batch_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_conden_exit_thv_batch_shell_entered()
+
+    if (conden_exit_thv_batch_shell_entered_logged) return
+    conden_exit_thv_batch_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu conden exit/thv batch shell entered (post-conden exit and virtual theta direct = codon; conden/goto native)'
+       call uwshcu_append_proof( &
+            'uwshcu conden exit/thv batch shell entered (post-conden exit and virtual theta direct = codon; conden/goto native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_conden_exit_thv_batch_shell_entered
 
 !===============================================================================
 
@@ -3282,6 +3300,15 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: thv_p
        end subroutine uwshcu_thv_scalar_shell_codon
 
+       subroutine uwshcu_conden_exit_thv_batch_shell_codon(kind_c, k_c, id_check_c, zvir_c, &
+            thj_c, qvj_c, qlj_c, qij_c, thl0edge_c, qt0edge_c, exit_conden_p, exit_code_p, &
+            thv_p, thvl_p) bind(c, name="uwshcu_conden_exit_thv_batch_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: kind_c, k_c, id_check_c
+          real(c_double), value :: zvir_c, thj_c, qvj_c, qlj_c, qij_c, thl0edge_c, qt0edge_c
+          type(c_ptr), value :: exit_conden_p, exit_code_p, thv_p, thvl_p
+       end subroutine uwshcu_conden_exit_thv_batch_shell_codon
+
        subroutine uwshcu_buoy_env_pre_qsat_shell_codon(zvir_c, r_c, pe_c, thj_c, qvj_c, qlj_c, &
             qij_c, exne_c, thle_c, thv0j_p, rho0j_p, qsat_arg_p) &
             bind(c, name="uwshcu_buoy_env_pre_qsat_shell_codon")
@@ -4900,10 +4927,12 @@ end subroutine uwshcu_readnl
             end if
          else
             call uwshcu_log_interface_conden_exit_shell_entered()
-            call uwshcu_log_scalar_exit_limit_batch_shell_entered()
-            call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
-                  0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
-                  c_loc(exit_conden(i)), c_null_ptr, c_loc(interface_conden_exit_code_c))
+            call uwshcu_log_interface_thv_shell_entered()
+            call uwshcu_log_conden_exit_thv_batch_shell_entered()
+            call uwshcu_conden_exit_thv_batch_shell_codon(2_c_int64_t, int(k, c_int64_t), &
+                  int(id_check, c_int64_t), zvir, thj, qvj, qlj, qij, thl0bot, qt0bot, &
+                  c_loc(exit_conden(i)), c_loc(interface_conden_exit_code_c), &
+                  c_loc(thv0bot), c_loc(thvl0bot))
             if( interface_conden_exit_code_c .ne. 0_c_int64_t ) then
                 id_exit = .true.
                 go to 333
@@ -4912,10 +4941,6 @@ end subroutine uwshcu_readnl
          if (use_native_init_shell_impl) then
             thv0bot(k)  = thj*(1._r8 + zvir*qvj - qlj - qij)
             thvl0bot(k) = thl0bot*(1._r8 + zvir*qt0bot)
-         else
-            call uwshcu_log_interface_thv_shell_entered()
-            call uwshcu_interface_thv_shell_codon(int(k, c_int64_t), zvir, thj, qvj, qlj, qij, &
-                 thl0bot, qt0bot, c_loc(thv0bot), c_loc(thvl0bot))
          endif
           
          thl0top = thl0(k) + ssthl0(k)*(ps0(k) - p0(k))
@@ -4929,10 +4954,12 @@ end subroutine uwshcu_readnl
             end if
          else
             call uwshcu_log_interface_conden_exit_shell_entered()
-            call uwshcu_log_scalar_exit_limit_batch_shell_entered()
-            call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
-                  0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
-                  c_loc(exit_conden(i)), c_null_ptr, c_loc(interface_conden_exit_code_c))
+            call uwshcu_log_interface_thv_shell_entered()
+            call uwshcu_log_conden_exit_thv_batch_shell_entered()
+            call uwshcu_conden_exit_thv_batch_shell_codon(2_c_int64_t, int(k, c_int64_t), &
+                  int(id_check, c_int64_t), zvir, thj, qvj, qlj, qij, thl0top, qt0top, &
+                  c_loc(exit_conden(i)), c_loc(interface_conden_exit_code_c), &
+                  c_loc(thv0top), c_loc(thvl0top))
             if( interface_conden_exit_code_c .ne. 0_c_int64_t ) then
                 id_exit = .true.
                 go to 333
@@ -4941,9 +4968,6 @@ end subroutine uwshcu_readnl
          if (use_native_init_shell_impl) then
             thv0top(k)  = thj*(1._r8 + zvir*qvj - qlj - qij)
             thvl0top(k) = thl0top*(1._r8 + zvir*qt0top)
-         else
-            call uwshcu_interface_thv_shell_codon(int(k, c_int64_t), zvir, thj, qvj, qlj, qij, &
-                 thl0top, qt0top, c_loc(thv0top), c_loc(thvl0top))
          endif
 
       end do
@@ -5395,10 +5419,11 @@ end subroutine uwshcu_readnl
                       end if
                    else
                       call uwshcu_log_cin_conden_exit_shell_entered()
-                      call uwshcu_log_scalar_exit_limit_batch_shell_entered()
-                      call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
-                            0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
-                            c_loc(exit_conden(i)), c_null_ptr, c_loc(cin_conden_exit_code_c))
+                      call uwshcu_log_cin_thv_scalar_shell_entered()
+                      call uwshcu_log_conden_exit_thv_batch_shell_entered()
+                      call uwshcu_conden_exit_thv_batch_shell_codon(1_c_int64_t, 0_c_int64_t, &
+                            int(id_check, c_int64_t), zvir, thj, qvj, qlj, qij, 0._r8, 0._r8, &
+                            c_loc(exit_conden(i)), c_loc(cin_conden_exit_code_c), c_loc(thvutop), c_null_ptr)
                       if( cin_conden_exit_code_c .ne. 0_c_int64_t ) then
                           id_exit = .true.
                           go to 333
@@ -5406,9 +5431,6 @@ end subroutine uwshcu_readnl
                    endif
                    if (use_native_init_shell_impl) then
                       thvutop = thj * ( 1._r8 + zvir*qvj - qlj - qij )
-                   else
-                      call uwshcu_log_cin_thv_scalar_shell_entered()
-                      call uwshcu_thv_scalar_shell_codon(zvir, thj, qvj, qlj, qij, c_loc(thvutop))
                    endif
                    call getbuoy(plcl,thv0lcl,ps0(k),thv0top(k),thvubot,thvutop,plfc,cin)
                    if( plfc .gt. 0._r8 ) then 
@@ -5426,10 +5448,11 @@ end subroutine uwshcu_readnl
                       end if
                    else
                       call uwshcu_log_cin_conden_exit_shell_entered()
-                      call uwshcu_log_scalar_exit_limit_batch_shell_entered()
-                      call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
-                            0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
-                            c_loc(exit_conden(i)), c_null_ptr, c_loc(cin_conden_exit_code_c))
+                      call uwshcu_log_cin_thv_scalar_shell_entered()
+                      call uwshcu_log_conden_exit_thv_batch_shell_entered()
+                      call uwshcu_conden_exit_thv_batch_shell_codon(1_c_int64_t, 0_c_int64_t, &
+                            int(id_check, c_int64_t), zvir, thj, qvj, qlj, qij, 0._r8, 0._r8, &
+                            c_loc(exit_conden(i)), c_loc(cin_conden_exit_code_c), c_loc(thvutop), c_null_ptr)
                       if( cin_conden_exit_code_c .ne. 0_c_int64_t ) then
                           id_exit = .true.
                           go to 333
@@ -5437,9 +5460,6 @@ end subroutine uwshcu_readnl
                    endif
                    if (use_native_init_shell_impl) then
                       thvutop = thj * ( 1._r8 + zvir*qvj - qlj - qij )
-                   else
-                      call uwshcu_log_cin_thv_scalar_shell_entered()
-                      call uwshcu_thv_scalar_shell_codon(zvir, thj, qvj, qlj, qij, c_loc(thvutop))
                    endif
                    call getbuoy(ps0(k-1),thv0bot(k),ps0(k),thv0top(k),thvubot,thvutop,plfc,cin)
                    if( plfc .gt. 0._r8 ) then 
@@ -5465,10 +5485,11 @@ end subroutine uwshcu_readnl
                 end if
              else
                 call uwshcu_log_cin_conden_exit_shell_entered()
-                call uwshcu_log_scalar_exit_limit_batch_shell_entered()
-                call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
-                      0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
-                      c_loc(exit_conden(i)), c_null_ptr, c_loc(cin_conden_exit_code_c))
+                call uwshcu_log_cin_thv_scalar_shell_entered()
+                call uwshcu_log_conden_exit_thv_batch_shell_entered()
+                call uwshcu_conden_exit_thv_batch_shell_codon(1_c_int64_t, 0_c_int64_t, &
+                      int(id_check, c_int64_t), zvir, thj, qvj, qlj, qij, 0._r8, 0._r8, &
+                      c_loc(exit_conden(i)), c_loc(cin_conden_exit_code_c), c_loc(thvubot), c_null_ptr)
                 if( cin_conden_exit_code_c .ne. 0_c_int64_t ) then
                     id_exit = .true.
                     go to 333
@@ -5476,9 +5497,6 @@ end subroutine uwshcu_readnl
              endif
              if (use_native_init_shell_impl) then
                 thvubot = thj * ( 1._r8 + zvir*qvj - qlj - qij )
-             else
-                call uwshcu_log_cin_thv_scalar_shell_entered()
-                call uwshcu_thv_scalar_shell_codon(zvir, thj, qvj, qlj, qij, c_loc(thvubot))
              endif
              call conden(ps0(k),thlsrc,qtsrc,thj,qvj,qlj,qij,qse,id_check,ncnst)
              if (use_native_init_shell_impl) then
@@ -5489,10 +5507,11 @@ end subroutine uwshcu_readnl
                 end if
              else
                 call uwshcu_log_cin_conden_exit_shell_entered()
-                call uwshcu_log_scalar_exit_limit_batch_shell_entered()
-                call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
-                      0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
-                      c_loc(exit_conden(i)), c_null_ptr, c_loc(cin_conden_exit_code_c))
+                call uwshcu_log_cin_thv_scalar_shell_entered()
+                call uwshcu_log_conden_exit_thv_batch_shell_entered()
+                call uwshcu_conden_exit_thv_batch_shell_codon(1_c_int64_t, 0_c_int64_t, &
+                      int(id_check, c_int64_t), zvir, thj, qvj, qlj, qij, 0._r8, 0._r8, &
+                      c_loc(exit_conden(i)), c_loc(cin_conden_exit_code_c), c_loc(thvutop), c_null_ptr)
                 if( cin_conden_exit_code_c .ne. 0_c_int64_t ) then
                     id_exit = .true.
                     go to 333
@@ -5500,8 +5519,6 @@ end subroutine uwshcu_readnl
              endif
              if (use_native_init_shell_impl) then
                 thvutop = thj * ( 1._r8 + zvir*qvj - qlj - qij )
-             else
-                call uwshcu_thv_scalar_shell_codon(zvir, thj, qvj, qlj, qij, c_loc(thvutop))
              endif
              call getbuoy(ps0(k-1),thv0bot(k),ps0(k),thv0top(k),thvubot,thvutop,plfc,cin)
              if( plfc .gt. 0._r8 ) then 
@@ -6977,10 +6994,10 @@ end subroutine uwshcu_readnl
              end if
           else
              call uwshcu_log_buoy_conden_exit_shell_entered()
-             call uwshcu_log_scalar_exit_limit_batch_shell_entered()
-             call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
-                   0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
-                   c_loc(exit_conden(i)), c_null_ptr, c_loc(buoy_conden_exit_code_c))
+             call uwshcu_log_conden_exit_thv_batch_shell_entered()
+             call uwshcu_conden_exit_thv_batch_shell_codon(1_c_int64_t, 0_c_int64_t, &
+                   int(id_check, c_int64_t), zvir, thj, qvj, qlj, qij, 0._r8, 0._r8, &
+                   c_loc(exit_conden(i)), c_loc(buoy_conden_exit_code_c), c_loc(thvu(k)), c_null_ptr)
              if( buoy_conden_exit_code_c .ne. 0_c_int64_t ) then
                  id_exit = .true.
                  go to 333
@@ -6988,8 +7005,6 @@ end subroutine uwshcu_readnl
           endif
           if (use_native_init_shell_impl) then
              thvu(k) = thj * ( 1._r8 + zvir * qvj - qlj - qij )
-          else
-             call uwshcu_thv_scalar_shell_codon(zvir, thj, qvj, qlj, qij, c_loc(thvu(k)))
           endif
 
           ! ----------------------------------------------------------- ! 
@@ -9800,10 +9815,12 @@ end subroutine uwshcu_readnl
                 end if
              else
                 call uwshcu_log_interface_conden_exit_shell_entered()
-                call uwshcu_log_scalar_exit_limit_batch_shell_entered()
-                call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
-                      0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
-                      c_loc(exit_conden(i)), c_null_ptr, c_loc(interface_conden_exit_code_c))
+                call uwshcu_log_iter_interface_thv_shell_entered()
+                call uwshcu_log_conden_exit_thv_batch_shell_entered()
+                call uwshcu_conden_exit_thv_batch_shell_codon(2_c_int64_t, int(k, c_int64_t), &
+                      int(id_check, c_int64_t), zvir, thj, qvj, qlj, qij, thl0bot, qt0bot, &
+                      c_loc(exit_conden(i)), c_loc(interface_conden_exit_code_c), &
+                      c_loc(thv0bot), c_loc(thvl0bot))
                 if( interface_conden_exit_code_c .ne. 0_c_int64_t ) then
                     id_exit = .true.
                     go to 333
@@ -9812,10 +9829,6 @@ end subroutine uwshcu_readnl
              if (use_native_init_shell_impl) then
                 thv0bot(k)  = thj * ( 1._r8 + zvir*qvj - qlj - qij )
                 thvl0bot(k) = thl0bot * ( 1._r8 + zvir*qt0bot )
-             else
-                call uwshcu_log_iter_interface_thv_shell_entered()
-                call uwshcu_interface_thv_shell_codon(int(k, c_int64_t), zvir, thj, qvj, qlj, qij, &
-                     thl0bot, qt0bot, c_loc(thv0bot), c_loc(thvl0bot))
              endif
           
              thl0top = thl0(k) + ssthl0(k) * ( ps0(k) - p0(k) )
@@ -9829,10 +9842,12 @@ end subroutine uwshcu_readnl
                 end if
              else
                 call uwshcu_log_interface_conden_exit_shell_entered()
-                call uwshcu_log_scalar_exit_limit_batch_shell_entered()
-                call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
-                      0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
-                      c_loc(exit_conden(i)), c_null_ptr, c_loc(interface_conden_exit_code_c))
+                call uwshcu_log_iter_interface_thv_shell_entered()
+                call uwshcu_log_conden_exit_thv_batch_shell_entered()
+                call uwshcu_conden_exit_thv_batch_shell_codon(2_c_int64_t, int(k, c_int64_t), &
+                      int(id_check, c_int64_t), zvir, thj, qvj, qlj, qij, thl0top, qt0top, &
+                      c_loc(exit_conden(i)), c_loc(interface_conden_exit_code_c), &
+                      c_loc(thv0top), c_loc(thvl0top))
                 if( interface_conden_exit_code_c .ne. 0_c_int64_t ) then
                     id_exit = .true.
                     go to 333
@@ -9841,9 +9856,6 @@ end subroutine uwshcu_readnl
              if (use_native_init_shell_impl) then
                 thv0top(k)  = thj * ( 1._r8 + zvir*qvj - qlj - qij )
                 thvl0top(k) = thl0top * ( 1._r8 + zvir*qt0top )
-             else
-                call uwshcu_interface_thv_shell_codon(int(k, c_int64_t), zvir, thj, qvj, qlj, qij, &
-                     thl0top, qt0top, c_loc(thv0top), c_loc(thvl0top))
              endif
 
           end do

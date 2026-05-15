@@ -3245,6 +3245,43 @@ def uwshcu_thv_scalar_shell_codon(
 
 
 @export
+def uwshcu_conden_exit_thv_batch_shell_codon(
+    kind: int,
+    k_fortran: int,
+    id_check: int,
+    zvir: float,
+    thj: float,
+    qvj: float,
+    qlj: float,
+    qij: float,
+    thl0edge: float,
+    qt0edge: float,
+    exit_conden_p: cobj,
+    exit_code_p: cobj,
+    thv_p: cobj,
+    thvl_p: cobj,
+):
+    exit_conden = Ptr[float](exit_conden_p)
+    exit_code = Ptr[int](exit_code_p)
+
+    exit_code[0] = 0
+    if id_check == 1:
+        exit_conden[0] = 1.0
+        exit_code[0] = 1
+        return
+
+    if kind == 1:
+        thv = Ptr[float](thv_p)
+        thv[0] = thj * (1.0 + zvir * qvj - qlj - qij)
+    elif kind == 2:
+        thv = Ptr[float](thv_p)
+        thvl = Ptr[float](thvl_p)
+        idx = k_fortran - 1
+        thv[idx] = thj * (1.0 + zvir * qvj - qlj - qij)
+        thvl[idx] = thl0edge * (1.0 + zvir * qt0edge)
+
+
+@export
 def uwshcu_buoy_env_pre_qsat_shell_codon(
     zvir: float,
     r_v: float,
