@@ -80,6 +80,7 @@
   logical :: pbl_source_shell_entered_logged = .false.
   logical :: pbl_precheck_source_shell_entered_logged = .false.
   logical :: lcl_prep_shell_entered_logged = .false.
+  logical :: cin_prep_batch_shell_entered_logged = .false.
   logical :: cin_scalar_shell_entered_logged = .false.
   logical :: cin_save_shell_entered_logged = .false.
   logical :: cin_restore_shell_entered_logged = .false.
@@ -971,6 +972,23 @@ contains
     end if
 
   end subroutine uwshcu_log_lcl_prep_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_cin_prep_batch_shell_entered()
+
+    if (cin_prep_batch_shell_entered_logged) return
+    cin_prep_batch_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu cin prep batch shell entered (interface/lcl/cin thv and exit scalars direct = codon; qsinvert/conden/buoy/goto native)'
+       call uwshcu_append_proof( &
+            'uwshcu cin prep batch shell entered (interface/lcl/cin thv and exit scalars direct = codon; qsinvert/conden/buoy/goto native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_cin_prep_batch_shell_entered
 
 !===============================================================================
 
@@ -3672,6 +3690,22 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: thv0lcl_p, cin_p, cinlcl_p, plfc_p, klfc_p
        end subroutine uwshcu_cin_lcl_init_shell_codon
 
+       subroutine uwshcu_cin_prep_batch_shell_codon(kind_c, k_c, mkx_c, id_check_c, &
+            plcl_c, zvir_c, thj_c, qvj_c, qlj_c, qij_c, thl0edge_c, qt0edge_c, &
+            ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p, klcl_out_p, &
+            lcl_exit_code_p, thl0lcl_p, qt0lcl_p, exit_conden_p, exit_code_p, &
+            thv_p, thvl_p, cin_p, cinlcl_p, plfc_p, klfc_p) &
+            bind(c, name="uwshcu_cin_prep_batch_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: kind_c, k_c, mkx_c, id_check_c
+          real(c_double), value :: plcl_c, zvir_c, thj_c, qvj_c, qlj_c, qij_c
+          real(c_double), value :: thl0edge_c, qt0edge_c
+          type(c_ptr), value :: ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p
+          type(c_ptr), value :: klcl_out_p, lcl_exit_code_p, thl0lcl_p, qt0lcl_p
+          type(c_ptr), value :: exit_conden_p, exit_code_p, thv_p, thvl_p
+          type(c_ptr), value :: cin_p, cinlcl_p, plfc_p, klfc_p
+       end subroutine uwshcu_cin_prep_batch_shell_codon
+
        subroutine uwshcu_cin_state_save_shell_codon(ncnst_c, cin_c, cinlcl_c, rbuoy_c, rkfre_c, &
             tkeavg_c, epsvarw_c, kinv_c, klcl_c, klfc_c, plcl_c, plfc_c, thvlmin_c, qtsrc_c, &
             thvlsrc_c, thlsrc_c, usrc_c, vsrc_c, thv0lcl_c, trsrc_p, cin_i_p, cinlcl_i_p, &
@@ -5108,13 +5142,13 @@ end subroutine uwshcu_readnl
                 go to 333
             end if
          else
-            call uwshcu_log_interface_conden_exit_shell_entered()
-            call uwshcu_log_interface_thv_shell_entered()
-            call uwshcu_log_conden_exit_thv_batch_shell_entered()
-            call uwshcu_conden_exit_thv_batch_shell_codon(2_c_int64_t, int(k, c_int64_t), &
-                  int(id_check, c_int64_t), zvir, thj, qvj, qlj, qij, thl0bot, qt0bot, &
-                  c_loc(exit_conden(i)), c_loc(interface_conden_exit_code_c), &
-                  c_loc(thv0bot), c_loc(thvl0bot))
+            call uwshcu_log_cin_prep_batch_shell_entered()
+            call uwshcu_cin_prep_batch_shell_codon(0_c_int64_t, int(k, c_int64_t), int(mkx, c_int64_t), &
+                  int(id_check, c_int64_t), 0._r8, zvir, thj, qvj, qlj, qij, thl0bot, qt0bot, &
+                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(exit_conden(i)), &
+                  c_loc(interface_conden_exit_code_c), c_loc(thv0bot), c_loc(thvl0bot), &
+                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
             if( interface_conden_exit_code_c .ne. 0_c_int64_t ) then
                 id_exit = .true.
                 go to 333
@@ -5135,13 +5169,13 @@ end subroutine uwshcu_readnl
                 go to 333
             end if
          else
-            call uwshcu_log_interface_conden_exit_shell_entered()
-            call uwshcu_log_interface_thv_shell_entered()
-            call uwshcu_log_conden_exit_thv_batch_shell_entered()
-            call uwshcu_conden_exit_thv_batch_shell_codon(2_c_int64_t, int(k, c_int64_t), &
-                  int(id_check, c_int64_t), zvir, thj, qvj, qlj, qij, thl0top, qt0top, &
-                  c_loc(exit_conden(i)), c_loc(interface_conden_exit_code_c), &
-                  c_loc(thv0top), c_loc(thvl0top))
+            call uwshcu_log_cin_prep_batch_shell_entered()
+            call uwshcu_cin_prep_batch_shell_codon(0_c_int64_t, int(k, c_int64_t), int(mkx, c_int64_t), &
+                  int(id_check, c_int64_t), 0._r8, zvir, thj, qvj, qlj, qij, thl0top, qt0top, &
+                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(exit_conden(i)), &
+                  c_loc(interface_conden_exit_code_c), c_loc(thv0top), c_loc(thvl0top), &
+                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
             if( interface_conden_exit_code_c .ne. 0_c_int64_t ) then
                 id_exit = .true.
                 go to 333
@@ -5485,10 +5519,13 @@ end subroutine uwshcu_readnl
           lcl_exit_code_c = 0_c_int64_t
           if( plcl .lt. 30000._r8 ) lcl_exit_code_c = 1_c_int64_t
        else
-          call uwshcu_log_lcl_prep_shell_entered()
-          call uwshcu_lcl_prep_shell_codon(int(mkx, c_int64_t), plcl, c_loc(ps0), c_loc(p0), &
-               c_loc(thl0), c_loc(ssthl0), c_loc(qt0), c_loc(ssqt0), c_loc(klcl_prep_c), &
-               c_loc(lcl_exit_code_c), c_loc(thl0lcl), c_loc(qt0lcl))
+          call uwshcu_log_cin_prep_batch_shell_entered()
+          call uwshcu_cin_prep_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(mkx, c_int64_t), &
+               0_c_int64_t, plcl, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
+               c_loc(ps0), c_loc(p0), c_loc(thl0), c_loc(ssthl0), c_loc(qt0), c_loc(ssqt0), &
+               c_loc(klcl_prep_c), c_loc(lcl_exit_code_c), c_loc(thl0lcl), c_loc(qt0lcl), &
+               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
           klcl = int(klcl_prep_c)
        end if
 
@@ -5522,11 +5559,13 @@ end subroutine uwshcu_readnl
               go to 333
           end if
        else
-          call uwshcu_log_cin_conden_exit_shell_entered()
-          call uwshcu_log_scalar_exit_limit_batch_shell_entered()
-          call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
-                0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
-                c_loc(exit_conden(i)), c_null_ptr, c_loc(cin_conden_exit_code_c))
+          call uwshcu_log_cin_prep_batch_shell_entered()
+          call uwshcu_cin_prep_batch_shell_codon(2_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+                int(id_check, c_int64_t), 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
+                c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+                c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(exit_conden(i)), &
+                c_loc(cin_conden_exit_code_c), c_null_ptr, c_null_ptr, &
+                c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
           if( cin_conden_exit_code_c .ne. 0_c_int64_t ) then
               id_exit = .true.
               go to 333
@@ -5535,9 +5574,12 @@ end subroutine uwshcu_readnl
        if (use_native_init_shell_impl) then
           thv0lcl = thj * ( 1._r8 + zvir * qvj - qlj - qij )
        else
-          call uwshcu_log_cin_scalar_shell_entered()
-          call uwshcu_cin_lcl_init_shell_codon(int(mkx, c_int64_t), zvir, thj, qvj, qlj, qij, &
-               c_loc(thv0lcl), c_loc(cin), c_loc(cinlcl), c_loc(plfc), c_loc(klfc_cin_state_c))
+          call uwshcu_log_cin_prep_batch_shell_entered()
+          call uwshcu_cin_prep_batch_shell_codon(3_c_int64_t, 0_c_int64_t, int(mkx, c_int64_t), &
+               0_c_int64_t, 0._r8, zvir, thj, qvj, qlj, qij, 0._r8, 0._r8, &
+               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+               c_loc(thv0lcl), c_null_ptr, c_loc(cin), c_loc(cinlcl), c_loc(plfc), c_loc(klfc_cin_state_c))
           klfc = int(klfc_cin_state_c)
        end if
 
@@ -5600,12 +5642,13 @@ end subroutine uwshcu_readnl
                           go to 333
                       end if
                    else
-                      call uwshcu_log_cin_conden_exit_shell_entered()
-                      call uwshcu_log_cin_thv_scalar_shell_entered()
-                      call uwshcu_log_conden_exit_thv_batch_shell_entered()
-                      call uwshcu_conden_exit_thv_batch_shell_codon(1_c_int64_t, 0_c_int64_t, &
-                            int(id_check, c_int64_t), zvir, thj, qvj, qlj, qij, 0._r8, 0._r8, &
-                            c_loc(exit_conden(i)), c_loc(cin_conden_exit_code_c), c_loc(thvutop), c_null_ptr)
+                      call uwshcu_log_cin_prep_batch_shell_entered()
+                      call uwshcu_cin_prep_batch_shell_codon(4_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+                            int(id_check, c_int64_t), 0._r8, zvir, thj, qvj, qlj, qij, 0._r8, 0._r8, &
+                            c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+                            c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(exit_conden(i)), &
+                            c_loc(cin_conden_exit_code_c), c_loc(thvutop), c_null_ptr, &
+                            c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
                       if( cin_conden_exit_code_c .ne. 0_c_int64_t ) then
                           id_exit = .true.
                           go to 333
@@ -5629,12 +5672,13 @@ end subroutine uwshcu_readnl
                           go to 333
                       end if
                    else
-                      call uwshcu_log_cin_conden_exit_shell_entered()
-                      call uwshcu_log_cin_thv_scalar_shell_entered()
-                      call uwshcu_log_conden_exit_thv_batch_shell_entered()
-                      call uwshcu_conden_exit_thv_batch_shell_codon(1_c_int64_t, 0_c_int64_t, &
-                            int(id_check, c_int64_t), zvir, thj, qvj, qlj, qij, 0._r8, 0._r8, &
-                            c_loc(exit_conden(i)), c_loc(cin_conden_exit_code_c), c_loc(thvutop), c_null_ptr)
+                      call uwshcu_log_cin_prep_batch_shell_entered()
+                      call uwshcu_cin_prep_batch_shell_codon(4_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+                            int(id_check, c_int64_t), 0._r8, zvir, thj, qvj, qlj, qij, 0._r8, 0._r8, &
+                            c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+                            c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(exit_conden(i)), &
+                            c_loc(cin_conden_exit_code_c), c_loc(thvutop), c_null_ptr, &
+                            c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
                       if( cin_conden_exit_code_c .ne. 0_c_int64_t ) then
                           id_exit = .true.
                           go to 333
@@ -5666,12 +5710,13 @@ end subroutine uwshcu_readnl
                     go to 333
                 end if
              else
-                call uwshcu_log_cin_conden_exit_shell_entered()
-                call uwshcu_log_cin_thv_scalar_shell_entered()
-                call uwshcu_log_conden_exit_thv_batch_shell_entered()
-                call uwshcu_conden_exit_thv_batch_shell_codon(1_c_int64_t, 0_c_int64_t, &
-                      int(id_check, c_int64_t), zvir, thj, qvj, qlj, qij, 0._r8, 0._r8, &
-                      c_loc(exit_conden(i)), c_loc(cin_conden_exit_code_c), c_loc(thvubot), c_null_ptr)
+                call uwshcu_log_cin_prep_batch_shell_entered()
+                call uwshcu_cin_prep_batch_shell_codon(4_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+                      int(id_check, c_int64_t), 0._r8, zvir, thj, qvj, qlj, qij, 0._r8, 0._r8, &
+                      c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+                      c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(exit_conden(i)), &
+                      c_loc(cin_conden_exit_code_c), c_loc(thvubot), c_null_ptr, &
+                      c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
                 if( cin_conden_exit_code_c .ne. 0_c_int64_t ) then
                     id_exit = .true.
                     go to 333
@@ -5688,12 +5733,13 @@ end subroutine uwshcu_readnl
                     go to 333
                 end if
              else
-                call uwshcu_log_cin_conden_exit_shell_entered()
-                call uwshcu_log_cin_thv_scalar_shell_entered()
-                call uwshcu_log_conden_exit_thv_batch_shell_entered()
-                call uwshcu_conden_exit_thv_batch_shell_codon(1_c_int64_t, 0_c_int64_t, &
-                      int(id_check, c_int64_t), zvir, thj, qvj, qlj, qij, 0._r8, 0._r8, &
-                      c_loc(exit_conden(i)), c_loc(cin_conden_exit_code_c), c_loc(thvutop), c_null_ptr)
+                call uwshcu_log_cin_prep_batch_shell_entered()
+                call uwshcu_cin_prep_batch_shell_codon(4_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+                      int(id_check, c_int64_t), 0._r8, zvir, thj, qvj, qlj, qij, 0._r8, 0._r8, &
+                      c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+                      c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(exit_conden(i)), &
+                      c_loc(cin_conden_exit_code_c), c_loc(thvutop), c_null_ptr, &
+                      c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
                 if( cin_conden_exit_code_c .ne. 0_c_int64_t ) then
                     id_exit = .true.
                     go to 333

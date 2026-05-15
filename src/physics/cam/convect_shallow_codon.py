@@ -4313,6 +4313,111 @@ def uwshcu_cin_lcl_init_shell_codon(
 
 
 @export
+def uwshcu_cin_prep_batch_shell_codon(
+    kind: int,
+    k_fortran: int,
+    mkx: int,
+    id_check: int,
+    plcl: float,
+    zvir: float,
+    thj: float,
+    qvj: float,
+    qlj: float,
+    qij: float,
+    thl0edge: float,
+    qt0edge: float,
+    ps0_p: cobj,
+    p0_p: cobj,
+    thl0_p: cobj,
+    ssthl0_p: cobj,
+    qt0_p: cobj,
+    ssqt0_p: cobj,
+    klcl_out_p: cobj,
+    lcl_exit_code_p: cobj,
+    thl0lcl_p: cobj,
+    qt0lcl_p: cobj,
+    exit_conden_p: cobj,
+    exit_code_p: cobj,
+    thv_p: cobj,
+    thvl_p: cobj,
+    cin_p: cobj,
+    cinlcl_p: cobj,
+    plfc_p: cobj,
+    klfc_p: cobj,
+):
+    if kind == 0:
+        uwshcu_conden_exit_thv_batch_shell_codon(
+            2,
+            k_fortran,
+            id_check,
+            zvir,
+            thj,
+            qvj,
+            qlj,
+            qij,
+            thl0edge,
+            qt0edge,
+            exit_conden_p,
+            exit_code_p,
+            thv_p,
+            thvl_p,
+        )
+    elif kind == 1:
+        uwshcu_lcl_prep_shell_codon(
+            mkx,
+            plcl,
+            ps0_p,
+            p0_p,
+            thl0_p,
+            ssthl0_p,
+            qt0_p,
+            ssqt0_p,
+            klcl_out_p,
+            lcl_exit_code_p,
+            thl0lcl_p,
+            qt0lcl_p,
+        )
+    elif kind == 2:
+        exit_conden = Ptr[float](exit_conden_p)
+        exit_code = Ptr[int](exit_code_p)
+        exit_code[0] = 0
+        if id_check == 1:
+            exit_conden[0] = 1.0
+            exit_code[0] = 1
+    elif kind == 3:
+        uwshcu_cin_lcl_init_shell_codon(
+            mkx,
+            zvir,
+            thj,
+            qvj,
+            qlj,
+            qij,
+            thv_p,
+            cin_p,
+            cinlcl_p,
+            plfc_p,
+            klfc_p,
+        )
+    elif kind == 4:
+        uwshcu_conden_exit_thv_batch_shell_codon(
+            1,
+            0,
+            id_check,
+            zvir,
+            thj,
+            qvj,
+            qlj,
+            qij,
+            0.0,
+            0.0,
+            exit_conden_p,
+            exit_code_p,
+            thv_p,
+            thvl_p,
+        )
+
+
+@export
 def uwshcu_cin_state_save_shell_codon(
     ncnst: int,
     cin_v: float,
