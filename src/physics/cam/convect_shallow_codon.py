@@ -6150,6 +6150,35 @@ def uwshcu_thermo_emf_conden_exit_shell_codon(
 
 
 @export
+def uwshcu_thermo_emf_kbup_state_shell_codon(
+    k: int,
+    mkx: int,
+    ixnumliq: int,
+    ixnumice: int,
+    ql_emf_kbup: float,
+    qi_emf_kbup: float,
+    tru_emf_p: cobj,
+    nl_emf_kbup_p: cobj,
+    ni_emf_kbup_p: cobj,
+):
+    tru_emf = Ptr[float](tru_emf_p)
+    nl_emf_kbup = Ptr[float](nl_emf_kbup_p)
+    ni_emf_kbup = Ptr[float](ni_emf_kbup_p)
+
+    iface_stride = mkx + 1
+    liq_idx = ixnumliq - 1
+    ice_idx = ixnumice - 1
+
+    nl_emf_kbup[0] = 0.0
+    if ql_emf_kbup > 0.0:
+        nl_emf_kbup[0] = tru_emf[k + liq_idx * iface_stride]
+
+    ni_emf_kbup[0] = 0.0
+    if qi_emf_kbup > 0.0:
+        ni_emf_kbup[0] = tru_emf[k + ice_idx * iface_stride]
+
+
+@export
 def uwshcu_thermo_prelim_shell_codon(
     mkx: int,
     wtrc_nwset: int,
