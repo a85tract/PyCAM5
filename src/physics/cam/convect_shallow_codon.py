@@ -6266,6 +6266,40 @@ def uwshcu_thermo_detrain_shell_codon(
 
 
 @export
+def uwshcu_thermo_detached_shell_codon(
+    g_v: float,
+    umf_k: float,
+    qlj: float,
+    qij: float,
+    ql0_k: float,
+    qi0_k: float,
+    tr0_liq_k: float,
+    tr0_ice_k: float,
+    ps0_km1: float,
+    ps0_k: float,
+    qc_l_k_p: cobj,
+    qc_i_k_p: cobj,
+    qc_lm_p: cobj,
+    qc_im_p: cobj,
+    nc_lm_p: cobj,
+    nc_im_p: cobj,
+):
+    qc_l_k = Ptr[float](qc_l_k_p)
+    qc_i_k = Ptr[float](qc_i_k_p)
+    qc_lm = Ptr[float](qc_lm_p)
+    qc_im = Ptr[float](qc_im_p)
+    nc_lm = Ptr[float](nc_lm_p)
+    nc_im = Ptr[float](nc_im_p)
+
+    qc_l_k[0] = qc_l_k[0] + g_v * umf_k * qlj / (ps0_km1 - ps0_k)
+    qc_i_k[0] = qc_i_k[0] + g_v * umf_k * qij / (ps0_km1 - ps0_k)
+    qc_lm[0] = qc_lm[0] - g_v * umf_k * ql0_k / (ps0_km1 - ps0_k)
+    qc_im[0] = qc_im[0] - g_v * umf_k * qi0_k / (ps0_km1 - ps0_k)
+    nc_lm[0] = nc_lm[0] - g_v * umf_k * tr0_liq_k / (ps0_km1 - ps0_k)
+    nc_im[0] = nc_im[0] - g_v * umf_k * tr0_ice_k / (ps0_km1 - ps0_k)
+
+
+@export
 def uwshcu_thermo_prelim_shell_codon(
     mkx: int,
     wtrc_nwset: int,

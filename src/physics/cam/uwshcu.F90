@@ -103,6 +103,7 @@
   logical :: thermo_emf_kbup_tendency_shell_entered_logged = .false.
   logical :: thermo_sustain_shell_entered_logged = .false.
   logical :: thermo_detrain_shell_entered_logged = .false.
+  logical :: thermo_detached_shell_entered_logged = .false.
   logical :: thermo_prelim_shell_entered_logged = .false.
   logical :: thermo_final_shell_entered_logged = .false.
   logical :: post_precip_adjust_shell_entered_logged = .false.
@@ -1294,6 +1295,23 @@ contains
     end if
 
   end subroutine uwshcu_log_thermo_detrain_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_thermo_detached_shell_entered()
+
+    if (thermo_detached_shell_entered_logged) return
+    thermo_detached_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu thermo detached shell entered (detached updraft scalars direct = codon; water tracers native)'
+       call uwshcu_append_proof( &
+            'uwshcu thermo detached shell entered (detached updraft scalars direct = codon; water tracers native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_thermo_detached_shell_entered
 
 !===============================================================================
 
@@ -3834,6 +3852,15 @@ end subroutine uwshcu_readnl
           real(c_double), value :: qlu_mid_c, qiu_mid_c, ql0_k_c, qi0_k_c, tr0_liq_k_c, tr0_ice_k_c
           type(c_ptr), value :: qc_l_k_p, qc_i_k_p, qc_lm_p, qc_im_p, nc_lm_p, nc_im_p
        end subroutine uwshcu_thermo_detrain_shell_codon
+
+       subroutine uwshcu_thermo_detached_shell_codon(g_c, umf_k_c, qlj_c, qij_c, ql0_k_c, &
+            qi0_k_c, tr0_liq_k_c, tr0_ice_k_c, ps0_km1_c, ps0_k_c, qc_l_k_p, qc_i_k_p, &
+            qc_lm_p, qc_im_p, nc_lm_p, nc_im_p) bind(c, name="uwshcu_thermo_detached_shell_codon")
+          use iso_c_binding, only: c_double, c_ptr
+          real(c_double), value :: g_c, umf_k_c, qlj_c, qij_c, ql0_k_c, qi0_k_c
+          real(c_double), value :: tr0_liq_k_c, tr0_ice_k_c, ps0_km1_c, ps0_k_c
+          type(c_ptr), value :: qc_l_k_p, qc_i_k_p, qc_lm_p, qc_im_p, nc_lm_p, nc_im_p
+       end subroutine uwshcu_thermo_detached_shell_codon
 
        subroutine uwshcu_thermo_prelim_shell_codon(mkx_c, wtrc_nwset_c, kpen_c, &
             frc_rasn_c, g_c, dp0_p, umf_p, dwten_p, diten_p, wtdwten_p, wtditen_p, &
@@ -8565,12 +8592,19 @@ end subroutine uwshcu_readnl
           ! 3. Detached Updraft 
 
           if( k .eq. kbup ) then
+              if (use_native_init_shell_impl) then
               qc_l(k) = qc_l(k) + g * umf(k) * qlj     / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
               qc_i(k) = qc_i(k) + g * umf(k) * qij     / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
               qc_lm   = qc_lm   - g * umf(k) * ql0(k)  / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
               qc_im   = qc_im   - g * umf(k) * qi0(k)  / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
               nc_lm   = nc_lm   - g * umf(k) * tr0(k,ixnumliq)  / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
               nc_im   = nc_im   - g * umf(k) * tr0(k,ixnumice)  / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
+              else
+                 call uwshcu_log_thermo_detached_shell_entered()
+                 call uwshcu_thermo_detached_shell_codon(g, umf(k), qlj, qij, ql0(k), qi0(k), &
+                      tr0(k,ixnumliq), tr0(k,ixnumice), ps0(k-1), ps0(k), c_loc(qc_l(k)), &
+                      c_loc(qc_i(k)), c_loc(qc_lm), c_loc(qc_im), c_loc(nc_lm), c_loc(nc_im))
+              endif
              !*************
              !Water tracers:
              !*************
