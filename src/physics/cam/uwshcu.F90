@@ -101,6 +101,7 @@
   logical :: thermo_emf_conden_exit_shell_entered_logged = .false.
   logical :: thermo_emf_kbup_state_shell_entered_logged = .false.
   logical :: thermo_emf_kbup_tendency_shell_entered_logged = .false.
+  logical :: thermo_sustain_shell_entered_logged = .false.
   logical :: thermo_prelim_shell_entered_logged = .false.
   logical :: thermo_final_shell_entered_logged = .false.
   logical :: post_precip_adjust_shell_entered_logged = .false.
@@ -1258,6 +1259,23 @@ contains
     end if
 
   end subroutine uwshcu_log_thermo_emf_kbup_tendency_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_thermo_sustain_shell_entered()
+
+    if (thermo_sustain_shell_entered_logged) return
+    thermo_sustain_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu thermo sustain shell entered (sustained condensate direct = codon; water tracers native)'
+       call uwshcu_append_proof( &
+            'uwshcu thermo sustain shell entered (sustained condensate direct = codon; water tracers native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_thermo_sustain_shell_entered
 
 !===============================================================================
 
@@ -3780,6 +3798,13 @@ end subroutine uwshcu_readnl
           real(c_double), value :: tr0_liq_k_c, tr0_ice_k_c, ps0_km1_c, ps0_k_c
           type(c_ptr), value :: qc_lm_p, qc_im_p, nc_lm_p, nc_im_p
        end subroutine uwshcu_thermo_emf_kbup_tendency_shell_codon
+
+       subroutine uwshcu_thermo_sustain_shell_codon(frc_rasn_c, dwten_k_c, diten_k_c, qc_l_k_p, qc_i_k_p) &
+            bind(c, name="uwshcu_thermo_sustain_shell_codon")
+          use iso_c_binding, only: c_double, c_ptr
+          real(c_double), value :: frc_rasn_c, dwten_k_c, diten_k_c
+          type(c_ptr), value :: qc_l_k_p, qc_i_k_p
+       end subroutine uwshcu_thermo_sustain_shell_codon
 
        subroutine uwshcu_thermo_prelim_shell_codon(mkx_c, wtrc_nwset_c, kpen_c, &
             frc_rasn_c, g_c, dp0_p, umf_p, dwten_p, diten_p, wtdwten_p, wtditen_p, &
@@ -8436,8 +8461,14 @@ end subroutine uwshcu_readnl
 
           ! 1. Sustained Precipitation
 
-          qc_l(k) = ( 1._r8 - frc_rasn ) * dwten(k) ! [ kg/kg/s ]
-          qc_i(k) = ( 1._r8 - frc_rasn ) * diten(k) ! [ kg/kg/s ]
+          if (use_native_init_shell_impl) then
+             qc_l(k) = ( 1._r8 - frc_rasn ) * dwten(k) ! [ kg/kg/s ]
+             qc_i(k) = ( 1._r8 - frc_rasn ) * diten(k) ! [ kg/kg/s ]
+          else
+             call uwshcu_log_thermo_sustain_shell_entered()
+             call uwshcu_thermo_sustain_shell_codon(frc_rasn, dwten(k), diten(k), &
+                  c_loc(qc_l(k)), c_loc(qc_i(k)))
+          endif
 
           !*************
           !Water tracers:

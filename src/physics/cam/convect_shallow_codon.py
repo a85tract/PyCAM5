@@ -6210,6 +6210,21 @@ def uwshcu_thermo_emf_kbup_tendency_shell_codon(
 
 
 @export
+def uwshcu_thermo_sustain_shell_codon(
+    frc_rasn: float,
+    dwten_k: float,
+    diten_k: float,
+    qc_l_k_p: cobj,
+    qc_i_k_p: cobj,
+):
+    qc_l_k = Ptr[float](qc_l_k_p)
+    qc_i_k = Ptr[float](qc_i_k_p)
+
+    qc_l_k[0] = (1.0 - frc_rasn) * dwten_k
+    qc_i_k[0] = (1.0 - frc_rasn) * diten_k
+
+
+@export
 def uwshcu_thermo_prelim_shell_codon(
     mkx: int,
     wtrc_nwset: int,
