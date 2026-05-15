@@ -100,6 +100,7 @@
   logical :: thermo_conden_exit_shell_entered_logged = .false.
   logical :: thermo_emf_conden_exit_shell_entered_logged = .false.
   logical :: thermo_emf_kbup_state_shell_entered_logged = .false.
+  logical :: thermo_emf_kbup_tendency_shell_entered_logged = .false.
   logical :: thermo_prelim_shell_entered_logged = .false.
   logical :: thermo_final_shell_entered_logged = .false.
   logical :: post_precip_adjust_shell_entered_logged = .false.
@@ -1243,6 +1244,23 @@ contains
 
 !===============================================================================
 
+  subroutine uwshcu_log_thermo_emf_kbup_tendency_shell_entered()
+
+    if (thermo_emf_kbup_tendency_shell_entered_logged) return
+    thermo_emf_kbup_tendency_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu thermo emf kbup tendency shell entered (kbup EMF scalar tendency direct = codon; water tracers native)'
+       call uwshcu_append_proof( &
+            'uwshcu thermo emf kbup tendency shell entered (kbup EMF scalar tendency direct = codon; water tracers native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_thermo_emf_kbup_tendency_shell_entered
+
+!===============================================================================
+
   subroutine uwshcu_log_thermo_prelim_shell_entered()
 
     if (thermo_prelim_shell_entered_logged) return
@@ -2191,10 +2209,10 @@ end subroutine uwshcu_readnl
                                                               ! (without rain-snow contribution) [ kg/kg/s ]
     real(r8), target :: qc_i(mkx)                             !  Tendency due to detrained 'cloud ice'
                                                               ! (without rain-snow contribution) [ kg/kg/s ]
-    real(r8)    qc_lm
-    real(r8)    qc_im
-    real(r8)    nc_lm
-    real(r8)    nc_im
+    real(r8), target :: qc_lm
+    real(r8), target :: qc_im
+    real(r8), target :: nc_lm
+    real(r8), target :: nc_im
     real(r8)    ql_emf_kbup
     real(r8)    qi_emf_kbup
     real(r8), target :: nl_emf_kbup
@@ -3751,6 +3769,17 @@ end subroutine uwshcu_readnl
           real(c_double), value :: ql_emf_kbup_c, qi_emf_kbup_c
           type(c_ptr), value :: tru_emf_p, nl_emf_kbup_p, ni_emf_kbup_p
        end subroutine uwshcu_thermo_emf_kbup_state_shell_codon
+
+       subroutine uwshcu_thermo_emf_kbup_tendency_shell_codon(g_c, emf_k_c, ql_emf_kbup_c, &
+            qi_emf_kbup_c, nl_emf_kbup_c, ni_emf_kbup_c, ql0_k_c, qi0_k_c, tr0_liq_k_c, &
+            tr0_ice_k_c, ps0_km1_c, ps0_k_c, qc_lm_p, qc_im_p, nc_lm_p, nc_im_p) &
+            bind(c, name="uwshcu_thermo_emf_kbup_tendency_shell_codon")
+          use iso_c_binding, only: c_double, c_ptr
+          real(c_double), value :: g_c, emf_k_c, ql_emf_kbup_c, qi_emf_kbup_c
+          real(c_double), value :: nl_emf_kbup_c, ni_emf_kbup_c, ql0_k_c, qi0_k_c
+          real(c_double), value :: tr0_liq_k_c, tr0_ice_k_c, ps0_km1_c, ps0_k_c
+          type(c_ptr), value :: qc_lm_p, qc_im_p, nc_lm_p, nc_im_p
+       end subroutine uwshcu_thermo_emf_kbup_tendency_shell_codon
 
        subroutine uwshcu_thermo_prelim_shell_codon(mkx_c, wtrc_nwset_c, kpen_c, &
             frc_rasn_c, g_c, dp0_p, umf_p, dwten_p, diten_p, wtdwten_p, wtditen_p, &
@@ -8523,10 +8552,18 @@ end subroutine uwshcu_readnl
                       int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), ql_emf_kbup, qi_emf_kbup, &
                       c_loc(tru_emf), c_loc(nl_emf_kbup), c_loc(ni_emf_kbup))
               endif
-              qc_lm   = qc_lm   - g * emf(k) * ( ql_emf_kbup - ql0(k) ) / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
-              qc_im   = qc_im   - g * emf(k) * ( qi_emf_kbup - qi0(k) ) / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
-              nc_lm   = nc_lm   - g * emf(k) * ( nl_emf_kbup - tr0(k,ixnumliq) ) / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
-              nc_im   = nc_im   - g * emf(k) * ( ni_emf_kbup - tr0(k,ixnumice) ) / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
+              if (use_native_init_shell_impl) then
+                 qc_lm   = qc_lm   - g * emf(k) * ( ql_emf_kbup - ql0(k) ) / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
+                 qc_im   = qc_im   - g * emf(k) * ( qi_emf_kbup - qi0(k) ) / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
+                 nc_lm   = nc_lm   - g * emf(k) * ( nl_emf_kbup - tr0(k,ixnumliq) ) / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
+                 nc_im   = nc_im   - g * emf(k) * ( ni_emf_kbup - tr0(k,ixnumice) ) / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
+              else
+                 call uwshcu_log_thermo_emf_kbup_tendency_shell_entered()
+                 call uwshcu_thermo_emf_kbup_tendency_shell_codon(g, emf(k), ql_emf_kbup, &
+                      qi_emf_kbup, nl_emf_kbup, ni_emf_kbup, ql0(k), qi0(k), &
+                      tr0(k,ixnumliq), tr0(k,ixnumice), ps0(k-1), ps0(k), &
+                      c_loc(qc_lm), c_loc(qc_im), c_loc(nc_lm), c_loc(nc_im))
+              endif
              !*************
              !Water tracers:
              !*************

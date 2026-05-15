@@ -6179,6 +6179,37 @@ def uwshcu_thermo_emf_kbup_state_shell_codon(
 
 
 @export
+def uwshcu_thermo_emf_kbup_tendency_shell_codon(
+    g_v: float,
+    emf_k: float,
+    ql_emf_kbup: float,
+    qi_emf_kbup: float,
+    nl_emf_kbup_v: float,
+    ni_emf_kbup_v: float,
+    ql0_k: float,
+    qi0_k: float,
+    tr0_liq_k: float,
+    tr0_ice_k: float,
+    ps0_km1: float,
+    ps0_k: float,
+    qc_lm_p: cobj,
+    qc_im_p: cobj,
+    nc_lm_p: cobj,
+    nc_im_p: cobj,
+):
+    qc_lm = Ptr[float](qc_lm_p)
+    qc_im = Ptr[float](qc_im_p)
+    nc_lm = Ptr[float](nc_lm_p)
+    nc_im = Ptr[float](nc_im_p)
+
+    denom = ps0_km1 - ps0_k
+    qc_lm[0] = qc_lm[0] - g_v * emf_k * (ql_emf_kbup - ql0_k) / denom
+    qc_im[0] = qc_im[0] - g_v * emf_k * (qi_emf_kbup - qi0_k) / denom
+    nc_lm[0] = nc_lm[0] - g_v * emf_k * (nl_emf_kbup_v - tr0_liq_k) / denom
+    nc_im[0] = nc_im[0] - g_v * emf_k * (ni_emf_kbup_v - tr0_ice_k) / denom
+
+
+@export
 def uwshcu_thermo_prelim_shell_codon(
     mkx: int,
     wtrc_nwset: int,
