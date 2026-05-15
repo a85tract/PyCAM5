@@ -6426,6 +6426,101 @@ def uwshcu_thermo_detached_shell_codon(
 
 
 @export
+def uwshcu_thermo_condensate_batch_shell_codon(
+    kind: int,
+    k_fortran: int,
+    mkx: int,
+    ixnumliq: int,
+    ixnumice: int,
+    flag1: int,
+    flag2: int,
+    frc_rasn: float,
+    g_v: float,
+    dwten_k: float,
+    diten_k: float,
+    umf_km1: float,
+    umf_k: float,
+    fdr_k: float,
+    qlu_mid: float,
+    qiu_mid: float,
+    qlj: float,
+    qij: float,
+    ql0_k: float,
+    qi0_k: float,
+    tr0_liq_k: float,
+    tr0_ice_k: float,
+    ps0_km1: float,
+    ps0_k: float,
+    emf_k: float,
+    ql_emf_kbup: float,
+    qi_emf_kbup: float,
+    tru_emf_p: cobj,
+    qc_l_k_p: cobj,
+    qc_i_k_p: cobj,
+    qc_lm_p: cobj,
+    qc_im_p: cobj,
+    nc_lm_p: cobj,
+    nc_im_p: cobj,
+    nl_emf_kbup_p: cobj,
+    ni_emf_kbup_p: cobj,
+):
+    qc_l_k = Ptr[float](qc_l_k_p)
+    qc_i_k = Ptr[float](qc_i_k_p)
+    qc_lm = Ptr[float](qc_lm_p)
+    qc_im = Ptr[float](qc_im_p)
+    nc_lm = Ptr[float](nc_lm_p)
+    nc_im = Ptr[float](nc_im_p)
+
+    if kind == 1:
+        qc_l_k[0] = (1.0 - frc_rasn) * dwten_k
+        qc_i_k[0] = (1.0 - frc_rasn) * diten_k
+
+        if flag1 != 0:
+            qc_l_k[0] = qc_l_k[0] + g_v * 0.5 * (umf_km1 + umf_k) * fdr_k * qlu_mid
+            qc_i_k[0] = qc_i_k[0] + g_v * 0.5 * (umf_km1 + umf_k) * fdr_k * qiu_mid
+            qc_lm[0] = -g_v * 0.5 * (umf_km1 + umf_k) * fdr_k * ql0_k
+            qc_im[0] = -g_v * 0.5 * (umf_km1 + umf_k) * fdr_k * qi0_k
+            nc_lm[0] = -g_v * 0.5 * (umf_km1 + umf_k) * fdr_k * tr0_liq_k
+            nc_im[0] = -g_v * 0.5 * (umf_km1 + umf_k) * fdr_k * tr0_ice_k
+        else:
+            qc_lm[0] = 0.0
+            qc_im[0] = 0.0
+            nc_lm[0] = 0.0
+            nc_im[0] = 0.0
+
+        if flag2 != 0:
+            denom = ps0_km1 - ps0_k
+            qc_l_k[0] = qc_l_k[0] + g_v * umf_k * qlj / denom
+            qc_i_k[0] = qc_i_k[0] + g_v * umf_k * qij / denom
+            qc_lm[0] = qc_lm[0] - g_v * umf_k * ql0_k / denom
+            qc_im[0] = qc_im[0] - g_v * umf_k * qi0_k / denom
+            nc_lm[0] = nc_lm[0] - g_v * umf_k * tr0_liq_k / denom
+            nc_im[0] = nc_im[0] - g_v * umf_k * tr0_ice_k / denom
+    elif kind == 2:
+        tru_emf = Ptr[float](tru_emf_p)
+        nl_emf_kbup = Ptr[float](nl_emf_kbup_p)
+        ni_emf_kbup = Ptr[float](ni_emf_kbup_p)
+
+        iface_stride = mkx + 1
+        liq_idx = ixnumliq - 1
+        ice_idx = ixnumice - 1
+
+        nl_emf_kbup[0] = 0.0
+        if ql_emf_kbup > 0.0:
+            nl_emf_kbup[0] = tru_emf[k_fortran + liq_idx * iface_stride]
+
+        ni_emf_kbup[0] = 0.0
+        if qi_emf_kbup > 0.0:
+            ni_emf_kbup[0] = tru_emf[k_fortran + ice_idx * iface_stride]
+
+        denom = ps0_km1 - ps0_k
+        qc_lm[0] = qc_lm[0] - g_v * emf_k * (ql_emf_kbup - ql0_k) / denom
+        qc_im[0] = qc_im[0] - g_v * emf_k * (qi_emf_kbup - qi0_k) / denom
+        nc_lm[0] = nc_lm[0] - g_v * emf_k * (nl_emf_kbup[0] - tr0_liq_k) / denom
+        nc_im[0] = nc_im[0] - g_v * emf_k * (ni_emf_kbup[0] - tr0_ice_k) / denom
+
+
+@export
 def uwshcu_thermo_prelim_shell_codon(
     mkx: int,
     wtrc_nwset: int,
