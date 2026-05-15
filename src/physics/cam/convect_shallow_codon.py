@@ -3974,6 +3974,72 @@ def uwshcu_buoy_reach_update_shell_codon(
 
 
 @export
+def uwshcu_buoy_state_batch_shell_codon(
+    kind: int,
+    k_fortran: int,
+    mkx: int,
+    wtrc_nwset: int,
+    i1: int,
+    i2: int,
+    flag1: int,
+    flag2: int,
+    v1: float,
+    v2: float,
+    v3: float,
+    v4: float,
+    v5: float,
+    v6: float,
+    v7: float,
+    v8: float,
+    v9: float,
+    v10: float,
+    v11: float,
+    v12: float,
+    p1: cobj,
+    p2: cobj,
+    p3: cobj,
+    p4: cobj,
+    p5: cobj,
+    p6: cobj,
+    p7: cobj,
+    p8: cobj,
+):
+    # Batch dispatcher for already validated buoy helpers. Pointer slots are per-kind:
+    # 1 top_expel: qtu, thlu, dwten, diten.
+    # 2 velocity: bogbot, bogtop, delbog, wtwb, wtw.
+    # 3 midstate: thlu, qtu, thlue, qtue.
+    # 4 self_detrain: umf, wtw.
+    # 5 diag_update: excessu/excess0/xc/aquad/bquad/cquad/bogbot/bogtop arrays.
+    # 6 reach_update: kbup, kpen, exit_code.
+    # 7 ufrc_init: ps0, thv0bot, thv0top, exns0, umf, wu, ufrc, rhos0j.
+    # 8 top_state: thlu, qtu, wt0, sswt0, wtu, thlu_top, qtu_top, wtu_top.
+    # 9 top_expel_final: thlu_top, qtu_top, dwten, diten.
+    # 10 scaleh: ps0, zs0, thv0bot, thv0top, exns0, cush, scaleh.
+    if kind == 1:
+        uwshcu_buoy_top_expel_shell_codon(k_fortran, v1, v2, v3, v4, v5, v6, v7, p1, p2, p3, p4)
+    elif kind == 2:
+        uwshcu_buoy_velocity_shell_codon(v1, v2, v3, v4, v5, v6, v7, v8, v9, p1, p2, p3, p4, p5)
+    elif kind == 3:
+        uwshcu_buoy_midstate_shell_codon(k_fortran, p1, p2, p3, p4)
+    elif kind == 4:
+        uwshcu_buoy_self_detrain_shell_codon(k_fortran, flag1, v1, p1, p2)
+    elif kind == 5:
+        uwshcu_buoy_diag_update_shell_codon(k_fortran, v1, v2, v3, v4, v5, v6, v7, v8, p1, p2, p3, p4, p5, p6, p7, p8)
+    elif kind == 6:
+        uwshcu_buoy_reach_update_shell_codon(k_fortran, v1, v2, i1, i2, p1, p2, p3)
+    elif kind == 7:
+        uwshcu_buoy_ufrc_init_shell_codon(k_fortran, v1, p1, p2, p3, p4, p5, p6, p7, p8)
+    elif kind == 8:
+        uwshcu_buoy_top_state_shell_codon(
+            mkx, wtrc_nwset, k_fortran, flag1, flag2, v1, v2, v3, v4, v5, v6, v7, p1, p2, p3, p4, p5, p6, p7, p8
+        )
+    elif kind == 9:
+        uwshcu_buoy_top_expel_final_shell_codon(k_fortran, v1, v2, v3, v4, v5, v6, v7, p1, p2, p3, p4)
+    elif kind == 10:
+        uwshcu_buoy_scaleh_shell_codon(k_fortran, v1, v2, v3, p1, p2, p3, p4, p5, p6, p7)
+
+
+@export
 def uwshcu_scalar_exit_limit_batch_shell_codon(
     kind: int,
     idx: int,

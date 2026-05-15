@@ -61,6 +61,7 @@
   logical :: cin_conden_exit_shell_entered_logged = .false.
   logical :: buoy_sort_scalar_shell_entered_logged = .false.
   logical :: buoy_conden_scalar_batch_shell_entered_logged = .false.
+  logical :: buoy_state_batch_shell_entered_logged = .false.
   logical :: buoy_top_state_shell_entered_logged = .false.
   logical :: buoy_top_shell_entered_logged = .false.
   logical :: buoy_updraft_state_shell_entered_logged = .false.
@@ -599,6 +600,24 @@ contains
     end if
 
   end subroutine uwshcu_log_buoy_conden_scalar_batch_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_buoy_state_batch_shell_entered()
+
+    if (buoy_state_batch_shell_entered_logged) return
+    buoy_state_batch_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu buoy state batch shell entered ' // &
+            '(top/velocity/reach/ufrc/scaleh scalars direct = codon; roots/sqrt/log/goto native)'
+       call uwshcu_append_proof( &
+            'uwshcu buoy state batch shell entered ' // &
+            '(top/velocity/reach/ufrc/scaleh scalars direct = codon; roots/sqrt/log/goto native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_buoy_state_batch_shell_entered
 
 !===============================================================================
 
@@ -3390,6 +3409,18 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: exit_conden_p, exit_code_p, thlue_p, qtue_p, thv0j_p, rho0j_p
           type(c_ptr), value :: thvj_p, tj_p, thvxsat_p, qsat_arg_p, excess_p
        end subroutine uwshcu_buoy_conden_scalar_batch_shell_codon
+
+       subroutine uwshcu_buoy_state_batch_shell_codon(kind_c, k_c, mkx_c, wtrc_nwset_c, &
+            i1_c, i2_c, flag1_c, flag2_c, v1_c, v2_c, v3_c, v4_c, v5_c, v6_c, &
+            v7_c, v8_c, v9_c, v10_c, v11_c, v12_c, p1_p, p2_p, p3_p, p4_p, &
+            p5_p, p6_p, p7_p, p8_p) bind(c, name="uwshcu_buoy_state_batch_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: kind_c, k_c, mkx_c, wtrc_nwset_c
+          integer(c_int64_t), value :: i1_c, i2_c, flag1_c, flag2_c
+          real(c_double), value :: v1_c, v2_c, v3_c, v4_c, v5_c, v6_c
+          real(c_double), value :: v7_c, v8_c, v9_c, v10_c, v11_c, v12_c
+          type(c_ptr), value :: p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p
+       end subroutine uwshcu_buoy_state_batch_shell_codon
 
        subroutine uwshcu_buoy_top_expel_shell_codon(k_c, criqc_c, xlv_c, xls_c, cp_c, exn_c, &
             qlj_c, qij_c, qtu_p, thlu_p, dwten_p, diten_p) &
@@ -7028,9 +7059,11 @@ end subroutine uwshcu_readnl
                   wtditen(k,:) = 0._r8
              endif
           else
-             call uwshcu_log_buoy_top_shell_entered()
-             call uwshcu_buoy_top_expel_shell_codon(int(k, c_int64_t), criqc, xlv, xls, cp, exns0(k), &
-                  qlj, qij, c_loc(qtu), c_loc(thlu), c_loc(dwten), c_loc(diten))
+             call uwshcu_log_buoy_state_batch_shell_entered()
+             call uwshcu_buoy_state_batch_shell_codon(1_c_int64_t, int(k, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
+                  0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, criqc, xlv, xls, cp, &
+                  exns0(k), qlj, qij, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, c_loc(qtu), &
+                  c_loc(thlu), c_loc(dwten), c_loc(diten), c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
              if(trace_water) then
                 if( (qlj + qij) .gt. criqc ) then
                    do m=1,wtrc_nwset
@@ -7103,10 +7136,11 @@ end subroutine uwshcu_readnl
           else
              drage  = fer(k) * ( 1._r8 + rdrag )
              expfac = exp(-2._r8*drage*dpe)
-             call uwshcu_log_buoy_velocity_shell_entered()
-             call uwshcu_buoy_velocity_shell_codon(rbuoy, thvu(km1), thvebot, thvu(k), &
-                  thv0top(k), drage, dpe, expfac, rho0j, c_loc(bogbot), c_loc(bogtop), &
-                  c_loc(delbog), c_loc(wtwb), c_loc(wtw))
+             call uwshcu_log_buoy_state_batch_shell_entered()
+             call uwshcu_buoy_state_batch_shell_codon(2_c_int64_t, int(k, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
+                  0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, rbuoy, thvu(km1), thvebot, thvu(k), &
+                  thv0top(k), drage, dpe, expfac, rho0j, 0._r8, 0._r8, 0._r8, c_loc(bogbot), &
+                  c_loc(bogtop), c_loc(delbog), c_loc(wtwb), c_loc(wtw), c_null_ptr, c_null_ptr, c_null_ptr)
           endif
 
         ! Force the plume rise at least to klfc of the undiluted plume.
@@ -7126,9 +7160,11 @@ end subroutine uwshcu_readnl
                  thlue = 0.5_r8 * ( thlu(km1) + thlu(k) )
                  qtue  = 0.5_r8 * ( qtu(km1)  +  qtu(k) )
               else
-                 call uwshcu_log_buoy_midstate_shell_entered()
-                 call uwshcu_buoy_midstate_shell_codon(int(k, c_int64_t), c_loc(thlu), c_loc(qtu), &
-                      c_loc(thlue), c_loc(qtue))
+                 call uwshcu_log_buoy_state_batch_shell_entered()
+                 call uwshcu_buoy_state_batch_shell_codon(3_c_int64_t, int(k, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
+                      0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._r8, 0._r8, 0._r8, 0._r8, &
+                      0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, c_loc(thlu), &
+                      c_loc(qtu), c_loc(thlue), c_loc(qtue), c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
               endif
               wue   = 0.5_r8 *   sqrt( max( wtwb + wtw, 0._r8 ) )
           else
@@ -7169,10 +7205,12 @@ end subroutine uwshcu_readnl
                  autodet = min( 0.5_r8*g*(bogbot+bogtop)/(max(wtw,0._r8)+1.e-4_r8), 0._r8 )
                  self_detrain_expfac = exp( 0.637_r8*(dpe/rho0j/g) * autodet )
              end if
-             call uwshcu_log_buoy_self_detrain_shell_entered()
-             call uwshcu_buoy_self_detrain_shell_codon(int(k, c_int64_t), &
-                  merge(1_c_int64_t, 0_c_int64_t, use_self_detrain), self_detrain_expfac, &
-                  c_loc(umf), c_loc(wtw))
+             call uwshcu_log_buoy_state_batch_shell_entered()
+             call uwshcu_buoy_state_batch_shell_codon(4_c_int64_t, int(k, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
+                  0_c_int64_t, 0_c_int64_t, merge(1_c_int64_t, 0_c_int64_t, use_self_detrain), 0_c_int64_t, &
+                  self_detrain_expfac, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
+                  0._r8, 0._r8, 0._r8, 0._r8, c_loc(umf), c_loc(wtw), c_null_ptr, c_null_ptr, &
+                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
           endif
 
           ! -------------------------------------- !
@@ -7189,11 +7227,12 @@ end subroutine uwshcu_readnl
              bogbot_arr(k)  = bogbot
              bogtop_arr(k)  = bogtop
           else
-             call uwshcu_log_buoy_diag_env_shell_entered()
-             call uwshcu_buoy_diag_update_shell_codon(int(k, c_int64_t), excessu, excess0, xc, &
-                  aquad, bquad, cquad, bogbot, bogtop, c_loc(excessu_arr), c_loc(excess0_arr), &
-                  c_loc(xc_arr), c_loc(aquad_arr), c_loc(bquad_arr), c_loc(cquad_arr), &
-                  c_loc(bogbot_arr), c_loc(bogtop_arr))
+             call uwshcu_log_buoy_state_batch_shell_entered()
+             call uwshcu_buoy_state_batch_shell_codon(5_c_int64_t, int(k, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
+                  0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, excessu, excess0, xc, &
+                  aquad, bquad, cquad, bogbot, bogtop, 0._r8, 0._r8, 0._r8, 0._r8, &
+                  c_loc(excessu_arr), c_loc(excess0_arr), c_loc(xc_arr), c_loc(aquad_arr), &
+                  c_loc(bquad_arr), c_loc(cquad_arr), c_loc(bogbot_arr), c_loc(bogtop_arr))
           endif
 
           ! ------------------------------------------------------------------- !
@@ -7219,13 +7258,15 @@ end subroutine uwshcu_readnl
 	                 kpen = k
 	                 go to 45
 	             end if
-	          else
-	             buoy_reach_exit_code_c = 0_c_int64_t
-	             call uwshcu_log_buoy_reach_shell_entered()
-	             call uwshcu_buoy_reach_update_shell_codon(int(k, c_int64_t), bogtop, wtw, &
-	                  int(kbup, c_int64_t), int(kpen, c_int64_t), c_loc(kbup_iter_c), &
-	                  c_loc(kpen_iter_c), c_loc(buoy_reach_exit_code_c))
-	             kbup = int(kbup_iter_c)
+          else
+             buoy_reach_exit_code_c = 0_c_int64_t
+             call uwshcu_log_buoy_state_batch_shell_entered()
+             call uwshcu_buoy_state_batch_shell_codon(6_c_int64_t, int(k, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
+                  int(kbup, c_int64_t), int(kpen, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
+                  bogtop, wtw, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
+                  0._r8, 0._r8, c_loc(kbup_iter_c), c_loc(kpen_iter_c), c_loc(buoy_reach_exit_code_c), &
+                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
+             kbup = int(kbup_iter_c)
 	             kpen = int(kpen_iter_c)
 	             if( buoy_reach_exit_code_c .ne. 0_c_int64_t ) go to 45
 	          endif
@@ -7273,10 +7314,11 @@ end subroutine uwshcu_readnl
              rhos0j  = ps0(k) / ( r * 0.5_r8 * ( thv0bot(k+1) + thv0top(k) ) * exns0(k) )
              ufrc(k) = umf(k) / ( rhos0j * wu(k) )
           else
-             call uwshcu_log_buoy_ufrc_init_shell_entered()
-             call uwshcu_buoy_ufrc_init_shell_codon(int(k, c_int64_t), r, c_loc(ps0), &
-                  c_loc(thv0bot), c_loc(thv0top), c_loc(exns0), c_loc(umf), c_loc(wu), &
-                  c_loc(ufrc), c_loc(rhos0j))
+             call uwshcu_log_buoy_state_batch_shell_entered()
+             call uwshcu_buoy_state_batch_shell_codon(7_c_int64_t, int(k, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
+                  0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, r, 0._r8, 0._r8, 0._r8, &
+                  0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, c_loc(ps0), &
+                  c_loc(thv0bot), c_loc(thv0top), c_loc(exns0), c_loc(umf), c_loc(wu), c_loc(ufrc), c_loc(rhos0j))
           endif
           if (use_native_init_shell_impl) then
              if( ufrc(k) .gt. rmaxfrac ) then
@@ -7448,17 +7490,18 @@ end subroutine uwshcu_readnl
 	           end if
 	          !*************
 	       end if
-	       else
-	          top_expfac = 0._r8
-	          if( fer(kpen)*(-ppen) .ge. 1.e-4_r8 ) top_expfac = exp(-fer(kpen) * (-ppen))
-	          call uwshcu_log_buoy_top_state_shell_entered()
-	          call uwshcu_buoy_top_state_shell_codon(int(mkx, c_int64_t), int(wtrc_nwset, c_int64_t), &
-	               int(kpen, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, trace_water), &
-	               merge(1_c_int64_t, 0_c_int64_t, fer(kpen)*(-ppen) .lt. 1.e-4_r8), ppen, &
-	               top_expfac, fer(kpen), thl0(kpen), ssthl0(kpen), qt0(kpen), ssqt0(kpen), &
-	               c_loc(thlu), c_loc(qtu), c_loc(wt0), c_loc(sswt0), c_loc(wtu), c_loc(thlu_top), &
-	               c_loc(qtu_top), c_loc(wtu_top))
-	       endif
+		       else
+		          top_expfac = 0._r8
+		          if( fer(kpen)*(-ppen) .ge. 1.e-4_r8 ) top_expfac = exp(-fer(kpen) * (-ppen))
+		          call uwshcu_log_buoy_state_batch_shell_entered()
+		          call uwshcu_buoy_state_batch_shell_codon(8_c_int64_t, int(kpen, c_int64_t), &
+		               int(mkx, c_int64_t), int(wtrc_nwset, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
+		               merge(1_c_int64_t, 0_c_int64_t, trace_water), &
+		               merge(1_c_int64_t, 0_c_int64_t, fer(kpen)*(-ppen) .lt. 1.e-4_r8), ppen, &
+		               top_expfac, fer(kpen), thl0(kpen), ssthl0(kpen), qt0(kpen), ssqt0(kpen), &
+		               0._r8, 0._r8, 0._r8, 0._r8, 0._r8, c_loc(thlu), c_loc(qtu), c_loc(wt0), &
+		               c_loc(sswt0), c_loc(wtu), c_loc(thlu_top), c_loc(qtu_top), c_loc(wtu_top))
+		       endif
 
        !NOTE:  Not 100% sure if using qv0/tr0 to calculate R is appropriate here
        !(versus some sort of updraft quantity) - JN 
@@ -7531,12 +7574,14 @@ end subroutine uwshcu_readnl
 	                 wtditen(kpen,:) = 0._r8
 	               end if
 	              !************
-	          endif
-	       else
-	          call uwshcu_log_buoy_top_shell_entered()
-	          call uwshcu_buoy_top_expel_final_shell_codon(int(kpen, c_int64_t), criqc, xlv, xls, cp, &
-	               exntop, qlj, qij, c_loc(thlu_top), c_loc(qtu_top), c_loc(dwten), c_loc(diten))
-	          if(trace_water) then
+		          endif
+		       else
+		          call uwshcu_log_buoy_state_batch_shell_entered()
+		          call uwshcu_buoy_state_batch_shell_codon(9_c_int64_t, int(kpen, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
+		               0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, criqc, xlv, xls, cp, &
+		               exntop, qlj, qij, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, c_loc(thlu_top), &
+		               c_loc(qtu_top), c_loc(dwten), c_loc(diten), c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
+		          if(trace_water) then
 	             if( (qlj + qij) .gt. criqc ) then
 	                do m=1,wtrc_nwset
 	                   Rldt = wtrc_ratio(iwspec(wtrc_iatype(m,iwtliq)),wtout(m,2),wtout(1,2))
@@ -7559,12 +7604,15 @@ end subroutine uwshcu_readnl
        
 	       if (use_native_init_shell_impl) then
 	          rhos0j = ps0(kpen-1)/(r*0.5_r8*(thv0bot(kpen)+thv0top(kpen-1))*exns0(kpen-1))
-	          cush   = zs0(kpen-1) - ppen/rhos0j/g
-	          scaleh = cush
-	       else
-	          call uwshcu_buoy_scaleh_shell_codon(int(kpen, c_int64_t), r, g, ppen, c_loc(ps0), &
-	               c_loc(zs0), c_loc(thv0bot), c_loc(thv0top), c_loc(exns0), c_loc(cush), c_loc(scaleh))
-	       endif
+		          cush   = zs0(kpen-1) - ppen/rhos0j/g
+		          scaleh = cush
+		       else
+		          call uwshcu_log_buoy_state_batch_shell_entered()
+		          call uwshcu_buoy_state_batch_shell_codon(10_c_int64_t, int(kpen, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
+		               0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, r, g, ppen, 0._r8, &
+		               0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, c_loc(ps0), &
+		               c_loc(zs0), c_loc(thv0bot), c_loc(thv0top), c_loc(exns0), c_loc(cush), c_loc(scaleh), c_null_ptr)
+		       endif
 
     end do   ! End of 'iter_scaleh' loop.   
 
