@@ -94,6 +94,7 @@
   logical :: tendency_prep_shell_entered_logged = .false.
   logical :: penent_flux_comp_sub_prep_shell_entered_logged = .false.
   logical :: scaleh_filter_prep_shell_entered_logged = .false.
+  logical :: scaleh_cufilter_exit_shell_entered_logged = .false.
   logical :: comp_sub_sink_shell_entered_logged = .false.
   logical :: comp_sub_conden_exit_shell_entered_logged = .false.
   logical :: thermo_conden_exit_shell_entered_logged = .false.
@@ -1137,6 +1138,23 @@ contains
     end if
 
   end subroutine uwshcu_log_scaleh_filter_prep_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_scaleh_cufilter_exit_shell_entered()
+
+    if (scaleh_cufilter_exit_shell_entered_logged) return
+    scaleh_cufilter_exit_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu scaleh cufilter exit shell entered (forcedCu exit flag direct = codon; goto native)'
+       call uwshcu_append_proof( &
+            'uwshcu scaleh cufilter exit shell entered (forcedCu exit flag direct = codon; goto native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_scaleh_cufilter_exit_shell_entered
 
 !===============================================================================
 
@@ -2605,6 +2623,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: thermo_conden_exit_code_c
     integer(c_int64_t), target       :: thermo_emf_conden_exit_code_c
     integer(c_int64_t), target       :: post_scaleh_exit_code_c
+    integer(c_int64_t), target       :: scaleh_cufilter_exit_code_c
     integer(c_int64_t)               :: wtrc_nwset_post_c
 
     interface
@@ -3664,6 +3683,13 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: qtten_sub_p, qlten_sub_p, qiten_sub_p
           type(c_ptr), value :: nlten_sub_p, niten_sub_p, wtlten_sub_p, wtiten_sub_p
        end subroutine uwshcu_scaleh_filter_penent_flux_comp_sub_prep_shell_codon
+
+       subroutine uwshcu_scaleh_cufilter_exit_shell_codon(post_exit_code_c, exit_cufilter_p, exit_code_p) &
+            bind(c, name="uwshcu_scaleh_cufilter_exit_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: post_exit_code_c
+          type(c_ptr), value :: exit_cufilter_p, exit_code_p
+       end subroutine uwshcu_scaleh_cufilter_exit_shell_codon
 
        subroutine uwshcu_comp_sub_sink_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, kpen_c, &
             ixnumliq_c, ixnumice_c, dt_c, ql0_p, qi0_p, tr0_p, wtrc_iatype_p, qlten_sub_p, &
@@ -7298,12 +7324,22 @@ end subroutine uwshcu_readnl
        ! ------------------------------------------------------------------ !
 
        if (use_native_init_shell_impl) cldhgt = ps0(kpen-1) + ppen
-       if( post_scaleh_exit_code_c .ne. 0_c_int64_t ) then
-           ! write(iulog,*) 'forcedCu - did not overcome initial buoyancy barrier'
-           exit_cufilter(i) = 1._r8
-           id_exit = .true.
-           go to 333
-       end if
+       if (use_native_init_shell_impl) then
+          if( post_scaleh_exit_code_c .ne. 0_c_int64_t ) then
+              ! write(iulog,*) 'forcedCu - did not overcome initial buoyancy barrier'
+              exit_cufilter(i) = 1._r8
+              id_exit = .true.
+              go to 333
+          end if
+       else
+          call uwshcu_log_scaleh_cufilter_exit_shell_entered()
+          call uwshcu_scaleh_cufilter_exit_shell_codon(post_scaleh_exit_code_c, &
+               c_loc(exit_cufilter(i)), c_loc(scaleh_cufilter_exit_code_c))
+          if( scaleh_cufilter_exit_code_c .ne. 0_c_int64_t ) then
+              id_exit = .true.
+              go to 333
+          end if
+       endif
        ! Limit 'additional shallow cumulus' for DYCOMS simulation.
        ! if( cldhgt.ge.88000._r8 ) then
        !     id_exit = .true.

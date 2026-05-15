@@ -6004,6 +6004,21 @@ def uwshcu_scaleh_filter_penent_flux_comp_sub_prep_shell_codon(
 
 
 @export
+def uwshcu_scaleh_cufilter_exit_shell_codon(
+    post_exit_code: int,
+    exit_cufilter_p: cobj,
+    exit_code_p: cobj,
+):
+    exit_cufilter = Ptr[float](exit_cufilter_p)
+    exit_code = Ptr[int](exit_code_p)
+
+    exit_code[0] = 0
+    if post_exit_code != 0:
+        exit_cufilter[0] = 1.0
+        exit_code[0] = 1
+
+
+@export
 def uwshcu_comp_sub_sink_shell_codon(
     mkx: int,
     ncnst: int,
