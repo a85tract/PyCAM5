@@ -4900,8 +4900,10 @@ end subroutine uwshcu_readnl
             end if
          else
             call uwshcu_log_interface_conden_exit_shell_entered()
-            call uwshcu_interface_conden_exit_shell_codon(int(id_check, c_int64_t), &
-                 c_loc(exit_conden(i)), c_loc(interface_conden_exit_code_c))
+            call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+            call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                  0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
+                  c_loc(exit_conden(i)), c_null_ptr, c_loc(interface_conden_exit_code_c))
             if( interface_conden_exit_code_c .ne. 0_c_int64_t ) then
                 id_exit = .true.
                 go to 333
@@ -4927,8 +4929,10 @@ end subroutine uwshcu_readnl
             end if
          else
             call uwshcu_log_interface_conden_exit_shell_entered()
-            call uwshcu_interface_conden_exit_shell_codon(int(id_check, c_int64_t), &
-                 c_loc(exit_conden(i)), c_loc(interface_conden_exit_code_c))
+            call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+            call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                  0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
+                  c_loc(exit_conden(i)), c_null_ptr, c_loc(interface_conden_exit_code_c))
             if( interface_conden_exit_code_c .ne. 0_c_int64_t ) then
                 id_exit = .true.
                 go to 333
@@ -5313,8 +5317,10 @@ end subroutine uwshcu_readnl
           end if
        else
           call uwshcu_log_cin_conden_exit_shell_entered()
-          call uwshcu_cin_conden_exit_shell_codon(int(id_check, c_int64_t), &
-               c_loc(exit_conden(i)), c_loc(cin_conden_exit_code_c))
+          call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+          call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
+                c_loc(exit_conden(i)), c_null_ptr, c_loc(cin_conden_exit_code_c))
           if( cin_conden_exit_code_c .ne. 0_c_int64_t ) then
               id_exit = .true.
               go to 333
@@ -5389,8 +5395,10 @@ end subroutine uwshcu_readnl
                       end if
                    else
                       call uwshcu_log_cin_conden_exit_shell_entered()
-                      call uwshcu_cin_conden_exit_shell_codon(int(id_check, c_int64_t), &
-                           c_loc(exit_conden(i)), c_loc(cin_conden_exit_code_c))
+                      call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+                      call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                            0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
+                            c_loc(exit_conden(i)), c_null_ptr, c_loc(cin_conden_exit_code_c))
                       if( cin_conden_exit_code_c .ne. 0_c_int64_t ) then
                           id_exit = .true.
                           go to 333
@@ -5418,8 +5426,10 @@ end subroutine uwshcu_readnl
                       end if
                    else
                       call uwshcu_log_cin_conden_exit_shell_entered()
-                      call uwshcu_cin_conden_exit_shell_codon(int(id_check, c_int64_t), &
-                           c_loc(exit_conden(i)), c_loc(cin_conden_exit_code_c))
+                      call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+                      call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                            0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
+                            c_loc(exit_conden(i)), c_null_ptr, c_loc(cin_conden_exit_code_c))
                       if( cin_conden_exit_code_c .ne. 0_c_int64_t ) then
                           id_exit = .true.
                           go to 333
@@ -5455,8 +5465,10 @@ end subroutine uwshcu_readnl
                 end if
              else
                 call uwshcu_log_cin_conden_exit_shell_entered()
-                call uwshcu_cin_conden_exit_shell_codon(int(id_check, c_int64_t), &
-                     c_loc(exit_conden(i)), c_loc(cin_conden_exit_code_c))
+                call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+                call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                      0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
+                      c_loc(exit_conden(i)), c_null_ptr, c_loc(cin_conden_exit_code_c))
                 if( cin_conden_exit_code_c .ne. 0_c_int64_t ) then
                     id_exit = .true.
                     go to 333
@@ -5477,8 +5489,10 @@ end subroutine uwshcu_readnl
                 end if
              else
                 call uwshcu_log_cin_conden_exit_shell_entered()
-                call uwshcu_cin_conden_exit_shell_codon(int(id_check, c_int64_t), &
-                     c_loc(exit_conden(i)), c_loc(cin_conden_exit_code_c))
+                call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+                call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                      0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
+                      c_loc(exit_conden(i)), c_null_ptr, c_loc(cin_conden_exit_code_c))
                 if( cin_conden_exit_code_c .ne. 0_c_int64_t ) then
                     id_exit = .true.
                     go to 333
@@ -6245,8 +6259,10 @@ end subroutine uwshcu_readnl
           end if
        else
           call uwshcu_log_release_conden_exit_shell_entered()
-          call uwshcu_release_conden_exit_shell_codon(int(id_check, c_int64_t), &
-               c_loc(exit_conden(i)), c_loc(release_conden_exit_code_c))
+          call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+          call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
+                c_loc(exit_conden(i)), c_null_ptr, c_loc(release_conden_exit_code_c))
           if( release_conden_exit_code_c .ne. 0_c_int64_t ) then
               id_exit = .true.
               go to 333
@@ -6523,8 +6539,10 @@ end subroutine uwshcu_readnl
              end if
           else
              call uwshcu_log_buoy_conden_exit_shell_entered()
-             call uwshcu_buoy_conden_exit_shell_codon(int(id_check, c_int64_t), &
-                  c_loc(exit_conden(i)), c_loc(buoy_conden_exit_code_c))
+             call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+             call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                   0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
+                   c_loc(exit_conden(i)), c_null_ptr, c_loc(buoy_conden_exit_code_c))
              if( buoy_conden_exit_code_c .ne. 0_c_int64_t ) then
                  id_exit = .true.
                  go to 333
@@ -6555,8 +6573,10 @@ end subroutine uwshcu_readnl
              end if
           else
              call uwshcu_log_buoy_conden_exit_shell_entered()
-             call uwshcu_buoy_conden_exit_shell_codon(int(id_check, c_int64_t), &
-                  c_loc(exit_conden(i)), c_loc(buoy_conden_exit_code_c))
+             call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+             call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                   0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
+                   c_loc(exit_conden(i)), c_null_ptr, c_loc(buoy_conden_exit_code_c))
              if( buoy_conden_exit_code_c .ne. 0_c_int64_t ) then
                  id_exit = .true.
                  go to 333
@@ -6591,8 +6611,10 @@ end subroutine uwshcu_readnl
              end if
           else
              call uwshcu_log_buoy_conden_exit_shell_entered()
-             call uwshcu_buoy_conden_exit_shell_codon(int(id_check, c_int64_t), &
-                  c_loc(exit_conden(i)), c_loc(buoy_conden_exit_code_c))
+             call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+             call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                   0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
+                   c_loc(exit_conden(i)), c_null_ptr, c_loc(buoy_conden_exit_code_c))
              if( buoy_conden_exit_code_c .ne. 0_c_int64_t ) then
                  id_exit = .true.
                  go to 333
@@ -6664,8 +6686,10 @@ end subroutine uwshcu_readnl
                  end if
               else
                  call uwshcu_log_buoy_conden_exit_shell_entered()
-                 call uwshcu_buoy_conden_exit_shell_codon(int(id_check, c_int64_t), &
-                      c_loc(exit_conden(i)), c_loc(buoy_conden_exit_code_c))
+                 call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+                 call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                       0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
+                       c_loc(exit_conden(i)), c_null_ptr, c_loc(buoy_conden_exit_code_c))
                  if( buoy_conden_exit_code_c .ne. 0_c_int64_t ) then
                      id_exit = .true.
                      go to 333
@@ -6843,8 +6867,10 @@ end subroutine uwshcu_readnl
              end if
           else
              call uwshcu_log_buoy_conden_exit_shell_entered()
-             call uwshcu_buoy_conden_exit_shell_codon(int(id_check, c_int64_t), &
-                  c_loc(exit_conden(i)), c_loc(buoy_conden_exit_code_c))
+             call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+             call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                   0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
+                   c_loc(exit_conden(i)), c_null_ptr, c_loc(buoy_conden_exit_code_c))
              if( buoy_conden_exit_code_c .ne. 0_c_int64_t ) then
                  id_exit = .true.
                  go to 333
@@ -6951,8 +6977,10 @@ end subroutine uwshcu_readnl
              end if
           else
              call uwshcu_log_buoy_conden_exit_shell_entered()
-             call uwshcu_buoy_conden_exit_shell_codon(int(id_check, c_int64_t), &
-                  c_loc(exit_conden(i)), c_loc(buoy_conden_exit_code_c))
+             call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+             call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                   0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
+                   c_loc(exit_conden(i)), c_null_ptr, c_loc(buoy_conden_exit_code_c))
              if( buoy_conden_exit_code_c .ne. 0_c_int64_t ) then
                  id_exit = .true.
                  go to 333
@@ -7363,8 +7391,10 @@ end subroutine uwshcu_readnl
           end if
        else
           call uwshcu_log_buoy_top_conden_exit_shell_entered()
-          call uwshcu_buoy_top_conden_exit_shell_codon(int(id_check, c_int64_t), &
-               c_loc(exit_conden(i)), c_loc(buoy_top_conden_exit_code_c))
+          call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+          call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
+                c_loc(exit_conden(i)), c_null_ptr, c_loc(buoy_top_conden_exit_code_c))
           if( buoy_top_conden_exit_code_c .ne. 0_c_int64_t ) then
               id_exit = .true.
               go to 333
@@ -8420,8 +8450,10 @@ end subroutine uwshcu_readnl
                  endif
               else
                  call uwshcu_log_thermo_conden_exit_shell_entered()
-                 call uwshcu_thermo_conden_exit_shell_codon(int(id_check, c_int64_t), &
-                      c_loc(exit_conden(i)), c_loc(thermo_conden_exit_code_c))
+                 call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+                 call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                       0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
+                       c_loc(exit_conden(i)), c_null_ptr, c_loc(thermo_conden_exit_code_c))
                  if( thermo_conden_exit_code_c .ne. 0_c_int64_t ) then
                      id_exit = .true.
                      go to 333
@@ -8455,8 +8487,10 @@ end subroutine uwshcu_readnl
                  end if
               else
                  call uwshcu_log_thermo_conden_exit_shell_entered()
-                 call uwshcu_thermo_conden_exit_shell_codon(int(id_check, c_int64_t), &
-                      c_loc(exit_conden(i)), c_loc(thermo_conden_exit_code_c))
+                 call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+                 call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                       0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
+                       c_loc(exit_conden(i)), c_null_ptr, c_loc(thermo_conden_exit_code_c))
                  if( thermo_conden_exit_code_c .ne. 0_c_int64_t ) then
                      id_exit = .true.
                      go to 333
@@ -8492,8 +8526,10 @@ end subroutine uwshcu_readnl
                  end if
               else
                  call uwshcu_log_thermo_conden_exit_shell_entered()
-                 call uwshcu_thermo_conden_exit_shell_codon(int(id_check, c_int64_t), &
-                      c_loc(exit_conden(i)), c_loc(thermo_conden_exit_code_c))
+                 call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+                 call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                       0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
+                       c_loc(exit_conden(i)), c_null_ptr, c_loc(thermo_conden_exit_code_c))
                  if( thermo_conden_exit_code_c .ne. 0_c_int64_t ) then
                      id_exit = .true.
                      go to 333
@@ -8532,8 +8568,10 @@ end subroutine uwshcu_readnl
                  end if
               else
                  call uwshcu_log_thermo_conden_exit_shell_entered()
-                 call uwshcu_thermo_conden_exit_shell_codon(int(id_check, c_int64_t), &
-                      c_loc(exit_conden(i)), c_loc(thermo_conden_exit_code_c))
+                 call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+                 call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                       0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
+                       c_loc(exit_conden(i)), c_null_ptr, c_loc(thermo_conden_exit_code_c))
                  if( thermo_conden_exit_code_c .ne. 0_c_int64_t ) then
                      id_exit = .true.
                      go to 333
@@ -9443,8 +9481,10 @@ end subroutine uwshcu_readnl
           end if
        else
           call uwshcu_log_cloud_diag_conden_exit_shell_entered()
-          call uwshcu_cloud_diag_conden_exit_shell_codon(int(id_check, c_int64_t), &
-               c_loc(exit_conden(i)), c_loc(cloud_diag_conden_exit_code_c))
+          call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+          call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
+                c_loc(exit_conden(i)), c_null_ptr, c_loc(cloud_diag_conden_exit_code_c))
           if( cloud_diag_conden_exit_code_c .ne. 0_c_int64_t ) then
               id_exit = .true.
               go to 333
@@ -9486,8 +9526,10 @@ end subroutine uwshcu_readnl
              end if
           else
              call uwshcu_log_cloud_diag_conden_exit_shell_entered()
-             call uwshcu_cloud_diag_conden_exit_shell_codon(int(id_check, c_int64_t), &
-                  c_loc(exit_conden(i)), c_loc(cloud_diag_conden_exit_code_c))
+             call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+             call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                   0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
+                   c_loc(exit_conden(i)), c_null_ptr, c_loc(cloud_diag_conden_exit_code_c))
              if( cloud_diag_conden_exit_code_c .ne. 0_c_int64_t ) then
                  id_exit = .true.
                  go to 333
@@ -9758,8 +9800,10 @@ end subroutine uwshcu_readnl
                 end if
              else
                 call uwshcu_log_interface_conden_exit_shell_entered()
-                call uwshcu_interface_conden_exit_shell_codon(int(id_check, c_int64_t), &
-                     c_loc(exit_conden(i)), c_loc(interface_conden_exit_code_c))
+                call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+                call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                      0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
+                      c_loc(exit_conden(i)), c_null_ptr, c_loc(interface_conden_exit_code_c))
                 if( interface_conden_exit_code_c .ne. 0_c_int64_t ) then
                     id_exit = .true.
                     go to 333
@@ -9785,8 +9829,10 @@ end subroutine uwshcu_readnl
                 end if
              else
                 call uwshcu_log_interface_conden_exit_shell_entered()
-                call uwshcu_interface_conden_exit_shell_codon(int(id_check, c_int64_t), &
-                     c_loc(exit_conden(i)), c_loc(interface_conden_exit_code_c))
+                call uwshcu_log_scalar_exit_limit_batch_shell_entered()
+                call uwshcu_scalar_exit_limit_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
+                      0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, &
+                      c_loc(exit_conden(i)), c_null_ptr, c_loc(interface_conden_exit_code_c))
                 if( interface_conden_exit_code_c .ne. 0_c_int64_t ) then
                     id_exit = .true.
                     go to 333
