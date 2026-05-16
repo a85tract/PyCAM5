@@ -2793,9 +2793,9 @@ subroutine tphyspkg_flux_batch_log_entered()
   tphyspkg_flux_batch_entered_logged = .true.
 
   if (masterproc) then
-     write(iulog,*) 'tphyspkg_flux_batch entered (stage-dispatch precip/flx_cnd/macrop/radheat/tphysac direct = codon)'
+     write(iulog,*) 'tphyspkg_flux_batch entered (unified tphys-dispatch precip/flx_cnd/macrop/radheat/tphysac direct = codon)'
      call tphyspkg_flux_batch_append_proof( &
-          'tphyspkg_flux_batch entered (stage-dispatch precip/flx_cnd/macrop/radheat/tphysac direct = codon)')
+          'tphyspkg_flux_batch entered (unified tphys-dispatch precip/flx_cnd/macrop/radheat/tphysac direct = codon)')
      call flush(iulog)
   end if
 
@@ -3558,10 +3558,10 @@ subroutine tphysbc_state_batch_log_entered()
   tphysbc_state_batch_entered_logged = .true.
 
   if (masterproc) then
-     write(iulog,*) 'tphysbc_state_batch entered (stage-dispatch zero/clip/init/tini/qini/dtcore/dadadj ' // &
+     write(iulog,*) 'tphysbc_state_batch entered (unified tphys-dispatch zero/clip/init/tini/qini/dtcore/dadadj ' // &
           'direct = codon; qneg3 native)'
      call tphysbc_state_batch_append_proof( &
-          'tphysbc_state_batch entered (stage-dispatch zero/clip/init/tini/qini/dtcore/dadadj direct = codon; qneg3 native)')
+          'tphysbc_state_batch entered (unified tphys-dispatch zero/clip/init/tini/qini/dtcore/dadadj direct = codon; qneg3 native)')
      call flush(iulog)
   end if
 

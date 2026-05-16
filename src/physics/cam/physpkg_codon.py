@@ -782,51 +782,82 @@ def tphyspkg_flux_batch_dispatch_codon(
     shf_p: cobj,
     net_flx_p: cobj,
 ):
-    if stage == 1:
-        tphysbc_precip_ops_codon(
-            mode,
-            ncol,
-            pcols,
-            cld_macmic_num_steps,
-            prec_sed_macmic_p,
-            snow_sed_macmic_p,
-            prec_pcw_macmic_p,
-            snow_pcw_macmic_p,
-            prec_sed_p,
-            snow_sed_p,
-            prec_pcw_p,
-            snow_pcw_p,
-            prec_str_p,
-            snow_str_p,
-            prec_sed_carma_p,
-            snow_sed_carma_p,
-        )
-    elif stage == 2:
-        tphysac_flx_net_update_codon(
-            ncol,
-            pcols,
-            tend_flx_net_p,
-            cam_in_shf_p,
-            cam_out_precc_p,
-            cam_out_precl_p,
-            cam_out_precsc_p,
-            cam_out_precsl_p,
-            latvap_local,
-            latice_local,
-            rhoh2o_local,
-        )
-    elif stage == 3:
-        tphysac_t_update_codon(ncol, pcols, pver, ztodt, state_t_p, tini_p, tend_dtdt_p, dtcore_p, tmp_t_p)
-    elif stage == 4:
-        tphysac_q_snapshot_codon(
-            ncol, pcols, pver, pcnst, ixcldliq, ixcldice, state_q_p, tmp_q_p, tmp_cldliq_p, tmp_cldice_p
-        )
-    elif stage == 5:
-        tphysbc_flx_cnd_sum_codon(ncol, pcols, a_p, b_p, out_p)
-    elif stage == 6:
-        tphysbc_macrop_fluxes_codon(mode, ncol, pcols, rliq_p, det_s_p, flx_cnd_p, flx_heat_p, shf_p)
-    elif stage == 7:
-        tphysbc_radheat_flx_net_codon(ncol, pcols, tend_flx_net_p, net_flx_p)
+    _physpkg_tphys_batch_dispatch(
+        1,
+        stage,
+        mode,
+        ncol,
+        pcols,
+        pver,
+        pcnst,
+        cld_macmic_num_steps,
+        ixcldliq,
+        ixcldice,
+        0,
+        0,
+        0,
+        0,
+        ztodt,
+        latvap_local,
+        latice_local,
+        rhoh2o_local,
+        0.0,
+        prec_sed_macmic_p,
+        snow_sed_macmic_p,
+        prec_pcw_macmic_p,
+        snow_pcw_macmic_p,
+        prec_sed_p,
+        snow_sed_p,
+        prec_pcw_p,
+        snow_pcw_p,
+        prec_str_p,
+        snow_str_p,
+        prec_sed_carma_p,
+        snow_sed_carma_p,
+        tend_flx_net_p,
+        cam_in_shf_p,
+        cam_out_precc_p,
+        cam_out_precl_p,
+        cam_out_precsc_p,
+        cam_out_precsl_p,
+        state_t_p,
+        tini_p,
+        tend_dtdt_p,
+        dtcore_p,
+        tmp_t_p,
+        state_q_p,
+        tmp_q_p,
+        tmp_cldliq_p,
+        tmp_cldice_p,
+        a_p,
+        b_p,
+        out_p,
+        rliq_p,
+        det_s_p,
+        flx_cnd_p,
+        flx_heat_p,
+        shf_p,
+        net_flx_p,
+        state_t_p,
+        state_q_p,
+        tmp_q_p,
+        tmp_cldliq_p,
+        tmp_cldice_p,
+        tini_p,
+        dtcore_p,
+        tend_dtdt_p,
+        tend_dtdt_p,
+        tend_dtdt_p,
+        state_t_p,
+        state_q_p,
+        a_p,
+        state_q_p,
+        state_t_p,
+        state_q_p,
+        state_q_p,
+        state_q_p,
+        state_q_p,
+    )
 
 
 @export
@@ -1015,6 +1046,202 @@ def tphysbc_state_batch_qini_snapshot_codon(
     )
 
 
+def _physpkg_tphys_batch_dispatch(
+    group: int,
+    stage: int,
+    mode: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    cld_macmic_num_steps: int,
+    ixcldliq: int,
+    ixcldice: int,
+    zero_sc_len: int,
+    pwtype: int,
+    wtrc_nwset: int,
+    wisotope_on: int,
+    ztodt: float,
+    latvap_local: float,
+    latice_local: float,
+    rhoh2o_local: float,
+    cpair_local: float,
+    prec_sed_macmic_p: cobj,
+    snow_sed_macmic_p: cobj,
+    prec_pcw_macmic_p: cobj,
+    snow_pcw_macmic_p: cobj,
+    prec_sed_p: cobj,
+    snow_sed_p: cobj,
+    prec_pcw_p: cobj,
+    snow_pcw_p: cobj,
+    prec_str_p: cobj,
+    snow_str_p: cobj,
+    prec_sed_carma_p: cobj,
+    snow_sed_carma_p: cobj,
+    tend_flx_net_p: cobj,
+    cam_in_shf_p: cobj,
+    cam_out_precc_p: cobj,
+    cam_out_precl_p: cobj,
+    cam_out_precsc_p: cobj,
+    cam_out_precsl_p: cobj,
+    flux_state_t_p: cobj,
+    flux_tini_p: cobj,
+    flux_tend_dtdt_p: cobj,
+    flux_dtcore_p: cobj,
+    tmp_t_p: cobj,
+    flux_state_q_p: cobj,
+    tmp_q_p: cobj,
+    tmp_cldliq_p: cobj,
+    tmp_cldice_p: cobj,
+    a_p: cobj,
+    b_p: cobj,
+    out_p: cobj,
+    rliq_p: cobj,
+    det_s_p: cobj,
+    flx_cnd_p: cobj,
+    flx_heat_p: cobj,
+    shf_p: cobj,
+    net_flx_p: cobj,
+    bc_state_t_p: cobj,
+    bc_state_q_p: cobj,
+    qini_p: cobj,
+    cldliqini_p: cobj,
+    cldiceini_p: cobj,
+    bc_tini_p: cobj,
+    bc_dtcore_p: cobj,
+    bc_tend_dtdt_p: cobj,
+    tend_dudt_p: cobj,
+    tend_dvdt_p: cobj,
+    ptend_s_p: cobj,
+    ptend_q_p: cobj,
+    fracis_p: cobj,
+    zero_tracers_p: cobj,
+    zero_sc_p: cobj,
+    wtrc_iatype_p: cobj,
+    tagged_p: cobj,
+    rstd_p: cobj,
+    lq_mask_p: cobj,
+):
+    if group == 1:
+        if stage == 1:
+            tphysbc_precip_ops_codon(
+                mode,
+                ncol,
+                pcols,
+                cld_macmic_num_steps,
+                prec_sed_macmic_p,
+                snow_sed_macmic_p,
+                prec_pcw_macmic_p,
+                snow_pcw_macmic_p,
+                prec_sed_p,
+                snow_sed_p,
+                prec_pcw_p,
+                snow_pcw_p,
+                prec_str_p,
+                snow_str_p,
+                prec_sed_carma_p,
+                snow_sed_carma_p,
+            )
+        elif stage == 2:
+            tphysac_flx_net_update_codon(
+                ncol,
+                pcols,
+                tend_flx_net_p,
+                cam_in_shf_p,
+                cam_out_precc_p,
+                cam_out_precl_p,
+                cam_out_precsc_p,
+                cam_out_precsl_p,
+                latvap_local,
+                latice_local,
+                rhoh2o_local,
+            )
+        elif stage == 3:
+            tphysac_t_update_codon(
+                ncol,
+                pcols,
+                pver,
+                ztodt,
+                flux_state_t_p,
+                flux_tini_p,
+                flux_tend_dtdt_p,
+                flux_dtcore_p,
+                tmp_t_p,
+            )
+        elif stage == 4:
+            tphysac_q_snapshot_codon(
+                ncol,
+                pcols,
+                pver,
+                pcnst,
+                ixcldliq,
+                ixcldice,
+                flux_state_q_p,
+                tmp_q_p,
+                tmp_cldliq_p,
+                tmp_cldice_p,
+            )
+        elif stage == 5:
+            tphysbc_flx_cnd_sum_codon(ncol, pcols, a_p, b_p, out_p)
+        elif stage == 6:
+            tphysbc_macrop_fluxes_codon(mode, ncol, pcols, rliq_p, det_s_p, flx_cnd_p, flx_heat_p, shf_p)
+        elif stage == 7:
+            tphysbc_radheat_flx_net_codon(ncol, pcols, tend_flx_net_p, net_flx_p)
+    elif group == 2:
+        if stage == 1:
+            tphysbc_zero_buffers_codon(pcols, pcnst, zero_sc_len, zero_tracers_p, zero_sc_p)
+        elif stage == 2:
+            tphysbc_trace_water_clip_codon(
+                ncol,
+                pcols,
+                pver,
+                pcnst,
+                pwtype,
+                wtrc_nwset,
+                wisotope_on,
+                bc_state_q_p,
+                wtrc_iatype_p,
+                tagged_p,
+                rstd_p,
+            )
+        elif stage == 3:
+            tphysbc_init_fields_codon(ncol, pcols, pver, pcnst, fracis_p, bc_tend_dtdt_p, tend_dudt_p, tend_dvdt_p)
+        elif stage == 4:
+            tphysbc_tini_copy_codon(ncol, pcols, pver, bc_state_t_p, bc_tini_p)
+        elif stage == 5:
+            tphysbc_qini_snapshot_codon(
+                ncol,
+                pcols,
+                pver,
+                pcnst,
+                ixcldliq,
+                ixcldice,
+                bc_state_q_p,
+                qini_p,
+                cldliqini_p,
+                cldiceini_p,
+            )
+        elif stage == 6:
+            tphysbc_dtcore_update_codon(ncol, pcols, pver, ztodt, bc_tini_p, bc_dtcore_p, bc_tend_dtdt_p)
+        elif stage == 7:
+            tphysbc_dadadj_lq_init_codon(pcnst, lq_mask_p)
+        elif stage == 8:
+            tphysbc_dadadj_input_codon(ncol, pcols, pver, pcnst, bc_state_t_p, bc_state_q_p, ptend_s_p, ptend_q_p)
+        elif stage == 9:
+            tphysbc_dadadj_output_codon(
+                ncol,
+                pcols,
+                pver,
+                pcnst,
+                ztodt,
+                cpair_local,
+                bc_state_t_p,
+                bc_state_q_p,
+                ptend_s_p,
+                ptend_q_p,
+            )
+
+
 @export
 def tphysbc_state_batch_dispatch_codon(
     stage: int,
@@ -1050,30 +1277,82 @@ def tphysbc_state_batch_dispatch_codon(
     rstd_p: cobj,
     lq_mask_p: cobj,
 ):
-    if stage == 1:
-        tphysbc_zero_buffers_codon(pcols, pcnst, zero_sc_len, zero_tracers_p, zero_sc_p)
-    elif stage == 2:
-        tphysbc_trace_water_clip_codon(
-            ncol, pcols, pver, pcnst, pwtype, wtrc_nwset, wisotope_on, state_q_p, wtrc_iatype_p, tagged_p, rstd_p
-        )
-    elif stage == 3:
-        tphysbc_init_fields_codon(ncol, pcols, pver, pcnst, fracis_p, tend_dtdt_p, tend_dudt_p, tend_dvdt_p)
-    elif stage == 4:
-        tphysbc_tini_copy_codon(ncol, pcols, pver, state_t_p, tini_p)
-    elif stage == 5:
-        tphysbc_qini_snapshot_codon(
-            ncol, pcols, pver, pcnst, ixcldliq, ixcldice, state_q_p, qini_p, cldliqini_p, cldiceini_p
-        )
-    elif stage == 6:
-        tphysbc_dtcore_update_codon(ncol, pcols, pver, ztodt, tini_p, dtcore_p, tend_dtdt_p)
-    elif stage == 7:
-        tphysbc_dadadj_lq_init_codon(pcnst, lq_mask_p)
-    elif stage == 8:
-        tphysbc_dadadj_input_codon(ncol, pcols, pver, pcnst, state_t_p, state_q_p, ptend_s_p, ptend_q_p)
-    elif stage == 9:
-        tphysbc_dadadj_output_codon(
-            ncol, pcols, pver, pcnst, ztodt, cpair_local, state_t_p, state_q_p, ptend_s_p, ptend_q_p
-        )
+    _physpkg_tphys_batch_dispatch(
+        2,
+        stage,
+        0,
+        ncol,
+        pcols,
+        pver,
+        pcnst,
+        0,
+        ixcldliq,
+        ixcldice,
+        zero_sc_len,
+        pwtype,
+        wtrc_nwset,
+        wisotope_on,
+        ztodt,
+        0.0,
+        0.0,
+        0.0,
+        cpair_local,
+        state_t_p,
+        state_q_p,
+        qini_p,
+        cldliqini_p,
+        cldiceini_p,
+        tini_p,
+        dtcore_p,
+        tend_dtdt_p,
+        tend_dudt_p,
+        tend_dvdt_p,
+        ptend_s_p,
+        ptend_q_p,
+        fracis_p,
+        state_t_p,
+        state_q_p,
+        qini_p,
+        cldliqini_p,
+        cldiceini_p,
+        state_t_p,
+        tini_p,
+        tend_dtdt_p,
+        dtcore_p,
+        tend_dudt_p,
+        state_q_p,
+        ptend_q_p,
+        cldliqini_p,
+        cldiceini_p,
+        fracis_p,
+        zero_tracers_p,
+        zero_sc_p,
+        qini_p,
+        cldliqini_p,
+        cldiceini_p,
+        state_t_p,
+        state_q_p,
+        qini_p,
+        state_t_p,
+        state_q_p,
+        qini_p,
+        cldliqini_p,
+        cldiceini_p,
+        tini_p,
+        dtcore_p,
+        tend_dtdt_p,
+        tend_dudt_p,
+        tend_dvdt_p,
+        ptend_s_p,
+        ptend_q_p,
+        fracis_p,
+        zero_tracers_p,
+        zero_sc_p,
+        wtrc_iatype_p,
+        tagged_p,
+        rstd_p,
+        lq_mask_p,
+    )
 
 
 @export
