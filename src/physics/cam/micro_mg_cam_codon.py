@@ -1471,6 +1471,14 @@ def micro_mg_cam_diag_shell_codon(
     prcio_grid_p: cobj,
     praio_grid_p: cobj,
     budget_ftem_grid_p: cobj,
+    copy_qrain: int,
+    copy_qsnow: int,
+    copy_nrain: int,
+    copy_nsnow: int,
+    qrout_grid_ptr_p: cobj,
+    qsout_grid_ptr_p: cobj,
+    nrout_grid_ptr_p: cobj,
+    nsout_grid_ptr_p: cobj,
 ):
     micro_mg_cam_reff_calc_codon(
         ngrdcol,
@@ -1639,3 +1647,22 @@ def micro_mg_cam_diag_shell_codon(
             budget_ftem_grid[_idx3(i, k, 6, pcols, pver)] = (
                 -prcio_grid[idx2] - praio_grid[idx2]
             )
+
+    if copy_qrain == 1 or copy_qsnow == 1 or copy_nrain == 1 or copy_nsnow == 1:
+        _micro_mg_cam_pbuf_copy_fields(
+            ngrdcol,
+            pcols,
+            pver,
+            copy_qrain,
+            copy_qsnow,
+            copy_nrain,
+            copy_nsnow,
+            qrout_grid_p,
+            qsout_grid_p,
+            nrout_grid_p,
+            nsout_grid_p,
+            qrout_grid_ptr_p,
+            qsout_grid_ptr_p,
+            nrout_grid_ptr_p,
+            nsout_grid_ptr_p,
+        )

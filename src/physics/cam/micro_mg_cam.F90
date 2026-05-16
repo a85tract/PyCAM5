@@ -135,6 +135,7 @@ logical :: grid_diag_entered_logged = .false.
 logical :: use_native_tail_shell_impl = .false.
 logical :: tail_shell_impl_selected = .false.
 logical :: tail_shell_entered_logged = .false.
+logical :: tail_diag_pbuf_entered_logged = .false.
 logical :: use_native_wtrc_shell_impl = .false.
 logical :: wtrc_shell_impl_selected = .false.
 logical :: wtrc_shell_entered_logged = .false.
@@ -2713,10 +2714,8 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
            efcout_grid, efiout_grid, ncout_grid, niout_grid, freql_grid, freqi_grid, icwmrst_grid_out, icimrst_grid_out, &
            fcti_grid, fctl_grid, ctrel_grid, ctrei_grid, ctnl_grid, ctni_grid, evprain_st_grid, qcreso_grid, melto_grid, &
            mnuccco_grid, mnuccto_grid, bergo_grid, homoo_grid, msacwio_grid, psacwso_grid, bergso_grid, cmeiout_grid, &
-           qireso_grid, prcio_grid, praio_grid, budget_ftem_grid)
-
-      call micro_mg_cam_tail_pbuf_copy_codon_wrap(ncol, qrain_idx > 0, qsnow_idx > 0, nrain_idx > 0, nsnow_idx > 0, &
-           qrout_grid, qsout_grid, nrout_grid, nsout_grid, qrout_grid_ptr, qsout_grid_ptr, nrout_grid_ptr, nsout_grid_ptr)
+           qireso_grid, prcio_grid, praio_grid, budget_ftem_grid, qrain_idx > 0, qsnow_idx > 0, nrain_idx > 0, nsnow_idx > 0, &
+           qrout_grid_ptr, qsout_grid_ptr, nrout_grid_ptr, nsout_grid_ptr)
 
    end if
 
@@ -2999,7 +2998,8 @@ subroutine micro_mg_cam_diag_shell_codon_wrap(ngrdcol_local, micro_mg_version_lo
      fcti_grid_local, fctl_grid_local, ctrel_grid_local, ctrei_grid_local, ctnl_grid_local, ctni_grid_local, &
      evprain_st_grid_local, qcreso_grid_local, melto_grid_local, mnuccco_grid_local, mnuccto_grid_local, bergo_grid_local, &
      homoo_grid_local, msacwio_grid_local, psacwso_grid_local, bergso_grid_local, cmeiout_grid_local, qireso_grid_local, &
-     prcio_grid_local, praio_grid_local, budget_ftem_grid_local)
+     prcio_grid_local, praio_grid_local, budget_ftem_grid_local, copy_qrain_local, copy_qsnow_local, copy_nrain_local, &
+     copy_nsnow_local, qrout_grid_ptr_local, qsout_grid_ptr_local, nrout_grid_ptr_local, nsout_grid_ptr_local)
 
   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
   use micro_mg_utils, only: mg_liq_props, mg_ice_props, qsmall, mincld, rhosn, rhoi, rhow, rhows
@@ -3052,6 +3052,11 @@ subroutine micro_mg_cam_diag_shell_codon_wrap(ngrdcol_local, micro_mg_version_lo
   real(r8), target, intent(in) :: bergso_grid_local(pcols,pver), cmeiout_grid_local(pcols,pver)
   real(r8), target, intent(in) :: qireso_grid_local(pcols,pver), prcio_grid_local(pcols,pver), praio_grid_local(pcols,pver)
   real(r8), target, intent(inout) :: budget_ftem_grid_local(pcols,pver,6)
+  logical, intent(in), optional :: copy_qrain_local, copy_qsnow_local, copy_nrain_local, copy_nsnow_local
+  real(r8), pointer, intent(inout), optional :: qrout_grid_ptr_local(:,:), qsout_grid_ptr_local(:,:)
+  real(r8), pointer, intent(inout), optional :: nrout_grid_ptr_local(:,:), nsout_grid_ptr_local(:,:)
+  integer(c_int64_t) :: copy_qrain_c, copy_qsnow_c, copy_nrain_c, copy_nsnow_c
+  type(c_ptr) :: qrout_dst_p, qsout_dst_p, nrout_dst_p, nsout_dst_p
 
   interface
      subroutine micro_mg_cam_diag_shell_codon(ngrdcol_c, pcols_c, pver_c, top_lev_c, micro_mg_version_c, qsmall_c, &
@@ -3068,9 +3073,12 @@ subroutine micro_mg_cam_diag_shell_codon_wrap(ngrdcol_local, micro_mg_version_lo
           freql_grid_p, freqi_grid_p, icwmrst_grid_out_p, icimrst_grid_out_p, fcti_grid_p, fctl_grid_p, ctrel_grid_p, &
           ctrei_grid_p, ctnl_grid_p, ctni_grid_p, evprain_st_grid_p, qcreso_grid_p, melto_grid_p, mnuccco_grid_p, &
           mnuccto_grid_p, bergo_grid_p, homoo_grid_p, msacwio_grid_p, psacwso_grid_p, bergso_grid_p, cmeiout_grid_p, &
-          qireso_grid_p, prcio_grid_p, praio_grid_p, budget_ftem_grid_p) bind(c, name="micro_mg_cam_diag_shell_codon")
+          qireso_grid_p, prcio_grid_p, praio_grid_p, budget_ftem_grid_p, copy_qrain_c, copy_qsnow_c, copy_nrain_c, &
+          copy_nsnow_c, qrout_grid_ptr_p, qsout_grid_ptr_p, nrout_grid_ptr_p, nsout_grid_ptr_p) &
+          bind(c, name="micro_mg_cam_diag_shell_codon")
        use iso_c_binding, only: c_double, c_int64_t, c_ptr
        integer(c_int64_t), value :: ngrdcol_c, pcols_c, pver_c, top_lev_c, micro_mg_version_c
+       integer(c_int64_t), value :: copy_qrain_c, copy_qsnow_c, copy_nrain_c, copy_nsnow_c
        real(c_double), value :: qsmall_c, mincld_c, liq_rho_c, liq_eff_dim_c, liq_min_mean_mass_c
        real(c_double), value :: ice_eff_dim_c, ice_shape_coef_c, ice_lambda_lo_c, ice_lambda_hi_c
        real(c_double), value :: ice_min_mean_mass_c, rhosn_c, rhoi_c, rhow_c, rhows_c, mucon_c, dcon_c, deicon_c
@@ -3090,11 +3098,51 @@ subroutine micro_mg_cam_diag_shell_codon_wrap(ngrdcol_local, micro_mg_version_lo
        type(c_ptr), value :: ctni_grid_p, evprain_st_grid_p, qcreso_grid_p, melto_grid_p, mnuccco_grid_p
        type(c_ptr), value :: mnuccto_grid_p, bergo_grid_p, homoo_grid_p, msacwio_grid_p, psacwso_grid_p, bergso_grid_p
        type(c_ptr), value :: cmeiout_grid_p, qireso_grid_p, prcio_grid_p, praio_grid_p, budget_ftem_grid_p
+       type(c_ptr), value :: qrout_grid_ptr_p, qsout_grid_ptr_p, nrout_grid_ptr_p, nsout_grid_ptr_p
      end subroutine micro_mg_cam_diag_shell_codon
   end interface
 
+  copy_qrain_c = 0_c_int64_t
+  copy_qsnow_c = 0_c_int64_t
+  copy_nrain_c = 0_c_int64_t
+  copy_nsnow_c = 0_c_int64_t
+  qrout_dst_p = c_loc(qrout_grid_local)
+  qsout_dst_p = c_loc(qsout_grid_local)
+  nrout_dst_p = c_loc(nrout_grid_local)
+  nsout_dst_p = c_loc(nsout_grid_local)
+
+  if (present(copy_qrain_local) .and. present(qrout_grid_ptr_local)) then
+     if (copy_qrain_local) then
+        copy_qrain_c = 1_c_int64_t
+        qrout_dst_p = c_loc(qrout_grid_ptr_local)
+     end if
+  end if
+  if (present(copy_qsnow_local) .and. present(qsout_grid_ptr_local)) then
+     if (copy_qsnow_local) then
+        copy_qsnow_c = 1_c_int64_t
+        qsout_dst_p = c_loc(qsout_grid_ptr_local)
+     end if
+  end if
+  if (present(copy_nrain_local) .and. present(nrout_grid_ptr_local)) then
+     if (copy_nrain_local) then
+        copy_nrain_c = 1_c_int64_t
+        nrout_dst_p = c_loc(nrout_grid_ptr_local)
+     end if
+  end if
+  if (present(copy_nsnow_local) .and. present(nsout_grid_ptr_local)) then
+     if (copy_nsnow_local) then
+        copy_nsnow_c = 1_c_int64_t
+        nsout_dst_p = c_loc(nsout_grid_ptr_local)
+     end if
+  end if
+
   call micro_mg_cam_log_entered_once(diag_shell_entered_logged, 'MICRO_MG_CAM_DIAG_SHELL_PROOF_FILE', &
        'micro_mg_cam_diag_shell entered (liquid reff/reff/grid/budget diagnostic tail direct = codon)')
+
+  if (present(copy_qrain_local)) then
+     call micro_mg_cam_log_entered_once(tail_diag_pbuf_entered_logged, 'MICRO_MG_CAM_TAIL_SHELL_PROOF_FILE', &
+          'micro_mg_cam_tail diag/pbuf dispatch entered (reff/grid/budget diagnostics and pbuf copy direct = codon)')
+  end if
 
   call micro_mg_cam_diag_shell_codon(int(ngrdcol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
        int(top_lev, c_int64_t), int(micro_mg_version_local, c_int64_t), qsmall, mincld, mg_liq_props%rho, &
@@ -3120,7 +3168,8 @@ subroutine micro_mg_cam_diag_shell_codon_wrap(ngrdcol_local, micro_mg_version_lo
        c_loc(evprain_st_grid_local), c_loc(qcreso_grid_local), c_loc(melto_grid_local), c_loc(mnuccco_grid_local), &
        c_loc(mnuccto_grid_local), c_loc(bergo_grid_local), c_loc(homoo_grid_local), c_loc(msacwio_grid_local), &
        c_loc(psacwso_grid_local), c_loc(bergso_grid_local), c_loc(cmeiout_grid_local), c_loc(qireso_grid_local), &
-       c_loc(prcio_grid_local), c_loc(praio_grid_local), c_loc(budget_ftem_grid_local))
+       c_loc(prcio_grid_local), c_loc(praio_grid_local), c_loc(budget_ftem_grid_local), copy_qrain_c, copy_qsnow_c, &
+       copy_nrain_c, copy_nsnow_c, qrout_dst_p, qsout_dst_p, nrout_dst_p, nsout_dst_p)
 
 end subroutine micro_mg_cam_diag_shell_codon_wrap
 
