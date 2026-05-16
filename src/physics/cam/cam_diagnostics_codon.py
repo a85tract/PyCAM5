@@ -1492,6 +1492,67 @@ def diag_phys_writeout_transport_moisture_codon(
 
 
 @export
+def diag_phys_writeout_batch_dispatch_codon(
+    group: int,
+    mode: int,
+    submode: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    scalar1: float,
+    scalar2: float,
+    scalar3: float,
+    a_p: cobj,
+    b_p: cobj,
+    c_p: cobj,
+    d_p: cobj,
+    e_p: cobj,
+    f_p: cobj,
+    out1_p: cobj,
+    out2_p: cobj,
+    out3_p: cobj,
+):
+    if group == 1:
+        diag_phys_writeout_basic_2d_codon(
+            mode, ncol, pcols, pver, scalar1, a_p, b_p, out1_p
+        )
+    elif group == 2:
+        diag_phys_writeout_column_reduce_codon(
+            mode,
+            ncol,
+            pcols,
+            pver,
+            scalar1,
+            scalar2,
+            scalar3,
+            a_p,
+            b_p,
+            c_p,
+            d_p,
+            e_p,
+            f_p,
+            out1_p,
+            out2_p,
+        )
+    elif group == 3:
+        diag_phys_writeout_transport_moisture_codon(
+            mode,
+            submode,
+            ncol,
+            pcols,
+            pver,
+            scalar1,
+            a_p,
+            b_p,
+            c_p,
+            d_p,
+            out1_p,
+            out2_p,
+            out3_p,
+        )
+
+
+@export
 def diag_phys_writeout_copy_col1_codon(
     ncol: int,
     pcols: int,

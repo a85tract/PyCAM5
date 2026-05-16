@@ -118,6 +118,17 @@ logical :: cam_diag_conv_tend_ini_entered_logged = .false.
 logical :: cam_diag_conv_entered_logged = .false.
 logical :: cam_diag_conv_precip_dtcond_entered_logged = .false.
 
+interface
+   subroutine diag_phys_writeout_batch_dispatch_codon(group_c, mode_c, submode_c, ncol_c, pcols_c, pver_c, &
+        scalar1_c, scalar2_c, scalar3_c, a_p, b_p, c_p, d_p, e_p, f_p, out1_p, out2_p, out3_p) &
+        bind(c, name="diag_phys_writeout_batch_dispatch_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: group_c, mode_c, submode_c, ncol_c, pcols_c, pver_c
+      real(c_double), value :: scalar1_c, scalar2_c, scalar3_c
+      type(c_ptr), value :: a_p, b_p, c_p, d_p, e_p, f_p, out1_p, out2_p, out3_p
+   end subroutine diag_phys_writeout_batch_dispatch_codon
+end interface
+
 contains
 
 ! ===============================================================================
@@ -1602,9 +1613,10 @@ end subroutine diag_conv_tend_ini
        return
     end if
 
-    call diag_phys_writeout_basic_2d_codon( &
-         1_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(rga, c_double), &
-         c_loc(zm), c_loc(phis), c_loc(z3) &
+    call diag_phys_writeout_batch_dispatch_codon( &
+         1_c_int64_t, 1_c_int64_t, 0_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), &
+         int(pver, c_int64_t), real(rga, c_double), 0._c_double, 0._c_double, &
+         c_loc(zm), c_loc(phis), c_loc(zm), c_loc(zm), c_loc(zm), c_loc(zm), c_loc(z3), c_loc(z3), c_loc(z3) &
     )
 
   end subroutine diag_phys_writeout_fill_z3
@@ -1638,9 +1650,10 @@ end subroutine diag_conv_tend_ini
        return
     end if
 
-    call diag_phys_writeout_basic_2d_codon( &
-         2_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), 0._c_double, &
-         c_loc(a), c_loc(b), c_loc(out) &
+    call diag_phys_writeout_batch_dispatch_codon( &
+         1_c_int64_t, 2_c_int64_t, 0_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), &
+         int(pver, c_int64_t), 0._c_double, 0._c_double, 0._c_double, &
+         c_loc(a), c_loc(b), c_loc(a), c_loc(a), c_loc(a), c_loc(a), c_loc(out), c_loc(out), c_loc(out) &
     )
 
   end subroutine diag_phys_writeout_mul_field
@@ -1675,9 +1688,10 @@ end subroutine diag_conv_tend_ini
        return
     end if
 
-    call diag_phys_writeout_basic_2d_codon( &
-         3_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), real(scale, c_double), &
-         c_loc(a), c_loc(b), c_loc(out) &
+    call diag_phys_writeout_batch_dispatch_codon( &
+         1_c_int64_t, 3_c_int64_t, 0_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), &
+         int(pver, c_int64_t), real(scale, c_double), 0._c_double, 0._c_double, &
+         c_loc(a), c_loc(b), c_loc(a), c_loc(a), c_loc(a), c_loc(a), c_loc(out), c_loc(out), c_loc(out) &
     )
 
   end subroutine diag_phys_writeout_mul_scalar_field
@@ -1711,9 +1725,10 @@ end subroutine diag_conv_tend_ini
        return
     end if
 
-    call diag_phys_writeout_basic_2d_codon( &
-         4_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), 0._c_double, &
-         c_loc(a), c_loc(a), c_loc(out) &
+    call diag_phys_writeout_batch_dispatch_codon( &
+         1_c_int64_t, 4_c_int64_t, 0_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), &
+         int(pver, c_int64_t), 0._c_double, 0._c_double, 0._c_double, &
+         c_loc(a), c_loc(a), c_loc(a), c_loc(a), c_loc(a), c_loc(a), c_loc(out), c_loc(out), c_loc(out) &
     )
 
   end subroutine diag_phys_writeout_square_field
@@ -1743,9 +1758,10 @@ end subroutine diag_conv_tend_ini
        return
     end if
 
-    call diag_phys_writeout_basic_2d_codon( &
-         5_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), 0._c_double, &
-         c_loc(u), c_loc(v), c_loc(out) &
+    call diag_phys_writeout_batch_dispatch_codon( &
+         1_c_int64_t, 5_c_int64_t, 0_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), &
+         int(pver, c_int64_t), 0._c_double, 0._c_double, 0._c_double, &
+         c_loc(u), c_loc(v), c_loc(u), c_loc(u), c_loc(u), c_loc(u), c_loc(out), c_loc(out), c_loc(out) &
     )
 
   end subroutine diag_phys_writeout_wspeed_field
@@ -1783,10 +1799,10 @@ end subroutine diag_conv_tend_ini
        return
     end if
 
-    call diag_phys_writeout_column_reduce_codon( &
-         1_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-         real(rga, c_double), 0._c_double, 0._c_double, c_loc(q), c_loc(pdel), c_loc(q), c_loc(q), &
-         c_loc(q), c_loc(q), c_loc(mq), c_loc(tmq) &
+    call diag_phys_writeout_batch_dispatch_codon( &
+         2_c_int64_t, 1_c_int64_t, 0_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), &
+         int(pver, c_int64_t), real(rga, c_double), 0._c_double, 0._c_double, &
+         c_loc(q), c_loc(pdel), c_loc(q), c_loc(q), c_loc(q), c_loc(q), c_loc(mq), c_loc(tmq), c_loc(tmq) &
     )
 
   end subroutine diag_phys_writeout_mass_and_tmq
@@ -1828,10 +1844,10 @@ end subroutine diag_conv_tend_ini
        return
     end if
 
-    call diag_phys_writeout_column_reduce_codon( &
-         2_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-         real(cpair, c_double), real(latvap, c_double), real(gravit, c_double), &
-         c_loc(t), c_loc(q), c_loc(u), c_loc(v), c_loc(pdel), c_loc(phis), c_loc(t), c_loc(atmeint) &
+    call diag_phys_writeout_batch_dispatch_codon( &
+         2_c_int64_t, 2_c_int64_t, 0_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), &
+         int(pver, c_int64_t), real(cpair, c_double), real(latvap, c_double), real(gravit, c_double), &
+         c_loc(t), c_loc(q), c_loc(u), c_loc(v), c_loc(pdel), c_loc(phis), c_loc(t), c_loc(atmeint), c_loc(atmeint) &
     )
 
   end subroutine diag_phys_writeout_atmeint
@@ -1871,9 +1887,10 @@ end subroutine diag_conv_tend_ini
        return
     end if
 
-    call diag_phys_writeout_transport_moisture_codon( &
-         1_c_int64_t, int(mode, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-         real(rga_in, c_double), c_loc(qtr), c_loc(wind), c_loc(pdel), c_loc(qtr), c_loc(out), &
+    call diag_phys_writeout_batch_dispatch_codon( &
+         3_c_int64_t, 1_c_int64_t, int(mode, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), &
+         int(pver, c_int64_t), real(rga_in, c_double), 0._c_double, 0._c_double, &
+         c_loc(qtr), c_loc(wind), c_loc(pdel), c_loc(qtr), c_loc(qtr), c_loc(qtr), c_loc(out), &
          c_loc(out), c_loc(out) &
     )
 
@@ -1913,9 +1930,10 @@ end subroutine diag_conv_tend_ini
        return
     end if
 
-    call diag_phys_writeout_transport_moisture_codon( &
-         2_c_int64_t, 0_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-         real(rga_in, c_double), c_loc(q), c_loc(u), c_loc(v), c_loc(pdel), c_loc(uqdp), c_loc(vqdp), c_loc(ivt) &
+    call diag_phys_writeout_batch_dispatch_codon( &
+         3_c_int64_t, 2_c_int64_t, 0_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), &
+         int(pver, c_int64_t), real(rga_in, c_double), 0._c_double, 0._c_double, &
+         c_loc(q), c_loc(u), c_loc(v), c_loc(pdel), c_loc(q), c_loc(q), c_loc(uqdp), c_loc(vqdp), c_loc(ivt) &
     )
 
   end subroutine diag_phys_writeout_ivt
@@ -1945,9 +1963,10 @@ end subroutine diag_conv_tend_ini
        return
     end if
 
-    call diag_phys_writeout_basic_2d_codon( &
-         6_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), 0._c_double, &
-         c_loc(src), c_loc(src), c_loc(dst) &
+    call diag_phys_writeout_batch_dispatch_codon( &
+         1_c_int64_t, 6_c_int64_t, 0_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), &
+         int(pver, c_int64_t), 0._c_double, 0._c_double, 0._c_double, &
+         c_loc(src), c_loc(src), c_loc(src), c_loc(src), c_loc(src), c_loc(src), c_loc(dst), c_loc(dst), c_loc(dst) &
     )
 
   end subroutine diag_phys_writeout_copy_col1
@@ -1977,9 +1996,10 @@ end subroutine diag_conv_tend_ini
        return
     end if
 
-    call diag_phys_writeout_basic_2d_codon( &
-         7_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), 100._c_double, &
-         c_loc(q), c_loc(rh), c_loc(rh) &
+    call diag_phys_writeout_batch_dispatch_codon( &
+         1_c_int64_t, 7_c_int64_t, 0_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), &
+         int(pver, c_int64_t), 100._c_double, 0._c_double, 0._c_double, &
+         c_loc(q), c_loc(rh), c_loc(q), c_loc(q), c_loc(q), c_loc(q), c_loc(rh), c_loc(rh), c_loc(rh) &
     )
 
   end subroutine diag_phys_writeout_scale_relhum
@@ -2027,9 +2047,11 @@ end subroutine diag_conv_tend_ini
        return
     end if
 
-    call diag_phys_writeout_transport_moisture_codon( &
-         3_c_int64_t, 0_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-         0._c_double, c_loc(t), c_loc(esl), c_loc(esi), c_loc(rhw), c_loc(rhi), c_loc(rhcfmip), c_loc(rhcfmip) &
+    call diag_phys_writeout_batch_dispatch_codon( &
+         3_c_int64_t, 3_c_int64_t, 0_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), &
+         int(pver, c_int64_t), 0._c_double, 0._c_double, 0._c_double, &
+         c_loc(t), c_loc(esl), c_loc(esi), c_loc(rhw), c_loc(t), c_loc(t), c_loc(rhi), &
+         c_loc(rhcfmip), c_loc(rhcfmip) &
     )
 
   end subroutine diag_phys_writeout_rhi_rhcfmip
@@ -2058,8 +2080,10 @@ subroutine diag_phys_writeout_batch_log_entered()
    diag_phys_writeout_batch_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'diag_phys_writeout_batch entered (basic_fields/column_reduce/transport_moisture/relhum/tt direct = codon)'
-      call diag_phys_writeout_batch_append_proof('diag_phys_writeout_batch entered (basic_fields/column_reduce/transport_moisture/relhum/tt direct = codon)')
+      write(iulog,'(A)') 'diag_phys_writeout_batch entered (unified stage-dispatch basic/column/transport/relhum/tt direct = codon)'
+      call diag_phys_writeout_batch_append_proof( &
+           'diag_phys_writeout_batch entered (unified stage-dispatch basic/column/transport/relhum/tt ' // &
+           'direct = codon)')
       call flush(iulog)
    end if
 
