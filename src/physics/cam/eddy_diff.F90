@@ -1455,14 +1455,17 @@
 
     implicit none
 
+    character(len=*), parameter :: proof_msg = 'eddy_diff_driver_tail_batch entered (' // &
+         'unified driver-dispatch tail error/relax/zero/restore/rairi/kvq/wstar direct = codon)'
+
     if (driver_tail_batch_entered_logged) return
     driver_tail_batch_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'eddy_diff_driver_tail_batch entered (error/relax/zero/restore/rairi/kvq/wstar direct = codon)'
-       write(*,*) 'eddy_diff_driver_tail_batch entered (error/relax/zero/restore/rairi/kvq/wstar direct = codon)'
-       call eddy_diff_append_impl_trace('eddy_diff_driver_tail_batch entered (error/relax/zero/restore/rairi/kvq/wstar direct = codon)')
-       call eddy_diff_driver_tail_batch_append_proof('eddy_diff_driver_tail_batch entered (error/relax/zero/restore/rairi/kvq/wstar direct = codon)')
+       write(iulog,*) proof_msg
+       write(*,*) proof_msg
+       call eddy_diff_append_impl_trace(proof_msg)
+       call eddy_diff_driver_tail_batch_append_proof(proof_msg)
        call flush(iulog)
     end if
 
@@ -1627,14 +1630,17 @@
 
     implicit none
 
+    character(len=*), parameter :: proof_msg = 'eddy_diff_driver_front_batch entered (' // &
+         'unified driver-dispatch front init/stress/kvinit/rebuild direct = codon)'
+
     if (driver_front_batch_entered_logged) return
     driver_front_batch_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'eddy_diff_driver_front_batch entered (init/stress/kvinit/rebuild direct = codon)'
-       write(*,*) 'eddy_diff_driver_front_batch entered (init/stress/kvinit/rebuild direct = codon)'
-       call eddy_diff_append_impl_trace('eddy_diff_driver_front_batch entered (init/stress/kvinit/rebuild direct = codon)')
-       call eddy_diff_driver_front_batch_append_proof('eddy_diff_driver_front_batch entered (init/stress/kvinit/rebuild direct = codon)')
+       write(iulog,*) proof_msg
+       write(*,*) proof_msg
+       call eddy_diff_append_impl_trace(proof_msg)
+       call eddy_diff_driver_front_batch_append_proof(proof_msg)
        call flush(iulog)
     end if
 

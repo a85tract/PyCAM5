@@ -962,6 +962,201 @@ def eddy_diff_wstar_pbl_codon(
             wstarPBL[i - 1] = 0.0
 
 
+def _eddy_diff_driver_batch_dispatch(
+    group: int,
+    stage: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    ncvmax: int,
+    iturb: int,
+    kvinit: int,
+    use_kvf: int,
+    lambda_v: float,
+    rair: float,
+    ustar_min: float,
+    cpair: float,
+    latvap: float,
+    latsub: float,
+    gravit: float,
+    u_p: cobj,
+    v_p: cobj,
+    t_p: cobj,
+    qv_p: cobj,
+    ql_p: cobj,
+    zero_p: cobj,
+    zero2d_p: cobj,
+    ufd_p: cobj,
+    vfd_p: cobj,
+    tfd_p: cobj,
+    qvfd_p: cobj,
+    qlfd_p: cobj,
+    pmid_p: cobj,
+    taux_p: cobj,
+    tauy_p: cobj,
+    ksrftms_p: cobj,
+    rrho_p: cobj,
+    ustar_p: cobj,
+    minpblh_p: cobj,
+    kvf_p: cobj,
+    kvh_in_p: cobj,
+    kvm_in_p: cobj,
+    kvh_out_p: cobj,
+    kvm_out_p: cobj,
+    kvh_p: cobj,
+    kvm_p: cobj,
+    slfd_p: cobj,
+    qtfd_p: cobj,
+    qi_p: cobj,
+    z_p: cobj,
+    errorPBL_p: cobj,
+    cgh_p: cobj,
+    cgs_p: cobj,
+    sl_p: cobj,
+    qt_p: cobj,
+    ipbl_p: cobj,
+    wstar_p: cobj,
+    wstarPBL_p: cobj,
+    rairi_p: cobj,
+    kvq_p: cobj,
+):
+    if group == 1:
+        if stage == 1:
+            eddy_diff_init_fields_codon(
+                ncol,
+                pcols,
+                pver,
+                u_p,
+                v_p,
+                t_p,
+                qv_p,
+                ql_p,
+                zero_p,
+                zero2d_p,
+                ufd_p,
+                vfd_p,
+                tfd_p,
+                qvfd_p,
+                qlfd_p,
+            )
+        elif stage == 2:
+            eddy_diff_surface_stress_diag_codon(
+                ncol,
+                pcols,
+                pver,
+                rair,
+                ustar_min,
+                tfd_p,
+                pmid_p,
+                taux_p,
+                tauy_p,
+                ksrftms_p,
+                ufd_p,
+                vfd_p,
+                rrho_p,
+                ustar_p,
+                minpblh_p,
+            )
+        elif stage == 3:
+            eddy_diff_kv_init_codon(
+                ncol,
+                pcols,
+                pver,
+                iturb,
+                kvinit,
+                use_kvf,
+                kvf_p,
+                kvh_in_p,
+                kvm_in_p,
+                kvh_out_p,
+                kvm_out_p,
+                kvh_p,
+                kvm_p,
+            )
+        elif stage == 4:
+            eddy_diff_rebuild_thermo_codon(
+                ncol,
+                pcols,
+                pver,
+                cpair,
+                latvap,
+                latsub,
+                gravit,
+                rair,
+                slfd_p,
+                qtfd_p,
+                qi_p,
+                z_p,
+                pmid_p,
+                qlfd_p,
+                qvfd_p,
+                tfd_p,
+            )
+    elif group == 2:
+        if stage == 1:
+            eddy_diff_error_pbl_codon(
+                ncol,
+                pcols,
+                pver,
+                kvh_p,
+                kvh_out_p,
+                errorPBL_p,
+            )
+        elif stage == 2:
+            eddy_diff_kv_relax_codon(
+                ncol,
+                pcols,
+                pver,
+                lambda_v,
+                kvm_p,
+                kvh_p,
+                kvm_out_p,
+                kvh_out_p,
+            )
+        elif stage == 3:
+            eddy_diff_zero_nonlocal_codon(
+                ncol,
+                pcols,
+                pver,
+                cgh_p,
+                cgs_p,
+            )
+        elif stage == 4:
+            eddy_diff_restore_fields_codon(
+                ncol,
+                pcols,
+                pver,
+                sl_p,
+                qt_p,
+                u_p,
+                v_p,
+                slfd_p,
+                qtfd_p,
+                ufd_p,
+                vfd_p,
+            )
+        elif stage == 5:
+            eddy_diff_wstar_pbl_codon(
+                ncol,
+                pcols,
+                ncvmax,
+                ipbl_p,
+                wstar_p,
+                wstarPBL_p,
+            )
+        elif stage == 6:
+            rairi = Ptr[float](rairi_p)
+            for k in range(1, pver + 2):
+                for i in range(1, ncol + 1):
+                    rairi[_idx2(i, k, pcols)] = rair
+        elif stage == 7:
+            kvh_out = Ptr[float](kvh_out_p)
+            kvq = Ptr[float](kvq_p)
+            for k in range(1, pver + 2):
+                for i in range(1, ncol + 1):
+                    kvq[_idx2(i, k, pcols)] = kvh_out[_idx2(i, k, pcols)]
+
+
 @export
 def eddy_diff_driver_tail_batch_codon(
     stage: int,
@@ -992,68 +1187,64 @@ def eddy_diff_driver_tail_batch_codon(
     rairi_p: cobj,
     kvq_p: cobj,
 ):
-    if stage == 1:
-        eddy_diff_error_pbl_codon(
-            ncol,
-            pcols,
-            pver,
-            kvh_p,
-            kvh_out_p,
-            errorPBL_p,
-        )
-    elif stage == 2:
-        eddy_diff_kv_relax_codon(
-            ncol,
-            pcols,
-            pver,
-            lambda_v,
-            kvm_p,
-            kvh_p,
-            kvm_out_p,
-            kvh_out_p,
-        )
-    elif stage == 3:
-        eddy_diff_zero_nonlocal_codon(
-            ncol,
-            pcols,
-            pver,
-            cgh_p,
-            cgs_p,
-        )
-    elif stage == 4:
-        eddy_diff_restore_fields_codon(
-            ncol,
-            pcols,
-            pver,
-            sl_p,
-            qt_p,
-            u_p,
-            v_p,
-            slfd_p,
-            qtfd_p,
-            ufd_p,
-            vfd_p,
-        )
-    elif stage == 5:
-        eddy_diff_wstar_pbl_codon(
-            ncol,
-            pcols,
-            ncvmax,
-            ipbl_p,
-            wstar_p,
-            wstarPBL_p,
-        )
-    elif stage == 6:
-        rairi = Ptr[float](rairi_p)
-        for k in range(1, pver + 2):
-            for i in range(1, ncol + 1):
-                rairi[_idx2(i, k, pcols)] = rair
-    elif stage == 7:
-        kvh_out = Ptr[float](kvh_out_p)
-        kvq = Ptr[float](kvq_p)
-        for k in range(1, pver + 2):
-            for i in range(1, ncol + 1):
-                kvq[_idx2(i, k, pcols)] = kvh_out[_idx2(i, k, pcols)]
+    _eddy_diff_driver_batch_dispatch(
+        2,
+        stage,
+        ncol,
+        pcols,
+        pver,
+        ncvmax,
+        0,
+        0,
+        0,
+        lambda_v,
+        rair,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        u_p,
+        v_p,
+        sl_p,
+        qt_p,
+        sl_p,
+        errorPBL_p,
+        cgh_p,
+        ufd_p,
+        vfd_p,
+        slfd_p,
+        qtfd_p,
+        slfd_p,
+        sl_p,
+        errorPBL_p,
+        errorPBL_p,
+        errorPBL_p,
+        errorPBL_p,
+        errorPBL_p,
+        errorPBL_p,
+        kvh_p,
+        kvh_p,
+        kvm_p,
+        kvh_out_p,
+        kvm_out_p,
+        kvh_p,
+        kvm_p,
+        slfd_p,
+        qtfd_p,
+        sl_p,
+        qt_p,
+        errorPBL_p,
+        cgh_p,
+        cgs_p,
+        sl_p,
+        qt_p,
+        ipbl_p,
+        wstar_p,
+        wstarPBL_p,
+        rairi_p,
+        kvq_p,
+    )
 
 
 @export
@@ -5835,77 +6026,64 @@ def eddy_diff_driver_front_batch_codon(
     qi_p: cobj,
     z_p: cobj,
 ):
-    if stage == 1:
-        eddy_diff_init_fields_codon(
-            ncol,
-            pcols,
-            pver,
-            u_p,
-            v_p,
-            t_p,
-            qv_p,
-            ql_p,
-            zero_p,
-            zero2d_p,
-            ufd_p,
-            vfd_p,
-            tfd_p,
-            qvfd_p,
-            qlfd_p,
-        )
-    elif stage == 2:
-        eddy_diff_surface_stress_diag_codon(
-            ncol,
-            pcols,
-            pver,
-            rair,
-            ustar_min,
-            tfd_p,
-            pmid_p,
-            taux_p,
-            tauy_p,
-            ksrftms_p,
-            ufd_p,
-            vfd_p,
-            rrho_p,
-            ustar_p,
-            minpblh_p,
-        )
-    elif stage == 3:
-        eddy_diff_kv_init_codon(
-            ncol,
-            pcols,
-            pver,
-            iturb,
-            kvinit,
-            use_kvf,
-            kvf_p,
-            kvh_in_p,
-            kvm_in_p,
-            kvh_out_p,
-            kvm_out_p,
-            kvh_p,
-            kvm_p,
-        )
-    elif stage == 4:
-        eddy_diff_rebuild_thermo_codon(
-            ncol,
-            pcols,
-            pver,
-            cpair,
-            latvap,
-            latsub,
-            gravit,
-            rair,
-            slfd_p,
-            qtfd_p,
-            qi_p,
-            z_p,
-            pmid_p,
-            qlfd_p,
-            qvfd_p,
-            tfd_p,
-        )
+    _eddy_diff_driver_batch_dispatch(
+        1,
+        stage,
+        ncol,
+        pcols,
+        pver,
+        0,
+        iturb,
+        kvinit,
+        use_kvf,
+        0.0,
+        rair,
+        ustar_min,
+        cpair,
+        latvap,
+        latsub,
+        gravit,
+        u_p,
+        v_p,
+        t_p,
+        qv_p,
+        ql_p,
+        zero_p,
+        zero2d_p,
+        ufd_p,
+        vfd_p,
+        tfd_p,
+        qvfd_p,
+        qlfd_p,
+        pmid_p,
+        taux_p,
+        tauy_p,
+        ksrftms_p,
+        rrho_p,
+        ustar_p,
+        minpblh_p,
+        kvf_p,
+        kvh_in_p,
+        kvm_in_p,
+        kvh_out_p,
+        kvm_out_p,
+        kvh_p,
+        kvm_p,
+        slfd_p,
+        qtfd_p,
+        qi_p,
+        z_p,
+        zero_p,
+        zero2d_p,
+        zero2d_p,
+        slfd_p,
+        qtfd_p,
+        zero_p,
+        zero2d_p,
+        zero_p,
+        zero2d_p,
+        zero2d_p,
+    )
 
 
 @export
