@@ -127,6 +127,15 @@ interface
       real(c_double), value :: scalar1_c, scalar2_c, scalar3_c
       type(c_ptr), value :: a_p, b_p, c_p, d_p, e_p, f_p, out1_p, out2_p, out3_p
    end subroutine diag_phys_writeout_batch_dispatch_codon
+   subroutine diag_conv_batch_dispatch_codon(group_c, mode_c, ncol_c, pcols_c, pver_c, pcnst_c, m_c, &
+        scalar1_c, scalar2_c, a_p, b_p, c_p, d_p, e_p, f_p, g_p, h_p, out1_p, out2_p, out3_p, out4_p, &
+        out5_p, aux1_p, aux2_p) bind(c, name="diag_conv_batch_dispatch_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: group_c, mode_c, ncol_c, pcols_c, pver_c, pcnst_c, m_c
+      real(c_double), value :: scalar1_c, scalar2_c
+      type(c_ptr), value :: a_p, b_p, c_p, d_p, e_p, f_p, g_p, h_p
+      type(c_ptr), value :: out1_p, out2_p, out3_p, out4_p, out5_p, aux1_p, aux2_p
+   end subroutine diag_conv_batch_dispatch_codon
 end interface
 
 contains
@@ -828,8 +837,8 @@ subroutine cam_diag_conv_batch_log_tend_ini_entered()
    cam_diag_conv_tend_ini_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'cam_diag_conv_batch entered (diag_conv_tend_ini copy_dispatch direct = codon)'
-      call cam_diag_conv_batch_append_proof('cam_diag_conv_batch entered (diag_conv_tend_ini copy_dispatch direct = codon)')
+      write(iulog,'(A)') 'cam_diag_conv_batch entered (unified stage-dispatch tend_ini copy direct = codon)'
+      call cam_diag_conv_batch_append_proof('cam_diag_conv_batch entered (unified stage-dispatch tend_ini copy direct = codon)')
       call flush(iulog)
    end if
 
@@ -841,8 +850,8 @@ subroutine cam_diag_conv_batch_log_diag_conv_entered()
    cam_diag_conv_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'cam_diag_conv_batch entered (diag_conv update_dispatch direct = codon)'
-      call cam_diag_conv_batch_append_proof('cam_diag_conv_batch entered (diag_conv update_dispatch direct = codon)')
+      write(iulog,'(A)') 'cam_diag_conv_batch entered (unified stage-dispatch update direct = codon)'
+      call cam_diag_conv_batch_append_proof('cam_diag_conv_batch entered (unified stage-dispatch update direct = codon)')
       call flush(iulog)
    end if
 
@@ -856,8 +865,8 @@ subroutine cam_diag_conv_batch_log_precip_dtcond_entered()
    cam_diag_conv_precip_dtcond_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'cam_diag_conv_batch entered (precip totals + dtcond direct = codon)'
-      call cam_diag_conv_batch_append_proof('cam_diag_conv_batch entered (precip totals + dtcond direct = codon)')
+      write(iulog,'(A)') 'cam_diag_conv_batch entered (unified stage-dispatch precip totals + dtcond direct = codon)'
+      call cam_diag_conv_batch_append_proof('cam_diag_conv_batch entered (unified stage-dispatch precip totals + dtcond direct = codon)')
       call flush(iulog)
    end if
 
@@ -937,7 +946,7 @@ subroutine diag_conv_tend_ini(state,pbuf)
 
 ! Initialize convective tendency calcs.
 
-   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
 ! Argument:
 
@@ -950,15 +959,6 @@ subroutine diag_conv_tend_ini(state,pbuf)
    integer :: i, k, m, lchnk, ncol
    real(r8), pointer, dimension(:,:) :: t_ttend
    real(r8), target :: dqcond_work(pcols,pver)
-
-   interface
-      subroutine diag_conv_tend_ini_copy_batch_codon(mode_c, ncol_c, pcols_c, pver_c, pcnst_c, m_c, &
-           src_p, dst_p) bind(c, name="diag_conv_tend_ini_copy_batch_codon")
-         use iso_c_binding, only: c_int64_t, c_ptr
-         integer(c_int64_t), value :: mode_c, ncol_c, pcols_c, pver_c, pcnst_c, m_c
-         type(c_ptr), value :: src_p, dst_p
-      end subroutine diag_conv_tend_ini_copy_batch_codon
-   end interface
 
    lchnk = state%lchnk
    ncol  = state%ncol
@@ -982,16 +982,24 @@ subroutine diag_conv_tend_ini(state,pbuf)
    else
       call cam_diag_conv_batch_log_tend_ini_entered()
 
-      call diag_conv_tend_ini_copy_batch_codon( &
-           1_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-           int(pcnst, c_int64_t), 0_c_int64_t, &
-           c_loc(state%s), c_loc(dtcond(1,1,lchnk)) &
+      call diag_conv_batch_dispatch_codon( &
+           1_c_int64_t, 1_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+           int(pcnst, c_int64_t), 0_c_int64_t, 0._c_double, 0._c_double, &
+           c_loc(state%s), c_loc(state%s), c_loc(state%s), c_loc(state%s), &
+           c_loc(state%s), c_loc(state%s), c_loc(state%s), c_loc(state%s), &
+           c_loc(dtcond(1,1,lchnk)), c_loc(dtcond(1,1,lchnk)), c_loc(dtcond(1,1,lchnk)), &
+           c_loc(dtcond(1,1,lchnk)), c_loc(dtcond(1,1,lchnk)), c_loc(state%s), c_loc(dtcond(1,1,lchnk)) &
       )
 
       do m = 1, dqcond_num
-         call diag_conv_tend_ini_copy_batch_codon( &
-              2_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
-              int(m, c_int64_t), c_loc(state%q), c_loc(dqcond_work) &
+         call diag_conv_batch_dispatch_codon( &
+              1_c_int64_t, 2_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+              int(pcnst, c_int64_t), &
+              int(m, c_int64_t), 0._c_double, 0._c_double, &
+              c_loc(state%q), c_loc(state%q), c_loc(state%q), c_loc(state%q), &
+              c_loc(state%q), c_loc(state%q), c_loc(state%q), c_loc(state%q), &
+              c_loc(dqcond_work), c_loc(dqcond_work), c_loc(dqcond_work), c_loc(dqcond_work), &
+              c_loc(dqcond_work), c_loc(state%q), c_loc(dqcond_work) &
          )
          dqcond(m)%cnst(:,:,lchnk) = dqcond_work(:,:)
       end do
@@ -1004,9 +1012,12 @@ subroutine diag_conv_tend_ini(state,pbuf)
          if (cam_diag_conv_batch_use_native_impl) then
             t_ttend(:ncol,:) = state%t(:ncol,:)
          else
-            call diag_conv_tend_ini_copy_batch_codon( &
-                 3_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-                 int(pcnst, c_int64_t), 0_c_int64_t, &
+            call diag_conv_batch_dispatch_codon( &
+                 1_c_int64_t, 3_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+                 int(pcnst, c_int64_t), 0_c_int64_t, 0._c_double, 0._c_double, &
+                 c_loc(state%t), c_loc(state%t), c_loc(state%t), c_loc(state%t), &
+                 c_loc(state%t), c_loc(state%t), c_loc(state%t), c_loc(state%t), &
+                 c_loc(t_ttend), c_loc(t_ttend), c_loc(t_ttend), c_loc(t_ttend), c_loc(t_ttend), &
                  c_loc(state%t), c_loc(t_ttend) &
             )
          end if
@@ -2173,29 +2184,6 @@ subroutine diag_conv(state, ztodt, pbuf)
    real(r8), target :: dqcond_work(pcols,pver)
    real(r8) :: dcoef(4)                   ! for tidal component of T tend
 
-   interface
-      subroutine diag_conv_update_batch_codon(mode_c, ncol_c, pcols_c, pver_c, pcnst_c, m_c, &
-           scalar1_c, scalar2_c, a_p, b_p, c_p, d_p, e_p, f_p, g_p, h_p, &
-           out1_p, out2_p, out3_p, out4_p, out5_p) bind(c, name="diag_conv_update_batch_codon")
-         use iso_c_binding, only: c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: mode_c, ncol_c, pcols_c, pver_c, pcnst_c, m_c
-         real(c_double), value :: scalar1_c, scalar2_c
-         type(c_ptr), value :: a_p, b_p, c_p, d_p, e_p, f_p, g_p, h_p
-         type(c_ptr), value :: out1_p, out2_p, out3_p, out4_p, out5_p
-      end subroutine diag_conv_update_batch_codon
-      subroutine diag_conv_precip_dtcond_batch_codon(ncol_c, pcols_c, pver_c, pcnst_c, rtdt_c, cpair_c, &
-           prec_dp_p, snow_dp_p, prec_sh_p, snow_sh_p, prec_sed_p, snow_sed_p, prec_pcw_p, snow_pcw_p, &
-           precc_p, precl_p, snowc_p, snowl_p, prect_p, state_s_p, dtcond_p) &
-           bind(c, name="diag_conv_precip_dtcond_batch_codon")
-         use iso_c_binding, only: c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c
-         real(c_double), value :: rtdt_c, cpair_c
-         type(c_ptr), value :: prec_dp_p, snow_dp_p, prec_sh_p, snow_sh_p
-         type(c_ptr), value :: prec_sed_p, snow_sed_p, prec_pcw_p, snow_pcw_p
-         type(c_ptr), value :: precc_p, precl_p, snowc_p, snowl_p, prect_p, state_s_p, dtcond_p
-      end subroutine diag_conv_precip_dtcond_batch_codon
-   end interface
-
    lchnk = state%lchnk
    ncol  = state%ncol
 
@@ -2222,8 +2210,9 @@ subroutine diag_conv(state, ztodt, pbuf)
    else
       call cam_diag_conv_batch_log_diag_conv_entered()
       call cam_diag_conv_batch_log_precip_dtcond_entered()
-      call diag_conv_precip_dtcond_batch_codon( &
-           int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+      call diag_conv_batch_dispatch_codon( &
+           3_c_int64_t, 0_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+           int(pcnst, c_int64_t), 0_c_int64_t, &
            real(rtdt, c_double), real(cpair, c_double), &
            c_loc(prec_dp), c_loc(snow_dp), c_loc(prec_sh), c_loc(snow_sh), &
            c_loc(prec_sed), c_loc(snow_sed), c_loc(prec_pcw), c_loc(snow_pcw), &
@@ -2260,12 +2249,13 @@ subroutine diag_conv(state, ztodt, pbuf)
            wtprect(:ncol) = wtprect(:ncol) + wtprec_strain(:ncol)
            wtprect(:ncol) = wtprect(:ncol) + wtprec_stsnow(:ncol)
         else
-           call diag_conv_update_batch_codon( &
-                2_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+           call diag_conv_batch_dispatch_codon( &
+                2_c_int64_t, 2_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
                 int(pcnst, c_int64_t), 0_c_int64_t, 0._c_double, 0._c_double, &
                 c_loc(wtprec_cvrain), c_loc(wtprec_cvsnow), c_loc(wtprec_strain), c_loc(wtprec_stsnow), &
                 c_loc(wtprec_cvrain), c_loc(wtprec_cvsnow), c_loc(wtprec_strain), c_loc(wtprec_stsnow), &
-                c_loc(wtprect), c_loc(wtprect), c_loc(wtprect), c_loc(wtprect), c_loc(wtprect) &
+                c_loc(wtprect), c_loc(wtprect), c_loc(wtprect), c_loc(wtprect), c_loc(wtprect), &
+                c_loc(wtprec_cvrain), c_loc(wtprect) &
            )
         end if
         !add to output variable:
@@ -2309,12 +2299,13 @@ subroutine diag_conv(state, ztodt, pbuf)
             end do
          else
             dqcond_work(:,:) = dqcond(m)%cnst(:,:,lchnk)
-            call diag_conv_update_batch_codon( &
-                 4_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+            call diag_conv_batch_dispatch_codon( &
+                 2_c_int64_t, 4_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
                  int(pcnst, c_int64_t), int(m, c_int64_t), real(rtdt, c_double), 0._c_double, &
                  c_loc(state%q), c_loc(state%q), c_loc(state%q), c_loc(state%q), &
                  c_loc(state%q), c_loc(state%q), c_loc(state%q), c_loc(state%q), &
-                 c_loc(dqcond_work), c_loc(dqcond_work), c_loc(dqcond_work), c_loc(dqcond_work), c_loc(dqcond_work) &
+                 c_loc(dqcond_work), c_loc(dqcond_work), c_loc(dqcond_work), c_loc(dqcond_work), c_loc(dqcond_work), &
+                 c_loc(state%q), c_loc(dqcond_work) &
             )
             dqcond(m)%cnst(:,:,lchnk) = dqcond_work(:,:)
          end if

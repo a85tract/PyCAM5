@@ -339,6 +339,94 @@ def diag_conv_precip_dtcond_batch_codon(
 
 
 @export
+def diag_conv_batch_dispatch_codon(
+    group: int,
+    mode: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    m: int,
+    scalar1: float,
+    scalar2: float,
+    a_p: cobj,
+    b_p: cobj,
+    c_p: cobj,
+    d_p: cobj,
+    e_p: cobj,
+    f_p: cobj,
+    g_p: cobj,
+    h_p: cobj,
+    out1_p: cobj,
+    out2_p: cobj,
+    out3_p: cobj,
+    out4_p: cobj,
+    out5_p: cobj,
+    aux1_p: cobj,
+    aux2_p: cobj,
+):
+    if group == 1:
+        diag_conv_tend_ini_copy_batch_codon(
+            mode,
+            ncol,
+            pcols,
+            pver,
+            pcnst,
+            m,
+            a_p,
+            out1_p,
+        )
+    elif group == 2:
+        diag_conv_update_batch_codon(
+            mode,
+            ncol,
+            pcols,
+            pver,
+            pcnst,
+            m,
+            scalar1,
+            scalar2,
+            a_p,
+            b_p,
+            c_p,
+            d_p,
+            e_p,
+            f_p,
+            g_p,
+            h_p,
+            out1_p,
+            out2_p,
+            out3_p,
+            out4_p,
+            out5_p,
+        )
+    elif group == 3:
+        diag_conv_precip_dtcond_batch_codon(
+            ncol,
+            pcols,
+            pver,
+            pcnst,
+            scalar1,
+            scalar2,
+            a_p,
+            b_p,
+            c_p,
+            d_p,
+            e_p,
+            f_p,
+            g_p,
+            h_p,
+            out1_p,
+            out2_p,
+            out3_p,
+            out4_p,
+            out5_p,
+            aux1_p,
+            aux2_p,
+        )
+
+
+@export
 def diag_surf_codon(
     ncol: int,
     pcols: int,
