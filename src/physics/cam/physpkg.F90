@@ -3402,13 +3402,108 @@ subroutine tphysbc_state_batch_log_entered()
   tphysbc_state_batch_entered_logged = .true.
 
   if (masterproc) then
-     write(iulog,*) 'tphysbc_state_batch entered (zero/clip/init/tini/qini/dtcore/dadadj direct = codon)'
+     write(iulog,*) 'tphysbc_state_batch entered (stage-dispatch zero/clip/init/tini/qini/dtcore/dadadj ' // &
+          'direct = codon; qneg3 native)'
      call tphysbc_state_batch_append_proof( &
-          'tphysbc_state_batch entered (zero/clip/init/tini/qini/dtcore/dadadj direct = codon)')
+          'tphysbc_state_batch entered (stage-dispatch zero/clip/init/tini/qini/dtcore/dadadj direct = codon; qneg3 native)')
      call flush(iulog)
   end if
 
 end subroutine tphysbc_state_batch_log_entered
+
+!=======================================================================
+
+subroutine tphysbc_state_batch_dispatch_call(stage_c, ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, &
+     zero_sc_len_c, pwtype_c, wtrc_nwset_c, wisotope_on_c, ztodt_c, cpair_c, &
+     state_t_p, state_q_p, qini_p, cldliqini_p, cldiceini_p, tini_p, dtcore_p, &
+     tend_dtdt_p, tend_dudt_p, tend_dvdt_p, ptend_s_p, ptend_q_p, fracis_p, &
+     zero_tracers_p, zero_sc_p, wtrc_iatype_p, tagged_p, rstd_p, lq_mask_p)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_ptr
+
+  integer(c_int64_t), intent(in) :: stage_c
+  integer(c_int64_t), intent(in) :: ncol_c
+  integer(c_int64_t), intent(in) :: pcols_c
+  integer(c_int64_t), intent(in) :: pver_c
+  integer(c_int64_t), intent(in) :: pcnst_c
+  integer(c_int64_t), intent(in) :: ixcldliq_c
+  integer(c_int64_t), intent(in) :: ixcldice_c
+  integer(c_int64_t), intent(in) :: zero_sc_len_c
+  integer(c_int64_t), intent(in) :: pwtype_c
+  integer(c_int64_t), intent(in) :: wtrc_nwset_c
+  integer(c_int64_t), intent(in) :: wisotope_on_c
+  real(c_double), intent(in) :: ztodt_c
+  real(c_double), intent(in) :: cpair_c
+  type(c_ptr), intent(in) :: state_t_p
+  type(c_ptr), intent(in) :: state_q_p
+  type(c_ptr), intent(in) :: qini_p
+  type(c_ptr), intent(in) :: cldliqini_p
+  type(c_ptr), intent(in) :: cldiceini_p
+  type(c_ptr), intent(in) :: tini_p
+  type(c_ptr), intent(in) :: dtcore_p
+  type(c_ptr), intent(in) :: tend_dtdt_p
+  type(c_ptr), intent(in) :: tend_dudt_p
+  type(c_ptr), intent(in) :: tend_dvdt_p
+  type(c_ptr), intent(in) :: ptend_s_p
+  type(c_ptr), intent(in) :: ptend_q_p
+  type(c_ptr), intent(in) :: fracis_p
+  type(c_ptr), intent(in) :: zero_tracers_p
+  type(c_ptr), intent(in) :: zero_sc_p
+  type(c_ptr), intent(in) :: wtrc_iatype_p
+  type(c_ptr), intent(in) :: tagged_p
+  type(c_ptr), intent(in) :: rstd_p
+  type(c_ptr), intent(in) :: lq_mask_p
+
+  interface
+     subroutine tphysbc_state_batch_dispatch_codon(stage_c, ncol_c, pcols_c, pver_c, pcnst_c, &
+          ixcldliq_c, ixcldice_c, zero_sc_len_c, pwtype_c, wtrc_nwset_c, wisotope_on_c, ztodt_c, cpair_c, &
+          state_t_p, state_q_p, qini_p, cldliqini_p, cldiceini_p, tini_p, dtcore_p, &
+          tend_dtdt_p, tend_dudt_p, tend_dvdt_p, ptend_s_p, ptend_q_p, fracis_p, &
+          zero_tracers_p, zero_sc_p, wtrc_iatype_p, tagged_p, rstd_p, lq_mask_p) &
+          bind(c, name="tphysbc_state_batch_dispatch_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t), value :: ncol_c
+       integer(c_int64_t), value :: pcols_c
+       integer(c_int64_t), value :: pver_c
+       integer(c_int64_t), value :: pcnst_c
+       integer(c_int64_t), value :: ixcldliq_c
+       integer(c_int64_t), value :: ixcldice_c
+       integer(c_int64_t), value :: zero_sc_len_c
+       integer(c_int64_t), value :: pwtype_c
+       integer(c_int64_t), value :: wtrc_nwset_c
+       integer(c_int64_t), value :: wisotope_on_c
+       real(c_double), value :: ztodt_c
+       real(c_double), value :: cpair_c
+       type(c_ptr), value :: state_t_p
+       type(c_ptr), value :: state_q_p
+       type(c_ptr), value :: qini_p
+       type(c_ptr), value :: cldliqini_p
+       type(c_ptr), value :: cldiceini_p
+       type(c_ptr), value :: tini_p
+       type(c_ptr), value :: dtcore_p
+       type(c_ptr), value :: tend_dtdt_p
+       type(c_ptr), value :: tend_dudt_p
+       type(c_ptr), value :: tend_dvdt_p
+       type(c_ptr), value :: ptend_s_p
+       type(c_ptr), value :: ptend_q_p
+       type(c_ptr), value :: fracis_p
+       type(c_ptr), value :: zero_tracers_p
+       type(c_ptr), value :: zero_sc_p
+       type(c_ptr), value :: wtrc_iatype_p
+       type(c_ptr), value :: tagged_p
+       type(c_ptr), value :: rstd_p
+       type(c_ptr), value :: lq_mask_p
+     end subroutine tphysbc_state_batch_dispatch_codon
+  end interface
+
+  call tphysbc_state_batch_dispatch_codon(stage_c, ncol_c, pcols_c, pver_c, pcnst_c, &
+       ixcldliq_c, ixcldice_c, zero_sc_len_c, pwtype_c, wtrc_nwset_c, wisotope_on_c, ztodt_c, cpair_c, &
+       state_t_p, state_q_p, qini_p, cldliqini_p, cldiceini_p, tini_p, dtcore_p, &
+       tend_dtdt_p, tend_dudt_p, tend_dvdt_p, ptend_s_p, ptend_q_p, fracis_p, &
+       zero_tracers_p, zero_sc_p, wtrc_iatype_p, tagged_p, rstd_p, lq_mask_p)
+
+end subroutine tphysbc_state_batch_dispatch_call
 
 !=======================================================================
 
@@ -3452,7 +3547,7 @@ end subroutine tphysbc_qini_snapshot_select_impl
 subroutine tphysbc_qini_snapshot(ncol, pcols_local, pver_local, pcnst_local, ixcldliq, ixcldice, &
      state_q, qini, cldliqini, cldiceini)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod, only: r8 => shr_kind_r8
 
   integer, intent(in) :: ncol
@@ -3506,8 +3601,11 @@ subroutine tphysbc_qini_snapshot(ncol, pcols_local, pver_local, pcnst_local, ixc
   ixcldice_c = int(ixcldice, c_int64_t)
 
   call tphysbc_state_batch_log_entered()
-  call tphysbc_state_batch_qini_snapshot_codon(ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, &
-       c_loc(state_q), c_loc(qini), c_loc(cldliqini), c_loc(cldiceini))
+  call tphysbc_state_batch_dispatch_call(5_c_int64_t, ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0d0, 0.0d0, &
+       c_null_ptr, c_loc(state_q), c_loc(qini), c_loc(cldliqini), c_loc(cldiceini), c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
 
 end subroutine tphysbc_qini_snapshot
 
@@ -3576,7 +3674,7 @@ end subroutine tphysbc_dadadj_input_select_impl
 
 subroutine tphysbc_dadadj_input(ncol, pcols_local, pver_local, pcnst_local, state_t, state_q, ptend_s, ptend_q)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod, only: r8 => shr_kind_r8
 
   integer, intent(in) :: ncol
@@ -3621,8 +3719,11 @@ subroutine tphysbc_dadadj_input(ncol, pcols_local, pver_local, pcnst_local, stat
   pcnst_c = int(pcnst_local, c_int64_t)
 
   call tphysbc_state_batch_log_entered()
-  call tphysbc_state_batch_dadadj_input_codon(ncol_c, pcols_c, pver_c, pcnst_c, &
-       c_loc(state_t), c_loc(state_q), c_loc(ptend_s), c_loc(ptend_q))
+  call tphysbc_state_batch_dispatch_call(8_c_int64_t, ncol_c, pcols_c, pver_c, pcnst_c, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0d0, 0.0d0, &
+       c_loc(state_t), c_loc(state_q), c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_loc(ptend_s), c_loc(ptend_q), c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
 
 end subroutine tphysbc_dadadj_input
 
@@ -3688,7 +3789,7 @@ end subroutine tphysbc_dadadj_output_select_impl
 subroutine tphysbc_dadadj_output(ncol, pcols_local, pver_local, pcnst_local, ztodt, cpair_local, &
      state_t, state_q, ptend_s, ptend_q)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod, only: r8 => shr_kind_r8
 
   integer, intent(in) :: ncol
@@ -3738,8 +3839,11 @@ subroutine tphysbc_dadadj_output(ncol, pcols_local, pver_local, pcnst_local, zto
   pcnst_c = int(pcnst_local, c_int64_t)
 
   call tphysbc_state_batch_log_entered()
-  call tphysbc_state_batch_dadadj_output_codon(ncol_c, pcols_c, pver_c, pcnst_c, ztodt, cpair_local, &
-       c_loc(state_t), c_loc(state_q), c_loc(ptend_s), c_loc(ptend_q))
+  call tphysbc_state_batch_dispatch_call(9_c_int64_t, ncol_c, pcols_c, pver_c, pcnst_c, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, ztodt, cpair_local, &
+       c_loc(state_t), c_loc(state_q), c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_loc(ptend_s), c_loc(ptend_q), c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
 
 end subroutine tphysbc_dadadj_output
 
@@ -3807,7 +3911,7 @@ end subroutine tphysbc_dtcore_update_select_impl
 
 subroutine tphysbc_dtcore_update(ncol, pcols_local, pver_local, ztodt, tini, dtcore, tend_dtdt)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod, only: r8 => shr_kind_r8
 
   integer, intent(in) :: ncol
@@ -3848,8 +3952,11 @@ subroutine tphysbc_dtcore_update(ncol, pcols_local, pver_local, ztodt, tini, dtc
   pver_c = int(pver_local, c_int64_t)
 
   call tphysbc_state_batch_log_entered()
-  call tphysbc_state_batch_dtcore_update_codon(ncol_c, pcols_c, pver_c, ztodt, &
-       c_loc(tini), c_loc(dtcore), c_loc(tend_dtdt))
+  call tphysbc_state_batch_dispatch_call(6_c_int64_t, ncol_c, pcols_c, pver_c, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, ztodt, 0.0d0, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(tini), c_loc(dtcore), &
+       c_loc(tend_dtdt), c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
 
 end subroutine tphysbc_dtcore_update
 
@@ -3916,7 +4023,7 @@ end subroutine tphysbc_tini_copy_select_impl
 
 subroutine tphysbc_tini_copy(ncol, pcols_local, pver_local, state_t, tini)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod, only: r8 => shr_kind_r8
 
   integer, intent(in) :: ncol
@@ -3953,7 +4060,11 @@ subroutine tphysbc_tini_copy(ncol, pcols_local, pver_local, state_t, tini)
   pver_c = int(pver_local, c_int64_t)
 
   call tphysbc_state_batch_log_entered()
-  call tphysbc_state_batch_tini_copy_codon(ncol_c, pcols_c, pver_c, c_loc(state_t), c_loc(tini))
+  call tphysbc_state_batch_dispatch_call(4_c_int64_t, ncol_c, pcols_c, pver_c, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0d0, 0.0d0, &
+       c_loc(state_t), c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(tini), c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
 
 end subroutine tphysbc_tini_copy
 
@@ -4324,7 +4435,7 @@ end subroutine tphysbc_zero_buffers_select_impl
 
 subroutine tphysbc_zero_buffers(pcols_local, pcnst_local, zero_sc_len, zero_tracers, zero_sc)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod, only: r8 => shr_kind_r8
 
   integer, intent(in) :: pcols_local
@@ -4361,7 +4472,11 @@ subroutine tphysbc_zero_buffers(pcols_local, pcnst_local, zero_sc_len, zero_trac
   zero_sc_len_c = int(zero_sc_len, c_int64_t)
 
   call tphysbc_state_batch_log_entered()
-  call tphysbc_state_batch_zero_buffers_codon(pcols_c, pcnst_c, zero_sc_len_c, c_loc(zero_tracers), c_loc(zero_sc))
+  call tphysbc_state_batch_dispatch_call(1_c_int64_t, 0_c_int64_t, pcols_c, 0_c_int64_t, pcnst_c, 0_c_int64_t, &
+       0_c_int64_t, zero_sc_len_c, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0d0, 0.0d0, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_loc(zero_tracers), c_loc(zero_sc), c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
 
 end subroutine tphysbc_zero_buffers
 
@@ -4423,7 +4538,7 @@ end subroutine tphysbc_trace_water_clip_select_impl
 
 subroutine tphysbc_trace_water_clip(lchnk, ncol, pcols_local, pver_local, pcnst_local, state_q)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod, only: r8 => shr_kind_r8
   use constituents, only: qmin
   use water_tracer_vars, only: wtrc_iatype, wtrc_nwset, iwspec, wisotope
@@ -4480,11 +4595,14 @@ subroutine tphysbc_trace_water_clip(lchnk, ncol, pcols_local, pver_local, pcnst_
   end do
 
   call tphysbc_state_batch_log_entered()
-  call tphysbc_state_batch_trace_water_clip_codon( &
+  call tphysbc_state_batch_dispatch_call( &
+       2_c_int64_t, &
        int(ncol, c_int64_t), int(pcols_local, c_int64_t), int(pver_local, c_int64_t), &
-       int(pcnst_local, c_int64_t), int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), &
-       merge(1_c_int64_t, 0_c_int64_t, wisotope), c_loc(state_q), c_loc(wtrc_iatype64), &
-       c_loc(tagged64), c_loc(rstd_by_constituent) &
+       int(pcnst_local, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, wisotope), &
+       0.0d0, 0.0d0, c_null_ptr, c_loc(state_q), c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_loc(wtrc_iatype64), c_loc(tagged64), c_loc(rstd_by_constituent), c_null_ptr &
   )
 
   do p = 1, pwtype
@@ -4588,7 +4706,7 @@ end subroutine tphysbc_dadadj_lq_init_select_impl
 
 subroutine tphysbc_dadadj_lq_init(pcnst_local, lq)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr, c_ptr
 
   integer, intent(in) :: pcnst_local
   logical, intent(out) :: lq(pcnst_local)
@@ -4613,7 +4731,11 @@ subroutine tphysbc_dadadj_lq_init(pcnst_local, lq)
   end if
 
   call tphysbc_state_batch_log_entered()
-  call tphysbc_state_batch_dadadj_lq_init_codon(int(pcnst_local, c_int64_t), c_loc(lq_mask))
+  call tphysbc_state_batch_dispatch_call(7_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       int(pcnst_local, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, 0.0d0, 0.0d0, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(lq_mask))
 
   do m = 1, pcnst_local
      lq(m) = lq_mask(m) /= 0_c_int64_t
@@ -6252,7 +6374,7 @@ end subroutine tphysbc_init_fields_select_impl
 
 subroutine tphysbc_init_fields(ncol, pcols_local, pver_local, pcnst_local, fracis, tend_dtdt, tend_dudt, tend_dvdt)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod, only: r8 => shr_kind_r8
 
   integer, intent(in) :: ncol
@@ -6297,8 +6419,11 @@ subroutine tphysbc_init_fields(ncol, pcols_local, pver_local, pcnst_local, fraci
   pcnst_c = int(pcnst_local, c_int64_t)
 
   call tphysbc_state_batch_log_entered()
-  call tphysbc_state_batch_init_fields_codon(ncol_c, pcols_c, pver_c, pcnst_c, &
-       c_loc(fracis), c_loc(tend_dtdt), c_loc(tend_dudt), c_loc(tend_dvdt))
+  call tphysbc_state_batch_dispatch_call(3_c_int64_t, ncol_c, pcols_c, pver_c, pcnst_c, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0d0, 0.0d0, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_loc(tend_dtdt), c_loc(tend_dudt), c_loc(tend_dvdt), c_null_ptr, c_null_ptr, c_loc(fracis), &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
 
 end subroutine tphysbc_init_fields
 

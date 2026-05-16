@@ -917,6 +917,67 @@ def tphysbc_state_batch_qini_snapshot_codon(
 
 
 @export
+def tphysbc_state_batch_dispatch_codon(
+    stage: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    ixcldliq: int,
+    ixcldice: int,
+    zero_sc_len: int,
+    pwtype: int,
+    wtrc_nwset: int,
+    wisotope_on: int,
+    ztodt: float,
+    cpair_local: float,
+    state_t_p: cobj,
+    state_q_p: cobj,
+    qini_p: cobj,
+    cldliqini_p: cobj,
+    cldiceini_p: cobj,
+    tini_p: cobj,
+    dtcore_p: cobj,
+    tend_dtdt_p: cobj,
+    tend_dudt_p: cobj,
+    tend_dvdt_p: cobj,
+    ptend_s_p: cobj,
+    ptend_q_p: cobj,
+    fracis_p: cobj,
+    zero_tracers_p: cobj,
+    zero_sc_p: cobj,
+    wtrc_iatype_p: cobj,
+    tagged_p: cobj,
+    rstd_p: cobj,
+    lq_mask_p: cobj,
+):
+    if stage == 1:
+        tphysbc_zero_buffers_codon(pcols, pcnst, zero_sc_len, zero_tracers_p, zero_sc_p)
+    elif stage == 2:
+        tphysbc_trace_water_clip_codon(
+            ncol, pcols, pver, pcnst, pwtype, wtrc_nwset, wisotope_on, state_q_p, wtrc_iatype_p, tagged_p, rstd_p
+        )
+    elif stage == 3:
+        tphysbc_init_fields_codon(ncol, pcols, pver, pcnst, fracis_p, tend_dtdt_p, tend_dudt_p, tend_dvdt_p)
+    elif stage == 4:
+        tphysbc_tini_copy_codon(ncol, pcols, pver, state_t_p, tini_p)
+    elif stage == 5:
+        tphysbc_qini_snapshot_codon(
+            ncol, pcols, pver, pcnst, ixcldliq, ixcldice, state_q_p, qini_p, cldliqini_p, cldiceini_p
+        )
+    elif stage == 6:
+        tphysbc_dtcore_update_codon(ncol, pcols, pver, ztodt, tini_p, dtcore_p, tend_dtdt_p)
+    elif stage == 7:
+        tphysbc_dadadj_lq_init_codon(pcnst, lq_mask_p)
+    elif stage == 8:
+        tphysbc_dadadj_input_codon(ncol, pcols, pver, pcnst, state_t_p, state_q_p, ptend_s_p, ptend_q_p)
+    elif stage == 9:
+        tphysbc_dadadj_output_codon(
+            ncol, pcols, pver, pcnst, ztodt, cpair_local, state_t_p, state_q_p, ptend_s_p, ptend_q_p
+        )
+
+
+@export
 def tphysbc_state_batch_dadadj_input_codon(
     ncol: int,
     pcols: int,
