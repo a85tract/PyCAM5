@@ -913,8 +913,8 @@ subroutine diag_phys_tend_log_entered()
    diag_phys_tend_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'diag_phys_tend entered (temperature/moisture tendency updates direct = codon)'
-      call diag_phys_tend_append_proof('diag_phys_tend entered (temperature/moisture tendency updates direct = codon)')
+      write(iulog,'(A)') 'diag_phys_tend entered (batched temperature/moisture tendency updates direct = codon)'
+      call diag_phys_tend_append_proof('diag_phys_tend entered (batched temperature/moisture tendency updates direct = codon)')
       call flush(iulog)
    end if
 
@@ -2821,7 +2821,7 @@ subroutine diag_phys_tend_writeout(state, pbuf,  tend, ztodt, tmp_q, tmp_cldliq,
 
    use check_energy,    only: check_energy_get_integrals
    use physconst,       only: cpair
-   use iso_c_binding,   only: c_double, c_int64_t, c_loc, c_ptr
+   use iso_c_binding,   only: c_double, c_int64_t, c_loc, c_ptr, c_null_ptr
 
    ! Arguments
 
@@ -2852,13 +2852,18 @@ subroutine diag_phys_tend_writeout(state, pbuf,  tend, ztodt, tmp_q, tmp_cldliq,
    real(r8), pointer, dimension(:,:) :: t_ttend
    integer  :: itim_old
    interface
-      subroutine diag_phys_tend_update_codon(mode_c, ncol_c, pcols_c, pver_c, pcnst_c, m_c, &
-           scalar1_c, scalar2_c, a_p, b_p, out_p) bind(c, name="diag_phys_tend_update_codon")
+      subroutine diag_phys_tend_update_batch_codon(stage_c, ncol_c, pcols_c, pver_c, pcnst_c, &
+           ixcldliq_c, ixcldice_c, ztodt_c, rtdt_c, heat_glob_c, cpair_c, state_t_p, state_q_p, &
+           tend_dtdt_p, tmp_t_p, tmp_q_p, tmp_cldliq_p, tmp_cldice_p, qini_p, cldliqini_p, &
+           cldiceini_p, ftem2_p, ftem3_p, t_ttend_p) bind(c, name="diag_phys_tend_update_batch_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: mode_c, ncol_c, pcols_c, pver_c, pcnst_c, m_c
-         real(c_double), value :: scalar1_c, scalar2_c
-         type(c_ptr), value :: a_p, b_p, out_p
-      end subroutine diag_phys_tend_update_codon
+         integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, pcnst_c
+         integer(c_int64_t), value :: ixcldliq_c, ixcldice_c
+         real(c_double), value :: ztodt_c, rtdt_c, heat_glob_c, cpair_c
+         type(c_ptr), value :: state_t_p, state_q_p, tend_dtdt_p, tmp_t_p, tmp_q_p
+         type(c_ptr), value :: tmp_cldliq_p, tmp_cldice_p, qini_p, cldliqini_p, cldiceini_p
+         type(c_ptr), value :: ftem2_p, ftem3_p, t_ttend_p
+      end subroutine diag_phys_tend_update_batch_codon
    end interface
 
    !-----------------------------------------------------------------------
@@ -2879,10 +2884,13 @@ subroutine diag_phys_tend_writeout(state, pbuf,  tend, ztodt, tmp_q, tmp_cldliq,
       if (diag_phys_tend_use_native_impl) then
          tmp_t(:ncol,:pver) = (tmp_t(:ncol,:pver) - state%t(:ncol,:pver))/ztodt
       else
-         call diag_phys_tend_update_codon( &
+         call diag_phys_tend_update_batch_codon( &
               1_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-              int(pcnst, c_int64_t), 0_c_int64_t, real(ztodt, c_double), 0._c_double, &
-              c_loc(state%t), c_loc(state%t), c_loc(tmp_t) &
+              int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), &
+              real(ztodt, c_double), real(rtdt, c_double), 0._c_double, real(cpair, c_double), &
+              c_loc(state%t), c_null_ptr, c_null_ptr, c_loc(tmp_t), c_loc(tmp_q), c_loc(tmp_cldliq), &
+              c_loc(tmp_cldice), c_loc(qini), c_loc(cldliqini), c_loc(cldiceini), c_loc(ftem2), &
+              c_loc(ftem3), c_null_ptr &
          )
       end if
       call outfld('PTTEND_RESID', tmp_t, pcols, lchnk   )
@@ -2902,30 +2910,30 @@ subroutine diag_phys_tend_writeout(state, pbuf,  tend, ztodt, tmp_q, tmp_cldliq,
       if (diag_phys_tend_use_native_impl) then
          ftem2(:ncol)  = heat_glob/cpair
       else
-         call diag_phys_tend_update_codon( &
+         call diag_phys_tend_update_batch_codon( &
               2_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-              int(pcnst, c_int64_t), 0_c_int64_t, real(heat_glob, c_double), real(cpair, c_double), &
-              c_loc(ftem2), c_loc(ftem2), c_loc(ftem2) &
+              int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), &
+              real(ztodt, c_double), real(rtdt, c_double), real(heat_glob, c_double), &
+              real(cpair, c_double), c_null_ptr, c_null_ptr, c_loc(tend%dtdt), c_loc(tmp_t), &
+              c_loc(tmp_q), c_loc(tmp_cldliq), c_loc(tmp_cldice), c_loc(qini), c_loc(cldliqini), &
+              c_loc(cldiceini), c_loc(ftem2), c_loc(ftem3), c_null_ptr &
          )
       end if
       call outfld('TFIX', ftem2, pcols, lchnk   )
       if (diag_phys_tend_use_native_impl) then
          ftem3(:ncol,:pver)  = tend%dtdt(:ncol,:pver) - heat_glob/cpair
-      else
-         call diag_phys_tend_update_codon( &
-              3_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-              int(pcnst, c_int64_t), 1_c_int64_t, real(heat_glob, c_double), real(cpair, c_double), &
-              c_loc(tend%dtdt), c_loc(ftem3), c_loc(ftem3) &
-         )
       end if
    else
       if (diag_phys_tend_use_native_impl) then
          ftem3(:ncol,:pver)  = tend%dtdt(:ncol,:pver)
       else
-         call diag_phys_tend_update_codon( &
+         call diag_phys_tend_update_batch_codon( &
               3_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-              int(pcnst, c_int64_t), 0_c_int64_t, 0._c_double, 1._c_double, &
-              c_loc(tend%dtdt), c_loc(ftem3), c_loc(ftem3) &
+              int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), &
+              real(ztodt, c_double), real(rtdt, c_double), 0._c_double, real(cpair, c_double), &
+              c_null_ptr, c_null_ptr, c_loc(tend%dtdt), c_loc(tmp_t), c_loc(tmp_q), c_loc(tmp_cldliq), &
+              c_loc(tmp_cldice), c_loc(qini), c_loc(cldliqini), c_loc(cldiceini), c_loc(ftem2), &
+              c_loc(ftem3), c_null_ptr &
          )
       end if
    end if
@@ -2942,20 +2950,13 @@ subroutine diag_phys_tend_writeout(state, pbuf,  tend, ztodt, tmp_q, tmp_cldliq,
          tmp_cldliq(:ncol,:pver) = (state%q(:ncol,:pver,ixcldliq) - tmp_cldliq(:ncol,:pver))*rtdt
          tmp_cldice(:ncol,:pver) = (state%q(:ncol,:pver,ixcldice) - tmp_cldice(:ncol,:pver))*rtdt
       else
-         call diag_phys_tend_update_codon( &
+         call diag_phys_tend_update_batch_codon( &
               4_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-              int(pcnst, c_int64_t), 1_c_int64_t, real(rtdt, c_double), 0._c_double, &
-              c_loc(state%q), c_loc(tmp_q), c_loc(tmp_q) &
-         )
-         call diag_phys_tend_update_codon( &
-              4_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-              int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), real(rtdt, c_double), 0._c_double, &
-              c_loc(state%q), c_loc(tmp_cldliq), c_loc(tmp_cldliq) &
-         )
-         call diag_phys_tend_update_codon( &
-              4_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-              int(pcnst, c_int64_t), int(ixcldice, c_int64_t), real(rtdt, c_double), 0._c_double, &
-              c_loc(state%q), c_loc(tmp_cldice), c_loc(tmp_cldice) &
+              int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), &
+              real(ztodt, c_double), real(rtdt, c_double), 0._c_double, real(cpair, c_double), &
+              c_null_ptr, c_loc(state%q), c_null_ptr, c_loc(tmp_t), c_loc(tmp_q), c_loc(tmp_cldliq), &
+              c_loc(tmp_cldice), c_loc(qini), c_loc(cldliqini), c_loc(cldiceini), c_loc(ftem2), &
+              c_loc(ftem3), c_null_ptr &
          )
       end if
       if ( cnst_cam_outfld(       1) ) call outfld (dmetendnam(       1), tmp_q     , pcols, lchnk)
@@ -2969,10 +2970,13 @@ subroutine diag_phys_tend_writeout(state, pbuf,  tend, ztodt, tmp_q, tmp_cldliq,
       if (diag_phys_tend_use_native_impl) then
          ftem3(:ncol,:pver) = (state%q(:ncol,:pver,       1) - qini     (:ncol,:pver) )*rtdt
       else
-         call diag_phys_tend_update_codon( &
+         call diag_phys_tend_update_batch_codon( &
               5_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-              int(pcnst, c_int64_t), 1_c_int64_t, real(rtdt, c_double), 0._c_double, &
-              c_loc(state%q), c_loc(qini), c_loc(ftem3) &
+              int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), &
+              real(ztodt, c_double), real(rtdt, c_double), 0._c_double, real(cpair, c_double), &
+              c_null_ptr, c_loc(state%q), c_null_ptr, c_loc(tmp_t), c_loc(tmp_q), c_loc(tmp_cldliq), &
+              c_loc(tmp_cldice), c_loc(qini), c_loc(cldliqini), c_loc(cldiceini), c_loc(ftem2), &
+              c_loc(ftem3), c_null_ptr &
          )
       end if
       call outfld (ptendnam(       1), ftem3, pcols, lchnk)
@@ -2981,10 +2985,13 @@ subroutine diag_phys_tend_writeout(state, pbuf,  tend, ztodt, tmp_q, tmp_cldliq,
       if (diag_phys_tend_use_native_impl) then
          ftem3(:ncol,:pver) = (state%q(:ncol,:pver,ixcldliq) - cldliqini(:ncol,:pver) )*rtdt
       else
-         call diag_phys_tend_update_codon( &
-              5_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-              int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), real(rtdt, c_double), 0._c_double, &
-              c_loc(state%q), c_loc(cldliqini), c_loc(ftem3) &
+         call diag_phys_tend_update_batch_codon( &
+              6_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+              int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), &
+              real(ztodt, c_double), real(rtdt, c_double), 0._c_double, real(cpair, c_double), &
+              c_null_ptr, c_loc(state%q), c_null_ptr, c_loc(tmp_t), c_loc(tmp_q), c_loc(tmp_cldliq), &
+              c_loc(tmp_cldice), c_loc(qini), c_loc(cldliqini), c_loc(cldiceini), c_loc(ftem2), &
+              c_loc(ftem3), c_null_ptr &
          )
       end if
       call outfld (ptendnam(ixcldliq), ftem3, pcols, lchnk)
@@ -2993,10 +3000,13 @@ subroutine diag_phys_tend_writeout(state, pbuf,  tend, ztodt, tmp_q, tmp_cldliq,
       if (diag_phys_tend_use_native_impl) then
          ftem3(:ncol,:pver) = (state%q(:ncol,:pver,ixcldice) - cldiceini(:ncol,:pver) )*rtdt
       else
-         call diag_phys_tend_update_codon( &
-              5_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-              int(pcnst, c_int64_t), int(ixcldice, c_int64_t), real(rtdt, c_double), 0._c_double, &
-              c_loc(state%q), c_loc(cldiceini), c_loc(ftem3) &
+         call diag_phys_tend_update_batch_codon( &
+              7_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+              int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), &
+              real(ztodt, c_double), real(rtdt, c_double), 0._c_double, real(cpair, c_double), &
+              c_null_ptr, c_loc(state%q), c_null_ptr, c_loc(tmp_t), c_loc(tmp_q), c_loc(tmp_cldliq), &
+              c_loc(tmp_cldice), c_loc(qini), c_loc(cldliqini), c_loc(cldiceini), c_loc(ftem2), &
+              c_loc(ftem3), c_null_ptr &
          )
       end if
       call outfld (ptendnam(ixcldice), ftem3, pcols, lchnk)
@@ -3012,10 +3022,13 @@ subroutine diag_phys_tend_writeout(state, pbuf,  tend, ztodt, tmp_q, tmp_cldliq,
    if (diag_phys_tend_use_native_impl) then
       ftem3(:ncol,:) = (state%t(:ncol,:) - t_ttend(:ncol,:))/ztodt
    else
-      call diag_phys_tend_update_codon( &
-           6_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-           int(pcnst, c_int64_t), 0_c_int64_t, real(ztodt, c_double), 0._c_double, &
-           c_loc(state%t), c_loc(t_ttend), c_loc(ftem3) &
+      call diag_phys_tend_update_batch_codon( &
+           8_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+           int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), &
+           real(ztodt, c_double), real(rtdt, c_double), 0._c_double, real(cpair, c_double), &
+           c_loc(state%t), c_loc(state%q), c_loc(tend%dtdt), c_loc(tmp_t), c_loc(tmp_q), &
+           c_loc(tmp_cldliq), c_loc(tmp_cldice), c_loc(qini), c_loc(cldliqini), c_loc(cldiceini), &
+           c_loc(ftem2), c_loc(ftem3), c_loc(t_ttend) &
       )
    end if
    call outfld('TTEND_TOT', ftem3, pcols, lchnk)
@@ -3024,10 +3037,13 @@ subroutine diag_phys_tend_writeout(state, pbuf,  tend, ztodt, tmp_q, tmp_cldliq,
    if (diag_phys_tend_use_native_impl) then
       t_ttend(:ncol,:) = state%t(:ncol,:)
    else
-      call diag_phys_tend_update_codon( &
-           7_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-           int(pcnst, c_int64_t), 0_c_int64_t, 0._c_double, 0._c_double, &
-           c_loc(state%t), c_loc(t_ttend), c_loc(t_ttend) &
+      call diag_phys_tend_update_batch_codon( &
+           9_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+           int(pcnst, c_int64_t), int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), &
+           real(ztodt, c_double), real(rtdt, c_double), 0._c_double, real(cpair, c_double), &
+           c_loc(state%t), c_loc(state%q), c_loc(tend%dtdt), c_loc(tmp_t), c_loc(tmp_q), &
+           c_loc(tmp_cldliq), c_loc(tmp_cldice), c_loc(qini), c_loc(cldliqini), c_loc(cldiceini), &
+           c_loc(ftem2), c_loc(ftem3), c_loc(t_ttend) &
       )
    end if
 

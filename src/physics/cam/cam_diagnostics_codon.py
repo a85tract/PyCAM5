@@ -958,6 +958,124 @@ def diag_phys_tend_update_codon(
 
 
 @export
+def diag_phys_tend_update_batch_codon(
+    stage: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    ixcldliq: int,
+    ixcldice: int,
+    ztodt: float,
+    rtdt: float,
+    heat_glob: float,
+    cpair: float,
+    state_t_p: cobj,
+    state_q_p: cobj,
+    tend_dtdt_p: cobj,
+    tmp_t_p: cobj,
+    tmp_q_p: cobj,
+    tmp_cldliq_p: cobj,
+    tmp_cldice_p: cobj,
+    qini_p: cobj,
+    cldliqini_p: cobj,
+    cldiceini_p: cobj,
+    ftem2_p: cobj,
+    ftem3_p: cobj,
+    t_ttend_p: cobj,
+):
+    if stage == 1:
+        state_t = Ptr[float](state_t_p)
+        tmp_t = Ptr[float](tmp_t_p)
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                tmp_t[idx] = (tmp_t[idx] - state_t[idx]) / ztodt
+    elif stage == 2:
+        tend_dtdt = Ptr[float](tend_dtdt_p)
+        ftem2 = Ptr[float](ftem2_p)
+        ftem3 = Ptr[float](ftem3_p)
+        offset = heat_glob / cpair
+        for i in range(1, ncol + 1):
+            ftem2[_idx(i)] = offset
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                ftem3[idx] = tend_dtdt[idx] - offset
+    elif stage == 3:
+        tend_dtdt = Ptr[float](tend_dtdt_p)
+        ftem3 = Ptr[float](ftem3_p)
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                ftem3[idx] = tend_dtdt[idx]
+    elif stage == 4:
+        state_q = Ptr[float](state_q_p)
+        tmp_q = Ptr[float](tmp_q_p)
+        tmp_cldliq = Ptr[float](tmp_cldliq_p)
+        tmp_cldice = Ptr[float](tmp_cldice_p)
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                tmp_q[idx] = (state_q[_idx3(i, k, 1, pcols, pver)] - tmp_q[idx]) * rtdt
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                tmp_cldliq[idx] = (
+                    state_q[_idx3(i, k, ixcldliq, pcols, pver)] - tmp_cldliq[idx]
+                ) * rtdt
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                tmp_cldice[idx] = (
+                    state_q[_idx3(i, k, ixcldice, pcols, pver)] - tmp_cldice[idx]
+                ) * rtdt
+    elif stage == 5:
+        state_q = Ptr[float](state_q_p)
+        qini = Ptr[float](qini_p)
+        ftem3 = Ptr[float](ftem3_p)
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                ftem3[idx] = (state_q[_idx3(i, k, 1, pcols, pver)] - qini[idx]) * rtdt
+    elif stage == 6:
+        state_q = Ptr[float](state_q_p)
+        cldliqini = Ptr[float](cldliqini_p)
+        ftem3 = Ptr[float](ftem3_p)
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                ftem3[idx] = (
+                    state_q[_idx3(i, k, ixcldliq, pcols, pver)] - cldliqini[idx]
+                ) * rtdt
+    elif stage == 7:
+        state_q = Ptr[float](state_q_p)
+        cldiceini = Ptr[float](cldiceini_p)
+        ftem3 = Ptr[float](ftem3_p)
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                ftem3[idx] = (
+                    state_q[_idx3(i, k, ixcldice, pcols, pver)] - cldiceini[idx]
+                ) * rtdt
+    elif stage == 8:
+        state_t = Ptr[float](state_t_p)
+        t_ttend = Ptr[float](t_ttend_p)
+        ftem3 = Ptr[float](ftem3_p)
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                ftem3[idx] = (state_t[idx] - t_ttend[idx]) / ztodt
+    elif stage == 9:
+        state_t = Ptr[float](state_t_p)
+        t_ttend = Ptr[float](t_ttend_p)
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                t_ttend[idx] = state_t[idx]
+
+
+@export
 def diag_phys_writeout_z3_codon(
     ncol: int,
     pcols: int,
