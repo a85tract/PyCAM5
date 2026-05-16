@@ -2695,7 +2695,7 @@ end subroutine phys_timestep_init_select_impl
 
 subroutine phys_timestep_init_select_branches(cam3_aero_data_on, cam3_ozone_data_on, do_waccm_ions)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr, c_ptr
 
   logical, intent(in) :: cam3_aero_data_on
   logical, intent(in) :: cam3_ozone_data_on
@@ -2793,13 +2793,150 @@ subroutine tphyspkg_flux_batch_log_entered()
   tphyspkg_flux_batch_entered_logged = .true.
 
   if (masterproc) then
-     write(iulog,*) 'tphyspkg_flux_batch entered (precip/flx_cnd/macrop/radheat/tphysac direct = codon)'
+     write(iulog,*) 'tphyspkg_flux_batch entered (stage-dispatch precip/flx_cnd/macrop/radheat/tphysac direct = codon)'
      call tphyspkg_flux_batch_append_proof( &
-          'tphyspkg_flux_batch entered (precip/flx_cnd/macrop/radheat/tphysac direct = codon)')
+          'tphyspkg_flux_batch entered (stage-dispatch precip/flx_cnd/macrop/radheat/tphysac direct = codon)')
      call flush(iulog)
   end if
 
 end subroutine tphyspkg_flux_batch_log_entered
+
+!=======================================================================
+
+subroutine tphyspkg_flux_batch_dispatch_call(stage_c, mode_c, ncol_c, pcols_c, pver_c, pcnst_c, &
+     cld_macmic_num_steps_c, ixcldliq_c, ixcldice_c, ztodt_c, latvap_c, latice_c, rhoh2o_c, &
+     prec_sed_macmic_p, snow_sed_macmic_p, prec_pcw_macmic_p, snow_pcw_macmic_p, &
+     prec_sed_p, snow_sed_p, prec_pcw_p, snow_pcw_p, prec_str_p, snow_str_p, &
+     prec_sed_carma_p, snow_sed_carma_p, tend_flx_net_p, cam_in_shf_p, cam_out_precc_p, &
+     cam_out_precl_p, cam_out_precsc_p, cam_out_precsl_p, state_t_p, tini_p, tend_dtdt_p, &
+     dtcore_p, tmp_t_p, state_q_p, tmp_q_p, tmp_cldliq_p, tmp_cldice_p, a_p, b_p, out_p, &
+     rliq_p, det_s_p, flx_cnd_p, flx_heat_p, shf_p, net_flx_p)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_ptr
+
+  integer(c_int64_t), intent(in) :: stage_c
+  integer(c_int64_t), intent(in) :: mode_c
+  integer(c_int64_t), intent(in) :: ncol_c
+  integer(c_int64_t), intent(in) :: pcols_c
+  integer(c_int64_t), intent(in) :: pver_c
+  integer(c_int64_t), intent(in) :: pcnst_c
+  integer(c_int64_t), intent(in) :: cld_macmic_num_steps_c
+  integer(c_int64_t), intent(in) :: ixcldliq_c
+  integer(c_int64_t), intent(in) :: ixcldice_c
+  real(c_double), intent(in) :: ztodt_c
+  real(c_double), intent(in) :: latvap_c
+  real(c_double), intent(in) :: latice_c
+  real(c_double), intent(in) :: rhoh2o_c
+  type(c_ptr), intent(in) :: prec_sed_macmic_p
+  type(c_ptr), intent(in) :: snow_sed_macmic_p
+  type(c_ptr), intent(in) :: prec_pcw_macmic_p
+  type(c_ptr), intent(in) :: snow_pcw_macmic_p
+  type(c_ptr), intent(in) :: prec_sed_p
+  type(c_ptr), intent(in) :: snow_sed_p
+  type(c_ptr), intent(in) :: prec_pcw_p
+  type(c_ptr), intent(in) :: snow_pcw_p
+  type(c_ptr), intent(in) :: prec_str_p
+  type(c_ptr), intent(in) :: snow_str_p
+  type(c_ptr), intent(in) :: prec_sed_carma_p
+  type(c_ptr), intent(in) :: snow_sed_carma_p
+  type(c_ptr), intent(in) :: tend_flx_net_p
+  type(c_ptr), intent(in) :: cam_in_shf_p
+  type(c_ptr), intent(in) :: cam_out_precc_p
+  type(c_ptr), intent(in) :: cam_out_precl_p
+  type(c_ptr), intent(in) :: cam_out_precsc_p
+  type(c_ptr), intent(in) :: cam_out_precsl_p
+  type(c_ptr), intent(in) :: state_t_p
+  type(c_ptr), intent(in) :: tini_p
+  type(c_ptr), intent(in) :: tend_dtdt_p
+  type(c_ptr), intent(in) :: dtcore_p
+  type(c_ptr), intent(in) :: tmp_t_p
+  type(c_ptr), intent(in) :: state_q_p
+  type(c_ptr), intent(in) :: tmp_q_p
+  type(c_ptr), intent(in) :: tmp_cldliq_p
+  type(c_ptr), intent(in) :: tmp_cldice_p
+  type(c_ptr), intent(in) :: a_p
+  type(c_ptr), intent(in) :: b_p
+  type(c_ptr), intent(in) :: out_p
+  type(c_ptr), intent(in) :: rliq_p
+  type(c_ptr), intent(in) :: det_s_p
+  type(c_ptr), intent(in) :: flx_cnd_p
+  type(c_ptr), intent(in) :: flx_heat_p
+  type(c_ptr), intent(in) :: shf_p
+  type(c_ptr), intent(in) :: net_flx_p
+
+  interface
+     subroutine tphyspkg_flux_batch_dispatch_codon(stage_c, mode_c, ncol_c, pcols_c, pver_c, pcnst_c, &
+          cld_macmic_num_steps_c, ixcldliq_c, ixcldice_c, ztodt_c, latvap_c, latice_c, rhoh2o_c, &
+          prec_sed_macmic_p, snow_sed_macmic_p, prec_pcw_macmic_p, snow_pcw_macmic_p, &
+          prec_sed_p, snow_sed_p, prec_pcw_p, snow_pcw_p, prec_str_p, snow_str_p, &
+          prec_sed_carma_p, snow_sed_carma_p, tend_flx_net_p, cam_in_shf_p, cam_out_precc_p, &
+          cam_out_precl_p, cam_out_precsc_p, cam_out_precsl_p, state_t_p, tini_p, tend_dtdt_p, &
+          dtcore_p, tmp_t_p, state_q_p, tmp_q_p, tmp_cldliq_p, tmp_cldice_p, a_p, b_p, out_p, &
+          rliq_p, det_s_p, flx_cnd_p, flx_heat_p, shf_p, net_flx_p) &
+          bind(c, name="tphyspkg_flux_batch_dispatch_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t), value :: mode_c
+       integer(c_int64_t), value :: ncol_c
+       integer(c_int64_t), value :: pcols_c
+       integer(c_int64_t), value :: pver_c
+       integer(c_int64_t), value :: pcnst_c
+       integer(c_int64_t), value :: cld_macmic_num_steps_c
+       integer(c_int64_t), value :: ixcldliq_c
+       integer(c_int64_t), value :: ixcldice_c
+       real(c_double), value :: ztodt_c
+       real(c_double), value :: latvap_c
+       real(c_double), value :: latice_c
+       real(c_double), value :: rhoh2o_c
+       type(c_ptr), value :: prec_sed_macmic_p
+       type(c_ptr), value :: snow_sed_macmic_p
+       type(c_ptr), value :: prec_pcw_macmic_p
+       type(c_ptr), value :: snow_pcw_macmic_p
+       type(c_ptr), value :: prec_sed_p
+       type(c_ptr), value :: snow_sed_p
+       type(c_ptr), value :: prec_pcw_p
+       type(c_ptr), value :: snow_pcw_p
+       type(c_ptr), value :: prec_str_p
+       type(c_ptr), value :: snow_str_p
+       type(c_ptr), value :: prec_sed_carma_p
+       type(c_ptr), value :: snow_sed_carma_p
+       type(c_ptr), value :: tend_flx_net_p
+       type(c_ptr), value :: cam_in_shf_p
+       type(c_ptr), value :: cam_out_precc_p
+       type(c_ptr), value :: cam_out_precl_p
+       type(c_ptr), value :: cam_out_precsc_p
+       type(c_ptr), value :: cam_out_precsl_p
+       type(c_ptr), value :: state_t_p
+       type(c_ptr), value :: tini_p
+       type(c_ptr), value :: tend_dtdt_p
+       type(c_ptr), value :: dtcore_p
+       type(c_ptr), value :: tmp_t_p
+       type(c_ptr), value :: state_q_p
+       type(c_ptr), value :: tmp_q_p
+       type(c_ptr), value :: tmp_cldliq_p
+       type(c_ptr), value :: tmp_cldice_p
+       type(c_ptr), value :: a_p
+       type(c_ptr), value :: b_p
+       type(c_ptr), value :: out_p
+       type(c_ptr), value :: rliq_p
+       type(c_ptr), value :: det_s_p
+       type(c_ptr), value :: flx_cnd_p
+       type(c_ptr), value :: flx_heat_p
+       type(c_ptr), value :: shf_p
+       type(c_ptr), value :: net_flx_p
+     end subroutine tphyspkg_flux_batch_dispatch_codon
+  end interface
+
+  call tphyspkg_flux_batch_dispatch_codon(stage_c, mode_c, ncol_c, pcols_c, pver_c, pcnst_c, &
+       cld_macmic_num_steps_c, ixcldliq_c, ixcldice_c, ztodt_c, latvap_c, latice_c, rhoh2o_c, &
+       prec_sed_macmic_p, snow_sed_macmic_p, prec_pcw_macmic_p, snow_pcw_macmic_p, &
+       prec_sed_p, snow_sed_p, prec_pcw_p, snow_pcw_p, prec_str_p, snow_str_p, &
+       prec_sed_carma_p, snow_sed_carma_p, tend_flx_net_p, cam_in_shf_p, cam_out_precc_p, &
+       cam_out_precl_p, cam_out_precsc_p, cam_out_precsl_p, state_t_p, tini_p, tend_dtdt_p, &
+       dtcore_p, tmp_t_p, state_q_p, tmp_q_p, tmp_cldliq_p, tmp_cldice_p, a_p, b_p, out_p, &
+       rliq_p, det_s_p, flx_cnd_p, flx_heat_p, shf_p, net_flx_p)
+
+end subroutine tphyspkg_flux_batch_dispatch_call
 
 !=======================================================================
 
@@ -2845,7 +2982,7 @@ subroutine tphysbc_precip_ops(mode, ncol, pcols_local, cld_macmic_num_steps_loca
      prec_sed, snow_sed, prec_pcw, snow_pcw, prec_str, snow_str, &
      prec_sed_carma, snow_sed_carma)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod,   only: r8 => shr_kind_r8
 
   integer, intent(in) :: mode
@@ -2911,10 +3048,14 @@ subroutine tphysbc_precip_ops(mode, ncol, pcols_local, cld_macmic_num_steps_loca
   cld_macmic_num_steps_c = int(cld_macmic_num_steps_local, c_int64_t)
 
   call tphyspkg_flux_batch_log_entered()
-  call tphyspkg_flux_batch_precip_ops_codon(mode_c, ncol_c, pcols_c, cld_macmic_num_steps_c, &
+  call tphyspkg_flux_batch_dispatch_call(1_c_int64_t, mode_c, ncol_c, pcols_c, 0_c_int64_t, 0_c_int64_t, &
+       cld_macmic_num_steps_c, 0_c_int64_t, 0_c_int64_t, 0.0d0, 0.0d0, 0.0d0, 0.0d0, &
        c_loc(prec_sed_macmic), c_loc(snow_sed_macmic), c_loc(prec_pcw_macmic), c_loc(snow_pcw_macmic), &
        c_loc(prec_sed), c_loc(snow_sed), c_loc(prec_pcw), c_loc(snow_pcw), c_loc(prec_str), c_loc(snow_str), &
-       c_loc(prec_sed_carma), c_loc(snow_sed_carma))
+       c_loc(prec_sed_carma), c_loc(snow_sed_carma), c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
 
 end subroutine tphysbc_precip_ops
 
@@ -3011,7 +3152,7 @@ end subroutine tphysac_flx_net_update_select_impl
 subroutine tphysac_flx_net_update(ncol, pcols_local, tend_flx_net, cam_in_shf, cam_out_precc, &
      cam_out_precl, cam_out_precsc, cam_out_precsl, latvap_local, latice_local, rhoh2o_local)
 
-  use iso_c_binding, only: c_int64_t, c_double, c_loc, c_ptr
+  use iso_c_binding, only: c_int64_t, c_double, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod, only: r8 => shr_kind_r8
 
   integer, intent(in) :: ncol
@@ -3060,8 +3201,13 @@ subroutine tphysac_flx_net_update(ncol, pcols_local, tend_flx_net, cam_in_shf, c
   pcols_c = int(pcols_local, c_int64_t)
 
   call tphyspkg_flux_batch_log_entered()
-  call tphyspkg_flux_batch_flx_net_update_codon(ncol_c, pcols_c, c_loc(tend_flx_net), c_loc(cam_in_shf), c_loc(cam_out_precc), &
-       c_loc(cam_out_precl), c_loc(cam_out_precsc), c_loc(cam_out_precsl), latvap_local, latice_local, rhoh2o_local)
+  call tphyspkg_flux_batch_dispatch_call(2_c_int64_t, 0_c_int64_t, ncol_c, pcols_c, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0d0, latvap_local, latice_local, rhoh2o_local, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(tend_flx_net), c_loc(cam_in_shf), c_loc(cam_out_precc), &
+       c_loc(cam_out_precl), c_loc(cam_out_precsc), c_loc(cam_out_precsl), c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
 
 end subroutine tphysac_flx_net_update
 
@@ -3134,7 +3280,7 @@ end subroutine tphysac_t_update_select_impl
 
 subroutine tphysac_t_update(ncol, pcols_local, pver_local, ztodt, state_t, tini, tend_dtdt, dtcore, tmp_t)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod,   only: r8 => shr_kind_r8
 
   integer, intent(in) :: ncol
@@ -3179,8 +3325,13 @@ subroutine tphysac_t_update(ncol, pcols_local, pver_local, ztodt, state_t, tini,
   pver_c = int(pver_local, c_int64_t)
 
   call tphyspkg_flux_batch_log_entered()
-  call tphyspkg_flux_batch_t_update_codon(ncol_c, pcols_c, pver_c, ztodt, &
-       c_loc(state_t), c_loc(tini), c_loc(tend_dtdt), c_loc(dtcore), c_loc(tmp_t))
+  call tphyspkg_flux_batch_dispatch_call(3_c_int64_t, 0_c_int64_t, ncol_c, pcols_c, pver_c, 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, ztodt, 0.0d0, 0.0d0, 0.0d0, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_loc(state_t), c_loc(tini), c_loc(tend_dtdt), c_loc(dtcore), c_loc(tmp_t), &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
 
 end subroutine tphysac_t_update
 
@@ -3253,7 +3404,7 @@ end subroutine tphysac_q_snapshot_select_impl
 subroutine tphysac_q_snapshot(ncol, pcols_local, pver_local, pcnst_local, ixcldliq, ixcldice, &
      state_q, tmp_q, tmp_cldliq, tmp_cldice)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod, only: r8 => shr_kind_r8
 
   integer, intent(in) :: ncol
@@ -3307,8 +3458,13 @@ subroutine tphysac_q_snapshot(ncol, pcols_local, pver_local, pcnst_local, ixcldl
   ixcldice_c = int(ixcldice, c_int64_t)
 
   call tphyspkg_flux_batch_log_entered()
-  call tphyspkg_flux_batch_q_snapshot_codon(ncol_c, pcols_c, pver_c, pcnst_c, ixcldliq_c, ixcldice_c, &
-       c_loc(state_q), c_loc(tmp_q), c_loc(tmp_cldliq), c_loc(tmp_cldice))
+  call tphyspkg_flux_batch_dispatch_call(4_c_int64_t, 0_c_int64_t, ncol_c, pcols_c, pver_c, pcnst_c, &
+       0_c_int64_t, ixcldliq_c, ixcldice_c, 0.0d0, 0.0d0, 0.0d0, 0.0d0, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_loc(state_q), c_loc(tmp_q), c_loc(tmp_cldliq), c_loc(tmp_cldice), c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
 
 end subroutine tphysac_q_snapshot
 
@@ -4125,7 +4281,7 @@ end subroutine tphysbc_flx_cnd_sum_select_impl
 
 subroutine tphysbc_flx_cnd_sum(ncol, pcols_local, a, b, out)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod, only: r8 => shr_kind_r8
 
   integer, intent(in) :: ncol
@@ -4160,7 +4316,13 @@ subroutine tphysbc_flx_cnd_sum(ncol, pcols_local, a, b, out)
   pcols_c = int(pcols_local, c_int64_t)
 
   call tphyspkg_flux_batch_log_entered()
-  call tphyspkg_flux_batch_flx_cnd_sum_codon(ncol_c, pcols_c, c_loc(a), c_loc(b), c_loc(out))
+  call tphyspkg_flux_batch_dispatch_call(5_c_int64_t, 0_c_int64_t, ncol_c, pcols_c, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0d0, 0.0d0, 0.0d0, 0.0d0, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_loc(a), c_loc(b), c_loc(out), &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
 
 end subroutine tphysbc_flx_cnd_sum
 
@@ -4271,8 +4433,13 @@ subroutine tphysbc_macrop_fluxes(mode, ncol, pcols_local, rliq, det_s, flx_cnd, 
   end if
 
   call tphyspkg_flux_batch_log_entered()
-  call tphyspkg_flux_batch_macrop_fluxes_codon(mode_c, ncol_c, pcols_c, &
-       c_loc(rliq), c_loc(det_s), c_loc(flx_cnd), c_loc(flx_heat), shf_p)
+  call tphyspkg_flux_batch_dispatch_call(6_c_int64_t, mode_c, ncol_c, pcols_c, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0d0, 0.0d0, 0.0d0, 0.0d0, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_loc(rliq), c_loc(det_s), c_loc(flx_cnd), c_loc(flx_heat), shf_p, c_null_ptr)
 
 end subroutine tphysbc_macrop_fluxes
 
@@ -4342,7 +4509,7 @@ end subroutine tphysbc_radheat_flx_net_select_impl
 
 subroutine tphysbc_radheat_flx_net(ncol, pcols_local, tend_flx_net, net_flx)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod, only: r8 => shr_kind_r8
 
   integer, intent(in) :: ncol
@@ -4375,7 +4542,13 @@ subroutine tphysbc_radheat_flx_net(ncol, pcols_local, tend_flx_net, net_flx)
   pcols_c = int(pcols_local, c_int64_t)
 
   call tphyspkg_flux_batch_log_entered()
-  call tphyspkg_flux_batch_radheat_flx_net_codon(ncol_c, pcols_c, c_loc(tend_flx_net), c_loc(net_flx))
+  call tphyspkg_flux_batch_dispatch_call(7_c_int64_t, 0_c_int64_t, ncol_c, pcols_c, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0d0, 0.0d0, 0.0d0, 0.0d0, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(tend_flx_net), c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_loc(net_flx))
 
 end subroutine tphysbc_radheat_flx_net
 
