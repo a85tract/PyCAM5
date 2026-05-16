@@ -401,3 +401,104 @@ def check_energy_batch_fix_codon(
     eshflx_p: cobj,
 ):
     check_energy_fix_codon(ncol, pcols, pver, psetcols, heat_glob, gravit, state_pint_p, ptend_s_p, eshflx_p)
+
+
+@export
+def check_energy_batch_dispatch_codon(
+    stage: int,
+    ncol: int,
+    pver: int,
+    pcols: int,
+    psetcols: int,
+    pcnst: int,
+    ixcldliq: int,
+    ixcldice: int,
+    ixrain: int,
+    ixsnow: int,
+    scalar1: float,
+    scalar2: float,
+    scalar3: float,
+    p1: cobj,
+    p2: cobj,
+    p3: cobj,
+    p4: cobj,
+    p5: cobj,
+    p6: cobj,
+    p7: cobj,
+    p8: cobj,
+    p9: cobj,
+    p10: cobj,
+    p11: cobj,
+    p12: cobj,
+    p13: cobj,
+    p14: cobj,
+    p15: cobj,
+    p16: cobj,
+    p17: cobj,
+    p18: cobj,
+):
+    if stage == 1:
+        check_energy_batch_timestep_init_codon(
+            ncol,
+            pver,
+            psetcols,
+            pcnst,
+            scalar1,
+            scalar2,
+            scalar3,
+            ixcldliq,
+            ixcldice,
+            ixrain,
+            ixsnow,
+            p1,
+            p2,
+            p3,
+            p4,
+            p5,
+            p6,
+            p7,
+            p8,
+            p9,
+            p10,
+            p11,
+            p12,
+        )
+    elif stage == 2:
+        check_energy_batch_chng_codon(
+            ncol,
+            pver,
+            psetcols,
+            scalar1,
+            scalar2,
+            scalar3,
+            ixcldliq,
+            ixcldice,
+            ixrain,
+            ixsnow,
+            p1,
+            p2,
+            p3,
+            p4,
+            p5,
+            p6,
+            p7,
+            p8,
+            p9,
+            p10,
+            p11,
+            p12,
+            p13,
+            p14,
+            p15,
+            p16,
+            p17,
+            p18,
+        )
+    elif stage == 3:
+        check_energy_batch_gmean_fill_codon(ncol, p1, p2, p3, p4, p5, p6)
+    elif stage == 4:
+        check_energy_batch_fix_codon(ncol, pcols, pver, psetcols, scalar1, scalar2, p1, p2, p3)
+    elif stage == 5:
+        check_tracers_batch_init_codon()
+    elif stage == 6:
+        check_tracers_batch_chng_codon()
