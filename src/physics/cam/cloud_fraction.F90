@@ -90,6 +90,19 @@ module cloud_fraction
   logical :: cldfrc_batch_impl_selected = .false.
   logical :: cldfrc_batch_entered_logged = .false.
 
+  interface
+     subroutine cldfrc_batch_dispatch_codon(stage_c, ncol_c, pcols_c, pver_c, top_lev_c, flag_c, &
+          scalar1_c, scalar2_c, scalar3_c, scalar4_c, scalar5_c, scalar6_c, scalar7_c, scalar8_c, scalar9_c, &
+          p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p, p9_p, p10_p) &
+          bind(c, name="cldfrc_batch_dispatch_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, top_lev_c, flag_c
+        real(c_double), value :: scalar1_c, scalar2_c, scalar3_c, scalar4_c, scalar5_c, scalar6_c
+        real(c_double), value :: scalar7_c, scalar8_c, scalar9_c
+        type(c_ptr), value :: p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p, p9_p, p10_p
+     end subroutine cldfrc_batch_dispatch_codon
+  end interface
+
 !================================================================================================
   contains
 !================================================================================================
@@ -380,8 +393,9 @@ subroutine cldfrc_batch_log_entered()
    cldfrc_batch_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,*) 'cldfrc_batch entered (state/layer/ice/convective/total/fice direct = codon)'
-      call cldfrc_batch_append_proof('cldfrc_batch entered (state/layer/ice/convective/total/fice direct = codon)')
+      write(iulog,*) 'cldfrc_batch entered (unified stage-dispatch state/layer/ice/convective/total/fice direct = codon)'
+      call cldfrc_batch_append_proof( &
+           'cldfrc_batch entered (unified stage-dispatch state/layer/ice/convective/total/fice direct = codon)')
       call flush(iulog)
    end if
 
@@ -1019,12 +1033,13 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
 
     call cldfrc_batch_log_entered()
 
-    call cldfrc_batch_layer_rh_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+    call cldfrc_batch_dispatch_codon( &
+         2_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          int(top_lev, c_int64_t), cldfrc_freeze_dry_i, real(premib, c_double), real(premit, c_double), &
          real(rhminl, c_double), real(rhminl_adj_land, c_double), real(rhminh, c_double), real(rhminp, c_double), &
          real(cldfrc_rhminp_botmb, c_double), real(unset_r8, c_double), real(pi, c_double), c_loc(landfrac_local), &
          c_loc(snowh_local), c_loc(clat_local), c_loc(pmid_local), c_loc(pref_mid_local), c_loc(q_local), &
-         c_loc(rh_local), c_loc(rhcloud_local), c_loc(rhu00_local))
+         c_loc(rh_local), c_loc(rhcloud_local), c_loc(rhu00_local), c_loc(rhu00_local))
 
   end subroutine cldfrc_layer_rh
 
@@ -1063,10 +1078,13 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
 
     call cldfrc_batch_log_entered()
 
-    call cldfrc_batch_ice_wilson_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-         int(top_lev, c_int64_t), real(icecrit, c_double), real(1._r8/6._r8, c_double), real(2._r8/3._r8, c_double), &
-         real(2._r8**(3._r8/2._r8), c_double), real(4._r8*3.1415927_r8, c_double), c_loc(cldice_local), &
-         c_loc(qs_local), c_loc(rhcloud_local), c_loc(icecldf_local), c_loc(liqcldf_local), c_loc(cloud_local))
+    call cldfrc_batch_dispatch_codon( &
+         3_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(top_lev, c_int64_t), 0_c_int64_t, real(icecrit, c_double), real(1._r8/6._r8, c_double), &
+         real(2._r8/3._r8, c_double), real(2._r8**(3._r8/2._r8), c_double), real(4._r8*3.1415927_r8, c_double), &
+         0._c_double, 0._c_double, 0._c_double, 0._c_double, c_loc(cldice_local), c_loc(qs_local), &
+         c_loc(rhcloud_local), c_loc(icecldf_local), c_loc(liqcldf_local), c_loc(cloud_local), c_loc(cloud_local), &
+         c_loc(cloud_local), c_loc(cloud_local), c_loc(cloud_local))
 
   end subroutine cldfrc_ice_wilson
 
@@ -1112,10 +1130,12 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
 
     call cldfrc_batch_log_entered()
 
-    call cldfrc_batch_state_init_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-         int(top_lev, c_int64_t), int(dindex_local, c_int64_t), real(rhpert_local, c_double), c_loc(q_local), &
-         c_loc(qs_local), c_loc(relhum_local), c_loc(rh_local), c_loc(cloud_local), c_loc(icecldf_local), &
-         c_loc(liqcldf_local), c_loc(rhcloud_local), c_loc(cldst_local), c_loc(concld_local))
+    call cldfrc_batch_dispatch_codon( &
+         1_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(top_lev, c_int64_t), int(dindex_local, c_int64_t), real(rhpert_local, c_double), &
+         0._c_double, 0._c_double, 0._c_double, 0._c_double, 0._c_double, 0._c_double, 0._c_double, 0._c_double, &
+         c_loc(q_local), c_loc(qs_local), c_loc(relhum_local), c_loc(rh_local), c_loc(cloud_local), &
+         c_loc(icecldf_local), c_loc(liqcldf_local), c_loc(rhcloud_local), c_loc(cldst_local), c_loc(concld_local))
 
   end subroutine cldfrc_state_init
 
@@ -1255,7 +1275,7 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
 
   subroutine cldfrc_total_cloud(ncol, rhcloud_local, cldst_local, concld_local, cloud_local)
 
-    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
     integer, intent(in) :: ncol
     real(r8), target, intent(in) :: rhcloud_local(pcols,pver)
@@ -1281,8 +1301,12 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
 
     call cldfrc_batch_log_entered()
 
-    call cldfrc_batch_total_cloud_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-         int(top_lev, c_int64_t), c_loc(rhcloud_local), c_loc(cldst_local), c_loc(concld_local), c_loc(cloud_local))
+    call cldfrc_batch_dispatch_codon( &
+         5_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
+         0_c_int64_t, 0._c_double, 0._c_double, 0._c_double, 0._c_double, 0._c_double, 0._c_double, &
+         0._c_double, 0._c_double, 0._c_double, c_loc(rhcloud_local), c_loc(cldst_local), c_loc(concld_local), &
+         c_loc(cloud_local), c_loc(cloud_local), c_loc(cloud_local), c_loc(cloud_local), c_loc(cloud_local), &
+         c_loc(cloud_local), c_loc(cloud_local))
 
   end subroutine cldfrc_total_cloud
 
@@ -1312,7 +1336,7 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
   subroutine cldfrc_convective_cover(ncol, use_shfrc_local, shfrc_local, cmfmc_local, cmfmc2_local, &
        shallowcu_local, deepcu_local, concld_local, rh_local)
 
-    use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
     integer, intent(in) :: ncol
     logical, intent(in) :: use_shfrc_local
@@ -1350,9 +1374,12 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
 
     call cldfrc_batch_log_entered()
 
-    call cldfrc_batch_convective_cover_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-         int(top_lev, c_int64_t), use_shfrc_c, sh1, sh2, dp1, dp2, c_loc(shfrc_local), c_loc(cmfmc_local), &
-         c_loc(cmfmc2_local), c_loc(shallowcu_local), c_loc(deepcu_local), c_loc(concld_local), c_loc(rh_local))
+    call cldfrc_batch_dispatch_codon( &
+         4_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
+         use_shfrc_c, real(sh1, c_double), real(sh2, c_double), real(dp1, c_double), real(dp2, c_double), &
+         0._c_double, 0._c_double, 0._c_double, 0._c_double, 0._c_double, c_loc(shfrc_local), c_loc(cmfmc_local), &
+         c_loc(cmfmc2_local), c_loc(shallowcu_local), c_loc(deepcu_local), c_loc(concld_local), c_loc(rh_local), &
+         c_loc(rh_local), c_loc(rh_local), c_loc(rh_local))
 
   end subroutine cldfrc_convective_cover
 
@@ -1441,8 +1468,11 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
 
     call cldfrc_batch_log_entered()
 
-    call cldfrc_batch_fice_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
-         c_loc(t), c_loc(fice), c_loc(fsnow), tmax_fice, tmin_fice, tmax_fsnow, tmin_fsnow)
+    call cldfrc_batch_dispatch_codon( &
+         6_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
+         0_c_int64_t, real(tmax_fice, c_double), real(tmin_fice, c_double), real(tmax_fsnow, c_double), &
+         real(tmin_fsnow, c_double), 0._c_double, 0._c_double, 0._c_double, 0._c_double, 0._c_double, &
+         c_loc(t), c_loc(fice), c_loc(fsnow), c_loc(t), c_loc(t), c_loc(t), c_loc(t), c_loc(t), c_loc(t), c_loc(t))
 
   end subroutine cldfrc_fice
 
