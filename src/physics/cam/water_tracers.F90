@@ -157,6 +157,20 @@ module water_tracers
   logical :: wtrc_q1q2_tail_logged = .false.
   logical :: wtrc_q1q2_downdraft_tail_logged = .false.
 
+  interface
+    subroutine wtrc_stage_dispatch_codon(stage_c, ncol_c, pcols_c, pver_c, pverp_c, pcnst_c, &
+         pwtype_c, wtrc_nwset_c, i1_c, i2_c, i3_c, i4_c, i5_c, r1_c, r2_c, r3_c, r4_c, &
+         r5_c, r6_c, r7_c, p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p, p9_p, p10_p, &
+         p11_p, p12_p) bind(c, name="wtrc_stage_dispatch_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, pverp_c, pcnst_c
+      integer(c_int64_t), value :: pwtype_c, wtrc_nwset_c, i1_c, i2_c, i3_c, i4_c, i5_c
+      real(c_double), value :: r1_c, r2_c, r3_c, r4_c, r5_c, r6_c, r7_c
+      type(c_ptr), value :: p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p, p9_p, p10_p
+      type(c_ptr), value :: p11_p, p12_p
+    end subroutine wtrc_stage_dispatch_codon
+  end interface
+
 contains
 
 !=======================================================================
@@ -222,8 +236,9 @@ subroutine wtrc_batch_log_entered()
   wtrc_batch_entered_logged = .true.
 
   if (masterproc) then
-    write(iulog,'(A)') 'wtrc_batch entered (mass_fixer/check_h2o/clear_precip/diagnose_bulk_precip direct = codon)'
-    call wtrc_batch_append_proof('wtrc_batch entered (mass_fixer/check_h2o/clear_precip/diagnose_bulk_precip direct = codon)')
+    write(iulog,'(A)') 'wtrc_batch entered (unified stage-dispatch mass_fixer/check_h2o/clear_precip/diagnose_bulk_precip direct = codon)'
+    call wtrc_batch_append_proof( &
+         'wtrc_batch entered (unified stage-dispatch mass_fixer/check_h2o/clear_precip/diagnose_bulk_precip direct = codon)')
     call flush(iulog)
   end if
 
@@ -1344,7 +1359,7 @@ end subroutine wtrc_register
 ! Codon-only wrapper for wtrc_add_rates. Keep target/c_loc details out of
 ! the public native path so the original Fortran loop can compile unchanged.
 !-----------------------------------------------------------------------
-  use iso_c_binding,  only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding,  only: c_double, c_int64_t, c_loc, c_ptr, c_null_ptr
   use water_types,    only: pwtype
 
   real(r8), target, intent(inout) :: process_rates(pcols,pver,pwtype,pwtype,pwtype)
@@ -2862,7 +2877,7 @@ end subroutine stewart_isoevap
 !-----------------------------------------------------------------------
   use physics_types,  only: physics_state
   use physics_buffer, only: physics_buffer_desc, pbuf_get_field
-  use iso_c_binding,  only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding,  only: c_double, c_int64_t, c_loc, c_ptr, c_null_ptr
   
   type(physics_state), intent(in)    :: pstate                        ! State of the atmosphere
   type(physics_buffer_desc), pointer :: pbuf(:) !physics buffer
@@ -2907,7 +2922,13 @@ end subroutine stewart_isoevap
       ! Calculate surface total.
       if (ncol > 0) then
         call wtrc_batch_log_entered()
-        call wtrc_batch_clear_precip_codon(int(ncol, c_int64_t), c_loc(srfpcp(1)))
+        call wtrc_stage_dispatch_codon( &
+             3_c_int64_t, int(ncol, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+             0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+             0_c_int64_t, 0_c_int64_t, 0._c_double, 0._c_double, 0._c_double, 0._c_double, &
+             0._c_double, 0._c_double, 0._c_double, c_loc(srfpcp(1)), c_null_ptr, c_null_ptr, &
+             c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+             c_null_ptr, c_null_ptr)
       end if
     end do
   end if
@@ -3170,7 +3191,7 @@ end subroutine wtrc_diagnose_precip
 !
 !-----------------------------------------------------------------------
   use physics_types,  only: physics_state, physics_ptend
-  use iso_c_binding,  only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding,  only: c_double, c_int64_t, c_loc, c_ptr, c_null_ptr
   
   type(physics_state), intent(in)    :: pstate                        ! State of the atmosphere
   type(physics_ptend), target, intent(inout) :: ptend                 ! State tendencies
@@ -3210,8 +3231,13 @@ end subroutine wtrc_diagnose_precip
       ptend%lq(bulk_idx) = .false.
       if (ncol > 0) then
         call wtrc_batch_log_entered()
-        call wtrc_batch_diagnose_bulk_precip_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-             int(top_lev, c_int64_t), int(bulk_idx, c_int64_t), c_loc(ptend%q))
+        call wtrc_stage_dispatch_codon( &
+             4_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+             0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(top_lev, c_int64_t), &
+             int(bulk_idx, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._c_double, &
+             0._c_double, 0._c_double, 0._c_double, 0._c_double, 0._c_double, 0._c_double, &
+             c_loc(ptend%q), c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+             c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
       end if
     end if
   end if
@@ -3336,7 +3362,7 @@ subroutine wtrc_mass_fixer(state)
 
 use physics_types, only: physics_state
 use water_isotopes, only: pwtspec
-use iso_c_binding, only: c_int64_t, c_loc, c_ptr, c_double
+use iso_c_binding, only: c_int64_t, c_loc, c_ptr, c_double, c_null_ptr
 use shr_const_mod, only: shr_const_pi
 
 !*****************
@@ -3397,13 +3423,16 @@ end do
 wisotope_c = merge(1_c_int64_t, 0_c_int64_t, wisotope)
 
 call wtrc_batch_log_entered()
-call wtrc_batch_mass_fixer_codon(int(state%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-     int(pcnst, c_int64_t), int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), int(isphdo, c_int64_t), &
-     wisotope_c, real(wtrc_qmin, c_double), real(wtrc_limiter_18O_hgh, c_double), &
+call wtrc_stage_dispatch_codon( &
+     1_c_int64_t, int(state%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+     0_c_int64_t, int(pcnst, c_int64_t), int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), &
+     int(isphdo, c_int64_t), wisotope_c, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+     real(wtrc_qmin, c_double), real(wtrc_limiter_18O_hgh, c_double), &
      real(wtrc_limiter_18O_low, c_double), real(wtrc_limiter_HDO_hgh, c_double), &
      real(wtrc_limiter_HDO_low, c_double), real(wtrc_limiter_phis_crit, c_double), &
      real(180.0_r8/shr_const_pi, c_double), c_loc(state%q), c_loc(state%lat), c_loc(state%phis), &
-     c_loc(wtrc_iatype64), c_loc(wtrc_bulk_indices64), c_loc(iwspec64), c_loc(rstd))
+     c_loc(wtrc_iatype64), c_loc(wtrc_bulk_indices64), c_loc(iwspec64), c_loc(rstd), c_null_ptr, &
+     c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
 
 end subroutine wtrc_mass_fixer
 
@@ -3642,18 +3671,24 @@ end subroutine wtrc_mass_fixer_native
 
   if (present(ptend)) then
     call wtrc_batch_log_entered()
-    call wtrc_batch_check_h2o_codon(int(pstate%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-         int(pcnst, c_int64_t), int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), wisotope_c, &
-         wtrc_check_total_h2o_c, real(wtrc_qchkmin, c_double), real(dtime, c_double), c_loc(pstate%q), &
-         c_loc(pstate%pdel), c_loc(qloc), c_loc(wtrc_bulk_indices64), c_loc(wtrc_iawset64), c_loc(iwspec64), &
-         c_loc(rstd), ptend_present_c, c_loc(ptend%q), c_loc(result_c), c_loc(issue_c))
+    call wtrc_stage_dispatch_codon( &
+         2_c_int64_t, int(pstate%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         0_c_int64_t, int(pcnst, c_int64_t), int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), &
+         wisotope_c, wtrc_check_total_h2o_c, ptend_present_c, 0_c_int64_t, 0_c_int64_t, &
+         real(wtrc_qchkmin, c_double), real(dtime, c_double), 0._c_double, 0._c_double, 0._c_double, &
+         0._c_double, 0._c_double, c_loc(pstate%q), c_loc(pstate%pdel), c_loc(qloc), &
+         c_loc(wtrc_bulk_indices64), c_loc(wtrc_iawset64), c_loc(iwspec64), c_loc(rstd), &
+         c_loc(ptend%q), c_loc(result_c), c_loc(issue_c), c_null_ptr, c_null_ptr)
   else
     call wtrc_batch_log_entered()
-    call wtrc_batch_check_h2o_codon(int(pstate%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-         int(pcnst, c_int64_t), int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), wisotope_c, &
-         wtrc_check_total_h2o_c, real(wtrc_qchkmin, c_double), real(dtime, c_double), c_loc(pstate%q), &
-         c_loc(pstate%pdel), c_loc(qloc), c_loc(wtrc_bulk_indices64), c_loc(wtrc_iawset64), c_loc(iwspec64), &
-         c_loc(rstd), ptend_present_c, c_null_ptr, c_loc(result_c), c_loc(issue_c))
+    call wtrc_stage_dispatch_codon( &
+         2_c_int64_t, int(pstate%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         0_c_int64_t, int(pcnst, c_int64_t), int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), &
+         wisotope_c, wtrc_check_total_h2o_c, ptend_present_c, 0_c_int64_t, 0_c_int64_t, &
+         real(wtrc_qchkmin, c_double), real(dtime, c_double), 0._c_double, 0._c_double, 0._c_double, &
+         0._c_double, 0._c_double, c_loc(pstate%q), c_loc(pstate%pdel), c_loc(qloc), &
+         c_loc(wtrc_bulk_indices64), c_loc(wtrc_iawset64), c_loc(iwspec64), c_loc(rstd), &
+         c_null_ptr, c_loc(result_c), c_loc(issue_c), c_null_ptr, c_null_ptr)
   end if
 
   if (issue_c /= 0_c_int64_t) then
@@ -4568,7 +4603,7 @@ subroutine wtrc_precip_evap(state,rprd,deltat,evpbulk,subbulk,dqdt,prec,snow)
 
 
 use shr_kind_mod,          only: r8 => shr_kind_r8
-use iso_c_binding,         only: c_double, c_int64_t, c_loc, c_ptr
+use iso_c_binding,         only: c_double, c_int64_t, c_loc, c_ptr, c_null_ptr
 use physics_types,         only: physics_state
 use ppgrid,                only: pcols, pver, pverp
 use physconst,             only: gravit, tmelt
@@ -4706,14 +4741,19 @@ end interface
 call wtrc_precip_evap_shell_select_impl()
 if (.not. use_native_wtrc_precip_evap_shell_impl) then
   if (masterproc .and. .not. wtrc_precip_evap_init_logged) then
-    write(iulog,*) 'wtrc_precip_evap init shell entered (work arrays zero direct = codon)'
-    call wtrc_precip_evap_shell_append_proof('wtrc_precip_evap init shell entered (work arrays zero direct = codon)')
+    write(iulog,*) 'wtrc_precip_evap init shell entered (unified stage-dispatch work arrays zero direct = codon)'
+    call wtrc_precip_evap_shell_append_proof( &
+         'wtrc_precip_evap init shell entered (unified stage-dispatch work arrays zero direct = codon)')
     call flush(iulog)
     wtrc_precip_evap_init_logged = .true.
   end if
-  call wtrc_precip_evap_init_shell_codon(int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
-       int(wtrc_ntype(iwtvap), c_int64_t), c_loc(evp), c_loc(mlt), c_loc(frz), c_loc(sub), c_loc(fice), &
-       c_loc(fsnow), c_loc(rnbulk), c_loc(flxpr), c_loc(flxsn), c_loc(totrnfx), c_loc(dz))
+  call wtrc_stage_dispatch_codon( &
+       5_c_int64_t, 0_c_int64_t, int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(wtrc_ntype(iwtvap), c_int64_t), 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._c_double, 0._c_double, 0._c_double, &
+       0._c_double, 0._c_double, 0._c_double, 0._c_double, c_loc(evp), c_loc(mlt), c_loc(frz), &
+       c_loc(sub), c_loc(fice), c_loc(fsnow), c_loc(rnbulk), c_loc(flxpr), c_loc(flxsn), &
+       c_loc(totrnfx), c_loc(dz), c_null_ptr)
 else
   evp(:,:,:)   = 0._r8
   mlt(:,:,:)   = 0._r8
@@ -4750,16 +4790,21 @@ phi = 0.9_r8
 
 if (.not. use_native_wtrc_precip_evap_shell_impl) then
   if (masterproc .and. .not. wtrc_precip_evap_prep_logged) then
-    write(iulog,*) 'wtrc_precip_evap prep shell entered (rh/dz/rnbulk direct = codon; qsat = native)'
-    call wtrc_precip_evap_shell_append_proof('wtrc_precip_evap prep shell entered (rh/dz/rnbulk direct = codon; qsat = native)')
+    write(iulog,*) 'wtrc_precip_evap prep shell entered (unified stage-dispatch rh/dz/rnbulk direct = codon; qsat = native)'
+    call wtrc_precip_evap_shell_append_proof( &
+         'wtrc_precip_evap prep shell entered (unified stage-dispatch rh/dz/rnbulk direct = codon; qsat = native)')
     call flush(iulog)
     wtrc_precip_evap_prep_logged = .true.
   end if
   qvap(:ncol,:) = state%q(:ncol,:,1)
   zi_work(:ncol,:) = state%zi(:ncol,:)
-  call wtrc_precip_evap_prep_shell_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-       int(pverp, c_int64_t), c_loc(qvap), c_loc(qst), c_loc(rh), c_loc(zi_work), c_loc(dz), &
-       c_loc(evpbulk), c_loc(subbulk), c_loc(rnbulk))
+  call wtrc_stage_dispatch_codon( &
+       6_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(pverp, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._c_double, 0._c_double, &
+       0._c_double, 0._c_double, 0._c_double, 0._c_double, 0._c_double, c_loc(qvap), &
+       c_loc(qst), c_loc(rh), c_loc(zi_work), c_loc(dz), c_loc(evpbulk), c_loc(subbulk), &
+       c_loc(rnbulk), c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
 else
   !calculate relative humidity:
   rh(:ncol,:) = state%q(:ncol,:,1)/qst(:ncol,:)
@@ -5013,17 +5058,21 @@ if (.not. use_native_wtrc_precip_evap_shell_impl) then
   end do
 
   if (masterproc .and. .not. wtrc_precip_evap_tail_logged) then
-    write(iulog,*) 'wtrc_precip_evap tail shell entered (surface precip/mass-fix direct = codon)'
+    write(iulog,*) 'wtrc_precip_evap tail shell entered (unified stage-dispatch surface precip/mass-fix direct = codon)'
     call wtrc_precip_evap_shell_append_proof( &
-         'wtrc_precip_evap tail shell entered (surface precip/mass-fix direct = codon)')
+         'wtrc_precip_evap tail shell entered (unified stage-dispatch surface precip/mass-fix direct = codon)')
     call flush(iulog)
     wtrc_precip_evap_tail_logged = .true.
   end if
 
-  call wtrc_precip_evap_tail_shell_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-       int(pverp, c_int64_t), int(pcnst, c_int64_t), int(wtrc_ntype(iwtvap), c_int64_t), &
-       int(wtrc_nwset, c_int64_t), int(iwtvap, c_int64_t), real(wtrc_qmin, c_double), c_loc(prec), c_loc(snow), &
-       c_loc(flxpr), c_loc(flxsn), c_loc(wtrc_iatype64), c_loc(iwspec64), c_loc(rstd))
+  call wtrc_stage_dispatch_codon( &
+       7_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+       int(pverp, c_int64_t), int(pcnst, c_int64_t), 0_c_int64_t, int(wtrc_nwset, c_int64_t), &
+       int(wtrc_ntype(iwtvap), c_int64_t), int(iwtvap, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, real(wtrc_qmin, c_double), 0._c_double, 0._c_double, 0._c_double, &
+       0._c_double, 0._c_double, 0._c_double, c_loc(prec), c_loc(snow), c_loc(flxpr), &
+       c_loc(flxsn), c_loc(wtrc_iatype64), c_loc(iwspec64), c_loc(rstd), c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
 else
   !Dividing by 1000 converts kg/m2/s to m/s for H2O (aka density of liquid water is 1000 kg/m3) -JN
 
