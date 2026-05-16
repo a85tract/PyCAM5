@@ -1453,6 +1453,56 @@ def phys_inidat_tbot_init_codon(
 
 
 @export
+def phys_inidat_batch_dispatch_codon(
+    stage: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    pcnst: int,
+    chunk_count: int,
+    found1_i: int,
+    found2_i: int,
+    found3_i: int,
+    default_value: float,
+    tptr_p: cobj,
+    tptr3d_p: cobj,
+    tptr3d_2_p: cobj,
+    init_source_p: cobj,
+    tbot_p: cobj,
+):
+    if stage == 1:
+        phys_inidat_qpert_default_codon(pcols, chunk_count, found1_i, tptr_p)
+    elif stage == 2:
+        phys_inidat_qpert_expand_codon(pcols, pcnst, chunk_count, tptr_p, tptr3d_2_p)
+    elif stage == 3:
+        phys_inidat_pblh_default_codon(pcols, chunk_count, found1_i, tptr_p)
+    elif stage == 4:
+        phys_inidat_tpert_default_codon(pcols, chunk_count, found1_i, tptr_p)
+    elif stage == 5:
+        phys_inidat_cush_default_codon(pcols, chunk_count, found1_i, tptr_p, default_value)
+    elif stage == 6:
+        phys_inidat_tke_default_codon(pcols, pverp, chunk_count, found1_i, tptr3d_p, default_value)
+    elif stage == 7:
+        phys_inidat_kvm_default_codon(pcols, pverp, chunk_count, found1_i, tptr3d_p, default_value)
+    elif stage == 8:
+        phys_inidat_kvh_default_codon(pcols, pverp, chunk_count, found1_i, tptr3d_p, default_value)
+    elif stage == 9:
+        phys_inidat_qcwat_default_codon(found1_i, found2_i, init_source_p)
+    elif stage == 10:
+        phys_inidat_iccwat_default_codon(found1_i, found2_i, init_source_p)
+    elif stage == 11:
+        phys_inidat_lcwat_default_codon(found1_i, found2_i, found3_i, init_source_p)
+    elif stage == 12:
+        phys_inidat_tcwat_default_codon(found1_i, init_source_p)
+    elif stage == 13:
+        phys_inidat_cloud_default_codon(pcols, pver, chunk_count, found1_i, tptr3d_p, default_value)
+    elif stage == 14:
+        phys_inidat_concld_default_codon(pcols, pver, chunk_count, found1_i, tptr3d_p, default_value)
+    elif stage == 15:
+        phys_inidat_tbot_init_codon(pcols, tbot_p, default_value)
+
+
+@export
 def phys_inidat_batch_qpert_default_codon(
     pcols: int,
     chunk_count: int,

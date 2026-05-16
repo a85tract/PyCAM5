@@ -4994,13 +4994,64 @@ subroutine phys_inidat_batch_log_entered()
   phys_inidat_batch_entered_logged = .true.
 
   if (masterproc) then
-     write(iulog,*) 'phys_inidat_batch entered (qpert/pblh/tpert/cush/tke/kvm/kvh/water/cloud/tbot direct = codon)'
+     write(iulog,*) 'phys_inidat_batch entered (stage-dispatch qpert/pblh/tpert/cush/tke/kvm/kvh/water/cloud/tbot direct = codon)'
      call phys_inidat_batch_append_proof( &
-          'phys_inidat_batch entered (qpert/pblh/tpert/cush/tke/kvm/kvh/water/cloud/tbot direct = codon)')
+          'phys_inidat_batch entered (stage-dispatch qpert/pblh/tpert/cush/tke/kvm/kvh/water/cloud/tbot direct = codon)')
      call flush(iulog)
   end if
 
 end subroutine phys_inidat_batch_log_entered
+
+!=======================================================================
+
+subroutine phys_inidat_batch_dispatch_call(stage_c, pcols_c, pver_c, pverp_c, pcnst_c, chunk_count_c, &
+     found1_c, found2_c, found3_c, default_value_c, tptr_p, tptr3d_p, tptr3d_2_p, init_source_p, tbot_p)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_ptr
+
+  integer(c_int64_t), intent(in) :: stage_c
+  integer(c_int64_t), intent(in) :: pcols_c
+  integer(c_int64_t), intent(in) :: pver_c
+  integer(c_int64_t), intent(in) :: pverp_c
+  integer(c_int64_t), intent(in) :: pcnst_c
+  integer(c_int64_t), intent(in) :: chunk_count_c
+  integer(c_int64_t), intent(in) :: found1_c
+  integer(c_int64_t), intent(in) :: found2_c
+  integer(c_int64_t), intent(in) :: found3_c
+  real(c_double), intent(in) :: default_value_c
+  type(c_ptr), intent(in) :: tptr_p
+  type(c_ptr), intent(in) :: tptr3d_p
+  type(c_ptr), intent(in) :: tptr3d_2_p
+  type(c_ptr), intent(in) :: init_source_p
+  type(c_ptr), intent(in) :: tbot_p
+
+  interface
+     subroutine phys_inidat_batch_dispatch_codon(stage_c, pcols_c, pver_c, pverp_c, pcnst_c, chunk_count_c, &
+          found1_c, found2_c, found3_c, default_value_c, tptr_p, tptr3d_p, tptr3d_2_p, init_source_p, tbot_p) &
+          bind(c, name="phys_inidat_batch_dispatch_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: stage_c
+       integer(c_int64_t), value :: pcols_c
+       integer(c_int64_t), value :: pver_c
+       integer(c_int64_t), value :: pverp_c
+       integer(c_int64_t), value :: pcnst_c
+       integer(c_int64_t), value :: chunk_count_c
+       integer(c_int64_t), value :: found1_c
+       integer(c_int64_t), value :: found2_c
+       integer(c_int64_t), value :: found3_c
+       real(c_double), value :: default_value_c
+       type(c_ptr), value :: tptr_p
+       type(c_ptr), value :: tptr3d_p
+       type(c_ptr), value :: tptr3d_2_p
+       type(c_ptr), value :: init_source_p
+       type(c_ptr), value :: tbot_p
+     end subroutine phys_inidat_batch_dispatch_codon
+  end interface
+
+  call phys_inidat_batch_dispatch_codon(stage_c, pcols_c, pver_c, pverp_c, pcnst_c, chunk_count_c, &
+       found1_c, found2_c, found3_c, default_value_c, tptr_p, tptr3d_p, tptr3d_2_p, init_source_p, tbot_p)
+
+end subroutine phys_inidat_batch_dispatch_call
 
 !=======================================================================
 
@@ -5043,7 +5094,7 @@ end subroutine phys_inidat_qpert_default_select_impl
 
 subroutine phys_inidat_qpert_default(pcols_local, chunk_count_local, found_local, tptr)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod, only: r8 => shr_kind_r8
 
   integer, intent(in) :: pcols_local
@@ -5079,7 +5130,9 @@ subroutine phys_inidat_qpert_default(pcols_local, chunk_count_local, found_local
   if (found_local) found_c = 1_c_int64_t
 
   call phys_inidat_batch_log_entered()
-  call phys_inidat_batch_qpert_default_codon(pcols_c, chunk_count_c, found_c, c_loc(tptr))
+  call phys_inidat_batch_dispatch_call(1_c_int64_t, pcols_c, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       chunk_count_c, found_c, 0_c_int64_t, 0_c_int64_t, 0.0_c_double, c_loc(tptr), c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr)
 
 end subroutine phys_inidat_qpert_default
 
@@ -5141,7 +5194,7 @@ end subroutine phys_inidat_qpert_expand_select_impl
 
 subroutine phys_inidat_qpert_expand(pcols_local, pcnst_local, chunk_count_local, tptr, tptr3d_2)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod, only: r8 => shr_kind_r8
 
   integer, intent(in) :: pcols_local
@@ -5178,7 +5231,9 @@ subroutine phys_inidat_qpert_expand(pcols_local, pcnst_local, chunk_count_local,
   chunk_count_c = int(chunk_count_local, c_int64_t)
 
   call phys_inidat_batch_log_entered()
-  call phys_inidat_batch_qpert_expand_codon(pcols_c, pcnst_c, chunk_count_c, c_loc(tptr), c_loc(tptr3d_2))
+  call phys_inidat_batch_dispatch_call(2_c_int64_t, pcols_c, 0_c_int64_t, 0_c_int64_t, pcnst_c, &
+       chunk_count_c, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0_c_double, c_loc(tptr), c_null_ptr, &
+       c_loc(tptr3d_2), c_null_ptr, c_null_ptr)
 
 end subroutine phys_inidat_qpert_expand
 
@@ -5240,7 +5295,7 @@ end subroutine phys_inidat_pblh_default_select_impl
 
 subroutine phys_inidat_pblh_default(pcols_local, chunk_count_local, found_local, tptr)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod, only: r8 => shr_kind_r8
 
   integer, intent(in) :: pcols_local
@@ -5276,7 +5331,9 @@ subroutine phys_inidat_pblh_default(pcols_local, chunk_count_local, found_local,
   if (found_local) found_c = 1_c_int64_t
 
   call phys_inidat_batch_log_entered()
-  call phys_inidat_batch_pblh_default_codon(pcols_c, chunk_count_c, found_c, c_loc(tptr))
+  call phys_inidat_batch_dispatch_call(3_c_int64_t, pcols_c, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       chunk_count_c, found_c, 0_c_int64_t, 0_c_int64_t, 0.0_c_double, c_loc(tptr), c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr)
 
 end subroutine phys_inidat_pblh_default
 
@@ -5338,7 +5395,7 @@ end subroutine phys_inidat_tpert_default_select_impl
 
 subroutine phys_inidat_tpert_default(pcols_local, chunk_count_local, found_local, tptr)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod, only: r8 => shr_kind_r8
 
   integer, intent(in) :: pcols_local
@@ -5374,7 +5431,9 @@ subroutine phys_inidat_tpert_default(pcols_local, chunk_count_local, found_local
   if (found_local) found_c = 1_c_int64_t
 
   call phys_inidat_batch_log_entered()
-  call phys_inidat_batch_tpert_default_codon(pcols_c, chunk_count_c, found_c, c_loc(tptr))
+  call phys_inidat_batch_dispatch_call(4_c_int64_t, pcols_c, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       chunk_count_c, found_c, 0_c_int64_t, 0_c_int64_t, 0.0_c_double, c_loc(tptr), c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr)
 
 end subroutine phys_inidat_tpert_default
 
@@ -5436,7 +5495,7 @@ end subroutine phys_inidat_cush_default_select_impl
 
 subroutine phys_inidat_cush_default(pcols_local, chunk_count_local, found_local, tptr, default_value)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod, only: r8 => shr_kind_r8
 
   integer, intent(in) :: pcols_local
@@ -5474,7 +5533,9 @@ subroutine phys_inidat_cush_default(pcols_local, chunk_count_local, found_local,
   if (found_local) found_c = 1_c_int64_t
 
   call phys_inidat_batch_log_entered()
-  call phys_inidat_batch_cush_default_codon(pcols_c, chunk_count_c, found_c, c_loc(tptr), default_value)
+  call phys_inidat_batch_dispatch_call(5_c_int64_t, pcols_c, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       chunk_count_c, found_c, 0_c_int64_t, 0_c_int64_t, real(default_value, c_double), c_loc(tptr), &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
 
 end subroutine phys_inidat_cush_default
 
@@ -5537,7 +5598,7 @@ end subroutine phys_inidat_tke_default_select_impl
 
 subroutine phys_inidat_tke_default(pcols_local, pverp_local, chunk_count_local, found_local, tptr3d, default_value)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod, only: r8 => shr_kind_r8
 
   integer, intent(in) :: pcols_local
@@ -5579,7 +5640,9 @@ subroutine phys_inidat_tke_default(pcols_local, pverp_local, chunk_count_local, 
   if (found_local) found_c = 1_c_int64_t
 
   call phys_inidat_batch_log_entered()
-  call phys_inidat_batch_tke_default_codon(pcols_c, pverp_c, chunk_count_c, found_c, c_loc(tptr3d), default_value)
+  call phys_inidat_batch_dispatch_call(6_c_int64_t, pcols_c, 0_c_int64_t, pverp_c, 0_c_int64_t, &
+       chunk_count_c, found_c, 0_c_int64_t, 0_c_int64_t, real(default_value, c_double), c_null_ptr, &
+       c_loc(tptr3d), c_null_ptr, c_null_ptr, c_null_ptr)
 
 end subroutine phys_inidat_tke_default
 
@@ -5643,7 +5706,7 @@ end subroutine phys_inidat_kvm_default_select_impl
 
 subroutine phys_inidat_kvm_default(pcols_local, pverp_local, chunk_count_local, found_local, tptr3d, default_value)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod, only: r8 => shr_kind_r8
 
   integer, intent(in) :: pcols_local
@@ -5685,7 +5748,9 @@ subroutine phys_inidat_kvm_default(pcols_local, pverp_local, chunk_count_local, 
   if (found_local) found_c = 1_c_int64_t
 
   call phys_inidat_batch_log_entered()
-  call phys_inidat_batch_kvm_default_codon(pcols_c, pverp_c, chunk_count_c, found_c, c_loc(tptr3d), default_value)
+  call phys_inidat_batch_dispatch_call(7_c_int64_t, pcols_c, 0_c_int64_t, pverp_c, 0_c_int64_t, &
+       chunk_count_c, found_c, 0_c_int64_t, 0_c_int64_t, real(default_value, c_double), c_null_ptr, &
+       c_loc(tptr3d), c_null_ptr, c_null_ptr, c_null_ptr)
 
 end subroutine phys_inidat_kvm_default
 
@@ -5749,7 +5814,7 @@ end subroutine phys_inidat_kvh_default_select_impl
 
 subroutine phys_inidat_kvh_default(pcols_local, pverp_local, chunk_count_local, found_local, tptr3d, default_value)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod, only: r8 => shr_kind_r8
 
   integer, intent(in) :: pcols_local
@@ -5791,7 +5856,9 @@ subroutine phys_inidat_kvh_default(pcols_local, pverp_local, chunk_count_local, 
   if (found_local) found_c = 1_c_int64_t
 
   call phys_inidat_batch_log_entered()
-  call phys_inidat_batch_kvh_default_codon(pcols_c, pverp_c, chunk_count_c, found_c, c_loc(tptr3d), default_value)
+  call phys_inidat_batch_dispatch_call(8_c_int64_t, pcols_c, 0_c_int64_t, pverp_c, 0_c_int64_t, &
+       chunk_count_c, found_c, 0_c_int64_t, 0_c_int64_t, real(default_value, c_double), c_null_ptr, &
+       c_loc(tptr3d), c_null_ptr, c_null_ptr, c_null_ptr)
 
 end subroutine phys_inidat_kvh_default
 
@@ -5855,7 +5922,7 @@ end subroutine phys_inidat_qcwat_default_select_impl
 
 subroutine phys_inidat_qcwat_default(primary_found_local, fallback_found_local, init_source_local)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
   logical, intent(in) :: primary_found_local
   logical, intent(in) :: fallback_found_local
@@ -5889,7 +5956,9 @@ subroutine phys_inidat_qcwat_default(primary_found_local, fallback_found_local, 
   init_source_c = 0_c_int64_t
 
   call phys_inidat_batch_log_entered()
-  call phys_inidat_batch_qcwat_default_codon(primary_found_c, fallback_found_c, c_loc(init_source_c))
+  call phys_inidat_batch_dispatch_call(9_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, primary_found_c, fallback_found_c, 0_c_int64_t, 0.0_c_double, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_loc(init_source_c), c_null_ptr)
   init_source_local = int(init_source_c)
 
 end subroutine phys_inidat_qcwat_default
@@ -5953,7 +6022,7 @@ end subroutine phys_inidat_iccwat_default_select_impl
 
 subroutine phys_inidat_iccwat_default(primary_found_local, fallback_found_local, init_source_local)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
   logical, intent(in) :: primary_found_local
   logical, intent(in) :: fallback_found_local
@@ -5987,7 +6056,9 @@ subroutine phys_inidat_iccwat_default(primary_found_local, fallback_found_local,
   init_source_c = 0_c_int64_t
 
   call phys_inidat_batch_log_entered()
-  call phys_inidat_batch_iccwat_default_codon(primary_found_c, fallback_found_c, c_loc(init_source_c))
+  call phys_inidat_batch_dispatch_call(10_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, primary_found_c, fallback_found_c, 0_c_int64_t, 0.0_c_double, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_loc(init_source_c), c_null_ptr)
   init_source_local = int(init_source_c)
 
 end subroutine phys_inidat_iccwat_default
@@ -6051,7 +6122,7 @@ end subroutine phys_inidat_lcwat_default_select_impl
 
 subroutine phys_inidat_lcwat_default(primary_found_local, cldice_found_local, cldliq_found_local, init_source_local)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
   logical, intent(in) :: primary_found_local
   logical, intent(in) :: cldice_found_local
@@ -6090,7 +6161,9 @@ subroutine phys_inidat_lcwat_default(primary_found_local, cldice_found_local, cl
   init_source_c = 0_c_int64_t
 
   call phys_inidat_batch_log_entered()
-  call phys_inidat_batch_lcwat_default_codon(primary_found_c, cldice_found_c, cldliq_found_c, c_loc(init_source_c))
+  call phys_inidat_batch_dispatch_call(11_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, primary_found_c, cldice_found_c, cldliq_found_c, 0.0_c_double, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_loc(init_source_c), c_null_ptr)
   init_source_local = int(init_source_c)
 
 end subroutine phys_inidat_lcwat_default
@@ -6159,7 +6232,7 @@ end subroutine phys_inidat_tcwat_default_select_impl
 
 subroutine phys_inidat_tcwat_default(primary_found_local, init_source_local)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
   logical, intent(in) :: primary_found_local
   integer, intent(out) :: init_source_local
@@ -6188,7 +6261,9 @@ subroutine phys_inidat_tcwat_default(primary_found_local, init_source_local)
   init_source_c = 0_c_int64_t
 
   call phys_inidat_batch_log_entered()
-  call phys_inidat_batch_tcwat_default_codon(primary_found_c, c_loc(init_source_c))
+  call phys_inidat_batch_dispatch_call(12_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, primary_found_c, 0_c_int64_t, 0_c_int64_t, 0.0_c_double, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_loc(init_source_c), c_null_ptr)
   init_source_local = int(init_source_c)
 
 end subroutine phys_inidat_tcwat_default
@@ -6249,7 +6324,7 @@ end subroutine phys_inidat_cloud_default_select_impl
 
 subroutine phys_inidat_cloud_default(pcols_local, pver_local, chunk_count_local, found_local, tptr3d, default_value)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod, only: r8 => shr_kind_r8
 
   integer, intent(in) :: pcols_local
@@ -6291,7 +6366,9 @@ subroutine phys_inidat_cloud_default(pcols_local, pver_local, chunk_count_local,
   if (found_local) found_c = 1_c_int64_t
 
   call phys_inidat_batch_log_entered()
-  call phys_inidat_batch_cloud_default_codon(pcols_c, pver_c, chunk_count_c, found_c, c_loc(tptr3d), default_value)
+  call phys_inidat_batch_dispatch_call(13_c_int64_t, pcols_c, pver_c, 0_c_int64_t, 0_c_int64_t, &
+       chunk_count_c, found_c, 0_c_int64_t, 0_c_int64_t, real(default_value, c_double), c_null_ptr, &
+       c_loc(tptr3d), c_null_ptr, c_null_ptr, c_null_ptr)
 
 end subroutine phys_inidat_cloud_default
 
@@ -6355,7 +6432,7 @@ end subroutine phys_inidat_concld_default_select_impl
 
 subroutine phys_inidat_concld_default(pcols_local, pver_local, chunk_count_local, found_local, tptr3d, default_value)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod, only: r8 => shr_kind_r8
 
   integer, intent(in) :: pcols_local
@@ -6397,7 +6474,9 @@ subroutine phys_inidat_concld_default(pcols_local, pver_local, chunk_count_local
   if (found_local) found_c = 1_c_int64_t
 
   call phys_inidat_batch_log_entered()
-  call phys_inidat_batch_concld_default_codon(pcols_c, pver_c, chunk_count_c, found_c, c_loc(tptr3d), default_value)
+  call phys_inidat_batch_dispatch_call(14_c_int64_t, pcols_c, pver_c, 0_c_int64_t, 0_c_int64_t, &
+       chunk_count_c, found_c, 0_c_int64_t, 0_c_int64_t, real(default_value, c_double), c_null_ptr, &
+       c_loc(tptr3d), c_null_ptr, c_null_ptr, c_null_ptr)
 
 end subroutine phys_inidat_concld_default
 
@@ -6461,7 +6540,7 @@ end subroutine phys_inidat_tbot_init_select_impl
 
 subroutine phys_inidat_tbot_init(pcols_local, tbot, posinf_local)
 
-  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
   use shr_kind_mod, only: r8 => shr_kind_r8
 
   integer, intent(in) :: pcols_local
@@ -6488,7 +6567,9 @@ subroutine phys_inidat_tbot_init(pcols_local, tbot, posinf_local)
 
   pcols_c = int(pcols_local, c_int64_t)
   call phys_inidat_batch_log_entered()
-  call phys_inidat_batch_tbot_init_codon(pcols_c, c_loc(tbot), posinf_local)
+  call phys_inidat_batch_dispatch_call(15_c_int64_t, pcols_c, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, real(posinf_local, c_double), c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_loc(tbot))
 
 end subroutine phys_inidat_tbot_init
 
