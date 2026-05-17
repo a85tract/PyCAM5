@@ -211,8 +211,8 @@ subroutine hub2atm_alloc_init_log_entered()
    hub2atm_alloc_init_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'hub2atm_alloc_init entered (surface input init arrays direct = codon)'
-      call camsrfexch_alloc_init_append_proof('hub2atm_alloc_init entered (surface input init arrays direct = codon)')
+      write(iulog,'(A)') 'hub2atm_alloc_init entered (unified surface input init stage dispatch = codon)'
+      call camsrfexch_alloc_init_append_proof('hub2atm_alloc_init entered (unified surface input init stage dispatch = codon)')
       call flush(iulog)
    end if
 
@@ -224,8 +224,8 @@ subroutine atm2hub_alloc_init_log_entered()
    atm2hub_alloc_init_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'atm2hub_alloc_init entered (surface output init arrays direct = codon)'
-      call camsrfexch_alloc_init_append_proof('atm2hub_alloc_init entered (surface output init arrays direct = codon)')
+      write(iulog,'(A)') 'atm2hub_alloc_init entered (unified surface output init stage dispatch = codon)'
+      call camsrfexch_alloc_init_append_proof('atm2hub_alloc_init entered (unified surface output init stage dispatch = codon)')
       call flush(iulog)
    end if
 
@@ -270,13 +270,13 @@ end subroutine atm2hub_alloc_init_log_entered
     real(r8), target :: dummy_2d(1,1)
     type(c_ptr) :: ram1_p, fv_p, soilw_p, dstflx_p, meganflx_p, depvel_p
     interface
-       subroutine hub2atm_alloc_init_codon(pcols_c, pcnst_c, n_drydep_c, n_megan_c, posinf_c, &
+       subroutine hub2atm_alloc_init_stage_dispatch_codon(pcols_c, pcnst_c, n_drydep_c, n_megan_c, posinf_c, &
             init_bucket_c, has_ram1_c, has_fv_c, has_soilw_c, has_dstflx_c, has_meganflx_c, has_depvel_c, &
             asdir_p, asdif_p, aldir_p, aldif_p, lwup_p, lhf_p, shf_p, wsx_p, wsy_p, tref_p, qref_p, &
             u10_p, ts_p, sst_p, snowhland_p, snowhice_p, fco2_lnd_p, fco2_ocn_p, fdms_p, &
             landfrac_p, icefrac_p, ocnfrac_p, ram1_p, fv_p, soilw_p, cflx_p, ustar_p, re_p, ssq_p, &
             dstflx_p, meganflx_p, depvel_p, buckH_p, buck16_p, buckD_p, buck18_p) &
-            bind(c, name="hub2atm_alloc_init_codon")
+            bind(c, name="hub2atm_alloc_init_stage_dispatch_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: pcols_c, pcnst_c, n_drydep_c, n_megan_c
          real(c_double), value :: posinf_c
@@ -287,7 +287,7 @@ end subroutine atm2hub_alloc_init_log_entered
          type(c_ptr), value :: fco2_lnd_p, fco2_ocn_p, fdms_p, landfrac_p, icefrac_p, ocnfrac_p
          type(c_ptr), value :: ram1_p, fv_p, soilw_p, cflx_p, ustar_p, re_p, ssq_p
          type(c_ptr), value :: dstflx_p, meganflx_p, depvel_p, buckH_p, buck16_p, buckD_p, buck18_p
-       end subroutine hub2atm_alloc_init_codon
+       end subroutine hub2atm_alloc_init_stage_dispatch_codon
     end interface
 !----------------------------------------------------------------------- 
 ! 
@@ -428,7 +428,7 @@ end subroutine atm2hub_alloc_init_log_entered
              depvel_p = c_loc(dummy_2d(1,1))
           end if
           call hub2atm_alloc_init_log_entered()
-          call hub2atm_alloc_init_codon( &
+          call hub2atm_alloc_init_stage_dispatch_codon( &
                int(pcols, c_int64_t), int(pcnst, c_int64_t), int(n_drydep, c_int64_t), &
                int(shr_megan_mechcomps_n, c_int64_t), real(posinf_r8, c_double), &
                merge(1_c_int64_t, 0_c_int64_t, wtrc_srf_bucket_mode), &
@@ -490,13 +490,13 @@ end subroutine atm2hub_alloc_init_log_entered
     integer :: c            ! chunk index
     integer :: ierror       ! Error code
     interface
-       subroutine atm2hub_alloc_init_codon(pcols_c, pcnst_c, tbot_p, zbot_p, ubot_p, vbot_p, qbot_p, &
+       subroutine atm2hub_alloc_init_stage_dispatch_codon(pcols_c, pcnst_c, tbot_p, zbot_p, ubot_p, vbot_p, qbot_p, &
             pbot_p, rho_p, netsw_p, flwds_p, precsc_p, precsl_p, precc_p, precl_p, soll_p, sols_p, &
             solld_p, solsd_p, thbot_p, co2prog_p, co2diag_p, psl_p, bcphidry_p, bcphodry_p, bcphiwet_p, &
             ocphidry_p, ocphodry_p, ocphiwet_p, dstdry1_p, dstwet1_p, dstdry2_p, dstwet2_p, &
             dstdry3_p, dstwet3_p, dstdry4_p, dstwet4_p, precrl_16O_p, precrl_HDO_p, precrl_18O_p, &
             precsl_16O_p, precsl_HDO_p, precsl_18O_p, precrc_16O_p, precrc_HDO_p, precrc_18O_p, &
-            precsc_16O_p, precsc_HDO_p, precsc_18O_p) bind(c, name="atm2hub_alloc_init_codon")
+            precsc_16O_p, precsc_HDO_p, precsc_18O_p) bind(c, name="atm2hub_alloc_init_stage_dispatch_codon")
          use iso_c_binding, only: c_int64_t, c_ptr
          integer(c_int64_t), value :: pcols_c, pcnst_c
          type(c_ptr), value :: tbot_p, zbot_p, ubot_p, vbot_p, qbot_p, pbot_p, rho_p
@@ -506,7 +506,7 @@ end subroutine atm2hub_alloc_init_log_entered
          type(c_ptr), value :: dstdry1_p, dstwet1_p, dstdry2_p, dstwet2_p, dstdry3_p, dstwet3_p, dstdry4_p, dstwet4_p
          type(c_ptr), value :: precrl_16O_p, precrl_HDO_p, precrl_18O_p, precsl_16O_p, precsl_HDO_p, precsl_18O_p
          type(c_ptr), value :: precrc_16O_p, precrc_HDO_p, precrc_18O_p, precsc_16O_p, precsc_HDO_p, precsc_18O_p
-       end subroutine atm2hub_alloc_init_codon
+       end subroutine atm2hub_alloc_init_stage_dispatch_codon
     end interface
     !----------------------------------------------------------------------- 
 
@@ -573,7 +573,7 @@ end subroutine atm2hub_alloc_init_log_entered
           cam_out(c)%precsc_18O  = 0._r8
        else
           call atm2hub_alloc_init_log_entered()
-          call atm2hub_alloc_init_codon( &
+          call atm2hub_alloc_init_stage_dispatch_codon( &
                int(pcols, c_int64_t), int(pcnst, c_int64_t), c_loc(cam_out(c)%tbot(1)), &
                c_loc(cam_out(c)%zbot(1)), c_loc(cam_out(c)%ubot(1)), c_loc(cam_out(c)%vbot(1)), &
                c_loc(cam_out(c)%qbot(1,1)), c_loc(cam_out(c)%pbot(1)), c_loc(cam_out(c)%rho(1)), &

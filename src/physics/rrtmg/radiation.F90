@@ -641,8 +641,8 @@ end function radiation_nextsw_cday
     radiation_diag_prep_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'radiation_diag_prep entered (hr_nativepow/lwupcgs_netsw/hirs_tint/emis/compact_qrl/cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)'
-       call radiation_diag_prep_append_proof('radiation_diag_prep entered (hr_nativepow/lwupcgs_netsw/hirs_tint/emis/compact_qrl/cloud_optics_sum/visible_tau/diag_workspaces/cloud_optics/pressure/column_mean/qrs-qrl qdp loops direct = codon; history output/rrtmg core = native)')
+       write(iulog,*) 'radiation_diag_prep entered (unified radiation diagnostics stage dispatch = codon; history output/rrtmg core = native)'
+       call radiation_diag_prep_append_proof('radiation_diag_prep entered (unified radiation diagnostics stage dispatch = codon; history output/rrtmg core = native)')
        call flush(iulog)
     end if
 
@@ -666,15 +666,15 @@ end function radiation_nextsw_cday
     integer :: nday_arg, nnite_arg
 
     interface
-       subroutine radiation_diag_prep_codon(stage_c, mode_c, ncol_c, pcols_c, pver_c, nday_c, nnite_c, cpair_c, &
+       subroutine radiation_diag_prep_stage_dispatch_codon(stage_c, mode_c, ncol_c, pcols_c, pver_c, nday_c, nnite_c, cpair_c, &
             cgs2mks_c, fillvalue_c, scalar_p, a_p, b_p, c_p, d_p, e_p, f_p, g_p, h_p, i_p, j_p, k_p, l_p, m_p, &
-            n_p, o_p, p_p, q_p, r_p, idxday_p, idxnite_p) bind(c, name="radiation_diag_prep_codon")
+            n_p, o_p, p_p, q_p, r_p, idxday_p, idxnite_p) bind(c, name="radiation_diag_prep_stage_dispatch_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: stage_c, mode_c, ncol_c, pcols_c, pver_c, nday_c, nnite_c
          real(c_double), value :: cpair_c, cgs2mks_c, fillvalue_c
          type(c_ptr), value :: scalar_p, a_p, b_p, c_p, d_p, e_p, f_p, g_p, h_p, i_p, j_p, k_p, l_p, m_p
          type(c_ptr), value :: n_p, o_p, p_p, q_p, r_p, idxday_p, idxnite_p
-       end subroutine radiation_diag_prep_codon
+       end subroutine radiation_diag_prep_stage_dispatch_codon
     end interface
 
     nday_arg = mode
@@ -686,7 +686,7 @@ end function radiation_nextsw_cday
     if (present(idxday_override_p)) idxday_arg_p = idxday_override_p
     if (present(idxnite_override_p)) idxnite_arg_p = idxnite_override_p
 
-    call radiation_diag_prep_codon(int(stage, c_int64_t), int(mode, c_int64_t), int(ncol, c_int64_t), &
+    call radiation_diag_prep_stage_dispatch_codon(int(stage, c_int64_t), int(mode, c_int64_t), int(ncol, c_int64_t), &
          int(pcols, c_int64_t), int(pver, c_int64_t), int(nday_arg, c_int64_t), int(nnite_arg, c_int64_t), &
          real(cpair_local, c_double), real(1._r8, c_double), real(fillvalue_local, c_double), &
          scalar_p, a_p, b_p, c_p, d_p, e_p, f_p, g_p, h_p, i_p, j_p, k_p, l_p, m_p, &
