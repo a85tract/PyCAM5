@@ -930,9 +930,62 @@ end subroutine zm_conv_select_post_shell_impl
 
 !=========================================================================================
 
+subroutine zm_conv_post_stage_dispatch_call(stage_c, mode_c, ncol_c, pcols_c, pver_c, pverp_c, pcnst_c, &
+     wtrc_nwset_c, lengath_c, ixorg_c, do_org_c, vap_type_c, gravit_c, cpair_c, ztodt_c, &
+     p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p, p9_p, p10_p, p11_p, p12_p, p13_p, p14_p, p15_p, p16_p)
+
+   use iso_c_binding, only: c_double, c_int64_t, c_null_ptr, c_ptr
+
+   integer(c_int64_t), intent(in) :: stage_c, mode_c, ncol_c, pcols_c, pver_c, pverp_c, pcnst_c
+   integer(c_int64_t), intent(in) :: wtrc_nwset_c, lengath_c, ixorg_c, do_org_c, vap_type_c
+   real(c_double), intent(in) :: gravit_c, cpair_c, ztodt_c
+   type(c_ptr), intent(in), optional :: p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p
+   type(c_ptr), intent(in), optional :: p9_p, p10_p, p11_p, p12_p, p13_p, p14_p, p15_p, p16_p
+   type(c_ptr) :: q(16)
+
+   interface
+      subroutine zm_conv_post_stage_dispatch_codon(stage_c, mode_c, ncol_c, pcols_c, pver_c, pverp_c, &
+           pcnst_c, wtrc_nwset_c, lengath_c, ixorg_c, do_org_c, vap_type_c, gravit_c, cpair_c, ztodt_c, &
+           p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p, p9_p, p10_p, p11_p, p12_p, p13_p, p14_p, p15_p, p16_p) &
+           bind(c, name="zm_conv_post_stage_dispatch_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: stage_c, mode_c, ncol_c, pcols_c, pver_c, pverp_c, pcnst_c
+         integer(c_int64_t), value :: wtrc_nwset_c, lengath_c, ixorg_c, do_org_c, vap_type_c
+         real(c_double), value :: gravit_c, cpair_c, ztodt_c
+         type(c_ptr), value :: p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p
+         type(c_ptr), value :: p9_p, p10_p, p11_p, p12_p, p13_p, p14_p, p15_p, p16_p
+      end subroutine zm_conv_post_stage_dispatch_codon
+   end interface
+
+   q(:) = c_null_ptr
+   if (present(p1_p)) q(1) = p1_p
+   if (present(p2_p)) q(2) = p2_p
+   if (present(p3_p)) q(3) = p3_p
+   if (present(p4_p)) q(4) = p4_p
+   if (present(p5_p)) q(5) = p5_p
+   if (present(p6_p)) q(6) = p6_p
+   if (present(p7_p)) q(7) = p7_p
+   if (present(p8_p)) q(8) = p8_p
+   if (present(p9_p)) q(9) = p9_p
+   if (present(p10_p)) q(10) = p10_p
+   if (present(p11_p)) q(11) = p11_p
+   if (present(p12_p)) q(12) = p12_p
+   if (present(p13_p)) q(13) = p13_p
+   if (present(p14_p)) q(14) = p14_p
+   if (present(p15_p)) q(15) = p15_p
+   if (present(p16_p)) q(16) = p16_p
+
+   call zm_conv_post_stage_dispatch_codon(stage_c, mode_c, ncol_c, pcols_c, pver_c, pverp_c, pcnst_c, &
+        wtrc_nwset_c, lengath_c, ixorg_c, do_org_c, vap_type_c, gravit_c, cpair_c, ztodt_c, &
+        q(1), q(2), q(3), q(4), q(5), q(6), q(7), q(8), q(9), q(10), q(11), q(12), q(13), q(14), q(15), q(16))
+
+end subroutine zm_conv_post_stage_dispatch_call
+
+!=========================================================================================
+
 subroutine zm_conv_workspace_init_shell(ncol_local, ftem_local, mu_out_local, md_out_local, wind_tends_local)
 
-   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
    integer, intent(in) :: ncol_local
    real(r8), target, intent(inout) :: ftem_local(pcols,pver), mu_out_local(pcols,pver), md_out_local(pcols,pver)
@@ -958,14 +1011,16 @@ subroutine zm_conv_workspace_init_shell(ncol_local, ftem_local, mu_out_local, md
    end if
 
    if (masterproc .and. .not. zm_workspace_init_logged) then
-      write(iulog,*) 'zm_conv workspace init shell entered (history/massflux/wind workspaces direct = codon)'
-      call zm_conv_append_post_shell_proof('zm_conv workspace init shell entered (history/massflux/wind workspaces direct = codon)')
+      write(iulog,*) 'zm_conv workspace init shell entered (unified post-shell dispatch = codon)'
+      call zm_conv_append_post_shell_proof('zm_conv workspace init shell entered (unified post-shell dispatch = codon)')
       call flush(iulog)
       zm_workspace_init_logged = .true.
    end if
 
-   call zm_conv_workspace_init_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-        c_loc(ftem_local), c_loc(mu_out_local), c_loc(md_out_local), c_loc(wind_tends_local))
+   call zm_conv_post_stage_dispatch_call(1_c_int64_t, 0_c_int64_t, int(ncol_local, c_int64_t), &
+        int(pcols, c_int64_t), int(pver, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+        0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0_c_double, 0.0_c_double, &
+        0.0_c_double, c_loc(ftem_local), c_loc(mu_out_local), c_loc(md_out_local), c_loc(wind_tends_local))
 
 end subroutine zm_conv_workspace_init_shell
 
@@ -974,7 +1029,7 @@ end subroutine zm_conv_workspace_init_shell
 subroutine zm_conv_ptend_lq_mask_shell(pcnst_local, wtrc_nwset_local, zmconv_org_local, ixorg_local, &
      vap_type64_local, lq_local)
 
-   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
    integer, intent(in) :: pcnst_local, wtrc_nwset_local, ixorg_local
    logical, intent(in) :: zmconv_org_local
@@ -1009,9 +1064,9 @@ subroutine zm_conv_ptend_lq_mask_shell(pcnst_local, wtrc_nwset_local, zmconv_org
    end if
 
    if (masterproc .and. .not. zm_ptend_lq_mask_logged) then
-      write(iulog,*) 'zm_conv ptend lq mask shell entered (zm_convr/evap vapor mask direct = codon)'
+      write(iulog,*) 'zm_conv ptend lq mask shell entered (unified post-shell dispatch = codon)'
       call zm_conv_append_post_shell_proof( &
-           'zm_conv ptend lq mask shell entered (zm_convr/evap vapor mask direct = codon)')
+           'zm_conv ptend lq mask shell entered (unified post-shell dispatch = codon)')
       call flush(iulog)
       zm_ptend_lq_mask_logged = .true.
    end if
@@ -1022,8 +1077,10 @@ subroutine zm_conv_ptend_lq_mask_shell(pcnst_local, wtrc_nwset_local, zmconv_org
       org_enabled_c = 0_c_int64_t
    end if
 
-   call zm_conv_ptend_lq_mask_shell_codon(int(pcnst_local, c_int64_t), int(wtrc_nwset_local, c_int64_t), &
-        org_enabled_c, int(ixorg_local, c_int64_t), c_loc(vap_type64_local), c_loc(lq_mask_c))
+   call zm_conv_post_stage_dispatch_call(2_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+        int(pcols, c_int64_t), 0_c_int64_t, 0_c_int64_t, int(pcnst_local, c_int64_t), &
+        int(wtrc_nwset_local, c_int64_t), 0_c_int64_t, int(ixorg_local, c_int64_t), org_enabled_c, &
+        0_c_int64_t, 0.0_c_double, 0.0_c_double, 0.0_c_double, c_loc(vap_type64_local), c_loc(lq_mask_c))
 
    do m = 1, pcnst_local
       lq_local(m) = lq_mask_c(m) /= 0_c_int64_t
@@ -1036,7 +1093,7 @@ end subroutine zm_conv_ptend_lq_mask_shell
 subroutine zm_wtrc_convr_prep_shell(ncol_local, wtrc_nwset_local, wtdlf_local, wtrprd_local, wtprect_local, &
      rprd_local, prec_local)
 
-   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
    integer, intent(in) :: ncol_local, wtrc_nwset_local
    real(r8), target, intent(inout) :: wtdlf_local(pcols,pver,wtrc_nwset_local)
@@ -1064,14 +1121,16 @@ subroutine zm_wtrc_convr_prep_shell(ncol_local, wtrc_nwset_local, wtdlf_local, w
    end if
 
    if (masterproc .and. .not. zm_wtrc_convr_prep_logged) then
-      write(iulog,*) 'zm_wtrc_convr prep shell entered (water tracer workspaces direct = codon)'
-      call zm_conv_append_post_shell_proof('zm_wtrc_convr prep shell entered (water tracer workspaces direct = codon)')
+      write(iulog,*) 'zm_wtrc_convr prep shell entered (unified post-shell dispatch = codon)'
+      call zm_conv_append_post_shell_proof('zm_wtrc_convr prep shell entered (unified post-shell dispatch = codon)')
       call flush(iulog)
       zm_wtrc_convr_prep_logged = .true.
    end if
 
-   call zm_wtrc_convr_prep_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-        int(pcnst, c_int64_t), int(wtrc_nwset_local, c_int64_t), c_loc(wtdlf_local), c_loc(wtrprd_local), &
+   call zm_conv_post_stage_dispatch_call(3_c_int64_t, 0_c_int64_t, int(ncol_local, c_int64_t), &
+        int(pcols, c_int64_t), int(pver, c_int64_t), 0_c_int64_t, int(pcnst, c_int64_t), &
+        int(wtrc_nwset_local, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+        0.0_c_double, 0.0_c_double, 0.0_c_double, c_loc(wtdlf_local), c_loc(wtrprd_local), &
         c_loc(wtprect_local), c_loc(rprd_local), c_loc(prec_local))
 
 end subroutine zm_wtrc_convr_prep_shell
@@ -1080,7 +1139,7 @@ end subroutine zm_wtrc_convr_prep_shell
 
 subroutine zm_wtrc_precip_assign_shell(vap_type64_local, wtprect_local, wtsnowt_local, wtprec_local, wtsnow_local)
 
-   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
    integer(c_int64_t), intent(in) :: vap_type64_local
    real(r8), target, intent(in) :: wtprect_local(pcols,pcnst), wtsnowt_local(pcols,pcnst)
@@ -1104,14 +1163,16 @@ subroutine zm_wtrc_precip_assign_shell(vap_type64_local, wtprect_local, wtsnowt_
    end if
 
    if (masterproc .and. .not. zm_wtrc_precip_assign_logged) then
-      write(iulog,*) 'zm_wtrc_precip assign shell entered (rain/snow pbuf values direct = codon)'
-      call zm_conv_append_post_shell_proof('zm_wtrc_precip assign shell entered (rain/snow pbuf values direct = codon)')
+      write(iulog,*) 'zm_wtrc_precip assign shell entered (unified post-shell dispatch = codon)'
+      call zm_conv_append_post_shell_proof('zm_wtrc_precip assign shell entered (unified post-shell dispatch = codon)')
       call flush(iulog)
       zm_wtrc_precip_assign_logged = .true.
    end if
 
-   call zm_wtrc_precip_assign_shell_codon(int(pcols, c_int64_t), vap_type64_local, c_loc(wtprect_local), &
-        c_loc(wtsnowt_local), c_loc(wtprec_local), c_loc(wtsnow_local))
+   call zm_conv_post_stage_dispatch_call(4_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+        int(pcols, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+        0_c_int64_t, 0_c_int64_t, 0_c_int64_t, vap_type64_local, 0.0_c_double, 0.0_c_double, &
+        0.0_c_double, c_loc(wtprect_local), c_loc(wtsnowt_local), c_loc(wtprec_local), c_loc(wtsnow_local))
 
 end subroutine zm_wtrc_precip_assign_shell
 
@@ -1154,17 +1215,19 @@ subroutine zm_convr_post_shell(ncol_local, lengath_local, gravit_local, cpair_lo
    end if
 
    if (masterproc .and. .not. zm_convr_post_logged) then
-      write(iulog,*) 'zm_convr post shell entered (freq/massflux/history/base-top direct = codon)'
-      call zm_conv_append_post_shell_proof('zm_convr post shell entered (freq/massflux/history/base-top direct = codon)')
+      write(iulog,*) 'zm_convr post shell entered (unified post-shell dispatch = codon)'
+      call zm_conv_append_post_shell_proof('zm_convr post shell entered (unified post-shell dispatch = codon)')
       call flush(iulog)
       zm_convr_post_logged = .true.
    end if
 
-   call zm_convr_post_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-        int(pverp, c_int64_t), int(lengath_local, c_int64_t), real(gravit_local, c_double), real(cpair_local, c_double), &
-        c_loc(mcon_local), c_loc(mu_local), c_loc(md_local), c_loc(ideep64_local), c_loc(jt64_local), c_loc(maxg64_local), &
-        c_loc(ptend_s_local), c_loc(state_ps_local), c_loc(state_pmid_local), c_loc(freqzm_local), &
-        c_loc(mu_out_local), c_loc(md_out_local), c_loc(ftem_local), c_loc(pcont_local), c_loc(pconb_local))
+   call zm_conv_post_stage_dispatch_call(5_c_int64_t, 0_c_int64_t, int(ncol_local, c_int64_t), &
+        int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
+        int(lengath_local, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, real(gravit_local, c_double), &
+        real(cpair_local, c_double), 0.0_c_double, c_loc(mcon_local), c_loc(mu_local), c_loc(md_local), &
+        c_loc(ideep64_local), c_loc(jt64_local), c_loc(maxg64_local), c_loc(ptend_s_local), &
+        c_loc(state_ps_local), c_loc(state_pmid_local), c_loc(freqzm_local), c_loc(mu_out_local), &
+        c_loc(md_out_local), c_loc(ftem_local), c_loc(pcont_local), c_loc(pconb_local))
 
 end subroutine zm_convr_post_shell
 
@@ -1221,7 +1284,7 @@ end subroutine zm_convr_post_shell_native
 
 subroutine zm_conv_evap_prep_shell(ncol_local, dp_cldliq_local, dp_cldice_local)
 
-   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
    integer, intent(in) :: ncol_local
    real(r8), pointer, intent(inout) :: dp_cldliq_local(:,:), dp_cldice_local(:,:)
@@ -1244,14 +1307,16 @@ subroutine zm_conv_evap_prep_shell(ncol_local, dp_cldliq_local, dp_cldice_local)
    end if
 
    if (masterproc .and. .not. zm_conv_evap_prep_logged) then
-      write(iulog,*) 'zm_conv_evap prep shell entered (cloud buffers zero direct = codon)'
-      call zm_conv_append_post_shell_proof('zm_conv_evap prep shell entered (cloud buffers zero direct = codon)')
+      write(iulog,*) 'zm_conv_evap prep shell entered (unified post-shell dispatch = codon)'
+      call zm_conv_append_post_shell_proof('zm_conv_evap prep shell entered (unified post-shell dispatch = codon)')
       call flush(iulog)
       zm_conv_evap_prep_logged = .true.
    end if
 
-   call zm_conv_evap_prep_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-        c_loc(dp_cldliq_local), c_loc(dp_cldice_local))
+   call zm_conv_post_stage_dispatch_call(6_c_int64_t, 0_c_int64_t, int(ncol_local, c_int64_t), &
+        int(pcols, c_int64_t), int(pver, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+        0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0_c_double, 0.0_c_double, &
+        0.0_c_double, c_loc(dp_cldliq_local), c_loc(dp_cldice_local))
 
 end subroutine zm_conv_evap_prep_shell
 
@@ -1300,15 +1365,16 @@ subroutine zm_conv_evap_post_shell(ncol_local, ztodt_local, do_org_local, ixorg_
    end if
 
    if (masterproc .and. .not. zm_conv_evap_post_logged) then
-      write(iulog,*) 'zm_conv_evap post shell entered (evap/org tendencies direct = codon)'
-      call zm_conv_append_post_shell_proof('zm_conv_evap post shell entered (evap/org tendencies direct = codon)')
+      write(iulog,*) 'zm_conv_evap post shell entered (unified post-shell dispatch = codon)'
+      call zm_conv_append_post_shell_proof('zm_conv_evap post shell entered (unified post-shell dispatch = codon)')
       call flush(iulog)
       zm_conv_evap_post_logged = .true.
    end if
 
-   call zm_conv_evap_post_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-        int(ixorg_local, c_int64_t), do_org_c, real(ztodt_local, c_double), c_loc(evapcdp_local), &
-        c_loc(ptend_q_local), c_loc(state_q_local))
+   call zm_conv_post_stage_dispatch_call(7_c_int64_t, 0_c_int64_t, int(ncol_local, c_int64_t), &
+        int(pcols, c_int64_t), int(pver, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+        0_c_int64_t, int(ixorg_local, c_int64_t), do_org_c, 0_c_int64_t, 0.0_c_double, 0.0_c_double, &
+        real(ztodt_local, c_double), c_loc(evapcdp_local), c_loc(ptend_q_local), c_loc(state_q_local))
 
 end subroutine zm_conv_evap_post_shell
 
@@ -1349,15 +1415,17 @@ subroutine zm_conv_evap_hist_shell(mode, ncol_local, cpair_local, ptend_s_local,
    end if
 
    if (masterproc .and. .not. zm_conv_evap_hist_logged) then
-      write(iulog,*) 'zm_conv_evap hist shell entered (evap heating prep direct = codon)'
-      call zm_conv_append_post_shell_proof('zm_conv_evap hist shell entered (evap heating prep direct = codon)')
+      write(iulog,*) 'zm_conv_evap hist shell entered (unified post-shell dispatch = codon)'
+      call zm_conv_append_post_shell_proof('zm_conv_evap hist shell entered (unified post-shell dispatch = codon)')
       call flush(iulog)
       zm_conv_evap_hist_logged = .true.
    end if
 
-   call zm_conv_evap_hist_shell_codon(int(mode, c_int64_t), int(ncol_local, c_int64_t), &
-        int(pcols, c_int64_t), int(pver, c_int64_t), real(cpair_local, c_double), c_loc(ptend_s_local), &
-        c_loc(tend_s_snwprd_local), c_loc(tend_s_snwevmlt_local), c_loc(ftem_local))
+   call zm_conv_post_stage_dispatch_call(8_c_int64_t, int(mode, c_int64_t), int(ncol_local, c_int64_t), &
+        int(pcols, c_int64_t), int(pver, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+        0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0_c_double, real(cpair_local, c_double), &
+        0.0_c_double, c_loc(ptend_s_local), c_loc(tend_s_snwprd_local), c_loc(tend_s_snwevmlt_local), &
+        c_loc(ftem_local))
 
 end subroutine zm_conv_evap_hist_shell
 
@@ -1365,7 +1433,7 @@ end subroutine zm_conv_evap_hist_shell
 
 subroutine zm_momtran_prep_shell(ncol_local, state_u_local, state_v_local, winds_local)
 
-   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
    integer, intent(in) :: ncol_local
    real(r8), target, intent(in) :: state_u_local(pcols,pver), state_v_local(pcols,pver)
@@ -1389,14 +1457,16 @@ subroutine zm_momtran_prep_shell(ncol_local, state_u_local, state_v_local, winds
    end if
 
    if (masterproc .and. .not. zm_momtran_prep_logged) then
-      write(iulog,*) 'zm_momtran prep shell entered (wind inputs direct = codon)'
-      call zm_conv_append_post_shell_proof('zm_momtran prep shell entered (wind inputs direct = codon)')
+      write(iulog,*) 'zm_momtran prep shell entered (unified post-shell dispatch = codon)'
+      call zm_conv_append_post_shell_proof('zm_momtran prep shell entered (unified post-shell dispatch = codon)')
       call flush(iulog)
       zm_momtran_prep_logged = .true.
    end if
 
-   call zm_momtran_prep_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-        c_loc(state_u_local), c_loc(state_v_local), c_loc(winds_local))
+   call zm_conv_post_stage_dispatch_call(9_c_int64_t, 0_c_int64_t, int(ncol_local, c_int64_t), &
+        int(pcols, c_int64_t), int(pver, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+        0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0_c_double, 0.0_c_double, &
+        0.0_c_double, c_loc(state_u_local), c_loc(state_v_local), c_loc(winds_local))
 
 end subroutine zm_momtran_prep_shell
 
@@ -1434,15 +1504,17 @@ subroutine zm_momtran_post_shell(ncol_local, cpair_local, wind_tends_local, sete
    end if
 
    if (masterproc .and. .not. zm_momtran_post_logged) then
-      write(iulog,*) 'zm_momtran post shell entered (wind/static tendencies direct = codon)'
-      call zm_conv_append_post_shell_proof('zm_momtran post shell entered (wind/static tendencies direct = codon)')
+      write(iulog,*) 'zm_momtran post shell entered (unified post-shell dispatch = codon)'
+      call zm_conv_append_post_shell_proof('zm_momtran post shell entered (unified post-shell dispatch = codon)')
       call flush(iulog)
       zm_momtran_post_logged = .true.
    end if
 
-   call zm_momtran_post_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-        real(cpair_local, c_double), c_loc(wind_tends_local), c_loc(seten_local), c_loc(ptend_u_local), &
-        c_loc(ptend_v_local), c_loc(ptend_s_local), c_loc(ftem_local))
+   call zm_conv_post_stage_dispatch_call(10_c_int64_t, 0_c_int64_t, int(ncol_local, c_int64_t), &
+        int(pcols, c_int64_t), int(pver, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+        0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0_c_double, real(cpair_local, c_double), &
+        0.0_c_double, c_loc(wind_tends_local), c_loc(seten_local), c_loc(ptend_u_local), c_loc(ptend_v_local), &
+        c_loc(ptend_s_local), c_loc(ftem_local))
 
 end subroutine zm_momtran_post_shell
 
@@ -1450,7 +1522,7 @@ end subroutine zm_momtran_post_shell
 
 subroutine zm_convtran1_prep_shell(fake_dpdry_local)
 
-   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
    real(r8), target, intent(inout) :: fake_dpdry_local(pcols,pver)
 
@@ -1471,13 +1543,16 @@ subroutine zm_convtran1_prep_shell(fake_dpdry_local)
    end if
 
    if (masterproc .and. .not. zm_convtran1_prep_logged) then
-      write(iulog,*) 'zm_convtran1 prep shell entered (fake_dpdry zero direct = codon)'
-      call zm_conv_append_post_shell_proof('zm_convtran1 prep shell entered (fake_dpdry zero direct = codon)')
+      write(iulog,*) 'zm_convtran1 prep shell entered (unified post-shell dispatch = codon)'
+      call zm_conv_append_post_shell_proof('zm_convtran1 prep shell entered (unified post-shell dispatch = codon)')
       call flush(iulog)
       zm_convtran1_prep_logged = .true.
    end if
 
-   call zm_convtran1_prep_shell_codon(int(pcols, c_int64_t), int(pver, c_int64_t), c_loc(fake_dpdry_local))
+   call zm_conv_post_stage_dispatch_call(11_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+        int(pcols, c_int64_t), int(pver, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+        0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0_c_double, 0.0_c_double, &
+        0.0_c_double, c_loc(fake_dpdry_local))
 
 end subroutine zm_convtran1_prep_shell
 
@@ -1485,7 +1560,7 @@ end subroutine zm_convtran1_prep_shell
 
 subroutine zm_convtran1_ratio_shell(ncol_local, wtrc_nwset_local, Rwt_local, ptend_q_local, liq_type64_local, ice_type64_local)
 
-   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
    integer, intent(in) :: ncol_local, wtrc_nwset_local
    real(r8), target, intent(in) :: Rwt_local(pcols,pver,wtrc_nwset_local,2)
@@ -1510,15 +1585,16 @@ subroutine zm_convtran1_ratio_shell(ncol_local, wtrc_nwset_local, Rwt_local, pte
    end if
 
    if (masterproc .and. .not. zm_convtran1_ratio_logged) then
-      write(iulog,*) 'zm_convtran1 ratio shell entered (water tracer ratios direct = codon)'
-      call zm_conv_append_post_shell_proof('zm_convtran1 ratio shell entered (water tracer ratios direct = codon)')
+      write(iulog,*) 'zm_convtran1 ratio shell entered (unified post-shell dispatch = codon)'
+      call zm_conv_append_post_shell_proof('zm_convtran1 ratio shell entered (unified post-shell dispatch = codon)')
       call flush(iulog)
       zm_convtran1_ratio_logged = .true.
    end if
 
-   call zm_convtran1_ratio_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-        int(wtrc_nwset_local, c_int64_t), c_loc(Rwt_local), c_loc(ptend_q_local), c_loc(liq_type64_local), &
-        c_loc(ice_type64_local))
+   call zm_conv_post_stage_dispatch_call(12_c_int64_t, 0_c_int64_t, int(ncol_local, c_int64_t), &
+        int(pcols, c_int64_t), int(pver, c_int64_t), 0_c_int64_t, 0_c_int64_t, int(wtrc_nwset_local, c_int64_t), &
+        0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0_c_double, 0.0_c_double, &
+        0.0_c_double, c_loc(Rwt_local), c_loc(ptend_q_local), c_loc(liq_type64_local), c_loc(ice_type64_local))
 
 end subroutine zm_convtran1_ratio_shell
 
@@ -1550,7 +1626,7 @@ end subroutine zm_convtran1_ratio_shell_native
 
 subroutine zm_convtran2_dpdry_shell(lengath_local, state_pdeldry_local, ideep64_local, dpdry_local)
 
-   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
    integer, intent(in) :: lengath_local
    real(r8), target, intent(in) :: state_pdeldry_local(pcols,pver)
@@ -1574,14 +1650,16 @@ subroutine zm_convtran2_dpdry_shell(lengath_local, state_pdeldry_local, ideep64_
    end if
 
    if (masterproc .and. .not. zm_convtran2_dpdry_logged) then
-      write(iulog,*) 'zm_convtran2 dpdry shell entered (dry pressure prep direct = codon)'
-      call zm_conv_append_post_shell_proof('zm_convtran2 dpdry shell entered (dry pressure prep direct = codon)')
+      write(iulog,*) 'zm_convtran2 dpdry shell entered (unified post-shell dispatch = codon)'
+      call zm_conv_append_post_shell_proof('zm_convtran2 dpdry shell entered (unified post-shell dispatch = codon)')
       call flush(iulog)
       zm_convtran2_dpdry_logged = .true.
    end if
 
-   call zm_convtran2_dpdry_shell_codon(int(pcols, c_int64_t), int(pver, c_int64_t), int(lengath_local, c_int64_t), &
-        c_loc(state_pdeldry_local), c_loc(ideep64_local), c_loc(dpdry_local))
+   call zm_conv_post_stage_dispatch_call(13_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+        int(pcols, c_int64_t), int(pver, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+        int(lengath_local, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0_c_double, &
+        0.0_c_double, 0.0_c_double, c_loc(state_pdeldry_local), c_loc(ideep64_local), c_loc(dpdry_local))
 
 end subroutine zm_convtran2_dpdry_shell
 

@@ -2553,3 +2553,88 @@ def zm_convtran2_dpdry_shell_codon(
             dpdry[i + k * pcols] = state_pdeldry[src_i + k * pcols] / 100.0
             k += 1
         i += 1
+
+
+@export
+def zm_conv_post_stage_dispatch_codon(
+    stage: int,
+    mode: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    pcnst: int,
+    wtrc_nwset: int,
+    lengath: int,
+    ixorg: int,
+    do_org: int,
+    vap_type: int,
+    gravit: float,
+    cpair: float,
+    ztodt: float,
+    p1: cobj,
+    p2: cobj,
+    p3: cobj,
+    p4: cobj,
+    p5: cobj,
+    p6: cobj,
+    p7: cobj,
+    p8: cobj,
+    p9: cobj,
+    p10: cobj,
+    p11: cobj,
+    p12: cobj,
+    p13: cobj,
+    p14: cobj,
+    p15: cobj,
+    p16: cobj,
+):
+    if stage == 1:
+        zm_conv_workspace_init_shell_codon(ncol, pcols, pver, p1, p2, p3, p4)
+    elif stage == 2:
+        zm_conv_ptend_lq_mask_shell_codon(pcnst, wtrc_nwset, do_org, ixorg, p1, p2)
+    elif stage == 3:
+        zm_wtrc_convr_prep_shell_codon(ncol, pcols, pver, pcnst, wtrc_nwset, p1, p2, p3, p4, p5)
+    elif stage == 4:
+        zm_wtrc_precip_assign_shell_codon(pcols, vap_type, p1, p2, p3, p4)
+    elif stage == 5:
+        zm_convr_post_shell_codon(
+            ncol,
+            pcols,
+            pver,
+            pverp,
+            lengath,
+            gravit,
+            cpair,
+            p1,
+            p2,
+            p3,
+            p4,
+            p5,
+            p6,
+            p7,
+            p8,
+            p9,
+            p10,
+            p11,
+            p12,
+            p13,
+            p14,
+            p15,
+        )
+    elif stage == 6:
+        zm_conv_evap_prep_shell_codon(ncol, pcols, pver, p1, p2)
+    elif stage == 7:
+        zm_conv_evap_post_shell_codon(ncol, pcols, pver, ixorg, do_org, ztodt, p1, p2, p3)
+    elif stage == 8:
+        zm_conv_evap_hist_shell_codon(mode, ncol, pcols, pver, cpair, p1, p2, p3, p4)
+    elif stage == 9:
+        zm_momtran_prep_shell_codon(ncol, pcols, pver, p1, p2, p3)
+    elif stage == 10:
+        zm_momtran_post_shell_codon(ncol, pcols, pver, cpair, p1, p2, p3, p4, p5, p6)
+    elif stage == 11:
+        zm_convtran1_prep_shell_codon(pcols, pver, p1)
+    elif stage == 12:
+        zm_convtran1_ratio_shell_codon(ncol, pcols, pver, wtrc_nwset, p1, p2, p3, p4)
+    elif stage == 13:
+        zm_convtran2_dpdry_shell_codon(pcols, pver, lengath, p1, p2, p3)
