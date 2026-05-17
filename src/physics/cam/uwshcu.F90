@@ -1475,10 +1475,10 @@ contains
     if (masterproc) then
        write(iulog,'(A)') &
             'uwshcu thermo conden/condensate batch shell entered ' // &
-            '(conden exit/midstate/condensate scalars direct = codon; conden/water tracers native)'
+            '(unified thermo-conden-condensate stage dispatch = codon; conden/water tracers native)'
        call uwshcu_append_proof( &
             'uwshcu thermo conden/condensate batch shell entered ' // &
-            '(conden exit/midstate/condensate scalars direct = codon; conden/water tracers native)')
+            '(unified thermo-conden-condensate stage dispatch = codon; conden/water tracers native)')
        call flush(iulog)
     end if
 
@@ -1527,9 +1527,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu thermo post batch shell entered (final/precip/positive/tracer limiter direct = codon; qsat/sqrt/isotope/positive moisture native)'
+            'uwshcu thermo post batch shell entered (unified thermo-post stage dispatch = codon; qsat/sqrt/isotope/positive moisture native)'
        call uwshcu_append_proof( &
-            'uwshcu thermo post batch shell entered (final/precip/positive/tracer limiter direct = codon; qsat/sqrt/isotope/positive moisture native)')
+            'uwshcu thermo post batch shell entered (unified thermo-post stage dispatch = codon; qsat/sqrt/isotope/positive moisture native)')
        call flush(iulog)
     end if
 
