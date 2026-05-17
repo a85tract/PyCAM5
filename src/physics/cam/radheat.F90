@@ -104,8 +104,8 @@ subroutine radheat_batch_log_entered()
   radheat_batch_entered_logged = .true.
 
   if (masterproc) then
-     write(iulog,'(A)') 'radheat_batch entered (timestep_init/tend direct = codon)'
-     call radheat_batch_append_proof('radheat_batch entered (timestep_init/tend direct = codon)')
+     write(iulog,'(A)') 'radheat_batch entered (unified timestep/tend stage dispatch = codon)'
+     call radheat_batch_append_proof('radheat_batch entered (unified timestep/tend stage dispatch = codon)')
      call flush(iulog)
   end if
 
@@ -142,8 +142,9 @@ subroutine radheat_timestep_init (state, pbuf2d)
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
 
     interface
-       subroutine radheat_batch_timestep_init_codon() bind(c, name="radheat_batch_timestep_init_codon")
-       end subroutine radheat_batch_timestep_init_codon
+       subroutine radheat_batch_timestep_init_stage_dispatch_codon() &
+            bind(c, name="radheat_batch_timestep_init_stage_dispatch_codon")
+       end subroutine radheat_batch_timestep_init_stage_dispatch_codon
     end interface
 
     call radheat_batch_select_impl()
@@ -154,7 +155,7 @@ subroutine radheat_timestep_init (state, pbuf2d)
     end if
 
     call radheat_batch_log_entered()
-    call radheat_batch_timestep_init_codon()
+    call radheat_batch_timestep_init_stage_dispatch_codon()
 
 
 end subroutine radheat_timestep_init
@@ -206,12 +207,13 @@ subroutine radheat_tend(state, pbuf,  ptend, qrl, qrs, fsns, &
    real(r8), target :: ptend_s_work(state%psetcols,pver)
 
    interface
-      subroutine radheat_batch_tend_codon(ncol_c, pcols_c, pver_c, psetcols_c, &
-           qrl_p, qrs_p, ptend_s_p, fsns_p, fsnt_p, flns_p, flnt_p, net_flx_p) bind(c, name="radheat_batch_tend_codon")
+      subroutine radheat_batch_tend_stage_dispatch_codon(ncol_c, pcols_c, pver_c, psetcols_c, &
+           qrl_p, qrs_p, ptend_s_p, fsns_p, fsnt_p, flns_p, flnt_p, net_flx_p) &
+           bind(c, name="radheat_batch_tend_stage_dispatch_codon")
          use iso_c_binding, only: c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, psetcols_c
          type(c_ptr), value :: qrl_p, qrs_p, ptend_s_p, fsns_p, fsnt_p, flns_p, flnt_p, net_flx_p
-      end subroutine radheat_batch_tend_codon
+      end subroutine radheat_batch_tend_stage_dispatch_codon
    end interface
 !-----------------------------------------------------------------------
 
@@ -233,7 +235,7 @@ subroutine radheat_tend(state, pbuf,  ptend, qrl, qrs, fsns, &
    ptend_s_work = 0._r8
 
    call radheat_batch_log_entered()
-   call radheat_batch_tend_codon( &
+   call radheat_batch_tend_stage_dispatch_codon( &
         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(state%psetcols, c_int64_t), &
         c_loc(qrl), c_loc(qrs), c_loc(ptend_s_work), c_loc(fsns), c_loc(fsnt), c_loc(flns), c_loc(flnt), c_loc(net_flx) &
    )

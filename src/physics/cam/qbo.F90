@@ -89,8 +89,8 @@ subroutine qbo_batch_log_entered()
   qbo_batch_entered_logged = .true.
 
   if (masterproc) then
-     write(iulog,'(A)') 'qbo_batch entered (timestep_init/relax direct = codon)'
-     call qbo_batch_append_proof('qbo_batch entered (timestep_init/relax direct = codon)')
+     write(iulog,'(A)') 'qbo_batch entered (unified timestep/relax stage dispatch = codon)'
+     call qbo_batch_append_proof('qbo_batch entered (unified timestep/relax stage dispatch = codon)')
      call flush(iulog)
   end if
 
@@ -180,8 +180,9 @@ end subroutine qbo_init
 
 subroutine qbo_timestep_init
   interface
-     subroutine qbo_batch_tstep_init_codon() bind(c, name="qbo_batch_tstep_init_codon")
-     end subroutine qbo_batch_tstep_init_codon
+     subroutine qbo_batch_tstep_init_stage_dispatch_codon() &
+          bind(c, name="qbo_batch_tstep_init_stage_dispatch_codon")
+     end subroutine qbo_batch_tstep_init_stage_dispatch_codon
   end interface
 
   call qbo_batch_select_impl()
@@ -192,7 +193,7 @@ subroutine qbo_timestep_init
   end if
 
   call qbo_batch_log_entered()
-  call qbo_batch_tstep_init_codon()
+  call qbo_batch_tstep_init_stage_dispatch_codon()
 
 end subroutine qbo_timestep_init
 
@@ -209,8 +210,8 @@ subroutine qbo_relax( state, pbuf, ptend )
   use physics_buffer, only: physics_buffer_desc
 
   interface
-     subroutine qbo_batch_relax_codon() bind(c, name="qbo_batch_relax_codon")
-     end subroutine qbo_batch_relax_codon
+     subroutine qbo_batch_relax_stage_dispatch_codon() bind(c, name="qbo_batch_relax_stage_dispatch_codon")
+     end subroutine qbo_batch_relax_stage_dispatch_codon
   end interface
 
 !--------------------------------------------------------------------------------
@@ -229,7 +230,7 @@ subroutine qbo_relax( state, pbuf, ptend )
 
   call physics_ptend_init(ptend, state%psetcols, 'qbo (stub)')
   call qbo_batch_log_entered()
-  call qbo_batch_relax_codon()
+  call qbo_batch_relax_stage_dispatch_codon()
 
 end subroutine qbo_relax
 
