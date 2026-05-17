@@ -9,6 +9,8 @@ module rrtmg_state
 
   use shr_kind_mod,    only: r8 => shr_kind_r8
   use ppgrid,          only: pcols, pver, pverp
+  use cam_logfile,     only: iulog
+  use spmd_utils,      only: masterproc
 
   implicit none
   private
@@ -52,6 +54,10 @@ module rrtmg_state
   real(r8), parameter :: amdc1 = 0.210852_r8   ! Molecular weight of dry air / CFC11
   real(r8), parameter :: amdc2 = 0.239546_r8   ! Molecular weight of dry air / CFC12
 
+  logical :: use_native_rrtmg_state_impl = .false.
+  logical :: rrtmg_state_impl_selected = .false.
+  logical :: rrtmg_state_entered_logged = .false.
+
 contains
 
 !--------------------------------------------------------------------------------
@@ -76,17 +82,30 @@ contains
     use physics_types,    only: physics_state
     use camsrfexch,       only: cam_in_t
     use physconst,        only: stebol
+    use iso_c_binding,    only: c_double, c_int64_t, c_loc, c_ptr
 
     implicit none
 
-    type(physics_state), intent(in) :: pstate
-    type(cam_in_t),      intent(in) :: cam_in
+    type(physics_state), intent(in), target :: pstate
+    type(cam_in_t),      intent(in), target :: cam_in
 
     type(rrtmg_state_t), pointer  :: rstate
 
     real(r8) dy                   ! Temporary layer pressure thickness
     real(r8) :: tint(pcols,pverp)    ! Model interface temperature
     integer  :: ncol, i, kk, k
+
+    interface
+       subroutine rrtmg_state_create_fields_codon(ncol_c, pcols_c, pver_c, pverp_c, num_rrtmg_levs_c, stebol_c, &
+            t_p, lnpint_p, lnpmid_p, pmid_p, pint_p, lwup_p, pmidmb_p, pintmb_p, tlay_p, tlev_p) &
+            bind(c, name="rrtmg_state_create_fields_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c, num_rrtmg_levs_c
+         real(c_double), value :: stebol_c
+         type(c_ptr), value :: t_p, lnpint_p, lnpmid_p, pmid_p, pint_p, lwup_p
+         type(c_ptr), value :: pmidmb_p, pintmb_p, tlay_p, tlev_p
+       end subroutine rrtmg_state_create_fields_codon
+    end interface
 
     allocate( rstate )
 
@@ -107,6 +126,20 @@ contains
     allocate( rstate%tlev(pcols,num_rrtmg_levs+1) )
 
     ncol = pstate%ncol
+
+    call rrtmg_state_select_impl()
+
+    if (.not. use_native_rrtmg_state_impl) then
+       call rrtmg_state_log_entered()
+       call rrtmg_state_create_fields_codon( &
+            int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
+            int(num_rrtmg_levs, c_int64_t), real(stebol, c_double), &
+            c_loc(pstate%t(1,1)), c_loc(pstate%lnpint(1,1)), c_loc(pstate%lnpmid(1,1)), &
+            c_loc(pstate%pmid(1,1)), c_loc(pstate%pint(1,1)), c_loc(cam_in%lwup(1)), &
+            c_loc(rstate%pmidmb(1,1)), c_loc(rstate%pintmb(1,1)), c_loc(rstate%tlay(1,1)), c_loc(rstate%tlev(1,1)) &
+       )
+       return
+    end if
 
     ! Calculate interface temperatures (following method
     ! used in radtpl for the longwave), using surface upward flux and
@@ -151,6 +184,7 @@ contains
     use physics_types,    only: physics_state
     use physics_buffer,   only: physics_buffer_desc
     use rad_constituents, only: rad_cnst_get_gas
+    use iso_c_binding,    only: c_int64_t, c_loc, c_ptr
 
     implicit none
 
@@ -170,6 +204,19 @@ contains
     
     integer  :: ncol, i, kk, k
 
+    interface
+       subroutine rrtmg_state_update_codon(ncol_c, pcols_c, pverp_c, num_rrtmg_levs_c, &
+            sp_hum_p, o2_p, o3_p, co2_p, n2o_p, ch4_p, cfc11_p, cfc12_p, &
+            ch4vmr_p, h2ovmr_p, o3vmr_p, co2vmr_p, o2vmr_p, n2ovmr_p, cfc11vmr_p, cfc12vmr_p, &
+            cfc22vmr_p, ccl4vmr_p) bind(c, name="rrtmg_state_update_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pverp_c, num_rrtmg_levs_c
+         type(c_ptr), value :: sp_hum_p, o2_p, o3_p, co2_p, n2o_p, ch4_p, cfc11_p, cfc12_p
+         type(c_ptr), value :: ch4vmr_p, h2ovmr_p, o3vmr_p, co2vmr_p, o2vmr_p, n2ovmr_p
+         type(c_ptr), value :: cfc11vmr_p, cfc12vmr_p, cfc22vmr_p, ccl4vmr_p
+       end subroutine rrtmg_state_update_codon
+    end interface
+
     ncol = pstate%ncol
 
     ! Get specific humidity
@@ -187,6 +234,22 @@ contains
     ! Get CFC mass mixing ratios
     call rad_cnst_get_gas(icall,'CFC11', pstate, pbuf, cfc11)
     call rad_cnst_get_gas(icall,'CFC12', pstate, pbuf, cfc12)
+
+    call rrtmg_state_select_impl()
+
+    if (.not. use_native_rrtmg_state_impl) then
+       call rrtmg_state_log_entered()
+       call rrtmg_state_update_codon( &
+            int(ncol, c_int64_t), int(pcols, c_int64_t), int(pverp, c_int64_t), int(num_rrtmg_levs, c_int64_t), &
+            c_loc(sp_hum(1,1)), c_loc(o2(1,1)), c_loc(o3(1,1)), c_loc(co2(1,1)), &
+            c_loc(n2o(1,1)), c_loc(ch4(1,1)), c_loc(cfc11(1,1)), c_loc(cfc12(1,1)), &
+            c_loc(rstate%ch4vmr(1,1)), c_loc(rstate%h2ovmr(1,1)), c_loc(rstate%o3vmr(1,1)), &
+            c_loc(rstate%co2vmr(1,1)), c_loc(rstate%o2vmr(1,1)), c_loc(rstate%n2ovmr(1,1)), &
+            c_loc(rstate%cfc11vmr(1,1)), c_loc(rstate%cfc12vmr(1,1)), c_loc(rstate%cfc22vmr(1,1)), &
+            c_loc(rstate%ccl4vmr(1,1)) &
+       )
+       return
+    end if
 
     do k = 1, num_rrtmg_levs
 
@@ -237,5 +300,56 @@ contains
     nullify(rstate)
 
   endsubroutine rrtmg_state_destroy
+
+!--------------------------------------------------------------------------------
+
+  subroutine rrtmg_state_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (rrtmg_state_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('RRTMG_STATE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_rrtmg_state_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_rrtmg_state_impl = .false.
+    end if
+
+    rrtmg_state_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_rrtmg_state_impl) then
+          write(iulog,*) 'rrtmg_state implementation = native'
+       else
+          write(iulog,*) 'rrtmg_state implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine rrtmg_state_select_impl
+
+!--------------------------------------------------------------------------------
+
+  subroutine rrtmg_state_log_entered()
+
+    if (rrtmg_state_entered_logged) return
+    rrtmg_state_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'rrtmg_state entered (create/update helpers = codon)'
+       call flush(iulog)
+    end if
+
+  end subroutine rrtmg_state_log_entered
 
 end module rrtmg_state

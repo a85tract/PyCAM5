@@ -30,6 +30,9 @@ public ::&
    
 ! Private data
 integer :: ntoplw    ! top level to solve for longwave cooling
+logical :: use_native_rrtmg_lw_driver_impl = .false.
+logical :: rrtmg_lw_driver_impl_selected = .false.
+logical :: rrtmg_lw_driver_entered_logged = .false.
 
 !===============================================================================
 CONTAINS
@@ -47,6 +50,7 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
    use mcica_subcol_gen_lw, only: mcica_subcol_lw
    use physconst,           only: cpair
    use rrtmg_state,         only: rrtmg_state_t
+   use iso_c_binding,       only: c_double, c_int64_t, c_loc, c_ptr
 
 !------------------------------Arguments--------------------------------
 !
@@ -59,11 +63,11 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
 !
 ! Input arguments which are only passed to other routines
 !
-    type(rrtmg_state_t), intent(in) :: r_state
+    type(rrtmg_state_t), intent(in), target :: r_state
 
    real(r8), intent(in) :: pmid(pcols,pver)     ! Level pressure (Pascals)
 
-   real(r8), intent(in) :: aer_lw_abs (pcols,pver,nbndlw) ! aerosol absorption optics depth (LW)
+   real(r8), target, intent(in) :: aer_lw_abs (pcols,pver,nbndlw) ! aerosol absorption optics depth (LW)
 
    real(r8), intent(in) :: cld(pcols,pver)      ! Cloud cover
    real(r8), intent(in) :: tauc_lw(nbndlw,pcols,pver)   ! Cloud longwave optical depth by band
@@ -71,18 +75,18 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
 !
 ! Output arguments
 !
-   real(r8), intent(out) :: qrl (pcols,pver)     ! Longwave heating rate
-   real(r8), intent(out) :: qrlc(pcols,pver)     ! Clearsky longwave heating rate
-   real(r8), intent(out) :: flns(pcols)          ! Surface cooling flux
-   real(r8), intent(out) :: flnt(pcols)          ! Net outgoing flux
-   real(r8), intent(out) :: flut(pcols)          ! Upward flux at top of model
-   real(r8), intent(out) :: flnsc(pcols)         ! Clear sky surface cooing
-   real(r8), intent(out) :: flntc(pcols)         ! Net clear sky outgoing flux
-   real(r8), intent(out) :: flutc(pcols)         ! Upward clear-sky flux at top of model
-   real(r8), intent(out) :: flwds(pcols)         ! Down longwave flux at surface
-   real(r8), intent(out) :: fldsc(pcols)         ! Down longwave clear flux at surface
-   real(r8), intent(out) :: fcnl(pcols,pverp)    ! clear sky net flux at interfaces
-   real(r8), intent(out) :: fnl(pcols,pverp)     ! net flux at interfaces
+   real(r8), target, intent(out) :: qrl (pcols,pver)     ! Longwave heating rate
+   real(r8), target, intent(out) :: qrlc(pcols,pver)     ! Clearsky longwave heating rate
+   real(r8), target, intent(out) :: flns(pcols)          ! Surface cooling flux
+   real(r8), target, intent(out) :: flnt(pcols)          ! Net outgoing flux
+   real(r8), target, intent(out) :: flut(pcols)          ! Upward flux at top of model
+   real(r8), target, intent(out) :: flnsc(pcols)         ! Clear sky surface cooing
+   real(r8), target, intent(out) :: flntc(pcols)         ! Net clear sky outgoing flux
+   real(r8), target, intent(out) :: flutc(pcols)         ! Upward clear-sky flux at top of model
+   real(r8), target, intent(out) :: flwds(pcols)         ! Down longwave flux at surface
+   real(r8), target, intent(out) :: fldsc(pcols)         ! Down longwave clear flux at surface
+   real(r8), target, intent(out) :: fcnl(pcols,pverp)    ! clear sky net flux at interfaces
+   real(r8), target, intent(out) :: fnl(pcols,pverp)     ! net flux at interfaces
 
    real(r8), pointer, dimension(:,:,:) :: lu ! longwave spectral flux up
    real(r8), pointer, dimension(:,:,:) :: ld ! longwave spectral flux down
@@ -92,10 +96,10 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
 !
    integer :: i, k, kk, nbnd         ! indices
 
-   real(r8) :: ful(pcols,pverp)     ! Total upwards longwave flux
-   real(r8) :: fsul(pcols,pverp)    ! Clear sky upwards longwave flux
-   real(r8) :: fdl(pcols,pverp)     ! Total downwards longwave flux
-   real(r8) :: fsdl(pcols,pverp)    ! Clear sky downwards longwv flux
+   real(r8), target :: ful(pcols,pverp)     ! Total upwards longwave flux
+   real(r8), target :: fsul(pcols,pverp)    ! Clear sky upwards longwave flux
+   real(r8), target :: fdl(pcols,pverp)     ! Total downwards longwave flux
+   real(r8), target :: fsdl(pcols,pverp)    ! Clear sky downwards longwv flux
 
    integer :: inflglw               ! Flag for cloud parameterization method
    integer :: iceflglw              ! Flag for ice cloud param method
@@ -103,10 +107,10 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
    integer :: icld                  ! Flag for cloud overlap method
                                  ! 0=clear, 1=random, 2=maximum/random, 3=maximum
 
-   real(r8) :: tsfc(pcols)          ! surface temperature
-   real(r8) :: emis(pcols,nbndlw)   ! surface emissivity
+   real(r8), target :: tsfc(pcols)          ! surface temperature
+   real(r8), target :: emis(pcols,nbndlw)   ! surface emissivity
 
-   real(r8) :: taua_lw(pcols,rrtmg_levs-1,nbndlw)     ! aerosol optical depth by band
+   real(r8), target :: taua_lw(pcols,rrtmg_levs-1,nbndlw)     ! aerosol optical depth by band
 
    real(r8), parameter :: dps = 1._r8/86400._r8 ! Inverse of seconds per day
 
@@ -127,14 +131,33 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
    real(r8) :: tauc_stolw(nsubclw, pcols, rrtmg_levs-1)    ! cloud optical depth (mcica - optional)
 
    ! Includes extra layer above model top
-   real(r8) :: uflx(pcols,rrtmg_levs+1)  ! Total upwards longwave flux
-   real(r8) :: uflxc(pcols,rrtmg_levs+1) ! Clear sky upwards longwave flux
-   real(r8) :: dflx(pcols,rrtmg_levs+1)  ! Total downwards longwave flux
-   real(r8) :: dflxc(pcols,rrtmg_levs+1) ! Clear sky downwards longwv flux
-   real(r8) :: hr(pcols,rrtmg_levs)      ! Longwave heating rate (K/d)
-   real(r8) :: hrc(pcols,rrtmg_levs)     ! Clear sky longwave heating rate (K/d)
+   real(r8), target :: uflx(pcols,rrtmg_levs+1)  ! Total upwards longwave flux
+   real(r8), target :: uflxc(pcols,rrtmg_levs+1) ! Clear sky upwards longwave flux
+   real(r8), target :: dflx(pcols,rrtmg_levs+1)  ! Total downwards longwave flux
+   real(r8), target :: dflxc(pcols,rrtmg_levs+1) ! Clear sky downwards longwv flux
+   real(r8), target :: hr(pcols,rrtmg_levs)      ! Longwave heating rate (K/d)
+   real(r8), target :: hrc(pcols,rrtmg_levs)     ! Clear sky longwave heating rate (K/d)
    real(r8) lwuflxs(nbndlw,pcols,pverp+1)  ! Longwave spectral flux up
    real(r8) lwdflxs(nbndlw,pcols,pverp+1)  ! Longwave spectral flux down
+   interface
+      subroutine rrtmg_lw_pre_codon(ncol_c, pcols_c, pver_c, pverp_c, rrtmg_levs_c, nbndlw_c, &
+           aer_lw_abs_p, tlev_p, emis_p, tsfc_p, taua_lw_p) bind(c, name="rrtmg_lw_pre_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c, rrtmg_levs_c, nbndlw_c
+         type(c_ptr), value :: aer_lw_abs_p, tlev_p, emis_p, tsfc_p, taua_lw_p
+      end subroutine rrtmg_lw_pre_codon
+      subroutine rrtmg_lw_post_codon(ncol_c, pcols_c, pver_c, pverp_c, rrtmg_levs_c, ntoplw_c, cpair_c, &
+           uflx_p, dflx_p, hr_p, uflxc_p, dflxc_p, hrc_p, flwds_p, fldsc_p, flns_p, flnsc_p, flnt_p, flntc_p, &
+           flut_p, flutc_p, ful_p, fdl_p, fsul_p, fsdl_p, fnl_p, fcnl_p, qrl_p, qrlc_p) &
+           bind(c, name="rrtmg_lw_post_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c, rrtmg_levs_c, ntoplw_c
+         real(c_double), value :: cpair_c
+         type(c_ptr), value :: uflx_p, dflx_p, hr_p, uflxc_p, dflxc_p, hrc_p
+         type(c_ptr), value :: flwds_p, fldsc_p, flns_p, flnsc_p, flnt_p, flntc_p, flut_p, flutc_p
+         type(c_ptr), value :: ful_p, fdl_p, fsul_p, fsdl_p, fnl_p, fcnl_p, qrl_p, qrlc_p
+      end subroutine rrtmg_lw_post_codon
+   end interface
    !-----------------------------------------------------------------------
 
    ! mji/rrtmg
@@ -218,6 +241,16 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
    if (associated(lu)) lu(1:ncol,:,:) = 0.0_r8
    if (associated(ld)) ld(1:ncol,:,:) = 0.0_r8
 
+   call rrtmg_lw_driver_select_impl()
+   if (.not. use_native_rrtmg_lw_driver_impl) then
+      call rrtmg_lw_driver_log_entered()
+      call rrtmg_lw_pre_codon( &
+           int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
+           int(rrtmg_levs, c_int64_t), int(nbndlw, c_int64_t), &
+           c_loc(aer_lw_abs(1,1,1)), c_loc(r_state%tlev(1,1)), c_loc(emis(1,1)), c_loc(tsfc(1)), c_loc(taua_lw(1,1,1)) &
+      )
+   end if
+
    call rrtmg_lw(lchnk  ,ncol ,rrtmg_levs    ,icld    ,                 &
         r_state%pmidmb  ,r_state%pintmb  ,r_state%tlay    ,r_state%tlev    ,tsfc    ,r_state%h2ovmr, &
         r_state%o3vmr   ,r_state%co2vmr  ,r_state%ch4vmr  ,r_state%o2vmr   ,r_state%n2ovmr  ,r_state%cfc11vmr,r_state%cfc12vmr, &
@@ -280,6 +313,17 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
       qrlc(:ncol,:ntoplw-1) = 0._r8
    end if
 
+   if (.not. use_native_rrtmg_lw_driver_impl) then
+      call rrtmg_lw_post_codon( &
+           int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
+           int(rrtmg_levs, c_int64_t), int(ntoplw, c_int64_t), real(cpair, c_double), &
+           c_loc(uflx(1,1)), c_loc(dflx(1,1)), c_loc(hr(1,1)), c_loc(uflxc(1,1)), c_loc(dflxc(1,1)), c_loc(hrc(1,1)), &
+           c_loc(flwds(1)), c_loc(fldsc(1)), c_loc(flns(1)), c_loc(flnsc(1)), c_loc(flnt(1)), c_loc(flntc(1)), &
+           c_loc(flut(1)), c_loc(flutc(1)), c_loc(ful(1,1)), c_loc(fdl(1,1)), c_loc(fsul(1,1)), c_loc(fsdl(1,1)), &
+           c_loc(fnl(1,1)), c_loc(fcnl(1,1)), c_loc(qrl(1,1)), c_loc(qrlc(1,1)) &
+      )
+   end if
+
    ! Pass spectral fluxes, reverse layering
    ! order=(/3,1,2/) maps the first index of lwuflxs to the third index of lu.
    if (associated(lu)) then
@@ -326,6 +370,57 @@ subroutine radlw_init()
    call rrtmg_lw_ini
 
 end subroutine radlw_init
+
+!-------------------------------------------------------------------------------
+
+subroutine rrtmg_lw_driver_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (rrtmg_lw_driver_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('RRTMG_LW_DRIVER_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_rrtmg_lw_driver_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_rrtmg_lw_driver_impl = .false.
+   end if
+
+   rrtmg_lw_driver_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_rrtmg_lw_driver_impl) then
+         write(iulog,*) 'rrtmg_lw_driver implementation = native'
+      else
+         write(iulog,*) 'rrtmg_lw_driver implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine rrtmg_lw_driver_select_impl
+
+!-------------------------------------------------------------------------------
+
+subroutine rrtmg_lw_driver_log_entered()
+
+   if (rrtmg_lw_driver_entered_logged) return
+   rrtmg_lw_driver_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,*) 'rrtmg_lw_driver entered (pre/post helpers = codon; rrtmg_lw core = native)'
+      call flush(iulog)
+   end if
+
+end subroutine rrtmg_lw_driver_log_entered
 
 !-------------------------------------------------------------------------------
 
