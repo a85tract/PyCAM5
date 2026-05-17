@@ -18,16 +18,76 @@
 ! ------- Modules -------
 
       use shr_kind_mod, only: r8 => shr_kind_r8
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
 
 !      use parkind, only: jpim, jprb
 !      use parrrsw, only: ngptsw
 
       implicit none
+      save
+
+      logical :: use_native_vrtqdr_sw_impl = .false.
+      logical :: vrtqdr_sw_impl_selected = .false.
+      logical :: vrtqdr_sw_entered_logged = .false.
 
       contains
 
 ! --------------------------------------------------------------------------
       subroutine vrtqdr_sw(klev, kw, &
+                           pref, prefd, ptra, ptrad, &
+                           pdbt, prdnd, prup, prupd, ptdbt, &
+                           pfd, pfu)
+! --------------------------------------------------------------------------
+      use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+      integer, intent (in) :: klev
+      integer, intent (in) :: kw
+
+      real(kind=r8), target, intent(in) :: pref(:)
+      real(kind=r8), target, intent(in) :: prefd(:)
+      real(kind=r8), target, intent(in) :: ptra(:)
+      real(kind=r8), target, intent(in) :: ptrad(:)
+
+      real(kind=r8), target, intent(in) :: pdbt(:)
+      real(kind=r8), target, intent(in) :: ptdbt(:)
+
+      real(kind=r8), target, intent(inout) :: prdnd(:)
+      real(kind=r8), target, intent(inout) :: prup(:)
+      real(kind=r8), target, intent(inout) :: prupd(:)
+
+      real(kind=r8), target, intent(out) :: pfd(:,:)
+      real(kind=r8), target, intent(out) :: pfu(:,:)
+
+      real(kind=r8), target :: ztdn(klev+1)
+
+      interface
+         subroutine rrtmg_sw_vrtqdr_codon(klev_c, kw_c, pref_p, prefd_p, ptra_p, ptrad_p, pdbt_p, &
+              prdnd_p, prup_p, prupd_p, ptdbt_p, pfd_p, pfu_p, ztdn_p) bind(c, name="rrtmg_sw_vrtqdr_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: klev_c, kw_c
+            type(c_ptr), value :: pref_p, prefd_p, ptra_p, ptrad_p, pdbt_p
+            type(c_ptr), value :: prdnd_p, prup_p, prupd_p, ptdbt_p, pfd_p, pfu_p, ztdn_p
+         end subroutine rrtmg_sw_vrtqdr_codon
+      end interface
+
+      call vrtqdr_sw_select_impl()
+      if (use_native_vrtqdr_sw_impl) then
+         call vrtqdr_sw_native(klev, kw, pref, prefd, ptra, ptrad, pdbt, prdnd, prup, prupd, ptdbt, pfd, pfu)
+      else
+         call vrtqdr_sw_log_entered()
+         call rrtmg_sw_vrtqdr_codon( &
+              int(klev, c_int64_t), int(kw, c_int64_t), &
+              c_loc(pref(1)), c_loc(prefd(1)), c_loc(ptra(1)), c_loc(ptrad(1)), c_loc(pdbt(1)), &
+              c_loc(prdnd(1)), c_loc(prup(1)), c_loc(prupd(1)), c_loc(ptdbt(1)), &
+              c_loc(pfd(1,1)), c_loc(pfu(1,1)), c_loc(ztdn(1)) &
+         )
+      end if
+
+      end subroutine vrtqdr_sw
+
+! --------------------------------------------------------------------------
+      subroutine vrtqdr_sw_native(klev, kw, &
                            pref, prefd, ptra, ptrad, &
                            pdbt, prdnd, prup, prupd, ptdbt, &
                            pfd, pfu)
@@ -151,6 +211,55 @@
                       ptdbt(jk) * prup(jk) * prdnd(jk)) * zreflect
       enddo
 
-      end subroutine vrtqdr_sw
+      end subroutine vrtqdr_sw_native
+
+! --------------------------------------------------------------------------
+      subroutine vrtqdr_sw_select_impl()
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (vrtqdr_sw_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('RRTMG_SW_VRTQDR_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_vrtqdr_sw_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_vrtqdr_sw_impl = .false.
+      end if
+
+      vrtqdr_sw_impl_selected = .true.
+
+      if (masterproc) then
+         if (use_native_vrtqdr_sw_impl) then
+            write(iulog,*) 'rrtmg_sw_vrtqdr implementation = native'
+         else
+            write(iulog,*) 'rrtmg_sw_vrtqdr implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine vrtqdr_sw_select_impl
+
+! --------------------------------------------------------------------------
+      subroutine vrtqdr_sw_log_entered()
+
+      if (vrtqdr_sw_entered_logged) return
+      vrtqdr_sw_entered_logged = .true.
+
+      if (masterproc) then
+         write(iulog,*) 'rrtmg_sw_vrtqdr entered (vertical quadrature = codon)'
+         call flush(iulog)
+      end if
+
+      end subroutine vrtqdr_sw_log_entered
 
       end module rrtmg_sw_vrtqdr

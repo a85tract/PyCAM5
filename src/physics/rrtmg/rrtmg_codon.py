@@ -541,3 +541,99 @@ def rrtmg_sw_post_codon(
             qrsc[_idx2(i, cam_k, pcols)] = (
                 swhrc[_idx2(i, rrtmg_k, pcols)] * cpair * dps
             )
+
+
+@export
+def rrtmg_sw_vrtqdr_codon(
+    klev: int,
+    kw: int,
+    pref_p: cobj,
+    prefd_p: cobj,
+    ptra_p: cobj,
+    ptrad_p: cobj,
+    pdbt_p: cobj,
+    prdnd_p: cobj,
+    prup_p: cobj,
+    prupd_p: cobj,
+    ptdbt_p: cobj,
+    pfd_p: cobj,
+    pfu_p: cobj,
+    ztdn_p: cobj,
+):
+    pref = Ptr[float](pref_p)
+    prefd = Ptr[float](prefd_p)
+    ptra = Ptr[float](ptra_p)
+    ptrad = Ptr[float](ptrad_p)
+    pdbt = Ptr[float](pdbt_p)
+    prdnd = Ptr[float](prdnd_p)
+    prup = Ptr[float](prup_p)
+    prupd = Ptr[float](prupd_p)
+    ptdbt = Ptr[float](ptdbt_p)
+    pfd = Ptr[float](pfd_p)
+    pfu = Ptr[float](pfu_p)
+    ztdn = Ptr[float](ztdn_p)
+
+    zreflect = 1.0 / (1.0 - prefd[klev] * prefd[klev - 1])
+    prup[klev - 1] = pref[klev - 1] + (
+        ptrad[klev - 1]
+        * (
+            (ptra[klev - 1] - pdbt[klev - 1]) * prefd[klev]
+            + pdbt[klev - 1] * pref[klev]
+        )
+    ) * zreflect
+    prupd[klev - 1] = (
+        prefd[klev - 1]
+        + ptrad[klev - 1] * ptrad[klev - 1] * prefd[klev] * zreflect
+    )
+
+    for jk in range(1, klev):
+        ikp = klev + 1 - jk
+        ikx = ikp - 1
+        zreflect = 1.0 / (1.0 - prupd[ikp - 1] * prefd[ikx - 1])
+        prup[ikx - 1] = pref[ikx - 1] + (
+            ptrad[ikx - 1]
+            * (
+                (ptra[ikx - 1] - pdbt[ikx - 1]) * prupd[ikp - 1]
+                + pdbt[ikx - 1] * prup[ikp - 1]
+            )
+        ) * zreflect
+        prupd[ikx - 1] = (
+            prefd[ikx - 1]
+            + ptrad[ikx - 1] * ptrad[ikx - 1] * prupd[ikp - 1] * zreflect
+        )
+
+    ztdn[0] = 1.0
+    prdnd[0] = 0.0
+    ztdn[1] = ptra[0]
+    prdnd[1] = prefd[0]
+
+    for jk in range(2, klev + 1):
+        ikp = jk + 1
+        zreflect = 1.0 / (1.0 - prefd[jk - 1] * prdnd[jk - 1])
+        ztdn[ikp - 1] = ptdbt[jk - 1] * ptra[jk - 1] + (
+            ptrad[jk - 1]
+            * (
+                (ztdn[jk - 1] - ptdbt[jk - 1])
+                + ptdbt[jk - 1] * pref[jk - 1] * prdnd[jk - 1]
+            )
+        ) * zreflect
+        prdnd[ikp - 1] = (
+            prefd[jk - 1]
+            + ptrad[jk - 1] * ptrad[jk - 1] * prdnd[jk - 1] * zreflect
+        )
+
+    for jk in range(1, klev + 2):
+        zreflect = 1.0 / (1.0 - prdnd[jk - 1] * prupd[jk - 1])
+        pfu[_idx2(jk, kw, klev + 1)] = (
+            ptdbt[jk - 1] * prup[jk - 1]
+            + (ztdn[jk - 1] - ptdbt[jk - 1]) * prupd[jk - 1]
+        ) * zreflect
+        pfd[_idx2(jk, kw, klev + 1)] = (
+            ptdbt[jk - 1]
+            + (
+                ztdn[jk - 1]
+                - ptdbt[jk - 1]
+                + ptdbt[jk - 1] * prup[jk - 1] * prdnd[jk - 1]
+            )
+            * zreflect
+        )
