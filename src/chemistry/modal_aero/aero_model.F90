@@ -2330,7 +2330,7 @@ contains
     character(len=192) :: wrap_proof_line
 
     interface
-       subroutine aero_model_wetdep_mode_phase_codon(m_c, lphase_c, ncol_c, pcols_c, pver_c, pcnst_c, ntot_amode_c, &
+       subroutine aero_model_wetdep_mode_phase_stage_dispatch_codon(m_c, lphase_c, ncol_c, pcols_c, pver_c, pcnst_c, ntot_amode_c, &
             nslot_max_c, nimptblgrow_mind_c, nimptblgrow_maxd_c, dt_c, gravit_c, omsm_c, dgnum_mode_c, &
             dlndg_nimptblgrow_c, sol_factb_c, sol_facti_c, sol_factic_scalar_c, base_f_act_scalar_c, &
             is_coarse_interstitial_c, f_act_conv_coarse_dust_c, f_act_conv_coarse_nacl_c, pmid_p, q1_p, pdel_p, &
@@ -2344,7 +2344,7 @@ contains
             fracp_p, pdog_p, rpdog_p, precabc_p, precabs_p, rat_p, scavab_p, scavabc_p, srcc_p, srcs_p, srct_p, &
             fins_p, finc_p, conv_scav_ic_p, conv_scav_bc_p, st_scav_ic_p, st_scav_bc_p, odds_p, dblchek_p, &
             trac_qqcw_p, tracer_incu_p, tracer_mean_p, fracis_dummy_p, dblchek_hist_p, srct_hist_p, rat_hist_p, &
-            fracev_hist_p) bind(c, name="aero_model_wetdep_mode_phase_codon")
+            fracev_hist_p) bind(c, name="aero_model_wetdep_mode_phase_stage_dispatch_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: m_c, lphase_c, ncol_c, pcols_c, pver_c, pcnst_c, ntot_amode_c, nslot_max_c
          integer(c_int64_t), value :: nimptblgrow_mind_c, nimptblgrow_maxd_c, is_coarse_interstitial_c
@@ -2364,7 +2364,7 @@ contains
          type(c_ptr), value :: fins_p, finc_p, conv_scav_ic_p, conv_scav_bc_p, st_scav_ic_p, st_scav_bc_p, odds_p
          type(c_ptr), value :: dblchek_p, trac_qqcw_p, tracer_incu_p, tracer_mean_p, fracis_dummy_p
          type(c_ptr), value :: dblchek_hist_p, srct_hist_p, rat_hist_p, fracev_hist_p
-       end subroutine aero_model_wetdep_mode_phase_codon
+       end subroutine aero_model_wetdep_mode_phase_stage_dispatch_codon
     end interface
 
     slot_active(:) = 0_c_int64_t
@@ -2446,7 +2446,7 @@ contains
     omsm = 1._r8 - 2*epsilon(1._r8)
 
     if (masterproc .and. .not. aero_model_wetdep_mode_phase_wrap_proof_written) then
-       wrap_proof_line = 'aero_model_wetdep_mode_phase_codon_wrap entered (wetdep_inputs_cldst/clddiag/qqcw_gather_scatter/bcscavcoef/wetdepa/mode_phase direct = codon)'
+       wrap_proof_line = 'aero_model_wetdep_mode_phase_codon_wrap entered (unified wetdep inputs/cldst/clddiag/qqcw/scavcoef/mode phase stage dispatch = codon)'
        write(iulog,'(A)') trim(wrap_proof_line)
        call aero_model_wetdep_append_impl_proof('AERO_MODEL_WETDEP_PROOF_FILE', trim(wrap_proof_line))
        aero_model_wetdep_mode_phase_wrap_proof_written = .true.
@@ -2460,7 +2460,7 @@ contains
        qqcw_mode_phase(:ncol,:,slot) = fldcw(:ncol,:)
     end do
 
-    call aero_model_wetdep_mode_phase_codon( &
+    call aero_model_wetdep_mode_phase_stage_dispatch_codon( &
          int(m, c_int64_t), int(lphase, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          int(pcnst, c_int64_t), int(ntot_amode, c_int64_t), int(wetdep_mode_phase_nslot, c_int64_t), &
          int(nimptblgrow_mind, c_int64_t), int(nimptblgrow_maxd, c_int64_t), real(dt, c_double), real(gravit, c_double), &
