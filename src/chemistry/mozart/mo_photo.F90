@@ -178,8 +178,8 @@ contains
     photo_prep_batch_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'photo_prep_batch entered (fixed_press/exo_time batch dispatcher direct = codon)'
-       call photo_prep_batch_append_proof('photo_prep_batch entered (fixed_press/exo_time batch dispatcher direct = codon)')
+       write(iulog,'(A)') 'photo_prep_batch entered (unified photo-prep stage dispatch = codon)'
+       call photo_prep_batch_append_proof('photo_prep_batch entered (unified photo-prep stage dispatch = codon)')
        call flush(iulog)
     end if
 
@@ -679,13 +679,13 @@ contains
     real(c_double), target :: delp_c
 
     interface
-       subroutine photo_prep_batch_codon(stage_c, pinterp_c, calday_c, n_exo_levs_c, levs_p, days_p, ki_p, &
-            next_p, last_p, delp_p, dels_p) bind(c, name="photo_prep_batch_codon")
+       subroutine photo_prep_stage_dispatch_codon(stage_c, pinterp_c, calday_c, n_exo_levs_c, levs_p, days_p, ki_p, &
+            next_p, last_p, delp_p, dels_p) bind(c, name="photo_prep_stage_dispatch_codon")
          use iso_c_binding, only : c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: stage_c, n_exo_levs_c
          real(c_double), value :: pinterp_c, calday_c
          type(c_ptr), value :: levs_p, days_p, ki_p, next_p, last_p, delp_p, dels_p
-       end subroutine photo_prep_batch_codon
+       end subroutine photo_prep_stage_dispatch_codon
     end interface
 
     call photo_prep_batch_select_impl()
@@ -707,7 +707,7 @@ contains
     end if
 
     call photo_prep_batch_log_entered()
-    call photo_prep_batch_codon( &
+    call photo_prep_stage_dispatch_codon( &
          1_c_int64_t, real(pinterp_in, c_double), 0._c_double, int(n_exo_levs_in, c_int64_t), c_loc(levs_in), &
          c_null_ptr, c_loc(ki_c), c_null_ptr, c_null_ptr, c_loc(delp_c), c_null_ptr &
     )
@@ -884,7 +884,7 @@ contains
          type(c_ptr), value :: photos_p, lng_prates_p, cld_mult_p, col_dens_p, lng_indexer_p, alias_mult2_p
        end subroutine table_photo_postcloud_batch_codon
 
-       subroutine table_photo_direct_batch_codon(stage_c, ncol_c, pcols_c, pver_c, ncol_abs_c, nfs_c, gas_pcnst_c, &
+       subroutine table_photo_stage_dispatch_codon(stage_c, ncol_c, pcols_c, pver_c, ncol_abs_c, nfs_c, gas_pcnst_c, &
             phtcnt_c, nlng_c, i_c, p1_c, p2_c, do_jshort_c, ptop_gt_10_c, o_is_inv_c, o2_is_inv_c, &
             o3_is_inv_c, n2_is_inv_c, no_is_inv_c, o_ndx_c, o2_ndx_c, o3_inv_ndx_c, o3_ndx_c, n2_ndx_c, &
             no_ndx_c, indexm_c, jno_ndx_c, jho2no2_ndx_c, has_o2_col_c, has_o3_col_c, pa2mb_c, &
@@ -896,7 +896,7 @@ contains
             alias_mult2_p, jno2a_ndx_c, jno2_ndx_c, jn2o5a_ndx_c, jn2o5_ndx_c, jn2o5b_ndx_c, &
             jhno3a_ndx_c, jhno3_ndx_c, jno3a_ndx_c, jno3_ndx_c, jho2no2a_ndx_c, jho2no2_finalize_ndx_c, &
             jmpana_ndx_c, jmpan_ndx_c, jpana_ndx_c, jpan_ndx_c, jonitra_ndx_c, jonitr_ndx_c, &
-            jo1da_ndx_c, jo1d_ndx_c, jo3pa_ndx_c, jo3p_ndx_c) bind(c, name="table_photo_direct_batch_codon")
+            jo1da_ndx_c, jo1d_ndx_c, jo3pa_ndx_c, jo3p_ndx_c) bind(c, name="table_photo_stage_dispatch_codon")
          use iso_c_binding, only : c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, ncol_abs_c, nfs_c, gas_pcnst_c
          integer(c_int64_t), value :: phtcnt_c, nlng_c, i_c, p1_c, p2_c, do_jshort_c, ptop_gt_10_c
@@ -915,7 +915,7 @@ contains
          integer(c_int64_t), value :: jho2no2a_ndx_c, jho2no2_finalize_ndx_c, jmpana_ndx_c, jmpan_ndx_c
          integer(c_int64_t), value :: jpana_ndx_c, jpan_ndx_c, jonitra_ndx_c, jonitr_ndx_c
          integer(c_int64_t), value :: jo1da_ndx_c, jo1d_ndx_c, jo3pa_ndx_c, jo3p_ndx_c
-       end subroutine table_photo_direct_batch_codon
+       end subroutine table_photo_stage_dispatch_codon
 
        subroutine table_photo_prejlong_batch_codon(ncol_c, pcols_c, pver_c, ncol_abs_c, nfs_c, gas_pcnst_c, &
             i_c, p1_c, p2_c, do_jshort_c, ptop_gt_10_c, o_is_inv_c, o2_is_inv_c, o3_is_inv_c, n2_is_inv_c, &
@@ -1038,7 +1038,7 @@ contains
     if (table_photo_use_native_impl) then
        call table_photo_zero_photos(ncol, photos)
     else
-       call table_photo_direct_batch_codon( &
+       call table_photo_stage_dispatch_codon( &
             0_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
             0_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(phtcnt, c_int64_t), 0_c_int64_t, &
             0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
@@ -1063,9 +1063,9 @@ contains
             int(jo3pa_ndx, c_int64_t), int(jo3p_ndx, c_int64_t) &
        )
        if (masterproc .and. .not. table_photo_zero_finalize_batch_proof_written) then
-          write(iulog,'(A)') 'table_photo zero/finalize batch entered (zero/set_xnox direct = codon)'
+          write(iulog,'(A)') 'table_photo zero/finalize batch entered (unified table-photo stage dispatch = codon)'
           call table_photo_append_impl_proof('TABLE_PHOTO_PROOF_FILE', &
-               'table_photo zero/finalize batch entered (zero/set_xnox direct = codon)')
+               'table_photo zero/finalize batch entered (unified table-photo stage dispatch = codon)')
           table_photo_zero_finalize_batch_proof_written = .true.
        end if
     end if
@@ -1128,7 +1128,7 @@ contains
                 no_den_p = c_null_ptr
                 n2_den_p = c_null_ptr
              end if
-             call table_photo_direct_batch_codon( &
+             call table_photo_stage_dispatch_codon( &
                   1_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
                   int(ncol_abs, c_int64_t), int(nfs, c_int64_t), int(gas_pcnst, c_int64_t), &
                   int(phtcnt, c_int64_t), int(nlng, c_int64_t), int(i, c_int64_t), int(p1, c_int64_t), &
@@ -1246,7 +1246,7 @@ contains
              else
                 lng_prates_p = c_null_ptr
              end if
-             call table_photo_direct_batch_codon( &
+             call table_photo_stage_dispatch_codon( &
                   2_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
                   int(ncol_abs, c_int64_t), int(nfs, c_int64_t), int(gas_pcnst, c_int64_t), &
                   int(phtcnt, c_int64_t), int(nlng, c_int64_t), int(i, c_int64_t), int(p1, c_int64_t), &
@@ -1277,10 +1277,10 @@ contains
              )
              if (masterproc .and. .not. table_photo_batch_proof_written) then
                 write(iulog,'(A)') 'table_photo direct dispatcher entered ' // &
-                     '(zero/pre-jlong/postcloud/finalize batch direct = codon; jlong = native boundary)'
+                     '(unified table-photo stage dispatch = codon; jlong = native boundary)'
                 call table_photo_append_impl_proof('TABLE_PHOTO_PROOF_FILE', &
                      'table_photo direct dispatcher entered ' // &
-                     '(zero/pre-jlong/postcloud/finalize batch direct = codon; jlong = native boundary)')
+                     '(unified table-photo stage dispatch = codon; jlong = native boundary)')
                 table_photo_batch_proof_written = .true.
              end if
           end if
@@ -1333,7 +1333,7 @@ contains
     if (table_photo_use_native_impl) then
        call set_xnox_photo( photos, ncol  )
     else
-       call table_photo_direct_batch_codon( &
+       call table_photo_stage_dispatch_codon( &
             3_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
             0_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(phtcnt, c_int64_t), 0_c_int64_t, &
             0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
@@ -2761,13 +2761,13 @@ secant_in_bounds : &
     real(c_double), target :: dels_c
 
     interface
-       subroutine photo_prep_batch_codon(stage_c, pinterp_c, calday_c, n_exo_levs_c, levs_p, days_p, ki_p, &
-            next_p, last_p, delp_p, dels_p) bind(c, name="photo_prep_batch_codon")
+       subroutine photo_prep_stage_dispatch_codon(stage_c, pinterp_c, calday_c, n_exo_levs_c, levs_p, days_p, ki_p, &
+            next_p, last_p, delp_p, dels_p) bind(c, name="photo_prep_stage_dispatch_codon")
          use iso_c_binding, only : c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: stage_c, n_exo_levs_c
          real(c_double), value :: pinterp_c, calday_c
          type(c_ptr), value :: levs_p, days_p, ki_p, next_p, last_p, delp_p, dels_p
-       end subroutine photo_prep_batch_codon
+       end subroutine photo_prep_stage_dispatch_codon
     end interface
 
     if ( do_jeuv ) then
@@ -2781,7 +2781,7 @@ secant_in_bounds : &
        call photo_prep_batch_select_impl()
        if (.not. photo_prep_batch_use_native_impl) then
           call photo_prep_batch_log_entered()
-          call photo_prep_batch_codon( &
+          call photo_prep_stage_dispatch_codon( &
                2_c_int64_t, 0._c_double, real(calday, c_double), 0_c_int64_t, c_null_ptr, c_loc(days), &
                c_null_ptr, c_loc(next_c), c_loc(last_c), c_null_ptr, c_loc(dels_c) &
           )

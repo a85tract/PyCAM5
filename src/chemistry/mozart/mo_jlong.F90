@@ -107,11 +107,11 @@
       logical :: jlong_prep_batch_timestep_logged = .false.
 
       interface
-         subroutine jlong_prep_batch_codon(stage_c, data_nw_c, nw_c, phtcnt_c, np_xs_c, nump_c, numsza_c, &
+         subroutine jlong_prep_stage_dispatch_codon(stage_c, data_nw_c, nw_c, phtcnt_c, np_xs_c, nump_c, numsza_c, &
               numalb_c, numcolo3_c, use_bde_flag_c, hc_c, wc_o2_b_c, wc_o3_a_c, wc_o3_b_c, data_we_p, wc_p, &
               wlintv_p, we_p, data_etf_p, etfphot_p, lng_indexer_p, numj_p, read_varids_p, prs_p, dprs_p, &
               rsf_tab_p, p_p, sza_p, alb_p, o3rat_p, bde_o2_b_p, bde_o3_a_p, bde_o3_b_p, del_p_p, &
-              del_sza_p, del_alb_p, del_o3rat_p) bind(c, name="jlong_prep_batch_codon")
+              del_sza_p, del_alb_p, del_o3rat_p) bind(c, name="jlong_prep_stage_dispatch_codon")
             use iso_c_binding, only : c_double, c_int64_t, c_ptr
             integer(c_int64_t), value :: stage_c, data_nw_c, nw_c, phtcnt_c, np_xs_c, nump_c, numsza_c
             integer(c_int64_t), value :: numalb_c, numcolo3_c, use_bde_flag_c
@@ -120,7 +120,7 @@
             type(c_ptr), value :: lng_indexer_p, numj_p, read_varids_p, prs_p, dprs_p, rsf_tab_p
             type(c_ptr), value :: p_p, sza_p, alb_p, o3rat_p, bde_o2_b_p, bde_o3_a_p, bde_o3_b_p
             type(c_ptr), value :: del_p_p, del_sza_p, del_alb_p, del_o3rat_p
-         end subroutine jlong_prep_batch_codon
+         end subroutine jlong_prep_stage_dispatch_codon
       end interface
 
       contains
@@ -192,10 +192,10 @@
 
       if (masterproc) then
          write(iulog,'(A)') 'jlong_prep_batch entered ' // &
-              '(solar/xsqy/dprs/rsf scale/postread/timestep batch dispatcher direct = codon)'
+              '(unified jlong-prep stage dispatch = codon)'
          call jlong_prep_batch_append_proof( &
               'jlong_prep_batch entered ' // &
-              '(solar/xsqy/dprs/rsf scale/postread/timestep batch dispatcher direct = codon)')
+              '(unified jlong-prep stage dispatch = codon)')
          call flush(iulog)
       end if
 
@@ -251,7 +251,7 @@
          call rebin( data_nw, nw, data_we, we, data_etf, etfphot )
       else
          call jlong_prep_batch_log_entered()
-         call jlong_prep_batch_codon( &
+         call jlong_prep_stage_dispatch_codon( &
               1_c_int64_t, int(data_nw, c_int64_t), int(nw, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
               0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
               0.0_c_double, 0.0_c_double, 0.0_c_double, 0.0_c_double, c_loc(data_we), c_loc(wc), c_loc(wlintv), &
@@ -261,7 +261,7 @@
          )
          if (masterproc) then
             if (.not. jlong_init_solar_batch_proof_written) then
-               write(iulog,'(A)') 'jlong_init solar batch entered (set_we/rebin direct = codon)'
+               write(iulog,'(A)') 'jlong_init solar batch entered (unified jlong-prep solar stage dispatch = codon)'
                jlong_init_solar_batch_proof_written = .true.
             end if
             write(iulog,*) ' '
@@ -577,7 +577,7 @@
 
       numj_c = 0_c_int64_t
       call jlong_prep_batch_log_entered()
-      call jlong_prep_batch_codon( &
+      call jlong_prep_stage_dispatch_codon( &
            2_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(phtcnt_in, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
            0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0_c_double, 0.0_c_double, 0.0_c_double, &
            0.0_c_double, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
@@ -898,7 +898,7 @@
       end if
 
       call jlong_prep_batch_log_entered()
-      call jlong_prep_batch_codon( &
+      call jlong_prep_stage_dispatch_codon( &
            3_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(np_xs_in, c_int64_t), 0_c_int64_t, &
            0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0.0_c_double, 0.0_c_double, 0.0_c_double, &
            0.0_c_double, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
@@ -1160,7 +1160,7 @@
       end if
 
       call jlong_prep_batch_log_entered()
-      call jlong_prep_batch_codon( &
+      call jlong_prep_stage_dispatch_codon( &
            5_c_int64_t, 0_c_int64_t, int(nw_in, c_int64_t), 0_c_int64_t, 0_c_int64_t, int(nump_in, c_int64_t), &
            int(numsza_in, c_int64_t), int(numalb_in, c_int64_t), int(numcolo3_in, c_int64_t), &
            int(use_bde_flag_in, c_int64_t), real(hc, c_double), real(wc_o2_b, c_double), real(wc_o3_a, c_double), &
@@ -1242,7 +1242,7 @@
       end if
 
       call jlong_prep_batch_log_entered()
-      call jlong_prep_batch_codon( &
+      call jlong_prep_stage_dispatch_codon( &
            4_c_int64_t, 0_c_int64_t, int(nw_in, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
            int(nump_in, c_int64_t), int(numsza_in, c_int64_t), int(numalb_in, c_int64_t), &
            int(numcolo3_in, c_int64_t), 0_c_int64_t, 0.0_c_double, 0.0_c_double, 0.0_c_double, 0.0_c_double, &
@@ -1488,7 +1488,7 @@
             )
          else if (jlong_used) then
             call jlong_prep_batch_log_entered()
-            call jlong_prep_batch_codon( &
+            call jlong_prep_stage_dispatch_codon( &
                  6_c_int64_t, int(data_nw, c_int64_t), int(nw, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
                  0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
                  0.0_c_double, 0.0_c_double, 0.0_c_double, 0.0_c_double, c_loc(data_we), c_null_ptr, &
@@ -1497,9 +1497,9 @@
                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr &
             )
             if (masterproc .and. .not. jlong_prep_batch_timestep_logged) then
-               write(iulog,'(A)') 'jlong_prep_batch timestep entered (daily etfphot rebin direct = codon)'
+               write(iulog,'(A)') 'jlong_prep_batch timestep entered (unified jlong-prep timestep stage dispatch = codon)'
                call jlong_prep_batch_append_proof( &
-                    'jlong_prep_batch timestep entered (daily etfphot rebin direct = codon)')
+                    'jlong_prep_batch timestep entered (unified jlong-prep timestep stage dispatch = codon)')
                jlong_prep_batch_timestep_logged = .true.
                call flush(iulog)
             end if
