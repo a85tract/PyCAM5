@@ -557,7 +557,7 @@ contains
        end if
        if (masterproc .and. .not. gas_phase_chemdr_mass_h2o_setup_proof_written) then
           call gas_phase_chemdr_shell_write_proof_line( &
-               'gas_phase_chemdr mass/H2O/charge setup shell entered (mbar/vmr/ST80/AOA/H2O/charge direct = codon)')
+               'gas_phase_chemdr mass/H2O/charge setup shell entered (unified gas-phase shell stage dispatch = codon)')
           gas_phase_chemdr_mass_h2o_setup_proof_written = .true.
        end if
     else
@@ -729,7 +729,7 @@ contains
             reaction_rates=reaction_rates, tfld=tfld, sulfate=sulfate)
        if (masterproc .and. .not. gas_phase_chemdr_rxn_sulfate_prep_proof_written) then
           call gas_phase_chemdr_shell_write_proof_line( &
-               'gas_phase_chemdr reaction/sulfate prep shell entered (setrxt/sulfate reset direct = codon)')
+               'gas_phase_chemdr reaction/sulfate prep shell entered (unified gas-phase shell stage dispatch = codon)')
           gas_phase_chemdr_rxn_sulfate_prep_proof_written = .true.
        end if
     else
@@ -898,7 +898,7 @@ contains
               troplev=troplev, het_rates=het_rates, reaction_rates=reaction_rates)
          if (masterproc .and. .not. gas_phase_chemdr_wetdep_presolve_proof_written) then
             call gas_phase_chemdr_shell_write_proof_line( &
-                 'gas_phase_chemdr wetdep presolve shell entered (het rates/ST80 tau reset direct = codon)')
+                 'gas_phase_chemdr wetdep presolve shell entered (unified gas-phase shell stage dispatch = codon)')
             gas_phase_chemdr_wetdep_presolve_proof_written = .true.
          end if
       else
@@ -1110,7 +1110,7 @@ contains
             ufld=ufld, vfld=vfld, wind_speed=wind_speed, precc=precc, precl=precl, prect=prect)
        if (masterproc .and. .not. gas_phase_chemdr_final_surface_prep_proof_written) then
           call gas_phase_chemdr_shell_write_proof_line( &
-               'gas_phase_chemdr final/surface prep shell entered (tendencies/tvs/sflx/wind/prect direct = codon)')
+               'gas_phase_chemdr final/surface prep shell entered (unified gas-phase shell stage dispatch = codon)')
           gas_phase_chemdr_final_surface_prep_proof_written = .true.
        end if
     else
@@ -1170,7 +1170,7 @@ contains
             q_srf, u_srf, v_srf)
        if (masterproc .and. .not. gas_phase_chemdr_surface_diag_proof_written) then
           call gas_phase_chemdr_shell_write_proof_line( &
-               'gas_phase_chemdr surface diag shell entered (PM25/Q/U/V surface diagnostics direct = codon)')
+               'gas_phase_chemdr surface diag shell entered (unified gas-phase shell stage dispatch = codon)')
           gas_phase_chemdr_surface_diag_proof_written = .true.
        end if
     else
