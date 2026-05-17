@@ -812,8 +812,8 @@ subroutine zm_convr(lchnk   ,ncol    , &
 
    if (.not. use_native_zm_convr_shell) then
       if (masterproc .and. .not. zm_convr_init_logged) then
-         write(iulog,*) 'zm_convr init shell entered (work arrays/init tendencies direct = codon)'
-         call zm_conv_evap_append_impl_proof('zm_convr init shell entered (work arrays/init tendencies direct = codon)')
+         write(iulog,*) 'zm_convr init shell entered (unified zm-convr stage dispatch = codon)'
+         call zm_conv_evap_append_impl_proof('zm_convr init shell entered (unified zm-convr stage dispatch = codon)')
          call flush(iulog)
          zm_convr_init_logged = .true.
       end if
@@ -905,8 +905,8 @@ subroutine zm_convr(lchnk   ,ncol    , &
 !
    if (.not. use_native_zm_convr_shell) then
       if (masterproc .and. .not. zm_convr_pressure_logged) then
-         write(iulog,*) 'zm_convr pressure/state shell entered (p/z/q/s prep direct = codon)'
-         call zm_conv_evap_append_impl_proof('zm_convr pressure/state shell entered (p/z/q/s prep direct = codon)')
+         write(iulog,*) 'zm_convr pressure/state shell entered (unified zm-convr stage dispatch = codon)'
+         call zm_conv_evap_append_impl_proof('zm_convr pressure/state shell entered (unified zm-convr stage dispatch = codon)')
          call flush(iulog)
          zm_convr_pressure_logged = .true.
       end if
@@ -953,9 +953,9 @@ subroutine zm_convr(lchnk   ,ncol    , &
 
    if (.not. use_native_zm_convr_shell) then
       if (masterproc .and. .not. zm_convr_control_logged) then
-         write(iulog,*) 'zm_convr control shell entered (prebuoy/select/index/int64 direct = codon)'
+         write(iulog,*) 'zm_convr control shell entered (unified zm-convr stage dispatch = codon)'
          call zm_conv_evap_append_impl_proof( &
-              'zm_convr control shell entered (prebuoy/select/index/int64 direct = codon)')
+              'zm_convr control shell entered (unified zm-convr stage dispatch = codon)')
          call flush(iulog)
          zm_convr_control_logged = .true.
       end if
@@ -1030,8 +1030,8 @@ subroutine zm_convr(lchnk   ,ncol    , &
 !
    if (.not. use_native_zm_convr_shell) then
       if (masterproc .and. .not. zm_convr_gather_logged) then
-         write(iulog,*) 'zm_convr gather/interface shell entered (deep gather and qhat/shat direct = codon)'
-         call zm_conv_evap_append_impl_proof('zm_convr gather/interface shell entered (deep gather and qhat/shat direct = codon)')
+         write(iulog,*) 'zm_convr gather/interface shell entered (unified zm-convr stage dispatch = codon)'
+         call zm_conv_evap_append_impl_proof('zm_convr gather/interface shell entered (unified zm-convr stage dispatch = codon)')
          call flush(iulog)
          zm_convr_gather_logged = .true.
       end if
@@ -1067,9 +1067,9 @@ subroutine zm_convr(lchnk   ,ncol    , &
            c_loc(capeg), c_loc(lclg), c_loc(lelg), c_loc(maxg), c_loc(tlg), c_loc(dsubcld), c_loc(lengath), &
            c_loc(index), c_loc(ideep), c_loc(ideep64), c_loc(jt64), c_loc(maxg64))
       if (masterproc .and. .not. zm_convr_deep_state_logged) then
-         write(iulog,*) 'zm_convr deep state shell entered (buoyancy gather/subcloud thickness direct = codon)'
+         write(iulog,*) 'zm_convr deep state shell entered (unified zm-convr stage dispatch = codon)'
          call zm_conv_evap_append_impl_proof( &
-              'zm_convr deep state shell entered (buoyancy gather/subcloud thickness direct = codon)')
+              'zm_convr deep state shell entered (unified zm-convr stage dispatch = codon)')
          call flush(iulog)
          zm_convr_deep_state_logged = .true.
       end if
@@ -1146,9 +1146,9 @@ subroutine zm_convr(lchnk   ,ncol    , &
 !Needed for water tracers:
    if (.not. use_native_zm_convr_shell) then
       if (masterproc .and. .not. zm_convr_cloud_copy_logged) then
-         write(iulog,*) 'zm_convr cloud copy shell entered (water tracer cldprp copy direct = codon)'
+         write(iulog,*) 'zm_convr cloud copy shell entered (unified zm-convr stage dispatch = codon)'
          call zm_conv_evap_append_impl_proof( &
-              'zm_convr cloud copy shell entered (water tracer cldprp copy direct = codon)')
+              'zm_convr cloud copy shell entered (unified zm-convr stage dispatch = codon)')
          call flush(iulog)
          zm_convr_cloud_copy_logged = .true.
       end if
@@ -1165,8 +1165,8 @@ subroutine zm_convr(lchnk   ,ncol    , &
 
    if (.not. use_native_zm_convr_shell) then
       if (masterproc .and. .not. zm_convr_unit_logged) then
-         write(iulog,*) 'zm_convr unit shell entered (detrainment/unit conversion direct = codon)'
-         call zm_conv_evap_append_impl_proof('zm_convr unit shell entered (detrainment/unit conversion direct = codon)')
+         write(iulog,*) 'zm_convr unit shell entered (unified zm-convr stage dispatch = codon)'
+         call zm_conv_evap_append_impl_proof('zm_convr unit shell entered (unified zm-convr stage dispatch = codon)')
          call flush(iulog)
          zm_convr_unit_logged = .true.
       end if
@@ -1212,9 +1212,9 @@ subroutine zm_convr(lchnk   ,ncol    , &
          no_deep_pbl_flag = 0_c_int64_t
       end if
       if (masterproc .and. .not. zm_convr_finish_logged) then
-         write(iulog,*) 'zm_convr finish shell entered (closure/mflux/q1q2/tail direct = codon)'
+         write(iulog,*) 'zm_convr finish shell entered (unified zm-convr stage dispatch = codon)'
          call zm_conv_evap_append_impl_proof( &
-              'zm_convr finish shell entered (closure/mflux/q1q2/tail direct = codon)')
+              'zm_convr finish shell entered (unified zm-convr stage dispatch = codon)')
          call flush(iulog)
          zm_convr_finish_logged = .true.
       end if
@@ -1461,10 +1461,10 @@ subroutine zm_conv_evap(ncol,lchnk, &
 
     if (.not. use_native_zm_conv_evap_main) then
        if (masterproc .and. .not. zm_conv_evap_main_logged) then
-          write(iulog,*) 'zm_conv_evap main loop entered (precip unit/evaporation/snow/flux/tendency direct = codon; ' // &
+          write(iulog,*) 'zm_conv_evap main loop entered (unified zm-conv-evap main dispatch = codon; ' // &
                'qsat = native; fice = cldfrc_batch codon)'
           call zm_conv_evap_append_impl_proof( &
-               'zm_conv_evap main loop entered (precip unit/evaporation/snow/flux/tendency direct = codon; ' // &
+               'zm_conv_evap main loop entered (unified zm-conv-evap main dispatch = codon; ' // &
                'qsat = native; fice = cldfrc_batch codon)')
           call flush(iulog)
           zm_conv_evap_main_logged = .true.
@@ -1780,9 +1780,9 @@ subroutine convtran(lchnk   , &
    call zm_convtran_main_select_impl()
    if (.not. use_native_zm_convtran_main) then
       if (masterproc .and. .not. zm_convtran_main_logged) then
-         write(iulog,*) 'zm_convtran main loop entered (tracer transport/Rwt ratio direct = codon)'
+         write(iulog,*) 'zm_convtran main loop entered (unified zm-convtran main dispatch = codon)'
          call zm_conv_evap_append_impl_proof( &
-              'zm_convtran main loop entered (tracer transport/Rwt ratio direct = codon)')
+              'zm_convtran main loop entered (unified zm-convtran main dispatch = codon)')
          call flush(iulog)
          zm_convtran_main_logged = .true.
       end if
@@ -2182,9 +2182,9 @@ subroutine momtran(lchnk, ncol, &
    call zm_momtran_main_select_impl()
    if (.not. use_native_zm_momtran_main) then
       if (masterproc .and. .not. zm_momtran_main_logged) then
-         write(iulog,*) 'zm_momtran main loop entered (momentum transport/PG/KE fix direct = codon)'
+         write(iulog,*) 'zm_momtran main loop entered (unified zm-momtran main dispatch = codon)'
          call zm_conv_evap_append_impl_proof( &
-              'zm_momtran main loop entered (momentum transport/PG/KE fix direct = codon)')
+              'zm_momtran main loop entered (unified zm-momtran main dispatch = codon)')
          call flush(iulog)
          zm_momtran_main_logged = .true.
       end if
