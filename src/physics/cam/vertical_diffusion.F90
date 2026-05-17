@@ -905,9 +905,9 @@ contains
     tend_misc_batch_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'vertical_diffusion_tend_misc_batch entered (tms surface totals/rairi/history dtk direct = codon)'
+       write(iulog,*) 'vertical_diffusion_tend_misc_batch entered (unified tend-misc stage dispatch = codon)'
        call vertical_diffusion_tend_misc_batch_append_proof( &
-            'vertical_diffusion_tend_misc_batch entered (tms surface totals/rairi/history dtk direct = codon)')
+            'vertical_diffusion_tend_misc_batch entered (unified tend-misc stage dispatch = codon)')
        call flush(iulog)
     end if
 
@@ -1053,9 +1053,9 @@ contains
     diag_batch_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'vertical_diffusion_diag_batch entered (pre/post PBL/obklen diagnostics direct = codon)'
+       write(iulog,*) 'vertical_diffusion_diag_batch entered (unified diag stage dispatch = codon)'
        call vertical_diffusion_diag_batch_append_proof( &
-            'vertical_diffusion_diag_batch entered (pre/post PBL/obklen diagnostics direct = codon)')
+            'vertical_diffusion_diag_batch entered (unified diag stage dispatch = codon)')
        call flush(iulog)
     end if
 
@@ -1281,8 +1281,8 @@ contains
     core_batch_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'vertical_diffusion_core_batch entered (modal/flux/ptend direct = codon)'
-       call vertical_diffusion_core_batch_append_proof('vertical_diffusion_core_batch entered (modal/flux/ptend direct = codon)')
+       write(iulog,*) 'vertical_diffusion_core_batch entered (unified core stage dispatch = codon)'
+       call vertical_diffusion_core_batch_append_proof('vertical_diffusion_core_batch entered (unified core stage dispatch = codon)')
        call flush(iulog)
     end if
 
