@@ -1115,9 +1115,9 @@ subroutine macrop_driver_ptend_lq_mask_shell(mode_local, use_water_tracers_local
   end if
 
   if (masterproc .and. .not. ptend_lq_mask_shell_logged) then
-     write(iulog,*) 'macrop_driver ptend lq mask shell entered (detrain/macro_park lq mask direct = codon)'
+     write(iulog,*) 'macrop_driver ptend lq mask shell entered (unified macrop-stage dispatch = codon)'
      call macrop_driver_append_impl_proof('MACROP_DRIVER_MMPCOND_SHELL_PROOF_FILE', &
-          'macrop_driver ptend lq mask shell entered (detrain/macro_park lq mask direct = codon)')
+          'macrop_driver ptend lq mask shell entered (unified macrop-stage dispatch = codon)')
      call flush(iulog)
      ptend_lq_mask_shell_logged = .true.
   end if
@@ -1130,10 +1130,14 @@ subroutine macrop_driver_ptend_lq_mask_shell(mode_local, use_water_tracers_local
      wtrc_indices_c(m) = int(wtrc_indices(m), c_int64_t)
   end do
 
-  call macrop_driver_ptend_lq_mask_shell_codon(int(mode_local, c_int64_t), int(pcnst, c_int64_t), &
-       int(wtrc_nwset, c_int64_t), int(wtrc_ncnst, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, use_water_tracers_local), &
-       int(ixcldliq_local, c_int64_t), int(ixcldice_local, c_int64_t), int(ixnumliq_local, c_int64_t), &
-       int(ixnumice_local, c_int64_t), c_loc(lq_mask_c), c_loc(liq_type_c), c_loc(ice_type_c), c_loc(wtrc_indices_c))
+  call macrop_driver_stage_dispatch_call(1_c_int64_t, int(mode_local, c_int64_t), 0_c_int64_t, &
+       int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), 0_c_int64_t, &
+       int(wtrc_nwset, c_int64_t), int(wtrc_ncnst, c_int64_t), &
+       merge(1_c_int64_t, 0_c_int64_t, use_water_tracers_local), int(ixcldliq_local, c_int64_t), &
+       int(ixcldice_local, c_int64_t), int(ixnumliq_local, c_int64_t), int(ixnumice_local, c_int64_t), &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._r8, 0._r8, 0._r8, &
+       0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, p1_p=c_loc(lq_mask_c), &
+       p2_p=c_loc(liq_type_c), p3_p=c_loc(ice_type_c), p4_p=c_loc(wtrc_indices_c))
 
   lq_local(:) = lq_mask_c(:) /= 0_c_int64_t
 
@@ -1365,21 +1369,27 @@ subroutine macrop_driver_detrain_core(ncol_local, do_detrain_local, cu_det_st_lo
   end if
 
   if (masterproc .and. .not. detrain_core_logged) then
-     write(iulog,*) 'macrop_driver detrain core entered = codon'
+     write(iulog,*) 'macrop_driver detrain core entered (unified macrop-stage dispatch = codon)'
      call macrop_driver_append_impl_proof('MACROP_DRIVER_DETRAIN_SHELL_PROOF_FILE', &
-          'macrop_driver detrain core entered = codon')
+          'macrop_driver detrain core entered (unified macrop-stage dispatch = codon)')
      call flush(iulog)
      detrain_core_logged = .true.
   end if
 
-  call macrop_driver_detrain_core_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-       int(top_lev, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, do_detrain_local), &
-       merge(1_c_int64_t, 0_c_int64_t, cu_det_st_local), cpair, gravit, latice, nl_denom_a_local, nl_denom_b_local, &
-       ni_denom_a_local, ni_denom_b_local, c_loc(state_t_local), c_loc(state_pdel_local), c_loc(dlf_local), c_loc(dlf2_local), &
-       c_loc(ptend_ql_local), c_loc(ptend_qi_local), c_loc(ptend_nl_local), c_loc(ptend_ni_local), c_loc(ptend_s_local), &
-       c_loc(det_s_local), c_loc(det_ice_local), c_loc(dlf_t_local), c_loc(dlf_qv_local), c_loc(dlf_ql_local), &
-       c_loc(dlf_qi_local), c_loc(dlf_nl_local), c_loc(dlf_ni_local), c_loc(dpdlfliq_local), c_loc(dpdlfice_local), &
-       c_loc(shdlfliq_local), c_loc(shdlfice_local), c_loc(dpdlft_local), c_loc(shdlft_local))
+  call macrop_driver_stage_dispatch_call(3_c_int64_t, 0_c_int64_t, int(ncol_local, c_int64_t), &
+       int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), int(top_lev, c_int64_t), &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       merge(1_c_int64_t, 0_c_int64_t, do_detrain_local), merge(1_c_int64_t, 0_c_int64_t, cu_det_st_local), &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, cpair, gravit, latice, nl_denom_a_local, nl_denom_b_local, &
+       ni_denom_a_local, ni_denom_b_local, 0._r8, 0._r8, p1_p=c_loc(state_t_local), &
+       p2_p=c_loc(state_pdel_local), p3_p=c_loc(dlf_local), p4_p=c_loc(dlf2_local), &
+       p5_p=c_loc(ptend_ql_local), p6_p=c_loc(ptend_qi_local), p7_p=c_loc(ptend_nl_local), &
+       p8_p=c_loc(ptend_ni_local), p9_p=c_loc(ptend_s_local), p10_p=c_loc(det_s_local), &
+       p11_p=c_loc(det_ice_local), p12_p=c_loc(dlf_t_local), p13_p=c_loc(dlf_qv_local), &
+       p14_p=c_loc(dlf_ql_local), p15_p=c_loc(dlf_qi_local), p16_p=c_loc(dlf_nl_local), &
+       p17_p=c_loc(dlf_ni_local), p18_p=c_loc(dpdlfliq_local), p19_p=c_loc(dpdlfice_local), &
+       p20_p=c_loc(shdlfliq_local), p21_p=c_loc(shdlfice_local), p22_p=c_loc(dpdlft_local), &
+       p23_p=c_loc(shdlft_local))
 
   if (detrain_debug_enabled .and. .not. detrain_debug_reported) then
      write(iulog,*) 'macrop_driver_detrain_core debug maxdiff ptend_ql =', &
@@ -1644,21 +1654,26 @@ subroutine macrop_driver_detrain_init_lq_mask_shell(ncol_local, use_water_tracer
   end do
 
   if (masterproc .and. .not. detrain_init_lq_mask_shell_logged) then
-     write(iulog,*) 'macrop_driver detrain init/lq mask shell entered = codon'
+     write(iulog,*) 'macrop_driver detrain init/lq mask shell entered (unified macrop-stage dispatch = codon)'
      call macrop_driver_append_impl_proof('MACROP_DRIVER_DETRAIN_SHELL_PROOF_FILE', &
-          'macrop_driver detrain init/lq mask shell entered = codon')
+          'macrop_driver detrain init/lq mask shell entered (unified macrop-stage dispatch = codon)')
      call flush(iulog)
      detrain_init_lq_mask_shell_logged = .true.
   end if
 
-  call macrop_driver_detrain_init_lq_mask_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), &
-       int(pver, c_int64_t), int(pcnst, c_int64_t), int(wtrc_nwset, c_int64_t), int(wtrc_ncnst, c_int64_t), &
+  call macrop_driver_stage_dispatch_call(2_c_int64_t, 0_c_int64_t, int(ncol_local, c_int64_t), &
+       int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), 0_c_int64_t, &
+       int(wtrc_nwset, c_int64_t), int(wtrc_ncnst, c_int64_t), &
        merge(1_c_int64_t, 0_c_int64_t, use_water_tracers_local), int(ixcldliq_local, c_int64_t), &
        int(ixcldice_local, c_int64_t), int(ixnumliq_local, c_int64_t), int(ixnumice_local, c_int64_t), &
-       c_loc(dlf_T_local), c_loc(dlf_qv_local), c_loc(dlf_ql_local), c_loc(dlf_qi_local), c_loc(dlf_nl_local), &
-       c_loc(dlf_ni_local), c_loc(det_s_local), c_loc(det_ice_local), c_loc(dpdlfliq_local), &
-       c_loc(dpdlfice_local), c_loc(shdlfliq_local), c_loc(shdlfice_local), c_loc(dpdlft_local), &
-       c_loc(shdlft_local), c_loc(lq_mask_c), c_loc(liq_type_c), c_loc(ice_type_c), c_loc(wtrc_indices_c))
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._r8, 0._r8, 0._r8, &
+       0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, p1_p=c_loc(dlf_T_local), &
+       p2_p=c_loc(dlf_qv_local), p3_p=c_loc(dlf_ql_local), p4_p=c_loc(dlf_qi_local), &
+       p5_p=c_loc(dlf_nl_local), p6_p=c_loc(dlf_ni_local), p7_p=c_loc(det_s_local), &
+       p8_p=c_loc(det_ice_local), p9_p=c_loc(dpdlfliq_local), p10_p=c_loc(dpdlfice_local), &
+       p11_p=c_loc(shdlfliq_local), p12_p=c_loc(shdlfice_local), p13_p=c_loc(dpdlft_local), &
+       p14_p=c_loc(shdlft_local), p15_p=c_loc(lq_mask_c), p16_p=c_loc(liq_type_c), &
+       p17_p=c_loc(ice_type_c), p18_p=c_loc(wtrc_indices_c))
 
   lq_local(:) = lq_mask_c(:) /= 0_c_int64_t
 
@@ -1688,14 +1703,18 @@ subroutine macrop_driver_detrain_post_shell(ncol_local, det_ice_local)
   end if
 
   if (masterproc .and. .not. detrain_post_shell_logged) then
-     write(iulog,*) 'macrop_driver detrain post shell entered = codon'
+     write(iulog,*) 'macrop_driver detrain post shell entered (unified macrop-stage dispatch = codon)'
      call macrop_driver_append_impl_proof('MACROP_DRIVER_DETRAIN_SHELL_PROOF_FILE', &
-          'macrop_driver detrain post shell entered = codon')
+          'macrop_driver detrain post shell entered (unified macrop-stage dispatch = codon)')
      call flush(iulog)
      detrain_post_shell_logged = .true.
   end if
 
-  call macrop_driver_detrain_post_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), c_loc(det_ice_local))
+  call macrop_driver_stage_dispatch_call(4_c_int64_t, 0_c_int64_t, int(ncol_local, c_int64_t), &
+       int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._r8, 0._r8, 0._r8, &
+       0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, p1_p=c_loc(det_ice_local))
 
 end subroutine macrop_driver_detrain_post_shell
 
@@ -1800,16 +1819,19 @@ subroutine macrop_driver_mmacro_post_fields_shell(ncol_local, fice_local, alst_l
   end if
 
   if (masterproc .and. .not. mmacro_post_fields_shell_logged) then
-     write(iulog,*) 'macrop_driver mmacro post fields shell entered = codon'
+     write(iulog,*) 'macrop_driver mmacro post fields shell entered (unified macrop-stage dispatch = codon)'
      call macrop_driver_append_impl_proof('MACROP_DRIVER_MMPCOND_SHELL_PROOF_FILE', &
-          'macrop_driver mmacro post fields shell entered = codon')
+          'macrop_driver mmacro post fields shell entered (unified macrop-stage dispatch = codon)')
      call flush(iulog)
      mmacro_post_fields_shell_logged = .true.
   end if
 
-  call macrop_driver_mmacro_post_fields_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), &
-       int(pver, c_int64_t), int(top_lev, c_int64_t), c_loc(fice_local), c_loc(alst_local), c_loc(aist_local), &
-       c_loc(fice_ql_local), c_loc(ast_local))
+  call macrop_driver_stage_dispatch_call(6_c_int64_t, 0_c_int64_t, int(ncol_local, c_int64_t), &
+       int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), int(top_lev, c_int64_t), &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._r8, 0._r8, 0._r8, &
+       0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, p1_p=c_loc(fice_local), &
+       p2_p=c_loc(alst_local), p3_p=c_loc(aist_local), p4_p=c_loc(fice_ql_local), p5_p=c_loc(ast_local))
 
 end subroutine macrop_driver_mmacro_post_fields_shell
 
@@ -1914,7 +1936,7 @@ integer function macrop_driver_ptend_config_shell(ncol_local, do_cldice_local, d
   real(r8), target, intent(inout) :: ptend_qi_local(pcols,pver), ptend_nl_local(pcols,pver), ptend_ni_local(pcols,pver)
   integer(c_int64_t), target :: mask64
   character(len=*), parameter :: proof_msg = 'macrop_driver ptend/config shell entered ('// &
-       'ptend assign/config check direct = codon; mmacro_pcond = native)'
+       'unified macrop-stage dispatch = codon)'
 
   interface
      subroutine macrop_driver_ptend_config_shell_codon(ncol_c, pcols_c, pver_c, top_lev_c, do_cldice_c, do_cldliq_c, &
@@ -1943,11 +1965,16 @@ integer function macrop_driver_ptend_config_shell(ncol_local, do_cldice_local, d
   end if
 
   mask64 = 0_c_int64_t
-  call macrop_driver_ptend_config_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-       int(top_lev, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, do_cldice_local), &
-       merge(1_c_int64_t, 0_c_int64_t, do_cldliq_local), c_loc(tlat_local), c_loc(qvlat_local), c_loc(qcten_local), &
-       c_loc(qiten_local), c_loc(ncten_local), c_loc(niten_local), c_loc(ptend_s_local), c_loc(ptend_qv_local), &
-       c_loc(ptend_ql_local), c_loc(ptend_qi_local), c_loc(ptend_nl_local), c_loc(ptend_ni_local), c_loc(mask64))
+  call macrop_driver_stage_dispatch_call(7_c_int64_t, 0_c_int64_t, int(ncol_local, c_int64_t), &
+       int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), int(top_lev, c_int64_t), &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, merge(1_c_int64_t, 0_c_int64_t, do_cldice_local), &
+       merge(1_c_int64_t, 0_c_int64_t, do_cldliq_local), 0_c_int64_t, 0._r8, 0._r8, 0._r8, &
+       0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, p1_p=c_loc(tlat_local), &
+       p2_p=c_loc(qvlat_local), p3_p=c_loc(qcten_local), p4_p=c_loc(qiten_local), &
+       p5_p=c_loc(ncten_local), p6_p=c_loc(niten_local), p7_p=c_loc(ptend_s_local), &
+       p8_p=c_loc(ptend_qv_local), p9_p=c_loc(ptend_ql_local), p10_p=c_loc(ptend_qi_local), &
+       p11_p=c_loc(ptend_nl_local), p12_p=c_loc(ptend_ni_local), p13_p=c_loc(mask64))
   mask = int(mask64)
 
 end function macrop_driver_ptend_config_shell
@@ -1981,16 +2008,20 @@ subroutine macrop_driver_cfmip_diag_shell(ncol_local, cld_local, state_ql_local,
   end if
 
   if (masterproc .and. .not. cfmip_diag_shell_logged) then
-     write(iulog,*) 'macrop_driver cfmip diag shell entered = codon'
+     write(iulog,*) 'macrop_driver cfmip diag shell entered (unified macrop-stage dispatch = codon)'
      call macrop_driver_append_impl_proof('MACROP_DRIVER_CFMIP_DIAG_SHELL_PROOF_FILE', &
-          'macrop_driver cfmip diag shell entered = codon')
+          'macrop_driver cfmip diag shell entered (unified macrop-stage dispatch = codon)')
      call flush(iulog)
      cfmip_diag_shell_logged = .true.
   end if
 
-  call macrop_driver_cfmip_diag_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-       int(top_lev, c_int64_t), c_loc(cld_local), c_loc(state_ql_local), c_loc(state_qi_local), c_loc(mr_ccliq_local), &
-       c_loc(mr_ccice_local), c_loc(mr_lsliq_local), c_loc(mr_lsice_local))
+  call macrop_driver_stage_dispatch_call(8_c_int64_t, 0_c_int64_t, int(ncol_local, c_int64_t), &
+       int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), int(top_lev, c_int64_t), &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._r8, 0._r8, 0._r8, &
+       0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, p1_p=c_loc(cld_local), &
+       p2_p=c_loc(state_ql_local), p3_p=c_loc(state_qi_local), p4_p=c_loc(mr_ccliq_local), &
+       p5_p=c_loc(mr_ccice_local), p6_p=c_loc(mr_lsliq_local), p7_p=c_loc(mr_lsice_local))
 
 end subroutine macrop_driver_cfmip_diag_shell
 
@@ -2053,16 +2084,20 @@ subroutine macrop_driver_clr_old_diag(ncol_local, concld_local, alst_local, ast_
   end if
 
   if (masterproc .and. .not. clr_old_diag_logged) then
-     write(iulog,*) 'macrop_driver clr old diag entered = codon (concld_old copy/top clear)'
+     write(iulog,*) 'macrop_driver clr old diag entered (unified macrop-stage dispatch = codon)'
      call macrop_driver_append_impl_proof('MACROP_DRIVER_MMPCOND_SHELL_PROOF_FILE', &
-          'macrop_driver clr old diag entered = codon (concld_old copy/top clear)')
+          'macrop_driver clr old diag entered (unified macrop-stage dispatch = codon)')
      call flush(iulog)
      clr_old_diag_logged = .true.
   end if
 
-  call macrop_driver_clr_old_diag_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-       int(top_lev, c_int64_t), c_loc(concld_local), c_loc(alst_local), c_loc(ast_local), c_loc(concld_old_local), &
-       c_loc(clrw_old_local), c_loc(clri_old_local))
+  call macrop_driver_stage_dispatch_call(9_c_int64_t, 0_c_int64_t, int(ncol_local, c_int64_t), &
+       int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), int(top_lev, c_int64_t), &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._r8, 0._r8, 0._r8, &
+       0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, p1_p=c_loc(concld_local), &
+       p2_p=c_loc(alst_local), p3_p=c_loc(ast_local), p4_p=c_loc(concld_old_local), &
+       p5_p=c_loc(clrw_old_local), p6_p=c_loc(clri_old_local))
 
 end subroutine macrop_driver_clr_old_diag
 
@@ -2261,7 +2296,7 @@ subroutine macrop_driver_mmacro_prepare_shell(ncol_local, nstep_local, rdtime_lo
   real(r8), target, intent(inout) :: ql_inout_local(pcols,pver), qi_inout_local(pcols,pver)
   real(r8), target, intent(inout) :: nl_inout_local(pcols,pver), ni_inout_local(pcols,pver)
   character(len=*), parameter :: proof_msg = 'macrop_driver mmacro prepare shell entered ('// &
-       'input/forcing prep direct = codon; mmacro_pcond = native)'
+       'unified macrop-stage dispatch = codon)'
 
   interface
      subroutine macrop_driver_mmacro_prepare_shell_codon(ncol_c, pcols_c, pver_c, pcnst_c, top_lev_c, ixcldliq_c, &
@@ -2298,16 +2333,22 @@ subroutine macrop_driver_mmacro_prepare_shell(ncol_local, nstep_local, rdtime_lo
      mmacro_prepare_shell_logged = .true.
   end if
 
-  call macrop_driver_mmacro_prepare_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), &
-       int(pver, c_int64_t), int(pcnst, c_int64_t), int(top_lev, c_int64_t), int(ixcldliq, c_int64_t), &
-       int(ixcldice, c_int64_t), int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), int(nstep_local, c_int64_t), &
-       real(rdtime_local, c_double), c_loc(state_q_local), c_loc(state_t_local), c_loc(state_qv_local), c_loc(zeros_local), &
-       c_loc(qc_local), c_loc(qi_local), c_loc(nc_local), c_loc(ni_local), c_loc(tcwat_local), c_loc(qcwat_local), &
-       c_loc(lcwat_local), c_loc(iccwat_local), c_loc(nlwat_local), c_loc(niwat_local), c_loc(cc_t_local), &
-       c_loc(cc_qv_local), c_loc(cc_ql_local), c_loc(cc_qi_local), c_loc(cc_nl_local), c_loc(cc_ni_local), &
-       c_loc(cc_qlst_local), c_loc(ttend_local), c_loc(qtend_local), c_loc(ltend_local), c_loc(itend_local), &
-       c_loc(nltend_local), c_loc(nitend_local), c_loc(lmitend_local), c_loc(t_inout_local), c_loc(qv_inout_local), &
-       c_loc(ql_inout_local), c_loc(qi_inout_local), c_loc(nl_inout_local), c_loc(ni_inout_local))
+  call macrop_driver_stage_dispatch_call(5_c_int64_t, 0_c_int64_t, int(ncol_local, c_int64_t), &
+       int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), int(top_lev, c_int64_t), &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), &
+       int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, int(nstep_local, c_int64_t), 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
+       0._r8, rdtime_local, 0._r8, p1_p=c_loc(state_q_local), p2_p=c_loc(state_t_local), &
+       p3_p=c_loc(state_qv_local), p4_p=c_loc(zeros_local), p5_p=c_loc(qc_local), p6_p=c_loc(qi_local), &
+       p7_p=c_loc(nc_local), p8_p=c_loc(ni_local), p9_p=c_loc(tcwat_local), p10_p=c_loc(qcwat_local), &
+       p11_p=c_loc(lcwat_local), p12_p=c_loc(iccwat_local), p13_p=c_loc(nlwat_local), &
+       p14_p=c_loc(niwat_local), p15_p=c_loc(cc_t_local), p16_p=c_loc(cc_qv_local), &
+       p17_p=c_loc(cc_ql_local), p18_p=c_loc(cc_qi_local), p19_p=c_loc(cc_nl_local), &
+       p20_p=c_loc(cc_ni_local), p21_p=c_loc(cc_qlst_local), p22_p=c_loc(ttend_local), &
+       p23_p=c_loc(qtend_local), p24_p=c_loc(ltend_local), p25_p=c_loc(itend_local), &
+       p26_p=c_loc(nltend_local), p27_p=c_loc(nitend_local), p28_p=c_loc(lmitend_local), &
+       p29_p=c_loc(t_inout_local), p30_p=c_loc(qv_inout_local), p31_p=c_loc(ql_inout_local), &
+       p32_p=c_loc(qi_inout_local), p33_p=c_loc(nl_inout_local), p34_p=c_loc(ni_inout_local))
 
 end subroutine macrop_driver_mmacro_prepare_shell
 
@@ -2534,17 +2575,22 @@ subroutine macrop_driver_store_state(ncol_local, state_t_local, state_qv_local, 
   end if
 
   if (masterproc .and. .not. store_state_logged) then
-     write(iulog,*) 'macrop_driver store state entered = codon (cldsice zero/store)'
+     write(iulog,*) 'macrop_driver store state entered (unified macrop-stage dispatch = codon)'
      call macrop_driver_append_impl_proof('MACROP_DRIVER_MMPCOND_SHELL_PROOF_FILE', &
-          'macrop_driver store state entered = codon (cldsice zero/store)')
+          'macrop_driver store state entered (unified macrop-stage dispatch = codon)')
      call flush(iulog)
      store_state_logged = .true.
   end if
 
-  call macrop_driver_store_state_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-       int(top_lev, c_int64_t), tmelt, c_loc(state_t_local), c_loc(state_qv_local), c_loc(state_ql_local), c_loc(state_qi_local), &
-       c_loc(state_nl_local), c_loc(state_ni_local), c_loc(tcwat_local), c_loc(qcwat_local), c_loc(lcwat_local), &
-       c_loc(iccwat_local), c_loc(nlwat_local), c_loc(niwat_local), c_loc(cldsice_local))
+  call macrop_driver_stage_dispatch_call(10_c_int64_t, 0_c_int64_t, int(ncol_local, c_int64_t), &
+       int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), int(top_lev, c_int64_t), &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._r8, 0._r8, 0._r8, &
+       0._r8, 0._r8, 0._r8, 0._r8, 0._r8, tmelt, p1_p=c_loc(state_t_local), &
+       p2_p=c_loc(state_qv_local), p3_p=c_loc(state_ql_local), p4_p=c_loc(state_qi_local), &
+       p5_p=c_loc(state_nl_local), p6_p=c_loc(state_ni_local), p7_p=c_loc(tcwat_local), &
+       p8_p=c_loc(qcwat_local), p9_p=c_loc(lcwat_local), p10_p=c_loc(iccwat_local), &
+       p11_p=c_loc(nlwat_local), p12_p=c_loc(niwat_local), p13_p=c_loc(cldsice_local))
 
 end subroutine macrop_driver_store_state
 
@@ -2597,6 +2643,99 @@ subroutine macrop_driver_append_impl_proof(env_name, proof_line)
   close(unit_id)
 
 end subroutine macrop_driver_append_impl_proof
+
+!============================================================================ !
+
+subroutine macrop_driver_stage_dispatch_call(stage_c, mode_c, ncol_c, pcols_c, pver_c, pcnst_c, top_lev_c, &
+     wtrc_nwset_c, wtrc_ncnst_c, use_water_tracers_c, ixcldliq_c, ixcldice_c, ixnumliq_c, ixnumice_c, &
+     do_detrain_c, cu_det_st_c, do_cldice_c, do_cldliq_c, nstep_c, cpair_c, gravit_c, latice_c, &
+     nl_denom_a_c, nl_denom_b_c, ni_denom_a_c, ni_denom_b_c, rdtime_c, tmelt_c, &
+     p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p, p9_p, p10_p, p11_p, p12_p, p13_p, p14_p, p15_p, p16_p, &
+     p17_p, p18_p, p19_p, p20_p, p21_p, p22_p, p23_p, p24_p, p25_p, p26_p, p27_p, p28_p, p29_p, p30_p, &
+     p31_p, p32_p, p33_p, p34_p)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_null_ptr, c_ptr
+
+  integer(c_int64_t), intent(in) :: stage_c, mode_c, ncol_c, pcols_c, pver_c, pcnst_c, top_lev_c
+  integer(c_int64_t), intent(in) :: wtrc_nwset_c, wtrc_ncnst_c, use_water_tracers_c
+  integer(c_int64_t), intent(in) :: ixcldliq_c, ixcldice_c, ixnumliq_c, ixnumice_c
+  integer(c_int64_t), intent(in) :: do_detrain_c, cu_det_st_c, do_cldice_c, do_cldliq_c, nstep_c
+  real(r8), intent(in) :: cpair_c, gravit_c, latice_c, nl_denom_a_c, nl_denom_b_c, ni_denom_a_c, ni_denom_b_c
+  real(r8), intent(in) :: rdtime_c, tmelt_c
+  type(c_ptr), intent(in), optional :: p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p
+  type(c_ptr), intent(in), optional :: p9_p, p10_p, p11_p, p12_p, p13_p, p14_p, p15_p, p16_p
+  type(c_ptr), intent(in), optional :: p17_p, p18_p, p19_p, p20_p, p21_p, p22_p, p23_p, p24_p
+  type(c_ptr), intent(in), optional :: p25_p, p26_p, p27_p, p28_p, p29_p, p30_p, p31_p, p32_p, p33_p, p34_p
+  type(c_ptr) :: q(34)
+
+  interface
+     subroutine macrop_driver_stage_dispatch_codon(stage_c, mode_c, ncol_c, pcols_c, pver_c, pcnst_c, top_lev_c, &
+          wtrc_nwset_c, wtrc_ncnst_c, use_water_tracers_c, ixcldliq_c, ixcldice_c, ixnumliq_c, ixnumice_c, &
+          do_detrain_c, cu_det_st_c, do_cldice_c, do_cldliq_c, nstep_c, cpair_c, gravit_c, latice_c, &
+          nl_denom_a_c, nl_denom_b_c, ni_denom_a_c, ni_denom_b_c, rdtime_c, tmelt_c, &
+          p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p, p9_p, p10_p, p11_p, p12_p, p13_p, p14_p, p15_p, p16_p, &
+          p17_p, p18_p, p19_p, p20_p, p21_p, p22_p, p23_p, p24_p, p25_p, p26_p, p27_p, p28_p, p29_p, p30_p, &
+          p31_p, p32_p, p33_p, p34_p) bind(c, name="macrop_driver_stage_dispatch_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: stage_c, mode_c, ncol_c, pcols_c, pver_c, pcnst_c, top_lev_c
+       integer(c_int64_t), value :: wtrc_nwset_c, wtrc_ncnst_c, use_water_tracers_c
+       integer(c_int64_t), value :: ixcldliq_c, ixcldice_c, ixnumliq_c, ixnumice_c
+       integer(c_int64_t), value :: do_detrain_c, cu_det_st_c, do_cldice_c, do_cldliq_c, nstep_c
+       real(c_double), value :: cpair_c, gravit_c, latice_c, nl_denom_a_c, nl_denom_b_c, ni_denom_a_c, ni_denom_b_c
+       real(c_double), value :: rdtime_c, tmelt_c
+       type(c_ptr), value :: p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p
+       type(c_ptr), value :: p9_p, p10_p, p11_p, p12_p, p13_p, p14_p, p15_p, p16_p
+       type(c_ptr), value :: p17_p, p18_p, p19_p, p20_p, p21_p, p22_p, p23_p, p24_p
+       type(c_ptr), value :: p25_p, p26_p, p27_p, p28_p, p29_p, p30_p, p31_p, p32_p, p33_p, p34_p
+     end subroutine macrop_driver_stage_dispatch_codon
+  end interface
+
+  q(:) = c_null_ptr
+  if (present(p1_p)) q(1) = p1_p
+  if (present(p2_p)) q(2) = p2_p
+  if (present(p3_p)) q(3) = p3_p
+  if (present(p4_p)) q(4) = p4_p
+  if (present(p5_p)) q(5) = p5_p
+  if (present(p6_p)) q(6) = p6_p
+  if (present(p7_p)) q(7) = p7_p
+  if (present(p8_p)) q(8) = p8_p
+  if (present(p9_p)) q(9) = p9_p
+  if (present(p10_p)) q(10) = p10_p
+  if (present(p11_p)) q(11) = p11_p
+  if (present(p12_p)) q(12) = p12_p
+  if (present(p13_p)) q(13) = p13_p
+  if (present(p14_p)) q(14) = p14_p
+  if (present(p15_p)) q(15) = p15_p
+  if (present(p16_p)) q(16) = p16_p
+  if (present(p17_p)) q(17) = p17_p
+  if (present(p18_p)) q(18) = p18_p
+  if (present(p19_p)) q(19) = p19_p
+  if (present(p20_p)) q(20) = p20_p
+  if (present(p21_p)) q(21) = p21_p
+  if (present(p22_p)) q(22) = p22_p
+  if (present(p23_p)) q(23) = p23_p
+  if (present(p24_p)) q(24) = p24_p
+  if (present(p25_p)) q(25) = p25_p
+  if (present(p26_p)) q(26) = p26_p
+  if (present(p27_p)) q(27) = p27_p
+  if (present(p28_p)) q(28) = p28_p
+  if (present(p29_p)) q(29) = p29_p
+  if (present(p30_p)) q(30) = p30_p
+  if (present(p31_p)) q(31) = p31_p
+  if (present(p32_p)) q(32) = p32_p
+  if (present(p33_p)) q(33) = p33_p
+  if (present(p34_p)) q(34) = p34_p
+
+  call macrop_driver_stage_dispatch_codon(stage_c, mode_c, ncol_c, pcols_c, pver_c, pcnst_c, top_lev_c, &
+       wtrc_nwset_c, wtrc_ncnst_c, use_water_tracers_c, ixcldliq_c, ixcldice_c, ixnumliq_c, ixnumice_c, &
+       do_detrain_c, cu_det_st_c, do_cldice_c, do_cldliq_c, nstep_c, real(cpair_c, c_double), &
+       real(gravit_c, c_double), real(latice_c, c_double), real(nl_denom_a_c, c_double), &
+       real(nl_denom_b_c, c_double), real(ni_denom_a_c, c_double), real(ni_denom_b_c, c_double), &
+       real(rdtime_c, c_double), real(tmelt_c, c_double), q(1), q(2), q(3), q(4), q(5), q(6), q(7), q(8), &
+       q(9), q(10), q(11), q(12), q(13), q(14), q(15), q(16), q(17), q(18), q(19), q(20), q(21), q(22), &
+       q(23), q(24), q(25), q(26), q(27), q(28), q(29), q(30), q(31), q(32), q(33), q(34))
+
+end subroutine macrop_driver_stage_dispatch_call
 
 !============================================================================ !
 
