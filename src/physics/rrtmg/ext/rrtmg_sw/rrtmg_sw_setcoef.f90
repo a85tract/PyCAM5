@@ -18,6 +18,8 @@
 ! ------- Modules -------
 
       use shr_kind_mod, only: r8 => shr_kind_r8
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
 
 !      use parkind, only : jpim, jprb
       use parrrsw, only : mxmol
@@ -25,11 +27,123 @@
       use rrsw_vsn, only : hvrset, hnamset
 
       implicit none
+      save
+
+      logical :: use_native_setcoef_sw_impl = .false.
+      logical :: setcoef_sw_impl_selected = .false.
+      logical :: setcoef_sw_entered_logged = .false.
 
       contains
 
 !----------------------------------------------------------------------------
       subroutine setcoef_sw(nlayers, pavel, tavel, pz, tz, tbound, coldry, wkl, &
+                            laytrop, layswtch, laylow, jp, jt, jt1, &
+                            co2mult, colch4, colco2, colh2o, colmol, coln2o, &
+                            colo2, colo3, fac00, fac01, fac10, fac11, &
+                            selffac, selffrac, indself, forfac, forfrac, indfor)
+!----------------------------------------------------------------------------
+      use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+      integer, intent(in) :: nlayers
+
+      real(kind=r8), target, intent(in) :: pavel(:)
+      real(kind=r8), target, intent(in) :: tavel(:)
+      real(kind=r8), intent(in) :: pz(0:)
+      real(kind=r8), intent(in) :: tz(0:)
+      real(kind=r8), intent(in) :: tbound
+      real(kind=r8), target, intent(in) :: coldry(:)
+      real(kind=r8), target, intent(in) :: wkl(:,:)
+
+      integer, intent(out) :: laytrop
+      integer, intent(out) :: layswtch
+      integer, intent(out) :: laylow
+
+      integer, intent(out) :: jp(:)
+      integer, intent(out) :: jt(:)
+      integer, intent(out) :: jt1(:)
+
+      real(kind=r8), target, intent(out) :: colh2o(:)
+      real(kind=r8), target, intent(out) :: colco2(:)
+      real(kind=r8), target, intent(out) :: colo3(:)
+      real(kind=r8), target, intent(out) :: coln2o(:)
+      real(kind=r8), target, intent(out) :: colch4(:)
+      real(kind=r8), target, intent(out) :: colo2(:)
+      real(kind=r8), target, intent(out) :: colmol(:)
+      real(kind=r8), target, intent(out) :: co2mult(:)
+
+      integer, intent(out) :: indself(:)
+      integer, intent(out) :: indfor(:)
+      real(kind=r8), target, intent(out) :: selffac(:)
+      real(kind=r8), target, intent(out) :: selffrac(:)
+      real(kind=r8), target, intent(out) :: forfac(:)
+      real(kind=r8), target, intent(out) :: forfrac(:)
+
+      real(kind=r8), target, intent(out) :: fac00(:), fac01(:), fac10(:), fac11(:)
+
+      integer :: lay
+      integer(c_int64_t), target :: laytrop64
+      integer(c_int64_t), target :: layswtch64
+      integer(c_int64_t), target :: laylow64
+      integer(c_int64_t), target :: jp64(nlayers)
+      integer(c_int64_t), target :: jt64(nlayers)
+      integer(c_int64_t), target :: jt164(nlayers)
+      integer(c_int64_t), target :: indself64(nlayers)
+      integer(c_int64_t), target :: indfor64(nlayers)
+
+      interface
+         subroutine rrtmg_sw_setcoef_codon(nlayers_c, mxmol_c, pavel_p, tavel_p, coldry_p, wkl_p, &
+              laytrop_p, layswtch_p, laylow_p, jp_p, jt_p, jt1_p, co2mult_p, colch4_p, &
+              colco2_p, colh2o_p, colmol_p, coln2o_p, colo2_p, colo3_p, fac00_p, fac01_p, &
+              fac10_p, fac11_p, selffac_p, selffrac_p, indself_p, forfac_p, forfrac_p, &
+              indfor_p, preflog_p, tref_p) bind(c, name="rrtmg_sw_setcoef_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: nlayers_c, mxmol_c
+            type(c_ptr), value :: pavel_p, tavel_p, coldry_p, wkl_p
+            type(c_ptr), value :: laytrop_p, layswtch_p, laylow_p
+            type(c_ptr), value :: jp_p, jt_p, jt1_p
+            type(c_ptr), value :: co2mult_p, colch4_p, colco2_p, colh2o_p, colmol_p, coln2o_p
+            type(c_ptr), value :: colo2_p, colo3_p, fac00_p, fac01_p, fac10_p, fac11_p
+            type(c_ptr), value :: selffac_p, selffrac_p, indself_p, forfac_p, forfrac_p, indfor_p
+            type(c_ptr), value :: preflog_p, tref_p
+         end subroutine rrtmg_sw_setcoef_codon
+      end interface
+
+      call setcoef_sw_select_impl()
+      if (use_native_setcoef_sw_impl) then
+         call setcoef_sw_native(nlayers, pavel, tavel, pz, tz, tbound, coldry, wkl, &
+              laytrop, layswtch, laylow, jp, jt, jt1, co2mult, colch4, colco2, &
+              colh2o, colmol, coln2o, colo2, colo3, fac00, fac01, fac10, fac11, &
+              selffac, selffrac, indself, forfac, forfrac, indfor)
+      else
+         call setcoef_sw_log_entered()
+         call rrtmg_sw_setcoef_codon( &
+              int(nlayers, c_int64_t), int(mxmol, c_int64_t), &
+              c_loc(pavel(1)), c_loc(tavel(1)), c_loc(coldry(1)), c_loc(wkl(1,1)), &
+              c_loc(laytrop64), c_loc(layswtch64), c_loc(laylow64), c_loc(jp64(1)), &
+              c_loc(jt64(1)), c_loc(jt164(1)), c_loc(co2mult(1)), c_loc(colch4(1)), &
+              c_loc(colco2(1)), c_loc(colh2o(1)), c_loc(colmol(1)), c_loc(coln2o(1)), &
+              c_loc(colo2(1)), c_loc(colo3(1)), c_loc(fac00(1)), c_loc(fac01(1)), &
+              c_loc(fac10(1)), c_loc(fac11(1)), c_loc(selffac(1)), c_loc(selffrac(1)), &
+              c_loc(indself64(1)), c_loc(forfac(1)), c_loc(forfrac(1)), c_loc(indfor64(1)), &
+              c_loc(preflog(1)), c_loc(tref(1)) &
+         )
+
+         laytrop = int(laytrop64)
+         layswtch = int(layswtch64)
+         laylow = int(laylow64)
+         do lay = 1, nlayers
+            jp(lay) = int(jp64(lay))
+            jt(lay) = int(jt64(lay))
+            jt1(lay) = int(jt164(lay))
+            indself(lay) = int(indself64(lay))
+            indfor(lay) = int(indfor64(lay))
+         enddo
+      endif
+
+      end subroutine setcoef_sw
+
+!----------------------------------------------------------------------------
+      subroutine setcoef_sw_native(nlayers, pavel, tavel, pz, tz, tbound, coldry, wkl, &
                             laytrop, layswtch, laylow, jp, jt, jt1, &
                             co2mult, colch4, colco2, colh2o, colmol, coln2o, &
                             colo2, colo3, fac00, fac01, fac10, fac11, &
@@ -285,7 +399,7 @@
 ! End layer loop
       enddo
 
-      end subroutine setcoef_sw
+      end subroutine setcoef_sw_native
 
 !***************************************************************************
       subroutine swatmref
@@ -344,6 +458,53 @@
 
       end subroutine swatmref
 
+! --------------------------------------------------------------------------
+      subroutine setcoef_sw_select_impl()
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (setcoef_sw_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('RRTMG_SW_SETCOEF_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_setcoef_sw_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_setcoef_sw_impl = .false.
+      end if
+
+      setcoef_sw_impl_selected = .true.
+
+      if (masterproc) then
+         if (use_native_setcoef_sw_impl) then
+            write(iulog,*) 'rrtmg_sw_setcoef implementation = native'
+         else
+            write(iulog,*) 'rrtmg_sw_setcoef implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine setcoef_sw_select_impl
+
+! --------------------------------------------------------------------------
+      subroutine setcoef_sw_log_entered()
+
+      if (setcoef_sw_entered_logged) return
+      setcoef_sw_entered_logged = .true.
+
+      if (masterproc) then
+         write(iulog,*) 'rrtmg_sw_setcoef entered (pressure/temperature interpolation coefficients = codon)'
+         call flush(iulog)
+      end if
+
+      end subroutine setcoef_sw_log_entered
+
       end module rrtmg_sw_setcoef
-
-

@@ -1,4 +1,4 @@
-from math import exp, sqrt
+from math import exp, log, sqrt
 
 
 @inline
@@ -547,6 +547,194 @@ def rrtmg_sw_post_codon(
             qrsc[_idx2(i, cam_k, pcols)] = (
                 swhrc[_idx2(i, rrtmg_k, pcols)] * cpair * dps
             )
+
+
+@export
+def rrtmg_sw_setcoef_codon(
+    nlayers: int,
+    mxmol: int,
+    pavel_p: cobj,
+    tavel_p: cobj,
+    coldry_p: cobj,
+    wkl_p: cobj,
+    laytrop_p: cobj,
+    layswtch_p: cobj,
+    laylow_p: cobj,
+    jp_p: cobj,
+    jt_p: cobj,
+    jt1_p: cobj,
+    co2mult_p: cobj,
+    colch4_p: cobj,
+    colco2_p: cobj,
+    colh2o_p: cobj,
+    colmol_p: cobj,
+    coln2o_p: cobj,
+    colo2_p: cobj,
+    colo3_p: cobj,
+    fac00_p: cobj,
+    fac01_p: cobj,
+    fac10_p: cobj,
+    fac11_p: cobj,
+    selffac_p: cobj,
+    selffrac_p: cobj,
+    indself_p: cobj,
+    forfac_p: cobj,
+    forfrac_p: cobj,
+    indfor_p: cobj,
+    preflog_p: cobj,
+    tref_p: cobj,
+):
+    pavel = Ptr[float](pavel_p)
+    tavel = Ptr[float](tavel_p)
+    coldry = Ptr[float](coldry_p)
+    wkl = Ptr[float](wkl_p)
+    laytrop = Ptr[int](laytrop_p)
+    layswtch = Ptr[int](layswtch_p)
+    laylow = Ptr[int](laylow_p)
+    jp = Ptr[int](jp_p)
+    jt = Ptr[int](jt_p)
+    jt1 = Ptr[int](jt1_p)
+    co2mult = Ptr[float](co2mult_p)
+    colch4 = Ptr[float](colch4_p)
+    colco2 = Ptr[float](colco2_p)
+    colh2o = Ptr[float](colh2o_p)
+    colmol = Ptr[float](colmol_p)
+    coln2o = Ptr[float](coln2o_p)
+    colo2 = Ptr[float](colo2_p)
+    colo3 = Ptr[float](colo3_p)
+    fac00 = Ptr[float](fac00_p)
+    fac01 = Ptr[float](fac01_p)
+    fac10 = Ptr[float](fac10_p)
+    fac11 = Ptr[float](fac11_p)
+    selffac = Ptr[float](selffac_p)
+    selffrac = Ptr[float](selffrac_p)
+    indself = Ptr[int](indself_p)
+    forfac = Ptr[float](forfac_p)
+    forfrac = Ptr[float](forfrac_p)
+    indfor = Ptr[int](indfor_p)
+    preflog = Ptr[float](preflog_p)
+    tref = Ptr[float](tref_p)
+
+    stpfac = 296.0 / 1013.0
+
+    laytrop[0] = 0
+    layswtch[0] = 0
+    laylow[0] = 0
+
+    for lay in range(1, nlayers + 1):
+        idx = lay - 1
+        plog = log(pavel[idx])
+        jp[idx] = int(36.0 - 5.0 * (plog + 0.04))
+        if jp[idx] < 1:
+            jp[idx] = 1
+        elif jp[idx] > 58:
+            jp[idx] = 58
+
+        jp1 = jp[idx] + 1
+        fp = 5.0 * (preflog[jp[idx] - 1] - plog)
+
+        jt[idx] = int(3.0 + (tavel[idx] - tref[jp[idx] - 1]) / 15.0)
+        if jt[idx] < 1:
+            jt[idx] = 1
+        elif jt[idx] > 4:
+            jt[idx] = 4
+        ft = ((tavel[idx] - tref[jp[idx] - 1]) / 15.0) - float(jt[idx] - 3)
+
+        jt1[idx] = int(3.0 + (tavel[idx] - tref[jp1 - 1]) / 15.0)
+        if jt1[idx] < 1:
+            jt1[idx] = 1
+        elif jt1[idx] > 4:
+            jt1[idx] = 4
+        ft1 = ((tavel[idx] - tref[jp1 - 1]) / 15.0) - float(jt1[idx] - 3)
+
+        water = wkl[_idx2(1, lay, mxmol)] / coldry[idx]
+        scalefac = pavel[idx] * stpfac / tavel[idx]
+
+        if plog <= 4.56:
+            forfac[idx] = scalefac / (1.0 + water)
+            factor = (tavel[idx] - 188.0) / 36.0
+            indfor[idx] = 3
+            forfrac[idx] = factor - 1.0
+
+            colh2o[idx] = 1.0e-20 * wkl[_idx2(1, lay, mxmol)]
+            colco2[idx] = 1.0e-20 * wkl[_idx2(2, lay, mxmol)]
+            colo3[idx] = 1.0e-20 * wkl[_idx2(3, lay, mxmol)]
+            coln2o[idx] = 1.0e-20 * wkl[_idx2(4, lay, mxmol)]
+            colch4[idx] = 1.0e-20 * wkl[_idx2(6, lay, mxmol)]
+            colo2[idx] = 1.0e-20 * wkl[_idx2(7, lay, mxmol)]
+            colmol[idx] = 1.0e-20 * coldry[idx] + colh2o[idx]
+            if colco2[idx] == 0.0:
+                colco2[idx] = 1.0e-32 * coldry[idx]
+            if coln2o[idx] == 0.0:
+                coln2o[idx] = 1.0e-32 * coldry[idx]
+            if colch4[idx] == 0.0:
+                colch4[idx] = 1.0e-32 * coldry[idx]
+            if colo2[idx] == 0.0:
+                colo2[idx] = 1.0e-32 * coldry[idx]
+            co2reg = 3.55e-24 * coldry[idx]
+            co2mult[idx] = (
+                (colco2[idx] - co2reg)
+                * 272.63
+                * exp(-1919.4 / tavel[idx])
+                / (8.7604e-4 * tavel[idx])
+            )
+
+            selffac[idx] = 0.0
+            selffrac[idx] = 0.0
+            indself[idx] = 0
+        else:
+            laytrop[0] = laytrop[0] + 1
+            if plog >= 6.62:
+                laylow[0] = laylow[0] + 1
+
+            forfac[idx] = scalefac / (1.0 + water)
+            factor = (332.0 - tavel[idx]) / 36.0
+            ind = int(factor)
+            if ind < 1:
+                ind = 1
+            elif ind > 2:
+                ind = 2
+            indfor[idx] = ind
+            forfrac[idx] = factor - float(indfor[idx])
+
+            selffac[idx] = water * forfac[idx]
+            factor = (tavel[idx] - 188.0) / 7.2
+            ind = int(factor) - 7
+            if ind < 1:
+                ind = 1
+            elif ind > 9:
+                ind = 9
+            indself[idx] = ind
+            selffrac[idx] = factor - float(indself[idx] + 7)
+
+            colh2o[idx] = 1.0e-20 * wkl[_idx2(1, lay, mxmol)]
+            colco2[idx] = 1.0e-20 * wkl[_idx2(2, lay, mxmol)]
+            colo3[idx] = 1.0e-20 * wkl[_idx2(3, lay, mxmol)]
+            coln2o[idx] = 1.0e-20 * wkl[_idx2(4, lay, mxmol)]
+            colch4[idx] = 1.0e-20 * wkl[_idx2(6, lay, mxmol)]
+            colo2[idx] = 1.0e-20 * wkl[_idx2(7, lay, mxmol)]
+            colmol[idx] = 1.0e-20 * coldry[idx] + colh2o[idx]
+            if colco2[idx] == 0.0:
+                colco2[idx] = 1.0e-32 * coldry[idx]
+            if coln2o[idx] == 0.0:
+                coln2o[idx] = 1.0e-32 * coldry[idx]
+            if colch4[idx] == 0.0:
+                colch4[idx] = 1.0e-32 * coldry[idx]
+            if colo2[idx] == 0.0:
+                colo2[idx] = 1.0e-32 * coldry[idx]
+            co2reg = 3.55e-24 * coldry[idx]
+            co2mult[idx] = (
+                (colco2[idx] - co2reg)
+                * 272.63
+                * exp(-1919.4 / tavel[idx])
+                / (8.7604e-4 * tavel[idx])
+            )
+
+        compfp = 1.0 - fp
+        fac10[idx] = compfp * ft
+        fac00[idx] = compfp * (1.0 - ft)
+        fac11[idx] = fp * ft1
+        fac01[idx] = fp * (1.0 - ft1)
 
 
 @inline
