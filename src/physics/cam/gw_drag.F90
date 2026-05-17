@@ -1517,8 +1517,8 @@ subroutine gw_tend_prep_note_entered()
   gw_tend_prep_entered_logged = .true.
 
   if (masterproc) then
-     write(iulog,*) 'gw_tend_prep entered (state copy/init/orographic prep direct = codon)'
-     call gw_tend_prep_append_proof('gw_tend_prep entered (state copy/init/orographic prep direct = codon)')
+     write(iulog,*) 'gw_tend_prep entered (unified gw-tend dispatch state/init/oro direct = codon)'
+     call gw_tend_prep_append_proof('gw_tend_prep entered (unified gw-tend dispatch state/init/oro direct = codon)')
      call flush(iulog)
   end if
 
@@ -1647,8 +1647,8 @@ subroutine gw_tend_history_prep_note_entered()
   gw_tend_history_prep_entered_logged = .true.
 
   if (masterproc) then
-     write(iulog,*) 'gw_tend_history_prep entered (TTGWSDFORO/TTGWSKEORO/TTGW prep direct = codon)'
-     call gw_tend_history_prep_append_proof('gw_tend_history_prep entered (TTGWSDFORO/TTGWSKEORO/TTGW prep direct = codon)')
+     write(iulog,*) 'gw_tend_history_prep entered (unified gw-tend dispatch TTGW prep direct = codon)'
+     call gw_tend_history_prep_append_proof('gw_tend_history_prep entered (unified gw-tend dispatch TTGW prep direct = codon)')
      call flush(iulog)
   end if
 
@@ -1757,8 +1757,8 @@ subroutine gw_tend_oro_post_note_entered()
   gw_tend_oro_post_entered_logged = .true.
 
   if (masterproc) then
-     write(iulog,*) 'gw_tend_oro_post entered (orographic post loops direct = codon)'
-     call gw_tend_oro_post_append_proof('gw_tend_oro_post entered (orographic post loops direct = codon)')
+     write(iulog,*) 'gw_tend_oro_post entered (unified gw-tend dispatch oro post direct = codon)'
+     call gw_tend_oro_post_append_proof('gw_tend_oro_post entered (unified gw-tend dispatch oro post direct = codon)')
      call flush(iulog)
   end if
 

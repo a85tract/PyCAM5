@@ -155,8 +155,7 @@ def gw_energy_change_codon(
             )
 
 
-@export
-def gw_drag_prof_core_codon(
+def _gw_drag_prof_core_impl(
     stage: int,
     ncol: int,
     pver: int,
@@ -490,8 +489,7 @@ def gw_diff_tend_prepost_codon(
                 dq[idx] = (qnew[idx] - q[idx]) / dt
 
 
-@export
-def gw_diff_solver_codon(
+def _gw_diff_solver_impl(
     stage: int,
     ncol: int,
     pver: int,
@@ -742,6 +740,221 @@ def gw_diff_solver_codon(
                 dttdf[idx] = (qnew[idx] - dse[idx]) / dt
 
 
+def _gw_common_driver_dispatch(
+    group: int,
+    stage: int,
+    ncol: int,
+    pver: int,
+    pverp: int,
+    pcnst: int,
+    ngwv: int,
+    ktop: int,
+    kbot_tend: int,
+    kbot_src: int,
+    kbot: int,
+    tau_0_ubc: int,
+    dback: float,
+    taumin: float,
+    tndmax: float,
+    umcfac: float,
+    ubmc2mn: float,
+    effkwv: float,
+    kwv: float,
+    gravit: float,
+    rog: float,
+    dt: float,
+    alpha_p: cobj,
+    p_del_p: cobj,
+    p_rdel_p: cobj,
+    p_rdst_p: cobj,
+    t_p: cobj,
+    piln_p: cobj,
+    rhoi_p: cobj,
+    ni_p: cobj,
+    ubm_p: cobj,
+    ubi_p: cobj,
+    xv_p: cobj,
+    yv_p: cobj,
+    effgw_p: cobj,
+    c_p: cobj,
+    kvtt_p: cobj,
+    src_level_p: cobj,
+    tend_level_p: cobj,
+    tau_p: cobj,
+    utgw_p: cobj,
+    vtgw_p: cobj,
+    ttgw_p: cobj,
+    gwut_p: cobj,
+    dttdf_p: cobj,
+    dttke_p: cobj,
+    d_p: cobj,
+    mi_p: cobj,
+    taudmp_p: cobj,
+    tausat_p: cobj,
+    ubmc_p: cobj,
+    ubmc2_p: cobj,
+    ubt_p: cobj,
+    ubtl_p: cobj,
+    wrk_p: cobj,
+    ubt_lim_ratio_p: cobj,
+    nm_p: cobj,
+    q_p: cobj,
+    dse_p: cobj,
+    egwdffi_p: cobj,
+    qtgw_p: cobj,
+    egwdffm_p: cobj,
+    egwdff_lev_p: cobj,
+    dpidz_sq_p: cobj,
+    coef_q_diff_p: cobj,
+    qnew_p: cobj,
+    spr_p: cobj,
+    sub_p: cobj,
+    diag_p: cobj,
+    ca_p: cobj,
+    ze_p: cobj,
+    dnom_p: cobj,
+    zf_p: cobj,
+):
+    if group == 1:
+        _gw_drag_prof_core_impl(
+            stage, ncol, pver, pverp, ngwv, ktop, kbot_tend, kbot_src, tau_0_ubc,
+            dback, taumin, tndmax, umcfac, ubmc2mn, effkwv, kwv, gravit, rog, dt,
+            alpha_p, p_del_p, p_rdel_p, t_p, piln_p, rhoi_p, ni_p, ubm_p, ubi_p,
+            xv_p, yv_p, effgw_p, c_p, kvtt_p, src_level_p, tend_level_p, tau_p,
+            utgw_p, vtgw_p, ttgw_p, gwut_p, dttdf_p, dttke_p, d_p, mi_p,
+            taudmp_p, tausat_p, ubmc_p, ubmc2_p, ubt_p, ubtl_p, wrk_p,
+            ubt_lim_ratio_p,
+        )
+    elif group == 2:
+        _gw_diff_solver_impl(
+            stage, ncol, pver, pverp, pcnst, ngwv, kbot, ktop, dt, gravit, gwut_p,
+            ubm_p, nm_p, rhoi_p, c_p, tend_level_p, p_del_p, p_rdel_p, p_rdst_p,
+            q_p, dse_p, egwdffi_p, qtgw_p, dttdf_p, egwdffm_p, egwdff_lev_p,
+            dpidz_sq_p, coef_q_diff_p, qnew_p, spr_p, sub_p, diag_p, ca_p, ze_p,
+            dnom_p, zf_p,
+        )
+
+
+@export
+def gw_drag_prof_core_codon(
+    stage: int,
+    ncol: int,
+    pver: int,
+    pverp: int,
+    ngwv: int,
+    ktop: int,
+    kbot_tend: int,
+    kbot_src: int,
+    tau_0_ubc: int,
+    dback: float,
+    taumin: float,
+    tndmax: float,
+    umcfac: float,
+    ubmc2mn: float,
+    effkwv: float,
+    kwv: float,
+    gravit: float,
+    rog: float,
+    dt: float,
+    alpha_p: cobj,
+    p_del_p: cobj,
+    p_rdel_p: cobj,
+    t_p: cobj,
+    piln_p: cobj,
+    rhoi_p: cobj,
+    ni_p: cobj,
+    ubm_p: cobj,
+    ubi_p: cobj,
+    xv_p: cobj,
+    yv_p: cobj,
+    effgw_p: cobj,
+    c_p: cobj,
+    kvtt_p: cobj,
+    src_level_p: cobj,
+    tend_level_p: cobj,
+    tau_p: cobj,
+    utgw_p: cobj,
+    vtgw_p: cobj,
+    ttgw_p: cobj,
+    gwut_p: cobj,
+    dttdf_p: cobj,
+    dttke_p: cobj,
+    d_p: cobj,
+    mi_p: cobj,
+    taudmp_p: cobj,
+    tausat_p: cobj,
+    ubmc_p: cobj,
+    ubmc2_p: cobj,
+    ubt_p: cobj,
+    ubtl_p: cobj,
+    wrk_p: cobj,
+    ubt_lim_ratio_p: cobj,
+):
+    _gw_common_driver_dispatch(
+        1, stage, ncol, pver, pverp, 0, ngwv, ktop, kbot_tend, kbot_src, 0,
+        tau_0_ubc, dback, taumin, tndmax, umcfac, ubmc2mn, effkwv, kwv, gravit,
+        rog, dt, alpha_p, p_del_p, p_rdel_p, p_rdel_p, t_p, piln_p, rhoi_p, ni_p,
+        ubm_p, ubi_p, xv_p, yv_p, effgw_p, c_p, kvtt_p, src_level_p, tend_level_p,
+        tau_p, utgw_p, vtgw_p, ttgw_p, gwut_p, dttdf_p, dttke_p, d_p, mi_p,
+        taudmp_p, tausat_p, ubmc_p, ubmc2_p, ubt_p, ubtl_p, wrk_p,
+        ubt_lim_ratio_p, ni_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p, d_p,
+        dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p,
+        dttdf_p, dttdf_p,
+    )
+
+
+@export
+def gw_diff_solver_codon(
+    stage: int,
+    ncol: int,
+    pver: int,
+    pverp: int,
+    pcnst: int,
+    ngwv: int,
+    kbot: int,
+    ktop: int,
+    dt: float,
+    gravit: float,
+    gwut_p: cobj,
+    ubm_p: cobj,
+    nm_p: cobj,
+    rho_p: cobj,
+    c_p: cobj,
+    tend_level_p: cobj,
+    p_del_p: cobj,
+    p_rdel_p: cobj,
+    p_rdst_p: cobj,
+    q_p: cobj,
+    dse_p: cobj,
+    egwdffi_p: cobj,
+    qtgw_p: cobj,
+    dttdf_p: cobj,
+    egwdffm_p: cobj,
+    egwdff_lev_p: cobj,
+    dpidz_sq_p: cobj,
+    coef_q_diff_p: cobj,
+    qnew_p: cobj,
+    spr_p: cobj,
+    sub_p: cobj,
+    diag_p: cobj,
+    ca_p: cobj,
+    ze_p: cobj,
+    dnom_p: cobj,
+    zf_p: cobj,
+):
+    _gw_common_driver_dispatch(
+        2, stage, ncol, pver, pverp, pcnst, ngwv, ktop, 0, 0, kbot, 0,
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, gravit, 0.0, dt, dse_p, p_del_p,
+        p_rdel_p, p_rdst_p, dse_p, rho_p, rho_p, nm_p, ubm_p, ubm_p, egwdff_lev_p,
+        egwdff_lev_p, egwdff_lev_p, c_p, egwdffi_p, tend_level_p, tend_level_p,
+        egwdffi_p, dttdf_p, dttdf_p, dttdf_p, gwut_p, dttdf_p, dttdf_p,
+        egwdff_lev_p, egwdff_lev_p, egwdff_lev_p, egwdff_lev_p, egwdff_lev_p,
+        egwdff_lev_p, qnew_p, egwdff_lev_p, egwdff_lev_p, egwdff_lev_p, nm_p,
+        q_p, dse_p, egwdffi_p, qtgw_p, egwdffm_p, egwdff_lev_p, dpidz_sq_p,
+        coef_q_diff_p, qnew_p, spr_p, sub_p, diag_p, ca_p, ze_p, dnom_p, zf_p,
+    )
+
+
 @export
 def gw_oro_src_codon(
     ncol: int,
@@ -896,8 +1109,7 @@ def gw_oro_src_codon(
             c[_idx_c(i, l, ncol, ngwv)] = 0.0
 
 
-@export
-def gw_tend_prep_codon(
+def _gw_tend_prep_impl(
     stage: int,
     ncol: int,
     psetcols: int,
@@ -984,8 +1196,7 @@ def gw_tend_prep_codon(
                 sgh_scaled[i - 1] = 0.0
 
 
-@export
-def gw_tend_history_prep_codon(
+def _gw_tend_history_prep_impl(
     stage: int,
     ncol: int,
     psetcols: int,
@@ -1021,8 +1232,7 @@ def gw_tend_history_prep_codon(
                 ttgw_total[_idx2(i, k, pcols)] = ptend_s[_idx2(i, k, psetcols)] / cpairv[_idx2(i, k, pcols)]
 
 
-@export
-def gw_tend_oro_post_codon(
+def _gw_tend_oro_post_impl(
     stage: int,
     ncol: int,
     psetcols: int,
@@ -1092,3 +1302,184 @@ def gw_tend_oro_post_codon(
             tau_surface = tau[(i - 1) + tau_surface_offset]
             tau0x[i - 1] = tau_surface * xv[i - 1]
             tau0y[i - 1] = tau_surface * yv[i - 1]
+
+
+def _gw_tend_driver_dispatch(
+    group: int,
+    stage: int,
+    ncol: int,
+    psetcols: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    pcnst: int,
+    effgw_oro: float,
+    eps: float,
+    cpair: float,
+    state_s_p: cobj,
+    state_t_p: cobj,
+    state_u_p: cobj,
+    state_v_p: cobj,
+    state_q_p: cobj,
+    state_lnpint_p: cobj,
+    state_zm_p: cobj,
+    dse_p: cobj,
+    t_p: cobj,
+    u_p: cobj,
+    v_p: cobj,
+    q_p: cobj,
+    piln_p: cobj,
+    zm_p: cobj,
+    egwdffi_tot_p: cobj,
+    flx_heat_p: cobj,
+    landfrac_p: cobj,
+    sgh_p: cobj,
+    effgw_p: cobj,
+    sgh_scaled_p: cobj,
+    dttdf_p: cobj,
+    dttke_p: cobj,
+    ptend_s_p: cobj,
+    cpairv_p: cobj,
+    ttgwsdf_oro_p: cobj,
+    ttgwske_oro_p: cobj,
+    ttgw_total_p: cobj,
+    egwdffi_p: cobj,
+    utgw_p: cobj,
+    vtgw_p: cobj,
+    ttgw_p: cobj,
+    ptend_u_p: cobj,
+    ptend_v_p: cobj,
+    qtgw_p: cobj,
+    ptend_q_p: cobj,
+    tau_p: cobj,
+    xv_p: cobj,
+    yv_p: cobj,
+    tau0x_p: cobj,
+    tau0y_p: cobj,
+):
+    if group == 1:
+        _gw_tend_prep_impl(
+            stage, ncol, psetcols, pcols, pver, pverp, pcnst, effgw_oro, eps,
+            state_s_p, state_t_p, state_u_p, state_v_p, state_q_p, state_lnpint_p,
+            state_zm_p, dse_p, t_p, u_p, v_p, q_p, piln_p, zm_p, egwdffi_tot_p,
+            flx_heat_p, landfrac_p, sgh_p, effgw_p, sgh_scaled_p,
+        )
+    elif group == 2:
+        _gw_tend_history_prep_impl(
+            stage, ncol, psetcols, pcols, pver, cpair, dttdf_p, dttke_p,
+            ptend_s_p, cpairv_p, ttgwsdf_oro_p, ttgwske_oro_p, ttgw_total_p,
+        )
+    elif group == 3:
+        _gw_tend_oro_post_impl(
+            stage, ncol, psetcols, pcols, pver, pcnst, pverp, egwdffi_tot_p,
+            egwdffi_p, utgw_p, vtgw_p, ttgw_p, cpairv_p, ptend_u_p, ptend_v_p,
+            ptend_s_p, qtgw_p, ptend_q_p, tau_p, xv_p, yv_p, tau0x_p, tau0y_p,
+        )
+
+
+@export
+def gw_tend_prep_codon(
+    stage: int,
+    ncol: int,
+    psetcols: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    pcnst: int,
+    effgw_oro: float,
+    eps: float,
+    state_s_p: cobj,
+    state_t_p: cobj,
+    state_u_p: cobj,
+    state_v_p: cobj,
+    state_q_p: cobj,
+    state_lnpint_p: cobj,
+    state_zm_p: cobj,
+    dse_p: cobj,
+    t_p: cobj,
+    u_p: cobj,
+    v_p: cobj,
+    q_p: cobj,
+    piln_p: cobj,
+    zm_p: cobj,
+    egwdffi_tot_p: cobj,
+    flx_heat_p: cobj,
+    landfrac_p: cobj,
+    sgh_p: cobj,
+    effgw_p: cobj,
+    sgh_scaled_p: cobj,
+):
+    _gw_tend_driver_dispatch(
+        1, stage, ncol, psetcols, pcols, pver, pverp, pcnst, effgw_oro, eps, 0.0,
+        state_s_p, state_t_p, state_u_p, state_v_p, state_q_p, state_lnpint_p,
+        state_zm_p, dse_p, t_p, u_p, v_p, q_p, piln_p, zm_p, egwdffi_tot_p,
+        flx_heat_p, landfrac_p, sgh_p, effgw_p, sgh_scaled_p, dse_p, dse_p,
+        dse_p, dse_p, dse_p, dse_p, dse_p, egwdffi_tot_p, t_p, u_p, t_p,
+        dse_p, dse_p, q_p, q_p, egwdffi_tot_p, effgw_p, sgh_scaled_p, effgw_p,
+        sgh_scaled_p,
+    )
+
+
+@export
+def gw_tend_history_prep_codon(
+    stage: int,
+    ncol: int,
+    psetcols: int,
+    pcols: int,
+    pver: int,
+    cpair: float,
+    dttdf_p: cobj,
+    dttke_p: cobj,
+    ptend_s_p: cobj,
+    cpairv_p: cobj,
+    ttgwsdf_oro_p: cobj,
+    ttgwske_oro_p: cobj,
+    ttgw_total_p: cobj,
+):
+    _gw_tend_driver_dispatch(
+        2, stage, ncol, psetcols, pcols, pver, 0, 0, 0.0, 0.0, cpair,
+        dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p,
+        dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p,
+        dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttke_p, ptend_s_p,
+        cpairv_p, ttgwsdf_oro_p, ttgwske_oro_p, ttgw_total_p, dttdf_p, dttdf_p,
+        dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p, dttdf_p,
+        dttdf_p, dttdf_p, dttdf_p,
+    )
+
+
+@export
+def gw_tend_oro_post_codon(
+    stage: int,
+    ncol: int,
+    psetcols: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    pverp: int,
+    egwdffi_tot_p: cobj,
+    egwdffi_p: cobj,
+    utgw_p: cobj,
+    vtgw_p: cobj,
+    ttgw_p: cobj,
+    cpairv_p: cobj,
+    ptend_u_p: cobj,
+    ptend_v_p: cobj,
+    ptend_s_p: cobj,
+    qtgw_p: cobj,
+    ptend_q_p: cobj,
+    tau_p: cobj,
+    xv_p: cobj,
+    yv_p: cobj,
+    tau0x_p: cobj,
+    tau0y_p: cobj,
+):
+    _gw_tend_driver_dispatch(
+        3, stage, ncol, psetcols, pcols, pver, pverp, pcnst, 0.0, 0.0, 0.0,
+        egwdffi_tot_p, egwdffi_tot_p, egwdffi_tot_p, egwdffi_tot_p, qtgw_p,
+        egwdffi_tot_p, egwdffi_tot_p, egwdffi_tot_p, ttgw_p, utgw_p, vtgw_p,
+        qtgw_p, egwdffi_tot_p, egwdffi_tot_p, egwdffi_tot_p, egwdffi_tot_p,
+        egwdffi_tot_p, egwdffi_tot_p, egwdffi_tot_p, egwdffi_tot_p, ttgw_p,
+        ttgw_p, ptend_s_p, cpairv_p, ttgw_p, ttgw_p, ttgw_p, egwdffi_p, utgw_p,
+        vtgw_p, ttgw_p, ptend_u_p, ptend_v_p, qtgw_p, ptend_q_p, tau_p, xv_p,
+        yv_p, tau0x_p, tau0y_p,
+    )

@@ -841,8 +841,8 @@ subroutine gw_drag_prof_core_note_entered()
   gw_drag_prof_core_entered_logged = .true.
 
   if (masterproc) then
-     write(iulog,*) 'gw_drag_prof_core entered (stress/tendency/heating loops direct = codon)'
-     call gw_drag_prof_core_append_proof('gw_drag_prof_core entered (stress/tendency/heating loops direct = codon)')
+     write(iulog,*) 'gw_drag_prof_core entered (unified gw-common dispatch core loops direct = codon)'
+     call gw_drag_prof_core_append_proof('gw_drag_prof_core entered (unified gw-common dispatch core loops direct = codon)')
      call flush(iulog)
   end if
 
@@ -999,9 +999,8 @@ subroutine gw_diff_solver_note_entered()
   gw_diff_solver_entered_logged = .true.
 
   if (masterproc) then
-     write(iulog,*) 'gw_diff_solver entered (diffusivity/LU/coef_q_diff/left_div direct = codon)'
-     call gw_diff_solver_append_proof('gw_diff_solver entered (diffusivity/LU/left_div direct = codon; ' // &
-          'coef_q_diff direct = codon)')
+     write(iulog,*) 'gw_diff_solver entered (unified gw-common dispatch diff solver direct = codon)'
+     call gw_diff_solver_append_proof('gw_diff_solver entered (unified gw-common dispatch diff solver direct = codon)')
      call flush(iulog)
   end if
 
