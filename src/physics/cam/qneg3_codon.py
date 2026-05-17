@@ -88,7 +88,7 @@ def qneg3_codon(
 
 
 @export
-def qneg_batch_3_codon(
+def qneg_batch_3_stage_dispatch_codon(
     ncol: int,
     ncold: int,
     lver: int,
@@ -103,6 +103,36 @@ def qneg_batch_3_codon(
     kw_p: cobj,
 ):
     qneg3_codon(
+        ncol,
+        ncold,
+        lver,
+        nconst,
+        qmin_p,
+        q_p,
+        indx_p,
+        nval_p,
+        nvals_p,
+        worst_p,
+        iw_p,
+        kw_p,
+    )
+
+@export
+def qneg_batch_3_codon(
+    ncol: int,
+    ncold: int,
+    lver: int,
+    nconst: int,
+    qmin_p: cobj,
+    q_p: cobj,
+    indx_p: cobj,
+    nval_p: cobj,
+    nvals_p: cobj,
+    worst_p: cobj,
+    iw_p: cobj,
+    kw_p: cobj,
+):
+    qneg_batch_3_stage_dispatch_codon(
         ncol,
         ncold,
         lver,

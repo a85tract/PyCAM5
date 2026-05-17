@@ -109,7 +109,7 @@ def qneg4_codon(
 
 
 @export
-def qneg_batch_4_codon(
+def qneg_batch_4_stage_dispatch_codon(
     ncol: int,
     pcols: int,
     pcnst: int,
@@ -136,6 +136,60 @@ def qneg_batch_4_codon(
     rstd_p: cobj,
 ):
     qneg4_codon(
+        ncol,
+        pcols,
+        pcnst,
+        trace_water_on,
+        iwtvap_n,
+        qmin1,
+        ztodt,
+        gravit,
+        latvap,
+        wtrc_qmin,
+        qbot_p,
+        srfrpdel_p,
+        shflx_p,
+        lhflx_p,
+        qflx_p,
+        indxexc_p,
+        excess_p,
+        qfxo_p,
+        nptsexc_p,
+        worst_p,
+        iw_p,
+        wtrc_iatype_vap_p,
+        iwspec_p,
+        rstd_p,
+    )
+
+@export
+def qneg_batch_4_codon(
+    ncol: int,
+    pcols: int,
+    pcnst: int,
+    trace_water_on: int,
+    iwtvap_n: int,
+    qmin1: float,
+    ztodt: float,
+    gravit: float,
+    latvap: float,
+    wtrc_qmin: float,
+    qbot_p: cobj,
+    srfrpdel_p: cobj,
+    shflx_p: cobj,
+    lhflx_p: cobj,
+    qflx_p: cobj,
+    indxexc_p: cobj,
+    excess_p: cobj,
+    qfxo_p: cobj,
+    nptsexc_p: cobj,
+    worst_p: cobj,
+    iw_p: cobj,
+    wtrc_iatype_vap_p: cobj,
+    iwspec_p: cobj,
+    rstd_p: cobj,
+):
+    qneg_batch_4_stage_dispatch_codon(
         ncol,
         pcols,
         pcnst,

@@ -192,8 +192,8 @@ contains
       entered_logged = .true.
 
       if (masterproc) then
-         write(iulog,'(A)') 'qneg_batch entered (qneg4 direct = codon)'
-         call qneg4_batch_append_proof('qneg_batch entered (qneg4 direct = codon)')
+         write(iulog,'(A)') 'qneg_batch entered (qneg4 unified stage dispatch = codon)'
+         call qneg4_batch_append_proof('qneg_batch entered (qneg4 unified stage dispatch = codon)')
          call flush(iulog)
       end if
    end subroutine qneg4_batch_log_entered
