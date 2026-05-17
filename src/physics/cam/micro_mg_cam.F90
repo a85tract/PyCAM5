@@ -2978,9 +2978,12 @@ subroutine micro_mg_cam_rho_grid_codon_wrap(ncol_local, psetcols_local, rho_loca
      end subroutine micro_mg_cam_rho_grid_codon
   end interface
 
-  call micro_mg_cam_rho_grid_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), &
-       int(pver, c_int64_t), int(psetcols_local, c_int64_t), int(top_lev, c_int64_t), real(rair, c_double), &
-       c_loc(rho_local), c_loc(pmid_local), c_loc(t_local), c_loc(rho_grid_local))
+  call micro_mg_cam_stage_dispatch_call(4_c_int64_t, int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), &
+       int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), int(top_lev, c_int64_t), &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       0._r8, 0._r8, 0._r8, 0._r8, rair, p1_p=c_loc(rho_local), p2_p=c_loc(pmid_local), &
+       p3_p=c_loc(t_local), p4_p=c_loc(rho_grid_local))
 
 end subroutine micro_mg_cam_rho_grid_codon_wrap
 
@@ -3406,18 +3409,23 @@ subroutine micro_mg_cam_wtrc_shell_codon_wrap(ncol_local, preo_grid_local, prdso
   end interface
 
   call micro_mg_cam_log_entered_once(wtrc_shell_entered_logged, 'MICRO_MG_CAM_WTRC_SHELL_PROOF_FILE', &
-       'micro_mg_cam_wtrc_shell entered (water tracer rates direct = codon)')
+       'micro_mg_cam_wtrc_shell entered (unified micro-stage dispatch = codon)')
 
-  call micro_mg_cam_wtrc_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-       int(top_lev, c_int64_t), int(pwtype, c_int64_t), int(iwtvap, c_int64_t), int(iwtliq, c_int64_t), int(iwtice, c_int64_t), &
-       int(iwtstrain, c_int64_t), int(iwtstsnow, c_int64_t), c_loc(preo_grid_local), c_loc(prdso_grid_local), &
-       c_loc(cmeiout_grid_local), c_loc(meltso_grid_local), c_loc(qcsedten_grid_local), c_loc(qisedten_grid_local), &
-       c_loc(mnuccco_grid_local), c_loc(mnuccto_grid_local), c_loc(msacwio_grid_local), c_loc(prao_grid_local), &
-       c_loc(prco_grid_local), c_loc(psacwso_grid_local), c_loc(bergo_grid_local), c_loc(bergso_grid_local), &
-       c_loc(praio_grid_local), c_loc(prcio_grid_local), c_loc(pracso_grid_local), c_loc(mnuccro_grid_local), &
-       c_loc(qcreso_grid_local), c_loc(qireso_grid_local), c_loc(homoo_grid_local), c_loc(melto_grid_local), &
-       c_loc(pre_rates_grid_local), c_loc(sed_rates_grid_local), c_loc(post_rates_grid_local), c_loc(pcmei_grid_local), &
-       c_loc(ncmei_grid_local), c_loc(pmelts_grid_local), c_loc(nmelts_grid_local))
+  call micro_mg_cam_stage_dispatch_call(3_c_int64_t, int(ncol_local, c_int64_t), 0_c_int64_t, &
+       int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), int(top_lev, c_int64_t), &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       int(pwtype, c_int64_t), int(iwtvap, c_int64_t), int(iwtliq, c_int64_t), int(iwtice, c_int64_t), &
+       int(iwtstrain, c_int64_t), int(iwtstsnow, c_int64_t), 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
+       p1_p=c_loc(preo_grid_local), p2_p=c_loc(prdso_grid_local), p3_p=c_loc(cmeiout_grid_local), &
+       p4_p=c_loc(meltso_grid_local), p5_p=c_loc(qcsedten_grid_local), p6_p=c_loc(qisedten_grid_local), &
+       p7_p=c_loc(mnuccco_grid_local), p8_p=c_loc(mnuccto_grid_local), p9_p=c_loc(msacwio_grid_local), &
+       p10_p=c_loc(prao_grid_local), p11_p=c_loc(prco_grid_local), p12_p=c_loc(psacwso_grid_local), &
+       p13_p=c_loc(bergo_grid_local), p14_p=c_loc(bergso_grid_local), p15_p=c_loc(praio_grid_local), &
+       p16_p=c_loc(prcio_grid_local), p17_p=c_loc(pracso_grid_local), p18_p=c_loc(mnuccro_grid_local), &
+       p19_p=c_loc(qcreso_grid_local), p20_p=c_loc(qireso_grid_local), p21_p=c_loc(homoo_grid_local), &
+       p22_p=c_loc(melto_grid_local), p23_p=c_loc(pre_rates_grid_local), p24_p=c_loc(sed_rates_grid_local), &
+       p25_p=c_loc(post_rates_grid_local), p26_p=c_loc(pcmei_grid_local), p27_p=c_loc(ncmei_grid_local), &
+       p28_p=c_loc(pmelts_grid_local), p29_p=c_loc(nmelts_grid_local))
 
 end subroutine micro_mg_cam_wtrc_shell_codon_wrap
 
@@ -3727,6 +3735,133 @@ subroutine micro_mg_cam_log_entered_once(entered_logged, env_name, proof_line)
 
 end subroutine micro_mg_cam_log_entered_once
 
+subroutine micro_mg_cam_stage_dispatch_call(stage_c, ncol_c, psetcols_c, pcols_c, pver_c, pverp_c, top_lev_c, &
+     micro_mg_version_c, rate1_cw2pr_st_idx_c, ixcldliq_c, ixcldice_c, ixnumliq_c, ixnumice_c, ixrain_c, ixsnow_c, &
+     pwtype_c, iwtvap_c, iwtliq_c, iwtice_c, iwtstrain_c, iwtstsnow_c, mincld_c, gravit_c, cpair_c, qsmall_c, rair_c, &
+     p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p, p9_p, p10_p, p11_p, p12_p, p13_p, p14_p, p15_p, p16_p, &
+     p17_p, p18_p, p19_p, p20_p, p21_p, p22_p, p23_p, p24_p, p25_p, p26_p, p27_p, p28_p, p29_p, p30_p, &
+     p31_p, p32_p, p33_p, p34_p, p35_p, p36_p, p37_p, p38_p, p39_p, p40_p, p41_p, p42_p, p43_p, p44_p, &
+     p45_p, p46_p, p47_p, p48_p, p49_p, p50_p, p51_p, p52_p, p53_p, p54_p, p55_p, p56_p, p57_p, p58_p, &
+     p59_p, p60_p, p61_p)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_null_ptr, c_ptr
+
+  integer(c_int64_t), intent(in) :: stage_c, ncol_c, psetcols_c, pcols_c, pver_c, pverp_c, top_lev_c
+  integer(c_int64_t), intent(in) :: micro_mg_version_c, rate1_cw2pr_st_idx_c
+  integer(c_int64_t), intent(in) :: ixcldliq_c, ixcldice_c, ixnumliq_c, ixnumice_c, ixrain_c, ixsnow_c
+  integer(c_int64_t), intent(in) :: pwtype_c, iwtvap_c, iwtliq_c, iwtice_c, iwtstrain_c, iwtstsnow_c
+  real(r8), intent(in) :: mincld_c, gravit_c, cpair_c, qsmall_c, rair_c
+  type(c_ptr), intent(in), optional :: p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p
+  type(c_ptr), intent(in), optional :: p9_p, p10_p, p11_p, p12_p, p13_p, p14_p, p15_p, p16_p
+  type(c_ptr), intent(in), optional :: p17_p, p18_p, p19_p, p20_p, p21_p, p22_p, p23_p, p24_p
+  type(c_ptr), intent(in), optional :: p25_p, p26_p, p27_p, p28_p, p29_p, p30_p, p31_p, p32_p
+  type(c_ptr), intent(in), optional :: p33_p, p34_p, p35_p, p36_p, p37_p, p38_p, p39_p, p40_p
+  type(c_ptr), intent(in), optional :: p41_p, p42_p, p43_p, p44_p, p45_p, p46_p, p47_p, p48_p
+  type(c_ptr), intent(in), optional :: p49_p, p50_p, p51_p, p52_p, p53_p, p54_p, p55_p, p56_p
+  type(c_ptr), intent(in), optional :: p57_p, p58_p, p59_p, p60_p, p61_p
+  type(c_ptr) :: q(61)
+
+  interface
+     subroutine micro_mg_cam_stage_dispatch_codon(stage_c, ncol_c, psetcols_c, pcols_c, pver_c, pverp_c, top_lev_c, &
+          micro_mg_version_c, rate1_cw2pr_st_idx_c, ixcldliq_c, ixcldice_c, ixnumliq_c, ixnumice_c, ixrain_c, ixsnow_c, &
+          pwtype_c, iwtvap_c, iwtliq_c, iwtice_c, iwtstrain_c, iwtstsnow_c, mincld_c, gravit_c, cpair_c, qsmall_c, rair_c, &
+          p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p, p9_p, p10_p, p11_p, p12_p, p13_p, p14_p, p15_p, p16_p, &
+          p17_p, p18_p, p19_p, p20_p, p21_p, p22_p, p23_p, p24_p, p25_p, p26_p, p27_p, p28_p, p29_p, p30_p, &
+          p31_p, p32_p, p33_p, p34_p, p35_p, p36_p, p37_p, p38_p, p39_p, p40_p, p41_p, p42_p, p43_p, p44_p, &
+          p45_p, p46_p, p47_p, p48_p, p49_p, p50_p, p51_p, p52_p, p53_p, p54_p, p55_p, p56_p, p57_p, p58_p, &
+          p59_p, p60_p, p61_p) bind(c, name="micro_mg_cam_stage_dispatch_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: stage_c, ncol_c, psetcols_c, pcols_c, pver_c, pverp_c, top_lev_c
+       integer(c_int64_t), value :: micro_mg_version_c, rate1_cw2pr_st_idx_c
+       integer(c_int64_t), value :: ixcldliq_c, ixcldice_c, ixnumliq_c, ixnumice_c, ixrain_c, ixsnow_c
+       integer(c_int64_t), value :: pwtype_c, iwtvap_c, iwtliq_c, iwtice_c, iwtstrain_c, iwtstsnow_c
+       real(c_double), value :: mincld_c, gravit_c, cpair_c, qsmall_c, rair_c
+       type(c_ptr), value :: p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p
+       type(c_ptr), value :: p9_p, p10_p, p11_p, p12_p, p13_p, p14_p, p15_p, p16_p
+       type(c_ptr), value :: p17_p, p18_p, p19_p, p20_p, p21_p, p22_p, p23_p, p24_p
+       type(c_ptr), value :: p25_p, p26_p, p27_p, p28_p, p29_p, p30_p, p31_p, p32_p
+       type(c_ptr), value :: p33_p, p34_p, p35_p, p36_p, p37_p, p38_p, p39_p, p40_p
+       type(c_ptr), value :: p41_p, p42_p, p43_p, p44_p, p45_p, p46_p, p47_p, p48_p
+       type(c_ptr), value :: p49_p, p50_p, p51_p, p52_p, p53_p, p54_p, p55_p, p56_p
+       type(c_ptr), value :: p57_p, p58_p, p59_p, p60_p, p61_p
+     end subroutine micro_mg_cam_stage_dispatch_codon
+  end interface
+
+  q(:) = c_null_ptr
+  if (present(p1_p)) q(1) = p1_p
+  if (present(p2_p)) q(2) = p2_p
+  if (present(p3_p)) q(3) = p3_p
+  if (present(p4_p)) q(4) = p4_p
+  if (present(p5_p)) q(5) = p5_p
+  if (present(p6_p)) q(6) = p6_p
+  if (present(p7_p)) q(7) = p7_p
+  if (present(p8_p)) q(8) = p8_p
+  if (present(p9_p)) q(9) = p9_p
+  if (present(p10_p)) q(10) = p10_p
+  if (present(p11_p)) q(11) = p11_p
+  if (present(p12_p)) q(12) = p12_p
+  if (present(p13_p)) q(13) = p13_p
+  if (present(p14_p)) q(14) = p14_p
+  if (present(p15_p)) q(15) = p15_p
+  if (present(p16_p)) q(16) = p16_p
+  if (present(p17_p)) q(17) = p17_p
+  if (present(p18_p)) q(18) = p18_p
+  if (present(p19_p)) q(19) = p19_p
+  if (present(p20_p)) q(20) = p20_p
+  if (present(p21_p)) q(21) = p21_p
+  if (present(p22_p)) q(22) = p22_p
+  if (present(p23_p)) q(23) = p23_p
+  if (present(p24_p)) q(24) = p24_p
+  if (present(p25_p)) q(25) = p25_p
+  if (present(p26_p)) q(26) = p26_p
+  if (present(p27_p)) q(27) = p27_p
+  if (present(p28_p)) q(28) = p28_p
+  if (present(p29_p)) q(29) = p29_p
+  if (present(p30_p)) q(30) = p30_p
+  if (present(p31_p)) q(31) = p31_p
+  if (present(p32_p)) q(32) = p32_p
+  if (present(p33_p)) q(33) = p33_p
+  if (present(p34_p)) q(34) = p34_p
+  if (present(p35_p)) q(35) = p35_p
+  if (present(p36_p)) q(36) = p36_p
+  if (present(p37_p)) q(37) = p37_p
+  if (present(p38_p)) q(38) = p38_p
+  if (present(p39_p)) q(39) = p39_p
+  if (present(p40_p)) q(40) = p40_p
+  if (present(p41_p)) q(41) = p41_p
+  if (present(p42_p)) q(42) = p42_p
+  if (present(p43_p)) q(43) = p43_p
+  if (present(p44_p)) q(44) = p44_p
+  if (present(p45_p)) q(45) = p45_p
+  if (present(p46_p)) q(46) = p46_p
+  if (present(p47_p)) q(47) = p47_p
+  if (present(p48_p)) q(48) = p48_p
+  if (present(p49_p)) q(49) = p49_p
+  if (present(p50_p)) q(50) = p50_p
+  if (present(p51_p)) q(51) = p51_p
+  if (present(p52_p)) q(52) = p52_p
+  if (present(p53_p)) q(53) = p53_p
+  if (present(p54_p)) q(54) = p54_p
+  if (present(p55_p)) q(55) = p55_p
+  if (present(p56_p)) q(56) = p56_p
+  if (present(p57_p)) q(57) = p57_p
+  if (present(p58_p)) q(58) = p58_p
+  if (present(p59_p)) q(59) = p59_p
+  if (present(p60_p)) q(60) = p60_p
+  if (present(p61_p)) q(61) = p61_p
+
+  call micro_mg_cam_stage_dispatch_codon(stage_c, ncol_c, psetcols_c, pcols_c, pver_c, pverp_c, top_lev_c, &
+       micro_mg_version_c, rate1_cw2pr_st_idx_c, ixcldliq_c, ixcldice_c, ixnumliq_c, ixnumice_c, ixrain_c, ixsnow_c, &
+       pwtype_c, iwtvap_c, iwtliq_c, iwtice_c, iwtstrain_c, iwtstsnow_c, real(mincld_c, c_double), &
+       real(gravit_c, c_double), real(cpair_c, c_double), real(qsmall_c, c_double), real(rair_c, c_double), &
+       q(1), q(2), q(3), q(4), q(5), q(6), q(7), q(8), q(9), q(10), q(11), q(12), q(13), q(14), q(15), q(16), &
+       q(17), q(18), q(19), q(20), q(21), q(22), q(23), q(24), q(25), q(26), q(27), q(28), q(29), q(30), &
+       q(31), q(32), q(33), q(34), q(35), q(36), q(37), q(38), q(39), q(40), q(41), q(42), q(43), q(44), &
+       q(45), q(46), q(47), q(48), q(49), q(50), q(51), q(52), q(53), q(54), q(55), q(56), q(57), q(58), &
+       q(59), q(60), q(61))
+
+end subroutine micro_mg_cam_stage_dispatch_call
+
 subroutine micro_mg_cam_select_premg_diag_impl()
 
   character(len=32) :: impl_name
@@ -3797,12 +3932,15 @@ subroutine micro_mg_cam_premg_diag(ncol_local, psetcols_local, ixcldliq_local, i
   end if
 
   call micro_mg_cam_log_entered_once(premg_diag_entered_logged, 'MICRO_MG_CAM_PREMG_DIAG_PROOF_FILE', &
-       'micro_mg_cam_premg_diag entered (iclwpi/iciwpi/cldo pre-MG diagnostics direct = codon)')
+       'micro_mg_cam_premg_diag entered (unified micro-stage dispatch = codon)')
 
-  call micro_mg_cam_premg_diag_codon(int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), &
-       int(pver, c_int64_t), int(top_lev, c_int64_t), int(ixcldliq_local, c_int64_t), &
-       int(ixcldice_local, c_int64_t), mincld, gravit, c_loc(state_q_local), c_loc(state_pdel_local), &
-       c_loc(ast_local), c_loc(cldo_local), c_loc(iclwpi_local), c_loc(iciwpi_local))
+  call micro_mg_cam_stage_dispatch_call(1_c_int64_t, int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), &
+       int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), int(top_lev, c_int64_t), &
+       0_c_int64_t, 0_c_int64_t, int(ixcldliq_local, c_int64_t), int(ixcldice_local, c_int64_t), &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, mincld, gravit, 0._r8, 0._r8, 0._r8, &
+       p1_p=c_loc(state_q_local), p2_p=c_loc(state_pdel_local), p3_p=c_loc(ast_local), &
+       p4_p=c_loc(cldo_local), p5_p=c_loc(iclwpi_local), p6_p=c_loc(iciwpi_local))
 
 end subroutine micro_mg_cam_premg_diag
 
@@ -4506,25 +4644,32 @@ subroutine micro_mg_cam_postmg_diag(ncol_local, psetcols_local, micro_mg_version
   end if
 
   call micro_mg_cam_log_entered_once(postmg_diag_entered_logged, 'MICRO_MG_CAM_POSTMG_PROOF_FILE', &
-       'micro_mg_cam_postmg_diag entered (post-MG diagnostics direct = codon)')
+       'micro_mg_cam_postmg_diag entered (unified micro-stage dispatch = codon)')
 
-  call micro_mg_cam_postmg_diag_codon(int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), int(pver, c_int64_t), &
-       int(pverp, c_int64_t), int(top_lev, c_int64_t), int(micro_mg_version_local, c_int64_t), &
-       int(rate1_cw2pr_st_idx_local, c_int64_t), int(ixcldliq_local, c_int64_t), int(ixcldice_local, c_int64_t), &
-       int(ixnumliq_local, c_int64_t), int(ixnumice_local, c_int64_t), int(ixrain_local, c_int64_t), &
-       int(ixsnow_local, c_int64_t), cpair, gravit, mincld, qsmall, c_loc(state_q_local), c_loc(state_t_local), &
-       c_loc(state_pmid_local), c_loc(state_pdel_local), c_loc(naai_local), c_loc(naai_hom_local), c_loc(mnuccdo_local), &
-       c_loc(rflx_local), c_loc(sflx_local), c_loc(qrout_local), c_loc(qsout_local), c_loc(prect_local), c_loc(preci_local), &
-       c_loc(rate1cld_local), c_loc(vtrmc_local), c_loc(tlat_local), c_loc(qvlat_local), c_loc(qcten_local), &
-       c_loc(qiten_local), c_loc(ncten_local), c_loc(niten_local), c_loc(alst_mic_local), c_loc(cmeliq_local), &
-       c_loc(cmeiout_local), c_loc(ast_local), c_loc(cld_local), c_loc(concld_local), c_loc(mnuccdohet_local), &
-       c_loc(mgflxprc_local), c_loc(mgflxsnw_local), c_loc(mgmrprc_local), c_loc(mgmrsnw_local), c_loc(cvreffliq_local), &
-       c_loc(cvreffice_local), c_loc(rate1ord_cw2pr_st_local), c_loc(wsedl_local), c_loc(cc_t_local), c_loc(cc_qv_local), &
-       c_loc(cc_ql_local), c_loc(cc_qi_local), c_loc(cc_nl_local), c_loc(cc_ni_local), c_loc(cc_qlst_local), c_loc(qme_local), &
-       c_loc(prec_pcw_local), c_loc(snow_pcw_local), c_loc(prec_sed_local), c_loc(snow_sed_local), c_loc(prec_str_local), &
-       c_loc(snow_str_local), c_loc(icecldf_local), c_loc(liqcldf_local), c_loc(icinc_local), c_loc(icwnc_local), &
-       c_loc(iciwpst_local), c_loc(iclwpst_local), c_loc(icswp_local), c_loc(cldfsnow_local), c_loc(icimrst_local), &
-       c_loc(icwmrst_local), c_loc(cldmax_local))
+  call micro_mg_cam_stage_dispatch_call(2_c_int64_t, int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), &
+       int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), int(top_lev, c_int64_t), &
+       int(micro_mg_version_local, c_int64_t), int(rate1_cw2pr_st_idx_local, c_int64_t), &
+       int(ixcldliq_local, c_int64_t), int(ixcldice_local, c_int64_t), int(ixnumliq_local, c_int64_t), &
+       int(ixnumice_local, c_int64_t), int(ixrain_local, c_int64_t), int(ixsnow_local, c_int64_t), &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       mincld, gravit, cpair, qsmall, 0._r8, p1_p=c_loc(state_q_local), p2_p=c_loc(state_t_local), &
+       p3_p=c_loc(state_pmid_local), p4_p=c_loc(state_pdel_local), p5_p=c_loc(naai_local), &
+       p6_p=c_loc(naai_hom_local), p7_p=c_loc(mnuccdo_local), p8_p=c_loc(rflx_local), &
+       p9_p=c_loc(sflx_local), p10_p=c_loc(qrout_local), p11_p=c_loc(qsout_local), p12_p=c_loc(prect_local), &
+       p13_p=c_loc(preci_local), p14_p=c_loc(rate1cld_local), p15_p=c_loc(vtrmc_local), p16_p=c_loc(tlat_local), &
+       p17_p=c_loc(qvlat_local), p18_p=c_loc(qcten_local), p19_p=c_loc(qiten_local), p20_p=c_loc(ncten_local), &
+       p21_p=c_loc(niten_local), p22_p=c_loc(alst_mic_local), p23_p=c_loc(cmeliq_local), &
+       p24_p=c_loc(cmeiout_local), p25_p=c_loc(ast_local), p26_p=c_loc(cld_local), p27_p=c_loc(concld_local), &
+       p28_p=c_loc(mnuccdohet_local), p29_p=c_loc(mgflxprc_local), p30_p=c_loc(mgflxsnw_local), &
+       p31_p=c_loc(mgmrprc_local), p32_p=c_loc(mgmrsnw_local), p33_p=c_loc(cvreffliq_local), &
+       p34_p=c_loc(cvreffice_local), p35_p=c_loc(rate1ord_cw2pr_st_local), p36_p=c_loc(wsedl_local), &
+       p37_p=c_loc(cc_t_local), p38_p=c_loc(cc_qv_local), p39_p=c_loc(cc_ql_local), p40_p=c_loc(cc_qi_local), &
+       p41_p=c_loc(cc_nl_local), p42_p=c_loc(cc_ni_local), p43_p=c_loc(cc_qlst_local), p44_p=c_loc(qme_local), &
+       p45_p=c_loc(prec_pcw_local), p46_p=c_loc(snow_pcw_local), p47_p=c_loc(prec_sed_local), &
+       p48_p=c_loc(snow_sed_local), p49_p=c_loc(prec_str_local), p50_p=c_loc(snow_str_local), &
+       p51_p=c_loc(icecldf_local), p52_p=c_loc(liqcldf_local), p53_p=c_loc(icinc_local), p54_p=c_loc(icwnc_local), &
+       p55_p=c_loc(iciwpst_local), p56_p=c_loc(iclwpst_local), p57_p=c_loc(icswp_local), &
+       p58_p=c_loc(cldfsnow_local), p59_p=c_loc(icimrst_local), p60_p=c_loc(icwmrst_local), p61_p=c_loc(cldmax_local))
 
 end subroutine micro_mg_cam_postmg_diag
 
