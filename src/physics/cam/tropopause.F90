@@ -1213,15 +1213,15 @@ contains
     integer :: i
 
     interface
-       subroutine tropopause_twmo_codon(ncol_c, pcols_c, pver_c, notfound_c, write_tropp_c, write_tropt_c, &
+       subroutine tropopause_twmo_stage_dispatch_codon(ncol_c, pcols_c, pver_c, notfound_c, write_tropp_c, write_tropt_c, &
             write_tropz_c, cnst_kap_c, cnst_ka1_c, cnst_faktor_c, state_t_p, state_pmid_p, state_pint_p, &
-            state_zm_p, state_zi_p, trop_lev_p, trop_p_p, trop_t_p, trop_z_p) bind(c, name="tropopause_twmo_codon")
+            state_zm_p, state_zi_p, trop_lev_p, trop_p_p, trop_t_p, trop_z_p) bind(c, name="tropopause_twmo_stage_dispatch_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, notfound_c, write_tropp_c, write_tropt_c, write_tropz_c
          real(c_double), value :: cnst_kap_c, cnst_ka1_c, cnst_faktor_c
          type(c_ptr), value :: state_t_p, state_pmid_p, state_pint_p, state_zm_p, state_zi_p
          type(c_ptr), value :: trop_lev_p, trop_p_p, trop_t_p, trop_z_p
-       end subroutine tropopause_twmo_codon
+       end subroutine tropopause_twmo_stage_dispatch_codon
     end interface
 
     do i = 1, pcols
@@ -1240,14 +1240,14 @@ contains
     if (.not. present(tropZ)) tropZ_p = c_loc(dummy(1))
 
     if (masterproc .and. .not. tropopause_twmo_entered_logged) then
-       write(iulog,*) 'tropopause_twmo entered (TROP_ALG_TWMO pressure/level/interp direct = codon; other algorithms = native)'
-       call tropopause_find_append_proof('tropopause_twmo entered (TROP_ALG_TWMO pressure/level/interp direct = codon; ' // &
+       write(iulog,*) 'tropopause_twmo entered (unified TWMO stage dispatch = codon; other algorithms = native)'
+       call tropopause_find_append_proof('tropopause_twmo entered (unified TWMO stage dispatch = codon; ' // &
             'other algorithms = native)')
        tropopause_twmo_entered_logged = .true.
        call flush(iulog)
     end if
 
-    call tropopause_twmo_codon(int(pstate%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+    call tropopause_twmo_stage_dispatch_codon(int(pstate%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          int(NOTFOUND, c_int64_t), int(merge(1, 0, present(tropP)), c_int64_t), &
          int(merge(1, 0, present(tropT)), c_int64_t), int(merge(1, 0, present(tropZ)), c_int64_t), &
          real(cnst_kap, c_double), real(cnst_ka1, c_double), real(cnst_faktor, c_double), &
@@ -1278,14 +1278,14 @@ contains
     integer :: i
 
     interface
-       subroutine tropopause_output_prep_codon(ncol_c, pcols_c, pver_c, notfound_c, fillvalue_c, &
+       subroutine tropopause_output_prep_stage_dispatch_codon(ncol_c, pcols_c, pver_c, notfound_c, fillvalue_c, &
             trop_lev_p, trop_z_p, state_zm_p, trop_pdf_p, trop_found_p, trop_dz_p) &
-            bind(c, name="tropopause_output_prep_codon")
+            bind(c, name="tropopause_output_prep_stage_dispatch_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, notfound_c
          real(c_double), value :: fillvalue_c
          type(c_ptr), value :: trop_lev_p, trop_z_p, state_zm_p, trop_pdf_p, trop_found_p, trop_dz_p
-       end subroutine tropopause_output_prep_codon
+       end subroutine tropopause_output_prep_stage_dispatch_codon
     end interface
 
     do i = 1, pcols
@@ -1293,14 +1293,14 @@ contains
     end do
 
     if (masterproc .and. .not. tropopause_output_prep_entered_logged) then
-       write(iulog,*) 'tropopause_output_prep entered (TROP/TROPP output arrays direct = codon; tropopause_find selected separately)'
-       call tropopause_output_prep_append_proof('tropopause_output_prep entered (TROP/TROPP output arrays direct = codon; ' // &
+       write(iulog,*) 'tropopause_output_prep entered (unified output-prep stage dispatch = codon; tropopause_find selected separately)'
+       call tropopause_output_prep_append_proof('tropopause_output_prep entered (unified output-prep stage dispatch = codon; ' // &
             'tropopause_find selected separately)')
        tropopause_output_prep_entered_logged = .true.
        call flush(iulog)
     end if
 
-    call tropopause_output_prep_codon( &
+    call tropopause_output_prep_stage_dispatch_codon( &
          int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(NOTFOUND, c_int64_t), &
          real(fillvalue, c_double), c_loc(tropLev_i8(1)), c_loc(tropZ(1)), c_loc(state_zm(1,1)), &
          c_loc(tropPdf(1,1)), c_loc(tropFound(1)), c_loc(tropDZ(1,1)) )

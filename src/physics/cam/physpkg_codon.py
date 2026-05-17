@@ -77,6 +77,35 @@ def tropopause_output_prep_codon(
                 )
 
 
+@export
+def tropopause_output_prep_stage_dispatch_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    notfound: int,
+    fillvalue: float,
+    trop_lev_p: cobj,
+    trop_z_p: cobj,
+    state_zm_p: cobj,
+    trop_pdf_p: cobj,
+    trop_found_p: cobj,
+    trop_dz_p: cobj,
+):
+    tropopause_output_prep_codon(
+        ncol,
+        pcols,
+        pver,
+        notfound,
+        fillvalue,
+        trop_lev_p,
+        trop_z_p,
+        state_zm_p,
+        trop_pdf_p,
+        trop_found_p,
+        trop_dz_p,
+    )
+
+
 @inline
 def _tropopause_interp_t(
     i: int,
@@ -327,6 +356,51 @@ def tropopause_twmo_codon(
                     trop_z[_idx(i)] = _tropopause_interp_z(
                         i, lev, tp, pcols, state_zm, state_zi, state_pmid, state_pint
                     )
+
+
+@export
+def tropopause_twmo_stage_dispatch_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    notfound: int,
+    write_tropp: int,
+    write_tropt: int,
+    write_tropz: int,
+    cnst_kap: float,
+    cnst_ka1: float,
+    cnst_faktor: float,
+    state_t_p: cobj,
+    state_pmid_p: cobj,
+    state_pint_p: cobj,
+    state_zm_p: cobj,
+    state_zi_p: cobj,
+    trop_lev_p: cobj,
+    trop_p_p: cobj,
+    trop_t_p: cobj,
+    trop_z_p: cobj,
+):
+    tropopause_twmo_codon(
+        ncol,
+        pcols,
+        pver,
+        notfound,
+        write_tropp,
+        write_tropt,
+        write_tropz,
+        cnst_kap,
+        cnst_ka1,
+        cnst_faktor,
+        state_t_p,
+        state_pmid_p,
+        state_pint_p,
+        state_zm_p,
+        state_zi_p,
+        trop_lev_p,
+        trop_p_p,
+        trop_t_p,
+        trop_z_p,
+    )
 
 
 @export
