@@ -33,10 +33,9 @@
       real(kind=r8), parameter :: od_lo = 0.06
 
       real(kind=r8) :: tau_tbl
-      real(kind=r8) , dimension(0:ntbl) :: exp_tbl
+      real(kind=r8) , target, dimension(0:ntbl) :: exp_tbl
 
       real(kind=r8), parameter :: pade = 0.278_r8
       real(kind=r8) :: bpade
 
       end module rrsw_tbl
-

@@ -543,6 +543,149 @@ def rrtmg_sw_post_codon(
             )
 
 
+@inline
+def _rrtmg_sw_reftra_lookup(
+    ze: float, tblint: float, bpade: float, od_lo: float, exp_tbl: Ptr[float]
+) -> float:
+    if ze <= od_lo:
+        return 1.0 - ze + 0.5 * ze * ze
+    tblind = ze / (bpade + ze)
+    itind = int(tblint * tblind + 0.5)
+    return exp_tbl[itind]
+
+
+@export
+def rrtmg_sw_reftra_codon(
+    nlayers: int,
+    prmuz: float,
+    tblint: float,
+    bpade: float,
+    od_lo: float,
+    lrtchk_mask_p: cobj,
+    pgg_p: cobj,
+    ptau_p: cobj,
+    pw_p: cobj,
+    pref_p: cobj,
+    prefd_p: cobj,
+    ptra_p: cobj,
+    ptrad_p: cobj,
+    exp_tbl_p: cobj,
+):
+    lrtchk_mask = Ptr[int](lrtchk_mask_p)
+    pgg = Ptr[float](pgg_p)
+    ptau = Ptr[float](ptau_p)
+    pw = Ptr[float](pw_p)
+    pref = Ptr[float](pref_p)
+    prefd = Ptr[float](prefd_p)
+    ptra = Ptr[float](ptra_p)
+    ptrad = Ptr[float](ptrad_p)
+    exp_tbl = Ptr[float](exp_tbl_p)
+
+    zsr3 = sqrt(3.0)
+    zwcrit = 0.9999995
+    kmodts = 2
+    eps = 1.0e-08
+
+    for jk in range(1, nlayers + 1):
+        idx = jk - 1
+        if lrtchk_mask[idx] == 0:
+            pref[idx] = 0.0
+            ptra[idx] = 1.0
+            prefd[idx] = 0.0
+            ptrad[idx] = 1.0
+        else:
+            zto1 = ptau[idx]
+            zw = pw[idx]
+            zg = pgg[idx]
+
+            zg3 = 3.0 * zg
+            if kmodts == 1:
+                zgamma1 = (7.0 - zw * (4.0 + zg3)) * 0.25
+                zgamma2 = -(1.0 - zw * (4.0 - zg3)) * 0.25
+                zgamma3 = (2.0 - zg3 * prmuz) * 0.25
+            elif kmodts == 2:
+                zgamma1 = (8.0 - zw * (5.0 + zg3)) * 0.25
+                zgamma2 = 3.0 * (zw * (1.0 - zg)) * 0.25
+                zgamma3 = (2.0 - zg3 * prmuz) * 0.25
+            elif kmodts == 3:
+                zgamma1 = zsr3 * (2.0 - zw * (1.0 + zg)) * 0.5
+                zgamma2 = zsr3 * zw * (1.0 - zg) * 0.5
+                zgamma3 = (1.0 - zsr3 * zg * prmuz) * 0.5
+            else:
+                zgamma1 = 0.0
+                zgamma2 = 0.0
+                zgamma3 = 0.0
+            zgamma4 = 1.0 - zgamma3
+
+            zwo = zw / (1.0 - (1.0 - zw) * (zg / (1.0 - zg)) ** 2)
+
+            if zwo >= zwcrit:
+                za = zgamma1 * prmuz
+                za1 = za - zgamma3
+                zgt = zgamma1 * zto1
+
+                ze1 = min(zto1 / prmuz, 500.0)
+                ze2 = _rrtmg_sw_reftra_lookup(ze1, tblint, bpade, od_lo, exp_tbl)
+
+                pref[idx] = (zgt - za1 * (1.0 - ze2)) / (1.0 + zgt)
+                ptra[idx] = 1.0 - pref[idx]
+
+                prefd[idx] = zgt / (1.0 + zgt)
+                ptrad[idx] = 1.0 - prefd[idx]
+
+                if ze2 == 1.0:
+                    pref[idx] = 0.0
+                    ptra[idx] = 1.0
+                    prefd[idx] = 0.0
+                    ptrad[idx] = 1.0
+            else:
+                za1 = zgamma1 * zgamma4 + zgamma2 * zgamma3
+                za2 = zgamma1 * zgamma3 + zgamma2 * zgamma4
+                zrk = sqrt(zgamma1**2 - zgamma2**2)
+                zrp = zrk * prmuz
+                zrp1 = 1.0 + zrp
+                zrm1 = 1.0 - zrp
+                zrk2 = 2.0 * zrk
+                zrpp = 1.0 - zrp * zrp
+                zrkg = zrk + zgamma1
+                zr1 = zrm1 * (za2 + zrk * zgamma3)
+                zr2 = zrp1 * (za2 - zrk * zgamma3)
+                zr3 = zrk2 * (zgamma3 - za2 * prmuz)
+                zr4 = zrpp * zrkg
+                zr5 = zrpp * (zrk - zgamma1)
+                zt1 = zrp1 * (za1 + zrk * zgamma4)
+                zt2 = zrm1 * (za1 - zrk * zgamma4)
+                zt3 = zrk2 * (zgamma4 + za1 * prmuz)
+                zt4 = zr4
+                zt5 = zr5
+                zbeta = (zgamma1 - zrk) / zrkg
+
+                ze1 = min(zrk * zto1, 500.0)
+                ze2 = min(zto1 / prmuz, 500.0)
+
+                zem1 = _rrtmg_sw_reftra_lookup(ze1, tblint, bpade, od_lo, exp_tbl)
+                zep1 = 1.0 / zem1
+
+                zem2 = _rrtmg_sw_reftra_lookup(ze2, tblint, bpade, od_lo, exp_tbl)
+                zep2 = 1.0 / zem2
+
+                zdenr = zr4 * zep1 + zr5 * zem1
+                zdent = zt4 * zep1 + zt5 * zem1
+                if zdenr >= -eps and zdenr <= eps:
+                    pref[idx] = eps
+                    ptra[idx] = zem2
+                else:
+                    pref[idx] = zw * (zr1 * zep1 - zr2 * zem1 - zr3 * zem2) / zdenr
+                    ptra[idx] = zem2 - zem2 * zw * (
+                        zt1 * zep1 - zt2 * zem1 - zt3 * zep2
+                    ) / zdent
+
+                zemm = zem1 * zem1
+                zdend = 1.0 / ((1.0 - zbeta * zemm) * zrkg)
+                prefd[idx] = zgamma2 * (1.0 - zemm) * zdend
+                ptrad[idx] = zrk2 * zem1 * zdend
+
+
 @export
 def rrtmg_sw_vrtqdr_codon(
     klev: int,

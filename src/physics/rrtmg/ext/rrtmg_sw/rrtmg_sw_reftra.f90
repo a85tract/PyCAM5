@@ -18,17 +18,84 @@
 ! ------- Modules -------
 
       use shr_kind_mod, only: r8 => shr_kind_r8
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
 
 !      use parkind, only : jpim, jprb
       use rrsw_tbl, only : tblint, bpade, od_lo, exp_tbl
       use rrsw_vsn, only : hvrrft, hnamrft
 
       implicit none
+      save
+
+      logical :: use_native_reftra_sw_impl = .false.
+      logical :: reftra_sw_impl_selected = .false.
+      logical :: reftra_sw_entered_logged = .false.
 
       contains
 
 ! --------------------------------------------------------------------
       subroutine reftra_sw(nlayers, lrtchk, pgg, prmuz, ptau, pw, &
+                           pref, prefd, ptra, ptrad)
+! --------------------------------------------------------------------
+      use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+      integer, intent(in) :: nlayers
+
+      logical, intent(in) :: lrtchk(:)
+
+      real(kind=r8), target, intent(in) :: pgg(:)
+      real(kind=r8), target, intent(in) :: ptau(:)
+      real(kind=r8), target, intent(in) :: pw(:)
+      real(kind=r8), intent(in) :: prmuz
+
+      real(kind=r8), target, intent(inout) :: pref(:)
+      real(kind=r8), target, intent(inout) :: prefd(:)
+      real(kind=r8), target, intent(inout) :: ptra(:)
+      real(kind=r8), target, intent(inout) :: ptrad(:)
+
+      integer :: jk
+      integer(c_int64_t), target :: lrtchk_mask(nlayers)
+
+      interface
+         subroutine rrtmg_sw_reftra_codon(nlayers_c, prmuz_c, tblint_c, bpade_c, od_lo_c, &
+              lrtchk_mask_p, pgg_p, ptau_p, pw_p, pref_p, prefd_p, ptra_p, ptrad_p, &
+              exp_tbl_p) bind(c, name="rrtmg_sw_reftra_codon")
+            use iso_c_binding, only: c_double, c_int64_t, c_ptr
+            integer(c_int64_t), value :: nlayers_c
+            real(c_double), value :: prmuz_c, tblint_c, bpade_c, od_lo_c
+            type(c_ptr), value :: lrtchk_mask_p, pgg_p, ptau_p, pw_p
+            type(c_ptr), value :: pref_p, prefd_p, ptra_p, ptrad_p, exp_tbl_p
+         end subroutine rrtmg_sw_reftra_codon
+      end interface
+
+      hvrrft = '$Revision: 1.2 $'
+
+      call reftra_sw_select_impl()
+      if (use_native_reftra_sw_impl) then
+         call reftra_sw_native(nlayers, lrtchk, pgg, prmuz, ptau, pw, pref, prefd, ptra, ptrad)
+      else
+         do jk=1, nlayers
+            if (lrtchk(jk)) then
+               lrtchk_mask(jk) = 1_c_int64_t
+            else
+               lrtchk_mask(jk) = 0_c_int64_t
+            endif
+         enddo
+
+         call reftra_sw_log_entered()
+         call rrtmg_sw_reftra_codon( &
+              int(nlayers, c_int64_t), real(prmuz, c_double), real(tblint, c_double), &
+              real(bpade, c_double), real(od_lo, c_double), c_loc(lrtchk_mask(1)), &
+              c_loc(pgg(1)), c_loc(ptau(1)), c_loc(pw(1)), c_loc(pref(1)), &
+              c_loc(prefd(1)), c_loc(ptra(1)), c_loc(ptrad(1)), c_loc(exp_tbl(0)) &
+         )
+      endif
+
+      end subroutine reftra_sw
+
+! --------------------------------------------------------------------
+      subroutine reftra_sw_native(nlayers, lrtchk, pgg, prmuz, ptau, pw, &
                            pref, prefd, ptra, ptrad)
 ! --------------------------------------------------------------------
   
@@ -293,7 +360,55 @@
 
       enddo    
 
-      end subroutine reftra_sw
+      end subroutine reftra_sw_native
+
+! --------------------------------------------------------------------------
+      subroutine reftra_sw_select_impl()
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (reftra_sw_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('RRTMG_SW_REFTRA_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_reftra_sw_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_reftra_sw_impl = .false.
+      end if
+
+      reftra_sw_impl_selected = .true.
+
+      if (masterproc) then
+         if (use_native_reftra_sw_impl) then
+            write(iulog,*) 'rrtmg_sw_reftra implementation = native'
+         else
+            write(iulog,*) 'rrtmg_sw_reftra implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine reftra_sw_select_impl
+
+! --------------------------------------------------------------------------
+      subroutine reftra_sw_log_entered()
+
+      if (reftra_sw_entered_logged) return
+      reftra_sw_entered_logged = .true.
+
+      if (masterproc) then
+         write(iulog,*) 'rrtmg_sw_reftra entered (two-stream reflectivity/transmissivity = codon)'
+         call flush(iulog)
+      end if
+
+      end subroutine reftra_sw_log_entered
 
       end module rrtmg_sw_reftra
-
