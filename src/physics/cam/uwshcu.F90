@@ -1002,9 +1002,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu cin prep batch shell entered (interface/lcl/cin thv and exit scalars direct = codon; qsinvert/conden/buoy/goto native)'
+            'uwshcu cin prep batch shell entered (unified cin-prep stage dispatch = codon; qsinvert/conden/buoy/goto native)'
        call uwshcu_append_proof( &
-            'uwshcu cin prep batch shell entered (interface/lcl/cin thv and exit scalars direct = codon; qsinvert/conden/buoy/goto native)')
+            'uwshcu cin prep batch shell entered (unified cin-prep stage dispatch = codon; qsinvert/conden/buoy/goto native)')
        call flush(iulog)
     end if
 
@@ -1270,9 +1270,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu scalar exit/limit batch shell entered (release/buoy/scaleh/conden flags direct = codon; math/goto native)'
+            'uwshcu scalar exit/limit batch shell entered (unified scalar-exit-limit stage dispatch = codon; math/goto native)'
        call uwshcu_append_proof( &
-            'uwshcu scalar exit/limit batch shell entered (release/buoy/scaleh/conden flags direct = codon; math/goto native)')
+            'uwshcu scalar exit/limit batch shell entered (unified scalar-exit-limit stage dispatch = codon; math/goto native)')
        call flush(iulog)
     end if
 
@@ -1287,9 +1287,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu conden exit/thv batch shell entered (post-conden exit and virtual theta direct = codon; conden/goto native)'
+            'uwshcu conden exit/thv batch shell entered (unified conden-exit-thv stage dispatch = codon; conden/goto native)'
        call uwshcu_append_proof( &
-            'uwshcu conden exit/thv batch shell entered (post-conden exit and virtual theta direct = codon; conden/goto native)')
+            'uwshcu conden exit/thv batch shell entered (unified conden-exit-thv stage dispatch = codon; conden/goto native)')
        call flush(iulog)
     end if
 

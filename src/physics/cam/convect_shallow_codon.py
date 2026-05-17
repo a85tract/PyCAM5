@@ -3245,7 +3245,7 @@ def uwshcu_thv_scalar_shell_codon(
 
 
 @export
-def uwshcu_conden_exit_thv_batch_shell_codon(
+def uwshcu_conden_exit_thv_stage_dispatch_codon(
     kind: int,
     k_fortran: int,
     id_check: int,
@@ -3279,6 +3279,40 @@ def uwshcu_conden_exit_thv_batch_shell_codon(
         idx = k_fortran - 1
         thv[idx] = thj * (1.0 + zvir * qvj - qlj - qij)
         thvl[idx] = thl0edge * (1.0 + zvir * qt0edge)
+
+@export
+def uwshcu_conden_exit_thv_batch_shell_codon(
+    kind: int,
+    k_fortran: int,
+    id_check: int,
+    zvir: float,
+    thj: float,
+    qvj: float,
+    qlj: float,
+    qij: float,
+    thl0edge: float,
+    qt0edge: float,
+    exit_conden_p: cobj,
+    exit_code_p: cobj,
+    thv_p: cobj,
+    thvl_p: cobj,
+):
+    uwshcu_conden_exit_thv_stage_dispatch_codon(
+        kind,
+        k_fortran,
+        id_check,
+        zvir,
+        thj,
+        qvj,
+        qlj,
+        qij,
+        thl0edge,
+        qt0edge,
+        exit_conden_p,
+        exit_code_p,
+        thv_p,
+        thvl_p,
+    )
 
 
 @export
@@ -4166,7 +4200,7 @@ def uwshcu_buoy_state_batch_shell_codon(
 
 
 @export
-def uwshcu_scalar_exit_limit_batch_shell_codon(
+def uwshcu_scalar_exit_limit_stage_dispatch_codon(
     kind: int,
     idx: int,
     code_in: int,
@@ -4252,6 +4286,36 @@ def uwshcu_scalar_exit_limit_batch_shell_codon(
         if code_in != 0:
             flag1[0] = 1.0
             code_out[0] = 1
+
+@export
+def uwshcu_scalar_exit_limit_batch_shell_codon(
+    kind: int,
+    idx: int,
+    code_in: int,
+    v1: float,
+    v2: float,
+    v3: float,
+    field1_p: cobj,
+    field2_p: cobj,
+    field3_p: cobj,
+    flag1_p: cobj,
+    flag2_p: cobj,
+    code_out_p: cobj,
+):
+    uwshcu_scalar_exit_limit_stage_dispatch_codon(
+        kind,
+        idx,
+        code_in,
+        v1,
+        v2,
+        v3,
+        field1_p,
+        field2_p,
+        field3_p,
+        flag1_p,
+        flag2_p,
+        code_out_p,
+    )
 
 
 @export
@@ -4688,7 +4752,7 @@ def uwshcu_cin_lcl_init_shell_codon(
 
 
 @export
-def uwshcu_cin_prep_batch_shell_codon(
+def uwshcu_cin_prep_stage_dispatch_codon(
     kind: int,
     k_fortran: int,
     mkx: int,
@@ -4790,6 +4854,72 @@ def uwshcu_cin_prep_batch_shell_codon(
             thv_p,
             thvl_p,
         )
+
+@export
+def uwshcu_cin_prep_batch_shell_codon(
+    kind: int,
+    k_fortran: int,
+    mkx: int,
+    id_check: int,
+    plcl: float,
+    zvir: float,
+    thj: float,
+    qvj: float,
+    qlj: float,
+    qij: float,
+    thl0edge: float,
+    qt0edge: float,
+    ps0_p: cobj,
+    p0_p: cobj,
+    thl0_p: cobj,
+    ssthl0_p: cobj,
+    qt0_p: cobj,
+    ssqt0_p: cobj,
+    klcl_out_p: cobj,
+    lcl_exit_code_p: cobj,
+    thl0lcl_p: cobj,
+    qt0lcl_p: cobj,
+    exit_conden_p: cobj,
+    exit_code_p: cobj,
+    thv_p: cobj,
+    thvl_p: cobj,
+    cin_p: cobj,
+    cinlcl_p: cobj,
+    plfc_p: cobj,
+    klfc_p: cobj,
+):
+    uwshcu_cin_prep_stage_dispatch_codon(
+        kind,
+        k_fortran,
+        mkx,
+        id_check,
+        plcl,
+        zvir,
+        thj,
+        qvj,
+        qlj,
+        qij,
+        thl0edge,
+        qt0edge,
+        ps0_p,
+        p0_p,
+        thl0_p,
+        ssthl0_p,
+        qt0_p,
+        ssqt0_p,
+        klcl_out_p,
+        lcl_exit_code_p,
+        thl0lcl_p,
+        qt0lcl_p,
+        exit_conden_p,
+        exit_code_p,
+        thv_p,
+        thvl_p,
+        cin_p,
+        cinlcl_p,
+        plfc_p,
+        klfc_p,
+    )
 
 
 @export
