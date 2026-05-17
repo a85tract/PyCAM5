@@ -2660,7 +2660,7 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
    else
 
       call micro_mg_cam_log_entered_once(tail_shell_entered_logged, 'MICRO_MG_CAM_TAIL_SHELL_PROOF_FILE', &
-           'micro_mg_cam_tail_shell entered (rho_grid/water/size/diagnostic/pbuf tail direct = codon; MG core = native)')
+           'micro_mg_cam_tail_shell entered (unified tail stage dispatch = codon; MG core = native)')
 
       if (trace_water) then
 
@@ -3140,11 +3140,11 @@ subroutine micro_mg_cam_diag_shell_codon_wrap(ngrdcol_local, micro_mg_version_lo
   end if
 
   call micro_mg_cam_log_entered_once(diag_shell_entered_logged, 'MICRO_MG_CAM_DIAG_SHELL_PROOF_FILE', &
-       'micro_mg_cam_diag_shell entered (liquid reff/reff/grid/budget diagnostic tail direct = codon)')
+       'micro_mg_cam_diag_shell entered (unified diag stage dispatch = codon)')
 
   if (present(copy_qrain_local)) then
      call micro_mg_cam_log_entered_once(tail_diag_pbuf_entered_logged, 'MICRO_MG_CAM_TAIL_SHELL_PROOF_FILE', &
-          'micro_mg_cam_tail diag/pbuf dispatch entered (reff/grid/budget diagnostics and pbuf copy direct = codon)')
+          'micro_mg_cam_tail diag/pbuf dispatch entered (unified diag-pbuf stage dispatch = codon)')
   end if
 
   call micro_mg_cam_diag_shell_codon(int(ngrdcol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
