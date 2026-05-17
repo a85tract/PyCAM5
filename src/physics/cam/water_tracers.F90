@@ -5347,7 +5347,7 @@ subroutine wtrc_q1q2_pjr(dqdt        , ideep, lengath, &
 
  use physconst,       only: cpair, latvap, rair, epsilo
  use ppgrid,          only: pverp
- use iso_c_binding,   only: c_double, c_int64_t, c_loc, c_ptr
+ use iso_c_binding,   only: c_double, c_int64_t, c_loc, c_ptr, c_null_ptr
 
 !********************
 !Variable decleration
@@ -5556,6 +5556,22 @@ subroutine wtrc_q1q2_pjr(dqdt        , ideep, lengath, &
          type(c_ptr), value :: qu_p, ru_p, wtcu_p, cupc_p, dz_p, eu_p, q_p, dupc_p, qstb_p, qub_p, ql_p
          type(c_ptr), value :: c0mask_p, oval_work_p, uqdiff_work_p
       end subroutine wtrc_q1q2_updraft_h2o_shell_codon
+
+      subroutine wtrc_q1q2_stage_dispatch_codon(stage_c, lengath_c, pcols_c, pver_c, pcnst_c, pwtype_c, &
+           wtrc_nwset_c, msg_c, iwtvap_c, wtrc_qmin_c, p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, &
+           p7_p, p8_p, p9_p, p10_p, p11_p, p12_p, p13_p, p14_p, p15_p, p16_p, p17_p, p18_p, &
+           p19_p, p20_p, p21_p, p22_p, p23_p, p24_p, p25_p, p26_p, p27_p, p28_p, p29_p, &
+           p30_p, p31_p, p32_p, p33_p, p34_p, p35_p, p36_p, p37_p, p38_p, p39_p, p40_p) &
+           bind(c, name="wtrc_q1q2_stage_dispatch_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: stage_c, lengath_c, pcols_c, pver_c, pcnst_c, pwtype_c
+        integer(c_int64_t), value :: wtrc_nwset_c, msg_c, iwtvap_c
+        real(c_double), value :: wtrc_qmin_c
+        type(c_ptr), value :: p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p, p9_p, p10_p
+        type(c_ptr), value :: p11_p, p12_p, p13_p, p14_p, p15_p, p16_p, p17_p, p18_p, p19_p, p20_p
+        type(c_ptr), value :: p21_p, p22_p, p23_p, p24_p, p25_p, p26_p, p27_p, p28_p, p29_p, p30_p
+        type(c_ptr), value :: p31_p, p32_p, p33_p, p34_p, p35_p, p36_p, p37_p, p38_p, p39_p, p40_p
+      end subroutine wtrc_q1q2_stage_dispatch_codon
    end interface
 
 !***************************************
@@ -5598,19 +5614,24 @@ else
     end do
 
     if (masterproc .and. .not. wtrc_q1q2_init_logged) then
-      write(iulog,*) 'wtrc_q1q2 init/qhat shell entered (workspace init and vapor interface direct = codon)'
-      call wtrc_batch_append_proof('wtrc_q1q2 init/qhat shell entered (workspace init and vapor interface direct = codon)')
+      write(iulog,*) 'wtrc_q1q2 init/qhat dispatcher entered (unified q1q2 stage-dispatch ' // &
+           'workspace init and vapor interface direct = codon)'
+      call wtrc_batch_append_proof( &
+           'wtrc_q1q2 init/qhat dispatcher entered (unified q1q2 stage-dispatch ' // &
+           'workspace init and vapor interface direct = codon)')
       call flush(iulog)
       wtrc_q1q2_init_logged = .true.
     end if
 
-    call wtrc_q1q2_init_qhat_shell_codon(int(lengath, c_int64_t), int(pcols, c_int64_t), &
+    call wtrc_q1q2_stage_dispatch_codon(1_c_int64_t, int(lengath, c_int64_t), int(pcols, c_int64_t), &
          int(pver, c_int64_t), int(pcnst, c_int64_t), int(pwtype, c_int64_t), &
-         int(wtrc_nwset, c_int64_t), int(msg, c_int64_t), int(iwtvap, c_int64_t), &
+         int(wtrc_nwset, c_int64_t), int(msg, c_int64_t), int(iwtvap, c_int64_t), 0._c_double, &
          c_loc(ideep64), c_loc(wtrc_iatype64), c_loc(q), c_loc(dqdt), c_loc(wtrprd), c_loc(wtdlf), &
          c_loc(qhat), c_loc(qu), c_loc(qd), c_loc(wtcu), c_loc(wtevp), c_loc(wthmn), c_loc(hsat), &
          c_loc(qst), c_loc(gamma), c_loc(hsthat), c_loc(qsthat), c_loc(gamhat), c_loc(hu), c_loc(hd), &
-         c_loc(totpcp), c_loc(totevp), c_loc(Ru), c_loc(Rd), c_loc(ql))
+         c_loc(totpcp), c_loc(totevp), c_loc(Ru), c_loc(Rd), c_loc(ql), c_null_ptr, c_null_ptr, &
+         c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+         c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
     uqdiff = 0.0_r8
     dqdiff = 0.0_r8
 
@@ -5696,18 +5717,24 @@ else
 if (.not. use_native_wtrc_batch_impl) then
 
   if (masterproc .and. .not. wtrc_q1q2_updraft_h2o_logged) then
-    write(iulog,*) 'wtrc_q1q2 updraft h2o shell entered (H2O/no-massflux updraft direct = codon; isotope core = native)'
-    call wtrc_batch_append_proof('wtrc_q1q2 updraft h2o shell entered (H2O/no-massflux updraft direct = codon; isotope core = native)')
+    write(iulog,*) 'wtrc_q1q2 updraft h2o dispatcher entered (unified q1q2 stage-dispatch ' // &
+         'H2O/no-massflux direct = codon; isotope core = native)'
+    call wtrc_batch_append_proof( &
+         'wtrc_q1q2 updraft h2o dispatcher entered (unified q1q2 stage-dispatch ' // &
+         'H2O/no-massflux direct = codon; isotope core = native)')
     call flush(iulog)
     wtrc_q1q2_updraft_h2o_logged = .true.
   end if
 
-  call wtrc_q1q2_updraft_h2o_shell_codon(int(lengath, c_int64_t), int(pcols, c_int64_t), &
-       int(pver, c_int64_t), int(wtrc_nwset, c_int64_t), int(msg, c_int64_t), int(iwtvap, c_int64_t), &
+  call wtrc_q1q2_stage_dispatch_codon(2_c_int64_t, int(lengath, c_int64_t), int(pcols, c_int64_t), &
+       int(pver, c_int64_t), int(pcnst, c_int64_t), int(pwtype, c_int64_t), &
+       int(wtrc_nwset, c_int64_t), int(msg, c_int64_t), int(iwtvap, c_int64_t), &
        real(wtrc_qmin, c_double), c_loc(ideep64), c_loc(wtrc_iatype64), c_loc(iwspec64), c_loc(rstd), &
        c_loc(mx64), c_loc(jt64), c_loc(eps0), c_loc(tu), c_loc(mupc), c_loc(qu), c_loc(Ru), c_loc(wtcu), &
        c_loc(cupc), c_loc(dz), c_loc(eu), c_loc(q), c_loc(dupc), c_loc(qstb), c_loc(qub), c_loc(ql), &
-       c_loc(c0mask), c_loc(oval_work), c_loc(uqdiff_work))
+       c_loc(c0mask), c_loc(oval_work), c_loc(uqdiff_work), c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
+       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
 
   do k = pver,msg + 2,-1
     do i = 1,lengath
@@ -5914,15 +5941,18 @@ end if
 if (.not. use_native_wtrc_batch_impl) then
 
    if (masterproc .and. .not. wtrc_q1q2_downdraft_tail_logged) then
-     write(iulog,*) 'wtrc_q1q2 downdraft/tail shell entered (downdraft/tail direct = codon; isotope core = native)'
+     write(iulog,*) 'wtrc_q1q2 downdraft/tail dispatcher entered (unified q1q2 stage-dispatch ' // &
+          'downdraft/tail direct = codon; isotope core = native)'
      call wtrc_batch_append_proof( &
-          'wtrc_q1q2 downdraft/tail shell entered (downdraft/tail direct = codon; isotope core = native)')
+          'wtrc_q1q2 downdraft/tail dispatcher entered (unified q1q2 stage-dispatch ' // &
+          'downdraft/tail direct = codon; isotope core = native)')
      call flush(iulog)
      wtrc_q1q2_downdraft_tail_logged = .true.
    end if
 
-   call wtrc_q1q2_downdraft_tail_shell_codon(int(lengath, c_int64_t), int(pcols, c_int64_t), &
-        int(pver, c_int64_t), int(wtrc_nwset, c_int64_t), int(msg, c_int64_t), int(iwtvap, c_int64_t), &
+   call wtrc_q1q2_stage_dispatch_codon(3_c_int64_t, int(lengath, c_int64_t), int(pcols, c_int64_t), &
+        int(pver, c_int64_t), int(pcnst, c_int64_t), int(pwtype, c_int64_t), &
+        int(wtrc_nwset, c_int64_t), int(msg, c_int64_t), int(iwtvap, c_int64_t), &
         real(wtrc_qmin, c_double), c_loc(ideep64), c_loc(wtrc_iatype64), c_loc(iwspec64), c_loc(rstd), &
         c_loc(jd64), c_loc(mx64), c_loc(jt64), c_loc(eps0), c_loc(qu), c_loc(qds), c_loc(Rd), c_loc(qd), &
         c_loc(dz), c_loc(wtevp), c_loc(evpc), c_loc(ed), c_loc(q), c_loc(mdpc), c_loc(qdb), c_loc(totevp), &
