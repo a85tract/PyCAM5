@@ -427,7 +427,7 @@ contains
     integer :: l, m, n
 
     interface
-       subroutine setsox_shell_codon(stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, nfs_c, ntot_amode_c, &
+       subroutine setsox_shell_stage_dispatch_codon(stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, nfs_c, ntot_amode_c, &
             loffset_c, itermax_c, cloud_borne_c, modal_aerosols_c, inv_so2_c, inv_h2o2_c, inv_o3_c, &
             inv_ho2_c, id_so2_c, id_hno3_c, id_h2o2_c, id_nh3_c, id_o3_c, id_ho2_c, id_h2so4_c, &
             id_so4_c, id_msa_c, modeptr_accum_c, dtime_c, ph0_c, const0_c, kh0_c, kh1_c, kh2_c, kh3_c, ra_c, &
@@ -437,7 +437,7 @@ contains
             hno3g_p, nh3g_p, hehno3_p, heh2o2_p, heso2_p, henh3_p, heo3_p, xphlwc_p, qcw_p, &
             dqdt_aqso4_p, dqdt_aqh2so4_p, dqdt_aqhprxn_p, dqdt_aqo3rxn_p, faqgain_msa_p, faqgain_so4_p, &
             qnum_c_p, numptrcw_amode_p, lptr_so4_cw_amode_p, lptr_msa_cw_amode_p, lptr_nh4_cw_amode_p) &
-            bind(c, name="setsox_shell_codon")
+            bind(c, name="setsox_shell_stage_dispatch_codon")
          use iso_c_binding, only : c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, nfs_c, ntot_amode_c
          integer(c_int64_t), value :: loffset_c, itermax_c, cloud_borne_c, modal_aerosols_c
@@ -454,7 +454,7 @@ contains
          type(c_ptr), value :: dqdt_aqso4_p, dqdt_aqh2so4_p, dqdt_aqhprxn_p, dqdt_aqo3rxn_p
          type(c_ptr), value :: faqgain_msa_p, faqgain_so4_p, qnum_c_p, numptrcw_amode_p
          type(c_ptr), value :: lptr_so4_cw_amode_p, lptr_msa_cw_amode_p, lptr_nh4_cw_amode_p
-       end subroutine setsox_shell_codon
+       end subroutine setsox_shell_stage_dispatch_codon
 
        subroutine setsox_shell_finalize_codon(ncol_c, pcols_c, pver_c, gas_pcnst_c, nfs_c, ntot_amode_c, &
             loffset_c, itermax_c, cloud_borne_c, modal_aerosols_c, inv_so2_c, inv_h2o2_c, inv_o3_c, &
@@ -491,7 +491,7 @@ contains
     end interface
 
     if (masterproc .and. .not. setsox_shell_wrap_proof_written) then
-       proof_line = 'setsox_shell_codon_wrap entered (setsox shell = codon, update_core direct = codon)'
+       proof_line = 'setsox_shell_codon_wrap entered (unified setsox shell/update core stage dispatch = codon)'
        write(iulog,'(A)') trim(proof_line)
        call setsox_append_impl_proof(trim(proof_line))
        setsox_shell_wrap_proof_written = .true.
@@ -511,7 +511,7 @@ contains
     if (inv_o3) inv_o3_c = 1_c_int64_t
     if (inv_ho2) inv_ho2_c = 1_c_int64_t
 
-    call setsox_shell_codon( &
+    call setsox_shell_stage_dispatch_codon( &
          1_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          int(gas_pcnst, c_int64_t), int(nfs, c_int64_t), int(ntot_amode, c_int64_t), int(loffset, c_int64_t), &
          int(itermax, c_int64_t), cloud_borne_c, modal_aerosols_c, inv_so2_c, inv_h2o2_c, inv_o3_c, inv_ho2_c, &
