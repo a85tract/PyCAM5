@@ -1,4 +1,4 @@
-from math import sqrt
+from math import exp, sqrt
 
 
 @inline
@@ -11,6 +11,12 @@ def _idx2(i: int, k: int, ld1: int) -> int:
 def _idx2_lb0(i: int, k0: int, ld1: int) -> int:
     """Fortran array declared as (ld1, 0:n2)."""
     return (i - 1) + k0 * ld1
+
+
+@inline
+def _idx2_dim1_lb0(k0: int, b: int, ub1: int) -> int:
+    """Fortran array declared as (0:ub1, n2)."""
+    return k0 + (b - 1) * (ub1 + 1)
 
 
 @inline
@@ -541,6 +547,441 @@ def rrtmg_sw_post_codon(
             qrsc[_idx2(i, cam_k, pcols)] = (
                 swhrc[_idx2(i, rrtmg_k, pcols)] * cpair * dps
             )
+
+
+@inline
+def _rrtmg_lw_a0(iband: int) -> float:
+    if iband == 2:
+        return 1.55
+    if iband == 3:
+        return 1.58
+    if iband == 5:
+        return 1.54
+    if iband == 6:
+        return 1.454
+    if iband == 7:
+        return 1.89
+    if iband == 8:
+        return 1.33
+    if iband == 9:
+        return 1.668
+    return 1.66
+
+
+@inline
+def _rrtmg_lw_a1(iband: int) -> float:
+    if iband == 2:
+        return 0.25
+    if iband == 3:
+        return 0.22
+    if iband == 5:
+        return 0.13
+    if iband == 6:
+        return 0.446
+    if iband == 7:
+        return -0.10
+    if iband == 8:
+        return 0.40
+    if iband == 9:
+        return -0.006
+    return 0.00
+
+
+@inline
+def _rrtmg_lw_a2(iband: int) -> float:
+    if iband == 2:
+        return -12.0
+    if iband == 3:
+        return -11.7
+    if iband == 5:
+        return -0.72
+    if iband == 6:
+        return -0.243
+    if iband == 7:
+        return 0.19
+    if iband == 8:
+        return -0.062
+    if iband == 9:
+        return 0.414
+    return 0.00
+
+
+@export
+def rrtmg_lw_rtrnmc_codon(
+    nlayers: int,
+    istart: int,
+    iend: int,
+    iout: int,
+    ncbands: int,
+    nbndlw: int,
+    ngptlw: int,
+    pwvcm: float,
+    fluxfac: float,
+    heatfac: float,
+    tblint: float,
+    bpade: float,
+    pz_p: cobj,
+    semiss_p: cobj,
+    cldfmc_p: cobj,
+    taucmc_p: cobj,
+    planklay_p: cobj,
+    planklev_p: cobj,
+    plankbnd_p: cobj,
+    fracs_p: cobj,
+    taut_p: cobj,
+    totuflux_p: cobj,
+    totdflux_p: cobj,
+    fnet_p: cobj,
+    htr_p: cobj,
+    totuclfl_p: cobj,
+    totdclfl_p: cobj,
+    fnetc_p: cobj,
+    htrc_p: cobj,
+    totufluxs_p: cobj,
+    totdfluxs_p: cobj,
+    tau_tbl_p: cobj,
+    exp_tbl_p: cobj,
+    tfn_tbl_p: cobj,
+    delwave_p: cobj,
+    ngs_p: cobj,
+    ngb_p: cobj,
+    abscld_p: cobj,
+    atot_p: cobj,
+    atrans_p: cobj,
+    bbugas_p: cobj,
+    bbutot_p: cobj,
+    clrurad_p: cobj,
+    clrdrad_p: cobj,
+    efclfrac_p: cobj,
+    uflux_p: cobj,
+    dflux_p: cobj,
+    urad_p: cobj,
+    drad_p: cobj,
+    uclfl_p: cobj,
+    dclfl_p: cobj,
+    odcld_p: cobj,
+    secdiff_p: cobj,
+    icldlyr_p: cobj,
+):
+    pz = Ptr[float](pz_p)
+    semiss = Ptr[float](semiss_p)
+    cldfmc = Ptr[float](cldfmc_p)
+    taucmc = Ptr[float](taucmc_p)
+    planklay = Ptr[float](planklay_p)
+    planklev = Ptr[float](planklev_p)
+    plankbnd = Ptr[float](plankbnd_p)
+    fracs = Ptr[float](fracs_p)
+    taut = Ptr[float](taut_p)
+    totuflux = Ptr[float](totuflux_p)
+    totdflux = Ptr[float](totdflux_p)
+    fnet = Ptr[float](fnet_p)
+    htr = Ptr[float](htr_p)
+    totuclfl = Ptr[float](totuclfl_p)
+    totdclfl = Ptr[float](totdclfl_p)
+    fnetc = Ptr[float](fnetc_p)
+    htrc = Ptr[float](htrc_p)
+    totufluxs = Ptr[float](totufluxs_p)
+    totdfluxs = Ptr[float](totdfluxs_p)
+    tau_tbl = Ptr[float](tau_tbl_p)
+    exp_tbl = Ptr[float](exp_tbl_p)
+    tfn_tbl = Ptr[float](tfn_tbl_p)
+    delwave = Ptr[float](delwave_p)
+    ngs = Ptr[int](ngs_p)
+    ngb = Ptr[int](ngb_p)
+    abscld = Ptr[float](abscld_p)
+    atot = Ptr[float](atot_p)
+    atrans = Ptr[float](atrans_p)
+    bbugas = Ptr[float](bbugas_p)
+    bbutot = Ptr[float](bbutot_p)
+    clrurad = Ptr[float](clrurad_p)
+    clrdrad = Ptr[float](clrdrad_p)
+    efclfrac = Ptr[float](efclfrac_p)
+    uflux = Ptr[float](uflux_p)
+    dflux = Ptr[float](dflux_p)
+    urad = Ptr[float](urad_p)
+    drad = Ptr[float](drad_p)
+    uclfl = Ptr[float](uclfl_p)
+    dclfl = Ptr[float](dclfl_p)
+    odcld = Ptr[float](odcld_p)
+    secdiff = Ptr[float](secdiff_p)
+    icldlyr = Ptr[int](icldlyr_p)
+
+    wtdiff = 0.5
+    rec_6 = 0.166667
+
+    for ibnd in range(1, nbndlw + 1):
+        if ibnd == 1 or ibnd == 4 or ibnd >= 10:
+            secdiff[ibnd - 1] = 1.66
+        else:
+            secdiff[ibnd - 1] = _rrtmg_lw_a0(ibnd) + _rrtmg_lw_a1(ibnd) * exp(
+                _rrtmg_lw_a2(ibnd) * pwvcm
+            )
+            if secdiff[ibnd - 1] > 1.80:
+                secdiff[ibnd - 1] = 1.80
+            if secdiff[ibnd - 1] < 1.50:
+                secdiff[ibnd - 1] = 1.50
+
+    urad[0] = 0.0
+    drad[0] = 0.0
+    totuflux[0] = 0.0
+    totdflux[0] = 0.0
+    clrurad[0] = 0.0
+    clrdrad[0] = 0.0
+    totuclfl[0] = 0.0
+    totdclfl[0] = 0.0
+
+    for lay in range(1, nlayers + 1):
+        urad[lay] = 0.0
+        drad[lay] = 0.0
+        totuflux[lay] = 0.0
+        totdflux[lay] = 0.0
+        clrurad[lay] = 0.0
+        clrdrad[lay] = 0.0
+        totuclfl[lay] = 0.0
+        totdclfl[lay] = 0.0
+        icldlyr[lay - 1] = 0
+
+        for ig in range(1, ngptlw + 1):
+            rt_idx = _idx2(lay, ig, nlayers)
+            mc_idx = _idx2(ig, lay, ngptlw)
+            if cldfmc[mc_idx] == 1.0:
+                ib = ngb[ig - 1]
+                odcld[rt_idx] = secdiff[ib - 1] * taucmc[mc_idx]
+                transcld = exp(-odcld[rt_idx])
+                abscld[rt_idx] = 1.0 - transcld
+                efclfrac[rt_idx] = abscld[rt_idx] * cldfmc[mc_idx]
+                icldlyr[lay - 1] = 1
+            else:
+                odcld[rt_idx] = 0.0
+                abscld[rt_idx] = 0.0
+                efclfrac[rt_idx] = 0.0
+
+    igc = 1
+    for iband in range(istart, iend + 1):
+        if iout > 0 and iband >= 2:
+            igc = ngs[iband - 2] + 1
+
+        while True:
+            radld = 0.0
+            radclrd = 0.0
+            iclddn = 0
+
+            for lev in range(nlayers, 0, -1):
+                plfrac = fracs[_idx2(lev, igc, nlayers)]
+                blay = planklay[_idx2(lev, iband, nlayers)]
+                dplankup = planklev[_idx2_dim1_lb0(lev, iband, nlayers)] - blay
+                dplankdn = planklev[_idx2_dim1_lb0(lev - 1, iband, nlayers)] - blay
+                odepth = secdiff[iband - 1] * taut[_idx2(lev, igc, nlayers)]
+                if odepth < 0.0:
+                    odepth = 0.0
+
+                if icldlyr[lev - 1] == 1:
+                    iclddn = 1
+                    odtot = odepth + odcld[_idx2(lev, igc, nlayers)]
+                    if odtot < 0.06:
+                        atrans[lev - 1] = odepth - 0.5 * odepth * odepth
+                        odepth_rec = rec_6 * odepth
+                        gassrc = plfrac * (blay + dplankdn * odepth_rec) * atrans[lev - 1]
+
+                        atot[lev - 1] = odtot - 0.5 * odtot * odtot
+                        odtot_rec = rec_6 * odtot
+                        bbdtot = plfrac * (blay + dplankdn * odtot_rec)
+                        bbd = plfrac * (blay + dplankdn * odepth_rec)
+                        radld = (
+                            radld
+                            - radld
+                            * (
+                                atrans[lev - 1]
+                                + efclfrac[_idx2(lev, igc, nlayers)]
+                                * (1.0 - atrans[lev - 1])
+                            )
+                            + gassrc
+                            + cldfmc[_idx2(igc, lev, ngptlw)]
+                            * (bbdtot * atot[lev - 1] - gassrc)
+                        )
+                        drad[lev - 1] = drad[lev - 1] + radld
+
+                        bbugas[lev - 1] = plfrac * (blay + dplankup * odepth_rec)
+                        bbutot[lev - 1] = plfrac * (blay + dplankup * odtot_rec)
+                    elif odepth <= 0.06:
+                        atrans[lev - 1] = odepth - 0.5 * odepth * odepth
+                        odepth_rec = rec_6 * odepth
+                        gassrc = plfrac * (blay + dplankdn * odepth_rec) * atrans[lev - 1]
+
+                        odtot = odepth + odcld[_idx2(lev, igc, nlayers)]
+                        tblind = odtot / (bpade + odtot)
+                        ittot = int(tblint * tblind + 0.5)
+                        tfactot = tfn_tbl[ittot]
+                        bbdtot = plfrac * (blay + tfactot * dplankdn)
+                        bbd = plfrac * (blay + dplankdn * odepth_rec)
+                        atot[lev - 1] = 1.0 - exp_tbl[ittot]
+
+                        radld = (
+                            radld
+                            - radld
+                            * (
+                                atrans[lev - 1]
+                                + efclfrac[_idx2(lev, igc, nlayers)]
+                                * (1.0 - atrans[lev - 1])
+                            )
+                            + gassrc
+                            + cldfmc[_idx2(igc, lev, ngptlw)]
+                            * (bbdtot * atot[lev - 1] - gassrc)
+                        )
+                        drad[lev - 1] = drad[lev - 1] + radld
+
+                        bbugas[lev - 1] = plfrac * (blay + dplankup * odepth_rec)
+                        bbutot[lev - 1] = plfrac * (blay + tfactot * dplankup)
+                    else:
+                        tblind = odepth / (bpade + odepth)
+                        itgas = int(tblint * tblind + 0.5)
+                        odepth = tau_tbl[itgas]
+                        atrans[lev - 1] = 1.0 - exp_tbl[itgas]
+                        tfacgas = tfn_tbl[itgas]
+                        gassrc = (
+                            atrans[lev - 1] * plfrac * (blay + tfacgas * dplankdn)
+                        )
+
+                        odtot = odepth + odcld[_idx2(lev, igc, nlayers)]
+                        tblind = odtot / (bpade + odtot)
+                        ittot = int(tblint * tblind + 0.5)
+                        tfactot = tfn_tbl[ittot]
+                        bbdtot = plfrac * (blay + tfactot * dplankdn)
+                        bbd = plfrac * (blay + tfacgas * dplankdn)
+                        atot[lev - 1] = 1.0 - exp_tbl[ittot]
+
+                        radld = (
+                            radld
+                            - radld
+                            * (
+                                atrans[lev - 1]
+                                + efclfrac[_idx2(lev, igc, nlayers)]
+                                * (1.0 - atrans[lev - 1])
+                            )
+                            + gassrc
+                            + cldfmc[_idx2(igc, lev, ngptlw)]
+                            * (bbdtot * atot[lev - 1] - gassrc)
+                        )
+                        drad[lev - 1] = drad[lev - 1] + radld
+                        bbugas[lev - 1] = plfrac * (blay + tfacgas * dplankup)
+                        bbutot[lev - 1] = plfrac * (blay + tfactot * dplankup)
+                else:
+                    if odepth <= 0.06:
+                        atrans[lev - 1] = odepth - 0.5 * odepth * odepth
+                        odepth = rec_6 * odepth
+                        bbd = plfrac * (blay + dplankdn * odepth)
+                        bbugas[lev - 1] = plfrac * (blay + dplankup * odepth)
+                    else:
+                        tblind = odepth / (bpade + odepth)
+                        itr = int(tblint * tblind + 0.5)
+                        transc = exp_tbl[itr]
+                        atrans[lev - 1] = 1.0 - transc
+                        tausfac = tfn_tbl[itr]
+                        bbd = plfrac * (blay + tausfac * dplankdn)
+                        bbugas[lev - 1] = plfrac * (blay + tausfac * dplankup)
+                    radld = radld + (bbd - radld) * atrans[lev - 1]
+                    drad[lev - 1] = drad[lev - 1] + radld
+
+                if iclddn == 1:
+                    radclrd = radclrd + (bbd - radclrd) * atrans[lev - 1]
+                    clrdrad[lev - 1] = clrdrad[lev - 1] + radclrd
+                else:
+                    radclrd = radld
+                    clrdrad[lev - 1] = drad[lev - 1]
+
+            rad0 = fracs[_idx2(1, igc, nlayers)] * plankbnd[iband - 1]
+            reflect = 1.0 - semiss[iband - 1]
+            radlu = rad0 + reflect * radld
+            radclru = rad0 + reflect * radclrd
+
+            urad[0] = urad[0] + radlu
+            clrurad[0] = clrurad[0] + radclru
+
+            for lev in range(1, nlayers + 1):
+                if icldlyr[lev - 1] == 1:
+                    gassrc = bbugas[lev - 1] * atrans[lev - 1]
+                    radlu = (
+                        radlu
+                        - radlu
+                        * (
+                            atrans[lev - 1]
+                            + efclfrac[_idx2(lev, igc, nlayers)]
+                            * (1.0 - atrans[lev - 1])
+                        )
+                        + gassrc
+                        + cldfmc[_idx2(igc, lev, ngptlw)]
+                        * (bbutot[lev - 1] * atot[lev - 1] - gassrc)
+                    )
+                    urad[lev] = urad[lev] + radlu
+                else:
+                    radlu = radlu + (bbugas[lev - 1] - radlu) * atrans[lev - 1]
+                    urad[lev] = urad[lev] + radlu
+
+                if iclddn == 1:
+                    radclru = radclru + (bbugas[lev - 1] - radclru) * atrans[lev - 1]
+                    clrurad[lev] = clrurad[lev] + radclru
+                else:
+                    radclru = radlu
+                    clrurad[lev] = urad[lev]
+
+            igc = igc + 1
+            if igc > ngs[iband - 1]:
+                break
+
+        for lev in range(nlayers, -1, -1):
+            uflux[lev] = urad[lev] * wtdiff
+            dflux[lev] = drad[lev] * wtdiff
+            urad[lev] = 0.0
+            drad[lev] = 0.0
+            totuflux[lev] = totuflux[lev] + uflux[lev] * delwave[iband - 1]
+            totdflux[lev] = totdflux[lev] + dflux[lev] * delwave[iband - 1]
+            uclfl[lev] = clrurad[lev] * wtdiff
+            dclfl[lev] = clrdrad[lev] * wtdiff
+            clrurad[lev] = 0.0
+            clrdrad[lev] = 0.0
+            totuclfl[lev] = totuclfl[lev] + uclfl[lev] * delwave[iband - 1]
+            totdclfl[lev] = totdclfl[lev] + dclfl[lev] * delwave[iband - 1]
+            totufluxs[_idx2_lb0(iband, lev, nbndlw)] = (
+                uflux[lev] * delwave[iband - 1]
+            )
+            totdfluxs[_idx2_lb0(iband, lev, nbndlw)] = (
+                dflux[lev] * delwave[iband - 1]
+            )
+
+    totuflux[0] = totuflux[0] * fluxfac
+    totdflux[0] = totdflux[0] * fluxfac
+    for iband in range(1, nbndlw + 1):
+        totufluxs[_idx2_lb0(iband, 0, nbndlw)] = (
+            totufluxs[_idx2_lb0(iband, 0, nbndlw)] * fluxfac
+        )
+        totdfluxs[_idx2_lb0(iband, 0, nbndlw)] = (
+            totdfluxs[_idx2_lb0(iband, 0, nbndlw)] * fluxfac
+        )
+    fnet[0] = totuflux[0] - totdflux[0]
+    totuclfl[0] = totuclfl[0] * fluxfac
+    totdclfl[0] = totdclfl[0] * fluxfac
+    fnetc[0] = totuclfl[0] - totdclfl[0]
+
+    for lev in range(1, nlayers + 1):
+        totuflux[lev] = totuflux[lev] * fluxfac
+        totdflux[lev] = totdflux[lev] * fluxfac
+        for iband in range(1, nbndlw + 1):
+            totufluxs[_idx2_lb0(iband, lev, nbndlw)] = (
+                totufluxs[_idx2_lb0(iband, lev, nbndlw)] * fluxfac
+            )
+            totdfluxs[_idx2_lb0(iband, lev, nbndlw)] = (
+                totdfluxs[_idx2_lb0(iband, lev, nbndlw)] * fluxfac
+            )
+        fnet[lev] = totuflux[lev] - totdflux[lev]
+        totuclfl[lev] = totuclfl[lev] * fluxfac
+        totdclfl[lev] = totdclfl[lev] * fluxfac
+        fnetc[lev] = totuclfl[lev] - totdclfl[lev]
+        l = lev - 1
+        htr[l] = heatfac * (fnet[l] - fnet[lev]) / (pz[l] - pz[lev])
+        htrc[l] = heatfac * (fnetc[l] - fnetc[lev]) / (pz[l] - pz[lev])
+
+    htr[nlayers] = 0.0
+    htrc[nlayers] = 0.0
 
 
 @inline

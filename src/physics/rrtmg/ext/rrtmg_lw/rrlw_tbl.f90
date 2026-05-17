@@ -36,12 +36,11 @@
 
       real(kind=r8), parameter :: tblint = 10000.0_r8
 
-      real(kind=r8) , dimension(0:ntbl) :: tau_tbl
-      real(kind=r8) , dimension(0:ntbl) :: exp_tbl
-      real(kind=r8) , dimension(0:ntbl) :: tfn_tbl
+      real(kind=r8) , target, dimension(0:ntbl) :: tau_tbl
+      real(kind=r8) , target, dimension(0:ntbl) :: exp_tbl
+      real(kind=r8) , target, dimension(0:ntbl) :: tfn_tbl
 
       real(kind=r8), parameter :: pade = 0.278_r8
       real(kind=r8) :: bpade
 
       end module rrlw_tbl
-

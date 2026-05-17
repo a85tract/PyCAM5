@@ -18,6 +18,8 @@
 ! --------- Modules ----------
 
       use shr_kind_mod, only: r8 => shr_kind_r8
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
 
 !      use parkind, only : jpim, jprb 
       use parrrtm, only : mg, nbndlw, ngptlw
@@ -27,6 +29,11 @@
       use rrlw_vsn, only: hvrrtc, hnamrtc
 
       implicit none
+      save
+
+      logical :: use_native_rtrnmc_impl = .false.
+      logical :: rtrnmc_impl_selected = .false.
+      logical :: rtrnmc_entered_logged = .false.
 
       contains
 
@@ -36,6 +43,131 @@
                         pwvcm, fracs, taut, &
                         totuflux, totdflux, fnet, htr, &
                         totuclfl, totdclfl, fnetc, htrc, totufluxs, totdfluxs ) 
+!-----------------------------------------------------------------------------
+      use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+      integer, intent(in) :: nlayers
+      integer, intent(in) :: istart
+      integer, intent(in) :: iend
+      integer, intent(in) :: iout
+      integer, intent(in) :: ncbands
+
+      real(kind=r8), target, intent(in) :: pz(0:)
+      real(kind=r8), target, intent(in) :: pwvcm
+      real(kind=r8), target, intent(in) :: semiss(:)
+      real(kind=r8), target, intent(in) :: planklay(:,:)
+      real(kind=r8), target, intent(in) :: planklev(0:,:)
+      real(kind=r8), target, intent(in) :: plankbnd(:)
+      real(kind=r8), target, intent(in) :: fracs(:,:)
+      real(kind=r8), target, intent(in) :: taut(:,:)
+      real(kind=r8), target, intent(in) :: cldfmc(:,:)
+      real(kind=r8), target, intent(in) :: taucmc(:,:)
+
+      real(kind=r8), target, intent(out) :: totuflux(0:)
+      real(kind=r8), target, intent(out) :: totdflux(0:)
+      real(kind=r8), target, intent(out) :: fnet(0:)
+      real(kind=r8), target, intent(out) :: htr(0:)
+      real(kind=r8), target, intent(out) :: totuclfl(0:)
+      real(kind=r8), target, intent(out) :: totdclfl(0:)
+      real(kind=r8), target, intent(out) :: fnetc(0:)
+      real(kind=r8), target, intent(out) :: htrc(0:)
+      real(kind=r8), target, intent(out) :: totufluxs(:,0:)
+      real(kind=r8), target, intent(out) :: totdfluxs(:,0:)
+
+      real(kind=r8), target :: abscld(nlayers,ngptlw)
+      real(kind=r8), target :: atot(nlayers)
+      real(kind=r8), target :: atrans(nlayers)
+      real(kind=r8), target :: bbugas(nlayers)
+      real(kind=r8), target :: bbutot(nlayers)
+      real(kind=r8), target :: clrurad(0:nlayers)
+      real(kind=r8), target :: clrdrad(0:nlayers)
+      real(kind=r8), target :: efclfrac(nlayers,ngptlw)
+      real(kind=r8), target :: uflux(0:nlayers)
+      real(kind=r8), target :: dflux(0:nlayers)
+      real(kind=r8), target :: urad(0:nlayers)
+      real(kind=r8), target :: drad(0:nlayers)
+      real(kind=r8), target :: uclfl(0:nlayers)
+      real(kind=r8), target :: dclfl(0:nlayers)
+      real(kind=r8), target :: odcld(nlayers,ngptlw)
+      real(kind=r8), target :: secdiff(nbndlw)
+      real(kind=r8), target :: delwave_local(nbndlw)
+
+      integer(c_int64_t), target :: icldlyr(nlayers)
+      integer(c_int64_t), target :: ngs64(nbndlw)
+      integer(c_int64_t), target :: ngb64(ngptlw)
+
+      integer :: ibnd, ig
+
+      interface
+         subroutine rrtmg_lw_rtrnmc_codon(nlayers_c, istart_c, iend_c, iout_c, ncbands_c, &
+              nbndlw_c, ngptlw_c, pwvcm_c, fluxfac_c, heatfac_c, tblint_c, bpade_c, &
+              pz_p, semiss_p, cldfmc_p, taucmc_p, planklay_p, planklev_p, plankbnd_p, &
+              fracs_p, taut_p, totuflux_p, totdflux_p, fnet_p, htr_p, totuclfl_p, &
+              totdclfl_p, fnetc_p, htrc_p, totufluxs_p, totdfluxs_p, tau_tbl_p, &
+              exp_tbl_p, tfn_tbl_p, delwave_p, ngs_p, ngb_p, abscld_p, atot_p, atrans_p, &
+              bbugas_p, bbutot_p, clrurad_p, clrdrad_p, efclfrac_p, uflux_p, dflux_p, &
+              urad_p, drad_p, uclfl_p, dclfl_p, odcld_p, secdiff_p, icldlyr_p) &
+              bind(c, name="rrtmg_lw_rtrnmc_codon")
+            use iso_c_binding, only: c_double, c_int64_t, c_ptr
+            integer(c_int64_t), value :: nlayers_c, istart_c, iend_c, iout_c, ncbands_c
+            integer(c_int64_t), value :: nbndlw_c, ngptlw_c
+            real(c_double), value :: pwvcm_c, fluxfac_c, heatfac_c, tblint_c, bpade_c
+            type(c_ptr), value :: pz_p, semiss_p, cldfmc_p, taucmc_p, planklay_p, planklev_p
+            type(c_ptr), value :: plankbnd_p, fracs_p, taut_p, totuflux_p, totdflux_p
+            type(c_ptr), value :: fnet_p, htr_p, totuclfl_p, totdclfl_p, fnetc_p, htrc_p
+            type(c_ptr), value :: totufluxs_p, totdfluxs_p, tau_tbl_p, exp_tbl_p, tfn_tbl_p
+            type(c_ptr), value :: delwave_p, ngs_p, ngb_p, abscld_p, atot_p, atrans_p
+            type(c_ptr), value :: bbugas_p, bbutot_p, clrurad_p, clrdrad_p, efclfrac_p
+            type(c_ptr), value :: uflux_p, dflux_p, urad_p, drad_p, uclfl_p, dclfl_p
+            type(c_ptr), value :: odcld_p, secdiff_p, icldlyr_p
+         end subroutine rrtmg_lw_rtrnmc_codon
+      end interface
+
+      hvrrtc = '$Revision: 1.3 $'
+
+      call rtrnmc_select_impl()
+      if (use_native_rtrnmc_impl) then
+         call rtrnmc_native(nlayers, istart, iend, iout, pz, semiss, ncbands, &
+              cldfmc, taucmc, planklay, planklev, plankbnd, pwvcm, fracs, taut, &
+              totuflux, totdflux, fnet, htr, totuclfl, totdclfl, fnetc, htrc, &
+              totufluxs, totdfluxs)
+      else
+         do ibnd = 1, nbndlw
+            delwave_local(ibnd) = delwave(ibnd)
+            ngs64(ibnd) = int(ngs(ibnd), c_int64_t)
+         enddo
+         do ig = 1, ngptlw
+            ngb64(ig) = int(ngb(ig), c_int64_t)
+         enddo
+
+         call rtrnmc_log_entered()
+         call rrtmg_lw_rtrnmc_codon( &
+              int(nlayers, c_int64_t), int(istart, c_int64_t), int(iend, c_int64_t), &
+              int(iout, c_int64_t), int(ncbands, c_int64_t), int(nbndlw, c_int64_t), &
+              int(ngptlw, c_int64_t), real(pwvcm, c_double), real(fluxfac, c_double), &
+              real(heatfac, c_double), real(tblint, c_double), real(bpade, c_double), &
+              c_loc(pz(0)), c_loc(semiss(1)), c_loc(cldfmc(1,1)), c_loc(taucmc(1,1)), &
+              c_loc(planklay(1,1)), c_loc(planklev(0,1)), c_loc(plankbnd(1)), &
+              c_loc(fracs(1,1)), c_loc(taut(1,1)), c_loc(totuflux(0)), c_loc(totdflux(0)), &
+              c_loc(fnet(0)), c_loc(htr(0)), c_loc(totuclfl(0)), c_loc(totdclfl(0)), &
+              c_loc(fnetc(0)), c_loc(htrc(0)), c_loc(totufluxs(1,0)), c_loc(totdfluxs(1,0)), &
+              c_loc(tau_tbl(0)), c_loc(exp_tbl(0)), c_loc(tfn_tbl(0)), c_loc(delwave_local(1)), &
+              c_loc(ngs64(1)), c_loc(ngb64(1)), c_loc(abscld(1,1)), c_loc(atot(1)), &
+              c_loc(atrans(1)), c_loc(bbugas(1)), c_loc(bbutot(1)), c_loc(clrurad(0)), &
+              c_loc(clrdrad(0)), c_loc(efclfrac(1,1)), c_loc(uflux(0)), c_loc(dflux(0)), &
+              c_loc(urad(0)), c_loc(drad(0)), c_loc(uclfl(0)), c_loc(dclfl(0)), &
+              c_loc(odcld(1,1)), c_loc(secdiff(1)), c_loc(icldlyr(1)) &
+         )
+      endif
+
+      end subroutine rtrnmc
+
+!-----------------------------------------------------------------------------
+      subroutine rtrnmc_native(nlayers, istart, iend, iout, pz, semiss, ncbands, &
+                        cldfmc, taucmc, planklay, planklev, plankbnd, &
+                        pwvcm, fracs, taut, &
+                        totuflux, totdflux, fnet, htr, &
+                        totuclfl, totdclfl, fnetc, htrc, totufluxs, totdfluxs )
 !-----------------------------------------------------------------------------
 !
 !  Original version:   E. J. Mlawer, et al. RRTM_V3.0
@@ -505,7 +637,55 @@
       htr(nlayers) = 0.0_r8
       htrc(nlayers) = 0.0_r8
 
-      end subroutine rtrnmc
+      end subroutine rtrnmc_native
+
+! --------------------------------------------------------------------------
+      subroutine rtrnmc_select_impl()
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (rtrnmc_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('RRTMG_LW_RTRNMC_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_rtrnmc_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_rtrnmc_impl = .false.
+      end if
+
+      rtrnmc_impl_selected = .true.
+
+      if (masterproc) then
+         if (use_native_rtrnmc_impl) then
+            write(iulog,*) 'rrtmg_lw_rtrnmc implementation = native'
+         else
+            write(iulog,*) 'rrtmg_lw_rtrnmc implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine rtrnmc_select_impl
+
+! --------------------------------------------------------------------------
+      subroutine rtrnmc_log_entered()
+
+      if (rtrnmc_entered_logged) return
+      rtrnmc_entered_logged = .true.
+
+      if (masterproc) then
+         write(iulog,*) 'rrtmg_lw_rtrnmc entered (mcica longwave transfer = codon)'
+         call flush(iulog)
+      end if
+
+      end subroutine rtrnmc_log_entered
 
       end module rrtmg_lw_rtrnmc
-
