@@ -737,6 +737,133 @@ def rrtmg_sw_setcoef_codon(
         fac01[idx] = fp * (1.0 - ft1)
 
 
+@export
+def rrtmg_lw_cldprmc_codon(
+    nlayers: int,
+    inflag: int,
+    iceflag: int,
+    liqflag: int,
+    ngptlw: int,
+    absliq0: float,
+    cldfmc_p: cobj,
+    ciwpmc_p: cobj,
+    clwpmc_p: cobj,
+    reicmc_p: cobj,
+    dgesmc_p: cobj,
+    relqmc_p: cobj,
+    ncbands_p: cobj,
+    taucmc_p: cobj,
+    absice0_p: cobj,
+    absice1_p: cobj,
+    absice2_p: cobj,
+    absice3_p: cobj,
+    absliq1_p: cobj,
+    ngb_p: cobj,
+):
+    cldfmc = Ptr[float](cldfmc_p)
+    ciwpmc = Ptr[float](ciwpmc_p)
+    clwpmc = Ptr[float](clwpmc_p)
+    reicmc = Ptr[float](reicmc_p)
+    dgesmc = Ptr[float](dgesmc_p)
+    relqmc = Ptr[float](relqmc_p)
+    ncbands = Ptr[int](ncbands_p)
+    taucmc = Ptr[float](taucmc_p)
+    absice0 = Ptr[float](absice0_p)
+    absice1 = Ptr[float](absice1_p)
+    absice2 = Ptr[float](absice2_p)
+    absice3 = Ptr[float](absice3_p)
+    absliq1 = Ptr[float](absliq1_p)
+    ngb = Ptr[int](ngb_p)
+
+    cldmin = 1.0e-80
+    ncbands[0] = 1
+
+    for lay in range(1, nlayers + 1):
+        for ig in range(1, ngptlw + 1):
+            mc_idx = _idx2(ig, lay, ngptlw)
+            cwp = ciwpmc[mc_idx] + clwpmc[mc_idx]
+            if cldfmc[mc_idx] >= cldmin and (
+                cwp >= cldmin or taucmc[mc_idx] >= cldmin
+            ):
+                if inflag == 0:
+                    return
+                elif inflag == 2:
+                    radice = reicmc[lay - 1]
+
+                    if ciwpmc[mc_idx] == 0.0:
+                        abscoice = 0.0
+                    elif iceflag == 0:
+                        abscoice = absice0[0] + absice0[1] / radice
+                    elif iceflag == 1:
+                        ncbands[0] = 5
+                        ib = ngb[ig - 1]
+                        abscoice = (
+                            absice1[_idx2(1, ib, 2)]
+                            + absice1[_idx2(2, ib, 2)] / radice
+                        )
+                    elif iceflag == 2:
+                        if radice >= 5.0 and radice <= 131.0:
+                            ncbands[0] = 16
+                            factor = (radice - 2.0) / 3.0
+                            index = int(factor)
+                            if index == 43:
+                                index = 42
+                            fint = factor - float(index)
+                            ib = ngb[ig - 1]
+                            abscoice = absice2[_idx2(index, ib, 43)] + fint * (
+                                absice2[_idx2(index + 1, ib, 43)]
+                                - (absice2[_idx2(index, ib, 43)])
+                            )
+                        elif radice > 131.0:
+                            abscoice = absice0[0] + absice0[1] / radice
+                        else:
+                            abscoice = 0.0
+                    elif iceflag == 3:
+                        dgeice = dgesmc[lay - 1]
+                        if dgeice >= 5.0 and dgeice <= 140.0:
+                            ncbands[0] = 16
+                            factor = (dgeice - 2.0) / 3.0
+                            index = int(factor)
+                            if index == 46:
+                                index = 45
+                            fint = factor - float(index)
+                            ib = ngb[ig - 1]
+                            abscoice = absice3[_idx2(index, ib, 46)] + fint * (
+                                absice3[_idx2(index + 1, ib, 46)]
+                                - (absice3[_idx2(index, ib, 46)])
+                            )
+                        elif dgeice > 140.0:
+                            abscoice = absice0[0] + absice0[1] / radice
+                        else:
+                            abscoice = 0.0
+                    else:
+                        abscoice = 0.0
+
+                    if clwpmc[mc_idx] == 0.0:
+                        abscoliq = 0.0
+                    elif liqflag == 0:
+                        abscoliq = absliq0
+                    elif liqflag == 1:
+                        radliq = relqmc[lay - 1]
+                        index = int(radliq - 1.5)
+                        if index == 58:
+                            index = 57
+                        if index == 0:
+                            index = 1
+                        fint = radliq - 1.5 - float(index)
+                        ib = ngb[ig - 1]
+                        abscoliq = absliq1[_idx2(index, ib, 58)] + fint * (
+                            absliq1[_idx2(index + 1, ib, 58)]
+                            - (absliq1[_idx2(index, ib, 58)])
+                        )
+                    else:
+                        abscoliq = 0.0
+
+                    taucmc[mc_idx] = (
+                        ciwpmc[mc_idx] * abscoice + clwpmc[mc_idx] * abscoliq
+                    )
+
+
 @inline
 def _rrtmg_lw_a0(iband: int) -> float:
     if iband == 2:
