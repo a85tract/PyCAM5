@@ -263,8 +263,8 @@ contains
     inv_post_shell_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'uwshcu inv post shell entered (vertical output reorder direct = codon)'
-       call uwshcu_append_proof('uwshcu inv post shell entered (vertical output reorder direct = codon)')
+       write(iulog,'(A)') 'uwshcu inv post shell entered (unified inv-post stage dispatch = codon)'
+       call uwshcu_append_proof('uwshcu inv post shell entered (unified inv-post stage dispatch = codon)')
        call flush(iulog)
     end if
 
@@ -339,9 +339,9 @@ contains
     main_diag_post_shell_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'uwshcu main/diag/wtrc post all shell entered (main/diag/water-tracer output writeback direct = codon)'
+       write(iulog,'(A)') 'uwshcu main/diag/wtrc post all shell entered (unified main-diag-wtrc-post stage dispatch = codon)'
        call uwshcu_append_proof( &
-            'uwshcu main/diag/wtrc post all shell entered (main/diag/water-tracer output writeback direct = codon)')
+            'uwshcu main/diag/wtrc post all shell entered (unified main-diag-wtrc-post stage dispatch = codon)')
        call flush(iulog)
     end if
 
@@ -355,8 +355,8 @@ contains
     exit_zero_shell_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'uwshcu exit zero all shell entered (id_exit main/diag output clear direct = codon)'
-       call uwshcu_append_proof('uwshcu exit zero all shell entered (id_exit main/diag output clear direct = codon)')
+       write(iulog,'(A)') 'uwshcu exit zero all shell entered (unified exit-zero stage dispatch = codon)'
+       call uwshcu_append_proof('uwshcu exit zero all shell entered (unified exit-zero stage dispatch = codon)')
        call flush(iulog)
     end if
 
@@ -370,8 +370,8 @@ contains
     iter_restore_shell_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'uwshcu iter restore all shell entered (main/diag saved output restore direct = codon)'
-       call uwshcu_append_proof('uwshcu iter restore all shell entered (main/diag saved output restore direct = codon)')
+       write(iulog,'(A)') 'uwshcu iter restore all shell entered (unified iter-restore stage dispatch = codon)'
+       call uwshcu_append_proof('uwshcu iter restore all shell entered (unified iter-restore stage dispatch = codon)')
        call flush(iulog)
     end if
 
@@ -385,8 +385,8 @@ contains
     delcin_reset_shell_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'uwshcu delcin restore/reset all shell entered (cin/source/env/workspace/scalars restore/reset direct = codon)'
-       call uwshcu_append_proof('uwshcu delcin restore/reset all shell entered (cin/source/env/workspace/scalars restore/reset direct = codon)')
+       write(iulog,'(A)') 'uwshcu delcin restore/reset all shell entered (unified delcin-restore-reset stage dispatch = codon)'
+       call uwshcu_append_proof('uwshcu delcin restore/reset all shell entered (unified delcin-restore-reset stage dispatch = codon)')
        call flush(iulog)
     end if
 
@@ -401,9 +401,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu iter save/restore thermo-slope shell entered (first iteration save and CIN env rebuild direct = codon)'
+            'uwshcu iter save/restore thermo-slope shell entered (unified iter-save-thermo-slope stage dispatch = codon)'
        call uwshcu_append_proof( &
-            'uwshcu iter save/restore thermo-slope shell entered (first iteration save and CIN env rebuild direct = codon)')
+            'uwshcu iter save/restore thermo-slope shell entered (unified iter-save-thermo-slope stage dispatch = codon)')
        call flush(iulog)
     end if
 
@@ -496,9 +496,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu interface conden exit shell entered (interface conden exit flags direct = codon; conden/goto native)'
+            'uwshcu interface conden exit shell entered (unified interface-conden-exit stage dispatch = codon; conden/goto native)'
        call uwshcu_append_proof( &
-            'uwshcu interface conden exit shell entered (interface conden exit flags direct = codon; conden/goto native)')
+            'uwshcu interface conden exit shell entered (unified interface-conden-exit stage dispatch = codon; conden/goto native)')
        call flush(iulog)
     end if
 
@@ -530,9 +530,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu iter interface thv shell entered (post-conden implicit-CIN interface virtual theta direct = codon)'
+            'uwshcu iter interface thv shell entered (unified interface-thv stage dispatch = codon)'
        call uwshcu_append_proof( &
-            'uwshcu iter interface thv shell entered (post-conden implicit-CIN interface virtual theta direct = codon)')
+            'uwshcu iter interface thv shell entered (unified interface-thv stage dispatch = codon)')
        call flush(iulog)
     end if
 
@@ -1510,9 +1510,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu thermo final/precip bulk init shell entered (final tendencies and precip bulk init direct = codon; condensate solve native)'
+            'uwshcu thermo final/precip bulk init shell entered (unified thermo-final-precip-bulk-init stage dispatch = codon; condensate solve native)'
        call uwshcu_append_proof( &
-            'uwshcu thermo final/precip bulk init shell entered (final tendencies and precip bulk init direct = codon; condensate solve native)')
+            'uwshcu thermo final/precip bulk init shell entered (unified thermo-final-precip-bulk-init stage dispatch = codon; condensate solve native)')
        call flush(iulog)
     end if
 
@@ -1576,10 +1576,10 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') 'uwshcu cloud diag batch shell entered ' // &
-            '(conden exit/store/final diagnostics direct = codon; conden/goto native)'
+            '(unified cloud-diag stage dispatch = codon; conden/goto native)'
        call uwshcu_append_proof( &
             'uwshcu cloud diag batch shell entered ' // &
-            '(conden exit/store/final diagnostics direct = codon; conden/goto native)')
+            '(unified cloud-diag stage dispatch = codon; conden/goto native)')
        call flush(iulog)
     end if
 
@@ -1660,9 +1660,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu post positive tracer limiter shell entered (post-positive thermo/tracer limiter direct = codon; correction native)'
+            'uwshcu post positive tracer limiter shell entered (unified post-positive-tracer-limiter stage dispatch = codon; correction native)'
        call uwshcu_append_proof( &
-            'uwshcu post positive tracer limiter shell entered (post-positive thermo/tracer limiter direct = codon; correction native)')
+            'uwshcu post positive tracer limiter shell entered (unified post-positive-tracer-limiter stage dispatch = codon; correction native)')
        call flush(iulog)
     end if
 
@@ -1677,9 +1677,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu precip surface/positive prep shell entered (surface precip finalize and positive-moisture prep direct = codon; correction native)'
+            'uwshcu precip surface/positive prep shell entered (unified precip-surface-positive-prep stage dispatch = codon; correction native)'
        call uwshcu_append_proof( &
-            'uwshcu precip surface/positive prep shell entered (surface precip finalize and positive-moisture prep direct = codon; correction native)')
+            'uwshcu precip surface/positive prep shell entered (unified precip-surface-positive-prep stage dispatch = codon; correction native)')
        call flush(iulog)
     end if
 
@@ -1693,9 +1693,9 @@ contains
     precip_bulk_shell_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'uwshcu precip bulk shell entered (bulk/wtrc finalize direct = codon; qsat/sqrt/isotope native)'
+       write(iulog,'(A)') 'uwshcu precip bulk shell entered (unified precip-bulk stage dispatch = codon; qsat/sqrt/isotope native)'
        call uwshcu_append_proof( &
-            'uwshcu precip bulk shell entered (bulk/wtrc finalize direct = codon; qsat/sqrt/isotope native)')
+            'uwshcu precip bulk shell entered (unified precip-bulk stage dispatch = codon; qsat/sqrt/isotope native)')
        call flush(iulog)
     end if
 
