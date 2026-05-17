@@ -137,8 +137,8 @@ subroutine gw_oro_src_note_entered()
   gw_oro_src_entered_logged = .true.
 
   if (masterproc) then
-     write(iulog,*) 'gw_oro_src entered (orographic source direct = codon)'
-     call gw_oro_src_append_proof('gw_oro_src entered (orographic source direct = codon)')
+     write(iulog,*) 'gw_oro_src entered (unified orographic-source stage dispatch = codon)'
+     call gw_oro_src_append_proof('gw_oro_src entered (unified orographic-source stage dispatch = codon)')
      call flush(iulog)
   end if
 
@@ -177,21 +177,21 @@ subroutine gw_oro_src_codon_wrap(ncol_local, pver_local, ngwv_local, fcrit2_loca
   real(r8), target, intent(inout) :: usrc_local(ncol_local), vsrc_local(ncol_local), dpsrc_local(ncol_local)
 
   interface
-     subroutine gw_oro_src_codon(ncol_c, pver_c, ngwv_c, fcrit2_c, kwv_c, rair_c, &
+     subroutine gw_oro_src_stage_dispatch_codon(ncol_c, pver_c, ngwv_c, fcrit2_c, kwv_c, rair_c, &
           p_mid_p, p_del_p, p_ifc_p, u_p, v_p, t_p, sgh_p, zm_p, nm_p, &
           src_level_p, tend_level_p, tau_p, ubm_p, ubi_p, xv_p, yv_p, c_p, &
           hdsp_p, tauoro_p, nsrc_p, rsrc_p, usrc_p, vsrc_p, dpsrc_p) &
-          bind(c, name="gw_oro_src_codon")
+          bind(c, name="gw_oro_src_stage_dispatch_codon")
        use iso_c_binding, only: c_double, c_int64_t, c_ptr
        integer(c_int64_t), value :: ncol_c, pver_c, ngwv_c
        real(c_double), value :: fcrit2_c, kwv_c, rair_c
        type(c_ptr), value :: p_mid_p, p_del_p, p_ifc_p, u_p, v_p, t_p, sgh_p, zm_p, nm_p
        type(c_ptr), value :: src_level_p, tend_level_p, tau_p, ubm_p, ubi_p, xv_p, yv_p, c_p
        type(c_ptr), value :: hdsp_p, tauoro_p, nsrc_p, rsrc_p, usrc_p, vsrc_p, dpsrc_p
-     end subroutine gw_oro_src_codon
+     end subroutine gw_oro_src_stage_dispatch_codon
   end interface
 
-  call gw_oro_src_codon(int(ncol_local, c_int64_t), int(pver_local, c_int64_t), int(ngwv_local, c_int64_t), &
+  call gw_oro_src_stage_dispatch_codon(int(ncol_local, c_int64_t), int(pver_local, c_int64_t), int(ngwv_local, c_int64_t), &
        real(fcrit2_local, c_double), real(kwv_local, c_double), real(rair_local, c_double), &
        c_loc(p_mid_local), c_loc(p_del_local), c_loc(p_ifc_local), c_loc(u_local), c_loc(v_local), c_loc(t_local), &
        c_loc(sgh_local), c_loc(zm_local), c_loc(nm_local), c_loc(src_level64_local), c_loc(tend_level64_local), &

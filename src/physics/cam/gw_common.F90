@@ -276,8 +276,8 @@ subroutine gw_prof_note_entered()
   gw_prof_entered_logged = .true.
 
   if (masterproc) then
-     write(iulog,*) 'gw_prof entered (background profile direct = codon)'
-     call gw_prof_append_proof('gw_prof entered (background profile direct = codon)')
+     write(iulog,*) 'gw_prof entered (unified background-profile stage dispatch = codon)'
+     call gw_prof_append_proof('gw_prof entered (unified background-profile stage dispatch = codon)')
      call flush(iulog)
   end if
 
@@ -301,17 +301,17 @@ subroutine gw_prof_codon_wrap(ncol_local, pver_local, cpair_local, rair_local, g
   real(r8), target, intent(inout) :: ti_local(ncol_local,pver_local+1)
 
   interface
-     subroutine gw_prof_codon(ncol_c, pver_c, cpair_c, rair_c, gravit_c, &
+     subroutine gw_prof_stage_dispatch_codon(ncol_c, pver_c, cpair_c, rair_c, gravit_c, &
           p_ifc_p, p_rdst_p, t_p, rhoi_p, nm_p, ni_p, ti_p) &
-          bind(c, name="gw_prof_codon")
+          bind(c, name="gw_prof_stage_dispatch_codon")
        use iso_c_binding, only: c_double, c_int64_t, c_ptr
        integer(c_int64_t), value :: ncol_c, pver_c
        real(c_double), value :: cpair_c, rair_c, gravit_c
        type(c_ptr), value :: p_ifc_p, p_rdst_p, t_p, rhoi_p, nm_p, ni_p, ti_p
-     end subroutine gw_prof_codon
+     end subroutine gw_prof_stage_dispatch_codon
   end interface
 
-  call gw_prof_codon(int(ncol_local, c_int64_t), int(pver_local, c_int64_t), &
+  call gw_prof_stage_dispatch_codon(int(ncol_local, c_int64_t), int(pver_local, c_int64_t), &
        real(cpair_local, c_double), real(rair_local, c_double), real(gravit_local, c_double), &
        c_loc(p_ifc_local), c_loc(p_rdst_local), c_loc(t_local), c_loc(rhoi_local), &
        c_loc(nm_local), c_loc(ni_local), c_loc(ti_local))
@@ -1331,8 +1331,8 @@ subroutine energy_change_note_entered()
   energy_change_entered_logged = .true.
 
   if (masterproc) then
-     write(iulog,*) 'gw_energy_change entered (column energy direct = codon)'
-     call energy_change_append_proof('gw_energy_change entered (column energy direct = codon)')
+     write(iulog,*) 'gw_energy_change entered (unified column-energy stage dispatch = codon)'
+     call energy_change_append_proof('gw_energy_change entered (unified column-energy stage dispatch = codon)')
      call flush(iulog)
   end if
 
@@ -1354,17 +1354,17 @@ subroutine energy_change_codon_wrap(ncol_local, pver_local, dt_local, gravit_loc
   real(r8), target, intent(inout) :: de_local(ncol_local)
 
   interface
-     subroutine gw_energy_change_codon(ncol_c, pver_c, dt_c, gravit_c, &
+     subroutine gw_energy_change_stage_dispatch_codon(ncol_c, pver_c, dt_c, gravit_c, &
           p_del_p, u_p, v_p, dudt_p, dvdt_p, dsdt_p, de_p) &
-          bind(c, name="gw_energy_change_codon")
+          bind(c, name="gw_energy_change_stage_dispatch_codon")
        use iso_c_binding, only: c_double, c_int64_t, c_ptr
        integer(c_int64_t), value :: ncol_c, pver_c
        real(c_double), value :: dt_c, gravit_c
        type(c_ptr), value :: p_del_p, u_p, v_p, dudt_p, dvdt_p, dsdt_p, de_p
-     end subroutine gw_energy_change_codon
+     end subroutine gw_energy_change_stage_dispatch_codon
   end interface
 
-  call gw_energy_change_codon(int(ncol_local, c_int64_t), int(pver_local, c_int64_t), &
+  call gw_energy_change_stage_dispatch_codon(int(ncol_local, c_int64_t), int(pver_local, c_int64_t), &
        real(dt_local, c_double), real(gravit_local, c_double), &
        c_loc(p_del_local), c_loc(u_local), c_loc(v_local), c_loc(dudt_local), &
        c_loc(dvdt_local), c_loc(dsdt_local), c_loc(de_local))

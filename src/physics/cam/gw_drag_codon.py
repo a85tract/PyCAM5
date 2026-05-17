@@ -121,6 +121,37 @@ def gw_prof_codon(
 
 
 @export
+def gw_prof_stage_dispatch_codon(
+    ncol: int,
+    pver: int,
+    cpair: float,
+    rair: float,
+    gravit: float,
+    p_ifc_p: cobj,
+    p_rdst_p: cobj,
+    t_p: cobj,
+    rhoi_p: cobj,
+    nm_p: cobj,
+    ni_p: cobj,
+    ti_p: cobj,
+):
+    gw_prof_codon(
+        ncol,
+        pver,
+        cpair,
+        rair,
+        gravit,
+        p_ifc_p,
+        p_rdst_p,
+        t_p,
+        rhoi_p,
+        nm_p,
+        ni_p,
+        ti_p,
+    )
+
+
+@export
 def gw_energy_change_codon(
     ncol: int,
     pver: int,
@@ -153,6 +184,35 @@ def gw_energy_change_codon(
                 + dudt[idx] * (u[idx] + dudt[idx] * 0.5 * dt)
                 + dvdt[idx] * (v[idx] + dvdt[idx] * 0.5 * dt)
             )
+
+
+@export
+def gw_energy_change_stage_dispatch_codon(
+    ncol: int,
+    pver: int,
+    dt: float,
+    gravit: float,
+    p_del_p: cobj,
+    u_p: cobj,
+    v_p: cobj,
+    dudt_p: cobj,
+    dvdt_p: cobj,
+    dsdt_p: cobj,
+    de_p: cobj,
+):
+    gw_energy_change_codon(
+        ncol,
+        pver,
+        dt,
+        gravit,
+        p_del_p,
+        u_p,
+        v_p,
+        dudt_p,
+        dvdt_p,
+        dsdt_p,
+        de_p,
+    )
 
 
 def _gw_drag_prof_core_impl(
@@ -1107,6 +1167,73 @@ def gw_oro_src_codon(
     for l in range(-ngwv, ngwv + 1):
         for i in range(1, ncol + 1):
             c[_idx_c(i, l, ncol, ngwv)] = 0.0
+
+
+@export
+def gw_oro_src_stage_dispatch_codon(
+    ncol: int,
+    pver: int,
+    ngwv: int,
+    fcrit2: float,
+    kwv: float,
+    rair: float,
+    p_mid_p: cobj,
+    p_del_p: cobj,
+    p_ifc_p: cobj,
+    u_p: cobj,
+    v_p: cobj,
+    t_p: cobj,
+    sgh_p: cobj,
+    zm_p: cobj,
+    nm_p: cobj,
+    src_level_p: cobj,
+    tend_level_p: cobj,
+    tau_p: cobj,
+    ubm_p: cobj,
+    ubi_p: cobj,
+    xv_p: cobj,
+    yv_p: cobj,
+    c_p: cobj,
+    hdsp_p: cobj,
+    tauoro_p: cobj,
+    nsrc_p: cobj,
+    rsrc_p: cobj,
+    usrc_p: cobj,
+    vsrc_p: cobj,
+    dpsrc_p: cobj,
+):
+    gw_oro_src_codon(
+        ncol,
+        pver,
+        ngwv,
+        fcrit2,
+        kwv,
+        rair,
+        p_mid_p,
+        p_del_p,
+        p_ifc_p,
+        u_p,
+        v_p,
+        t_p,
+        sgh_p,
+        zm_p,
+        nm_p,
+        src_level_p,
+        tend_level_p,
+        tau_p,
+        ubm_p,
+        ubi_p,
+        xv_p,
+        yv_p,
+        c_p,
+        hdsp_p,
+        tauoro_p,
+        nsrc_p,
+        rsrc_p,
+        usrc_p,
+        vsrc_p,
+        dpsrc_p,
+    )
 
 
 def _gw_tend_prep_impl(
