@@ -1312,9 +1312,9 @@ contains
     end interface
 
     if (masterproc .and. .not. core_batch_lq_mask_logged) then
-       write(iulog,*) 'vertical_diffusion core lq mask shell entered (ptend constituent mask direct = codon)'
+       write(iulog,*) 'vertical_diffusion core lq mask shell entered (unified core-lq-mask stage dispatch = codon)'
        call vertical_diffusion_core_batch_append_proof( &
-            'vertical_diffusion core lq mask shell entered (ptend constituent mask direct = codon)')
+            'vertical_diffusion core lq mask shell entered (unified core-lq-mask stage dispatch = codon)')
        call flush(iulog)
        core_batch_lq_mask_logged = .true.
     end if

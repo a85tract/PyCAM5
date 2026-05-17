@@ -55,13 +55,20 @@ def vertical_diffusion_tend_select_branches_codon(
 
 
 @export
-def vertical_diffusion_core_lq_mask_shell_codon(pcnst: int, lq_mask_p: cobj):
+def vertical_diffusion_core_lq_mask_stage_dispatch_codon(pcnst: int, lq_mask_p: cobj):
     lq_mask = Ptr[int](lq_mask_p)
 
     for m in range(0, pcnst):
         lq_mask[m] = 1
 
 
+
+@export
+def vertical_diffusion_core_lq_mask_shell_codon(pcnst: int, lq_mask_p: cobj):
+    vertical_diffusion_core_lq_mask_stage_dispatch_codon(
+        pcnst,
+        lq_mask_p,
+    )
 @export
 def vertical_diffusion_tend_misc_stage_dispatch_codon(
     stage: int,
@@ -7076,7 +7083,7 @@ def eddy_diff_trbintd_core_codon(
 
 
 @export
-def eddy_diff_trbintd_core_batch_codon(
+def eddy_diff_trbintd_core_stage_dispatch_codon(
     ncol: int,
     pcols: int,
     pver: int,
@@ -7201,6 +7208,98 @@ def eddy_diff_trbintd_core_batch_codon(
     )
 
 
+
+@export
+def eddy_diff_trbintd_core_batch_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    mode: int,
+    stratus_mode: int,
+    ntop_turb: int,
+    nbot_turb: int,
+    qmin: float,
+    cpair: float,
+    latvap: float,
+    latsub: float,
+    gravit: float,
+    zvir: float,
+    ntzero: float,
+    t_p: cobj,
+    z_p: cobj,
+    u_p: cobj,
+    v_p: cobj,
+    qv_p: cobj,
+    ql_p: cobj,
+    qi_p: cobj,
+    gam_p: cobj,
+    pmid_p: cobj,
+    pi_p: cobj,
+    zi_p: cobj,
+    cld_p: cobj,
+    qt_p: cobj,
+    sl_p: cobj,
+    slv_p: cobj,
+    slslope_p: cobj,
+    qtslope_p: cobj,
+    dsldp_b_p: cobj,
+    dqtdp_b_p: cobj,
+    chu_p: cobj,
+    chs_p: cobj,
+    cmu_p: cobj,
+    cms_p: cobj,
+    sfi_p: cobj,
+    sfuh_p: cobj,
+    sflh_p: cobj,
+    n2_p: cobj,
+    s2_p: cobj,
+    ri_p: cobj,
+):
+    eddy_diff_trbintd_core_stage_dispatch_codon(
+        ncol,
+        pcols,
+        pver,
+        mode,
+        stratus_mode,
+        ntop_turb,
+        nbot_turb,
+        qmin,
+        cpair,
+        latvap,
+        latsub,
+        gravit,
+        zvir,
+        ntzero,
+        t_p,
+        z_p,
+        u_p,
+        v_p,
+        qv_p,
+        ql_p,
+        qi_p,
+        gam_p,
+        pmid_p,
+        pi_p,
+        zi_p,
+        cld_p,
+        qt_p,
+        sl_p,
+        slv_p,
+        slslope_p,
+        qtslope_p,
+        dsldp_b_p,
+        dqtdp_b_p,
+        chu_p,
+        chs_p,
+        cmu_p,
+        cms_p,
+        sfi_p,
+        sfuh_p,
+        sflh_p,
+        n2_p,
+        s2_p,
+        ri_p,
+    )
 @export
 def eddy_diff_trbintd_slopes_codon(
     ncol: int,

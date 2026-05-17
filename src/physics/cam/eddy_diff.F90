@@ -1368,10 +1368,10 @@
     trbintd_core_batch_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'eddy_diff_trbintd_core_batch entered (midpoint/slopes/sfdiag/interface direct = codon)'
-       write(*,*) 'eddy_diff_trbintd_core_batch entered (midpoint/slopes/sfdiag/interface direct = codon)'
-       call eddy_diff_append_impl_trace('eddy_diff_trbintd_core_batch entered (midpoint/slopes/sfdiag/interface direct = codon)')
-       call eddy_diff_trbintd_core_batch_append_proof('eddy_diff_trbintd_core_batch entered (midpoint/slopes/sfdiag/interface direct = codon)')
+       write(iulog,*) 'eddy_diff_trbintd_core_batch entered (unified trbintd-core stage dispatch = codon)'
+       write(*,*) 'eddy_diff_trbintd_core_batch entered (unified trbintd-core stage dispatch = codon)'
+       call eddy_diff_append_impl_trace('eddy_diff_trbintd_core_batch entered (unified trbintd-core stage dispatch = codon)')
+       call eddy_diff_trbintd_core_batch_append_proof('eddy_diff_trbintd_core_batch entered (unified trbintd-core stage dispatch = codon)')
        call flush(iulog)
     end if
 
