@@ -3974,7 +3974,7 @@ def uwshcu_buoy_reach_update_shell_codon(
 
 
 @export
-def uwshcu_buoy_state_batch_shell_codon(
+def uwshcu_buoy_state_stage_dispatch_codon(
     kind: int,
     k_fortran: int,
     mkx: int,
@@ -4037,6 +4037,69 @@ def uwshcu_buoy_state_batch_shell_codon(
         uwshcu_buoy_top_expel_final_shell_codon(k_fortran, v1, v2, v3, v4, v5, v6, v7, p1, p2, p3, p4)
     elif kind == 10:
         uwshcu_buoy_scaleh_shell_codon(k_fortran, v1, v2, v3, p1, p2, p3, p4, p5, p6, p7)
+
+
+@export
+def uwshcu_buoy_state_batch_shell_codon(
+    kind: int,
+    k_fortran: int,
+    mkx: int,
+    wtrc_nwset: int,
+    i1: int,
+    i2: int,
+    flag1: int,
+    flag2: int,
+    v1: float,
+    v2: float,
+    v3: float,
+    v4: float,
+    v5: float,
+    v6: float,
+    v7: float,
+    v8: float,
+    v9: float,
+    v10: float,
+    v11: float,
+    v12: float,
+    p1: cobj,
+    p2: cobj,
+    p3: cobj,
+    p4: cobj,
+    p5: cobj,
+    p6: cobj,
+    p7: cobj,
+    p8: cobj,
+):
+    uwshcu_buoy_state_stage_dispatch_codon(
+        kind,
+        k_fortran,
+        mkx,
+        wtrc_nwset,
+        i1,
+        i2,
+        flag1,
+        flag2,
+        v1,
+        v2,
+        v3,
+        v4,
+        v5,
+        v6,
+        v7,
+        v8,
+        v9,
+        v10,
+        v11,
+        v12,
+        p1,
+        p2,
+        p3,
+        p4,
+        p5,
+        p6,
+        p7,
+        p8,
+    )
 
 
 @export

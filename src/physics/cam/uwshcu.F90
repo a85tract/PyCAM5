@@ -616,10 +616,10 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') 'uwshcu buoy state batch shell entered ' // &
-            '(top/velocity/reach/ufrc/scaleh scalars direct = codon; roots/sqrt/log/goto native)'
+            '(unified buoy-state stage dispatch = codon; roots/sqrt/log/goto native)'
        call uwshcu_append_proof( &
             'uwshcu buoy state batch shell entered ' // &
-            '(top/velocity/reach/ufrc/scaleh scalars direct = codon; roots/sqrt/log/goto native)')
+            '(unified buoy-state stage dispatch = codon; roots/sqrt/log/goto native)')
        call flush(iulog)
     end if
 
