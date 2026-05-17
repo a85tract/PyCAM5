@@ -675,10 +675,10 @@ contains
     integer(c_int64_t), target :: branch_mask_c
 
     interface
-       subroutine aero_model_drydep_init_shell_codon(apply_srf_drydep_c, branch_mask_p, &
+       subroutine aero_model_drydep_init_shell_stage_dispatch_codon(apply_srf_drydep_c, branch_mask_p, &
             ncol_c, pcols_c, pver_c, pcnst_c, rair_c, rhoh2o_c, state_t_p, state_pmid_p, &
             rho_p, rad_drop_p, dens_drop_p, sg_drop_p, aerdepdryis_p, aerdepdrycw_p) &
-            bind(c, name="aero_model_drydep_init_shell_codon")
+            bind(c, name="aero_model_drydep_init_shell_stage_dispatch_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: apply_srf_drydep_c
          type(c_ptr), value :: branch_mask_p
@@ -686,7 +686,7 @@ contains
          real(c_double), value :: rair_c, rhoh2o_c
          type(c_ptr), value :: state_t_p, state_pmid_p, rho_p, rad_drop_p, dens_drop_p, sg_drop_p
          type(c_ptr), value :: aerdepdryis_p, aerdepdrycw_p
-       end subroutine aero_model_drydep_init_shell_codon
+       end subroutine aero_model_drydep_init_shell_stage_dispatch_codon
     end interface
 
     call aero_model_drydep_select_impl()
@@ -723,7 +723,7 @@ contains
     call pbuf_get_field(pbuf, qaerwat_idx,    qaerwat,     start=(/1,1,1/), kount=(/pcols,pver,nmodes/) ) 
 
     if (.not. aero_model_drydep_use_native_impl) then
-       call aero_model_drydep_init_shell_codon( &
+       call aero_model_drydep_init_shell_stage_dispatch_codon( &
             merge(1_c_int64_t, 0_c_int64_t, .not. aerodep_flx_prescribed()), c_loc(branch_mask_c), &
             int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
             real(rair, c_double), real(rhoh2o, c_double), c_loc(state%t), c_loc(state%pmid), c_loc(rho), &
@@ -733,9 +733,9 @@ contains
        aero_model_drydep_branch_selected = .true.
        apply_srf_drydep_local = iand(aero_model_drydep_branch_mask, 1) /= 0
        if (masterproc .and. .not. aero_model_drydep_prepare_shell_proof_written) then
-          write(iulog,'(A)') 'aero_model_drydep init shell entered (branch select/rho/drop/aerdep work arrays direct = codon)'
+          write(iulog,'(A)') 'aero_model_drydep init shell entered (unified branch/rho/drop/aerdep stage dispatch = codon)'
           call aero_model_drydep_append_impl_proof('AERO_MODEL_DRYDEP_PROOF_FILE', &
-               'aero_model_drydep init shell entered (branch select/rho/drop/aerdep work arrays direct = codon)')
+               'aero_model_drydep init shell entered (unified branch/rho/drop/aerdep stage dispatch = codon)')
           aero_model_drydep_prepare_shell_proof_written = .true.
           call flush(iulog)
        end if
@@ -2567,11 +2567,11 @@ contains
     character(len=192) :: wrap_proof_line
 
     interface
-       subroutine aero_model_wetdep_codon(stage_c, ncol_c, pcols_c, pver_c, dt_c, tmpa_c, gravit_c, pdel_p, &
+       subroutine aero_model_wetdep_stage_dispatch_codon(stage_c, ncol_c, pcols_c, pver_c, dt_c, tmpa_c, gravit_c, pdel_p, &
                                           state_tracer_p, ptend_tracer_p, q_tmp_p, dqdt_p, sflx_p, sflx_ics_p, &
                                           sflx_iss_p, sflx_bcs_p, sflx_bss_p, hygro_sum_old_p, hygro_sum_del_p, &
                                           qaerwat_p, fldcw_p, icscavt_p, isscavt_p, bcscavt_p, bsscavt_p, aerdep_p) &
-            bind(c, name="aero_model_wetdep_codon")
+            bind(c, name="aero_model_wetdep_stage_dispatch_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c
          real(c_double), value :: dt_c, tmpa_c, gravit_c
@@ -2579,18 +2579,18 @@ contains
          type(c_ptr), value :: sflx_p, sflx_ics_p, sflx_iss_p, sflx_bcs_p, sflx_bss_p
          type(c_ptr), value :: hygro_sum_old_p, hygro_sum_del_p, qaerwat_p, fldcw_p
          type(c_ptr), value :: icscavt_p, isscavt_p, bcscavt_p, bsscavt_p, aerdep_p
-       end subroutine aero_model_wetdep_codon
+       end subroutine aero_model_wetdep_stage_dispatch_codon
     end interface
 
     if (masterproc .and. .not. aero_model_wetdep_wrap_proof_written) then
-       wrap_proof_line = 'aero_model_wetdep_codon_wrap entered (wetdep_inputs_cldst/clddiag/prec_isprx/qqcw_ptr/wetdepa/bcscavcoef/set_srf_wetdep direct = codon)'
+       wrap_proof_line = 'aero_model_wetdep_codon_wrap entered (unified wetdep shell stage dispatch = codon)'
        write(iulog,'(A)') trim(wrap_proof_line)
        call aero_model_wetdep_append_impl_proof('AERO_MODEL_WETDEP_PROOF_FILE', trim(wrap_proof_line))
        aero_model_wetdep_wrap_proof_written = .true.
        call flush(iulog)
     end if
 
-    call aero_model_wetdep_codon( &
+    call aero_model_wetdep_stage_dispatch_codon( &
          int(stage, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          real(dt, c_double), real(tmpa, c_double), real(gravit, c_double), c_loc(pdel), c_loc(state_tracer), &
          c_loc(ptend_tracer), c_loc(q_tmp), c_loc(dqdt_tmp), c_loc(sflx), c_loc(sflx_ics), c_loc(sflx_iss), &
@@ -3149,15 +3149,15 @@ contains
     character(len=160) :: proof_line
 
     interface
-       subroutine aero_model_gasaerexch_preset_load_stage_codon(stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, &
+       subroutine aero_model_gasaerexch_preset_load_stage_dispatch_codon(stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, &
             qqcw_offset_c, mbar_ld1_c, delt_c, gravit_c, qqcw_ptrs_p, qqcw_present_p, vmr0_p, vmr_p, vmrcw_p, &
-            dvmrdt_p, dvmrcwdt_p, mbar_p, pdel_p, adv_mass_p, wrk_p) bind(c, name="aero_model_gasaerexch_preset_load_stage_codon")
+            dvmrdt_p, dvmrcwdt_p, mbar_p, pdel_p, adv_mass_p, wrk_p) bind(c, name="aero_model_gasaerexch_preset_load_stage_dispatch_codon")
          use iso_c_binding, only : c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, qqcw_offset_c, mbar_ld1_c
          real(c_double), value :: delt_c, gravit_c
          type(c_ptr), value :: qqcw_ptrs_p, qqcw_present_p, vmr0_p, vmr_p, vmrcw_p, dvmrdt_p, dvmrcwdt_p
          type(c_ptr), value :: mbar_p, pdel_p, adv_mass_p, wrk_p
-       end subroutine aero_model_gasaerexch_preset_load_stage_codon
+       end subroutine aero_model_gasaerexch_preset_load_stage_dispatch_codon
     end interface
 
     call qqcw_fill_cptrs(pbuf, qqcw_ptrs)
@@ -3170,14 +3170,14 @@ contains
     end do
 
     if (masterproc .and. .not. aero_model_gasaerexch_load_snapshot_proof_written) then
-       proof_line = 'aero_model_gasaerexch preset/load stage shell entered (load snapshot: qqcw load/dvmr snapshots direct = codon)'
+       proof_line = 'aero_model_gasaerexch preset/load stage shell entered (unified load snapshot stage dispatch = codon)'
        write(iulog,'(A)') trim(proof_line)
        call aero_model_gasaerexch_append_impl_proof('AERO_MODEL_GASAEREXCH_PROOF_FILE', trim(proof_line))
        aero_model_gasaerexch_load_snapshot_proof_written = .true.
        call flush(iulog)
     end if
 
-    call aero_model_gasaerexch_preset_load_stage_codon( &
+    call aero_model_gasaerexch_preset_load_stage_dispatch_codon( &
          2_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          int(gas_pcnst, c_int64_t), int(im, c_int64_t), int(ncol, c_int64_t), 0.0_c_double, real(gravit, c_double), &
          c_loc(qqcw_ptrs(1)), c_loc(qqcw_present(1)), c_null_ptr, c_loc(vmr(1,1,1)), c_loc(vmrcw(1,1,1)), &
@@ -3202,26 +3202,26 @@ contains
     character(len=160) :: proof_line
 
     interface
-       subroutine aero_model_gasaerexch_preset_load_stage_codon(stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, &
+       subroutine aero_model_gasaerexch_preset_load_stage_dispatch_codon(stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, &
             qqcw_offset_c, mbar_ld1_c, delt_c, gravit_c, qqcw_ptrs_p, qqcw_present_p, vmr0_p, vmr_p, vmrcw_p, &
-            dvmrdt_p, dvmrcwdt_p, mbar_p, pdel_p, adv_mass_p, wrk_p) bind(c, name="aero_model_gasaerexch_preset_load_stage_codon")
+            dvmrdt_p, dvmrcwdt_p, mbar_p, pdel_p, adv_mass_p, wrk_p) bind(c, name="aero_model_gasaerexch_preset_load_stage_dispatch_codon")
          use iso_c_binding, only : c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, qqcw_offset_c, mbar_ld1_c
          real(c_double), value :: delt_c, gravit_c
          type(c_ptr), value :: qqcw_ptrs_p, qqcw_present_p, vmr0_p, vmr_p, vmrcw_p, dvmrdt_p, dvmrcwdt_p
          type(c_ptr), value :: mbar_p, pdel_p, adv_mass_p, wrk_p
-       end subroutine aero_model_gasaerexch_preset_load_stage_codon
+       end subroutine aero_model_gasaerexch_preset_load_stage_dispatch_codon
     end interface
 
     if (masterproc .and. .not. aero_model_gasaerexch_presetsox_proof_written) then
-       proof_line = 'aero_model_gasaerexch preset/load stage shell entered (presetsox: gas tendency/column flux direct = codon)'
+       proof_line = 'aero_model_gasaerexch preset/load stage shell entered (unified presetsox stage dispatch = codon)'
        write(iulog,'(A)') trim(proof_line)
        call aero_model_gasaerexch_append_impl_proof('AERO_MODEL_GASAEREXCH_PROOF_FILE', trim(proof_line))
        aero_model_gasaerexch_presetsox_proof_written = .true.
        call flush(iulog)
     end if
 
-    call aero_model_gasaerexch_preset_load_stage_codon( &
+    call aero_model_gasaerexch_preset_load_stage_dispatch_codon( &
          1_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          int(gas_pcnst, c_int64_t), 0_c_int64_t, int(pcols, c_int64_t), real(delt, c_double), real(gravit, c_double), &
          c_null_ptr, c_null_ptr, c_loc(vmr0(1,1,1)), c_loc(vmr(1,1,1)), c_null_ptr, c_loc(dvmrdt(1,1,1)), &
@@ -3249,15 +3249,15 @@ contains
     character(len=160) :: proof_line
 
     interface
-       subroutine aero_model_gasaerexch_preset_load_stage_codon(stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, &
+       subroutine aero_model_gasaerexch_preset_load_stage_dispatch_codon(stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, &
             qqcw_offset_c, mbar_ld1_c, delt_c, gravit_c, qqcw_ptrs_p, qqcw_present_p, vmr0_p, vmr_p, vmrcw_p, &
-            dvmrdt_p, dvmrcwdt_p, mbar_p, pdel_p, adv_mass_p, wrk_p) bind(c, name="aero_model_gasaerexch_preset_load_stage_codon")
+            dvmrdt_p, dvmrcwdt_p, mbar_p, pdel_p, adv_mass_p, wrk_p) bind(c, name="aero_model_gasaerexch_preset_load_stage_dispatch_codon")
          use iso_c_binding, only : c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, qqcw_offset_c, mbar_ld1_c
          real(c_double), value :: delt_c, gravit_c
          type(c_ptr), value :: qqcw_ptrs_p, qqcw_present_p, vmr0_p, vmr_p, vmrcw_p, dvmrdt_p, dvmrcwdt_p
          type(c_ptr), value :: mbar_p, pdel_p, adv_mass_p, wrk_p
-       end subroutine aero_model_gasaerexch_preset_load_stage_codon
+       end subroutine aero_model_gasaerexch_preset_load_stage_dispatch_codon
     end interface
 
     call qqcw_fill_cptrs(pbuf, qqcw_ptrs)
@@ -3270,14 +3270,14 @@ contains
     end do
 
     if (masterproc .and. .not. aero_model_gasaerexch_store_snapshot_proof_written) then
-       proof_line = 'aero_model_gasaerexch preset/load/store stage shell entered (store snapshot: qqcw store direct = codon)'
+       proof_line = 'aero_model_gasaerexch preset/load/store stage shell entered (unified store snapshot stage dispatch = codon)'
        write(iulog,'(A)') trim(proof_line)
        call aero_model_gasaerexch_append_impl_proof('AERO_MODEL_GASAEREXCH_PROOF_FILE', trim(proof_line))
        aero_model_gasaerexch_store_snapshot_proof_written = .true.
        call flush(iulog)
     end if
 
-    call aero_model_gasaerexch_preset_load_stage_codon( &
+    call aero_model_gasaerexch_preset_load_stage_dispatch_codon( &
          3_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          int(gas_pcnst, c_int64_t), int(im, c_int64_t), int(ncol, c_int64_t), 0.0_c_double, real(gravit, c_double), &
          c_loc(qqcw_ptrs(1)), c_loc(qqcw_present(1)), c_null_ptr, c_loc(vmr(1,1,1)), c_null_ptr, &
@@ -3368,16 +3368,16 @@ contains
     character(len=160) :: wrap_proof_line
 
     interface
-       subroutine aero_model_gasaerexch_codon(stage_c, stage3_mode_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, &
+       subroutine aero_model_gasaerexch_stage_dispatch_codon(stage_c, stage3_mode_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, &
                                               ndx_h2so4_c, delt_c, gravit_c, vmr0_p, vmr_p, vmrcw_p, dvmrdt_p, &
                                               dvmrcwdt_p, mbar_p, pdel_p, adv_mass_p, wrk_p, del_h2so4_aeruptk_p) &
-            bind(c, name="aero_model_gasaerexch_codon")
+            bind(c, name="aero_model_gasaerexch_stage_dispatch_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: stage_c, stage3_mode_c, ncol_c, pcols_c, pver_c, gas_pcnst_c, ndx_h2so4_c
          real(c_double), value :: delt_c, gravit_c
          type(c_ptr), value :: vmr0_p, vmr_p, vmrcw_p, dvmrdt_p, dvmrcwdt_p
          type(c_ptr), value :: mbar_p, pdel_p, adv_mass_p, wrk_p, del_h2so4_aeruptk_p
-       end subroutine aero_model_gasaerexch_codon
+       end subroutine aero_model_gasaerexch_stage_dispatch_codon
     end interface
 
     if (stage == 2 .or. stage == 4) then
@@ -3401,7 +3401,7 @@ contains
     end if
 
     if (masterproc .and. .not. aero_model_gasaerexch_wrap_proof_written) then
-       wrap_proof_line = 'aero_model_gasaerexch_codon_wrap entered (setsox/gaexch/newnuc/coag/qqcw direct = codon)'
+       wrap_proof_line = 'aero_model_gasaerexch_codon_wrap entered (unified setsox/gaexch/newnuc/coag/qqcw stage dispatch = codon)'
        write(iulog,'(A)') trim(wrap_proof_line)
        call aero_model_gasaerexch_append_impl_proof('AERO_MODEL_GASAEREXCH_PROOF_FILE', trim(wrap_proof_line))
        aero_model_gasaerexch_wrap_proof_written = .true.
@@ -3409,14 +3409,14 @@ contains
     end if
 
     if (masterproc .and. stage == 4 .and. .not. aero_model_gasaerexch_aq_save_proof_written) then
-       wrap_proof_line = 'aero_model_gasaerexch aq/save shell entered (aq tendency/column flux/H2SO4 save direct = codon)'
+       wrap_proof_line = 'aero_model_gasaerexch aq/save shell entered (unified aq/save stage dispatch = codon)'
        write(iulog,'(A)') trim(wrap_proof_line)
        call aero_model_gasaerexch_append_impl_proof('AERO_MODEL_GASAEREXCH_PROOF_FILE', trim(wrap_proof_line))
        aero_model_gasaerexch_aq_save_proof_written = .true.
        call flush(iulog)
     end if
 
-    call aero_model_gasaerexch_codon( &
+    call aero_model_gasaerexch_stage_dispatch_codon( &
          int(stage, c_int64_t), int(stage3_mode, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), &
          int(pver, c_int64_t), int(gas_pcnst, c_int64_t), int(ndx_h2so4_in, c_int64_t), real(delt, c_double), &
          real(gravit, c_double), c_loc(vmr0(1,1,1)), c_loc(vmr(1,1,1)), vmrcw_p, c_loc(dvmrdt(1,1,1)), &
@@ -4050,13 +4050,13 @@ contains
     character(len=256) :: wrap_proof_line
 
     interface
-       subroutine aero_model_emissions_shell_wind_codon(stage_c, ncol_c, pcols_c, pver_c, ndstflx_c, dust_nbin_c, seasalt_nbin_c, &
+       subroutine aero_model_emissions_shell_wind_stage_dispatch_codon(stage_c, ncol_c, pcols_c, pver_c, ndstflx_c, dust_nbin_c, seasalt_nbin_c, &
             nsections_c, soil_erod_fact_c, seasalt_emis_scale_c, pi_c, dust_density_c, seasalt_density_c, dstflx_p, soil_erod_p, &
             dust_flux_sum_p, fi_p, ocnfrac_p, cflx_p, dust_sflx_p, seasalt_sflx_p, dust_indices_p, dust_emis_sclfctr_p, &
             dust_x_mton_p, seasalt_indices_p, &
             seasalt_sz_range_lo_p, seasalt_sz_range_hi_p, dg_p, rdry_p, soil_erodibility_p, soil_erod_threshold_c, &
             sst_p, u10cubed_p, whitecap_p, consta_p, constb_p, compute_wind_c, z0_c, state_u_p, state_v_p, state_zm_p) &
-            bind(c, name="aero_model_emissions_shell_wind_codon")
+            bind(c, name="aero_model_emissions_shell_wind_stage_dispatch_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, ndstflx_c, dust_nbin_c, seasalt_nbin_c, nsections_c
          real(c_double), value :: soil_erod_fact_c, seasalt_emis_scale_c, pi_c, dust_density_c, seasalt_density_c
@@ -4068,7 +4068,7 @@ contains
          type(c_ptr), value :: dg_p, rdry_p, soil_erodibility_p
          type(c_ptr), value :: sst_p, u10cubed_p, whitecap_p, consta_p, constb_p
          type(c_ptr), value :: state_u_p, state_v_p, state_zm_p
-       end subroutine aero_model_emissions_shell_wind_codon
+       end subroutine aero_model_emissions_shell_wind_stage_dispatch_codon
     end interface
 
     if (masterproc .and. .not. aero_model_emissions_wrap_proof_written) then
@@ -4080,16 +4080,16 @@ contains
     end if
 
     if (masterproc .and. stage == 1 .and. .not. aero_model_emissions_dust_stage_proof_written) then
-       wrap_proof_line = 'aero_model_emissions dust shell entered (soil erodibility/dstflx sum/dust mass-number flux direct = codon)'
+       wrap_proof_line = 'aero_model_emissions dust shell entered (unified dust stage dispatch = codon)'
        write(iulog,'(A)') trim(wrap_proof_line)
        call aero_model_emissions_append_impl_proof('AERO_MODEL_EMISSIONS_PROOF_FILE', trim(wrap_proof_line))
        aero_model_emissions_dust_stage_proof_written = .true.
        call flush(iulog)
     else if (masterproc .and. stage == 2 .and. .not. aero_model_emissions_seasalt_stage_proof_written) then
        if (aero_model_emissions_seasalt_wind_use_native_impl) then
-          wrap_proof_line = 'aero_model_emissions seasalt shell entered (section fluxes/seasalt flux direct = codon; wind = native)'
+          wrap_proof_line = 'aero_model_emissions seasalt shell entered (unified seasalt stage dispatch = codon; wind = native)'
        else
-          wrap_proof_line = 'aero_model_emissions seasalt shell entered (wind/section fluxes/seasalt flux direct = codon)'
+          wrap_proof_line = 'aero_model_emissions seasalt shell entered (unified wind/seasalt stage dispatch = codon)'
        end if
        write(iulog,'(A)') trim(wrap_proof_line)
        call aero_model_emissions_append_impl_proof('AERO_MODEL_EMISSIONS_PROOF_FILE', trim(wrap_proof_line))
@@ -4097,9 +4097,9 @@ contains
        call flush(iulog)
     else if (masterproc .and. stage == 3 .and. .not. aero_model_emissions_all_stage_proof_written) then
        if (compute_wind_c /= 0_c_int64_t) then
-          wrap_proof_line = 'aero_model_emissions all shell entered (wind/dust/seasalt fluxes direct = codon; outfld = native)'
+          wrap_proof_line = 'aero_model_emissions all shell entered (unified wind/dust/seasalt stage dispatch = codon; outfld = native)'
        else
-          wrap_proof_line = 'aero_model_emissions all shell entered (dust/seasalt fluxes direct = codon; wind = native; outfld = native)'
+          wrap_proof_line = 'aero_model_emissions all shell entered (unified dust/seasalt stage dispatch = codon; wind = native; outfld = native)'
        end if
        write(iulog,'(A)') trim(wrap_proof_line)
        call aero_model_emissions_append_impl_proof('AERO_MODEL_EMISSIONS_PROOF_FILE', trim(wrap_proof_line))
@@ -4107,7 +4107,7 @@ contains
        call flush(iulog)
     end if
 
-    call aero_model_emissions_shell_wind_codon( &
+    call aero_model_emissions_shell_wind_stage_dispatch_codon( &
          int(stage, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(ndstflx, c_int64_t), int(dust_nbin, c_int64_t), &
          int(seasalt_nbin, c_int64_t), int(nsections, c_int64_t), soil_erod_fact_in, seasalt_emis_scale_in, real(pi, c_double), &
          dust_density_in, seasalt_density_in, dstflx_p, soil_erod_p, dust_flux_sum_p, fi_p, ocnfrac_p, cflx_p, dust_sflx_p, &

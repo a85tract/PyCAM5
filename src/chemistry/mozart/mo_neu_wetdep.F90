@@ -876,13 +876,13 @@ subroutine neu_wetdep_prepare_henry_codon_wrap(ncol, pcols_in, pver_in, pcnst_in
   integer(c_int64_t), target, intent(out) :: tckaqb_c(gas_cnt)
 
   interface
-     subroutine neu_wetdep_prepare_henry_shell_codon(ncol_c, pcols_c, pver_c, pcnst_c, gas_cnt_c, &
+     subroutine neu_wetdep_prepare_henry_shell_stage_dispatch_codon(ncol_c, pcols_c, pver_c, pcnst_c, gas_cnt_c, &
           index_cldice_c, index_cldliq_c, nh3_ndx_c, co2_ndx_c, gravit_c, t0_c, ph_c, ph_inv_c, &
           mapping_to_mmr_p, mapping_to_heff_p, area_p, mmr_p, pmid_p, pdel_p, zint_p, tfld_p, &
           prain_p, nevapr_p, cld_p, cmfdqr_p, dheff_p, mass_in_layer_p, cldice_p, cldliq_p, &
           cldfrc_p, totprec_p, totevap_p, delz_p, delp_p, p_p, rls_p, evaprate_p, temp_p, &
           trc_mass_p, dtwr_p, heff_p, wrk_p, dk1s_p, dk2s_p, tckaqb_p) &
-          bind(c, name="neu_wetdep_prepare_henry_shell_codon")
+          bind(c, name="neu_wetdep_prepare_henry_shell_stage_dispatch_codon")
        use iso_c_binding, only : c_double, c_int64_t, c_ptr
        integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, gas_cnt_c
        integer(c_int64_t), value :: index_cldice_c, index_cldliq_c, nh3_ndx_c, co2_ndx_c
@@ -892,20 +892,20 @@ subroutine neu_wetdep_prepare_henry_codon_wrap(ncol, pcols_in, pver_in, pcnst_in
        type(c_ptr), value :: mass_in_layer_p, cldice_p, cldliq_p, cldfrc_p, totprec_p, totevap_p
        type(c_ptr), value :: delz_p, delp_p, p_p, rls_p, evaprate_p, temp_p, trc_mass_p, dtwr_p
        type(c_ptr), value :: heff_p, wrk_p, dk1s_p, dk2s_p, tckaqb_p
-     end subroutine neu_wetdep_prepare_henry_shell_codon
+     end subroutine neu_wetdep_prepare_henry_shell_stage_dispatch_codon
   end interface
 
   if (masterproc .and. .not. neu_wetdep_prepare_henry_proof_written) then
-     write(iulog,*) 'neu_wetdep prepare/henry shell entered (aux prepare + henry flags direct = codon)'
+     write(iulog,*) 'neu_wetdep prepare/henry shell entered (unified aux/henry stage dispatch = codon)'
      call neu_wetdep_aux_append_impl_proof( &
-          'neu_wetdep prepare/henry shell entered (aux prepare + henry flags direct = codon)')
+          'neu_wetdep prepare/henry shell entered (unified aux/henry stage dispatch = codon)')
      call neu_wetdep_henry_append_impl_proof( &
-          'neu_wetdep prepare/henry shell entered (aux prepare + henry flags direct = codon)')
+          'neu_wetdep prepare/henry shell entered (unified aux/henry stage dispatch = codon)')
      neu_wetdep_prepare_henry_proof_written = .true.
      call flush(iulog)
   end if
 
-  call neu_wetdep_prepare_henry_shell_codon( &
+  call neu_wetdep_prepare_henry_shell_stage_dispatch_codon( &
        int(ncol, c_int64_t), int(pcols_in, c_int64_t), int(pver_in, c_int64_t), int(pcnst_in, c_int64_t), &
        int(gas_cnt, c_int64_t), int(index_cldice_in, c_int64_t), int(index_cldliq_in, c_int64_t), &
        int(nh3_ndx_in, c_int64_t), int(co2_ndx_in, c_int64_t), real(gravit_in, c_double), &

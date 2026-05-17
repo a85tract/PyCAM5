@@ -1263,6 +1263,65 @@ def aero_model_wetdep_codon(
 
 
 @export
+def aero_model_wetdep_stage_dispatch_codon(
+    stage: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    dt: float,
+    tmpa: float,
+    gravit: float,
+    pdel_p: cobj,
+    state_tracer_p: cobj,
+    ptend_tracer_p: cobj,
+    q_tmp_p: cobj,
+    dqdt_p: cobj,
+    sflx_p: cobj,
+    sflx_ics_p: cobj,
+    sflx_iss_p: cobj,
+    sflx_bcs_p: cobj,
+    sflx_bss_p: cobj,
+    hygro_sum_old_p: cobj,
+    hygro_sum_del_p: cobj,
+    qaerwat_p: cobj,
+    fldcw_p: cobj,
+    icscavt_p: cobj,
+    isscavt_p: cobj,
+    bcscavt_p: cobj,
+    bsscavt_p: cobj,
+    aerdep_p: cobj,
+):
+    aero_model_wetdep_codon(
+        stage,
+        ncol,
+        pcols,
+        pver,
+        dt,
+        tmpa,
+        gravit,
+        pdel_p,
+        state_tracer_p,
+        ptend_tracer_p,
+        q_tmp_p,
+        dqdt_p,
+        sflx_p,
+        sflx_ics_p,
+        sflx_iss_p,
+        sflx_bcs_p,
+        sflx_bss_p,
+        hygro_sum_old_p,
+        hygro_sum_del_p,
+        qaerwat_p,
+        fldcw_p,
+        icscavt_p,
+        isscavt_p,
+        bcscavt_p,
+        bsscavt_p,
+        aerdep_p,
+    )
+
+
+@export
 def clddiag_codon(
     pcols: int,
     pver: int,
@@ -2834,6 +2893,45 @@ def aero_model_drydep_init_shell_codon(
 ):
     aero_model_drydep_select_branches_codon(apply_srf_drydep, branch_mask_p)
     aero_model_drydep_prepare_shell_codon(
+        ncol,
+        pcols,
+        pver,
+        pcnst,
+        rair,
+        rhoh2o,
+        state_t_p,
+        state_pmid_p,
+        rho_p,
+        rad_drop_p,
+        dens_drop_p,
+        sg_drop_p,
+        aerdepdryis_p,
+        aerdepdrycw_p,
+    )
+
+
+@export
+def aero_model_drydep_init_shell_stage_dispatch_codon(
+    apply_srf_drydep: int,
+    branch_mask_p: cobj,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    rair: float,
+    rhoh2o: float,
+    state_t_p: cobj,
+    state_pmid_p: cobj,
+    rho_p: cobj,
+    rad_drop_p: cobj,
+    dens_drop_p: cobj,
+    sg_drop_p: cobj,
+    aerdepdryis_p: cobj,
+    aerdepdrycw_p: cobj,
+):
+    aero_model_drydep_init_shell_codon(
+        apply_srf_drydep,
+        branch_mask_p,
         ncol,
         pcols,
         pver,
