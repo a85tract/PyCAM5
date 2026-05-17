@@ -3361,7 +3361,7 @@ def uwshcu_buoy_up_pre_qsat_shell_codon(
 
 
 @export
-def uwshcu_buoy_conden_scalar_batch_shell_codon(
+def uwshcu_buoy_conden_scalar_stage_dispatch_codon(
     kind: int,
     id_check: int,
     zvir: float,
@@ -3429,6 +3429,69 @@ def uwshcu_buoy_conden_scalar_batch_shell_codon(
     elif kind == 4:
         thvxsat = Ptr[float](thvxsat_p)
         thvxsat[0] = thj * (1.0 + zvir * qvj - qlj - qij)
+
+
+@export
+def uwshcu_buoy_conden_scalar_batch_shell_codon(
+    kind: int,
+    id_check: int,
+    zvir: float,
+    r_v: float,
+    pe_v: float,
+    thj: float,
+    qvj: float,
+    qlj: float,
+    qij: float,
+    exne: float,
+    thle: float,
+    criqc: float,
+    xlv: float,
+    xls: float,
+    cp_v: float,
+    v1: float,
+    v2: float,
+    exit_conden_p: cobj,
+    exit_code_p: cobj,
+    thlue_p: cobj,
+    qtue_p: cobj,
+    thv0j_p: cobj,
+    rho0j_p: cobj,
+    thvj_p: cobj,
+    tj_p: cobj,
+    thvxsat_p: cobj,
+    qsat_arg_p: cobj,
+    excess_p: cobj,
+):
+    uwshcu_buoy_conden_scalar_stage_dispatch_codon(
+        kind,
+        id_check,
+        zvir,
+        r_v,
+        pe_v,
+        thj,
+        qvj,
+        qlj,
+        qij,
+        exne,
+        thle,
+        criqc,
+        xlv,
+        xls,
+        cp_v,
+        v1,
+        v2,
+        exit_conden_p,
+        exit_code_p,
+        thlue_p,
+        qtue_p,
+        thv0j_p,
+        rho0j_p,
+        thvj_p,
+        tj_p,
+        thvxsat_p,
+        qsat_arg_p,
+        excess_p,
+    )
 
 
 @export
@@ -4349,7 +4412,7 @@ def uwshcu_buoy_next_env_load_shell_codon(
 
 
 @export
-def uwshcu_buoy_loop_batch_shell_codon(
+def uwshcu_buoy_loop_stage_dispatch_codon(
     kind: int,
     k_fortran: int,
     mkx: int,
@@ -4512,6 +4575,89 @@ def uwshcu_buoy_loop_batch_shell_codon(
             p19,
             p20,
         )
+
+
+@export
+def uwshcu_buoy_loop_batch_shell_codon(
+    kind: int,
+    k_fortran: int,
+    mkx: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    flag1: int,
+    flag2: int,
+    id_check: int,
+    v1: float,
+    v2: float,
+    v3: float,
+    v4: float,
+    v5: float,
+    v6: float,
+    v7: float,
+    v8: float,
+    v9: float,
+    v10: float,
+    p1: cobj,
+    p2: cobj,
+    p3: cobj,
+    p4: cobj,
+    p5: cobj,
+    p6: cobj,
+    p7: cobj,
+    p8: cobj,
+    p9: cobj,
+    p10: cobj,
+    p11: cobj,
+    p12: cobj,
+    p13: cobj,
+    p14: cobj,
+    p15: cobj,
+    p16: cobj,
+    p17: cobj,
+    p18: cobj,
+    p19: cobj,
+    p20: cobj,
+):
+    uwshcu_buoy_loop_stage_dispatch_codon(
+        kind,
+        k_fortran,
+        mkx,
+        ncnst,
+        wtrc_nwset,
+        flag1,
+        flag2,
+        id_check,
+        v1,
+        v2,
+        v3,
+        v4,
+        v5,
+        v6,
+        v7,
+        v8,
+        v9,
+        v10,
+        p1,
+        p2,
+        p3,
+        p4,
+        p5,
+        p6,
+        p7,
+        p8,
+        p9,
+        p10,
+        p11,
+        p12,
+        p13,
+        p14,
+        p15,
+        p16,
+        p17,
+        p18,
+        p19,
+        p20,
+    )
 
 
 @export

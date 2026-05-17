@@ -598,10 +598,10 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') 'uwshcu buoy conden/scalar batch shell entered ' // &
-            '(post-conden qsat prep/excess scalars direct = codon; conden/qsat/roots native)'
+            '(unified buoy-conden-scalar stage dispatch = codon; conden/qsat/roots native)'
        call uwshcu_append_proof( &
             'uwshcu buoy conden/scalar batch shell entered ' // &
-            '(post-conden qsat prep/excess scalars direct = codon; conden/qsat/roots native)')
+            '(unified buoy-conden-scalar stage dispatch = codon; conden/qsat/roots native)')
        call flush(iulog)
     end if
 
@@ -685,9 +685,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu buoy loop batch shell entered (updraft state/conden exits/thv/limits/env load direct = codon; conden/wtrc/sqrt/log native)'
+            'uwshcu buoy loop batch shell entered (unified buoy-loop stage dispatch = codon; conden/wtrc/sqrt/log native)'
        call uwshcu_append_proof( &
-            'uwshcu buoy loop batch shell entered (updraft state/conden exits/thv/limits/env load direct = codon; conden/wtrc/sqrt/log native)')
+            'uwshcu buoy loop batch shell entered (unified buoy-loop stage dispatch = codon; conden/wtrc/sqrt/log native)')
        call flush(iulog)
     end if
 
