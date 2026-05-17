@@ -16,6 +16,7 @@ use cam_logfile,     only: iulog
 use parrrsw,         only: nbndsw, ngptsw
 use rrtmg_sw_init,   only: rrtmg_sw_ini
 use rrtmg_sw_rad,    only: rrtmg_sw
+use spmd_utils,      only: masterproc
 use perf_mod,        only: t_startf, t_stopf
 use radconstants,    only: idx_sw_diag
 
@@ -26,6 +27,9 @@ save
 
 real(r8) :: fractional_solar_irradiance(1:nbndsw) ! fraction of solar irradiance in each band
 real(r8) :: solar_band_irrad(1:nbndsw) ! rrtmg-assumed solar irradiance in each sw band
+logical :: use_native_rrtmg_sw_driver_impl = .false.
+logical :: rrtmg_sw_driver_impl_selected = .false.
+logical :: rrtmg_sw_driver_entered_logged = .false.
 
 ! Public methods
 
@@ -87,6 +91,7 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    use mcica_subcol_gen_sw, only: mcica_subcol_sw
    use physconst,           only: cpair
    use rrtmg_state,         only: rrtmg_state_t
+   use iso_c_binding,       only: c_double, c_int64_t, c_loc, c_ptr
    
    ! Minimum cloud amount (as a fraction of the grid-box area) to 
    ! distinguish from clear sky
@@ -111,9 +116,9 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    real(r8), intent(in) :: E_pmid(pcols,pver)  ! Level pressure (Pascals)
    real(r8), intent(in) :: E_cld(pcols,pver)    ! Fractional cloud cover
 
-   real(r8), intent(in) :: E_aer_tau    (pcols, 0:pver, nbndsw)      ! aerosol optical depth
-   real(r8), intent(in) :: E_aer_tau_w  (pcols, 0:pver, nbndsw)      ! aerosol OD * ssa
-   real(r8), intent(in) :: E_aer_tau_w_g(pcols, 0:pver, nbndsw)      ! aerosol OD * ssa * asm
+   real(r8), target, intent(in) :: E_aer_tau    (pcols, 0:pver, nbndsw)      ! aerosol optical depth
+   real(r8), target, intent(in) :: E_aer_tau_w  (pcols, 0:pver, nbndsw)      ! aerosol OD * ssa
+   real(r8), target, intent(in) :: E_aer_tau_w_g(pcols, 0:pver, nbndsw)      ! aerosol OD * ssa * asm
    real(r8), intent(in) :: E_aer_tau_w_f(pcols, 0:pver, nbndsw)      ! aerosol OD * ssa * fwd
 
    real(r8), intent(in) :: eccf               ! Eccentricity factor (1./earth-sun dist^2)
@@ -122,7 +127,7 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    real(r8), intent(in) :: E_aldir(pcols)     ! 0.7-5.0 micro-meter srfc alb: direct rad
    real(r8), intent(in) :: E_asdif(pcols)     ! 0.2-0.7 micro-meter srfc alb: diffuse rad
    real(r8), intent(in) :: E_aldif(pcols)     ! 0.7-5.0 micro-meter srfc alb: diffuse rad
-   real(r8), intent(in) :: sfac(nbndsw)            ! factor to account for solar variability in each band 
+   real(r8), target, intent(in) :: sfac(nbndsw)            ! factor to account for solar variability in each band
 
    real(r8), optional, intent(in) :: E_cld_tau    (nbndsw, pcols, pver)      ! cloud optical depth
    real(r8), optional, intent(in) :: E_cld_tau_w  (nbndsw, pcols, pver)      ! cloud optical 
@@ -132,29 +137,29 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
 
    ! Output arguments
 
-   real(r8), intent(out) :: solin(pcols)     ! Incident solar flux
-   real(r8), intent(out) :: qrs (pcols,pver) ! Solar heating rate
-   real(r8), intent(out) :: qrsc(pcols,pver) ! Clearsky solar heating rate
-   real(r8), intent(out) :: fsns(pcols)      ! Surface absorbed solar flux
-   real(r8), intent(out) :: fsnt(pcols)      ! Total column absorbed solar flux
-   real(r8), intent(out) :: fsntoa(pcols)    ! Net solar flux at TOA
-   real(r8), intent(out) :: fsutoa(pcols)    ! Upward solar flux at TOA
-   real(r8), intent(out) :: fsds(pcols)      ! Flux shortwave downwelling surface
+   real(r8), target, intent(out) :: solin(pcols)     ! Incident solar flux
+   real(r8), target, intent(out) :: qrs (pcols,pver) ! Solar heating rate
+   real(r8), target, intent(out) :: qrsc(pcols,pver) ! Clearsky solar heating rate
+   real(r8), target, intent(out) :: fsns(pcols)      ! Surface absorbed solar flux
+   real(r8), target, intent(out) :: fsnt(pcols)      ! Total column absorbed solar flux
+   real(r8), target, intent(out) :: fsntoa(pcols)    ! Net solar flux at TOA
+   real(r8), target, intent(out) :: fsutoa(pcols)    ! Upward solar flux at TOA
+   real(r8), target, intent(out) :: fsds(pcols)      ! Flux shortwave downwelling surface
 
-   real(r8), intent(out) :: fsnsc(pcols)     ! Clear sky surface absorbed solar flux
-   real(r8), intent(out) :: fsdsc(pcols)     ! Clear sky surface downwelling solar flux
-   real(r8), intent(out) :: fsntc(pcols)     ! Clear sky total column absorbed solar flx
-   real(r8), intent(out) :: fsntoac(pcols)   ! Clear sky net solar flx at TOA
-   real(r8), intent(out) :: sols(pcols)      ! Direct solar rad on surface (< 0.7)
-   real(r8), intent(out) :: soll(pcols)      ! Direct solar rad on surface (>= 0.7)
-   real(r8), intent(out) :: solsd(pcols)     ! Diffuse solar rad on surface (< 0.7)
-   real(r8), intent(out) :: solld(pcols)     ! Diffuse solar rad on surface (>= 0.7)
-   real(r8), intent(out) :: fsnirtoa(pcols)  ! Near-IR flux absorbed at toa
-   real(r8), intent(out) :: fsnrtoac(pcols)  ! Clear sky near-IR flux absorbed at toa
-   real(r8), intent(out) :: fsnrtoaq(pcols)  ! Net near-IR flux at toa >= 0.7 microns
+   real(r8), target, intent(out) :: fsnsc(pcols)     ! Clear sky surface absorbed solar flux
+   real(r8), target, intent(out) :: fsdsc(pcols)     ! Clear sky surface downwelling solar flux
+   real(r8), target, intent(out) :: fsntc(pcols)     ! Clear sky total column absorbed solar flx
+   real(r8), target, intent(out) :: fsntoac(pcols)   ! Clear sky net solar flx at TOA
+   real(r8), target, intent(out) :: sols(pcols)      ! Direct solar rad on surface (< 0.7)
+   real(r8), target, intent(out) :: soll(pcols)      ! Direct solar rad on surface (>= 0.7)
+   real(r8), target, intent(out) :: solsd(pcols)     ! Diffuse solar rad on surface (< 0.7)
+   real(r8), target, intent(out) :: solld(pcols)     ! Diffuse solar rad on surface (>= 0.7)
+   real(r8), target, intent(out) :: fsnirtoa(pcols)  ! Near-IR flux absorbed at toa
+   real(r8), target, intent(out) :: fsnrtoac(pcols)  ! Clear sky near-IR flux absorbed at toa
+   real(r8), target, intent(out) :: fsnrtoaq(pcols)  ! Net near-IR flux at toa >= 0.7 microns
 
-   real(r8), intent(out) :: fns(pcols,pverp)   ! net flux at interfaces
-   real(r8), intent(out) :: fcns(pcols,pverp)  ! net clear-sky flux at interfaces
+   real(r8), target, intent(out) :: fns(pcols,pverp)   ! net flux at interfaces
+   real(r8), target, intent(out) :: fcns(pcols,pverp)  ! net clear-sky flux at interfaces
 
    real(r8), pointer, dimension(:,:,:) :: su ! shortwave spectral flux up
    real(r8), pointer, dimension(:,:,:) :: sd ! shortwave spectral flux down
@@ -184,7 +189,7 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    real(r8) :: o2vmr(pcols,rrtmg_levs)    ! o2  volume mixing ratio 
    real(r8) :: n2ovmr(pcols,rrtmg_levs)   ! n2o volume mixing ratio 
 
-   real(r8) :: tsfc(pcols)          ! surface temperature
+   real(r8), target :: tsfc(pcols)          ! surface temperature
 
    integer :: inflgsw               ! flag for cloud parameterization method
    integer :: iceflgsw              ! flag for ice cloud parameterization method
@@ -193,7 +198,7 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
                                     ! 0=clear, 1=random, 2=maximum/random, 3=maximum
    integer :: dyofyr                ! Set to day of year for Earth/Sun distance calculation in
                                     ! rrtmg_sw, or pass in adjustment directly into adjes
-   real(r8) :: solvar(nbndsw)       ! solar irradiance variability in each band
+   real(r8), target :: solvar(nbndsw)       ! solar irradiance variability in each band
 
    integer, parameter :: nsubcsw = ngptsw           ! rrtmg_sw g-point (quadrature point) dimension
    integer :: permuteseed                           ! permute seed for sub-column generator
@@ -205,9 +210,9 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    real(r8) :: asmc_sw(nbndsw, pcols, rrtmg_levs-1)         ! cloud asymmetry parameter
    real(r8) :: fsfc_sw(nbndsw, pcols, rrtmg_levs-1)         ! cloud forward scattering fraction
 
-   real(r8) :: tau_aer_sw(pcols, rrtmg_levs-1, nbndsw)      ! aer optical depth
-   real(r8) :: ssa_aer_sw(pcols, rrtmg_levs-1, nbndsw)      ! aer single scat. albedo
-   real(r8) :: asm_aer_sw(pcols, rrtmg_levs-1, nbndsw)      ! aer asymmetry parameter
+   real(r8), target :: tau_aer_sw(pcols, rrtmg_levs-1, nbndsw)      ! aer optical depth
+   real(r8), target :: ssa_aer_sw(pcols, rrtmg_levs-1, nbndsw)      ! aer single scat. albedo
+   real(r8), target :: asm_aer_sw(pcols, rrtmg_levs-1, nbndsw)      ! aer asymmetry parameter
 
    real(r8) :: cld_stosw(nsubcsw, pcols, rrtmg_levs-1)      ! stochastic cloud fraction
    real(r8) :: rei_stosw(pcols, rrtmg_levs-1)               ! stochastic ice particle size 
@@ -221,23 +226,23 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
 
    real(r8), parameter :: dps = 1._r8/86400._r8 ! Inverse of seconds per day
  
-   real(r8) :: swuflx(pcols,rrtmg_levs+1)       ! Total sky shortwave upward flux (W/m2)
-   real(r8) :: swdflx(pcols,rrtmg_levs+1)       ! Total sky shortwave downward flux (W/m2)
-   real(r8) :: swhr(pcols,rrtmg_levs)           ! Total sky shortwave radiative heating rate (K/d)
-   real(r8) :: swuflxc(pcols,rrtmg_levs+1)      ! Clear sky shortwave upward flux (W/m2)
-   real(r8) :: swdflxc(pcols,rrtmg_levs+1)      ! Clear sky shortwave downward flux (W/m2)
-   real(r8) :: swhrc(pcols,rrtmg_levs)          ! Clear sky shortwave radiative heating rate (K/d)
+   real(r8), target :: swuflx(pcols,rrtmg_levs+1)       ! Total sky shortwave upward flux (W/m2)
+   real(r8), target :: swdflx(pcols,rrtmg_levs+1)       ! Total sky shortwave downward flux (W/m2)
+   real(r8), target :: swhr(pcols,rrtmg_levs)           ! Total sky shortwave radiative heating rate (K/d)
+   real(r8), target :: swuflxc(pcols,rrtmg_levs+1)      ! Clear sky shortwave upward flux (W/m2)
+   real(r8), target :: swdflxc(pcols,rrtmg_levs+1)      ! Clear sky shortwave downward flux (W/m2)
+   real(r8), target :: swhrc(pcols,rrtmg_levs)          ! Clear sky shortwave radiative heating rate (K/d)
    real(r8) :: swuflxs(nbndsw,pcols,rrtmg_levs+1)  ! Shortwave spectral flux up
    real(r8) :: swdflxs(nbndsw,pcols,rrtmg_levs+1)  ! Shortwave spectral flux down
 
-   real(r8) :: dirdnuv(pcols,rrtmg_levs+1)       ! Direct downward shortwave flux, UV/vis
-   real(r8) :: difdnuv(pcols,rrtmg_levs+1)       ! Diffuse downward shortwave flux, UV/vis
-   real(r8) :: dirdnir(pcols,rrtmg_levs+1)       ! Direct downward shortwave flux, near-IR
-   real(r8) :: difdnir(pcols,rrtmg_levs+1)       ! Diffuse downward shortwave flux, near-IR
+   real(r8), target :: dirdnuv(pcols,rrtmg_levs+1)       ! Direct downward shortwave flux, UV/vis
+   real(r8), target :: difdnuv(pcols,rrtmg_levs+1)       ! Diffuse downward shortwave flux, UV/vis
+   real(r8), target :: dirdnir(pcols,rrtmg_levs+1)       ! Direct downward shortwave flux, near-IR
+   real(r8), target :: difdnir(pcols,rrtmg_levs+1)       ! Diffuse downward shortwave flux, near-IR
 
    ! Added for net near-IR diagnostic
-   real(r8) :: ninflx(pcols,rrtmg_levs+1)        ! Net shortwave flux, near-IR
-   real(r8) :: ninflxc(pcols,rrtmg_levs+1)       ! Net clear sky shortwave flux, near-IR
+   real(r8), target :: ninflx(pcols,rrtmg_levs+1)        ! Net shortwave flux, near-IR
+   real(r8), target :: ninflxc(pcols,rrtmg_levs+1)       ! Net clear sky shortwave flux, near-IR
 
    ! Other
 
@@ -260,17 +265,44 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    real(r8) :: fa(pcols,0:pver) ! aerosol forward scattered fraction
 
    ! CRM
-   real(r8) :: fus(pcols,pverp)   ! Upward flux (added for CRM)
-   real(r8) :: fds(pcols,pverp)   ! Downward flux (added for CRM)
-   real(r8) :: fusc(pcols,pverp)  ! Upward clear-sky flux (added for CRM)
-   real(r8) :: fdsc(pcols,pverp)  ! Downward clear-sky flux (added for CRM)
+   real(r8), target :: fus(pcols,pverp)   ! Upward flux (added for CRM)
+   real(r8), target :: fds(pcols,pverp)   ! Downward flux (added for CRM)
+   real(r8), target :: fusc(pcols,pverp)  ! Upward clear-sky flux (added for CRM)
+   real(r8), target :: fdsc(pcols,pverp)  ! Downward clear-sky flux (added for CRM)
 
    integer :: kk
 
    real(r8) :: pmidmb(pcols,rrtmg_levs)   ! Level pressure (hPa)
    real(r8) :: pintmb(pcols,rrtmg_levs+1) ! Model interface pressure (hPa)
    real(r8) :: tlay(pcols,rrtmg_levs)     ! mid point temperature
-   real(r8) :: tlev(pcols,rrtmg_levs+1)   ! interface temperature
+   real(r8), target :: tlev(pcols,rrtmg_levs+1)   ! interface temperature
+   integer(c_int64_t), target :: IdxDay64(pcols)
+
+   interface
+      subroutine rrtmg_sw_pre_codon(nday_c, pcols_c, pver_c, pverp_c, rrtmg_levs_c, nbndsw_c, &
+           e_aer_tau_p, e_aer_tau_w_p, e_aer_tau_w_g_p, idxday_p, tau_aer_sw_p, ssa_aer_sw_p, asm_aer_sw_p, &
+           tlev_p, sfac_p, tsfc_p, solvar_p) bind(c, name="rrtmg_sw_pre_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: nday_c, pcols_c, pver_c, pverp_c, rrtmg_levs_c, nbndsw_c
+         type(c_ptr), value :: e_aer_tau_p, e_aer_tau_w_p, e_aer_tau_w_g_p, idxday_p
+         type(c_ptr), value :: tau_aer_sw_p, ssa_aer_sw_p, asm_aer_sw_p, tlev_p, sfac_p, tsfc_p, solvar_p
+      end subroutine rrtmg_sw_pre_codon
+      subroutine rrtmg_sw_post_codon(nday_c, pcols_c, pver_c, pverp_c, rrtmg_levs_c, cpair_c, &
+           swuflx_p, swdflx_p, swhr_p, swuflxc_p, swdflxc_p, swhrc_p, dirdnuv_p, dirdnir_p, difdnuv_p, difdnir_p, &
+           ninflx_p, ninflxc_p, fsntoa_p, fsutoa_p, fsntoac_p, fsnirtoa_p, fsnrtoaq_p, fsnrtoac_p, fsnt_p, fsntc_p, &
+           fsds_p, fsdsc_p, fsns_p, fsnsc_p, sols_p, soll_p, solsd_p, solld_p, fns_p, fcns_p, fus_p, fds_p, fusc_p, &
+           fdsc_p, qrs_p, qrsc_p) bind(c, name="rrtmg_sw_post_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: nday_c, pcols_c, pver_c, pverp_c, rrtmg_levs_c
+         real(c_double), value :: cpair_c
+         type(c_ptr), value :: swuflx_p, swdflx_p, swhr_p, swuflxc_p, swdflxc_p, swhrc_p
+         type(c_ptr), value :: dirdnuv_p, dirdnir_p, difdnuv_p, difdnir_p, ninflx_p, ninflxc_p
+         type(c_ptr), value :: fsntoa_p, fsutoa_p, fsntoac_p, fsnirtoa_p, fsnrtoaq_p, fsnrtoac_p
+         type(c_ptr), value :: fsnt_p, fsntc_p, fsds_p, fsdsc_p, fsns_p, fsnsc_p
+         type(c_ptr), value :: sols_p, soll_p, solsd_p, solld_p, fns_p, fcns_p, fus_p, fds_p, fusc_p, fdsc_p
+         type(c_ptr), value :: qrs_p, qrsc_p
+      end subroutine rrtmg_sw_post_codon
+   end interface
 
    !-----------------------------------------------------------------------
    ! START OF CALCULATION
@@ -319,6 +351,14 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    if ( Nday == 0 ) then
      return
    endif
+
+   call rrtmg_sw_driver_select_impl()
+   if (.not. use_native_rrtmg_sw_driver_impl) then
+      call rrtmg_sw_driver_log_entered()
+      do i = 1, Nday
+         IdxDay64(i) = int(IdxDay(i), c_int64_t)
+      end do
+   end if
 
    ! Rearrange input arrays
    call CmpDayNite(E_pmid(:,pverp-rrtmg_levs+1:pver), pmid(:,1:rrtmg_levs-1), &
@@ -375,6 +415,16 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
          enddo
       enddo
    enddo
+
+   if (.not. use_native_rrtmg_sw_driver_impl) then
+      call rrtmg_sw_pre_codon( &
+           int(Nday, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
+           int(rrtmg_levs, c_int64_t), int(nbndsw, c_int64_t), &
+           c_loc(E_aer_tau(1,0,1)), c_loc(E_aer_tau_w(1,0,1)), c_loc(E_aer_tau_w_g(1,0,1)), &
+           c_loc(IdxDay64(1)), c_loc(tau_aer_sw(1,1,1)), c_loc(ssa_aer_sw(1,1,1)), c_loc(asm_aer_sw(1,1,1)), &
+           c_loc(tlev(1,1)), c_loc(sfac(1)), c_loc(tsfc(1)), c_loc(solvar(1)) &
+      )
+   end if
 
    if (scm_crm_mode) then
       ! overwrite albedos for CRM
@@ -524,9 +574,11 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    ! set to zero and pass E/S adjustment (eccf) directly into array adjes
    dyofyr = 0
 
-   tsfc(:ncol) = tlev(:ncol,rrtmg_levs+1)
+   if (use_native_rrtmg_sw_driver_impl) then
+      tsfc(:ncol) = tlev(:ncol,rrtmg_levs+1)
 
-   solvar(1:nbndsw) = sfac(1:nbndsw)
+      solvar(1:nbndsw) = sfac(1:nbndsw)
+   end if
 
    call rrtmg_sw(lchnk, Nday, rrtmg_levs, icld,         &
                  pmidmb, pintmb, tlay, tlev, tsfc, &
@@ -589,6 +641,20 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    ! Pass shortwave heating to CAM arrays and convert from K/d to J/kg/s
    qrs (1:Nday,pverp-rrtmg_levs+1:pver) = swhr (1:Nday,rrtmg_levs-1:1:-1)*cpair*dps
    qrsc(1:Nday,pverp-rrtmg_levs+1:pver) = swhrc(1:Nday,rrtmg_levs-1:1:-1)*cpair*dps
+
+   if (.not. use_native_rrtmg_sw_driver_impl) then
+      call rrtmg_sw_post_codon( &
+           int(Nday, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
+           int(rrtmg_levs, c_int64_t), real(cpair, c_double), &
+           c_loc(swuflx(1,1)), c_loc(swdflx(1,1)), c_loc(swhr(1,1)), c_loc(swuflxc(1,1)), c_loc(swdflxc(1,1)), &
+           c_loc(swhrc(1,1)), c_loc(dirdnuv(1,1)), c_loc(dirdnir(1,1)), c_loc(difdnuv(1,1)), c_loc(difdnir(1,1)), &
+           c_loc(ninflx(1,1)), c_loc(ninflxc(1,1)), c_loc(fsntoa(1)), c_loc(fsutoa(1)), c_loc(fsntoac(1)), &
+           c_loc(fsnirtoa(1)), c_loc(fsnrtoaq(1)), c_loc(fsnrtoac(1)), c_loc(fsnt(1)), c_loc(fsntc(1)), &
+           c_loc(fsds(1)), c_loc(fsdsc(1)), c_loc(fsns(1)), c_loc(fsnsc(1)), c_loc(sols(1)), c_loc(soll(1)), &
+           c_loc(solsd(1)), c_loc(solld(1)), c_loc(fns(1,1)), c_loc(fcns(1,1)), c_loc(fus(1,1)), c_loc(fds(1,1)), &
+           c_loc(fusc(1,1)), c_loc(fdsc(1,1)), c_loc(qrs(1,1)), c_loc(qrsc(1,1)) &
+      )
+   end if
 
    ! Set spectral fluxes, reverse layering
    ! order=(/3,1,2/) maps the first index of swuflxs to the third index of su.
@@ -674,6 +740,57 @@ subroutine radsw_init()
  
 end subroutine radsw_init
 
+
+!-------------------------------------------------------------------------------
+
+subroutine rrtmg_sw_driver_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (rrtmg_sw_driver_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('RRTMG_SW_DRIVER_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_rrtmg_sw_driver_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_rrtmg_sw_driver_impl = .false.
+   end if
+
+   rrtmg_sw_driver_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_rrtmg_sw_driver_impl) then
+         write(iulog,*) 'rrtmg_sw_driver implementation = native'
+      else
+         write(iulog,*) 'rrtmg_sw_driver implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine rrtmg_sw_driver_select_impl
+
+!-------------------------------------------------------------------------------
+
+subroutine rrtmg_sw_driver_log_entered()
+
+   if (rrtmg_sw_driver_entered_logged) return
+   rrtmg_sw_driver_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,*) 'rrtmg_sw_driver entered (pre/post helpers = codon; rrtmg_sw core = native)'
+      call flush(iulog)
+   end if
+
+end subroutine rrtmg_sw_driver_log_entered
 
 !-------------------------------------------------------------------------------
 

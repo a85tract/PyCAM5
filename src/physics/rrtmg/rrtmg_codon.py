@@ -20,6 +20,12 @@ def _idx3(a: int, b: int, c: int, ld1: int, ld2: int) -> int:
 
 
 @inline
+def _idx3_lb0_dim2(a: int, b0: int, c: int, ld1: int, ub2: int) -> int:
+    """Fortran array declared as (ld1, 0:ub2, n3)."""
+    return (a - 1) + b0 * ld1 + (c - 1) * ld1 * (ub2 + 1)
+
+
+@inline
 def _rrtmg_src_level(k: int, pverp: int, num_rrtmg_levs: int) -> int:
     kk = k + (pverp - num_rrtmg_levs) - 1
     if kk < 1:
@@ -325,3 +331,213 @@ def rrtmg_lw_post_codon(
             for i in range(1, ncol + 1):
                 qrl[_idx2(i, k, pcols)] = 0.0
                 qrlc[_idx2(i, k, pcols)] = 0.0
+
+
+@export
+def rrtmg_sw_pre_codon(
+    nday: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    rrtmg_levs: int,
+    nbndsw: int,
+    e_aer_tau_p: cobj,
+    e_aer_tau_w_p: cobj,
+    e_aer_tau_w_g_p: cobj,
+    idxday_p: cobj,
+    tau_aer_sw_p: cobj,
+    ssa_aer_sw_p: cobj,
+    asm_aer_sw_p: cobj,
+    tlev_p: cobj,
+    sfac_p: cobj,
+    tsfc_p: cobj,
+    solvar_p: cobj,
+):
+    e_aer_tau = Ptr[float](e_aer_tau_p)
+    e_aer_tau_w = Ptr[float](e_aer_tau_w_p)
+    e_aer_tau_w_g = Ptr[float](e_aer_tau_w_g_p)
+    idxday = Ptr[int](idxday_p)
+    tau_aer_sw = Ptr[float](tau_aer_sw_p)
+    ssa_aer_sw = Ptr[float](ssa_aer_sw_p)
+    asm_aer_sw = Ptr[float](asm_aer_sw_p)
+    tlev = Ptr[float](tlev_p)
+    sfac = Ptr[float](sfac_p)
+    tsfc = Ptr[float](tsfc_p)
+    solvar = Ptr[float](solvar_p)
+
+    for ns in range(1, nbndsw + 1):
+        for k in range(1, rrtmg_levs):
+            kk = (pverp - rrtmg_levs) + k
+            for i in range(1, nday + 1):
+                col = idxday[i - 1]
+                src_tau_w = e_aer_tau_w[_idx3_lb0_dim2(col, kk, ns, pcols, pver)]
+                src_tau = e_aer_tau[_idx3_lb0_dim2(col, kk, ns, pcols, pver)]
+                dst = _idx3(i, k, ns, pcols, rrtmg_levs - 1)
+
+                if src_tau_w > 1.0e-80:
+                    asm_aer_sw[dst] = (
+                        e_aer_tau_w_g[_idx3_lb0_dim2(col, kk, ns, pcols, pver)]
+                        / src_tau_w
+                    )
+                else:
+                    asm_aer_sw[dst] = 0.0
+
+                if src_tau > 0.0:
+                    ssa_aer_sw[dst] = src_tau_w / src_tau
+                    tau_aer_sw[dst] = src_tau
+                else:
+                    ssa_aer_sw[dst] = 1.0
+                    tau_aer_sw[dst] = 0.0
+
+    for i in range(1, nday + 1):
+        tsfc[i - 1] = tlev[_idx2(i, rrtmg_levs + 1, pcols)]
+
+    for ns in range(1, nbndsw + 1):
+        solvar[ns - 1] = sfac[ns - 1]
+
+
+@export
+def rrtmg_sw_post_codon(
+    nday: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    rrtmg_levs: int,
+    cpair: float,
+    swuflx_p: cobj,
+    swdflx_p: cobj,
+    swhr_p: cobj,
+    swuflxc_p: cobj,
+    swdflxc_p: cobj,
+    swhrc_p: cobj,
+    dirdnuv_p: cobj,
+    dirdnir_p: cobj,
+    difdnuv_p: cobj,
+    difdnir_p: cobj,
+    ninflx_p: cobj,
+    ninflxc_p: cobj,
+    fsntoa_p: cobj,
+    fsutoa_p: cobj,
+    fsntoac_p: cobj,
+    fsnirtoa_p: cobj,
+    fsnrtoaq_p: cobj,
+    fsnrtoac_p: cobj,
+    fsnt_p: cobj,
+    fsntc_p: cobj,
+    fsds_p: cobj,
+    fsdsc_p: cobj,
+    fsns_p: cobj,
+    fsnsc_p: cobj,
+    sols_p: cobj,
+    soll_p: cobj,
+    solsd_p: cobj,
+    solld_p: cobj,
+    fns_p: cobj,
+    fcns_p: cobj,
+    fus_p: cobj,
+    fds_p: cobj,
+    fusc_p: cobj,
+    fdsc_p: cobj,
+    qrs_p: cobj,
+    qrsc_p: cobj,
+):
+    swuflx = Ptr[float](swuflx_p)
+    swdflx = Ptr[float](swdflx_p)
+    swhr = Ptr[float](swhr_p)
+    swuflxc = Ptr[float](swuflxc_p)
+    swdflxc = Ptr[float](swdflxc_p)
+    swhrc = Ptr[float](swhrc_p)
+    dirdnuv = Ptr[float](dirdnuv_p)
+    dirdnir = Ptr[float](dirdnir_p)
+    difdnuv = Ptr[float](difdnuv_p)
+    difdnir = Ptr[float](difdnir_p)
+    ninflx = Ptr[float](ninflx_p)
+    ninflxc = Ptr[float](ninflxc_p)
+    fsntoa = Ptr[float](fsntoa_p)
+    fsutoa = Ptr[float](fsutoa_p)
+    fsntoac = Ptr[float](fsntoac_p)
+    fsnirtoa = Ptr[float](fsnirtoa_p)
+    fsnrtoaq = Ptr[float](fsnrtoaq_p)
+    fsnrtoac = Ptr[float](fsnrtoac_p)
+    fsnt = Ptr[float](fsnt_p)
+    fsntc = Ptr[float](fsntc_p)
+    fsds = Ptr[float](fsds_p)
+    fsdsc = Ptr[float](fsdsc_p)
+    fsns = Ptr[float](fsns_p)
+    fsnsc = Ptr[float](fsnsc_p)
+    sols = Ptr[float](sols_p)
+    soll = Ptr[float](soll_p)
+    solsd = Ptr[float](solsd_p)
+    solld = Ptr[float](solld_p)
+    fns = Ptr[float](fns_p)
+    fcns = Ptr[float](fcns_p)
+    fus = Ptr[float](fus_p)
+    fds = Ptr[float](fds_p)
+    fusc = Ptr[float](fusc_p)
+    fdsc = Ptr[float](fdsc_p)
+    qrs = Ptr[float](qrs_p)
+    qrsc = Ptr[float](qrsc_p)
+
+    dps = 1.0 / 86400.0
+
+    for i in range(1, nday + 1):
+        fsntoa[i - 1] = (
+            swdflx[_idx2(i, rrtmg_levs + 1, pcols)]
+            - swuflx[_idx2(i, rrtmg_levs + 1, pcols)]
+        )
+        fsutoa[i - 1] = swuflx[_idx2(i, rrtmg_levs + 1, pcols)]
+        fsntoac[i - 1] = (
+            swdflxc[_idx2(i, rrtmg_levs + 1, pcols)]
+            - swuflxc[_idx2(i, rrtmg_levs + 1, pcols)]
+        )
+
+        fsnirtoa[i - 1] = ninflx[_idx2(i, rrtmg_levs, pcols)]
+        fsnrtoaq[i - 1] = ninflx[_idx2(i, rrtmg_levs, pcols)]
+        fsnrtoac[i - 1] = ninflxc[_idx2(i, rrtmg_levs, pcols)]
+
+        fsnt[i - 1] = (
+            swdflx[_idx2(i, rrtmg_levs, pcols)]
+            - swuflx[_idx2(i, rrtmg_levs, pcols)]
+        )
+        fsntc[i - 1] = (
+            swdflxc[_idx2(i, rrtmg_levs, pcols)]
+            - swuflxc[_idx2(i, rrtmg_levs, pcols)]
+        )
+
+        fsds[i - 1] = swdflx[_idx2(i, 1, pcols)]
+        fsdsc[i - 1] = swdflxc[_idx2(i, 1, pcols)]
+        fsns[i - 1] = swdflx[_idx2(i, 1, pcols)] - swuflx[_idx2(i, 1, pcols)]
+        fsnsc[i - 1] = swdflxc[_idx2(i, 1, pcols)] - swuflxc[_idx2(i, 1, pcols)]
+
+        sols[i - 1] = dirdnuv[_idx2(i, 1, pcols)]
+        soll[i - 1] = dirdnir[_idx2(i, 1, pcols)]
+        solsd[i - 1] = difdnuv[_idx2(i, 1, pcols)]
+        solld[i - 1] = difdnir[_idx2(i, 1, pcols)]
+
+    for j in range(1, rrtmg_levs + 1):
+        cam_k = pverp - rrtmg_levs + j
+        rrtmg_k = rrtmg_levs - j + 1
+        for i in range(1, nday + 1):
+            fns[_idx2(i, cam_k, pcols)] = (
+                swdflx[_idx2(i, rrtmg_k, pcols)]
+                - swuflx[_idx2(i, rrtmg_k, pcols)]
+            )
+            fcns[_idx2(i, cam_k, pcols)] = (
+                swdflxc[_idx2(i, rrtmg_k, pcols)]
+                - swuflxc[_idx2(i, rrtmg_k, pcols)]
+            )
+            fus[_idx2(i, cam_k, pcols)] = swuflx[_idx2(i, rrtmg_k, pcols)]
+            fusc[_idx2(i, cam_k, pcols)] = swuflxc[_idx2(i, rrtmg_k, pcols)]
+            fds[_idx2(i, cam_k, pcols)] = swdflx[_idx2(i, rrtmg_k, pcols)]
+            fdsc[_idx2(i, cam_k, pcols)] = swdflxc[_idx2(i, rrtmg_k, pcols)]
+
+    for j in range(1, rrtmg_levs):
+        cam_k = pverp - rrtmg_levs + j
+        rrtmg_k = rrtmg_levs - j
+        for i in range(1, nday + 1):
+            qrs[_idx2(i, cam_k, pcols)] = (
+                swhr[_idx2(i, rrtmg_k, pcols)] * cpair * dps
+            )
+            qrsc[_idx2(i, cam_k, pcols)] = (
+                swhrc[_idx2(i, rrtmg_k, pcols)] * cpair * dps
+            )
