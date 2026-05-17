@@ -82,6 +82,8 @@ module zm_conv
    logical :: zm_convr_pressure_logged = .false.
    logical :: zm_convr_gather_logged = .false.
    logical :: zm_convr_deep_state_logged = .false.
+   logical :: zm_convr_control_logged = .false.
+   logical :: zm_convr_cloud_copy_logged = .false.
    logical :: zm_convr_unit_logged = .false.
    logical :: zm_convr_limit_logged = .false.
    logical :: zm_convr_mflux_logged = .false.
@@ -551,10 +553,10 @@ subroutine zm_convr(lchnk   ,ncol    , &
    real(r8) orgavg(pcols)
    real(r8) dptot(pcols)
    real(r8), target :: mumax(pcols)
-   integer jt(pcols)                          ! wg top  level index of deep cumulus convection.
-   integer maxg(pcols)                        ! wg gathered values of maxi.
-   integer ideep(pcols)                       ! w holds position of gathered points vs longitude index.
-   integer lengath
+   integer, target :: jt(pcols)               ! wg top  level index of deep cumulus convection.
+   integer, target :: maxg(pcols)             ! wg gathered values of maxi.
+   integer, target :: ideep(pcols)            ! w holds position of gathered points vs longitude index.
+   integer, target :: lengath
 !     diagnostic field used by chem/wetdep codes
    real(r8), target :: ql(pcols,pver)                    ! wg grid slice of cloud liquid water.
 !
@@ -579,12 +581,12 @@ subroutine zm_convr(lchnk   ,ncol    , &
 
    real(r8), target :: tl(pcols)                  ! w  row of parcel temperature at lcl.
 
-   integer lcl(pcols)                  ! w  base level index of deep cumulus convection.
+   integer, target :: lcl(pcols)       ! w  base level index of deep cumulus convection.
  !  integer lel(pcols)                  ! w  index of highest theoretical convective plume.
 
    integer lon(pcols)                  ! w  index of onset level for deep convection.
-   integer maxi(pcols)                 ! w  index of level with largest moist static energy.
-   integer index(pcols)
+   integer, target :: maxi(pcols)      ! w  index of level with largest moist static energy.
+   integer, target :: index(pcols)
    real(r8) precip
 !
 ! gathered work fields:
@@ -606,8 +608,8 @@ subroutine zm_convr(lchnk   ,ncol    , &
    real(r8), target :: tlg(pcols)                 ! wg grid slice of gathered values of tl.
    real(r8), target :: landfracg(pcols)           ! wg grid slice of landfrac
 
-   integer lclg(pcols)                 ! wg gathered values of lcl.
-   integer lelg(pcols)
+   integer, target :: lclg(pcols)      ! wg gathered values of lcl.
+   integer, target :: lelg(pcols)
 !
 ! work fields arising from gathered calculations.
 !
@@ -620,7 +622,7 @@ subroutine zm_convr(lchnk   ,ncol    , &
 !----------------------------
 !Water tracers:
 !----------------------------
-   integer,intent(out) :: lel(pcols)          ! w  index of highest theoretical convective plume.
+   integer, target, intent(out) :: lel(pcols) ! w  index of highest theoretical convective plume.
    integer,intent(out) :: jlcl(pcols)         ! updraft LCL
    integer, intent(out) :: jd(pcols)          !wg downdraft initiation level index
    real(r8), target, intent(out) :: qd(pcols,pver)    ! scattered grid slice of mixing ratio in downdraft.
@@ -704,6 +706,23 @@ subroutine zm_convr(lchnk   ,ncol    , &
          type(c_ptr), value :: ideep_p, maxg_p, cape_p, tl_p, landfrac_p, dp_p
          type(c_ptr), value :: capeg_p, tlg_p, landfracg_p, dsubcld_p
       end subroutine zm_convr_deep_state_shell_codon
+
+      subroutine zm_convr_control_shell_codon(stage_c, ncol_c, pcols_c, pver_c, capelmt_c, &
+           cape_p, lcl_p, lel_p, maxi_p, jt_p, capeg_p, lclg_p, lelg_p, maxg_p, tlg_p, dsubcld_p, &
+           lengath_p, index_p, ideep_p, ideep64_p, jt64_p, maxg64_p) bind(c, name="zm_convr_control_shell_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c
+        real(c_double), value :: capelmt_c
+        type(c_ptr), value :: cape_p, lcl_p, lel_p, maxi_p, jt_p, capeg_p, lclg_p, lelg_p, maxg_p
+        type(c_ptr), value :: tlg_p, dsubcld_p, lengath_p, index_p, ideep_p, ideep64_p, jt64_p, maxg64_p
+      end subroutine zm_convr_control_shell_codon
+
+      subroutine zm_convr_cloud_copy_shell_codon(pcols_c, pver_c, cug_p, rprdg_p, wtcu_p, wtrpd_p) &
+           bind(c, name="zm_convr_cloud_copy_shell_codon")
+        use iso_c_binding, only: c_int64_t, c_ptr
+        integer(c_int64_t), value :: pcols_c, pver_c
+        type(c_ptr), value :: cug_p, rprdg_p, wtcu_p, wtrpd_p
+      end subroutine zm_convr_cloud_copy_shell_codon
 
       subroutine zm_convr_unit_shell_codon(lengath_c, pcols_c, pver_c, msg_c, zfg_p, dp_p, du_p, eu_p, &
            ed_p, cug_p, cmeg_p, rprdg_p, evpg_p, rppe_p) bind(c, name="zm_convr_unit_shell_codon")
@@ -932,14 +951,28 @@ subroutine zm_convr(lchnk   ,ncol    , &
       end do
    end if
 
-   do i = 1,ncol
-      capeg(i) = 0._r8
-      lclg(i) = 1
-      lelg(i) = pver
-      maxg(i) = 1
-      tlg(i) = 400._r8
-      dsubcld(i) = 0._r8
-   end do
+   if (.not. use_native_zm_convr_shell) then
+      if (masterproc .and. .not. zm_convr_control_logged) then
+         write(iulog,*) 'zm_convr control shell entered (prebuoy/select/index/int64 direct = codon)'
+         call zm_conv_evap_append_impl_proof( &
+              'zm_convr control shell entered (prebuoy/select/index/int64 direct = codon)')
+         call flush(iulog)
+         zm_convr_control_logged = .true.
+      end if
+      call zm_convr_control_shell_codon(1_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), capelmt, c_loc(cape), c_loc(lcl), c_loc(lel), c_loc(maxi), c_loc(jt), &
+           c_loc(capeg), c_loc(lclg), c_loc(lelg), c_loc(maxg), c_loc(tlg), c_loc(dsubcld), c_loc(lengath), &
+           c_loc(index), c_loc(ideep), c_loc(ideep64), c_loc(jt64), c_loc(maxg64))
+   else
+      do i = 1,ncol
+         capeg(i) = 0._r8
+         lclg(i) = 1
+         lelg(i) = pver
+         maxg(i) = 1
+         tlg(i) = 400._r8
+         dsubcld(i) = 0._r8
+      end do
+   end if
 
    if( cam_physpkg_is('cam3')) then
 
@@ -969,20 +1002,29 @@ subroutine zm_convr(lchnk   ,ncol    , &
 ! (ideep=1) or not (ideep=0), based on values of cape,lcl,lel
 ! (require cape.gt. 0 and lel<lcl as minimum conditions).
 !
-   lengath = 0
-   do i=1,ncol
-      if (cape(i) > capelmt) then
-         lengath = lengath + 1
-         index(lengath) = i
-      end if
-   end do
+   if (.not. use_native_zm_convr_shell) then
+      call zm_convr_control_shell_codon(2_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), capelmt, c_loc(cape), c_loc(lcl), c_loc(lel), c_loc(maxi), c_loc(jt), &
+           c_loc(capeg), c_loc(lclg), c_loc(lelg), c_loc(maxg), c_loc(tlg), c_loc(dsubcld), c_loc(lengath), &
+           c_loc(index), c_loc(ideep), c_loc(ideep64), c_loc(jt64), c_loc(maxg64))
+   else
+      lengath = 0
+      do i=1,ncol
+         if (cape(i) > capelmt) then
+            lengath = lengath + 1
+            index(lengath) = i
+         end if
+      end do
+   end if
 
    if (lengath.eq.0) return
-   do ii=1,lengath
-      i=index(ii)
-      ideep(ii)=i
-      ideep64(ii)=int(i, c_int64_t)
-   end do
+   if (use_native_zm_convr_shell) then
+      do ii=1,lengath
+         i=index(ii)
+         ideep(ii)=i
+         ideep64(ii)=int(i, c_int64_t)
+      end do
+   end if
 !
 ! obtain gathered arrays necessary for ensuing calculations.
 !
@@ -1020,12 +1062,10 @@ subroutine zm_convr(lchnk   ,ncol    , &
       end do
    end if
    if (.not. use_native_zm_convr_shell) then
-      do i = 1,lengath
-         lclg(i) = lcl(ideep(i))
-         lelg(i) = lel(ideep(i))
-         maxg(i) = maxi(ideep(i))
-         maxg64(i) = int(maxg(i), c_int64_t)
-      end do
+      call zm_convr_control_shell_codon(3_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), capelmt, c_loc(cape), c_loc(lcl), c_loc(lel), c_loc(maxi), c_loc(jt), &
+           c_loc(capeg), c_loc(lclg), c_loc(lelg), c_loc(maxg), c_loc(tlg), c_loc(dsubcld), c_loc(lengath), &
+           c_loc(index), c_loc(ideep), c_loc(ideep64), c_loc(jt64), c_loc(maxg64))
       if (masterproc .and. .not. zm_convr_deep_state_logged) then
          write(iulog,*) 'zm_convr deep state shell entered (buoyancy gather/subcloud thickness direct = codon)'
          call zm_conv_evap_append_impl_proof( &
@@ -1104,8 +1144,20 @@ subroutine zm_convr(lchnk   ,ncol    , &
                wteu    ,wted    ,done,   wtmd     ,wtevp ,qds,c0mask,landfracg)
 
 !Needed for water tracers:
-wtcu(:,:) = cug(:,:)
-wtrpd(:,:) = rprdg(:,:)
+   if (.not. use_native_zm_convr_shell) then
+      if (masterproc .and. .not. zm_convr_cloud_copy_logged) then
+         write(iulog,*) 'zm_convr cloud copy shell entered (water tracer cldprp copy direct = codon)'
+         call zm_conv_evap_append_impl_proof( &
+              'zm_convr cloud copy shell entered (water tracer cldprp copy direct = codon)')
+         call flush(iulog)
+         zm_convr_cloud_copy_logged = .true.
+      end if
+      call zm_convr_cloud_copy_shell_codon(int(pcols, c_int64_t), int(pver, c_int64_t), c_loc(cug), &
+           c_loc(rprdg), c_loc(wtcu), c_loc(wtrpd))
+   else
+      wtcu(:,:) = cug(:,:)
+      wtrpd(:,:) = rprdg(:,:)
+   end if
 
 !
 ! convert detrainment from units of "1/m" to "1/mb".
@@ -1150,10 +1202,10 @@ wtrpd(:,:) = rprdg(:,:)
 ! limit cloud base mass flux to theoretical upper bound.
 !
    if (.not. use_native_zm_convr_shell) then
-      do i = 1,lengath
-         jt64(i) = int(jt(i), c_int64_t)
-         maxg64(i) = int(maxg(i), c_int64_t)
-      end do
+      call zm_convr_control_shell_codon(4_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), capelmt, c_loc(cape), c_loc(lcl), c_loc(lel), c_loc(maxi), c_loc(jt), &
+           c_loc(capeg), c_loc(lclg), c_loc(lelg), c_loc(maxg), c_loc(tlg), c_loc(dsubcld), c_loc(lengath), &
+           c_loc(index), c_loc(ideep), c_loc(ideep64), c_loc(jt64), c_loc(maxg64))
       if (no_deep_pbl) then
          no_deep_pbl_flag = 1_c_int64_t
       else

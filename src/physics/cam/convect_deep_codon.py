@@ -659,6 +659,130 @@ def zm_convr_deep_state_shell_codon(
 
 
 @export
+def zm_convr_control_shell_codon(
+    stage: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    capelmt: float,
+    cape_p: cobj,
+    lcl_p: cobj,
+    lel_p: cobj,
+    maxi_p: cobj,
+    jt_p: cobj,
+    capeg_p: cobj,
+    lclg_p: cobj,
+    lelg_p: cobj,
+    maxg_p: cobj,
+    tlg_p: cobj,
+    dsubcld_p: cobj,
+    lengath_p: cobj,
+    index_p: cobj,
+    ideep_p: cobj,
+    ideep64_p: cobj,
+    jt64_p: cobj,
+    maxg64_p: cobj,
+):
+    if stage == 1:
+        capeg = Ptr[float](capeg_p)
+        lclg = Ptr[i32](lclg_p)
+        lelg = Ptr[i32](lelg_p)
+        maxg = Ptr[i32](maxg_p)
+        tlg = Ptr[float](tlg_p)
+        dsubcld = Ptr[float](dsubcld_p)
+
+        i = 0
+        while i < ncol:
+            capeg[i] = 0.0
+            lclg[i] = i32(1)
+            lelg[i] = i32(pver)
+            maxg[i] = i32(1)
+            tlg[i] = 400.0
+            dsubcld[i] = 0.0
+            i += 1
+    elif stage == 2:
+        cape = Ptr[float](cape_p)
+        lengath = Ptr[i32](lengath_p)
+        index = Ptr[i32](index_p)
+        ideep = Ptr[i32](ideep_p)
+        ideep64 = Ptr[int](ideep64_p)
+
+        count = 0
+        i = 0
+        while i < ncol:
+            if cape[i] > capelmt:
+                index[count] = i32(i + 1)
+                count += 1
+            i += 1
+
+        lengath[0] = i32(count)
+        ii = 0
+        while ii < count:
+            col = index[ii]
+            ideep[ii] = col
+            ideep64[ii] = int(col)
+            ii += 1
+    elif stage == 3:
+        lcl = Ptr[i32](lcl_p)
+        lel = Ptr[i32](lel_p)
+        maxi = Ptr[i32](maxi_p)
+        lclg = Ptr[i32](lclg_p)
+        lelg = Ptr[i32](lelg_p)
+        maxg = Ptr[i32](maxg_p)
+        lengath = Ptr[i32](lengath_p)
+        ideep = Ptr[i32](ideep_p)
+        maxg64 = Ptr[int](maxg64_p)
+
+        count = int(lengath[0])
+        i = 0
+        while i < count:
+            col = int(ideep[i]) - 1
+            lclg[i] = lcl[col]
+            lelg[i] = lel[col]
+            maxg[i] = maxi[col]
+            maxg64[i] = int(maxg[i])
+            i += 1
+    elif stage == 4:
+        jt = Ptr[i32](jt_p)
+        maxg = Ptr[i32](maxg_p)
+        lengath = Ptr[i32](lengath_p)
+        jt64 = Ptr[int](jt64_p)
+        maxg64 = Ptr[int](maxg64_p)
+
+        count = int(lengath[0])
+        i = 0
+        while i < count:
+            jt64[i] = int(jt[i])
+            maxg64[i] = int(maxg[i])
+            i += 1
+
+
+@export
+def zm_convr_cloud_copy_shell_codon(
+    pcols: int,
+    pver: int,
+    cug_p: cobj,
+    rprdg_p: cobj,
+    wtcu_p: cobj,
+    wtrpd_p: cobj,
+):
+    cug = Ptr[float](cug_p)
+    rprdg = Ptr[float](rprdg_p)
+    wtcu = Ptr[float](wtcu_p)
+    wtrpd = Ptr[float](wtrpd_p)
+
+    k = 0
+    while k < pver:
+        i = 0
+        while i < pcols:
+            idx = i + k * pcols
+            wtcu[idx] = cug[idx]
+            wtrpd[idx] = rprdg[idx]
+            i += 1
+        k += 1
+
+
+@export
 def zm_convr_mflux_shell_codon(
     lengath: int,
     pcols: int,
