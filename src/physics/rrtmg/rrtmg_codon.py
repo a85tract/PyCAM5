@@ -744,6 +744,401 @@ def rrtmg_sw_setcoef_codon(
 
 
 @export
+def rrtmg_lw_setcoef_codon(
+    nlayers: int,
+    istart: int,
+    mxmol: int,
+    nbndlw: int,
+    pavel_p: cobj,
+    tavel_p: cobj,
+    tz_p: cobj,
+    tbound: float,
+    semiss_p: cobj,
+    coldry_p: cobj,
+    wkl_p: cobj,
+    wbroad_p: cobj,
+    laytrop_p: cobj,
+    jp_p: cobj,
+    jt_p: cobj,
+    jt1_p: cobj,
+    planklay_p: cobj,
+    planklev_p: cobj,
+    plankbnd_p: cobj,
+    colh2o_p: cobj,
+    colco2_p: cobj,
+    colo3_p: cobj,
+    coln2o_p: cobj,
+    colco_p: cobj,
+    colch4_p: cobj,
+    colo2_p: cobj,
+    colbrd_p: cobj,
+    fac00_p: cobj,
+    fac01_p: cobj,
+    fac10_p: cobj,
+    fac11_p: cobj,
+    rat_h2oco2_p: cobj,
+    rat_h2oco2_1_p: cobj,
+    rat_h2oo3_p: cobj,
+    rat_h2oo3_1_p: cobj,
+    rat_h2on2o_p: cobj,
+    rat_h2on2o_1_p: cobj,
+    rat_h2och4_p: cobj,
+    rat_h2och4_1_p: cobj,
+    rat_n2oco2_p: cobj,
+    rat_n2oco2_1_p: cobj,
+    rat_o3co2_p: cobj,
+    rat_o3co2_1_p: cobj,
+    selffac_p: cobj,
+    selffrac_p: cobj,
+    indself_p: cobj,
+    forfac_p: cobj,
+    forfrac_p: cobj,
+    indfor_p: cobj,
+    minorfrac_p: cobj,
+    scaleminor_p: cobj,
+    scaleminorn2_p: cobj,
+    indminor_p: cobj,
+    totplnk_p: cobj,
+    totplk16_p: cobj,
+    preflog_p: cobj,
+    tref_p: cobj,
+    chi_mls_p: cobj,
+):
+    pavel = Ptr[float](pavel_p)
+    tavel = Ptr[float](tavel_p)
+    tz = Ptr[float](tz_p)
+    semiss = Ptr[float](semiss_p)
+    coldry = Ptr[float](coldry_p)
+    wkl = Ptr[float](wkl_p)
+    wbroad = Ptr[float](wbroad_p)
+    laytrop = Ptr[int](laytrop_p)
+    jp = Ptr[int](jp_p)
+    jt = Ptr[int](jt_p)
+    jt1 = Ptr[int](jt1_p)
+    planklay = Ptr[float](planklay_p)
+    planklev = Ptr[float](planklev_p)
+    plankbnd = Ptr[float](plankbnd_p)
+    colh2o = Ptr[float](colh2o_p)
+    colco2 = Ptr[float](colco2_p)
+    colo3 = Ptr[float](colo3_p)
+    coln2o = Ptr[float](coln2o_p)
+    colco = Ptr[float](colco_p)
+    colch4 = Ptr[float](colch4_p)
+    colo2 = Ptr[float](colo2_p)
+    colbrd = Ptr[float](colbrd_p)
+    fac00 = Ptr[float](fac00_p)
+    fac01 = Ptr[float](fac01_p)
+    fac10 = Ptr[float](fac10_p)
+    fac11 = Ptr[float](fac11_p)
+    rat_h2oco2 = Ptr[float](rat_h2oco2_p)
+    rat_h2oco2_1 = Ptr[float](rat_h2oco2_1_p)
+    rat_h2oo3 = Ptr[float](rat_h2oo3_p)
+    rat_h2oo3_1 = Ptr[float](rat_h2oo3_1_p)
+    rat_h2on2o = Ptr[float](rat_h2on2o_p)
+    rat_h2on2o_1 = Ptr[float](rat_h2on2o_1_p)
+    rat_h2och4 = Ptr[float](rat_h2och4_p)
+    rat_h2och4_1 = Ptr[float](rat_h2och4_1_p)
+    rat_n2oco2 = Ptr[float](rat_n2oco2_p)
+    rat_n2oco2_1 = Ptr[float](rat_n2oco2_1_p)
+    rat_o3co2 = Ptr[float](rat_o3co2_p)
+    rat_o3co2_1 = Ptr[float](rat_o3co2_1_p)
+    selffac = Ptr[float](selffac_p)
+    selffrac = Ptr[float](selffrac_p)
+    indself = Ptr[int](indself_p)
+    forfac = Ptr[float](forfac_p)
+    forfrac = Ptr[float](forfrac_p)
+    indfor = Ptr[int](indfor_p)
+    minorfrac = Ptr[float](minorfrac_p)
+    scaleminor = Ptr[float](scaleminor_p)
+    scaleminorn2 = Ptr[float](scaleminorn2_p)
+    indminor = Ptr[int](indminor_p)
+    totplnk = Ptr[float](totplnk_p)
+    totplk16 = Ptr[float](totplk16_p)
+    preflog = Ptr[float](preflog_p)
+    tref = Ptr[float](tref_p)
+    chi_mls = Ptr[float](chi_mls_p)
+
+    stpfac = 296.0 / 1013.0
+
+    indbound = int(tbound - 159.0)
+    if indbound < 1:
+        indbound = 1
+    elif indbound > 180:
+        indbound = 180
+    tbndfrac = tbound - 159.0 - float(indbound)
+
+    indlev0 = int(tz[0] - 159.0)
+    if indlev0 < 1:
+        indlev0 = 1
+    elif indlev0 > 180:
+        indlev0 = 180
+    t0frac = tz[0] - 159.0 - float(indlev0)
+
+    laytrop[0] = 0
+
+    for lay in range(1, nlayers + 1):
+        idx = lay - 1
+        indlay = int(tavel[idx] - 159.0)
+        if indlay < 1:
+            indlay = 1
+        elif indlay > 180:
+            indlay = 180
+        tlayfrac = tavel[idx] - 159.0 - float(indlay)
+
+        indlev = int(tz[lay] - 159.0)
+        if indlev < 1:
+            indlev = 1
+        elif indlev > 180:
+            indlev = 180
+        tlevfrac = tz[lay] - 159.0 - float(indlev)
+
+        for iband in range(1, nbndlw):
+            if lay == 1:
+                dbdtlev = (
+                    totplnk[_idx2(indbound + 1, iband, 181)]
+                    - totplnk[_idx2(indbound, iband, 181)]
+                )
+                plankbnd[iband - 1] = semiss[iband - 1] * (
+                    totplnk[_idx2(indbound, iband, 181)] + tbndfrac * dbdtlev
+                )
+                dbdtlev = (
+                    totplnk[_idx2(indlev0 + 1, iband, 181)]
+                    - totplnk[_idx2(indlev0, iband, 181)]
+                )
+                planklev[_idx2_dim1_lb0(0, iband, nlayers)] = (
+                    totplnk[_idx2(indlev0, iband, 181)] + t0frac * dbdtlev
+                )
+            dbdtlev = (
+                totplnk[_idx2(indlev + 1, iband, 181)]
+                - totplnk[_idx2(indlev, iband, 181)]
+            )
+            dbdtlay = (
+                totplnk[_idx2(indlay + 1, iband, 181)]
+                - totplnk[_idx2(indlay, iband, 181)]
+            )
+            planklay[_idx2(lay, iband, nlayers)] = (
+                totplnk[_idx2(indlay, iband, 181)] + tlayfrac * dbdtlay
+            )
+            planklev[_idx2_dim1_lb0(lay, iband, nlayers)] = (
+                totplnk[_idx2(indlev, iband, 181)] + tlevfrac * dbdtlev
+            )
+
+        iband = nbndlw
+        if istart == nbndlw:
+            if lay == 1:
+                dbdtlev = totplk16[indbound] - totplk16[indbound - 1]
+                plankbnd[iband - 1] = semiss[iband - 1] * (
+                    totplk16[indbound - 1] + tbndfrac * dbdtlev
+                )
+                dbdtlev = (
+                    totplnk[_idx2(indlev0 + 1, iband, 181)]
+                    - totplnk[_idx2(indlev0, iband, 181)]
+                )
+                planklev[_idx2_dim1_lb0(0, iband, nlayers)] = (
+                    totplk16[indlev0 - 1] + t0frac * dbdtlev
+                )
+            dbdtlev = totplk16[indlev] - totplk16[indlev - 1]
+            dbdtlay = totplk16[indlay] - totplk16[indlay - 1]
+            planklay[_idx2(lay, iband, nlayers)] = (
+                totplk16[indlay - 1] + tlayfrac * dbdtlay
+            )
+            planklev[_idx2_dim1_lb0(lay, iband, nlayers)] = (
+                totplk16[indlev - 1] + tlevfrac * dbdtlev
+            )
+        else:
+            if lay == 1:
+                dbdtlev = (
+                    totplnk[_idx2(indbound + 1, iband, 181)]
+                    - totplnk[_idx2(indbound, iband, 181)]
+                )
+                plankbnd[iband - 1] = semiss[iband - 1] * (
+                    totplnk[_idx2(indbound, iband, 181)] + tbndfrac * dbdtlev
+                )
+                dbdtlev = (
+                    totplnk[_idx2(indlev0 + 1, iband, 181)]
+                    - totplnk[_idx2(indlev0, iband, 181)]
+                )
+                planklev[_idx2_dim1_lb0(0, iband, nlayers)] = (
+                    totplnk[_idx2(indlev0, iband, 181)] + t0frac * dbdtlev
+                )
+            dbdtlev = (
+                totplnk[_idx2(indlev + 1, iband, 181)]
+                - totplnk[_idx2(indlev, iband, 181)]
+            )
+            dbdtlay = (
+                totplnk[_idx2(indlay + 1, iband, 181)]
+                - totplnk[_idx2(indlay, iband, 181)]
+            )
+            planklay[_idx2(lay, iband, nlayers)] = (
+                totplnk[_idx2(indlay, iband, 181)] + tlayfrac * dbdtlay
+            )
+            planklev[_idx2_dim1_lb0(lay, iband, nlayers)] = (
+                totplnk[_idx2(indlev, iband, 181)] + tlevfrac * dbdtlev
+            )
+
+        plog = log(pavel[idx])
+        jp[idx] = int(36.0 - 5.0 * (plog + 0.04))
+        if jp[idx] < 1:
+            jp[idx] = 1
+        elif jp[idx] > 58:
+            jp[idx] = 58
+        jp1 = jp[idx] + 1
+        fp = 5.0 * (preflog[jp[idx] - 1] - plog)
+
+        jt[idx] = int(3.0 + (tavel[idx] - tref[jp[idx] - 1]) / 15.0)
+        if jt[idx] < 1:
+            jt[idx] = 1
+        elif jt[idx] > 4:
+            jt[idx] = 4
+        ft = ((tavel[idx] - tref[jp[idx] - 1]) / 15.0) - float(jt[idx] - 3)
+
+        jt1[idx] = int(3.0 + (tavel[idx] - tref[jp1 - 1]) / 15.0)
+        if jt1[idx] < 1:
+            jt1[idx] = 1
+        elif jt1[idx] > 4:
+            jt1[idx] = 4
+        ft1 = ((tavel[idx] - tref[jp1 - 1]) / 15.0) - float(jt1[idx] - 3)
+
+        water = wkl[_idx2(1, lay, mxmol)] / coldry[idx]
+        scalefac = pavel[idx] * stpfac / tavel[idx]
+
+        if plog > 4.56:
+            laytrop[0] = laytrop[0] + 1
+
+            forfac[idx] = scalefac / (1.0 + water)
+            factor = (332.0 - tavel[idx]) / 36.0
+            ind = int(factor)
+            if ind < 1:
+                ind = 1
+            elif ind > 2:
+                ind = 2
+            indfor[idx] = ind
+            forfrac[idx] = factor - float(indfor[idx])
+
+            selffac[idx] = water * forfac[idx]
+            factor = (tavel[idx] - 188.0) / 7.2
+            ind = int(factor) - 7
+            if ind < 1:
+                ind = 1
+            elif ind > 9:
+                ind = 9
+            indself[idx] = ind
+            selffrac[idx] = factor - float(indself[idx] + 7)
+
+            scaleminor[idx] = pavel[idx] / tavel[idx]
+            scaleminorn2[idx] = (pavel[idx] / tavel[idx]) * (
+                wbroad[idx] / (coldry[idx] + wkl[_idx2(1, lay, mxmol)])
+            )
+            factor = (tavel[idx] - 180.8) / 7.2
+            ind = int(factor)
+            if ind < 1:
+                ind = 1
+            elif ind > 18:
+                ind = 18
+            indminor[idx] = ind
+            minorfrac[idx] = factor - float(indminor[idx])
+
+            rat_h2oco2[idx] = (
+                chi_mls[_idx2(1, jp[idx], 7)] / chi_mls[_idx2(2, jp[idx], 7)]
+            )
+            rat_h2oco2_1[idx] = (
+                chi_mls[_idx2(1, jp[idx] + 1, 7)]
+                / chi_mls[_idx2(2, jp[idx] + 1, 7)]
+            )
+            rat_h2oo3[idx] = (
+                chi_mls[_idx2(1, jp[idx], 7)] / chi_mls[_idx2(3, jp[idx], 7)]
+            )
+            rat_h2oo3_1[idx] = (
+                chi_mls[_idx2(1, jp[idx] + 1, 7)]
+                / chi_mls[_idx2(3, jp[idx] + 1, 7)]
+            )
+            rat_h2on2o[idx] = (
+                chi_mls[_idx2(1, jp[idx], 7)] / chi_mls[_idx2(4, jp[idx], 7)]
+            )
+            rat_h2on2o_1[idx] = (
+                chi_mls[_idx2(1, jp[idx] + 1, 7)]
+                / chi_mls[_idx2(4, jp[idx] + 1, 7)]
+            )
+            rat_h2och4[idx] = (
+                chi_mls[_idx2(1, jp[idx], 7)] / chi_mls[_idx2(6, jp[idx], 7)]
+            )
+            rat_h2och4_1[idx] = (
+                chi_mls[_idx2(1, jp[idx] + 1, 7)]
+                / chi_mls[_idx2(6, jp[idx] + 1, 7)]
+            )
+            rat_n2oco2[idx] = (
+                chi_mls[_idx2(4, jp[idx], 7)] / chi_mls[_idx2(2, jp[idx], 7)]
+            )
+            rat_n2oco2_1[idx] = (
+                chi_mls[_idx2(4, jp[idx] + 1, 7)]
+                / chi_mls[_idx2(2, jp[idx] + 1, 7)]
+            )
+        else:
+            forfac[idx] = scalefac / (1.0 + water)
+            factor = (tavel[idx] - 188.0) / 36.0
+            indfor[idx] = 3
+            forfrac[idx] = factor - 1.0
+
+            selffac[idx] = water * forfac[idx]
+
+            scaleminor[idx] = pavel[idx] / tavel[idx]
+            scaleminorn2[idx] = (pavel[idx] / tavel[idx]) * (
+                wbroad[idx] / (coldry[idx] + wkl[_idx2(1, lay, mxmol)])
+            )
+            factor = (tavel[idx] - 180.8) / 7.2
+            ind = int(factor)
+            if ind < 1:
+                ind = 1
+            elif ind > 18:
+                ind = 18
+            indminor[idx] = ind
+            minorfrac[idx] = factor - float(indminor[idx])
+
+            rat_h2oco2[idx] = (
+                chi_mls[_idx2(1, jp[idx], 7)] / chi_mls[_idx2(2, jp[idx], 7)]
+            )
+            rat_h2oco2_1[idx] = (
+                chi_mls[_idx2(1, jp[idx] + 1, 7)]
+                / chi_mls[_idx2(2, jp[idx] + 1, 7)]
+            )
+            rat_o3co2[idx] = (
+                chi_mls[_idx2(3, jp[idx], 7)] / chi_mls[_idx2(2, jp[idx], 7)]
+            )
+            rat_o3co2_1[idx] = (
+                chi_mls[_idx2(3, jp[idx] + 1, 7)]
+                / chi_mls[_idx2(2, jp[idx] + 1, 7)]
+            )
+
+        colh2o[idx] = 1.0e-20 * wkl[_idx2(1, lay, mxmol)]
+        colco2[idx] = 1.0e-20 * wkl[_idx2(2, lay, mxmol)]
+        colo3[idx] = 1.0e-20 * wkl[_idx2(3, lay, mxmol)]
+        coln2o[idx] = 1.0e-20 * wkl[_idx2(4, lay, mxmol)]
+        colco[idx] = 1.0e-20 * wkl[_idx2(5, lay, mxmol)]
+        colch4[idx] = 1.0e-20 * wkl[_idx2(6, lay, mxmol)]
+        colo2[idx] = 1.0e-20 * wkl[_idx2(7, lay, mxmol)]
+        if colco2[idx] == 0.0:
+            colco2[idx] = 1.0e-32 * coldry[idx]
+        if colo3[idx] == 0.0:
+            colo3[idx] = 1.0e-32 * coldry[idx]
+        if coln2o[idx] == 0.0:
+            coln2o[idx] = 1.0e-32 * coldry[idx]
+        if colco[idx] == 0.0:
+            colco[idx] = 1.0e-32 * coldry[idx]
+        if colch4[idx] == 0.0:
+            colch4[idx] = 1.0e-32 * coldry[idx]
+        colbrd[idx] = 1.0e-20 * wbroad[idx]
+
+        compfp = 1.0 - fp
+        fac10[idx] = compfp * ft
+        fac00[idx] = compfp * (1.0 - ft)
+        fac11[idx] = fp * ft1
+        fac01[idx] = fp * (1.0 - ft1)
+
+        selffac[idx] = colh2o[idx] * selffac[idx]
+        forfac[idx] = colh2o[idx] * forfac[idx]
+
+
+@export
 def rrtmg_lw_cldprmc_codon(
     nlayers: int,
     inflag: int,

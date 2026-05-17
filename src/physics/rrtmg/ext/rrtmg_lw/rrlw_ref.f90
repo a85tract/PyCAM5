@@ -23,9 +23,9 @@
 ! chi_mls:  real   : 
 !------------------------------------------------------------------
 
-      real(kind=r8) , dimension(59) :: pref
-      real(kind=r8) , dimension(59) :: preflog
-      real(kind=r8) , dimension(59) :: tref
-      real(kind=r8) :: chi_mls(7,59)
+      real(kind=r8) , target, dimension(59) :: pref
+      real(kind=r8) , target, dimension(59) :: preflog
+      real(kind=r8) , target, dimension(59) :: tref
+      real(kind=r8), target :: chi_mls(7,59)
 
       end module rrlw_ref

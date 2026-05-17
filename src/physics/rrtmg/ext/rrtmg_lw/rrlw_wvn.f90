@@ -58,8 +58,8 @@
       real(kind=r8) :: wavenum2(nbndlw)
       real(kind=r8) :: delwave(nbndlw)
 
-      real(kind=r8) :: totplnk(181,nbndlw)
-      real(kind=r8) :: totplk16(181)
+      real(kind=r8), target :: totplnk(181,nbndlw)
+      real(kind=r8), target :: totplk16(181)
 
       integer :: ngc(nbndlw)
       integer :: ngs(nbndlw)

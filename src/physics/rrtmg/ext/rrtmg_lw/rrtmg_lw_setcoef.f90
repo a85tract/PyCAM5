@@ -18,6 +18,8 @@
 ! ------- Modules -------
 
       use shr_kind_mod, only: r8 => shr_kind_r8
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
 
 !      use parkind, only : jpim, jprb 
       use parrrtm, only : nbndlw, mg, maxxsec, mxmol
@@ -26,11 +28,175 @@
       use rrlw_vsn, only: hvrset, hnamset
 
       implicit none
+      save
+
+      logical :: use_native_setcoef_impl = .false.
+      logical :: setcoef_impl_selected = .false.
+      logical :: setcoef_entered_logged = .false.
 
       contains
 
 !----------------------------------------------------------------------------
       subroutine setcoef(nlayers, istart, pavel, tavel, tz, tbound, semiss, &
+                         coldry, wkl, wbroad, &
+                         laytrop, jp, jt, jt1, planklay, planklev, plankbnd, &
+                         colh2o, colco2, colo3, coln2o, colco, colch4, colo2, &
+                         colbrd, fac00, fac01, fac10, fac11, &
+                         rat_h2oco2, rat_h2oco2_1, rat_h2oo3, rat_h2oo3_1, &
+                         rat_h2on2o, rat_h2on2o_1, rat_h2och4, rat_h2och4_1, &
+                         rat_n2oco2, rat_n2oco2_1, rat_o3co2, rat_o3co2_1, &
+                         selffac, selffrac, indself, forfac, forfrac, indfor, &
+                         minorfrac, scaleminor, scaleminorn2, indminor)
+!----------------------------------------------------------------------------
+      use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+      integer, intent(in) :: nlayers
+      integer, intent(in) :: istart
+
+      real(kind=r8), target, intent(in) :: pavel(:)
+      real(kind=r8), target, intent(in) :: tavel(:)
+      real(kind=r8), target, intent(in) :: tz(0:)
+      real(kind=r8), intent(in) :: tbound
+      real(kind=r8), target, intent(in) :: coldry(:)
+      real(kind=r8), target, intent(in) :: wbroad(:)
+      real(kind=r8), target, intent(in) :: wkl(:,:)
+      real(kind=r8), target, intent(in) :: semiss(:)
+
+      integer, intent(out) :: laytrop
+      integer, intent(out) :: jp(:)
+      integer, intent(out) :: jt(:)
+      integer, intent(out) :: jt1(:)
+      real(kind=r8), target, intent(out) :: planklay(:,:)
+      real(kind=r8), target, intent(out) :: planklev(0:,:)
+      real(kind=r8), target, intent(out) :: plankbnd(:)
+
+      real(kind=r8), target, intent(out) :: colh2o(:)
+      real(kind=r8), target, intent(out) :: colco2(:)
+      real(kind=r8), target, intent(out) :: colo3(:)
+      real(kind=r8), target, intent(out) :: coln2o(:)
+      real(kind=r8), target, intent(out) :: colco(:)
+      real(kind=r8), target, intent(out) :: colch4(:)
+      real(kind=r8), target, intent(out) :: colo2(:)
+      real(kind=r8), target, intent(out) :: colbrd(:)
+
+      integer, intent(out) :: indself(:)
+      integer, intent(out) :: indfor(:)
+      real(kind=r8), target, intent(out) :: selffac(:)
+      real(kind=r8), target, intent(out) :: selffrac(:)
+      real(kind=r8), target, intent(out) :: forfac(:)
+      real(kind=r8), target, intent(out) :: forfrac(:)
+
+      integer, intent(out) :: indminor(:)
+      real(kind=r8), target, intent(out) :: minorfrac(:)
+      real(kind=r8), target, intent(out) :: scaleminor(:)
+      real(kind=r8), target, intent(out) :: scaleminorn2(:)
+
+      real(kind=r8), target, intent(out) :: fac00(:), fac01(:), fac10(:), fac11(:)
+
+      real(kind=r8), target, intent(out) :: &
+                         rat_h2oco2(:),rat_h2oco2_1(:), &
+                         rat_h2oo3(:),rat_h2oo3_1(:), &
+                         rat_h2on2o(:),rat_h2on2o_1(:), &
+                         rat_h2och4(:),rat_h2och4_1(:), &
+                         rat_n2oco2(:),rat_n2oco2_1(:), &
+                         rat_o3co2(:),rat_o3co2_1(:)
+
+      integer :: lay
+      integer(c_int64_t), target :: laytrop64
+      integer(c_int64_t), target :: jp64(nlayers)
+      integer(c_int64_t), target :: jt64(nlayers)
+      integer(c_int64_t), target :: jt164(nlayers)
+      integer(c_int64_t), target :: indself64(nlayers)
+      integer(c_int64_t), target :: indfor64(nlayers)
+      integer(c_int64_t), target :: indminor64(nlayers)
+
+      interface
+         subroutine rrtmg_lw_setcoef_codon(nlayers_c, istart_c, mxmol_c, nbndlw_c, &
+              pavel_p, tavel_p, tz_p, tbound_c, semiss_p, coldry_p, wkl_p, wbroad_p, &
+              laytrop_p, jp_p, jt_p, jt1_p, planklay_p, planklev_p, plankbnd_p, &
+              colh2o_p, colco2_p, colo3_p, coln2o_p, colco_p, colch4_p, colo2_p, &
+              colbrd_p, fac00_p, fac01_p, fac10_p, fac11_p, rat_h2oco2_p, &
+              rat_h2oco2_1_p, rat_h2oo3_p, rat_h2oo3_1_p, rat_h2on2o_p, &
+              rat_h2on2o_1_p, rat_h2och4_p, rat_h2och4_1_p, rat_n2oco2_p, &
+              rat_n2oco2_1_p, rat_o3co2_p, rat_o3co2_1_p, selffac_p, selffrac_p, &
+              indself_p, forfac_p, forfrac_p, indfor_p, minorfrac_p, scaleminor_p, &
+              scaleminorn2_p, indminor_p, totplnk_p, totplk16_p, preflog_p, tref_p, &
+              chi_mls_p) bind(c, name="rrtmg_lw_setcoef_codon")
+            use iso_c_binding, only: c_double, c_int64_t, c_ptr
+            integer(c_int64_t), value :: nlayers_c, istart_c, mxmol_c, nbndlw_c
+            real(c_double), value :: tbound_c
+            type(c_ptr), value :: pavel_p, tavel_p, tz_p, semiss_p, coldry_p, wkl_p, wbroad_p
+            type(c_ptr), value :: laytrop_p, jp_p, jt_p, jt1_p, planklay_p, planklev_p
+            type(c_ptr), value :: plankbnd_p, colh2o_p, colco2_p, colo3_p, coln2o_p, colco_p
+            type(c_ptr), value :: colch4_p, colo2_p, colbrd_p, fac00_p, fac01_p, fac10_p
+            type(c_ptr), value :: fac11_p, rat_h2oco2_p, rat_h2oco2_1_p, rat_h2oo3_p
+            type(c_ptr), value :: rat_h2oo3_1_p, rat_h2on2o_p, rat_h2on2o_1_p
+            type(c_ptr), value :: rat_h2och4_p, rat_h2och4_1_p, rat_n2oco2_p
+            type(c_ptr), value :: rat_n2oco2_1_p, rat_o3co2_p, rat_o3co2_1_p
+            type(c_ptr), value :: selffac_p, selffrac_p, indself_p, forfac_p, forfrac_p
+            type(c_ptr), value :: indfor_p, minorfrac_p, scaleminor_p, scaleminorn2_p
+            type(c_ptr), value :: indminor_p, totplnk_p, totplk16_p, preflog_p, tref_p
+            type(c_ptr), value :: chi_mls_p
+         end subroutine rrtmg_lw_setcoef_codon
+      end interface
+
+      call setcoef_select_impl()
+      if (use_native_setcoef_impl) then
+         call setcoef_native(nlayers, istart, pavel, tavel, tz, tbound, semiss, &
+              coldry, wkl, wbroad, &
+              laytrop, jp, jt, jt1, planklay, planklev, plankbnd, &
+              colh2o, colco2, colo3, coln2o, colco, colch4, colo2, &
+              colbrd, fac00, fac01, fac10, fac11, &
+              rat_h2oco2, rat_h2oco2_1, rat_h2oo3, rat_h2oo3_1, &
+              rat_h2on2o, rat_h2on2o_1, rat_h2och4, rat_h2och4_1, &
+              rat_n2oco2, rat_n2oco2_1, rat_o3co2, rat_o3co2_1, &
+              selffac, selffrac, indself, forfac, forfrac, indfor, &
+              minorfrac, scaleminor, scaleminorn2, indminor)
+      else
+         call setcoef_log_entered()
+         laytrop64 = 0_c_int64_t
+         jp64(:) = 0_c_int64_t
+         jt64(:) = 0_c_int64_t
+         jt164(:) = 0_c_int64_t
+         indself64(:) = 0_c_int64_t
+         indfor64(:) = 0_c_int64_t
+         indminor64(:) = 0_c_int64_t
+
+         call rrtmg_lw_setcoef_codon( &
+              int(nlayers, c_int64_t), int(istart, c_int64_t), int(mxmol, c_int64_t), &
+              int(nbndlw, c_int64_t), c_loc(pavel(1)), c_loc(tavel(1)), c_loc(tz(0)), &
+              tbound, c_loc(semiss(1)), c_loc(coldry(1)), c_loc(wkl(1,1)), &
+              c_loc(wbroad(1)), c_loc(laytrop64), c_loc(jp64(1)), c_loc(jt64(1)), &
+              c_loc(jt164(1)), c_loc(planklay(1,1)), c_loc(planklev(0,1)), &
+              c_loc(plankbnd(1)), c_loc(colh2o(1)), c_loc(colco2(1)), c_loc(colo3(1)), &
+              c_loc(coln2o(1)), c_loc(colco(1)), c_loc(colch4(1)), c_loc(colo2(1)), &
+              c_loc(colbrd(1)), c_loc(fac00(1)), c_loc(fac01(1)), c_loc(fac10(1)), &
+              c_loc(fac11(1)), c_loc(rat_h2oco2(1)), c_loc(rat_h2oco2_1(1)), &
+              c_loc(rat_h2oo3(1)), c_loc(rat_h2oo3_1(1)), c_loc(rat_h2on2o(1)), &
+              c_loc(rat_h2on2o_1(1)), c_loc(rat_h2och4(1)), c_loc(rat_h2och4_1(1)), &
+              c_loc(rat_n2oco2(1)), c_loc(rat_n2oco2_1(1)), c_loc(rat_o3co2(1)), &
+              c_loc(rat_o3co2_1(1)), c_loc(selffac(1)), c_loc(selffrac(1)), &
+              c_loc(indself64(1)), c_loc(forfac(1)), c_loc(forfrac(1)), &
+              c_loc(indfor64(1)), c_loc(minorfrac(1)), c_loc(scaleminor(1)), &
+              c_loc(scaleminorn2(1)), c_loc(indminor64(1)), c_loc(totplnk(1,1)), &
+              c_loc(totplk16(1)), c_loc(preflog(1)), c_loc(tref(1)), c_loc(chi_mls(1,1)) &
+         )
+
+         laytrop = int(laytrop64)
+         do lay = 1, nlayers
+            jp(lay) = int(jp64(lay))
+            jt(lay) = int(jt64(lay))
+            jt1(lay) = int(jt164(lay))
+            indself(lay) = int(indself64(lay))
+            indfor(lay) = int(indfor64(lay))
+            indminor(lay) = int(indminor64(lay))
+         enddo
+      endif
+
+      end subroutine setcoef
+
+!----------------------------------------------------------------------------
+      subroutine setcoef_native(nlayers, istart, pavel, tavel, tz, tbound, semiss, &
                          coldry, wkl, wbroad, &
                          laytrop, jp, jt, jt1, planklay, planklev, plankbnd, &
                          colh2o, colco2, colo3, coln2o, colco, colch4, colo2, &
@@ -395,7 +561,7 @@
 ! End layer loop
       enddo
 
-      end subroutine setcoef
+      end subroutine setcoef_native
 
 !***************************************************************************
       subroutine lwatmref
@@ -1266,5 +1432,53 @@
 
       end subroutine lwavplank
 
-      end module rrtmg_lw_setcoef
+! --------------------------------------------------------------------------
+      subroutine setcoef_select_impl()
 
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (setcoef_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('RRTMG_LW_SETCOEF_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_setcoef_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_setcoef_impl = .false.
+      end if
+
+      setcoef_impl_selected = .true.
+
+      if (masterproc) then
+         if (use_native_setcoef_impl) then
+            write(iulog,*) 'rrtmg_lw_setcoef implementation = native'
+         else
+            write(iulog,*) 'rrtmg_lw_setcoef implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine setcoef_select_impl
+
+! --------------------------------------------------------------------------
+      subroutine setcoef_log_entered()
+
+      if (setcoef_entered_logged) return
+      setcoef_entered_logged = .true.
+
+      if (masterproc) then
+         write(iulog,*) 'rrtmg_lw_setcoef entered (longwave interpolation coefficients = codon)'
+         call flush(iulog)
+      end if
+
+      end subroutine setcoef_log_entered
+
+      end module rrtmg_lw_setcoef
