@@ -232,9 +232,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu output/diag init shell entered (all output, diagnostic, exit and limit arrays init direct = codon)'
+            'uwshcu output/diag init shell entered (unified output-diag-init stage dispatch = codon)'
        call uwshcu_append_proof( &
-            'uwshcu output/diag init shell entered (all output, diagnostic, exit and limit arrays init direct = codon)')
+            'uwshcu output/diag init shell entered (unified output-diag-init stage dispatch = codon)')
        call flush(iulog)
     end if
 
@@ -248,8 +248,8 @@ contains
     inv_shell_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'uwshcu inv prep shell entered (vertical input reorder direct = codon)'
-       call uwshcu_append_proof('uwshcu inv prep shell entered (vertical input reorder direct = codon)')
+       write(iulog,'(A)') 'uwshcu inv prep shell entered (unified inv-prep stage dispatch = codon)'
+       call uwshcu_append_proof('uwshcu inv prep shell entered (unified inv-prep stage dispatch = codon)')
        call flush(iulog)
     end if
 
@@ -417,8 +417,8 @@ contains
     column_init_shell_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'uwshcu column init shell entered (environment save and workspace reset direct = codon)'
-       call uwshcu_append_proof('uwshcu column init shell entered (environment save and workspace reset direct = codon)')
+       write(iulog,'(A)') 'uwshcu column init shell entered (unified column-init stage dispatch = codon)'
+       call uwshcu_append_proof('uwshcu column init shell entered (unified column-init stage dispatch = codon)')
        call flush(iulog)
     end if
 
@@ -448,8 +448,8 @@ contains
     column_input_shell_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'uwshcu column input shell entered (per-column input load direct = codon)'
-       call uwshcu_append_proof('uwshcu column input shell entered (per-column input load direct = codon)')
+       write(iulog,'(A)') 'uwshcu column input shell entered (unified column-input stage dispatch = codon)'
+       call uwshcu_append_proof('uwshcu column input shell entered (unified column-input stage dispatch = codon)')
        call flush(iulog)
     end if
 
@@ -479,9 +479,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu column thermo/slope shell entered (qt/thl/thvl/wt0 and slope reconstruction direct = codon; exnf/conden native)'
+            'uwshcu column thermo/slope shell entered (unified column-thermo-slope stage dispatch = codon; exnf/conden native)'
        call uwshcu_append_proof( &
-            'uwshcu column thermo/slope shell entered (qt/thl/thvl/wt0 and slope reconstruction direct = codon; exnf/conden native)')
+            'uwshcu column thermo/slope shell entered (unified column-thermo-slope stage dispatch = codon; exnf/conden native)')
        call flush(iulog)
     end if
 
@@ -970,9 +970,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu pbl precheck/source shell entered (kinv search and tke/source prep direct = codon)'
+            'uwshcu pbl precheck/source shell entered (unified pbl-precheck-source stage dispatch = codon)'
        call uwshcu_append_proof( &
-            'uwshcu pbl precheck/source shell entered (kinv search and tke/source prep direct = codon)')
+            'uwshcu pbl precheck/source shell entered (unified pbl-precheck-source stage dispatch = codon)')
        call flush(iulog)
     end if
 
@@ -1153,9 +1153,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu release env/scaleh iter init shell entered (release env, scaleh and per-iteration env reset direct = codon)'
+            'uwshcu release env/scaleh iter init shell entered (unified release-env-scaleh stage dispatch = codon)'
        call uwshcu_append_proof( &
-            'uwshcu release env/scaleh iter init shell entered (release env, scaleh and per-iteration env reset direct = codon)')
+            'uwshcu release env/scaleh iter init shell entered (unified release-env-scaleh stage dispatch = codon)')
        call flush(iulog)
     end if
 
@@ -1236,9 +1236,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu scaleh filter/penent prep shell entered (post-scaleh filter and penent/flux/comp-sub prep direct = codon)'
+            'uwshcu scaleh filter/penent prep shell entered (unified scaleh-filter-penent stage dispatch = codon)'
        call uwshcu_append_proof( &
-            'uwshcu scaleh filter/penent prep shell entered (post-scaleh filter and penent/flux/comp-sub prep direct = codon)')
+            'uwshcu scaleh filter/penent prep shell entered (unified scaleh-filter-penent stage dispatch = codon)')
        call flush(iulog)
     end if
 
@@ -1320,9 +1320,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu comp sub conden exit shell entered (subsidence conden exit flag direct = codon; conden/goto native)'
+            'uwshcu comp sub conden exit shell entered (unified comp-sub-conden-exit stage dispatch = codon; conden/goto native)'
        call uwshcu_append_proof( &
-            'uwshcu comp sub conden exit shell entered (subsidence conden exit flag direct = codon; conden/goto native)')
+            'uwshcu comp sub conden exit shell entered (unified comp-sub-conden-exit stage dispatch = codon; conden/goto native)')
        call flush(iulog)
     end if
 
@@ -1493,9 +1493,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu comp sub sink/thermo prelim shell entered (sink/momentum/condensate prelim direct = codon; conden/solve native)'
+            'uwshcu comp sub sink/thermo prelim shell entered (unified comp-sub-sink-thermo-prelim stage dispatch = codon; conden/solve native)'
        call uwshcu_append_proof( &
-            'uwshcu comp sub sink/thermo prelim shell entered (sink/momentum/condensate prelim direct = codon; conden/solve native)')
+            'uwshcu comp sub sink/thermo prelim shell entered (unified comp-sub-sink-thermo-prelim stage dispatch = codon; conden/solve native)')
        call flush(iulog)
     end if
 
