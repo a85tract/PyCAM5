@@ -1118,10 +1118,10 @@ contains
     if (masterproc) then
        write(iulog,'(A)') &
             'uwshcu release/scaleh batch shell entered ' // &
-            '(release level/mu/base/ppen/filter scalars direct = codon; sensitive math/conden/goto native)'
+            '(unified release-scaleh stage dispatch = codon; sensitive math/conden/goto native)'
        call uwshcu_append_proof( &
             'uwshcu release/scaleh batch shell entered ' // &
-            '(release level/mu/base/ppen/filter scalars direct = codon; sensitive math/conden/goto native)')
+            '(unified release-scaleh stage dispatch = codon; sensitive math/conden/goto native)')
        call flush(iulog)
     end if
 
