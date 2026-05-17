@@ -228,12 +228,12 @@ end subroutine sulf_readnl
       type(c_ptr) :: fields_data_p
 
       interface
-         subroutine sulf_interp_codon(ncol_c, pcols_c, pver_c, begchunk_c, lchnk_c, read_sulf_c, &
-              fields_data_p, ccm_sulf_p) bind(c, name="sulf_interp_codon")
+         subroutine sulf_interp_stage_dispatch_codon(ncol_c, pcols_c, pver_c, begchunk_c, lchnk_c, read_sulf_c, &
+              fields_data_p, ccm_sulf_p) bind(c, name="sulf_interp_stage_dispatch_codon")
             use iso_c_binding, only : c_int64_t, c_ptr
             integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, begchunk_c, lchnk_c, read_sulf_c
             type(c_ptr), value :: fields_data_p, ccm_sulf_p
-         end subroutine sulf_interp_codon
+         end subroutine sulf_interp_stage_dispatch_codon
       end interface
 
       call sulf_interp_select_impl()
@@ -245,17 +245,17 @@ end subroutine sulf_readnl
       else
          fields_data_p = c_null_ptr
          if (read_sulf) fields_data_p = c_loc(fields(1)%data(1,1,begchunk))
-         call sulf_interp_codon( &
+         call sulf_interp_stage_dispatch_codon( &
               int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(begchunk, c_int64_t), &
               int(lchnk, c_int64_t), int(merge(1, 0, read_sulf), c_int64_t), fields_data_p, c_loc(ccm_sulf) &
          )
          if (masterproc .and. .not. sulf_interp_proof_written) then
             if (read_sulf) then
-               write(iulog,'(A)') 'sulf_interp entered (zero/copy direct = codon, read_sulf = true)'
-               call sulf_interp_append_proof('sulf_interp entered (zero/copy direct = codon, read_sulf = true)')
+               write(iulog,'(A)') 'sulf_interp entered (unified zero/copy stage dispatch = codon, read_sulf = true)'
+               call sulf_interp_append_proof('sulf_interp entered (unified zero/copy stage dispatch = codon, read_sulf = true)')
             else
-               write(iulog,'(A)') 'sulf_interp entered (zero direct = codon, read_sulf = false)'
-               call sulf_interp_append_proof('sulf_interp entered (zero direct = codon, read_sulf = false)')
+               write(iulog,'(A)') 'sulf_interp entered (unified zero stage dispatch = codon, read_sulf = false)'
+               call sulf_interp_append_proof('sulf_interp entered (unified zero stage dispatch = codon, read_sulf = false)')
             end if
             sulf_interp_proof_written = .true.
          end if

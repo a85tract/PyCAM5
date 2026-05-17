@@ -108,8 +108,8 @@ contains
     rate_diags_batch_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'rate_diags_batch entered (set_rates/tagged conversion direct = codon)'
-       call rate_diags_batch_append_proof('rate_diags_batch entered (set_rates/tagged conversion direct = codon)')
+       write(iulog,*) 'rate_diags_batch entered (unified set-rates/tagged-conversion stage dispatch = codon)'
+       call rate_diags_batch_append_proof('rate_diags_batch entered (unified set-rates/tagged-conversion stage dispatch = codon)')
        call flush(iulog)
     end if
 
@@ -201,12 +201,12 @@ contains
     real(r8) :: group_rate(ncol,pver)
 
     interface
-       subroutine rate_diags_batch_codon(ncol_c, pver_c, rxntot_c, rxt_tag_cnt_c, &
-            rxt_rates_p, vmr_p, m_p, rxt_tag_map_p) bind(c, name="rate_diags_batch_codon")
+       subroutine rate_diags_batch_stage_dispatch_codon(ncol_c, pver_c, rxntot_c, rxt_tag_cnt_c, &
+            rxt_rates_p, vmr_p, m_p, rxt_tag_map_p) bind(c, name="rate_diags_batch_stage_dispatch_codon")
          use iso_c_binding, only : c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pver_c, rxntot_c, rxt_tag_cnt_c
          type(c_ptr), value :: rxt_rates_p, vmr_p, m_p, rxt_tag_map_p
-       end subroutine rate_diags_batch_codon
+       end subroutine rate_diags_batch_stage_dispatch_codon
     end interface
 
     call rate_diags_batch_select_impl()
@@ -224,7 +224,7 @@ contains
        do i = 1, rxt_tag_cnt
           rxt_tag_map_i64(i) = int(rxt_tag_map(i), c_int64_t)
        end do
-       call rate_diags_batch_codon(int(ncol, c_int64_t), int(pver, c_int64_t), int(rxntot, c_int64_t), &
+       call rate_diags_batch_stage_dispatch_codon(int(ncol, c_int64_t), int(pver, c_int64_t), int(rxntot, c_int64_t), &
             int(rxt_tag_cnt, c_int64_t), c_loc(rxt_rates), c_loc(vmr), c_loc(m), c_loc(rxt_tag_map_i64))
     end if
 

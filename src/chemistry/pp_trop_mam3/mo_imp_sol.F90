@@ -547,14 +547,14 @@ contains
     imp_sol_outer_batch_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'imp_sol_outer_batch entered (indprd/setup/iteration/copyback direct = codon)'
+       write(iulog,*) 'imp_sol_outer_batch entered (unified outer-solver stage dispatch = codon)'
        call flush(iulog)
 
        proof_file = ''
        call get_environment_variable('IMP_SOL_OUTER_BATCH_PROOF_FILE', value=proof_file, length=n, status=status)
        if (status == 0 .and. n > 0) then
           open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
-          write(unitno,*) 'imp_sol_outer_batch entered (indprd/setup/iteration/copyback direct = codon)'
+          write(unitno,*) 'imp_sol_outer_batch entered (unified outer-solver stage dispatch = codon)'
           close(unitno)
        end if
     end if
@@ -639,11 +639,11 @@ contains
           type(c_ptr), value :: lin_jac_p, sys_jac_p, prod_p, loss_p, lsol_p, lrxt_p, lhet_p
           type(c_ptr), value :: solution_p, iter_invariant_p, forcing_p
        end subroutine imp_sol_inner_batch_codon
-       subroutine imp_sol_outer_batch_codon(mode_c, i_c, lev_c, nr_iter_c, has_independent_c, &
+       subroutine imp_sol_outer_batch_stage_dispatch_codon(mode_c, i_c, lev_c, nr_iter_c, has_independent_c, &
             ncol_c, pver_c, gas_pcnst_c, rxntot_c, extcnt_c, clscnt4_c, dti_c, small_c, &
             base_sol_p, reaction_rates_p, het_rates_p, extfrc_p, ind_prd_p, clsmap4_p, &
             permute4_p, epsilon_p, max_delta_p, converged_code_p, convergence_code_p, &
-            lrxt_p, lhet_p, lsol_p, solution_p, iter_invariant_p, forcing_p) bind(c, name="imp_sol_outer_batch_codon")
+            lrxt_p, lhet_p, lsol_p, solution_p, iter_invariant_p, forcing_p) bind(c, name="imp_sol_outer_batch_stage_dispatch_codon")
           use iso_c_binding, only : c_double, c_int64_t, c_ptr
           integer(c_int64_t), value :: mode_c, i_c, lev_c, nr_iter_c, has_independent_c
           integer(c_int64_t), value :: ncol_c, pver_c, gas_pcnst_c, rxntot_c, extcnt_c, clscnt4_c
@@ -652,7 +652,7 @@ contains
           type(c_ptr), value :: clsmap4_p, permute4_p, epsilon_p, max_delta_p
           type(c_ptr), value :: converged_code_p, convergence_code_p
           type(c_ptr), value :: lrxt_p, lhet_p, lsol_p, solution_p, iter_invariant_p, forcing_p
-       end subroutine imp_sol_outer_batch_codon
+       end subroutine imp_sol_outer_batch_stage_dispatch_codon
     end interface
     call imp_sol_inner_batch_select_impl()
     call imp_sol_outer_batch_select_impl()
@@ -684,7 +684,7 @@ contains
        end if
     else
        call imp_sol_outer_batch_log_entered()
-       call imp_sol_outer_batch_codon(0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(has_independent, c_int64_t), &
+       call imp_sol_outer_batch_stage_dispatch_codon(0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(has_independent, c_int64_t), &
             int(ncol, c_int64_t), int(pver, c_int64_t), int(gas_pcnst, c_int64_t), int(rxntot, c_int64_t), &
             int(extcnt, c_int64_t), int(clscnt4, c_int64_t), 0._c_double, real(small, c_double), &
             c_loc(base_sol), c_loc(reaction_rates), c_loc(het_rates), c_loc(extfrc), c_loc(ind_prd), &
@@ -746,7 +746,7 @@ contains
                    end do
                 end if
              else
-                call imp_sol_outer_batch_codon(1_c_int64_t, int(i, c_int64_t), int(lev, c_int64_t), 0_c_int64_t, &
+                call imp_sol_outer_batch_stage_dispatch_codon(1_c_int64_t, int(i, c_int64_t), int(lev, c_int64_t), 0_c_int64_t, &
                      int(has_independent, c_int64_t), int(ncol, c_int64_t), int(pver, c_int64_t), &
                      int(gas_pcnst, c_int64_t), int(rxntot, c_int64_t), int(extcnt, c_int64_t), &
                      int(clscnt4, c_int64_t), real(dti, c_double), real(small, c_double), c_loc(base_sol), &
@@ -850,7 +850,7 @@ contains
                       end if
                    end if
                 else
-                   call imp_sol_outer_batch_codon(2_c_int64_t, int(i, c_int64_t), int(lev, c_int64_t), &
+                   call imp_sol_outer_batch_stage_dispatch_codon(2_c_int64_t, int(i, c_int64_t), int(lev, c_int64_t), &
                         int(nr_iter, c_int64_t), int(has_independent, c_int64_t), int(ncol, c_int64_t), &
                         int(pver, c_int64_t), int(gas_pcnst, c_int64_t), int(rxntot, c_int64_t), &
                         int(extcnt, c_int64_t), int(clscnt4, c_int64_t), real(dti, c_double), real(small, c_double), &
@@ -918,7 +918,7 @@ contains
                       base_sol(i,lev,m) = lsol(m)
                    end do
                 else
-                   call imp_sol_outer_batch_codon(3_c_int64_t, int(i, c_int64_t), int(lev, c_int64_t), 0_c_int64_t, &
+                   call imp_sol_outer_batch_stage_dispatch_codon(3_c_int64_t, int(i, c_int64_t), int(lev, c_int64_t), 0_c_int64_t, &
                         int(has_independent, c_int64_t), int(ncol, c_int64_t), int(pver, c_int64_t), &
                         int(gas_pcnst, c_int64_t), int(rxntot, c_int64_t), int(extcnt, c_int64_t), int(clscnt4, c_int64_t), &
                         real(dti, c_double), real(small, c_double), c_loc(base_sol), c_loc(reaction_rates), &
@@ -944,7 +944,7 @@ contains
                 base_sol(i,lev,j) = solution(m)
              end do cls_loop
           else
-             call imp_sol_outer_batch_codon(4_c_int64_t, int(i, c_int64_t), int(lev, c_int64_t), 0_c_int64_t, &
+             call imp_sol_outer_batch_stage_dispatch_codon(4_c_int64_t, int(i, c_int64_t), int(lev, c_int64_t), 0_c_int64_t, &
                   int(has_independent, c_int64_t), int(ncol, c_int64_t), int(pver, c_int64_t), &
                   int(gas_pcnst, c_int64_t), int(rxntot, c_int64_t), int(extcnt, c_int64_t), int(clscnt4, c_int64_t), &
                   real(dti, c_double), real(small, c_double), c_loc(base_sol), c_loc(reaction_rates), &

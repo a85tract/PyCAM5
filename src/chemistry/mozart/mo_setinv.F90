@@ -47,8 +47,8 @@ contains
     setinv_postprocess_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'setinv postprocess entered (tracer_const/dens-vmr output workspaces direct = codon)'
-       call setinv_append_impl_proof('setinv postprocess entered (tracer_const/dens-vmr output workspaces direct = codon)')
+       write(iulog,*) 'setinv postprocess entered (unified tracer/output stage dispatch = codon)'
+       call setinv_append_impl_proof('setinv postprocess entered (unified tracer/output stage dispatch = codon)')
        call flush(iulog)
     end if
 
@@ -142,12 +142,12 @@ contains
          real(c_double), value :: pa_xfac_c, boltz_cgs_c
          type(c_ptr), value :: tfld_p, h2ovmr_p, vmr_p, pmid_p, invariants_p
        end subroutine setinv_codon
-       subroutine setinv_apply_tracer_cnst_codon(ncol_c, pver_c, nfs_c, ndx_c, m_ndx_c, cnst_offline_p, &
-            invariants_p) bind(c, name="setinv_apply_tracer_cnst_codon")
+       subroutine setinv_apply_tracer_cnst_stage_dispatch_codon(ncol_c, pver_c, nfs_c, ndx_c, m_ndx_c, cnst_offline_p, &
+            invariants_p) bind(c, name="setinv_apply_tracer_cnst_stage_dispatch_codon")
          use iso_c_binding, only : c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pver_c, nfs_c, ndx_c, m_ndx_c
          type(c_ptr), value :: cnst_offline_p, invariants_p
-       end subroutine setinv_apply_tracer_cnst_codon
+       end subroutine setinv_apply_tracer_cnst_stage_dispatch_codon
        subroutine setinv_copy_invariant_codon(ncol_c, pver_c, nfs_c, inv_ndx_c, invariants_p, tmp_out_p) &
             bind(c, name="setinv_copy_invariant_codon")
          use iso_c_binding, only : c_int64_t, c_ptr
@@ -160,12 +160,12 @@ contains
          integer(c_int64_t), value :: ncol_c, pver_c, nfs_c, inv_ndx_c, m_ndx_c
          type(c_ptr), value :: invariants_p, tmp_out_p
        end subroutine setinv_vmr_output_codon
-       subroutine setinv_output_pair_codon(ncol_c, pver_c, nfs_c, inv_ndx_c, m_ndx_c, invariants_p, tmp_dens_p, tmp_vmr_p) &
-            bind(c, name="setinv_output_pair_codon")
+       subroutine setinv_output_pair_stage_dispatch_codon(ncol_c, pver_c, nfs_c, inv_ndx_c, m_ndx_c, invariants_p, tmp_dens_p, tmp_vmr_p) &
+            bind(c, name="setinv_output_pair_stage_dispatch_codon")
          use iso_c_binding, only : c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pver_c, nfs_c, inv_ndx_c, m_ndx_c
          type(c_ptr), value :: invariants_p, tmp_dens_p, tmp_vmr_p
-       end subroutine setinv_output_pair_codon
+       end subroutine setinv_output_pair_stage_dispatch_codon
     end interface
 
     call setinv_select_impl()
@@ -229,7 +229,7 @@ contains
           enddo
        else
           call setinv_log_postprocess_entered()
-          call setinv_apply_tracer_cnst_codon( &
+          call setinv_apply_tracer_cnst_stage_dispatch_codon( &
                int(ncol, c_int64_t), int(pver, c_int64_t), int(nfs, c_int64_t), int(ndx, c_int64_t), &
                int(m_ndx, c_int64_t), c_loc(cnst_offline), c_loc(invariants) &
           )
@@ -242,7 +242,7 @@ contains
         tmp_out(:ncol,:) =  invariants(:ncol,:,i)
       else
         call setinv_log_postprocess_entered()
-        call setinv_output_pair_codon( &
+        call setinv_output_pair_stage_dispatch_codon( &
              int(ncol, c_int64_t), int(pver, c_int64_t), int(nfs, c_int64_t), int(i, c_int64_t), int(m_ndx, c_int64_t), &
              c_loc(invariants), c_loc(tmp_out), c_loc(tmp_vmr_out) &
         )

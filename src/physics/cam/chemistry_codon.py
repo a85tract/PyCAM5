@@ -45,6 +45,28 @@ def sulf_interp_codon(
     )
 
 @export
+def sulf_interp_stage_dispatch_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    begchunk: int,
+    lchnk: int,
+    read_sulf_flag: int,
+    fields_data_p: cobj,
+    ccm_sulf_p: cobj,
+):
+    return sulf_interp_codon(
+        ncol,
+        pcols,
+        pver,
+        begchunk,
+        lchnk,
+        read_sulf_flag,
+        fields_data_p,
+        ccm_sulf_p,
+    )
+
+@export
 def jlong_timestep_init_codon(
     jlong_used_flag: int,
     nsrc: int,
@@ -1311,6 +1333,26 @@ def setinv_apply_tracer_cnst_codon(
     )
 
 @export
+def setinv_apply_tracer_cnst_stage_dispatch_codon(
+    ncol: int,
+    pver: int,
+    nfs: int,
+    ndx: int,
+    m_ndx: int,
+    cnst_offline_p: cobj,
+    invariants_p: cobj,
+):
+    return setinv_apply_tracer_cnst_codon(
+        ncol,
+        pver,
+        nfs,
+        ndx,
+        m_ndx,
+        cnst_offline_p,
+        invariants_p,
+    )
+
+@export
 def setinv_copy_invariant_codon(
     ncol: int,
     pver: int,
@@ -1360,6 +1402,28 @@ def setinv_output_pair_codon(
     tmp_vmr_p: cobj,
 ):
     return _gas_phase.setinv_output_pair_codon(
+        ncol,
+        pver,
+        nfs,
+        inv_ndx,
+        m_ndx,
+        invariants_p,
+        tmp_dens_p,
+        tmp_vmr_p,
+    )
+
+@export
+def setinv_output_pair_stage_dispatch_codon(
+    ncol: int,
+    pver: int,
+    nfs: int,
+    inv_ndx: int,
+    m_ndx: int,
+    invariants_p: cobj,
+    tmp_dens_p: cobj,
+    tmp_vmr_p: cobj,
+):
+    return setinv_output_pair_codon(
         ncol,
         pver,
         nfs,
@@ -4286,6 +4350,28 @@ def rate_diags_batch_codon(
     )
 
 @export
+def rate_diags_batch_stage_dispatch_codon(
+    ncol: int,
+    pver: int,
+    rxntot: int,
+    rxt_tag_cnt: int,
+    rxt_rates_p: cobj,
+    vmr_p: cobj,
+    m_p: cobj,
+    rxt_tag_map_p: cobj,
+):
+    return rate_diags_batch_codon(
+        ncol,
+        pver,
+        rxntot,
+        rxt_tag_cnt,
+        rxt_rates_p,
+        vmr_p,
+        m_p,
+        rxt_tag_map_p,
+    )
+
+@export
 def gas_phase_chemdr_init_reaction_rates_codon(
     ncol: int,
     pver: int,
@@ -5570,6 +5656,72 @@ def imp_sol_outer_batch_codon(
     forcing_p: cobj,
 ):
     return _gas_phase.imp_sol_outer_batch_codon(
+        mode,
+        i,
+        lev,
+        nr_iter,
+        has_independent,
+        ncol,
+        pver,
+        gas_pcnst,
+        rxntot,
+        extcnt,
+        clscnt4,
+        dti,
+        small,
+        base_sol_p,
+        reaction_rates_p,
+        het_rates_p,
+        extfrc_p,
+        ind_prd_p,
+        clsmap4_p,
+        permute4_p,
+        epsilon_p,
+        max_delta_p,
+        converged_code_p,
+        convergence_code_p,
+        lrxt_p,
+        lhet_p,
+        lsol_p,
+        solution_p,
+        iter_invariant_p,
+        forcing_p,
+    )
+
+@export
+def imp_sol_outer_batch_stage_dispatch_codon(
+    mode: int,
+    i: int,
+    lev: int,
+    nr_iter: int,
+    has_independent: int,
+    ncol: int,
+    pver: int,
+    gas_pcnst: int,
+    rxntot: int,
+    extcnt: int,
+    clscnt4: int,
+    dti: float,
+    small: float,
+    base_sol_p: cobj,
+    reaction_rates_p: cobj,
+    het_rates_p: cobj,
+    extfrc_p: cobj,
+    ind_prd_p: cobj,
+    clsmap4_p: cobj,
+    permute4_p: cobj,
+    epsilon_p: cobj,
+    max_delta_p: cobj,
+    converged_code_p: cobj,
+    convergence_code_p: cobj,
+    lrxt_p: cobj,
+    lhet_p: cobj,
+    lsol_p: cobj,
+    solution_p: cobj,
+    iter_invariant_p: cobj,
+    forcing_p: cobj,
+):
+    return imp_sol_outer_batch_codon(
         mode,
         i,
         lev,
