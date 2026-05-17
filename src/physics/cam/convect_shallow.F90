@@ -1177,6 +1177,80 @@ subroutine convect_shallow_append_proof(proof_line)
 
 end subroutine convect_shallow_append_proof
 
+subroutine convect_shallow_outer_stage_dispatch_call(stage_c, mode_c, ncol_c, pcols_c, pver_c, pverp_c, pcnst_c, &
+     wtrc_nwset_c, ixcldliq_c, ixcldice_c, vap_idx_c, ztodt_c, latvap_c, latice_c, zvir_c, cpair_c, &
+     p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p, p9_p, p10_p, p11_p, p12_p, p13_p, p14_p, p15_p, p16_p, &
+     p17_p, p18_p, p19_p, p20_p, p21_p, p22_p, p23_p, p24_p, p25_p, p26_p, p27_p, p28_p, p29_p, p30_p, p31_p, p32_p)
+
+   use iso_c_binding, only: c_double, c_int64_t, c_null_ptr, c_ptr
+
+   integer(c_int64_t), intent(in) :: stage_c, mode_c, ncol_c, pcols_c, pver_c, pverp_c, pcnst_c
+   integer(c_int64_t), intent(in) :: wtrc_nwset_c, ixcldliq_c, ixcldice_c, vap_idx_c
+   real(c_double), intent(in) :: ztodt_c, latvap_c, latice_c, zvir_c, cpair_c
+   type(c_ptr), intent(in), optional :: p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p
+   type(c_ptr), intent(in), optional :: p9_p, p10_p, p11_p, p12_p, p13_p, p14_p, p15_p, p16_p
+   type(c_ptr), intent(in), optional :: p17_p, p18_p, p19_p, p20_p, p21_p, p22_p, p23_p, p24_p
+   type(c_ptr), intent(in), optional :: p25_p, p26_p, p27_p, p28_p, p29_p, p30_p, p31_p, p32_p
+   type(c_ptr) :: q(32)
+
+   interface
+      subroutine convect_shallow_outer_stage_dispatch_codon(stage_c, mode_c, ncol_c, pcols_c, pver_c, pverp_c, &
+           pcnst_c, wtrc_nwset_c, ixcldliq_c, ixcldice_c, vap_idx_c, ztodt_c, latvap_c, latice_c, zvir_c, cpair_c, &
+           p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p, p9_p, p10_p, p11_p, p12_p, p13_p, p14_p, p15_p, p16_p, &
+           p17_p, p18_p, p19_p, p20_p, p21_p, p22_p, p23_p, p24_p, p25_p, p26_p, p27_p, p28_p, p29_p, p30_p, &
+           p31_p, p32_p) bind(c, name="convect_shallow_outer_stage_dispatch_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: stage_c, mode_c, ncol_c, pcols_c, pver_c, pverp_c, pcnst_c
+         integer(c_int64_t), value :: wtrc_nwset_c, ixcldliq_c, ixcldice_c, vap_idx_c
+         real(c_double), value :: ztodt_c, latvap_c, latice_c, zvir_c, cpair_c
+         type(c_ptr), value :: p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p
+         type(c_ptr), value :: p9_p, p10_p, p11_p, p12_p, p13_p, p14_p, p15_p, p16_p
+         type(c_ptr), value :: p17_p, p18_p, p19_p, p20_p, p21_p, p22_p, p23_p, p24_p
+         type(c_ptr), value :: p25_p, p26_p, p27_p, p28_p, p29_p, p30_p, p31_p, p32_p
+      end subroutine convect_shallow_outer_stage_dispatch_codon
+   end interface
+
+   q(:) = c_null_ptr
+   if (present(p1_p)) q(1) = p1_p
+   if (present(p2_p)) q(2) = p2_p
+   if (present(p3_p)) q(3) = p3_p
+   if (present(p4_p)) q(4) = p4_p
+   if (present(p5_p)) q(5) = p5_p
+   if (present(p6_p)) q(6) = p6_p
+   if (present(p7_p)) q(7) = p7_p
+   if (present(p8_p)) q(8) = p8_p
+   if (present(p9_p)) q(9) = p9_p
+   if (present(p10_p)) q(10) = p10_p
+   if (present(p11_p)) q(11) = p11_p
+   if (present(p12_p)) q(12) = p12_p
+   if (present(p13_p)) q(13) = p13_p
+   if (present(p14_p)) q(14) = p14_p
+   if (present(p15_p)) q(15) = p15_p
+   if (present(p16_p)) q(16) = p16_p
+   if (present(p17_p)) q(17) = p17_p
+   if (present(p18_p)) q(18) = p18_p
+   if (present(p19_p)) q(19) = p19_p
+   if (present(p20_p)) q(20) = p20_p
+   if (present(p21_p)) q(21) = p21_p
+   if (present(p22_p)) q(22) = p22_p
+   if (present(p23_p)) q(23) = p23_p
+   if (present(p24_p)) q(24) = p24_p
+   if (present(p25_p)) q(25) = p25_p
+   if (present(p26_p)) q(26) = p26_p
+   if (present(p27_p)) q(27) = p27_p
+   if (present(p28_p)) q(28) = p28_p
+   if (present(p29_p)) q(29) = p29_p
+   if (present(p30_p)) q(30) = p30_p
+   if (present(p31_p)) q(31) = p31_p
+   if (present(p32_p)) q(32) = p32_p
+
+   call convect_shallow_outer_stage_dispatch_codon(stage_c, mode_c, ncol_c, pcols_c, pver_c, pverp_c, &
+        pcnst_c, wtrc_nwset_c, ixcldliq_c, ixcldice_c, vap_idx_c, ztodt_c, latvap_c, latice_c, zvir_c, cpair_c, &
+        q(1), q(2), q(3), q(4), q(5), q(6), q(7), q(8), q(9), q(10), q(11), q(12), q(13), q(14), q(15), q(16), &
+        q(17), q(18), q(19), q(20), q(21), q(22), q(23), q(24), q(25), q(26), q(27), q(28), q(29), q(30), q(31), q(32))
+
+end subroutine convect_shallow_outer_stage_dispatch_call
+
 subroutine convect_shallow_log_init_shell_entered()
 
    use spmd_utils, only: masterproc
@@ -1185,8 +1259,8 @@ subroutine convect_shallow_log_init_shell_entered()
    convect_shallow_init_shell_logged = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'convect_shallow init shell entered (tpert/landfracdum init direct = codon)'
-      call convect_shallow_append_proof('convect_shallow init shell entered (tpert/landfracdum init direct = codon)')
+      write(iulog,'(A)') 'convect_shallow init shell entered (unified shallow-stage dispatch = codon)'
+      call convect_shallow_append_proof('convect_shallow init shell entered (unified shallow-stage dispatch = codon)')
       call flush(iulog)
    end if
 
@@ -1214,7 +1288,9 @@ subroutine convect_shallow_init_shell(ncol_local, tpert_local, landfracdum_local
    end if
 
    call convect_shallow_log_init_shell_entered()
-   call convect_shallow_init_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), &
+   call convect_shallow_outer_stage_dispatch_call(1_c_int64_t, 0_c_int64_t, int(ncol_local, c_int64_t), &
+        int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), 0_c_int64_t, &
+        0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
         c_loc(tpert_local), c_loc(landfracdum_local))
 
 end subroutine convect_shallow_init_shell
@@ -1237,9 +1313,9 @@ subroutine convect_shallow_log_ptend_lq_mask_shell_entered()
    convect_shallow_ptend_lq_mask_shell_logged = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'convect_shallow ptend lq mask shell entered (scheme ptend constituent mask direct = codon)'
+      write(iulog,'(A)') 'convect_shallow ptend lq mask shell entered (unified shallow-stage dispatch = codon)'
       call convect_shallow_append_proof( &
-           'convect_shallow ptend lq mask shell entered (scheme ptend constituent mask direct = codon)')
+           'convect_shallow ptend lq mask shell entered (unified shallow-stage dispatch = codon)')
       call flush(iulog)
    end if
 
@@ -1270,7 +1346,9 @@ subroutine convect_shallow_ptend_lq_mask_shell(pcnst_local, lq_local)
    end if
 
    call convect_shallow_log_ptend_lq_mask_shell_entered()
-   call convect_shallow_ptend_lq_mask_shell_codon(int(pcnst_local, c_int64_t), c_loc(lq_mask_c))
+   call convect_shallow_outer_stage_dispatch_call(2_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(pcols, c_int64_t), &
+        int(pver, c_int64_t), int(pverp, c_int64_t), int(pcnst_local, c_int64_t), 0_c_int64_t, &
+        0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, c_loc(lq_mask_c))
 
    do m = 1, pcnst_local
       lq_local(m) = lq_mask_c(m) /= 0_c_int64_t
@@ -1286,9 +1364,9 @@ subroutine convect_shallow_log_wtrc_precip_shell_entered()
    convect_shallow_wtrc_precip_shell_logged = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'convect_shallow wtrc precip shell entered (surface rain/snow water-tracer pbuf update direct = codon)'
+      write(iulog,'(A)') 'convect_shallow wtrc precip shell entered (unified shallow-stage dispatch = codon)'
       call convect_shallow_append_proof( &
-           'convect_shallow wtrc precip shell entered (surface rain/snow water-tracer pbuf update direct = codon)')
+           'convect_shallow wtrc precip shell entered (unified shallow-stage dispatch = codon)')
       call flush(iulog)
    end if
 
@@ -1313,7 +1391,9 @@ subroutine convect_shallow_wtrc_precip_shell(vap_idx, wtprect_local, wtsnowt_loc
    end interface
 
    call convect_shallow_log_wtrc_precip_shell_entered()
-   call convect_shallow_wtrc_precip_shell_codon(int(pcols, c_int64_t), int(vap_idx, c_int64_t), &
+   call convect_shallow_outer_stage_dispatch_call(3_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(pcols, c_int64_t), &
+        int(pver, c_int64_t), int(pverp, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+        0_c_int64_t, int(vap_idx, c_int64_t), 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
         c_loc(wtprect_local), c_loc(wtsnowt_local), c_loc(wtprec_local), c_loc(wtsnow_local))
 
 end subroutine convect_shallow_wtrc_precip_shell
@@ -1326,8 +1406,8 @@ subroutine convect_shallow_log_diag_shell_entered()
    convect_shallow_diag_shell_logged = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'convect_shallow diag shell entered (pre/aft Cu thermo/RH/tendency diagnostics direct = codon)'
-      call convect_shallow_append_proof('convect_shallow diag shell entered (pre/aft Cu thermo/RH/tendency diagnostics direct = codon)')
+      write(iulog,'(A)') 'convect_shallow diag shell entered (unified shallow-stage dispatch = codon)'
+      call convect_shallow_append_proof('convect_shallow diag shell entered (unified shallow-stage dispatch = codon)')
       call flush(iulog)
    end if
 
@@ -1364,11 +1444,13 @@ subroutine convect_shallow_diag_shell(mode, ncol_local, ixcldliq_local, ixcldice
 
    call convect_shallow_log_diag_shell_entered()
 
-   call convect_shallow_diag_shell_codon(int(mode, c_int64_t), int(ncol_local, c_int64_t), int(pcols, c_int64_t), &
-        int(pver, c_int64_t), int(ixcldliq_local, c_int64_t), int(ixcldice_local, c_int64_t), real(ztodt_local, c_double), &
-        real(latvap, c_double), real(latice, c_double), real(zvir, c_double), c_loc(state_s_local), c_loc(state_t_local), &
-        c_loc(state_q_local), c_loc(sat_rh_local), c_loc(sl_local), c_loc(qt_local), c_loc(slv_local), c_loc(t_precu_local), &
-        c_loc(rh_precu_local), c_loc(tten_local), c_loc(rhten_local))
+   call convect_shallow_outer_stage_dispatch_call(4_c_int64_t, int(mode, c_int64_t), int(ncol_local, c_int64_t), &
+        int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), int(pcnst, c_int64_t), &
+        0_c_int64_t, int(ixcldliq_local, c_int64_t), int(ixcldice_local, c_int64_t), 0_c_int64_t, &
+        real(ztodt_local, c_double), real(latvap, c_double), real(latice, c_double), real(zvir, c_double), &
+        0._r8, c_loc(state_s_local), c_loc(state_t_local), c_loc(state_q_local), c_loc(sat_rh_local), &
+        c_loc(sl_local), c_loc(qt_local), c_loc(slv_local), c_loc(t_precu_local), c_loc(rh_precu_local), &
+        c_loc(tten_local), c_loc(rhten_local))
 
 end subroutine convect_shallow_diag_shell
 
@@ -1380,8 +1462,8 @@ subroutine convect_shallow_log_uw_post_shell_entered()
    convect_shallow_uw_post_shell_logged = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'convect_shallow uw post shell entered (UW postmerge/flux/history prep direct = codon)'
-      call convect_shallow_append_proof('convect_shallow uw post shell entered (UW postmerge/flux/history prep direct = codon)')
+      write(iulog,'(A)') 'convect_shallow uw post shell entered (unified shallow-stage dispatch = codon)'
+      call convect_shallow_append_proof('convect_shallow uw post shell entered (unified shallow-stage dispatch = codon)')
       call flush(iulog)
    end if
 
@@ -1433,14 +1515,16 @@ subroutine convect_shallow_uw_post_shell(ncol_local, state_pmid_local, cmfmc_loc
    end do
 
    call convect_shallow_log_uw_post_shell_entered()
-   call convect_shallow_uw_post_shell_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-        int(pverp, c_int64_t), int(pcnst, c_int64_t), int(wtrc_nwset, c_int64_t), real(latvap, c_double), real(cpair, c_double), &
-        c_loc(state_pmid_local), c_loc(cmfmc_local), c_loc(cmfmc2_local), c_loc(cnt_local), c_loc(cnt2_local), c_loc(cnb_local), &
-        c_loc(cnb2_local), c_loc(pcnt_local), c_loc(pcnb_local), c_loc(qc_local), c_loc(qc2_local), c_loc(rliq_local), &
-        c_loc(rliq2_local), c_loc(wtqc_local), c_loc(wtdlf_local), c_loc(freqsh_local), c_loc(icwmr_local), c_loc(iccmr_uw_local), &
-        c_loc(rprdsh_local), c_loc(cmfdqs_local), c_loc(ptend_q_local), c_loc(ptend_tracer_local), c_loc(cmfsl_local), &
-        c_loc(cmflq_local), c_loc(slflx_local), c_loc(qtflx_local), c_loc(rprddp_local), c_loc(rprdtot_local), c_loc(ptend_s_local), &
-        c_loc(ftem_local), c_loc(liq_type_c), c_loc(ice_type_c))
+   call convect_shallow_outer_stage_dispatch_call(5_c_int64_t, 0_c_int64_t, int(ncol_local, c_int64_t), &
+        int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), int(pcnst, c_int64_t), &
+        int(wtrc_nwset, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._r8, real(latvap, c_double), &
+        0._r8, 0._r8, real(cpair, c_double), c_loc(state_pmid_local), c_loc(cmfmc_local), c_loc(cmfmc2_local), &
+        c_loc(cnt_local), c_loc(cnt2_local), c_loc(cnb_local), c_loc(cnb2_local), c_loc(pcnt_local), c_loc(pcnb_local), &
+        c_loc(qc_local), c_loc(qc2_local), c_loc(rliq_local), c_loc(rliq2_local), c_loc(wtqc_local), c_loc(wtdlf_local), &
+        c_loc(freqsh_local), c_loc(icwmr_local), c_loc(iccmr_uw_local), c_loc(rprdsh_local), c_loc(cmfdqs_local), &
+        c_loc(ptend_q_local), c_loc(ptend_tracer_local), c_loc(cmfsl_local), c_loc(cmflq_local), c_loc(slflx_local), &
+        c_loc(qtflx_local), c_loc(rprddp_local), c_loc(rprdtot_local), c_loc(ptend_s_local), c_loc(ftem_local), &
+        c_loc(liq_type_c), c_loc(ice_type_c))
 
 end subroutine convect_shallow_uw_post_shell
 
