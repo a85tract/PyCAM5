@@ -20,6 +20,12 @@ def _idx2_dim1_lb0(k0: int, b: int, ub1: int) -> int:
 
 
 @inline
+def _idx2_dim2_lb(i: int, b: int, ld1: int, lb2: int) -> int:
+    """Fortran array declared as (ld1, lb2:ub2)."""
+    return (i - 1) + (b - lb2) * ld1
+
+
+@inline
 def _idx3(a: int, b: int, c: int, ld1: int, ld2: int) -> int:
     """Fortran array declared as (ld1, ld2, n3), bounds starting at 1."""
     return (a - 1) + (b - 1) * ld1 + (c - 1) * ld1 * ld2
@@ -862,6 +868,296 @@ def rrtmg_lw_cldprmc_codon(
                     taucmc[mc_idx] = (
                         ciwpmc[mc_idx] * abscoice + clwpmc[mc_idx] * abscoliq
                     )
+
+
+@inline
+def _rrtmg_sw_ec_icx(wavenum2: float) -> int:
+    if wavenum2 > 1.43e04:
+        return 1
+    if wavenum2 > 7.7e03:
+        return 2
+    if wavenum2 > 5.3e03:
+        return 3
+    if wavenum2 > 4.0e03:
+        return 4
+    return 5
+
+
+@export
+def rrtmg_sw_cldprmc_codon(
+    nlayers: int,
+    inflag: int,
+    iceflag: int,
+    liqflag: int,
+    ngptsw: int,
+    jpb1: int,
+    cldfmc_p: cobj,
+    ciwpmc_p: cobj,
+    clwpmc_p: cobj,
+    reicmc_p: cobj,
+    dgesmc_p: cobj,
+    relqmc_p: cobj,
+    taormc_p: cobj,
+    taucmc_p: cobj,
+    ssacmc_p: cobj,
+    asmcmc_p: cobj,
+    fsfcmc_p: cobj,
+    extliq1_p: cobj,
+    ssaliq1_p: cobj,
+    asyliq1_p: cobj,
+    extice2_p: cobj,
+    ssaice2_p: cobj,
+    asyice2_p: cobj,
+    extice3_p: cobj,
+    ssaice3_p: cobj,
+    asyice3_p: cobj,
+    fdlice3_p: cobj,
+    abari_p: cobj,
+    bbari_p: cobj,
+    cbari_p: cobj,
+    dbari_p: cobj,
+    ebari_p: cobj,
+    fbari_p: cobj,
+    wavenum2_p: cobj,
+    ngb_p: cobj,
+):
+    cldfmc = Ptr[float](cldfmc_p)
+    ciwpmc = Ptr[float](ciwpmc_p)
+    clwpmc = Ptr[float](clwpmc_p)
+    reicmc = Ptr[float](reicmc_p)
+    dgesmc = Ptr[float](dgesmc_p)
+    relqmc = Ptr[float](relqmc_p)
+    taormc = Ptr[float](taormc_p)
+    taucmc = Ptr[float](taucmc_p)
+    ssacmc = Ptr[float](ssacmc_p)
+    asmcmc = Ptr[float](asmcmc_p)
+    fsfcmc = Ptr[float](fsfcmc_p)
+    extliq1 = Ptr[float](extliq1_p)
+    ssaliq1 = Ptr[float](ssaliq1_p)
+    asyliq1 = Ptr[float](asyliq1_p)
+    extice2 = Ptr[float](extice2_p)
+    ssaice2 = Ptr[float](ssaice2_p)
+    asyice2 = Ptr[float](asyice2_p)
+    extice3 = Ptr[float](extice3_p)
+    ssaice3 = Ptr[float](ssaice3_p)
+    asyice3 = Ptr[float](asyice3_p)
+    fdlice3 = Ptr[float](fdlice3_p)
+    abari = Ptr[float](abari_p)
+    bbari = Ptr[float](bbari_p)
+    cbari = Ptr[float](cbari_p)
+    dbari = Ptr[float](dbari_p)
+    ebari = Ptr[float](ebari_p)
+    fbari = Ptr[float](fbari_p)
+    wavenum2 = Ptr[float](wavenum2_p)
+    ngb = Ptr[int](ngb_p)
+
+    eps = 1.0e-06
+    cldmin = 1.0e-80
+
+    for lay in range(1, nlayers + 1):
+        for ig in range(1, ngptsw + 1):
+            mc_idx = _idx2(ig, lay, ngptsw)
+            taormc[mc_idx] = taucmc[mc_idx]
+
+    for lay in range(1, nlayers + 1):
+        for ig in range(1, ngptsw + 1):
+            mc_idx = _idx2(ig, lay, ngptsw)
+            cwp = ciwpmc[mc_idx] + clwpmc[mc_idx]
+            if cldfmc[mc_idx] >= cldmin and (
+                cwp >= cldmin or taucmc[mc_idx] >= cldmin
+            ):
+                if inflag == 0:
+                    taucldorig_a = taucmc[mc_idx]
+                    ffp = fsfcmc[mc_idx]
+                    ffp1 = 1.0 - ffp
+                    ffpssa = 1.0 - ffp * ssacmc[mc_idx]
+                    ssacloud_a = ffp1 * ssacmc[mc_idx] / ffpssa
+                    taucloud_a = ffpssa * taucldorig_a
+
+                    taormc[mc_idx] = taucldorig_a
+                    ssacmc[mc_idx] = ssacloud_a
+                    taucmc[mc_idx] = taucloud_a
+                    asmcmc[mc_idx] = (asmcmc[mc_idx] - ffp) / (ffp1)
+                elif inflag == 2:
+                    radice = reicmc[lay - 1]
+                    extcoice = 0.0
+                    ssacoice = 0.0
+                    gice = 0.0
+                    forwice = 0.0
+
+                    if ciwpmc[mc_idx] == 0.0:
+                        extcoice = 0.0
+                        ssacoice = 0.0
+                        gice = 0.0
+                        forwice = 0.0
+                    elif iceflag == 1:
+                        ib = ngb[ig - 1]
+                        icx = _rrtmg_sw_ec_icx(wavenum2[ib - jpb1])
+                        extcoice = abari[icx - 1] + bbari[icx - 1] / radice
+                        ssacoice = 1.0 - cbari[icx - 1] - dbari[icx - 1] * radice
+                        gice = ebari[icx - 1] + fbari[icx - 1] * radice
+                        if gice >= 1.0:
+                            gice = 1.0 - eps
+                        forwice = gice * gice
+                    elif iceflag == 2:
+                        if radice >= 5.0 and radice <= 131.0:
+                            factor = (radice - 2.0) / 3.0
+                            index = int(factor)
+                            if index == 43:
+                                index = 42
+                            fint = factor - float(index)
+                            ib = ngb[ig - 1]
+                            extcoice = extice2[
+                                _idx2_dim2_lb(index, ib, 43, jpb1)
+                            ] + fint * (
+                                extice2[_idx2_dim2_lb(index + 1, ib, 43, jpb1)]
+                                - extice2[_idx2_dim2_lb(index, ib, 43, jpb1)]
+                            )
+                            ssacoice = ssaice2[
+                                _idx2_dim2_lb(index, ib, 43, jpb1)
+                            ] + fint * (
+                                ssaice2[_idx2_dim2_lb(index + 1, ib, 43, jpb1)]
+                                - ssaice2[_idx2_dim2_lb(index, ib, 43, jpb1)]
+                            )
+                            gice = asyice2[
+                                _idx2_dim2_lb(index, ib, 43, jpb1)
+                            ] + fint * (
+                                asyice2[_idx2_dim2_lb(index + 1, ib, 43, jpb1)]
+                                - asyice2[_idx2_dim2_lb(index, ib, 43, jpb1)]
+                            )
+                            forwice = gice * gice
+                        elif radice > 131.0:
+                            ib = ngb[ig - 1]
+                            icx = _rrtmg_sw_ec_icx(wavenum2[ib - jpb1])
+                            extcoice = abari[icx - 1] + bbari[icx - 1] / radice
+                            ssacoice = 1.0 - cbari[icx - 1] - dbari[icx - 1] * radice
+                            gice = ebari[icx - 1] + fbari[icx - 1] * radice
+                            if gice >= 1.0:
+                                gice = 1.0 - eps
+                            forwice = gice * gice
+                    elif iceflag == 3:
+                        dgeice = dgesmc[lay - 1]
+                        if dgeice >= 5.0 and dgeice <= 140.0:
+                            factor = (dgeice - 2.0) / 3.0
+                            index = int(factor)
+                            if index == 46:
+                                index = 45
+                            fint = factor - float(index)
+                            ib = ngb[ig - 1]
+                            extcoice = extice3[
+                                _idx2_dim2_lb(index, ib, 46, jpb1)
+                            ] + fint * (
+                                extice3[_idx2_dim2_lb(index + 1, ib, 46, jpb1)]
+                                - extice3[_idx2_dim2_lb(index, ib, 46, jpb1)]
+                            )
+                            ssacoice = ssaice3[
+                                _idx2_dim2_lb(index, ib, 46, jpb1)
+                            ] + fint * (
+                                ssaice3[_idx2_dim2_lb(index + 1, ib, 46, jpb1)]
+                                - ssaice3[_idx2_dim2_lb(index, ib, 46, jpb1)]
+                            )
+                            gice = asyice3[
+                                _idx2_dim2_lb(index, ib, 46, jpb1)
+                            ] + fint * (
+                                asyice3[_idx2_dim2_lb(index + 1, ib, 46, jpb1)]
+                                - asyice3[_idx2_dim2_lb(index, ib, 46, jpb1)]
+                            )
+                            fdelta = fdlice3[
+                                _idx2_dim2_lb(index, ib, 46, jpb1)
+                            ] + fint * (
+                                fdlice3[_idx2_dim2_lb(index + 1, ib, 46, jpb1)]
+                                - fdlice3[_idx2_dim2_lb(index, ib, 46, jpb1)]
+                            )
+                            forwice = fdelta + 0.5 / ssacoice
+                            if forwice > gice:
+                                forwice = gice
+                        elif dgeice > 140.0:
+                            ib = ngb[ig - 1]
+                            icx = _rrtmg_sw_ec_icx(wavenum2[ib - jpb1])
+                            extcoice = abari[icx - 1] + bbari[icx - 1] / radice
+                            ssacoice = 1.0 - cbari[icx - 1] - dbari[icx - 1] * radice
+                            gice = ebari[icx - 1] + fbari[icx - 1] * radice
+                            if gice >= 1.0:
+                                gice = 1.0 - eps
+                            forwice = gice * gice
+
+                    extcoliq = 0.0
+                    ssacoliq = 0.0
+                    gliq = 0.0
+                    forwliq = 0.0
+
+                    if clwpmc[mc_idx] == 0.0:
+                        extcoliq = 0.0
+                        ssacoliq = 0.0
+                        gliq = 0.0
+                        forwliq = 0.0
+                    elif liqflag == 1:
+                        radliq = relqmc[lay - 1]
+                        index = int(radliq - 1.5)
+                        if index == 0:
+                            index = 1
+                        if index == 58:
+                            index = 57
+                        fint = radliq - 1.5 - float(index)
+                        ib = ngb[ig - 1]
+                        extcoliq = extliq1[
+                            _idx2_dim2_lb(index, ib, 58, jpb1)
+                        ] + fint * (
+                            extliq1[_idx2_dim2_lb(index + 1, ib, 58, jpb1)]
+                            - extliq1[_idx2_dim2_lb(index, ib, 58, jpb1)]
+                        )
+                        ssacoliq = ssaliq1[
+                            _idx2_dim2_lb(index, ib, 58, jpb1)
+                        ] + fint * (
+                            ssaliq1[_idx2_dim2_lb(index + 1, ib, 58, jpb1)]
+                            - ssaliq1[_idx2_dim2_lb(index, ib, 58, jpb1)]
+                        )
+                        if fint < 0.0 and ssacoliq > 1.0:
+                            ssacoliq = ssaliq1[
+                                _idx2_dim2_lb(index, ib, 58, jpb1)
+                            ]
+                        gliq = asyliq1[
+                            _idx2_dim2_lb(index, ib, 58, jpb1)
+                        ] + fint * (
+                            asyliq1[_idx2_dim2_lb(index + 1, ib, 58, jpb1)]
+                            - asyliq1[_idx2_dim2_lb(index, ib, 58, jpb1)]
+                        )
+                        forwliq = gliq * gliq
+
+                    tauliqorig = clwpmc[mc_idx] * extcoliq
+                    tauiceorig = ciwpmc[mc_idx] * extcoice
+                    taormc[mc_idx] = tauliqorig + tauiceorig
+
+                    ssaliq = ssacoliq * (1.0 - forwliq) / (
+                        1.0 - forwliq * ssacoliq
+                    )
+                    tauliq = (1.0 - forwliq * ssacoliq) * tauliqorig
+                    ssaice = ssacoice * (1.0 - forwice) / (
+                        1.0 - forwice * ssacoice
+                    )
+                    tauice = (1.0 - forwice * ssacoice) * tauiceorig
+
+                    scatliq = ssaliq * tauliq
+                    scatice = ssaice * tauice
+                    taucmc[mc_idx] = tauliq + tauice
+
+                    if taucmc[mc_idx] == 0.0:
+                        taucmc[mc_idx] = cldmin
+                    if scatice == 0.0:
+                        scatice = cldmin
+
+                    ssacmc[mc_idx] = (scatliq + scatice) / taucmc[mc_idx]
+
+                    if iceflag == 3:
+                        asmcmc[mc_idx] = (1.0 / (scatliq + scatice)) * (
+                            scatliq * (gliq - forwliq) / (1.0 - forwliq)
+                            + scatice * ((gice - forwice) / (1.0 - forwice))
+                        )
+                    else:
+                        asmcmc[mc_idx] = (
+                            scatliq * (gliq - forwliq) / (1.0 - forwliq)
+                            + scatice * (gice - forwice) / (1.0 - forwice)
+                        ) / (scatliq + scatice)
 
 
 @inline

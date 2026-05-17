@@ -18,6 +18,8 @@
 ! ------- Modules -------
 
       use shr_kind_mod, only: r8 => shr_kind_r8
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
 
 !      use parkind, only : jpim, jprb
       use parrrsw, only : ngptsw, jpband, jpb1, jpb2
@@ -29,11 +31,94 @@
       use rrsw_vsn, only : hvrclc, hnamclc
 
       implicit none
+      save
+
+      logical :: use_native_cldprmc_sw_impl = .false.
+      logical :: cldprmc_sw_impl_selected = .false.
+      logical :: cldprmc_sw_entered_logged = .false.
 
       contains
 
 ! ----------------------------------------------------------------------------
       subroutine cldprmc_sw(nlayers, inflag, iceflag, liqflag, cldfmc, &
+                            ciwpmc, clwpmc, reicmc, dgesmc, relqmc, &
+                            taormc, taucmc, ssacmc, asmcmc, fsfcmc)
+! ----------------------------------------------------------------------------
+      use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+      integer, intent(in) :: nlayers
+      integer, intent(in) :: inflag
+      integer, intent(in) :: iceflag
+      integer, intent(in) :: liqflag
+
+      real(kind=r8), target, intent(in) :: cldfmc(:,:)
+      real(kind=r8), target, intent(in) :: ciwpmc(:,:)
+      real(kind=r8), target, intent(in) :: clwpmc(:,:)
+      real(kind=r8), target, intent(in) :: relqmc(:)
+      real(kind=r8), target, intent(in) :: reicmc(:)
+      real(kind=r8), target, intent(in) :: dgesmc(:)
+      real(kind=r8), target, intent(in) :: fsfcmc(:,:)
+
+      real(kind=r8), target, intent(inout) :: taucmc(:,:)
+      real(kind=r8), target, intent(inout) :: ssacmc(:,:)
+      real(kind=r8), target, intent(inout) :: asmcmc(:,:)
+      real(kind=r8), target, intent(out) :: taormc(:,:)
+
+      integer :: ig
+      integer(c_int64_t), target :: ngb64(ngptsw)
+
+      interface
+         subroutine rrtmg_sw_cldprmc_codon(nlayers_c, inflag_c, iceflag_c, liqflag_c, &
+              ngptsw_c, jpb1_c, cldfmc_p, ciwpmc_p, clwpmc_p, reicmc_p, dgesmc_p, &
+              relqmc_p, taormc_p, taucmc_p, ssacmc_p, asmcmc_p, fsfcmc_p, &
+              extliq1_p, ssaliq1_p, asyliq1_p, extice2_p, ssaice2_p, asyice2_p, &
+              extice3_p, ssaice3_p, asyice3_p, fdlice3_p, abari_p, bbari_p, &
+              cbari_p, dbari_p, ebari_p, fbari_p, wavenum2_p, ngb_p) &
+              bind(c, name="rrtmg_sw_cldprmc_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: nlayers_c, inflag_c, iceflag_c, liqflag_c
+            integer(c_int64_t), value :: ngptsw_c, jpb1_c
+            type(c_ptr), value :: cldfmc_p, ciwpmc_p, clwpmc_p, reicmc_p, dgesmc_p, relqmc_p
+            type(c_ptr), value :: taormc_p, taucmc_p, ssacmc_p, asmcmc_p, fsfcmc_p
+            type(c_ptr), value :: extliq1_p, ssaliq1_p, asyliq1_p
+            type(c_ptr), value :: extice2_p, ssaice2_p, asyice2_p
+            type(c_ptr), value :: extice3_p, ssaice3_p, asyice3_p, fdlice3_p
+            type(c_ptr), value :: abari_p, bbari_p, cbari_p, dbari_p, ebari_p, fbari_p
+            type(c_ptr), value :: wavenum2_p, ngb_p
+         end subroutine rrtmg_sw_cldprmc_codon
+      end interface
+
+      hvrclc = '$Revision: 1.4 $'
+
+      call cldprmc_sw_select_impl()
+      if (use_native_cldprmc_sw_impl) then
+         call cldprmc_sw_native(nlayers, inflag, iceflag, liqflag, cldfmc, ciwpmc, &
+              clwpmc, reicmc, dgesmc, relqmc, taormc, taucmc, ssacmc, asmcmc, fsfcmc)
+      else
+         do ig = 1, ngptsw
+            ngb64(ig) = int(ngb(ig), c_int64_t)
+         enddo
+
+         call cldprmc_sw_log_entered()
+         call rrtmg_sw_cldprmc_codon( &
+              int(nlayers, c_int64_t), int(inflag, c_int64_t), int(iceflag, c_int64_t), &
+              int(liqflag, c_int64_t), int(ngptsw, c_int64_t), int(jpb1, c_int64_t), &
+              c_loc(cldfmc(1,1)), c_loc(ciwpmc(1,1)), c_loc(clwpmc(1,1)), &
+              c_loc(reicmc(1)), c_loc(dgesmc(1)), c_loc(relqmc(1)), c_loc(taormc(1,1)), &
+              c_loc(taucmc(1,1)), c_loc(ssacmc(1,1)), c_loc(asmcmc(1,1)), c_loc(fsfcmc(1,1)), &
+              c_loc(extliq1(1,jpb1)), c_loc(ssaliq1(1,jpb1)), c_loc(asyliq1(1,jpb1)), &
+              c_loc(extice2(1,jpb1)), c_loc(ssaice2(1,jpb1)), c_loc(asyice2(1,jpb1)), &
+              c_loc(extice3(1,jpb1)), c_loc(ssaice3(1,jpb1)), c_loc(asyice3(1,jpb1)), &
+              c_loc(fdlice3(1,jpb1)), c_loc(abari(1)), c_loc(bbari(1)), c_loc(cbari(1)), &
+              c_loc(dbari(1)), c_loc(ebari(1)), c_loc(fbari(1)), c_loc(wavenum2(jpb1)), &
+              c_loc(ngb64(1)) &
+         )
+      endif
+
+      end subroutine cldprmc_sw
+
+! ----------------------------------------------------------------------------
+      subroutine cldprmc_sw_native(nlayers, inflag, iceflag, liqflag, cldfmc, &
                             ciwpmc, clwpmc, reicmc, dgesmc, relqmc, &
                             taormc, taucmc, ssacmc, asmcmc, fsfcmc)
 ! ----------------------------------------------------------------------------
@@ -384,7 +469,55 @@
 ! End layer loop
       enddo
 
-      end subroutine cldprmc_sw
+      end subroutine cldprmc_sw_native
+
+! --------------------------------------------------------------------------
+      subroutine cldprmc_sw_select_impl()
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (cldprmc_sw_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('RRTMG_SW_CLDPRMC_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_cldprmc_sw_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_cldprmc_sw_impl = .false.
+      end if
+
+      cldprmc_sw_impl_selected = .true.
+
+      if (masterproc) then
+         if (use_native_cldprmc_sw_impl) then
+            write(iulog,*) 'rrtmg_sw_cldprmc implementation = native'
+         else
+            write(iulog,*) 'rrtmg_sw_cldprmc implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine cldprmc_sw_select_impl
+
+! --------------------------------------------------------------------------
+      subroutine cldprmc_sw_log_entered()
+
+      if (cldprmc_sw_entered_logged) return
+      cldprmc_sw_entered_logged = .true.
+
+      if (masterproc) then
+         write(iulog,*) 'rrtmg_sw_cldprmc entered (mcica shortwave cloud optical properties = codon)'
+         call flush(iulog)
+      end if
+
+      end subroutine cldprmc_sw_log_entered
 
       end module rrtmg_sw_cldprmc
-

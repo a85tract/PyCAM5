@@ -34,11 +34,10 @@
 !                    Ebert and Curry, jgr, 97, 3831-3836, 1992.
 !------------------------------------------------------------------
 
-      real(kind=r8) :: extliq1(58,16:29), ssaliq1(58,16:29), asyliq1(58,16:29)
-      real(kind=r8) :: extice2(43,16:29), ssaice2(43,16:29), asyice2(43,16:29)
-      real(kind=r8) :: extice3(46,16:29), ssaice3(46,16:29), asyice3(46,16:29)
-      real(kind=r8) :: fdlice3(46,16:29)
-      real(kind=r8) :: abari(5),bbari(5),cbari(5),dbari(5),ebari(5),fbari(5)
+      real(kind=r8), target :: extliq1(58,16:29), ssaliq1(58,16:29), asyliq1(58,16:29)
+      real(kind=r8), target :: extice2(43,16:29), ssaice2(43,16:29), asyice2(43,16:29)
+      real(kind=r8), target :: extice3(46,16:29), ssaice3(46,16:29), asyice3(46,16:29)
+      real(kind=r8), target :: fdlice3(46,16:29)
+      real(kind=r8), target :: abari(5),bbari(5),cbari(5),dbari(5),ebari(5),fbari(5)
 
       end module rrsw_cld
-

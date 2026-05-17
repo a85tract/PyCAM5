@@ -41,9 +41,9 @@
       integer :: nspa(jpb1:jpb2)
       integer :: nspb(jpb1:jpb2)
 
-      real(kind=r8) :: wavenum1(jpb1:jpb2)
-      real(kind=r8) :: wavenum2(jpb1:jpb2)
-      real(kind=r8) :: delwave(jpb1:jpb2)
+      real(kind=r8), target :: wavenum1(jpb1:jpb2)
+      real(kind=r8), target :: wavenum2(jpb1:jpb2)
+      real(kind=r8), target :: delwave(jpb1:jpb2)
 
       integer :: ngc(nbndsw)
       integer :: ngs(nbndsw)
