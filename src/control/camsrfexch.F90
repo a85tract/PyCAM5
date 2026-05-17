@@ -669,8 +669,8 @@ subroutine cam_export_log_entered()
    cam_export_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'cam_export entered (state/qbot/precip/surface/co2/water transfer direct = codon)'
-      call cam_export_append_proof('cam_export entered (state/qbot/precip/surface/co2/water transfer direct = codon)')
+      write(iulog,'(A)') 'cam_export entered (unified state/qbot/precip/surface/co2/water transfer stage dispatch = codon)'
+      call cam_export_append_proof('cam_export entered (unified state/qbot/precip/surface/co2/water transfer stage dispatch = codon)')
       call flush(iulog)
    end if
 
@@ -791,7 +791,7 @@ subroutine cam_export(state,cam_out,pbuf)
    real(r8), pointer :: precsc_18O(:)
 
    interface
-      subroutine cam_export_core_codon(ncol_c, pcols_c, pver_c, pcnst_c, rair_c, &
+      subroutine cam_export_core_stage_dispatch_codon(ncol_c, pcols_c, pver_c, pcnst_c, rair_c, &
            mwdry_c, mwco2_c, co2diag_val_c, co2_transport_c, co2_idx_c, trace_water_c, &
            exist16_c, existD_c, exist18_c, &
            state_t_p, state_exner_p, state_zm_p, state_u_p, state_v_p, state_pmid_p, state_q_p, &
@@ -805,7 +805,7 @@ subroutine cam_export(state,cam_out,pbuf)
            precrl_16O_out_p, precsl_16O_out_p, precrc_16O_out_p, precsc_16O_out_p, &
            precrl_HDO_out_p, precsl_HDO_out_p, precrc_HDO_out_p, precsc_HDO_out_p, &
            precrl_18O_out_p, precsl_18O_out_p, precrc_18O_out_p, precsc_18O_out_p) &
-           bind(c, name="cam_export_core_codon")
+           bind(c, name="cam_export_core_stage_dispatch_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c
          integer(c_int64_t), value :: co2_transport_c, co2_idx_c, trace_water_c
@@ -822,7 +822,7 @@ subroutine cam_export(state,cam_out,pbuf)
          type(c_ptr), value :: precrl_16O_out_p, precsl_16O_out_p, precrc_16O_out_p, precsc_16O_out_p
          type(c_ptr), value :: precrl_HDO_out_p, precsl_HDO_out_p, precrc_HDO_out_p, precsc_HDO_out_p
          type(c_ptr), value :: precrl_18O_out_p, precsl_18O_out_p, precrc_18O_out_p, precsc_18O_out_p
-      end subroutine cam_export_core_codon
+      end subroutine cam_export_core_stage_dispatch_codon
    end interface
 
    !NOTE:  This water tracer code can currently only handle three water tracers/isotopes.
@@ -951,7 +951,7 @@ subroutine cam_export(state,cam_out,pbuf)
       end do
    else
       call cam_export_log_entered()
-      call cam_export_core_codon( &
+      call cam_export_core_stage_dispatch_codon( &
            int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
            real(rair, c_double), real(mwdry, c_double), real(mwco2, c_double), real(co2diag_val, c_double), &
            merge(1_c_int64_t, 0_c_int64_t, co2_transport()), int(c_i(4), c_int64_t), &
