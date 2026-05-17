@@ -1804,10 +1804,10 @@
     caleddy_light_batch_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'eddy_diff_caleddy_light_batch entered (stable/regime/surface_tke direct = codon)'
-       write(*,*) 'eddy_diff_caleddy_light_batch entered (stable/regime/surface_tke direct = codon)'
-       call eddy_diff_append_impl_trace('eddy_diff_caleddy_light_batch entered (stable/regime/surface_tke direct = codon)')
-       call eddy_diff_caleddy_light_batch_append_proof('eddy_diff_caleddy_light_batch entered (stable/regime/surface_tke direct = codon)')
+       write(iulog,*) 'eddy_diff_caleddy_light_batch entered (unified caleddy batch-dispatch stable/regime/surface_tke direct = codon)'
+       write(*,*) 'eddy_diff_caleddy_light_batch entered (unified caleddy batch-dispatch stable/regime/surface_tke direct = codon)'
+       call eddy_diff_append_impl_trace('eddy_diff_caleddy_light_batch entered (unified caleddy batch-dispatch stable/regime/surface_tke direct = codon)')
+       call eddy_diff_caleddy_light_batch_append_proof('eddy_diff_caleddy_light_batch entered (unified caleddy batch-dispatch stable/regime/surface_tke direct = codon)')
        call flush(iulog)
     end if
 
@@ -1970,10 +1970,10 @@
     caleddy_setup_batch_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'eddy_diff_caleddy_setup_batch entered (init/diaginit/exacol direct = codon)'
-       write(*,*) 'eddy_diff_caleddy_setup_batch entered (init/diaginit/exacol direct = codon)'
-       call eddy_diff_append_impl_trace('eddy_diff_caleddy_setup_batch entered (init/diaginit/exacol direct = codon)')
-       call eddy_diff_caleddy_setup_batch_append_proof('eddy_diff_caleddy_setup_batch entered (init/diaginit/exacol direct = codon)')
+       write(iulog,*) 'eddy_diff_caleddy_setup_batch entered (unified caleddy batch-dispatch init/diaginit/exacol direct = codon)'
+       write(*,*) 'eddy_diff_caleddy_setup_batch entered (unified caleddy batch-dispatch init/diaginit/exacol direct = codon)'
+       call eddy_diff_append_impl_trace('eddy_diff_caleddy_setup_batch entered (unified caleddy batch-dispatch init/diaginit/exacol direct = codon)')
+       call eddy_diff_caleddy_setup_batch_append_proof('eddy_diff_caleddy_setup_batch entered (unified caleddy batch-dispatch init/diaginit/exacol direct = codon)')
        call flush(iulog)
     end if
 
@@ -2178,10 +2178,10 @@
     caleddy_cloud_rad_batch_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'eddy_diff_caleddy_cloud_rad_batch entered (srcl/radf direct = codon)'
-       write(*,*) 'eddy_diff_caleddy_cloud_rad_batch entered (srcl/radf direct = codon)'
-       call eddy_diff_append_impl_trace('eddy_diff_caleddy_cloud_rad_batch entered (srcl/radf direct = codon)')
-       call eddy_diff_caleddy_cloud_rad_batch_append_proof('eddy_diff_caleddy_cloud_rad_batch entered (srcl/radf direct = codon)')
+       write(iulog,*) 'eddy_diff_caleddy_cloud_rad_batch entered (unified caleddy batch-dispatch srcl/radf direct = codon)'
+       write(*,*) 'eddy_diff_caleddy_cloud_rad_batch entered (unified caleddy batch-dispatch srcl/radf direct = codon)'
+       call eddy_diff_append_impl_trace('eddy_diff_caleddy_cloud_rad_batch entered (unified caleddy batch-dispatch srcl/radf direct = codon)')
+       call eddy_diff_caleddy_cloud_rad_batch_append_proof('eddy_diff_caleddy_cloud_rad_batch entered (unified caleddy batch-dispatch srcl/radf direct = codon)')
        call flush(iulog)
     end if
 
@@ -2385,10 +2385,10 @@
     caleddy_core_batch_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'eddy_diff_caleddy_core_batch entered (zisocl/closure direct = codon)'
-       write(*,*) 'eddy_diff_caleddy_core_batch entered (zisocl/closure direct = codon)'
-       call eddy_diff_append_impl_trace('eddy_diff_caleddy_core_batch entered (zisocl/closure direct = codon)')
-       call eddy_diff_caleddy_core_batch_append_proof('eddy_diff_caleddy_core_batch entered (zisocl/closure direct = codon)')
+       write(iulog,*) 'eddy_diff_caleddy_core_batch entered (unified caleddy batch-dispatch zisocl/closure direct = codon)'
+       write(*,*) 'eddy_diff_caleddy_core_batch entered (unified caleddy batch-dispatch zisocl/closure direct = codon)'
+       call eddy_diff_append_impl_trace('eddy_diff_caleddy_core_batch entered (unified caleddy batch-dispatch zisocl/closure direct = codon)')
+       call eddy_diff_caleddy_core_batch_append_proof('eddy_diff_caleddy_core_batch entered (unified caleddy batch-dispatch zisocl/closure direct = codon)')
        call flush(iulog)
     end if
 
@@ -2572,10 +2572,10 @@
     caleddy_post_batch_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,*) 'eddy_diff_caleddy_post_batch entered (stl/diag direct = codon)'
-       write(*,*) 'eddy_diff_caleddy_post_batch entered (stl/diag direct = codon)'
-       call eddy_diff_append_impl_trace('eddy_diff_caleddy_post_batch entered (stl/diag direct = codon)')
-       call eddy_diff_caleddy_post_batch_append_proof('eddy_diff_caleddy_post_batch entered (stl/diag direct = codon)')
+       write(iulog,*) 'eddy_diff_caleddy_post_batch entered (unified caleddy batch-dispatch stl/diag direct = codon)'
+       write(*,*) 'eddy_diff_caleddy_post_batch entered (unified caleddy batch-dispatch stl/diag direct = codon)'
+       call eddy_diff_append_impl_trace('eddy_diff_caleddy_post_batch entered (unified caleddy batch-dispatch stl/diag direct = codon)')
+       call eddy_diff_caleddy_post_batch_append_proof('eddy_diff_caleddy_post_batch entered (unified caleddy batch-dispatch stl/diag direct = codon)')
        call flush(iulog)
     end if
 
