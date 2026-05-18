@@ -427,33 +427,33 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    rel = 0.0_r8
    rei = 0.0_r8
 
-   ! Aerosol daylight map
-   ! Also convert to optical properties of rrtmg interface, even though
-   !   these quantities are later multiplied back together inside rrtmg !
-   ! Why does rrtmg use the factored quantities?
-   ! There are several different ways this factoring could be done.
-   ! Other ways might allow for better optimization
-   do ns = 1, nbndsw
-      do k  = 1, rrtmg_levs-1
-         kk=(pverp-rrtmg_levs) + k
-         do i  = 1, Nday
-            if(E_aer_tau_w(IdxDay(i),kk,ns) > 1.e-80_r8) then
-               asm_aer_sw(i,k,ns) = E_aer_tau_w_g(IdxDay(i),kk,ns)/E_aer_tau_w(IdxDay(i),kk,ns)
-            else
-               asm_aer_sw(i,k,ns) = 0._r8
-            endif
-            if(E_aer_tau(IdxDay(i),kk,ns) > 0._r8) then
-               ssa_aer_sw(i,k,ns) = E_aer_tau_w(IdxDay(i),kk,ns)/E_aer_tau(IdxDay(i),kk,ns)
-               tau_aer_sw(i,k,ns) = E_aer_tau(IdxDay(i),kk,ns)
-            else
-               ssa_aer_sw(i,k,ns) = 1._r8
-               tau_aer_sw(i,k,ns) = 0._r8
-            endif
+   if (use_native_rrtmg_sw_driver_impl) then
+      ! Aerosol daylight map
+      ! Also convert to optical properties of rrtmg interface, even though
+      !   these quantities are later multiplied back together inside rrtmg !
+      ! Why does rrtmg use the factored quantities?
+      ! There are several different ways this factoring could be done.
+      ! Other ways might allow for better optimization
+      do ns = 1, nbndsw
+         do k  = 1, rrtmg_levs-1
+            kk=(pverp-rrtmg_levs) + k
+            do i  = 1, Nday
+               if(E_aer_tau_w(IdxDay(i),kk,ns) > 1.e-80_r8) then
+                  asm_aer_sw(i,k,ns) = E_aer_tau_w_g(IdxDay(i),kk,ns)/E_aer_tau_w(IdxDay(i),kk,ns)
+               else
+                  asm_aer_sw(i,k,ns) = 0._r8
+               endif
+               if(E_aer_tau(IdxDay(i),kk,ns) > 0._r8) then
+                  ssa_aer_sw(i,k,ns) = E_aer_tau_w(IdxDay(i),kk,ns)/E_aer_tau(IdxDay(i),kk,ns)
+                  tau_aer_sw(i,k,ns) = E_aer_tau(IdxDay(i),kk,ns)
+               else
+                  ssa_aer_sw(i,k,ns) = 1._r8
+                  tau_aer_sw(i,k,ns) = 0._r8
+               endif
+            enddo
          enddo
       enddo
-   enddo
-
-   if (.not. use_native_rrtmg_sw_driver_impl) then
+   else
       call rrtmg_sw_pre_codon( &
            int(Nday, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
            int(rrtmg_levs, c_int64_t), int(nbndsw, c_int64_t), &
@@ -644,57 +644,57 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
                  swuflx, swdflx, swhr, swuflxc, swdflxc, swhrc, &
                  dirdnuv, dirdnir, difdnuv, difdnir, ninflx, ninflxc, swuflxs, swdflxs)
 
-   ! Flux units are in W/m2 on output from rrtmg_sw and contain output for
-   ! extra layer above model top with vertical indexing from bottom to top.
-   !
-   ! Heating units are in J/kg/s on output from rrtmg_sw and contain output 
-   ! for extra layer above model top with vertical indexing from bottom to top.  
-   !
-   ! Reverse vertical indexing to go from top to bottom for CAM output.
+   if (use_native_rrtmg_sw_driver_impl) then
+      ! Flux units are in W/m2 on output from rrtmg_sw and contain output for
+      ! extra layer above model top with vertical indexing from bottom to top.
+      !
+      ! Heating units are in J/kg/s on output from rrtmg_sw and contain output
+      ! for extra layer above model top with vertical indexing from bottom to top.
+      !
+      ! Reverse vertical indexing to go from top to bottom for CAM output.
 
-   ! Set the net absorted shortwave flux at TOA (top of extra layer)
-   fsntoa(1:Nday) = swdflx(1:Nday,rrtmg_levs+1) - swuflx(1:Nday,rrtmg_levs+1)
-   fsutoa(1:Nday) = swuflx(1:Nday,rrtmg_levs+1)
-   fsntoac(1:Nday) = swdflxc(1:Nday,rrtmg_levs+1) - swuflxc(1:Nday,rrtmg_levs+1)
+      ! Set the net absorted shortwave flux at TOA (top of extra layer)
+      fsntoa(1:Nday) = swdflx(1:Nday,rrtmg_levs+1) - swuflx(1:Nday,rrtmg_levs+1)
+      fsutoa(1:Nday) = swuflx(1:Nday,rrtmg_levs+1)
+      fsntoac(1:Nday) = swdflxc(1:Nday,rrtmg_levs+1) - swuflxc(1:Nday,rrtmg_levs+1)
 
-   ! Set net near-IR flux at top of the model
-   fsnirtoa(1:Nday) = ninflx(1:Nday,rrtmg_levs)
-   fsnrtoaq(1:Nday) = ninflx(1:Nday,rrtmg_levs)
-   fsnrtoac(1:Nday) = ninflxc(1:Nday,rrtmg_levs)
+      ! Set net near-IR flux at top of the model
+      fsnirtoa(1:Nday) = ninflx(1:Nday,rrtmg_levs)
+      fsnrtoaq(1:Nday) = ninflx(1:Nday,rrtmg_levs)
+      fsnrtoac(1:Nday) = ninflxc(1:Nday,rrtmg_levs)
 
-   ! Set the net absorbed shortwave flux at the model top level
-   fsnt(1:Nday) = swdflx(1:Nday,rrtmg_levs) - swuflx(1:Nday,rrtmg_levs)
-   fsntc(1:Nday) = swdflxc(1:Nday,rrtmg_levs) - swuflxc(1:Nday,rrtmg_levs)
+      ! Set the net absorbed shortwave flux at the model top level
+      fsnt(1:Nday) = swdflx(1:Nday,rrtmg_levs) - swuflx(1:Nday,rrtmg_levs)
+      fsntc(1:Nday) = swdflxc(1:Nday,rrtmg_levs) - swuflxc(1:Nday,rrtmg_levs)
 
-   ! Set the downwelling flux at the surface 
-   fsds(1:Nday) = swdflx(1:Nday,1)
-   fsdsc(1:Nday) = swdflxc(1:Nday,1)
+      ! Set the downwelling flux at the surface
+      fsds(1:Nday) = swdflx(1:Nday,1)
+      fsdsc(1:Nday) = swdflxc(1:Nday,1)
 
-   ! Set the net shortwave flux at the surface
-   fsns(1:Nday) = swdflx(1:Nday,1) - swuflx(1:Nday,1)
-   fsnsc(1:Nday) = swdflxc(1:Nday,1) - swuflxc(1:Nday,1)
+      ! Set the net shortwave flux at the surface
+      fsns(1:Nday) = swdflx(1:Nday,1) - swuflx(1:Nday,1)
+      fsnsc(1:Nday) = swdflxc(1:Nday,1) - swuflxc(1:Nday,1)
 
-   ! Set the UV/vis and near-IR direct and dirruse downward shortwave flux at surface
-   sols(1:Nday) = dirdnuv(1:Nday,1)
-   soll(1:Nday) = dirdnir(1:Nday,1)
-   solsd(1:Nday) = difdnuv(1:Nday,1)
-   solld(1:Nday) = difdnir(1:Nday,1)
+      ! Set the UV/vis and near-IR direct and dirruse downward shortwave flux at surface
+      sols(1:Nday) = dirdnuv(1:Nday,1)
+      soll(1:Nday) = dirdnir(1:Nday,1)
+      solsd(1:Nday) = difdnuv(1:Nday,1)
+      solld(1:Nday) = difdnir(1:Nday,1)
 
 
-   ! Set the net, up and down fluxes at model interfaces
-   fns (1:Nday,pverp-rrtmg_levs+1:pverp) =  swdflx(1:Nday,rrtmg_levs:1:-1) -  swuflx(1:Nday,rrtmg_levs:1:-1)
-   fcns(1:Nday,pverp-rrtmg_levs+1:pverp) = swdflxc(1:Nday,rrtmg_levs:1:-1) - swuflxc(1:Nday,rrtmg_levs:1:-1)
-   fus (1:Nday,pverp-rrtmg_levs+1:pverp) =  swuflx(1:Nday,rrtmg_levs:1:-1)
-   fusc(1:Nday,pverp-rrtmg_levs+1:pverp) = swuflxc(1:Nday,rrtmg_levs:1:-1)
-   fds (1:Nday,pverp-rrtmg_levs+1:pverp) =  swdflx(1:Nday,rrtmg_levs:1:-1)
-   fdsc(1:Nday,pverp-rrtmg_levs+1:pverp) = swdflxc(1:Nday,rrtmg_levs:1:-1)
+      ! Set the net, up and down fluxes at model interfaces
+      fns (1:Nday,pverp-rrtmg_levs+1:pverp) =  swdflx(1:Nday,rrtmg_levs:1:-1) -  swuflx(1:Nday,rrtmg_levs:1:-1)
+      fcns(1:Nday,pverp-rrtmg_levs+1:pverp) = swdflxc(1:Nday,rrtmg_levs:1:-1) - swuflxc(1:Nday,rrtmg_levs:1:-1)
+      fus (1:Nday,pverp-rrtmg_levs+1:pverp) =  swuflx(1:Nday,rrtmg_levs:1:-1)
+      fusc(1:Nday,pverp-rrtmg_levs+1:pverp) = swuflxc(1:Nday,rrtmg_levs:1:-1)
+      fds (1:Nday,pverp-rrtmg_levs+1:pverp) =  swdflx(1:Nday,rrtmg_levs:1:-1)
+      fdsc(1:Nday,pverp-rrtmg_levs+1:pverp) = swdflxc(1:Nday,rrtmg_levs:1:-1)
 
-   ! Set solar heating, reverse layering
-   ! Pass shortwave heating to CAM arrays and convert from K/d to J/kg/s
-   qrs (1:Nday,pverp-rrtmg_levs+1:pver) = swhr (1:Nday,rrtmg_levs-1:1:-1)*cpair*dps
-   qrsc(1:Nday,pverp-rrtmg_levs+1:pver) = swhrc(1:Nday,rrtmg_levs-1:1:-1)*cpair*dps
-
-   if (.not. use_native_rrtmg_sw_driver_impl) then
+      ! Set solar heating, reverse layering
+      ! Pass shortwave heating to CAM arrays and convert from K/d to J/kg/s
+      qrs (1:Nday,pverp-rrtmg_levs+1:pver) = swhr (1:Nday,rrtmg_levs-1:1:-1)*cpair*dps
+      qrsc(1:Nday,pverp-rrtmg_levs+1:pver) = swhrc(1:Nday,rrtmg_levs-1:1:-1)*cpair*dps
+   else
       call rrtmg_sw_post_codon( &
            int(Nday, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
            int(rrtmg_levs, c_int64_t), real(cpair, c_double), &
@@ -850,7 +850,7 @@ subroutine rrtmg_sw_driver_log_entered()
    rrtmg_sw_driver_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,*) 'rrtmg_sw_driver entered (pre/post helpers = codon; rrtmg_sw core = native)'
+      write(iulog,*) 'rrtmg_sw_driver entered (aerosol pre/post helpers = codon; native pre/post blocks skipped; rrtmg_sw core = native)'
       call flush(iulog)
    end if
 
