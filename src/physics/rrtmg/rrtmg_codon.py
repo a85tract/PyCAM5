@@ -3417,6 +3417,35 @@ def rrtmg_sw_taumol22_codon(
 
 
 @export
+def rrtmg_sw_subcol_prep_codon(
+    ncol: int,
+    nlay: int,
+    ld_play: int,
+    ld_size: int,
+    ld_pmid: int,
+    ld_out: int,
+    play_p: cobj,
+    rei_p: cobj,
+    rel_p: cobj,
+    pmid_p: cobj,
+    reicmcl_p: cobj,
+    relqmcl_p: cobj,
+):
+    play = Ptr[float](play_p)
+    rei = Ptr[float](rei_p)
+    rel = Ptr[float](rel_p)
+    pmid = Ptr[float](pmid_p)
+    reicmcl = Ptr[float](reicmcl_p)
+    relqmcl = Ptr[float](relqmcl_p)
+
+    for k in range(1, nlay + 1):
+        for i in range(1, ncol + 1):
+            pmid[_idx2(i, k, ld_pmid)] = play[_idx2(i, k, ld_play)] * 1.0e2
+            reicmcl[_idx2(i, k, ld_out)] = rei[_idx2(i, k, ld_size)]
+            relqmcl[_idx2(i, k, ld_out)] = rel[_idx2(i, k, ld_size)]
+
+
+@export
 def rrtmg_sw_subcol_fill_codon(
     ncol: int,
     nlay: int,

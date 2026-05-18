@@ -59,6 +59,8 @@
                        cldfmcl, ciwpmcl, clwpmcl, reicmcl, relqmcl, &
                        taucmcl, ssacmcl, asmcmcl, fsfcmcl)
 
+      use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
 ! ----- Input -----
 ! Control
       integer, intent(in) :: lchnk           ! chunk identifier
@@ -71,7 +73,7 @@
                                                         ! permuteseed differs by 'ngpt'
         
 ! Atmosphere
-      real(kind=r8), intent(in) :: play(:,:)          ! layer pressures (mb) 
+      real(kind=r8), target, intent(in) :: play(:,:)  ! layer pressures (mb)
                                                         !    Dimensions: (ncol,nlay)
 
 ! Atmosphere/clouds - cldprop
@@ -89,9 +91,9 @@
                                                         !    Dimensions: (ncol,nlay)
       real(kind=r8), intent(in) :: clwp(:,:)          ! cloud liquid water path
                                                         !    Dimensions: (ncol,nlay)
-      real(kind=r8), intent(in) :: rei(:,:)           ! cloud ice particle size
+      real(kind=r8), target, intent(in) :: rei(:,:)   ! cloud ice particle size
                                                         !    Dimensions: (ncol,nlay)
-      real(kind=r8), intent(in) :: rel(:,:)           ! cloud liquid particle size
+      real(kind=r8), target, intent(in) :: rel(:,:)   ! cloud liquid particle size
                                                         !    Dimensions: (ncol,nlay)
 
 ! ----- Output -----
@@ -102,9 +104,9 @@
                                                         !    Dimensions: (ngptsw,ncol,nlay)
       real(kind=r8), intent(out) :: clwpmcl(:,:,:)    ! cloud liquid water path [mcica]
                                                         !    Dimensions: (ngptsw,ncol,nlay)
-      real(kind=r8), intent(out) :: relqmcl(:,:)      ! liquid particle size (microns)
+      real(kind=r8), target, intent(out) :: relqmcl(:,:) ! liquid particle size (microns)
                                                         !    Dimensions: (ncol,nlay)
-      real(kind=r8), intent(out) :: reicmcl(:,:)      ! ice partcle size (microns)
+      real(kind=r8), target, intent(out) :: reicmcl(:,:) ! ice partcle size (microns)
                                                         !    Dimensions: (ncol,nlay)
       real(kind=r8), intent(out) :: taucmcl(:,:,:)    ! cloud optical depth [mcica]
                                                         !    Dimensions: (ngptsw,ncol,nlay)
@@ -121,10 +123,19 @@
       integer, parameter :: nsubcsw = ngptsw ! number of sub-columns (g-point intervals)
       integer :: km, im, nm                  ! loop indices
 
-      real(kind=r8) :: pmid(ncol,nlay)                ! layer pressures (Pa) 
+      real(kind=r8), target :: pmid(ncol,nlay)        ! layer pressures (Pa)
 !      real(kind=r8) :: pdel(ncol,nlay)               ! layer pressure thickness (Pa) 
 !      real(kind=r8) :: qi(ncol,nlay)                 ! ice water (specific humidity)
 !      real(kind=r8) :: ql(ncol,nlay)                 ! liq water (specific humidity)
+
+      interface
+         subroutine rrtmg_sw_subcol_prep_codon(ncol_c, nlay_c, ld_play_c, ld_size_c, ld_pmid_c, ld_out_c, &
+              play_p, rei_p, rel_p, pmid_p, reicmcl_p, relqmcl_p) bind(c, name="rrtmg_sw_subcol_prep_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: ncol_c, nlay_c, ld_play_c, ld_size_c, ld_pmid_c, ld_out_c
+            type(c_ptr), value :: play_p, rei_p, rel_p, pmid_p, reicmcl_p, relqmcl_p
+         end subroutine rrtmg_sw_subcol_prep_codon
+      end interface
 
 
 ! Return if clear sky; or stop if icld out of range
@@ -139,9 +150,20 @@
 ! Pass particle sizes to new arrays, no subcolumns for these properties yet
 ! Convert pressures from mb to Pa
 
-      reicmcl(:ncol,:nlay) = rei(:ncol,:nlay)
-      relqmcl(:ncol,:nlay) = rel(:ncol,:nlay)
-      pmid(:ncol,:nlay)    = play(:ncol,:nlay)*1.e2_r8
+      call subcol_fill_sw_select_impl()
+      if (use_native_subcol_fill_sw_impl) then
+         reicmcl(:ncol,:nlay) = rei(:ncol,:nlay)
+         relqmcl(:ncol,:nlay) = rel(:ncol,:nlay)
+         pmid(:ncol,:nlay)    = play(:ncol,:nlay)*1.e2_r8
+      else
+         call subcol_fill_sw_log_entered()
+         call rrtmg_sw_subcol_prep_codon( &
+              int(ncol, c_int64_t), int(nlay, c_int64_t), int(size(play,1), c_int64_t), &
+              int(size(rei,1), c_int64_t), int(ncol, c_int64_t), int(size(reicmcl,1), c_int64_t), &
+              c_loc(play(1,1)), c_loc(rei(1,1)), c_loc(rel(1,1)), c_loc(pmid(1,1)), &
+              c_loc(reicmcl(1,1)), c_loc(relqmcl(1,1)) &
+         )
+      end if
 
 ! Convert input ice and liquid cloud water paths to specific humidity ice and liquid components 
 
@@ -640,7 +662,7 @@
       subcol_fill_sw_entered_logged = .true.
 
       if (masterproc) then
-         write(iulog,*) 'rrtmg_sw_subcol_fill entered (mcica sw stochastic cloud fill = codon)'
+         write(iulog,*) 'rrtmg_sw_subcol_fill entered (mcica sw pressure/size prep and stochastic cloud fill = codon)'
          call flush(iulog)
       end if
 
