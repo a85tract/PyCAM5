@@ -8,6 +8,8 @@ module rad_solar_var
   use solar_data,        only : sol_irrad, we, nbins, has_spectrum, sol_tsi
   use solar_data,        only : do_spctrl_scaling
   use cam_abortutils,    only : endrun
+  use cam_logfile,       only : iulog
+  use spmd_utils,        only : masterproc
 
   implicit none
   save
@@ -23,6 +25,9 @@ module rad_solar_var
   real(r8), allocatable :: radbinmax(:)
   real(r8), allocatable :: radbinmin(:)
   integer :: nradbins
+  logical :: use_native_rrtmg_solar_variability_impl = .false.
+  logical :: rrtmg_solar_variability_impl_selected = .false.
+  logical :: rrtmg_solar_variability_entered_logged = .false.
 contains
 
 !-------------------------------------------------------------------------------
@@ -96,9 +101,15 @@ contains
 
     if ( do_spctrl_scaling ) then
 
-      call integrate_spectrum( nbins, nradbins, we, radbinmin, radbinmax, sol_irrad, irrad)
-
-      sfac(:nradbins) = irrad(:nradbins)/ref_band_irrad(:nradbins)
+      call rrtmg_solar_variability_select_impl()
+      if (use_native_rrtmg_solar_variability_impl) then
+         call integrate_spectrum( nbins, nradbins, we, radbinmin, radbinmax, sol_irrad, irrad)
+         sfac(:nradbins) = irrad(:nradbins)/ref_band_irrad(:nradbins)
+      else
+         call rrtmg_solar_variability_log_entered()
+         call rrtmg_solar_variability_codon_wrap(nbins, nradbins, we, radbinmin, radbinmax, &
+              sol_irrad, irrad, ref_band_irrad, sfac)
+      end if
 
     else
 
@@ -107,6 +118,94 @@ contains
     endif
 
   endsubroutine get_variability
+
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+  subroutine rrtmg_solar_variability_codon_wrap(nsrc, ntrg, src_x, min_trg, max_trg, src, trg, ref_irrad, sfac)
+
+    use iso_c_binding, only : c_int64_t, c_loc, c_ptr
+
+    implicit none
+
+    integer,  intent(in)  :: nsrc
+    integer,  intent(in)  :: ntrg
+    real(r8), target, intent(in)  :: src_x(nsrc+1)
+    real(r8), target, intent(in)  :: max_trg(ntrg)
+    real(r8), target, intent(in)  :: min_trg(ntrg)
+    real(r8), target, intent(in)  :: src(nsrc)
+    real(r8), target, intent(out) :: trg(ntrg)
+    real(r8), target, intent(in)  :: ref_irrad(ntrg)
+    real(r8), target, intent(out) :: sfac(ntrg)
+
+    interface
+       subroutine rrtmg_solar_variability_codon(nsrc_c, ntrg_c, src_x_p, min_trg_p, max_trg_p, &
+            src_p, trg_p, ref_irrad_p, sfac_p) bind(c, name="rrtmg_solar_variability_codon")
+         use iso_c_binding, only : c_int64_t, c_ptr
+         integer(c_int64_t), value :: nsrc_c, ntrg_c
+         type(c_ptr), value :: src_x_p, min_trg_p, max_trg_p, src_p, trg_p, ref_irrad_p, sfac_p
+       end subroutine rrtmg_solar_variability_codon
+    end interface
+
+    call rrtmg_solar_variability_codon(int(nsrc, c_int64_t), int(ntrg, c_int64_t), &
+         c_loc(src_x(1)), c_loc(min_trg(1)), c_loc(max_trg(1)), c_loc(src(1)), &
+         c_loc(trg(1)), c_loc(ref_irrad(1)), c_loc(sfac(1)))
+
+  end subroutine rrtmg_solar_variability_codon_wrap
+
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+  subroutine rrtmg_solar_variability_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (rrtmg_solar_variability_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('RRTMG_SOLAR_VARIABILITY_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_rrtmg_solar_variability_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_rrtmg_solar_variability_impl = .false.
+    end if
+
+    rrtmg_solar_variability_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_rrtmg_solar_variability_impl) then
+          write(iulog,*) 'rrtmg_solar_variability implementation = native'
+       else
+          write(iulog,*) 'rrtmg_solar_variability implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine rrtmg_solar_variability_select_impl
+
+!-------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+  subroutine rrtmg_solar_variability_log_entered()
+
+    implicit none
+
+    if (rrtmg_solar_variability_entered_logged) return
+    rrtmg_solar_variability_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'rrtmg_solar_variability entered (solar spectral integrate/scale = codon)'
+       call flush(iulog)
+    end if
+
+  end subroutine rrtmg_solar_variability_log_entered
 
 !-------------------------------------------------------------------------------
 ! private method.........
