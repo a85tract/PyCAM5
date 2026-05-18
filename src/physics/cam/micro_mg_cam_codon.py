@@ -172,6 +172,132 @@ def micro_mg_cam_pack_state_inputs_codon(
 
 
 @inline
+def _unpack2d_scalar_to_2d(
+    mgncol: int,
+    nlev: int,
+    psetcols: int,
+    pver: int,
+    top_lev: int,
+    mgcols: Ptr[int],
+    packed: Ptr[float],
+    dst: Ptr[float],
+    fill: float,
+):
+    for k in range(1, pver + 1):
+        for i in range(1, psetcols + 1):
+            dst[_idx2(i, k, psetcols)] = fill
+
+    for j in range(1, mgncol + 1):
+        i = mgcols[j - 1]
+        for kk in range(1, nlev + 1):
+            k = top_lev + kk - 1
+            dst[_idx2(i, k, psetcols)] = packed[_idx2(j, kk, mgncol)]
+
+
+@inline
+def _unpack2d_scalar_to_qslice(
+    mgncol: int,
+    nlev: int,
+    psetcols: int,
+    pver: int,
+    top_lev: int,
+    qidx: int,
+    mgcols: Ptr[int],
+    packed: Ptr[float],
+    dst_q: Ptr[float],
+    fill: float,
+):
+    for k in range(1, pver + 1):
+        for i in range(1, psetcols + 1):
+            dst_q[_idx3(i, k, qidx, psetcols, pver)] = fill
+
+    for j in range(1, mgncol + 1):
+        i = mgcols[j - 1]
+        for kk in range(1, nlev + 1):
+            k = top_lev + kk - 1
+            dst_q[_idx3(i, k, qidx, psetcols, pver)] = packed[_idx2(j, kk, mgncol)]
+
+
+@inline
+def _unpack2d_statefill_to_qslice(
+    mgncol: int,
+    nlev: int,
+    psetcols: int,
+    pver: int,
+    top_lev: int,
+    qidx: int,
+    mgcols: Ptr[int],
+    state_q: Ptr[float],
+    packed: Ptr[float],
+    dst_q: Ptr[float],
+    dtstep: float,
+):
+    for k in range(1, pver + 1):
+        for i in range(1, psetcols + 1):
+            dst_q[_idx3(i, k, qidx, psetcols, pver)] = -state_q[_idx3(i, k, qidx, psetcols, pver)] / dtstep
+
+    for j in range(1, mgncol + 1):
+        i = mgcols[j - 1]
+        for kk in range(1, nlev + 1):
+            k = top_lev + kk - 1
+            dst_q[_idx3(i, k, qidx, psetcols, pver)] = packed[_idx2(j, kk, mgncol)]
+
+
+@export
+def micro_mg_cam_ptend_unpack_codon(
+    mgncol: int,
+    nlev: int,
+    psetcols: int,
+    pver: int,
+    pcnst: int,
+    top_lev: int,
+    ixcldliq: int,
+    ixcldice: int,
+    ixnumliq: int,
+    ixnumice: int,
+    do_cldice: int,
+    dtstep: float,
+    mgcols_p: cobj,
+    state_q_p: cobj,
+    packed_tlat_p: cobj,
+    packed_qvlat_p: cobj,
+    packed_qctend_p: cobj,
+    packed_qitend_p: cobj,
+    packed_nctend_p: cobj,
+    packed_nitend_p: cobj,
+    ptend_s_p: cobj,
+    ptend_q_p: cobj,
+):
+    mgcols = Ptr[int](mgcols_p)
+    state_q = Ptr[float](state_q_p)
+    ptend_q = Ptr[float](ptend_q_p)
+
+    _unpack2d_scalar_to_2d(
+        mgncol, nlev, psetcols, pver, top_lev, mgcols, Ptr[float](packed_tlat_p), Ptr[float](ptend_s_p), 0.0
+    )
+    _unpack2d_scalar_to_qslice(
+        mgncol, nlev, psetcols, pver, top_lev, 1, mgcols, Ptr[float](packed_qvlat_p), ptend_q, 0.0
+    )
+    _unpack2d_scalar_to_qslice(
+        mgncol, nlev, psetcols, pver, top_lev, ixcldliq, mgcols, Ptr[float](packed_qctend_p), ptend_q, 0.0
+    )
+    _unpack2d_scalar_to_qslice(
+        mgncol, nlev, psetcols, pver, top_lev, ixcldice, mgcols, Ptr[float](packed_qitend_p), ptend_q, 0.0
+    )
+    _unpack2d_statefill_to_qslice(
+        mgncol, nlev, psetcols, pver, top_lev, ixnumliq, mgcols, state_q, Ptr[float](packed_nctend_p), ptend_q, dtstep
+    )
+    if do_cldice != 0:
+        _unpack2d_statefill_to_qslice(
+            mgncol, nlev, psetcols, pver, top_lev, ixnumice, mgcols, state_q, Ptr[float](packed_nitend_p), ptend_q, dtstep
+        )
+    else:
+        for k in range(1, pver + 1):
+            for i in range(1, psetcols + 1):
+                ptend_q[_idx3(i, k, ixnumice, psetcols, pver)] = 0.0
+
+
+@inline
 def _process_rates_idx(
     i: int,
     k: int,

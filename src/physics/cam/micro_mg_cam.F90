@@ -143,6 +143,9 @@ logical :: tail_state_grid_copy_entered_logged = .false.
 logical :: use_native_pack_inputs_impl = .false.
 logical :: pack_inputs_impl_selected = .false.
 logical :: pack_inputs_entered_logged = .false.
+logical :: use_native_ptend_unpack_impl = .false.
+logical :: ptend_unpack_impl_selected = .false.
+logical :: ptend_unpack_entered_logged = .false.
 logical :: use_native_wtrc_shell_impl = .false.
 logical :: wtrc_shell_impl_selected = .false.
 logical :: wtrc_shell_entered_logged = .false.
@@ -2252,25 +2255,39 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
 
       call handle_errmsg(errstring, subname="micro_mg_tend")
 
+      call micro_mg_cam_select_ptend_unpack_impl()
+
       call physics_ptend_init(ptend_loc, psetcols, "micro_mg", &
                               ls=.true., lq=lq)
 
       ! Set local tendency.
-      ptend_loc%s               = packer%unpack(packed_tlat, 0._r8)
-      ptend_loc%q(:,:,1)        = packer%unpack(packed_qvlat, 0._r8)
-      ptend_loc%q(:,:,ixcldliq) = packer%unpack(packed_qctend, 0._r8)
-      ptend_loc%q(:,:,ixcldice) = packer%unpack(packed_qitend, 0._r8)
-      ptend_loc%q(:,:,ixnumliq) = packer%unpack(packed_nctend, &
-           -state_loc%q(:,:,ixnumliq)/(dtime/num_steps))
-      if (do_cldice) then
-         ptend_loc%q(:,:,ixnumice) = packer%unpack(packed_nitend, &
-              -state_loc%q(:,:,ixnumice)/(dtime/num_steps))
+      if (use_native_ptend_unpack_impl .or. micro_mg_version > 1) then
+         ptend_loc%s               = packer%unpack(packed_tlat, 0._r8)
+         ptend_loc%q(:,:,1)        = packer%unpack(packed_qvlat, 0._r8)
+         ptend_loc%q(:,:,ixcldliq) = packer%unpack(packed_qctend, 0._r8)
+         ptend_loc%q(:,:,ixcldice) = packer%unpack(packed_qitend, 0._r8)
+         ptend_loc%q(:,:,ixnumliq) = packer%unpack(packed_nctend, &
+              -state_loc%q(:,:,ixnumliq)/(dtime/num_steps))
+         if (do_cldice) then
+            ptend_loc%q(:,:,ixnumice) = packer%unpack(packed_nitend, &
+                 -state_loc%q(:,:,ixnumice)/(dtime/num_steps))
+         else
+            ! In this case, the tendency should be all 0.
+            if (any(packed_nitend /= 0._r8)) &
+                 call endrun("micro_mg_cam:ERROR - MG microphysics is configured not to prognose cloud ice,"// &
+                 " but micro_mg_tend has ice number tendencies.")
+            ptend_loc%q(:,:,ixnumice) = 0._r8
+         end if
       else
-         ! In this case, the tendency should be all 0.
-         if (any(packed_nitend /= 0._r8)) &
-              call endrun("micro_mg_cam:ERROR - MG microphysics is configured not to prognose cloud ice,"// &
-              " but micro_mg_tend has ice number tendencies.")
-         ptend_loc%q(:,:,ixnumice) = 0._r8
+         if (.not. do_cldice) then
+            if (any(packed_nitend /= 0._r8)) &
+                 call endrun("micro_mg_cam:ERROR - MG microphysics is configured not to prognose cloud ice,"// &
+                 " but micro_mg_tend has ice number tendencies.")
+         end if
+         call micro_mg_cam_ptend_unpack_codon_wrap(mgncol, nlev, psetcols, mgcols64, &
+              ixcldliq, ixcldice, ixnumliq, ixnumice, do_cldice, dtime/num_steps, &
+              state_loc%q, packed_tlat, packed_qvlat, packed_qctend, packed_qitend, &
+              packed_nctend, packed_nitend, ptend_loc%s, ptend_loc%q)
       end if
 
       if (micro_mg_version > 1) then
@@ -3062,6 +3079,92 @@ subroutine micro_mg_cam_pack_state_inputs_codon_wrap(mgncol_local, nlev_local, p
        c_loc(packed_qi_local), c_loc(packed_ni_local))
 
 end subroutine micro_mg_cam_pack_state_inputs_codon_wrap
+
+subroutine micro_mg_cam_select_ptend_unpack_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (ptend_unpack_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MICRO_MG_CAM_PTEND_UNPACK_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_ptend_unpack_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_ptend_unpack_impl = .false.
+  end if
+
+  ptend_unpack_impl_selected = .true.
+
+  if (use_native_ptend_unpack_impl) then
+     write(iulog,*) 'micro_mg_cam_ptend_unpack implementation = native'
+     call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_PTEND_UNPACK_PROOF_FILE', &
+          'micro_mg_cam_ptend_unpack implementation = native')
+  else
+     write(iulog,*) 'micro_mg_cam_ptend_unpack implementation = codon'
+     call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_PTEND_UNPACK_PROOF_FILE', &
+          'micro_mg_cam_ptend_unpack implementation = codon')
+  end if
+  call flush(iulog)
+
+end subroutine micro_mg_cam_select_ptend_unpack_impl
+
+subroutine micro_mg_cam_ptend_unpack_codon_wrap(mgncol_local, nlev_local, psetcols_local, mgcols64_local, &
+     ixcldliq_local, ixcldice_local, ixnumliq_local, ixnumice_local, do_cldice_local, dtstep_local, &
+     state_q, packed_tlat, packed_qvlat, packed_qctend, packed_qitend, packed_nctend, packed_nitend, &
+     ptend_s, ptend_q)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+  integer, intent(in) :: mgncol_local, nlev_local, psetcols_local
+  integer(c_int64_t), target, intent(in) :: mgcols64_local(mgncol_local)
+  integer, intent(in) :: ixcldliq_local, ixcldice_local, ixnumliq_local, ixnumice_local
+  logical, intent(in) :: do_cldice_local
+  real(r8), intent(in) :: dtstep_local
+  real(r8), intent(in), target :: state_q(psetcols_local,pver,pcnst)
+  real(r8), intent(in), target :: packed_tlat(mgncol_local,nlev_local)
+  real(r8), intent(in), target :: packed_qvlat(mgncol_local,nlev_local)
+  real(r8), intent(in), target :: packed_qctend(mgncol_local,nlev_local)
+  real(r8), intent(in), target :: packed_qitend(mgncol_local,nlev_local)
+  real(r8), intent(in), target :: packed_nctend(mgncol_local,nlev_local)
+  real(r8), intent(in), target :: packed_nitend(mgncol_local,nlev_local)
+  real(r8), intent(inout), target :: ptend_s(psetcols_local,pver)
+  real(r8), intent(inout), target :: ptend_q(psetcols_local,pver,pcnst)
+
+  interface
+     subroutine micro_mg_cam_ptend_unpack_codon(mgncol_c, nlev_c, psetcols_c, pver_c, pcnst_c, top_lev_c, &
+          ixcldliq_c, ixcldice_c, ixnumliq_c, ixnumice_c, do_cldice_c, dtstep_c, mgcols_p, state_q_p, &
+          packed_tlat_p, packed_qvlat_p, packed_qctend_p, packed_qitend_p, packed_nctend_p, packed_nitend_p, &
+          ptend_s_p, ptend_q_p) bind(c, name="micro_mg_cam_ptend_unpack_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: mgncol_c, nlev_c, psetcols_c, pver_c, pcnst_c, top_lev_c
+       integer(c_int64_t), value :: ixcldliq_c, ixcldice_c, ixnumliq_c, ixnumice_c, do_cldice_c
+       real(c_double), value :: dtstep_c
+       type(c_ptr), value :: mgcols_p, state_q_p, packed_tlat_p, packed_qvlat_p, packed_qctend_p
+       type(c_ptr), value :: packed_qitend_p, packed_nctend_p, packed_nitend_p, ptend_s_p, ptend_q_p
+     end subroutine micro_mg_cam_ptend_unpack_codon
+  end interface
+
+  call micro_mg_cam_log_entered_once(ptend_unpack_entered_logged, 'MICRO_MG_CAM_PTEND_UNPACK_PROOF_FILE', &
+       'micro_mg_cam_ptend_unpack entered (MGPacker tendency unpack = codon; MG core = native)')
+
+  call micro_mg_cam_ptend_unpack_codon(int(mgncol_local, c_int64_t), int(nlev_local, c_int64_t), &
+       int(psetcols_local, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), int(top_lev, c_int64_t), &
+       int(ixcldliq_local, c_int64_t), int(ixcldice_local, c_int64_t), int(ixnumliq_local, c_int64_t), &
+       int(ixnumice_local, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, do_cldice_local), &
+       real(dtstep_local, c_double), c_loc(mgcols64_local), c_loc(state_q), c_loc(packed_tlat), &
+       c_loc(packed_qvlat), c_loc(packed_qctend), c_loc(packed_qitend), c_loc(packed_nctend), &
+       c_loc(packed_nitend), c_loc(ptend_s), c_loc(ptend_q))
+
+end subroutine micro_mg_cam_ptend_unpack_codon_wrap
 
 subroutine micro_mg_cam_select_tail_grid_copy_impl()
 
