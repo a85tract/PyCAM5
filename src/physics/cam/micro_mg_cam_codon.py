@@ -10,6 +10,282 @@ def _idx3(i: int, k: int, m: int, ld1: int, ld2: int):
 
 
 @inline
+def _micro_mg_data_copy_pack_1d(
+    mgncol: int,
+    mgcols: Ptr[int],
+    src: Ptr[float],
+    dst: Ptr[float],
+):
+    for j in range(1, mgncol + 1):
+        dst[j - 1] = src[mgcols[j - 1] - 1]
+
+
+@inline
+def _micro_mg_data_copy_pack_2d(
+    pcols: int,
+    mgncol: int,
+    top_lev: int,
+    extent2: int,
+    mgcols: Ptr[int],
+    src: Ptr[float],
+    dst: Ptr[float],
+):
+    for k in range(1, extent2 + 1):
+        src_k = top_lev + k - 1
+        for j in range(1, mgncol + 1):
+            dst[_idx2(j, k, mgncol)] = src[_idx2(mgcols[j - 1], src_k, pcols)]
+
+
+@inline
+def _micro_mg_data_copy_pack_3d(
+    pcols: int,
+    pver: int,
+    mgncol: int,
+    nlev: int,
+    top_lev: int,
+    extent3: int,
+    mgcols: Ptr[int],
+    src: Ptr[float],
+    dst: Ptr[float],
+):
+    for m in range(1, extent3 + 1):
+        for k in range(1, nlev + 1):
+            src_k = top_lev + k - 1
+            for j in range(1, mgncol + 1):
+                dst[_idx3(j, k, m, mgncol, nlev)] = src[
+                    _idx3(mgcols[j - 1], src_k, m, pcols, pver)
+                ]
+
+
+@inline
+def _micro_mg_data_fill_1d(pcols: int, fillvalue: float, dst: Ptr[float]):
+    for i in range(1, pcols + 1):
+        dst[i - 1] = fillvalue
+
+
+@inline
+def _micro_mg_data_fill_2d(
+    pcols: int,
+    extent2: int,
+    fillvalue: float,
+    dst: Ptr[float],
+):
+    for k in range(1, extent2 + 1):
+        for i in range(1, pcols + 1):
+            dst[_idx2(i, k, pcols)] = fillvalue
+
+
+@inline
+def _micro_mg_data_fill_3d(
+    pcols: int,
+    pver: int,
+    extent3: int,
+    fillvalue: float,
+    dst: Ptr[float],
+):
+    for m in range(1, extent3 + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, pcols + 1):
+                dst[_idx3(i, k, m, pcols, pver)] = fillvalue
+
+
+@inline
+def _micro_mg_data_copy_1d(pcols: int, src: Ptr[float], dst: Ptr[float]):
+    for i in range(1, pcols + 1):
+        dst[i - 1] = src[i - 1]
+
+
+@inline
+def _micro_mg_data_copy_2d(
+    pcols: int,
+    extent2: int,
+    src: Ptr[float],
+    dst: Ptr[float],
+):
+    for k in range(1, extent2 + 1):
+        for i in range(1, pcols + 1):
+            dst[_idx2(i, k, pcols)] = src[_idx2(i, k, pcols)]
+
+
+@inline
+def _micro_mg_data_copy_3d(
+    pcols: int,
+    pver: int,
+    extent3: int,
+    src: Ptr[float],
+    dst: Ptr[float],
+):
+    for m in range(1, extent3 + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, pcols + 1):
+                dst[_idx3(i, k, m, pcols, pver)] = src[
+                    _idx3(i, k, m, pcols, pver)
+                ]
+
+
+@inline
+def _micro_mg_data_scatter_unpack_1d(
+    mgncol: int,
+    mgcols: Ptr[int],
+    src: Ptr[float],
+    dst: Ptr[float],
+):
+    for j in range(1, mgncol + 1):
+        dst[mgcols[j - 1] - 1] = src[j - 1]
+
+
+@inline
+def _micro_mg_data_scatter_unpack_2d(
+    pcols: int,
+    mgncol: int,
+    top_lev: int,
+    extent2: int,
+    mgcols: Ptr[int],
+    src: Ptr[float],
+    dst: Ptr[float],
+):
+    for k in range(1, extent2 + 1):
+        dst_k = top_lev + k - 1
+        for j in range(1, mgncol + 1):
+            dst[_idx2(mgcols[j - 1], dst_k, pcols)] = src[_idx2(j, k, mgncol)]
+
+
+@inline
+def _micro_mg_data_scatter_unpack_3d(
+    pcols: int,
+    pver: int,
+    mgncol: int,
+    nlev: int,
+    top_lev: int,
+    extent3: int,
+    mgcols: Ptr[int],
+    src: Ptr[float],
+    dst: Ptr[float],
+):
+    for m in range(1, extent3 + 1):
+        for k in range(1, nlev + 1):
+            dst_k = top_lev + k - 1
+            for j in range(1, mgncol + 1):
+                dst[_idx3(mgcols[j - 1], dst_k, m, pcols, pver)] = src[
+                    _idx3(j, k, m, mgncol, nlev)
+                ]
+
+
+@inline
+def _micro_mg_data_accumulate_1d(n: int, src: Ptr[float], dst: Ptr[float]):
+    for i in range(1, n + 1):
+        dst[i - 1] = dst[i - 1] + src[i - 1]
+
+
+@inline
+def _micro_mg_data_accumulate_2d(
+    n1: int,
+    n2: int,
+    src: Ptr[float],
+    dst: Ptr[float],
+):
+    for k in range(1, n2 + 1):
+        for i in range(1, n1 + 1):
+            idx = _idx2(i, k, n1)
+            dst[idx] = dst[idx] + src[idx]
+
+
+@inline
+def _micro_mg_data_mean_1d(
+    n: int,
+    num_steps: int,
+    src: Ptr[float],
+    dst: Ptr[float],
+):
+    for i in range(1, n + 1):
+        dst[i - 1] = src[i - 1] / float(num_steps)
+
+
+@inline
+def _micro_mg_data_mean_2d(
+    n1: int,
+    n2: int,
+    num_steps: int,
+    src: Ptr[float],
+    dst: Ptr[float],
+):
+    for k in range(1, n2 + 1):
+        for i in range(1, n1 + 1):
+            idx = _idx2(i, k, n1)
+            dst[idx] = src[idx] / float(num_steps)
+
+
+@export
+def micro_mg_data_pack_unpack_codon(
+    mode: int,
+    pcols: int,
+    pver: int,
+    mgncol: int,
+    nlev: int,
+    top_lev: int,
+    extent2: int,
+    extent3: int,
+    count1: int,
+    num_steps: int,
+    fillvalue: float,
+    mgcols_p: cobj,
+    src_p: cobj,
+    fill_p: cobj,
+    dst_p: cobj,
+):
+    mgcols = Ptr[int](mgcols_p)
+    src = Ptr[float](src_p)
+    dst = Ptr[float](dst_p)
+
+    if mode == 1:
+        _micro_mg_data_copy_pack_1d(mgncol, mgcols, src, dst)
+    elif mode == 2 or mode == 3:
+        _micro_mg_data_copy_pack_2d(
+            pcols, mgncol, top_lev, extent2, mgcols, src, dst
+        )
+    elif mode == 4:
+        _micro_mg_data_copy_pack_3d(
+            pcols, pver, mgncol, nlev, top_lev, extent3, mgcols, src, dst
+        )
+    elif mode == 5:
+        _micro_mg_data_fill_1d(pcols, fillvalue, dst)
+        _micro_mg_data_scatter_unpack_1d(mgncol, mgcols, src, dst)
+    elif mode == 6:
+        _micro_mg_data_copy_1d(pcols, Ptr[float](fill_p), dst)
+        _micro_mg_data_scatter_unpack_1d(mgncol, mgcols, src, dst)
+    elif mode == 7:
+        out_levs = pver + extent2 - nlev
+        _micro_mg_data_fill_2d(pcols, out_levs, fillvalue, dst)
+        _micro_mg_data_scatter_unpack_2d(
+            pcols, mgncol, top_lev, extent2, mgcols, src, dst
+        )
+    elif mode == 8:
+        out_levs = pver + extent2 - nlev
+        _micro_mg_data_copy_2d(pcols, out_levs, Ptr[float](fill_p), dst)
+        _micro_mg_data_scatter_unpack_2d(
+            pcols, mgncol, top_lev, extent2, mgcols, src, dst
+        )
+    elif mode == 9:
+        _micro_mg_data_fill_3d(pcols, pver, extent3, fillvalue, dst)
+        _micro_mg_data_scatter_unpack_3d(
+            pcols, pver, mgncol, nlev, top_lev, extent3, mgcols, src, dst
+        )
+    elif mode == 10:
+        _micro_mg_data_copy_3d(pcols, pver, extent3, Ptr[float](fill_p), dst)
+        _micro_mg_data_scatter_unpack_3d(
+            pcols, pver, mgncol, nlev, top_lev, extent3, mgcols, src, dst
+        )
+    elif mode == 11:
+        _micro_mg_data_accumulate_1d(count1, src, dst)
+    elif mode == 12:
+        _micro_mg_data_accumulate_2d(count1, extent2, src, dst)
+    elif mode == 13:
+        _micro_mg_data_mean_1d(count1, num_steps, src, dst)
+    elif mode == 14:
+        _micro_mg_data_mean_2d(count1, extent2, num_steps, src, dst)
+
+
+@inline
 def _zero2(ncol: int, pver: int, pcols: int, arr: Ptr[float]):
     for k in range(1, pver + 1):
         for i in range(1, ncol + 1):

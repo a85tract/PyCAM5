@@ -52,10 +52,13 @@ module micro_mg_data
 #include "shr_assert.h"
 
 use shr_kind_mod, only: r8 => shr_kind_r8
+use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 use shr_log_mod, only: &
      errMsg => shr_log_errMsg, &
      OOBMsg => shr_log_OOBMsg
 use shr_sys_mod, only: shr_sys_abort
+use spmd_utils, only: masterproc
+use cam_logfile, only: iulog
 
 implicit none
 private
@@ -101,6 +104,37 @@ end interface
 ! Enum for time accumulation/averaging methods.
 integer, parameter :: accum_null = 0
 integer, parameter :: accum_mean = 1
+
+integer, parameter :: pack_mode_pack_1D = 1
+integer, parameter :: pack_mode_pack_2D = 2
+integer, parameter :: pack_mode_pack_interface = 3
+integer, parameter :: pack_mode_pack_3D = 4
+integer, parameter :: pack_mode_unpack_1D = 5
+integer, parameter :: pack_mode_unpack_1D_array_fill = 6
+integer, parameter :: pack_mode_unpack_2D = 7
+integer, parameter :: pack_mode_unpack_2D_array_fill = 8
+integer, parameter :: pack_mode_unpack_3D = 9
+integer, parameter :: pack_mode_unpack_3D_array_fill = 10
+integer, parameter :: pack_mode_accumulate_1D = 11
+integer, parameter :: pack_mode_accumulate_2D = 12
+integer, parameter :: pack_mode_mean_1D = 13
+integer, parameter :: pack_mode_mean_2D = 14
+
+logical :: micro_mg_data_packer_use_native_impl = .false.
+logical :: micro_mg_data_packer_impl_selected = .false.
+logical :: micro_mg_data_packer_entered_logged = .false.
+
+interface
+   subroutine micro_mg_data_pack_unpack_codon(mode_c, pcols_c, pver_c, mgncol_c, nlev_c, top_lev_c, &
+        extent2_c, extent3_c, count1_c, num_steps_c, fillvalue_c, mgcols_p, src_p, fill_p, dst_p) &
+        bind(c, name="micro_mg_data_pack_unpack_codon")
+      import c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: mode_c, pcols_c, pver_c, mgncol_c, nlev_c, top_lev_c
+      integer(c_int64_t), value :: extent2_c, extent3_c, count1_c, num_steps_c
+      real(c_double), value :: fillvalue_c
+      type(c_ptr), value :: mgcols_p, src_p, fill_p, dst_p
+   end subroutine micro_mg_data_pack_unpack_codon
+end interface
 
 type :: MGFieldPostProc
    integer :: accum_method = -1
@@ -180,134 +214,428 @@ subroutine MGPacker_finalize(self)
   class(MGPacker), intent(out) :: self
 end subroutine MGPacker_finalize
 
+subroutine micro_mg_data_select_packer_impl()
+  character(len=32) :: impl_name
+  integer :: n, status
+
+  if (micro_mg_data_packer_impl_selected) return
+
+  call get_environment_variable('MICRO_MG_DATA_PACKER_IMPL', value=impl_name, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     micro_mg_data_packer_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     micro_mg_data_packer_use_native_impl = .false.
+  end if
+
+  if (masterproc) then
+     if (micro_mg_data_packer_use_native_impl) then
+        write(iulog,*) 'micro_mg_data_packer implementation = native'
+     else
+        write(iulog,*) 'micro_mg_data_packer implementation = codon'
+     end if
+  end if
+
+  micro_mg_data_packer_impl_selected = .true.
+end subroutine micro_mg_data_select_packer_impl
+
+subroutine micro_mg_data_log_packer_entry()
+  if (masterproc .and. .not. micro_mg_data_packer_entered_logged) then
+     write(iulog,*) 'micro_mg_data_packer entered (pack/unpack helpers = codon)'
+     micro_mg_data_packer_entered_logged = .true.
+  end if
+end subroutine micro_mg_data_log_packer_entry
+
+subroutine micro_mg_data_copy_mgcols_i64(self, mgcols_c)
+  class(MGPacker), intent(in) :: self
+  integer(c_int64_t), intent(out) :: mgcols_c(:)
+
+  if (self%mgncol > 0) then
+     mgcols_c(1:self%mgncol) = int(self%mgcols(1:self%mgncol), c_int64_t)
+  end if
+end subroutine micro_mg_data_copy_mgcols_i64
+
+subroutine micro_mg_data_pack_1D_codon_wrap(self, unpacked, packed)
+  class(MGPacker), intent(in) :: self
+  real(r8), target, intent(in) :: unpacked(:)
+  real(r8), target, intent(out) :: packed(:)
+  integer(c_int64_t), target :: mgcols_c(max(1,self%mgncol))
+  type(c_ptr) :: src_p, dst_p
+
+  call micro_mg_data_copy_mgcols_i64(self, mgcols_c)
+  src_p = c_null_ptr
+  dst_p = c_null_ptr
+  if (size(unpacked) > 0) src_p = c_loc(unpacked)
+  if (size(packed) > 0) dst_p = c_loc(packed)
+
+  call micro_mg_data_log_packer_entry()
+  call micro_mg_data_pack_unpack_codon(int(pack_mode_pack_1D, c_int64_t), &
+       int(self%pcols, c_int64_t), int(self%pver, c_int64_t), int(self%mgncol, c_int64_t), &
+       int(self%nlev, c_int64_t), int(self%top_lev, c_int64_t), 1_c_int64_t, 1_c_int64_t, &
+       int(self%mgncol, c_int64_t), 1_c_int64_t, 0.0_c_double, c_loc(mgcols_c), src_p, c_null_ptr, dst_p)
+end subroutine micro_mg_data_pack_1D_codon_wrap
+
+subroutine micro_mg_data_pack_2D_codon_wrap(self, unpacked, packed, extent2, mode)
+  class(MGPacker), intent(in) :: self
+  real(r8), target, intent(in) :: unpacked(:,:)
+  real(r8), target, intent(out) :: packed(:,:)
+  integer, intent(in) :: extent2, mode
+  integer(c_int64_t), target :: mgcols_c(max(1,self%mgncol))
+  type(c_ptr) :: src_p, dst_p
+
+  call micro_mg_data_copy_mgcols_i64(self, mgcols_c)
+  src_p = c_null_ptr
+  dst_p = c_null_ptr
+  if (size(unpacked) > 0) src_p = c_loc(unpacked)
+  if (size(packed) > 0) dst_p = c_loc(packed)
+
+  call micro_mg_data_log_packer_entry()
+  call micro_mg_data_pack_unpack_codon(int(mode, c_int64_t), &
+       int(self%pcols, c_int64_t), int(self%pver, c_int64_t), int(self%mgncol, c_int64_t), &
+       int(self%nlev, c_int64_t), int(self%top_lev, c_int64_t), int(extent2, c_int64_t), &
+       1_c_int64_t, int(self%mgncol, c_int64_t), 1_c_int64_t, 0.0_c_double, &
+       c_loc(mgcols_c), src_p, c_null_ptr, dst_p)
+end subroutine micro_mg_data_pack_2D_codon_wrap
+
+subroutine micro_mg_data_pack_3D_codon_wrap(self, unpacked, packed, extent3)
+  class(MGPacker), intent(in) :: self
+  real(r8), target, intent(in) :: unpacked(:,:,:)
+  real(r8), target, intent(out) :: packed(:,:,:)
+  integer, intent(in) :: extent3
+  integer(c_int64_t), target :: mgcols_c(max(1,self%mgncol))
+  type(c_ptr) :: src_p, dst_p
+
+  call micro_mg_data_copy_mgcols_i64(self, mgcols_c)
+  src_p = c_null_ptr
+  dst_p = c_null_ptr
+  if (size(unpacked) > 0) src_p = c_loc(unpacked)
+  if (size(packed) > 0) dst_p = c_loc(packed)
+
+  call micro_mg_data_log_packer_entry()
+  call micro_mg_data_pack_unpack_codon(int(pack_mode_pack_3D, c_int64_t), &
+       int(self%pcols, c_int64_t), int(self%pver, c_int64_t), int(self%mgncol, c_int64_t), &
+       int(self%nlev, c_int64_t), int(self%top_lev, c_int64_t), int(self%nlev, c_int64_t), &
+       int(extent3, c_int64_t), int(self%mgncol, c_int64_t), 1_c_int64_t, 0.0_c_double, &
+       c_loc(mgcols_c), src_p, c_null_ptr, dst_p)
+end subroutine micro_mg_data_pack_3D_codon_wrap
+
+subroutine micro_mg_data_unpack_1D_codon_wrap(self, packed, unpacked, fill)
+  class(MGPacker), intent(in) :: self
+  real(r8), target, intent(in) :: packed(:)
+  real(r8), target, intent(out) :: unpacked(:)
+  real(r8), intent(in) :: fill
+  integer(c_int64_t), target :: mgcols_c(max(1,self%mgncol))
+  type(c_ptr) :: src_p, dst_p
+
+  call micro_mg_data_copy_mgcols_i64(self, mgcols_c)
+  src_p = c_null_ptr
+  dst_p = c_null_ptr
+  if (size(packed) > 0) src_p = c_loc(packed)
+  if (size(unpacked) > 0) dst_p = c_loc(unpacked)
+
+  call micro_mg_data_log_packer_entry()
+  call micro_mg_data_pack_unpack_codon(int(pack_mode_unpack_1D, c_int64_t), &
+       int(self%pcols, c_int64_t), int(self%pver, c_int64_t), int(self%mgncol, c_int64_t), &
+       int(self%nlev, c_int64_t), int(self%top_lev, c_int64_t), 1_c_int64_t, 1_c_int64_t, &
+       int(self%pcols, c_int64_t), 1_c_int64_t, real(fill, c_double), c_loc(mgcols_c), src_p, c_null_ptr, dst_p)
+end subroutine micro_mg_data_unpack_1D_codon_wrap
+
+subroutine micro_mg_data_unpack_1D_array_fill_codon_wrap(self, packed, fill, unpacked)
+  class(MGPacker), intent(in) :: self
+  real(r8), target, intent(in) :: packed(:)
+  real(r8), target, intent(in) :: fill(:)
+  real(r8), target, intent(out) :: unpacked(:)
+  integer(c_int64_t), target :: mgcols_c(max(1,self%mgncol))
+  type(c_ptr) :: src_p, fill_p, dst_p
+
+  call micro_mg_data_copy_mgcols_i64(self, mgcols_c)
+  src_p = c_null_ptr
+  fill_p = c_null_ptr
+  dst_p = c_null_ptr
+  if (size(packed) > 0) src_p = c_loc(packed)
+  if (size(fill) > 0) fill_p = c_loc(fill)
+  if (size(unpacked) > 0) dst_p = c_loc(unpacked)
+
+  call micro_mg_data_log_packer_entry()
+  call micro_mg_data_pack_unpack_codon(int(pack_mode_unpack_1D_array_fill, c_int64_t), &
+       int(self%pcols, c_int64_t), int(self%pver, c_int64_t), int(self%mgncol, c_int64_t), &
+       int(self%nlev, c_int64_t), int(self%top_lev, c_int64_t), 1_c_int64_t, 1_c_int64_t, &
+       int(self%pcols, c_int64_t), 1_c_int64_t, 0.0_c_double, c_loc(mgcols_c), src_p, fill_p, dst_p)
+end subroutine micro_mg_data_unpack_1D_array_fill_codon_wrap
+
+subroutine micro_mg_data_unpack_2D_codon_wrap(self, packed, unpacked, fill, extent2)
+  class(MGPacker), intent(in) :: self
+  real(r8), target, intent(in) :: packed(:,:)
+  real(r8), target, intent(out) :: unpacked(:,:)
+  real(r8), intent(in) :: fill
+  integer, intent(in) :: extent2
+  integer(c_int64_t), target :: mgcols_c(max(1,self%mgncol))
+  type(c_ptr) :: src_p, dst_p
+
+  call micro_mg_data_copy_mgcols_i64(self, mgcols_c)
+  src_p = c_null_ptr
+  dst_p = c_null_ptr
+  if (size(packed) > 0) src_p = c_loc(packed)
+  if (size(unpacked) > 0) dst_p = c_loc(unpacked)
+
+  call micro_mg_data_log_packer_entry()
+  call micro_mg_data_pack_unpack_codon(int(pack_mode_unpack_2D, c_int64_t), &
+       int(self%pcols, c_int64_t), int(self%pver, c_int64_t), int(self%mgncol, c_int64_t), &
+       int(self%nlev, c_int64_t), int(self%top_lev, c_int64_t), int(extent2, c_int64_t), &
+       1_c_int64_t, int(self%pcols, c_int64_t), 1_c_int64_t, real(fill, c_double), &
+       c_loc(mgcols_c), src_p, c_null_ptr, dst_p)
+end subroutine micro_mg_data_unpack_2D_codon_wrap
+
+subroutine micro_mg_data_unpack_2D_array_fill_codon_wrap(self, packed, fill, unpacked, extent2)
+  class(MGPacker), intent(in) :: self
+  real(r8), target, intent(in) :: packed(:,:)
+  real(r8), target, intent(in) :: fill(:,:)
+  real(r8), target, intent(out) :: unpacked(:,:)
+  integer, intent(in) :: extent2
+  integer(c_int64_t), target :: mgcols_c(max(1,self%mgncol))
+  type(c_ptr) :: src_p, fill_p, dst_p
+
+  call micro_mg_data_copy_mgcols_i64(self, mgcols_c)
+  src_p = c_null_ptr
+  fill_p = c_null_ptr
+  dst_p = c_null_ptr
+  if (size(packed) > 0) src_p = c_loc(packed)
+  if (size(fill) > 0) fill_p = c_loc(fill)
+  if (size(unpacked) > 0) dst_p = c_loc(unpacked)
+
+  call micro_mg_data_log_packer_entry()
+  call micro_mg_data_pack_unpack_codon(int(pack_mode_unpack_2D_array_fill, c_int64_t), &
+       int(self%pcols, c_int64_t), int(self%pver, c_int64_t), int(self%mgncol, c_int64_t), &
+       int(self%nlev, c_int64_t), int(self%top_lev, c_int64_t), int(extent2, c_int64_t), &
+       1_c_int64_t, int(self%pcols, c_int64_t), 1_c_int64_t, 0.0_c_double, &
+       c_loc(mgcols_c), src_p, fill_p, dst_p)
+end subroutine micro_mg_data_unpack_2D_array_fill_codon_wrap
+
+subroutine micro_mg_data_unpack_3D_codon_wrap(self, packed, unpacked, fill, extent3)
+  class(MGPacker), intent(in) :: self
+  real(r8), target, intent(in) :: packed(:,:,:)
+  real(r8), target, intent(out) :: unpacked(:,:,:)
+  real(r8), intent(in) :: fill
+  integer, intent(in) :: extent3
+  integer(c_int64_t), target :: mgcols_c(max(1,self%mgncol))
+  type(c_ptr) :: src_p, dst_p
+
+  call micro_mg_data_copy_mgcols_i64(self, mgcols_c)
+  src_p = c_null_ptr
+  dst_p = c_null_ptr
+  if (size(packed) > 0) src_p = c_loc(packed)
+  if (size(unpacked) > 0) dst_p = c_loc(unpacked)
+
+  call micro_mg_data_log_packer_entry()
+  call micro_mg_data_pack_unpack_codon(int(pack_mode_unpack_3D, c_int64_t), &
+       int(self%pcols, c_int64_t), int(self%pver, c_int64_t), int(self%mgncol, c_int64_t), &
+       int(self%nlev, c_int64_t), int(self%top_lev, c_int64_t), int(self%nlev, c_int64_t), &
+       int(extent3, c_int64_t), int(self%pcols, c_int64_t), 1_c_int64_t, real(fill, c_double), &
+       c_loc(mgcols_c), src_p, c_null_ptr, dst_p)
+end subroutine micro_mg_data_unpack_3D_codon_wrap
+
+subroutine micro_mg_data_unpack_3D_array_fill_codon_wrap(self, packed, fill, unpacked, extent3)
+  class(MGPacker), intent(in) :: self
+  real(r8), target, intent(in) :: packed(:,:,:)
+  real(r8), target, intent(in) :: fill(:,:,:)
+  real(r8), target, intent(out) :: unpacked(:,:,:)
+  integer, intent(in) :: extent3
+  integer(c_int64_t), target :: mgcols_c(max(1,self%mgncol))
+  type(c_ptr) :: src_p, fill_p, dst_p
+
+  call micro_mg_data_copy_mgcols_i64(self, mgcols_c)
+  src_p = c_null_ptr
+  fill_p = c_null_ptr
+  dst_p = c_null_ptr
+  if (size(packed) > 0) src_p = c_loc(packed)
+  if (size(fill) > 0) fill_p = c_loc(fill)
+  if (size(unpacked) > 0) dst_p = c_loc(unpacked)
+
+  call micro_mg_data_log_packer_entry()
+  call micro_mg_data_pack_unpack_codon(int(pack_mode_unpack_3D_array_fill, c_int64_t), &
+       int(self%pcols, c_int64_t), int(self%pver, c_int64_t), int(self%mgncol, c_int64_t), &
+       int(self%nlev, c_int64_t), int(self%top_lev, c_int64_t), int(self%nlev, c_int64_t), &
+       int(extent3, c_int64_t), int(self%pcols, c_int64_t), 1_c_int64_t, 0.0_c_double, &
+       c_loc(mgcols_c), src_p, fill_p, dst_p)
+end subroutine micro_mg_data_unpack_3D_array_fill_codon_wrap
+
 function pack_1D(self, unpacked) result(packed)
   class(MGPacker), intent(in) :: self
-  real(r8), intent(in) :: unpacked(:)
+  real(r8), target, intent(in) :: unpacked(:)
 
-  real(r8) :: packed(self%mgncol)
+  real(r8), target :: packed(self%mgncol)
 
   SHR_ASSERT(size(unpacked) == self%pcols, errMsg(__FILE__, __LINE__))
 
-  packed = unpacked(self%mgcols)
+  call micro_mg_data_select_packer_impl()
+  if (micro_mg_data_packer_use_native_impl) then
+     packed = unpacked(self%mgcols)
+  else
+     call micro_mg_data_pack_1D_codon_wrap(self, unpacked, packed)
+  end if
 
 end function pack_1D
 
 ! Separation of pack and pack_interface is to workaround a PGI bug.
 function pack_2D(self, unpacked) result(packed)
   class(MGPacker), intent(in) :: self
-  real(r8), intent(in) :: unpacked(:,:)
+  real(r8), target, intent(in) :: unpacked(:,:)
 
-  real(r8) :: packed(self%mgncol,self%nlev)
+  real(r8), target :: packed(self%mgncol,self%nlev)
 
   SHR_ASSERT(size(unpacked, 1) == self%pcols, errMsg(__FILE__, __LINE__))
 
-  packed = unpacked(self%mgcols,self%top_lev:)
+  call micro_mg_data_select_packer_impl()
+  if (micro_mg_data_packer_use_native_impl) then
+     packed = unpacked(self%mgcols,self%top_lev:)
+  else
+     call micro_mg_data_pack_2D_codon_wrap(self, unpacked, packed, self%nlev, pack_mode_pack_2D)
+  end if
 
 end function pack_2D
 
 function pack_interface(self, unpacked) result(packed)
   class(MGPacker), intent(in) :: self
-  real(r8), intent(in) :: unpacked(:,:)
+  real(r8), target, intent(in) :: unpacked(:,:)
 
-  real(r8) :: packed(self%mgncol,self%nlev+1)
+  real(r8), target :: packed(self%mgncol,self%nlev+1)
 
-  packed = unpacked(self%mgcols,self%top_lev:)
+  call micro_mg_data_select_packer_impl()
+  if (micro_mg_data_packer_use_native_impl) then
+     packed = unpacked(self%mgcols,self%top_lev:)
+  else
+     call micro_mg_data_pack_2D_codon_wrap(self, unpacked, packed, self%nlev+1, pack_mode_pack_interface)
+  end if
 
 end function pack_interface
 
 function pack_3D(self, unpacked) result(packed)
   class(MGPacker), intent(in) :: self
-  real(r8), intent(in) :: unpacked(:,:,:)
+  real(r8), target, intent(in) :: unpacked(:,:,:)
 
-  real(r8) :: packed(self%mgncol,self%nlev,size(unpacked, 3))
+  real(r8), target :: packed(self%mgncol,self%nlev,size(unpacked, 3))
 
   SHR_ASSERT(size(unpacked,1) == self%pcols, errMsg(__FILE__, __LINE__))
 
-  packed = unpacked(self%mgcols,self%top_lev:,:)
+  call micro_mg_data_select_packer_impl()
+  if (micro_mg_data_packer_use_native_impl) then
+     packed = unpacked(self%mgcols,self%top_lev:,:)
+  else
+     call micro_mg_data_pack_3D_codon_wrap(self, unpacked, packed, size(unpacked, 3))
+  end if
 
 end function pack_3D
 
 function unpack_1D(self, packed, fill) result(unpacked)
   class(MGPacker), intent(in) :: self
-  real(r8), intent(in) :: packed(:)
+  real(r8), target, intent(in) :: packed(:)
   real(r8), intent(in) :: fill
 
-  real(r8) :: unpacked(self%pcols)
+  real(r8), target :: unpacked(self%pcols)
 
   SHR_ASSERT(size(packed) == self%mgncol, errMsg(__FILE__, __LINE__))
 
-  unpacked = fill
-  unpacked(self%mgcols) = packed
+  call micro_mg_data_select_packer_impl()
+  if (micro_mg_data_packer_use_native_impl) then
+     unpacked = fill
+     unpacked(self%mgcols) = packed
+  else
+     call micro_mg_data_unpack_1D_codon_wrap(self, packed, unpacked, fill)
+  end if
 
 end function unpack_1D
 
 function unpack_1D_array_fill(self, packed, fill) result(unpacked)
   class(MGPacker), intent(in) :: self
-  real(r8), intent(in) :: packed(:)
-  real(r8), intent(in) :: fill(:)
+  real(r8), target, intent(in) :: packed(:)
+  real(r8), target, intent(in) :: fill(:)
 
-  real(r8) :: unpacked(self%pcols)
+  real(r8), target :: unpacked(self%pcols)
 
   SHR_ASSERT(size(packed) == self%mgncol, errMsg(__FILE__, __LINE__))
 
-  unpacked = fill
-  unpacked(self%mgcols) = packed
+  call micro_mg_data_select_packer_impl()
+  if (micro_mg_data_packer_use_native_impl) then
+     unpacked = fill
+     unpacked(self%mgcols) = packed
+  else
+     call micro_mg_data_unpack_1D_array_fill_codon_wrap(self, packed, fill, unpacked)
+  end if
 
 end function unpack_1D_array_fill
 
 function unpack_2D(self, packed, fill) result(unpacked)
   class(MGPacker), intent(in) :: self
-  real(r8), intent(in) :: packed(:,:)
+  real(r8), target, intent(in) :: packed(:,:)
   real(r8), intent(in) :: fill
 
-  real(r8) :: unpacked(self%pcols,self%pver+size(packed, 2)-self%nlev)
+  real(r8), target :: unpacked(self%pcols,self%pver+size(packed, 2)-self%nlev)
 
   SHR_ASSERT(size(packed, 1) == self%mgncol, errMsg(__FILE__, __LINE__))
 
-  unpacked = fill
-  unpacked(self%mgcols,self%top_lev:) = packed
+  call micro_mg_data_select_packer_impl()
+  if (micro_mg_data_packer_use_native_impl) then
+     unpacked = fill
+     unpacked(self%mgcols,self%top_lev:) = packed
+  else
+     call micro_mg_data_unpack_2D_codon_wrap(self, packed, unpacked, fill, size(packed, 2))
+  end if
 
 end function unpack_2D
 
 function unpack_2D_array_fill(self, packed, fill) result(unpacked)
   class(MGPacker), intent(in) :: self
-  real(r8), intent(in) :: packed(:,:)
-  real(r8), intent(in) :: fill(:,:)
+  real(r8), target, intent(in) :: packed(:,:)
+  real(r8), target, intent(in) :: fill(:,:)
 
-  real(r8) :: unpacked(self%pcols,self%pver+size(packed, 2)-self%nlev)
+  real(r8), target :: unpacked(self%pcols,self%pver+size(packed, 2)-self%nlev)
 
   SHR_ASSERT(size(packed, 1) == self%mgncol, errMsg(__FILE__, __LINE__))
 
-  unpacked = fill
-  unpacked(self%mgcols,self%top_lev:) = packed
+  call micro_mg_data_select_packer_impl()
+  if (micro_mg_data_packer_use_native_impl) then
+     unpacked = fill
+     unpacked(self%mgcols,self%top_lev:) = packed
+  else
+     call micro_mg_data_unpack_2D_array_fill_codon_wrap(self, packed, fill, unpacked, size(packed, 2))
+  end if
 
 end function unpack_2D_array_fill
 
 function unpack_3D(self, packed, fill) result(unpacked)
   class(MGPacker), intent(in) :: self
-  real(r8), intent(in) :: packed(:,:,:)
+  real(r8), target, intent(in) :: packed(:,:,:)
   real(r8), intent(in) :: fill
 
-  real(r8) :: unpacked(self%pcols,self%pver,size(packed, 3))
+  real(r8), target :: unpacked(self%pcols,self%pver,size(packed, 3))
 
   SHR_ASSERT(size(packed, 1) == self%mgncol, errMsg(__FILE__, __LINE__))
 
-  unpacked = fill
-  unpacked(self%mgcols,self%top_lev:,:) = packed
+  call micro_mg_data_select_packer_impl()
+  if (micro_mg_data_packer_use_native_impl) then
+     unpacked = fill
+     unpacked(self%mgcols,self%top_lev:,:) = packed
+  else
+     call micro_mg_data_unpack_3D_codon_wrap(self, packed, unpacked, fill, size(packed, 3))
+  end if
 
 end function unpack_3D
 
 function unpack_3D_array_fill(self, packed, fill) result(unpacked)
   class(MGPacker), intent(in) :: self
-  real(r8), intent(in) :: packed(:,:,:)
-  real(r8), intent(in) :: fill(:,:,:)
+  real(r8), target, intent(in) :: packed(:,:,:)
+  real(r8), target, intent(in) :: fill(:,:,:)
 
-  real(r8) :: unpacked(self%pcols,self%pver,size(packed, 3))
+  real(r8), target :: unpacked(self%pcols,self%pver,size(packed, 3))
 
   SHR_ASSERT(size(packed, 1) == self%mgncol, errMsg(__FILE__, __LINE__))
 
-  unpacked = fill
-  unpacked(self%mgcols,self%top_lev:,:) = packed
+  call micro_mg_data_select_packer_impl()
+  if (micro_mg_data_packer_use_native_impl) then
+     unpacked = fill
+     unpacked(self%mgcols,self%top_lev:,:) = packed
+  else
+     call micro_mg_data_unpack_3D_array_fill_codon_wrap(self, packed, fill, unpacked, size(packed, 3))
+  end if
 
 end function unpack_3D_array_fill
 
