@@ -1396,6 +1396,107 @@ def micro_mg_cam_rho_grid_codon(
             rho_grid[_idx2(i, k, pcols)] = rho[_idx2(i, k, psetcols)]
 
 
+@inline
+def _copy2d_full(src: Ptr[float], dst: Ptr[float], src_ld: int, dst_ld: int, pver: int):
+    for k in range(1, pver + 1):
+        for i in range(1, dst_ld + 1):
+            dst[_idx2(i, k, dst_ld)] = src[_idx2(i, k, src_ld)]
+
+
+def micro_mg_cam_tail_grid_copy_codon(
+    psetcols: int,
+    pcols: int,
+    pver: int,
+    copy_mg10: int,
+    p1: cobj,
+    p2: cobj,
+    p3: cobj,
+    p4: cobj,
+    p5: cobj,
+    p6: cobj,
+    p7: cobj,
+    p8: cobj,
+    p9: cobj,
+    p10: cobj,
+    p11: cobj,
+    p12: cobj,
+    p13: cobj,
+    p14: cobj,
+    p15: cobj,
+    p16: cobj,
+    p17: cobj,
+    p18: cobj,
+    p19: cobj,
+    p20: cobj,
+    p21: cobj,
+    p22: cobj,
+    p23: cobj,
+    p24: cobj,
+    p25: cobj,
+    p26: cobj,
+    p27: cobj,
+    p28: cobj,
+    p29: cobj,
+    p30: cobj,
+    p31: cobj,
+    p32: cobj,
+    p33: cobj,
+    p34: cobj,
+    p35: cobj,
+    p36: cobj,
+    p37: cobj,
+    p38: cobj,
+    p39: cobj,
+    p40: cobj,
+    p41: cobj,
+    p42: cobj,
+    p43: cobj,
+    p44: cobj,
+    p45: cobj,
+    p46: cobj,
+    p47: cobj,
+    p48: cobj,
+    p49: cobj,
+    p50: cobj,
+    p51: cobj,
+    p52: cobj,
+    p53: cobj,
+    p54: cobj,
+    p55: cobj,
+    p56: cobj,
+):
+    if copy_mg10 != 0:
+        _copy2d_full(Ptr[float](p1), Ptr[float](p2), psetcols, pcols, pver)
+
+    _copy2d_full(Ptr[float](p3), Ptr[float](p4), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p5), Ptr[float](p6), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p7), Ptr[float](p8), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p9), Ptr[float](p10), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p11), Ptr[float](p12), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p13), Ptr[float](p14), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p15), Ptr[float](p16), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p17), Ptr[float](p18), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p19), Ptr[float](p20), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p21), Ptr[float](p22), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p23), Ptr[float](p24), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p25), Ptr[float](p26), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p27), Ptr[float](p28), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p29), Ptr[float](p30), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p31), Ptr[float](p32), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p33), Ptr[float](p34), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p35), Ptr[float](p36), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p37), Ptr[float](p38), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p39), Ptr[float](p40), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p41), Ptr[float](p42), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p43), Ptr[float](p44), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p45), Ptr[float](p46), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p47), Ptr[float](p48), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p49), Ptr[float](p50), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p51), Ptr[float](p52), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p53), Ptr[float](p54), psetcols, pcols, pver)
+    _copy2d_full(Ptr[float](p55), Ptr[float](p56), psetcols, pcols, pver)
+
+
 @export
 def micro_mg_cam_diag_stage_dispatch_codon(
     ngrdcol: int,
@@ -2186,4 +2287,67 @@ def micro_mg_cam_stage_dispatch_codon(
             p2,
             p3,
             p4,
+        )
+    elif stage == 5:
+        micro_mg_cam_tail_grid_copy_codon(
+            psetcols,
+            pcols,
+            pver,
+            micro_mg_version,
+            p1,
+            p2,
+            p3,
+            p4,
+            p5,
+            p6,
+            p7,
+            p8,
+            p9,
+            p10,
+            p11,
+            p12,
+            p13,
+            p14,
+            p15,
+            p16,
+            p17,
+            p18,
+            p19,
+            p20,
+            p21,
+            p22,
+            p23,
+            p24,
+            p25,
+            p26,
+            p27,
+            p28,
+            p29,
+            p30,
+            p31,
+            p32,
+            p33,
+            p34,
+            p35,
+            p36,
+            p37,
+            p38,
+            p39,
+            p40,
+            p41,
+            p42,
+            p43,
+            p44,
+            p45,
+            p46,
+            p47,
+            p48,
+            p49,
+            p50,
+            p51,
+            p52,
+            p53,
+            p54,
+            p55,
+            p56,
         )

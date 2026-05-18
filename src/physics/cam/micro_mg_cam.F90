@@ -136,6 +136,9 @@ logical :: use_native_tail_shell_impl = .false.
 logical :: tail_shell_impl_selected = .false.
 logical :: tail_shell_entered_logged = .false.
 logical :: tail_diag_pbuf_entered_logged = .false.
+logical :: use_native_tail_grid_copy_impl = .false.
+logical :: tail_grid_copy_impl_selected = .false.
+logical :: tail_grid_copy_entered_logged = .false.
 logical :: use_native_wtrc_shell_impl = .false.
 logical :: wtrc_shell_impl_selected = .false.
 logical :: wtrc_shell_entered_logged = .false.
@@ -2398,49 +2401,65 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
       nevapr_grid     => nevapr
       prain_grid      => prain
 
-      if (micro_mg_version == 1 .and. micro_mg_sub_version == 0) then
-         am_evp_st_grid  = am_evp_st
-      end if
+      call micro_mg_cam_select_tail_grid_copy_impl()
 
-      evpsnow_st_grid = evapsnow
-      qrout_grid      = qrout
-      qsout_grid      = qsout
-      nsout_grid      = nsout
-      nrout_grid      = nrout
-      cld_grid        = cld
-      qcreso_grid     = qcreso
-      melto_grid      = melto
-      mnuccco_grid    = mnuccco
-      mnuccto_grid    = mnuccto
-      bergo_grid      = bergo
-      homoo_grid      = homoo
-      msacwio_grid    = msacwio
-      psacwso_grid    = psacwso
-      bergso_grid     = bergso
-      cmeiout_grid    = cmeiout
-      qireso_grid     = qireso
-      prcio_grid      = prcio
-      praio_grid      = praio
-      icwmrst_grid    = icwmrst
-      icimrst_grid    = icimrst
-      liqcldf_grid    = liqcldf
-      icecldf_grid    = icecldf
-      icwnc_grid      = icwnc
-      icinc_grid      = icinc
-      pdel_grid       = state_loc%pdel
-      prao_grid       = prao
-      prco_grid       = prco
+      if (.not. use_native_tail_grid_copy_impl .and. micro_mg_version == 1 .and. micro_mg_sub_version == 0) then
+         call micro_mg_cam_tail_grid_copy_codon_wrap(psetcols, .true., am_evp_st, am_evp_st_grid, evapsnow, &
+              evpsnow_st_grid, qrout, qrout_grid, qsout, qsout_grid, nsout, nsout_grid, nrout, nrout_grid, cld, cld_grid, &
+              qcreso, qcreso_grid, melto, melto_grid, mnuccco, mnuccco_grid, mnuccto, mnuccto_grid, bergo, bergo_grid, &
+              homoo, homoo_grid, msacwio, msacwio_grid, psacwso, psacwso_grid, bergso, bergso_grid, cmeiout, cmeiout_grid, &
+              qireso, qireso_grid, prcio, prcio_grid, praio, praio_grid, icwmrst, icwmrst_grid, icimrst, icimrst_grid, &
+              liqcldf, liqcldf_grid, icecldf, icecldf_grid, icwnc, icwnc_grid, icinc, icinc_grid, prao, prao_grid, &
+              prco, prco_grid)
 
-      nc_grid = state_loc%q(:,:,ixnumliq)
-      ni_grid = state_loc%q(:,:,ixnumice)
+         pdel_grid = state_loc%pdel
+         nc_grid = state_loc%q(:,:,ixnumliq)
+         ni_grid = state_loc%q(:,:,ixnumice)
+      else
+         if (micro_mg_version == 1 .and. micro_mg_sub_version == 0) then
+            am_evp_st_grid  = am_evp_st
+         end if
 
-      if (micro_mg_version > 1) then
-         cldmax_grid = cldmax
+         evpsnow_st_grid = evapsnow
+         qrout_grid      = qrout
+         qsout_grid      = qsout
+         nsout_grid      = nsout
+         nrout_grid      = nrout
+         cld_grid        = cld
+         qcreso_grid     = qcreso
+         melto_grid      = melto
+         mnuccco_grid    = mnuccco
+         mnuccto_grid    = mnuccto
+         bergo_grid      = bergo
+         homoo_grid      = homoo
+         msacwio_grid    = msacwio
+         psacwso_grid    = psacwso
+         bergso_grid     = bergso
+         cmeiout_grid    = cmeiout
+         qireso_grid     = qireso
+         prcio_grid      = prcio
+         praio_grid      = praio
+         icwmrst_grid    = icwmrst
+         icimrst_grid    = icimrst
+         liqcldf_grid    = liqcldf
+         icecldf_grid    = icecldf
+         icwnc_grid      = icwnc
+         icinc_grid      = icinc
+         pdel_grid       = state_loc%pdel
+         prao_grid       = prao
+         prco_grid       = prco
 
-         qr_grid = state_loc%q(:,:,ixrain)
-         nr_grid = state_loc%q(:,:,ixnumrain)
-         qs_grid = state_loc%q(:,:,ixsnow)
-         ns_grid = state_loc%q(:,:,ixnumsnow)
+         nc_grid = state_loc%q(:,:,ixnumliq)
+         ni_grid = state_loc%q(:,:,ixnumice)
+
+         if (micro_mg_version > 1) then
+            cldmax_grid = cldmax
+
+            qr_grid = state_loc%q(:,:,ixrain)
+            nr_grid = state_loc%q(:,:,ixnumrain)
+            qs_grid = state_loc%q(:,:,ixsnow)
+            ns_grid = state_loc%q(:,:,ixnumsnow)
+         end if
       end if
 
    end if
@@ -2885,6 +2904,43 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
 
 end subroutine micro_mg_cam_tend
 
+subroutine micro_mg_cam_select_tail_grid_copy_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (tail_grid_copy_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MICRO_MG_CAM_TAIL_GRID_COPY_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_tail_grid_copy_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_tail_grid_copy_impl = .false.
+  end if
+
+  tail_grid_copy_impl_selected = .true.
+
+  if (use_native_tail_grid_copy_impl) then
+     write(iulog,*) 'micro_mg_cam_tail_grid_copy implementation = native'
+     call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_TAIL_GRID_COPY_PROOF_FILE', &
+          'micro_mg_cam_tail_grid_copy implementation = native')
+  else
+     write(iulog,*) 'micro_mg_cam_tail_grid_copy implementation = codon'
+     call micro_mg_cam_append_impl_proof('MICRO_MG_CAM_TAIL_GRID_COPY_PROOF_FILE', &
+          'micro_mg_cam_tail_grid_copy implementation = codon')
+  end if
+  call flush(iulog)
+
+end subroutine micro_mg_cam_select_tail_grid_copy_impl
+
 subroutine micro_mg_cam_select_tail_shell_impl()
 
   character(len=32) :: impl_name
@@ -2986,6 +3042,80 @@ subroutine micro_mg_cam_rho_grid_codon_wrap(ncol_local, psetcols_local, rho_loca
        p3_p=c_loc(t_local), p4_p=c_loc(rho_grid_local))
 
 end subroutine micro_mg_cam_rho_grid_codon_wrap
+
+subroutine micro_mg_cam_tail_grid_copy_codon_wrap(psetcols_local, copy_mg10_local, &
+     am_evp_st_local, am_evp_st_grid_local, evapsnow_local, evpsnow_st_grid_local, qrout_local, qrout_grid_local, &
+     qsout_local, qsout_grid_local, nsout_local, nsout_grid_local, nrout_local, nrout_grid_local, cld_local, &
+     cld_grid_local, qcreso_local, qcreso_grid_local, melto_local, melto_grid_local, mnuccco_local, mnuccco_grid_local, &
+     mnuccto_local, mnuccto_grid_local, bergo_local, bergo_grid_local, homoo_local, homoo_grid_local, msacwio_local, &
+     msacwio_grid_local, psacwso_local, psacwso_grid_local, bergso_local, bergso_grid_local, cmeiout_local, &
+     cmeiout_grid_local, qireso_local, qireso_grid_local, prcio_local, prcio_grid_local, praio_local, praio_grid_local, &
+     icwmrst_local, icwmrst_grid_local, icimrst_local, icimrst_grid_local, liqcldf_local, liqcldf_grid_local, &
+     icecldf_local, icecldf_grid_local, icwnc_local, icwnc_grid_local, icinc_local, icinc_grid_local, prao_local, &
+     prao_grid_local, prco_local, prco_grid_local)
+
+  use iso_c_binding, only: c_int64_t, c_loc
+
+  integer, intent(in) :: psetcols_local
+  logical, intent(in) :: copy_mg10_local
+  real(r8), target, intent(in) :: am_evp_st_local(psetcols_local,pver), evapsnow_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: qrout_local(psetcols_local,pver), qsout_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: nsout_local(psetcols_local,pver), nrout_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: cld_local(psetcols_local,pver), qcreso_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: melto_local(psetcols_local,pver), mnuccco_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: mnuccto_local(psetcols_local,pver), bergo_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: homoo_local(psetcols_local,pver), msacwio_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: psacwso_local(psetcols_local,pver), bergso_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: cmeiout_local(psetcols_local,pver), qireso_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: prcio_local(psetcols_local,pver), praio_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: icwmrst_local(psetcols_local,pver), icimrst_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: liqcldf_local(psetcols_local,pver), icecldf_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: icwnc_local(psetcols_local,pver), icinc_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: prao_local(psetcols_local,pver), prco_local(psetcols_local,pver)
+  real(r8), target, intent(inout) :: am_evp_st_grid_local(pcols,pver), evpsnow_st_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: qrout_grid_local(pcols,pver), qsout_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: nsout_grid_local(pcols,pver), nrout_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: cld_grid_local(pcols,pver), qcreso_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: melto_grid_local(pcols,pver), mnuccco_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: mnuccto_grid_local(pcols,pver), bergo_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: homoo_grid_local(pcols,pver), msacwio_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: psacwso_grid_local(pcols,pver), bergso_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: cmeiout_grid_local(pcols,pver), qireso_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: prcio_grid_local(pcols,pver), praio_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: icwmrst_grid_local(pcols,pver), icimrst_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: liqcldf_grid_local(pcols,pver), icecldf_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: icwnc_grid_local(pcols,pver), icinc_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: prao_grid_local(pcols,pver), prco_grid_local(pcols,pver)
+
+  call micro_mg_cam_log_entered_once(tail_grid_copy_entered_logged, 'MICRO_MG_CAM_TAIL_GRID_COPY_PROOF_FILE', &
+       'micro_mg_cam_tail_grid_copy entered (non-subcolumn tail grid copies = codon)')
+
+  call micro_mg_cam_stage_dispatch_call(5_c_int64_t, 0_c_int64_t, int(psetcols_local, c_int64_t), &
+       int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), 0_c_int64_t, &
+       merge(1_c_int64_t, 0_c_int64_t, copy_mg10_local), 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
+       0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
+       p1_p=c_loc(am_evp_st_local), p2_p=c_loc(am_evp_st_grid_local), p3_p=c_loc(evapsnow_local), &
+       p4_p=c_loc(evpsnow_st_grid_local), p5_p=c_loc(qrout_local), p6_p=c_loc(qrout_grid_local), &
+       p7_p=c_loc(qsout_local), p8_p=c_loc(qsout_grid_local), p9_p=c_loc(nsout_local), &
+       p10_p=c_loc(nsout_grid_local), p11_p=c_loc(nrout_local), p12_p=c_loc(nrout_grid_local), &
+       p13_p=c_loc(cld_local), p14_p=c_loc(cld_grid_local), p15_p=c_loc(qcreso_local), &
+       p16_p=c_loc(qcreso_grid_local), p17_p=c_loc(melto_local), p18_p=c_loc(melto_grid_local), &
+       p19_p=c_loc(mnuccco_local), p20_p=c_loc(mnuccco_grid_local), p21_p=c_loc(mnuccto_local), &
+       p22_p=c_loc(mnuccto_grid_local), p23_p=c_loc(bergo_local), p24_p=c_loc(bergo_grid_local), &
+       p25_p=c_loc(homoo_local), p26_p=c_loc(homoo_grid_local), p27_p=c_loc(msacwio_local), &
+       p28_p=c_loc(msacwio_grid_local), p29_p=c_loc(psacwso_local), p30_p=c_loc(psacwso_grid_local), &
+       p31_p=c_loc(bergso_local), p32_p=c_loc(bergso_grid_local), p33_p=c_loc(cmeiout_local), &
+       p34_p=c_loc(cmeiout_grid_local), p35_p=c_loc(qireso_local), p36_p=c_loc(qireso_grid_local), &
+       p37_p=c_loc(prcio_local), p38_p=c_loc(prcio_grid_local), p39_p=c_loc(praio_local), &
+       p40_p=c_loc(praio_grid_local), p41_p=c_loc(icwmrst_local), p42_p=c_loc(icwmrst_grid_local), &
+       p43_p=c_loc(icimrst_local), p44_p=c_loc(icimrst_grid_local), p45_p=c_loc(liqcldf_local), &
+       p46_p=c_loc(liqcldf_grid_local), p47_p=c_loc(icecldf_local), p48_p=c_loc(icecldf_grid_local), &
+       p49_p=c_loc(icwnc_local), p50_p=c_loc(icwnc_grid_local), p51_p=c_loc(icinc_local), &
+       p52_p=c_loc(icinc_grid_local), p53_p=c_loc(prao_local), p54_p=c_loc(prao_grid_local), &
+       p55_p=c_loc(prco_local), p56_p=c_loc(prco_grid_local))
+
+end subroutine micro_mg_cam_tail_grid_copy_codon_wrap
 
 subroutine micro_mg_cam_diag_shell_codon_wrap(ngrdcol_local, micro_mg_version_local, minlwp_local, rho_grid_local, &
      icwmrst_grid_local, liqcldf_grid_local, nc_grid_local, qr_grid_local, nr_grid_local, qs_grid_local, ns_grid_local, &
