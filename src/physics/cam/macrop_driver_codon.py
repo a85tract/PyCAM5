@@ -10,6 +10,96 @@ def _idx3(i: int, k: int, m: int, pcols: int, pver: int):
 
 
 @export
+def cldwat2m_instratus_tendency_codon(
+    stage: int,
+    ncol: int,
+    dt: float,
+    qsmall: float,
+    cone: float,
+    ql_new_p: cobj,
+    qi_new_p: cobj,
+    ql_old_p: cobj,
+    qi_old_p: cobj,
+    nl_old_p: cobj,
+    ni_old_p: cobj,
+    al_st_new_p: cobj,
+    ai_st_new_p: cobj,
+    a_st_new_p: cobj,
+    qqw_p: cobj,
+    qqi_p: cobj,
+    qqnl_p: cobj,
+    qqni_p: cobj,
+    nl_new_p: cobj,
+    ni_new_p: cobj,
+):
+    ql_new = Ptr[float](ql_new_p)
+    qi_new = Ptr[float](qi_new_p)
+    ql_old = Ptr[float](ql_old_p)
+    qi_old = Ptr[float](qi_old_p)
+    nl_old = Ptr[float](nl_old_p)
+    ni_old = Ptr[float](ni_old_p)
+    al_st_new = Ptr[float](al_st_new_p)
+    ai_st_new = Ptr[float](ai_st_new_p)
+    a_st_new = Ptr[float](a_st_new_p)
+    qqw = Ptr[float](qqw_p)
+    qqi = Ptr[float](qqi_p)
+    qqnl = Ptr[float](qqnl_p)
+    qqni = Ptr[float](qqni_p)
+    nl_new = Ptr[float](nl_new_p)
+    ni_new = Ptr[float](ni_new_p)
+
+    for i in range(1, ncol + 1):
+        idx = i - 1
+
+        a_st_new[idx] = max(al_st_new[idx], ai_st_new[idx])
+        qqw[idx] = (ql_new[idx] - ql_old[idx]) / dt
+        qqi[idx] = (qi_new[idx] - qi_old[idx]) / dt
+        qqnl[idx] = 0.0
+        qqni[idx] = 0.0
+
+        if qqw[idx] <= 0.0:
+            ql_available = False
+            if stage == 2:
+                ql_available = ql_old[idx] >= qsmall
+            else:
+                ql_available = ql_old[idx] > qsmall
+            if ql_available:
+                val = qqw[idx] * nl_old[idx] / ql_old[idx]
+                lower = -nl_old[idx] / dt
+                if val < lower:
+                    val = lower
+                if val < 0.0:
+                    qqnl[idx] = cone * val
+                else:
+                    qqnl[idx] = 0.0
+            else:
+                qqnl[idx] = 0.0
+
+        if qqi[idx] <= 0.0:
+            if qi_old[idx] > qsmall:
+                val_i = qqi[idx] * ni_old[idx] / qi_old[idx]
+                lower_i = -ni_old[idx] / dt
+                if val_i < lower_i:
+                    val_i = lower_i
+                if val_i < 0.0:
+                    qqni[idx] = cone * val_i
+                else:
+                    qqni[idx] = 0.0
+            else:
+                qqni[idx] = 0.0
+
+        nl_val = nl_old[idx] + qqnl[idx] * dt
+        if nl_val < 0.0:
+            nl_val = 0.0
+        nl_new[idx] = nl_val
+
+        ni_val = ni_old[idx] + qqni[idx] * dt
+        if ni_val < 0.0:
+            ni_val = 0.0
+        ni_new[idx] = ni_val
+
+
+@export
 def cldwat2m_rhcrit_const_codon(
     pcols: int,
     pver: int,

@@ -88,6 +88,9 @@
    logical :: use_native_rhcrit_const_impl = .false.
    logical :: rhcrit_const_impl_selected = .false.
    logical :: rhcrit_const_entered_logged = .false.
+   logical :: use_native_instratus_tendency_impl = .false.
+   logical :: instratus_tendency_impl_selected = .false.
+   logical :: instratus_tendency_entered_logged = .false.
 
    contains
 
@@ -735,34 +738,10 @@
                                  rhmini_arr(:,k), rhminl_arr(:,k), rhminl_adj_land_arr(:,k), rhminh_arr(:,k), &
                                  T_0(:,k), qv_0(:,k), ql_0(:,k), qi_0(:,k),        & 
                                  al_st_0(:,k), ai_st_0(:,k), ql_st_0(:,k), qi_st_0(:,k) )
-      a_st_0(:ncol,k) = max(al_st_0(:ncol,k),ai_st_0(:ncol,k))
-      QQw1(:ncol,k)   = (ql_0(:ncol,k) - ql1(:ncol,k))/dt
-      QQi1(:ncol,k)   = (qi_0(:ncol,k) - qi1(:ncol,k))/dt
-      ! -------------------------------------------------- !
-      ! Reduce droplet concentration if evaporation occurs !
-      ! Set a limit such that negative state not happens.  ! 
-      ! -------------------------------------------------- !
-      do i = 1, ncol
-         if( QQw1(i,k) .le. 0._r8 ) then
-             if( ql1(i,k) .gt. qsmall ) then
-                 QQnl1(i,k) = QQw1(i,k)*nl1(i,k)/ql1(i,k)
-                 QQnl1(i,k) = min(0._r8,cone*max(QQnl1(i,k),-nl1(i,k)/dt))
-             else
-                 QQnl1(i,k) = 0._r8
-             endif  
-         endif 
-         if( QQi1(i,k) .le. 0._r8 ) then
-             if( qi1(i,k) .gt. qsmall ) then
-                 QQni1(i,k) = QQi1(i,k)*ni1(i,k)/qi1(i,k)
-                 QQni1(i,k) = min(0._r8,cone*max(QQni1(i,k),-ni1(i,k)/dt))
-             else
-                 QQni1(i,k) = 0._r8
-             endif  
-         endif 
-      enddo
+      call instratus_tendency_codon_wrap(1, ncol, dt, cone, ql_0(:,k), qi_0(:,k), ql1(:,k), qi1(:,k), &
+                                         nl1(:,k), ni1(:,k), al_st_0(:,k), ai_st_0(:,k), a_st_0(:,k), &
+                                         QQw1(:,k), QQi1(:,k), QQnl1(:,k), QQni1(:,k), nl_0(:,k), ni_0(:,k))
    enddo
-   nl_0(:ncol,top_lev:) = max(0._r8,nl1(:ncol,top_lev:)+QQnl1(:ncol,top_lev:)*dt) 
-   ni_0(:ncol,top_lev:) = max(0._r8,ni1(:ncol,top_lev:)+QQni1(:ncol,top_lev:)*dt)
 
    ! ----------------------------------------------------------------------------- !
    ! Check if non-cumulus pixels of '_05' state satisfies non-negative constraint. !
@@ -1073,33 +1052,11 @@
                                  rhmini_arr(:,k), rhminl_arr(:,k), rhminl_adj_land_arr(:,k), rhminh_arr(:,k), &
                                  T_star(:,k)    , qv_star(:,k)   , ql_star(:,k)   , qi_star(:,k)  , & 
                                  al_st_star(:,k), ai_st_star(:,k), ql_st_star(:,k), qi_st_star(:,k) )
-      a_st_star(:ncol,k)  = max(al_st_star(:ncol,k),ai_st_star(:ncol,k))
-      QQw2(:ncol,k) = (ql_star(:ncol,k) - ql_dprime(:ncol,k))/dt
-      QQi2(:ncol,k) = (qi_star(:ncol,k) - qi_dprime(:ncol,k))/dt
-      ! -------------------------------------------------- !
-      ! Reduce droplet concentration if evaporation occurs !
-      ! -------------------------------------------------- !
-      do i = 1, ncol
-         if( QQw2(i,k) .le. 0._r8 ) then
-             if( ql_dprime(i,k) .ge. qsmall ) then
-                 QQnl2(i,k) = QQw2(i,k)*nl_dprime(i,k)/ql_dprime(i,k)
-                 QQnl2(i,k) = min(0._r8,cone*max(QQnl2(i,k),-nl_dprime(i,k)/dt))
-             else
-                 QQnl2(i,k) = 0._r8
-             endif  
-         endif 
-         if( QQi2(i,k) .le. 0._r8 ) then
-             if( qi_dprime(i,k) .gt. qsmall ) then
-                 QQni2(i,k) = QQi2(i,k)*ni_dprime(i,k)/qi_dprime(i,k)
-                 QQni2(i,k) = min(0._r8,cone*max(QQni2(i,k),-ni_dprime(i,k)/dt))
-             else
-                 QQni2(i,k) = 0._r8
-             endif  
-         endif 
-      enddo
+      call instratus_tendency_codon_wrap(2, ncol, dt, cone, ql_star(:,k), qi_star(:,k), ql_dprime(:,k), &
+                                         qi_dprime(:,k), nl_dprime(:,k), ni_dprime(:,k), al_st_star(:,k), &
+                                         ai_st_star(:,k), a_st_star(:,k), QQw2(:,k), QQi2(:,k), QQnl2(:,k), &
+                                         QQni2(:,k), nl_star(:,k), ni_star(:,k))
    enddo
-   nl_star(:ncol,top_lev:) = max(0._r8,nl_dprime(:ncol,top_lev:)+QQnl2(:ncol,top_lev:)*dt) 
-   ni_star(:ncol,top_lev:) = max(0._r8,ni_dprime(:ncol,top_lev:)+QQni2(:ncol,top_lev:)*dt)
 
    ! ------------------------------------------ !
    ! Final adjustment of droplet concentration. !
@@ -1464,6 +1421,109 @@ end subroutine rhcrit_calc
       write(iulog,*) 'cldwat2m_rhcrit_const entered (macrophysics constant rhcrit fields = codon)'
    end if
    end subroutine rhcrit_const_log_entered
+
+!=======================================================================================================
+
+   subroutine instratus_tendency_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: n, status
+
+   if (instratus_tendency_impl_selected) return
+   call get_environment_variable('CLDWAT2M_INSTRATUS_TENDENCY_IMPL', value=impl_name, length=n, status=status)
+   use_native_instratus_tendency_impl = .false.
+   if (status == 0 .and. n > 0) then
+      select case (adjustl(impl_name(:n)))
+      case ('native', 'Native', 'NATIVE')
+         use_native_instratus_tendency_impl = .true.
+      case ('codon', 'Codon', 'CODON')
+         use_native_instratus_tendency_impl = .false.
+      case default
+         use_native_instratus_tendency_impl = .false.
+      end select
+   end if
+   instratus_tendency_impl_selected = .true.
+   if (masterproc) then
+      if (use_native_instratus_tendency_impl) then
+         write(iulog,*) 'cldwat2m_instratus_tendency implementation = native'
+      else
+         write(iulog,*) 'cldwat2m_instratus_tendency implementation = codon'
+      end if
+   end if
+   end subroutine instratus_tendency_select_impl
+
+   subroutine instratus_tendency_log_entered()
+   if (instratus_tendency_entered_logged) return
+   instratus_tendency_entered_logged = .true.
+   if (masterproc) then
+      write(iulog,*) 'cldwat2m_instratus_tendency entered (macrophysics instratus condensate tendency = codon)'
+   end if
+   end subroutine instratus_tendency_log_entered
+
+   subroutine instratus_tendency_codon_wrap(stage, ncol, dt, cone, ql_new, qi_new, ql_old, qi_old, &
+                                            nl_old, ni_old, al_st_new, ai_st_new, a_st_new, &
+                                            QQw, QQi, QQnl, QQni, nl_new, ni_new)
+
+   integer, intent(in) :: stage
+   integer, intent(in) :: ncol
+   real(r8), intent(in) :: dt
+   real(r8), intent(in) :: cone
+   real(r8), target, intent(in) :: ql_new(pcols), qi_new(pcols), ql_old(pcols), qi_old(pcols)
+   real(r8), target, intent(in) :: nl_old(pcols), ni_old(pcols), al_st_new(pcols), ai_st_new(pcols)
+   real(r8), target, intent(out) :: a_st_new(pcols), QQw(pcols), QQi(pcols), QQnl(pcols), QQni(pcols)
+   real(r8), target, intent(out) :: nl_new(pcols), ni_new(pcols)
+
+   integer :: i
+
+   interface
+      subroutine cldwat2m_instratus_tendency_codon(stage_c, ncol_c, dt_c, qsmall_c, cone_c, &
+           ql_new_p, qi_new_p, ql_old_p, qi_old_p, nl_old_p, ni_old_p, al_st_new_p, ai_st_new_p, &
+           a_st_new_p, QQw_p, QQi_p, QQnl_p, QQni_p, nl_new_p, ni_new_p) &
+           bind(c, name="cldwat2m_instratus_tendency_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: stage_c, ncol_c
+         real(c_double), value :: dt_c, qsmall_c, cone_c
+         type(c_ptr), value :: ql_new_p, qi_new_p, ql_old_p, qi_old_p, nl_old_p, ni_old_p
+         type(c_ptr), value :: al_st_new_p, ai_st_new_p, a_st_new_p, QQw_p, QQi_p, QQnl_p, QQni_p
+         type(c_ptr), value :: nl_new_p, ni_new_p
+      end subroutine cldwat2m_instratus_tendency_codon
+   end interface
+
+   call instratus_tendency_select_impl()
+   if (.not. use_native_instratus_tendency_impl) then
+      call instratus_tendency_log_entered()
+      call cldwat2m_instratus_tendency_codon(int(stage, c_int64_t), int(ncol, c_int64_t), dt, qsmall, cone, &
+           c_loc(ql_new(1)), c_loc(qi_new(1)), c_loc(ql_old(1)), c_loc(qi_old(1)), &
+           c_loc(nl_old(1)), c_loc(ni_old(1)), c_loc(al_st_new(1)), c_loc(ai_st_new(1)), &
+           c_loc(a_st_new(1)), c_loc(QQw(1)), c_loc(QQi(1)), c_loc(QQnl(1)), c_loc(QQni(1)), &
+           c_loc(nl_new(1)), c_loc(ni_new(1)))
+      return
+   endif
+
+   do i = 1, ncol
+      a_st_new(i) = max(al_st_new(i), ai_st_new(i))
+      QQw(i) = (ql_new(i) - ql_old(i))/dt
+      QQi(i) = (qi_new(i) - qi_old(i))/dt
+      QQnl(i) = 0._r8
+      QQni(i) = 0._r8
+      if( QQw(i) .le. 0._r8 ) then
+         if( (stage .eq. 2 .and. ql_old(i) .ge. qsmall) .or. &
+             (stage .ne. 2 .and. ql_old(i) .gt. qsmall) ) then
+            QQnl(i) = QQw(i)*nl_old(i)/ql_old(i)
+            QQnl(i) = min(0._r8,cone*max(QQnl(i),-nl_old(i)/dt))
+         endif
+      endif
+      if( QQi(i) .le. 0._r8 ) then
+         if( qi_old(i) .gt. qsmall ) then
+            QQni(i) = QQi(i)*ni_old(i)/qi_old(i)
+            QQni(i) = min(0._r8,cone*max(QQni(i),-ni_old(i)/dt))
+         endif
+      endif
+      nl_new(i) = max(0._r8,nl_old(i)+QQnl(i)*dt)
+      ni_new(i) = max(0._r8,ni_old(i)+QQni(i)*dt)
+   enddo
+
+   end subroutine instratus_tendency_codon_wrap
 
 !=======================================================================================================
 
