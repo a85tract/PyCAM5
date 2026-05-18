@@ -33,6 +33,9 @@
       logical :: use_native_taumol26_sw_impl = .false.
       logical :: taumol26_sw_impl_selected = .false.
       logical :: taumol26_sw_entered_logged = .false.
+      logical :: use_native_taumol23_29_sw_impl = .false.
+      logical :: taumol23_29_sw_impl_selected = .false.
+      logical :: taumol23_29_sw_entered_logged(6) = .false.
 
       contains
 
@@ -44,6 +47,8 @@
                            selffac, selffrac, indself, forfac, forfrac, indfor, &
                            sfluxzen, taug, taur)
 !----------------------------------------------------------------------------
+
+      use iso_c_binding, only: c_int64_t
 
 ! ******************************************************************************
 ! *                                                                            *
@@ -224,8 +229,19 @@
                                                            !   Dimensions: (nlayers,ngptsw)
 !      real(kind=r8), intent(out) :: ssa(:,:)             ! single scattering albedo (inactive)
                                                            !   Dimensions: (nlayers,ngptsw)
+      integer(c_int64_t), target :: jp64(nlayers), jt64(nlayers), jt164(nlayers)
+      integer(c_int64_t), target :: indself64(nlayers), indfor64(nlayers)
+      integer :: lay_idx
 
       hvrtau = '$Revision: 1.2 $'
+
+      do lay_idx = 1, nlayers
+         jp64(lay_idx) = int(jp(lay_idx), c_int64_t)
+         jt64(lay_idx) = int(jt(lay_idx), c_int64_t)
+         jt164(lay_idx) = int(jt1(lay_idx), c_int64_t)
+         indself64(lay_idx) = int(indself(lay_idx), c_int64_t)
+         indfor64(lay_idx) = int(indfor(lay_idx), c_int64_t)
+      enddo
 
 ! Calculate gaseous optical depth and planck fractions for each spectral band.
 
@@ -973,6 +989,7 @@
 
 ! ------- Modules -------
 
+      use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
       use parrrsw, only : ng23, ngs22
       use rrsw_kg23, only : absa, forref, selfref, &
                             sfluxref, rayl, layreffr, givfac
@@ -986,9 +1003,46 @@
                          fac110, fac111, fs, speccomb, specmult, specparm, &
                          tauray
 
+      interface
+         subroutine rrtmg_sw_taumol23_codon(nlayers_c, laytrop_c, ng23_c, ngs22_c, &
+              nspa23_c, layreffr_c, givfac_c, colh2o_p, colmol_p, jp_p, jt_p, jt1_p, &
+              indself_p, indfor_p, fac00_p, fac01_p, fac10_p, fac11_p, selffac_p, &
+              selffrac_p, forfac_p, forfrac_p, absa_p, selfref_p, forref_p, &
+              sfluxref_p, rayl_p, sfluxzen_p, taug_p, taur_p) bind(c, name="rrtmg_sw_taumol23_codon")
+            use iso_c_binding, only: c_double, c_int64_t, c_ptr
+            integer(c_int64_t), value :: nlayers_c, laytrop_c, ng23_c, ngs22_c
+            integer(c_int64_t), value :: nspa23_c, layreffr_c
+            real(c_double), value :: givfac_c
+            type(c_ptr), value :: colh2o_p, colmol_p, jp_p, jt_p, jt1_p, indself_p, indfor_p
+            type(c_ptr), value :: fac00_p, fac01_p, fac10_p, fac11_p, selffac_p, selffrac_p
+            type(c_ptr), value :: forfac_p, forfrac_p, absa_p, selfref_p, forref_p
+            type(c_ptr), value :: sfluxref_p, rayl_p, sfluxzen_p, taug_p, taur_p
+         end subroutine rrtmg_sw_taumol23_codon
+      end interface
+
 ! Compute the optical depth by interpolating in ln(pressure), 
 ! temperature, and appropriate species.  Below LAYTROP, the water
 ! vapor self-continuum is interpolated (in temperature) separately.  
+
+      call taumol23_29_sw_select_impl()
+      if (.not. use_native_taumol23_29_sw_impl) then
+         call taumol23_29_sw_log_entered(23)
+         call rrtmg_sw_taumol23_codon( &
+              int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng23, c_int64_t), &
+              int(ngs22, c_int64_t), int(nspa(23), c_int64_t), int(layreffr, c_int64_t), &
+              real(givfac, c_double), transfer(loc(colh2o(1)), c_null_ptr), c_loc(colmol(1)), &
+              c_loc(jp64(1)), c_loc(jt64(1)), c_loc(jt164(1)), c_loc(indself64(1)), &
+              c_loc(indfor64(1)), transfer(loc(fac00(1)), c_null_ptr), &
+              transfer(loc(fac01(1)), c_null_ptr), transfer(loc(fac10(1)), c_null_ptr), &
+              transfer(loc(fac11(1)), c_null_ptr), transfer(loc(selffac(1)), c_null_ptr), &
+              transfer(loc(selffrac(1)), c_null_ptr), transfer(loc(forfac(1)), c_null_ptr), &
+              transfer(loc(forfrac(1)), c_null_ptr), transfer(loc(absa(1,1)), c_null_ptr), &
+              transfer(loc(selfref(1,1)), c_null_ptr), transfer(loc(forref(1,1)), c_null_ptr), &
+              transfer(loc(sfluxref(1)), c_null_ptr), transfer(loc(rayl(1)), c_null_ptr), &
+              c_loc(sfluxzen(1)), c_loc(taug(1,1)), c_loc(taur(1,1)) &
+         )
+         return
+      endif
 
       laysolfr = laytrop
 
@@ -1042,6 +1096,7 @@
 
 ! ------- Modules -------
 
+      use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
       use parrrsw, only : ng24, ngs23
       use rrsw_kg24, only : absa, absb, forref, selfref, &
                             sfluxref, abso3a, abso3b, rayla, raylb, &
@@ -1056,9 +1111,52 @@
                          fac110, fac111, fs, speccomb, specmult, specparm, &
                          tauray
 
+      interface
+         subroutine rrtmg_sw_taumol24_codon(nlayers_c, laytrop_c, ng24_c, ngs23_c, &
+              nspa24_c, nspb24_c, layreffr_c, strrat_c, oneminus_c, colh2o_p, &
+              colo2_p, colo3_p, colmol_p, jp_p, jt_p, jt1_p, indself_p, indfor_p, &
+              fac00_p, fac01_p, fac10_p, fac11_p, selffac_p, selffrac_p, forfac_p, &
+              forfrac_p, absa_p, absb_p, selfref_p, forref_p, sfluxref_p, abso3a_p, &
+              abso3b_p, rayla_p, raylb_p, sfluxzen_p, taug_p, taur_p) bind(c, name="rrtmg_sw_taumol24_codon")
+            use iso_c_binding, only: c_double, c_int64_t, c_ptr
+            integer(c_int64_t), value :: nlayers_c, laytrop_c, ng24_c, ngs23_c
+            integer(c_int64_t), value :: nspa24_c, nspb24_c, layreffr_c
+            real(c_double), value :: strrat_c, oneminus_c
+            type(c_ptr), value :: colh2o_p, colo2_p, colo3_p, colmol_p, jp_p, jt_p, jt1_p
+            type(c_ptr), value :: indself_p, indfor_p, fac00_p, fac01_p, fac10_p, fac11_p
+            type(c_ptr), value :: selffac_p, selffrac_p, forfac_p, forfrac_p, absa_p, absb_p
+            type(c_ptr), value :: selfref_p, forref_p, sfluxref_p, abso3a_p, abso3b_p
+            type(c_ptr), value :: rayla_p, raylb_p, sfluxzen_p, taug_p, taur_p
+         end subroutine rrtmg_sw_taumol24_codon
+      end interface
+
 ! Compute the optical depth by interpolating in ln(pressure), 
 ! temperature, and appropriate species.  Below LAYTROP, the water
 ! vapor self-continuum is interpolated (in temperature) separately.  
+
+      call taumol23_29_sw_select_impl()
+      if (.not. use_native_taumol23_29_sw_impl) then
+         call taumol23_29_sw_log_entered(24)
+         call rrtmg_sw_taumol24_codon( &
+              int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng24, c_int64_t), &
+              int(ngs23, c_int64_t), int(nspa(24), c_int64_t), int(nspb(24), c_int64_t), &
+              int(layreffr, c_int64_t), real(strrat, c_double), real(oneminus, c_double), &
+              transfer(loc(colh2o(1)), c_null_ptr), transfer(loc(colo2(1)), c_null_ptr), &
+              transfer(loc(colo3(1)), c_null_ptr), c_loc(colmol(1)), c_loc(jp64(1)), &
+              c_loc(jt64(1)), c_loc(jt164(1)), c_loc(indself64(1)), c_loc(indfor64(1)), &
+              transfer(loc(fac00(1)), c_null_ptr), transfer(loc(fac01(1)), c_null_ptr), &
+              transfer(loc(fac10(1)), c_null_ptr), transfer(loc(fac11(1)), c_null_ptr), &
+              transfer(loc(selffac(1)), c_null_ptr), transfer(loc(selffrac(1)), c_null_ptr), &
+              transfer(loc(forfac(1)), c_null_ptr), transfer(loc(forfrac(1)), c_null_ptr), &
+              transfer(loc(absa(1,1)), c_null_ptr), transfer(loc(absb(1,1)), c_null_ptr), &
+              transfer(loc(selfref(1,1)), c_null_ptr), transfer(loc(forref(1,1)), c_null_ptr), &
+              transfer(loc(sfluxref(1,1)), c_null_ptr), transfer(loc(abso3a(1)), c_null_ptr), &
+              transfer(loc(abso3b(1)), c_null_ptr), transfer(loc(rayla(1,1)), c_null_ptr), &
+              transfer(loc(raylb(1)), c_null_ptr), c_loc(sfluxzen(1)), c_loc(taug(1,1)), &
+              c_loc(taur(1,1)) &
+         )
+         return
+      endif
 
       laysolfr = laytrop
 
@@ -1142,6 +1240,7 @@
 
 ! ------- Modules -------
 
+      use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr, c_ptr
       use parrrsw, only : ng25, ngs24
       use rrsw_kg25, only : absa, &
                             sfluxref, abso3a, abso3b, rayl, layreffr
@@ -1155,9 +1254,41 @@
                          fac110, fac111, fs, speccomb, specmult, specparm, &
                          tauray
 
+      interface
+         subroutine rrtmg_sw_taumol25_codon(nlayers_c, laytrop_c, ng25_c, ngs24_c, &
+              nspa25_c, layreffr_c, colh2o_p, colo3_p, colmol_p, jp_p, jt_p, jt1_p, &
+              fac00_p, fac01_p, fac10_p, fac11_p, absa_p, sfluxref_p, abso3a_p, &
+              abso3b_p, rayl_p, sfluxzen_p, taug_p, taur_p) bind(c, name="rrtmg_sw_taumol25_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: nlayers_c, laytrop_c, ng25_c, ngs24_c
+            integer(c_int64_t), value :: nspa25_c, layreffr_c
+            type(c_ptr), value :: colh2o_p, colo3_p, colmol_p, jp_p, jt_p, jt1_p
+            type(c_ptr), value :: fac00_p, fac01_p, fac10_p, fac11_p, absa_p, sfluxref_p
+            type(c_ptr), value :: abso3a_p, abso3b_p, rayl_p, sfluxzen_p, taug_p, taur_p
+         end subroutine rrtmg_sw_taumol25_codon
+      end interface
+
 ! Compute the optical depth by interpolating in ln(pressure), 
 ! temperature, and appropriate species.  Below LAYTROP, the water
 ! vapor self-continuum is interpolated (in temperature) separately.  
+
+      call taumol23_29_sw_select_impl()
+      if (.not. use_native_taumol23_29_sw_impl) then
+         call taumol23_29_sw_log_entered(25)
+         call rrtmg_sw_taumol25_codon( &
+              int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng25, c_int64_t), &
+              int(ngs24, c_int64_t), int(nspa(25), c_int64_t), int(layreffr, c_int64_t), &
+              transfer(loc(colh2o(1)), c_null_ptr), transfer(loc(colo3(1)), c_null_ptr), &
+              c_loc(colmol(1)), c_loc(jp64(1)), c_loc(jt64(1)), c_loc(jt164(1)), &
+              transfer(loc(fac00(1)), c_null_ptr), transfer(loc(fac01(1)), c_null_ptr), &
+              transfer(loc(fac10(1)), c_null_ptr), transfer(loc(fac11(1)), c_null_ptr), &
+              transfer(loc(absa(1,1)), c_null_ptr), transfer(loc(sfluxref(1)), c_null_ptr), &
+              transfer(loc(abso3a(1)), c_null_ptr), transfer(loc(abso3b(1)), c_null_ptr), &
+              transfer(loc(rayl(1)), c_null_ptr), c_loc(sfluxzen(1)), c_loc(taug(1,1)), &
+              c_loc(taur(1,1)) &
+         )
+         return
+      endif
 
       laysolfr = laytrop
 
@@ -1277,6 +1408,7 @@
 
 ! ------- Modules -------
 
+      use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
       use parrrsw, only : ng27, ngs26
       use rrsw_kg27, only : absa, absb, &
                             sfluxref, rayl, layreffr, scalekur
@@ -1290,9 +1422,42 @@
                          fac110, fac111, fs, speccomb, specmult, specparm, &
                          tauray
 
+      interface
+         subroutine rrtmg_sw_taumol27_codon(nlayers_c, laytrop_c, ng27_c, ngs26_c, &
+              nspa27_c, nspb27_c, layreffr_c, scalekur_c, colo3_p, colmol_p, &
+              jp_p, jt_p, jt1_p, fac00_p, fac01_p, fac10_p, fac11_p, absa_p, &
+              absb_p, sfluxref_p, rayl_p, sfluxzen_p, taug_p, taur_p) bind(c, name="rrtmg_sw_taumol27_codon")
+            use iso_c_binding, only: c_double, c_int64_t, c_ptr
+            integer(c_int64_t), value :: nlayers_c, laytrop_c, ng27_c, ngs26_c
+            integer(c_int64_t), value :: nspa27_c, nspb27_c, layreffr_c
+            real(c_double), value :: scalekur_c
+            type(c_ptr), value :: colo3_p, colmol_p, jp_p, jt_p, jt1_p
+            type(c_ptr), value :: fac00_p, fac01_p, fac10_p, fac11_p, absa_p, absb_p
+            type(c_ptr), value :: sfluxref_p, rayl_p, sfluxzen_p, taug_p, taur_p
+         end subroutine rrtmg_sw_taumol27_codon
+      end interface
+
 ! Compute the optical depth by interpolating in ln(pressure), 
 ! temperature, and appropriate species.  Below LAYTROP, the water
 ! vapor self-continuum is interpolated (in temperature) separately.  
+
+      call taumol23_29_sw_select_impl()
+      if (.not. use_native_taumol23_29_sw_impl) then
+         call taumol23_29_sw_log_entered(27)
+         call rrtmg_sw_taumol27_codon( &
+              int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng27, c_int64_t), &
+              int(ngs26, c_int64_t), int(nspa(27), c_int64_t), int(nspb(27), c_int64_t), &
+              int(layreffr, c_int64_t), real(scalekur, c_double), &
+              transfer(loc(colo3(1)), c_null_ptr), c_loc(colmol(1)), c_loc(jp64(1)), &
+              c_loc(jt64(1)), c_loc(jt164(1)), transfer(loc(fac00(1)), c_null_ptr), &
+              transfer(loc(fac01(1)), c_null_ptr), transfer(loc(fac10(1)), c_null_ptr), &
+              transfer(loc(fac11(1)), c_null_ptr), transfer(loc(absa(1,1)), c_null_ptr), &
+              transfer(loc(absb(1,1)), c_null_ptr), transfer(loc(sfluxref(1)), c_null_ptr), &
+              transfer(loc(rayl(1)), c_null_ptr), c_loc(sfluxzen(1)), c_loc(taug(1,1)), &
+              c_loc(taur(1,1)) &
+         )
+         return
+      endif
 
 ! Lower atmosphere loop
       do lay = 1, laytrop
@@ -1345,6 +1510,7 @@
 
 ! ------- Modules -------
 
+      use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
       use parrrsw, only : ng28, ngs27
       use rrsw_kg28, only : absa, absb, &
                             sfluxref, rayl, layreffr, strrat
@@ -1358,9 +1524,42 @@
                          fac110, fac111, fs, speccomb, specmult, specparm, &
                          tauray
 
+      interface
+         subroutine rrtmg_sw_taumol28_codon(nlayers_c, laytrop_c, ng28_c, ngs27_c, &
+              nspa28_c, nspb28_c, layreffr_c, strrat_c, rayl_c, oneminus_c, colo2_p, &
+              colo3_p, colmol_p, jp_p, jt_p, jt1_p, fac00_p, fac01_p, fac10_p, &
+              fac11_p, absa_p, absb_p, sfluxref_p, sfluxzen_p, taug_p, taur_p) bind(c, name="rrtmg_sw_taumol28_codon")
+            use iso_c_binding, only: c_double, c_int64_t, c_ptr
+            integer(c_int64_t), value :: nlayers_c, laytrop_c, ng28_c, ngs27_c
+            integer(c_int64_t), value :: nspa28_c, nspb28_c, layreffr_c
+            real(c_double), value :: strrat_c, rayl_c, oneminus_c
+            type(c_ptr), value :: colo2_p, colo3_p, colmol_p, jp_p, jt_p, jt1_p
+            type(c_ptr), value :: fac00_p, fac01_p, fac10_p, fac11_p, absa_p, absb_p
+            type(c_ptr), value :: sfluxref_p, sfluxzen_p, taug_p, taur_p
+         end subroutine rrtmg_sw_taumol28_codon
+      end interface
+
 ! Compute the optical depth by interpolating in ln(pressure), 
 ! temperature, and appropriate species.  Below LAYTROP, the water
 ! vapor self-continuum is interpolated (in temperature) separately.  
+
+      call taumol23_29_sw_select_impl()
+      if (.not. use_native_taumol23_29_sw_impl) then
+         call taumol23_29_sw_log_entered(28)
+         call rrtmg_sw_taumol28_codon( &
+              int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng28, c_int64_t), &
+              int(ngs27, c_int64_t), int(nspa(28), c_int64_t), int(nspb(28), c_int64_t), &
+              int(layreffr, c_int64_t), real(strrat, c_double), real(rayl, c_double), &
+              real(oneminus, c_double), transfer(loc(colo2(1)), c_null_ptr), &
+              transfer(loc(colo3(1)), c_null_ptr), c_loc(colmol(1)), c_loc(jp64(1)), &
+              c_loc(jt64(1)), c_loc(jt164(1)), transfer(loc(fac00(1)), c_null_ptr), &
+              transfer(loc(fac01(1)), c_null_ptr), transfer(loc(fac10(1)), c_null_ptr), &
+              transfer(loc(fac11(1)), c_null_ptr), transfer(loc(absa(1,1)), c_null_ptr), &
+              transfer(loc(absb(1,1)), c_null_ptr), transfer(loc(sfluxref(1,1)), c_null_ptr), &
+              c_loc(sfluxzen(1)), c_loc(taug(1,1)), c_loc(taur(1,1)) &
+         )
+         return
+      endif
 
 ! Lower atmosphere loop
       do lay = 1, laytrop
@@ -1450,6 +1649,7 @@
 
 ! ------- Modules -------
 
+      use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
       use parrrsw, only : ng29, ngs28
       use rrsw_kg29, only : absa, absb, forref, selfref, &
                             sfluxref, absh2o, absco2, rayl, layreffr
@@ -1463,9 +1663,50 @@
                          fac110, fac111, fs, speccomb, specmult, specparm, &
                          tauray
 
+      interface
+         subroutine rrtmg_sw_taumol29_codon(nlayers_c, laytrop_c, ng29_c, ngs28_c, &
+              nspa29_c, nspb29_c, layreffr_c, rayl_c, colh2o_p, colco2_p, colmol_p, &
+              jp_p, jt_p, jt1_p, indself_p, indfor_p, fac00_p, fac01_p, fac10_p, &
+              fac11_p, selffac_p, selffrac_p, forfac_p, forfrac_p, absa_p, absb_p, &
+              selfref_p, forref_p, sfluxref_p, absh2o_p, absco2_p, sfluxzen_p, &
+              taug_p, taur_p) bind(c, name="rrtmg_sw_taumol29_codon")
+            use iso_c_binding, only: c_double, c_int64_t, c_ptr
+            integer(c_int64_t), value :: nlayers_c, laytrop_c, ng29_c, ngs28_c
+            integer(c_int64_t), value :: nspa29_c, nspb29_c, layreffr_c
+            real(c_double), value :: rayl_c
+            type(c_ptr), value :: colh2o_p, colco2_p, colmol_p, jp_p, jt_p, jt1_p
+            type(c_ptr), value :: indself_p, indfor_p, fac00_p, fac01_p, fac10_p, fac11_p
+            type(c_ptr), value :: selffac_p, selffrac_p, forfac_p, forfrac_p, absa_p, absb_p
+            type(c_ptr), value :: selfref_p, forref_p, sfluxref_p, absh2o_p, absco2_p
+            type(c_ptr), value :: sfluxzen_p, taug_p, taur_p
+         end subroutine rrtmg_sw_taumol29_codon
+      end interface
+
 ! Compute the optical depth by interpolating in ln(pressure), 
 ! temperature, and appropriate species.  Below LAYTROP, the water
 ! vapor self-continuum is interpolated (in temperature) separately.  
+
+      call taumol23_29_sw_select_impl()
+      if (.not. use_native_taumol23_29_sw_impl) then
+         call taumol23_29_sw_log_entered(29)
+         call rrtmg_sw_taumol29_codon( &
+              int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng29, c_int64_t), &
+              int(ngs28, c_int64_t), int(nspa(29), c_int64_t), int(nspb(29), c_int64_t), &
+              int(layreffr, c_int64_t), real(rayl, c_double), &
+              transfer(loc(colh2o(1)), c_null_ptr), transfer(loc(colco2(1)), c_null_ptr), &
+              c_loc(colmol(1)), c_loc(jp64(1)), c_loc(jt64(1)), c_loc(jt164(1)), &
+              c_loc(indself64(1)), c_loc(indfor64(1)), transfer(loc(fac00(1)), c_null_ptr), &
+              transfer(loc(fac01(1)), c_null_ptr), transfer(loc(fac10(1)), c_null_ptr), &
+              transfer(loc(fac11(1)), c_null_ptr), transfer(loc(selffac(1)), c_null_ptr), &
+              transfer(loc(selffrac(1)), c_null_ptr), transfer(loc(forfac(1)), c_null_ptr), &
+              transfer(loc(forfrac(1)), c_null_ptr), transfer(loc(absa(1,1)), c_null_ptr), &
+              transfer(loc(absb(1,1)), c_null_ptr), transfer(loc(selfref(1,1)), c_null_ptr), &
+              transfer(loc(forref(1,1)), c_null_ptr), transfer(loc(sfluxref(1)), c_null_ptr), &
+              transfer(loc(absh2o(1)), c_null_ptr), transfer(loc(absco2(1)), c_null_ptr), &
+              c_loc(sfluxzen(1)), c_loc(taug(1,1)), c_loc(taur(1,1)) &
+         )
+         return
+      endif
 
 ! Lower atmosphere loop
       do lay = 1, laytrop
@@ -1568,5 +1809,81 @@
       end if
 
       end subroutine taumol26_sw_log_entered
+
+! --------------------------------------------------------------------------
+      subroutine taumol23_29_sw_select_impl()
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (taumol23_29_sw_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('RRTMG_SW_TAUMOL23_29_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_taumol23_29_sw_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_taumol23_29_sw_impl = .false.
+      end if
+
+      taumol23_29_sw_impl_selected = .true.
+
+      if (masterproc) then
+         if (use_native_taumol23_29_sw_impl) then
+            write(iulog,*) 'rrtmg_sw_taumol23_29 implementation = native'
+         else
+            write(iulog,*) 'rrtmg_sw_taumol23_29 implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine taumol23_29_sw_select_impl
+
+! --------------------------------------------------------------------------
+      subroutine taumol23_29_sw_log_entered(band)
+
+      integer, intent(in) :: band
+      integer :: idx
+      character(len=96) :: proof_line
+
+      select case (band)
+      case (23)
+         idx = 1
+         proof_line = 'rrtmg_sw_taumol23 entered (shortwave band 23 optical depth = codon)'
+      case (24)
+         idx = 2
+         proof_line = 'rrtmg_sw_taumol24 entered (shortwave band 24 optical depth = codon)'
+      case (25)
+         idx = 3
+         proof_line = 'rrtmg_sw_taumol25 entered (shortwave band 25 optical depth = codon)'
+      case (27)
+         idx = 4
+         proof_line = 'rrtmg_sw_taumol27 entered (shortwave band 27 optical depth = codon)'
+      case (28)
+         idx = 5
+         proof_line = 'rrtmg_sw_taumol28 entered (shortwave band 28 optical depth = codon)'
+      case (29)
+         idx = 6
+         proof_line = 'rrtmg_sw_taumol29 entered (shortwave band 29 optical depth = codon)'
+      case default
+         return
+      end select
+
+      if (taumol23_29_sw_entered_logged(idx)) return
+      taumol23_29_sw_entered_logged(idx) = .true.
+
+      if (masterproc) then
+         write(iulog,*) trim(proof_line)
+         call flush(iulog)
+      end if
+
+      end subroutine taumol23_29_sw_log_entered
 
       end module rrtmg_sw_taumol
