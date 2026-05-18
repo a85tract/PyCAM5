@@ -1453,6 +1453,1086 @@ def rrtmg_sw_taumol29_codon(
 
 
 @export
+def rrtmg_sw_taumol16_codon(
+    nlayers: int,
+    laytrop: int,
+    ng16: int,
+    nspa16: int,
+    nspb16: int,
+    layreffr: int,
+    strrat1: float,
+    rayl: float,
+    oneminus: float,
+    colh2o_p: cobj,
+    colch4_p: cobj,
+    colmol_p: cobj,
+    jp_p: cobj,
+    jt_p: cobj,
+    jt1_p: cobj,
+    indself_p: cobj,
+    indfor_p: cobj,
+    fac00_p: cobj,
+    fac01_p: cobj,
+    fac10_p: cobj,
+    fac11_p: cobj,
+    selffac_p: cobj,
+    selffrac_p: cobj,
+    forfac_p: cobj,
+    forfrac_p: cobj,
+    absa_p: cobj,
+    absb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    sfluxref_p: cobj,
+    sfluxzen_p: cobj,
+    taug_p: cobj,
+    taur_p: cobj,
+):
+    colh2o = Ptr[float](colh2o_p)
+    colch4 = Ptr[float](colch4_p)
+    colmol = Ptr[float](colmol_p)
+    jp = Ptr[int](jp_p)
+    jt = Ptr[int](jt_p)
+    jt1 = Ptr[int](jt1_p)
+    indself = Ptr[int](indself_p)
+    indfor = Ptr[int](indfor_p)
+    fac00 = Ptr[float](fac00_p)
+    fac01 = Ptr[float](fac01_p)
+    fac10 = Ptr[float](fac10_p)
+    fac11 = Ptr[float](fac11_p)
+    selffac = Ptr[float](selffac_p)
+    selffrac = Ptr[float](selffrac_p)
+    forfac = Ptr[float](forfac_p)
+    forfrac = Ptr[float](forfrac_p)
+    absa = Ptr[float](absa_p)
+    absb = Ptr[float](absb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    sfluxref = Ptr[float](sfluxref_p)
+    sfluxzen = Ptr[float](sfluxzen_p)
+    taug = Ptr[float](taug_p)
+    taur = Ptr[float](taur_p)
+
+    for lay in range(1, laytrop + 1):
+        speccomb = colh2o[lay - 1] + strrat1 * colch4[lay - 1]
+        specparm = colh2o[lay - 1] / speccomb
+        if specparm >= oneminus:
+            specparm = oneminus
+        specmult = 8.0 * specparm
+        js = 1 + int(specmult)
+        fs = specmult - float(int(specmult))
+        fac000 = (1.0 - fs) * fac00[lay - 1]
+        fac010 = (1.0 - fs) * fac10[lay - 1]
+        fac100 = fs * fac00[lay - 1]
+        fac110 = fs * fac10[lay - 1]
+        fac001 = (1.0 - fs) * fac01[lay - 1]
+        fac011 = (1.0 - fs) * fac11[lay - 1]
+        fac101 = fs * fac01[lay - 1]
+        fac111 = fs * fac11[lay - 1]
+        ind0 = ((jp[lay - 1] - 1) * 5 + (jt[lay - 1] - 1)) * nspa16 + js
+        ind1 = (jp[lay - 1] * 5 + (jt1[lay - 1] - 1)) * nspa16 + js
+        inds = indself[lay - 1]
+        indf = indfor[lay - 1]
+        tauray = colmol[lay - 1] * rayl
+
+        for ig in range(1, ng16 + 1):
+            taug[_idx2(lay, ig, nlayers)] = (
+                speccomb
+                * (
+                    fac000 * absa[_idx2(ind0, ig, 585)]
+                    + fac100 * absa[_idx2(ind0 + 1, ig, 585)]
+                    + fac010 * absa[_idx2(ind0 + 9, ig, 585)]
+                    + fac110 * absa[_idx2(ind0 + 10, ig, 585)]
+                    + fac001 * absa[_idx2(ind1, ig, 585)]
+                    + fac101 * absa[_idx2(ind1 + 1, ig, 585)]
+                    + fac011 * absa[_idx2(ind1 + 9, ig, 585)]
+                    + fac111 * absa[_idx2(ind1 + 10, ig, 585)]
+                )
+                + colh2o[lay - 1]
+                * (
+                    selffac[lay - 1]
+                    * (
+                        selfref[_idx2(inds, ig, 10)]
+                        + selffrac[lay - 1]
+                        * (
+                            selfref[_idx2(inds + 1, ig, 10)]
+                            - selfref[_idx2(inds, ig, 10)]
+                        )
+                    )
+                    + forfac[lay - 1]
+                    * (
+                        forref[_idx2(indf, ig, 3)]
+                        + forfrac[lay - 1]
+                        * (
+                            forref[_idx2(indf + 1, ig, 3)]
+                            - forref[_idx2(indf, ig, 3)]
+                        )
+                    )
+                )
+            )
+            taur[_idx2(lay, ig, nlayers)] = tauray
+
+    laysolfr = nlayers
+
+    for lay in range(laytrop + 1, nlayers + 1):
+        if jp[lay - 2] < layreffr and jp[lay - 1] >= layreffr:
+            laysolfr = lay
+        ind0 = ((jp[lay - 1] - 13) * 5 + (jt[lay - 1] - 1)) * nspb16 + 1
+        ind1 = ((jp[lay - 1] - 12) * 5 + (jt1[lay - 1] - 1)) * nspb16 + 1
+        tauray = colmol[lay - 1] * rayl
+
+        for ig in range(1, ng16 + 1):
+            taug[_idx2(lay, ig, nlayers)] = colch4[lay - 1] * (
+                fac00[lay - 1] * absb[_idx2(ind0, ig, 235)]
+                + fac10[lay - 1] * absb[_idx2(ind0 + 1, ig, 235)]
+                + fac01[lay - 1] * absb[_idx2(ind1, ig, 235)]
+                + fac11[lay - 1] * absb[_idx2(ind1 + 1, ig, 235)]
+            )
+            if lay == laysolfr:
+                sfluxzen[ig - 1] = sfluxref[ig - 1]
+            taur[_idx2(lay, ig, nlayers)] = tauray
+
+
+@export
+def rrtmg_sw_taumol17_codon(
+    nlayers: int,
+    laytrop: int,
+    ng17: int,
+    ngs16: int,
+    nspa17: int,
+    nspb17: int,
+    layreffr: int,
+    strrat: float,
+    rayl: float,
+    oneminus: float,
+    colh2o_p: cobj,
+    colco2_p: cobj,
+    colmol_p: cobj,
+    jp_p: cobj,
+    jt_p: cobj,
+    jt1_p: cobj,
+    indself_p: cobj,
+    indfor_p: cobj,
+    fac00_p: cobj,
+    fac01_p: cobj,
+    fac10_p: cobj,
+    fac11_p: cobj,
+    selffac_p: cobj,
+    selffrac_p: cobj,
+    forfac_p: cobj,
+    forfrac_p: cobj,
+    absa_p: cobj,
+    absb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    sfluxref_p: cobj,
+    sfluxzen_p: cobj,
+    taug_p: cobj,
+    taur_p: cobj,
+):
+    colh2o = Ptr[float](colh2o_p)
+    colco2 = Ptr[float](colco2_p)
+    colmol = Ptr[float](colmol_p)
+    jp = Ptr[int](jp_p)
+    jt = Ptr[int](jt_p)
+    jt1 = Ptr[int](jt1_p)
+    indself = Ptr[int](indself_p)
+    indfor = Ptr[int](indfor_p)
+    fac00 = Ptr[float](fac00_p)
+    fac01 = Ptr[float](fac01_p)
+    fac10 = Ptr[float](fac10_p)
+    fac11 = Ptr[float](fac11_p)
+    selffac = Ptr[float](selffac_p)
+    selffrac = Ptr[float](selffrac_p)
+    forfac = Ptr[float](forfac_p)
+    forfrac = Ptr[float](forfrac_p)
+    absa = Ptr[float](absa_p)
+    absb = Ptr[float](absb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    sfluxref = Ptr[float](sfluxref_p)
+    sfluxzen = Ptr[float](sfluxzen_p)
+    taug = Ptr[float](taug_p)
+    taur = Ptr[float](taur_p)
+
+    for lay in range(1, laytrop + 1):
+        speccomb = colh2o[lay - 1] + strrat * colco2[lay - 1]
+        specparm = colh2o[lay - 1] / speccomb
+        if specparm >= oneminus:
+            specparm = oneminus
+        specmult = 8.0 * specparm
+        js = 1 + int(specmult)
+        fs = specmult - float(int(specmult))
+        fac000 = (1.0 - fs) * fac00[lay - 1]
+        fac010 = (1.0 - fs) * fac10[lay - 1]
+        fac100 = fs * fac00[lay - 1]
+        fac110 = fs * fac10[lay - 1]
+        fac001 = (1.0 - fs) * fac01[lay - 1]
+        fac011 = (1.0 - fs) * fac11[lay - 1]
+        fac101 = fs * fac01[lay - 1]
+        fac111 = fs * fac11[lay - 1]
+        ind0 = ((jp[lay - 1] - 1) * 5 + (jt[lay - 1] - 1)) * nspa17 + js
+        ind1 = (jp[lay - 1] * 5 + (jt1[lay - 1] - 1)) * nspa17 + js
+        inds = indself[lay - 1]
+        indf = indfor[lay - 1]
+        tauray = colmol[lay - 1] * rayl
+
+        for ig in range(1, ng17 + 1):
+            taug[_idx2(lay, ngs16 + ig, nlayers)] = (
+                speccomb
+                * (
+                    fac000 * absa[_idx2(ind0, ig, 585)]
+                    + fac100 * absa[_idx2(ind0 + 1, ig, 585)]
+                    + fac010 * absa[_idx2(ind0 + 9, ig, 585)]
+                    + fac110 * absa[_idx2(ind0 + 10, ig, 585)]
+                    + fac001 * absa[_idx2(ind1, ig, 585)]
+                    + fac101 * absa[_idx2(ind1 + 1, ig, 585)]
+                    + fac011 * absa[_idx2(ind1 + 9, ig, 585)]
+                    + fac111 * absa[_idx2(ind1 + 10, ig, 585)]
+                )
+                + colh2o[lay - 1]
+                * (
+                    selffac[lay - 1]
+                    * (
+                        selfref[_idx2(inds, ig, 10)]
+                        + selffrac[lay - 1]
+                        * (
+                            selfref[_idx2(inds + 1, ig, 10)]
+                            - selfref[_idx2(inds, ig, 10)]
+                        )
+                    )
+                    + forfac[lay - 1]
+                    * (
+                        forref[_idx2(indf, ig, 4)]
+                        + forfrac[lay - 1]
+                        * (
+                            forref[_idx2(indf + 1, ig, 4)]
+                            - forref[_idx2(indf, ig, 4)]
+                        )
+                    )
+                )
+            )
+            taur[_idx2(lay, ngs16 + ig, nlayers)] = tauray
+
+    laysolfr = nlayers
+
+    for lay in range(laytrop + 1, nlayers + 1):
+        if jp[lay - 2] < layreffr and jp[lay - 1] >= layreffr:
+            laysolfr = lay
+        speccomb = colh2o[lay - 1] + strrat * colco2[lay - 1]
+        specparm = colh2o[lay - 1] / speccomb
+        if specparm >= oneminus:
+            specparm = oneminus
+        specmult = 4.0 * specparm
+        js = 1 + int(specmult)
+        fs = specmult - float(int(specmult))
+        fac000 = (1.0 - fs) * fac00[lay - 1]
+        fac010 = (1.0 - fs) * fac10[lay - 1]
+        fac100 = fs * fac00[lay - 1]
+        fac110 = fs * fac10[lay - 1]
+        fac001 = (1.0 - fs) * fac01[lay - 1]
+        fac011 = (1.0 - fs) * fac11[lay - 1]
+        fac101 = fs * fac01[lay - 1]
+        fac111 = fs * fac11[lay - 1]
+        ind0 = ((jp[lay - 1] - 13) * 5 + (jt[lay - 1] - 1)) * nspb17 + js
+        ind1 = ((jp[lay - 1] - 12) * 5 + (jt1[lay - 1] - 1)) * nspb17 + js
+        indf = indfor[lay - 1]
+        tauray = colmol[lay - 1] * rayl
+
+        for ig in range(1, ng17 + 1):
+            taug[_idx2(lay, ngs16 + ig, nlayers)] = (
+                speccomb
+                * (
+                    fac000 * absb[_idx2(ind0, ig, 1175)]
+                    + fac100 * absb[_idx2(ind0 + 1, ig, 1175)]
+                    + fac010 * absb[_idx2(ind0 + 5, ig, 1175)]
+                    + fac110 * absb[_idx2(ind0 + 6, ig, 1175)]
+                    + fac001 * absb[_idx2(ind1, ig, 1175)]
+                    + fac101 * absb[_idx2(ind1 + 1, ig, 1175)]
+                    + fac011 * absb[_idx2(ind1 + 5, ig, 1175)]
+                    + fac111 * absb[_idx2(ind1 + 6, ig, 1175)]
+                )
+                + colh2o[lay - 1]
+                * forfac[lay - 1]
+                * (
+                    forref[_idx2(indf, ig, 4)]
+                    + forfrac[lay - 1]
+                    * (
+                        forref[_idx2(indf + 1, ig, 4)]
+                        - forref[_idx2(indf, ig, 4)]
+                    )
+                )
+            )
+            if lay == laysolfr:
+                sfluxzen[ngs16 + ig - 1] = sfluxref[_idx2(ig, js, ng17)] + fs * (
+                    sfluxref[_idx2(ig, js + 1, ng17)] - sfluxref[_idx2(ig, js, ng17)]
+                )
+            taur[_idx2(lay, ngs16 + ig, nlayers)] = tauray
+
+
+@export
+def rrtmg_sw_taumol18_codon(
+    nlayers: int,
+    laytrop: int,
+    ng18: int,
+    ngs17: int,
+    nspa18: int,
+    nspb18: int,
+    layreffr: int,
+    strrat: float,
+    rayl: float,
+    oneminus: float,
+    colh2o_p: cobj,
+    colch4_p: cobj,
+    colmol_p: cobj,
+    jp_p: cobj,
+    jt_p: cobj,
+    jt1_p: cobj,
+    indself_p: cobj,
+    indfor_p: cobj,
+    fac00_p: cobj,
+    fac01_p: cobj,
+    fac10_p: cobj,
+    fac11_p: cobj,
+    selffac_p: cobj,
+    selffrac_p: cobj,
+    forfac_p: cobj,
+    forfrac_p: cobj,
+    absa_p: cobj,
+    absb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    sfluxref_p: cobj,
+    sfluxzen_p: cobj,
+    taug_p: cobj,
+    taur_p: cobj,
+):
+    colh2o = Ptr[float](colh2o_p)
+    colch4 = Ptr[float](colch4_p)
+    colmol = Ptr[float](colmol_p)
+    jp = Ptr[int](jp_p)
+    jt = Ptr[int](jt_p)
+    jt1 = Ptr[int](jt1_p)
+    indself = Ptr[int](indself_p)
+    indfor = Ptr[int](indfor_p)
+    fac00 = Ptr[float](fac00_p)
+    fac01 = Ptr[float](fac01_p)
+    fac10 = Ptr[float](fac10_p)
+    fac11 = Ptr[float](fac11_p)
+    selffac = Ptr[float](selffac_p)
+    selffrac = Ptr[float](selffrac_p)
+    forfac = Ptr[float](forfac_p)
+    forfrac = Ptr[float](forfrac_p)
+    absa = Ptr[float](absa_p)
+    absb = Ptr[float](absb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    sfluxref = Ptr[float](sfluxref_p)
+    sfluxzen = Ptr[float](sfluxzen_p)
+    taug = Ptr[float](taug_p)
+    taur = Ptr[float](taur_p)
+
+    laysolfr = laytrop
+
+    for lay in range(1, laytrop + 1):
+        if jp[lay - 1] < layreffr and jp[lay] >= layreffr:
+            if lay + 1 < laytrop:
+                laysolfr = lay + 1
+            else:
+                laysolfr = laytrop
+        speccomb = colh2o[lay - 1] + strrat * colch4[lay - 1]
+        specparm = colh2o[lay - 1] / speccomb
+        if specparm >= oneminus:
+            specparm = oneminus
+        specmult = 8.0 * specparm
+        js = 1 + int(specmult)
+        fs = specmult - float(int(specmult))
+        fac000 = (1.0 - fs) * fac00[lay - 1]
+        fac010 = (1.0 - fs) * fac10[lay - 1]
+        fac100 = fs * fac00[lay - 1]
+        fac110 = fs * fac10[lay - 1]
+        fac001 = (1.0 - fs) * fac01[lay - 1]
+        fac011 = (1.0 - fs) * fac11[lay - 1]
+        fac101 = fs * fac01[lay - 1]
+        fac111 = fs * fac11[lay - 1]
+        ind0 = ((jp[lay - 1] - 1) * 5 + (jt[lay - 1] - 1)) * nspa18 + js
+        ind1 = (jp[lay - 1] * 5 + (jt1[lay - 1] - 1)) * nspa18 + js
+        inds = indself[lay - 1]
+        indf = indfor[lay - 1]
+        tauray = colmol[lay - 1] * rayl
+
+        for ig in range(1, ng18 + 1):
+            taug[_idx2(lay, ngs17 + ig, nlayers)] = (
+                speccomb
+                * (
+                    fac000 * absa[_idx2(ind0, ig, 585)]
+                    + fac100 * absa[_idx2(ind0 + 1, ig, 585)]
+                    + fac010 * absa[_idx2(ind0 + 9, ig, 585)]
+                    + fac110 * absa[_idx2(ind0 + 10, ig, 585)]
+                    + fac001 * absa[_idx2(ind1, ig, 585)]
+                    + fac101 * absa[_idx2(ind1 + 1, ig, 585)]
+                    + fac011 * absa[_idx2(ind1 + 9, ig, 585)]
+                    + fac111 * absa[_idx2(ind1 + 10, ig, 585)]
+                )
+                + colh2o[lay - 1]
+                * (
+                    selffac[lay - 1]
+                    * (
+                        selfref[_idx2(inds, ig, 10)]
+                        + selffrac[lay - 1]
+                        * (
+                            selfref[_idx2(inds + 1, ig, 10)]
+                            - selfref[_idx2(inds, ig, 10)]
+                        )
+                    )
+                    + forfac[lay - 1]
+                    * (
+                        forref[_idx2(indf, ig, 3)]
+                        + forfrac[lay - 1]
+                        * (
+                            forref[_idx2(indf + 1, ig, 3)]
+                            - forref[_idx2(indf, ig, 3)]
+                        )
+                    )
+                )
+            )
+            if lay == laysolfr:
+                sfluxzen[ngs17 + ig - 1] = sfluxref[_idx2(ig, js, ng18)] + fs * (
+                    sfluxref[_idx2(ig, js + 1, ng18)] - sfluxref[_idx2(ig, js, ng18)]
+                )
+            taur[_idx2(lay, ngs17 + ig, nlayers)] = tauray
+
+    for lay in range(laytrop + 1, nlayers + 1):
+        ind0 = ((jp[lay - 1] - 13) * 5 + (jt[lay - 1] - 1)) * nspb18 + 1
+        ind1 = ((jp[lay - 1] - 12) * 5 + (jt1[lay - 1] - 1)) * nspb18 + 1
+        tauray = colmol[lay - 1] * rayl
+
+        for ig in range(1, ng18 + 1):
+            taug[_idx2(lay, ngs17 + ig, nlayers)] = colch4[lay - 1] * (
+                fac00[lay - 1] * absb[_idx2(ind0, ig, 235)]
+                + fac10[lay - 1] * absb[_idx2(ind0 + 1, ig, 235)]
+                + fac01[lay - 1] * absb[_idx2(ind1, ig, 235)]
+                + fac11[lay - 1] * absb[_idx2(ind1 + 1, ig, 235)]
+            )
+            taur[_idx2(lay, ngs17 + ig, nlayers)] = tauray
+
+
+@export
+def rrtmg_sw_taumol19_codon(
+    nlayers: int,
+    laytrop: int,
+    ng19: int,
+    ngs18: int,
+    nspa19: int,
+    nspb19: int,
+    layreffr: int,
+    strrat: float,
+    rayl: float,
+    oneminus: float,
+    colh2o_p: cobj,
+    colco2_p: cobj,
+    colmol_p: cobj,
+    jp_p: cobj,
+    jt_p: cobj,
+    jt1_p: cobj,
+    indself_p: cobj,
+    indfor_p: cobj,
+    fac00_p: cobj,
+    fac01_p: cobj,
+    fac10_p: cobj,
+    fac11_p: cobj,
+    selffac_p: cobj,
+    selffrac_p: cobj,
+    forfac_p: cobj,
+    forfrac_p: cobj,
+    absa_p: cobj,
+    absb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    sfluxref_p: cobj,
+    sfluxzen_p: cobj,
+    taug_p: cobj,
+    taur_p: cobj,
+):
+    colh2o = Ptr[float](colh2o_p)
+    colco2 = Ptr[float](colco2_p)
+    colmol = Ptr[float](colmol_p)
+    jp = Ptr[int](jp_p)
+    jt = Ptr[int](jt_p)
+    jt1 = Ptr[int](jt1_p)
+    indself = Ptr[int](indself_p)
+    indfor = Ptr[int](indfor_p)
+    fac00 = Ptr[float](fac00_p)
+    fac01 = Ptr[float](fac01_p)
+    fac10 = Ptr[float](fac10_p)
+    fac11 = Ptr[float](fac11_p)
+    selffac = Ptr[float](selffac_p)
+    selffrac = Ptr[float](selffrac_p)
+    forfac = Ptr[float](forfac_p)
+    forfrac = Ptr[float](forfrac_p)
+    absa = Ptr[float](absa_p)
+    absb = Ptr[float](absb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    sfluxref = Ptr[float](sfluxref_p)
+    sfluxzen = Ptr[float](sfluxzen_p)
+    taug = Ptr[float](taug_p)
+    taur = Ptr[float](taur_p)
+
+    laysolfr = laytrop
+
+    for lay in range(1, laytrop + 1):
+        if jp[lay - 1] < layreffr and jp[lay] >= layreffr:
+            if lay + 1 < laytrop:
+                laysolfr = lay + 1
+            else:
+                laysolfr = laytrop
+        speccomb = colh2o[lay - 1] + strrat * colco2[lay - 1]
+        specparm = colh2o[lay - 1] / speccomb
+        if specparm >= oneminus:
+            specparm = oneminus
+        specmult = 8.0 * specparm
+        js = 1 + int(specmult)
+        fs = specmult - float(int(specmult))
+        fac000 = (1.0 - fs) * fac00[lay - 1]
+        fac010 = (1.0 - fs) * fac10[lay - 1]
+        fac100 = fs * fac00[lay - 1]
+        fac110 = fs * fac10[lay - 1]
+        fac001 = (1.0 - fs) * fac01[lay - 1]
+        fac011 = (1.0 - fs) * fac11[lay - 1]
+        fac101 = fs * fac01[lay - 1]
+        fac111 = fs * fac11[lay - 1]
+        ind0 = ((jp[lay - 1] - 1) * 5 + (jt[lay - 1] - 1)) * nspa19 + js
+        ind1 = (jp[lay - 1] * 5 + (jt1[lay - 1] - 1)) * nspa19 + js
+        inds = indself[lay - 1]
+        indf = indfor[lay - 1]
+        tauray = colmol[lay - 1] * rayl
+
+        for ig in range(1, ng19 + 1):
+            taug[_idx2(lay, ngs18 + ig, nlayers)] = (
+                speccomb
+                * (
+                    fac000 * absa[_idx2(ind0, ig, 585)]
+                    + fac100 * absa[_idx2(ind0 + 1, ig, 585)]
+                    + fac010 * absa[_idx2(ind0 + 9, ig, 585)]
+                    + fac110 * absa[_idx2(ind0 + 10, ig, 585)]
+                    + fac001 * absa[_idx2(ind1, ig, 585)]
+                    + fac101 * absa[_idx2(ind1 + 1, ig, 585)]
+                    + fac011 * absa[_idx2(ind1 + 9, ig, 585)]
+                    + fac111 * absa[_idx2(ind1 + 10, ig, 585)]
+                )
+                + colh2o[lay - 1]
+                * (
+                    selffac[lay - 1]
+                    * (
+                        selfref[_idx2(inds, ig, 10)]
+                        + selffrac[lay - 1]
+                        * (
+                            selfref[_idx2(inds + 1, ig, 10)]
+                            - selfref[_idx2(inds, ig, 10)]
+                        )
+                    )
+                    + forfac[lay - 1]
+                    * (
+                        forref[_idx2(indf, ig, 3)]
+                        + forfrac[lay - 1]
+                        * (
+                            forref[_idx2(indf + 1, ig, 3)]
+                            - forref[_idx2(indf, ig, 3)]
+                        )
+                    )
+                )
+            )
+            if lay == laysolfr:
+                sfluxzen[ngs18 + ig - 1] = sfluxref[_idx2(ig, js, ng19)] + fs * (
+                    sfluxref[_idx2(ig, js + 1, ng19)] - sfluxref[_idx2(ig, js, ng19)]
+                )
+            taur[_idx2(lay, ngs18 + ig, nlayers)] = tauray
+
+    for lay in range(laytrop + 1, nlayers + 1):
+        ind0 = ((jp[lay - 1] - 13) * 5 + (jt[lay - 1] - 1)) * nspb19 + 1
+        ind1 = ((jp[lay - 1] - 12) * 5 + (jt1[lay - 1] - 1)) * nspb19 + 1
+        tauray = colmol[lay - 1] * rayl
+
+        for ig in range(1, ng19 + 1):
+            taug[_idx2(lay, ngs18 + ig, nlayers)] = colco2[lay - 1] * (
+                fac00[lay - 1] * absb[_idx2(ind0, ig, 235)]
+                + fac10[lay - 1] * absb[_idx2(ind0 + 1, ig, 235)]
+                + fac01[lay - 1] * absb[_idx2(ind1, ig, 235)]
+                + fac11[lay - 1] * absb[_idx2(ind1 + 1, ig, 235)]
+            )
+            taur[_idx2(lay, ngs18 + ig, nlayers)] = tauray
+
+
+@export
+def rrtmg_sw_taumol20_codon(
+    nlayers: int,
+    laytrop: int,
+    ng20: int,
+    ngs19: int,
+    nspa20: int,
+    nspb20: int,
+    layreffr: int,
+    rayl: float,
+    colh2o_p: cobj,
+    colch4_p: cobj,
+    colmol_p: cobj,
+    jp_p: cobj,
+    jt_p: cobj,
+    jt1_p: cobj,
+    indself_p: cobj,
+    indfor_p: cobj,
+    fac00_p: cobj,
+    fac01_p: cobj,
+    fac10_p: cobj,
+    fac11_p: cobj,
+    selffac_p: cobj,
+    selffrac_p: cobj,
+    forfac_p: cobj,
+    forfrac_p: cobj,
+    absa_p: cobj,
+    absb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    sfluxref_p: cobj,
+    absch4_p: cobj,
+    sfluxzen_p: cobj,
+    taug_p: cobj,
+    taur_p: cobj,
+):
+    colh2o = Ptr[float](colh2o_p)
+    colch4 = Ptr[float](colch4_p)
+    colmol = Ptr[float](colmol_p)
+    jp = Ptr[int](jp_p)
+    jt = Ptr[int](jt_p)
+    jt1 = Ptr[int](jt1_p)
+    indself = Ptr[int](indself_p)
+    indfor = Ptr[int](indfor_p)
+    fac00 = Ptr[float](fac00_p)
+    fac01 = Ptr[float](fac01_p)
+    fac10 = Ptr[float](fac10_p)
+    fac11 = Ptr[float](fac11_p)
+    selffac = Ptr[float](selffac_p)
+    selffrac = Ptr[float](selffrac_p)
+    forfac = Ptr[float](forfac_p)
+    forfrac = Ptr[float](forfrac_p)
+    absa = Ptr[float](absa_p)
+    absb = Ptr[float](absb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    sfluxref = Ptr[float](sfluxref_p)
+    absch4 = Ptr[float](absch4_p)
+    sfluxzen = Ptr[float](sfluxzen_p)
+    taug = Ptr[float](taug_p)
+    taur = Ptr[float](taur_p)
+
+    laysolfr = laytrop
+
+    for lay in range(1, laytrop + 1):
+        if jp[lay - 1] < layreffr and jp[lay] >= layreffr:
+            if lay + 1 < laytrop:
+                laysolfr = lay + 1
+            else:
+                laysolfr = laytrop
+        ind0 = ((jp[lay - 1] - 1) * 5 + (jt[lay - 1] - 1)) * nspa20 + 1
+        ind1 = (jp[lay - 1] * 5 + (jt1[lay - 1] - 1)) * nspa20 + 1
+        inds = indself[lay - 1]
+        indf = indfor[lay - 1]
+        tauray = colmol[lay - 1] * rayl
+
+        for ig in range(1, ng20 + 1):
+            taug[_idx2(lay, ngs19 + ig, nlayers)] = colh2o[lay - 1] * (
+                (
+                    fac00[lay - 1] * absa[_idx2(ind0, ig, 65)]
+                    + fac10[lay - 1] * absa[_idx2(ind0 + 1, ig, 65)]
+                    + fac01[lay - 1] * absa[_idx2(ind1, ig, 65)]
+                    + fac11[lay - 1] * absa[_idx2(ind1 + 1, ig, 65)]
+                )
+                + selffac[lay - 1]
+                * (
+                    selfref[_idx2(inds, ig, 10)]
+                    + selffrac[lay - 1]
+                    * (
+                        selfref[_idx2(inds + 1, ig, 10)]
+                        - selfref[_idx2(inds, ig, 10)]
+                    )
+                )
+                + forfac[lay - 1]
+                * (
+                    forref[_idx2(indf, ig, 4)]
+                    + forfrac[lay - 1]
+                    * (
+                        forref[_idx2(indf + 1, ig, 4)]
+                        - forref[_idx2(indf, ig, 4)]
+                    )
+                )
+            ) + colch4[lay - 1] * absch4[ig - 1]
+            taur[_idx2(lay, ngs19 + ig, nlayers)] = tauray
+            if lay == laysolfr:
+                sfluxzen[ngs19 + ig - 1] = sfluxref[ig - 1]
+
+    for lay in range(laytrop + 1, nlayers + 1):
+        ind0 = ((jp[lay - 1] - 13) * 5 + (jt[lay - 1] - 1)) * nspb20 + 1
+        ind1 = ((jp[lay - 1] - 12) * 5 + (jt1[lay - 1] - 1)) * nspb20 + 1
+        indf = indfor[lay - 1]
+        tauray = colmol[lay - 1] * rayl
+
+        for ig in range(1, ng20 + 1):
+            taug[_idx2(lay, ngs19 + ig, nlayers)] = colh2o[lay - 1] * (
+                fac00[lay - 1] * absb[_idx2(ind0, ig, 235)]
+                + fac10[lay - 1] * absb[_idx2(ind0 + 1, ig, 235)]
+                + fac01[lay - 1] * absb[_idx2(ind1, ig, 235)]
+                + fac11[lay - 1] * absb[_idx2(ind1 + 1, ig, 235)]
+                + forfac[lay - 1]
+                * (
+                    forref[_idx2(indf, ig, 4)]
+                    + forfrac[lay - 1]
+                    * (
+                        forref[_idx2(indf + 1, ig, 4)]
+                        - forref[_idx2(indf, ig, 4)]
+                    )
+                )
+            ) + colch4[lay - 1] * absch4[ig - 1]
+            taur[_idx2(lay, ngs19 + ig, nlayers)] = tauray
+
+
+@export
+def rrtmg_sw_taumol21_codon(
+    nlayers: int,
+    laytrop: int,
+    ng21: int,
+    ngs20: int,
+    nspa21: int,
+    nspb21: int,
+    layreffr: int,
+    strrat: float,
+    rayl: float,
+    oneminus: float,
+    colh2o_p: cobj,
+    colco2_p: cobj,
+    colmol_p: cobj,
+    jp_p: cobj,
+    jt_p: cobj,
+    jt1_p: cobj,
+    indself_p: cobj,
+    indfor_p: cobj,
+    fac00_p: cobj,
+    fac01_p: cobj,
+    fac10_p: cobj,
+    fac11_p: cobj,
+    selffac_p: cobj,
+    selffrac_p: cobj,
+    forfac_p: cobj,
+    forfrac_p: cobj,
+    absa_p: cobj,
+    absb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    sfluxref_p: cobj,
+    sfluxzen_p: cobj,
+    taug_p: cobj,
+    taur_p: cobj,
+):
+    colh2o = Ptr[float](colh2o_p)
+    colco2 = Ptr[float](colco2_p)
+    colmol = Ptr[float](colmol_p)
+    jp = Ptr[int](jp_p)
+    jt = Ptr[int](jt_p)
+    jt1 = Ptr[int](jt1_p)
+    indself = Ptr[int](indself_p)
+    indfor = Ptr[int](indfor_p)
+    fac00 = Ptr[float](fac00_p)
+    fac01 = Ptr[float](fac01_p)
+    fac10 = Ptr[float](fac10_p)
+    fac11 = Ptr[float](fac11_p)
+    selffac = Ptr[float](selffac_p)
+    selffrac = Ptr[float](selffrac_p)
+    forfac = Ptr[float](forfac_p)
+    forfrac = Ptr[float](forfrac_p)
+    absa = Ptr[float](absa_p)
+    absb = Ptr[float](absb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    sfluxref = Ptr[float](sfluxref_p)
+    sfluxzen = Ptr[float](sfluxzen_p)
+    taug = Ptr[float](taug_p)
+    taur = Ptr[float](taur_p)
+
+    laysolfr = laytrop
+
+    for lay in range(1, laytrop + 1):
+        if jp[lay - 1] < layreffr and jp[lay] >= layreffr:
+            if lay + 1 < laytrop:
+                laysolfr = lay + 1
+            else:
+                laysolfr = laytrop
+        speccomb = colh2o[lay - 1] + strrat * colco2[lay - 1]
+        specparm = colh2o[lay - 1] / speccomb
+        if specparm >= oneminus:
+            specparm = oneminus
+        specmult = 8.0 * specparm
+        js = 1 + int(specmult)
+        fs = specmult - float(int(specmult))
+        fac000 = (1.0 - fs) * fac00[lay - 1]
+        fac010 = (1.0 - fs) * fac10[lay - 1]
+        fac100 = fs * fac00[lay - 1]
+        fac110 = fs * fac10[lay - 1]
+        fac001 = (1.0 - fs) * fac01[lay - 1]
+        fac011 = (1.0 - fs) * fac11[lay - 1]
+        fac101 = fs * fac01[lay - 1]
+        fac111 = fs * fac11[lay - 1]
+        ind0 = ((jp[lay - 1] - 1) * 5 + (jt[lay - 1] - 1)) * nspa21 + js
+        ind1 = (jp[lay - 1] * 5 + (jt1[lay - 1] - 1)) * nspa21 + js
+        inds = indself[lay - 1]
+        indf = indfor[lay - 1]
+        tauray = colmol[lay - 1] * rayl
+
+        for ig in range(1, ng21 + 1):
+            taug[_idx2(lay, ngs20 + ig, nlayers)] = (
+                speccomb
+                * (
+                    fac000 * absa[_idx2(ind0, ig, 585)]
+                    + fac100 * absa[_idx2(ind0 + 1, ig, 585)]
+                    + fac010 * absa[_idx2(ind0 + 9, ig, 585)]
+                    + fac110 * absa[_idx2(ind0 + 10, ig, 585)]
+                    + fac001 * absa[_idx2(ind1, ig, 585)]
+                    + fac101 * absa[_idx2(ind1 + 1, ig, 585)]
+                    + fac011 * absa[_idx2(ind1 + 9, ig, 585)]
+                    + fac111 * absa[_idx2(ind1 + 10, ig, 585)]
+                )
+                + colh2o[lay - 1]
+                * (
+                    selffac[lay - 1]
+                    * (
+                        selfref[_idx2(inds, ig, 10)]
+                        + selffrac[lay - 1]
+                        * (
+                            selfref[_idx2(inds + 1, ig, 10)]
+                            - selfref[_idx2(inds, ig, 10)]
+                        )
+                    )
+                    + forfac[lay - 1]
+                    * (
+                        forref[_idx2(indf, ig, 4)]
+                        + forfrac[lay - 1]
+                        * (
+                            forref[_idx2(indf + 1, ig, 4)]
+                            - forref[_idx2(indf, ig, 4)]
+                        )
+                    )
+                )
+            )
+            if lay == laysolfr:
+                sfluxzen[ngs20 + ig - 1] = sfluxref[_idx2(ig, js, ng21)] + fs * (
+                    sfluxref[_idx2(ig, js + 1, ng21)] - sfluxref[_idx2(ig, js, ng21)]
+                )
+            taur[_idx2(lay, ngs20 + ig, nlayers)] = tauray
+
+    for lay in range(laytrop + 1, nlayers + 1):
+        speccomb = colh2o[lay - 1] + strrat * colco2[lay - 1]
+        specparm = colh2o[lay - 1] / speccomb
+        if specparm >= oneminus:
+            specparm = oneminus
+        specmult = 4.0 * specparm
+        js = 1 + int(specmult)
+        fs = specmult - float(int(specmult))
+        fac000 = (1.0 - fs) * fac00[lay - 1]
+        fac010 = (1.0 - fs) * fac10[lay - 1]
+        fac100 = fs * fac00[lay - 1]
+        fac110 = fs * fac10[lay - 1]
+        fac001 = (1.0 - fs) * fac01[lay - 1]
+        fac011 = (1.0 - fs) * fac11[lay - 1]
+        fac101 = fs * fac01[lay - 1]
+        fac111 = fs * fac11[lay - 1]
+        ind0 = ((jp[lay - 1] - 13) * 5 + (jt[lay - 1] - 1)) * nspb21 + js
+        ind1 = ((jp[lay - 1] - 12) * 5 + (jt1[lay - 1] - 1)) * nspb21 + js
+        indf = indfor[lay - 1]
+        tauray = colmol[lay - 1] * rayl
+
+        for ig in range(1, ng21 + 1):
+            taug[_idx2(lay, ngs20 + ig, nlayers)] = (
+                speccomb
+                * (
+                    fac000 * absb[_idx2(ind0, ig, 1175)]
+                    + fac100 * absb[_idx2(ind0 + 1, ig, 1175)]
+                    + fac010 * absb[_idx2(ind0 + 5, ig, 1175)]
+                    + fac110 * absb[_idx2(ind0 + 6, ig, 1175)]
+                    + fac001 * absb[_idx2(ind1, ig, 1175)]
+                    + fac101 * absb[_idx2(ind1 + 1, ig, 1175)]
+                    + fac011 * absb[_idx2(ind1 + 5, ig, 1175)]
+                    + fac111 * absb[_idx2(ind1 + 6, ig, 1175)]
+                )
+                + colh2o[lay - 1]
+                * forfac[lay - 1]
+                * (
+                    forref[_idx2(indf, ig, 4)]
+                    + forfrac[lay - 1]
+                    * (
+                        forref[_idx2(indf + 1, ig, 4)]
+                        - forref[_idx2(indf, ig, 4)]
+                    )
+                )
+            )
+            taur[_idx2(lay, ngs20 + ig, nlayers)] = tauray
+
+
+@export
+def rrtmg_sw_taumol22_codon(
+    nlayers: int,
+    laytrop: int,
+    ng22: int,
+    ngs21: int,
+    nspa22: int,
+    nspb22: int,
+    layreffr: int,
+    strrat: float,
+    rayl: float,
+    oneminus: float,
+    colh2o_p: cobj,
+    colo2_p: cobj,
+    colmol_p: cobj,
+    jp_p: cobj,
+    jt_p: cobj,
+    jt1_p: cobj,
+    indself_p: cobj,
+    indfor_p: cobj,
+    fac00_p: cobj,
+    fac01_p: cobj,
+    fac10_p: cobj,
+    fac11_p: cobj,
+    selffac_p: cobj,
+    selffrac_p: cobj,
+    forfac_p: cobj,
+    forfrac_p: cobj,
+    absa_p: cobj,
+    absb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    sfluxref_p: cobj,
+    sfluxzen_p: cobj,
+    taug_p: cobj,
+    taur_p: cobj,
+):
+    colh2o = Ptr[float](colh2o_p)
+    colo2 = Ptr[float](colo2_p)
+    colmol = Ptr[float](colmol_p)
+    jp = Ptr[int](jp_p)
+    jt = Ptr[int](jt_p)
+    jt1 = Ptr[int](jt1_p)
+    indself = Ptr[int](indself_p)
+    indfor = Ptr[int](indfor_p)
+    fac00 = Ptr[float](fac00_p)
+    fac01 = Ptr[float](fac01_p)
+    fac10 = Ptr[float](fac10_p)
+    fac11 = Ptr[float](fac11_p)
+    selffac = Ptr[float](selffac_p)
+    selffrac = Ptr[float](selffrac_p)
+    forfac = Ptr[float](forfac_p)
+    forfrac = Ptr[float](forfrac_p)
+    absa = Ptr[float](absa_p)
+    absb = Ptr[float](absb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    sfluxref = Ptr[float](sfluxref_p)
+    sfluxzen = Ptr[float](sfluxzen_p)
+    taug = Ptr[float](taug_p)
+    taur = Ptr[float](taur_p)
+    o2adj = 1.6
+
+    laysolfr = laytrop
+
+    for lay in range(1, laytrop + 1):
+        if jp[lay - 1] < layreffr and jp[lay] >= layreffr:
+            if lay + 1 < laytrop:
+                laysolfr = lay + 1
+            else:
+                laysolfr = laytrop
+        o2cont = 4.35e-4 * colo2[lay - 1] / (350.0 * 2.0)
+        speccomb = colh2o[lay - 1] + o2adj * strrat * colo2[lay - 1]
+        specparm = colh2o[lay - 1] / speccomb
+        if specparm >= oneminus:
+            specparm = oneminus
+        specmult = 8.0 * specparm
+        js = 1 + int(specmult)
+        fs = specmult - float(int(specmult))
+        fac000 = (1.0 - fs) * fac00[lay - 1]
+        fac010 = (1.0 - fs) * fac10[lay - 1]
+        fac100 = fs * fac00[lay - 1]
+        fac110 = fs * fac10[lay - 1]
+        fac001 = (1.0 - fs) * fac01[lay - 1]
+        fac011 = (1.0 - fs) * fac11[lay - 1]
+        fac101 = fs * fac01[lay - 1]
+        fac111 = fs * fac11[lay - 1]
+        ind0 = ((jp[lay - 1] - 1) * 5 + (jt[lay - 1] - 1)) * nspa22 + js
+        ind1 = (jp[lay - 1] * 5 + (jt1[lay - 1] - 1)) * nspa22 + js
+        inds = indself[lay - 1]
+        indf = indfor[lay - 1]
+        tauray = colmol[lay - 1] * rayl
+
+        for ig in range(1, ng22 + 1):
+            taug[_idx2(lay, ngs21 + ig, nlayers)] = (
+                speccomb
+                * (
+                    fac000 * absa[_idx2(ind0, ig, 585)]
+                    + fac100 * absa[_idx2(ind0 + 1, ig, 585)]
+                    + fac010 * absa[_idx2(ind0 + 9, ig, 585)]
+                    + fac110 * absa[_idx2(ind0 + 10, ig, 585)]
+                    + fac001 * absa[_idx2(ind1, ig, 585)]
+                    + fac101 * absa[_idx2(ind1 + 1, ig, 585)]
+                    + fac011 * absa[_idx2(ind1 + 9, ig, 585)]
+                    + fac111 * absa[_idx2(ind1 + 10, ig, 585)]
+                )
+                + colh2o[lay - 1]
+                * (
+                    selffac[lay - 1]
+                    * (
+                        selfref[_idx2(inds, ig, 10)]
+                        + selffrac[lay - 1]
+                        * (
+                            selfref[_idx2(inds + 1, ig, 10)]
+                            - selfref[_idx2(inds, ig, 10)]
+                        )
+                    )
+                    + forfac[lay - 1]
+                    * (
+                        forref[_idx2(indf, ig, 3)]
+                        + forfrac[lay - 1]
+                        * (
+                            forref[_idx2(indf + 1, ig, 3)]
+                            - forref[_idx2(indf, ig, 3)]
+                        )
+                    )
+                )
+                + o2cont
+            )
+            if lay == laysolfr:
+                sfluxzen[ngs21 + ig - 1] = sfluxref[_idx2(ig, js, ng22)] + fs * (
+                    sfluxref[_idx2(ig, js + 1, ng22)] - sfluxref[_idx2(ig, js, ng22)]
+                )
+            taur[_idx2(lay, ngs21 + ig, nlayers)] = tauray
+
+    for lay in range(laytrop + 1, nlayers + 1):
+        o2cont = 4.35e-4 * colo2[lay - 1] / (350.0 * 2.0)
+        ind0 = ((jp[lay - 1] - 13) * 5 + (jt[lay - 1] - 1)) * nspb22 + 1
+        ind1 = ((jp[lay - 1] - 12) * 5 + (jt1[lay - 1] - 1)) * nspb22 + 1
+        tauray = colmol[lay - 1] * rayl
+
+        for ig in range(1, ng22 + 1):
+            taug[_idx2(lay, ngs21 + ig, nlayers)] = (
+                colo2[lay - 1]
+                * o2adj
+                * (
+                    fac00[lay - 1] * absb[_idx2(ind0, ig, 235)]
+                    + fac10[lay - 1] * absb[_idx2(ind0 + 1, ig, 235)]
+                    + fac01[lay - 1] * absb[_idx2(ind1, ig, 235)]
+                    + fac11[lay - 1] * absb[_idx2(ind1 + 1, ig, 235)]
+                )
+                + o2cont
+            )
+            taur[_idx2(lay, ngs21 + ig, nlayers)] = tauray
+
+
+@export
 def rrtmg_sw_subcol_fill_codon(
     ncol: int,
     nlay: int,
