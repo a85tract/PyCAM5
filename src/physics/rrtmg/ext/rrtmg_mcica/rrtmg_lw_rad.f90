@@ -70,6 +70,10 @@
 
       implicit none
 
+      logical :: use_native_rrtmg_lw_rad_pack_impl = .false.
+      logical :: rrtmg_lw_rad_pack_impl_selected = .false.
+      logical :: rrtmg_lw_rad_pack_entered_logged = .false.
+
 ! public interfaces/functions/subroutines
       public :: rrtmg_lw, inatm
 
@@ -170,6 +174,7 @@
 ! --------- Modules ----------
 
       use parrrtm, only : nbndlw, ngptlw, maxxsec, mxmol
+      use iso_c_binding, only: c_int64_t, c_loc, c_ptr
       use rrlw_con, only: fluxfac, heatfac, oneminus, pi
       use rrlw_wvn, only: ng, ngb, nspa, nspb, wavenum1, wavenum2, delwave
 
@@ -255,21 +260,21 @@
 
 ! ----- Output -----
 
-      real(kind=r8), intent(out) :: uflx(:,:)           ! Total sky longwave upward flux (W/m2)
+      real(kind=r8), target, intent(out) :: uflx(:,:)   ! Total sky longwave upward flux (W/m2)
                                                         !    Dimensions: (ncol,nlay+1)
-      real(kind=r8), intent(out) :: dflx(:,:)           ! Total sky longwave downward flux (W/m2)
+      real(kind=r8), target, intent(out) :: dflx(:,:)   ! Total sky longwave downward flux (W/m2)
                                                         !    Dimensions: (ncol,nlay+1)
-      real(kind=r8), intent(out) :: hr(:,:)             ! Total sky longwave radiative heating rate (K/d)
+      real(kind=r8), target, intent(out) :: hr(:,:)     ! Total sky longwave radiative heating rate (K/d)
                                                         !    Dimensions: (ncol,nlay)
-      real(kind=r8), intent(out) :: uflxc(:,:)          ! Clear sky longwave upward flux (W/m2)
+      real(kind=r8), target, intent(out) :: uflxc(:,:)  ! Clear sky longwave upward flux (W/m2)
                                                         !    Dimensions: (ncol,nlay+1)
-      real(kind=r8), intent(out) :: dflxc(:,:)          ! Clear sky longwave downward flux (W/m2)
+      real(kind=r8), target, intent(out) :: dflxc(:,:)  ! Clear sky longwave downward flux (W/m2)
                                                         !    Dimensions: (ncol,nlay+1)
-      real(kind=r8), intent(out) :: hrc(:,:)            ! Clear sky longwave radiative heating rate (K/d)
+      real(kind=r8), target, intent(out) :: hrc(:,:)    ! Clear sky longwave radiative heating rate (K/d)
                                                         !    Dimensions: (ncol,nlay)
-      real(kind=r8), intent(out) :: uflxs(:,:,:)        ! Total sky longwave upward flux spectral (W/m2)
+      real(kind=r8), target, intent(out) :: uflxs(:,:,:)! Total sky longwave upward flux spectral (W/m2)
                                                         !    Dimensions: (nbndlw,ncol,nlay+1)
-      real(kind=r8), intent(out) :: dflxs(:,:,:)        ! Total sky longwave downward flux spectral (W/m2)
+      real(kind=r8), target, intent(out) :: dflxs(:,:,:)! Total sky longwave downward flux spectral (W/m2)
                                                         !    Dimensions: (nbndlw,ncol,nlay+1)
 
 ! ----- Local -----
@@ -298,10 +303,10 @@
       real(kind=r8) :: pwvcm                    ! precipitable water vapor (cm)
       real(kind=r8) :: semiss(nbndlw)           ! lw surface emissivity
       real(kind=r8) :: fracs(nlay,ngptlw)       ! 
-      real(kind=r8) :: taug(nlay,ngptlw)        ! gaseous optical depths
-      real(kind=r8) :: taut(nlay,ngptlw)        ! gaseous + aerosol optical depths
+      real(kind=r8), target :: taug(nlay,ngptlw)! gaseous optical depths
+      real(kind=r8), target :: taut(nlay,ngptlw)! gaseous + aerosol optical depths
 
-      real(kind=r8) :: taua(nlay,nbndlw)        ! aerosol optical depth
+      real(kind=r8), target :: taua(nlay,nbndlw)! aerosol optical depth
 !      real(kind=r8) :: ssaa(nlay,nbndlw)        ! aerosol single scattering albedo
                                                  !   for future expansion 
                                                  !   (lw aerosols/scattering not yet available)
@@ -372,16 +377,38 @@
                                                 !   (lw scattering not yet available)
 
 ! Output
-      real(kind=r8) :: totuflux(0:nlay)         ! upward longwave flux (w/m2)
-      real(kind=r8) :: totdflux(0:nlay)         ! downward longwave flux (w/m2)
-      real(kind=r8) :: totufluxs(nbndlw,0:nlay) ! upward longwave flux spectral (w/m2)
-      real(kind=r8) :: totdfluxs(nbndlw,0:nlay) ! downward longwave flux spectral (w/m2)
+      real(kind=r8), target :: totuflux(0:nlay) ! upward longwave flux (w/m2)
+      real(kind=r8), target :: totdflux(0:nlay) ! downward longwave flux (w/m2)
+      real(kind=r8), target :: totufluxs(nbndlw,0:nlay)! upward longwave flux spectral (w/m2)
+      real(kind=r8), target :: totdfluxs(nbndlw,0:nlay)! downward longwave flux spectral (w/m2)
       real(kind=r8) :: fnet(0:nlay)             ! net longwave flux (w/m2)
-      real(kind=r8) :: htr(0:nlay)              ! longwave heating rate (k/day)
-      real(kind=r8) :: totuclfl(0:nlay)         ! clear sky upward longwave flux (w/m2)
-      real(kind=r8) :: totdclfl(0:nlay)         ! clear sky downward longwave flux (w/m2)
+      real(kind=r8), target :: htr(0:nlay)      ! longwave heating rate (k/day)
+      real(kind=r8), target :: totuclfl(0:nlay) ! clear sky upward longwave flux (w/m2)
+      real(kind=r8), target :: totdclfl(0:nlay) ! clear sky downward longwave flux (w/m2)
       real(kind=r8) :: fnetc(0:nlay)            ! clear sky net longwave flux (w/m2)
-      real(kind=r8) :: htrc(0:nlay)             ! clear sky longwave heating rate (k/day)
+      real(kind=r8), target :: htrc(0:nlay)     ! clear sky longwave heating rate (k/day)
+      integer(c_int64_t), target :: ngb64(ngptlw)
+
+      interface
+         subroutine rrtmg_lw_rad_taut_codon(nlay_c, ngptlw_c, iaer_c, taug_p, taua_p, ngb_p, &
+              taut_p) bind(c, name="rrtmg_lw_rad_taut_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: nlay_c, ngptlw_c, iaer_c
+            type(c_ptr), value :: taug_p, taua_p, ngb_p, taut_p
+         end subroutine rrtmg_lw_rad_taut_codon
+
+         subroutine rrtmg_lw_rad_store_flux_codon(nlay_c, nbndlw_c, ncol_c, iplon_c, &
+              totuflux_p, totdflux_p, totuclfl_p, totdclfl_p, totufluxs_p, totdfluxs_p, &
+              htr_p, htrc_p, uflx_p, dflx_p, uflxc_p, dflxc_p, uflxs_p, dflxs_p, hr_p, &
+              hrc_p) bind(c, name="rrtmg_lw_rad_store_flux_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: nlay_c, nbndlw_c, ncol_c, iplon_c
+            type(c_ptr), value :: totuflux_p, totdflux_p, totuclfl_p, totdclfl_p
+            type(c_ptr), value :: totufluxs_p, totdfluxs_p, htr_p, htrc_p
+            type(c_ptr), value :: uflx_p, dflx_p, uflxc_p, dflxc_p, uflxs_p, dflxs_p
+            type(c_ptr), value :: hr_p, hrc_p
+         end subroutine rrtmg_lw_rad_store_flux_codon
+      end interface
 
 ! Initializations
 
@@ -410,6 +437,11 @@
 ! iaer = 0, no aerosols
 ! iaer = 10, input total aerosol optical depth (tauaer) directly 
       iaer = 10
+
+      call rrtmg_lw_rad_pack_select_impl()
+      do ig = 1, ngptlw
+         ngb64(ig) = int(ngb(ig), c_int64_t)
+      enddo
 
 ! Call model and data initialization, compute lookup tables, perform
 ! reduction of g-points from 256 to 140 for input absorption coefficient 
@@ -476,18 +508,26 @@
 
 
 ! Combine gaseous and aerosol optical depths, if aerosol active
-         if (iaer .eq. 0) then
-            do k = 1, nlay
-               do ig = 1, ngptlw 
-                  taut(k,ig) = taug(k,ig)
+         if (use_native_rrtmg_lw_rad_pack_impl) then
+            if (iaer .eq. 0) then
+               do k = 1, nlay
+                  do ig = 1, ngptlw
+                     taut(k,ig) = taug(k,ig)
+                  enddo
                enddo
-            enddo
-         elseif (iaer .eq. 10) then
-            do k = 1, nlay
-               do ig = 1, ngptlw 
-                  taut(k,ig) = taug(k,ig) + taua(k,ngb(ig))
+            elseif (iaer .eq. 10) then
+               do k = 1, nlay
+                  do ig = 1, ngptlw
+                     taut(k,ig) = taug(k,ig) + taua(k,ngb(ig))
+                  enddo
                enddo
-            enddo
+            endif
+         else
+            call rrtmg_lw_rad_pack_log_entered()
+            call rrtmg_lw_rad_taut_codon( &
+                 int(nlay, c_int64_t), int(ngptlw, c_int64_t), int(iaer, c_int64_t), &
+                 c_loc(taug(1,1)), c_loc(taua(1,1)), c_loc(ngb64(1)), c_loc(taut(1,1)) &
+            )
          endif
 
 ! Call the radiative transfer routine.
@@ -505,22 +545,89 @@
 !  Transfer up and down fluxes and heating rate to output arrays.
 !  Vertical indexing goes from bottom to top
 
-         do k = 0, nlay
-            uflx(iplon,k+1) = totuflux(k)
-            dflx(iplon,k+1) = totdflux(k)
-            uflxc(iplon,k+1) = totuclfl(k)
-            dflxc(iplon,k+1) = totdclfl(k)
-            uflxs(:,iplon,k+1) = totufluxs(:,k)
-            dflxs(:,iplon,k+1) = totdfluxs(:,k)
-         enddo
-         do k = 0, nlay-1
-            hr(iplon,k+1) = htr(k)
-            hrc(iplon,k+1) = htrc(k)
-         enddo
+         if (use_native_rrtmg_lw_rad_pack_impl) then
+            do k = 0, nlay
+               uflx(iplon,k+1) = totuflux(k)
+               dflx(iplon,k+1) = totdflux(k)
+               uflxc(iplon,k+1) = totuclfl(k)
+               dflxc(iplon,k+1) = totdclfl(k)
+               uflxs(:,iplon,k+1) = totufluxs(:,k)
+               dflxs(:,iplon,k+1) = totdfluxs(:,k)
+            enddo
+            do k = 0, nlay-1
+               hr(iplon,k+1) = htr(k)
+               hrc(iplon,k+1) = htrc(k)
+            enddo
+         else
+            call rrtmg_lw_rad_store_flux_codon( &
+                 int(nlay, c_int64_t), int(nbndlw, c_int64_t), int(size(uflx,1), c_int64_t), &
+                 int(iplon, c_int64_t), c_loc(totuflux(0)), c_loc(totdflux(0)), &
+                 c_loc(totuclfl(0)), c_loc(totdclfl(0)), c_loc(totufluxs(1,0)), &
+                 c_loc(totdfluxs(1,0)), c_loc(htr(0)), c_loc(htrc(0)), c_loc(uflx(1,1)), &
+                 c_loc(dflx(1,1)), c_loc(uflxc(1,1)), c_loc(dflxc(1,1)), &
+                 c_loc(uflxs(1,1,1)), c_loc(dflxs(1,1,1)), c_loc(hr(1,1)), &
+                 c_loc(hrc(1,1)) &
+            )
+         endif
 
       enddo
 
       end subroutine rrtmg_lw
+
+! --------------------------------------------------------------------------
+      subroutine rrtmg_lw_rad_pack_select_impl()
+
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (rrtmg_lw_rad_pack_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('RRTMG_LW_RAD_PACK_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_rrtmg_lw_rad_pack_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_rrtmg_lw_rad_pack_impl = .false.
+      end if
+
+      rrtmg_lw_rad_pack_impl_selected = .true.
+
+      if (masterproc) then
+         if (use_native_rrtmg_lw_rad_pack_impl) then
+            write(iulog,*) 'rrtmg_lw_rad_pack implementation = native'
+         else
+            write(iulog,*) 'rrtmg_lw_rad_pack implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine rrtmg_lw_rad_pack_select_impl
+
+! --------------------------------------------------------------------------
+      subroutine rrtmg_lw_rad_pack_log_entered()
+
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+
+      if (rrtmg_lw_rad_pack_entered_logged) return
+      rrtmg_lw_rad_pack_entered_logged = .true.
+
+      if (masterproc) then
+         write(iulog,*) 'rrtmg_lw_rad_pack entered (mcica lw taut/flux transfer = codon)'
+         call flush(iulog)
+      end if
+
+      end subroutine rrtmg_lw_rad_pack_log_entered
 
 !***************************************************************************
       subroutine inatm (iplon, nlay, icld, iaer, &
@@ -831,4 +938,3 @@
       end subroutine inatm
 
       end module rrtmg_lw_rad
-

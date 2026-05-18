@@ -1555,6 +1555,217 @@ def rrtmg_sw_cldprmc_codon(
                         ) / (scatliq + scatice)
 
 
+@inline
+def _rrtmg_sw_exp_lookup(ze1: float, tblint: float, bpade: float, od_lo: float, exp_tbl: Ptr[float]) -> float:
+    if ze1 <= od_lo:
+        return 1.0 - ze1 + 0.5 * ze1 * ze1
+    tblind = ze1 / (bpade + ze1)
+    itind = int(tblint * tblind + 0.5)
+    return exp_tbl[itind]
+
+
+@export
+def rrtmg_sw_spcvmc_pre_reftra_codon(
+    klev: int,
+    ngptsw: int,
+    nbndsw: int,
+    iw: int,
+    ibm: int,
+    icpr: int,
+    idelm: int,
+    prmu0: float,
+    repclc: float,
+    tblint: float,
+    bpade: float,
+    od_lo: float,
+    pcldfmc_p: cobj,
+    ptaucmc_p: cobj,
+    pasycmc_p: cobj,
+    pomgcmc_p: cobj,
+    ptaormc_p: cobj,
+    ptaua_p: cobj,
+    pasya_p: cobj,
+    pomga_p: cobj,
+    ztaug_p: cobj,
+    ztaur_p: cobj,
+    lrtchkclr_p: cobj,
+    lrtchkcld_p: cobj,
+    ztauc_p: cobj,
+    zomcc_p: cobj,
+    zgcc_p: cobj,
+    ztauo_p: cobj,
+    zomco_p: cobj,
+    zgco_p: cobj,
+    zdbtc_nodel_p: cobj,
+    ztdbtc_nodel_p: cobj,
+    zdbt_nodel_p: cobj,
+    ztdbt_nodel_p: cobj,
+    exp_tbl_p: cobj,
+):
+    pcldfmc = Ptr[float](pcldfmc_p)
+    ptaucmc = Ptr[float](ptaucmc_p)
+    pasycmc = Ptr[float](pasycmc_p)
+    pomgcmc = Ptr[float](pomgcmc_p)
+    ptaormc = Ptr[float](ptaormc_p)
+    ptaua = Ptr[float](ptaua_p)
+    pasya = Ptr[float](pasya_p)
+    pomga = Ptr[float](pomga_p)
+    ztaug = Ptr[float](ztaug_p)
+    ztaur = Ptr[float](ztaur_p)
+    lrtchkclr = Ptr[int](lrtchkclr_p)
+    lrtchkcld = Ptr[int](lrtchkcld_p)
+    ztauc = Ptr[float](ztauc_p)
+    zomcc = Ptr[float](zomcc_p)
+    zgcc = Ptr[float](zgcc_p)
+    ztauo = Ptr[float](ztauo_p)
+    zomco = Ptr[float](zomco_p)
+    zgco = Ptr[float](zgco_p)
+    zdbtc_nodel = Ptr[float](zdbtc_nodel_p)
+    ztdbtc_nodel = Ptr[float](ztdbtc_nodel_p)
+    zdbt_nodel = Ptr[float](zdbt_nodel_p)
+    ztdbt_nodel = Ptr[float](ztdbt_nodel_p)
+    exp_tbl = Ptr[float](exp_tbl_p)
+
+    for jk in range(1, klev + 1):
+        ikl = klev + 1 - jk
+        jidx = jk - 1
+        mc_idx = _idx2(ikl, iw, klev)
+        aer_idx = _idx2(ikl, ibm, klev)
+
+        lrtchkclr[jidx] = 1
+        lrtchkcld[jidx] = 0
+        if pcldfmc[mc_idx] > repclc:
+            lrtchkcld[jidx] = 1
+
+        ztauc[jidx] = ztaur[mc_idx] + ztaug[mc_idx] + ptaua[aer_idx]
+        zomcc[jidx] = ztaur[mc_idx] * 1.0 + ptaua[aer_idx] * pomga[aer_idx]
+        zgcc[jidx] = pasya[aer_idx] * pomga[aer_idx] * ptaua[aer_idx] / zomcc[jidx]
+        zomcc[jidx] = zomcc[jidx] / ztauc[jidx]
+
+        if idelm == 0:
+            zclear = 1.0 - pcldfmc[mc_idx]
+            zcloud = pcldfmc[mc_idx]
+
+            ze1 = ztauc[jidx] / prmu0
+            zdbtmc = _rrtmg_sw_exp_lookup(ze1, tblint, bpade, od_lo, exp_tbl)
+            zdbtc_nodel[jidx] = zdbtmc
+            ztdbtc_nodel[jk] = zdbtc_nodel[jidx] * ztdbtc_nodel[jidx]
+
+            tauorig = ztauc[jidx] + ptaormc[mc_idx]
+            ze1 = tauorig / prmu0
+            zdbtmo = _rrtmg_sw_exp_lookup(ze1, tblint, bpade, od_lo, exp_tbl)
+            zdbt_nodel[jidx] = zclear * zdbtmc + zcloud * zdbtmo
+            ztdbt_nodel[jk] = zdbt_nodel[jidx] * ztdbt_nodel[jidx]
+
+        zf = zgcc[jidx] * zgcc[jidx]
+        zwf = zomcc[jidx] * zf
+        ztauc[jidx] = (1.0 - zwf) * ztauc[jidx]
+        zomcc[jidx] = (zomcc[jidx] - zwf) / (1.0 - zwf)
+        zgcc[jidx] = (zgcc[jidx] - zf) / (1.0 - zf)
+
+        if icpr >= 1:
+            ztauo[jidx] = ztauc[jidx] + ptaucmc[mc_idx]
+            zomco[jidx] = ztauc[jidx] * zomcc[jidx] + ptaucmc[mc_idx] * pomgcmc[mc_idx]
+            zgco[jidx] = (
+                ptaucmc[mc_idx] * pomgcmc[mc_idx] * pasycmc[mc_idx]
+                + ztauc[jidx] * zomcc[jidx] * zgcc[jidx]
+            ) / zomco[jidx]
+            zomco[jidx] = zomco[jidx] / ztauo[jidx]
+        elif icpr == 0:
+            ztauo[jidx] = ztaur[mc_idx] + ztaug[mc_idx] + ptaua[aer_idx] + ptaucmc[mc_idx]
+            zomco[jidx] = (
+                ptaua[aer_idx] * pomga[aer_idx]
+                + ptaucmc[mc_idx] * pomgcmc[mc_idx]
+                + ztaur[mc_idx] * 1.0
+            )
+            zgco[jidx] = (
+                ptaucmc[mc_idx] * pomgcmc[mc_idx] * pasycmc[mc_idx]
+                + ptaua[aer_idx] * pomga[aer_idx] * pasya[aer_idx]
+            ) / zomco[jidx]
+            zomco[jidx] = zomco[jidx] / ztauo[jidx]
+
+            zf = zgco[jidx] * zgco[jidx]
+            zwf = zomco[jidx] * zf
+            ztauo[jidx] = (1.0 - zwf) * ztauo[jidx]
+            zomco[jidx] = (zomco[jidx] - zwf) / (1.0 - zwf)
+            zgco[jidx] = (zgco[jidx] - zf) / (1.0 - zf)
+
+
+@export
+def rrtmg_sw_spcvmc_post_reftra_codon(
+    klev: int,
+    ngptsw: int,
+    iw: int,
+    prmu0: float,
+    tblint: float,
+    bpade: float,
+    od_lo: float,
+    pcldfmc_p: cobj,
+    ztauc_p: cobj,
+    ztauo_p: cobj,
+    zrefc_p: cobj,
+    zrefdc_p: cobj,
+    ztrac_p: cobj,
+    ztradc_p: cobj,
+    zrefo_p: cobj,
+    zrefdo_p: cobj,
+    ztrao_p: cobj,
+    ztrado_p: cobj,
+    zref_p: cobj,
+    zrefd_p: cobj,
+    ztra_p: cobj,
+    ztrad_p: cobj,
+    zdbtc_p: cobj,
+    ztdbtc_p: cobj,
+    zdbt_p: cobj,
+    ztdbt_p: cobj,
+    exp_tbl_p: cobj,
+):
+    pcldfmc = Ptr[float](pcldfmc_p)
+    ztauc = Ptr[float](ztauc_p)
+    ztauo = Ptr[float](ztauo_p)
+    zrefc = Ptr[float](zrefc_p)
+    zrefdc = Ptr[float](zrefdc_p)
+    ztrac = Ptr[float](ztrac_p)
+    ztradc = Ptr[float](ztradc_p)
+    zrefo = Ptr[float](zrefo_p)
+    zrefdo = Ptr[float](zrefdo_p)
+    ztrao = Ptr[float](ztrao_p)
+    ztrado = Ptr[float](ztrado_p)
+    zref = Ptr[float](zref_p)
+    zrefd = Ptr[float](zrefd_p)
+    ztra = Ptr[float](ztra_p)
+    ztrad = Ptr[float](ztrad_p)
+    zdbtc = Ptr[float](zdbtc_p)
+    ztdbtc = Ptr[float](ztdbtc_p)
+    zdbt = Ptr[float](zdbt_p)
+    ztdbt = Ptr[float](ztdbt_p)
+    exp_tbl = Ptr[float](exp_tbl_p)
+
+    for jk in range(1, klev + 1):
+        ikl = klev + 1 - jk
+        jidx = jk - 1
+        mc_idx = _idx2(ikl, iw, klev)
+
+        zclear = 1.0 - pcldfmc[mc_idx]
+        zcloud = pcldfmc[mc_idx]
+
+        zref[jidx] = zclear * zrefc[jidx] + zcloud * zrefo[jidx]
+        zrefd[jidx] = zclear * zrefdc[jidx] + zcloud * zrefdo[jidx]
+        ztra[jidx] = zclear * ztrac[jidx] + zcloud * ztrao[jidx]
+        ztrad[jidx] = zclear * ztradc[jidx] + zcloud * ztrado[jidx]
+
+        ze1 = ztauc[jidx] / prmu0
+        zdbtmc = _rrtmg_sw_exp_lookup(ze1, tblint, bpade, od_lo, exp_tbl)
+        zdbtc[jidx] = zdbtmc
+        ztdbtc[jk] = zdbtc[jidx] * ztdbtc[jidx]
+
+        ze1 = ztauo[jidx] / prmu0
+        zdbtmo = _rrtmg_sw_exp_lookup(ze1, tblint, bpade, od_lo, exp_tbl)
+        zdbt[jidx] = zclear * zdbtmc + zcloud * zdbtmo
+        ztdbt[jk] = zdbt[jidx] * ztdbt[jidx]
+
+
 @export
 def rrtmg_sw_spcvmc_flux_codon(
     klev: int,
@@ -2399,3 +2610,363 @@ def rrtmg_sw_vrtqdr_codon(
             )
             * zreflect
         )
+
+
+@export
+def rrtmg_sw_rad_setup_codon(
+    nlay: int,
+    ngptsw: int,
+    nbndsw: int,
+    icld: int,
+    iaer: int,
+    aldir_i: float,
+    aldif_i: float,
+    asdir_i: float,
+    asdif_i: float,
+    albdir_p: cobj,
+    albdif_p: cobj,
+    cldfmc_p: cobj,
+    taucmc_p: cobj,
+    taormc_p: cobj,
+    asmcmc_p: cobj,
+    ssacmc_p: cobj,
+    zcldfmc_p: cobj,
+    ztaucmc_p: cobj,
+    ztaormc_p: cobj,
+    zasycmc_p: cobj,
+    zomgcmc_p: cobj,
+    taua_p: cobj,
+    ssaa_p: cobj,
+    asma_p: cobj,
+    ztaua_p: cobj,
+    zasya_p: cobj,
+    zomga_p: cobj,
+):
+    albdir = Ptr[float](albdir_p)
+    albdif = Ptr[float](albdif_p)
+    cldfmc = Ptr[float](cldfmc_p)
+    taucmc = Ptr[float](taucmc_p)
+    taormc = Ptr[float](taormc_p)
+    asmcmc = Ptr[float](asmcmc_p)
+    ssacmc = Ptr[float](ssacmc_p)
+    zcldfmc = Ptr[float](zcldfmc_p)
+    ztaucmc = Ptr[float](ztaucmc_p)
+    ztaormc = Ptr[float](ztaormc_p)
+    zasycmc = Ptr[float](zasycmc_p)
+    zomgcmc = Ptr[float](zomgcmc_p)
+    taua = Ptr[float](taua_p)
+    ssaa = Ptr[float](ssaa_p)
+    asma = Ptr[float](asma_p)
+    ztaua = Ptr[float](ztaua_p)
+    zasya = Ptr[float](zasya_p)
+    zomga = Ptr[float](zomga_p)
+
+    for ib in range(1, 9):
+        albdir[ib - 1] = aldir_i
+        albdif[ib - 1] = aldif_i
+    albdir[nbndsw - 1] = aldir_i
+    albdif[nbndsw - 1] = aldif_i
+    albdir[8] = 0.5 * (aldir_i + asdir_i)
+    albdif[8] = 0.5 * (aldif_i + asdif_i)
+    for ib in range(10, 14):
+        albdir[ib - 1] = asdir_i
+        albdif[ib - 1] = asdif_i
+
+    if icld == 0:
+        for i in range(1, nlay + 1):
+            for ig in range(1, ngptsw + 1):
+                dst = _idx2(i, ig, nlay)
+                zcldfmc[dst] = 0.0
+                ztaucmc[dst] = 0.0
+                ztaormc[dst] = 0.0
+                zasycmc[dst] = 0.0
+                zomgcmc[dst] = 1.0
+    elif icld >= 1:
+        for i in range(1, nlay + 1):
+            for ig in range(1, ngptsw + 1):
+                src = _idx2(ig, i, ngptsw)
+                dst = _idx2(i, ig, nlay)
+                zcldfmc[dst] = cldfmc[src]
+                ztaucmc[dst] = taucmc[src]
+                ztaormc[dst] = taormc[src]
+                zasycmc[dst] = asmcmc[src]
+                zomgcmc[dst] = ssacmc[src]
+
+    if iaer == 0:
+        for i in range(1, nlay + 1):
+            for ib in range(1, nbndsw + 1):
+                dst = _idx2(i, ib, nlay)
+                ztaua[dst] = 0.0
+                zasya[dst] = 0.0
+                zomga[dst] = 1.0
+    elif iaer == 10:
+        for i in range(1, nlay + 1):
+            for ib in range(1, nbndsw + 1):
+                dst = _idx2(i, ib, nlay)
+                ztaua[dst] = taua[dst]
+                zasya[dst] = asma[dst]
+                zomga[dst] = ssaa[dst]
+
+
+@export
+def rrtmg_sw_rad_zero_flux_codon(
+    nlay: int,
+    nbndsw: int,
+    zbbcu_p: cobj,
+    zbbcd_p: cobj,
+    zbbfu_p: cobj,
+    zbbfd_p: cobj,
+    zbbcddir_p: cobj,
+    zbbfddir_p: cobj,
+    zuvcd_p: cobj,
+    zuvfd_p: cobj,
+    zuvcddir_p: cobj,
+    zuvfddir_p: cobj,
+    znicd_p: cobj,
+    znifd_p: cobj,
+    znicddir_p: cobj,
+    znifddir_p: cobj,
+    znicu_p: cobj,
+    znifu_p: cobj,
+    zbbfsu_p: cobj,
+    zbbfsd_p: cobj,
+):
+    zbbcu = Ptr[float](zbbcu_p)
+    zbbcd = Ptr[float](zbbcd_p)
+    zbbfu = Ptr[float](zbbfu_p)
+    zbbfd = Ptr[float](zbbfd_p)
+    zbbcddir = Ptr[float](zbbcddir_p)
+    zbbfddir = Ptr[float](zbbfddir_p)
+    zuvcd = Ptr[float](zuvcd_p)
+    zuvfd = Ptr[float](zuvfd_p)
+    zuvcddir = Ptr[float](zuvcddir_p)
+    zuvfddir = Ptr[float](zuvfddir_p)
+    znicd = Ptr[float](znicd_p)
+    znifd = Ptr[float](znifd_p)
+    znicddir = Ptr[float](znicddir_p)
+    znifddir = Ptr[float](znifddir_p)
+    znicu = Ptr[float](znicu_p)
+    znifu = Ptr[float](znifu_p)
+    zbbfsu = Ptr[float](zbbfsu_p)
+    zbbfsd = Ptr[float](zbbfsd_p)
+
+    for i in range(1, nlay + 2):
+        idx = i - 1
+        zbbcu[idx] = 0.0
+        zbbcd[idx] = 0.0
+        zbbfu[idx] = 0.0
+        zbbfd[idx] = 0.0
+        zbbcddir[idx] = 0.0
+        zbbfddir[idx] = 0.0
+        zuvcd[idx] = 0.0
+        zuvfd[idx] = 0.0
+        zuvcddir[idx] = 0.0
+        zuvfddir[idx] = 0.0
+        znicd[idx] = 0.0
+        znifd[idx] = 0.0
+        znicddir[idx] = 0.0
+        znifddir[idx] = 0.0
+        znicu[idx] = 0.0
+        znifu[idx] = 0.0
+        for ib in range(1, nbndsw + 1):
+            zbbfsu[_idx2(ib, i, nbndsw)] = 0.0
+            zbbfsd[_idx2(ib, i, nbndsw)] = 0.0
+
+
+@export
+def rrtmg_sw_rad_store_flux_codon(
+    nlay: int,
+    nbndsw: int,
+    ncol: int,
+    iplon: int,
+    heatfac: float,
+    zbbcu_p: cobj,
+    zbbcd_p: cobj,
+    zbbfu_p: cobj,
+    zbbfd_p: cobj,
+    zbbcddir_p: cobj,
+    zbbfddir_p: cobj,
+    zuvfd_p: cobj,
+    zuvfddir_p: cobj,
+    znicd_p: cobj,
+    znifd_p: cobj,
+    znifddir_p: cobj,
+    znicu_p: cobj,
+    znifu_p: cobj,
+    zbbfsu_p: cobj,
+    zbbfsd_p: cobj,
+    pdp_p: cobj,
+    swuflxc_p: cobj,
+    swdflxc_p: cobj,
+    swuflx_p: cobj,
+    swdflx_p: cobj,
+    swuflxs_p: cobj,
+    swdflxs_p: cobj,
+    uvdflx_p: cobj,
+    nidflx_p: cobj,
+    dirdflux_p: cobj,
+    difdflux_p: cobj,
+    dirdnuv_p: cobj,
+    difdnuv_p: cobj,
+    dirdnir_p: cobj,
+    difdnir_p: cobj,
+    ninflx_p: cobj,
+    ninflxc_p: cobj,
+    swnflxc_p: cobj,
+    swnflx_p: cobj,
+    swhrc_p: cobj,
+    swhr_p: cobj,
+):
+    zbbcu = Ptr[float](zbbcu_p)
+    zbbcd = Ptr[float](zbbcd_p)
+    zbbfu = Ptr[float](zbbfu_p)
+    zbbfd = Ptr[float](zbbfd_p)
+    zbbcddir = Ptr[float](zbbcddir_p)
+    zbbfddir = Ptr[float](zbbfddir_p)
+    zuvfd = Ptr[float](zuvfd_p)
+    zuvfddir = Ptr[float](zuvfddir_p)
+    znicd = Ptr[float](znicd_p)
+    znifd = Ptr[float](znifd_p)
+    znifddir = Ptr[float](znifddir_p)
+    znicu = Ptr[float](znicu_p)
+    znifu = Ptr[float](znifu_p)
+    zbbfsu = Ptr[float](zbbfsu_p)
+    zbbfsd = Ptr[float](zbbfsd_p)
+    pdp = Ptr[float](pdp_p)
+    swuflxc = Ptr[float](swuflxc_p)
+    swdflxc = Ptr[float](swdflxc_p)
+    swuflx = Ptr[float](swuflx_p)
+    swdflx = Ptr[float](swdflx_p)
+    swuflxs = Ptr[float](swuflxs_p)
+    swdflxs = Ptr[float](swdflxs_p)
+    uvdflx = Ptr[float](uvdflx_p)
+    nidflx = Ptr[float](nidflx_p)
+    dirdflux = Ptr[float](dirdflux_p)
+    difdflux = Ptr[float](difdflux_p)
+    dirdnuv = Ptr[float](dirdnuv_p)
+    difdnuv = Ptr[float](difdnuv_p)
+    dirdnir = Ptr[float](dirdnir_p)
+    difdnir = Ptr[float](difdnir_p)
+    ninflx = Ptr[float](ninflx_p)
+    ninflxc = Ptr[float](ninflxc_p)
+    swnflxc = Ptr[float](swnflxc_p)
+    swnflx = Ptr[float](swnflx_p)
+    swhrc = Ptr[float](swhrc_p)
+    swhr = Ptr[float](swhr_p)
+
+    for i in range(1, nlay + 2):
+        jidx = i - 1
+        dst2 = _idx2(iplon, i, ncol)
+        swuflxc[dst2] = zbbcu[jidx]
+        swdflxc[dst2] = zbbcd[jidx]
+        swuflx[dst2] = zbbfu[jidx]
+        swdflx[dst2] = zbbfd[jidx]
+        for ib in range(1, nbndsw + 1):
+            swuflxs[_idx3(ib, iplon, i, nbndsw, ncol)] = zbbfsu[_idx2(ib, i, nbndsw)]
+            swdflxs[_idx3(ib, iplon, i, nbndsw, ncol)] = zbbfsd[_idx2(ib, i, nbndsw)]
+        uvdflx[jidx] = zuvfd[jidx]
+        nidflx[jidx] = znifd[jidx]
+        dirdflux[jidx] = zbbfddir[jidx]
+        difdflux[jidx] = swdflx[dst2] - dirdflux[jidx]
+        dirdnuv[dst2] = zuvfddir[jidx]
+        difdnuv[dst2] = zuvfd[jidx] - dirdnuv[dst2]
+        dirdnir[dst2] = znifddir[jidx]
+        difdnir[dst2] = znifd[jidx] - dirdnir[dst2]
+        ninflx[dst2] = znifd[jidx] - znifu[jidx]
+        ninflxc[dst2] = znicd[jidx] - znicu[jidx]
+
+    for i in range(1, nlay + 2):
+        dst2 = _idx2(iplon, i, ncol)
+        swnflxc[i - 1] = swdflxc[dst2] - swuflxc[dst2]
+        swnflx[i - 1] = swdflx[dst2] - swuflx[dst2]
+
+    for i in range(1, nlay + 1):
+        zdpgcp = heatfac / pdp[i - 1]
+        dst2 = _idx2(iplon, i, ncol)
+        swhrc[dst2] = (swnflxc[i] - swnflxc[i - 1]) * zdpgcp
+        swhr[dst2] = (swnflx[i] - swnflx[i - 1]) * zdpgcp
+    swhrc[_idx2(iplon, nlay, ncol)] = 0.0
+    swhr[_idx2(iplon, nlay, ncol)] = 0.0
+
+
+@export
+def rrtmg_lw_rad_taut_codon(
+    nlay: int,
+    ngptlw: int,
+    iaer: int,
+    taug_p: cobj,
+    taua_p: cobj,
+    ngb_p: cobj,
+    taut_p: cobj,
+):
+    taug = Ptr[float](taug_p)
+    taua = Ptr[float](taua_p)
+    ngb = Ptr[int](ngb_p)
+    taut = Ptr[float](taut_p)
+
+    if iaer == 0:
+        for k in range(1, nlay + 1):
+            for ig in range(1, ngptlw + 1):
+                idx = _idx2(k, ig, nlay)
+                taut[idx] = taug[idx]
+    elif iaer == 10:
+        for k in range(1, nlay + 1):
+            for ig in range(1, ngptlw + 1):
+                idx = _idx2(k, ig, nlay)
+                taut[idx] = taug[idx] + taua[_idx2(k, ngb[ig - 1], nlay)]
+
+
+@export
+def rrtmg_lw_rad_store_flux_codon(
+    nlay: int,
+    nbndlw: int,
+    ncol: int,
+    iplon: int,
+    totuflux_p: cobj,
+    totdflux_p: cobj,
+    totuclfl_p: cobj,
+    totdclfl_p: cobj,
+    totufluxs_p: cobj,
+    totdfluxs_p: cobj,
+    htr_p: cobj,
+    htrc_p: cobj,
+    uflx_p: cobj,
+    dflx_p: cobj,
+    uflxc_p: cobj,
+    dflxc_p: cobj,
+    uflxs_p: cobj,
+    dflxs_p: cobj,
+    hr_p: cobj,
+    hrc_p: cobj,
+):
+    totuflux = Ptr[float](totuflux_p)
+    totdflux = Ptr[float](totdflux_p)
+    totuclfl = Ptr[float](totuclfl_p)
+    totdclfl = Ptr[float](totdclfl_p)
+    totufluxs = Ptr[float](totufluxs_p)
+    totdfluxs = Ptr[float](totdfluxs_p)
+    htr = Ptr[float](htr_p)
+    htrc = Ptr[float](htrc_p)
+    uflx = Ptr[float](uflx_p)
+    dflx = Ptr[float](dflx_p)
+    uflxc = Ptr[float](uflxc_p)
+    dflxc = Ptr[float](dflxc_p)
+    uflxs = Ptr[float](uflxs_p)
+    dflxs = Ptr[float](dflxs_p)
+    hr = Ptr[float](hr_p)
+    hrc = Ptr[float](hrc_p)
+
+    for k0 in range(0, nlay + 1):
+        dst2 = _idx2(iplon, k0 + 1, ncol)
+        uflx[dst2] = totuflux[k0]
+        dflx[dst2] = totdflux[k0]
+        uflxc[dst2] = totuclfl[k0]
+        dflxc[dst2] = totdclfl[k0]
+        for ib in range(1, nbndlw + 1):
+            uflxs[_idx3(ib, iplon, k0 + 1, nbndlw, ncol)] = totufluxs[_idx2_dim2_lb(ib, k0, nbndlw, 0)]
+            dflxs[_idx3(ib, iplon, k0 + 1, nbndlw, ncol)] = totdfluxs[_idx2_dim2_lb(ib, k0, nbndlw, 0)]
+
+    for k0 in range(0, nlay):
+        dst2 = _idx2(iplon, k0 + 1, ncol)
+        hr[dst2] = htr[k0]
+        hrc[dst2] = htrc[k0]

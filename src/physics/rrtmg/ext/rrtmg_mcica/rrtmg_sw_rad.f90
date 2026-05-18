@@ -71,6 +71,10 @@
 
       implicit none
 
+      logical :: use_native_rrtmg_sw_rad_pack_impl = .false.
+      logical :: rrtmg_sw_rad_pack_impl_selected = .false.
+      logical :: rrtmg_sw_rad_pack_entered_logged = .false.
+
 ! public interfaces/functions/subroutines
 !      public :: rrtmg_sw, inatm_sw, earth_sun
       public :: rrtmg_sw
@@ -193,6 +197,7 @@
 
       use parrrsw, only : nbndsw, ngptsw, naerec, nstr, nmol, mxmol, &
                           jpband, jpb1, jpb2
+      use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
       use rrsw_aer, only : rsrtaua, rsrpiza, rsrasya
       use rrsw_con, only : heatfac, oneminus, pi
       use rrsw_wvn, only : wavenum1, wavenum2
@@ -283,29 +288,29 @@
 
 ! ----- Output -----
 
-      real(kind=r8), intent(out) :: swuflx(:,:)         ! Total sky shortwave upward flux (W/m2)
+      real(kind=r8), target, intent(out) :: swuflx(:,:) ! Total sky shortwave upward flux (W/m2)
                                                         !    Dimensions: (ncol,nlay+1)
-      real(kind=r8), intent(out) :: swdflx(:,:)         ! Total sky shortwave downward flux (W/m2)
+      real(kind=r8), target, intent(out) :: swdflx(:,:) ! Total sky shortwave downward flux (W/m2)
                                                         !    Dimensions: (ncol,nlay+1)
-      real(kind=r8), intent(out) :: swhr(:,:)           ! Total sky shortwave radiative heating rate (K/d)
+      real(kind=r8), target, intent(out) :: swhr(:,:)   ! Total sky shortwave radiative heating rate (K/d)
                                                         !    Dimensions: (ncol,nlay)
-      real(kind=r8), intent(out) :: swuflxc(:,:)        ! Clear sky shortwave upward flux (W/m2)
+      real(kind=r8), target, intent(out) :: swuflxc(:,:)! Clear sky shortwave upward flux (W/m2)
                                                         !    Dimensions: (ncol,nlay+1)
-      real(kind=r8), intent(out) :: swdflxc(:,:)        ! Clear sky shortwave downward flux (W/m2)
+      real(kind=r8), target, intent(out) :: swdflxc(:,:)! Clear sky shortwave downward flux (W/m2)
                                                         !    Dimensions: (ncol,nlay+1)
-      real(kind=r8), intent(out) :: swhrc(:,:)          ! Clear sky shortwave radiative heating rate (K/d)
+      real(kind=r8), target, intent(out) :: swhrc(:,:)  ! Clear sky shortwave radiative heating rate (K/d)
                                                         !    Dimensions: (ncol,nlay)
 
-      real(kind=r8), intent(out) :: dirdnuv(:,:)        ! Direct downward shortwave flux, UV/vis
-      real(kind=r8), intent(out) :: difdnuv(:,:)        ! Diffuse downward shortwave flux, UV/vis
-      real(kind=r8), intent(out) :: dirdnir(:,:)        ! Direct downward shortwave flux, near-IR
-      real(kind=r8), intent(out) :: difdnir(:,:)        ! Diffuse downward shortwave flux, near-IR
+      real(kind=r8), target, intent(out) :: dirdnuv(:,:)! Direct downward shortwave flux, UV/vis
+      real(kind=r8), target, intent(out) :: difdnuv(:,:)! Diffuse downward shortwave flux, UV/vis
+      real(kind=r8), target, intent(out) :: dirdnir(:,:)! Direct downward shortwave flux, near-IR
+      real(kind=r8), target, intent(out) :: difdnir(:,:)! Diffuse downward shortwave flux, near-IR
 
-      real(kind=r8), intent(out) :: ninflx(:,:)         ! Net shortwave flux, near-IR
-      real(kind=r8), intent(out) :: ninflxc(:,:)        ! Net clear sky shortwave flux, near-IR
+      real(kind=r8), target, intent(out) :: ninflx(:,:) ! Net shortwave flux, near-IR
+      real(kind=r8), target, intent(out) :: ninflxc(:,:)! Net clear sky shortwave flux, near-IR
 
-      real(kind=r8), intent(out)  :: swuflxs(:,:,:)     ! shortwave spectral flux up
-      real(kind=r8), intent(out)  :: swdflxs(:,:,:)     ! shortwave spectral flux down
+      real(kind=r8), target, intent(out) :: swuflxs(:,:,:)! shortwave spectral flux up
+      real(kind=r8), target, intent(out) :: swdflxs(:,:,:)! shortwave spectral flux down
 
 ! ----- Local -----
 
@@ -337,7 +342,7 @@
       real(kind=r8) :: pz(0:nlay)             ! level (interface) pressures (hPa, mb)
       real(kind=r8) :: tz(0:nlay)             ! level (interface) temperatures (K)
       real(kind=r8) :: tbound                   ! surface temperature (K)
-      real(kind=r8) :: pdp(nlay)              ! layer pressure thickness (hPa, mb)
+      real(kind=r8), target :: pdp(nlay)      ! layer pressure thickness (hPa, mb)
       real(kind=r8) :: coldry(nlay)           ! dry air column amount
       real(kind=r8) :: wkl(mxmol,nlay)        ! molecular amounts (mol/cm-2)
 
@@ -346,12 +351,12 @@
       real(kind=r8) :: adjflux(jpband)          ! adjustment for current Earth/Sun distance
 !      real(kind=r8) :: solvar(jpband)           ! solar constant scaling factor from rrtmg_sw
                                                 !  default value of 1368.22 Wm-2 at 1 AU
-      real(kind=r8) :: albdir(nbndsw)           ! surface albedo, direct          ! zalbp
-      real(kind=r8) :: albdif(nbndsw)           ! surface albedo, diffuse         ! zalbd
+      real(kind=r8), target :: albdir(nbndsw)   ! surface albedo, direct          ! zalbp
+      real(kind=r8), target :: albdif(nbndsw)   ! surface albedo, diffuse         ! zalbd
 
-      real(kind=r8) :: taua(nlay,nbndsw)      ! Aerosol optical depth
-      real(kind=r8) :: ssaa(nlay,nbndsw)      ! Aerosol single scattering albedo
-      real(kind=r8) :: asma(nlay,nbndsw)      ! Aerosol asymmetry parameter
+      real(kind=r8), target :: taua(nlay,nbndsw)! Aerosol optical depth
+      real(kind=r8), target :: ssaa(nlay,nbndsw)! Aerosol single scattering albedo
+      real(kind=r8), target :: asma(nlay,nbndsw)! Aerosol asymmetry parameter
 
 ! Atmosphere - setcoef
       integer :: laytrop                        ! tropopause layer index
@@ -402,16 +407,16 @@
 !      real(kind=r8) :: asmcloud(nlay,jpband)    ! cloud asymmetry parameter
 
 ! Atmosphere/clouds - cldprmc [mcica]
-      real(kind=r8) :: cldfmc(ngptsw,nlay)    ! cloud fraction [mcica]
+      real(kind=r8), target :: cldfmc(ngptsw,nlay)! cloud fraction [mcica]
       real(kind=r8) :: ciwpmc(ngptsw,nlay)    ! cloud ice water path [mcica]
       real(kind=r8) :: clwpmc(ngptsw,nlay)    ! cloud liquid water path [mcica]
       real(kind=r8) :: relqmc(nlay)           ! liquid particle size (microns)
       real(kind=r8) :: reicmc(nlay)           ! ice particle effective radius (microns)
       real(kind=r8) :: dgesmc(nlay)           ! ice particle generalized effective size (microns)
-      real(kind=r8) :: taucmc(ngptsw,nlay)    ! cloud optical depth [mcica]
-      real(kind=r8) :: taormc(ngptsw,nlay)    ! unscaled cloud optical depth [mcica]
-      real(kind=r8) :: ssacmc(ngptsw,nlay)    ! cloud single scattering albedo [mcica]
-      real(kind=r8) :: asmcmc(ngptsw,nlay)    ! cloud asymmetry parameter [mcica]
+      real(kind=r8), target :: taucmc(ngptsw,nlay)! cloud optical depth [mcica]
+      real(kind=r8), target :: taormc(ngptsw,nlay)! unscaled cloud optical depth [mcica]
+      real(kind=r8), target :: ssacmc(ngptsw,nlay)! cloud single scattering albedo [mcica]
+      real(kind=r8), target :: asmcmc(ngptsw,nlay)! cloud asymmetry parameter [mcica]
       real(kind=r8) :: fsfcmc(ngptsw,nlay)    ! cloud forward scattering fraction [mcica]
 
 ! Atmosphere/clouds/aerosol - spcvrt,spcvmc
@@ -420,43 +425,43 @@
       real(kind=r8) :: zasyc(nlay,nbndsw)     ! cloud asymmetry parameter 
                                                 !  (first moment of phase function)
       real(kind=r8) :: zomgc(nlay,nbndsw)     ! cloud single scattering albedo
-      real(kind=r8) :: ztaua(nlay,nbndsw)     ! total aerosol optical depth
-      real(kind=r8) :: zasya(nlay,nbndsw)     ! total aerosol asymmetry parameter 
-      real(kind=r8) :: zomga(nlay,nbndsw)     ! total aerosol single scattering albedo
+      real(kind=r8), target :: ztaua(nlay,nbndsw)! total aerosol optical depth
+      real(kind=r8), target :: zasya(nlay,nbndsw)! total aerosol asymmetry parameter
+      real(kind=r8), target :: zomga(nlay,nbndsw)! total aerosol single scattering albedo
 
-      real(kind=r8) :: zcldfmc(nlay,ngptsw)   ! cloud fraction [mcica]
-      real(kind=r8) :: ztaucmc(nlay,ngptsw)   ! cloud optical depth [mcica]
-      real(kind=r8) :: ztaormc(nlay,ngptsw)   ! unscaled cloud optical depth [mcica]
-      real(kind=r8) :: zasycmc(nlay,ngptsw)   ! cloud asymmetry parameter [mcica] 
-      real(kind=r8) :: zomgcmc(nlay,ngptsw)   ! cloud single scattering albedo [mcica]
+      real(kind=r8), target :: zcldfmc(nlay,ngptsw)! cloud fraction [mcica]
+      real(kind=r8), target :: ztaucmc(nlay,ngptsw)! cloud optical depth [mcica]
+      real(kind=r8), target :: ztaormc(nlay,ngptsw)! unscaled cloud optical depth [mcica]
+      real(kind=r8), target :: zasycmc(nlay,ngptsw)! cloud asymmetry parameter [mcica]
+      real(kind=r8), target :: zomgcmc(nlay,ngptsw)! cloud single scattering albedo [mcica]
 
-      real(kind=r8) :: zbbfu(nlay+2)          ! temporary upward shortwave flux (w/m2)
-      real(kind=r8) :: zbbfd(nlay+2)          ! temporary downward shortwave flux (w/m2)
-      real(kind=r8) :: zbbcu(nlay+2)          ! temporary clear sky upward shortwave flux (w/m2)
-      real(kind=r8) :: zbbcd(nlay+2)          ! temporary clear sky downward shortwave flux (w/m2)
-      real(kind=r8) :: zbbfddir(nlay+2)       ! temporary downward direct shortwave flux (w/m2)
-      real(kind=r8) :: zbbcddir(nlay+2)       ! temporary clear sky downward direct shortwave flux (w/m2)
-      real(kind=r8) :: zuvfd(nlay+2)          ! temporary UV downward shortwave flux (w/m2)
-      real(kind=r8) :: zuvcd(nlay+2)          ! temporary clear sky UV downward shortwave flux (w/m2)
-      real(kind=r8) :: zuvfddir(nlay+2)       ! temporary UV downward direct shortwave flux (w/m2)
-      real(kind=r8) :: zuvcddir(nlay+2)       ! temporary clear sky UV downward direct shortwave flux (w/m2)
-      real(kind=r8) :: znifd(nlay+2)          ! temporary near-IR downward shortwave flux (w/m2)
-      real(kind=r8) :: znicd(nlay+2)          ! temporary clear sky near-IR downward shortwave flux (w/m2)
-      real(kind=r8) :: znifddir(nlay+2)       ! temporary near-IR downward direct shortwave flux (w/m2)
-      real(kind=r8) :: znicddir(nlay+2)       ! temporary clear sky near-IR downward direct shortwave flux (w/m2)
+      real(kind=r8), target :: zbbfu(nlay+2)  ! temporary upward shortwave flux (w/m2)
+      real(kind=r8), target :: zbbfd(nlay+2)  ! temporary downward shortwave flux (w/m2)
+      real(kind=r8), target :: zbbcu(nlay+2)  ! temporary clear sky upward shortwave flux (w/m2)
+      real(kind=r8), target :: zbbcd(nlay+2)  ! temporary clear sky downward shortwave flux (w/m2)
+      real(kind=r8), target :: zbbfddir(nlay+2)! temporary downward direct shortwave flux (w/m2)
+      real(kind=r8), target :: zbbcddir(nlay+2)! temporary clear sky downward direct shortwave flux (w/m2)
+      real(kind=r8), target :: zuvfd(nlay+2)  ! temporary UV downward shortwave flux (w/m2)
+      real(kind=r8), target :: zuvcd(nlay+2)  ! temporary clear sky UV downward shortwave flux (w/m2)
+      real(kind=r8), target :: zuvfddir(nlay+2)! temporary UV downward direct shortwave flux (w/m2)
+      real(kind=r8), target :: zuvcddir(nlay+2)! temporary clear sky UV downward direct shortwave flux (w/m2)
+      real(kind=r8), target :: znifd(nlay+2)  ! temporary near-IR downward shortwave flux (w/m2)
+      real(kind=r8), target :: znicd(nlay+2)  ! temporary clear sky near-IR downward shortwave flux (w/m2)
+      real(kind=r8), target :: znifddir(nlay+2)! temporary near-IR downward direct shortwave flux (w/m2)
+      real(kind=r8), target :: znicddir(nlay+2)! temporary clear sky near-IR downward direct shortwave flux (w/m2)
 ! Added for near-IR flux diagnostic
-      real(kind=r8) :: znifu(nlay+2)          ! temporary near-IR downward shortwave flux (w/m2)
-      real(kind=r8) :: znicu(nlay+2)          ! temporary clear sky near-IR downward shortwave flux (w/m2)
+      real(kind=r8), target :: znifu(nlay+2)  ! temporary near-IR downward shortwave flux (w/m2)
+      real(kind=r8), target :: znicu(nlay+2)  ! temporary clear sky near-IR downward shortwave flux (w/m2)
 
 ! Optional output fields 
-      real(kind=r8) :: swnflx(nlay+2)         ! Total sky shortwave net flux (W/m2)
-      real(kind=r8) :: swnflxc(nlay+2)        ! Clear sky shortwave net flux (W/m2)
-      real(kind=r8) :: dirdflux(nlay+2)       ! Direct downward shortwave surface flux
-      real(kind=r8) :: difdflux(nlay+2)       ! Diffuse downward shortwave surface flux
-      real(kind=r8) :: uvdflx(nlay+2)         ! Total sky downward shortwave flux, UV/vis   
-      real(kind=r8) :: nidflx(nlay+2)         ! Total sky downward shortwave flux, near-IR  
-      real(kind=r8) :: zbbfsu(nbndsw,nlay+2)  ! temporary upward shortwave flux spectral (w/m2)
-      real(kind=r8) :: zbbfsd(nbndsw,nlay+2)  ! temporary downward shortwave flux spectral (w/m2)
+      real(kind=r8), target :: swnflx(nlay+2) ! Total sky shortwave net flux (W/m2)
+      real(kind=r8), target :: swnflxc(nlay+2)! Clear sky shortwave net flux (W/m2)
+      real(kind=r8), target :: dirdflux(nlay+2)! Direct downward shortwave surface flux
+      real(kind=r8), target :: difdflux(nlay+2)! Diffuse downward shortwave surface flux
+      real(kind=r8), target :: uvdflx(nlay+2)! Total sky downward shortwave flux, UV/vis
+      real(kind=r8), target :: nidflx(nlay+2)! Total sky downward shortwave flux, near-IR
+      real(kind=r8), target :: zbbfsu(nbndsw,nlay+2)! temporary upward shortwave flux spectral (w/m2)
+      real(kind=r8), target :: zbbfsd(nbndsw,nlay+2)! temporary downward shortwave flux spectral (w/m2)
 
 ! Output - inactive
 !      real(kind=r8) :: zuvfu(nlay+2)         ! temporary upward UV shortwave flux (w/m2)
@@ -471,6 +476,54 @@
 !      real(kind=r8) :: znifd(nlay+2)         ! temporary downward near-IR shortwave flux (w/m2)
 !      real(kind=r8) :: znicu(nlay+2)         ! temporary clear sky upward near-IR shortwave flux (w/m2)
 !      real(kind=r8) :: znicd(nlay+2)         ! temporary clear sky downward near-IR shortwave flux (w/m2)
+
+      interface
+         subroutine rrtmg_sw_rad_setup_codon(nlay_c, ngptsw_c, nbndsw_c, icld_c, iaer_c, &
+              aldir_i_c, aldif_i_c, asdir_i_c, asdif_i_c, albdir_p, albdif_p, cldfmc_p, &
+              taucmc_p, taormc_p, asmcmc_p, ssacmc_p, zcldfmc_p, ztaucmc_p, ztaormc_p, &
+              zasycmc_p, zomgcmc_p, taua_p, ssaa_p, asma_p, ztaua_p, zasya_p, zomga_p) &
+              bind(c, name="rrtmg_sw_rad_setup_codon")
+            use iso_c_binding, only: c_double, c_int64_t, c_ptr
+            integer(c_int64_t), value :: nlay_c, ngptsw_c, nbndsw_c, icld_c, iaer_c
+            real(c_double), value :: aldir_i_c, aldif_i_c, asdir_i_c, asdif_i_c
+            type(c_ptr), value :: albdir_p, albdif_p, cldfmc_p, taucmc_p, taormc_p
+            type(c_ptr), value :: asmcmc_p, ssacmc_p, zcldfmc_p, ztaucmc_p, ztaormc_p
+            type(c_ptr), value :: zasycmc_p, zomgcmc_p, taua_p, ssaa_p, asma_p
+            type(c_ptr), value :: ztaua_p, zasya_p, zomga_p
+         end subroutine rrtmg_sw_rad_setup_codon
+
+         subroutine rrtmg_sw_rad_zero_flux_codon(nlay_c, nbndsw_c, zbbcu_p, zbbcd_p, &
+              zbbfu_p, zbbfd_p, zbbcddir_p, zbbfddir_p, zuvcd_p, zuvfd_p, zuvcddir_p, &
+              zuvfddir_p, znicd_p, znifd_p, znicddir_p, znifddir_p, znicu_p, znifu_p, &
+              zbbfsu_p, zbbfsd_p) bind(c, name="rrtmg_sw_rad_zero_flux_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: nlay_c, nbndsw_c
+            type(c_ptr), value :: zbbcu_p, zbbcd_p, zbbfu_p, zbbfd_p, zbbcddir_p
+            type(c_ptr), value :: zbbfddir_p, zuvcd_p, zuvfd_p, zuvcddir_p, zuvfddir_p
+            type(c_ptr), value :: znicd_p, znifd_p, znicddir_p, znifddir_p, znicu_p
+            type(c_ptr), value :: znifu_p, zbbfsu_p, zbbfsd_p
+         end subroutine rrtmg_sw_rad_zero_flux_codon
+
+         subroutine rrtmg_sw_rad_store_flux_codon(nlay_c, nbndsw_c, ncol_c, iplon_c, heatfac_c, &
+              zbbcu_p, zbbcd_p, zbbfu_p, zbbfd_p, zbbcddir_p, zbbfddir_p, zuvfd_p, &
+              zuvfddir_p, znicd_p, znifd_p, znifddir_p, znicu_p, znifu_p, zbbfsu_p, &
+              zbbfsd_p, pdp_p, swuflxc_p, swdflxc_p, swuflx_p, swdflx_p, swuflxs_p, &
+              swdflxs_p, uvdflx_p, nidflx_p, dirdflux_p, difdflux_p, dirdnuv_p, &
+              difdnuv_p, dirdnir_p, difdnir_p, ninflx_p, ninflxc_p, swnflxc_p, &
+              swnflx_p, swhrc_p, swhr_p) bind(c, name="rrtmg_sw_rad_store_flux_codon")
+            use iso_c_binding, only: c_double, c_int64_t, c_ptr
+            integer(c_int64_t), value :: nlay_c, nbndsw_c, ncol_c, iplon_c
+            real(c_double), value :: heatfac_c
+            type(c_ptr), value :: zbbcu_p, zbbcd_p, zbbfu_p, zbbfd_p, zbbcddir_p
+            type(c_ptr), value :: zbbfddir_p, zuvfd_p, zuvfddir_p, znicd_p, znifd_p
+            type(c_ptr), value :: znifddir_p, znicu_p, znifu_p, zbbfsu_p, zbbfsd_p
+            type(c_ptr), value :: pdp_p, swuflxc_p, swdflxc_p, swuflx_p, swdflx_p
+            type(c_ptr), value :: swuflxs_p, swdflxs_p, uvdflx_p, nidflx_p, dirdflux_p
+            type(c_ptr), value :: difdflux_p, dirdnuv_p, difdnuv_p, dirdnir_p, difdnir_p
+            type(c_ptr), value :: ninflx_p, ninflxc_p, swnflxc_p, swnflx_p, swhrc_p
+            type(c_ptr), value :: swhr_p
+         end subroutine rrtmg_sw_rad_store_flux_codon
+      end interface
 
 ! Initializations
 
@@ -508,6 +561,8 @@
 ! iaer = 10, input total aerosol optical depth, single scattering albedo 
 !            and asymmetry parameter (tauaer, ssaaer, asmaer) directly
       iaer = 10
+
+      call rrtmg_sw_rad_pack_select_impl()
 
 ! Set idelm to select between delta-M scaled or unscaled output direct and diffuse fluxes
 ! NOTE: total downward fluxes are always delta scaled
@@ -571,6 +626,8 @@
 
          cossza = coszen(iplon)
          if (cossza .lt. zepzen) cossza = zepzen
+
+         if (use_native_rrtmg_sw_rad_pack_impl) then
 
 ! Transfer albedo, cloud and aerosol properties into arrays for 2-stream radiative transfer 
 
@@ -669,29 +726,56 @@
 
          endif
 
+         else
+            call rrtmg_sw_rad_pack_log_entered()
+            call rrtmg_sw_rad_setup_codon( &
+                 int(nlay, c_int64_t), int(ngptsw, c_int64_t), int(nbndsw, c_int64_t), &
+                 int(icld, c_int64_t), int(iaer, c_int64_t), real(aldir(iplon), c_double), &
+                 real(aldif(iplon), c_double), real(asdir(iplon), c_double), &
+                 real(asdif(iplon), c_double), c_loc(albdir(1)), c_loc(albdif(1)), &
+                 c_loc(cldfmc(1,1)), c_loc(taucmc(1,1)), c_loc(taormc(1,1)), &
+                 c_loc(asmcmc(1,1)), c_loc(ssacmc(1,1)), c_loc(zcldfmc(1,1)), &
+                 c_loc(ztaucmc(1,1)), c_loc(ztaormc(1,1)), c_loc(zasycmc(1,1)), &
+                 c_loc(zomgcmc(1,1)), c_loc(taua(1,1)), c_loc(ssaa(1,1)), &
+                 c_loc(asma(1,1)), c_loc(ztaua(1,1)), c_loc(zasya(1,1)), &
+                 c_loc(zomga(1,1)) &
+            )
+         endif
+
 
 ! Call the 2-stream radiation transfer model
 
-         do i=1,nlay+1
-            zbbcu(i) = 0._r8
-            zbbcd(i) = 0._r8
-            zbbfu(i) = 0._r8
-            zbbfd(i) = 0._r8
-            zbbcddir(i) = 0._r8
-            zbbfddir(i) = 0._r8
-            zuvcd(i) = 0._r8
-            zuvfd(i) = 0._r8
-            zuvcddir(i) = 0._r8
-            zuvfddir(i) = 0._r8
-            znicd(i) = 0._r8
-            znifd(i) = 0._r8
-            znicddir(i) = 0._r8
-            znifddir(i) = 0._r8
-            znicu(i) = 0._r8
-            znifu(i) = 0._r8
-            zbbfsu(:,i) = 0._r8
-            zbbfsd(:,i) = 0._r8
-         enddo
+         if (use_native_rrtmg_sw_rad_pack_impl) then
+            do i=1,nlay+1
+               zbbcu(i) = 0._r8
+               zbbcd(i) = 0._r8
+               zbbfu(i) = 0._r8
+               zbbfd(i) = 0._r8
+               zbbcddir(i) = 0._r8
+               zbbfddir(i) = 0._r8
+               zuvcd(i) = 0._r8
+               zuvfd(i) = 0._r8
+               zuvcddir(i) = 0._r8
+               zuvfddir(i) = 0._r8
+               znicd(i) = 0._r8
+               znifd(i) = 0._r8
+               znicddir(i) = 0._r8
+               znifddir(i) = 0._r8
+               znicu(i) = 0._r8
+               znifu(i) = 0._r8
+               zbbfsu(:,i) = 0._r8
+               zbbfsd(:,i) = 0._r8
+            enddo
+         else
+            call rrtmg_sw_rad_zero_flux_codon( &
+                 int(nlay, c_int64_t), int(nbndsw, c_int64_t), c_loc(zbbcu(1)), &
+                 c_loc(zbbcd(1)), c_loc(zbbfu(1)), c_loc(zbbfd(1)), c_loc(zbbcddir(1)), &
+                 c_loc(zbbfddir(1)), c_loc(zuvcd(1)), c_loc(zuvfd(1)), c_loc(zuvcddir(1)), &
+                 c_loc(zuvfddir(1)), c_loc(znicd(1)), c_loc(znifd(1)), c_loc(znicddir(1)), &
+                 c_loc(znifddir(1)), c_loc(znicu(1)), c_loc(znifu(1)), c_loc(zbbfsu(1,1)), &
+                 c_loc(zbbfsd(1,1)) &
+            )
+         endif
 
          call spcvmc_sw &
              (lchnk, iplon, nlay, istart, iend, icpr, idelm, iout, &
@@ -708,49 +792,121 @@
 ! Transfer up and down, clear and total sky fluxes to output arrays.
 ! Vertical indexing goes from bottom to top
 
-         do i = 1, nlay+1
-            swuflxc(iplon,i) = zbbcu(i)
-            swdflxc(iplon,i) = zbbcd(i)
-            swuflx(iplon,i) = zbbfu(i)
-            swdflx(iplon,i) = zbbfd(i)
-            swuflxs(:,iplon,i) = zbbfsu(:,i)
-            swdflxs(:,iplon,i) = zbbfsd(:,i)
-            uvdflx(i) = zuvfd(i)
-            nidflx(i) = znifd(i)
+         if (use_native_rrtmg_sw_rad_pack_impl) then
+            do i = 1, nlay+1
+               swuflxc(iplon,i) = zbbcu(i)
+               swdflxc(iplon,i) = zbbcd(i)
+               swuflx(iplon,i) = zbbfu(i)
+               swdflx(iplon,i) = zbbfd(i)
+               swuflxs(:,iplon,i) = zbbfsu(:,i)
+               swdflxs(:,iplon,i) = zbbfsd(:,i)
+               uvdflx(i) = zuvfd(i)
+               nidflx(i) = znifd(i)
 !  Direct/diffuse fluxes
-            dirdflux(i) = zbbfddir(i)
-            difdflux(i) = swdflx(iplon,i) - dirdflux(i)
+               dirdflux(i) = zbbfddir(i)
+               difdflux(i) = swdflx(iplon,i) - dirdflux(i)
 !  UV/visible direct/diffuse fluxes
-            dirdnuv(iplon,i) = zuvfddir(i)
-            difdnuv(iplon,i) = zuvfd(i) - dirdnuv(iplon,i)
+               dirdnuv(iplon,i) = zuvfddir(i)
+               difdnuv(iplon,i) = zuvfd(i) - dirdnuv(iplon,i)
 !  Near-IR direct/diffuse fluxes
-            dirdnir(iplon,i) = znifddir(i)
-            difdnir(iplon,i) = znifd(i) - dirdnir(iplon,i)
+               dirdnir(iplon,i) = znifddir(i)
+               difdnir(iplon,i) = znifd(i) - dirdnir(iplon,i)
 !  Added for net near-IR diagnostic
-            ninflx(iplon,i) = znifd(i) - znifu(i)
-            ninflxc(iplon,i) = znicd(i) - znicu(i)
-         enddo
+               ninflx(iplon,i) = znifd(i) - znifu(i)
+               ninflxc(iplon,i) = znicd(i) - znicu(i)
+            enddo
 
 !  Total and clear sky net fluxes
-         do i = 1, nlay+1
-            swnflxc(i) = swdflxc(iplon,i) - swuflxc(iplon,i)
-            swnflx(i) = swdflx(iplon,i) - swuflx(iplon,i)
-         enddo
+            do i = 1, nlay+1
+               swnflxc(i) = swdflxc(iplon,i) - swuflxc(iplon,i)
+               swnflx(i) = swdflx(iplon,i) - swuflx(iplon,i)
+            enddo
 
 !  Total and clear sky heating rates
 !  Heating units are in K/d. Flux units are in W/m2.
-         do i = 1, nlay
-            zdpgcp = heatfac / pdp(i)
-            swhrc(iplon,i) = (swnflxc(i+1) - swnflxc(i)) * zdpgcp
-            swhr(iplon,i) = (swnflx(i+1) - swnflx(i)) * zdpgcp
-         enddo
-         swhrc(iplon,nlay) = 0._r8
-         swhr(iplon,nlay) = 0._r8
+            do i = 1, nlay
+               zdpgcp = heatfac / pdp(i)
+               swhrc(iplon,i) = (swnflxc(i+1) - swnflxc(i)) * zdpgcp
+               swhr(iplon,i) = (swnflx(i+1) - swnflx(i)) * zdpgcp
+            enddo
+            swhrc(iplon,nlay) = 0._r8
+            swhr(iplon,nlay) = 0._r8
+         else
+            call rrtmg_sw_rad_store_flux_codon( &
+                 int(nlay, c_int64_t), int(nbndsw, c_int64_t), int(size(swuflx,1), c_int64_t), &
+                 int(iplon, c_int64_t), real(heatfac, c_double), c_loc(zbbcu(1)), &
+                 c_loc(zbbcd(1)), c_loc(zbbfu(1)), c_loc(zbbfd(1)), c_loc(zbbcddir(1)), &
+                 c_loc(zbbfddir(1)), c_loc(zuvfd(1)), c_loc(zuvfddir(1)), c_loc(znicd(1)), &
+                 c_loc(znifd(1)), c_loc(znifddir(1)), c_loc(znicu(1)), c_loc(znifu(1)), &
+                 c_loc(zbbfsu(1,1)), c_loc(zbbfsd(1,1)), c_loc(pdp(1)), &
+                 c_loc(swuflxc(1,1)), c_loc(swdflxc(1,1)), c_loc(swuflx(1,1)), &
+                 c_loc(swdflx(1,1)), c_loc(swuflxs(1,1,1)), c_loc(swdflxs(1,1,1)), &
+                 c_loc(uvdflx(1)), c_loc(nidflx(1)), c_loc(dirdflux(1)), c_loc(difdflux(1)), &
+                 c_loc(dirdnuv(1,1)), c_loc(difdnuv(1,1)), c_loc(dirdnir(1,1)), &
+                 c_loc(difdnir(1,1)), c_loc(ninflx(1,1)), c_loc(ninflxc(1,1)), &
+                 c_loc(swnflxc(1)), c_loc(swnflx(1)), c_loc(swhrc(1,1)), c_loc(swhr(1,1)) &
+            )
+         endif
 
 ! End longitude loop
       enddo
 
       end subroutine rrtmg_sw
+
+! --------------------------------------------------------------------------
+      subroutine rrtmg_sw_rad_pack_select_impl()
+
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (rrtmg_sw_rad_pack_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('RRTMG_SW_RAD_PACK_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_rrtmg_sw_rad_pack_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_rrtmg_sw_rad_pack_impl = .false.
+      end if
+
+      rrtmg_sw_rad_pack_impl_selected = .true.
+
+      if (masterproc) then
+         if (use_native_rrtmg_sw_rad_pack_impl) then
+            write(iulog,*) 'rrtmg_sw_rad_pack implementation = native'
+         else
+            write(iulog,*) 'rrtmg_sw_rad_pack implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine rrtmg_sw_rad_pack_select_impl
+
+! --------------------------------------------------------------------------
+      subroutine rrtmg_sw_rad_pack_log_entered()
+
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+
+      if (rrtmg_sw_rad_pack_entered_logged) return
+      rrtmg_sw_rad_pack_entered_logged = .true.
+
+      if (masterproc) then
+         write(iulog,*) 'rrtmg_sw_rad_pack entered (mcica sw setup/flux transfer = codon)'
+         call flush(iulog)
+      end if
+
+      end subroutine rrtmg_sw_rad_pack_log_entered
 
 !*************************************************************************
       real(kind=r8) function earth_sun(idn)
@@ -1106,5 +1262,3 @@
       end subroutine inatm_sw
 
       end module rrtmg_sw_rad
-
-
