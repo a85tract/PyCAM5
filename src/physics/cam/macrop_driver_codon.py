@@ -9,6 +9,123 @@ def _idx3(i: int, k: int, m: int, pcols: int, pver: int):
     return (m - 1) * pcols * pver + (k - 1) * pcols + (i - 1)
 
 
+@export
+def cldwat2m_positive_moisture_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    do_cldice: int,
+    dt: float,
+    latvap: float,
+    latice: float,
+    cpair: float,
+    dp_p: cobj,
+    qvmin_p: cobj,
+    qlmin_p: cobj,
+    qimin_p: cobj,
+    qv_p: cobj,
+    ql_p: cobj,
+    qi_p: cobj,
+    t_p: cobj,
+    qvten_p: cobj,
+    qlten_p: cobj,
+    qiten_p: cobj,
+    tten_p: cobj,
+):
+    dp = Ptr[float](dp_p)
+    qvmin = Ptr[float](qvmin_p)
+    qlmin = Ptr[float](qlmin_p)
+    qimin = Ptr[float](qimin_p)
+    qv = Ptr[float](qv_p)
+    ql = Ptr[float](ql_p)
+    qi = Ptr[float](qi_p)
+    t = Ptr[float](t_p)
+    qvten = Ptr[float](qvten_p)
+    qlten = Ptr[float](qlten_p)
+    qiten = Ptr[float](qiten_p)
+    tten = Ptr[float](tten_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            tten[idx] = 0.0
+            qvten[idx] = 0.0
+            qlten[idx] = 0.0
+            qiten[idx] = 0.0
+
+    for i in range(1, ncol + 1):
+        needs_fix = False
+        for k in range(top_lev, pver + 1):
+            idx = _idx2(i, k, pcols)
+            if qv[idx] < qvmin[idx] or ql[idx] < qlmin[idx] or qi[idx] < qimin[idx]:
+                needs_fix = True
+                break
+        if not needs_fix:
+            continue
+
+        dqv = 0.0
+        for k in range(top_lev, pver + 1):
+            idx = _idx2(i, k, pcols)
+
+            dql = qlmin[idx] - ql[idx]
+            if dql < 0.0:
+                dql = 0.0
+
+            if do_cldice != 0:
+                dqi = qimin[idx] - qi[idx]
+                if dqi < 0.0:
+                    dqi = 0.0
+            else:
+                dqi = 0.0
+
+            qlten[idx] = qlten[idx] + dql / dt
+            qiten[idx] = qiten[idx] + dqi / dt
+            qvten[idx] = qvten[idx] - (dql + dqi) / dt
+            tten[idx] = tten[idx] + (latvap / cpair) * (dql / dt) + ((latvap + latice) / cpair) * (dqi / dt)
+            ql[idx] = ql[idx] + dql
+            qi[idx] = qi[idx] + dqi
+            qv[idx] = qv[idx] - dql - dqi
+            t[idx] = t[idx] + (latvap * dql + (latvap + latice) * dqi) / cpair
+
+            dqv = qvmin[idx] - qv[idx]
+            if dqv < 0.0:
+                dqv = 0.0
+            qvten[idx] = qvten[idx] + dqv / dt
+            qv[idx] = qv[idx] + dqv
+            if k != pver:
+                idx_next = _idx2(i, k + 1, pcols)
+                transfer = dqv * dp[idx] / dp[idx_next]
+                qv[idx_next] = qv[idx_next] - transfer
+                qvten[idx_next] = qvten[idx_next] - transfer / dt
+
+            if qv[idx] < qvmin[idx]:
+                qv[idx] = qvmin[idx]
+            if ql[idx] < qlmin[idx]:
+                ql[idx] = qlmin[idx]
+            if qi[idx] < qimin[idx]:
+                qi[idx] = qimin[idx]
+
+        if dqv > 1.0e-20:
+            sum_val = 0.0
+            for k in range(top_lev, pver + 1):
+                idx = _idx2(i, k, pcols)
+                if qv[idx] > 2.0 * qvmin[idx]:
+                    sum_val = sum_val + qv[idx] * dp[idx]
+
+            denom = sum_val
+            if denom < 1.0e-20:
+                denom = 1.0e-20
+            aa = dqv * dp[_idx2(i, pver, pcols)] / denom
+            if aa < 0.5:
+                for k in range(top_lev, pver + 1):
+                    idx = _idx2(i, k, pcols)
+                    if qv[idx] > 2.0 * qvmin[idx]:
+                        dum = aa * qv[idx]
+                        qv[idx] = qv[idx] - dum
+                        qvten[idx] = qvten[idx] - dum / dt
+
+
 def _process_rates_idx(
     i: int,
     k: int,

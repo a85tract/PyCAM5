@@ -22,6 +22,7 @@
    use cldfrc2m,         only: astG_PDF_single, astG_PDF, astG_RHU_single, &
                                astG_RHU, aist_single, aist_vector,         &
                                rhmini_const, rhmaxi=>rhmaxi_const
+   use iso_c_binding,    only: c_int64_t, c_loc, c_ptr
 
    implicit none
    private
@@ -81,6 +82,9 @@
    real(r8), private    :: premib                    ! Bottom height for mid-level liquid stratus fraction
 
    real(r8), parameter :: qsmall = 1.e-18_r8         ! Smallest mixing ratio considered in the macrophysics
+   logical :: use_native_positive_moisture_impl = .false.
+   logical :: positive_moisture_impl_selected = .false.
+   logical :: positive_moisture_entered_logged = .false.
 
    contains
 
@@ -2189,6 +2193,41 @@ end subroutine rhcrit_calc
    ! End of subroutine !
    ! ----------------- !
 
+   subroutine positive_moisture_select_impl()
+   character(len=32) :: impl_name
+   integer :: n, status
+
+   if (positive_moisture_impl_selected) return
+   call get_environment_variable('CLDWAT2M_POSITIVE_MOISTURE_IMPL', value=impl_name, length=n, status=status)
+   use_native_positive_moisture_impl = .false.
+   if (status == 0 .and. n > 0) then
+      select case (adjustl(impl_name(:n)))
+      case ('native', 'Native', 'NATIVE')
+         use_native_positive_moisture_impl = .true.
+      case ('codon', 'Codon', 'CODON')
+         use_native_positive_moisture_impl = .false.
+      case default
+         use_native_positive_moisture_impl = .false.
+      end select
+   end if
+   positive_moisture_impl_selected = .true.
+   if (masterproc) then
+      if (use_native_positive_moisture_impl) then
+         write(iulog,*) 'cldwat2m_positive_moisture implementation = native'
+      else
+         write(iulog,*) 'cldwat2m_positive_moisture implementation = codon'
+      end if
+   end if
+   end subroutine positive_moisture_select_impl
+
+   subroutine positive_moisture_log_entered()
+   if (positive_moisture_entered_logged) return
+   positive_moisture_entered_logged = .true.
+   if (masterproc) then
+      write(iulog,*) 'cldwat2m_positive_moisture entered (macrophysics positive moisture limiter = codon)'
+   end if
+   end subroutine positive_moisture_log_entered
+
    subroutine positive_moisture( ncol, dt, qvmin, qlmin, qimin, dp, &
                                  qv,   ql, qi,    t,     qvten, &
                                  qlten,    qiten, tten,  do_cldice)
@@ -2208,12 +2247,38 @@ end subroutine rhcrit_calc
    implicit none
    integer,  intent(in)     :: ncol
    real(r8), intent(in)     :: dt
-   real(r8), intent(in)     :: dp(pcols,pver), qvmin(pcols,pver), qlmin(pcols,pver), qimin(pcols,pver)
-   real(r8), intent(inout)  :: qv(pcols,pver), ql(pcols,pver), qi(pcols,pver), t(pcols,pver)
-   real(r8), intent(out)    :: qvten(pcols,pver), qlten(pcols,pver), qiten(pcols,pver), tten(pcols,pver)
+   real(r8), target, intent(in)     :: dp(pcols,pver), qvmin(pcols,pver), qlmin(pcols,pver), qimin(pcols,pver)
+   real(r8), target, intent(inout)  :: qv(pcols,pver), ql(pcols,pver), qi(pcols,pver), t(pcols,pver)
+   real(r8), target, intent(out)    :: qvten(pcols,pver), qlten(pcols,pver), qiten(pcols,pver), tten(pcols,pver)
    logical, intent(in)      :: do_cldice
    integer   i, k
+   integer(c_int64_t) :: do_cldice_c
    real(r8)  dql, dqi, dqv, sum, aa, dum 
+
+   interface
+      subroutine cldwat2m_positive_moisture_codon(ncol_c, pcols_c, pver_c, top_lev_c, do_cldice_c, &
+           dt_c, latvap_c, latice_c, cpair_c, dp_p, qvmin_p, qlmin_p, qimin_p, qv_p, ql_p, qi_p, &
+           t_p, qvten_p, qlten_p, qiten_p, tten_p) bind(c, name="cldwat2m_positive_moisture_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, do_cldice_c
+         real(c_double), value :: dt_c, latvap_c, latice_c, cpair_c
+         type(c_ptr), value :: dp_p, qvmin_p, qlmin_p, qimin_p, qv_p, ql_p, qi_p, t_p
+         type(c_ptr), value :: qvten_p, qlten_p, qiten_p, tten_p
+      end subroutine cldwat2m_positive_moisture_codon
+   end interface
+
+   call positive_moisture_select_impl()
+   if (.not. use_native_positive_moisture_impl) then
+      call positive_moisture_log_entered()
+      do_cldice_c = 0_c_int64_t
+      if (do_cldice) do_cldice_c = 1_c_int64_t
+      call cldwat2m_positive_moisture_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(top_lev, c_int64_t), do_cldice_c, dt, latvap, latice, cpair, &
+           c_loc(dp(1,1)), c_loc(qvmin(1,1)), c_loc(qlmin(1,1)), c_loc(qimin(1,1)), &
+           c_loc(qv(1,1)), c_loc(ql(1,1)), c_loc(qi(1,1)), c_loc(t(1,1)), &
+           c_loc(qvten(1,1)), c_loc(qlten(1,1)), c_loc(qiten(1,1)), c_loc(tten(1,1)))
+      return
+   end if
 
    tten(:ncol,:pver)  = 0._r8
    qvten(:ncol,:pver) = 0._r8
