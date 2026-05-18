@@ -103,6 +103,9 @@
    logical :: use_native_advective_state_impl = .false.
    logical :: advective_state_impl_selected = .false.
    logical :: advective_state_entered_logged = .false.
+   logical :: use_native_ref_state_impl = .false.
+   logical :: ref_state_impl_selected = .false.
+   logical :: ref_state_entered_logged = .false.
 
    contains
 
@@ -775,17 +778,8 @@
    ! Define variables at the reference state of the first iteration !
    ! -------------------------------------------------------------- !
 
-   T(:ncol,top_lev:)     = T_0(:ncol,top_lev:)
-   qv(:ncol,top_lev:)    = qv_0(:ncol,top_lev:)
-   ql(:ncol,top_lev:)    = ql_0(:ncol,top_lev:)
-   qi(:ncol,top_lev:)    = qi_0(:ncol,top_lev:)
-   al_st(:ncol,top_lev:) = al_st_0(:ncol,top_lev:)
-   ai_st(:ncol,top_lev:) = ai_st_0(:ncol,top_lev:)
-   a_st(:ncol,top_lev:)  = a_st_0(:ncol,top_lev:)
-   ql_st(:ncol,top_lev:) = ql_st_0(:ncol,top_lev:)
-   qi_st(:ncol,top_lev:) = qi_st_0(:ncol,top_lev:)
-   nl(:ncol,top_lev:)    = nl_0(:ncol,top_lev:)
-   ni(:ncol,top_lev:)    = ni_0(:ncol,top_lev:)
+   call ref_state_codon_wrap(ncol, T_0, qv_0, ql_0, qi_0, al_st_0, ai_st_0, a_st_0, &
+        ql_st_0, qi_st_0, nl_0, ni_0, T, qv, ql, qi, al_st, ai_st, a_st, ql_st, qi_st, nl, ni)
 
    ! -------------------------- !
    ! Main iterative computation !
@@ -1023,17 +1017,8 @@
    ! Define equilibrium reference state for next iteration !
    ! ----------------------------------------------------- !
 
-   T(:ncol,top_lev:)     = T_star(:ncol,top_lev:)
-   qv(:ncol,top_lev:)    = qv_star(:ncol,top_lev:)
-   ql(:ncol,top_lev:)    = ql_star(:ncol,top_lev:)
-   qi(:ncol,top_lev:)    = qi_star(:ncol,top_lev:)
-   al_st(:ncol,top_lev:) = al_st_star(:ncol,top_lev:)
-   ai_st(:ncol,top_lev:) = ai_st_star(:ncol,top_lev:)
-   a_st(:ncol,top_lev:)  = a_st_star(:ncol,top_lev:)
-   ql_st(:ncol,top_lev:) = ql_st_star(:ncol,top_lev:)
-   qi_st(:ncol,top_lev:) = qi_st_star(:ncol,top_lev:)
-   nl(:ncol,top_lev:)    = nl_star(:ncol,top_lev:)
-   ni(:ncol,top_lev:)    = ni_star(:ncol,top_lev:)
+   call ref_state_codon_wrap(ncol, T_star, qv_star, ql_star, qi_star, al_st_star, ai_st_star, a_st_star, &
+        ql_st_star, qi_st_star, nl_star, ni_star, T, qv, ql, qi, al_st, ai_st, a_st, ql_st, qi_st, nl, ni)
 
    enddo ! End of 'iter' prognostic iterative computation
 
@@ -1492,6 +1477,106 @@ end subroutine rhcrit_calc
    enddo
 
    end subroutine dropnum_limit_codon_wrap
+
+!=======================================================================================================
+
+   subroutine ref_state_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: n, status
+
+   if (ref_state_impl_selected) return
+   call get_environment_variable('CLDWAT2M_REF_STATE_IMPL', value=impl_name, length=n, status=status)
+   use_native_ref_state_impl = .false.
+   if (status == 0 .and. n > 0) then
+      select case (adjustl(impl_name(:n)))
+      case ('native', 'Native', 'NATIVE')
+         use_native_ref_state_impl = .true.
+      case ('codon', 'Codon', 'CODON')
+         use_native_ref_state_impl = .false.
+      case default
+         use_native_ref_state_impl = .false.
+      end select
+   end if
+   ref_state_impl_selected = .true.
+   if (masterproc) then
+      if (use_native_ref_state_impl) then
+         write(iulog,*) 'cldwat2m_ref_state implementation = native'
+      else
+         write(iulog,*) 'cldwat2m_ref_state implementation = codon'
+      end if
+   end if
+   end subroutine ref_state_select_impl
+
+   subroutine ref_state_log_entered()
+   if (ref_state_entered_logged) return
+   ref_state_entered_logged = .true.
+   if (masterproc) then
+      write(iulog,*) 'cldwat2m_ref_state entered (macrophysics reference state copy = codon)'
+   end if
+   end subroutine ref_state_log_entered
+
+   subroutine ref_state_codon_wrap(ncol, T_src, qv_src, ql_src, qi_src, al_st_src, ai_st_src, a_st_src, &
+        ql_st_src, qi_st_src, nl_src, ni_src, T_dst, qv_dst, ql_dst, qi_dst, al_st_dst, ai_st_dst, &
+        a_st_dst, ql_st_dst, qi_st_dst, nl_dst, ni_dst)
+
+   integer, intent(in) :: ncol
+   real(r8), target, intent(in) :: T_src(pcols,pver), qv_src(pcols,pver), ql_src(pcols,pver)
+   real(r8), target, intent(in) :: qi_src(pcols,pver), al_st_src(pcols,pver), ai_st_src(pcols,pver)
+   real(r8), target, intent(in) :: a_st_src(pcols,pver), ql_st_src(pcols,pver), qi_st_src(pcols,pver)
+   real(r8), target, intent(in) :: nl_src(pcols,pver), ni_src(pcols,pver)
+   real(r8), target, intent(out) :: T_dst(pcols,pver), qv_dst(pcols,pver), ql_dst(pcols,pver)
+   real(r8), target, intent(out) :: qi_dst(pcols,pver), al_st_dst(pcols,pver), ai_st_dst(pcols,pver)
+   real(r8), target, intent(out) :: a_st_dst(pcols,pver), ql_st_dst(pcols,pver), qi_st_dst(pcols,pver)
+   real(r8), target, intent(out) :: nl_dst(pcols,pver), ni_dst(pcols,pver)
+
+   integer :: i, k
+
+   interface
+      subroutine cldwat2m_ref_state_codon(ncol_c, pcols_c, pver_c, top_lev_c, &
+           T_src_p, qv_src_p, ql_src_p, qi_src_p, al_st_src_p, ai_st_src_p, a_st_src_p, &
+           ql_st_src_p, qi_st_src_p, nl_src_p, ni_src_p, T_dst_p, qv_dst_p, ql_dst_p, qi_dst_p, &
+           al_st_dst_p, ai_st_dst_p, a_st_dst_p, ql_st_dst_p, qi_st_dst_p, nl_dst_p, ni_dst_p) &
+           bind(c, name="cldwat2m_ref_state_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+         type(c_ptr), value :: T_src_p, qv_src_p, ql_src_p, qi_src_p, al_st_src_p, ai_st_src_p, a_st_src_p
+         type(c_ptr), value :: ql_st_src_p, qi_st_src_p, nl_src_p, ni_src_p
+         type(c_ptr), value :: T_dst_p, qv_dst_p, ql_dst_p, qi_dst_p, al_st_dst_p, ai_st_dst_p
+         type(c_ptr), value :: a_st_dst_p, ql_st_dst_p, qi_st_dst_p, nl_dst_p, ni_dst_p
+      end subroutine cldwat2m_ref_state_codon
+   end interface
+
+   call ref_state_select_impl()
+   if (.not. use_native_ref_state_impl) then
+      call ref_state_log_entered()
+      call cldwat2m_ref_state_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(top_lev, c_int64_t), c_loc(T_src(1,1)), c_loc(qv_src(1,1)), &
+           c_loc(ql_src(1,1)), c_loc(qi_src(1,1)), c_loc(al_st_src(1,1)), c_loc(ai_st_src(1,1)), &
+           c_loc(a_st_src(1,1)), c_loc(ql_st_src(1,1)), c_loc(qi_st_src(1,1)), c_loc(nl_src(1,1)), &
+           c_loc(ni_src(1,1)), c_loc(T_dst(1,1)), c_loc(qv_dst(1,1)), c_loc(ql_dst(1,1)), &
+           c_loc(qi_dst(1,1)), c_loc(al_st_dst(1,1)), c_loc(ai_st_dst(1,1)), c_loc(a_st_dst(1,1)), &
+           c_loc(ql_st_dst(1,1)), c_loc(qi_st_dst(1,1)), c_loc(nl_dst(1,1)), c_loc(ni_dst(1,1)))
+      return
+   endif
+
+   do k = top_lev, pver
+      do i = 1, ncol
+         T_dst(i,k) = T_src(i,k)
+         qv_dst(i,k) = qv_src(i,k)
+         ql_dst(i,k) = ql_src(i,k)
+         qi_dst(i,k) = qi_src(i,k)
+         al_st_dst(i,k) = al_st_src(i,k)
+         ai_st_dst(i,k) = ai_st_src(i,k)
+         a_st_dst(i,k) = a_st_src(i,k)
+         ql_st_dst(i,k) = ql_st_src(i,k)
+         qi_st_dst(i,k) = qi_st_src(i,k)
+         nl_dst(i,k) = nl_src(i,k)
+         ni_dst(i,k) = ni_src(i,k)
+      enddo
+   enddo
+
+   end subroutine ref_state_codon_wrap
 
 !=======================================================================================================
 

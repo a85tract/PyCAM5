@@ -136,6 +136,74 @@ def cldwat2m_dropnum_limit_codon(
 
 
 @export
+def cldwat2m_ref_state_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    t_src_p: cobj,
+    qv_src_p: cobj,
+    ql_src_p: cobj,
+    qi_src_p: cobj,
+    al_st_src_p: cobj,
+    ai_st_src_p: cobj,
+    a_st_src_p: cobj,
+    ql_st_src_p: cobj,
+    qi_st_src_p: cobj,
+    nl_src_p: cobj,
+    ni_src_p: cobj,
+    t_dst_p: cobj,
+    qv_dst_p: cobj,
+    ql_dst_p: cobj,
+    qi_dst_p: cobj,
+    al_st_dst_p: cobj,
+    ai_st_dst_p: cobj,
+    a_st_dst_p: cobj,
+    ql_st_dst_p: cobj,
+    qi_st_dst_p: cobj,
+    nl_dst_p: cobj,
+    ni_dst_p: cobj,
+):
+    t_src = Ptr[float](t_src_p)
+    qv_src = Ptr[float](qv_src_p)
+    ql_src = Ptr[float](ql_src_p)
+    qi_src = Ptr[float](qi_src_p)
+    al_st_src = Ptr[float](al_st_src_p)
+    ai_st_src = Ptr[float](ai_st_src_p)
+    a_st_src = Ptr[float](a_st_src_p)
+    ql_st_src = Ptr[float](ql_st_src_p)
+    qi_st_src = Ptr[float](qi_st_src_p)
+    nl_src = Ptr[float](nl_src_p)
+    ni_src = Ptr[float](ni_src_p)
+    t_dst = Ptr[float](t_dst_p)
+    qv_dst = Ptr[float](qv_dst_p)
+    ql_dst = Ptr[float](ql_dst_p)
+    qi_dst = Ptr[float](qi_dst_p)
+    al_st_dst = Ptr[float](al_st_dst_p)
+    ai_st_dst = Ptr[float](ai_st_dst_p)
+    a_st_dst = Ptr[float](a_st_dst_p)
+    ql_st_dst = Ptr[float](ql_st_dst_p)
+    qi_st_dst = Ptr[float](qi_st_dst_p)
+    nl_dst = Ptr[float](nl_dst_p)
+    ni_dst = Ptr[float](ni_dst_p)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            t_dst[idx] = t_src[idx]
+            qv_dst[idx] = qv_src[idx]
+            ql_dst[idx] = ql_src[idx]
+            qi_dst[idx] = qi_src[idx]
+            al_st_dst[idx] = al_st_src[idx]
+            ai_st_dst[idx] = ai_st_src[idx]
+            a_st_dst[idx] = a_st_src[idx]
+            ql_st_dst[idx] = ql_st_src[idx]
+            qi_st_dst[idx] = qi_st_src[idx]
+            nl_dst[idx] = nl_src[idx]
+            ni_dst[idx] = ni_src[idx]
+
+
+@export
 def cldwat2m_advective_state_codon(
     ncol: int,
     pcols: int,
