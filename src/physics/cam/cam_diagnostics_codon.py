@@ -17,6 +17,147 @@ def _idx3(i: int, k: int, m: int, ld1: int, ld2: int) -> int:
 
 
 @export
+def cloud_diagnostics_mg_paths_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    gravit: float,
+    cld_p: cobj,
+    allcld_ice_p: cobj,
+    allcld_liq_p: cobj,
+    pmid_p: cobj,
+    temp_p: cobj,
+    pdel_p: cobj,
+    iciwp_p: cobj,
+    iclwp_p: cobj,
+    icimr_p: cobj,
+    icwmr_p: cobj,
+    iwc_p: cobj,
+    lwc_p: cobj,
+    gicewp_p: cobj,
+    gliqwp_p: cobj,
+    cicewp_p: cobj,
+    cliqwp_p: cobj,
+):
+    cld = Ptr[float](cld_p)
+    allcld_ice = Ptr[float](allcld_ice_p)
+    allcld_liq = Ptr[float](allcld_liq_p)
+    pmid = Ptr[float](pmid_p)
+    temp = Ptr[float](temp_p)
+    pdel = Ptr[float](pdel_p)
+    iciwp = Ptr[float](iciwp_p)
+    iclwp = Ptr[float](iclwp_p)
+    icimr = Ptr[float](icimr_p)
+    icwmr = Ptr[float](icwmr_p)
+    iwc = Ptr[float](iwc_p)
+    lwc = Ptr[float](lwc_p)
+    gicewp = Ptr[float](gicewp_p)
+    gliqwp = Ptr[float](gliqwp_p)
+    cicewp = Ptr[float](cicewp_p)
+    cliqwp = Ptr[float](cliqwp_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, pcols + 1):
+            idx = _idx2(i, k, pcols)
+            iciwp[idx] = 0.0
+            iclwp[idx] = 0.0
+            icimr[idx] = 0.0
+            icwmr[idx] = 0.0
+            iwc[idx] = 0.0
+            lwc[idx] = 0.0
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            icimr[idx] = min(allcld_ice[idx] / max(0.0001, cld[idx]), 0.005)
+            icwmr[idx] = min(allcld_liq[idx] / max(0.0001, cld[idx]), 0.005)
+            iwc[idx] = allcld_ice[idx] * pmid[idx] / (287.15 * temp[idx])
+            lwc[idx] = allcld_liq[idx] * pmid[idx] / (287.15 * temp[idx])
+            iciwp[idx] = icimr[idx] * pdel[idx] / gravit
+            iclwp[idx] = icwmr[idx] * pdel[idx] / gravit
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            gicewp[idx] = iciwp[idx] * cld[idx]
+            gliqwp[idx] = iclwp[idx] * cld[idx]
+            cicewp[idx] = iciwp[idx]
+            cliqwp[idx] = iclwp[idx]
+
+
+@export
+def cloud_diagnostics_totals_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gicewp_p: cobj,
+    gliqwp_p: cobj,
+    cicewp_p: cobj,
+    cliqwp_p: cobj,
+    tgicewp_p: cobj,
+    tgliqwp_p: cobj,
+    tgwp_p: cobj,
+    gwp_p: cobj,
+    cwp_p: cobj,
+):
+    gicewp = Ptr[float](gicewp_p)
+    gliqwp = Ptr[float](gliqwp_p)
+    cicewp = Ptr[float](cicewp_p)
+    cliqwp = Ptr[float](cliqwp_p)
+    tgicewp = Ptr[float](tgicewp_p)
+    tgliqwp = Ptr[float](tgliqwp_p)
+    tgwp = Ptr[float](tgwp_p)
+    gwp = Ptr[float](gwp_p)
+    cwp = Ptr[float](cwp_p)
+
+    for i in range(1, ncol + 1):
+        tgicewp[i - 1] = 0.0
+        tgliqwp[i - 1] = 0.0
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            tgicewp[i - 1] = tgicewp[i - 1] + gicewp[idx]
+            tgliqwp[i - 1] = tgliqwp[i - 1] + gliqwp[idx]
+
+    for i in range(1, ncol + 1):
+        tgwp[i - 1] = tgicewp[i - 1] + tgliqwp[i - 1]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            gwp[idx] = gicewp[idx] + gliqwp[idx]
+            cwp[idx] = cicewp[idx] + cliqwp[idx]
+
+
+@export
+def cloud_diagnostics_tpw_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    gravit: float,
+    pdel_p: cobj,
+    q_p: cobj,
+    tpw_p: cobj,
+):
+    pdel = Ptr[float](pdel_p)
+    q = Ptr[float](q_p)
+    tpw = Ptr[float](tpw_p)
+    rgrav = 1.0 / gravit
+
+    for i in range(1, ncol + 1):
+        tpw[i - 1] = 0.0
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            tpw[i - 1] = (
+                tpw[i - 1]
+                + pdel[_idx2(i, k, pcols)] * q[_idx3(i, k, 1, pcols, pver)] * rgrav
+            )
+
+
+@export
 def diag_conv_tend_ini_copy_s_codon(
     ncol: int,
     pcols: int,

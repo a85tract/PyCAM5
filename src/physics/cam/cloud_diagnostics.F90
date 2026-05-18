@@ -13,10 +13,13 @@ module cloud_diagnostics
 !---------------------------------------------------------------------------------
 
    use shr_kind_mod,  only: r8=>shr_kind_r8
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
    use ppgrid,        only: pcols, pver,pverp
    use physconst,     only: gravit
    use cam_history,   only: outfld
    use cam_history,   only: addfld, add_default, phys_decomp
+   use spmd_utils,    only: masterproc
+   use cam_logfile,   only: iulog
 
    implicit none
    private
@@ -31,6 +34,9 @@ module cloud_diagnostics
    integer :: ixcldice, ixcldliq, rei_idx, rel_idx
 
    logical :: do_cld_diag, mg_clouds, rk_clouds, camrt_rad
+   logical :: use_native_mg_diag_impl = .false.
+   logical :: mg_diag_impl_selected = .false.
+   logical :: mg_diag_entered_logged = .false.
    
    integer :: cicewp_idx = -1
    integer :: cliqwp_idx = -1
@@ -239,23 +245,23 @@ subroutine cloud_diagnostics_calc(state,  pbuf)
 
     integer :: itim_old
 
-    real(r8) :: cwp   (pcols,pver)      ! in-cloud cloud (total) water path
-    real(r8) :: gicewp(pcols,pver)      ! grid-box cloud ice water path
-    real(r8) :: gliqwp(pcols,pver)      ! grid-box cloud liquid water path
-    real(r8) :: gwp   (pcols,pver)      ! grid-box cloud (total) water path
-    real(r8) :: tgicewp(pcols)          ! Vertically integrated ice water path
-    real(r8) :: tgliqwp(pcols)          ! Vertically integrated liquid water path
-    real(r8) :: tgwp   (pcols)          ! Vertically integrated (total) cloud water path
+    real(r8), target :: cwp   (pcols,pver)      ! in-cloud cloud (total) water path
+    real(r8), target :: gicewp(pcols,pver)      ! grid-box cloud ice water path
+    real(r8), target :: gliqwp(pcols,pver)      ! grid-box cloud liquid water path
+    real(r8), target :: gwp   (pcols,pver)      ! grid-box cloud (total) water path
+    real(r8), target :: tgicewp(pcols)          ! Vertically integrated ice water path
+    real(r8), target :: tgliqwp(pcols)          ! Vertically integrated liquid water path
+    real(r8), target :: tgwp   (pcols)          ! Vertically integrated (total) cloud water path
 
     real(r8) :: ficemr (pcols,pver)     ! Ice fraction from ice and liquid mixing ratios
 
-    real(r8) :: icimr(pcols,pver)       ! In cloud ice mixing ratio
-    real(r8) :: icwmr(pcols,pver)       ! In cloud water mixing ratio
-    real(r8) :: iwc(pcols,pver)         ! Grid box average ice water content
-    real(r8) :: lwc(pcols,pver)         ! Grid box average liquid water content
+    real(r8), target :: icimr(pcols,pver)       ! In cloud ice mixing ratio
+    real(r8), target :: icwmr(pcols,pver)       ! In cloud water mixing ratio
+    real(r8), target :: iwc(pcols,pver)         ! Grid box average ice water content
+    real(r8), target :: lwc(pcols,pver)         ! Grid box average liquid water content
 
 ! old data
-    real(r8) :: tpw    (pcols)          ! total precipitable water
+    real(r8), target :: tpw    (pcols)          ! total precipitable water
     real(r8) :: clwpold(pcols,pver)     ! Presribed cloud liq. h2o path
     real(r8) :: hl     (pcols)          ! Liquid water scale height
 
@@ -263,8 +269,8 @@ subroutine cloud_diagnostics_calc(state,  pbuf)
     integer :: ncol, lchnk
     real(r8) :: rgrav
 
-    real(r8) :: allcld_ice (pcols,pver) ! Convective cloud ice
-    real(r8) :: allcld_liq (pcols,pver) ! Convective cloud liquid
+    real(r8), target :: allcld_ice (pcols,pver) ! Convective cloud ice
+    real(r8), target :: allcld_liq (pcols,pver) ! Convective cloud liquid
 
     real(r8) :: effcld(pcols,pver)      ! effective cloud=cld*emis
 
@@ -369,36 +375,42 @@ subroutine cloud_diagnostics_calc(state,  pbuf)
        ! Note that 'iclwp, iciwp' are used for radiation computation. !
        ! ------------------------------------------------------------ !
 
+       call cloud_diagnostics_select_mg_impl()
+       if (use_native_mg_diag_impl) then
+          iciwp = 0._r8
+          iclwp = 0._r8
+          icimr = 0._r8
+          icwmr = 0._r8
+          iwc = 0._r8
+          lwc = 0._r8
 
-       iciwp = 0._r8
-       iclwp = 0._r8
-       icimr = 0._r8
-       icwmr = 0._r8
-       iwc = 0._r8
-       lwc = 0._r8
-
-       do k = top_lev, pver
-          do i = 1, ncol
-             ! Limits for in-cloud mixing ratios consistent with MG microphysics
-             ! in-cloud mixing ratio maximum limit of 0.005 kg/kg
-             icimr(i,k)     = min( allcld_ice(i,k) / max(0.0001_r8,cld(i,k)),0.005_r8 )
-             icwmr(i,k)     = min( allcld_liq(i,k) / max(0.0001_r8,cld(i,k)),0.005_r8 )
-             iwc(i,k)       = allcld_ice(i,k) * state%pmid(i,k) / (287.15_r8*state%t(i,k))
-             lwc(i,k)       = allcld_liq(i,k) * state%pmid(i,k) / (287.15_r8*state%t(i,k))
-             ! Calculate total cloud water paths in each layer
-             iciwp(i,k)     = icimr(i,k) * state%pdel(i,k) / gravit
-             iclwp(i,k)     = icwmr(i,k) * state%pdel(i,k) / gravit
+          do k = top_lev, pver
+             do i = 1, ncol
+                ! Limits for in-cloud mixing ratios consistent with MG microphysics
+                ! in-cloud mixing ratio maximum limit of 0.005 kg/kg
+                icimr(i,k)     = min( allcld_ice(i,k) / max(0.0001_r8,cld(i,k)),0.005_r8 )
+                icwmr(i,k)     = min( allcld_liq(i,k) / max(0.0001_r8,cld(i,k)),0.005_r8 )
+                iwc(i,k)       = allcld_ice(i,k) * state%pmid(i,k) / (287.15_r8*state%t(i,k))
+                lwc(i,k)       = allcld_liq(i,k) * state%pmid(i,k) / (287.15_r8*state%t(i,k))
+                ! Calculate total cloud water paths in each layer
+                iciwp(i,k)     = icimr(i,k) * state%pdel(i,k) / gravit
+                iclwp(i,k)     = icwmr(i,k) * state%pdel(i,k) / gravit
+             end do
           end do
-       end do
 
-       do k=1,pver
-          do i = 1,ncol
-             gicewp(i,k) = iciwp(i,k)*cld(i,k)
-             gliqwp(i,k) = iclwp(i,k)*cld(i,k)
-             cicewp(i,k) = iciwp(i,k)
-             cliqwp(i,k) = iclwp(i,k)
+          do k=1,pver
+             do i = 1,ncol
+                gicewp(i,k) = iciwp(i,k)*cld(i,k)
+                gliqwp(i,k) = iclwp(i,k)*cld(i,k)
+                cicewp(i,k) = iciwp(i,k)
+                cliqwp(i,k) = iclwp(i,k)
+             end do
           end do
-       end do
+       else
+          call cloud_diagnostics_mg_paths_codon_wrap(ncol, top_lev, state%pmid, state%t, state%pdel, &
+               cld, allcld_ice, allcld_liq, iciwp, iclwp, icimr, icwmr, iwc, lwc, &
+               gicewp, gliqwp, cicewp, cliqwp)
+       end if
 
     elseif(rk_clouds) then
 
@@ -428,17 +440,23 @@ subroutine cloud_diagnostics_calc(state,  pbuf)
        call cloud_cover_diags_out(lchnk, ncol, cld, state%pmid, nmxrgn, pmxrgn )
     endif
     
-    tgicewp(:ncol) = 0._r8
-    tgliqwp(:ncol) = 0._r8
+    call cloud_diagnostics_select_mg_impl()
+    if (use_native_mg_diag_impl) then
+       tgicewp(:ncol) = 0._r8
+       tgliqwp(:ncol) = 0._r8
 
-    do k=1,pver
-       tgicewp(:ncol)  = tgicewp(:ncol) + gicewp(:ncol,k)
-       tgliqwp(:ncol)  = tgliqwp(:ncol) + gliqwp(:ncol,k)
-    end do
+       do k=1,pver
+          tgicewp(:ncol)  = tgicewp(:ncol) + gicewp(:ncol,k)
+          tgliqwp(:ncol)  = tgliqwp(:ncol) + gliqwp(:ncol,k)
+       end do
 
-    tgwp(:ncol) = tgicewp(:ncol) + tgliqwp(:ncol)
-    gwp(:ncol,:pver) = gicewp(:ncol,:pver) + gliqwp(:ncol,:pver)
-    cwp(:ncol,:pver) = cicewp(:ncol,:pver) + cliqwp(:ncol,:pver)
+       tgwp(:ncol) = tgicewp(:ncol) + tgliqwp(:ncol)
+       gwp(:ncol,:pver) = gicewp(:ncol,:pver) + gliqwp(:ncol,:pver)
+       cwp(:ncol,:pver) = cicewp(:ncol,:pver) + cliqwp(:ncol,:pver)
+    else
+       call cloud_diagnostics_totals_codon_wrap(ncol, gicewp, gliqwp, cicewp, cliqwp, &
+            tgicewp, tgliqwp, tgwp, gwp, cwp)
+    end if
 
     if(rk_clouds) then
 
@@ -480,13 +498,17 @@ subroutine cloud_diagnostics_calc(state,  pbuf)
     call outfld('ICLDIWP' ,cicewp , pcols,lchnk)
 
 ! Compute total preciptable water in column (in mm)
-    tpw(:ncol) = 0.0_r8
-    rgrav = 1.0_r8/gravit
-    do k=1,pver
-       do i=1,ncol
-          tpw(i) = tpw(i) + state%pdel(i,k)*state%q(i,k,1)*rgrav
+    if (use_native_mg_diag_impl) then
+       tpw(:ncol) = 0.0_r8
+       rgrav = 1.0_r8/gravit
+       do k=1,pver
+          do i=1,ncol
+             tpw(i) = tpw(i) + state%pdel(i,k)*state%q(i,k,1)*rgrav
+          end do
        end do
-    end do
+    else
+       call cloud_diagnostics_tpw_codon_wrap(ncol, state%pdel, state%q, tpw)
+    end if
 
 ! Diagnostic liquid water path (old specified form)
 
@@ -505,5 +527,122 @@ subroutine cloud_diagnostics_calc(state,  pbuf)
 
     return
 end subroutine cloud_diagnostics_calc
+
+subroutine cloud_diagnostics_select_mg_impl()
+  character(len=32) :: impl_name
+  integer :: n, status
+
+  if (mg_diag_impl_selected) return
+
+  call get_environment_variable('CLOUD_DIAGNOSTICS_MG_IMPL', value=impl_name, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     use_native_mg_diag_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_mg_diag_impl = .false.
+  end if
+
+  if (masterproc) then
+     if (use_native_mg_diag_impl) then
+        write(iulog,*) 'cloud_diagnostics_mg implementation = native'
+     else
+        write(iulog,*) 'cloud_diagnostics_mg implementation = codon'
+     end if
+  end if
+
+  mg_diag_impl_selected = .true.
+end subroutine cloud_diagnostics_select_mg_impl
+
+subroutine cloud_diagnostics_log_mg_entry()
+  if (masterproc .and. .not. mg_diag_entered_logged) then
+     write(iulog,*) 'cloud_diagnostics_mg entered (water path/totals/tpw helpers = codon)'
+     mg_diag_entered_logged = .true.
+  end if
+end subroutine cloud_diagnostics_log_mg_entry
+
+subroutine cloud_diagnostics_mg_paths_codon_wrap(ncol_local, top_lev_local, pmid_local, temp_local, pdel_local, &
+     cld_local, allcld_ice_local, allcld_liq_local, iciwp_local, iclwp_local, icimr_local, &
+     icwmr_local, iwc_local, lwc_local, gicewp_local, gliqwp_local, cicewp_local, cliqwp_local)
+  integer, intent(in) :: ncol_local, top_lev_local
+  real(r8), target, intent(in) :: pmid_local(pcols,pver), temp_local(pcols,pver), pdel_local(pcols,pver)
+  real(r8), target, intent(in) :: cld_local(pcols,pver), allcld_ice_local(pcols,pver)
+  real(r8), target, intent(in) :: allcld_liq_local(pcols,pver)
+  real(r8), target, intent(inout) :: iciwp_local(pcols,pver), iclwp_local(pcols,pver)
+  real(r8), target, intent(inout) :: icimr_local(pcols,pver), icwmr_local(pcols,pver)
+  real(r8), target, intent(inout) :: iwc_local(pcols,pver), lwc_local(pcols,pver)
+  real(r8), target, intent(inout) :: gicewp_local(pcols,pver), gliqwp_local(pcols,pver)
+  real(r8), target, intent(inout) :: cicewp_local(pcols,pver), cliqwp_local(pcols,pver)
+
+  interface
+     subroutine cloud_diagnostics_mg_paths_codon(ncol_c, pcols_c, pver_c, top_lev_c, gravit_c, &
+          cld_p, allcld_ice_p, allcld_liq_p, pmid_p, temp_p, pdel_p, iciwp_p, iclwp_p, &
+          icimr_p, icwmr_p, iwc_p, lwc_p, gicewp_p, gliqwp_p, cicewp_p, cliqwp_p) &
+          bind(c, name="cloud_diagnostics_mg_paths_codon")
+       import c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+       real(c_double), value :: gravit_c
+       type(c_ptr), value :: cld_p, allcld_ice_p, allcld_liq_p, pmid_p, temp_p, pdel_p
+       type(c_ptr), value :: iciwp_p, iclwp_p, icimr_p, icwmr_p, iwc_p, lwc_p
+       type(c_ptr), value :: gicewp_p, gliqwp_p, cicewp_p, cliqwp_p
+     end subroutine cloud_diagnostics_mg_paths_codon
+  end interface
+
+  call cloud_diagnostics_log_mg_entry()
+  call cloud_diagnostics_mg_paths_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), &
+       int(pver, c_int64_t), int(top_lev_local, c_int64_t), real(gravit, c_double), &
+       c_loc(cld_local(1,1)), c_loc(allcld_ice_local(1,1)), c_loc(allcld_liq_local(1,1)), &
+       c_loc(pmid_local(1,1)), c_loc(temp_local(1,1)), c_loc(pdel_local(1,1)), &
+       c_loc(iciwp_local(1,1)), c_loc(iclwp_local(1,1)), c_loc(icimr_local(1,1)), &
+       c_loc(icwmr_local(1,1)), c_loc(iwc_local(1,1)), c_loc(lwc_local(1,1)), &
+       c_loc(gicewp_local(1,1)), c_loc(gliqwp_local(1,1)), c_loc(cicewp_local(1,1)), &
+       c_loc(cliqwp_local(1,1)))
+end subroutine cloud_diagnostics_mg_paths_codon_wrap
+
+subroutine cloud_diagnostics_totals_codon_wrap(ncol_local, gicewp_local, gliqwp_local, &
+     cicewp_local, cliqwp_local, tgicewp_local, tgliqwp_local, tgwp_local, gwp_local, cwp_local)
+  integer, intent(in) :: ncol_local
+  real(r8), target, intent(in) :: gicewp_local(pcols,pver), gliqwp_local(pcols,pver)
+  real(r8), target, intent(in) :: cicewp_local(pcols,pver), cliqwp_local(pcols,pver)
+  real(r8), target, intent(inout) :: tgicewp_local(pcols), tgliqwp_local(pcols), tgwp_local(pcols)
+  real(r8), target, intent(inout) :: gwp_local(pcols,pver), cwp_local(pcols,pver)
+
+  interface
+     subroutine cloud_diagnostics_totals_codon(ncol_c, pcols_c, pver_c, gicewp_p, gliqwp_p, &
+          cicewp_p, cliqwp_p, tgicewp_p, tgliqwp_p, tgwp_p, gwp_p, cwp_p) &
+          bind(c, name="cloud_diagnostics_totals_codon")
+       import c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+       type(c_ptr), value :: gicewp_p, gliqwp_p, cicewp_p, cliqwp_p
+       type(c_ptr), value :: tgicewp_p, tgliqwp_p, tgwp_p, gwp_p, cwp_p
+     end subroutine cloud_diagnostics_totals_codon
+  end interface
+
+  call cloud_diagnostics_log_mg_entry()
+  call cloud_diagnostics_totals_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), &
+       int(pver, c_int64_t), c_loc(gicewp_local(1,1)), c_loc(gliqwp_local(1,1)), &
+       c_loc(cicewp_local(1,1)), c_loc(cliqwp_local(1,1)), c_loc(tgicewp_local(1)), &
+       c_loc(tgliqwp_local(1)), c_loc(tgwp_local(1)), c_loc(gwp_local(1,1)), c_loc(cwp_local(1,1)))
+end subroutine cloud_diagnostics_totals_codon_wrap
+
+subroutine cloud_diagnostics_tpw_codon_wrap(ncol_local, pdel_local, q_local, tpw_local)
+  integer, intent(in) :: ncol_local
+  real(r8), target, intent(in) :: pdel_local(pcols,pver)
+  real(r8), target, intent(in) :: q_local(pcols,pver,*)
+  real(r8), target, intent(inout) :: tpw_local(pcols)
+
+  interface
+     subroutine cloud_diagnostics_tpw_codon(ncol_c, pcols_c, pver_c, gravit_c, pdel_p, q_p, tpw_p) &
+          bind(c, name="cloud_diagnostics_tpw_codon")
+       import c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+       real(c_double), value :: gravit_c
+       type(c_ptr), value :: pdel_p, q_p, tpw_p
+     end subroutine cloud_diagnostics_tpw_codon
+  end interface
+
+  call cloud_diagnostics_log_mg_entry()
+  call cloud_diagnostics_tpw_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), &
+       int(pver, c_int64_t), real(gravit, c_double), c_loc(pdel_local(1,1)), &
+       c_loc(q_local(1,1,1)), c_loc(tpw_local(1)))
+end subroutine cloud_diagnostics_tpw_codon_wrap
 
 end module cloud_diagnostics
