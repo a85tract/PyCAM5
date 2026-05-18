@@ -97,6 +97,9 @@
    logical :: use_native_final_tendency_impl = .false.
    logical :: final_tendency_impl_selected = .false.
    logical :: final_tendency_entered_logged = .false.
+   logical :: use_native_iter_state_impl = .false.
+   logical :: iter_state_impl_selected = .false.
+   logical :: iter_state_entered_logged = .false.
 
    contains
 
@@ -946,47 +949,13 @@
     ! Note that 'ramda = 0.5 with niter = 2' can mimic                     !
     ! -------------------------------------------------------------------- !
 
-      if( iter .eq. 1 ) then
-          QQw_prev(:ncol,top_lev:)  = QQw(:ncol,top_lev:)       
-          QQi_prev(:ncol,top_lev:)  = QQi(:ncol,top_lev:)   
-          QQnl_prev(:ncol,top_lev:) = QQnl(:ncol,top_lev:)       
-          QQni_prev(:ncol,top_lev:) = QQni(:ncol,top_lev:)   
-      endif
-
-      QQw_prog(:ncol,top_lev:)   = ramda*QQw(:ncol,top_lev:)   + (1._r8-ramda)*QQw_prev(:ncol,top_lev:)
-      QQi_prog(:ncol,top_lev:)   = ramda*QQi(:ncol,top_lev:)   + (1._r8-ramda)*QQi_prev(:ncol,top_lev:)
-      QQnl_prog(:ncol,top_lev:)  = ramda*QQnl(:ncol,top_lev:)  + (1._r8-ramda)*QQnl_prev(:ncol,top_lev:)
-      QQni_prog(:ncol,top_lev:)  = ramda*QQni(:ncol,top_lev:)  + (1._r8-ramda)*QQni_prev(:ncol,top_lev:)
-
-      QQw_prev(:ncol,top_lev:)   = QQw_prog(:ncol,top_lev:)
-      QQi_prev(:ncol,top_lev:)   = QQi_prog(:ncol,top_lev:)
-      QQnl_prev(:ncol,top_lev:)  = QQnl_prog(:ncol,top_lev:)
-      QQni_prev(:ncol,top_lev:)  = QQni_prog(:ncol,top_lev:)
-
-    ! -------------------------------------------------------- !
-    ! Compute final prognostic state on which final diagnostic !
-    ! in-stratus condensate adjustment is applied in the below.!
-    ! Important : I must check whether there are any external  !  
-    !             advective forcings of 'A_nl(i,k),A_ni(i,k)'. !
-    !             Even they are (i.e., advection of aerosol),  !
-    !             actual droplet activation will be performd   !
-    !             in microphysics, so it will be completely    !
-    !             reasonable to 'A_nl(i,k)=A_ni(i,k)=0'.       !
-    ! -------------------------------------------------------- !
-
-    do k = top_lev, pver
-    do i = 1, ncol
-       T_prime0(i,k)  = T_0(i,k)  + dt*( A_T(i,k)  +  A_T_adj(i,k) +  C_T(i,k) + &
-            (latvap*QQw_prog(i,k)+(latvap+latice)*QQi_prog(i,k))/cpair )
-       qv_prime0(i,k) = qv_0(i,k) + dt*( A_qv(i,k) + A_qv_adj(i,k) + C_qv(i,k) - QQw_prog(i,k) - QQi_prog(i,k) )
-       ql_prime0(i,k) = ql_0(i,k) + dt*( A_ql(i,k) + A_ql_adj(i,k) + C_ql(i,k) + QQw_prog(i,k) )
-       qi_prime0(i,k) = qi_0(i,k) + dt*( A_qi(i,k) + A_qi_adj(i,k) + C_qi(i,k) + QQi_prog(i,k) )
-       nl_prime0(i,k) = max(0._r8,nl_0(i,k) + dt*( A_nl(i,k) + C_nl(i,k) + QQnl_prog(i,k) ))
-       ni_prime0(i,k) = max(0._r8,ni_0(i,k) + dt*( A_ni(i,k) + C_ni(i,k) + QQni_prog(i,k) ))
-       if( ql_prime0(i,k) .lt. qsmall ) nl_prime0(i,k) = 0._r8
-       if( qi_prime0(i,k) .lt. qsmall ) ni_prime0(i,k) = 0._r8
-    enddo
-    enddo
+      call iter_state_codon_wrap(iter, ncol, dt, &
+           QQw, QQi, QQnl, QQni, QQw_prev, QQi_prev, QQnl_prev, QQni_prev, &
+           QQw_prog, QQi_prog, QQnl_prog, QQni_prog, &
+           T_0, qv_0, ql_0, qi_0, nl_0, ni_0, &
+           A_T, A_T_adj, C_T, A_qv, A_qv_adj, C_qv, A_ql, A_ql_adj, C_ql, &
+           A_qi, A_qi_adj, C_qi, A_nl, C_nl, A_ni, C_ni, &
+           T_prime0, qv_prime0, ql_prime0, qi_prime0, nl_prime0, ni_prime0)
 
    ! -------------------------------------------------- !
    ! Perform diagnostic 'positive_moisture' constraint. !
@@ -1523,6 +1492,150 @@ end subroutine rhcrit_calc
    enddo
 
    end subroutine dropnum_limit_codon_wrap
+
+!=======================================================================================================
+
+   subroutine iter_state_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: n, status
+
+   if (iter_state_impl_selected) return
+   call get_environment_variable('CLDWAT2M_ITER_STATE_IMPL', value=impl_name, length=n, status=status)
+   use_native_iter_state_impl = .false.
+   if (status == 0 .and. n > 0) then
+      select case (adjustl(impl_name(:n)))
+      case ('native', 'Native', 'NATIVE')
+         use_native_iter_state_impl = .true.
+      case ('codon', 'Codon', 'CODON')
+         use_native_iter_state_impl = .false.
+      case default
+         use_native_iter_state_impl = .false.
+      end select
+   end if
+   iter_state_impl_selected = .true.
+   if (masterproc) then
+      if (use_native_iter_state_impl) then
+         write(iulog,*) 'cldwat2m_iter_state implementation = native'
+      else
+         write(iulog,*) 'cldwat2m_iter_state implementation = codon'
+      end if
+   end if
+   end subroutine iter_state_select_impl
+
+   subroutine iter_state_log_entered()
+   if (iter_state_entered_logged) return
+   iter_state_entered_logged = .true.
+   if (masterproc) then
+      write(iulog,*) 'cldwat2m_iter_state entered (macrophysics iterative prognostic state = codon)'
+   end if
+   end subroutine iter_state_log_entered
+
+   subroutine iter_state_codon_wrap(iter, ncol, dt, &
+        QQw, QQi, QQnl, QQni, QQw_prev, QQi_prev, QQnl_prev, QQni_prev, &
+        QQw_prog, QQi_prog, QQnl_prog, QQni_prog, &
+        T_0, qv_0, ql_0, qi_0, nl_0, ni_0, &
+        A_T, A_T_adj, C_T, A_qv, A_qv_adj, C_qv, A_ql, A_ql_adj, C_ql, &
+        A_qi, A_qi_adj, C_qi, A_nl, C_nl, A_ni, C_ni, &
+        T_prime0, qv_prime0, ql_prime0, qi_prime0, nl_prime0, ni_prime0)
+
+   integer, intent(in) :: iter
+   integer, intent(in) :: ncol
+   real(r8), intent(in) :: dt
+   real(r8), target, intent(in) :: QQw(pcols,pver), QQi(pcols,pver), QQnl(pcols,pver), QQni(pcols,pver)
+   real(r8), target, intent(inout) :: QQw_prev(pcols,pver), QQi_prev(pcols,pver)
+   real(r8), target, intent(inout) :: QQnl_prev(pcols,pver), QQni_prev(pcols,pver)
+   real(r8), target, intent(out) :: QQw_prog(pcols,pver), QQi_prog(pcols,pver)
+   real(r8), target, intent(out) :: QQnl_prog(pcols,pver), QQni_prog(pcols,pver)
+   real(r8), target, intent(in) :: T_0(pcols,pver), qv_0(pcols,pver), ql_0(pcols,pver)
+   real(r8), target, intent(in) :: qi_0(pcols,pver), nl_0(pcols,pver), ni_0(pcols,pver)
+   real(r8), target, intent(in) :: A_T(pcols,pver), A_T_adj(pcols,pver), C_T(pcols,pver)
+   real(r8), target, intent(in) :: A_qv(pcols,pver), A_qv_adj(pcols,pver), C_qv(pcols,pver)
+   real(r8), target, intent(in) :: A_ql(pcols,pver), A_ql_adj(pcols,pver), C_ql(pcols,pver)
+   real(r8), target, intent(in) :: A_qi(pcols,pver), A_qi_adj(pcols,pver), C_qi(pcols,pver)
+   real(r8), target, intent(in) :: A_nl(pcols,pver), C_nl(pcols,pver), A_ni(pcols,pver), C_ni(pcols,pver)
+   real(r8), target, intent(out) :: T_prime0(pcols,pver), qv_prime0(pcols,pver), ql_prime0(pcols,pver)
+   real(r8), target, intent(out) :: qi_prime0(pcols,pver), nl_prime0(pcols,pver), ni_prime0(pcols,pver)
+
+   integer :: i, k
+
+   interface
+      subroutine cldwat2m_iter_state_codon(iter_c, ncol_c, pcols_c, pver_c, top_lev_c, &
+           dt_c, ramda_c, qsmall_c, latvap_c, latice_c, cpair_c, &
+           QQw_p, QQi_p, QQnl_p, QQni_p, QQw_prev_p, QQi_prev_p, QQnl_prev_p, QQni_prev_p, &
+           QQw_prog_p, QQi_prog_p, QQnl_prog_p, QQni_prog_p, &
+           T_0_p, qv_0_p, ql_0_p, qi_0_p, nl_0_p, ni_0_p, &
+           A_T_p, A_T_adj_p, C_T_p, A_qv_p, A_qv_adj_p, C_qv_p, A_ql_p, A_ql_adj_p, C_ql_p, &
+           A_qi_p, A_qi_adj_p, C_qi_p, A_nl_p, C_nl_p, A_ni_p, C_ni_p, &
+           T_prime0_p, qv_prime0_p, ql_prime0_p, qi_prime0_p, nl_prime0_p, ni_prime0_p) &
+           bind(c, name="cldwat2m_iter_state_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: iter_c, ncol_c, pcols_c, pver_c, top_lev_c
+         real(c_double), value :: dt_c, ramda_c, qsmall_c, latvap_c, latice_c, cpair_c
+         type(c_ptr), value :: QQw_p, QQi_p, QQnl_p, QQni_p, QQw_prev_p, QQi_prev_p, QQnl_prev_p, QQni_prev_p
+         type(c_ptr), value :: QQw_prog_p, QQi_prog_p, QQnl_prog_p, QQni_prog_p
+         type(c_ptr), value :: T_0_p, qv_0_p, ql_0_p, qi_0_p, nl_0_p, ni_0_p
+         type(c_ptr), value :: A_T_p, A_T_adj_p, C_T_p, A_qv_p, A_qv_adj_p, C_qv_p
+         type(c_ptr), value :: A_ql_p, A_ql_adj_p, C_ql_p, A_qi_p, A_qi_adj_p, C_qi_p
+         type(c_ptr), value :: A_nl_p, C_nl_p, A_ni_p, C_ni_p
+         type(c_ptr), value :: T_prime0_p, qv_prime0_p, ql_prime0_p, qi_prime0_p, nl_prime0_p, ni_prime0_p
+      end subroutine cldwat2m_iter_state_codon
+   end interface
+
+   call iter_state_select_impl()
+   if (.not. use_native_iter_state_impl) then
+      call iter_state_log_entered()
+      call cldwat2m_iter_state_codon(int(iter, c_int64_t), int(ncol, c_int64_t), &
+           int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
+           dt, ramda, qsmall, latvap, latice, cpair, &
+           c_loc(QQw(1,1)), c_loc(QQi(1,1)), c_loc(QQnl(1,1)), c_loc(QQni(1,1)), &
+           c_loc(QQw_prev(1,1)), c_loc(QQi_prev(1,1)), c_loc(QQnl_prev(1,1)), c_loc(QQni_prev(1,1)), &
+           c_loc(QQw_prog(1,1)), c_loc(QQi_prog(1,1)), c_loc(QQnl_prog(1,1)), c_loc(QQni_prog(1,1)), &
+           c_loc(T_0(1,1)), c_loc(qv_0(1,1)), c_loc(ql_0(1,1)), c_loc(qi_0(1,1)), &
+           c_loc(nl_0(1,1)), c_loc(ni_0(1,1)), c_loc(A_T(1,1)), c_loc(A_T_adj(1,1)), c_loc(C_T(1,1)), &
+           c_loc(A_qv(1,1)), c_loc(A_qv_adj(1,1)), c_loc(C_qv(1,1)), &
+           c_loc(A_ql(1,1)), c_loc(A_ql_adj(1,1)), c_loc(C_ql(1,1)), &
+           c_loc(A_qi(1,1)), c_loc(A_qi_adj(1,1)), c_loc(C_qi(1,1)), &
+           c_loc(A_nl(1,1)), c_loc(C_nl(1,1)), c_loc(A_ni(1,1)), c_loc(C_ni(1,1)), &
+           c_loc(T_prime0(1,1)), c_loc(qv_prime0(1,1)), c_loc(ql_prime0(1,1)), c_loc(qi_prime0(1,1)), &
+           c_loc(nl_prime0(1,1)), c_loc(ni_prime0(1,1)))
+      return
+   endif
+
+   if( iter .eq. 1 ) then
+      do k = top_lev, pver
+         do i = 1, ncol
+            QQw_prev(i,k) = QQw(i,k)
+            QQi_prev(i,k) = QQi(i,k)
+            QQnl_prev(i,k) = QQnl(i,k)
+            QQni_prev(i,k) = QQni(i,k)
+         enddo
+      enddo
+   endif
+
+   do k = top_lev, pver
+      do i = 1, ncol
+         QQw_prog(i,k) = ramda*QQw(i,k) + (1._r8-ramda)*QQw_prev(i,k)
+         QQi_prog(i,k) = ramda*QQi(i,k) + (1._r8-ramda)*QQi_prev(i,k)
+         QQnl_prog(i,k) = ramda*QQnl(i,k) + (1._r8-ramda)*QQnl_prev(i,k)
+         QQni_prog(i,k) = ramda*QQni(i,k) + (1._r8-ramda)*QQni_prev(i,k)
+         QQw_prev(i,k) = QQw_prog(i,k)
+         QQi_prev(i,k) = QQi_prog(i,k)
+         QQnl_prev(i,k) = QQnl_prog(i,k)
+         QQni_prev(i,k) = QQni_prog(i,k)
+         T_prime0(i,k) = T_0(i,k) + dt*( A_T(i,k) + A_T_adj(i,k) + C_T(i,k) + &
+              (latvap*QQw_prog(i,k)+(latvap+latice)*QQi_prog(i,k))/cpair )
+         qv_prime0(i,k) = qv_0(i,k) + dt*( A_qv(i,k) + A_qv_adj(i,k) + C_qv(i,k) - QQw_prog(i,k) - QQi_prog(i,k) )
+         ql_prime0(i,k) = ql_0(i,k) + dt*( A_ql(i,k) + A_ql_adj(i,k) + C_ql(i,k) + QQw_prog(i,k) )
+         qi_prime0(i,k) = qi_0(i,k) + dt*( A_qi(i,k) + A_qi_adj(i,k) + C_qi(i,k) + QQi_prog(i,k) )
+         nl_prime0(i,k) = max(0._r8,nl_0(i,k) + dt*( A_nl(i,k) + C_nl(i,k) + QQnl_prog(i,k) ))
+         ni_prime0(i,k) = max(0._r8,ni_0(i,k) + dt*( A_ni(i,k) + C_ni(i,k) + QQni_prog(i,k) ))
+         if( ql_prime0(i,k) .lt. qsmall ) nl_prime0(i,k) = 0._r8
+         if( qi_prime0(i,k) .lt. qsmall ) ni_prime0(i,k) = 0._r8
+      enddo
+   enddo
+
+   end subroutine iter_state_codon_wrap
 
 !=======================================================================================================
 

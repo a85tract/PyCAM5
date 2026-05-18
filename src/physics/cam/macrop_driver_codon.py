@@ -136,6 +136,148 @@ def cldwat2m_dropnum_limit_codon(
 
 
 @export
+def cldwat2m_iter_state_codon(
+    iter_num: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    dt: float,
+    ramda: float,
+    qsmall: float,
+    latvap: float,
+    latice: float,
+    cpair: float,
+    qqw_p: cobj,
+    qqi_p: cobj,
+    qqnl_p: cobj,
+    qqni_p: cobj,
+    qqw_prev_p: cobj,
+    qqi_prev_p: cobj,
+    qqnl_prev_p: cobj,
+    qqni_prev_p: cobj,
+    qqw_prog_p: cobj,
+    qqi_prog_p: cobj,
+    qqnl_prog_p: cobj,
+    qqni_prog_p: cobj,
+    t_0_p: cobj,
+    qv_0_p: cobj,
+    ql_0_p: cobj,
+    qi_0_p: cobj,
+    nl_0_p: cobj,
+    ni_0_p: cobj,
+    a_t_p: cobj,
+    a_t_adj_p: cobj,
+    c_t_p: cobj,
+    a_qv_p: cobj,
+    a_qv_adj_p: cobj,
+    c_qv_p: cobj,
+    a_ql_p: cobj,
+    a_ql_adj_p: cobj,
+    c_ql_p: cobj,
+    a_qi_p: cobj,
+    a_qi_adj_p: cobj,
+    c_qi_p: cobj,
+    a_nl_p: cobj,
+    c_nl_p: cobj,
+    a_ni_p: cobj,
+    c_ni_p: cobj,
+    t_prime0_p: cobj,
+    qv_prime0_p: cobj,
+    ql_prime0_p: cobj,
+    qi_prime0_p: cobj,
+    nl_prime0_p: cobj,
+    ni_prime0_p: cobj,
+):
+    qqw = Ptr[float](qqw_p)
+    qqi = Ptr[float](qqi_p)
+    qqnl = Ptr[float](qqnl_p)
+    qqni = Ptr[float](qqni_p)
+    qqw_prev = Ptr[float](qqw_prev_p)
+    qqi_prev = Ptr[float](qqi_prev_p)
+    qqnl_prev = Ptr[float](qqnl_prev_p)
+    qqni_prev = Ptr[float](qqni_prev_p)
+    qqw_prog = Ptr[float](qqw_prog_p)
+    qqi_prog = Ptr[float](qqi_prog_p)
+    qqnl_prog = Ptr[float](qqnl_prog_p)
+    qqni_prog = Ptr[float](qqni_prog_p)
+    t_0 = Ptr[float](t_0_p)
+    qv_0 = Ptr[float](qv_0_p)
+    ql_0 = Ptr[float](ql_0_p)
+    qi_0 = Ptr[float](qi_0_p)
+    nl_0 = Ptr[float](nl_0_p)
+    ni_0 = Ptr[float](ni_0_p)
+    a_t = Ptr[float](a_t_p)
+    a_t_adj = Ptr[float](a_t_adj_p)
+    c_t = Ptr[float](c_t_p)
+    a_qv = Ptr[float](a_qv_p)
+    a_qv_adj = Ptr[float](a_qv_adj_p)
+    c_qv = Ptr[float](c_qv_p)
+    a_ql = Ptr[float](a_ql_p)
+    a_ql_adj = Ptr[float](a_ql_adj_p)
+    c_ql = Ptr[float](c_ql_p)
+    a_qi = Ptr[float](a_qi_p)
+    a_qi_adj = Ptr[float](a_qi_adj_p)
+    c_qi = Ptr[float](c_qi_p)
+    a_nl = Ptr[float](a_nl_p)
+    c_nl = Ptr[float](c_nl_p)
+    a_ni = Ptr[float](a_ni_p)
+    c_ni = Ptr[float](c_ni_p)
+    t_prime0 = Ptr[float](t_prime0_p)
+    qv_prime0 = Ptr[float](qv_prime0_p)
+    ql_prime0 = Ptr[float](ql_prime0_p)
+    qi_prime0 = Ptr[float](qi_prime0_p)
+    nl_prime0 = Ptr[float](nl_prime0_p)
+    ni_prime0 = Ptr[float](ni_prime0_p)
+
+    if iter_num == 1:
+        for k in range(top_lev, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                qqw_prev[idx] = qqw[idx]
+                qqi_prev[idx] = qqi[idx]
+                qqnl_prev[idx] = qqnl[idx]
+                qqni_prev[idx] = qqni[idx]
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+
+            qqw_prog[idx] = ramda * qqw[idx] + (1.0 - ramda) * qqw_prev[idx]
+            qqi_prog[idx] = ramda * qqi[idx] + (1.0 - ramda) * qqi_prev[idx]
+            qqnl_prog[idx] = ramda * qqnl[idx] + (1.0 - ramda) * qqnl_prev[idx]
+            qqni_prog[idx] = ramda * qqni[idx] + (1.0 - ramda) * qqni_prev[idx]
+
+            qqw_prev[idx] = qqw_prog[idx]
+            qqi_prev[idx] = qqi_prog[idx]
+            qqnl_prev[idx] = qqnl_prog[idx]
+            qqni_prev[idx] = qqni_prog[idx]
+
+            latent_term = (latvap * qqw_prog[idx] + (latvap + latice) * qqi_prog[idx]) / cpair
+            t_prime0[idx] = t_0[idx] + dt * (a_t[idx] + a_t_adj[idx] + c_t[idx] + latent_term)
+            qv_prime0[idx] = qv_0[idx] + dt * (
+                a_qv[idx] + a_qv_adj[idx] + c_qv[idx] - qqw_prog[idx] - qqi_prog[idx]
+            )
+            ql_prime0[idx] = ql_0[idx] + dt * (a_ql[idx] + a_ql_adj[idx] + c_ql[idx] + qqw_prog[idx])
+            qi_prime0[idx] = qi_0[idx] + dt * (a_qi[idx] + a_qi_adj[idx] + c_qi[idx] + qqi_prog[idx])
+
+            nl_val = nl_0[idx] + dt * (a_nl[idx] + c_nl[idx] + qqnl_prog[idx])
+            if nl_val < 0.0:
+                nl_val = 0.0
+            nl_prime0[idx] = nl_val
+
+            ni_val = ni_0[idx] + dt * (a_ni[idx] + c_ni[idx] + qqni_prog[idx])
+            if ni_val < 0.0:
+                ni_val = 0.0
+            ni_prime0[idx] = ni_val
+
+            if ql_prime0[idx] < qsmall:
+                nl_prime0[idx] = 0.0
+            if qi_prime0[idx] < qsmall:
+                ni_prime0[idx] = 0.0
+
+
+@export
 def cldwat2m_final_tendency_codon(
     ncol: int,
     pcols: int,
