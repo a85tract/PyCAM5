@@ -359,3 +359,39 @@ def nucleate_ice_cam_relhum_codon(
         if val < mincld:
             val = mincld
         icldm[_idx2(i, k, pcols)] = val
+
+
+@export
+def nucleate_ice_cam_post_nucleati_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    tmelt: float,
+    t_p: cobj,
+    rho_p: cobj,
+    naai_hom_p: cobj,
+    nihf_p: cobj,
+    niimm_p: cobj,
+    nidep_p: cobj,
+    nimey_p: cobj,
+):
+    t = Ptr[float](t_p)
+    rho = Ptr[float](rho_p)
+    naai_hom = Ptr[float](naai_hom_p)
+    nihf = Ptr[float](nihf_p)
+    niimm = Ptr[float](niimm_p)
+    nidep = Ptr[float](nidep_p)
+    nimey = Ptr[float](nimey_p)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            if t[idx] < tmelt - 5.0:
+                rho_val = rho[idx]
+                nihf_val = nihf[idx]
+                naai_hom[idx] = nihf_val
+                nihf[idx] = nihf_val * rho_val
+                niimm[idx] = niimm[idx] * rho_val
+                nidep[idx] = nidep[idx] * rho_val
+                nimey[idx] = nimey[idx] * rho_val

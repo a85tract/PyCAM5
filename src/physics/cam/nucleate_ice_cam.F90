@@ -96,6 +96,7 @@ real(r8) :: sigmag_aitken
 logical :: nucleate_ice_cam_prep_use_native_impl = .false.
 logical :: nucleate_ice_cam_prep_impl_selected = .false.
 logical :: nucleate_ice_cam_prep_entered_logged = .false.
+logical :: nucleate_ice_cam_post_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -366,6 +367,21 @@ end subroutine nucleate_ice_cam_prep_log_entered
 
 !================================================================================================
 
+subroutine nucleate_ice_cam_post_log_entered()
+
+   if (nucleate_ice_cam_post_entered_logged) return
+   nucleate_ice_cam_post_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,*) 'nucleate_ice_cam_post entered ' // &
+           '(post-nucleati naai_hom/history rho conversion = codon; nucleati/preexisting = native)'
+      call flush(iulog)
+   end if
+
+end subroutine nucleate_ice_cam_post_log_entered
+
+!================================================================================================
+
 subroutine nucleate_ice_cam_calc( &
    state, wsubi, pbuf)
 
@@ -475,6 +491,13 @@ subroutine nucleate_ice_cam_calc( &
          real(c_double), value :: mincld_c
          type(c_ptr), value :: qn_p, qs_p, icecldf_p, relhum_p, icldm_p
       end subroutine nucleate_ice_cam_relhum_codon
+      subroutine nucleate_ice_cam_post_nucleati_codon(ncol_c, pcols_c, pver_c, top_lev_c, tmelt_c, t_p, rho_p, &
+           naai_hom_p, nihf_p, niimm_p, nidep_p, nimey_p) bind(c, name="nucleate_ice_cam_post_nucleati_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+         real(c_double), value :: tmelt_c
+         type(c_ptr), value :: t_p, rho_p, naai_hom_p, nihf_p, niimm_p, nidep_p, nimey_p
+      end subroutine nucleate_ice_cam_post_nucleati_codon
    end interface
 
 
@@ -701,43 +724,54 @@ subroutine nucleate_ice_cam_calc( &
                naai(i,k), nihf(i,k), niimm(i,k), nidep(i,k), nimey(i,k), &
                wice(i,k), weff(i,k), fhom(i,k))
 
-            naai_hom(i,k) = nihf(i,k)
+            if (use_native_prep_impl .or. use_preexisting_ice) then
+               naai_hom(i,k) = nihf(i,k)
 
-            ! output activated ice (convert from #/kg -> #/m3)
-            nihf(i,k)     = nihf(i,k) *rho(i,k)
-            niimm(i,k)    = niimm(i,k)*rho(i,k)
-            nidep(i,k)    = nidep(i,k)*rho(i,k)
-            nimey(i,k)    = nimey(i,k)*rho(i,k)
+               ! output activated ice (convert from #/kg -> #/m3)
+               nihf(i,k)     = nihf(i,k) *rho(i,k)
+               niimm(i,k)    = niimm(i,k)*rho(i,k)
+               nidep(i,k)    = nidep(i,k)*rho(i,k)
+               nimey(i,k)    = nimey(i,k)*rho(i,k)
 
-            if (use_preexisting_ice) then
-               INnso4(i,k) =so4_num*1e6_r8  ! (convert from #/cm3 -> #/m3)
-               INnbc(i,k)  =soot_num*1e6_r8
-               INndust(i,k)=dst_num*1e6_r8
-               INFreIN(i,k)=1.0_r8          ! 1,ice nucleation occur
-               INhet(i,k) = niimm(i,k) + nidep(i,k)   ! #/m3, nimey not in cirrus
-               INhom(i,k) = nihf(i,k)                 ! #/m3
-               if (INhom(i,k).gt.1e3_r8)   then ! > 1/L
-                  INFrehom(i,k)=1.0_r8       ! 1, hom freezing occur
-               endif
+               if (use_preexisting_ice) then
+                  INnso4(i,k) =so4_num*1e6_r8  ! (convert from #/cm3 -> #/m3)
+                  INnbc(i,k)  =soot_num*1e6_r8
+                  INndust(i,k)=dst_num*1e6_r8
+                  INFreIN(i,k)=1.0_r8          ! 1,ice nucleation occur
+                  INhet(i,k) = niimm(i,k) + nidep(i,k)   ! #/m3, nimey not in cirrus
+                  INhom(i,k) = nihf(i,k)                 ! #/m3
+                  if (INhom(i,k).gt.1e3_r8)   then ! > 1/L
+                     INFrehom(i,k)=1.0_r8       ! 1, hom freezing occur
+                  endif
 
-               ! exclude  no ice nucleaton 
-               if ((INFrehom(i,k) < 0.5_r8) .and. (INhet(i,k) < 1.0_r8))   then   
-                  INnso4(i,k) =0.0_r8
-                  INnbc(i,k)  =0.0_r8
-                  INndust(i,k)=0.0_r8
-                  INFreIN(i,k)=0.0_r8
-                  INhet(i,k) = 0.0_r8
-                  INhom(i,k) = 0.0_r8
-                  INFrehom(i,k)=0.0_r8    
-                  wice(i,k) = 0.0_r8
-                  weff(i,k) = 0.0_r8 
-                  fhom(i,k) = 0.0_r8
-               endif
+                  ! exclude  no ice nucleaton
+                  if ((INFrehom(i,k) < 0.5_r8) .and. (INhet(i,k) < 1.0_r8))   then
+                     INnso4(i,k) =0.0_r8
+                     INnbc(i,k)  =0.0_r8
+                     INndust(i,k)=0.0_r8
+                     INFreIN(i,k)=0.0_r8
+                     INhet(i,k) = 0.0_r8
+                     INhom(i,k) = 0.0_r8
+                     INFrehom(i,k)=0.0_r8
+                     wice(i,k) = 0.0_r8
+                     weff(i,k) = 0.0_r8
+                     fhom(i,k) = 0.0_r8
+                  endif
+               end if
             end if
 
          end if
       end do
    end do
+
+   if ((.not. use_native_prep_impl) .and. (.not. use_preexisting_ice)) then
+      call nucleate_ice_cam_post_nucleati_codon( &
+           int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
+           real(tmelt, c_double), c_loc(t(1,1)), c_loc(rho(1,1)), c_loc(naai_hom(1,1)), &
+           c_loc(nihf(1,1)), c_loc(niimm(1,1)), c_loc(nidep(1,1)), c_loc(nimey(1,1)) &
+      )
+      call nucleate_ice_cam_post_log_entered()
+   end if
 
    if (.not. clim_modal_aero) then
 
