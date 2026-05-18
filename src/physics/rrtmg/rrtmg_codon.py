@@ -2693,6 +2693,319 @@ def rrtmg_lw_subcol_fill_codon(
 
 
 @export
+def rrtmg_lw_taugb10_codon(
+    nlayers: int,
+    laytrop: int,
+    ng10: int,
+    ngs9: int,
+    nspa10: int,
+    nspb10: int,
+    colh2o_p: cobj,
+    jp_p: cobj,
+    jt_p: cobj,
+    jt1_p: cobj,
+    indself_p: cobj,
+    indfor_p: cobj,
+    fac00_p: cobj,
+    fac01_p: cobj,
+    fac10_p: cobj,
+    fac11_p: cobj,
+    selffac_p: cobj,
+    selffrac_p: cobj,
+    forfac_p: cobj,
+    forfrac_p: cobj,
+    fracrefa_p: cobj,
+    fracrefb_p: cobj,
+    absa_p: cobj,
+    absb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    fracs_p: cobj,
+    taug_p: cobj,
+):
+    colh2o = Ptr[float](colh2o_p)
+    jp = Ptr[int](jp_p)
+    jt = Ptr[int](jt_p)
+    jt1 = Ptr[int](jt1_p)
+    indself = Ptr[int](indself_p)
+    indfor = Ptr[int](indfor_p)
+    fac00 = Ptr[float](fac00_p)
+    fac01 = Ptr[float](fac01_p)
+    fac10 = Ptr[float](fac10_p)
+    fac11 = Ptr[float](fac11_p)
+    selffac = Ptr[float](selffac_p)
+    selffrac = Ptr[float](selffrac_p)
+    forfac = Ptr[float](forfac_p)
+    forfrac = Ptr[float](forfrac_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    fracrefb = Ptr[float](fracrefb_p)
+    absa = Ptr[float](absa_p)
+    absb = Ptr[float](absb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    fracs = Ptr[float](fracs_p)
+    taug = Ptr[float](taug_p)
+
+    for lay in range(1, laytrop + 1):
+        ind0 = ((jp[lay - 1] - 1) * 5 + (jt[lay - 1] - 1)) * nspa10 + 1
+        ind1 = (jp[lay - 1] * 5 + (jt1[lay - 1] - 1)) * nspa10 + 1
+        inds = indself[lay - 1]
+        indf = indfor[lay - 1]
+
+        for ig in range(1, ng10 + 1):
+            tauself = selffac[lay - 1] * (
+                selfref[_idx2(inds, ig, 10)]
+                + selffrac[lay - 1]
+                * (selfref[_idx2(inds + 1, ig, 10)] - selfref[_idx2(inds, ig, 10)])
+            )
+            taufor = forfac[lay - 1] * (
+                forref[_idx2(indf, ig, 4)]
+                + forfrac[lay - 1]
+                * (forref[_idx2(indf + 1, ig, 4)] - forref[_idx2(indf, ig, 4)])
+            )
+            taug[_idx2(lay, ngs9 + ig, nlayers)] = colh2o[lay - 1] * (
+                fac00[lay - 1] * absa[_idx2(ind0, ig, 65)]
+                + fac10[lay - 1] * absa[_idx2(ind0 + 1, ig, 65)]
+                + fac01[lay - 1] * absa[_idx2(ind1, ig, 65)]
+                + fac11[lay - 1] * absa[_idx2(ind1 + 1, ig, 65)]
+            ) + tauself + taufor
+            fracs[_idx2(lay, ngs9 + ig, nlayers)] = fracrefa[ig - 1]
+
+    for lay in range(laytrop + 1, nlayers + 1):
+        ind0 = ((jp[lay - 1] - 13) * 5 + (jt[lay - 1] - 1)) * nspb10 + 1
+        ind1 = ((jp[lay - 1] - 12) * 5 + (jt1[lay - 1] - 1)) * nspb10 + 1
+        indf = indfor[lay - 1]
+
+        for ig in range(1, ng10 + 1):
+            taufor = forfac[lay - 1] * (
+                forref[_idx2(indf, ig, 4)]
+                + forfrac[lay - 1]
+                * (forref[_idx2(indf + 1, ig, 4)] - forref[_idx2(indf, ig, 4)])
+            )
+            taug[_idx2(lay, ngs9 + ig, nlayers)] = colh2o[lay - 1] * (
+                fac00[lay - 1] * absb[_idx2(ind0, ig, 235)]
+                + fac10[lay - 1] * absb[_idx2(ind0 + 1, ig, 235)]
+                + fac01[lay - 1] * absb[_idx2(ind1, ig, 235)]
+                + fac11[lay - 1] * absb[_idx2(ind1 + 1, ig, 235)]
+            ) + taufor
+            fracs[_idx2(lay, ngs9 + ig, nlayers)] = fracrefb[ig - 1]
+
+
+@export
+def rrtmg_lw_taugb11_codon(
+    nlayers: int,
+    laytrop: int,
+    ng11: int,
+    ngs10: int,
+    nspa11: int,
+    nspb11: int,
+    colh2o_p: cobj,
+    colo2_p: cobj,
+    jp_p: cobj,
+    jt_p: cobj,
+    jt1_p: cobj,
+    indself_p: cobj,
+    indfor_p: cobj,
+    indminor_p: cobj,
+    fac00_p: cobj,
+    fac01_p: cobj,
+    fac10_p: cobj,
+    fac11_p: cobj,
+    selffac_p: cobj,
+    selffrac_p: cobj,
+    forfac_p: cobj,
+    forfrac_p: cobj,
+    scaleminor_p: cobj,
+    minorfrac_p: cobj,
+    fracrefa_p: cobj,
+    fracrefb_p: cobj,
+    absa_p: cobj,
+    absb_p: cobj,
+    ka_mo2_p: cobj,
+    kb_mo2_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    fracs_p: cobj,
+    taug_p: cobj,
+):
+    colh2o = Ptr[float](colh2o_p)
+    colo2 = Ptr[float](colo2_p)
+    jp = Ptr[int](jp_p)
+    jt = Ptr[int](jt_p)
+    jt1 = Ptr[int](jt1_p)
+    indself = Ptr[int](indself_p)
+    indfor = Ptr[int](indfor_p)
+    indminor = Ptr[int](indminor_p)
+    fac00 = Ptr[float](fac00_p)
+    fac01 = Ptr[float](fac01_p)
+    fac10 = Ptr[float](fac10_p)
+    fac11 = Ptr[float](fac11_p)
+    selffac = Ptr[float](selffac_p)
+    selffrac = Ptr[float](selffrac_p)
+    forfac = Ptr[float](forfac_p)
+    forfrac = Ptr[float](forfrac_p)
+    scaleminor = Ptr[float](scaleminor_p)
+    minorfrac = Ptr[float](minorfrac_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    fracrefb = Ptr[float](fracrefb_p)
+    absa = Ptr[float](absa_p)
+    absb = Ptr[float](absb_p)
+    ka_mo2 = Ptr[float](ka_mo2_p)
+    kb_mo2 = Ptr[float](kb_mo2_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    fracs = Ptr[float](fracs_p)
+    taug = Ptr[float](taug_p)
+
+    for lay in range(1, laytrop + 1):
+        ind0 = ((jp[lay - 1] - 1) * 5 + (jt[lay - 1] - 1)) * nspa11 + 1
+        ind1 = (jp[lay - 1] * 5 + (jt1[lay - 1] - 1)) * nspa11 + 1
+        inds = indself[lay - 1]
+        indf = indfor[lay - 1]
+        indm = indminor[lay - 1]
+        scaleo2 = colo2[lay - 1] * scaleminor[lay - 1]
+        for ig in range(1, ng11 + 1):
+            tauself = selffac[lay - 1] * (
+                selfref[_idx2(inds, ig, 10)]
+                + selffrac[lay - 1]
+                * (selfref[_idx2(inds + 1, ig, 10)] - selfref[_idx2(inds, ig, 10)])
+            )
+            taufor = forfac[lay - 1] * (
+                forref[_idx2(indf, ig, 4)]
+                + forfrac[lay - 1]
+                * (forref[_idx2(indf + 1, ig, 4)] - forref[_idx2(indf, ig, 4)])
+            )
+            tauo2 = scaleo2 * (
+                ka_mo2[_idx2(indm, ig, 19)]
+                + minorfrac[lay - 1]
+                * (ka_mo2[_idx2(indm + 1, ig, 19)] - ka_mo2[_idx2(indm, ig, 19)])
+            )
+            taug[_idx2(lay, ngs10 + ig, nlayers)] = colh2o[lay - 1] * (
+                fac00[lay - 1] * absa[_idx2(ind0, ig, 65)]
+                + fac10[lay - 1] * absa[_idx2(ind0 + 1, ig, 65)]
+                + fac01[lay - 1] * absa[_idx2(ind1, ig, 65)]
+                + fac11[lay - 1] * absa[_idx2(ind1 + 1, ig, 65)]
+            ) + tauself + taufor + tauo2
+            fracs[_idx2(lay, ngs10 + ig, nlayers)] = fracrefa[ig - 1]
+
+    for lay in range(laytrop + 1, nlayers + 1):
+        ind0 = ((jp[lay - 1] - 13) * 5 + (jt[lay - 1] - 1)) * nspb11 + 1
+        ind1 = ((jp[lay - 1] - 12) * 5 + (jt1[lay - 1] - 1)) * nspb11 + 1
+        indf = indfor[lay - 1]
+        indm = indminor[lay - 1]
+        scaleo2 = colo2[lay - 1] * scaleminor[lay - 1]
+        for ig in range(1, ng11 + 1):
+            taufor = forfac[lay - 1] * (
+                forref[_idx2(indf, ig, 4)]
+                + forfrac[lay - 1]
+                * (forref[_idx2(indf + 1, ig, 4)] - forref[_idx2(indf, ig, 4)])
+            )
+            tauo2 = scaleo2 * (
+                kb_mo2[_idx2(indm, ig, 19)]
+                + minorfrac[lay - 1]
+                * (kb_mo2[_idx2(indm + 1, ig, 19)] - kb_mo2[_idx2(indm, ig, 19)])
+            )
+            taug[_idx2(lay, ngs10 + ig, nlayers)] = colh2o[lay - 1] * (
+                fac00[lay - 1] * absb[_idx2(ind0, ig, 235)]
+                + fac10[lay - 1] * absb[_idx2(ind0 + 1, ig, 235)]
+                + fac01[lay - 1] * absb[_idx2(ind1, ig, 235)]
+                + fac11[lay - 1] * absb[_idx2(ind1 + 1, ig, 235)]
+            ) + taufor + tauo2
+            fracs[_idx2(lay, ngs10 + ig, nlayers)] = fracrefb[ig - 1]
+
+
+@export
+def rrtmg_lw_taugb14_codon(
+    nlayers: int,
+    laytrop: int,
+    ng14: int,
+    ngs13: int,
+    nspa14: int,
+    nspb14: int,
+    colco2_p: cobj,
+    jp_p: cobj,
+    jt_p: cobj,
+    jt1_p: cobj,
+    indself_p: cobj,
+    indfor_p: cobj,
+    fac00_p: cobj,
+    fac01_p: cobj,
+    fac10_p: cobj,
+    fac11_p: cobj,
+    selffac_p: cobj,
+    selffrac_p: cobj,
+    forfac_p: cobj,
+    forfrac_p: cobj,
+    fracrefa_p: cobj,
+    fracrefb_p: cobj,
+    absa_p: cobj,
+    absb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    fracs_p: cobj,
+    taug_p: cobj,
+):
+    colco2 = Ptr[float](colco2_p)
+    jp = Ptr[int](jp_p)
+    jt = Ptr[int](jt_p)
+    jt1 = Ptr[int](jt1_p)
+    indself = Ptr[int](indself_p)
+    indfor = Ptr[int](indfor_p)
+    fac00 = Ptr[float](fac00_p)
+    fac01 = Ptr[float](fac01_p)
+    fac10 = Ptr[float](fac10_p)
+    fac11 = Ptr[float](fac11_p)
+    selffac = Ptr[float](selffac_p)
+    selffrac = Ptr[float](selffrac_p)
+    forfac = Ptr[float](forfac_p)
+    forfrac = Ptr[float](forfrac_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    fracrefb = Ptr[float](fracrefb_p)
+    absa = Ptr[float](absa_p)
+    absb = Ptr[float](absb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    fracs = Ptr[float](fracs_p)
+    taug = Ptr[float](taug_p)
+
+    for lay in range(1, laytrop + 1):
+        ind0 = ((jp[lay - 1] - 1) * 5 + (jt[lay - 1] - 1)) * nspa14 + 1
+        ind1 = (jp[lay - 1] * 5 + (jt1[lay - 1] - 1)) * nspa14 + 1
+        inds = indself[lay - 1]
+        indf = indfor[lay - 1]
+        for ig in range(1, ng14 + 1):
+            tauself = selffac[lay - 1] * (
+                selfref[_idx2(inds, ig, 10)]
+                + selffrac[lay - 1]
+                * (selfref[_idx2(inds + 1, ig, 10)] - selfref[_idx2(inds, ig, 10)])
+            )
+            taufor = forfac[lay - 1] * (
+                forref[_idx2(indf, ig, 4)]
+                + forfrac[lay - 1]
+                * (forref[_idx2(indf + 1, ig, 4)] - forref[_idx2(indf, ig, 4)])
+            )
+            taug[_idx2(lay, ngs13 + ig, nlayers)] = colco2[lay - 1] * (
+                fac00[lay - 1] * absa[_idx2(ind0, ig, 65)]
+                + fac10[lay - 1] * absa[_idx2(ind0 + 1, ig, 65)]
+                + fac01[lay - 1] * absa[_idx2(ind1, ig, 65)]
+                + fac11[lay - 1] * absa[_idx2(ind1 + 1, ig, 65)]
+            ) + tauself + taufor
+            fracs[_idx2(lay, ngs13 + ig, nlayers)] = fracrefa[ig - 1]
+
+    for lay in range(laytrop + 1, nlayers + 1):
+        ind0 = ((jp[lay - 1] - 13) * 5 + (jt[lay - 1] - 1)) * nspb14 + 1
+        ind1 = ((jp[lay - 1] - 12) * 5 + (jt1[lay - 1] - 1)) * nspb14 + 1
+        for ig in range(1, ng14 + 1):
+            taug[_idx2(lay, ngs13 + ig, nlayers)] = colco2[lay - 1] * (
+                fac00[lay - 1] * absb[_idx2(ind0, ig, 235)]
+                + fac10[lay - 1] * absb[_idx2(ind0 + 1, ig, 235)]
+                + fac01[lay - 1] * absb[_idx2(ind1, ig, 235)]
+                + fac11[lay - 1] * absb[_idx2(ind1 + 1, ig, 235)]
+            )
+            fracs[_idx2(lay, ngs13 + ig, nlayers)] = fracrefb[ig - 1]
+
+
+@export
 def rrtmg_lw_setcoef_codon(
     nlayers: int,
     istart: int,
