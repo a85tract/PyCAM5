@@ -3006,6 +3006,1033 @@ def rrtmg_lw_taugb14_codon(
 
 
 @export
+def rrtmg_lw_taugb1_codon(
+    nlayers: int,
+    laytrop: int,
+    ng1: int,
+    nspa1: int,
+    nspb1: int,
+    pavel_p: cobj,
+    colh2o_p: cobj,
+    colbrd_p: cobj,
+    jp_p: cobj,
+    jt_p: cobj,
+    jt1_p: cobj,
+    indself_p: cobj,
+    indfor_p: cobj,
+    indminor_p: cobj,
+    fac00_p: cobj,
+    fac01_p: cobj,
+    fac10_p: cobj,
+    fac11_p: cobj,
+    selffac_p: cobj,
+    selffrac_p: cobj,
+    forfac_p: cobj,
+    forfrac_p: cobj,
+    scaleminorn2_p: cobj,
+    minorfrac_p: cobj,
+    fracrefa_p: cobj,
+    fracrefb_p: cobj,
+    absa_p: cobj,
+    absb_p: cobj,
+    ka_mn2_p: cobj,
+    kb_mn2_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    fracs_p: cobj,
+    taug_p: cobj,
+):
+    pavel = Ptr[float](pavel_p)
+    colh2o = Ptr[float](colh2o_p)
+    colbrd = Ptr[float](colbrd_p)
+    jp = Ptr[int](jp_p)
+    jt = Ptr[int](jt_p)
+    jt1 = Ptr[int](jt1_p)
+    indself = Ptr[int](indself_p)
+    indfor = Ptr[int](indfor_p)
+    indminor = Ptr[int](indminor_p)
+    fac00 = Ptr[float](fac00_p)
+    fac01 = Ptr[float](fac01_p)
+    fac10 = Ptr[float](fac10_p)
+    fac11 = Ptr[float](fac11_p)
+    selffac = Ptr[float](selffac_p)
+    selffrac = Ptr[float](selffrac_p)
+    forfac = Ptr[float](forfac_p)
+    forfrac = Ptr[float](forfrac_p)
+    scaleminorn2 = Ptr[float](scaleminorn2_p)
+    minorfrac = Ptr[float](minorfrac_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    fracrefb = Ptr[float](fracrefb_p)
+    absa = Ptr[float](absa_p)
+    absb = Ptr[float](absb_p)
+    ka_mn2 = Ptr[float](ka_mn2_p)
+    kb_mn2 = Ptr[float](kb_mn2_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    fracs = Ptr[float](fracs_p)
+    taug = Ptr[float](taug_p)
+
+    for lay in range(1, laytrop + 1):
+        ind0 = ((jp[lay - 1] - 1) * 5 + (jt[lay - 1] - 1)) * nspa1 + 1
+        ind1 = (jp[lay - 1] * 5 + (jt1[lay - 1] - 1)) * nspa1 + 1
+        inds = indself[lay - 1]
+        indf = indfor[lay - 1]
+        indm = indminor[lay - 1]
+        pp = pavel[lay - 1]
+        corradj = 1.0
+        if pp < 250.0:
+            corradj = 1.0 - 0.15 * (250.0 - pp) / 154.4
+
+        scalen2 = colbrd[lay - 1] * scaleminorn2[lay - 1]
+        for ig in range(1, ng1 + 1):
+            tauself = selffac[lay - 1] * (
+                selfref[_idx2(inds, ig, 10)]
+                + selffrac[lay - 1]
+                * (selfref[_idx2(inds + 1, ig, 10)] - selfref[_idx2(inds, ig, 10)])
+            )
+            taufor = forfac[lay - 1] * (
+                forref[_idx2(indf, ig, 4)]
+                + forfrac[lay - 1]
+                * (forref[_idx2(indf + 1, ig, 4)] - forref[_idx2(indf, ig, 4)])
+            )
+            taun2 = scalen2 * (
+                ka_mn2[_idx2(indm, ig, 19)]
+                + minorfrac[lay - 1]
+                * (ka_mn2[_idx2(indm + 1, ig, 19)] - ka_mn2[_idx2(indm, ig, 19)])
+            )
+            taug[_idx2(lay, ig, nlayers)] = corradj * (
+                colh2o[lay - 1]
+                * (
+                    fac00[lay - 1] * absa[_idx2(ind0, ig, 65)]
+                    + fac10[lay - 1] * absa[_idx2(ind0 + 1, ig, 65)]
+                    + fac01[lay - 1] * absa[_idx2(ind1, ig, 65)]
+                    + fac11[lay - 1] * absa[_idx2(ind1 + 1, ig, 65)]
+                )
+                + tauself
+                + taufor
+                + taun2
+            )
+            fracs[_idx2(lay, ig, nlayers)] = fracrefa[ig - 1]
+
+    for lay in range(laytrop + 1, nlayers + 1):
+        ind0 = ((jp[lay - 1] - 13) * 5 + (jt[lay - 1] - 1)) * nspb1 + 1
+        ind1 = ((jp[lay - 1] - 12) * 5 + (jt1[lay - 1] - 1)) * nspb1 + 1
+        indf = indfor[lay - 1]
+        indm = indminor[lay - 1]
+        pp = pavel[lay - 1]
+        corradj = 1.0 - 0.15 * (pp / 95.6)
+
+        scalen2 = colbrd[lay - 1] * scaleminorn2[lay - 1]
+        for ig in range(1, ng1 + 1):
+            taufor = forfac[lay - 1] * (
+                forref[_idx2(indf, ig, 4)]
+                + forfrac[lay - 1]
+                * (forref[_idx2(indf + 1, ig, 4)] - forref[_idx2(indf, ig, 4)])
+            )
+            taun2 = scalen2 * (
+                kb_mn2[_idx2(indm, ig, 19)]
+                + minorfrac[lay - 1]
+                * (kb_mn2[_idx2(indm + 1, ig, 19)] - kb_mn2[_idx2(indm, ig, 19)])
+            )
+            taug[_idx2(lay, ig, nlayers)] = corradj * (
+                colh2o[lay - 1]
+                * (
+                    fac00[lay - 1] * absb[_idx2(ind0, ig, 235)]
+                    + fac10[lay - 1] * absb[_idx2(ind0 + 1, ig, 235)]
+                    + fac01[lay - 1] * absb[_idx2(ind1, ig, 235)]
+                    + fac11[lay - 1] * absb[_idx2(ind1 + 1, ig, 235)]
+                )
+                + taufor
+                + taun2
+            )
+            fracs[_idx2(lay, ig, nlayers)] = fracrefb[ig - 1]
+
+
+@export
+def rrtmg_lw_taugb2_codon(
+    nlayers: int,
+    laytrop: int,
+    ng2: int,
+    ngs1: int,
+    nspa2: int,
+    nspb2: int,
+    pavel_p: cobj,
+    colh2o_p: cobj,
+    jp_p: cobj,
+    jt_p: cobj,
+    jt1_p: cobj,
+    indself_p: cobj,
+    indfor_p: cobj,
+    fac00_p: cobj,
+    fac01_p: cobj,
+    fac10_p: cobj,
+    fac11_p: cobj,
+    selffac_p: cobj,
+    selffrac_p: cobj,
+    forfac_p: cobj,
+    forfrac_p: cobj,
+    fracrefa_p: cobj,
+    fracrefb_p: cobj,
+    absa_p: cobj,
+    absb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    fracs_p: cobj,
+    taug_p: cobj,
+):
+    pavel = Ptr[float](pavel_p)
+    colh2o = Ptr[float](colh2o_p)
+    jp = Ptr[int](jp_p)
+    jt = Ptr[int](jt_p)
+    jt1 = Ptr[int](jt1_p)
+    indself = Ptr[int](indself_p)
+    indfor = Ptr[int](indfor_p)
+    fac00 = Ptr[float](fac00_p)
+    fac01 = Ptr[float](fac01_p)
+    fac10 = Ptr[float](fac10_p)
+    fac11 = Ptr[float](fac11_p)
+    selffac = Ptr[float](selffac_p)
+    selffrac = Ptr[float](selffrac_p)
+    forfac = Ptr[float](forfac_p)
+    forfrac = Ptr[float](forfrac_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    fracrefb = Ptr[float](fracrefb_p)
+    absa = Ptr[float](absa_p)
+    absb = Ptr[float](absb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    fracs = Ptr[float](fracs_p)
+    taug = Ptr[float](taug_p)
+
+    for lay in range(1, laytrop + 1):
+        ind0 = ((jp[lay - 1] - 1) * 5 + (jt[lay - 1] - 1)) * nspa2 + 1
+        ind1 = (jp[lay - 1] * 5 + (jt1[lay - 1] - 1)) * nspa2 + 1
+        inds = indself[lay - 1]
+        indf = indfor[lay - 1]
+        pp = pavel[lay - 1]
+        corradj = 1.0 - 0.05 * (pp - 100.0) / 900.0
+        for ig in range(1, ng2 + 1):
+            tauself = selffac[lay - 1] * (
+                selfref[_idx2(inds, ig, 10)]
+                + selffrac[lay - 1]
+                * (selfref[_idx2(inds + 1, ig, 10)] - selfref[_idx2(inds, ig, 10)])
+            )
+            taufor = forfac[lay - 1] * (
+                forref[_idx2(indf, ig, 4)]
+                + forfrac[lay - 1]
+                * (forref[_idx2(indf + 1, ig, 4)] - forref[_idx2(indf, ig, 4)])
+            )
+            taug[_idx2(lay, ngs1 + ig, nlayers)] = corradj * (
+                colh2o[lay - 1]
+                * (
+                    fac00[lay - 1] * absa[_idx2(ind0, ig, 65)]
+                    + fac10[lay - 1] * absa[_idx2(ind0 + 1, ig, 65)]
+                    + fac01[lay - 1] * absa[_idx2(ind1, ig, 65)]
+                    + fac11[lay - 1] * absa[_idx2(ind1 + 1, ig, 65)]
+                )
+                + tauself
+                + taufor
+            )
+            fracs[_idx2(lay, ngs1 + ig, nlayers)] = fracrefa[ig - 1]
+
+    for lay in range(laytrop + 1, nlayers + 1):
+        ind0 = ((jp[lay - 1] - 13) * 5 + (jt[lay - 1] - 1)) * nspb2 + 1
+        ind1 = ((jp[lay - 1] - 12) * 5 + (jt1[lay - 1] - 1)) * nspb2 + 1
+        indf = indfor[lay - 1]
+        for ig in range(1, ng2 + 1):
+            taufor = forfac[lay - 1] * (
+                forref[_idx2(indf, ig, 4)]
+                + forfrac[lay - 1]
+                * (forref[_idx2(indf + 1, ig, 4)] - forref[_idx2(indf, ig, 4)])
+            )
+            taug[_idx2(lay, ngs1 + ig, nlayers)] = colh2o[lay - 1] * (
+                fac00[lay - 1] * absb[_idx2(ind0, ig, 235)]
+                + fac10[lay - 1] * absb[_idx2(ind0 + 1, ig, 235)]
+                + fac01[lay - 1] * absb[_idx2(ind1, ig, 235)]
+                + fac11[lay - 1] * absb[_idx2(ind1 + 1, ig, 235)]
+            ) + taufor
+            fracs[_idx2(lay, ngs1 + ig, nlayers)] = fracrefb[ig - 1]
+
+
+@export
+def rrtmg_lw_taugb6_codon(
+    nlayers: int,
+    laytrop: int,
+    ng6: int,
+    ngs5: int,
+    nspa6: int,
+    maxxsec: int,
+    colh2o_p: cobj,
+    colco2_p: cobj,
+    coldry_p: cobj,
+    wx_p: cobj,
+    jp_p: cobj,
+    jt_p: cobj,
+    jt1_p: cobj,
+    indself_p: cobj,
+    indfor_p: cobj,
+    indminor_p: cobj,
+    fac00_p: cobj,
+    fac01_p: cobj,
+    fac10_p: cobj,
+    fac11_p: cobj,
+    selffac_p: cobj,
+    selffrac_p: cobj,
+    forfac_p: cobj,
+    forfrac_p: cobj,
+    minorfrac_p: cobj,
+    chi_mls_p: cobj,
+    fracrefa_p: cobj,
+    absa_p: cobj,
+    ka_mco2_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    cfc11adj_p: cobj,
+    cfc12_p: cobj,
+    fracs_p: cobj,
+    taug_p: cobj,
+):
+    colh2o = Ptr[float](colh2o_p)
+    colco2 = Ptr[float](colco2_p)
+    coldry = Ptr[float](coldry_p)
+    wx = Ptr[float](wx_p)
+    jp = Ptr[int](jp_p)
+    jt = Ptr[int](jt_p)
+    jt1 = Ptr[int](jt1_p)
+    indself = Ptr[int](indself_p)
+    indfor = Ptr[int](indfor_p)
+    indminor = Ptr[int](indminor_p)
+    fac00 = Ptr[float](fac00_p)
+    fac01 = Ptr[float](fac01_p)
+    fac10 = Ptr[float](fac10_p)
+    fac11 = Ptr[float](fac11_p)
+    selffac = Ptr[float](selffac_p)
+    selffrac = Ptr[float](selffrac_p)
+    forfac = Ptr[float](forfac_p)
+    forfrac = Ptr[float](forfrac_p)
+    minorfrac = Ptr[float](minorfrac_p)
+    chi_mls = Ptr[float](chi_mls_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    absa = Ptr[float](absa_p)
+    ka_mco2 = Ptr[float](ka_mco2_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    cfc11adj = Ptr[float](cfc11adj_p)
+    cfc12 = Ptr[float](cfc12_p)
+    fracs = Ptr[float](fracs_p)
+    taug = Ptr[float](taug_p)
+
+    for lay in range(1, laytrop + 1):
+        chi_co2 = colco2[lay - 1] / coldry[lay - 1]
+        ratco2 = 1.0e20 * chi_co2 / chi_mls[_idx2(2, jp[lay - 1] + 1, 7)]
+        if ratco2 > 3.0:
+            adjfac = 2.0 + (ratco2 - 2.0) ** 0.77
+            adjcolco2 = (
+                adjfac
+                * chi_mls[_idx2(2, jp[lay - 1] + 1, 7)]
+                * coldry[lay - 1]
+                * 1.0e-20
+            )
+        else:
+            adjcolco2 = colco2[lay - 1]
+
+        ind0 = ((jp[lay - 1] - 1) * 5 + (jt[lay - 1] - 1)) * nspa6 + 1
+        ind1 = (jp[lay - 1] * 5 + (jt1[lay - 1] - 1)) * nspa6 + 1
+        inds = indself[lay - 1]
+        indf = indfor[lay - 1]
+        indm = indminor[lay - 1]
+
+        for ig in range(1, ng6 + 1):
+            tauself = selffac[lay - 1] * (
+                selfref[_idx2(inds, ig, 10)]
+                + selffrac[lay - 1]
+                * (selfref[_idx2(inds + 1, ig, 10)] - selfref[_idx2(inds, ig, 10)])
+            )
+            taufor = forfac[lay - 1] * (
+                forref[_idx2(indf, ig, 4)]
+                + forfrac[lay - 1]
+                * (forref[_idx2(indf + 1, ig, 4)] - forref[_idx2(indf, ig, 4)])
+            )
+            absco2 = ka_mco2[_idx2(indm, ig, 19)] + minorfrac[lay - 1] * (
+                ka_mco2[_idx2(indm + 1, ig, 19)] - ka_mco2[_idx2(indm, ig, 19)]
+            )
+            taug[_idx2(lay, ngs5 + ig, nlayers)] = (
+                colh2o[lay - 1]
+                * (
+                    fac00[lay - 1] * absa[_idx2(ind0, ig, 65)]
+                    + fac10[lay - 1] * absa[_idx2(ind0 + 1, ig, 65)]
+                    + fac01[lay - 1] * absa[_idx2(ind1, ig, 65)]
+                    + fac11[lay - 1] * absa[_idx2(ind1 + 1, ig, 65)]
+                )
+                + tauself
+                + taufor
+                + adjcolco2 * absco2
+                + wx[_idx2(2, lay, maxxsec)] * cfc11adj[ig - 1]
+                + wx[_idx2(3, lay, maxxsec)] * cfc12[ig - 1]
+            )
+            fracs[_idx2(lay, ngs5 + ig, nlayers)] = fracrefa[ig - 1]
+
+    for lay in range(laytrop + 1, nlayers + 1):
+        for ig in range(1, ng6 + 1):
+            taug[_idx2(lay, ngs5 + ig, nlayers)] = (
+                0.0
+                + wx[_idx2(2, lay, maxxsec)] * cfc11adj[ig - 1]
+                + wx[_idx2(3, lay, maxxsec)] * cfc12[ig - 1]
+            )
+            fracs[_idx2(lay, ngs5 + ig, nlayers)] = fracrefa[ig - 1]
+
+
+@export
+def rrtmg_lw_taugb8_codon(
+    nlayers: int,
+    laytrop: int,
+    ng8: int,
+    ngs7: int,
+    nspa8: int,
+    nspb8: int,
+    maxxsec: int,
+    colh2o_p: cobj,
+    colco2_p: cobj,
+    colo3_p: cobj,
+    coln2o_p: cobj,
+    coldry_p: cobj,
+    wx_p: cobj,
+    jp_p: cobj,
+    jt_p: cobj,
+    jt1_p: cobj,
+    indself_p: cobj,
+    indfor_p: cobj,
+    indminor_p: cobj,
+    fac00_p: cobj,
+    fac01_p: cobj,
+    fac10_p: cobj,
+    fac11_p: cobj,
+    selffac_p: cobj,
+    selffrac_p: cobj,
+    forfac_p: cobj,
+    forfrac_p: cobj,
+    minorfrac_p: cobj,
+    chi_mls_p: cobj,
+    fracrefa_p: cobj,
+    fracrefb_p: cobj,
+    absa_p: cobj,
+    absb_p: cobj,
+    ka_mco2_p: cobj,
+    ka_mn2o_p: cobj,
+    ka_mo3_p: cobj,
+    kb_mco2_p: cobj,
+    kb_mn2o_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    cfc12_p: cobj,
+    cfc22adj_p: cobj,
+    fracs_p: cobj,
+    taug_p: cobj,
+):
+    colh2o = Ptr[float](colh2o_p)
+    colco2 = Ptr[float](colco2_p)
+    colo3 = Ptr[float](colo3_p)
+    coln2o = Ptr[float](coln2o_p)
+    coldry = Ptr[float](coldry_p)
+    wx = Ptr[float](wx_p)
+    jp = Ptr[int](jp_p)
+    jt = Ptr[int](jt_p)
+    jt1 = Ptr[int](jt1_p)
+    indself = Ptr[int](indself_p)
+    indfor = Ptr[int](indfor_p)
+    indminor = Ptr[int](indminor_p)
+    fac00 = Ptr[float](fac00_p)
+    fac01 = Ptr[float](fac01_p)
+    fac10 = Ptr[float](fac10_p)
+    fac11 = Ptr[float](fac11_p)
+    selffac = Ptr[float](selffac_p)
+    selffrac = Ptr[float](selffrac_p)
+    forfac = Ptr[float](forfac_p)
+    forfrac = Ptr[float](forfrac_p)
+    minorfrac = Ptr[float](minorfrac_p)
+    chi_mls = Ptr[float](chi_mls_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    fracrefb = Ptr[float](fracrefb_p)
+    absa = Ptr[float](absa_p)
+    absb = Ptr[float](absb_p)
+    ka_mco2 = Ptr[float](ka_mco2_p)
+    ka_mn2o = Ptr[float](ka_mn2o_p)
+    ka_mo3 = Ptr[float](ka_mo3_p)
+    kb_mco2 = Ptr[float](kb_mco2_p)
+    kb_mn2o = Ptr[float](kb_mn2o_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    cfc12 = Ptr[float](cfc12_p)
+    cfc22adj = Ptr[float](cfc22adj_p)
+    fracs = Ptr[float](fracs_p)
+    taug = Ptr[float](taug_p)
+
+    for lay in range(1, laytrop + 1):
+        chi_co2 = colco2[lay - 1] / coldry[lay - 1]
+        ratco2 = 1.0e20 * chi_co2 / chi_mls[_idx2(2, jp[lay - 1] + 1, 7)]
+        if ratco2 > 3.0:
+            adjfac = 2.0 + (ratco2 - 2.0) ** 0.65
+            adjcolco2 = (
+                adjfac
+                * chi_mls[_idx2(2, jp[lay - 1] + 1, 7)]
+                * coldry[lay - 1]
+                * 1.0e-20
+            )
+        else:
+            adjcolco2 = colco2[lay - 1]
+
+        ind0 = ((jp[lay - 1] - 1) * 5 + (jt[lay - 1] - 1)) * nspa8 + 1
+        ind1 = (jp[lay - 1] * 5 + (jt1[lay - 1] - 1)) * nspa8 + 1
+        inds = indself[lay - 1]
+        indf = indfor[lay - 1]
+        indm = indminor[lay - 1]
+
+        for ig in range(1, ng8 + 1):
+            tauself = selffac[lay - 1] * (
+                selfref[_idx2(inds, ig, 10)]
+                + selffrac[lay - 1]
+                * (selfref[_idx2(inds + 1, ig, 10)] - selfref[_idx2(inds, ig, 10)])
+            )
+            taufor = forfac[lay - 1] * (
+                forref[_idx2(indf, ig, 4)]
+                + forfrac[lay - 1]
+                * (forref[_idx2(indf + 1, ig, 4)] - forref[_idx2(indf, ig, 4)])
+            )
+            absco2 = ka_mco2[_idx2(indm, ig, 19)] + minorfrac[lay - 1] * (
+                ka_mco2[_idx2(indm + 1, ig, 19)] - ka_mco2[_idx2(indm, ig, 19)]
+            )
+            abso3 = ka_mo3[_idx2(indm, ig, 19)] + minorfrac[lay - 1] * (
+                ka_mo3[_idx2(indm + 1, ig, 19)] - ka_mo3[_idx2(indm, ig, 19)]
+            )
+            absn2o = ka_mn2o[_idx2(indm, ig, 19)] + minorfrac[lay - 1] * (
+                ka_mn2o[_idx2(indm + 1, ig, 19)] - ka_mn2o[_idx2(indm, ig, 19)]
+            )
+            taug[_idx2(lay, ngs7 + ig, nlayers)] = (
+                colh2o[lay - 1]
+                * (
+                    fac00[lay - 1] * absa[_idx2(ind0, ig, 65)]
+                    + fac10[lay - 1] * absa[_idx2(ind0 + 1, ig, 65)]
+                    + fac01[lay - 1] * absa[_idx2(ind1, ig, 65)]
+                    + fac11[lay - 1] * absa[_idx2(ind1 + 1, ig, 65)]
+                )
+                + tauself
+                + taufor
+                + adjcolco2 * absco2
+                + colo3[lay - 1] * abso3
+                + coln2o[lay - 1] * absn2o
+                + wx[_idx2(3, lay, maxxsec)] * cfc12[ig - 1]
+                + wx[_idx2(4, lay, maxxsec)] * cfc22adj[ig - 1]
+            )
+            fracs[_idx2(lay, ngs7 + ig, nlayers)] = fracrefa[ig - 1]
+
+    for lay in range(laytrop + 1, nlayers + 1):
+        chi_co2 = colco2[lay - 1] / coldry[lay - 1]
+        ratco2 = 1.0e20 * chi_co2 / chi_mls[_idx2(2, jp[lay - 1] + 1, 7)]
+        if ratco2 > 3.0:
+            adjfac = 2.0 + (ratco2 - 2.0) ** 0.65
+            adjcolco2 = (
+                adjfac
+                * chi_mls[_idx2(2, jp[lay - 1] + 1, 7)]
+                * coldry[lay - 1]
+                * 1.0e-20
+            )
+        else:
+            adjcolco2 = colco2[lay - 1]
+
+        ind0 = ((jp[lay - 1] - 13) * 5 + (jt[lay - 1] - 1)) * nspb8 + 1
+        ind1 = ((jp[lay - 1] - 12) * 5 + (jt1[lay - 1] - 1)) * nspb8 + 1
+        indm = indminor[lay - 1]
+
+        for ig in range(1, ng8 + 1):
+            absco2 = kb_mco2[_idx2(indm, ig, 19)] + minorfrac[lay - 1] * (
+                kb_mco2[_idx2(indm + 1, ig, 19)] - kb_mco2[_idx2(indm, ig, 19)]
+            )
+            absn2o = kb_mn2o[_idx2(indm, ig, 19)] + minorfrac[lay - 1] * (
+                kb_mn2o[_idx2(indm + 1, ig, 19)] - kb_mn2o[_idx2(indm, ig, 19)]
+            )
+            taug[_idx2(lay, ngs7 + ig, nlayers)] = (
+                colo3[lay - 1]
+                * (
+                    fac00[lay - 1] * absb[_idx2(ind0, ig, 235)]
+                    + fac10[lay - 1] * absb[_idx2(ind0 + 1, ig, 235)]
+                    + fac01[lay - 1] * absb[_idx2(ind1, ig, 235)]
+                    + fac11[lay - 1] * absb[_idx2(ind1 + 1, ig, 235)]
+                )
+                + adjcolco2 * absco2
+                + coln2o[lay - 1] * absn2o
+                + wx[_idx2(3, lay, maxxsec)] * cfc12[ig - 1]
+                + wx[_idx2(4, lay, maxxsec)] * cfc22adj[ig - 1]
+            )
+            fracs[_idx2(lay, ngs7 + ig, nlayers)] = fracrefb[ig - 1]
+
+
+@export
+def rrtmg_lw_taugb12_codon(
+    nlayers: int,
+    laytrop: int,
+    ng12: int,
+    ngs11: int,
+    nspa12: int,
+    oneminus: float,
+    colh2o_p: cobj,
+    colco2_p: cobj,
+    rat_h2oco2_p: cobj,
+    rat_h2oco2_1_p: cobj,
+    jp_p: cobj,
+    jt_p: cobj,
+    jt1_p: cobj,
+    indself_p: cobj,
+    indfor_p: cobj,
+    fac00_p: cobj,
+    fac01_p: cobj,
+    fac10_p: cobj,
+    fac11_p: cobj,
+    selffac_p: cobj,
+    selffrac_p: cobj,
+    forfac_p: cobj,
+    forfrac_p: cobj,
+    chi_mls_p: cobj,
+    fracrefa_p: cobj,
+    absa_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    fracs_p: cobj,
+    taug_p: cobj,
+):
+    colh2o = Ptr[float](colh2o_p)
+    colco2 = Ptr[float](colco2_p)
+    rat_h2oco2 = Ptr[float](rat_h2oco2_p)
+    rat_h2oco2_1 = Ptr[float](rat_h2oco2_1_p)
+    jp = Ptr[int](jp_p)
+    jt = Ptr[int](jt_p)
+    jt1 = Ptr[int](jt1_p)
+    indself = Ptr[int](indself_p)
+    indfor = Ptr[int](indfor_p)
+    fac00 = Ptr[float](fac00_p)
+    fac01 = Ptr[float](fac01_p)
+    fac10 = Ptr[float](fac10_p)
+    fac11 = Ptr[float](fac11_p)
+    selffac = Ptr[float](selffac_p)
+    selffrac = Ptr[float](selffrac_p)
+    forfac = Ptr[float](forfac_p)
+    forfrac = Ptr[float](forfrac_p)
+    chi_mls = Ptr[float](chi_mls_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    absa = Ptr[float](absa_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    fracs = Ptr[float](fracs_p)
+    taug = Ptr[float](taug_p)
+
+    refrat_planck_a = chi_mls[_idx2(1, 10, 7)] / chi_mls[_idx2(2, 10, 7)]
+
+    for lay in range(1, laytrop + 1):
+        speccomb = colh2o[lay - 1] + rat_h2oco2[lay - 1] * colco2[lay - 1]
+        specparm = colh2o[lay - 1] / speccomb
+        if specparm >= oneminus:
+            specparm = oneminus
+        specmult = 8.0 * specparm
+        js = 1 + int(specmult)
+        fs = specmult - float(int(specmult))
+
+        speccomb1 = colh2o[lay - 1] + rat_h2oco2_1[lay - 1] * colco2[lay - 1]
+        specparm1 = colh2o[lay - 1] / speccomb1
+        if specparm1 >= oneminus:
+            specparm1 = oneminus
+        specmult1 = 8.0 * specparm1
+        js1 = 1 + int(specmult1)
+        fs1 = specmult1 - float(int(specmult1))
+
+        speccomb_planck = colh2o[lay - 1] + refrat_planck_a * colco2[lay - 1]
+        specparm_planck = colh2o[lay - 1] / speccomb_planck
+        if specparm_planck >= oneminus:
+            specparm_planck = oneminus
+        specmult_planck = 8.0 * specparm_planck
+        jpl = 1 + int(specmult_planck)
+        fpl = specmult_planck - float(int(specmult_planck))
+
+        ind0 = ((jp[lay - 1] - 1) * 5 + (jt[lay - 1] - 1)) * nspa12 + js
+        ind1 = (jp[lay - 1] * 5 + (jt1[lay - 1] - 1)) * nspa12 + js1
+        inds = indself[lay - 1]
+        indf = indfor[lay - 1]
+
+        if specparm < 0.125:
+            p = fs - 1.0
+            p4 = p**4
+            fk0 = p4
+            fk1 = 1.0 - p - 2.0 * p4
+            fk2 = p + p4
+            fac000 = fk0 * fac00[lay - 1]
+            fac100 = fk1 * fac00[lay - 1]
+            fac200 = fk2 * fac00[lay - 1]
+            fac010 = fk0 * fac10[lay - 1]
+            fac110 = fk1 * fac10[lay - 1]
+            fac210 = fk2 * fac10[lay - 1]
+        elif specparm > 0.875:
+            p = -fs
+            p4 = p**4
+            fk0 = p4
+            fk1 = 1.0 - p - 2.0 * p4
+            fk2 = p + p4
+            fac000 = fk0 * fac00[lay - 1]
+            fac100 = fk1 * fac00[lay - 1]
+            fac200 = fk2 * fac00[lay - 1]
+            fac010 = fk0 * fac10[lay - 1]
+            fac110 = fk1 * fac10[lay - 1]
+            fac210 = fk2 * fac10[lay - 1]
+        else:
+            fac000 = (1.0 - fs) * fac00[lay - 1]
+            fac010 = (1.0 - fs) * fac10[lay - 1]
+            fac100 = fs * fac00[lay - 1]
+            fac110 = fs * fac10[lay - 1]
+
+        if specparm1 < 0.125:
+            p = fs1 - 1.0
+            p4 = p**4
+            fk0 = p4
+            fk1 = 1.0 - p - 2.0 * p4
+            fk2 = p + p4
+            fac001 = fk0 * fac01[lay - 1]
+            fac101 = fk1 * fac01[lay - 1]
+            fac201 = fk2 * fac01[lay - 1]
+            fac011 = fk0 * fac11[lay - 1]
+            fac111 = fk1 * fac11[lay - 1]
+            fac211 = fk2 * fac11[lay - 1]
+        elif specparm1 > 0.875:
+            p = -fs1
+            p4 = p**4
+            fk0 = p4
+            fk1 = 1.0 - p - 2.0 * p4
+            fk2 = p + p4
+            fac001 = fk0 * fac01[lay - 1]
+            fac101 = fk1 * fac01[lay - 1]
+            fac201 = fk2 * fac01[lay - 1]
+            fac011 = fk0 * fac11[lay - 1]
+            fac111 = fk1 * fac11[lay - 1]
+            fac211 = fk2 * fac11[lay - 1]
+        else:
+            fac001 = (1.0 - fs1) * fac01[lay - 1]
+            fac011 = (1.0 - fs1) * fac11[lay - 1]
+            fac101 = fs1 * fac01[lay - 1]
+            fac111 = fs1 * fac11[lay - 1]
+
+        for ig in range(1, ng12 + 1):
+            tauself = selffac[lay - 1] * (
+                selfref[_idx2(inds, ig, 10)]
+                + selffrac[lay - 1]
+                * (selfref[_idx2(inds + 1, ig, 10)] - selfref[_idx2(inds, ig, 10)])
+            )
+            taufor = forfac[lay - 1] * (
+                forref[_idx2(indf, ig, 4)]
+                + forfrac[lay - 1]
+                * (forref[_idx2(indf + 1, ig, 4)] - forref[_idx2(indf, ig, 4)])
+            )
+
+            if specparm < 0.125:
+                tau_major = speccomb * (
+                    fac000 * absa[_idx2(ind0, ig, 585)]
+                    + fac100 * absa[_idx2(ind0 + 1, ig, 585)]
+                    + fac200 * absa[_idx2(ind0 + 2, ig, 585)]
+                    + fac010 * absa[_idx2(ind0 + 9, ig, 585)]
+                    + fac110 * absa[_idx2(ind0 + 10, ig, 585)]
+                    + fac210 * absa[_idx2(ind0 + 11, ig, 585)]
+                )
+            elif specparm > 0.875:
+                tau_major = speccomb * (
+                    fac200 * absa[_idx2(ind0 - 1, ig, 585)]
+                    + fac100 * absa[_idx2(ind0, ig, 585)]
+                    + fac000 * absa[_idx2(ind0 + 1, ig, 585)]
+                    + fac210 * absa[_idx2(ind0 + 8, ig, 585)]
+                    + fac110 * absa[_idx2(ind0 + 9, ig, 585)]
+                    + fac010 * absa[_idx2(ind0 + 10, ig, 585)]
+                )
+            else:
+                tau_major = speccomb * (
+                    fac000 * absa[_idx2(ind0, ig, 585)]
+                    + fac100 * absa[_idx2(ind0 + 1, ig, 585)]
+                    + fac010 * absa[_idx2(ind0 + 9, ig, 585)]
+                    + fac110 * absa[_idx2(ind0 + 10, ig, 585)]
+                )
+
+            if specparm1 < 0.125:
+                tau_major1 = speccomb1 * (
+                    fac001 * absa[_idx2(ind1, ig, 585)]
+                    + fac101 * absa[_idx2(ind1 + 1, ig, 585)]
+                    + fac201 * absa[_idx2(ind1 + 2, ig, 585)]
+                    + fac011 * absa[_idx2(ind1 + 9, ig, 585)]
+                    + fac111 * absa[_idx2(ind1 + 10, ig, 585)]
+                    + fac211 * absa[_idx2(ind1 + 11, ig, 585)]
+                )
+            elif specparm1 > 0.875:
+                tau_major1 = speccomb1 * (
+                    fac201 * absa[_idx2(ind1 - 1, ig, 585)]
+                    + fac101 * absa[_idx2(ind1, ig, 585)]
+                    + fac001 * absa[_idx2(ind1 + 1, ig, 585)]
+                    + fac211 * absa[_idx2(ind1 + 8, ig, 585)]
+                    + fac111 * absa[_idx2(ind1 + 9, ig, 585)]
+                    + fac011 * absa[_idx2(ind1 + 10, ig, 585)]
+                )
+            else:
+                tau_major1 = speccomb1 * (
+                    fac001 * absa[_idx2(ind1, ig, 585)]
+                    + fac101 * absa[_idx2(ind1 + 1, ig, 585)]
+                    + fac011 * absa[_idx2(ind1 + 9, ig, 585)]
+                    + fac111 * absa[_idx2(ind1 + 10, ig, 585)]
+                )
+
+            taug[_idx2(lay, ngs11 + ig, nlayers)] = tau_major + tau_major1 + tauself + taufor
+            fracs[_idx2(lay, ngs11 + ig, nlayers)] = fracrefa[
+                _idx2(ig, jpl, ng12)
+            ] + fpl * (
+                fracrefa[_idx2(ig, jpl + 1, ng12)] - fracrefa[_idx2(ig, jpl, ng12)]
+            )
+
+    for lay in range(laytrop + 1, nlayers + 1):
+        for ig in range(1, ng12 + 1):
+            taug[_idx2(lay, ngs11 + ig, nlayers)] = 0.0
+            fracs[_idx2(lay, ngs11 + ig, nlayers)] = 0.0
+
+
+@export
+def rrtmg_lw_taugb16_codon(
+    nlayers: int,
+    laytrop: int,
+    ng16: int,
+    ngs15: int,
+    nspa16: int,
+    nspb16: int,
+    oneminus: float,
+    colh2o_p: cobj,
+    colch4_p: cobj,
+    rat_h2och4_p: cobj,
+    rat_h2och4_1_p: cobj,
+    jp_p: cobj,
+    jt_p: cobj,
+    jt1_p: cobj,
+    indself_p: cobj,
+    indfor_p: cobj,
+    fac00_p: cobj,
+    fac01_p: cobj,
+    fac10_p: cobj,
+    fac11_p: cobj,
+    selffac_p: cobj,
+    selffrac_p: cobj,
+    forfac_p: cobj,
+    forfrac_p: cobj,
+    chi_mls_p: cobj,
+    fracrefa_p: cobj,
+    fracrefb_p: cobj,
+    absa_p: cobj,
+    absb_p: cobj,
+    selfref_p: cobj,
+    forref_p: cobj,
+    fracs_p: cobj,
+    taug_p: cobj,
+):
+    colh2o = Ptr[float](colh2o_p)
+    colch4 = Ptr[float](colch4_p)
+    rat_h2och4 = Ptr[float](rat_h2och4_p)
+    rat_h2och4_1 = Ptr[float](rat_h2och4_1_p)
+    jp = Ptr[int](jp_p)
+    jt = Ptr[int](jt_p)
+    jt1 = Ptr[int](jt1_p)
+    indself = Ptr[int](indself_p)
+    indfor = Ptr[int](indfor_p)
+    fac00 = Ptr[float](fac00_p)
+    fac01 = Ptr[float](fac01_p)
+    fac10 = Ptr[float](fac10_p)
+    fac11 = Ptr[float](fac11_p)
+    selffac = Ptr[float](selffac_p)
+    selffrac = Ptr[float](selffrac_p)
+    forfac = Ptr[float](forfac_p)
+    forfrac = Ptr[float](forfrac_p)
+    chi_mls = Ptr[float](chi_mls_p)
+    fracrefa = Ptr[float](fracrefa_p)
+    fracrefb = Ptr[float](fracrefb_p)
+    absa = Ptr[float](absa_p)
+    absb = Ptr[float](absb_p)
+    selfref = Ptr[float](selfref_p)
+    forref = Ptr[float](forref_p)
+    fracs = Ptr[float](fracs_p)
+    taug = Ptr[float](taug_p)
+
+    refrat_planck_a = chi_mls[_idx2(1, 6, 7)] / chi_mls[_idx2(6, 6, 7)]
+
+    for lay in range(1, laytrop + 1):
+        speccomb = colh2o[lay - 1] + rat_h2och4[lay - 1] * colch4[lay - 1]
+        specparm = colh2o[lay - 1] / speccomb
+        if specparm >= oneminus:
+            specparm = oneminus
+        specmult = 8.0 * specparm
+        js = 1 + int(specmult)
+        fs = specmult - float(int(specmult))
+
+        speccomb1 = colh2o[lay - 1] + rat_h2och4_1[lay - 1] * colch4[lay - 1]
+        specparm1 = colh2o[lay - 1] / speccomb1
+        if specparm1 >= oneminus:
+            specparm1 = oneminus
+        specmult1 = 8.0 * specparm1
+        js1 = 1 + int(specmult1)
+        fs1 = specmult1 - float(int(specmult1))
+
+        speccomb_planck = colh2o[lay - 1] + refrat_planck_a * colch4[lay - 1]
+        specparm_planck = colh2o[lay - 1] / speccomb_planck
+        if specparm_planck >= oneminus:
+            specparm_planck = oneminus
+        specmult_planck = 8.0 * specparm_planck
+        jpl = 1 + int(specmult_planck)
+        fpl = specmult_planck - float(int(specmult_planck))
+
+        ind0 = ((jp[lay - 1] - 1) * 5 + (jt[lay - 1] - 1)) * nspa16 + js
+        ind1 = (jp[lay - 1] * 5 + (jt1[lay - 1] - 1)) * nspa16 + js1
+        inds = indself[lay - 1]
+        indf = indfor[lay - 1]
+
+        if specparm < 0.125:
+            p = fs - 1.0
+            p4 = p**4
+            fk0 = p4
+            fk1 = 1.0 - p - 2.0 * p4
+            fk2 = p + p4
+            fac000 = fk0 * fac00[lay - 1]
+            fac100 = fk1 * fac00[lay - 1]
+            fac200 = fk2 * fac00[lay - 1]
+            fac010 = fk0 * fac10[lay - 1]
+            fac110 = fk1 * fac10[lay - 1]
+            fac210 = fk2 * fac10[lay - 1]
+        elif specparm > 0.875:
+            p = -fs
+            p4 = p**4
+            fk0 = p4
+            fk1 = 1.0 - p - 2.0 * p4
+            fk2 = p + p4
+            fac000 = fk0 * fac00[lay - 1]
+            fac100 = fk1 * fac00[lay - 1]
+            fac200 = fk2 * fac00[lay - 1]
+            fac010 = fk0 * fac10[lay - 1]
+            fac110 = fk1 * fac10[lay - 1]
+            fac210 = fk2 * fac10[lay - 1]
+        else:
+            fac000 = (1.0 - fs) * fac00[lay - 1]
+            fac010 = (1.0 - fs) * fac10[lay - 1]
+            fac100 = fs * fac00[lay - 1]
+            fac110 = fs * fac10[lay - 1]
+
+        if specparm1 < 0.125:
+            p = fs1 - 1.0
+            p4 = p**4
+            fk0 = p4
+            fk1 = 1.0 - p - 2.0 * p4
+            fk2 = p + p4
+            fac001 = fk0 * fac01[lay - 1]
+            fac101 = fk1 * fac01[lay - 1]
+            fac201 = fk2 * fac01[lay - 1]
+            fac011 = fk0 * fac11[lay - 1]
+            fac111 = fk1 * fac11[lay - 1]
+            fac211 = fk2 * fac11[lay - 1]
+        elif specparm1 > 0.875:
+            p = -fs1
+            p4 = p**4
+            fk0 = p4
+            fk1 = 1.0 - p - 2.0 * p4
+            fk2 = p + p4
+            fac001 = fk0 * fac01[lay - 1]
+            fac101 = fk1 * fac01[lay - 1]
+            fac201 = fk2 * fac01[lay - 1]
+            fac011 = fk0 * fac11[lay - 1]
+            fac111 = fk1 * fac11[lay - 1]
+            fac211 = fk2 * fac11[lay - 1]
+        else:
+            fac001 = (1.0 - fs1) * fac01[lay - 1]
+            fac011 = (1.0 - fs1) * fac11[lay - 1]
+            fac101 = fs1 * fac01[lay - 1]
+            fac111 = fs1 * fac11[lay - 1]
+
+        for ig in range(1, ng16 + 1):
+            tauself = selffac[lay - 1] * (
+                selfref[_idx2(inds, ig, 10)]
+                + selffrac[lay - 1]
+                * (selfref[_idx2(inds + 1, ig, 10)] - selfref[_idx2(inds, ig, 10)])
+            )
+            taufor = forfac[lay - 1] * (
+                forref[_idx2(indf, ig, 4)]
+                + forfrac[lay - 1]
+                * (forref[_idx2(indf + 1, ig, 4)] - forref[_idx2(indf, ig, 4)])
+            )
+
+            if specparm < 0.125:
+                tau_major = speccomb * (
+                    fac000 * absa[_idx2(ind0, ig, 585)]
+                    + fac100 * absa[_idx2(ind0 + 1, ig, 585)]
+                    + fac200 * absa[_idx2(ind0 + 2, ig, 585)]
+                    + fac010 * absa[_idx2(ind0 + 9, ig, 585)]
+                    + fac110 * absa[_idx2(ind0 + 10, ig, 585)]
+                    + fac210 * absa[_idx2(ind0 + 11, ig, 585)]
+                )
+            elif specparm > 0.875:
+                tau_major = speccomb * (
+                    fac200 * absa[_idx2(ind0 - 1, ig, 585)]
+                    + fac100 * absa[_idx2(ind0, ig, 585)]
+                    + fac000 * absa[_idx2(ind0 + 1, ig, 585)]
+                    + fac210 * absa[_idx2(ind0 + 8, ig, 585)]
+                    + fac110 * absa[_idx2(ind0 + 9, ig, 585)]
+                    + fac010 * absa[_idx2(ind0 + 10, ig, 585)]
+                )
+            else:
+                tau_major = speccomb * (
+                    fac000 * absa[_idx2(ind0, ig, 585)]
+                    + fac100 * absa[_idx2(ind0 + 1, ig, 585)]
+                    + fac010 * absa[_idx2(ind0 + 9, ig, 585)]
+                    + fac110 * absa[_idx2(ind0 + 10, ig, 585)]
+                )
+
+            if specparm1 < 0.125:
+                tau_major1 = speccomb1 * (
+                    fac001 * absa[_idx2(ind1, ig, 585)]
+                    + fac101 * absa[_idx2(ind1 + 1, ig, 585)]
+                    + fac201 * absa[_idx2(ind1 + 2, ig, 585)]
+                    + fac011 * absa[_idx2(ind1 + 9, ig, 585)]
+                    + fac111 * absa[_idx2(ind1 + 10, ig, 585)]
+                    + fac211 * absa[_idx2(ind1 + 11, ig, 585)]
+                )
+            elif specparm1 > 0.875:
+                tau_major1 = speccomb1 * (
+                    fac201 * absa[_idx2(ind1 - 1, ig, 585)]
+                    + fac101 * absa[_idx2(ind1, ig, 585)]
+                    + fac001 * absa[_idx2(ind1 + 1, ig, 585)]
+                    + fac211 * absa[_idx2(ind1 + 8, ig, 585)]
+                    + fac111 * absa[_idx2(ind1 + 9, ig, 585)]
+                    + fac011 * absa[_idx2(ind1 + 10, ig, 585)]
+                )
+            else:
+                tau_major1 = speccomb1 * (
+                    fac001 * absa[_idx2(ind1, ig, 585)]
+                    + fac101 * absa[_idx2(ind1 + 1, ig, 585)]
+                    + fac011 * absa[_idx2(ind1 + 9, ig, 585)]
+                    + fac111 * absa[_idx2(ind1 + 10, ig, 585)]
+                )
+
+            taug[_idx2(lay, ngs15 + ig, nlayers)] = tau_major + tau_major1 + tauself + taufor
+            fracs[_idx2(lay, ngs15 + ig, nlayers)] = fracrefa[
+                _idx2(ig, jpl, ng16)
+            ] + fpl * (
+                fracrefa[_idx2(ig, jpl + 1, ng16)] - fracrefa[_idx2(ig, jpl, ng16)]
+            )
+
+    for lay in range(laytrop + 1, nlayers + 1):
+        ind0 = ((jp[lay - 1] - 13) * 5 + (jt[lay - 1] - 1)) * nspb16 + 1
+        ind1 = ((jp[lay - 1] - 12) * 5 + (jt1[lay - 1] - 1)) * nspb16 + 1
+        for ig in range(1, ng16 + 1):
+            taug[_idx2(lay, ngs15 + ig, nlayers)] = colch4[lay - 1] * (
+                fac00[lay - 1] * absb[_idx2(ind0, ig, 235)]
+                + fac10[lay - 1] * absb[_idx2(ind0 + 1, ig, 235)]
+                + fac01[lay - 1] * absb[_idx2(ind1, ig, 235)]
+                + fac11[lay - 1] * absb[_idx2(ind1 + 1, ig, 235)]
+            )
+            fracs[_idx2(lay, ngs15 + ig, nlayers)] = fracrefb[ig - 1]
+
+
+@export
 def rrtmg_lw_setcoef_codon(
     nlayers: int,
     istart: int,
