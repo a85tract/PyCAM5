@@ -3756,6 +3756,31 @@ def rrtmg_lw_subcol_seed_init_codon(
 
 
 @export
+def rrtmg_lw_subcol_kiss_random_case2_codon(
+    ncol: int,
+    nlay: int,
+    nsubcol: int,
+    seed1_p: cobj,
+    seed2_p: cobj,
+    seed3_p: cobj,
+    seed4_p: cobj,
+    cdf_p: cobj,
+):
+    seed1 = Ptr[i32](seed1_p)
+    seed2 = Ptr[i32](seed2_p)
+    seed3 = Ptr[i32](seed3_p)
+    seed4 = Ptr[i32](seed4_p)
+    cdf = Ptr[float](cdf_p)
+
+    for isubcol in range(1, nsubcol + 1):
+        for ilev in range(1, nlay + 1):
+            for i in range(1, ncol + 1):
+                cdf[_idx3(isubcol, i, ilev, nsubcol, ncol)] = _rrtmg_kiss_next_i32(
+                    i - 1, seed1, seed2, seed3, seed4
+                )
+
+
+@export
 def rrtmg_lw_subcol_overlap_codon(
     ncol: int,
     nlay: int,
