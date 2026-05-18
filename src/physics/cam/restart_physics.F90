@@ -1,6 +1,7 @@
 module restart_physics
 
   use shr_kind_mod,       only: r8 => shr_kind_r8
+  use iso_c_binding,      only: c_double, c_int64_t, c_loc, c_ptr
   use spmd_utils,         only: masterproc
   use ppgrid,             only: pcols, pver, pverp, begchunk, endchunk
   use constituents,       only: pcnst
@@ -55,6 +56,10 @@ module restart_physics
     type(var_desc_t), allocatable :: abstot_desc(:)
 
     type(var_desc_t) :: cospcnt_desc
+
+    logical :: use_native_restart_pack_impl = .false.
+    logical :: restart_pack_impl_selected = .false.
+    logical :: restart_pack_entered_logged = .false.
 
   CONTAINS
     subroutine init_restart_physics ( File, pbuf2d, hdimids)
@@ -225,7 +230,7 @@ module restart_physics
       !
       ! Local workspace
       !
-      real(r8):: tmpfield(pcols*(endchunk-begchunk+1))
+      real(r8), target :: tmpfield(pcols*(endchunk-begchunk+1))
       integer :: i, ii, j, m       ! loop index
       integer :: n3tmp             ! timestep index
       character(len=256) fname  ! abs-ems restart filename
@@ -252,21 +257,13 @@ module restart_physics
          call write_prescribed_aero_restart(File)
          call write_prescribed_volcaero_restart(File)
  
+         call restart_physics_select_pack_impl()
+
 	 do i=begchunk,endchunk
             ncol = cam_out(i)%ncol
-            if(ncol<pcols) then
-               fsnt(ncol+1:pcols,i) = fillvalue
-               fsns(ncol+1:pcols,i) = fillvalue
-               fsds(ncol+1:pcols,i) = fillvalue
-               flnt(ncol+1:pcols,i) = fillvalue
-               flns(ncol+1:pcols,i) = fillvalue
-               landm(ncol+1:pcols,i) = fillvalue
-               sgh(ncol+1:pcols,i) = fillvalue
-               sgh30(ncol+1:pcols,i) = fillvalue
-
-               trefmxav(ncol+1:pcols,i) = fillvalue
-               trefmnav(ncol+1:pcols,i) = fillvalue
-            end if
+            call restart_physics_fill_tail_wrap(ncol, fillvalue, fsnt(:,i), fsns(:,i), &
+                 fsds(:,i), flnt(:,i), flns(:,i), landm(:,i), sgh(:,i), sgh30(:,i), &
+                 trefmxav(:,i), trefmnav(:,i))
          end do
 
 ! the transfer intrinsic function fails if we are writting a 0 sized array, but the call to pio_write_darray 
@@ -288,167 +285,103 @@ module restart_physics
          call pio_write_darray(File, trefmxav_desc, iodesc, trefmxav, ierr)
          call pio_write_darray(File, trefmnav_desc, iodesc, trefmnav, ierr)
 
-	 ii=0
-         tmpfield(:) = fillvalue
+         call restart_physics_tmpfield_fill_wrap(size(tmpfield), fillvalue, tmpfield)
          do i=begchunk,endchunk
             ncol = cam_out(i)%ncol
-            do j=1,pcols
-               ii=ii+1
-	       if(j<=ncol) tmpfield(ii) = cam_out(i)%flwds(j)
-            end do
+            call restart_physics_pack_chunk_field_wrap(ncol, i-begchunk+1, cam_out(i)%flwds, tmpfield)
          end do
          call pio_write_darray(File, flwds_desc, iodesc, tmpfield, ierr)
 
-	 ii=0
          do i=begchunk,endchunk
             ncol = cam_out(i)%ncol
-            do j=1,pcols
-               ii=ii+1
-               if(j<=ncol) tmpfield(ii) = cam_out(i)%sols(j)
-            end do
+            call restart_physics_pack_chunk_field_wrap(ncol, i-begchunk+1, cam_out(i)%sols, tmpfield)
          end do
          call pio_write_darray(File, sols_desc, iodesc, tmpfield, ierr)
 
-	 ii=0
          do i=begchunk,endchunk
             ncol = cam_out(i)%ncol
-            do j=1,pcols
-               ii=ii+1
-               if(j<=ncol) tmpfield(ii) = cam_out(i)%soll(j)
-            end do
+            call restart_physics_pack_chunk_field_wrap(ncol, i-begchunk+1, cam_out(i)%soll, tmpfield)
          end do
          call pio_write_darray(File, soll_desc, iodesc, tmpfield, ierr)
 
-	 ii=0
          do i=begchunk,endchunk
             ncol = cam_out(i)%ncol
-            do j=1,pcols
-               ii=ii+1
-               if(j<=ncol) tmpfield(ii) = cam_out(i)%solsd(j)
-            end do
+            call restart_physics_pack_chunk_field_wrap(ncol, i-begchunk+1, cam_out(i)%solsd, tmpfield)
          end do
          call pio_write_darray(File, solsd_desc, iodesc, tmpfield, ierr)
 
-	 ii=0
          do i=begchunk,endchunk
             ncol = cam_out(i)%ncol
-            do j=1,pcols
-               ii=ii+1
-               if(j<=ncol) tmpfield(ii) = cam_out(i)%solld(j)
-            end do
+            call restart_physics_pack_chunk_field_wrap(ncol, i-begchunk+1, cam_out(i)%solld, tmpfield)
          end do
          call pio_write_darray(File, solld_desc, iodesc, tmpfield, ierr)
 
-	 ii=0
          do i=begchunk,endchunk
             ncol = cam_out(i)%ncol
-            do j=1,pcols
-               ii=ii+1
-               if(j<=ncol) tmpfield(ii) = cam_out(i)%bcphidry(j)
-            end do
+            call restart_physics_pack_chunk_field_wrap(ncol, i-begchunk+1, cam_out(i)%bcphidry, tmpfield)
          end do
          call pio_write_darray(File, bcphidry_desc, iodesc, tmpfield, ierr)
 
-	 ii=0
          do i=begchunk,endchunk
             ncol = cam_out(i)%ncol
-            do j=1,pcols
-               ii=ii+1
-               if(j<=ncol) tmpfield(ii) = cam_out(i)%bcphodry(j)
-            end do
+            call restart_physics_pack_chunk_field_wrap(ncol, i-begchunk+1, cam_out(i)%bcphodry, tmpfield)
          end do
          call pio_write_darray(File, bcphodry_desc, iodesc, tmpfield, ierr)
 
-	 ii=0
          do i=begchunk,endchunk
             ncol = cam_out(i)%ncol
-            do j=1,pcols
-               ii=ii+1
-               if(j<=ncol) tmpfield(ii) = cam_out(i)%ocphidry(j)
-            end do
+            call restart_physics_pack_chunk_field_wrap(ncol, i-begchunk+1, cam_out(i)%ocphidry, tmpfield)
          end do
          call pio_write_darray(File, ocphidry_desc, iodesc, tmpfield, ierr)
 
-	 ii=0
          do i=begchunk,endchunk
             ncol = cam_out(i)%ncol
-            do j=1,pcols
-               ii=ii+1
-               if(j<=ncol) tmpfield(ii) = cam_out(i)%ocphodry(j)
-            end do
+            call restart_physics_pack_chunk_field_wrap(ncol, i-begchunk+1, cam_out(i)%ocphodry, tmpfield)
          end do
          call pio_write_darray(File, ocphodry_desc, iodesc, tmpfield, ierr)
 
-	 ii=0
          do i=begchunk,endchunk
             ncol = cam_out(i)%ncol
-            do j=1,pcols
-               ii=ii+1
-               if(j<=ncol) tmpfield(ii) = cam_out(i)%dstdry1(j)
-            end do
+            call restart_physics_pack_chunk_field_wrap(ncol, i-begchunk+1, cam_out(i)%dstdry1, tmpfield)
          end do
          call pio_write_darray(File, dstdry1_desc, iodesc, tmpfield, ierr)
 
-	 ii=0
          do i=begchunk,endchunk
             ncol = cam_out(i)%ncol
-            do j=1,pcols
-               ii=ii+1
-               if(j<=ncol) tmpfield(ii) = cam_out(i)%dstdry2(j)
-            end do
+            call restart_physics_pack_chunk_field_wrap(ncol, i-begchunk+1, cam_out(i)%dstdry2, tmpfield)
          end do
          call pio_write_darray(File, dstdry2_desc, iodesc, tmpfield, ierr)
 
-	 ii=0
          do i=begchunk,endchunk
             ncol = cam_out(i)%ncol
-            do j=1,pcols
-               ii=ii+1
-               if(j<=ncol) tmpfield(ii) = cam_out(i)%dstdry3(j)
-            end do
+            call restart_physics_pack_chunk_field_wrap(ncol, i-begchunk+1, cam_out(i)%dstdry3, tmpfield)
          end do
          call pio_write_darray(File, dstdry3_desc, iodesc, tmpfield, ierr)
 
-	 ii=0
          do i=begchunk,endchunk
             ncol = cam_out(i)%ncol
-            do j=1,pcols
-               ii=ii+1
-               if(j<=ncol) tmpfield(ii) = cam_out(i)%dstdry4(j)
-            end do
+            call restart_physics_pack_chunk_field_wrap(ncol, i-begchunk+1, cam_out(i)%dstdry4, tmpfield)
          end do
          call pio_write_darray(File, dstdry4_desc, iodesc, tmpfield, ierr)
 
          if (co2_transport()) then
-            ii=0
             do i=begchunk,endchunk
                ncol = cam_out(i)%ncol
-               do j=1,pcols
-                  ii=ii+1
-                  if(j<=ncol) tmpfield(ii) = cam_out(i)%co2prog(j)
-               end do
+               call restart_physics_pack_chunk_field_wrap(ncol, i-begchunk+1, cam_out(i)%co2prog, tmpfield)
             end do
             call pio_write_darray(File, co2prog_desc, iodesc, tmpfield, ierr)
-            ii=0
             do i=begchunk,endchunk
                ncol = cam_out(i)%ncol
-               do j=1,pcols
-                  ii=ii+1
-                  if(j<=ncol) tmpfield(ii) = cam_out(i)%co2diag(j)
-               end do
+               call restart_physics_pack_chunk_field_wrap(ncol, i-begchunk+1, cam_out(i)%co2diag, tmpfield)
             end do
             call pio_write_darray(File, co2diag_desc, iodesc, tmpfield, ierr)
          end if
 
          ! cam_in components
          do m = 1, pcnst
-            ii = 0
             do i = begchunk, endchunk
                ncol = cam_in(i)%ncol
-               do j = 1, pcols
-                  ii = ii + 1
-                  if (j <= ncol) tmpfield(ii) = cam_in(i)%cflx(j,m)
-               end do
+               call restart_physics_pack_chunk_field_wrap(ncol, i-begchunk+1, cam_in(i)%cflx(:,m), tmpfield)
             end do
             call pio_write_darray(File, cflx_desc(m), iodesc, tmpfield, ierr)
          end do
@@ -857,5 +790,132 @@ module restart_physics
      !	
      get_abs_restart_filepath = pname
    end function get_abs_restart_filepath
+
+   subroutine restart_physics_select_pack_impl()
+     character(len=32) :: impl_name
+     integer :: n, status
+
+     if (restart_pack_impl_selected) return
+
+     call get_environment_variable('RESTART_PHYSICS_PACK_IMPL', value=impl_name, length=n, status=status)
+     if (status == 0 .and. n > 0) then
+        use_native_restart_pack_impl = trim(adjustl(impl_name(:n))) == 'native'
+     else
+        use_native_restart_pack_impl = .false.
+     end if
+
+     if (masterproc) then
+        if (use_native_restart_pack_impl) then
+           write(iulog,*) 'restart_physics_pack implementation = native'
+        else
+           write(iulog,*) 'restart_physics_pack implementation = codon'
+        end if
+     end if
+
+     restart_pack_impl_selected = .true.
+   end subroutine restart_physics_select_pack_impl
+
+   subroutine restart_physics_log_pack_entry()
+     if (masterproc .and. .not. restart_pack_entered_logged) then
+        write(iulog,*) 'restart_physics_pack entered (tail fill/tmpfield pack helpers = codon)'
+        restart_pack_entered_logged = .true.
+     end if
+   end subroutine restart_physics_log_pack_entry
+
+   subroutine restart_physics_fill_tail_wrap(ncol_local, fillvalue_local, fsnt_local, fsns_local, &
+        fsds_local, flnt_local, flns_local, landm_local, sgh_local, sgh30_local, &
+        trefmxav_local, trefmnav_local)
+     integer, intent(in) :: ncol_local
+     real(r8), intent(in) :: fillvalue_local
+     real(r8), target, intent(inout) :: fsnt_local(pcols), fsns_local(pcols), fsds_local(pcols)
+     real(r8), target, intent(inout) :: flnt_local(pcols), flns_local(pcols), landm_local(pcols)
+     real(r8), target, intent(inout) :: sgh_local(pcols), sgh30_local(pcols)
+     real(r8), target, intent(inout) :: trefmxav_local(pcols), trefmnav_local(pcols)
+
+     interface
+        subroutine restart_physics_fill_tail_codon(ncol_c, pcols_c, fillvalue_c, &
+             fsnt_p, fsns_p, fsds_p, flnt_p, flns_p, landm_p, sgh_p, sgh30_p, &
+             trefmxav_p, trefmnav_p) bind(c, name="restart_physics_fill_tail_codon")
+          import c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: ncol_c, pcols_c
+          real(c_double), value :: fillvalue_c
+          type(c_ptr), value :: fsnt_p, fsns_p, fsds_p, flnt_p, flns_p, landm_p
+          type(c_ptr), value :: sgh_p, sgh30_p, trefmxav_p, trefmnav_p
+        end subroutine restart_physics_fill_tail_codon
+     end interface
+
+     if (use_native_restart_pack_impl) then
+        if (ncol_local < pcols) then
+           fsnt_local(ncol_local+1:pcols) = fillvalue_local
+           fsns_local(ncol_local+1:pcols) = fillvalue_local
+           fsds_local(ncol_local+1:pcols) = fillvalue_local
+           flnt_local(ncol_local+1:pcols) = fillvalue_local
+           flns_local(ncol_local+1:pcols) = fillvalue_local
+           landm_local(ncol_local+1:pcols) = fillvalue_local
+           sgh_local(ncol_local+1:pcols) = fillvalue_local
+           sgh30_local(ncol_local+1:pcols) = fillvalue_local
+           trefmxav_local(ncol_local+1:pcols) = fillvalue_local
+           trefmnav_local(ncol_local+1:pcols) = fillvalue_local
+        end if
+     else
+        call restart_physics_log_pack_entry()
+        call restart_physics_fill_tail_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), &
+             real(fillvalue_local, c_double), c_loc(fsnt_local(1)), c_loc(fsns_local(1)), &
+             c_loc(fsds_local(1)), c_loc(flnt_local(1)), c_loc(flns_local(1)), &
+             c_loc(landm_local(1)), c_loc(sgh_local(1)), c_loc(sgh30_local(1)), &
+             c_loc(trefmxav_local(1)), c_loc(trefmnav_local(1)))
+     end if
+   end subroutine restart_physics_fill_tail_wrap
+
+   subroutine restart_physics_tmpfield_fill_wrap(total_len_local, fillvalue_local, tmpfield_local)
+     integer, intent(in) :: total_len_local
+     real(r8), intent(in) :: fillvalue_local
+     real(r8), target, intent(inout) :: tmpfield_local(total_len_local)
+
+     interface
+        subroutine restart_physics_tmpfield_fill_codon(total_len_c, fillvalue_c, tmpfield_p) &
+             bind(c, name="restart_physics_tmpfield_fill_codon")
+          import c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: total_len_c
+          real(c_double), value :: fillvalue_c
+          type(c_ptr), value :: tmpfield_p
+        end subroutine restart_physics_tmpfield_fill_codon
+     end interface
+
+     if (use_native_restart_pack_impl) then
+        tmpfield_local(:) = fillvalue_local
+     else
+        call restart_physics_log_pack_entry()
+        call restart_physics_tmpfield_fill_codon(int(total_len_local, c_int64_t), &
+             real(fillvalue_local, c_double), c_loc(tmpfield_local(1)))
+     end if
+   end subroutine restart_physics_tmpfield_fill_wrap
+
+   subroutine restart_physics_pack_chunk_field_wrap(ncol_local, chunk_pos_local, field_local, tmpfield_local)
+     integer, intent(in) :: ncol_local, chunk_pos_local
+     real(r8), target, intent(in) :: field_local(pcols)
+     real(r8), target, intent(inout) :: tmpfield_local(pcols*(endchunk-begchunk+1))
+     integer :: j, offset
+
+     interface
+        subroutine restart_physics_pack_chunk_field_codon(ncol_c, pcols_c, chunk_pos_c, field_p, tmpfield_p) &
+             bind(c, name="restart_physics_pack_chunk_field_codon")
+          import c_int64_t, c_ptr
+          integer(c_int64_t), value :: ncol_c, pcols_c, chunk_pos_c
+          type(c_ptr), value :: field_p, tmpfield_p
+        end subroutine restart_physics_pack_chunk_field_codon
+     end interface
+
+     if (use_native_restart_pack_impl) then
+        offset = (chunk_pos_local - 1) * pcols
+        do j = 1, pcols
+           if (j <= ncol_local) tmpfield_local(offset + j) = field_local(j)
+        end do
+     else
+        call restart_physics_log_pack_entry()
+        call restart_physics_pack_chunk_field_codon(int(ncol_local, c_int64_t), int(pcols, c_int64_t), &
+             int(chunk_pos_local, c_int64_t), c_loc(field_local(1)), c_loc(tmpfield_local(1)))
+     end if
+   end subroutine restart_physics_pack_chunk_field_wrap
 
  end module restart_physics

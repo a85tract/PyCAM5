@@ -2320,3 +2320,69 @@ def phys_grid_get_lookup_real_vec_codon(
     for i in range(lth):
         col = int(cols[i])
         dst[i] = lookup[int(idx[col - 1]) - 1]
+
+
+@export
+def restart_physics_fill_tail_codon(
+    ncol: int,
+    pcols: int,
+    fillvalue: float,
+    fsnt_p: cobj,
+    fsns_p: cobj,
+    fsds_p: cobj,
+    flnt_p: cobj,
+    flns_p: cobj,
+    landm_p: cobj,
+    sgh_p: cobj,
+    sgh30_p: cobj,
+    trefmxav_p: cobj,
+    trefmnav_p: cobj,
+):
+    fsnt = Ptr[float](fsnt_p)
+    fsns = Ptr[float](fsns_p)
+    fsds = Ptr[float](fsds_p)
+    flnt = Ptr[float](flnt_p)
+    flns = Ptr[float](flns_p)
+    landm = Ptr[float](landm_p)
+    sgh = Ptr[float](sgh_p)
+    sgh30 = Ptr[float](sgh30_p)
+    trefmxav = Ptr[float](trefmxav_p)
+    trefmnav = Ptr[float](trefmnav_p)
+
+    for i in range(ncol + 1, pcols + 1):
+        idx = i - 1
+        fsnt[idx] = fillvalue
+        fsns[idx] = fillvalue
+        fsds[idx] = fillvalue
+        flnt[idx] = fillvalue
+        flns[idx] = fillvalue
+        landm[idx] = fillvalue
+        sgh[idx] = fillvalue
+        sgh30[idx] = fillvalue
+        trefmxav[idx] = fillvalue
+        trefmnav[idx] = fillvalue
+
+
+@export
+def restart_physics_tmpfield_fill_codon(total_len: int, fillvalue: float, tmpfield_p: cobj):
+    tmpfield = Ptr[float](tmpfield_p)
+
+    for i in range(total_len):
+        tmpfield[i] = fillvalue
+
+
+@export
+def restart_physics_pack_chunk_field_codon(
+    ncol: int,
+    pcols: int,
+    chunk_pos: int,
+    field_p: cobj,
+    tmpfield_p: cobj,
+):
+    field = Ptr[float](field_p)
+    tmpfield = Ptr[float](tmpfield_p)
+    offset = (chunk_pos - 1) * pcols
+
+    for j in range(1, pcols + 1):
+        if j <= ncol:
+            tmpfield[offset + j - 1] = field[j - 1]
