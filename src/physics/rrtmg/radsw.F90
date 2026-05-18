@@ -110,15 +110,15 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    integer, intent(in) :: ncol              ! number of atmospheric columns
    integer, intent(in) :: rrtmg_levs        ! number of levels rad is applied
 
-    type(rrtmg_state_t), intent(in) :: r_state
+    type(rrtmg_state_t), target, intent(in) :: r_state
 
    integer, intent(in) :: Nday                      ! Number of daylight columns
    integer, intent(in) :: Nnite                     ! Number of night columns
    integer, intent(in), dimension(pcols) :: IdxDay  ! Indicies of daylight coumns
    integer, intent(in), dimension(pcols) :: IdxNite ! Indicies of night coumns
 
-   real(r8), intent(in) :: E_pmid(pcols,pver)  ! Level pressure (Pascals)
-   real(r8), intent(in) :: E_cld(pcols,pver)    ! Fractional cloud cover
+   real(r8), target, intent(in) :: E_pmid(pcols,pver)  ! Level pressure (Pascals)
+   real(r8), target, intent(in) :: E_cld(pcols,pver)    ! Fractional cloud cover
 
    real(r8), target, intent(in) :: E_aer_tau    (pcols, 0:pver, nbndsw)      ! aerosol optical depth
    real(r8), target, intent(in) :: E_aer_tau_w  (pcols, 0:pver, nbndsw)      ! aerosol OD * ssa
@@ -126,11 +126,11 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    real(r8), intent(in) :: E_aer_tau_w_f(pcols, 0:pver, nbndsw)      ! aerosol OD * ssa * fwd
 
    real(r8), intent(in) :: eccf               ! Eccentricity factor (1./earth-sun dist^2)
-   real(r8), intent(in) :: E_coszrs(pcols)    ! Cosine solar zenith angle
-   real(r8), intent(in) :: E_asdir(pcols)     ! 0.2-0.7 micro-meter srfc alb: direct rad
-   real(r8), intent(in) :: E_aldir(pcols)     ! 0.7-5.0 micro-meter srfc alb: direct rad
-   real(r8), intent(in) :: E_asdif(pcols)     ! 0.2-0.7 micro-meter srfc alb: diffuse rad
-   real(r8), intent(in) :: E_aldif(pcols)     ! 0.7-5.0 micro-meter srfc alb: diffuse rad
+   real(r8), target, intent(in) :: E_coszrs(pcols)    ! Cosine solar zenith angle
+   real(r8), target, intent(in) :: E_asdir(pcols)     ! 0.2-0.7 micro-meter srfc alb: direct rad
+   real(r8), target, intent(in) :: E_aldir(pcols)     ! 0.7-5.0 micro-meter srfc alb: direct rad
+   real(r8), target, intent(in) :: E_asdif(pcols)     ! 0.2-0.7 micro-meter srfc alb: diffuse rad
+   real(r8), target, intent(in) :: E_aldif(pcols)     ! 0.7-5.0 micro-meter srfc alb: diffuse rad
    real(r8), target, intent(in) :: sfac(nbndsw)            ! factor to account for solar variability in each band
 
    real(r8), target, optional, intent(in) :: E_cld_tau    (nbndsw, pcols, pver)      ! cloud optical depth
@@ -172,26 +172,26 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
 
    ! Local and reordered copies of the intent(in) variables
 
-   real(r8) :: pmid(pcols,pver)    ! Level pressure (Pascals)
+   real(r8), target :: pmid(pcols,pver)    ! Level pressure (Pascals)
 
-   real(r8) :: cld(pcols,rrtmg_levs-1)    ! Fractional cloud cover
+   real(r8), target :: cld(pcols,rrtmg_levs-1)    ! Fractional cloud cover
    real(r8) :: cicewp(pcols,rrtmg_levs-1) ! in-cloud cloud ice water path
    real(r8) :: cliqwp(pcols,rrtmg_levs-1) ! in-cloud cloud liquid water path
    real(r8) :: rel(pcols,rrtmg_levs-1)    ! Liquid effective drop size (microns)
    real(r8) :: rei(pcols,rrtmg_levs-1)    ! Ice effective drop size (microns)
 
-   real(r8) :: coszrs(pcols)    ! Cosine solar zenith angle
-   real(r8) :: asdir(pcols)     ! 0.2-0.7 micro-meter srfc alb: direct rad
-   real(r8) :: aldir(pcols)     ! 0.7-5.0 micro-meter srfc alb: direct rad
-   real(r8) :: asdif(pcols)     ! 0.2-0.7 micro-meter srfc alb: diffuse rad
-   real(r8) :: aldif(pcols)     ! 0.7-5.0 micro-meter srfc alb: diffuse rad
+   real(r8), target :: coszrs(pcols)    ! Cosine solar zenith angle
+   real(r8), target :: asdir(pcols)     ! 0.2-0.7 micro-meter srfc alb: direct rad
+   real(r8), target :: aldir(pcols)     ! 0.7-5.0 micro-meter srfc alb: direct rad
+   real(r8), target :: asdif(pcols)     ! 0.2-0.7 micro-meter srfc alb: diffuse rad
+   real(r8), target :: aldif(pcols)     ! 0.7-5.0 micro-meter srfc alb: diffuse rad
 
-   real(r8) :: h2ovmr(pcols,rrtmg_levs)   ! h2o volume mixing ratio
-   real(r8) :: o3vmr(pcols,rrtmg_levs)    ! o3 volume mixing ratio
-   real(r8) :: co2vmr(pcols,rrtmg_levs)   ! co2 volume mixing ratio 
-   real(r8) :: ch4vmr(pcols,rrtmg_levs)   ! ch4 volume mixing ratio 
-   real(r8) :: o2vmr(pcols,rrtmg_levs)    ! o2  volume mixing ratio 
-   real(r8) :: n2ovmr(pcols,rrtmg_levs)   ! n2o volume mixing ratio 
+   real(r8), target :: h2ovmr(pcols,rrtmg_levs)   ! h2o volume mixing ratio
+   real(r8), target :: o3vmr(pcols,rrtmg_levs)    ! o3 volume mixing ratio
+   real(r8), target :: co2vmr(pcols,rrtmg_levs)   ! co2 volume mixing ratio
+   real(r8), target :: ch4vmr(pcols,rrtmg_levs)   ! ch4 volume mixing ratio
+   real(r8), target :: o2vmr(pcols,rrtmg_levs)    ! o2  volume mixing ratio
+   real(r8), target :: n2ovmr(pcols,rrtmg_levs)   ! n2o volume mixing ratio
 
    real(r8), target :: tsfc(pcols)          ! surface temperature
 
@@ -276,15 +276,31 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
 
    integer :: kk
 
-   real(r8) :: pmidmb(pcols,rrtmg_levs)   ! Level pressure (hPa)
-   real(r8) :: pintmb(pcols,rrtmg_levs+1) ! Model interface pressure (hPa)
-   real(r8) :: tlay(pcols,rrtmg_levs)     ! mid point temperature
+   real(r8), target :: pmidmb(pcols,rrtmg_levs)   ! Level pressure (hPa)
+   real(r8), target :: pintmb(pcols,rrtmg_levs+1) ! Model interface pressure (hPa)
+   real(r8), target :: tlay(pcols,rrtmg_levs)     ! mid point temperature
    real(r8), target :: tlev(pcols,rrtmg_levs+1)   ! interface temperature
    integer(c_int64_t), target :: IdxDay64(pcols)
    integer(c_int64_t), target :: IdxNite64(pcols)
    integer(c_int64_t) :: old_convert_flag64
 
    interface
+      subroutine rrtmg_sw_compact_inputs_codon(nday_c, nnite_c, pcols_c, pverp_c, rrtmg_levs_c, idxday_p, idxnite_p, &
+           e_pmid_p, e_cld_p, state_pintmb_p, state_pmidmb_p, state_h2ovmr_p, state_o3vmr_p, state_co2vmr_p, &
+           e_coszrs_p, e_asdir_p, e_aldir_p, e_asdif_p, e_aldif_p, state_tlay_p, state_tlev_p, state_ch4vmr_p, &
+           state_o2vmr_p, state_n2ovmr_p, pmid_p, cld_p, pintmb_p, pmidmb_p, h2ovmr_p, o3vmr_p, co2vmr_p, &
+           coszrs_p, asdir_p, aldir_p, asdif_p, aldif_p, tlay_p, tlev_p, ch4vmr_p, o2vmr_p, n2ovmr_p) &
+           bind(c, name="rrtmg_sw_compact_inputs_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: nday_c, nnite_c, pcols_c, pverp_c, rrtmg_levs_c
+         type(c_ptr), value :: idxday_p, idxnite_p
+         type(c_ptr), value :: e_pmid_p, e_cld_p, state_pintmb_p, state_pmidmb_p, state_h2ovmr_p
+         type(c_ptr), value :: state_o3vmr_p, state_co2vmr_p, e_coszrs_p, e_asdir_p, e_aldir_p
+         type(c_ptr), value :: e_asdif_p, e_aldif_p, state_tlay_p, state_tlev_p, state_ch4vmr_p
+         type(c_ptr), value :: state_o2vmr_p, state_n2ovmr_p, pmid_p, cld_p, pintmb_p, pmidmb_p
+         type(c_ptr), value :: h2ovmr_p, o3vmr_p, co2vmr_p, coszrs_p, asdir_p, aldir_p, asdif_p, aldif_p
+         type(c_ptr), value :: tlay_p, tlev_p, ch4vmr_p, o2vmr_p, n2ovmr_p
+      end subroutine rrtmg_sw_compact_inputs_codon
       subroutine rrtmg_sw_pre_codon(nday_c, pcols_c, pver_c, pverp_c, rrtmg_levs_c, nbndsw_c, &
            e_aer_tau_p, e_aer_tau_w_p, e_aer_tau_w_g_p, idxday_p, tau_aer_sw_p, ssa_aer_sw_p, asm_aer_sw_p, &
            tlev_p, sfac_p, tsfc_p, solvar_p) bind(c, name="rrtmg_sw_pre_codon")
@@ -398,28 +414,43 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    end if
 
    ! Rearrange input arrays
-   call CmpDayNite(E_pmid(:,pverp-rrtmg_levs+1:pver), pmid(:,1:rrtmg_levs-1), &
-        Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs-1)
-   call CmpDayNite(E_cld(:,pverp-rrtmg_levs+1:pver),  cld(:,1:rrtmg_levs-1), &
-        Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs-1)
+   if (use_native_rrtmg_sw_driver_impl) then
+      call CmpDayNite(E_pmid(:,pverp-rrtmg_levs+1:pver), pmid(:,1:rrtmg_levs-1), &
+           Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs-1)
+      call CmpDayNite(E_cld(:,pverp-rrtmg_levs+1:pver),  cld(:,1:rrtmg_levs-1), &
+           Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs-1)
 
-   call CmpDayNite(r_state%pintmb, pintmb, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs+1)
-   call CmpDayNite(r_state%pmidmb, pmidmb, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
-   call CmpDayNite(r_state%h2ovmr, h2ovmr, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
-   call CmpDayNite(r_state%o3vmr,  o3vmr,  Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
-   call CmpDayNite(r_state%co2vmr, co2vmr, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
+      call CmpDayNite(r_state%pintmb, pintmb, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs+1)
+      call CmpDayNite(r_state%pmidmb, pmidmb, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
+      call CmpDayNite(r_state%h2ovmr, h2ovmr, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
+      call CmpDayNite(r_state%o3vmr,  o3vmr,  Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
+      call CmpDayNite(r_state%co2vmr, co2vmr, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
 
-   call CmpDayNite(E_coszrs, coszrs,    Nday, IdxDay, Nnite, IdxNite, 1, pcols)
-   call CmpDayNite(E_asdir,  asdir,     Nday, IdxDay, Nnite, IdxNite, 1, pcols)
-   call CmpDayNite(E_aldir,  aldir,     Nday, IdxDay, Nnite, IdxNite, 1, pcols)
-   call CmpDayNite(E_asdif,  asdif,     Nday, IdxDay, Nnite, IdxNite, 1, pcols)
-   call CmpDayNite(E_aldif,  aldif,     Nday, IdxDay, Nnite, IdxNite, 1, pcols)
+      call CmpDayNite(E_coszrs, coszrs,    Nday, IdxDay, Nnite, IdxNite, 1, pcols)
+      call CmpDayNite(E_asdir,  asdir,     Nday, IdxDay, Nnite, IdxNite, 1, pcols)
+      call CmpDayNite(E_aldir,  aldir,     Nday, IdxDay, Nnite, IdxNite, 1, pcols)
+      call CmpDayNite(E_asdif,  asdif,     Nday, IdxDay, Nnite, IdxNite, 1, pcols)
+      call CmpDayNite(E_aldif,  aldif,     Nday, IdxDay, Nnite, IdxNite, 1, pcols)
 
-   call CmpDayNite(r_state%tlay,   tlay,   Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
-   call CmpDayNite(r_state%tlev,   tlev,   Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs+1)
-   call CmpDayNite(r_state%ch4vmr, ch4vmr, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
-   call CmpDayNite(r_state%o2vmr,  o2vmr,  Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
-   call CmpDayNite(r_state%n2ovmr, n2ovmr, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
+      call CmpDayNite(r_state%tlay,   tlay,   Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
+      call CmpDayNite(r_state%tlev,   tlev,   Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs+1)
+      call CmpDayNite(r_state%ch4vmr, ch4vmr, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
+      call CmpDayNite(r_state%o2vmr,  o2vmr,  Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
+      call CmpDayNite(r_state%n2ovmr, n2ovmr, Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, rrtmg_levs)
+   else
+      call rrtmg_sw_compact_inputs_codon( &
+           int(Nday, c_int64_t), int(Nnite, c_int64_t), int(pcols, c_int64_t), int(pverp, c_int64_t), &
+           int(rrtmg_levs, c_int64_t), c_loc(IdxDay64(1)), c_loc(IdxNite64(1)), &
+           c_loc(E_pmid(1,1)), c_loc(E_cld(1,1)), c_loc(r_state%pintmb(1,1)), c_loc(r_state%pmidmb(1,1)), &
+           c_loc(r_state%h2ovmr(1,1)), c_loc(r_state%o3vmr(1,1)), c_loc(r_state%co2vmr(1,1)), &
+           c_loc(E_coszrs(1)), c_loc(E_asdir(1)), c_loc(E_aldir(1)), c_loc(E_asdif(1)), c_loc(E_aldif(1)), &
+           c_loc(r_state%tlay(1,1)), c_loc(r_state%tlev(1,1)), c_loc(r_state%ch4vmr(1,1)), &
+           c_loc(r_state%o2vmr(1,1)), c_loc(r_state%n2ovmr(1,1)), c_loc(pmid(1,1)), c_loc(cld(1,1)), &
+           c_loc(pintmb(1,1)), c_loc(pmidmb(1,1)), c_loc(h2ovmr(1,1)), c_loc(o3vmr(1,1)), c_loc(co2vmr(1,1)), &
+           c_loc(coszrs(1)), c_loc(asdir(1)), c_loc(aldir(1)), c_loc(asdif(1)), c_loc(aldif(1)), &
+           c_loc(tlay(1,1)), c_loc(tlev(1,1)), c_loc(ch4vmr(1,1)), c_loc(o2vmr(1,1)), c_loc(n2ovmr(1,1)) &
+      )
+   end if
 
    ! These fields are no longer input by CAM.
    cicewp = 0.0_r8
@@ -850,7 +881,8 @@ subroutine rrtmg_sw_driver_log_entered()
    rrtmg_sw_driver_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,*) 'rrtmg_sw_driver entered (aerosol pre/post helpers = codon; native pre/post blocks skipped; rrtmg_sw core = native)'
+      write(iulog,*) 'rrtmg_sw_driver entered (input compact/aerosol pre/post helpers = codon; ' // &
+           'native driver blocks skipped; rrtmg_sw core = native)'
       call flush(iulog)
    end if
 

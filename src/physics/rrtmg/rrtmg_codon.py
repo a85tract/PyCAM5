@@ -593,6 +593,160 @@ def rrtmg_lw_post_codon(
                 qrlc[_idx2(i, k, pcols)] = 0.0
 
 
+@inline
+def _radsw_compact_1d(
+    src: Ptr[float],
+    dst: Ptr[float],
+    nday: int,
+    nnite: int,
+    idxday: Ptr[int],
+    idxnite: Ptr[int],
+):
+    for pos in range(1, nday + 1):
+        dst[pos - 1] = src[idxday[pos - 1] - 1]
+    for pos in range(1, nnite + 1):
+        dst[nday + pos - 1] = src[idxnite[pos - 1] - 1]
+
+
+@inline
+def _radsw_compact_2d_same_levels(
+    src: Ptr[float],
+    dst: Ptr[float],
+    nday: int,
+    nnite: int,
+    nlev: int,
+    pcols: int,
+    idxday: Ptr[int],
+    idxnite: Ptr[int],
+):
+    for k in range(1, nlev + 1):
+        for pos in range(1, nday + 1):
+            dst[_idx2(pos, k, pcols)] = src[_idx2(idxday[pos - 1], k, pcols)]
+        for pos in range(1, nnite + 1):
+            dst[_idx2(nday + pos, k, pcols)] = src[_idx2(idxnite[pos - 1], k, pcols)]
+
+
+@inline
+def _radsw_compact_2d_level_offset(
+    src: Ptr[float],
+    dst: Ptr[float],
+    nday: int,
+    nnite: int,
+    nlev: int,
+    src_offset: int,
+    pcols: int,
+    idxday: Ptr[int],
+    idxnite: Ptr[int],
+):
+    for k in range(1, nlev + 1):
+        src_k = src_offset + k
+        for pos in range(1, nday + 1):
+            dst[_idx2(pos, k, pcols)] = src[_idx2(idxday[pos - 1], src_k, pcols)]
+        for pos in range(1, nnite + 1):
+            dst[_idx2(nday + pos, k, pcols)] = src[_idx2(idxnite[pos - 1], src_k, pcols)]
+
+
+@export
+def rrtmg_sw_compact_inputs_codon(
+    nday: int,
+    nnite: int,
+    pcols: int,
+    pverp: int,
+    rrtmg_levs: int,
+    idxday_p: cobj,
+    idxnite_p: cobj,
+    e_pmid_p: cobj,
+    e_cld_p: cobj,
+    state_pintmb_p: cobj,
+    state_pmidmb_p: cobj,
+    state_h2ovmr_p: cobj,
+    state_o3vmr_p: cobj,
+    state_co2vmr_p: cobj,
+    e_coszrs_p: cobj,
+    e_asdir_p: cobj,
+    e_aldir_p: cobj,
+    e_asdif_p: cobj,
+    e_aldif_p: cobj,
+    state_tlay_p: cobj,
+    state_tlev_p: cobj,
+    state_ch4vmr_p: cobj,
+    state_o2vmr_p: cobj,
+    state_n2ovmr_p: cobj,
+    pmid_p: cobj,
+    cld_p: cobj,
+    pintmb_p: cobj,
+    pmidmb_p: cobj,
+    h2ovmr_p: cobj,
+    o3vmr_p: cobj,
+    co2vmr_p: cobj,
+    coszrs_p: cobj,
+    asdir_p: cobj,
+    aldir_p: cobj,
+    asdif_p: cobj,
+    aldif_p: cobj,
+    tlay_p: cobj,
+    tlev_p: cobj,
+    ch4vmr_p: cobj,
+    o2vmr_p: cobj,
+    n2ovmr_p: cobj,
+):
+    idxday = Ptr[int](idxday_p)
+    idxnite = Ptr[int](idxnite_p)
+    e_pmid = Ptr[float](e_pmid_p)
+    e_cld = Ptr[float](e_cld_p)
+    state_pintmb = Ptr[float](state_pintmb_p)
+    state_pmidmb = Ptr[float](state_pmidmb_p)
+    state_h2ovmr = Ptr[float](state_h2ovmr_p)
+    state_o3vmr = Ptr[float](state_o3vmr_p)
+    state_co2vmr = Ptr[float](state_co2vmr_p)
+    e_coszrs = Ptr[float](e_coszrs_p)
+    e_asdir = Ptr[float](e_asdir_p)
+    e_aldir = Ptr[float](e_aldir_p)
+    e_asdif = Ptr[float](e_asdif_p)
+    e_aldif = Ptr[float](e_aldif_p)
+    state_tlay = Ptr[float](state_tlay_p)
+    state_tlev = Ptr[float](state_tlev_p)
+    state_ch4vmr = Ptr[float](state_ch4vmr_p)
+    state_o2vmr = Ptr[float](state_o2vmr_p)
+    state_n2ovmr = Ptr[float](state_n2ovmr_p)
+    pmid = Ptr[float](pmid_p)
+    cld = Ptr[float](cld_p)
+    pintmb = Ptr[float](pintmb_p)
+    pmidmb = Ptr[float](pmidmb_p)
+    h2ovmr = Ptr[float](h2ovmr_p)
+    o3vmr = Ptr[float](o3vmr_p)
+    co2vmr = Ptr[float](co2vmr_p)
+    coszrs = Ptr[float](coszrs_p)
+    asdir = Ptr[float](asdir_p)
+    aldir = Ptr[float](aldir_p)
+    asdif = Ptr[float](asdif_p)
+    aldif = Ptr[float](aldif_p)
+    tlay = Ptr[float](tlay_p)
+    tlev = Ptr[float](tlev_p)
+    ch4vmr = Ptr[float](ch4vmr_p)
+    o2vmr = Ptr[float](o2vmr_p)
+    n2ovmr = Ptr[float](n2ovmr_p)
+
+    src_offset = pverp - rrtmg_levs
+    _radsw_compact_2d_level_offset(e_pmid, pmid, nday, nnite, rrtmg_levs - 1, src_offset, pcols, idxday, idxnite)
+    _radsw_compact_2d_level_offset(e_cld, cld, nday, nnite, rrtmg_levs - 1, src_offset, pcols, idxday, idxnite)
+    _radsw_compact_2d_same_levels(state_pintmb, pintmb, nday, nnite, rrtmg_levs + 1, pcols, idxday, idxnite)
+    _radsw_compact_2d_same_levels(state_pmidmb, pmidmb, nday, nnite, rrtmg_levs, pcols, idxday, idxnite)
+    _radsw_compact_2d_same_levels(state_h2ovmr, h2ovmr, nday, nnite, rrtmg_levs, pcols, idxday, idxnite)
+    _radsw_compact_2d_same_levels(state_o3vmr, o3vmr, nday, nnite, rrtmg_levs, pcols, idxday, idxnite)
+    _radsw_compact_2d_same_levels(state_co2vmr, co2vmr, nday, nnite, rrtmg_levs, pcols, idxday, idxnite)
+    _radsw_compact_1d(e_coszrs, coszrs, nday, nnite, idxday, idxnite)
+    _radsw_compact_1d(e_asdir, asdir, nday, nnite, idxday, idxnite)
+    _radsw_compact_1d(e_aldir, aldir, nday, nnite, idxday, idxnite)
+    _radsw_compact_1d(e_asdif, asdif, nday, nnite, idxday, idxnite)
+    _radsw_compact_1d(e_aldif, aldif, nday, nnite, idxday, idxnite)
+    _radsw_compact_2d_same_levels(state_tlay, tlay, nday, nnite, rrtmg_levs, pcols, idxday, idxnite)
+    _radsw_compact_2d_same_levels(state_tlev, tlev, nday, nnite, rrtmg_levs + 1, pcols, idxday, idxnite)
+    _radsw_compact_2d_same_levels(state_ch4vmr, ch4vmr, nday, nnite, rrtmg_levs, pcols, idxday, idxnite)
+    _radsw_compact_2d_same_levels(state_o2vmr, o2vmr, nday, nnite, rrtmg_levs, pcols, idxday, idxnite)
+    _radsw_compact_2d_same_levels(state_n2ovmr, n2ovmr, nday, nnite, rrtmg_levs, pcols, idxday, idxnite)
+
+
 @export
 def rrtmg_sw_pre_codon(
     nday: int,
