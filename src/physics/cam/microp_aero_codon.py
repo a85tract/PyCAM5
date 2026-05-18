@@ -1,4 +1,4 @@
-from math import erf, log, sqrt
+from math import erf, exp, log, sqrt
 
 
 @inline
@@ -476,3 +476,83 @@ def nucleate_ice_cam_modal_so4_num_codon(
                     if val < 0.0:
                         val = 0.0
             so4_num[idx] = val
+
+
+@export
+def nucleate_ice_hetero_codon(T: float, ww: float, Ns: float, Nis_p: cobj, Nid_p: cobj):
+    Nis = Ptr[float](Nis_p)
+    Nid = Ptr[float](Nid_p)
+
+    A11 = 0.0263
+    A12 = -0.0185
+    A21 = 2.758
+    A22 = 1.3221
+    B11 = -0.008
+    B12 = -0.0468
+    B21 = -0.2667
+    B22 = -1.4588
+
+    B = (A11 + B11 * log(Ns)) * log(ww) + (A12 + B12 * log(Ns))
+    C = A21 + B21 * log(Ns)
+
+    nis_val = exp(A22) * (Ns ** B22) * exp(B * T) * (ww ** C)
+    if nis_val > Ns:
+        nis_val = Ns
+    Nis[0] = nis_val
+    Nid[0] = 0.0
+
+
+@export
+def nucleate_ice_hf_codon(T: float, ww: float, RH: float, Na: float, subgrid: float, Ni_p: cobj):
+    Ni = Ptr[float](Ni_p)
+
+    A1_fast = 0.0231
+    A21_fast = -1.6387
+    A22_fast = -6.045
+    B1_fast = -0.008
+    B21_fast = -0.042
+    B22_fast = -0.112
+    C1_fast = 0.0739
+    C2_fast = 1.2372
+
+    A1_slow = -0.3949
+    A2_slow = 1.282
+    B1_slow = -0.0156
+    B2_slow = 0.0111
+    B3_slow = 0.0217
+    C1_slow = 0.120
+    C2_slow = 2.312
+
+    ni_val = 0.0
+
+    A = 6.0e-4 * log(ww) + 6.6e-3
+    B = 6.0e-2 * log(ww) + 1.052
+    C = 1.68 * log(ww) + 129.35
+    RHw = (A * T * T + B * T + C) * 0.01
+
+    if (T <= -37.0) and ((RH * subgrid) >= RHw):
+        regm = 6.07 * log(ww) - 55.0
+
+        if T >= regm:
+            if T > -64.0:
+                A2_fast = A21_fast
+                B2_fast = B21_fast
+            else:
+                A2_fast = A22_fast
+                B2_fast = B22_fast
+
+            k1_fast = exp(A2_fast + B2_fast * T + C2_fast * log(ww))
+            k2_fast = A1_fast + B1_fast * T + C1_fast * log(ww)
+
+            ni_val = k1_fast * (Na ** k2_fast)
+            if ni_val > Na:
+                ni_val = Na
+        else:
+            k1_slow = exp(A2_slow + (B2_slow + B3_slow * log(ww)) * T + C2_slow * log(ww))
+            k2_slow = A1_slow + B1_slow * T + C1_slow * log(ww)
+
+            ni_val = k1_slow * (Na ** k2_slow)
+            if ni_val > Na:
+                ni_val = Na
+
+    Ni[0] = ni_val

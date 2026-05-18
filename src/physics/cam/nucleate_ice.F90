@@ -30,6 +30,7 @@ module nucleate_ice
 !-------------------------------------------------------------------------------
 
 use wv_saturation,  only: svp_water, svp_ice
+use iso_c_binding,  only: c_double, c_loc, c_ptr
 
 implicit none
 private
@@ -58,6 +59,10 @@ real(r8), parameter :: gamma4=6.0_r8
 
 real(r8) :: ci
 
+logical :: use_native_nucleate_ice_helpers_impl = .false.
+logical :: nucleate_ice_helpers_impl_selected = .false.
+logical :: nucleate_ice_helpers_entered_logged = .false.
+
 !===============================================================================
 contains
 !===============================================================================
@@ -83,6 +88,50 @@ subroutine nucleati_init( &
    ci = rhoice*pi/6._r8
 
 end subroutine nucleati_init
+
+!===============================================================================
+
+subroutine nucleate_ice_helpers_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (nucleate_ice_helpers_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('NUCLEATE_ICE_HELPERS_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_nucleate_ice_helpers_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_nucleate_ice_helpers_impl = .false.
+   end if
+
+   nucleate_ice_helpers_impl_selected = .true.
+
+   write(iulog,*) 'nucleate_ice_helpers implementation = ', &
+        merge('native', 'codon ', use_native_nucleate_ice_helpers_impl)
+   call flush(iulog)
+
+end subroutine nucleate_ice_helpers_select_impl
+
+!===============================================================================
+
+subroutine nucleate_ice_helpers_note_entered()
+
+   if (nucleate_ice_helpers_entered_logged) return
+   nucleate_ice_helpers_entered_logged = .true.
+
+   write(iulog,*) 'nucleate_ice_helpers entered (hf/hetero scalar helpers = codon; nucleati control = native)'
+   call flush(iulog)
+
+end subroutine nucleate_ice_helpers_note_entered
 
 !===============================================================================
 
@@ -337,7 +386,7 @@ end subroutine nucleati
 
 !===============================================================================
 
-subroutine hetero(T,ww,Ns,Nis,Nid)
+subroutine hetero_native(T,ww,Ns,Nis,Nid)
 
     real(r8), intent(in)  :: T, ww, Ns
     real(r8), intent(out) :: Nis, Nid
@@ -367,11 +416,44 @@ subroutine hetero(T,ww,Ns,Nis,Nid)
 
       Nid = 0.0_r8    ! don't include deposition nucleation for cirrus clouds when T<-37C
 
+end subroutine hetero_native
+
+!===============================================================================
+
+subroutine hetero(T,ww,Ns,Nis,Nid)
+
+    real(r8), intent(in)  :: T, ww, Ns
+    real(r8), intent(out) :: Nis, Nid
+
+    real(c_double), target :: Nis_c, Nid_c
+
+    interface
+       subroutine nucleate_ice_hetero_codon(T_c, ww_c, Ns_c, Nis_p, Nid_p) &
+            bind(c, name="nucleate_ice_hetero_codon")
+          use iso_c_binding, only: c_double, c_ptr
+          real(c_double), value :: T_c, ww_c, Ns_c
+          type(c_ptr), value :: Nis_p, Nid_p
+       end subroutine nucleate_ice_hetero_codon
+    end interface
+
+    call nucleate_ice_helpers_select_impl()
+
+    if (use_native_nucleate_ice_helpers_impl) then
+       call hetero_native(T, ww, Ns, Nis, Nid)
+       return
+    end if
+
+    call nucleate_ice_helpers_note_entered()
+    call nucleate_ice_hetero_codon(real(T, c_double), real(ww, c_double), real(Ns, c_double), &
+         c_loc(Nis_c), c_loc(Nid_c))
+    Nis = Nis_c
+    Nid = Nid_c
+
 end subroutine hetero
 
 !===============================================================================
 
-subroutine hf(T,ww,RH,Na,Ni)
+subroutine hf_native(T,ww,RH,Na,Ni)
 
       real(r8), intent(in)  :: T, ww, RH, Na
       real(r8), intent(out) :: Ni
@@ -445,6 +527,38 @@ subroutine hf(T,ww,RH,Na,Ni)
         endif
 
       end if
+
+end subroutine hf_native
+
+!===============================================================================
+
+subroutine hf(T,ww,RH,Na,Ni)
+
+      real(r8), intent(in)  :: T, ww, RH, Na
+      real(r8), intent(out) :: Ni
+
+      real(c_double), target :: Ni_c
+
+      interface
+         subroutine nucleate_ice_hf_codon(T_c, ww_c, RH_c, Na_c, subgrid_c, Ni_p) &
+              bind(c, name="nucleate_ice_hf_codon")
+            use iso_c_binding, only: c_double, c_ptr
+            real(c_double), value :: T_c, ww_c, RH_c, Na_c, subgrid_c
+            type(c_ptr), value :: Ni_p
+         end subroutine nucleate_ice_hf_codon
+      end interface
+
+      call nucleate_ice_helpers_select_impl()
+
+      if (use_native_nucleate_ice_helpers_impl) then
+         call hf_native(T, ww, RH, Na, Ni)
+         return
+      end if
+
+      call nucleate_ice_helpers_note_entered()
+      call nucleate_ice_hf_codon(real(T, c_double), real(ww, c_double), real(RH, c_double), &
+           real(Na, c_double), real(subgrid, c_double), c_loc(Ni_c))
+      Ni = Ni_c
 
 end subroutine hf
 
@@ -544,4 +658,3 @@ subroutine frachom(Tmean,RHimean,detaT,fhom)
 end subroutine frachom
 
 end module nucleate_ice
-
