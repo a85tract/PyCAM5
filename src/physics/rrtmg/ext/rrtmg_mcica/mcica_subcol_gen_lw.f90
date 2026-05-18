@@ -30,6 +30,8 @@
 
       use shr_kind_mod,     only: r8 => shr_kind_r8
       use cam_abortutils,   only: endrun
+      use cam_logfile,      only: iulog
+      use spmd_utils,       only: masterproc
 
 !      use parkind, only : jpim, jprb
       use parrrtm, only : nbndlw, ngptlw
@@ -39,6 +41,10 @@
 
       implicit none
       private
+
+      logical :: use_native_subcol_fill_lw_impl = .false.
+      logical :: subcol_fill_lw_impl_selected = .false.
+      logical :: subcol_fill_lw_entered_logged = .false.
 
 ! public interfaces/functions/subroutines
       public :: mcica_subcol_lw, generate_stochastic_clouds 
@@ -160,6 +166,7 @@
                                    cld_stoch, clwp_stoch, ciwp_stoch, tauc_stoch, changeSeed) 
 !-------------------------------------------------------------------------------------------------
 
+      use iso_c_binding, only: c_int64_t, c_loc, c_ptr
   !----------------------------------------------------------------------------------------------------------------
   ! ---------------------
   ! Contact: Cecile Hannay (hannay@ucar.edu)
@@ -234,11 +241,11 @@
                                                         !    Dimensions: (ncol,nlay)
       real(kind=r8), intent(in) :: cld(:,:)           ! cloud fraction 
                                                         !    Dimensions: (ncol,nlay)
-      real(kind=r8), intent(in) :: clwp(:,:)          ! cloud liquid water path
+      real(kind=r8), target, intent(in) :: clwp(:,:)  ! cloud liquid water path
                                                         !    Dimensions: (ncol,nlay)
-      real(kind=r8), intent(in) :: ciwp(:,:)          ! cloud ice water path
+      real(kind=r8), target, intent(in) :: ciwp(:,:)  ! cloud ice water path
                                                         !    Dimensions: (ncol,nlay)
-      real(kind=r8), intent(in) :: tauc(:,:,:)        ! cloud optical depth
+      real(kind=r8), target, intent(in) :: tauc(:,:,:) ! cloud optical depth
                                                         !    Dimensions: (nbndlw,ncol,nlay)
 !      real(kind=r8), intent(in) :: ssac(:,:,:)       ! cloud single scattering albedo
                                                         !    Dimensions: (nbndlw,ncol,nlay)
@@ -247,13 +254,13 @@
                                                         !    Dimensions: (nbndlw,ncol,nlay)
                                                         !   inactive - for future expansion
 
-      real(kind=r8), intent(out) :: cld_stoch(:,:,:)  ! subcolumn cloud fraction 
+      real(kind=r8), target, intent(out) :: cld_stoch(:,:,:)  ! subcolumn cloud fraction
                                                         !    Dimensions: (ngptlw,ncol,nlay)
-      real(kind=r8), intent(out) :: clwp_stoch(:,:,:) ! subcolumn cloud liquid water path
+      real(kind=r8), target, intent(out) :: clwp_stoch(:,:,:) ! subcolumn cloud liquid water path
                                                         !    Dimensions: (ngptlw,ncol,nlay)
-      real(kind=r8), intent(out) :: ciwp_stoch(:,:,:) ! subcolumn cloud ice water path
+      real(kind=r8), target, intent(out) :: ciwp_stoch(:,:,:) ! subcolumn cloud ice water path
                                                         !    Dimensions: (ngptlw,ncol,nlay)
-      real(kind=r8), intent(out) :: tauc_stoch(:,:,:) ! subcolumn cloud optical depth
+      real(kind=r8), target, intent(out) :: tauc_stoch(:,:,:) ! subcolumn cloud optical depth
                                                         !    Dimensions: (ngptlw,ncol,nlay)
 !      real(kind=r8), intent(out) :: ssac_stoch(:,:,:)! subcolumn cloud single scattering albedo
                                                         !    Dimensions: (ngptlw,ncol,nlay)
@@ -263,7 +270,7 @@
                                                         !   inactive - for future expansion
 
 ! -- Local variables
-      real(kind=r8) :: cldf(ncol,nlay)                ! cloud fraction 
+      real(kind=r8), target :: cldf(ncol,nlay)        ! cloud fraction
     
 ! Mean over the subcolumns (cloud fraction, cloud water , cloud ice) - inactive
 !      real(kind=r8) :: mean_cld_stoch(ncol, nlay)    ! cloud fraction 
@@ -289,9 +296,11 @@
                                                         !  0 = kissvec
                                                         !  1 = Mersenne Twister
 
-      real(kind=r8), dimension(nsubcol, ncol, nlay) :: CDF, CDF2      ! random numbers
+      real(kind=r8), target, dimension(nsubcol, ncol, nlay) :: CDF, CDF2      ! random numbers
       integer, dimension(ncol) :: seed1, seed2, seed3, seed4 ! seed to create random number (kissvec)
       real(kind=r8), dimension(ncol) :: rand_num      ! random number (kissvec)
+      integer(c_int64_t), target :: ngb64(nsubcol)
+      real(kind=r8), target :: tauc_c(nbndlw,ncol,nlay)
       integer :: iseed                       ! seed to create random number (Mersenne Teister)
       real(kind=r8) :: rand_num_mt                    ! random number (Mersenne Twister)
 
@@ -300,6 +309,19 @@
 
 ! Indices
       integer :: ilev, isubcol, i, n         ! indices
+
+      interface
+         subroutine rrtmg_lw_subcol_fill_codon(ncol_c, nlay_c, nsubcol_c, nbndlw_c, &
+              ld_cloud_c, ld_tauc_col_c, ld_out_col_c, &
+              cdf_p, cldf_p, clwp_p, ciwp_p, tauc_p, ngb_p, cld_stoch_p, &
+              clwp_stoch_p, ciwp_stoch_p, tauc_stoch_p) bind(c, name="rrtmg_lw_subcol_fill_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: ncol_c, nlay_c, nsubcol_c, nbndlw_c
+            integer(c_int64_t), value :: ld_cloud_c, ld_tauc_col_c, ld_out_col_c
+            type(c_ptr), value :: cdf_p, cldf_p, clwp_p, ciwp_p, tauc_p, ngb_p
+            type(c_ptr), value :: cld_stoch_p, clwp_stoch_p, ciwp_stoch_p, tauc_stoch_p
+         end subroutine rrtmg_lw_subcol_fill_codon
+      end interface
 
 !------------------------------------------------------------------------------------------ 
 
@@ -462,6 +484,31 @@
 
       end select
 
+      call subcol_fill_lw_select_impl()
+      if (.not. use_native_subcol_fill_lw_impl) then
+         do n = 1, nsubcol
+            ngb64(n) = int(ngb(n), c_int64_t)
+         enddo
+         do ilev = 1, nlay
+            do i = 1, ncol
+               do n = 1, nbndlw
+                  tauc_c(n,i,ilev) = tauc(n,i,ilev)
+               enddo
+            enddo
+         enddo
+         call subcol_fill_lw_log_entered()
+         call rrtmg_lw_subcol_fill_codon( &
+              int(ncol, c_int64_t), int(nlay, c_int64_t), int(nsubcol, c_int64_t), &
+              int(nbndlw, c_int64_t), int(size(clwp,1), c_int64_t), &
+              int(ncol, c_int64_t), int(size(cld_stoch,2), c_int64_t), &
+              c_loc(CDF(1,1,1)), c_loc(cldf(1,1)), &
+              c_loc(clwp(1,1)), c_loc(ciwp(1,1)), c_loc(tauc_c(1,1,1)), c_loc(ngb64(1)), &
+              c_loc(cld_stoch(1,1,1)), c_loc(clwp_stoch(1,1,1)), &
+              c_loc(ciwp_stoch(1,1,1)), c_loc(tauc_stoch(1,1,1)) &
+         )
+         return
+      endif
+
  
 ! -- generate subcolumns for homogeneous clouds -----
       do ilev = 1,nlay
@@ -540,6 +587,55 @@
 
       end subroutine generate_stochastic_clouds
 
+! --------------------------------------------------------------------------
+      subroutine subcol_fill_lw_select_impl()
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (subcol_fill_lw_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('RRTMG_LW_SUBCOL_FILL_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_subcol_fill_lw_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_subcol_fill_lw_impl = .false.
+      end if
+
+      subcol_fill_lw_impl_selected = .true.
+
+      if (masterproc) then
+         if (use_native_subcol_fill_lw_impl) then
+            write(iulog,*) 'rrtmg_lw_subcol_fill implementation = native'
+         else
+            write(iulog,*) 'rrtmg_lw_subcol_fill implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine subcol_fill_lw_select_impl
+
+! --------------------------------------------------------------------------
+      subroutine subcol_fill_lw_log_entered()
+
+      if (subcol_fill_lw_entered_logged) return
+      subcol_fill_lw_entered_logged = .true.
+
+      if (masterproc) then
+         write(iulog,*) 'rrtmg_lw_subcol_fill entered (mcica lw stochastic cloud fill = codon)'
+         call flush(iulog)
+      end if
+
+      end subroutine subcol_fill_lw_log_entered
+
 
 !------------------------------------------------------------------
 ! Private subroutines
@@ -608,4 +704,3 @@
       end subroutine kissvec
 
       end module mcica_subcol_gen_lw
-

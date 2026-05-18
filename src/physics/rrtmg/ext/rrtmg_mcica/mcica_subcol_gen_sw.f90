@@ -29,6 +29,8 @@
 
       use shr_kind_mod,     only: r8 => shr_kind_r8
       use cam_abortutils,   only: endrun
+      use cam_logfile,      only: iulog
+      use spmd_utils,       only: masterproc
 
 !      use parkind, only : jpim, jprb 
       use parrrsw, only : nbndsw, ngptsw
@@ -38,6 +40,10 @@
 
       implicit none
       private
+
+      logical :: use_native_subcol_fill_sw_impl = .false.
+      logical :: subcol_fill_sw_impl_selected = .false.
+      logical :: subcol_fill_sw_entered_logged = .false.
 
 ! public interfaces/functions/subroutines
       public :: mcica_subcol_sw, generate_stochastic_clouds_sw
@@ -165,6 +171,7 @@
                                    ssac_stoch, asmc_stoch, fsfc_stoch, changeSeed) 
 !-------------------------------------------------------------------------------------------------
 
+      use iso_c_binding, only: c_int64_t, c_loc, c_ptr
   !----------------------------------------------------------------------------------------------------------------
   ! ---------------------
   ! Contact: Cecile Hannay (hannay@ucar.edu)
@@ -239,36 +246,36 @@
                                                         !    Dimensions: (ncol,nlay)
       real(kind=r8), intent(in) :: cld(:,:)           ! cloud fraction 
                                                         !    Dimensions: (ncol,nlay)
-      real(kind=r8), intent(in) :: clwp(:,:)          ! cloud liquid water path (g/m2)
+      real(kind=r8), target, intent(in) :: clwp(:,:)  ! cloud liquid water path (g/m2)
                                                         !    Dimensions: (ncol,nlay)
-      real(kind=r8), intent(in) :: ciwp(:,:)          ! cloud ice water path (g/m2)
+      real(kind=r8), target, intent(in) :: ciwp(:,:)  ! cloud ice water path (g/m2)
                                                         !    Dimensions: (ncol,nlay)
-      real(kind=r8), intent(in) :: tauc(:,:,:)        ! cloud optical depth (non-delta scaled)
+      real(kind=r8), target, intent(in) :: tauc(:,:,:) ! cloud optical depth (non-delta scaled)
                                                         !    Dimensions: (nbndsw,ncol,nlay)
-      real(kind=r8), intent(in) :: ssac(:,:,:)        ! cloud single scattering albedo (non-delta scaled)
+      real(kind=r8), target, intent(in) :: ssac(:,:,:) ! cloud single scattering albedo (non-delta scaled)
                                                         !    Dimensions: (nbndsw,ncol,nlay)
-      real(kind=r8), intent(in) :: asmc(:,:,:)        ! cloud asymmetry parameter (non-delta scaled)
+      real(kind=r8), target, intent(in) :: asmc(:,:,:) ! cloud asymmetry parameter (non-delta scaled)
                                                         !    Dimensions: (nbndsw,ncol,nlay)
-      real(kind=r8), intent(in) :: fsfc(:,:,:)        ! cloud forward scattering fraction (non-delta scaled)
+      real(kind=r8), target, intent(in) :: fsfc(:,:,:) ! cloud forward scattering fraction (non-delta scaled)
                                                         !    Dimensions: (nbndsw,ncol,nlay)
 
-      real(kind=r8), intent(out) :: cld_stoch(:,:,:)  ! subcolumn cloud fraction 
+      real(kind=r8), target, intent(out) :: cld_stoch(:,:,:)  ! subcolumn cloud fraction
                                                         !    Dimensions: (ngptsw,ncol,nlay)
-      real(kind=r8), intent(out) :: clwp_stoch(:,:,:) ! subcolumn cloud liquid water path
+      real(kind=r8), target, intent(out) :: clwp_stoch(:,:,:) ! subcolumn cloud liquid water path
                                                         !    Dimensions: (ngptsw,ncol,nlay)
-      real(kind=r8), intent(out) :: ciwp_stoch(:,:,:) ! subcolumn cloud ice water path
+      real(kind=r8), target, intent(out) :: ciwp_stoch(:,:,:) ! subcolumn cloud ice water path
                                                         !    Dimensions: (ngptsw,ncol,nlay)
-      real(kind=r8), intent(out) :: tauc_stoch(:,:,:) ! subcolumn cloud optical depth
+      real(kind=r8), target, intent(out) :: tauc_stoch(:,:,:) ! subcolumn cloud optical depth
                                                         !    Dimensions: (ngptsw,ncol,nlay)
-      real(kind=r8), intent(out) :: ssac_stoch(:,:,:) ! subcolumn cloud single scattering albedo
+      real(kind=r8), target, intent(out) :: ssac_stoch(:,:,:) ! subcolumn cloud single scattering albedo
                                                         !    Dimensions: (ngptsw,ncol,nlay)
-      real(kind=r8), intent(out) :: asmc_stoch(:,:,:) ! subcolumn cloud asymmetry parameter
+      real(kind=r8), target, intent(out) :: asmc_stoch(:,:,:) ! subcolumn cloud asymmetry parameter
                                                         !    Dimensions: (ngptsw,ncol,nlay)
-      real(kind=r8), intent(out) :: fsfc_stoch(:,:,:) ! subcolumn cloud forward scattering fraction
+      real(kind=r8), target, intent(out) :: fsfc_stoch(:,:,:) ! subcolumn cloud forward scattering fraction
                                                         !    Dimensions: (ngptsw,ncol,nlay)
 
 ! -- Local variables
-      real(kind=r8) :: cldf(ncol,nlay)                ! cloud fraction 
+      real(kind=r8), target :: cldf(ncol,nlay)        ! cloud fraction
                                                         !    Dimensions: (ncol,nlay)
 
 ! Mean over the subcolumns (cloud fraction, cloud water , cloud ice) - inactive
@@ -296,9 +303,10 @@
                                                          !  0 = kissvec
                                                          !  1 = Mersenne Twister
 
-      real(kind=r8), dimension(nsubcol, ncol, nlay) :: CDF, CDF2       ! random numbers
+      real(kind=r8), target, dimension(nsubcol, ncol, nlay) :: CDF, CDF2       ! random numbers
       integer, dimension(ncol) :: seed1, seed2, seed3, seed4  ! seed to create random number
       real(kind=r8), dimension(ncol) :: rand_num       ! random number (kissvec)
+      integer(c_int64_t), target :: ngb64(nsubcol)
       integer :: iseed                        ! seed to create random number (Mersenne Twister)
       real(kind=r8) :: rand_num_mt                     ! random number (Mersenne Twister)
 
@@ -307,6 +315,21 @@
 
 ! Indices
       integer :: ilev, isubcol, i, n, ngbm             ! indices
+
+      interface
+         subroutine rrtmg_sw_subcol_fill_codon(ncol_c, nlay_c, nsubcol_c, nbndsw_c, &
+              ld_cloud_c, ld_tauc_col_c, ld_out_col_c, &
+              cdf_p, cldf_p, clwp_p, ciwp_p, tauc_p, ssac_p, asmc_p, fsfc_p, &
+              ngb_p, cld_stoch_p, clwp_stoch_p, ciwp_stoch_p, tauc_stoch_p, &
+              ssac_stoch_p, asmc_stoch_p, fsfc_stoch_p) bind(c, name="rrtmg_sw_subcol_fill_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: ncol_c, nlay_c, nsubcol_c, nbndsw_c
+            integer(c_int64_t), value :: ld_cloud_c, ld_tauc_col_c, ld_out_col_c
+            type(c_ptr), value :: cdf_p, cldf_p, clwp_p, ciwp_p, tauc_p, ssac_p, asmc_p, fsfc_p
+            type(c_ptr), value :: ngb_p, cld_stoch_p, clwp_stoch_p, ciwp_stoch_p, tauc_stoch_p
+            type(c_ptr), value :: ssac_stoch_p, asmc_stoch_p, fsfc_stoch_p
+         end subroutine rrtmg_sw_subcol_fill_codon
+      end interface
 
 !------------------------------------------------------------------------------------------ 
 
@@ -469,6 +492,27 @@
 
       end select
 
+      call subcol_fill_sw_select_impl()
+      if (.not. use_native_subcol_fill_sw_impl) then
+         do n = 1, nsubcol
+            ngb64(n) = int(ngb(n), c_int64_t)
+         enddo
+         call subcol_fill_sw_log_entered()
+         call rrtmg_sw_subcol_fill_codon( &
+              int(ncol, c_int64_t), int(nlay, c_int64_t), int(nsubcol, c_int64_t), &
+              int(nbndsw, c_int64_t), int(size(clwp,1), c_int64_t), &
+              int(size(tauc,2), c_int64_t), int(size(cld_stoch,2), c_int64_t), &
+              c_loc(CDF(1,1,1)), c_loc(cldf(1,1)), &
+              c_loc(clwp(1,1)), c_loc(ciwp(1,1)), c_loc(tauc(1,1,1)), &
+              c_loc(ssac(1,1,1)), c_loc(asmc(1,1,1)), c_loc(fsfc(1,1,1)), &
+              c_loc(ngb64(1)), c_loc(cld_stoch(1,1,1)), c_loc(clwp_stoch(1,1,1)), &
+              c_loc(ciwp_stoch(1,1,1)), c_loc(tauc_stoch(1,1,1)), &
+              c_loc(ssac_stoch(1,1,1)), c_loc(asmc_stoch(1,1,1)), &
+              c_loc(fsfc_stoch(1,1,1)) &
+         )
+         return
+      endif
+
  
 ! -- generate subcolumns for homogeneous clouds -----
       do ilev = 1, nlay
@@ -553,6 +597,55 @@
 
       end subroutine generate_stochastic_clouds_sw
 
+! --------------------------------------------------------------------------
+      subroutine subcol_fill_sw_select_impl()
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (subcol_fill_sw_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('RRTMG_SW_SUBCOL_FILL_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_subcol_fill_sw_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_subcol_fill_sw_impl = .false.
+      end if
+
+      subcol_fill_sw_impl_selected = .true.
+
+      if (masterproc) then
+         if (use_native_subcol_fill_sw_impl) then
+            write(iulog,*) 'rrtmg_sw_subcol_fill implementation = native'
+         else
+            write(iulog,*) 'rrtmg_sw_subcol_fill implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine subcol_fill_sw_select_impl
+
+! --------------------------------------------------------------------------
+      subroutine subcol_fill_sw_log_entered()
+
+      if (subcol_fill_sw_entered_logged) return
+      subcol_fill_sw_entered_logged = .true.
+
+      if (masterproc) then
+         write(iulog,*) 'rrtmg_sw_subcol_fill entered (mcica sw stochastic cloud fill = codon)'
+         call flush(iulog)
+      end if
+
+      end subroutine subcol_fill_sw_log_entered
+
 
 !------------------------------------------------------------------
 ! Private subroutines
@@ -621,5 +714,3 @@
       end subroutine kissvec
 
       end module mcica_subcol_gen_sw
-
-

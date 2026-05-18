@@ -779,6 +779,166 @@ def rrtmg_sw_taumol26_codon(
 
 
 @export
+def rrtmg_sw_subcol_fill_codon(
+    ncol: int,
+    nlay: int,
+    nsubcol: int,
+    nbndsw: int,
+    ld_cloud: int,
+    ld_tauc_col: int,
+    ld_out_col: int,
+    cdf_p: cobj,
+    cldf_p: cobj,
+    clwp_p: cobj,
+    ciwp_p: cobj,
+    tauc_p: cobj,
+    ssac_p: cobj,
+    asmc_p: cobj,
+    fsfc_p: cobj,
+    ngb_p: cobj,
+    cld_stoch_p: cobj,
+    clwp_stoch_p: cobj,
+    ciwp_stoch_p: cobj,
+    tauc_stoch_p: cobj,
+    ssac_stoch_p: cobj,
+    asmc_stoch_p: cobj,
+    fsfc_stoch_p: cobj,
+):
+    cdf = Ptr[float](cdf_p)
+    cldf = Ptr[float](cldf_p)
+    clwp = Ptr[float](clwp_p)
+    ciwp = Ptr[float](ciwp_p)
+    tauc = Ptr[float](tauc_p)
+    ssac = Ptr[float](ssac_p)
+    asmc = Ptr[float](asmc_p)
+    fsfc = Ptr[float](fsfc_p)
+    ngb = Ptr[int](ngb_p)
+    cld_stoch = Ptr[float](cld_stoch_p)
+    clwp_stoch = Ptr[float](clwp_stoch_p)
+    ciwp_stoch = Ptr[float](ciwp_stoch_p)
+    tauc_stoch = Ptr[float](tauc_stoch_p)
+    ssac_stoch = Ptr[float](ssac_stoch_p)
+    asmc_stoch = Ptr[float](asmc_stoch_p)
+    fsfc_stoch = Ptr[float](fsfc_stoch_p)
+
+    for ilev in range(1, nlay + 1):
+        for i in range(1, ncol + 1):
+            threshold = 1.0 - cldf[_idx2(i, ilev, ncol)]
+            for isubcol in range(1, nsubcol + 1):
+                cdf_idx = _idx3(isubcol, i, ilev, nsubcol, ncol)
+                out_idx = _idx3(isubcol, i, ilev, nsubcol, ld_out_col)
+                if cdf[cdf_idx] >= threshold:
+                    cld_stoch[out_idx] = 1.0
+                else:
+                    cld_stoch[out_idx] = 0.0
+
+    for ilev in range(1, nlay + 1):
+        for i in range(1, ncol + 1):
+            cfrac = cldf[_idx2(i, ilev, ncol)]
+            threshold = 1.0 - cfrac
+            for isubcol in range(1, nsubcol + 1):
+                cdf_idx = _idx3(isubcol, i, ilev, nsubcol, ncol)
+                out_idx = _idx3(isubcol, i, ilev, nsubcol, ld_out_col)
+                if cdf[cdf_idx] >= threshold and cfrac > 0.0:
+                    clwp_stoch[out_idx] = clwp[_idx2(i, ilev, ld_cloud)]
+                    ciwp_stoch[out_idx] = ciwp[_idx2(i, ilev, ld_cloud)]
+                else:
+                    clwp_stoch[out_idx] = 0.0
+                    ciwp_stoch[out_idx] = 0.0
+
+    ngbm = ngb[0] - 1
+    for ilev in range(1, nlay + 1):
+        for i in range(1, ncol + 1):
+            cfrac = cldf[_idx2(i, ilev, ncol)]
+            threshold = 1.0 - cfrac
+            for isubcol in range(1, nsubcol + 1):
+                cdf_idx = _idx3(isubcol, i, ilev, nsubcol, ncol)
+                out_idx = _idx3(isubcol, i, ilev, nsubcol, ld_out_col)
+                if cdf[cdf_idx] >= threshold and cfrac > 0.0:
+                    n = ngb[isubcol - 1] - ngbm
+                    src_idx = _idx3(n, i, ilev, nbndsw, ld_tauc_col)
+                    tauc_stoch[out_idx] = tauc[src_idx]
+                    ssac_stoch[out_idx] = ssac[src_idx]
+                    asmc_stoch[out_idx] = asmc[src_idx]
+                    fsfc_stoch[out_idx] = fsfc[src_idx]
+                else:
+                    tauc_stoch[out_idx] = 0.0
+                    ssac_stoch[out_idx] = 1.0
+                    asmc_stoch[out_idx] = 0.0
+                    fsfc_stoch[out_idx] = 0.0
+
+
+@export
+def rrtmg_lw_subcol_fill_codon(
+    ncol: int,
+    nlay: int,
+    nsubcol: int,
+    nbndlw: int,
+    ld_cloud: int,
+    ld_tauc_col: int,
+    ld_out_col: int,
+    cdf_p: cobj,
+    cldf_p: cobj,
+    clwp_p: cobj,
+    ciwp_p: cobj,
+    tauc_p: cobj,
+    ngb_p: cobj,
+    cld_stoch_p: cobj,
+    clwp_stoch_p: cobj,
+    ciwp_stoch_p: cobj,
+    tauc_stoch_p: cobj,
+):
+    cdf = Ptr[float](cdf_p)
+    cldf = Ptr[float](cldf_p)
+    clwp = Ptr[float](clwp_p)
+    ciwp = Ptr[float](ciwp_p)
+    tauc = Ptr[float](tauc_p)
+    ngb = Ptr[int](ngb_p)
+    cld_stoch = Ptr[float](cld_stoch_p)
+    clwp_stoch = Ptr[float](clwp_stoch_p)
+    ciwp_stoch = Ptr[float](ciwp_stoch_p)
+    tauc_stoch = Ptr[float](tauc_stoch_p)
+
+    for ilev in range(1, nlay + 1):
+        for i in range(1, ncol + 1):
+            threshold = 1.0 - cldf[_idx2(i, ilev, ncol)]
+            for isubcol in range(1, nsubcol + 1):
+                cdf_idx = _idx3(isubcol, i, ilev, nsubcol, ncol)
+                out_idx = _idx3(isubcol, i, ilev, nsubcol, ld_out_col)
+                if cdf[cdf_idx] >= threshold:
+                    cld_stoch[out_idx] = 1.0
+                else:
+                    cld_stoch[out_idx] = 0.0
+
+    for ilev in range(1, nlay + 1):
+        for i in range(1, ncol + 1):
+            cfrac = cldf[_idx2(i, ilev, ncol)]
+            threshold = 1.0 - cfrac
+            for isubcol in range(1, nsubcol + 1):
+                cdf_idx = _idx3(isubcol, i, ilev, nsubcol, ncol)
+                out_idx = _idx3(isubcol, i, ilev, nsubcol, ld_out_col)
+                if cdf[cdf_idx] >= threshold and cfrac > 0.0:
+                    clwp_stoch[out_idx] = clwp[_idx2(i, ilev, ld_cloud)]
+                    ciwp_stoch[out_idx] = ciwp[_idx2(i, ilev, ld_cloud)]
+                else:
+                    clwp_stoch[out_idx] = 0.0
+                    ciwp_stoch[out_idx] = 0.0
+
+    for ilev in range(1, nlay + 1):
+        for i in range(1, ncol + 1):
+            cfrac = cldf[_idx2(i, ilev, ncol)]
+            threshold = 1.0 - cfrac
+            for isubcol in range(1, nsubcol + 1):
+                cdf_idx = _idx3(isubcol, i, ilev, nsubcol, ncol)
+                out_idx = _idx3(isubcol, i, ilev, nsubcol, ld_out_col)
+                if cdf[cdf_idx] >= threshold and cfrac > 0.0:
+                    n = ngb[isubcol - 1]
+                    tauc_stoch[out_idx] = tauc[_idx3(n, i, ilev, nbndlw, ld_tauc_col)]
+                else:
+                    tauc_stoch[out_idx] = 0.0
+
+
+@export
 def rrtmg_lw_setcoef_codon(
     nlayers: int,
     istart: int,
