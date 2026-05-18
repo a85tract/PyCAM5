@@ -18,6 +18,8 @@
 ! ------- Modules -------
 
       use shr_kind_mod, only: r8 => shr_kind_r8
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
 
 !      use parkind, only : jpim, jprb 
 !      use parrrsw, only : mg, jpband, nbndsw, ngptsw
@@ -26,6 +28,11 @@
       use rrsw_vsn, only: hvrtau, hnamtau
 
       implicit none
+      save
+
+      logical :: use_native_taumol26_sw_impl = .false.
+      logical :: taumol26_sw_impl_selected = .false.
+      logical :: taumol26_sw_entered_logged = .false.
 
       contains
 
@@ -188,7 +195,7 @@
                                                            !   Dimensions: (nlayers)
       real(kind=r8), intent(in) :: colo2(:)              ! column amount (o2)
                                                            !   Dimensions: (nlayers)
-      real(kind=r8), intent(in) :: colmol(:)             ! 
+      real(kind=r8), target, intent(in) :: colmol(:)     !
                                                            !   Dimensions: (nlayers)
 
       integer, intent(in) :: indself(:)    
@@ -209,11 +216,11 @@
                          fac10(:), fac11(:) 
 
 ! ----- Output -----
-      real(kind=r8), intent(out) :: sfluxzen(:)          ! solar source function
+      real(kind=r8), target, intent(out) :: sfluxzen(:)  ! solar source function
                                                            !   Dimensions: (ngptsw)
-      real(kind=r8), intent(out) :: taug(:,:)            ! gaseous optical depth 
+      real(kind=r8), target, intent(out) :: taug(:,:)    ! gaseous optical depth
                                                            !   Dimensions: (nlayers,ngptsw)
-      real(kind=r8), intent(out) :: taur(:,:)            ! Rayleigh 
+      real(kind=r8), target, intent(out) :: taur(:,:)    ! Rayleigh
                                                            !   Dimensions: (nlayers,ngptsw)
 !      real(kind=r8), intent(out) :: ssa(:,:)             ! single scattering albedo (inactive)
                                                            !   Dimensions: (nlayers,ngptsw)
@@ -1197,6 +1204,7 @@
 
 ! ------- Modules -------
 
+      use iso_c_binding, only: c_int64_t, c_loc, c_ptr
       use parrrsw, only : ng26, ngs25
       use rrsw_kg26, only : sfluxref, rayl
 
@@ -1209,9 +1217,30 @@
                          fac110, fac111, fs, speccomb, specmult, specparm, &
                          tauray
 
+      interface
+         subroutine rrtmg_sw_taumol26_codon(nlayers_c, laytrop_c, ng26_c, ngs25_c, &
+              colmol_p, sfluxref_p, rayl_p, sfluxzen_p, taug_p, taur_p) bind(c, name="rrtmg_sw_taumol26_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: nlayers_c, laytrop_c, ng26_c, ngs25_c
+            type(c_ptr), value :: colmol_p, sfluxref_p, rayl_p, sfluxzen_p, taug_p, taur_p
+         end subroutine rrtmg_sw_taumol26_codon
+      end interface
+
 ! Compute the optical depth by interpolating in ln(pressure), 
 ! temperature, and appropriate species.  Below LAYTROP, the water
 ! vapor self-continuum is interpolated (in temperature) separately.  
+
+      call taumol26_sw_select_impl()
+      if (.not. use_native_taumol26_sw_impl) then
+         call taumol26_sw_log_entered()
+         call rrtmg_sw_taumol26_codon( &
+              int(nlayers, c_int64_t), int(laytrop, c_int64_t), &
+              int(ng26, c_int64_t), int(ngs25, c_int64_t), &
+              c_loc(colmol(1)), c_loc(sfluxref(1)), c_loc(rayl(1)), &
+              c_loc(sfluxzen(1)), c_loc(taug(1,1)), c_loc(taur(1,1)) &
+         )
+         return
+      endif
 
       laysolfr = laytrop
 
@@ -1491,5 +1520,53 @@
 
       end subroutine taumol_sw
 
-      end module rrtmg_sw_taumol
+! --------------------------------------------------------------------------
+      subroutine taumol26_sw_select_impl()
 
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (taumol26_sw_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('RRTMG_SW_TAUMOL26_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_taumol26_sw_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_taumol26_sw_impl = .false.
+      end if
+
+      taumol26_sw_impl_selected = .true.
+
+      if (masterproc) then
+         if (use_native_taumol26_sw_impl) then
+            write(iulog,*) 'rrtmg_sw_taumol26 implementation = native'
+         else
+            write(iulog,*) 'rrtmg_sw_taumol26 implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine taumol26_sw_select_impl
+
+! --------------------------------------------------------------------------
+      subroutine taumol26_sw_log_entered()
+
+      if (taumol26_sw_entered_logged) return
+      taumol26_sw_entered_logged = .true.
+
+      if (masterproc) then
+         write(iulog,*) 'rrtmg_sw_taumol26 entered (shortwave band 26 optical depth = codon)'
+         call flush(iulog)
+      end if
+
+      end subroutine taumol26_sw_log_entered
+
+      end module rrtmg_sw_taumol

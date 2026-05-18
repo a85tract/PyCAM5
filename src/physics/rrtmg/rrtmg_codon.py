@@ -744,6 +744,41 @@ def rrtmg_sw_setcoef_codon(
 
 
 @export
+def rrtmg_sw_taumol26_codon(
+    nlayers: int,
+    laytrop: int,
+    ng26: int,
+    ngs25: int,
+    colmol_p: cobj,
+    sfluxref_p: cobj,
+    rayl_p: cobj,
+    sfluxzen_p: cobj,
+    taug_p: cobj,
+    taur_p: cobj,
+):
+    colmol = Ptr[float](colmol_p)
+    sfluxref = Ptr[float](sfluxref_p)
+    rayl = Ptr[float](rayl_p)
+    sfluxzen = Ptr[float](sfluxzen_p)
+    taug = Ptr[float](taug_p)
+    taur = Ptr[float](taur_p)
+
+    laysolfr = laytrop
+
+    for lay in range(1, laytrop + 1):
+        for ig in range(1, ng26 + 1):
+            if lay == laysolfr:
+                sfluxzen[ngs25 + ig - 1] = sfluxref[ig - 1]
+            taug[_idx2(lay, ngs25 + ig, nlayers)] = 0.0
+            taur[_idx2(lay, ngs25 + ig, nlayers)] = colmol[lay - 1] * rayl[ig - 1]
+
+    for lay in range(laytrop + 1, nlayers + 1):
+        for ig in range(1, ng26 + 1):
+            taug[_idx2(lay, ngs25 + ig, nlayers)] = 0.0
+            taur[_idx2(lay, ngs25 + ig, nlayers)] = colmol[lay - 1] * rayl[ig - 1]
+
+
+@export
 def rrtmg_lw_setcoef_codon(
     nlayers: int,
     istart: int,

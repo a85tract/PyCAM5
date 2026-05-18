@@ -41,8 +41,7 @@
 ! rayl    : real     
 !-----------------------------------------------------------------
 
-      real(kind=r8) :: sfluxref(ng26)
-      real(kind=r8) :: rayl(ng26)
+      real(kind=r8), target :: sfluxref(ng26)
+      real(kind=r8), target :: rayl(ng26)
 
       end module rrsw_kg26
-
