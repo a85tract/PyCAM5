@@ -85,6 +85,9 @@
    logical :: use_native_positive_moisture_impl = .false.
    logical :: positive_moisture_impl_selected = .false.
    logical :: positive_moisture_entered_logged = .false.
+   logical :: use_native_rhcrit_const_impl = .false.
+   logical :: rhcrit_const_impl_selected = .false.
+   logical :: rhcrit_const_entered_logged = .false.
 
    contains
 
@@ -1278,10 +1281,10 @@ subroutine rhcrit_calc( &
    real(r8), pointer    :: qlr_det(:,:)                 ! (pcols,pver)  Detrained        ql from the convection scheme
    real(r8), pointer    :: qir_det(:,:)                 ! (pcols,pver)  Detrained        qi from the convection scheme
 
-   real(r8), intent(out) :: rhmini_arr(pcols,pver)
-   real(r8), intent(out) :: rhminl_arr(pcols,pver)
-   real(r8), intent(out) :: rhminl_adj_land_arr(pcols,pver)
-   real(r8), intent(out) :: rhminh_arr(pcols,pver) 
+   real(r8), target, intent(out) :: rhmini_arr(pcols,pver)
+   real(r8), target, intent(out) :: rhminl_arr(pcols,pver)
+   real(r8), target, intent(out) :: rhminl_adj_land_arr(pcols,pver)
+   real(r8), target, intent(out) :: rhminh_arr(pcols,pver)
    real(r8), intent(out) :: d_rhmin_liq_PBL(pcols,pver)
    real(r8), intent(out) :: d_rhmin_ice_PBL(pcols,pver)
    real(r8), intent(out) :: d_rhmin_liq_det(pcols,pver)
@@ -1294,8 +1297,28 @@ subroutine rhcrit_calc( &
    real(r8) :: esat_tmp(pcols)          ! Dummy for saturation vapor pressure calc.
    real(r8) :: qsat_tmp(pcols)          ! Saturation water vapor specific humidity [kg/kg]
    real(r8) :: sig_tmp
+
+   interface
+      subroutine cldwat2m_rhcrit_const_codon(pcols_c, pver_c, rhmini_const_c, rhminl_const_c, &
+           rhminl_adj_land_const_c, rhminh_const_c, rhmini_p, rhminl_p, rhminl_adj_land_p, rhminh_p) &
+           bind(c, name="cldwat2m_rhcrit_const_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: pcols_c, pver_c
+         real(c_double), value :: rhmini_const_c, rhminl_const_c, rhminl_adj_land_const_c, rhminh_const_c
+         type(c_ptr), value :: rhmini_p, rhminl_p, rhminl_adj_land_p, rhminh_p
+      end subroutine cldwat2m_rhcrit_const_codon
+   end interface
    !---------------------------------------------------------------------------------------------------
 
+   call rhcrit_const_select_impl()
+   if (.not. use_native_rhcrit_const_impl) then
+      call rhcrit_const_log_entered()
+      call cldwat2m_rhcrit_const_codon(int(pcols, c_int64_t), int(pver, c_int64_t), &
+           rhmini_const, rhminl_const, rhminl_adj_land_const, rhminh_const, &
+           c_loc(rhmini_arr(1,1)), c_loc(rhminl_arr(1,1)), c_loc(rhminl_adj_land_arr(1,1)), &
+           c_loc(rhminh_arr(1,1)))
+      return
+   end if
 
 
    ! ---------------------------------- !
@@ -1403,6 +1426,44 @@ subroutine rhcrit_calc( &
    end if
 
 end subroutine rhcrit_calc
+
+!=======================================================================================================
+
+   subroutine rhcrit_const_select_impl()
+   character(len=32) :: impl_name
+   integer :: n, status
+
+   if (rhcrit_const_impl_selected) return
+   call get_environment_variable('CLDWAT2M_RHCRIT_CONST_IMPL', value=impl_name, length=n, status=status)
+   use_native_rhcrit_const_impl = .false.
+   if (status == 0 .and. n > 0) then
+      select case (adjustl(impl_name(:n)))
+      case ('native', 'Native', 'NATIVE')
+         use_native_rhcrit_const_impl = .true.
+      case ('codon', 'Codon', 'CODON')
+         use_native_rhcrit_const_impl = .false.
+      case default
+         use_native_rhcrit_const_impl = .false.
+      end select
+   end if
+   if (i_rhmini /= 0 .or. i_rhminl /= 0) use_native_rhcrit_const_impl = .true.
+   rhcrit_const_impl_selected = .true.
+   if (masterproc) then
+      if (use_native_rhcrit_const_impl) then
+         write(iulog,*) 'cldwat2m_rhcrit_const implementation = native'
+      else
+         write(iulog,*) 'cldwat2m_rhcrit_const implementation = codon'
+      end if
+   end if
+   end subroutine rhcrit_const_select_impl
+
+   subroutine rhcrit_const_log_entered()
+   if (rhcrit_const_entered_logged) return
+   rhcrit_const_entered_logged = .true.
+   if (masterproc) then
+      write(iulog,*) 'cldwat2m_rhcrit_const entered (macrophysics constant rhcrit fields = codon)'
+   end if
+   end subroutine rhcrit_const_log_entered
 
 !=======================================================================================================
 

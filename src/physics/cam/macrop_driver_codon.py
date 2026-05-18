@@ -10,6 +10,33 @@ def _idx3(i: int, k: int, m: int, pcols: int, pver: int):
 
 
 @export
+def cldwat2m_rhcrit_const_codon(
+    pcols: int,
+    pver: int,
+    rhmini_const: float,
+    rhminl_const: float,
+    rhminl_adj_land_const: float,
+    rhminh_const: float,
+    rhmini_p: cobj,
+    rhminl_p: cobj,
+    rhminl_adj_land_p: cobj,
+    rhminh_p: cobj,
+):
+    rhmini = Ptr[float](rhmini_p)
+    rhminl = Ptr[float](rhminl_p)
+    rhminl_adj_land = Ptr[float](rhminl_adj_land_p)
+    rhminh = Ptr[float](rhminh_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, pcols + 1):
+            idx = _idx2(i, k, pcols)
+            rhmini[idx] = rhmini_const
+            rhminl[idx] = rhminl_const
+            rhminl_adj_land[idx] = rhminl_adj_land_const
+            rhminh[idx] = rhminh_const
+
+
+@export
 def cldwat2m_positive_moisture_codon(
     ncol: int,
     pcols: int,
