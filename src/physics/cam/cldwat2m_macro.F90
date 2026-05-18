@@ -106,6 +106,9 @@
    logical :: use_native_ref_state_impl = .false.
    logical :: ref_state_impl_selected = .false.
    logical :: ref_state_entered_logged = .false.
+   logical :: use_native_linear_state_impl = .false.
+   logical :: linear_state_impl_selected = .false.
+   logical :: linear_state_entered_logged = .false.
 
    contains
 
@@ -678,42 +681,24 @@
       rhmini_arr, rhminl_arr, rhminl_adj_land_arr, rhminh_arr, &
       d_rhmin_liq_PBL, d_rhmin_ice_PBL, d_rhmin_liq_det, d_rhmin_ice_det)
 
-   ! ---------------------------------- !
-   ! Compute cumulus-related properties ! 
-   ! ---------------------------------- !
+   ! -------------------------------------------------------------------- !
+   ! Compute cumulus-related properties and prepare input reference state. !
+   ! -------------------------------------------------------------------- !
 
-   dacudt(:ncol,top_lev:pver) = &
-        (a_cu0(:ncol,top_lev:pver) - a_cud(:ncol,top_lev:pver))/dt
-
-   ! ---------------------------------------------------------------------- !
-   ! set to zero for levels above
-   ! ---------------------------------------------------------------------- !
-   ql0(:ncol,:top_lev-1) = 0._r8
-   qi0(:ncol,:top_lev-1) = 0._r8
-   nl0(:ncol,:top_lev-1) = 0._r8
-   ni0(:ncol,:top_lev-1) = 0._r8
+   call input_state_codon_wrap(ncol, dt, a_cu0, a_cud, T0, qv0, ql0, qi0, nl0, ni0, &
+        dacudt, T1, qv1, ql1, qi1, nl1, ni1)
    
    ! ---------------------------------------------------------------------- !
    ! Check if input non-cumulus pixels satisfie a non-negative constraint.  !
    ! If not, force all water vapor substances to be positive in all layers. !
    ! We should use 'old' cumulus properties for this routine.               !                
    ! ---------------------------------------------------------------------- !
-
-   T1(:ncol,:)    =  T0(:ncol,:) 
-   qv1(:ncol,:)   = qv0(:ncol,:) 
-   ql1(:ncol,:)   = ql0(:ncol,:) 
-   qi1(:ncol,:)   = qi0(:ncol,:) 
-   nl1(:ncol,:)   = nl0(:ncol,:) 
-   ni1(:ncol,:)   = ni0(:ncol,:) 
-
    
    call cnst_get_ind( 'CLDLIQ', ixcldliq )
    call cnst_get_ind( 'CLDICE', ixcldice )
 
 
-   qmin1(:ncol,:) = qmin(1)
-   qmin2(:ncol,:) = qmin(ixcldliq)
-   qmin3(:ncol,:) = qmin(ixcldice)
+   call qmin_fill_codon_wrap(ncol, qmin(1), qmin(ixcldliq), qmin(ixcldice), qmin1, qmin2, qmin3)
 
    call positive_moisture( ncol, dt, qmin1, qmin2, qmin3, dp, & 
                            qv1, ql1, qi1, T1, qvten_pwi1, qlten_pwi1, &
@@ -955,12 +940,8 @@
    ! Perform diagnostic 'positive_moisture' constraint. !
    ! -------------------------------------------------- !
 
-   T_dprime(:ncol,top_lev:)  =  T_prime0(:ncol,top_lev:) 
-   qv_dprime(:ncol,top_lev:) = qv_prime0(:ncol,top_lev:) 
-   ql_dprime(:ncol,top_lev:) = ql_prime0(:ncol,top_lev:) 
-   qi_dprime(:ncol,top_lev:) = qi_prime0(:ncol,top_lev:) 
-   nl_dprime(:ncol,top_lev:) = nl_prime0(:ncol,top_lev:) 
-   ni_dprime(:ncol,top_lev:) = ni_prime0(:ncol,top_lev:) 
+   call detrain_state_codon_wrap(ncol, dt, T_prime0, qv_prime0, ql_prime0, qi_prime0, nl_prime0, ni_prime0, &
+        D_T, D_qv, D_ql, D_qi, D_nl, D_ni, T_dprime, qv_dprime, ql_dprime, qi_dprime, nl_dprime, ni_dprime)
 
    call positive_moisture( ncol, dt, qmin1, qmin2, qmin3, dp,          & 
                            qv_dprime, ql_dprime, qi_dprime, T_dprime,  &
@@ -976,13 +957,6 @@
    ! negative scalar.                                               !
    ! This tendency is not reflected into Fzs2, which is OK.         !
    ! -------------------------------------------------------------- !
-
-   T_dprime(:ncol,top_lev:)   =  T_dprime(:ncol,top_lev:)  + D_T(:ncol,top_lev:) * dt 
-   qv_dprime(:ncol,top_lev:)  = qv_dprime(:ncol,top_lev:) + D_qv(:ncol,top_lev:) * dt 
-   ql_dprime(:ncol,top_lev:)  = ql_dprime(:ncol,top_lev:) + D_ql(:ncol,top_lev:) * dt
-   qi_dprime(:ncol,top_lev:)  = qi_dprime(:ncol,top_lev:) + D_qi(:ncol,top_lev:) * dt
-   nl_dprime(:ncol,top_lev:)  = nl_dprime(:ncol,top_lev:) + D_nl(:ncol,top_lev:) * dt 
-   ni_dprime(:ncol,top_lev:)  = ni_dprime(:ncol,top_lev:) + D_ni(:ncol,top_lev:) * dt
 
    ! ---------------------------------------------------------- !
    ! Impose diagnostic upper and lower limits on the in-stratus !
@@ -1577,6 +1551,184 @@ end subroutine rhcrit_calc
    enddo
 
    end subroutine ref_state_codon_wrap
+
+!=======================================================================================================
+
+   subroutine linear_state_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: n, status
+
+   if (linear_state_impl_selected) return
+   call get_environment_variable('CLDWAT2M_LINEAR_STATE_IMPL', value=impl_name, length=n, status=status)
+   use_native_linear_state_impl = .false.
+   if (status == 0 .and. n > 0) then
+      select case (adjustl(impl_name(:n)))
+      case ('native', 'Native', 'NATIVE')
+         use_native_linear_state_impl = .true.
+      case ('codon', 'Codon', 'CODON')
+         use_native_linear_state_impl = .false.
+      case default
+         use_native_linear_state_impl = .false.
+      end select
+   end if
+   linear_state_impl_selected = .true.
+   if (masterproc) then
+      if (use_native_linear_state_impl) then
+         write(iulog,*) 'cldwat2m_linear_state implementation = native'
+      else
+         write(iulog,*) 'cldwat2m_linear_state implementation = codon'
+      end if
+   end if
+   end subroutine linear_state_select_impl
+
+   subroutine linear_state_log_entered()
+   if (linear_state_entered_logged) return
+   linear_state_entered_logged = .true.
+   if (masterproc) then
+      write(iulog,*) 'cldwat2m_linear_state entered (macrophysics input/qmin/detrainment state = codon)'
+   end if
+   end subroutine linear_state_log_entered
+
+   subroutine input_state_codon_wrap(ncol, dt, a_cu0, a_cud, T0, qv0, ql0, qi0, nl0, ni0, &
+        dacudt, T1, qv1, ql1, qi1, nl1, ni1)
+
+   integer, intent(in) :: ncol
+   real(r8), intent(in) :: dt
+   real(r8), target, intent(in) :: a_cu0(pcols,pver), a_cud(pcols,pver), T0(pcols,pver), qv0(pcols,pver)
+   real(r8), target, intent(inout) :: ql0(pcols,pver), qi0(pcols,pver), nl0(pcols,pver), ni0(pcols,pver)
+   real(r8), target, intent(inout) :: dacudt(pcols,pver)
+   real(r8), target, intent(out) :: T1(pcols,pver), qv1(pcols,pver), ql1(pcols,pver)
+   real(r8), target, intent(out) :: qi1(pcols,pver), nl1(pcols,pver), ni1(pcols,pver)
+
+   integer :: i, k
+
+   interface
+      subroutine cldwat2m_input_state_codon(ncol_c, pcols_c, pver_c, top_lev_c, dt_c, &
+           a_cu0_p, a_cud_p, T0_p, qv0_p, ql0_p, qi0_p, nl0_p, ni0_p, dacudt_p, &
+           T1_p, qv1_p, ql1_p, qi1_p, nl1_p, ni1_p) bind(c, name="cldwat2m_input_state_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+         real(c_double), value :: dt_c
+         type(c_ptr), value :: a_cu0_p, a_cud_p, T0_p, qv0_p, ql0_p, qi0_p, nl0_p, ni0_p
+         type(c_ptr), value :: dacudt_p, T1_p, qv1_p, ql1_p, qi1_p, nl1_p, ni1_p
+      end subroutine cldwat2m_input_state_codon
+   end interface
+
+   call linear_state_select_impl()
+   if (.not. use_native_linear_state_impl) then
+      call linear_state_log_entered()
+      call cldwat2m_input_state_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(top_lev, c_int64_t), dt, c_loc(a_cu0(1,1)), c_loc(a_cud(1,1)), &
+           c_loc(T0(1,1)), c_loc(qv0(1,1)), c_loc(ql0(1,1)), c_loc(qi0(1,1)), c_loc(nl0(1,1)), &
+           c_loc(ni0(1,1)), c_loc(dacudt(1,1)), c_loc(T1(1,1)), c_loc(qv1(1,1)), c_loc(ql1(1,1)), &
+           c_loc(qi1(1,1)), c_loc(nl1(1,1)), c_loc(ni1(1,1)))
+      return
+   endif
+
+   dacudt(:ncol,top_lev:pver) = &
+        (a_cu0(:ncol,top_lev:pver) - a_cud(:ncol,top_lev:pver))/dt
+
+   ql0(:ncol,:top_lev-1) = 0._r8
+   qi0(:ncol,:top_lev-1) = 0._r8
+   nl0(:ncol,:top_lev-1) = 0._r8
+   ni0(:ncol,:top_lev-1) = 0._r8
+
+   T1(:ncol,:)    =  T0(:ncol,:)
+   qv1(:ncol,:)   = qv0(:ncol,:)
+   ql1(:ncol,:)   = ql0(:ncol,:)
+   qi1(:ncol,:)   = qi0(:ncol,:)
+   nl1(:ncol,:)   = nl0(:ncol,:)
+   ni1(:ncol,:)   = ni0(:ncol,:)
+
+   end subroutine input_state_codon_wrap
+
+   subroutine qmin_fill_codon_wrap(ncol, qvmin, qlmin, qimin, qmin1, qmin2, qmin3)
+
+   integer, intent(in) :: ncol
+   real(r8), intent(in) :: qvmin, qlmin, qimin
+   real(r8), target, intent(out) :: qmin1(pcols,pver), qmin2(pcols,pver), qmin3(pcols,pver)
+
+   interface
+      subroutine cldwat2m_qmin_fill_codon(ncol_c, pcols_c, pver_c, qvmin_c, qlmin_c, qimin_c, &
+           qmin1_p, qmin2_p, qmin3_p) bind(c, name="cldwat2m_qmin_fill_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         real(c_double), value :: qvmin_c, qlmin_c, qimin_c
+         type(c_ptr), value :: qmin1_p, qmin2_p, qmin3_p
+      end subroutine cldwat2m_qmin_fill_codon
+   end interface
+
+   call linear_state_select_impl()
+   if (.not. use_native_linear_state_impl) then
+      call linear_state_log_entered()
+      call cldwat2m_qmin_fill_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+           qvmin, qlmin, qimin, c_loc(qmin1(1,1)), c_loc(qmin2(1,1)), c_loc(qmin3(1,1)))
+      return
+   endif
+
+   qmin1(:ncol,:) = qvmin
+   qmin2(:ncol,:) = qlmin
+   qmin3(:ncol,:) = qimin
+
+   end subroutine qmin_fill_codon_wrap
+
+   subroutine detrain_state_codon_wrap(ncol, dt, T_prime0, qv_prime0, ql_prime0, qi_prime0, &
+        nl_prime0, ni_prime0, D_T, D_qv, D_ql, D_qi, D_nl, D_ni, T_dprime, qv_dprime, &
+        ql_dprime, qi_dprime, nl_dprime, ni_dprime)
+
+   integer, intent(in) :: ncol
+   real(r8), intent(in) :: dt
+   real(r8), target, intent(in) :: T_prime0(pcols,pver), qv_prime0(pcols,pver), ql_prime0(pcols,pver)
+   real(r8), target, intent(in) :: qi_prime0(pcols,pver), nl_prime0(pcols,pver), ni_prime0(pcols,pver)
+   real(r8), target, intent(in) :: D_T(pcols,pver), D_qv(pcols,pver), D_ql(pcols,pver)
+   real(r8), target, intent(in) :: D_qi(pcols,pver), D_nl(pcols,pver), D_ni(pcols,pver)
+   real(r8), target, intent(out) :: T_dprime(pcols,pver), qv_dprime(pcols,pver), ql_dprime(pcols,pver)
+   real(r8), target, intent(out) :: qi_dprime(pcols,pver), nl_dprime(pcols,pver), ni_dprime(pcols,pver)
+
+   interface
+      subroutine cldwat2m_detrain_state_codon(ncol_c, pcols_c, pver_c, top_lev_c, dt_c, &
+           T_prime0_p, qv_prime0_p, ql_prime0_p, qi_prime0_p, nl_prime0_p, ni_prime0_p, &
+           D_T_p, D_qv_p, D_ql_p, D_qi_p, D_nl_p, D_ni_p, &
+           T_dprime_p, qv_dprime_p, ql_dprime_p, qi_dprime_p, nl_dprime_p, ni_dprime_p) &
+           bind(c, name="cldwat2m_detrain_state_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+         real(c_double), value :: dt_c
+         type(c_ptr), value :: T_prime0_p, qv_prime0_p, ql_prime0_p, qi_prime0_p, nl_prime0_p, ni_prime0_p
+         type(c_ptr), value :: D_T_p, D_qv_p, D_ql_p, D_qi_p, D_nl_p, D_ni_p
+         type(c_ptr), value :: T_dprime_p, qv_dprime_p, ql_dprime_p, qi_dprime_p, nl_dprime_p, ni_dprime_p
+      end subroutine cldwat2m_detrain_state_codon
+   end interface
+
+   call linear_state_select_impl()
+   if (.not. use_native_linear_state_impl) then
+      call linear_state_log_entered()
+      call cldwat2m_detrain_state_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(top_lev, c_int64_t), dt, c_loc(T_prime0(1,1)), &
+           c_loc(qv_prime0(1,1)), c_loc(ql_prime0(1,1)), c_loc(qi_prime0(1,1)), &
+           c_loc(nl_prime0(1,1)), c_loc(ni_prime0(1,1)), c_loc(D_T(1,1)), c_loc(D_qv(1,1)), &
+           c_loc(D_ql(1,1)), c_loc(D_qi(1,1)), c_loc(D_nl(1,1)), c_loc(D_ni(1,1)), &
+           c_loc(T_dprime(1,1)), c_loc(qv_dprime(1,1)), c_loc(ql_dprime(1,1)), &
+           c_loc(qi_dprime(1,1)), c_loc(nl_dprime(1,1)), c_loc(ni_dprime(1,1)))
+      return
+   endif
+
+   T_dprime(:ncol,top_lev:)  =  T_prime0(:ncol,top_lev:)
+   qv_dprime(:ncol,top_lev:) = qv_prime0(:ncol,top_lev:)
+   ql_dprime(:ncol,top_lev:) = ql_prime0(:ncol,top_lev:)
+   qi_dprime(:ncol,top_lev:) = qi_prime0(:ncol,top_lev:)
+   nl_dprime(:ncol,top_lev:) = nl_prime0(:ncol,top_lev:)
+   ni_dprime(:ncol,top_lev:) = ni_prime0(:ncol,top_lev:)
+
+   T_dprime(:ncol,top_lev:)   =  T_dprime(:ncol,top_lev:)  + D_T(:ncol,top_lev:) * dt
+   qv_dprime(:ncol,top_lev:)  = qv_dprime(:ncol,top_lev:) + D_qv(:ncol,top_lev:) * dt
+   ql_dprime(:ncol,top_lev:)  = ql_dprime(:ncol,top_lev:) + D_ql(:ncol,top_lev:) * dt
+   qi_dprime(:ncol,top_lev:)  = qi_dprime(:ncol,top_lev:) + D_qi(:ncol,top_lev:) * dt
+   nl_dprime(:ncol,top_lev:)  = nl_dprime(:ncol,top_lev:) + D_nl(:ncol,top_lev:) * dt
+   ni_dprime(:ncol,top_lev:)  = ni_dprime(:ncol,top_lev:) + D_ni(:ncol,top_lev:) * dt
+
+   end subroutine detrain_state_codon_wrap
 
 !=======================================================================================================
 

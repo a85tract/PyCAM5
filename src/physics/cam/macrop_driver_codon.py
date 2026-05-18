@@ -204,6 +204,159 @@ def cldwat2m_ref_state_codon(
 
 
 @export
+def cldwat2m_input_state_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    dt: float,
+    a_cu0_p: cobj,
+    a_cud_p: cobj,
+    t0_p: cobj,
+    qv0_p: cobj,
+    ql0_p: cobj,
+    qi0_p: cobj,
+    nl0_p: cobj,
+    ni0_p: cobj,
+    dacudt_p: cobj,
+    t1_p: cobj,
+    qv1_p: cobj,
+    ql1_p: cobj,
+    qi1_p: cobj,
+    nl1_p: cobj,
+    ni1_p: cobj,
+):
+    a_cu0 = Ptr[float](a_cu0_p)
+    a_cud = Ptr[float](a_cud_p)
+    t0 = Ptr[float](t0_p)
+    qv0 = Ptr[float](qv0_p)
+    ql0 = Ptr[float](ql0_p)
+    qi0 = Ptr[float](qi0_p)
+    nl0 = Ptr[float](nl0_p)
+    ni0 = Ptr[float](ni0_p)
+    dacudt = Ptr[float](dacudt_p)
+    t1 = Ptr[float](t1_p)
+    qv1 = Ptr[float](qv1_p)
+    ql1 = Ptr[float](ql1_p)
+    qi1 = Ptr[float](qi1_p)
+    nl1 = Ptr[float](nl1_p)
+    ni1 = Ptr[float](ni1_p)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            dacudt[idx] = (a_cu0[idx] - a_cud[idx]) / dt
+
+    for k in range(1, top_lev):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            ql0[idx] = 0.0
+            qi0[idx] = 0.0
+            nl0[idx] = 0.0
+            ni0[idx] = 0.0
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            t1[idx] = t0[idx]
+            qv1[idx] = qv0[idx]
+            ql1[idx] = ql0[idx]
+            qi1[idx] = qi0[idx]
+            nl1[idx] = nl0[idx]
+            ni1[idx] = ni0[idx]
+
+
+@export
+def cldwat2m_qmin_fill_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    qvmin: float,
+    qlmin: float,
+    qimin: float,
+    qmin1_p: cobj,
+    qmin2_p: cobj,
+    qmin3_p: cobj,
+):
+    qmin1 = Ptr[float](qmin1_p)
+    qmin2 = Ptr[float](qmin2_p)
+    qmin3 = Ptr[float](qmin3_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            qmin1[idx] = qvmin
+            qmin2[idx] = qlmin
+            qmin3[idx] = qimin
+
+
+@export
+def cldwat2m_detrain_state_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    dt: float,
+    t_prime0_p: cobj,
+    qv_prime0_p: cobj,
+    ql_prime0_p: cobj,
+    qi_prime0_p: cobj,
+    nl_prime0_p: cobj,
+    ni_prime0_p: cobj,
+    d_t_p: cobj,
+    d_qv_p: cobj,
+    d_ql_p: cobj,
+    d_qi_p: cobj,
+    d_nl_p: cobj,
+    d_ni_p: cobj,
+    t_dprime_p: cobj,
+    qv_dprime_p: cobj,
+    ql_dprime_p: cobj,
+    qi_dprime_p: cobj,
+    nl_dprime_p: cobj,
+    ni_dprime_p: cobj,
+):
+    t_prime0 = Ptr[float](t_prime0_p)
+    qv_prime0 = Ptr[float](qv_prime0_p)
+    ql_prime0 = Ptr[float](ql_prime0_p)
+    qi_prime0 = Ptr[float](qi_prime0_p)
+    nl_prime0 = Ptr[float](nl_prime0_p)
+    ni_prime0 = Ptr[float](ni_prime0_p)
+    d_t = Ptr[float](d_t_p)
+    d_qv = Ptr[float](d_qv_p)
+    d_ql = Ptr[float](d_ql_p)
+    d_qi = Ptr[float](d_qi_p)
+    d_nl = Ptr[float](d_nl_p)
+    d_ni = Ptr[float](d_ni_p)
+    t_dprime = Ptr[float](t_dprime_p)
+    qv_dprime = Ptr[float](qv_dprime_p)
+    ql_dprime = Ptr[float](ql_dprime_p)
+    qi_dprime = Ptr[float](qi_dprime_p)
+    nl_dprime = Ptr[float](nl_dprime_p)
+    ni_dprime = Ptr[float](ni_dprime_p)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            t_dprime[idx] = t_prime0[idx]
+            qv_dprime[idx] = qv_prime0[idx]
+            ql_dprime[idx] = ql_prime0[idx]
+            qi_dprime[idx] = qi_prime0[idx]
+            nl_dprime[idx] = nl_prime0[idx]
+            ni_dprime[idx] = ni_prime0[idx]
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            t_dprime[idx] = t_dprime[idx] + d_t[idx] * dt
+            qv_dprime[idx] = qv_dprime[idx] + d_qv[idx] * dt
+            ql_dprime[idx] = ql_dprime[idx] + d_ql[idx] * dt
+            qi_dprime[idx] = qi_dprime[idx] + d_qi[idx] * dt
+            nl_dprime[idx] = nl_dprime[idx] + d_nl[idx] * dt
+            ni_dprime[idx] = ni_dprime[idx] + d_ni[idx] * dt
+
+
+@export
 def cldwat2m_advective_state_codon(
     ncol: int,
     pcols: int,
