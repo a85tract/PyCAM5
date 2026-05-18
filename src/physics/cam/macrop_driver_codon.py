@@ -470,6 +470,65 @@ def cldwat2m_qq_limiter_codon(
 
 
 @export
+def cldwat2m_iter_zero_codon(
+    pcols: int,
+    pver: int,
+    qq_p: cobj,
+    qqw_p: cobj,
+    qqi_p: cobj,
+    qqnl_p: cobj,
+    qqni_p: cobj,
+    qqw2_p: cobj,
+    qqi2_p: cobj,
+    qqnl2_p: cobj,
+    qqni2_p: cobj,
+    nlten_pwi2_p: cobj,
+    niten_pwi2_p: cobj,
+    acnl_p: cobj,
+    acni_p: cobj,
+    aa_p: cobj,
+    bb_p: cobj,
+):
+    qq = Ptr[float](qq_p)
+    qqw = Ptr[float](qqw_p)
+    qqi = Ptr[float](qqi_p)
+    qqnl = Ptr[float](qqnl_p)
+    qqni = Ptr[float](qqni_p)
+    qqw2 = Ptr[float](qqw2_p)
+    qqi2 = Ptr[float](qqi2_p)
+    qqnl2 = Ptr[float](qqnl2_p)
+    qqni2 = Ptr[float](qqni2_p)
+    nlten_pwi2 = Ptr[float](nlten_pwi2_p)
+    niten_pwi2 = Ptr[float](niten_pwi2_p)
+    acnl = Ptr[float](acnl_p)
+    acni = Ptr[float](acni_p)
+    aa = Ptr[float](aa_p)
+    bb = Ptr[float](bb_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, pcols + 1):
+            idx = _idx2(i, k, pcols)
+            qq[idx] = 0.0
+            qqw[idx] = 0.0
+            qqi[idx] = 0.0
+            qqnl[idx] = 0.0
+            qqni[idx] = 0.0
+            qqw2[idx] = 0.0
+            qqi2[idx] = 0.0
+            qqnl2[idx] = 0.0
+            qqni2[idx] = 0.0
+            nlten_pwi2[idx] = 0.0
+            niten_pwi2[idx] = 0.0
+            acnl[idx] = 0.0
+            acni[idx] = 0.0
+
+    for idx_small in range(0, 4):
+        aa[idx_small] = 0.0
+    for idx_small in range(0, 2):
+        bb[idx_small] = 0.0
+
+
+@export
 def cldwat2m_advective_state_codon(
     ncol: int,
     pcols: int,

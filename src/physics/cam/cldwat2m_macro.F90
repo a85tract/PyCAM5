@@ -112,6 +112,9 @@
    logical :: use_native_qq_limiter_impl = .false.
    logical :: qq_limiter_impl_selected = .false.
    logical :: qq_limiter_entered_logged = .false.
+   logical :: use_native_iter_zero_impl = .false.
+   logical :: iter_zero_impl_selected = .false.
+   logical :: iter_zero_entered_logged = .false.
 
    contains
 
@@ -786,21 +789,8 @@
       ! Initialize array within the iteration loop !
       ! ------------------------------------------ !
 
-      QQ(:,:)         = 0._r8
-      QQw(:,:)        = 0._r8
-      QQi(:,:)        = 0._r8
-      QQnl(:,:)       = 0._r8
-      QQni(:,:)       = 0._r8 
-      QQw2(:,:)       = 0._r8
-      QQi2(:,:)       = 0._r8
-      QQnl2(:,:)      = 0._r8
-      QQni2(:,:)      = 0._r8
-      nlten_pwi2(:,:) = 0._r8
-      niten_pwi2(:,:) = 0._r8
-      ACnl(:,:)       = 0._r8
-      ACni(:,:)       = 0._r8 
-      aa(:,:)         = 0._r8
-      bb(:,:)         = 0._r8
+      call iter_zero_codon_wrap(QQ, QQw, QQi, QQnl, QQni, QQw2, QQi2, QQnl2, QQni2, &
+           nlten_pwi2, niten_pwi2, ACnl, ACni, aa, bb)
 
       do k = top_lev, pver
 
@@ -1804,6 +1794,93 @@ end subroutine rhcrit_calc
    enddo
 
    end subroutine qq_limiter_codon_wrap
+
+!=======================================================================================================
+
+   subroutine iter_zero_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: n, status
+
+   if (iter_zero_impl_selected) return
+   call get_environment_variable('CLDWAT2M_ITER_ZERO_IMPL', value=impl_name, length=n, status=status)
+   use_native_iter_zero_impl = .false.
+   if (status == 0 .and. n > 0) then
+      select case (adjustl(impl_name(:n)))
+      case ('native', 'Native', 'NATIVE')
+         use_native_iter_zero_impl = .true.
+      case ('codon', 'Codon', 'CODON')
+         use_native_iter_zero_impl = .false.
+      case default
+         use_native_iter_zero_impl = .false.
+      end select
+   end if
+   iter_zero_impl_selected = .true.
+   if (masterproc) then
+      if (use_native_iter_zero_impl) then
+         write(iulog,*) 'cldwat2m_iter_zero implementation = native'
+      else
+         write(iulog,*) 'cldwat2m_iter_zero implementation = codon'
+      end if
+   end if
+   end subroutine iter_zero_select_impl
+
+   subroutine iter_zero_log_entered()
+   if (iter_zero_entered_logged) return
+   iter_zero_entered_logged = .true.
+   if (masterproc) then
+      write(iulog,*) 'cldwat2m_iter_zero entered (macrophysics iteration work arrays = codon)'
+   end if
+   end subroutine iter_zero_log_entered
+
+   subroutine iter_zero_codon_wrap(QQ, QQw, QQi, QQnl, QQni, QQw2, QQi2, QQnl2, QQni2, &
+        nlten_pwi2, niten_pwi2, ACnl, ACni, aa, bb)
+
+   real(r8), target, intent(inout) :: QQ(pcols,pver), QQw(pcols,pver), QQi(pcols,pver)
+   real(r8), target, intent(inout) :: QQnl(pcols,pver), QQni(pcols,pver), QQw2(pcols,pver)
+   real(r8), target, intent(inout) :: QQi2(pcols,pver), QQnl2(pcols,pver), QQni2(pcols,pver)
+   real(r8), target, intent(inout) :: nlten_pwi2(pcols,pver), niten_pwi2(pcols,pver)
+   real(r8), target, intent(inout) :: ACnl(pcols,pver), ACni(pcols,pver)
+   real(r8), target, intent(inout) :: aa(2,2), bb(2,1)
+
+   interface
+      subroutine cldwat2m_iter_zero_codon(pcols_c, pver_c, QQ_p, QQw_p, QQi_p, QQnl_p, QQni_p, &
+           QQw2_p, QQi2_p, QQnl2_p, QQni2_p, nlten_pwi2_p, niten_pwi2_p, ACnl_p, ACni_p, aa_p, bb_p) &
+           bind(c, name="cldwat2m_iter_zero_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: pcols_c, pver_c
+         type(c_ptr), value :: QQ_p, QQw_p, QQi_p, QQnl_p, QQni_p, QQw2_p, QQi2_p, QQnl2_p, QQni2_p
+         type(c_ptr), value :: nlten_pwi2_p, niten_pwi2_p, ACnl_p, ACni_p, aa_p, bb_p
+      end subroutine cldwat2m_iter_zero_codon
+   end interface
+
+   call iter_zero_select_impl()
+   if (.not. use_native_iter_zero_impl) then
+      call iter_zero_log_entered()
+      call cldwat2m_iter_zero_codon(int(pcols, c_int64_t), int(pver, c_int64_t), c_loc(QQ(1,1)), &
+           c_loc(QQw(1,1)), c_loc(QQi(1,1)), c_loc(QQnl(1,1)), c_loc(QQni(1,1)), c_loc(QQw2(1,1)), &
+           c_loc(QQi2(1,1)), c_loc(QQnl2(1,1)), c_loc(QQni2(1,1)), c_loc(nlten_pwi2(1,1)), &
+           c_loc(niten_pwi2(1,1)), c_loc(ACnl(1,1)), c_loc(ACni(1,1)), c_loc(aa(1,1)), c_loc(bb(1,1)))
+      return
+   endif
+
+   QQ(:,:)         = 0._r8
+   QQw(:,:)        = 0._r8
+   QQi(:,:)        = 0._r8
+   QQnl(:,:)       = 0._r8
+   QQni(:,:)       = 0._r8
+   QQw2(:,:)       = 0._r8
+   QQi2(:,:)       = 0._r8
+   QQnl2(:,:)      = 0._r8
+   QQni2(:,:)      = 0._r8
+   nlten_pwi2(:,:) = 0._r8
+   niten_pwi2(:,:) = 0._r8
+   ACnl(:,:)       = 0._r8
+   ACni(:,:)       = 0._r8
+   aa(:,:)         = 0._r8
+   bb(:,:)         = 0._r8
+
+   end subroutine iter_zero_codon_wrap
 
 !=======================================================================================================
 
