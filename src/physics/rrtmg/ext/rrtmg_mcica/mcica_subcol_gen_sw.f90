@@ -353,6 +353,13 @@
             integer(c_int64_t), value :: ncol_c, nlay_c, ld_pmid_c
             type(c_ptr), value :: pmid_p, seed1_p, seed2_p, seed3_p, seed4_p
          end subroutine rrtmg_sw_subcol_seed_init_codon
+         subroutine rrtmg_sw_subcol_kiss_random_case2_codon(ncol_c, nlay_c, nsubcol_c, &
+              seed1_p, seed2_p, seed3_p, seed4_p, cdf_p) &
+              bind(c, name="rrtmg_sw_subcol_kiss_random_case2_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: ncol_c, nlay_c, nsubcol_c
+            type(c_ptr), value :: seed1_p, seed2_p, seed3_p, seed4_p, cdf_p
+         end subroutine rrtmg_sw_subcol_kiss_random_case2_codon
          subroutine rrtmg_sw_subcol_overlap_codon(ncol_c, nlay_c, nsubcol_c, &
               cdf_p, cldf_p) bind(c, name="rrtmg_sw_subcol_overlap_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
@@ -444,13 +451,23 @@
 ! Random overlap
 ! i) pick a random value at every level
   
-         if (irnd.eq.0) then 
-            do isubcol = 1,nsubcol
-               do ilev = 1,nlay
-                  call kissvec(seed1, seed2, seed3, seed4, rand_num)
-                  CDF(isubcol,:,ilev) = rand_num
+         if (irnd.eq.0) then
+            call subcol_fill_sw_select_impl()
+            if (use_native_subcol_fill_sw_impl) then
+               do isubcol = 1,nsubcol
+                  do ilev = 1,nlay
+                     call kissvec(seed1, seed2, seed3, seed4, rand_num)
+                     CDF(isubcol,:,ilev) = rand_num
+                  enddo
                enddo
-            enddo
+            else
+               call subcol_fill_sw_log_entered()
+               call rrtmg_sw_subcol_kiss_random_case2_codon( &
+                    int(ncol, c_int64_t), int(nlay, c_int64_t), int(nsubcol, c_int64_t), &
+                    c_loc(seed1(1)), c_loc(seed2(1)), c_loc(seed3(1)), c_loc(seed4(1)), &
+                    c_loc(CDF(1,1,1)) &
+               )
+            end if
          elseif (irnd.eq.1) then
             do isubcol = 1, nsubcol
                do i = 1, ncol
@@ -714,7 +731,7 @@
       subcol_fill_sw_entered_logged = .true.
 
       if (masterproc) then
-         write(iulog,*) 'rrtmg_sw_subcol_fill entered (mcica sw pressure/size/cldf/seed prep, ' // &
+         write(iulog,*) 'rrtmg_sw_subcol_fill entered (mcica sw pressure/size/cldf/seed/random prep, ' // &
               'overlap CDF and stochastic cloud fill = codon)'
          call flush(iulog)
       end if

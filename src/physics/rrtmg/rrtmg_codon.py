@@ -3494,6 +3494,76 @@ def rrtmg_sw_subcol_seed_init_codon(
         seed4[i - 1] = i32(int((p4 - float(int(p4))) * 1000000000.0))
 
 
+@inline
+def _rrtmg_ishft_i32(k: i32, n: int) -> i32:
+    if n >= 0:
+        return i32(u32(k) << u32(n))
+    return i32(u32(k) >> u32(-n))
+
+
+@inline
+def _rrtmg_ieor_ishft_i32(k: i32, n: int) -> i32:
+    return i32(u32(k) ^ u32(_rrtmg_ishft_i32(k, n)))
+
+
+@inline
+def _rrtmg_low_i32(i: i64) -> i32:
+    return i32(i)
+
+
+@inline
+def _rrtmg_kiss_next_i32(
+    i0: int,
+    seed1: Ptr[i32],
+    seed2: Ptr[i32],
+    seed3: Ptr[i32],
+    seed4: Ptr[i32],
+) -> float:
+    kiss = i64(69069) * i64(seed1[i0]) + i64(1327217885)
+    seed1[i0] = _rrtmg_low_i32(kiss)
+    seed2[i0] = _rrtmg_ieor_ishft_i32(
+        _rrtmg_ieor_ishft_i32(_rrtmg_ieor_ishft_i32(seed2[i0], 13), -17), 5
+    )
+    seed3[i0] = i32(
+        18000 * int(u32(seed3[i0]) & u32(65535)) + int(u32(seed3[i0]) >> u32(16))
+    )
+    seed4[i0] = i32(
+        30903 * int(u32(seed4[i0]) & u32(65535)) + int(u32(seed4[i0]) >> u32(16))
+    )
+    kiss = (
+        i64(seed1[i0])
+        + i64(seed2[i0])
+        + i64(_rrtmg_ishft_i32(seed3[i0], 16))
+        + i64(seed4[i0])
+    )
+    return float(_rrtmg_low_i32(kiss)) * 2.328306e-10 + 0.5
+
+
+@export
+def rrtmg_sw_subcol_kiss_random_case2_codon(
+    ncol: int,
+    nlay: int,
+    nsubcol: int,
+    seed1_p: cobj,
+    seed2_p: cobj,
+    seed3_p: cobj,
+    seed4_p: cobj,
+    cdf_p: cobj,
+):
+    seed1 = Ptr[i32](seed1_p)
+    seed2 = Ptr[i32](seed2_p)
+    seed3 = Ptr[i32](seed3_p)
+    seed4 = Ptr[i32](seed4_p)
+    cdf = Ptr[float](cdf_p)
+
+    for isubcol in range(1, nsubcol + 1):
+        for ilev in range(1, nlay + 1):
+            for i in range(1, ncol + 1):
+                cdf[_idx3(isubcol, i, ilev, nsubcol, ncol)] = _rrtmg_kiss_next_i32(
+                    i - 1, seed1, seed2, seed3, seed4
+                )
+
+
 @export
 def rrtmg_sw_subcol_overlap_codon(
     ncol: int,
