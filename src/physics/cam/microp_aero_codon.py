@@ -1,4 +1,4 @@
-from math import sqrt
+from math import erf, log, sqrt
 
 
 @inline
@@ -430,3 +430,49 @@ def nucleate_ice_cam_modal_dst_num_codon(
                 dst_num[idx] = wght * num_coarse[idx] * rho[idx] * 1.0e-6
             else:
                 dst_num[idx] = 0.0
+
+
+@export
+def nucleate_ice_cam_modal_so4_num_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    mode_aitken_idx: int,
+    tmelt: float,
+    sigmag_aitken: float,
+    t_p: cobj,
+    rho_p: cobj,
+    num_aitken_p: cobj,
+    dgnum_p: cobj,
+    so4_num_p: cobj,
+):
+    t = Ptr[float](t_p)
+    rho = Ptr[float](rho_p)
+    num_aitken = Ptr[float](num_aitken_p)
+    dgnum = Ptr[float](dgnum_p)
+    so4_num = Ptr[float](so4_num_p)
+
+    log_sigmag = log(sigmag_aitken)
+    sqrt_two = 2.0 ** 0.5
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            val = 0.0
+            if t[idx] < tmelt - 5.0:
+                dg = dgnum[_idx3(i, k, mode_aitken_idx, pcols, pver)]
+                if dg > 0.0:
+                    val = (
+                        num_aitken[idx]
+                        * rho[idx]
+                        * 1.0e-6
+                        * (
+                            0.5
+                            - 0.5
+                            * erf(log(0.1e-6 / dg) / (sqrt_two * log_sigmag))
+                        )
+                    )
+                    if val < 0.0:
+                        val = 0.0
+            so4_num[idx] = val

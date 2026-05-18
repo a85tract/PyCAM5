@@ -98,6 +98,7 @@ logical :: nucleate_ice_cam_prep_impl_selected = .false.
 logical :: nucleate_ice_cam_prep_entered_logged = .false.
 logical :: nucleate_ice_cam_post_entered_logged = .false.
 logical :: nucleate_ice_cam_modal_dust_entered_logged = .false.
+logical :: nucleate_ice_cam_modal_so4_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -398,6 +399,21 @@ end subroutine nucleate_ice_cam_modal_dust_log_entered
 
 !================================================================================================
 
+subroutine nucleate_ice_cam_modal_so4_log_entered()
+
+   if (nucleate_ice_cam_modal_so4_entered_logged) return
+   nucleate_ice_cam_modal_so4_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,*) 'nucleate_ice_cam_modal_so4 entered ' // &
+           '(modal sulfate number prep = codon; nucleati = native)'
+      call flush(iulog)
+   end if
+
+end subroutine nucleate_ice_cam_modal_so4_log_entered
+
+!================================================================================================
+
 subroutine nucleate_ice_cam_calc( &
    state, wsubi, pbuf)
 
@@ -453,6 +469,7 @@ subroutine nucleate_ice_cam_calc( &
    real(r8) :: dst1_num,dst2_num,dst3_num,dst4_num   ! dust aerosol number (#/cm^3)
    real(r8) :: dst_num                               ! total dust aerosol number (#/cm^3)
    real(r8), target :: dst_num_grid(pcols,pver)      ! modal dust aerosol number (#/cm^3)
+   real(r8), target :: so4_num_grid(pcols,pver)      ! modal sulfate aerosol number (#/cm^3)
    real(r8) :: wght
    real(r8) :: dmc
    real(r8) :: ssmc
@@ -522,6 +539,14 @@ subroutine nucleate_ice_cam_calc( &
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, separate_dust_c
          type(c_ptr), value :: rho_p, coarse_dust_p, coarse_nacl_p, num_coarse_p, dst_num_p
       end subroutine nucleate_ice_cam_modal_dst_num_codon
+      subroutine nucleate_ice_cam_modal_so4_num_codon(ncol_c, pcols_c, pver_c, top_lev_c, mode_aitken_idx_c, &
+           tmelt_c, sigmag_aitken_c, t_p, rho_p, num_aitken_p, dgnum_p, so4_num_p) &
+           bind(c, name="nucleate_ice_cam_modal_so4_num_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, mode_aitken_idx_c
+         real(c_double), value :: tmelt_c, sigmag_aitken_c
+         type(c_ptr), value :: t_p, rho_p, num_aitken_p, dgnum_p, so4_num_p
+      end subroutine nucleate_ice_cam_modal_so4_num_codon
    end interface
 
 
@@ -603,6 +628,12 @@ subroutine nucleate_ice_cam_calc( &
            c_loc(coarse_nacl(1,1)), c_loc(num_coarse(1,1)), c_loc(dst_num_grid(1,1)) &
       )
       call nucleate_ice_cam_modal_dust_log_entered()
+      call nucleate_ice_cam_modal_so4_num_codon( &
+           int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
+           int(mode_aitken_idx, c_int64_t), real(tmelt, c_double), real(sigmag_aitken, c_double), &
+           c_loc(t(1,1)), c_loc(rho(1,1)), c_loc(num_aitken(1,1)), c_loc(dgnum(1,1,1)), c_loc(so4_num_grid(1,1)) &
+      )
+      call nucleate_ice_cam_modal_so4_log_entered()
    end if
 
    ! naai and naai_hom are the outputs from this parameterization
@@ -718,20 +749,24 @@ subroutine nucleate_ice_cam_calc( &
                   end if
                end if
 
-               if (dgnum(i,k,mode_aitken_idx) > 0._r8) then
-                  if (.not. use_preexisting_ice) then
-                     ! only allow so4 with D>0.1 um in ice nucleation
-                     so4_num  = num_aitken(i,k)*rho(i,k)*1.0e-6_r8 &
-                        * (0.5_r8 - 0.5_r8*erf(log(0.1e-6_r8/dgnum(i,k,mode_aitken_idx))/  &
-                        (2._r8**0.5_r8*log(sigmag_aitken))))
+               if ((.not. use_native_prep_impl) .and. (.not. use_preexisting_ice)) then
+                  so4_num = so4_num_grid(i,k)
+               else
+                  if (dgnum(i,k,mode_aitken_idx) > 0._r8) then
+                     if (.not. use_preexisting_ice) then
+                        ! only allow so4 with D>0.1 um in ice nucleation
+                        so4_num  = num_aitken(i,k)*rho(i,k)*1.0e-6_r8 &
+                           * (0.5_r8 - 0.5_r8*erf(log(0.1e-6_r8/dgnum(i,k,mode_aitken_idx))/  &
+                           (2._r8**0.5_r8*log(sigmag_aitken))))
+                     else
+                        ! all so4 from aitken
+                        so4_num  = num_aitken(i,k)*rho(i,k)*1.0e-6_r8
+                     end if
                   else
-                     ! all so4 from aitken
-                     so4_num  = num_aitken(i,k)*rho(i,k)*1.0e-6_r8
+                     so4_num = 0.0_r8
                   end if
-               else 
-                  so4_num = 0.0_r8 
+                  so4_num = max(0.0_r8, so4_num)
                end if
-               so4_num = max(0.0_r8, so4_num)
 
             else
 
