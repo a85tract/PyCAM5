@@ -2195,3 +2195,128 @@ def physics_ptend_scale_field_codon(
     for i in range(1, ncol + 1):
         flx_srf[_idx(i)] = flx_srf[_idx(i)] * fac
         flx_top[_idx(i)] = flx_top[_idx(i)] * fac
+
+
+@export
+def phys_grid_get_gcol_all_codon(ncols: int, out_dim: int, src_p: cobj, dst_p: cobj):
+    src = Ptr[i32](src_p)
+    dst = Ptr[i32](dst_p)
+
+    for i in range(out_dim):
+        dst[i] = i32(-1)
+
+    for i in range(ncols):
+        dst[i] = src[i]
+
+
+@export
+def phys_grid_get_gcol_vec_codon(lth: int, cols_p: cobj, src_p: cobj, dst_p: cobj):
+    cols = Ptr[i32](cols_p)
+    src = Ptr[i32](src_p)
+    dst = Ptr[i32](dst_p)
+
+    for i in range(lth):
+        col = int(cols[i])
+        dst[i] = src[col - 1]
+
+
+@export
+def phys_grid_get_int_all_codon(ncols: int, src_p: cobj, dst_p: cobj):
+    src = Ptr[i32](src_p)
+    dst = Ptr[i32](dst_p)
+
+    for i in range(ncols):
+        dst[i] = src[i]
+
+
+@export
+def phys_grid_get_int_vec_codon(lth: int, cols_p: cobj, src_p: cobj, dst_p: cobj):
+    cols = Ptr[i32](cols_p)
+    src = Ptr[i32](src_p)
+    dst = Ptr[i32](dst_p)
+
+    for i in range(lth):
+        col = int(cols[i])
+        dst[i] = src[col - 1]
+
+
+@export
+def phys_grid_get_lon_all_codon(
+    ncols: int,
+    lat_p: cobj,
+    gcol_p: cobj,
+    dyn_to_latlon_gcol_map_p: cobj,
+    clat_p_idx_p: cobj,
+    dst_p: cobj,
+):
+    lat_src = Ptr[i32](lat_p)
+    gcol_src = Ptr[i32](gcol_p)
+    dyn_to_latlon_gcol_map = Ptr[i32](dyn_to_latlon_gcol_map_p)
+    clat_p_idx = Ptr[i32](clat_p_idx_p)
+    dst = Ptr[i32](dst_p)
+
+    for i in range(ncols):
+        lat = int(lat_src[i])
+        gcol = int(dyn_to_latlon_gcol_map[int(gcol_src[i]) - 1])
+        dst[i] = i32((gcol - int(clat_p_idx[lat - 1])) + 1)
+
+
+@export
+def phys_grid_get_lon_vec_codon(
+    lth: int,
+    cols_p: cobj,
+    lat_p: cobj,
+    gcol_p: cobj,
+    dyn_to_latlon_gcol_map_p: cobj,
+    clat_p_idx_p: cobj,
+    dst_p: cobj,
+):
+    cols = Ptr[i32](cols_p)
+    lat_src = Ptr[i32](lat_p)
+    gcol_src = Ptr[i32](gcol_p)
+    dyn_to_latlon_gcol_map = Ptr[i32](dyn_to_latlon_gcol_map_p)
+    clat_p_idx = Ptr[i32](clat_p_idx_p)
+    dst = Ptr[i32](dst_p)
+
+    for i in range(lth):
+        col = int(cols[i])
+        lat = int(lat_src[col - 1])
+        gcol = int(dyn_to_latlon_gcol_map[int(gcol_src[i]) - 1])
+        dst[i] = i32((gcol - int(clat_p_idx[lat - 1])) + 1)
+
+
+@export
+def phys_grid_get_real_all_codon(ncols: int, src_p: cobj, dst_p: cobj):
+    src = Ptr[float](src_p)
+    dst = Ptr[float](dst_p)
+
+    for i in range(ncols):
+        dst[i] = src[i]
+
+
+@export
+def phys_grid_get_lookup_real_all_codon(ncols: int, idx_p: cobj, lookup_p: cobj, dst_p: cobj):
+    idx = Ptr[i32](idx_p)
+    lookup = Ptr[float](lookup_p)
+    dst = Ptr[float](dst_p)
+
+    for i in range(ncols):
+        dst[i] = lookup[int(idx[i]) - 1]
+
+
+@export
+def phys_grid_get_lookup_real_vec_codon(
+    lth: int,
+    cols_p: cobj,
+    idx_p: cobj,
+    lookup_p: cobj,
+    dst_p: cobj,
+):
+    cols = Ptr[i32](cols_p)
+    idx = Ptr[i32](idx_p)
+    lookup = Ptr[float](lookup_p)
+    dst = Ptr[float](dst_p)
+
+    for i in range(lth):
+        col = int(cols[i])
+        dst[i] = lookup[int(idx[col - 1]) - 1]

@@ -295,6 +295,75 @@ module phys_grid
    integer, private, parameter :: def_alltoall = -1                ! default
    integer, private :: phys_alltoall = def_alltoall
 
+   logical, private :: use_native_getters_impl = .false.
+   logical, private :: getters_impl_selected = .false.
+   logical, private :: getters_proof_written = .false.
+
+   interface
+     subroutine phys_grid_get_gcol_all_codon(ncols_c, out_dim_c, src_p, dst_p) &
+          bind(c, name="phys_grid_get_gcol_all_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncols_c, out_dim_c
+       type(c_ptr), value :: src_p, dst_p
+     end subroutine phys_grid_get_gcol_all_codon
+
+     subroutine phys_grid_get_gcol_vec_codon(lth_c, cols_p, src_p, dst_p) &
+          bind(c, name="phys_grid_get_gcol_vec_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: lth_c
+       type(c_ptr), value :: cols_p, src_p, dst_p
+     end subroutine phys_grid_get_gcol_vec_codon
+
+     subroutine phys_grid_get_int_all_codon(ncols_c, src_p, dst_p) &
+          bind(c, name="phys_grid_get_int_all_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncols_c
+       type(c_ptr), value :: src_p, dst_p
+     end subroutine phys_grid_get_int_all_codon
+
+     subroutine phys_grid_get_int_vec_codon(lth_c, cols_p, src_p, dst_p) &
+          bind(c, name="phys_grid_get_int_vec_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: lth_c
+       type(c_ptr), value :: cols_p, src_p, dst_p
+     end subroutine phys_grid_get_int_vec_codon
+
+     subroutine phys_grid_get_lon_all_codon(ncols_c, lat_p, gcol_p, map_p, clat_idx_p, dst_p) &
+          bind(c, name="phys_grid_get_lon_all_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncols_c
+       type(c_ptr), value :: lat_p, gcol_p, map_p, clat_idx_p, dst_p
+     end subroutine phys_grid_get_lon_all_codon
+
+     subroutine phys_grid_get_lon_vec_codon(lth_c, cols_p, lat_p, gcol_p, map_p, clat_idx_p, dst_p) &
+          bind(c, name="phys_grid_get_lon_vec_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: lth_c
+       type(c_ptr), value :: cols_p, lat_p, gcol_p, map_p, clat_idx_p, dst_p
+     end subroutine phys_grid_get_lon_vec_codon
+
+     subroutine phys_grid_get_real_all_codon(ncols_c, src_p, dst_p) &
+          bind(c, name="phys_grid_get_real_all_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncols_c
+       type(c_ptr), value :: src_p, dst_p
+     end subroutine phys_grid_get_real_all_codon
+
+     subroutine phys_grid_get_lookup_real_all_codon(ncols_c, idx_p, lookup_p, dst_p) &
+          bind(c, name="phys_grid_get_lookup_real_all_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncols_c
+       type(c_ptr), value :: idx_p, lookup_p, dst_p
+     end subroutine phys_grid_get_lookup_real_all_codon
+
+     subroutine phys_grid_get_lookup_real_vec_codon(lth_c, cols_p, idx_p, lookup_p, dst_p) &
+          bind(c, name="phys_grid_get_lookup_real_vec_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: lth_c
+       type(c_ptr), value :: cols_p, idx_p, lookup_p, dst_p
+     end subroutine phys_grid_get_lookup_real_vec_codon
+   end interface
+
 contains
 !========================================================================
   integer function get_nlcols_p()
@@ -307,6 +376,144 @@ contains
   integer function get_clat_p_tot()
     get_clat_p_tot = clat_p_tot
   end function get_clat_p_tot
+
+  subroutine phys_grid_getters_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (getters_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('PHYS_GRID_GETTERS_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_getters_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_getters_impl = .false.
+    end if
+
+    getters_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_getters_impl) then
+          write(iulog,*) 'phys_grid_getters implementation = native'
+       else
+          write(iulog,*) 'phys_grid_getters implementation = codon'
+       end if
+    end if
+  end subroutine phys_grid_getters_select_impl
+
+  subroutine phys_grid_getters_proof_once()
+    if (getters_proof_written) return
+    getters_proof_written = .true.
+    if (masterproc) then
+       write(iulog,'(A)') 'phys_grid_getters entered (chunk getter helpers = codon)'
+    end if
+  end subroutine phys_grid_getters_proof_once
+
+  subroutine phys_grid_get_gcol_all_codon_wrap(ncols_local, out_dim, src, dst)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncols_local, out_dim
+    integer, target, intent(in) :: src(pcols)
+    integer, target, intent(inout) :: dst(:)
+
+    call phys_grid_get_gcol_all_codon(int(ncols_local, c_int64_t), int(out_dim, c_int64_t), &
+         c_loc(src(1)), c_loc(dst(1)))
+  end subroutine phys_grid_get_gcol_all_codon_wrap
+
+  subroutine phys_grid_get_gcol_vec_codon_wrap(lth, cols, src, dst)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: lth
+    integer, target, intent(in) :: cols(lth)
+    integer, target, intent(in) :: src(pcols)
+    integer, target, intent(inout) :: dst(lth)
+
+    if (lth <= 0) return
+    call phys_grid_get_gcol_vec_codon(int(lth, c_int64_t), c_loc(cols(1)), c_loc(src(1)), c_loc(dst(1)))
+  end subroutine phys_grid_get_gcol_vec_codon_wrap
+
+  subroutine phys_grid_get_int_all_codon_wrap(ncols_local, src, dst)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncols_local
+    integer, target, intent(in) :: src(pcols)
+    integer, target, intent(inout) :: dst(:)
+
+    call phys_grid_get_int_all_codon(int(ncols_local, c_int64_t), c_loc(src(1)), c_loc(dst(1)))
+  end subroutine phys_grid_get_int_all_codon_wrap
+
+  subroutine phys_grid_get_int_vec_codon_wrap(lth, cols, src, dst)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: lth
+    integer, target, intent(in) :: cols(lth)
+    integer, target, intent(in) :: src(pcols)
+    integer, target, intent(inout) :: dst(lth)
+
+    if (lth <= 0) return
+    call phys_grid_get_int_vec_codon(int(lth, c_int64_t), c_loc(cols(1)), c_loc(src(1)), c_loc(dst(1)))
+  end subroutine phys_grid_get_int_vec_codon_wrap
+
+  subroutine phys_grid_get_lon_all_codon_wrap(ncols_local, src_lat, src_gcol, dyn_map, clat_idx, dst)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncols_local
+    integer, target, intent(in) :: src_lat(pcols), src_gcol(pcols)
+    integer, target, intent(in) :: dyn_map(ngcols), clat_idx(clat_p_tot)
+    integer, target, intent(inout) :: dst(:)
+
+    call phys_grid_get_lon_all_codon(int(ncols_local, c_int64_t), c_loc(src_lat(1)), c_loc(src_gcol(1)), &
+         c_loc(dyn_map(1)), c_loc(clat_idx(1)), c_loc(dst(1)))
+  end subroutine phys_grid_get_lon_all_codon_wrap
+
+  subroutine phys_grid_get_lon_vec_codon_wrap(lth, cols, src_lat, src_gcol, dyn_map, clat_idx, dst)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: lth
+    integer, target, intent(in) :: cols(lth)
+    integer, target, intent(in) :: src_lat(pcols), src_gcol(pcols)
+    integer, target, intent(in) :: dyn_map(ngcols), clat_idx(clat_p_tot)
+    integer, target, intent(inout) :: dst(lth)
+
+    if (lth <= 0) return
+    call phys_grid_get_lon_vec_codon(int(lth, c_int64_t), c_loc(cols(1)), c_loc(src_lat(1)), &
+         c_loc(src_gcol(1)), c_loc(dyn_map(1)), c_loc(clat_idx(1)), c_loc(dst(1)))
+  end subroutine phys_grid_get_lon_vec_codon_wrap
+
+  subroutine phys_grid_get_real_all_codon_wrap(ncols_local, src, dst)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncols_local
+    real(r8), target, intent(in) :: src(pcols)
+    real(r8), target, intent(inout) :: dst(:)
+
+    call phys_grid_get_real_all_codon(int(ncols_local, c_int64_t), c_loc(src(1)), c_loc(dst(1)))
+  end subroutine phys_grid_get_real_all_codon_wrap
+
+  subroutine phys_grid_get_lookup_real_all_codon_wrap(ncols_local, idx, lookup, dst)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncols_local
+    integer, target, intent(in) :: idx(pcols)
+    real(r8), target, intent(in) :: lookup(:)
+    real(r8), target, intent(inout) :: dst(:)
+
+    call phys_grid_get_lookup_real_all_codon(int(ncols_local, c_int64_t), c_loc(idx(1)), &
+         c_loc(lookup(1)), c_loc(dst(1)))
+  end subroutine phys_grid_get_lookup_real_all_codon_wrap
+
+  subroutine phys_grid_get_lookup_real_vec_codon_wrap(lth, cols, idx, lookup, dst)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: lth
+    integer, target, intent(in) :: cols(lth)
+    integer, target, intent(in) :: idx(pcols)
+    real(r8), target, intent(in) :: lookup(:)
+    real(r8), target, intent(inout) :: dst(lth)
+
+    if (lth <= 0) return
+    call phys_grid_get_lookup_real_vec_codon(int(lth, c_int64_t), c_loc(cols(1)), c_loc(idx(1)), &
+         c_loc(lookup(1)), c_loc(dst(1)))
+  end subroutine phys_grid_get_lookup_real_vec_codon_wrap
 
   subroutine phys_grid_init( )
     !----------------------------------------------------------------------- 
@@ -1286,13 +1493,19 @@ logical function phys_grid_initialized ()
 
      integer, intent(out) :: gcols(:)    ! array of global latitude indices
 !---------------------------Local workspace-----------------------------
-     integer :: i                        ! loop index
+   integer :: i                        ! loop index
      
 !-----------------------------------------------------------------------
-     gcols=-1
-     do i=1,lchunks(lcid)%ncols
-        gcols(i) = lchunks(lcid)%gcol(i)
-     enddo
+     call phys_grid_getters_select_impl()
+     if (use_native_getters_impl) then
+        gcols=-1
+        do i=1,lchunks(lcid)%ncols
+           gcols(i) = lchunks(lcid)%gcol(i)
+        enddo
+     else
+        call phys_grid_get_gcol_all_codon_wrap(lchunks(lcid)%ncols, latdim, lchunks(lcid)%gcol, gcols)
+        call phys_grid_getters_proof_once()
+     end if
      return
    end subroutine get_gcol_all_p
 
@@ -1346,9 +1559,15 @@ logical function phys_grid_initialized ()
    integer :: i                          ! loop index
 
 !-----------------------------------------------------------------------
-   do i=1,lth
-     gcols(i) = lchunks(lcid)%gcol(cols(i))
-   enddo
+   call phys_grid_getters_select_impl()
+   if (use_native_getters_impl) then
+      do i=1,lth
+        gcols(i) = lchunks(lcid)%gcol(cols(i))
+      enddo
+   else
+      call phys_grid_get_gcol_vec_codon_wrap(lth, cols, lchunks(lcid)%gcol, gcols)
+      call phys_grid_getters_proof_once()
+   end if
 
    return
    end subroutine get_gcol_vec_p
@@ -1403,9 +1622,15 @@ logical function phys_grid_initialized ()
 
 !-----------------------------------------------------------------------
    cid = lchunks(lcid)%cid
-   do i=1,chunks(cid)%ncols
-     lats(i) = chunks(cid)%lat(i)
-   enddo
+   call phys_grid_getters_select_impl()
+   if (use_native_getters_impl) then
+      do i=1,chunks(cid)%ncols
+        lats(i) = chunks(cid)%lat(i)
+      enddo
+   else
+      call phys_grid_get_int_all_codon_wrap(chunks(cid)%ncols, chunks(cid)%lat, lats)
+      call phys_grid_getters_proof_once()
+   end if
 
    return
    end subroutine get_lat_all_p
@@ -1437,9 +1662,15 @@ logical function phys_grid_initialized ()
 
 !-----------------------------------------------------------------------
    cid = lchunks(lcid)%cid
-   do i=1,lth
-     lats(i) = chunks(cid)%lat(cols(i))
-   enddo
+   call phys_grid_getters_select_impl()
+   if (use_native_getters_impl) then
+      do i=1,lth
+        lats(i) = chunks(cid)%lat(cols(i))
+      enddo
+   else
+      call phys_grid_get_int_vec_codon_wrap(lth, cols, chunks(cid)%lat, lats)
+      call phys_grid_getters_proof_once()
+   end if
 
    return
    end subroutine get_lat_vec_p
@@ -1506,11 +1737,18 @@ logical function phys_grid_initialized ()
 
 !-----------------------------------------------------------------------
    cid = lchunks(lcid)%cid
-   do i=1,chunks(cid)%ncols
-     lat  = chunks(cid)%lat(i)
-     gcol = dyn_to_latlon_gcol_map(chunks(cid)%gcol(i))
-     lons(i) = (gcol - clat_p_idx(lat)) + 1
-   enddo
+   call phys_grid_getters_select_impl()
+   if (use_native_getters_impl) then
+      do i=1,chunks(cid)%ncols
+        lat  = chunks(cid)%lat(i)
+        gcol = dyn_to_latlon_gcol_map(chunks(cid)%gcol(i))
+        lons(i) = (gcol - clat_p_idx(lat)) + 1
+      enddo
+   else
+      call phys_grid_get_lon_all_codon_wrap(chunks(cid)%ncols, chunks(cid)%lat, chunks(cid)%gcol, &
+           dyn_to_latlon_gcol_map, clat_p_idx, lons)
+      call phys_grid_getters_proof_once()
+   end if
 
    return
    end subroutine get_lon_all_p
@@ -1550,11 +1788,18 @@ logical function phys_grid_initialized ()
 
 !-----------------------------------------------------------------------
    cid = lchunks(lcid)%cid
-   do i=1,lth
-     lat = chunks(cid)%lat(cols(i))
-     gcol = dyn_to_latlon_gcol_map(chunks(cid)%gcol(i))
-     lons(i) = (gcol - clat_p_idx(lat)) + 1
-   enddo
+   call phys_grid_getters_select_impl()
+   if (use_native_getters_impl) then
+      do i=1,lth
+        lat = chunks(cid)%lat(cols(i))
+        gcol = dyn_to_latlon_gcol_map(chunks(cid)%gcol(i))
+        lons(i) = (gcol - clat_p_idx(lat)) + 1
+      enddo
+   else
+      call phys_grid_get_lon_vec_codon_wrap(lth, cols, chunks(cid)%lat, chunks(cid)%gcol, &
+           dyn_to_latlon_gcol_map, clat_p_idx, lons)
+      call phys_grid_getters_proof_once()
+   end if
 
    return
    end subroutine get_lon_vec_p
@@ -1622,9 +1867,15 @@ logical function phys_grid_initialized ()
 
 !-----------------------------------------------------------------------
    cid = lchunks(lcid)%cid
-   do i=1,chunks(cid)%ncols
-     rlats(i) = clat_p(chunks(cid)%lat(i))
-   enddo
+   call phys_grid_getters_select_impl()
+   if (use_native_getters_impl) then
+      do i=1,chunks(cid)%ncols
+        rlats(i) = clat_p(chunks(cid)%lat(i))
+      enddo
+   else
+      call phys_grid_get_lookup_real_all_codon_wrap(chunks(cid)%ncols, chunks(cid)%lat, clat_p, rlats)
+      call phys_grid_getters_proof_once()
+   end if
 
    return
    end subroutine get_rlat_all_p
@@ -1652,9 +1903,15 @@ logical function phys_grid_initialized ()
    integer :: i                          ! loop index
 
 !-----------------------------------------------------------------------
-   do i=1,lchunks(lcid)%ncols
-     area(i) = lchunks(lcid)%area(i)
-   enddo
+   call phys_grid_getters_select_impl()
+   if (use_native_getters_impl) then
+      do i=1,lchunks(lcid)%ncols
+        area(i) = lchunks(lcid)%area(i)
+      enddo
+   else
+      call phys_grid_get_real_all_codon_wrap(lchunks(lcid)%ncols, lchunks(lcid)%area, area)
+      call phys_grid_getters_proof_once()
+   end if
 
    return
    end subroutine get_area_all_p
@@ -1705,9 +1962,15 @@ logical function phys_grid_initialized ()
    integer :: i                          ! loop index
 
 !-----------------------------------------------------------------------
-   do i=1,lchunks(lcid)%ncols
-     wght(i) = lchunks(lcid)%wght(i)
-   enddo
+   call phys_grid_getters_select_impl()
+   if (use_native_getters_impl) then
+      do i=1,lchunks(lcid)%ncols
+        wght(i) = lchunks(lcid)%wght(i)
+      enddo
+   else
+      call phys_grid_get_real_all_codon_wrap(lchunks(lcid)%ncols, lchunks(lcid)%wght, wght)
+      call phys_grid_getters_proof_once()
+   end if
 
    return
    end subroutine get_wght_all_p
@@ -1761,9 +2024,15 @@ logical function phys_grid_initialized ()
 
 !-----------------------------------------------------------------------
    cid = lchunks(lcid)%cid
-   do i=1,lth
-     rlats(i) = clat_p(chunks(cid)%lat(cols(i)))
-   enddo
+   call phys_grid_getters_select_impl()
+   if (use_native_getters_impl) then
+      do i=1,lth
+        rlats(i) = clat_p(chunks(cid)%lat(cols(i)))
+      enddo
+   else
+      call phys_grid_get_lookup_real_vec_codon_wrap(lth, cols, chunks(cid)%lat, clat_p, rlats)
+      call phys_grid_getters_proof_once()
+   end if
 
    return
    end subroutine get_rlat_vec_p
@@ -1820,9 +2089,15 @@ logical function phys_grid_initialized ()
 
 !-----------------------------------------------------------------------
    cid = lchunks(lcid)%cid
-   do i=1,chunks(cid)%ncols
-     rlons(i) = clon_p(chunks(cid)%lon(i))
-   enddo
+   call phys_grid_getters_select_impl()
+   if (use_native_getters_impl) then
+      do i=1,chunks(cid)%ncols
+        rlons(i) = clon_p(chunks(cid)%lon(i))
+      enddo
+   else
+      call phys_grid_get_lookup_real_all_codon_wrap(chunks(cid)%ncols, chunks(cid)%lon, clon_p, rlons)
+      call phys_grid_getters_proof_once()
+   end if
 
    return
    end subroutine get_rlon_all_p
@@ -1853,9 +2128,15 @@ logical function phys_grid_initialized ()
 
 !-----------------------------------------------------------------------
    cid = lchunks(lcid)%cid
-   do i=1,lth
-     rlons(i) = clon_p(chunks(cid)%lon(cols(i)))
-   enddo
+   call phys_grid_getters_select_impl()
+   if (use_native_getters_impl) then
+      do i=1,lth
+        rlons(i) = clon_p(chunks(cid)%lon(cols(i)))
+      enddo
+   else
+      call phys_grid_get_lookup_real_vec_codon_wrap(lth, cols, chunks(cid)%lon, clon_p, rlons)
+      call phys_grid_getters_proof_once()
+   end if
 
    return
    end subroutine get_rlon_vec_p
