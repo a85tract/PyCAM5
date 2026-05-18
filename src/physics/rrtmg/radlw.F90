@@ -118,10 +118,10 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
    integer, parameter :: nsubclw = ngptlw       ! rrtmg_lw g-point (quadrature point) dimension
    integer :: permuteseed                       ! permute seed for sub-column generator
 
-   real(r8) :: cicewp(pcols,rrtmg_levs-1)   ! in-cloud cloud ice water path
-   real(r8) :: cliqwp(pcols,rrtmg_levs-1)   ! in-cloud cloud liquid water path
-   real(r8) :: rei(pcols,rrtmg_levs-1)      ! ice particle effective radius (microns)
-   real(r8) :: rel(pcols,rrtmg_levs-1)      ! liquid particle radius (micron)
+   real(r8), target :: cicewp(pcols,rrtmg_levs-1)   ! in-cloud cloud ice water path
+   real(r8), target :: cliqwp(pcols,rrtmg_levs-1)   ! in-cloud cloud liquid water path
+   real(r8), target :: rei(pcols,rrtmg_levs-1)      ! ice particle effective radius (microns)
+   real(r8), target :: rel(pcols,rrtmg_levs-1)      ! liquid particle radius (micron)
 
    real(r8) :: cld_stolw(nsubclw, pcols, rrtmg_levs-1)     ! cloud fraction (mcica)
    real(r8) :: cicewp_stolw(nsubclw, pcols, rrtmg_levs-1)  ! cloud ice water path (mcica)
@@ -140,6 +140,12 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
    real(r8) lwuflxs(nbndlw,pcols,pverp+1)  ! Longwave spectral flux up
    real(r8) lwdflxs(nbndlw,pcols,pverp+1)  ! Longwave spectral flux down
    interface
+      subroutine rrtmg_lw_zero_cloud_inputs_codon(ncol_c, pcols_c, nlay_c, &
+           cicewp_p, cliqwp_p, rei_p, rel_p) bind(c, name="rrtmg_lw_zero_cloud_inputs_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, nlay_c
+         type(c_ptr), value :: cicewp_p, cliqwp_p, rei_p, rel_p
+      end subroutine rrtmg_lw_zero_cloud_inputs_codon
       subroutine rrtmg_lw_pre_codon(ncol_c, pcols_c, pver_c, pverp_c, rrtmg_levs_c, nbndlw_c, &
            aer_lw_abs_p, tlev_p, emis_p, tsfc_p, taua_lw_p) bind(c, name="rrtmg_lw_pre_codon")
          use iso_c_binding, only: c_int64_t, c_ptr
@@ -186,10 +192,19 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
    permuteseed = 150
 
    ! These fields are no longer supplied by CAM.
-   cicewp = 0.0_r8
-   cliqwp = 0.0_r8
-   rei = 0.0_r8
-   rel = 0.0_r8
+   call rrtmg_lw_driver_select_impl()
+   if (use_native_rrtmg_lw_driver_impl) then
+      cicewp = 0.0_r8
+      cliqwp = 0.0_r8
+      rei = 0.0_r8
+      rel = 0.0_r8
+   else
+      call rrtmg_lw_driver_log_entered()
+      call rrtmg_lw_zero_cloud_inputs_codon( &
+           int(ncol, c_int64_t), int(pcols, c_int64_t), int(rrtmg_levs-1, c_int64_t), &
+           c_loc(cicewp(1,1)), c_loc(cliqwp(1,1)), c_loc(rei(1,1)), c_loc(rel(1,1)) &
+      )
+   end if
 
    call mcica_subcol_lw(lchnk, ncol, rrtmg_levs-1, icld, permuteseed, pmid(:, pverp-rrtmg_levs+1:pverp-1), &
       cld(:, pverp-rrtmg_levs+1:pverp-1), cicewp, cliqwp, rei, rel, tauc_lw(:, :ncol, pverp-rrtmg_levs+1:pverp-1), &
@@ -237,7 +252,6 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
    if (associated(lu)) lu(1:ncol,:,:) = 0.0_r8
    if (associated(ld)) ld(1:ncol,:,:) = 0.0_r8
 
-   call rrtmg_lw_driver_select_impl()
    if (use_native_rrtmg_lw_driver_impl) then
       emis(:ncol,:nbndlw) = 1._r8
       tsfc(:ncol) = r_state%tlev(:ncol,rrtmg_levs+1)
@@ -416,7 +430,8 @@ subroutine rrtmg_lw_driver_log_entered()
    rrtmg_lw_driver_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,*) 'rrtmg_lw_driver entered (pre/post helpers = codon; native pre/post blocks skipped; rrtmg_lw core = native)'
+      write(iulog,*) 'rrtmg_lw_driver entered (cloud input zero/pre/post helpers = codon; ' // &
+           'native pre/post blocks skipped; rrtmg_lw core = native)'
       call flush(iulog)
    end if
 

@@ -445,6 +445,31 @@ def rrtmg_state_update_codon(
 
 
 @export
+def rrtmg_lw_zero_cloud_inputs_codon(
+    ncol: int,
+    pcols: int,
+    nlay: int,
+    cicewp_p: cobj,
+    cliqwp_p: cobj,
+    rei_p: cobj,
+    rel_p: cobj,
+):
+    cicewp = Ptr[float](cicewp_p)
+    cliqwp = Ptr[float](cliqwp_p)
+    rei = Ptr[float](rei_p)
+    rel = Ptr[float](rel_p)
+
+    # Fortran declarations are (pcols, rrtmg_levs-1).
+    for k in range(1, nlay + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            cicewp[idx] = 0.0
+            cliqwp[idx] = 0.0
+            rei[idx] = 0.0
+            rel[idx] = 0.0
+
+
+@export
 def rrtmg_lw_pre_codon(
     ncol: int,
     pcols: int,
