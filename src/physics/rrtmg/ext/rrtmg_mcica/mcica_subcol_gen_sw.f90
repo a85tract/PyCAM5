@@ -264,7 +264,7 @@
       integer, optional, intent(in) :: changeSeed     ! allows permuting seed
 
 ! Column state (cloud fraction, cloud water, cloud ice) + variables needed to read physics state 
-      real(kind=r8), intent(in) :: pmid(:,:)          ! layer pressure (Pa)
+      real(kind=r8), target, intent(in) :: pmid(:,:)  ! layer pressure (Pa)
                                                         !    Dimensions: (ncol,nlay)
       real(kind=r8), target, intent(in) :: cld(:,:)   ! cloud fraction
                                                         !    Dimensions: (ncol,nlay)
@@ -326,7 +326,7 @@
                                                          !  1 = Mersenne Twister
 
       real(kind=r8), target, dimension(nsubcol, ncol, nlay) :: CDF, CDF2       ! random numbers
-      integer, dimension(ncol) :: seed1, seed2, seed3, seed4  ! seed to create random number
+      integer, target, dimension(ncol) :: seed1, seed2, seed3, seed4  ! seed to create random number
       real(kind=r8), dimension(ncol) :: rand_num       ! random number (kissvec)
       integer(c_int64_t), target :: ngb64(nsubcol)
       integer :: iseed                        ! seed to create random number (Mersenne Twister)
@@ -346,6 +346,13 @@
             real(c_double), value :: cldmin_c
             type(c_ptr), value :: cld_p, cldf_p
          end subroutine rrtmg_sw_subcol_cldf_prep_codon
+         subroutine rrtmg_sw_subcol_seed_init_codon(ncol_c, nlay_c, ld_pmid_c, &
+              pmid_p, seed1_p, seed2_p, seed3_p, seed4_p) &
+              bind(c, name="rrtmg_sw_subcol_seed_init_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: ncol_c, nlay_c, ld_pmid_c
+            type(c_ptr), value :: pmid_p, seed1_p, seed2_p, seed3_p, seed4_p
+         end subroutine rrtmg_sw_subcol_seed_init_codon
          subroutine rrtmg_sw_subcol_overlap_codon(ncol_c, nlay_c, nsubcol_c, &
               cdf_p, cldf_p) bind(c, name="rrtmg_sw_subcol_overlap_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
@@ -396,15 +403,29 @@
       if (irnd.eq.0) then   
 ! For kissvec, create a seed that depends on the state of the columns. Maybe not the best way, but it works.  
 ! Must use pmid from bottom four layers. 
-         do i=1,ncol
-            if (pmid(i,nlay).lt.pmid(i,nlay-1)) then
-               call endrun('MCICA_SUBCOL: KISSVEC SEED GENERATOR REQUIRES PMID FROM BOTTOM FOUR LAYERS.')
-            endif
-            seed1(i) = (pmid(i,nlay) - int(pmid(i,nlay)))  * 1000000000
-            seed2(i) = (pmid(i,nlay-1) - int(pmid(i,nlay-1)))  * 1000000000
-            seed3(i) = (pmid(i,nlay-2) - int(pmid(i,nlay-2)))  * 1000000000
-            seed4(i) = (pmid(i,nlay-3) - int(pmid(i,nlay-3)))  * 1000000000
-          enddo
+         call subcol_fill_sw_select_impl()
+         if (use_native_subcol_fill_sw_impl) then
+            do i=1,ncol
+               if (pmid(i,nlay).lt.pmid(i,nlay-1)) then
+                  call endrun('MCICA_SUBCOL: KISSVEC SEED GENERATOR REQUIRES PMID FROM BOTTOM FOUR LAYERS.')
+               endif
+               seed1(i) = (pmid(i,nlay) - int(pmid(i,nlay)))  * 1000000000
+               seed2(i) = (pmid(i,nlay-1) - int(pmid(i,nlay-1)))  * 1000000000
+               seed3(i) = (pmid(i,nlay-2) - int(pmid(i,nlay-2)))  * 1000000000
+               seed4(i) = (pmid(i,nlay-3) - int(pmid(i,nlay-3)))  * 1000000000
+             enddo
+         else
+            do i=1,ncol
+               if (pmid(i,nlay).lt.pmid(i,nlay-1)) then
+                  call endrun('MCICA_SUBCOL: KISSVEC SEED GENERATOR REQUIRES PMID FROM BOTTOM FOUR LAYERS.')
+               endif
+            enddo
+            call subcol_fill_sw_log_entered()
+            call rrtmg_sw_subcol_seed_init_codon( &
+                 int(ncol, c_int64_t), int(nlay, c_int64_t), int(size(pmid,1), c_int64_t), &
+                 c_loc(pmid(1,1)), c_loc(seed1(1)), c_loc(seed2(1)), c_loc(seed3(1)), c_loc(seed4(1)) &
+            )
+         end if
          do i=1,changeSeed
             call kissvec(seed1, seed2, seed3, seed4, rand_num)
          enddo
@@ -693,7 +714,7 @@
       subcol_fill_sw_entered_logged = .true.
 
       if (masterproc) then
-         write(iulog,*) 'rrtmg_sw_subcol_fill entered (mcica sw pressure/size/cldf prep, ' // &
+         write(iulog,*) 'rrtmg_sw_subcol_fill entered (mcica sw pressure/size/cldf/seed prep, ' // &
               'overlap CDF and stochastic cloud fill = codon)'
          call flush(iulog)
       end if

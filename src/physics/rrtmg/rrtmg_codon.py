@@ -3467,6 +3467,34 @@ def rrtmg_sw_subcol_cldf_prep_codon(
 
 
 @export
+def rrtmg_sw_subcol_seed_init_codon(
+    ncol: int,
+    nlay: int,
+    ld_pmid: int,
+    pmid_p: cobj,
+    seed1_p: cobj,
+    seed2_p: cobj,
+    seed3_p: cobj,
+    seed4_p: cobj,
+):
+    pmid = Ptr[float](pmid_p)
+    seed1 = Ptr[i32](seed1_p)
+    seed2 = Ptr[i32](seed2_p)
+    seed3 = Ptr[i32](seed3_p)
+    seed4 = Ptr[i32](seed4_p)
+
+    for i in range(1, ncol + 1):
+        p1 = pmid[_idx2(i, nlay, ld_pmid)]
+        p2 = pmid[_idx2(i, nlay - 1, ld_pmid)]
+        p3 = pmid[_idx2(i, nlay - 2, ld_pmid)]
+        p4 = pmid[_idx2(i, nlay - 3, ld_pmid)]
+        seed1[i - 1] = i32(int((p1 - float(int(p1))) * 1000000000.0))
+        seed2[i - 1] = i32(int((p2 - float(int(p2))) * 1000000000.0))
+        seed3[i - 1] = i32(int((p3 - float(int(p3))) * 1000000000.0))
+        seed4[i - 1] = i32(int((p4 - float(int(p4))) * 1000000000.0))
+
+
+@export
 def rrtmg_sw_subcol_overlap_codon(
     ncol: int,
     nlay: int,
