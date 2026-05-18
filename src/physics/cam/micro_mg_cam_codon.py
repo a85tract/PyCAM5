@@ -10,6 +10,255 @@ def _idx3(i: int, k: int, m: int, ld1: int, ld2: int):
 
 
 @inline
+def _zero2(ncol: int, pver: int, pcols: int, arr: Ptr[float]):
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            arr[_idx2(i, k, pcols)] = 0.0
+
+
+@inline
+def _zero2_interface(ncol: int, pverp: int, pcols: int, arr: Ptr[float]):
+    for k in range(1, pverp + 1):
+        for i in range(1, ncol + 1):
+            arr[_idx2(i, k, pcols)] = 0.0
+
+
+@inline
+def _zero2_full_pcols(pver: int, pcols: int, arr: Ptr[float]):
+    for k in range(1, pver + 1):
+        for i in range(1, pcols + 1):
+            arr[_idx2(i, k, pcols)] = 0.0
+
+
+@inline
+def _zero2_interface_full_pcols(pverp: int, pcols: int, arr: Ptr[float]):
+    for k in range(1, pverp + 1):
+        for i in range(1, pcols + 1):
+            arr[_idx2(i, k, pcols)] = 0.0
+
+
+@export
+def micro_mg1_0_init_fields_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    mincld: float,
+    qn_p: cobj,
+    tn_p: cobj,
+    qc_p: cobj,
+    qi_p: cobj,
+    nc_p: cobj,
+    ni_p: cobj,
+    ncai_p: cobj,
+    ncal_p: cobj,
+    rercld_p: cobj,
+    arcld_p: cobj,
+    pgamrad_p: cobj,
+    lamcrad_p: cobj,
+    deffi_p: cobj,
+    qcsevap_p: cobj,
+    qisevap_p: cobj,
+    qvres_p: cobj,
+    cmeiout_p: cobj,
+    vtrmc_p: cobj,
+    vtrmi_p: cobj,
+    qcsedten_p: cobj,
+    qisedten_p: cobj,
+    prao_p: cobj,
+    prco_p: cobj,
+    mnuccco_p: cobj,
+    mnuccto_p: cobj,
+    msacwio_p: cobj,
+    psacwso_p: cobj,
+    bergso_p: cobj,
+    bergo_p: cobj,
+    melto_p: cobj,
+    homoo_p: cobj,
+    qcreso_p: cobj,
+    prcio_p: cobj,
+    praio_p: cobj,
+    qireso_p: cobj,
+    mnuccro_p: cobj,
+    pracso_p: cobj,
+    meltsdt_p: cobj,
+    frzrdt_p: cobj,
+    mnuccdo_p: cobj,
+    rflx_p: cobj,
+    sflx_p: cobj,
+    effc_p: cobj,
+    effc_fn_p: cobj,
+    effi_p: cobj,
+    preo_p: cobj,
+    prdso_p: cobj,
+    frzro_p: cobj,
+    meltso_p: cobj,
+    wtfc_p: cobj,
+    wtfi_p: cobj,
+    wtprelat_p: cobj,
+    wtpostlat_p: cobj,
+    q_p: cobj,
+    t_p: cobj,
+    t1_p: cobj,
+    q1_p: cobj,
+    qc1_p: cobj,
+    qi1_p: cobj,
+    nc1_p: cobj,
+    ni1_p: cobj,
+    tlat1_p: cobj,
+    qvlat1_p: cobj,
+    qctend1_p: cobj,
+    qitend1_p: cobj,
+    nctend1_p: cobj,
+    nitend1_p: cobj,
+    qrout_p: cobj,
+    qsout_p: cobj,
+    nrout_p: cobj,
+    nsout_p: cobj,
+    dsout_p: cobj,
+    drout_p: cobj,
+    reff_rain_p: cobj,
+    reff_snow_p: cobj,
+    nevapr_p: cobj,
+    nevapr2_p: cobj,
+    evapsnow_p: cobj,
+    prain_p: cobj,
+    prodsnow_p: cobj,
+    cmeout_p: cobj,
+    am_evp_st_p: cobj,
+    rainrt1_p: cobj,
+    cldmax_p: cobj,
+    dum2l_p: cobj,
+    dum2i_p: cobj,
+    prect1_p: cobj,
+    preci1_p: cobj,
+):
+    qn = Ptr[float](qn_p)
+    tn = Ptr[float](tn_p)
+    qc = Ptr[float](qc_p)
+    qi = Ptr[float](qi_p)
+    nc = Ptr[float](nc_p)
+    ni = Ptr[float](ni_p)
+    q = Ptr[float](q_p)
+    t = Ptr[float](t_p)
+    t1 = Ptr[float](t1_p)
+    q1 = Ptr[float](q1_p)
+    qc1 = Ptr[float](qc1_p)
+    qi1 = Ptr[float](qi1_p)
+    nc1 = Ptr[float](nc1_p)
+    ni1 = Ptr[float](ni1_p)
+
+    _zero2(ncol, pver, pcols, Ptr[float](ncai_p))
+    _zero2(ncol, pver, pcols, Ptr[float](ncal_p))
+    _zero2(ncol, pver, pcols, Ptr[float](rercld_p))
+    _zero2(ncol, pver, pcols, Ptr[float](arcld_p))
+    _zero2(ncol, pver, pcols, Ptr[float](pgamrad_p))
+    _zero2(ncol, pver, pcols, Ptr[float](lamcrad_p))
+    _zero2(ncol, pver, pcols, Ptr[float](deffi_p))
+    _zero2(ncol, pver, pcols, Ptr[float](qcsevap_p))
+    _zero2(ncol, pver, pcols, Ptr[float](qisevap_p))
+    _zero2(ncol, pver, pcols, Ptr[float](qvres_p))
+    _zero2(ncol, pver, pcols, Ptr[float](cmeiout_p))
+    _zero2(ncol, pver, pcols, Ptr[float](vtrmc_p))
+    _zero2(ncol, pver, pcols, Ptr[float](vtrmi_p))
+    _zero2(ncol, pver, pcols, Ptr[float](qcsedten_p))
+    _zero2(ncol, pver, pcols, Ptr[float](qisedten_p))
+    _zero2(ncol, pver, pcols, Ptr[float](prao_p))
+    _zero2(ncol, pver, pcols, Ptr[float](prco_p))
+    _zero2(ncol, pver, pcols, Ptr[float](mnuccco_p))
+    _zero2(ncol, pver, pcols, Ptr[float](mnuccto_p))
+    _zero2(ncol, pver, pcols, Ptr[float](msacwio_p))
+    _zero2(ncol, pver, pcols, Ptr[float](psacwso_p))
+    _zero2(ncol, pver, pcols, Ptr[float](bergso_p))
+    _zero2(ncol, pver, pcols, Ptr[float](bergo_p))
+    _zero2(ncol, pver, pcols, Ptr[float](melto_p))
+    _zero2(ncol, pver, pcols, Ptr[float](homoo_p))
+    _zero2(ncol, pver, pcols, Ptr[float](qcreso_p))
+    _zero2(ncol, pver, pcols, Ptr[float](prcio_p))
+    _zero2(ncol, pver, pcols, Ptr[float](praio_p))
+    _zero2(ncol, pver, pcols, Ptr[float](qireso_p))
+    _zero2(ncol, pver, pcols, Ptr[float](mnuccro_p))
+    _zero2(ncol, pver, pcols, Ptr[float](pracso_p))
+    _zero2(ncol, pver, pcols, Ptr[float](meltsdt_p))
+    _zero2(ncol, pver, pcols, Ptr[float](frzrdt_p))
+    _zero2(ncol, pver, pcols, Ptr[float](mnuccdo_p))
+    _zero2_interface_full_pcols(pver + 1, pcols, Ptr[float](rflx_p))
+    _zero2_interface_full_pcols(pver + 1, pcols, Ptr[float](sflx_p))
+    _zero2_full_pcols(pver, pcols, Ptr[float](effc_p))
+    _zero2_full_pcols(pver, pcols, Ptr[float](effc_fn_p))
+    _zero2_full_pcols(pver, pcols, Ptr[float](effi_p))
+    _zero2(ncol, pver, pcols, Ptr[float](preo_p))
+    _zero2(ncol, pver, pcols, Ptr[float](prdso_p))
+    _zero2(ncol, pver, pcols, Ptr[float](frzro_p))
+    _zero2(ncol, pver, pcols, Ptr[float](meltso_p))
+    _zero2(ncol, pver, pcols, Ptr[float](wtfc_p))
+    _zero2(ncol, pver, pcols, Ptr[float](wtfi_p))
+    _zero2(ncol, pver, pcols, Ptr[float](wtprelat_p))
+    _zero2(ncol, pver, pcols, Ptr[float](wtpostlat_p))
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            q[idx] = qn[idx]
+            t[idx] = tn[idx]
+
+    for k in range(1, top_lev):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            qc[idx] = 0.0
+            qi[idx] = 0.0
+            nc[idx] = 0.0
+            ni[idx] = 0.0
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            t1[idx] = t[idx]
+            q1[idx] = q[idx]
+            qc1[idx] = qc[idx]
+            qi1[idx] = qi[idx]
+            nc1[idx] = nc[idx]
+            ni1[idx] = ni[idx]
+
+    _zero2(ncol, pver, pcols, Ptr[float](tlat1_p))
+    _zero2(ncol, pver, pcols, Ptr[float](qvlat1_p))
+    _zero2(ncol, pver, pcols, Ptr[float](qctend1_p))
+    _zero2(ncol, pver, pcols, Ptr[float](qitend1_p))
+    _zero2(ncol, pver, pcols, Ptr[float](nctend1_p))
+    _zero2(ncol, pver, pcols, Ptr[float](nitend1_p))
+    _zero2(ncol, pver, pcols, Ptr[float](qrout_p))
+    _zero2(ncol, pver, pcols, Ptr[float](qsout_p))
+    _zero2(ncol, pver, pcols, Ptr[float](nrout_p))
+    _zero2(ncol, pver, pcols, Ptr[float](nsout_p))
+    _zero2(ncol, pver, pcols, Ptr[float](dsout_p))
+    _zero2(ncol, pver, pcols, Ptr[float](drout_p))
+    _zero2(ncol, pver, pcols, Ptr[float](reff_rain_p))
+    _zero2(ncol, pver, pcols, Ptr[float](reff_snow_p))
+    _zero2(ncol, pver, pcols, Ptr[float](nevapr_p))
+    _zero2(ncol, pver, pcols, Ptr[float](nevapr2_p))
+    _zero2(ncol, pver, pcols, Ptr[float](evapsnow_p))
+    _zero2(ncol, pver, pcols, Ptr[float](prain_p))
+    _zero2(ncol, pver, pcols, Ptr[float](prodsnow_p))
+    _zero2(ncol, pver, pcols, Ptr[float](cmeout_p))
+    _zero2(ncol, pver, pcols, Ptr[float](am_evp_st_p))
+    _zero2(ncol, pver, pcols, Ptr[float](rainrt1_p))
+
+    cldmax = Ptr[float](cldmax_p)
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            cldmax[_idx2(i, k, pcols)] = mincld
+
+    _zero2(ncol, pver, pcols, Ptr[float](dum2l_p))
+    _zero2(ncol, pver, pcols, Ptr[float](dum2i_p))
+
+    prect1 = Ptr[float](prect1_p)
+    preci1 = Ptr[float](preci1_p)
+    for i in range(1, ncol + 1):
+        prect1[i - 1] = 0.0
+        preci1[i - 1] = 0.0
+
+
+@inline
 def _pack2d_mgcols(
     mgncol: int,
     nlev: int,

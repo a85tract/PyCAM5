@@ -50,6 +50,8 @@ use shr_spfn_mod, only: gamma => shr_spfn_gamma
        svp_to_qsat => wv_sat_svp_to_qsat
 
   use phys_control, only: phys_getopts
+  use spmd_utils, only: masterproc
+  use cam_logfile, only: iulog
 
 implicit none
 private
@@ -138,6 +140,10 @@ logical :: use_hetfrz_classnuc ! option to use heterogeneous freezing
 
 character(len=16)  :: micro_mg_precip_frac_method  ! type of precipitation fraction method
 real(r8)           :: micro_mg_berg_eff_factor     ! berg efficiency factor
+
+logical :: micro_mg1_0_init_use_native_impl = .false.
+logical :: micro_mg1_0_init_impl_selected = .false.
+logical :: micro_mg1_0_init_wrapper_logged = .false.
 
 
 !===============================================================================
@@ -862,6 +868,17 @@ end if
 
 call phys_getopts(do_clubb_sgs_out = do_clubb_sgs)
 
+! assign variable deltat for sub-stepping...
+deltat=deltatin
+
+! parameters for scheme
+omsm=0.99999_r8
+dto2=0.5_r8*deltat
+mincld=0.0001_r8
+
+call micro_mg1_0_select_init_impl()
+if (micro_mg1_0_init_use_native_impl) then
+
 ! initialize  output fields for number conc qand ice nucleation
 ncai(1:ncol,1:pver)=0._r8 
 ncal(1:ncol,1:pver)=0._r8  
@@ -921,47 +938,9 @@ wtfi(1:ncol,1:pver)=0._r8
 wtprelat(1:ncol,1:pver)=0._r8
 wtpostlat(1:ncol,1:pver)=0._r8
 
-! assign variable deltat for sub-stepping...
-deltat=deltatin
-
-! parameters for scheme
-
-omsm=0.99999_r8
-dto2=0.5_r8*deltat
-mincld=0.0001_r8
-
 ! initialize multi-level fields
 q(1:ncol,1:pver)=qn(1:ncol,1:pver)
 t(1:ncol,1:pver)=tn(1:ncol,1:pver)
-
-! initialize time-varying parameters
-
-do k=1,pver
-   do i=1,ncol
-      rho(i,k)=p(i,k)/(r*t(i,k))
-      dv(i,k) = 8.794E-5_r8*t(i,k)**1.81_r8/p(i,k)
-      mu(i,k) = 1.496E-6_r8*t(i,k)**1.5_r8/(t(i,k)+120._r8) 
-      sc(i,k) = mu(i,k)/(rho(i,k)*dv(i,k))
-      kap(i,k) = 1.414e3_r8*1.496e-6_r8*t(i,k)**1.5_r8/(t(i,k)+120._r8) 
-
-      ! air density adjustment for fallspeed parameters
-      ! includes air density correction factor to the
-      ! power of 0.54 following Heymsfield and Bansemer 2007
-
-      rhof(i,k)=(rhosu/rho(i,k))**0.54_r8
-
-      arn(i,k)=ar*rhof(i,k)
-      asn(i,k)=as*rhof(i,k)
-      acn(i,k)=ac*rhof(i,k)
-      ain(i,k)=ai*rhof(i,k)
-
-      ! get dz from dp and hydrostatic approx
-      ! keep dz positive (define as layer k-1 - layer k)
-
-      dz(i,k)= pdel(i,k)/(rho(i,k)*g)
-
-   end do
-end do
 
 ! initialization
 qc(1:ncol,1:top_lev-1) = 0._r8
@@ -1019,6 +998,52 @@ dum2i(1:ncol,1:pver)=0._r8
 ! initialize avg precip rate
 prect1(1:ncol)=0._r8
 preci1(1:ncol)=0._r8
+
+else
+
+call micro_mg1_0_init_fields_codon_wrap(ncol, pcols, pver, top_lev, mincld, qn, tn, &
+     qc, qi, nc, ni, ncai, ncal, rercld, arcld, pgamrad, lamcrad, deffi, &
+     qcsevap, qisevap, qvres, cmeiout, vtrmc, vtrmi, qcsedten, qisedten, &
+     prao, prco, mnuccco, mnuccto, msacwio, psacwso, bergso, bergo, melto, &
+     homoo, qcreso, prcio, praio, qireso, mnuccro, pracso, meltsdt, frzrdt, &
+     mnuccdo, rflx, sflx, effc, effc_fn, effi, preo, prdso, frzro, meltso, &
+     wtfc, wtfi, wtprelat, wtpostlat, q, t, t1, q1, qc1, qi1, nc1, ni1, &
+     tlat1, qvlat1, qctend1, qitend1, nctend1, nitend1, qrout, qsout, nrout, &
+     nsout, dsout, drout, reff_rain, reff_snow, nevapr, nevapr2, evapsnow, &
+     prain, prodsnow, cmeout, am_evp_st, rainrt1, cldmax, dum2l, dum2i, &
+     prect1, preci1)
+
+end if
+
+! initialize time-varying parameters
+! Keep the exponent-heavy expressions in the original Fortran context while
+! the surrounding zero/copy initialization is selected between native/Codon.
+do k=1,pver
+   do i=1,ncol
+      rho(i,k)=p(i,k)/(r*t(i,k))
+      dv(i,k) = 8.794E-5_r8*t(i,k)**1.81_r8/p(i,k)
+      mu(i,k) = 1.496E-6_r8*t(i,k)**1.5_r8/(t(i,k)+120._r8)
+      sc(i,k) = mu(i,k)/(rho(i,k)*dv(i,k))
+      kap(i,k) = 1.414e3_r8*1.496e-6_r8*t(i,k)**1.5_r8/(t(i,k)+120._r8)
+
+      ! air density adjustment for fallspeed parameters
+      ! includes air density correction factor to the
+      ! power of 0.54 following Heymsfield and Bansemer 2007
+
+      rhof(i,k)=(rhosu/rho(i,k))**0.54_r8
+
+      arn(i,k)=ar*rhof(i,k)
+      asn(i,k)=as*rhof(i,k)
+      acn(i,k)=ac*rhof(i,k)
+      ain(i,k)=ai*rhof(i,k)
+
+      ! get dz from dp and hydrostatic approx
+      ! keep dz positive (define as layer k-1 - layer k)
+
+      dz(i,k)= pdel(i,k)/(rho(i,k)*g)
+
+   end do
+end do
 
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 !Get humidity and saturation vapor pressures
@@ -3695,6 +3720,172 @@ enddo
 
 
 end subroutine micro_mg_tend
+
+subroutine micro_mg1_0_select_init_impl()
+  character(len=32) :: impl_name
+  integer :: n, status
+
+  if (micro_mg1_0_init_impl_selected) return
+
+  call get_environment_variable('MICRO_MG1_0_INIT_IMPL', value=impl_name, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     micro_mg1_0_init_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     micro_mg1_0_init_use_native_impl = .false.
+  end if
+
+  if (masterproc) then
+     if (micro_mg1_0_init_use_native_impl) then
+        write(iulog,*) 'micro_mg1_0_init implementation = native'
+        call micro_mg1_0_append_impl_proof('MICRO_MG1_0_INIT_PROOF_FILE', &
+             'micro_mg1_0_init implementation = native')
+     else
+        write(iulog,*) 'micro_mg1_0_init implementation = codon'
+        call micro_mg1_0_append_impl_proof('MICRO_MG1_0_INIT_PROOF_FILE', &
+             'micro_mg1_0_init implementation = codon')
+     end if
+  end if
+
+  micro_mg1_0_init_impl_selected = .true.
+end subroutine micro_mg1_0_select_init_impl
+
+subroutine micro_mg1_0_append_impl_proof(env_name, proof_line)
+  character(len=*), intent(in) :: env_name
+  character(len=*), intent(in) :: proof_line
+  character(len=512) :: proof_file
+  integer :: n, status, unitno
+
+  if (.not. masterproc) return
+
+  call get_environment_variable(env_name, value=proof_file, length=n, status=status)
+  if (status /= 0 .or. n <= 0) return
+
+  open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+  write(unitno,'(A)') trim(proof_line)
+  close(unitno)
+end subroutine micro_mg1_0_append_impl_proof
+
+subroutine micro_mg1_0_init_fields_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, mincld_local, &
+     qn_local, tn_local, qc_local, qi_local, nc_local, ni_local, ncai_local, ncal_local, rercld_local, arcld_local, &
+     pgamrad_local, lamcrad_local, deffi_local, qcsevap_local, qisevap_local, qvres_local, cmeiout_local, &
+     vtrmc_local, vtrmi_local, qcsedten_local, qisedten_local, prao_local, prco_local, mnuccco_local, &
+     mnuccto_local, msacwio_local, psacwso_local, bergso_local, bergo_local, melto_local, homoo_local, &
+     qcreso_local, prcio_local, praio_local, qireso_local, mnuccro_local, pracso_local, meltsdt_local, &
+     frzrdt_local, mnuccdo_local, rflx_local, sflx_local, effc_local, effc_fn_local, effi_local, preo_local, &
+     prdso_local, frzro_local, meltso_local, wtfc_local, wtfi_local, wtprelat_local, wtpostlat_local, q_local, &
+     t_local, t1_local, q1_local, qc1_local, qi1_local, nc1_local, ni1_local, tlat1_local, qvlat1_local, &
+     qctend1_local, qitend1_local, nctend1_local, nitend1_local, qrout_local, qsout_local, nrout_local, &
+     nsout_local, dsout_local, drout_local, reff_rain_local, reff_snow_local, nevapr_local, nevapr2_local, &
+     evapsnow_local, prain_local, prodsnow_local, cmeout_local, am_evp_st_local, rainrt1_local, cldmax_local, &
+     dum2l_local, dum2i_local, prect1_local, preci1_local)
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: ncol_local, pcols_local, pver_local, top_lev_local
+  real(r8), intent(in) :: mincld_local
+  real(r8), target, intent(in) :: qn_local(pcols_local,pver_local), tn_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qc_local(pcols_local,pver_local), qi_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nc_local(pcols_local,pver_local), ni_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: ncai_local(pcols_local,pver_local), ncal_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: rercld_local(pcols_local,pver_local), arcld_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: pgamrad_local(pcols_local,pver_local), lamcrad_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: deffi_local(pcols_local,pver_local), qcsevap_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qisevap_local(pcols_local,pver_local), qvres_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: cmeiout_local(pcols_local,pver_local), vtrmc_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: vtrmi_local(pcols_local,pver_local), qcsedten_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qisedten_local(pcols_local,pver_local), prao_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: prco_local(pcols_local,pver_local), mnuccco_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: mnuccto_local(pcols_local,pver_local), msacwio_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: psacwso_local(pcols_local,pver_local), bergso_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: bergo_local(pcols_local,pver_local), melto_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: homoo_local(pcols_local,pver_local), qcreso_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: prcio_local(pcols_local,pver_local), praio_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qireso_local(pcols_local,pver_local), mnuccro_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: pracso_local(pcols_local,pver_local), meltsdt_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: frzrdt_local(pcols_local,pver_local), mnuccdo_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: rflx_local(pcols_local,pver_local+1), sflx_local(pcols_local,pver_local+1)
+  real(r8), target, intent(inout) :: effc_local(pcols_local,pver_local), effc_fn_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: effi_local(pcols_local,pver_local), preo_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: prdso_local(pcols_local,pver_local), frzro_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: meltso_local(pcols_local,pver_local), wtfc_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: wtfi_local(pcols_local,pver_local), wtprelat_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: wtpostlat_local(pcols_local,pver_local), q_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: t_local(pcols_local,pver_local), t1_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: q1_local(pcols_local,pver_local), qc1_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qi1_local(pcols_local,pver_local), nc1_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: ni1_local(pcols_local,pver_local), tlat1_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qvlat1_local(pcols_local,pver_local), qctend1_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qitend1_local(pcols_local,pver_local), nctend1_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nitend1_local(pcols_local,pver_local), qrout_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qsout_local(pcols_local,pver_local), nrout_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nsout_local(pcols_local,pver_local), dsout_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: drout_local(pcols_local,pver_local), reff_rain_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: reff_snow_local(pcols_local,pver_local), nevapr_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nevapr2_local(pcols_local,pver_local), evapsnow_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: prain_local(pcols_local,pver_local), prodsnow_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: cmeout_local(pcols_local,pver_local), am_evp_st_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: rainrt1_local(pcols_local,pver_local), cldmax_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: dum2l_local(pcols_local,pver_local), dum2i_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: prect1_local(pcols_local), preci1_local(pcols_local)
+
+  interface
+     subroutine micro_mg1_0_init_fields_codon(ncol_c, pcols_c, pver_c, top_lev_c, mincld_c, qn_p, tn_p, &
+          qc_p, qi_p, nc_p, ni_p, ncai_p, ncal_p, rercld_p, arcld_p, pgamrad_p, lamcrad_p, deffi_p, &
+          qcsevap_p, qisevap_p, qvres_p, cmeiout_p, vtrmc_p, vtrmi_p, qcsedten_p, qisedten_p, prao_p, &
+          prco_p, mnuccco_p, mnuccto_p, msacwio_p, psacwso_p, bergso_p, bergo_p, melto_p, homoo_p, &
+          qcreso_p, prcio_p, praio_p, qireso_p, mnuccro_p, pracso_p, meltsdt_p, frzrdt_p, mnuccdo_p, &
+          rflx_p, sflx_p, effc_p, effc_fn_p, effi_p, preo_p, prdso_p, frzro_p, meltso_p, wtfc_p, &
+          wtfi_p, wtprelat_p, wtpostlat_p, q_p, t_p, t1_p, q1_p, qc1_p, qi1_p, nc1_p, ni1_p, &
+          tlat1_p, qvlat1_p, qctend1_p, qitend1_p, nctend1_p, nitend1_p, qrout_p, qsout_p, nrout_p, &
+          nsout_p, dsout_p, drout_p, reff_rain_p, reff_snow_p, nevapr_p, nevapr2_p, evapsnow_p, &
+          prain_p, prodsnow_p, cmeout_p, am_evp_st_p, rainrt1_p, cldmax_p, dum2l_p, dum2i_p, &
+          prect1_p, preci1_p) bind(c, name="micro_mg1_0_init_fields_codon")
+       import c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+       real(c_double), value :: mincld_c
+       type(c_ptr), value :: qn_p, tn_p, qc_p, qi_p, nc_p, ni_p, ncai_p, ncal_p, rercld_p, arcld_p
+       type(c_ptr), value :: pgamrad_p, lamcrad_p, deffi_p, qcsevap_p, qisevap_p, qvres_p, cmeiout_p
+       type(c_ptr), value :: vtrmc_p, vtrmi_p, qcsedten_p, qisedten_p, prao_p, prco_p, mnuccco_p
+       type(c_ptr), value :: mnuccto_p, msacwio_p, psacwso_p, bergso_p, bergo_p, melto_p, homoo_p
+       type(c_ptr), value :: qcreso_p, prcio_p, praio_p, qireso_p, mnuccro_p, pracso_p, meltsdt_p
+       type(c_ptr), value :: frzrdt_p, mnuccdo_p, rflx_p, sflx_p, effc_p, effc_fn_p, effi_p, preo_p
+       type(c_ptr), value :: prdso_p, frzro_p, meltso_p, wtfc_p, wtfi_p, wtprelat_p, wtpostlat_p
+       type(c_ptr), value :: q_p, t_p, t1_p, q1_p, qc1_p, qi1_p, nc1_p, ni1_p, tlat1_p, qvlat1_p
+       type(c_ptr), value :: qctend1_p, qitend1_p, nctend1_p, nitend1_p, qrout_p, qsout_p, nrout_p
+       type(c_ptr), value :: nsout_p, dsout_p, drout_p, reff_rain_p, reff_snow_p, nevapr_p, nevapr2_p
+       type(c_ptr), value :: evapsnow_p, prain_p, prodsnow_p, cmeout_p, am_evp_st_p, rainrt1_p, cldmax_p
+       type(c_ptr), value :: dum2l_p, dum2i_p, prect1_p, preci1_p
+     end subroutine micro_mg1_0_init_fields_codon
+  end interface
+
+  call micro_mg1_0_append_impl_proof('MICRO_MG1_0_INIT_PROOF_FILE', &
+       'micro_mg1_0_init_fields_codon_wrap entered (zero/copy initialization = codon)')
+
+  if (masterproc .and. .not. micro_mg1_0_init_wrapper_logged) then
+     write(iulog,*) 'micro_mg1_0_init_fields_codon_wrap entered (zero/copy initialization = codon)'
+     micro_mg1_0_init_wrapper_logged = .true.
+  end if
+
+  call micro_mg1_0_init_fields_codon(int(ncol_local, c_int64_t), int(pcols_local, c_int64_t), &
+       int(pver_local, c_int64_t), int(top_lev_local, c_int64_t), real(mincld_local, c_double), &
+       c_loc(qn_local), c_loc(tn_local), c_loc(qc_local), c_loc(qi_local), c_loc(nc_local), c_loc(ni_local), &
+       c_loc(ncai_local), c_loc(ncal_local), c_loc(rercld_local), c_loc(arcld_local), c_loc(pgamrad_local), &
+       c_loc(lamcrad_local), c_loc(deffi_local), c_loc(qcsevap_local), c_loc(qisevap_local), c_loc(qvres_local), &
+       c_loc(cmeiout_local), c_loc(vtrmc_local), c_loc(vtrmi_local), c_loc(qcsedten_local), c_loc(qisedten_local), &
+       c_loc(prao_local), c_loc(prco_local), c_loc(mnuccco_local), c_loc(mnuccto_local), c_loc(msacwio_local), &
+       c_loc(psacwso_local), c_loc(bergso_local), c_loc(bergo_local), c_loc(melto_local), c_loc(homoo_local), &
+       c_loc(qcreso_local), c_loc(prcio_local), c_loc(praio_local), c_loc(qireso_local), c_loc(mnuccro_local), &
+       c_loc(pracso_local), c_loc(meltsdt_local), c_loc(frzrdt_local), c_loc(mnuccdo_local), c_loc(rflx_local), &
+       c_loc(sflx_local), c_loc(effc_local), c_loc(effc_fn_local), c_loc(effi_local), c_loc(preo_local), &
+       c_loc(prdso_local), c_loc(frzro_local), c_loc(meltso_local), c_loc(wtfc_local), c_loc(wtfi_local), &
+       c_loc(wtprelat_local), c_loc(wtpostlat_local), c_loc(q_local), c_loc(t_local), c_loc(t1_local), &
+       c_loc(q1_local), c_loc(qc1_local), c_loc(qi1_local), c_loc(nc1_local), c_loc(ni1_local), &
+       c_loc(tlat1_local), c_loc(qvlat1_local), c_loc(qctend1_local), c_loc(qitend1_local), &
+       c_loc(nctend1_local), c_loc(nitend1_local), c_loc(qrout_local), c_loc(qsout_local), &
+       c_loc(nrout_local), c_loc(nsout_local), c_loc(dsout_local), c_loc(drout_local), &
+       c_loc(reff_rain_local), c_loc(reff_snow_local), c_loc(nevapr_local), c_loc(nevapr2_local), &
+       c_loc(evapsnow_local), c_loc(prain_local), c_loc(prodsnow_local), c_loc(cmeout_local), &
+       c_loc(am_evp_st_local), c_loc(rainrt1_local), c_loc(cldmax_local), c_loc(dum2l_local), &
+       c_loc(dum2i_local), c_loc(prect1_local), c_loc(preci1_local))
+end subroutine micro_mg1_0_init_fields_codon_wrap
 
 !========================================================================
 !UTILITIES
