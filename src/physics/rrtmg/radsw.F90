@@ -175,10 +175,10 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    real(r8), target :: pmid(pcols,pver)    ! Level pressure (Pascals)
 
    real(r8), target :: cld(pcols,rrtmg_levs-1)    ! Fractional cloud cover
-   real(r8) :: cicewp(pcols,rrtmg_levs-1) ! in-cloud cloud ice water path
-   real(r8) :: cliqwp(pcols,rrtmg_levs-1) ! in-cloud cloud liquid water path
-   real(r8) :: rel(pcols,rrtmg_levs-1)    ! Liquid effective drop size (microns)
-   real(r8) :: rei(pcols,rrtmg_levs-1)    ! Ice effective drop size (microns)
+   real(r8), target :: cicewp(pcols,rrtmg_levs-1) ! in-cloud cloud ice water path
+   real(r8), target :: cliqwp(pcols,rrtmg_levs-1) ! in-cloud cloud liquid water path
+   real(r8), target :: rel(pcols,rrtmg_levs-1)    ! Liquid effective drop size (microns)
+   real(r8), target :: rei(pcols,rrtmg_levs-1)    ! Ice effective drop size (microns)
 
    real(r8), target :: coszrs(pcols)    ! Cosine solar zenith angle
    real(r8), target :: asdir(pcols)     ! 0.2-0.7 micro-meter srfc alb: direct rad
@@ -360,6 +360,12 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
          type(c_ptr), value :: fsns_p, fsnsc_p, fsdsc_p, fsnt_p, fsntc_p
          type(c_ptr), value :: fsntoa_p, fsutoa_p, fsntoac_p, sols_p, soll_p, solsd_p, solld_p
       end subroutine rrtmg_sw_zero_outputs_codon
+      subroutine rrtmg_sw_zero_cloud_inputs_codon(ncol_c, pcols_c, nlay_c, &
+           cicewp_p, cliqwp_p, rel_p, rei_p) bind(c, name="rrtmg_sw_zero_cloud_inputs_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, nlay_c
+         type(c_ptr), value :: cicewp_p, cliqwp_p, rel_p, rei_p
+      end subroutine rrtmg_sw_zero_cloud_inputs_codon
    end interface
 
    !-----------------------------------------------------------------------
@@ -478,10 +484,18 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    end if
 
    ! These fields are no longer input by CAM.
-   cicewp = 0.0_r8
-   cliqwp = 0.0_r8
-   rel = 0.0_r8
-   rei = 0.0_r8
+   if (use_native_rrtmg_sw_driver_impl) then
+      cicewp = 0.0_r8
+      cliqwp = 0.0_r8
+      rel = 0.0_r8
+      rei = 0.0_r8
+   else
+      call rrtmg_sw_driver_log_entered()
+      call rrtmg_sw_zero_cloud_inputs_codon( &
+           int(Nday, c_int64_t), int(pcols, c_int64_t), int(rrtmg_levs-1, c_int64_t), &
+           c_loc(cicewp(1,1)), c_loc(cliqwp(1,1)), c_loc(rel(1,1)), c_loc(rei(1,1)) &
+      )
+   end if
 
    if (use_native_rrtmg_sw_driver_impl) then
       ! Aerosol daylight map
@@ -909,7 +923,8 @@ subroutine rrtmg_sw_driver_log_entered()
    rrtmg_sw_driver_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,*) 'rrtmg_sw_driver entered (output zero/input compact/solin/aerosol pre/post helpers = codon; ' // &
+      write(iulog,*) 'rrtmg_sw_driver entered (output zero/cloud input zero/input compact/solin/aerosol ' // &
+           'pre/post helpers = codon; ' // &
            'native driver blocks skipped; rrtmg_sw core = native)'
       call flush(iulog)
    end if
