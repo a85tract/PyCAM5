@@ -136,6 +136,267 @@ def cldwat2m_dropnum_limit_codon(
 
 
 @export
+def cldwat2m_final_tendency_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    do_cldice: int,
+    dt: float,
+    cpair: float,
+    qqw_prog_p: cobj,
+    qqi_prog_p: cobj,
+    qqnl_prog_p: cobj,
+    qqni_prog_p: cobj,
+    qqw1_p: cobj,
+    qqi1_p: cobj,
+    qqw2_p: cobj,
+    qqi2_p: cobj,
+    qlten_pwi1_p: cobj,
+    qlten_pwi2_p: cobj,
+    qiten_pwi1_p: cobj,
+    qiten_pwi2_p: cobj,
+    a_ql_adj_p: cobj,
+    a_qi_adj_p: cobj,
+    qqnl1_p: cobj,
+    qqni1_p: cobj,
+    qqnl2_p: cobj,
+    qqni2_p: cobj,
+    nlten_pwi1_p: cobj,
+    nlten_pwi2_p: cobj,
+    niten_pwi1_p: cobj,
+    niten_pwi2_p: cobj,
+    acnl_p: cobj,
+    acni_p: cobj,
+    a_nl_adj_p: cobj,
+    a_ni_adj_p: cobj,
+    qvten_pwi1_p: cobj,
+    qvten_pwi2_p: cobj,
+    a_qv_adj_p: cobj,
+    t_star_p: cobj,
+    qv_star_p: cobj,
+    ql_star_p: cobj,
+    qi_star_p: cobj,
+    nl_star_p: cobj,
+    ni_star_p: cobj,
+    a_t_p: cobj,
+    c_t_p: cobj,
+    a_qv_p: cobj,
+    c_qv_p: cobj,
+    a_ql_p: cobj,
+    c_ql_p: cobj,
+    a_qi_p: cobj,
+    c_qi_p: cobj,
+    a_nl_p: cobj,
+    c_nl_p: cobj,
+    a_ni_p: cobj,
+    c_ni_p: cobj,
+    a_st_star_p: cobj,
+    a_cu0_p: cobj,
+    qqw_final_p: cobj,
+    qqi_final_p: cobj,
+    qq_final_p: cobj,
+    qqw_all_p: cobj,
+    qqi_all_p: cobj,
+    qq_all_p: cobj,
+    qqnl_final_p: cobj,
+    qqni_final_p: cobj,
+    qqn_final_p: cobj,
+    qqnl_all_p: cobj,
+    qqni_all_p: cobj,
+    qqn_all_p: cobj,
+    qme_p: cobj,
+    qvadj_p: cobj,
+    qladj_p: cobj,
+    qiadj_p: cobj,
+    qllim_p: cobj,
+    qilim_p: cobj,
+    s_tendout_p: cobj,
+    qv_tendout_p: cobj,
+    ql_tendout_p: cobj,
+    qi_tendout_p: cobj,
+    nl_tendout_p: cobj,
+    ni_tendout_p: cobj,
+    cld_p: cobj,
+    t0_p: cobj,
+    qv0_p: cobj,
+    ql0_p: cobj,
+    qi0_p: cobj,
+    nl0_p: cobj,
+    ni0_p: cobj,
+):
+    qqw_prog = Ptr[float](qqw_prog_p)
+    qqi_prog = Ptr[float](qqi_prog_p)
+    qqnl_prog = Ptr[float](qqnl_prog_p)
+    qqni_prog = Ptr[float](qqni_prog_p)
+    qqw1 = Ptr[float](qqw1_p)
+    qqi1 = Ptr[float](qqi1_p)
+    qqw2 = Ptr[float](qqw2_p)
+    qqi2 = Ptr[float](qqi2_p)
+    qlten_pwi1 = Ptr[float](qlten_pwi1_p)
+    qlten_pwi2 = Ptr[float](qlten_pwi2_p)
+    qiten_pwi1 = Ptr[float](qiten_pwi1_p)
+    qiten_pwi2 = Ptr[float](qiten_pwi2_p)
+    a_ql_adj = Ptr[float](a_ql_adj_p)
+    a_qi_adj = Ptr[float](a_qi_adj_p)
+    qqnl1 = Ptr[float](qqnl1_p)
+    qqni1 = Ptr[float](qqni1_p)
+    qqnl2 = Ptr[float](qqnl2_p)
+    qqni2 = Ptr[float](qqni2_p)
+    nlten_pwi1 = Ptr[float](nlten_pwi1_p)
+    nlten_pwi2 = Ptr[float](nlten_pwi2_p)
+    niten_pwi1 = Ptr[float](niten_pwi1_p)
+    niten_pwi2 = Ptr[float](niten_pwi2_p)
+    acnl = Ptr[float](acnl_p)
+    acni = Ptr[float](acni_p)
+    a_nl_adj = Ptr[float](a_nl_adj_p)
+    a_ni_adj = Ptr[float](a_ni_adj_p)
+    qvten_pwi1 = Ptr[float](qvten_pwi1_p)
+    qvten_pwi2 = Ptr[float](qvten_pwi2_p)
+    a_qv_adj = Ptr[float](a_qv_adj_p)
+    t_star = Ptr[float](t_star_p)
+    qv_star = Ptr[float](qv_star_p)
+    ql_star = Ptr[float](ql_star_p)
+    qi_star = Ptr[float](qi_star_p)
+    nl_star = Ptr[float](nl_star_p)
+    ni_star = Ptr[float](ni_star_p)
+    a_t = Ptr[float](a_t_p)
+    c_t = Ptr[float](c_t_p)
+    a_qv = Ptr[float](a_qv_p)
+    c_qv = Ptr[float](c_qv_p)
+    a_ql = Ptr[float](a_ql_p)
+    c_ql = Ptr[float](c_ql_p)
+    a_qi = Ptr[float](a_qi_p)
+    c_qi = Ptr[float](c_qi_p)
+    a_nl = Ptr[float](a_nl_p)
+    c_nl = Ptr[float](c_nl_p)
+    a_ni = Ptr[float](a_ni_p)
+    c_ni = Ptr[float](c_ni_p)
+    a_st_star = Ptr[float](a_st_star_p)
+    a_cu0 = Ptr[float](a_cu0_p)
+    qqw_final = Ptr[float](qqw_final_p)
+    qqi_final = Ptr[float](qqi_final_p)
+    qq_final = Ptr[float](qq_final_p)
+    qqw_all = Ptr[float](qqw_all_p)
+    qqi_all = Ptr[float](qqi_all_p)
+    qq_all = Ptr[float](qq_all_p)
+    qqnl_final = Ptr[float](qqnl_final_p)
+    qqni_final = Ptr[float](qqni_final_p)
+    qqn_final = Ptr[float](qqn_final_p)
+    qqnl_all = Ptr[float](qqnl_all_p)
+    qqni_all = Ptr[float](qqni_all_p)
+    qqn_all = Ptr[float](qqn_all_p)
+    qme = Ptr[float](qme_p)
+    qvadj = Ptr[float](qvadj_p)
+    qladj = Ptr[float](qladj_p)
+    qiadj = Ptr[float](qiadj_p)
+    qllim = Ptr[float](qllim_p)
+    qilim = Ptr[float](qilim_p)
+    s_tendout = Ptr[float](s_tendout_p)
+    qv_tendout = Ptr[float](qv_tendout_p)
+    ql_tendout = Ptr[float](ql_tendout_p)
+    qi_tendout = Ptr[float](qi_tendout_p)
+    nl_tendout = Ptr[float](nl_tendout_p)
+    ni_tendout = Ptr[float](ni_tendout_p)
+    cld = Ptr[float](cld_p)
+    t0 = Ptr[float](t0_p)
+    qv0 = Ptr[float](qv0_p)
+    ql0 = Ptr[float](ql0_p)
+    qi0 = Ptr[float](qi0_p)
+    nl0 = Ptr[float](nl0_p)
+    ni0 = Ptr[float](ni0_p)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+
+            qqw_final[idx] = qqw_prog[idx]
+            qqi_final[idx] = qqi_prog[idx]
+            qq_final[idx] = qqw_final[idx] + qqi_final[idx]
+
+            qqw_all_val = qqw_prog[idx]
+            qqw_all_val = qqw_all_val + qqw1[idx]
+            qqw_all_val = qqw_all_val + qqw2[idx]
+            qqw_all_val = qqw_all_val + qlten_pwi1[idx]
+            qqw_all_val = qqw_all_val + qlten_pwi2[idx]
+            qqw_all_val = qqw_all_val + a_ql_adj[idx]
+            qqw_all[idx] = qqw_all_val
+
+            qqi_all_val = qqi_prog[idx]
+            qqi_all_val = qqi_all_val + qqi1[idx]
+            qqi_all_val = qqi_all_val + qqi2[idx]
+            qqi_all_val = qqi_all_val + qiten_pwi1[idx]
+            qqi_all_val = qqi_all_val + qiten_pwi2[idx]
+            qqi_all_val = qqi_all_val + a_qi_adj[idx]
+            qqi_all[idx] = qqi_all_val
+
+            qq_all[idx] = qqw_all[idx] + qqi_all[idx]
+
+            qqnl_final[idx] = qqnl_prog[idx]
+            qqni_final[idx] = qqni_prog[idx]
+            qqn_final[idx] = qqnl_final[idx] + qqni_final[idx]
+
+            qqnl_all_val = qqnl_prog[idx]
+            qqnl_all_val = qqnl_all_val + qqnl1[idx]
+            qqnl_all_val = qqnl_all_val + qqnl2[idx]
+            qqnl_all_val = qqnl_all_val + nlten_pwi1[idx]
+            qqnl_all_val = qqnl_all_val + nlten_pwi2[idx]
+            qqnl_all_val = qqnl_all_val + acnl[idx]
+            qqnl_all_val = qqnl_all_val + a_nl_adj[idx]
+            qqnl_all[idx] = qqnl_all_val
+
+            qqni_all_val = qqni_prog[idx]
+            qqni_all_val = qqni_all_val + qqni1[idx]
+            qqni_all_val = qqni_all_val + qqni2[idx]
+            qqni_all_val = qqni_all_val + niten_pwi1[idx]
+            qqni_all_val = qqni_all_val + niten_pwi2[idx]
+            qqni_all_val = qqni_all_val + acni[idx]
+            qqni_all_val = qqni_all_val + a_ni_adj[idx]
+            qqni_all[idx] = qqni_all_val
+
+            qqn_all[idx] = qqnl_all[idx] + qqni_all[idx]
+            qme[idx] = qq_final[idx]
+
+            qvadj_val = qvten_pwi1[idx]
+            qvadj_val = qvadj_val + qvten_pwi2[idx]
+            qvadj_val = qvadj_val + a_qv_adj[idx]
+            qvadj[idx] = qvadj_val
+
+            qladj_val = qlten_pwi1[idx]
+            qladj_val = qladj_val + qlten_pwi2[idx]
+            qladj_val = qladj_val + a_ql_adj[idx]
+            qladj[idx] = qladj_val
+
+            qiadj_val = qiten_pwi1[idx]
+            qiadj_val = qiadj_val + qiten_pwi2[idx]
+            qiadj_val = qiadj_val + a_qi_adj[idx]
+            qiadj[idx] = qiadj_val
+
+            qllim[idx] = qqw1[idx] + qqw2[idx]
+            qilim[idx] = qqi1[idx] + qqi2[idx]
+
+            s_tendout[idx] = cpair * (t_star[idx] - t0[idx]) / dt - cpair * (a_t[idx] + c_t[idx])
+            qv_tendout[idx] = (qv_star[idx] - qv0[idx]) / dt - (a_qv[idx] + c_qv[idx])
+            ql_tendout[idx] = (ql_star[idx] - ql0[idx]) / dt - (a_ql[idx] + c_ql[idx])
+            qi_tendout[idx] = (qi_star[idx] - qi0[idx]) / dt - (a_qi[idx] + c_qi[idx])
+            nl_tendout[idx] = (nl_star[idx] - nl0[idx]) / dt - (a_nl[idx] + c_nl[idx])
+            ni_tendout[idx] = (ni_star[idx] - ni0[idx]) / dt - (a_ni[idx] + c_ni[idx])
+
+            if do_cldice == 0:
+                qi_tendout[idx] = 0.0
+                ni_tendout[idx] = 0.0
+
+            cld[idx] = a_st_star[idx] + a_cu0[idx]
+
+            t0[idx] = t_star[idx]
+            qv0[idx] = qv_star[idx]
+            ql0[idx] = ql_star[idx]
+            qi0[idx] = qi_star[idx]
+            nl0[idx] = nl_star[idx]
+            ni0[idx] = ni_star[idx]
+
+
+@export
 def cldwat2m_rhcrit_const_codon(
     pcols: int,
     pver: int,

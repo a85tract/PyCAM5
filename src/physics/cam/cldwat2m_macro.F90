@@ -94,6 +94,9 @@
    logical :: use_native_dropnum_limit_impl = .false.
    logical :: dropnum_limit_impl_selected = .false.
    logical :: dropnum_limit_entered_logged = .false.
+   logical :: use_native_final_tendency_impl = .false.
+   logical :: final_tendency_impl_selected = .false.
+   logical :: final_tendency_entered_logged = .false.
 
    contains
 
@@ -1073,78 +1076,18 @@
    ! below final tendencies and [A_T,A_qv,A_ql,A_qi]                          !
    ! ------------------------------------------------------------------------ !
 
-   ! ------------------ !
-   ! Process tendencies !
-   ! ------------------ !
-
-   QQw_final(:ncol,top_lev:)  = QQw_prog(:ncol,top_lev:)
-   QQi_final(:ncol,top_lev:)  = QQi_prog(:ncol,top_lev:)
-   QQ_final(:ncol,top_lev:)   = QQw_final(:ncol,top_lev:) + QQi_final(:ncol,top_lev:)
-   QQw_all(:ncol,top_lev:)    = QQw_prog(:ncol,top_lev:)  + QQw1(:ncol,top_lev:) + QQw2(:ncol,top_lev:) + &
-        qlten_pwi1(:ncol,top_lev:) + qlten_pwi2(:ncol,top_lev:) + A_ql_adj(:ncol,top_lev:)
-   QQi_all(:ncol,top_lev:)    = QQi_prog(:ncol,top_lev:)  + QQi1(:ncol,top_lev:) + QQi2(:ncol,top_lev:) + &
-        qiten_pwi1(:ncol,top_lev:) + qiten_pwi2(:ncol,top_lev:) + A_qi_adj(:ncol,top_lev:)
-   QQ_all(:ncol,top_lev:)     = QQw_all(:ncol,top_lev:)   + QQi_all(:ncol,top_lev:)
-   QQnl_final(:ncol,top_lev:) = QQnl_prog(:ncol,top_lev:)
-   QQni_final(:ncol,top_lev:) = QQni_prog(:ncol,top_lev:)
-   QQn_final(:ncol,top_lev:)  = QQnl_final(:ncol,top_lev:) + QQni_final(:ncol,top_lev:)
-   QQnl_all(:ncol,top_lev:)   = QQnl_prog(:ncol,top_lev:)  + QQnl1(:ncol,top_lev:) + QQnl2(:ncol,top_lev:) + &
-        nlten_pwi1(:ncol,top_lev:) + nlten_pwi2(:ncol,top_lev:) + ACnl(:ncol,top_lev:) + A_nl_adj(:ncol,top_lev:)
-   QQni_all(:ncol,top_lev:)   = QQni_prog(:ncol,top_lev:)  + QQni1(:ncol,top_lev:) + QQni2(:ncol,top_lev:) + &
-        niten_pwi1(:ncol,top_lev:) + niten_pwi2(:ncol,top_lev:) + ACni(:ncol,top_lev:) + A_ni_adj(:ncol,top_lev:)
-   QQn_all(:ncol,top_lev:)    = QQnl_all(:ncol,top_lev:)   + QQni_all(:ncol,top_lev:)
-   qme(:ncol,top_lev:)        = QQ_final(:ncol,top_lev:)   
-   qvadj(:ncol,top_lev:)      = qvten_pwi1(:ncol,top_lev:) + qvten_pwi2(:ncol,top_lev:) + A_qv_adj(:ncol,top_lev:)
-   qladj(:ncol,top_lev:)      = qlten_pwi1(:ncol,top_lev:) + qlten_pwi2(:ncol,top_lev:) + A_ql_adj(:ncol,top_lev:)
-   qiadj(:ncol,top_lev:)      = qiten_pwi1(:ncol,top_lev:) + qiten_pwi2(:ncol,top_lev:) + A_qi_adj(:ncol,top_lev:)
-   qllim(:ncol,top_lev:)      = QQw1      (:ncol,top_lev:) + QQw2      (:ncol,top_lev:)
-   qilim(:ncol,top_lev:)      = QQi1      (:ncol,top_lev:) + QQi2      (:ncol,top_lev:)
-
-   ! ----------------- !
-   ! Output tendencies !
-   ! ----------------- !
-
-   s_tendout(:ncol,top_lev:)  = cpair*( T_star(:ncol,top_lev:)  -  T0(:ncol,top_lev:) )/dt - &
-        cpair*(A_T(:ncol,top_lev:)+C_T(:ncol,top_lev:))
-   qv_tendout(:ncol,top_lev:) =    ( qv_star(:ncol,top_lev:) - qv0(:ncol,top_lev:) )/dt - &
-        (A_qv(:ncol,top_lev:)+C_qv(:ncol,top_lev:))
-   ql_tendout(:ncol,top_lev:) =    ( ql_star(:ncol,top_lev:) - ql0(:ncol,top_lev:) )/dt - &
-        (A_ql(:ncol,top_lev:)+C_ql(:ncol,top_lev:))
-   qi_tendout(:ncol,top_lev:) =    ( qi_star(:ncol,top_lev:) - qi0(:ncol,top_lev:) )/dt - &
-        (A_qi(:ncol,top_lev:)+C_qi(:ncol,top_lev:))
-   nl_tendout(:ncol,top_lev:) =    ( nl_star(:ncol,top_lev:) - nl0(:ncol,top_lev:) )/dt - &
-        (A_nl(:ncol,top_lev:)+C_nl(:ncol,top_lev:))
-   ni_tendout(:ncol,top_lev:) =    ( ni_star(:ncol,top_lev:) - ni0(:ncol,top_lev:) )/dt - &
-        (A_ni(:ncol,top_lev:)+C_ni(:ncol,top_lev:))
-
-   if (.not. do_cldice) then
-      do k = top_lev, pver
-         do i = 1, ncol
-
-            ! Don't want either qi or ni tendencies, but the code above is somewhat convoluted and
-            ! is trying to adjust both (small numbers). Just force it to zero here.
-            qi_tendout(i,k) = 0._r8
-            ni_tendout(i,k) = 0._r8
-          end do
-      end do
-   end if
-
-   ! ------------------ !
-   ! Net cloud fraction !
-   ! ------------------ !
-
-   cld(:ncol,top_lev:) = a_st_star(:ncol,top_lev:) + a_cu0(:ncol,top_lev:)
-
-   ! --------------------------------- !
-   ! Updated grid-mean state variables !
-   ! --------------------------------- !
-
-   T0(:ncol,top_lev:)  = T_star(:ncol,top_lev:)
-   qv0(:ncol,top_lev:) = qv_star(:ncol,top_lev:)
-   ql0(:ncol,top_lev:) = ql_star(:ncol,top_lev:)
-   qi0(:ncol,top_lev:) = qi_star(:ncol,top_lev:)
-   nl0(:ncol,top_lev:) = nl_star(:ncol,top_lev:)
-   ni0(:ncol,top_lev:) = ni_star(:ncol,top_lev:)
+   call final_tendency_codon_wrap(ncol, dt, do_cldice, &
+        QQw_prog, QQi_prog, QQnl_prog, QQni_prog, QQw1, QQi1, QQw2, QQi2, &
+        qlten_pwi1, qlten_pwi2, qiten_pwi1, qiten_pwi2, A_ql_adj, A_qi_adj, &
+        QQnl1, QQni1, QQnl2, QQni2, nlten_pwi1, nlten_pwi2, niten_pwi1, niten_pwi2, &
+        ACnl, ACni, A_nl_adj, A_ni_adj, qvten_pwi1, qvten_pwi2, A_qv_adj, &
+        T_star, qv_star, ql_star, qi_star, nl_star, ni_star, &
+        A_T, C_T, A_qv, C_qv, A_ql, C_ql, A_qi, C_qi, A_nl, C_nl, A_ni, C_ni, &
+        a_st_star, a_cu0, QQw_final, QQi_final, QQ_final, QQw_all, QQi_all, QQ_all, &
+        QQnl_final, QQni_final, QQn_final, QQnl_all, QQni_all, QQn_all, &
+        qme, qvadj, qladj, qiadj, qllim, qilim, &
+        s_tendout, qv_tendout, ql_tendout, qi_tendout, nl_tendout, ni_tendout, cld, &
+        T0, qv0, ql0, qi0, nl0, ni0)
 
    if (hist_fld_active('RHMIN_LIQ')) then
       ! Compute default critical RH as a function of height and surface type as in the current code.
@@ -1580,6 +1523,202 @@ end subroutine rhcrit_calc
    enddo
 
    end subroutine dropnum_limit_codon_wrap
+
+!=======================================================================================================
+
+   subroutine final_tendency_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: n, status
+
+   if (final_tendency_impl_selected) return
+   call get_environment_variable('CLDWAT2M_FINAL_TENDENCY_IMPL', value=impl_name, length=n, status=status)
+   use_native_final_tendency_impl = .false.
+   if (status == 0 .and. n > 0) then
+      select case (adjustl(impl_name(:n)))
+      case ('native', 'Native', 'NATIVE')
+         use_native_final_tendency_impl = .true.
+      case ('codon', 'Codon', 'CODON')
+         use_native_final_tendency_impl = .false.
+      case default
+         use_native_final_tendency_impl = .false.
+      end select
+   end if
+   final_tendency_impl_selected = .true.
+   if (masterproc) then
+      if (use_native_final_tendency_impl) then
+         write(iulog,*) 'cldwat2m_final_tendency implementation = native'
+      else
+         write(iulog,*) 'cldwat2m_final_tendency implementation = codon'
+      end if
+   end if
+   end subroutine final_tendency_select_impl
+
+   subroutine final_tendency_log_entered()
+   if (final_tendency_entered_logged) return
+   final_tendency_entered_logged = .true.
+   if (masterproc) then
+      write(iulog,*) 'cldwat2m_final_tendency entered (macrophysics final tendency/update = codon)'
+   end if
+   end subroutine final_tendency_log_entered
+
+   subroutine final_tendency_codon_wrap(ncol, dt, do_cldice, &
+        QQw_prog, QQi_prog, QQnl_prog, QQni_prog, QQw1, QQi1, QQw2, QQi2, &
+        qlten_pwi1, qlten_pwi2, qiten_pwi1, qiten_pwi2, A_ql_adj, A_qi_adj, &
+        QQnl1, QQni1, QQnl2, QQni2, nlten_pwi1, nlten_pwi2, niten_pwi1, niten_pwi2, &
+        ACnl, ACni, A_nl_adj, A_ni_adj, qvten_pwi1, qvten_pwi2, A_qv_adj, &
+        T_star, qv_star, ql_star, qi_star, nl_star, ni_star, &
+        A_T, C_T, A_qv, C_qv, A_ql, C_ql, A_qi, C_qi, A_nl, C_nl, A_ni, C_ni, &
+        a_st_star, a_cu0, QQw_final, QQi_final, QQ_final, QQw_all, QQi_all, QQ_all, &
+        QQnl_final, QQni_final, QQn_final, QQnl_all, QQni_all, QQn_all, &
+        qme, qvadj, qladj, qiadj, qllim, qilim, &
+        s_tendout, qv_tendout, ql_tendout, qi_tendout, nl_tendout, ni_tendout, cld, &
+        T0, qv0, ql0, qi0, nl0, ni0)
+
+   integer, intent(in) :: ncol
+   real(r8), intent(in) :: dt
+   logical, intent(in) :: do_cldice
+   real(r8), target, intent(in) :: QQw_prog(pcols,pver), QQi_prog(pcols,pver)
+   real(r8), target, intent(in) :: QQnl_prog(pcols,pver), QQni_prog(pcols,pver)
+   real(r8), target, intent(in) :: QQw1(pcols,pver), QQi1(pcols,pver), QQw2(pcols,pver), QQi2(pcols,pver)
+   real(r8), target, intent(in) :: qlten_pwi1(pcols,pver), qlten_pwi2(pcols,pver)
+   real(r8), target, intent(in) :: qiten_pwi1(pcols,pver), qiten_pwi2(pcols,pver)
+   real(r8), target, intent(in) :: A_ql_adj(pcols,pver), A_qi_adj(pcols,pver)
+   real(r8), target, intent(in) :: QQnl1(pcols,pver), QQni1(pcols,pver), QQnl2(pcols,pver), QQni2(pcols,pver)
+   real(r8), target, intent(in) :: nlten_pwi1(pcols,pver), nlten_pwi2(pcols,pver)
+   real(r8), target, intent(in) :: niten_pwi1(pcols,pver), niten_pwi2(pcols,pver)
+   real(r8), target, intent(in) :: ACnl(pcols,pver), ACni(pcols,pver), A_nl_adj(pcols,pver), A_ni_adj(pcols,pver)
+   real(r8), target, intent(in) :: qvten_pwi1(pcols,pver), qvten_pwi2(pcols,pver), A_qv_adj(pcols,pver)
+   real(r8), target, intent(in) :: T_star(pcols,pver), qv_star(pcols,pver), ql_star(pcols,pver)
+   real(r8), target, intent(in) :: qi_star(pcols,pver), nl_star(pcols,pver), ni_star(pcols,pver)
+   real(r8), target, intent(in) :: A_T(pcols,pver), C_T(pcols,pver), A_qv(pcols,pver), C_qv(pcols,pver)
+   real(r8), target, intent(in) :: A_ql(pcols,pver), C_ql(pcols,pver), A_qi(pcols,pver), C_qi(pcols,pver)
+   real(r8), target, intent(in) :: A_nl(pcols,pver), C_nl(pcols,pver), A_ni(pcols,pver), C_ni(pcols,pver)
+   real(r8), target, intent(in) :: a_st_star(pcols,pver), a_cu0(pcols,pver)
+   real(r8), target, intent(out) :: QQw_final(pcols,pver), QQi_final(pcols,pver), QQ_final(pcols,pver)
+   real(r8), target, intent(out) :: QQw_all(pcols,pver), QQi_all(pcols,pver), QQ_all(pcols,pver)
+   real(r8), target, intent(out) :: QQnl_final(pcols,pver), QQni_final(pcols,pver), QQn_final(pcols,pver)
+   real(r8), target, intent(out) :: QQnl_all(pcols,pver), QQni_all(pcols,pver), QQn_all(pcols,pver)
+   real(r8), target, intent(out) :: qme(pcols,pver), qvadj(pcols,pver), qladj(pcols,pver)
+   real(r8), target, intent(out) :: qiadj(pcols,pver), qllim(pcols,pver), qilim(pcols,pver)
+   real(r8), target, intent(out) :: s_tendout(pcols,pver), qv_tendout(pcols,pver), ql_tendout(pcols,pver)
+   real(r8), target, intent(out) :: qi_tendout(pcols,pver), nl_tendout(pcols,pver), ni_tendout(pcols,pver)
+   real(r8), target, intent(out) :: cld(pcols,pver)
+   real(r8), target, intent(inout) :: T0(pcols,pver), qv0(pcols,pver), ql0(pcols,pver)
+   real(r8), target, intent(inout) :: qi0(pcols,pver), nl0(pcols,pver), ni0(pcols,pver)
+
+   integer :: i, k
+   integer(c_int64_t) :: do_cldice_c
+
+   interface
+      subroutine cldwat2m_final_tendency_codon(ncol_c, pcols_c, pver_c, top_lev_c, do_cldice_c, dt_c, cpair_c, &
+           QQw_prog_p, QQi_prog_p, QQnl_prog_p, QQni_prog_p, QQw1_p, QQi1_p, QQw2_p, QQi2_p, &
+           qlten_pwi1_p, qlten_pwi2_p, qiten_pwi1_p, qiten_pwi2_p, A_ql_adj_p, A_qi_adj_p, &
+           QQnl1_p, QQni1_p, QQnl2_p, QQni2_p, nlten_pwi1_p, nlten_pwi2_p, niten_pwi1_p, niten_pwi2_p, &
+           ACnl_p, ACni_p, A_nl_adj_p, A_ni_adj_p, qvten_pwi1_p, qvten_pwi2_p, A_qv_adj_p, &
+           T_star_p, qv_star_p, ql_star_p, qi_star_p, nl_star_p, ni_star_p, &
+           A_T_p, C_T_p, A_qv_p, C_qv_p, A_ql_p, C_ql_p, A_qi_p, C_qi_p, A_nl_p, C_nl_p, A_ni_p, C_ni_p, &
+           a_st_star_p, a_cu0_p, QQw_final_p, QQi_final_p, QQ_final_p, QQw_all_p, QQi_all_p, QQ_all_p, &
+           QQnl_final_p, QQni_final_p, QQn_final_p, QQnl_all_p, QQni_all_p, QQn_all_p, &
+           qme_p, qvadj_p, qladj_p, qiadj_p, qllim_p, qilim_p, &
+           s_tendout_p, qv_tendout_p, ql_tendout_p, qi_tendout_p, nl_tendout_p, ni_tendout_p, cld_p, &
+           T0_p, qv0_p, ql0_p, qi0_p, nl0_p, ni0_p) bind(c, name="cldwat2m_final_tendency_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, do_cldice_c
+         real(c_double), value :: dt_c, cpair_c
+         type(c_ptr), value :: QQw_prog_p, QQi_prog_p, QQnl_prog_p, QQni_prog_p, QQw1_p, QQi1_p, QQw2_p, QQi2_p
+         type(c_ptr), value :: qlten_pwi1_p, qlten_pwi2_p, qiten_pwi1_p, qiten_pwi2_p, A_ql_adj_p, A_qi_adj_p
+         type(c_ptr), value :: QQnl1_p, QQni1_p, QQnl2_p, QQni2_p, nlten_pwi1_p, nlten_pwi2_p
+         type(c_ptr), value :: niten_pwi1_p, niten_pwi2_p, ACnl_p, ACni_p, A_nl_adj_p, A_ni_adj_p
+         type(c_ptr), value :: qvten_pwi1_p, qvten_pwi2_p, A_qv_adj_p
+         type(c_ptr), value :: T_star_p, qv_star_p, ql_star_p, qi_star_p, nl_star_p, ni_star_p
+         type(c_ptr), value :: A_T_p, C_T_p, A_qv_p, C_qv_p, A_ql_p, C_ql_p, A_qi_p, C_qi_p
+         type(c_ptr), value :: A_nl_p, C_nl_p, A_ni_p, C_ni_p, a_st_star_p, a_cu0_p
+         type(c_ptr), value :: QQw_final_p, QQi_final_p, QQ_final_p, QQw_all_p, QQi_all_p, QQ_all_p
+         type(c_ptr), value :: QQnl_final_p, QQni_final_p, QQn_final_p, QQnl_all_p, QQni_all_p, QQn_all_p
+         type(c_ptr), value :: qme_p, qvadj_p, qladj_p, qiadj_p, qllim_p, qilim_p
+         type(c_ptr), value :: s_tendout_p, qv_tendout_p, ql_tendout_p, qi_tendout_p
+         type(c_ptr), value :: nl_tendout_p, ni_tendout_p, cld_p
+         type(c_ptr), value :: T0_p, qv0_p, ql0_p, qi0_p, nl0_p, ni0_p
+      end subroutine cldwat2m_final_tendency_codon
+   end interface
+
+   call final_tendency_select_impl()
+   if (.not. use_native_final_tendency_impl) then
+      do_cldice_c = 0_c_int64_t
+      if (do_cldice) do_cldice_c = 1_c_int64_t
+      call final_tendency_log_entered()
+      call cldwat2m_final_tendency_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(top_lev, c_int64_t), do_cldice_c, dt, cpair, &
+           c_loc(QQw_prog(1,1)), c_loc(QQi_prog(1,1)), c_loc(QQnl_prog(1,1)), c_loc(QQni_prog(1,1)), &
+           c_loc(QQw1(1,1)), c_loc(QQi1(1,1)), c_loc(QQw2(1,1)), c_loc(QQi2(1,1)), &
+           c_loc(qlten_pwi1(1,1)), c_loc(qlten_pwi2(1,1)), c_loc(qiten_pwi1(1,1)), c_loc(qiten_pwi2(1,1)), &
+           c_loc(A_ql_adj(1,1)), c_loc(A_qi_adj(1,1)), c_loc(QQnl1(1,1)), c_loc(QQni1(1,1)), &
+           c_loc(QQnl2(1,1)), c_loc(QQni2(1,1)), c_loc(nlten_pwi1(1,1)), c_loc(nlten_pwi2(1,1)), &
+           c_loc(niten_pwi1(1,1)), c_loc(niten_pwi2(1,1)), c_loc(ACnl(1,1)), c_loc(ACni(1,1)), &
+           c_loc(A_nl_adj(1,1)), c_loc(A_ni_adj(1,1)), c_loc(qvten_pwi1(1,1)), c_loc(qvten_pwi2(1,1)), &
+           c_loc(A_qv_adj(1,1)), c_loc(T_star(1,1)), c_loc(qv_star(1,1)), c_loc(ql_star(1,1)), &
+           c_loc(qi_star(1,1)), c_loc(nl_star(1,1)), c_loc(ni_star(1,1)), c_loc(A_T(1,1)), c_loc(C_T(1,1)), &
+           c_loc(A_qv(1,1)), c_loc(C_qv(1,1)), c_loc(A_ql(1,1)), c_loc(C_ql(1,1)), &
+           c_loc(A_qi(1,1)), c_loc(C_qi(1,1)), c_loc(A_nl(1,1)), c_loc(C_nl(1,1)), &
+           c_loc(A_ni(1,1)), c_loc(C_ni(1,1)), c_loc(a_st_star(1,1)), c_loc(a_cu0(1,1)), &
+           c_loc(QQw_final(1,1)), c_loc(QQi_final(1,1)), c_loc(QQ_final(1,1)), &
+           c_loc(QQw_all(1,1)), c_loc(QQi_all(1,1)), c_loc(QQ_all(1,1)), &
+           c_loc(QQnl_final(1,1)), c_loc(QQni_final(1,1)), c_loc(QQn_final(1,1)), &
+           c_loc(QQnl_all(1,1)), c_loc(QQni_all(1,1)), c_loc(QQn_all(1,1)), &
+           c_loc(qme(1,1)), c_loc(qvadj(1,1)), c_loc(qladj(1,1)), c_loc(qiadj(1,1)), &
+           c_loc(qllim(1,1)), c_loc(qilim(1,1)), c_loc(s_tendout(1,1)), c_loc(qv_tendout(1,1)), &
+           c_loc(ql_tendout(1,1)), c_loc(qi_tendout(1,1)), c_loc(nl_tendout(1,1)), c_loc(ni_tendout(1,1)), &
+           c_loc(cld(1,1)), c_loc(T0(1,1)), c_loc(qv0(1,1)), c_loc(ql0(1,1)), &
+           c_loc(qi0(1,1)), c_loc(nl0(1,1)), c_loc(ni0(1,1)))
+      return
+   endif
+
+   do k = top_lev, pver
+      do i = 1, ncol
+         QQw_final(i,k) = QQw_prog(i,k)
+         QQi_final(i,k) = QQi_prog(i,k)
+         QQ_final(i,k) = QQw_final(i,k) + QQi_final(i,k)
+         QQw_all(i,k) = QQw_prog(i,k) + QQw1(i,k) + QQw2(i,k) + qlten_pwi1(i,k) + &
+              qlten_pwi2(i,k) + A_ql_adj(i,k)
+         QQi_all(i,k) = QQi_prog(i,k) + QQi1(i,k) + QQi2(i,k) + qiten_pwi1(i,k) + &
+              qiten_pwi2(i,k) + A_qi_adj(i,k)
+         QQ_all(i,k) = QQw_all(i,k) + QQi_all(i,k)
+         QQnl_final(i,k) = QQnl_prog(i,k)
+         QQni_final(i,k) = QQni_prog(i,k)
+         QQn_final(i,k) = QQnl_final(i,k) + QQni_final(i,k)
+         QQnl_all(i,k) = QQnl_prog(i,k) + QQnl1(i,k) + QQnl2(i,k) + nlten_pwi1(i,k) + &
+              nlten_pwi2(i,k) + ACnl(i,k) + A_nl_adj(i,k)
+         QQni_all(i,k) = QQni_prog(i,k) + QQni1(i,k) + QQni2(i,k) + niten_pwi1(i,k) + &
+              niten_pwi2(i,k) + ACni(i,k) + A_ni_adj(i,k)
+         QQn_all(i,k) = QQnl_all(i,k) + QQni_all(i,k)
+         qme(i,k) = QQ_final(i,k)
+         qvadj(i,k) = qvten_pwi1(i,k) + qvten_pwi2(i,k) + A_qv_adj(i,k)
+         qladj(i,k) = qlten_pwi1(i,k) + qlten_pwi2(i,k) + A_ql_adj(i,k)
+         qiadj(i,k) = qiten_pwi1(i,k) + qiten_pwi2(i,k) + A_qi_adj(i,k)
+         qllim(i,k) = QQw1(i,k) + QQw2(i,k)
+         qilim(i,k) = QQi1(i,k) + QQi2(i,k)
+         s_tendout(i,k) = cpair*(T_star(i,k) - T0(i,k))/dt - cpair*(A_T(i,k)+C_T(i,k))
+         qv_tendout(i,k) = (qv_star(i,k) - qv0(i,k))/dt - (A_qv(i,k)+C_qv(i,k))
+         ql_tendout(i,k) = (ql_star(i,k) - ql0(i,k))/dt - (A_ql(i,k)+C_ql(i,k))
+         qi_tendout(i,k) = (qi_star(i,k) - qi0(i,k))/dt - (A_qi(i,k)+C_qi(i,k))
+         nl_tendout(i,k) = (nl_star(i,k) - nl0(i,k))/dt - (A_nl(i,k)+C_nl(i,k))
+         ni_tendout(i,k) = (ni_star(i,k) - ni0(i,k))/dt - (A_ni(i,k)+C_ni(i,k))
+         if (.not. do_cldice) then
+            qi_tendout(i,k) = 0._r8
+            ni_tendout(i,k) = 0._r8
+         end if
+         cld(i,k) = a_st_star(i,k) + a_cu0(i,k)
+         T0(i,k) = T_star(i,k)
+         qv0(i,k) = qv_star(i,k)
+         ql0(i,k) = ql_star(i,k)
+         qi0(i,k) = qi_star(i,k)
+         nl0(i,k) = nl_star(i,k)
+         ni0(i,k) = ni_star(i,k)
+      end do
+   end do
+
+   end subroutine final_tendency_codon_wrap
 
 !=======================================================================================================
 
