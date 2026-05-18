@@ -234,15 +234,15 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
    ! Set surface temperature
    ! Set aerosol optical depth to zero for now
 
-   emis(:ncol,:nbndlw) = 1._r8
-   tsfc(:ncol) = r_state%tlev(:ncol,rrtmg_levs+1)
-   taua_lw(:ncol, 1:rrtmg_levs-1, :nbndlw) = aer_lw_abs(:ncol,pverp-rrtmg_levs+1:pverp-1,:nbndlw)
-
    if (associated(lu)) lu(1:ncol,:,:) = 0.0_r8
    if (associated(ld)) ld(1:ncol,:,:) = 0.0_r8
 
    call rrtmg_lw_driver_select_impl()
-   if (.not. use_native_rrtmg_lw_driver_impl) then
+   if (use_native_rrtmg_lw_driver_impl) then
+      emis(:ncol,:nbndlw) = 1._r8
+      tsfc(:ncol) = r_state%tlev(:ncol,rrtmg_levs+1)
+      taua_lw(:ncol, 1:rrtmg_levs-1, :nbndlw) = aer_lw_abs(:ncol,pverp-rrtmg_levs+1:pverp-1,:nbndlw)
+   else
       call rrtmg_lw_driver_log_entered()
       call rrtmg_lw_pre_codon( &
            int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
@@ -260,60 +260,53 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
         uflx    ,dflx    ,hr      ,uflxc   ,dflxc   ,hrc, &
         lwuflxs, lwdflxs)
 
-   !
-   !----------------------------------------------------------------------
-   ! All longitudes: store history tape quantities
-   ! Flux units are in W/m2 on output from rrtmg_lw and contain output for
-   ! extra layer above model top with vertical indexing from bottom to top.
-   ! Heating units are in K/d on output from RRTMG and contain output for
-   ! extra layer above model top with vertical indexing from bottom to top.
-   ! Heating units are converted to J/kg/s below for use in CAM. 
+   if (use_native_rrtmg_lw_driver_impl) then
+      !
+      !----------------------------------------------------------------------
+      ! All longitudes: store history tape quantities
+      ! Flux units are in W/m2 on output from rrtmg_lw and contain output for
+      ! extra layer above model top with vertical indexing from bottom to top.
+      ! Heating units are in K/d on output from RRTMG and contain output for
+      ! extra layer above model top with vertical indexing from bottom to top.
+      ! Heating units are converted to J/kg/s below for use in CAM.
 
-   flwds(:ncol) = dflx (:ncol,1)
-   fldsc(:ncol) = dflxc(:ncol,1)
-   flns(:ncol)  = uflx (:ncol,1) - dflx (:ncol,1)
-   flnsc(:ncol) = uflxc(:ncol,1) - dflxc(:ncol,1)
-   flnt(:ncol)  = uflx (:ncol,rrtmg_levs) - dflx (:ncol,rrtmg_levs)
-   flntc(:ncol) = uflxc(:ncol,rrtmg_levs) - dflxc(:ncol,rrtmg_levs)
-   flut(:ncol)  = uflx (:ncol,rrtmg_levs)
-   flutc(:ncol) = uflxc(:ncol,rrtmg_levs)
+      flwds(:ncol) = dflx (:ncol,1)
+      fldsc(:ncol) = dflxc(:ncol,1)
+      flns(:ncol)  = uflx (:ncol,1) - dflx (:ncol,1)
+      flnsc(:ncol) = uflxc(:ncol,1) - dflxc(:ncol,1)
+      flnt(:ncol)  = uflx (:ncol,rrtmg_levs) - dflx (:ncol,rrtmg_levs)
+      flntc(:ncol) = uflxc(:ncol,rrtmg_levs) - dflxc(:ncol,rrtmg_levs)
+      flut(:ncol)  = uflx (:ncol,rrtmg_levs)
+      flutc(:ncol) = uflxc(:ncol,rrtmg_levs)
 
-   !
-   ! Reverse vertical indexing here for CAM arrays to go from top to bottom.
-   !
-   ful = 0._r8
-   fdl = 0._r8
-   fsul = 0._r8
-   fsdl = 0._r8
-   ful (:ncol,pverp-rrtmg_levs+1:pverp)= uflx(:ncol,rrtmg_levs:1:-1)
-   fdl (:ncol,pverp-rrtmg_levs+1:pverp)= dflx(:ncol,rrtmg_levs:1:-1)
-   fsul(:ncol,pverp-rrtmg_levs+1:pverp)=uflxc(:ncol,rrtmg_levs:1:-1)
-   fsdl(:ncol,pverp-rrtmg_levs+1:pverp)=dflxc(:ncol,rrtmg_levs:1:-1)
+      !
+      ! Reverse vertical indexing here for CAM arrays to go from top to bottom.
+      !
+      ful = 0._r8
+      fdl = 0._r8
+      fsul = 0._r8
+      fsdl = 0._r8
+      ful (:ncol,pverp-rrtmg_levs+1:pverp)= uflx(:ncol,rrtmg_levs:1:-1)
+      fdl (:ncol,pverp-rrtmg_levs+1:pverp)= dflx(:ncol,rrtmg_levs:1:-1)
+      fsul(:ncol,pverp-rrtmg_levs+1:pverp)=uflxc(:ncol,rrtmg_levs:1:-1)
+      fsdl(:ncol,pverp-rrtmg_levs+1:pverp)=dflxc(:ncol,rrtmg_levs:1:-1)
 
-   if (single_column.and.scm_crm_mode) then
-      call outfld('FUL     ',ful,pcols,lchnk)
-      call outfld('FDL     ',fdl,pcols,lchnk)
-      call outfld('FULC    ',fsul,pcols,lchnk)
-      call outfld('FDLC    ',fsdl,pcols,lchnk)
-   endif
-   
-   fnl(:ncol,:) = ful(:ncol,:) - fdl(:ncol,:)
-   ! mji/ cam excluded this?
-   fcnl(:ncol,:) = fsul(:ncol,:) - fsdl(:ncol,:)
+      fnl(:ncol,:) = ful(:ncol,:) - fdl(:ncol,:)
+      ! mji/ cam excluded this?
+      fcnl(:ncol,:) = fsul(:ncol,:) - fsdl(:ncol,:)
 
-   ! Pass longwave heating to CAM arrays and convert from K/d to J/kg/s
-   qrl = 0._r8
-   qrlc = 0._r8
-   qrl (:ncol,pverp-rrtmg_levs+1:pver)=hr (:ncol,rrtmg_levs-1:1:-1)*cpair*dps
-   qrlc(:ncol,pverp-rrtmg_levs+1:pver)=hrc(:ncol,rrtmg_levs-1:1:-1)*cpair*dps
+      ! Pass longwave heating to CAM arrays and convert from K/d to J/kg/s
+      qrl = 0._r8
+      qrlc = 0._r8
+      qrl (:ncol,pverp-rrtmg_levs+1:pver)=hr (:ncol,rrtmg_levs-1:1:-1)*cpair*dps
+      qrlc(:ncol,pverp-rrtmg_levs+1:pver)=hrc(:ncol,rrtmg_levs-1:1:-1)*cpair*dps
 
-   ! Return 0 above solution domain
-   if ( ntoplw > 1 )then
-      qrl(:ncol,:ntoplw-1) = 0._r8
-      qrlc(:ncol,:ntoplw-1) = 0._r8
-   end if
-
-   if (.not. use_native_rrtmg_lw_driver_impl) then
+      ! Return 0 above solution domain
+      if ( ntoplw > 1 )then
+         qrl(:ncol,:ntoplw-1) = 0._r8
+         qrlc(:ncol,:ntoplw-1) = 0._r8
+      end if
+   else
       call rrtmg_lw_post_codon( &
            int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
            int(rrtmg_levs, c_int64_t), int(ntoplw, c_int64_t), real(cpair, c_double), &
@@ -323,6 +316,13 @@ subroutine rad_rrtmg_lw(lchnk   ,ncol      ,rrtmg_levs,r_state,       &
            c_loc(fnl(1,1)), c_loc(fcnl(1,1)), c_loc(qrl(1,1)), c_loc(qrlc(1,1)) &
       )
    end if
+
+   if (single_column.and.scm_crm_mode) then
+      call outfld('FUL     ',ful,pcols,lchnk)
+      call outfld('FDL     ',fdl,pcols,lchnk)
+      call outfld('FULC    ',fsul,pcols,lchnk)
+      call outfld('FDLC    ',fsdl,pcols,lchnk)
+   endif
 
    ! Pass spectral fluxes, reverse layering
    ! order=(/3,1,2/) maps the first index of lwuflxs to the third index of lu.
@@ -416,7 +416,7 @@ subroutine rrtmg_lw_driver_log_entered()
    rrtmg_lw_driver_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,*) 'rrtmg_lw_driver entered (pre/post helpers = codon; rrtmg_lw core = native)'
+      write(iulog,*) 'rrtmg_lw_driver entered (pre/post helpers = codon; native pre/post blocks skipped; rrtmg_lw core = native)'
       call flush(iulog)
    end if
 
