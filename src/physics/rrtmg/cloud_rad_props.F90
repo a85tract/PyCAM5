@@ -36,12 +36,12 @@ public :: &
    get_snow_optics_sw
 
 integer :: nmu, nlambda
-real(r8), allocatable :: g_mu(:)           ! mu samples on grid
-real(r8), allocatable :: g_lambda(:,:)     ! lambda scale samples on grid
-real(r8), allocatable :: ext_sw_liq(:,:,:)
-real(r8), allocatable :: ssa_sw_liq(:,:,:)
-real(r8), allocatable :: asm_sw_liq(:,:,:)
-real(r8), allocatable :: abs_lw_liq(:,:,:)
+real(r8), allocatable, target :: g_mu(:)           ! mu samples on grid
+real(r8), allocatable, target :: g_lambda(:,:)     ! lambda scale samples on grid
+real(r8), allocatable, target :: ext_sw_liq(:,:,:)
+real(r8), allocatable, target :: ssa_sw_liq(:,:,:)
+real(r8), allocatable, target :: asm_sw_liq(:,:,:)
+real(r8), allocatable, target :: abs_lw_liq(:,:,:)
 
 integer :: n_g_d
 real(r8), allocatable, target :: g_d_eff(:)        ! radiative effective diameter samples on grid
@@ -54,6 +54,10 @@ logical :: use_native_cloud_ice_optics_impl = .false.
 logical :: cloud_ice_optics_impl_selected = .false.
 logical :: cloud_ice_optics_sw_entered_logged = .false.
 logical :: cloud_ice_optics_lw_entered_logged = .false.
+logical :: use_native_cloud_liquid_optics_impl = .false.
+logical :: cloud_liquid_optics_impl_selected = .false.
+logical :: cloud_liquid_optics_sw_entered_logged = .false.
+logical :: cloud_liquid_optics_lw_entered_logged = .false.
 
 ! 
 ! indexes into pbuf for optical parameters of MG clouds
@@ -553,14 +557,25 @@ subroutine get_liquid_optics_sw(state, pbuf, tau, tau_w, tau_w_g, tau_w_f)
    type(physics_state), intent(in)   :: state
    type(physics_buffer_desc),pointer :: pbuf(:)
 
-   real(r8),intent(out) :: tau    (nswbands,pcols,pver) ! extinction optical depth
-   real(r8),intent(out) :: tau_w  (nswbands,pcols,pver) ! single scattering albedo * tau
-   real(r8),intent(out) :: tau_w_g(nswbands,pcols,pver) ! asymetry parameter * tau * w
-   real(r8),intent(out) :: tau_w_f(nswbands,pcols,pver) ! forward scattered fraction * tau * w
+   real(r8), target, intent(out) :: tau    (nswbands,pcols,pver) ! extinction optical depth
+   real(r8), target, intent(out) :: tau_w  (nswbands,pcols,pver) ! single scattering albedo * tau
+   real(r8), target, intent(out) :: tau_w_g(nswbands,pcols,pver) ! asymetry parameter * tau * w
+   real(r8), target, intent(out) :: tau_w_f(nswbands,pcols,pver) ! forward scattered fraction * tau * w
 
    real(r8), pointer, dimension(:,:) :: lamc, pgam, iclwpth
    real(r8), dimension(pcols,pver) :: kext
    integer i,k,swband,lchnk,ncol
+
+   interface
+      subroutine rrtmg_cloud_liquid_optics_sw_codon(ncol_c, pcols_c, pver_c, nswbands_c, nmu_c, nlambda_c, &
+           iclwpth_p, lamc_p, pgam_p, g_mu_p, g_lambda_p, ext_p, ssa_p, asm_p, &
+           tau_p, tau_w_p, tau_w_g_p, tau_w_f_p) bind(c, name="rrtmg_cloud_liquid_optics_sw_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, nswbands_c, nmu_c, nlambda_c
+         type(c_ptr), value :: iclwpth_p, lamc_p, pgam_p, g_mu_p, g_lambda_p, ext_p, ssa_p, asm_p
+         type(c_ptr), value :: tau_p, tau_w_p, tau_w_g_p, tau_w_f_p
+      end subroutine rrtmg_cloud_liquid_optics_sw_codon
+   end interface
 
    lchnk = state%lchnk
    ncol = state%ncol
@@ -569,6 +584,17 @@ subroutine get_liquid_optics_sw(state, pbuf, tau, tau_w, tau_w_g, tau_w_f)
    call pbuf_get_field(pbuf, i_lambda,  lamc)
    call pbuf_get_field(pbuf, i_mu,      pgam)
    call pbuf_get_field(pbuf, i_iclwp,   iclwpth)
+
+   call cloud_liquid_optics_select_impl()
+   if (.not. use_native_cloud_liquid_optics_impl) then
+      call cloud_liquid_optics_sw_log_entered()
+      call rrtmg_cloud_liquid_optics_sw_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(nswbands, c_int64_t), int(nmu, c_int64_t), int(nlambda, c_int64_t), &
+           c_loc(iclwpth(1,1)), c_loc(lamc(1,1)), c_loc(pgam(1,1)), c_loc(g_mu(1)), c_loc(g_lambda(1,1)), &
+           c_loc(ext_sw_liq(1,1,1)), c_loc(ssa_sw_liq(1,1,1)), c_loc(asm_sw_liq(1,1,1)), &
+           c_loc(tau(1,1,1)), c_loc(tau_w(1,1,1)), c_loc(tau_w_g(1,1,1)), c_loc(tau_w_f(1,1,1)))
+      return
+   end if
    
    do k = 1,pver
       do i = 1,ncol
@@ -591,12 +617,22 @@ end subroutine get_liquid_optics_sw
 subroutine liquid_cloud_get_rad_props_lw(state, pbuf, abs_od)
    type(physics_state), intent(in)    :: state
    type(physics_buffer_desc),pointer  :: pbuf(:)
-   real(r8), intent(out) :: abs_od(nlwbands,pcols,pver)
+   real(r8), target, intent(out) :: abs_od(nlwbands,pcols,pver)
 
    integer :: lchnk, ncol
    real(r8), pointer, dimension(:,:) :: lamc, pgam, iclwpth
 
    integer lwband, i, k
+
+   interface
+      subroutine rrtmg_cloud_liquid_optics_lw_codon(ncol_c, pcols_c, pver_c, nlwbands_c, nmu_c, nlambda_c, &
+           iclwpth_p, lamc_p, pgam_p, g_mu_p, g_lambda_p, abs_liq_p, abs_od_p) &
+           bind(c, name="rrtmg_cloud_liquid_optics_lw_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, nlwbands_c, nmu_c, nlambda_c
+         type(c_ptr), value :: iclwpth_p, lamc_p, pgam_p, g_mu_p, g_lambda_p, abs_liq_p, abs_od_p
+      end subroutine rrtmg_cloud_liquid_optics_lw_codon
+   end interface
 
    abs_od = 0._r8
 
@@ -606,6 +642,16 @@ subroutine liquid_cloud_get_rad_props_lw(state, pbuf, abs_od)
    call pbuf_get_field(pbuf, i_lambda,  lamc)
    call pbuf_get_field(pbuf, i_mu,      pgam)
    call pbuf_get_field(pbuf, i_iclwp,   iclwpth)
+
+   call cloud_liquid_optics_select_impl()
+   if (.not. use_native_cloud_liquid_optics_impl) then
+      call cloud_liquid_optics_lw_log_entered()
+      call rrtmg_cloud_liquid_optics_lw_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(nlwbands, c_int64_t), int(nmu, c_int64_t), int(nlambda, c_int64_t), &
+           c_loc(iclwpth(1,1)), c_loc(lamc(1,1)), c_loc(pgam(1,1)), c_loc(g_mu(1)), c_loc(g_lambda(1,1)), &
+           c_loc(abs_lw_liq(1,1,1)), c_loc(abs_od(1,1,1)))
+      return
+   end if
 
    do k = 1,pver
       do i = 1,ncol
@@ -879,6 +925,71 @@ subroutine cloud_ice_optics_lw_log_entered()
    end if
 
 end subroutine cloud_ice_optics_lw_log_entered
+
+!==============================================================================
+
+subroutine cloud_liquid_optics_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cloud_liquid_optics_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('RRTMG_CLOUD_LIQUID_OPTICS_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_cloud_liquid_optics_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_cloud_liquid_optics_impl = .false.
+   end if
+
+   cloud_liquid_optics_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_cloud_liquid_optics_impl) then
+         write(iulog,*) 'rrtmg_cloud_liquid_optics implementation = native'
+      else
+         write(iulog,*) 'rrtmg_cloud_liquid_optics implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine cloud_liquid_optics_select_impl
+
+!==============================================================================
+
+subroutine cloud_liquid_optics_sw_log_entered()
+
+   if (cloud_liquid_optics_sw_entered_logged) return
+   cloud_liquid_optics_sw_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,*) 'rrtmg_cloud_liquid_optics_sw entered (gammadist SW liquid cloud optics = codon)'
+      call flush(iulog)
+   end if
+
+end subroutine cloud_liquid_optics_sw_log_entered
+
+!==============================================================================
+
+subroutine cloud_liquid_optics_lw_log_entered()
+
+   if (cloud_liquid_optics_lw_entered_logged) return
+   cloud_liquid_optics_lw_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,*) 'rrtmg_cloud_liquid_optics_lw entered (gammadist LW liquid cloud optics = codon)'
+      call flush(iulog)
+   end if
+
+end subroutine cloud_liquid_optics_lw_log_entered
 
 !==============================================================================
 

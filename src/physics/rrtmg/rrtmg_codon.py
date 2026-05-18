@@ -122,6 +122,170 @@ def _interp1_bndry_table(yin: Ptr[float], table: Ptr[float], nin: int, band: int
 
 
 @inline
+def _interp1_bndry_jjm(yin: Ptr[float], nin: int, y: float) -> int:
+    increasing = True
+    if yin[0] > yin[1]:
+        increasing = False
+
+    if increasing:
+        if y <= yin[0]:
+            return 1
+        if y > yin[nin - 1]:
+            return nin
+        for jj in range(1, nin):
+            if y > yin[jj - 1] and y <= yin[jj]:
+                return jj
+    else:
+        if y > yin[0]:
+            return 1
+        if y <= yin[nin - 1]:
+            return nin
+        for jj in range(1, nin):
+            if y <= yin[jj - 1] and y > yin[jj]:
+                return jj
+
+    return 1
+
+
+@inline
+def _interp1_bndry_jjp(yin: Ptr[float], nin: int, y: float) -> int:
+    jjm = _interp1_bndry_jjm(yin, nin, y)
+    if jjm == 1:
+        increasing = True
+        if yin[0] > yin[1]:
+            increasing = False
+        if (increasing and y <= yin[0]) or ((not increasing) and y > yin[0]):
+            return 1
+    if jjm == nin:
+        increasing = True
+        if yin[0] > yin[1]:
+            increasing = False
+        if (increasing and y > yin[nin - 1]) or ((not increasing) and y <= yin[nin - 1]):
+            return nin
+    return jjm + 1
+
+
+@inline
+def _interp1_wgts(yin: Ptr[float], jjm: int, jjp: int, y: float) -> float:
+    if jjm == jjp:
+        return 1.0
+    return (yin[jjp - 1] - y) / (yin[jjp - 1] - yin[jjm - 1])
+
+
+@inline
+def _interp1_wgtn(yin: Ptr[float], jjm: int, jjp: int, y: float) -> float:
+    if jjm == jjp:
+        return 0.0
+    return (y - yin[jjm - 1]) / (yin[jjp - 1] - yin[jjm - 1])
+
+
+@inline
+def _liquid_lambda_grid_value(
+    g_lambda: Ptr[float],
+    nmu: int,
+    ilambda: int,
+    mu_jjm: int,
+    mu_jjp: int,
+    mu_wgts: float,
+    mu_wgtn: float,
+) -> float:
+    return (
+        g_lambda[_idx2(mu_jjm, ilambda, nmu)] * mu_wgts
+        + g_lambda[_idx2(mu_jjp, ilambda, nmu)] * mu_wgtn
+    )
+
+
+@inline
+def _liquid_lambda_jjm(
+    g_lambda: Ptr[float],
+    nmu: int,
+    nlambda: int,
+    lamc: float,
+    mu_jjm: int,
+    mu_jjp: int,
+    mu_wgts: float,
+    mu_wgtn: float,
+) -> int:
+    first = _liquid_lambda_grid_value(g_lambda, nmu, 1, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+    second = _liquid_lambda_grid_value(g_lambda, nmu, 2, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+    last = _liquid_lambda_grid_value(g_lambda, nmu, nlambda, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+    increasing = True
+    if first > second:
+        increasing = False
+
+    if increasing:
+        if lamc <= first:
+            return 1
+        if lamc > last:
+            return nlambda
+        for jj in range(1, nlambda):
+            lo = _liquid_lambda_grid_value(g_lambda, nmu, jj, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+            hi = _liquid_lambda_grid_value(g_lambda, nmu, jj + 1, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+            if lamc > lo and lamc <= hi:
+                return jj
+    else:
+        if lamc > first:
+            return 1
+        if lamc <= last:
+            return nlambda
+        for jj in range(1, nlambda):
+            lo = _liquid_lambda_grid_value(g_lambda, nmu, jj, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+            hi = _liquid_lambda_grid_value(g_lambda, nmu, jj + 1, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+            if lamc <= lo and lamc > hi:
+                return jj
+
+    return 1
+
+
+@inline
+def _liquid_lambda_jjp(
+    g_lambda: Ptr[float],
+    nmu: int,
+    nlambda: int,
+    lamc: float,
+    mu_jjm: int,
+    mu_jjp: int,
+    mu_wgts: float,
+    mu_wgtn: float,
+) -> int:
+    lam_jjm = _liquid_lambda_jjm(g_lambda, nmu, nlambda, lamc, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+    first = _liquid_lambda_grid_value(g_lambda, nmu, 1, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+    second = _liquid_lambda_grid_value(g_lambda, nmu, 2, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+    increasing = True
+    if first > second:
+        increasing = False
+    if lam_jjm == 1 and ((increasing and lamc <= first) or ((not increasing) and lamc > first)):
+        return 1
+    last = _liquid_lambda_grid_value(g_lambda, nmu, nlambda, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+    if lam_jjm == nlambda and ((increasing and lamc > last) or ((not increasing) and lamc <= last)):
+        return nlambda
+    return lam_jjm + 1
+
+
+@inline
+def _liquid_interp2(
+    table: Ptr[float],
+    nmu: int,
+    nlambda: int,
+    band: int,
+    mu_jjm: int,
+    mu_jjp: int,
+    mu_wgts: float,
+    mu_wgtn: float,
+    lam_jjm: int,
+    lam_jjp: int,
+    lam_wgts: float,
+    lam_wgtn: float,
+) -> float:
+    return (
+        table[_idx3(mu_jjm, lam_jjm, band, nmu, nlambda)] * mu_wgts * lam_wgts
+        + table[_idx3(mu_jjp, lam_jjm, band, nmu, nlambda)] * mu_wgtn * lam_wgts
+        + table[_idx3(mu_jjm, lam_jjp, band, nmu, nlambda)] * mu_wgts * lam_wgtn
+        + table[_idx3(mu_jjp, lam_jjp, band, nmu, nlambda)] * mu_wgtn * lam_wgtn
+    )
+
+
+@inline
 def _rrtmg_src_level(k: int, pverp: int, num_rrtmg_levs: int) -> int:
     kk = k + (pverp - num_rrtmg_levs) - 1
     if kk < 1:
@@ -654,6 +818,134 @@ def rrtmg_cloud_ice_optics_lw_codon(
                 for lwband in range(1, nlwbands + 1):
                     absor = _interp1_bndry_table(gd, absor_table, ngd, lwband, deff)
                     abs_od[_idx3(lwband, i, k, nlwbands, pcols)] = cloud_ice * absor
+
+
+@export
+def rrtmg_cloud_liquid_optics_sw_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    nswbands: int,
+    nmu: int,
+    nlambda: int,
+    iclwpth_p: cobj,
+    lamc_p: cobj,
+    pgam_p: cobj,
+    g_mu_p: cobj,
+    g_lambda_p: cobj,
+    ext_p: cobj,
+    ssa_p: cobj,
+    asm_p: cobj,
+    tau_p: cobj,
+    tau_w_p: cobj,
+    tau_w_g_p: cobj,
+    tau_w_f_p: cobj,
+):
+    iclwpth = Ptr[float](iclwpth_p)
+    lamc = Ptr[float](lamc_p)
+    pgam = Ptr[float](pgam_p)
+    g_mu = Ptr[float](g_mu_p)
+    g_lambda = Ptr[float](g_lambda_p)
+    ext_table = Ptr[float](ext_p)
+    ssa_table = Ptr[float](ssa_p)
+    asm_table = Ptr[float](asm_p)
+    tau = Ptr[float](tau_p)
+    tau_w = Ptr[float](tau_w_p)
+    tau_w_g = Ptr[float](tau_w_g_p)
+    tau_w_f = Ptr[float](tau_w_f_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            cell_idx = _idx2(i, k, pcols)
+            lambda_cell = lamc[cell_idx]
+            cloud_liq = iclwpth[cell_idx]
+            if lambda_cell > 0.0 and cloud_liq >= 1.0e-80:
+                mu_cell = pgam[cell_idx]
+                mu_jjm = _interp1_bndry_jjm(g_mu, nmu, mu_cell)
+                mu_jjp = _interp1_bndry_jjp(g_mu, nmu, mu_cell)
+                mu_wgts = _interp1_wgts(g_mu, mu_jjm, mu_jjp, mu_cell)
+                mu_wgtn = _interp1_wgtn(g_mu, mu_jjm, mu_jjp, mu_cell)
+                lam_jjm = _liquid_lambda_jjm(g_lambda, nmu, nlambda, lambda_cell, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+                lam_jjp = _liquid_lambda_jjp(g_lambda, nmu, nlambda, lambda_cell, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+                lam_lo = _liquid_lambda_grid_value(g_lambda, nmu, lam_jjm, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+                lam_hi = _liquid_lambda_grid_value(g_lambda, nmu, lam_jjp, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+                if lam_jjm == lam_jjp:
+                    lam_wgts = 1.0
+                    lam_wgtn = 0.0
+                else:
+                    lam_wgts = (lam_hi - lambda_cell) / (lam_hi - lam_lo)
+                    lam_wgtn = (lambda_cell - lam_lo) / (lam_hi - lam_lo)
+
+                for swband in range(1, nswbands + 1):
+                    ext = _liquid_interp2(ext_table, nmu, nlambda, swband, mu_jjm, mu_jjp, mu_wgts, mu_wgtn, lam_jjm, lam_jjp, lam_wgts, lam_wgtn)
+                    ssa = _liquid_interp2(ssa_table, nmu, nlambda, swband, mu_jjm, mu_jjp, mu_wgts, mu_wgtn, lam_jjm, lam_jjp, lam_wgts, lam_wgtn)
+                    asym = _liquid_interp2(asm_table, nmu, nlambda, swband, mu_jjm, mu_jjp, mu_wgts, mu_wgtn, lam_jjm, lam_jjp, lam_wgts, lam_wgtn)
+                    out_idx = _idx3(swband, i, k, nswbands, pcols)
+                    tau[out_idx] = cloud_liq * ext
+                    tau_w[out_idx] = tau[out_idx] * ssa
+                    tau_w_g[out_idx] = tau_w[out_idx] * asym
+                    tau_w_f[out_idx] = tau_w_g[out_idx] * asym
+            else:
+                for swband in range(1, nswbands + 1):
+                    out_idx = _idx3(swband, i, k, nswbands, pcols)
+                    tau[out_idx] = 0.0
+                    tau_w[out_idx] = 0.0
+                    tau_w_g[out_idx] = 0.0
+                    tau_w_f[out_idx] = 0.0
+
+
+@export
+def rrtmg_cloud_liquid_optics_lw_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    nlwbands: int,
+    nmu: int,
+    nlambda: int,
+    iclwpth_p: cobj,
+    lamc_p: cobj,
+    pgam_p: cobj,
+    g_mu_p: cobj,
+    g_lambda_p: cobj,
+    abs_liq_p: cobj,
+    abs_od_p: cobj,
+):
+    iclwpth = Ptr[float](iclwpth_p)
+    lamc = Ptr[float](lamc_p)
+    pgam = Ptr[float](pgam_p)
+    g_mu = Ptr[float](g_mu_p)
+    g_lambda = Ptr[float](g_lambda_p)
+    abs_liq = Ptr[float](abs_liq_p)
+    abs_od = Ptr[float](abs_od_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            cell_idx = _idx2(i, k, pcols)
+            lambda_cell = lamc[cell_idx]
+            cloud_liq = iclwpth[cell_idx]
+            if lambda_cell > 0.0 and cloud_liq >= 1.0e-80:
+                mu_cell = pgam[cell_idx]
+                mu_jjm = _interp1_bndry_jjm(g_mu, nmu, mu_cell)
+                mu_jjp = _interp1_bndry_jjp(g_mu, nmu, mu_cell)
+                mu_wgts = _interp1_wgts(g_mu, mu_jjm, mu_jjp, mu_cell)
+                mu_wgtn = _interp1_wgtn(g_mu, mu_jjm, mu_jjp, mu_cell)
+                lam_jjm = _liquid_lambda_jjm(g_lambda, nmu, nlambda, lambda_cell, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+                lam_jjp = _liquid_lambda_jjp(g_lambda, nmu, nlambda, lambda_cell, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+                lam_lo = _liquid_lambda_grid_value(g_lambda, nmu, lam_jjm, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+                lam_hi = _liquid_lambda_grid_value(g_lambda, nmu, lam_jjp, mu_jjm, mu_jjp, mu_wgts, mu_wgtn)
+                if lam_jjm == lam_jjp:
+                    lam_wgts = 1.0
+                    lam_wgtn = 0.0
+                else:
+                    lam_wgts = (lam_hi - lambda_cell) / (lam_hi - lam_lo)
+                    lam_wgtn = (lambda_cell - lam_lo) / (lam_hi - lam_lo)
+
+                for lwband in range(1, nlwbands + 1):
+                    absor = _liquid_interp2(abs_liq, nmu, nlambda, lwband, mu_jjm, mu_jjp, mu_wgts, mu_wgtn, lam_jjm, lam_jjp, lam_wgts, lam_wgtn)
+                    abs_od[_idx3(lwband, i, k, nlwbands, pcols)] = cloud_liq * absor
+            else:
+                for lwband in range(1, nlwbands + 1):
+                    abs_od[_idx3(lwband, i, k, nlwbands, pcols)] = 0.0
 
 
 @export
