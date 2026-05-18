@@ -144,6 +144,9 @@ real(r8)           :: micro_mg_berg_eff_factor     ! berg efficiency factor
 logical :: micro_mg1_0_init_use_native_impl = .false.
 logical :: micro_mg1_0_init_impl_selected = .false.
 logical :: micro_mg1_0_init_wrapper_logged = .false.
+logical :: micro_mg1_0_colzero_use_native_impl = .false.
+logical :: micro_mg1_0_colzero_impl_selected = .false.
+logical :: micro_mg1_0_colzero_wrapper_logged = .false.
 
 
 !===============================================================================
@@ -1397,10 +1400,12 @@ deltat=deltat/real(iter)
 
 mtime=1._r8
 rate1ord_cw2pr_st(:,:)=0._r8 ! rce 2010/05/01
+call micro_mg1_0_select_colzero_impl()
 
 !!!! skip calculations if no cloud water
 do i=1,ncol
    if (ltrue(i).eq.0) then
+      if (micro_mg1_0_colzero_use_native_impl) then
       tlat(i,1:pver)=0._r8
       qvlat(i,1:pver)=0._r8
       qctend(i,1:pver)=0._r8
@@ -1423,6 +1428,11 @@ do i=1,ncol
       qrtend_copy(i,1:pver)=0._r8
       qnitend_copy(i,1:pver)=0._r8
       !-------------
+      else
+         call micro_mg1_0_no_cloud_zero_column_codon_wrap(i, pcols, pver, tlat, qvlat, qctend, qitend, &
+              qnitend, qrtend, nctend, nitend, nrtend, nstend, prect, preci, qniic, qric, nsic, nric, &
+              rainrt, qrtend_copy, qnitend_copy)
+      end if
       goto 300
    end if
 
@@ -1436,6 +1446,7 @@ do i=1,ncol
 
       ! initialize sub-step microphysical tendencies
 
+      if (micro_mg1_0_colzero_use_native_impl) then
       tlat(i,1:pver)=0._r8
       qvlat(i,1:pver)=0._r8
       qctend(i,1:pver)=0._r8
@@ -1460,6 +1471,11 @@ do i=1,ncol
 
       rainrt(i,1:pver)=0._r8
 
+      else
+         call micro_mg1_0_substep_zero_column_codon_wrap(i, pcols, pver, tlat, qvlat, qctend, qitend, &
+              qnitend, qrtend, nctend, nitend, nrtend, nstend, qniic, qric, nsic, nric, rainrt, &
+              qrtend_copy, qnitend_copy)
+      end if
 
       ! begin new i,k loop, calculate new cldmax after adjustment to cldm above
 
@@ -3886,6 +3902,140 @@ subroutine micro_mg1_0_init_fields_codon_wrap(ncol_local, pcols_local, pver_loca
        c_loc(am_evp_st_local), c_loc(rainrt1_local), c_loc(cldmax_local), c_loc(dum2l_local), &
        c_loc(dum2i_local), c_loc(prect1_local), c_loc(preci1_local))
 end subroutine micro_mg1_0_init_fields_codon_wrap
+
+subroutine micro_mg1_0_select_colzero_impl()
+  character(len=32) :: impl_name
+  integer :: n, status
+
+  if (micro_mg1_0_colzero_impl_selected) return
+
+  call get_environment_variable('MICRO_MG1_0_COLZERO_IMPL', value=impl_name, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     micro_mg1_0_colzero_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     micro_mg1_0_colzero_use_native_impl = .false.
+  end if
+
+  if (masterproc) then
+     if (micro_mg1_0_colzero_use_native_impl) then
+        write(iulog,*) 'micro_mg1_0_colzero implementation = native'
+        call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+             'micro_mg1_0_colzero implementation = native')
+     else
+        write(iulog,*) 'micro_mg1_0_colzero implementation = codon'
+        call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+             'micro_mg1_0_colzero implementation = codon')
+     end if
+  end if
+
+  micro_mg1_0_colzero_impl_selected = .true.
+end subroutine micro_mg1_0_select_colzero_impl
+
+subroutine micro_mg1_0_colzero_log_entry()
+  if (masterproc .and. .not. micro_mg1_0_colzero_wrapper_logged) then
+     write(iulog,*) 'micro_mg1_0_colzero_wrap entered (column zero initialization = codon)'
+     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
+          'micro_mg1_0_colzero_wrap entered (column zero initialization = codon)')
+     micro_mg1_0_colzero_wrapper_logged = .true.
+  end if
+end subroutine micro_mg1_0_colzero_log_entry
+
+subroutine micro_mg1_0_no_cloud_zero_column_codon_wrap(i_local, pcols_local, pver_local, &
+     tlat_local, qvlat_local, qctend_local, qitend_local, qnitend_local, qrtend_local, &
+     nctend_local, nitend_local, nrtend_local, nstend_local, prect_local, preci_local, &
+     qniic_local, qric_local, nsic_local, nric_local, rainrt_local, qrtend_copy_local, &
+     qnitend_copy_local)
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: i_local, pcols_local, pver_local
+  real(r8), target, intent(inout) :: tlat_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qvlat_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qctend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qitend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qnitend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qrtend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nctend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nitend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nrtend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nstend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: prect_local(pcols_local), preci_local(pcols_local)
+  real(r8), target, intent(inout) :: qniic_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qric_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nsic_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nric_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: rainrt_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qrtend_copy_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qnitend_copy_local(pcols_local,pver_local)
+
+  interface
+     subroutine micro_mg1_0_no_cloud_zero_column_codon(i_c, pcols_c, pver_c, &
+          tlat_p, qvlat_p, qctend_p, qitend_p, qnitend_p, qrtend_p, &
+          nctend_p, nitend_p, nrtend_p, nstend_p, prect_p, preci_p, &
+          qniic_p, qric_p, nsic_p, nric_p, rainrt_p, qrtend_copy_p, &
+          qnitend_copy_p) bind(c, name="micro_mg1_0_no_cloud_zero_column_codon")
+       import c_int64_t, c_ptr
+       integer(c_int64_t), value :: i_c, pcols_c, pver_c
+       type(c_ptr), value :: tlat_p, qvlat_p, qctend_p, qitend_p, qnitend_p, qrtend_p
+       type(c_ptr), value :: nctend_p, nitend_p, nrtend_p, nstend_p, prect_p, preci_p
+       type(c_ptr), value :: qniic_p, qric_p, nsic_p, nric_p, rainrt_p, qrtend_copy_p
+       type(c_ptr), value :: qnitend_copy_p
+     end subroutine micro_mg1_0_no_cloud_zero_column_codon
+  end interface
+
+  call micro_mg1_0_colzero_log_entry()
+  call micro_mg1_0_no_cloud_zero_column_codon(int(i_local, c_int64_t), int(pcols_local, c_int64_t), &
+       int(pver_local, c_int64_t), c_loc(tlat_local), c_loc(qvlat_local), c_loc(qctend_local), &
+       c_loc(qitend_local), c_loc(qnitend_local), c_loc(qrtend_local), c_loc(nctend_local), &
+       c_loc(nitend_local), c_loc(nrtend_local), c_loc(nstend_local), c_loc(prect_local), &
+       c_loc(preci_local), c_loc(qniic_local), c_loc(qric_local), c_loc(nsic_local), &
+       c_loc(nric_local), c_loc(rainrt_local), c_loc(qrtend_copy_local), c_loc(qnitend_copy_local))
+end subroutine micro_mg1_0_no_cloud_zero_column_codon_wrap
+
+subroutine micro_mg1_0_substep_zero_column_codon_wrap(i_local, pcols_local, pver_local, &
+     tlat_local, qvlat_local, qctend_local, qitend_local, qnitend_local, qrtend_local, &
+     nctend_local, nitend_local, nrtend_local, nstend_local, qniic_local, qric_local, &
+     nsic_local, nric_local, rainrt_local, qrtend_copy_local, qnitend_copy_local)
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: i_local, pcols_local, pver_local
+  real(r8), target, intent(inout) :: tlat_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qvlat_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qctend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qitend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qnitend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qrtend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nctend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nitend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nrtend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nstend_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qniic_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qric_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nsic_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: nric_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: rainrt_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qrtend_copy_local(pcols_local,pver_local)
+  real(r8), target, intent(inout) :: qnitend_copy_local(pcols_local,pver_local)
+
+  interface
+     subroutine micro_mg1_0_substep_zero_column_codon(i_c, pcols_c, pver_c, &
+          tlat_p, qvlat_p, qctend_p, qitend_p, qnitend_p, qrtend_p, &
+          nctend_p, nitend_p, nrtend_p, nstend_p, qniic_p, qric_p, &
+          nsic_p, nric_p, rainrt_p, qrtend_copy_p, qnitend_copy_p) &
+          bind(c, name="micro_mg1_0_substep_zero_column_codon")
+       import c_int64_t, c_ptr
+       integer(c_int64_t), value :: i_c, pcols_c, pver_c
+       type(c_ptr), value :: tlat_p, qvlat_p, qctend_p, qitend_p, qnitend_p, qrtend_p
+       type(c_ptr), value :: nctend_p, nitend_p, nrtend_p, nstend_p, qniic_p, qric_p
+       type(c_ptr), value :: nsic_p, nric_p, rainrt_p, qrtend_copy_p, qnitend_copy_p
+     end subroutine micro_mg1_0_substep_zero_column_codon
+  end interface
+
+  call micro_mg1_0_colzero_log_entry()
+  call micro_mg1_0_substep_zero_column_codon(int(i_local, c_int64_t), int(pcols_local, c_int64_t), &
+       int(pver_local, c_int64_t), c_loc(tlat_local), c_loc(qvlat_local), c_loc(qctend_local), &
+       c_loc(qitend_local), c_loc(qnitend_local), c_loc(qrtend_local), c_loc(nctend_local), &
+       c_loc(nitend_local), c_loc(nrtend_local), c_loc(nstend_local), c_loc(qniic_local), &
+       c_loc(qric_local), c_loc(nsic_local), c_loc(nric_local), c_loc(rainrt_local), &
+       c_loc(qrtend_copy_local), c_loc(qnitend_copy_local))
+end subroutine micro_mg1_0_substep_zero_column_codon_wrap
 
 !========================================================================
 !UTILITIES

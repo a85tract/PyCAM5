@@ -259,6 +259,129 @@ def micro_mg1_0_init_fields_codon(
 
 
 @inline
+def _zero2_column(i: int, pver: int, pcols: int, arr: Ptr[float]):
+    for k in range(1, pver + 1):
+        arr[_idx2(i, k, pcols)] = 0.0
+
+
+@inline
+def _micro_mg1_0_zero_tendency_column(i: int, pver: int, pcols: int,
+                                      tlat: Ptr[float], qvlat: Ptr[float],
+                                      qctend: Ptr[float], qitend: Ptr[float],
+                                      qnitend: Ptr[float], qrtend: Ptr[float],
+                                      nctend: Ptr[float], nitend: Ptr[float],
+                                      nrtend: Ptr[float], nstend: Ptr[float]):
+    _zero2_column(i, pver, pcols, tlat)
+    _zero2_column(i, pver, pcols, qvlat)
+    _zero2_column(i, pver, pcols, qctend)
+    _zero2_column(i, pver, pcols, qitend)
+    _zero2_column(i, pver, pcols, qnitend)
+    _zero2_column(i, pver, pcols, qrtend)
+    _zero2_column(i, pver, pcols, nctend)
+    _zero2_column(i, pver, pcols, nitend)
+    _zero2_column(i, pver, pcols, nrtend)
+    _zero2_column(i, pver, pcols, nstend)
+
+
+@inline
+def _micro_mg1_0_zero_precip_diag_column(i: int, pver: int, pcols: int,
+                                         qniic: Ptr[float], qric: Ptr[float],
+                                         nsic: Ptr[float], nric: Ptr[float],
+                                         rainrt: Ptr[float],
+                                         qrtend_copy: Ptr[float],
+                                         qnitend_copy: Ptr[float]):
+    _zero2_column(i, pver, pcols, qniic)
+    _zero2_column(i, pver, pcols, qric)
+    _zero2_column(i, pver, pcols, nsic)
+    _zero2_column(i, pver, pcols, nric)
+    _zero2_column(i, pver, pcols, rainrt)
+    _zero2_column(i, pver, pcols, qrtend_copy)
+    _zero2_column(i, pver, pcols, qnitend_copy)
+
+
+@export
+def micro_mg1_0_no_cloud_zero_column_codon(
+    i: int,
+    pcols: int,
+    pver: int,
+    tlat_p: cobj,
+    qvlat_p: cobj,
+    qctend_p: cobj,
+    qitend_p: cobj,
+    qnitend_p: cobj,
+    qrtend_p: cobj,
+    nctend_p: cobj,
+    nitend_p: cobj,
+    nrtend_p: cobj,
+    nstend_p: cobj,
+    prect_p: cobj,
+    preci_p: cobj,
+    qniic_p: cobj,
+    qric_p: cobj,
+    nsic_p: cobj,
+    nric_p: cobj,
+    rainrt_p: cobj,
+    qrtend_copy_p: cobj,
+    qnitend_copy_p: cobj,
+):
+    _micro_mg1_0_zero_tendency_column(
+        i, pver, pcols,
+        Ptr[float](tlat_p), Ptr[float](qvlat_p), Ptr[float](qctend_p),
+        Ptr[float](qitend_p), Ptr[float](qnitend_p), Ptr[float](qrtend_p),
+        Ptr[float](nctend_p), Ptr[float](nitend_p), Ptr[float](nrtend_p),
+        Ptr[float](nstend_p),
+    )
+    prect = Ptr[float](prect_p)
+    preci = Ptr[float](preci_p)
+    prect[i - 1] = 0.0
+    preci[i - 1] = 0.0
+    _micro_mg1_0_zero_precip_diag_column(
+        i, pver, pcols,
+        Ptr[float](qniic_p), Ptr[float](qric_p), Ptr[float](nsic_p),
+        Ptr[float](nric_p), Ptr[float](rainrt_p),
+        Ptr[float](qrtend_copy_p), Ptr[float](qnitend_copy_p),
+    )
+
+
+@export
+def micro_mg1_0_substep_zero_column_codon(
+    i: int,
+    pcols: int,
+    pver: int,
+    tlat_p: cobj,
+    qvlat_p: cobj,
+    qctend_p: cobj,
+    qitend_p: cobj,
+    qnitend_p: cobj,
+    qrtend_p: cobj,
+    nctend_p: cobj,
+    nitend_p: cobj,
+    nrtend_p: cobj,
+    nstend_p: cobj,
+    qniic_p: cobj,
+    qric_p: cobj,
+    nsic_p: cobj,
+    nric_p: cobj,
+    rainrt_p: cobj,
+    qrtend_copy_p: cobj,
+    qnitend_copy_p: cobj,
+):
+    _micro_mg1_0_zero_tendency_column(
+        i, pver, pcols,
+        Ptr[float](tlat_p), Ptr[float](qvlat_p), Ptr[float](qctend_p),
+        Ptr[float](qitend_p), Ptr[float](qnitend_p), Ptr[float](qrtend_p),
+        Ptr[float](nctend_p), Ptr[float](nitend_p), Ptr[float](nrtend_p),
+        Ptr[float](nstend_p),
+    )
+    _micro_mg1_0_zero_precip_diag_column(
+        i, pver, pcols,
+        Ptr[float](qniic_p), Ptr[float](qric_p), Ptr[float](nsic_p),
+        Ptr[float](nric_p), Ptr[float](rainrt_p),
+        Ptr[float](qrtend_copy_p), Ptr[float](qnitend_copy_p),
+    )
+
+
+@inline
 def _pack2d_mgcols(
     mgncol: int,
     nlev: int,
