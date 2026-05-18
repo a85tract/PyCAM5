@@ -79,6 +79,13 @@ def _idx3_lb0_dim2(a: int, b0: int, c: int, ld1: int, ub2: int) -> int:
 
 
 @inline
+def _max_1em80(x: float) -> float:
+    if x > 1.0e-80:
+        return x
+    return 1.0e-80
+
+
+@inline
 def _rrtmg_src_level(k: int, pverp: int, num_rrtmg_levs: int) -> int:
     kk = k + (pverp - num_rrtmg_levs) - 1
     if kk < 1:
@@ -447,6 +454,86 @@ def rrtmg_sw_pre_codon(
 
     for ns in range(1, nbndsw + 1):
         solvar[ns - 1] = sfac[ns - 1]
+
+
+@export
+def rrtmg_sw_cloud_optics_codon(
+    nday: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    rrtmg_levs: int,
+    nbndsw: int,
+    old_convert: int,
+    e_cld_tau_p: cobj,
+    e_cld_tau_w_p: cobj,
+    e_cld_tau_w_g_p: cobj,
+    e_cld_tau_w_f_p: cobj,
+    idxday_p: cobj,
+    tauc_sw_p: cobj,
+    ssac_sw_p: cobj,
+    asmc_sw_p: cobj,
+    fsfc_sw_p: cobj,
+):
+    e_cld_tau = Ptr[float](e_cld_tau_p)
+    e_cld_tau_w = Ptr[float](e_cld_tau_w_p)
+    e_cld_tau_w_g = Ptr[float](e_cld_tau_w_g_p)
+    e_cld_tau_w_f = Ptr[float](e_cld_tau_w_f_p)
+    idxday = Ptr[int](idxday_p)
+    tauc_sw = Ptr[float](tauc_sw_p)
+    ssac_sw = Ptr[float](ssac_sw_p)
+    asmc_sw = Ptr[float](asmc_sw_p)
+    fsfc_sw = Ptr[float](fsfc_sw_p)
+
+    if old_convert == 1:
+        for i in range(1, nday + 1):
+            col = idxday[i - 1]
+            for k in range(1, rrtmg_levs):
+                kk = (pverp - rrtmg_levs) + k
+                for ns in range(1, nbndsw + 1):
+                    src_idx = _idx3(ns, col, kk, nbndsw, pcols)
+                    dst_idx = _idx3(ns, i, k, nbndsw, pcols)
+                    tau_w = e_cld_tau_w[src_idx]
+                    if tau_w > 0.0:
+                        fsfc_sw[dst_idx] = e_cld_tau_w_f[src_idx] / tau_w
+                        asmc_sw[dst_idx] = e_cld_tau_w_g[src_idx] / tau_w
+                    else:
+                        fsfc_sw[dst_idx] = 0.0
+                        asmc_sw[dst_idx] = 0.0
+
+                    tauc_sw[dst_idx] = e_cld_tau[src_idx]
+                    if tauc_sw[dst_idx] > 0.0:
+                        ssac_sw[dst_idx] = tau_w / tauc_sw[dst_idx]
+                    else:
+                        tauc_sw[dst_idx] = 0.0
+                        fsfc_sw[dst_idx] = 0.0
+                        asmc_sw[dst_idx] = 0.0
+                        ssac_sw[dst_idx] = 1.0
+    else:
+        for i in range(1, nday + 1):
+            col = idxday[i - 1]
+            for k in range(1, rrtmg_levs):
+                kk = (pverp - rrtmg_levs) + k
+                for ns in range(1, nbndsw + 1):
+                    src_idx = _idx3(ns, col, kk, nbndsw, pcols)
+                    dst_idx = _idx3(ns, i, k, nbndsw, pcols)
+                    tau_w = e_cld_tau_w[src_idx]
+                    if tau_w > 0.0:
+                        tau_w_floor = _max_1em80(tau_w)
+                        fsfc_sw[dst_idx] = e_cld_tau_w_f[src_idx] / tau_w_floor
+                        asmc_sw[dst_idx] = e_cld_tau_w_g[src_idx] / tau_w_floor
+                    else:
+                        fsfc_sw[dst_idx] = 0.0
+                        asmc_sw[dst_idx] = 0.0
+
+                    tauc_sw[dst_idx] = e_cld_tau[src_idx]
+                    if tauc_sw[dst_idx] > 0.0:
+                        ssac_sw[dst_idx] = _max_1em80(tau_w) / _max_1em80(tauc_sw[dst_idx])
+                    else:
+                        tauc_sw[dst_idx] = 0.0
+                        fsfc_sw[dst_idx] = 0.0
+                        asmc_sw[dst_idx] = 0.0
+                        ssac_sw[dst_idx] = 1.0
 
 
 @export

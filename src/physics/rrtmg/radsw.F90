@@ -30,6 +30,9 @@ real(r8) :: solar_band_irrad(1:nbndsw) ! rrtmg-assumed solar irradiance in each 
 logical :: use_native_rrtmg_sw_driver_impl = .false.
 logical :: rrtmg_sw_driver_impl_selected = .false.
 logical :: rrtmg_sw_driver_entered_logged = .false.
+logical :: use_native_rrtmg_sw_cloud_optics_impl = .false.
+logical :: rrtmg_sw_cloud_optics_impl_selected = .false.
+logical :: rrtmg_sw_cloud_optics_entered_logged = .false.
 
 ! Public methods
 
@@ -129,10 +132,10 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    real(r8), intent(in) :: E_aldif(pcols)     ! 0.7-5.0 micro-meter srfc alb: diffuse rad
    real(r8), target, intent(in) :: sfac(nbndsw)            ! factor to account for solar variability in each band
 
-   real(r8), optional, intent(in) :: E_cld_tau    (nbndsw, pcols, pver)      ! cloud optical depth
-   real(r8), optional, intent(in) :: E_cld_tau_w  (nbndsw, pcols, pver)      ! cloud optical 
-   real(r8), optional, intent(in) :: E_cld_tau_w_g(nbndsw, pcols, pver)      ! cloud optical 
-   real(r8), optional, intent(in) :: E_cld_tau_w_f(nbndsw, pcols, pver)      ! cloud optical 
+   real(r8), target, optional, intent(in) :: E_cld_tau    (nbndsw, pcols, pver)      ! cloud optical depth
+   real(r8), target, optional, intent(in) :: E_cld_tau_w  (nbndsw, pcols, pver)      ! cloud optical
+   real(r8), target, optional, intent(in) :: E_cld_tau_w_g(nbndsw, pcols, pver)      ! cloud optical
+   real(r8), target, optional, intent(in) :: E_cld_tau_w_f(nbndsw, pcols, pver)      ! cloud optical
    logical, optional, intent(in) :: old_convert
 
    ! Output arguments
@@ -205,10 +208,10 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
 
    real(r8) :: diagnostic_od(pcols, pver)           ! cloud optical depth - diagnostic temp variable
 
-   real(r8) :: tauc_sw(nbndsw, pcols, rrtmg_levs-1)         ! cloud optical depth
-   real(r8) :: ssac_sw(nbndsw, pcols, rrtmg_levs-1)         ! cloud single scat. albedo
-   real(r8) :: asmc_sw(nbndsw, pcols, rrtmg_levs-1)         ! cloud asymmetry parameter
-   real(r8) :: fsfc_sw(nbndsw, pcols, rrtmg_levs-1)         ! cloud forward scattering fraction
+   real(r8), target :: tauc_sw(nbndsw, pcols, rrtmg_levs-1)         ! cloud optical depth
+   real(r8), target :: ssac_sw(nbndsw, pcols, rrtmg_levs-1)         ! cloud single scat. albedo
+   real(r8), target :: asmc_sw(nbndsw, pcols, rrtmg_levs-1)         ! cloud asymmetry parameter
+   real(r8), target :: fsfc_sw(nbndsw, pcols, rrtmg_levs-1)         ! cloud forward scattering fraction
 
    real(r8), target :: tau_aer_sw(pcols, rrtmg_levs-1, nbndsw)      ! aer optical depth
    real(r8), target :: ssa_aer_sw(pcols, rrtmg_levs-1, nbndsw)      ! aer single scat. albedo
@@ -277,6 +280,7 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    real(r8) :: tlay(pcols,rrtmg_levs)     ! mid point temperature
    real(r8), target :: tlev(pcols,rrtmg_levs+1)   ! interface temperature
    integer(c_int64_t), target :: IdxDay64(pcols)
+   integer(c_int64_t) :: old_convert_flag64
 
    interface
       subroutine rrtmg_sw_pre_codon(nday_c, pcols_c, pver_c, pverp_c, rrtmg_levs_c, nbndsw_c, &
@@ -287,6 +291,15 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
          type(c_ptr), value :: e_aer_tau_p, e_aer_tau_w_p, e_aer_tau_w_g_p, idxday_p
          type(c_ptr), value :: tau_aer_sw_p, ssa_aer_sw_p, asm_aer_sw_p, tlev_p, sfac_p, tsfc_p, solvar_p
       end subroutine rrtmg_sw_pre_codon
+      subroutine rrtmg_sw_cloud_optics_codon(nday_c, pcols_c, pver_c, pverp_c, rrtmg_levs_c, nbndsw_c, &
+           old_convert_c, e_cld_tau_p, e_cld_tau_w_p, e_cld_tau_w_g_p, e_cld_tau_w_f_p, idxday_p, &
+           tauc_sw_p, ssac_sw_p, asmc_sw_p, fsfc_sw_p) bind(c, name="rrtmg_sw_cloud_optics_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: nday_c, pcols_c, pver_c, pverp_c, rrtmg_levs_c, nbndsw_c
+         integer(c_int64_t), value :: old_convert_c
+         type(c_ptr), value :: e_cld_tau_p, e_cld_tau_w_p, e_cld_tau_w_g_p, e_cld_tau_w_f_p, idxday_p
+         type(c_ptr), value :: tauc_sw_p, ssac_sw_p, asmc_sw_p, fsfc_sw_p
+      end subroutine rrtmg_sw_cloud_optics_codon
       subroutine rrtmg_sw_post_codon(nday_c, pcols_c, pver_c, pverp_c, rrtmg_levs_c, cpair_c, &
            swuflx_p, swdflx_p, swhr_p, swuflxc_p, swdflxc_p, swhrc_p, dirdnuv_p, dirdnir_p, difdnuv_p, difdnir_p, &
            ninflx_p, ninflxc_p, fsntoa_p, fsutoa_p, fsntoac_p, fsnirtoa_p, fsnrtoaq_p, fsnrtoac_p, fsnt_p, fsntc_p, &
@@ -353,8 +366,11 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    endif
 
    call rrtmg_sw_driver_select_impl()
+   call rrtmg_sw_cloud_optics_select_impl()
    if (.not. use_native_rrtmg_sw_driver_impl) then
       call rrtmg_sw_driver_log_entered()
+   end if
+   if (.not. use_native_rrtmg_sw_driver_impl .or. .not. use_native_rrtmg_sw_cloud_optics_impl) then
       do i = 1, Nday
          IdxDay64(i) = int(IdxDay(i), c_int64_t)
       end do
@@ -453,34 +469,61 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    ! Or, calculate and pass in CAM cloud shortwave optical properties to RRTMG_SW
    !if (present(old_convert)) print *, 'old_convert',old_convert
    !if (present(ancientmethod)) print *, 'ancientmethod',ancientmethod
-   if (present(old_convert))then
-      if (old_convert)then ! convert without limits
-         do i = 1, Nday
-         do k = 1, rrtmg_levs-1
-         kk=(pverp-rrtmg_levs) + k
-         do ns = 1, nbndsw
-           if (E_cld_tau_w(ns,IdxDay(i),kk) > 0._r8) then
-              fsfc_sw(ns,i,k)=E_cld_tau_w_f(ns,IdxDay(i),kk)/E_cld_tau_w(ns,IdxDay(i),kk)
-              asmc_sw(ns,i,k)=E_cld_tau_w_g(ns,IdxDay(i),kk)/E_cld_tau_w(ns,IdxDay(i),kk)
-           else
-              fsfc_sw(ns,i,k) = 0._r8
-              asmc_sw(ns,i,k) = 0._r8
-           endif
-   
-           tauc_sw(ns,i,k)=E_cld_tau(ns,IdxDay(i),kk)
-           if (tauc_sw(ns,i,k) > 0._r8) then
-              ssac_sw(ns,i,k)=E_cld_tau_w(ns,IdxDay(i),kk)/tauc_sw(ns,i,k)
-           else
-              tauc_sw(ns,i,k) = 0._r8
-              fsfc_sw(ns,i,k) = 0._r8
-              asmc_sw(ns,i,k) = 0._r8
-              ssac_sw(ns,i,k) = 1._r8
-           endif
-         enddo
-         enddo
-         enddo
+   if (use_native_rrtmg_sw_cloud_optics_impl) then
+      if (present(old_convert))then
+         if (old_convert)then ! convert without limits
+            do i = 1, Nday
+            do k = 1, rrtmg_levs-1
+            kk=(pverp-rrtmg_levs) + k
+            do ns = 1, nbndsw
+              if (E_cld_tau_w(ns,IdxDay(i),kk) > 0._r8) then
+                 fsfc_sw(ns,i,k)=E_cld_tau_w_f(ns,IdxDay(i),kk)/E_cld_tau_w(ns,IdxDay(i),kk)
+                 asmc_sw(ns,i,k)=E_cld_tau_w_g(ns,IdxDay(i),kk)/E_cld_tau_w(ns,IdxDay(i),kk)
+              else
+                 fsfc_sw(ns,i,k) = 0._r8
+                 asmc_sw(ns,i,k) = 0._r8
+              endif
+
+              tauc_sw(ns,i,k)=E_cld_tau(ns,IdxDay(i),kk)
+              if (tauc_sw(ns,i,k) > 0._r8) then
+                 ssac_sw(ns,i,k)=E_cld_tau_w(ns,IdxDay(i),kk)/tauc_sw(ns,i,k)
+              else
+                 tauc_sw(ns,i,k) = 0._r8
+                 fsfc_sw(ns,i,k) = 0._r8
+                 asmc_sw(ns,i,k) = 0._r8
+                 ssac_sw(ns,i,k) = 1._r8
+              endif
+            enddo
+            enddo
+            enddo
+         else
+            ! eventually, when we are done with archaic versions, This set of code will become the default.
+            do i = 1, Nday
+            do k = 1, rrtmg_levs-1
+            kk=(pverp-rrtmg_levs) + k
+            do ns = 1, nbndsw
+              if (E_cld_tau_w(ns,IdxDay(i),kk) > 0._r8) then
+                 fsfc_sw(ns,i,k)=E_cld_tau_w_f(ns,IdxDay(i),kk)/max(E_cld_tau_w(ns,IdxDay(i),kk), 1.e-80_r8)
+                 asmc_sw(ns,i,k)=E_cld_tau_w_g(ns,IdxDay(i),kk)/max(E_cld_tau_w(ns,IdxDay(i),kk), 1.e-80_r8)
+              else
+                 fsfc_sw(ns,i,k) = 0._r8
+                 asmc_sw(ns,i,k) = 0._r8
+              endif
+
+              tauc_sw(ns,i,k)=E_cld_tau(ns,IdxDay(i),kk)
+              if (tauc_sw(ns,i,k) > 0._r8) then
+                 ssac_sw(ns,i,k)=max(E_cld_tau_w(ns,IdxDay(i),kk),1.e-80_r8)/max(tauc_sw(ns,i,k),1.e-80_r8)
+              else
+                 tauc_sw(ns,i,k) = 0._r8
+                 fsfc_sw(ns,i,k) = 0._r8
+                 asmc_sw(ns,i,k) = 0._r8
+                 ssac_sw(ns,i,k) = 1._r8
+              endif
+            enddo
+            enddo
+            enddo
+         endif
       else
-         ! eventually, when we are done with archaic versions, This set of code will become the default.
          do i = 1, Nday
          do k = 1, rrtmg_levs-1
          kk=(pverp-rrtmg_levs) + k
@@ -492,7 +535,7 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
               fsfc_sw(ns,i,k) = 0._r8
               asmc_sw(ns,i,k) = 0._r8
            endif
-   
+
            tauc_sw(ns,i,k)=E_cld_tau(ns,IdxDay(i),kk)
            if (tauc_sw(ns,i,k) > 0._r8) then
               ssac_sw(ns,i,k)=max(E_cld_tau_w(ns,IdxDay(i),kk),1.e-80_r8)/max(tauc_sw(ns,i,k),1.e-80_r8)
@@ -507,30 +550,18 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
          enddo
       endif
    else
-      do i = 1, Nday
-      do k = 1, rrtmg_levs-1
-      kk=(pverp-rrtmg_levs) + k
-      do ns = 1, nbndsw
-        if (E_cld_tau_w(ns,IdxDay(i),kk) > 0._r8) then
-           fsfc_sw(ns,i,k)=E_cld_tau_w_f(ns,IdxDay(i),kk)/max(E_cld_tau_w(ns,IdxDay(i),kk), 1.e-80_r8)
-           asmc_sw(ns,i,k)=E_cld_tau_w_g(ns,IdxDay(i),kk)/max(E_cld_tau_w(ns,IdxDay(i),kk), 1.e-80_r8)
-        else
-           fsfc_sw(ns,i,k) = 0._r8
-           asmc_sw(ns,i,k) = 0._r8
-        endif
-
-        tauc_sw(ns,i,k)=E_cld_tau(ns,IdxDay(i),kk)
-        if (tauc_sw(ns,i,k) > 0._r8) then
-           ssac_sw(ns,i,k)=max(E_cld_tau_w(ns,IdxDay(i),kk),1.e-80_r8)/max(tauc_sw(ns,i,k),1.e-80_r8)
-        else
-           tauc_sw(ns,i,k) = 0._r8
-           fsfc_sw(ns,i,k) = 0._r8
-           asmc_sw(ns,i,k) = 0._r8
-           ssac_sw(ns,i,k) = 1._r8
-        endif
-      enddo
-      enddo
-      enddo
+      call rrtmg_sw_cloud_optics_log_entered()
+      old_convert_flag64 = int(0, c_int64_t)
+      if (present(old_convert)) then
+         if (old_convert) old_convert_flag64 = int(1, c_int64_t)
+      end if
+      call rrtmg_sw_cloud_optics_codon( &
+           int(Nday, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
+           int(rrtmg_levs, c_int64_t), int(nbndsw, c_int64_t), old_convert_flag64, &
+           c_loc(E_cld_tau(1,1,1)), c_loc(E_cld_tau_w(1,1,1)), c_loc(E_cld_tau_w_g(1,1,1)), &
+           c_loc(E_cld_tau_w_f(1,1,1)), c_loc(IdxDay64(1)), c_loc(tauc_sw(1,1,1)), c_loc(ssac_sw(1,1,1)), &
+           c_loc(asmc_sw(1,1,1)), c_loc(fsfc_sw(1,1,1)) &
+      )
    endif
 
    ! Call mcica sub-column generator for RRTMG_SW
@@ -791,6 +822,57 @@ subroutine rrtmg_sw_driver_log_entered()
    end if
 
 end subroutine rrtmg_sw_driver_log_entered
+
+!-------------------------------------------------------------------------------
+
+subroutine rrtmg_sw_cloud_optics_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (rrtmg_sw_cloud_optics_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('RRTMG_SW_CLOUD_OPTICS_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_rrtmg_sw_cloud_optics_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_rrtmg_sw_cloud_optics_impl = .false.
+   end if
+
+   rrtmg_sw_cloud_optics_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_rrtmg_sw_cloud_optics_impl) then
+         write(iulog,*) 'rrtmg_sw_cloud_optics implementation = native'
+      else
+         write(iulog,*) 'rrtmg_sw_cloud_optics implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine rrtmg_sw_cloud_optics_select_impl
+
+!-------------------------------------------------------------------------------
+
+subroutine rrtmg_sw_cloud_optics_log_entered()
+
+   if (rrtmg_sw_cloud_optics_entered_logged) return
+   rrtmg_sw_cloud_optics_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,*) 'rrtmg_sw_cloud_optics entered (CAM-to-RRTMG shortwave cloud optics = codon)'
+      call flush(iulog)
+   end if
+
+end subroutine rrtmg_sw_cloud_optics_log_entered
 
 !-------------------------------------------------------------------------------
 
