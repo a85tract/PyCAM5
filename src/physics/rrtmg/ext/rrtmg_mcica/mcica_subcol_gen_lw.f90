@@ -354,6 +354,12 @@
             integer(c_int64_t), value :: ncol_c, nlay_c, nsubcol_c
             type(c_ptr), value :: seed1_p, seed2_p, seed3_p, seed4_p, cdf_p
          end subroutine rrtmg_lw_subcol_kiss_random_case2_codon
+         subroutine rrtmg_lw_subcol_kiss_advance_codon(ncol_c, nstep_c, &
+              seed1_p, seed2_p, seed3_p, seed4_p) bind(c, name="rrtmg_lw_subcol_kiss_advance_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: ncol_c, nstep_c
+            type(c_ptr), value :: seed1_p, seed2_p, seed3_p, seed4_p
+         end subroutine rrtmg_lw_subcol_kiss_advance_codon
          subroutine rrtmg_lw_subcol_overlap_codon(ncol_c, nlay_c, nsubcol_c, &
               cdf_p, cldf_p) bind(c, name="rrtmg_lw_subcol_overlap_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
@@ -425,9 +431,17 @@
                  c_loc(pmid(1,1)), c_loc(seed1(1)), c_loc(seed2(1)), c_loc(seed3(1)), c_loc(seed4(1)) &
             )
          end if
-         do i=1,changeSeed
-            call kissvec(seed1, seed2, seed3, seed4, rand_num)
-         enddo
+         if (use_native_subcol_fill_lw_impl) then
+            do i=1,changeSeed
+               call kissvec(seed1, seed2, seed3, seed4, rand_num)
+            enddo
+         else
+            call subcol_fill_lw_log_entered()
+            call rrtmg_lw_subcol_kiss_advance_codon( &
+                 int(ncol, c_int64_t), int(changeSeed, c_int64_t), &
+                 c_loc(seed1(1)), c_loc(seed2(1)), c_loc(seed3(1)), c_loc(seed4(1)) &
+            )
+         end if
       elseif (irnd.eq.1) then
          randomNumbers = new_RandomNumberSequence(seed = changeSeed)
       endif 
@@ -721,7 +735,7 @@
       subcol_fill_lw_entered_logged = .true.
 
       if (masterproc) then
-         write(iulog,*) 'rrtmg_lw_subcol_fill entered (mcica lw pressure/size/cldf/seed/random prep, ' // &
+         write(iulog,*) 'rrtmg_lw_subcol_fill entered (mcica lw pressure/size/cldf/seed/advance/random prep, ' // &
               'overlap CDF and stochastic cloud fill = codon)'
          call flush(iulog)
       end if

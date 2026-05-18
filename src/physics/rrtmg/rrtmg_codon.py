@@ -3800,6 +3800,25 @@ def rrtmg_lw_subcol_kiss_random_case2_codon(
 
 
 @export
+def rrtmg_lw_subcol_kiss_advance_codon(
+    ncol: int,
+    nstep: int,
+    seed1_p: cobj,
+    seed2_p: cobj,
+    seed3_p: cobj,
+    seed4_p: cobj,
+):
+    seed1 = Ptr[i32](seed1_p)
+    seed2 = Ptr[i32](seed2_p)
+    seed3 = Ptr[i32](seed3_p)
+    seed4 = Ptr[i32](seed4_p)
+
+    for _ in range(1, nstep + 1):
+        for i in range(1, ncol + 1):
+            _rrtmg_kiss_next_i32(i - 1, seed1, seed2, seed3, seed4)
+
+
+@export
 def rrtmg_lw_subcol_overlap_codon(
     ncol: int,
     nlay: int,
