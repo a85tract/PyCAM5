@@ -349,6 +349,17 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
          type(c_ptr), value :: sols_p, soll_p, solsd_p, solld_p
          type(c_ptr), value :: fsnirtoa_p, fsnrtoac_p, fsnrtoaq_p
       end subroutine rrtmg_sw_expand_outputs_codon
+      subroutine rrtmg_sw_zero_outputs_codon(ncol_c, pcols_c, pver_c, pverp_c, &
+           solin_p, qrs_p, qrsc_p, fns_p, fcns_p, fsds_p, fsnirtoa_p, fsnrtoac_p, &
+           fsnrtoaq_p, fsns_p, fsnsc_p, fsdsc_p, fsnt_p, fsntc_p, fsntoa_p, fsutoa_p, &
+           fsntoac_p, sols_p, soll_p, solsd_p, solld_p) bind(c, name="rrtmg_sw_zero_outputs_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c
+         type(c_ptr), value :: solin_p, qrs_p, qrsc_p, fns_p, fcns_p
+         type(c_ptr), value :: fsds_p, fsnirtoa_p, fsnrtoac_p, fsnrtoaq_p
+         type(c_ptr), value :: fsns_p, fsnsc_p, fsdsc_p, fsnt_p, fsntc_p
+         type(c_ptr), value :: fsntoa_p, fsutoa_p, fsntoac_p, sols_p, soll_p, solsd_p, solld_p
+      end subroutine rrtmg_sw_zero_outputs_codon
    end interface
 
    !-----------------------------------------------------------------------
@@ -357,33 +368,46 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
 
    ! Initialize output fields:
 
-   fsds(1:ncol)     = 0.0_r8
+   call rrtmg_sw_driver_select_impl()
+   if (use_native_rrtmg_sw_driver_impl) then
+      fsds(1:ncol)     = 0.0_r8
 
-   fsnirtoa(1:ncol) = 0.0_r8
-   fsnrtoac(1:ncol) = 0.0_r8
-   fsnrtoaq(1:ncol) = 0.0_r8
+      fsnirtoa(1:ncol) = 0.0_r8
+      fsnrtoac(1:ncol) = 0.0_r8
+      fsnrtoaq(1:ncol) = 0.0_r8
 
-   fsns(1:ncol)     = 0.0_r8
-   fsnsc(1:ncol)    = 0.0_r8
-   fsdsc(1:ncol)    = 0.0_r8
+      fsns(1:ncol)     = 0.0_r8
+      fsnsc(1:ncol)    = 0.0_r8
+      fsdsc(1:ncol)    = 0.0_r8
 
-   fsnt(1:ncol)     = 0.0_r8
-   fsntc(1:ncol)    = 0.0_r8
-   fsntoa(1:ncol)   = 0.0_r8
-   fsutoa(1:ncol)   = 0.0_r8
-   fsntoac(1:ncol)  = 0.0_r8
+      fsnt(1:ncol)     = 0.0_r8
+      fsntc(1:ncol)    = 0.0_r8
+      fsntoa(1:ncol)   = 0.0_r8
+      fsutoa(1:ncol)   = 0.0_r8
+      fsntoac(1:ncol)  = 0.0_r8
 
-   solin(1:ncol)    = 0.0_r8
+      solin(1:ncol)    = 0.0_r8
 
-   sols(1:ncol)     = 0.0_r8
-   soll(1:ncol)     = 0.0_r8
-   solsd(1:ncol)    = 0.0_r8
-   solld(1:ncol)    = 0.0_r8
+      sols(1:ncol)     = 0.0_r8
+      soll(1:ncol)     = 0.0_r8
+      solsd(1:ncol)    = 0.0_r8
+      solld(1:ncol)    = 0.0_r8
 
-   qrs (1:ncol,1:pver) = 0.0_r8
-   qrsc(1:ncol,1:pver) = 0.0_r8
-   fns(1:ncol,1:pverp) = 0.0_r8
-   fcns(1:ncol,1:pverp) = 0.0_r8
+      qrs (1:ncol,1:pver) = 0.0_r8
+      qrsc(1:ncol,1:pver) = 0.0_r8
+      fns(1:ncol,1:pverp) = 0.0_r8
+      fcns(1:ncol,1:pverp) = 0.0_r8
+   else
+      call rrtmg_sw_driver_log_entered()
+      call rrtmg_sw_zero_outputs_codon( &
+           int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
+           c_loc(solin(1)), c_loc(qrs(1,1)), c_loc(qrsc(1,1)), c_loc(fns(1,1)), c_loc(fcns(1,1)), &
+           c_loc(fsds(1)), c_loc(fsnirtoa(1)), c_loc(fsnrtoac(1)), c_loc(fsnrtoaq(1)), &
+           c_loc(fsns(1)), c_loc(fsnsc(1)), c_loc(fsdsc(1)), c_loc(fsnt(1)), c_loc(fsntc(1)), &
+           c_loc(fsntoa(1)), c_loc(fsutoa(1)), c_loc(fsntoac(1)), &
+           c_loc(sols(1)), c_loc(soll(1)), c_loc(solsd(1)), c_loc(solld(1)) &
+      )
+   endif
    if (single_column.and.scm_crm_mode) then 
       fus(1:ncol,1:pverp) = 0.0_r8
       fds(1:ncol,1:pverp) = 0.0_r8
@@ -399,7 +423,6 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
      return
    endif
 
-   call rrtmg_sw_driver_select_impl()
    call rrtmg_sw_cloud_optics_select_impl()
    if (.not. use_native_rrtmg_sw_driver_impl) then
       call rrtmg_sw_driver_log_entered()
@@ -886,7 +909,7 @@ subroutine rrtmg_sw_driver_log_entered()
    rrtmg_sw_driver_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,*) 'rrtmg_sw_driver entered (input compact/solin/aerosol pre/post helpers = codon; ' // &
+      write(iulog,*) 'rrtmg_sw_driver entered (output zero/input compact/solin/aerosol pre/post helpers = codon; ' // &
            'native driver blocks skipped; rrtmg_sw core = native)'
       call flush(iulog)
    end if

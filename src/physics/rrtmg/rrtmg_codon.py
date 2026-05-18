@@ -646,6 +646,92 @@ def _radsw_compact_2d_level_offset(
             dst[_idx2(nday + pos, k, pcols)] = src[_idx2(idxnite[pos - 1], src_k, pcols)]
 
 
+@inline
+def _rrtmg_zero_1d_ncol(arr: Ptr[float], ncol: int):
+    for i in range(1, ncol + 1):
+        arr[i - 1] = 0.0
+
+
+@inline
+def _rrtmg_zero_2d_ncol(arr: Ptr[float], ncol: int, nlev: int, pcols: int):
+    for k in range(1, nlev + 1):
+        for i in range(1, ncol + 1):
+            arr[_idx2(i, k, pcols)] = 0.0
+
+
+@export
+def rrtmg_sw_zero_outputs_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    solin_p: cobj,
+    qrs_p: cobj,
+    qrsc_p: cobj,
+    fns_p: cobj,
+    fcns_p: cobj,
+    fsds_p: cobj,
+    fsnirtoa_p: cobj,
+    fsnrtoac_p: cobj,
+    fsnrtoaq_p: cobj,
+    fsns_p: cobj,
+    fsnsc_p: cobj,
+    fsdsc_p: cobj,
+    fsnt_p: cobj,
+    fsntc_p: cobj,
+    fsntoa_p: cobj,
+    fsutoa_p: cobj,
+    fsntoac_p: cobj,
+    sols_p: cobj,
+    soll_p: cobj,
+    solsd_p: cobj,
+    solld_p: cobj,
+):
+    solin = Ptr[float](solin_p)
+    qrs = Ptr[float](qrs_p)
+    qrsc = Ptr[float](qrsc_p)
+    fns = Ptr[float](fns_p)
+    fcns = Ptr[float](fcns_p)
+    fsds = Ptr[float](fsds_p)
+    fsnirtoa = Ptr[float](fsnirtoa_p)
+    fsnrtoac = Ptr[float](fsnrtoac_p)
+    fsnrtoaq = Ptr[float](fsnrtoaq_p)
+    fsns = Ptr[float](fsns_p)
+    fsnsc = Ptr[float](fsnsc_p)
+    fsdsc = Ptr[float](fsdsc_p)
+    fsnt = Ptr[float](fsnt_p)
+    fsntc = Ptr[float](fsntc_p)
+    fsntoa = Ptr[float](fsntoa_p)
+    fsutoa = Ptr[float](fsutoa_p)
+    fsntoac = Ptr[float](fsntoac_p)
+    sols = Ptr[float](sols_p)
+    soll = Ptr[float](soll_p)
+    solsd = Ptr[float](solsd_p)
+    solld = Ptr[float](solld_p)
+
+    _rrtmg_zero_1d_ncol(fsds, ncol)
+    _rrtmg_zero_1d_ncol(fsnirtoa, ncol)
+    _rrtmg_zero_1d_ncol(fsnrtoac, ncol)
+    _rrtmg_zero_1d_ncol(fsnrtoaq, ncol)
+    _rrtmg_zero_1d_ncol(fsns, ncol)
+    _rrtmg_zero_1d_ncol(fsnsc, ncol)
+    _rrtmg_zero_1d_ncol(fsdsc, ncol)
+    _rrtmg_zero_1d_ncol(fsnt, ncol)
+    _rrtmg_zero_1d_ncol(fsntc, ncol)
+    _rrtmg_zero_1d_ncol(fsntoa, ncol)
+    _rrtmg_zero_1d_ncol(fsutoa, ncol)
+    _rrtmg_zero_1d_ncol(fsntoac, ncol)
+    _rrtmg_zero_1d_ncol(solin, ncol)
+    _rrtmg_zero_1d_ncol(sols, ncol)
+    _rrtmg_zero_1d_ncol(soll, ncol)
+    _rrtmg_zero_1d_ncol(solsd, ncol)
+    _rrtmg_zero_1d_ncol(solld, ncol)
+    _rrtmg_zero_2d_ncol(qrs, ncol, pver, pcols)
+    _rrtmg_zero_2d_ncol(qrsc, ncol, pver, pcols)
+    _rrtmg_zero_2d_ncol(fns, ncol, pverp, pcols)
+    _rrtmg_zero_2d_ncol(fcns, ncol, pverp, pcols)
+
+
 @export
 def rrtmg_sw_compact_inputs_codon(
     nday: int,
