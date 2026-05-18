@@ -109,6 +109,9 @@
    logical :: use_native_linear_state_impl = .false.
    logical :: linear_state_impl_selected = .false.
    logical :: linear_state_entered_logged = .false.
+   logical :: use_native_qq_limiter_impl = .false.
+   logical :: qq_limiter_impl_selected = .false.
+   logical :: qq_limiter_entered_logged = .false.
 
    contains
 
@@ -867,60 +870,13 @@
          dalstdt = bb(2,1)
          QQ(i,k) = al_st(i,k)*dqlstdt + cc*ql_st(i,k)*dalstdt - ( A_ql(i,k) + A_ql_adj(i,k) + C_ql(i,k) )
 
-       ! ------------------------------------------------------------ !
-       ! Limiter for QQ                                               !
-       ! Here, 'fice' should be from the reference equilibrium state  !
-       ! since QQ itself is computed from the reference state.        !
-       ! From the assumption used for derivation of QQ(i), it must be !
-       ! that QQw(i) = QQ(i)*(1._r8-fice(i)), QQi(i) = QQ(i)*fice(i)  !  
-       ! ------------------------------------------------------------ !
+	      enddo
+	      enddo
 
-         if( QQ(i,k) .ge. 0._r8 ) then
-             QQmax    = (qv_05(i,k) - qmin(1))/dt ! For ghost cumulus & semi-ghost ice stratus
-             QQmax    = max(0._r8,QQmax) 
-             QQ(i,k)  = min(QQ(i,k),QQmax)
-             QQw(i,k) = QQ(i,k)
-             QQi(i,k) = 0._r8 
-         else
-             QQmin  = 0._r8
-             if( qv_05(i,k) .lt. qsat_a(i,k) ) QQmin = min(0._r8,cone*(qv_05(i,k)-qvwb_aw(i,k))/dt)
-             QQ(i,k)  = max(QQ(i,k),QQmin)
-             QQw(i,k) = QQ(i,k)
-             QQi(i,k) = 0._r8
-             QQwmin   = min(0._r8,-cone*ql_05(i,k)/dt)
-             QQimin   = min(0._r8,-cone*qi_05(i,k)/dt)
-             QQw(i,k) = min(0._r8,max(QQw(i,k),QQwmin))
-             QQi(i,k) = min(0._r8,max(QQi(i,k),QQimin))
-         endif
+      call qq_limiter_codon_wrap(ncol, dt, cone, qmin(1), qv_05, ql_05, qi_05, nl_05, ni_05, &
+           qsat_a, qvwb_aw, QQ, QQw, QQi, QQnl, QQni)
 
-       ! -------------------------------------------------- !
-       ! Reduce droplet concentration if evaporation occurs !
-       ! Note 'QQnl1,QQni1' are computed from the reference !
-       ! equilibrium state but limiter is from 'nl_05'.     !
-       ! -------------------------------------------------- !
-
-         if( QQw(i,k) .lt. 0._r8 ) then
-             if( ql_05(i,k) .gt. qsmall ) then
-                 QQnl(i,k) = QQw(i,k)*nl_05(i,k)/ql_05(i,k)
-                 QQnl(i,k) = min(0._r8,cone*max(QQnl(i,k),-nl_05(i,k)/dt))
-             else
-                 QQnl(i,k) = 0._r8
-             endif  
-         endif 
-
-         if( QQi(i,k) .lt. 0._r8 ) then
-             if( qi_05(i,k) .gt. qsmall ) then
-                 QQni(i,k) = QQi(i,k)*ni_05(i,k)/qi_05(i,k)
-                 QQni(i,k) = min(0._r8,cone*max(QQni(i,k),-ni_05(i,k)/dt))
-             else
-                 QQni(i,k) = 0._r8
-             endif  
-         endif 
-
-      enddo
-      enddo
-
-    ! -------------------------------------------------------------------- !
+	    ! -------------------------------------------------------------------- !
     ! Until now, we have finished computing all necessary tendencies       ! 
     ! from the equilibrium input state (T_0).                              !
     ! If ramda = 0 : fully explicit scheme                                 !
@@ -1729,6 +1685,125 @@ end subroutine rhcrit_calc
    ni_dprime(:ncol,top_lev:)  = ni_dprime(:ncol,top_lev:) + D_ni(:ncol,top_lev:) * dt
 
    end subroutine detrain_state_codon_wrap
+
+!=======================================================================================================
+
+   subroutine qq_limiter_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: n, status
+
+   if (qq_limiter_impl_selected) return
+   call get_environment_variable('CLDWAT2M_QQ_LIMITER_IMPL', value=impl_name, length=n, status=status)
+   use_native_qq_limiter_impl = .false.
+   if (status == 0 .and. n > 0) then
+      select case (adjustl(impl_name(:n)))
+      case ('native', 'Native', 'NATIVE')
+         use_native_qq_limiter_impl = .true.
+      case ('codon', 'Codon', 'CODON')
+         use_native_qq_limiter_impl = .false.
+      case default
+         use_native_qq_limiter_impl = .false.
+      end select
+   end if
+   qq_limiter_impl_selected = .true.
+   if (masterproc) then
+      if (use_native_qq_limiter_impl) then
+         write(iulog,*) 'cldwat2m_qq_limiter implementation = native'
+      else
+         write(iulog,*) 'cldwat2m_qq_limiter implementation = codon'
+      end if
+   end if
+   end subroutine qq_limiter_select_impl
+
+   subroutine qq_limiter_log_entered()
+   if (qq_limiter_entered_logged) return
+   qq_limiter_entered_logged = .true.
+   if (masterproc) then
+      write(iulog,*) 'cldwat2m_qq_limiter entered (macrophysics QQ limiter = codon)'
+   end if
+   end subroutine qq_limiter_log_entered
+
+   subroutine qq_limiter_codon_wrap(ncol, dt, cone, qvmin, qv_05, ql_05, qi_05, nl_05, ni_05, &
+        qsat_a, qvwb_aw, QQ, QQw, QQi, QQnl, QQni)
+
+   integer, intent(in) :: ncol
+   real(r8), intent(in) :: dt, cone, qvmin
+   real(r8), target, intent(in) :: qv_05(pcols,pver), ql_05(pcols,pver), qi_05(pcols,pver)
+   real(r8), target, intent(in) :: nl_05(pcols,pver), ni_05(pcols,pver), qsat_a(pcols,pver)
+   real(r8), target, intent(in) :: qvwb_aw(pcols,pver)
+   real(r8), target, intent(inout) :: QQ(pcols,pver), QQw(pcols,pver), QQi(pcols,pver)
+   real(r8), target, intent(inout) :: QQnl(pcols,pver), QQni(pcols,pver)
+
+   integer :: i, k
+   real(r8) :: QQmax, QQmin, QQwmin, QQimin
+
+   interface
+      subroutine cldwat2m_qq_limiter_codon(ncol_c, pcols_c, pver_c, top_lev_c, dt_c, qsmall_c, &
+           cone_c, qvmin_c, qv_05_p, ql_05_p, qi_05_p, nl_05_p, ni_05_p, qsat_a_p, qvwb_aw_p, &
+           QQ_p, QQw_p, QQi_p, QQnl_p, QQni_p) bind(c, name="cldwat2m_qq_limiter_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+         real(c_double), value :: dt_c, qsmall_c, cone_c, qvmin_c
+         type(c_ptr), value :: qv_05_p, ql_05_p, qi_05_p, nl_05_p, ni_05_p, qsat_a_p, qvwb_aw_p
+         type(c_ptr), value :: QQ_p, QQw_p, QQi_p, QQnl_p, QQni_p
+      end subroutine cldwat2m_qq_limiter_codon
+   end interface
+
+   call qq_limiter_select_impl()
+   if (.not. use_native_qq_limiter_impl) then
+      call qq_limiter_log_entered()
+      call cldwat2m_qq_limiter_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(top_lev, c_int64_t), dt, qsmall, cone, qvmin, &
+           c_loc(qv_05(1,1)), c_loc(ql_05(1,1)), c_loc(qi_05(1,1)), c_loc(nl_05(1,1)), &
+           c_loc(ni_05(1,1)), c_loc(qsat_a(1,1)), c_loc(qvwb_aw(1,1)), c_loc(QQ(1,1)), &
+           c_loc(QQw(1,1)), c_loc(QQi(1,1)), c_loc(QQnl(1,1)), c_loc(QQni(1,1)))
+      return
+   endif
+
+   do k = top_lev, pver
+      do i = 1, ncol
+         QQnl(i,k) = 0._r8
+         QQni(i,k) = 0._r8
+         if( QQ(i,k) .ge. 0._r8 ) then
+             QQmax    = (qv_05(i,k) - qvmin)/dt
+             QQmax    = max(0._r8,QQmax)
+             QQ(i,k)  = min(QQ(i,k),QQmax)
+             QQw(i,k) = QQ(i,k)
+             QQi(i,k) = 0._r8
+         else
+             QQmin  = 0._r8
+             if( qv_05(i,k) .lt. qsat_a(i,k) ) QQmin = min(0._r8,cone*(qv_05(i,k)-qvwb_aw(i,k))/dt)
+             QQ(i,k)  = max(QQ(i,k),QQmin)
+             QQw(i,k) = QQ(i,k)
+             QQi(i,k) = 0._r8
+             QQwmin   = min(0._r8,-cone*ql_05(i,k)/dt)
+             QQimin   = min(0._r8,-cone*qi_05(i,k)/dt)
+             QQw(i,k) = min(0._r8,max(QQw(i,k),QQwmin))
+             QQi(i,k) = min(0._r8,max(QQi(i,k),QQimin))
+         endif
+
+         if( QQw(i,k) .lt. 0._r8 ) then
+             if( ql_05(i,k) .gt. qsmall ) then
+                 QQnl(i,k) = QQw(i,k)*nl_05(i,k)/ql_05(i,k)
+                 QQnl(i,k) = min(0._r8,cone*max(QQnl(i,k),-nl_05(i,k)/dt))
+             else
+                 QQnl(i,k) = 0._r8
+             endif
+         endif
+
+         if( QQi(i,k) .lt. 0._r8 ) then
+             if( qi_05(i,k) .gt. qsmall ) then
+                 QQni(i,k) = QQi(i,k)*ni_05(i,k)/qi_05(i,k)
+                 QQni(i,k) = min(0._r8,cone*max(QQni(i,k),-ni_05(i,k)/dt))
+             else
+                 QQni(i,k) = 0._r8
+             endif
+         endif
+      enddo
+   enddo
+
+   end subroutine qq_limiter_codon_wrap
 
 !=======================================================================================================
 

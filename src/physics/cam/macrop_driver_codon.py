@@ -357,6 +357,119 @@ def cldwat2m_detrain_state_codon(
 
 
 @export
+def cldwat2m_qq_limiter_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    dt: float,
+    qsmall: float,
+    cone: float,
+    qvmin: float,
+    qv_05_p: cobj,
+    ql_05_p: cobj,
+    qi_05_p: cobj,
+    nl_05_p: cobj,
+    ni_05_p: cobj,
+    qsat_a_p: cobj,
+    qvwb_aw_p: cobj,
+    qq_p: cobj,
+    qqw_p: cobj,
+    qqi_p: cobj,
+    qqnl_p: cobj,
+    qqni_p: cobj,
+):
+    qv_05 = Ptr[float](qv_05_p)
+    ql_05 = Ptr[float](ql_05_p)
+    qi_05 = Ptr[float](qi_05_p)
+    nl_05 = Ptr[float](nl_05_p)
+    ni_05 = Ptr[float](ni_05_p)
+    qsat_a = Ptr[float](qsat_a_p)
+    qvwb_aw = Ptr[float](qvwb_aw_p)
+    qq = Ptr[float](qq_p)
+    qqw = Ptr[float](qqw_p)
+    qqi = Ptr[float](qqi_p)
+    qqnl = Ptr[float](qqnl_p)
+    qqni = Ptr[float](qqni_p)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            qqnl[idx] = 0.0
+            qqni[idx] = 0.0
+
+            if qq[idx] >= 0.0:
+                qqmax = (qv_05[idx] - qvmin) / dt
+                if qqmax < 0.0:
+                    qqmax = 0.0
+                if qq[idx] > qqmax:
+                    qq[idx] = qqmax
+                qqw[idx] = qq[idx]
+                qqi[idx] = 0.0
+            else:
+                qqmin = 0.0
+                if qv_05[idx] < qsat_a[idx]:
+                    qqmin = cone * (qv_05[idx] - qvwb_aw[idx]) / dt
+                    if qqmin > 0.0:
+                        qqmin = 0.0
+                if qq[idx] < qqmin:
+                    qq[idx] = qqmin
+                qqw[idx] = qq[idx]
+                qqi[idx] = 0.0
+
+                qqwmin = -cone * ql_05[idx] / dt
+                if qqwmin > 0.0:
+                    qqwmin = 0.0
+                qqimin = -cone * qi_05[idx] / dt
+                if qqimin > 0.0:
+                    qqimin = 0.0
+
+                qqw_val = qqw[idx]
+                if qqw_val < qqwmin:
+                    qqw_val = qqwmin
+                if qqw_val < 0.0:
+                    qqw[idx] = qqw_val
+                else:
+                    qqw[idx] = 0.0
+
+                qqi_val = qqi[idx]
+                if qqi_val < qqimin:
+                    qqi_val = qqimin
+                if qqi_val < 0.0:
+                    qqi[idx] = qqi_val
+                else:
+                    qqi[idx] = 0.0
+
+            if qqw[idx] < 0.0:
+                if ql_05[idx] > qsmall:
+                    qqnl_val = qqw[idx] * nl_05[idx] / ql_05[idx]
+                    lower = -nl_05[idx] / dt
+                    if qqnl_val < lower:
+                        qqnl_val = lower
+                    qqnl_val = cone * qqnl_val
+                    if qqnl_val < 0.0:
+                        qqnl[idx] = qqnl_val
+                    else:
+                        qqnl[idx] = 0.0
+                else:
+                    qqnl[idx] = 0.0
+
+            if qqi[idx] < 0.0:
+                if qi_05[idx] > qsmall:
+                    qqni_val = qqi[idx] * ni_05[idx] / qi_05[idx]
+                    lower_i = -ni_05[idx] / dt
+                    if qqni_val < lower_i:
+                        qqni_val = lower_i
+                    qqni_val = cone * qqni_val
+                    if qqni_val < 0.0:
+                        qqni[idx] = qqni_val
+                    else:
+                        qqni[idx] = 0.0
+                else:
+                    qqni[idx] = 0.0
+
+
+@export
 def cldwat2m_advective_state_codon(
     ncol: int,
     pcols: int,
