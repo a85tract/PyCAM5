@@ -2970,3 +2970,453 @@ def rrtmg_lw_rad_store_flux_codon(
         dst2 = _idx2(iplon, k0 + 1, ncol)
         hr[dst2] = htr[k0]
         hrc[dst2] = htrc[k0]
+
+
+@export
+def rrtmg_sw_inatm_codon(
+    iplon: int,
+    nlay: int,
+    ldcol: int,
+    icld: int,
+    iaer: int,
+    nbndsw: int,
+    ngptsw: int,
+    nmol: int,
+    mxmol: int,
+    jpband: int,
+    jpb1: int,
+    jpb2: int,
+    grav: float,
+    avogad: float,
+    adjflx: float,
+    play_p: cobj,
+    plev_p: cobj,
+    tlay_p: cobj,
+    tlev_p: cobj,
+    tsfc_p: cobj,
+    h2ovmr_p: cobj,
+    o3vmr_p: cobj,
+    co2vmr_p: cobj,
+    ch4vmr_p: cobj,
+    o2vmr_p: cobj,
+    n2ovmr_p: cobj,
+    solvar_p: cobj,
+    inflgsw: int,
+    iceflgsw: int,
+    liqflgsw: int,
+    cldfmcl_p: cobj,
+    taucmcl_p: cobj,
+    ssacmcl_p: cobj,
+    asmcmcl_p: cobj,
+    fsfcmcl_p: cobj,
+    ciwpmcl_p: cobj,
+    clwpmcl_p: cobj,
+    reicmcl_p: cobj,
+    relqmcl_p: cobj,
+    tauaer_p: cobj,
+    ssaaer_p: cobj,
+    asmaer_p: cobj,
+    pavel_p: cobj,
+    pz_p: cobj,
+    pdp_p: cobj,
+    tavel_p: cobj,
+    tz_p: cobj,
+    tbound_p: cobj,
+    coldry_p: cobj,
+    wkl_p: cobj,
+    adjflux_p: cobj,
+    inflag_p: cobj,
+    iceflag_p: cobj,
+    liqflag_p: cobj,
+    cldfmc_p: cobj,
+    taucmc_p: cobj,
+    ssacmc_p: cobj,
+    asmcmc_p: cobj,
+    fsfcmc_p: cobj,
+    ciwpmc_p: cobj,
+    clwpmc_p: cobj,
+    reicmc_p: cobj,
+    dgesmc_p: cobj,
+    relqmc_p: cobj,
+    taua_p: cobj,
+    ssaa_p: cobj,
+    asma_p: cobj,
+):
+    play = Ptr[float](play_p)
+    plev = Ptr[float](plev_p)
+    tlay = Ptr[float](tlay_p)
+    tlev = Ptr[float](tlev_p)
+    tsfc = Ptr[float](tsfc_p)
+    h2ovmr = Ptr[float](h2ovmr_p)
+    o3vmr = Ptr[float](o3vmr_p)
+    co2vmr = Ptr[float](co2vmr_p)
+    ch4vmr = Ptr[float](ch4vmr_p)
+    o2vmr = Ptr[float](o2vmr_p)
+    n2ovmr = Ptr[float](n2ovmr_p)
+    solvar = Ptr[float](solvar_p)
+    cldfmcl = Ptr[float](cldfmcl_p)
+    taucmcl = Ptr[float](taucmcl_p)
+    ssacmcl = Ptr[float](ssacmcl_p)
+    asmcmcl = Ptr[float](asmcmcl_p)
+    fsfcmcl = Ptr[float](fsfcmcl_p)
+    ciwpmcl = Ptr[float](ciwpmcl_p)
+    clwpmcl = Ptr[float](clwpmcl_p)
+    reicmcl = Ptr[float](reicmcl_p)
+    relqmcl = Ptr[float](relqmcl_p)
+    tauaer = Ptr[float](tauaer_p)
+    ssaaer = Ptr[float](ssaaer_p)
+    asmaer = Ptr[float](asmaer_p)
+    pavel = Ptr[float](pavel_p)
+    pz = Ptr[float](pz_p)
+    pdp = Ptr[float](pdp_p)
+    tavel = Ptr[float](tavel_p)
+    tz = Ptr[float](tz_p)
+    tbound = Ptr[float](tbound_p)
+    coldry = Ptr[float](coldry_p)
+    wkl = Ptr[float](wkl_p)
+    adjflux = Ptr[float](adjflux_p)
+    inflag = Ptr[int](inflag_p)
+    iceflag = Ptr[int](iceflag_p)
+    liqflag = Ptr[int](liqflag_p)
+    cldfmc = Ptr[float](cldfmc_p)
+    taucmc = Ptr[float](taucmc_p)
+    ssacmc = Ptr[float](ssacmc_p)
+    asmcmc = Ptr[float](asmcmc_p)
+    fsfcmc = Ptr[float](fsfcmc_p)
+    ciwpmc = Ptr[float](ciwpmc_p)
+    clwpmc = Ptr[float](clwpmc_p)
+    reicmc = Ptr[float](reicmc_p)
+    dgesmc = Ptr[float](dgesmc_p)
+    relqmc = Ptr[float](relqmc_p)
+    taua = Ptr[float](taua_p)
+    ssaa = Ptr[float](ssaa_p)
+    asma = Ptr[float](asma_p)
+
+    amd = 28.9660
+    amw = 18.0160
+
+    for l in range(1, nlay + 1):
+        for imol in range(1, mxmol + 1):
+            wkl[_idx2(imol, l, mxmol)] = 0.0
+        reicmc[l - 1] = 0.0
+        dgesmc[l - 1] = 0.0
+        relqmc[l - 1] = 0.0
+        for ig in range(1, ngptsw + 1):
+            cldfmc[_idx2(ig, l, ngptsw)] = 0.0
+            taucmc[_idx2(ig, l, ngptsw)] = 0.0
+            ssacmc[_idx2(ig, l, ngptsw)] = 1.0
+            asmcmc[_idx2(ig, l, ngptsw)] = 0.0
+            fsfcmc[_idx2(ig, l, ngptsw)] = 0.0
+            ciwpmc[_idx2(ig, l, ngptsw)] = 0.0
+            clwpmc[_idx2(ig, l, ngptsw)] = 0.0
+        for ib in range(1, nbndsw + 1):
+            taua[_idx2(l, ib, nlay)] = 0.0
+            ssaa[_idx2(l, ib, nlay)] = 1.0
+            asma[_idx2(l, ib, nlay)] = 0.0
+
+    for ib in range(1, jpband + 1):
+        adjflux[ib - 1] = 0.0
+    for ib in range(jpb1, jpb2 + 1):
+        adjflux[ib - 1] = adjflx * solvar[ib - jpb1]
+
+    tbound[0] = tsfc[iplon - 1]
+
+    pz[0] = plev[_idx2(iplon, nlay + 1, ldcol)]
+    tz[0] = tlev[_idx2(iplon, nlay + 1, ldcol)]
+    amm = 0.0
+    for l in range(1, nlay + 1):
+        src_l = nlay - l + 1
+        pavel[l - 1] = play[_idx2(iplon, src_l, ldcol)]
+        tavel[l - 1] = tlay[_idx2(iplon, src_l, ldcol)]
+        pz[l] = plev[_idx2(iplon, src_l, ldcol)]
+        tz[l] = tlev[_idx2(iplon, src_l, ldcol)]
+        pdp[l - 1] = pz[l - 1] - pz[l]
+        wkl[_idx2(1, l, mxmol)] = h2ovmr[_idx2(iplon, src_l, ldcol)]
+        wkl[_idx2(2, l, mxmol)] = co2vmr[_idx2(iplon, src_l, ldcol)]
+        wkl[_idx2(3, l, mxmol)] = o3vmr[_idx2(iplon, src_l, ldcol)]
+        wkl[_idx2(4, l, mxmol)] = n2ovmr[_idx2(iplon, src_l, ldcol)]
+        wkl[_idx2(6, l, mxmol)] = ch4vmr[_idx2(iplon, src_l, ldcol)]
+        wkl[_idx2(7, l, mxmol)] = o2vmr[_idx2(iplon, src_l, ldcol)]
+        amm = (1.0 - wkl[_idx2(1, l, mxmol)]) * amd + wkl[_idx2(1, l, mxmol)] * amw
+        coldry[l - 1] = (
+            (pz[l - 1] - pz[l])
+            * 1.0e3
+            * avogad
+            / (1.0e2 * grav * amm * (1.0 + wkl[_idx2(1, l, mxmol)]))
+        )
+
+    coldry[nlay - 1] = (
+        pz[nlay - 1]
+        * 1.0e3
+        * avogad
+        / (1.0e2 * grav * amm * (1.0 + wkl[_idx2(1, nlay - 1, mxmol)]))
+    )
+
+    for l in range(1, nlay + 1):
+        for imol in range(1, nmol + 1):
+            wkl[_idx2(imol, l, mxmol)] = coldry[l - 1] * wkl[_idx2(imol, l, mxmol)]
+
+    if iaer >= 1:
+        for l in range(1, nlay):
+            src_l = nlay - l
+            for ib in range(1, nbndsw + 1):
+                taua[_idx2(l, ib, nlay)] = tauaer[_idx3(iplon, src_l, ib, ldcol, nlay - 1)]
+                ssaa[_idx2(l, ib, nlay)] = ssaaer[_idx3(iplon, src_l, ib, ldcol, nlay - 1)]
+                asma[_idx2(l, ib, nlay)] = asmaer[_idx3(iplon, src_l, ib, ldcol, nlay - 1)]
+
+    if icld >= 1:
+        inflag[0] = inflgsw
+        iceflag[0] = iceflgsw
+        liqflag[0] = liqflgsw
+        for l in range(1, nlay):
+            src_l = nlay - l
+            for ig in range(1, ngptsw + 1):
+                cldfmc[_idx2(ig, l, ngptsw)] = cldfmcl[_idx3(ig, iplon, src_l, ngptsw, ldcol)]
+                taucmc[_idx2(ig, l, ngptsw)] = taucmcl[_idx3(ig, iplon, src_l, ngptsw, ldcol)]
+                ssacmc[_idx2(ig, l, ngptsw)] = ssacmcl[_idx3(ig, iplon, src_l, ngptsw, ldcol)]
+                asmcmc[_idx2(ig, l, ngptsw)] = asmcmcl[_idx3(ig, iplon, src_l, ngptsw, ldcol)]
+                fsfcmc[_idx2(ig, l, ngptsw)] = fsfcmcl[_idx3(ig, iplon, src_l, ngptsw, ldcol)]
+                ciwpmc[_idx2(ig, l, ngptsw)] = ciwpmcl[_idx3(ig, iplon, src_l, ngptsw, ldcol)]
+                clwpmc[_idx2(ig, l, ngptsw)] = clwpmcl[_idx3(ig, iplon, src_l, ngptsw, ldcol)]
+            reicmc[l - 1] = reicmcl[_idx2(iplon, src_l, ldcol)]
+            if iceflgsw == 3:
+                dgesmc[l - 1] = 1.5396 * reicmcl[_idx2(iplon, src_l, ldcol)]
+            relqmc[l - 1] = relqmcl[_idx2(iplon, src_l, ldcol)]
+
+        for ig in range(1, ngptsw + 1):
+            cldfmc[_idx2(ig, nlay, ngptsw)] = 0.0
+            taucmc[_idx2(ig, nlay, ngptsw)] = 0.0
+            ssacmc[_idx2(ig, nlay, ngptsw)] = 1.0
+            asmcmc[_idx2(ig, nlay, ngptsw)] = 0.0
+            fsfcmc[_idx2(ig, nlay, ngptsw)] = 0.0
+            ciwpmc[_idx2(ig, nlay, ngptsw)] = 0.0
+            clwpmc[_idx2(ig, nlay, ngptsw)] = 0.0
+        reicmc[nlay - 1] = 0.0
+        dgesmc[nlay - 1] = 0.0
+        relqmc[nlay - 1] = 0.0
+        for ib in range(1, nbndsw + 1):
+            taua[_idx2(nlay, ib, nlay)] = 0.0
+            ssaa[_idx2(nlay, ib, nlay)] = 1.0
+            asma[_idx2(nlay, ib, nlay)] = 0.0
+
+
+@export
+def rrtmg_lw_inatm_codon(
+    iplon: int,
+    nlay: int,
+    ldcol: int,
+    icld: int,
+    iaer: int,
+    nbndlw: int,
+    ngptlw: int,
+    nmol: int,
+    maxxsec: int,
+    mxmol: int,
+    grav: float,
+    avogad: float,
+    play_p: cobj,
+    plev_p: cobj,
+    tlay_p: cobj,
+    tlev_p: cobj,
+    tsfc_p: cobj,
+    h2ovmr_p: cobj,
+    o3vmr_p: cobj,
+    co2vmr_p: cobj,
+    ch4vmr_p: cobj,
+    o2vmr_p: cobj,
+    n2ovmr_p: cobj,
+    cfc11vmr_p: cobj,
+    cfc12vmr_p: cobj,
+    cfc22vmr_p: cobj,
+    ccl4vmr_p: cobj,
+    emis_p: cobj,
+    inflglw: int,
+    iceflglw: int,
+    liqflglw: int,
+    cldfmcl_p: cobj,
+    taucmcl_p: cobj,
+    ciwpmcl_p: cobj,
+    clwpmcl_p: cobj,
+    reicmcl_p: cobj,
+    relqmcl_p: cobj,
+    tauaer_p: cobj,
+    pavel_p: cobj,
+    pz_p: cobj,
+    tavel_p: cobj,
+    tz_p: cobj,
+    tbound_p: cobj,
+    semiss_p: cobj,
+    coldry_p: cobj,
+    wbrodl_p: cobj,
+    wkl_p: cobj,
+    wx_p: cobj,
+    pwvcm_p: cobj,
+    inflag_p: cobj,
+    iceflag_p: cobj,
+    liqflag_p: cobj,
+    cldfmc_p: cobj,
+    taucmc_p: cobj,
+    ciwpmc_p: cobj,
+    clwpmc_p: cobj,
+    reicmc_p: cobj,
+    dgesmc_p: cobj,
+    relqmc_p: cobj,
+    taua_p: cobj,
+    ixindx_p: cobj,
+):
+    play = Ptr[float](play_p)
+    plev = Ptr[float](plev_p)
+    tlay = Ptr[float](tlay_p)
+    tlev = Ptr[float](tlev_p)
+    tsfc = Ptr[float](tsfc_p)
+    h2ovmr = Ptr[float](h2ovmr_p)
+    o3vmr = Ptr[float](o3vmr_p)
+    co2vmr = Ptr[float](co2vmr_p)
+    ch4vmr = Ptr[float](ch4vmr_p)
+    o2vmr = Ptr[float](o2vmr_p)
+    n2ovmr = Ptr[float](n2ovmr_p)
+    cfc11vmr = Ptr[float](cfc11vmr_p)
+    cfc12vmr = Ptr[float](cfc12vmr_p)
+    cfc22vmr = Ptr[float](cfc22vmr_p)
+    ccl4vmr = Ptr[float](ccl4vmr_p)
+    emis = Ptr[float](emis_p)
+    cldfmcl = Ptr[float](cldfmcl_p)
+    taucmcl = Ptr[float](taucmcl_p)
+    ciwpmcl = Ptr[float](ciwpmcl_p)
+    clwpmcl = Ptr[float](clwpmcl_p)
+    reicmcl = Ptr[float](reicmcl_p)
+    relqmcl = Ptr[float](relqmcl_p)
+    tauaer = Ptr[float](tauaer_p)
+    pavel = Ptr[float](pavel_p)
+    pz = Ptr[float](pz_p)
+    tavel = Ptr[float](tavel_p)
+    tz = Ptr[float](tz_p)
+    tbound = Ptr[float](tbound_p)
+    semiss = Ptr[float](semiss_p)
+    coldry = Ptr[float](coldry_p)
+    wbrodl = Ptr[float](wbrodl_p)
+    wkl = Ptr[float](wkl_p)
+    wx = Ptr[float](wx_p)
+    pwvcm = Ptr[float](pwvcm_p)
+    inflag = Ptr[int](inflag_p)
+    iceflag = Ptr[int](iceflag_p)
+    liqflag = Ptr[int](liqflag_p)
+    cldfmc = Ptr[float](cldfmc_p)
+    taucmc = Ptr[float](taucmc_p)
+    ciwpmc = Ptr[float](ciwpmc_p)
+    clwpmc = Ptr[float](clwpmc_p)
+    reicmc = Ptr[float](reicmc_p)
+    dgesmc = Ptr[float](dgesmc_p)
+    relqmc = Ptr[float](relqmc_p)
+    taua = Ptr[float](taua_p)
+    ixindx = Ptr[int](ixindx_p)
+
+    amd = 28.9660
+    amw = 18.0160
+
+    for l in range(1, nlay + 1):
+        for imol in range(1, mxmol + 1):
+            wkl[_idx2(imol, l, mxmol)] = 0.0
+        for ix in range(1, maxxsec + 1):
+            wx[_idx2(ix, l, maxxsec)] = 0.0
+        reicmc[l - 1] = 0.0
+        dgesmc[l - 1] = 0.0
+        relqmc[l - 1] = 0.0
+        for ig in range(1, ngptlw + 1):
+            cldfmc[_idx2(ig, l, ngptlw)] = 0.0
+            taucmc[_idx2(ig, l, ngptlw)] = 0.0
+            ciwpmc[_idx2(ig, l, ngptlw)] = 0.0
+            clwpmc[_idx2(ig, l, ngptlw)] = 0.0
+        for ib in range(1, nbndlw + 1):
+            taua[_idx2(l, ib, nlay)] = 0.0
+
+    amttl = 0.0
+    wvttl = 0.0
+    tbound[0] = tsfc[iplon - 1]
+
+    pz[0] = plev[_idx2(iplon, nlay + 1, ldcol)]
+    tz[0] = tlev[_idx2(iplon, nlay + 1, ldcol)]
+    amm = 0.0
+    for l in range(1, nlay + 1):
+        src_l = nlay - l + 1
+        pavel[l - 1] = play[_idx2(iplon, src_l, ldcol)]
+        tavel[l - 1] = tlay[_idx2(iplon, src_l, ldcol)]
+        pz[l] = plev[_idx2(iplon, src_l, ldcol)]
+        tz[l] = tlev[_idx2(iplon, src_l, ldcol)]
+        wkl[_idx2(1, l, mxmol)] = h2ovmr[_idx2(iplon, src_l, ldcol)]
+        wkl[_idx2(2, l, mxmol)] = co2vmr[_idx2(iplon, src_l, ldcol)]
+        wkl[_idx2(3, l, mxmol)] = o3vmr[_idx2(iplon, src_l, ldcol)]
+        wkl[_idx2(4, l, mxmol)] = n2ovmr[_idx2(iplon, src_l, ldcol)]
+        wkl[_idx2(6, l, mxmol)] = ch4vmr[_idx2(iplon, src_l, ldcol)]
+        wkl[_idx2(7, l, mxmol)] = o2vmr[_idx2(iplon, src_l, ldcol)]
+        amm = (1.0 - wkl[_idx2(1, l, mxmol)]) * amd + wkl[_idx2(1, l, mxmol)] * amw
+        coldry[l - 1] = (
+            (pz[l - 1] - pz[l])
+            * 1.0e3
+            * avogad
+            / (1.0e2 * grav * amm * (1.0 + wkl[_idx2(1, l, mxmol)]))
+        )
+        wx[_idx2(1, l, maxxsec)] = ccl4vmr[_idx2(iplon, src_l, ldcol)]
+        wx[_idx2(2, l, maxxsec)] = cfc11vmr[_idx2(iplon, src_l, ldcol)]
+        wx[_idx2(3, l, maxxsec)] = cfc12vmr[_idx2(iplon, src_l, ldcol)]
+        wx[_idx2(4, l, maxxsec)] = cfc22vmr[_idx2(iplon, src_l, ldcol)]
+
+    coldry[nlay - 1] = (
+        pz[nlay - 1]
+        * 1.0e3
+        * avogad
+        / (1.0e2 * grav * amm * (1.0 + wkl[_idx2(1, nlay - 1, mxmol)]))
+    )
+
+    for l in range(1, nlay + 1):
+        summol = 0.0
+        for imol in range(2, nmol + 1):
+            summol = summol + wkl[_idx2(imol, l, mxmol)]
+        wbrodl[l - 1] = coldry[l - 1] * (1.0 - summol)
+        for imol in range(1, nmol + 1):
+            wkl[_idx2(imol, l, mxmol)] = coldry[l - 1] * wkl[_idx2(imol, l, mxmol)]
+        amttl = amttl + coldry[l - 1] + wkl[_idx2(1, l, mxmol)]
+        wvttl = wvttl + wkl[_idx2(1, l, mxmol)]
+        for ix in range(1, maxxsec + 1):
+            ixout = ixindx[ix - 1]
+            if ixout != 0:
+                wx[_idx2(ixout, l, maxxsec)] = coldry[l - 1] * wx[_idx2(ix, l, maxxsec)] * 1.0e-20
+
+    wvsh = (amw * wvttl) / (amd * amttl)
+    pwvcm[0] = wvsh * (1.0e3 * pz[0]) / (1.0e2 * grav)
+
+    for n in range(1, nbndlw + 1):
+        semiss[n - 1] = emis[_idx2(iplon, n, ldcol)]
+
+    if iaer >= 1:
+        for l in range(1, nlay):
+            src_l = nlay - l
+            for ib in range(1, nbndlw + 1):
+                taua[_idx2(l, ib, nlay)] = tauaer[_idx3(iplon, src_l, ib, ldcol, nlay - 1)]
+
+    if icld >= 1:
+        inflag[0] = inflglw
+        iceflag[0] = iceflglw
+        liqflag[0] = liqflglw
+        for l in range(1, nlay):
+            src_l = nlay - l
+            for ig in range(1, ngptlw + 1):
+                cldfmc[_idx2(ig, l, ngptlw)] = cldfmcl[_idx3(ig, iplon, src_l, ngptlw, ldcol)]
+                taucmc[_idx2(ig, l, ngptlw)] = taucmcl[_idx3(ig, iplon, src_l, ngptlw, ldcol)]
+                ciwpmc[_idx2(ig, l, ngptlw)] = ciwpmcl[_idx3(ig, iplon, src_l, ngptlw, ldcol)]
+                clwpmc[_idx2(ig, l, ngptlw)] = clwpmcl[_idx3(ig, iplon, src_l, ngptlw, ldcol)]
+            reicmc[l - 1] = reicmcl[_idx2(iplon, src_l, ldcol)]
+            if iceflglw == 3:
+                dgesmc[l - 1] = 1.5396 * reicmcl[_idx2(iplon, src_l, ldcol)]
+            relqmc[l - 1] = relqmcl[_idx2(iplon, src_l, ldcol)]
+
+        for ig in range(1, ngptlw + 1):
+            cldfmc[_idx2(ig, nlay, ngptlw)] = 0.0
+            taucmc[_idx2(ig, nlay, ngptlw)] = 0.0
+            ciwpmc[_idx2(ig, nlay, ngptlw)] = 0.0
+            clwpmc[_idx2(ig, nlay, ngptlw)] = 0.0
+        reicmc[nlay - 1] = 0.0
+        dgesmc[nlay - 1] = 0.0
+        relqmc[nlay - 1] = 0.0
+        for ib in range(1, nbndlw + 1):
+            taua[_idx2(nlay, ib, nlay)] = 0.0

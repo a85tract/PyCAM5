@@ -74,6 +74,9 @@
       logical :: use_native_rrtmg_sw_rad_pack_impl = .false.
       logical :: rrtmg_sw_rad_pack_impl_selected = .false.
       logical :: rrtmg_sw_rad_pack_entered_logged = .false.
+      logical :: use_native_rrtmg_sw_inatm_impl = .false.
+      logical :: rrtmg_sw_inatm_impl_selected = .false.
+      logical :: rrtmg_sw_inatm_entered_logged = .false.
 
 ! public interfaces/functions/subroutines
 !      public :: rrtmg_sw, inatm_sw, earth_sun
@@ -197,7 +200,7 @@
 
       use parrrsw, only : nbndsw, ngptsw, naerec, nstr, nmol, mxmol, &
                           jpband, jpb1, jpb2
-      use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+      use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
       use rrsw_aer, only : rsrtaua, rsrpiza, rsrasya
       use rrsw_con, only : heatfac, oneminus, pi
       use rrsw_wvn, only : wavenum1, wavenum2
@@ -908,6 +911,61 @@
 
       end subroutine rrtmg_sw_rad_pack_log_entered
 
+! --------------------------------------------------------------------------
+      subroutine rrtmg_sw_inatm_select_impl()
+
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (rrtmg_sw_inatm_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('RRTMG_SW_INATM_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_rrtmg_sw_inatm_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_rrtmg_sw_inatm_impl = .false.
+      end if
+
+      rrtmg_sw_inatm_impl_selected = .true.
+
+      if (masterproc) then
+         if (use_native_rrtmg_sw_inatm_impl) then
+            write(iulog,*) 'rrtmg_sw_inatm implementation = native'
+         else
+            write(iulog,*) 'rrtmg_sw_inatm implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine rrtmg_sw_inatm_select_impl
+
+! --------------------------------------------------------------------------
+      subroutine rrtmg_sw_inatm_log_entered()
+
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+
+      if (rrtmg_sw_inatm_entered_logged) return
+      rrtmg_sw_inatm_entered_logged = .true.
+
+      if (masterproc) then
+         write(iulog,*) 'rrtmg_sw_inatm entered (mcica sw atmosphere packing = codon)'
+         call flush(iulog)
+      end if
+
+      end subroutine rrtmg_sw_inatm_log_entered
+
 !*************************************************************************
       real(kind=r8) function earth_sun(idn)
 !*************************************************************************
@@ -957,6 +1015,7 @@
 
       use parrrsw, only : nbndsw, ngptsw, nstr, nmol, mxmol, &
                           jpband, jpb1, jpb2, rrsw_scon
+      use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
       use rrsw_con, only : heatfac, oneminus, pi, grav, avogad
       use rrsw_wvn, only : ng, nspa, nspb, wavenum1, wavenum2, delwave
 
@@ -1103,8 +1162,90 @@
       integer :: isp, l, ix, n, imol, ib, ig   ! Loop indices
       real(kind=r8) :: amm, summol                      ! 
       real(kind=r8) :: adjflx                           ! flux adjustment for Earth/Sun distance
+      integer(c_int64_t), target :: inflag64, iceflag64, liqflag64
+
+      interface
+         subroutine rrtmg_sw_inatm_codon(iplon_c, nlay_c, ldcol_c, icld_c, iaer_c, &
+              nbndsw_c, ngptsw_c, nmol_c, mxmol_c, jpband_c, jpb1_c, jpb2_c, &
+              grav_c, avogad_c, adjflx_c, play_p, plev_p, tlay_p, tlev_p, &
+              tsfc_p, h2ovmr_p, o3vmr_p, co2vmr_p, ch4vmr_p, o2vmr_p, n2ovmr_p, &
+              solvar_p, inflgsw_c, iceflgsw_c, liqflgsw_c, cldfmcl_p, taucmcl_p, &
+              ssacmcl_p, asmcmcl_p, fsfcmcl_p, ciwpmcl_p, clwpmcl_p, reicmcl_p, &
+              relqmcl_p, tauaer_p, ssaaer_p, asmaer_p, pavel_p, pz_p, pdp_p, &
+              tavel_p, tz_p, tbound_p, coldry_p, wkl_p, adjflux_p, inflag_p, &
+              iceflag_p, liqflag_p, cldfmc_p, taucmc_p, ssacmc_p, asmcmc_p, &
+              fsfcmc_p, ciwpmc_p, clwpmc_p, reicmc_p, dgesmc_p, relqmc_p, &
+              taua_p, ssaa_p, asma_p) bind(c, name="rrtmg_sw_inatm_codon")
+            use iso_c_binding, only: c_double, c_int64_t, c_ptr
+            integer(c_int64_t), value :: iplon_c, nlay_c, ldcol_c, icld_c, iaer_c
+            integer(c_int64_t), value :: nbndsw_c, ngptsw_c, nmol_c, mxmol_c
+            integer(c_int64_t), value :: jpband_c, jpb1_c, jpb2_c
+            integer(c_int64_t), value :: inflgsw_c, iceflgsw_c, liqflgsw_c
+            real(c_double), value :: grav_c, avogad_c, adjflx_c
+            type(c_ptr), value :: play_p, plev_p, tlay_p, tlev_p, tsfc_p
+            type(c_ptr), value :: h2ovmr_p, o3vmr_p, co2vmr_p, ch4vmr_p, o2vmr_p
+            type(c_ptr), value :: n2ovmr_p, solvar_p, cldfmcl_p, taucmcl_p, ssacmcl_p
+            type(c_ptr), value :: asmcmcl_p, fsfcmcl_p, ciwpmcl_p, clwpmcl_p
+            type(c_ptr), value :: reicmcl_p, relqmcl_p, tauaer_p, ssaaer_p, asmaer_p
+            type(c_ptr), value :: pavel_p, pz_p, pdp_p, tavel_p, tz_p, tbound_p
+            type(c_ptr), value :: coldry_p, wkl_p, adjflux_p, inflag_p, iceflag_p
+            type(c_ptr), value :: liqflag_p, cldfmc_p, taucmc_p, ssacmc_p, asmcmc_p
+            type(c_ptr), value :: fsfcmc_p, ciwpmc_p, clwpmc_p, reicmc_p, dgesmc_p
+            type(c_ptr), value :: relqmc_p, taua_p, ssaa_p, asma_p
+         end subroutine rrtmg_sw_inatm_codon
+      end interface
 !      real(kind=r8) :: earth_sun                        ! function for Earth/Sun distance adjustment
 !      real(kind=r8) :: solar_band_irrad(jpb1:jpb2) ! rrtmg assumed-solar irradiance in each sw band
+
+      call rrtmg_sw_inatm_select_impl()
+      if (.not. use_native_rrtmg_sw_inatm_impl) then
+         adjflx = adjes
+         if (dyofyr .gt. 0) then
+            adjflx = earth_sun(dyofyr)
+         endif
+         call rrtmg_sw_inatm_log_entered()
+         inflag64 = 0_c_int64_t
+         iceflag64 = 0_c_int64_t
+         liqflag64 = 0_c_int64_t
+         call rrtmg_sw_inatm_codon( &
+              int(iplon, c_int64_t), int(nlay, c_int64_t), int(size(play,1), c_int64_t), &
+              int(icld, c_int64_t), int(iaer, c_int64_t), int(nbndsw, c_int64_t), &
+              int(ngptsw, c_int64_t), int(nmol, c_int64_t), int(mxmol, c_int64_t), &
+              int(jpband, c_int64_t), int(jpb1, c_int64_t), int(jpb2, c_int64_t), &
+              real(grav, c_double), real(avogad, c_double), real(adjflx, c_double), &
+              transfer(loc(play(1,1)), c_null_ptr), transfer(loc(plev(1,1)), c_null_ptr), &
+              transfer(loc(tlay(1,1)), c_null_ptr), transfer(loc(tlev(1,1)), c_null_ptr), &
+              transfer(loc(tsfc(1)), c_null_ptr), transfer(loc(h2ovmr(1,1)), c_null_ptr), &
+              transfer(loc(o3vmr(1,1)), c_null_ptr), transfer(loc(co2vmr(1,1)), c_null_ptr), &
+              transfer(loc(ch4vmr(1,1)), c_null_ptr), transfer(loc(o2vmr(1,1)), c_null_ptr), &
+              transfer(loc(n2ovmr(1,1)), c_null_ptr), transfer(loc(solvar(jpb1)), c_null_ptr), &
+              int(inflgsw, c_int64_t), int(iceflgsw, c_int64_t), int(liqflgsw, c_int64_t), &
+              transfer(loc(cldfmcl(1,1,1)), c_null_ptr), transfer(loc(taucmcl(1,1,1)), c_null_ptr), &
+              transfer(loc(ssacmcl(1,1,1)), c_null_ptr), transfer(loc(asmcmcl(1,1,1)), c_null_ptr), &
+              transfer(loc(fsfcmcl(1,1,1)), c_null_ptr), transfer(loc(ciwpmcl(1,1,1)), c_null_ptr), &
+              transfer(loc(clwpmcl(1,1,1)), c_null_ptr), transfer(loc(reicmcl(1,1)), c_null_ptr), &
+              transfer(loc(relqmcl(1,1)), c_null_ptr), transfer(loc(tauaer(1,1,1)), c_null_ptr), &
+              transfer(loc(ssaaer(1,1,1)), c_null_ptr), transfer(loc(asmaer(1,1,1)), c_null_ptr), &
+              transfer(loc(pavel(1)), c_null_ptr), transfer(loc(pz(0)), c_null_ptr), &
+              transfer(loc(pdp(1)), c_null_ptr), transfer(loc(tavel(1)), c_null_ptr), &
+              transfer(loc(tz(0)), c_null_ptr), transfer(loc(tbound), c_null_ptr), &
+              transfer(loc(coldry(1)), c_null_ptr), transfer(loc(wkl(1,1)), c_null_ptr), &
+              transfer(loc(adjflux(1)), c_null_ptr), c_loc(inflag64), c_loc(iceflag64), &
+              c_loc(liqflag64), transfer(loc(cldfmc(1,1)), c_null_ptr), &
+              transfer(loc(taucmc(1,1)), c_null_ptr), transfer(loc(ssacmc(1,1)), c_null_ptr), &
+              transfer(loc(asmcmc(1,1)), c_null_ptr), transfer(loc(fsfcmc(1,1)), c_null_ptr), &
+              transfer(loc(ciwpmc(1,1)), c_null_ptr), transfer(loc(clwpmc(1,1)), c_null_ptr), &
+              transfer(loc(reicmc(1)), c_null_ptr), transfer(loc(dgesmc(1)), c_null_ptr), &
+              transfer(loc(relqmc(1)), c_null_ptr), transfer(loc(taua(1,1)), c_null_ptr), &
+              transfer(loc(ssaa(1,1)), c_null_ptr), transfer(loc(asma(1,1)), c_null_ptr) &
+         )
+         if (icld .ge. 1) then
+            inflag = int(inflag64)
+            iceflag = int(iceflag64)
+            liqflag = int(liqflag64)
+         endif
+         return
+      endif
 
 !  Initialize all molecular amounts to zero here, then pass input amounts
 !  into RRTM array WKL below.
