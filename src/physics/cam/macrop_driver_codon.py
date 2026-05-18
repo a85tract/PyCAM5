@@ -136,6 +136,82 @@ def cldwat2m_dropnum_limit_codon(
 
 
 @export
+def cldwat2m_advective_state_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    dt: float,
+    t_0_p: cobj,
+    qv_0_p: cobj,
+    ql_0_p: cobj,
+    qi_0_p: cobj,
+    nl_0_p: cobj,
+    ni_0_p: cobj,
+    a_t_p: cobj,
+    c_t_p: cobj,
+    a_qv_p: cobj,
+    c_qv_p: cobj,
+    a_ql_p: cobj,
+    c_ql_p: cobj,
+    a_qi_p: cobj,
+    c_qi_p: cobj,
+    a_nl_p: cobj,
+    c_nl_p: cobj,
+    a_ni_p: cobj,
+    c_ni_p: cobj,
+    t_05_p: cobj,
+    qv_05_p: cobj,
+    ql_05_p: cobj,
+    qi_05_p: cobj,
+    nl_05_p: cobj,
+    ni_05_p: cobj,
+):
+    t_0 = Ptr[float](t_0_p)
+    qv_0 = Ptr[float](qv_0_p)
+    ql_0 = Ptr[float](ql_0_p)
+    qi_0 = Ptr[float](qi_0_p)
+    nl_0 = Ptr[float](nl_0_p)
+    ni_0 = Ptr[float](ni_0_p)
+    a_t = Ptr[float](a_t_p)
+    c_t = Ptr[float](c_t_p)
+    a_qv = Ptr[float](a_qv_p)
+    c_qv = Ptr[float](c_qv_p)
+    a_ql = Ptr[float](a_ql_p)
+    c_ql = Ptr[float](c_ql_p)
+    a_qi = Ptr[float](a_qi_p)
+    c_qi = Ptr[float](c_qi_p)
+    a_nl = Ptr[float](a_nl_p)
+    c_nl = Ptr[float](c_nl_p)
+    a_ni = Ptr[float](a_ni_p)
+    c_ni = Ptr[float](c_ni_p)
+    t_05 = Ptr[float](t_05_p)
+    qv_05 = Ptr[float](qv_05_p)
+    ql_05 = Ptr[float](ql_05_p)
+    qi_05 = Ptr[float](qi_05_p)
+    nl_05 = Ptr[float](nl_05_p)
+    ni_05 = Ptr[float](ni_05_p)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            t_05[idx] = t_0[idx] + (a_t[idx] + c_t[idx]) * dt
+            qv_05[idx] = qv_0[idx] + (a_qv[idx] + c_qv[idx]) * dt
+            ql_05[idx] = ql_0[idx] + (a_ql[idx] + c_ql[idx]) * dt
+            qi_05[idx] = qi_0[idx] + (a_qi[idx] + c_qi[idx]) * dt
+
+            nl_val = nl_0[idx] + (a_nl[idx] + c_nl[idx]) * dt
+            if nl_val < 0.0:
+                nl_val = 0.0
+            nl_05[idx] = nl_val
+
+            ni_val = ni_0[idx] + (a_ni[idx] + c_ni[idx]) * dt
+            if ni_val < 0.0:
+                ni_val = 0.0
+            ni_05[idx] = ni_val
+
+
+@export
 def cldwat2m_iter_state_codon(
     iter_num: int,
     ncol: int,

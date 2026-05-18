@@ -100,6 +100,9 @@
    logical :: use_native_iter_state_impl = .false.
    logical :: iter_state_impl_selected = .false.
    logical :: iter_state_entered_logged = .false.
+   logical :: use_native_advective_state_impl = .false.
+   logical :: advective_state_impl_selected = .false.
+   logical :: advective_state_entered_logged = .false.
 
    contains
 
@@ -747,12 +750,9 @@
    ! adjustive advection. We should use 'new' cumulus properties for this routine. !                
    ! ----------------------------------------------------------------------------- !
 
-   T_05(:ncol,top_lev:)  =  T_0(:ncol,top_lev:) + (  A_T(:ncol,top_lev:) +  C_T(:ncol,top_lev:) ) * dt
-   qv_05(:ncol,top_lev:) = qv_0(:ncol,top_lev:) + ( A_qv(:ncol,top_lev:) + C_qv(:ncol,top_lev:) ) * dt
-   ql_05(:ncol,top_lev:) = ql_0(:ncol,top_lev:) + ( A_ql(:ncol,top_lev:) + C_ql(:ncol,top_lev:) ) * dt
-   qi_05(:ncol,top_lev:) = qi_0(:ncol,top_lev:) + ( A_qi(:ncol,top_lev:) + C_qi(:ncol,top_lev:) ) * dt 
-   nl_05(:ncol,top_lev:) = max(0._r8, nl_0(:ncol,top_lev:) + ( A_nl(:ncol,top_lev:) + C_nl(:ncol,top_lev:) ) * dt )
-   ni_05(:ncol,top_lev:) = max(0._r8, ni_0(:ncol,top_lev:) + ( A_ni(:ncol,top_lev:) + C_ni(:ncol,top_lev:) ) * dt )
+   call advective_state_codon_wrap(ncol, dt, T_0, qv_0, ql_0, qi_0, nl_0, ni_0, &
+        A_T, C_T, A_qv, C_qv, A_ql, C_ql, A_qi, C_qi, A_nl, C_nl, A_ni, C_ni, &
+        T_05, qv_05, ql_05, qi_05, nl_05, ni_05)
 
    call positive_moisture( ncol, dt, qmin1, qmin2, qmin3, dp, & 
                            qv_05, ql_05, qi_05, T_05, A_qv_adj, &
@@ -1492,6 +1492,102 @@ end subroutine rhcrit_calc
    enddo
 
    end subroutine dropnum_limit_codon_wrap
+
+!=======================================================================================================
+
+   subroutine advective_state_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: n, status
+
+   if (advective_state_impl_selected) return
+   call get_environment_variable('CLDWAT2M_ADVECTIVE_STATE_IMPL', value=impl_name, length=n, status=status)
+   use_native_advective_state_impl = .false.
+   if (status == 0 .and. n > 0) then
+      select case (adjustl(impl_name(:n)))
+      case ('native', 'Native', 'NATIVE')
+         use_native_advective_state_impl = .true.
+      case ('codon', 'Codon', 'CODON')
+         use_native_advective_state_impl = .false.
+      case default
+         use_native_advective_state_impl = .false.
+      end select
+   end if
+   advective_state_impl_selected = .true.
+   if (masterproc) then
+      if (use_native_advective_state_impl) then
+         write(iulog,*) 'cldwat2m_advective_state implementation = native'
+      else
+         write(iulog,*) 'cldwat2m_advective_state implementation = codon'
+      end if
+   end if
+   end subroutine advective_state_select_impl
+
+   subroutine advective_state_log_entered()
+   if (advective_state_entered_logged) return
+   advective_state_entered_logged = .true.
+   if (masterproc) then
+      write(iulog,*) 'cldwat2m_advective_state entered (macrophysics advective state update = codon)'
+   end if
+   end subroutine advective_state_log_entered
+
+   subroutine advective_state_codon_wrap(ncol, dt, T_0, qv_0, ql_0, qi_0, nl_0, ni_0, &
+        A_T, C_T, A_qv, C_qv, A_ql, C_ql, A_qi, C_qi, A_nl, C_nl, A_ni, C_ni, &
+        T_05, qv_05, ql_05, qi_05, nl_05, ni_05)
+
+   integer, intent(in) :: ncol
+   real(r8), intent(in) :: dt
+   real(r8), target, intent(in) :: T_0(pcols,pver), qv_0(pcols,pver), ql_0(pcols,pver)
+   real(r8), target, intent(in) :: qi_0(pcols,pver), nl_0(pcols,pver), ni_0(pcols,pver)
+   real(r8), target, intent(in) :: A_T(pcols,pver), C_T(pcols,pver), A_qv(pcols,pver), C_qv(pcols,pver)
+   real(r8), target, intent(in) :: A_ql(pcols,pver), C_ql(pcols,pver), A_qi(pcols,pver), C_qi(pcols,pver)
+   real(r8), target, intent(in) :: A_nl(pcols,pver), C_nl(pcols,pver), A_ni(pcols,pver), C_ni(pcols,pver)
+   real(r8), target, intent(out) :: T_05(pcols,pver), qv_05(pcols,pver), ql_05(pcols,pver)
+   real(r8), target, intent(out) :: qi_05(pcols,pver), nl_05(pcols,pver), ni_05(pcols,pver)
+
+   integer :: i, k
+
+   interface
+      subroutine cldwat2m_advective_state_codon(ncol_c, pcols_c, pver_c, top_lev_c, dt_c, &
+           T_0_p, qv_0_p, ql_0_p, qi_0_p, nl_0_p, ni_0_p, &
+           A_T_p, C_T_p, A_qv_p, C_qv_p, A_ql_p, C_ql_p, A_qi_p, C_qi_p, A_nl_p, C_nl_p, A_ni_p, C_ni_p, &
+           T_05_p, qv_05_p, ql_05_p, qi_05_p, nl_05_p, ni_05_p) bind(c, name="cldwat2m_advective_state_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+         real(c_double), value :: dt_c
+         type(c_ptr), value :: T_0_p, qv_0_p, ql_0_p, qi_0_p, nl_0_p, ni_0_p
+         type(c_ptr), value :: A_T_p, C_T_p, A_qv_p, C_qv_p, A_ql_p, C_ql_p, A_qi_p, C_qi_p
+         type(c_ptr), value :: A_nl_p, C_nl_p, A_ni_p, C_ni_p, T_05_p, qv_05_p, ql_05_p
+         type(c_ptr), value :: qi_05_p, nl_05_p, ni_05_p
+      end subroutine cldwat2m_advective_state_codon
+   end interface
+
+   call advective_state_select_impl()
+   if (.not. use_native_advective_state_impl) then
+      call advective_state_log_entered()
+      call cldwat2m_advective_state_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(top_lev, c_int64_t), dt, &
+           c_loc(T_0(1,1)), c_loc(qv_0(1,1)), c_loc(ql_0(1,1)), c_loc(qi_0(1,1)), &
+           c_loc(nl_0(1,1)), c_loc(ni_0(1,1)), c_loc(A_T(1,1)), c_loc(C_T(1,1)), &
+           c_loc(A_qv(1,1)), c_loc(C_qv(1,1)), c_loc(A_ql(1,1)), c_loc(C_ql(1,1)), &
+           c_loc(A_qi(1,1)), c_loc(C_qi(1,1)), c_loc(A_nl(1,1)), c_loc(C_nl(1,1)), &
+           c_loc(A_ni(1,1)), c_loc(C_ni(1,1)), c_loc(T_05(1,1)), c_loc(qv_05(1,1)), &
+           c_loc(ql_05(1,1)), c_loc(qi_05(1,1)), c_loc(nl_05(1,1)), c_loc(ni_05(1,1)))
+      return
+   endif
+
+   do k = top_lev, pver
+      do i = 1, ncol
+         T_05(i,k) = T_0(i,k) + ( A_T(i,k) + C_T(i,k) ) * dt
+         qv_05(i,k) = qv_0(i,k) + ( A_qv(i,k) + C_qv(i,k) ) * dt
+         ql_05(i,k) = ql_0(i,k) + ( A_ql(i,k) + C_ql(i,k) ) * dt
+         qi_05(i,k) = qi_0(i,k) + ( A_qi(i,k) + C_qi(i,k) ) * dt
+         nl_05(i,k) = max(0._r8, nl_0(i,k) + ( A_nl(i,k) + C_nl(i,k) ) * dt )
+         ni_05(i,k) = max(0._r8, ni_0(i,k) + ( A_ni(i,k) + C_ni(i,k) ) * dt )
+      enddo
+   enddo
+
+   end subroutine advective_state_codon_wrap
 
 !=======================================================================================================
 
