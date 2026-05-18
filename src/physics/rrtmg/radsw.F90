@@ -26,7 +26,7 @@ private
 save
 
 real(r8) :: fractional_solar_irradiance(1:nbndsw) ! fraction of solar irradiance in each band
-real(r8) :: solar_band_irrad(1:nbndsw) ! rrtmg-assumed solar irradiance in each sw band
+real(r8), target :: solar_band_irrad(1:nbndsw) ! rrtmg-assumed solar irradiance in each sw band
 logical :: use_native_rrtmg_sw_driver_impl = .false.
 logical :: rrtmg_sw_driver_impl_selected = .false.
 logical :: rrtmg_sw_driver_entered_logged = .false.
@@ -301,13 +301,15 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
          type(c_ptr), value :: h2ovmr_p, o3vmr_p, co2vmr_p, coszrs_p, asdir_p, aldir_p, asdif_p, aldif_p
          type(c_ptr), value :: tlay_p, tlev_p, ch4vmr_p, o2vmr_p, n2ovmr_p
       end subroutine rrtmg_sw_compact_inputs_codon
-      subroutine rrtmg_sw_pre_codon(nday_c, pcols_c, pver_c, pverp_c, rrtmg_levs_c, nbndsw_c, &
+      subroutine rrtmg_sw_pre_codon(nday_c, pcols_c, pver_c, pverp_c, rrtmg_levs_c, nbndsw_c, eccf_c, &
            e_aer_tau_p, e_aer_tau_w_p, e_aer_tau_w_g_p, idxday_p, tau_aer_sw_p, ssa_aer_sw_p, asm_aer_sw_p, &
-           tlev_p, sfac_p, tsfc_p, solvar_p) bind(c, name="rrtmg_sw_pre_codon")
-         use iso_c_binding, only: c_int64_t, c_ptr
+           tlev_p, sfac_p, solar_band_irrad_p, coszrs_p, tsfc_p, solvar_p, solin_p) bind(c, name="rrtmg_sw_pre_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: nday_c, pcols_c, pver_c, pverp_c, rrtmg_levs_c, nbndsw_c
+         real(c_double), value :: eccf_c
          type(c_ptr), value :: e_aer_tau_p, e_aer_tau_w_p, e_aer_tau_w_g_p, idxday_p
-         type(c_ptr), value :: tau_aer_sw_p, ssa_aer_sw_p, asm_aer_sw_p, tlev_p, sfac_p, tsfc_p, solvar_p
+         type(c_ptr), value :: tau_aer_sw_p, ssa_aer_sw_p, asm_aer_sw_p, tlev_p, sfac_p
+         type(c_ptr), value :: solar_band_irrad_p, coszrs_p, tsfc_p, solvar_p, solin_p
       end subroutine rrtmg_sw_pre_codon
       subroutine rrtmg_sw_cloud_optics_codon(nday_c, pcols_c, pver_c, pverp_c, rrtmg_levs_c, nbndsw_c, &
            old_convert_c, e_cld_tau_p, e_cld_tau_w_p, e_cld_tau_w_g_p, e_cld_tau_w_f_p, idxday_p, &
@@ -487,10 +489,11 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    else
       call rrtmg_sw_pre_codon( &
            int(Nday, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
-           int(rrtmg_levs, c_int64_t), int(nbndsw, c_int64_t), &
+           int(rrtmg_levs, c_int64_t), int(nbndsw, c_int64_t), real(eccf, c_double), &
            c_loc(E_aer_tau(1,0,1)), c_loc(E_aer_tau_w(1,0,1)), c_loc(E_aer_tau_w_g(1,0,1)), &
            c_loc(IdxDay64(1)), c_loc(tau_aer_sw(1,1,1)), c_loc(ssa_aer_sw(1,1,1)), c_loc(asm_aer_sw(1,1,1)), &
-           c_loc(tlev(1,1)), c_loc(sfac(1)), c_loc(tsfc(1)), c_loc(solvar(1)) &
+           c_loc(tlev(1,1)), c_loc(sfac(1)), c_loc(solar_band_irrad(1)), c_loc(coszrs(1)), &
+           c_loc(tsfc(1)), c_loc(solvar(1)), c_loc(solin(1)) &
       )
    end if
 
@@ -502,10 +505,12 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
       if(have_aldif) aldif = aldifobs(1)
    endif
 
-   ! Define solar incident radiation
-   do i = 1, Nday
-      solin(i)  = sum(sfac(:)*solar_band_irrad(:)) * eccf * coszrs(i)
-   end do
+   if (use_native_rrtmg_sw_driver_impl) then
+      ! Define solar incident radiation
+      do i = 1, Nday
+         solin(i)  = sum(sfac(:)*solar_band_irrad(:)) * eccf * coszrs(i)
+      end do
+   end if
 
    ! Calculate cloud optical properties here if using CAM method, or if using one of the
    ! methods in RRTMG_SW, then pass in cloud physical properties and zero out cloud optical 
@@ -881,7 +886,7 @@ subroutine rrtmg_sw_driver_log_entered()
    rrtmg_sw_driver_entered_logged = .true.
 
    if (masterproc) then
-      write(iulog,*) 'rrtmg_sw_driver entered (input compact/aerosol pre/post helpers = codon; ' // &
+      write(iulog,*) 'rrtmg_sw_driver entered (input compact/solin/aerosol pre/post helpers = codon; ' // &
            'native driver blocks skipped; rrtmg_sw core = native)'
       call flush(iulog)
    end if

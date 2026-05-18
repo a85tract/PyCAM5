@@ -755,6 +755,7 @@ def rrtmg_sw_pre_codon(
     pverp: int,
     rrtmg_levs: int,
     nbndsw: int,
+    eccf: float,
     e_aer_tau_p: cobj,
     e_aer_tau_w_p: cobj,
     e_aer_tau_w_g_p: cobj,
@@ -764,8 +765,11 @@ def rrtmg_sw_pre_codon(
     asm_aer_sw_p: cobj,
     tlev_p: cobj,
     sfac_p: cobj,
+    solar_band_irrad_p: cobj,
+    coszrs_p: cobj,
     tsfc_p: cobj,
     solvar_p: cobj,
+    solin_p: cobj,
 ):
     e_aer_tau = Ptr[float](e_aer_tau_p)
     e_aer_tau_w = Ptr[float](e_aer_tau_w_p)
@@ -776,8 +780,11 @@ def rrtmg_sw_pre_codon(
     asm_aer_sw = Ptr[float](asm_aer_sw_p)
     tlev = Ptr[float](tlev_p)
     sfac = Ptr[float](sfac_p)
+    solar_band_irrad = Ptr[float](solar_band_irrad_p)
+    coszrs = Ptr[float](coszrs_p)
     tsfc = Ptr[float](tsfc_p)
     solvar = Ptr[float](solvar_p)
+    solin = Ptr[float](solin_p)
 
     for ns in range(1, nbndsw + 1):
         for k in range(1, rrtmg_levs):
@@ -808,6 +815,12 @@ def rrtmg_sw_pre_codon(
 
     for ns in range(1, nbndsw + 1):
         solvar[ns - 1] = sfac[ns - 1]
+
+    for i in range(1, nday + 1):
+        band_sum = 0.0
+        for ns in range(1, nbndsw + 1):
+            band_sum += sfac[ns - 1] * solar_band_irrad[ns - 1]
+        solin[i - 1] = band_sum * eccf * coszrs[i - 1]
 
 
 @export
