@@ -3446,6 +3446,27 @@ def rrtmg_sw_subcol_prep_codon(
 
 
 @export
+def rrtmg_sw_subcol_cldf_prep_codon(
+    ncol: int,
+    nlay: int,
+    ld_cld: int,
+    ld_cldf: int,
+    cldmin: float,
+    cld_p: cobj,
+    cldf_p: cobj,
+):
+    cld = Ptr[float](cld_p)
+    cldf = Ptr[float](cldf_p)
+
+    for k in range(1, nlay + 1):
+        for i in range(1, ncol + 1):
+            v = cld[_idx2(i, k, ld_cld)]
+            if v < cldmin:
+                v = 0.0
+            cldf[_idx2(i, k, ld_cldf)] = v
+
+
+@export
 def rrtmg_sw_subcol_fill_codon(
     ncol: int,
     nlay: int,
