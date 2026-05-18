@@ -100,6 +100,42 @@ def cldwat2m_instratus_tendency_codon(
 
 
 @export
+def cldwat2m_dropnum_limit_codon(
+    stage: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    dt: float,
+    qsmall: float,
+    ql_p: cobj,
+    qi_p: cobj,
+    nl_p: cobj,
+    ni_p: cobj,
+    nlten_p: cobj,
+    niten_p: cobj,
+):
+    ql = Ptr[float](ql_p)
+    qi = Ptr[float](qi_p)
+    nl = Ptr[float](nl_p)
+    ni = Ptr[float](ni_p)
+    nlten = Ptr[float](nlten_p)
+    niten = Ptr[float](niten_p)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            nlten[idx] = 0.0
+            niten[idx] = 0.0
+            if ql[idx] < qsmall:
+                nlten[idx] = -nl[idx] / dt
+                nl[idx] = 0.0
+            if qi[idx] < qsmall:
+                niten[idx] = -ni[idx] / dt
+                ni[idx] = 0.0
+
+
+@export
 def cldwat2m_rhcrit_const_codon(
     pcols: int,
     pver: int,

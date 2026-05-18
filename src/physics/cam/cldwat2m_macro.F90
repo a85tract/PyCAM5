@@ -91,6 +91,9 @@
    logical :: use_native_instratus_tendency_impl = .false.
    logical :: instratus_tendency_impl_selected = .false.
    logical :: instratus_tendency_entered_logged = .false.
+   logical :: use_native_dropnum_limit_impl = .false.
+   logical :: dropnum_limit_impl_selected = .false.
+   logical :: dropnum_limit_entered_logged = .false.
 
    contains
 
@@ -704,18 +707,7 @@
                            qv1, ql1, qi1, T1, qvten_pwi1, qlten_pwi1, &
                            qiten_pwi1, Tten_pwi1, do_cldice)
 
-   do k = top_lev, pver
-   do i = 1, ncol
-      if( ql1(i,k) .lt. qsmall ) then
-          nlten_pwi1(i,k) = -nl1(i,k)/dt
-          nl1(i,k)        = 0._r8
-      endif 
-      if( qi1(i,k) .lt. qsmall ) then
-          niten_pwi1(i,k) = -ni1(i,k)/dt
-          ni1(i,k)        = 0._r8
-      endif 
-   enddo
-   enddo
+   call dropnum_limit_codon_wrap(1, ncol, dt, ql1, qi1, nl1, ni1, nlten_pwi1, niten_pwi1)
 
    ! ------------------------------------------------------------- !
    ! Impose 'in-stratus condensate amount constraint'              !
@@ -1008,18 +1000,8 @@
                            qv_dprime, ql_dprime, qi_dprime, T_dprime,  &
                            qvten_pwi2, qlten_pwi2, qiten_pwi2, Tten_pwi2, do_cldice)
 
-   do k = top_lev, pver
-   do i = 1, ncol
-      if( ql_dprime(i,k) .lt. qsmall ) then
-          nlten_pwi2(i,k) = -nl_dprime(i,k)/dt
-          nl_dprime(i,k)   = 0._r8
-      endif 
-      if( qi_dprime(i,k) .lt. qsmall ) then
-          niten_pwi2(i,k) = -ni_dprime(i,k)/dt
-          ni_dprime(i,k)   = 0._r8
-      endif 
-   enddo
-   enddo
+   call dropnum_limit_codon_wrap(2, ncol, dt, ql_dprime, qi_dprime, nl_dprime, ni_dprime, &
+                                 nlten_pwi2, niten_pwi2)
 
    ! -------------------------------------------------------------- !
    ! Add tendency associated with detrainment of cumulus condensate !
@@ -1063,18 +1045,7 @@
    ! Set # to zero if there is no cloud.        !
    ! ------------------------------------------ !
 
-   do k = top_lev, pver
-   do i = 1, ncol 
-      if( ql_star(i,k) .lt. qsmall ) then
-          ACnl(i,k) = - nl_star(i,k)/dt
-          nl_star(i,k) = 0._r8
-      endif
-      if( qi_star(i,k) .lt. qsmall ) then
-          ACni(i,k) = - ni_star(i,k)/dt
-          ni_star(i,k) = 0._r8
-      endif
-   enddo
-   enddo
+   call dropnum_limit_codon_wrap(3, ncol, dt, ql_star, qi_star, nl_star, ni_star, ACnl, ACni)
 
    ! ----------------------------------------------------- !
    ! Define equilibrium reference state for next iteration !
@@ -1524,6 +1495,91 @@ end subroutine rhcrit_calc
    enddo
 
    end subroutine instratus_tendency_codon_wrap
+
+!=======================================================================================================
+
+   subroutine dropnum_limit_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: n, status
+
+   if (dropnum_limit_impl_selected) return
+   call get_environment_variable('CLDWAT2M_DROPNUM_LIMIT_IMPL', value=impl_name, length=n, status=status)
+   use_native_dropnum_limit_impl = .false.
+   if (status == 0 .and. n > 0) then
+      select case (adjustl(impl_name(:n)))
+      case ('native', 'Native', 'NATIVE')
+         use_native_dropnum_limit_impl = .true.
+      case ('codon', 'Codon', 'CODON')
+         use_native_dropnum_limit_impl = .false.
+      case default
+         use_native_dropnum_limit_impl = .false.
+      end select
+   end if
+   dropnum_limit_impl_selected = .true.
+   if (masterproc) then
+      if (use_native_dropnum_limit_impl) then
+         write(iulog,*) 'cldwat2m_dropnum_limit implementation = native'
+      else
+         write(iulog,*) 'cldwat2m_dropnum_limit implementation = codon'
+      end if
+   end if
+   end subroutine dropnum_limit_select_impl
+
+   subroutine dropnum_limit_log_entered()
+   if (dropnum_limit_entered_logged) return
+   dropnum_limit_entered_logged = .true.
+   if (masterproc) then
+      write(iulog,*) 'cldwat2m_dropnum_limit entered (macrophysics cloud number limiter = codon)'
+   end if
+   end subroutine dropnum_limit_log_entered
+
+   subroutine dropnum_limit_codon_wrap(stage, ncol, dt, ql, qi, nl, ni, nlten, niten)
+
+   integer, intent(in) :: stage
+   integer, intent(in) :: ncol
+   real(r8), intent(in) :: dt
+   real(r8), target, intent(in) :: ql(pcols,pver), qi(pcols,pver)
+   real(r8), target, intent(inout) :: nl(pcols,pver), ni(pcols,pver)
+   real(r8), target, intent(out) :: nlten(pcols,pver), niten(pcols,pver)
+
+   integer :: i, k
+
+   interface
+      subroutine cldwat2m_dropnum_limit_codon(stage_c, ncol_c, pcols_c, pver_c, top_lev_c, dt_c, qsmall_c, &
+           ql_p, qi_p, nl_p, ni_p, nlten_p, niten_p) bind(c, name="cldwat2m_dropnum_limit_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: stage_c, ncol_c, pcols_c, pver_c, top_lev_c
+         real(c_double), value :: dt_c, qsmall_c
+         type(c_ptr), value :: ql_p, qi_p, nl_p, ni_p, nlten_p, niten_p
+      end subroutine cldwat2m_dropnum_limit_codon
+   end interface
+
+   call dropnum_limit_select_impl()
+   if (.not. use_native_dropnum_limit_impl) then
+      call dropnum_limit_log_entered()
+      call cldwat2m_dropnum_limit_codon(int(stage, c_int64_t), int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(top_lev, c_int64_t), dt, qsmall, c_loc(ql(1,1)), c_loc(qi(1,1)), &
+           c_loc(nl(1,1)), c_loc(ni(1,1)), c_loc(nlten(1,1)), c_loc(niten(1,1)))
+      return
+   endif
+
+   do k = top_lev, pver
+      do i = 1, ncol
+         nlten(i,k) = 0._r8
+         niten(i,k) = 0._r8
+         if( ql(i,k) .lt. qsmall ) then
+            nlten(i,k) = -nl(i,k)/dt
+            nl(i,k) = 0._r8
+         endif
+         if( qi(i,k) .lt. qsmall ) then
+            niten(i,k) = -ni(i,k)/dt
+            ni(i,k) = 0._r8
+         endif
+      enddo
+   enddo
+
+   end subroutine dropnum_limit_codon_wrap
 
 !=======================================================================================================
 
