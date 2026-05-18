@@ -111,6 +111,7 @@ logical  :: separate_dust = .false.
 logical  :: use_native_run_impl = .false.
 logical  :: run_impl_selected = .false.
 logical  :: run_linear_entered_logged = .false.
+logical  :: run_npccn_copy_entered_logged = .false.
 
 !=========================================================================================
 contains
@@ -396,6 +397,20 @@ end subroutine microp_aero_run_linear_log_entered
 
 !=========================================================================================
 
+subroutine microp_aero_run_npccn_copy_log_entered()
+
+   if (run_npccn_copy_entered_logged) return
+   run_npccn_copy_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,*) 'microp_aero_npccn_copy entered (dropmixnuc NPCCN transfer = codon)'
+      call flush(iulog)
+   end if
+
+end subroutine microp_aero_run_npccn_copy_log_entered
+
+!=========================================================================================
+
 subroutine microp_aero_run ( &
    state, ptend, deltatin, pbuf)
 
@@ -460,7 +475,7 @@ subroutine microp_aero_run_impl ( &
    real(r8), target :: lcldn(pcols,pver)   ! fractional coverage of new liquid cloud
    real(r8), target :: lcldo(pcols,pver)   ! fractional coverage of old liquid cloud
    real(r8) :: qcld                ! total cloud water
-   real(r8) :: nctend_mixnuc(pcols,pver)
+   real(r8), target :: nctend_mixnuc(pcols,pver)
    real(r8) :: dum, dum2           ! temporary dummy variable
    real(r8) :: dmc, ssmc           ! variables for modal scheme.
 
@@ -521,6 +536,12 @@ subroutine microp_aero_run_impl ( &
          real(c_double), value :: rn_dst3_c
          type(c_ptr), value :: t_p, rho_p, coarse_dust_p, coarse_nacl_p, num_coarse_p, dgnumwet_p, nacon_p, rndst_p
       end subroutine microp_aero_modal_contact_codon
+      subroutine microp_aero_npccn_copy_codon(ncol_c, pcols_c, pver_c, nctend_mixnuc_p, npccn_p) &
+           bind(c, name="microp_aero_npccn_copy_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: nctend_mixnuc_p, npccn_p
+      end subroutine microp_aero_npccn_copy_codon
    end interface
    !-------------------------------------------------------------------------------
 
@@ -751,7 +772,15 @@ subroutine microp_aero_run_impl ( &
          state, ptend, deltatin, pbuf, wsub, &
          lcldn, lcldo, nctend_mixnuc, factnum)
 
-      npccn(:ncol,:) = nctend_mixnuc(:ncol,:)
+      if (use_native_impl) then
+         npccn(:ncol,:) = nctend_mixnuc(:ncol,:)
+      else
+         call microp_aero_run_npccn_copy_log_entered()
+         call microp_aero_npccn_copy_codon( &
+              int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+              c_loc(nctend_mixnuc(1,1)), c_loc(npccn(1,1)) &
+         )
+      end if
 
    else
 

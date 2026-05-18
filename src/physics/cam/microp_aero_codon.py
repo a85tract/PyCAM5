@@ -214,3 +214,19 @@ def microp_aero_modal_contact_codon(
                 if radius <= 0.0:
                     radius = rn_dst3
                 rndst[_idx3(i, k, 3, pcols, pver)] = radius
+
+
+@export
+def microp_aero_npccn_copy_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    nctend_mixnuc_p: cobj,
+    npccn_p: cobj,
+):
+    nctend_mixnuc = Ptr[float](nctend_mixnuc_p)
+    npccn = Ptr[float](npccn_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            npccn[_idx2(i, k, pcols)] = nctend_mixnuc[_idx2(i, k, pcols)]
