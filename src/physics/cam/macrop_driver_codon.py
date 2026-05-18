@@ -529,6 +529,66 @@ def cldwat2m_iter_zero_codon(
 
 
 @export
+def cldwat2m_zero16_ncol_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    arr01_p: cobj,
+    arr02_p: cobj,
+    arr03_p: cobj,
+    arr04_p: cobj,
+    arr05_p: cobj,
+    arr06_p: cobj,
+    arr07_p: cobj,
+    arr08_p: cobj,
+    arr09_p: cobj,
+    arr10_p: cobj,
+    arr11_p: cobj,
+    arr12_p: cobj,
+    arr13_p: cobj,
+    arr14_p: cobj,
+    arr15_p: cobj,
+    arr16_p: cobj,
+):
+    arr01 = Ptr[float](arr01_p)
+    arr02 = Ptr[float](arr02_p)
+    arr03 = Ptr[float](arr03_p)
+    arr04 = Ptr[float](arr04_p)
+    arr05 = Ptr[float](arr05_p)
+    arr06 = Ptr[float](arr06_p)
+    arr07 = Ptr[float](arr07_p)
+    arr08 = Ptr[float](arr08_p)
+    arr09 = Ptr[float](arr09_p)
+    arr10 = Ptr[float](arr10_p)
+    arr11 = Ptr[float](arr11_p)
+    arr12 = Ptr[float](arr12_p)
+    arr13 = Ptr[float](arr13_p)
+    arr14 = Ptr[float](arr14_p)
+    arr15 = Ptr[float](arr15_p)
+    arr16 = Ptr[float](arr16_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            arr01[idx] = 0.0
+            arr02[idx] = 0.0
+            arr03[idx] = 0.0
+            arr04[idx] = 0.0
+            arr05[idx] = 0.0
+            arr06[idx] = 0.0
+            arr07[idx] = 0.0
+            arr08[idx] = 0.0
+            arr09[idx] = 0.0
+            arr10[idx] = 0.0
+            arr11[idx] = 0.0
+            arr12[idx] = 0.0
+            arr13[idx] = 0.0
+            arr14[idx] = 0.0
+            arr15[idx] = 0.0
+            arr16[idx] = 0.0
+
+
+@export
 def cldwat2m_advective_state_codon(
     ncol: int,
     pcols: int,

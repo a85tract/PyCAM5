@@ -115,6 +115,9 @@
    logical :: use_native_iter_zero_impl = .false.
    logical :: iter_zero_impl_selected = .false.
    logical :: iter_zero_entered_logged = .false.
+   logical :: use_native_init_zero_impl = .false.
+   logical :: init_zero_impl_selected = .false.
+   logical :: init_zero_entered_logged = .false.
 
    contains
 
@@ -487,193 +490,28 @@
    real(r8) rhmin_ice_diag(pcols,pver)
 
    real(r8) QQmax,QQmin,QQwmin,QQimin                      ! For limiting QQ
-   real(r8) cone                                           ! Number close to but smaller than 1
+	   real(r8) cone                                           ! Number close to but smaller than 1
 
-   cone            = 0.999_r8
-   zeros(:ncol,:)  = 0._r8
-
-   ! ------------------------------------ !
-   ! Global initialization of main output !
-   ! ------------------------------------ !
-
-     s_tendout(:ncol,:)     = 0._r8
-     qv_tendout(:ncol,:)    = 0._r8
-     ql_tendout(:ncol,:)    = 0._r8
-     qi_tendout(:ncol,:)    = 0._r8
-     nl_tendout(:ncol,:)    = 0._r8
-     ni_tendout(:ncol,:)    = 0._r8
-
-     qme(:ncol,:)           = 0._r8
-
-     cld(:ncol,:)           = 0._r8
-     al_st_star(:ncol,:)    = 0._r8
-     ai_st_star(:ncol,:)    = 0._r8
-     ql_st_star(:ncol,:)    = 0._r8
-     qi_st_star(:ncol,:)    = 0._r8
-
-   ! --------------------------------------- !
-   ! Initialization of internal 2D variables !
-   ! --------------------------------------- !
-
-     T(:ncol,:)             = 0._r8
-     T1(:ncol,:)            = 0._r8
-     T_0(:ncol,:)           = 0._r8
-     T_05(:ncol,:)          = 0._r8
-     T_prime0(:ncol,:)      = 0._r8
-     T_dprime(:ncol,:)      = 0._r8
-     T_star(:ncol,:)        = 0._r8
-
-     qv(:ncol,:)            = 0._r8
-     qv1(:ncol,:)           = 0._r8
-     qv_0(:ncol,:)          = 0._r8
-     qv_05(:ncol,:)         = 0._r8
-     qv_prime0(:ncol,:)     = 0._r8
-     qv_dprime(:ncol,:)     = 0._r8
-     qv_star(:ncol,:)       = 0._r8
-
-     ql(:ncol,:)            = 0._r8
-     ql1(:ncol,:)           = 0._r8
-     ql_0(:ncol,:)          = 0._r8
-     ql_05(:ncol,:)         = 0._r8
-     ql_prime0(:ncol,:)     = 0._r8
-     ql_dprime(:ncol,:)     = 0._r8
-     ql_star(:ncol,:)       = 0._r8
-
-     qi(:ncol,:)            = 0._r8
-     qi1(:ncol,:)           = 0._r8
-     qi_0(:ncol,:)          = 0._r8
-     qi_05(:ncol,:)         = 0._r8
-     qi_prime0(:ncol,:)     = 0._r8
-     qi_dprime(:ncol,:)     = 0._r8
-     qi_star(:ncol,:)       = 0._r8
-
-     nl(:ncol,:)            = 0._r8
-     nl1(:ncol,:)           = 0._r8
-     nl_0(:ncol,:)          = 0._r8
-     nl_05(:ncol,:)         = 0._r8
-     nl_prime0(:ncol,:)     = 0._r8
-     nl_dprime(:ncol,:)     = 0._r8
-     nl_star(:ncol,:)       = 0._r8
-
-     ni(:ncol,:)            = 0._r8
-     ni1(:ncol,:)           = 0._r8
-     ni_0(:ncol,:)          = 0._r8
-     ni_05(:ncol,:)         = 0._r8
-     ni_prime0(:ncol,:)     = 0._r8
-     ni_dprime(:ncol,:)     = 0._r8
-     ni_star(:ncol,:)       = 0._r8
-
-     a_st(:ncol,:)          = 0._r8
-     a_st_0(:ncol,:)        = 0._r8
-     a_st_star(:ncol,:)     = 0._r8
-
-     al_st(:ncol,:)         = 0._r8
-     al_st_0(:ncol,:)       = 0._r8
-     al_st_nc(:ncol,:)      = 0._r8
-
-     ai_st(:ncol,:)         = 0._r8
-     ai_st_0(:ncol,:)       = 0._r8
-     ai_st_nc(:ncol,:)      = 0._r8
-
-     ql_st(:ncol,:)         = 0._r8
-     ql_st_0(:ncol,:)       = 0._r8
-
-     qi_st(:ncol,:)         = 0._r8
-     qi_st_0(:ncol,:)       = 0._r8
-
- ! Cumulus properties 
-
-     dacudt(:ncol,:)        = 0._r8
-     a_cu(:ncol,:)          = 0._r8
-
- ! Adjustment tendency in association with 'positive_moisture'
-
-     Tten_pwi1(:ncol,:)     = 0._r8
-     qvten_pwi1(:ncol,:)    = 0._r8
-     qlten_pwi1(:ncol,:)    = 0._r8
-     qiten_pwi1(:ncol,:)    = 0._r8
-     nlten_pwi1(:ncol,:)    = 0._r8
-     niten_pwi1(:ncol,:)    = 0._r8
-
-     Tten_pwi2(:ncol,:)     = 0._r8
-     qvten_pwi2(:ncol,:)    = 0._r8
-     qlten_pwi2(:ncol,:)    = 0._r8
-     qiten_pwi2(:ncol,:)    = 0._r8
-     nlten_pwi2(:ncol,:)    = 0._r8
-     niten_pwi2(:ncol,:)    = 0._r8
-
-     A_T_adj(:ncol,:)       = 0._r8
-     A_qv_adj(:ncol,:)      = 0._r8
-     A_ql_adj(:ncol,:)      = 0._r8
-     A_qi_adj(:ncol,:)      = 0._r8
-     A_nl_adj(:ncol,:)      = 0._r8
-     A_ni_adj(:ncol,:)      = 0._r8
-
-     qvadj   (:ncol,:)      = 0._r8
-     qladj   (:ncol,:)      = 0._r8
-     qiadj   (:ncol,:)      = 0._r8
-
- ! Adjustment tendency in association with 'instratus_condensate'
-
-     QQw1(:ncol,:)          = 0._r8
-     QQi1(:ncol,:)          = 0._r8
-     QQw2(:ncol,:)          = 0._r8
-     QQi2(:ncol,:)          = 0._r8
-
-     QQnl1(:ncol,:)         = 0._r8
-     QQni1(:ncol,:)         = 0._r8
-     QQnl2(:ncol,:)         = 0._r8
-     QQni2(:ncol,:)         = 0._r8
-
-     QQnl(:ncol,:)          = 0._r8
-     QQni(:ncol,:)          = 0._r8
-
- ! Macrophysical process tendency variables
-
-     QQ(:ncol,:)            = 0._r8
-     QQw(:ncol,:)           = 0._r8
-     QQi(:ncol,:)           = 0._r8
-     QQnl(:ncol,:)          = 0._r8
-     QQni(:ncol,:)          = 0._r8
-     ACnl(:ncol,:)          = 0._r8
-     ACni(:ncol,:)          = 0._r8
-
-     QQw_prev(:ncol,:)      = 0._r8
-     QQi_prev(:ncol,:)      = 0._r8
-     QQnl_prev(:ncol,:)     = 0._r8
-     QQni_prev(:ncol,:)     = 0._r8
-
-     QQw_prog(:ncol,:)      = 0._r8
-     QQi_prog(:ncol,:)      = 0._r8
-     QQnl_prog(:ncol,:)     = 0._r8
-     QQni_prog(:ncol,:)     = 0._r8
-
-     QQ_final(:ncol,:)      = 0._r8                        
-     QQw_final(:ncol,:)     = 0._r8                  
-     QQi_final(:ncol,:)     = 0._r8           
-     QQn_final(:ncol,:)     = 0._r8    
-     QQnl_final(:ncol,:)    = 0._r8
-     QQni_final(:ncol,:)    = 0._r8
-
-     QQ_all(:ncol,:)        = 0._r8
-     QQw_all(:ncol,:)       = 0._r8
-     QQi_all(:ncol,:)       = 0._r8
-     QQn_all(:ncol,:)       = 0._r8
-     QQnl_all(:ncol,:)      = 0._r8
-     QQni_all(:ncol,:)      = 0._r8
-
- ! Coefficient for computing QQ and related processes
-
-     U(:ncol,:)             = 0._r8
-     U_nc(:ncol,:)          = 0._r8
-     G_nc(:ncol,:)          = 0._r8
-     F_nc(:ncol,:)          = 0._r8
-
- ! Other
-
-     qmin1(:ncol,:)         = 0._r8
-     qmin2(:ncol,:)         = 0._r8
-     qmin3(:ncol,:)         = 0._r8
+	   cone            = 0.999_r8
+	   call zero16_ncol_codon_wrap(ncol, zeros, s_tendout, qv_tendout, ql_tendout, qi_tendout, &
+	        nl_tendout, ni_tendout, qme, cld, al_st_star, ai_st_star, ql_st_star, qi_st_star, T, T1, T_0)
+	   call zero16_ncol_codon_wrap(ncol, T_05, T_prime0, T_dprime, T_star, qv, qv1, qv_0, qv_05, &
+	        qv_prime0, qv_dprime, qv_star, ql, ql1, ql_0, ql_05, ql_prime0)
+	   call zero16_ncol_codon_wrap(ncol, ql_dprime, ql_star, qi, qi1, qi_0, qi_05, qi_prime0, &
+	        qi_dprime, qi_star, nl, nl1, nl_0, nl_05, nl_prime0, nl_dprime, nl_star)
+	   call zero16_ncol_codon_wrap(ncol, ni, ni1, ni_0, ni_05, ni_prime0, ni_dprime, ni_star, &
+	        a_st, a_st_0, a_st_star, al_st, al_st_0, al_st_nc, ai_st, ai_st_0, ai_st_nc)
+	   call zero16_ncol_codon_wrap(ncol, ql_st, ql_st_0, qi_st, qi_st_0, dacudt, a_cu, &
+	        Tten_pwi1, qvten_pwi1, qlten_pwi1, qiten_pwi1, nlten_pwi1, niten_pwi1, &
+	        Tten_pwi2, qvten_pwi2, qlten_pwi2, qiten_pwi2)
+	   call zero16_ncol_codon_wrap(ncol, nlten_pwi2, niten_pwi2, A_T_adj, A_qv_adj, A_ql_adj, &
+	        A_qi_adj, A_nl_adj, A_ni_adj, qvadj, qladj, qiadj, QQw1, QQi1, QQw2, QQi2, QQnl1)
+	   call zero16_ncol_codon_wrap(ncol, QQni1, QQnl2, QQni2, QQnl, QQni, QQ, QQw, QQi, &
+	        ACnl, ACni, QQw_prev, QQi_prev, QQnl_prev, QQni_prev, QQw_prog, QQi_prog)
+	   call zero16_ncol_codon_wrap(ncol, QQnl_prog, QQni_prog, QQ_final, QQw_final, QQi_final, &
+	        QQn_final, QQnl_final, QQni_final, QQ_all, QQw_all, QQi_all, QQn_all, QQnl_all, QQni_all, U, U_nc)
+	   call zero16_ncol_codon_wrap(ncol, G_nc, F_nc, qmin1, qmin2, qmin3, QQ, QQw, QQi, &
+	        QQnl, QQni, ACnl, ACni, T, qv, ql, qi)
 
    ! ---------------- !
    ! Main computation ! 
@@ -1881,6 +1719,94 @@ end subroutine rhcrit_calc
    bb(:,:)         = 0._r8
 
    end subroutine iter_zero_codon_wrap
+
+!=======================================================================================================
+
+   subroutine init_zero_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: n, status
+
+   if (init_zero_impl_selected) return
+   call get_environment_variable('CLDWAT2M_INIT_ZERO_IMPL', value=impl_name, length=n, status=status)
+   use_native_init_zero_impl = .false.
+   if (status == 0 .and. n > 0) then
+      select case (adjustl(impl_name(:n)))
+      case ('native', 'Native', 'NATIVE')
+         use_native_init_zero_impl = .true.
+      case ('codon', 'Codon', 'CODON')
+         use_native_init_zero_impl = .false.
+      case default
+         use_native_init_zero_impl = .false.
+      end select
+   end if
+   init_zero_impl_selected = .true.
+   if (masterproc) then
+      if (use_native_init_zero_impl) then
+         write(iulog,*) 'cldwat2m_init_zero implementation = native'
+      else
+         write(iulog,*) 'cldwat2m_init_zero implementation = codon'
+      end if
+   end if
+   end subroutine init_zero_select_impl
+
+   subroutine init_zero_log_entered()
+   if (init_zero_entered_logged) return
+   init_zero_entered_logged = .true.
+   if (masterproc) then
+      write(iulog,*) 'cldwat2m_init_zero entered (macrophysics initial work arrays = codon)'
+   end if
+   end subroutine init_zero_log_entered
+
+   subroutine zero16_ncol_codon_wrap(ncol, arr01, arr02, arr03, arr04, arr05, arr06, arr07, arr08, &
+        arr09, arr10, arr11, arr12, arr13, arr14, arr15, arr16)
+
+   integer, intent(in) :: ncol
+   real(r8), target, intent(inout) :: arr01(pcols,pver), arr02(pcols,pver), arr03(pcols,pver), arr04(pcols,pver)
+   real(r8), target, intent(inout) :: arr05(pcols,pver), arr06(pcols,pver), arr07(pcols,pver), arr08(pcols,pver)
+   real(r8), target, intent(inout) :: arr09(pcols,pver), arr10(pcols,pver), arr11(pcols,pver), arr12(pcols,pver)
+   real(r8), target, intent(inout) :: arr13(pcols,pver), arr14(pcols,pver), arr15(pcols,pver), arr16(pcols,pver)
+
+   interface
+      subroutine cldwat2m_zero16_ncol_codon(ncol_c, pcols_c, pver_c, arr01_p, arr02_p, arr03_p, arr04_p, &
+           arr05_p, arr06_p, arr07_p, arr08_p, arr09_p, arr10_p, arr11_p, arr12_p, arr13_p, arr14_p, &
+           arr15_p, arr16_p) bind(c, name="cldwat2m_zero16_ncol_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: arr01_p, arr02_p, arr03_p, arr04_p, arr05_p, arr06_p, arr07_p, arr08_p
+         type(c_ptr), value :: arr09_p, arr10_p, arr11_p, arr12_p, arr13_p, arr14_p, arr15_p, arr16_p
+      end subroutine cldwat2m_zero16_ncol_codon
+   end interface
+
+   call init_zero_select_impl()
+   if (.not. use_native_init_zero_impl) then
+      call init_zero_log_entered()
+      call cldwat2m_zero16_ncol_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+           c_loc(arr01(1,1)), c_loc(arr02(1,1)), c_loc(arr03(1,1)), c_loc(arr04(1,1)), &
+           c_loc(arr05(1,1)), c_loc(arr06(1,1)), c_loc(arr07(1,1)), c_loc(arr08(1,1)), &
+           c_loc(arr09(1,1)), c_loc(arr10(1,1)), c_loc(arr11(1,1)), c_loc(arr12(1,1)), &
+           c_loc(arr13(1,1)), c_loc(arr14(1,1)), c_loc(arr15(1,1)), c_loc(arr16(1,1)))
+      return
+   endif
+
+   arr01(:ncol,:) = 0._r8
+   arr02(:ncol,:) = 0._r8
+   arr03(:ncol,:) = 0._r8
+   arr04(:ncol,:) = 0._r8
+   arr05(:ncol,:) = 0._r8
+   arr06(:ncol,:) = 0._r8
+   arr07(:ncol,:) = 0._r8
+   arr08(:ncol,:) = 0._r8
+   arr09(:ncol,:) = 0._r8
+   arr10(:ncol,:) = 0._r8
+   arr11(:ncol,:) = 0._r8
+   arr12(:ncol,:) = 0._r8
+   arr13(:ncol,:) = 0._r8
+   arr14(:ncol,:) = 0._r8
+   arr15(:ncol,:) = 0._r8
+   arr16(:ncol,:) = 0._r8
+
+   end subroutine zero16_ncol_codon_wrap
 
 !=======================================================================================================
 
