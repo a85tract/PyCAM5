@@ -12,6 +12,7 @@ module physics_types
   use phys_grid,        only: get_ncols_p, get_rlon_all_p, get_rlat_all_p, get_gcol_all_p
   use cam_logfile,      only: iulog
   use cam_abortutils,   only: endrun
+  use spmd_utils,       only: masterproc
   use phys_control,     only: waccmx_is
   use shr_const_mod,    only: shr_const_rwv
 
@@ -162,9 +163,263 @@ module physics_types
 
   end type physics_ptend
 
+  logical :: use_native_zero_impl = .false.
+  logical :: zero_impl_selected = .false.
+  logical :: zero_proof_written = .false.
+
+  interface
+     subroutine physics_tend_init_codon(psetcols_c, pver_c, dtdt_p, dudt_p, dvdt_p, flx_net_p, te_tnd_p, tw_tnd_p) &
+          bind(c, name="physics_tend_init_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: psetcols_c, pver_c
+       type(c_ptr), value :: dtdt_p, dudt_p, dvdt_p, flx_net_p, te_tnd_p, tw_tnd_p
+     end subroutine physics_tend_init_codon
+
+     subroutine physics_ptend_reset_s_codon(psetcols_c, pver_c, s_p, hflux_srf_p, hflux_top_p) &
+          bind(c, name="physics_ptend_reset_s_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: psetcols_c, pver_c
+       type(c_ptr), value :: s_p, hflux_srf_p, hflux_top_p
+     end subroutine physics_ptend_reset_s_codon
+
+     subroutine physics_ptend_reset_u_codon(psetcols_c, pver_c, u_p, taux_srf_p, taux_top_p) &
+          bind(c, name="physics_ptend_reset_u_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: psetcols_c, pver_c
+       type(c_ptr), value :: u_p, taux_srf_p, taux_top_p
+     end subroutine physics_ptend_reset_u_codon
+
+     subroutine physics_ptend_reset_v_codon(psetcols_c, pver_c, v_p, tauy_srf_p, tauy_top_p) &
+          bind(c, name="physics_ptend_reset_v_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: psetcols_c, pver_c
+       type(c_ptr), value :: v_p, tauy_srf_p, tauy_top_p
+     end subroutine physics_ptend_reset_v_codon
+
+     subroutine physics_ptend_reset_q_codon(psetcols_c, pver_c, pcnst_c, q_p, cflx_srf_p, cflx_top_p) &
+          bind(c, name="physics_ptend_reset_q_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: psetcols_c, pver_c, pcnst_c
+       type(c_ptr), value :: q_p, cflx_srf_p, cflx_top_p
+     end subroutine physics_ptend_reset_q_codon
+
+     subroutine physics_ptend_copy_s_codon(psetcols_c, pver_c, src_s_p, src_hflux_srf_p, src_hflux_top_p, &
+          dst_s_p, dst_hflux_srf_p, dst_hflux_top_p) bind(c, name="physics_ptend_copy_s_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: psetcols_c, pver_c
+       type(c_ptr), value :: src_s_p, src_hflux_srf_p, src_hflux_top_p, dst_s_p, dst_hflux_srf_p, dst_hflux_top_p
+     end subroutine physics_ptend_copy_s_codon
+
+     subroutine physics_ptend_copy_u_codon(psetcols_c, pver_c, src_u_p, src_taux_srf_p, src_taux_top_p, &
+          dst_u_p, dst_taux_srf_p, dst_taux_top_p) bind(c, name="physics_ptend_copy_u_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: psetcols_c, pver_c
+       type(c_ptr), value :: src_u_p, src_taux_srf_p, src_taux_top_p, dst_u_p, dst_taux_srf_p, dst_taux_top_p
+     end subroutine physics_ptend_copy_u_codon
+
+     subroutine physics_ptend_copy_v_codon(psetcols_c, pver_c, src_v_p, src_tauy_srf_p, src_tauy_top_p, &
+          dst_v_p, dst_tauy_srf_p, dst_tauy_top_p) bind(c, name="physics_ptend_copy_v_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: psetcols_c, pver_c
+       type(c_ptr), value :: src_v_p, src_tauy_srf_p, src_tauy_top_p, dst_v_p, dst_tauy_srf_p, dst_tauy_top_p
+     end subroutine physics_ptend_copy_v_codon
+
+     subroutine physics_ptend_copy_q_codon(psetcols_c, pver_c, pcnst_c, src_q_p, src_cflx_srf_p, src_cflx_top_p, &
+          dst_q_p, dst_cflx_srf_p, dst_cflx_top_p) bind(c, name="physics_ptend_copy_q_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: psetcols_c, pver_c, pcnst_c
+       type(c_ptr), value :: src_q_p, src_cflx_srf_p, src_cflx_top_p, dst_q_p, dst_cflx_srf_p, dst_cflx_top_p
+     end subroutine physics_ptend_copy_q_codon
+
+     subroutine physics_ptend_scale_field_codon(ncol_c, psetcols_c, top_level_c, bot_level_c, fac_c, field_p, &
+          flx_srf_p, flx_top_p) bind(c, name="physics_ptend_scale_field_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, psetcols_c, top_level_c, bot_level_c
+       real(c_double), value :: fac_c
+       type(c_ptr), value :: field_p, flx_srf_p, flx_top_p
+     end subroutine physics_ptend_scale_field_codon
+  end interface
+
 
 !===============================================================================
 contains
+!===============================================================================
+  subroutine physics_types_zero_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (zero_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('PHYSICS_TYPES_ZERO_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_zero_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_zero_impl = .false.
+    end if
+
+    zero_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_zero_impl) then
+          write(iulog,*) 'physics_types_zero implementation = native'
+       else
+          write(iulog,*) 'physics_types_zero implementation = codon'
+       end if
+    end if
+  end subroutine physics_types_zero_select_impl
+
+  subroutine physics_types_zero_proof_once()
+    if (zero_proof_written) return
+    zero_proof_written = .true.
+    if (masterproc) then
+       write(iulog,'(A)') 'physics_types_zero helpers entered (tend init/ptend reset/copy/scale = codon)'
+    end if
+  end subroutine physics_types_zero_proof_once
+
+  subroutine physics_tend_init_codon_wrap(psetcols_local, dtdt, dudt, dvdt, flx_net, te_tnd, tw_tnd)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: psetcols_local
+    real(r8), target, intent(inout) :: dtdt(psetcols_local,pver)
+    real(r8), target, intent(inout) :: dudt(psetcols_local,pver)
+    real(r8), target, intent(inout) :: dvdt(psetcols_local,pver)
+    real(r8), target, intent(inout) :: flx_net(psetcols_local)
+    real(r8), target, intent(inout) :: te_tnd(psetcols_local)
+    real(r8), target, intent(inout) :: tw_tnd(psetcols_local)
+
+    call physics_tend_init_codon(int(psetcols_local, c_int64_t), int(pver, c_int64_t), &
+         c_loc(dtdt), c_loc(dudt), c_loc(dvdt), c_loc(flx_net), c_loc(te_tnd), c_loc(tw_tnd))
+  end subroutine physics_tend_init_codon_wrap
+
+  subroutine physics_ptend_reset_s_codon_wrap(psetcols_local, s, hflux_srf, hflux_top)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: psetcols_local
+    real(r8), target, intent(inout) :: s(psetcols_local,pver)
+    real(r8), target, intent(inout) :: hflux_srf(psetcols_local)
+    real(r8), target, intent(inout) :: hflux_top(psetcols_local)
+
+    call physics_ptend_reset_s_codon(int(psetcols_local, c_int64_t), int(pver, c_int64_t), &
+         c_loc(s), c_loc(hflux_srf), c_loc(hflux_top))
+  end subroutine physics_ptend_reset_s_codon_wrap
+
+  subroutine physics_ptend_reset_u_codon_wrap(psetcols_local, u, taux_srf, taux_top)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: psetcols_local
+    real(r8), target, intent(inout) :: u(psetcols_local,pver)
+    real(r8), target, intent(inout) :: taux_srf(psetcols_local)
+    real(r8), target, intent(inout) :: taux_top(psetcols_local)
+
+    call physics_ptend_reset_u_codon(int(psetcols_local, c_int64_t), int(pver, c_int64_t), &
+         c_loc(u), c_loc(taux_srf), c_loc(taux_top))
+  end subroutine physics_ptend_reset_u_codon_wrap
+
+  subroutine physics_ptend_reset_v_codon_wrap(psetcols_local, v, tauy_srf, tauy_top)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: psetcols_local
+    real(r8), target, intent(inout) :: v(psetcols_local,pver)
+    real(r8), target, intent(inout) :: tauy_srf(psetcols_local)
+    real(r8), target, intent(inout) :: tauy_top(psetcols_local)
+
+    call physics_ptend_reset_v_codon(int(psetcols_local, c_int64_t), int(pver, c_int64_t), &
+         c_loc(v), c_loc(tauy_srf), c_loc(tauy_top))
+  end subroutine physics_ptend_reset_v_codon_wrap
+
+  subroutine physics_ptend_reset_q_codon_wrap(psetcols_local, q, cflx_srf, cflx_top)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: psetcols_local
+    real(r8), target, intent(inout) :: q(psetcols_local,pver,pcnst)
+    real(r8), target, intent(inout) :: cflx_srf(psetcols_local,pcnst)
+    real(r8), target, intent(inout) :: cflx_top(psetcols_local,pcnst)
+
+    call physics_ptend_reset_q_codon(int(psetcols_local, c_int64_t), int(pver, c_int64_t), &
+         int(pcnst, c_int64_t), c_loc(q), c_loc(cflx_srf), c_loc(cflx_top))
+  end subroutine physics_ptend_reset_q_codon_wrap
+
+  subroutine physics_ptend_copy_s_codon_wrap(psetcols_local, src_s, src_hflux_srf, src_hflux_top, &
+       dst_s, dst_hflux_srf, dst_hflux_top)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: psetcols_local
+    real(r8), target, intent(in) :: src_s(psetcols_local,pver)
+    real(r8), target, intent(in) :: src_hflux_srf(psetcols_local)
+    real(r8), target, intent(in) :: src_hflux_top(psetcols_local)
+    real(r8), target, intent(inout) :: dst_s(psetcols_local,pver)
+    real(r8), target, intent(inout) :: dst_hflux_srf(psetcols_local)
+    real(r8), target, intent(inout) :: dst_hflux_top(psetcols_local)
+
+    call physics_ptend_copy_s_codon(int(psetcols_local, c_int64_t), int(pver, c_int64_t), &
+         c_loc(src_s), c_loc(src_hflux_srf), c_loc(src_hflux_top), &
+         c_loc(dst_s), c_loc(dst_hflux_srf), c_loc(dst_hflux_top))
+  end subroutine physics_ptend_copy_s_codon_wrap
+
+  subroutine physics_ptend_copy_u_codon_wrap(psetcols_local, src_u, src_taux_srf, src_taux_top, &
+       dst_u, dst_taux_srf, dst_taux_top)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: psetcols_local
+    real(r8), target, intent(in) :: src_u(psetcols_local,pver)
+    real(r8), target, intent(in) :: src_taux_srf(psetcols_local)
+    real(r8), target, intent(in) :: src_taux_top(psetcols_local)
+    real(r8), target, intent(inout) :: dst_u(psetcols_local,pver)
+    real(r8), target, intent(inout) :: dst_taux_srf(psetcols_local)
+    real(r8), target, intent(inout) :: dst_taux_top(psetcols_local)
+
+    call physics_ptend_copy_u_codon(int(psetcols_local, c_int64_t), int(pver, c_int64_t), &
+         c_loc(src_u), c_loc(src_taux_srf), c_loc(src_taux_top), &
+         c_loc(dst_u), c_loc(dst_taux_srf), c_loc(dst_taux_top))
+  end subroutine physics_ptend_copy_u_codon_wrap
+
+  subroutine physics_ptend_copy_v_codon_wrap(psetcols_local, src_v, src_tauy_srf, src_tauy_top, &
+       dst_v, dst_tauy_srf, dst_tauy_top)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: psetcols_local
+    real(r8), target, intent(in) :: src_v(psetcols_local,pver)
+    real(r8), target, intent(in) :: src_tauy_srf(psetcols_local)
+    real(r8), target, intent(in) :: src_tauy_top(psetcols_local)
+    real(r8), target, intent(inout) :: dst_v(psetcols_local,pver)
+    real(r8), target, intent(inout) :: dst_tauy_srf(psetcols_local)
+    real(r8), target, intent(inout) :: dst_tauy_top(psetcols_local)
+
+    call physics_ptend_copy_v_codon(int(psetcols_local, c_int64_t), int(pver, c_int64_t), &
+         c_loc(src_v), c_loc(src_tauy_srf), c_loc(src_tauy_top), &
+         c_loc(dst_v), c_loc(dst_tauy_srf), c_loc(dst_tauy_top))
+  end subroutine physics_ptend_copy_v_codon_wrap
+
+  subroutine physics_ptend_copy_q_codon_wrap(psetcols_local, src_q, src_cflx_srf, src_cflx_top, &
+       dst_q, dst_cflx_srf, dst_cflx_top)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: psetcols_local
+    real(r8), target, intent(in) :: src_q(psetcols_local,pver,pcnst)
+    real(r8), target, intent(in) :: src_cflx_srf(psetcols_local,pcnst)
+    real(r8), target, intent(in) :: src_cflx_top(psetcols_local,pcnst)
+    real(r8), target, intent(inout) :: dst_q(psetcols_local,pver,pcnst)
+    real(r8), target, intent(inout) :: dst_cflx_srf(psetcols_local,pcnst)
+    real(r8), target, intent(inout) :: dst_cflx_top(psetcols_local,pcnst)
+
+    call physics_ptend_copy_q_codon(int(psetcols_local, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+         c_loc(src_q), c_loc(src_cflx_srf), c_loc(src_cflx_top), &
+         c_loc(dst_q), c_loc(dst_cflx_srf), c_loc(dst_cflx_top))
+  end subroutine physics_ptend_copy_q_codon_wrap
+
+  subroutine physics_ptend_scale_field_codon_wrap(ncol_local, psetcols_local, top_level_local, bot_level_local, fac_local, &
+       field, flx_srf, flx_top)
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
+    integer, intent(in) :: ncol_local, psetcols_local, top_level_local, bot_level_local
+    real(r8), intent(in) :: fac_local
+    real(r8), target, intent(inout) :: field(psetcols_local,pver)
+    real(r8), target, intent(inout) :: flx_srf(psetcols_local)
+    real(r8), target, intent(inout) :: flx_top(psetcols_local)
+
+    call physics_ptend_scale_field_codon(int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), &
+         int(top_level_local, c_int64_t), int(bot_level_local, c_int64_t), real(fac_local, c_double), &
+         c_loc(field), c_loc(flx_srf), c_loc(flx_top))
+  end subroutine physics_ptend_scale_field_codon_wrap
+
 !===============================================================================
   subroutine physics_type_alloc(phys_state, phys_tend, begchunk, endchunk, psetcols)
     implicit none
@@ -737,13 +992,13 @@ contains
     if (ptend%psetcols /= ptend_sum%psetcols) then
        call endrun('physics_ptend_sum error: ptend and ptend_sum must have the same value for psetcols')
     end if
-      
+
     if (ncol > ptend_sum%psetcols) then
        call endrun('physics_ptend_sum error: ncol must be less than or equal to psetcols')
     end if
     
     psetcols = ptend_sum%psetcols
-      
+
     ptend_sum%top_level = ptend%top_level
     ptend_sum%bot_level = ptend%bot_level
 
@@ -868,6 +1123,7 @@ contains
 !===============================================================================
 
   subroutine physics_ptend_scale(ptend, fac, ncol)
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
 !-----------------------------------------------------------------------
 ! Scale ptend fields for ptend logical flags = .true.
 ! Where ptend logical flags = .false, don't change ptend.
@@ -887,26 +1143,57 @@ contains
 
 !-----------------------------------------------------------------------
 
-! Update u,v fields
-    if (ptend%lu) &
-         call multiply_tendency(ptend%u, &
-         ptend%taux_srf, ptend%taux_top)
+    call physics_types_zero_select_impl()
 
-    if (ptend%lv) &
-         call multiply_tendency(ptend%v, &
-         ptend%tauy_srf, ptend%tauy_top)
+    if (use_native_zero_impl) then
+
+! Update u,v fields
+       if (ptend%lu) &
+            call multiply_tendency(ptend%u, &
+            ptend%taux_srf, ptend%taux_top)
+
+       if (ptend%lv) &
+            call multiply_tendency(ptend%v, &
+            ptend%tauy_srf, ptend%tauy_top)
 
 ! Heat
-    if (ptend%ls) &
-         call multiply_tendency(ptend%s, &
-         ptend%hflux_srf, ptend%hflux_top)
+       if (ptend%ls) &
+            call multiply_tendency(ptend%s, &
+            ptend%hflux_srf, ptend%hflux_top)
 
 ! Update constituents
-    do m = 1, pcnst
-       if (ptend%lq(m)) &
-            call multiply_tendency(ptend%q(:,:,m), &
-            ptend%cflx_srf(:,m), ptend%cflx_top(:,m))
-    end do
+       do m = 1, pcnst
+          if (ptend%lq(m)) &
+               call multiply_tendency(ptend%q(:,:,m), &
+               ptend%cflx_srf(:,m), ptend%cflx_top(:,m))
+       end do
+
+    else
+
+       if (ptend%lu) then
+          call physics_ptend_scale_field_codon_wrap(ncol, ptend%psetcols, ptend%top_level, ptend%bot_level, fac, &
+               ptend%u, ptend%taux_srf, ptend%taux_top)
+       end if
+
+       if (ptend%lv) then
+          call physics_ptend_scale_field_codon_wrap(ncol, ptend%psetcols, ptend%top_level, ptend%bot_level, fac, &
+               ptend%v, ptend%tauy_srf, ptend%tauy_top)
+       end if
+
+       if (ptend%ls) then
+          call physics_ptend_scale_field_codon_wrap(ncol, ptend%psetcols, ptend%top_level, ptend%bot_level, fac, &
+               ptend%s, ptend%hflux_srf, ptend%hflux_top)
+       end if
+
+       do m = 1, pcnst
+          if (ptend%lq(m)) then
+             call physics_ptend_scale_field_codon_wrap(ncol, ptend%psetcols, ptend%top_level, ptend%bot_level, fac, &
+                  ptend%q(:,:,m), ptend%cflx_srf(:,m), ptend%cflx_top(:,m))
+          end if
+       end do
+
+       call physics_types_zero_proof_once()
+    end if
 
 
   contains
@@ -931,6 +1218,7 @@ contains
 !===============================================================================
 
 subroutine physics_ptend_copy(ptend, ptend_cp)
+   use iso_c_binding, only: c_int64_t, c_loc
 
    !-----------------------------------------------------------------------
    ! Copy a physics_ptend object.  Allocate ptend_cp internally before copy.
@@ -953,28 +1241,57 @@ subroutine physics_ptend_copy(ptend, ptend_cp)
    ptend_cp%top_level = ptend%top_level
    ptend_cp%bot_level = ptend%bot_level
 
-   if (ptend_cp%ls) then
-      ptend_cp%s = ptend%s
-      ptend_cp%hflux_srf = ptend%hflux_srf
-      ptend_cp%hflux_top = ptend%hflux_top
-   end if
-   
-   if (ptend_cp%lu) then
-      ptend_cp%u = ptend%u
-      ptend_cp%taux_srf  = ptend%taux_srf
-      ptend_cp%taux_top  = ptend%taux_top
-   end if
+   call physics_types_zero_select_impl()
 
-   if (ptend_cp%lv) then
-      ptend_cp%v = ptend%v
-      ptend_cp%tauy_srf  = ptend%tauy_srf
-      ptend_cp%tauy_top  = ptend%tauy_top
-   end if
+   if (use_native_zero_impl) then
 
-   if (any(ptend_cp%lq(:))) then
-      ptend_cp%q = ptend%q
-      ptend_cp%cflx_srf  = ptend%cflx_srf
-      ptend_cp%cflx_top  = ptend%cflx_top
+      if (ptend_cp%ls) then
+         ptend_cp%s = ptend%s
+         ptend_cp%hflux_srf = ptend%hflux_srf
+         ptend_cp%hflux_top = ptend%hflux_top
+      end if
+
+      if (ptend_cp%lu) then
+         ptend_cp%u = ptend%u
+         ptend_cp%taux_srf  = ptend%taux_srf
+         ptend_cp%taux_top  = ptend%taux_top
+      end if
+
+      if (ptend_cp%lv) then
+         ptend_cp%v = ptend%v
+         ptend_cp%tauy_srf  = ptend%tauy_srf
+         ptend_cp%tauy_top  = ptend%tauy_top
+      end if
+
+      if (any(ptend_cp%lq(:))) then
+         ptend_cp%q = ptend%q
+         ptend_cp%cflx_srf  = ptend%cflx_srf
+         ptend_cp%cflx_top  = ptend%cflx_top
+      end if
+
+   else
+
+      if (ptend_cp%ls) then
+         call physics_ptend_copy_s_codon_wrap(ptend%psetcols, ptend%s, ptend%hflux_srf, ptend%hflux_top, &
+              ptend_cp%s, ptend_cp%hflux_srf, ptend_cp%hflux_top)
+      end if
+
+      if (ptend_cp%lu) then
+         call physics_ptend_copy_u_codon_wrap(ptend%psetcols, ptend%u, ptend%taux_srf, ptend%taux_top, &
+              ptend_cp%u, ptend_cp%taux_srf, ptend_cp%taux_top)
+      end if
+
+      if (ptend_cp%lv) then
+         call physics_ptend_copy_v_codon_wrap(ptend%psetcols, ptend%v, ptend%tauy_srf, ptend%tauy_top, &
+              ptend_cp%v, ptend_cp%tauy_srf, ptend_cp%tauy_top)
+      end if
+
+      if (any(ptend_cp%lq(:))) then
+         call physics_ptend_copy_q_codon_wrap(ptend%psetcols, ptend%q, ptend%cflx_srf, ptend%cflx_top, &
+              ptend_cp%q, ptend_cp%cflx_srf, ptend_cp%cflx_top)
+      end if
+
+      call physics_types_zero_proof_once()
    end if
 
 end subroutine physics_ptend_copy
@@ -982,6 +1299,7 @@ end subroutine physics_ptend_copy
 !===============================================================================
 
   subroutine physics_ptend_reset(ptend)
+    use iso_c_binding, only: c_int64_t, c_loc
 !-----------------------------------------------------------------------
 ! Reset the parameterization tendency structure to "empty"
 !-----------------------------------------------------------------------
@@ -992,25 +1310,43 @@ end subroutine physics_ptend_copy
     integer :: m             ! Index for constiuent
 !-----------------------------------------------------------------------
 
-    if(ptend%ls) then
-       ptend%s = 0._r8
-       ptend%hflux_srf = 0._r8
-       ptend%hflux_top = 0._r8
-    endif
-    if(ptend%lu) then
-       ptend%u = 0._r8
-       ptend%taux_srf = 0._r8
-       ptend%taux_top = 0._r8
-    endif
-    if(ptend%lv) then
-       ptend%v = 0._r8
-       ptend%tauy_srf = 0._r8
-       ptend%tauy_top = 0._r8
-    endif
-    if(any (ptend%lq(:))) then
-       ptend%q = 0._r8
-       ptend%cflx_srf = 0._r8
-       ptend%cflx_top = 0._r8
+    call physics_types_zero_select_impl()
+
+    if (use_native_zero_impl) then
+       if(ptend%ls) then
+          ptend%s = 0._r8
+          ptend%hflux_srf = 0._r8
+          ptend%hflux_top = 0._r8
+       endif
+       if(ptend%lu) then
+          ptend%u = 0._r8
+          ptend%taux_srf = 0._r8
+          ptend%taux_top = 0._r8
+       endif
+       if(ptend%lv) then
+          ptend%v = 0._r8
+          ptend%tauy_srf = 0._r8
+          ptend%tauy_top = 0._r8
+       endif
+       if(any (ptend%lq(:))) then
+          ptend%q = 0._r8
+          ptend%cflx_srf = 0._r8
+          ptend%cflx_top = 0._r8
+       end if
+    else
+       if(ptend%ls) then
+          call physics_ptend_reset_s_codon_wrap(ptend%psetcols, ptend%s, ptend%hflux_srf, ptend%hflux_top)
+       endif
+       if(ptend%lu) then
+          call physics_ptend_reset_u_codon_wrap(ptend%psetcols, ptend%u, ptend%taux_srf, ptend%taux_top)
+       endif
+       if(ptend%lv) then
+          call physics_ptend_reset_v_codon_wrap(ptend%psetcols, ptend%v, ptend%tauy_srf, ptend%tauy_top)
+       endif
+       if(any (ptend%lq(:))) then
+          call physics_ptend_reset_q_codon_wrap(ptend%psetcols, ptend%q, ptend%cflx_srf, ptend%cflx_top)
+       end if
+       call physics_types_zero_proof_once()
     end if
 
     ptend%top_level = 1
@@ -1389,6 +1725,7 @@ end subroutine physics_ptend_copy
 !===============================================================================
 
   subroutine physics_tend_init(tend)
+    use iso_c_binding, only: c_int64_t, c_loc
     
     implicit none
     
@@ -1405,12 +1742,20 @@ end subroutine physics_ptend_copy
        call endrun('physics_tend_init: tend must be allocated before it can be initialized')
     end if
 
-    tend%dtdt    = 0._r8
-    tend%dudt    = 0._r8
-    tend%dvdt    = 0._r8
-    tend%flx_net = 0._r8
-    tend%te_tnd  = 0._r8
-    tend%tw_tnd  = 0._r8
+    call physics_types_zero_select_impl()
+
+    if (use_native_zero_impl) then
+       tend%dtdt    = 0._r8
+       tend%dudt    = 0._r8
+       tend%dvdt    = 0._r8
+       tend%flx_net = 0._r8
+       tend%te_tnd  = 0._r8
+       tend%tw_tnd  = 0._r8
+    else
+       call physics_tend_init_codon_wrap(tend%psetcols, tend%dtdt, tend%dudt, tend%dvdt, tend%flx_net, &
+            tend%te_tnd, tend%tw_tnd)
+       call physics_types_zero_proof_once()
+    end if
     
 end subroutine physics_tend_init
 

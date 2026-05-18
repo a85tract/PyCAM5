@@ -2010,3 +2010,188 @@ def phys_inidat_batch_tbot_init_codon(
     posinf_local: float,
 ):
     phys_inidat_tbot_init_codon(pcols, tbot_p, posinf_local)
+
+
+@inline
+def _physics_types_zero_1d(n: int, arr: Ptr[float]):
+    for i in range(0, n):
+        arr[i] = 0.0
+
+
+@inline
+def _physics_types_zero_2d(psetcols: int, pver: int, arr: Ptr[float]):
+    for k in range(1, pver + 1):
+        for i in range(1, psetcols + 1):
+            arr[_field2_idx(i, k, psetcols)] = 0.0
+
+
+@inline
+def _physics_types_zero_3d(psetcols: int, pver: int, pcnst: int, arr: Ptr[float]):
+    for m in range(1, pcnst + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, psetcols + 1):
+                arr[_field3_idx(i, k, m, psetcols, pver)] = 0.0
+
+
+@inline
+def _physics_types_copy_1d(n: int, src: Ptr[float], dst: Ptr[float]):
+    for i in range(0, n):
+        dst[i] = src[i]
+
+
+@inline
+def _physics_types_copy_2d(psetcols: int, pver: int, src: Ptr[float], dst: Ptr[float]):
+    for k in range(1, pver + 1):
+        for i in range(1, psetcols + 1):
+            dst[_field2_idx(i, k, psetcols)] = src[_field2_idx(i, k, psetcols)]
+
+
+@inline
+def _physics_types_copy_3d(psetcols: int, pver: int, pcnst: int, src: Ptr[float], dst: Ptr[float]):
+    for m in range(1, pcnst + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, psetcols + 1):
+                dst[_field3_idx(i, k, m, psetcols, pver)] = src[_field3_idx(i, k, m, psetcols, pver)]
+
+
+@export
+def physics_tend_init_codon(
+    psetcols: int,
+    pver: int,
+    dtdt_p: cobj,
+    dudt_p: cobj,
+    dvdt_p: cobj,
+    flx_net_p: cobj,
+    te_tnd_p: cobj,
+    tw_tnd_p: cobj,
+):
+    dtdt = Ptr[float](dtdt_p)
+    dudt = Ptr[float](dudt_p)
+    dvdt = Ptr[float](dvdt_p)
+    flx_net = Ptr[float](flx_net_p)
+    te_tnd = Ptr[float](te_tnd_p)
+    tw_tnd = Ptr[float](tw_tnd_p)
+
+    _physics_types_zero_2d(psetcols, pver, dtdt)
+    _physics_types_zero_2d(psetcols, pver, dudt)
+    _physics_types_zero_2d(psetcols, pver, dvdt)
+    _physics_types_zero_1d(psetcols, flx_net)
+    _physics_types_zero_1d(psetcols, te_tnd)
+    _physics_types_zero_1d(psetcols, tw_tnd)
+
+
+@export
+def physics_ptend_reset_s_codon(psetcols: int, pver: int, s_p: cobj, hflux_srf_p: cobj, hflux_top_p: cobj):
+    _physics_types_zero_2d(psetcols, pver, Ptr[float](s_p))
+    _physics_types_zero_1d(psetcols, Ptr[float](hflux_srf_p))
+    _physics_types_zero_1d(psetcols, Ptr[float](hflux_top_p))
+
+
+@export
+def physics_ptend_reset_u_codon(psetcols: int, pver: int, u_p: cobj, taux_srf_p: cobj, taux_top_p: cobj):
+    _physics_types_zero_2d(psetcols, pver, Ptr[float](u_p))
+    _physics_types_zero_1d(psetcols, Ptr[float](taux_srf_p))
+    _physics_types_zero_1d(psetcols, Ptr[float](taux_top_p))
+
+
+@export
+def physics_ptend_reset_v_codon(psetcols: int, pver: int, v_p: cobj, tauy_srf_p: cobj, tauy_top_p: cobj):
+    _physics_types_zero_2d(psetcols, pver, Ptr[float](v_p))
+    _physics_types_zero_1d(psetcols, Ptr[float](tauy_srf_p))
+    _physics_types_zero_1d(psetcols, Ptr[float](tauy_top_p))
+
+
+@export
+def physics_ptend_reset_q_codon(psetcols: int, pver: int, pcnst: int, q_p: cobj, cflx_srf_p: cobj, cflx_top_p: cobj):
+    _physics_types_zero_3d(psetcols, pver, pcnst, Ptr[float](q_p))
+    _physics_types_zero_2d(psetcols, pcnst, Ptr[float](cflx_srf_p))
+    _physics_types_zero_2d(psetcols, pcnst, Ptr[float](cflx_top_p))
+
+
+@export
+def physics_ptend_copy_s_codon(
+    psetcols: int,
+    pver: int,
+    src_s_p: cobj,
+    src_hflux_srf_p: cobj,
+    src_hflux_top_p: cobj,
+    dst_s_p: cobj,
+    dst_hflux_srf_p: cobj,
+    dst_hflux_top_p: cobj,
+):
+    _physics_types_copy_2d(psetcols, pver, Ptr[float](src_s_p), Ptr[float](dst_s_p))
+    _physics_types_copy_1d(psetcols, Ptr[float](src_hflux_srf_p), Ptr[float](dst_hflux_srf_p))
+    _physics_types_copy_1d(psetcols, Ptr[float](src_hflux_top_p), Ptr[float](dst_hflux_top_p))
+
+
+@export
+def physics_ptend_copy_u_codon(
+    psetcols: int,
+    pver: int,
+    src_u_p: cobj,
+    src_taux_srf_p: cobj,
+    src_taux_top_p: cobj,
+    dst_u_p: cobj,
+    dst_taux_srf_p: cobj,
+    dst_taux_top_p: cobj,
+):
+    _physics_types_copy_2d(psetcols, pver, Ptr[float](src_u_p), Ptr[float](dst_u_p))
+    _physics_types_copy_1d(psetcols, Ptr[float](src_taux_srf_p), Ptr[float](dst_taux_srf_p))
+    _physics_types_copy_1d(psetcols, Ptr[float](src_taux_top_p), Ptr[float](dst_taux_top_p))
+
+
+@export
+def physics_ptend_copy_v_codon(
+    psetcols: int,
+    pver: int,
+    src_v_p: cobj,
+    src_tauy_srf_p: cobj,
+    src_tauy_top_p: cobj,
+    dst_v_p: cobj,
+    dst_tauy_srf_p: cobj,
+    dst_tauy_top_p: cobj,
+):
+    _physics_types_copy_2d(psetcols, pver, Ptr[float](src_v_p), Ptr[float](dst_v_p))
+    _physics_types_copy_1d(psetcols, Ptr[float](src_tauy_srf_p), Ptr[float](dst_tauy_srf_p))
+    _physics_types_copy_1d(psetcols, Ptr[float](src_tauy_top_p), Ptr[float](dst_tauy_top_p))
+
+
+@export
+def physics_ptend_copy_q_codon(
+    psetcols: int,
+    pver: int,
+    pcnst: int,
+    src_q_p: cobj,
+    src_cflx_srf_p: cobj,
+    src_cflx_top_p: cobj,
+    dst_q_p: cobj,
+    dst_cflx_srf_p: cobj,
+    dst_cflx_top_p: cobj,
+):
+    _physics_types_copy_3d(psetcols, pver, pcnst, Ptr[float](src_q_p), Ptr[float](dst_q_p))
+    _physics_types_copy_2d(psetcols, pcnst, Ptr[float](src_cflx_srf_p), Ptr[float](dst_cflx_srf_p))
+    _physics_types_copy_2d(psetcols, pcnst, Ptr[float](src_cflx_top_p), Ptr[float](dst_cflx_top_p))
+
+
+@export
+def physics_ptend_scale_field_codon(
+    ncol: int,
+    psetcols: int,
+    top_level: int,
+    bot_level: int,
+    fac: float,
+    field_p: cobj,
+    flx_srf_p: cobj,
+    flx_top_p: cobj,
+):
+    field = Ptr[float](field_p)
+    flx_srf = Ptr[float](flx_srf_p)
+    flx_top = Ptr[float](flx_top_p)
+
+    for k in range(top_level, bot_level + 1):
+        for i in range(1, ncol + 1):
+            field[_field2_idx(i, k, psetcols)] = field[_field2_idx(i, k, psetcols)] * fac
+
+    for i in range(1, ncol + 1):
+        flx_srf[_idx(i)] = flx_srf[_idx(i)] * fac
+        flx_top[_idx(i)] = flx_top[_idx(i)] * fac
