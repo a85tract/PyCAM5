@@ -86,6 +86,42 @@ def _max_1em80(x: float) -> float:
 
 
 @inline
+def _interp1_bndry_table(yin: Ptr[float], table: Ptr[float], nin: int, band: int, y: float) -> float:
+    increasing = True
+    if yin[0] > yin[1]:
+        increasing = False
+
+    if increasing:
+        if y <= yin[0]:
+            value = table[_idx2(1, band, nin)]
+            return value * 1.0 + value * 0.0
+        if y > yin[nin - 1]:
+            value = table[_idx2(nin, band, nin)]
+            return value * 1.0 + value * 0.0
+        for jj in range(1, nin):
+            if y > yin[jj - 1] and y <= yin[jj]:
+                denom = yin[jj] - yin[jj - 1]
+                wgts = (yin[jj] - y) / denom
+                wgtn = (y - yin[jj - 1]) / denom
+                return table[_idx2(jj, band, nin)] * wgts + table[_idx2(jj + 1, band, nin)] * wgtn
+    else:
+        if y > yin[0]:
+            value = table[_idx2(1, band, nin)]
+            return value * 1.0 + value * 0.0
+        if y <= yin[nin - 1]:
+            value = table[_idx2(nin, band, nin)]
+            return value * 1.0 + value * 0.0
+        for jj in range(1, nin):
+            if y <= yin[jj - 1] and y > yin[jj]:
+                denom = yin[jj] - yin[jj - 1]
+                wgts = (yin[jj] - y) / denom
+                wgtn = (y - yin[jj - 1]) / denom
+                return table[_idx2(jj, band, nin)] * wgts + table[_idx2(jj + 1, band, nin)] * wgtn
+
+    return table[0] * 0.0
+
+
+@inline
 def _rrtmg_src_level(k: int, pverp: int, num_rrtmg_levs: int) -> int:
     kk = k + (pverp - num_rrtmg_levs) - 1
     if kk < 1:
@@ -534,6 +570,90 @@ def rrtmg_sw_cloud_optics_codon(
                         fsfc_sw[dst_idx] = 0.0
                         asmc_sw[dst_idx] = 0.0
                         ssac_sw[dst_idx] = 1.0
+
+
+@export
+def rrtmg_cloud_ice_optics_sw_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    nswbands: int,
+    ngd: int,
+    iciwpth_p: cobj,
+    dei_p: cobj,
+    gd_p: cobj,
+    ext_p: cobj,
+    ssa_p: cobj,
+    asm_p: cobj,
+    tau_p: cobj,
+    tau_w_p: cobj,
+    tau_w_g_p: cobj,
+    tau_w_f_p: cobj,
+):
+    iciwpth = Ptr[float](iciwpth_p)
+    dei = Ptr[float](dei_p)
+    gd = Ptr[float](gd_p)
+    ext_table = Ptr[float](ext_p)
+    ssa_table = Ptr[float](ssa_p)
+    asm_table = Ptr[float](asm_p)
+    tau = Ptr[float](tau_p)
+    tau_w = Ptr[float](tau_w_p)
+    tau_w_g = Ptr[float](tau_w_g_p)
+    tau_w_f = Ptr[float](tau_w_f_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            cloud_ice = iciwpth[_idx2(i, k, pcols)]
+            deff = dei[_idx2(i, k, pcols)]
+            if cloud_ice < 1.0e-80 or deff == 0.0:
+                for swband in range(1, nswbands + 1):
+                    out_idx = _idx3(swband, i, k, nswbands, pcols)
+                    tau[out_idx] = 0.0
+                    tau_w[out_idx] = 0.0
+                    tau_w_g[out_idx] = 0.0
+                    tau_w_f[out_idx] = 0.0
+            else:
+                for swband in range(1, nswbands + 1):
+                    ext = _interp1_bndry_table(gd, ext_table, ngd, swband, deff)
+                    ssa = _interp1_bndry_table(gd, ssa_table, ngd, swband, deff)
+                    asm = _interp1_bndry_table(gd, asm_table, ngd, swband, deff)
+                    out_idx = _idx3(swband, i, k, nswbands, pcols)
+                    tau[out_idx] = cloud_ice * ext
+                    tau_w[out_idx] = tau[out_idx] * ssa
+                    tau_w_g[out_idx] = tau_w[out_idx] * asm
+                    tau_w_f[out_idx] = tau_w_g[out_idx] * asm
+
+
+@export
+def rrtmg_cloud_ice_optics_lw_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    nlwbands: int,
+    ngd: int,
+    iciwpth_p: cobj,
+    dei_p: cobj,
+    gd_p: cobj,
+    absor_p: cobj,
+    abs_od_p: cobj,
+):
+    iciwpth = Ptr[float](iciwpth_p)
+    dei = Ptr[float](dei_p)
+    gd = Ptr[float](gd_p)
+    absor_table = Ptr[float](absor_p)
+    abs_od = Ptr[float](abs_od_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            cloud_ice = iciwpth[_idx2(i, k, pcols)]
+            deff = dei[_idx2(i, k, pcols)]
+            if cloud_ice < 1.0e-80 or deff == 0.0:
+                for lwband in range(1, nlwbands + 1):
+                    abs_od[_idx3(lwband, i, k, nlwbands, pcols)] = 0.0
+            else:
+                for lwband in range(1, nlwbands + 1):
+                    absor = _interp1_bndry_table(gd, absor_table, ngd, lwband, deff)
+                    abs_od[_idx3(lwband, i, k, nlwbands, pcols)] = cloud_ice * absor
 
 
 @export

@@ -14,6 +14,8 @@ use oldcloud,         only: oldcloud_lw, old_liq_get_rad_props_lw, old_ice_get_r
 
 use ebert_curry,      only: scalefactor
 use cam_logfile,      only: iulog
+use iso_c_binding,    only: c_int64_t, c_loc, c_ptr
+use spmd_utils,       only: masterproc
 
 use interpolate_data, only: interp_type, lininterp_init, lininterp, &
      extrap_method_bndry, lininterp_finish
@@ -42,11 +44,16 @@ real(r8), allocatable :: asm_sw_liq(:,:,:)
 real(r8), allocatable :: abs_lw_liq(:,:,:)
 
 integer :: n_g_d
-real(r8), allocatable :: g_d_eff(:)        ! radiative effective diameter samples on grid
-real(r8), allocatable :: ext_sw_ice(:,:)
-real(r8), allocatable :: ssa_sw_ice(:,:)
-real(r8), allocatable :: asm_sw_ice(:,:)
-real(r8), allocatable :: abs_lw_ice(:,:)
+real(r8), allocatable, target :: g_d_eff(:)        ! radiative effective diameter samples on grid
+real(r8), allocatable, target :: ext_sw_ice(:,:)
+real(r8), allocatable, target :: ssa_sw_ice(:,:)
+real(r8), allocatable, target :: asm_sw_ice(:,:)
+real(r8), allocatable, target :: abs_lw_ice(:,:)
+
+logical :: use_native_cloud_ice_optics_impl = .false.
+logical :: cloud_ice_optics_impl_selected = .false.
+logical :: cloud_ice_optics_sw_entered_logged = .false.
+logical :: cloud_ice_optics_lw_entered_logged = .false.
 
 ! 
 ! indexes into pbuf for optical parameters of MG clouds
@@ -473,18 +480,40 @@ subroutine interpolate_ice_optics_sw(ncol, iciwpth, dei, tau, tau_w, &
      tau_w_g, tau_w_f)
 
   integer, intent(in) :: ncol
-  real(r8), intent(in) :: iciwpth(pcols,pver)
-  real(r8), intent(in) :: dei(pcols,pver)
+  real(r8), target, intent(in) :: iciwpth(pcols,pver)
+  real(r8), target, intent(in) :: dei(pcols,pver)
 
-  real(r8),intent(out) :: tau    (nswbands,pcols,pver) ! extinction optical depth
-  real(r8),intent(out) :: tau_w  (nswbands,pcols,pver) ! single scattering albedo * tau
-  real(r8),intent(out) :: tau_w_g(nswbands,pcols,pver) ! assymetry parameter * tau * w
-  real(r8),intent(out) :: tau_w_f(nswbands,pcols,pver) ! forward scattered fraction * tau * w
+  real(r8), target, intent(out) :: tau    (nswbands,pcols,pver) ! extinction optical depth
+  real(r8), target, intent(out) :: tau_w  (nswbands,pcols,pver) ! single scattering albedo * tau
+  real(r8), target, intent(out) :: tau_w_g(nswbands,pcols,pver) ! assymetry parameter * tau * w
+  real(r8), target, intent(out) :: tau_w_f(nswbands,pcols,pver) ! forward scattered fraction * tau * w
 
   type(interp_type) :: dei_wgts
 
   integer :: i, k, swband
   real(r8) :: ext(nswbands), ssa(nswbands), asm(nswbands)
+
+  interface
+     subroutine rrtmg_cloud_ice_optics_sw_codon(ncol_c, pcols_c, pver_c, nswbands_c, ngd_c, &
+          iciwpth_p, dei_p, gd_p, ext_p, ssa_p, asm_p, tau_p, tau_w_p, tau_w_g_p, tau_w_f_p) &
+          bind(c, name="rrtmg_cloud_ice_optics_sw_codon")
+        use iso_c_binding, only: c_int64_t, c_ptr
+        integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, nswbands_c, ngd_c
+        type(c_ptr), value :: iciwpth_p, dei_p, gd_p, ext_p, ssa_p, asm_p
+        type(c_ptr), value :: tau_p, tau_w_p, tau_w_g_p, tau_w_f_p
+     end subroutine rrtmg_cloud_ice_optics_sw_codon
+  end interface
+
+  call cloud_ice_optics_select_impl()
+  if (.not. use_native_cloud_ice_optics_impl) then
+     call cloud_ice_optics_sw_log_entered()
+     call rrtmg_cloud_ice_optics_sw_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+          int(pver, c_int64_t), int(nswbands, c_int64_t), int(n_g_d, c_int64_t), &
+          c_loc(iciwpth(1,1)), c_loc(dei(1,1)), c_loc(g_d_eff(1)), c_loc(ext_sw_ice(1,1)), &
+          c_loc(ssa_sw_ice(1,1)), c_loc(asm_sw_ice(1,1)), c_loc(tau(1,1,1)), &
+          c_loc(tau_w(1,1,1)), c_loc(tau_w_g(1,1,1)), c_loc(tau_w_f(1,1,1)))
+     return
+  end if
 
   do k = 1,pver
      do i = 1,ncol
@@ -630,15 +659,34 @@ end subroutine ice_cloud_get_rad_props_lw
 subroutine interpolate_ice_optics_lw(ncol, iciwpth, dei, abs_od)
 
   integer, intent(in) :: ncol
-  real(r8), intent(in) :: iciwpth(pcols,pver)
-  real(r8), intent(in) :: dei(pcols,pver)
+  real(r8), target, intent(in) :: iciwpth(pcols,pver)
+  real(r8), target, intent(in) :: dei(pcols,pver)
 
-  real(r8),intent(out) :: abs_od(nlwbands,pcols,pver)
+  real(r8), target, intent(out) :: abs_od(nlwbands,pcols,pver)
 
   type(interp_type) :: dei_wgts
 
   integer :: i, k, lwband
   real(r8) :: absor(nlwbands)
+
+  interface
+     subroutine rrtmg_cloud_ice_optics_lw_codon(ncol_c, pcols_c, pver_c, nlwbands_c, ngd_c, &
+          iciwpth_p, dei_p, gd_p, absor_p, abs_od_p) bind(c, name="rrtmg_cloud_ice_optics_lw_codon")
+        use iso_c_binding, only: c_int64_t, c_ptr
+        integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, nlwbands_c, ngd_c
+        type(c_ptr), value :: iciwpth_p, dei_p, gd_p, absor_p, abs_od_p
+     end subroutine rrtmg_cloud_ice_optics_lw_codon
+  end interface
+
+  call cloud_ice_optics_select_impl()
+  if (.not. use_native_cloud_ice_optics_impl) then
+     call cloud_ice_optics_lw_log_entered()
+     call rrtmg_cloud_ice_optics_lw_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+          int(pver, c_int64_t), int(nlwbands, c_int64_t), int(n_g_d, c_int64_t), &
+          c_loc(iciwpth(1,1)), c_loc(dei(1,1)), c_loc(g_d_eff(1)), c_loc(abs_lw_ice(1,1)), &
+          c_loc(abs_od(1,1,1)))
+     return
+  end if
 
   do k = 1,pver
      do i = 1,ncol
@@ -766,6 +814,71 @@ subroutine get_mu_lambda_weights(lamc, pgam, mu_wgts, lambda_wgts)
        extrap_method_bndry, lambda_wgts)
 
 end subroutine get_mu_lambda_weights
+
+!==============================================================================
+
+subroutine cloud_ice_optics_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cloud_ice_optics_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('RRTMG_CLOUD_ICE_OPTICS_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_cloud_ice_optics_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_cloud_ice_optics_impl = .false.
+   end if
+
+   cloud_ice_optics_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_cloud_ice_optics_impl) then
+         write(iulog,*) 'rrtmg_cloud_ice_optics implementation = native'
+      else
+         write(iulog,*) 'rrtmg_cloud_ice_optics implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine cloud_ice_optics_select_impl
+
+!==============================================================================
+
+subroutine cloud_ice_optics_sw_log_entered()
+
+   if (cloud_ice_optics_sw_entered_logged) return
+   cloud_ice_optics_sw_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,*) 'rrtmg_cloud_ice_optics_sw entered (Mitchell SW ice cloud optics = codon)'
+      call flush(iulog)
+   end if
+
+end subroutine cloud_ice_optics_sw_log_entered
+
+!==============================================================================
+
+subroutine cloud_ice_optics_lw_log_entered()
+
+   if (cloud_ice_optics_lw_entered_logged) return
+   cloud_ice_optics_lw_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,*) 'rrtmg_cloud_ice_optics_lw entered (Mitchell LW ice cloud optics = codon)'
+      call flush(iulog)
+   end if
+
+end subroutine cloud_ice_optics_lw_log_entered
 
 !==============================================================================
 
