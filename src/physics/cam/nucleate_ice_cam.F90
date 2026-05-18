@@ -93,6 +93,10 @@ integer :: coarse_nacl_idx = -1  ! index of nacl in coarse mode
 logical  :: separate_dust = .false.
 real(r8) :: sigmag_aitken
 
+logical :: nucleate_ice_cam_prep_use_native_impl = .false.
+logical :: nucleate_ice_cam_prep_impl_selected = .false.
+logical :: nucleate_ice_cam_prep_entered_logged = .false.
+
 !===============================================================================
 contains
 !===============================================================================
@@ -311,8 +315,61 @@ end subroutine nucleate_ice_cam_init
 
 !================================================================================================
 
+subroutine nucleate_ice_cam_prep_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (nucleate_ice_cam_prep_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('NUCLEATE_ICE_CAM_PREP_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      nucleate_ice_cam_prep_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      nucleate_ice_cam_prep_use_native_impl = .false.
+   end if
+
+   nucleate_ice_cam_prep_impl_selected = .true.
+
+   if (masterproc) then
+      if (nucleate_ice_cam_prep_use_native_impl) then
+         write(iulog,*) 'nucleate_ice_cam_prep implementation = native'
+      else
+         write(iulog,*) 'nucleate_ice_cam_prep implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine nucleate_ice_cam_prep_select_impl
+
+!================================================================================================
+
+subroutine nucleate_ice_cam_prep_log_entered()
+
+   if (nucleate_ice_cam_prep_entered_logged) return
+   nucleate_ice_cam_prep_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,*) 'nucleate_ice_cam_prep entered (rho/icecldf/output zero/relhum prep = codon; qsat/nucleati/history output = native)'
+      call flush(iulog)
+   end if
+
+end subroutine nucleate_ice_cam_prep_log_entered
+
+!================================================================================================
+
 subroutine nucleate_ice_cam_calc( &
    state, wsubi, pbuf)
+
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
    ! arguments
    type(physics_state), target, intent(in)    :: state
@@ -345,19 +402,19 @@ subroutine nucleate_ice_cam_calc( &
    real(r8), pointer :: dgnum(:,:,:)    ! mode dry radius
 
    real(r8), pointer :: ast(:,:)
-   real(r8) :: icecldf(pcols,pver)  ! ice cloud fraction
+   real(r8), target :: icecldf(pcols,pver)  ! ice cloud fraction
 
-   real(r8) :: rho(pcols,pver)      ! air density (kg m-3)
+   real(r8), target :: rho(pcols,pver)      ! air density (kg m-3)
 
    real(r8), allocatable :: naer2(:,:,:)    ! bulk aerosol number concentration (1/m3)
    real(r8), allocatable :: maerosol(:,:,:) ! bulk aerosol mass conc (kg/m3)
 
-   real(r8) :: qs(pcols)            ! liquid-ice weighted sat mixing rat (kg/kg)
+   real(r8), target :: qs(pcols)    ! liquid-ice weighted sat mixing rat (kg/kg)
    real(r8) :: es(pcols)            ! liquid-ice weighted sat vapor press (pa)
    real(r8) :: gammas(pcols)        ! parameter for cond/evap of cloud water
 
-   real(r8) :: relhum(pcols,pver)  ! relative humidity
-   real(r8) :: icldm(pcols,pver)   ! ice cloud fraction
+   real(r8), target :: relhum(pcols,pver)  ! relative humidity
+   real(r8), target :: icldm(pcols,pver)   ! ice cloud fraction
 
    real(r8) :: so4_num                               ! so4 aerosol number (#/cm^3)
    real(r8) :: soot_num                              ! soot (hydrophilic) aerosol number (#/cm^3)
@@ -368,22 +425,57 @@ subroutine nucleate_ice_cam_calc( &
    real(r8) :: ssmc
 
    ! For pre-existing ice
-   real(r8) :: fhom(pcols,pver)    ! how much fraction of cloud can reach Shom
-   real(r8) :: wice(pcols,pver)    ! diagnosed Vertical velocity Reduction caused by preexisting ice (m/s), at Shom 
-   real(r8) :: weff(pcols,pver)    ! effective Vertical velocity for ice nucleation (m/s); weff=wsubi-wice 
-   real(r8) :: INnso4(pcols,pver)   ! #/m3, so4 aerosol number used for ice nucleation
-   real(r8) :: INnbc(pcols,pver)    ! #/m3, bc aerosol number used for ice nucleation
-   real(r8) :: INndust(pcols,pver)  ! #/m3, dust aerosol number used for ice nucleation
-   real(r8) :: INhet(pcols,pver)    ! #/m3, ice number from het freezing
-   real(r8) :: INhom(pcols,pver)    ! #/m3, ice number from hom freezing
-   real(r8) :: INFrehom(pcols,pver) !  hom freezing occurence frequency.  1 occur, 0 not occur.
-   real(r8) :: INFreIN(pcols,pver)  !  ice nucleation occerence frequency.   1 occur, 0 not occur.
+   real(r8), target :: fhom(pcols,pver)    ! how much fraction of cloud can reach Shom
+   real(r8), target :: wice(pcols,pver)    ! diagnosed Vertical velocity Reduction caused by preexisting ice (m/s), at Shom
+   real(r8), target :: weff(pcols,pver)    ! effective Vertical velocity for ice nucleation (m/s); weff=wsubi-wice
+   real(r8), target :: INnso4(pcols,pver)  ! #/m3, so4 aerosol number used for ice nucleation
+   real(r8), target :: INnbc(pcols,pver)   ! #/m3, bc aerosol number used for ice nucleation
+   real(r8), target :: INndust(pcols,pver) ! #/m3, dust aerosol number used for ice nucleation
+   real(r8), target :: INhet(pcols,pver)   ! #/m3, ice number from het freezing
+   real(r8), target :: INhom(pcols,pver)   ! #/m3, ice number from hom freezing
+   real(r8), target :: INFrehom(pcols,pver) !  hom freezing occurence frequency.  1 occur, 0 not occur.
+   real(r8), target :: INFreIN(pcols,pver)  !  ice nucleation occerence frequency.   1 occur, 0 not occur.
 
    ! history output for ice nucleation
-   real(r8) :: nihf(pcols,pver)  !output number conc of ice nuclei due to heterogenous freezing (1/m3)
-   real(r8) :: niimm(pcols,pver) !output number conc of ice nuclei due to immersion freezing (hetero nuc) (1/m3)
-   real(r8) :: nidep(pcols,pver) !output number conc of ice nuclei due to deoposion nucleation (hetero nuc) (1/m3)
-   real(r8) :: nimey(pcols,pver) !output number conc of ice nuclei due to meyers deposition (1/m3)
+   real(r8), target :: nihf(pcols,pver)  !output number conc of ice nuclei due to heterogenous freezing (1/m3)
+   real(r8), target :: niimm(pcols,pver) !output number conc of ice nuclei due to immersion freezing (hetero nuc) (1/m3)
+   real(r8), target :: nidep(pcols,pver) !output number conc of ice nuclei due to deoposion nucleation (hetero nuc) (1/m3)
+   real(r8), target :: nimey(pcols,pver) !output number conc of ice nuclei due to meyers deposition (1/m3)
+
+   logical :: use_native_prep_impl
+
+   interface
+      subroutine nucleate_ice_cam_rho_codon(ncol_c, pcols_c, pver_c, top_lev_c, rair_c, pmid_p, t_p, rho_p) &
+           bind(c, name="nucleate_ice_cam_rho_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+         real(c_double), value :: rair_c
+         type(c_ptr), value :: pmid_p, t_p, rho_p
+      end subroutine nucleate_ice_cam_rho_codon
+      subroutine nucleate_ice_cam_icecldf_codon(ncol_c, pcols_c, pver_c, ast_p, icecldf_p) &
+           bind(c, name="nucleate_ice_cam_icecldf_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+         type(c_ptr), value :: ast_p, icecldf_p
+      end subroutine nucleate_ice_cam_icecldf_codon
+      subroutine nucleate_ice_cam_zero_outputs_codon(ncol_c, pcols_c, pver_c, use_preexisting_ice_c, &
+           naai_p, naai_hom_p, nihf_p, niimm_p, nidep_p, nimey_p, fhom_p, wice_p, weff_p, innso4_p, &
+           innbc_p, inndust_p, inhet_p, inhom_p, infrehom_p, infrein_p) &
+           bind(c, name="nucleate_ice_cam_zero_outputs_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, use_preexisting_ice_c
+         type(c_ptr), value :: naai_p, naai_hom_p, nihf_p, niimm_p, nidep_p, nimey_p
+         type(c_ptr), value :: fhom_p, wice_p, weff_p, innso4_p, innbc_p, inndust_p
+         type(c_ptr), value :: inhet_p, inhom_p, infrehom_p, infrein_p
+      end subroutine nucleate_ice_cam_zero_outputs_codon
+      subroutine nucleate_ice_cam_relhum_codon(ncol_c, pcols_c, k_c, mincld_c, qn_p, qs_p, icecldf_p, relhum_p, &
+           icldm_p) bind(c, name="nucleate_ice_cam_relhum_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, k_c
+         real(c_double), value :: mincld_c
+         type(c_ptr), value :: qn_p, qs_p, icecldf_p, relhum_p, icldm_p
+      end subroutine nucleate_ice_cam_relhum_codon
+   end interface
 
 
    !-------------------------------------------------------------------------------
@@ -397,11 +489,21 @@ subroutine nucleate_ice_cam_calc( &
    ni    => state%q(:,:,numice_idx)
    pmid  => state%pmid
 
-   do k = top_lev, pver
-      do i = 1, ncol
-         rho(i,k) = pmid(i,k)/(rair*t(i,k))
+   call nucleate_ice_cam_prep_select_impl()
+   use_native_prep_impl = nucleate_ice_cam_prep_use_native_impl
+
+   if (use_native_prep_impl) then
+      do k = top_lev, pver
+         do i = 1, ncol
+            rho(i,k) = pmid(i,k)/(rair*t(i,k))
+         end do
       end do
-   end do
+   else
+      call nucleate_ice_cam_rho_codon( &
+           int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
+           real(rair, c_double), c_loc(pmid(1,1)), c_loc(t(1,1)), c_loc(rho(1,1)) &
+      )
+   end if
 
    if (clim_modal_aero) then
       ! mode number mixing ratios
@@ -434,7 +536,14 @@ subroutine nucleate_ice_cam_calc( &
    itim_old = pbuf_old_tim_idx()
    call pbuf_get_field(pbuf, ast_idx, ast, start=(/1,1,itim_old/), kount=(/pcols,pver,1/))
 
-   icecldf(:ncol,:pver) = ast(:ncol,:pver)
+   if (use_native_prep_impl) then
+      icecldf(:ncol,:pver) = ast(:ncol,:pver)
+   else
+      call nucleate_ice_cam_icecldf_codon( &
+           int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+           c_loc(ast(1,1)), c_loc(icecldf(1,1)) &
+      )
+   end if
 
    if (clim_modal_aero) then
       call pbuf_get_field(pbuf, dgnum_idx, dgnum)
@@ -443,27 +552,38 @@ subroutine nucleate_ice_cam_calc( &
    ! naai and naai_hom are the outputs from this parameterization
    call pbuf_get_field(pbuf, naai_idx, naai)
    call pbuf_get_field(pbuf, naai_hom_idx, naai_hom)
-   naai(1:ncol,1:pver)     = 0._r8  
-   naai_hom(1:ncol,1:pver) = 0._r8  
+   if (use_native_prep_impl) then
+      naai(1:ncol,1:pver)     = 0._r8
+      naai_hom(1:ncol,1:pver) = 0._r8
 
-   ! initialize history output fields for ice nucleation
-   nihf(1:ncol,1:pver)  = 0._r8  
-   niimm(1:ncol,1:pver) = 0._r8  
-   nidep(1:ncol,1:pver) = 0._r8 
-   nimey(1:ncol,1:pver) = 0._r8 
+      ! initialize history output fields for ice nucleation
+      nihf(1:ncol,1:pver)  = 0._r8
+      niimm(1:ncol,1:pver) = 0._r8
+      nidep(1:ncol,1:pver) = 0._r8
+      nimey(1:ncol,1:pver) = 0._r8
 
-   if (use_preexisting_ice) then
-      fhom(:,:)     = 0.0_r8
-      wice(:,:)     = 0.0_r8
-      weff(:,:)     = 0.0_r8
-      INnso4(:,:)   = 0.0_r8
-      INnbc(:,:)    = 0.0_r8
-      INndust(:,:)  = 0.0_r8
-      INhet(:,:)    = 0.0_r8
-      INhom(:,:)    = 0.0_r8
-      INFrehom(:,:) = 0.0_r8
-      INFreIN(:,:)  = 0.0_r8
-   endif
+      if (use_preexisting_ice) then
+         fhom(:,:)     = 0.0_r8
+         wice(:,:)     = 0.0_r8
+         weff(:,:)     = 0.0_r8
+         INnso4(:,:)   = 0.0_r8
+         INnbc(:,:)    = 0.0_r8
+         INndust(:,:)  = 0.0_r8
+         INhet(:,:)    = 0.0_r8
+         INhom(:,:)    = 0.0_r8
+         INFrehom(:,:) = 0.0_r8
+         INFreIN(:,:)  = 0.0_r8
+      endif
+   else
+      call nucleate_ice_cam_zero_outputs_codon( &
+           int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+           int(merge(1, 0, use_preexisting_ice), c_int64_t), &
+           c_loc(naai(1,1)), c_loc(naai_hom(1,1)), c_loc(nihf(1,1)), c_loc(niimm(1,1)), &
+           c_loc(nidep(1,1)), c_loc(nimey(1,1)), c_loc(fhom(1,1)), c_loc(wice(1,1)), &
+           c_loc(weff(1,1)), c_loc(INnso4(1,1)), c_loc(INnbc(1,1)), c_loc(INndust(1,1)), &
+           c_loc(INhet(1,1)), c_loc(INhom(1,1)), c_loc(INFrehom(1,1)), c_loc(INFreIN(1,1)) &
+      )
+   end if
 
    do k = top_lev, pver
 
@@ -471,15 +591,26 @@ subroutine nucleate_ice_cam_calc( &
       call qsat_water(t(:ncol,k), pmid(:ncol,k), &
            es(:ncol), qs(:ncol), gam=gammas(:ncol))
 
-      do i = 1, ncol
+      if (use_native_prep_impl) then
+         do i = 1, ncol
 
-         relhum(i,k) = qn(i,k)/qs(i)
+            relhum(i,k) = qn(i,k)/qs(i)
 
-         ! get cloud fraction, check for minimum
-         icldm(i,k) = max(icecldf(i,k), mincld)
+            ! get cloud fraction, check for minimum
+            icldm(i,k) = max(icecldf(i,k), mincld)
 
-      end do
+         end do
+      else
+         call nucleate_ice_cam_relhum_codon( &
+              int(ncol, c_int64_t), int(pcols, c_int64_t), int(k, c_int64_t), real(mincld, c_double), &
+              c_loc(qn(1,1)), c_loc(qs(1)), c_loc(icecldf(1,1)), c_loc(relhum(1,1)), c_loc(icldm(1,1)) &
+         )
+      end if
    end do
+
+   if (.not. use_native_prep_impl) then
+      call nucleate_ice_cam_prep_log_entered()
+   end if
 
 
    do k = top_lev, pver

@@ -230,3 +230,132 @@ def microp_aero_npccn_copy_codon(
     for k in range(1, pver + 1):
         for i in range(1, ncol + 1):
             npccn[_idx2(i, k, pcols)] = nctend_mixnuc[_idx2(i, k, pcols)]
+
+
+@export
+def nucleate_ice_cam_rho_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    rair: float,
+    pmid_p: cobj,
+    t_p: cobj,
+    rho_p: cobj,
+):
+    pmid = Ptr[float](pmid_p)
+    t = Ptr[float](t_p)
+    rho = Ptr[float](rho_p)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            rho[_idx2(i, k, pcols)] = pmid[_idx2(i, k, pcols)] / (
+                rair * t[_idx2(i, k, pcols)]
+            )
+
+
+@export
+def nucleate_ice_cam_icecldf_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    ast_p: cobj,
+    icecldf_p: cobj,
+):
+    ast = Ptr[float](ast_p)
+    icecldf = Ptr[float](icecldf_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            icecldf[_idx2(i, k, pcols)] = ast[_idx2(i, k, pcols)]
+
+
+@export
+def nucleate_ice_cam_zero_outputs_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    use_preexisting_ice_flag: int,
+    naai_p: cobj,
+    naai_hom_p: cobj,
+    nihf_p: cobj,
+    niimm_p: cobj,
+    nidep_p: cobj,
+    nimey_p: cobj,
+    fhom_p: cobj,
+    wice_p: cobj,
+    weff_p: cobj,
+    innso4_p: cobj,
+    innbc_p: cobj,
+    inndust_p: cobj,
+    inhet_p: cobj,
+    inhom_p: cobj,
+    infrehom_p: cobj,
+    infrein_p: cobj,
+):
+    naai = Ptr[float](naai_p)
+    naai_hom = Ptr[float](naai_hom_p)
+    nihf = Ptr[float](nihf_p)
+    niimm = Ptr[float](niimm_p)
+    nidep = Ptr[float](nidep_p)
+    nimey = Ptr[float](nimey_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            naai[_idx2(i, k, pcols)] = 0.0
+            naai_hom[_idx2(i, k, pcols)] = 0.0
+            nihf[_idx2(i, k, pcols)] = 0.0
+            niimm[_idx2(i, k, pcols)] = 0.0
+            nidep[_idx2(i, k, pcols)] = 0.0
+            nimey[_idx2(i, k, pcols)] = 0.0
+
+    if use_preexisting_ice_flag != 0:
+        fhom = Ptr[float](fhom_p)
+        wice = Ptr[float](wice_p)
+        weff = Ptr[float](weff_p)
+        innso4 = Ptr[float](innso4_p)
+        innbc = Ptr[float](innbc_p)
+        inndust = Ptr[float](inndust_p)
+        inhet = Ptr[float](inhet_p)
+        inhom = Ptr[float](inhom_p)
+        infrehom = Ptr[float](infrehom_p)
+        infrein = Ptr[float](infrein_p)
+
+        for k in range(1, pver + 1):
+            for i in range(1, pcols + 1):
+                fhom[_idx2(i, k, pcols)] = 0.0
+                wice[_idx2(i, k, pcols)] = 0.0
+                weff[_idx2(i, k, pcols)] = 0.0
+                innso4[_idx2(i, k, pcols)] = 0.0
+                innbc[_idx2(i, k, pcols)] = 0.0
+                inndust[_idx2(i, k, pcols)] = 0.0
+                inhet[_idx2(i, k, pcols)] = 0.0
+                inhom[_idx2(i, k, pcols)] = 0.0
+                infrehom[_idx2(i, k, pcols)] = 0.0
+                infrein[_idx2(i, k, pcols)] = 0.0
+
+
+@export
+def nucleate_ice_cam_relhum_codon(
+    ncol: int,
+    pcols: int,
+    k: int,
+    mincld: float,
+    qn_p: cobj,
+    qs_p: cobj,
+    icecldf_p: cobj,
+    relhum_p: cobj,
+    icldm_p: cobj,
+):
+    qn = Ptr[float](qn_p)
+    qs = Ptr[float](qs_p)
+    icecldf = Ptr[float](icecldf_p)
+    relhum = Ptr[float](relhum_p)
+    icldm = Ptr[float](icldm_p)
+
+    for i in range(1, ncol + 1):
+        relhum[_idx2(i, k, pcols)] = qn[_idx2(i, k, pcols)] / qs[i - 1]
+        val = icecldf[_idx2(i, k, pcols)]
+        if val < mincld:
+            val = mincld
+        icldm[_idx2(i, k, pcols)] = val
