@@ -3630,6 +3630,29 @@ def rrtmg_lw_subcol_cldf_prep_codon(
 
 
 @export
+def rrtmg_lw_subcol_overlap_codon(
+    ncol: int,
+    nlay: int,
+    nsubcol: int,
+    cdf_p: cobj,
+    cldf_p: cobj,
+):
+    cdf = Ptr[float](cdf_p)
+    cldf = Ptr[float](cldf_p)
+
+    for ilev in range(2, nlay + 1):
+        for i in range(1, ncol + 1):
+            cldf_prev_idx = _idx2(i, ilev - 1, ncol)
+            for isubcol in range(1, nsubcol + 1):
+                prev_idx = _idx3(isubcol, i, ilev - 1, nsubcol, ncol)
+                cur_idx = _idx3(isubcol, i, ilev, nsubcol, ncol)
+                if cdf[prev_idx] > 1.0 - cldf[cldf_prev_idx]:
+                    cdf[cur_idx] = cdf[prev_idx]
+                else:
+                    cdf[cur_idx] = cdf[cur_idx] * (1.0 - cldf[cldf_prev_idx])
+
+
+@export
 def rrtmg_lw_subcol_fill_codon(
     ncol: int,
     nlay: int,
