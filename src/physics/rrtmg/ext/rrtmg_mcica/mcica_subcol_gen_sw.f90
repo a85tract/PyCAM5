@@ -346,6 +346,12 @@
             real(c_double), value :: cldmin_c
             type(c_ptr), value :: cld_p, cldf_p
          end subroutine rrtmg_sw_subcol_cldf_prep_codon
+         subroutine rrtmg_sw_subcol_overlap_codon(ncol_c, nlay_c, nsubcol_c, &
+              cdf_p, cldf_p) bind(c, name="rrtmg_sw_subcol_overlap_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: ncol_c, nlay_c, nsubcol_c
+            type(c_ptr), value :: cdf_p, cldf_p
+         end subroutine rrtmg_sw_subcol_overlap_codon
          subroutine rrtmg_sw_subcol_fill_codon(ncol_c, nlay_c, nsubcol_c, nbndsw_c, &
               ld_cloud_c, ld_tauc_col_c, ld_out_col_c, &
               cdf_p, cldf_p, clwp_p, ciwp_p, tauc_p, ssac_p, asmc_p, fsfc_p, &
@@ -460,17 +466,26 @@
              enddo
          endif
 
-         do ilev = 2,nlay
-            do i = 1, ncol
-               do isubcol = 1, nsubcol
-                  if (CDF(isubcol, i, ilev-1) > 1._r8 - cldf(i,ilev-1) ) then
-                     CDF(isubcol,i,ilev) = CDF(isubcol,i,ilev-1) 
-                  else
-                     CDF(isubcol,i,ilev) = CDF(isubcol,i,ilev) * (1._r8 - cldf(i,ilev-1))
-                  end if
+         call subcol_fill_sw_select_impl()
+         if (use_native_subcol_fill_sw_impl) then
+            do ilev = 2,nlay
+               do i = 1, ncol
+                  do isubcol = 1, nsubcol
+                     if (CDF(isubcol, i, ilev-1) > 1._r8 - cldf(i,ilev-1) ) then
+                        CDF(isubcol,i,ilev) = CDF(isubcol,i,ilev-1)
+                     else
+                        CDF(isubcol,i,ilev) = CDF(isubcol,i,ilev) * (1._r8 - cldf(i,ilev-1))
+                     end if
+                  end do
                end do
-            end do
-         enddo
+            enddo
+         else
+            call subcol_fill_sw_log_entered()
+            call rrtmg_sw_subcol_overlap_codon( &
+                 int(ncol, c_int64_t), int(nlay, c_int64_t), int(nsubcol, c_int64_t), &
+                 c_loc(CDF(1,1,1)), c_loc(cldf(1,1)) &
+            )
+         end if
 
       case(3) 
 ! Maximum overlap
@@ -678,7 +693,8 @@
       subcol_fill_sw_entered_logged = .true.
 
       if (masterproc) then
-         write(iulog,*) 'rrtmg_sw_subcol_fill entered (mcica sw pressure/size/cldf prep and stochastic cloud fill = codon)'
+         write(iulog,*) 'rrtmg_sw_subcol_fill entered (mcica sw pressure/size/cldf prep, ' // &
+              'overlap CDF and stochastic cloud fill = codon)'
          call flush(iulog)
       end if
 
