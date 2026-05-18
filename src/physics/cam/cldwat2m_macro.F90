@@ -118,6 +118,9 @@
    logical :: use_native_init_zero_impl = .false.
    logical :: init_zero_impl_selected = .false.
    logical :: init_zero_entered_logged = .false.
+   logical :: use_native_iter_column_impl = .false.
+   logical :: iter_column_impl_selected = .false.
+   logical :: iter_column_entered_logged = .false.
 
    contains
 
@@ -635,15 +638,8 @@
       call qsat_water(T(1:ncol,k), p(1:ncol,k), &
                       esat_b(1:ncol), qsat_b(1:ncol), dqsdt=dqsdT_b(1:ncol))
 
-      if( iter .eq. 1 ) then
-          a_cu(:ncol,k) = a_cud(:ncol,k)
-      else
-          a_cu(:ncol,k) = a_cu0(:ncol,k)
-      endif
-      do i = 1, ncol
-         U(i,k)    =  qv(i,k)/qsat_b(i)
-         U_nc(i,k) =  U(i,k)
-      enddo
+      call iter_column_state_codon_wrap(iter, ncol, qsat_b, qv(:,k), a_cud(:,k), a_cu0(:,k), &
+           a_cu(:,k), U(:,k), U_nc(:,k))
       if( CAMstfrac ) then
           call astG_RHU(U_nc(:,k),p(:,k),qv(:,k),landfrac(:),snowh(:),al_st_nc(:,k),G_nc(:,k),ncol,&
                         rhminl_arr(:,k), rhminl_adj_land_arr(:,k), rhminh_arr(:,k))                          
@@ -654,9 +650,8 @@
       call aist_vector(qv(:,k),T(:,k),p(:,k),qi(:,k),ni(:,k),landfrac(:),snowh(:),ai_st_nc(:,k),ncol,&
                        rhmaxi, rhmini_arr(:,k), rhminl_arr(:,k), rhminl_adj_land_arr(:,k), rhminh_arr(:,k))
 
-      ai_st(:ncol,k)  =  (1._r8-a_cu(:ncol,k))*ai_st_nc(:ncol,k)
-      al_st(:ncol,k)  =  (1._r8-a_cu(:ncol,k))*al_st_nc(:ncol,k)
-      a_st(:ncol,k)   =  max(al_st(:ncol,k),ai_st(:ncol,k))  
+      call iter_column_stratus_codon_wrap(ncol, a_cu(:,k), al_st_nc(:,k), ai_st_nc(:,k), &
+           al_st(:,k), ai_st(:,k), a_st(:,k))
 
       do i = 1, ncol
 
@@ -1807,6 +1802,116 @@ end subroutine rhcrit_calc
    arr16(:ncol,:) = 0._r8
 
    end subroutine zero16_ncol_codon_wrap
+
+!=======================================================================================================
+
+   subroutine iter_column_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: n, status
+
+   if (iter_column_impl_selected) return
+   call get_environment_variable('CLDWAT2M_ITER_COLUMN_IMPL', value=impl_name, length=n, status=status)
+   use_native_iter_column_impl = .false.
+   if (status == 0 .and. n > 0) then
+      select case (adjustl(impl_name(:n)))
+      case ('native', 'Native', 'NATIVE')
+         use_native_iter_column_impl = .true.
+      case ('codon', 'Codon', 'CODON')
+         use_native_iter_column_impl = .false.
+      case default
+         use_native_iter_column_impl = .false.
+      end select
+   end if
+   iter_column_impl_selected = .true.
+   if (masterproc) then
+      if (use_native_iter_column_impl) then
+         write(iulog,*) 'cldwat2m_iter_column implementation = native'
+      else
+         write(iulog,*) 'cldwat2m_iter_column implementation = codon'
+      end if
+   end if
+   end subroutine iter_column_select_impl
+
+   subroutine iter_column_log_entered()
+   if (iter_column_entered_logged) return
+   iter_column_entered_logged = .true.
+   if (masterproc) then
+      write(iulog,*) 'cldwat2m_iter_column entered (macrophysics iteration column fields = codon)'
+   end if
+   end subroutine iter_column_log_entered
+
+   subroutine iter_column_state_codon_wrap(iter, ncol, qsat_b, qv, a_cud, a_cu0, a_cu, U, U_nc)
+
+   integer, intent(in) :: iter
+   integer, intent(in) :: ncol
+   real(r8), target, intent(in) :: qsat_b(pcols), qv(pcols), a_cud(pcols), a_cu0(pcols)
+   real(r8), target, intent(out) :: a_cu(pcols), U(pcols), U_nc(pcols)
+
+   integer :: i
+
+   interface
+      subroutine cldwat2m_iter_column_state_codon(iter_c, ncol_c, qsat_b_p, qv_p, a_cud_p, a_cu0_p, &
+           a_cu_p, U_p, U_nc_p) bind(c, name="cldwat2m_iter_column_state_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: iter_c, ncol_c
+         type(c_ptr), value :: qsat_b_p, qv_p, a_cud_p, a_cu0_p, a_cu_p, U_p, U_nc_p
+      end subroutine cldwat2m_iter_column_state_codon
+   end interface
+
+   call iter_column_select_impl()
+   if (.not. use_native_iter_column_impl) then
+      call iter_column_log_entered()
+      call cldwat2m_iter_column_state_codon(int(iter, c_int64_t), int(ncol, c_int64_t), &
+           c_loc(qsat_b(1)), c_loc(qv(1)), c_loc(a_cud(1)), c_loc(a_cu0(1)), c_loc(a_cu(1)), &
+           c_loc(U(1)), c_loc(U_nc(1)))
+      return
+   endif
+
+   if( iter .eq. 1 ) then
+       a_cu(:ncol) = a_cud(:ncol)
+   else
+       a_cu(:ncol) = a_cu0(:ncol)
+   endif
+   do i = 1, ncol
+      U(i)    =  qv(i)/qsat_b(i)
+      U_nc(i) =  U(i)
+   enddo
+
+   end subroutine iter_column_state_codon_wrap
+
+   subroutine iter_column_stratus_codon_wrap(ncol, a_cu, al_st_nc, ai_st_nc, al_st, ai_st, a_st)
+
+   integer, intent(in) :: ncol
+   real(r8), target, intent(in) :: a_cu(pcols), al_st_nc(pcols), ai_st_nc(pcols)
+   real(r8), target, intent(out) :: al_st(pcols), ai_st(pcols), a_st(pcols)
+
+   integer :: i
+
+   interface
+      subroutine cldwat2m_iter_column_stratus_codon(ncol_c, a_cu_p, al_st_nc_p, ai_st_nc_p, &
+           al_st_p, ai_st_p, a_st_p) bind(c, name="cldwat2m_iter_column_stratus_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c
+         type(c_ptr), value :: a_cu_p, al_st_nc_p, ai_st_nc_p, al_st_p, ai_st_p, a_st_p
+      end subroutine cldwat2m_iter_column_stratus_codon
+   end interface
+
+   call iter_column_select_impl()
+   if (.not. use_native_iter_column_impl) then
+      call iter_column_log_entered()
+      call cldwat2m_iter_column_stratus_codon(int(ncol, c_int64_t), c_loc(a_cu(1)), &
+           c_loc(al_st_nc(1)), c_loc(ai_st_nc(1)), c_loc(al_st(1)), c_loc(ai_st(1)), c_loc(a_st(1)))
+      return
+   endif
+
+   ai_st(:ncol)  =  (1._r8-a_cu(:ncol))*ai_st_nc(:ncol)
+   al_st(:ncol)  =  (1._r8-a_cu(:ncol))*al_st_nc(:ncol)
+   do i = 1, ncol
+      a_st(i) = max(al_st(i), ai_st(i))
+   enddo
+
+   end subroutine iter_column_stratus_codon_wrap
 
 !=======================================================================================================
 

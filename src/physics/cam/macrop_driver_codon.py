@@ -589,6 +589,63 @@ def cldwat2m_zero16_ncol_codon(
 
 
 @export
+def cldwat2m_iter_column_state_codon(
+    iter: int,
+    ncol: int,
+    qsat_b_p: cobj,
+    qv_p: cobj,
+    a_cud_p: cobj,
+    a_cu0_p: cobj,
+    a_cu_p: cobj,
+    u_p: cobj,
+    u_nc_p: cobj,
+):
+    qsat_b = Ptr[float](qsat_b_p)
+    qv = Ptr[float](qv_p)
+    a_cud = Ptr[float](a_cud_p)
+    a_cu0 = Ptr[float](a_cu0_p)
+    a_cu = Ptr[float](a_cu_p)
+    u = Ptr[float](u_p)
+    u_nc = Ptr[float](u_nc_p)
+
+    if iter == 1:
+        for idx in range(ncol):
+            a_cu[idx] = a_cud[idx]
+    else:
+        for idx in range(ncol):
+            a_cu[idx] = a_cu0[idx]
+
+    for idx in range(ncol):
+        u[idx] = qv[idx] / qsat_b[idx]
+        u_nc[idx] = u[idx]
+
+
+@export
+def cldwat2m_iter_column_stratus_codon(
+    ncol: int,
+    a_cu_p: cobj,
+    al_st_nc_p: cobj,
+    ai_st_nc_p: cobj,
+    al_st_p: cobj,
+    ai_st_p: cobj,
+    a_st_p: cobj,
+):
+    a_cu = Ptr[float](a_cu_p)
+    al_st_nc = Ptr[float](al_st_nc_p)
+    ai_st_nc = Ptr[float](ai_st_nc_p)
+    al_st = Ptr[float](al_st_p)
+    ai_st = Ptr[float](ai_st_p)
+    a_st = Ptr[float](a_st_p)
+
+    for idx in range(ncol):
+        ai_st[idx] = (1.0 - a_cu[idx]) * ai_st_nc[idx]
+    for idx in range(ncol):
+        al_st[idx] = (1.0 - a_cu[idx]) * al_st_nc[idx]
+    for idx in range(ncol):
+        a_st[idx] = max(al_st[idx], ai_st[idx])
+
+
+@export
 def cldwat2m_advective_state_codon(
     ncol: int,
     pcols: int,
