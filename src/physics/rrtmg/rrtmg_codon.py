@@ -1095,6 +1095,117 @@ def rrtmg_sw_post_codon(
             )
 
 
+@inline
+def _radsw_expand_1d_zero_night(
+    arr: Ptr[float],
+    nday: int,
+    nnite: int,
+    idxday: Ptr[int],
+    idxnite: Ptr[int],
+):
+    # IdxDay/IdxNite are generated in ascending column order; scatter daylight
+    # compact values backwards so no Fortran-owned scratch array is needed.
+    for pos in range(nday, 0, -1):
+        arr[idxday[pos - 1] - 1] = arr[pos - 1]
+    for pos in range(1, nnite + 1):
+        arr[idxnite[pos - 1] - 1] = 0.0
+
+
+@inline
+def _radsw_expand_2d_zero_night(
+    arr: Ptr[float],
+    nday: int,
+    nnite: int,
+    nlev: int,
+    pcols: int,
+    idxday: Ptr[int],
+    idxnite: Ptr[int],
+):
+    for k in range(1, nlev + 1):
+        for pos in range(nday, 0, -1):
+            arr[_idx2(idxday[pos - 1], k, pcols)] = arr[_idx2(pos, k, pcols)]
+        for pos in range(1, nnite + 1):
+            arr[_idx2(idxnite[pos - 1], k, pcols)] = 0.0
+
+
+@export
+def rrtmg_sw_expand_outputs_codon(
+    nday: int,
+    nnite: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    idxday_p: cobj,
+    idxnite_p: cobj,
+    solin_p: cobj,
+    qrs_p: cobj,
+    qrsc_p: cobj,
+    fns_p: cobj,
+    fcns_p: cobj,
+    fsns_p: cobj,
+    fsnt_p: cobj,
+    fsntoa_p: cobj,
+    fsutoa_p: cobj,
+    fsds_p: cobj,
+    fsnsc_p: cobj,
+    fsdsc_p: cobj,
+    fsntc_p: cobj,
+    fsntoac_p: cobj,
+    sols_p: cobj,
+    soll_p: cobj,
+    solsd_p: cobj,
+    solld_p: cobj,
+    fsnirtoa_p: cobj,
+    fsnrtoac_p: cobj,
+    fsnrtoaq_p: cobj,
+):
+    idxday = Ptr[int](idxday_p)
+    idxnite = Ptr[int](idxnite_p)
+    solin = Ptr[float](solin_p)
+    qrs = Ptr[float](qrs_p)
+    qrsc = Ptr[float](qrsc_p)
+    fns = Ptr[float](fns_p)
+    fcns = Ptr[float](fcns_p)
+    fsns = Ptr[float](fsns_p)
+    fsnt = Ptr[float](fsnt_p)
+    fsntoa = Ptr[float](fsntoa_p)
+    fsutoa = Ptr[float](fsutoa_p)
+    fsds = Ptr[float](fsds_p)
+    fsnsc = Ptr[float](fsnsc_p)
+    fsdsc = Ptr[float](fsdsc_p)
+    fsntc = Ptr[float](fsntc_p)
+    fsntoac = Ptr[float](fsntoac_p)
+    sols = Ptr[float](sols_p)
+    soll = Ptr[float](soll_p)
+    solsd = Ptr[float](solsd_p)
+    solld = Ptr[float](solld_p)
+    fsnirtoa = Ptr[float](fsnirtoa_p)
+    fsnrtoac = Ptr[float](fsnrtoac_p)
+    fsnrtoaq = Ptr[float](fsnrtoaq_p)
+
+    _radsw_expand_1d_zero_night(solin, nday, nnite, idxday, idxnite)
+    _radsw_expand_2d_zero_night(qrs, nday, nnite, pver, pcols, idxday, idxnite)
+    _radsw_expand_2d_zero_night(qrsc, nday, nnite, pver, pcols, idxday, idxnite)
+    _radsw_expand_2d_zero_night(fns, nday, nnite, pverp, pcols, idxday, idxnite)
+    _radsw_expand_2d_zero_night(fcns, nday, nnite, pverp, pcols, idxday, idxnite)
+    _radsw_expand_1d_zero_night(fsns, nday, nnite, idxday, idxnite)
+    _radsw_expand_1d_zero_night(fsnt, nday, nnite, idxday, idxnite)
+    _radsw_expand_1d_zero_night(fsntoa, nday, nnite, idxday, idxnite)
+    _radsw_expand_1d_zero_night(fsutoa, nday, nnite, idxday, idxnite)
+    _radsw_expand_1d_zero_night(fsds, nday, nnite, idxday, idxnite)
+    _radsw_expand_1d_zero_night(fsnsc, nday, nnite, idxday, idxnite)
+    _radsw_expand_1d_zero_night(fsdsc, nday, nnite, idxday, idxnite)
+    _radsw_expand_1d_zero_night(fsntc, nday, nnite, idxday, idxnite)
+    _radsw_expand_1d_zero_night(fsntoac, nday, nnite, idxday, idxnite)
+    _radsw_expand_1d_zero_night(sols, nday, nnite, idxday, idxnite)
+    _radsw_expand_1d_zero_night(soll, nday, nnite, idxday, idxnite)
+    _radsw_expand_1d_zero_night(solsd, nday, nnite, idxday, idxnite)
+    _radsw_expand_1d_zero_night(solld, nday, nnite, idxday, idxnite)
+    _radsw_expand_1d_zero_night(fsnirtoa, nday, nnite, idxday, idxnite)
+    _radsw_expand_1d_zero_night(fsnrtoac, nday, nnite, idxday, idxnite)
+    _radsw_expand_1d_zero_night(fsnrtoaq, nday, nnite, idxday, idxnite)
+
+
 @export
 def rrtmg_sw_setcoef_codon(
     nlayers: int,

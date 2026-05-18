@@ -30,6 +30,7 @@ real(r8) :: solar_band_irrad(1:nbndsw) ! rrtmg-assumed solar irradiance in each 
 logical :: use_native_rrtmg_sw_driver_impl = .false.
 logical :: rrtmg_sw_driver_impl_selected = .false.
 logical :: rrtmg_sw_driver_entered_logged = .false.
+logical :: rrtmg_sw_driver_expand_entered_logged = .false.
 logical :: use_native_rrtmg_sw_cloud_optics_impl = .false.
 logical :: rrtmg_sw_cloud_optics_impl_selected = .false.
 logical :: rrtmg_sw_cloud_optics_entered_logged = .false.
@@ -280,6 +281,7 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    real(r8) :: tlay(pcols,rrtmg_levs)     ! mid point temperature
    real(r8), target :: tlev(pcols,rrtmg_levs+1)   ! interface temperature
    integer(c_int64_t), target :: IdxDay64(pcols)
+   integer(c_int64_t), target :: IdxNite64(pcols)
    integer(c_int64_t) :: old_convert_flag64
 
    interface
@@ -315,6 +317,20 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
          type(c_ptr), value :: sols_p, soll_p, solsd_p, solld_p, fns_p, fcns_p, fus_p, fds_p, fusc_p, fdsc_p
          type(c_ptr), value :: qrs_p, qrsc_p
       end subroutine rrtmg_sw_post_codon
+      subroutine rrtmg_sw_expand_outputs_codon(nday_c, nnite_c, pcols_c, pver_c, pverp_c, &
+           idxday_p, idxnite_p, solin_p, qrs_p, qrsc_p, fns_p, fcns_p, fsns_p, fsnt_p, &
+           fsntoa_p, fsutoa_p, fsds_p, fsnsc_p, fsdsc_p, fsntc_p, fsntoac_p, sols_p, &
+           soll_p, solsd_p, solld_p, fsnirtoa_p, fsnrtoac_p, fsnrtoaq_p) &
+           bind(c, name="rrtmg_sw_expand_outputs_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: nday_c, nnite_c, pcols_c, pver_c, pverp_c
+         type(c_ptr), value :: idxday_p, idxnite_p
+         type(c_ptr), value :: solin_p, qrs_p, qrsc_p, fns_p, fcns_p
+         type(c_ptr), value :: fsns_p, fsnt_p, fsntoa_p, fsutoa_p, fsds_p
+         type(c_ptr), value :: fsnsc_p, fsdsc_p, fsntc_p, fsntoac_p
+         type(c_ptr), value :: sols_p, soll_p, solsd_p, solld_p
+         type(c_ptr), value :: fsnirtoa_p, fsnrtoac_p, fsnrtoaq_p
+      end subroutine rrtmg_sw_expand_outputs_codon
    end interface
 
    !-----------------------------------------------------------------------
@@ -373,6 +389,11 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    if (.not. use_native_rrtmg_sw_driver_impl .or. .not. use_native_rrtmg_sw_cloud_optics_impl) then
       do i = 1, Nday
          IdxDay64(i) = int(IdxDay(i), c_int64_t)
+      end do
+   end if
+   if (.not. use_native_rrtmg_sw_driver_impl) then
+      do i = 1, Nnite
+         IdxNite64(i) = int(IdxNite(i), c_int64_t)
       end do
    end if
 
@@ -705,27 +726,39 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    !
    ! intent(out)
 
-   call ExpDayNite(solin,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
-   call ExpDayNite(qrs,		Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pver)
-   call ExpDayNite(qrsc,	Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pver)
-   call ExpDayNite(fns,		Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
-   call ExpDayNite(fcns,	Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
-   call ExpDayNite(fsns,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
-   call ExpDayNite(fsnt,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
-   call ExpDayNite(fsntoa,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
-   call ExpDayNite(fsutoa,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
-   call ExpDayNite(fsds,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
-   call ExpDayNite(fsnsc,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
-   call ExpDayNite(fsdsc,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
-   call ExpDayNite(fsntc,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
-   call ExpDayNite(fsntoac,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
-   call ExpDayNite(sols,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
-   call ExpDayNite(soll,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
-   call ExpDayNite(solsd,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
-   call ExpDayNite(solld,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
-   call ExpDayNite(fsnirtoa,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
-   call ExpDayNite(fsnrtoac,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
-   call ExpDayNite(fsnrtoaq,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
+   if (use_native_rrtmg_sw_driver_impl) then
+      call ExpDayNite(solin,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
+      call ExpDayNite(qrs,		Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pver)
+      call ExpDayNite(qrsc,	Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pver)
+      call ExpDayNite(fns,		Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
+      call ExpDayNite(fcns,	Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp)
+      call ExpDayNite(fsns,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
+      call ExpDayNite(fsnt,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
+      call ExpDayNite(fsntoa,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
+      call ExpDayNite(fsutoa,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
+      call ExpDayNite(fsds,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
+      call ExpDayNite(fsnsc,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
+      call ExpDayNite(fsdsc,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
+      call ExpDayNite(fsntc,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
+      call ExpDayNite(fsntoac,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
+      call ExpDayNite(sols,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
+      call ExpDayNite(soll,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
+      call ExpDayNite(solsd,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
+      call ExpDayNite(solld,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
+      call ExpDayNite(fsnirtoa,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
+      call ExpDayNite(fsnrtoac,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
+      call ExpDayNite(fsnrtoaq,	Nday, IdxDay, Nnite, IdxNite, 1, pcols)
+   else
+      call rrtmg_sw_driver_expand_log_entered()
+      call rrtmg_sw_expand_outputs_codon(int(Nday, c_int64_t), int(Nnite, c_int64_t), &
+           int(pcols, c_int64_t), int(pver, c_int64_t), int(pverp, c_int64_t), &
+           c_loc(IdxDay64(1)), c_loc(IdxNite64(1)), c_loc(solin(1)), c_loc(qrs(1,1)), &
+           c_loc(qrsc(1,1)), c_loc(fns(1,1)), c_loc(fcns(1,1)), c_loc(fsns(1)), &
+           c_loc(fsnt(1)), c_loc(fsntoa(1)), c_loc(fsutoa(1)), c_loc(fsds(1)), &
+           c_loc(fsnsc(1)), c_loc(fsdsc(1)), c_loc(fsntc(1)), c_loc(fsntoac(1)), &
+           c_loc(sols(1)), c_loc(soll(1)), c_loc(solsd(1)), c_loc(solld(1)), &
+           c_loc(fsnirtoa(1)), c_loc(fsnrtoac(1)), c_loc(fsnrtoaq(1)))
+   end if
 
    if (associated(su)) then
       call ExpDayNite(su,	Nday, IdxDay, Nnite, IdxNite, 1, pcols, 1, pverp, 1, nbndsw)
@@ -822,6 +855,20 @@ subroutine rrtmg_sw_driver_log_entered()
    end if
 
 end subroutine rrtmg_sw_driver_log_entered
+
+!-------------------------------------------------------------------------------
+
+subroutine rrtmg_sw_driver_expand_log_entered()
+
+   if (rrtmg_sw_driver_expand_entered_logged) return
+   rrtmg_sw_driver_expand_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,*) 'rrtmg_sw_driver expand outputs entered (ExpDayNite output scatter = codon)'
+      call flush(iulog)
+   end if
+
+end subroutine rrtmg_sw_driver_expand_log_entered
 
 !-------------------------------------------------------------------------------
 
