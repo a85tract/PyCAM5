@@ -10,6 +10,168 @@ def _idx3(i: int, k: int, m: int, ld1: int, ld2: int):
 
 
 @inline
+def _pack2d_mgcols(
+    mgncol: int,
+    nlev: int,
+    psetcols: int,
+    top_lev: int,
+    mgcols: Ptr[int],
+    src: Ptr[float],
+    dst: Ptr[float],
+):
+    for j in range(1, mgncol + 1):
+        i = mgcols[j - 1]
+        for kk in range(1, nlev + 1):
+            k = top_lev + kk - 1
+            dst[_idx2(j, kk, mgncol)] = src[_idx2(i, k, psetcols)]
+
+
+@inline
+def _pack_interface_mgcols(
+    mgncol: int,
+    nlev: int,
+    psetcols: int,
+    top_lev: int,
+    mgcols: Ptr[int],
+    src: Ptr[float],
+    dst: Ptr[float],
+):
+    for j in range(1, mgncol + 1):
+        i = mgcols[j - 1]
+        for kk in range(1, nlev + 2):
+            k = top_lev + kk - 1
+            dst[_idx2(j, kk, mgncol)] = src[_idx2(i, k, psetcols)]
+
+
+@inline
+def _pack3d_mgcols(
+    mgncol: int,
+    nlev: int,
+    psetcols: int,
+    pver: int,
+    top_lev: int,
+    n3: int,
+    mgcols: Ptr[int],
+    src: Ptr[float],
+    dst: Ptr[float],
+):
+    for m in range(1, n3 + 1):
+        for kk in range(1, nlev + 1):
+            k = top_lev + kk - 1
+            for j in range(1, mgncol + 1):
+                i = mgcols[j - 1]
+                dst[_idx3(j, kk, m, mgncol, nlev)] = src[_idx3(i, k, m, psetcols, pver)]
+
+
+@export
+def micro_mg_cam_pack_static_inputs_codon(
+    mgncol: int,
+    nlev: int,
+    psetcols: int,
+    pver: int,
+    pverp: int,
+    top_lev: int,
+    rndst_n3: int,
+    nacon_n3: int,
+    mgcols_p: cobj,
+    relvar_p: cobj,
+    accre_enhan_p: cobj,
+    pmid_p: cobj,
+    pdel_p: cobj,
+    pint_p: cobj,
+    ast_p: cobj,
+    alst_mic_p: cobj,
+    aist_mic_p: cobj,
+    naai_p: cobj,
+    npccn_p: cobj,
+    rndst_p: cobj,
+    nacon_p: cobj,
+    packed_relvar_p: cobj,
+    packed_accre_enhan_p: cobj,
+    packed_p_p: cobj,
+    packed_pdel_p: cobj,
+    packed_pint_p: cobj,
+    packed_cldn_p: cobj,
+    packed_liqcldf_p: cobj,
+    packed_icecldf_p: cobj,
+    packed_naai_p: cobj,
+    packed_npccn_p: cobj,
+    packed_rndst_p: cobj,
+    packed_nacon_p: cobj,
+):
+    mgcols = Ptr[int](mgcols_p)
+    _pack2d_mgcols(mgncol, nlev, psetcols, top_lev, mgcols, Ptr[float](relvar_p), Ptr[float](packed_relvar_p))
+    _pack2d_mgcols(
+        mgncol, nlev, psetcols, top_lev, mgcols, Ptr[float](accre_enhan_p), Ptr[float](packed_accre_enhan_p)
+    )
+    _pack2d_mgcols(mgncol, nlev, psetcols, top_lev, mgcols, Ptr[float](pmid_p), Ptr[float](packed_p_p))
+    _pack2d_mgcols(mgncol, nlev, psetcols, top_lev, mgcols, Ptr[float](pdel_p), Ptr[float](packed_pdel_p))
+    _pack_interface_mgcols(
+        mgncol, nlev, psetcols, top_lev, mgcols, Ptr[float](pint_p), Ptr[float](packed_pint_p)
+    )
+    _pack2d_mgcols(mgncol, nlev, psetcols, top_lev, mgcols, Ptr[float](ast_p), Ptr[float](packed_cldn_p))
+    _pack2d_mgcols(
+        mgncol, nlev, psetcols, top_lev, mgcols, Ptr[float](alst_mic_p), Ptr[float](packed_liqcldf_p)
+    )
+    _pack2d_mgcols(
+        mgncol, nlev, psetcols, top_lev, mgcols, Ptr[float](aist_mic_p), Ptr[float](packed_icecldf_p)
+    )
+    _pack2d_mgcols(mgncol, nlev, psetcols, top_lev, mgcols, Ptr[float](naai_p), Ptr[float](packed_naai_p))
+    _pack2d_mgcols(mgncol, nlev, psetcols, top_lev, mgcols, Ptr[float](npccn_p), Ptr[float](packed_npccn_p))
+    _pack3d_mgcols(
+        mgncol, nlev, psetcols, pver, top_lev, rndst_n3, mgcols, Ptr[float](rndst_p), Ptr[float](packed_rndst_p)
+    )
+    _pack3d_mgcols(
+        mgncol, nlev, psetcols, pver, top_lev, nacon_n3, mgcols, Ptr[float](nacon_p), Ptr[float](packed_nacon_p)
+    )
+
+
+@export
+def micro_mg_cam_pack_state_inputs_codon(
+    mgncol: int,
+    nlev: int,
+    psetcols: int,
+    pver: int,
+    pcnst: int,
+    top_lev: int,
+    ixcldliq: int,
+    ixcldice: int,
+    ixnumliq: int,
+    ixnumice: int,
+    mgcols_p: cobj,
+    state_t_p: cobj,
+    state_q_p: cobj,
+    packed_t_p: cobj,
+    packed_q_p: cobj,
+    packed_qc_p: cobj,
+    packed_nc_p: cobj,
+    packed_qi_p: cobj,
+    packed_ni_p: cobj,
+):
+    mgcols = Ptr[int](mgcols_p)
+    state_t = Ptr[float](state_t_p)
+    state_q = Ptr[float](state_q_p)
+    packed_t = Ptr[float](packed_t_p)
+    packed_q = Ptr[float](packed_q_p)
+    packed_qc = Ptr[float](packed_qc_p)
+    packed_nc = Ptr[float](packed_nc_p)
+    packed_qi = Ptr[float](packed_qi_p)
+    packed_ni = Ptr[float](packed_ni_p)
+
+    for j in range(1, mgncol + 1):
+        i = mgcols[j - 1]
+        for kk in range(1, nlev + 1):
+            k = top_lev + kk - 1
+            dst_idx = _idx2(j, kk, mgncol)
+            packed_t[dst_idx] = state_t[_idx2(i, k, psetcols)]
+            packed_q[dst_idx] = state_q[_idx3(i, k, 1, psetcols, pver)]
+            packed_qc[dst_idx] = state_q[_idx3(i, k, ixcldliq, psetcols, pver)]
+            packed_nc[dst_idx] = state_q[_idx3(i, k, ixnumliq, psetcols, pver)]
+            packed_qi[dst_idx] = state_q[_idx3(i, k, ixcldice, psetcols, pver)]
+            packed_ni[dst_idx] = state_q[_idx3(i, k, ixnumice, psetcols, pver)]
+
+
+@inline
 def _process_rates_idx(
     i: int,
     k: int,
