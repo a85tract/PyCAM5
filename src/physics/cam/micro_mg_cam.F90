@@ -139,6 +139,7 @@ logical :: tail_diag_pbuf_entered_logged = .false.
 logical :: use_native_tail_grid_copy_impl = .false.
 logical :: tail_grid_copy_impl_selected = .false.
 logical :: tail_grid_copy_entered_logged = .false.
+logical :: tail_state_grid_copy_entered_logged = .false.
 logical :: use_native_wtrc_shell_impl = .false.
 logical :: wtrc_shell_impl_selected = .false.
 logical :: wtrc_shell_entered_logged = .false.
@@ -2412,9 +2413,8 @@ subroutine micro_mg_cam_tend(state, ptend, dtime, pbuf)
               liqcldf, liqcldf_grid, icecldf, icecldf_grid, icwnc, icwnc_grid, icinc, icinc_grid, prao, prao_grid, &
               prco, prco_grid)
 
-         pdel_grid = state_loc%pdel
-         nc_grid = state_loc%q(:,:,ixnumliq)
-         ni_grid = state_loc%q(:,:,ixnumice)
+         call micro_mg_cam_tail_state_grid_copy_codon_wrap(psetcols, ixnumliq, ixnumice, state_loc%pdel, state_loc%q, &
+              pdel_grid, nc_grid, ni_grid)
       else
          if (micro_mg_version == 1 .and. micro_mg_sub_version == 0) then
             am_evp_st_grid  = am_evp_st
@@ -3116,6 +3116,37 @@ subroutine micro_mg_cam_tail_grid_copy_codon_wrap(psetcols_local, copy_mg10_loca
        p55_p=c_loc(prco_local), p56_p=c_loc(prco_grid_local))
 
 end subroutine micro_mg_cam_tail_grid_copy_codon_wrap
+
+subroutine micro_mg_cam_tail_state_grid_copy_codon_wrap(psetcols_local, ixnumliq_local, ixnumice_local, &
+     state_pdel_local, state_q_local, pdel_grid_local, nc_grid_local, ni_grid_local)
+
+  use iso_c_binding, only: c_int64_t, c_loc
+
+  integer, intent(in) :: psetcols_local
+  integer, intent(in) :: ixnumliq_local, ixnumice_local
+  real(r8), target, intent(in) :: state_pdel_local(psetcols_local,pver)
+  real(r8), target, intent(in) :: state_q_local(psetcols_local,pver,pcnst)
+  real(r8), target, intent(inout) :: pdel_grid_local(pcols,pver)
+  real(r8), target, intent(inout) :: nc_grid_local(pcols,pver), ni_grid_local(pcols,pver)
+
+  interface
+     subroutine micro_mg_cam_tail_state_grid_copy_codon(psetcols_c, pcols_c, pver_c, pcnst_c, ixnumliq_c, ixnumice_c, &
+          state_pdel_p, state_q_p, pdel_grid_p, nc_grid_p, ni_grid_p) bind(c, name="micro_mg_cam_tail_state_grid_copy_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: psetcols_c, pcols_c, pver_c, pcnst_c, ixnumliq_c, ixnumice_c
+       type(c_ptr), value :: state_pdel_p, state_q_p, pdel_grid_p, nc_grid_p, ni_grid_p
+     end subroutine micro_mg_cam_tail_state_grid_copy_codon
+  end interface
+
+  call micro_mg_cam_log_entered_once(tail_state_grid_copy_entered_logged, 'MICRO_MG_CAM_TAIL_GRID_COPY_PROOF_FILE', &
+       'micro_mg_cam_tail_state_grid_copy entered (non-subcolumn pdel/nc/ni grid copies = codon)')
+
+  call micro_mg_cam_tail_state_grid_copy_codon( &
+       int(psetcols_local, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+       int(ixnumliq_local, c_int64_t), int(ixnumice_local, c_int64_t), c_loc(state_pdel_local), c_loc(state_q_local), &
+       c_loc(pdel_grid_local), c_loc(nc_grid_local), c_loc(ni_grid_local))
+
+end subroutine micro_mg_cam_tail_state_grid_copy_codon_wrap
 
 subroutine micro_mg_cam_diag_shell_codon_wrap(ngrdcol_local, micro_mg_version_local, minlwp_local, rho_grid_local, &
      icwmrst_grid_local, liqcldf_grid_local, nc_grid_local, qr_grid_local, nr_grid_local, qs_grid_local, ns_grid_local, &

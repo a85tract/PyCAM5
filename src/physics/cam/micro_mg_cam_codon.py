@@ -1498,6 +1498,33 @@ def micro_mg_cam_tail_grid_copy_codon(
 
 
 @export
+def micro_mg_cam_tail_state_grid_copy_codon(
+    psetcols: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    ixnumliq: int,
+    ixnumice: int,
+    state_pdel_p: cobj,
+    state_q_p: cobj,
+    pdel_grid_p: cobj,
+    nc_grid_p: cobj,
+    ni_grid_p: cobj,
+):
+    state_pdel = Ptr[float](state_pdel_p)
+    state_q = Ptr[float](state_q_p)
+    pdel_grid = Ptr[float](pdel_grid_p)
+    nc_grid = Ptr[float](nc_grid_p)
+    ni_grid = Ptr[float](ni_grid_p)
+
+    _copy2d_full(state_pdel, pdel_grid, psetcols, pcols, pver)
+    for k in range(1, pver + 1):
+        for i in range(1, pcols + 1):
+            nc_grid[_idx2(i, k, pcols)] = state_q[_idx3(i, k, ixnumliq, psetcols, pver)]
+            ni_grid[_idx2(i, k, pcols)] = state_q[_idx3(i, k, ixnumice, psetcols, pver)]
+
+
+@export
 def micro_mg_cam_diag_stage_dispatch_codon(
     ngrdcol: int,
     pcols: int,
