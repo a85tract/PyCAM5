@@ -18,7 +18,9 @@
 ! ------- Modules -------
 
       use shr_kind_mod, only: r8 => shr_kind_r8
+      use cam_logfile, only: iulog
       use ppgrid,       only: pcols, begchunk, endchunk
+      use spmd_utils, only: masterproc
 
 !      use parkind, only : jpim, jprb
       use parrrsw, only : nbndsw, ngptsw, mxmol, jpband
@@ -30,6 +32,11 @@
       use rrtmg_sw_vrtqdr, only: vrtqdr_sw
 
       implicit none
+      save
+
+      logical :: use_native_spcvmc_flux_impl = .false.
+      logical :: spcvmc_flux_impl_selected = .false.
+      logical :: spcvmc_flux_entered_logged = .false.
 
       contains
 
@@ -47,6 +54,7 @@
              pbbfddir, pbbcddir, puvfddir, puvcddir, pnifddir, pnicddir, &
              pbbfsu, pbbfsd)
 ! ---------------------------------------------------------------------------
+      use iso_c_binding, only: c_int64_t, c_loc, c_ptr
 !
 ! Purpose: Contains spectral loop to compute the shortwave radiative fluxes, 
 !          using the two-stream method of H. Barker and McICA, the Monte-Carlo
@@ -183,26 +191,26 @@
 
 ! ------- Output -------
                                                                  !   All Dimensions: (nlayers+1)
-      real(kind=r8), intent(out) :: pbbcd(:)
-      real(kind=r8), intent(out) :: pbbcu(:)
-      real(kind=r8), intent(out) :: pbbfd(:)
-      real(kind=r8), intent(out) :: pbbfu(:)
-      real(kind=r8), intent(out) :: pbbfddir(:)
-      real(kind=r8), intent(out) :: pbbcddir(:)
+      real(kind=r8), target, intent(out) :: pbbcd(:)
+      real(kind=r8), target, intent(out) :: pbbcu(:)
+      real(kind=r8), target, intent(out) :: pbbfd(:)
+      real(kind=r8), target, intent(out) :: pbbfu(:)
+      real(kind=r8), target, intent(out) :: pbbfddir(:)
+      real(kind=r8), target, intent(out) :: pbbcddir(:)
 
-      real(kind=r8), intent(out) :: puvcd(:)
-      real(kind=r8), intent(out) :: puvfd(:)
-      real(kind=r8), intent(out) :: puvcddir(:)
-      real(kind=r8), intent(out) :: puvfddir(:)
+      real(kind=r8), target, intent(out) :: puvcd(:)
+      real(kind=r8), target, intent(out) :: puvfd(:)
+      real(kind=r8), target, intent(out) :: puvcddir(:)
+      real(kind=r8), target, intent(out) :: puvfddir(:)
 
-      real(kind=r8), intent(out) :: pnicd(:)
-      real(kind=r8), intent(out) :: pnifd(:)
-      real(kind=r8), intent(out) :: pnicddir(:)
-      real(kind=r8), intent(out) :: pnifddir(:)
+      real(kind=r8), target, intent(out) :: pnicd(:)
+      real(kind=r8), target, intent(out) :: pnifd(:)
+      real(kind=r8), target, intent(out) :: pnicddir(:)
+      real(kind=r8), target, intent(out) :: pnifddir(:)
 
 ! Added for net near-IR flux diagnostic
-      real(kind=r8), intent(out) :: pnicu(:)
-      real(kind=r8), intent(out) :: pnifu(:)
+      real(kind=r8), target, intent(out) :: pnicu(:)
+      real(kind=r8), target, intent(out) :: pnifu(:)
 
 ! Output - inactive                                              !   All Dimensions: (nlayers+1)
 !      real(kind=r8), intent(out) :: puvcu(:)
@@ -212,8 +220,8 @@
 !      real(kind=r8), intent(out) :: pvsfd(:)
 !      real(kind=r8), intent(out) :: pvsfu(:)
 
-      real(kind=r8), intent(out)  :: pbbfsu(:,:)                 ! shortwave spectral flux up (nswbands,nlayers+1)
-      real(kind=r8), intent(out)  :: pbbfsd(:,:)                 ! shortwave spectral flux down (nswbands,nlayers+1)
+      real(kind=r8), target, intent(out)  :: pbbfsu(:,:)         ! shortwave spectral flux up (nswbands,nlayers+1)
+      real(kind=r8), target, intent(out)  :: pbbfsd(:,:)         ! shortwave spectral flux down (nswbands,nlayers+1)
 
 
 ! ------- Local -------
@@ -239,13 +247,15 @@
       real(kind=r8) :: zrupc(nlayers+1), zrupdc(nlayers+1)
       real(kind=r8) :: zs1(nlayers+1)
       real(kind=r8) :: ztauc(nlayers), ztauo(nlayers)
-      real(kind=r8) :: ztdn(nlayers+1), ztdnd(nlayers+1), ztdbt(nlayers+1)
+      real(kind=r8) :: ztdn(nlayers+1), ztdnd(nlayers+1)
+      real(kind=r8), target :: ztdbt(nlayers+1)
       real(kind=r8) :: ztoc(nlayers), ztor(nlayers)
       real(kind=r8) :: ztra(nlayers+1), ztrac(nlayers+1), ztrao(nlayers+1)
       real(kind=r8) :: ztrad(nlayers+1), ztradc(nlayers+1), ztrado(nlayers+1)
-      real(kind=r8) :: zdbtc(nlayers+1), ztdbtc(nlayers+1)
-      real(kind=r8) :: zincflx(ngptsw), zdbtc_nodel(nlayers+1) 
-      real(kind=r8) :: ztdbt_nodel(nlayers+1), ztdbtc_nodel(nlayers+1)
+      real(kind=r8), target :: zdbtc(nlayers+1), ztdbtc(nlayers+1)
+      real(kind=r8), target :: zincflx(ngptsw)
+      real(kind=r8) :: zdbtc_nodel(nlayers+1)
+      real(kind=r8), target :: ztdbt_nodel(nlayers+1), ztdbtc_nodel(nlayers+1)
 
       real(kind=r8) :: zdbtmc, zdbtmo, zf, zgw, zreflect
       real(kind=r8) :: zwf, tauorig, repclc
@@ -260,8 +270,24 @@
 
 ! Arrays from rrtmg_sw_vrtqdr routine
 
-      real(kind=r8) :: zcd(nlayers+1,ngptsw), zcu(nlayers+1,ngptsw)
-      real(kind=r8) :: zfd(nlayers+1,ngptsw), zfu(nlayers+1,ngptsw)
+      real(kind=r8), target :: zcd(nlayers+1,ngptsw), zcu(nlayers+1,ngptsw)
+      real(kind=r8), target :: zfd(nlayers+1,ngptsw), zfu(nlayers+1,ngptsw)
+
+      interface
+         subroutine rrtmg_sw_spcvmc_flux_codon(klev_c, ngptsw_c, nbndsw_c, iw_c, ibm_c, idelm_c, &
+              zincflx_p, zfu_p, zfd_p, zcu_p, zcd_p, ztdbt_nodel_p, ztdbtc_nodel_p, ztdbt_p, &
+              ztdbtc_p, pbbfsu_p, pbbfsd_p, pbbfu_p, pbbfd_p, pbbcu_p, pbbcd_p, pbbfddir_p, &
+              pbbcddir_p, puvcd_p, puvfd_p, puvcddir_p, puvfddir_p, pnicd_p, pnifd_p, &
+              pnicddir_p, pnifddir_p, pnicu_p, pnifu_p) bind(c, name="rrtmg_sw_spcvmc_flux_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: klev_c, ngptsw_c, nbndsw_c, iw_c, ibm_c, idelm_c
+            type(c_ptr), value :: zincflx_p, zfu_p, zfd_p, zcu_p, zcd_p, ztdbt_nodel_p
+            type(c_ptr), value :: ztdbtc_nodel_p, ztdbt_p, ztdbtc_p, pbbfsu_p, pbbfsd_p
+            type(c_ptr), value :: pbbfu_p, pbbfd_p, pbbcu_p, pbbcd_p, pbbfddir_p, pbbcddir_p
+            type(c_ptr), value :: puvcd_p, puvfd_p, puvcddir_p, puvfddir_p, pnicd_p, pnifd_p
+            type(c_ptr), value :: pnicddir_p, pnifddir_p, pnicu_p, pnifu_p
+         end subroutine rrtmg_sw_spcvmc_flux_codon
+      end interface
 
 ! Inactive arrays
 !     real(kind=r8) :: zbbcd(nlayers+1), zbbcu(nlayers+1)
@@ -270,6 +296,8 @@
 ! ------------------------------------------------------------------
 
 ! Initializations
+
+      call spcvmc_flux_select_impl()
 
       ib1 = istart
       ib2 = iend
@@ -582,8 +610,9 @@
 !   Two-stream calculations go from top to bottom; 
 !   layer indexing is reversed to go bottom to top for output arrays
 
-            do jk=1,klev+1
-               ikl=klev+2-jk
+            if (use_native_spcvmc_flux_impl) then
+               do jk=1,klev+1
+                  ikl=klev+2-jk
 
 ! Accumulate spectral fluxes over bands - inactive
 !               zbbfu(ikl) = zbbfu(ikl) + zincflx(iw)*zfu(jk,iw)  
@@ -593,69 +622,84 @@
 !               zbbfddir(ikl) = zbbfddir(ikl) + zincflx(iw)*ztdbt_nodel(jk)
 !               zbbcddir(ikl) = zbbcddir(ikl) + zincflx(iw)*ztdbtc_nodel(jk)
 
-               pbbfsu(ibm,ikl) = pbbfsu(ibm,ikl) + zincflx(iw)*zfu(jk,iw)
-               pbbfsd(ibm,ikl) = pbbfsd(ibm,ikl) + zincflx(iw)*zfd(jk,iw)
+                  pbbfsu(ibm,ikl) = pbbfsu(ibm,ikl) + zincflx(iw)*zfu(jk,iw)
+                  pbbfsd(ibm,ikl) = pbbfsd(ibm,ikl) + zincflx(iw)*zfd(jk,iw)
 
 ! Accumulate spectral fluxes over whole spectrum  
-               pbbfu(ikl) = pbbfu(ikl) + zincflx(iw)*zfu(jk,iw)
-               pbbfd(ikl) = pbbfd(ikl) + zincflx(iw)*zfd(jk,iw)
-               pbbcu(ikl) = pbbcu(ikl) + zincflx(iw)*zcu(jk,iw)
-               pbbcd(ikl) = pbbcd(ikl) + zincflx(iw)*zcd(jk,iw)
-               if (idelm .eq. 0) then
-                  pbbfddir(ikl) = pbbfddir(ikl) + zincflx(iw)*ztdbt_nodel(jk)
-                  pbbcddir(ikl) = pbbcddir(ikl) + zincflx(iw)*ztdbtc_nodel(jk)
-               elseif (idelm .eq. 1) then
-                  pbbfddir(ikl) = pbbfddir(ikl) + zincflx(iw)*ztdbt(jk)
-                  pbbcddir(ikl) = pbbcddir(ikl) + zincflx(iw)*ztdbtc(jk)
-               endif
+                  pbbfu(ikl) = pbbfu(ikl) + zincflx(iw)*zfu(jk,iw)
+                  pbbfd(ikl) = pbbfd(ikl) + zincflx(iw)*zfd(jk,iw)
+                  pbbcu(ikl) = pbbcu(ikl) + zincflx(iw)*zcu(jk,iw)
+                  pbbcd(ikl) = pbbcd(ikl) + zincflx(iw)*zcd(jk,iw)
+                  if (idelm .eq. 0) then
+                     pbbfddir(ikl) = pbbfddir(ikl) + zincflx(iw)*ztdbt_nodel(jk)
+                     pbbcddir(ikl) = pbbcddir(ikl) + zincflx(iw)*ztdbtc_nodel(jk)
+                  elseif (idelm .eq. 1) then
+                     pbbfddir(ikl) = pbbfddir(ikl) + zincflx(iw)*ztdbt(jk)
+                     pbbcddir(ikl) = pbbcddir(ikl) + zincflx(iw)*ztdbtc(jk)
+                  endif
 
 ! Accumulate direct fluxes for UV/visible bands
-               if (ibm >= 10 .and. ibm <= 13) then
-                  puvcd(ikl) = puvcd(ikl) + zincflx(iw)*zcd(jk,iw)
-                  puvfd(ikl) = puvfd(ikl) + zincflx(iw)*zfd(jk,iw)
-                  if (idelm .eq. 0) then
-                     puvfddir(ikl) = puvfddir(ikl) + zincflx(iw)*ztdbt_nodel(jk)
-                     puvcddir(ikl) = puvcddir(ikl) + zincflx(iw)*ztdbtc_nodel(jk)
-                  elseif (idelm .eq. 1) then
-                     puvfddir(ikl) = puvfddir(ikl) + zincflx(iw)*ztdbt(jk)
-                     puvcddir(ikl) = puvcddir(ikl) + zincflx(iw)*ztdbtc(jk)
-                  endif
+                  if (ibm >= 10 .and. ibm <= 13) then
+                     puvcd(ikl) = puvcd(ikl) + zincflx(iw)*zcd(jk,iw)
+                     puvfd(ikl) = puvfd(ikl) + zincflx(iw)*zfd(jk,iw)
+                     if (idelm .eq. 0) then
+                        puvfddir(ikl) = puvfddir(ikl) + zincflx(iw)*ztdbt_nodel(jk)
+                        puvcddir(ikl) = puvcddir(ikl) + zincflx(iw)*ztdbtc_nodel(jk)
+                     elseif (idelm .eq. 1) then
+                        puvfddir(ikl) = puvfddir(ikl) + zincflx(iw)*ztdbt(jk)
+                        puvcddir(ikl) = puvcddir(ikl) + zincflx(iw)*ztdbtc(jk)
+                     endif
 ! band 9 is half-NearIR and half-Visible
-               else if (ibm == 9) then  
-                  puvcd(ikl) = puvcd(ikl) + 0.5_r8*zincflx(iw)*zcd(jk,iw)
-                  puvfd(ikl) = puvfd(ikl) + 0.5_r8*zincflx(iw)*zfd(jk,iw)
-                  pnicd(ikl) = pnicd(ikl) + 0.5_r8*zincflx(iw)*zcd(jk,iw)
-                  pnifd(ikl) = pnifd(ikl) + 0.5_r8*zincflx(iw)*zfd(jk,iw)
-                  if (idelm .eq. 0) then
-                     puvfddir(ikl) = puvfddir(ikl) + 0.5_r8*zincflx(iw)*ztdbt_nodel(jk)
-                     puvcddir(ikl) = puvcddir(ikl) + 0.5_r8*zincflx(iw)*ztdbtc_nodel(jk)
-                     pnifddir(ikl) = pnifddir(ikl) + 0.5_r8*zincflx(iw)*ztdbt_nodel(jk)
-                     pnicddir(ikl) = pnicddir(ikl) + 0.5_r8*zincflx(iw)*ztdbtc_nodel(jk)
-                  elseif (idelm .eq. 1) then
-                     puvfddir(ikl) = puvfddir(ikl) + 0.5_r8*zincflx(iw)*ztdbt(jk)
-                     puvcddir(ikl) = puvcddir(ikl) + 0.5_r8*zincflx(iw)*ztdbtc(jk)
-                     pnifddir(ikl) = pnifddir(ikl) + 0.5_r8*zincflx(iw)*ztdbt(jk)
-                     pnicddir(ikl) = pnicddir(ikl) + 0.5_r8*zincflx(iw)*ztdbtc(jk)
-                  endif
-                  pnicu(ikl) = pnicu(ikl) + 0.5_r8*zincflx(iw)*zcu(jk,iw)
-                  pnifu(ikl) = pnifu(ikl) + 0.5_r8*zincflx(iw)*zfu(jk,iw)
+                  else if (ibm == 9) then
+                     puvcd(ikl) = puvcd(ikl) + 0.5_r8*zincflx(iw)*zcd(jk,iw)
+                     puvfd(ikl) = puvfd(ikl) + 0.5_r8*zincflx(iw)*zfd(jk,iw)
+                     pnicd(ikl) = pnicd(ikl) + 0.5_r8*zincflx(iw)*zcd(jk,iw)
+                     pnifd(ikl) = pnifd(ikl) + 0.5_r8*zincflx(iw)*zfd(jk,iw)
+                     if (idelm .eq. 0) then
+                        puvfddir(ikl) = puvfddir(ikl) + 0.5_r8*zincflx(iw)*ztdbt_nodel(jk)
+                        puvcddir(ikl) = puvcddir(ikl) + 0.5_r8*zincflx(iw)*ztdbtc_nodel(jk)
+                        pnifddir(ikl) = pnifddir(ikl) + 0.5_r8*zincflx(iw)*ztdbt_nodel(jk)
+                        pnicddir(ikl) = pnicddir(ikl) + 0.5_r8*zincflx(iw)*ztdbtc_nodel(jk)
+                     elseif (idelm .eq. 1) then
+                        puvfddir(ikl) = puvfddir(ikl) + 0.5_r8*zincflx(iw)*ztdbt(jk)
+                        puvcddir(ikl) = puvcddir(ikl) + 0.5_r8*zincflx(iw)*ztdbtc(jk)
+                        pnifddir(ikl) = pnifddir(ikl) + 0.5_r8*zincflx(iw)*ztdbt(jk)
+                        pnicddir(ikl) = pnicddir(ikl) + 0.5_r8*zincflx(iw)*ztdbtc(jk)
+                     endif
+                     pnicu(ikl) = pnicu(ikl) + 0.5_r8*zincflx(iw)*zcu(jk,iw)
+                     pnifu(ikl) = pnifu(ikl) + 0.5_r8*zincflx(iw)*zfu(jk,iw)
 ! Accumulate direct fluxes for near-IR bands
-               else if (ibm == 14 .or. ibm <= 8) then  
-                  pnicd(ikl) = pnicd(ikl) + zincflx(iw)*zcd(jk,iw)
-                  pnifd(ikl) = pnifd(ikl) + zincflx(iw)*zfd(jk,iw)
-                  if (idelm .eq. 0) then
-                     pnifddir(ikl) = pnifddir(ikl) + zincflx(iw)*ztdbt_nodel(jk)
-                     pnicddir(ikl) = pnicddir(ikl) + zincflx(iw)*ztdbtc_nodel(jk)
-                  elseif (idelm .eq. 1) then
-                     pnifddir(ikl) = pnifddir(ikl) + zincflx(iw)*ztdbt(jk)
-                     pnicddir(ikl) = pnicddir(ikl) + zincflx(iw)*ztdbtc(jk)
-                  endif
+                  else if (ibm == 14 .or. ibm <= 8) then
+                     pnicd(ikl) = pnicd(ikl) + zincflx(iw)*zcd(jk,iw)
+                     pnifd(ikl) = pnifd(ikl) + zincflx(iw)*zfd(jk,iw)
+                     if (idelm .eq. 0) then
+                        pnifddir(ikl) = pnifddir(ikl) + zincflx(iw)*ztdbt_nodel(jk)
+                        pnicddir(ikl) = pnicddir(ikl) + zincflx(iw)*ztdbtc_nodel(jk)
+                     elseif (idelm .eq. 1) then
+                        pnifddir(ikl) = pnifddir(ikl) + zincflx(iw)*ztdbt(jk)
+                        pnicddir(ikl) = pnicddir(ikl) + zincflx(iw)*ztdbtc(jk)
+                     endif
 ! Added for net near-IR flux diagnostic 
-                  pnicu(ikl) = pnicu(ikl) + zincflx(iw)*zcu(jk,iw)
-                  pnifu(ikl) = pnifu(ikl) + zincflx(iw)*zfu(jk,iw)
-               endif
+                     pnicu(ikl) = pnicu(ikl) + zincflx(iw)*zcu(jk,iw)
+                     pnifu(ikl) = pnifu(ikl) + zincflx(iw)*zfu(jk,iw)
+                  endif
 
-            enddo
+               enddo
+            else
+               call spcvmc_flux_log_entered()
+               call rrtmg_sw_spcvmc_flux_codon( &
+                    int(klev, c_int64_t), int(ngptsw, c_int64_t), int(nbndsw, c_int64_t), &
+                    int(iw, c_int64_t), int(ibm, c_int64_t), int(idelm, c_int64_t), &
+                    c_loc(zincflx(1)), c_loc(zfu(1,1)), c_loc(zfd(1,1)), c_loc(zcu(1,1)), &
+                    c_loc(zcd(1,1)), c_loc(ztdbt_nodel(1)), c_loc(ztdbtc_nodel(1)), &
+                    c_loc(ztdbt(1)), c_loc(ztdbtc(1)), c_loc(pbbfsu(1,1)), &
+                    c_loc(pbbfsd(1,1)), c_loc(pbbfu(1)), c_loc(pbbfd(1)), c_loc(pbbcu(1)), &
+                    c_loc(pbbcd(1)), c_loc(pbbfddir(1)), c_loc(pbbcddir(1)), c_loc(puvcd(1)), &
+                    c_loc(puvfd(1)), c_loc(puvcddir(1)), c_loc(puvfddir(1)), c_loc(pnicd(1)), &
+                    c_loc(pnifd(1)), c_loc(pnicddir(1)), c_loc(pnifddir(1)), c_loc(pnicu(1)), &
+                    c_loc(pnifu(1)) &
+               )
+            endif
 
 ! End loop on jg, g-point interval
          enddo             
@@ -665,6 +709,53 @@
 
       end subroutine spcvmc_sw
 
+! --------------------------------------------------------------------------
+      subroutine spcvmc_flux_select_impl()
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (spcvmc_flux_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('RRTMG_SW_SPCVMC_FLUX_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_spcvmc_flux_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_spcvmc_flux_impl = .false.
+      end if
+
+      spcvmc_flux_impl_selected = .true.
+
+      if (masterproc) then
+         if (use_native_spcvmc_flux_impl) then
+            write(iulog,*) 'rrtmg_sw_spcvmc_flux implementation = native'
+         else
+            write(iulog,*) 'rrtmg_sw_spcvmc_flux implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine spcvmc_flux_select_impl
+
+! --------------------------------------------------------------------------
+      subroutine spcvmc_flux_log_entered()
+
+      if (spcvmc_flux_entered_logged) return
+      spcvmc_flux_entered_logged = .true.
+
+      if (masterproc) then
+         write(iulog,*) 'rrtmg_sw_spcvmc_flux entered (mcica shortwave flux accumulation = codon)'
+         call flush(iulog)
+      end if
+
+      end subroutine spcvmc_flux_log_entered
+
       end module rrtmg_sw_spcvmc
-
-

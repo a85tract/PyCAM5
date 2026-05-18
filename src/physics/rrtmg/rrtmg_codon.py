@@ -1555,6 +1555,178 @@ def rrtmg_sw_cldprmc_codon(
                         ) / (scatliq + scatice)
 
 
+@export
+def rrtmg_sw_spcvmc_flux_codon(
+    klev: int,
+    ngptsw: int,
+    nbndsw: int,
+    iw: int,
+    ibm: int,
+    idelm: int,
+    zincflx_p: cobj,
+    zfu_p: cobj,
+    zfd_p: cobj,
+    zcu_p: cobj,
+    zcd_p: cobj,
+    ztdbt_nodel_p: cobj,
+    ztdbtc_nodel_p: cobj,
+    ztdbt_p: cobj,
+    ztdbtc_p: cobj,
+    pbbfsu_p: cobj,
+    pbbfsd_p: cobj,
+    pbbfu_p: cobj,
+    pbbfd_p: cobj,
+    pbbcu_p: cobj,
+    pbbcd_p: cobj,
+    pbbfddir_p: cobj,
+    pbbcddir_p: cobj,
+    puvcd_p: cobj,
+    puvfd_p: cobj,
+    puvcddir_p: cobj,
+    puvfddir_p: cobj,
+    pnicd_p: cobj,
+    pnifd_p: cobj,
+    pnicddir_p: cobj,
+    pnifddir_p: cobj,
+    pnicu_p: cobj,
+    pnifu_p: cobj,
+):
+    zincflx = Ptr[float](zincflx_p)
+    zfu = Ptr[float](zfu_p)
+    zfd = Ptr[float](zfd_p)
+    zcu = Ptr[float](zcu_p)
+    zcd = Ptr[float](zcd_p)
+    ztdbt_nodel = Ptr[float](ztdbt_nodel_p)
+    ztdbtc_nodel = Ptr[float](ztdbtc_nodel_p)
+    ztdbt = Ptr[float](ztdbt_p)
+    ztdbtc = Ptr[float](ztdbtc_p)
+    pbbfsu = Ptr[float](pbbfsu_p)
+    pbbfsd = Ptr[float](pbbfsd_p)
+    pbbfu = Ptr[float](pbbfu_p)
+    pbbfd = Ptr[float](pbbfd_p)
+    pbbcu = Ptr[float](pbbcu_p)
+    pbbcd = Ptr[float](pbbcd_p)
+    pbbfddir = Ptr[float](pbbfddir_p)
+    pbbcddir = Ptr[float](pbbcddir_p)
+    puvcd = Ptr[float](puvcd_p)
+    puvfd = Ptr[float](puvfd_p)
+    puvcddir = Ptr[float](puvcddir_p)
+    puvfddir = Ptr[float](puvfddir_p)
+    pnicd = Ptr[float](pnicd_p)
+    pnifd = Ptr[float](pnifd_p)
+    pnicddir = Ptr[float](pnicddir_p)
+    pnifddir = Ptr[float](pnifddir_p)
+    pnicu = Ptr[float](pnicu_p)
+    pnifu = Ptr[float](pnifu_p)
+
+    ldlev = klev + 1
+    for jk in range(1, klev + 2):
+        ikl = klev + 2 - jk
+        ikl_idx = ikl - 1
+
+        pbbfsu[_idx2(ibm, ikl, nbndsw)] = (
+            pbbfsu[_idx2(ibm, ikl, nbndsw)]
+            + zincflx[iw - 1] * zfu[_idx2(jk, iw, ldlev)]
+        )
+        pbbfsd[_idx2(ibm, ikl, nbndsw)] = (
+            pbbfsd[_idx2(ibm, ikl, nbndsw)]
+            + zincflx[iw - 1] * zfd[_idx2(jk, iw, ldlev)]
+        )
+
+        pbbfu[ikl_idx] = pbbfu[ikl_idx] + zincflx[iw - 1] * zfu[_idx2(jk, iw, ldlev)]
+        pbbfd[ikl_idx] = pbbfd[ikl_idx] + zincflx[iw - 1] * zfd[_idx2(jk, iw, ldlev)]
+        pbbcu[ikl_idx] = pbbcu[ikl_idx] + zincflx[iw - 1] * zcu[_idx2(jk, iw, ldlev)]
+        pbbcd[ikl_idx] = pbbcd[ikl_idx] + zincflx[iw - 1] * zcd[_idx2(jk, iw, ldlev)]
+        if idelm == 0:
+            pbbfddir[ikl_idx] = pbbfddir[ikl_idx] + zincflx[iw - 1] * ztdbt_nodel[jk - 1]
+            pbbcddir[ikl_idx] = pbbcddir[ikl_idx] + zincflx[iw - 1] * ztdbtc_nodel[jk - 1]
+        elif idelm == 1:
+            pbbfddir[ikl_idx] = pbbfddir[ikl_idx] + zincflx[iw - 1] * ztdbt[jk - 1]
+            pbbcddir[ikl_idx] = pbbcddir[ikl_idx] + zincflx[iw - 1] * ztdbtc[jk - 1]
+
+        if ibm >= 10 and ibm <= 13:
+            puvcd[ikl_idx] = puvcd[ikl_idx] + zincflx[iw - 1] * zcd[_idx2(jk, iw, ldlev)]
+            puvfd[ikl_idx] = puvfd[ikl_idx] + zincflx[iw - 1] * zfd[_idx2(jk, iw, ldlev)]
+            if idelm == 0:
+                puvfddir[ikl_idx] = (
+                    puvfddir[ikl_idx] + zincflx[iw - 1] * ztdbt_nodel[jk - 1]
+                )
+                puvcddir[ikl_idx] = (
+                    puvcddir[ikl_idx] + zincflx[iw - 1] * ztdbtc_nodel[jk - 1]
+                )
+            elif idelm == 1:
+                puvfddir[ikl_idx] = (
+                    puvfddir[ikl_idx] + zincflx[iw - 1] * ztdbt[jk - 1]
+                )
+                puvcddir[ikl_idx] = (
+                    puvcddir[ikl_idx] + zincflx[iw - 1] * ztdbtc[jk - 1]
+                )
+        elif ibm == 9:
+            puvcd[ikl_idx] = (
+                puvcd[ikl_idx] + 0.5 * zincflx[iw - 1] * zcd[_idx2(jk, iw, ldlev)]
+            )
+            puvfd[ikl_idx] = (
+                puvfd[ikl_idx] + 0.5 * zincflx[iw - 1] * zfd[_idx2(jk, iw, ldlev)]
+            )
+            pnicd[ikl_idx] = (
+                pnicd[ikl_idx] + 0.5 * zincflx[iw - 1] * zcd[_idx2(jk, iw, ldlev)]
+            )
+            pnifd[ikl_idx] = (
+                pnifd[ikl_idx] + 0.5 * zincflx[iw - 1] * zfd[_idx2(jk, iw, ldlev)]
+            )
+            if idelm == 0:
+                puvfddir[ikl_idx] = (
+                    puvfddir[ikl_idx] + 0.5 * zincflx[iw - 1] * ztdbt_nodel[jk - 1]
+                )
+                puvcddir[ikl_idx] = (
+                    puvcddir[ikl_idx] + 0.5 * zincflx[iw - 1] * ztdbtc_nodel[jk - 1]
+                )
+                pnifddir[ikl_idx] = (
+                    pnifddir[ikl_idx] + 0.5 * zincflx[iw - 1] * ztdbt_nodel[jk - 1]
+                )
+                pnicddir[ikl_idx] = (
+                    pnicddir[ikl_idx] + 0.5 * zincflx[iw - 1] * ztdbtc_nodel[jk - 1]
+                )
+            elif idelm == 1:
+                puvfddir[ikl_idx] = (
+                    puvfddir[ikl_idx] + 0.5 * zincflx[iw - 1] * ztdbt[jk - 1]
+                )
+                puvcddir[ikl_idx] = (
+                    puvcddir[ikl_idx] + 0.5 * zincflx[iw - 1] * ztdbtc[jk - 1]
+                )
+                pnifddir[ikl_idx] = (
+                    pnifddir[ikl_idx] + 0.5 * zincflx[iw - 1] * ztdbt[jk - 1]
+                )
+                pnicddir[ikl_idx] = (
+                    pnicddir[ikl_idx] + 0.5 * zincflx[iw - 1] * ztdbtc[jk - 1]
+                )
+            pnicu[ikl_idx] = (
+                pnicu[ikl_idx] + 0.5 * zincflx[iw - 1] * zcu[_idx2(jk, iw, ldlev)]
+            )
+            pnifu[ikl_idx] = (
+                pnifu[ikl_idx] + 0.5 * zincflx[iw - 1] * zfu[_idx2(jk, iw, ldlev)]
+            )
+        elif ibm == 14 or ibm <= 8:
+            pnicd[ikl_idx] = pnicd[ikl_idx] + zincflx[iw - 1] * zcd[_idx2(jk, iw, ldlev)]
+            pnifd[ikl_idx] = pnifd[ikl_idx] + zincflx[iw - 1] * zfd[_idx2(jk, iw, ldlev)]
+            if idelm == 0:
+                pnifddir[ikl_idx] = (
+                    pnifddir[ikl_idx] + zincflx[iw - 1] * ztdbt_nodel[jk - 1]
+                )
+                pnicddir[ikl_idx] = (
+                    pnicddir[ikl_idx] + zincflx[iw - 1] * ztdbtc_nodel[jk - 1]
+                )
+            elif idelm == 1:
+                pnifddir[ikl_idx] = (
+                    pnifddir[ikl_idx] + zincflx[iw - 1] * ztdbt[jk - 1]
+                )
+                pnicddir[ikl_idx] = (
+                    pnicddir[ikl_idx] + zincflx[iw - 1] * ztdbtc[jk - 1]
+                )
+            pnicu[ikl_idx] = pnicu[ikl_idx] + zincflx[iw - 1] * zcu[_idx2(jk, iw, ldlev)]
+            pnifu[ikl_idx] = pnifu[ikl_idx] + zincflx[iw - 1] * zfu[_idx2(jk, iw, ldlev)]
+
+
 @inline
 def _rrtmg_lw_a0(iband: int) -> float:
     if iband == 2:
