@@ -395,3 +395,38 @@ def nucleate_ice_cam_post_nucleati_codon(
                 niimm[idx] = niimm[idx] * rho_val
                 nidep[idx] = nidep[idx] * rho_val
                 nimey[idx] = nimey[idx] * rho_val
+
+
+@export
+def nucleate_ice_cam_modal_dst_num_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    separate_dust_flag: int,
+    rho_p: cobj,
+    coarse_dust_p: cobj,
+    coarse_nacl_p: cobj,
+    num_coarse_p: cobj,
+    dst_num_p: cobj,
+):
+    rho = Ptr[float](rho_p)
+    coarse_dust = Ptr[float](coarse_dust_p)
+    coarse_nacl = Ptr[float](coarse_nacl_p)
+    num_coarse = Ptr[float](num_coarse_p)
+    dst_num = Ptr[float](dst_num_p)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            dmc = coarse_dust[idx] * rho[idx]
+            ssmc = coarse_nacl[idx] * rho[idx]
+
+            if dmc > 0.0:
+                if separate_dust_flag != 0:
+                    wght = 1.0
+                else:
+                    wght = dmc / (ssmc + dmc)
+                dst_num[idx] = wght * num_coarse[idx] * rho[idx] * 1.0e-6
+            else:
+                dst_num[idx] = 0.0

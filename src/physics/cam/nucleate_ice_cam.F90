@@ -97,6 +97,7 @@ logical :: nucleate_ice_cam_prep_use_native_impl = .false.
 logical :: nucleate_ice_cam_prep_impl_selected = .false.
 logical :: nucleate_ice_cam_prep_entered_logged = .false.
 logical :: nucleate_ice_cam_post_entered_logged = .false.
+logical :: nucleate_ice_cam_modal_dust_entered_logged = .false.
 
 !===============================================================================
 contains
@@ -382,6 +383,21 @@ end subroutine nucleate_ice_cam_post_log_entered
 
 !================================================================================================
 
+subroutine nucleate_ice_cam_modal_dust_log_entered()
+
+   if (nucleate_ice_cam_modal_dust_entered_logged) return
+   nucleate_ice_cam_modal_dust_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,*) 'nucleate_ice_cam_modal_dust entered ' // &
+           '(modal dust number prep = codon; sulfate erf/log and nucleati = native)'
+      call flush(iulog)
+   end if
+
+end subroutine nucleate_ice_cam_modal_dust_log_entered
+
+!================================================================================================
+
 subroutine nucleate_ice_cam_calc( &
    state, wsubi, pbuf)
 
@@ -436,6 +452,7 @@ subroutine nucleate_ice_cam_calc( &
    real(r8) :: soot_num                              ! soot (hydrophilic) aerosol number (#/cm^3)
    real(r8) :: dst1_num,dst2_num,dst3_num,dst4_num   ! dust aerosol number (#/cm^3)
    real(r8) :: dst_num                               ! total dust aerosol number (#/cm^3)
+   real(r8), target :: dst_num_grid(pcols,pver)      ! modal dust aerosol number (#/cm^3)
    real(r8) :: wght
    real(r8) :: dmc
    real(r8) :: ssmc
@@ -498,6 +515,13 @@ subroutine nucleate_ice_cam_calc( &
          real(c_double), value :: tmelt_c
          type(c_ptr), value :: t_p, rho_p, naai_hom_p, nihf_p, niimm_p, nidep_p, nimey_p
       end subroutine nucleate_ice_cam_post_nucleati_codon
+      subroutine nucleate_ice_cam_modal_dst_num_codon(ncol_c, pcols_c, pver_c, top_lev_c, separate_dust_c, &
+           rho_p, coarse_dust_p, coarse_nacl_p, num_coarse_p, dst_num_p) &
+           bind(c, name="nucleate_ice_cam_modal_dst_num_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, separate_dust_c
+         type(c_ptr), value :: rho_p, coarse_dust_p, coarse_nacl_p, num_coarse_p, dst_num_p
+      end subroutine nucleate_ice_cam_modal_dst_num_codon
    end interface
 
 
@@ -570,6 +594,15 @@ subroutine nucleate_ice_cam_calc( &
 
    if (clim_modal_aero) then
       call pbuf_get_field(pbuf, dgnum_idx, dgnum)
+   end if
+
+   if ((.not. use_native_prep_impl) .and. clim_modal_aero .and. (.not. use_preexisting_ice)) then
+      call nucleate_ice_cam_modal_dst_num_codon( &
+           int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
+           int(merge(1, 0, separate_dust), c_int64_t), c_loc(rho(1,1)), c_loc(coarse_dust(1,1)), &
+           c_loc(coarse_nacl(1,1)), c_loc(num_coarse(1,1)), c_loc(dst_num_grid(1,1)) &
+      )
+      call nucleate_ice_cam_modal_dust_log_entered()
    end if
 
    ! naai and naai_hom are the outputs from this parameterization
@@ -651,28 +684,38 @@ subroutine nucleate_ice_cam_calc( &
             dst_num  = 0._r8
 
             if (clim_modal_aero) then
-               !For modal aerosols, assume for the upper troposphere:
-               ! soot = accumulation mode
-               ! sulfate = aiken mode
-               ! dust = coarse mode
-               ! since modal has internal mixtures.
-               soot_num = num_accum(i,k)*rho(i,k)*1.0e-6_r8
-               dmc  = coarse_dust(i,k)*rho(i,k)
-               ssmc = coarse_nacl(i,k)*rho(i,k)
+               if ((.not. use_native_prep_impl) .and. (.not. use_preexisting_ice)) then
+                  !For modal aerosols, assume for the upper troposphere:
+                  ! soot = accumulation mode
+                  ! sulfate = aiken mode
+                  ! dust = coarse mode
+                  ! since modal has internal mixtures.
+                  soot_num = num_accum(i,k)*rho(i,k)*1.0e-6_r8
+                  dst_num  = dst_num_grid(i,k)
+               else
+                  !For modal aerosols, assume for the upper troposphere:
+                  ! soot = accumulation mode
+                  ! sulfate = aiken mode
+                  ! dust = coarse mode
+                  ! since modal has internal mixtures.
+                  soot_num = num_accum(i,k)*rho(i,k)*1.0e-6_r8
+                  dmc  = coarse_dust(i,k)*rho(i,k)
+                  ssmc = coarse_nacl(i,k)*rho(i,k)
 
-               if (dmc > 0._r8) then
-                  if ( separate_dust ) then
-                     ! 7-mode -- has separate dust and seasalt mode types and
-                     !           no need for weighting 
-                     wght = 1._r8
+                  if (dmc > 0._r8) then
+                     if ( separate_dust ) then
+                        ! 7-mode -- has separate dust and seasalt mode types and
+                        !           no need for weighting
+                        wght = 1._r8
+                     else
+                        ! 3-mode -- needs weighting for dust since dust and seasalt
+                        !           are combined in the "coarse" mode type
+                        wght = dmc/(ssmc + dmc)
+                     endif
+                     dst_num = wght * num_coarse(i,k)*rho(i,k)*1.0e-6_r8
                   else
-                     ! 3-mode -- needs weighting for dust since dust and seasalt
-                     !           are combined in the "coarse" mode type
-                     wght = dmc/(ssmc + dmc)
-                  endif
-                  dst_num = wght * num_coarse(i,k)*rho(i,k)*1.0e-6_r8
-               else 
-                  dst_num = 0.0_r8
+                     dst_num = 0.0_r8
+                  end if
                end if
 
                if (dgnum(i,k,mode_aitken_idx) > 0._r8) then
