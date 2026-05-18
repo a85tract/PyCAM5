@@ -188,7 +188,7 @@
                                    cld_stoch, clwp_stoch, ciwp_stoch, tauc_stoch, changeSeed) 
 !-------------------------------------------------------------------------------------------------
 
-      use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+      use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
   !----------------------------------------------------------------------------------------------------------------
   ! ---------------------
   ! Contact: Cecile Hannay (hannay@ucar.edu)
@@ -261,7 +261,7 @@
 ! Column state (cloud fraction, cloud water, cloud ice) + variables needed to read physics state 
       real(kind=r8), intent(in) :: pmid(:,:)          ! layer pressure (Pa)
                                                         !    Dimensions: (ncol,nlay)
-      real(kind=r8), intent(in) :: cld(:,:)           ! cloud fraction 
+      real(kind=r8), target, intent(in) :: cld(:,:)   ! cloud fraction
                                                         !    Dimensions: (ncol,nlay)
       real(kind=r8), target, intent(in) :: clwp(:,:)  ! cloud liquid water path
                                                         !    Dimensions: (ncol,nlay)
@@ -333,6 +333,13 @@
       integer :: ilev, isubcol, i, n         ! indices
 
       interface
+         subroutine rrtmg_lw_subcol_cldf_prep_codon(ncol_c, nlay_c, ld_cld_c, ld_cldf_c, &
+              cldmin_c, cld_p, cldf_p) bind(c, name="rrtmg_lw_subcol_cldf_prep_codon")
+            use iso_c_binding, only: c_double, c_int64_t, c_ptr
+            integer(c_int64_t), value :: ncol_c, nlay_c, ld_cld_c, ld_cldf_c
+            real(c_double), value :: cldmin_c
+            type(c_ptr), value :: cld_p, cldf_p
+         end subroutine rrtmg_lw_subcol_cldf_prep_codon
          subroutine rrtmg_lw_subcol_fill_codon(ncol_c, nlay_c, nsubcol_c, nbndlw_c, &
               ld_cloud_c, ld_tauc_col_c, ld_out_col_c, &
               cdf_p, cldf_p, clwp_p, ciwp_p, tauc_p, ngb_p, cld_stoch_p, &
@@ -355,10 +362,19 @@
       overlap = icld
 
 ! ensure that cloud fractions are in bounds 
-      cldf(:,:) = cld(:ncol,:nlay)
-      where (cldf(:,:) < cldmin)
-          cldf(:,:) = 0._r8
-      end where
+      call subcol_fill_lw_select_impl()
+      if (use_native_subcol_fill_lw_impl) then
+         cldf(:,:) = cld(:ncol,:nlay)
+         where (cldf(:,:) < cldmin)
+             cldf(:,:) = 0._r8
+         end where
+      else
+         call subcol_fill_lw_log_entered()
+         call rrtmg_lw_subcol_cldf_prep_codon( &
+              int(ncol, c_int64_t), int(nlay, c_int64_t), int(size(cld,1), c_int64_t), &
+              int(ncol, c_int64_t), real(cldmin, c_double), c_loc(cld(1,1)), c_loc(cldf(1,1)) &
+         )
+      end if
 
 ! ----- Create seed  --------
    
@@ -652,7 +668,7 @@
       subcol_fill_lw_entered_logged = .true.
 
       if (masterproc) then
-         write(iulog,*) 'rrtmg_lw_subcol_fill entered (mcica lw pressure/size prep and stochastic cloud fill = codon)'
+         write(iulog,*) 'rrtmg_lw_subcol_fill entered (mcica lw pressure/size/cldf prep and stochastic cloud fill = codon)'
          call flush(iulog)
       end if
 
