@@ -110,6 +110,7 @@ integer :: npccn_idx, rndst_idx, nacon_idx
 logical  :: separate_dust = .false.
 logical  :: use_native_run_impl = .false.
 logical  :: run_impl_selected = .false.
+logical  :: run_linear_entered_logged = .false.
 
 !=========================================================================================
 contains
@@ -381,6 +382,20 @@ end subroutine microp_aero_run_select_impl
 
 !=========================================================================================
 
+subroutine microp_aero_run_linear_log_entered()
+
+   if (run_linear_entered_logged) return
+   run_linear_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,*) 'microp_aero_linear entered (rho/diag_TKE/lcloud/modal contact helpers = codon)'
+      call flush(iulog)
+   end if
+
+end subroutine microp_aero_run_linear_log_entered
+
+!=========================================================================================
+
 subroutine microp_aero_run ( &
    state, ptend, deltatin, pbuf)
 
@@ -470,6 +485,42 @@ subroutine microp_aero_run_impl ( &
          real(c_double), value :: rn_dst1_c, rn_dst2_c, rn_dst3_c, rn_dst4_c
          type(c_ptr), value :: npccn_p, nacon_p, rndst_p
       end subroutine microp_aero_init_fields_codon
+      subroutine microp_aero_rho_codon(ncol_c, pcols_c, pver_c, top_lev_c, rair_c, pmid_p, t_p, rho_p) &
+           bind(c, name="microp_aero_rho_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+         real(c_double), value :: rair_c
+         type(c_ptr), value :: pmid_p, t_p, rho_p
+      end subroutine microp_aero_rho_codon
+      subroutine microp_aero_diag_tke_wsub_codon(ncol_c, pcols_c, pver_c, top_lev_c, use_preexisting_ice_c, &
+           tke_p, wsub_p, wsubi_p) bind(c, name="microp_aero_diag_tke_wsub_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, use_preexisting_ice_c
+         type(c_ptr), value :: tke_p, wsub_p, wsubi_p
+      end subroutine microp_aero_diag_tke_wsub_codon
+      subroutine microp_aero_lcldm_codon(ncol_c, pcols_c, pver_c, top_lev_c, mincld_c, ast_p, lcldm_p) &
+           bind(c, name="microp_aero_lcldm_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+         real(c_double), value :: mincld_c
+         type(c_ptr), value :: ast_p, lcldm_p
+      end subroutine microp_aero_lcldm_codon
+      subroutine microp_aero_modal_lcloud_codon(ncol_c, pcols_c, pver_c, top_lev_c, qsmall_c, qc_p, qi_p, cldn_p, &
+           cldo_p, lcldn_p, lcldo_p) bind(c, name="microp_aero_modal_lcloud_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+         real(c_double), value :: qsmall_c
+         type(c_ptr), value :: qc_p, qi_p, cldn_p, cldo_p, lcldn_p, lcldo_p
+      end subroutine microp_aero_modal_lcloud_codon
+      subroutine microp_aero_modal_contact_codon(ncol_c, pcols_c, pver_c, top_lev_c, nmodes_c, mode_coarse_dst_idx_c, &
+           separate_dust_c, rn_dst3_c, t_p, rho_p, coarse_dust_p, coarse_nacl_p, num_coarse_p, dgnumwet_p, nacon_p, &
+           rndst_p) bind(c, name="microp_aero_modal_contact_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c, nmodes_c, mode_coarse_dst_idx_c
+         integer(c_int64_t), value :: separate_dust_c
+         real(c_double), value :: rn_dst3_c
+         type(c_ptr), value :: t_p, rho_p, coarse_dust_p, coarse_nacl_p, num_coarse_p, dgnumwet_p, nacon_p, rndst_p
+      end subroutine microp_aero_modal_contact_codon
    end interface
    !-------------------------------------------------------------------------------
 
@@ -538,11 +589,19 @@ subroutine microp_aero_run_impl ( &
       call hetfrz_classnuc_cam_save_cbaero(state, pbuf)
    end if
 
-   do k = top_lev, pver
-      do i = 1, ncol
-         rho(i,k) = pmid(i,k)/(rair*t(i,k))
+   if (use_native_impl) then
+      do k = top_lev, pver
+         do i = 1, ncol
+            rho(i,k) = pmid(i,k)/(rair*t(i,k))
+         end do
       end do
-   end do
+   else
+      call microp_aero_run_linear_log_entered()
+      call microp_aero_rho_codon( &
+           int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
+           real(rair, c_double), c_loc(pmid(1,1)), c_loc(t(1,1)), c_loc(rho(1,1)) &
+      )
+   end if
 
    if (clim_modal_aero) then
       ! mode number mixing ratios
@@ -587,42 +646,50 @@ subroutine microp_aero_run_impl ( &
       call pbuf_get_field(pbuf, kvh_idx, kvh)
    end select
 
-   ! Set minimum values above top_lev.
-   wsub(:ncol,:top_lev-1)  = 0.20_r8
-   wsubi(:ncol,:top_lev-1) = 0.001_r8
+   if (.not. use_native_impl .and. trim(eddy_scheme) == 'diag_TKE') then
+      call microp_aero_diag_tke_wsub_codon( &
+           int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
+           merge(1_c_int64_t, 0_c_int64_t, use_preexisting_ice), c_loc(tke(1,1)), c_loc(wsub(1,1)), &
+           c_loc(wsubi(1,1)) &
+      )
+   else
+      ! Set minimum values above top_lev.
+      wsub(:ncol,:top_lev-1)  = 0.20_r8
+      wsubi(:ncol,:top_lev-1) = 0.001_r8
 
-   do k = top_lev, pver
-      do i = 1, ncol
+      do k = top_lev, pver
+         do i = 1, ncol
 
-         select case (trim(eddy_scheme))
-         case ('diag_TKE', 'CLUBB_SGS')
-            wsub(i,k) = sqrt(0.5_r8*(tke(i,k) + tke(i,k+1))*(2._r8/3._r8))
-            wsub(i,k) = min(wsub(i,k),10._r8)
-         case default
-            ! get sub-grid vertical velocity from diff coef.
-            ! following morrison et al. 2005, JAS
-            ! assume mixing length of 30 m
-            dum = (kvh(i,k) + kvh(i,k+1))/2._r8/30._r8
-            ! use maximum sub-grid vertical vel of 10 m/s
-            dum = min(dum, 10._r8)
-            ! set wsub to value at current vertical level
-            wsub(i,k)  = dum
-         end select
+            select case (trim(eddy_scheme))
+            case ('diag_TKE', 'CLUBB_SGS')
+               wsub(i,k) = sqrt(0.5_r8*(tke(i,k) + tke(i,k+1))*(2._r8/3._r8))
+               wsub(i,k) = min(wsub(i,k),10._r8)
+            case default
+               ! get sub-grid vertical velocity from diff coef.
+               ! following morrison et al. 2005, JAS
+               ! assume mixing length of 30 m
+               dum = (kvh(i,k) + kvh(i,k+1))/2._r8/30._r8
+               ! use maximum sub-grid vertical vel of 10 m/s
+               dum = min(dum, 10._r8)
+               ! set wsub to value at current vertical level
+               wsub(i,k)  = dum
+            end select
 
-         if (eddy_scheme == 'CLUBB_SGS') then
-            wsubi(i,k) = max(0.2_r8, wsub(i,k))
-            wsubi(i,k) = min(wsubi(i,k), 10.0_r8)
-         else
-            wsubi(i,k) = max(0.001_r8, wsub(i,k))
-            if (.not. use_preexisting_ice) then
-               wsubi(i,k) = min(wsubi(i,k), 0.2_r8)
+            if (eddy_scheme == 'CLUBB_SGS') then
+               wsubi(i,k) = max(0.2_r8, wsub(i,k))
+               wsubi(i,k) = min(wsubi(i,k), 10.0_r8)
+            else
+               wsubi(i,k) = max(0.001_r8, wsub(i,k))
+               if (.not. use_preexisting_ice) then
+                  wsubi(i,k) = min(wsubi(i,k), 0.2_r8)
+               endif
             endif
-         endif
 
-         wsub(i,k)  = max(0.20_r8, wsub(i,k))
+            wsub(i,k)  = max(0.20_r8, wsub(i,k))
 
+         end do
       end do
-   end do
+   end if
 
    call outfld('WSUB',   wsub, pcols, lchnk)
    call outfld('WSUBI', wsubi, pcols, lchnk)
@@ -637,11 +704,18 @@ subroutine microp_aero_run_impl ( &
    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
    ! get liquid cloud fraction, check for minimum
 
-   do k = top_lev, pver
-      do i = 1, ncol
-         lcldm(i,k) = max(ast(i,k), mincld)
+   if (use_native_impl) then
+      do k = top_lev, pver
+         do i = 1, ncol
+            lcldm(i,k) = max(ast(i,k), mincld)
+         end do
       end do
-   end do
+   else
+      call microp_aero_lcldm_codon( &
+           int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
+           real(mincld, c_double), c_loc(ast(1,1)), c_loc(lcldm(1,1)) &
+      )
+   end if
 
    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
    ! Droplet Activation
@@ -651,17 +725,25 @@ subroutine microp_aero_run_impl ( &
       ! for modal aerosol
 
       ! partition cloud fraction into liquid water part
-      lcldn = 0._r8
-      lcldo = 0._r8
-      do k = top_lev, pver
-         do i = 1, ncol
-            qcld = qc(i,k) + qi(i,k)
-            if (qcld > qsmall) then
-               lcldn(i,k) = cldn(i,k)*qc(i,k)/qcld
-               lcldo(i,k) = cldo(i,k)*qc(i,k)/qcld
-            end if
+      if (use_native_impl) then
+         lcldn = 0._r8
+         lcldo = 0._r8
+         do k = top_lev, pver
+            do i = 1, ncol
+               qcld = qc(i,k) + qi(i,k)
+               if (qcld > qsmall) then
+                  lcldn(i,k) = cldn(i,k)*qc(i,k)/qcld
+                  lcldo(i,k) = cldo(i,k)*qc(i,k)/qcld
+               end if
+            end do
          end do
-      end do
+      else
+         call microp_aero_modal_lcloud_codon( &
+              int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
+              real(qsmall, c_double), c_loc(qc(1,1)), c_loc(qi(1,1)), c_loc(cldn(1,1)), c_loc(cldo(1,1)), &
+              c_loc(lcldn(1,1)), c_loc(lcldo(1,1)) &
+         )
+      end if
 
       call outfld('LCLOUD', lcldn, pcols, lchnk)
 
@@ -705,59 +787,68 @@ subroutine microp_aero_run_impl ( &
    ! Contact freezing  (-40<T<-3 C) (Young, 1974) with hooks into simulated dust
    ! estimate rndst and nanco for 4 dust bins here to pass to MG microphysics
 
-   do k = top_lev, pver
-      do i = 1, ncol
+   if (.not. use_native_impl .and. clim_modal_aero) then
+      call microp_aero_modal_contact_codon( &
+           int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
+           int(nmodes, c_int64_t), int(mode_coarse_dst_idx, c_int64_t), &
+           merge(1_c_int64_t, 0_c_int64_t, separate_dust), real(rn_dst3, c_double), c_loc(t(1,1)), &
+           c_loc(rho(1,1)), c_loc(coarse_dust(1,1)), c_loc(coarse_nacl(1,1)), c_loc(num_coarse(1,1)), &
+           c_loc(dgnumwet(1,1,1)), c_loc(nacon(1,1,1)), c_loc(rndst(1,1,1)) &
+      )
+   else
+      do k = top_lev, pver
+         do i = 1, ncol
 
-         if (t(i,k) < 269.15_r8) then
+            if (t(i,k) < 269.15_r8) then
 
-            if (clim_modal_aero) then
+               if (clim_modal_aero) then
 
-               ! For modal aerosols:
-               !  use size '3' for dust coarse mode...
-               !  scale by dust fraction in coarse mode
+                  ! For modal aerosols:
+                  !  use size '3' for dust coarse mode...
+                  !  scale by dust fraction in coarse mode
                
-               dmc  = coarse_dust(i,k)
-               ssmc = coarse_nacl(i,k)
+                  dmc  = coarse_dust(i,k)
+                  ssmc = coarse_nacl(i,k)
 
-               if ( separate_dust ) then
-                  ! 7-mode -- has separate dust and seasalt mode types and no need for weighting 
-                  wght = 1._r8
+                  if ( separate_dust ) then
+                     ! 7-mode -- has separate dust and seasalt mode types and no need for weighting
+                     wght = 1._r8
+                  else
+                     ! 3-mode -- needs weighting for dust since dust and seasalt are combined in the "coarse" mode type
+                     wght = dmc/(ssmc + dmc)
+                  endif
+
+                  if (dmc > 0.0_r8) then
+                     nacon(i,k,3) = wght*num_coarse(i,k)*rho(i,k)
+                  else
+                     nacon(i,k,3) = 0._r8
+                  end if
+
+                  !also redefine parameters based on size...
+
+                  rndst(i,k,3) = 0.5_r8*dgnumwet(i,k,mode_coarse_dst_idx)
+                  if (rndst(i,k,3) <= 0._r8) then
+                     rndst(i,k,3) = rn_dst3
+                  end if
+
                else
-                  ! 3-mode -- needs weighting for dust since dust and seasalt are combined in the "coarse" mode type
-                  wght = dmc/(ssmc + dmc)
-               endif
 
-               if (dmc > 0.0_r8) then
-                  nacon(i,k,3) = wght*num_coarse(i,k)*rho(i,k)
-               else
-                  nacon(i,k,3) = 0._r8
-               end if
+                  !For Bulk Aerosols: set equal to aerosol number for dust for bins 2-4 (bin 1=0)
 
-               !also redefine parameters based on size...
-
-               rndst(i,k,3) = 0.5_r8*dgnumwet(i,k,mode_coarse_dst_idx)
-               if (rndst(i,k,3) <= 0._r8) then 
-                  rndst(i,k,3) = rn_dst3
-               end if
-
-            else
-
-               !For Bulk Aerosols: set equal to aerosol number for dust for bins 2-4 (bin 1=0)
-
-               if (idxdst2 > 0) then 
-                  nacon(i,k,2) = naer2(i,k,idxdst2)
-               end if
-               if (idxdst3 > 0) then 
-                  nacon(i,k,3) = naer2(i,k,idxdst3)
-               end if
-               if (idxdst4 > 0) then 
-                  nacon(i,k,4) = naer2(i,k,idxdst4)
+                  if (idxdst2 > 0) then
+                     nacon(i,k,2) = naer2(i,k,idxdst2)
+                  end if
+                  if (idxdst3 > 0) then
+                     nacon(i,k,3) = naer2(i,k,idxdst3)
+                  end if
+                  if (idxdst4 > 0) then
+                     nacon(i,k,4) = naer2(i,k,idxdst4)
+                  end if
                end if
             end if
-
-         end if
+         end do
       end do
-   end do
+   end if
 
    !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
    !bulk aerosol ccn concentration (modal does it in ndrop, from dropmixnuc)
