@@ -37,6 +37,9 @@
       logical :: use_native_taugb4_5_lw_impl = .false.
       logical :: taugb4_5_lw_impl_selected = .false.
       logical :: taugb4_5_lw_entered_logged(2) = .false.
+      logical :: use_native_taugb3_7_9_13_15_lw_impl = .false.
+      logical :: taugb3_7_9_13_15_lw_impl_selected = .false.
+      logical :: taugb3_7_9_13_15_lw_entered_logged(5) = .false.
 
       contains
 
@@ -569,6 +572,7 @@
 
 ! ------- Modules -------
 
+      use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
       use parrrtm, only : ng3, ngs2
       use rrlw_ref, only : chi_mls
       use rrlw_kg03, only : fracrefa, fracrefb, absa, absb,&
@@ -591,6 +595,30 @@
       real(kind=r8) :: refrat_planck_a, refrat_planck_b, refrat_m_a, refrat_m_b
       real(kind=r8) :: tau_major, tau_major1
 
+      interface
+         subroutine rrtmg_lw_taugb3_codon(nlayers_c, laytrop_c, ng3_c, ngs2_c, &
+              nspa3_c, nspb3_c, oneminus_c, colh2o_p, colco2_p, coln2o_p, &
+              coldry_p, rat_h2oco2_p, rat_h2oco2_1_p, jp_p, jt_p, jt1_p, &
+              indself_p, indfor_p, indminor_p, fac00_p, fac01_p, fac10_p, &
+              fac11_p, selffac_p, selffrac_p, forfac_p, forfrac_p, &
+              minorfrac_p, chi_mls_p, fracrefa_p, fracrefb_p, absa_p, &
+              absb_p, ka_mn2o_p, kb_mn2o_p, selfref_p, forref_p, fracs_p, &
+              taug_p) bind(c, name="rrtmg_lw_taugb3_codon")
+            use iso_c_binding, only: c_double, c_int64_t, c_ptr
+            integer(c_int64_t), value :: nlayers_c, laytrop_c, ng3_c, ngs2_c
+            integer(c_int64_t), value :: nspa3_c, nspb3_c
+            real(c_double), value :: oneminus_c
+            type(c_ptr), value :: colh2o_p, colco2_p, coln2o_p, coldry_p
+            type(c_ptr), value :: rat_h2oco2_p, rat_h2oco2_1_p
+            type(c_ptr), value :: jp_p, jt_p, jt1_p, indself_p, indfor_p, indminor_p
+            type(c_ptr), value :: fac00_p, fac01_p, fac10_p, fac11_p
+            type(c_ptr), value :: selffac_p, selffrac_p, forfac_p, forfrac_p
+            type(c_ptr), value :: minorfrac_p, chi_mls_p, fracrefa_p, fracrefb_p
+            type(c_ptr), value :: absa_p, absb_p, ka_mn2o_p, kb_mn2o_p
+            type(c_ptr), value :: selfref_p, forref_p, fracs_p, taug_p
+         end subroutine rrtmg_lw_taugb3_codon
+      end interface
+
 
 ! Minor gas mapping levels:
 !     lower - n2o, p = 706.272 mbar, t = 278.94 k
@@ -612,6 +640,32 @@
 ! temperature, and appropriate species.  Below laytrop, the water vapor 
 ! self-continuum and foreign continuum is interpolated (in temperature) 
 ! separately.
+
+      call taugb3_7_9_13_15_lw_select_impl()
+      if (.not. use_native_taugb3_7_9_13_15_lw_impl) then
+         call taugb3_7_9_13_15_lw_log_entered(3)
+         call rrtmg_lw_taugb3_codon( &
+              int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng3, c_int64_t), &
+              int(ngs2, c_int64_t), int(nspa(3), c_int64_t), int(nspb(3), c_int64_t), &
+              real(oneminus, c_double), transfer(loc(colh2o(1)), c_null_ptr), &
+              transfer(loc(colco2(1)), c_null_ptr), transfer(loc(coln2o(1)), c_null_ptr), &
+              transfer(loc(coldry(1)), c_null_ptr), transfer(loc(rat_h2oco2(1)), c_null_ptr), &
+              transfer(loc(rat_h2oco2_1(1)), c_null_ptr), c_loc(jp64(1)), c_loc(jt64(1)), &
+              c_loc(jt164(1)), c_loc(indself64(1)), c_loc(indfor64(1)), &
+              c_loc(indminor64(1)), transfer(loc(fac00(1)), c_null_ptr), &
+              transfer(loc(fac01(1)), c_null_ptr), transfer(loc(fac10(1)), c_null_ptr), &
+              transfer(loc(fac11(1)), c_null_ptr), transfer(loc(selffac(1)), c_null_ptr), &
+              transfer(loc(selffrac(1)), c_null_ptr), transfer(loc(forfac(1)), c_null_ptr), &
+              transfer(loc(forfrac(1)), c_null_ptr), transfer(loc(minorfrac(1)), c_null_ptr), &
+              transfer(loc(chi_mls(1,1)), c_null_ptr), transfer(loc(fracrefa(1,1)), c_null_ptr), &
+              transfer(loc(fracrefb(1,1)), c_null_ptr), transfer(loc(absa(1,1)), c_null_ptr), &
+              transfer(loc(absb(1,1)), c_null_ptr), transfer(loc(ka_mn2o(1,1,1)), c_null_ptr), &
+              transfer(loc(kb_mn2o(1,1,1)), c_null_ptr), transfer(loc(selfref(1,1)), c_null_ptr), &
+              transfer(loc(forref(1,1)), c_null_ptr), transfer(loc(fracs(1,1)), c_null_ptr), &
+              transfer(loc(taug(1,1)), c_null_ptr) &
+         )
+         return
+      endif
 
 ! Lower atmosphere loop
       do lay = 1, laytrop
@@ -1646,6 +1700,7 @@
 
 ! ------- Modules -------
 
+      use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
       use parrrtm, only : ng7, ngs6
       use rrlw_ref, only : chi_mls
       use rrlw_kg07, only : fracrefa, fracrefb, absa, absb, &
@@ -1668,6 +1723,30 @@
       real(kind=r8) :: refrat_planck_a, refrat_m_a
       real(kind=r8) :: tau_major, tau_major1
 
+      interface
+         subroutine rrtmg_lw_taugb7_codon(nlayers_c, laytrop_c, ng7_c, ngs6_c, &
+              nspa7_c, nspb7_c, oneminus_c, colh2o_p, colco2_p, colo3_p, &
+              coldry_p, rat_h2oo3_p, rat_h2oo3_1_p, jp_p, jt_p, jt1_p, &
+              indself_p, indfor_p, indminor_p, fac00_p, fac01_p, fac10_p, &
+              fac11_p, selffac_p, selffrac_p, forfac_p, forfrac_p, &
+              minorfrac_p, chi_mls_p, fracrefa_p, fracrefb_p, absa_p, &
+              absb_p, ka_mco2_p, kb_mco2_p, selfref_p, forref_p, fracs_p, &
+              taug_p) bind(c, name="rrtmg_lw_taugb7_codon")
+            use iso_c_binding, only: c_double, c_int64_t, c_ptr
+            integer(c_int64_t), value :: nlayers_c, laytrop_c, ng7_c, ngs6_c
+            integer(c_int64_t), value :: nspa7_c, nspb7_c
+            real(c_double), value :: oneminus_c
+            type(c_ptr), value :: colh2o_p, colco2_p, colo3_p, coldry_p
+            type(c_ptr), value :: rat_h2oo3_p, rat_h2oo3_1_p
+            type(c_ptr), value :: jp_p, jt_p, jt1_p, indself_p, indfor_p, indminor_p
+            type(c_ptr), value :: fac00_p, fac01_p, fac10_p, fac11_p
+            type(c_ptr), value :: selffac_p, selffrac_p, forfac_p, forfrac_p
+            type(c_ptr), value :: minorfrac_p, chi_mls_p, fracrefa_p, fracrefb_p
+            type(c_ptr), value :: absa_p, absb_p, ka_mco2_p, kb_mco2_p
+            type(c_ptr), value :: selfref_p, forref_p, fracs_p, taug_p
+         end subroutine rrtmg_lw_taugb7_codon
+      end interface
+
 
 ! Minor gas mapping level :
 !     lower - co2, p = 706.2620 mbar, t= 278.94 k
@@ -1686,6 +1765,32 @@
 ! temperature, and appropriate species.  Below laytrop, the water
 ! vapor self-continuum and foreign continuum is interpolated 
 ! (in temperature) separately. 
+
+      call taugb3_7_9_13_15_lw_select_impl()
+      if (.not. use_native_taugb3_7_9_13_15_lw_impl) then
+         call taugb3_7_9_13_15_lw_log_entered(7)
+         call rrtmg_lw_taugb7_codon( &
+              int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng7, c_int64_t), &
+              int(ngs6, c_int64_t), int(nspa(7), c_int64_t), int(nspb(7), c_int64_t), &
+              real(oneminus, c_double), transfer(loc(colh2o(1)), c_null_ptr), &
+              transfer(loc(colco2(1)), c_null_ptr), transfer(loc(colo3(1)), c_null_ptr), &
+              transfer(loc(coldry(1)), c_null_ptr), transfer(loc(rat_h2oo3(1)), c_null_ptr), &
+              transfer(loc(rat_h2oo3_1(1)), c_null_ptr), c_loc(jp64(1)), c_loc(jt64(1)), &
+              c_loc(jt164(1)), c_loc(indself64(1)), c_loc(indfor64(1)), &
+              c_loc(indminor64(1)), transfer(loc(fac00(1)), c_null_ptr), &
+              transfer(loc(fac01(1)), c_null_ptr), transfer(loc(fac10(1)), c_null_ptr), &
+              transfer(loc(fac11(1)), c_null_ptr), transfer(loc(selffac(1)), c_null_ptr), &
+              transfer(loc(selffrac(1)), c_null_ptr), transfer(loc(forfac(1)), c_null_ptr), &
+              transfer(loc(forfrac(1)), c_null_ptr), transfer(loc(minorfrac(1)), c_null_ptr), &
+              transfer(loc(chi_mls(1,1)), c_null_ptr), transfer(loc(fracrefa(1,1)), c_null_ptr), &
+              transfer(loc(fracrefb(1)), c_null_ptr), transfer(loc(absa(1,1)), c_null_ptr), &
+              transfer(loc(absb(1,1)), c_null_ptr), transfer(loc(ka_mco2(1,1,1)), c_null_ptr), &
+              transfer(loc(kb_mco2(1,1)), c_null_ptr), transfer(loc(selfref(1,1)), c_null_ptr), &
+              transfer(loc(forref(1,1)), c_null_ptr), transfer(loc(fracs(1,1)), c_null_ptr), &
+              transfer(loc(taug(1,1)), c_null_ptr) &
+         )
+         return
+      endif
 
 ! Lower atmosphere loop
       do lay = 1, laytrop
@@ -2095,6 +2200,7 @@
 
 ! ------- Modules -------
 
+      use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
       use parrrtm, only : ng9, ngs8
       use rrlw_ref, only : chi_mls
       use rrlw_kg09, only : fracrefa, fracrefb, absa, absb, &
@@ -2117,6 +2223,30 @@
       real(kind=r8) :: refrat_planck_a, refrat_m_a
       real(kind=r8) :: tau_major, tau_major1
 
+      interface
+         subroutine rrtmg_lw_taugb9_codon(nlayers_c, laytrop_c, ng9_c, ngs8_c, &
+              nspa9_c, nspb9_c, oneminus_c, colh2o_p, colch4_p, coln2o_p, &
+              coldry_p, rat_h2och4_p, rat_h2och4_1_p, jp_p, jt_p, jt1_p, &
+              indself_p, indfor_p, indminor_p, fac00_p, fac01_p, fac10_p, &
+              fac11_p, selffac_p, selffrac_p, forfac_p, forfrac_p, &
+              minorfrac_p, chi_mls_p, fracrefa_p, fracrefb_p, absa_p, &
+              absb_p, ka_mn2o_p, kb_mn2o_p, selfref_p, forref_p, fracs_p, &
+              taug_p) bind(c, name="rrtmg_lw_taugb9_codon")
+            use iso_c_binding, only: c_double, c_int64_t, c_ptr
+            integer(c_int64_t), value :: nlayers_c, laytrop_c, ng9_c, ngs8_c
+            integer(c_int64_t), value :: nspa9_c, nspb9_c
+            real(c_double), value :: oneminus_c
+            type(c_ptr), value :: colh2o_p, colch4_p, coln2o_p, coldry_p
+            type(c_ptr), value :: rat_h2och4_p, rat_h2och4_1_p
+            type(c_ptr), value :: jp_p, jt_p, jt1_p, indself_p, indfor_p, indminor_p
+            type(c_ptr), value :: fac00_p, fac01_p, fac10_p, fac11_p
+            type(c_ptr), value :: selffac_p, selffrac_p, forfac_p, forfrac_p
+            type(c_ptr), value :: minorfrac_p, chi_mls_p, fracrefa_p, fracrefb_p
+            type(c_ptr), value :: absa_p, absb_p, ka_mn2o_p, kb_mn2o_p
+            type(c_ptr), value :: selfref_p, forref_p, fracs_p, taug_p
+         end subroutine rrtmg_lw_taugb9_codon
+      end interface
+
 
 ! Minor gas mapping level :
 !     lower - n2o, p = 706.272 mbar, t = 278.94 k
@@ -2135,6 +2265,32 @@
 ! temperature, and appropriate species.  Below laytrop, the water
 ! vapor self-continuum and foreign continuum is interpolated 
 ! (in temperature) separately.  
+
+      call taugb3_7_9_13_15_lw_select_impl()
+      if (.not. use_native_taugb3_7_9_13_15_lw_impl) then
+         call taugb3_7_9_13_15_lw_log_entered(9)
+         call rrtmg_lw_taugb9_codon( &
+              int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng9, c_int64_t), &
+              int(ngs8, c_int64_t), int(nspa(9), c_int64_t), int(nspb(9), c_int64_t), &
+              real(oneminus, c_double), transfer(loc(colh2o(1)), c_null_ptr), &
+              transfer(loc(colch4(1)), c_null_ptr), transfer(loc(coln2o(1)), c_null_ptr), &
+              transfer(loc(coldry(1)), c_null_ptr), transfer(loc(rat_h2och4(1)), c_null_ptr), &
+              transfer(loc(rat_h2och4_1(1)), c_null_ptr), c_loc(jp64(1)), c_loc(jt64(1)), &
+              c_loc(jt164(1)), c_loc(indself64(1)), c_loc(indfor64(1)), &
+              c_loc(indminor64(1)), transfer(loc(fac00(1)), c_null_ptr), &
+              transfer(loc(fac01(1)), c_null_ptr), transfer(loc(fac10(1)), c_null_ptr), &
+              transfer(loc(fac11(1)), c_null_ptr), transfer(loc(selffac(1)), c_null_ptr), &
+              transfer(loc(selffrac(1)), c_null_ptr), transfer(loc(forfac(1)), c_null_ptr), &
+              transfer(loc(forfrac(1)), c_null_ptr), transfer(loc(minorfrac(1)), c_null_ptr), &
+              transfer(loc(chi_mls(1,1)), c_null_ptr), transfer(loc(fracrefa(1,1)), c_null_ptr), &
+              transfer(loc(fracrefb(1)), c_null_ptr), transfer(loc(absa(1,1)), c_null_ptr), &
+              transfer(loc(absb(1,1)), c_null_ptr), transfer(loc(ka_mn2o(1,1,1)), c_null_ptr), &
+              transfer(loc(kb_mn2o(1,1)), c_null_ptr), transfer(loc(selfref(1,1)), c_null_ptr), &
+              transfer(loc(forref(1,1)), c_null_ptr), transfer(loc(fracs(1,1)), c_null_ptr), &
+              transfer(loc(taug(1,1)), c_null_ptr) &
+         )
+         return
+      endif
 
 ! Lower atmosphere loop
       do lay = 1, laytrop
@@ -2827,6 +2983,7 @@
 
 ! ------- Modules -------
 
+      use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
       use parrrtm, only : ng13, ngs12
       use rrlw_ref, only : chi_mls
       use rrlw_kg13, only : fracrefa, fracrefb, absa, &
@@ -2851,6 +3008,30 @@
       real(kind=r8) :: refrat_planck_a, refrat_m_a, refrat_m_a3
       real(kind=r8) :: tau_major, tau_major1
 
+      interface
+         subroutine rrtmg_lw_taugb13_codon(nlayers_c, laytrop_c, ng13_c, &
+              ngs12_c, nspa13_c, oneminus_c, colh2o_p, coln2o_p, colco2_p, &
+              colco_p, colo3_p, coldry_p, rat_h2on2o_p, rat_h2on2o_1_p, &
+              jp_p, jt_p, jt1_p, indself_p, indfor_p, indminor_p, fac00_p, &
+              fac01_p, fac10_p, fac11_p, selffac_p, selffrac_p, forfac_p, &
+              forfrac_p, minorfrac_p, chi_mls_p, fracrefa_p, fracrefb_p, &
+              absa_p, ka_mco2_p, ka_mco_p, kb_mo3_p, selfref_p, forref_p, &
+              fracs_p, taug_p) bind(c, name="rrtmg_lw_taugb13_codon")
+            use iso_c_binding, only: c_double, c_int64_t, c_ptr
+            integer(c_int64_t), value :: nlayers_c, laytrop_c, ng13_c, ngs12_c
+            integer(c_int64_t), value :: nspa13_c
+            real(c_double), value :: oneminus_c
+            type(c_ptr), value :: colh2o_p, coln2o_p, colco2_p, colco_p, colo3_p, coldry_p
+            type(c_ptr), value :: rat_h2on2o_p, rat_h2on2o_1_p
+            type(c_ptr), value :: jp_p, jt_p, jt1_p, indself_p, indfor_p, indminor_p
+            type(c_ptr), value :: fac00_p, fac01_p, fac10_p, fac11_p
+            type(c_ptr), value :: selffac_p, selffrac_p, forfac_p, forfrac_p
+            type(c_ptr), value :: minorfrac_p, chi_mls_p, fracrefa_p, fracrefb_p
+            type(c_ptr), value :: absa_p, ka_mco2_p, ka_mco_p, kb_mo3_p
+            type(c_ptr), value :: selfref_p, forref_p, fracs_p, taug_p
+         end subroutine rrtmg_lw_taugb13_codon
+      end interface
+
 
 ! Minor gas mapping levels :
 !     lower - co2, p = 1053.63 mb, t = 294.2 k
@@ -2873,6 +3054,32 @@
 ! temperature, and appropriate species.  Below laytrop, the water
 ! vapor self-continuum and foreign continuum is interpolated 
 ! (in temperature) separately.  
+
+      call taugb3_7_9_13_15_lw_select_impl()
+      if (.not. use_native_taugb3_7_9_13_15_lw_impl) then
+         call taugb3_7_9_13_15_lw_log_entered(13)
+         call rrtmg_lw_taugb13_codon( &
+              int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng13, c_int64_t), &
+              int(ngs12, c_int64_t), int(nspa(13), c_int64_t), real(oneminus, c_double), &
+              transfer(loc(colh2o(1)), c_null_ptr), transfer(loc(coln2o(1)), c_null_ptr), &
+              transfer(loc(colco2(1)), c_null_ptr), transfer(loc(colco(1)), c_null_ptr), &
+              transfer(loc(colo3(1)), c_null_ptr), transfer(loc(coldry(1)), c_null_ptr), &
+              transfer(loc(rat_h2on2o(1)), c_null_ptr), transfer(loc(rat_h2on2o_1(1)), c_null_ptr), &
+              c_loc(jp64(1)), c_loc(jt64(1)), c_loc(jt164(1)), c_loc(indself64(1)), &
+              c_loc(indfor64(1)), c_loc(indminor64(1)), transfer(loc(fac00(1)), c_null_ptr), &
+              transfer(loc(fac01(1)), c_null_ptr), transfer(loc(fac10(1)), c_null_ptr), &
+              transfer(loc(fac11(1)), c_null_ptr), transfer(loc(selffac(1)), c_null_ptr), &
+              transfer(loc(selffrac(1)), c_null_ptr), transfer(loc(forfac(1)), c_null_ptr), &
+              transfer(loc(forfrac(1)), c_null_ptr), transfer(loc(minorfrac(1)), c_null_ptr), &
+              transfer(loc(chi_mls(1,1)), c_null_ptr), transfer(loc(fracrefa(1,1)), c_null_ptr), &
+              transfer(loc(fracrefb(1)), c_null_ptr), transfer(loc(absa(1,1)), c_null_ptr), &
+              transfer(loc(ka_mco2(1,1,1)), c_null_ptr), transfer(loc(ka_mco(1,1,1)), c_null_ptr), &
+              transfer(loc(kb_mo3(1,1)), c_null_ptr), transfer(loc(selfref(1,1)), c_null_ptr), &
+              transfer(loc(forref(1,1)), c_null_ptr), transfer(loc(fracs(1,1)), c_null_ptr), &
+              transfer(loc(taug(1,1)), c_null_ptr) &
+         )
+         return
+      endif
 
 ! Lower atmosphere loop
       do lay = 1, laytrop
@@ -3185,6 +3392,7 @@
 
 ! ------- Modules -------
 
+      use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
       use parrrtm, only : ng15, ngs14
       use rrlw_ref, only : chi_mls
       use rrlw_kg15, only : fracrefa, absa, &
@@ -3206,6 +3414,28 @@
       real(kind=r8) :: refrat_planck_a, refrat_m_a
       real(kind=r8) :: tau_major, tau_major1
 
+      interface
+         subroutine rrtmg_lw_taugb15_codon(nlayers_c, laytrop_c, ng15_c, &
+              ngs14_c, nspa15_c, oneminus_c, coln2o_p, colco2_p, colbrd_p, &
+              rat_n2oco2_p, rat_n2oco2_1_p, jp_p, jt_p, jt1_p, indself_p, &
+              indfor_p, indminor_p, fac00_p, fac01_p, fac10_p, fac11_p, &
+              selffac_p, selffrac_p, forfac_p, forfrac_p, scaleminor_p, &
+              minorfrac_p, chi_mls_p, fracrefa_p, absa_p, ka_mn2_p, &
+              selfref_p, forref_p, fracs_p, taug_p) bind(c, name="rrtmg_lw_taugb15_codon")
+            use iso_c_binding, only: c_double, c_int64_t, c_ptr
+            integer(c_int64_t), value :: nlayers_c, laytrop_c, ng15_c, ngs14_c
+            integer(c_int64_t), value :: nspa15_c
+            real(c_double), value :: oneminus_c
+            type(c_ptr), value :: coln2o_p, colco2_p, colbrd_p
+            type(c_ptr), value :: rat_n2oco2_p, rat_n2oco2_1_p
+            type(c_ptr), value :: jp_p, jt_p, jt1_p, indself_p, indfor_p, indminor_p
+            type(c_ptr), value :: fac00_p, fac01_p, fac10_p, fac11_p
+            type(c_ptr), value :: selffac_p, selffrac_p, forfac_p, forfrac_p
+            type(c_ptr), value :: scaleminor_p, minorfrac_p, chi_mls_p, fracrefa_p
+            type(c_ptr), value :: absa_p, ka_mn2_p, selfref_p, forref_p, fracs_p, taug_p
+         end subroutine rrtmg_lw_taugb15_codon
+      end interface
+
 
 ! Minor gas mapping level : 
 !     Lower - Nitrogen Continuum, P = 1053., T = 294.
@@ -3222,6 +3452,30 @@
 ! temperature, and appropriate species.  Below laytrop, the water
 ! vapor self-continuum and foreign continuum is interpolated 
 ! (in temperature) separately.  
+
+      call taugb3_7_9_13_15_lw_select_impl()
+      if (.not. use_native_taugb3_7_9_13_15_lw_impl) then
+         call taugb3_7_9_13_15_lw_log_entered(15)
+         call rrtmg_lw_taugb15_codon( &
+              int(nlayers, c_int64_t), int(laytrop, c_int64_t), int(ng15, c_int64_t), &
+              int(ngs14, c_int64_t), int(nspa(15), c_int64_t), real(oneminus, c_double), &
+              transfer(loc(coln2o(1)), c_null_ptr), transfer(loc(colco2(1)), c_null_ptr), &
+              transfer(loc(colbrd(1)), c_null_ptr), transfer(loc(rat_n2oco2(1)), c_null_ptr), &
+              transfer(loc(rat_n2oco2_1(1)), c_null_ptr), c_loc(jp64(1)), c_loc(jt64(1)), &
+              c_loc(jt164(1)), c_loc(indself64(1)), c_loc(indfor64(1)), &
+              c_loc(indminor64(1)), transfer(loc(fac00(1)), c_null_ptr), &
+              transfer(loc(fac01(1)), c_null_ptr), transfer(loc(fac10(1)), c_null_ptr), &
+              transfer(loc(fac11(1)), c_null_ptr), transfer(loc(selffac(1)), c_null_ptr), &
+              transfer(loc(selffrac(1)), c_null_ptr), transfer(loc(forfac(1)), c_null_ptr), &
+              transfer(loc(forfrac(1)), c_null_ptr), transfer(loc(scaleminor(1)), c_null_ptr), &
+              transfer(loc(minorfrac(1)), c_null_ptr), transfer(loc(chi_mls(1,1)), c_null_ptr), &
+              transfer(loc(fracrefa(1,1)), c_null_ptr), transfer(loc(absa(1,1)), c_null_ptr), &
+              transfer(loc(ka_mn2(1,1,1)), c_null_ptr), transfer(loc(selfref(1,1)), c_null_ptr), &
+              transfer(loc(forref(1,1)), c_null_ptr), transfer(loc(fracs(1,1)), c_null_ptr), &
+              transfer(loc(taug(1,1)), c_null_ptr) &
+         )
+         return
+      endif
 
 ! Lower atmosphere loop
       do lay = 1, laytrop
@@ -3718,6 +3972,79 @@
       end if
 
       end subroutine taugb4_5_lw_log_entered
+
+! --------------------------------------------------------------------------
+      subroutine taugb3_7_9_13_15_lw_select_impl()
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (taugb3_7_9_13_15_lw_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('RRTMG_LW_TAUGB3_7_9_13_15_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_taugb3_7_9_13_15_lw_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_taugb3_7_9_13_15_lw_impl = .false.
+      end if
+
+      taugb3_7_9_13_15_lw_impl_selected = .true.
+
+      if (masterproc) then
+         if (use_native_taugb3_7_9_13_15_lw_impl) then
+            write(iulog,*) 'rrtmg_lw_taugb3_7_9_13_15 implementation = native'
+         else
+            write(iulog,*) 'rrtmg_lw_taugb3_7_9_13_15 implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine taugb3_7_9_13_15_lw_select_impl
+
+! --------------------------------------------------------------------------
+      subroutine taugb3_7_9_13_15_lw_log_entered(band)
+
+      integer, intent(in) :: band
+      integer :: idx
+      character(len=96) :: proof_line
+
+      select case (band)
+      case (3)
+         idx = 1
+         proof_line = 'rrtmg_lw_taugb3 entered (longwave band 3 optical depth = codon)'
+      case (7)
+         idx = 2
+         proof_line = 'rrtmg_lw_taugb7 entered (longwave band 7 optical depth = codon)'
+      case (9)
+         idx = 3
+         proof_line = 'rrtmg_lw_taugb9 entered (longwave band 9 optical depth = codon)'
+      case (13)
+         idx = 4
+         proof_line = 'rrtmg_lw_taugb13 entered (longwave band 13 optical depth = codon)'
+      case (15)
+         idx = 5
+         proof_line = 'rrtmg_lw_taugb15 entered (longwave band 15 optical depth = codon)'
+      case default
+         return
+      end select
+
+      if (taugb3_7_9_13_15_lw_entered_logged(idx)) return
+      taugb3_7_9_13_15_lw_entered_logged(idx) = .true.
+
+      if (masterproc) then
+         write(iulog,*) trim(proof_line)
+         call flush(iulog)
+      end if
+
+      end subroutine taugb3_7_9_13_15_lw_log_entered
 
 ! --------------------------------------------------------------------------
       subroutine taugb1_2_6_8_12_16_lw_select_impl()
