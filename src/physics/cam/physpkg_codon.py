@@ -3374,3 +3374,15 @@ def cosp_set_values_basic_codon(
     nscol[0] = ncolumns
     nradsteps_out[0] = nradsteps
     zstep[0] = zstep_value
+
+
+@export
+def carma_flags_bool_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def carma_flags_touch_codon() -> int:
+    return 0

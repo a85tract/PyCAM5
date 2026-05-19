@@ -9,6 +9,8 @@ module carma_flags_mod
 
   use shr_kind_mod,   only: r8 => shr_kind_r8
   use spmd_utils,     only: masterproc
+  use cam_logfile,    only: iulog
+  use iso_c_binding,  only: c_int64_t
 
   ! Flags for integration with CAM Microphysics
   public carma_readnl                   ! read the carma namelist
@@ -60,8 +62,127 @@ module carma_flags_mod
   character(len=256), public     :: carma_reftfile    = 'carma_reft.nc'  ! path to the file containing the reference temperature profile
   character(len=32), public      :: carma_model       = "none"    ! String (no spaces) that identifies the model
 
+  logical :: use_native_carma_flags_impl = .false.
+  logical :: carma_flags_impl_selected = .false.
+  logical :: carma_flags_proof_written = .false.
+
+  private :: carma_flags_select_impl, carma_flags_proof_once, carma_flags_bool, carma_flags_finalize
+
+  interface
+    function carma_flags_bool_codon(flag_c) result(out_c) bind(c, name="carma_flags_bool_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+    end function carma_flags_bool_codon
+  end interface
+
 contains
 
+  subroutine carma_flags_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (carma_flags_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('CARMA_FLAGS_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_carma_flags_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_carma_flags_impl = .false.
+    end if
+
+    carma_flags_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_carma_flags_impl) then
+          write(iulog,*) 'carma_flags implementation = native'
+       else
+          write(iulog,*) 'carma_flags implementation = codon'
+       end if
+    end if
+
+  end subroutine carma_flags_select_impl
+
+  !================================================================================================
+  !================================================================================================
+  subroutine carma_flags_proof_once()
+
+    if (carma_flags_proof_written) return
+    carma_flags_proof_written = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'carma_flags entered (runtime namelist boolean helpers = codon)'
+    end if
+
+  end subroutine carma_flags_proof_once
+
+  !================================================================================================
+  !================================================================================================
+  logical function carma_flags_bool(flag)
+
+    logical, intent(in) :: flag
+    integer(c_int64_t) :: flag_c, out_c
+
+    call carma_flags_select_impl()
+
+    if (use_native_carma_flags_impl) then
+       carma_flags_bool = flag
+       return
+    end if
+
+    call carma_flags_proof_once()
+    if (flag) then
+       flag_c = 1_c_int64_t
+    else
+       flag_c = 0_c_int64_t
+    end if
+    out_c = carma_flags_bool_codon(flag_c)
+    carma_flags_bool = out_c /= 0_c_int64_t
+
+  end function carma_flags_bool
+
+  !================================================================================================
+  !================================================================================================
+  subroutine carma_flags_finalize()
+
+    carma_flag = carma_flags_bool(carma_flag)
+    carma_do_aerosol = carma_flags_bool(carma_do_aerosol)
+    carma_do_cldliq = carma_flags_bool(carma_do_cldliq)
+    carma_do_cldice = carma_flags_bool(carma_do_cldice)
+    carma_do_clearsky = carma_flags_bool(carma_do_clearsky)
+    carma_do_coag = carma_flags_bool(carma_do_coag)
+    carma_do_detrain = carma_flags_bool(carma_do_detrain)
+    carma_do_drydep = carma_flags_bool(carma_do_drydep)
+    carma_do_emission = carma_flags_bool(carma_do_emission)
+    carma_do_fixedinit = carma_flags_bool(carma_do_fixedinit)
+    carma_hetchem_feedback = carma_flags_bool(carma_hetchem_feedback)
+    carma_rad_feedback = carma_flags_bool(carma_rad_feedback)
+    carma_do_explised = carma_flags_bool(carma_do_explised)
+    carma_do_incloud = carma_flags_bool(carma_do_incloud)
+    carma_do_grow = carma_flags_bool(carma_do_grow)
+    carma_do_optics = carma_flags_bool(carma_do_optics)
+    carma_do_partialinit = carma_flags_bool(carma_do_partialinit)
+    carma_do_pheat = carma_flags_bool(carma_do_pheat)
+    carma_do_pheatatm = carma_flags_bool(carma_do_pheatatm)
+    carma_do_substep = carma_flags_bool(carma_do_substep)
+    carma_do_thermo = carma_flags_bool(carma_do_thermo)
+    carma_do_wetdep = carma_flags_bool(carma_do_wetdep)
+    carma_do_vdiff = carma_flags_bool(carma_do_vdiff)
+    carma_do_vtran = carma_flags_bool(carma_do_vtran)
+
+  end subroutine carma_flags_finalize
+
+  !================================================================================================
+  !================================================================================================
 
   !! Read the CARMA runtime options from the namelist
   !!
@@ -182,6 +303,8 @@ contains
     call mpibcast (carma_model, len(carma_model), mpichar, 0, mpicom)
     call mpibcast (carma_reftfile, len(carma_reftfile), mpichar, 0, mpicom)
 #endif
+
+    call carma_flags_finalize()
 
     ! Also cause the CARMA model flags to be read in.
     call carma_model_readnl(nlfile)

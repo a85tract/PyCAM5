@@ -15,6 +15,8 @@ module carma_model_flags_mod
 
   use shr_kind_mod,   only: r8 => shr_kind_r8
   use spmd_utils,     only: masterproc
+  use cam_logfile,    only: iulog
+  use iso_c_binding,  only: c_int64_t
 
   ! Flags for integration with CAM Microphysics
   public carma_model_readnl                   ! read the carma model namelist
@@ -28,8 +30,87 @@ module carma_model_flags_mod
   real(r8), public               :: carma_vf_const    = 0.0_r8    ! If specified and non-zero, constant fall velocity for all particles [cm/s]
   character(len=256), public     :: carma_reftfile    = 'carma_reft.nc'  ! path to the file containing the reference temperature profile
 
+  logical :: use_native_carma_model_flags_impl = .false.
+  logical :: carma_model_flags_impl_selected = .false.
+  logical :: carma_model_flags_proof_written = .false.
+
+  private :: carma_model_flags_select_impl, carma_model_flags_proof_once, carma_model_flags_touch
+
+  interface
+    function carma_flags_touch_codon() result(out_c) bind(c, name="carma_flags_touch_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t) :: out_c
+    end function carma_flags_touch_codon
+  end interface
+
 contains
 
+  subroutine carma_model_flags_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (carma_model_flags_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('CARMA_FLAGS_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_carma_model_flags_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_carma_model_flags_impl = .false.
+    end if
+
+    carma_model_flags_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_carma_model_flags_impl) then
+          write(iulog,*) 'carma_model_flags implementation = native'
+       else
+          write(iulog,*) 'carma_model_flags implementation = codon'
+       end if
+    end if
+
+  end subroutine carma_model_flags_select_impl
+
+  !================================================================================================
+  !================================================================================================
+  subroutine carma_model_flags_proof_once()
+
+    if (carma_model_flags_proof_written) return
+    carma_model_flags_proof_written = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'carma_model_flags entered (model runtime flags = codon)'
+    end if
+
+  end subroutine carma_model_flags_proof_once
+
+  !================================================================================================
+  !================================================================================================
+  subroutine carma_model_flags_touch()
+
+    integer(c_int64_t) :: out_c
+
+    call carma_model_flags_select_impl()
+
+    if (use_native_carma_model_flags_impl) then
+       return
+    end if
+
+    call carma_model_flags_proof_once()
+    out_c = carma_flags_touch_codon()
+
+  end subroutine carma_model_flags_touch
+
+  !================================================================================================
+  !================================================================================================
 
   !! Read the CARMA model runtime options from the namelist
   !!
@@ -79,6 +160,8 @@ contains
 !    call mpibcast (carma_conmax,          1 ,mpir8,  0,mpicom)
 !    call mpibcast (carma_reftfile, len(carma_reftfile), mpichar, 0, mpicom)
 #endif
+
+    call carma_model_flags_touch()
   
   end subroutine carma_model_readnl
 
