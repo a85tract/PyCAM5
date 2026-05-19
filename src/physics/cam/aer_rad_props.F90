@@ -20,6 +20,9 @@ use cam_history,      only: fieldname_len, addfld, phys_decomp, outfld, add_defa
 use cam_history_support, only : fillvalue
 ! Placed here due to PGI bug.
 use ref_pres,         only: clim_modal_aero_top_lev
+use spmd_utils,       only: masterproc
+use cam_logfile,      only: iulog
+use iso_c_binding,    only: c_int64_t, c_double, c_ptr
 
 use cam_abortutils,   only: endrun
 
@@ -37,9 +40,82 @@ public :: &
 ! Private data
 character(len=fieldname_len), pointer :: odv_names(:)  ! outfld names for visible OD
 
+logical :: use_native_aer_rad_props_setup_impl = .false.
+logical :: aer_rad_props_setup_impl_selected = .false.
+logical :: aer_rad_props_setup_proof_written = .false.
+
+interface
+   subroutine aer_rad_props_sw_setup_codon(ncol_c, pcols_c, pver_c, nswbands_c, nrh_c, rga_c, &
+        pdeldry_p, qv_p, qs_p, mmr_to_mass_p, krh_p, wrh_p, tau_p, tau_w_p, tau_w_g_p, tau_w_f_p) &
+        bind(c, name="aer_rad_props_sw_setup_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, nswbands_c, nrh_c
+      real(c_double), value :: rga_c
+      type(c_ptr), value :: pdeldry_p, qv_p, qs_p, mmr_to_mass_p, krh_p, wrh_p
+      type(c_ptr), value :: tau_p, tau_w_p, tau_w_g_p, tau_w_f_p
+   end subroutine aer_rad_props_sw_setup_codon
+
+   subroutine aer_rad_props_lw_setup_codon(ncol_c, pcols_c, pver_c, nrh_c, rga_c, &
+        pdeldry_p, qv_p, qs_p, mmr_to_mass_p, krh_p, wrh_p) &
+        bind(c, name="aer_rad_props_lw_setup_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, nrh_c
+      real(c_double), value :: rga_c
+      type(c_ptr), value :: pdeldry_p, qv_p, qs_p, mmr_to_mass_p, krh_p, wrh_p
+   end subroutine aer_rad_props_lw_setup_codon
+end interface
 
 !==============================================================================
 contains
+!==============================================================================
+
+subroutine aer_rad_props_setup_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (aer_rad_props_setup_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('AER_RAD_PROPS_SETUP_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_aer_rad_props_setup_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_aer_rad_props_setup_impl = .false.
+   end if
+
+   aer_rad_props_setup_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_aer_rad_props_setup_impl) then
+         write(iulog,*) 'aer_rad_props_setup implementation = native'
+      else
+         write(iulog,*) 'aer_rad_props_setup implementation = codon'
+      end if
+   end if
+
+end subroutine aer_rad_props_setup_select_impl
+
+!==============================================================================
+
+subroutine aer_rad_props_setup_proof_once()
+
+   if (aer_rad_props_setup_proof_written) return
+   aer_rad_props_setup_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'aer_rad_props_setup entered (SW/LW mass and RH lookup helpers = codon)'
+   end if
+
+end subroutine aer_rad_props_setup_proof_once
+
 !==============================================================================
 
 subroutine aer_rad_props_init()
@@ -165,8 +241,6 @@ subroutine aer_rad_props_sw(list_idx, state, pbuf,  nnite, idxnite, &
    ! for table lookup into rh grid
    real(r8) :: es(pcols,pver)     ! saturation vapor pressure
    real(r8) :: qs(pcols,pver)     ! saturation specific humidity
-   real(r8) :: rh(pcols,pver)
-   real(r8) :: rhtrunc(pcols,pver)
    real(r8) :: wrh(pcols,pver)
    integer  :: krh(pcols,pver)
  
@@ -180,32 +254,11 @@ subroutine aer_rad_props_sw(list_idx, state, pbuf,  nnite, idxnite, &
    ncol  = state%ncol
    lchnk = state%lchnk
 
-   ! compute mixing ratio to mass conversion
-   do k = 1, pver
-      mmr_to_mass(:ncol,k) = rga * state%pdeldry(:ncol,k)
-   enddo
-
-   ! initialize to conditions that would cause failure
-   tau     (:,:,:) = -100._r8
-   tau_w   (:,:,:) = -100._r8
-   tau_w_g (:,:,:) = -100._r8
-   tau_w_f (:,:,:) = -100._r8
-
-   ! top layer (ilev = 0) has no aerosol (ie tau = 0)
-   ! also initialize rest of layers to accumulate od's
-   tau    (1:ncol,:,:) = 0._r8
-   tau_w  (1:ncol,:,:) = 0._r8
-   tau_w_g(1:ncol,:,:) = 0._r8
-   tau_w_f(1:ncol,:,:) = 0._r8
-
    ! calculate relative humidity for table lookup into rh grid
    call qsat(state%t(1:ncol,1:pver), state%pmid(1:ncol,1:pver), &
         es(1:ncol,1:pver), qs(1:ncol,1:pver))
-   rh(1:ncol,1:pver) = state%q(1:ncol,1:pver,1) / qs(1:ncol,1:pver)
-
-   rhtrunc(1:ncol,1:pver) = min(rh(1:ncol,1:pver),1._r8)
-   krh(1:ncol,1:pver) = min(floor( rhtrunc(1:ncol,1:pver) * nrh ) + 1, nrh - 1) ! index into rh mesh
-   wrh(1:ncol,1:pver) = rhtrunc(1:ncol,1:pver) * nrh - krh(1:ncol,1:pver)       ! (-) weighting on left side values
+   call aer_rad_props_sw_setup(ncol, state%pdeldry, state%q(1,1,1), qs, mmr_to_mass, &
+        krh, wrh, tau, tau_w, tau_w_g, tau_w_f)
 
    ! get number of bulk aerosols and number of modes in current list
    call rad_cnst_get_info(list_idx, naero=numaerosols, nmodes=nmodes)
@@ -340,8 +393,6 @@ subroutine aer_rad_props_lw(list_idx, state, pbuf,  odap_aer)
    ! for table lookup into rh grid
    real(r8) :: es(pcols,pver)     ! saturation vapor pressure
    real(r8) :: qs(pcols,pver)     ! saturation specific humidity
-   real(r8) :: rh(pcols,pver)
-   real(r8) :: rhtrunc(pcols,pver)
    real(r8) :: wrh(pcols,pver)
    integer  :: krh(pcols,pver)
 
@@ -368,19 +419,10 @@ subroutine aer_rad_props_lw(list_idx, state, pbuf,  odap_aer)
    ! Contributions from bulk aerosols.
    if (numaerosols > 0) then
 
-      ! compute mixing ratio to mass conversion
-      do k = 1, pver
-         mmr_to_mass(:ncol,k) = rga * state%pdeldry(:ncol,k)
-      end do
-
       ! calculate relative humidity for table lookup into rh grid
       call qsat(state%t(1:ncol,1:pver), state%pmid(1:ncol,1:pver), &
            es(1:ncol,1:pver), qs(1:ncol,1:pver))
-      rh(1:ncol,1:pver) = state%q(1:ncol,1:pver,1) / qs(1:ncol,1:pver)
-
-      rhtrunc(1:ncol,1:pver) = min(rh(1:ncol,1:pver),1._r8)
-      krh(1:ncol,1:pver) = min(floor( rhtrunc(1:ncol,1:pver) * nrh ) + 1, nrh - 1) ! index into rh mesh
-      wrh(1:ncol,1:pver) = rhtrunc(1:ncol,1:pver) * nrh - krh(1:ncol,1:pver)       ! (-) weighting on left side values
+      call aer_rad_props_lw_setup(ncol, state%pdeldry, state%q(1,1,1), qs, mmr_to_mass, krh, wrh)
 
    end if
 
@@ -458,6 +500,145 @@ subroutine aer_rad_props_lw(list_idx, state, pbuf,  odap_aer)
     end do
 
 end subroutine aer_rad_props_lw
+
+!==============================================================================
+
+subroutine aer_rad_props_sw_setup(ncol, pdeldry, qv, qs, mmr_to_mass, krh, wrh, &
+                                  tau, tau_w, tau_w_g, tau_w_f)
+
+   use iso_c_binding, only: c_loc
+
+   integer,  intent(in)  :: ncol
+   real(r8), intent(in),  target :: pdeldry(pcols,pver)
+   real(r8), intent(in),  target :: qv(pcols,pver)
+   real(r8), intent(in),  target :: qs(pcols,pver)
+   real(r8), intent(out), target :: mmr_to_mass(pcols,pver)
+   integer,  intent(out), target :: krh(pcols,pver)
+   real(r8), intent(out), target :: wrh(pcols,pver)
+   real(r8), intent(out), target :: tau    (pcols,0:pver,nswbands)
+   real(r8), intent(out), target :: tau_w  (pcols,0:pver,nswbands)
+   real(r8), intent(out), target :: tau_w_g(pcols,0:pver,nswbands)
+   real(r8), intent(out), target :: tau_w_f(pcols,0:pver,nswbands)
+
+   call aer_rad_props_setup_select_impl()
+
+   if (use_native_aer_rad_props_setup_impl) then
+      call aer_rad_props_sw_setup_native(ncol, pdeldry, qv, qs, mmr_to_mass, krh, wrh, &
+           tau, tau_w, tau_w_g, tau_w_f)
+      return
+   end if
+
+   call aer_rad_props_setup_proof_once()
+   call aer_rad_props_sw_setup_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+        int(pver, c_int64_t), int(nswbands, c_int64_t), int(nrh, c_int64_t), real(rga, c_double), &
+        c_loc(pdeldry(1,1)), c_loc(qv(1,1)), c_loc(qs(1,1)), c_loc(mmr_to_mass(1,1)), &
+        c_loc(krh(1,1)), c_loc(wrh(1,1)), c_loc(tau(1,0,1)), c_loc(tau_w(1,0,1)), &
+        c_loc(tau_w_g(1,0,1)), c_loc(tau_w_f(1,0,1)))
+
+end subroutine aer_rad_props_sw_setup
+
+!==============================================================================
+
+subroutine aer_rad_props_sw_setup_native(ncol, pdeldry, qv, qs, mmr_to_mass, krh, wrh, &
+                                         tau, tau_w, tau_w_g, tau_w_f)
+
+   integer,  intent(in)  :: ncol
+   real(r8), intent(in)  :: pdeldry(pcols,pver)
+   real(r8), intent(in)  :: qv(pcols,pver)
+   real(r8), intent(in)  :: qs(pcols,pver)
+   real(r8), intent(out) :: mmr_to_mass(pcols,pver)
+   integer,  intent(out) :: krh(pcols,pver)
+   real(r8), intent(out) :: wrh(pcols,pver)
+   real(r8), intent(out) :: tau    (pcols,0:pver,nswbands)
+   real(r8), intent(out) :: tau_w  (pcols,0:pver,nswbands)
+   real(r8), intent(out) :: tau_w_g(pcols,0:pver,nswbands)
+   real(r8), intent(out) :: tau_w_f(pcols,0:pver,nswbands)
+
+   integer :: k
+   real(r8) :: rh(pcols,pver)
+   real(r8) :: rhtrunc(pcols,pver)
+
+   ! compute mixing ratio to mass conversion
+   do k = 1, pver
+      mmr_to_mass(:ncol,k) = rga * pdeldry(:ncol,k)
+   enddo
+
+   ! initialize to conditions that would cause failure
+   tau     (:,:,:) = -100._r8
+   tau_w   (:,:,:) = -100._r8
+   tau_w_g (:,:,:) = -100._r8
+   tau_w_f (:,:,:) = -100._r8
+
+   ! top layer (ilev = 0) has no aerosol (ie tau = 0)
+   ! also initialize rest of layers to accumulate od's
+   tau    (1:ncol,:,:) = 0._r8
+   tau_w  (1:ncol,:,:) = 0._r8
+   tau_w_g(1:ncol,:,:) = 0._r8
+   tau_w_f(1:ncol,:,:) = 0._r8
+
+   rh(1:ncol,1:pver) = qv(1:ncol,1:pver) / qs(1:ncol,1:pver)
+   rhtrunc(1:ncol,1:pver) = min(rh(1:ncol,1:pver),1._r8)
+   krh(1:ncol,1:pver) = min(floor( rhtrunc(1:ncol,1:pver) * nrh ) + 1, nrh - 1)
+   wrh(1:ncol,1:pver) = rhtrunc(1:ncol,1:pver) * nrh - krh(1:ncol,1:pver)
+
+end subroutine aer_rad_props_sw_setup_native
+
+!==============================================================================
+
+subroutine aer_rad_props_lw_setup(ncol, pdeldry, qv, qs, mmr_to_mass, krh, wrh)
+
+   use iso_c_binding, only: c_loc
+
+   integer,  intent(in)  :: ncol
+   real(r8), intent(in),  target :: pdeldry(pcols,pver)
+   real(r8), intent(in),  target :: qv(pcols,pver)
+   real(r8), intent(in),  target :: qs(pcols,pver)
+   real(r8), intent(out), target :: mmr_to_mass(pcols,pver)
+   integer,  intent(out), target :: krh(pcols,pver)
+   real(r8), intent(out), target :: wrh(pcols,pver)
+
+   call aer_rad_props_setup_select_impl()
+
+   if (use_native_aer_rad_props_setup_impl) then
+      call aer_rad_props_lw_setup_native(ncol, pdeldry, qv, qs, mmr_to_mass, krh, wrh)
+      return
+   end if
+
+   call aer_rad_props_setup_proof_once()
+   call aer_rad_props_lw_setup_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+        int(pver, c_int64_t), int(nrh, c_int64_t), real(rga, c_double), &
+        c_loc(pdeldry(1,1)), c_loc(qv(1,1)), c_loc(qs(1,1)), c_loc(mmr_to_mass(1,1)), &
+        c_loc(krh(1,1)), c_loc(wrh(1,1)))
+
+end subroutine aer_rad_props_lw_setup
+
+!==============================================================================
+
+subroutine aer_rad_props_lw_setup_native(ncol, pdeldry, qv, qs, mmr_to_mass, krh, wrh)
+
+   integer,  intent(in)  :: ncol
+   real(r8), intent(in)  :: pdeldry(pcols,pver)
+   real(r8), intent(in)  :: qv(pcols,pver)
+   real(r8), intent(in)  :: qs(pcols,pver)
+   real(r8), intent(out) :: mmr_to_mass(pcols,pver)
+   integer,  intent(out) :: krh(pcols,pver)
+   real(r8), intent(out) :: wrh(pcols,pver)
+
+   integer :: k
+   real(r8) :: rh(pcols,pver)
+   real(r8) :: rhtrunc(pcols,pver)
+
+   ! compute mixing ratio to mass conversion
+   do k = 1, pver
+      mmr_to_mass(:ncol,k) = rga * pdeldry(:ncol,k)
+   end do
+
+   rh(1:ncol,1:pver) = qv(1:ncol,1:pver) / qs(1:ncol,1:pver)
+   rhtrunc(1:ncol,1:pver) = min(rh(1:ncol,1:pver),1._r8)
+   krh(1:ncol,1:pver) = min(floor( rhtrunc(1:ncol,1:pver) * nrh ) + 1, nrh - 1)
+   wrh(1:ncol,1:pver) = rhtrunc(1:ncol,1:pver) * nrh - krh(1:ncol,1:pver)
+
+end subroutine aer_rad_props_lw_setup_native
 
 !==============================================================================
 ! Private methods

@@ -1,4 +1,4 @@
-from math import exp, log, sqrt
+from math import exp, floor, log, sqrt
 
 @export
 def phys_timestep_init_select_branches_codon(
@@ -3209,3 +3209,98 @@ def constituents_rgas_codon(r_universal: float, mwc: float) -> float:
 @export
 def constituents_cv_codon(cpc: float, rgas: float) -> float:
     return cpc - rgas
+
+
+@inline
+def _aer_rad_sw_idx(i: int, k0: int, band: int, pcols: int, pverp: int) -> int:
+    """tau/tau_w/tau_w_g/tau_w_f declared as (pcols,0:pver,nswbands)."""
+    return (i - 1) + k0 * pcols + (band - 1) * pcols * pverp
+
+
+@export
+def aer_rad_props_sw_setup_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    nswbands: int,
+    nrh: int,
+    rga: float,
+    pdeldry_p: cobj,
+    qv_p: cobj,
+    qs_p: cobj,
+    mmr_to_mass_p: cobj,
+    krh_p: cobj,
+    wrh_p: cobj,
+    tau_p: cobj,
+    tau_w_p: cobj,
+    tau_w_g_p: cobj,
+    tau_w_f_p: cobj,
+):
+    pdeldry = Ptr[float](pdeldry_p)
+    qv = Ptr[float](qv_p)
+    qs = Ptr[float](qs_p)
+    mmr_to_mass = Ptr[float](mmr_to_mass_p)
+    krh = Ptr[i32](krh_p)
+    wrh = Ptr[float](wrh_p)
+    tau = Ptr[float](tau_p)
+    tau_w = Ptr[float](tau_w_p)
+    tau_w_g = Ptr[float](tau_w_g_p)
+    tau_w_f = Ptr[float](tau_w_f_p)
+
+    pverp = pver + 1
+    for band in range(1, nswbands + 1):
+        for k0 in range(0, pver + 1):
+            for i in range(1, pcols + 1):
+                idx3 = _aer_rad_sw_idx(i, k0, band, pcols, pverp)
+                tau[idx3] = -100.0
+                tau_w[idx3] = -100.0
+                tau_w_g[idx3] = -100.0
+                tau_w_f[idx3] = -100.0
+            for i in range(1, ncol + 1):
+                idx3 = _aer_rad_sw_idx(i, k0, band, pcols, pverp)
+                tau[idx3] = 0.0
+                tau_w[idx3] = 0.0
+                tau_w_g[idx3] = 0.0
+                tau_w_f[idx3] = 0.0
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _field2_idx(i, k, pcols)
+            mmr_to_mass[idx2] = rga * pdeldry[idx2]
+            rh = qv[idx2] / qs[idx2]
+            rhtrunc = min(rh, 1.0)
+            krh_value = min(int(floor(rhtrunc * float(nrh))) + 1, nrh - 1)
+            krh[idx2] = i32(krh_value)
+            wrh[idx2] = rhtrunc * float(nrh) - float(krh_value)
+
+
+@export
+def aer_rad_props_lw_setup_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    nrh: int,
+    rga: float,
+    pdeldry_p: cobj,
+    qv_p: cobj,
+    qs_p: cobj,
+    mmr_to_mass_p: cobj,
+    krh_p: cobj,
+    wrh_p: cobj,
+):
+    pdeldry = Ptr[float](pdeldry_p)
+    qv = Ptr[float](qv_p)
+    qs = Ptr[float](qs_p)
+    mmr_to_mass = Ptr[float](mmr_to_mass_p)
+    krh = Ptr[i32](krh_p)
+    wrh = Ptr[float](wrh_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _field2_idx(i, k, pcols)
+            mmr_to_mass[idx2] = rga * pdeldry[idx2]
+            rh = qv[idx2] / qs[idx2]
+            rhtrunc = min(rh, 1.0)
+            krh_value = min(int(floor(rhtrunc * float(nrh))) + 1, nrh - 1)
+            krh[idx2] = i32(krh_value)
+            wrh[idx2] = rhtrunc * float(nrh) - float(krh_value)
