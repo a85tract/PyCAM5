@@ -3478,3 +3478,15 @@ def cld_sediment_param_codon(value: float) -> float:
 @export
 def tsinti_param_codon(value: float) -> float:
     return value
+
+
+@export
+def clubb_intr_flag_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def clubb_intr_touch_codon() -> int:
+    return 0

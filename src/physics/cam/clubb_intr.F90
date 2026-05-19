@@ -25,6 +25,7 @@ module clubb_intr
   use spmd_utils,    only: masterproc 
   use constituents,  only: pcnst, cnst_add
   use pbl_utils,     only: calc_ustar, calc_obklen
+  use iso_c_binding, only: c_int64_t
   use mpishorthand
 
   implicit none
@@ -176,7 +177,117 @@ module clubb_intr
   character(len=8)   :: cnst_names(ncnst)
   logical            :: do_cnst=.false.
 
+  logical :: use_native_clubb_intr_impl = .false.
+  logical :: clubb_intr_impl_selected = .false.
+  logical :: clubb_intr_proof_written = .false.
+
+  interface
+     function clubb_intr_flag_codon(flag_c) result(out_c) bind(c, name="clubb_intr_flag_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: flag_c
+        integer(c_int64_t) :: out_c
+     end function clubb_intr_flag_codon
+
+     function clubb_intr_touch_codon() result(out_c) bind(c, name="clubb_intr_touch_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t) :: out_c
+     end function clubb_intr_touch_codon
+  end interface
+
   contains
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine clubb_intr_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (clubb_intr_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('CLUBB_INTR_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_clubb_intr_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_clubb_intr_impl = .false.
+    end if
+
+    clubb_intr_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_clubb_intr_impl) then
+          write(iulog,*) 'clubb_intr implementation = native'
+       else
+          write(iulog,*) 'clubb_intr implementation = codon'
+       end if
+    end if
+
+  end subroutine clubb_intr_select_impl
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine clubb_intr_proof_once()
+
+    if (clubb_intr_proof_written) return
+    clubb_intr_proof_written = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'clubb_intr entered (readnl/implements helpers = codon)'
+    end if
+
+  end subroutine clubb_intr_proof_once
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  logical function clubb_intr_flag(flag_in)
+
+    logical, intent(in) :: flag_in
+    integer(c_int64_t) :: out_c
+
+    call clubb_intr_select_impl()
+
+    if (use_native_clubb_intr_impl) then
+       clubb_intr_flag = flag_in
+       return
+    end if
+
+    call clubb_intr_proof_once()
+    out_c = clubb_intr_flag_codon(merge(1_c_int64_t, 0_c_int64_t, flag_in))
+    clubb_intr_flag = out_c /= 0_c_int64_t
+
+  end function clubb_intr_flag
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine clubb_intr_touch()
+
+    integer(c_int64_t) :: out_c
+
+    call clubb_intr_select_impl()
+
+    if (use_native_clubb_intr_impl) return
+    if (clubb_intr_proof_written) return
+
+    call clubb_intr_proof_once()
+    out_c = clubb_intr_touch_codon()
+
+  end subroutine clubb_intr_touch
   
   ! =============================================================================== !
   !                                                                                 !
@@ -277,7 +388,7 @@ function clubb_implements_cnst(name)
 
    !-----------------------------------------------------------------------
 
-   clubb_implements_cnst = (do_cnst .and. any(name == cnst_names))
+   clubb_implements_cnst = clubb_intr_flag(do_cnst .and. any(name == cnst_names))
 
 end function clubb_implements_cnst
 
@@ -399,6 +510,7 @@ end subroutine clubb_init_cnst
     if (clubb_expldiff) do_expldiff = .true.
 
 #endif
+    call clubb_intr_touch()
   end subroutine clubb_readnl
 
   ! =============================================================================== !
