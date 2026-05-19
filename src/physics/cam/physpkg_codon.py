@@ -3473,3 +3473,8 @@ def iondrag_touch_codon() -> int:
 @export
 def cld_sediment_param_codon(value: float) -> float:
     return value
+
+
+@export
+def tsinti_param_codon(value: float) -> float:
+    return value
