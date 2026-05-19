@@ -2861,3 +2861,43 @@ def cldfrc2m_aist_vector_codon(
                 aist = max(0.0, min(1.0, qi[i0] / qist_max))
 
         aist_out[i0] = max(0.0, min(aist, 0.999))
+
+
+@inline
+def _phys_prop_interp_index(n: int, x: Ptr[float], y: float) -> int:
+    k = 1
+    if y <= x[0]:
+        k = 1
+    elif y >= x[n - 1]:
+        k = n - 1
+    else:
+        k = 1
+        while y > x[k] and k < n:
+            k += 1
+    return k
+
+
+@export
+def phys_prop_exp_interpol_codon(n: int, x_p: cobj, f_p: cobj, y: float) -> float:
+    x = Ptr[float](x_p)
+    f = Ptr[float](f_p)
+
+    k = _phys_prop_interp_index(n, x, y)
+    k0 = k - 1
+    k1 = k
+
+    a = (log(f[k1] / f[k0])) / (x[k1] - x[k0])
+    return f[k0] * exp(a * (y - x[k0]))
+
+
+@export
+def phys_prop_lin_interpol_codon(n: int, x_p: cobj, f_p: cobj, y: float) -> float:
+    x = Ptr[float](x_p)
+    f = Ptr[float](f_p)
+
+    k = _phys_prop_interp_index(n, x, y)
+    k0 = k - 1
+    k1 = k
+
+    a = (f[k1] - f[k0]) / (x[k1] - x[k0])
+    return f[k0] + a * (y - x[k0])

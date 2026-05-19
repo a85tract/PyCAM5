@@ -104,9 +104,82 @@ type (physprop_type), pointer :: physprop(:)
 ! the properties.  Searching the uniquefilenames array provides the index into the physprop
 ! array.
 character(len=256), allocatable :: uniquefilenames(:)
+
+logical :: use_native_phys_prop_interp_impl = .false.
+logical :: phys_prop_interp_impl_selected = .false.
+logical :: phys_prop_interp_proof_written = .false.
+
+interface
+   function phys_prop_exp_interpol_codon(n_c, x_p, f_p, y_c) result(g) &
+        bind(c, name="phys_prop_exp_interpol_codon")
+     use iso_c_binding, only: c_int64_t, c_double, c_ptr
+     integer(c_int64_t), value :: n_c
+     type(c_ptr), value :: x_p, f_p
+     real(c_double), value :: y_c
+     real(c_double) :: g
+   end function phys_prop_exp_interpol_codon
+
+   function phys_prop_lin_interpol_codon(n_c, x_p, f_p, y_c) result(g) &
+        bind(c, name="phys_prop_lin_interpol_codon")
+     use iso_c_binding, only: c_int64_t, c_double, c_ptr
+     integer(c_int64_t), value :: n_c
+     type(c_ptr), value :: x_p, f_p
+     real(c_double), value :: y_c
+     real(c_double) :: g
+   end function phys_prop_lin_interpol_codon
+end interface
  
 !================================================================================================
 contains
+!================================================================================================
+
+subroutine phys_prop_interp_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (phys_prop_interp_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('PHYS_PROP_INTERP_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_phys_prop_interp_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_phys_prop_interp_impl = .false.
+   end if
+
+   phys_prop_interp_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_phys_prop_interp_impl) then
+         write(iulog,*) 'phys_prop_interp implementation = native'
+      else
+         write(iulog,*) 'phys_prop_interp implementation = codon'
+      end if
+   end if
+
+end subroutine phys_prop_interp_select_impl
+
+!================================================================================================
+
+subroutine phys_prop_interp_proof_once()
+
+   if (phys_prop_interp_proof_written) return
+   phys_prop_interp_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'phys_prop_interp entered (hygroscopic optics interpolation helpers = codon)'
+   end if
+
+end subroutine phys_prop_interp_proof_once
+
 !================================================================================================
 
 subroutine physprop_accum_unique_files(radname, type)
@@ -1149,6 +1222,33 @@ end subroutine bulk_props_init
 
 function exp_interpol(x, f, y) result(g)
 ! Purpose:
+!   Codon-backed wrapper for exponential interpolation.
+
+   use iso_c_binding, only: c_int64_t, c_loc
+
+   implicit none
+
+   real(r8), intent(in), target, contiguous, dimension(:) :: x
+   real(r8), intent(in), target, contiguous, dimension(:) :: f
+   real(r8), intent(in) :: y
+   real(r8) :: g
+
+   call phys_prop_interp_select_impl()
+
+   if (use_native_phys_prop_interp_impl) then
+      g = exp_interpol_native(x, f, y)
+   else
+      call phys_prop_interp_proof_once()
+      g = phys_prop_exp_interpol_codon(int(size(x), c_int64_t), c_loc(x(1)), c_loc(f(1)), y)
+   end if
+
+   return
+end function exp_interpol
+
+!================================================================================================
+
+function exp_interpol_native(x, f, y) result(g)
+! Purpose:
 !   interpolates f(x) to point y
 !   assuming f(x) = f(x0) exp a(x - x0)
 !   where a = ( ln f(x1) - ln f(x0) ) / (x1 - x0)
@@ -1187,11 +1287,38 @@ function exp_interpol(x, f, y) result(g)
    a = (  log( f(k+1) / f(k) )  ) / ( x(k+1) - x(k) )
    g = f(k) * exp( a * (y - x(k)) )
    return
-end function exp_interpol
+end function exp_interpol_native
 
 !================================================================================================
 
 function lin_interpol(x, f, y) result(g)
+! Purpose:
+!   Codon-backed wrapper for linear interpolation.
+
+   use iso_c_binding, only: c_int64_t, c_loc
+
+   implicit none
+
+   real(r8), intent(in), target, contiguous, dimension(:) :: x
+   real(r8), intent(in), target, contiguous, dimension(:) :: f
+   real(r8), intent(in) :: y
+   real(r8) :: g
+
+   call phys_prop_interp_select_impl()
+
+   if (use_native_phys_prop_interp_impl) then
+      g = lin_interpol_native(x, f, y)
+   else
+      call phys_prop_interp_proof_once()
+      g = phys_prop_lin_interpol_codon(int(size(x), c_int64_t), c_loc(x(1)), c_loc(f(1)), y)
+   end if
+
+   return
+end function lin_interpol
+
+!================================================================================================
+
+function lin_interpol_native(x, f, y) result(g)
 ! Purpose:
 !   interpolates f(x) to point y
 !   assuming f(x) = f(x0) + a * (x - x0)
@@ -1231,7 +1358,7 @@ function lin_interpol(x, f, y) result(g)
    a = (  f(k+1) - f(k) ) / ( x(k+1) - x(k) )
    g = f(k) + a * (y - x(k))
    return
-end function lin_interpol
+end function lin_interpol_native
 
 !================================================================================================
 
