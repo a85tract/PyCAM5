@@ -2707,3 +2707,105 @@ def trb_mtn_stress_compute_codon(
             ksrf[i - 1] = rho * cd * vmag * landfrac[i - 1]
             taux[i - 1] = -ksrf[i - 1] * u[_trb_mtn_idx(i, pver, pcols)]
             tauy[i - 1] = -ksrf[i - 1] * v[_trb_mtn_idx(i, pver, pcols)]
+
+
+@inline
+def _diff_solver_pcols_idx(i: int, k: int, pcols: int) -> int:
+    """diffusion_solver work arrays declared as (pcols,pver+1)."""
+    return (i - 1) + (k - 1) * pcols
+
+
+@inline
+def _diff_solver_ncol_idx(i: int, k: int, ncol: int) -> int:
+    """diffusion_solver Coords1D copies and dpidz_sq declared as (ncol,*)."""
+    return (i - 1) + (k - 1) * ncol
+
+
+@export
+def diffusion_solver_setup_codon(
+    pcols: int,
+    pver: int,
+    ncol: int,
+    ztodt: float,
+    gravit: float,
+    rair: float,
+    t_p: cobj,
+    rairi_p: cobj,
+    p_ifc_p: cobj,
+    p_mid_p: cobj,
+    p_rdel_p: cobj,
+    p_rdst_p: cobj,
+    tint_p: cobj,
+    rhoi_p: cobj,
+    dpidz_sq_p: cobj,
+    tmpi2_p: cobj,
+    rrho_p: cobj,
+    tmp1_p: cobj,
+):
+    t = Ptr[float](t_p)
+    rairi = Ptr[float](rairi_p)
+    p_ifc = Ptr[float](p_ifc_p)
+    p_mid = Ptr[float](p_mid_p)
+    p_rdel = Ptr[float](p_rdel_p)
+    p_rdst = Ptr[float](p_rdst_p)
+    tint = Ptr[float](tint_p)
+    rhoi = Ptr[float](rhoi_p)
+    dpidz_sq = Ptr[float](dpidz_sq_p)
+    tmpi2 = Ptr[float](tmpi2_p)
+    rrho = Ptr[float](rrho_p)
+    tmp1 = Ptr[float](tmp1_p)
+
+    for i in range(1, ncol + 1):
+        tint[_diff_solver_pcols_idx(i, 1, pcols)] = t[_diff_solver_pcols_idx(i, 1, pcols)]
+        rhoi[_diff_solver_pcols_idx(i, 1, pcols)] = (
+            p_ifc[_diff_solver_ncol_idx(i, 1, ncol)]
+            / (
+                rairi[_diff_solver_pcols_idx(i, 1, pcols)]
+                * tint[_diff_solver_pcols_idx(i, 1, pcols)]
+            )
+        )
+
+    for k in range(2, pver + 1):
+        for i in range(1, ncol + 1):
+            tint[_diff_solver_pcols_idx(i, k, pcols)] = 0.5 * (
+                t[_diff_solver_pcols_idx(i, k, pcols)]
+                + t[_diff_solver_pcols_idx(i, k - 1, pcols)]
+            )
+            rhoi[_diff_solver_pcols_idx(i, k, pcols)] = (
+                p_ifc[_diff_solver_ncol_idx(i, k, ncol)]
+                / (
+                    rairi[_diff_solver_pcols_idx(i, k, pcols)]
+                    * tint[_diff_solver_pcols_idx(i, k, pcols)]
+                )
+            )
+
+    for i in range(1, ncol + 1):
+        tint[_diff_solver_pcols_idx(i, pver + 1, pcols)] = t[_diff_solver_pcols_idx(i, pver, pcols)]
+        rhoi[_diff_solver_pcols_idx(i, pver + 1, pcols)] = (
+            p_ifc[_diff_solver_ncol_idx(i, pver + 1, ncol)]
+            / (rair * tint[_diff_solver_pcols_idx(i, pver + 1, pcols)])
+        )
+
+    for k in range(1, pver + 2):
+        for i in range(1, ncol + 1):
+            idx_n = _diff_solver_ncol_idx(i, k, ncol)
+            dpidz_sq[idx_n] = gravit * rhoi[_diff_solver_pcols_idx(i, k, pcols)]
+
+    for k in range(1, pver + 2):
+        for i in range(1, ncol + 1):
+            idx_n = _diff_solver_ncol_idx(i, k, ncol)
+            dpidz_sq[idx_n] = dpidz_sq[idx_n] * dpidz_sq[idx_n]
+
+    for k in range(2, pver + 1):
+        for i in range(1, ncol + 1):
+            tmpi2[_diff_solver_pcols_idx(i, k, pcols)] = (
+                ztodt
+                * dpidz_sq[_diff_solver_ncol_idx(i, k, ncol)]
+                * p_rdst[_diff_solver_ncol_idx(i, k - 1, ncol)]
+            )
+
+    for i in range(1, ncol + 1):
+        rrho[i - 1] = rair * t[_diff_solver_pcols_idx(i, pver, pcols)] / p_mid[
+            _diff_solver_ncol_idx(i, pver, ncol)
+        ]
+        tmp1[i - 1] = ztodt * gravit * p_rdel[_diff_solver_ncol_idx(i, pver, ncol)]

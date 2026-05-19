@@ -81,7 +81,107 @@
   real(r8), parameter :: dv2min  = 0.01_r8               ! Minimum shear squared
   real(r8), private   :: oroconst                        ! Converts from standard deviation to height
 
+  logical :: use_native_diffusion_solver_setup_impl = .false.
+  logical :: diffusion_solver_setup_impl_selected = .false.
+  logical :: diffusion_solver_setup_proof_written = .false.
+
+  interface
+     subroutine diffusion_solver_setup_codon(pcols_c, pver_c, ncol_c, ztodt_c, gravit_c, rair_c, &
+          t_p, rairi_p, p_ifc_p, p_mid_p, p_rdel_p, p_rdst_p, tint_p, rhoi_p, dpidz_sq_p, tmpi2_p, &
+          rrho_p, tmp1_p) bind(c, name="diffusion_solver_setup_codon")
+       use iso_c_binding, only: c_int64_t, c_double, c_ptr
+       integer(c_int64_t), value :: pcols_c, pver_c, ncol_c
+       real(c_double), value :: ztodt_c, gravit_c, rair_c
+       type(c_ptr), value :: t_p, rairi_p, p_ifc_p, p_mid_p, p_rdel_p, p_rdst_p
+       type(c_ptr), value :: tint_p, rhoi_p, dpidz_sq_p, tmpi2_p, rrho_p, tmp1_p
+     end subroutine diffusion_solver_setup_codon
+  end interface
+
   contains
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+
+  subroutine diffusion_solver_setup_select_impl()
+
+    use spmd_utils, only: masterproc
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (diffusion_solver_setup_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('DIFFUSION_SOLVER_SETUP_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_diffusion_solver_setup_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_diffusion_solver_setup_impl = .false.
+    end if
+
+    diffusion_solver_setup_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_diffusion_solver_setup_impl) then
+          write(iulog,*) 'diffusion_solver_setup implementation = native'
+       else
+          write(iulog,*) 'diffusion_solver_setup implementation = codon'
+       end if
+    end if
+
+  end subroutine diffusion_solver_setup_select_impl
+
+  ! =============================================================================== !
+
+  subroutine diffusion_solver_setup_proof_once()
+
+    use spmd_utils, only: masterproc
+
+    if (diffusion_solver_setup_proof_written) return
+    diffusion_solver_setup_proof_written = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'diffusion_solver_setup entered (interface thermo work arrays = codon)'
+    end if
+
+  end subroutine diffusion_solver_setup_proof_once
+
+  ! =============================================================================== !
+
+  subroutine diffusion_solver_setup_codon_wrap(pcols, pver, ncol, ztodt, t, rairi, p_ifc, p_mid, &
+       p_rdel, p_rdst, tint, rhoi, dpidz_sq, tmpi2, rrho, tmp1)
+
+    use iso_c_binding, only: c_int64_t, c_loc
+
+    integer, intent(in) :: pcols, pver, ncol
+    real(r8), intent(in) :: ztodt
+    real(r8), intent(in), target :: t(pcols,pver)
+    real(r8), intent(in), target :: rairi(pcols,pver+1)
+    real(r8), intent(in), target :: p_ifc(ncol,pver+1)
+    real(r8), intent(in), target :: p_mid(ncol,pver)
+    real(r8), intent(in), target :: p_rdel(ncol,pver)
+    real(r8), intent(in), target :: p_rdst(ncol,pver-1)
+    real(r8), intent(inout), target :: tint(pcols,pver+1)
+    real(r8), intent(inout), target :: rhoi(pcols,pver+1)
+    real(r8), intent(inout), target :: dpidz_sq(ncol,pver+1)
+    real(r8), intent(inout), target :: tmpi2(pcols,pver+1)
+    real(r8), intent(inout), target :: rrho(pcols)
+    real(r8), intent(inout), target :: tmp1(pcols)
+
+    call diffusion_solver_setup_codon(int(pcols, c_int64_t), int(pver, c_int64_t), int(ncol, c_int64_t), &
+         ztodt, gravit, rair, c_loc(t(1,1)), c_loc(rairi(1,1)), c_loc(p_ifc(1,1)), c_loc(p_mid(1,1)), &
+         c_loc(p_rdel(1,1)), c_loc(p_rdst(1,1)), c_loc(tint(1,1)), c_loc(rhoi(1,1)), c_loc(dpidz_sq(1,1)), &
+         c_loc(tmpi2(1,1)), c_loc(rrho(1)), c_loc(tmp1(1)))
+
+  end subroutine diffusion_solver_setup_codon_wrap
 
   ! =============================================================================== !
   !                                                                                 !
@@ -408,6 +508,10 @@
     logical  :: kvt_returned
     real(r8) :: ttemp(ncol,pver)			 ! temporary temperature array
     real(r8) :: ttemp0(ncol,pver)			 ! temporary temperature array
+    real(r8) :: p_ifc_codon(ncol,pver+1)
+    real(r8) :: p_mid_codon(ncol,pver)
+    real(r8) :: p_rdel_codon(ncol,pver)
+    real(r8) :: p_rdst_codon(ncol,pver-1)
 
     ! ------------------------------------------------ !
     ! Parameters for implicit surface stress treatment !
@@ -436,25 +540,37 @@
 
     ! Compute 'rho' and 'dt*(g*rho)^2/dp' at interfaces
 
-    tint(:ncol,1) = t(:ncol,1)
-    rhoi(:ncol,1) = p%ifc(:,1) / (rairi(:ncol,1)*tint(:ncol,1))
-    do k = 2, pver
-       do i = 1, ncol
-          tint(i,k)  = 0.5_r8 * ( t(i,k) + t(i,k-1) )
-          rhoi(i,k)  = p%ifc(i,k) / (rairi(i,k)*tint(i,k))
+    call diffusion_solver_setup_select_impl()
+
+    if (use_native_diffusion_solver_setup_impl) then
+       tint(:ncol,1) = t(:ncol,1)
+       rhoi(:ncol,1) = p%ifc(:,1) / (rairi(:ncol,1)*tint(:ncol,1))
+       do k = 2, pver
+          do i = 1, ncol
+             tint(i,k)  = 0.5_r8 * ( t(i,k) + t(i,k-1) )
+             rhoi(i,k)  = p%ifc(i,k) / (rairi(i,k)*tint(i,k))
+          end do
        end do
-    end do
-    tint(:ncol,pver+1) = t(:ncol,pver)
-    rhoi(:ncol,pver+1) = p%ifc(:,pver+1) / ( rair*tint(:ncol,pver+1) )
+       tint(:ncol,pver+1) = t(:ncol,pver)
+       rhoi(:ncol,pver+1) = p%ifc(:,pver+1) / ( rair*tint(:ncol,pver+1) )
 
-    ! Note that the *derivative* dp/dz is g*rho
-    dpidz_sq = gravit*rhoi(:ncol,:)
-    dpidz_sq = dpidz_sq * dpidz_sq
+       ! Note that the *derivative* dp/dz is g*rho
+       dpidz_sq = gravit*rhoi(:ncol,:)
+       dpidz_sq = dpidz_sq * dpidz_sq
 
-    tmpi2(:ncol,2:pver) = ztodt * dpidz_sq(:,2:pver) * p%rdst
+       tmpi2(:ncol,2:pver) = ztodt * dpidz_sq(:,2:pver) * p%rdst
 
-    rrho(:ncol) = rair  * t(:ncol,pver) / p%mid(:,pver)
-    tmp1(:ncol) = ztodt * gravit * p%rdel(:,pver)
+       rrho(:ncol) = rair  * t(:ncol,pver) / p%mid(:,pver)
+       tmp1(:ncol) = ztodt * gravit * p%rdel(:,pver)
+    else
+       p_ifc_codon = p%ifc
+       p_mid_codon = p%mid
+       p_rdel_codon = p%rdel
+       p_rdst_codon = p%rdst
+       call diffusion_solver_setup_proof_once()
+       call diffusion_solver_setup_codon_wrap(pcols, pver, ncol, ztodt, t, rairi, p_ifc_codon, p_mid_codon, &
+            p_rdel_codon, p_rdst_codon, tint, rhoi, dpidz_sq, tmpi2, rrho, tmp1)
+    end if
 
     !--------------------------------------- !
     ! Computation of Molecular Diffusivities !
