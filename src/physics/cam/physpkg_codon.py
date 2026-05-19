@@ -3490,3 +3490,16 @@ def clubb_intr_flag_codon(flag: int) -> int:
 @export
 def clubb_intr_touch_codon() -> int:
     return 0
+
+
+@export
+def radae_ntoplw_codon(pref_mid_p: cobj, nlev: int) -> int:
+    pref_mid = Ptr[float](pref_mid_p)
+    ntoplw = 1
+    if pref_mid[0] < 0.1:
+        for k in range(nlev):
+            if pref_mid[k] < 1.0:
+                ntoplw = k + 1
+    else:
+        ntoplw = 1
+    return ntoplw

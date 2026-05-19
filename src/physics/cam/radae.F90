@@ -30,6 +30,7 @@ module radae
   use cam_abortutils,   only: endrun
   use cam_logfile,      only: iulog
   use wv_saturation,    only: qsat_water
+  use iso_c_binding,    only: c_int64_t, c_loc, c_ptr
 
 
   implicit none
@@ -206,10 +207,111 @@ module radae
   real(r8), parameter :: abp(6)=(/2.9129e-2_r8,2.4101e-2_r8,1.9821e-2_r8,2.6904e-2_r8,2.9458e-2_r8,1.9892e-2_r8/)
   real(r8), parameter :: bbp(6)=(/-1.3139e-4_r8,-5.5688e-5_r8,-4.6380e-5_r8,-8.0362e-5_r8,-1.0115e-4_r8,-8.8061e-5_r8/)
 
+  logical :: use_native_radae_radbuffer_impl = .false.
+  logical :: radae_radbuffer_impl_selected = .false.
+  logical :: radae_radbuffer_proof_written = .false.
+
+  interface
+     function radae_ntoplw_codon(pref_mid_p, nlev_c) result(out_c) bind(c, name="radae_ntoplw_codon")
+        use iso_c_binding, only: c_int64_t, c_ptr
+        type(c_ptr), value :: pref_mid_p
+        integer(c_int64_t), value :: nlev_c
+        integer(c_int64_t) :: out_c
+     end function radae_ntoplw_codon
+  end interface
 
 ! Public Interfaces
 !====================================================================================
 CONTAINS
+!====================================================================================
+
+subroutine radae_radbuffer_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (radae_radbuffer_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('RADAE_RADBUFFER_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_radae_radbuffer_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_radae_radbuffer_impl = .false.
+   end if
+
+   radae_radbuffer_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_radae_radbuffer_impl) then
+         write(iulog,*) 'radae_radbuffer implementation = native'
+      else
+         write(iulog,*) 'radae_radbuffer implementation = codon'
+      end if
+   end if
+
+end subroutine radae_radbuffer_select_impl
+
+!====================================================================================
+
+subroutine radae_radbuffer_proof_once()
+
+   if (radae_radbuffer_proof_written) return
+   radae_radbuffer_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'radae_radbuffer entered (ntoplw helper = codon)'
+   end if
+
+end subroutine radae_radbuffer_proof_once
+
+!====================================================================================
+
+integer function radae_ntoplw_native(pref_mid_values, nlev)
+
+   real(r8), intent(in) :: pref_mid_values(:)
+   integer, intent(in) :: nlev
+   integer :: k
+
+   if (pref_mid_values(1) .lt. 0.1_r8) then
+      radae_ntoplw_native = 1
+      do k = 1, nlev
+         if (pref_mid_values(k) .lt. 1._r8) radae_ntoplw_native = k
+      end do
+   else
+      radae_ntoplw_native = 1
+   end if
+
+end function radae_ntoplw_native
+
+!====================================================================================
+
+integer function radae_ntoplw_from_pref_mid(pref_mid_values, nlev)
+
+   real(r8), intent(in), target :: pref_mid_values(:)
+   integer, intent(in) :: nlev
+   integer(c_int64_t) :: out_c
+
+   call radae_radbuffer_select_impl()
+
+   if (use_native_radae_radbuffer_impl) then
+      radae_ntoplw_from_pref_mid = radae_ntoplw_native(pref_mid_values, nlev)
+      return
+   end if
+
+   call radae_radbuffer_proof_once()
+   out_c = radae_ntoplw_codon(c_loc(pref_mid_values(1)), int(nlev, c_int64_t))
+   radae_ntoplw_from_pref_mid = int(out_c)
+
+end function radae_ntoplw_from_pref_mid
+
 !====================================================================================
 
 subroutine radabs(lchnk   ,ncol    ,             &
@@ -2954,17 +3056,10 @@ subroutine initialize_radbuffer
   use phys_control, only : phys_getopts
 
   character(len=16) :: radiation_scheme
-  integer :: k
 
 ! If the top model level is above ~90 km (0.1 Pa), set the top level to compute
 ! longwave cooling to about 80 km (1 Pa)
-   if (pref_mid(1) .lt. 0.1_r8) then
-      do k = 1, plev
-         if (pref_mid(k) .lt. 1._r8) ntoplw  = k
-      end do
-   else
-      ntoplw  = 1
-   end if
+   ntoplw = radae_ntoplw_from_pref_mid(pref_mid, plev)
    if (masterproc) then
       write(iulog,*) 'INITIALIZE_RADBUFFER: ntoplw =',ntoplw, ' pressure:',pref_mid(ntoplw)
    endif
