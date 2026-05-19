@@ -28,6 +28,7 @@ use wv_saturation,  only: svp_water, svp_ice
 use cam_logfile,    only: iulog
 use error_messages, only: handle_errmsg, alloc_err
 use cam_abortutils, only: endrun
+use iso_c_binding,  only: c_int64_t
 
 use hetfrz_classnuc,   only: hetfrz_classnuc_init, hetfrz_classnuc_calc
 
@@ -44,6 +45,18 @@ public :: &
 
 ! Namelist variables
 logical :: hist_hetfrz_classnuc = .false.
+
+logical :: use_native_hetfrz_classnuc_cam_impl = .false.
+logical :: hetfrz_classnuc_cam_impl_selected = .false.
+logical :: hetfrz_classnuc_cam_proof_written = .false.
+
+interface
+   function hetfrz_classnuc_cam_flag_codon(flag_c) result(out_c) bind(c, name="hetfrz_classnuc_cam_flag_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function hetfrz_classnuc_cam_flag_codon
+end interface
 
 ! Vars set via init method.
 real(r8) :: mincld      ! minimum allowed cloud fraction
@@ -135,6 +148,75 @@ real(r8), allocatable :: aer(:,:,:,:)
 contains
 !===============================================================================
 
+subroutine hetfrz_classnuc_cam_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (hetfrz_classnuc_cam_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('HETFRZ_CLASSNUC_CAM_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_hetfrz_classnuc_cam_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_hetfrz_classnuc_cam_impl = .false.
+   end if
+
+   hetfrz_classnuc_cam_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_hetfrz_classnuc_cam_impl) then
+         write(iulog,*) 'hetfrz_classnuc_cam implementation = native'
+      else
+         write(iulog,*) 'hetfrz_classnuc_cam implementation = codon'
+      end if
+   end if
+
+end subroutine hetfrz_classnuc_cam_select_impl
+
+!===============================================================================
+
+subroutine hetfrz_classnuc_cam_proof_once()
+
+   if (hetfrz_classnuc_cam_proof_written) return
+   hetfrz_classnuc_cam_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'hetfrz_classnuc_cam entered (flag/gate helpers = codon)'
+   end if
+
+end subroutine hetfrz_classnuc_cam_proof_once
+
+!===============================================================================
+
+logical function hetfrz_classnuc_cam_flag(flag_in)
+
+   logical, intent(in) :: flag_in
+   integer(c_int64_t) :: out_c
+
+   call hetfrz_classnuc_cam_select_impl()
+
+   if (use_native_hetfrz_classnuc_cam_impl) then
+      hetfrz_classnuc_cam_flag = flag_in
+      return
+   end if
+
+   call hetfrz_classnuc_cam_proof_once()
+   out_c = hetfrz_classnuc_cam_flag_codon(merge(1_c_int64_t, 0_c_int64_t, flag_in))
+   hetfrz_classnuc_cam_flag = out_c /= 0_c_int64_t
+
+end function hetfrz_classnuc_cam_flag
+
+!===============================================================================
+
 subroutine hetfrz_classnuc_cam_readnl(nlfile)
 
   use namelist_utils,  only: find_group_name
@@ -171,13 +253,15 @@ subroutine hetfrz_classnuc_cam_readnl(nlfile)
   call mpibcast(hist_hetfrz_classnuc, 1, mpilog, 0, mpicom)
 #endif
 
+  hist_hetfrz_classnuc = hetfrz_classnuc_cam_flag(hist_hetfrz_classnuc)
+
 end subroutine hetfrz_classnuc_cam_readnl
 
 !================================================================================================
 
 subroutine hetfrz_classnuc_cam_register()
 
-   if (.not. use_hetfrz_classnuc) return
+   if (.not. hetfrz_classnuc_cam_flag(use_hetfrz_classnuc)) return
 
    ! pbuf fields provided by hetfrz_classnuc
    call pbuf_add_field('FRZIMM', 'physpkg', dtype_r8, (/pcols,pver/), frzimm_idx)
@@ -203,7 +287,7 @@ subroutine hetfrz_classnuc_cam_init(mincld_in)
    character(len=*), parameter :: routine = 'hetfrz_classnuc_cam_init'
    !--------------------------------------------------------------------------------------------
 
-   if (.not. use_hetfrz_classnuc) return
+   if (.not. hetfrz_classnuc_cam_flag(use_hetfrz_classnuc)) return
 
    ! This parameterization currently assumes that prognostic modal aerosols are on.  Check...
    call phys_getopts(prog_modal_aero_out=prog_modal_aero)
@@ -284,7 +368,7 @@ subroutine hetfrz_classnuc_cam_init(mincld_in)
    call addfld('NUMIMM10sBC', '#/m3', pver, 'A', &
                'Ice Number Concentration due to imm freezing by bc in Mixed Clouds during 10-s period', phys_decomp)
 
-   if (hist_hetfrz_classnuc) then
+   if (hetfrz_classnuc_cam_flag(hist_hetfrz_classnuc)) then
 
       call add_default('bc_num', 1, ' ')
       call add_default('dst1_num', 1, ' ')

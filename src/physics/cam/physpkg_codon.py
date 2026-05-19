@@ -3518,3 +3518,10 @@ def hirsbt_freq_codon(freq: int, dtime: int) -> int:
         value = (-freq * 3600.0) / float(dtime)
         return int(value + 0.5)
     return freq
+
+
+@export
+def hetfrz_classnuc_cam_flag_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
