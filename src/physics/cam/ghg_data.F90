@@ -18,6 +18,9 @@ use physconst,      only: mwdry, mwch4, mwn2o, mwf11, mwf12, mwco2
 use chem_surfvals,  only: chem_surfvals_get, chem_surfvals_co2_rad
 use cam_abortutils, only: endrun
 use error_messages, only: handle_err
+use iso_c_binding, only: c_ptr
+use spmd_utils, only: masterproc
+use cam_logfile, only: iulog
 
 
 implicit none
@@ -31,20 +34,111 @@ public ::&
 
 ! Private variables
 
-real(r8) :: rmwn2o ! = mwn2o/mwdry ! ratio of molecular weight n2o   to dry air
-real(r8) :: rmwch4 ! = mwch4/mwdry ! ratio of molecular weight ch4   to dry air
-real(r8) :: rmwf11 ! = mwf11/mwdry ! ratio of molecular weight cfc11 to dry air
-real(r8) :: rmwf12 ! = mwf12/mwdry ! ratio of molecular weight cfc12 to dry air
-real(r8) :: rmwco2 ! = mwco2/mwdry ! ratio of molecular weights of co2 to dry air
+real(r8), target :: rmwn2o ! = mwn2o/mwdry ! ratio of molecular weight n2o   to dry air
+real(r8), target :: rmwch4 ! = mwch4/mwdry ! ratio of molecular weight ch4   to dry air
+real(r8), target :: rmwf11 ! = mwf11/mwdry ! ratio of molecular weight cfc11 to dry air
+real(r8), target :: rmwf12 ! = mwf12/mwdry ! ratio of molecular weight cfc12 to dry air
+real(r8), target :: rmwco2 ! = mwco2/mwdry ! ratio of molecular weights of co2 to dry air
 
 integer, parameter :: ncnst = 6                        ! number of constituents
 character(len=8), dimension(ncnst), parameter :: &
    cnst_names = (/'N2O  ', 'CH4  ', 'CFC11', 'CFC12', 'CO2  ', 'O2   '/) ! constituent names
 integer  :: pbuf_idx(ncnst)
 
+logical :: use_native_ghg_data_mw_ratios_impl = .false.
+logical :: ghg_data_mw_ratios_impl_selected = .false.
+logical :: ghg_data_mw_ratios_proof_written = .false.
+
+interface
+  subroutine ghg_data_mw_ratios_codon(mwdry_c, mwn2o_c, mwch4_c, mwf11_c, mwf12_c, mwco2_c, &
+       rmwn2o_p, rmwch4_p, rmwf11_p, rmwf12_p, rmwco2_p) bind(c, name="ghg_data_mw_ratios_codon")
+    use iso_c_binding, only: c_double, c_ptr
+    real(c_double), value :: mwdry_c, mwn2o_c, mwch4_c, mwf11_c, mwf12_c, mwco2_c
+    type(c_ptr), value :: rmwn2o_p, rmwch4_p, rmwf11_p, rmwf12_p, rmwco2_p
+  end subroutine ghg_data_mw_ratios_codon
+end interface
+
 !================================================================================================
 contains
 !================================================================================================
+
+subroutine ghg_data_mw_ratios_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (ghg_data_mw_ratios_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('GHG_DATA_MW_RATIOS_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+    do i = 1, n
+      code = iachar(impl_name(i:i))
+      if (code >= iachar('A') .and. code <= iachar('Z')) then
+        impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+      end if
+    end do
+    use_native_ghg_data_mw_ratios_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+    use_native_ghg_data_mw_ratios_impl = .false.
+  end if
+
+  ghg_data_mw_ratios_impl_selected = .true.
+
+  if (masterproc) then
+    if (use_native_ghg_data_mw_ratios_impl) then
+      write(iulog,*) 'ghg_data_mw_ratios implementation = native'
+    else
+      write(iulog,*) 'ghg_data_mw_ratios implementation = codon'
+    end if
+  end if
+
+end subroutine ghg_data_mw_ratios_select_impl
+
+subroutine ghg_data_mw_ratios_proof_once()
+
+  if (ghg_data_mw_ratios_proof_written) return
+  ghg_data_mw_ratios_proof_written = .true.
+
+  if (masterproc) then
+    write(iulog,'(A)') 'ghg_data_mw_ratios entered (greenhouse gas molecular-weight ratios = codon)'
+  end if
+
+end subroutine ghg_data_mw_ratios_proof_once
+
+subroutine ghg_data_update_mw_ratios()
+!-------------------------------------------------------------------------------
+! update molecular-weight ratios used by the greenhouse-gas profile helper
+!-------------------------------------------------------------------------------
+  use iso_c_binding, only: c_double, c_loc
+
+  call ghg_data_mw_ratios_select_impl()
+
+  if (use_native_ghg_data_mw_ratios_impl) then
+    call ghg_data_update_mw_ratios_native()
+    return
+  end if
+
+  call ghg_data_mw_ratios_proof_once()
+  call ghg_data_mw_ratios_codon(real(mwdry, c_double), real(mwn2o, c_double), real(mwch4, c_double), &
+       real(mwf11, c_double), real(mwf12, c_double), real(mwco2, c_double), c_loc(rmwn2o), c_loc(rmwch4), &
+       c_loc(rmwf11), c_loc(rmwf12), c_loc(rmwco2))
+
+end subroutine ghg_data_update_mw_ratios
+
+subroutine ghg_data_update_mw_ratios_native()
+!-------------------------------------------------------------------------------
+! native fallback for molecular-weight ratios
+!-------------------------------------------------------------------------------
+
+  rmwn2o = mwn2o/mwdry      ! ratio of molecular weight n2o   to dry air
+  rmwch4 = mwch4/mwdry      ! ratio of molecular weight ch4   to dry air
+  rmwf11 = mwf11/mwdry      ! ratio of molecular weight cfc11 to dry air
+  rmwf12 = mwf12/mwdry      ! ratio of molecular weight cfc12 to dry air
+  rmwco2 = mwco2/mwdry      ! ratio of molecular weights of co2 to dry air
+
+end subroutine ghg_data_update_mw_ratios_native
 
 subroutine ghg_data_register()
 !-------------------------------------------------------------------------------
@@ -79,11 +173,7 @@ subroutine ghg_data_timestep_init(pbuf2d, state)
   integer iconst
   integer lchnk
 
-  rmwn2o = mwn2o/mwdry      ! ratio of molecular weight n2o   to dry air
-  rmwch4 = mwch4/mwdry      ! ratio of molecular weight ch4   to dry air
-  rmwf11 = mwf11/mwdry      ! ratio of molecular weight cfc11 to dry air
-  rmwf12 = mwf12/mwdry      ! ratio of molecular weight cfc12 to dry air
-  rmwco2 = mwco2/mwdry      ! ratio of molecular weights of co2 to dry air
+  call ghg_data_update_mw_ratios()
 
    do iconst = 1,ncnst
 !$OMP PARALLEL DO PRIVATE (LCHNK,tmpptr,pbuf_chnk)

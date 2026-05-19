@@ -3130,3 +3130,30 @@ def ndrop_mode_props_finalize_codon(
         voltonumbhi[m0] = 1.0 / (
             (pi / 6.0) * (dgnumhi[m0] ** 3.0) * exp(4.5 * alogsig[m0] ** 2.0)
         )
+
+
+@export
+def ghg_data_mw_ratios_codon(
+    mwdry: float,
+    mwn2o: float,
+    mwch4: float,
+    mwf11: float,
+    mwf12: float,
+    mwco2: float,
+    rmwn2o_p: cobj,
+    rmwch4_p: cobj,
+    rmwf11_p: cobj,
+    rmwf12_p: cobj,
+    rmwco2_p: cobj,
+):
+    rmwn2o = Ptr[float](rmwn2o_p)
+    rmwch4 = Ptr[float](rmwch4_p)
+    rmwf11 = Ptr[float](rmwf11_p)
+    rmwf12 = Ptr[float](rmwf12_p)
+    rmwco2 = Ptr[float](rmwco2_p)
+
+    rmwn2o[0] = mwn2o / mwdry
+    rmwch4[0] = mwch4 / mwdry
+    rmwf11[0] = mwf11 / mwdry
+    rmwf12[0] = mwf12 / mwdry
+    rmwco2[0] = mwco2 / mwdry
