@@ -14,6 +14,7 @@ use spmd_utils,     only: masterproc
 use cam_logfile,    only: iulog
 use cam_abortutils, only: endrun
 use shr_kind_mod,   only: r8 => shr_kind_r8
+use iso_c_binding,  only: c_int64_t
 
 implicit none
 private
@@ -92,9 +93,76 @@ logical, public, protected :: use_gw_convect_dp = .false.
 ! Shallow convection.
 logical, public, protected :: use_gw_convect_sh = .false.
 
+logical :: use_native_phys_control_bool_helpers_impl = .false.
+logical :: phys_control_bool_helpers_impl_selected = .false.
+logical :: phys_control_bool_helpers_proof_written = .false.
+
+interface
+   function phys_control_deepconv_pbl_codon(eddy_diag_tke_c, shallow_uw_c) &
+        result(deepconv_pbl_c) bind(c, name="phys_control_deepconv_pbl_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: eddy_diag_tke_c, shallow_uw_c
+      integer(c_int64_t) :: deepconv_pbl_c
+   end function phys_control_deepconv_pbl_codon
+
+   function phys_control_do_flux_avg_codon(srf_flux_avg_c) &
+        result(do_flux_avg_c) bind(c, name="phys_control_do_flux_avg_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: srf_flux_avg_c
+      integer(c_int64_t) :: do_flux_avg_c
+   end function phys_control_do_flux_avg_codon
+end interface
+
 !======================================================================= 
 contains
 !======================================================================= 
+
+subroutine phys_control_bool_helpers_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (phys_control_bool_helpers_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('PHYS_CONTROL_BOOL_HELPERS_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_phys_control_bool_helpers_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_phys_control_bool_helpers_impl = .false.
+   end if
+
+   phys_control_bool_helpers_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_phys_control_bool_helpers_impl) then
+         write(iulog,*) 'phys_control_bool_helpers implementation = native'
+      else
+         write(iulog,*) 'phys_control_bool_helpers implementation = codon'
+      end if
+   end if
+
+end subroutine phys_control_bool_helpers_select_impl
+
+!===============================================================================
+
+subroutine phys_control_bool_helpers_proof_once()
+
+   if (phys_control_bool_helpers_proof_written) return
+   phys_control_bool_helpers_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'phys_control_bool_helpers entered (runtime option boolean helpers = codon)'
+   end if
+
+end subroutine phys_control_bool_helpers_proof_once
 
 subroutine phys_ctl_readnl(nlfile)
 
@@ -337,13 +405,21 @@ end subroutine phys_getopts
 function phys_deepconv_pbl()
 
   logical phys_deepconv_pbl
+  integer(c_int64_t) :: eddy_diag_tke_c, shallow_uw_c, result_c
 
-   ! Don't allow deep convection in PBL if running UW PBL scheme
-   if ( (eddy_scheme .eq. 'diag_TKE' ) .or. (shallow_scheme .eq. 'UW' ) ) then
-      phys_deepconv_pbl = .true.
-   else
-      phys_deepconv_pbl = .false.
-   endif
+   call phys_control_bool_helpers_select_impl()
+   if (use_native_phys_control_bool_helpers_impl) then
+      phys_deepconv_pbl = phys_deepconv_pbl_native()
+      return
+   end if
+
+   call phys_control_bool_helpers_proof_once()
+   eddy_diag_tke_c = 0_c_int64_t
+   shallow_uw_c = 0_c_int64_t
+   if (eddy_scheme .eq. 'diag_TKE') eddy_diag_tke_c = 1_c_int64_t
+   if (shallow_scheme .eq. 'UW') shallow_uw_c = 1_c_int64_t
+   result_c = phys_control_deepconv_pbl_codon(eddy_diag_tke_c, shallow_uw_c)
+   phys_deepconv_pbl = (result_c /= 0_c_int64_t)
 
    return
 
@@ -351,15 +427,52 @@ end function phys_deepconv_pbl
 
 !===============================================================================
 
+function phys_deepconv_pbl_native()
+
+  logical phys_deepconv_pbl_native
+
+   ! Don't allow deep convection in PBL if running UW PBL scheme
+   if ( (eddy_scheme .eq. 'diag_TKE' ) .or. (shallow_scheme .eq. 'UW' ) ) then
+      phys_deepconv_pbl_native = .true.
+   else
+      phys_deepconv_pbl_native = .false.
+   endif
+
+   return
+
+end function phys_deepconv_pbl_native
+
+!===============================================================================
+
 function phys_do_flux_avg()
 
    logical :: phys_do_flux_avg
+   integer(c_int64_t) :: result_c
    !----------------------------------------------------------------------
 
-   phys_do_flux_avg = .false.
-   if (srf_flux_avg == 1) phys_do_flux_avg = .true.
+   call phys_control_bool_helpers_select_impl()
+   if (use_native_phys_control_bool_helpers_impl) then
+      phys_do_flux_avg = phys_do_flux_avg_native()
+      return
+   end if
+
+   call phys_control_bool_helpers_proof_once()
+   result_c = phys_control_do_flux_avg_codon(int(srf_flux_avg, c_int64_t))
+   phys_do_flux_avg = (result_c /= 0_c_int64_t)
 
 end function phys_do_flux_avg
+
+!===============================================================================
+
+function phys_do_flux_avg_native()
+
+   logical :: phys_do_flux_avg_native
+   !----------------------------------------------------------------------
+
+   phys_do_flux_avg_native = .false.
+   if (srf_flux_avg == 1) phys_do_flux_avg_native = .true.
+
+end function phys_do_flux_avg_native
 
 !===============================================================================
 end module phys_control

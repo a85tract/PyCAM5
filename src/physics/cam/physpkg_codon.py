@@ -3185,3 +3185,17 @@ def rad_cnst_out_mass_cb_codon(
         for k in range(1, pver + 1):
             total = total + mass[_field2_idx(i, k, pcols)]
         cb[i - 1] = total
+
+
+@export
+def phys_control_deepconv_pbl_codon(eddy_diag_tke: int, shallow_uw: int) -> int:
+    if eddy_diag_tke != 0 or shallow_uw != 0:
+        return 1
+    return 0
+
+
+@export
+def phys_control_do_flux_avg_codon(srf_flux_avg: int) -> int:
+    if srf_flux_avg == 1:
+        return 1
+    return 0
