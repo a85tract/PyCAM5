@@ -18,7 +18,73 @@ module pkg_cldoptics
 
   public :: cldefr, cldems, cldovrlap, cldclw, reitab, reltab
 
+  logical :: use_native_pkg_cldoptics_impl = .false.
+  logical :: pkg_cldoptics_impl_selected = .false.
+  logical :: pkg_cldoptics_proof_written = .false.
+
+  interface
+     subroutine pkg_cldoptics_cldovrlap_codon(ncol_c, pcols_c, pver_c, pverp_c, pint_p, cld_p, nmxrgn_p, pmxrgn_p) &
+          bind(c, name="pkg_cldoptics_cldovrlap_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c
+       type(c_ptr), value :: pint_p, cld_p, nmxrgn_p, pmxrgn_p
+     end subroutine pkg_cldoptics_cldovrlap_codon
+  end interface
+
 contains
+
+!===============================================================================
+  subroutine pkg_cldoptics_select_impl()
+
+    use cam_logfile, only: iulog
+    use spmd_utils,  only: masterproc
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (pkg_cldoptics_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('PKG_CLDOPTICS_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_pkg_cldoptics_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_pkg_cldoptics_impl = .false.
+    end if
+
+    pkg_cldoptics_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_pkg_cldoptics_impl) then
+          write(iulog,*) 'pkg_cldoptics implementation = native'
+       else
+          write(iulog,*) 'pkg_cldoptics implementation = codon'
+       end if
+    end if
+
+  end subroutine pkg_cldoptics_select_impl
+
+!===============================================================================
+  subroutine pkg_cldoptics_proof_once()
+
+    use cam_logfile, only: iulog
+    use spmd_utils,  only: masterproc
+
+    if (pkg_cldoptics_proof_written) return
+    pkg_cldoptics_proof_written = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'pkg_cldoptics cldovrlap entered (cloud overlap region helper = codon)'
+    end if
+
+  end subroutine pkg_cldoptics_proof_once
 
 !===============================================================================
   subroutine cldefr(lchnk   ,ncol    , &
@@ -134,6 +200,31 @@ contains
 
 !===============================================================================
   subroutine cldovrlap(lchnk   ,ncol    ,pint    ,cld     ,nmxrgn  ,pmxrgn  )
+    use iso_c_binding, only: c_int64_t, c_loc
+
+    integer, intent(in) :: lchnk
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: pint(pcols,pverp)
+    real(r8), target, intent(in) :: cld(pcols,pver)
+    integer, target, intent(out) :: nmxrgn(pcols)
+    real(r8), target, intent(out) :: pmxrgn(pcols,pverp)
+
+    call pkg_cldoptics_select_impl()
+
+    if (use_native_pkg_cldoptics_impl) then
+       call cldovrlap_native(lchnk, ncol, pint, cld, nmxrgn, pmxrgn)
+       return
+    end if
+
+    call pkg_cldoptics_proof_once()
+    call pkg_cldoptics_cldovrlap_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(pverp, c_int64_t), c_loc(pint(1,1)), c_loc(cld(1,1)), c_loc(nmxrgn(1)), c_loc(pmxrgn(1,1)))
+
+    return
+  end subroutine cldovrlap
+
+!===============================================================================
+  subroutine cldovrlap_native(lchnk   ,ncol    ,pint    ,cld     ,nmxrgn  ,pmxrgn  )
 !----------------------------------------------------------------------- 
 ! 
 ! Purpose: 
@@ -206,7 +297,7 @@ contains
     end do
 
     return
-  end subroutine cldovrlap
+  end subroutine cldovrlap_native
 
 !===============================================================================
   subroutine cldclw(lchnk   ,ncol    ,zi      ,clwp    ,tpw     ,hl      )

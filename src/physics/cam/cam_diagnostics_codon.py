@@ -2357,3 +2357,46 @@ def cloud_cover_cldsav_codon(
             for i in range(1, ncol + 1):
                 i0 = i - 1
                 cldhgh[i0] = 1.0 - (clrsky[i0] * clrskymax[i0])
+
+
+@export
+def pkg_cldoptics_cldovrlap_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    pint_p: cobj,
+    cld_p: cobj,
+    nmxrgn_p: cobj,
+    pmxrgn_p: cobj,
+):
+    pint = Ptr[float](pint_p)
+    cld = Ptr[float](cld_p)
+    nmxrgn = Ptr[i32](nmxrgn_p)
+    pmxrgn = Ptr[float](pmxrgn_p)
+
+    for i in range(1, ncol + 1):
+        cld_found = False
+
+        for k in range(1, pverp + 1):
+            pmxrgn[_idx2(i, k, pcols)] = 0.0
+
+        n = 1
+        for k in range(1, pver + 1):
+            cld_layer = cld[_idx2(i, k, pcols)] > 0.0
+            if cld_layer and not cld_found:
+                cld_found = True
+            elif not cld_layer and cld_found:
+                cld_found = False
+                any_cloud_above = False
+                for kk in range(k, pver + 1):
+                    if cld[_idx2(i, kk, pcols)] > 0.0:
+                        any_cloud_above = True
+                        break
+                if not any_cloud_above:
+                    break
+                pmxrgn[_idx2(i, n, pcols)] = pint[_idx2(i, k, pcols)] * 10.0
+                n += 1
+
+        pmxrgn[_idx2(i, n, pcols)] = pint[_idx2(i, pverp, pcols)] * 10.0
+        nmxrgn[i - 1] = i32(n)
