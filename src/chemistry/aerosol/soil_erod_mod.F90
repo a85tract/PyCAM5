@@ -5,6 +5,7 @@ module soil_erod_mod
   use cam_logfile,      only: iulog
   use spmd_utils,       only: masterproc
   use cam_abortutils,   only: endrun
+  use mo_util,          only: chemistry_misc_codon_touch
 
   implicit none
   private
@@ -44,6 +45,7 @@ contains
     integer :: c, ncols, ierr
     real(r8), parameter :: zero=0._r8, twopi=2._r8*pi
 
+    call chemistry_misc_codon_touch('soil_erod_mod', 125)
     soil_erod_fact = dust_emis_fact
 
     ! Summary to log file

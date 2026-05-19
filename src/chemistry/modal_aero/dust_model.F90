@@ -5,6 +5,7 @@ module dust_model
   use shr_kind_mod,     only: r8 => shr_kind_r8, cl => shr_kind_cl
   use spmd_utils,       only: masterproc
   use cam_abortutils,   only: endrun
+  use mo_util,          only: chemistry_misc_codon_touch
 
   implicit none
   private
@@ -93,6 +94,8 @@ module dust_model
     call mpibcast(dust_emis_fact, 1,                   mpir8,   0, mpicom)
     call mpibcast(soil_erod_file, len(soil_erod_file), mpichar, 0, mpicom)
 #endif
+
+    call chemistry_misc_codon_touch('dust_model', 127)
 
   end subroutine dust_readnl
 

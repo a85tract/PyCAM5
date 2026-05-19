@@ -3,6 +3,7 @@
 !===============================================================================
 module sslt_sections
   use shr_kind_mod, only: r8 => shr_kind_r8
+  use mo_util,      only: chemistry_misc_codon_touch
 
   implicit none
 
@@ -43,6 +44,7 @@ contains
 
     integer :: m
 
+    call chemistry_misc_codon_touch('sslt_sections', 129)
     ! use Ekman's ss
     rdry(:)=Dg(:)/2._r8   ! meter
     ! multiply rm with 1.814 because it should be RH=80% and not dry particles

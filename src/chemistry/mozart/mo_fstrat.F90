@@ -10,6 +10,7 @@ module mo_fstrat
   use cam_pio_utils,    only : cam_pio_openfile
   use pio
   use cam_logfile,      only : iulog
+  use mo_util,          only : chemistry_misc_codon_touch
 
   implicit none
 
@@ -105,6 +106,7 @@ contains
     character(len=256) :: locfn
     type(interp_type) :: lat_wgts
 
+    call chemistry_misc_codon_touch('mo_fstrat', 123)
 
     !-----------------------------------------------------------------------
     !       ... get species indicies

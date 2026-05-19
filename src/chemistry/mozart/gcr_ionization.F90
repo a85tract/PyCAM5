@@ -11,6 +11,7 @@ module gcr_ionization
   use ppgrid,         only : begchunk, endchunk
   use ppgrid,         only : pcols, pver
   use tracer_data,    only : trcdata_init, advance_trcdata
+  use mo_util,        only : chemistry_misc_codon_touch
 
   implicit none
   private 
@@ -116,6 +117,7 @@ contains
 
     ! Turn on galactic cosmic rays if user has specified an input dataset.
     if (len_trim(filename) > 0 ) has_gcr_ionization = .true.
+    call chemistry_misc_codon_touch('gcr_ionization', 124)
 
   end subroutine gcr_ionization_readnl
 

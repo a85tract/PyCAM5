@@ -19,6 +19,7 @@
       use chem_mods,       only : frc_from_dataset
       use shr_kind_mod,    only : r8 => shr_kind_r8
       use cam_logfile,     only : iulog
+      use mo_util,         only : chemistry_misc_codon_touch
 
       implicit none
 
@@ -27,6 +28,7 @@
 !--------------------------------------------------------------
       integer :: ios
 
+      call chemistry_misc_codon_touch('mo_sim_dat', 128)
       clscnt(:) = (/      0,     0,     0,    20,     0 /)
 
       cls_rxt_cnt(:,4) = (/      1,     6,     0,    20 /)

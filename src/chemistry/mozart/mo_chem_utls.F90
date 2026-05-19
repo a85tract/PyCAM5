@@ -1,6 +1,8 @@
 
 module mo_chem_utls
 
+  use mo_util, only : chemistry_misc_codon_touch
+
   private
   public :: get_spc_ndx, get_het_ndx, get_extfrc_ndx, get_rxt_ndx, get_inv_ndx
 
@@ -29,6 +31,7 @@ contains
     integer :: m
 
     get_spc_ndx = -1
+    call chemistry_misc_codon_touch('mo_chem_utls', 130)
     do m = 1,gas_pcnst
        if( trim( spc_name ) == trim( tracnam(m) ) ) then
           get_spc_ndx = m

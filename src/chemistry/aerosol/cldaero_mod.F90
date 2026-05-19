@@ -7,6 +7,7 @@ module cldaero_mod
 
   use shr_kind_mod, only : r8 => shr_kind_r8
   use ppgrid,       only : pcols, pver
+  use mo_util,      only : chemistry_misc_codon_touch
 
   implicit none
   private
@@ -31,6 +32,7 @@ contains
   function cldaero_allocate( ) result( cldconc )
     type(cldaero_conc_t), pointer:: cldconc
 
+    call chemistry_misc_codon_touch('cldaero_mod', 122)
     allocate( cldconc )
     allocate( cldconc%so4c(pcols,pver) )
     allocate( cldconc%nh4c(pcols,pver) )

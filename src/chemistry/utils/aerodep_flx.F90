@@ -12,6 +12,7 @@ module aerodep_flx
   use tracer_data,      only : trfld, trfile
   use cam_logfile,      only : iulog
   use ppgrid,           only : pcols, pver, begchunk, endchunk
+  use mo_util,          only : chemistry_misc_codon_touch
 
   implicit none
   private
@@ -308,6 +309,7 @@ subroutine aerodep_flx_readnl(nlfile)
 
    ! Turn on prescribed volcanics if user has specified an input dataset.
    if (len_trim(filename) > 0 ) has_aerodep_flx = .true.
+   call chemistry_misc_codon_touch('aerodep_flx', 121)
 
 end subroutine aerodep_flx_readnl
 

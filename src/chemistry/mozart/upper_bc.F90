@@ -16,6 +16,7 @@ module upper_bc
   use cam_logfile,  only: iulog
   use spmd_utils,   only: masterproc
   use ref_pres,     only: ptop_ref
+  use mo_util,      only: chemistry_misc_codon_touch
 
   implicit none
   private
@@ -64,6 +65,7 @@ subroutine ubc_defaultopts(tgcm_ubc_file_out, tgcm_ubc_data_type_out, tgcm_ubc_c
 
 !-----------------------------------------------------------------------
 
+   call chemistry_misc_codon_touch('upper_bc', 126)
    if ( present(tgcm_ubc_file_out) ) then
       tgcm_ubc_file_out = tgcm_ubc_file
    endif
@@ -112,6 +114,7 @@ subroutine ubc_setopts(tgcm_ubc_file_in, tgcm_ubc_data_type_in, tgcm_ubc_cycle_y
 
 !-----------------------------------------------------------------------
 
+   call chemistry_misc_codon_touch('upper_bc', 126)
    if ( present(tgcm_ubc_file_in) ) then
       tgcm_ubc_file = tgcm_ubc_file_in
    endif
