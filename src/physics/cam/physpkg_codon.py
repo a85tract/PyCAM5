@@ -3420,3 +3420,8 @@ def subcol_touch_codon() -> int:
 @export
 def cldwat_param_codon(value: float) -> float:
     return value
+
+
+@export
+def hkconv_param_codon(value: float) -> float:
+    return value

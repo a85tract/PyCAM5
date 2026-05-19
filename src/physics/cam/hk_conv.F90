@@ -7,6 +7,7 @@ module hk_conv
 ! $Id$
 !
    use shr_kind_mod,     only: r8 => shr_kind_r8
+   use iso_c_binding,    only: c_double
    use cam_logfile,      only: iulog
    use spmd_utils,       only: masterproc
    use cam_abortutils,   only: endrun
@@ -55,10 +56,98 @@ module hk_conv
    real(r8) rgas        ! gas constant for dry air
    integer limcnv          ! top interface level limit for convection
 
+   logical :: use_native_hkconv_readnl_impl = .false.
+   logical :: hkconv_readnl_impl_selected = .false.
+   logical :: hkconv_readnl_proof_written = .false.
 
+   interface
+      function hkconv_param_codon(value_c) result(out_c) bind(c, name="hkconv_param_codon")
+         use iso_c_binding, only: c_double
+         real(c_double), value :: value_c
+         real(c_double) :: out_c
+      end function hkconv_param_codon
+   end interface
 
 
 contains
+subroutine hkconv_readnl_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (hkconv_readnl_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('HKCONV_READNL_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_hkconv_readnl_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_hkconv_readnl_impl = .false.
+   end if
+
+   hkconv_readnl_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_hkconv_readnl_impl) then
+         write(iulog,*) 'hkconv_readnl implementation = native'
+      else
+         write(iulog,*) 'hkconv_readnl implementation = codon'
+      end if
+   end if
+
+end subroutine hkconv_readnl_select_impl
+
+!================================================================================================
+
+subroutine hkconv_readnl_proof_once()
+
+   if (hkconv_readnl_proof_written) return
+   hkconv_readnl_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'hkconv_readnl entered (namelist scalar helpers = codon)'
+   end if
+
+end subroutine hkconv_readnl_proof_once
+
+!================================================================================================
+
+real(r8) function hkconv_param(value_in)
+
+   real(r8), intent(in) :: value_in
+   real(c_double) :: out_c
+
+   call hkconv_readnl_select_impl()
+
+   if (use_native_hkconv_readnl_impl) then
+      hkconv_param = value_in
+      return
+   end if
+
+   call hkconv_readnl_proof_once()
+   out_c = hkconv_param_codon(real(value_in, c_double))
+   hkconv_param = real(out_c, r8)
+
+end function hkconv_param
+
+!================================================================================================
+
+subroutine hkconv_finalize_params()
+
+   cmftau = hkconv_param(cmftau)
+   c0 = hkconv_param(c0)
+
+end subroutine hkconv_finalize_params
+
+!================================================================================================
+
 subroutine hkconv_readnl(nlfile)
 
    use namelist_utils,  only: find_group_name
@@ -98,6 +187,8 @@ subroutine hkconv_readnl(nlfile)
    call mpibcast(cmftau,            1, mpir8,  0, mpicom)
    call mpibcast(c0,                1, mpir8,  0, mpicom)
 #endif
+
+   call hkconv_finalize_params()
 
 end subroutine hkconv_readnl
 
