@@ -59,8 +59,71 @@ integer              :: iceopt                    ! option for ice cloud closure
 real(r8)             :: icecrit                   ! Critical RH for ice clouds in Wilson & Ballard closure
                                                   ! ( smaller = more ice clouds )
 
+logical :: use_native_cldfrc2m_aist_impl = .false.
+logical :: cldfrc2m_aist_impl_selected = .false.
+logical :: cldfrc2m_aist_proof_written = .false.
+
+interface
+   subroutine cldfrc2m_aist_vector_codon(pcols_c, ncol_c, rhmaxi_c, qv_p, qi_p, qsat_p, esl_p, esi_p, &
+        rhmini_p, aist_p) bind(c, name="cldfrc2m_aist_vector_codon")
+     use iso_c_binding, only: c_int64_t, c_double, c_ptr
+     integer(c_int64_t), value :: pcols_c, ncol_c
+     real(c_double), value :: rhmaxi_c
+     type(c_ptr), value :: qv_p, qi_p, qsat_p, esl_p, esi_p, rhmini_p, aist_p
+   end subroutine cldfrc2m_aist_vector_codon
+end interface
+
 !================================================================================================
 contains
+!================================================================================================
+
+subroutine cldfrc2m_aist_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cldfrc2m_aist_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CLDFRC2M_AIST_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_cldfrc2m_aist_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_cldfrc2m_aist_impl = .false.
+   end if
+
+   cldfrc2m_aist_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_cldfrc2m_aist_impl) then
+         write(iulog,*) 'cldfrc2m_aist implementation = native'
+      else
+         write(iulog,*) 'cldfrc2m_aist implementation = codon'
+      end if
+   end if
+
+end subroutine cldfrc2m_aist_select_impl
+
+!================================================================================================
+
+subroutine cldfrc2m_aist_proof_once()
+
+   if (cldfrc2m_aist_proof_written) return
+   cldfrc2m_aist_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'cldfrc2m_aist_vector entered (ice stratus option 5 helper = codon)'
+   end if
+
+end subroutine cldfrc2m_aist_proof_once
+
 !================================================================================================
 
 subroutine cldfrc2m_readnl(nlfile)
@@ -869,6 +932,65 @@ end subroutine aist_single
 subroutine aist_vector(qv_in, T_in, p_in, qi_in, ni_in, landfrac_in, snowh_in, aist_out, ncol, &
                        rhmaxi_in, rhmini_in, rhminl_in, rhminl_adj_land_in, rhminh_in )
 
+   use iso_c_binding, only: c_int64_t, c_loc
+
+   real(r8), target, intent(in)  :: qv_in(pcols)
+   real(r8), target, intent(in)  :: T_in(pcols)
+   real(r8), target, intent(in)  :: p_in(pcols)
+   real(r8), target, intent(in)  :: qi_in(pcols)
+   real(r8), target, intent(in)  :: ni_in(pcols)
+   real(r8), target, intent(in)  :: landfrac_in(pcols)
+   real(r8), target, intent(in)  :: snowh_in(pcols)
+
+   real(r8), target, intent(out) :: aist_out(pcols)
+   integer,  intent(in)  :: ncol
+
+   real(r8), optional, intent(in)  :: rhmaxi_in
+   real(r8), optional, intent(in)  :: rhmini_in(pcols)
+   real(r8), optional, intent(in)  :: rhminl_in(pcols)
+   real(r8), optional, intent(in)  :: rhminl_adj_land_in(pcols)
+   real(r8), optional, intent(in)  :: rhminh_in(pcols)
+
+   real(r8), target :: esat_in(pcols)
+   real(r8), target :: qsat_in(pcols)
+   real(r8), target :: esl_in(pcols)
+   real(r8), target :: esi_in(pcols)
+   real(r8), target :: rhmini_work(pcols)
+   real(r8) :: rhmaxi
+   integer :: i
+
+   call cldfrc2m_aist_select_impl()
+
+   if (use_native_cldfrc2m_aist_impl .or. iceopt /= 5) then
+      call aist_vector_native(qv_in, T_in, p_in, qi_in, ni_in, landfrac_in, snowh_in, aist_out, ncol, &
+           rhmaxi_in, rhmini_in, rhminl_in, rhminl_adj_land_in, rhminh_in)
+      return
+   end if
+
+   rhmaxi = rhmaxi_const
+   if (present(rhmaxi_in)) rhmaxi = rhmaxi_in
+
+   rhmini_work(:) = rhmini_const
+   if (present(rhmini_in)) rhmini_work(:ncol) = rhmini_in(:ncol)
+
+   call qsat_water(T_in(1:ncol), p_in(1:ncol), esat_in(1:ncol), qsat_in(1:ncol))
+   do i = 1, ncol
+      esl_in(i) = svp_water(T_in(i))
+      esi_in(i) = svp_ice(T_in(i))
+   end do
+
+   call cldfrc2m_aist_proof_once()
+   call cldfrc2m_aist_vector_codon(int(pcols, c_int64_t), int(ncol, c_int64_t), rhmaxi, c_loc(qv_in(1)), &
+        c_loc(qi_in(1)), c_loc(qsat_in(1)), c_loc(esl_in(1)), c_loc(esi_in(1)), c_loc(rhmini_work(1)), &
+        c_loc(aist_out(1)))
+
+end subroutine aist_vector
+
+!================================================================================================
+
+subroutine aist_vector_native(qv_in, T_in, p_in, qi_in, ni_in, landfrac_in, snowh_in, aist_out, ncol, &
+                       rhmaxi_in, rhmini_in, rhminl_in, rhminl_adj_land_in, rhminh_in )
+
    ! --------------------------------------------------------- !
    ! Compute non-physical ice stratus fraction                 ! 
    ! --------------------------------------------------------- !
@@ -1099,7 +1221,7 @@ subroutine aist_vector(qv_in, T_in, p_in, qi_in, ni_in, landfrac_in, snowh_in, a
 
      enddo
 
-end subroutine aist_vector
+end subroutine aist_vector_native
 
 !================================================================================================
 

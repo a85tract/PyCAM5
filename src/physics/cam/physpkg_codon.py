@@ -2809,3 +2809,55 @@ def diffusion_solver_setup_codon(
             _diff_solver_ncol_idx(i, pver, ncol)
         ]
         tmp1[i - 1] = ztodt * gravit * p_rdel[_diff_solver_ncol_idx(i, pver, ncol)]
+
+
+@export
+def cldfrc2m_aist_vector_codon(
+    pcols: int,
+    ncol: int,
+    rhmaxi: float,
+    qv_p: cobj,
+    qi_p: cobj,
+    qsat_p: cobj,
+    esl_p: cobj,
+    esi_p: cobj,
+    rhmini_p: cobj,
+    aist_p: cobj,
+):
+    qv = Ptr[float](qv_p)
+    qi = Ptr[float](qi_p)
+    qsat = Ptr[float](qsat_p)
+    esl = Ptr[float](esl_p)
+    esi = Ptr[float](esi_p)
+    rhmini = Ptr[float](rhmini_p)
+    aist_out = Ptr[float](aist_p)
+
+    qist_min = 1.0e-7
+    qist_max = 5.0e-3
+    minice = 1.0e-12
+    mincld = 1.0e-4
+
+    for i0 in range(pcols):
+        aist_out[i0] = 0.0
+
+    for i in range(1, ncol + 1):
+        i0 = i - 1
+        rhi = (qv[i0] + qi[i0]) / qsat[i0] * (esl[i0] / esi[i0])
+        rhdif = (rhi - rhmini[i0]) / (rhmaxi - rhmini[i0])
+        aist = min(1.0, max(rhdif, 0.0) ** 2)
+
+        if qi[i0] < minice:
+            aist = 0.0
+        else:
+            aist = max(mincld, aist)
+
+        if qi[i0] >= minice:
+            icimr = qi[i0] / aist
+
+            if icimr < qist_min:
+                aist = max(0.0, min(1.0, qi[i0] / qist_min))
+
+            if icimr > qist_max:
+                aist = max(0.0, min(1.0, qi[i0] / qist_max))
+
+        aist_out[i0] = max(0.0, min(aist, 0.999))
