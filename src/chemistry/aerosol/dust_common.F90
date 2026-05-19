@@ -6,6 +6,7 @@ module dust_common
   use shr_kind_mod,     only: r8 => shr_kind_r8, cl => shr_kind_cl
   use cam_abortutils,   only: endrun
   use cam_logfile,      only: iulog
+  use mo_util,           only: chemistry_misc_codon_touch
 
   implicit none
   private
@@ -87,6 +88,8 @@ contains
     real(r8) :: sz_max(sz_nbr)          ![m] Size Bin maxima
     real(r8) :: sz_ctr(sz_nbr)          ![m] Size Bin centers
     real(r8) :: sz_dlt(sz_nbr)          ![m] Size Bin widths
+
+    call chemistry_misc_codon_touch('dust_common', 112)
 
     stk_crc(:) = nan
     dmt_vwr(:) = nan

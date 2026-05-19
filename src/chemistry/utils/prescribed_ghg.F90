@@ -9,6 +9,7 @@ module prescribed_ghg
   use spmd_utils,       only : masterproc
   use tracer_data,      only : trfld, trfile
   use cam_logfile,      only : iulog
+  use mo_util,          only : chemistry_misc_codon_touch
 
   implicit none
   private
@@ -83,6 +84,8 @@ subroutine prescribed_ghg_readnl(nlfile)
       prescribed_ghg_fixed_ymd, &
       prescribed_ghg_fixed_tod      
    !-----------------------------------------------------------------------------
+
+   call chemistry_misc_codon_touch('prescribed_ghg', 117)
 
    ! Initialize namelist variables from local module variables.
    prescribed_ghg_specifier= specifier

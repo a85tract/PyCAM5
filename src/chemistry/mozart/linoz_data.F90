@@ -9,6 +9,7 @@ module linoz_data
   use spmd_utils,       only : masterproc
   use tracer_data,      only : trfld,trfile
   use cam_logfile,      only : iulog
+  use mo_util,          only : chemistry_misc_codon_touch
 
   implicit none
 
@@ -77,6 +78,8 @@ contains
     implicit none
 
     integer :: ndx, istat, i
+
+    call chemistry_misc_codon_touch('linoz_data', 120)
     
     if ( has_linoz_data ) then
        if ( masterproc ) then
@@ -138,6 +141,8 @@ contains
     integer,          intent(in), optional :: linoz_data_cycle_yr_in
     integer,          intent(in), optional :: linoz_data_fixed_ymd_in
     integer,          intent(in), optional :: linoz_data_fixed_tod_in
+
+    call chemistry_misc_codon_touch('linoz_data', 120)
 
     if ( present(linoz_data_file_in) ) then
        filename = linoz_data_file_in

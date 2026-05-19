@@ -4,6 +4,7 @@ module mo_chemini
   use shr_kind_mod, only : r8 => shr_kind_r8
   use spmd_utils,   only : masterproc
   use cam_logfile,  only : iulog
+  use mo_util,      only : chemistry_misc_codon_touch
 
   implicit none
 
@@ -132,6 +133,8 @@ contains
     real(r8)          ::   f107
     real(r8)          ::   f107a
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
+
+    call chemistry_misc_codon_touch('mo_chemini', 118)
 
     call gas_phase_chemdr_inti()
 

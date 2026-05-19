@@ -25,6 +25,7 @@ module prescribed_aero
   use tracer_data,      only : trfld, trfile
   use cam_logfile,      only : iulog
   use pio,              only : var_desc_t
+  use mo_util,          only : chemistry_misc_codon_touch
 
   implicit none
   private
@@ -112,6 +113,8 @@ contains
     ! local vars
     character(len=32)  :: spec_a
     integer :: ndx, istat, i, i_c, j
+
+    call chemistry_misc_codon_touch('prescribed_aero', 114)
     
     if ( has_prescribed_aero ) then
        if ( masterproc ) then

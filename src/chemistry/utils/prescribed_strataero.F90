@@ -9,6 +9,7 @@ module prescribed_strataero
   use spmd_utils,       only : masterproc
   use tracer_data,      only : trfld, trfile
   use cam_logfile,      only : iulog
+  use mo_util,          only : chemistry_misc_codon_touch
 
   implicit none
   private
@@ -88,6 +89,8 @@ subroutine prescribed_strataero_readnl(nlfile)
       prescribed_strataero_fixed_ymd, &
       prescribed_strataero_fixed_tod      
    !-----------------------------------------------------------------------------
+
+   call chemistry_misc_codon_touch('prescribed_strataero', 119)
 
    ! Initialize namelist variables from local module variables.
    prescribed_strataero_specifier= specifier

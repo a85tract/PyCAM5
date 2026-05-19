@@ -4,6 +4,7 @@ module mo_setext
   use shr_kind_mod, only : r8 => shr_kind_r8
   use shr_const_mod,only : pi => shr_const_pi
   use cam_logfile,  only : iulog
+  use mo_util,      only : chemistry_misc_codon_touch
 
   private
   public :: setext_inti, setext, has_ions
@@ -28,6 +29,8 @@ contains
     use spmd_utils,   only : masterproc
 
     implicit none
+
+    call chemistry_misc_codon_touch('mo_setext', 115)
 
     co_ndx    = get_extfrc_ndx( 'CO' )
     no_ndx    = get_extfrc_ndx( 'NO' )
