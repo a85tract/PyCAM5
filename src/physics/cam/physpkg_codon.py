@@ -3091,3 +3091,42 @@ def modal_aer_opt_binterp_codon(
             value = value + tu * table[_modal_aer_opt_table_idx(k, ip1, jp1, km, im)]
             value = value + tcu * table[_modal_aer_opt_table_idx(k, int(ix[ic0]), jp1, km, im)]
             out[_modal_aer_opt_out_idx(ic, k, pcols)] = value
+
+
+@export
+def ndrop_mode_props_finalize_codon(
+    nmode: int,
+    pi: float,
+    sigmag_p: cobj,
+    dgnumlo_p: cobj,
+    dgnumhi_p: cobj,
+    alogsig_p: cobj,
+    exp45logsig_p: cobj,
+    f1_p: cobj,
+    f2_p: cobj,
+    voltonumblo_p: cobj,
+    voltonumbhi_p: cobj,
+):
+    sigmag = Ptr[float](sigmag_p)
+    dgnumlo = Ptr[float](dgnumlo_p)
+    dgnumhi = Ptr[float](dgnumhi_p)
+    alogsig = Ptr[float](alogsig_p)
+    exp45logsig = Ptr[float](exp45logsig_p)
+    f1 = Ptr[float](f1_p)
+    f2 = Ptr[float](f2_p)
+    voltonumblo = Ptr[float](voltonumblo_p)
+    voltonumbhi = Ptr[float](voltonumbhi_p)
+
+    for m in range(1, nmode + 1):
+        m0 = m - 1
+        alogsig[m0] = log(sigmag[m0])
+        exp45logsig[m0] = exp(4.5 * alogsig[m0] * alogsig[m0])
+        f1[m0] = 0.5 * exp(2.5 * alogsig[m0] * alogsig[m0])
+        f2[m0] = 1.0 + 0.25 * alogsig[m0]
+
+        voltonumblo[m0] = 1.0 / (
+            (pi / 6.0) * (dgnumlo[m0] ** 3.0) * exp(4.5 * alogsig[m0] ** 2.0)
+        )
+        voltonumbhi[m0] = 1.0 / (
+            (pi / 6.0) * (dgnumhi[m0] ** 3.0) * exp(4.5 * alogsig[m0] ** 2.0)
+        )

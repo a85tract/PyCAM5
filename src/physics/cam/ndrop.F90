@@ -89,8 +89,73 @@ logical :: prog_modal_aero     ! true when modal aerosols are prognostic
 logical :: lq(pcnst) = .false. ! set flags true for constituents with non-zero tendencies
                                ! in the ptend object
 
+logical :: use_native_ndrop_init_props_impl = .false.
+logical :: ndrop_init_props_impl_selected = .false.
+logical :: ndrop_init_props_proof_written = .false.
+
+interface
+   subroutine ndrop_mode_props_finalize_codon(nmode_c, pi_c, sigmag_p, dgnumlo_p, dgnumhi_p, &
+        alogsig_p, exp45logsig_p, f1_p, f2_p, voltonumblo_p, voltonumbhi_p) &
+        bind(c, name="ndrop_mode_props_finalize_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: nmode_c
+      real(c_double), value :: pi_c
+      type(c_ptr), value :: sigmag_p, dgnumlo_p, dgnumhi_p
+      type(c_ptr), value :: alogsig_p, exp45logsig_p, f1_p, f2_p, voltonumblo_p, voltonumbhi_p
+   end subroutine ndrop_mode_props_finalize_codon
+end interface
+
 !===============================================================================
 contains
+!===============================================================================
+
+subroutine ndrop_init_props_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (ndrop_init_props_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('NDROP_INIT_PROPS_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_ndrop_init_props_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_ndrop_init_props_impl = .false.
+   end if
+
+   ndrop_init_props_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_ndrop_init_props_impl) then
+         write(iulog,*) 'ndrop_init_props implementation = native'
+      else
+         write(iulog,*) 'ndrop_init_props implementation = codon'
+      end if
+   end if
+
+end subroutine ndrop_init_props_select_impl
+
+!===============================================================================
+
+subroutine ndrop_init_props_proof_once()
+
+   if (ndrop_init_props_proof_written) return
+   ndrop_init_props_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'ndrop_init_props entered (modal aerosol width conversion helper = codon)'
+   end if
+
+end subroutine ndrop_init_props_proof_once
+
 !===============================================================================
 
 subroutine ndrop_init
@@ -149,17 +214,10 @@ subroutine ndrop_init
       ! get mode properties
       call rad_cnst_get_mode_props(0, m, sigmag=sigmag_amode(m),  &
          dgnumhi=dgnumhi_amode(m), dgnumlo=dgnumlo_amode(m))
-
-      alogsig(m)     = log(sigmag_amode(m))
-      exp45logsig(m) = exp(4.5_r8*alogsig(m)*alogsig(m))
-      f1(m)          = 0.5_r8*exp(2.5_r8*alogsig(m)*alogsig(m))
-      f2(m)          = 1._r8 + 0.25_r8*alogsig(m)
-
-      voltonumblo_amode(m) = 1._r8 / ( (pi/6._r8)*                          &
-                             (dgnumlo_amode(m)**3._r8)*exp(4.5_r8*alogsig(m)**2._r8) )
-      voltonumbhi_amode(m) = 1._r8 / ( (pi/6._r8)*                          &
-                             (dgnumhi_amode(m)**3._r8)*exp(4.5_r8*alogsig(m)**2._r8) )
    end do
+
+   call ndrop_mode_props_finalize(ntot_amode, sigmag_amode, dgnumlo_amode, dgnumhi_amode, &
+        alogsig, exp45logsig, f1, f2, voltonumblo_amode, voltonumbhi_amode)
       
    ! Init the table for local indexing of mam number conc and mmr.
    ! This table uses species index 0 for the number conc.
@@ -284,6 +342,71 @@ subroutine ndrop_init
 
 
 end subroutine ndrop_init
+
+!===============================================================================
+
+subroutine ndrop_mode_props_finalize(nmode, sigmag, dgnumlo, dgnumhi, alogsig_out, &
+                                     exp45logsig_out, f1_out, f2_out, voltonumblo, voltonumbhi)
+
+   use iso_c_binding, only: c_int64_t, c_loc
+
+   integer,  intent(in) :: nmode
+   real(r8), intent(in), target, contiguous  :: sigmag(:)
+   real(r8), intent(in), target, contiguous  :: dgnumlo(:)
+   real(r8), intent(in), target, contiguous  :: dgnumhi(:)
+   real(r8), intent(out), target, contiguous :: alogsig_out(:)
+   real(r8), intent(out), target, contiguous :: exp45logsig_out(:)
+   real(r8), intent(out), target, contiguous :: f1_out(:)
+   real(r8), intent(out), target, contiguous :: f2_out(:)
+   real(r8), intent(out), target, contiguous :: voltonumblo(:)
+   real(r8), intent(out), target, contiguous :: voltonumbhi(:)
+
+   call ndrop_init_props_select_impl()
+
+   if (use_native_ndrop_init_props_impl) then
+      call ndrop_mode_props_finalize_native(nmode, sigmag, dgnumlo, dgnumhi, alogsig_out, &
+                                           exp45logsig_out, f1_out, f2_out, voltonumblo, voltonumbhi)
+      return
+   end if
+
+   call ndrop_init_props_proof_once()
+   call ndrop_mode_props_finalize_codon(int(nmode, c_int64_t), pi, c_loc(sigmag(1)), &
+        c_loc(dgnumlo(1)), c_loc(dgnumhi(1)), c_loc(alogsig_out(1)), c_loc(exp45logsig_out(1)), &
+        c_loc(f1_out(1)), c_loc(f2_out(1)), c_loc(voltonumblo(1)), c_loc(voltonumbhi(1)))
+
+end subroutine ndrop_mode_props_finalize
+
+!===============================================================================
+
+subroutine ndrop_mode_props_finalize_native(nmode, sigmag, dgnumlo, dgnumhi, alogsig_out, &
+                                            exp45logsig_out, f1_out, f2_out, voltonumblo, voltonumbhi)
+
+   integer,  intent(in) :: nmode
+   real(r8), intent(in)  :: sigmag(:)
+   real(r8), intent(in)  :: dgnumlo(:)
+   real(r8), intent(in)  :: dgnumhi(:)
+   real(r8), intent(out) :: alogsig_out(:)
+   real(r8), intent(out) :: exp45logsig_out(:)
+   real(r8), intent(out) :: f1_out(:)
+   real(r8), intent(out) :: f2_out(:)
+   real(r8), intent(out) :: voltonumblo(:)
+   real(r8), intent(out) :: voltonumbhi(:)
+
+   integer :: m
+
+   do m = 1, nmode
+      alogsig_out(m)     = log(sigmag(m))
+      exp45logsig_out(m) = exp(4.5_r8*alogsig_out(m)*alogsig_out(m))
+      f1_out(m)          = 0.5_r8*exp(2.5_r8*alogsig_out(m)*alogsig_out(m))
+      f2_out(m)          = 1._r8 + 0.25_r8*alogsig_out(m)
+
+      voltonumblo(m) = 1._r8 / ( (pi/6._r8)*                          &
+                        (dgnumlo(m)**3._r8)*exp(4.5_r8*alogsig_out(m)**2._r8) )
+      voltonumbhi(m) = 1._r8 / ( (pi/6._r8)*                          &
+                        (dgnumhi(m)**3._r8)*exp(4.5_r8*alogsig_out(m)**2._r8) )
+   end do
+
+end subroutine ndrop_mode_props_finalize_native
 
 !===============================================================================
 
@@ -1804,7 +1927,4 @@ end subroutine loadaer
 !===============================================================================
 
 end module ndrop
-
-
-
 
