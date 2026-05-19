@@ -17,6 +17,7 @@ module cam3_ozone_data
 !-----------------------------------------------------------------------
 
 use shr_kind_mod,   only: r8 => shr_kind_r8
+use iso_c_binding,  only: c_int64_t
 use spmd_utils,     only: masterproc
 use ppgrid,         only: begchunk, endchunk, pcols, pver
 use cam_abortutils, only: endrun
@@ -48,8 +49,103 @@ integer            :: oz_idx           ! index into phys_buffer for ozone
 type(boundarydata_type) :: ozonedata
 character(len=6), parameter, dimension(1) :: nc_name = (/'OZONE '/) ! constituent names
 
+logical :: use_native_cam3_ozone_data_impl = .false.
+logical :: cam3_ozone_data_impl_selected = .false.
+logical :: cam3_ozone_data_proof_written = .false.
+
+interface
+   function cam3_ozone_data_flag_codon(flag_c) result(out_c) bind(c, name="cam3_ozone_data_flag_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function cam3_ozone_data_flag_codon
+end interface
+
 !================================================================================================
 contains
+!================================================================================================
+
+subroutine cam3_ozone_data_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cam3_ozone_data_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CAM3_OZONE_DATA_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_cam3_ozone_data_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_cam3_ozone_data_impl = .false.
+   end if
+
+   cam3_ozone_data_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_cam3_ozone_data_impl) then
+         write(iulog,*) 'cam3_ozone_data implementation = native'
+      else
+         write(iulog,*) 'cam3_ozone_data implementation = codon'
+      end if
+   end if
+
+end subroutine cam3_ozone_data_select_impl
+
+!================================================================================================
+
+subroutine cam3_ozone_data_proof_once()
+
+   if (cam3_ozone_data_proof_written) return
+   cam3_ozone_data_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'cam3_ozone_data entered (runtime namelist flag helpers = codon)'
+   end if
+
+end subroutine cam3_ozone_data_proof_once
+
+!================================================================================================
+
+logical function cam3_ozone_data_flag(flag)
+
+   logical, intent(in) :: flag
+   integer(c_int64_t) :: flag_c, out_c
+
+   call cam3_ozone_data_select_impl()
+
+   if (use_native_cam3_ozone_data_impl) then
+      cam3_ozone_data_flag = flag
+      return
+   end if
+
+   call cam3_ozone_data_proof_once()
+   if (flag) then
+      flag_c = 1_c_int64_t
+   else
+      flag_c = 0_c_int64_t
+   end if
+   out_c = cam3_ozone_data_flag_codon(flag_c)
+   cam3_ozone_data_flag = out_c /= 0_c_int64_t
+
+end function cam3_ozone_data_flag
+
+!================================================================================================
+
+subroutine cam3_ozone_data_finalize_flags()
+
+   cam3_ozone_data_on = cam3_ozone_data_flag(cam3_ozone_data_on)
+   ozncyc = cam3_ozone_data_flag(ozncyc)
+
+end subroutine cam3_ozone_data_finalize_flags
+
 !================================================================================================
 
 subroutine cam3_ozone_data_readnl(nlfile)
@@ -87,6 +183,8 @@ subroutine cam3_ozone_data_readnl(nlfile)
    call mpibcast(bndtvo, len(bndtvo), mpichar, 0, mpicom)
    call mpibcast(ozncyc, 1, mpilog, 0, mpicom)
 #endif
+
+   call cam3_ozone_data_finalize_flags()
 
 end subroutine cam3_ozone_data_readnl
 
@@ -217,4 +315,3 @@ end subroutine ozone_data_get_cnst
 !================================================================================================
 
 end module cam3_ozone_data
-

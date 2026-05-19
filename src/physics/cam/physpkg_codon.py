@@ -3432,3 +3432,10 @@ def cam3_aero_data_flag_codon(flag: int) -> int:
     if flag != 0:
         return 1
     return 0
+
+
+@export
+def cam3_ozone_data_flag_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
