@@ -3613,3 +3613,10 @@ def wv_sat_methods_omeps_codon(epsilo: float) -> float:
 @export
 def wv_saturation_value_codon(value: float) -> float:
     return value
+
+
+@export
+def vdiff_lu_solver_flag_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0

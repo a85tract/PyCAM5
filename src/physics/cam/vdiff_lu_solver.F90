@@ -7,6 +7,7 @@ module vdiff_lu_solver
 ! an array for one time step with the "left_div" method.
 
 use coords_1d, only: Coords1D
+use iso_c_binding, only: c_int64_t
 use linear_1d_operators, only: TriDiagOp, operator(+), TriDiagDecomp
 
 implicit none
@@ -20,7 +21,92 @@ public :: fin_vol_lu_decomp
 ! 8-byte real.
 integer, parameter :: r8 = selected_real_kind(12)
 
+logical :: use_native_vdiff_lu_solver_impl = .false.
+logical :: vdiff_lu_solver_impl_selected = .false.
+logical :: vdiff_lu_solver_proof_written = .false.
+
+interface
+   function vdiff_lu_solver_flag_codon(flag_c) result(flag_out) &
+        bind(c, name="vdiff_lu_solver_flag_codon")
+     use iso_c_binding, only: c_int64_t
+     integer(c_int64_t), value :: flag_c
+     integer(c_int64_t) :: flag_out
+   end function vdiff_lu_solver_flag_codon
+end interface
+
 contains
+
+! ========================================================================!
+
+subroutine vdiff_lu_solver_select_impl()
+
+  use cam_logfile, only: iulog
+  use spmd_utils, only: masterproc
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (vdiff_lu_solver_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('VDIFF_LU_SOLVER_IMPL', value=impl_name, length=n, &
+       status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_vdiff_lu_solver_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_vdiff_lu_solver_impl = .false.
+  end if
+
+  vdiff_lu_solver_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_vdiff_lu_solver_impl) then
+        write(iulog,*) 'vdiff_lu_solver implementation = native'
+     else
+        write(iulog,*) 'vdiff_lu_solver implementation = codon'
+     end if
+  end if
+
+end subroutine vdiff_lu_solver_select_impl
+
+subroutine vdiff_lu_solver_proof_once()
+
+  use cam_logfile, only: iulog
+  use spmd_utils, only: masterproc
+
+  if (vdiff_lu_solver_proof_written) return
+  vdiff_lu_solver_proof_written = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') 'vdiff_lu_solver entered (fin_vol branch flags = codon)'
+  end if
+
+end subroutine vdiff_lu_solver_proof_once
+
+logical function vdiff_lu_solver_flag(flag) result(out)
+
+  logical, intent(in) :: flag
+  integer(c_int64_t) :: flag_c
+
+  call vdiff_lu_solver_select_impl()
+
+  if (use_native_vdiff_lu_solver_impl) then
+     out = flag
+     return
+  end if
+
+  call vdiff_lu_solver_proof_once()
+  flag_c = merge(1_c_int64_t, 0_c_int64_t, flag)
+  out = vdiff_lu_solver_flag_codon(flag_c) /= 0_c_int64_t
+
+end function vdiff_lu_solver_flag
 
 ! ========================================================================!
 
@@ -163,7 +249,7 @@ function fin_vol_lu_decomp(dt, p, coef_q, coef_q_diff, coef_q_adv, &
   ! A diffusion term is probably present, so start with that. Otherwise
   ! start with an operator of all 0s.
 
-  if (present(coef_q_diff)) then
+  if (vdiff_lu_solver_flag(present(coef_q_diff))) then
      net_operator = diffusion_operator(p, coef_q_diff, &
           upper_bndry, lower_bndry)
   else
@@ -171,13 +257,13 @@ function fin_vol_lu_decomp(dt, p, coef_q, coef_q_diff, coef_q_adv, &
   end if
 
   ! Constant term (damping).
-  if (present(coef_q)) then
+  if (vdiff_lu_solver_flag(present(coef_q))) then
      add_term = diagonal_operator(coef_q)
      call net_operator%add(add_term)
   end if
 
   ! Effective advection.
-  if (present(coef_q_adv)) then
+  if (vdiff_lu_solver_flag(present(coef_q_adv))) then
      add_term = advection_operator(p, coef_q_adv, &
           upper_bndry, lower_bndry)
      call net_operator%add(add_term)
@@ -185,7 +271,7 @@ function fin_vol_lu_decomp(dt, p, coef_q, coef_q_diff, coef_q_adv, &
 
   ! We want I-dt*(w^-1)*A for a single time step, implicit method, where
   ! A is the right-hand-side operator (i.e. what net_operator is now).
-  if (present(coef_q_weight)) then
+  if (vdiff_lu_solver_flag(present(coef_q_weight))) then
      call net_operator%lmult_as_diag(-dt/coef_q_weight)
   else
      call net_operator%lmult_as_diag(-dt)
