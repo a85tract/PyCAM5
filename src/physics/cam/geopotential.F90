@@ -15,6 +15,8 @@ module geopotential
   use shr_kind_mod, only: r8 => shr_kind_r8
   use ppgrid,       only: pver, pverp
   use dycore,       only: dycore_is
+  use cam_logfile,  only: iulog
+  use spmd_utils,   only: masterproc
 
   implicit none
   private
@@ -23,9 +25,120 @@ module geopotential
   public geopotential_dse
   public geopotential_t
 
+  logical :: use_native_geopotential_impl = .false.
+  logical :: geopotential_impl_selected = .false.
+  logical :: geopotential_proof_written = .false.
+
+  interface
+     subroutine geopotential_dse_codon(ncol_c, ld_c, pver_c, pverp_c, fvdyn_c, gravit_c, &
+          piln_p, pint_p, pmid_p, pdel_p, rpdel_p, dse_p, q_p, phis_p, rair_p, cpair_p, &
+          zvir_p, t_p, zi_p, zm_p) bind(c, name="geopotential_dse_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, ld_c, pver_c, pverp_c, fvdyn_c
+       real(c_double), value :: gravit_c
+       type(c_ptr), value :: piln_p, pint_p, pmid_p, pdel_p, rpdel_p, dse_p, q_p, phis_p
+       type(c_ptr), value :: rair_p, cpair_p, zvir_p, t_p, zi_p, zm_p
+     end subroutine geopotential_dse_codon
+
+     subroutine geopotential_t_codon(ncol_c, ld_c, pver_c, pverp_c, fvdyn_c, gravit_c, &
+          piln_p, pint_p, pmid_p, pdel_p, rpdel_p, t_p, q_p, rair_p, zvir_p, zi_p, zm_p) &
+          bind(c, name="geopotential_t_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, ld_c, pver_c, pverp_c, fvdyn_c
+       real(c_double), value :: gravit_c
+       type(c_ptr), value :: piln_p, pint_p, pmid_p, pdel_p, rpdel_p, t_p, q_p, rair_p
+       type(c_ptr), value :: zvir_p, zi_p, zm_p
+     end subroutine geopotential_t_codon
+  end interface
+
 contains
 !===============================================================================
+  subroutine geopotential_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (geopotential_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('GEOPOTENTIAL_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_geopotential_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_geopotential_impl = .false.
+    end if
+
+    geopotential_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_geopotential_impl) then
+          write(iulog,*) 'geopotential implementation = native'
+       else
+          write(iulog,*) 'geopotential implementation = codon'
+       end if
+    end if
+  end subroutine geopotential_select_impl
+
+!===============================================================================
+  subroutine geopotential_proof_once()
+    if (geopotential_proof_written) return
+    geopotential_proof_written = .true.
+    if (masterproc) then
+       write(iulog,'(A)') 'geopotential helpers entered (dse/t hydrostatic loops = codon)'
+    end if
+  end subroutine geopotential_proof_once
+
+!===============================================================================
   subroutine geopotential_dse(                                &
+       piln   , pmln   , pint   , pmid   , pdel   , rpdel  ,  &
+       dse    , q      , phis   , rair   , gravit , cpair  ,  &
+       zvir   , t      , zi     , zm     , ncol             )
+!-----------------------------------------------------------------------
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: piln (:,:)
+    real(r8), target, intent(in) :: pmln (:,:)
+    real(r8), target, intent(in) :: pint (:,:)
+    real(r8), target, intent(in) :: pmid (:,:)
+    real(r8), target, intent(in) :: pdel (:,:)
+    real(r8), target, intent(in) :: rpdel(:,:)
+    real(r8), target, intent(in) :: dse  (:,:)
+    real(r8), target, intent(in) :: q    (:,:)
+    real(r8), target, intent(in) :: phis (:)
+    real(r8), target, intent(in) :: rair (:,:)
+    real(r8), intent(in) :: gravit
+    real(r8), target, intent(in) :: cpair(:,:)
+    real(r8), target, intent(in) :: zvir (:,:)
+    real(r8), target, intent(out) :: t(:,:)
+    real(r8), target, intent(out) :: zi(:,:)
+    real(r8), target, intent(out) :: zm(:,:)
+
+    call geopotential_select_impl()
+    if (use_native_geopotential_impl) then
+       call geopotential_dse_native(piln, pmln, pint, pmid, pdel, rpdel, dse, q, phis, &
+            rair, gravit, cpair, zvir, t, zi, zm, ncol)
+    else
+       call geopotential_proof_once()
+       call geopotential_dse_codon(int(ncol, c_int64_t), int(size(piln, 1), c_int64_t), &
+            int(pver, c_int64_t), int(pverp, c_int64_t), &
+            merge(1_c_int64_t, 0_c_int64_t, dycore_is('LR')), real(gravit, c_double), &
+            c_loc(piln(1,1)), c_loc(pint(1,1)), c_loc(pmid(1,1)), c_loc(pdel(1,1)), &
+            c_loc(rpdel(1,1)), c_loc(dse(1,1)), c_loc(q(1,1)), c_loc(phis(1)), &
+            c_loc(rair(1,1)), c_loc(cpair(1,1)), c_loc(zvir(1,1)), c_loc(t(1,1)), &
+            c_loc(zi(1,1)), c_loc(zm(1,1)))
+    end if
+
+    return
+  end subroutine geopotential_dse
+
+!===============================================================================
+  subroutine geopotential_dse_native(                         &
        piln   , pmln   , pint   , pmid   , pdel   , rpdel  ,  &
        dse    , q      , phis   , rair   , gravit , cpair  ,  &
        zvir   , t      , zi     , zm     , ncol             )
@@ -115,10 +228,49 @@ contains
     end do
 
     return
-  end subroutine geopotential_dse
+  end subroutine geopotential_dse_native
 
 !===============================================================================
   subroutine geopotential_t(                                 &
+       piln   , pmln   , pint   , pmid   , pdel   , rpdel  , &
+       t      , q      , rair   , gravit , zvir   ,          &
+       zi     , zm     , ncol   )
+!-----------------------------------------------------------------------
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
+    integer, intent(in) :: ncol
+    real(r8), target, intent(in) :: piln (:,:)
+    real(r8), target, intent(in) :: pmln (:,:)
+    real(r8), target, intent(in) :: pint (:,:)
+    real(r8), target, intent(in) :: pmid (:,:)
+    real(r8), target, intent(in) :: pdel (:,:)
+    real(r8), target, intent(in) :: rpdel(:,:)
+    real(r8), target, intent(in) :: t    (:,:)
+    real(r8), target, intent(in) :: q    (:,:)
+    real(r8), target, intent(in) :: rair (:,:)
+    real(r8), intent(in) :: gravit
+    real(r8), target, intent(in) :: zvir (:,:)
+    real(r8), target, intent(out) :: zi(:,:)
+    real(r8), target, intent(out) :: zm(:,:)
+
+    call geopotential_select_impl()
+    if (use_native_geopotential_impl) then
+       call geopotential_t_native(piln, pmln, pint, pmid, pdel, rpdel, t, q, rair, gravit, &
+            zvir, zi, zm, ncol)
+    else
+       call geopotential_proof_once()
+       call geopotential_t_codon(int(ncol, c_int64_t), int(size(piln, 1), c_int64_t), &
+            int(pver, c_int64_t), int(pverp, c_int64_t), &
+            merge(1_c_int64_t, 0_c_int64_t, dycore_is('LR')), real(gravit, c_double), &
+            c_loc(piln(1,1)), c_loc(pint(1,1)), c_loc(pmid(1,1)), c_loc(pdel(1,1)), &
+            c_loc(rpdel(1,1)), c_loc(t(1,1)), c_loc(q(1,1)), c_loc(rair(1,1)), &
+            c_loc(zvir(1,1)), c_loc(zi(1,1)), c_loc(zm(1,1)))
+    end if
+
+    return
+  end subroutine geopotential_t
+
+!===============================================================================
+  subroutine geopotential_t_native(                          &
        piln   , pmln   , pint   , pmid   , pdel   , rpdel  , &
        t      , q      , rair   , gravit , zvir   ,          &
        zi     , zm     , ncol   )
@@ -211,5 +363,5 @@ use ppgrid, only : pcols
     end do
 
     return
-  end subroutine geopotential_t
+  end subroutine geopotential_t_native
 end module geopotential

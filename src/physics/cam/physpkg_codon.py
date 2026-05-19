@@ -2386,3 +2386,124 @@ def restart_physics_pack_chunk_field_codon(
     for j in range(1, pcols + 1):
         if j <= ncol:
             tmpfield[offset + j - 1] = field[j - 1]
+
+
+@inline
+def _geopotential_idx(i: int, k: int, ld: int) -> int:
+    """geopotential arrays declared as (ld, vertical_level)"""
+    return (i - 1) + (k - 1) * ld
+
+
+@export
+def geopotential_dse_codon(
+    ncol: int,
+    ld: int,
+    pver: int,
+    pverp: int,
+    fvdyn: int,
+    gravit: float,
+    piln_p: cobj,
+    pint_p: cobj,
+    pmid_p: cobj,
+    pdel_p: cobj,
+    rpdel_p: cobj,
+    dse_p: cobj,
+    q_p: cobj,
+    phis_p: cobj,
+    rair_p: cobj,
+    cpair_p: cobj,
+    zvir_p: cobj,
+    t_p: cobj,
+    zi_p: cobj,
+    zm_p: cobj,
+):
+    piln = Ptr[float](piln_p)
+    pint = Ptr[float](pint_p)
+    pmid = Ptr[float](pmid_p)
+    pdel = Ptr[float](pdel_p)
+    rpdel = Ptr[float](rpdel_p)
+    dse = Ptr[float](dse_p)
+    q = Ptr[float](q_p)
+    phis = Ptr[float](phis_p)
+    rair = Ptr[float](rair_p)
+    cpair = Ptr[float](cpair_p)
+    zvir = Ptr[float](zvir_p)
+    t = Ptr[float](t_p)
+    zi = Ptr[float](zi_p)
+    zm = Ptr[float](zm_p)
+
+    for i in range(1, ncol + 1):
+        zi[_geopotential_idx(i, pverp, ld)] = 0.0
+
+    for k in range(pver, 0, -1):
+        for i in range(1, ncol + 1):
+            idx = _geopotential_idx(i, k, ld)
+            if fvdyn != 0:
+                hkl = piln[_geopotential_idx(i, k + 1, ld)] - piln[idx]
+                hkk = 1.0 - pint[idx] * hkl * rpdel[idx]
+            else:
+                hkl = pdel[idx] / pmid[idx]
+                hkk = 0.5 * hkl
+
+            tvfac = 1.0 + zvir[idx] * q[idx]
+            rog = rair[idx] / gravit
+            tv = (dse[idx] - phis[i - 1] - gravit * zi[_geopotential_idx(i, k + 1, ld)]) / (
+                (cpair[idx] / tvfac) + rair[idx] * hkk
+            )
+
+            t[idx] = tv / tvfac
+            zm[idx] = zi[_geopotential_idx(i, k + 1, ld)] + rog * tv * hkk
+            zi[idx] = zi[_geopotential_idx(i, k + 1, ld)] + rog * tv * hkl
+
+
+@export
+def geopotential_t_codon(
+    ncol: int,
+    ld: int,
+    pver: int,
+    pverp: int,
+    fvdyn: int,
+    gravit: float,
+    piln_p: cobj,
+    pint_p: cobj,
+    pmid_p: cobj,
+    pdel_p: cobj,
+    rpdel_p: cobj,
+    t_p: cobj,
+    q_p: cobj,
+    rair_p: cobj,
+    zvir_p: cobj,
+    zi_p: cobj,
+    zm_p: cobj,
+):
+    piln = Ptr[float](piln_p)
+    pint = Ptr[float](pint_p)
+    pmid = Ptr[float](pmid_p)
+    pdel = Ptr[float](pdel_p)
+    rpdel = Ptr[float](rpdel_p)
+    t = Ptr[float](t_p)
+    q = Ptr[float](q_p)
+    rair = Ptr[float](rair_p)
+    zvir = Ptr[float](zvir_p)
+    zi = Ptr[float](zi_p)
+    zm = Ptr[float](zm_p)
+
+    for i in range(1, ncol + 1):
+        zi[_geopotential_idx(i, pverp, ld)] = 0.0
+
+    for k in range(pver, 0, -1):
+        for i in range(1, ncol + 1):
+            idx = _geopotential_idx(i, k, ld)
+            if fvdyn != 0:
+                hkl = piln[_geopotential_idx(i, k + 1, ld)] - piln[idx]
+                hkk = 1.0 - pint[idx] * hkl * rpdel[idx]
+            else:
+                hkl = pdel[idx] / pmid[idx]
+                hkk = 0.5 * hkl
+
+            tvfac = 1.0 + zvir[idx] * q[idx]
+            tv = t[idx] * tvfac
+            rog = rair[idx] / gravit
+
+            zm[idx] = zi[_geopotential_idx(i, k + 1, ld)] + rog * tv * hkk
+            zi[idx] = zi[_geopotential_idx(i, k + 1, ld)] + rog * tv * hkl
