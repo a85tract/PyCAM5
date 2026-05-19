@@ -12,6 +12,8 @@ module radiation_data
   use cam_history_support, only: fieldname_len, fillvalue
   use spmd_utils,       only: masterproc
   use cam_abortutils,   only: endrun
+  use cam_logfile,      only: iulog
+  use iso_c_binding,    only: c_int64_t
 
   use drv_input_data,only: drv_input_data_t
   use drv_input_data,only: drv_input_data_get, drv_input_2d_t, drv_input_3d_t, drv_input_4d_t, drv_input_2di_t
@@ -106,11 +108,97 @@ module radiation_data
   integer :: qrlin_idx = -1
   integer :: tropp_idx = -1
 
+  logical :: use_native_radiation_data_flags_impl = .false.
+  logical :: radiation_data_flags_impl_selected = .false.
+  logical :: radiation_data_flags_proof_written = .false.
+
+  interface
+    function radiation_data_flag_codon(flag_c) result(out_c) bind(c, name="radiation_data_flag_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+    end function radiation_data_flag_codon
+  end interface
+
 contains
 
 
-!================================================================================================
-!================================================================================================
+  !================================================================================================
+  !================================================================================================
+  subroutine radiation_data_flags_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (radiation_data_flags_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('RADIATION_DATA_FLAGS_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_radiation_data_flags_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_radiation_data_flags_impl = .false.
+    end if
+
+    radiation_data_flags_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_radiation_data_flags_impl) then
+          write(iulog,*) 'radiation_data_flags implementation = native'
+       else
+          write(iulog,*) 'radiation_data_flags implementation = codon'
+       end if
+    end if
+
+  end subroutine radiation_data_flags_select_impl
+
+  !================================================================================================
+  !================================================================================================
+  subroutine radiation_data_flags_proof_once()
+
+    if (radiation_data_flags_proof_written) return
+    radiation_data_flags_proof_written = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'radiation_data_flags entered (runtime output/fdh boolean helpers = codon)'
+    end if
+
+  end subroutine radiation_data_flags_proof_once
+
+  !================================================================================================
+  !================================================================================================
+  logical function radiation_data_flag(flag)
+
+    logical, intent(in) :: flag
+    integer(c_int64_t) :: flag_c, out_c
+
+    call radiation_data_flags_select_impl()
+
+    if (use_native_radiation_data_flags_impl) then
+       radiation_data_flag = flag
+       return
+    end if
+
+    call radiation_data_flags_proof_once()
+    if (flag) then
+       flag_c = 1_c_int64_t
+    else
+       flag_c = 0_c_int64_t
+    end if
+    out_c = radiation_data_flag_codon(flag_c)
+    radiation_data_flag = out_c /= 0_c_int64_t
+
+  end function radiation_data_flag
+
+  !================================================================================================
+  !================================================================================================
   subroutine rad_data_register
     use physics_buffer,  only: pbuf_add_field, dtype_r8
 
@@ -165,7 +253,7 @@ contains
     call mpibcast (rad_data_histfile_num, 1,   mpiint ,  0, mpicom)
     call mpibcast (rad_data_avgflag,      1,   mpichar , 0, mpicom)
 #endif
-    do_fdh = rad_data_fdh
+    do_fdh = radiation_data_flag(rad_data_fdh)
 
   end subroutine rad_data_readnl
 
@@ -186,7 +274,7 @@ contains
     character(len=16)  :: rad_scheme
    
     call phys_getopts(microp_scheme_out=microp_scheme, radiation_scheme_out=rad_scheme)
-    mg_microphys =  (trim(microp_scheme) == 'MG')
+    mg_microphys = radiation_data_flag(trim(microp_scheme) == 'MG')
 
     cld_ifld    = pbuf_get_index('CLD')
     rel_ifld    = pbuf_get_index('REL')
@@ -244,7 +332,7 @@ contains
        enddo
     endif
 
-    if (.not.rad_data_output) return
+    if (.not.radiation_data_flag(rad_data_output)) return
 
     call addfld (lndfrc_fldn, 'fraction', 1,    rad_data_avgflag,&
          'radiation input: land fraction',phys_decomp)
@@ -519,7 +607,7 @@ contains
 
     end if
 
-    if (.not.rad_data_output) return
+    if (.not.radiation_data_flag(rad_data_output)) return
 
     call outfld(qrs_fldn, qrs, pcols, lchnk )
     call outfld(qrl_fldn, qrl, pcols, lchnk )

@@ -3333,3 +3333,10 @@ def micro_mg_utils_init_scalars_codon(
     xxlv[0] = latvap
     xlf[0] = latice
     xxls[0] = xxlv[0] + xlf[0]
+
+
+@export
+def radiation_data_flag_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
