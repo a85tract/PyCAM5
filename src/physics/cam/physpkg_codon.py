@@ -2901,3 +2901,193 @@ def phys_prop_lin_interpol_codon(n: int, x_p: cobj, f_p: cobj, y: float) -> floa
 
     a = (f[k1] - f[k0]) / (x[k1] - x[k0])
     return f[k0] + a * (y - x[k0])
+
+
+@inline
+def _modal_aer_opt_2d_idx(i: int, k: int, pcols: int) -> int:
+    """modal_aer_opt arrays declared as (pcols,pver)."""
+    return (i - 1) + (k - 1) * pcols
+
+
+@inline
+def _modal_aer_opt_cheb_idx(nc: int, i: int, k: int, ncoef: int, pcols: int) -> int:
+    """modal_aer_opt Chebyshev arrays declared as (ncoef,pcols,pver)."""
+    return (nc - 1) + (i - 1) * ncoef + (k - 1) * ncoef * pcols
+
+
+@inline
+def _modal_aer_opt_table_idx(k: int, i: int, j: int, km: int, im: int) -> int:
+    """binterp table declared as (km,im,jm)."""
+    return (k - 1) + (i - 1) * km + (j - 1) * km * im
+
+
+@inline
+def _modal_aer_opt_out_idx(i: int, k: int, pcols: int) -> int:
+    """binterp out declared as (pcols,km)."""
+    return (i - 1) + (k - 1) * pcols
+
+
+@export
+def modal_aer_opt_size_parameters_codon(
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    ncol: int,
+    ncoef: int,
+    sigma_logr_aer: float,
+    xrmin: float,
+    xrmax: float,
+    dgnumwet_p: cobj,
+    radsurf_p: cobj,
+    logradsurf_p: cobj,
+    cheb_p: cobj,
+):
+    dgnumwet = Ptr[float](dgnumwet_p)
+    radsurf = Ptr[float](radsurf_p)
+    logradsurf = Ptr[float](logradsurf_p)
+    cheb = Ptr[float](cheb_p)
+
+    alnsg_amode = log(sigma_logr_aer)
+    explnsigma = exp(2.0 * alnsg_amode * alnsg_amode)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _modal_aer_opt_2d_idx(i, k, pcols)
+            radsurf[idx2] = 0.5 * dgnumwet[idx2] * explnsigma
+            logradsurf[idx2] = log(radsurf[idx2])
+            xrad = max(logradsurf[idx2], xrmin)
+            xrad = min(xrad, xrmax)
+            xrad = (2.0 * xrad - xrmax - xrmin) / (xrmax - xrmin)
+            cheb[_modal_aer_opt_cheb_idx(1, i, k, ncoef, pcols)] = 1.0
+            cheb[_modal_aer_opt_cheb_idx(2, i, k, ncoef, pcols)] = xrad
+            for nc in range(3, ncoef + 1):
+                cheb[_modal_aer_opt_cheb_idx(nc, i, k, ncoef, pcols)] = (
+                    2.0
+                    * xrad
+                    * cheb[_modal_aer_opt_cheb_idx(nc - 1, i, k, ncoef, pcols)]
+                    - cheb[_modal_aer_opt_cheb_idx(nc - 2, i, k, ncoef, pcols)]
+                )
+
+
+@export
+def modal_aer_opt_lw_size_parameters_codon(
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    ncol: int,
+    ncoef: int,
+    sigma_logr_aer: float,
+    xrmin: float,
+    xrmax: float,
+    dgnumwet_p: cobj,
+    cheby_p: cobj,
+):
+    dgnumwet = Ptr[float](dgnumwet_p)
+    cheby = Ptr[float](cheby_p)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            alnsg_amode = log(sigma_logr_aer)
+            xrad = (
+                log(0.5 * dgnumwet[_modal_aer_opt_2d_idx(i, k, pcols)])
+                + 2.0 * alnsg_amode * alnsg_amode
+            )
+            xrad = max(xrad, xrmin)
+            xrad = min(xrad, xrmax)
+            xrad = (2.0 * xrad - xrmax - xrmin) / (xrmax - xrmin)
+            cheby[_modal_aer_opt_cheb_idx(1, i, k, ncoef, pcols)] = 1.0
+            cheby[_modal_aer_opt_cheb_idx(2, i, k, ncoef, pcols)] = xrad
+            for nc in range(3, ncoef + 1):
+                cheby[_modal_aer_opt_cheb_idx(nc, i, k, ncoef, pcols)] = (
+                    2.0
+                    * xrad
+                    * cheby[_modal_aer_opt_cheb_idx(nc - 1, i, k, ncoef, pcols)]
+                    - cheby[_modal_aer_opt_cheb_idx(nc - 2, i, k, ncoef, pcols)]
+                )
+
+
+@export
+def modal_aer_opt_binterp_codon(
+    pcols: int,
+    ncol: int,
+    km: int,
+    im: int,
+    jm: int,
+    table_p: cobj,
+    x_p: cobj,
+    y_p: cobj,
+    xtab_p: cobj,
+    ytab_p: cobj,
+    ix_p: cobj,
+    jy_p: cobj,
+    t_p: cobj,
+    u_p: cobj,
+    out_p: cobj,
+):
+    table = Ptr[float](table_p)
+    x = Ptr[float](x_p)
+    y = Ptr[float](y_p)
+    xtab = Ptr[float](xtab_p)
+    ytab = Ptr[float](ytab_p)
+    ix = Ptr[i32](ix_p)
+    jy = Ptr[i32](jy_p)
+    t = Ptr[float](t_p)
+    u = Ptr[float](u_p)
+    out = Ptr[float](out_p)
+
+    if int(ix[0]) <= 0:
+        if im > 1:
+            for ic in range(1, ncol + 1):
+                found_i = im + 1
+                for ii in range(1, im + 1):
+                    if x[ic - 1] < xtab[ii - 1]:
+                        found_i = ii
+                        break
+                ix[ic - 1] = i32(max(found_i - 1, 1))
+                ip1 = min(int(ix[ic - 1]) + 1, im)
+                dx = xtab[ip1 - 1] - xtab[int(ix[ic - 1]) - 1]
+                if abs(dx) > 1.0e-20:
+                    t[ic - 1] = (x[ic - 1] - xtab[int(ix[ic - 1]) - 1]) / dx
+                else:
+                    t[ic - 1] = 0.0
+        else:
+            for ic in range(1, ncol + 1):
+                ix[ic - 1] = i32(1)
+                t[ic - 1] = 0.0
+
+        if jm > 1:
+            for ic in range(1, ncol + 1):
+                found_j = jm + 1
+                for jj in range(1, jm + 1):
+                    if y[ic - 1] < ytab[jj - 1]:
+                        found_j = jj
+                        break
+                jy[ic - 1] = i32(max(found_j - 1, 1))
+                jp1 = min(int(jy[ic - 1]) + 1, jm)
+                dy = ytab[jp1 - 1] - ytab[int(jy[ic - 1]) - 1]
+                if abs(dy) > 1.0e-20:
+                    u[ic - 1] = (y[ic - 1] - ytab[int(jy[ic - 1]) - 1]) / dy
+                else:
+                    u[ic - 1] = 0.0
+        else:
+            for ic in range(1, ncol + 1):
+                jy[ic - 1] = i32(1)
+                u[ic - 1] = 0.0
+
+    for ic in range(1, ncol + 1):
+        ic0 = ic - 1
+        tu = t[ic0] * u[ic0]
+        tuc = t[ic0] - tu
+        tcuc = 1.0 - tuc - u[ic0]
+        tcu = u[ic0] - tu
+        jp1 = min(int(jy[ic0]) + 1, jm)
+        ip1 = min(int(ix[ic0]) + 1, im)
+        for k in range(1, km + 1):
+            value = (
+                tcuc
+                * table[_modal_aer_opt_table_idx(k, int(ix[ic0]), int(jy[ic0]), km, im)]
+                + tuc * table[_modal_aer_opt_table_idx(k, ip1, int(jy[ic0]), km, im)]
+            )
+            value = value + tu * table[_modal_aer_opt_table_idx(k, ip1, jp1, km, im)]
+            value = value + tcu * table[_modal_aer_opt_table_idx(k, int(ix[ic0]), jp1, km, im)]
+            out[_modal_aer_opt_out_idx(ic, k, pcols)] = value

@@ -63,8 +63,88 @@ integer :: qaerwat_idx  = -1
 character(len=4) :: diag(0:n_diag) = (/'    ','_d1 ','_d2 ','_d3 ','_d4 ','_d5 ', &
                                        '_d6 ','_d7 ','_d8 ','_d9 ','_d10'/)
 
+logical :: use_native_modal_aer_opt_helpers_impl = .false.
+logical :: modal_aer_opt_helpers_impl_selected = .false.
+logical :: modal_aer_opt_helpers_proof_written = .false.
+
+interface
+   subroutine modal_aer_opt_size_parameters_codon(pcols_c, pver_c, top_lev_c, ncol_c, ncoef_c, &
+        sigma_logr_aer_c, xrmin_c, xrmax_c, dgnumwet_p, radsurf_p, logradsurf_p, cheb_p) &
+        bind(c, name="modal_aer_opt_size_parameters_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: pcols_c, pver_c, top_lev_c, ncol_c, ncoef_c
+      real(c_double), value :: sigma_logr_aer_c, xrmin_c, xrmax_c
+      type(c_ptr), value :: dgnumwet_p, radsurf_p, logradsurf_p, cheb_p
+   end subroutine modal_aer_opt_size_parameters_codon
+
+   subroutine modal_aer_opt_lw_size_parameters_codon(pcols_c, pver_c, top_lev_c, ncol_c, ncoef_c, &
+        sigma_logr_aer_c, xrmin_c, xrmax_c, dgnumwet_p, cheby_p) &
+        bind(c, name="modal_aer_opt_lw_size_parameters_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: pcols_c, pver_c, top_lev_c, ncol_c, ncoef_c
+      real(c_double), value :: sigma_logr_aer_c, xrmin_c, xrmax_c
+      type(c_ptr), value :: dgnumwet_p, cheby_p
+   end subroutine modal_aer_opt_lw_size_parameters_codon
+
+   subroutine modal_aer_opt_binterp_codon(pcols_c, ncol_c, km_c, im_c, jm_c, table_p, x_p, y_p, &
+        xtab_p, ytab_p, ix_p, jy_p, t_p, u_p, out_p) bind(c, name="modal_aer_opt_binterp_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: pcols_c, ncol_c, km_c, im_c, jm_c
+      type(c_ptr), value :: table_p, x_p, y_p, xtab_p, ytab_p, ix_p, jy_p, t_p, u_p, out_p
+   end subroutine modal_aer_opt_binterp_codon
+end interface
+
 !===============================================================================
 CONTAINS
+!===============================================================================
+
+subroutine modal_aer_opt_helpers_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (modal_aer_opt_helpers_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('MODAL_AER_OPT_HELPERS_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_modal_aer_opt_helpers_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_modal_aer_opt_helpers_impl = .false.
+   end if
+
+   modal_aer_opt_helpers_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_modal_aer_opt_helpers_impl) then
+         write(iulog,*) 'modal_aer_opt_helpers implementation = native'
+      else
+         write(iulog,*) 'modal_aer_opt_helpers implementation = codon'
+      end if
+   end if
+
+end subroutine modal_aer_opt_helpers_select_impl
+
+!===============================================================================
+
+subroutine modal_aer_opt_helpers_proof_once()
+
+   if (modal_aer_opt_helpers_proof_written) return
+   modal_aer_opt_helpers_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'modal_aer_opt_helpers entered (modal aerosol size/interpolation helpers = codon)'
+   end if
+
+end subroutine modal_aer_opt_helpers_proof_once
+
 !===============================================================================
 
 subroutine modal_aer_opt_readnl(nlfile)
@@ -1049,26 +1129,7 @@ subroutine modal_aero_lw(list_idx, state, pbuf, tauxar)
       call rad_cnst_get_info(list_idx, m, nspec=nspec)
 
       ! calc size parameter for all columns
-      ! this is the same calculation that's done in modal_size_parameters, but there
-      ! some intermediate results are saved and the chebyshev polynomials are stored
-      ! in a array with different index order.  Could be unified.
-      do k = top_lev, pver
-         do i = 1, ncol
-            alnsg_amode = log( sigma_logr_aer )
-            ! convert from number diameter to surface area
-            xrad(i) = log(0.5_r8*dgnumwet(i,k)) + 2.0_r8*alnsg_amode*alnsg_amode
-            ! normalize size parameter
-            xrad(i) = max(xrad(i), xrmin)
-            xrad(i) = min(xrad(i), xrmax)
-            xrad(i) = (2*xrad(i)-xrmax-xrmin)/(xrmax-xrmin)
-            ! chebyshev polynomials
-            cheby(1,i,k) = 1.0_r8
-            cheby(2,i,k) = xrad(i)
-            do nc = 3, ncoef
-               cheby(nc,i,k) = 2.0_r8*xrad(i)*cheby(nc-1,i,k)-cheby(nc-2,i,k)
-            end do
-         end do
-      end do
+      call modal_lw_size_parameters(ncol, sigma_logr_aer, dgnumwet, cheby)
 
       do ilw = 1, nlwbands
 
@@ -1252,6 +1313,34 @@ end subroutine read_water_refindex
 
 subroutine modal_size_parameters(ncol, sigma_logr_aer, dgnumwet, radsurf, logradsurf, cheb)
 
+   use iso_c_binding, only: c_int64_t, c_loc
+
+   integer,  intent(in)  :: ncol
+   real(r8), intent(in)  :: sigma_logr_aer  ! geometric standard deviation of number distribution
+   real(r8), intent(in), target, contiguous  :: dgnumwet(:,:)   ! aerosol wet number mode diameter (m)
+   real(r8), intent(out), target, contiguous :: radsurf(:,:)    ! aerosol surface mode radius
+   real(r8), intent(out), target, contiguous :: logradsurf(:,:) ! log(aerosol surface mode radius)
+   real(r8), intent(out), target, contiguous :: cheb(:,:,:)
+
+   call modal_aer_opt_helpers_select_impl()
+
+   if (use_native_modal_aer_opt_helpers_impl) then
+      call modal_size_parameters_native(ncol, sigma_logr_aer, dgnumwet, radsurf, logradsurf, cheb)
+      return
+   end if
+
+   call modal_aer_opt_helpers_proof_once()
+   call modal_aer_opt_size_parameters_codon(int(pcols, c_int64_t), int(pver, c_int64_t), &
+        int(top_lev, c_int64_t), int(ncol, c_int64_t), int(ncoef, c_int64_t), &
+        sigma_logr_aer, xrmin, xrmax, c_loc(dgnumwet(1,1)), c_loc(radsurf(1,1)), &
+        c_loc(logradsurf(1,1)), c_loc(cheb(1,1,1)))
+
+end subroutine modal_size_parameters
+
+!===============================================================================
+
+subroutine modal_size_parameters_native(ncol, sigma_logr_aer, dgnumwet, radsurf, logradsurf, cheb)
+
    integer,  intent(in)  :: ncol
    real(r8), intent(in)  :: sigma_logr_aer  ! geometric standard deviation of number distribution
    real(r8), intent(in)  :: dgnumwet(:,:)   ! aerosol wet number mode diameter (m)
@@ -1286,11 +1375,104 @@ subroutine modal_size_parameters(ncol, sigma_logr_aer, dgnumwet, radsurf, lograd
       end do
    end do
 
-end subroutine modal_size_parameters
+end subroutine modal_size_parameters_native
+
+!===============================================================================
+
+subroutine modal_lw_size_parameters(ncol, sigma_logr_aer, dgnumwet, cheby)
+
+   use iso_c_binding, only: c_int64_t, c_loc
+
+   integer,  intent(in) :: ncol
+   real(r8), intent(in) :: sigma_logr_aer  ! geometric standard deviation of number distribution
+   real(r8), intent(in), target, contiguous  :: dgnumwet(:,:) ! aerosol wet number mode diameter (m)
+   real(r8), intent(out), target, contiguous :: cheby(:,:,:)
+
+   call modal_aer_opt_helpers_select_impl()
+
+   if (use_native_modal_aer_opt_helpers_impl) then
+      call modal_lw_size_parameters_native(ncol, sigma_logr_aer, dgnumwet, cheby)
+      return
+   end if
+
+   call modal_aer_opt_helpers_proof_once()
+   call modal_aer_opt_lw_size_parameters_codon(int(pcols, c_int64_t), int(pver, c_int64_t), &
+        int(top_lev, c_int64_t), int(ncol, c_int64_t), int(ncoef, c_int64_t), &
+        sigma_logr_aer, xrmin, xrmax, c_loc(dgnumwet(1,1)), c_loc(cheby(1,1,1)))
+
+end subroutine modal_lw_size_parameters
+
+!===============================================================================
+
+subroutine modal_lw_size_parameters_native(ncol, sigma_logr_aer, dgnumwet, cheby)
+
+   integer,  intent(in)  :: ncol
+   real(r8), intent(in)  :: sigma_logr_aer  ! geometric standard deviation of number distribution
+   real(r8), intent(in)  :: dgnumwet(:,:)   ! aerosol wet number mode diameter (m)
+   real(r8), intent(out) :: cheby(:,:,:)
+
+   integer  :: i, k, nc
+   real(r8) :: alnsg_amode
+   real(r8) :: xrad(pcols)
+   !-------------------------------------------------------------------------------
+
+   ! This is the same calculation that's done in modal_size_parameters, but some
+   ! intermediate results are saved and the chebyshev polynomials are stored in an
+   ! array with different index order.
+   do k = top_lev, pver
+      do i = 1, ncol
+         alnsg_amode = log( sigma_logr_aer )
+         ! convert from number diameter to surface area
+         xrad(i) = log(0.5_r8*dgnumwet(i,k)) + 2.0_r8*alnsg_amode*alnsg_amode
+         ! normalize size parameter
+         xrad(i) = max(xrad(i), xrmin)
+         xrad(i) = min(xrad(i), xrmax)
+         xrad(i) = (2*xrad(i)-xrmax-xrmin)/(xrmax-xrmin)
+         ! chebyshev polynomials
+         cheby(1,i,k) = 1.0_r8
+         cheby(2,i,k) = xrad(i)
+         do nc = 3, ncoef
+            cheby(nc,i,k) = 2.0_r8*xrad(i)*cheby(nc-1,i,k)-cheby(nc-2,i,k)
+         end do
+      end do
+   end do
+
+end subroutine modal_lw_size_parameters_native
 
 !===============================================================================
 
       subroutine binterp(table,ncol,km,im,jm,x,y,xtab,ytab,ix,jy,t,u,out)
+
+      use iso_c_binding, only: c_int64_t, c_loc
+
+!     bilinear interpolation of table
+!
+      implicit none
+      integer, intent(in) :: im,jm,km,ncol
+      real(r8), intent(in), target, contiguous :: table(:,:,:),xtab(:),ytab(:)
+      real(r8), intent(in), target, contiguous :: x(:),y(:)
+      integer, intent(inout), target, contiguous :: ix(:),jy(:)
+      real(r8), intent(inout), target, contiguous :: t(:),u(:)
+      real(r8), intent(out), target, contiguous :: out(:,:)
+
+      call modal_aer_opt_helpers_select_impl()
+
+      if (use_native_modal_aer_opt_helpers_impl) then
+         call binterp_native(table,ncol,km,im,jm,x,y,xtab,ytab,ix,jy,t,u,out)
+         return
+      end if
+
+      call modal_aer_opt_helpers_proof_once()
+      call modal_aer_opt_binterp_codon(int(pcols, c_int64_t), int(ncol, c_int64_t), &
+           int(km, c_int64_t), int(im, c_int64_t), int(jm, c_int64_t), c_loc(table(1,1,1)), &
+           c_loc(x(1)), c_loc(y(1)), c_loc(xtab(1)), c_loc(ytab(1)), c_loc(ix(1)), c_loc(jy(1)), &
+           c_loc(t(1)), c_loc(u(1)), c_loc(out(1,1)))
+
+      end subroutine binterp
+
+!===============================================================================
+
+      subroutine binterp_native(table,ncol,km,im,jm,x,y,xtab,ytab,ix,jy,t,u,out)
 
 !     bilinear interpolation of table
 !
@@ -1355,6 +1537,6 @@ end subroutine modal_size_parameters
 	 end do
       enddo
       return
-      end subroutine binterp
+      end subroutine binterp_native
 
 end module modal_aer_opt
