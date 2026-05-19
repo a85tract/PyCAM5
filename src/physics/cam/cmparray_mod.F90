@@ -1,12 +1,35 @@
 module cmparray_mod
 
   use shr_kind_mod, only : r8 => shr_kind_r8
+  use iso_c_binding, only : c_int64_t, c_loc
   
   implicit none
   private
   save
   
   public expdaynite, cmpdaynite
+
+  logical :: use_native_cmparray_impl = .false.
+  logical :: cmparray_impl_selected = .false.
+  logical :: cmparray_proof_written = .false.
+
+  interface
+     subroutine cmparray_daynite_copy_real_codon(in_array_p, out_array_p, idxday_p, idxnite_p, &
+          nday_c, nnite_c, il1_c, iu1_c, il2_c, iu2_c, il3_c, iu3_c) &
+          bind(c, name="cmparray_daynite_copy_real_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       type(c_ptr), value :: in_array_p, out_array_p, idxday_p, idxnite_p
+       integer(c_int64_t), value :: nday_c, nnite_c, il1_c, iu1_c, il2_c, iu2_c, il3_c, iu3_c
+     end subroutine cmparray_daynite_copy_real_codon
+
+     subroutine cmparray_exp_daynite_real_codon(array_p, tmp_p, idxday_p, idxnite_p, &
+          nday_c, nnite_c, il1_c, iu1_c, il2_c, iu2_c, il3_c, iu3_c) &
+          bind(c, name="cmparray_exp_daynite_real_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       type(c_ptr), value :: array_p, tmp_p, idxday_p, idxnite_p
+       integer(c_int64_t), value :: nday_c, nnite_c, il1_c, iu1_c, il2_c, iu2_c, il3_c, iu3_c
+     end subroutine cmparray_exp_daynite_real_codon
+  end interface
 
   interface CmpDayNite
     module procedure CmpDayNite_1d_R
@@ -45,6 +68,58 @@ module cmparray_mod
   end interface ! chksum
 
   contains
+
+  subroutine cmparray_select_impl()
+
+    use cam_logfile, only: iulog
+    use spmd_utils, only: masterproc
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (cmparray_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('CMPARRAY_IMPL', value=impl_name, length=n, &
+         status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_cmparray_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_cmparray_impl = .false.
+    end if
+
+    cmparray_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_cmparray_impl) then
+          write(iulog,*) 'cmparray implementation = native'
+       else
+          write(iulog,*) 'cmparray implementation = codon'
+       end if
+    end if
+
+  end subroutine cmparray_select_impl
+
+  subroutine cmparray_proof_once()
+
+    use cam_logfile, only: iulog
+    use spmd_utils, only: masterproc
+
+    if (cmparray_proof_written) return
+    cmparray_proof_written = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'cmparray entered (real day-night reorder = codon)'
+    end if
+
+  end subroutine cmparray_proof_once
 
   subroutine CmpDayNite_1d_R(Array, Nday, IdxDay, Nnite, IdxNite, il1, iu1)
     integer, intent(in) :: Nday, Nnite
@@ -129,12 +204,23 @@ module cmparray_mod
     integer, intent(in) :: il1, iu1
     integer, intent(in) :: il2, iu2
     integer, intent(in) :: il3, iu3
-    integer, intent(in), dimension(Nday) :: IdxDay
-    integer, intent(in), dimension(Nnite) :: IdxNite
-    real(r8), intent(in), dimension(il1:iu1,il2:iu2,il3:iu3) :: InArray
-    real(r8), intent(out), dimension(il1:iu1,il2:iu2,il3:iu3) :: OutArray
+    integer, target, intent(in), dimension(Nday) :: IdxDay
+    integer, target, intent(in), dimension(Nnite) :: IdxNite
+    real(r8), target, intent(in), dimension(il1:iu1,il2:iu2,il3:iu3) :: InArray
+    real(r8), target, intent(out), dimension(il1:iu1,il2:iu2,il3:iu3) :: OutArray
 
     integer :: i, j, k
+
+    call cmparray_select_impl()
+
+    if (.not. use_native_cmparray_impl) then
+       call cmparray_proof_once()
+       call cmparray_daynite_copy_real_codon(c_loc(InArray), c_loc(OutArray), &
+            c_loc(IdxDay), c_loc(IdxNite), int(Nday, c_int64_t), int(Nnite, c_int64_t), &
+            int(il1, c_int64_t), int(iu1, c_int64_t), int(il2, c_int64_t), int(iu2, c_int64_t), &
+            int(il3, c_int64_t), int(iu3, c_int64_t))
+       return
+    end if
 
 
     do k = il3, iu3
@@ -235,12 +321,23 @@ module cmparray_mod
     integer, intent(in) :: il1, iu1
     integer, intent(in) :: il2, iu2
     integer, intent(in) :: il3, iu3
-    integer, intent(in), dimension(Nday) :: IdxDay
-    integer, intent(in), dimension(Nnite) :: IdxNite
-    real(r8), intent(inout), dimension(il1:iu1,il2:iu2,il3:iu3) :: Array
+    integer, target, intent(in), dimension(Nday) :: IdxDay
+    integer, target, intent(in), dimension(Nnite) :: IdxNite
+    real(r8), target, intent(inout), dimension(il1:iu1,il2:iu2,il3:iu3) :: Array
 
-    real(r8), dimension(il1:iu1) :: tmp
+    real(r8), target, dimension(il1:iu1) :: tmp
     integer :: i, j, k
+
+    call cmparray_select_impl()
+
+    if (.not. use_native_cmparray_impl) then
+       call cmparray_proof_once()
+       call cmparray_exp_daynite_real_codon(c_loc(Array), c_loc(tmp), &
+            c_loc(IdxDay), c_loc(IdxNite), int(Nday, c_int64_t), int(Nnite, c_int64_t), &
+            int(il1, c_int64_t), int(iu1, c_int64_t), int(il2, c_int64_t), int(iu2, c_int64_t), &
+            int(il3, c_int64_t), int(iu3, c_int64_t))
+       return
+    end if
 
 
     do k = il3, iu3

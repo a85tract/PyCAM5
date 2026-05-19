@@ -3662,3 +3662,85 @@ def gw_utils_midpoint_interp_codon(arr_p: cobj, interp_p: cobj, n1: int, n2: int
     for k in range(n2 - 1):
         for i in range(n1):
             interp[i + k * n1] = 0.5 * (arr[i + k * n1] + arr[i + (k + 1) * n1])
+
+
+@inline
+def _cmparray_idx3(i: int, j: int, k: int, il1: int, il2: int, il3: int, ld1: int, ld2: int) -> int:
+    """cmparray arrays declared as (il1:iu1, il2:iu2, il3:iu3)."""
+    return (i - il1) + (j - il2) * ld1 + (k - il3) * ld1 * ld2
+
+
+@export
+def cmparray_daynite_copy_real_codon(
+    in_array_p: cobj,
+    out_array_p: cobj,
+    idxday_p: cobj,
+    idxnite_p: cobj,
+    nday: int,
+    nnite: int,
+    il1: int,
+    iu1: int,
+    il2: int,
+    iu2: int,
+    il3: int,
+    iu3: int,
+):
+    in_array = Ptr[float](in_array_p)
+    out_array = Ptr[float](out_array_p)
+    idxday = Ptr[i32](idxday_p)
+    idxnite = Ptr[i32](idxnite_p)
+    ld1 = iu1 - il1 + 1
+    ld2 = iu2 - il2 + 1
+
+    for k in range(il3, iu3 + 1):
+        for j in range(il2, iu2 + 1):
+            for pos in range(nday):
+                i_out = il1 + pos
+                i_src = int(idxday[pos])
+                out_array[_cmparray_idx3(i_out, j, k, il1, il2, il3, ld1, ld2)] = in_array[
+                    _cmparray_idx3(i_src, j, k, il1, il2, il3, ld1, ld2)
+                ]
+            for pos in range(nnite):
+                i_out = il1 + nday + pos
+                i_src = int(idxnite[pos])
+                out_array[_cmparray_idx3(i_out, j, k, il1, il2, il3, ld1, ld2)] = in_array[
+                    _cmparray_idx3(i_src, j, k, il1, il2, il3, ld1, ld2)
+                ]
+
+
+@export
+def cmparray_exp_daynite_real_codon(
+    array_p: cobj,
+    tmp_p: cobj,
+    idxday_p: cobj,
+    idxnite_p: cobj,
+    nday: int,
+    nnite: int,
+    il1: int,
+    iu1: int,
+    il2: int,
+    iu2: int,
+    il3: int,
+    iu3: int,
+):
+    array = Ptr[float](array_p)
+    tmp = Ptr[float](tmp_p)
+    idxday = Ptr[i32](idxday_p)
+    idxnite = Ptr[i32](idxnite_p)
+    ld1 = iu1 - il1 + 1
+    ld2 = iu2 - il2 + 1
+
+    for k in range(il3, iu3 + 1):
+        for j in range(il2, iu2 + 1):
+            for pos in range(nday):
+                i_src = il1 + pos
+                tmp[pos] = array[_cmparray_idx3(i_src, j, k, il1, il2, il3, ld1, ld2)]
+            for pos in range(nnite):
+                i_dst = int(idxnite[pos])
+                i_src = il1 + nday + pos
+                array[_cmparray_idx3(i_dst, j, k, il1, il2, il3, ld1, ld2)] = array[
+                    _cmparray_idx3(i_src, j, k, il1, il2, il3, ld1, ld2)
+                ]
+            for pos in range(nday):
+                i_dst = int(idxday[pos])
+                array[_cmparray_idx3(i_dst, j, k, il1, il2, il3, ld1, ld2)] = tmp[pos]
