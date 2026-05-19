@@ -3463,3 +3463,8 @@ def unicon_cam_flag_codon(flag: int) -> int:
 @export
 def unicon_cam_int_codon(value: int) -> int:
     return value
+
+
+@export
+def iondrag_touch_codon() -> int:
+    return 0
