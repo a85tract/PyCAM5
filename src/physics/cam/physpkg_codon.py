@@ -2507,3 +2507,51 @@ def geopotential_t_codon(
 
             zm[idx] = zi[_geopotential_idx(i, k + 1, ld)] + rog * tv * hkk
             zi[idx] = zi[_geopotential_idx(i, k + 1, ld)] + rog * tv * hkl
+
+
+@export
+def comsrf_initialize_fields_codon(
+    total_len: int,
+    nan_value: float,
+    landm_p: cobj,
+    sgh_p: cobj,
+    sgh30_p: cobj,
+    fsns_p: cobj,
+    fsds_p: cobj,
+    fsnt_p: cobj,
+    flns_p: cobj,
+    flnt_p: cobj,
+    srfrpdel_p: cobj,
+    psm1_p: cobj,
+    prcsnw_p: cobj,
+    trefmxav_p: cobj,
+    trefmnav_p: cobj,
+):
+    landm = Ptr[float](landm_p)
+    sgh = Ptr[float](sgh_p)
+    sgh30 = Ptr[float](sgh30_p)
+    fsns = Ptr[float](fsns_p)
+    fsds = Ptr[float](fsds_p)
+    fsnt = Ptr[float](fsnt_p)
+    flns = Ptr[float](flns_p)
+    flnt = Ptr[float](flnt_p)
+    srfrpdel = Ptr[float](srfrpdel_p)
+    psm1 = Ptr[float](psm1_p)
+    prcsnw = Ptr[float](prcsnw_p)
+    trefmxav = Ptr[float](trefmxav_p)
+    trefmnav = Ptr[float](trefmnav_p)
+
+    for idx in range(total_len):
+        landm[idx] = nan_value
+        sgh[idx] = nan_value
+        sgh30[idx] = nan_value
+        fsns[idx] = nan_value
+        fsds[idx] = nan_value
+        fsnt[idx] = nan_value
+        flns[idx] = nan_value
+        flnt[idx] = nan_value
+        srfrpdel[idx] = nan_value
+        psm1[idx] = nan_value
+        prcsnw[idx] = nan_value
+        trefmxav[idx] = -1.0e36
+        trefmnav[idx] = 1.0e36
