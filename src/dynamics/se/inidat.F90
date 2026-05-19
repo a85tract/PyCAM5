@@ -53,6 +53,7 @@ contains
     use co2_cycle   ,       only: co2_implements_cnst, co2_init_cnst
     use water_tracers,      only: wtrc_implements_cnst, wtrc_init_cnst
     use nctopo_util_mod,    only: nctopo_util_inidat
+    use iso_c_binding,      only: c_int64_t
 
     implicit none
     type(file_desc_t),intent(inout) :: ncid_ini, ncid_topo
@@ -85,6 +86,13 @@ contains
     !water tracers:
     integer :: ixcldliq, ixcldice
     real(r8), pointer :: qqtmp(:,:), qltmp(:,:), qitmp(:,:)
+
+#define SE_MISC_TAG 10
+#define SE_MISC_LABEL 'inidat'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
     if(iam < par%nprocs) then
        elem=> dyn_in%elem

@@ -1786,3 +1786,8 @@ def remap_q_ppm_mass_apply_codon(
         massn2 = masso[_col_idx(kk)] + mass * dpo[_ghost_col_idx(kk)]
         qdp[_q_idx(iidx, jidx, k, qidx, nx, nlev)] = massn2 - massn1
         massn1 = massn2
+
+
+@export
+def se_misc_touch_codon(tag: int) -> int:
+    return tag

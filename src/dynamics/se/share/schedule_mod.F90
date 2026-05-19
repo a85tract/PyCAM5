@@ -39,6 +39,7 @@ contains
     use cam_abortutils, only: endrun
     use spmd_utils,     only: mpi_status_size, mpi_info_null, mpi_success
     use parallel_mod,   only: nComPoints, rrequest, srequest, status, npackpoints
+    use iso_c_binding, only : c_int64_t
 
     type(parallel_t),    intent(inout) :: par
     type(element_t),     intent(inout) :: elem(:)
@@ -80,6 +81,13 @@ contains
 
     logical :: reorder
     integer :: sizeGroup, groupFull
+
+#define SE_MISC_TAG 3
+#define SE_MISC_LABEL 'schedule_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
     nSched=SIZE(schedule)
     ! ================================================

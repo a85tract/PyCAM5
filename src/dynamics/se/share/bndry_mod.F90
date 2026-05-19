@@ -116,12 +116,21 @@ contains
 
   subroutine copyBuffer(nthreads,ithr,buffer,location)
     use edgetype_mod, only : Edgebuffer_t
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
     integer :: nthreads
     integer :: ithr
     type (EdgeBuffer_t)          :: buffer
     character(len=80)            :: location
     logical ::  ompThreadMissmatch
     integer lenMovePtr, iptr,length,i,j
+
+#define SE_MISC_TAG 8
+#define SE_MISC_LABEL 'bndry_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
     ompThreadMissmatch = .false.
     lenMovePtr = size(buffer%moveptr)

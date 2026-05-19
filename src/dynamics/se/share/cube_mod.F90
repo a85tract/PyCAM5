@@ -112,10 +112,19 @@ contains
   subroutine cube_init_atomic(elem,gll_points,alpha_in)
     use element_mod, only : element_t
     use dimensions_mod, only : np
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
     type (element_t),intent(inout) :: elem
     real (kind=real_kind),optional :: alpha_in
     real (kind=real_kind)          :: alpha=1
     real (kind=longdouble_kind)      :: gll_points(np)
+
+#define SE_MISC_TAG 1
+#define SE_MISC_LABEL 'cube_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
     if(present(alpha_in)) alpha=alpha_in
     
@@ -2599,6 +2608,3 @@ contains
 
 
 end module cube_mod
-
-
-

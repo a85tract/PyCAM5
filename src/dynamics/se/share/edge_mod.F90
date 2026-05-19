@@ -244,6 +244,8 @@ contains
     use dimensions_mod, only : np, nelemd, max_corner_elem
     use schedtype_mod, only : cycle_t, schedule_t, schedule
     use mpi, only : MPI_VERSION
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
     implicit none
     type (parallel_t), intent(in) :: par
     type (EdgeBuffer_t),intent(out), target :: edge
@@ -304,7 +306,12 @@ contains
     character(len=80)                 :: errorstring
     character(len=80), parameter      :: subname='initedgeBuffer'
 
-
+#define SE_MISC_TAG 2
+#define SE_MISC_LABEL 'edge_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
 !    call t_adj_detailf(+3)
 

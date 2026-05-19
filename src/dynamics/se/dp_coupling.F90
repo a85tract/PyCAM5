@@ -41,6 +41,7 @@ CONTAINS
     use gravity_waves_sources, only: gws_src_fnct
     use dyn_comp,              only: frontgf_idx, frontga_idx
     use phys_control,          only: use_gw_front, use_gw_front_igw
+    use iso_c_binding,         only: c_int64_t
     implicit none
 !-----------------------------------------------------------------------
 ! !INPUT PARAMETERS:
@@ -85,6 +86,13 @@ CONTAINS
     type(physics_buffer_desc), pointer :: pbuf_chnk(:)
 
     !----------------------------------------------------------------------
+
+#define SE_MISC_TAG 9
+#define SE_MISC_LABEL 'dp_coupling'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
     nullify(pbuf_chnk)
     nullify(pbuf_frontgf)

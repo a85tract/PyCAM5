@@ -210,10 +210,12 @@ module namelist_mod
   subroutine readnl(par, NLFileName)
     use units, only : getunit, freeunit
     use mesh_mod, only : MeshOpen
+    use iso_c_binding, only : c_int64_t
     character(len=*), intent(in) :: NLFilename  ! Namelist filename
 #else
   subroutine readnl(par)
     use mesh_mod, only : MeshOpen
+    use iso_c_binding, only : c_int64_t
 #endif
     type (parallel_t), intent(in) ::  par
     character(len=MAX_FILE_LEN) :: mesh_file
@@ -423,6 +425,13 @@ module namelist_mod
     stage_rk = 3
 #endif
 !=======================================================================================================!
+#define SE_MISC_TAG 4
+#define SE_MISC_LABEL 'namelist_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
+
     ! ==========================
     ! Set the default partmethod
     ! ==========================

@@ -82,6 +82,14 @@ contains
 !========================================================================
 
 subroutine dyn_grid_init()
+   use iso_c_binding, only : c_int64_t
+
+#define SE_MISC_TAG 7
+#define SE_MISC_LABEL 'dyn_grid'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
    nullify(clat, clon)
 

@@ -37,10 +37,18 @@ contains
     use element_mod, only : element_t
     use dimensions_mod, only : nlev
     use control_mod, only : qsplit,rsplit
+    use iso_c_binding, only : c_int64_t
     type(parallel_t) :: par
     type(element_t), intent(inout), target :: elem(:)
     character(len=*)    , intent(in) :: integration
     integer :: i
+
+#define SE_MISC_TAG 5
+#define SE_MISC_LABEL 'prim_advance_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
     if (rsplit==0) then
        call initEdgeBuffer(par,edge3p1,elem,3*nlev+1)
@@ -4231,4 +4239,3 @@ subroutine prim_advance_si(elem, nets, nete, cg, blkjac, red, &
 
 
 end module prim_advance_mod
-
