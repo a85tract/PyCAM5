@@ -3578,3 +3578,10 @@ def sslt_rebin_has_four_codon(i1: int, i2: int, i3: int, i4: int) -> int:
     if i1 > 0 and i2 > 0 and i3 > 0 and i4 > 0:
         return 1
     return 0
+
+
+@export
+def constituent_burden_flag_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0

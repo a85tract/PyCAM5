@@ -9,6 +9,9 @@ module constituent_burden
 !-----------------------------------------------------------------------------------------
 
   use constituents, only: pcnst
+  use cam_logfile, only: iulog
+  use iso_c_binding, only: c_int64_t
+  use spmd_utils, only: masterproc
 
   implicit none
 
@@ -20,12 +23,90 @@ module constituent_burden
   private
 
   character(len=18) :: burdennam(pcnst)     ! name of burden history variables
+  logical :: use_native_constituent_burden_impl = .false.
+  logical :: constituent_burden_impl_selected = .false.
+  logical :: constituent_burden_proof_written = .false.
+
+  interface
+     function constituent_burden_flag_codon(flag_c) result(active_c) &
+          bind(c, name="constituent_burden_flag_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: flag_c
+       integer(c_int64_t) :: active_c
+     end function constituent_burden_flag_codon
+  end interface
 
   save
 
 !=========================================================================================
 
 contains
+
+!=========================================================================================
+
+subroutine constituent_burden_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (constituent_burden_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('CONSTITUENT_BURDEN_IMPL', value=impl_name, &
+       length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_constituent_burden_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_constituent_burden_impl = .false.
+  end if
+
+  constituent_burden_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_constituent_burden_impl) then
+        write(iulog,*) 'constituent_burden implementation = native'
+     else
+        write(iulog,*) 'constituent_burden implementation = codon'
+     end if
+  end if
+
+end subroutine constituent_burden_select_impl
+
+subroutine constituent_burden_proof_once()
+
+  if (constituent_burden_proof_written) return
+  constituent_burden_proof_written = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') 'constituent_burden entered (history active gate = codon)'
+  end if
+
+end subroutine constituent_burden_proof_once
+
+logical function constituent_burden_flag(flag) result(active)
+  logical, intent(in) :: flag
+  integer(c_int64_t) :: flag_c
+
+  call constituent_burden_select_impl()
+
+  if (use_native_constituent_burden_impl) then
+     active = flag
+     return
+  end if
+
+  call constituent_burden_proof_once()
+  flag_c = 0_c_int64_t
+  if (flag) flag_c = 1_c_int64_t
+  active = constituent_burden_flag_codon(flag_c) /= 0_c_int64_t
+
+end function constituent_burden_flag
 
 !=========================================================================================
 
@@ -71,7 +152,7 @@ subroutine constituent_burden_comp(state)
   ncol  = state%ncol
 
   do m = 2, pcnst
-     if (.not. hist_fld_active(burdennam(m))) cycle
+     if (.not. constituent_burden_flag(hist_fld_active(burdennam(m)))) cycle
      if (cnst_type(m) .eq. 'dry') then
         ftem(:ncol) = sum(state%q(:ncol,:,m) * state%pdeldry(:ncol,:), dim=2) * rga
      else
@@ -85,4 +166,3 @@ end subroutine constituent_burden_comp
 !=========================================================================================
 
 end module constituent_burden
-
