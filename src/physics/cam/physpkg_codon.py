@@ -3425,3 +3425,10 @@ def cldwat_param_codon(value: float) -> float:
 @export
 def hkconv_param_codon(value: float) -> float:
     return value
+
+
+@export
+def cam3_aero_data_flag_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0

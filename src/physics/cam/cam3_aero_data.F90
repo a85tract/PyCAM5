@@ -23,6 +23,7 @@ module cam3_aero_data
 !-----------------------------------------------------------------------
 
   use shr_kind_mod,   only: r8 => shr_kind_r8
+  use iso_c_binding,  only: c_int64_t
   use shr_scam_mod,   only: shr_scam_GetCloseLatLon
   use spmd_utils,     only: masterproc
   use ppgrid,         only: pcols, pver, pverp, begchunk, endchunk
@@ -147,8 +148,102 @@ module cam3_aero_data
       cam3_dust1_idx, cam3_dust2_idx, cam3_dust3_idx, cam3_dust4_idx,&
       cam3_ocpho_idx, cam3_bcpho_idx, cam3_ocphi_idx, cam3_bcphi_idx
 
+  logical :: use_native_cam3_aero_data_impl = .false.
+  logical :: cam3_aero_data_impl_selected = .false.
+  logical :: cam3_aero_data_proof_written = .false.
+
+  interface
+     function cam3_aero_data_flag_codon(flag_c) result(out_c) bind(c, name="cam3_aero_data_flag_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: flag_c
+        integer(c_int64_t) :: out_c
+     end function cam3_aero_data_flag_codon
+  end interface
+
 !================================================================================================
 contains
+!================================================================================================
+
+subroutine cam3_aero_data_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cam3_aero_data_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CAM3_AERO_DATA_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_cam3_aero_data_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_cam3_aero_data_impl = .false.
+   end if
+
+   cam3_aero_data_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_cam3_aero_data_impl) then
+         write(iulog,*) 'cam3_aero_data implementation = native'
+      else
+         write(iulog,*) 'cam3_aero_data implementation = codon'
+      end if
+   end if
+
+end subroutine cam3_aero_data_select_impl
+
+!================================================================================================
+
+subroutine cam3_aero_data_proof_once()
+
+   if (cam3_aero_data_proof_written) return
+   cam3_aero_data_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'cam3_aero_data entered (runtime namelist flag helper = codon)'
+   end if
+
+end subroutine cam3_aero_data_proof_once
+
+!================================================================================================
+
+logical function cam3_aero_data_flag(flag)
+
+   logical, intent(in) :: flag
+   integer(c_int64_t) :: flag_c, out_c
+
+   call cam3_aero_data_select_impl()
+
+   if (use_native_cam3_aero_data_impl) then
+      cam3_aero_data_flag = flag
+      return
+   end if
+
+   call cam3_aero_data_proof_once()
+   if (flag) then
+      flag_c = 1_c_int64_t
+   else
+      flag_c = 0_c_int64_t
+   end if
+   out_c = cam3_aero_data_flag_codon(flag_c)
+   cam3_aero_data_flag = out_c /= 0_c_int64_t
+
+end function cam3_aero_data_flag
+
+!================================================================================================
+
+subroutine cam3_aero_data_finalize_flags()
+
+   cam3_aero_data_on = cam3_aero_data_flag(cam3_aero_data_on)
+
+end subroutine cam3_aero_data_finalize_flags
+
 !================================================================================================
 
 subroutine cam3_aero_data_readnl(nlfile)
@@ -185,6 +280,8 @@ subroutine cam3_aero_data_readnl(nlfile)
    call mpibcast(cam3_aero_data_on, 1, mpilog, 0, mpicom)
    call mpibcast(bndtvaer, len(bndtvaer), mpichar, 0, mpicom)
 #endif
+
+   call cam3_aero_data_finalize_flags()
 
    ! Prevent using these before they are set.
    cdaym = nan
