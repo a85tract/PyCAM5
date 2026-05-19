@@ -43,6 +43,7 @@ contains
     use dimensions_mod, only : np, nelemd
     use physical_constants, only : dd_pi
     use parallel_mod, only: global_shared_buf, global_shared_sum
+    use iso_c_binding, only : c_int64_t
 
     type(element_t)      , intent(in) :: elem(:)
     integer              , intent(in) :: npts,nets,nete
@@ -66,6 +67,13 @@ contains
 ! This algorythm is independent of thread count and task count.
 ! This is a requirement of consistancy checking in cam.
 !
+#define SE_MISC_TAG 14
+#define SE_MISC_LABEL 'global_norms_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
+
     J_tmp = 0.0D0
 
        do ie=nets,nete

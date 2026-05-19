@@ -82,10 +82,18 @@ contains
 !======================================================================
 
   subroutine allocate_gridvertex_nbrs(vertex, dim)
+    use iso_c_binding, only : c_int64_t
 
     type (GridVertex_t), intent(inout)   :: vertex
     integer, optional, intent(in)        :: dim
     integer                              :: num
+
+#define SE_MISC_TAG 20
+#define SE_MISC_LABEL 'gridgraph_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
     if (present(dim)) then
        num = dim

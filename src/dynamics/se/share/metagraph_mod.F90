@@ -237,6 +237,7 @@ contains
   subroutine  initMetaGraph(ThisProcessorNumber,MetaVertex,GridVertex,GridEdge)
     use ll_mod, only : root_t, LLSetEdgeCount, LLFree, LLInsertEdge, LLGetEdgeCount, LLFindEdge
     use gridgraph_mod, only : GridEdge_type, printGridVertex
+    use iso_c_binding, only : c_int64_t
     !------------------
     !------------------
     implicit none
@@ -262,6 +263,12 @@ contains
     logical  :: Verbose = .FALSE.
     logical  :: Debug = .FALSE.
 
+#define SE_MISC_TAG 17
+#define SE_MISC_LABEL 'metagraph_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
     if(Debug) write(iulog,*)'initMetagraph: point #1'
     !  Number of grid vertices

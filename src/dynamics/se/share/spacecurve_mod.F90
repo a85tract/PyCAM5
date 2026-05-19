@@ -681,6 +681,7 @@ contains
   end function PeanoM
   !---------------------------------------------------------
   recursive function hilbert(l,type,ma,md,ja,jd) result(ierr)
+    use iso_c_binding, only : c_int64_t
 
     implicit none
     integer,intent(in) ::   l,type,ma,md,ja,jd
@@ -689,6 +690,13 @@ contains
     integer :: ll
     integer :: ierr
     logical     :: debug = .FALSE.
+
+#define SE_MISC_TAG 12
+#define SE_MISC_LABEL 'spacecurve_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
     ll = l
     if(ll .gt. 1) ltype = fact%factors(ll-1)  ! Set the next type of space curve

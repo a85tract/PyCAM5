@@ -76,6 +76,8 @@ subroutine stepon_init( gw, etamid, dyn_in, dyn_out )
   use control_mod,    only: smooth_phis_numcycle
   use gravity_waves_sources, only: gws_init
   use phys_control,   only: use_gw_front, use_gw_front_igw
+  use iso_c_binding,  only: c_int64_t
+  use cam_logfile,    only: iulog
 
 ! !OUTPUT PARAMETERS
 !
@@ -94,6 +96,13 @@ subroutine stepon_init( gw, etamid, dyn_in, dyn_out )
 !EOP
 !-----------------------------------------------------------------------
 !BOC
+
+#define SE_MISC_TAG 19
+#define SE_MISC_LABEL 'stepon'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
   ! This is not done in dyn_init due to a circular dependency issue.
   if(iam < par%nprocs) then

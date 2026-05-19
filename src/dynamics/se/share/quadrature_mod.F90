@@ -282,9 +282,18 @@ contains
   ! ==============================================================
 
   function gausslobatto(npts) result(gll)
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
 
     integer, intent(in) :: npts
     type (quadrature_t) :: gll
+
+#define SE_MISC_TAG 15
+#define SE_MISC_LABEL 'quadrature_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
     allocate(gll%points(npts))
     allocate(gll%weights(npts))
@@ -969,7 +978,6 @@ contains
   end function gaussian_int
 
 end module quadrature_mod
-
 
 
 

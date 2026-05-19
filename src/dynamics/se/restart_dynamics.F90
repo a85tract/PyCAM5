@@ -36,6 +36,7 @@ CONTAINS
     use constituents, only : cnst_name
     use dyn_grid, only : get_horiz_grid_dim_d
     use hycoef, only: init_restart_hycoef
+    use iso_c_binding, only : c_int64_t
 
     type(file_desc_t),  intent(inout) :: file
     integer,            pointer       :: hdimids(:)
@@ -44,6 +45,13 @@ CONTAINS
     integer :: vdimids(2)
     integer :: ierr, i, ncols, dummy, j, k, ie
     integer :: timelevels_dimid
+
+#define SE_MISC_TAG 13
+#define SE_MISC_LABEL 'restart_dynamics'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
     call init_restart_hycoef(File, vdimids)
 
