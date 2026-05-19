@@ -14,6 +14,7 @@ module mo_flbc
   use cam_logfile,      only : iulog
   use constituents,     only : pcnst
   use constituents,     only : tracnam=>cnst_name
+  use mo_util,          only : chemistry_misc_codon_touch
 
   implicit none
 
@@ -366,6 +367,8 @@ contains
     type(file_desc_t)           :: ncid
     real(r8)                        :: wrk_time
     integer ::  yr, mon, day
+
+    call chemistry_misc_codon_touch('mo_flbc', 150)
 
     call get_curr_date( yr, mon, day, ncsec )
     ncdate = yr*10000 + mon*100 + day

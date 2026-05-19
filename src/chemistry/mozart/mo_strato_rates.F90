@@ -74,7 +74,9 @@
 !  rxt         ..... Rate constant (s-1 and cm3 sec-1 molec-1)
 !=======================================================================
 
-      private
+	      use mo_util, only : chemistry_misc_codon_touch
+
+	      private
       public :: ratecon_sfstrat, init_strato_rates, has_strato_chem
 
       integer :: id_brono2, id_clono2, id_hcl, id_hocl, &
@@ -94,9 +96,10 @@
           use mo_aero_settling, only: strat_aer_settl_init
           implicit none
 
-          integer :: ids(23)
+	          integer :: ids(23)
 
-          rid_het1  = get_rxt_ndx( 'het1' )
+	          call chemistry_misc_codon_touch('mo_strato_rates', 131)
+	          rid_het1  = get_rxt_ndx( 'het1' )
           rid_het2  = get_rxt_ndx( 'het2' )
           rid_het3  = get_rxt_ndx( 'het3' )
           rid_het4  = get_rxt_ndx( 'het4' )

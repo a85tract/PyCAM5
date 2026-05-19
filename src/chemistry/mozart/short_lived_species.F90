@@ -11,7 +11,8 @@ module short_lived_species
   use cam_logfile,  only : iulog
   use ppgrid,       only : pcols, pver, begchunk, endchunk
   use spmd_utils,   only : masterproc
-  
+  use mo_util,      only : chemistry_misc_codon_touch
+
 
   implicit none
 
@@ -41,6 +42,7 @@ contains
 
     integer :: m
 
+    call chemistry_misc_codon_touch('short_lived_species', 140)
     if ( nslvd < 1 ) return
 
     call pbuf_add_field(pbufname,'global',dtype_r8,(/pcols,pver,nslvd/),pbf_idx)

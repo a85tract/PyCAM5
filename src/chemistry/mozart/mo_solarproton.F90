@@ -1,10 +1,11 @@
 
 module mo_solarproton
 
-  use shr_kind_mod,  only: r8 => shr_kind_r8
-  use physconst,      only: pi
+	  use shr_kind_mod,  only: r8 => shr_kind_r8
+	  use physconst,      only: pi
+	  use mo_util,        only: chemistry_misc_codon_touch
 
-  implicit none
+	  implicit none
 
   save
 
@@ -22,7 +23,8 @@ contains
     !      ... read in SPE ionization rates
     !-----------------------------------------------------------------------
 
-    call spedata_init()
+	    call chemistry_misc_codon_touch('mo_solarproton', 148)
+	    call spedata_init()
 
   end subroutine spe_init
 
@@ -100,4 +102,3 @@ contains
   end subroutine spe_prod
 
 end module mo_solarproton
-

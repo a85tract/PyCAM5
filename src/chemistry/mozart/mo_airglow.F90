@@ -1,11 +1,12 @@
 
       module mo_airglow
 
-      use shr_kind_mod,  only : r8 => shr_kind_r8
-      use physconst,     only : avogad
-      use cam_abortutils,    only : endrun
+	      use shr_kind_mod,  only : r8 => shr_kind_r8
+	      use physconst,     only : avogad
+	      use cam_abortutils,    only : endrun
+	      use mo_util,       only : chemistry_misc_codon_touch
 
-      implicit none
+	      implicit none
 
       save
 
@@ -32,9 +33,10 @@
           use cam_history,  only : addfld, phys_decomp
           use ppgrid,       only : pver
 
-          implicit none
+	          implicit none
 
-          rid_ag1 = get_rxt_ndx( 'ag1' )
+	          call chemistry_misc_codon_touch('mo_airglow', 152)
+	          rid_ag1 = get_rxt_ndx( 'ag1' )
           rid_ag2 = get_rxt_ndx( 'ag2' )
           rid_ag3 = get_rxt_ndx( 'ag3' )
 

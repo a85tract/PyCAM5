@@ -5,6 +5,7 @@ module mo_solar_parms
   use cam_logfile,      only : iulog
   use time_utils,       only : flt_date
   use spmd_utils,       only : masterproc
+  use mo_util,          only : chemistry_misc_codon_touch
 
   implicit none
 
@@ -71,6 +72,7 @@ contains
 #endif
 
     solar_parms_on = len_trim(solar_parms_file)>0
+    call chemistry_misc_codon_touch('mo_solar_parms', 139)
 
   end subroutine solar_parms_readnl
 

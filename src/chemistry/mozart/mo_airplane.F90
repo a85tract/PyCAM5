@@ -8,10 +8,11 @@ module mo_airplane
   use pio,              only : pio_inq_dimid, pio_inq_dimlen, pio_get_var, &
                                file_desc_t, var_desc_t, pio_inq_vardimid, pio_inq_varndims, pio_nowrite, &
                                pio_inq_varid, pio_closefile
-       
-  use cam_pio_utils,    only : cam_pio_openfile
-  use cam_logfile,      only : iulog
-  implicit none
+
+	  use cam_pio_utils,    only : cam_pio_openfile
+	  use cam_logfile,      only : iulog
+	  use mo_util,          only : chemistry_misc_codon_touch
+	  implicit none
 
   private
 
@@ -42,10 +43,11 @@ contains
 ! Local Variables
     real(r8), dimension(ncol,pver) :: no_air, co_air
     real(r8) :: ztab_top, ztab_bot, zdel, zdeli, frac, zlev_top, zlev_bot
-    integer :: nlev
-    integer :: cldind, kk, i, k
+	    integer :: nlev
+	    integer :: cldind, kk, i, k
 
-    no_air(:,:) = 0._r8
+	    call chemistry_misc_codon_touch('mo_airplane', 138)
+	    no_air(:,:) = 0._r8
     co_air(:,:) = 0._r8
 
     if(has_airpl_src) then
@@ -160,10 +162,11 @@ contains
     character(len=256) :: locfn
     integer :: co_ndx, no_ndx
     type(interp_type) :: lon_wgts, lat_wgts    
-    real(r8) :: to_lats(pcols), to_lons(pcols)
-    integer :: ncols, c
+	    real(r8) :: to_lats(pcols), to_lons(pcols)
+	    integer :: ncols, c
 
-    co_ndx = get_extfrc_ndx('CO')
+	    call chemistry_misc_codon_touch('mo_airplane', 138)
+	    co_ndx = get_extfrc_ndx('CO')
     no_ndx = get_extfrc_ndx('NO')
 
     if ( co_ndx < 0 .and. no_ndx < 0 ) then

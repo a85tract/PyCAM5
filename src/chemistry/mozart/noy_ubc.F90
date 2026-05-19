@@ -11,6 +11,7 @@ module noy_ubc
 
   use tracer_data,      only : trfld,trfile,MAXTRCRS
   use cam_history,      only : addfld, phys_decomp
+  use mo_util,          only : chemistry_misc_codon_touch
 
   implicit none
 
@@ -87,6 +88,7 @@ contains
     call mpi_bcast(noy_ubc_fixed_tod, 1, mpi_integer, masterprocid, mpicom, ierr)
 
     has_noy_ubc = len_trim(noy_ubc_filename) > 0
+    call chemistry_misc_codon_touch('noy_ubc', 136)
 
   end subroutine noy_ubc_readnl
 

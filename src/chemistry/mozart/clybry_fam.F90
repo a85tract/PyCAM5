@@ -16,6 +16,7 @@ module clybry_fam
   use chem_mods,     only : gas_pcnst, adv_mass
   use constituents,  only : pcnst
   use short_lived_species,only: set_short_lived_species,get_short_lived_species
+  use mo_util,       only : chemistry_misc_codon_touch
 
   implicit none
 
@@ -44,6 +45,7 @@ contains
 
     integer :: ids(16)
 
+    call chemistry_misc_codon_touch('clybry_fam', 132)
     id_cly = get_spc_ndx('CLY')
     id_bry = get_spc_ndx('BRY')
 

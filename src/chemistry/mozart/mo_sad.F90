@@ -3,10 +3,11 @@
       use shr_kind_mod,  only : r8 => shr_kind_r8
       use physconst,     only : pi
       use ppgrid,        only : pcols, pver
-      use m_sad_data,    only : a, b
-      use cam_logfile,   only : iulog
-      use spmd_utils,    only : masterproc
-      
+	      use m_sad_data,    only : a, b
+	      use cam_logfile,   only : iulog
+	      use spmd_utils,    only : masterproc
+	      use mo_util,       only : chemistry_misc_codon_touch
+
 
       implicit none
 
@@ -47,10 +48,11 @@
 !---------------------------------------------------------------------- 
       integer  ::  k
 
-!---------------------------------------------------------------------- 
-!	... find level where etamids are all > 1 hPa
-!---------------------------------------------------------------------- 
-      sad_top = 0
+	!----------------------------------------------------------------------
+	!	... find level where etamids are all > 1 hPa
+	!----------------------------------------------------------------------
+	      call chemistry_misc_codon_touch('mo_sad', 146)
+	      sad_top = 0
       do k = pver,1,-1
 	 if( (pref_mid_norm(k)) < .001_r8 ) then
              sad_top = k

@@ -1,9 +1,10 @@
       module euvac
 
-      use shr_kind_mod,     only : r8 => shr_kind_r8
-      use cam_abortutils,   only : endrun
-      use cam_logfile,      only : iulog
-      implicit none
+	      use shr_kind_mod,     only : r8 => shr_kind_r8
+	      use cam_abortutils,   only : endrun
+	      use cam_logfile,      only : iulog
+	      use mo_util,          only : chemistry_misc_codon_touch
+	      implicit none
 
       private
       public :: euvac_init
@@ -48,10 +49,11 @@
       integer  :: n, ierr
       integer  :: dimid
       integer  :: varid
-      integer  :: astat
-      character(len=256) :: locfn
+	      integer  :: astat
+	      character(len=256) :: locfn
 
-      euvac_on = len_trim(euvac_file)>0
+	      call chemistry_misc_codon_touch('euvac', 151)
+	      euvac_on = len_trim(euvac_file)>0
       if (.not.euvac_on) return
 
 !-----------------------------------------------------------------------

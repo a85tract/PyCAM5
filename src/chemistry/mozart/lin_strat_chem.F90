@@ -16,6 +16,7 @@ module lin_strat_chem
   use cam_logfile,      only : iulog
   use cam_abortutils,   only : endrun
   use spmd_utils,       only : masterproc
+  use mo_util,          only : chemistry_misc_codon_touch
   !
   implicit none
   !
@@ -57,6 +58,7 @@ contains
     logical :: history_chemistry
 
     call phys_getopts(history_chemistry_out=history_chemistry)
+    call chemistry_misc_codon_touch('lin_strat_chem', 154)
 
     if (.not.has_linoz_data) return
 

@@ -10,6 +10,7 @@ module mo_sethet
   use cam_logfile,     only: iulog
   use gas_wetdep_opts, only: gas_wetdep_cnt, gas_wetdep_method, gas_wetdep_list
   use phys_control,    only: phys_getopts
+  use mo_util,         only: chemistry_misc_codon_touch
 
   private
   public :: sethet_inti, sethet
@@ -50,7 +51,8 @@ contains
     use cam_abortutils,   only : endrun
 
     integer :: k, m
-    
+
+    call chemistry_misc_codon_touch('mo_sethet', 156)
     do_wetdep = gas_wetdep_cnt>0 .and. gas_wetdep_method=='MOZ'
     if ( .not. do_wetdep) return
 

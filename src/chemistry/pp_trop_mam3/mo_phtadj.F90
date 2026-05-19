@@ -5,6 +5,8 @@
 
       module mo_phtadj
 
+      use mo_util, only : chemistry_misc_codon_touch
+
       private
       public :: phtadj
 
@@ -32,6 +34,7 @@
       integer :: k
       real(r8) :: im(ncol)
 
+      call chemistry_misc_codon_touch('mo_phtadj', 157)
       do k = 1,pver
       end do
 

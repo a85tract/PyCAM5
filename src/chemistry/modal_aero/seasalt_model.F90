@@ -5,6 +5,7 @@ module seasalt_model
   use shr_kind_mod,   only: r8 => shr_kind_r8, cl => shr_kind_cl
   use ppgrid,         only: pcols, pver
   use modal_aero_data,only: ntot_amode
+  use mo_util,        only: chemistry_misc_codon_touch
 
   implicit none
   private
@@ -53,6 +54,7 @@ contains
 
     integer :: m
 
+    call chemistry_misc_codon_touch('seasalt_model', 135)
     do m = 1, seasalt_nbin
        call cnst_get_ind(seasalt_names(m), seasalt_indices(m),abort=.false.)
     enddo

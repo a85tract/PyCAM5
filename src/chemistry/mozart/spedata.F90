@@ -23,6 +23,7 @@ module spedata
   use cam_pio_utils,    only: cam_pio_openfile
   use perf_mod,         only: t_startf, t_stopf
   use cam_logfile,      only: iulog
+  use mo_util,          only: chemistry_misc_codon_touch
 
 #if ( defined SPMD )
   use mpishorthand,     only: mpicom, mpir8, mpiint, mpichar
@@ -118,6 +119,7 @@ contains
     character(len=shr_kind_cl), intent(out), optional :: spe_filenames_list_out
     logical, intent(out), optional :: spe_remove_file_out
 
+    call chemistry_misc_codon_touch('spedata', 134)
     if ( present( spe_data_file_out ) ) then
        spe_data_file_out = spedata_file
     endif
@@ -147,6 +149,7 @@ contains
 
     integer :: ierr
 
+    call chemistry_misc_codon_touch('spedata', 134)
     if ( present( spe_data_file_in ) ) then
        spedata_file = spe_data_file_in 
     endif

@@ -13,6 +13,7 @@ module cfc11star
   use ppgrid,       only : pcols, pver, begchunk, endchunk
   use spmd_utils,   only : masterproc
   use constituents, only : cnst_get_ind
+  use mo_util,      only : chemistry_misc_codon_touch
 
   implicit none
   save 
@@ -48,6 +49,7 @@ contains
       (/  0.25_r8,   0.30_r8,   0.31_r8,   0.18_r8,   0.13_r8,   0.06_r8,   0.01_r8,   0.20_r8,  &
           0.14_r8,   0.20_r8,   0.30_r8,   0.32_r8,   0.33_r8 /) ! W/m2/ppb
 
+    call chemistry_misc_codon_touch('cfc11star', 144)
     do m = 1, ncfcs 
        call cnst_get_ind(species(m), indices(m), abort=.false.)
     enddo

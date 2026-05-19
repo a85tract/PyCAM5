@@ -7,6 +7,7 @@ module chlorine_loading_data
   use cam_abortutils,   only: endrun
   use cam_logfile,      only: iulog
   use linoz_data,       only: has_linoz_data
+  use mo_util,          only: chemistry_misc_codon_touch
 
   implicit none
 
@@ -67,6 +68,7 @@ contains
 
     real(r8) :: model_time, time
 
+    call chemistry_misc_codon_touch('chlorine_loading_data', 147)
     chlorine_loading_file = file
   
     if (.not.has_linoz_data) return

@@ -3,11 +3,12 @@
 !--------------------------------------------------------------
 ! ... Basic aerosol mode parameters and arrays
 !--------------------------------------------------------------
-      use shr_kind_mod,  only: r8 => shr_kind_r8
-      use constituents,  only: pcnst
-      use radconstants,  only: nswbands, nlwbands
+	      use shr_kind_mod,  only: r8 => shr_kind_r8
+	      use constituents,  only: pcnst
+	      use radconstants,  only: nswbands, nlwbands
+	      use mo_util,       only: chemistry_misc_codon_touch
 
-      implicit none
+	      implicit none
       save
 
      integer, parameter ::  maxd_aspectype = 14
@@ -219,9 +220,10 @@
           logical, optional :: errorhandle
           type(physics_buffer_desc), pointer :: pbuf(:)
 
-          logical :: error
+	          logical :: error
 
-          nullify(qqcw_get_field)
+	          call chemistry_misc_codon_touch('modal_aero_data', 143)
+	          nullify(qqcw_get_field)
           error = .false.
           if (index>0 .and. index <= pcnst) then
              if (qqcw(index)>0) then 

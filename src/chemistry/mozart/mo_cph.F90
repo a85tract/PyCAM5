@@ -6,6 +6,7 @@ module mo_cph
 
   use shr_kind_mod,only : r8 => shr_kind_r8
   use chem_mods,   only : ncph=>enthalpy_cnt, exotherm=>cph_enthalpy, cph_rid
+  use mo_util,     only : chemistry_misc_codon_touch
 
   implicit none
 
@@ -57,6 +58,7 @@ contains
     integer :: i, n, tagndx
 
     has_cph = ncph > 0
+    call chemistry_misc_codon_touch('mo_cph', 155)
 
     if (.not.has_cph) return
 

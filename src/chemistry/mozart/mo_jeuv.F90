@@ -1,10 +1,11 @@
        module mo_jeuv
 
-       use shr_kind_mod,     only : r8 => shr_kind_r8
-       use cam_abortutils,   only : endrun
-       use cam_logfile,      only : iulog
+	       use shr_kind_mod,     only : r8 => shr_kind_r8
+	       use cam_abortutils,   only : endrun
+	       use cam_logfile,      only : iulog
+	       use mo_util,          only : chemistry_misc_codon_touch
 
-       implicit none
+	       implicit none
 
        private
        public :: jeuv_init, jeuv, heuv, neuv
@@ -72,9 +73,10 @@
         character(len=200) :: str,fmt            ! string for comments in data file
         character(len=256) :: locfn
 
-        integer :: jeuv_1_ndx
+	        integer :: jeuv_1_ndx
 
-        jeuv_1_ndx = get_rxt_ndx( 'jeuv_1' )
+	        call chemistry_misc_codon_touch('mo_jeuv', 153)
+	        jeuv_1_ndx = get_rxt_ndx( 'jeuv_1' )
         if (.not.jeuv_1_ndx>0) return
 
         d2r = pi/180._r8

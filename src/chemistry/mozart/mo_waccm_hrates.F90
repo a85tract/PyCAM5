@@ -1,10 +1,11 @@
 
       module mo_waccm_hrates
 
-      use shr_kind_mod,      only : r8 => shr_kind_r8
-      use cam_logfile,       only : iulog
+	      use shr_kind_mod,      only : r8 => shr_kind_r8
+	      use cam_logfile,       only : iulog
+	      use mo_util,           only : chemistry_misc_codon_touch
 
-      implicit none
+	      implicit none
 
       save
 
@@ -34,10 +35,11 @@
 
         implicit none
 
-        integer :: ids(9)
-        character(len=128) :: attr  ! netcdf variable attribute
+	        integer :: ids(9)
+	        character(len=128) :: attr  ! netcdf variable attribute
 
-        id_co2   = get_spc_ndx( 'CO2' )
+	        call chemistry_misc_codon_touch('mo_waccm_hrates', 142)
+	        id_co2   = get_spc_ndx( 'CO2' )
         id_o2    = get_spc_ndx( 'O2' )
         id_o3    = get_spc_ndx( 'O3' )
         id_o2_1d = get_spc_ndx( 'O2_1D' )

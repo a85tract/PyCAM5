@@ -55,10 +55,11 @@
                                avo => avogadro, &
                                boltz_cgs, &
                                gask => rgas_cgs
-      use cam_logfile,   only: iulog
-      use spmd_utils,    only: masterproc
+	      use cam_logfile,   only: iulog
+	      use spmd_utils,    only: masterproc
+	      use mo_util,       only: chemistry_misc_codon_touch
 
-      implicit none
+	      implicit none
 
       interface aurora
          module procedure aurora_prod
@@ -204,9 +205,10 @@
       real(r8) :: alfa_1, alfa_2, alfa21, alfa22
       real(r8) :: e21, e22
 
-      integer :: op_ndx,o2p_ndx,np_ndx,n2p_ndx,e_ndx
+	      integer :: op_ndx,o2p_ndx,np_ndx,n2p_ndx,e_ndx
 
-      op_ndx   = get_spc_ndx( 'Op' )
+	      call chemistry_misc_codon_touch('mo_aurora', 145)
+	      op_ndx   = get_spc_ndx( 'Op' )
       o2p_ndx  = get_spc_ndx( 'O2p' )
       np_ndx   = get_spc_ndx( 'Np' )
       n2p_ndx  = get_spc_ndx( 'N2p' )

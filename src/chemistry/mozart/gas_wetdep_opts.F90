@@ -10,6 +10,7 @@ module gas_wetdep_opts
   use constituents,     only : pcnst
   use spmd_utils,       only : masterproc
   use cam_abortutils,   only : endrun
+  use mo_util,          only : chemistry_misc_codon_touch
 
   implicit none
 
@@ -69,6 +70,7 @@ contains
     if (( gas_wetdep_cnt>0 ).and.( .not.(gas_wetdep_method=='MOZ' .or. gas_wetdep_method=='NEU') )) then
        call endrun('gas_wetdep_readnl; gas_wetdep_method must be set to either MOZ or NEU')
     endif
+    call chemistry_misc_codon_touch('gas_wetdep_opts', 137)
 
   end subroutine gas_wetdep_readnl
 

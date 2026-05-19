@@ -1,6 +1,8 @@
 
 module mo_exp_sol
 
+  use mo_util, only : chemistry_misc_codon_touch
+
   private
   public :: exp_sol
   public :: exp_sol_inti
@@ -18,6 +20,7 @@ contains
 
     integer :: i,j
 
+    call chemistry_misc_codon_touch('mo_exp_sol', 141)
     do i = 1,clscnt1
 
        j = clsmap(i,1)

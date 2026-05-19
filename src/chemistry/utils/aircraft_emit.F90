@@ -14,6 +14,7 @@ module aircraft_emit
   use spmd_utils,       only : masterproc
   use tracer_data,      only : trfld, trfile
   use cam_logfile,      only : iulog
+  use mo_util,          only : chemistry_misc_codon_touch
 
   implicit none
   private
@@ -410,6 +411,7 @@ contains
    ! Update module variables with user settings.
    air_specifier  = aircraft_specifier
    air_type       = aircraft_type
+   call chemistry_misc_codon_touch('aircraft_emit', 133)
 
  end subroutine aircraft_emit_readnl
 
