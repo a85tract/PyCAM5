@@ -3400,3 +3400,13 @@ def co2_cycle_flag_codon(flag: int) -> int:
     if flag != 0:
         return 1
     return 0
+
+
+@export
+def carma_intr_false_codon() -> int:
+    return 0
+
+
+@export
+def carma_intr_touch_codon() -> int:
+    return 0

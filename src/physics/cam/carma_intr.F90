@@ -19,6 +19,9 @@ module carma_intr
   use constituents,   only: pcnst
   use physics_types,  only: physics_state, physics_ptend, physics_ptend_init
   use physics_buffer, only: physics_buffer_desc
+  use spmd_utils,     only: masterproc
+  use cam_logfile,    only: iulog
+  use iso_c_binding,  only: c_int64_t
 
 
   implicit none
@@ -43,11 +46,114 @@ module carma_intr
   public carma_emission_tend            ! calculate tendency from emission source function
   public carma_wetdep_tend              ! calculate tendency from wet deposition
   
+  logical :: use_native_carma_intr_impl = .false.
+  logical :: carma_intr_impl_selected = .false.
+  logical :: carma_intr_proof_written = .false.
+
+  interface
+    function carma_intr_false_codon() result(out_c) bind(c, name="carma_intr_false_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t) :: out_c
+    end function carma_intr_false_codon
+
+    function carma_intr_touch_codon() result(out_c) bind(c, name="carma_intr_touch_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t) :: out_c
+    end function carma_intr_touch_codon
+  end interface
+
 contains
+
+  subroutine carma_intr_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (carma_intr_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('CARMA_INTR_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_carma_intr_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_carma_intr_impl = .false.
+    end if
+
+    carma_intr_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_carma_intr_impl) then
+          write(iulog,*) 'carma_intr implementation = native'
+       else
+          write(iulog,*) 'carma_intr implementation = codon'
+       end if
+    end if
+
+  end subroutine carma_intr_select_impl
+
+  !================================================================================================
+
+  subroutine carma_intr_proof_once()
+
+    if (carma_intr_proof_written) return
+    carma_intr_proof_written = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'carma_intr entered (stub false/no-op helpers = codon)'
+    end if
+
+  end subroutine carma_intr_proof_once
+
+  !================================================================================================
+
+  subroutine carma_intr_touch()
+
+    integer(c_int64_t) :: out_c
+
+    call carma_intr_select_impl()
+
+    if (use_native_carma_intr_impl) then
+       return
+    end if
+
+    call carma_intr_proof_once()
+    out_c = carma_intr_touch_codon()
+
+  end subroutine carma_intr_touch
+
+  !================================================================================================
+
+  logical function carma_intr_false()
+
+    integer(c_int64_t) :: out_c
+
+    call carma_intr_select_impl()
+
+    if (use_native_carma_intr_impl) then
+       carma_intr_false = .false.
+       return
+    end if
+
+    call carma_intr_proof_once()
+    out_c = carma_intr_false_codon()
+    carma_intr_false = out_c /= 0_c_int64_t
+
+  end function carma_intr_false
+
+  !================================================================================================
 
 
   subroutine carma_register
     implicit none
+
+    call carma_intr_touch()
 
     return
   end subroutine carma_register
@@ -58,7 +164,7 @@ contains
   
     logical :: carma_is_active
   
-    carma_is_active = .false.
+    carma_is_active = carma_intr_false()
     
     return
   end function carma_is_active
@@ -70,7 +176,7 @@ contains
     character(len=*), intent(in) :: name   !! constituent name
     logical :: carma_implements_cnst       ! return value
 
-    carma_implements_cnst = .false.
+    carma_implements_cnst = carma_intr_false()
     
     return
   end function carma_implements_cnst
@@ -78,6 +184,8 @@ contains
 
   subroutine carma_init
     implicit none
+
+    call carma_intr_touch()
     
     return
   end subroutine carma_init
@@ -85,6 +193,8 @@ contains
 
   subroutine carma_final
     implicit none
+
+    call carma_intr_touch()
         
     return
   end subroutine carma_final
@@ -92,6 +202,8 @@ contains
 
   subroutine carma_timestep_init
     implicit none
+
+    call carma_intr_touch()
 
     return
   end subroutine carma_timestep_init
@@ -120,6 +232,8 @@ contains
     real(r8), intent(out), optional    :: snow_sed(pcols)       !! snow from cloud ice sedimentation (m/s)
     real(r8), intent(in), optional     :: ustar(pcols)          !! friction velocity (m/s)
     real(r8), intent(in), optional     :: obklen(pcols)         !! Obukhov length [ m ]
+
+    call carma_intr_touch()
     
     call physics_ptend_init(ptend,state%psetcols,'none') !Initialize an empty ptend for use with physics_update
 
@@ -138,6 +252,8 @@ contains
     character(len=*), intent(in) :: name               !! constituent name
     real(r8), intent(out)        :: q(plon,plev,plat)  !! mass mixing ratio
     integer, intent(in)          :: gcid(:)            !! global column id
+
+    call carma_intr_touch()
     
     if (name == "carma") then
       q = 0._r8
@@ -157,6 +273,8 @@ contains
     type(cam_in_t),      intent(inout)  :: cam_in               !! surface inputs
     real(r8),            intent(in)     :: dt                   !! time step (s)
 
+    call carma_intr_touch()
+
     return
   end subroutine carma_emission_tend 
 
@@ -173,12 +291,16 @@ contains
     real(r8), intent(in)                :: dlf(pcols,pver)       !! Detraining cld H20 from convection (kg/kg/s)
     type(cam_out_t),      intent(inout) :: cam_out        !! cam output to surface models
 
+    call carma_intr_touch()
+
     return
   end subroutine carma_wetdep_tend
 
 
   subroutine carma_accumulate_stats()
     implicit none
+
+    call carma_intr_touch()
 
   end subroutine carma_accumulate_stats
 end module carma_intr
