@@ -19,7 +19,7 @@ module constituents
   use spmd_utils,       only: masterproc
   use cam_abortutils,   only: endrun
   use cam_logfile,      only: iulog
-  use iso_c_binding,    only: c_int64_t
+  use iso_c_binding,    only: c_int64_t, c_double
 
   implicit none
   private
@@ -84,9 +84,110 @@ module constituents
                                            ! false => chemistry is responsible for making outfld
                                            !          calls for constituents
 
+  logical :: use_native_constituents_thermo_impl = .false.
+  logical :: constituents_thermo_impl_selected = .false.
+  logical :: constituents_thermo_proof_written = .false.
+
+  interface
+     function constituents_rgas_codon(r_universal_c, mwc_c) result(rgas_c) &
+          bind(c, name="constituents_rgas_codon")
+        use iso_c_binding, only: c_double
+        real(c_double), value :: r_universal_c, mwc_c
+        real(c_double) :: rgas_c
+     end function constituents_rgas_codon
+
+     function constituents_cv_codon(cpc_c, rgas_c) result(cv_c) &
+          bind(c, name="constituents_cv_codon")
+        use iso_c_binding, only: c_double
+        real(c_double), value :: cpc_c, rgas_c
+        real(c_double) :: cv_c
+     end function constituents_cv_codon
+  end interface
+
 !==============================================================================================
 CONTAINS
 !==============================================================================================
+
+  subroutine constituents_thermo_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (constituents_thermo_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('CONSTITUENTS_THERMO_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_constituents_thermo_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_constituents_thermo_impl = .false.
+    end if
+
+    constituents_thermo_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_constituents_thermo_impl) then
+          write(iulog,*) 'constituents_thermo implementation = native'
+       else
+          write(iulog,*) 'constituents_thermo implementation = codon'
+       end if
+    end if
+
+  end subroutine constituents_thermo_select_impl
+
+!==============================================================================
+
+  subroutine constituents_thermo_proof_once()
+
+    if (constituents_thermo_proof_written) return
+    constituents_thermo_proof_written = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'constituents_thermo entered (constituent gas constants = codon)'
+    end if
+
+  end subroutine constituents_thermo_proof_once
+
+!==============================================================================
+
+  subroutine cnst_add_thermo_values(ind, mwc, cpc)
+
+    integer,  intent(in) :: ind
+    real(r8), intent(in) :: mwc
+    real(r8), intent(in) :: cpc
+
+    call constituents_thermo_select_impl()
+
+    if (use_native_constituents_thermo_impl) then
+       call cnst_add_thermo_values_native(ind, mwc, cpc)
+       return
+    end if
+
+    call constituents_thermo_proof_once()
+    cnst_rgas(ind) = constituents_rgas_codon(real(r_universal, c_double), real(mwc, c_double))
+    cnst_cv(ind) = constituents_cv_codon(real(cpc, c_double), real(cnst_rgas(ind), c_double))
+
+  end subroutine cnst_add_thermo_values
+
+!==============================================================================
+
+  subroutine cnst_add_thermo_values_native(ind, mwc, cpc)
+
+    integer,  intent(in) :: ind
+    real(r8), intent(in) :: mwc
+    real(r8), intent(in) :: cpc
+
+    cnst_rgas(ind) = r_universal * mwc
+    cnst_cv(ind) = cpc - cnst_rgas(ind)
+
+  end subroutine cnst_add_thermo_values_native
 
   subroutine cnst_add (name, mwc, cpc, qminc, &
                        ind, longname, readiv, mixtype, molectype, cam_outfld, &
@@ -199,8 +300,7 @@ CONTAINS
     qmincg   (ind) = qminc
     if (ind == 1) qmincg = 0._r8  ! This crap is replicate what was there before ****
 
-    cnst_rgas(ind) = r_universal * mwc
-    cnst_cv  (ind) = cpc - cnst_rgas(ind)
+    call cnst_add_thermo_values(ind, mwc, cpc)
 
     return
   end subroutine cnst_add

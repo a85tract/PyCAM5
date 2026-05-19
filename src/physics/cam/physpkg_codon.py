@@ -3199,3 +3199,13 @@ def phys_control_do_flux_avg_codon(srf_flux_avg: int) -> int:
     if srf_flux_avg == 1:
         return 1
     return 0
+
+
+@export
+def constituents_rgas_codon(r_universal: float, mwc: float) -> float:
+    return r_universal * mwc
+
+
+@export
+def constituents_cv_codon(cpc: float, rgas: float) -> float:
+    return cpc - rgas
