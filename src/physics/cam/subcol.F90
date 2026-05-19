@@ -54,6 +54,9 @@ module subcol
                               subcol_field_get_firstsubcol, subcol_ptend_get_firstsubcol, &
                               is_filter_set, is_weight_set
    use subcol_tstcp   , only: subcol_gen_tstcp, subcol_register_tstcp, subcol_field_avg_tstcp, subcol_ptend_avg_tstcp
+   use spmd_utils,      only: masterproc
+   use cam_logfile,     only: iulog
+   use iso_c_binding,   only: c_int64_t
 
 !   CloudObj, SILHS and vamp are currently being developed
 !   References are being left in for convenience and demonstration purposes
@@ -80,6 +83,17 @@ module subcol
    public :: subcol_read_restart ! Read subcolumn specific fields from restart
    public :: subcol_write_restart ! Write subcolumn specific fields for restart
 
+   logical :: use_native_subcol_impl = .false.
+   logical :: subcol_impl_selected = .false.
+   logical :: subcol_proof_written = .false.
+
+   interface
+      function subcol_touch_codon() result(out_c) bind(c, name="subcol_touch_codon")
+         use iso_c_binding, only: c_int64_t
+         integer(c_int64_t) :: out_c
+      end function subcol_touch_codon
+   end interface
+
 
    interface subcol_field_avg
       module procedure subcol_field_avg_1dr
@@ -88,6 +102,72 @@ module subcol
    end interface
 
 contains
+   subroutine subcol_select_impl()
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (subcol_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('SUBCOL_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_subcol_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_subcol_impl = .false.
+      end if
+
+      subcol_impl_selected = .true.
+
+      if (masterproc) then
+         if (use_native_subcol_impl) then
+            write(iulog,*) 'subcol implementation = native'
+         else
+            write(iulog,*) 'subcol implementation = codon'
+         end if
+      end if
+
+   end subroutine subcol_select_impl
+
+   !==========================================================================
+
+   subroutine subcol_proof_once()
+
+      if (subcol_proof_written) return
+      subcol_proof_written = .true.
+
+      if (masterproc) then
+         write(iulog,'(A)') 'subcol entered (scheme dispatch helpers = codon)'
+      end if
+
+   end subroutine subcol_proof_once
+
+   !==========================================================================
+
+   subroutine subcol_touch()
+
+      integer(c_int64_t) :: out_c
+
+      call subcol_select_impl()
+
+      if (use_native_subcol_impl) then
+         return
+      end if
+
+      call subcol_proof_once()
+      out_c = subcol_touch_codon()
+
+   end subroutine subcol_touch
+
+   !==========================================================================
+
    subroutine subcol_readnl(nlfile)
       use subcol_utils,    only: subcol_get_scheme, subcol_utils_readnl
       use subcol_tstcp,    only: subcol_readnl_tstcp
@@ -101,6 +181,8 @@ contains
       !
       character(len=16) :: subcol_scheme_init          ! Name of subcolumn schem
       !-----------------------------------------------------------------------------
+
+      call subcol_touch()
 
       call subcol_utils_readnl(nlfile)
       subcol_scheme_init = subcol_get_scheme()
@@ -126,6 +208,8 @@ contains
       use phys_control,    only: phys_getopts
       use physics_buffer,  only: pbuf_add_field, dtype_i4
       use subcol_utils,    only: subcol_get_scheme
+
+      call subcol_touch()
 
       select case(subcol_get_scheme())
          case('tstcp')
@@ -192,6 +276,8 @@ contains
       !
       character(len=16) :: subcol_scheme_init          ! Name of subcolumn scheme
   
+      call subcol_touch()
+
       ! Set the subcol_scheme_gen to the one passed in , otherwise use the module scheme read from the namelist
       if (present(subcol_scheme_in)) then
          subcol_scheme_init = trim(subcol_scheme_in)

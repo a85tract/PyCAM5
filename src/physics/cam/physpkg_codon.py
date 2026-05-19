@@ -3410,3 +3410,8 @@ def carma_intr_false_codon() -> int:
 @export
 def carma_intr_touch_codon() -> int:
     return 0
+
+
+@export
+def subcol_touch_codon() -> int:
+    return 0
