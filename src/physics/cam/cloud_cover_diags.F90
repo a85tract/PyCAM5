@@ -7,6 +7,8 @@ module cloud_cover_diags
   use ppgrid,        only: pcols, pver,pverp
   use cam_history,   only: addfld, add_default, phys_decomp, outfld
   use phys_control,  only: phys_getopts
+  use cam_logfile,   only: iulog
+  use spmd_utils,    only: masterproc
 
   implicit none
 
@@ -15,7 +17,65 @@ module cloud_cover_diags
   public :: cloud_cover_diags_init
   public :: cloud_cover_diags_out
 
+  logical :: use_native_cloud_cover_diags_impl = .false.
+  logical :: cloud_cover_diags_impl_selected = .false.
+  logical :: cloud_cover_diags_proof_written = .false.
+
+  interface
+     subroutine cloud_cover_cldsav_codon(ncol_c, pcols_c, pver_c, pverp_c, cld_p, pmid_p, &
+          pmxrgn_p, nmxrgn_p, cldtot_p, cldlow_p, cldmed_p, cldhgh_p, irgn_p, &
+          clrsky_p, clrskymax_p) bind(c, name="cloud_cover_cldsav_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c
+       type(c_ptr), value :: cld_p, pmid_p, pmxrgn_p, nmxrgn_p
+       type(c_ptr), value :: cldtot_p, cldlow_p, cldmed_p, cldhgh_p
+       type(c_ptr), value :: irgn_p, clrsky_p, clrskymax_p
+     end subroutine cloud_cover_cldsav_codon
+  end interface
+
 contains
+
+!===============================================================================
+subroutine cloud_cover_diags_select_impl()
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (cloud_cover_diags_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('CLOUD_COVER_DIAGS_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_cloud_cover_diags_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_cloud_cover_diags_impl = .false.
+  end if
+
+  cloud_cover_diags_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_cloud_cover_diags_impl) then
+        write(iulog,*) 'cloud_cover_diags implementation = native'
+     else
+        write(iulog,*) 'cloud_cover_diags implementation = codon'
+     end if
+  end if
+end subroutine cloud_cover_diags_select_impl
+
+!===============================================================================
+subroutine cloud_cover_diags_proof_once()
+  if (cloud_cover_diags_proof_written) return
+  cloud_cover_diags_proof_written = .true.
+  if (masterproc) then
+     write(iulog,'(A)') 'cloud_cover_diags entered (cldsav max-random overlap helper = codon)'
+  end if
+end subroutine cloud_cover_diags_proof_once
 
 !===============================================================================
 !===============================================================================
@@ -76,6 +136,42 @@ end subroutine cloud_cover_diags_out
 !===============================================================================
 !===============================================================================
 subroutine cldsav(lchnk   ,ncol    , &
+                  cld     ,pmid    ,cldtot  ,cldlow  ,cldmed  , &
+                  cldhgh  ,nmxrgn  ,pmxrgn  )
+!-----------------------------------------------------------------------
+   use iso_c_binding, only: c_int64_t, c_loc
+   integer, intent(in) :: lchnk
+   integer, intent(in) :: ncol
+   real(r8), target, intent(in) :: cld(pcols,pver)
+   real(r8), target, intent(in) :: pmid(pcols,pver)
+   real(r8), target, intent(in) :: pmxrgn(pcols,pverp)
+   integer, target, intent(in) :: nmxrgn(pcols)
+   real(r8), target, intent(out) :: cldtot(pcols)
+   real(r8), target, intent(out) :: cldlow(pcols)
+   real(r8), target, intent(out) :: cldmed(pcols)
+   real(r8), target, intent(out) :: cldhgh(pcols)
+
+   integer, target :: irgn(pcols)
+   real(r8), target :: clrsky(pcols)
+   real(r8), target :: clrskymax(pcols)
+
+   call cloud_cover_diags_select_impl()
+   if (use_native_cloud_cover_diags_impl) then
+      call cldsav_native(lchnk, ncol, cld, pmid, cldtot, cldlow, cldmed, cldhgh, nmxrgn, pmxrgn)
+   else
+      call cloud_cover_diags_proof_once()
+      call cloud_cover_cldsav_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(pverp, c_int64_t), c_loc(cld(1,1)), c_loc(pmid(1,1)), &
+           c_loc(pmxrgn(1,1)), c_loc(nmxrgn(1)), c_loc(cldtot(1)), c_loc(cldlow(1)), &
+           c_loc(cldmed(1)), c_loc(cldhgh(1)), c_loc(irgn(1)), c_loc(clrsky(1)), &
+           c_loc(clrskymax(1)))
+   end if
+
+   return
+end subroutine cldsav
+
+!===============================================================================
+subroutine cldsav_native(lchnk   ,ncol    , &
                   cld     ,pmid    ,cldtot  ,cldlow  ,cldmed  , &
                   cldhgh  ,nmxrgn  ,pmxrgn  )
 !----------------------------------------------------------------------- 
@@ -187,6 +283,6 @@ subroutine cldsav(lchnk   ,ncol    , &
    end do
 
    return
-end subroutine cldsav
+end subroutine cldsav_native
 
 end module cloud_cover_diags

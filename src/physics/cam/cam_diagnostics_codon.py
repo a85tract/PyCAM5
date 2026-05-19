@@ -2262,3 +2262,98 @@ def diag_phys_writeout_rhi_rhcfmip_codon(
                 rhcfmip[idx] = rhw[idx]
             else:
                 rhcfmip[idx] = rhi[idx]
+
+
+@export
+def cloud_cover_cldsav_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    cld_p: cobj,
+    pmid_p: cobj,
+    pmxrgn_p: cobj,
+    nmxrgn_p: cobj,
+    cldtot_p: cobj,
+    cldlow_p: cobj,
+    cldmed_p: cobj,
+    cldhgh_p: cobj,
+    irgn_p: cobj,
+    clrsky_p: cobj,
+    clrskymax_p: cobj,
+):
+    cld = Ptr[float](cld_p)
+    pmid = Ptr[float](pmid_p)
+    pmxrgn = Ptr[float](pmxrgn_p)
+    nmxrgn = Ptr[i32](nmxrgn_p)
+    cldtot = Ptr[float](cldtot_p)
+    cldlow = Ptr[float](cldlow_p)
+    cldmed = Ptr[float](cldmed_p)
+    cldhgh = Ptr[float](cldhgh_p)
+    irgn = Ptr[i32](irgn_p)
+    clrsky = Ptr[float](clrsky_p)
+    clrskymax = Ptr[float](clrskymax_p)
+
+    max_nmxrgn = -1
+    for i in range(1, ncol + 1):
+        if int(nmxrgn[i - 1]) > max_nmxrgn:
+            max_nmxrgn = int(nmxrgn[i - 1])
+
+    for ityp in range(1, 5):
+        ptypmin = 5000.0
+        ptypmax = 40000.0
+        if ityp == 1:
+            ptypmax = 120000.0
+        elif ityp == 2:
+            ptypmin = 70000.0
+            ptypmax = 120000.0
+        elif ityp == 3:
+            ptypmin = 40000.0
+            ptypmax = 70000.0
+
+        for i in range(1, ncol + 1):
+            irgn[i - 1] = i32(1)
+
+        for k in range(1, max_nmxrgn):
+            for i in range(1, ncol + 1):
+                i0 = i - 1
+                region = int(irgn[i0])
+                if pmxrgn[_idx2(i, region, pcols)] < ptypmin and region < int(nmxrgn[i0]):
+                    irgn[i0] = i32(region + 1)
+
+        for i in range(1, ncol + 1):
+            i0 = i - 1
+            clrsky[i0] = 1.0
+            clrskymax[i0] = 1.0
+
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx2(i, k, pcols)
+                pmid_ik = pmid[idx]
+                if pmid_ik >= ptypmin and pmid_ik <= ptypmax:
+                    i0 = i - 1
+                    region = int(irgn[i0])
+                    if pmxrgn[_idx2(i, region, pcols)] < pmid_ik and region < int(nmxrgn[i0]):
+                        irgn[i0] = i32(region + 1)
+                        clrsky[i0] = clrsky[i0] * clrskymax[i0]
+                        clrskymax[i0] = 1.0
+                    clear_candidate = 1.0 - cld[idx]
+                    if clear_candidate < clrskymax[i0]:
+                        clrskymax[i0] = clear_candidate
+
+        if ityp == 1:
+            for i in range(1, ncol + 1):
+                i0 = i - 1
+                cldtot[i0] = 1.0 - (clrsky[i0] * clrskymax[i0])
+        elif ityp == 2:
+            for i in range(1, ncol + 1):
+                i0 = i - 1
+                cldlow[i0] = 1.0 - (clrsky[i0] * clrskymax[i0])
+        elif ityp == 3:
+            for i in range(1, ncol + 1):
+                i0 = i - 1
+                cldmed[i0] = 1.0 - (clrsky[i0] * clrskymax[i0])
+        else:
+            for i in range(1, ncol + 1):
+                i0 = i - 1
+                cldhgh[i0] = 1.0 - (clrsky[i0] * clrskymax[i0])
