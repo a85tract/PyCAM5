@@ -1,8 +1,13 @@
+import chemistry_common_codon as _common
 import chemistry_aero_bridge_codon as _aero_bridge
 import chemistry_emissions_codon as _emissions
 import chemistry_gas_phase_codon as _gas_phase
 import chemistry_photolysis_codon as _photolysis
 import chemistry_wetchem_codon as _wetchem
+
+@export
+def chemistry_misc_touch_codon(tag: int) -> int:
+    return _common.chemistry_misc_touch_codon(tag)
 
 @export
 def rebin_codon(

@@ -3,6 +3,7 @@
 
       use shr_kind_mod, only : r8 => shr_kind_r8
       use cam_logfile,  only : iulog
+      use mo_util,      only : chemistry_misc_codon_touch
 
       implicit none
 
@@ -160,6 +161,8 @@ loop1:      do icolm = 1,ncolgr-1
 !	... local variables
 !-----------------------------------------------------------------------
       integer :: k
+
+      call chemistry_misc_codon_touch('mo_heatnirco2', 107)
       
       do k = 1,ndpara
          xspara(k) = 5.e-7_r8 * exp( -zppara(k) )

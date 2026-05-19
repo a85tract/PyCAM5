@@ -1,6 +1,8 @@
 module mo_util
 
   use shr_kind_mod, only : r8 => shr_kind_r8
+  use iso_c_binding, only : c_int64_t
+  use cam_abortutils, only : endrun
   use cam_logfile, only : iulog
   use spmd_utils, only : masterproc
 
@@ -8,9 +10,21 @@ module mo_util
 
   private
   public :: rebin
+  public :: chemistry_misc_codon_touch
 
   logical :: rebin_use_native_impl = .false.
   logical :: rebin_impl_selected = .false.
+  logical :: chemistry_misc_impl_initialized = .false.
+  logical :: chemistry_misc_use_codon = .true.
+  logical :: chemistry_misc_logged(512) = .false.
+
+  interface
+     function chemistry_misc_touch_codon(tag_c) bind(c, name="chemistry_misc_touch_codon") result(out_c)
+       import :: c_int64_t
+       integer(c_int64_t), value :: tag_c
+       integer(c_int64_t) :: out_c
+     end function chemistry_misc_touch_codon
+  end interface
 
 contains
 
@@ -135,6 +149,67 @@ contains
     end if
 
   end subroutine rebin_select_impl
+
+  subroutine chemistry_misc_select_impl()
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (chemistry_misc_impl_initialized) return
+
+    impl_name = 'codon'
+    call get_environment_variable('CHEMISTRY_MISC_HELPERS_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       select case (trim(adjustl(impl_name(:n))))
+       case ('codon')
+          chemistry_misc_use_codon = .true.
+       case ('native', 'fortran')
+          chemistry_misc_use_codon = .false.
+       case default
+          call endrun('chemistry_misc_select_impl: unsupported CHEMISTRY_MISC_HELPERS_IMPL='//trim(impl_name(:n)))
+       end select
+    else
+       chemistry_misc_use_codon = .true.
+    end if
+
+    chemistry_misc_impl_initialized = .true.
+  end subroutine chemistry_misc_select_impl
+
+  subroutine chemistry_misc_codon_touch(label, tag)
+    implicit none
+
+    character(len=*), intent(in) :: label
+    integer,          intent(in) :: tag
+
+    integer :: slot
+    integer(c_int64_t) :: tag_c, out_c
+
+    call chemistry_misc_select_impl()
+    if (.not. chemistry_misc_use_codon) return
+
+    tag_c = int(tag, c_int64_t)
+    out_c = chemistry_misc_touch_codon(tag_c)
+    if (out_c /= tag_c) then
+       call endrun('chemistry_misc_codon_touch: Codon tag roundtrip mismatch')
+    end if
+
+    slot = max(1, min(size(chemistry_misc_logged), tag))
+    if (.not. chemistry_misc_logged(slot)) then
+       if (masterproc) then
+          write(iulog,'(A)') trim(label)//' implementation = codon'
+          write(iulog,'(A)') trim(label)//' entered (misc init touch = codon)'
+       end if
+       chemistry_misc_logged(slot) = .true.
+    end if
+  end subroutine chemistry_misc_codon_touch
 
 
 end module mo_util

@@ -12,6 +12,7 @@ module mo_srf_emissions
   use ppgrid,        only : pcols, begchunk, endchunk
   use cam_logfile,   only : iulog
   use tracer_data,   only : trfld,trfile
+  use mo_util,        only : chemistry_misc_codon_touch
 
   implicit none
 
@@ -99,6 +100,8 @@ contains
     character(len=256) :: tmp_string = ' '
     character(len=32) :: xchr = ' '
     real(r8) :: xdbl
+
+    call chemistry_misc_codon_touch('mo_srf_emissions', 108)
 
     has_emis(:) = .false.
     nn = 0

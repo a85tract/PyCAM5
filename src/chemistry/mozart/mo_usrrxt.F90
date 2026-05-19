@@ -5,6 +5,7 @@ module mo_usrrxt
   use cam_logfile,      only : iulog
   use ppgrid,           only : pver, pcols
   use cam_abortutils,   only : endrun
+  use mo_util,           only : chemistry_misc_codon_touch
 
   implicit none
 
@@ -149,6 +150,8 @@ contains
 !
 ! full tropospheric chemistry
 !
+    call chemistry_misc_codon_touch('mo_usrrxt', 105)
+
     usr_O_O2_ndx         = get_rxt_ndx( 'usr_O_O2' )
     usr_HO2_HO2_ndx      = get_rxt_ndx( 'usr_HO2_HO2' )
     usr_N2O5_M_ndx       = get_rxt_ndx( 'usr_N2O5_M' )

@@ -20,6 +20,7 @@ module mo_drydep
   use pio
   use cam_pio_utils,    only : cam_pio_openfile
   use cam_logfile,      only : iulog
+  use mo_util,           only : chemistry_misc_codon_touch
   use dyn_grid,         only : get_dyn_grid_parm, get_horiz_grid_d
   use scamMod,          only : single_column
 
@@ -1593,6 +1594,8 @@ contains
 
     character(len=shr_kind_cl) :: locfn
     logical :: prog_modal_aero
+
+    call chemistry_misc_codon_touch('mo_drydep', 102)
 
     ! determine if modal aerosols are active so that fraction_landuse array is initialized for modal aerosal dry dep
     call phys_getopts(prog_modal_aero_out=prog_modal_aero)

@@ -14,6 +14,7 @@ module tracer_data
   use ppgrid,           only : pcols, pver, pverp, begchunk, endchunk
   use cam_abortutils,   only : endrun
   use cam_logfile,      only : iulog
+  use mo_util,          only : chemistry_misc_codon_touch
   
   use physics_buffer,   only : physics_buffer_desc, pbuf_get_field, pbuf_get_index
   use time_manager,     only : set_time_float_from_date, set_date_from_time_float
@@ -191,6 +192,7 @@ contains
 
     character(len=256) :: data_units
 
+    call chemistry_misc_codon_touch('tracer_data', 101)
     call specify_fields( specifier, flds )
 
     file%datatimep=-1.e36_r8

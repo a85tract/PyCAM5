@@ -27,3 +27,6 @@ def _idx5(i1: int, i2: int, i3: int, i4: int, i5: int, ld1: int, ld2: int, ld3: 
 @inline
 def _flux_idx(i: int, m: int, pcols: int) -> int:
     return (i - 1) + (m - 1) * pcols
+
+def chemistry_misc_touch_codon(tag: int) -> int:
+    return tag

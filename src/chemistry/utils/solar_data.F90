@@ -9,6 +9,7 @@ module solar_data
   use cam_pio_utils,    only: cam_pio_openfile
   use cam_logfile,      only: iulog
   use infnan,           only: nan, assignment(=)
+  use mo_util,           only : chemistry_misc_codon_touch
 
   implicit none
 
@@ -92,6 +93,8 @@ contains
     namelist /solar_inparm/ &
          solar_data_file, solar_data_type, solar_data_ymd, solar_data_tod, solar_const, &
          solar_htng_spctrl_scl
+
+    call chemistry_misc_codon_touch('solar_data', 106)
     
     if (masterproc) then
        unitn = getunit()

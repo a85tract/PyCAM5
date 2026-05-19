@@ -11,6 +11,7 @@ module mo_extfrc
   use cam_history,   only : addfld, outfld, phys_decomp, add_default
   use cam_logfile,   only : iulog
   use tracer_data,   only : trfld,trfile
+  use mo_util,        only : chemistry_misc_codon_touch
 
   implicit none
 
@@ -99,6 +100,8 @@ contains
 
     !-----------------------------------------------------------------------
  
+    call chemistry_misc_codon_touch('mo_extfrc', 109)
+
     call phys_getopts( history_aerosol_out = history_aerosol   )
 
     !-----------------------------------------------------------------------

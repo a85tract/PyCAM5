@@ -5,6 +5,7 @@ module modal_aero_initialize_data
   use ppgrid,                only: pcols, pver, begchunk, endchunk
   use modal_aero_data
   use time_manager,          only: is_first_step
+  use mo_util,                only : chemistry_misc_codon_touch
 
   implicit none
   private
@@ -47,6 +48,8 @@ contains
 
     integer :: m, l, iptr
     character(len=3) :: trnum       ! used to hold mode number (as characters)
+
+       call chemistry_misc_codon_touch('modal_aero_initialize_data', 103)
 
        !   input species to hold aerosol water and "kohler-c"
        !     xname_waterptr(:ntot_amode)   = (/ 'wat_a1  ', 'wat_a2  ', 'wat_a3  ', &
@@ -983,4 +986,3 @@ contains
 
      !==============================================================
    end module modal_aero_initialize_data
-

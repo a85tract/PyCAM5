@@ -9,6 +9,7 @@ module mo_chm_diags
   use mo_chem_utls, only : get_rxt_ndx, get_spc_ndx
   use cam_history,  only : fieldname_len
   use mo_jeuv,      only : neuv
+  use mo_util,      only : chemistry_misc_codon_touch
 
   private
 
@@ -81,6 +82,8 @@ contains
     integer :: bulkaero_species(20)
 
     !-----------------------------------------------------------------------
+
+    call chemistry_misc_codon_touch('mo_chm_diags', 104)
 
     call phys_getopts( history_aerosol_out = history_aerosol, &
                        history_amwg_out    = history_amwg,  &
