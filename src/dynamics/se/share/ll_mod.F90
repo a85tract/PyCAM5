@@ -27,8 +27,18 @@ module ll_mod
 contains 
 
   subroutine LLSetEdgeCount(value)
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
     implicit none
     integer,intent(in)   :: value
+
+#define SE_MISC_TAG 24
+#define SE_MISC_LABEL 'll_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
+
     NumEdges=value
   end subroutine LLSetEdgeCount
 

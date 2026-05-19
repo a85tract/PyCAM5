@@ -83,10 +83,19 @@ contains
   !================================
   
   function Virtual_Temperature1d(Tin,rin) result(Tv)
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
     
     real (kind=real_kind),intent(in) :: Tin
     real (kind=real_kind),intent(in) :: rin
     real (kind=real_kind)            :: Tv
+
+#define SE_MISC_TAG 41
+#define SE_MISC_LABEL 'physics_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
 !    Tv = Tin*(1_real_kind + rin/Rd_on_Rv)/(1_real_kind + rin)
 

@@ -174,6 +174,8 @@ contains
     use kinds, only : real_kind
     use dimensions_mod, only : np, nlev
     use hybvcoord_mod, only : hvcoord_t
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
     implicit none
 
 
@@ -191,6 +193,13 @@ contains
     real(kind=real_kind) Ckk,Ckl          ! diagonal term of energy conversion matrix
     real(kind=real_kind) suml(np,np)      ! partial sum over l = (1, k-1)
     !-----------------------------------------------------------------------
+
+#define SE_MISC_TAG 25
+#define SE_MISC_LABEL 'prim_si_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
 #if (defined COLUMN_OPENMP)
 !$omp parallel do private(k,j,i,ckk,term,ckl)

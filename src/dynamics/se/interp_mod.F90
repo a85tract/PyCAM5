@@ -63,10 +63,18 @@ contains
     use thread_mod,     only: omp_get_thread_num
     use hybrid_mod,     only: config_thread_region
     use interpolate_mod, only : interpolate_analysis, get_interp_parameter
+    use iso_c_binding, only : c_int64_t
     implicit none
   
     integer, intent(in) :: mtapes
     integer :: ithr, nthreads
+
+#define SE_MISC_TAG 37
+#define SE_MISC_LABEL 'interp_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
     if(iam>= par%nprocs) return
 

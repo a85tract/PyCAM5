@@ -36,6 +36,7 @@ CONTAINS
     use units,           only: getunit, freeunit
     use cam_logfile,     only: iulog
     use mpishorthand
+    use iso_c_binding, only : c_int64_t
 
     implicit none
 
@@ -60,7 +61,12 @@ CONTAINS
              dyn_npes,       &
              dyn_npes_stride 
 
-
+#define SE_MISC_TAG 32
+#define SE_MISC_LABEL 'spmd_dyn'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
     dyn_npes = npes
 

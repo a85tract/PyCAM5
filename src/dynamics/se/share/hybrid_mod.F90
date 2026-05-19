@@ -239,9 +239,18 @@ contains
   end function config_thread_region_par
 
   subroutine init_loop_ranges(nelemd)
+      use iso_c_binding, only : c_int64_t
+      use cam_logfile, only : iulog
 
       integer, intent(in) :: nelemd
       integer :: ith, beg_index, end_index
+
+#define SE_MISC_TAG 22
+#define SE_MISC_LABEL 'hybrid_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
       
       if ( init_ranges ) then

@@ -24,6 +24,7 @@ contains
   subroutine native_mapping_readnl(NLFileName)
     use units, only : getunit, freeunit
     use namelist_utils, only : find_group_name
+    use iso_c_binding, only : c_int64_t
 
     character(len=*), intent(in) :: NLFileName
     character(len=shr_kind_cl) :: mappingfile, fname
@@ -31,6 +32,13 @@ contains
     namelist /native_mapping/  native_mapping_outgrids
     integer :: nf, unitn, ierr
     logical :: exist
+
+#define SE_MISC_TAG 30
+#define SE_MISC_LABEL 'native_mapping'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
     do_native_mapping=.false.
 
@@ -523,4 +531,3 @@ contains
 
 
 end module native_mapping
-

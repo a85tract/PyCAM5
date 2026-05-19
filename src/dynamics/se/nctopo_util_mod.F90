@@ -40,6 +40,7 @@ contains
     use ncdio_atm,          only: infld
     use cam_abortutils,     only: endrun
     use pio,                only: file_desc_t, io_desc_t, pio_double, pio_get_local_array_size, pio_freedecomp
+    use iso_c_binding, only : c_int64_t
 
     implicit none
     type(file_desc_t),intent(inout) :: ncid_topo
@@ -53,6 +54,13 @@ contains
     integer :: kptr
     type(EdgeBuffer_t) :: edge
     integer :: lsize, nets,nete
+
+#define SE_MISC_TAG 38
+#define SE_MISC_LABEL 'nctopo_util_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
     if (smooth_phis_numcycle==0) return
 

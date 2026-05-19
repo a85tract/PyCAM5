@@ -12,6 +12,8 @@ module gbarrier_mod
   contains
 
     subroutine gbarrier_init(barrier, nthreads)
+      use iso_c_binding, only : c_int64_t
+      use cam_logfile, only : iulog
       type (gbarrier_t), intent(out) :: barrier
       integer, intent(in) :: nthreads
 
@@ -24,6 +26,13 @@ module gbarrier_mod
           integer (C_int), intent(in), value :: nthreads
         end subroutine gbarrier_initialize
       end interface
+
+#define SE_MISC_TAG 35
+#define SE_MISC_LABEL 'gbarrier_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
       call gbarrier_initialize(barrier%c_barrier, nthreads)
     end subroutine gbarrier_init
@@ -76,4 +85,3 @@ module gbarrier_mod
     end subroutine gbarrier
 
 end module gbarrier_mod
-

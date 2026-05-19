@@ -133,6 +133,7 @@ contains
 ! ================================================
      
   function initmpi(npes_in) result(par)
+    use iso_c_binding, only : c_int64_t
 #ifdef CAM
     use spmd_utils, only : mpicom
 #endif      
@@ -163,6 +164,13 @@ contains
     !================================================
     !     Basic MPI initialization
     ! ================================================
+
+#define SE_MISC_TAG 23
+#define SE_MISC_LABEL 'parallel_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
     call MPI_initialized(running,ierr)
 

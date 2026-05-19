@@ -26,8 +26,17 @@ module diffusion_mod
 
 contains
   subroutine diffusion_init(par,elem)
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
     type(parallel_t) :: par
     type (element_t) :: elem(:)
+
+#define SE_MISC_TAG 39
+#define SE_MISC_LABEL 'diffusion_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
        call initEdgeBuffer(par,edgeS1,elem, qsize*nlev)
        call initEdgeBuffer(par,edgeS2,elem, 2*qsize*nlev)

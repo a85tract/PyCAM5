@@ -19,6 +19,7 @@ subroutine cam_initial(dyn_in, dyn_out, NLFileName)
    use cam_initfiles,        only: initial_file_get_id
    use startup_initialconds, only: initial_conds
    use cam_logfile,          only: iulog
+   use iso_c_binding, only : c_int64_t
 
    ! modules from SE
    use parallel_mod, only : par
@@ -27,6 +28,13 @@ subroutine cam_initial(dyn_in, dyn_out, NLFileName)
    type(dyn_export_t), intent(out) :: dyn_out
    character(len=*),   intent(in)  :: NLFileName
    !----------------------------------------------------------------------
+
+#define SE_MISC_TAG 34
+#define SE_MISC_LABEL 'inital'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
    call dyn_init1(initial_file_get_id(), NLFileName, dyn_in, dyn_out)
 

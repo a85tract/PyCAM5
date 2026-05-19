@@ -25,6 +25,8 @@ contains
 ! ===========================================
 
   subroutine mass_matrix(par,elem)
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
 
     type (parallel_t),intent(in) :: par
     type (element_t) :: elem(:)
@@ -43,6 +45,13 @@ contains
     ! ===================
     ! begin code
     ! ===================
+
+#define SE_MISC_TAG 27
+#define SE_MISC_LABEL 'mass_matrix_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
     call initEdgeBuffer(par,edge,elem,1,nthreads=1)
 
@@ -137,4 +146,3 @@ contains
   end subroutine mass_matrix
 
 end module mass_matrix_mod
-

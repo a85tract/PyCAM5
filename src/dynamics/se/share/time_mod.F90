@@ -50,7 +50,17 @@ contains
   end function Time_at
 
   subroutine TimeLevel_init_default(tl)
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
     type (TimeLevel_t), intent(out) :: tl
+
+#define SE_MISC_TAG 29
+#define SE_MISC_LABEL 'time_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
+
     tl%nm1   = 1
     tl%n0    = 2
     tl%np1   = 3

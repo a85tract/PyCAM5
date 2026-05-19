@@ -6,7 +6,16 @@
 subroutine trunc
 
 ! !USES:
+   use iso_c_binding, only : c_int64_t
+   use cam_logfile, only : iulog
    implicit none
+
+#define SE_MISC_TAG 42
+#define SE_MISC_LABEL 'trunc'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
 !
 ! !DESCRIPTION:
@@ -30,4 +39,3 @@ subroutine trunc
 !EOC
 end subroutine trunc
 !-----------------------------------------------------------------------
-

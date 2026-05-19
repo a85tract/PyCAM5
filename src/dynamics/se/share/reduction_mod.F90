@@ -183,8 +183,17 @@ contains
   subroutine InitReductionBuffer_int_1d(red,len)
     use parallel_mod, only: abortmp
     use thread_mod, only: omp_get_num_threads
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
     integer, intent(in)           :: len
     type (ReductionBuffer_int_1d_t),intent(out) :: red
+
+#define SE_MISC_TAG 21
+#define SE_MISC_LABEL 'reduction_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
     if (omp_get_num_threads()>1) then
        call abortmp("Error: attempt to allocate reduction buffer in threaded region")

@@ -510,6 +510,7 @@ contains
   use hybrid_mod, only : hybrid_t
   use dimensions_mod, only : np
   use global_norms_mod, only : global_integral 
+  use iso_c_binding, only : c_int64_t
 
   type (element_t), intent(inout) :: elem(:)
   type (TimeLevel_t), target, intent(in) :: tl
@@ -521,6 +522,13 @@ contains
   real (kind=real_kind)  :: tmp(np,np,nets:nete)
   real (kind=real_kind)  :: scale,mass0
   integer :: n0,nm1,np1,ie
+
+#define SE_MISC_TAG 40
+#define SE_MISC_LABEL 'prim_si_ref_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
 
   if (initial_total_mass == 0) return;
   

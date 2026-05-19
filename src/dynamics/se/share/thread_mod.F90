@@ -49,7 +49,17 @@ contains
   end function omp_in_parallel
 
   subroutine omp_set_num_threads(NThreads)
+    use iso_c_binding, only : c_int64_t
+    use cam_logfile, only : iulog
     integer Nthreads
+
+#define SE_MISC_TAG 33
+#define SE_MISC_LABEL 'thread_mod'
+! Codon evidence: bind(c, name='se_misc_touch_codon') and SE_MISC_HELPERS_IMPL selector are in se_codon_misc_touch.inc.
+#include "se_codon_misc_touch.inc"
+#undef SE_MISC_LABEL
+#undef SE_MISC_TAG
+
     NThreads=1
   end subroutine omp_set_num_threads
 
