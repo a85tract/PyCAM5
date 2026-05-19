@@ -3386,3 +3386,10 @@ def carma_flags_bool_codon(flag: int) -> int:
 @export
 def carma_flags_touch_codon() -> int:
     return 0
+
+
+@export
+def tidal_diag_int_codon(value: int, force_one: int) -> int:
+    if force_one != 0:
+        return 1
+    return value

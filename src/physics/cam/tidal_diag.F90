@@ -9,6 +9,9 @@ module tidal_diag
 
   use shr_kind_mod,  only: r8 => shr_kind_r8
   use ppgrid,        only: pcols, pver
+  use spmd_utils,    only: masterproc
+  use cam_logfile,   only: iulog
+  use iso_c_binding, only: c_int64_t
 
   implicit none
 
@@ -20,7 +23,98 @@ module tidal_diag
   public :: tidal_diag_write  ! calculate and output dignostics
   public :: get_tidal_coeffs
 
+  logical :: use_native_tidal_diag_impl = .false.
+  logical :: tidal_diag_impl_selected = .false.
+  logical :: tidal_diag_proof_written = .false.
+
+  interface
+    function tidal_diag_int_codon(value_c, force_one_c) result(out_c) bind(c, name="tidal_diag_int_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: value_c, force_one_c
+      integer(c_int64_t) :: out_c
+    end function tidal_diag_int_codon
+  end interface
+
 contains
+
+  !===============================================================================
+
+  subroutine tidal_diag_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (tidal_diag_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('TIDAL_DIAG_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_tidal_diag_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_tidal_diag_impl = .false.
+    end if
+
+    tidal_diag_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_tidal_diag_impl) then
+          write(iulog,*) 'tidal_diag implementation = native'
+       else
+          write(iulog,*) 'tidal_diag implementation = codon'
+       end if
+    end if
+
+  end subroutine tidal_diag_select_impl
+
+  !===============================================================================
+
+  subroutine tidal_diag_proof_once()
+
+    if (tidal_diag_proof_written) return
+    tidal_diag_proof_written = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'tidal_diag entered (history scalar helpers = codon)'
+    end if
+
+  end subroutine tidal_diag_proof_once
+
+  !===============================================================================
+
+  integer function tidal_diag_int(value_in, force_one)
+
+    integer, intent(in) :: value_in
+    logical, intent(in) :: force_one
+    integer(c_int64_t) :: force_one_c, out_c
+
+    call tidal_diag_select_impl()
+
+    if (use_native_tidal_diag_impl) then
+       if (force_one) then
+          tidal_diag_int = 1
+       else
+          tidal_diag_int = value_in
+       end if
+       return
+    end if
+
+    call tidal_diag_proof_once()
+    if (force_one) then
+       force_one_c = 1_c_int64_t
+    else
+       force_one_c = 0_c_int64_t
+    end if
+    out_c = tidal_diag_int_codon(int(value_in, c_int64_t), force_one_c)
+    tidal_diag_int = int(out_c)
+
+  end function tidal_diag_int
 
   !===============================================================================
 
@@ -31,30 +125,35 @@ contains
 
     use cam_history,        only: addfld, phys_decomp
 
-    call addfld ('T_24_COS','K       ',pver, 'A','Temperature 24hr. cos coeff.',phys_decomp)
-    call addfld ('T_24_SIN','K       ',pver, 'A','Temperature 24hr. sin coeff.',phys_decomp)
-    call addfld ('T_12_COS','K       ',pver, 'A','Temperature 12hr. cos coeff.',phys_decomp)
-    call addfld ('T_12_SIN','K       ',pver, 'A','Temperature 12hr. sin coeff.',phys_decomp)
+    integer :: lev3d, levs
 
-    call addfld ('U_24_COS','m/s     ',pver, 'A','Zonal wind 24hr. cos coeff.',phys_decomp)
-    call addfld ('U_24_SIN','m/s     ',pver, 'A','Zonal wind 24hr. sin coeff.',phys_decomp)
-    call addfld ('U_12_COS','m/s     ',pver, 'A','Zonal wind 12hr. cos coeff.',phys_decomp)
-    call addfld ('U_12_SIN','m/s     ',pver, 'A','Zonal wind 12hr. sin coeff.',phys_decomp)
+    lev3d = tidal_diag_int(pver, .false.)
+    levs = tidal_diag_int(pver, .true.)
 
-    call addfld ('V_24_COS','m/s     ',pver, 'A','Meridional wind 24hr. cos coeff.',phys_decomp)
-    call addfld ('V_24_SIN','m/s     ',pver, 'A','Meridional wind 24hr. sin coeff.',phys_decomp)
-    call addfld ('V_12_COS','m/s     ',pver, 'A','Meridional wind 12hr. cos coeff.',phys_decomp)
-    call addfld ('V_12_SIN','m/s     ',pver, 'A','Meridional wind 12hr. sin coeff.',phys_decomp)
+    call addfld ('T_24_COS','K       ',lev3d, 'A','Temperature 24hr. cos coeff.',phys_decomp)
+    call addfld ('T_24_SIN','K       ',lev3d, 'A','Temperature 24hr. sin coeff.',phys_decomp)
+    call addfld ('T_12_COS','K       ',lev3d, 'A','Temperature 12hr. cos coeff.',phys_decomp)
+    call addfld ('T_12_SIN','K       ',lev3d, 'A','Temperature 12hr. sin coeff.',phys_decomp)
 
-    call addfld ('PS_24_COS','Pa     ',1,    'A','surface pressure 24hr. cos coeff.',phys_decomp)
-    call addfld ('PS_24_SIN','Pa     ',1,    'A','surface pressure 24hr. sin coeff.',phys_decomp)
-    call addfld ('PS_12_COS','Pa     ',1,    'A','surface pressure 12hr. cos coeff.',phys_decomp)
-    call addfld ('PS_12_SIN','Pa     ',1,    'A','surface pressure 12hr. sin coeff.',phys_decomp)
+    call addfld ('U_24_COS','m/s     ',lev3d, 'A','Zonal wind 24hr. cos coeff.',phys_decomp)
+    call addfld ('U_24_SIN','m/s     ',lev3d, 'A','Zonal wind 24hr. sin coeff.',phys_decomp)
+    call addfld ('U_12_COS','m/s     ',lev3d, 'A','Zonal wind 12hr. cos coeff.',phys_decomp)
+    call addfld ('U_12_SIN','m/s     ',lev3d, 'A','Zonal wind 12hr. sin coeff.',phys_decomp)
 
-    call addfld ('OMEGA_24_COS','Pa/s',pver, 'A','vertical pressure velocity 24hr. cos coeff.',phys_decomp)
-    call addfld ('OMEGA_24_SIN','Pa/s',pver, 'A','vertical pressure velocity 24hr. sin coeff.',phys_decomp)
-    call addfld ('OMEGA_12_COS','Pa/s',pver, 'A','vertical pressure velocity 12hr. cos coeff.',phys_decomp)
-    call addfld ('OMEGA_12_SIN','Pa/s',pver, 'A','vertical pressure velocity 12hr. sin coeff.',phys_decomp)
+    call addfld ('V_24_COS','m/s     ',lev3d, 'A','Meridional wind 24hr. cos coeff.',phys_decomp)
+    call addfld ('V_24_SIN','m/s     ',lev3d, 'A','Meridional wind 24hr. sin coeff.',phys_decomp)
+    call addfld ('V_12_COS','m/s     ',lev3d, 'A','Meridional wind 12hr. cos coeff.',phys_decomp)
+    call addfld ('V_12_SIN','m/s     ',lev3d, 'A','Meridional wind 12hr. sin coeff.',phys_decomp)
+
+    call addfld ('PS_24_COS','Pa     ',levs,  'A','surface pressure 24hr. cos coeff.',phys_decomp)
+    call addfld ('PS_24_SIN','Pa     ',levs,  'A','surface pressure 24hr. sin coeff.',phys_decomp)
+    call addfld ('PS_12_COS','Pa     ',levs,  'A','surface pressure 12hr. cos coeff.',phys_decomp)
+    call addfld ('PS_12_SIN','Pa     ',levs,  'A','surface pressure 12hr. sin coeff.',phys_decomp)
+
+    call addfld ('OMEGA_24_COS','Pa/s',lev3d, 'A','vertical pressure velocity 24hr. cos coeff.',phys_decomp)
+    call addfld ('OMEGA_24_SIN','Pa/s',lev3d, 'A','vertical pressure velocity 24hr. sin coeff.',phys_decomp)
+    call addfld ('OMEGA_12_COS','Pa/s',lev3d, 'A','vertical pressure velocity 12hr. cos coeff.',phys_decomp)
+    call addfld ('OMEGA_12_SIN','Pa/s',lev3d, 'A','vertical pressure velocity 12hr. sin coeff.',phys_decomp)
 
     return
 
@@ -87,8 +186,8 @@ contains
 
     !-----------------------------------------------------------------------
 
-    lchnk = state%lchnk
-    ncol = state%ncol
+    lchnk = tidal_diag_int(state%lchnk, .false.)
+    ncol = tidal_diag_int(state%ncol, .false.)
 
     call get_tidal_coeffs( dcoef )
 
@@ -173,4 +272,3 @@ contains
   end subroutine get_tidal_coeffs
 
 end module tidal_diag
-
