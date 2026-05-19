@@ -3620,3 +3620,45 @@ def vdiff_lu_solver_flag_codon(flag: int) -> int:
     if flag != 0:
         return 1
     return 0
+
+
+@export
+def gw_utils_get_unit_vector_codon(u_p: cobj, v_p: cobj, u_n_p: cobj, v_n_p: cobj, mag_p: cobj, n: int):
+    u = Ptr[float](u_p)
+    v = Ptr[float](v_p)
+    u_n = Ptr[float](u_n_p)
+    v_n = Ptr[float](v_n_p)
+    mag = Ptr[float](mag_p)
+
+    for i in range(n):
+        mag[i] = sqrt(u[i] * u[i] + v[i] * v[i])
+
+    for i in range(n):
+        if mag[i] > 0.0:
+            u_n[i] = u[i] / mag[i]
+            v_n[i] = v[i] / mag[i]
+        else:
+            u_n[i] = 0.0
+            v_n[i] = 0.0
+
+
+@export
+def gw_utils_dot_2d_codon(u1_p: cobj, v1_p: cobj, u2_p: cobj, v2_p: cobj, out_p: cobj, n: int):
+    u1 = Ptr[float](u1_p)
+    v1 = Ptr[float](v1_p)
+    u2 = Ptr[float](u2_p)
+    v2 = Ptr[float](v2_p)
+    out = Ptr[float](out_p)
+
+    for i in range(n):
+        out[i] = u1[i] * u2[i] + v1[i] * v2[i]
+
+
+@export
+def gw_utils_midpoint_interp_codon(arr_p: cobj, interp_p: cobj, n1: int, n2: int):
+    arr = Ptr[float](arr_p)
+    interp = Ptr[float](interp_p)
+
+    for k in range(n2 - 1):
+        for i in range(n1):
+            interp[i + k * n1] = 0.5 * (arr[i + k * n1] + arr[i + (k + 1) * n1])
