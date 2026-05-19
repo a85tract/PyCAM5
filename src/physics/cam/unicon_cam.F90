@@ -9,6 +9,7 @@
 module unicon_cam
 
 use shr_kind_mod,     only: r8 => shr_kind_r8, i4 => shr_kind_i4
+use iso_c_binding,    only: c_int64_t
 use spmd_utils,       only: masterproc
 use ppgrid,           only: pcols, pver, pverp, begchunk, endchunk
 use physconst,        only: rair, cpair, gravit, latvap, latice, zvir, mwdry, mwh2o
@@ -24,6 +25,7 @@ use phys_control,     only: phys_getopts
 use cam_history,      only: outfld, addfld, phys_decomp
 
 use time_manager,     only: is_first_step
+use cam_logfile,      only: iulog
 use cam_abortutils,   only: endrun
 
 #ifdef USE_UNICON
@@ -127,8 +129,129 @@ logical :: cnst_is_mam_num(ncnst)
 ! logical array to identify constituents that are mode specie mass mixing ratios
 logical :: cnst_is_mam_mmr(ncnst)
 
+logical :: use_native_unicon_cam_impl = .false.
+logical :: unicon_cam_impl_selected = .false.
+logical :: unicon_cam_proof_written = .false.
+
+interface
+   function unicon_cam_flag_codon(flag_c) result(out_c) bind(c, name="unicon_cam_flag_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function unicon_cam_flag_codon
+
+   function unicon_cam_int_codon(value_c) result(out_c) bind(c, name="unicon_cam_int_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: value_c
+      integer(c_int64_t) :: out_c
+   end function unicon_cam_int_codon
+end interface
+
 !==================================================================================================
 contains
+!==================================================================================================
+
+subroutine unicon_cam_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (unicon_cam_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('UNICON_CAM_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_unicon_cam_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_unicon_cam_impl = .false.
+   end if
+
+   unicon_cam_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_unicon_cam_impl) then
+         write(iulog,*) 'unicon_cam implementation = native'
+      else
+         write(iulog,*) 'unicon_cam implementation = codon'
+      end if
+   end if
+
+end subroutine unicon_cam_select_impl
+
+!==================================================================================================
+
+subroutine unicon_cam_proof_once()
+
+   if (unicon_cam_proof_written) return
+   unicon_cam_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'unicon_cam entered (namelist scalar helpers = codon)'
+   end if
+
+end subroutine unicon_cam_proof_once
+
+!==================================================================================================
+
+logical function unicon_cam_flag(flag)
+
+   logical, intent(in) :: flag
+   integer(c_int64_t) :: flag_c, out_c
+
+   call unicon_cam_select_impl()
+
+   if (use_native_unicon_cam_impl) then
+      unicon_cam_flag = flag
+      return
+   end if
+
+   call unicon_cam_proof_once()
+   if (flag) then
+      flag_c = 1_c_int64_t
+   else
+      flag_c = 0_c_int64_t
+   end if
+   out_c = unicon_cam_flag_codon(flag_c)
+   unicon_cam_flag = out_c /= 0_c_int64_t
+
+end function unicon_cam_flag
+
+!==================================================================================================
+
+integer function unicon_cam_int(value_in)
+
+   integer, intent(in) :: value_in
+   integer(c_int64_t) :: out_c
+
+   call unicon_cam_select_impl()
+
+   if (use_native_unicon_cam_impl) then
+      unicon_cam_int = value_in
+      return
+   end if
+
+   call unicon_cam_proof_once()
+   out_c = unicon_cam_int_codon(int(value_in, c_int64_t))
+   unicon_cam_int = int(out_c)
+
+end function unicon_cam_int
+
+!==================================================================================================
+
+subroutine unicon_cam_finalize_namelist()
+
+   unicon_offline_dat_out = unicon_cam_flag(unicon_offline_dat_out)
+   unicon_offline_dat_hfile = unicon_cam_int(unicon_offline_dat_hfile)
+
+end subroutine unicon_cam_finalize_namelist
+
 !==================================================================================================
   
 !> \brief Read namelist group unicon_nl
@@ -170,6 +293,8 @@ subroutine unicon_cam_readnl(nlfile)
    call mpibcast (unicon_offline_dat_out,   1,  mpilog, 0, mpicom)
    call mpibcast (unicon_offline_dat_hfile, 1,  mpiint, 0, mpicom)
 #endif
+
+   call unicon_cam_finalize_namelist()
 
 end subroutine unicon_cam_readnl
 
