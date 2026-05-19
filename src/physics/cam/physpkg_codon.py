@@ -3340,3 +3340,37 @@ def radiation_data_flag_codon(flag: int) -> int:
     if flag != 0:
         return 1
     return 0
+
+
+@export
+def cosp_set_values_basic_codon(
+    nlr: int,
+    use_vgrid: int,
+    csat_vgrid: int,
+    ncolumns: int,
+    nradsteps: int,
+    nht_current: int,
+    nht_p: cobj,
+    nscol_p: cobj,
+    nradsteps_p: cobj,
+    zstep_p: cobj,
+):
+    nht = Ptr[int](nht_p)
+    nscol = Ptr[int](nscol_p)
+    nradsteps_out = Ptr[int](nradsteps_p)
+    zstep = Ptr[float](zstep_p)
+
+    nht_value = nht_current
+    zstep_value = 0.0
+    if use_vgrid != 0:
+        if csat_vgrid != 0:
+            nht_value = 40
+            zstep_value = 480.0
+        else:
+            nht_value = nlr
+            zstep_value = 20000.0 / float(nlr)
+
+    nht[0] = nht_value
+    nscol[0] = ncolumns
+    nradsteps_out[0] = nradsteps
+    zstep[0] = zstep_value

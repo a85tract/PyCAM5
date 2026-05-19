@@ -45,6 +45,8 @@ module cospsimulator_intr
    use cam_abortutils,  only: endrun
    use cam_pio_utils,   only: max_chars
    use phys_control,    only: cam_physpkg_is
+   use cam_logfile,     only: iulog
+   use iso_c_binding,   only: c_int64_t, c_double, c_ptr
 
    implicit none
    private
@@ -329,11 +331,154 @@ module cospsimulator_intr
     integer :: cvreffice_idx, dpcldliq_idx, dpcldice_idx
     integer :: shcldliq_idx, shcldice_idx, shcldliq1_idx, shcldice1_idx, dpflxprc_idx
     integer :: dpflxsnw_idx, shflxprc_idx, shflxsnw_idx, lsflxprc_idx, lsflxsnw_idx
-    integer:: rei_idx, rel_idx
+   integer:: rei_idx, rel_idx
 
+   logical :: use_native_cosp_set_values_impl = .false.
+   logical :: cosp_set_values_impl_selected = .false.
+   logical :: cosp_set_values_proof_written = .false.
+
+   interface
+      subroutine cosp_set_values_basic_codon(nlr_c, use_vgrid_c, csat_vgrid_c, ncolumns_c, &
+           nradsteps_c, nht_current_c, nht_p, nscol_p, nradsteps_p, zstep_p) &
+           bind(c, name="cosp_set_values_basic_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: nlr_c, use_vgrid_c, csat_vgrid_c, ncolumns_c
+         integer(c_int64_t), value :: nradsteps_c, nht_current_c
+         type(c_ptr), value :: nht_p, nscol_p, nradsteps_p, zstep_p
+      end subroutine cosp_set_values_basic_codon
+   end interface
 
 
 CONTAINS
+
+subroutine cosp_set_values_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cosp_set_values_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('COSP_SET_VALUES_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_cosp_set_values_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_cosp_set_values_impl = .false.
+   end if
+
+   cosp_set_values_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_cosp_set_values_impl) then
+         write(iulog,*) 'cosp_set_values implementation = native'
+      else
+         write(iulog,*) 'cosp_set_values implementation = codon'
+      end if
+   end if
+
+end subroutine cosp_set_values_select_impl
+
+!------------------------------------------------------------------------------
+
+subroutine cosp_set_values_proof_once()
+
+   if (cosp_set_values_proof_written) return
+   cosp_set_values_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'cosp_set_values entered (vertical grid and subcolumn setup = codon)'
+   end if
+
+end subroutine cosp_set_values_proof_once
+
+!------------------------------------------------------------------------------
+
+subroutine cosp_set_values_basic(Nlr_in, use_vgrid_in, csat_vgrid_in, Ncolumns_in, &
+                                 cosp_nradsteps_in, zstep)
+
+   use iso_c_binding, only: c_loc
+
+   integer, intent(in) :: Nlr_in
+   logical, intent(in) :: use_vgrid_in
+   logical, intent(in) :: csat_vgrid_in
+   integer, intent(in) :: Ncolumns_in
+   integer, intent(in) :: cosp_nradsteps_in
+   real(r8), intent(out) :: zstep
+
+   integer(c_int64_t) :: use_vgrid_c, csat_vgrid_c
+   integer(c_int64_t), target :: nht_out, nscol_out, nradsteps_out
+   real(r8), target :: zstep_out
+
+   call cosp_set_values_select_impl()
+
+   if (use_native_cosp_set_values_impl) then
+      call cosp_set_values_basic_native(Nlr_in, use_vgrid_in, csat_vgrid_in, Ncolumns_in, &
+           cosp_nradsteps_in, zstep)
+      return
+   end if
+
+   if (use_vgrid_in) then
+      use_vgrid_c = 1_c_int64_t
+   else
+      use_vgrid_c = 0_c_int64_t
+   end if
+   if (csat_vgrid_in) then
+      csat_vgrid_c = 1_c_int64_t
+   else
+      csat_vgrid_c = 0_c_int64_t
+   end if
+
+   call cosp_set_values_proof_once()
+   call cosp_set_values_basic_codon(int(Nlr_in, c_int64_t), use_vgrid_c, csat_vgrid_c, &
+        int(Ncolumns_in, c_int64_t), int(cosp_nradsteps_in, c_int64_t), int(nht_cosp, c_int64_t), &
+        c_loc(nht_out), c_loc(nscol_out), c_loc(nradsteps_out), c_loc(zstep_out))
+
+   nht_cosp = int(nht_out)
+   nscol_cosp = int(nscol_out)
+   cosp_nradsteps = int(nradsteps_out)
+   zstep = zstep_out
+
+end subroutine cosp_set_values_basic
+
+!------------------------------------------------------------------------------
+
+subroutine cosp_set_values_basic_native(Nlr_in, use_vgrid_in, csat_vgrid_in, Ncolumns_in, &
+                                        cosp_nradsteps_in, zstep)
+
+   integer, intent(in) :: Nlr_in
+   logical, intent(in) :: use_vgrid_in
+   logical, intent(in) :: csat_vgrid_in
+   integer, intent(in) :: Ncolumns_in
+   integer, intent(in) :: cosp_nradsteps_in
+   real(r8), intent(out) :: zstep
+
+   ! set vertical grid, reference code from cosp_types.F90, line 549
+   ! used to set vgrid_bounds in cosp_io.f90, line 844
+   if (use_vgrid_in) then      !! using fixed vertical grid
+      if (csat_vgrid_in) then
+         nht_cosp = 40
+         zstep = 480.0_r8
+      else
+         nht_cosp = Nlr_in
+         zstep = 20000.0_r8/Nlr_in  ! constant vertical spacing, top at 20 km
+      end if
+   end if
+
+   ! set number of sub-columns using namelist input
+   nscol_cosp=Ncolumns_in
+
+   cosp_nradsteps = cosp_nradsteps_in
+
+end subroutine cosp_set_values_basic_native
+
+!------------------------------------------------------------------------------
 
 subroutine setcospvalues(Nlr_in,use_vgrid_in,csat_vgrid_in,Ncolumns_in,docosp_in,cosp_nradsteps_in)
 
@@ -349,27 +494,12 @@ subroutine setcospvalues(Nlr_in,use_vgrid_in,csat_vgrid_in,Ncolumns_in,docosp_in
    integer :: i,k		! indices
    real(r8) :: zstep
 
-   ! set vertical grid, reference code from cosp_types.F90, line 549
-   ! used to set vgrid_bounds in cosp_io.f90, line 844
-   if (use_vgrid_in) then		!! using fixed vertical grid
-   	if (csat_vgrid_in) then
-     	   nht_cosp = 40
-     	   zstep = 480.0_r8
-   	else
-     	   nht_cosp = Nlr_in
-     	   zstep = 20000.0_r8/Nlr_in  ! constant vertical spacing, top at 20 km
-   	end if
-   end if
+   call cosp_set_values_basic(Nlr_in, use_vgrid_in, csat_vgrid_in, Ncolumns_in, cosp_nradsteps_in, zstep)
 
 !  if (use_vgrid_in=.false.) then    !using the model vertical height grid
 !	nht_cosp = pver
 !	htlim_cosp = (/0._r8/) ##2check##
 !  end if
-
-   ! set number of sub-columns using namelist input
-   nscol_cosp=Ncolumns_in
-
-   cosp_nradsteps = cosp_nradsteps_in
   
    ! need to allocate memory for these variables
    allocate(htlim_cosp(2,nht_cosp),htlim_cosp_1d(nht_cosp+1),htmid_cosp(nht_cosp),scol_cosp(nscol_cosp),&
