@@ -3157,3 +3157,31 @@ def ghg_data_mw_ratios_codon(
     rmwf11[0] = mwf11 / mwdry
     rmwf12[0] = mwf12 / mwdry
     rmwco2[0] = mwco2 / mwdry
+
+
+@export
+def rad_cnst_out_mass_cb_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    rga: float,
+    mmr_p: cobj,
+    pdeldry_p: cobj,
+    mass_p: cobj,
+    cb_p: cobj,
+):
+    mmr = Ptr[float](mmr_p)
+    pdeldry = Ptr[float](pdeldry_p)
+    mass = Ptr[float](mass_p)
+    cb = Ptr[float](cb_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _field2_idx(i, k, pcols)
+            mass[idx] = (mmr[idx] * pdeldry[idx]) * rga
+
+    for i in range(1, ncol + 1):
+        total = 0.0
+        for k in range(1, pver + 1):
+            total = total + mass[_field2_idx(i, k, pcols)]
+        cb[i - 1] = total

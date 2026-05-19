@@ -21,6 +21,7 @@ use phys_prop,      only: physprop_accum_unique_files, physprop_init, &
                           physprop_get_id, physprop_get
 use cam_history,    only: addfld, fieldname_len, phys_decomp, outfld
 use physics_buffer, only: physics_buffer_desc, pbuf_get_field, pbuf_get_index
+use iso_c_binding,  only: c_int64_t, c_double, c_ptr
 
 
 use error_messages, only: alloc_err   
@@ -205,6 +206,10 @@ end interface
 logical :: verbose = .true.
 character(len=1), parameter :: nl = achar(10)
 
+logical :: use_native_rad_cnst_out_mass_impl = .false.
+logical :: rad_cnst_out_mass_impl_selected = .false.
+logical :: rad_cnst_out_mass_proof_written = .false.
+
 integer, parameter :: num_mode_types = 8
 integer, parameter :: num_spec_types = 8
 character(len=14), parameter :: mode_type_names(num_mode_types) = (/ &
@@ -214,10 +219,107 @@ character(len=9), parameter :: spec_type_names(num_spec_types) = (/ &
    'sulfate  ', 'ammonium ', 'nitrate  ', 'p-organic', &
    's-organic', 'black-c  ', 'seasalt  ', 'dust     '/)
 
+interface
+   subroutine rad_cnst_out_mass_cb_codon(ncol_c, pcols_c, pver_c, rga_c, &
+        mmr_p, pdeldry_p, mass_p, cb_p) bind(c, name="rad_cnst_out_mass_cb_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+      real(c_double), value :: rga_c
+      type(c_ptr), value :: mmr_p, pdeldry_p, mass_p, cb_p
+   end subroutine rad_cnst_out_mass_cb_codon
+end interface
+
 
 !==============================================================================
 contains
 !==============================================================================
+
+subroutine rad_cnst_out_mass_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (rad_cnst_out_mass_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('RAD_CNST_OUT_MASS_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_rad_cnst_out_mass_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_rad_cnst_out_mass_impl = .false.
+   end if
+
+   rad_cnst_out_mass_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_rad_cnst_out_mass_impl) then
+         write(iulog,*) 'rad_cnst_out_mass implementation = native'
+      else
+         write(iulog,*) 'rad_cnst_out_mass implementation = codon'
+      end if
+   end if
+
+end subroutine rad_cnst_out_mass_select_impl
+
+!==============================================================================
+
+subroutine rad_cnst_out_mass_proof_once()
+
+   if (rad_cnst_out_mass_proof_written) return
+   rad_cnst_out_mass_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'rad_cnst_out_mass entered (constituent mass and column burden = codon)'
+   end if
+
+end subroutine rad_cnst_out_mass_proof_once
+
+!==============================================================================
+
+subroutine rad_cnst_out_mass_cb(ncol, mmr, pdeldry, mass, cb)
+
+   use iso_c_binding, only: c_loc
+
+   integer,  intent(in)  :: ncol
+   real(r8), intent(in),  target :: mmr(pcols,pver)
+   real(r8), intent(in),  target :: pdeldry(pcols,pver)
+   real(r8), intent(out), target :: mass(pcols,pver)
+   real(r8), intent(out), target :: cb(pcols)
+
+   call rad_cnst_out_mass_select_impl()
+
+   if (use_native_rad_cnst_out_mass_impl) then
+      call rad_cnst_out_mass_cb_native(ncol, mmr, pdeldry, mass, cb)
+      return
+   end if
+
+   call rad_cnst_out_mass_proof_once()
+   call rad_cnst_out_mass_cb_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        real(rga, c_double), c_loc(mmr(1,1)), c_loc(pdeldry(1,1)), c_loc(mass(1,1)), c_loc(cb(1)))
+
+end subroutine rad_cnst_out_mass_cb
+
+!==============================================================================
+
+subroutine rad_cnst_out_mass_cb_native(ncol, mmr, pdeldry, mass, cb)
+
+   integer,  intent(in)  :: ncol
+   real(r8), intent(in)  :: mmr(pcols,pver)
+   real(r8), intent(in)  :: pdeldry(pcols,pver)
+   real(r8), intent(out) :: mass(pcols,pver)
+   real(r8), intent(out) :: cb(pcols)
+
+   mass(:ncol,:) = mmr(:ncol,:) * pdeldry(:ncol,:) * rga
+   cb(:ncol) = sum(mass(:ncol,:),2)
+
+end subroutine rad_cnst_out_mass_cb_native
 
 subroutine rad_cnst_readnl(nlfile)
 
@@ -888,8 +990,8 @@ subroutine rad_cnst_out(list_idx, state, pbuf)
    integer :: idx
    character(len=1)  :: source
    character(len=32) :: name, cbname
-   real(r8)          :: mass(pcols,pver)
-   real(r8)          :: cb(pcols)
+   real(r8), target  :: mass(pcols,pver)
+   real(r8), target  :: cb(pcols)
    real(r8), pointer :: mmr(:,:)
    type(aerlist_t), pointer :: aerlist
    type(gaslist_t), pointer :: g_list
@@ -923,10 +1025,9 @@ subroutine rad_cnst_out(list_idx, state, pbuf)
          call pbuf_get_field(pbuf, idx, mmr)
       end select
 
-      mass(:ncol,:) = mmr(:ncol,:) * state%pdeldry(:ncol,:) * rga
+      call rad_cnst_out_mass_cb(ncol, mmr, state%pdeldry, mass, cb)
       call outfld(trim(name), mass, pcols, lchnk)
 
-      cb(:ncol) = sum(mass(:ncol,:),2)
       call outfld(trim(cbname), cb, pcols, lchnk)
 
    end do
@@ -948,10 +1049,9 @@ subroutine rad_cnst_out(list_idx, state, pbuf)
          call pbuf_get_field(pbuf, idx, mmr)
       end select
 
-      mass(:ncol,:) = mmr(:ncol,:) * state%pdeldry(:ncol,:) * rga
+      call rad_cnst_out_mass_cb(ncol, mmr, state%pdeldry, mass, cb)
       call outfld(trim(name), mass, pcols, lchnk)
 
-      cb(:ncol) = sum(mass(:ncol,:),2)
       call outfld(trim(cbname), cb, pcols, lchnk)
 
    end do
