@@ -38,6 +38,9 @@ module micro_mg_utils
 #ifndef HAVE_GAMMA_INTRINSICS
 use shr_spfn_mod, only: gamma => shr_spfn_gamma
 #endif
+use spmd_utils,    only: masterproc
+use cam_logfile,   only: iulog
+use iso_c_binding, only: c_double, c_ptr
 
 implicit none
 private
@@ -180,22 +183,132 @@ real(r8), parameter :: droplet_mass_25um = 4._r8/3._r8*pi*rhow*(25.e-6_r8)**3
 !=========================================================
 
 ! Set using arguments to micro_mg_init
-real(r8) :: rv          ! water vapor gas constant
-real(r8) :: cpp         ! specific heat of dry air
-real(r8) :: tmelt       ! freezing point of water (K)
+real(r8), target :: rv          ! water vapor gas constant
+real(r8), target :: cpp         ! specific heat of dry air
+real(r8), target :: tmelt       ! freezing point of water (K)
 
 ! latent heats of:
-real(r8) :: xxlv        ! vaporization
-real(r8) :: xlf         ! freezing
-real(r8) :: xxls        ! sublimation
+real(r8), target :: xxlv        ! vaporization
+real(r8), target :: xlf         ! freezing
+real(r8), target :: xxls        ! sublimation
 
 ! additional constants to help speed up code
 real(r8) :: gamma_bs_plus3
 real(r8) :: gamma_half_br_plus5
 real(r8) :: gamma_half_bs_plus5
 
+logical :: use_native_micro_mg_utils_init_impl = .false.
+logical :: micro_mg_utils_init_impl_selected = .false.
+logical :: micro_mg_utils_init_proof_written = .false.
+
+interface
+  subroutine micro_mg_utils_init_scalars_codon(rh2o_c, cpair_c, tmelt_c, latvap_c, latice_c, &
+       rv_p, cpp_p, tmelt_p, xxlv_p, xlf_p, xxls_p) bind(c, name="micro_mg_utils_init_scalars_codon")
+    use iso_c_binding, only: c_double, c_ptr
+    real(c_double), value :: rh2o_c, cpair_c, tmelt_c, latvap_c, latice_c
+    type(c_ptr), value :: rv_p, cpp_p, tmelt_p, xxlv_p, xlf_p, xxls_p
+  end subroutine micro_mg_utils_init_scalars_codon
+end interface
+
 !==========================================================================
 contains
+!==========================================================================
+
+subroutine micro_mg_utils_init_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (micro_mg_utils_init_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MICRO_MG_UTILS_INIT_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_micro_mg_utils_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_micro_mg_utils_init_impl = .false.
+  end if
+
+  micro_mg_utils_init_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_micro_mg_utils_init_impl) then
+        write(iulog,*) 'micro_mg_utils_init implementation = native'
+     else
+        write(iulog,*) 'micro_mg_utils_init implementation = codon'
+     end if
+  end if
+
+end subroutine micro_mg_utils_init_select_impl
+
+!==========================================================================
+
+subroutine micro_mg_utils_init_proof_once()
+
+  if (micro_mg_utils_init_proof_written) return
+  micro_mg_utils_init_proof_written = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') 'micro_mg_utils_init entered (scalar thermodynamic constants = codon)'
+  end if
+
+end subroutine micro_mg_utils_init_proof_once
+
+!==========================================================================
+
+subroutine micro_mg_utils_init_scalars(rh2o, cpair, tmelt_in, latvap, latice)
+
+  use iso_c_binding, only: c_loc
+
+  real(r8), intent(in) :: rh2o
+  real(r8), intent(in) :: cpair
+  real(r8), intent(in) :: tmelt_in
+  real(r8), intent(in) :: latvap
+  real(r8), intent(in) :: latice
+
+  call micro_mg_utils_init_select_impl()
+
+  if (use_native_micro_mg_utils_init_impl) then
+     call micro_mg_utils_init_scalars_native(rh2o, cpair, tmelt_in, latvap, latice)
+     return
+  end if
+
+  call micro_mg_utils_init_proof_once()
+  call micro_mg_utils_init_scalars_codon(real(rh2o, c_double), real(cpair, c_double), &
+       real(tmelt_in, c_double), real(latvap, c_double), real(latice, c_double), &
+       c_loc(rv), c_loc(cpp), c_loc(tmelt), c_loc(xxlv), c_loc(xlf), c_loc(xxls))
+
+end subroutine micro_mg_utils_init_scalars
+
+!==========================================================================
+
+subroutine micro_mg_utils_init_scalars_native(rh2o, cpair, tmelt_in, latvap, latice)
+
+  real(r8), intent(in) :: rh2o
+  real(r8), intent(in) :: cpair
+  real(r8), intent(in) :: tmelt_in
+  real(r8), intent(in) :: latvap
+  real(r8), intent(in) :: latice
+
+  ! declarations for MG code (transforms variable names)
+  rv= rh2o                  ! water vapor gas constant
+  cpp = cpair               ! specific heat of dry air
+  tmelt = tmelt_in
+
+  ! latent heats
+  xxlv = latvap         ! latent heat vaporization
+  xlf  = latice         ! latent heat freezing
+  xxls = xxlv + xlf     ! latent heat of sublimation
+
+end subroutine micro_mg_utils_init_scalars_native
+
 !==========================================================================
 
 ! Initialize module variables.
@@ -234,17 +347,7 @@ subroutine micro_mg_utils_init( kind, rh2o, cpair, tmelt_in, latvap, &
      return
   endif
 
-  ! declarations for MG code (transforms variable names)
-
-  rv= rh2o                  ! water vapor gas constant
-  cpp = cpair               ! specific heat of dry air
-  tmelt = tmelt_in
-
-  ! latent heats
-
-  xxlv = latvap         ! latent heat vaporization
-  xlf  = latice         ! latent heat freezing
-  xxls = xxlv + xlf     ! latent heat of sublimation
+  call micro_mg_utils_init_scalars(rh2o, cpair, tmelt_in, latvap, latice)
 
   ! Define constants to help speed up code (this limits calls to gamma function)
   gamma_bs_plus3=gamma(3._r8+bs)

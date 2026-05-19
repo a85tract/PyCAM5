@@ -3304,3 +3304,32 @@ def aer_rad_props_lw_setup_codon(
             krh_value = min(int(floor(rhtrunc * float(nrh))) + 1, nrh - 1)
             krh[idx2] = i32(krh_value)
             wrh[idx2] = rhtrunc * float(nrh) - float(krh_value)
+
+
+@export
+def micro_mg_utils_init_scalars_codon(
+    rh2o: float,
+    cpair: float,
+    tmelt_in: float,
+    latvap: float,
+    latice: float,
+    rv_p: cobj,
+    cpp_p: cobj,
+    tmelt_p: cobj,
+    xxlv_p: cobj,
+    xlf_p: cobj,
+    xxls_p: cobj,
+):
+    rv = Ptr[float](rv_p)
+    cpp = Ptr[float](cpp_p)
+    tmelt = Ptr[float](tmelt_p)
+    xxlv = Ptr[float](xxlv_p)
+    xlf = Ptr[float](xlf_p)
+    xxls = Ptr[float](xxls_p)
+
+    rv[0] = rh2o
+    cpp[0] = cpair
+    tmelt[0] = tmelt_in
+    xxlv[0] = latvap
+    xlf[0] = latice
+    xxls[0] = xxlv[0] + xlf[0]
