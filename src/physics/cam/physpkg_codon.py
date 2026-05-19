@@ -1,4 +1,4 @@
-from math import exp, log
+from math import exp, log, sqrt
 
 @export
 def phys_timestep_init_select_branches_codon(
@@ -2617,3 +2617,93 @@ def ref_pres_init_finalize_codon(
     else:
         flag_out[0] = 0
         int_out[2] = 0
+
+
+@inline
+def _trb_mtn_idx(i: int, k: int, pcols: int) -> int:
+    """trb_mtn_stress arrays declared as (pcols,pver)."""
+    return (i - 1) + (k - 1) * pcols
+
+
+@export
+def trb_mtn_stress_compute_codon(
+    pcols: int,
+    pver: int,
+    ncol: int,
+    orocnst: float,
+    z0fac: float,
+    karman: float,
+    gravit: float,
+    rair: float,
+    u_p: cobj,
+    v_p: cobj,
+    t_p: cobj,
+    pmid_p: cobj,
+    exner_p: cobj,
+    zm_p: cobj,
+    sgh_p: cobj,
+    landfrac_p: cobj,
+    ksrf_p: cobj,
+    taux_p: cobj,
+    tauy_p: cobj,
+):
+    u = Ptr[float](u_p)
+    v = Ptr[float](v_p)
+    t = Ptr[float](t_p)
+    pmid = Ptr[float](pmid_p)
+    exner = Ptr[float](exner_p)
+    zm = Ptr[float](zm_p)
+    sgh = Ptr[float](sgh_p)
+    landfrac = Ptr[float](landfrac_p)
+    ksrf = Ptr[float](ksrf_p)
+    taux = Ptr[float](taux_p)
+    tauy = Ptr[float](tauy_p)
+
+    horomin = 1.0
+    z0max = 100.0
+    dv2min = 0.01
+    kt = pver - 1
+    kb = pver
+
+    for i in range(1, ncol + 1):
+        horo = orocnst * sgh[i - 1]
+
+        if horo < horomin:
+            ksrf[i - 1] = 0.0
+            taux[i - 1] = 0.0
+            tauy[i - 1] = 0.0
+        else:
+            z0oro = min(z0fac * horo, z0max)
+            cd = (karman / log((zm[_trb_mtn_idx(i, pver, pcols)] + z0oro) / z0oro)) ** 2
+
+            dv2 = max(
+                (u[_trb_mtn_idx(i, kt, pcols)] - u[_trb_mtn_idx(i, kb, pcols)]) ** 2
+                + (v[_trb_mtn_idx(i, kt, pcols)] - v[_trb_mtn_idx(i, kb, pcols)]) ** 2,
+                dv2min,
+            )
+
+            ri = (
+                2.0
+                * gravit
+                * (
+                    t[_trb_mtn_idx(i, kt, pcols)] * exner[_trb_mtn_idx(i, kt, pcols)]
+                    - t[_trb_mtn_idx(i, kb, pcols)] * exner[_trb_mtn_idx(i, kb, pcols)]
+                )
+                * (zm[_trb_mtn_idx(i, kt, pcols)] - zm[_trb_mtn_idx(i, kb, pcols)])
+                / (
+                    (
+                        t[_trb_mtn_idx(i, kt, pcols)] * exner[_trb_mtn_idx(i, kt, pcols)]
+                        + t[_trb_mtn_idx(i, kb, pcols)] * exner[_trb_mtn_idx(i, kb, pcols)]
+                    )
+                    * dv2
+                )
+            )
+
+            stabfri = max(0.0, min(1.0, 1.0 - ri))
+            cd = cd * stabfri
+
+            rho = pmid[_trb_mtn_idx(i, pver, pcols)] / (rair * t[_trb_mtn_idx(i, pver, pcols)])
+            vmag = sqrt(u[_trb_mtn_idx(i, pver, pcols)] ** 2 + v[_trb_mtn_idx(i, pver, pcols)] ** 2)
+            ksrf[i - 1] = rho * cd * vmag * landfrac[i - 1]
+            taux[i - 1] = -ksrf[i - 1] * u[_trb_mtn_idx(i, pver, pcols)]
+            tauy[i - 1] = -ksrf[i - 1] * v[_trb_mtn_idx(i, pver, pcols)]

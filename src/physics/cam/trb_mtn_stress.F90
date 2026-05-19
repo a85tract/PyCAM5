@@ -22,7 +22,82 @@ module trb_mtn_stress
   real(r8)            :: gravit               ! Acceleration due to gravity
   real(r8)            :: rair                 ! Gas constant for dry air
 
+  logical             :: use_native_tms_impl = .false.
+  logical             :: tms_impl_selected = .false.
+  logical             :: tms_proof_written = .false.
+
+  interface
+     subroutine trb_mtn_stress_compute_codon(pcols_c, pver_c, ncol_c, orocnst_c, z0fac_c, karman_c, gravit_c, rair_c, &
+          u_p, v_p, t_p, pmid_p, exner_p, zm_p, sgh_p, landfrac_p, ksrf_p, taux_p, tauy_p) &
+          bind(c, name="trb_mtn_stress_compute_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: pcols_c, pver_c, ncol_c
+       real(c_double), value :: orocnst_c, z0fac_c, karman_c, gravit_c, rair_c
+       type(c_ptr), value :: u_p, v_p, t_p, pmid_p, exner_p, zm_p
+       type(c_ptr), value :: sgh_p, landfrac_p, ksrf_p, taux_p, tauy_p
+     end subroutine trb_mtn_stress_compute_codon
+  end interface
+
 contains
+
+  !============================================================================ !
+  !                                                                             !
+  !============================================================================ !
+
+  subroutine tms_select_impl()
+
+    use cam_logfile, only: iulog
+    use spmd_utils,  only: masterproc
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (tms_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('TRB_MTN_STRESS_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_tms_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_tms_impl = .false.
+    end if
+
+    tms_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_tms_impl) then
+          write(iulog,*) 'trb_mtn_stress implementation = native'
+       else
+          write(iulog,*) 'trb_mtn_stress implementation = codon'
+       end if
+    end if
+
+  end subroutine tms_select_impl
+
+  !============================================================================ !
+  !                                                                             !
+  !============================================================================ !
+
+  subroutine tms_proof_once()
+
+    use cam_logfile, only: iulog
+    use spmd_utils,  only: masterproc
+
+    if (tms_proof_written) return
+    tms_proof_written = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'trb_mtn_stress compute_tms entered (surface drag helper = codon)'
+    end if
+
+  end subroutine tms_proof_once
 
   !============================================================================ !
   !                                                                             !
@@ -57,6 +132,40 @@ contains
   !============================================================================ !
 
   subroutine compute_tms( pcols    , pver    , ncol    ,                     &
+                          u        , v       , t       , pmid    , exner   , &
+                          zm       , sgh     , ksrf    , taux    , tauy    , &
+                          landfrac )
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
+
+    integer,  intent(in)  :: pcols
+    integer,  intent(in)  :: pver
+    integer,  intent(in)  :: ncol
+    real(r8), target, intent(in)  :: u(pcols,pver), v(pcols,pver), t(pcols,pver)
+    real(r8), target, intent(in)  :: pmid(pcols,pver), exner(pcols,pver), zm(pcols,pver)
+    real(r8), target, intent(in)  :: sgh(pcols), landfrac(pcols)
+    real(r8), target, intent(out) :: ksrf(pcols), taux(pcols), tauy(pcols)
+
+    call tms_select_impl()
+
+    if (use_native_tms_impl) then
+       call compute_tms_native(pcols, pver, ncol, u, v, t, pmid, exner, zm, sgh, ksrf, taux, tauy, landfrac)
+       return
+    end if
+
+    call tms_proof_once()
+    call trb_mtn_stress_compute_codon(int(pcols, c_int64_t), int(pver, c_int64_t), int(ncol, c_int64_t), &
+         real(orocnst, c_double), real(z0fac, c_double), real(karman, c_double), real(gravit, c_double), &
+         real(rair, c_double), c_loc(u(1,1)), c_loc(v(1,1)), c_loc(t(1,1)), c_loc(pmid(1,1)), c_loc(exner(1,1)), &
+         c_loc(zm(1,1)), c_loc(sgh(1)), c_loc(landfrac(1)), c_loc(ksrf(1)), c_loc(taux(1)), c_loc(tauy(1)))
+
+  end subroutine compute_tms
+
+  !============================================================================ !
+  !                                                                             !
+  !============================================================================ !
+
+  subroutine compute_tms_native( pcols    , pver    , ncol    ,                     &
                           u        , v       , t       , pmid    , exner   , &
                           zm       , sgh     , ksrf    , taux    , tauy    , & 
                           landfrac )
@@ -175,6 +284,6 @@ contains
     end do
     
     return
-  end subroutine compute_tms
+  end subroutine compute_tms_native
 
 end module trb_mtn_stress
