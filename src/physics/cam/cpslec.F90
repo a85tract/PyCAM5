@@ -1,6 +1,105 @@
 
 subroutine cpslec (ncol, pmid, phis, ps, t, psl, gravit, rair)
 
+  use shr_kind_mod, only: r8 => shr_kind_r8
+  use ppgrid, only: pcols, pver
+  use cam_logfile, only: iulog
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  use spmd_utils, only: masterproc
+
+  implicit none
+
+  integer , intent(in) :: ncol
+  real(r8), intent(in), target :: pmid(pcols,pver)
+  real(r8), intent(in), target :: phis(pcols)
+  real(r8), intent(in), target :: ps(pcols)
+  real(r8), intent(in), target :: t(pcols,pver)
+  real(r8), intent(out), target :: psl(pcols)
+  real(r8), intent(in) :: gravit
+  real(r8), intent(in) :: rair
+
+  logical, save :: use_native_cpslec_impl = .false.
+  logical, save :: cpslec_impl_selected = .false.
+  logical, save :: cpslec_proof_written = .false.
+
+  interface
+     subroutine cpslec_codon(ncol_c, pmid_p, phis_p, ps_p, t_p, psl_p, gravit_c, &
+          rair_c, pcols_c, pver_c) bind(c, name="cpslec_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: ncol_c
+        type(c_ptr), value :: pmid_p, phis_p, ps_p, t_p, psl_p
+        real(c_double), value :: gravit_c
+        real(c_double), value :: rair_c
+        integer(c_int64_t), value :: pcols_c
+        integer(c_int64_t), value :: pver_c
+     end subroutine cpslec_codon
+  end interface
+
+  call cpslec_select_impl()
+
+  if (use_native_cpslec_impl) then
+     call cpslec_native(ncol, pmid, phis, ps, t, psl, gravit, rair)
+     return
+  end if
+
+  call cpslec_proof_once()
+  call cpslec_codon(int(ncol, c_int64_t), c_loc(pmid(1,1)), c_loc(phis(1)), &
+       c_loc(ps(1)), c_loc(t(1,1)), c_loc(psl(1)), real(gravit, c_double), &
+       real(rair, c_double), int(pcols, c_int64_t), int(pver, c_int64_t))
+
+  return
+
+contains
+
+subroutine cpslec_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (cpslec_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('CPSLEC_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_cpslec_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_cpslec_impl = .false.
+  end if
+
+  cpslec_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_cpslec_impl) then
+        write(iulog,*) 'cpslec implementation = native'
+     else
+        write(iulog,*) 'cpslec implementation = codon'
+     end if
+  end if
+
+end subroutine cpslec_select_impl
+
+subroutine cpslec_proof_once()
+
+  if (cpslec_proof_written) return
+  cpslec_proof_written = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') 'cpslec entered (sea-level pressure loop = codon)'
+  end if
+
+end subroutine cpslec_proof_once
+
+end subroutine cpslec
+
+subroutine cpslec_native (ncol, pmid, phis, ps, t, psl, gravit, rair)
+
 !----------------------------------------------------------------------- 
 ! 
 ! Purpose: 
@@ -78,4 +177,4 @@ subroutine cpslec (ncol, pmid, phis, ps, t, psl, gravit, rair)
   enddo
 
   return
-end subroutine cpslec
+end subroutine cpslec_native

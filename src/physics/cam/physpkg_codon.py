@@ -3525,3 +3525,49 @@ def hetfrz_classnuc_cam_flag_codon(flag: int) -> int:
     if flag != 0:
         return 1
     return 0
+
+
+@export
+def cpslec_codon(
+    ncol: int,
+    pmid_p: cobj,
+    phis_p: cobj,
+    ps_p: cobj,
+    t_p: cobj,
+    psl_p: cobj,
+    gravit: float,
+    rair: float,
+    pcols: int,
+    pver: int,
+):
+    pmid = Ptr[float](pmid_p)
+    phis = Ptr[float](phis_p)
+    ps = Ptr[float](ps_p)
+    temp = Ptr[float](t_p)
+    psl = Ptr[float](psl_p)
+
+    xlapse = 6.5e-3
+    alpha = rair * xlapse / gravit
+    kbot_offset = (pver - 1) * pcols
+
+    for i in range(ncol):
+        if abs(phis[i] / gravit) < 1.0e-4:
+            psl[i] = ps[i]
+        else:
+            tstar = temp[i + kbot_offset] * (1.0 + alpha * (ps[i] / pmid[i + kbot_offset] - 1.0))
+            tt0 = tstar + xlapse * phis[i] / gravit
+
+            alph = 0.0
+            if tstar <= 290.5 and tt0 > 290.5:
+                alph = rair / phis[i] * (290.5 - tstar)
+            elif tstar > 290.5 and tt0 > 290.5:
+                alph = 0.0
+                tstar = 0.5 * (290.5 + tstar)
+            else:
+                alph = alpha
+                if tstar < 255.0:
+                    tstar = 0.5 * (255.0 + tstar)
+
+            beta = phis[i] / (rair * tstar)
+            ab = alph * beta
+            psl[i] = ps[i] * exp(beta * (1.0 - alph * beta / 2.0 + (ab**2.0) / 3.0))
