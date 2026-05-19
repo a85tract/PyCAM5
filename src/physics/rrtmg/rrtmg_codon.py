@@ -8525,6 +8525,63 @@ def rrtmg_sw_spcvmc_flux_codon(
             pnifu[ikl_idx] = pnifu[ikl_idx] + zincflx[iw - 1] * zfu[_idx2(jk, iw, ldlev)]
 
 
+@export
+def rrtmg_sw_spcvmc_zero_outputs_codon(
+    klev: int,
+    pbbcd_p: cobj,
+    pbbcu_p: cobj,
+    pbbfd_p: cobj,
+    pbbfu_p: cobj,
+    pbbcddir_p: cobj,
+    pbbfddir_p: cobj,
+    puvcd_p: cobj,
+    puvfd_p: cobj,
+    puvcddir_p: cobj,
+    puvfddir_p: cobj,
+    pnicd_p: cobj,
+    pnifd_p: cobj,
+    pnicddir_p: cobj,
+    pnifddir_p: cobj,
+    pnicu_p: cobj,
+    pnifu_p: cobj,
+):
+    pbbcd = Ptr[float](pbbcd_p)
+    pbbcu = Ptr[float](pbbcu_p)
+    pbbfd = Ptr[float](pbbfd_p)
+    pbbfu = Ptr[float](pbbfu_p)
+    pbbcddir = Ptr[float](pbbcddir_p)
+    pbbfddir = Ptr[float](pbbfddir_p)
+    puvcd = Ptr[float](puvcd_p)
+    puvfd = Ptr[float](puvfd_p)
+    puvcddir = Ptr[float](puvcddir_p)
+    puvfddir = Ptr[float](puvfddir_p)
+    pnicd = Ptr[float](pnicd_p)
+    pnifd = Ptr[float](pnifd_p)
+    pnicddir = Ptr[float](pnicddir_p)
+    pnifddir = Ptr[float](pnifddir_p)
+    pnicu = Ptr[float](pnicu_p)
+    pnifu = Ptr[float](pnifu_p)
+
+    for jk in range(1, klev + 2):
+        idx = jk - 1
+        pbbcd[idx] = 0.0
+        pbbcu[idx] = 0.0
+        pbbfd[idx] = 0.0
+        pbbfu[idx] = 0.0
+        pbbcddir[idx] = 0.0
+        pbbfddir[idx] = 0.0
+        puvcd[idx] = 0.0
+        puvfd[idx] = 0.0
+        puvcddir[idx] = 0.0
+        puvfddir[idx] = 0.0
+        pnicd[idx] = 0.0
+        pnifd[idx] = 0.0
+        pnicddir[idx] = 0.0
+        pnifddir[idx] = 0.0
+        pnicu[idx] = 0.0
+        pnifu[idx] = 0.0
+
+
 @inline
 def _rrtmg_lw_a0(iband: int) -> float:
     if iband == 2:

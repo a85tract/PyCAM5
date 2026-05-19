@@ -323,6 +323,18 @@
             type(c_ptr), value :: puvcd_p, puvfd_p, puvcddir_p, puvfddir_p, pnicd_p, pnifd_p
             type(c_ptr), value :: pnicddir_p, pnifddir_p, pnicu_p, pnifu_p
          end subroutine rrtmg_sw_spcvmc_flux_codon
+
+         subroutine rrtmg_sw_spcvmc_zero_outputs_codon(klev_c, pbbcd_p, pbbcu_p, &
+              pbbfd_p, pbbfu_p, pbbcddir_p, pbbfddir_p, puvcd_p, puvfd_p, &
+              puvcddir_p, puvfddir_p, pnicd_p, pnifd_p, pnicddir_p, pnifddir_p, &
+              pnicu_p, pnifu_p) bind(c, name="rrtmg_sw_spcvmc_zero_outputs_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: klev_c
+            type(c_ptr), value :: pbbcd_p, pbbcu_p, pbbfd_p, pbbfu_p
+            type(c_ptr), value :: pbbcddir_p, pbbfddir_p, puvcd_p, puvfd_p
+            type(c_ptr), value :: puvcddir_p, puvfddir_p, pnicd_p, pnifd_p
+            type(c_ptr), value :: pnicddir_p, pnifddir_p, pnicu_p, pnifu_p
+         end subroutine rrtmg_sw_spcvmc_zero_outputs_codon
       end interface
 
 ! Inactive arrays
@@ -343,24 +355,36 @@
       repclc = 1.e-12_r8
 !      zincflux = 0.0_r8
 
-      do jk=1,klev+1
-         pbbcd(jk)=0._r8
-         pbbcu(jk)=0._r8
-         pbbfd(jk)=0._r8
-         pbbfu(jk)=0._r8
-         pbbcddir(jk)=0._r8
-         pbbfddir(jk)=0._r8
-         puvcd(jk)=0._r8
-         puvfd(jk)=0._r8
-         puvcddir(jk)=0._r8
-         puvfddir(jk)=0._r8
-         pnicd(jk)=0._r8
-         pnifd(jk)=0._r8
-         pnicddir(jk)=0._r8
-         pnifddir(jk)=0._r8
-         pnicu(jk)=0._r8
-         pnifu(jk)=0._r8
-      enddo
+      if (use_native_spcvmc_flux_impl) then
+         do jk=1,klev+1
+            pbbcd(jk)=0._r8
+            pbbcu(jk)=0._r8
+            pbbfd(jk)=0._r8
+            pbbfu(jk)=0._r8
+            pbbcddir(jk)=0._r8
+            pbbfddir(jk)=0._r8
+            puvcd(jk)=0._r8
+            puvfd(jk)=0._r8
+            puvcddir(jk)=0._r8
+            puvfddir(jk)=0._r8
+            pnicd(jk)=0._r8
+            pnifd(jk)=0._r8
+            pnicddir(jk)=0._r8
+            pnifddir(jk)=0._r8
+            pnicu(jk)=0._r8
+            pnifu(jk)=0._r8
+         enddo
+      else
+         call spcvmc_flux_log_entered()
+         call rrtmg_sw_spcvmc_zero_outputs_codon( &
+              int(klev, c_int64_t), c_loc(pbbcd(1)), c_loc(pbbcu(1)), &
+              c_loc(pbbfd(1)), c_loc(pbbfu(1)), c_loc(pbbcddir(1)), &
+              c_loc(pbbfddir(1)), c_loc(puvcd(1)), c_loc(puvfd(1)), &
+              c_loc(puvcddir(1)), c_loc(puvfddir(1)), c_loc(pnicd(1)), &
+              c_loc(pnifd(1)), c_loc(pnicddir(1)), c_loc(pnifddir(1)), &
+              c_loc(pnicu(1)), c_loc(pnifu(1)) &
+         )
+      endif
 
 
 ! Calculate the optical depths for gaseous absorption and Rayleigh scattering
@@ -873,7 +897,7 @@
       spcvmc_flux_entered_logged = .true.
 
       if (masterproc) then
-         write(iulog,*) 'rrtmg_sw_spcvmc_flux entered (mcica shortwave flux accumulation = codon)'
+         write(iulog,*) 'rrtmg_sw_spcvmc_flux entered (mcica shortwave output zero/flux accumulation = codon)'
          call flush(iulog)
       end if
 
