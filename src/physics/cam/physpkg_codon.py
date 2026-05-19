@@ -3468,3 +3468,8 @@ def unicon_cam_int_codon(value: int) -> int:
 @export
 def iondrag_touch_codon() -> int:
     return 0
+
+
+@export
+def cld_sediment_param_codon(value: float) -> float:
+    return value

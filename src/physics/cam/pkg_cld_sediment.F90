@@ -19,6 +19,7 @@ module pkg_cld_sediment
   use pkg_cldoptics,  only: reitab, reltab
   use cam_abortutils, only: endrun
   use cam_logfile,    only: iulog
+  use iso_c_binding,  only: c_double
 
   implicit none
   private
@@ -49,8 +50,97 @@ module pkg_cld_sediment
   real(r8) :: cldsed_ice_stokes_fac = huge(1._r8)    ! factor applied to the ice fall velocity computed from 
                                                      ! stokes terminal velocity
 
+  logical :: use_native_cld_sediment_impl = .false.
+  logical :: cld_sediment_impl_selected = .false.
+  logical :: cld_sediment_proof_written = .false.
+
+  interface
+     function cld_sediment_param_codon(value_c) result(out_c) bind(c, name="cld_sediment_param_codon")
+        use iso_c_binding, only: c_double
+        real(c_double), value :: value_c
+        real(c_double) :: out_c
+     end function cld_sediment_param_codon
+  end interface
+
 !===============================================================================
 contains
+!===============================================================================
+
+subroutine cld_sediment_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cld_sediment_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CLD_SEDIMENT_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_cld_sediment_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_cld_sediment_impl = .false.
+   end if
+
+   cld_sediment_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_cld_sediment_impl) then
+         write(iulog,*) 'cld_sediment implementation = native'
+      else
+         write(iulog,*) 'cld_sediment implementation = codon'
+      end if
+   end if
+
+end subroutine cld_sediment_select_impl
+
+!===============================================================================
+
+subroutine cld_sediment_proof_once()
+
+   if (cld_sediment_proof_written) return
+   cld_sediment_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'cld_sediment entered (namelist scalar helper = codon)'
+   end if
+
+end subroutine cld_sediment_proof_once
+
+!===============================================================================
+
+real(r8) function cld_sediment_param(value_in)
+
+   real(r8), intent(in) :: value_in
+   real(c_double) :: out_c
+
+   call cld_sediment_select_impl()
+
+   if (use_native_cld_sediment_impl) then
+      cld_sediment_param = value_in
+      return
+   end if
+
+   call cld_sediment_proof_once()
+   out_c = cld_sediment_param_codon(real(value_in, c_double))
+   cld_sediment_param = real(out_c, r8)
+
+end function cld_sediment_param
+
+!===============================================================================
+
+subroutine cld_sediment_finalize_params()
+
+   cldsed_ice_stokes_fac = cld_sediment_param(cldsed_ice_stokes_fac)
+
+end subroutine cld_sediment_finalize_params
+
 !===============================================================================
 
 subroutine cld_sediment_readnl(nlfile)
@@ -89,6 +179,8 @@ subroutine cld_sediment_readnl(nlfile)
    ! Broadcast namelist variables
    call mpibcast(cldsed_ice_stokes_fac, 1, mpir8, 0, mpicom)
 #endif
+
+   call cld_sediment_finalize_params()
 
 end subroutine cld_sediment_readnl
 
