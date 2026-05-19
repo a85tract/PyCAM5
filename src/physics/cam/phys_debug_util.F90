@@ -17,11 +17,12 @@ module phys_debug_util
 ! Phil Rasch, B. Eaton, Feb 2008
 !----------------------------------------------------------------------------------------
 
-use shr_kind_mod,   only: r8 => shr_kind_r8
-use phys_grid,      only: phys_grid_find_col, get_rlat_p, get_rlon_p
-use spmd_utils,     only: masterproc, iam
-use cam_logfile,    only: iulog
-use cam_abortutils, only: endrun
+use shr_kind_mod,    only: r8 => shr_kind_r8
+use iso_c_binding,   only: c_double, c_int64_t
+use phys_grid,       only: phys_grid_find_col, get_rlat_p, get_rlon_p
+use spmd_utils,      only: masterproc, iam
+use cam_logfile,     only: iulog
+use cam_abortutils,  only: endrun
 
 implicit none
 private
@@ -42,8 +43,135 @@ real(r8) :: phys_debug_lon = uninit_r8 ! longitude of requested debug column loc
 integer :: debchunk = -999            ! local index of the chuck we will debug
 integer :: debcol   = -999            ! the column within the chunk we will debug
 
+logical :: use_native_phys_debug_util_impl = .false.
+logical :: phys_debug_util_impl_selected = .false.
+logical :: phys_debug_util_proof_written = .false.
+
+interface
+   function phys_debug_value_codon(value_c) result(out_c) bind(c, name="phys_debug_value_codon")
+      use iso_c_binding, only: c_double
+      real(c_double), value :: value_c
+      real(c_double) :: out_c
+   end function phys_debug_value_codon
+
+   function phys_debug_has_location_codon(lat_set_c, lon_set_c) result(out_c) &
+        bind(c, name="phys_debug_has_location_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: lat_set_c, lon_set_c
+      integer(c_int64_t) :: out_c
+   end function phys_debug_has_location_codon
+end interface
+
 !================================================================================
 contains
+!================================================================================
+
+subroutine phys_debug_util_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (phys_debug_util_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('PHYS_DEBUG_UTIL_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_phys_debug_util_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_phys_debug_util_impl = .false.
+   end if
+
+   phys_debug_util_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_phys_debug_util_impl) then
+         write(iulog,*) 'phys_debug_util implementation = native'
+      else
+         write(iulog,*) 'phys_debug_util implementation = codon'
+      end if
+   end if
+
+end subroutine phys_debug_util_select_impl
+
+!================================================================================
+
+subroutine phys_debug_util_proof_once()
+
+   if (phys_debug_util_proof_written) return
+   phys_debug_util_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'phys_debug_util entered (debug namelist/location helpers = codon)'
+   end if
+
+end subroutine phys_debug_util_proof_once
+
+!================================================================================
+
+real(r8) function phys_debug_value(value_in)
+
+   real(r8), intent(in) :: value_in
+   real(c_double) :: out_c
+
+   call phys_debug_util_select_impl()
+
+   if (use_native_phys_debug_util_impl) then
+      phys_debug_value = value_in
+      return
+   end if
+
+   call phys_debug_util_proof_once()
+   out_c = phys_debug_value_codon(real(value_in, c_double))
+   phys_debug_value = real(out_c, r8)
+
+end function phys_debug_value
+
+!================================================================================
+
+logical function phys_debug_has_location(lat, lon)
+
+   real(r8), intent(in) :: lat, lon
+   integer(c_int64_t) :: lat_set_c, lon_set_c, out_c
+
+   call phys_debug_util_select_impl()
+
+   if (use_native_phys_debug_util_impl) then
+      phys_debug_has_location = .not. (lat == uninit_r8 .or. lon == uninit_r8)
+      return
+   end if
+
+   call phys_debug_util_proof_once()
+   if (lat == uninit_r8) then
+      lat_set_c = 0_c_int64_t
+   else
+      lat_set_c = 1_c_int64_t
+   end if
+   if (lon == uninit_r8) then
+      lon_set_c = 0_c_int64_t
+   else
+      lon_set_c = 1_c_int64_t
+   end if
+   out_c = phys_debug_has_location_codon(lat_set_c, lon_set_c)
+   phys_debug_has_location = out_c /= 0_c_int64_t
+
+end function phys_debug_has_location
+
+!================================================================================
+
+subroutine phys_debug_finalize_values()
+
+   phys_debug_lat = phys_debug_value(phys_debug_lat)
+   phys_debug_lon = phys_debug_value(phys_debug_lon)
+
+end subroutine phys_debug_finalize_values
+
 !================================================================================
 
 subroutine phys_debug_readnl(nlfile)
@@ -81,6 +209,8 @@ subroutine phys_debug_readnl(nlfile)
    call mpibcast(phys_debug_lon, 1, mpir8, 0, mpicom)
 #endif
 
+   call phys_debug_finalize_values()
+
 end subroutine phys_debug_readnl
 
 !================================================================================
@@ -92,7 +222,7 @@ subroutine phys_debug_init()
    !-----------------------------------------------------------------------------
 
    ! If no debug column specified then do nothing
-   if (phys_debug_lat == uninit_r8 .or. phys_debug_lon == uninit_r8) return
+   if (.not. phys_debug_has_location(phys_debug_lat, phys_debug_lon)) return
 
    ! User has specified a column location for debugging.  Find the closest
    ! column in the physics grid.

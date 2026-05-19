@@ -3439,3 +3439,15 @@ def cam3_ozone_data_flag_codon(flag: int) -> int:
     if flag != 0:
         return 1
     return 0
+
+
+@export
+def phys_debug_value_codon(value: float) -> float:
+    return value
+
+
+@export
+def phys_debug_has_location_codon(lat_set: int, lon_set: int) -> int:
+    if lat_set != 0 and lon_set != 0:
+        return 1
+    return 0
