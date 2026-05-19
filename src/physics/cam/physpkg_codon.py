@@ -3393,3 +3393,10 @@ def tidal_diag_int_codon(value: int, force_one: int) -> int:
     if force_one != 0:
         return 1
     return value
+
+
+@export
+def co2_cycle_flag_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0

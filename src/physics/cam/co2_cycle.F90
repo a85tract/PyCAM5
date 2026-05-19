@@ -23,6 +23,8 @@ use constituents,   only: cnst_add, cnst_get_ind, cnst_name, cnst_longname, sflx
 use chem_surfvals,  only: chem_surfvals_get
 use co2_data_flux
 use cam_abortutils,  only: endrun
+use cam_logfile,     only: iulog
+use iso_c_binding,   only: c_int64_t
 
 implicit none
 private
@@ -58,6 +60,18 @@ logical :: co2_readFlux_fuel   = .false.      ! true => read co2 flux from fuel,
 character(len=256) :: co2flux_ocn_file  = 'unset' ! co2 flux from ocn
 character(len=256) :: co2flux_fuel_file = 'unset' ! co2 flux from fossil fuel                       
 
+logical :: use_native_co2_cycle_impl = .false.
+logical :: co2_cycle_impl_selected = .false.
+logical :: co2_cycle_proof_written = .false.
+
+interface
+   function co2_cycle_flag_codon(flag_c) result(out_c) bind(c, name="co2_cycle_flag_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function co2_cycle_flag_codon
+end interface
+
 !-----------------------------------------------------------------------
 ! new constituents
 integer, parameter :: ncnst=4                      ! number of constituents implemented
@@ -74,6 +88,90 @@ integer, dimension(ncnst) :: c_i                   ! global index
 
 !================================================================================================
 contains
+!================================================================================================
+
+subroutine co2_cycle_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (co2_cycle_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CO2_CYCLE_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_co2_cycle_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_co2_cycle_impl = .false.
+   end if
+
+   co2_cycle_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_co2_cycle_impl) then
+         write(iulog,*) 'co2_cycle implementation = native'
+      else
+         write(iulog,*) 'co2_cycle implementation = codon'
+      end if
+   end if
+
+end subroutine co2_cycle_select_impl
+
+!================================================================================================
+
+subroutine co2_cycle_proof_once()
+
+   if (co2_cycle_proof_written) return
+   co2_cycle_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'co2_cycle entered (runtime boolean helpers = codon)'
+   end if
+
+end subroutine co2_cycle_proof_once
+
+!================================================================================================
+
+logical function co2_cycle_flag(flag)
+
+   logical, intent(in) :: flag
+   integer(c_int64_t) :: flag_c, out_c
+
+   call co2_cycle_select_impl()
+
+   if (use_native_co2_cycle_impl) then
+      co2_cycle_flag = flag
+      return
+   end if
+
+   call co2_cycle_proof_once()
+   if (flag) then
+      flag_c = 1_c_int64_t
+   else
+      flag_c = 0_c_int64_t
+   end if
+   out_c = co2_cycle_flag_codon(flag_c)
+   co2_cycle_flag = out_c /= 0_c_int64_t
+
+end function co2_cycle_flag
+
+!================================================================================================
+
+subroutine co2_cycle_finalize_flags()
+
+   co2_flag = co2_cycle_flag(co2_flag)
+   co2_readFlux_ocn = co2_cycle_flag(co2_readFlux_ocn)
+   co2_readFlux_fuel = co2_cycle_flag(co2_readFlux_fuel)
+
+end subroutine co2_cycle_finalize_flags
+
 !================================================================================================
 
 subroutine co2_cycle_readnl(nlfile)
@@ -117,6 +215,8 @@ subroutine co2_cycle_readnl(nlfile)
    call mpibcast (co2flux_fuel_file, len(co2flux_fuel_file),   mpichar, 0, mpicom)
 #endif
 
+   call co2_cycle_finalize_flags()
+
 end subroutine co2_cycle_readnl
 
 !================================================================================================
@@ -130,7 +230,7 @@ subroutine co2_register
 !-----------------------------------------------------------------------
    integer  :: i
 
-   if (.not. co2_flag) return
+   if (.not. co2_cycle_flag(co2_flag)) return
  
 ! CO2 as dry tracer
    do i = 1, ncnst
@@ -151,7 +251,7 @@ function co2_transport()
    logical :: co2_transport
 !-----------------------------------------------------------------------
 
-   co2_transport = co2_flag
+   co2_transport = co2_cycle_flag(co2_flag)
 
 end function co2_transport
 
@@ -174,7 +274,7 @@ function co2_implements_cnst(name)
       
     co2_implements_cnst = .false.
  
-    if (.not. co2_flag) return
+    if (.not. co2_cycle_flag(co2_flag)) return
  
     do m = 1, ncnst
        if (name == c_names(m)) then
