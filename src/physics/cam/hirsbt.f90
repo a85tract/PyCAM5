@@ -6,13 +6,118 @@
     use physconst, only: gravit, rair
     use ppgrid
     use hirsbtpar
+    use iso_c_binding, only: c_int64_t
+    use cam_logfile, only: iulog
+    use spmd_utils, only: masterproc
 
     implicit none
 
 ! public subroutines
     public :: hirsrtm, hirsbt_init
 
+    logical :: use_native_hirsbt_init_impl = .false.
+    logical :: hirsbt_init_impl_selected = .false.
+    logical :: hirsbt_init_proof_written = .false.
+
+    interface
+      function hirsbt_flag_codon(flag_c) result(out_c) bind(c, name="hirsbt_flag_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: flag_c
+        integer(c_int64_t) :: out_c
+      end function hirsbt_flag_codon
+
+      function hirsbt_freq_codon(freq_c, dtime_c) result(out_c) bind(c, name="hirsbt_freq_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: freq_c
+        integer(c_int64_t), value :: dtime_c
+        integer(c_int64_t) :: out_c
+      end function hirsbt_freq_codon
+    end interface
+
     contains
+
+    subroutine hirsbt_init_select_impl()
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (hirsbt_init_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('HIRSBT_INIT_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+        do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+        end do
+        use_native_hirsbt_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+        use_native_hirsbt_init_impl = .false.
+      end if
+
+      hirsbt_init_impl_selected = .true.
+
+      if (masterproc) then
+        if (use_native_hirsbt_init_impl) then
+          write(iulog,*) 'hirsbt_init implementation = native'
+        else
+          write(iulog,*) 'hirsbt_init implementation = codon'
+        end if
+      end if
+
+    end subroutine hirsbt_init_select_impl
+
+    subroutine hirsbt_init_proof_once()
+
+      if (hirsbt_init_proof_written) return
+      hirsbt_init_proof_written = .true.
+
+      if (masterproc) then
+        write(iulog,'(A)') 'hirsbt_init entered (flag/frequency helpers = codon)'
+      end if
+
+    end subroutine hirsbt_init_proof_once
+
+    logical function hirsbt_init_flag(flag_in)
+
+      logical, intent(in) :: flag_in
+      integer(c_int64_t) :: out_c
+
+      call hirsbt_init_select_impl()
+
+      if (use_native_hirsbt_init_impl) then
+        hirsbt_init_flag = flag_in
+        return
+      end if
+
+      call hirsbt_init_proof_once()
+      out_c = hirsbt_flag_codon(merge(1_c_int64_t, 0_c_int64_t, flag_in))
+      hirsbt_init_flag = out_c /= 0_c_int64_t
+
+    end function hirsbt_init_flag
+
+    integer function hirsbt_init_freq(freq_in, dtime)
+
+      integer, intent(in) :: freq_in
+      integer, intent(in) :: dtime
+      integer(c_int64_t) :: out_c
+
+      call hirsbt_init_select_impl()
+
+      if (use_native_hirsbt_init_impl) then
+        hirsbt_init_freq = freq_in
+        if (hirsbt_init_freq < 0) hirsbt_init_freq = nint((-hirsbt_init_freq*3600._r8)/dtime)
+        return
+      end if
+
+      call hirsbt_init_proof_once()
+      out_c = hirsbt_freq_codon(int(freq_in, c_int64_t), int(dtime, c_int64_t))
+      hirsbt_init_freq = int(out_c)
+
+    end function hirsbt_init_freq
 
 ! -------------------
 
@@ -686,15 +791,13 @@
 
 ! These should be namelist variables; 
 ! Set flag to do HIRS brightness temperature calculation 
-    dohirs = .true.
+    dohirs = hirsbt_init_flag(.true.)
 ! Set frequency of HIRS calculation
 ! ihirsfq is in timesteps if positive, or hours if negative; 6 hours is recommended
-    ihirsfq = -6
+    ihirsfq = hirsbt_init_freq(-6, dtime)
 
 ! Convert ihirsfq from hours to timesteps if necessary
-    if (ihirsfq < 0) ihirsfq = nint((-ihirsfq*3600._r8)/dtime)
 
     end subroutine hirsbt_init
 
     end module hirsbt
-

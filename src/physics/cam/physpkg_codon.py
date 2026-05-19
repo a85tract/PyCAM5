@@ -3503,3 +3503,18 @@ def radae_ntoplw_codon(pref_mid_p: cobj, nlev: int) -> int:
     else:
         ntoplw = 1
     return ntoplw
+
+
+@export
+def hirsbt_flag_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def hirsbt_freq_codon(freq: int, dtime: int) -> int:
+    if freq < 0:
+        value = (-freq * 3600.0) / float(dtime)
+        return int(value + 0.5)
+    return freq
