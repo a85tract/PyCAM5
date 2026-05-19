@@ -3585,3 +3585,11 @@ def constituent_burden_flag_codon(flag: int) -> int:
     if flag != 0:
         return 1
     return 0
+
+
+@export
+def phys_gmean_normalize_codon(arr_p: cobj, nflds: int, pi_value: float):
+    arr = Ptr[float](arr_p)
+    denom = 4.0 * pi_value
+    for i in range(nflds):
+        arr[i] = arr[i] / denom

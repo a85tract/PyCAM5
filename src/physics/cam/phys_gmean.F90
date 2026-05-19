@@ -26,6 +26,7 @@ module phys_gmean
    use physconst,     only: pi
    use spmd_utils,    only: masterproc
    use ppgrid,        only: pcols, begchunk, endchunk
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
    use shr_reprosum_mod, only: shr_reprosum_calc, shr_reprosum_tolExceeded, &
                             shr_reprosum_reldiffmax, shr_reprosum_recompute
 #if ( defined SPMD )
@@ -47,7 +48,87 @@ module phys_gmean
       module procedure gmean_scl
    endinterface
 
+   logical :: use_native_phys_gmean_impl = .false.
+   logical :: phys_gmean_impl_selected = .false.
+   logical :: phys_gmean_proof_written = .false.
+
+   interface
+      subroutine phys_gmean_normalize_codon(arr_p, nflds_c, pi_c) &
+           bind(c, name="phys_gmean_normalize_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        type(c_ptr), value :: arr_p
+        integer(c_int64_t), value :: nflds_c
+        real(c_double), value :: pi_c
+      end subroutine phys_gmean_normalize_codon
+   end interface
+
    CONTAINS
+
+!
+!========================================================================
+!
+
+   subroutine phys_gmean_select_impl()
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (phys_gmean_impl_selected) return
+
+      impl_name = 'codon'
+      call get_environment_variable('PHYS_GMEAN_IMPL', value=impl_name, length=n, status=status)
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_phys_gmean_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_phys_gmean_impl = .false.
+      end if
+
+      phys_gmean_impl_selected = .true.
+
+      if (masterproc) then
+         if (use_native_phys_gmean_impl) then
+            write(iulog,*) 'phys_gmean implementation = native'
+         else
+            write(iulog,*) 'phys_gmean implementation = codon'
+         end if
+      end if
+
+   end subroutine phys_gmean_select_impl
+
+   subroutine phys_gmean_proof_once()
+
+      if (phys_gmean_proof_written) return
+      phys_gmean_proof_written = .true.
+
+      if (masterproc) then
+         write(iulog,'(A)') 'phys_gmean entered (fixed-repro normalization = codon)'
+      end if
+
+   end subroutine phys_gmean_proof_once
+
+   subroutine phys_gmean_normalize(arr_gmean, nflds)
+      integer, intent(in) :: nflds
+      real(r8), intent(inout), target :: arr_gmean(nflds)
+
+      call phys_gmean_select_impl()
+
+      if (use_native_phys_gmean_impl) then
+         arr_gmean(:) = arr_gmean(:) / (4.0_r8 * pi)
+         return
+      end if
+
+      call phys_gmean_proof_once()
+      call phys_gmean_normalize_codon(c_loc(arr_gmean(1)), int(nflds, c_int64_t), &
+           real(pi, c_double))
+
+   end subroutine phys_gmean_normalize
 
 !
 !========================================================================
@@ -416,7 +497,7 @@ module phys_gmean
 
       deallocate(xfld)
 ! final normalization
-      arr_gmean(:) = arr_gmean(:) / (4.0_r8 * pi)
+      call phys_gmean_normalize(arr_gmean, nflds)
 
       return
 
