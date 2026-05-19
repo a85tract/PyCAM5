@@ -3598,3 +3598,13 @@ def phys_gmean_normalize_codon(arr_p: cobj, nflds: int, pi_value: float):
 @export
 def pbl_utils_value_codon(value: float) -> float:
     return value
+
+
+@export
+def wv_sat_methods_value_codon(value: float) -> float:
+    return value
+
+
+@export
+def wv_sat_methods_omeps_codon(epsilo: float) -> float:
+    return 1.0 - epsilo

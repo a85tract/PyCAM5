@@ -27,6 +27,10 @@ module wv_sat_methods
 ! wrap the function so that it can be given an explicit (non-
 ! elemental) interface.
 
+use cam_logfile, only: iulog
+use iso_c_binding, only: c_double
+use spmd_utils, only: masterproc
+
 implicit none
 private
 save
@@ -52,6 +56,25 @@ integer, parameter :: Bolton_idx = 3
 ! Index representing the current default scheme.
 integer, parameter :: initial_default_idx = GoffGratch_idx
 integer :: default_idx = initial_default_idx
+logical :: use_native_wv_sat_methods_impl = .false.
+logical :: wv_sat_methods_impl_selected = .false.
+logical :: wv_sat_methods_proof_written = .false.
+
+interface
+  function wv_sat_methods_value_codon(value_c) result(value_out) &
+       bind(c, name="wv_sat_methods_value_codon")
+    use iso_c_binding, only: c_double
+    real(c_double), value :: value_c
+    real(c_double) :: value_out
+  end function wv_sat_methods_value_codon
+
+  function wv_sat_methods_omeps_codon(epsilo_c) result(omeps_c) &
+       bind(c, name="wv_sat_methods_omeps_codon")
+    use iso_c_binding, only: c_double
+    real(c_double), value :: epsilo_c
+    real(c_double) :: omeps_c
+  end function wv_sat_methods_omeps_codon
+end interface
 
 public wv_sat_methods_init
 public wv_sat_get_scheme_idx
@@ -78,6 +101,82 @@ contains
 ! ADMINISTRATIVE FUNCTIONS
 !---------------------------------------------------------------------
 
+subroutine wv_sat_methods_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (wv_sat_methods_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('WV_SAT_METHODS_IMPL', value=impl_name, length=n, &
+       status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_wv_sat_methods_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_wv_sat_methods_impl = .false.
+  end if
+
+  wv_sat_methods_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_wv_sat_methods_impl) then
+        write(iulog,*) 'wv_sat_methods implementation = native'
+     else
+        write(iulog,*) 'wv_sat_methods implementation = codon'
+     end if
+  end if
+
+end subroutine wv_sat_methods_select_impl
+
+subroutine wv_sat_methods_proof_once()
+
+  if (wv_sat_methods_proof_written) return
+  wv_sat_methods_proof_written = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') 'wv_sat_methods entered (init constants = codon)'
+  end if
+
+end subroutine wv_sat_methods_proof_once
+
+real(r8) function wv_sat_methods_value(value) result(out)
+  real(r8), intent(in) :: value
+
+  call wv_sat_methods_select_impl()
+
+  if (use_native_wv_sat_methods_impl) then
+     out = value
+     return
+  end if
+
+  call wv_sat_methods_proof_once()
+  out = real(wv_sat_methods_value_codon(real(value, c_double)), r8)
+
+end function wv_sat_methods_value
+
+real(r8) function wv_sat_methods_omeps(value) result(out)
+  real(r8), intent(in) :: value
+
+  call wv_sat_methods_select_impl()
+
+  if (use_native_wv_sat_methods_impl) then
+     out = 1._r8 - value
+     return
+  end if
+
+  call wv_sat_methods_proof_once()
+  out = real(wv_sat_methods_omeps_codon(real(value, c_double)), r8)
+
+end function wv_sat_methods_omeps
+
 ! Get physical constants
 subroutine wv_sat_methods_init(kind, tmelt_in, h2otrip_in, tboil_in, &
      ttrice_in, epsilo_in, errstring)
@@ -103,13 +202,13 @@ subroutine wv_sat_methods_init(kind, tmelt_in, h2otrip_in, tboil_in, &
      return
   end if
 
-  tmelt = tmelt_in
-  h2otrip = h2otrip_in
-  tboil = tboil_in
-  ttrice = ttrice_in
-  epsilo = epsilo_in
+  tmelt = wv_sat_methods_value(tmelt_in)
+  h2otrip = wv_sat_methods_value(h2otrip_in)
+  tboil = wv_sat_methods_value(tboil_in)
+  ttrice = wv_sat_methods_value(ttrice_in)
+  epsilo = wv_sat_methods_value(epsilo_in)
 
-  omeps = 1._r8 - epsilo
+  omeps = wv_sat_methods_omeps(epsilo)
 
 end subroutine wv_sat_methods_init
 
