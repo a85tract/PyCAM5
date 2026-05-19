@@ -20,6 +20,7 @@ module cldwat
    use cam_abortutils, only: endrun
    use cam_logfile,    only: iulog
    use ref_pres,       only: top_lev => trop_cloud_top_lev
+   use iso_c_binding,  only: c_double
 
    implicit none
 
@@ -94,7 +95,95 @@ module cldwat
   ! Private data
   real(r8), parameter :: unset_r8 = huge(1.0_r8)
 
+  logical :: use_native_cldwat_readnl_impl = .false.
+  logical :: cldwat_readnl_impl_selected = .false.
+  logical :: cldwat_readnl_proof_written = .false.
+
+  interface
+     function cldwat_param_codon(value_c) result(out_c) bind(c, name="cldwat_param_codon")
+        use iso_c_binding, only: c_double
+        real(c_double), value :: value_c
+        real(c_double) :: out_c
+     end function cldwat_param_codon
+  end interface
+
 contains
+!===============================================================================
+subroutine cldwat_readnl_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cldwat_readnl_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CLDWAT_READNL_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_cldwat_readnl_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_cldwat_readnl_impl = .false.
+   end if
+
+   cldwat_readnl_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_cldwat_readnl_impl) then
+         write(iulog,*) 'cldwat_readnl implementation = native'
+      else
+         write(iulog,*) 'cldwat_readnl implementation = codon'
+      end if
+   end if
+
+end subroutine cldwat_readnl_select_impl
+
+!===============================================================================
+subroutine cldwat_readnl_proof_once()
+
+   if (cldwat_readnl_proof_written) return
+   cldwat_readnl_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'cldwat_readnl entered (namelist scalar helpers = codon)'
+   end if
+
+end subroutine cldwat_readnl_proof_once
+
+!===============================================================================
+real(r8) function cldwat_param(value_in)
+
+   real(r8), intent(in) :: value_in
+   real(c_double) :: out_c
+
+   call cldwat_readnl_select_impl()
+
+   if (use_native_cldwat_readnl_impl) then
+      cldwat_param = value_in
+      return
+   end if
+
+   call cldwat_readnl_proof_once()
+   out_c = cldwat_param_codon(real(value_in, c_double))
+   cldwat_param = real(out_c, r8)
+
+end function cldwat_param
+
+!===============================================================================
+subroutine cldwat_finalize_params()
+
+   icritw = cldwat_param(icritw)
+   icritc = cldwat_param(icritc)
+   conke = cldwat_param(conke)
+   r3lcrit = cldwat_param(r3lcrit)
+
+end subroutine cldwat_finalize_params
+
 !===============================================================================
   subroutine cldwat_readnl(nlfile)
 
@@ -151,6 +240,8 @@ contains
    call mpibcast(conke,             1, mpir8,  0, mpicom)
    call mpibcast(r3lcrit,           1, mpir8,  0, mpicom)
 #endif
+
+   call cldwat_finalize_params()
 
 end subroutine cldwat_readnl
 

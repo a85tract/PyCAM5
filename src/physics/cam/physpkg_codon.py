@@ -3415,3 +3415,8 @@ def carma_intr_touch_codon() -> int:
 @export
 def subcol_touch_codon() -> int:
     return 0
+
+
+@export
+def cldwat_param_codon(value: float) -> float:
+    return value
