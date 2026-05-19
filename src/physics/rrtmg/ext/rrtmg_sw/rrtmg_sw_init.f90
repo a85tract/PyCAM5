@@ -25,6 +25,19 @@
 
       implicit none
 
+      logical :: use_native_rrtmg_sw_init_impl = .false.
+      logical :: rrtmg_sw_init_impl_selected = .false.
+      logical :: rrtmg_sw_init_entered_logged = .false.
+
+      interface
+         function rrtmg_init_real_passthrough_codon(value_c) result(result_c) &
+              bind(c, name="rrtmg_init_real_passthrough_codon")
+            use iso_c_binding, only: c_double
+            real(c_double), value :: value_c
+            real(c_double) :: result_c
+         end function rrtmg_init_real_passthrough_codon
+      end interface
+
       contains
 
 ! **************************************************************************
@@ -62,6 +75,7 @@
 !
 
       hvrini = '$Revision: 1.2 $'
+      call rrtmg_sw_init_select_impl()
 
 ! Initialize model data
       call swdatinit
@@ -92,7 +106,12 @@
 
       exp_tbl(0) = 1.0_r8
       exp_tbl(ntbl) = 0.0_r8
-      bpade = 1.0_r8 / pade
+      if (use_native_rrtmg_sw_init_impl) then
+         bpade = 1.0_r8 / pade
+      else
+         call rrtmg_sw_init_log_entered()
+         bpade = rrtmg_init_real_passthrough_codon(1.0_r8 / pade)
+      endif
       do itr = 1, ntbl-1
          tfn = float(itr) / float(ntbl)
          tau_tbl = bpade * tfn / (1._r8 - tfn)
@@ -3292,6 +3311,55 @@
 
       end subroutine swcldpr
 
-      end module rrtmg_sw_init
+!***************************************************************************
+      subroutine rrtmg_sw_init_select_impl()
+!***************************************************************************
 
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+
+      integer :: n, status
+      character(len=16) :: impl_name
+
+      if (rrtmg_sw_init_impl_selected) return
+
+      impl_name = ''
+      call get_environment_variable('RRTMG_INIT_HELPERS_IMPL', value=impl_name, length=n, status=status)
+      if (status == 0 .and. n > 0) then
+         use_native_rrtmg_sw_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_rrtmg_sw_init_impl = .false.
+      endif
+
+      rrtmg_sw_init_impl_selected = .true.
+
+      if (masterproc) then
+         if (use_native_rrtmg_sw_init_impl) then
+            write(iulog,*) 'rrtmg_sw_init implementation = native'
+         else
+            write(iulog,*) 'rrtmg_sw_init implementation = codon'
+         endif
+         call flush(iulog)
+      endif
+
+      end subroutine rrtmg_sw_init_select_impl
+
+!***************************************************************************
+      subroutine rrtmg_sw_init_log_entered()
+!***************************************************************************
+
+      use cam_logfile, only: iulog
+      use spmd_utils, only: masterproc
+
+      if (rrtmg_sw_init_entered_logged) return
+      rrtmg_sw_init_entered_logged = .true.
+
+      if (masterproc) then
+         write(iulog,*) 'rrtmg_sw_init entered (initial scalar passthrough = codon)'
+         call flush(iulog)
+      endif
+
+      end subroutine rrtmg_sw_init_log_entered
+
+      end module rrtmg_sw_init
 

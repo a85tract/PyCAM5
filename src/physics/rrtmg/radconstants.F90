@@ -5,6 +5,7 @@ module radconstants
 
 use shr_kind_mod,   only: r8 => shr_kind_r8
 use cam_abortutils, only: endrun
+use iso_c_binding,  only: c_int64_t
 
 implicit none
 private
@@ -135,6 +136,19 @@ public :: get_number_sw_bands, &
           get_ref_total_solar_irrad, &
           get_solar_band_fraction_irrad
 
+logical :: use_native_radconstants_impl = .false.
+logical :: radconstants_impl_selected = .false.
+logical :: radconstants_entered_logged = .false.
+
+interface
+   function rrtmg_init_int_passthrough_codon(value_c) result(result_c) &
+        bind(c, name="rrtmg_init_int_passthrough_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: value_c
+      integer(c_int64_t) :: result_c
+   end function rrtmg_init_int_passthrough_codon
+end interface
+
 contains
 !------------------------------------------------------------------------------
 subroutine get_solar_band_fraction_irrad(fractional_irradiance)
@@ -143,6 +157,9 @@ subroutine get_solar_band_fraction_irrad(fractional_irradiance)
    ! fraction of solar irradiance in each band
    real(r8), intent(out) :: fractional_irradiance(1:nswbands)
    real(r8) :: tsi ! total solar irradiance
+
+   call radconstants_select_impl()
+   if (.not. use_native_radconstants_impl) call radconstants_log_entered()
 
    tsi = sum(solar_ref_band_irradiance)
    fractional_irradiance = solar_ref_band_irradiance / tsi
@@ -154,6 +171,9 @@ subroutine get_ref_total_solar_irrad(tsi)
 
    real(r8), intent(out) :: tsi
 
+   call radconstants_select_impl()
+   if (.not. use_native_radconstants_impl) call radconstants_log_entered()
+
    tsi = sum(solar_ref_band_irradiance)
 
 end subroutine get_ref_total_solar_irrad
@@ -163,6 +183,9 @@ subroutine get_ref_solar_band_irrad( band_irrad )
    ! solar irradiance in each band (W/m^2)
    real(r8), intent(out) :: band_irrad(nswbands)
  
+   call radconstants_select_impl()
+   if (.not. use_native_radconstants_impl) call radconstants_log_entered()
+
    band_irrad = solar_ref_band_irradiance
 
 end subroutine get_ref_solar_band_irrad
@@ -172,7 +195,13 @@ subroutine get_number_sw_bands(number_of_bands)
    ! number of solar (shortwave) bands in the rrtmg code
    integer, intent(out) :: number_of_bands
 
-   number_of_bands = nswbands
+   call radconstants_select_impl()
+   if (use_native_radconstants_impl) then
+      number_of_bands = nswbands
+   else
+      call radconstants_log_entered()
+      number_of_bands = rrtmg_init_int_passthrough_codon(int(nswbands, c_int64_t))
+   endif
 
 end subroutine get_number_sw_bands
 
@@ -182,6 +211,9 @@ subroutine get_lw_spectral_boundaries(low_boundaries, high_boundaries, units)
 
    real(r8), intent(out) :: low_boundaries(nlwbands), high_boundaries(nlwbands)
    character(*), intent(in) :: units ! requested units
+
+   call radconstants_select_impl()
+   if (.not. use_native_radconstants_impl) call radconstants_log_entered()
 
    select case (units)
    case ('inv_cm','cm^-1','cm-1')
@@ -211,6 +243,9 @@ subroutine get_sw_spectral_boundaries(low_boundaries, high_boundaries, units)
 
    real(r8), intent(out) :: low_boundaries(nswbands), high_boundaries(nswbands)
    character(*), intent(in) :: units ! requested units
+
+   call radconstants_select_impl()
+   if (.not. use_native_radconstants_impl) call radconstants_log_entered()
 
    select case (units)
    case ('inv_cm','cm^-1','cm-1')
@@ -242,6 +277,9 @@ integer function rad_gas_index(gasname)
    character(len=*),intent(in) :: gasname
    integer :: igas
 
+   call radconstants_select_impl()
+   if (.not. use_native_radconstants_impl) call radconstants_log_entered()
+
    rad_gas_index = -1
    do igas = 1, nradgas
       if (trim(gaslist(igas)).eq.trim(gasname)) then
@@ -251,5 +289,53 @@ integer function rad_gas_index(gasname)
    enddo
    call endrun ("rad_gas_index: can not find gas with name "//gasname)
 end function rad_gas_index
+
+!------------------------------------------------------------------------------
+subroutine radconstants_select_impl()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   integer :: n, status
+   character(len=16) :: impl_name
+
+   if (radconstants_impl_selected) return
+
+   impl_name = ''
+   call get_environment_variable('RRTMG_INIT_HELPERS_IMPL', value=impl_name, length=n, status=status)
+   if (status == 0 .and. n > 0) then
+      use_native_radconstants_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_radconstants_impl = .false.
+   endif
+
+   radconstants_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_radconstants_impl) then
+         write(iulog,*) 'radconstants implementation = native'
+      else
+         write(iulog,*) 'radconstants implementation = codon'
+      endif
+      call flush(iulog)
+   endif
+
+end subroutine radconstants_select_impl
+
+!------------------------------------------------------------------------------
+subroutine radconstants_log_entered()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   if (radconstants_entered_logged) return
+   radconstants_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,*) 'radconstants entered (RRTMG metadata passthrough = codon)'
+      call flush(iulog)
+   endif
+
+end subroutine radconstants_log_entered
 
 end module radconstants

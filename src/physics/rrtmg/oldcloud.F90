@@ -12,6 +12,7 @@ use cam_abortutils,   only: endrun
 use cam_history,      only: outfld
 use rad_constituents, only: iceopticsfile, liqopticsfile
 use ebert_curry,      only: scalefactor
+use iso_c_binding,    only: c_int64_t
 
 implicit none
 private
@@ -57,9 +58,22 @@ real(r8), allocatable :: abs_lw_ice(:,:)
    integer ::   rei_idx     = 0 
 
 ! indexes into constituents for old optics
-   integer :: &
-        ixcldice,           & ! cloud ice water index
-        ixcldliq              ! cloud liquid water index
+integer :: &
+     ixcldice,           & ! cloud ice water index
+     ixcldliq              ! cloud liquid water index
+
+logical :: use_native_oldcloud_init_impl = .false.
+logical :: oldcloud_init_impl_selected = .false.
+logical :: oldcloud_init_entered_logged = .false.
+
+interface
+   function rrtmg_init_int_passthrough_codon(value_c) result(result_c) &
+        bind(c, name="rrtmg_init_int_passthrough_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: value_c
+      integer(c_int64_t) :: result_c
+   end function rrtmg_init_int_passthrough_codon
+end interface
 
 
 !==============================================================================
@@ -81,6 +95,18 @@ subroutine oldcloud_init()
    ! old optics
    call cnst_get_ind('CLDICE', ixcldice)
    call cnst_get_ind('CLDLIQ', ixcldliq)
+
+   call oldcloud_init_select_impl()
+   if (.not. use_native_oldcloud_init_impl) then
+      call oldcloud_init_log_entered()
+      iciwp_idx = rrtmg_init_int_passthrough_codon(int(iciwp_idx, c_int64_t))
+      iclwp_idx = rrtmg_init_int_passthrough_codon(int(iclwp_idx, c_int64_t))
+      cld_idx = rrtmg_init_int_passthrough_codon(int(cld_idx, c_int64_t))
+      rel_idx = rrtmg_init_int_passthrough_codon(int(rel_idx, c_int64_t))
+      rei_idx = rrtmg_init_int_passthrough_codon(int(rei_idx, c_int64_t))
+      ixcldice = rrtmg_init_int_passthrough_codon(int(ixcldice, c_int64_t))
+      ixcldliq = rrtmg_init_int_passthrough_codon(int(ixcldliq, c_int64_t))
+   endif
 
    return
 
@@ -637,6 +663,56 @@ subroutine cloud_total_vis_diag_out(lchnk, nnite, idxnite, tau, radsuffix)
    !call outfld('cloudOD_v'//trim(radsuffix), tmp, pcols, lchnk)
 
 end subroutine cloud_total_vis_diag_out
+
+!==============================================================================
+
+subroutine oldcloud_init_select_impl()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   integer :: n, status
+   character(len=16) :: impl_name
+
+   if (oldcloud_init_impl_selected) return
+
+   impl_name = ''
+   call get_environment_variable('RRTMG_INIT_HELPERS_IMPL', value=impl_name, length=n, status=status)
+   if (status == 0 .and. n > 0) then
+      use_native_oldcloud_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_oldcloud_init_impl = .false.
+   endif
+
+   oldcloud_init_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_oldcloud_init_impl) then
+         write(iulog,*) 'oldcloud_init implementation = native'
+      else
+         write(iulog,*) 'oldcloud_init implementation = codon'
+      endif
+      call flush(iulog)
+   endif
+
+end subroutine oldcloud_init_select_impl
+
+!==============================================================================
+
+subroutine oldcloud_init_log_entered()
+
+   use cam_logfile, only: iulog
+   use spmd_utils, only: masterproc
+
+   if (oldcloud_init_entered_logged) return
+   oldcloud_init_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,*) 'oldcloud_init entered (index passthrough = codon)'
+      call flush(iulog)
+   endif
+
+end subroutine oldcloud_init_log_entered
 
 !==============================================================================
 

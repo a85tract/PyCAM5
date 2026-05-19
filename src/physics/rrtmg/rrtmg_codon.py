@@ -1,6 +1,16 @@
 from math import exp, log, sqrt
 
 
+@export
+def rrtmg_init_real_passthrough_codon(value: float) -> float:
+    return value
+
+
+@export
+def rrtmg_init_int_passthrough_codon(value: int) -> int:
+    return value
+
+
 @inline
 def _idx2(i: int, k: int, ld1: int) -> int:
     """Fortran array declared as (ld1, n2), both bounds starting at 1."""
