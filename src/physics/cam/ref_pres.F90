@@ -19,9 +19,9 @@ public
 save
 
 ! Reference pressures (Pa)
-real(r8), protected :: pref_edge(pverp)     ! Layer edges
-real(r8), protected :: pref_mid(pver)       ! Layer midpoints
-real(r8), protected :: pref_mid_norm(pver)  ! Layer midpoints normalized by
+real(r8), protected, target :: pref_edge(pverp)     ! Layer edges
+real(r8), protected, target :: pref_mid(pver)       ! Layer midpoints
+real(r8), protected, target :: pref_mid_norm(pver)  ! Layer midpoints normalized by
                                             ! surface pressure ('eta' coordinate)
 
 real(r8), protected :: ptop_ref             ! Top of model
@@ -50,8 +50,81 @@ logical, protected :: do_molec_diff = .false.
 integer, protected :: ntop_molec = 1
 integer, protected :: nbot_molec = 0
 
+logical :: use_native_ref_pres_init_impl = .false.
+logical :: ref_pres_init_impl_selected = .false.
+logical :: ref_pres_init_proof_written = .false.
+
+interface
+   subroutine ref_pres_init_finalize_codon(pver_c, pverp_c, trop_cloud_top_press_c, &
+        clim_modal_aero_top_press_c, do_molec_press_c, molec_diff_bot_press_c, pref_edge_p, &
+        pref_mid_p, pref_mid_norm_p, scalar_out_p, int_out_p, flag_out_p) &
+        bind(c, name="ref_pres_init_finalize_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: pver_c, pverp_c
+      real(c_double), value :: trop_cloud_top_press_c, clim_modal_aero_top_press_c
+      real(c_double), value :: do_molec_press_c, molec_diff_bot_press_c
+      type(c_ptr), value :: pref_edge_p, pref_mid_p, pref_mid_norm_p
+      type(c_ptr), value :: scalar_out_p, int_out_p, flag_out_p
+   end subroutine ref_pres_init_finalize_codon
+end interface
+
 !====================================================================================
 contains
+!====================================================================================
+
+subroutine ref_pres_init_select_impl()
+
+   use cam_logfile,  only: iulog
+   use spmd_utils,   only: masterproc
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (ref_pres_init_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('REF_PRES_INIT_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_ref_pres_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_ref_pres_init_impl = .false.
+   end if
+
+   ref_pres_init_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_ref_pres_init_impl) then
+         write(iulog,*) 'ref_pres_init implementation = native'
+      else
+         write(iulog,*) 'ref_pres_init implementation = codon'
+      end if
+   end if
+
+end subroutine ref_pres_init_select_impl
+
+!====================================================================================
+
+subroutine ref_pres_init_proof_once()
+
+   use cam_logfile,  only: iulog
+   use spmd_utils,   only: masterproc
+
+   if (ref_pres_init_proof_written) return
+   ref_pres_init_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'ref_pres_init entered (pressure normalization/limit helpers = codon)'
+   end if
+
+end subroutine ref_pres_init_proof_once
+
 !====================================================================================
 
 subroutine ref_pres_readnl(nlfile)
@@ -106,29 +179,49 @@ end subroutine ref_pres_readnl
 
 subroutine ref_pres_init
 
+  use iso_c_binding, only: c_double, c_int64_t, c_loc
   use dyn_grid,     only: dyn_grid_get_pref
+
+  real(c_double), target :: scalar_out(2)
+  integer(c_int64_t), target :: int_out(3), flag_out(1)
 
   ! Get reference pressures from the dynamical core.
   call dyn_grid_get_pref(pref_edge, pref_mid, num_pr_lev)
 
-  ptop_ref = pref_edge(1)
-  psurf_ref = pref_edge(pverp)
+  call ref_pres_init_select_impl()
+  if (use_native_ref_pres_init_impl) then
+     ptop_ref = pref_edge(1)
+     psurf_ref = pref_edge(pverp)
 
-  pref_mid_norm = pref_mid/psurf_ref
+     pref_mid_norm = pref_mid/psurf_ref
 
-  ! Find level corresponding to the top of troposphere clouds.
-  trop_cloud_top_lev = press_lim_idx(trop_cloud_top_press, &
-       top=.true.)
+     ! Find level corresponding to the top of troposphere clouds.
+     trop_cloud_top_lev = press_lim_idx(trop_cloud_top_press, &
+          top=.true.)
 
-  ! Find level corresponding to the top for MAM processes.
-  clim_modal_aero_top_lev = press_lim_idx(clim_modal_aero_top_press, &
-       top=.true.)
+     ! Find level corresponding to the top for MAM processes.
+     clim_modal_aero_top_lev = press_lim_idx(clim_modal_aero_top_press, &
+          top=.true.)
 
-  ! Find level corresponding to the molecular diffusion bottom.
-  do_molec_diff = (ptop_ref < do_molec_press)
-  if (do_molec_diff) then
-     nbot_molec = press_lim_idx(molec_diff_bot_press, &
-          top=.false.)
+     ! Find level corresponding to the molecular diffusion bottom.
+     do_molec_diff = (ptop_ref < do_molec_press)
+     if (do_molec_diff) then
+        nbot_molec = press_lim_idx(molec_diff_bot_press, &
+             top=.false.)
+     end if
+  else
+     call ref_pres_init_proof_once()
+     call ref_pres_init_finalize_codon(int(pver, c_int64_t), int(pverp, c_int64_t), &
+          real(trop_cloud_top_press, c_double), real(clim_modal_aero_top_press, c_double), &
+          real(do_molec_press, c_double), real(molec_diff_bot_press, c_double), &
+          c_loc(pref_edge(1)), c_loc(pref_mid(1)), c_loc(pref_mid_norm(1)), &
+          c_loc(scalar_out(1)), c_loc(int_out(1)), c_loc(flag_out(1)))
+     ptop_ref = scalar_out(1)
+     psurf_ref = scalar_out(2)
+     trop_cloud_top_lev = int(int_out(1))
+     clim_modal_aero_top_lev = int(int_out(2))
+     nbot_molec = int(int_out(3))
+     do_molec_diff = flag_out(1) /= 0_c_int64_t
   end if
 
 end subroutine ref_pres_init

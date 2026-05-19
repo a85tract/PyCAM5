@@ -2555,3 +2555,65 @@ def comsrf_initialize_fields_codon(
         prcsnw[idx] = nan_value
         trefmxav[idx] = -1.0e36
         trefmnav[idx] = 1.0e36
+
+
+@inline
+def _ref_pres_press_lim_idx_top(pver: int, p: float, pref_mid: Ptr[float]) -> int:
+    k_lim = pver + 1
+    for k in range(1, pver + 1):
+        if pref_mid[k - 1] > p:
+            k_lim = k
+            break
+    return k_lim
+
+
+@inline
+def _ref_pres_press_lim_idx_bottom(pver: int, p: float, pref_mid: Ptr[float]) -> int:
+    k_lim = 0
+    for k in range(pver, 0, -1):
+        if pref_mid[k - 1] < p:
+            k_lim = k
+            break
+    return k_lim
+
+
+@export
+def ref_pres_init_finalize_codon(
+    pver: int,
+    pverp: int,
+    trop_cloud_top_press: float,
+    clim_modal_aero_top_press: float,
+    do_molec_press: float,
+    molec_diff_bot_press: float,
+    pref_edge_p: cobj,
+    pref_mid_p: cobj,
+    pref_mid_norm_p: cobj,
+    scalar_out_p: cobj,
+    int_out_p: cobj,
+    flag_out_p: cobj,
+):
+    pref_edge = Ptr[float](pref_edge_p)
+    pref_mid = Ptr[float](pref_mid_p)
+    pref_mid_norm = Ptr[float](pref_mid_norm_p)
+    scalar_out = Ptr[float](scalar_out_p)
+    int_out = Ptr[int](int_out_p)
+    flag_out = Ptr[int](flag_out_p)
+
+    ptop_ref = pref_edge[0]
+    psurf_ref = pref_edge[pverp - 1]
+
+    scalar_out[0] = ptop_ref
+    scalar_out[1] = psurf_ref
+
+    for k in range(1, pver + 1):
+        pref_mid_norm[k - 1] = pref_mid[k - 1] / psurf_ref
+
+    int_out[0] = _ref_pres_press_lim_idx_top(pver, trop_cloud_top_press, pref_mid)
+    int_out[1] = _ref_pres_press_lim_idx_top(pver, clim_modal_aero_top_press, pref_mid)
+
+    if ptop_ref < do_molec_press:
+        flag_out[0] = 1
+        int_out[2] = _ref_pres_press_lim_idx_bottom(pver, molec_diff_bot_press, pref_mid)
+    else:
+        flag_out[0] = 0
+        int_out[2] = 0
