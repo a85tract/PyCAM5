@@ -3608,3 +3608,8 @@ def wv_sat_methods_value_codon(value: float) -> float:
 @export
 def wv_sat_methods_omeps_codon(epsilo: float) -> float:
     return 1.0 - epsilo
+
+
+@export
+def wv_saturation_value_codon(value: float) -> float:
+    return value

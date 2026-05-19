@@ -87,6 +87,18 @@ real(r8), parameter :: tboil = 373.16_r8
   real(r8) :: omeps      ! 1.0_r8 - epsilo
 
   real(r8) :: c3         ! parameter used by findsp
+  logical :: use_native_wv_saturation_impl = .false.
+  logical :: wv_saturation_impl_selected = .false.
+  logical :: wv_saturation_proof_written = .false.
+
+  interface
+     function wv_saturation_value_codon(value_c) result(value_out) &
+          bind(c, name="wv_saturation_value_codon")
+       use iso_c_binding, only: c_double
+       real(c_double), value :: value_c
+       real(c_double) :: value_out
+     end function wv_saturation_value_codon
+  end interface
 
   ! Set coefficients for polynomial approximation of difference
   ! between saturation vapor press over water and saturation pressure
@@ -113,6 +125,76 @@ contains
 !---------------------------------------------------------------------
 ! ADMINISTRATIVE FUNCTIONS
 !---------------------------------------------------------------------
+
+subroutine wv_saturation_select_impl()
+
+  use cam_logfile, only: iulog
+  use spmd_utils, only: masterproc
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (wv_saturation_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('WV_SATURATION_IMPL', value=impl_name, length=n, &
+       status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_wv_saturation_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_wv_saturation_impl = .false.
+  end if
+
+  wv_saturation_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_wv_saturation_impl) then
+        write(iulog,*) 'wv_saturation implementation = native'
+     else
+        write(iulog,*) 'wv_saturation implementation = codon'
+     end if
+  end if
+
+end subroutine wv_saturation_select_impl
+
+subroutine wv_saturation_proof_once()
+
+  use cam_logfile, only: iulog
+  use spmd_utils, only: masterproc
+
+  if (wv_saturation_proof_written) return
+  wv_saturation_proof_written = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') 'wv_saturation entered (init scalar helpers = codon)'
+  end if
+
+end subroutine wv_saturation_proof_once
+
+real(r8) function wv_saturation_value(value) result(out)
+
+  use iso_c_binding, only: c_double
+
+  real(r8), intent(in) :: value
+
+  call wv_saturation_select_impl()
+
+  if (use_native_wv_saturation_impl) then
+     out = value
+     return
+  end if
+
+  call wv_saturation_proof_once()
+  out = real(wv_saturation_value_codon(real(value, c_double)), r8)
+
+end function wv_saturation_value
 
 subroutine wv_sat_readnl(nlfile)
   !------------------------------------------------------------------!
@@ -195,7 +277,7 @@ subroutine wv_sat_init
   integer  :: i         ! Increment counter
 
   ! Precalculated because so frequently used.
-  omeps  = 1.0_r8 - epsilo
+  omeps  = wv_saturation_value(1.0_r8 - epsilo)
 
   ! Transition range method is only valid for transition temperatures at:
   ! -40 deg C < T < 0 deg C
@@ -203,7 +285,7 @@ subroutine wv_sat_init
        msg="wv_sat_init: Invalid transition temperature range.")
 
 ! This parameter uses a hardcoded 287.04_r8?
-  c3 = 287.04_r8*(7.5_r8*log(10._r8))/cpair
+  c3 = wv_saturation_value(287.04_r8*(7.5_r8*log(10._r8))/cpair)
 
 ! Init "methods" module containing actual SVP formulae.
 
