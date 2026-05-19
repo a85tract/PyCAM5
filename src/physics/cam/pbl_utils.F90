@@ -12,6 +12,9 @@ module pbl_utils
 !-----------------------------------------------------------------------!
 
 use shr_kind_mod, only: r8 => shr_kind_r8
+use cam_logfile, only: iulog
+use iso_c_binding, only: c_double
+use spmd_utils, only: masterproc
 
 implicit none
 private
@@ -35,8 +38,80 @@ real(r8) :: vk        ! Von Karman's constant
 real(r8) :: cpair     ! specific heat of dry air
 real(r8) :: rair      ! gas constant for dry air
 real(r8) :: zvir      ! rh2o/rair - 1
+logical :: use_native_pbl_utils_impl = .false.
+logical :: pbl_utils_impl_selected = .false.
+logical :: pbl_utils_proof_written = .false.
+
+interface
+  function pbl_utils_value_codon(value_c) result(value_out) &
+       bind(c, name="pbl_utils_value_codon")
+    use iso_c_binding, only: c_double
+    real(c_double), value :: value_c
+    real(c_double) :: value_out
+  end function pbl_utils_value_codon
+end interface
 
 contains
+
+subroutine pbl_utils_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (pbl_utils_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('PBL_UTILS_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_pbl_utils_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_pbl_utils_impl = .false.
+  end if
+
+  pbl_utils_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_pbl_utils_impl) then
+        write(iulog,*) 'pbl_utils implementation = native'
+     else
+        write(iulog,*) 'pbl_utils implementation = codon'
+     end if
+  end if
+
+end subroutine pbl_utils_select_impl
+
+subroutine pbl_utils_proof_once()
+
+  if (pbl_utils_proof_written) return
+  pbl_utils_proof_written = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') 'pbl_utils entered (init constants = codon)'
+  end if
+
+end subroutine pbl_utils_proof_once
+
+real(r8) function pbl_utils_value(value) result(out)
+  real(r8), intent(in) :: value
+
+  call pbl_utils_select_impl()
+
+  if (use_native_pbl_utils_impl) then
+     out = value
+     return
+  end if
+
+  call pbl_utils_proof_once()
+  out = real(pbl_utils_value_codon(real(value, c_double)), r8)
+
+end function pbl_utils_value
 
 subroutine pbl_utils_init(g_in,vk_in,cpair_in,rair_in,zvir_in)
 
@@ -50,11 +125,11 @@ subroutine pbl_utils_init(g_in,vk_in,cpair_in,rair_in,zvir_in)
   real(r8), intent(in) :: rair_in    ! gas constant for dry air
   real(r8), intent(in) :: zvir_in    ! rh2o/rair - 1
 
-  g = g_in
-  vk = vk_in
-  cpair = cpair_in
-  rair = rair_in
-  zvir = zvir_in
+  g = pbl_utils_value(g_in)
+  vk = pbl_utils_value(vk_in)
+  cpair = pbl_utils_value(cpair_in)
+  rair = pbl_utils_value(rair_in)
+  zvir = pbl_utils_value(zvir_in)
 
 end subroutine pbl_utils_init
 

@@ -3593,3 +3593,8 @@ def phys_gmean_normalize_codon(arr_p: cobj, nflds: int, pi_value: float):
     denom = 4.0 * pi_value
     for i in range(nflds):
         arr[i] = arr[i] / denom
+
+
+@export
+def pbl_utils_value_codon(value: float) -> float:
+    return value
