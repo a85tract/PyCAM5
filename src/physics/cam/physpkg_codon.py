@@ -3571,3 +3571,10 @@ def cpslec_codon(
             beta = phis[i] / (rair * tstar)
             ab = alph * beta
             psl[i] = ps[i] * exp(beta * (1.0 - alph * beta / 2.0 + (ab**2.0) / 3.0))
+
+
+@export
+def sslt_rebin_has_four_codon(i1: int, i2: int, i3: int, i4: int) -> int:
+    if i1 > 0 and i2 > 0 and i3 > 0 and i4 > 0:
+        return 1
+    return 0

@@ -16,6 +16,9 @@
 module sslt_rebin
 
   use shr_kind_mod,   only: r8 => shr_kind_r8
+  use cam_logfile,    only: iulog
+  use iso_c_binding,  only: c_int64_t
+  use spmd_utils,     only: masterproc
 
   implicit none
 
@@ -26,10 +29,83 @@ module sslt_rebin
   character(len=1) :: source
   character(len=1), parameter :: DATA = 'D'
   character(len=1), parameter :: PROG = 'P'
+  logical :: use_native_sslt_rebin_impl = .false.
+  logical :: sslt_rebin_impl_selected = .false.
+  logical :: sslt_rebin_proof_written = .false.
+
+  interface
+     function sslt_rebin_has_four_codon(i1_c, i2_c, i3_c, i4_c) result(has_c) &
+          bind(c, name="sslt_rebin_has_four_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: i1_c, i2_c, i3_c, i4_c
+       integer(c_int64_t) :: has_c
+     end function sslt_rebin_has_four_codon
+  end interface
 
   private
   public :: sslt_rebin_init, sslt_rebin_adv, sslt_rebin_register
 contains
+
+  subroutine sslt_rebin_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (sslt_rebin_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('SSLT_REBIN_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_sslt_rebin_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_sslt_rebin_impl = .false.
+    end if
+
+    sslt_rebin_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_sslt_rebin_impl) then
+          write(iulog,*) 'sslt_rebin implementation = native'
+       else
+          write(iulog,*) 'sslt_rebin implementation = codon'
+       end if
+    end if
+
+  end subroutine sslt_rebin_select_impl
+
+  subroutine sslt_rebin_proof_once()
+
+    if (sslt_rebin_proof_written) return
+    sslt_rebin_proof_written = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'sslt_rebin entered (source-index helper = codon)'
+    end if
+
+  end subroutine sslt_rebin_proof_once
+
+  logical function sslt_rebin_has_four(i1, i2, i3, i4) result(has_four)
+    integer, intent(in) :: i1, i2, i3, i4
+
+    call sslt_rebin_select_impl()
+
+    if (use_native_sslt_rebin_impl) then
+       has_four = i1 > 0 .and. i2 > 0 .and. i3 > 0 .and. i4 > 0
+       return
+    end if
+
+    call sslt_rebin_proof_once()
+    has_four = sslt_rebin_has_four_codon(int(i1, c_int64_t), &
+         int(i2, c_int64_t), int(i3, c_int64_t), int(i4, c_int64_t)) /= 0_c_int64_t
+
+  end function sslt_rebin_has_four
 
 
 !-------------------------------------------------------------------
@@ -65,7 +141,7 @@ contains
     indices(3) = pbuf_get_index('sslt3',errcode)
     indices(4) = pbuf_get_index('sslt4',errcode)
 
-    has_sslt = all( indices(:) > 0 )
+    has_sslt = sslt_rebin_has_four(indices(1), indices(2), indices(3), indices(4))
     if ( has_sslt ) source = DATA
 
     if ( .not. has_sslt ) then
@@ -73,7 +149,7 @@ contains
        call cnst_get_ind ('SSLT02', indices(2), abort=.false.)
        call cnst_get_ind ('SSLT03', indices(3), abort=.false.)
        call cnst_get_ind ('SSLT04', indices(4), abort=.false.)
-       has_sslt = all( indices(:) > 0 )
+       has_sslt = sslt_rebin_has_four(indices(1), indices(2), indices(3), indices(4))
        if ( has_sslt ) source = PROG
     endif
 
