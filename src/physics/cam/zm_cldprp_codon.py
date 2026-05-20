@@ -392,6 +392,77 @@ def zm_cldprp_taylor_hmin_codon(
                 expdif[i0] = hmn[_idx2(i, int(mx[i0]), pcols)] - hmin[i0]
 
 
+def zm_cldprp_taylor_f_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    msg: int,
+    jt_p: cobj,
+    jb_p: cobj,
+    mx_p: cobj,
+    expdif_p: cobj,
+    expnum_p: cobj,
+    ftemp_p: cobj,
+    hmn_p: cobj,
+    hsat_p: cobj,
+    zf_p: cobj,
+    z_p: cobj,
+    k1_p: cobj,
+    i2_p: cobj,
+    i3_p: cobj,
+    i4_p: cobj,
+    dz_p: cobj,
+    f_p: cobj,
+):
+    jt = Ptr[i32](jt_p)
+    jb = Ptr[i32](jb_p)
+    mx = Ptr[i32](mx_p)
+    expdif = Ptr[float](expdif_p)
+    expnum = Ptr[float](expnum_p)
+    ftemp = Ptr[float](ftemp_p)
+    hmn = Ptr[float](hmn_p)
+    hsat = Ptr[float](hsat_p)
+    zf = Ptr[float](zf_p)
+    z = Ptr[float](z_p)
+    k1 = Ptr[float](k1_p)
+    i2 = Ptr[float](i2_p)
+    i3 = Ptr[float](i3_p)
+    i4 = Ptr[float](i4_p)
+    dz = Ptr[float](dz_p)
+    f = Ptr[float](f_p)
+
+    for k in range(msg + 2, pver + 1):
+        for i in range(1, il2g + 1):
+            i0 = _idx1(i)
+            idx = _idx2(i, k, pcols)
+            expnum[i0] = 0.0
+            ftemp[i0] = 0.0
+            if k < int(jt[i0]) or k >= int(jb[i0]):
+                k1[idx] = 0.0
+                expnum[i0] = 0.0
+            else:
+                expnum[i0] = hmn[_idx2(i, int(mx[i0]), pcols)] - (
+                    hsat[_idx2(i, k - 1, pcols)] * (zf[idx] - z[idx])
+                    + hsat[idx] * (z[_idx2(i, k - 1, pcols)] - zf[idx])
+                ) / (z[_idx2(i, k - 1, pcols)] - z[idx])
+            if (expdif[i0] > 100.0 and expnum[i0] > 0.0) and k1[idx] > expnum[i0] * dz[idx]:
+                ftemp[i0] = expnum[i0] / k1[idx]
+                f[idx] = (
+                    ftemp[i0]
+                    + i2[idx] / k1[idx] * ftemp[i0] ** 2
+                    + (2.0 * i2[idx] ** 2 - k1[idx] * i3[idx]) / k1[idx] ** 2 * ftemp[i0] ** 3
+                    + (
+                        -5.0 * k1[idx] * i2[idx] * i3[idx]
+                        + 5.0 * i2[idx] ** 3
+                        + k1[idx] ** 2 * i4[idx]
+                    )
+                    / k1[idx] ** 3
+                    * ftemp[i0] ** 4
+                )
+                f[idx] = max(f[idx], 0.0)
+                f[idx] = min(f[idx], 0.0002)
+
+
 def zm_cldprp_eps_profile_codon(
     il2g: int,
     pcols: int,

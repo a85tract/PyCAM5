@@ -3065,6 +3065,15 @@ subroutine cldprp(lchnk   , &
          type(c_ptr), value :: idag_p, i3_p, iprm_p, i4_p, hmin_p, expdif_p
       end subroutine zm_cldprp_taylor_hmin_codon
 
+      subroutine zm_cldprp_taylor_f_codon(il2g_c, pcols_c, pver_c, msg_c, jt_p, jb_p, mx_p, &
+           expdif_p, expnum_p, ftemp_p, hmn_p, hsat_p, zf_p, z_p, k1_p, i2_p, i3_p, i4_p, &
+           dz_p, f_p) bind(c, name="zm_cldprp_taylor_f_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c, pver_c, msg_c
+         type(c_ptr), value :: jt_p, jb_p, mx_p, expdif_p, expnum_p, ftemp_p, hmn_p, hsat_p
+         type(c_ptr), value :: zf_p, z_p, k1_p, i2_p, i3_p, i4_p, dz_p, f_p
+      end subroutine zm_cldprp_taylor_f_codon
+
       subroutine zm_cldprp_eps_profile_codon(il2g_c, pcols_c, pver_c, msg_c, jt_p, jb_p, j0_p, &
            f_p, eps_p, eps0_p) bind(c, name="zm_cldprp_eps_profile_codon")
          use iso_c_binding, only: c_int64_t, c_ptr
@@ -3167,10 +3176,10 @@ subroutine cldprp(lchnk   , &
 
    if (.not. use_native_zm_cldprp_helpers) then
       if (masterproc .and. .not. zm_cldprp_helpers_logged) then
-         write(iulog,*) 'zm_cldprp_helpers entered (init/thermo/index/taylor/eps/cloudtop/ddmass/' // &
+         write(iulog,*) 'zm_cldprp_helpers entered (init/thermo/index/taylor/fpoly/eps/cloudtop/ddmass/' // &
               'downdraft/cond/rain/evap direct = codon)'
          call zm_conv_evap_append_impl_proof( &
-              'zm_cldprp_helpers entered (init/thermo/index/taylor/eps/cloudtop/ddmass/' // &
+              'zm_cldprp_helpers entered (init/thermo/index/taylor/fpoly/eps/cloudtop/ddmass/' // &
               'downdraft/cond/rain/evap direct = codon)')
          call flush(iulog)
          zm_cldprp_helpers_logged = .true.
@@ -3396,30 +3405,37 @@ subroutine cldprp(lchnk   , &
 ! compute approximate eps(z) using above taylor series
 ! *********************************************************
 !
-   do k = msg + 2,pver
-      do i = 1,il2g
-         expnum(i) = 0._r8
-         ftemp(i) = 0._r8
-         if (k < jt(i) .or. k >= jb(i)) then
-            k1(i,k) = 0._r8
+   if (.not. use_native_zm_cldprp_helpers) then
+      call zm_cldprp_taylor_f_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(msg, c_int64_t), c_loc(jt), c_loc(jb), c_loc(mx), &
+           c_loc(expdif), c_loc(expnum), c_loc(ftemp), c_loc(hmn), c_loc(hsat), c_loc(zf), &
+           c_loc(z), c_loc(k1), c_loc(i2), c_loc(i3), c_loc(i4), c_loc(dz), c_loc(f))
+   else
+      do k = msg + 2,pver
+         do i = 1,il2g
             expnum(i) = 0._r8
-         else
-            expnum(i) = hmn(i,mx(i)) - (hsat(i,k-1)*(zf(i,k)-z(i,k)) + &
-                        hsat(i,k)* (z(i,k-1)-zf(i,k)))/(z(i,k-1)-z(i,k))
-         end if
-         if ((expdif(i) > 100._r8 .and. expnum(i) > 0._r8) .and. &
-            k1(i,k) > expnum(i)*dz(i,k)) then
-            ftemp(i) = expnum(i)/k1(i,k)
-            f(i,k) = ftemp(i) + i2(i,k)/k1(i,k)*ftemp(i)**2 + &
-                     (2._r8*i2(i,k)**2-k1(i,k)*i3(i,k))/k1(i,k)**2* &
-                     ftemp(i)**3 + (-5._r8*k1(i,k)*i2(i,k)*i3(i,k)+ &
-                     5._r8*i2(i,k)**3+k1(i,k)**2*i4(i,k))/ &
-                     k1(i,k)**3*ftemp(i)**4
-            f(i,k) = max(f(i,k),0._r8)
-            f(i,k) = min(f(i,k),0.0002_r8)
-         end if
+            ftemp(i) = 0._r8
+            if (k < jt(i) .or. k >= jb(i)) then
+               k1(i,k) = 0._r8
+               expnum(i) = 0._r8
+            else
+               expnum(i) = hmn(i,mx(i)) - (hsat(i,k-1)*(zf(i,k)-z(i,k)) + &
+                           hsat(i,k)* (z(i,k-1)-zf(i,k)))/(z(i,k-1)-z(i,k))
+            end if
+            if ((expdif(i) > 100._r8 .and. expnum(i) > 0._r8) .and. &
+               k1(i,k) > expnum(i)*dz(i,k)) then
+               ftemp(i) = expnum(i)/k1(i,k)
+               f(i,k) = ftemp(i) + i2(i,k)/k1(i,k)*ftemp(i)**2 + &
+                        (2._r8*i2(i,k)**2-k1(i,k)*i3(i,k))/k1(i,k)**2* &
+                        ftemp(i)**3 + (-5._r8*k1(i,k)*i2(i,k)*i3(i,k)+ &
+                        5._r8*i2(i,k)**3+k1(i,k)**2*i4(i,k))/ &
+                        k1(i,k)**3*ftemp(i)**4
+               f(i,k) = max(f(i,k),0._r8)
+               f(i,k) = min(f(i,k),0.0002_r8)
+            end if
+         end do
       end do
-   end do
+   end if
    if (.not. use_native_zm_cldprp_helpers) then
       call zm_cldprp_eps_profile_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
            int(pver, c_int64_t), int(msg, c_int64_t), c_loc(jt), c_loc(jb), c_loc(j0), &

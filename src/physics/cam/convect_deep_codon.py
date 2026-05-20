@@ -318,6 +318,35 @@ def zm_cldprp_taylor_hmin_codon(
 
 
 @export
+def zm_cldprp_taylor_f_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    msg: int,
+    jt_p: cobj,
+    jb_p: cobj,
+    mx_p: cobj,
+    expdif_p: cobj,
+    expnum_p: cobj,
+    ftemp_p: cobj,
+    hmn_p: cobj,
+    hsat_p: cobj,
+    zf_p: cobj,
+    z_p: cobj,
+    k1_p: cobj,
+    i2_p: cobj,
+    i3_p: cobj,
+    i4_p: cobj,
+    dz_p: cobj,
+    f_p: cobj,
+):
+    _zm_cldprp.zm_cldprp_taylor_f_codon(
+        il2g, pcols, pver, msg, jt_p, jb_p, mx_p, expdif_p, expnum_p, ftemp_p, hmn_p,
+        hsat_p, zf_p, z_p, k1_p, i2_p, i3_p, i4_p, dz_p, f_p,
+    )
+
+
+@export
 def zm_cldprp_eps_profile_codon(
     il2g: int,
     pcols: int,
