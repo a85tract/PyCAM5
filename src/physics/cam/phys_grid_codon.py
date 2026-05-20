@@ -245,3 +245,186 @@ def phys_grid_lchunk_area_wght_codon(
         dyn_idx = int(gcol[i]) - 1
         area[i] = area_d[dyn_idx]
         wght[i] = wght_d[dyn_idx]
+
+
+def phys_grid_count_smp_procs_codon(
+    npes: int,
+    nsmpx: int,
+    proc_smp_mapx_p: cobj,
+    nsmpprocs_p: cobj,
+) -> int:
+    proc_smp_mapx = Ptr[i32](proc_smp_mapx_p)
+    nsmpprocs = Ptr[i32](nsmpprocs_p)
+
+    for smp in range(nsmpx):
+        nsmpprocs[smp] = i32(0)
+
+    for p in range(npes):
+        smp = int(proc_smp_mapx[p])
+        nsmpprocs[smp] = i32(int(nsmpprocs[smp]) + 1)
+
+    max_count = 0
+    for smp in range(nsmpx):
+        if int(nsmpprocs[smp]) > max_count:
+            max_count = int(nsmpprocs[smp])
+    return max_count
+
+
+def phys_grid_create_chunks_thread_counts_codon(
+    npes: int,
+    nsmpx: int,
+    proc_smp_mapx_p: cobj,
+    npthreads_p: cobj,
+    nsmpthreads_p: cobj,
+):
+    proc_smp_mapx = Ptr[i32](proc_smp_mapx_p)
+    npthreads = Ptr[i32](npthreads_p)
+    nsmpthreads = Ptr[i32](nsmpthreads_p)
+
+    for smp in range(nsmpx):
+        nsmpthreads[smp] = i32(0)
+
+    for p in range(npes):
+        smp = int(proc_smp_mapx[p])
+        nsmpthreads[smp] = i32(int(nsmpthreads[smp]) + int(npthreads[p]))
+
+
+def phys_grid_create_chunks_shape_codon(
+    nsmpx: int,
+    pcols: int,
+    chunks_per_thread: int,
+    nsmpcolumns_p: cobj,
+    nsmpthreads_p: cobj,
+    nsmpchunks_p: cobj,
+    maxcol_chk_p: cobj,
+    maxcol_chks_p: cobj,
+) -> int:
+    nsmpcolumns = Ptr[i32](nsmpcolumns_p)
+    nsmpthreads = Ptr[i32](nsmpthreads_p)
+    nsmpchunks = Ptr[i32](nsmpchunks_p)
+    maxcol_chk = Ptr[i32](maxcol_chk_p)
+    maxcol_chks = Ptr[i32](maxcol_chks_p)
+
+    nchunks = 0
+    for smp in range(nsmpx):
+        cols = int(nsmpcolumns[smp])
+        threads = int(nsmpthreads[smp])
+        chunks = cols // pcols
+        if cols % pcols != 0:
+            chunks += 1
+        min_chunks = chunks_per_thread * threads
+        if chunks < min_chunks:
+            chunks = min_chunks
+        while chunks % threads != 0:
+            chunks += 1
+        if chunks > cols:
+            chunks = cols
+        nsmpchunks[smp] = i32(chunks)
+        nchunks += chunks
+
+    for smp in range(nsmpx):
+        chunks = int(nsmpchunks[smp])
+        cols = int(nsmpcolumns[smp])
+        if chunks != 0:
+            ntmp1 = cols // chunks
+            ntmp2 = cols % chunks
+            if ntmp2 > 0:
+                maxcol_chk[smp] = i32(ntmp1 + 1)
+                maxcol_chks[smp] = i32(ntmp2)
+            else:
+                maxcol_chk[smp] = i32(ntmp1)
+                maxcol_chks[smp] = i32(chunks)
+        else:
+            maxcol_chk[smp] = i32(0)
+            maxcol_chks[smp] = i32(0)
+    return nchunks
+
+
+def phys_grid_create_chunks_prefix_codon(
+    nsmpx: int,
+    nsmpchunks_p: cobj,
+    cid_offset_p: cobj,
+    local_cid_p: cobj,
+):
+    nsmpchunks = Ptr[i32](nsmpchunks_p)
+    cid_offset = Ptr[i32](cid_offset_p)
+    local_cid = Ptr[i32](local_cid_p)
+
+    if nsmpx <= 0:
+        return
+    cid_offset[0] = i32(1)
+    local_cid[0] = i32(0)
+    for smp in range(1, nsmpx):
+        cid_offset[smp] = i32(int(cid_offset[smp - 1]) + int(nsmpchunks[smp - 1]))
+        local_cid[smp] = i32(0)
+
+
+def phys_grid_assign_chunks_smp_setup_codon(
+    npes: int,
+    nsmpx: int,
+    max_nproc_smpx: int,
+    proc_smp_mapx_p: cobj,
+    npthreads_p: cobj,
+    nsmpthreads_p: cobj,
+    nsmpchunks_p: cobj,
+    ntsks_smpx_p: cobj,
+    smp_proc_mapx_p: cobj,
+    cid_offset_p: cobj,
+    ntmp1_smp_p: cobj,
+    ntmp2_smp_p: cobj,
+    ntmp3_smp_p: cobj,
+    ntmp4_smp_p: cobj,
+    npchunks_p: cobj,
+):
+    proc_smp_mapx = Ptr[i32](proc_smp_mapx_p)
+    npthreads = Ptr[i32](npthreads_p)
+    nsmpthreads = Ptr[i32](nsmpthreads_p)
+    nsmpchunks = Ptr[i32](nsmpchunks_p)
+    ntsks_smpx = Ptr[i32](ntsks_smpx_p)
+    smp_proc_mapx = Ptr[i32](smp_proc_mapx_p)
+    cid_offset = Ptr[i32](cid_offset_p)
+    ntmp1_smp = Ptr[i32](ntmp1_smp_p)
+    ntmp2_smp = Ptr[i32](ntmp2_smp_p)
+    ntmp3_smp = Ptr[i32](ntmp3_smp_p)
+    ntmp4_smp = Ptr[i32](ntmp4_smp_p)
+    npchunks = Ptr[i32](npchunks_p)
+
+    for smp in range(nsmpx):
+        ntsks_smpx[smp] = i32(0)
+    for j in range(max_nproc_smpx):
+        for smp in range(nsmpx):
+            smp_proc_mapx[smp + j * nsmpx] = i32(-1)
+
+    for p in range(npes):
+        smp = int(proc_smp_mapx[p])
+        task = int(ntsks_smpx[smp]) + 1
+        ntsks_smpx[smp] = i32(task)
+        smp_proc_mapx[smp + (task - 1) * nsmpx] = i32(p)
+
+    cid_offset[0] = i32(1)
+    for smp in range(1, nsmpx + 1):
+        cid_offset[smp] = i32(int(cid_offset[smp - 1]) + int(nsmpchunks[smp - 1]))
+
+    for smp in range(nsmpx):
+        ntmp1_smp[smp] = i32(int(nsmpchunks[smp]) // int(nsmpthreads[smp]))
+        ntmp2_smp[smp] = i32(int(nsmpchunks[smp]) % int(nsmpthreads[smp]))
+        ntmp3_smp[smp] = i32(int(ntmp2_smp[smp]) % int(ntsks_smpx[smp]))
+        ntmp4_smp[smp] = i32(int(ntmp2_smp[smp]) // int(ntsks_smpx[smp]))
+        if int(ntmp3_smp[smp]) > 0:
+            ntmp4_smp[smp] = i32(int(ntmp4_smp[smp]) + 1)
+
+    for p in range(npes):
+        smp = int(proc_smp_mapx[p])
+        if int(ntmp2_smp[smp]) > int(ntmp4_smp[smp]):
+            ntmp2_smp[smp] = i32(int(ntmp2_smp[smp]) - int(ntmp4_smp[smp]))
+        else:
+            ntmp4_smp[smp] = ntmp2_smp[smp]
+            ntmp2_smp[smp] = i32(0)
+            ntmp3_smp[smp] = i32(0)
+
+        npchunks[p] = i32(int(ntmp1_smp[smp]) * int(npthreads[p]) + int(ntmp4_smp[smp]))
+
+        if int(ntmp3_smp[smp]) > 0:
+            ntmp3_smp[smp] = i32(int(ntmp3_smp[smp]) - 1)
+            if int(ntmp3_smp[smp]) == 0:
+                ntmp4_smp[smp] = i32(int(ntmp4_smp[smp]) - 1)

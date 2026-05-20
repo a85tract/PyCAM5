@@ -2375,6 +2375,99 @@ def phys_grid_lchunk_area_wght_codon(
 
 
 @export
+def phys_grid_count_smp_procs_codon(
+    npes: int,
+    nsmpx: int,
+    proc_smp_mapx_p: cobj,
+    nsmpprocs_p: cobj,
+) -> int:
+    return _phys_grid.phys_grid_count_smp_procs_codon(npes, nsmpx, proc_smp_mapx_p, nsmpprocs_p)
+
+
+@export
+def phys_grid_create_chunks_thread_counts_codon(
+    npes: int,
+    nsmpx: int,
+    proc_smp_mapx_p: cobj,
+    npthreads_p: cobj,
+    nsmpthreads_p: cobj,
+):
+    _phys_grid.phys_grid_create_chunks_thread_counts_codon(
+        npes, nsmpx, proc_smp_mapx_p, npthreads_p, nsmpthreads_p
+    )
+
+
+@export
+def phys_grid_create_chunks_shape_codon(
+    nsmpx: int,
+    pcols: int,
+    chunks_per_thread: int,
+    nsmpcolumns_p: cobj,
+    nsmpthreads_p: cobj,
+    nsmpchunks_p: cobj,
+    maxcol_chk_p: cobj,
+    maxcol_chks_p: cobj,
+) -> int:
+    return _phys_grid.phys_grid_create_chunks_shape_codon(
+        nsmpx,
+        pcols,
+        chunks_per_thread,
+        nsmpcolumns_p,
+        nsmpthreads_p,
+        nsmpchunks_p,
+        maxcol_chk_p,
+        maxcol_chks_p,
+    )
+
+
+@export
+def phys_grid_create_chunks_prefix_codon(
+    nsmpx: int,
+    nsmpchunks_p: cobj,
+    cid_offset_p: cobj,
+    local_cid_p: cobj,
+):
+    _phys_grid.phys_grid_create_chunks_prefix_codon(nsmpx, nsmpchunks_p, cid_offset_p, local_cid_p)
+
+
+@export
+def phys_grid_assign_chunks_smp_setup_codon(
+    npes: int,
+    nsmpx: int,
+    max_nproc_smpx: int,
+    proc_smp_mapx_p: cobj,
+    npthreads_p: cobj,
+    nsmpthreads_p: cobj,
+    nsmpchunks_p: cobj,
+    ntsks_smpx_p: cobj,
+    smp_proc_mapx_p: cobj,
+    cid_offset_p: cobj,
+    ntmp1_smp_p: cobj,
+    ntmp2_smp_p: cobj,
+    ntmp3_smp_p: cobj,
+    ntmp4_smp_p: cobj,
+    npchunks_p: cobj,
+):
+    _phys_grid.phys_grid_assign_chunks_smp_setup_codon(
+        npes,
+        nsmpx,
+        max_nproc_smpx,
+        proc_smp_mapx_p,
+        npthreads_p,
+        nsmpthreads_p,
+        nsmpchunks_p,
+        ntsks_smpx_p,
+        smp_proc_mapx_p,
+        cid_offset_p,
+        ntmp1_smp_p,
+        ntmp2_smp_p,
+        ntmp3_smp_p,
+        ntmp4_smp_p,
+        npchunks_p,
+    )
+
+
+@export
 def phys_grid_get_gcol_vec_codon(lth: int, cols_p: cobj, src_p: cobj, dst_p: cobj):
     cols = Ptr[i32](cols_p)
     src = Ptr[i32](src_p)

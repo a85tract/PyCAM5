@@ -457,6 +457,48 @@ module phys_grid
        integer(c_int64_t), value :: ncols_c
        type(c_ptr), value :: gcol_p, area_d_p, wght_d_p, area_p, wght_p
      end subroutine phys_grid_lchunk_area_wght_codon
+
+     function phys_grid_count_smp_procs_codon(npes_c, nsmpx_c, proc_smp_mapx_p, nsmpprocs_p) result(max_count_c) &
+          bind(c, name="phys_grid_count_smp_procs_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: npes_c, nsmpx_c
+       type(c_ptr), value :: proc_smp_mapx_p, nsmpprocs_p
+       integer(c_int64_t) :: max_count_c
+     end function phys_grid_count_smp_procs_codon
+
+     subroutine phys_grid_create_chunks_thread_counts_codon(npes_c, nsmpx_c, proc_smp_mapx_p, &
+          npthreads_p, nsmpthreads_p) bind(c, name="phys_grid_create_chunks_thread_counts_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: npes_c, nsmpx_c
+       type(c_ptr), value :: proc_smp_mapx_p, npthreads_p, nsmpthreads_p
+     end subroutine phys_grid_create_chunks_thread_counts_codon
+
+     function phys_grid_create_chunks_shape_codon(nsmpx_c, pcols_c, chunks_per_thread_c, nsmpcolumns_p, &
+          nsmpthreads_p, nsmpchunks_p, maxcol_chk_p, maxcol_chks_p) result(nchunks_c) &
+          bind(c, name="phys_grid_create_chunks_shape_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: nsmpx_c, pcols_c, chunks_per_thread_c
+       type(c_ptr), value :: nsmpcolumns_p, nsmpthreads_p, nsmpchunks_p, maxcol_chk_p, maxcol_chks_p
+       integer(c_int64_t) :: nchunks_c
+     end function phys_grid_create_chunks_shape_codon
+
+     subroutine phys_grid_create_chunks_prefix_codon(nsmpx_c, nsmpchunks_p, cid_offset_p, local_cid_p) &
+          bind(c, name="phys_grid_create_chunks_prefix_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: nsmpx_c
+       type(c_ptr), value :: nsmpchunks_p, cid_offset_p, local_cid_p
+     end subroutine phys_grid_create_chunks_prefix_codon
+
+     subroutine phys_grid_assign_chunks_smp_setup_codon(npes_c, nsmpx_c, max_nproc_smpx_c, &
+          proc_smp_mapx_p, npthreads_p, nsmpthreads_p, nsmpchunks_p, ntsks_smpx_p, smp_proc_mapx_p, &
+          cid_offset_p, ntmp1_smp_p, ntmp2_smp_p, ntmp3_smp_p, ntmp4_smp_p, npchunks_p) &
+          bind(c, name="phys_grid_assign_chunks_smp_setup_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: npes_c, nsmpx_c, max_nproc_smpx_c
+       type(c_ptr), value :: proc_smp_mapx_p, npthreads_p, nsmpthreads_p, nsmpchunks_p
+       type(c_ptr), value :: ntsks_smpx_p, smp_proc_mapx_p, cid_offset_p
+       type(c_ptr), value :: ntmp1_smp_p, ntmp2_smp_p, ntmp3_smp_p, ntmp4_smp_p, npchunks_p
+     end subroutine phys_grid_assign_chunks_smp_setup_codon
    end interface
 
 contains
@@ -647,7 +689,7 @@ contains
     init_helpers_proof_written = .true.
     if (masterproc) then
        write(iulog,'(A)') &
-            'phys_grid_init_helpers entered (coordinate fills/maps/proc offsets/local chunk weights direct = codon)'
+            'phys_grid_init_helpers entered (coordinate fills/maps/proc offsets/chunk quotas/local chunk weights direct = codon)'
     end if
   end subroutine phys_grid_init_helpers_proof_once
 
@@ -819,6 +861,83 @@ contains
     call phys_grid_lchunk_area_wght_codon(int(ncols_local, c_int64_t), c_loc(gcol(1)), &
          c_loc(area_d_local(1)), c_loc(wght_d_local(1)), c_loc(area(1)), c_loc(wght(1)))
   end subroutine phys_grid_lchunk_area_wght_codon_wrap
+
+  integer function phys_grid_count_smp_procs_codon_wrap(npes_local, nsmpx_local, proc_smp_mapx_local, nsmpprocs)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: npes_local, nsmpx_local
+    integer, target, intent(in) :: proc_smp_mapx_local(0:)
+    integer, target, intent(inout) :: nsmpprocs(0:)
+
+    if (npes_local <= 0 .or. nsmpx_local <= 0) then
+       phys_grid_count_smp_procs_codon_wrap = 0
+       return
+    endif
+    phys_grid_count_smp_procs_codon_wrap = int( &
+         phys_grid_count_smp_procs_codon(int(npes_local, c_int64_t), int(nsmpx_local, c_int64_t), &
+         c_loc(proc_smp_mapx_local(0)), c_loc(nsmpprocs(0))))
+  end function phys_grid_count_smp_procs_codon_wrap
+
+  subroutine phys_grid_create_chunks_thread_counts_codon_wrap(npes_local, nsmpx_local, &
+       proc_smp_mapx_local, npthreads_local, nsmpthreads_local)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: npes_local, nsmpx_local
+    integer, target, intent(in) :: proc_smp_mapx_local(0:), npthreads_local(0:)
+    integer, target, intent(inout) :: nsmpthreads_local(0:)
+
+    if (npes_local <= 0 .or. nsmpx_local <= 0) return
+    call phys_grid_create_chunks_thread_counts_codon(int(npes_local, c_int64_t), int(nsmpx_local, c_int64_t), &
+         c_loc(proc_smp_mapx_local(0)), c_loc(npthreads_local(0)), c_loc(nsmpthreads_local(0)))
+  end subroutine phys_grid_create_chunks_thread_counts_codon_wrap
+
+  integer function phys_grid_create_chunks_shape_codon_wrap(nsmpx_local, pcols_local, chunks_per_thread_local, &
+       nsmpcolumns_local, nsmpthreads_local, nsmpchunks_local, maxcol_chk_local, maxcol_chks_local)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: nsmpx_local, pcols_local, chunks_per_thread_local
+    integer, target, intent(in) :: nsmpcolumns_local(0:), nsmpthreads_local(0:)
+    integer, target, intent(inout) :: nsmpchunks_local(0:), maxcol_chk_local(0:), maxcol_chks_local(0:)
+
+    if (nsmpx_local <= 0) then
+       phys_grid_create_chunks_shape_codon_wrap = 0
+       return
+    endif
+    phys_grid_create_chunks_shape_codon_wrap = int( &
+         phys_grid_create_chunks_shape_codon(int(nsmpx_local, c_int64_t), int(pcols_local, c_int64_t), &
+         int(chunks_per_thread_local, c_int64_t), c_loc(nsmpcolumns_local(0)), c_loc(nsmpthreads_local(0)), &
+         c_loc(nsmpchunks_local(0)), c_loc(maxcol_chk_local(0)), c_loc(maxcol_chks_local(0))))
+  end function phys_grid_create_chunks_shape_codon_wrap
+
+  subroutine phys_grid_create_chunks_prefix_codon_wrap(nsmpx_local, nsmpchunks_local, &
+       cid_offset_local, local_cid_local)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: nsmpx_local
+    integer, target, intent(in) :: nsmpchunks_local(0:)
+    integer, target, intent(inout) :: cid_offset_local(0:), local_cid_local(0:)
+
+    if (nsmpx_local <= 0) return
+    call phys_grid_create_chunks_prefix_codon(int(nsmpx_local, c_int64_t), c_loc(nsmpchunks_local(0)), &
+         c_loc(cid_offset_local(0)), c_loc(local_cid_local(0)))
+  end subroutine phys_grid_create_chunks_prefix_codon_wrap
+
+  subroutine phys_grid_assign_chunks_smp_setup_codon_wrap(npes_local, nsmpx_local, max_nproc_smpx_local, &
+       proc_smp_mapx_local, npthreads_local, nsmpthreads_local, nsmpchunks_local, ntsks_smpx_local, &
+       smp_proc_mapx_local, cid_offset_local, ntmp1_smp_local, ntmp2_smp_local, ntmp3_smp_local, &
+       ntmp4_smp_local, npchunks_local)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: npes_local, nsmpx_local, max_nproc_smpx_local
+    integer, target, intent(in) :: proc_smp_mapx_local(0:), npthreads_local(0:)
+    integer, target, intent(in) :: nsmpthreads_local(0:), nsmpchunks_local(0:)
+    integer, target, intent(inout) :: ntsks_smpx_local(0:), smp_proc_mapx_local(0:,1:)
+    integer, target, intent(inout) :: cid_offset_local(0:), ntmp1_smp_local(0:), ntmp2_smp_local(0:)
+    integer, target, intent(inout) :: ntmp3_smp_local(0:), ntmp4_smp_local(0:), npchunks_local(0:)
+
+    if (npes_local <= 0 .or. nsmpx_local <= 0 .or. max_nproc_smpx_local <= 0) return
+    call phys_grid_assign_chunks_smp_setup_codon(int(npes_local, c_int64_t), int(nsmpx_local, c_int64_t), &
+         int(max_nproc_smpx_local, c_int64_t), c_loc(proc_smp_mapx_local(0)), c_loc(npthreads_local(0)), &
+         c_loc(nsmpthreads_local(0)), c_loc(nsmpchunks_local(0)), c_loc(ntsks_smpx_local(0)), &
+         c_loc(smp_proc_mapx_local(0,1)), c_loc(cid_offset_local(0)), c_loc(ntmp1_smp_local(0)), &
+         c_loc(ntmp2_smp_local(0)), c_loc(ntmp3_smp_local(0)), c_loc(ntmp4_smp_local(0)), &
+         c_loc(npchunks_local(0)))
+  end subroutine phys_grid_assign_chunks_smp_setup_codon_wrap
 
   subroutine phys_grid_init( )
     !----------------------------------------------------------------------- 
@@ -4407,8 +4526,8 @@ logical function phys_grid_initialized ()
 !---------------------------Local workspace-----------------------------
    integer :: i, j, p                    ! loop indices
    integer :: nlthreads                  ! number of local OpenMP threads
-   integer :: npthreads(0:npes-1)        ! number of OpenMP threads per process
-   integer :: proc_smp_mapx(0:npes-1)    ! process/virtual SMP node map
+   integer, target :: npthreads(0:npes-1)! number of OpenMP threads per process
+   integer, target :: proc_smp_mapx(0:npes-1) ! process/virtual SMP node map
    integer :: firstblock, lastblock      ! global block index bounds
    integer :: maxblksiz                  ! maximum number of columns in a dynamics block
    integer :: block_cnt                  ! number of blocks containing data
@@ -4432,7 +4551,7 @@ logical function phys_grid_initialized ()
    integer, dimension(:), allocatable :: cols
 
    ! number of MPI processes per virtual SMP node (0:nsmpx-1)
-   integer, dimension(:), allocatable :: nsmpprocs      
+   integer, dimension(:), allocatable, target :: nsmpprocs
 
    ! flag indicating whether a process is busy or idle during the dynamics (0:npes-1)
    logical, dimension(:), allocatable :: proc_busy_d
@@ -4448,26 +4567,26 @@ logical function phys_grid_initialized ()
    integer, dimension(:), allocatable :: col_smp_mapx
 
    ! number of columns assigned to a given virtual SMP node (0:nsmpx-1)
-   integer, dimension(:), allocatable :: nsmpcolumns
+   integer, dimension(:), allocatable, target :: nsmpcolumns
 
    ! number of OpenMP threads per virtual SMP node (0:nsmpx-1)
-   integer, dimension(:), allocatable :: nsmpthreads
+   integer, dimension(:), allocatable, target :: nsmpthreads
 
    ! number of chunks assigned to a given virtual SMP node (0:nsmpx-1)
-   integer, dimension(:), allocatable :: nsmpchunks
+   integer, dimension(:), allocatable, target :: nsmpchunks
                                          
    ! maximum number of columns assigned to a chunk in a given virtual SMP node (0:nsmpx-1)
-   integer, dimension(:), allocatable :: maxcol_chk
+   integer, dimension(:), allocatable, target :: maxcol_chk
                                          
    ! number of chunks in given virtual SMP node receiving maximum number of columns 
    ! (0:nsmpx-1)
-   integer, dimension(:), allocatable :: maxcol_chks
+   integer, dimension(:), allocatable, target :: maxcol_chks
 
    ! chunk id virtual offset (0:nsmpx-1)
-   integer, dimension(:), allocatable :: cid_offset
+   integer, dimension(:), allocatable, target :: cid_offset
 
    ! process-local chunk id (0:nsmpx-1)
-   integer, dimension(:), allocatable :: local_cid
+   integer, dimension(:), allocatable, target :: local_cid
 
 #if ( defined _OPENMP )
    integer omp_get_max_threads
@@ -4639,12 +4758,16 @@ logical function phys_grid_initialized ()
 !
    allocate( nsmpprocs(0:nsmpx-1) )
 !
-   nsmpprocs(:) = 0
-   do p=0,npes-1
-      smp = proc_smp_mapx(p)
-      nsmpprocs(smp) = nsmpprocs(smp) + 1
-   enddo
-   max_nproc_smpx = maxval(nsmpprocs)
+   if (use_native_init_helpers_impl) then
+      nsmpprocs(:) = 0
+      do p=0,npes-1
+         smp = proc_smp_mapx(p)
+         nsmpprocs(smp) = nsmpprocs(smp) + 1
+      enddo
+      max_nproc_smpx = maxval(nsmpprocs)
+   else
+      max_nproc_smpx = phys_grid_count_smp_procs_codon_wrap(npes, nsmpx, proc_smp_mapx, nsmpprocs)
+   endif
 !
    deallocate( nsmpprocs )
 
@@ -4713,51 +4836,63 @@ logical function phys_grid_initialized ()
 !
 ! Calculate number of threads available in each SMP node. 
 !
-      nsmpthreads(:) = 0
-      do p=0,npes-1
-         smp = proc_smp_mapx(p)
-         nsmpthreads(smp) = nsmpthreads(smp) + npthreads(p)
-      enddo
+      if (use_native_init_helpers_impl) then
+         nsmpthreads(:) = 0
+         do p=0,npes-1
+            smp = proc_smp_mapx(p)
+            nsmpthreads(smp) = nsmpthreads(smp) + npthreads(p)
+         enddo
+      else
+         call phys_grid_create_chunks_thread_counts_codon_wrap(npes, nsmpx, proc_smp_mapx, npthreads, nsmpthreads)
+      endif
 !
 ! Determine number of chunks to keep all threads busy
 !
-      nchunks = 0
-      do smp=0,nsmpx-1
-         nsmpchunks(smp) = nsmpcolumns(smp)/pcols
-         if (mod(nsmpcolumns(smp), pcols) .ne. 0) then
-            nsmpchunks(smp) = nsmpchunks(smp) + 1
-         endif
-         if (nsmpchunks(smp) < chunks_per_thread*nsmpthreads(smp)) then
-            nsmpchunks(smp) = chunks_per_thread*nsmpthreads(smp)
-         endif
-         do while (mod(nsmpchunks(smp), nsmpthreads(smp)) .ne. 0)
-            nsmpchunks(smp) = nsmpchunks(smp) + 1
+      if (use_native_init_helpers_impl) then
+         nchunks = 0
+         do smp=0,nsmpx-1
+            nsmpchunks(smp) = nsmpcolumns(smp)/pcols
+            if (mod(nsmpcolumns(smp), pcols) .ne. 0) then
+               nsmpchunks(smp) = nsmpchunks(smp) + 1
+            endif
+            if (nsmpchunks(smp) < chunks_per_thread*nsmpthreads(smp)) then
+               nsmpchunks(smp) = chunks_per_thread*nsmpthreads(smp)
+            endif
+            do while (mod(nsmpchunks(smp), nsmpthreads(smp)) .ne. 0)
+               nsmpchunks(smp) = nsmpchunks(smp) + 1
+            enddo
+            if (nsmpchunks(smp) > nsmpcolumns(smp)) then
+               nsmpchunks(smp) = nsmpcolumns(smp)
+            endif
+            nchunks = nchunks + nsmpchunks(smp)
          enddo
-         if (nsmpchunks(smp) > nsmpcolumns(smp)) then
-            nsmpchunks(smp) = nsmpcolumns(smp)
-         endif
-         nchunks = nchunks + nsmpchunks(smp)
-      enddo
 !
 ! Determine maximum number of columns to assign to chunks
 ! in a given SMP
 !
-      do smp=0,nsmpx-1
-         if (nsmpchunks(smp) /= 0) then
-            ntmp1 = nsmpcolumns(smp)/nsmpchunks(smp)
-            ntmp2 = mod(nsmpcolumns(smp),nsmpchunks(smp))
-            if (ntmp2 > 0) then
-               maxcol_chk(smp) = ntmp1 + 1
-               maxcol_chks(smp) = ntmp2
+         do smp=0,nsmpx-1
+            if (nsmpchunks(smp) /= 0) then
+               ntmp1 = nsmpcolumns(smp)/nsmpchunks(smp)
+               ntmp2 = mod(nsmpcolumns(smp),nsmpchunks(smp))
+               if (ntmp2 > 0) then
+                  maxcol_chk(smp) = ntmp1 + 1
+                  maxcol_chks(smp) = ntmp2
+               else
+                  maxcol_chk(smp) = ntmp1
+                  maxcol_chks(smp) = nsmpchunks(smp)
+               endif
             else
-               maxcol_chk(smp) = ntmp1
-               maxcol_chks(smp) = nsmpchunks(smp)
+               maxcol_chk(smp) = 0
+               maxcol_chks(smp) = 0
             endif
-         else
-            maxcol_chk(smp) = 0
-            maxcol_chks(smp) = 0
+         enddo
+      else
+         nchunks = phys_grid_create_chunks_shape_codon_wrap(nsmpx, pcols, chunks_per_thread, &
+              nsmpcolumns, nsmpthreads, nsmpchunks, maxcol_chk, maxcol_chks)
+         if (masterproc) then
+            write(iulog,'(A)') 'phys_grid_init_helpers create chunk quotas entered (direct = codon)'
          endif
-      enddo
+      endif
 !
 ! Allocate chunks and knuhcs data structures
 !
@@ -4772,12 +4907,16 @@ logical function phys_grid_initialized ()
 !
 ! Determine chunk id ranges for each SMP
 !
-      cid_offset(0) = 1
-      local_cid(0) = 0
-      do smp=1,nsmpx-1
-         cid_offset(smp) = cid_offset(smp-1) + nsmpchunks(smp-1)
-         local_cid(smp) = 0
-      enddo
+      if (use_native_init_helpers_impl) then
+         cid_offset(0) = 1
+         local_cid(0) = 0
+         do smp=1,nsmpx-1
+            cid_offset(smp) = cid_offset(smp-1) + nsmpchunks(smp-1)
+            local_cid(smp) = 0
+         enddo
+      else
+         call phys_grid_create_chunks_prefix_codon_wrap(nsmpx, nsmpchunks, cid_offset, local_cid)
+      endif
 !
 ! Assign columns to chunks
 !
@@ -5352,15 +5491,15 @@ logical function phys_grid_initialized ()
    use dyn_grid, only: get_gcol_block_cnt_d, get_gcol_block_d,&
                        get_block_owner_d 
 !------------------------------Arguments--------------------------------
-   integer, intent(in)  :: npthreads(0:npes-1)
+   integer, target, intent(in) :: npthreads(0:npes-1)
                                          ! number of OpenMP threads per process
    integer, intent(in)  :: nsmpx         ! virtual smp count
-   integer, intent(in)  :: proc_smp_mapx(0:npes-1)
+   integer, target, intent(in) :: proc_smp_mapx(0:npes-1)
                                          ! process/virtual smp map
-   integer, intent(in)  :: nsmpthreads(0:nsmpx-1)
+   integer, target, intent(in) :: nsmpthreads(0:nsmpx-1)
                                          ! number of OpenMP threads 
                                          ! per virtual SMP
-   integer, intent(in)  :: nsmpchunks(0:nsmpx-1)
+   integer, target, intent(in) :: nsmpchunks(0:nsmpx-1)
                                          ! number of chunks assigned 
                                          ! to a given virtual SMP
 !---------------------------Local workspace-----------------------------
@@ -5372,18 +5511,18 @@ logical function phys_grid_initialized ()
                                          ! for a given vertical column
    integer :: blockids(plev+1)           ! block indices
    integer :: bcids(plev+1)              ! block column indices
-   integer :: ntsks_smpx(0:nsmpx-1)      ! number of processes per virtual SMP
-   integer :: smp_proc_mapx(0:nsmpx-1,max_nproc_smpx)   
+   integer, target :: ntsks_smpx(0:nsmpx-1) ! number of processes per virtual SMP
+   integer, target :: smp_proc_mapx(0:nsmpx-1,max_nproc_smpx)
                                          ! virtual smp to process id map
-   integer :: cid_offset(0:nsmpx)        ! chunk id virtual smp offset
-   integer :: ntmp1_smp(0:nsmpx-1)       ! minimum number of chunks per thread
+   integer, target :: cid_offset(0:nsmpx) ! chunk id virtual smp offset
+   integer, target :: ntmp1_smp(0:nsmpx-1) ! minimum number of chunks per thread
                                          !  in a virtual SMP
-   integer :: ntmp2_smp(0:nsmpx-1)       ! number of extra chunks to be assigned
+   integer, target :: ntmp2_smp(0:nsmpx-1) ! number of extra chunks to be assigned
                                          !  in a virtual SMP
-   integer :: ntmp3_smp(0:nsmpx-1)       ! number of processes in a virtual
+   integer, target :: ntmp3_smp(0:nsmpx-1) ! number of processes in a virtual
                                          !  SMP that get more extra chunks
                                          !  than the others
-   integer :: ntmp4_smp(0:nsmpx-1)       ! number of extra chunks per process
+   integer, target :: ntmp4_smp(0:nsmpx-1) ! number of extra chunks per process
                                          !  in a virtual SMP
    integer :: ntmp1, ntmp2               ! work variables
 !  integer :: npchunks(0:npes-1)         ! number of chunks to be assigned to
@@ -5398,64 +5537,70 @@ logical function phys_grid_initialized ()
 ! Count number of processes per virtual SMP and determine virtual SMP
 ! to process id map
 !
-   ntsks_smpx(:) = 0
-   smp_proc_mapx(:,:) = -1
-   do p=0,npes-1
-      smp = proc_smp_mapx(p)
-      ntsks_smpx(smp) = ntsks_smpx(smp) + 1
-      smp_proc_mapx(smp,ntsks_smpx(smp)) = p
-   enddo
+   if (use_native_init_helpers_impl) then
+      ntsks_smpx(:) = 0
+      smp_proc_mapx(:,:) = -1
+      do p=0,npes-1
+         smp = proc_smp_mapx(p)
+         ntsks_smpx(smp) = ntsks_smpx(smp) + 1
+         smp_proc_mapx(smp,ntsks_smpx(smp)) = p
+      enddo
 !
 ! Determine chunk id ranges for each virtual SMP
 !
-   cid_offset(0) = 1
-   do smp=1,nsmpx
-      cid_offset(smp) = cid_offset(smp-1) + nsmpchunks(smp-1)
-   enddo
+      cid_offset(0) = 1
+      do smp=1,nsmpx
+         cid_offset(smp) = cid_offset(smp-1) + nsmpchunks(smp-1)
+      enddo
 !
 ! Determine number of chunks to assign to each process
 !
-   do smp=0,nsmpx-1
+      do smp=0,nsmpx-1
 !
 ! Minimum number of chunks per thread
-      ntmp1_smp(smp) = nsmpchunks(smp)/nsmpthreads(smp)
+         ntmp1_smp(smp) = nsmpchunks(smp)/nsmpthreads(smp)
 
 ! Number of extra chunks to be assigned
-      ntmp2_smp(smp) = mod(nsmpchunks(smp),nsmpthreads(smp))
+         ntmp2_smp(smp) = mod(nsmpchunks(smp),nsmpthreads(smp))
 
 ! Number of processes that get more extra chunks than the others
-      ntmp3_smp(smp) = mod(ntmp2_smp(smp),ntsks_smpx(smp))
+         ntmp3_smp(smp) = mod(ntmp2_smp(smp),ntsks_smpx(smp))
 
 ! Number of extra chunks per process
-      ntmp4_smp(smp) = ntmp2_smp(smp)/ntsks_smpx(smp)
-      if (ntmp3_smp(smp) > 0) then
-         ntmp4_smp(smp) = ntmp4_smp(smp) + 1
-      endif
-   enddo
+         ntmp4_smp(smp) = ntmp2_smp(smp)/ntsks_smpx(smp)
+         if (ntmp3_smp(smp) > 0) then
+            ntmp4_smp(smp) = ntmp4_smp(smp) + 1
+         endif
+      enddo
 
-   do p=0,npes-1
-      smp = proc_smp_mapx(p)
+      do p=0,npes-1
+         smp = proc_smp_mapx(p)
 
 ! Update number of extra chunks
-      if (ntmp2_smp(smp) > ntmp4_smp(smp)) then
-         ntmp2_smp(smp) = ntmp2_smp(smp) - ntmp4_smp(smp)
-      else
-         ntmp4_smp(smp) = ntmp2_smp(smp)
-         ntmp2_smp(smp) = 0
-         ntmp3_smp(smp) = 0
-      endif
+         if (ntmp2_smp(smp) > ntmp4_smp(smp)) then
+            ntmp2_smp(smp) = ntmp2_smp(smp) - ntmp4_smp(smp)
+         else
+            ntmp4_smp(smp) = ntmp2_smp(smp)
+            ntmp2_smp(smp) = 0
+            ntmp3_smp(smp) = 0
+         endif
 
 ! Set number of chunks
-      npchunks(p) = ntmp1_smp(smp)*npthreads(p) + ntmp4_smp(smp)
+         npchunks(p) = ntmp1_smp(smp)*npthreads(p) + ntmp4_smp(smp)
 
 ! Update extra chunk increment
-      if (ntmp3_smp(smp) > 0) then
-         ntmp3_smp(smp) = ntmp3_smp(smp) - 1
-         if (ntmp3_smp(smp) .eq. 0) then
-            ntmp4_smp(smp) = ntmp4_smp(smp) - 1
+         if (ntmp3_smp(smp) > 0) then
+            ntmp3_smp(smp) = ntmp3_smp(smp) - 1
+            if (ntmp3_smp(smp) .eq. 0) then
+               ntmp4_smp(smp) = ntmp4_smp(smp) - 1
+            endif
          endif
-      endif
-   enddo
+      enddo
+   else
+      call phys_grid_assign_chunks_smp_setup_codon_wrap(npes, nsmpx, max_nproc_smpx, &
+           proc_smp_mapx, npthreads, nsmpthreads, nsmpchunks, ntsks_smpx, smp_proc_mapx, &
+           cid_offset, ntmp1_smp, ntmp2_smp, ntmp3_smp, ntmp4_smp, npchunks)
+   endif
 
 !
 ! Assign chunks to processes: 
