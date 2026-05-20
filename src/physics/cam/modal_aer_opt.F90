@@ -92,6 +92,75 @@ interface
       integer(c_int64_t), value :: pcols_c, ncol_c, km_c, im_c, jm_c
       type(c_ptr), value :: table_p, x_p, y_p, xtab_p, ytab_p, ix_p, jy_p, t_p, u_p, out_p
    end subroutine modal_aer_opt_binterp_codon
+
+   subroutine modal_aer_opt_sw_init_state_codon(ncol_c, pcols_c, pver_c, nswbands_c, rga_c, rair_c, &
+        pdeldry_p, pmid_p, state_t_p, tauxar_p, wa_p, ga_p, fa_p, mass_p, air_density_p) &
+        bind(c, name="modal_aer_opt_sw_init_state_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, nswbands_c
+      real(c_double), value :: rga_c, rair_c
+      type(c_ptr), value :: pdeldry_p, pmid_p, state_t_p, tauxar_p, wa_p, ga_p, fa_p
+      type(c_ptr), value :: mass_p, air_density_p
+   end subroutine modal_aer_opt_sw_init_state_codon
+
+   subroutine modal_aer_opt_sw_zero_diagnostics_codon(ncol_c, pcols_c, pver_c, extinct_p, absorb_p, &
+        extinctuv_p, extinctnir_p, aodvis_p, aodvisst_p, aodabs_p, aodabsbc_p, ssavis_p, &
+        burdendust_p, burdenso4_p, burdenpom_p, burdensoa_p, burdenbc_p, burdenseasalt_p, &
+        dustaod_p, so4aod_p, pomaod_p, soaaod_p, bcaod_p, seasaltaod_p, aoduv_p, aodnir_p, &
+        aoduvst_p, aodnirst_p) bind(c, name="modal_aer_opt_sw_zero_diagnostics_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c
+      type(c_ptr), value :: extinct_p, absorb_p, extinctuv_p, extinctnir_p
+      type(c_ptr), value :: aodvis_p, aodvisst_p, aodabs_p, aodabsbc_p, ssavis_p
+      type(c_ptr), value :: burdendust_p, burdenso4_p, burdenpom_p, burdensoa_p, burdenbc_p
+      type(c_ptr), value :: burdenseasalt_p, dustaod_p, so4aod_p, pomaod_p, soaaod_p
+      type(c_ptr), value :: bcaod_p, seasaltaod_p, aoduv_p, aodnir_p, aoduvst_p, aodnirst_p
+   end subroutine modal_aer_opt_sw_zero_diagnostics_codon
+
+   subroutine modal_aer_opt_sw_mode_diag_init_codon(ncol_c, burden_p, aodmode_p, dustaodmode_p) &
+        bind(c, name="modal_aer_opt_sw_mode_diag_init_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c
+      type(c_ptr), value :: burden_p, aodmode_p, dustaodmode_p
+   end subroutine modal_aer_opt_sw_mode_diag_init_codon
+
+   subroutine modal_aer_opt_sw_mode_diag_night_codon(nnite_c, fillvalue_c, idxnite_p, burden_p, &
+        aodmode_p, dustaodmode_p) bind(c, name="modal_aer_opt_sw_mode_diag_night_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: nnite_c
+      real(c_double), value :: fillvalue_c
+      type(c_ptr), value :: idxnite_p, burden_p, aodmode_p, dustaodmode_p
+   end subroutine modal_aer_opt_sw_mode_diag_night_codon
+
+   subroutine modal_aer_opt_sw_sum_diag_night_codon(nnite_c, pcols_c, pver_c, fillvalue_c, idxnite_p, &
+        extinct_p, absorb_p, aodvis_p, aodabs_p, aodvisst_p) &
+        bind(c, name="modal_aer_opt_sw_sum_diag_night_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: nnite_c, pcols_c, pver_c
+      real(c_double), value :: fillvalue_c
+      type(c_ptr), value :: idxnite_p, extinct_p, absorb_p, aodvis_p, aodabs_p, aodvisst_p
+   end subroutine modal_aer_opt_sw_sum_diag_night_codon
+
+   subroutine modal_aer_opt_sw_finalize_ssavis_codon(ncol_c, aodvis_p, ssavis_p) &
+        bind(c, name="modal_aer_opt_sw_finalize_ssavis_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c
+      type(c_ptr), value :: aodvis_p, ssavis_p
+   end subroutine modal_aer_opt_sw_finalize_ssavis_codon
+
+   subroutine modal_aer_opt_sw_climate_diag_night_codon(nnite_c, pcols_c, pver_c, fillvalue_c, &
+        idxnite_p, ssavis_p, aoduv_p, aodnir_p, aoduvst_p, aodnirst_p, extinctuv_p, extinctnir_p, &
+        burdendust_p, burdenso4_p, burdenpom_p, burdensoa_p, burdenbc_p, burdenseasalt_p, &
+        aodabsbc_p, dustaod_p, so4aod_p, pomaod_p, soaaod_p, bcaod_p, seasaltaod_p) &
+        bind(c, name="modal_aer_opt_sw_climate_diag_night_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: nnite_c, pcols_c, pver_c
+      real(c_double), value :: fillvalue_c
+      type(c_ptr), value :: idxnite_p, ssavis_p, aoduv_p, aodnir_p, aoduvst_p, aodnirst_p
+      type(c_ptr), value :: extinctuv_p, extinctnir_p, burdendust_p, burdenso4_p, burdenpom_p
+      type(c_ptr), value :: burdensoa_p, burdenbc_p, burdenseasalt_p, aodabsbc_p, dustaod_p
+      type(c_ptr), value :: so4aod_p, pomaod_p, soaaod_p, bcaod_p, seasaltaod_p
+   end subroutine modal_aer_opt_sw_climate_diag_night_codon
 end interface
 
 !===============================================================================
@@ -140,7 +209,7 @@ subroutine modal_aer_opt_helpers_proof_once()
    modal_aer_opt_helpers_proof_written = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'modal_aer_opt_helpers entered (modal aerosol size/interpolation helpers = codon)'
+      write(iulog,'(A)') 'modal_aer_opt_helpers entered (modal aerosol size/interpolation/sw array helpers = codon)'
    end if
 
 end subroutine modal_aer_opt_helpers_proof_once
@@ -387,6 +456,7 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
 
    ! calculates aerosol sw radiative properties
    
+   use iso_c_binding, only: c_int64_t, c_loc
    use tropopause,     only : tropopause_find
 
    integer,             intent(in) :: list_idx       ! index of the climate or a diagnostic list
@@ -394,12 +464,12 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
    
    type(physics_buffer_desc), pointer :: pbuf(:)
    integer,             intent(in) :: nnite          ! number of night columns
-   integer,             intent(in) :: idxnite(nnite) ! local column indices of night columns
+   integer, target,      intent(in) :: idxnite(nnite) ! local column indices of night columns
 
-   real(r8), intent(out) :: tauxar(pcols,0:pver,nswbands) ! layer extinction optical depth
-   real(r8), intent(out) :: wa(pcols,0:pver,nswbands)     ! layer single-scatter albedo
-   real(r8), intent(out) :: ga(pcols,0:pver,nswbands)     ! asymmetry factor
-   real(r8), intent(out) :: fa(pcols,0:pver,nswbands)     ! forward scattered fraction
+   real(r8), target, intent(out) :: tauxar(pcols,0:pver,nswbands) ! layer extinction optical depth
+   real(r8), target, intent(out) :: wa(pcols,0:pver,nswbands)     ! layer single-scatter albedo
+   real(r8), target, intent(out) :: ga(pcols,0:pver,nswbands)     ! asymmetry factor
+   real(r8), target, intent(out) :: fa(pcols,0:pver,nswbands)     ! forward scattered fraction
 
    ! Local variables
    integer :: i, ifld, isw, k, l, m, nc, ns
@@ -409,8 +479,8 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
    integer :: nspec
    integer :: troplev(pcols)
 
-   real(r8) :: mass(pcols,pver)        ! layer mass
-   real(r8) :: air_density(pcols,pver) ! (kg/m3)
+   real(r8), target :: mass(pcols,pver)        ! layer mass
+   real(r8), target :: air_density(pcols,pver) ! (kg/m3)
 
    real(r8),    pointer :: specmmr(:,:)        ! species mass mixing ratio
    real(r8)             :: specdens            ! species density (kg/m3)
@@ -456,25 +526,25 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
    real(r8) :: palb(pcols)     ! parameterized single scattering albedo
 
    ! Diagnostics
-   real(r8) :: extinct(pcols,pver)
-   real(r8) :: extinctnir(pcols,pver)
-   real(r8) :: extinctuv(pcols,pver)
-   real(r8) :: absorb(pcols,pver)
-   real(r8) :: aodvis(pcols)               ! extinction optical depth
-   real(r8) :: aodvisst(pcols)             ! stratospheric extinction optical depth
-   real(r8) :: aodabs(pcols)               ! absorption optical depth
+   real(r8), target :: extinct(pcols,pver)
+   real(r8), target :: extinctnir(pcols,pver)
+   real(r8), target :: extinctuv(pcols,pver)
+   real(r8), target :: absorb(pcols,pver)
+   real(r8), target :: aodvis(pcols)        ! extinction optical depth
+   real(r8), target :: aodvisst(pcols)      ! stratospheric extinction optical depth
+   real(r8), target :: aodabs(pcols)        ! absorption optical depth
 
-   real(r8) :: aodabsbc(pcols)             ! absorption optical depth of BC
+   real(r8), target :: aodabsbc(pcols)      ! absorption optical depth of BC
 
-   real(r8) :: ssavis(pcols)
+   real(r8), target :: ssavis(pcols)
    real(r8) :: dustvol(pcols)              ! volume concentration of dust in aerosol mode (m3/kg)
 
-   real(r8) :: burden(pcols)
-   real(r8) :: burdendust(pcols), burdenso4(pcols), burdenbc(pcols), &
+   real(r8), target :: burden(pcols)
+   real(r8), target :: burdendust(pcols), burdenso4(pcols), burdenbc(pcols), &
                burdenpom(pcols), burdensoa(pcols), burdenseasalt(pcols)
 
-   real(r8) :: aodmode(pcols)
-   real(r8) :: dustaodmode(pcols)          ! dust aod in aerosol mode
+   real(r8), target :: aodmode(pcols)
+   real(r8), target :: dustaodmode(pcols)  ! dust aod in aerosol mode
 
    real(r8) :: specrefr, specrefi
    real(r8) :: scatdust(pcols), scatso4(pcols), scatbc(pcols), &
@@ -488,7 +558,7 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
    real(r8) :: aodc                        ! aod of component
 
    ! total species AOD
-   real(r8) :: dustaod(pcols), so4aod(pcols), bcaod(pcols), &
+   real(r8), target :: dustaod(pcols), so4aod(pcols), bcaod(pcols), &
                pomaod(pcols), soaaod(pcols), seasaltaod(pcols)
 
 
@@ -498,10 +568,10 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
    logical :: savaernir ! true if near ir wavelength (~0.88 micron)
    logical :: savaeruv  ! true if uv wavelength (~0.35 micron)
 
-   real(r8) :: aoduv(pcols)               ! extinction optical depth in uv
-   real(r8) :: aoduvst(pcols)             ! stratospheric extinction optical depth in uv
-   real(r8) :: aodnir(pcols)              ! extinction optical depth in nir
-   real(r8) :: aodnirst(pcols)            ! stratospheric extinction optical depth in nir
+   real(r8), target :: aoduv(pcols)        ! extinction optical depth in uv
+   real(r8), target :: aoduvst(pcols)      ! stratospheric extinction optical depth in uv
+   real(r8), target :: aodnir(pcols)       ! extinction optical depth in nir
+   real(r8), target :: aodnirst(pcols)     ! stratospheric extinction optical depth in nir
 
 
    character(len=32) :: outname
@@ -517,49 +587,70 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
    ncol  = state%ncol
 
    ! initialize output variables
-   tauxar(:ncol,:,:) = 0._r8
-   wa(:ncol,:,:)     = 0._r8
-   ga(:ncol,:,:)     = 0._r8
-   fa(:ncol,:,:)     = 0._r8
+   call modal_aer_opt_helpers_select_impl()
+   if (use_native_modal_aer_opt_helpers_impl) then
+      tauxar(:ncol,:,:) = 0._r8
+      wa(:ncol,:,:)     = 0._r8
+      ga(:ncol,:,:)     = 0._r8
+      fa(:ncol,:,:)     = 0._r8
 
-   ! zero'th layer does not contain aerosol
-   tauxar(1:ncol,0,:)  = 0._r8
-   wa(1:ncol,0,:)      = 0.925_r8
-   ga(1:ncol,0,:)      = 0.850_r8
-   fa(1:ncol,0,:)      = 0.7225_r8
+      ! zero'th layer does not contain aerosol
+      tauxar(1:ncol,0,:)  = 0._r8
+      wa(1:ncol,0,:)      = 0.925_r8
+      ga(1:ncol,0,:)      = 0.850_r8
+      fa(1:ncol,0,:)      = 0.7225_r8
 
-   mass(:ncol,:)        = state%pdeldry(:ncol,:)*rga
-   air_density(:ncol,:) = state%pmid(:ncol,:)/(rair*state%t(:ncol,:))
+      mass(:ncol,:)        = state%pdeldry(:ncol,:)*rga
+      air_density(:ncol,:) = state%pmid(:ncol,:)/(rair*state%t(:ncol,:))
+   else
+      call modal_aer_opt_helpers_proof_once()
+      call modal_aer_opt_sw_init_state_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(nswbands, c_int64_t), rga, rair, c_loc(state%pdeldry(1,1)), &
+           c_loc(state%pmid(1,1)), c_loc(state%t(1,1)), c_loc(tauxar(1,0,1)), c_loc(wa(1,0,1)), &
+           c_loc(ga(1,0,1)), c_loc(fa(1,0,1)), c_loc(mass(1,1)), c_loc(air_density(1,1)))
+   end if
 
    ! diagnostics for visible band summed over modes
-   extinct(1:ncol,:)     = 0.0_r8
-   absorb(1:ncol,:)      = 0.0_r8
-   aodvis(1:ncol)        = 0.0_r8
-   aodvisst(1:ncol)      = 0.0_r8
-   aodabs(1:ncol)        = 0.0_r8
-   burdendust(:ncol)     = 0.0_r8
-   burdenso4(:ncol)      = 0.0_r8
-   burdenpom(:ncol)      = 0.0_r8
-   burdensoa(:ncol)      = 0.0_r8
-   burdenbc(:ncol)       = 0.0_r8
-   burdenseasalt(:ncol)  = 0.0_r8
-   ssavis(1:ncol)        = 0.0_r8
+   if (use_native_modal_aer_opt_helpers_impl) then
+      extinct(1:ncol,:)     = 0.0_r8
+      absorb(1:ncol,:)      = 0.0_r8
+      aodvis(1:ncol)        = 0.0_r8
+      aodvisst(1:ncol)      = 0.0_r8
+      aodabs(1:ncol)        = 0.0_r8
+      burdendust(:ncol)     = 0.0_r8
+      burdenso4(:ncol)      = 0.0_r8
+      burdenpom(:ncol)      = 0.0_r8
+      burdensoa(:ncol)      = 0.0_r8
+      burdenbc(:ncol)       = 0.0_r8
+      burdenseasalt(:ncol)  = 0.0_r8
+      ssavis(1:ncol)        = 0.0_r8
 
-   aodabsbc(:ncol)       = 0.0_r8 
-   dustaod(:ncol)        = 0.0_r8
-   so4aod(:ncol)         = 0.0_r8
-   pomaod(:ncol)         = 0.0_r8
-   soaaod(:ncol)         = 0.0_r8
-   bcaod(:ncol)          = 0.0_r8
-   seasaltaod(:ncol)     = 0.0_r8
+      aodabsbc(:ncol)       = 0.0_r8
+      dustaod(:ncol)        = 0.0_r8
+      so4aod(:ncol)         = 0.0_r8
+      pomaod(:ncol)         = 0.0_r8
+      soaaod(:ncol)         = 0.0_r8
+      bcaod(:ncol)          = 0.0_r8
+      seasaltaod(:ncol)     = 0.0_r8
 
-   ! diags for other bands
-   extinctuv(1:ncol,:)   = 0.0_r8
-   extinctnir(1:ncol,:)  = 0.0_r8
-   aoduv(:ncol)          = 0.0_r8
-   aodnir(:ncol)         = 0.0_r8
-   aoduvst(:ncol)        = 0.0_r8
-   aodnirst(:ncol)       = 0.0_r8
+      ! diags for other bands
+      extinctuv(1:ncol,:)   = 0.0_r8
+      extinctnir(1:ncol,:)  = 0.0_r8
+      aoduv(:ncol)          = 0.0_r8
+      aodnir(:ncol)         = 0.0_r8
+      aoduvst(:ncol)        = 0.0_r8
+      aodnirst(:ncol)       = 0.0_r8
+   else
+      call modal_aer_opt_helpers_proof_once()
+      call modal_aer_opt_sw_zero_diagnostics_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), c_loc(extinct(1,1)), c_loc(absorb(1,1)), c_loc(extinctuv(1,1)), &
+           c_loc(extinctnir(1,1)), c_loc(aodvis(1)), c_loc(aodvisst(1)), c_loc(aodabs(1)), &
+           c_loc(aodabsbc(1)), c_loc(ssavis(1)), c_loc(burdendust(1)), c_loc(burdenso4(1)), &
+           c_loc(burdenpom(1)), c_loc(burdensoa(1)), c_loc(burdenbc(1)), c_loc(burdenseasalt(1)), &
+           c_loc(dustaod(1)), c_loc(so4aod(1)), c_loc(pomaod(1)), c_loc(soaaod(1)), &
+           c_loc(bcaod(1)), c_loc(seasaltaod(1)), c_loc(aoduv(1)), c_loc(aodnir(1)), &
+           c_loc(aoduvst(1)), c_loc(aodnirst(1)))
+   end if
    call tropopause_find(state, troplev)
 
    ! loop over all aerosol modes
@@ -580,9 +671,15 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
    do m = 1, nmodes
 
       ! diagnostics for visible band for each mode
-      burden(:ncol)       = 0._r8
-      aodmode(1:ncol)     = 0.0_r8
-      dustaodmode(1:ncol) = 0.0_r8
+      if (use_native_modal_aer_opt_helpers_impl) then
+         burden(:ncol)       = 0._r8
+         aodmode(1:ncol)     = 0.0_r8
+         dustaodmode(1:ncol) = 0.0_r8
+      else
+         call modal_aer_opt_helpers_proof_once()
+         call modal_aer_opt_sw_mode_diag_init_codon(int(ncol, c_int64_t), c_loc(burden(1)), &
+              c_loc(aodmode(1)), c_loc(dustaodmode(1)))
+      end if
 
       dgnumwet => dgnumwet_m(:,:,m)
       qaerwat  => qaerwat_m(:,:,m)
@@ -922,11 +1019,17 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
       ! The diagnostics are currently only output for the climate list.  Code mods will
       ! be necessary to provide output for the rad_diag lists.
       if (list_idx == 0) then
-         do i = 1, nnite
-            burden(idxnite(i))  = fillvalue
-            aodmode(idxnite(i)) = fillvalue
-            dustaodmode(idxnite(i)) = fillvalue
-         end do
+         if (use_native_modal_aer_opt_helpers_impl) then
+            do i = 1, nnite
+               burden(idxnite(i))  = fillvalue
+               aodmode(idxnite(i)) = fillvalue
+               dustaodmode(idxnite(i)) = fillvalue
+            end do
+         else if (nnite > 0) then
+            call modal_aer_opt_helpers_proof_once()
+            call modal_aer_opt_sw_mode_diag_night_codon(int(nnite, c_int64_t), fillvalue, &
+                 c_loc(idxnite(1)), c_loc(burden(1)), c_loc(aodmode(1)), c_loc(dustaodmode(1)))
+         end if
 
          write(outname,'(a,i1)') 'BURDEN', m
          call outfld(trim(outname), burden, pcols, lchnk)
@@ -950,13 +1053,20 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
 
    ! Output visible band diagnostics for quantities summed over the modes
    ! These fields are put out for diagnostic lists as well as the climate list.
-   do i = 1, nnite
-      extinct(idxnite(i),:) = fillvalue
-      absorb(idxnite(i),:)  = fillvalue
-      aodvis(idxnite(i))    = fillvalue
-      aodabs(idxnite(i))    = fillvalue
-      aodvisst(idxnite(i))  = fillvalue
-   end do
+   if (use_native_modal_aer_opt_helpers_impl) then
+      do i = 1, nnite
+         extinct(idxnite(i),:) = fillvalue
+         absorb(idxnite(i),:)  = fillvalue
+         aodvis(idxnite(i))    = fillvalue
+         aodabs(idxnite(i))    = fillvalue
+         aodvisst(idxnite(i))  = fillvalue
+      end do
+   else if (nnite > 0) then
+      call modal_aer_opt_helpers_proof_once()
+      call modal_aer_opt_sw_sum_diag_night_codon(int(nnite, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), fillvalue, c_loc(idxnite(1)), c_loc(extinct(1,1)), &
+           c_loc(absorb(1,1)), c_loc(aodvis(1)), c_loc(aodabs(1)), c_loc(aodvisst(1)))
+   end if
 
    call outfld('EXTINCT'//diag(list_idx),  extinct, pcols, lchnk)
    call outfld('ABSORB'//diag(list_idx),   absorb,  pcols, lchnk)
@@ -966,40 +1076,56 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
 
    ! These diagnostics are output only for climate list
    if (list_idx == 0) then
-      do i = 1, ncol
-         if (aodvis(i) > 1.e-10_r8) then
-            ssavis(i) = ssavis(i)/aodvis(i)
-         else
-            ssavis(i) = 0.925_r8
-         endif
-      end do
+      if (use_native_modal_aer_opt_helpers_impl) then
+         do i = 1, ncol
+            if (aodvis(i) > 1.e-10_r8) then
+               ssavis(i) = ssavis(i)/aodvis(i)
+            else
+               ssavis(i) = 0.925_r8
+            endif
+         end do
 
-      do i = 1, nnite
-         ssavis(idxnite(i))     = fillvalue
+         do i = 1, nnite
+            ssavis(idxnite(i))     = fillvalue
 
-         aoduv(idxnite(i))      = fillvalue
-         aodnir(idxnite(i))     = fillvalue
-         aoduvst(idxnite(i))    = fillvalue
-         aodnirst(idxnite(i))   = fillvalue
-         extinctuv(idxnite(i),:)  = fillvalue
-         extinctnir(idxnite(i),:) = fillvalue
+            aoduv(idxnite(i))      = fillvalue
+            aodnir(idxnite(i))     = fillvalue
+            aoduvst(idxnite(i))    = fillvalue
+            aodnirst(idxnite(i))   = fillvalue
+            extinctuv(idxnite(i),:)  = fillvalue
+            extinctnir(idxnite(i),:) = fillvalue
 
-         burdendust(idxnite(i)) = fillvalue
-         burdenso4(idxnite(i))  = fillvalue
-         burdenpom(idxnite(i))  = fillvalue
-         burdensoa(idxnite(i))  = fillvalue
-         burdenbc(idxnite(i))   = fillvalue
-         burdenseasalt(idxnite(i)) = fillvalue
+            burdendust(idxnite(i)) = fillvalue
+            burdenso4(idxnite(i))  = fillvalue
+            burdenpom(idxnite(i))  = fillvalue
+            burdensoa(idxnite(i))  = fillvalue
+            burdenbc(idxnite(i))   = fillvalue
+            burdenseasalt(idxnite(i)) = fillvalue
 
-         aodabsbc(idxnite(i))   = fillvalue
+            aodabsbc(idxnite(i))   = fillvalue
 
-         dustaod(idxnite(i))    = fillvalue
-         so4aod(idxnite(i))     = fillvalue
-         pomaod(idxnite(i))     = fillvalue
-         soaaod(idxnite(i))     = fillvalue
-         bcaod(idxnite(i))      = fillvalue
-         seasaltaod(idxnite(i)) = fillvalue
-       end do
+            dustaod(idxnite(i))    = fillvalue
+            so4aod(idxnite(i))     = fillvalue
+            pomaod(idxnite(i))     = fillvalue
+            soaaod(idxnite(i))     = fillvalue
+            bcaod(idxnite(i))      = fillvalue
+            seasaltaod(idxnite(i)) = fillvalue
+          end do
+      else
+         call modal_aer_opt_helpers_proof_once()
+         call modal_aer_opt_sw_finalize_ssavis_codon(int(ncol, c_int64_t), &
+              c_loc(aodvis(1)), c_loc(ssavis(1)))
+         if (nnite > 0) then
+            call modal_aer_opt_sw_climate_diag_night_codon(int(nnite, c_int64_t), &
+                 int(pcols, c_int64_t), int(pver, c_int64_t), fillvalue, c_loc(idxnite(1)), &
+                 c_loc(ssavis(1)), c_loc(aoduv(1)), c_loc(aodnir(1)), c_loc(aoduvst(1)), &
+                 c_loc(aodnirst(1)), c_loc(extinctuv(1,1)), c_loc(extinctnir(1,1)), &
+                 c_loc(burdendust(1)), c_loc(burdenso4(1)), c_loc(burdenpom(1)), &
+                 c_loc(burdensoa(1)), c_loc(burdenbc(1)), c_loc(burdenseasalt(1)), &
+                 c_loc(aodabsbc(1)), c_loc(dustaod(1)), c_loc(so4aod(1)), c_loc(pomaod(1)), &
+                 c_loc(soaaod(1)), c_loc(bcaod(1)), c_loc(seasaltaod(1)))
+         end if
+      end if
 
       call outfld('SSAVIS',        ssavis,        pcols, lchnk)
 

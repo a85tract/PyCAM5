@@ -1,4 +1,5 @@
 import cam_misc_codon as _cam_misc
+import modal_aer_opt_codon as _modal_aer_opt
 import phys_grid_codon as _phys_grid
 from math import exp, floor, log, sqrt
 
@@ -2985,6 +2986,233 @@ def phys_prop_lin_interpol_codon(n: int, x_p: cobj, f_p: cobj, y: float) -> floa
 
     a = (f[k1] - f[k0]) / (x[k1] - x[k0])
     return f[k0] + a * (y - x[k0])
+
+
+@export
+def modal_aer_opt_sw_init_state_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    nswbands: int,
+    rga: float,
+    rair: float,
+    pdeldry_p: cobj,
+    pmid_p: cobj,
+    state_t_p: cobj,
+    tauxar_p: cobj,
+    wa_p: cobj,
+    ga_p: cobj,
+    fa_p: cobj,
+    mass_p: cobj,
+    air_density_p: cobj,
+):
+    _modal_aer_opt.modal_aer_opt_sw_init_state_codon(
+        ncol,
+        pcols,
+        pver,
+        nswbands,
+        rga,
+        rair,
+        pdeldry_p,
+        pmid_p,
+        state_t_p,
+        tauxar_p,
+        wa_p,
+        ga_p,
+        fa_p,
+        mass_p,
+        air_density_p,
+    )
+
+
+@export
+def modal_aer_opt_sw_zero_diagnostics_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    extinct_p: cobj,
+    absorb_p: cobj,
+    extinctuv_p: cobj,
+    extinctnir_p: cobj,
+    aodvis_p: cobj,
+    aodvisst_p: cobj,
+    aodabs_p: cobj,
+    aodabsbc_p: cobj,
+    ssavis_p: cobj,
+    burdendust_p: cobj,
+    burdenso4_p: cobj,
+    burdenpom_p: cobj,
+    burdensoa_p: cobj,
+    burdenbc_p: cobj,
+    burdenseasalt_p: cobj,
+    dustaod_p: cobj,
+    so4aod_p: cobj,
+    pomaod_p: cobj,
+    soaaod_p: cobj,
+    bcaod_p: cobj,
+    seasaltaod_p: cobj,
+    aoduv_p: cobj,
+    aodnir_p: cobj,
+    aoduvst_p: cobj,
+    aodnirst_p: cobj,
+):
+    _modal_aer_opt.modal_aer_opt_sw_zero_diagnostics_codon(
+        ncol,
+        pcols,
+        pver,
+        extinct_p,
+        absorb_p,
+        extinctuv_p,
+        extinctnir_p,
+        aodvis_p,
+        aodvisst_p,
+        aodabs_p,
+        aodabsbc_p,
+        ssavis_p,
+        burdendust_p,
+        burdenso4_p,
+        burdenpom_p,
+        burdensoa_p,
+        burdenbc_p,
+        burdenseasalt_p,
+        dustaod_p,
+        so4aod_p,
+        pomaod_p,
+        soaaod_p,
+        bcaod_p,
+        seasaltaod_p,
+        aoduv_p,
+        aodnir_p,
+        aoduvst_p,
+        aodnirst_p,
+    )
+
+
+@export
+def modal_aer_opt_sw_mode_diag_init_codon(
+    ncol: int,
+    burden_p: cobj,
+    aodmode_p: cobj,
+    dustaodmode_p: cobj,
+):
+    _modal_aer_opt.modal_aer_opt_sw_mode_diag_init_codon(
+        ncol,
+        burden_p,
+        aodmode_p,
+        dustaodmode_p,
+    )
+
+
+@export
+def modal_aer_opt_sw_mode_diag_night_codon(
+    nnite: int,
+    fillvalue: float,
+    idxnite_p: cobj,
+    burden_p: cobj,
+    aodmode_p: cobj,
+    dustaodmode_p: cobj,
+):
+    _modal_aer_opt.modal_aer_opt_sw_mode_diag_night_codon(
+        nnite,
+        fillvalue,
+        idxnite_p,
+        burden_p,
+        aodmode_p,
+        dustaodmode_p,
+    )
+
+
+@export
+def modal_aer_opt_sw_sum_diag_night_codon(
+    nnite: int,
+    pcols: int,
+    pver: int,
+    fillvalue: float,
+    idxnite_p: cobj,
+    extinct_p: cobj,
+    absorb_p: cobj,
+    aodvis_p: cobj,
+    aodabs_p: cobj,
+    aodvisst_p: cobj,
+):
+    _modal_aer_opt.modal_aer_opt_sw_sum_diag_night_codon(
+        nnite,
+        pcols,
+        pver,
+        fillvalue,
+        idxnite_p,
+        extinct_p,
+        absorb_p,
+        aodvis_p,
+        aodabs_p,
+        aodvisst_p,
+    )
+
+
+@export
+def modal_aer_opt_sw_finalize_ssavis_codon(
+    ncol: int,
+    aodvis_p: cobj,
+    ssavis_p: cobj,
+):
+    _modal_aer_opt.modal_aer_opt_sw_finalize_ssavis_codon(ncol, aodvis_p, ssavis_p)
+
+
+@export
+def modal_aer_opt_sw_climate_diag_night_codon(
+    nnite: int,
+    pcols: int,
+    pver: int,
+    fillvalue: float,
+    idxnite_p: cobj,
+    ssavis_p: cobj,
+    aoduv_p: cobj,
+    aodnir_p: cobj,
+    aoduvst_p: cobj,
+    aodnirst_p: cobj,
+    extinctuv_p: cobj,
+    extinctnir_p: cobj,
+    burdendust_p: cobj,
+    burdenso4_p: cobj,
+    burdenpom_p: cobj,
+    burdensoa_p: cobj,
+    burdenbc_p: cobj,
+    burdenseasalt_p: cobj,
+    aodabsbc_p: cobj,
+    dustaod_p: cobj,
+    so4aod_p: cobj,
+    pomaod_p: cobj,
+    soaaod_p: cobj,
+    bcaod_p: cobj,
+    seasaltaod_p: cobj,
+):
+    _modal_aer_opt.modal_aer_opt_sw_climate_diag_night_codon(
+        nnite,
+        pcols,
+        pver,
+        fillvalue,
+        idxnite_p,
+        ssavis_p,
+        aoduv_p,
+        aodnir_p,
+        aoduvst_p,
+        aodnirst_p,
+        extinctuv_p,
+        extinctnir_p,
+        burdendust_p,
+        burdenso4_p,
+        burdenpom_p,
+        burdensoa_p,
+        burdenbc_p,
+        burdenseasalt_p,
+        aodabsbc_p,
+        dustaod_p,
+        so4aod_p,
+        pomaod_p,
+        soaaod_p,
+        bcaod_p,
+        seasaltaod_p,
+    )
 
 
 @inline
