@@ -1,4 +1,5 @@
 import cam_misc_codon as _cam_misc
+import phys_grid_codon as _phys_grid
 from math import exp, floor, log, sqrt
 
 @export
@@ -2212,6 +2213,84 @@ def phys_grid_get_gcol_all_codon(ncols: int, out_dim: int, src_p: cobj, dst_p: c
 
     for i in range(ncols):
         dst[i] = src[i]
+
+
+@export
+def phys_grid_count_valid_cols_codon(ngcols: int, clon_d_p: cobj) -> int:
+    return _phys_grid.phys_grid_count_valid_cols_codon(ngcols, clon_d_p)
+
+
+@export
+def phys_grid_count_unique_sorted_real_codon(ncols: int, cdex_p: cobj, coord_p: cobj) -> int:
+    return _phys_grid.phys_grid_count_unique_sorted_real_codon(ncols, cdex_p, coord_p)
+
+
+@export
+def phys_grid_fill_unique_sorted_real_codon(
+    ncols: int,
+    cdex_p: cobj,
+    coord_p: cobj,
+    unique_p: cobj,
+    counts_p: cobj,
+):
+    _phys_grid.phys_grid_fill_unique_sorted_real_codon(ncols, cdex_p, coord_p, unique_p, counts_p)
+
+
+@export
+def phys_grid_prefix_counts_codon(n: int, counts_p: cobj, idx_p: cobj):
+    _phys_grid.phys_grid_prefix_counts_codon(n, counts_p, idx_p)
+
+
+@export
+def phys_grid_init_lat_map_codon(
+    ngcols: int,
+    ncols_p: int,
+    clat_tot: int,
+    has_latlon_map: int,
+    cdex_p: cobj,
+    clat_d_p: cobj,
+    clat_p_p: cobj,
+    lat_p_p: cobj,
+    dyn_to_latlon_gcol_map_p: cobj,
+    latlon_to_dyn_gcol_map_p: cobj,
+):
+    _phys_grid.phys_grid_init_lat_map_codon(
+        ngcols,
+        ncols_p,
+        clat_tot,
+        has_latlon_map,
+        cdex_p,
+        clat_d_p,
+        clat_p_p,
+        lat_p_p,
+        dyn_to_latlon_gcol_map_p,
+        latlon_to_dyn_gcol_map_p,
+    )
+
+
+@export
+def phys_grid_init_lon_map_codon(
+    ngcols: int,
+    ncols_p: int,
+    clon_tot: int,
+    has_lonlat_map: int,
+    cdex_p: cobj,
+    clon_d_p: cobj,
+    clon_p_p: cobj,
+    lon_p_p: cobj,
+    lonlat_to_dyn_gcol_map_p: cobj,
+):
+    _phys_grid.phys_grid_init_lon_map_codon(
+        ngcols,
+        ncols_p,
+        clon_tot,
+        has_lonlat_map,
+        cdex_p,
+        clon_d_p,
+        clon_p_p,
+        lon_p_p,
+        lonlat_to_dyn_gcol_map_p,
+    )
 
 
 @export

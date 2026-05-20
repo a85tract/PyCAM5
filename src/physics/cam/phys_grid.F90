@@ -298,6 +298,9 @@ module phys_grid
    logical, private :: use_native_getters_impl = .false.
    logical, private :: getters_impl_selected = .false.
    logical, private :: getters_proof_written = .false.
+   logical, private :: use_native_init_helpers_impl = .false.
+   logical, private :: init_helpers_impl_selected = .false.
+   logical, private :: init_helpers_proof_written = .false.
 
    interface
      subroutine phys_grid_get_gcol_all_codon(ncols_c, out_dim_c, src_p, dst_p) &
@@ -362,6 +365,52 @@ module phys_grid
        integer(c_int64_t), value :: lth_c
        type(c_ptr), value :: cols_p, idx_p, lookup_p, dst_p
      end subroutine phys_grid_get_lookup_real_vec_codon
+
+     function phys_grid_count_valid_cols_codon(ngcols_c, clon_d_p) result(count_c) &
+          bind(c, name="phys_grid_count_valid_cols_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ngcols_c
+       type(c_ptr), value :: clon_d_p
+       integer(c_int64_t) :: count_c
+     end function phys_grid_count_valid_cols_codon
+
+     function phys_grid_count_unique_sorted_real_codon(ncols_c, cdex_p, coord_p) result(count_c) &
+          bind(c, name="phys_grid_count_unique_sorted_real_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncols_c
+       type(c_ptr), value :: cdex_p, coord_p
+       integer(c_int64_t) :: count_c
+     end function phys_grid_count_unique_sorted_real_codon
+
+     subroutine phys_grid_fill_unique_sorted_real_codon(ncols_c, cdex_p, coord_p, unique_p, counts_p) &
+          bind(c, name="phys_grid_fill_unique_sorted_real_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncols_c
+       type(c_ptr), value :: cdex_p, coord_p, unique_p, counts_p
+     end subroutine phys_grid_fill_unique_sorted_real_codon
+
+     subroutine phys_grid_prefix_counts_codon(n_c, counts_p, idx_p) &
+          bind(c, name="phys_grid_prefix_counts_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: n_c
+       type(c_ptr), value :: counts_p, idx_p
+     end subroutine phys_grid_prefix_counts_codon
+
+     subroutine phys_grid_init_lat_map_codon(ngcols_c, ncols_p_c, clat_tot_c, has_latlon_map_c, &
+          cdex_p, clat_d_p, clat_p_p, lat_p_p, dyn_map_p, latlon_map_p) &
+          bind(c, name="phys_grid_init_lat_map_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ngcols_c, ncols_p_c, clat_tot_c, has_latlon_map_c
+       type(c_ptr), value :: cdex_p, clat_d_p, clat_p_p, lat_p_p, dyn_map_p, latlon_map_p
+     end subroutine phys_grid_init_lat_map_codon
+
+     subroutine phys_grid_init_lon_map_codon(ngcols_c, ncols_p_c, clon_tot_c, has_lonlat_map_c, &
+          cdex_p, clon_d_p, clon_p_p, lon_p_p, lonlat_map_p) &
+          bind(c, name="phys_grid_init_lon_map_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ngcols_c, ncols_p_c, clon_tot_c, has_lonlat_map_c
+       type(c_ptr), value :: cdex_p, clon_d_p, clon_p_p, lon_p_p, lonlat_map_p
+     end subroutine phys_grid_init_lon_map_codon
    end interface
 
 contains
@@ -515,6 +564,142 @@ contains
          c_loc(lookup(1)), c_loc(dst(1)))
   end subroutine phys_grid_get_lookup_real_vec_codon_wrap
 
+  subroutine phys_grid_init_helpers_select_impl()
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (init_helpers_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('PHYS_GRID_INIT_HELPERS_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_init_helpers_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_init_helpers_impl = .false.
+    end if
+
+    init_helpers_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_init_helpers_impl) then
+          write(iulog,*) 'phys_grid_init_helpers implementation = native'
+       else
+          write(iulog,*) 'phys_grid_init_helpers implementation = codon'
+       end if
+    end if
+  end subroutine phys_grid_init_helpers_select_impl
+
+  subroutine phys_grid_init_helpers_proof_once()
+    if (init_helpers_proof_written) return
+    init_helpers_proof_written = .true.
+    if (masterproc) then
+       write(iulog,'(A)') 'phys_grid_init_helpers entered (coordinate maps direct = codon)'
+    end if
+  end subroutine phys_grid_init_helpers_proof_once
+
+  integer function phys_grid_count_valid_cols_codon_wrap(ngcols_local, coord)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ngcols_local
+    real(r8), target, intent(in) :: coord(:)
+
+    if (ngcols_local <= 0) then
+       phys_grid_count_valid_cols_codon_wrap = 0
+       return
+    end if
+    phys_grid_count_valid_cols_codon_wrap = int( &
+         phys_grid_count_valid_cols_codon(int(ngcols_local, c_int64_t), c_loc(coord(1))))
+  end function phys_grid_count_valid_cols_codon_wrap
+
+  integer function phys_grid_count_unique_sorted_real_codon_wrap(ncols_local, idx, coord)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncols_local
+    integer, target, intent(in) :: idx(:)
+    real(r8), target, intent(in) :: coord(:)
+
+    if (ncols_local <= 0) then
+       phys_grid_count_unique_sorted_real_codon_wrap = 0
+       return
+    end if
+    phys_grid_count_unique_sorted_real_codon_wrap = int( &
+         phys_grid_count_unique_sorted_real_codon(int(ncols_local, c_int64_t), c_loc(idx(1)), c_loc(coord(1))))
+  end function phys_grid_count_unique_sorted_real_codon_wrap
+
+  subroutine phys_grid_fill_unique_sorted_real_codon_wrap(ncols_local, idx, coord, unique, counts)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncols_local
+    integer, target, intent(in) :: idx(:)
+    real(r8), target, intent(in) :: coord(:)
+    real(r8), target, intent(inout) :: unique(:)
+    integer, target, intent(inout) :: counts(:)
+
+    if (ncols_local <= 0) return
+    call phys_grid_fill_unique_sorted_real_codon(int(ncols_local, c_int64_t), c_loc(idx(1)), &
+         c_loc(coord(1)), c_loc(unique(1)), c_loc(counts(1)))
+  end subroutine phys_grid_fill_unique_sorted_real_codon_wrap
+
+  subroutine phys_grid_prefix_counts_codon_wrap(n, counts, idx)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: n
+    integer, target, intent(in) :: counts(:)
+    integer, target, intent(inout) :: idx(:)
+
+    if (n <= 0) return
+    call phys_grid_prefix_counts_codon(int(n, c_int64_t), c_loc(counts(1)), c_loc(idx(1)))
+  end subroutine phys_grid_prefix_counts_codon_wrap
+
+  subroutine phys_grid_init_lat_map_codon_wrap(ngcols_local, ncols_local, clat_tot_local, idx, coord, unique, &
+       lat_map, dyn_map, latlon_map)
+    use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr, c_ptr
+    integer, intent(in) :: ngcols_local, ncols_local, clat_tot_local
+    integer, target, intent(in) :: idx(:)
+    real(r8), target, intent(in) :: coord(:), unique(:)
+    integer, target, intent(inout) :: lat_map(:), dyn_map(:)
+    integer, target, intent(inout), optional :: latlon_map(:)
+    integer(c_int64_t) :: has_latlon
+    type(c_ptr) :: latlon_p
+
+    if (ncols_local <= 0) return
+    has_latlon = 0_c_int64_t
+    latlon_p = c_null_ptr
+    if (present(latlon_map)) then
+       has_latlon = 1_c_int64_t
+       latlon_p = c_loc(latlon_map(1))
+    end if
+    call phys_grid_init_lat_map_codon(int(ngcols_local, c_int64_t), int(ncols_local, c_int64_t), &
+         int(clat_tot_local, c_int64_t), has_latlon, c_loc(idx(1)), c_loc(coord(1)), c_loc(unique(1)), &
+         c_loc(lat_map(1)), c_loc(dyn_map(1)), latlon_p)
+  end subroutine phys_grid_init_lat_map_codon_wrap
+
+  subroutine phys_grid_init_lon_map_codon_wrap(ngcols_local, ncols_local, clon_tot_local, idx, coord, unique, &
+       lon_map, lonlat_map)
+    use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr, c_ptr
+    integer, intent(in) :: ngcols_local, ncols_local, clon_tot_local
+    integer, target, intent(in) :: idx(:)
+    real(r8), target, intent(in) :: coord(:), unique(:)
+    integer, target, intent(inout) :: lon_map(:)
+    integer, target, intent(inout), optional :: lonlat_map(:)
+    integer(c_int64_t) :: has_lonlat
+    type(c_ptr) :: lonlat_p
+
+    if (ncols_local <= 0) return
+    has_lonlat = 0_c_int64_t
+    lonlat_p = c_null_ptr
+    if (present(lonlat_map)) then
+       has_lonlat = 1_c_int64_t
+       lonlat_p = c_loc(lonlat_map(1))
+    end if
+    call phys_grid_init_lon_map_codon(int(ngcols_local, c_int64_t), int(ncols_local, c_int64_t), &
+         int(clon_tot_local, c_int64_t), has_lonlat, c_loc(idx(1)), c_loc(coord(1)), c_loc(unique(1)), &
+         c_loc(lon_map(1)), lonlat_p)
+  end subroutine phys_grid_init_lon_map_codon_wrap
+
   subroutine phys_grid_init( )
     !----------------------------------------------------------------------- 
     ! 
@@ -589,6 +774,7 @@ contains
 
     call t_adj_detailf(-2)
     call t_startf("phys_grid_init")
+    call phys_grid_init_helpers_select_impl()
 
     !-----------------------------------------------------------------------
     !
@@ -605,75 +791,97 @@ contains
     call get_horiz_grid_d(ngcols, clat_d_out=clat_d, clon_d_out=clon_d)
 
     ! count number of "real" column indices
-    ngcols_p = 0
-    do i=1,ngcols
-       if (clon_d(i) < 100000.0_r8) then
-          ngcols_p = ngcols_p + 1
-       endif
-    enddo
+    if (use_native_init_helpers_impl) then
+       ngcols_p = 0
+       do i=1,ngcols
+          if (clon_d(i) < 100000.0_r8) then
+             ngcols_p = ngcols_p + 1
+          endif
+       enddo
+    else
+       ngcols_p = phys_grid_count_valid_cols_codon_wrap(ngcols, clon_d)
+       call phys_grid_init_helpers_proof_once()
+    endif
 
     ! sort over longitude and identify unique longitude coordinates
     call IndexSet(ngcols,cdex)
     call IndexSort(ngcols,cdex,clon_d,descend=.false.)
-    clon_p_tmp = clon_d(cdex(1))
-    clon_p_tot = 1
+    if (use_native_init_helpers_impl) then
+       clon_p_tmp = clon_d(cdex(1))
+       clon_p_tot = 1
 
-    do i=2,ngcols_p
-       if (clon_d(cdex(i)) > clon_p_tmp) then
-          clon_p_tot = clon_p_tot + 1
-          clon_p_tmp = clon_d(cdex(i))
-       endif
-    enddo
+       do i=2,ngcols_p
+          if (clon_d(cdex(i)) > clon_p_tmp) then
+             clon_p_tot = clon_p_tot + 1
+             clon_p_tmp = clon_d(cdex(i))
+          endif
+       enddo
+    else
+       clon_p_tot = phys_grid_count_unique_sorted_real_codon_wrap(ngcols_p, cdex, clon_d)
+    endif
 
     allocate( clon_p(1:clon_p_tot) )
     allocate( clon_p_cnt(1:clon_p_tot) )
 
-    pre_i = 1
-    clon_p_tot = 1
-    clon_p(1) = clon_d(cdex(1))
-    do i=2,ngcols_p
-       if (clon_d(cdex(i)) > clon_p(clon_p_tot)) then
-          clon_p_cnt(clon_p_tot) = i-pre_i
-          pre_i = i
-          clon_p_tot = clon_p_tot + 1
-          clon_p(clon_p_tot) = clon_d(cdex(i))
-       endif
-    enddo
-    clon_p_cnt(clon_p_tot) = (ngcols_p+1)-pre_i
+    if (use_native_init_helpers_impl) then
+       pre_i = 1
+       clon_p_tot = 1
+       clon_p(1) = clon_d(cdex(1))
+       do i=2,ngcols_p
+          if (clon_d(cdex(i)) > clon_p(clon_p_tot)) then
+             clon_p_cnt(clon_p_tot) = i-pre_i
+             pre_i = i
+             clon_p_tot = clon_p_tot + 1
+             clon_p(clon_p_tot) = clon_d(cdex(i))
+          endif
+       enddo
+       clon_p_cnt(clon_p_tot) = (ngcols_p+1)-pre_i
+    else
+       call phys_grid_fill_unique_sorted_real_codon_wrap(ngcols_p, cdex, clon_d, clon_p, clon_p_cnt)
+    endif
 
     ! sort over latitude and identify unique latitude coordinates
     call IndexSet(ngcols,cdex)
     call IndexSort(ngcols,cdex,clat_d,descend=.false.)
-    clat_p_tmp = clat_d(cdex(1))
-    clat_p_tot = 1
-    do i=2,ngcols_p
-       if (clat_d(cdex(i)) > clat_p_tmp) then
-          clat_p_tot = clat_p_tot + 1
-          clat_p_tmp = clat_d(cdex(i))
-       endif
-    enddo
+    if (use_native_init_helpers_impl) then
+       clat_p_tmp = clat_d(cdex(1))
+       clat_p_tot = 1
+       do i=2,ngcols_p
+          if (clat_d(cdex(i)) > clat_p_tmp) then
+             clat_p_tot = clat_p_tot + 1
+             clat_p_tmp = clat_d(cdex(i))
+          endif
+       enddo
+    else
+       clat_p_tot = phys_grid_count_unique_sorted_real_codon_wrap(ngcols_p, cdex, clat_d)
+    endif
 
     allocate( clat_p(1:clat_p_tot) )
     allocate( clat_p_cnt(1:clat_p_tot) )
     allocate( clat_p_idx(1:clat_p_tot) )
 
-    pre_i = 1
-    clat_p_tot = 1
-    clat_p(1) = clat_d(cdex(1))
-    do i=2,ngcols_p
-       if (clat_d(cdex(i)) > clat_p(clat_p_tot)) then
-          clat_p_cnt(clat_p_tot) = i-pre_i
-          pre_i = i
-          clat_p_tot = clat_p_tot + 1
-          clat_p(clat_p_tot) = clat_d(cdex(i))
-       endif
-    enddo
-    clat_p_cnt(clat_p_tot) = (ngcols_p+1)-pre_i
+    if (use_native_init_helpers_impl) then
+       pre_i = 1
+       clat_p_tot = 1
+       clat_p(1) = clat_d(cdex(1))
+       do i=2,ngcols_p
+          if (clat_d(cdex(i)) > clat_p(clat_p_tot)) then
+             clat_p_cnt(clat_p_tot) = i-pre_i
+             pre_i = i
+             clat_p_tot = clat_p_tot + 1
+             clat_p(clat_p_tot) = clat_d(cdex(i))
+          endif
+       enddo
+       clat_p_cnt(clat_p_tot) = (ngcols_p+1)-pre_i
 
-    clat_p_idx(1) = 1
-    do j=2,clat_p_tot
-       clat_p_idx(j) = clat_p_idx(j-1) + clat_p_cnt(j-1)
-    enddo
+       clat_p_idx(1) = 1
+       do j=2,clat_p_tot
+          clat_p_idx(j) = clat_p_idx(j-1) + clat_p_cnt(j-1)
+       enddo
+    else
+       call phys_grid_fill_unique_sorted_real_codon_wrap(ngcols_p, cdex, clat_d, clat_p, clat_p_cnt)
+       call phys_grid_prefix_counts_codon_wrap(clat_p_tot, clat_p_cnt, clat_p_idx)
+    endif
 
     ! sort by longitude within latitudes
     end_dex = 0
@@ -696,19 +904,27 @@ contains
     allocate( dyn_to_latlon_gcol_map(1:ngcols) )
     if (lbal_opt .ne. -1) allocate( latlon_to_dyn_gcol_map(1:ngcols_p) )
 
-    clat_p_dex = 1
-    lat_p = -1
-    dyn_to_latlon_gcol_map = -1
-    do i=1,ngcols_p
-       if (lbal_opt .ne. -1) latlon_to_dyn_gcol_map(i) = cdex(i)
-       dyn_to_latlon_gcol_map(cdex(i)) = i
+    if (use_native_init_helpers_impl) then
+       clat_p_dex = 1
+       lat_p = -1
+       dyn_to_latlon_gcol_map = -1
+       do i=1,ngcols_p
+          if (lbal_opt .ne. -1) latlon_to_dyn_gcol_map(i) = cdex(i)
+          dyn_to_latlon_gcol_map(cdex(i)) = i
 
-       do while ((clat_p(clat_p_dex) < clat_d(cdex(i))) .and. &
-                 (clat_p_dex < clat_p_tot))
-          clat_p_dex = clat_p_dex + 1
+          do while ((clat_p(clat_p_dex) < clat_d(cdex(i))) .and. &
+                    (clat_p_dex < clat_p_tot))
+             clat_p_dex = clat_p_dex + 1
+          enddo
+          lat_p(cdex(i)) = clat_p_dex
        enddo
-       lat_p(cdex(i)) = clat_p_dex
-    enddo
+    else if (lbal_opt .ne. -1) then
+       call phys_grid_init_lat_map_codon_wrap(ngcols, ngcols_p, clat_p_tot, cdex, clat_d, clat_p, &
+            lat_p, dyn_to_latlon_gcol_map, latlon_to_dyn_gcol_map)
+    else
+       call phys_grid_init_lat_map_codon_wrap(ngcols, ngcols_p, clat_p_tot, cdex, clat_d, clat_p, &
+            lat_p, dyn_to_latlon_gcol_map)
+    endif
 
     ! sort by latitude within longitudes
     call IndexSet(ngcols,cdex)
@@ -729,17 +945,24 @@ contains
     if ((twin_alg .eq. 1) .and. (lbal_opt .ne. -1)) &
        allocate( lonlat_to_dyn_gcol_map(1:ngcols_p) )
 
-    clon_p_dex = 1
-    lon_p = -1
-    do i=1,ngcols_p
-       if ((twin_alg .eq. 1) .and. (lbal_opt .ne. -1)) &
-         lonlat_to_dyn_gcol_map(i) = cdex(i)
-       do while ((clon_p(clon_p_dex) < clon_d(cdex(i))) .and. &
-                 (clon_p_dex < clon_p_tot))
-          clon_p_dex = clon_p_dex + 1
+    if (use_native_init_helpers_impl) then
+       clon_p_dex = 1
+       lon_p = -1
+       do i=1,ngcols_p
+          if ((twin_alg .eq. 1) .and. (lbal_opt .ne. -1)) &
+            lonlat_to_dyn_gcol_map(i) = cdex(i)
+          do while ((clon_p(clon_p_dex) < clon_d(cdex(i))) .and. &
+                    (clon_p_dex < clon_p_tot))
+             clon_p_dex = clon_p_dex + 1
+          enddo
+          lon_p(cdex(i)) = clon_p_dex
        enddo
-       lon_p(cdex(i)) = clon_p_dex
-    enddo
+    else if ((twin_alg .eq. 1) .and. (lbal_opt .ne. -1)) then
+       call phys_grid_init_lon_map_codon_wrap(ngcols, ngcols_p, clon_p_tot, cdex, clon_d, clon_p, &
+            lon_p, lonlat_to_dyn_gcol_map)
+    else
+       call phys_grid_init_lon_map_codon_wrap(ngcols, ngcols_p, clon_p_tot, cdex, clon_d, clon_p, lon_p)
+    endif
 
     ! Clean-up
     deallocate( clat_d )
