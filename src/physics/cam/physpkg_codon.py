@@ -2244,6 +2244,17 @@ def phys_grid_prefix_counts_codon(n: int, counts_p: cobj, idx_p: cobj):
 
 
 @export
+def phys_grid_fill_real_pair_codon(
+    n: int,
+    first_value: float,
+    second_value: float,
+    first_p: cobj,
+    second_p: cobj,
+):
+    _phys_grid.phys_grid_fill_real_pair_codon(n, first_value, second_value, first_p, second_p)
+
+
+@export
 def phys_grid_init_lat_map_codon(
     ngcols: int,
     ncols_p: int,

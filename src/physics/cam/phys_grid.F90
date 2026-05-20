@@ -396,6 +396,14 @@ module phys_grid
        type(c_ptr), value :: counts_p, idx_p
      end subroutine phys_grid_prefix_counts_codon
 
+     subroutine phys_grid_fill_real_pair_codon(n_c, first_value_c, second_value_c, first_p, second_p) &
+          bind(c, name="phys_grid_fill_real_pair_codon")
+       use iso_c_binding, only: c_int64_t, c_double, c_ptr
+       integer(c_int64_t), value :: n_c
+       real(c_double), value :: first_value_c, second_value_c
+       type(c_ptr), value :: first_p, second_p
+     end subroutine phys_grid_fill_real_pair_codon
+
      subroutine phys_grid_init_lat_map_codon(ngcols_c, ncols_p_c, clat_tot_c, has_latlon_map_c, &
           cdex_p, clat_d_p, clat_p_p, lat_p_p, dyn_map_p, latlon_map_p) &
           bind(c, name="phys_grid_init_lat_map_codon")
@@ -630,7 +638,7 @@ contains
     init_helpers_proof_written = .true.
     if (masterproc) then
        write(iulog,'(A)') &
-            'phys_grid_init_helpers entered (coordinate maps/proc offsets/local chunk weights direct = codon)'
+            'phys_grid_init_helpers entered (coordinate fills/maps/proc offsets/local chunk weights direct = codon)'
     end if
   end subroutine phys_grid_init_helpers_proof_once
 
@@ -683,6 +691,17 @@ contains
     if (n <= 0) return
     call phys_grid_prefix_counts_codon(int(n, c_int64_t), c_loc(counts(1)), c_loc(idx(1)))
   end subroutine phys_grid_prefix_counts_codon_wrap
+
+  subroutine phys_grid_fill_real_pair_codon_wrap(n, first_value, second_value, first, second)
+    use iso_c_binding, only: c_int64_t, c_double, c_loc
+    integer, intent(in) :: n
+    real(r8), intent(in) :: first_value, second_value
+    real(r8), target, intent(inout) :: first(:), second(:)
+
+    if (n <= 0) return
+    call phys_grid_fill_real_pair_codon(int(n, c_int64_t), real(first_value, c_double), &
+         real(second_value, c_double), c_loc(first(1)), c_loc(second(1)))
+  end subroutine phys_grid_fill_real_pair_codon_wrap
 
   subroutine phys_grid_init_lat_map_codon_wrap(ngcols_local, ncols_local, clat_tot_local, idx, coord, unique, &
        lat_map, dyn_map, latlon_map)
@@ -864,8 +883,13 @@ contains
     allocate( clat_d(1:ngcols) )
     allocate( clon_d(1:ngcols) )
     allocate( cdex(1:ngcols) )
-    clat_d = 100000.0_r8
-    clon_d = 100000.0_r8
+    if (use_native_init_helpers_impl) then
+       clat_d = 100000.0_r8
+       clon_d = 100000.0_r8
+    else
+       call phys_grid_fill_real_pair_codon_wrap(ngcols, 100000.0_r8, 100000.0_r8, clat_d, clon_d)
+       call phys_grid_init_helpers_proof_once()
+    endif
     call get_horiz_grid_d(ngcols, clat_d_out=clat_d, clon_d_out=clon_d)
 
     ! count number of "real" column indices
@@ -1288,8 +1312,12 @@ contains
 
     allocate( area_d(1:ngcols) )
     allocate( wght_d(1:ngcols) )
-    area_d = 0.0_r8
-    wght_d = 0.0_r8
+    if (use_native_init_helpers_impl) then
+       area_d = 0.0_r8
+       wght_d = 0.0_r8
+    else
+       call phys_grid_fill_real_pair_codon_wrap(ngcols, 0.0_r8, 0.0_r8, area_d, wght_d)
+    endif
 
     call get_horiz_grid_d(ngcols, area_d_out=area_d, wght_d_out=wght_d)
 

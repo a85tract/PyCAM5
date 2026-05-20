@@ -68,6 +68,21 @@ def phys_grid_prefix_counts_codon(n: int, counts_p: cobj, idx_p: cobj):
         idx[j] = i32(int(idx[j - 1]) + int(counts[j - 1]))
 
 
+def phys_grid_fill_real_pair_codon(
+    n: int,
+    first_value: float,
+    second_value: float,
+    first_p: cobj,
+    second_p: cobj,
+):
+    first = Ptr[float](first_p)
+    second = Ptr[float](second_p)
+
+    for i in range(n):
+        first[i] = first_value
+        second[i] = second_value
+
+
 def phys_grid_init_lat_map_codon(
     ngcols: int,
     ncols_p: int,
