@@ -161,6 +161,36 @@ interface
       type(c_ptr), value :: burdensoa_p, burdenbc_p, burdenseasalt_p, aodabsbc_p, dustaod_p
       type(c_ptr), value :: so4aod_p, pomaod_p, soaaod_p, bcaod_p, seasaltaod_p
    end subroutine modal_aer_opt_sw_climate_diag_night_codon
+
+   subroutine modal_aer_opt_sw_accumulate_diagnostics_codon(ncol_c, pcols_c, k_c, do_uv_c, do_nir_c, &
+        do_vis_c, crefwsw_re_c, crefwsw_im_c, troplev_p, mass_p, air_density_p, dopaer_p, pabs_p, &
+        palb_p, wetvol_p, watervol_p, dustvol_p, scatdust_p, scatso4_p, scatbc_p, scatpom_p, &
+        scatsoa_p, scatseasalt_p, absdust_p, absso4_p, absbc_p, abspom_p, abssoa_p, absseasalt_p, &
+        hygrodust_p, hygroso4_p, hygrobc_p, hygropom_p, hygrosoa_p, hygroseasalt_p, extinctuv_p, &
+        aoduv_p, aoduvst_p, extinctnir_p, aodnir_p, aodnirst_p, extinct_p, absorb_p, aodvis_p, &
+        aodabs_p, aodmode_p, ssavis_p, aodvisst_p, dustaodmode_p, aodabsbc_p, dustaod_p, &
+        so4aod_p, pomaod_p, soaaod_p, bcaod_p, seasaltaod_p) &
+        bind(c, name="modal_aer_opt_sw_accumulate_diagnostics_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, k_c, do_uv_c, do_nir_c, do_vis_c
+      real(c_double), value :: crefwsw_re_c, crefwsw_im_c
+      type(c_ptr), value :: troplev_p, mass_p, air_density_p, dopaer_p, pabs_p, palb_p
+      type(c_ptr), value :: wetvol_p, watervol_p, dustvol_p, scatdust_p, scatso4_p, scatbc_p
+      type(c_ptr), value :: scatpom_p, scatsoa_p, scatseasalt_p, absdust_p, absso4_p, absbc_p
+      type(c_ptr), value :: abspom_p, abssoa_p, absseasalt_p, hygrodust_p, hygroso4_p, hygrobc_p
+      type(c_ptr), value :: hygropom_p, hygrosoa_p, hygroseasalt_p, extinctuv_p, aoduv_p, aoduvst_p
+      type(c_ptr), value :: extinctnir_p, aodnir_p, aodnirst_p, extinct_p, absorb_p, aodvis_p
+      type(c_ptr), value :: aodabs_p, aodmode_p, ssavis_p, aodvisst_p, dustaodmode_p, aodabsbc_p
+      type(c_ptr), value :: dustaod_p, so4aod_p, pomaod_p, soaaod_p, bcaod_p, seasaltaod_p
+   end subroutine modal_aer_opt_sw_accumulate_diagnostics_codon
+
+   subroutine modal_aer_opt_sw_accumulate_tau_codon(ncol_c, pcols_c, pver_c, k_c, isw_c, &
+        dopaer_p, palb_p, pasm_p, tauxar_p, wa_p, ga_p, fa_p) &
+        bind(c, name="modal_aer_opt_sw_accumulate_tau_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, k_c, isw_c
+      type(c_ptr), value :: dopaer_p, palb_p, pasm_p, tauxar_p, wa_p, ga_p, fa_p
+   end subroutine modal_aer_opt_sw_accumulate_tau_codon
 end interface
 
 !===============================================================================
@@ -209,7 +239,8 @@ subroutine modal_aer_opt_helpers_proof_once()
    modal_aer_opt_helpers_proof_written = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'modal_aer_opt_helpers entered (modal aerosol size/interpolation/sw array helpers = codon)'
+      write(iulog,'(A)') &
+           'modal_aer_opt_helpers entered (modal aerosol size/interpolation/sw diagnostics/tau helpers = codon)'
    end if
 
 end subroutine modal_aer_opt_helpers_proof_once
@@ -477,7 +508,7 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
    integer :: ncol                     ! number of active columns in the chunk
    integer :: nmodes
    integer :: nspec
-   integer :: troplev(pcols)
+   integer, target :: troplev(pcols)
 
    real(r8), target :: mass(pcols,pver)        ! layer mass
    real(r8), target :: air_density(pcols,pver) ! (kg/m3)
@@ -512,18 +543,18 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
 
    real(r8) :: vol(pcols)      ! volume concentration of aerosol specie (m3/kg)
    real(r8) :: dryvol(pcols)   ! volume concentration of aerosol mode (m3/kg)
-   real(r8) :: watervol(pcols) ! volume concentration of water in each mode (m3/kg)
-   real(r8) :: wetvol(pcols)   ! volume concentration of wet mode (m3/kg)
+   real(r8), target :: watervol(pcols) ! volume concentration of water in each mode (m3/kg)
+   real(r8), target :: wetvol(pcols)   ! volume concentration of wet mode (m3/kg)
 
    integer  :: itab(pcols), jtab(pcols)
    real(r8) :: ttab(pcols), utab(pcols)
    real(r8) :: cext(pcols,ncoef), cabs(pcols,ncoef), casm(pcols,ncoef)
    real(r8) :: pext(pcols)     ! parameterized specific extinction (m2/kg)
    real(r8) :: specpext(pcols) ! specific extinction (m2/kg)
-   real(r8) :: dopaer(pcols)   ! aerosol optical depth in layer
-   real(r8) :: pabs(pcols)     ! parameterized specific absorption (m2/kg)
-   real(r8) :: pasm(pcols)     ! parameterized asymmetry factor
-   real(r8) :: palb(pcols)     ! parameterized single scattering albedo
+   real(r8), target :: dopaer(pcols)   ! aerosol optical depth in layer
+   real(r8), target :: pabs(pcols)     ! parameterized specific absorption (m2/kg)
+   real(r8), target :: pasm(pcols)     ! parameterized asymmetry factor
+   real(r8), target :: palb(pcols)     ! parameterized single scattering albedo
 
    ! Diagnostics
    real(r8), target :: extinct(pcols,pver)
@@ -537,7 +568,7 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
    real(r8), target :: aodabsbc(pcols)      ! absorption optical depth of BC
 
    real(r8), target :: ssavis(pcols)
-   real(r8) :: dustvol(pcols)              ! volume concentration of dust in aerosol mode (m3/kg)
+   real(r8), target :: dustvol(pcols)      ! volume concentration of dust in aerosol mode (m3/kg)
 
    real(r8), target :: burden(pcols)
    real(r8), target :: burdendust(pcols), burdenso4(pcols), burdenbc(pcols), &
@@ -547,11 +578,11 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
    real(r8), target :: dustaodmode(pcols)  ! dust aod in aerosol mode
 
    real(r8) :: specrefr, specrefi
-   real(r8) :: scatdust(pcols), scatso4(pcols), scatbc(pcols), &
+   real(r8), target :: scatdust(pcols), scatso4(pcols), scatbc(pcols), &
                scatpom(pcols), scatsoa(pcols), scatseasalt(pcols)
-   real(r8) :: absdust(pcols), absso4(pcols), absbc(pcols), &
+   real(r8), target :: absdust(pcols), absso4(pcols), absbc(pcols), &
                abspom(pcols), abssoa(pcols), absseasalt(pcols)
-   real(r8) :: hygrodust(pcols), hygroso4(pcols), hygrobc(pcols), &
+   real(r8), target :: hygrodust(pcols), hygroso4(pcols), hygrobc(pcols), &
                hygropom(pcols), hygrosoa(pcols), hygroseasalt(pcols)
 
    real(r8) :: scath2o, absh2o, sumscat, sumabs, sumhygro
@@ -870,99 +901,123 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
                dopaer(i) = pext(i)*mass(i,k)
             end do
 
-            if (savaeruv) then
-               do i = 1, ncol
-                 extinctuv(i,k) = extinctuv(i,k) + dopaer(i)*air_density(i,k)/mass(i,k)
-                 aoduv(i) = aoduv(i) + dopaer(i)
-                  if (k.le.troplev(i)) then
-                    aoduvst(i) = aoduvst(i) + dopaer(i)
-                  end if
-               end do
+            if (.not. use_native_modal_aer_opt_helpers_impl) then
+               call modal_aer_opt_helpers_proof_once()
+               call modal_aer_opt_sw_accumulate_diagnostics_codon( &
+                    int(ncol, c_int64_t), int(pcols, c_int64_t), int(k, c_int64_t), &
+                    merge(1_c_int64_t, 0_c_int64_t, savaeruv), &
+                    merge(1_c_int64_t, 0_c_int64_t, savaernir), &
+                    merge(1_c_int64_t, 0_c_int64_t, savaervis), &
+                    real(crefwsw(isw), r8), aimag(crefwsw(isw)), c_loc(troplev(1)), &
+                    c_loc(mass(1,1)), c_loc(air_density(1,1)), c_loc(dopaer(1)), &
+                    c_loc(pabs(1)), c_loc(palb(1)), c_loc(wetvol(1)), c_loc(watervol(1)), &
+                    c_loc(dustvol(1)), c_loc(scatdust(1)), c_loc(scatso4(1)), c_loc(scatbc(1)), &
+                    c_loc(scatpom(1)), c_loc(scatsoa(1)), c_loc(scatseasalt(1)), &
+                    c_loc(absdust(1)), c_loc(absso4(1)), c_loc(absbc(1)), c_loc(abspom(1)), &
+                    c_loc(abssoa(1)), c_loc(absseasalt(1)), c_loc(hygrodust(1)), &
+                    c_loc(hygroso4(1)), c_loc(hygrobc(1)), c_loc(hygropom(1)), &
+                    c_loc(hygrosoa(1)), c_loc(hygroseasalt(1)), c_loc(extinctuv(1,1)), &
+                    c_loc(aoduv(1)), c_loc(aoduvst(1)), c_loc(extinctnir(1,1)), &
+                    c_loc(aodnir(1)), c_loc(aodnirst(1)), c_loc(extinct(1,1)), &
+                    c_loc(absorb(1,1)), c_loc(aodvis(1)), c_loc(aodabs(1)), c_loc(aodmode(1)), &
+                    c_loc(ssavis(1)), c_loc(aodvisst(1)), c_loc(dustaodmode(1)), &
+                    c_loc(aodabsbc(1)), c_loc(dustaod(1)), c_loc(so4aod(1)), c_loc(pomaod(1)), &
+                    c_loc(soaaod(1)), c_loc(bcaod(1)), c_loc(seasaltaod(1)))
+            else
+               if (savaeruv) then
+                  do i = 1, ncol
+                    extinctuv(i,k) = extinctuv(i,k) + dopaer(i)*air_density(i,k)/mass(i,k)
+                    aoduv(i) = aoduv(i) + dopaer(i)
+                     if (k.le.troplev(i)) then
+                       aoduvst(i) = aoduvst(i) + dopaer(i)
+                     end if
+                  end do
+               end if
+
+               if (savaernir) then
+                  do i = 1, ncol
+                     extinctnir(i,k) = extinctnir(i,k) + dopaer(i)*air_density(i,k)/mass(i,k)
+                     aodnir(i) = aodnir(i) + dopaer(i)
+                     if (k.le.troplev(i)) then
+                       aodnirst(i) = aodnirst(i) + dopaer(i)
+                     end if
+                  end do
+               endif
+
+               ! Save aerosol optical depth at longest visible wavelength
+               ! sum over layers
+               if (savaervis) then
+                  ! aerosol extinction (/m)
+                  do i = 1, ncol
+                     extinct(i,k) = extinct(i,k) + dopaer(i)*air_density(i,k)/mass(i,k)
+                     absorb(i,k)  = absorb(i,k) + pabs(i)*air_density(i,k)
+                     aodvis(i)    = aodvis(i) + dopaer(i)
+                     aodabs(i)    = aodabs(i) + pabs(i)*mass(i,k)
+                     aodmode(i)   = aodmode(i) + dopaer(i)
+                     ssavis(i)    = ssavis(i) + dopaer(i)*palb(i)
+                     if (k.le.troplev(i)) then
+                       aodvisst(i) = aodvisst(i) + dopaer(i)
+                     end if
+
+                     if (wetvol(i) > 1.e-40_r8) then
+
+                        dustaodmode(i) = dustaodmode(i) + dopaer(i)*dustvol(i)/wetvol(i)
+
+                        ! partition optical depth into contributions from each constituent
+                        ! assume contribution is proportional to refractive index X volume
+
+                        scath2o        = watervol(i)*real(crefwsw(isw))
+                        absh2o         = -watervol(i)*aimag(crefwsw(isw))
+                        sumscat        = scatso4(i) + scatpom(i) + scatsoa(i) + scatbc(i) + &
+                                         scatdust(i) + scatseasalt(i) + scath2o
+                        sumabs         = absso4(i) + abspom(i) + abssoa(i) + absbc(i) + &
+                                         absdust(i) + absseasalt(i) + absh2o
+                        sumhygro       = hygroso4(i) + hygropom(i) + hygrosoa(i) + hygrobc(i) + &
+                                         hygrodust(i) + hygroseasalt(i)
+
+                        scatdust(i)    = (scatdust(i) + scath2o*hygrodust(i)/sumhygro)/sumscat
+                        absdust(i)     = (absdust(i) + absh2o*hygrodust(i)/sumhygro)/sumabs
+
+                        scatso4(i)     = (scatso4(i) + scath2o*hygroso4(i)/sumhygro)/sumscat
+                        absso4(i)      = (absso4(i) + absh2o*hygroso4(i)/sumhygro)/sumabs
+
+                        scatpom(i)     = (scatpom(i) + scath2o*hygropom(i)/sumhygro)/sumscat
+                        abspom(i)      = (abspom(i) + absh2o*hygropom(i)/sumhygro)/sumabs
+
+                        scatsoa(i)     = (scatsoa(i) + scath2o*hygrosoa(i)/sumhygro)/sumscat
+                        abssoa(i)      = (abssoa(i) + absh2o*hygrosoa(i)/sumhygro)/sumabs
+
+                        scatbc(i)      = (scatbc(i) + scath2o*hygrobc(i)/sumhygro)/sumscat
+                        absbc(i)       = (absbc(i) + absh2o*hygrobc(i)/sumhygro)/sumabs
+
+                        scatseasalt(i) = (scatseasalt(i) + scath2o*hygroseasalt(i)/sumhygro)/sumscat
+                        absseasalt(i)  = (absseasalt(i) + absh2o*hygroseasalt(i)/sumhygro)/sumabs
+
+                        aodabsbc(i)    = aodabsbc(i) + absbc(i)*dopaer(i)*(1.0_r8-palb(i))
+
+                        aodc           = (absdust(i)*(1.0_r8 - palb(i)) + palb(i)*scatdust(i))*dopaer(i)
+                        dustaod(i)     = dustaod(i) + aodc
+
+                        aodc           = (absso4(i)*(1.0_r8 - palb(i)) + palb(i)*scatso4(i))*dopaer(i)
+                        so4aod(i)      = so4aod(i) + aodc
+
+                        aodc           = (abspom(i)*(1.0_r8 - palb(i)) + palb(i)*scatpom(i))*dopaer(i)
+                        pomaod(i)      = pomaod(i) + aodc
+
+                        aodc           = (abssoa(i)*(1.0_r8 - palb(i)) + palb(i)*scatsoa(i))*dopaer(i)
+                        soaaod(i)      = soaaod(i) + aodc
+
+                        aodc           = (absbc(i)*(1.0_r8 - palb(i)) + palb(i)*scatbc(i))*dopaer(i)
+                        bcaod(i)       = bcaod(i) + aodc
+
+                        aodc           = (absseasalt(i)*(1.0_r8 - palb(i)) + palb(i)*scatseasalt(i))*dopaer(i)
+                        seasaltaod(i)  = seasaltaod(i) + aodc
+
+                     endif
+
+                  end do
+               endif
             end if
-
-            if (savaernir) then
-               do i = 1, ncol
-                  extinctnir(i,k) = extinctnir(i,k) + dopaer(i)*air_density(i,k)/mass(i,k)
-                  aodnir(i) = aodnir(i) + dopaer(i)
-                  if (k.le.troplev(i)) then
-                    aodnirst(i) = aodnirst(i) + dopaer(i)
-                  end if
-               end do
-            endif
-
-            ! Save aerosol optical depth at longest visible wavelength
-            ! sum over layers
-            if (savaervis) then
-               ! aerosol extinction (/m)
-               do i = 1, ncol
-                  extinct(i,k) = extinct(i,k) + dopaer(i)*air_density(i,k)/mass(i,k)
-                  absorb(i,k)  = absorb(i,k) + pabs(i)*air_density(i,k)
-                  aodvis(i)    = aodvis(i) + dopaer(i)
-                  aodabs(i)    = aodabs(i) + pabs(i)*mass(i,k)
-                  aodmode(i)   = aodmode(i) + dopaer(i)
-                  ssavis(i)    = ssavis(i) + dopaer(i)*palb(i)
-                  if (k.le.troplev(i)) then
-                    aodvisst(i) = aodvisst(i) + dopaer(i)
-                  end if
-
-                  if (wetvol(i) > 1.e-40_r8) then
-
-                     dustaodmode(i) = dustaodmode(i) + dopaer(i)*dustvol(i)/wetvol(i)
-
-                     ! partition optical depth into contributions from each constituent
-                     ! assume contribution is proportional to refractive index X volume
-
-                     scath2o        = watervol(i)*real(crefwsw(isw))
-		     absh2o         = -watervol(i)*aimag(crefwsw(isw))
-		     sumscat        = scatso4(i) + scatpom(i) + scatsoa(i) + scatbc(i) + &
-                                      scatdust(i) + scatseasalt(i) + scath2o
-		     sumabs         = absso4(i) + abspom(i) + abssoa(i) + absbc(i) + &
-                                      absdust(i) + absseasalt(i) + absh2o
-                     sumhygro       = hygroso4(i) + hygropom(i) + hygrosoa(i) + hygrobc(i) + &
-                                      hygrodust(i) + hygroseasalt(i)
-
-                     scatdust(i)    = (scatdust(i) + scath2o*hygrodust(i)/sumhygro)/sumscat
-                     absdust(i)     = (absdust(i) + absh2o*hygrodust(i)/sumhygro)/sumabs
-
-                     scatso4(i)     = (scatso4(i) + scath2o*hygroso4(i)/sumhygro)/sumscat
-                     absso4(i)      = (absso4(i) + absh2o*hygroso4(i)/sumhygro)/sumabs
-
-                     scatpom(i)     = (scatpom(i) + scath2o*hygropom(i)/sumhygro)/sumscat
-                     abspom(i)      = (abspom(i) + absh2o*hygropom(i)/sumhygro)/sumabs
-
-                     scatsoa(i)     = (scatsoa(i) + scath2o*hygrosoa(i)/sumhygro)/sumscat
-                     abssoa(i)      = (abssoa(i) + absh2o*hygrosoa(i)/sumhygro)/sumabs
-
-                     scatbc(i)      = (scatbc(i) + scath2o*hygrobc(i)/sumhygro)/sumscat
-                     absbc(i)       = (absbc(i) + absh2o*hygrobc(i)/sumhygro)/sumabs
-
-                     scatseasalt(i) = (scatseasalt(i) + scath2o*hygroseasalt(i)/sumhygro)/sumscat
-                     absseasalt(i)  = (absseasalt(i) + absh2o*hygroseasalt(i)/sumhygro)/sumabs
-                     
-                     aodabsbc(i)    = aodabsbc(i) + absbc(i)*dopaer(i)*(1.0_r8-palb(i))
-
-                     aodc           = (absdust(i)*(1.0_r8 - palb(i)) + palb(i)*scatdust(i))*dopaer(i)
-                     dustaod(i)     = dustaod(i) + aodc
-
-                     aodc           = (absso4(i)*(1.0_r8 - palb(i)) + palb(i)*scatso4(i))*dopaer(i)
-                     so4aod(i)      = so4aod(i) + aodc
-
-                     aodc           = (abspom(i)*(1.0_r8 - palb(i)) + palb(i)*scatpom(i))*dopaer(i)
-                     pomaod(i)      = pomaod(i) + aodc
-
-                     aodc           = (abssoa(i)*(1.0_r8 - palb(i)) + palb(i)*scatsoa(i))*dopaer(i)
-                     soaaod(i)      = soaaod(i) + aodc
-
-                     aodc           = (absbc(i)*(1.0_r8 - palb(i)) + palb(i)*scatbc(i))*dopaer(i)
-                     bcaod(i)       = bcaod(i) + aodc
-
-                     aodc           = (absseasalt(i)*(1.0_r8 - palb(i)) + palb(i)*scatseasalt(i))*dopaer(i)
-                     seasaltaod(i)  = seasaltaod(i) + aodc
-
-                  endif
-
-               end do
-            endif
 
             do i = 1, ncol
 
@@ -1004,12 +1059,20 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
                end if
             end do
 
-            do i=1,ncol
-               tauxar(i,k,isw) = tauxar(i,k,isw) + dopaer(i)
-               wa(i,k,isw)     = wa(i,k,isw)     + dopaer(i)*palb(i)
-               ga(i,k,isw)     = ga(i,k,isw)     + dopaer(i)*palb(i)*pasm(i)
-               fa(i,k,isw)     = fa(i,k,isw)     + dopaer(i)*palb(i)*pasm(i)*pasm(i)
-            end do
+            if (.not. use_native_modal_aer_opt_helpers_impl) then
+               call modal_aer_opt_helpers_proof_once()
+               call modal_aer_opt_sw_accumulate_tau_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+                    int(pver, c_int64_t), int(k, c_int64_t), int(isw, c_int64_t), c_loc(dopaer(1)), &
+                    c_loc(palb(1)), c_loc(pasm(1)), c_loc(tauxar(1,0,1)), c_loc(wa(1,0,1)), &
+                    c_loc(ga(1,0,1)), c_loc(fa(1,0,1)))
+            else
+               do i=1,ncol
+                  tauxar(i,k,isw) = tauxar(i,k,isw) + dopaer(i)
+                  wa(i,k,isw)     = wa(i,k,isw)     + dopaer(i)*palb(i)
+                  ga(i,k,isw)     = ga(i,k,isw)     + dopaer(i)*palb(i)*pasm(i)
+                  fa(i,k,isw)     = fa(i,k,isw)     + dopaer(i)*palb(i)*pasm(i)*pasm(i)
+               end do
+            end if
 
          end do ! pver
 

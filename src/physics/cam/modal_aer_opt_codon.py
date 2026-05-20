@@ -314,3 +314,230 @@ def modal_aer_opt_sw_climate_diag_night_codon(
             idx2 = _idx2(col, k, pcols)
             extinctuv[idx2] = fillvalue
             extinctnir[idx2] = fillvalue
+
+
+def modal_aer_opt_sw_accumulate_diagnostics_codon(
+    ncol: int,
+    pcols: int,
+    k: int,
+    do_uv: int,
+    do_nir: int,
+    do_vis: int,
+    crefwsw_re: float,
+    crefwsw_im: float,
+    troplev_p: cobj,
+    mass_p: cobj,
+    air_density_p: cobj,
+    dopaer_p: cobj,
+    pabs_p: cobj,
+    palb_p: cobj,
+    wetvol_p: cobj,
+    watervol_p: cobj,
+    dustvol_p: cobj,
+    scatdust_p: cobj,
+    scatso4_p: cobj,
+    scatbc_p: cobj,
+    scatpom_p: cobj,
+    scatsoa_p: cobj,
+    scatseasalt_p: cobj,
+    absdust_p: cobj,
+    absso4_p: cobj,
+    absbc_p: cobj,
+    abspom_p: cobj,
+    abssoa_p: cobj,
+    absseasalt_p: cobj,
+    hygrodust_p: cobj,
+    hygroso4_p: cobj,
+    hygrobc_p: cobj,
+    hygropom_p: cobj,
+    hygrosoa_p: cobj,
+    hygroseasalt_p: cobj,
+    extinctuv_p: cobj,
+    aoduv_p: cobj,
+    aoduvst_p: cobj,
+    extinctnir_p: cobj,
+    aodnir_p: cobj,
+    aodnirst_p: cobj,
+    extinct_p: cobj,
+    absorb_p: cobj,
+    aodvis_p: cobj,
+    aodabs_p: cobj,
+    aodmode_p: cobj,
+    ssavis_p: cobj,
+    aodvisst_p: cobj,
+    dustaodmode_p: cobj,
+    aodabsbc_p: cobj,
+    dustaod_p: cobj,
+    so4aod_p: cobj,
+    pomaod_p: cobj,
+    soaaod_p: cobj,
+    bcaod_p: cobj,
+    seasaltaod_p: cobj,
+):
+    troplev = Ptr[i32](troplev_p)
+    mass = Ptr[float](mass_p)
+    air_density = Ptr[float](air_density_p)
+    dopaer = Ptr[float](dopaer_p)
+    pabs = Ptr[float](pabs_p)
+    palb = Ptr[float](palb_p)
+    wetvol = Ptr[float](wetvol_p)
+    watervol = Ptr[float](watervol_p)
+    dustvol = Ptr[float](dustvol_p)
+    scatdust = Ptr[float](scatdust_p)
+    scatso4 = Ptr[float](scatso4_p)
+    scatbc = Ptr[float](scatbc_p)
+    scatpom = Ptr[float](scatpom_p)
+    scatsoa = Ptr[float](scatsoa_p)
+    scatseasalt = Ptr[float](scatseasalt_p)
+    absdust = Ptr[float](absdust_p)
+    absso4 = Ptr[float](absso4_p)
+    absbc = Ptr[float](absbc_p)
+    abspom = Ptr[float](abspom_p)
+    abssoa = Ptr[float](abssoa_p)
+    absseasalt = Ptr[float](absseasalt_p)
+    hygrodust = Ptr[float](hygrodust_p)
+    hygroso4 = Ptr[float](hygroso4_p)
+    hygrobc = Ptr[float](hygrobc_p)
+    hygropom = Ptr[float](hygropom_p)
+    hygrosoa = Ptr[float](hygrosoa_p)
+    hygroseasalt = Ptr[float](hygroseasalt_p)
+    extinctuv = Ptr[float](extinctuv_p)
+    aoduv = Ptr[float](aoduv_p)
+    aoduvst = Ptr[float](aoduvst_p)
+    extinctnir = Ptr[float](extinctnir_p)
+    aodnir = Ptr[float](aodnir_p)
+    aodnirst = Ptr[float](aodnirst_p)
+    extinct = Ptr[float](extinct_p)
+    absorb = Ptr[float](absorb_p)
+    aodvis = Ptr[float](aodvis_p)
+    aodabs = Ptr[float](aodabs_p)
+    aodmode = Ptr[float](aodmode_p)
+    ssavis = Ptr[float](ssavis_p)
+    aodvisst = Ptr[float](aodvisst_p)
+    dustaodmode = Ptr[float](dustaodmode_p)
+    aodabsbc = Ptr[float](aodabsbc_p)
+    dustaod = Ptr[float](dustaod_p)
+    so4aod = Ptr[float](so4aod_p)
+    pomaod = Ptr[float](pomaod_p)
+    soaaod = Ptr[float](soaaod_p)
+    bcaod = Ptr[float](bcaod_p)
+    seasaltaod = Ptr[float](seasaltaod_p)
+
+    for i in range(1, ncol + 1):
+        idx1 = _idx1(i)
+        idx2 = _idx2(i, k, pcols)
+
+        if do_uv != 0:
+            extinctuv[idx2] = extinctuv[idx2] + dopaer[idx1] * air_density[idx2] / mass[idx2]
+            aoduv[idx1] = aoduv[idx1] + dopaer[idx1]
+            if k <= int(troplev[idx1]):
+                aoduvst[idx1] = aoduvst[idx1] + dopaer[idx1]
+
+        if do_nir != 0:
+            extinctnir[idx2] = extinctnir[idx2] + dopaer[idx1] * air_density[idx2] / mass[idx2]
+            aodnir[idx1] = aodnir[idx1] + dopaer[idx1]
+            if k <= int(troplev[idx1]):
+                aodnirst[idx1] = aodnirst[idx1] + dopaer[idx1]
+
+        if do_vis != 0:
+            extinct[idx2] = extinct[idx2] + dopaer[idx1] * air_density[idx2] / mass[idx2]
+            absorb[idx2] = absorb[idx2] + pabs[idx1] * air_density[idx2]
+            aodvis[idx1] = aodvis[idx1] + dopaer[idx1]
+            aodabs[idx1] = aodabs[idx1] + pabs[idx1] * mass[idx2]
+            aodmode[idx1] = aodmode[idx1] + dopaer[idx1]
+            ssavis[idx1] = ssavis[idx1] + dopaer[idx1] * palb[idx1]
+            if k <= int(troplev[idx1]):
+                aodvisst[idx1] = aodvisst[idx1] + dopaer[idx1]
+
+            if wetvol[idx1] > 1.0e-40:
+                dustaodmode[idx1] = dustaodmode[idx1] + dopaer[idx1] * dustvol[idx1] / wetvol[idx1]
+
+                scath2o = watervol[idx1] * crefwsw_re
+                absh2o = -watervol[idx1] * crefwsw_im
+                sumscat = scatso4[idx1] + scatpom[idx1]
+                sumscat = sumscat + scatsoa[idx1]
+                sumscat = sumscat + scatbc[idx1]
+                sumscat = sumscat + scatdust[idx1]
+                sumscat = sumscat + scatseasalt[idx1]
+                sumscat = sumscat + scath2o
+                sumabs = absso4[idx1] + abspom[idx1]
+                sumabs = sumabs + abssoa[idx1]
+                sumabs = sumabs + absbc[idx1]
+                sumabs = sumabs + absdust[idx1]
+                sumabs = sumabs + absseasalt[idx1]
+                sumabs = sumabs + absh2o
+                sumhygro = hygroso4[idx1] + hygropom[idx1]
+                sumhygro = sumhygro + hygrosoa[idx1]
+                sumhygro = sumhygro + hygrobc[idx1]
+                sumhygro = sumhygro + hygrodust[idx1]
+                sumhygro = sumhygro + hygroseasalt[idx1]
+
+                scatdust[idx1] = (scatdust[idx1] + scath2o * hygrodust[idx1] / sumhygro) / sumscat
+                absdust[idx1] = (absdust[idx1] + absh2o * hygrodust[idx1] / sumhygro) / sumabs
+
+                scatso4[idx1] = (scatso4[idx1] + scath2o * hygroso4[idx1] / sumhygro) / sumscat
+                absso4[idx1] = (absso4[idx1] + absh2o * hygroso4[idx1] / sumhygro) / sumabs
+
+                scatpom[idx1] = (scatpom[idx1] + scath2o * hygropom[idx1] / sumhygro) / sumscat
+                abspom[idx1] = (abspom[idx1] + absh2o * hygropom[idx1] / sumhygro) / sumabs
+
+                scatsoa[idx1] = (scatsoa[idx1] + scath2o * hygrosoa[idx1] / sumhygro) / sumscat
+                abssoa[idx1] = (abssoa[idx1] + absh2o * hygrosoa[idx1] / sumhygro) / sumabs
+
+                scatbc[idx1] = (scatbc[idx1] + scath2o * hygrobc[idx1] / sumhygro) / sumscat
+                absbc[idx1] = (absbc[idx1] + absh2o * hygrobc[idx1] / sumhygro) / sumabs
+
+                scatseasalt[idx1] = (scatseasalt[idx1] + scath2o * hygroseasalt[idx1] / sumhygro) / sumscat
+                absseasalt[idx1] = (absseasalt[idx1] + absh2o * hygroseasalt[idx1] / sumhygro) / sumabs
+
+                aodabsbc[idx1] = aodabsbc[idx1] + absbc[idx1] * dopaer[idx1] * (1.0 - palb[idx1])
+
+                aodc = (absdust[idx1] * (1.0 - palb[idx1]) + palb[idx1] * scatdust[idx1]) * dopaer[idx1]
+                dustaod[idx1] = dustaod[idx1] + aodc
+
+                aodc = (absso4[idx1] * (1.0 - palb[idx1]) + palb[idx1] * scatso4[idx1]) * dopaer[idx1]
+                so4aod[idx1] = so4aod[idx1] + aodc
+
+                aodc = (abspom[idx1] * (1.0 - palb[idx1]) + palb[idx1] * scatpom[idx1]) * dopaer[idx1]
+                pomaod[idx1] = pomaod[idx1] + aodc
+
+                aodc = (abssoa[idx1] * (1.0 - palb[idx1]) + palb[idx1] * scatsoa[idx1]) * dopaer[idx1]
+                soaaod[idx1] = soaaod[idx1] + aodc
+
+                aodc = (absbc[idx1] * (1.0 - palb[idx1]) + palb[idx1] * scatbc[idx1]) * dopaer[idx1]
+                bcaod[idx1] = bcaod[idx1] + aodc
+
+                aodc = (absseasalt[idx1] * (1.0 - palb[idx1]) + palb[idx1] * scatseasalt[idx1]) * dopaer[idx1]
+                seasaltaod[idx1] = seasaltaod[idx1] + aodc
+
+
+def modal_aer_opt_sw_accumulate_tau_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    k: int,
+    isw: int,
+    dopaer_p: cobj,
+    palb_p: cobj,
+    pasm_p: cobj,
+    tauxar_p: cobj,
+    wa_p: cobj,
+    ga_p: cobj,
+    fa_p: cobj,
+):
+    dopaer = Ptr[float](dopaer_p)
+    palb = Ptr[float](palb_p)
+    pasm = Ptr[float](pasm_p)
+    tauxar = Ptr[float](tauxar_p)
+    wa = Ptr[float](wa_p)
+    ga = Ptr[float](ga_p)
+    fa = Ptr[float](fa_p)
+
+    pverp = pver + 1
+    for i in range(1, ncol + 1):
+        idx1 = _idx1(i)
+        idx3 = _sw_idx(i, k, isw, pcols, pverp)
+        tauxar[idx3] = tauxar[idx3] + dopaer[idx1]
+        wa[idx3] = wa[idx3] + dopaer[idx1] * palb[idx1]
+        ga[idx3] = ga[idx3] + dopaer[idx1] * palb[idx1] * pasm[idx1]
+        fa[idx3] = fa[idx3] + dopaer[idx1] * palb[idx1] * pasm[idx1] * pasm[idx1]
