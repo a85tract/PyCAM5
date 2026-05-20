@@ -101,6 +101,92 @@ def wtrc_apply_rates_copy_qloc0_codon(
                 qloc0[idx] = qloc[idx]
 
 
+def wtrc_apply_rates_pre_temperature_begin_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    dtime: float,
+    cpair: float,
+    prelat_p: cobj,
+    tloc_p: cobj,
+):
+    prelat = Ptr[float](prelat_p)
+    tloc = Ptr[float](tloc_p)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            old_t = tloc[idx]
+            tloc[idx] = (old_t + (old_t + prelat[idx] / cpair * dtime)) / 2.0
+
+
+def wtrc_apply_rates_pre_temperature_end_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    dtime: float,
+    cpair: float,
+    niter: float,
+    pstate_t_p: cobj,
+    prelat_p: cobj,
+    tloc_p: cobj,
+):
+    pstate_t = Ptr[float](pstate_t_p)
+    prelat = Ptr[float](prelat_p)
+    tloc = Ptr[float](tloc_p)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            tloc[idx] = pstate_t[idx] + prelat[idx] / cpair * dtime / niter
+
+
+def wtrc_apply_rates_post_temperature_begin_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    dtime: float,
+    cpair: float,
+    postlat_p: cobj,
+    tloc_p: cobj,
+):
+    postlat = Ptr[float](postlat_p)
+    tloc = Ptr[float](tloc_p)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            old_t = tloc[idx]
+            tloc[idx] = (old_t + (old_t + postlat[idx] / cpair * dtime)) / 2.0
+
+
+def wtrc_apply_rates_post_temperature_end_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    dtime: float,
+    cpair: float,
+    niter: float,
+    pstate_t_p: cobj,
+    prelat_p: cobj,
+    postlat_p: cobj,
+    tloc_p: cobj,
+):
+    pstate_t = Ptr[float](pstate_t_p)
+    prelat = Ptr[float](prelat_p)
+    postlat = Ptr[float](postlat_p)
+    tloc = Ptr[float](tloc_p)
+
+    for k in range(top_lev, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            tloc[idx] = pstate_t[idx] + (prelat[idx] + postlat[idx]) / cpair * dtime / niter
+
+
 def wtrc_apply_rates_bulk_update_codon(
     ncol: int,
     pcols: int,

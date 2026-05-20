@@ -201,6 +201,75 @@ def wtrc_apply_rates_copy_qloc0_codon(
 
 
 @export
+def wtrc_apply_rates_pre_temperature_begin_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    dtime: float,
+    cpair: float,
+    prelat_p: cobj,
+    tloc_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_pre_temperature_begin_codon(
+        ncol, pcols, pver, top_lev, dtime, cpair, prelat_p, tloc_p
+    )
+
+
+@export
+def wtrc_apply_rates_pre_temperature_end_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    dtime: float,
+    cpair: float,
+    niter: float,
+    pstate_t_p: cobj,
+    prelat_p: cobj,
+    tloc_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_pre_temperature_end_codon(
+        ncol, pcols, pver, top_lev, dtime, cpair, niter, pstate_t_p, prelat_p, tloc_p
+    )
+
+
+@export
+def wtrc_apply_rates_post_temperature_begin_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    dtime: float,
+    cpair: float,
+    postlat_p: cobj,
+    tloc_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_post_temperature_begin_codon(
+        ncol, pcols, pver, top_lev, dtime, cpair, postlat_p, tloc_p
+    )
+
+
+@export
+def wtrc_apply_rates_post_temperature_end_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    dtime: float,
+    cpair: float,
+    niter: float,
+    pstate_t_p: cobj,
+    prelat_p: cobj,
+    postlat_p: cobj,
+    tloc_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_post_temperature_end_codon(
+        ncol, pcols, pver, top_lev, dtime, cpair, niter, pstate_t_p, prelat_p, postlat_p, tloc_p
+    )
+
+
+@export
 def wtrc_apply_rates_bulk_update_codon(
     ncol: int,
     pcols: int,

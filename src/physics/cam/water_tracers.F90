@@ -652,7 +652,7 @@ subroutine wtrc_apply_rates_helpers_log_entered()
   wtrc_apply_rates_helpers_entered_logged = .true.
 
   if (masterproc) then
-    write(iulog,'(A)') 'wtrc_apply_rates_helpers entered (state/bulk/tendency/correction direct = codon)'
+    write(iulog,'(A)') 'wtrc_apply_rates_helpers entered (state/temp/bulk/tendency/correction direct = codon)'
     call flush(iulog)
   end if
 
@@ -1730,8 +1730,8 @@ end subroutine wtrc_register
   real(r8), intent(in), optional     :: fi(pcols,pver)      !initial fall velocity of cloud ice       
 
   !latent heating terms:
-  real(r8), intent(in), optional     :: prelat(pcols,pver)  !latent heating due to pre-rates
-  real(r8), intent(in), optional     :: postlat(pcols,pver) !latent heating due to post-rates
+  real(r8), target, intent(in), optional :: prelat(pcols,pver)  !latent heating due to pre-rates
+  real(r8), target, intent(in), optional :: postlat(pcols,pver) !latent heating due to post-rates
   
   !precipitation phase changes:
   real(r8), intent(in), optional     :: frzro(pcols,pver)   !fraction of rain that freezes
@@ -1807,6 +1807,36 @@ end subroutine wtrc_register
       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, top_lev_c
       type(c_ptr), value :: qloc_p, qloc0_p
     end subroutine wtrc_apply_rates_copy_qloc0_codon
+    subroutine wtrc_apply_rates_pre_temperature_begin_codon(ncol_c, pcols_c, pver_c, top_lev_c, &
+         dtime_c, cpair_c, prelat_p, tloc_p) bind(c, name="wtrc_apply_rates_pre_temperature_begin_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+      real(c_double), value :: dtime_c, cpair_c
+      type(c_ptr), value :: prelat_p, tloc_p
+    end subroutine wtrc_apply_rates_pre_temperature_begin_codon
+    subroutine wtrc_apply_rates_pre_temperature_end_codon(ncol_c, pcols_c, pver_c, top_lev_c, &
+         dtime_c, cpair_c, niter_c, pstate_t_p, prelat_p, tloc_p) &
+         bind(c, name="wtrc_apply_rates_pre_temperature_end_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+      real(c_double), value :: dtime_c, cpair_c, niter_c
+      type(c_ptr), value :: pstate_t_p, prelat_p, tloc_p
+    end subroutine wtrc_apply_rates_pre_temperature_end_codon
+    subroutine wtrc_apply_rates_post_temperature_begin_codon(ncol_c, pcols_c, pver_c, top_lev_c, &
+         dtime_c, cpair_c, postlat_p, tloc_p) bind(c, name="wtrc_apply_rates_post_temperature_begin_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+      real(c_double), value :: dtime_c, cpair_c
+      type(c_ptr), value :: postlat_p, tloc_p
+    end subroutine wtrc_apply_rates_post_temperature_begin_codon
+    subroutine wtrc_apply_rates_post_temperature_end_codon(ncol_c, pcols_c, pver_c, top_lev_c, &
+         dtime_c, cpair_c, niter_c, pstate_t_p, prelat_p, postlat_p, tloc_p) &
+         bind(c, name="wtrc_apply_rates_post_temperature_end_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+      real(c_double), value :: dtime_c, cpair_c, niter_c
+      type(c_ptr), value :: pstate_t_p, prelat_p, postlat_p, tloc_p
+    end subroutine wtrc_apply_rates_post_temperature_end_codon
     subroutine wtrc_apply_rates_bulk_update_codon(ncol_c, pcols_c, pver_c, pwtype_c, top_lev_c, dtime_c, &
          bulk_indices_p, ptend_q_p, qloc_p) bind(c, name="wtrc_apply_rates_bulk_update_codon")
       use iso_c_binding, only: c_double, c_int64_t, c_ptr
@@ -1899,12 +1929,20 @@ end subroutine wtrc_register
       if(present(pre_rates)) then
         !Do this top down, like is done in MG microphysics.
         do iter=1, wtrc_niter
+          if (.not. use_native_wtrc_apply_rates_helpers_impl) then
+            call wtrc_apply_rates_helpers_log_entered()
+            call wtrc_apply_rates_pre_temperature_begin_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+                 int(pver, c_int64_t), int(top_lev, c_int64_t), real(dtime, c_double), real(cpair, c_double), &
+                 c_loc(prelat), c_loc(tloc))
+          end if
           do k = top_lev, pver
             do i = 1, ncol
               !----------------------------------------------------
               !calculate average temperature during cloud processes
               !----------------------------------------------------
-              tloc(i,k) = (tloc(i,k) + (tloc(i,k)+prelat(i,k)/cpair*dtime))/2._r8
+              if (use_native_wtrc_apply_rates_helpers_impl) then
+                tloc(i,k) = (tloc(i,k) + (tloc(i,k)+prelat(i,k)/cpair*dtime))/2._r8
+              end if
               !-----------------------------
               do isrctype=1,pwtype !loop through moisture sources
                 do idsttype=1,pwtype !loop through water types that are modified
@@ -2205,10 +2243,18 @@ end subroutine wtrc_register
               !NOTE: Temperature currently calculated as an average value over the entire parameterization time period. - JN
 !              tloc(i,k) = tloc(i,k) + prelat(i,k)/cpair*dtime/wtrc_niter
               !NOTE: This temperature call simply updates the temperature to its value after pre-rate effects.
-               tloc(i,k) = pstate%t(i,k) + prelat(i,k)/cpair*dtime/wtrc_niter        
+              if (use_native_wtrc_apply_rates_helpers_impl) then
+                tloc(i,k) = pstate%t(i,k) + prelat(i,k)/cpair*dtime/wtrc_niter
+              end if
               !------------------  
             end do!atmospheric columns (i)
           end do   !atmospheric levels (k)
+          if (.not. use_native_wtrc_apply_rates_helpers_impl) then
+            call wtrc_apply_rates_helpers_log_entered()
+            call wtrc_apply_rates_pre_temperature_end_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+                 int(pver, c_int64_t), int(top_lev, c_int64_t), real(dtime, c_double), real(cpair, c_double), &
+                 real(wtrc_niter, c_double), c_loc(pstate%t), c_loc(prelat), c_loc(tloc))
+          end if
         end do !iter
       end if !pre-rates
 
@@ -2233,12 +2279,20 @@ end subroutine wtrc_register
       if (present(post_rates)) then
         !Do this top down, like is done in MG microphysics.
         do iter=1,wtrc_niter !temperature iterator
+          if (.not. use_native_wtrc_apply_rates_helpers_impl) then
+            call wtrc_apply_rates_helpers_log_entered()
+            call wtrc_apply_rates_post_temperature_begin_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+                 int(pver, c_int64_t), int(top_lev, c_int64_t), real(dtime, c_double), real(cpair, c_double), &
+                 c_loc(postlat), c_loc(tloc))
+          end if
           do k = top_lev, pver
             do i = 1, ncol
               !----------------------------------------------------
               !calculate average temperature during cloud processes
               !----------------------------------------------------
-              tloc(i,k) = (tloc(i,k) + (tloc(i,k)+postlat(i,k)/cpair*dtime))/2._r8
+              if (use_native_wtrc_apply_rates_helpers_impl) then
+                tloc(i,k) = (tloc(i,k) + (tloc(i,k)+postlat(i,k)/cpair*dtime))/2._r8
+              end if
               !----------------------------------------------------
               do isrctype=1,pwtype !loop through moisture sources
                 do idsttype=1,pwtype !loop through water types that are modified
@@ -2329,7 +2383,9 @@ end subroutine wtrc_register
               !NOTE: Temperature currently calculated as an average value over the entire parameterization time period. - JN
               !tloc(i,k) = tloc(i,k) + postlat(i,k)/cpair*dtime/wtrc_niter 
               !NOTE: This temperature call simply updates the temperature to its value after pre-rate effects.
-              tloc(i,k) = pstate%t(i,k) + (prelat(i,k)+postlat(i,k))/cpair*dtime/wtrc_niter
+              if (use_native_wtrc_apply_rates_helpers_impl) then
+                tloc(i,k) = pstate%t(i,k) + (prelat(i,k)+postlat(i,k))/cpair*dtime/wtrc_niter
+              end if
               !------------------
               !-----------------------------------------
               !partially equilibrate vapor and cloud ice (to represent slow equilibration of ice crystals in atmosphere)
@@ -2351,6 +2407,12 @@ end subroutine wtrc_register
               !--------------------------------
             end do!atmospheric columns (i)
           end do   !atmospheric levels (k)
+          if (.not. use_native_wtrc_apply_rates_helpers_impl) then
+            call wtrc_apply_rates_helpers_log_entered()
+            call wtrc_apply_rates_post_temperature_end_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+                 int(pver, c_int64_t), int(top_lev, c_int64_t), real(dtime, c_double), real(cpair, c_double), &
+                 real(wtrc_niter, c_double), c_loc(pstate%t), c_loc(prelat), c_loc(postlat), c_loc(tloc))
+          end if
         end do !iter loop
       end if !post-rates
 
