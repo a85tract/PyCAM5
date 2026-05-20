@@ -430,6 +430,60 @@ def ndrop_dropmixnuc_shrink_cloud_codon(
             raercol[col_idx] = raercol[col_idx] - dact
 
 
+def ndrop_dropmixnuc_grow_cloud_number_update_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    ncnst_tot: int,
+    nsav: int,
+    mm: int,
+    dtinv: float,
+    dumc: float,
+    fn_m: float,
+    raer_fld_p: cobj,
+    qcld_p: cobj,
+    nsource_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+):
+    raer_fld = Ptr[float](raer_fld_p)
+    qcld = Ptr[float](qcld_p)
+    nsource = Ptr[float](nsource_p)
+    raercol = Ptr[float](raercol_p)
+    raercol_cw = Ptr[float](raercol_cw_p)
+
+    dact = dumc * fn_m * raer_fld[_idx2(i, k, pcols)]
+    qcld[k - 1] = qcld[k - 1] + dact
+    nsource[_idx2(i, k, pcols)] = nsource[_idx2(i, k, pcols)] + dact * dtinv
+    col_idx = _aero_col_idx(k, mm, nsav, pver, ncnst_tot)
+    raercol_cw[col_idx] = raercol_cw[col_idx] + dact
+    raercol[col_idx] = raercol[col_idx] - dact
+
+
+def ndrop_dropmixnuc_grow_cloud_species_update_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    ncnst_tot: int,
+    nsav: int,
+    mm: int,
+    dum: float,
+    raer_fld_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+):
+    raer_fld = Ptr[float](raer_fld_p)
+    raercol = Ptr[float](raercol_p)
+    raercol_cw = Ptr[float](raercol_cw_p)
+
+    dact = dum * raer_fld[_idx2(i, k, pcols)]
+    col_idx = _aero_col_idx(k, mm, nsav, pver, ncnst_tot)
+    raercol_cw[col_idx] = raercol_cw[col_idx] + dact
+    raercol[col_idx] = raercol[col_idx] - dact
+
+
 def ndrop_dropmixnuc_old_cloud_activate_update_codon(
     i: int,
     k: int,

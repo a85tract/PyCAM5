@@ -193,6 +193,25 @@ interface
       type(c_ptr), value :: qcld_p, nsource_p, nspec_amode_p, mam_idx_p, raercol_p, raercol_cw_p
    end subroutine ndrop_dropmixnuc_shrink_cloud_codon
 
+   subroutine ndrop_dropmixnuc_grow_cloud_number_update_codon(i_c, k_c, pcols_c, pver_c, &
+        ncnst_tot_c, nsav_c, mm_c, dtinv_c, dumc_c, fn_m_c, raer_fld_p, qcld_p, &
+        nsource_p, raercol_p, raercol_cw_p) &
+        bind(c, name="ndrop_dropmixnuc_grow_cloud_number_update_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c, ncnst_tot_c, nsav_c, mm_c
+      real(c_double), value :: dtinv_c, dumc_c, fn_m_c
+      type(c_ptr), value :: raer_fld_p, qcld_p, nsource_p, raercol_p, raercol_cw_p
+   end subroutine ndrop_dropmixnuc_grow_cloud_number_update_codon
+
+   subroutine ndrop_dropmixnuc_grow_cloud_species_update_codon(i_c, k_c, pcols_c, pver_c, &
+        ncnst_tot_c, nsav_c, mm_c, dum_c, raer_fld_p, raercol_p, raercol_cw_p) &
+        bind(c, name="ndrop_dropmixnuc_grow_cloud_species_update_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c, ncnst_tot_c, nsav_c, mm_c
+      real(c_double), value :: dum_c
+      type(c_ptr), value :: raer_fld_p, raercol_p, raercol_cw_p
+   end subroutine ndrop_dropmixnuc_grow_cloud_species_update_codon
+
    subroutine ndrop_dropmixnuc_old_cloud_activate_update_codon(i_c, k_c, kp1_c, pcols_c, &
         pver_c, ntot_amode_c, ncnst_tot_c, nsav_c, dumc_c, dum_c, cs_ik_c, dz_ik_c, &
         taumix_internal_pver_inv_c, fluxn_p, fluxm_p, nact_p, mact_p, mam_idx_p, &
@@ -1049,17 +1068,35 @@ subroutine dropmixnuc( &
             dumc = (cldn_tmp - cldo_tmp)
             do m = 1, ntot_amode
                mm = mam_idx(m,0)
-               dact   = dumc*fn(m)*raer(mm)%fld(i,k) ! interstitial only
-               qcld(k) = qcld(k) + dact
-               nsource(i,k) = nsource(i,k) + dact*dtinv
-               raercol_cw(k,mm,nsav) = raercol_cw(k,mm,nsav) + dact  ! cloud-borne aerosol
-               raercol(k,mm,nsav)    = raercol(k,mm,nsav) - dact
+               if (use_native_ndrop_dropmixnuc_helpers_impl) then
+                  dact   = dumc*fn(m)*raer(mm)%fld(i,k) ! interstitial only
+                  qcld(k) = qcld(k) + dact
+                  nsource(i,k) = nsource(i,k) + dact*dtinv
+                  raercol_cw(k,mm,nsav) = raercol_cw(k,mm,nsav) + dact  ! cloud-borne aerosol
+                  raercol(k,mm,nsav)    = raercol(k,mm,nsav) - dact
+               else
+                  call ndrop_dropmixnuc_helpers_proof_once()
+                  call ndrop_dropmixnuc_grow_cloud_number_update_codon(int(i, c_int64_t), &
+                       int(k, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+                       int(ncnst_tot, c_int64_t), int(nsav, c_int64_t), int(mm, c_int64_t), &
+                       dtinv, dumc, fn(m), c_loc(raer(mm)%fld(1,1)), c_loc(qcld(1)), &
+                       c_loc(nsource(1,1)), c_loc(raercol(1,1,1)), c_loc(raercol_cw(1,1,1)))
+               end if
                dum = dumc*fm(m)
                do l = 1, nspec_amode(m)
                   mm = mam_idx(m,l)
-                  dact    = dum*raer(mm)%fld(i,k) ! interstitial only
-                  raercol_cw(k,mm,nsav) = raercol_cw(k,mm,nsav) + dact  ! cloud-borne aerosol
-                  raercol(k,mm,nsav)    = raercol(k,mm,nsav) - dact
+                  if (use_native_ndrop_dropmixnuc_helpers_impl) then
+                     dact    = dum*raer(mm)%fld(i,k) ! interstitial only
+                     raercol_cw(k,mm,nsav) = raercol_cw(k,mm,nsav) + dact  ! cloud-borne aerosol
+                     raercol(k,mm,nsav)    = raercol(k,mm,nsav) - dact
+                  else
+                     call ndrop_dropmixnuc_helpers_proof_once()
+                     call ndrop_dropmixnuc_grow_cloud_species_update_codon(int(i, c_int64_t), &
+                          int(k, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+                          int(ncnst_tot, c_int64_t), int(nsav, c_int64_t), int(mm, c_int64_t), &
+                          dum, c_loc(raer(mm)%fld(1,1)), c_loc(raercol(1,1,1)), &
+                          c_loc(raercol_cw(1,1,1)))
+                  end if
                enddo
             enddo
          endif

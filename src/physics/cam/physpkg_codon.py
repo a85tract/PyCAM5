@@ -3917,6 +3917,72 @@ def ndrop_dropmixnuc_shrink_cloud_codon(
 
 
 @export
+def ndrop_dropmixnuc_grow_cloud_number_update_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    ncnst_tot: int,
+    nsav: int,
+    mm: int,
+    dtinv: float,
+    dumc: float,
+    fn_m: float,
+    raer_fld_p: cobj,
+    qcld_p: cobj,
+    nsource_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+):
+    _ndrop.ndrop_dropmixnuc_grow_cloud_number_update_codon(
+        i,
+        k,
+        pcols,
+        pver,
+        ncnst_tot,
+        nsav,
+        mm,
+        dtinv,
+        dumc,
+        fn_m,
+        raer_fld_p,
+        qcld_p,
+        nsource_p,
+        raercol_p,
+        raercol_cw_p,
+    )
+
+
+@export
+def ndrop_dropmixnuc_grow_cloud_species_update_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    ncnst_tot: int,
+    nsav: int,
+    mm: int,
+    dum: float,
+    raer_fld_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+):
+    _ndrop.ndrop_dropmixnuc_grow_cloud_species_update_codon(
+        i,
+        k,
+        pcols,
+        pver,
+        ncnst_tot,
+        nsav,
+        mm,
+        dum,
+        raer_fld_p,
+        raercol_p,
+        raercol_cw_p,
+    )
+
+
+@export
 def ndrop_dropmixnuc_old_cloud_activate_update_codon(
     i: int,
     k: int,
