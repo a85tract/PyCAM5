@@ -98,6 +98,9 @@ logical :: ndrop_dropmixnuc_helpers_proof_written = .false.
 logical :: use_native_ndrop_loadaer_helpers_impl = .false.
 logical :: ndrop_loadaer_helpers_impl_selected = .false.
 logical :: ndrop_loadaer_helpers_proof_written = .false.
+logical :: use_native_ndrop_ccncalc_helpers_impl = .false.
+logical :: ndrop_ccncalc_helpers_impl_selected = .false.
+logical :: ndrop_ccncalc_helpers_proof_written = .false.
 logical :: use_native_ndrop_explmix_impl = .false.
 logical :: ndrop_explmix_impl_selected = .false.
 logical :: ndrop_explmix_proof_written = .false.
@@ -334,6 +337,38 @@ interface
       type(c_ptr), value :: raer_p, qqcw_p, cs_p, vaerosol_p, naerosol_p
    end subroutine ndrop_loadaer_number_codon
 
+   subroutine ndrop_ccncalc_zero_codon(pcols_c, pver_c, psat_c, ccn_p) &
+        bind(c, name="ndrop_ccncalc_zero_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: pcols_c, pver_c, psat_c
+      type(c_ptr), value :: ccn_p
+   end subroutine ndrop_ccncalc_zero_codon
+
+   subroutine ndrop_ccncalc_level_coeffs_codon(ncol_c, k_c, pcols_c, surften_coef_c, &
+        smcoefcoef_c, tair_p, smcoef_p) bind(c, name="ndrop_ccncalc_level_coeffs_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: ncol_c, k_c, pcols_c
+      real(c_double), value :: surften_coef_c, smcoefcoef_c
+      type(c_ptr), value :: tair_p, smcoef_p
+   end subroutine ndrop_ccncalc_level_coeffs_codon
+
+   subroutine ndrop_ccncalc_mode_accum_codon(ncol_c, k_c, pcols_c, pver_c, psat_c, &
+        amcubecoef_m_c, argfactor_m_c, naerosol_p, vaerosol_p, hygro_p, smcoef_p, &
+        super_p, amcube_p, sm_p, arg_p, ccn_p) bind(c, name="ndrop_ccncalc_mode_accum_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: ncol_c, k_c, pcols_c, pver_c, psat_c
+      real(c_double), value :: amcubecoef_m_c, argfactor_m_c
+      type(c_ptr), value :: naerosol_p, vaerosol_p, hygro_p, smcoef_p, super_p
+      type(c_ptr), value :: amcube_p, sm_p, arg_p, ccn_p
+   end subroutine ndrop_ccncalc_mode_accum_codon
+
+   subroutine ndrop_ccncalc_scale_codon(ncol_c, pcols_c, pver_c, psat_c, ccn_p) &
+        bind(c, name="ndrop_ccncalc_scale_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, psat_c
+      type(c_ptr), value :: ccn_p
+   end subroutine ndrop_ccncalc_scale_codon
+
    function ndrop_activate_modal_core_codon(wbar_c, sigw_c, wdiab_c, wminf_c, wmaxf_c, &
         tair_c, rhoair_c, qs_c, nmode_c, rair_c, p0_c, t0_c, rhoh2o_c, latvap_c, &
         cpair_c, rh2o_c, gravit_c, pi_c, aten_c, twothird_c, sq2_c, sqpi_c, &
@@ -514,6 +549,55 @@ subroutine ndrop_loadaer_helpers_proof_once()
    end if
 
 end subroutine ndrop_loadaer_helpers_proof_once
+
+!===============================================================================
+
+subroutine ndrop_ccncalc_helpers_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (ndrop_ccncalc_helpers_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('NDROP_CCNCALC_HELPERS_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_ndrop_ccncalc_helpers_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_ndrop_ccncalc_helpers_impl = .false.
+   end if
+
+   ndrop_ccncalc_helpers_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_ndrop_ccncalc_helpers_impl) then
+         write(iulog,*) 'ndrop_ccncalc_helpers implementation = native'
+      else
+         write(iulog,*) 'ndrop_ccncalc_helpers implementation = codon'
+      end if
+   end if
+
+end subroutine ndrop_ccncalc_helpers_select_impl
+
+!===============================================================================
+
+subroutine ndrop_ccncalc_helpers_proof_once()
+
+   if (ndrop_ccncalc_helpers_proof_written) return
+   ndrop_ccncalc_helpers_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'ndrop_ccncalc_helpers entered (zero/coefficients/accumulation/scale direct = codon)'
+   end if
+
+end subroutine ndrop_ccncalc_helpers_proof_once
 
 !===============================================================================
 
@@ -2462,6 +2546,8 @@ end subroutine maxsat
 
 subroutine ccncalc(state, pbuf, cs, ccn)
 
+   use iso_c_binding, only: c_int64_t, c_loc
+
    ! calculates number concentration of aerosols activated as CCN at
    ! supersaturation supersat.
    ! assumes an internal mixture of a multiple externally-mixed aerosol modes
@@ -2476,7 +2562,7 @@ subroutine ccncalc(state, pbuf, cs, ccn)
 
 
    real(r8), intent(in)  :: cs(pcols,pver)       ! air density (kg/m3)
-   real(r8), intent(out) :: ccn(pcols,pver,psat) ! number conc of aerosols activated at supersat (#/m3)
+   real(r8), target, intent(out) :: ccn(pcols,pver,psat) ! number conc of aerosols activated at supersat (#/m3)
 
    ! local
 
@@ -2484,24 +2570,25 @@ subroutine ccncalc(state, pbuf, cs, ccn)
    integer :: ncol  ! number of columns
    real(r8), pointer :: tair(:,:)     ! air temperature (K)
 
-   real(r8) naerosol(pcols) ! interstit+activated aerosol number conc (/m3)
-   real(r8) vaerosol(pcols) ! interstit+activated aerosol volume conc (m3/m3)
+   real(r8), target :: naerosol(pcols) ! interstit+activated aerosol number conc (/m3)
+   real(r8), target :: vaerosol(pcols) ! interstit+activated aerosol volume conc (m3/m3)
 
-   real(r8) amcube(pcols)
-   real(r8) super(psat) ! supersaturation
-   real(r8), allocatable :: amcubecoef(:)
-   real(r8), allocatable :: argfactor(:)
+   real(r8), target :: amcube(pcols)
+   real(r8), target :: super(psat) ! supersaturation
+   real(r8), allocatable, target :: amcubecoef(:)
+   real(r8), allocatable, target :: argfactor(:)
    real(r8) :: surften       ! surface tension of water w/respect to air (N/m)
    real(r8) surften_coef
-   real(r8) a(pcols) ! surface tension parameter
-   real(r8) hygro(pcols)  ! aerosol hygroscopicity
-   real(r8) sm(pcols)  ! critical supersaturation at mode radius
-   real(r8) arg(pcols)
+   real(r8), target :: a(pcols) ! surface tension parameter
+   real(r8), target :: hygro(pcols)  ! aerosol hygroscopicity
+   real(r8), target :: sm(pcols)  ! critical supersaturation at mode radius
+   real(r8), target :: arg(pcols)
    !     mathematical constants
    real(r8) twothird,sq2
    integer l,m,n,i,k
    real(r8) log,cc
-   real(r8) smcoefcoef,smcoef(pcols)
+   real(r8) smcoefcoef
+   real(r8), target :: smcoef(pcols)
    integer phase ! phase of aerosol
    !-------------------------------------------------------------------------------
 
@@ -2525,13 +2612,27 @@ subroutine ccncalc(state, pbuf, cs, ccn)
       argfactor(m)=twothird/(sq2*alogsig(m))
    end do
 
-   ccn = 0._r8
+   call ndrop_ccncalc_helpers_select_impl()
+   if (use_native_ndrop_ccncalc_helpers_impl) then
+      ccn = 0._r8
+   else
+      call ndrop_ccncalc_helpers_proof_once()
+      call ndrop_ccncalc_zero_codon(int(pcols, c_int64_t), int(pver, c_int64_t), &
+           int(psat, c_int64_t), c_loc(ccn(1,1,1)))
+   end if
+
    do k=top_lev,pver
 
-      do i=1,ncol
-         a(i)=surften_coef/tair(i,k)
-         smcoef(i)=smcoefcoef*a(i)*sqrt(a(i))
-      end do
+      if (use_native_ndrop_ccncalc_helpers_impl) then
+         do i=1,ncol
+            a(i)=surften_coef/tair(i,k)
+            smcoef(i)=smcoefcoef*a(i)*sqrt(a(i))
+         end do
+      else
+         call ndrop_ccncalc_helpers_proof_once()
+         call ndrop_ccncalc_level_coeffs_codon(int(ncol, c_int64_t), int(k, c_int64_t), &
+              int(pcols, c_int64_t), surften_coef, smcoefcoef, c_loc(tair(1,1)), c_loc(smcoef(1)))
+      end if
 
       do m=1,ntot_amode
 
@@ -2542,21 +2643,37 @@ subroutine ccncalc(state, pbuf, cs, ccn)
             m, cs, phase, naerosol, vaerosol, &
             hygro)
 
-         where(naerosol(:ncol)>1.e-3_r8)
-            amcube(:ncol)=amcubecoef(m)*vaerosol(:ncol)/naerosol(:ncol)
-            sm(:ncol)=smcoef(:ncol)/sqrt(hygro(:ncol)*amcube(:ncol)) ! critical supersaturation
-         elsewhere
-            sm(:ncol)=1._r8 ! value shouldn't matter much since naerosol is small
-         endwhere
-         do l=1,psat
-            do i=1,ncol
-               arg(i)=argfactor(m)*log(sm(i)/super(l))
-               ccn(i,k,l)=ccn(i,k,l)+naerosol(i)*0.5_r8*(1._r8-erf(arg(i)))
+         if (use_native_ndrop_ccncalc_helpers_impl) then
+            where(naerosol(:ncol)>1.e-3_r8)
+               amcube(:ncol)=amcubecoef(m)*vaerosol(:ncol)/naerosol(:ncol)
+               sm(:ncol)=smcoef(:ncol)/sqrt(hygro(:ncol)*amcube(:ncol)) ! critical supersaturation
+            elsewhere
+               sm(:ncol)=1._r8 ! value shouldn't matter much since naerosol is small
+            endwhere
+            do l=1,psat
+               do i=1,ncol
+                  arg(i)=argfactor(m)*log(sm(i)/super(l))
+                  ccn(i,k,l)=ccn(i,k,l)+naerosol(i)*0.5_r8*(1._r8-erf(arg(i)))
+               enddo
             enddo
-         enddo
+         else
+            call ndrop_ccncalc_helpers_proof_once()
+            call ndrop_ccncalc_mode_accum_codon(int(ncol, c_int64_t), int(k, c_int64_t), &
+                 int(pcols, c_int64_t), int(pver, c_int64_t), int(psat, c_int64_t), &
+                 amcubecoef(m), argfactor(m), c_loc(naerosol(1)), c_loc(vaerosol(1)), &
+                 c_loc(hygro(1)), c_loc(smcoef(1)), c_loc(super(1)), c_loc(amcube(1)), &
+                 c_loc(sm(1)), c_loc(arg(1)), c_loc(ccn(1,1,1)))
+         end if
       enddo
    enddo
-   ccn(:ncol,:,:)=ccn(:ncol,:,:)*1.e-6_r8 ! convert from #/m3 to #/cm3
+
+   if (use_native_ndrop_ccncalc_helpers_impl) then
+      ccn(:ncol,:,:)=ccn(:ncol,:,:)*1.e-6_r8 ! convert from #/m3 to #/cm3
+   else
+      call ndrop_ccncalc_helpers_proof_once()
+      call ndrop_ccncalc_scale_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(psat, c_int64_t), c_loc(ccn(1,1,1)))
+   end if
 
    deallocate( &
       amcubecoef, &

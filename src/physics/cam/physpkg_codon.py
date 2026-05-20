@@ -4874,6 +4874,79 @@ def ndrop_loadaer_number_codon(
 
 
 @export
+def ndrop_ccncalc_zero_codon(
+    pcols: int,
+    pver: int,
+    psat: int,
+    ccn_p: cobj,
+):
+    _ndrop.ndrop_ccncalc_zero_codon(pcols, pver, psat, ccn_p)
+
+
+@export
+def ndrop_ccncalc_level_coeffs_codon(
+    ncol: int,
+    k: int,
+    pcols: int,
+    surften_coef: float,
+    smcoefcoef: float,
+    tair_p: cobj,
+    smcoef_p: cobj,
+):
+    _ndrop.ndrop_ccncalc_level_coeffs_codon(ncol, k, pcols, surften_coef, smcoefcoef, tair_p, smcoef_p)
+
+
+@export
+def ndrop_ccncalc_mode_accum_codon(
+    ncol: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    psat: int,
+    amcubecoef_m: float,
+    argfactor_m: float,
+    naerosol_p: cobj,
+    vaerosol_p: cobj,
+    hygro_p: cobj,
+    smcoef_p: cobj,
+    super_p: cobj,
+    amcube_p: cobj,
+    sm_p: cobj,
+    arg_p: cobj,
+    ccn_p: cobj,
+):
+    _ndrop.ndrop_ccncalc_mode_accum_codon(
+        ncol,
+        k,
+        pcols,
+        pver,
+        psat,
+        amcubecoef_m,
+        argfactor_m,
+        naerosol_p,
+        vaerosol_p,
+        hygro_p,
+        smcoef_p,
+        super_p,
+        amcube_p,
+        sm_p,
+        arg_p,
+        ccn_p,
+    )
+
+
+@export
+def ndrop_ccncalc_scale_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    psat: int,
+    ccn_p: cobj,
+):
+    _ndrop.ndrop_ccncalc_scale_codon(ncol, pcols, pver, psat, ccn_p)
+
+
+@export
 def ndrop_activate_modal_core_codon(
     wbar: float,
     sigw: float,

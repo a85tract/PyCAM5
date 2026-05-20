@@ -864,6 +864,98 @@ def ndrop_loadaer_number_codon(
         naerosol[idx1] = min(naerosol[idx1], vaerosol[idx1] * voltonumblo)
 
 
+def ndrop_ccncalc_zero_codon(
+    pcols: int,
+    pver: int,
+    psat: int,
+    ccn_p: cobj,
+):
+    ccn = Ptr[float](ccn_p)
+
+    for l in range(1, psat + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, pcols + 1):
+                ccn[_idx3(i, k, l, pcols, pver)] = 0.0
+
+
+def ndrop_ccncalc_level_coeffs_codon(
+    ncol: int,
+    k: int,
+    pcols: int,
+    surften_coef: float,
+    smcoefcoef: float,
+    tair_p: cobj,
+    smcoef_p: cobj,
+):
+    tair = Ptr[float](tair_p)
+    smcoef = Ptr[float](smcoef_p)
+
+    for i in range(1, ncol + 1):
+        a = surften_coef / tair[_idx2(i, k, pcols)]
+        smcoef[i - 1] = smcoefcoef * a * sqrt(a)
+
+
+def ndrop_ccncalc_mode_accum_codon(
+    ncol: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    psat: int,
+    amcubecoef_m: float,
+    argfactor_m: float,
+    naerosol_p: cobj,
+    vaerosol_p: cobj,
+    hygro_p: cobj,
+    smcoef_p: cobj,
+    super_p: cobj,
+    amcube_p: cobj,
+    sm_p: cobj,
+    arg_p: cobj,
+    ccn_p: cobj,
+):
+    naerosol = Ptr[float](naerosol_p)
+    vaerosol = Ptr[float](vaerosol_p)
+    hygro = Ptr[float](hygro_p)
+    smcoef = Ptr[float](smcoef_p)
+    super_sat = Ptr[float](super_p)
+    amcube = Ptr[float](amcube_p)
+    sm = Ptr[float](sm_p)
+    arg = Ptr[float](arg_p)
+    ccn = Ptr[float](ccn_p)
+
+    for i in range(1, ncol + 1):
+        idx1 = i - 1
+        if naerosol[idx1] > 1.0e-3:
+            amcube[idx1] = amcubecoef_m * vaerosol[idx1] / naerosol[idx1]
+            sm[idx1] = smcoef[idx1] / sqrt(hygro[idx1] * amcube[idx1])
+        else:
+            sm[idx1] = 1.0
+
+    for l in range(1, psat + 1):
+        for i in range(1, ncol + 1):
+            idx1 = i - 1
+            arg[idx1] = argfactor_m * log(sm[idx1] / super_sat[l - 1])
+            ccn[_idx3(i, k, l, pcols, pver)] = ccn[_idx3(i, k, l, pcols, pver)] + (
+                naerosol[idx1] * 0.5 * (1.0 - erf(arg[idx1]))
+            )
+
+
+def ndrop_ccncalc_scale_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    psat: int,
+    ccn_p: cobj,
+):
+    ccn = Ptr[float](ccn_p)
+
+    for l in range(1, psat + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx = _idx3(i, k, l, pcols, pver)
+                ccn[idx] = ccn[idx] * 1.0e-6
+
+
 @inline
 def _ndrop_maxsat_codon(
     nmode: int,
