@@ -874,6 +874,36 @@ def zm_cldprp_qds_codon(
                 qds[idx] = qsthat[idx] + gamhat[idx] * (hd[idx] - hsthat[idx]) / (rl * (1.0 + gamhat[idx]))
 
 
+def zm_cldprp_updraft_seed_codon(
+    il2g: int,
+    pcols: int,
+    rl: float,
+    cp: float,
+    jb_p: cobj,
+    mx_p: cobj,
+    eps0_p: cobj,
+    q_p: cobj,
+    hu_p: cobj,
+    qu_p: cobj,
+    su_p: cobj,
+):
+    jb = Ptr[i32](jb_p)
+    mx = Ptr[i32](mx_p)
+    eps0 = Ptr[float](eps0_p)
+    q = Ptr[float](q_p)
+    hu = Ptr[float](hu_p)
+    qu = Ptr[float](qu_p)
+    su = Ptr[float](su_p)
+
+    for i in range(1, il2g + 1):
+        i0 = _idx1(i)
+        if eps0[i0] > 0.0:
+            k = int(jb[i0])
+            idx = _idx2(i, k, pcols)
+            qu[idx] = q[_idx2(i, int(mx[i0]), pcols)]
+            su[idx] = (hu[idx] - rl * qu[idx]) / cp
+
+
 def zm_cldprp_updraft_saturation_adjust_codon(
     il2g: int,
     pcols: int,

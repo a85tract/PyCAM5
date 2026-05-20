@@ -3140,6 +3140,14 @@ subroutine cldprp(lchnk   , &
          type(c_ptr), value :: jd_p, jb_p, eps0_p, qds_p, qsthat_p, gamhat_p, hd_p, hsthat_p
       end subroutine zm_cldprp_qds_codon
 
+      subroutine zm_cldprp_updraft_seed_codon(il2g_c, pcols_c, rl_c, cp_c, jb_p, mx_p, &
+           eps0_p, q_p, hu_p, qu_p, su_p) bind(c, name="zm_cldprp_updraft_seed_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c
+         real(c_double), value :: rl_c, cp_c
+         type(c_ptr), value :: jb_p, mx_p, eps0_p, q_p, hu_p, qu_p, su_p
+      end subroutine zm_cldprp_updraft_seed_codon
+
       subroutine zm_cldprp_updraft_saturation_adjust_codon(il2g_c, pcols_c, pver_c, msg_c, &
            cp_c, grav_c, rl_c, jt_p, jlcl_p, eps0_p, shat_p, hu_p, hsthat_p, gamhat_p, zf_p, &
            qsthat_p, su_p, tut_p, qu_p) bind(c, name="zm_cldprp_updraft_saturation_adjust_codon")
@@ -3203,11 +3211,11 @@ subroutine cldprp(lchnk   , &
    if (.not. use_native_zm_cldprp_helpers) then
       if (masterproc .and. .not. zm_cldprp_helpers_logged) then
          write(iulog,*) 'zm_cldprp_helpers entered (init/thermo/iface/index/taylor/fpoly/eps/upmass/' // &
-              'cloudtop/ddprof/ddmass/' // &
+              'cloudtop/ddprof/ddmass/qds/upseed/' // &
               'downdraft/cond/rain/evap direct = codon)'
          call zm_conv_evap_append_impl_proof( &
               'zm_cldprp_helpers entered (init/thermo/iface/index/taylor/fpoly/eps/upmass/' // &
-              'cloudtop/ddprof/ddmass/' // &
+              'cloudtop/ddprof/ddmass/qds/upseed/' // &
               'downdraft/cond/rain/evap direct = codon)')
          call flush(iulog)
          zm_cldprp_helpers_logged = .true.
@@ -3708,10 +3716,14 @@ subroutine cldprp(lchnk   , &
       !Water tracers:  (Probably not needed)
       wtdn(i,:) = .false.
    end do
+   if (.not. use_native_zm_cldprp_helpers) then
+      call zm_cldprp_updraft_seed_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), rl, cp, &
+           c_loc(jb), c_loc(mx), c_loc(eps0), c_loc(q), c_loc(hu), c_loc(qu), c_loc(su))
+   end if
    kount = 0
    do k = pver,msg + 2,-1
       do i = 1,il2g
-         if (k == jb(i) .and. eps0(i) > 0._r8) then
+         if (use_native_zm_cldprp_helpers .and. k == jb(i) .and. eps0(i) > 0._r8) then
             qu(i,k) = q(i,mx(i))
             su(i,k) = (hu(i,k)-rl*qu(i,k))/cp
          end if

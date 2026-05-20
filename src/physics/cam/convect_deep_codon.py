@@ -522,6 +522,25 @@ def zm_cldprp_qds_codon(
 
 
 @export
+def zm_cldprp_updraft_seed_codon(
+    il2g: int,
+    pcols: int,
+    rl: float,
+    cp: float,
+    jb_p: cobj,
+    mx_p: cobj,
+    eps0_p: cobj,
+    q_p: cobj,
+    hu_p: cobj,
+    qu_p: cobj,
+    su_p: cobj,
+):
+    _zm_cldprp.zm_cldprp_updraft_seed_codon(
+        il2g, pcols, rl, cp, jb_p, mx_p, eps0_p, q_p, hu_p, qu_p, su_p,
+    )
+
+
+@export
 def zm_cldprp_updraft_saturation_adjust_codon(
     il2g: int,
     pcols: int,
