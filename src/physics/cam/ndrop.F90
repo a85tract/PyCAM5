@@ -107,6 +107,9 @@ logical :: ndrop_explmix_proof_written = .false.
 logical :: use_native_ndrop_activate_modal_impl = .false.
 logical :: ndrop_activate_modal_impl_selected = .false.
 logical :: ndrop_activate_modal_proof_written = .false.
+logical :: use_native_ndrop_maxsat_impl = .false.
+logical :: ndrop_maxsat_impl_selected = .false.
+logical :: ndrop_maxsat_proof_written = .false.
 
 interface
    subroutine ndrop_mode_props_finalize_codon(nmode_c, pi_c, sigmag_p, dgnumlo_p, dgnumhi_p, &
@@ -389,6 +392,14 @@ interface
       type(c_ptr), value :: sumflxn_p, sumflxm_p, sumfn_p, sumfm_p, fnold_p, fmold_p
       integer(c_int64_t) :: status_c
    end function ndrop_activate_modal_core_codon
+
+   function ndrop_maxsat_codon(nmode_c, zeta_p, eta_p, smc_p, f1_p, f2_p) result(smax_c) &
+        bind(c, name="ndrop_maxsat_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: nmode_c
+      type(c_ptr), value :: zeta_p, eta_p, smc_p, f1_p, f2_p
+      real(c_double) :: smax_c
+   end function ndrop_maxsat_codon
 
    subroutine ndrop_explmix_codon(pver_c, top_lev_c, surfrate_c, flxconv_c, dt_c, is_unact_c, &
         q_p, src_p, ekkp_p, ekkm_p, overlapp_p, overlapm_p, qold_p, qactold_p) &
@@ -696,6 +707,55 @@ subroutine ndrop_activate_modal_proof_once()
    end if
 
 end subroutine ndrop_activate_modal_proof_once
+
+!===============================================================================
+
+subroutine ndrop_maxsat_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (ndrop_maxsat_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('NDROP_MAXSAT_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_ndrop_maxsat_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_ndrop_maxsat_impl = .false.
+   end if
+
+   ndrop_maxsat_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_ndrop_maxsat_impl) then
+         write(iulog,*) 'ndrop_maxsat implementation = native'
+      else
+         write(iulog,*) 'ndrop_maxsat implementation = codon'
+      end if
+   end if
+
+end subroutine ndrop_maxsat_select_impl
+
+!===============================================================================
+
+subroutine ndrop_maxsat_proof_once()
+
+   if (ndrop_maxsat_proof_written) return
+   ndrop_maxsat_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'ndrop_maxsat entered (activation supersaturation solve = codon)'
+   end if
+
+end subroutine ndrop_maxsat_proof_once
 
 !===============================================================================
 
@@ -2226,11 +2286,13 @@ subroutine activate_modal(wbar, sigw, wdiab, wminf, wmaxf, tair, rhoair,  &
            c_loc(sumflxm(1)), c_loc(sumfn(1)), c_loc(sumfm(1)), c_loc(fnold(1)), &
            c_loc(fmold(1)))
       if (codon_status == 0_c_int64_t) return
-      fn(:)=0._r8
-      fm(:)=0._r8
-      fluxn(:)=0._r8
-      fluxm(:)=0._r8
-      flux_fullact=0._r8
+      if (codon_status == 1_c_int64_t) then
+         call endrun('activate: Codon activation integration loop did not converge')
+      else if (codon_status == 2_c_int64_t) then
+         call endrun('activate: Codon activation fraction exceeded one')
+      else
+         call endrun('activate: Codon activation returned unknown status')
+      end if
    end if
 
    do m=1,nmode
@@ -2495,6 +2557,29 @@ end subroutine activate_modal
 
 subroutine maxsat(zeta,eta,nmode,smc,smax)
 
+   use iso_c_binding, only: c_int64_t, c_loc
+
+   integer  :: nmode
+   real(r8), target :: smc(nmode)
+   real(r8), target :: zeta(nmode)
+   real(r8), target :: eta(nmode)
+   real(r8) :: smax
+
+   call ndrop_maxsat_select_impl()
+   if (use_native_ndrop_maxsat_impl) then
+      call maxsat_native(zeta, eta, nmode, smc, smax)
+   else
+      call ndrop_maxsat_proof_once()
+      smax = ndrop_maxsat_codon(int(nmode, c_int64_t), c_loc(zeta(1)), c_loc(eta(1)), &
+           c_loc(smc(1)), c_loc(f1(1)), c_loc(f2(1)))
+   end if
+
+end subroutine maxsat
+
+!===============================================================================
+
+subroutine maxsat_native(zeta,eta,nmode,smc,smax)
+
    !      calculates maximum supersaturation for multiple
    !      competing aerosol modes.
 
@@ -2540,7 +2625,7 @@ subroutine maxsat(zeta,eta,nmode,smc,smax)
 
    smax=1._r8/sqrt(sum)
 
-end subroutine maxsat
+end subroutine maxsat_native
 
 !===============================================================================
 

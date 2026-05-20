@@ -995,6 +995,22 @@ def _ndrop_maxsat_codon(
     return 1.0 / sqrt(total)
 
 
+def ndrop_maxsat_codon(
+    nmode: int,
+    zeta_p: cobj,
+    eta_p: cobj,
+    smc_p: cobj,
+    f1_p: cobj,
+    f2_p: cobj,
+) -> float:
+    zeta = Ptr[float](zeta_p)
+    eta = Ptr[float](eta_p)
+    smc = Ptr[float](smc_p)
+    f1 = Ptr[float](f1_p)
+    f2 = Ptr[float](f2_p)
+    return _ndrop_maxsat_codon(nmode, zeta, eta, smc, f1, f2)
+
+
 def ndrop_activate_modal_core_codon(
     wbar: float,
     sigw: float,

@@ -5117,6 +5117,18 @@ def ndrop_activate_modal_core_codon(
 
 
 @export
+def ndrop_maxsat_codon(
+    nmode: int,
+    zeta_p: cobj,
+    eta_p: cobj,
+    smc_p: cobj,
+    f1_p: cobj,
+    f2_p: cobj,
+) -> float:
+    return _ndrop.ndrop_maxsat_codon(nmode, zeta_p, eta_p, smc_p, f1_p, f2_p)
+
+
+@export
 def ndrop_explmix_codon(
     pver: int,
     top_lev: int,
