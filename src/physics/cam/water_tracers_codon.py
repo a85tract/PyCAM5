@@ -270,6 +270,94 @@ def wtrc_apply_rates_post_temperature_end_codon(
 
 
 @export
+def wtrc_apply_rates_precip_phase_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pwtype: int,
+    wtrc_nwset: int,
+    iwtstrain: int,
+    dtime: float,
+    qmin: float,
+    meltso_ik: float,
+    frzro_ik: float,
+    wtrc_iawset_p: cobj,
+    iwspec_p: cobj,
+    rstd_p: cobj,
+    rmass_p: cobj,
+    smass_p: cobj,
+    rmass0_p: cobj,
+    smass0_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_precip_phase_codon(
+        i,
+        k,
+        pcols,
+        pwtype,
+        wtrc_nwset,
+        iwtstrain,
+        dtime,
+        qmin,
+        meltso_ik,
+        frzro_ik,
+        wtrc_iawset_p,
+        iwspec_p,
+        rstd_p,
+        rmass_p,
+        smass_p,
+        rmass0_p,
+        smass0_p,
+    )
+
+
+@export
+def wtrc_apply_rates_precip_error_correction_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    pwtype: int,
+    wtrc_nwset: int,
+    iwtstrain: int,
+    iwtvap: int,
+    qmin: float,
+    pdel_ik: float,
+    wtrc_iawset_p: cobj,
+    iwspec_p: cobj,
+    rstd_p: cobj,
+    qloc_p: cobj,
+    qloc0_p: cobj,
+    rmass_p: cobj,
+    smass_p: cobj,
+    rmass0_p: cobj,
+    smass0_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_precip_error_correction_codon(
+        i,
+        k,
+        pcols,
+        pver,
+        pcnst,
+        pwtype,
+        wtrc_nwset,
+        iwtstrain,
+        iwtvap,
+        qmin,
+        pdel_ik,
+        wtrc_iawset_p,
+        iwspec_p,
+        rstd_p,
+        qloc_p,
+        qloc0_p,
+        rmass_p,
+        smass_p,
+        rmass0_p,
+        smass0_p,
+    )
+
+
+@export
 def wtrc_apply_rates_prepare_bulk_indices_codon(
     pwtype: int,
     bulk_indices_p: cobj,

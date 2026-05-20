@@ -652,7 +652,7 @@ subroutine wtrc_apply_rates_helpers_log_entered()
   wtrc_apply_rates_helpers_entered_logged = .true.
 
   if (masterproc) then
-    write(iulog,'(A)') 'wtrc_apply_rates_helpers entered (state/temp/metadata/bulk/tendency/correction direct = codon)'
+    write(iulog,'(A)') 'wtrc_apply_rates_helpers entered (state/temp/metadata/precip phase/bulk/tendency/correction direct = codon)'
     call flush(iulog)
   end if
 
@@ -1785,6 +1785,7 @@ end subroutine wtrc_register
   integer(c_int64_t), target :: wtrc_indices64(wtrc_ncnst)
   integer(c_int64_t), target :: wtrc_bulk_indices64(pwtype)
   integer(c_int64_t), target :: wtrc_iatype64(wtrc_nwset,pwtype)
+  integer(c_int64_t), target :: wtrc_iawset64(pwtype,wtrc_nwset)
   integer(c_int64_t), target :: iwspec64(pcnst)
   real(c_double), target :: rstd(pwtspec)
 
@@ -1837,6 +1838,25 @@ end subroutine wtrc_register
       real(c_double), value :: dtime_c, cpair_c, niter_c
       type(c_ptr), value :: pstate_t_p, prelat_p, postlat_p, tloc_p
     end subroutine wtrc_apply_rates_post_temperature_end_codon
+    subroutine wtrc_apply_rates_precip_phase_codon(i_c, k_c, pcols_c, pwtype_c, wtrc_nwset_c, &
+         iwtstrain_c, dtime_c, qmin_c, meltso_ik_c, frzro_ik_c, wtrc_iawset_p, iwspec_p, rstd_p, &
+         rmass_p, smass_p, rmass0_p, smass0_p) bind(c, name="wtrc_apply_rates_precip_phase_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: i_c, k_c, pcols_c, pwtype_c, wtrc_nwset_c, iwtstrain_c
+      real(c_double), value :: dtime_c, qmin_c, meltso_ik_c, frzro_ik_c
+      type(c_ptr), value :: wtrc_iawset_p, iwspec_p, rstd_p, rmass_p, smass_p, rmass0_p, smass0_p
+    end subroutine wtrc_apply_rates_precip_phase_codon
+    subroutine wtrc_apply_rates_precip_error_correction_codon(i_c, k_c, pcols_c, pver_c, pcnst_c, &
+         pwtype_c, wtrc_nwset_c, iwtstrain_c, iwtvap_c, qmin_c, pdel_ik_c, wtrc_iawset_p, iwspec_p, &
+         rstd_p, qloc_p, qloc0_p, rmass_p, smass_p, rmass0_p, smass0_p) &
+         bind(c, name="wtrc_apply_rates_precip_error_correction_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c, pcnst_c, pwtype_c, wtrc_nwset_c
+      integer(c_int64_t), value :: iwtstrain_c, iwtvap_c
+      real(c_double), value :: qmin_c, pdel_ik_c
+      type(c_ptr), value :: wtrc_iawset_p, iwspec_p, rstd_p, qloc_p, qloc0_p
+      type(c_ptr), value :: rmass_p, smass_p, rmass0_p, smass0_p
+    end subroutine wtrc_apply_rates_precip_error_correction_codon
     subroutine wtrc_apply_rates_prepare_bulk_indices_codon(pwtype_c, bulk_indices_p, bulk_indices64_p) &
          bind(c, name="wtrc_apply_rates_prepare_bulk_indices_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
@@ -1932,6 +1952,18 @@ end subroutine wtrc_register
         rmass0(:,:) = 0._r8
         smass0(:,:) = 0._r8
       end if
+    end if
+
+    if (.not. use_native_wtrc_apply_rates_helpers_impl .and. ldo_stprecip) then
+      do iwset = 1, wtrc_nwset
+        wtrc_iawset64(:,iwset) = int(wtrc_iawset(:,iwset), c_int64_t)
+      end do
+      do ispec = 1, pcnst
+        iwspec64(ispec) = int(iwspec(ispec), c_int64_t)
+      end do
+      do ispec = 1, pwtspec
+        rstd(ispec) = real(wtrc_get_rstd(ispec), c_double)
+      end do
     end if
     
     ! Check to see if the total water mass in the bulk fields matches the
@@ -2138,19 +2170,28 @@ end subroutine wtrc_register
               !Calculate precipitation melting and freezing 
               !--------------------------------------------
               if(ldo_stprecip) then !only do in microphysics
-                do iwset = 1,wtrc_nwset
-                 !NOTE:  melting and freezing should never occur at the same time. -JN
-                 !melting:
-                  R = wtrc_ratio(iwspec(wtrc_iawset(iwtstrain,iwset)),smass0(i,iwset),smass0(i,1))
-                  rmass(i,iwset) = rmass(i,iwset) + R*meltso(i,k)*dtime
-                  smass(i,iwset) = smass(i,iwset) - R*meltso(i,k)*dtime
-                 !freezing:
-                  R = wtrc_ratio(iwspec(wtrc_iawset(iwtstrain,iwset)),rmass0(i,iwset),rmass0(i,1))
-                  smass(i,iwset) = smass(i,iwset) + R*frzro(i,k)*dtime
-                  rmass(i,iwset) = rmass(i,iwset) - R*frzro(i,k)*dtime
-                end do
-                rmass0(i,:)  = rmass(i,:)  !update precip
-                smass0(i,:)  = smass(i,:)
+                if (.not. use_native_wtrc_apply_rates_helpers_impl) then
+                  call wtrc_apply_rates_helpers_log_entered()
+                  call wtrc_apply_rates_precip_phase_codon(int(i, c_int64_t), int(k, c_int64_t), &
+                       int(pcols, c_int64_t), int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), &
+                       int(iwtstrain, c_int64_t), real(dtime, c_double), real(wtrc_qmin, c_double), &
+                       real(meltso(i,k), c_double), real(frzro(i,k), c_double), c_loc(wtrc_iawset64), &
+                       c_loc(iwspec64), c_loc(rstd), c_loc(rmass), c_loc(smass), c_loc(rmass0), c_loc(smass0))
+                else
+                  do iwset = 1,wtrc_nwset
+                   !NOTE:  melting and freezing should never occur at the same time. -JN
+                   !melting:
+                    R = wtrc_ratio(iwspec(wtrc_iawset(iwtstrain,iwset)),smass0(i,iwset),smass0(i,1))
+                    rmass(i,iwset) = rmass(i,iwset) + R*meltso(i,k)*dtime
+                    smass(i,iwset) = smass(i,iwset) - R*meltso(i,k)*dtime
+                   !freezing:
+                    R = wtrc_ratio(iwspec(wtrc_iawset(iwtstrain,iwset)),rmass0(i,iwset),rmass0(i,1))
+                    smass(i,iwset) = smass(i,iwset) + R*frzro(i,k)*dtime
+                    rmass(i,iwset) = rmass(i,iwset) - R*frzro(i,k)*dtime
+                  end do
+                  rmass0(i,:)  = rmass(i,:)  !update precip
+                  smass0(i,:)  = smass(i,:)
+                end if
               end if
               !---------------------------------
               !Equilibrate Rain below Clouds/LCL
@@ -2224,27 +2265,37 @@ end subroutine wtrc_register
               !-------------------------
               !NOTE:  May not be needed. - JN
               if(wisotope .and. ldo_stprecip) then
-               !rain:
-                pdiff = rmass(i,2)-rmass(i,1) !2=H216O,1=H2O
-                do iwset=2,wtrc_nwset         !don't loop over H2O
-                  R = wtrc_ratio(iwspec(wtrc_iawset(iwtstrain,iwset)),rmass0(i,iwset),rmass0(i,2)) !use H216O as denominator
-                  rmass(i,iwset) = rmass(i,iwset) - R*pdiff                !adjust rain mass
-                  mdst = wtrc_iawset(iwtvap,iwset)                         !assume extra mass goes to vapor 
-                                                                           !(largest atmospheric reservoir)
-                  qloc(i,k,mdst) = qloc(i,k,mdst)+R*pdiff/pstate%pdel(i,k) !add mass to vapor
-                end do
-               !snow:
-                pdiff = smass(i,2)-smass(i,1) !2=H216O,1=H2O
-                do iwset=2,wtrc_nwset         !don't loop over H2O
-                  R = wtrc_ratio(iwspec(wtrc_iawset(iwtstrain,iwset)),smass0(i,iwset),smass0(i,2)) !use H216O as denominator
-                  smass(i,iwset) = smass(i,iwset) - R*pdiff                  !adjust rain mass
-                  mdst = wtrc_iawset(iwtvap,iwset)                           !assume extra mass goes to vapor 
-                                                                             ! (largest atmospheric reservoir)
-                  qloc(i,k,mdst) = qloc(i,k,mdst)+R*pdiff/pstate%pdel(i,k)   !add mass to vapor
-                end do
-                qloc0(i,k,:) = qloc(i,k,:) !update state
-                rmass0(i,:)  = rmass(i,:)  !update precip
-                smass0(i,:)  = smass(i,:)
+                if (.not. use_native_wtrc_apply_rates_helpers_impl) then
+                  call wtrc_apply_rates_helpers_log_entered()
+                  call wtrc_apply_rates_precip_error_correction_codon(int(i, c_int64_t), int(k, c_int64_t), &
+                       int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+                       int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), int(iwtstrain, c_int64_t), &
+                       int(iwtvap, c_int64_t), real(wtrc_qmin, c_double), real(pstate%pdel(i,k), c_double), &
+                       c_loc(wtrc_iawset64), c_loc(iwspec64), c_loc(rstd), c_loc(qloc), c_loc(qloc0), &
+                       c_loc(rmass), c_loc(smass), c_loc(rmass0), c_loc(smass0))
+                else
+                 !rain:
+                  pdiff = rmass(i,2)-rmass(i,1) !2=H216O,1=H2O
+                  do iwset=2,wtrc_nwset         !don't loop over H2O
+                    R = wtrc_ratio(iwspec(wtrc_iawset(iwtstrain,iwset)),rmass0(i,iwset),rmass0(i,2)) !use H216O as denominator
+                    rmass(i,iwset) = rmass(i,iwset) - R*pdiff                !adjust rain mass
+                    mdst = wtrc_iawset(iwtvap,iwset)                         !assume extra mass goes to vapor
+                                                                             !(largest atmospheric reservoir)
+                    qloc(i,k,mdst) = qloc(i,k,mdst)+R*pdiff/pstate%pdel(i,k) !add mass to vapor
+                  end do
+                 !snow:
+                  pdiff = smass(i,2)-smass(i,1) !2=H216O,1=H2O
+                  do iwset=2,wtrc_nwset         !don't loop over H2O
+                    R = wtrc_ratio(iwspec(wtrc_iawset(iwtstrain,iwset)),smass0(i,iwset),smass0(i,2)) !use H216O as denominator
+                    smass(i,iwset) = smass(i,iwset) - R*pdiff                  !adjust rain mass
+                    mdst = wtrc_iawset(iwtvap,iwset)                           !assume extra mass goes to vapor
+                                                                               ! (largest atmospheric reservoir)
+                    qloc(i,k,mdst) = qloc(i,k,mdst)+R*pdiff/pstate%pdel(i,k)   !add mass to vapor
+                  end do
+                  qloc0(i,k,:) = qloc(i,k,:) !update state
+                  rmass0(i,:)  = rmass(i,:)  !update precip
+                  smass0(i,:)  = smass(i,:)
+                end if
               end if
               !------------------
               !update temperature

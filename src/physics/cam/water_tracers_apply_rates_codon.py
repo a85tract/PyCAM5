@@ -23,6 +23,12 @@ def _idx_iatype(m: int, icnst: int, wtrc_nwset: int) -> int:
 
 
 @inline
+def _idx_iawset(itype: int, iwset: int, pwtype: int) -> int:
+    """wtrc_iawset64 declared as (pwtype,wtrc_nwset)."""
+    return (itype - 1) + (iwset - 1) * pwtype
+
+
+@inline
 def _ratio_from_table(ispec: int, qtrc: float, qtot: float, qmin: float, rstd: Ptr[float]) -> float:
     if abs(qtot) < qmin:
         return rstd[ispec - 1]
@@ -185,6 +191,121 @@ def wtrc_apply_rates_post_temperature_end_codon(
         for i in range(1, ncol + 1):
             idx = _idx2(i, k, pcols)
             tloc[idx] = pstate_t[idx] + (prelat[idx] + postlat[idx]) / cpair * dtime / niter
+
+
+def wtrc_apply_rates_precip_phase_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pwtype: int,
+    wtrc_nwset: int,
+    iwtstrain: int,
+    dtime: float,
+    qmin: float,
+    meltso_ik: float,
+    frzro_ik: float,
+    wtrc_iawset_p: cobj,
+    iwspec_p: cobj,
+    rstd_p: cobj,
+    rmass_p: cobj,
+    smass_p: cobj,
+    rmass0_p: cobj,
+    smass0_p: cobj,
+):
+    wtrc_iawset = Ptr[int](wtrc_iawset_p)
+    iwspec = Ptr[int](iwspec_p)
+    rstd = Ptr[float](rstd_p)
+    rmass = Ptr[float](rmass_p)
+    smass = Ptr[float](smass_p)
+    rmass0 = Ptr[float](rmass0_p)
+    smass0 = Ptr[float](smass0_p)
+
+    for iwset in range(1, wtrc_nwset + 1):
+        mstrain = wtrc_iawset[_idx_iawset(iwtstrain, iwset, pwtype)]
+        ispec = iwspec[mstrain - 1]
+
+        idx = _idx_rmass(i, iwset, pcols)
+        base_idx = _idx_rmass(i, 1, pcols)
+        r_melt = _ratio_from_table(ispec, smass0[idx], smass0[base_idx], qmin, rstd)
+        melt_delta = r_melt * meltso_ik * dtime
+        rmass[idx] = rmass[idx] + melt_delta
+        smass[idx] = smass[idx] - melt_delta
+
+        r_freeze = _ratio_from_table(ispec, rmass0[idx], rmass0[base_idx], qmin, rstd)
+        freeze_delta = r_freeze * frzro_ik * dtime
+        smass[idx] = smass[idx] + freeze_delta
+        rmass[idx] = rmass[idx] - freeze_delta
+
+    for iwset in range(1, wtrc_nwset + 1):
+        idx = _idx_rmass(i, iwset, pcols)
+        rmass0[idx] = rmass[idx]
+        smass0[idx] = smass[idx]
+
+
+def wtrc_apply_rates_precip_error_correction_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    pwtype: int,
+    wtrc_nwset: int,
+    iwtstrain: int,
+    iwtvap: int,
+    qmin: float,
+    pdel_ik: float,
+    wtrc_iawset_p: cobj,
+    iwspec_p: cobj,
+    rstd_p: cobj,
+    qloc_p: cobj,
+    qloc0_p: cobj,
+    rmass_p: cobj,
+    smass_p: cobj,
+    rmass0_p: cobj,
+    smass0_p: cobj,
+):
+    wtrc_iawset = Ptr[int](wtrc_iawset_p)
+    iwspec = Ptr[int](iwspec_p)
+    rstd = Ptr[float](rstd_p)
+    qloc = Ptr[float](qloc_p)
+    qloc0 = Ptr[float](qloc0_p)
+    rmass = Ptr[float](rmass_p)
+    smass = Ptr[float](smass_p)
+    rmass0 = Ptr[float](rmass0_p)
+    smass0 = Ptr[float](smass0_p)
+
+    rain_pdiff = rmass[_idx_rmass(i, 2, pcols)] - rmass[_idx_rmass(i, 1, pcols)]
+    for iwset in range(2, wtrc_nwset + 1):
+        mstrain = wtrc_iawset[_idx_iawset(iwtstrain, iwset, pwtype)]
+        ispec = iwspec[mstrain - 1]
+        idx = _idx_rmass(i, iwset, pcols)
+        r_corr = _ratio_from_table(ispec, rmass0[idx], rmass0[_idx_rmass(i, 2, pcols)], qmin, rstd)
+        rain_delta = r_corr * rain_pdiff
+        rmass[idx] = rmass[idx] - rain_delta
+        mdst = wtrc_iawset[_idx_iawset(iwtvap, iwset, pwtype)]
+        qidx = _idx3(i, k, mdst, pcols, pver)
+        qloc[qidx] = qloc[qidx] + rain_delta / pdel_ik
+
+    snow_pdiff = smass[_idx_rmass(i, 2, pcols)] - smass[_idx_rmass(i, 1, pcols)]
+    for iwset in range(2, wtrc_nwset + 1):
+        mstrain = wtrc_iawset[_idx_iawset(iwtstrain, iwset, pwtype)]
+        ispec = iwspec[mstrain - 1]
+        idx = _idx_rmass(i, iwset, pcols)
+        r_corr = _ratio_from_table(ispec, smass0[idx], smass0[_idx_rmass(i, 2, pcols)], qmin, rstd)
+        snow_delta = r_corr * snow_pdiff
+        smass[idx] = smass[idx] - snow_delta
+        mdst = wtrc_iawset[_idx_iawset(iwtvap, iwset, pwtype)]
+        qidx = _idx3(i, k, mdst, pcols, pver)
+        qloc[qidx] = qloc[qidx] + snow_delta / pdel_ik
+
+    for m in range(1, pcnst + 1):
+        qidx = _idx3(i, k, m, pcols, pver)
+        qloc0[qidx] = qloc[qidx]
+
+    for iwset in range(1, wtrc_nwset + 1):
+        idx = _idx_rmass(i, iwset, pcols)
+        rmass0[idx] = rmass[idx]
+        smass0[idx] = smass[idx]
 
 
 def wtrc_apply_rates_prepare_bulk_indices_codon(
