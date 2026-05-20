@@ -652,7 +652,7 @@ subroutine wtrc_apply_rates_helpers_log_entered()
   wtrc_apply_rates_helpers_entered_logged = .true.
 
   if (masterproc) then
-    write(iulog,'(A)') 'wtrc_apply_rates_helpers entered (state/temp/metadata/precip phase/bulk/tendency/correction direct = codon)'
+    write(iulog,'(A)') 'wtrc_apply_rates_helpers entered (state/temp/metadata/precip phase/normal tendency/sync/bulk/tendency/correction direct = codon)'
     call flush(iulog)
   end if
 
@@ -1808,6 +1808,18 @@ end subroutine wtrc_register
       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, top_lev_c
       type(c_ptr), value :: qloc_p, qloc0_p
     end subroutine wtrc_apply_rates_copy_qloc0_codon
+    subroutine wtrc_apply_rates_sync_level_state_codon(i_c, k_c, pcols_c, pver_c, pcnst_c, qloc_p, qloc0_p) &
+         bind(c, name="wtrc_apply_rates_sync_level_state_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c, pcnst_c
+      type(c_ptr), value :: qloc_p, qloc0_p
+    end subroutine wtrc_apply_rates_sync_level_state_codon
+    subroutine wtrc_apply_rates_sync_precip_column_codon(i_c, pcols_c, wtrc_nwset_c, &
+         rmass_p, smass_p, rmass0_p, smass0_p) bind(c, name="wtrc_apply_rates_sync_precip_column_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: i_c, pcols_c, wtrc_nwset_c
+      type(c_ptr), value :: rmass_p, smass_p, rmass0_p, smass0_p
+    end subroutine wtrc_apply_rates_sync_precip_column_codon
     subroutine wtrc_apply_rates_pre_temperature_begin_codon(ncol_c, pcols_c, pver_c, top_lev_c, &
          dtime_c, cpair_c, prelat_p, tloc_p) bind(c, name="wtrc_apply_rates_pre_temperature_begin_codon")
       use iso_c_binding, only: c_double, c_int64_t, c_ptr
@@ -1846,6 +1858,25 @@ end subroutine wtrc_register
       real(c_double), value :: dtime_c, qmin_c, meltso_ik_c, frzro_ik_c
       type(c_ptr), value :: wtrc_iawset_p, iwspec_p, rstd_p, rmass_p, smass_p, rmass0_p, smass0_p
     end subroutine wtrc_apply_rates_precip_phase_codon
+    subroutine wtrc_apply_rates_pre_normal_tendency_codon(i_c, k_c, pcols_c, pver_c, &
+         isrctype_c, idsttype_c, iwset_c, iwtstrain_c, iwtstsnow_c, msrc_c, mdst_c, ratio_c, rate_c, &
+         dtime_c, niter_c, pdel_ik_c, qloc_p, rmass_p, smass_p) &
+         bind(c, name="wtrc_apply_rates_pre_normal_tendency_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c
+      integer(c_int64_t), value :: isrctype_c, idsttype_c, iwset_c, iwtstrain_c, iwtstsnow_c, msrc_c, mdst_c
+      real(c_double), value :: ratio_c, rate_c, dtime_c, niter_c, pdel_ik_c
+      type(c_ptr), value :: qloc_p, rmass_p, smass_p
+    end subroutine wtrc_apply_rates_pre_normal_tendency_codon
+    subroutine wtrc_apply_rates_post_normal_tendency_codon(i_c, k_c, pcols_c, pver_c, &
+         isrctype_c, idsttype_c, msrc_c, mdst_c, ratio_c, rate_c, dtime_c, niter_c, qloc_p) &
+         bind(c, name="wtrc_apply_rates_post_normal_tendency_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c
+      integer(c_int64_t), value :: isrctype_c, idsttype_c, msrc_c, mdst_c
+      real(c_double), value :: ratio_c, rate_c, dtime_c, niter_c
+      type(c_ptr), value :: qloc_p
+    end subroutine wtrc_apply_rates_post_normal_tendency_codon
     subroutine wtrc_apply_rates_precip_error_correction_codon(i_c, k_c, pcols_c, pver_c, pcnst_c, &
          pwtype_c, wtrc_nwset_c, iwtstrain_c, iwtvap_c, qmin_c, pdel_ik_c, wtrc_iawset_p, iwspec_p, &
          rstd_p, qloc_p, qloc0_p, rmass_p, smass_p, rmass0_p, smass0_p) &
@@ -2113,35 +2144,55 @@ end subroutine wtrc_register
                      !     rmass(i,iwset) = rmass(i,iwset)-(R*pre_rates(i,k,idsttype,isrctype,rtype)*dtime*pstate%pdel(i,k))/wtrc_niter
                      !   end if
                       else
-                        alpha = 1._r8
-                        !Add tendency to destination:
-                        if(idsttype .eq. iwtstrain) then !rain?
-                          rmass(i,iwset) = rmass(i,iwset) + (R*pre_rates(i,k,idsttype,isrctype,rtype)*dtime* &
-                                           pstate%pdel(i,k))/wtrc_niter
-                        else if(idsttype .eq. iwtstsnow) then !snow?
-                          smass(i,iwset) = smass(i,iwset) + (R*pre_rates(i,k,idsttype,isrctype,rtype)*dtime* &
-                                           pstate%pdel(i,k))/wtrc_niter
-                        else !not precip?
-                          qloc(i,k,mdst) = qloc(i,k,mdst)+alpha*R*pre_rates(i,k,idsttype,isrctype,rtype)*dtime/wtrc_niter
-                        end if 
-                        !Subtract tendency from source:
-                        if(isrctype .ne. idsttype) then
-                          if(isrctype .eq. iwtstrain) then !rain?
-                            rmass(i,iwset) = rmass(i,iwset) - (R*pre_rates(i,k,idsttype,isrctype,rtype)*dtime* &
+                        if (.not. use_native_wtrc_apply_rates_helpers_impl) then
+                          call wtrc_apply_rates_helpers_log_entered()
+                          call wtrc_apply_rates_pre_normal_tendency_codon(int(i, c_int64_t), int(k, c_int64_t), &
+                               int(pcols, c_int64_t), int(pver, c_int64_t), int(isrctype, c_int64_t), &
+                               int(idsttype, c_int64_t), int(iwset, c_int64_t), int(iwtstrain, c_int64_t), &
+                               int(iwtstsnow, c_int64_t), int(msrc, c_int64_t), int(mdst, c_int64_t), &
+                               real(R, c_double), real(pre_rates(i,k,idsttype,isrctype,rtype), c_double), &
+                               real(dtime, c_double), real(wtrc_niter, c_double), real(pstate%pdel(i,k), c_double), &
+                               c_loc(qloc), c_loc(rmass), c_loc(smass))
+                        else
+                          alpha = 1._r8
+                          !Add tendency to destination:
+                          if(idsttype .eq. iwtstrain) then !rain?
+                            rmass(i,iwset) = rmass(i,iwset) + (R*pre_rates(i,k,idsttype,isrctype,rtype)*dtime* &
                                              pstate%pdel(i,k))/wtrc_niter
-                          else if(isrctype .eq. iwtstsnow) then !snow?
-                            smass(i,iwset) = smass(i,iwset) - (R*pre_rates(i,k,idsttype,isrctype,rtype)*dtime* &
+                          else if(idsttype .eq. iwtstsnow) then !snow?
+                            smass(i,iwset) = smass(i,iwset) + (R*pre_rates(i,k,idsttype,isrctype,rtype)*dtime* &
                                              pstate%pdel(i,k))/wtrc_niter
                           else !not precip?
-                            qloc(i,k,msrc)  = qloc(i,k,msrc)-alpha*R*pre_rates(i,k,idsttype,isrctype,rtype)*dtime/wtrc_niter
+                            qloc(i,k,mdst) = qloc(i,k,mdst)+alpha*R*pre_rates(i,k,idsttype,isrctype,rtype)*dtime/wtrc_niter
                           end if
-                        end if !subtraction
+                          !Subtract tendency from source:
+                          if(isrctype .ne. idsttype) then
+                            if(isrctype .eq. iwtstrain) then !rain?
+                              rmass(i,iwset) = rmass(i,iwset) - (R*pre_rates(i,k,idsttype,isrctype,rtype)*dtime* &
+                                               pstate%pdel(i,k))/wtrc_niter
+                            else if(isrctype .eq. iwtstsnow) then !snow?
+                              smass(i,iwset) = smass(i,iwset) - (R*pre_rates(i,k,idsttype,isrctype,rtype)*dtime* &
+                                               pstate%pdel(i,k))/wtrc_niter
+                            else !not precip?
+                              qloc(i,k,msrc)  = qloc(i,k,msrc)-alpha*R*pre_rates(i,k,idsttype,isrctype,rtype)*dtime/wtrc_niter
+                            end if
+                          end if !subtraction
+                        end if
                       end if !ice/snow distillation and rain evaporation
                     end do !iwset
 !                    call wtrc_check_tracer_mass(pbuf,pstate,qloc,isrctype,idsttype,micro,iter,dtime,1e-10_r8,.false.) !check mass
-                    qloc0(i,k,:) = qloc(i,k,:) !update state
-                    rmass0(i,:)  = rmass(i,:)  !update precip
-                    smass0(i,:)  = smass(i,:)
+                    if (.not. use_native_wtrc_apply_rates_helpers_impl) then
+                      call wtrc_apply_rates_helpers_log_entered()
+                      call wtrc_apply_rates_sync_level_state_codon(int(i, c_int64_t), int(k, c_int64_t), &
+                           int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+                           c_loc(qloc), c_loc(qloc0))
+                      call wtrc_apply_rates_sync_precip_column_codon(int(i, c_int64_t), int(pcols, c_int64_t), &
+                           int(wtrc_nwset, c_int64_t), c_loc(rmass), c_loc(smass), c_loc(rmass0), c_loc(smass0))
+                    else
+                      qloc0(i,k,:) = qloc(i,k,:) !update state
+                      rmass0(i,:)  = rmass(i,:)  !update precip
+                      smass0(i,:)  = smass(i,:)
+                    end if
                   end if
                 end do !idsttype
                 !---------------------------------
@@ -2163,7 +2214,14 @@ end subroutine wtrc_register
                     end if
                   end if
                 end do
-                qloc0(i,k,:) = qloc(i,k,:) !update state
+                if (.not. use_native_wtrc_apply_rates_helpers_impl) then
+                  call wtrc_apply_rates_helpers_log_entered()
+                  call wtrc_apply_rates_sync_level_state_codon(int(i, c_int64_t), int(k, c_int64_t), &
+                       int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+                       c_loc(qloc), c_loc(qloc0))
+                else
+                  qloc0(i,k,:) = qloc(i,k,:) !update state
+                end if
                 !---------------------------------
               end do !isrctype
               !--------------------------------------------
@@ -2256,9 +2314,18 @@ end subroutine wtrc_register
                     
                   end if
                 end do
-                qloc0(i,k,:) = qloc(i,k,:) !update state
-                rmass0(i,:)  = rmass(i,:)  !update precip
-                smass0(i,:)  = smass(i,:)
+                if (.not. use_native_wtrc_apply_rates_helpers_impl) then
+                  call wtrc_apply_rates_helpers_log_entered()
+                  call wtrc_apply_rates_sync_level_state_codon(int(i, c_int64_t), int(k, c_int64_t), &
+                       int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+                       c_loc(qloc), c_loc(qloc0))
+                  call wtrc_apply_rates_sync_precip_column_codon(int(i, c_int64_t), int(pcols, c_int64_t), &
+                       int(wtrc_nwset, c_int64_t), c_loc(rmass), c_loc(smass), c_loc(rmass0), c_loc(smass0))
+                else
+                  qloc0(i,k,:) = qloc(i,k,:) !update state
+                  rmass0(i,:)  = rmass(i,:)  !update precip
+                  smass0(i,:)  = smass(i,:)
+                end if
               end if
               !-------------------------
               !correct any precip errors
@@ -2412,18 +2479,34 @@ end subroutine wtrc_register
                         qloc(i,k,msrc) = qloc0(i,k,msrc)*(fr**alpha)
                         qloc(i,k,mdst) = qloc(i,k,mdst) + (qloc0(i,k,msrc)-qloc(i,k,msrc))
                       else
-                        alpha = 1._r8
-                        !Add tendency to destination:
-                        qloc(i,k,mdst)  = qloc(i,k,mdst) + alpha*R*post_rates(i,k,idsttype,isrctype,rtype)*dtime/wtrc_niter
-                        !Subtract tendency from source:
-                        if(isrctype .ne. idsttype) then
-                          qloc(i,k,msrc)  = qloc(i,k,msrc) - alpha*R*post_rates(i,k,idsttype,isrctype,rtype)*dtime/wtrc_niter
+                        if (.not. use_native_wtrc_apply_rates_helpers_impl) then
+                          call wtrc_apply_rates_helpers_log_entered()
+                          call wtrc_apply_rates_post_normal_tendency_codon(int(i, c_int64_t), int(k, c_int64_t), &
+                               int(pcols, c_int64_t), int(pver, c_int64_t), int(isrctype, c_int64_t), &
+                               int(idsttype, c_int64_t), int(msrc, c_int64_t), int(mdst, c_int64_t), &
+                               real(R, c_double), real(post_rates(i,k,idsttype,isrctype,rtype), c_double), &
+                               real(dtime, c_double), real(wtrc_niter, c_double), c_loc(qloc))
+                        else
+                          alpha = 1._r8
+                          !Add tendency to destination:
+                          qloc(i,k,mdst)  = qloc(i,k,mdst) + alpha*R*post_rates(i,k,idsttype,isrctype,rtype)*dtime/wtrc_niter
+                          !Subtract tendency from source:
+                          if(isrctype .ne. idsttype) then
+                            qloc(i,k,msrc)  = qloc(i,k,msrc) - alpha*R*post_rates(i,k,idsttype,isrctype,rtype)*dtime/wtrc_niter
+                          end if
                         end if
                       end if !ice/snow distillation
 
                     end do !iwset
 !                    call wtrc_check_tracer_mass(pbuf,pstate,qloc,isrctype,idsttype,micro,iter,dtime,1e-10_r8,.true.) !check mass
-                    qloc0(i,k,:) = qloc(i,k,:) !update state
+                    if (.not. use_native_wtrc_apply_rates_helpers_impl) then
+                      call wtrc_apply_rates_helpers_log_entered()
+                      call wtrc_apply_rates_sync_level_state_codon(int(i, c_int64_t), int(k, c_int64_t), &
+                           int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+                           c_loc(qloc), c_loc(qloc0))
+                    else
+                      qloc0(i,k,:) = qloc(i,k,:) !update state
+                    end if
                   end if
                 end do
                 !---------------------------------
@@ -2445,7 +2528,14 @@ end subroutine wtrc_register
                     end if
                   end if
                 end do
-                qloc0(i,k,:) = qloc(i,k,:) !update state
+                if (.not. use_native_wtrc_apply_rates_helpers_impl) then
+                  call wtrc_apply_rates_helpers_log_entered()
+                  call wtrc_apply_rates_sync_level_state_codon(int(i, c_int64_t), int(k, c_int64_t), &
+                       int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+                       c_loc(qloc), c_loc(qloc0))
+                else
+                  qloc0(i,k,:) = qloc(i,k,:) !update state
+                end if
                 !--------------------------------
               end do !isrctype
               !------------------

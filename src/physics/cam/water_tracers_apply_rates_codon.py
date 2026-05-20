@@ -107,6 +107,43 @@ def wtrc_apply_rates_copy_qloc0_codon(
                 qloc0[idx] = qloc[idx]
 
 
+def wtrc_apply_rates_sync_level_state_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    qloc_p: cobj,
+    qloc0_p: cobj,
+):
+    qloc = Ptr[float](qloc_p)
+    qloc0 = Ptr[float](qloc0_p)
+
+    for m in range(1, pcnst + 1):
+        idx = _idx3(i, k, m, pcols, pver)
+        qloc0[idx] = qloc[idx]
+
+
+def wtrc_apply_rates_sync_precip_column_codon(
+    i: int,
+    pcols: int,
+    wtrc_nwset: int,
+    rmass_p: cobj,
+    smass_p: cobj,
+    rmass0_p: cobj,
+    smass0_p: cobj,
+):
+    rmass = Ptr[float](rmass_p)
+    smass = Ptr[float](smass_p)
+    rmass0 = Ptr[float](rmass0_p)
+    smass0 = Ptr[float](smass0_p)
+
+    for iwset in range(1, wtrc_nwset + 1):
+        idx = _idx_rmass(i, iwset, pcols)
+        rmass0[idx] = rmass[idx]
+        smass0[idx] = smass[idx]
+
+
 def wtrc_apply_rates_pre_temperature_begin_codon(
     ncol: int,
     pcols: int,
@@ -240,6 +277,76 @@ def wtrc_apply_rates_precip_phase_codon(
         idx = _idx_rmass(i, iwset, pcols)
         rmass0[idx] = rmass[idx]
         smass0[idx] = smass[idx]
+
+
+def wtrc_apply_rates_pre_normal_tendency_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    isrctype: int,
+    idsttype: int,
+    iwset: int,
+    iwtstrain: int,
+    iwtstsnow: int,
+    msrc: int,
+    mdst: int,
+    ratio: float,
+    rate: float,
+    dtime: float,
+    niter: float,
+    pdel_ik: float,
+    qloc_p: cobj,
+    rmass_p: cobj,
+    smass_p: cobj,
+):
+    qloc = Ptr[float](qloc_p)
+    rmass = Ptr[float](rmass_p)
+    smass = Ptr[float](smass_p)
+    alpha = 1.0
+    pidx = _idx_rmass(i, iwset, pcols)
+
+    if idsttype == iwtstrain:
+        rmass[pidx] = rmass[pidx] + (ratio * rate * dtime * pdel_ik) / niter
+    elif idsttype == iwtstsnow:
+        smass[pidx] = smass[pidx] + (ratio * rate * dtime * pdel_ik) / niter
+    else:
+        qdst = _idx3(i, k, mdst, pcols, pver)
+        qloc[qdst] = qloc[qdst] + alpha * ratio * rate * dtime / niter
+
+    if isrctype != idsttype:
+        if isrctype == iwtstrain:
+            rmass[pidx] = rmass[pidx] - (ratio * rate * dtime * pdel_ik) / niter
+        elif isrctype == iwtstsnow:
+            smass[pidx] = smass[pidx] - (ratio * rate * dtime * pdel_ik) / niter
+        else:
+            qsrc = _idx3(i, k, msrc, pcols, pver)
+            qloc[qsrc] = qloc[qsrc] - alpha * ratio * rate * dtime / niter
+
+
+def wtrc_apply_rates_post_normal_tendency_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    isrctype: int,
+    idsttype: int,
+    msrc: int,
+    mdst: int,
+    ratio: float,
+    rate: float,
+    dtime: float,
+    niter: float,
+    qloc_p: cobj,
+):
+    qloc = Ptr[float](qloc_p)
+    alpha = 1.0
+
+    qdst = _idx3(i, k, mdst, pcols, pver)
+    qloc[qdst] = qloc[qdst] + alpha * ratio * rate * dtime / niter
+    if isrctype != idsttype:
+        qsrc = _idx3(i, k, msrc, pcols, pver)
+        qloc[qsrc] = qloc[qsrc] - alpha * ratio * rate * dtime / niter
 
 
 def wtrc_apply_rates_precip_error_correction_codon(

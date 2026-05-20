@@ -201,6 +201,34 @@ def wtrc_apply_rates_copy_qloc0_codon(
 
 
 @export
+def wtrc_apply_rates_sync_level_state_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    qloc_p: cobj,
+    qloc0_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_sync_level_state_codon(i, k, pcols, pver, pcnst, qloc_p, qloc0_p)
+
+
+@export
+def wtrc_apply_rates_sync_precip_column_codon(
+    i: int,
+    pcols: int,
+    wtrc_nwset: int,
+    rmass_p: cobj,
+    smass_p: cobj,
+    rmass0_p: cobj,
+    smass0_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_sync_precip_column_codon(
+        i, pcols, wtrc_nwset, rmass_p, smass_p, rmass0_p, smass0_p
+    )
+
+
+@export
 def wtrc_apply_rates_pre_temperature_begin_codon(
     ncol: int,
     pcols: int,
@@ -307,6 +335,72 @@ def wtrc_apply_rates_precip_phase_codon(
         smass_p,
         rmass0_p,
         smass0_p,
+    )
+
+
+@export
+def wtrc_apply_rates_pre_normal_tendency_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    isrctype: int,
+    idsttype: int,
+    iwset: int,
+    iwtstrain: int,
+    iwtstsnow: int,
+    msrc: int,
+    mdst: int,
+    ratio: float,
+    rate: float,
+    dtime: float,
+    niter: float,
+    pdel_ik: float,
+    qloc_p: cobj,
+    rmass_p: cobj,
+    smass_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_pre_normal_tendency_codon(
+        i,
+        k,
+        pcols,
+        pver,
+        isrctype,
+        idsttype,
+        iwset,
+        iwtstrain,
+        iwtstsnow,
+        msrc,
+        mdst,
+        ratio,
+        rate,
+        dtime,
+        niter,
+        pdel_ik,
+        qloc_p,
+        rmass_p,
+        smass_p,
+    )
+
+
+@export
+def wtrc_apply_rates_post_normal_tendency_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    isrctype: int,
+    idsttype: int,
+    msrc: int,
+    mdst: int,
+    ratio: float,
+    rate: float,
+    dtime: float,
+    niter: float,
+    qloc_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_post_normal_tendency_codon(
+        i, k, pcols, pver, isrctype, idsttype, msrc, mdst, ratio, rate, dtime, niter, qloc_p
     )
 
 
