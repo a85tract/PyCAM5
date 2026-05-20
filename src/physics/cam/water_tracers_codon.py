@@ -270,6 +270,57 @@ def wtrc_apply_rates_post_temperature_end_codon(
 
 
 @export
+def wtrc_apply_rates_prepare_bulk_indices_codon(
+    pwtype: int,
+    bulk_indices_p: cobj,
+    bulk_indices64_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_prepare_bulk_indices_codon(pwtype, bulk_indices_p, bulk_indices64_p)
+
+
+@export
+def wtrc_apply_rates_prepare_net_indices_codon(
+    pwtype: int,
+    wtrc_ncnst: int,
+    wtrc_indices_p: cobj,
+    bulk_indices_p: cobj,
+    wtrc_indices64_p: cobj,
+    bulk_indices64_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_prepare_net_indices_codon(
+        pwtype,
+        wtrc_ncnst,
+        wtrc_indices_p,
+        bulk_indices_p,
+        wtrc_indices64_p,
+        bulk_indices64_p,
+    )
+
+
+@export
+def wtrc_apply_rates_prepare_correction_indices_codon(
+    pcnst: int,
+    pwtype: int,
+    wtrc_nwset: int,
+    wtrc_max_cnst: int,
+    wtrc_iatype_p: cobj,
+    iwspec_p: cobj,
+    wtrc_iatype64_p: cobj,
+    iwspec64_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_prepare_correction_indices_codon(
+        pcnst,
+        pwtype,
+        wtrc_nwset,
+        wtrc_max_cnst,
+        wtrc_iatype_p,
+        iwspec_p,
+        wtrc_iatype64_p,
+        iwspec64_p,
+    )
+
+
+@export
 def wtrc_apply_rates_bulk_update_codon(
     ncol: int,
     pcols: int,

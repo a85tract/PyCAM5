@@ -652,7 +652,7 @@ subroutine wtrc_apply_rates_helpers_log_entered()
   wtrc_apply_rates_helpers_entered_logged = .true.
 
   if (masterproc) then
-    write(iulog,'(A)') 'wtrc_apply_rates_helpers entered (state/temp/bulk/tendency/correction direct = codon)'
+    write(iulog,'(A)') 'wtrc_apply_rates_helpers entered (state/temp/metadata/bulk/tendency/correction direct = codon)'
     call flush(iulog)
   end if
 
@@ -1837,6 +1837,26 @@ end subroutine wtrc_register
       real(c_double), value :: dtime_c, cpair_c, niter_c
       type(c_ptr), value :: pstate_t_p, prelat_p, postlat_p, tloc_p
     end subroutine wtrc_apply_rates_post_temperature_end_codon
+    subroutine wtrc_apply_rates_prepare_bulk_indices_codon(pwtype_c, bulk_indices_p, bulk_indices64_p) &
+         bind(c, name="wtrc_apply_rates_prepare_bulk_indices_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: pwtype_c
+      type(c_ptr), value :: bulk_indices_p, bulk_indices64_p
+    end subroutine wtrc_apply_rates_prepare_bulk_indices_codon
+    subroutine wtrc_apply_rates_prepare_net_indices_codon(pwtype_c, wtrc_ncnst_c, wtrc_indices_p, &
+         bulk_indices_p, wtrc_indices64_p, bulk_indices64_p) &
+         bind(c, name="wtrc_apply_rates_prepare_net_indices_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: pwtype_c, wtrc_ncnst_c
+      type(c_ptr), value :: wtrc_indices_p, bulk_indices_p, wtrc_indices64_p, bulk_indices64_p
+    end subroutine wtrc_apply_rates_prepare_net_indices_codon
+    subroutine wtrc_apply_rates_prepare_correction_indices_codon(pcnst_c, pwtype_c, wtrc_nwset_c, &
+         wtrc_max_cnst_c, wtrc_iatype_p, iwspec_p, wtrc_iatype64_p, iwspec64_p) &
+         bind(c, name="wtrc_apply_rates_prepare_correction_indices_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: pcnst_c, pwtype_c, wtrc_nwset_c, wtrc_max_cnst_c
+      type(c_ptr), value :: wtrc_iatype_p, iwspec_p, wtrc_iatype64_p, iwspec64_p
+    end subroutine wtrc_apply_rates_prepare_correction_indices_codon
     subroutine wtrc_apply_rates_bulk_update_codon(ncol_c, pcols_c, pver_c, pwtype_c, top_lev_c, dtime_c, &
          bulk_indices_p, ptend_q_p, qloc_p) bind(c, name="wtrc_apply_rates_bulk_update_codon")
       use iso_c_binding, only: c_double, c_int64_t, c_ptr
@@ -2426,10 +2446,9 @@ end subroutine wtrc_register
 !      end do
   
       if (.not. use_native_wtrc_apply_rates_helpers_impl) then
-        do idsttype = 1, pwtype
-          wtrc_bulk_indices64(idsttype) = int(wtrc_bulk_indices(idsttype), c_int64_t)
-        end do
         call wtrc_apply_rates_helpers_log_entered()
+        call wtrc_apply_rates_prepare_bulk_indices_codon(int(pwtype, c_int64_t), &
+             c_loc(wtrc_bulk_indices(1)), c_loc(wtrc_bulk_indices64(1)))
         call wtrc_apply_rates_bulk_update_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
              int(pver, c_int64_t), int(pwtype, c_int64_t), int(top_lev, c_int64_t), real(dtime, c_double), &
              c_loc(wtrc_bulk_indices64), c_loc(ptend_sum%q), c_loc(qloc))
@@ -2479,13 +2498,10 @@ end subroutine wtrc_register
 
     !Calculate net tendencies:
     if (.not. use_native_wtrc_apply_rates_helpers_impl) then
-      do icnst = 1, wtrc_ncnst
-        wtrc_indices64(icnst) = int(wtrc_indices(icnst), c_int64_t)
-      end do
-      do icnst = 1, pwtype
-        wtrc_bulk_indices64(icnst) = int(wtrc_bulk_indices(icnst), c_int64_t)
-      end do
       call wtrc_apply_rates_helpers_log_entered()
+      call wtrc_apply_rates_prepare_net_indices_codon(int(pwtype, c_int64_t), &
+           int(wtrc_ncnst, c_int64_t), c_loc(wtrc_indices(1)), c_loc(wtrc_bulk_indices(1)), &
+           c_loc(wtrc_indices64(1)), c_loc(wtrc_bulk_indices64(1)))
       call wtrc_apply_rates_net_tend_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
            int(pver, c_int64_t), int(pcnst, c_int64_t), int(pwtype, c_int64_t), &
            int(wtrc_ncnst, c_int64_t), int(top_lev, c_int64_t), real(dtime, c_double), &
@@ -2530,16 +2546,13 @@ end subroutine wtrc_register
 
 !Apply correction and divide by time:
   if (.not. use_native_wtrc_apply_rates_helpers_impl) then
-    do m = 1, wtrc_nwset
-      wtrc_iatype64(m,:) = int(wtrc_iatype(m,:), c_int64_t)
-    end do
-    do ispec = 1, pcnst
-      iwspec64(ispec) = int(iwspec(ispec), c_int64_t)
-    end do
+    call wtrc_apply_rates_helpers_log_entered()
+    call wtrc_apply_rates_prepare_correction_indices_codon(int(pcnst, c_int64_t), &
+         int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), int(WTRC_MAX_CNST, c_int64_t), &
+         c_loc(wtrc_iatype(1,1)), c_loc(iwspec(1)), c_loc(wtrc_iatype64(1,1)), c_loc(iwspec64(1)))
     do ispec = 1, pwtspec
       rstd(ispec) = real(wtrc_get_rstd(ispec), c_double)
     end do
-    call wtrc_apply_rates_helpers_log_entered()
     call wtrc_apply_rates_first_correction_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
          int(pver, c_int64_t), int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), &
          int(top_lev, c_int64_t), real(wtrc_qmin, c_double), c_loc(wtrc_iatype64), &

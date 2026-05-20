@@ -84,14 +84,14 @@ integer, parameter, public    :: WTRC_WSET_STD  = 1     ! water set index for "r
       wtrc_bulk_names =   (/ 'Q       ', 'CLDLIQ  ', 'CLDICE  ', 'QRAINS  ', 'QSNOWS  ', 'QRAINC  ', 'QSNOWC  ' /)
 !
 ! Constituent indices for the bulk (non-isotopic) water
-  integer, public   :: wtrc_bulk_indices(pwtype)
+  integer, public, target :: wtrc_bulk_indices(pwtype)
 
 
 ! These are derived off of the fields provided in the namelist files.
 !
 ! The variables specify a certain set of water tracers.
   integer, public :: wtrc_ncnst = 0                     ! Number of water tracers
-  integer, public :: wtrc_indices(WTRC_MAX_CNST)        ! Tracer constituent indices
+  integer, public, target :: wtrc_indices(WTRC_MAX_CNST)        ! Tracer constituent indices
   integer, public :: wtrc_species(WTRC_MAX_CNST)        ! Tracer species enumerations
   integer, public :: wtrc_types(WTRC_MAX_CNST)          ! Tracer water type enumerations
   logical, public :: wtrc_is_tag(WTRC_MAX_CNST)         ! Tracer is a tag rather than an isotopolgue?
@@ -101,7 +101,7 @@ integer, parameter, public    :: WTRC_WSET_STD  = 1     ! water set index for "r
 !
 ! Sort by Water Type
   integer, public :: wtrc_ntype(pwtype)                  ! number of each water type
-  integer, public :: wtrc_iatype(WTRC_MAX_CNST, pwtype)  ! index arrays for water type
+  integer, public, target :: wtrc_iatype(WTRC_MAX_CNST, pwtype)  ! index arrays for water type
 
 ! Sort by Species
   integer, public :: wtrc_nspec(pwtspec)                 ! number of each species
@@ -124,7 +124,7 @@ integer, parameter, public    :: WTRC_WSET_STD  = 1     ! water set index for "r
 ! NOTE: These should probably be moved to constituents.
   integer, public :: iwater(pcnst)     ! flag for water type (see water_types)
   integer(c_int64_t), public, target :: iwater_is_water(pcnst) = 0_c_int64_t  ! 1 when iwater is a water tracer type
-  integer, public :: iwspec(pcnst)     ! flag for water (isotope) species (see water_isotopes)
+  integer, public, target :: iwspec(pcnst)     ! flag for water (isotope) species (see water_isotopes)
   logical, public :: iwistag(pcnst)    ! flag for tagged water
 
 end module water_tracer_vars

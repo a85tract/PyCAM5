@@ -187,6 +187,63 @@ def wtrc_apply_rates_post_temperature_end_codon(
             tloc[idx] = pstate_t[idx] + (prelat[idx] + postlat[idx]) / cpair * dtime / niter
 
 
+def wtrc_apply_rates_prepare_bulk_indices_codon(
+    pwtype: int,
+    bulk_indices_p: cobj,
+    bulk_indices64_p: cobj,
+):
+    bulk_indices = Ptr[i32](bulk_indices_p)
+    bulk_indices64 = Ptr[int](bulk_indices64_p)
+
+    for idsttype in range(1, pwtype + 1):
+        bulk_indices64[idsttype - 1] = int(bulk_indices[idsttype - 1])
+
+
+def wtrc_apply_rates_prepare_net_indices_codon(
+    pwtype: int,
+    wtrc_ncnst: int,
+    wtrc_indices_p: cobj,
+    bulk_indices_p: cobj,
+    wtrc_indices64_p: cobj,
+    bulk_indices64_p: cobj,
+):
+    wtrc_indices = Ptr[i32](wtrc_indices_p)
+    bulk_indices = Ptr[i32](bulk_indices_p)
+    wtrc_indices64 = Ptr[int](wtrc_indices64_p)
+    bulk_indices64 = Ptr[int](bulk_indices64_p)
+
+    for icnst in range(1, wtrc_ncnst + 1):
+        wtrc_indices64[icnst - 1] = int(wtrc_indices[icnst - 1])
+
+    for icnst in range(1, pwtype + 1):
+        bulk_indices64[icnst - 1] = int(bulk_indices[icnst - 1])
+
+
+def wtrc_apply_rates_prepare_correction_indices_codon(
+    pcnst: int,
+    pwtype: int,
+    wtrc_nwset: int,
+    wtrc_max_cnst: int,
+    wtrc_iatype_p: cobj,
+    iwspec_p: cobj,
+    wtrc_iatype64_p: cobj,
+    iwspec64_p: cobj,
+):
+    wtrc_iatype = Ptr[i32](wtrc_iatype_p)
+    iwspec = Ptr[i32](iwspec_p)
+    wtrc_iatype64 = Ptr[int](wtrc_iatype64_p)
+    iwspec64 = Ptr[int](iwspec64_p)
+
+    for m in range(1, wtrc_nwset + 1):
+        for icnst in range(1, pwtype + 1):
+            src_idx = (m - 1) + (icnst - 1) * wtrc_max_cnst
+            dst_idx = _idx_iatype(m, icnst, wtrc_nwset)
+            wtrc_iatype64[dst_idx] = int(wtrc_iatype[src_idx])
+
+    for ispec in range(1, pcnst + 1):
+        iwspec64[ispec - 1] = int(iwspec[ispec - 1])
+
+
 def wtrc_apply_rates_bulk_update_codon(
     ncol: int,
     pcols: int,
