@@ -268,6 +268,26 @@ interface
       type(c_ptr), value :: cldn_p, qcld_p, nspec_amode_p, mam_idx_p, raercol_p, raercol_cw_p
    end subroutine ndrop_dropmixnuc_evaporate_clear_layers_codon
 
+   subroutine ndrop_dropmixnuc_swap_slots_codon(nsav_p, nnew_p) &
+        bind(c, name="ndrop_dropmixnuc_swap_slots_codon")
+      use iso_c_binding, only: c_ptr
+      type(c_ptr), value :: nsav_p, nnew_p
+   end subroutine ndrop_dropmixnuc_swap_slots_codon
+
+   subroutine ndrop_dropmixnuc_submix_iter_init_codon(pver_c, qcld_p, qncld_p, srcn_p, nsav_p, nnew_p) &
+        bind(c, name="ndrop_dropmixnuc_submix_iter_init_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: pver_c
+      type(c_ptr), value :: qcld_p, qncld_p, srcn_p, nsav_p, nnew_p
+   end subroutine ndrop_dropmixnuc_submix_iter_init_codon
+
+   subroutine ndrop_dropmixnuc_zero_tendencies_codon(pver_c, raertend_p, qqcwtend_p) &
+        bind(c, name="ndrop_dropmixnuc_zero_tendencies_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: pver_c
+      type(c_ptr), value :: raertend_p, qqcwtend_p
+   end subroutine ndrop_dropmixnuc_zero_tendencies_codon
+
    subroutine ndrop_explmix_codon(pver_c, top_lev_c, surfrate_c, flxconv_c, dt_c, is_unact_c, &
         q_p, src_p, ekkp_p, ekkm_p, overlapp_p, overlapm_p, qold_p, qactold_p) &
         bind(c, name="ndrop_explmix_codon")
@@ -374,7 +394,7 @@ subroutine ndrop_dropmixnuc_helpers_proof_once()
 
    if (masterproc) then
       write(iulog,'(A)') 'ndrop_dropmixnuc_helpers entered (array setup/grow-shrink/oldcloud/mix/' // &
-           'source/aero tend/coltend/qqcw commit/clear/finalize direct = codon)'
+           'source/submix init/aero tend/coltend/qqcw commit/tend zero/clear/finalize direct = codon)'
    end if
 
 end subroutine ndrop_dropmixnuc_helpers_proof_once
@@ -735,7 +755,8 @@ subroutine dropmixnuc( &
 
    integer  :: i, k, l, m, mm, n
    integer  :: km1, kp1
-   integer  :: nnew, nsav, ntemp
+   integer, target :: nnew, nsav
+   integer  :: ntemp
    integer  :: lptr
    integer, target :: nsubmix, nsubmix_bnd
    integer, save, target :: count_submix(100)
@@ -1310,9 +1331,14 @@ subroutine dropmixnuc( &
       end do  ! old_cloud_main_k_loop
 
       ! switch nsav, nnew so that nnew is the updated aerosol
-      ntemp = nsav
-      nsav  = nnew
-      nnew  = ntemp
+      if (use_native_ndrop_dropmixnuc_helpers_impl) then
+         ntemp = nsav
+         nsav  = nnew
+         nnew  = ntemp
+      else
+         call ndrop_dropmixnuc_helpers_proof_once()
+         call ndrop_dropmixnuc_swap_slots_codon(c_loc(nsav), c_loc(nnew))
+      end if
 
       ! load new droplets in layers above, below clouds
 
@@ -1404,12 +1430,18 @@ subroutine dropmixnuc( &
 
       ! old_cloud_nsubmix_loop
       do n = 1, nsubmix
-         qncld(:) = qcld(:)
-         ! switch nsav, nnew so that nsav is the updated aerosol
-         ntemp   = nsav
-         nsav    = nnew
-         nnew    = ntemp
-         srcn(:) = 0.0_r8
+         if (use_native_ndrop_dropmixnuc_helpers_impl) then
+            qncld(:) = qcld(:)
+            ! switch nsav, nnew so that nsav is the updated aerosol
+            ntemp   = nsav
+            nsav    = nnew
+            nnew    = ntemp
+            srcn(:) = 0.0_r8
+         else
+            call ndrop_dropmixnuc_helpers_proof_once()
+            call ndrop_dropmixnuc_submix_iter_init_codon(int(pver, c_int64_t), &
+                 c_loc(qcld(1)), c_loc(qncld(1)), c_loc(srcn(1)), c_loc(nsav), c_loc(nnew))
+         end if
 
          if (use_native_ndrop_dropmixnuc_helpers_impl) then
             do m = 1, ntot_amode
@@ -1562,8 +1594,14 @@ subroutine dropmixnuc( &
 
       if (prog_modal_aero) then
 
-         raertend = 0._r8
-         qqcwtend = 0._r8
+         if (use_native_ndrop_dropmixnuc_helpers_impl) then
+            raertend = 0._r8
+            qqcwtend = 0._r8
+         else
+            call ndrop_dropmixnuc_helpers_proof_once()
+            call ndrop_dropmixnuc_zero_tendencies_codon(int(pver, c_int64_t), &
+                 c_loc(raertend(1)), c_loc(qqcwtend(1)))
+         end if
 
          do m = 1, ntot_amode
             do l = 0, nspec_amode(m)

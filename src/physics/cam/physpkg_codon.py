@@ -4474,6 +4474,39 @@ def ndrop_dropmixnuc_evaporate_clear_layers_codon(
 
 
 @export
+def ndrop_dropmixnuc_swap_slots_codon(nsav_p: cobj, nnew_p: cobj):
+    _ndrop.ndrop_dropmixnuc_swap_slots_codon(nsav_p, nnew_p)
+
+
+@export
+def ndrop_dropmixnuc_submix_iter_init_codon(
+    pver: int,
+    qcld_p: cobj,
+    qncld_p: cobj,
+    srcn_p: cobj,
+    nsav_p: cobj,
+    nnew_p: cobj,
+):
+    _ndrop.ndrop_dropmixnuc_submix_iter_init_codon(
+        pver,
+        qcld_p,
+        qncld_p,
+        srcn_p,
+        nsav_p,
+        nnew_p,
+    )
+
+
+@export
+def ndrop_dropmixnuc_zero_tendencies_codon(
+    pver: int,
+    raertend_p: cobj,
+    qqcwtend_p: cobj,
+):
+    _ndrop.ndrop_dropmixnuc_zero_tendencies_codon(pver, raertend_p, qqcwtend_p)
+
+
+@export
 def ndrop_explmix_codon(
     pver: int,
     top_lev: int,

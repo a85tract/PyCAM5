@@ -699,6 +699,47 @@ def ndrop_dropmixnuc_evaporate_clear_layers_codon(
                     raercol_cw[col_idx] = 0.0
 
 
+def ndrop_dropmixnuc_swap_slots_codon(nsav_p: cobj, nnew_p: cobj):
+    nsav = Ptr[i32](nsav_p)
+    nnew = Ptr[i32](nnew_p)
+
+    ntemp = nsav[0]
+    nsav[0] = nnew[0]
+    nnew[0] = ntemp
+
+
+def ndrop_dropmixnuc_submix_iter_init_codon(
+    pver: int,
+    qcld_p: cobj,
+    qncld_p: cobj,
+    srcn_p: cobj,
+    nsav_p: cobj,
+    nnew_p: cobj,
+):
+    qcld = Ptr[float](qcld_p)
+    qncld = Ptr[float](qncld_p)
+    srcn = Ptr[float](srcn_p)
+
+    for k in range(1, pver + 1):
+        qncld[k - 1] = qcld[k - 1]
+        srcn[k - 1] = 0.0
+
+    ndrop_dropmixnuc_swap_slots_codon(nsav_p, nnew_p)
+
+
+def ndrop_dropmixnuc_zero_tendencies_codon(
+    pver: int,
+    raertend_p: cobj,
+    qqcwtend_p: cobj,
+):
+    raertend = Ptr[float](raertend_p)
+    qqcwtend = Ptr[float](qqcwtend_p)
+
+    for k in range(1, pver + 1):
+        raertend[k - 1] = 0.0
+        qqcwtend[k - 1] = 0.0
+
+
 def ndrop_explmix_codon(
     pver: int,
     top_lev: int,
