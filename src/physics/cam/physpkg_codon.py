@@ -5441,6 +5441,105 @@ def cldwat_param_codon(value: float) -> float:
     return value
 
 
+@inline
+def _cldwat_gaussj_idx(row: int, col: int, ld1: int) -> int:
+    """gaussj a(np,np) and b(np,mp) use Fortran column-major order."""
+    return (row - 1) + (col - 1) * ld1
+
+
+@export
+def cldwat2m_gaussj_codon(
+    n: int,
+    np: int,
+    m: int,
+    mp: int,
+    a_p: cobj,
+    b_p: cobj,
+    indxc_p: cobj,
+    indxr_p: cobj,
+    ipiv_p: cobj,
+) -> int:
+    a = Ptr[float](a_p)
+    b = Ptr[float](b_p)
+    indxc = Ptr[int](indxc_p)
+    indxr = Ptr[int](indxr_p)
+    ipiv = Ptr[int](ipiv_p)
+
+    for j in range(1, n + 1):
+        ipiv[j - 1] = 0
+
+    for i in range(1, n + 1):
+        big = 0.0
+        irow = 1
+        icol = 1
+        for j in range(1, n + 1):
+            if ipiv[j - 1] != 1:
+                for k in range(1, n + 1):
+                    if ipiv[k - 1] == 0:
+                        value = abs(a[_cldwat_gaussj_idx(j, k, np)])
+                        if value >= big:
+                            big = value
+                            irow = j
+                            icol = k
+                    elif ipiv[k - 1] > 1:
+                        return 1
+
+        ipiv[icol - 1] = ipiv[icol - 1] + 1
+        if irow != icol:
+            for l in range(1, n + 1):
+                idx_row = _cldwat_gaussj_idx(irow, l, np)
+                idx_col = _cldwat_gaussj_idx(icol, l, np)
+                dum = a[idx_row]
+                a[idx_row] = a[idx_col]
+                a[idx_col] = dum
+            for l in range(1, m + 1):
+                idx_row = _cldwat_gaussj_idx(irow, l, np)
+                idx_col = _cldwat_gaussj_idx(icol, l, np)
+                dum = b[idx_row]
+                b[idx_row] = b[idx_col]
+                b[idx_col] = dum
+
+        indxr[i - 1] = irow
+        indxc[i - 1] = icol
+        pivot_idx = _cldwat_gaussj_idx(icol, icol, np)
+        if a[pivot_idx] == 0.0:
+            return 2
+
+        pivinv = 1.0 / a[pivot_idx]
+        a[pivot_idx] = 1.0
+        for l in range(1, n + 1):
+            idx = _cldwat_gaussj_idx(icol, l, np)
+            a[idx] = a[idx] * pivinv
+        for l in range(1, m + 1):
+            idx = _cldwat_gaussj_idx(icol, l, np)
+            b[idx] = b[idx] * pivinv
+
+        for ll in range(1, n + 1):
+            if ll != icol:
+                ll_icol_idx = _cldwat_gaussj_idx(ll, icol, np)
+                dum = a[ll_icol_idx]
+                a[ll_icol_idx] = 0.0
+                for l in range(1, n + 1):
+                    ll_l_idx = _cldwat_gaussj_idx(ll, l, np)
+                    a[ll_l_idx] = a[ll_l_idx] - a[_cldwat_gaussj_idx(icol, l, np)] * dum
+                for l in range(1, m + 1):
+                    ll_l_idx = _cldwat_gaussj_idx(ll, l, np)
+                    b[ll_l_idx] = b[ll_l_idx] - b[_cldwat_gaussj_idx(icol, l, np)] * dum
+
+    for l in range(n, 0, -1):
+        row = indxr[l - 1]
+        col = indxc[l - 1]
+        if row != col:
+            for k in range(1, n + 1):
+                row_idx = _cldwat_gaussj_idx(k, row, np)
+                col_idx = _cldwat_gaussj_idx(k, col, np)
+                dum = a[row_idx]
+                a[row_idx] = a[col_idx]
+                a[col_idx] = dum
+
+    return 0
+
+
 @export
 def hkconv_param_codon(value: float) -> float:
     return value

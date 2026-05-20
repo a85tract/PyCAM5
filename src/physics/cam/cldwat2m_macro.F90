@@ -121,6 +121,9 @@
    logical :: use_native_iter_column_impl = .false.
    logical :: iter_column_impl_selected = .false.
    logical :: iter_column_entered_logged = .false.
+   logical :: use_native_gaussj_impl = .false.
+   logical :: gaussj_impl_selected = .false.
+   logical :: gaussj_entered_logged = .false.
 
    contains
 
@@ -3297,16 +3300,86 @@ end subroutine rhcrit_calc
    ! End of subroutine !
    ! ----------------- !
 
+      subroutine gaussj_select_impl()
+      character(len=32) :: impl_name
+      integer :: n, status
+
+      if (gaussj_impl_selected) return
+      call get_environment_variable('CLDWAT2M_GAUSSJ_IMPL', value=impl_name, length=n, status=status)
+      use_native_gaussj_impl = .false.
+      if (status == 0 .and. n > 0) then
+         select case (adjustl(impl_name(:n)))
+         case ('native', 'Native', 'NATIVE')
+            use_native_gaussj_impl = .true.
+         case ('codon', 'Codon', 'CODON')
+            use_native_gaussj_impl = .false.
+         case default
+            use_native_gaussj_impl = .false.
+         end select
+      end if
+      gaussj_impl_selected = .true.
+      if (masterproc) then
+         if (use_native_gaussj_impl) then
+            write(iulog,*) 'cldwat2m_gaussj implementation = native'
+         else
+            write(iulog,*) 'cldwat2m_gaussj implementation = codon'
+         end if
+      end if
+      end subroutine gaussj_select_impl
+
+      subroutine gaussj_log_entered()
+      if (gaussj_entered_logged) return
+      gaussj_entered_logged = .true.
+      if (masterproc) then
+         write(iulog,*) 'cldwat2m_gaussj entered (macrophysics Gauss-Jordan solve = codon)'
+      end if
+      end subroutine gaussj_log_entered
+
       SUBROUTINE gaussj(a,n,np,b,m,mp)
       INTEGER m,mp,n,np,NMAX
-      real(r8) a(np,np),b(np,mp)
+      real(r8), target :: a(np,np),b(np,mp)
       real(r8) aa(np,np),bb(np,mp)
       PARAMETER (NMAX=50)
       INTEGER i,icol,irow,j,k,l,ll,ii,jj,indxc(NMAX),indxr(NMAX),ipiv(NMAX)
+      integer(c_int64_t), target :: indxc64(NMAX), indxr64(NMAX), ipiv64(NMAX)
+      integer(c_int64_t) :: gaussj_status
       real(r8) big,dum,pivinv
+
+      interface
+         function cldwat2m_gaussj_codon(n_c, np_c, m_c, mp_c, a_p, b_p, indxc_p, indxr_p, ipiv_p) &
+              result(status_c) bind(c, name="cldwat2m_gaussj_codon")
+            use iso_c_binding, only: c_int64_t, c_ptr
+            integer(c_int64_t), value :: n_c, np_c, m_c, mp_c
+            type(c_ptr), value :: a_p, b_p, indxc_p, indxr_p, ipiv_p
+            integer(c_int64_t) :: status_c
+         end function cldwat2m_gaussj_codon
+      end interface
 
       aa(:,:) = a(:,:)
       bb(:,:) = b(:,:)
+
+      call gaussj_select_impl()
+      if (.not. use_native_gaussj_impl) then
+         call gaussj_log_entered()
+         indxc64(:) = 0_c_int64_t
+         indxr64(:) = 0_c_int64_t
+         ipiv64(:) = 0_c_int64_t
+         gaussj_status = cldwat2m_gaussj_codon(int(n, c_int64_t), int(np, c_int64_t), &
+              int(m, c_int64_t), int(mp, c_int64_t), c_loc(a(1,1)), c_loc(b(1,1)), &
+              c_loc(indxc64(1)), c_loc(indxr64(1)), c_loc(ipiv64(1)))
+         if (gaussj_status == 0_c_int64_t) return
+         if (gaussj_status == 1_c_int64_t) then
+            write(iulog,*) 'singular matrix in gaussj 1'
+         else
+            write(iulog,*) 'singular matrix in gaussj 2'
+         end if
+         do ii = 1, np
+         do jj = 1, np
+            write(iulog,*) ii, jj, aa(ii,jj), bb(ii,1)
+         end do
+         end do
+         call endrun
+      end if
 
       do 11 j=1,n
         ipiv(j)=0
