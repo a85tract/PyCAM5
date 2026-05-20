@@ -3809,6 +3809,51 @@ def modal_aer_opt_binterp_codon(
 
 
 @export
+def modal_aer_opt_sw_binterp3_codon(
+    pcols: int,
+    ncol: int,
+    ncoef: int,
+    prefr: int,
+    prefi: int,
+    extpsw_p: cobj,
+    abspsw_p: cobj,
+    asmpsw_p: cobj,
+    refr_p: cobj,
+    refi_p: cobj,
+    refrtabsw_p: cobj,
+    refitabsw_p: cobj,
+    itab_p: cobj,
+    jtab_p: cobj,
+    ttab_p: cobj,
+    utab_p: cobj,
+    cext_p: cobj,
+    cabs_p: cobj,
+    casm_p: cobj,
+):
+    _modal_aer_opt.modal_aer_opt_sw_binterp3_codon(
+        pcols,
+        ncol,
+        ncoef,
+        prefr,
+        prefi,
+        extpsw_p,
+        abspsw_p,
+        asmpsw_p,
+        refr_p,
+        refi_p,
+        refrtabsw_p,
+        refitabsw_p,
+        itab_p,
+        jtab_p,
+        ttab_p,
+        utab_p,
+        cext_p,
+        cabs_p,
+        casm_p,
+    )
+
+
+@export
 def ndrop_mode_props_finalize_codon(
     nmode: int,
     pi: float,

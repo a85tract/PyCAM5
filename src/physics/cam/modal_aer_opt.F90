@@ -93,6 +93,16 @@ interface
       type(c_ptr), value :: table_p, x_p, y_p, xtab_p, ytab_p, ix_p, jy_p, t_p, u_p, out_p
    end subroutine modal_aer_opt_binterp_codon
 
+   subroutine modal_aer_opt_sw_binterp3_codon(pcols_c, ncol_c, ncoef_c, prefr_c, prefi_c, &
+        extpsw_p, abspsw_p, asmpsw_p, refr_p, refi_p, refrtabsw_p, refitabsw_p, itab_p, &
+        jtab_p, ttab_p, utab_p, cext_p, cabs_p, casm_p) bind(c, name="modal_aer_opt_sw_binterp3_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: pcols_c, ncol_c, ncoef_c, prefr_c, prefi_c
+      type(c_ptr), value :: extpsw_p, abspsw_p, asmpsw_p, refr_p, refi_p
+      type(c_ptr), value :: refrtabsw_p, refitabsw_p, itab_p, jtab_p, ttab_p, utab_p
+      type(c_ptr), value :: cext_p, cabs_p, casm_p
+   end subroutine modal_aer_opt_sw_binterp3_codon
+
    subroutine modal_aer_opt_sw_init_state_codon(ncol_c, pcols_c, pver_c, nswbands_c, rga_c, rair_c, &
         pdeldry_p, pmid_p, state_t_p, tauxar_p, wa_p, ga_p, fa_p, mass_p, air_density_p) &
         bind(c, name="modal_aer_opt_sw_init_state_codon")
@@ -306,7 +316,7 @@ subroutine modal_aer_opt_helpers_proof_once()
    modal_aer_opt_helpers_proof_written = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'modal_aer_opt_helpers entered (modal aerosol size/interpolation/sw diagnostics/tau/' // &
+      write(iulog,'(A)') 'modal_aer_opt_helpers entered (modal aerosol size/interpolation/sw binterp/sw diagnostics/tau/' // &
            'layer reset/species volume/water refr/species vis/optics props helpers = codon)'
    end if
 
@@ -615,8 +625,8 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
    real(r8), target :: watervol(pcols) ! volume concentration of water in each mode (m3/kg)
    real(r8), target :: wetvol(pcols)   ! volume concentration of wet mode (m3/kg)
 
-   integer  :: itab(pcols), jtab(pcols)
-   real(r8) :: ttab(pcols), utab(pcols)
+   integer, target :: itab(pcols), jtab(pcols)
+   real(r8), target :: ttab(pcols), utab(pcols)
    real(r8), target :: cext(pcols,ncoef), cabs(pcols,ncoef), casm(pcols,ncoef)
    real(r8), target :: pext(pcols)     ! parameterized specific extinction (m2/kg)
    real(r8), target :: specpext(pcols) ! specific extinction (m2/kg)
@@ -1000,16 +1010,26 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
 
             ! interpolate coefficients linear in refractive index
             ! first call calcs itab,jtab,ttab,utab
-            itab(:ncol) = 0
-            call binterp(extpsw(:,:,:,isw), ncol, ncoef, prefr, prefi, &
-                         refr, refi, refrtabsw(:,isw), refitabsw(:,isw), &
-                         itab, jtab, ttab, utab, cext)
-            call binterp(abspsw(:,:,:,isw), ncol, ncoef, prefr, prefi, &
-                         refr, refi, refrtabsw(:,isw), refitabsw(:,isw), &
-                         itab, jtab, ttab, utab, cabs)
-            call binterp(asmpsw(:,:,:,isw), ncol, ncoef, prefr, prefi, &
-                         refr, refi, refrtabsw(:,isw), refitabsw(:,isw), &
-                         itab, jtab, ttab, utab, casm)
+            if (.not. use_native_modal_aer_opt_helpers_impl) then
+               call modal_aer_opt_helpers_proof_once()
+               call modal_aer_opt_sw_binterp3_codon(int(pcols, c_int64_t), int(ncol, c_int64_t), &
+                    int(ncoef, c_int64_t), int(prefr, c_int64_t), int(prefi, c_int64_t), &
+                    c_loc(extpsw(1,1,1,isw)), c_loc(abspsw(1,1,1,isw)), c_loc(asmpsw(1,1,1,isw)), &
+                    c_loc(refr(1)), c_loc(refi(1)), c_loc(refrtabsw(1,isw)), c_loc(refitabsw(1,isw)), &
+                    c_loc(itab(1)), c_loc(jtab(1)), c_loc(ttab(1)), c_loc(utab(1)), c_loc(cext(1,1)), &
+                    c_loc(cabs(1,1)), c_loc(casm(1,1)))
+            else
+               itab(:ncol) = 0
+               call binterp(extpsw(:,:,:,isw), ncol, ncoef, prefr, prefi, &
+                            refr, refi, refrtabsw(:,isw), refitabsw(:,isw), &
+                            itab, jtab, ttab, utab, cext)
+               call binterp(abspsw(:,:,:,isw), ncol, ncoef, prefr, prefi, &
+                            refr, refi, refrtabsw(:,isw), refitabsw(:,isw), &
+                            itab, jtab, ttab, utab, cabs)
+               call binterp(asmpsw(:,:,:,isw), ncol, ncoef, prefr, prefi, &
+                            refr, refi, refrtabsw(:,isw), refitabsw(:,isw), &
+                            itab, jtab, ttab, utab, casm)
+            end if
 
             ! call t_stopf('binterp')
 

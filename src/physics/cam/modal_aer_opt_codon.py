@@ -23,6 +23,161 @@ def _cheb_idx(nc: int, i: int, k: int, ncoef: int, pcols: int) -> int:
     return (nc - 1) + (i - 1) * ncoef + (k - 1) * ncoef * pcols
 
 
+@inline
+def _table_idx(k: int, i: int, j: int, km: int, im: int) -> int:
+    """binterp table arrays declared as (km,im,jm)."""
+    return (k - 1) + (i - 1) * km + (j - 1) * km * im
+
+
+@inline
+def _out_idx(i: int, k: int, pcols: int) -> int:
+    """binterp output arrays declared as (pcols,km)."""
+    return (i - 1) + (k - 1) * pcols
+
+
+def _binterp_kernel(
+    pcols: int,
+    ncol: int,
+    km: int,
+    im: int,
+    jm: int,
+    table_p: cobj,
+    x_p: cobj,
+    y_p: cobj,
+    xtab_p: cobj,
+    ytab_p: cobj,
+    ix_p: cobj,
+    jy_p: cobj,
+    t_p: cobj,
+    u_p: cobj,
+    out_p: cobj,
+):
+    table = Ptr[float](table_p)
+    x = Ptr[float](x_p)
+    y = Ptr[float](y_p)
+    xtab = Ptr[float](xtab_p)
+    ytab = Ptr[float](ytab_p)
+    ix = Ptr[i32](ix_p)
+    jy = Ptr[i32](jy_p)
+    t = Ptr[float](t_p)
+    u = Ptr[float](u_p)
+    out = Ptr[float](out_p)
+
+    if int(ix[0]) <= 0:
+        if im > 1:
+            for ic in range(1, ncol + 1):
+                found_i = im + 1
+                for ii in range(1, im + 1):
+                    if x[ic - 1] < xtab[ii - 1]:
+                        found_i = ii
+                        break
+                ix[ic - 1] = i32(max(found_i - 1, 1))
+                ip1 = min(int(ix[ic - 1]) + 1, im)
+                dx = xtab[ip1 - 1] - xtab[int(ix[ic - 1]) - 1]
+                if abs(dx) > 1.0e-20:
+                    t[ic - 1] = (x[ic - 1] - xtab[int(ix[ic - 1]) - 1]) / dx
+                else:
+                    t[ic - 1] = 0.0
+        else:
+            for ic in range(1, ncol + 1):
+                ix[ic - 1] = i32(1)
+                t[ic - 1] = 0.0
+
+        if jm > 1:
+            for ic in range(1, ncol + 1):
+                found_j = jm + 1
+                for jj in range(1, jm + 1):
+                    if y[ic - 1] < ytab[jj - 1]:
+                        found_j = jj
+                        break
+                jy[ic - 1] = i32(max(found_j - 1, 1))
+                jp1 = min(int(jy[ic - 1]) + 1, jm)
+                dy = ytab[jp1 - 1] - ytab[int(jy[ic - 1]) - 1]
+                if abs(dy) > 1.0e-20:
+                    u[ic - 1] = (y[ic - 1] - ytab[int(jy[ic - 1]) - 1]) / dy
+                else:
+                    u[ic - 1] = 0.0
+        else:
+            for ic in range(1, ncol + 1):
+                jy[ic - 1] = i32(1)
+                u[ic - 1] = 0.0
+
+    for ic in range(1, ncol + 1):
+        ic0 = ic - 1
+        tu = t[ic0] * u[ic0]
+        tuc = t[ic0] - tu
+        tcuc = 1.0 - tuc - u[ic0]
+        tcu = u[ic0] - tu
+        jp1 = min(int(jy[ic0]) + 1, jm)
+        ip1 = min(int(ix[ic0]) + 1, im)
+        for kk in range(1, km + 1):
+            value = tcuc * table[_table_idx(kk, int(ix[ic0]), int(jy[ic0]), km, im)]
+            value = value + tuc * table[_table_idx(kk, ip1, int(jy[ic0]), km, im)]
+            value = value + tu * table[_table_idx(kk, ip1, jp1, km, im)]
+            value = value + tcu * table[_table_idx(kk, int(ix[ic0]), jp1, km, im)]
+            out[_out_idx(ic, kk, pcols)] = value
+
+
+def modal_aer_opt_binterp_codon(
+    pcols: int,
+    ncol: int,
+    km: int,
+    im: int,
+    jm: int,
+    table_p: cobj,
+    x_p: cobj,
+    y_p: cobj,
+    xtab_p: cobj,
+    ytab_p: cobj,
+    ix_p: cobj,
+    jy_p: cobj,
+    t_p: cobj,
+    u_p: cobj,
+    out_p: cobj,
+):
+    _binterp_kernel(pcols, ncol, km, im, jm, table_p, x_p, y_p, xtab_p, ytab_p, ix_p, jy_p, t_p, u_p, out_p)
+
+
+def modal_aer_opt_sw_binterp3_codon(
+    pcols: int,
+    ncol: int,
+    ncoef: int,
+    prefr: int,
+    prefi: int,
+    extpsw_p: cobj,
+    abspsw_p: cobj,
+    asmpsw_p: cobj,
+    refr_p: cobj,
+    refi_p: cobj,
+    refrtabsw_p: cobj,
+    refitabsw_p: cobj,
+    itab_p: cobj,
+    jtab_p: cobj,
+    ttab_p: cobj,
+    utab_p: cobj,
+    cext_p: cobj,
+    cabs_p: cobj,
+    casm_p: cobj,
+):
+    itab = Ptr[i32](itab_p)
+
+    for i in range(1, ncol + 1):
+        itab[i - 1] = i32(0)
+
+    _binterp_kernel(
+        pcols, ncol, ncoef, prefr, prefi, extpsw_p, refr_p, refi_p, refrtabsw_p,
+        refitabsw_p, itab_p, jtab_p, ttab_p, utab_p, cext_p,
+    )
+    _binterp_kernel(
+        pcols, ncol, ncoef, prefr, prefi, abspsw_p, refr_p, refi_p, refrtabsw_p,
+        refitabsw_p, itab_p, jtab_p, ttab_p, utab_p, cabs_p,
+    )
+    _binterp_kernel(
+        pcols, ncol, ncoef, prefr, prefi, asmpsw_p, refr_p, refi_p, refrtabsw_p,
+        refitabsw_p, itab_p, jtab_p, ttab_p, utab_p, casm_p,
+    )
+
+
 def modal_aer_opt_sw_init_state_codon(
     ncol: int,
     pcols: int,
