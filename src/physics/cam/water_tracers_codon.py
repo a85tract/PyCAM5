@@ -1,4 +1,5 @@
 from math import log
+import water_tracers_apply_rates_codon as _apply_rates
 
 
 @inline
@@ -154,6 +155,167 @@ def wtrc_init_rates_codon(pcols: int, pver: int, pwtype: int, top_lev: int, proc
                 idst += 1
             isrc += 1
         rtype += 1
+
+
+@export
+def wtrc_apply_rates_copy_state_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    top_lev: int,
+    pstate_q_p: cobj,
+    pstate_t_p: cobj,
+    qloc_p: cobj,
+    qloc0_p: cobj,
+    tloc_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_copy_state_codon(
+        ncol, pcols, pver, pcnst, top_lev, pstate_q_p, pstate_t_p, qloc_p, qloc0_p, tloc_p
+    )
+
+
+@export
+def wtrc_apply_rates_zero_precip_codon(
+    pcols: int,
+    wtrc_nwset: int,
+    rmass_p: cobj,
+    smass_p: cobj,
+    rmass0_p: cobj,
+    smass0_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_zero_precip_codon(pcols, wtrc_nwset, rmass_p, smass_p, rmass0_p, smass0_p)
+
+
+@export
+def wtrc_apply_rates_copy_qloc0_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    top_lev: int,
+    qloc_p: cobj,
+    qloc0_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_copy_qloc0_codon(ncol, pcols, pver, pcnst, top_lev, qloc_p, qloc0_p)
+
+
+@export
+def wtrc_apply_rates_bulk_update_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pwtype: int,
+    top_lev: int,
+    dtime: float,
+    bulk_indices_p: cobj,
+    ptend_q_p: cobj,
+    qloc_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_bulk_update_codon(
+        ncol, pcols, pver, pwtype, top_lev, dtime, bulk_indices_p, ptend_q_p, qloc_p
+    )
+
+
+@export
+def wtrc_apply_rates_net_tend_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    pwtype: int,
+    wtrc_ncnst: int,
+    top_lev: int,
+    dtime: float,
+    wtrc_indices_p: cobj,
+    bulk_indices_p: cobj,
+    pstate_q_p: cobj,
+    ptend_q_p: cobj,
+    qloc_p: cobj,
+    diff_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_net_tend_codon(
+        ncol,
+        pcols,
+        pver,
+        pcnst,
+        pwtype,
+        wtrc_ncnst,
+        top_lev,
+        dtime,
+        wtrc_indices_p,
+        bulk_indices_p,
+        pstate_q_p,
+        ptend_q_p,
+        qloc_p,
+        diff_p,
+    )
+
+
+@export
+def wtrc_apply_rates_first_correction_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pwtype: int,
+    wtrc_nwset: int,
+    top_lev: int,
+    qmin: float,
+    wtrc_iatype_p: cobj,
+    bulk_indices_p: cobj,
+    iwspec_p: cobj,
+    rstd_p: cobj,
+    ptend_q_p: cobj,
+    diff_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_first_correction_codon(
+        ncol,
+        pcols,
+        pver,
+        pwtype,
+        wtrc_nwset,
+        top_lev,
+        qmin,
+        wtrc_iatype_p,
+        bulk_indices_p,
+        iwspec_p,
+        rstd_p,
+        ptend_q_p,
+        diff_p,
+    )
+
+
+@export
+def wtrc_apply_rates_second_correction_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pwtype: int,
+    wtrc_nwset: int,
+    top_lev: int,
+    qmin: float,
+    wtrc_iatype_p: cobj,
+    bulk_indices_p: cobj,
+    iwspec_p: cobj,
+    rstd_p: cobj,
+    ptend_q_p: cobj,
+    diff_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_second_correction_codon(
+        ncol,
+        pcols,
+        pver,
+        pwtype,
+        wtrc_nwset,
+        top_lev,
+        qmin,
+        wtrc_iatype_p,
+        bulk_indices_p,
+        iwspec_p,
+        rstd_p,
+        ptend_q_p,
+        diff_p,
+    )
 
 
 @inline

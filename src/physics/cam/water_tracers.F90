@@ -146,6 +146,9 @@ module water_tracers
   logical :: use_native_wtrc_scalar_helpers_impl = .false.
   logical :: wtrc_scalar_helpers_impl_selected = .false.
   logical :: wtrc_scalar_helpers_entered_logged = .false.
+  logical :: use_native_wtrc_apply_rates_helpers_impl = .false.
+  logical :: wtrc_apply_rates_helpers_impl_selected = .false.
+  logical :: wtrc_apply_rates_helpers_entered_logged = .false.
   logical :: use_native_wtrc_batch_impl = .false.
   logical :: wtrc_batch_impl_selected = .false.
   logical :: wtrc_batch_entered_logged = .false.
@@ -602,6 +605,58 @@ subroutine wtrc_scalar_helpers_log_entered()
   end if
 
 end subroutine wtrc_scalar_helpers_log_entered
+
+!=======================================================================
+subroutine wtrc_apply_rates_helpers_select_impl()
+!-----------------------------------------------------------------------
+! Select native vs Codon implementation for wtrc_apply_rates helper blocks.
+!-----------------------------------------------------------------------
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (wtrc_apply_rates_helpers_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('WTRC_APPLY_RATES_HELPERS_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+    do i = 1, n
+      code = iachar(impl_name(i:i))
+      if (code >= iachar('A') .and. code <= iachar('Z')) then
+        impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+      end if
+    end do
+    use_native_wtrc_apply_rates_helpers_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+    use_native_wtrc_apply_rates_helpers_impl = .false.
+  end if
+
+  wtrc_apply_rates_helpers_impl_selected = .true.
+
+  if (masterproc) then
+    if (use_native_wtrc_apply_rates_helpers_impl) then
+      write(iulog,*) 'wtrc_apply_rates_helpers implementation = native'
+    else
+      write(iulog,*) 'wtrc_apply_rates_helpers implementation = codon'
+    end if
+    call flush(iulog)
+  end if
+
+end subroutine wtrc_apply_rates_helpers_select_impl
+
+!=======================================================================
+subroutine wtrc_apply_rates_helpers_log_entered()
+
+  if (wtrc_apply_rates_helpers_entered_logged) return
+  wtrc_apply_rates_helpers_entered_logged = .true.
+
+  if (masterproc) then
+    write(iulog,'(A)') 'wtrc_apply_rates_helpers entered (state/bulk/tendency/correction direct = codon)'
+    call flush(iulog)
+  end if
+
+end subroutine wtrc_apply_rates_helpers_log_entered
 
 !=======================================================================
 subroutine wtrc_readnl(nlfile)
@@ -1654,9 +1709,10 @@ end subroutine wtrc_register
   use constituents,   only: cnst_name, pcnst
   use physconst,      only: cpair,gravit,rhoh2o
   use physics_buffer, only: physics_buffer_desc
+  use iso_c_binding,  only: c_double, c_int64_t, c_loc
 
-  type(physics_state), intent(in)    :: pstate                                      ! State of the atmosphere
-  type(physics_ptend), intent(inout) :: ptend_sum                                   ! State tendencies
+  type(physics_state), target, intent(in)    :: pstate                              ! State of the atmosphere
+  type(physics_ptend), target, intent(inout) :: ptend_sum                           ! State tendencies
   type(physics_buffer_desc), pointer :: pbuf(:)                                     ! physics buffer
   integer,  intent(in)               :: top_lev                                     ! Top vertical level
   real(r8), intent(in)               :: dtime                                       ! length of timestep (s)
@@ -1703,16 +1759,16 @@ end subroutine wtrc_register
   real(r8)           :: Rs                       !used for sedimenting qloc
   real(r8)           :: alpha                    !fractionation factor
   real(r8)           :: fr                       !used for Rayleigh fractionation
-  real(r8)           :: qloc(pcols,pver,pcnst)
-  real(r8)           :: qloc0(pcols,pver,pcnst)
-  real(r8)           :: tloc(pcols,pver)
+  real(r8), target   :: qloc(pcols,pver,pcnst)
+  real(r8), target   :: qloc0(pcols,pver,pcnst)
+  real(r8), target   :: tloc(pcols,pver)
 
-  real(r8)           :: rmass(pcols,wtrc_nwset)  !Vertically-integrated rain
-  real(r8)           :: smass(pcols,wtrc_nwset)  !Vertically-integrated snow
-  real(r8)           :: rmass0(pcols,wtrc_nwset) !copy of rain
-  real(r8)           :: smass0(pcols,wtrc_nwset) !copy of snow 
+  real(r8), target   :: rmass(pcols,wtrc_nwset)  !Vertically-integrated rain
+  real(r8), target   :: smass(pcols,wtrc_nwset)  !Vertically-integrated snow
+  real(r8), target   :: rmass0(pcols,wtrc_nwset) !copy of rain
+  real(r8), target   :: smass0(pcols,wtrc_nwset) !copy of snow
 
-  real(r8)           :: diff(pcols,pver,pwtype)  !Numerical precision fixer
+  real(r8), target   :: diff(pcols,pver,pwtype)  !Numerical precision fixer
   real(r8)           :: pdiff                    !precipitation numerical fixer
   real(r8)           :: dliqiso                  !change in liquid due to isotopic equilibration
   real(r8)           :: qtmp                     !temporary variables needed for isotopic equilibration
@@ -1726,6 +1782,63 @@ end subroutine wtrc_register
   real(r8)           :: difrm(pwtspec) !should be read from water_isotopes.F90
   real(r8)           :: radius         !raindrop radius in meters
   real(r8)           :: fequil         !fraction of rain that is equilibrated.
+  integer(c_int64_t), target :: wtrc_indices64(wtrc_ncnst)
+  integer(c_int64_t), target :: wtrc_bulk_indices64(pwtype)
+  integer(c_int64_t), target :: wtrc_iatype64(wtrc_nwset,pwtype)
+  integer(c_int64_t), target :: iwspec64(pcnst)
+  real(c_double), target :: rstd(pwtspec)
+
+  interface
+    subroutine wtrc_apply_rates_copy_state_codon(ncol_c, pcols_c, pver_c, pcnst_c, top_lev_c, &
+         pstate_q_p, pstate_t_p, qloc_p, qloc0_p, tloc_p) bind(c, name="wtrc_apply_rates_copy_state_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, top_lev_c
+      type(c_ptr), value :: pstate_q_p, pstate_t_p, qloc_p, qloc0_p, tloc_p
+    end subroutine wtrc_apply_rates_copy_state_codon
+    subroutine wtrc_apply_rates_zero_precip_codon(pcols_c, wtrc_nwset_c, rmass_p, smass_p, rmass0_p, smass0_p) &
+         bind(c, name="wtrc_apply_rates_zero_precip_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: pcols_c, wtrc_nwset_c
+      type(c_ptr), value :: rmass_p, smass_p, rmass0_p, smass0_p
+    end subroutine wtrc_apply_rates_zero_precip_codon
+    subroutine wtrc_apply_rates_copy_qloc0_codon(ncol_c, pcols_c, pver_c, pcnst_c, top_lev_c, qloc_p, qloc0_p) &
+         bind(c, name="wtrc_apply_rates_copy_qloc0_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, top_lev_c
+      type(c_ptr), value :: qloc_p, qloc0_p
+    end subroutine wtrc_apply_rates_copy_qloc0_codon
+    subroutine wtrc_apply_rates_bulk_update_codon(ncol_c, pcols_c, pver_c, pwtype_c, top_lev_c, dtime_c, &
+         bulk_indices_p, ptend_q_p, qloc_p) bind(c, name="wtrc_apply_rates_bulk_update_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pwtype_c, top_lev_c
+      real(c_double), value :: dtime_c
+      type(c_ptr), value :: bulk_indices_p, ptend_q_p, qloc_p
+    end subroutine wtrc_apply_rates_bulk_update_codon
+    subroutine wtrc_apply_rates_net_tend_codon(ncol_c, pcols_c, pver_c, pcnst_c, pwtype_c, wtrc_ncnst_c, &
+         top_lev_c, dtime_c, wtrc_indices_p, bulk_indices_p, pstate_q_p, ptend_q_p, qloc_p, diff_p) &
+         bind(c, name="wtrc_apply_rates_net_tend_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, pwtype_c, wtrc_ncnst_c, top_lev_c
+      real(c_double), value :: dtime_c
+      type(c_ptr), value :: wtrc_indices_p, bulk_indices_p, pstate_q_p, ptend_q_p, qloc_p, diff_p
+    end subroutine wtrc_apply_rates_net_tend_codon
+    subroutine wtrc_apply_rates_first_correction_codon(ncol_c, pcols_c, pver_c, pwtype_c, wtrc_nwset_c, &
+         top_lev_c, qmin_c, wtrc_iatype_p, bulk_indices_p, iwspec_p, rstd_p, ptend_q_p, diff_p) &
+         bind(c, name="wtrc_apply_rates_first_correction_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pwtype_c, wtrc_nwset_c, top_lev_c
+      real(c_double), value :: qmin_c
+      type(c_ptr), value :: wtrc_iatype_p, bulk_indices_p, iwspec_p, rstd_p, ptend_q_p, diff_p
+    end subroutine wtrc_apply_rates_first_correction_codon
+    subroutine wtrc_apply_rates_second_correction_codon(ncol_c, pcols_c, pver_c, pwtype_c, wtrc_nwset_c, &
+         top_lev_c, qmin_c, wtrc_iatype_p, bulk_indices_p, iwspec_p, rstd_p, ptend_q_p, diff_p) &
+         bind(c, name="wtrc_apply_rates_second_correction_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pwtype_c, wtrc_nwset_c, top_lev_c
+      real(c_double), value :: qmin_c
+      type(c_ptr), value :: wtrc_iatype_p, bulk_indices_p, iwspec_p, rstd_p, ptend_q_p, diff_p
+    end subroutine wtrc_apply_rates_second_correction_codon
+  end interface
  
 
 !-----------------------------------------------------------------------
@@ -1740,21 +1853,35 @@ end subroutine wtrc_register
     end if
     
     ncol = pstate%ncol
+    call wtrc_apply_rates_helpers_select_impl()
 
     !Copy initial state:
-    qloc(:ncol,top_lev:,:)  = pstate%q(:ncol,top_lev:,:)
-    qloc0(:ncol,top_lev:,:) = qloc(:ncol,top_lev:,:)
-    tloc(:ncol,top_lev:)    = pstate%t(:ncol,top_lev:)
+    if (.not. use_native_wtrc_apply_rates_helpers_impl) then
+      call wtrc_apply_rates_helpers_log_entered()
+      call wtrc_apply_rates_copy_state_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(pcnst, c_int64_t), int(top_lev, c_int64_t), &
+           c_loc(pstate%q), c_loc(pstate%t), c_loc(qloc), c_loc(qloc0), c_loc(tloc))
+    else
+      qloc(:ncol,top_lev:,:)  = pstate%q(:ncol,top_lev:,:)
+      qloc0(:ncol,top_lev:,:) = qloc(:ncol,top_lev:,:)
+      tloc(:ncol,top_lev:)    = pstate%t(:ncol,top_lev:)
+    end if
 
    !Clear out the stratiform precipitation.
     if (ldo_stprecip) then
       call wtrc_clear_precip(pstate, pbuf, iwtstrain)
       call wtrc_clear_precip(pstate, pbuf, iwtstsnow)
      !Initialize precipitation integrals:
-      rmass(:,:)  = 0._r8 
-      smass(:,:)  = 0._r8
-      rmass0(:,:) = 0._r8
-      smass0(:,:) = 0._r8
+      if (.not. use_native_wtrc_apply_rates_helpers_impl) then
+        call wtrc_apply_rates_helpers_log_entered()
+        call wtrc_apply_rates_zero_precip_codon(int(pcols, c_int64_t), int(wtrc_nwset, c_int64_t), &
+             c_loc(rmass), c_loc(smass), c_loc(rmass0), c_loc(smass0))
+      else
+        rmass(:,:)  = 0._r8
+        smass(:,:)  = 0._r8
+        rmass0(:,:) = 0._r8
+        smass0(:,:) = 0._r8
+      end if
     end if
     
     ! Check to see if the total water mass in the bulk fields matches the
@@ -2092,7 +2219,13 @@ end subroutine wtrc_register
        call wtrc_sediment(wtrc_niter,ncol,pstate%lchnk,top_lev,dtime,fc,fi,liqcldf,icecldf,pstate%pdel,pbuf,tloc,qloc)
      end if
   
-     qloc0(:ncol,top_lev:,:) = qloc(:ncol,top_lev:,:) !reset control quantity
+     if (.not. use_native_wtrc_apply_rates_helpers_impl) then
+       call wtrc_apply_rates_helpers_log_entered()
+       call wtrc_apply_rates_copy_qloc0_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+            int(pver, c_int64_t), int(pcnst, c_int64_t), int(top_lev, c_int64_t), c_loc(qloc), c_loc(qloc0))
+     else
+       qloc0(:ncol,top_lev:,:) = qloc(:ncol,top_lev:,:) !reset control quantity
+     end if
 
      !****************************
      !Post-Sedimentation Processes
@@ -2230,12 +2363,22 @@ end subroutine wtrc_register
 !        call wtrc_adjust_h2o("WTRC_APPLY_RATES(" // trim(ptend_sum%name) // ")", iwset, ncol, top_lev, qloc, qmin=0._r8) 
 !      end do
   
-      do idsttype = 1, pwtype
-        qloc(:ncol, top_lev:, wtrc_bulk_indices(idsttype)) = qloc(:ncol, top_lev:, wtrc_bulk_indices(idsttype)) + &
-          ptend_sum%q(:ncol, top_lev:, wtrc_bulk_indices(idsttype)) * dtime 
-          
+      if (.not. use_native_wtrc_apply_rates_helpers_impl) then
+        do idsttype = 1, pwtype
+          wtrc_bulk_indices64(idsttype) = int(wtrc_bulk_indices(idsttype), c_int64_t)
+        end do
+        call wtrc_apply_rates_helpers_log_entered()
+        call wtrc_apply_rates_bulk_update_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+             int(pver, c_int64_t), int(pwtype, c_int64_t), int(top_lev, c_int64_t), real(dtime, c_double), &
+             c_loc(wtrc_bulk_indices64), c_loc(ptend_sum%q), c_loc(qloc))
+      else
+        do idsttype = 1, pwtype
+          qloc(:ncol, top_lev:, wtrc_bulk_indices(idsttype)) = qloc(:ncol, top_lev:, wtrc_bulk_indices(idsttype)) + &
+            ptend_sum%q(:ncol, top_lev:, wtrc_bulk_indices(idsttype)) * dtime
+
 !        call wtrc_adjust_h2o_bulk("WTRC_APPLY_RATES(" // trim(ptend_sum%name) // ")", ncol, top_lev, qloc) 
-      end do
+        end do
+      end if
 
     ! Now that we have the final state, apply q limits like those used by the
     ! MG microphysics.
@@ -2273,24 +2416,39 @@ end subroutine wtrc_register
     end if
 
     !Calculate net tendencies:
-    diff(:,:,:) = 0._r8 !set initial difference to zero!
-    do i=1,ncol
-      do k=top_lev,pver
-        do icnst = 1, wtrc_ncnst
-         
-          !Allow for tendency to change state:
-!          ptend_sum%lq(wtrc_indices(icnst)) = .true. 
+    if (.not. use_native_wtrc_apply_rates_helpers_impl) then
+      do icnst = 1, wtrc_ncnst
+        wtrc_indices64(icnst) = int(wtrc_indices(icnst), c_int64_t)
+      end do
+      do icnst = 1, pwtype
+        wtrc_bulk_indices64(icnst) = int(wtrc_bulk_indices(icnst), c_int64_t)
+      end do
+      call wtrc_apply_rates_helpers_log_entered()
+      call wtrc_apply_rates_net_tend_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(pcnst, c_int64_t), int(pwtype, c_int64_t), &
+           int(wtrc_ncnst, c_int64_t), int(top_lev, c_int64_t), real(dtime, c_double), &
+           c_loc(wtrc_indices64), c_loc(wtrc_bulk_indices64), c_loc(pstate%q), &
+           c_loc(ptend_sum%q), c_loc(qloc), c_loc(diff))
+    else
+      diff(:,:,:) = 0._r8 !set initial difference to zero!
+      do i=1,ncol
+        do k=top_lev,pver
+          do icnst = 1, wtrc_ncnst
 
-          !Calculate state:
-          ptend_sum%q(i,k,wtrc_indices(icnst)) = (qloc(i,k,wtrc_indices(icnst)) - pstate%q(i,k,wtrc_indices(icnst))) / dtime
- 
-          if(icnst .le. pwtype) then !H2O only
-            diff(i,k,icnst) = ptend_sum%q(i,k,wtrc_indices(icnst))-(ptend_sum%q(i,k,wtrc_bulk_indices(icnst)))
-          end if
+            !Allow for tendency to change state:
+!            ptend_sum%lq(wtrc_indices(icnst)) = .true.
 
+            !Calculate state:
+            ptend_sum%q(i,k,wtrc_indices(icnst)) = (qloc(i,k,wtrc_indices(icnst)) - pstate%q(i,k,wtrc_indices(icnst))) / dtime
+
+            if(icnst .le. pwtype) then !H2O only
+              diff(i,k,icnst) = ptend_sum%q(i,k,wtrc_indices(icnst))-(ptend_sum%q(i,k,wtrc_bulk_indices(icnst)))
+            end if
+
+          end do
         end do
       end do
-    end do
+    end if
 
 !---------------------------------
 !Numerical corrections:
@@ -2309,46 +2467,71 @@ end subroutine wtrc_register
   end if
 
 !Apply correction and divide by time:
-  do i=1,ncol
-    do k=top_lev,pver
-      do icnst = 1,pwtype  !only loop over bulk_water!
-        do m = 1,wtrc_nwset    !loop over water species
+  if (.not. use_native_wtrc_apply_rates_helpers_impl) then
+    do m = 1, wtrc_nwset
+      wtrc_iatype64(m,:) = int(wtrc_iatype(m,:), c_int64_t)
+    end do
+    do ispec = 1, pcnst
+      iwspec64(ispec) = int(iwspec(ispec), c_int64_t)
+    end do
+    do ispec = 1, pwtspec
+      rstd(ispec) = real(wtrc_get_rstd(ispec), c_double)
+    end do
+    call wtrc_apply_rates_helpers_log_entered()
+    call wtrc_apply_rates_first_correction_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+         int(pver, c_int64_t), int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), &
+         int(top_lev, c_int64_t), real(wtrc_qmin, c_double), c_loc(wtrc_iatype64), &
+         c_loc(wtrc_bulk_indices64), c_loc(iwspec64), c_loc(rstd), c_loc(ptend_sum%q), c_loc(diff))
+  else
+    do i=1,ncol
+      do k=top_lev,pver
+        do icnst = 1,pwtype  !only loop over bulk_water!
+          do m = 1,wtrc_nwset    !loop over water species
 
-          if(m .eq. 1) then !is it the standard water tracer?
-            qtmp = ptend_sum%q(i,k,wtrc_iatype(m,icnst))
-          end if  
+            if(m .eq. 1) then !is it the standard water tracer?
+              qtmp = ptend_sum%q(i,k,wtrc_iatype(m,icnst))
+            end if
 
-          !calculate water tracer ratio:
-          R = wtrc_ratio(iwspec(wtrc_iatype(m,icnst)),ptend_sum%q(i,k,wtrc_iatype(m,icnst)),qtmp)
+            !calculate water tracer ratio:
+            R = wtrc_ratio(iwspec(wtrc_iatype(m,icnst)),ptend_sum%q(i,k,wtrc_iatype(m,icnst)),qtmp)
 
-          ptend_sum%q(i,k,wtrc_iatype(m,icnst)) = ptend_sum%q(i,k,wtrc_iatype(m,icnst))-R*diff(i,k,icnst) 
+            ptend_sum%q(i,k,wtrc_iatype(m,icnst)) = ptend_sum%q(i,k,wtrc_iatype(m,icnst))-R*diff(i,k,icnst)
 
+          end do
         end do
       end do
     end do
-  end do
+  end if
  
 !Apply correction again (I don't know why this is needed, but for some reason it is, as apparently the fix above produces
 !another numerical error for cloud liquid - JN)
-  do i=1,ncol
-    do k=top_lev,pver
-      do icnst = 1,pwtype  !only loop over bulk_water!
-        do m = 1,wtrc_nwset    !loop over water species
+  if (.not. use_native_wtrc_apply_rates_helpers_impl) then
+    call wtrc_apply_rates_helpers_log_entered()
+    call wtrc_apply_rates_second_correction_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+         int(pver, c_int64_t), int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), &
+         int(top_lev, c_int64_t), real(wtrc_qmin, c_double), c_loc(wtrc_iatype64), &
+         c_loc(wtrc_bulk_indices64), c_loc(iwspec64), c_loc(rstd), c_loc(ptend_sum%q), c_loc(diff))
+  else
+    do i=1,ncol
+      do k=top_lev,pver
+        do icnst = 1,pwtype  !only loop over bulk_water!
+          do m = 1,wtrc_nwset    !loop over water species
 
-          if(m .eq. 1) then !Only do for H2O
-            diff(i,k,icnst) = ptend_sum%q(i,k,wtrc_iatype(m,icnst))-ptend_sum%q(i,k,wtrc_bulk_indices(icnst))
-            qtmp = ptend_sum%q(i,k,wtrc_iatype(m,icnst))
-          end if
+            if(m .eq. 1) then !Only do for H2O
+              diff(i,k,icnst) = ptend_sum%q(i,k,wtrc_iatype(m,icnst))-ptend_sum%q(i,k,wtrc_bulk_indices(icnst))
+              qtmp = ptend_sum%q(i,k,wtrc_iatype(m,icnst))
+            end if
 
-          !calculate water tracer ratio:
-          R = wtrc_ratio(iwspec(wtrc_iatype(m,icnst)), ptend_sum%q(i,k,wtrc_iatype(m,icnst)),qtmp)
+            !calculate water tracer ratio:
+            R = wtrc_ratio(iwspec(wtrc_iatype(m,icnst)), ptend_sum%q(i,k,wtrc_iatype(m,icnst)),qtmp)
 
-          ptend_sum%q(i,k,wtrc_iatype(m,icnst)) = ptend_sum%q(i,k,wtrc_iatype(m,icnst))-R*diff(i,k,icnst)
+            ptend_sum%q(i,k,wtrc_iatype(m,icnst)) = ptend_sum%q(i,k,wtrc_iatype(m,icnst))-R*diff(i,k,icnst)
 
+          end do
         end do
       end do
     end do
-  end do
+  end if
 
   !verify again that the error isn't hiding an actual error:
   if(sum(abs(ptend_sum%q(:ncol,top_lev:,wtrc_indices(1:pwtype)))) .ne. 0._r8) then
