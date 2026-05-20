@@ -166,6 +166,15 @@ interface
       type(c_ptr), value :: qqcw_fld_p, raercol_cw_p
    end subroutine ndrop_dropmixnuc_aero_tend_commit_qqcw_codon
 
+   subroutine ndrop_dropmixnuc_aero_coltend_codon(i_c, pcols_c, pver_c, mm_c, gravit_c, &
+        pdel_p, raertend_p, qqcwtend_p, coltend_out_p, coltend_cw_out_p) &
+        bind(c, name="ndrop_dropmixnuc_aero_coltend_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: i_c, pcols_c, pver_c, mm_c
+      real(c_double), value :: gravit_c
+      type(c_ptr), value :: pdel_p, raertend_p, qqcwtend_p, coltend_out_p, coltend_cw_out_p
+   end subroutine ndrop_dropmixnuc_aero_coltend_codon
+
    subroutine ndrop_dropmixnuc_finalize_column_codon(i_c, pcols_c, pver_c, top_lev_c, dtinv_c, &
         gravit_c, qcld_p, ncldwtr_p, pdel_p, nsource_p, ndropmix_p, tendnd_p, ndropcol_p) &
         bind(c, name="ndrop_dropmixnuc_finalize_column_codon")
@@ -365,7 +374,7 @@ subroutine ndrop_dropmixnuc_helpers_proof_once()
 
    if (masterproc) then
       write(iulog,'(A)') 'ndrop_dropmixnuc_helpers entered (array setup/grow-shrink/oldcloud/mix/' // &
-           'source/aero tend/qqcw commit/clear/finalize direct = codon)'
+           'source/aero tend/coltend/qqcw commit/clear/finalize direct = codon)'
    end if
 
 end subroutine ndrop_dropmixnuc_helpers_proof_once
@@ -770,6 +779,7 @@ subroutine dropmixnuc( &
    real(r8), target :: ndropmix(pcols,pver)   ! droplet number mixing (#/kg/s)
    real(r8), target :: ndropcol(pcols)        ! column droplet number (#/m2)
    real(r8) :: cldo_tmp, cldn_tmp
+   real(r8), target :: coltend_tmp, coltend_cw_tmp
    real(r8) :: tau_cld_regenerate
    real(r8) :: taumix_internal_pver_inv ! 1/(internal mixing time scale for k=pver) (1/s)
 
@@ -1573,8 +1583,18 @@ subroutine dropmixnuc( &
                        c_loc(raertend(1)), c_loc(qqcwtend(1)))
                end if
 
-               coltend(i,mm)    = sum( pdel(i,:)*raertend )/gravit
-               coltend_cw(i,mm) = sum( pdel(i,:)*qqcwtend )/gravit
+               if (use_native_ndrop_dropmixnuc_helpers_impl) then
+                  coltend(i,mm)    = sum( pdel(i,:)*raertend )/gravit
+                  coltend_cw(i,mm) = sum( pdel(i,:)*qqcwtend )/gravit
+               else
+                  call ndrop_dropmixnuc_helpers_proof_once()
+                  call ndrop_dropmixnuc_aero_coltend_codon(int(i, c_int64_t), int(pcols, c_int64_t), &
+                       int(pver, c_int64_t), int(mm, c_int64_t), gravit, c_loc(pdel(1,1)), &
+                       c_loc(raertend(1)), c_loc(qqcwtend(1)), c_loc(coltend_tmp), &
+                       c_loc(coltend_cw_tmp))
+                  coltend(i,mm)    = coltend_tmp
+                  coltend_cw(i,mm) = coltend_cw_tmp
+               end if
 
                ptend%q(i,:,lptr) = 0.0_r8
                ptend%q(i,top_lev:pver,lptr) = raertend(top_lev:pver)           ! set tendencies for interstitial aerosol
