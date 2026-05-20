@@ -92,6 +92,9 @@ logical :: lq(pcnst) = .false. ! set flags true for constituents with non-zero t
 logical :: use_native_ndrop_init_props_impl = .false.
 logical :: ndrop_init_props_impl_selected = .false.
 logical :: ndrop_init_props_proof_written = .false.
+logical :: use_native_ndrop_dropmixnuc_helpers_impl = .false.
+logical :: ndrop_dropmixnuc_helpers_impl_selected = .false.
+logical :: ndrop_dropmixnuc_helpers_proof_written = .false.
 
 interface
    subroutine ndrop_mode_props_finalize_codon(nmode_c, pi_c, sigmag_p, dgnumlo_p, dgnumhi_p, &
@@ -103,6 +106,46 @@ interface
       type(c_ptr), value :: sigmag_p, dgnumlo_p, dgnumhi_p
       type(c_ptr), value :: alogsig_p, exp45logsig_p, f1_p, f2_p, voltonumblo_p, voltonumbhi_p
    end subroutine ndrop_mode_props_finalize_codon
+
+   subroutine ndrop_dropmixnuc_zero_fields_codon(pcols_c, pver_c, ntot_amode_c, factnum_p, wtke_p) &
+        bind(c, name="ndrop_dropmixnuc_zero_fields_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: pcols_c, pver_c, ntot_amode_c
+      type(c_ptr), value :: factnum_p, wtke_p
+   end subroutine ndrop_dropmixnuc_zero_fields_codon
+
+   subroutine ndrop_dropmixnuc_column_init_codon(i_c, pcols_c, pver_c, top_lev_c, ntot_amode_c, &
+        gravit_c, rair_c, zkmin_c, zkmax_c, wmixmin_c, ncldwtr_p, temp_p, pmid_p, pint_p, rpdel_p, &
+        zm_p, kvh_p, wsub_p, qcld_p, qncld_p, srcn_p, cs_p, dz_p, nact_p, mact_p, zn_p, ekd_p, &
+        csbot_p, csbot_cscen_p, wtke_cen_p, wtke_p, nsource_p, zs_p) &
+        bind(c, name="ndrop_dropmixnuc_column_init_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: i_c, pcols_c, pver_c, top_lev_c, ntot_amode_c
+      real(c_double), value :: gravit_c, rair_c, zkmin_c, zkmax_c, wmixmin_c
+      type(c_ptr), value :: ncldwtr_p, temp_p, pmid_p, pint_p, rpdel_p, zm_p, kvh_p, wsub_p
+      type(c_ptr), value :: qcld_p, qncld_p, srcn_p, cs_p, dz_p, nact_p, mact_p, zn_p, ekd_p
+      type(c_ptr), value :: csbot_p, csbot_cscen_p, wtke_cen_p, wtke_p, nsource_p, zs_p
+   end subroutine ndrop_dropmixnuc_column_init_codon
+
+   subroutine ndrop_dropmixnuc_mix_setup_codon(i_c, pcols_c, pver_c, top_lev_c, ntot_amode_c, &
+        dtmicro_c, taumix_internal_pver_inv_c, cldn_p, zs_p, zn_p, csbot_p, ekd_p, nact_p, mact_p, &
+        ekk0_p, ekkp_p, ekkm_p, overlapp_p, overlapm_p, count_submix_p, nsubmix_p, dtmix_p) &
+        bind(c, name="ndrop_dropmixnuc_mix_setup_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: i_c, pcols_c, pver_c, top_lev_c, ntot_amode_c
+      real(c_double), value :: dtmicro_c, taumix_internal_pver_inv_c
+      type(c_ptr), value :: cldn_p, zs_p, zn_p, csbot_p, ekd_p, nact_p, mact_p, ekk0_p, ekkp_p
+      type(c_ptr), value :: ekkm_p, overlapp_p, overlapm_p, count_submix_p, nsubmix_p, dtmix_p
+   end subroutine ndrop_dropmixnuc_mix_setup_codon
+
+   subroutine ndrop_dropmixnuc_finalize_column_codon(i_c, pcols_c, pver_c, top_lev_c, dtinv_c, &
+        gravit_c, qcld_p, ncldwtr_p, pdel_p, nsource_p, ndropmix_p, tendnd_p, ndropcol_p) &
+        bind(c, name="ndrop_dropmixnuc_finalize_column_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: i_c, pcols_c, pver_c, top_lev_c
+      real(c_double), value :: dtinv_c, gravit_c
+      type(c_ptr), value :: qcld_p, ncldwtr_p, pdel_p, nsource_p, ndropmix_p, tendnd_p, ndropcol_p
+   end subroutine ndrop_dropmixnuc_finalize_column_codon
 end interface
 
 !===============================================================================
@@ -155,6 +198,55 @@ subroutine ndrop_init_props_proof_once()
    end if
 
 end subroutine ndrop_init_props_proof_once
+
+!===============================================================================
+
+subroutine ndrop_dropmixnuc_helpers_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (ndrop_dropmixnuc_helpers_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('NDROP_DROPMIXNUC_HELPERS_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_ndrop_dropmixnuc_helpers_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_ndrop_dropmixnuc_helpers_impl = .false.
+   end if
+
+   ndrop_dropmixnuc_helpers_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_ndrop_dropmixnuc_helpers_impl) then
+         write(iulog,*) 'ndrop_dropmixnuc_helpers implementation = native'
+      else
+         write(iulog,*) 'ndrop_dropmixnuc_helpers implementation = codon'
+      end if
+   end if
+
+end subroutine ndrop_dropmixnuc_helpers_select_impl
+
+!===============================================================================
+
+subroutine ndrop_dropmixnuc_helpers_proof_once()
+
+   if (ndrop_dropmixnuc_helpers_proof_written) return
+   ndrop_dropmixnuc_helpers_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'ndrop_dropmixnuc_helpers entered (array setup/mix/finalize direct = codon)'
+   end if
+
+end subroutine ndrop_dropmixnuc_helpers_proof_once
 
 !===============================================================================
 
@@ -418,6 +510,8 @@ subroutine dropmixnuc( &
    ! assume cloud presence controlled by cloud fraction
    ! doesn't distinguish between warm, cold clouds
 
+   use iso_c_binding, only: c_int64_t, c_loc
+
    ! arguments
    type(physics_state), target, intent(in)    :: state
    type(physics_ptend),         intent(out)   :: ptend
@@ -426,13 +520,13 @@ subroutine dropmixnuc( &
    type(physics_buffer_desc), pointer :: pbuf(:)
 
    ! arguments
-   real(r8), intent(in) :: wsub(pcols,pver)    ! subgrid vertical velocity
-   real(r8), intent(in) :: cldn(pcols,pver)    ! cloud fraction
+   real(r8), target, intent(in) :: wsub(pcols,pver) ! subgrid vertical velocity
+   real(r8), target, intent(in) :: cldn(pcols,pver) ! cloud fraction
    real(r8), intent(in) :: cldo(pcols,pver)    ! cloud fraction on previous time step
 
    ! output arguments
-   real(r8), intent(out) :: tendnd(pcols,pver) ! change in droplet number concentration (#/kg/s)
-   real(r8), intent(out) :: factnum(:,:,:)     ! activation fraction for aerosol number
+   real(r8), target, intent(out) :: tendnd(pcols,pver) ! change in droplet number concentration (#/kg/s)
+   real(r8), target, intent(out) :: factnum(:,:,:)     ! activation fraction for aerosol number
    !--------------------Local storage-------------------------------------
 
    integer  :: lchnk               ! chunk identifier
@@ -463,54 +557,54 @@ subroutine dropmixnuc( &
    integer  :: km1, kp1
    integer  :: nnew, nsav, ntemp
    integer  :: lptr
-   integer  :: nsubmix, nsubmix_bnd
-   integer, save :: count_submix(100)
+   integer, target :: nsubmix, nsubmix_bnd
+   integer, save, target :: count_submix(100)
    integer  :: phase ! phase of aerosol
 
    real(r8) :: arg
    real(r8) :: dtinv
    real(r8) :: dtmin, tinv, dtt
 
-   real(r8) :: zs(pver) ! inverse of distance between levels (m)
-   real(r8) :: qcld(pver) ! cloud droplet number mixing ratio (#/kg)
-   real(r8) :: qncld(pver)     ! droplet number nucleated on cloud boundaries
-   real(r8) :: srcn(pver)       ! droplet source rate (/s)
-   real(r8) :: cs(pcols,pver)      ! air density (kg/m3)
-   real(r8) :: csbot(pver)       ! air density at bottom (interface) of layer (kg/m3)
-   real(r8) :: csbot_cscen(pver) ! csbot(i)/cs(i,k)
-   real(r8) :: dz(pcols,pver)      ! geometric thickness of layers (m)
+   real(r8), target :: zs(pver) ! inverse of distance between levels (m)
+   real(r8), target :: qcld(pver) ! cloud droplet number mixing ratio (#/kg)
+   real(r8), target :: qncld(pver)     ! droplet number nucleated on cloud boundaries
+   real(r8), target :: srcn(pver)       ! droplet source rate (/s)
+   real(r8), target :: cs(pcols,pver)      ! air density (kg/m3)
+   real(r8), target :: csbot(pver)       ! air density at bottom (interface) of layer (kg/m3)
+   real(r8), target :: csbot_cscen(pver) ! csbot(i)/cs(i,k)
+   real(r8), target :: dz(pcols,pver)      ! geometric thickness of layers (m)
 
-   real(r8) :: wtke(pcols,pver)     ! turbulent vertical velocity at base of layer k (m/s)
-   real(r8) :: wtke_cen(pcols,pver) ! turbulent vertical velocity at center of layer k (m/s)
+   real(r8), target :: wtke(pcols,pver)     ! turbulent vertical velocity at base of layer k (m/s)
+   real(r8), target :: wtke_cen(pcols,pver) ! turbulent vertical velocity at center of layer k (m/s)
    real(r8) :: wbar, wmix, wmin, wmax
 
-   real(r8) :: zn(pver)   ! g/pdel (m2/g) for layer
+   real(r8), target :: zn(pver)   ! g/pdel (m2/g) for layer
    real(r8) :: flxconv    ! convergence of flux into lowest layer
 
    real(r8) :: wdiab           ! diabatic vertical velocity
-   real(r8) :: ekd(pver)       ! diffusivity for droplets (m2/s)
-   real(r8) :: ekk(0:pver)     ! density*diffusivity for droplets (kg/m3 m2/s)
-   real(r8) :: ekkp(pver)      ! zn*zs*density*diffusivity
-   real(r8) :: ekkm(pver)      ! zn*zs*density*diffusivity
+   real(r8), target :: ekd(pver)       ! diffusivity for droplets (m2/s)
+   real(r8), target :: ekk(0:pver)     ! density*diffusivity for droplets (kg/m3 m2/s)
+   real(r8), target :: ekkp(pver)      ! zn*zs*density*diffusivity
+   real(r8), target :: ekkm(pver)      ! zn*zs*density*diffusivity
 
    real(r8) :: dum, dumc
    real(r8) :: tmpa
    real(r8) :: dact
    real(r8) :: fluxntot         ! (#/cm2/s)
-   real(r8) :: dtmix
+   real(r8), target :: dtmix
    real(r8) :: alogarg
-   real(r8) :: overlapp(pver), overlapm(pver) ! cloud overlap
+   real(r8), target :: overlapp(pver), overlapm(pver) ! cloud overlap
 
-   real(r8) :: nsource(pcols,pver)            ! droplet number source (#/kg/s)
-   real(r8) :: ndropmix(pcols,pver)           ! droplet number mixing (#/kg/s)
-   real(r8) :: ndropcol(pcols)               ! column droplet number (#/m2)
+   real(r8), target :: nsource(pcols,pver)    ! droplet number source (#/kg/s)
+   real(r8), target :: ndropmix(pcols,pver)   ! droplet number mixing (#/kg/s)
+   real(r8), target :: ndropcol(pcols)        ! column droplet number (#/m2)
    real(r8) :: cldo_tmp, cldn_tmp
    real(r8) :: tau_cld_regenerate
    real(r8) :: taumix_internal_pver_inv ! 1/(internal mixing time scale for k=pver) (1/s)
 
 
-   real(r8), allocatable :: nact(:,:)  ! fractional aero. number  activation rate (/s)
-   real(r8), allocatable :: mact(:,:)  ! fractional aero. mass    activation rate (/s)
+   real(r8), allocatable, target :: nact(:,:) ! fractional aero. number  activation rate (/s)
+   real(r8), allocatable, target :: mact(:,:) ! fractional aero. mass    activation rate (/s)
 
    real(r8), allocatable :: raercol(:,:,:)    ! single column of aerosol mass, number mixing ratios
    real(r8), allocatable :: raercol_cw(:,:,:) ! same as raercol but for cloud-borne phase
@@ -602,8 +696,15 @@ subroutine dropmixnuc( &
       end do
    end do
 
-   factnum = 0._r8
-   wtke    = 0._r8
+   call ndrop_dropmixnuc_helpers_select_impl()
+   if (use_native_ndrop_dropmixnuc_helpers_impl) then
+      factnum = 0._r8
+      wtke    = 0._r8
+   else
+      call ndrop_dropmixnuc_helpers_proof_once()
+      call ndrop_dropmixnuc_zero_fields_codon(int(pcols, c_int64_t), int(pver, c_int64_t), &
+           int(ntot_amode, c_int64_t), c_loc(factnum(1,1,1)), c_loc(wtke(1,1)))
+   end if
 
    if (prog_modal_aero) then
       ! aerosol tendencies
@@ -616,52 +717,65 @@ subroutine dropmixnuc( &
    ! overall_main_i_loop
    do i = 1, ncol
 
-      do k = top_lev, pver-1
-         zs(k) = 1._r8/(zm(i,k) - zm(i,k+1))
-      end do
-      zs(pver) = zs(pver-1)
-
-      ! load number nucleated into qcld on cloud boundaries
-
-      do k = top_lev, pver
-
-         qcld(k)  = ncldwtr(i,k)
-         qncld(k) = 0._r8
-         srcn(k)  = 0._r8
-         cs(i,k)  = pmid(i,k)/(rair*temp(i,k))        ! air density (kg/m3)
-         dz(i,k)  = 1._r8/(cs(i,k)*gravit*rpdel(i,k)) ! layer thickness in m
-
-         do m = 1, ntot_amode
-            nact(k,m) = 0._r8
-            mact(k,m) = 0._r8
+      if (use_native_ndrop_dropmixnuc_helpers_impl) then
+         do k = top_lev, pver-1
+            zs(k) = 1._r8/(zm(i,k) - zm(i,k+1))
          end do
+         zs(pver) = zs(pver-1)
 
-         zn(k) = gravit*rpdel(i,k)
+         ! load number nucleated into qcld on cloud boundaries
 
-         if (k < pver) then
-            ekd(k)   = kvh(i,k+1)
-            ekd(k)   = max(ekd(k), zkmin)
-            ekd(k)   = min(ekd(k), zkmax)
-            csbot(k) = 2.0_r8*pint(i,k+1)/(rair*(temp(i,k) + temp(i,k+1)))
-            csbot_cscen(k) = csbot(k)/cs(i,k)
-         else
-            ekd(k)   = 0._r8
-            csbot(k) = cs(i,k)
-            csbot_cscen(k) = 1.0_r8
-         end if
+         do k = top_lev, pver
 
-         ! rce-comment - define wtke at layer centers for new-cloud activation
-         !    and at layer boundaries for old-cloud activation
-         !++ag
-         wtke_cen(i,k) = wsub(i,k)
-         wtke(i,k)     = wsub(i,k)
-         !--ag
-         wtke_cen(i,k) = max(wtke_cen(i,k), wmixmin)
-         wtke(i,k)     = max(wtke(i,k), wmixmin)
+            qcld(k)  = ncldwtr(i,k)
+            qncld(k) = 0._r8
+            srcn(k)  = 0._r8
+            cs(i,k)  = pmid(i,k)/(rair*temp(i,k))        ! air density (kg/m3)
+            dz(i,k)  = 1._r8/(cs(i,k)*gravit*rpdel(i,k)) ! layer thickness in m
 
-         nsource(i,k) = 0._r8
+            do m = 1, ntot_amode
+               nact(k,m) = 0._r8
+               mact(k,m) = 0._r8
+            end do
 
-      end do
+            zn(k) = gravit*rpdel(i,k)
+
+            if (k < pver) then
+               ekd(k)   = kvh(i,k+1)
+               ekd(k)   = max(ekd(k), zkmin)
+               ekd(k)   = min(ekd(k), zkmax)
+               csbot(k) = 2.0_r8*pint(i,k+1)/(rair*(temp(i,k) + temp(i,k+1)))
+               csbot_cscen(k) = csbot(k)/cs(i,k)
+            else
+               ekd(k)   = 0._r8
+               csbot(k) = cs(i,k)
+               csbot_cscen(k) = 1.0_r8
+            end if
+
+            ! rce-comment - define wtke at layer centers for new-cloud activation
+            !    and at layer boundaries for old-cloud activation
+            !++ag
+            wtke_cen(i,k) = wsub(i,k)
+            wtke(i,k)     = wsub(i,k)
+            !--ag
+            wtke_cen(i,k) = max(wtke_cen(i,k), wmixmin)
+            wtke(i,k)     = max(wtke(i,k), wmixmin)
+
+            nsource(i,k) = 0._r8
+
+         end do
+      else
+         call ndrop_dropmixnuc_helpers_proof_once()
+         call ndrop_dropmixnuc_column_init_codon(int(i, c_int64_t), int(pcols, c_int64_t), &
+              int(pver, c_int64_t), int(top_lev, c_int64_t), int(ntot_amode, c_int64_t), &
+              gravit, rair, zkmin, zkmax, wmixmin, c_loc(ncldwtr(1,1)), c_loc(temp(1,1)), &
+              c_loc(pmid(1,1)), c_loc(pint(1,1)), c_loc(rpdel(1,1)), c_loc(zm(1,1)), &
+              c_loc(kvh(1,1)), c_loc(wsub(1,1)), c_loc(qcld(1)), c_loc(qncld(1)), &
+              c_loc(srcn(1)), c_loc(cs(1,1)), c_loc(dz(1,1)), c_loc(nact(1,1)), &
+              c_loc(mact(1,1)), c_loc(zn(1)), c_loc(ekd(1)), c_loc(csbot(1)), &
+              c_loc(csbot_cscen(1)), c_loc(wtke_cen(1,1)), c_loc(wtke(1,1)), &
+              c_loc(nsource(1,1)), c_loc(zs(1)))
+      end if
 
       nsav = 1
       nnew = 2
@@ -944,80 +1058,90 @@ subroutine dropmixnuc( &
 
       ! load new droplets in layers above, below clouds
 
-      dtmin     = dtmicro
-      ekk(top_lev-1)    = 0.0_r8
-      ekk(pver) = 0.0_r8
-      do k = top_lev, pver-1
-         ! rce-comment -- ekd(k) is eddy-diffusivity at k/k+1 interface
-         !   want ekk(k) = ekd(k) * (density at k/k+1 interface)
-         !   so use pint(i,k+1) as pint is 1:pverp 
-         !           ekk(k)=ekd(k)*2.*pint(i,k)/(rair*(temp(i,k)+temp(i,k+1)))
-         !           ekk(k)=ekd(k)*2.*pint(i,k+1)/(rair*(temp(i,k)+temp(i,k+1)))
-         ekk(k) = ekd(k)*csbot(k)
-      end do
-
-      do k = top_lev, pver
-         km1     = max0(k-1, top_lev)
-         ekkp(k) = zn(k)*ekk(k)*zs(k)
-         ekkm(k) = zn(k)*ekk(k-1)*zs(km1)
-         tinv    = ekkp(k) + ekkm(k)
-
-         ! rce-comment -- tinv is the sum of all first-order-loss-rates
-         !    for the layer.  for most layers, the activation loss rate
-         !    (for interstitial particles) is accounted for by the loss by
-         !    turb-transfer to the layer above.
-         !    k=pver is special, and the loss rate for activation within 
-         !    the layer must be added to tinv.  if not, the time step
-         !    can be too big, and explmix can produce negative values.
-         !    the negative values are reset to zero, resulting in an 
-         !    artificial source.
-         if (k == pver) tinv = tinv + taumix_internal_pver_inv
-
-         if (tinv .gt. 1.e-6_r8) then
-            dtt   = 1._r8/tinv
-            dtmin = min(dtmin, dtt)
-         end if
-      end do
-
-      dtmix   = 0.9_r8*dtmin
-      nsubmix = dtmicro/dtmix + 1
-      if (nsubmix > 100) then
-         nsubmix_bnd = 100
-      else
-         nsubmix_bnd = nsubmix
-      end if
-      count_submix(nsubmix_bnd) = count_submix(nsubmix_bnd) + 1
-      dtmix = dtmicro/nsubmix
-
-      do k = top_lev, pver
-         kp1 = min(k+1, pver)
-         km1 = max(k-1, top_lev)
-         ! maximum overlap assumption
-         if (cldn(i,kp1) > 1.e-10_r8) then
-            overlapp(k) = min(cldn(i,k)/cldn(i,kp1), 1._r8)
-         else
-            overlapp(k) = 1._r8
-         end if
-         if (cldn(i,km1) > 1.e-10_r8) then
-            overlapm(k) = min(cldn(i,k)/cldn(i,km1), 1._r8)
-         else
-            overlapm(k) = 1._r8
-         end if
-      end do
-
-
-      ! rce-comment
-      !    the activation source(k) = mact(k,m)*raercol(kp1,lmass)
-      !       should not exceed the rate of transfer of unactivated particles
-      !       from kp1 to k which = ekkp(k)*raercol(kp1,lmass)
-      !    however it might if things are not "just right" in subr activate
-      !    the following is a safety measure to avoid negatives in explmix
-      do k = top_lev, pver-1
-         do m = 1, ntot_amode
-            nact(k,m) = min( nact(k,m), ekkp(k) )
-            mact(k,m) = min( mact(k,m), ekkp(k) )
+      if (use_native_ndrop_dropmixnuc_helpers_impl) then
+         dtmin     = dtmicro
+         ekk(top_lev-1)    = 0.0_r8
+         ekk(pver) = 0.0_r8
+         do k = top_lev, pver-1
+            ! rce-comment -- ekd(k) is eddy-diffusivity at k/k+1 interface
+            !   want ekk(k) = ekd(k) * (density at k/k+1 interface)
+            !   so use pint(i,k+1) as pint is 1:pverp
+            !           ekk(k)=ekd(k)*2.*pint(i,k)/(rair*(temp(i,k)+temp(i,k+1)))
+            !           ekk(k)=ekd(k)*2.*pint(i,k+1)/(rair*(temp(i,k)+temp(i,k+1)))
+            ekk(k) = ekd(k)*csbot(k)
          end do
-      end do
+
+         do k = top_lev, pver
+            km1     = max0(k-1, top_lev)
+            ekkp(k) = zn(k)*ekk(k)*zs(k)
+            ekkm(k) = zn(k)*ekk(k-1)*zs(km1)
+            tinv    = ekkp(k) + ekkm(k)
+
+            ! rce-comment -- tinv is the sum of all first-order-loss-rates
+            !    for the layer.  for most layers, the activation loss rate
+            !    (for interstitial particles) is accounted for by the loss by
+            !    turb-transfer to the layer above.
+            !    k=pver is special, and the loss rate for activation within
+            !    the layer must be added to tinv.  if not, the time step
+            !    can be too big, and explmix can produce negative values.
+            !    the negative values are reset to zero, resulting in an
+            !    artificial source.
+            if (k == pver) tinv = tinv + taumix_internal_pver_inv
+
+            if (tinv .gt. 1.e-6_r8) then
+               dtt   = 1._r8/tinv
+               dtmin = min(dtmin, dtt)
+            end if
+         end do
+
+         dtmix   = 0.9_r8*dtmin
+         nsubmix = dtmicro/dtmix + 1
+         if (nsubmix > 100) then
+            nsubmix_bnd = 100
+         else
+            nsubmix_bnd = nsubmix
+         end if
+         count_submix(nsubmix_bnd) = count_submix(nsubmix_bnd) + 1
+         dtmix = dtmicro/nsubmix
+
+         do k = top_lev, pver
+            kp1 = min(k+1, pver)
+            km1 = max(k-1, top_lev)
+            ! maximum overlap assumption
+            if (cldn(i,kp1) > 1.e-10_r8) then
+               overlapp(k) = min(cldn(i,k)/cldn(i,kp1), 1._r8)
+            else
+               overlapp(k) = 1._r8
+            end if
+            if (cldn(i,km1) > 1.e-10_r8) then
+               overlapm(k) = min(cldn(i,k)/cldn(i,km1), 1._r8)
+            else
+               overlapm(k) = 1._r8
+            end if
+         end do
+
+
+         ! rce-comment
+         !    the activation source(k) = mact(k,m)*raercol(kp1,lmass)
+         !       should not exceed the rate of transfer of unactivated particles
+         !       from kp1 to k which = ekkp(k)*raercol(kp1,lmass)
+         !    however it might if things are not "just right" in subr activate
+         !    the following is a safety measure to avoid negatives in explmix
+         do k = top_lev, pver-1
+            do m = 1, ntot_amode
+               nact(k,m) = min( nact(k,m), ekkp(k) )
+               mact(k,m) = min( mact(k,m), ekkp(k) )
+            end do
+         end do
+      else
+         call ndrop_dropmixnuc_helpers_proof_once()
+         call ndrop_dropmixnuc_mix_setup_codon(int(i, c_int64_t), int(pcols, c_int64_t), &
+              int(pver, c_int64_t), int(top_lev, c_int64_t), int(ntot_amode, c_int64_t), &
+              dtmicro, taumix_internal_pver_inv, c_loc(cldn(1,1)), c_loc(zs(1)), c_loc(zn(1)), &
+              c_loc(csbot(1)), c_loc(ekd(1)), c_loc(nact(1,1)), c_loc(mact(1,1)), c_loc(ekk(0)), &
+              c_loc(ekkp(1)), c_loc(ekkm(1)), c_loc(overlapp(1)), c_loc(overlapm(1)), &
+              c_loc(count_submix(1)), c_loc(nsubmix), c_loc(dtmix))
+      end if
 
 
       ! old_cloud_nsubmix_loop
@@ -1128,13 +1252,21 @@ subroutine dropmixnuc( &
 
       ! droplet number
 
-      ndropcol(i) = 0._r8
-      do k = top_lev, pver
-         ndropmix(i,k) = (qcld(k) - ncldwtr(i,k))*dtinv - nsource(i,k)
-         tendnd(i,k)   = (max(qcld(k), 1.e-6_r8) - ncldwtr(i,k))*dtinv
-         ndropcol(i)   = ndropcol(i) + ncldwtr(i,k)*pdel(i,k)
-      end do
-      ndropcol(i) = ndropcol(i)/gravit
+      if (use_native_ndrop_dropmixnuc_helpers_impl) then
+         ndropcol(i) = 0._r8
+         do k = top_lev, pver
+            ndropmix(i,k) = (qcld(k) - ncldwtr(i,k))*dtinv - nsource(i,k)
+            tendnd(i,k)   = (max(qcld(k), 1.e-6_r8) - ncldwtr(i,k))*dtinv
+            ndropcol(i)   = ndropcol(i) + ncldwtr(i,k)*pdel(i,k)
+         end do
+         ndropcol(i) = ndropcol(i)/gravit
+      else
+         call ndrop_dropmixnuc_helpers_proof_once()
+         call ndrop_dropmixnuc_finalize_column_codon(int(i, c_int64_t), int(pcols, c_int64_t), &
+              int(pver, c_int64_t), int(top_lev, c_int64_t), dtinv, gravit, c_loc(qcld(1)), &
+              c_loc(ncldwtr(1,1)), c_loc(pdel(1,1)), c_loc(nsource(1,1)), c_loc(ndropmix(1,1)), &
+              c_loc(tendnd(1,1)), c_loc(ndropcol(1)))
+      end if
 
       if (prog_modal_aero) then
 
@@ -1927,4 +2059,3 @@ end subroutine loadaer
 !===============================================================================
 
 end module ndrop
-

@@ -1,5 +1,6 @@
 import cam_misc_codon as _cam_misc
 import modal_aer_opt_codon as _modal_aer_opt
+import ndrop_codon as _ndrop
 import phys_grid_codon as _phys_grid
 from math import exp, floor, log, sqrt
 
@@ -3442,6 +3443,174 @@ def ndrop_mode_props_finalize_codon(
         voltonumbhi[m0] = 1.0 / (
             (pi / 6.0) * (dgnumhi[m0] ** 3.0) * exp(4.5 * alogsig[m0] ** 2.0)
         )
+
+
+@export
+def ndrop_dropmixnuc_zero_fields_codon(
+    pcols: int,
+    pver: int,
+    ntot_amode: int,
+    factnum_p: cobj,
+    wtke_p: cobj,
+):
+    _ndrop.ndrop_dropmixnuc_zero_fields_codon(pcols, pver, ntot_amode, factnum_p, wtke_p)
+
+
+@export
+def ndrop_dropmixnuc_column_init_codon(
+    i: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    ntot_amode: int,
+    gravit: float,
+    rair: float,
+    zkmin: float,
+    zkmax: float,
+    wmixmin: float,
+    ncldwtr_p: cobj,
+    temp_p: cobj,
+    pmid_p: cobj,
+    pint_p: cobj,
+    rpdel_p: cobj,
+    zm_p: cobj,
+    kvh_p: cobj,
+    wsub_p: cobj,
+    qcld_p: cobj,
+    qncld_p: cobj,
+    srcn_p: cobj,
+    cs_p: cobj,
+    dz_p: cobj,
+    nact_p: cobj,
+    mact_p: cobj,
+    zn_p: cobj,
+    ekd_p: cobj,
+    csbot_p: cobj,
+    csbot_cscen_p: cobj,
+    wtke_cen_p: cobj,
+    wtke_p: cobj,
+    nsource_p: cobj,
+    zs_p: cobj,
+):
+    _ndrop.ndrop_dropmixnuc_column_init_codon(
+        i,
+        pcols,
+        pver,
+        top_lev,
+        ntot_amode,
+        gravit,
+        rair,
+        zkmin,
+        zkmax,
+        wmixmin,
+        ncldwtr_p,
+        temp_p,
+        pmid_p,
+        pint_p,
+        rpdel_p,
+        zm_p,
+        kvh_p,
+        wsub_p,
+        qcld_p,
+        qncld_p,
+        srcn_p,
+        cs_p,
+        dz_p,
+        nact_p,
+        mact_p,
+        zn_p,
+        ekd_p,
+        csbot_p,
+        csbot_cscen_p,
+        wtke_cen_p,
+        wtke_p,
+        nsource_p,
+        zs_p,
+    )
+
+
+@export
+def ndrop_dropmixnuc_mix_setup_codon(
+    i: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    ntot_amode: int,
+    dtmicro: float,
+    taumix_internal_pver_inv: float,
+    cldn_p: cobj,
+    zs_p: cobj,
+    zn_p: cobj,
+    csbot_p: cobj,
+    ekd_p: cobj,
+    nact_p: cobj,
+    mact_p: cobj,
+    ekk0_p: cobj,
+    ekkp_p: cobj,
+    ekkm_p: cobj,
+    overlapp_p: cobj,
+    overlapm_p: cobj,
+    count_submix_p: cobj,
+    nsubmix_p: cobj,
+    dtmix_p: cobj,
+):
+    _ndrop.ndrop_dropmixnuc_mix_setup_codon(
+        i,
+        pcols,
+        pver,
+        top_lev,
+        ntot_amode,
+        dtmicro,
+        taumix_internal_pver_inv,
+        cldn_p,
+        zs_p,
+        zn_p,
+        csbot_p,
+        ekd_p,
+        nact_p,
+        mact_p,
+        ekk0_p,
+        ekkp_p,
+        ekkm_p,
+        overlapp_p,
+        overlapm_p,
+        count_submix_p,
+        nsubmix_p,
+        dtmix_p,
+    )
+
+
+@export
+def ndrop_dropmixnuc_finalize_column_codon(
+    i: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    dtinv: float,
+    gravit: float,
+    qcld_p: cobj,
+    ncldwtr_p: cobj,
+    pdel_p: cobj,
+    nsource_p: cobj,
+    ndropmix_p: cobj,
+    tendnd_p: cobj,
+    ndropcol_p: cobj,
+):
+    _ndrop.ndrop_dropmixnuc_finalize_column_codon(
+        i,
+        pcols,
+        pver,
+        top_lev,
+        dtinv,
+        gravit,
+        qcld_p,
+        ncldwtr_p,
+        pdel_p,
+        nsource_p,
+        ndropmix_p,
+        tendnd_p,
+        ndropcol_p,
+    )
 
 
 @export
