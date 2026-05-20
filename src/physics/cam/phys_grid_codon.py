@@ -131,3 +131,68 @@ def phys_grid_init_lon_map_codon(
         while clon_p[clon_p_dex - 1] < clon_d[dyn_idx - 1] and clon_p_dex < clon_tot:
             clon_p_dex += 1
         lon_p[dyn_idx - 1] = i32(clon_p_dex)
+
+
+def phys_grid_zero_proc_counts_codon(npes: int, chunk_counts_p: cobj, col_counts_p: cobj):
+    chunk_counts = Ptr[i32](chunk_counts_p)
+    col_counts = Ptr[i32](col_counts_p)
+
+    for p in range(npes):
+        chunk_counts[p] = i32(0)
+        col_counts[p] = i32(0)
+
+
+def phys_grid_proc_prefix_offsets_codon(
+    npes: int,
+    start_value: int,
+    set_final: int,
+    chunk_counts_p: cobj,
+    col_counts_p: cobj,
+    pchunkid_p: cobj,
+    gs_col_offset_p: cobj,
+):
+    chunk_counts = Ptr[i32](chunk_counts_p)
+    col_counts = Ptr[i32](col_counts_p)
+    pchunkid = Ptr[i32](pchunkid_p)
+    gs_col_offset = Ptr[i32](gs_col_offset_p)
+
+    if npes <= 0:
+        return
+
+    pchunkid[0] = i32(start_value)
+    gs_col_offset[0] = i32(start_value)
+    for p in range(1, npes):
+        pchunkid[p] = i32(int(pchunkid[p - 1]) + int(chunk_counts[p - 1]))
+        gs_col_offset[p] = i32(int(gs_col_offset[p - 1]) + int(col_counts[p - 1]))
+
+    if set_final != 0:
+        pchunkid[npes] = i32(int(pchunkid[npes - 1]) + int(chunk_counts[npes - 1]))
+        gs_col_offset[npes] = i32(int(gs_col_offset[npes - 1]) + int(col_counts[npes - 1]))
+
+
+def phys_grid_lchunk_gcol_copy_codon(ncols: int, src_gcol_p: cobj, dst_gcol_p: cobj):
+    src_gcol = Ptr[i32](src_gcol_p)
+    dst_gcol = Ptr[i32](dst_gcol_p)
+
+    for i in range(ncols):
+        dst_gcol[i] = src_gcol[i]
+
+
+def phys_grid_lchunk_area_wght_codon(
+    ncols: int,
+    gcol_p: cobj,
+    area_d_p: cobj,
+    wght_d_p: cobj,
+    area_p: cobj,
+    wght_p: cobj,
+):
+    gcol = Ptr[i32](gcol_p)
+    area_d = Ptr[float](area_d_p)
+    wght_d = Ptr[float](wght_d_p)
+    area = Ptr[float](area_p)
+    wght = Ptr[float](wght_p)
+
+    for i in range(ncols):
+        dyn_idx = int(gcol[i]) - 1
+        area[i] = area_d[dyn_idx]
+        wght[i] = wght_d[dyn_idx]

@@ -411,6 +411,35 @@ module phys_grid
        integer(c_int64_t), value :: ngcols_c, ncols_p_c, clon_tot_c, has_lonlat_map_c
        type(c_ptr), value :: cdex_p, clon_d_p, clon_p_p, lon_p_p, lonlat_map_p
      end subroutine phys_grid_init_lon_map_codon
+
+     subroutine phys_grid_zero_proc_counts_codon(npes_c, chunk_counts_p, col_counts_p) &
+          bind(c, name="phys_grid_zero_proc_counts_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: npes_c
+       type(c_ptr), value :: chunk_counts_p, col_counts_p
+     end subroutine phys_grid_zero_proc_counts_codon
+
+     subroutine phys_grid_proc_prefix_offsets_codon(npes_c, start_value_c, set_final_c, &
+          chunk_counts_p, col_counts_p, pchunkid_p, gs_col_offset_p) &
+          bind(c, name="phys_grid_proc_prefix_offsets_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: npes_c, start_value_c, set_final_c
+       type(c_ptr), value :: chunk_counts_p, col_counts_p, pchunkid_p, gs_col_offset_p
+     end subroutine phys_grid_proc_prefix_offsets_codon
+
+     subroutine phys_grid_lchunk_gcol_copy_codon(ncols_c, src_gcol_p, dst_gcol_p) &
+          bind(c, name="phys_grid_lchunk_gcol_copy_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncols_c
+       type(c_ptr), value :: src_gcol_p, dst_gcol_p
+     end subroutine phys_grid_lchunk_gcol_copy_codon
+
+     subroutine phys_grid_lchunk_area_wght_codon(ncols_c, gcol_p, area_d_p, wght_d_p, area_p, wght_p) &
+          bind(c, name="phys_grid_lchunk_area_wght_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncols_c
+       type(c_ptr), value :: gcol_p, area_d_p, wght_d_p, area_p, wght_p
+     end subroutine phys_grid_lchunk_area_wght_codon
    end interface
 
 contains
@@ -600,7 +629,8 @@ contains
     if (init_helpers_proof_written) return
     init_helpers_proof_written = .true.
     if (masterproc) then
-       write(iulog,'(A)') 'phys_grid_init_helpers entered (coordinate maps direct = codon)'
+       write(iulog,'(A)') &
+            'phys_grid_init_helpers entered (coordinate maps/proc offsets/local chunk weights direct = codon)'
     end if
   end subroutine phys_grid_init_helpers_proof_once
 
@@ -699,6 +729,54 @@ contains
          int(clon_tot_local, c_int64_t), has_lonlat, c_loc(idx(1)), c_loc(coord(1)), c_loc(unique(1)), &
          c_loc(lon_map(1)), lonlat_p)
   end subroutine phys_grid_init_lon_map_codon_wrap
+
+  subroutine phys_grid_zero_proc_counts_codon_wrap(npes_local, chunk_counts, col_counts)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: npes_local
+    integer, target, intent(inout) :: chunk_counts(0:), col_counts(0:)
+
+    if (npes_local <= 0) return
+    call phys_grid_zero_proc_counts_codon(int(npes_local, c_int64_t), &
+         c_loc(chunk_counts(0)), c_loc(col_counts(0)))
+  end subroutine phys_grid_zero_proc_counts_codon_wrap
+
+  subroutine phys_grid_proc_prefix_offsets_codon_wrap(npes_local, start_value, set_final, &
+       chunk_counts, col_counts, chunk_offsets, col_offsets)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: npes_local, start_value
+    logical, intent(in) :: set_final
+    integer, target, intent(in) :: chunk_counts(0:), col_counts(0:)
+    integer, target, intent(inout) :: chunk_offsets(0:), col_offsets(0:)
+    integer(c_int64_t) :: set_final_c
+
+    if (npes_local <= 0) return
+    set_final_c = merge(1_c_int64_t, 0_c_int64_t, set_final)
+    call phys_grid_proc_prefix_offsets_codon(int(npes_local, c_int64_t), int(start_value, c_int64_t), &
+         set_final_c, c_loc(chunk_counts(0)), c_loc(col_counts(0)), &
+         c_loc(chunk_offsets(0)), c_loc(col_offsets(0)))
+  end subroutine phys_grid_proc_prefix_offsets_codon_wrap
+
+  subroutine phys_grid_lchunk_gcol_copy_codon_wrap(ncols_local, src_gcol, dst_gcol)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncols_local
+    integer, target, intent(in) :: src_gcol(pcols)
+    integer, target, intent(inout) :: dst_gcol(pcols)
+
+    if (ncols_local <= 0) return
+    call phys_grid_lchunk_gcol_copy_codon(int(ncols_local, c_int64_t), c_loc(src_gcol(1)), c_loc(dst_gcol(1)))
+  end subroutine phys_grid_lchunk_gcol_copy_codon_wrap
+
+  subroutine phys_grid_lchunk_area_wght_codon_wrap(ncols_local, gcol, area_d_local, wght_d_local, area, wght)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncols_local
+    integer, target, intent(in) :: gcol(pcols)
+    real(r8), target, intent(in) :: area_d_local(:), wght_d_local(:)
+    real(r8), target, intent(inout) :: area(pcols), wght(pcols)
+
+    if (ncols_local <= 0) return
+    call phys_grid_lchunk_area_wght_codon(int(ncols_local, c_int64_t), c_loc(gcol(1)), &
+         c_loc(area_d_local(1)), c_loc(wght_d_local(1)), c_loc(area(1)), c_loc(wght(1)))
+  end subroutine phys_grid_lchunk_area_wght_codon_wrap
 
   subroutine phys_grid_init( )
     !----------------------------------------------------------------------- 
@@ -979,8 +1057,13 @@ contains
     !
     allocate( npchunks(0:npes-1) )
     allocate( gs_col_num(0:npes-1) )
-    npchunks(:) = 0
-    gs_col_num(:) = 0
+    if (use_native_init_helpers_impl) then
+       npchunks(:) = 0
+       gs_col_num(:) = 0
+    else
+       call phys_grid_zero_proc_counts_codon_wrap(npes, npchunks, gs_col_num)
+       call phys_grid_init_helpers_proof_once()
+    endif
 
     !
     ! Option -1: each dynamics block is a single chunk
@@ -1127,12 +1210,17 @@ contains
 
     ! Initialize pchunkid and gs_col_offset by summing 
     ! number of chunks and columns per process, respectively
-    pchunkid(0) = 0
-    gs_col_offset(0) = 0
-    do p=1,npes-1
-       pchunkid(p)      = pchunkid(p-1)      + npchunks(p-1)
-       gs_col_offset(p) = gs_col_offset(p-1) + gs_col_num(p-1)
-    enddo
+    if (use_native_init_helpers_impl) then
+       pchunkid(0) = 0
+       gs_col_offset(0) = 0
+       do p=1,npes-1
+          pchunkid(p)      = pchunkid(p-1)      + npchunks(p-1)
+          gs_col_offset(p) = gs_col_offset(p-1) + gs_col_num(p-1)
+       enddo
+    else
+       call phys_grid_proc_prefix_offsets_codon_wrap(npes, 0, .false., &
+            npchunks, gs_col_num, pchunkid, gs_col_offset)
+    endif
     
     ! Determine local ordering via "process id" bin sort
     do cid=1,nchunks
@@ -1151,14 +1239,19 @@ contains
     enddo
 
     ! Reinitialize pchunkid and gs_col_offset (for real)
-    pchunkid(0) = 1
-    gs_col_offset(0) = 1
-    do p=1,npes-1
-       pchunkid(p)      = pchunkid(p-1)      + npchunks(p-1)
-       gs_col_offset(p) = gs_col_offset(p-1) + gs_col_num(p-1)
-    enddo
-    pchunkid(npes)      = pchunkid(npes-1)      + npchunks(npes-1)
-    gs_col_offset(npes) = gs_col_offset(npes-1) + gs_col_num(npes-1)
+    if (use_native_init_helpers_impl) then
+       pchunkid(0) = 1
+       gs_col_offset(0) = 1
+       do p=1,npes-1
+          pchunkid(p)      = pchunkid(p-1)      + npchunks(p-1)
+          gs_col_offset(p) = gs_col_offset(p-1) + gs_col_num(p-1)
+       enddo
+       pchunkid(npes)      = pchunkid(npes-1)      + npchunks(npes-1)
+       gs_col_offset(npes) = gs_col_offset(npes-1) + gs_col_num(npes-1)
+    else
+       call phys_grid_proc_prefix_offsets_codon_wrap(npes, 1, .true., &
+            npchunks, gs_col_num, pchunkid, gs_col_offset)
+    endif
 
     ! Save local information
     ! (Local chunk index range chosen so that it does not overlap 
@@ -1175,9 +1268,13 @@ contains
           lcid = chunks(cid)%lcid
           lchunks(lcid)%ncols = chunks(cid)%ncols
           lchunks(lcid)%cid   = cid
-          do i=1,chunks(cid)%ncols
-             lchunks(lcid)%gcol(i) = chunks(cid)%gcol(i)
-          enddo
+          if (use_native_init_helpers_impl) then
+             do i=1,chunks(cid)%ncols
+                lchunks(lcid)%gcol(i) = chunks(cid)%gcol(i)
+             enddo
+          else
+             call phys_grid_lchunk_gcol_copy_codon_wrap(chunks(cid)%ncols, chunks(cid)%gcol, lchunks(lcid)%gcol)
+          endif
        endif
     enddo
 
@@ -1210,10 +1307,15 @@ contains
     end if
 
     do lcid=begchunk,endchunk
-       do i=1,lchunks(lcid)%ncols
-          lchunks(lcid)%area(i) = area_d(lchunks(lcid)%gcol(i))
-          lchunks(lcid)%wght(i) = wght_d(lchunks(lcid)%gcol(i))
-       enddo
+       if (use_native_init_helpers_impl) then
+          do i=1,lchunks(lcid)%ncols
+             lchunks(lcid)%area(i) = area_d(lchunks(lcid)%gcol(i))
+             lchunks(lcid)%wght(i) = wght_d(lchunks(lcid)%gcol(i))
+          enddo
+       else
+          call phys_grid_lchunk_area_wght_codon_wrap(lchunks(lcid)%ncols, lchunks(lcid)%gcol, &
+               area_d, wght_d, lchunks(lcid)%area, lchunks(lcid)%wght)
+       endif
     enddo
 
     deallocate( area_d )

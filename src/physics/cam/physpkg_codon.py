@@ -2296,6 +2296,49 @@ def phys_grid_init_lon_map_codon(
 
 
 @export
+def phys_grid_zero_proc_counts_codon(npes: int, chunk_counts_p: cobj, col_counts_p: cobj):
+    _phys_grid.phys_grid_zero_proc_counts_codon(npes, chunk_counts_p, col_counts_p)
+
+
+@export
+def phys_grid_proc_prefix_offsets_codon(
+    npes: int,
+    start_value: int,
+    set_final: int,
+    chunk_counts_p: cobj,
+    col_counts_p: cobj,
+    pchunkid_p: cobj,
+    gs_col_offset_p: cobj,
+):
+    _phys_grid.phys_grid_proc_prefix_offsets_codon(
+        npes,
+        start_value,
+        set_final,
+        chunk_counts_p,
+        col_counts_p,
+        pchunkid_p,
+        gs_col_offset_p,
+    )
+
+
+@export
+def phys_grid_lchunk_gcol_copy_codon(ncols: int, src_gcol_p: cobj, dst_gcol_p: cobj):
+    _phys_grid.phys_grid_lchunk_gcol_copy_codon(ncols, src_gcol_p, dst_gcol_p)
+
+
+@export
+def phys_grid_lchunk_area_wght_codon(
+    ncols: int,
+    gcol_p: cobj,
+    area_d_p: cobj,
+    wght_d_p: cobj,
+    area_p: cobj,
+    wght_p: cobj,
+):
+    _phys_grid.phys_grid_lchunk_area_wght_codon(ncols, gcol_p, area_d_p, wght_d_p, area_p, wght_p)
+
+
+@export
 def phys_grid_get_gcol_vec_codon(lth: int, cols_p: cobj, src_p: cobj, dst_p: cobj):
     cols = Ptr[i32](cols_p)
     src = Ptr[i32](src_p)
