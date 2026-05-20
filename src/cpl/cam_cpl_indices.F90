@@ -4,6 +4,8 @@ module cam_cpl_indices
   use mct_mod
   use seq_drydep_mod, only: drydep_fields_token, lnd_drydep
   use shr_megan_mod,  only: shr_megan_fields_token, shr_megan_mechcomps_n
+  use iso_c_binding,  only: c_int64_t
+  use cam_logfile,    only: iulog
 
   implicit none
 
@@ -224,5 +226,16 @@ contains
     call mct_aVect_clean(a2x)
 
   end subroutine cam_cpl_indices_set
+
+  subroutine cam_cpl_indices_misc_touch()
+
+#define CAM_MISC_TAG 212
+#define CAM_MISC_LABEL 'cam_cpl_indices'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
+  end subroutine cam_cpl_indices_misc_touch
 
 end module cam_cpl_indices

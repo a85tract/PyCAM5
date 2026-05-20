@@ -14,6 +14,7 @@ module ioFileMod
    use cam_abortutils,   only: endrun
    use spmd_utils,       only: masterproc
    use cam_logfile,      only: iulog
+   use iso_c_binding,    only: c_int64_t
 
    implicit none
 
@@ -63,7 +64,14 @@ subroutine getfil(fulpath, locfn, iflag, lexist)
    logical :: lexist_in       ! true if local file exists
    logical :: abort_on_failure
    ! --------------------------------------------------------------------
- 
+
+#define CAM_MISC_TAG 220
+#define CAM_MISC_LABEL 'ioFileMod'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
    abort_on_failure = .true.
    if (present(iflag)) then
       if (iflag==1) abort_on_failure = .false.

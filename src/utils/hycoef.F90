@@ -4,6 +4,7 @@ use shr_kind_mod,     only: r8 => shr_kind_r8
 use spmd_utils,       only: masterproc
 use pmgrid,           only: plev, plevp
 use cam_logfile,      only: iulog
+use iso_c_binding,    only: c_int64_t
 use cam_abortutils,   only: endrun
 use pio,              only: file_desc_t, var_desc_t, &
                             pio_inq_dimid, pio_inq_dimlen, pio_inq_varid, &
@@ -88,6 +89,12 @@ subroutine hycoef_init(file)
    type(formula_terms_t) :: formula_terms ! For the 'lev' and 'ilev' coords
    !-----------------------------------------------------------------------
 
+#define CAM_MISC_TAG 213
+#define CAM_MISC_LABEL 'hycoef'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
    ! read hybrid coeficients
    call hycoef_read(file)

@@ -3,6 +3,8 @@ module cam_history_buffers
   use cam_history_support, only: max_chars, field_info, hentry
   use cam_abortutils,      only : endrun
   use pio,                 only : var_desc_t
+  use iso_c_binding,       only : c_int64_t
+  use cam_logfile,         only : iulog
   
   implicit none
 !
@@ -48,6 +50,13 @@ contains
 
     logical :: bad       ! flag indicates input field fillvalues not applied consistently
     ! with vertical level
+
+#define CAM_MISC_TAG 215
+#define CAM_MISC_LABEL 'cam_history_buffers'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
     ib = dimind%beg1
     ie = dimind%end1

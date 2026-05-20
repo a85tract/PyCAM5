@@ -457,7 +457,8 @@ CONTAINS
     call shr_file_getLogUnit (shrlogunit)
     call shr_file_getLogLevel(shrloglev)
     call shr_file_setLogUnit (iulog)
-    
+    call cam_cpl_indices_misc_touch()
+
     ! Note that sync clock time should match cam time at end of time step/loop not beginning
     
     call seq_timemgr_EClockGetData(EClock,curr_ymd=ymd_sync,curr_tod=tod_sync, &

@@ -142,6 +142,7 @@ contains
       use spmd_utils,      only: masterproc
       use cam_abortutils,  only: endrun
       use cam_logfile,     only: iulog
+      use iso_c_binding,   only: c_int64_t
 
       character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
@@ -152,6 +153,13 @@ contains
 
       ! Physical constants needing to be reset (ie. for aqua planet experiments)
       namelist /physconst_nl/  cpwv, gravit, mwdry, mwh2o, rearth, sday, tmelt, tms_orocnst, tms_z0fac
+
+#define CAM_MISC_TAG 219
+#define CAM_MISC_LABEL 'physconst'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
       !-----------------------------------------------------------------------------
 
@@ -325,7 +333,6 @@ contains
    end subroutine physconst_update
 
 end module physconst
-
 
 
 

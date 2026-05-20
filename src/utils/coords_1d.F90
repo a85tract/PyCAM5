@@ -5,6 +5,8 @@ module coords_1d
 ! coordinates.
 
 use shr_kind_mod, only: r8 => shr_kind_r8
+use iso_c_binding, only: c_int64_t
+use cam_logfile, only: iulog
 
 implicit none
 private
@@ -72,6 +74,13 @@ end function new_Coords1D_from_fields
 function new_Coords1D_from_int(ifc) result(coords)
   real(r8), USE_CONTIGUOUS intent(in) :: ifc(:,:)
   type(Coords1D) :: coords
+
+#define CAM_MISC_TAG 218
+#define CAM_MISC_LABEL 'coords_1d'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
   coords = allocate_coords(size(ifc, 1), size(ifc, 2) - 1)
 

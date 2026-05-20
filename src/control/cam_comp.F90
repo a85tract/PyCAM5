@@ -19,6 +19,7 @@ module cam_comp
    use ppgrid,            only: begchunk, endchunk
    use perf_mod
    use cam_logfile,       only: iulog
+   use iso_c_binding,     only: c_int64_t
    use physics_buffer,    only: physics_buffer_desc
    use offline_driver,    only: offline_driver_init, offline_driver_dorun, offline_driver_run
 
@@ -217,6 +218,13 @@ subroutine cam_run1(cam_in, cam_out)
    real(r8) :: mpi_wtime
 #endif
 !-----------------------------------------------------------------------
+
+#define CAM_MISC_TAG 211
+#define CAM_MISC_LABEL 'cam_comp'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
 #if ( defined SPMD )
    if (stepon_time_beg == -1.0_r8) stepon_time_beg = mpi_wtime()

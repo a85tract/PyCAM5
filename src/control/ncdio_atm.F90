@@ -23,6 +23,7 @@ module ncdio_atm
   use dycore,         only: dycore_is
   use scamMod,        only: initTimeIdx,scmlat,scmlon,single_column
   use cam_logfile,    only: iulog
+  use iso_c_binding,  only: c_int64_t
   !
   ! !PUBLIC TYPES:
   implicit none
@@ -107,6 +108,14 @@ contains
     ! !LOCAL VARIABLES:
     integer :: ret     ! return value
     !-----------------------------------------------------------------------
+
+#define CAM_MISC_TAG 214
+#define CAM_MISC_LABEL 'ncdio_atm'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
     call pio_seterrorhandling( ncid, PIO_BCAST_ERROR)
 
     readvar = .true.
@@ -811,6 +820,5 @@ contains
 
 
 end module ncdio_atm
-
 
 

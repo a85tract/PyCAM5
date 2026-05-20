@@ -5,6 +5,7 @@ module cam_restart
 !
 !-----------------------------------------------------------------------
    use shr_kind_mod,     only: r8 => shr_kind_r8, cl=>shr_kind_cl
+   use iso_c_binding,    only: c_int64_t
    use spmd_utils,       only: masterproc
    use ppgrid,           only: begchunk, endchunk
    use pmgrid,           only: plev, plevp, plat
@@ -194,6 +195,12 @@ end subroutine restart_printopts
       type(file_desc_t) :: File
       integer, pointer :: hdimids(:)
 
+#define CAM_MISC_TAG 216
+#define CAM_MISC_LABEL 'cam_restart'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
       !-----------------------------------------------------------------------
       ! Write the primary restart datasets

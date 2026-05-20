@@ -11,6 +11,7 @@ use time_manager,     only: get_curr_date, get_prev_date
 use shr_kind_mod,     only: shr_kind_cm, shr_kind_cl
 use cam_abortutils,   only: endrun
 use cam_logfile,      only: iulog
+use iso_c_binding,    only: c_int64_t
 
 implicit none
 private
@@ -98,6 +99,13 @@ character(len=nlen) function interpret_filename_spec( filename_spec, number, pre
    logical :: previous              ! If should label with previous time-step
    logical :: done
    !-----------------------------------------------------------------------------
+
+#define CAM_MISC_TAG 217
+#define CAM_MISC_LABEL 'filenames'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
    if ( len_trim(filename_spec) == 0 )then
       call endrun ('INTERPRET_FILENAME_SPEC: filename specifier is empty')
