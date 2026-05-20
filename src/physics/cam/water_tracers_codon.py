@@ -18,6 +18,143 @@ def _field2_idx(i: int, k: int, pcols: int) -> int:
     """state%pdel(pcols, pver)"""
     return (i - 1) + (k - 1) * pcols
 
+@export
+def wtrc_int_eq_codon(value: int, expected: int) -> int:
+    if value == expected:
+        return 1
+    return 0
+
+
+@export
+def wtrc_int_ne_codon(value: int, expected: int) -> int:
+    if value != expected:
+        return 1
+    return 0
+
+
+@export
+def wtrc_bool_id_codon(value: int) -> int:
+    if value != 0:
+        return 1
+    return 0
+
+
+@export
+def wtrc_select_real_codon(use_first: int, first: float, second: float) -> float:
+    if use_first != 0:
+        return first
+    return second
+
+
+@export
+def wtrc_ratio_scalar_codon(qtrc: float, qtot: float, qmin: float, rstd: float) -> float:
+    if abs(qtot) < qmin:
+        return rstd
+    return qtrc / qtot
+
+
+@export
+def wtrc_efac_scalar_codon(alpha: float, vapnew: float, liqnew: float, qmin: float, rstd_h2o: float) -> float:
+    alov = wtrc_ratio_scalar_codon(vapnew, vapnew + liqnew, qmin, rstd_h2o)
+    alov = alpha * (1.0 / alov - 1.0)
+    efac = 1.0 / (alov + 1.0)
+    efac = max(efac, 0.0)
+    efac = min(efac, 1.0)
+    return efac
+
+
+@export
+def wtrc_dqequil_scalar_codon(
+    alpha: float,
+    feq0: float,
+    vtotnew: float,
+    ltotnew: float,
+    visoold: float,
+    lisoold: float,
+    qmin: float,
+    rstd_h2o: float,
+) -> float:
+    qiso = visoold + lisoold
+    vieql = qiso * wtrc_efac_scalar_codon(alpha, vtotnew, ltotnew, qmin, rstd_h2o)
+    vinof = qiso * wtrc_efac_scalar_codon(1.0, vtotnew, ltotnew, qmin, rstd_h2o)
+    visonew = feq0 * vieql + (1.0 - feq0) * vinof
+    dviso = visonew - visoold
+    if dviso < 0.0:
+        dviso = max(dviso, -visoold)
+    else:
+        dviso = min(dviso, lisoold)
+    return dviso
+
+
+@export
+def wtrc_liqvap_equil_scalar_codon(
+    alpha: float,
+    feq0: float,
+    vaptot: float,
+    liqtot: float,
+    qmin: float,
+    rstd_h2o: float,
+    vapiso_p: cobj,
+    liqiso_p: cobj,
+    dliqiso_p: cobj,
+) -> None:
+    vapiso = Ptr[float](vapiso_p)
+    liqiso = Ptr[float](liqiso_p)
+    dliqiso = Ptr[float](dliqiso_p)
+
+    qtiny = 1.0e-36
+    dliqiso[0] = 0.0
+    qtot = vaptot + liqtot
+    qiso = vapiso[0] + liqiso[0]
+
+    if qtot < qtiny:
+        return
+    if qiso < qtiny:
+        return
+    if liqtot < qtiny:
+        dliqiso[0] = -liqiso[0]
+        vapiso[0] = vapiso[0] - dliqiso[0]
+        liqiso[0] = 0.0
+        return
+    if vaptot < qtiny:
+        dliqiso[0] = vapiso[0]
+        vapiso[0] = 0.0
+        liqiso[0] = liqiso[0] + dliqiso[0]
+        return
+
+    dviso = wtrc_dqequil_scalar_codon(alpha, feq0, vaptot, liqtot, vapiso[0], liqiso[0], qmin, rstd_h2o)
+    dliqiso[0] = -dviso
+    liqiso[0] = liqiso[0] + dliqiso[0]
+    vapiso[0] = vapiso[0] - dliqiso[0]
+
+
+@export
+def wtrc_init_rates_codon(pcols: int, pver: int, pwtype: int, top_lev: int, process_rates_p: cobj) -> None:
+    process_rates = Ptr[float](process_rates_p)
+    rtype = 1
+    while rtype <= pwtype:
+        isrc = 1
+        while isrc <= pwtype:
+            idst = 1
+            while idst <= pwtype:
+                k = top_lev
+                while k <= pver:
+                    i = 1
+                    while i <= pcols:
+                        idx = (
+                            (i - 1)
+                            + (k - 1) * pcols
+                            + (idst - 1) * pcols * pver
+                            + (isrc - 1) * pcols * pver * pwtype
+                            + (rtype - 1) * pcols * pver * pwtype * pwtype
+                        )
+                        process_rates[idx] = 0.0
+                        i += 1
+                    k += 1
+                idst += 1
+            isrc += 1
+        rtype += 1
+
 
 @inline
 def _wtrc_q1q2_3d_idx(i: int, k: int, m: int, pcols: int, pver: int) -> int:

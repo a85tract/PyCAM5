@@ -62,7 +62,7 @@ module water_tracers
   use water_isotopes, only: pwtspec, ispundef, isph2o, isphdo, isph218o
   use water_types,    only: pwtype, iwtundef, iwtvap, iwtliq, iwtice, iwtstrain, iwtstsnow, iwtcvrain, iwtcvsnow
   use water_tracer_vars
-  use iso_c_binding,  only: c_int64_t
+  use iso_c_binding,  only: c_int64_t, c_loc
 
   implicit none
   
@@ -143,6 +143,9 @@ module water_tracers
   logical :: wtrc_diagnose_bulk_precip_impl_selected = .false.
   logical :: use_native_wtrc_add_rates_impl = .false.
   logical :: wtrc_add_rates_impl_selected = .false.
+  logical :: use_native_wtrc_scalar_helpers_impl = .false.
+  logical :: wtrc_scalar_helpers_impl_selected = .false.
+  logical :: wtrc_scalar_helpers_entered_logged = .false.
   logical :: use_native_wtrc_batch_impl = .false.
   logical :: wtrc_batch_impl_selected = .false.
   logical :: wtrc_batch_entered_logged = .false.
@@ -169,6 +172,59 @@ module water_tracers
       type(c_ptr), value :: p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p, p9_p, p10_p
       type(c_ptr), value :: p11_p, p12_p
     end subroutine wtrc_stage_dispatch_codon
+    function wtrc_int_eq_codon(value_c, expected_c) result(result_c) bind(c, name="wtrc_int_eq_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: value_c, expected_c
+      integer(c_int64_t) :: result_c
+    end function wtrc_int_eq_codon
+    function wtrc_int_ne_codon(value_c, expected_c) result(result_c) bind(c, name="wtrc_int_ne_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: value_c, expected_c
+      integer(c_int64_t) :: result_c
+    end function wtrc_int_ne_codon
+    function wtrc_bool_id_codon(value_c) result(result_c) bind(c, name="wtrc_bool_id_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: value_c
+      integer(c_int64_t) :: result_c
+    end function wtrc_bool_id_codon
+    function wtrc_select_real_codon(use_first_c, first_c, second_c) result(result_c) &
+         bind(c, name="wtrc_select_real_codon")
+      use iso_c_binding, only: c_double, c_int64_t
+      integer(c_int64_t), value :: use_first_c
+      real(c_double), value :: first_c, second_c
+      real(c_double) :: result_c
+    end function wtrc_select_real_codon
+    function wtrc_ratio_scalar_codon(qtrc_c, qtot_c, qmin_c, rstd_c) result(result_c) &
+         bind(c, name="wtrc_ratio_scalar_codon")
+      use iso_c_binding, only: c_double
+      real(c_double), value :: qtrc_c, qtot_c, qmin_c, rstd_c
+      real(c_double) :: result_c
+    end function wtrc_ratio_scalar_codon
+    function wtrc_efac_scalar_codon(alpha_c, vapnew_c, liqnew_c, qmin_c, rstd_h2o_c) result(result_c) &
+         bind(c, name="wtrc_efac_scalar_codon")
+      use iso_c_binding, only: c_double
+      real(c_double), value :: alpha_c, vapnew_c, liqnew_c, qmin_c, rstd_h2o_c
+      real(c_double) :: result_c
+    end function wtrc_efac_scalar_codon
+    function wtrc_dqequil_scalar_codon(alpha_c, feq0_c, vtotnew_c, ltotnew_c, visoold_c, lisoold_c, &
+         qmin_c, rstd_h2o_c) result(result_c) bind(c, name="wtrc_dqequil_scalar_codon")
+      use iso_c_binding, only: c_double
+      real(c_double), value :: alpha_c, feq0_c, vtotnew_c, ltotnew_c, visoold_c, lisoold_c
+      real(c_double), value :: qmin_c, rstd_h2o_c
+      real(c_double) :: result_c
+    end function wtrc_dqequil_scalar_codon
+    subroutine wtrc_liqvap_equil_scalar_codon(alpha_c, feq0_c, vaptot_c, liqtot_c, qmin_c, rstd_h2o_c, &
+         vapiso_p, liqiso_p, dliqiso_p) bind(c, name="wtrc_liqvap_equil_scalar_codon")
+      use iso_c_binding, only: c_double, c_ptr
+      real(c_double), value :: alpha_c, feq0_c, vaptot_c, liqtot_c, qmin_c, rstd_h2o_c
+      type(c_ptr), value :: vapiso_p, liqiso_p, dliqiso_p
+    end subroutine wtrc_liqvap_equil_scalar_codon
+    subroutine wtrc_init_rates_codon(pcols_c, pver_c, pwtype_c, top_lev_c, process_rates_p) &
+         bind(c, name="wtrc_init_rates_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: pcols_c, pver_c, pwtype_c, top_lev_c
+      type(c_ptr), value :: process_rates_p
+    end subroutine wtrc_init_rates_codon
   end interface
 
 contains
@@ -494,6 +550,58 @@ subroutine wtrc_add_rates_select_impl()
   end if
 
 end subroutine wtrc_add_rates_select_impl
+
+!=======================================================================
+subroutine wtrc_scalar_helpers_select_impl()
+!-----------------------------------------------------------------------
+! Select native vs Codon implementation for scalar water-tracer helpers.
+!-----------------------------------------------------------------------
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (wtrc_scalar_helpers_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('WTRC_SCALAR_HELPERS_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+    do i = 1, n
+      code = iachar(impl_name(i:i))
+      if (code >= iachar('A') .and. code <= iachar('Z')) then
+        impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+      end if
+    end do
+    use_native_wtrc_scalar_helpers_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+    use_native_wtrc_scalar_helpers_impl = .false.
+  end if
+
+  wtrc_scalar_helpers_impl_selected = .true.
+
+  if (masterproc) then
+    if (use_native_wtrc_scalar_helpers_impl) then
+      write(iulog,*) 'wtrc_scalar_helpers implementation = native'
+    else
+      write(iulog,*) 'wtrc_scalar_helpers implementation = codon'
+    end if
+    call flush(iulog)
+  end if
+
+end subroutine wtrc_scalar_helpers_select_impl
+
+!=======================================================================
+subroutine wtrc_scalar_helpers_log_entered()
+
+  if (wtrc_scalar_helpers_entered_logged) return
+  wtrc_scalar_helpers_entered_logged = .true.
+
+  if (masterproc) then
+    write(iulog,'(A)') 'wtrc_scalar_helpers entered (predicates/equilibration/init_rates direct = codon)'
+    call flush(iulog)
+  end if
+
+end subroutine wtrc_scalar_helpers_log_entered
 
 !=======================================================================
 subroutine wtrc_readnl(nlfile)
@@ -970,6 +1078,12 @@ end subroutine wtrc_register
   integer, intent(in) :: m              ! constituent index
   logical wtrc_is_wtrc
 !-----------------------------------------------------------------------
+    call wtrc_scalar_helpers_select_impl()
+    if (.not. use_native_wtrc_scalar_helpers_impl) then
+      call wtrc_scalar_helpers_log_entered()
+      wtrc_is_wtrc = wtrc_int_ne_codon(int(iwater(m), c_int64_t), int(iwtundef, c_int64_t)) /= 0_c_int64_t
+      return
+    end if
     wtrc_is_wtrc = .false.
     if (iwater(m) /= iwtundef) wtrc_is_wtrc = .true.
   return
@@ -983,6 +1097,12 @@ end subroutine wtrc_register
   integer, intent(in) :: m    ! constituent index
   logical wtrc_is_vap
 !-----------------------------------------------------------------------
+    call wtrc_scalar_helpers_select_impl()
+    if (.not. use_native_wtrc_scalar_helpers_impl) then
+      call wtrc_scalar_helpers_log_entered()
+      wtrc_is_vap = wtrc_int_eq_codon(int(iwater(m), c_int64_t), int(iwtvap, c_int64_t)) /= 0_c_int64_t
+      return
+    end if
     wtrc_is_vap = .false.
     if (iwater(m) == iwtvap) wtrc_is_vap = .true.
   return
@@ -996,6 +1116,12 @@ end subroutine wtrc_register
   integer, intent(in) :: m              ! constituent index
   logical wtrc_is_liq
 !-----------------------------------------------------------------------
+    call wtrc_scalar_helpers_select_impl()
+    if (.not. use_native_wtrc_scalar_helpers_impl) then
+      call wtrc_scalar_helpers_log_entered()
+      wtrc_is_liq = wtrc_int_eq_codon(int(iwater(m), c_int64_t), int(iwtliq, c_int64_t)) /= 0_c_int64_t
+      return
+    end if
     wtrc_is_liq = .false.
     if (iwater(m) == iwtliq) wtrc_is_liq = .true.
   return
@@ -1009,6 +1135,12 @@ end subroutine wtrc_register
   integer, intent(in) :: m              ! constituent index
   logical wtrc_is_ice
 !-----------------------------------------------------------------------
+    call wtrc_scalar_helpers_select_impl()
+    if (.not. use_native_wtrc_scalar_helpers_impl) then
+      call wtrc_scalar_helpers_log_entered()
+      wtrc_is_ice = wtrc_int_eq_codon(int(iwater(m), c_int64_t), int(iwtice, c_int64_t)) /= 0_c_int64_t
+      return
+    end if
     wtrc_is_ice = .false.
     if (iwater(m) == iwtice) wtrc_is_ice = .true.
   return
@@ -1022,6 +1154,12 @@ end subroutine wtrc_register
   integer, intent(in) :: m              ! constituent index
   logical wtrc_is_cvrain
 !-----------------------------------------------------------------------
+    call wtrc_scalar_helpers_select_impl()
+    if (.not. use_native_wtrc_scalar_helpers_impl) then
+      call wtrc_scalar_helpers_log_entered()
+      wtrc_is_cvrain = wtrc_int_eq_codon(int(iwater(m), c_int64_t), int(iwtcvrain, c_int64_t)) /= 0_c_int64_t
+      return
+    end if
     wtrc_is_cvrain = .false.
     if (iwater(m) == iwtcvrain) wtrc_is_cvrain = .true.
   return
@@ -1035,6 +1173,12 @@ end subroutine wtrc_register
   integer, intent(in) :: m              ! constituent index
   logical wtrc_is_strain
 !-----------------------------------------------------------------------
+    call wtrc_scalar_helpers_select_impl()
+    if (.not. use_native_wtrc_scalar_helpers_impl) then
+      call wtrc_scalar_helpers_log_entered()
+      wtrc_is_strain = wtrc_int_eq_codon(int(iwater(m), c_int64_t), int(iwtstrain, c_int64_t)) /= 0_c_int64_t
+      return
+    end if
     wtrc_is_strain = .false.
     if (iwater(m) == iwtstrain) wtrc_is_strain = .true.
   return
@@ -1048,6 +1192,12 @@ end subroutine wtrc_register
   integer, intent(in) :: m              ! constituent index
   logical wtrc_is_cvsnow
 !-----------------------------------------------------------------------
+    call wtrc_scalar_helpers_select_impl()
+    if (.not. use_native_wtrc_scalar_helpers_impl) then
+      call wtrc_scalar_helpers_log_entered()
+      wtrc_is_cvsnow = wtrc_int_eq_codon(int(iwater(m), c_int64_t), int(iwtcvsnow, c_int64_t)) /= 0_c_int64_t
+      return
+    end if
     wtrc_is_cvsnow = .false.
     if (iwater(m) == iwtcvsnow) wtrc_is_cvsnow = .true.
   return
@@ -1061,6 +1211,12 @@ end subroutine wtrc_register
   integer, intent(in) :: m              ! constituent index
   logical wtrc_is_stsnow
 !-----------------------------------------------------------------------
+    call wtrc_scalar_helpers_select_impl()
+    if (.not. use_native_wtrc_scalar_helpers_impl) then
+      call wtrc_scalar_helpers_log_entered()
+      wtrc_is_stsnow = wtrc_int_eq_codon(int(iwater(m), c_int64_t), int(iwtstsnow, c_int64_t)) /= 0_c_int64_t
+      return
+    end if
     wtrc_is_stsnow = .false.
     if (iwater(m) == iwtstsnow) wtrc_is_stsnow = .true.
   return
@@ -1074,6 +1230,12 @@ end subroutine wtrc_register
   integer, intent(in) :: m              ! constituent index
   logical wtrc_is_tagged
 !-----------------------------------------------------------------------
+    call wtrc_scalar_helpers_select_impl()
+    if (.not. use_native_wtrc_scalar_helpers_impl) then
+      call wtrc_scalar_helpers_log_entered()
+      wtrc_is_tagged = wtrc_bool_id_codon(merge(1_c_int64_t, 0_c_int64_t, iwistag(m))) /= 0_c_int64_t
+      return
+    end if
     wtrc_is_tagged = iwistag(m)
   return
   end function wtrc_is_tagged
@@ -1419,12 +1581,21 @@ end subroutine wtrc_register
 !
 !-----------------------------------------------------------------------
   use water_types,    only: pwtype
+  use iso_c_binding,  only: c_loc
   
   integer,  intent(in)    :: top_lev                                          ! Top vertical level
-  real(r8), intent(out)   :: process_rates(pcols,pver,pwtype,pwtype,pwtype)   ! Process rates (kg/kg/sec)
+  real(r8), target, intent(out) :: process_rates(pcols,pver,pwtype,pwtype,pwtype)   ! Process rates (kg/kg/sec)
   
 !-----------------------------------------------------------------------
-    
+
+    call wtrc_scalar_helpers_select_impl()
+    if (.not. use_native_wtrc_scalar_helpers_impl) then
+      call wtrc_scalar_helpers_log_entered()
+      call wtrc_init_rates_codon(int(pcols, c_int64_t), int(pver, c_int64_t), int(pwtype, c_int64_t), &
+           int(top_lev, c_int64_t), c_loc(process_rates))
+      return
+    end if
+
     process_rates(:, top_lev:, :, :, :) = 0._r8
     
     return
@@ -4428,9 +4599,9 @@ subroutine wtrc_liqvap_equil(alpha, feq0, vaptot, liqtot, vapiso, liqiso, dliqis
   real(r8), intent(in)      :: feq0         ! fraction fractionated
   real(r8), intent(in)      :: vaptot       ! total vapour
   real(r8), intent(in)      :: liqtot       ! total liquid
-  real(r8), intent(inout)   :: vapiso       ! isotopic vapour
-  real(r8), intent(inout)   :: liqiso       ! isotopic liquid
-  real(r8), intent(out)     :: dliqiso      ! change in liquid
+  real(r8), target, intent(inout) :: vapiso       ! isotopic vapour
+  real(r8), target, intent(inout) :: liqiso       ! isotopic liquid
+  real(r8), target, intent(out)   :: dliqiso      ! change in liquid
 !------------------------- Local Variables -----------------------------
   real(r8) dviso                            ! change in vapour
   real(r8) qtot, qiso                       ! total mass of total and isotope
@@ -4441,6 +4612,14 @@ subroutine wtrc_liqvap_equil(alpha, feq0, vaptot, liqtot, vapiso, liqiso, dliqis
   real(r8) :: qtiny = 1.e-36
 !-----------------------------------------------------------------------
 !
+  call wtrc_scalar_helpers_select_impl()
+  if (.not. use_native_wtrc_scalar_helpers_impl) then
+    call wtrc_scalar_helpers_log_entered()
+    call wtrc_liqvap_equil_scalar_codon(alpha, feq0, vaptot, liqtot, wtrc_qmin, wtrc_get_rstd(isph2o), &
+         c_loc(vapiso), c_loc(liqiso), c_loc(dliqiso))
+    return
+  end if
+
   dliqiso = 0._r8
   qtot = vaptot + liqtot                ! not used
   qiso = vapiso + liqiso
@@ -4517,6 +4696,14 @@ function wtrc_dqequil(alpha,feq0,vtotnew,ltotnew,visoold,lisoold)
   real(r8) dviso                      ! change in isotope vapour
 !-----------------------------------------------------------------------
 !
+  call wtrc_scalar_helpers_select_impl()
+  if (.not. use_native_wtrc_scalar_helpers_impl) then
+    call wtrc_scalar_helpers_log_entered()
+    wtrc_dqequil = wtrc_dqequil_scalar_codon(alpha, feq0, vtotnew, ltotnew, visoold, lisoold, &
+         wtrc_qmin, wtrc_get_rstd(isph2o))
+    return
+  end if
+
   qiso = visoold + lisoold
 
 ! fractionating: Rc = alpha Rv
@@ -5285,6 +5472,13 @@ function wtrc_efac(alpha, vapnew, liqnew)
   real(r8) alov                         ! alpha times l on v
   real(r8) qtot                         ! total water
 !-----------------------------------------------------------------------
+
+  call wtrc_scalar_helpers_select_impl()
+  if (.not. use_native_wtrc_scalar_helpers_impl) then
+    call wtrc_scalar_helpers_log_entered()
+    wtrc_efac = wtrc_efac_scalar_codon(alpha, vapnew, liqnew, wtrc_qmin, wtrc_get_rstd(isph2o))
+    return
+  end if
 
 !#define DIRECTWAY
 !#ifdef DIRECTWAY         /* This, most obvious way is less precise */
@@ -6318,6 +6512,13 @@ end subroutine wtrc_q1q2_pjr
     real(r8) :: qtiny = 1.e-22_r8   ! smaller makes scheme more accurate
 !-----------------------------------------------------------------------
  
+    call wtrc_scalar_helpers_select_impl()
+    if (.not. use_native_wtrc_scalar_helpers_impl) then
+      call wtrc_scalar_helpers_log_entered()
+      wtrc_ratio = wtrc_ratio_scalar_codon(qtrc, qtot, wtrc_qmin, wtrc_get_rstd(ispec))
+      return
+    end if
+
 !    if (qtot < qtiny) then
 !      wtrc_ratio = 1._r8
 !    else if (qtot > 0._r8) then
@@ -6457,8 +6658,22 @@ end subroutine wtrc_q1q2_pjr
 
     integer, intent(in)     :: ispec
     real(r8)                :: wtrc_get_rstd
+    real(r8)                :: true_rstd
 
 !-----------------------------------------------------------------------
+
+    call wtrc_scalar_helpers_select_impl()
+    if (.not. use_native_wtrc_scalar_helpers_impl) then
+      call wtrc_scalar_helpers_log_entered()
+      if (wisotope) then
+        true_rstd = wiso_get_rstd(ispec)
+      else
+        true_rstd = 0._r8
+      end if
+      wtrc_get_rstd = wtrc_select_real_codon(merge(1_c_int64_t, 0_c_int64_t, wisotope), &
+           true_rstd, wtrc_fixed_rstd(ispec))
+      return
+    end if
     
     ! Either return the true standard isotopic ratio or the default value
     ! if isotopes are not enabled.
