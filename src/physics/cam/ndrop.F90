@@ -158,6 +158,14 @@ interface
       type(c_ptr), value :: raer_fld_p, qqcw_fld_p, raercol_p, raercol_cw_p, raertend_p, qqcwtend_p
    end subroutine ndrop_dropmixnuc_aero_tend_prepare_codon
 
+   subroutine ndrop_dropmixnuc_aero_tend_commit_qqcw_codon(i_c, pcols_c, pver_c, top_lev_c, &
+        ncnst_tot_c, mm_c, slot_c, qqcw_fld_p, raercol_cw_p) &
+        bind(c, name="ndrop_dropmixnuc_aero_tend_commit_qqcw_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: i_c, pcols_c, pver_c, top_lev_c, ncnst_tot_c, mm_c, slot_c
+      type(c_ptr), value :: qqcw_fld_p, raercol_cw_p
+   end subroutine ndrop_dropmixnuc_aero_tend_commit_qqcw_codon
+
    subroutine ndrop_dropmixnuc_finalize_column_codon(i_c, pcols_c, pver_c, top_lev_c, dtinv_c, &
         gravit_c, qcld_p, ncldwtr_p, pdel_p, nsource_p, ndropmix_p, tendnd_p, ndropcol_p) &
         bind(c, name="ndrop_dropmixnuc_finalize_column_codon")
@@ -357,7 +365,7 @@ subroutine ndrop_dropmixnuc_helpers_proof_once()
 
    if (masterproc) then
       write(iulog,'(A)') 'ndrop_dropmixnuc_helpers entered (array setup/grow-shrink/oldcloud/mix/' // &
-           'source/aero tend/clear/finalize direct = codon)'
+           'source/aero tend/qqcw commit/clear/finalize direct = codon)'
    end if
 
 end subroutine ndrop_dropmixnuc_helpers_proof_once
@@ -1570,8 +1578,16 @@ subroutine dropmixnuc( &
 
                ptend%q(i,:,lptr) = 0.0_r8
                ptend%q(i,top_lev:pver,lptr) = raertend(top_lev:pver)           ! set tendencies for interstitial aerosol
-               qqcw(mm)%fld(i,:) = 0.0_r8
-               qqcw(mm)%fld(i,top_lev:pver) = raercol_cw(top_lev:pver,mm,nnew) ! update cloud-borne aerosol
+               if (use_native_ndrop_dropmixnuc_helpers_impl) then
+                  qqcw(mm)%fld(i,:) = 0.0_r8
+                  qqcw(mm)%fld(i,top_lev:pver) = raercol_cw(top_lev:pver,mm,nnew) ! update cloud-borne aerosol
+               else
+                  call ndrop_dropmixnuc_helpers_proof_once()
+                  call ndrop_dropmixnuc_aero_tend_commit_qqcw_codon(int(i, c_int64_t), &
+                       int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
+                       int(ncnst_tot, c_int64_t), int(mm, c_int64_t), int(nnew, c_int64_t), &
+                       c_loc(qqcw(mm)%fld(1,1)), c_loc(raercol_cw(1,1,1)))
+               end if
             end do
          end do
 

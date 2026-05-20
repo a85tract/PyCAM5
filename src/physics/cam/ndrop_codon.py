@@ -297,6 +297,30 @@ def ndrop_dropmixnuc_aero_tend_prepare_codon(
         qqcwtend[tend_idx] = (raercol_cw[col_idx] - qqcw_fld[field_idx]) * dtinv
 
 
+def ndrop_dropmixnuc_aero_tend_commit_qqcw_codon(
+    i: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    ncnst_tot: int,
+    mm: int,
+    slot: int,
+    qqcw_fld_p: cobj,
+    raercol_cw_p: cobj,
+):
+    qqcw_fld = Ptr[float](qqcw_fld_p)
+    raercol_cw = Ptr[float](raercol_cw_p)
+
+    for k in range(1, pver + 1):
+        field_idx = _idx2(i, k, pcols)
+        qqcw_fld[field_idx] = 0.0
+
+    for k in range(top_lev, pver + 1):
+        col_idx = _aero_col_idx(k, mm, slot, pver, ncnst_tot)
+        field_idx = _idx2(i, k, pcols)
+        qqcw_fld[field_idx] = raercol_cw[col_idx]
+
+
 def ndrop_dropmixnuc_finalize_column_codon(
     i: int,
     pcols: int,

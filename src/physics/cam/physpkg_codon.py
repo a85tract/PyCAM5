@@ -3797,6 +3797,31 @@ def ndrop_dropmixnuc_aero_tend_prepare_codon(
 
 
 @export
+def ndrop_dropmixnuc_aero_tend_commit_qqcw_codon(
+    i: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    ncnst_tot: int,
+    mm: int,
+    slot: int,
+    qqcw_fld_p: cobj,
+    raercol_cw_p: cobj,
+):
+    _ndrop.ndrop_dropmixnuc_aero_tend_commit_qqcw_codon(
+        i,
+        pcols,
+        pver,
+        top_lev,
+        ncnst_tot,
+        mm,
+        slot,
+        qqcw_fld_p,
+        raercol_cw_p,
+    )
+
+
+@export
 def ndrop_dropmixnuc_finalize_column_codon(
     i: int,
     pcols: int,
