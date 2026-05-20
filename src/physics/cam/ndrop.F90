@@ -166,6 +166,14 @@ interface
       type(c_ptr), value :: qqcw_fld_p, raercol_cw_p
    end subroutine ndrop_dropmixnuc_aero_tend_commit_qqcw_codon
 
+   subroutine ndrop_dropmixnuc_aero_tend_commit_ptend_codon(i_c, psetcols_c, pver_c, top_lev_c, &
+        pcnst_c, lptr_c, raertend_p, ptend_q_p) &
+        bind(c, name="ndrop_dropmixnuc_aero_tend_commit_ptend_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: i_c, psetcols_c, pver_c, top_lev_c, pcnst_c, lptr_c
+      type(c_ptr), value :: raertend_p, ptend_q_p
+   end subroutine ndrop_dropmixnuc_aero_tend_commit_ptend_codon
+
    subroutine ndrop_dropmixnuc_aero_coltend_codon(i_c, pcols_c, pver_c, mm_c, gravit_c, &
         pdel_p, raertend_p, qqcwtend_p, coltend_out_p, coltend_cw_out_p) &
         bind(c, name="ndrop_dropmixnuc_aero_coltend_codon")
@@ -394,7 +402,7 @@ subroutine ndrop_dropmixnuc_helpers_proof_once()
 
    if (masterproc) then
       write(iulog,'(A)') 'ndrop_dropmixnuc_helpers entered (array setup/grow-shrink/oldcloud/mix/' // &
-           'source/submix init/aero tend/coltend/qqcw commit/tend zero/clear/finalize direct = codon)'
+           'source/submix init/aero tend/coltend/ptend and qqcw commit/tend zero/clear/finalize direct = codon)'
    end if
 
 end subroutine ndrop_dropmixnuc_helpers_proof_once
@@ -1634,8 +1642,14 @@ subroutine dropmixnuc( &
                   coltend_cw(i,mm) = coltend_cw_tmp
                end if
 
-               ptend%q(i,:,lptr) = 0.0_r8
-               ptend%q(i,top_lev:pver,lptr) = raertend(top_lev:pver)           ! set tendencies for interstitial aerosol
+               if (use_native_ndrop_dropmixnuc_helpers_impl) then
+                  ptend%q(i,:,lptr) = 0.0_r8
+                  ptend%q(i,top_lev:pver,lptr) = raertend(top_lev:pver) ! set tendencies for interstitial aerosol
+               else
+                  call ndrop_dropmixnuc_helpers_proof_once()
+                  call ndrop_dropmixnuc_aero_tend_commit_ptend_codon_wrap(i, ptend%psetcols, pver, &
+                       top_lev, pcnst, lptr, raertend, ptend%q)
+               end if
                if (use_native_ndrop_dropmixnuc_helpers_impl) then
                   qqcw(mm)%fld(i,:) = 0.0_r8
                   qqcw(mm)%fld(i,top_lev:pver) = raercol_cw(top_lev:pver,mm,nnew) ! update cloud-borne aerosol
@@ -1693,6 +1707,21 @@ subroutine dropmixnuc( &
       fluxm       )
 
 end subroutine dropmixnuc
+
+!===============================================================================
+
+subroutine ndrop_dropmixnuc_aero_tend_commit_ptend_codon_wrap(i, psetcols_local, pver_local, &
+     top_lev_local, pcnst_local, lptr, raertend, ptend_q)
+   use iso_c_binding, only: c_int64_t, c_loc
+
+   integer, intent(in) :: i, psetcols_local, pver_local, top_lev_local, pcnst_local, lptr
+   real(r8), target, intent(in) :: raertend(pver_local)
+   real(r8), target, intent(inout) :: ptend_q(psetcols_local, pver_local, pcnst_local)
+
+   call ndrop_dropmixnuc_aero_tend_commit_ptend_codon(int(i, c_int64_t), &
+        int(psetcols_local, c_int64_t), int(pver_local, c_int64_t), int(top_lev_local, c_int64_t), &
+        int(pcnst_local, c_int64_t), int(lptr, c_int64_t), c_loc(raertend(1)), c_loc(ptend_q(1,1,1)))
+end subroutine ndrop_dropmixnuc_aero_tend_commit_ptend_codon_wrap
 
 !===============================================================================
 

@@ -4173,6 +4173,29 @@ def ndrop_dropmixnuc_aero_tend_commit_qqcw_codon(
 
 
 @export
+def ndrop_dropmixnuc_aero_tend_commit_ptend_codon(
+    i: int,
+    psetcols: int,
+    pver: int,
+    top_lev: int,
+    pcnst: int,
+    lptr: int,
+    raertend_p: cobj,
+    ptend_q_p: cobj,
+):
+    _ndrop.ndrop_dropmixnuc_aero_tend_commit_ptend_codon(
+        i,
+        psetcols,
+        pver,
+        top_lev,
+        pcnst,
+        lptr,
+        raertend_p,
+        ptend_q_p,
+    )
+
+
+@export
 def ndrop_dropmixnuc_aero_coltend_codon(
     i: int,
     pcols: int,
