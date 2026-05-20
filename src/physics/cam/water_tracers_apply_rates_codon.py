@@ -35,6 +35,13 @@ def _ratio_from_table(ispec: int, qtrc: float, qtot: float, qmin: float, rstd: P
     return qtrc / qtot
 
 
+@inline
+def _ratio_from_value(qtrc: float, qtot: float, qmin: float, rstd_value: float) -> float:
+    if abs(qtot) < qmin:
+        return rstd_value
+    return qtrc / qtot
+
+
 def wtrc_apply_rates_copy_state_codon(
     ncol: int,
     pcols: int,
@@ -142,6 +149,39 @@ def wtrc_apply_rates_sync_precip_column_codon(
         idx = _idx_rmass(i, iwset, pcols)
         rmass0[idx] = rmass[idx]
         smass0[idx] = smass[idx]
+
+
+def wtrc_apply_rates_local_source_ratio_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    isrctype: int,
+    iwset: int,
+    iwtice: int,
+    iwtstrain: int,
+    msrc: int,
+    mbase: int,
+    qmin: float,
+    rstd_value: float,
+    qloc0_p: cobj,
+    rmass0_p: cobj,
+    smass0_p: cobj,
+) -> float:
+    qloc0 = Ptr[float](qloc0_p)
+    rmass0 = Ptr[float](rmass0_p)
+    smass0 = Ptr[float](smass0_p)
+
+    if isrctype > iwtice:
+        pidx = _idx_rmass(i, iwset, pcols)
+        base_idx = _idx_rmass(i, 1, pcols)
+        if isrctype == iwtstrain:
+            return _ratio_from_value(rmass0[pidx], rmass0[base_idx], qmin, rstd_value)
+        return _ratio_from_value(smass0[pidx], smass0[base_idx], qmin, rstd_value)
+
+    qidx = _idx3(i, k, msrc, pcols, pver)
+    qbase_idx = _idx3(i, k, mbase, pcols, pver)
+    return _ratio_from_value(qloc0[qidx], qloc0[qbase_idx], qmin, rstd_value)
 
 
 def wtrc_apply_rates_pre_temperature_begin_codon(
@@ -322,6 +362,37 @@ def wtrc_apply_rates_pre_normal_tendency_codon(
         else:
             qsrc = _idx3(i, k, msrc, pcols, pver)
             qloc[qsrc] = qloc[qsrc] - alpha * ratio * rate * dtime / niter
+
+
+def wtrc_apply_rates_pre_bergeron_direct_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    iwset: int,
+    mdst: int,
+    msrc: int,
+    snow_mdst: int,
+    ratio: float,
+    rate: float,
+    dtime: float,
+    niter: float,
+    pdel_ik: float,
+    qloc_p: cobj,
+    smass_p: cobj,
+):
+    qloc = Ptr[float](qloc_p)
+    smass = Ptr[float](smass_p)
+
+    if mdst == snow_mdst:
+        pidx = _idx_rmass(i, iwset, pcols)
+        smass[pidx] = smass[pidx] + (ratio * rate * dtime * pdel_ik) / niter
+    else:
+        qdst = _idx3(i, k, mdst, pcols, pver)
+        qloc[qdst] = qloc[qdst] + ratio * rate * dtime / niter
+
+    qsrc = _idx3(i, k, msrc, pcols, pver)
+    qloc[qsrc] = qloc[qsrc] - ratio * rate * dtime / niter
 
 
 def wtrc_apply_rates_post_normal_tendency_codon(

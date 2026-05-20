@@ -229,6 +229,43 @@ def wtrc_apply_rates_sync_precip_column_codon(
 
 
 @export
+def wtrc_apply_rates_local_source_ratio_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    isrctype: int,
+    iwset: int,
+    iwtice: int,
+    iwtstrain: int,
+    msrc: int,
+    mbase: int,
+    qmin: float,
+    rstd_value: float,
+    qloc0_p: cobj,
+    rmass0_p: cobj,
+    smass0_p: cobj,
+) -> float:
+    return _apply_rates.wtrc_apply_rates_local_source_ratio_codon(
+        i,
+        k,
+        pcols,
+        pver,
+        isrctype,
+        iwset,
+        iwtice,
+        iwtstrain,
+        msrc,
+        mbase,
+        qmin,
+        rstd_value,
+        qloc0_p,
+        rmass0_p,
+        smass0_p,
+    )
+
+
+@export
 def wtrc_apply_rates_pre_temperature_begin_codon(
     ncol: int,
     pcols: int,
@@ -379,6 +416,43 @@ def wtrc_apply_rates_pre_normal_tendency_codon(
         pdel_ik,
         qloc_p,
         rmass_p,
+        smass_p,
+    )
+
+
+@export
+def wtrc_apply_rates_pre_bergeron_direct_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    iwset: int,
+    mdst: int,
+    msrc: int,
+    snow_mdst: int,
+    ratio: float,
+    rate: float,
+    dtime: float,
+    niter: float,
+    pdel_ik: float,
+    qloc_p: cobj,
+    smass_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_pre_bergeron_direct_codon(
+        i,
+        k,
+        pcols,
+        pver,
+        iwset,
+        mdst,
+        msrc,
+        snow_mdst,
+        ratio,
+        rate,
+        dtime,
+        niter,
+        pdel_ik,
+        qloc_p,
         smass_p,
     )
 

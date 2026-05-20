@@ -652,7 +652,8 @@ subroutine wtrc_apply_rates_helpers_log_entered()
   wtrc_apply_rates_helpers_entered_logged = .true.
 
   if (masterproc) then
-    write(iulog,'(A)') 'wtrc_apply_rates_helpers entered (state/temp/metadata/precip phase/normal tendency/sync/bulk/tendency/correction direct = codon)'
+    write(iulog,'(A)') 'wtrc_apply_rates_helpers entered (state/temp/metadata/ratio/' // &
+         'bergeron/precip phase/normal tendency/sync/bulk/tendency/correction direct = codon)'
     call flush(iulog)
   end if
 
@@ -1820,6 +1821,16 @@ end subroutine wtrc_register
       integer(c_int64_t), value :: i_c, pcols_c, wtrc_nwset_c
       type(c_ptr), value :: rmass_p, smass_p, rmass0_p, smass0_p
     end subroutine wtrc_apply_rates_sync_precip_column_codon
+    function wtrc_apply_rates_local_source_ratio_codon(i_c, k_c, pcols_c, pver_c, &
+         isrctype_c, iwset_c, iwtice_c, iwtstrain_c, msrc_c, mbase_c, qmin_c, rstd_value_c, &
+         qloc0_p, rmass0_p, smass0_p) result(ratio_c) bind(c, name="wtrc_apply_rates_local_source_ratio_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c
+      integer(c_int64_t), value :: isrctype_c, iwset_c, iwtice_c, iwtstrain_c, msrc_c, mbase_c
+      real(c_double), value :: qmin_c, rstd_value_c
+      type(c_ptr), value :: qloc0_p, rmass0_p, smass0_p
+      real(c_double) :: ratio_c
+    end function wtrc_apply_rates_local_source_ratio_codon
     subroutine wtrc_apply_rates_pre_temperature_begin_codon(ncol_c, pcols_c, pver_c, top_lev_c, &
          dtime_c, cpair_c, prelat_p, tloc_p) bind(c, name="wtrc_apply_rates_pre_temperature_begin_codon")
       use iso_c_binding, only: c_double, c_int64_t, c_ptr
@@ -1868,6 +1879,15 @@ end subroutine wtrc_register
       real(c_double), value :: ratio_c, rate_c, dtime_c, niter_c, pdel_ik_c
       type(c_ptr), value :: qloc_p, rmass_p, smass_p
     end subroutine wtrc_apply_rates_pre_normal_tendency_codon
+    subroutine wtrc_apply_rates_pre_bergeron_direct_codon(i_c, k_c, pcols_c, pver_c, &
+         iwset_c, mdst_c, msrc_c, snow_mdst_c, ratio_c, rate_c, dtime_c, niter_c, pdel_ik_c, &
+         qloc_p, smass_p) bind(c, name="wtrc_apply_rates_pre_bergeron_direct_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c
+      integer(c_int64_t), value :: iwset_c, mdst_c, msrc_c, snow_mdst_c
+      real(c_double), value :: ratio_c, rate_c, dtime_c, niter_c, pdel_ik_c
+      type(c_ptr), value :: qloc_p, smass_p
+    end subroutine wtrc_apply_rates_pre_bergeron_direct_codon
     subroutine wtrc_apply_rates_post_normal_tendency_codon(i_c, k_c, pcols_c, pver_c, &
          isrctype_c, idsttype_c, msrc_c, mdst_c, ratio_c, rate_c, dtime_c, niter_c, qloc_p) &
          bind(c, name="wtrc_apply_rates_post_normal_tendency_codon")
@@ -2037,15 +2057,24 @@ end subroutine wtrc_register
                       mbase= wtrc_iawset(isrctype,1)     !H2O source water index
                       mdst = wtrc_iawset(idsttype,iwset) !destination water index
 
-                      if(isrctype .gt. iwtice) then !Is precipitation the source?
-                       !calculate ratio:
-                        if(isrctype .eq. iwtstrain) then !rain
-                          R = wtrc_ratio(iwspec(msrc),rmass0(i,iwset),rmass0(i,1)) 
-                        else !snow
-                          R = wtrc_ratio(iwspec(msrc),smass0(i,iwset),smass0(i,1))
-                        end if 
+                      if (.not. use_native_wtrc_apply_rates_helpers_impl) then
+                        call wtrc_apply_rates_helpers_log_entered()
+                        R = wtrc_apply_rates_local_source_ratio_codon(int(i, c_int64_t), int(k, c_int64_t), &
+                             int(pcols, c_int64_t), int(pver, c_int64_t), int(isrctype, c_int64_t), &
+                             int(iwset, c_int64_t), int(iwtice, c_int64_t), int(iwtstrain, c_int64_t), &
+                             int(msrc, c_int64_t), int(mbase, c_int64_t), real(wtrc_qmin, c_double), &
+                             real(wtrc_get_rstd(iwspec(msrc)), c_double), c_loc(qloc0), c_loc(rmass0), c_loc(smass0))
                       else
-                        R = wtrc_ratio(iwspec(msrc),qloc0(i,k,msrc),qloc0(i,k,mbase)) !calculate ratio for single level
+                        if(isrctype .gt. iwtice) then !Is precipitation the source?
+                         !calculate ratio:
+                          if(isrctype .eq. iwtstrain) then !rain
+                            R = wtrc_ratio(iwspec(msrc),rmass0(i,iwset),rmass0(i,1))
+                          else !snow
+                            R = wtrc_ratio(iwspec(msrc),smass0(i,iwset),smass0(i,1))
+                          end if
+                        else
+                          R = wtrc_ratio(iwspec(msrc),qloc0(i,k,msrc),qloc0(i,k,mbase)) !calculate ratio for single level
+                        end if
                       end if
 
                       if(wisotope .and. (iwset .ne. 1) .and. (isrctype .eq. iwtvap) .and. &
@@ -2115,14 +2144,25 @@ end subroutine wtrc_register
                                 qloc(i,k,wtrc_iawset(iwtvap,iwset)))
                           end if            
                         else
-                          !liquid directly to ice:
-                          if(mdst .eq. wtrc_iawset(iwtstsnow,iwset)) then !snow?
-                            smass(i,iwset) = smass(i,iwset) + (R*pre_rates(i,k,idsttype,isrctype,rtype)*dtime* &
-                                             pstate%pdel(i,k))/wtrc_niter
-                          else !ice
-                            qloc(i,k,mdst) = qloc(i,k,mdst)+R*pre_rates(i,k,idsttype,isrctype,rtype)*dtime/wtrc_niter
+                          if (.not. use_native_wtrc_apply_rates_helpers_impl) then
+                            call wtrc_apply_rates_helpers_log_entered()
+                            call wtrc_apply_rates_pre_bergeron_direct_codon(int(i, c_int64_t), int(k, c_int64_t), &
+                                 int(pcols, c_int64_t), int(pver, c_int64_t), int(iwset, c_int64_t), &
+                                 int(mdst, c_int64_t), int(msrc, c_int64_t), &
+                                 int(wtrc_iawset(iwtstsnow,iwset), c_int64_t), &
+                                 real(R, c_double), real(pre_rates(i,k,idsttype,isrctype,rtype), c_double), &
+                                 real(dtime, c_double), real(wtrc_niter, c_double), real(pstate%pdel(i,k), c_double), &
+                                 c_loc(qloc), c_loc(smass))
+                          else
+                            !liquid directly to ice:
+                            if(mdst .eq. wtrc_iawset(iwtstsnow,iwset)) then !snow?
+                              smass(i,iwset) = smass(i,iwset) + (R*pre_rates(i,k,idsttype,isrctype,rtype)*dtime* &
+                                               pstate%pdel(i,k))/wtrc_niter
+                            else !ice
+                              qloc(i,k,mdst) = qloc(i,k,mdst)+R*pre_rates(i,k,idsttype,isrctype,rtype)*dtime/wtrc_niter
+                            end if
+                            qloc(i,k,msrc) = qloc(i,k,msrc)-R*pre_rates(i,k,idsttype,isrctype,rtype)*dtime/wtrc_niter
                           end if
-                          qloc(i,k,msrc) = qloc(i,k,msrc)-R*pre_rates(i,k,idsttype,isrctype,rtype)*dtime/wtrc_niter
                         end if !wisotope
                         !------------------------------
                      ! else if((iwset .gt. 1) .and. (isrctype .eq. iwtstrain) .and. (idsttype .eq. iwtvap)) then !rain re-evaporation?
@@ -2459,7 +2499,16 @@ end subroutine wtrc_register
                         end if
                         !----------------------      
                       else
-                        R = wtrc_ratio(iwspec(msrc),qloc0(i,k,msrc),qloc0(i,k,mbase)) !calculate ratio for single level
+                        if (.not. use_native_wtrc_apply_rates_helpers_impl) then
+                          call wtrc_apply_rates_helpers_log_entered()
+                          R = wtrc_apply_rates_local_source_ratio_codon(int(i, c_int64_t), int(k, c_int64_t), &
+                               int(pcols, c_int64_t), int(pver, c_int64_t), int(isrctype, c_int64_t), &
+                               int(iwset, c_int64_t), int(iwtice, c_int64_t), int(iwtstrain, c_int64_t), &
+                               int(msrc, c_int64_t), int(mbase, c_int64_t), real(wtrc_qmin, c_double), &
+                               real(wtrc_get_rstd(iwspec(msrc)), c_double), c_loc(qloc0), c_loc(rmass0), c_loc(smass0))
+                        else
+                          R = wtrc_ratio(iwspec(msrc),qloc0(i,k,msrc),qloc0(i,k,mbase)) !calculate ratio for single level
+                        end if
                       end if
 
                       if(wisotope .and. (iwset .ne. 1) .and. (isrctype .eq. iwtvap) .and. &
