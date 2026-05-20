@@ -1,4 +1,4 @@
-from math import log
+from math import exp, log
 
 
 @inline
@@ -568,6 +568,87 @@ def zm_cldprp_eps_profile_codon(
             i0 = _idx1(i)
             if k < int(j0[i0]) and k >= int(jt[i0]):
                 eps[_idx2(i, k, pcols)] = f[_idx2(i, k, pcols)]
+
+
+def zm_cldprp_updraft_mass_energy_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    msg: int,
+    jb_p: cobj,
+    jt_p: cobj,
+    lel_p: cobj,
+    eps0_p: cobj,
+    eps_p: cobj,
+    zf_p: cobj,
+    dz_p: cobj,
+    mu_p: cobj,
+    eu_p: cobj,
+    du_p: cobj,
+    hmn_p: cobj,
+    hsat_p: cobj,
+    hu_p: cobj,
+):
+    jb = Ptr[i32](jb_p)
+    jt = Ptr[i32](jt_p)
+    lel = Ptr[i32](lel_p)
+    eps0 = Ptr[float](eps0_p)
+    eps = Ptr[float](eps_p)
+    zf = Ptr[float](zf_p)
+    dz = Ptr[float](dz_p)
+    mu = Ptr[float](mu_p)
+    eu = Ptr[float](eu_p)
+    du = Ptr[float](du_p)
+    hmn = Ptr[float](hmn_p)
+    hsat = Ptr[float](hsat_p)
+    hu = Ptr[float](hu_p)
+
+    for i in range(1, il2g + 1):
+        i0 = _idx1(i)
+        if eps0[i0] > 0.0:
+            idx_jb = _idx2(i, int(jb[i0]), pcols)
+            mu[idx_jb] = 1.0
+            eu[idx_jb] = mu[idx_jb] / dz[idx_jb]
+
+    for k in range(pver, msg + 1, -1):
+        for i in range(1, il2g + 1):
+            i0 = _idx1(i)
+            jt_i = int(jt[i0])
+            jb_i = int(jb[i0])
+            if eps0[i0] > 0.0 and (k >= jt_i and k < jb_i):
+                idx = _idx2(i, k, pcols)
+                zuef = zf[idx] - zf[_idx2(i, jb_i, pcols)]
+                rmue = (1.0 / eps0[i0]) * (exp(eps[_idx2(i, k + 1, pcols)] * zuef) - 1.0) / zuef
+                mu[idx] = (1.0 / eps0[i0]) * (exp(eps[idx] * zuef) - 1.0) / zuef
+                eu[idx] = (rmue - mu[_idx2(i, k + 1, pcols)]) / dz[idx]
+                du[idx] = (rmue - mu[idx]) / dz[idx]
+
+    khighest = pverp
+    klowest = 1
+    for i in range(1, il2g + 1):
+        i0 = _idx1(i)
+        if int(lel[i0]) < khighest:
+            khighest = int(lel[i0])
+        if int(jb[i0]) > klowest:
+            klowest = int(jb[i0])
+
+    for k in range(klowest - 1, khighest - 1, -1):
+        for i in range(1, il2g + 1):
+            i0 = _idx1(i)
+            if k <= int(jb[i0]) - 1 and k >= int(lel[i0]) and eps0[i0] > 0.0:
+                idx = _idx2(i, k, pcols)
+                idxp1 = _idx2(i, k + 1, pcols)
+                if mu[idx] < 0.02:
+                    hu[idx] = hmn[idx]
+                    mu[idx] = 0.0
+                    eu[idx] = 0.0
+                    du[idx] = mu[idxp1] / dz[idx]
+                else:
+                    hu[idx] = (
+                        mu[idxp1] / mu[idx] * hu[idxp1]
+                        + dz[idx] / mu[idx] * (eu[idx] * hmn[idx] - du[idx] * hsat[idx])
+                    )
 
 
 def zm_cldprp_cloud_top_reset_codon(

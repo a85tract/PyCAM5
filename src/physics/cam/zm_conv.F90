@@ -3090,6 +3090,15 @@ subroutine cldprp(lchnk   , &
          type(c_ptr), value :: jt_p, jb_p, j0_p, f_p, eps_p, eps0_p
       end subroutine zm_cldprp_eps_profile_codon
 
+      subroutine zm_cldprp_updraft_mass_energy_codon(il2g_c, pcols_c, pver_c, pverp_c, msg_c, &
+           jb_p, jt_p, lel_p, eps0_p, eps_p, zf_p, dz_p, mu_p, eu_p, du_p, hmn_p, hsat_p, hu_p) &
+           bind(c, name="zm_cldprp_updraft_mass_energy_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c, pver_c, pverp_c, msg_c
+         type(c_ptr), value :: jb_p, jt_p, lel_p, eps0_p, eps_p, zf_p, dz_p, mu_p, eu_p, du_p
+         type(c_ptr), value :: hmn_p, hsat_p, hu_p
+      end subroutine zm_cldprp_updraft_mass_energy_codon
+
       subroutine zm_cldprp_cloud_top_reset_codon(il2g_c, pcols_c, pver_c, pverp_c, msg_c, &
            lel_p, jb_p, jt_p, eps0_p, mu_p, eu_p, du_p, hu_p, hmn_p, hsthat_p, dz_p) &
            bind(c, name="zm_cldprp_cloud_top_reset_codon")
@@ -3185,10 +3194,12 @@ subroutine cldprp(lchnk   , &
 
    if (.not. use_native_zm_cldprp_helpers) then
       if (masterproc .and. .not. zm_cldprp_helpers_logged) then
-         write(iulog,*) 'zm_cldprp_helpers entered (init/thermo/iface/index/taylor/fpoly/eps/cloudtop/ddmass/' // &
+         write(iulog,*) 'zm_cldprp_helpers entered (init/thermo/iface/index/taylor/fpoly/eps/upmass/' // &
+              'cloudtop/ddmass/' // &
               'downdraft/cond/rain/evap direct = codon)'
          call zm_conv_evap_append_impl_proof( &
-              'zm_cldprp_helpers entered (init/thermo/iface/index/taylor/fpoly/eps/cloudtop/ddmass/' // &
+              'zm_cldprp_helpers entered (init/thermo/iface/index/taylor/fpoly/eps/upmass/' // &
+              'cloudtop/ddmass/' // &
               'downdraft/cond/rain/evap direct = codon)')
          call flush(iulog)
          zm_cldprp_helpers_logged = .true.
@@ -3493,45 +3504,52 @@ subroutine cldprp(lchnk   , &
 ! and moist static energy hu.
 ! here and below mu, eu,du, md and ed are all normalized by mb
 !
-   do i = 1,il2g
-      if (eps0(i) > 0._r8) then
-         mu(i,jb(i)) = 1._r8
-         eu(i,jb(i)) = mu(i,jb(i))/dz(i,jb(i))
-      end if
-   end do
-   do k = pver,msg + 1,-1
+   if (.not. use_native_zm_cldprp_helpers) then
+      call zm_cldprp_updraft_mass_energy_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(pverp, c_int64_t), int(msg, c_int64_t), c_loc(jb), &
+           c_loc(jt), c_loc(lel), c_loc(eps0), c_loc(eps), c_loc(zf), c_loc(dz), c_loc(mu), &
+           c_loc(eu), c_loc(du), c_loc(hmn), c_loc(hsat), c_loc(hu))
+   else
       do i = 1,il2g
-         if (eps0(i) > 0._r8 .and. (k >= jt(i) .and. k < jb(i))) then
-            zuef(i) = zf(i,k) - zf(i,jb(i))
-            rmue(i) = (1._r8/eps0(i))* (exp(eps(i,k+1)*zuef(i))-1._r8)/zuef(i)
-            mu(i,k) = (1._r8/eps0(i))* (exp(eps(i,k  )*zuef(i))-1._r8)/zuef(i)
-            eu(i,k) = (rmue(i)-mu(i,k+1))/dz(i,k)
-            du(i,k) = (rmue(i)-mu(i,k))/dz(i,k)
+         if (eps0(i) > 0._r8) then
+            mu(i,jb(i)) = 1._r8
+            eu(i,jb(i)) = mu(i,jb(i))/dz(i,jb(i))
          end if
       end do
-   end do
-!
-   khighest = pverp
-   klowest = 1
-   do i=1,il2g
-      khighest = min(khighest,lel(i))
-      klowest = max(klowest,jb(i))
-   end do
-   do k = klowest-1,khighest,-1
-      do i = 1,il2g
-         if (k <= jb(i)-1 .and. k >= lel(i) .and. eps0(i) > 0._r8) then
-            if (mu(i,k) < 0.02_r8) then
-               hu(i,k) = hmn(i,k)
-               mu(i,k) = 0._r8
-               eu(i,k) = 0._r8
-               du(i,k) = mu(i,k+1)/dz(i,k)
-            else
-               hu(i,k) = mu(i,k+1)/mu(i,k)*hu(i,k+1) + &
-                         dz(i,k)/mu(i,k)* (eu(i,k)*hmn(i,k)- du(i,k)*hsat(i,k))
+      do k = pver,msg + 1,-1
+         do i = 1,il2g
+            if (eps0(i) > 0._r8 .and. (k >= jt(i) .and. k < jb(i))) then
+               zuef(i) = zf(i,k) - zf(i,jb(i))
+               rmue(i) = (1._r8/eps0(i))* (exp(eps(i,k+1)*zuef(i))-1._r8)/zuef(i)
+               mu(i,k) = (1._r8/eps0(i))* (exp(eps(i,k  )*zuef(i))-1._r8)/zuef(i)
+               eu(i,k) = (rmue(i)-mu(i,k+1))/dz(i,k)
+               du(i,k) = (rmue(i)-mu(i,k))/dz(i,k)
             end if
-         end if
+         end do
       end do
-   end do
+!
+      khighest = pverp
+      klowest = 1
+      do i=1,il2g
+         khighest = min(khighest,lel(i))
+         klowest = max(klowest,jb(i))
+      end do
+      do k = klowest-1,khighest,-1
+         do i = 1,il2g
+            if (k <= jb(i)-1 .and. k >= lel(i) .and. eps0(i) > 0._r8) then
+               if (mu(i,k) < 0.02_r8) then
+                  hu(i,k) = hmn(i,k)
+                  mu(i,k) = 0._r8
+                  eu(i,k) = 0._r8
+                  du(i,k) = mu(i,k+1)/dz(i,k)
+               else
+                  hu(i,k) = mu(i,k+1)/mu(i,k)*hu(i,k+1) + &
+                            dz(i,k)/mu(i,k)* (eu(i,k)*hmn(i,k)- du(i,k)*hsat(i,k))
+               end if
+            end if
+         end do
+      end do
+   end if
 
 !
 ! reset cloud top index beginning from two layers above the

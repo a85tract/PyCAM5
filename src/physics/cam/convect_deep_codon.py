@@ -386,6 +386,33 @@ def zm_cldprp_eps_profile_codon(
 
 
 @export
+def zm_cldprp_updraft_mass_energy_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    msg: int,
+    jb_p: cobj,
+    jt_p: cobj,
+    lel_p: cobj,
+    eps0_p: cobj,
+    eps_p: cobj,
+    zf_p: cobj,
+    dz_p: cobj,
+    mu_p: cobj,
+    eu_p: cobj,
+    du_p: cobj,
+    hmn_p: cobj,
+    hsat_p: cobj,
+    hu_p: cobj,
+):
+    _zm_cldprp.zm_cldprp_updraft_mass_energy_codon(
+        il2g, pcols, pver, pverp, msg, jb_p, jt_p, lel_p, eps0_p, eps_p, zf_p, dz_p,
+        mu_p, eu_p, du_p, hmn_p, hsat_p, hu_p,
+    )
+
+
+@export
 def zm_cldprp_cloud_top_reset_codon(
     il2g: int,
     pcols: int,
