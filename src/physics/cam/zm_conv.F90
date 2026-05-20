@@ -3002,10 +3002,17 @@ subroutine cldprp(lchnk   , &
    integer khighest
    integer klowest
    integer kount
+   integer, target :: lcl_done(pcols)
+   integer, target :: lcl_active(pcols)
+   integer, target :: lcl_found(pcols)
+   integer, target :: lcl_kount(1)
    integer i,k
 
    logical doit(pcols)
    logical done(pcols)
+
+   real(r8), target :: lcl_tu(pcols)
+   real(r8), target :: lcl_qstu(pcols)
 
    interface
       subroutine zm_cldprp_init_arrays_codon(il2g_c, pcols_c, pver_c, c0_ocn_c, c0_lnd_c, landfrac_p, &
@@ -3148,6 +3155,32 @@ subroutine cldprp(lchnk   , &
          type(c_ptr), value :: jb_p, mx_p, eps0_p, q_p, hu_p, qu_p, su_p
       end subroutine zm_cldprp_updraft_seed_codon
 
+      subroutine zm_cldprp_updraft_lcl_reset_codon(il2g_c, done_p, active_p, found_p, &
+           tu_p, qstu_p, kount_p) bind(c, name="zm_cldprp_updraft_lcl_reset_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c
+         type(c_ptr), value :: done_p, active_p, found_p, tu_p, qstu_p, kount_p
+      end subroutine zm_cldprp_updraft_lcl_reset_codon
+
+      subroutine zm_cldprp_updraft_lcl_prepare_codon(il2g_c, pcols_c, k_c, cp_c, grav_c, &
+           jt_p, jb_p, done_p, eps0_p, mu_p, dz_p, eu_p, du_p, s_p, q_p, qst_p, zf_p, &
+           su_p, qu_p, active_p, found_p, tu_p) bind(c, name="zm_cldprp_updraft_lcl_prepare_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c, k_c
+         real(c_double), value :: cp_c, grav_c
+         type(c_ptr), value :: jt_p, jb_p, done_p, eps0_p, mu_p, dz_p, eu_p, du_p
+         type(c_ptr), value :: s_p, q_p, qst_p, zf_p, su_p, qu_p, active_p, found_p, tu_p
+      end subroutine zm_cldprp_updraft_lcl_prepare_codon
+
+      subroutine zm_cldprp_updraft_lcl_finalize_codon(il2g_c, pcols_c, k_c, active_p, &
+           qstu_p, tu_p, qu_p, tut_p, jlcl_p, done_p, found_p, kount_p) bind(c, &
+           name="zm_cldprp_updraft_lcl_finalize_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c, k_c
+         type(c_ptr), value :: active_p, qstu_p, tu_p, qu_p, tut_p, jlcl_p, done_p
+         type(c_ptr), value :: found_p, kount_p
+      end subroutine zm_cldprp_updraft_lcl_finalize_codon
+
       subroutine zm_cldprp_updraft_saturation_adjust_codon(il2g_c, pcols_c, pver_c, msg_c, &
            cp_c, grav_c, rl_c, jt_p, jlcl_p, eps0_p, shat_p, hu_p, hsthat_p, gamhat_p, zf_p, &
            qsthat_p, su_p, tut_p, qu_p) bind(c, name="zm_cldprp_updraft_saturation_adjust_codon")
@@ -3212,11 +3245,11 @@ subroutine cldprp(lchnk   , &
       if (masterproc .and. .not. zm_cldprp_helpers_logged) then
          write(iulog,*) 'zm_cldprp_helpers entered (init/thermo/iface/index/taylor/fpoly/eps/upmass/' // &
               'cloudtop/ddprof/ddmass/qds/upseed/' // &
-              'downdraft/cond/rain/evap direct = codon)'
+              'lcl/downdraft/cond/rain/evap direct = codon; qsat_hPa native)'
          call zm_conv_evap_append_impl_proof( &
               'zm_cldprp_helpers entered (init/thermo/iface/index/taylor/fpoly/eps/upmass/' // &
               'cloudtop/ddprof/ddmass/qds/upseed/' // &
-              'downdraft/cond/rain/evap direct = codon)')
+              'lcl/downdraft/cond/rain/evap direct = codon; qsat_hPa native)')
          call flush(iulog)
          zm_cldprp_helpers_logged = .true.
       end if
@@ -3719,32 +3752,56 @@ subroutine cldprp(lchnk   , &
    if (.not. use_native_zm_cldprp_helpers) then
       call zm_cldprp_updraft_seed_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), rl, cp, &
            c_loc(jb), c_loc(mx), c_loc(eps0), c_loc(q), c_loc(hu), c_loc(qu), c_loc(su))
+      call zm_cldprp_updraft_lcl_reset_codon(int(il2g, c_int64_t), c_loc(lcl_done), &
+           c_loc(lcl_active), c_loc(lcl_found), c_loc(lcl_tu), c_loc(lcl_qstu), c_loc(lcl_kount))
    end if
    kount = 0
-   do k = pver,msg + 2,-1
-      do i = 1,il2g
-         if (use_native_zm_cldprp_helpers .and. k == jb(i) .and. eps0(i) > 0._r8) then
-            qu(i,k) = q(i,mx(i))
-            su(i,k) = (hu(i,k)-rl*qu(i,k))/cp
-         end if
-         if (( .not. done(i) .and. k > jt(i) .and. k < jb(i)) .and. eps0(i) > 0._r8) then
-            su(i,k) = mu(i,k+1)/mu(i,k)*su(i,k+1) + &
-                      dz(i,k)/mu(i,k)* (eu(i,k)-du(i,k))*s(i,k)
-            qu(i,k) = mu(i,k+1)/mu(i,k)*qu(i,k+1) + dz(i,k)/mu(i,k)* (eu(i,k)*q(i,k)- &
-                            du(i,k)*qst(i,k))
-            tu = su(i,k) - grav/cp*zf(i,k)
-            call qsat_hPa(tu, (p(i,k)+p(i,k-1))/2._r8, estu, qstu)
-            tut(i,k) = tu !Needed for water tracer
-            if (qu(i,k) >= qstu) then
-               jlcl(i) = k
-               kount = kount + 1
-               done(i) = .true.
-               wtdn(i,k) = .true.
+   if (.not. use_native_zm_cldprp_helpers) then
+      do k = pver,msg + 2,-1
+         call zm_cldprp_updraft_lcl_prepare_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
+              int(k, c_int64_t), cp, grav, c_loc(jt), c_loc(jb), c_loc(lcl_done), &
+              c_loc(eps0), c_loc(mu), c_loc(dz), c_loc(eu), c_loc(du), c_loc(s), c_loc(q), &
+              c_loc(qst), c_loc(zf), c_loc(su), c_loc(qu), c_loc(lcl_active), c_loc(lcl_found), &
+              c_loc(lcl_tu))
+         do i = 1,il2g
+            if (lcl_active(i) /= 0) then
+               call qsat_hPa(lcl_tu(i), (p(i,k)+p(i,k-1))/2._r8, estu, lcl_qstu(i))
             end if
-         end if
+         end do
+         call zm_cldprp_updraft_lcl_finalize_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
+              int(k, c_int64_t), c_loc(lcl_active), c_loc(lcl_qstu), c_loc(lcl_tu), &
+              c_loc(qu), c_loc(tut), c_loc(jlcl), c_loc(lcl_done), c_loc(lcl_found), c_loc(lcl_kount))
+         do i = 1,il2g
+            if (lcl_found(i) /= 0) wtdn(i,k) = .true.
+         end do
+         if (lcl_kount(1) >= il2g) goto 690
       end do
-      if (kount >= il2g) goto 690
-   end do
+   else
+      do k = pver,msg + 2,-1
+         do i = 1,il2g
+            if (k == jb(i) .and. eps0(i) > 0._r8) then
+               qu(i,k) = q(i,mx(i))
+               su(i,k) = (hu(i,k)-rl*qu(i,k))/cp
+            end if
+            if (( .not. done(i) .and. k > jt(i) .and. k < jb(i)) .and. eps0(i) > 0._r8) then
+               su(i,k) = mu(i,k+1)/mu(i,k)*su(i,k+1) + &
+                         dz(i,k)/mu(i,k)* (eu(i,k)-du(i,k))*s(i,k)
+               qu(i,k) = mu(i,k+1)/mu(i,k)*qu(i,k+1) + dz(i,k)/mu(i,k)* (eu(i,k)*q(i,k)- &
+                               du(i,k)*qst(i,k))
+               tu = su(i,k) - grav/cp*zf(i,k)
+               call qsat_hPa(tu, (p(i,k)+p(i,k-1))/2._r8, estu, qstu)
+               tut(i,k) = tu !Needed for water tracer
+               if (qu(i,k) >= qstu) then
+                  jlcl(i) = k
+                  kount = kount + 1
+                  done(i) = .true.
+                  wtdn(i,k) = .true.
+               end if
+            end if
+         end do
+         if (kount >= il2g) goto 690
+      end do
+   end if
 690 continue
    if (.not. use_native_zm_cldprp_helpers) then
       call zm_cldprp_updraft_saturation_adjust_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &

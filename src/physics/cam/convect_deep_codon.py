@@ -541,6 +541,73 @@ def zm_cldprp_updraft_seed_codon(
 
 
 @export
+def zm_cldprp_updraft_lcl_reset_codon(
+    il2g: int,
+    done_p: cobj,
+    active_p: cobj,
+    found_p: cobj,
+    tu_p: cobj,
+    qstu_p: cobj,
+    kount_p: cobj,
+):
+    _zm_cldprp.zm_cldprp_updraft_lcl_reset_codon(
+        il2g, done_p, active_p, found_p, tu_p, qstu_p, kount_p,
+    )
+
+
+@export
+def zm_cldprp_updraft_lcl_prepare_codon(
+    il2g: int,
+    pcols: int,
+    k: int,
+    cp: float,
+    grav: float,
+    jt_p: cobj,
+    jb_p: cobj,
+    done_p: cobj,
+    eps0_p: cobj,
+    mu_p: cobj,
+    dz_p: cobj,
+    eu_p: cobj,
+    du_p: cobj,
+    s_p: cobj,
+    q_p: cobj,
+    qst_p: cobj,
+    zf_p: cobj,
+    su_p: cobj,
+    qu_p: cobj,
+    active_p: cobj,
+    found_p: cobj,
+    tu_p: cobj,
+):
+    _zm_cldprp.zm_cldprp_updraft_lcl_prepare_codon(
+        il2g, pcols, k, cp, grav, jt_p, jb_p, done_p, eps0_p, mu_p, dz_p, eu_p,
+        du_p, s_p, q_p, qst_p, zf_p, su_p, qu_p, active_p, found_p, tu_p,
+    )
+
+
+@export
+def zm_cldprp_updraft_lcl_finalize_codon(
+    il2g: int,
+    pcols: int,
+    k: int,
+    active_p: cobj,
+    qstu_p: cobj,
+    tu_p: cobj,
+    qu_p: cobj,
+    tut_p: cobj,
+    jlcl_p: cobj,
+    done_p: cobj,
+    found_p: cobj,
+    kount_p: cobj,
+):
+    _zm_cldprp.zm_cldprp_updraft_lcl_finalize_codon(
+        il2g, pcols, k, active_p, qstu_p, tu_p, qu_p, tut_p, jlcl_p, done_p,
+        found_p, kount_p,
+    )
+
+
+@export
 def zm_cldprp_updraft_saturation_adjust_codon(
     il2g: int,
     pcols: int,

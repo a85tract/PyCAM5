@@ -904,6 +904,123 @@ def zm_cldprp_updraft_seed_codon(
             su[idx] = (hu[idx] - rl * qu[idx]) / cp
 
 
+def zm_cldprp_updraft_lcl_reset_codon(
+    il2g: int,
+    done_p: cobj,
+    active_p: cobj,
+    found_p: cobj,
+    tu_p: cobj,
+    qstu_p: cobj,
+    kount_p: cobj,
+):
+    done = Ptr[i32](done_p)
+    active = Ptr[i32](active_p)
+    found = Ptr[i32](found_p)
+    tu = Ptr[float](tu_p)
+    qstu = Ptr[float](qstu_p)
+    kount = Ptr[i32](kount_p)
+
+    kount[0] = i32(0)
+    for i in range(1, il2g + 1):
+        i0 = _idx1(i)
+        done[i0] = i32(0)
+        active[i0] = i32(0)
+        found[i0] = i32(0)
+        tu[i0] = 0.0
+        qstu[i0] = 0.0
+
+
+def zm_cldprp_updraft_lcl_prepare_codon(
+    il2g: int,
+    pcols: int,
+    k: int,
+    cp: float,
+    grav: float,
+    jt_p: cobj,
+    jb_p: cobj,
+    done_p: cobj,
+    eps0_p: cobj,
+    mu_p: cobj,
+    dz_p: cobj,
+    eu_p: cobj,
+    du_p: cobj,
+    s_p: cobj,
+    q_p: cobj,
+    qst_p: cobj,
+    zf_p: cobj,
+    su_p: cobj,
+    qu_p: cobj,
+    active_p: cobj,
+    found_p: cobj,
+    tu_p: cobj,
+):
+    jt = Ptr[i32](jt_p)
+    jb = Ptr[i32](jb_p)
+    done = Ptr[i32](done_p)
+    eps0 = Ptr[float](eps0_p)
+    mu = Ptr[float](mu_p)
+    dz = Ptr[float](dz_p)
+    eu = Ptr[float](eu_p)
+    du = Ptr[float](du_p)
+    s = Ptr[float](s_p)
+    q = Ptr[float](q_p)
+    qst = Ptr[float](qst_p)
+    zf = Ptr[float](zf_p)
+    su = Ptr[float](su_p)
+    qu = Ptr[float](qu_p)
+    active = Ptr[i32](active_p)
+    found = Ptr[i32](found_p)
+    tu = Ptr[float](tu_p)
+
+    for i in range(1, il2g + 1):
+        i0 = _idx1(i)
+        active[i0] = i32(0)
+        found[i0] = i32(0)
+        if int(done[i0]) == 0 and k > int(jt[i0]) and k < int(jb[i0]) and eps0[i0] > 0.0:
+            idx = _idx2(i, k, pcols)
+            idxp1 = _idx2(i, k + 1, pcols)
+            su[idx] = mu[idxp1] / mu[idx] * su[idxp1] + dz[idx] / mu[idx] * (eu[idx] - du[idx]) * s[idx]
+            qu[idx] = mu[idxp1] / mu[idx] * qu[idxp1] + dz[idx] / mu[idx] * (eu[idx] * q[idx] - du[idx] * qst[idx])
+            tu[i0] = su[idx] - grav / cp * zf[idx]
+            active[i0] = i32(1)
+
+
+def zm_cldprp_updraft_lcl_finalize_codon(
+    il2g: int,
+    pcols: int,
+    k: int,
+    active_p: cobj,
+    qstu_p: cobj,
+    tu_p: cobj,
+    qu_p: cobj,
+    tut_p: cobj,
+    jlcl_p: cobj,
+    done_p: cobj,
+    found_p: cobj,
+    kount_p: cobj,
+):
+    active = Ptr[i32](active_p)
+    qstu = Ptr[float](qstu_p)
+    tu = Ptr[float](tu_p)
+    qu = Ptr[float](qu_p)
+    tut = Ptr[float](tut_p)
+    jlcl = Ptr[i32](jlcl_p)
+    done = Ptr[i32](done_p)
+    found = Ptr[i32](found_p)
+    kount = Ptr[i32](kount_p)
+
+    for i in range(1, il2g + 1):
+        i0 = _idx1(i)
+        if int(active[i0]) != 0:
+            idx = _idx2(i, k, pcols)
+            tut[idx] = tu[i0]
+            if qu[idx] >= qstu[i0]:
+                jlcl[i0] = i32(k)
+                kount[0] = i32(int(kount[0]) + 1)
+                done[i0] = i32(1)
+                found[i0] = i32(1)
+
+
 def zm_cldprp_updraft_saturation_adjust_codon(
     il2g: int,
     pcols: int,
