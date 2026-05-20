@@ -458,6 +458,25 @@ def zm_cldprp_downdraft_init_codon(
 
 
 @export
+def zm_cldprp_downdraft_mass_profile_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    msg: int,
+    jd_p: cobj,
+    jb_p: cobj,
+    eps0_p: cobj,
+    epsm_p: cobj,
+    alfa_p: cobj,
+    zf_p: cobj,
+    md_p: cobj,
+):
+    _zm_cldprp.zm_cldprp_downdraft_mass_profile_codon(
+        il2g, pcols, pver, msg, jd_p, jb_p, eps0_p, epsm_p, alfa_p, zf_p, md_p,
+    )
+
+
+@export
 def zm_cldprp_downdraft_scale_energy_codon(
     il2g: int,
     pcols: int,

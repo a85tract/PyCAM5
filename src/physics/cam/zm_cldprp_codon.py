@@ -764,6 +764,37 @@ def zm_cldprp_downdraft_init_codon(
             md[_idx2(i, jd_i, pcols)] = -alfa[i0] * epsm[i0] / eps0[i0]
 
 
+def zm_cldprp_downdraft_mass_profile_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    msg: int,
+    jd_p: cobj,
+    jb_p: cobj,
+    eps0_p: cobj,
+    epsm_p: cobj,
+    alfa_p: cobj,
+    zf_p: cobj,
+    md_p: cobj,
+):
+    jd = Ptr[i32](jd_p)
+    jb = Ptr[i32](jb_p)
+    eps0 = Ptr[float](eps0_p)
+    epsm = Ptr[float](epsm_p)
+    alfa = Ptr[float](alfa_p)
+    zf = Ptr[float](zf_p)
+    md = Ptr[float](md_p)
+
+    for k in range(msg + 1, pver + 1):
+        for i in range(1, il2g + 1):
+            i0 = _idx1(i)
+            jd_i = int(jd[i0])
+            if (k > jd_i and k <= int(jb[i0])) and eps0[i0] > 0.0:
+                idx = _idx2(i, k, pcols)
+                zdef = zf[_idx2(i, jd_i, pcols)] - zf[idx]
+                md[idx] = -alfa[i0] / (2.0 * eps0[i0]) * (exp(2.0 * epsm[i0] * zdef) - 1.0) / zdef
+
+
 def zm_cldprp_downdraft_scale_energy_codon(
     il2g: int,
     pcols: int,

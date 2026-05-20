@@ -3115,6 +3115,14 @@ subroutine cldprp(lchnk   , &
          type(c_ptr), value :: jt_p, jb_p, j0_p, jd_p, hmn_p, hd_p, eps0_p, epsm_p, alfa_p, md_p
       end subroutine zm_cldprp_downdraft_init_codon
 
+      subroutine zm_cldprp_downdraft_mass_profile_codon(il2g_c, pcols_c, pver_c, msg_c, &
+           jd_p, jb_p, eps0_p, epsm_p, alfa_p, zf_p, md_p) bind(c, &
+           name="zm_cldprp_downdraft_mass_profile_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c, pver_c, msg_c
+         type(c_ptr), value :: jd_p, jb_p, eps0_p, epsm_p, alfa_p, zf_p, md_p
+      end subroutine zm_cldprp_downdraft_mass_profile_codon
+
       subroutine zm_cldprp_downdraft_scale_energy_codon(il2g_c, pcols_c, pver_c, msg_c, &
            small_c, jt_p, jb_p, jd_p, eps0_p, mu_p, md_p, dz_p, ed_p, hd_p, hmn_p) &
            bind(c, name="zm_cldprp_downdraft_scale_energy_codon")
@@ -3195,11 +3203,11 @@ subroutine cldprp(lchnk   , &
    if (.not. use_native_zm_cldprp_helpers) then
       if (masterproc .and. .not. zm_cldprp_helpers_logged) then
          write(iulog,*) 'zm_cldprp_helpers entered (init/thermo/iface/index/taylor/fpoly/eps/upmass/' // &
-              'cloudtop/ddmass/' // &
+              'cloudtop/ddprof/ddmass/' // &
               'downdraft/cond/rain/evap direct = codon)'
          call zm_conv_evap_append_impl_proof( &
               'zm_cldprp_helpers entered (init/thermo/iface/index/taylor/fpoly/eps/upmass/' // &
-              'cloudtop/ddmass/' // &
+              'cloudtop/ddprof/ddmass/' // &
               'downdraft/cond/rain/evap direct = codon)')
          call flush(iulog)
          zm_cldprp_helpers_logged = .true.
@@ -3624,14 +3632,20 @@ subroutine cldprp(lchnk   , &
          end if
       end do
    end if
-   do k = msg + 1,pver
-      do i = 1,il2g
-         if ((k > jd(i) .and. k <= jb(i)) .and. eps0(i) > 0._r8) then
-            zdef(i) = zf(i,jd(i)) - zf(i,k)
-            md(i,k) = -alfa(i)/ (2._r8*eps0(i))*(exp(2._r8*epsm(i)*zdef(i))-1._r8)/zdef(i)
-         end if
+   if (.not. use_native_zm_cldprp_helpers) then
+      call zm_cldprp_downdraft_mass_profile_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(msg, c_int64_t), c_loc(jd), c_loc(jb), c_loc(eps0), &
+           c_loc(epsm), c_loc(alfa), c_loc(zf), c_loc(md))
+   else
+      do k = msg + 1,pver
+         do i = 1,il2g
+            if ((k > jd(i) .and. k <= jb(i)) .and. eps0(i) > 0._r8) then
+               zdef(i) = zf(i,jd(i)) - zf(i,k)
+               md(i,k) = -alfa(i)/ (2._r8*eps0(i))*(exp(2._r8*epsm(i)*zdef(i))-1._r8)/zdef(i)
+            end if
+         end do
       end do
-   end do
+   end if
 
    small = 1.e-20_r8
    if (.not. use_native_zm_cldprp_helpers) then
