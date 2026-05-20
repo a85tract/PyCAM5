@@ -117,6 +117,9 @@ logical :: cam_diag_conv_batch_impl_selected = .false.
 logical :: cam_diag_conv_tend_ini_entered_logged = .false.
 logical :: cam_diag_conv_entered_logged = .false.
 logical :: cam_diag_conv_precip_dtcond_entered_logged = .false.
+logical :: cam_diag_init_helpers_use_native_impl = .false.
+logical :: cam_diag_init_helpers_impl_selected = .false.
+logical :: cam_diag_init_helpers_entered_logged = .false.
 
 interface
    subroutine diag_phys_writeout_batch_dispatch_codon(group_c, mode_c, submode_c, ncol_c, pcols_c, pver_c, &
@@ -197,10 +200,21 @@ subroutine diag_init()
    use constituent_burden, only: constituent_burden_init
    use cam_control_mod,    only: moist_physics, ideal_phys
    use tidal_diag,         only: tidal_diag_init
+   use iso_c_binding,      only: c_int64_t
 
    integer :: k, m
    integer :: ixcldice, ixcldliq ! constituent indices for cloud liquid and ice water.
    integer :: ierr
+   integer :: conv_tend_code
+
+   interface
+      function cam_diag_init_dqcond_num_codon(history_budget_c, conv_tend_code_c, pcnst_c) result(result_c) &
+           bind(c, name="cam_diag_init_dqcond_num_codon")
+         use iso_c_binding, only: c_int64_t
+         integer(c_int64_t), value :: history_budget_c, conv_tend_code_c, pcnst_c
+         integer(c_int64_t) :: result_c
+      end function cam_diag_init_dqcond_num_codon
+   end interface
 
    ! outfld calls in diag_phys_writeout
 
@@ -477,12 +491,22 @@ subroutine diag_init()
    call addfld ('DTCOND_12_SIN','K/s',pver, 'A','T tendency - moist processes 12hr. sin coeff.',phys_decomp)
 
    ! determine number of constituents for which convective tendencies must be computed
-   if (history_budget) then
-      dqcond_num = pcnst
+   call cam_diag_init_helpers_select_impl()
+   if (.not. cam_diag_init_helpers_use_native_impl) then
+      conv_tend_code = 0
+      if (diag_cnst_conv_tend == 'q_only') conv_tend_code = 1
+      if (diag_cnst_conv_tend == 'all')    conv_tend_code = 2
+      call cam_diag_init_helpers_log_entered()
+      dqcond_num = int(cam_diag_init_dqcond_num_codon( &
+           merge(1_c_int64_t, 0_c_int64_t, history_budget), int(conv_tend_code, c_int64_t), int(pcnst, c_int64_t)))
    else
-      if (diag_cnst_conv_tend == 'none')   dqcond_num = 0
-      if (diag_cnst_conv_tend == 'q_only') dqcond_num = 1
-      if (diag_cnst_conv_tend == 'all')    dqcond_num = pcnst
+      if (history_budget) then
+         dqcond_num = pcnst
+      else
+         if (diag_cnst_conv_tend == 'none')   dqcond_num = 0
+         if (diag_cnst_conv_tend == 'q_only') dqcond_num = 1
+         if (diag_cnst_conv_tend == 'all')    dqcond_num = pcnst
+      end if
    end if
 
    do m = 1, dqcond_num
@@ -776,6 +800,57 @@ subroutine diag_deallocate()
    end if
 
 end subroutine diag_deallocate
+!===============================================================================
+
+subroutine cam_diag_init_helpers_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cam_diag_init_helpers_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CAM_DIAG_INIT_HELPERS_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      cam_diag_init_helpers_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      cam_diag_init_helpers_use_native_impl = .false.
+   end if
+
+   cam_diag_init_helpers_impl_selected = .true.
+
+   if (masterproc) then
+      if (cam_diag_init_helpers_use_native_impl) then
+         write(iulog,*) 'cam_diag_init_helpers implementation = native'
+      else
+         write(iulog,*) 'cam_diag_init_helpers implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine cam_diag_init_helpers_select_impl
+
+!===============================================================================
+
+subroutine cam_diag_init_helpers_log_entered()
+
+   if (cam_diag_init_helpers_entered_logged) return
+   cam_diag_init_helpers_entered_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'cam_diag_init_helpers entered (dqcond policy direct = codon)'
+      call flush(iulog)
+   end if
+
+end subroutine cam_diag_init_helpers_log_entered
+
 !===============================================================================
 
 subroutine cam_diag_conv_batch_append_proof(proof_line)

@@ -1,4 +1,5 @@
 from math import sqrt
+import cam_diagnostics_init_codon as _diag_init
 
 
 @inline
@@ -14,6 +15,11 @@ def _idx2(i: int, k: int, ld1: int) -> int:
 @inline
 def _idx3(i: int, k: int, m: int, ld1: int, ld2: int) -> int:
     return (i - 1) + (k - 1) * ld1 + (m - 1) * ld1 * ld2
+
+
+@export
+def cam_diag_init_dqcond_num_codon(history_budget: int, conv_tend_code: int, pcnst: int) -> int:
+    return _diag_init.cam_diag_init_dqcond_num_codon(history_budget, conv_tend_code, pcnst)
 
 
 @export
