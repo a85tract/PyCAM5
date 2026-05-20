@@ -1,3 +1,5 @@
+from math import exp
+
 @inline
 def _idx1(i: int) -> int:
     return i - 1
@@ -13,6 +15,12 @@ def _idx2(i: int, k: int, pcols: int) -> int:
 def _sw_idx(i: int, k0: int, band: int, pcols: int, pverp: int) -> int:
     """modal_aero_sw output arrays declared as (pcols,0:pver,nswbands)."""
     return (i - 1) + k0 * pcols + (band - 1) * pcols * pverp
+
+
+@inline
+def _cheb_idx(nc: int, i: int, k: int, ncoef: int, pcols: int) -> int:
+    """modal_aero_sw Chebyshev arrays declared as (ncoef,pcols,pver)."""
+    return (nc - 1) + (i - 1) * ncoef + (k - 1) * ncoef * pcols
 
 
 def modal_aer_opt_sw_init_state_codon(
@@ -170,6 +178,264 @@ def modal_aer_opt_sw_mode_diag_init_codon(
         burden[idx] = 0.0
         aodmode[idx] = 0.0
         dustaodmode[idx] = 0.0
+
+
+def modal_aer_opt_sw_reset_layer_codon(
+    ncol: int,
+    dryvol_p: cobj,
+    dustvol_p: cobj,
+    scatdust_p: cobj,
+    absdust_p: cobj,
+    hygrodust_p: cobj,
+    scatso4_p: cobj,
+    absso4_p: cobj,
+    hygroso4_p: cobj,
+    scatbc_p: cobj,
+    absbc_p: cobj,
+    hygrobc_p: cobj,
+    scatpom_p: cobj,
+    abspom_p: cobj,
+    hygropom_p: cobj,
+    scatsoa_p: cobj,
+    abssoa_p: cobj,
+    hygrosoa_p: cobj,
+    scatseasalt_p: cobj,
+    absseasalt_p: cobj,
+    hygroseasalt_p: cobj,
+):
+    dryvol = Ptr[float](dryvol_p)
+    dustvol = Ptr[float](dustvol_p)
+    scatdust = Ptr[float](scatdust_p)
+    absdust = Ptr[float](absdust_p)
+    hygrodust = Ptr[float](hygrodust_p)
+    scatso4 = Ptr[float](scatso4_p)
+    absso4 = Ptr[float](absso4_p)
+    hygroso4 = Ptr[float](hygroso4_p)
+    scatbc = Ptr[float](scatbc_p)
+    absbc = Ptr[float](absbc_p)
+    hygrobc = Ptr[float](hygrobc_p)
+    scatpom = Ptr[float](scatpom_p)
+    abspom = Ptr[float](abspom_p)
+    hygropom = Ptr[float](hygropom_p)
+    scatsoa = Ptr[float](scatsoa_p)
+    abssoa = Ptr[float](abssoa_p)
+    hygrosoa = Ptr[float](hygrosoa_p)
+    scatseasalt = Ptr[float](scatseasalt_p)
+    absseasalt = Ptr[float](absseasalt_p)
+    hygroseasalt = Ptr[float](hygroseasalt_p)
+
+    for i in range(1, ncol + 1):
+        idx = _idx1(i)
+        dryvol[idx] = 0.0
+        dustvol[idx] = 0.0
+        scatdust[idx] = 0.0
+        absdust[idx] = 0.0
+        hygrodust[idx] = 0.0
+        scatso4[idx] = 0.0
+        absso4[idx] = 0.0
+        hygroso4[idx] = 0.0
+        scatbc[idx] = 0.0
+        absbc[idx] = 0.0
+        hygrobc[idx] = 0.0
+        scatpom[idx] = 0.0
+        abspom[idx] = 0.0
+        hygropom[idx] = 0.0
+        scatsoa[idx] = 0.0
+        abssoa[idx] = 0.0
+        hygrosoa[idx] = 0.0
+        scatseasalt[idx] = 0.0
+        absseasalt[idx] = 0.0
+        hygroseasalt[idx] = 0.0
+
+
+def modal_aer_opt_sw_species_vis_diag_codon(
+    ncol: int,
+    pcols: int,
+    k: int,
+    spectype_code: int,
+    specrefr: float,
+    specrefi: float,
+    hygro_aer: float,
+    specmmr_p: cobj,
+    mass_p: cobj,
+    vol_p: cobj,
+    burden_p: cobj,
+    burdendust_p: cobj,
+    burdenso4_p: cobj,
+    burdenbc_p: cobj,
+    burdenpom_p: cobj,
+    burdensoa_p: cobj,
+    burdenseasalt_p: cobj,
+    dustvol_p: cobj,
+    scatdust_p: cobj,
+    absdust_p: cobj,
+    hygrodust_p: cobj,
+    scatso4_p: cobj,
+    absso4_p: cobj,
+    hygroso4_p: cobj,
+    scatbc_p: cobj,
+    absbc_p: cobj,
+    hygrobc_p: cobj,
+    scatpom_p: cobj,
+    abspom_p: cobj,
+    hygropom_p: cobj,
+    scatsoa_p: cobj,
+    abssoa_p: cobj,
+    hygrosoa_p: cobj,
+    scatseasalt_p: cobj,
+    absseasalt_p: cobj,
+    hygroseasalt_p: cobj,
+):
+    specmmr = Ptr[float](specmmr_p)
+    mass = Ptr[float](mass_p)
+    vol = Ptr[float](vol_p)
+    burden = Ptr[float](burden_p)
+    burdendust = Ptr[float](burdendust_p)
+    burdenso4 = Ptr[float](burdenso4_p)
+    burdenbc = Ptr[float](burdenbc_p)
+    burdenpom = Ptr[float](burdenpom_p)
+    burdensoa = Ptr[float](burdensoa_p)
+    burdenseasalt = Ptr[float](burdenseasalt_p)
+    dustvol = Ptr[float](dustvol_p)
+    scatdust = Ptr[float](scatdust_p)
+    absdust = Ptr[float](absdust_p)
+    hygrodust = Ptr[float](hygrodust_p)
+    scatso4 = Ptr[float](scatso4_p)
+    absso4 = Ptr[float](absso4_p)
+    hygroso4 = Ptr[float](hygroso4_p)
+    scatbc = Ptr[float](scatbc_p)
+    absbc = Ptr[float](absbc_p)
+    hygrobc = Ptr[float](hygrobc_p)
+    scatpom = Ptr[float](scatpom_p)
+    abspom = Ptr[float](abspom_p)
+    hygropom = Ptr[float](hygropom_p)
+    scatsoa = Ptr[float](scatsoa_p)
+    abssoa = Ptr[float](abssoa_p)
+    hygrosoa = Ptr[float](hygrosoa_p)
+    scatseasalt = Ptr[float](scatseasalt_p)
+    absseasalt = Ptr[float](absseasalt_p)
+    hygroseasalt = Ptr[float](hygroseasalt_p)
+
+    for i in range(1, ncol + 1):
+        idx1 = _idx1(i)
+        idx2 = _idx2(i, k, pcols)
+        burden[idx1] = burden[idx1] + specmmr[idx2] * mass[idx2]
+
+    if spectype_code == 1:
+        for i in range(1, ncol + 1):
+            idx1 = _idx1(i)
+            idx2 = _idx2(i, k, pcols)
+            burdendust[idx1] = burdendust[idx1] + specmmr[idx2] * mass[idx2]
+            dustvol[idx1] = vol[idx1]
+            scatdust[idx1] = vol[idx1] * specrefr
+            absdust[idx1] = -vol[idx1] * specrefi
+            hygrodust[idx1] = vol[idx1] * hygro_aer
+    if spectype_code == 2:
+        for i in range(1, ncol + 1):
+            idx1 = _idx1(i)
+            idx2 = _idx2(i, k, pcols)
+            burdenso4[idx1] = burdenso4[idx1] + specmmr[idx2] * mass[idx2]
+            scatso4[idx1] = vol[idx1] * specrefr
+            absso4[idx1] = -vol[idx1] * specrefi
+            hygroso4[idx1] = vol[idx1] * hygro_aer
+    if spectype_code == 3:
+        for i in range(1, ncol + 1):
+            idx1 = _idx1(i)
+            idx2 = _idx2(i, k, pcols)
+            burdenbc[idx1] = burdenbc[idx1] + specmmr[idx2] * mass[idx2]
+            scatbc[idx1] = vol[idx1] * specrefr
+            absbc[idx1] = -vol[idx1] * specrefi
+            hygrobc[idx1] = vol[idx1] * hygro_aer
+    if spectype_code == 4:
+        for i in range(1, ncol + 1):
+            idx1 = _idx1(i)
+            idx2 = _idx2(i, k, pcols)
+            burdenpom[idx1] = burdenpom[idx1] + specmmr[idx2] * mass[idx2]
+            scatpom[idx1] = vol[idx1] * specrefr
+            abspom[idx1] = -vol[idx1] * specrefi
+            hygropom[idx1] = vol[idx1] * hygro_aer
+    if spectype_code == 5:
+        for i in range(1, ncol + 1):
+            idx1 = _idx1(i)
+            idx2 = _idx2(i, k, pcols)
+            burdensoa[idx1] = burdensoa[idx1] + specmmr[idx2] * mass[idx2]
+            scatsoa[idx1] = vol[idx1] * specrefr
+            abssoa[idx1] = -vol[idx1] * specrefi
+            hygrosoa[idx1] = vol[idx1] * hygro_aer
+    if spectype_code == 6:
+        for i in range(1, ncol + 1):
+            idx1 = _idx1(i)
+            idx2 = _idx2(i, k, pcols)
+            burdenseasalt[idx1] = burdenseasalt[idx1] + specmmr[idx2] * mass[idx2]
+            scatseasalt[idx1] = vol[idx1] * specrefr
+            absseasalt[idx1] = -vol[idx1] * specrefi
+            hygroseasalt[idx1] = vol[idx1] * hygro_aer
+
+
+def modal_aer_opt_sw_optics_props_codon(
+    ncol: int,
+    pcols: int,
+    k: int,
+    ncoef: int,
+    xrmax: float,
+    rhoh2o: float,
+    radsurf_p: cobj,
+    logradsurf_p: cobj,
+    cheb_p: cobj,
+    cext_p: cobj,
+    cabs_p: cobj,
+    casm_p: cobj,
+    wetvol_p: cobj,
+    mass_p: cobj,
+    pext_p: cobj,
+    specpext_p: cobj,
+    pabs_p: cobj,
+    pasm_p: cobj,
+    palb_p: cobj,
+    dopaer_p: cobj,
+):
+    radsurf = Ptr[float](radsurf_p)
+    logradsurf = Ptr[float](logradsurf_p)
+    cheb = Ptr[float](cheb_p)
+    cext = Ptr[float](cext_p)
+    cabs = Ptr[float](cabs_p)
+    casm = Ptr[float](casm_p)
+    wetvol = Ptr[float](wetvol_p)
+    mass = Ptr[float](mass_p)
+    pext = Ptr[float](pext_p)
+    specpext = Ptr[float](specpext_p)
+    pabs = Ptr[float](pabs_p)
+    pasm = Ptr[float](pasm_p)
+    palb = Ptr[float](palb_p)
+    dopaer = Ptr[float](dopaer_p)
+
+    for i in range(1, ncol + 1):
+        idx1 = _idx1(i)
+        idx2 = _idx2(i, k, pcols)
+
+        if logradsurf[idx2] <= xrmax:
+            pext[idx1] = 0.5 * cext[_idx2(i, 1, pcols)]
+            for nc in range(2, ncoef + 1):
+                pext[idx1] = pext[idx1] + cheb[_cheb_idx(nc, i, k, ncoef, pcols)] * cext[_idx2(i, nc, pcols)]
+            pext[idx1] = exp(pext[idx1])
+        else:
+            pext[idx1] = 1.5 / (radsurf[idx2] * rhoh2o)
+
+        specpext[idx1] = pext[idx1]
+        pext[idx1] = pext[idx1] * wetvol[idx1] * rhoh2o
+        pabs[idx1] = 0.5 * cabs[_idx2(i, 1, pcols)]
+        pasm[idx1] = 0.5 * casm[_idx2(i, 1, pcols)]
+        for nc in range(2, ncoef + 1):
+            pabs[idx1] = pabs[idx1] + cheb[_cheb_idx(nc, i, k, ncoef, pcols)] * cabs[_idx2(i, nc, pcols)]
+            pasm[idx1] = pasm[idx1] + cheb[_cheb_idx(nc, i, k, ncoef, pcols)] * casm[_idx2(i, nc, pcols)]
+        pabs[idx1] = pabs[idx1] * wetvol[idx1] * rhoh2o
+        pabs[idx1] = max(0.0, pabs[idx1])
+        pabs[idx1] = min(pext[idx1], pabs[idx1])
+
+        palb[idx1] = 1.0 - pabs[idx1] / max(pext[idx1], 1.0e-40)
+        palb[idx1] = 1.0 - pabs[idx1] / max(pext[idx1], 1.0e-40)
+
+        dopaer[idx1] = pext[idx1] * mass[idx2]
 
 
 def modal_aer_opt_sw_mode_diag_night_codon(

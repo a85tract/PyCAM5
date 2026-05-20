@@ -124,6 +124,47 @@ interface
       type(c_ptr), value :: burden_p, aodmode_p, dustaodmode_p
    end subroutine modal_aer_opt_sw_mode_diag_init_codon
 
+   subroutine modal_aer_opt_sw_reset_layer_codon(ncol_c, dryvol_p, dustvol_p, scatdust_p, &
+        absdust_p, hygrodust_p, scatso4_p, absso4_p, hygroso4_p, scatbc_p, absbc_p, hygrobc_p, &
+        scatpom_p, abspom_p, hygropom_p, scatsoa_p, abssoa_p, hygrosoa_p, scatseasalt_p, &
+        absseasalt_p, hygroseasalt_p) bind(c, name="modal_aer_opt_sw_reset_layer_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c
+      type(c_ptr), value :: dryvol_p, dustvol_p, scatdust_p, absdust_p, hygrodust_p
+      type(c_ptr), value :: scatso4_p, absso4_p, hygroso4_p, scatbc_p, absbc_p, hygrobc_p
+      type(c_ptr), value :: scatpom_p, abspom_p, hygropom_p, scatsoa_p, abssoa_p, hygrosoa_p
+      type(c_ptr), value :: scatseasalt_p, absseasalt_p, hygroseasalt_p
+   end subroutine modal_aer_opt_sw_reset_layer_codon
+
+   subroutine modal_aer_opt_sw_species_vis_diag_codon(ncol_c, pcols_c, k_c, spectype_code_c, &
+        specrefr_c, specrefi_c, hygro_aer_c, specmmr_p, mass_p, vol_p, burden_p, burdendust_p, &
+        burdenso4_p, burdenbc_p, burdenpom_p, burdensoa_p, burdenseasalt_p, dustvol_p, scatdust_p, &
+        absdust_p, hygrodust_p, scatso4_p, absso4_p, hygroso4_p, scatbc_p, absbc_p, hygrobc_p, &
+        scatpom_p, abspom_p, hygropom_p, scatsoa_p, abssoa_p, hygrosoa_p, scatseasalt_p, &
+        absseasalt_p, hygroseasalt_p) bind(c, name="modal_aer_opt_sw_species_vis_diag_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, k_c, spectype_code_c
+      real(c_double), value :: specrefr_c, specrefi_c, hygro_aer_c
+      type(c_ptr), value :: specmmr_p, mass_p, vol_p, burden_p, burdendust_p, burdenso4_p
+      type(c_ptr), value :: burdenbc_p, burdenpom_p, burdensoa_p, burdenseasalt_p, dustvol_p
+      type(c_ptr), value :: scatdust_p, absdust_p, hygrodust_p, scatso4_p, absso4_p, hygroso4_p
+      type(c_ptr), value :: scatbc_p, absbc_p, hygrobc_p, scatpom_p, abspom_p, hygropom_p
+      type(c_ptr), value :: scatsoa_p, abssoa_p, hygrosoa_p, scatseasalt_p, absseasalt_p
+      type(c_ptr), value :: hygroseasalt_p
+   end subroutine modal_aer_opt_sw_species_vis_diag_codon
+
+   subroutine modal_aer_opt_sw_optics_props_codon(ncol_c, pcols_c, k_c, ncoef_c, xrmax_c, &
+        rhoh2o_c, radsurf_p, logradsurf_p, cheb_p, cext_p, cabs_p, casm_p, wetvol_p, mass_p, &
+        pext_p, specpext_p, pabs_p, pasm_p, palb_p, dopaer_p) &
+        bind(c, name="modal_aer_opt_sw_optics_props_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, k_c, ncoef_c
+      real(c_double), value :: xrmax_c, rhoh2o_c
+      type(c_ptr), value :: radsurf_p, logradsurf_p, cheb_p, cext_p, cabs_p, casm_p
+      type(c_ptr), value :: wetvol_p, mass_p, pext_p, specpext_p, pabs_p, pasm_p, palb_p
+      type(c_ptr), value :: dopaer_p
+   end subroutine modal_aer_opt_sw_optics_props_codon
+
    subroutine modal_aer_opt_sw_mode_diag_night_codon(nnite_c, fillvalue_c, idxnite_p, burden_p, &
         aodmode_p, dustaodmode_p) bind(c, name="modal_aer_opt_sw_mode_diag_night_codon")
       use iso_c_binding, only: c_int64_t, c_double, c_ptr
@@ -239,8 +280,8 @@ subroutine modal_aer_opt_helpers_proof_once()
    modal_aer_opt_helpers_proof_written = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') &
-           'modal_aer_opt_helpers entered (modal aerosol size/interpolation/sw diagnostics/tau helpers = codon)'
+      write(iulog,'(A)') 'modal_aer_opt_helpers entered (modal aerosol size/interpolation/sw diagnostics/tau/' // &
+           'layer reset/species vis/optics props helpers = codon)'
    end if
 
 end subroutine modal_aer_opt_helpers_proof_once
@@ -508,6 +549,7 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
    integer :: ncol                     ! number of active columns in the chunk
    integer :: nmodes
    integer :: nspec
+   integer :: spectype_code
    integer, target :: troplev(pcols)
 
    real(r8), target :: mass(pcols,pver)        ! layer mass
@@ -528,9 +570,9 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
    real(r8), pointer :: wetdens_m(:,:,:)  ! 
 
    real(r8) :: sigma_logr_aer         ! geometric standard deviation of number distribution
-   real(r8) :: radsurf(pcols,pver)    ! aerosol surface mode radius
-   real(r8) :: logradsurf(pcols,pver) ! log(aerosol surface mode radius)
-   real(r8) :: cheb(ncoef,pcols,pver)
+   real(r8), target :: radsurf(pcols,pver)    ! aerosol surface mode radius
+   real(r8), target :: logradsurf(pcols,pver) ! log(aerosol surface mode radius)
+   real(r8), target :: cheb(ncoef,pcols,pver)
 
    real(r8)    :: refr(pcols)     ! real part of refractive index
    real(r8)    :: refi(pcols)     ! imaginary part of refractive index
@@ -541,16 +583,16 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
    real(r8), pointer :: abspsw(:,:,:,:) ! specific absorption
    real(r8), pointer :: asmpsw(:,:,:,:) ! asymmetry factor
 
-   real(r8) :: vol(pcols)      ! volume concentration of aerosol specie (m3/kg)
-   real(r8) :: dryvol(pcols)   ! volume concentration of aerosol mode (m3/kg)
+   real(r8), target :: vol(pcols)    ! volume concentration of aerosol specie (m3/kg)
+   real(r8), target :: dryvol(pcols) ! volume concentration of aerosol mode (m3/kg)
    real(r8), target :: watervol(pcols) ! volume concentration of water in each mode (m3/kg)
    real(r8), target :: wetvol(pcols)   ! volume concentration of wet mode (m3/kg)
 
    integer  :: itab(pcols), jtab(pcols)
    real(r8) :: ttab(pcols), utab(pcols)
-   real(r8) :: cext(pcols,ncoef), cabs(pcols,ncoef), casm(pcols,ncoef)
-   real(r8) :: pext(pcols)     ! parameterized specific extinction (m2/kg)
-   real(r8) :: specpext(pcols) ! specific extinction (m2/kg)
+   real(r8), target :: cext(pcols,ncoef), cabs(pcols,ncoef), casm(pcols,ncoef)
+   real(r8), target :: pext(pcols)     ! parameterized specific extinction (m2/kg)
+   real(r8), target :: specpext(pcols) ! specific extinction (m2/kg)
    real(r8), target :: dopaer(pcols)   ! aerosol optical depth in layer
    real(r8), target :: pabs(pcols)     ! parameterized specific absorption (m2/kg)
    real(r8), target :: pasm(pcols)     ! parameterized asymmetry factor
@@ -734,27 +776,37 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
 
             ! form bulk refractive index
             crefin(:ncol) = (0._r8, 0._r8)
-            dryvol(:ncol) = 0._r8
-            dustvol(:ncol) = 0._r8
+            if (use_native_modal_aer_opt_helpers_impl) then
+               dryvol(:ncol) = 0._r8
+               dustvol(:ncol) = 0._r8
 
-            scatdust(:ncol)     = 0._r8
-            absdust(:ncol)      = 0._r8
-            hygrodust(:ncol)    = 0._r8
-            scatso4(:ncol)      = 0._r8
-            absso4(:ncol)       = 0._r8
-            hygroso4(:ncol)     = 0._r8
-            scatbc(:ncol)       = 0._r8
-            absbc(:ncol)        = 0._r8
-            hygrobc(:ncol)      = 0._r8
-            scatpom(:ncol)      = 0._r8
-            abspom(:ncol)       = 0._r8
-            hygropom(:ncol)     = 0._r8
-            scatsoa(:ncol)      = 0._r8
-            abssoa(:ncol)       = 0._r8
-            hygrosoa(:ncol)     = 0._r8
-            scatseasalt(:ncol)  = 0._r8
-            absseasalt(:ncol)   = 0._r8
-            hygroseasalt(:ncol) = 0._r8
+               scatdust(:ncol)     = 0._r8
+               absdust(:ncol)      = 0._r8
+               hygrodust(:ncol)    = 0._r8
+               scatso4(:ncol)      = 0._r8
+               absso4(:ncol)       = 0._r8
+               hygroso4(:ncol)     = 0._r8
+               scatbc(:ncol)       = 0._r8
+               absbc(:ncol)        = 0._r8
+               hygrobc(:ncol)      = 0._r8
+               scatpom(:ncol)      = 0._r8
+               abspom(:ncol)       = 0._r8
+               hygropom(:ncol)     = 0._r8
+               scatsoa(:ncol)      = 0._r8
+               abssoa(:ncol)       = 0._r8
+               hygrosoa(:ncol)     = 0._r8
+               scatseasalt(:ncol)  = 0._r8
+               absseasalt(:ncol)   = 0._r8
+               hygroseasalt(:ncol) = 0._r8
+            else
+               call modal_aer_opt_helpers_proof_once()
+               call modal_aer_opt_sw_reset_layer_codon(int(ncol, c_int64_t), c_loc(dryvol(1)), &
+                    c_loc(dustvol(1)), c_loc(scatdust(1)), c_loc(absdust(1)), c_loc(hygrodust(1)), &
+                    c_loc(scatso4(1)), c_loc(absso4(1)), c_loc(hygroso4(1)), c_loc(scatbc(1)), &
+                    c_loc(absbc(1)), c_loc(hygrobc(1)), c_loc(scatpom(1)), c_loc(abspom(1)), &
+                    c_loc(hygropom(1)), c_loc(scatsoa(1)), c_loc(abssoa(1)), c_loc(hygrosoa(1)), &
+                    c_loc(scatseasalt(1)), c_loc(absseasalt(1)), c_loc(hygroseasalt(1)))
+            end if
 
             ! aerosol species loop
             do l = 1, nspec
@@ -775,59 +827,90 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
                   specrefr = real(specrefindex(isw))
                   specrefi = aimag(specrefindex(isw))
 
-                  do i = 1, ncol
-                     burden(i) = burden(i) + specmmr(i,k)*mass(i,k)
-                  end do
+                  if (.not. use_native_modal_aer_opt_helpers_impl) then
+                     select case (trim(spectype))
+                     case ('dust')
+                        spectype_code = 1
+                     case ('sulfate')
+                        spectype_code = 2
+                     case ('black-c')
+                        spectype_code = 3
+                     case ('p-organic')
+                        spectype_code = 4
+                     case ('s-organic')
+                        spectype_code = 5
+                     case ('seasalt')
+                        spectype_code = 6
+                     case default
+                        spectype_code = 0
+                     end select
+                     call modal_aer_opt_helpers_proof_once()
+                     call modal_aer_opt_sw_species_vis_diag_codon(int(ncol, c_int64_t), &
+                          int(pcols, c_int64_t), int(k, c_int64_t), int(spectype_code, c_int64_t), &
+                          specrefr, specrefi, hygro_aer, c_loc(specmmr(1,1)), c_loc(mass(1,1)), &
+                          c_loc(vol(1)), c_loc(burden(1)), c_loc(burdendust(1)), c_loc(burdenso4(1)), &
+                          c_loc(burdenbc(1)), c_loc(burdenpom(1)), c_loc(burdensoa(1)), &
+                          c_loc(burdenseasalt(1)), c_loc(dustvol(1)), c_loc(scatdust(1)), &
+                          c_loc(absdust(1)), c_loc(hygrodust(1)), c_loc(scatso4(1)), c_loc(absso4(1)), &
+                          c_loc(hygroso4(1)), c_loc(scatbc(1)), c_loc(absbc(1)), c_loc(hygrobc(1)), &
+                          c_loc(scatpom(1)), c_loc(abspom(1)), c_loc(hygropom(1)), c_loc(scatsoa(1)), &
+                          c_loc(abssoa(1)), c_loc(hygrosoa(1)), c_loc(scatseasalt(1)), &
+                          c_loc(absseasalt(1)), c_loc(hygroseasalt(1)))
+                  else
+                     do i = 1, ncol
+                        burden(i) = burden(i) + specmmr(i,k)*mass(i,k)
+                     end do
 
-                  if (trim(spectype) == 'dust') then
-                     do i = 1, ncol
-                        burdendust(i) = burdendust(i) + specmmr(i,k)*mass(i,k)
-                        dustvol(i)    = vol(i)
-                        scatdust(i)   = vol(i)*specrefr
-                        absdust(i)    = -vol(i)*specrefi
-                        hygrodust(i)  = vol(i)*hygro_aer
-                     end do
-                  end if
+                     if (trim(spectype) == 'dust') then
+                        do i = 1, ncol
+                           burdendust(i) = burdendust(i) + specmmr(i,k)*mass(i,k)
+                           dustvol(i)    = vol(i)
+                           scatdust(i)   = vol(i)*specrefr
+                           absdust(i)    = -vol(i)*specrefi
+                           hygrodust(i)  = vol(i)*hygro_aer
+                        end do
+                     end if
 
-                  if (trim(spectype) == 'sulfate') then
-                     do i = 1, ncol
-                        burdenso4(i) = burdenso4(i) + specmmr(i,k)*mass(i,k)
-                        scatso4(i)   = vol(i)*specrefr
-                        absso4(i)    = -vol(i)*specrefi
-                        hygroso4(i)  = vol(i)*hygro_aer
-                     end do
-                  end if
-                  if (trim(spectype) == 'black-c') then
-                     do i = 1, ncol
-                        burdenbc(i) = burdenbc(i) + specmmr(i,k)*mass(i,k)
-                        scatbc(i)   = vol(i)*specrefr
-                        absbc(i)    = -vol(i)*specrefi
-                        hygrobc(i)  = vol(i)*hygro_aer
-                   end do
-                  end if
-                  if (trim(spectype) == 'p-organic') then
-                     do i = 1, ncol
-                        burdenpom(i) = burdenpom(i) + specmmr(i,k)*mass(i,k)
-                        scatpom(i)   = vol(i)*specrefr
-                        abspom(i)    = -vol(i)*specrefi
-                        hygropom(i)  = vol(i)*hygro_aer
+                     if (trim(spectype) == 'sulfate') then
+                        do i = 1, ncol
+                           burdenso4(i) = burdenso4(i) + specmmr(i,k)*mass(i,k)
+                           scatso4(i)   = vol(i)*specrefr
+                           absso4(i)    = -vol(i)*specrefi
+                           hygroso4(i)  = vol(i)*hygro_aer
+                        end do
+                     end if
+                     if (trim(spectype) == 'black-c') then
+                        do i = 1, ncol
+                           burdenbc(i) = burdenbc(i) + specmmr(i,k)*mass(i,k)
+                           scatbc(i)   = vol(i)*specrefr
+                           absbc(i)    = -vol(i)*specrefi
+                           hygrobc(i)  = vol(i)*hygro_aer
                       end do
-                  end if
-                  if (trim(spectype) == 's-organic') then
-                     do i = 1, ncol
-                        burdensoa(i) = burdensoa(i) + specmmr(i,k)*mass(i,k)
-                        scatsoa(i)   = vol(i)*specrefr
-                        abssoa(i)    = -vol(i)*specrefi
-                        hygrosoa(i)  = vol(i)*hygro_aer
-                     end do
-                  end if
-                  if (trim(spectype) == 'seasalt') then
-                     do i = 1, ncol
-                        burdenseasalt(i) = burdenseasalt(i) + specmmr(i,k)*mass(i,k)
-                        scatseasalt(i)   = vol(i)*specrefr
-                        absseasalt(i)    = -vol(i)*specrefi
-                        hygroseasalt(i)  = vol(i)*hygro_aer
-                      end do
+                     end if
+                     if (trim(spectype) == 'p-organic') then
+                        do i = 1, ncol
+                           burdenpom(i) = burdenpom(i) + specmmr(i,k)*mass(i,k)
+                           scatpom(i)   = vol(i)*specrefr
+                           abspom(i)    = -vol(i)*specrefi
+                           hygropom(i)  = vol(i)*hygro_aer
+                         end do
+                     end if
+                     if (trim(spectype) == 's-organic') then
+                        do i = 1, ncol
+                           burdensoa(i) = burdensoa(i) + specmmr(i,k)*mass(i,k)
+                           scatsoa(i)   = vol(i)*specrefr
+                           abssoa(i)    = -vol(i)*specrefi
+                           hygrosoa(i)  = vol(i)*hygro_aer
+                        end do
+                     end if
+                     if (trim(spectype) == 'seasalt') then
+                        do i = 1, ncol
+                           burdenseasalt(i) = burdenseasalt(i) + specmmr(i,k)*mass(i,k)
+                           scatseasalt(i)   = vol(i)*specrefr
+                           absseasalt(i)    = -vol(i)*specrefi
+                           hygroseasalt(i)  = vol(i)*hygro_aer
+                         end do
+                     end if
                   end if
 
                end if
@@ -870,36 +953,46 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
             ! call t_stopf('binterp')
 
             ! parameterized optical properties
-            do i=1,ncol
+            if (.not. use_native_modal_aer_opt_helpers_impl) then
+               call modal_aer_opt_helpers_proof_once()
+               call modal_aer_opt_sw_optics_props_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+                    int(k, c_int64_t), int(ncoef, c_int64_t), xrmax, rhoh2o, c_loc(radsurf(1,1)), &
+                    c_loc(logradsurf(1,1)), c_loc(cheb(1,1,1)), c_loc(cext(1,1)), &
+                    c_loc(cabs(1,1)), c_loc(casm(1,1)), c_loc(wetvol(1)), c_loc(mass(1,1)), &
+                    c_loc(pext(1)), c_loc(specpext(1)), c_loc(pabs(1)), c_loc(pasm(1)), &
+                    c_loc(palb(1)), c_loc(dopaer(1)))
+            else
+               do i=1,ncol
 
-               if (logradsurf(i,k) .le. xrmax) then
-                  pext(i) = 0.5_r8*cext(i,1)
+                  if (logradsurf(i,k) .le. xrmax) then
+                     pext(i) = 0.5_r8*cext(i,1)
+                     do nc = 2, ncoef
+                        pext(i) = pext(i) + cheb(nc,i,k)*cext(i,nc)
+                     enddo
+                     pext(i) = exp(pext(i))
+                  else
+                     pext(i) = 1.5_r8/(radsurf(i,k)*rhoh2o) ! geometric optics
+                  endif
+
+                  ! convert from m2/kg water to m2/kg aerosol
+                  specpext(i) = pext(i)
+                  pext(i) = pext(i)*wetvol(i)*rhoh2o
+                  pabs(i) = 0.5_r8*cabs(i,1)
+                  pasm(i) = 0.5_r8*casm(i,1)
                   do nc = 2, ncoef
-                     pext(i) = pext(i) + cheb(nc,i,k)*cext(i,nc)
+                     pabs(i) = pabs(i) + cheb(nc,i,k)*cabs(i,nc)
+                     pasm(i) = pasm(i) + cheb(nc,i,k)*casm(i,nc)
                   enddo
-                  pext(i) = exp(pext(i))
-               else
-                  pext(i) = 1.5_r8/(radsurf(i,k)*rhoh2o) ! geometric optics
-               endif
+                  pabs(i) = pabs(i)*wetvol(i)*rhoh2o
+                  pabs(i) = max(0._r8,pabs(i))
+                  pabs(i) = min(pext(i),pabs(i))
 
-               ! convert from m2/kg water to m2/kg aerosol
-               specpext(i) = pext(i)
-               pext(i) = pext(i)*wetvol(i)*rhoh2o
-               pabs(i) = 0.5_r8*cabs(i,1)
-               pasm(i) = 0.5_r8*casm(i,1)
-               do nc = 2, ncoef
-                  pabs(i) = pabs(i) + cheb(nc,i,k)*cabs(i,nc)
-                  pasm(i) = pasm(i) + cheb(nc,i,k)*casm(i,nc)
-               enddo
-               pabs(i) = pabs(i)*wetvol(i)*rhoh2o
-               pabs(i) = max(0._r8,pabs(i))
-               pabs(i) = min(pext(i),pabs(i))
+                  palb(i) = 1._r8-pabs(i)/max(pext(i),1.e-40_r8)
+                  palb(i) = 1._r8-pabs(i)/max(pext(i),1.e-40_r8)
 
-               palb(i) = 1._r8-pabs(i)/max(pext(i),1.e-40_r8)
-               palb(i) = 1._r8-pabs(i)/max(pext(i),1.e-40_r8)
-
-               dopaer(i) = pext(i)*mass(i,k)
-            end do
+                  dopaer(i) = pext(i)*mass(i,k)
+               end do
+            end if
 
             if (.not. use_native_modal_aer_opt_helpers_impl) then
                call modal_aer_opt_helpers_proof_once()
