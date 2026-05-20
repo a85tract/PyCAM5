@@ -1,3 +1,6 @@
+from math import log
+
+
 @inline
 def _idx1(i: int) -> int:
     return i - 1
@@ -199,6 +202,55 @@ def zm_cldprp_thermo_level_codon(
             hsthat[idx] = hsat[idx]
             qsthat[idx] = qst[idx]
             gamhat[idx] = gamma[idx]
+
+
+def zm_cldprp_interface_interp_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    msg: int,
+    cp: float,
+    rl: float,
+    qst_p: cobj,
+    gamma_p: cobj,
+    shat_p: cobj,
+    qsthat_p: cobj,
+    hsthat_p: cobj,
+    gamhat_p: cobj,
+    totpcp_p: cobj,
+    totevp_p: cobj,
+):
+    qst = Ptr[float](qst_p)
+    gamma = Ptr[float](gamma_p)
+    shat = Ptr[float](shat_p)
+    qsthat = Ptr[float](qsthat_p)
+    hsthat = Ptr[float](hsthat_p)
+    gamhat = Ptr[float](gamhat_p)
+    totpcp = Ptr[float](totpcp_p)
+    totevp = Ptr[float](totevp_p)
+
+    for i in range(1, il2g + 1):
+        i0 = _idx1(i)
+        totpcp[i0] = 0.0
+        totevp[i0] = 0.0
+
+    for k in range(msg + 2, pver + 1):
+        for i in range(1, il2g + 1):
+            idx = _idx2(i, k, pcols)
+            idxm1 = _idx2(i, k - 1, pcols)
+            if abs(qst[idxm1] - qst[idx]) > 1.0e-6:
+                qsthat[idx] = log(qst[idxm1] / qst[idx]) * qst[idxm1] * qst[idx] / (
+                    qst[idxm1] - qst[idx]
+                )
+            else:
+                qsthat[idx] = qst[idx]
+            hsthat[idx] = cp * shat[idx] + rl * qsthat[idx]
+            if abs(gamma[idxm1] - gamma[idx]) > 1.0e-6:
+                gamhat[idx] = log(gamma[idxm1] / gamma[idx]) * gamma[idxm1] * gamma[idx] / (
+                    gamma[idxm1] - gamma[idx]
+                )
+            else:
+                gamhat[idx] = gamma[idx]
 
 
 def zm_cldprp_index_setup_codon(

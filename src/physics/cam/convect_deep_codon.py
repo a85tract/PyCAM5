@@ -231,6 +231,29 @@ def zm_cldprp_thermo_level_codon(
 
 
 @export
+def zm_cldprp_interface_interp_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    msg: int,
+    cp: float,
+    rl: float,
+    qst_p: cobj,
+    gamma_p: cobj,
+    shat_p: cobj,
+    qsthat_p: cobj,
+    hsthat_p: cobj,
+    gamhat_p: cobj,
+    totpcp_p: cobj,
+    totevp_p: cobj,
+):
+    _zm_cldprp.zm_cldprp_interface_interp_codon(
+        il2g, pcols, pver, msg, cp, rl, qst_p, gamma_p, shat_p, qsthat_p, hsthat_p,
+        gamhat_p, totpcp_p, totevp_p,
+    )
+
+
+@export
 def zm_cldprp_index_setup_codon(
     il2g: int,
     pcols: int,

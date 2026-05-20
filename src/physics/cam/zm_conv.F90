@@ -3043,6 +3043,15 @@ subroutine cldprp(lchnk   , &
          type(c_ptr), value :: hu_p, hd_p, sd_p, su_p, tdt_p, tut_p, rprd_p, hsthat_p, qsthat_p, gamhat_p
       end subroutine zm_cldprp_thermo_level_codon
 
+      subroutine zm_cldprp_interface_interp_codon(il2g_c, pcols_c, pver_c, msg_c, cp_c, rl_c, &
+           qst_p, gamma_p, shat_p, qsthat_p, hsthat_p, gamhat_p, totpcp_p, totevp_p) &
+           bind(c, name="zm_cldprp_interface_interp_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c, pver_c, msg_c
+         real(c_double), value :: cp_c, rl_c
+         type(c_ptr), value :: qst_p, gamma_p, shat_p, qsthat_p, hsthat_p, gamhat_p, totpcp_p, totevp_p
+      end subroutine zm_cldprp_interface_interp_codon
+
       subroutine zm_cldprp_copy_mass_fields_codon(pcols_c, pver_c, ed_p, md_p, mu_p, du_p, eu_p, &
            wted_p, wtmd_p, wtmu_p, wtdu_p, wteu_p) bind(c, name="zm_cldprp_copy_mass_fields_codon")
          use iso_c_binding, only: c_int64_t, c_ptr
@@ -3176,10 +3185,10 @@ subroutine cldprp(lchnk   , &
 
    if (.not. use_native_zm_cldprp_helpers) then
       if (masterproc .and. .not. zm_cldprp_helpers_logged) then
-         write(iulog,*) 'zm_cldprp_helpers entered (init/thermo/index/taylor/fpoly/eps/cloudtop/ddmass/' // &
+         write(iulog,*) 'zm_cldprp_helpers entered (init/thermo/iface/index/taylor/fpoly/eps/cloudtop/ddmass/' // &
               'downdraft/cond/rain/evap direct = codon)'
          call zm_conv_evap_append_impl_proof( &
-              'zm_cldprp_helpers entered (init/thermo/index/taylor/fpoly/eps/cloudtop/ddmass/' // &
+              'zm_cldprp_helpers entered (init/thermo/iface/index/taylor/fpoly/eps/cloudtop/ddmass/' // &
               'downdraft/cond/rain/evap direct = codon)')
          call flush(iulog)
          zm_cldprp_helpers_logged = .true.
@@ -3290,26 +3299,32 @@ subroutine cldprp(lchnk   , &
          end do
       end do
    end if
-   do i = 1,il2g
-      totpcp(i) = 0._r8
-      totevp(i) = 0._r8
-   end do
-   do k = msg + 2,pver
+   if (.not. use_native_zm_cldprp_helpers) then
+      call zm_cldprp_interface_interp_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(msg, c_int64_t), cp, rl, c_loc(qst), c_loc(gamma), &
+           c_loc(shat), c_loc(qsthat), c_loc(hsthat), c_loc(gamhat), c_loc(totpcp), c_loc(totevp))
+   else
       do i = 1,il2g
-         if (abs(qst(i,k-1)-qst(i,k)) > 1.E-6_r8) then
-            qsthat(i,k) = log(qst(i,k-1)/qst(i,k))*qst(i,k-1)*qst(i,k)/ (qst(i,k-1)-qst(i,k))
-         else
-            qsthat(i,k) = qst(i,k)
-         end if
-         hsthat(i,k) = cp*shat(i,k) + rl*qsthat(i,k)
-         if (abs(gamma(i,k-1)-gamma(i,k)) > 1.E-6_r8) then
-            gamhat(i,k) = log(gamma(i,k-1)/gamma(i,k))*gamma(i,k-1)*gamma(i,k)/ &
-                                (gamma(i,k-1)-gamma(i,k))
-         else
-            gamhat(i,k) = gamma(i,k)
-         end if
+         totpcp(i) = 0._r8
+         totevp(i) = 0._r8
       end do
-   end do
+      do k = msg + 2,pver
+         do i = 1,il2g
+            if (abs(qst(i,k-1)-qst(i,k)) > 1.E-6_r8) then
+               qsthat(i,k) = log(qst(i,k-1)/qst(i,k))*qst(i,k-1)*qst(i,k)/ (qst(i,k-1)-qst(i,k))
+            else
+               qsthat(i,k) = qst(i,k)
+            end if
+            hsthat(i,k) = cp*shat(i,k) + rl*qsthat(i,k)
+            if (abs(gamma(i,k-1)-gamma(i,k)) > 1.E-6_r8) then
+               gamhat(i,k) = log(gamma(i,k-1)/gamma(i,k))*gamma(i,k-1)*gamma(i,k)/ &
+                                   (gamma(i,k-1)-gamma(i,k))
+            else
+               gamhat(i,k) = gamma(i,k)
+            end if
+         end do
+      end do
+   end if
 !
 ! initialize cloud top to highest plume top.
 !jr changed hard-wired 4 to limcnv+1 (not to exceed pver)
