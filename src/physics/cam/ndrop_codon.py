@@ -368,6 +368,125 @@ def ndrop_dropmixnuc_clear_old_cloud_codon(
             raercol_cw[col_idx] = 0.0
 
 
+def ndrop_dropmixnuc_factnum_store_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    ntot_amode: int,
+    fn_p: cobj,
+    factnum_p: cobj,
+):
+    fn = Ptr[float](fn_p)
+    factnum = Ptr[float](factnum_p)
+
+    for m in range(1, ntot_amode + 1):
+        factnum[_idx3(i, k, m, pcols, pver)] = fn[m - 1]
+
+
+def ndrop_dropmixnuc_shrink_cloud_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    ntot_amode: int,
+    ncnst_tot: int,
+    nsav: int,
+    dtinv: float,
+    cldn_tmp: float,
+    cldo_tmp: float,
+    qcld_p: cobj,
+    nsource_p: cobj,
+    nspec_amode_p: cobj,
+    mam_idx_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+):
+    qcld = Ptr[float](qcld_p)
+    nsource = Ptr[float](nsource_p)
+    nspec_amode = Ptr[i32](nspec_amode_p)
+    mam_idx = Ptr[i32](mam_idx_p)
+    raercol = Ptr[float](raercol_p)
+    raercol_cw = Ptr[float](raercol_cw_p)
+
+    nsource[_idx2(i, k, pcols)] = nsource[_idx2(i, k, pcols)] + (
+        qcld[k - 1] * (cldn_tmp - cldo_tmp) / cldo_tmp * dtinv
+    )
+    qcld[k - 1] = qcld[k - 1] * (1.0 + (cldn_tmp - cldo_tmp) / cldo_tmp)
+
+    dumc = (cldn_tmp - cldo_tmp) / cldo_tmp
+    for m in range(1, ntot_amode + 1):
+        mm = int(mam_idx[_mam_idx(m, 0, ntot_amode)])
+        col_idx = _aero_col_idx(k, mm, nsav, pver, ncnst_tot)
+        dact = raercol_cw[col_idx] * dumc
+        raercol_cw[col_idx] = raercol_cw[col_idx] + dact
+        raercol[col_idx] = raercol[col_idx] - dact
+
+        for l in range(1, int(nspec_amode[m - 1]) + 1):
+            mm = int(mam_idx[_mam_idx(m, l, ntot_amode)])
+            col_idx = _aero_col_idx(k, mm, nsav, pver, ncnst_tot)
+            dact = raercol_cw[col_idx] * dumc
+            raercol_cw[col_idx] = raercol_cw[col_idx] + dact
+            raercol[col_idx] = raercol[col_idx] - dact
+
+
+def ndrop_dropmixnuc_old_cloud_activate_update_codon(
+    i: int,
+    k: int,
+    kp1: int,
+    pcols: int,
+    pver: int,
+    ntot_amode: int,
+    ncnst_tot: int,
+    nsav: int,
+    dumc: float,
+    dum: float,
+    cs_ik: float,
+    dz_ik: float,
+    taumix_internal_pver_inv: float,
+    fluxn_p: cobj,
+    fluxm_p: cobj,
+    nact_p: cobj,
+    mact_p: cobj,
+    mam_idx_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+    srcn_p: cobj,
+    nsource_p: cobj,
+):
+    fluxn = Ptr[float](fluxn_p)
+    fluxm = Ptr[float](fluxm_p)
+    nact = Ptr[float](nact_p)
+    mact = Ptr[float](mact_p)
+    mam_idx = Ptr[i32](mam_idx_p)
+    raercol = Ptr[float](raercol_p)
+    raercol_cw = Ptr[float](raercol_cw_p)
+    srcn = Ptr[float](srcn_p)
+    nsource = Ptr[float](nsource_p)
+
+    fluxntot = 0.0
+    for m in range(1, ntot_amode + 1):
+        mm = int(mam_idx[_mam_idx(m, 0, ntot_amode)])
+        fluxn[m - 1] = fluxn[m - 1] * dumc
+        fluxm[m - 1] = fluxm[m - 1] * dumc
+        nact[_mode_idx(k, m, pver)] = nact[_mode_idx(k, m, pver)] + fluxn[m - 1] * dum
+        mact[_mode_idx(k, m, pver)] = mact[_mode_idx(k, m, pver)] + fluxm[m - 1] * dum
+        if k < pver:
+            fluxntot = fluxntot + (
+                fluxn[m - 1] * raercol[_aero_col_idx(kp1, mm, nsav, pver, ncnst_tot)] * cs_ik
+            )
+        else:
+            tmpa = (
+                raercol[_aero_col_idx(kp1, mm, nsav, pver, ncnst_tot)] * fluxn[m - 1]
+                + raercol_cw[_aero_col_idx(kp1, mm, nsav, pver, ncnst_tot)]
+                * (fluxn[m - 1] - taumix_internal_pver_inv * dz_ik)
+            )
+            fluxntot = fluxntot + max(0.0, tmpa) * cs_ik
+
+    srcn[k - 1] = srcn[k - 1] + fluxntot / (cs_ik * dz_ik)
+    nsource[_idx2(i, k, pcols)] = nsource[_idx2(i, k, pcols)] + fluxntot / (cs_ik * dz_ik)
+
+
 def ndrop_dropmixnuc_srcn_from_nact_codon(
     pver: int,
     top_lev: int,

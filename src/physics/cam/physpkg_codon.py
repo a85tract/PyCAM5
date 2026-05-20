@@ -3865,6 +3865,109 @@ def ndrop_dropmixnuc_clear_old_cloud_codon(
 
 
 @export
+def ndrop_dropmixnuc_factnum_store_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    ntot_amode: int,
+    fn_p: cobj,
+    factnum_p: cobj,
+):
+    _ndrop.ndrop_dropmixnuc_factnum_store_codon(i, k, pcols, pver, ntot_amode, fn_p, factnum_p)
+
+
+@export
+def ndrop_dropmixnuc_shrink_cloud_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    ntot_amode: int,
+    ncnst_tot: int,
+    nsav: int,
+    dtinv: float,
+    cldn_tmp: float,
+    cldo_tmp: float,
+    qcld_p: cobj,
+    nsource_p: cobj,
+    nspec_amode_p: cobj,
+    mam_idx_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+):
+    _ndrop.ndrop_dropmixnuc_shrink_cloud_codon(
+        i,
+        k,
+        pcols,
+        pver,
+        ntot_amode,
+        ncnst_tot,
+        nsav,
+        dtinv,
+        cldn_tmp,
+        cldo_tmp,
+        qcld_p,
+        nsource_p,
+        nspec_amode_p,
+        mam_idx_p,
+        raercol_p,
+        raercol_cw_p,
+    )
+
+
+@export
+def ndrop_dropmixnuc_old_cloud_activate_update_codon(
+    i: int,
+    k: int,
+    kp1: int,
+    pcols: int,
+    pver: int,
+    ntot_amode: int,
+    ncnst_tot: int,
+    nsav: int,
+    dumc: float,
+    dum: float,
+    cs_ik: float,
+    dz_ik: float,
+    taumix_internal_pver_inv: float,
+    fluxn_p: cobj,
+    fluxm_p: cobj,
+    nact_p: cobj,
+    mact_p: cobj,
+    mam_idx_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+    srcn_p: cobj,
+    nsource_p: cobj,
+):
+    _ndrop.ndrop_dropmixnuc_old_cloud_activate_update_codon(
+        i,
+        k,
+        kp1,
+        pcols,
+        pver,
+        ntot_amode,
+        ncnst_tot,
+        nsav,
+        dumc,
+        dum,
+        cs_ik,
+        dz_ik,
+        taumix_internal_pver_inv,
+        fluxn_p,
+        fluxm_p,
+        nact_p,
+        mact_p,
+        mam_idx_p,
+        raercol_p,
+        raercol_cw_p,
+        srcn_p,
+        nsource_p,
+    )
+
+
+@export
 def ndrop_dropmixnuc_srcn_from_nact_codon(
     pver: int,
     top_lev: int,

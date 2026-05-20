@@ -176,6 +176,36 @@ interface
       type(c_ptr), value :: qcld_p, nsource_p, nspec_amode_p, mam_idx_p, raercol_p, raercol_cw_p
    end subroutine ndrop_dropmixnuc_clear_old_cloud_codon
 
+   subroutine ndrop_dropmixnuc_factnum_store_codon(i_c, k_c, pcols_c, pver_c, ntot_amode_c, &
+        fn_p, factnum_p) bind(c, name="ndrop_dropmixnuc_factnum_store_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c, ntot_amode_c
+      type(c_ptr), value :: fn_p, factnum_p
+   end subroutine ndrop_dropmixnuc_factnum_store_codon
+
+   subroutine ndrop_dropmixnuc_shrink_cloud_codon(i_c, k_c, pcols_c, pver_c, ntot_amode_c, &
+        ncnst_tot_c, nsav_c, dtinv_c, cldn_tmp_c, cldo_tmp_c, qcld_p, nsource_p, &
+        nspec_amode_p, mam_idx_p, raercol_p, raercol_cw_p) &
+        bind(c, name="ndrop_dropmixnuc_shrink_cloud_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c, ntot_amode_c, ncnst_tot_c, nsav_c
+      real(c_double), value :: dtinv_c, cldn_tmp_c, cldo_tmp_c
+      type(c_ptr), value :: qcld_p, nsource_p, nspec_amode_p, mam_idx_p, raercol_p, raercol_cw_p
+   end subroutine ndrop_dropmixnuc_shrink_cloud_codon
+
+   subroutine ndrop_dropmixnuc_old_cloud_activate_update_codon(i_c, k_c, kp1_c, pcols_c, &
+        pver_c, ntot_amode_c, ncnst_tot_c, nsav_c, dumc_c, dum_c, cs_ik_c, dz_ik_c, &
+        taumix_internal_pver_inv_c, fluxn_p, fluxm_p, nact_p, mact_p, mam_idx_p, &
+        raercol_p, raercol_cw_p, srcn_p, nsource_p) &
+        bind(c, name="ndrop_dropmixnuc_old_cloud_activate_update_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: i_c, k_c, kp1_c, pcols_c, pver_c, ntot_amode_c
+      integer(c_int64_t), value :: ncnst_tot_c, nsav_c
+      real(c_double), value :: dumc_c, dum_c, cs_ik_c, dz_ik_c, taumix_internal_pver_inv_c
+      type(c_ptr), value :: fluxn_p, fluxm_p, nact_p, mact_p, mam_idx_p
+      type(c_ptr), value :: raercol_p, raercol_cw_p, srcn_p, nsource_p
+   end subroutine ndrop_dropmixnuc_old_cloud_activate_update_codon
+
    subroutine ndrop_dropmixnuc_srcn_from_nact_codon(pver_c, top_lev_c, ntot_amode_c, ncnst_tot_c, &
         nsav_c, taumix_internal_pver_inv_c, nact_p, mam_idx_p, raercol_p, raercol_cw_p, srcn_p) &
         bind(c, name="ndrop_dropmixnuc_srcn_from_nact_codon")
@@ -307,7 +337,8 @@ subroutine ndrop_dropmixnuc_helpers_proof_once()
    ndrop_dropmixnuc_helpers_proof_written = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'ndrop_dropmixnuc_helpers entered (array setup/mix/source/aero tend/clear/finalize direct = codon)'
+      write(iulog,'(A)') 'ndrop_dropmixnuc_helpers entered (array setup/grow-shrink/oldcloud/mix/' // &
+           'source/aero tend/clear/finalize direct = codon)'
    end if
 
 end subroutine ndrop_dropmixnuc_helpers_proof_once
@@ -730,11 +761,11 @@ subroutine dropmixnuc( &
 
    real(r8), target :: source(pver)
 
-   real(r8), allocatable :: fn(:)              ! activation fraction for aerosol number
+   real(r8), allocatable, target :: fn(:)      ! activation fraction for aerosol number
    real(r8), allocatable :: fm(:)              ! activation fraction for aerosol mass
 
-   real(r8), allocatable :: fluxn(:)           ! number  activation fraction flux (cm/s)
-   real(r8), allocatable :: fluxm(:)           ! mass    activation fraction flux (cm/s)
+   real(r8), allocatable, target :: fluxn(:)   ! number  activation fraction flux (cm/s)
+   real(r8), allocatable, target :: fluxm(:)   ! mass    activation fraction flux (cm/s)
    real(r8)              :: flux_fullact(pver) ! 100%    activation fraction flux (cm/s)
    !     note:  activation fraction fluxes are defined as 
    !     fluxn = [flux of activated aero. number into cloud (#/cm2/s)]
@@ -940,27 +971,36 @@ subroutine dropmixnuc( &
          !    cldn_tmp = cldn(i,k) * max( 0.0_r8, (1.0_r8-dtmicro/tau_cld_regenerate) )
 
          if (cldn_tmp < cldo_tmp) then
-            !  droplet loss in decaying cloud
-            !++ sungsup
-            nsource(i,k) = nsource(i,k) + qcld(k)*(cldn_tmp - cldo_tmp)/cldo_tmp*dtinv
-            qcld(k)      = qcld(k)*(1._r8 + (cldn_tmp - cldo_tmp)/cldo_tmp)
-            !-- sungsup
+            if (use_native_ndrop_dropmixnuc_helpers_impl) then
+               !  droplet loss in decaying cloud
+               !++ sungsup
+               nsource(i,k) = nsource(i,k) + qcld(k)*(cldn_tmp - cldo_tmp)/cldo_tmp*dtinv
+               qcld(k)      = qcld(k)*(1._r8 + (cldn_tmp - cldo_tmp)/cldo_tmp)
+               !-- sungsup
 
-            ! convert activated aerosol to interstitial in decaying cloud
+               ! convert activated aerosol to interstitial in decaying cloud
 
-            dumc = (cldn_tmp - cldo_tmp)/cldo_tmp
-            do m = 1, ntot_amode
-               mm = mam_idx(m,0)
-               dact   = raercol_cw(k,mm,nsav)*dumc
-               raercol_cw(k,mm,nsav) = raercol_cw(k,mm,nsav) + dact   ! cloud-borne aerosol
-               raercol(k,mm,nsav)    = raercol(k,mm,nsav) - dact
-               do l = 1, nspec_amode(m)
-                  mm = mam_idx(m,l)
-                  dact    = raercol_cw(k,mm,nsav)*dumc
-                  raercol_cw(k,mm,nsav) = raercol_cw(k,mm,nsav) + dact  ! cloud-borne aerosol
+               dumc = (cldn_tmp - cldo_tmp)/cldo_tmp
+               do m = 1, ntot_amode
+                  mm = mam_idx(m,0)
+                  dact   = raercol_cw(k,mm,nsav)*dumc
+                  raercol_cw(k,mm,nsav) = raercol_cw(k,mm,nsav) + dact   ! cloud-borne aerosol
                   raercol(k,mm,nsav)    = raercol(k,mm,nsav) - dact
+                  do l = 1, nspec_amode(m)
+                     mm = mam_idx(m,l)
+                     dact    = raercol_cw(k,mm,nsav)*dumc
+                     raercol_cw(k,mm,nsav) = raercol_cw(k,mm,nsav) + dact  ! cloud-borne aerosol
+                     raercol(k,mm,nsav)    = raercol(k,mm,nsav) - dact
+                  end do
                end do
-            end do
+            else
+               call ndrop_dropmixnuc_helpers_proof_once()
+               call ndrop_dropmixnuc_shrink_cloud_codon(int(i, c_int64_t), int(k, c_int64_t), &
+                    int(pcols, c_int64_t), int(pver, c_int64_t), int(ntot_amode, c_int64_t), &
+                    int(ncnst_tot, c_int64_t), int(nsav, c_int64_t), dtinv, cldn_tmp, cldo_tmp, &
+                    c_loc(qcld(1)), c_loc(nsource(1,1)), c_loc(nspec_amode(1)), &
+                    c_loc(mam_idx(1,0)), c_loc(raercol(1,1,1)), c_loc(raercol_cw(1,1,1)))
+            end if
          end if
 
          ! growing cloud ......................................................
@@ -997,7 +1037,14 @@ subroutine dropmixnuc( &
                vaerosol, hygro, fn, fm, fluxn,                      &
                fluxm,flux_fullact(k))
 
-            factnum(i,k,:) = fn
+            if (use_native_ndrop_dropmixnuc_helpers_impl) then
+               factnum(i,k,:) = fn
+            else
+               call ndrop_dropmixnuc_helpers_proof_once()
+               call ndrop_dropmixnuc_factnum_store_codon(int(i, c_int64_t), int(k, c_int64_t), &
+                    int(pcols, c_int64_t), int(pver, c_int64_t), int(ntot_amode, c_int64_t), &
+                    c_loc(fn(1)), c_loc(factnum(1,1,1)))
+            end if
 
             dumc = (cldn_tmp - cldo_tmp)
             do m = 1, ntot_amode
@@ -1083,7 +1130,14 @@ subroutine dropmixnuc( &
                   vaerosol, hygro, fn, fm, fluxn,                      &
                   fluxm, flux_fullact(k))
 
-               factnum(i,k,:) = fn
+               if (use_native_ndrop_dropmixnuc_helpers_impl) then
+                  factnum(i,k,:) = fn
+               else
+                  call ndrop_dropmixnuc_helpers_proof_once()
+                  call ndrop_dropmixnuc_factnum_store_codon(int(i, c_int64_t), int(k, c_int64_t), &
+                       int(pcols, c_int64_t), int(pver, c_int64_t), int(ntot_amode, c_int64_t), &
+                       c_loc(fn(1)), c_loc(factnum(1,1,1)))
+               end if
 
                if (k < pver) then
                   dumc = cldn(i,k) - cldn(i,kp1)
@@ -1134,25 +1188,36 @@ subroutine dropmixnuc( &
                   taumix_internal_pver_inv = flux_fullact(k)/dz(i,k)
                end if
 
-               do m = 1, ntot_amode
-                  mm = mam_idx(m,0)
-                  fluxn(m) = fluxn(m)*dumc
-                  fluxm(m) = fluxm(m)*dumc
-                  nact(k,m) = nact(k,m) + fluxn(m)*dum
-                  mact(k,m) = mact(k,m) + fluxm(m)*dum
-                  if (k < pver) then
-                     ! note that kp1 is used here
-                     fluxntot = fluxntot &
-                        + fluxn(m)*raercol(kp1,mm,nsav)*cs(i,k)
-                  else
-                     tmpa = raercol(kp1,mm,nsav)*fluxn(m) &
-                          + raercol_cw(kp1,mm,nsav)*(fluxn(m) &
-                          - taumix_internal_pver_inv*dz(i,k))
-                     fluxntot = fluxntot + max(0.0_r8, tmpa)*cs(i,k)
-                  end if
-               end do
-               srcn(k)      = srcn(k) + fluxntot/(cs(i,k)*dz(i,k))
-               nsource(i,k) = nsource(i,k) + fluxntot/(cs(i,k)*dz(i,k))
+               if (use_native_ndrop_dropmixnuc_helpers_impl) then
+                  do m = 1, ntot_amode
+                     mm = mam_idx(m,0)
+                     fluxn(m) = fluxn(m)*dumc
+                     fluxm(m) = fluxm(m)*dumc
+                     nact(k,m) = nact(k,m) + fluxn(m)*dum
+                     mact(k,m) = mact(k,m) + fluxm(m)*dum
+                     if (k < pver) then
+                        ! note that kp1 is used here
+                        fluxntot = fluxntot &
+                           + fluxn(m)*raercol(kp1,mm,nsav)*cs(i,k)
+                     else
+                        tmpa = raercol(kp1,mm,nsav)*fluxn(m) &
+                             + raercol_cw(kp1,mm,nsav)*(fluxn(m) &
+                             - taumix_internal_pver_inv*dz(i,k))
+                        fluxntot = fluxntot + max(0.0_r8, tmpa)*cs(i,k)
+                     end if
+                  end do
+                  srcn(k)      = srcn(k) + fluxntot/(cs(i,k)*dz(i,k))
+                  nsource(i,k) = nsource(i,k) + fluxntot/(cs(i,k)*dz(i,k))
+               else
+                  call ndrop_dropmixnuc_helpers_proof_once()
+                  call ndrop_dropmixnuc_old_cloud_activate_update_codon(int(i, c_int64_t), &
+                       int(k, c_int64_t), int(kp1, c_int64_t), int(pcols, c_int64_t), &
+                       int(pver, c_int64_t), int(ntot_amode, c_int64_t), int(ncnst_tot, c_int64_t), &
+                       int(nsav, c_int64_t), dumc, dum, cs(i,k), dz(i,k), taumix_internal_pver_inv, &
+                       c_loc(fluxn(1)), c_loc(fluxm(1)), c_loc(nact(1,1)), c_loc(mact(1,1)), &
+                       c_loc(mam_idx(1,0)), c_loc(raercol(1,1,1)), c_loc(raercol_cw(1,1,1)), &
+                       c_loc(srcn(1)), c_loc(nsource(1,1)))
+               end if
 
             endif  ! (cldn(i,k) - cldn(i,kp1) > 0.01 .or. k == pver)
 
