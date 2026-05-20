@@ -3830,6 +3830,132 @@ def ndrop_dropmixnuc_finalize_column_codon(
 
 
 @export
+def ndrop_dropmixnuc_clear_old_cloud_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    ntot_amode: int,
+    ncnst_tot: int,
+    nsav: int,
+    dtinv: float,
+    qcld_p: cobj,
+    nsource_p: cobj,
+    nspec_amode_p: cobj,
+    mam_idx_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+):
+    _ndrop.ndrop_dropmixnuc_clear_old_cloud_codon(
+        i,
+        k,
+        pcols,
+        pver,
+        ntot_amode,
+        ncnst_tot,
+        nsav,
+        dtinv,
+        qcld_p,
+        nsource_p,
+        nspec_amode_p,
+        mam_idx_p,
+        raercol_p,
+        raercol_cw_p,
+    )
+
+
+@export
+def ndrop_dropmixnuc_srcn_from_nact_codon(
+    pver: int,
+    top_lev: int,
+    ntot_amode: int,
+    ncnst_tot: int,
+    nsav: int,
+    taumix_internal_pver_inv: float,
+    nact_p: cobj,
+    mam_idx_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+    srcn_p: cobj,
+):
+    _ndrop.ndrop_dropmixnuc_srcn_from_nact_codon(
+        pver,
+        top_lev,
+        ntot_amode,
+        ncnst_tot,
+        nsav,
+        taumix_internal_pver_inv,
+        nact_p,
+        mam_idx_p,
+        raercol_p,
+        raercol_cw_p,
+        srcn_p,
+    )
+
+
+@export
+def ndrop_dropmixnuc_source_from_act_codon(
+    pver: int,
+    top_lev: int,
+    ncnst_tot: int,
+    m: int,
+    mm: int,
+    nsav: int,
+    taumix_internal_pver_inv: float,
+    act_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+    source_p: cobj,
+):
+    _ndrop.ndrop_dropmixnuc_source_from_act_codon(
+        pver,
+        top_lev,
+        ncnst_tot,
+        m,
+        mm,
+        nsav,
+        taumix_internal_pver_inv,
+        act_p,
+        raercol_p,
+        raercol_cw_p,
+        source_p,
+    )
+
+
+@export
+def ndrop_dropmixnuc_evaporate_clear_layers_codon(
+    i: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    ntot_amode: int,
+    ncnst_tot: int,
+    nnew: int,
+    cldn_p: cobj,
+    qcld_p: cobj,
+    nspec_amode_p: cobj,
+    mam_idx_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+):
+    _ndrop.ndrop_dropmixnuc_evaporate_clear_layers_codon(
+        i,
+        pcols,
+        pver,
+        top_lev,
+        ntot_amode,
+        ncnst_tot,
+        nnew,
+        cldn_p,
+        qcld_p,
+        nspec_amode_p,
+        mam_idx_p,
+        raercol_p,
+        raercol_cw_p,
+    )
+
+
+@export
 def ndrop_explmix_codon(
     pver: int,
     top_lev: int,

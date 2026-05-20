@@ -22,6 +22,12 @@ def _aero_col_idx(k: int, mm: int, slot: int, pver: int, ncnst_tot: int) -> int:
     return (k - 1) + (mm - 1) * pver + (slot - 1) * pver * ncnst_tot
 
 
+@inline
+def _mam_idx(m: int, l: int, ntot_amode: int) -> int:
+    """mam_idx is passed from mam_idx(1,0), declared as (ntot_amode,0:nspec_max)."""
+    return (m - 1) + l * ntot_amode
+
+
 def ndrop_dropmixnuc_zero_fields_codon(
     pcols: int,
     pver: int,
@@ -321,6 +327,150 @@ def ndrop_dropmixnuc_finalize_column_codon(
         tendnd[idx] = (max(qcld[k - 1], 1.0e-6) - ncldwtr[idx]) * dtinv
         ndropcol[i - 1] = ndropcol[i - 1] + ncldwtr[idx] * pdel[idx]
     ndropcol[i - 1] = ndropcol[i - 1] / gravit
+
+
+def ndrop_dropmixnuc_clear_old_cloud_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    ntot_amode: int,
+    ncnst_tot: int,
+    nsav: int,
+    dtinv: float,
+    qcld_p: cobj,
+    nsource_p: cobj,
+    nspec_amode_p: cobj,
+    mam_idx_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+):
+    qcld = Ptr[float](qcld_p)
+    nsource = Ptr[float](nsource_p)
+    nspec_amode = Ptr[i32](nspec_amode_p)
+    mam_idx = Ptr[i32](mam_idx_p)
+    raercol = Ptr[float](raercol_p)
+    raercol_cw = Ptr[float](raercol_cw_p)
+
+    nsource[_idx2(i, k, pcols)] = nsource[_idx2(i, k, pcols)] - qcld[k - 1] * dtinv
+    qcld[k - 1] = 0.0
+
+    for m in range(1, ntot_amode + 1):
+        mm = int(mam_idx[_mam_idx(m, 0, ntot_amode)])
+        col_idx = _aero_col_idx(k, mm, nsav, pver, ncnst_tot)
+        raercol[col_idx] = raercol[col_idx] + raercol_cw[col_idx]
+        raercol_cw[col_idx] = 0.0
+
+        for l in range(1, int(nspec_amode[m - 1]) + 1):
+            mm = int(mam_idx[_mam_idx(m, l, ntot_amode)])
+            col_idx = _aero_col_idx(k, mm, nsav, pver, ncnst_tot)
+            raercol[col_idx] = raercol[col_idx] + raercol_cw[col_idx]
+            raercol_cw[col_idx] = 0.0
+
+
+def ndrop_dropmixnuc_srcn_from_nact_codon(
+    pver: int,
+    top_lev: int,
+    ntot_amode: int,
+    ncnst_tot: int,
+    nsav: int,
+    taumix_internal_pver_inv: float,
+    nact_p: cobj,
+    mam_idx_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+    srcn_p: cobj,
+):
+    nact = Ptr[float](nact_p)
+    mam_idx = Ptr[i32](mam_idx_p)
+    raercol = Ptr[float](raercol_p)
+    raercol_cw = Ptr[float](raercol_cw_p)
+    srcn = Ptr[float](srcn_p)
+
+    for m in range(1, ntot_amode + 1):
+        mm = int(mam_idx[_mam_idx(m, 0, ntot_amode)])
+        for k in range(top_lev, pver):
+            srcn[k - 1] = srcn[k - 1] + nact[_mode_idx(k, m, pver)] * (
+                raercol[_aero_col_idx(k + 1, mm, nsav, pver, ncnst_tot)]
+            )
+
+        tmpa = (
+            raercol[_aero_col_idx(pver, mm, nsav, pver, ncnst_tot)]
+            * nact[_mode_idx(pver, m, pver)]
+            + raercol_cw[_aero_col_idx(pver, mm, nsav, pver, ncnst_tot)]
+            * (nact[_mode_idx(pver, m, pver)] - taumix_internal_pver_inv)
+        )
+        srcn[pver - 1] = srcn[pver - 1] + max(0.0, tmpa)
+
+
+def ndrop_dropmixnuc_source_from_act_codon(
+    pver: int,
+    top_lev: int,
+    ncnst_tot: int,
+    m: int,
+    mm: int,
+    nsav: int,
+    taumix_internal_pver_inv: float,
+    act_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+    source_p: cobj,
+):
+    act = Ptr[float](act_p)
+    raercol = Ptr[float](raercol_p)
+    raercol_cw = Ptr[float](raercol_cw_p)
+    source = Ptr[float](source_p)
+
+    for k in range(top_lev, pver):
+        source[k - 1] = act[_mode_idx(k, m, pver)] * (
+            raercol[_aero_col_idx(k + 1, mm, nsav, pver, ncnst_tot)]
+        )
+
+    tmpa = (
+        raercol[_aero_col_idx(pver, mm, nsav, pver, ncnst_tot)]
+        * act[_mode_idx(pver, m, pver)]
+        + raercol_cw[_aero_col_idx(pver, mm, nsav, pver, ncnst_tot)]
+        * (act[_mode_idx(pver, m, pver)] - taumix_internal_pver_inv)
+    )
+    source[pver - 1] = max(0.0, tmpa)
+
+
+def ndrop_dropmixnuc_evaporate_clear_layers_codon(
+    i: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    ntot_amode: int,
+    ncnst_tot: int,
+    nnew: int,
+    cldn_p: cobj,
+    qcld_p: cobj,
+    nspec_amode_p: cobj,
+    mam_idx_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+):
+    cldn = Ptr[float](cldn_p)
+    qcld = Ptr[float](qcld_p)
+    nspec_amode = Ptr[i32](nspec_amode_p)
+    mam_idx = Ptr[i32](mam_idx_p)
+    raercol = Ptr[float](raercol_p)
+    raercol_cw = Ptr[float](raercol_cw_p)
+
+    for k in range(top_lev, pver + 1):
+        if cldn[_idx2(i, k, pcols)] == 0.0:
+            qcld[k - 1] = 0.0
+            for m in range(1, ntot_amode + 1):
+                mm = int(mam_idx[_mam_idx(m, 0, ntot_amode)])
+                col_idx = _aero_col_idx(k, mm, nnew, pver, ncnst_tot)
+                raercol[col_idx] = raercol[col_idx] + raercol_cw[col_idx]
+                raercol_cw[col_idx] = 0.0
+
+                for l in range(1, int(nspec_amode[m - 1]) + 1):
+                    mm = int(mam_idx[_mam_idx(m, l, ntot_amode)])
+                    col_idx = _aero_col_idx(k, mm, nnew, pver, ncnst_tot)
+                    raercol[col_idx] = raercol[col_idx] + raercol_cw[col_idx]
+                    raercol_cw[col_idx] = 0.0
 
 
 def ndrop_explmix_codon(

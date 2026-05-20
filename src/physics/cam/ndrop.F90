@@ -60,7 +60,7 @@ integer :: kvh_idx    = -1
 
 ! description of modal aerosols
 integer               :: ntot_amode     ! number of aerosol modes
-integer,  allocatable :: nspec_amode(:) ! number of chemical species in each aerosol mode
+integer,  allocatable, target :: nspec_amode(:) ! number of chemical species in each aerosol mode
 real(r8), allocatable :: sigmag_amode(:)! geometric standard deviation for each aerosol mode
 real(r8), allocatable :: dgnumlo_amode(:)
 real(r8), allocatable :: dgnumhi_amode(:)
@@ -72,7 +72,7 @@ character(len=fieldname_len), allocatable :: fieldname(:)    ! names for drop nu
 character(len=fieldname_len), allocatable :: fieldname_cw(:) ! names for drop nuc tendency output fields
 
 ! local indexing for MAM
-integer, allocatable :: mam_idx(:,:) ! table for local indexing of modal aero number and mmr
+integer, allocatable, target :: mam_idx(:,:) ! table for local indexing of modal aero number and mmr
 integer :: ncnst_tot                  ! total number of mode number conc + mode species
 
 ! Indices for MAM species in the ptend%q array.  Needed for prognostic aerosol case.
@@ -166,6 +166,41 @@ interface
       real(c_double), value :: dtinv_c, gravit_c
       type(c_ptr), value :: qcld_p, ncldwtr_p, pdel_p, nsource_p, ndropmix_p, tendnd_p, ndropcol_p
    end subroutine ndrop_dropmixnuc_finalize_column_codon
+
+   subroutine ndrop_dropmixnuc_clear_old_cloud_codon(i_c, k_c, pcols_c, pver_c, ntot_amode_c, &
+        ncnst_tot_c, nsav_c, dtinv_c, qcld_p, nsource_p, nspec_amode_p, mam_idx_p, raercol_p, &
+        raercol_cw_p) bind(c, name="ndrop_dropmixnuc_clear_old_cloud_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c, ntot_amode_c, ncnst_tot_c, nsav_c
+      real(c_double), value :: dtinv_c
+      type(c_ptr), value :: qcld_p, nsource_p, nspec_amode_p, mam_idx_p, raercol_p, raercol_cw_p
+   end subroutine ndrop_dropmixnuc_clear_old_cloud_codon
+
+   subroutine ndrop_dropmixnuc_srcn_from_nact_codon(pver_c, top_lev_c, ntot_amode_c, ncnst_tot_c, &
+        nsav_c, taumix_internal_pver_inv_c, nact_p, mam_idx_p, raercol_p, raercol_cw_p, srcn_p) &
+        bind(c, name="ndrop_dropmixnuc_srcn_from_nact_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: pver_c, top_lev_c, ntot_amode_c, ncnst_tot_c, nsav_c
+      real(c_double), value :: taumix_internal_pver_inv_c
+      type(c_ptr), value :: nact_p, mam_idx_p, raercol_p, raercol_cw_p, srcn_p
+   end subroutine ndrop_dropmixnuc_srcn_from_nact_codon
+
+   subroutine ndrop_dropmixnuc_source_from_act_codon(pver_c, top_lev_c, ncnst_tot_c, m_c, mm_c, &
+        nsav_c, taumix_internal_pver_inv_c, act_p, raercol_p, raercol_cw_p, source_p) &
+        bind(c, name="ndrop_dropmixnuc_source_from_act_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: pver_c, top_lev_c, ncnst_tot_c, m_c, mm_c, nsav_c
+      real(c_double), value :: taumix_internal_pver_inv_c
+      type(c_ptr), value :: act_p, raercol_p, raercol_cw_p, source_p
+   end subroutine ndrop_dropmixnuc_source_from_act_codon
+
+   subroutine ndrop_dropmixnuc_evaporate_clear_layers_codon(i_c, pcols_c, pver_c, top_lev_c, &
+        ntot_amode_c, ncnst_tot_c, nnew_c, cldn_p, qcld_p, nspec_amode_p, mam_idx_p, &
+        raercol_p, raercol_cw_p) bind(c, name="ndrop_dropmixnuc_evaporate_clear_layers_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: i_c, pcols_c, pver_c, top_lev_c, ntot_amode_c, ncnst_tot_c, nnew_c
+      type(c_ptr), value :: cldn_p, qcld_p, nspec_amode_p, mam_idx_p, raercol_p, raercol_cw_p
+   end subroutine ndrop_dropmixnuc_evaporate_clear_layers_codon
 
    subroutine ndrop_explmix_codon(pver_c, top_lev_c, surfrate_c, flxconv_c, dt_c, is_unact_c, &
         q_p, src_p, ekkp_p, ekkm_p, overlapp_p, overlapm_p, qold_p, qactold_p) &
@@ -272,7 +307,7 @@ subroutine ndrop_dropmixnuc_helpers_proof_once()
    ndrop_dropmixnuc_helpers_proof_written = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'ndrop_dropmixnuc_helpers entered (array setup/mix/aero tend/finalize direct = codon)'
+      write(iulog,'(A)') 'ndrop_dropmixnuc_helpers entered (array setup/mix/source/aero tend/clear/finalize direct = codon)'
    end if
 
 end subroutine ndrop_dropmixnuc_helpers_proof_once
@@ -693,7 +728,7 @@ subroutine dropmixnuc( &
    real(r8), allocatable :: hygro(:)    ! hygroscopicity of aerosol mode
    real(r8), allocatable :: vaerosol(:) ! interstit+activated aerosol volume conc (cm3/cm3)
 
-   real(r8) :: source(pver)
+   real(r8), target :: source(pver)
 
    real(r8), allocatable :: fn(:)              ! activation fraction for aerosol number
    real(r8), allocatable :: fm(:)              ! activation fraction for aerosol mass
@@ -1125,22 +1160,31 @@ subroutine dropmixnuc( &
 
             ! no cloud
 
-            nsource(i,k) = nsource(i,k) - qcld(k)*dtinv
-            qcld(k)      = 0
+            if (use_native_ndrop_dropmixnuc_helpers_impl) then
+               nsource(i,k) = nsource(i,k) - qcld(k)*dtinv
+               qcld(k)      = 0
 
-            ! convert activated aerosol to interstitial in decaying cloud
+               ! convert activated aerosol to interstitial in decaying cloud
 
-            do m = 1, ntot_amode
-               mm = mam_idx(m,0)
-               raercol(k,mm,nsav)    = raercol(k,mm,nsav) + raercol_cw(k,mm,nsav)  ! cloud-borne aerosol
-               raercol_cw(k,mm,nsav) = 0._r8
-
-               do l = 1, nspec_amode(m)
-                  mm = mam_idx(m,l)
-                  raercol(k,mm,nsav)    = raercol(k,mm,nsav) + raercol_cw(k,mm,nsav) ! cloud-borne aerosol
+               do m = 1, ntot_amode
+                  mm = mam_idx(m,0)
+                  raercol(k,mm,nsav)    = raercol(k,mm,nsav) + raercol_cw(k,mm,nsav)  ! cloud-borne aerosol
                   raercol_cw(k,mm,nsav) = 0._r8
+
+                  do l = 1, nspec_amode(m)
+                     mm = mam_idx(m,l)
+                     raercol(k,mm,nsav)    = raercol(k,mm,nsav) + raercol_cw(k,mm,nsav) ! cloud-borne aerosol
+                     raercol_cw(k,mm,nsav) = 0._r8
+                  end do
                end do
-            end do
+            else
+               call ndrop_dropmixnuc_helpers_proof_once()
+               call ndrop_dropmixnuc_clear_old_cloud_codon(int(i, c_int64_t), int(k, c_int64_t), &
+                    int(pcols, c_int64_t), int(pver, c_int64_t), int(ntot_amode, c_int64_t), &
+                    int(ncnst_tot, c_int64_t), int(nsav, c_int64_t), dtinv, c_loc(qcld(1)), &
+                    c_loc(nsource(1,1)), c_loc(nspec_amode(1)), c_loc(mam_idx(1,0)), &
+                    c_loc(raercol(1,1,1)), c_loc(raercol_cw(1,1,1)))
+            end if
          end if
 
       end do  ! old_cloud_main_k_loop
@@ -1247,20 +1291,29 @@ subroutine dropmixnuc( &
          nnew    = ntemp
          srcn(:) = 0.0_r8
 
-         do m = 1, ntot_amode
-            mm = mam_idx(m,0)
+         if (use_native_ndrop_dropmixnuc_helpers_impl) then
+            do m = 1, ntot_amode
+               mm = mam_idx(m,0)
 
-            ! update droplet source
-            ! rce-comment- activation source in layer k involves particles from k+1
-            !	       srcn(:)=srcn(:)+nact(:,m)*(raercol(:,mm,nsav))
-            srcn(top_lev:pver-1) = srcn(top_lev:pver-1) + nact(top_lev:pver-1,m)*(raercol(top_lev+1:pver,mm,nsav))
+               ! update droplet source
+               ! rce-comment- activation source in layer k involves particles from k+1
+               !	       srcn(:)=srcn(:)+nact(:,m)*(raercol(:,mm,nsav))
+               srcn(top_lev:pver-1) = srcn(top_lev:pver-1) + &
+                    nact(top_lev:pver-1,m)*(raercol(top_lev+1:pver,mm,nsav))
 
-            ! rce-comment- new formulation for k=pver
-            !              srcn(  pver  )=srcn(  pver  )+nact(  pver  ,m)*(raercol(  pver,mm,nsav))
-            tmpa = raercol(pver,mm,nsav)*nact(pver,m) &
-                 + raercol_cw(pver,mm,nsav)*(nact(pver,m) - taumix_internal_pver_inv)
-            srcn(pver) = srcn(pver) + max(0.0_r8,tmpa)
-         end do
+               ! rce-comment- new formulation for k=pver
+               !              srcn(  pver  )=srcn(  pver  )+nact(  pver  ,m)*(raercol(  pver,mm,nsav))
+               tmpa = raercol(pver,mm,nsav)*nact(pver,m) &
+                    + raercol_cw(pver,mm,nsav)*(nact(pver,m) - taumix_internal_pver_inv)
+               srcn(pver) = srcn(pver) + max(0.0_r8,tmpa)
+            end do
+         else
+            call ndrop_dropmixnuc_helpers_proof_once()
+            call ndrop_dropmixnuc_srcn_from_nact_codon(int(pver, c_int64_t), int(top_lev, c_int64_t), &
+                 int(ntot_amode, c_int64_t), int(ncnst_tot, c_int64_t), int(nsav, c_int64_t), &
+                 taumix_internal_pver_inv, c_loc(nact(1,1)), c_loc(mam_idx(1,0)), &
+                 c_loc(raercol(1,1,1)), c_loc(raercol_cw(1,1,1)), c_loc(srcn(1)))
+         end if
          call explmix(  &
             qcld, srcn, ekkp, ekkm, overlapp,  &
             overlapm, qncld, zero, zero, pver, &
@@ -1275,14 +1328,22 @@ subroutine dropmixnuc( &
          !    source terms
          do m = 1, ntot_amode
             mm = mam_idx(m,0)
-            ! rce-comment -   activation source in layer k involves particles from k+1
-            !	              source(:)= nact(:,m)*(raercol(:,mm,nsav))
-            source(top_lev:pver-1) = nact(top_lev:pver-1,m)*(raercol(top_lev+1:pver,mm,nsav))
-            ! rce-comment - new formulation for k=pver
-            !               source(  pver  )= nact(  pver,  m)*(raercol(  pver,mm,nsav))
-            tmpa = raercol(pver,mm,nsav)*nact(pver,m) &
-                 + raercol_cw(pver,mm,nsav)*(nact(pver,m) - taumix_internal_pver_inv)
-            source(pver) = max(0.0_r8, tmpa)
+            if (use_native_ndrop_dropmixnuc_helpers_impl) then
+               ! rce-comment -   activation source in layer k involves particles from k+1
+               !	              source(:)= nact(:,m)*(raercol(:,mm,nsav))
+               source(top_lev:pver-1) = nact(top_lev:pver-1,m)*(raercol(top_lev+1:pver,mm,nsav))
+               ! rce-comment - new formulation for k=pver
+               !               source(  pver  )= nact(  pver,  m)*(raercol(  pver,mm,nsav))
+               tmpa = raercol(pver,mm,nsav)*nact(pver,m) &
+                    + raercol_cw(pver,mm,nsav)*(nact(pver,m) - taumix_internal_pver_inv)
+               source(pver) = max(0.0_r8, tmpa)
+            else
+               call ndrop_dropmixnuc_helpers_proof_once()
+               call ndrop_dropmixnuc_source_from_act_codon(int(pver, c_int64_t), int(top_lev, c_int64_t), &
+                    int(ncnst_tot, c_int64_t), int(m, c_int64_t), int(mm, c_int64_t), int(nsav, c_int64_t), &
+                    taumix_internal_pver_inv, c_loc(nact(1,1)), c_loc(raercol(1,1,1)), &
+                    c_loc(raercol_cw(1,1,1)), c_loc(source(1)))
+            end if
             flxconv = 0._r8
 
             call explmix( &
@@ -1297,14 +1358,22 @@ subroutine dropmixnuc( &
 
             do l = 1, nspec_amode(m)
                mm = mam_idx(m,l)
-               ! rce-comment -   activation source in layer k involves particles from k+1
-               !	          source(:)= mact(:,m)*(raercol(:,mm,nsav))
-               source(top_lev:pver-1) = mact(top_lev:pver-1,m)*(raercol(top_lev+1:pver,mm,nsav))
-               ! rce-comment- new formulation for k=pver
-               !                 source(  pver  )= mact(  pver  ,m)*(raercol(  pver,mm,nsav))
-               tmpa = raercol(pver,mm,nsav)*mact(pver,m) &
-                    + raercol_cw(pver,mm,nsav)*(mact(pver,m) - taumix_internal_pver_inv)
-               source(pver) = max(0.0_r8, tmpa)
+               if (use_native_ndrop_dropmixnuc_helpers_impl) then
+                  ! rce-comment -   activation source in layer k involves particles from k+1
+                  !	          source(:)= mact(:,m)*(raercol(:,mm,nsav))
+                  source(top_lev:pver-1) = mact(top_lev:pver-1,m)*(raercol(top_lev+1:pver,mm,nsav))
+                  ! rce-comment- new formulation for k=pver
+                  !                 source(  pver  )= mact(  pver  ,m)*(raercol(  pver,mm,nsav))
+                  tmpa = raercol(pver,mm,nsav)*mact(pver,m) &
+                       + raercol_cw(pver,mm,nsav)*(mact(pver,m) - taumix_internal_pver_inv)
+                  source(pver) = max(0.0_r8, tmpa)
+               else
+                  call ndrop_dropmixnuc_helpers_proof_once()
+                  call ndrop_dropmixnuc_source_from_act_codon(int(pver, c_int64_t), int(top_lev, c_int64_t), &
+                       int(ncnst_tot, c_int64_t), int(m, c_int64_t), int(mm, c_int64_t), int(nsav, c_int64_t), &
+                       taumix_internal_pver_inv, c_loc(mact(1,1)), c_loc(raercol(1,1,1)), &
+                       c_loc(raercol_cw(1,1,1)), c_loc(source(1)))
+               end if
                flxconv = 0._r8
 
                call explmix( &
@@ -1324,25 +1393,34 @@ subroutine dropmixnuc( &
 
       ! evaporate particles again if no cloud
 
-      do k = top_lev, pver
-         if (cldn(i,k) == 0._r8) then
-            ! no cloud
-            qcld(k)=0._r8
+      if (use_native_ndrop_dropmixnuc_helpers_impl) then
+         do k = top_lev, pver
+            if (cldn(i,k) == 0._r8) then
+               ! no cloud
+               qcld(k)=0._r8
 
-            ! convert activated aerosol to interstitial in decaying cloud
-            do m = 1, ntot_amode
-               mm = mam_idx(m,0)
-               raercol(k,mm,nnew)    = raercol(k,mm,nnew) + raercol_cw(k,mm,nnew)
-               raercol_cw(k,mm,nnew) = 0._r8
-
-               do l = 1, nspec_amode(m)
-                  mm = mam_idx(m,l)
+               ! convert activated aerosol to interstitial in decaying cloud
+               do m = 1, ntot_amode
+                  mm = mam_idx(m,0)
                   raercol(k,mm,nnew)    = raercol(k,mm,nnew) + raercol_cw(k,mm,nnew)
                   raercol_cw(k,mm,nnew) = 0._r8
+
+                  do l = 1, nspec_amode(m)
+                     mm = mam_idx(m,l)
+                     raercol(k,mm,nnew)    = raercol(k,mm,nnew) + raercol_cw(k,mm,nnew)
+                     raercol_cw(k,mm,nnew) = 0._r8
+                  end do
                end do
-            end do
-         end if
-      end do
+            end if
+         end do
+      else
+         call ndrop_dropmixnuc_helpers_proof_once()
+         call ndrop_dropmixnuc_evaporate_clear_layers_codon(int(i, c_int64_t), int(pcols, c_int64_t), &
+              int(pver, c_int64_t), int(top_lev, c_int64_t), int(ntot_amode, c_int64_t), &
+              int(ncnst_tot, c_int64_t), int(nnew, c_int64_t), c_loc(cldn(1,1)), c_loc(qcld(1)), &
+              c_loc(nspec_amode(1)), c_loc(mam_idx(1,0)), c_loc(raercol(1,1,1)), &
+              c_loc(raercol_cw(1,1,1)))
+      end if
 
       ! droplet number
 
