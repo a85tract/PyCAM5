@@ -16,6 +16,12 @@ def _mode_idx(k: int, m: int, pver: int) -> int:
     return (k - 1) + (m - 1) * pver
 
 
+@inline
+def _aero_col_idx(k: int, mm: int, slot: int, pver: int, ncnst_tot: int) -> int:
+    """raercol arrays declared as (pver,ncnst_tot,2)."""
+    return (k - 1) + (mm - 1) * pver + (slot - 1) * pver * ncnst_tot
+
+
 def ndrop_dropmixnuc_zero_fields_codon(
     pcols: int,
     pver: int,
@@ -220,6 +226,69 @@ def ndrop_dropmixnuc_mix_setup_codon(
             idx = _mode_idx(k, m, pver)
             nact[idx] = min(nact[idx], ekkp[k - 1])
             mact[idx] = min(mact[idx], ekkp[k - 1])
+
+
+def ndrop_dropmixnuc_aero_column_copy_codon(
+    i: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    ncnst_tot: int,
+    mm: int,
+    slot: int,
+    zero_all: int,
+    raer_fld_p: cobj,
+    qqcw_fld_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+):
+    raer_fld = Ptr[float](raer_fld_p)
+    qqcw_fld = Ptr[float](qqcw_fld_p)
+    raercol = Ptr[float](raercol_p)
+    raercol_cw = Ptr[float](raercol_cw_p)
+
+    if zero_all != 0:
+        for k in range(1, pver + 1):
+            col_idx = _aero_col_idx(k, mm, slot, pver, ncnst_tot)
+            raercol_cw[col_idx] = 0.0
+            raercol[col_idx] = 0.0
+
+    for k in range(top_lev, pver + 1):
+        col_idx = _aero_col_idx(k, mm, slot, pver, ncnst_tot)
+        field_idx = _idx2(i, k, pcols)
+        raercol_cw[col_idx] = qqcw_fld[field_idx]
+        raercol[col_idx] = raer_fld[field_idx]
+
+
+def ndrop_dropmixnuc_aero_tend_prepare_codon(
+    i: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    ncnst_tot: int,
+    mm: int,
+    slot: int,
+    dtinv: float,
+    raer_fld_p: cobj,
+    qqcw_fld_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+    raertend_p: cobj,
+    qqcwtend_p: cobj,
+):
+    raer_fld = Ptr[float](raer_fld_p)
+    qqcw_fld = Ptr[float](qqcw_fld_p)
+    raercol = Ptr[float](raercol_p)
+    raercol_cw = Ptr[float](raercol_cw_p)
+    raertend = Ptr[float](raertend_p)
+    qqcwtend = Ptr[float](qqcwtend_p)
+
+    for k in range(top_lev, pver + 1):
+        col_idx = _aero_col_idx(k, mm, slot, pver, ncnst_tot)
+        field_idx = _idx2(i, k, pcols)
+        tend_idx = k - 1
+        raertend[tend_idx] = (raercol[col_idx] - raer_fld[field_idx]) * dtinv
+        qqcwtend[tend_idx] = (raercol_cw[col_idx] - qqcw_fld[field_idx]) * dtinv
 
 
 def ndrop_dropmixnuc_finalize_column_codon(

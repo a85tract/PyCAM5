@@ -138,6 +138,23 @@ interface
       type(c_ptr), value :: ekkm_p, overlapp_p, overlapm_p, count_submix_p, nsubmix_p, dtmix_p
    end subroutine ndrop_dropmixnuc_mix_setup_codon
 
+   subroutine ndrop_dropmixnuc_aero_column_copy_codon(i_c, pcols_c, pver_c, top_lev_c, ncnst_tot_c, &
+        mm_c, slot_c, zero_all_c, raer_fld_p, qqcw_fld_p, raercol_p, raercol_cw_p) &
+        bind(c, name="ndrop_dropmixnuc_aero_column_copy_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: i_c, pcols_c, pver_c, top_lev_c, ncnst_tot_c, mm_c, slot_c, zero_all_c
+      type(c_ptr), value :: raer_fld_p, qqcw_fld_p, raercol_p, raercol_cw_p
+   end subroutine ndrop_dropmixnuc_aero_column_copy_codon
+
+   subroutine ndrop_dropmixnuc_aero_tend_prepare_codon(i_c, pcols_c, pver_c, top_lev_c, ncnst_tot_c, &
+        mm_c, slot_c, dtinv_c, raer_fld_p, qqcw_fld_p, raercol_p, raercol_cw_p, raertend_p, qqcwtend_p) &
+        bind(c, name="ndrop_dropmixnuc_aero_tend_prepare_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: i_c, pcols_c, pver_c, top_lev_c, ncnst_tot_c, mm_c, slot_c
+      real(c_double), value :: dtinv_c
+      type(c_ptr), value :: raer_fld_p, qqcw_fld_p, raercol_p, raercol_cw_p, raertend_p, qqcwtend_p
+   end subroutine ndrop_dropmixnuc_aero_tend_prepare_codon
+
    subroutine ndrop_dropmixnuc_finalize_column_codon(i_c, pcols_c, pver_c, top_lev_c, dtinv_c, &
         gravit_c, qcld_p, ncldwtr_p, pdel_p, nsource_p, ndropmix_p, tendnd_p, ndropcol_p) &
         bind(c, name="ndrop_dropmixnuc_finalize_column_codon")
@@ -243,7 +260,7 @@ subroutine ndrop_dropmixnuc_helpers_proof_once()
    ndrop_dropmixnuc_helpers_proof_written = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'ndrop_dropmixnuc_helpers entered (array setup/mix/finalize direct = codon)'
+      write(iulog,'(A)') 'ndrop_dropmixnuc_helpers entered (array setup/mix/aero tend/finalize direct = codon)'
    end if
 
 end subroutine ndrop_dropmixnuc_helpers_proof_once
@@ -545,8 +562,8 @@ subroutine dropmixnuc( &
 
    type(ptr2d_t), allocatable :: raer(:)     ! aerosol mass, number mixing ratios
    type(ptr2d_t), allocatable :: qqcw(:)
-   real(r8) :: raertend(pver)  ! tendency of aerosol mass, number mixing ratios
-   real(r8) :: qqcwtend(pver)  ! tendency of cloudborne aerosol mass, number mixing ratios
+   real(r8), target :: raertend(pver)  ! tendency of aerosol mass, number mixing ratios
+   real(r8), target :: qqcwtend(pver)  ! tendency of cloudborne aerosol mass, number mixing ratios
 
 
    real(r8), parameter :: zkmin = 0.01_r8, zkmax = 100._r8
@@ -606,8 +623,8 @@ subroutine dropmixnuc( &
    real(r8), allocatable, target :: nact(:,:) ! fractional aero. number  activation rate (/s)
    real(r8), allocatable, target :: mact(:,:) ! fractional aero. mass    activation rate (/s)
 
-   real(r8), allocatable :: raercol(:,:,:)    ! single column of aerosol mass, number mixing ratios
-   real(r8), allocatable :: raercol_cw(:,:,:) ! same as raercol but for cloud-borne phase
+   real(r8), allocatable, target :: raercol(:,:,:)    ! single column of aerosol mass, number mixing ratios
+   real(r8), allocatable, target :: raercol_cw(:,:,:) ! same as raercol but for cloud-borne phase
 
 
    real(r8) :: na(pcols), va(pcols), hy(pcols)
@@ -781,14 +798,30 @@ subroutine dropmixnuc( &
       nnew = 2
       do m = 1, ntot_amode
          mm = mam_idx(m,0)
-         raercol_cw(:,mm,nsav) = 0.0_r8
-         raercol(:,mm,nsav)    = 0.0_r8
-         raercol_cw(top_lev:pver,mm,nsav) = qqcw(mm)%fld(i,top_lev:pver)
-         raercol(top_lev:pver,mm,nsav)    = raer(mm)%fld(i,top_lev:pver)
-         do l = 1, nspec_amode(m)
-            mm = mam_idx(m,l)
+         if (use_native_ndrop_dropmixnuc_helpers_impl) then
+            raercol_cw(:,mm,nsav) = 0.0_r8
+            raercol(:,mm,nsav)    = 0.0_r8
             raercol_cw(top_lev:pver,mm,nsav) = qqcw(mm)%fld(i,top_lev:pver)
             raercol(top_lev:pver,mm,nsav)    = raer(mm)%fld(i,top_lev:pver)
+         else
+            call ndrop_dropmixnuc_helpers_proof_once()
+            call ndrop_dropmixnuc_aero_column_copy_codon(int(i, c_int64_t), int(pcols, c_int64_t), &
+                 int(pver, c_int64_t), int(top_lev, c_int64_t), int(ncnst_tot, c_int64_t), &
+                 int(mm, c_int64_t), int(nsav, c_int64_t), 1_c_int64_t, c_loc(raer(mm)%fld(1,1)), &
+                 c_loc(qqcw(mm)%fld(1,1)), c_loc(raercol(1,1,1)), c_loc(raercol_cw(1,1,1)))
+         end if
+         do l = 1, nspec_amode(m)
+            mm = mam_idx(m,l)
+            if (use_native_ndrop_dropmixnuc_helpers_impl) then
+               raercol_cw(top_lev:pver,mm,nsav) = qqcw(mm)%fld(i,top_lev:pver)
+               raercol(top_lev:pver,mm,nsav)    = raer(mm)%fld(i,top_lev:pver)
+            else
+               call ndrop_dropmixnuc_helpers_proof_once()
+               call ndrop_dropmixnuc_aero_column_copy_codon(int(i, c_int64_t), int(pcols, c_int64_t), &
+                    int(pver, c_int64_t), int(top_lev, c_int64_t), int(ncnst_tot, c_int64_t), &
+                    int(mm, c_int64_t), int(nsav, c_int64_t), 0_c_int64_t, c_loc(raer(mm)%fld(1,1)), &
+                    c_loc(qqcw(mm)%fld(1,1)), c_loc(raercol(1,1,1)), c_loc(raercol_cw(1,1,1)))
+            end if
          end do
       end do
 
@@ -1279,8 +1312,17 @@ subroutine dropmixnuc( &
                mm   = mam_idx(m,l)
                lptr = mam_cnst_idx(m,l)
 
-               raertend(top_lev:pver) = (raercol(top_lev:pver,mm,nnew) - raer(mm)%fld(i,top_lev:pver))*dtinv
-               qqcwtend(top_lev:pver) = (raercol_cw(top_lev:pver,mm,nnew) - qqcw(mm)%fld(i,top_lev:pver))*dtinv
+               if (use_native_ndrop_dropmixnuc_helpers_impl) then
+                  raertend(top_lev:pver) = (raercol(top_lev:pver,mm,nnew) - raer(mm)%fld(i,top_lev:pver))*dtinv
+                  qqcwtend(top_lev:pver) = (raercol_cw(top_lev:pver,mm,nnew) - qqcw(mm)%fld(i,top_lev:pver))*dtinv
+               else
+                  call ndrop_dropmixnuc_helpers_proof_once()
+                  call ndrop_dropmixnuc_aero_tend_prepare_codon(int(i, c_int64_t), int(pcols, c_int64_t), &
+                       int(pver, c_int64_t), int(top_lev, c_int64_t), int(ncnst_tot, c_int64_t), &
+                       int(mm, c_int64_t), int(nnew, c_int64_t), dtinv, c_loc(raer(mm)%fld(1,1)), &
+                       c_loc(qqcw(mm)%fld(1,1)), c_loc(raercol(1,1,1)), c_loc(raercol_cw(1,1,1)), &
+                       c_loc(raertend(1)), c_loc(qqcwtend(1)))
+               end if
 
                coltend(i,mm)    = sum( pdel(i,:)*raertend )/gravit
                coltend_cw(i,mm) = sum( pdel(i,:)*qqcwtend )/gravit

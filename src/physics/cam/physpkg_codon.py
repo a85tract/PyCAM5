@@ -3731,6 +3731,72 @@ def ndrop_dropmixnuc_mix_setup_codon(
 
 
 @export
+def ndrop_dropmixnuc_aero_column_copy_codon(
+    i: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    ncnst_tot: int,
+    mm: int,
+    slot: int,
+    zero_all: int,
+    raer_fld_p: cobj,
+    qqcw_fld_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+):
+    _ndrop.ndrop_dropmixnuc_aero_column_copy_codon(
+        i,
+        pcols,
+        pver,
+        top_lev,
+        ncnst_tot,
+        mm,
+        slot,
+        zero_all,
+        raer_fld_p,
+        qqcw_fld_p,
+        raercol_p,
+        raercol_cw_p,
+    )
+
+
+@export
+def ndrop_dropmixnuc_aero_tend_prepare_codon(
+    i: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    ncnst_tot: int,
+    mm: int,
+    slot: int,
+    dtinv: float,
+    raer_fld_p: cobj,
+    qqcw_fld_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+    raertend_p: cobj,
+    qqcwtend_p: cobj,
+):
+    _ndrop.ndrop_dropmixnuc_aero_tend_prepare_codon(
+        i,
+        pcols,
+        pver,
+        top_lev,
+        ncnst_tot,
+        mm,
+        slot,
+        dtinv,
+        raer_fld_p,
+        qqcw_fld_p,
+        raercol_p,
+        raercol_cw_p,
+        raertend_p,
+        qqcwtend_p,
+    )
+
+
+@export
 def ndrop_dropmixnuc_finalize_column_codon(
     i: int,
     pcols: int,
