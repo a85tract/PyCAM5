@@ -321,3 +321,64 @@ def ndrop_dropmixnuc_finalize_column_codon(
         tendnd[idx] = (max(qcld[k - 1], 1.0e-6) - ncldwtr[idx]) * dtinv
         ndropcol[i - 1] = ndropcol[i - 1] + ncldwtr[idx] * pdel[idx]
     ndropcol[i - 1] = ndropcol[i - 1] / gravit
+
+
+def ndrop_explmix_codon(
+    pver: int,
+    top_lev: int,
+    surfrate: float,
+    flxconv: float,
+    dt: float,
+    is_unact: int,
+    q_p: cobj,
+    src_p: cobj,
+    ekkp_p: cobj,
+    ekkm_p: cobj,
+    overlapp_p: cobj,
+    overlapm_p: cobj,
+    qold_p: cobj,
+    qactold_p: cobj,
+):
+    q = Ptr[float](q_p)
+    src = Ptr[float](src_p)
+    ekkp = Ptr[float](ekkp_p)
+    ekkm = Ptr[float](ekkm_p)
+    overlapp = Ptr[float](overlapp_p)
+    overlapm = Ptr[float](overlapm_p)
+    qold = Ptr[float](qold_p)
+
+    if is_unact != 0:
+        qactold = Ptr[float](qactold_p)
+        for k in range(top_lev, pver + 1):
+            kp1 = min(k + 1, pver)
+            km1 = max(k - 1, top_lev)
+            k0 = k - 1
+            kp10 = kp1 - 1
+            km10 = km1 - 1
+            q[k0] = qold[k0] + dt * (
+                -src[k0]
+                + ekkp[k0]
+                * (qold[kp10] - qold[k0] + qactold[kp10] * (1.0 - overlapp[k0]))
+                + ekkm[k0]
+                * (qold[km10] - qold[k0] + qactold[km10] * (1.0 - overlapm[k0]))
+            )
+            q[k0] = max(q[k0], 0.0)
+
+        q[pver - 1] = q[pver - 1] - surfrate * qold[pver - 1] * dt + flxconv * dt
+        q[pver - 1] = max(q[pver - 1], 0.0)
+    else:
+        for k in range(top_lev, pver + 1):
+            kp1 = min(k + 1, pver)
+            km1 = max(k - 1, top_lev)
+            k0 = k - 1
+            kp10 = kp1 - 1
+            km10 = km1 - 1
+            q[k0] = qold[k0] + dt * (
+                src[k0]
+                + ekkp[k0] * (overlapp[k0] * qold[kp10] - qold[k0])
+                + ekkm[k0] * (overlapm[k0] * qold[km10] - qold[k0])
+            )
+            q[k0] = max(q[k0], 0.0)
+
+        q[pver - 1] = q[pver - 1] - surfrate * qold[pver - 1] * dt + flxconv * dt
+        q[pver - 1] = max(q[pver - 1], 0.0)

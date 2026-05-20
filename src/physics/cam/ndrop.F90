@@ -95,6 +95,9 @@ logical :: ndrop_init_props_proof_written = .false.
 logical :: use_native_ndrop_dropmixnuc_helpers_impl = .false.
 logical :: ndrop_dropmixnuc_helpers_impl_selected = .false.
 logical :: ndrop_dropmixnuc_helpers_proof_written = .false.
+logical :: use_native_ndrop_explmix_impl = .false.
+logical :: ndrop_explmix_impl_selected = .false.
+logical :: ndrop_explmix_proof_written = .false.
 
 interface
    subroutine ndrop_mode_props_finalize_codon(nmode_c, pi_c, sigmag_p, dgnumlo_p, dgnumhi_p, &
@@ -163,6 +166,15 @@ interface
       real(c_double), value :: dtinv_c, gravit_c
       type(c_ptr), value :: qcld_p, ncldwtr_p, pdel_p, nsource_p, ndropmix_p, tendnd_p, ndropcol_p
    end subroutine ndrop_dropmixnuc_finalize_column_codon
+
+   subroutine ndrop_explmix_codon(pver_c, top_lev_c, surfrate_c, flxconv_c, dt_c, is_unact_c, &
+        q_p, src_p, ekkp_p, ekkm_p, overlapp_p, overlapm_p, qold_p, qactold_p) &
+        bind(c, name="ndrop_explmix_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: pver_c, top_lev_c, is_unact_c
+      real(c_double), value :: surfrate_c, flxconv_c, dt_c
+      type(c_ptr), value :: q_p, src_p, ekkp_p, ekkm_p, overlapp_p, overlapm_p, qold_p, qactold_p
+   end subroutine ndrop_explmix_codon
 end interface
 
 !===============================================================================
@@ -264,6 +276,55 @@ subroutine ndrop_dropmixnuc_helpers_proof_once()
    end if
 
 end subroutine ndrop_dropmixnuc_helpers_proof_once
+
+!===============================================================================
+
+subroutine ndrop_explmix_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (ndrop_explmix_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('NDROP_EXPLMIX_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_ndrop_explmix_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_ndrop_explmix_impl = .false.
+   end if
+
+   ndrop_explmix_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_ndrop_explmix_impl) then
+         write(iulog,*) 'ndrop_explmix implementation = native'
+      else
+         write(iulog,*) 'ndrop_explmix implementation = codon'
+      end if
+   end if
+
+end subroutine ndrop_explmix_select_impl
+
+!===============================================================================
+
+subroutine ndrop_explmix_proof_once()
+
+   if (ndrop_explmix_proof_written) return
+   ndrop_explmix_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'ndrop_explmix entered (vertical explicit mixing direct = codon)'
+   end if
+
+end subroutine ndrop_explmix_proof_once
 
 !===============================================================================
 
@@ -1384,6 +1445,53 @@ end subroutine dropmixnuc
 subroutine explmix( q, src, ekkp, ekkm, overlapp, overlapm, &
    qold, surfrate, flxconv, pver, dt, is_unact, qactold )
 
+   use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr
+
+   integer, intent(in) :: pver ! number of levels
+   real(r8), target, intent(out) :: q(pver) ! mixing ratio to be updated
+   real(r8), target, intent(in) :: qold(pver) ! mixing ratio from previous time step
+   real(r8), target, intent(in) :: src(pver) ! source due to activation/nucleation (/s)
+   real(r8), target, intent(in) :: ekkp(pver) ! zn*zs*density*diffusivity (kg/m3 m2/s)
+   ! below layer k  (k,k+1 interface)
+   real(r8), target, intent(in) :: ekkm(pver) ! zn*zs*density*diffusivity (kg/m3 m2/s)
+   ! above layer k  (k,k+1 interface)
+   real(r8), target, intent(in) :: overlapp(pver) ! cloud overlap below
+   real(r8), target, intent(in) :: overlapm(pver) ! cloud overlap above
+   real(r8), intent(in) :: surfrate ! surface exchange rate (/s)
+   real(r8), intent(in) :: flxconv ! convergence of flux from surface
+   real(r8), intent(in) :: dt ! time step (s)
+   logical, intent(in) :: is_unact ! true if this is an unactivated species
+   real(r8), target, intent(in),optional :: qactold(pver)
+   ! mixing ratio of ACTIVATED species from previous step
+   ! *** this should only be present
+   !     if the current species is unactivated number/sfc/mass
+
+   call ndrop_explmix_select_impl()
+
+   if (use_native_ndrop_explmix_impl .or. (is_unact .and. .not. present(qactold))) then
+      call explmix_native(q, src, ekkp, ekkm, overlapp, overlapm, &
+           qold, surfrate, flxconv, pver, dt, is_unact, qactold)
+   else if (is_unact) then
+      call ndrop_explmix_proof_once()
+      call ndrop_explmix_codon(int(pver, c_int64_t), int(top_lev, c_int64_t), &
+           surfrate, flxconv, dt, 1_c_int64_t, c_loc(q(1)), c_loc(src(1)), &
+           c_loc(ekkp(1)), c_loc(ekkm(1)), c_loc(overlapp(1)), c_loc(overlapm(1)), &
+           c_loc(qold(1)), c_loc(qactold(1)))
+   else
+      call ndrop_explmix_proof_once()
+      call ndrop_explmix_codon(int(pver, c_int64_t), int(top_lev, c_int64_t), &
+           surfrate, flxconv, dt, 0_c_int64_t, c_loc(q(1)), c_loc(src(1)), &
+           c_loc(ekkp(1)), c_loc(ekkm(1)), c_loc(overlapp(1)), c_loc(overlapm(1)), &
+           c_loc(qold(1)), c_null_ptr)
+   end if
+
+end subroutine explmix
+
+!===============================================================================
+
+subroutine explmix_native( q, src, ekkp, ekkm, overlapp, overlapm, &
+   qold, surfrate, flxconv, pver, dt, is_unact, qactold )
+
    !  explicit integration of droplet/aerosol mixing
    !     with source due to activation/nucleation
 
@@ -1453,7 +1561,7 @@ subroutine explmix( q, src, ekkp, ekkm, overlapp, overlapm, &
 
    end if
 
-end subroutine explmix
+end subroutine explmix_native
 
 !===============================================================================
 

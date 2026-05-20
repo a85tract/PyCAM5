@@ -3830,6 +3830,41 @@ def ndrop_dropmixnuc_finalize_column_codon(
 
 
 @export
+def ndrop_explmix_codon(
+    pver: int,
+    top_lev: int,
+    surfrate: float,
+    flxconv: float,
+    dt: float,
+    is_unact: int,
+    q_p: cobj,
+    src_p: cobj,
+    ekkp_p: cobj,
+    ekkm_p: cobj,
+    overlapp_p: cobj,
+    overlapm_p: cobj,
+    qold_p: cobj,
+    qactold_p: cobj,
+):
+    _ndrop.ndrop_explmix_codon(
+        pver,
+        top_lev,
+        surfrate,
+        flxconv,
+        dt,
+        is_unact,
+        q_p,
+        src_p,
+        ekkp_p,
+        ekkm_p,
+        overlapp_p,
+        overlapm_p,
+        qold_p,
+        qactold_p,
+    )
+
+
+@export
 def ghg_data_mw_ratios_codon(
     mwdry: float,
     mwn2o: float,
