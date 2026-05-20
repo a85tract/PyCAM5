@@ -3079,6 +3079,15 @@ subroutine cldprp(lchnk   , &
          type(c_ptr), value :: jt_p, jb_p, j0_p, jd_p, hmn_p, hd_p, eps0_p, epsm_p, alfa_p, md_p
       end subroutine zm_cldprp_downdraft_init_codon
 
+      subroutine zm_cldprp_downdraft_scale_energy_codon(il2g_c, pcols_c, pver_c, msg_c, &
+           small_c, jt_p, jb_p, jd_p, eps0_p, mu_p, md_p, dz_p, ed_p, hd_p, hmn_p) &
+           bind(c, name="zm_cldprp_downdraft_scale_energy_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c, pver_c, msg_c
+         real(c_double), value :: small_c
+         type(c_ptr), value :: jt_p, jb_p, jd_p, eps0_p, mu_p, md_p, dz_p, ed_p, hd_p, hmn_p
+      end subroutine zm_cldprp_downdraft_scale_energy_codon
+
       subroutine zm_cldprp_qds_codon(il2g_c, pcols_c, pver_c, msg_c, rl_c, jd_p, jb_p, eps0_p, &
            qds_p, qsthat_p, gamhat_p, hd_p, hsthat_p) bind(c, name="zm_cldprp_qds_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
@@ -3149,9 +3158,9 @@ subroutine cldprp(lchnk   , &
 
    if (.not. use_native_zm_cldprp_helpers) then
       if (masterproc .and. .not. zm_cldprp_helpers_logged) then
-         write(iulog,*) 'zm_cldprp_helpers entered (init/thermo/index/eps/cloudtop/downdraft/cond/rain/evap direct = codon)'
+         write(iulog,*) 'zm_cldprp_helpers entered (init/thermo/index/eps/cloudtop/ddmass/downdraft/cond/rain/evap direct = codon)'
          call zm_conv_evap_append_impl_proof( &
-              'zm_cldprp_helpers entered (init/thermo/index/eps/cloudtop/downdraft/cond/rain/evap direct = codon)')
+              'zm_cldprp_helpers entered (init/thermo/index/eps/cloudtop/ddmass/downdraft/cond/rain/evap direct = codon)')
          call flush(iulog)
          zm_cldprp_helpers_logged = .true.
       end if
@@ -3556,25 +3565,31 @@ subroutine cldprp(lchnk   , &
          end if
       end do
    end do
-   do k = msg + 1,pver
-      do i = 1,il2g
-         if ((k >= jt(i) .and. k <= jb(i)) .and. eps0(i) > 0._r8 .and. jd(i) < jb(i)) then
-            ratmjb(i) = min(abs(mu(i,jb(i))/md(i,jb(i))),1._r8)
-            md(i,k) = md(i,k)*ratmjb(i)
-         end if
-      end do
-   end do
 
    small = 1.e-20_r8
-   do k = msg + 1,pver
-      do i = 1,il2g
-         if ((k >= jt(i) .and. k <= pver) .and. eps0(i) > 0._r8) then
-            ed(i,k-1) = (md(i,k-1)-md(i,k))/dz(i,k-1)
-            mdt = min(md(i,k),-small)
-            hd(i,k) = (md(i,k-1)*hd(i,k-1) - dz(i,k-1)*ed(i,k-1)*hmn(i,k-1))/mdt
-         end if
+   if (.not. use_native_zm_cldprp_helpers) then
+      call zm_cldprp_downdraft_scale_energy_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(msg, c_int64_t), small, c_loc(jt), c_loc(jb), c_loc(jd), &
+           c_loc(eps0), c_loc(mu), c_loc(md), c_loc(dz), c_loc(ed), c_loc(hd), c_loc(hmn))
+   else
+      do k = msg + 1,pver
+         do i = 1,il2g
+            if ((k >= jt(i) .and. k <= jb(i)) .and. eps0(i) > 0._r8 .and. jd(i) < jb(i)) then
+               ratmjb(i) = min(abs(mu(i,jb(i))/md(i,jb(i))),1._r8)
+               md(i,k) = md(i,k)*ratmjb(i)
+            end if
+         end do
       end do
-   end do
+      do k = msg + 1,pver
+         do i = 1,il2g
+            if ((k >= jt(i) .and. k <= pver) .and. eps0(i) > 0._r8) then
+               ed(i,k-1) = (md(i,k-1)-md(i,k))/dz(i,k-1)
+               mdt = min(md(i,k),-small)
+               hd(i,k) = (md(i,k-1)*hd(i,k-1) - dz(i,k-1)*ed(i,k-1)*hmn(i,k-1))/mdt
+            end if
+         end do
+      end do
+   end if
 
 !Needed for water tracers (NOTE: may be able to move this out of cldprp - JN)
    if (.not. use_native_zm_cldprp_helpers) then

@@ -351,6 +351,30 @@ def zm_cldprp_downdraft_init_codon(
 
 
 @export
+def zm_cldprp_downdraft_scale_energy_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    msg: int,
+    small: float,
+    jt_p: cobj,
+    jb_p: cobj,
+    jd_p: cobj,
+    eps0_p: cobj,
+    mu_p: cobj,
+    md_p: cobj,
+    dz_p: cobj,
+    ed_p: cobj,
+    hd_p: cobj,
+    hmn_p: cobj,
+):
+    _zm_cldprp.zm_cldprp_downdraft_scale_energy_codon(
+        il2g, pcols, pver, msg, small, jt_p, jb_p, jd_p, eps0_p, mu_p, md_p, dz_p, ed_p,
+        hd_p, hmn_p,
+    )
+
+
+@export
 def zm_cldprp_qds_codon(
     il2g: int,
     pcols: int,

@@ -497,6 +497,53 @@ def zm_cldprp_downdraft_init_codon(
             md[_idx2(i, jd_i, pcols)] = -alfa[i0] * epsm[i0] / eps0[i0]
 
 
+def zm_cldprp_downdraft_scale_energy_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    msg: int,
+    small: float,
+    jt_p: cobj,
+    jb_p: cobj,
+    jd_p: cobj,
+    eps0_p: cobj,
+    mu_p: cobj,
+    md_p: cobj,
+    dz_p: cobj,
+    ed_p: cobj,
+    hd_p: cobj,
+    hmn_p: cobj,
+):
+    jt = Ptr[i32](jt_p)
+    jb = Ptr[i32](jb_p)
+    jd = Ptr[i32](jd_p)
+    eps0 = Ptr[float](eps0_p)
+    mu = Ptr[float](mu_p)
+    md = Ptr[float](md_p)
+    dz = Ptr[float](dz_p)
+    ed = Ptr[float](ed_p)
+    hd = Ptr[float](hd_p)
+    hmn = Ptr[float](hmn_p)
+
+    for k in range(msg + 1, pver + 1):
+        for i in range(1, il2g + 1):
+            i0 = _idx1(i)
+            if k >= int(jt[i0]) and k <= int(jb[i0]) and eps0[i0] > 0.0 and int(jd[i0]) < int(jb[i0]):
+                ratmjb = min(abs(mu[_idx2(i, int(jb[i0]), pcols)] / md[_idx2(i, int(jb[i0]), pcols)]), 1.0)
+                idx = _idx2(i, k, pcols)
+                md[idx] = md[idx] * ratmjb
+
+    for k in range(msg + 1, pver + 1):
+        for i in range(1, il2g + 1):
+            i0 = _idx1(i)
+            if k >= int(jt[i0]) and k <= pver and eps0[i0] > 0.0:
+                idx = _idx2(i, k, pcols)
+                idxm1 = _idx2(i, k - 1, pcols)
+                ed[idxm1] = (md[idxm1] - md[idx]) / dz[idxm1]
+                mdt = min(md[idx], -small)
+                hd[idx] = (md[idxm1] * hd[idxm1] - dz[idxm1] * ed[idxm1] * hmn[idxm1]) / mdt
+
+
 def zm_cldprp_qds_codon(
     il2g: int,
     pcols: int,
