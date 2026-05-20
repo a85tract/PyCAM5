@@ -95,6 +95,9 @@ logical :: ndrop_init_props_proof_written = .false.
 logical :: use_native_ndrop_dropmixnuc_helpers_impl = .false.
 logical :: ndrop_dropmixnuc_helpers_impl_selected = .false.
 logical :: ndrop_dropmixnuc_helpers_proof_written = .false.
+logical :: use_native_ndrop_loadaer_helpers_impl = .false.
+logical :: ndrop_loadaer_helpers_impl_selected = .false.
+logical :: ndrop_loadaer_helpers_proof_written = .false.
 logical :: use_native_ndrop_explmix_impl = .false.
 logical :: ndrop_explmix_impl_selected = .false.
 logical :: ndrop_explmix_proof_written = .false.
@@ -299,6 +302,38 @@ interface
       type(c_ptr), value :: raertend_p, qqcwtend_p
    end subroutine ndrop_dropmixnuc_zero_tendencies_codon
 
+   subroutine ndrop_loadaer_zero_codon(istart_c, istop_c, vaerosol_p, hygro_p) &
+        bind(c, name="ndrop_loadaer_zero_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: istart_c, istop_c
+      type(c_ptr), value :: vaerosol_p, hygro_p
+   end subroutine ndrop_loadaer_zero_codon
+
+   subroutine ndrop_loadaer_species_accum_codon(istart_c, istop_c, k_c, pcols_c, phase_c, &
+        specdens_c, spechygro_c, raer_p, qqcw_p, vaerosol_p, hygro_p) &
+        bind(c, name="ndrop_loadaer_species_accum_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: istart_c, istop_c, k_c, pcols_c, phase_c
+      real(c_double), value :: specdens_c, spechygro_c
+      type(c_ptr), value :: raer_p, qqcw_p, vaerosol_p, hygro_p
+   end subroutine ndrop_loadaer_species_accum_codon
+
+   subroutine ndrop_loadaer_finalize_volume_codon(istart_c, istop_c, k_c, pcols_c, cs_p, &
+        vaerosol_p, hygro_p) bind(c, name="ndrop_loadaer_finalize_volume_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: istart_c, istop_c, k_c, pcols_c
+      type(c_ptr), value :: cs_p, vaerosol_p, hygro_p
+   end subroutine ndrop_loadaer_finalize_volume_codon
+
+   subroutine ndrop_loadaer_number_codon(istart_c, istop_c, k_c, pcols_c, phase_c, &
+        voltonumblo_c, voltonumbhi_c, raer_p, qqcw_p, cs_p, vaerosol_p, naerosol_p) &
+        bind(c, name="ndrop_loadaer_number_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: istart_c, istop_c, k_c, pcols_c, phase_c
+      real(c_double), value :: voltonumblo_c, voltonumbhi_c
+      type(c_ptr), value :: raer_p, qqcw_p, cs_p, vaerosol_p, naerosol_p
+   end subroutine ndrop_loadaer_number_codon
+
    function ndrop_activate_modal_core_codon(wbar_c, sigw_c, wdiab_c, wminf_c, wmaxf_c, &
         tair_c, rhoair_c, qs_c, nmode_c, rair_c, p0_c, t0_c, rhoh2o_c, latvap_c, &
         cpair_c, rh2o_c, gravit_c, pi_c, aten_c, twothird_c, sq2_c, sqpi_c, &
@@ -430,6 +465,55 @@ subroutine ndrop_dropmixnuc_helpers_proof_once()
    end if
 
 end subroutine ndrop_dropmixnuc_helpers_proof_once
+
+!===============================================================================
+
+subroutine ndrop_loadaer_helpers_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (ndrop_loadaer_helpers_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('NDROP_LOADAER_HELPERS_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_ndrop_loadaer_helpers_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_ndrop_loadaer_helpers_impl = .false.
+   end if
+
+   ndrop_loadaer_helpers_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_ndrop_loadaer_helpers_impl) then
+         write(iulog,*) 'ndrop_loadaer_helpers implementation = native'
+      else
+         write(iulog,*) 'ndrop_loadaer_helpers implementation = codon'
+      end if
+   end if
+
+end subroutine ndrop_loadaer_helpers_select_impl
+
+!===============================================================================
+
+subroutine ndrop_loadaer_helpers_proof_once()
+
+   if (ndrop_loadaer_helpers_proof_written) return
+   ndrop_loadaer_helpers_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'ndrop_loadaer_helpers entered (volume/hygro/number adjust direct = codon)'
+   end if
+
+end subroutine ndrop_loadaer_helpers_proof_once
 
 !===============================================================================
 
@@ -2487,6 +2571,8 @@ subroutine loadaer( &
    m, cs, phase, naerosol, &
    vaerosol, hygro)
 
+   use iso_c_binding, only: c_int64_t, c_loc
+
    ! return aerosol number, volume concentrations, and bulk hygroscopicity
 
    ! input arguments
@@ -2497,13 +2583,13 @@ subroutine loadaer( &
    integer,  intent(in) :: istop       ! stop column index  
    integer,  intent(in) :: m           ! mode index
    integer,  intent(in) :: k           ! level index
-   real(r8), intent(in) :: cs(:,:)     ! air density (kg/m3)
+   real(r8), target, intent(in) :: cs(:,:)     ! air density (kg/m3)
    integer,  intent(in) :: phase       ! phase of aerosol: 1 for interstitial, 2 for cloud-borne, 3 for sum
 
    ! output arguments
-   real(r8), intent(out) :: naerosol(:)  ! number conc (1/m3)
-   real(r8), intent(out) :: vaerosol(:)  ! volume conc (m3/m3)
-   real(r8), intent(out) :: hygro(:)     ! bulk hygroscopicity of mode
+   real(r8), target, intent(out) :: naerosol(:)  ! number conc (1/m3)
+   real(r8), target, intent(out) :: vaerosol(:)  ! volume conc (m3/m3)
+   real(r8), target, intent(out) :: hygro(:)     ! bulk hygroscopicity of mode
 
    ! internal
    integer  :: lchnk               ! chunk identifier
@@ -2518,10 +2604,21 @@ subroutine loadaer( &
 
    lchnk = state%lchnk
 
-   do i = istart, istop
-      vaerosol(i) = 0._r8
-      hygro(i)    = 0._r8
-   end do
+   call ndrop_loadaer_helpers_select_impl()
+   if (use_native_ndrop_loadaer_helpers_impl) then
+      do i = istart, istop
+         vaerosol(i) = 0._r8
+         hygro(i)    = 0._r8
+      end do
+   else
+      call ndrop_loadaer_helpers_proof_once()
+      if (phase < 1 .or. phase > 3) then
+         write(iulog,*)'phase=',phase,' in loadaer'
+         call endrun('phase error in loadaer')
+      end if
+      call ndrop_loadaer_zero_codon(int(istart, c_int64_t), int(istop, c_int64_t), &
+           c_loc(vaerosol(1)), c_loc(hygro(1)))
+   end if
 
    do l = 1, nspec_amode(m)
 
@@ -2529,44 +2626,64 @@ subroutine loadaer( &
       call rad_cnst_get_aer_mmr(0, m, l, 'c', state, pbuf, qqcw)
       call rad_cnst_get_aer_props(0, m, l, density_aer=specdens, hygro_aer=spechygro)
 
-      if (phase == 3) then
+      if (use_native_ndrop_loadaer_helpers_impl) then
+         if (phase == 3) then
+            do i = istart, istop
+               vol(i) = max(raer(i,k) + qqcw(i,k), 0._r8)/specdens
+            end do
+         else if (phase == 2) then
+            do i = istart, istop
+               vol(i) = max(qqcw(i,k), 0._r8)/specdens
+            end do
+         else if (phase == 1) then
+            do i = istart, istop
+               vol(i) = max(raer(i,k), 0._r8)/specdens
+            end do
+         else
+            write(iulog,*)'phase=',phase,' in loadaer'
+            call endrun('phase error in loadaer')
+         end if
+
          do i = istart, istop
-            vol(i) = max(raer(i,k) + qqcw(i,k), 0._r8)/specdens
-         end do
-      else if (phase == 2) then
-         do i = istart, istop
-            vol(i) = max(qqcw(i,k), 0._r8)/specdens
-         end do
-      else if (phase == 1) then
-         do i = istart, istop
-            vol(i) = max(raer(i,k), 0._r8)/specdens
+            vaerosol(i) = vaerosol(i) + vol(i)
+            hygro(i)    = hygro(i) + vol(i)*spechygro
          end do
       else
-         write(iulog,*)'phase=',phase,' in loadaer'
-         call endrun('phase error in loadaer')
+         call ndrop_loadaer_helpers_proof_once()
+         call ndrop_loadaer_species_accum_codon(int(istart, c_int64_t), int(istop, c_int64_t), &
+              int(k, c_int64_t), int(pcols, c_int64_t), int(phase, c_int64_t), specdens, spechygro, &
+              c_loc(raer(1,1)), c_loc(qqcw(1,1)), c_loc(vaerosol(1)), c_loc(hygro(1)))
       end if
 
+   end do
+
+   if (use_native_ndrop_loadaer_helpers_impl) then
       do i = istart, istop
-         vaerosol(i) = vaerosol(i) + vol(i)
-         hygro(i)    = hygro(i) + vol(i)*spechygro
+         if (vaerosol(i) > 1.0e-30_r8) then   ! +++xl add 8/2/2007
+            hygro(i)    = hygro(i)/(vaerosol(i))
+            vaerosol(i) = vaerosol(i)*cs(i,k)
+         else
+            hygro(i)    = 0.0_r8
+            vaerosol(i) = 0.0_r8
+         end if
       end do
-
-   end do
-
-   do i = istart, istop
-      if (vaerosol(i) > 1.0e-30_r8) then   ! +++xl add 8/2/2007
-         hygro(i)    = hygro(i)/(vaerosol(i))
-         vaerosol(i) = vaerosol(i)*cs(i,k)
-      else
-         hygro(i)    = 0.0_r8
-         vaerosol(i) = 0.0_r8
-      end if
-   end do
+   else
+      call ndrop_loadaer_helpers_proof_once()
+      call ndrop_loadaer_finalize_volume_codon(int(istart, c_int64_t), int(istop, c_int64_t), &
+           int(k, c_int64_t), int(pcols, c_int64_t), c_loc(cs(1,1)), c_loc(vaerosol(1)), c_loc(hygro(1)))
+   end if
 
    ! aerosol number
    call rad_cnst_get_mode_num(0, m, 'a', state, pbuf, raer)
    call rad_cnst_get_mode_num(0, m, 'c', state, pbuf, qqcw)
-   if (phase == 3) then
+
+   if (.not. use_native_ndrop_loadaer_helpers_impl) then
+      call ndrop_loadaer_helpers_proof_once()
+      call ndrop_loadaer_number_codon(int(istart, c_int64_t), int(istop, c_int64_t), &
+           int(k, c_int64_t), int(pcols, c_int64_t), int(phase, c_int64_t), &
+           voltonumblo_amode(m), voltonumbhi_amode(m), c_loc(raer(1,1)), c_loc(qqcw(1,1)), &
+           c_loc(cs(1,1)), c_loc(vaerosol(1)), c_loc(naerosol(1)))
+   else if (phase == 3) then
       do i = istart, istop
          naerosol(i) = (raer(i,k) + qqcw(i,k))*cs(i,k)
       end do
@@ -2580,10 +2697,12 @@ subroutine loadaer( &
       end do
    end if
    ! adjust number so that dgnumlo < dgnum < dgnumhi
-   do i = istart, istop
-      naerosol(i) = max(naerosol(i), vaerosol(i)*voltonumbhi_amode(m))
-      naerosol(i) = min(naerosol(i), vaerosol(i)*voltonumblo_amode(m))
-   end do
+   if (use_native_ndrop_loadaer_helpers_impl) then
+      do i = istart, istop
+         naerosol(i) = max(naerosol(i), vaerosol(i)*voltonumbhi_amode(m))
+         naerosol(i) = min(naerosol(i), vaerosol(i)*voltonumblo_amode(m))
+      end do
+   end if
 
 end subroutine loadaer
 

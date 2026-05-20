@@ -4791,6 +4791,89 @@ def ndrop_dropmixnuc_zero_tendencies_codon(
 
 
 @export
+def ndrop_loadaer_zero_codon(
+    istart: int,
+    istop: int,
+    vaerosol_p: cobj,
+    hygro_p: cobj,
+):
+    _ndrop.ndrop_loadaer_zero_codon(istart, istop, vaerosol_p, hygro_p)
+
+
+@export
+def ndrop_loadaer_species_accum_codon(
+    istart: int,
+    istop: int,
+    k: int,
+    pcols: int,
+    phase: int,
+    specdens: float,
+    spechygro: float,
+    raer_p: cobj,
+    qqcw_p: cobj,
+    vaerosol_p: cobj,
+    hygro_p: cobj,
+):
+    _ndrop.ndrop_loadaer_species_accum_codon(
+        istart,
+        istop,
+        k,
+        pcols,
+        phase,
+        specdens,
+        spechygro,
+        raer_p,
+        qqcw_p,
+        vaerosol_p,
+        hygro_p,
+    )
+
+
+@export
+def ndrop_loadaer_finalize_volume_codon(
+    istart: int,
+    istop: int,
+    k: int,
+    pcols: int,
+    cs_p: cobj,
+    vaerosol_p: cobj,
+    hygro_p: cobj,
+):
+    _ndrop.ndrop_loadaer_finalize_volume_codon(istart, istop, k, pcols, cs_p, vaerosol_p, hygro_p)
+
+
+@export
+def ndrop_loadaer_number_codon(
+    istart: int,
+    istop: int,
+    k: int,
+    pcols: int,
+    phase: int,
+    voltonumblo: float,
+    voltonumbhi: float,
+    raer_p: cobj,
+    qqcw_p: cobj,
+    cs_p: cobj,
+    vaerosol_p: cobj,
+    naerosol_p: cobj,
+):
+    _ndrop.ndrop_loadaer_number_codon(
+        istart,
+        istop,
+        k,
+        pcols,
+        phase,
+        voltonumblo,
+        voltonumbhi,
+        raer_p,
+        qqcw_p,
+        cs_p,
+        vaerosol_p,
+        naerosol_p,
+    )
+
+
+@export
 def ndrop_activate_modal_core_codon(
     wbar: float,
     sigw: float,

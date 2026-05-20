@@ -763,6 +763,107 @@ def ndrop_dropmixnuc_zero_tendencies_codon(
         qqcwtend[k - 1] = 0.0
 
 
+def ndrop_loadaer_zero_codon(
+    istart: int,
+    istop: int,
+    vaerosol_p: cobj,
+    hygro_p: cobj,
+):
+    vaerosol = Ptr[float](vaerosol_p)
+    hygro = Ptr[float](hygro_p)
+
+    for i in range(istart, istop + 1):
+        vaerosol[i - 1] = 0.0
+        hygro[i - 1] = 0.0
+
+
+def ndrop_loadaer_species_accum_codon(
+    istart: int,
+    istop: int,
+    k: int,
+    pcols: int,
+    phase: int,
+    specdens: float,
+    spechygro: float,
+    raer_p: cobj,
+    qqcw_p: cobj,
+    vaerosol_p: cobj,
+    hygro_p: cobj,
+):
+    raer = Ptr[float](raer_p)
+    qqcw = Ptr[float](qqcw_p)
+    vaerosol = Ptr[float](vaerosol_p)
+    hygro = Ptr[float](hygro_p)
+
+    for i in range(istart, istop + 1):
+        idx1 = i - 1
+        idx2 = _idx2(i, k, pcols)
+        if phase == 3:
+            vol = max(raer[idx2] + qqcw[idx2], 0.0) / specdens
+        elif phase == 2:
+            vol = max(qqcw[idx2], 0.0) / specdens
+        else:
+            vol = max(raer[idx2], 0.0) / specdens
+        vaerosol[idx1] = vaerosol[idx1] + vol
+        hygro[idx1] = hygro[idx1] + vol * spechygro
+
+
+def ndrop_loadaer_finalize_volume_codon(
+    istart: int,
+    istop: int,
+    k: int,
+    pcols: int,
+    cs_p: cobj,
+    vaerosol_p: cobj,
+    hygro_p: cobj,
+):
+    cs = Ptr[float](cs_p)
+    vaerosol = Ptr[float](vaerosol_p)
+    hygro = Ptr[float](hygro_p)
+
+    for i in range(istart, istop + 1):
+        idx1 = i - 1
+        if vaerosol[idx1] > 1.0e-30:
+            hygro[idx1] = hygro[idx1] / vaerosol[idx1]
+            vaerosol[idx1] = vaerosol[idx1] * cs[_idx2(i, k, pcols)]
+        else:
+            hygro[idx1] = 0.0
+            vaerosol[idx1] = 0.0
+
+
+def ndrop_loadaer_number_codon(
+    istart: int,
+    istop: int,
+    k: int,
+    pcols: int,
+    phase: int,
+    voltonumblo: float,
+    voltonumbhi: float,
+    raer_p: cobj,
+    qqcw_p: cobj,
+    cs_p: cobj,
+    vaerosol_p: cobj,
+    naerosol_p: cobj,
+):
+    raer = Ptr[float](raer_p)
+    qqcw = Ptr[float](qqcw_p)
+    cs = Ptr[float](cs_p)
+    vaerosol = Ptr[float](vaerosol_p)
+    naerosol = Ptr[float](naerosol_p)
+
+    for i in range(istart, istop + 1):
+        idx1 = i - 1
+        idx2 = _idx2(i, k, pcols)
+        if phase == 3:
+            naerosol[idx1] = (raer[idx2] + qqcw[idx2]) * cs[idx2]
+        elif phase == 2:
+            naerosol[idx1] = qqcw[idx2] * cs[idx2]
+        else:
+            naerosol[idx1] = raer[idx2] * cs[idx2]
+        naerosol[idx1] = max(naerosol[idx1], vaerosol[idx1] * voltonumbhi)
+        naerosol[idx1] = min(naerosol[idx1], vaerosol[idx1] * voltonumblo)
+
+
 @inline
 def _ndrop_maxsat_codon(
     nmode: int,
