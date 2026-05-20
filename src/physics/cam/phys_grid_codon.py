@@ -359,6 +359,98 @@ def phys_grid_create_chunks_prefix_codon(
         local_cid[smp] = i32(0)
 
 
+def phys_grid_count_smp_columns_codon(
+    nsmpx: int,
+    ngcols_p: int,
+    latlon_to_dyn_gcol_map_p: cobj,
+    col_smp_mapx_p: cobj,
+    nsmpcolumns_p: cobj,
+):
+    latlon_to_dyn_gcol_map = Ptr[i32](latlon_to_dyn_gcol_map_p)
+    col_smp_mapx = Ptr[i32](col_smp_mapx_p)
+    nsmpcolumns = Ptr[i32](nsmpcolumns_p)
+
+    for smp in range(nsmpx):
+        nsmpcolumns[smp] = i32(0)
+
+    for i in range(ngcols_p):
+        curgcol = int(latlon_to_dyn_gcol_map[i])
+        smp = int(col_smp_mapx[curgcol - 1])
+        nsmpcolumns[smp] = i32(int(nsmpcolumns[smp]) + 1)
+
+
+def phys_grid_zero_int_array_codon(n: int, values_p: cobj):
+    values = Ptr[i32](values_p)
+
+    for i in range(n):
+        values[i] = i32(0)
+
+
+def phys_grid_assign_chunks_zero_column_count_codon(
+    smp: int,
+    nsmpx: int,
+    max_nproc_smpx: int,
+    ntsks_smpx_p: cobj,
+    smp_proc_mapx_p: cobj,
+    column_count_p: cobj,
+):
+    ntsks_smpx = Ptr[i32](ntsks_smpx_p)
+    smp_proc_mapx = Ptr[i32](smp_proc_mapx_p)
+    column_count = Ptr[i32](column_count_p)
+
+    tasks = int(ntsks_smpx[smp])
+    for i in range(1, tasks + 1):
+        p = int(smp_proc_mapx[smp + (i - 1) * nsmpx])
+        column_count[p] = i32(0)
+
+
+def phys_grid_assign_chunks_select_owner_codon(
+    smp: int,
+    nsmpx: int,
+    max_nproc_smpx: int,
+    ntsks_smpx_p: cobj,
+    smp_proc_mapx_p: cobj,
+    cur_npchunks_p: cobj,
+    npchunks_p: cobj,
+    column_count_p: cobj,
+) -> int:
+    ntsks_smpx = Ptr[i32](ntsks_smpx_p)
+    smp_proc_mapx = Ptr[i32](smp_proc_mapx_p)
+    cur_npchunks = Ptr[i32](cur_npchunks_p)
+    npchunks = Ptr[i32](npchunks_p)
+    column_count = Ptr[i32](column_count_p)
+
+    tasks = int(ntsks_smpx[smp])
+    for i in range(1, tasks + 1):
+        p = int(smp_proc_mapx[smp + (i - 1) * nsmpx])
+        if int(cur_npchunks[p]) == int(npchunks[p]):
+            column_count[p] = i32(-1)
+
+    best_count = -1
+    best_proc = -1
+    for i in range(1, tasks + 1):
+        p = int(smp_proc_mapx[smp + (i - 1) * nsmpx])
+        count = int(column_count[p])
+        if count > best_count:
+            best_count = count
+            best_proc = p
+
+    return best_proc
+
+
+def phys_grid_assign_chunks_commit_owner_codon(
+    owner: int,
+    ncols: int,
+    cur_npchunks_p: cobj,
+    gs_col_num_p: cobj,
+):
+    cur_npchunks = Ptr[i32](cur_npchunks_p)
+    gs_col_num = Ptr[i32](gs_col_num_p)
+
+    cur_npchunks[owner] = i32(int(cur_npchunks[owner]) + 1)
+    gs_col_num[owner] = i32(int(gs_col_num[owner]) + ncols)
+
+
 def phys_grid_assign_chunks_smp_setup_codon(
     npes: int,
     nsmpx: int,

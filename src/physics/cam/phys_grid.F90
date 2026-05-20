@@ -301,6 +301,7 @@ module phys_grid
    logical, private :: use_native_init_helpers_impl = .false.
    logical, private :: init_helpers_impl_selected = .false.
    logical, private :: init_helpers_proof_written = .false.
+   logical, private :: init_helpers_assign_proof_written = .false.
 
    interface
      subroutine phys_grid_get_gcol_all_codon(ncols_c, out_dim_c, src_p, dst_p) &
@@ -488,6 +489,43 @@ module phys_grid
        integer(c_int64_t), value :: nsmpx_c
        type(c_ptr), value :: nsmpchunks_p, cid_offset_p, local_cid_p
      end subroutine phys_grid_create_chunks_prefix_codon
+
+     subroutine phys_grid_count_smp_columns_codon(nsmpx_c, ngcols_p_c, latlon_map_p, col_smp_mapx_p, &
+          nsmpcolumns_p) bind(c, name="phys_grid_count_smp_columns_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: nsmpx_c, ngcols_p_c
+       type(c_ptr), value :: latlon_map_p, col_smp_mapx_p, nsmpcolumns_p
+     end subroutine phys_grid_count_smp_columns_codon
+
+     subroutine phys_grid_zero_int_array_codon(n_c, values_p) bind(c, name="phys_grid_zero_int_array_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: n_c
+       type(c_ptr), value :: values_p
+     end subroutine phys_grid_zero_int_array_codon
+
+     subroutine phys_grid_assign_chunks_zero_column_count_codon(smp_c, nsmpx_c, max_nproc_smpx_c, &
+          ntsks_smpx_p, smp_proc_mapx_p, column_count_p) &
+          bind(c, name="phys_grid_assign_chunks_zero_column_count_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: smp_c, nsmpx_c, max_nproc_smpx_c
+       type(c_ptr), value :: ntsks_smpx_p, smp_proc_mapx_p, column_count_p
+     end subroutine phys_grid_assign_chunks_zero_column_count_codon
+
+     function phys_grid_assign_chunks_select_owner_codon(smp_c, nsmpx_c, max_nproc_smpx_c, &
+          ntsks_smpx_p, smp_proc_mapx_p, cur_npchunks_p, npchunks_p, column_count_p) result(owner_c) &
+          bind(c, name="phys_grid_assign_chunks_select_owner_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: smp_c, nsmpx_c, max_nproc_smpx_c
+       type(c_ptr), value :: ntsks_smpx_p, smp_proc_mapx_p, cur_npchunks_p, npchunks_p, column_count_p
+       integer(c_int64_t) :: owner_c
+     end function phys_grid_assign_chunks_select_owner_codon
+
+     subroutine phys_grid_assign_chunks_commit_owner_codon(owner_c, ncols_c, cur_npchunks_p, gs_col_num_p) &
+          bind(c, name="phys_grid_assign_chunks_commit_owner_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: owner_c, ncols_c
+       type(c_ptr), value :: cur_npchunks_p, gs_col_num_p
+     end subroutine phys_grid_assign_chunks_commit_owner_codon
 
      subroutine phys_grid_assign_chunks_smp_setup_codon(npes_c, nsmpx_c, max_nproc_smpx_c, &
           proc_smp_mapx_p, npthreads_p, nsmpthreads_p, nsmpchunks_p, ntsks_smpx_p, smp_proc_mapx_p, &
@@ -692,6 +730,15 @@ contains
             'phys_grid_init_helpers entered (coordinate fills/maps/proc offsets/chunk quotas/local chunk weights direct = codon)'
     end if
   end subroutine phys_grid_init_helpers_proof_once
+
+  subroutine phys_grid_init_assign_bookkeeping_proof_once()
+    if (init_helpers_assign_proof_written) return
+    init_helpers_assign_proof_written = .true.
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'phys_grid_init_helpers create/assign chunk bookkeeping entered (direct = codon)'
+    end if
+  end subroutine phys_grid_init_assign_bookkeeping_proof_once
 
   integer function phys_grid_count_valid_cols_codon_wrap(ngcols_local, coord)
     use iso_c_binding, only: c_int64_t, c_loc
@@ -917,6 +964,69 @@ contains
     call phys_grid_create_chunks_prefix_codon(int(nsmpx_local, c_int64_t), c_loc(nsmpchunks_local(0)), &
          c_loc(cid_offset_local(0)), c_loc(local_cid_local(0)))
   end subroutine phys_grid_create_chunks_prefix_codon_wrap
+
+  subroutine phys_grid_count_smp_columns_codon_wrap(nsmpx_local, ngcols_p_local, latlon_map, &
+       col_smp_mapx_local, nsmpcolumns_local)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: nsmpx_local, ngcols_p_local
+    integer, target, intent(in) :: latlon_map(:), col_smp_mapx_local(:)
+    integer, target, intent(inout) :: nsmpcolumns_local(0:)
+
+    if (nsmpx_local <= 0 .or. ngcols_p_local <= 0) return
+    call phys_grid_count_smp_columns_codon(int(nsmpx_local, c_int64_t), int(ngcols_p_local, c_int64_t), &
+         c_loc(latlon_map(1)), c_loc(col_smp_mapx_local(1)), c_loc(nsmpcolumns_local(0)))
+  end subroutine phys_grid_count_smp_columns_codon_wrap
+
+  subroutine phys_grid_zero_int_array_codon_wrap(n, values)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: n
+    integer, target, intent(inout) :: values(0:)
+
+    if (n <= 0) return
+    call phys_grid_zero_int_array_codon(int(n, c_int64_t), c_loc(values(0)))
+  end subroutine phys_grid_zero_int_array_codon_wrap
+
+  subroutine phys_grid_assign_chunks_zero_column_count_codon_wrap(smp_local, nsmpx_local, &
+       max_nproc_smpx_local, ntsks_smpx_local, smp_proc_mapx_local, column_count_local)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: smp_local, nsmpx_local, max_nproc_smpx_local
+    integer, target, intent(in) :: ntsks_smpx_local(0:), smp_proc_mapx_local(0:,1:)
+    integer, target, intent(inout) :: column_count_local(0:)
+
+    if (nsmpx_local <= 0 .or. max_nproc_smpx_local <= 0) return
+    call phys_grid_assign_chunks_zero_column_count_codon(int(smp_local, c_int64_t), &
+         int(nsmpx_local, c_int64_t), int(max_nproc_smpx_local, c_int64_t), &
+         c_loc(ntsks_smpx_local(0)), c_loc(smp_proc_mapx_local(0,1)), c_loc(column_count_local(0)))
+  end subroutine phys_grid_assign_chunks_zero_column_count_codon_wrap
+
+  integer function phys_grid_assign_chunks_select_owner_codon_wrap(smp_local, nsmpx_local, &
+       max_nproc_smpx_local, ntsks_smpx_local, smp_proc_mapx_local, cur_npchunks_local, &
+       npchunks_local, column_count_local)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: smp_local, nsmpx_local, max_nproc_smpx_local
+    integer, target, intent(in) :: ntsks_smpx_local(0:), smp_proc_mapx_local(0:,1:)
+    integer, target, intent(inout) :: cur_npchunks_local(0:), column_count_local(0:)
+    integer, target, intent(in) :: npchunks_local(0:)
+
+    if (nsmpx_local <= 0 .or. max_nproc_smpx_local <= 0) then
+       phys_grid_assign_chunks_select_owner_codon_wrap = -1
+       return
+    endif
+    phys_grid_assign_chunks_select_owner_codon_wrap = int( &
+         phys_grid_assign_chunks_select_owner_codon(int(smp_local, c_int64_t), int(nsmpx_local, c_int64_t), &
+         int(max_nproc_smpx_local, c_int64_t), c_loc(ntsks_smpx_local(0)), c_loc(smp_proc_mapx_local(0,1)), &
+         c_loc(cur_npchunks_local(0)), c_loc(npchunks_local(0)), c_loc(column_count_local(0))))
+  end function phys_grid_assign_chunks_select_owner_codon_wrap
+
+  subroutine phys_grid_assign_chunks_commit_owner_codon_wrap(owner_local, ncols_local, &
+       cur_npchunks_local, gs_col_num_local)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: owner_local, ncols_local
+    integer, target, intent(inout) :: cur_npchunks_local(0:), gs_col_num_local(0:)
+
+    call phys_grid_assign_chunks_commit_owner_codon(int(owner_local, c_int64_t), int(ncols_local, c_int64_t), &
+         c_loc(cur_npchunks_local(0)), c_loc(gs_col_num_local(0)))
+  end subroutine phys_grid_assign_chunks_commit_owner_codon_wrap
 
   subroutine phys_grid_assign_chunks_smp_setup_codon_wrap(npes_local, nsmpx_local, max_nproc_smpx_local, &
        proc_smp_mapx_local, npthreads_local, nsmpthreads_local, nsmpchunks_local, ntsks_smpx_local, &
@@ -4799,12 +4909,18 @@ logical function phys_grid_initialized ()
    endif
 !
    allocate( nsmpcolumns(0:nsmpx-1) )
-   nsmpcolumns(:) = 0
-   do i=1,ngcols_p
-      curgcol = latlon_to_dyn_gcol_map(i)
-      smp = col_smp_mapx(curgcol)
-      nsmpcolumns(smp) = nsmpcolumns(smp) + 1
-   end do
+   if (use_native_init_helpers_impl) then
+      nsmpcolumns(:) = 0
+      do i=1,ngcols_p
+         curgcol = latlon_to_dyn_gcol_map(i)
+         smp = col_smp_mapx(curgcol)
+         nsmpcolumns(smp) = nsmpcolumns(smp) + 1
+      end do
+   else
+      call phys_grid_count_smp_columns_codon_wrap(nsmpx, ngcols_p, latlon_to_dyn_gcol_map, &
+           col_smp_mapx, nsmpcolumns)
+      call phys_grid_init_assign_bookkeeping_proof_once()
+   endif
 !
    deallocate( col_smp_mapx )
 
@@ -5605,15 +5721,25 @@ logical function phys_grid_initialized ()
 !
 ! Assign chunks to processes: 
 !
-   cur_npchunks(:) = 0
+   if (use_native_init_helpers_impl) then
+      cur_npchunks(:) = 0
+   else
+      call phys_grid_zero_int_array_codon_wrap(npes, cur_npchunks)
+      call phys_grid_init_assign_bookkeeping_proof_once()
+   endif
 !
    do smp=0,nsmpx-1
       do cid=cid_offset(smp),cid_offset(smp+1)-1
 !
-         do i=1,ntsks_smpx(smp)
-            p = smp_proc_mapx(smp,i)
-            column_count(p) = 0
-         enddo
+         if (use_native_init_helpers_impl) then
+            do i=1,ntsks_smpx(smp)
+               p = smp_proc_mapx(smp,i)
+               column_count(p) = 0
+            enddo
+         else
+            call phys_grid_assign_chunks_zero_column_count_codon_wrap(smp, nsmpx, max_nproc_smpx, &
+                 ntsks_smpx, smp_proc_mapx, column_count)
+         endif
 !
 !  For each chunk, determine number of columns in each
 !  process within the dynamics.
@@ -5628,29 +5754,39 @@ logical function phys_grid_initialized ()
          enddo
 !
 !  Eliminate processes that already have their quota of chunks
-         do i=1,ntsks_smpx(smp)
-            p = smp_proc_mapx(smp,i)
-            if (cur_npchunks(p) == npchunks(p)) then
-               column_count(p) = -1
-            endif
-         enddo
+         if (use_native_init_helpers_impl) then
+            do i=1,ntsks_smpx(smp)
+               p = smp_proc_mapx(smp,i)
+               if (cur_npchunks(p) == npchunks(p)) then
+                  column_count(p) = -1
+               endif
+            enddo
+         endif
 !
 !  Assign chunk to process with most
 !  columns from chunk, from among those still available
-         ntmp1 = -1
-         ntmp2 = -1
-         do i=1,ntsks_smpx(smp)
-            p = smp_proc_mapx(smp,i)
-            if (column_count(p) > ntmp1) then
-               ntmp1 = column_count(p)
-               ntmp2 = p
-            endif
-         enddo
-         cur_npchunks(ntmp2) = cur_npchunks(ntmp2) + 1
-         chunks(cid)%owner   = ntmp2
+         if (use_native_init_helpers_impl) then
+            ntmp1 = -1
+            ntmp2 = -1
+            do i=1,ntsks_smpx(smp)
+               p = smp_proc_mapx(smp,i)
+               if (column_count(p) > ntmp1) then
+                  ntmp1 = column_count(p)
+                  ntmp2 = p
+               endif
+            enddo
+            cur_npchunks(ntmp2) = cur_npchunks(ntmp2) + 1
+            chunks(cid)%owner   = ntmp2
 
 !  Update total number of columns assigned to this process
-         gs_col_num(ntmp2)   = gs_col_num(ntmp2) + chunks(cid)%ncols
+            gs_col_num(ntmp2)   = gs_col_num(ntmp2) + chunks(cid)%ncols
+         else
+            ntmp2 = phys_grid_assign_chunks_select_owner_codon_wrap(smp, nsmpx, max_nproc_smpx, &
+                 ntsks_smpx, smp_proc_mapx, cur_npchunks, npchunks, column_count)
+            call phys_grid_assign_chunks_commit_owner_codon_wrap(ntmp2, chunks(cid)%ncols, &
+                 cur_npchunks, gs_col_num)
+            chunks(cid)%owner   = ntmp2
+         endif
 !
       enddo
 !

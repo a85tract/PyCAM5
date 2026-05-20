@@ -2431,6 +2431,71 @@ def phys_grid_create_chunks_prefix_codon(
 
 
 @export
+def phys_grid_count_smp_columns_codon(
+    nsmpx: int,
+    ngcols_p: int,
+    latlon_to_dyn_gcol_map_p: cobj,
+    col_smp_mapx_p: cobj,
+    nsmpcolumns_p: cobj,
+):
+    _phys_grid.phys_grid_count_smp_columns_codon(
+        nsmpx, ngcols_p, latlon_to_dyn_gcol_map_p, col_smp_mapx_p, nsmpcolumns_p
+    )
+
+
+@export
+def phys_grid_zero_int_array_codon(n: int, values_p: cobj):
+    _phys_grid.phys_grid_zero_int_array_codon(n, values_p)
+
+
+@export
+def phys_grid_assign_chunks_zero_column_count_codon(
+    smp: int,
+    nsmpx: int,
+    max_nproc_smpx: int,
+    ntsks_smpx_p: cobj,
+    smp_proc_mapx_p: cobj,
+    column_count_p: cobj,
+):
+    _phys_grid.phys_grid_assign_chunks_zero_column_count_codon(
+        smp, nsmpx, max_nproc_smpx, ntsks_smpx_p, smp_proc_mapx_p, column_count_p
+    )
+
+
+@export
+def phys_grid_assign_chunks_select_owner_codon(
+    smp: int,
+    nsmpx: int,
+    max_nproc_smpx: int,
+    ntsks_smpx_p: cobj,
+    smp_proc_mapx_p: cobj,
+    cur_npchunks_p: cobj,
+    npchunks_p: cobj,
+    column_count_p: cobj,
+) -> int:
+    return _phys_grid.phys_grid_assign_chunks_select_owner_codon(
+        smp,
+        nsmpx,
+        max_nproc_smpx,
+        ntsks_smpx_p,
+        smp_proc_mapx_p,
+        cur_npchunks_p,
+        npchunks_p,
+        column_count_p,
+    )
+
+
+@export
+def phys_grid_assign_chunks_commit_owner_codon(
+    owner: int,
+    ncols: int,
+    cur_npchunks_p: cobj,
+    gs_col_num_p: cobj,
+):
+    _phys_grid.phys_grid_assign_chunks_commit_owner_codon(owner, ncols, cur_npchunks_p, gs_col_num_p)
+
+
+@export
 def phys_grid_assign_chunks_smp_setup_codon(
     npes: int,
     nsmpx: int,
