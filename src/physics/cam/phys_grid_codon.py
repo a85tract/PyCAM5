@@ -185,6 +185,40 @@ def phys_grid_proc_prefix_offsets_codon(
         gs_col_offset[npes] = i32(int(gs_col_offset[npes - 1]) + int(col_counts[npes - 1]))
 
 
+def phys_grid_process_bin_sort_codon(
+    nchunks: int,
+    lastblock: int,
+    chunk_owner_p: cobj,
+    chunk_ncols_p: cobj,
+    pchunkid_p: cobj,
+    gs_col_offset_p: cobj,
+    chunk_lcid_p: cobj,
+    pgcol_chunk_p: cobj,
+    pgcol_ccol_p: cobj,
+):
+    chunk_owner = Ptr[i32](chunk_owner_p)
+    chunk_ncols = Ptr[i32](chunk_ncols_p)
+    pchunkid = Ptr[i32](pchunkid_p)
+    gs_col_offset = Ptr[i32](gs_col_offset_p)
+    chunk_lcid = Ptr[i32](chunk_lcid_p)
+    pgcol_chunk = Ptr[i32](pgcol_chunk_p)
+    pgcol_ccol = Ptr[i32](pgcol_ccol_p)
+
+    for cid0 in range(nchunks):
+        cid = cid0 + 1
+        p = int(chunk_owner[cid0])
+        pchunkid[p] = i32(int(pchunkid[p]) + 1)
+        chunk_lcid[cid0] = i32(int(pchunkid[p]) + lastblock)
+
+        curgcol = int(gs_col_offset[p])
+        for i in range(1, int(chunk_ncols[cid0]) + 1):
+            curgcol += 1
+            pgcol_idx = curgcol - 1
+            pgcol_chunk[pgcol_idx] = i32(cid)
+            pgcol_ccol[pgcol_idx] = i32(i)
+        gs_col_offset[p] = i32(curgcol)
+
+
 def phys_grid_lchunk_gcol_copy_codon(ncols: int, src_gcol_p: cobj, dst_gcol_p: cobj):
     src_gcol = Ptr[i32](src_gcol_p)
     dst_gcol = Ptr[i32](dst_gcol_p)

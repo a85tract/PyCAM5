@@ -435,6 +435,15 @@ module phys_grid
        type(c_ptr), value :: chunk_counts_p, col_counts_p, pchunkid_p, gs_col_offset_p
      end subroutine phys_grid_proc_prefix_offsets_codon
 
+     subroutine phys_grid_process_bin_sort_codon(nchunks_c, lastblock_c, chunk_owner_p, chunk_ncols_p, &
+          pchunkid_p, gs_col_offset_p, chunk_lcid_p, pgcol_chunk_p, pgcol_ccol_p) &
+          bind(c, name="phys_grid_process_bin_sort_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: nchunks_c, lastblock_c
+       type(c_ptr), value :: chunk_owner_p, chunk_ncols_p, pchunkid_p, gs_col_offset_p
+       type(c_ptr), value :: chunk_lcid_p, pgcol_chunk_p, pgcol_ccol_p
+     end subroutine phys_grid_process_bin_sort_codon
+
      subroutine phys_grid_lchunk_gcol_copy_codon(ncols_c, src_gcol_p, dst_gcol_p) &
           bind(c, name="phys_grid_lchunk_gcol_copy_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
@@ -775,6 +784,20 @@ contains
          c_loc(chunk_offsets(0)), c_loc(col_offsets(0)))
   end subroutine phys_grid_proc_prefix_offsets_codon_wrap
 
+  subroutine phys_grid_process_bin_sort_codon_wrap(nchunks_local, lastblock_local, chunk_owner, chunk_ncols, &
+       chunk_offsets, col_offsets, chunk_lcid, pgcol_chunk, pgcol_ccol)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: nchunks_local, lastblock_local
+    integer, target, intent(in) :: chunk_owner(:), chunk_ncols(:)
+    integer, target, intent(inout) :: chunk_offsets(0:), col_offsets(0:)
+    integer, target, intent(inout) :: chunk_lcid(:), pgcol_chunk(:), pgcol_ccol(:)
+
+    if (nchunks_local <= 0) return
+    call phys_grid_process_bin_sort_codon(int(nchunks_local, c_int64_t), int(lastblock_local, c_int64_t), &
+         c_loc(chunk_owner(1)), c_loc(chunk_ncols(1)), c_loc(chunk_offsets(0)), c_loc(col_offsets(0)), &
+         c_loc(chunk_lcid(1)), c_loc(pgcol_chunk(1)), c_loc(pgcol_ccol(1)))
+  end subroutine phys_grid_process_bin_sort_codon_wrap
+
   subroutine phys_grid_lchunk_gcol_copy_codon_wrap(ncols_local, src_gcol, dst_gcol)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: ncols_local
@@ -860,6 +883,9 @@ contains
     ! permutation array used in physics column sorting;
     ! reused later as work space in (lbal_opt == -1) logic
     integer, dimension(:), allocatable :: cdex
+    integer, dimension(:), allocatable :: chunk_owner_work, chunk_ncols_work
+    integer, dimension(:), allocatable :: chunk_lcid_work
+    integer, dimension(:), allocatable :: pgcol_chunk_work, pgcol_ccol_work
 
     ! latitudes and longitudes and column area for dynamics columns
     real(r8), dimension(:), allocatable :: clat_d
@@ -1247,20 +1273,49 @@ contains
     endif
     
     ! Determine local ordering via "process id" bin sort
-    do cid=1,nchunks
-       p = chunks(cid)%owner
-       pchunkid(p) = pchunkid(p) + 1
+    if (use_native_init_helpers_impl) then
+       do cid=1,nchunks
+          p = chunks(cid)%owner
+          pchunkid(p) = pchunkid(p) + 1
 
-       chunks(cid)%lcid = pchunkid(p) + lastblock
+          chunks(cid)%lcid = pchunkid(p) + lastblock
 
-       curgcol = gs_col_offset(p)
-       do i=1,chunks(cid)%ncols
-          curgcol = curgcol + 1
-          pgcols(curgcol)%chunk = cid
-          pgcols(curgcol)%ccol = i
+          curgcol = gs_col_offset(p)
+          do i=1,chunks(cid)%ncols
+             curgcol = curgcol + 1
+             pgcols(curgcol)%chunk = cid
+             pgcols(curgcol)%ccol = i
+          enddo
+          gs_col_offset(p) = curgcol
        enddo
-       gs_col_offset(p) = curgcol
-    enddo
+    else
+       allocate( chunk_owner_work(1:nchunks) )
+       allocate( chunk_ncols_work(1:nchunks) )
+       allocate( chunk_lcid_work(1:nchunks) )
+       allocate( pgcol_chunk_work(1:ngcols_p) )
+       allocate( pgcol_ccol_work(1:ngcols_p) )
+       do cid=1,nchunks
+          chunk_owner_work(cid) = chunks(cid)%owner
+          chunk_ncols_work(cid) = chunks(cid)%ncols
+       enddo
+       call phys_grid_process_bin_sort_codon_wrap(nchunks, lastblock, chunk_owner_work, chunk_ncols_work, &
+            pchunkid, gs_col_offset, chunk_lcid_work, pgcol_chunk_work, pgcol_ccol_work)
+       if (masterproc) then
+          write(iulog,'(A)') 'phys_grid_init_helpers process bin sort entered (direct = codon)'
+       endif
+       do cid=1,nchunks
+          chunks(cid)%lcid = chunk_lcid_work(cid)
+       enddo
+       do curgcol=1,ngcols_p
+          pgcols(curgcol)%chunk = pgcol_chunk_work(curgcol)
+          pgcols(curgcol)%ccol = pgcol_ccol_work(curgcol)
+       enddo
+       deallocate( chunk_owner_work )
+       deallocate( chunk_ncols_work )
+       deallocate( chunk_lcid_work )
+       deallocate( pgcol_chunk_work )
+       deallocate( pgcol_ccol_work )
+    endif
 
     ! Reinitialize pchunkid and gs_col_offset (for real)
     if (use_native_init_helpers_impl) then

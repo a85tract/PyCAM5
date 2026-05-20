@@ -2333,6 +2333,31 @@ def phys_grid_proc_prefix_offsets_codon(
 
 
 @export
+def phys_grid_process_bin_sort_codon(
+    nchunks: int,
+    lastblock: int,
+    chunk_owner_p: cobj,
+    chunk_ncols_p: cobj,
+    pchunkid_p: cobj,
+    gs_col_offset_p: cobj,
+    chunk_lcid_p: cobj,
+    pgcol_chunk_p: cobj,
+    pgcol_ccol_p: cobj,
+):
+    _phys_grid.phys_grid_process_bin_sort_codon(
+        nchunks,
+        lastblock,
+        chunk_owner_p,
+        chunk_ncols_p,
+        pchunkid_p,
+        gs_col_offset_p,
+        chunk_lcid_p,
+        pgcol_chunk_p,
+        pgcol_ccol_p,
+    )
+
+
+@export
 def phys_grid_lchunk_gcol_copy_codon(ncols: int, src_gcol_p: cobj, dst_gcol_p: cobj):
     _phys_grid.phys_grid_lchunk_gcol_copy_codon(ncols, src_gcol_p, dst_gcol_p)
 
