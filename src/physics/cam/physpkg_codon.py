@@ -3159,18 +3159,74 @@ def modal_aer_opt_sw_species_volume_codon(
     pcols: int,
     k: int,
     specdens: float,
+    specrefr: float,
+    specrefi: float,
     specmmr_p: cobj,
     vol_p: cobj,
     dryvol_p: cobj,
+    crefin_re_p: cobj,
+    crefin_im_p: cobj,
 ):
     _modal_aer_opt.modal_aer_opt_sw_species_volume_codon(
         ncol,
         pcols,
         k,
         specdens,
+        specrefr,
+        specrefi,
         specmmr_p,
         vol_p,
         dryvol_p,
+        crefin_re_p,
+        crefin_im_p,
+    )
+
+
+@export
+def modal_aer_opt_sw_water_volume_codon(
+    ncol: int,
+    pcols: int,
+    k: int,
+    rhoh2o: float,
+    qaerwat_p: cobj,
+    dryvol_p: cobj,
+    watervol_p: cobj,
+    wetvol_p: cobj,
+):
+    _modal_aer_opt.modal_aer_opt_sw_water_volume_codon(
+        ncol,
+        pcols,
+        k,
+        rhoh2o,
+        qaerwat_p,
+        dryvol_p,
+        watervol_p,
+        wetvol_p,
+    )
+
+
+@export
+def modal_aer_opt_sw_finalize_refr_codon(
+    ncol: int,
+    crefwsw_re: float,
+    crefwsw_im: float,
+    watervol_p: cobj,
+    wetvol_p: cobj,
+    crefin_re_p: cobj,
+    crefin_im_p: cobj,
+    refr_p: cobj,
+    refi_p: cobj,
+):
+    _modal_aer_opt.modal_aer_opt_sw_finalize_refr_codon(
+        ncol,
+        crefwsw_re,
+        crefwsw_im,
+        watervol_p,
+        wetvol_p,
+        crefin_re_p,
+        crefin_im_p,
+        refr_p,
+        refi_p,
     )
 
 

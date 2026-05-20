@@ -253,19 +253,78 @@ def modal_aer_opt_sw_species_volume_codon(
     pcols: int,
     k: int,
     specdens: float,
+    specrefr: float,
+    specrefi: float,
     specmmr_p: cobj,
     vol_p: cobj,
     dryvol_p: cobj,
+    crefin_re_p: cobj,
+    crefin_im_p: cobj,
 ):
     specmmr = Ptr[float](specmmr_p)
     vol = Ptr[float](vol_p)
     dryvol = Ptr[float](dryvol_p)
+    crefin_re = Ptr[float](crefin_re_p)
+    crefin_im = Ptr[float](crefin_im_p)
 
     for i in range(1, ncol + 1):
         idx1 = _idx1(i)
         idx2 = _idx2(i, k, pcols)
         vol[idx1] = specmmr[idx2] / specdens
         dryvol[idx1] = dryvol[idx1] + vol[idx1]
+        crefin_re[idx1] = crefin_re[idx1] + vol[idx1] * specrefr
+        crefin_im[idx1] = crefin_im[idx1] + vol[idx1] * specrefi
+
+
+def modal_aer_opt_sw_water_volume_codon(
+    ncol: int,
+    pcols: int,
+    k: int,
+    rhoh2o: float,
+    qaerwat_p: cobj,
+    dryvol_p: cobj,
+    watervol_p: cobj,
+    wetvol_p: cobj,
+):
+    qaerwat = Ptr[float](qaerwat_p)
+    dryvol = Ptr[float](dryvol_p)
+    watervol = Ptr[float](watervol_p)
+    wetvol = Ptr[float](wetvol_p)
+
+    for i in range(1, ncol + 1):
+        idx1 = _idx1(i)
+        idx2 = _idx2(i, k, pcols)
+        watervol[idx1] = qaerwat[idx2] / rhoh2o
+        wetvol[idx1] = watervol[idx1] + dryvol[idx1]
+
+
+def modal_aer_opt_sw_finalize_refr_codon(
+    ncol: int,
+    crefwsw_re: float,
+    crefwsw_im: float,
+    watervol_p: cobj,
+    wetvol_p: cobj,
+    crefin_re_p: cobj,
+    crefin_im_p: cobj,
+    refr_p: cobj,
+    refi_p: cobj,
+):
+    watervol = Ptr[float](watervol_p)
+    wetvol = Ptr[float](wetvol_p)
+    crefin_re = Ptr[float](crefin_re_p)
+    crefin_im = Ptr[float](crefin_im_p)
+    refr = Ptr[float](refr_p)
+    refi = Ptr[float](refi_p)
+
+    for i in range(1, ncol + 1):
+        idx1 = _idx1(i)
+        crefin_re[idx1] = crefin_re[idx1] + watervol[idx1] * crefwsw_re
+        crefin_im[idx1] = crefin_im[idx1] + watervol[idx1] * crefwsw_im
+        denom = max(wetvol[idx1], 1.0e-60)
+        crefin_re[idx1] = crefin_re[idx1] / denom
+        crefin_im[idx1] = crefin_im[idx1] / denom
+        refr[idx1] = crefin_re[idx1]
+        refi[idx1] = abs(crefin_im[idx1])
 
 
 def modal_aer_opt_sw_species_vis_diag_codon(
