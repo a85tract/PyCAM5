@@ -67,6 +67,7 @@ logical :: use_native_modal_aer_opt_helpers_impl = .false.
 logical :: modal_aer_opt_helpers_impl_selected = .false.
 logical :: modal_aer_opt_helpers_proof_written = .false.
 logical :: modal_aer_opt_lw_helpers_proof_written = .false.
+logical :: modal_aer_opt_sw_guard_helpers_proof_written = .false.
 
 interface
    subroutine modal_aer_opt_size_parameters_codon(pcols_c, pver_c, top_lev_c, ncol_c, ncoef_c, &
@@ -138,13 +139,14 @@ interface
    subroutine modal_aer_opt_sw_reset_layer_codon(ncol_c, dryvol_p, dustvol_p, scatdust_p, &
         absdust_p, hygrodust_p, scatso4_p, absso4_p, hygroso4_p, scatbc_p, absbc_p, hygrobc_p, &
         scatpom_p, abspom_p, hygropom_p, scatsoa_p, abssoa_p, hygrosoa_p, scatseasalt_p, &
-        absseasalt_p, hygroseasalt_p) bind(c, name="modal_aer_opt_sw_reset_layer_codon")
+        absseasalt_p, hygroseasalt_p, crefin_re_p, crefin_im_p) &
+        bind(c, name="modal_aer_opt_sw_reset_layer_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
       integer(c_int64_t), value :: ncol_c
       type(c_ptr), value :: dryvol_p, dustvol_p, scatdust_p, absdust_p, hygrodust_p
       type(c_ptr), value :: scatso4_p, absso4_p, hygroso4_p, scatbc_p, absbc_p, hygrobc_p
       type(c_ptr), value :: scatpom_p, abspom_p, hygropom_p, scatsoa_p, abssoa_p, hygrosoa_p
-      type(c_ptr), value :: scatseasalt_p, absseasalt_p, hygroseasalt_p
+      type(c_ptr), value :: scatseasalt_p, absseasalt_p, hygroseasalt_p, crefin_re_p, crefin_im_p
    end subroutine modal_aer_opt_sw_reset_layer_codon
 
    subroutine modal_aer_opt_sw_species_volume_codon(ncol_c, pcols_c, k_c, specdens_c, &
@@ -163,6 +165,14 @@ interface
       real(c_double), value :: rhoh2o_c
       type(c_ptr), value :: qaerwat_p, dryvol_p, watervol_p, wetvol_p
    end subroutine modal_aer_opt_sw_water_volume_codon
+
+   function modal_aer_opt_sw_has_negative_water_codon(ncol_c, watervol_p) result(has_c) &
+        bind(c, name="modal_aer_opt_sw_has_negative_water_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c
+      type(c_ptr), value :: watervol_p
+      integer(c_int64_t) :: has_c
+   end function modal_aer_opt_sw_has_negative_water_codon
 
    subroutine modal_aer_opt_sw_finalize_refr_codon(ncol_c, crefwsw_re_c, crefwsw_im_c, &
         watervol_p, wetvol_p, crefin_re_p, crefin_im_p, refr_p, refi_p) &
@@ -270,6 +280,14 @@ interface
       type(c_ptr), value :: dopaer_p, palb_p, pasm_p, tauxar_p, wa_p, ga_p, fa_p
    end subroutine modal_aer_opt_sw_accumulate_tau_codon
 
+   function modal_aer_opt_sw_has_bad_dopaer_codon(ncol_c, dopaer_p) result(has_c) &
+        bind(c, name="modal_aer_opt_sw_has_bad_dopaer_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c
+      type(c_ptr), value :: dopaer_p
+      integer(c_int64_t) :: has_c
+   end function modal_aer_opt_sw_has_bad_dopaer_codon
+
    subroutine modal_aer_opt_lw_init_state_codon(ncol_c, pcols_c, pver_c, nlwbands_c, rga_c, &
         pdeldry_p, tauxar_p, mass_p) bind(c, name="modal_aer_opt_lw_init_state_codon")
       use iso_c_binding, only: c_int64_t, c_double, c_ptr
@@ -359,6 +377,20 @@ subroutine modal_aer_opt_lw_helpers_proof_once()
    end if
 
 end subroutine modal_aer_opt_lw_helpers_proof_once
+
+!===============================================================================
+
+subroutine modal_aer_opt_sw_guard_helpers_proof_once()
+
+   if (modal_aer_opt_sw_guard_helpers_proof_written) return
+   modal_aer_opt_sw_guard_helpers_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'modal_aero_sw guard helpers entered (layer reset/refr zero/' // &
+           'water negative scan/dopaer scan = codon)'
+   end if
+
+end subroutine modal_aer_opt_sw_guard_helpers_proof_once
 
 !===============================================================================
 
@@ -715,6 +747,7 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
    logical :: savaervis ! true if visible wavelength (0.55 micron)
    logical :: savaernir ! true if near ir wavelength (~0.88 micron)
    logical :: savaeruv  ! true if uv wavelength (~0.35 micron)
+   logical :: run_dopaer_diag
 
    real(r8), target :: aoduv(pcols)        ! extinction optical depth in uv
    real(r8), target :: aoduvst(pcols)      ! stratospheric extinction optical depth in uv
@@ -849,11 +882,11 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
 
          do k = top_lev, pver
 
-            ! form bulk refractive index
-            crefin(:ncol) = (0._r8, 0._r8)
-            crefin_re(:ncol) = 0._r8
-            crefin_im(:ncol) = 0._r8
             if (use_native_modal_aer_opt_helpers_impl) then
+               ! form bulk refractive index
+               crefin(:ncol) = (0._r8, 0._r8)
+               crefin_re(:ncol) = 0._r8
+               crefin_im(:ncol) = 0._r8
                dryvol(:ncol) = 0._r8
                dustvol(:ncol) = 0._r8
 
@@ -877,12 +910,14 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
                hygroseasalt(:ncol) = 0._r8
             else
                call modal_aer_opt_helpers_proof_once()
+               call modal_aer_opt_sw_guard_helpers_proof_once()
                call modal_aer_opt_sw_reset_layer_codon(int(ncol, c_int64_t), c_loc(dryvol(1)), &
                     c_loc(dustvol(1)), c_loc(scatdust(1)), c_loc(absdust(1)), c_loc(hygrodust(1)), &
                     c_loc(scatso4(1)), c_loc(absso4(1)), c_loc(hygroso4(1)), c_loc(scatbc(1)), &
                     c_loc(absbc(1)), c_loc(hygrobc(1)), c_loc(scatpom(1)), c_loc(abspom(1)), &
                     c_loc(hygropom(1)), c_loc(scatsoa(1)), c_loc(abssoa(1)), c_loc(hygrosoa(1)), &
-                    c_loc(scatseasalt(1)), c_loc(absseasalt(1)), c_loc(hygroseasalt(1)))
+                    c_loc(scatseasalt(1)), c_loc(absseasalt(1)), c_loc(hygroseasalt(1)), &
+                    c_loc(crefin_re(1)), c_loc(crefin_im(1)))
             end if
 
             ! aerosol species loop
@@ -1008,16 +1043,20 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
                call modal_aer_opt_sw_water_volume_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
                     int(k, c_int64_t), rhoh2o, c_loc(qaerwat(1,1)), c_loc(dryvol(1)), &
                     c_loc(watervol(1)), c_loc(wetvol(1)))
-               do i = 1, ncol
-                  if (watervol(i) < 0._r8) then
-                     if (abs(watervol(i)) .gt. 1.e-1_r8*wetvol(i)) then
-                        write(iulog,'(a,2e10.2,a)') 'watervol,wetvol=', &
-                           watervol(i), wetvol(i), ' in '//subname
+               call modal_aer_opt_sw_guard_helpers_proof_once()
+               if (modal_aer_opt_sw_has_negative_water_codon(int(ncol, c_int64_t), &
+                    c_loc(watervol(1))) /= 0_c_int64_t) then
+                  do i = 1, ncol
+                     if (watervol(i) < 0._r8) then
+                        if (abs(watervol(i)) .gt. 1.e-1_r8*wetvol(i)) then
+                           write(iulog,'(a,2e10.2,a)') 'watervol,wetvol=', &
+                              watervol(i), wetvol(i), ' in '//subname
+                        end if
+                        watervol(i) = 0._r8
+                        wetvol(i) = dryvol(i)
                      end if
-                     watervol(i) = 0._r8
-                     wetvol(i) = dryvol(i)
-                  end if
-               end do
+                  end do
+               end if
 
                call modal_aer_opt_helpers_proof_once()
                call modal_aer_opt_sw_finalize_refr_codon(int(ncol, c_int64_t), real(crefwsw(isw), r8), &
@@ -1231,45 +1270,55 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
                endif
             end if
 
-            do i = 1, ncol
+            if (use_native_modal_aer_opt_helpers_impl) then
+               run_dopaer_diag = .true.
+            else
+               call modal_aer_opt_sw_guard_helpers_proof_once()
+               run_dopaer_diag = modal_aer_opt_sw_has_bad_dopaer_codon(int(ncol, c_int64_t), &
+                    c_loc(dopaer(1))) /= 0_c_int64_t
+            end if
 
-               if ((dopaer(i) <= -1.e-10_r8) .or. (dopaer(i) >= 30._r8)) then
+            if (run_dopaer_diag) then
+               do i = 1, ncol
 
-                  if (dopaer(i) <= -1.e-10_r8) then
-                     write(iulog,*) "ERROR: Negative aerosol optical depth &
-                          &in this layer."
-                  else
-                     write(iulog,*) "WARNING: Aerosol optical depth is &
-                          &unreasonably high in this layer."
-                  end if
+                  if ((dopaer(i) <= -1.e-10_r8) .or. (dopaer(i) >= 30._r8)) then
 
-                  write(iulog,*) 'dopaer(', i, ',', k, ',', m, ',', lchnk, ')=', dopaer(i)
-                  ! write(iulog,*) 'itab,jtab,ttab,utab=',itab(i),jtab(i),ttab(i),utab(i)
-                  write(iulog,*) 'k=', k, ' pext=', pext(i), ' specext=', specpext(i)
-                  write(iulog,*) 'wetvol=', wetvol(i), ' dryvol=', dryvol(i), ' watervol=', watervol(i)
-                  ! write(iulog,*) 'cext=',(cext(i,l),l=1,ncoef)
-                  ! write(iulog,*) 'crefin=',crefin(i)
-                  write(iulog,*) 'nspec=', nspec
-                  ! write(iulog,*) 'cheb=', (cheb(nc,m,i,k),nc=2,ncoef)
-                  do l = 1, nspec
-                     call rad_cnst_get_aer_mmr(list_idx, m, l, 'a', state, pbuf, specmmr)
-                     call rad_cnst_get_aer_props(list_idx, m, l, density_aer=specdens, &
-                                                 refindex_aer_sw=specrefindex)
-                     volf = specmmr(i,k)/specdens
-                     write(iulog,*) 'l=', l, 'vol(l)=', volf
-                     write(iulog,*) 'isw=', isw, 'specrefindex(isw)=', specrefindex(isw)
-                     write(iulog,*) 'specdens=', specdens
-                  end do
+                     if (dopaer(i) <= -1.e-10_r8) then
+                        write(iulog,*) "ERROR: Negative aerosol optical depth &
+                             &in this layer."
+                     else
+                        write(iulog,*) "WARNING: Aerosol optical depth is &
+                             &unreasonably high in this layer."
+                     end if
 
-                  nerr_dopaer = nerr_dopaer + 1
+                     write(iulog,*) 'dopaer(', i, ',', k, ',', m, ',', lchnk, ')=', dopaer(i)
+                     ! write(iulog,*) 'itab,jtab,ttab,utab=',itab(i),jtab(i),ttab(i),utab(i)
+                     write(iulog,*) 'k=', k, ' pext=', pext(i), ' specext=', specpext(i)
+                     write(iulog,*) 'wetvol=', wetvol(i), ' dryvol=', dryvol(i), ' watervol=', watervol(i)
+                     ! write(iulog,*) 'cext=',(cext(i,l),l=1,ncoef)
+                     ! write(iulog,*) 'crefin=',crefin(i)
+                     write(iulog,*) 'nspec=', nspec
+                     ! write(iulog,*) 'cheb=', (cheb(nc,m,i,k),nc=2,ncoef)
+                     do l = 1, nspec
+                        call rad_cnst_get_aer_mmr(list_idx, m, l, 'a', state, pbuf, specmmr)
+                        call rad_cnst_get_aer_props(list_idx, m, l, density_aer=specdens, &
+                                                    refindex_aer_sw=specrefindex)
+                        volf = specmmr(i,k)/specdens
+                        write(iulog,*) 'l=', l, 'vol(l)=', volf
+                        write(iulog,*) 'isw=', isw, 'specrefindex(isw)=', specrefindex(isw)
+                        write(iulog,*) 'specdens=', specdens
+                     end do
+
+                     nerr_dopaer = nerr_dopaer + 1
 !                  if (nerr_dopaer >= nerrmax_dopaer) then
-                  if (dopaer(i) < -1.e-10_r8) then
-                     write(iulog,*) '*** halting in '//subname//' after nerr_dopaer =', nerr_dopaer
-                     call endrun('exit from '//subname)
-                  end if
+                     if (dopaer(i) < -1.e-10_r8) then
+                        write(iulog,*) '*** halting in '//subname//' after nerr_dopaer =', nerr_dopaer
+                        call endrun('exit from '//subname)
+                     end if
 
-               end if
-            end do
+                  end if
+               end do
+            end if
 
             if (.not. use_native_modal_aer_opt_helpers_impl) then
                call modal_aer_opt_helpers_proof_once()

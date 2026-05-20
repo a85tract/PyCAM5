@@ -3206,6 +3206,8 @@ def modal_aer_opt_sw_reset_layer_codon(
     scatseasalt_p: cobj,
     absseasalt_p: cobj,
     hygroseasalt_p: cobj,
+    crefin_re_p: cobj,
+    crefin_im_p: cobj,
 ):
     _modal_aer_opt.modal_aer_opt_sw_reset_layer_codon(
         ncol,
@@ -3229,6 +3231,8 @@ def modal_aer_opt_sw_reset_layer_codon(
         scatseasalt_p,
         absseasalt_p,
         hygroseasalt_p,
+        crefin_re_p,
+        crefin_im_p,
     )
 
 
@@ -3282,6 +3286,11 @@ def modal_aer_opt_sw_water_volume_codon(
         watervol_p,
         wetvol_p,
     )
+
+
+@export
+def modal_aer_opt_sw_has_negative_water_codon(ncol: int, watervol_p: cobj) -> int:
+    return _modal_aer_opt.modal_aer_opt_sw_has_negative_water_codon(ncol, watervol_p)
 
 
 @export
@@ -3695,6 +3704,11 @@ def modal_aer_opt_sw_accumulate_tau_codon(
         ga_p,
         fa_p,
     )
+
+
+@export
+def modal_aer_opt_sw_has_bad_dopaer_codon(ncol: int, dopaer_p: cobj) -> int:
+    return _modal_aer_opt.modal_aer_opt_sw_has_bad_dopaer_codon(ncol, dopaer_p)
 
 
 @export

@@ -363,6 +363,8 @@ def modal_aer_opt_sw_reset_layer_codon(
     scatseasalt_p: cobj,
     absseasalt_p: cobj,
     hygroseasalt_p: cobj,
+    crefin_re_p: cobj,
+    crefin_im_p: cobj,
 ):
     dryvol = Ptr[float](dryvol_p)
     dustvol = Ptr[float](dustvol_p)
@@ -384,9 +386,13 @@ def modal_aer_opt_sw_reset_layer_codon(
     scatseasalt = Ptr[float](scatseasalt_p)
     absseasalt = Ptr[float](absseasalt_p)
     hygroseasalt = Ptr[float](hygroseasalt_p)
+    crefin_re = Ptr[float](crefin_re_p)
+    crefin_im = Ptr[float](crefin_im_p)
 
     for i in range(1, ncol + 1):
         idx = _idx1(i)
+        crefin_re[idx] = 0.0
+        crefin_im[idx] = 0.0
         dryvol[idx] = 0.0
         dustvol[idx] = 0.0
         scatdust[idx] = 0.0
@@ -457,6 +463,15 @@ def modal_aer_opt_sw_water_volume_codon(
         idx2 = _idx2(i, k, pcols)
         watervol[idx1] = qaerwat[idx2] / rhoh2o
         wetvol[idx1] = watervol[idx1] + dryvol[idx1]
+
+
+def modal_aer_opt_sw_has_negative_water_codon(ncol: int, watervol_p: cobj) -> int:
+    watervol = Ptr[float](watervol_p)
+
+    for i in range(1, ncol + 1):
+        if watervol[_idx1(i)] < 0.0:
+            return 1
+    return 0
 
 
 def modal_aer_opt_sw_finalize_refr_codon(
@@ -1047,6 +1062,16 @@ def modal_aer_opt_sw_accumulate_tau_codon(
         wa[idx3] = wa[idx3] + dopaer[idx1] * palb[idx1]
         ga[idx3] = ga[idx3] + dopaer[idx1] * palb[idx1] * pasm[idx1]
         fa[idx3] = fa[idx3] + dopaer[idx1] * palb[idx1] * pasm[idx1] * pasm[idx1]
+
+
+def modal_aer_opt_sw_has_bad_dopaer_codon(ncol: int, dopaer_p: cobj) -> int:
+    dopaer = Ptr[float](dopaer_p)
+
+    for i in range(1, ncol + 1):
+        value = dopaer[_idx1(i)]
+        if value <= -1.0e-10 or value >= 30.0:
+            return 1
+    return 0
 
 
 def modal_aer_opt_lw_init_state_codon(
