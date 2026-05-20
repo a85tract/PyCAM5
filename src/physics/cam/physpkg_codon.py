@@ -3672,6 +3672,81 @@ def modal_aer_opt_sw_accumulate_tau_codon(
     )
 
 
+@export
+def modal_aer_opt_lw_init_state_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    nlwbands: int,
+    rga: float,
+    pdeldry_p: cobj,
+    tauxar_p: cobj,
+    mass_p: cobj,
+):
+    _modal_aer_opt.modal_aer_opt_lw_init_state_codon(
+        ncol,
+        pcols,
+        pver,
+        nlwbands,
+        rga,
+        pdeldry_p,
+        tauxar_p,
+        mass_p,
+    )
+
+
+@export
+def modal_aer_opt_lw_optics_props_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    k: int,
+    ncoef: int,
+    rhoh2o: float,
+    cheby_p: cobj,
+    cabs_p: cobj,
+    wetvol_p: cobj,
+    mass_p: cobj,
+    pabs_p: cobj,
+    dopaer_p: cobj,
+):
+    _modal_aer_opt.modal_aer_opt_lw_optics_props_codon(
+        ncol,
+        pcols,
+        pver,
+        k,
+        ncoef,
+        rhoh2o,
+        cheby_p,
+        cabs_p,
+        wetvol_p,
+        mass_p,
+        pabs_p,
+        dopaer_p,
+    )
+
+
+@export
+def modal_aer_opt_lw_accumulate_tau_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    k: int,
+    ilw: int,
+    dopaer_p: cobj,
+    tauxar_p: cobj,
+):
+    _modal_aer_opt.modal_aer_opt_lw_accumulate_tau_codon(
+        ncol,
+        pcols,
+        pver,
+        k,
+        ilw,
+        dopaer_p,
+        tauxar_p,
+    )
+
+
 @inline
 def _modal_aer_opt_2d_idx(i: int, k: int, pcols: int) -> int:
     """modal_aer_opt arrays declared as (pcols,pver)."""

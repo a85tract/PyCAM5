@@ -66,6 +66,7 @@ character(len=4) :: diag(0:n_diag) = (/'    ','_d1 ','_d2 ','_d3 ','_d4 ','_d5 '
 logical :: use_native_modal_aer_opt_helpers_impl = .false.
 logical :: modal_aer_opt_helpers_impl_selected = .false.
 logical :: modal_aer_opt_helpers_proof_written = .false.
+logical :: modal_aer_opt_lw_helpers_proof_written = .false.
 
 interface
    subroutine modal_aer_opt_size_parameters_codon(pcols_c, pver_c, top_lev_c, ncol_c, ncoef_c, &
@@ -268,6 +269,30 @@ interface
       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, k_c, isw_c
       type(c_ptr), value :: dopaer_p, palb_p, pasm_p, tauxar_p, wa_p, ga_p, fa_p
    end subroutine modal_aer_opt_sw_accumulate_tau_codon
+
+   subroutine modal_aer_opt_lw_init_state_codon(ncol_c, pcols_c, pver_c, nlwbands_c, rga_c, &
+        pdeldry_p, tauxar_p, mass_p) bind(c, name="modal_aer_opt_lw_init_state_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, nlwbands_c
+      real(c_double), value :: rga_c
+      type(c_ptr), value :: pdeldry_p, tauxar_p, mass_p
+   end subroutine modal_aer_opt_lw_init_state_codon
+
+   subroutine modal_aer_opt_lw_optics_props_codon(ncol_c, pcols_c, pver_c, k_c, ncoef_c, &
+        rhoh2o_c, cheby_p, cabs_p, wetvol_p, mass_p, pabs_p, dopaer_p) &
+        bind(c, name="modal_aer_opt_lw_optics_props_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, k_c, ncoef_c
+      real(c_double), value :: rhoh2o_c
+      type(c_ptr), value :: cheby_p, cabs_p, wetvol_p, mass_p, pabs_p, dopaer_p
+   end subroutine modal_aer_opt_lw_optics_props_codon
+
+   subroutine modal_aer_opt_lw_accumulate_tau_codon(ncol_c, pcols_c, pver_c, k_c, ilw_c, &
+        dopaer_p, tauxar_p) bind(c, name="modal_aer_opt_lw_accumulate_tau_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, k_c, ilw_c
+      type(c_ptr), value :: dopaer_p, tauxar_p
+   end subroutine modal_aer_opt_lw_accumulate_tau_codon
 end interface
 
 !===============================================================================
@@ -321,6 +346,19 @@ subroutine modal_aer_opt_helpers_proof_once()
    end if
 
 end subroutine modal_aer_opt_helpers_proof_once
+
+!===============================================================================
+
+subroutine modal_aer_opt_lw_helpers_proof_once()
+
+   if (modal_aer_opt_lw_helpers_proof_written) return
+   modal_aer_opt_lw_helpers_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'modal_aero_lw helpers entered (init state/optics props/tau = codon)'
+   end if
+
+end subroutine modal_aer_opt_lw_helpers_proof_once
 
 !===============================================================================
 
@@ -1398,12 +1436,14 @@ subroutine modal_aero_lw(list_idx, state, pbuf, tauxar)
 
    ! calculates aerosol lw radiative properties
 
+   use iso_c_binding, only: c_int64_t, c_loc
+
    integer,             intent(in)  :: list_idx ! index of the climate or a diagnostic list
    type(physics_state), intent(in), target :: state    ! state variables
    
    type(physics_buffer_desc), pointer :: pbuf(:)
 
-   real(r8), intent(out) :: tauxar(pcols,pver,nlwbands) ! layer absorption optical depth
+   real(r8), intent(out), target :: tauxar(pcols,pver,nlwbands) ! layer absorption optical depth
 
    ! Local variables
    integer :: i, ifld, ilw, k, l, m, nc, ns
@@ -1423,9 +1463,9 @@ subroutine modal_aero_lw(list_idx, state, pbuf, tauxar)
    real(r8) :: sigma_logr_aer          ! geometric standard deviation of number distribution
    real(r8) :: alnsg_amode             ! log of geometric standard deviation of number distribution
    real(r8) :: xrad(pcols)
-   real(r8) :: cheby(ncoef,pcols,pver)  ! chebychef polynomials
+   real(r8), target :: cheby(ncoef,pcols,pver)  ! chebychef polynomials
 
-   real(r8) :: mass(pcols,pver) ! layer mass
+   real(r8), target :: mass(pcols,pver) ! layer mass
 
    real(r8),    pointer :: specmmr(:,:)        ! species mass mixing ratio
    real(r8)             :: specdens            ! species density (kg/m3)
@@ -1433,7 +1473,7 @@ subroutine modal_aero_lw(list_idx, state, pbuf, tauxar)
 
    real(r8) :: vol(pcols)       ! volume concentration of aerosol specie (m3/kg)
    real(r8) :: dryvol(pcols)    ! volume concentration of aerosol mode (m3/kg)
-   real(r8) :: wetvol(pcols)    ! volume concentration of wet mode (m3/kg)
+   real(r8), target :: wetvol(pcols)    ! volume concentration of wet mode (m3/kg)
    real(r8) :: watervol(pcols)  ! volume concentration of water in each mode (m3/kg)
    real(r8) :: refr(pcols)      ! real part of refractive index
    real(r8) :: refi(pcols)      ! imaginary part of refractive index
@@ -1444,9 +1484,9 @@ subroutine modal_aero_lw(list_idx, state, pbuf, tauxar)
 
    integer  :: itab(pcols), jtab(pcols)
    real(r8) :: ttab(pcols), utab(pcols)
-   real(r8) :: cabs(pcols,ncoef)
-   real(r8) :: pabs(pcols)      ! parameterized specific absorption (m2/kg)
-   real(r8) :: dopaer(pcols)    ! aerosol optical depth in layer
+   real(r8), target :: cabs(pcols,ncoef)
+   real(r8), target :: pabs(pcols)      ! parameterized specific absorption (m2/kg)
+   real(r8), target :: dopaer(pcols)    ! aerosol optical depth in layer
 
    integer, parameter :: nerrmax_dopaer=1000
    integer  :: nerr_dopaer = 0
@@ -1457,12 +1497,21 @@ subroutine modal_aero_lw(list_idx, state, pbuf, tauxar)
 
    lchnk = state%lchnk
    ncol  = state%ncol
+   call modal_aer_opt_helpers_select_impl()
 
-   ! initialize output variables
-   tauxar(:ncol,:,:) = 0._r8
+   if (use_native_modal_aer_opt_helpers_impl) then
+      ! initialize output variables
+      tauxar(:ncol,:,:) = 0._r8
 
-   ! dry mass in each cell
-   mass(:ncol,:) = state%pdeldry(:ncol,:)*rga
+      ! dry mass in each cell
+      mass(:ncol,:) = state%pdeldry(:ncol,:)*rga
+   else
+      call modal_aer_opt_helpers_proof_once()
+      call modal_aer_opt_lw_helpers_proof_once()
+      call modal_aer_opt_lw_init_state_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(nlwbands, c_int64_t), rga, c_loc(state%pdeldry(1,1)), &
+           c_loc(tauxar(1,1,1)), c_loc(mass(1,1)))
+   end if
 
    ! loop over all aerosol modes
    call rad_cnst_get_info(list_idx, nmodes=nmodes)
@@ -1540,15 +1589,24 @@ subroutine modal_aero_lw(list_idx, state, pbuf, tauxar)
                          itab, jtab, ttab, utab, cabs)
 
             ! parameterized optical properties
-            do i = 1, ncol
-               pabs(i) = 0.5_r8*cabs(i,1)
-               do nc = 2, ncoef
-                  pabs(i) = pabs(i) + cheby(nc,i,k)*cabs(i,nc)
+            if (use_native_modal_aer_opt_helpers_impl) then
+               do i = 1, ncol
+                  pabs(i) = 0.5_r8*cabs(i,1)
+                  do nc = 2, ncoef
+                     pabs(i) = pabs(i) + cheby(nc,i,k)*cabs(i,nc)
+                  end do
+                  pabs(i)   = pabs(i)*wetvol(i)*rhoh2o
+                  pabs(i)   = max(0._r8,pabs(i))
+                  dopaer(i) = pabs(i)*mass(i,k)
                end do
-               pabs(i)   = pabs(i)*wetvol(i)*rhoh2o
-               pabs(i)   = max(0._r8,pabs(i))
-               dopaer(i) = pabs(i)*mass(i,k)
-            end do
+            else
+               call modal_aer_opt_helpers_proof_once()
+               call modal_aer_opt_lw_helpers_proof_once()
+               call modal_aer_opt_lw_optics_props_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+                    int(pver, c_int64_t), int(k, c_int64_t), int(ncoef, c_int64_t), rhoh2o, &
+                    c_loc(cheby(1,1,1)), c_loc(cabs(1,1)), c_loc(wetvol(1)), c_loc(mass(1,1)), &
+                    c_loc(pabs(1)), c_loc(dopaer(1)))
+            end if
 
             do i = 1, ncol
 
@@ -1588,9 +1646,17 @@ subroutine modal_aero_lw(list_idx, state, pbuf, tauxar)
                end if
             end do
 
-            do i = 1, ncol
-               tauxar(i,k,ilw) = tauxar(i,k,ilw) + dopaer(i)
-            end do
+            if (use_native_modal_aer_opt_helpers_impl) then
+               do i = 1, ncol
+                  tauxar(i,k,ilw) = tauxar(i,k,ilw) + dopaer(i)
+               end do
+            else
+               call modal_aer_opt_helpers_proof_once()
+               call modal_aer_opt_lw_helpers_proof_once()
+               call modal_aer_opt_lw_accumulate_tau_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+                    int(pver, c_int64_t), int(k, c_int64_t), int(ilw, c_int64_t), c_loc(dopaer(1)), &
+                    c_loc(tauxar(1,1,1)))
+            end if
 
          end do ! k = top_lev, pver
 

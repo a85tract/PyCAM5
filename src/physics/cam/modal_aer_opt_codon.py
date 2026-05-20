@@ -18,6 +18,12 @@ def _sw_idx(i: int, k0: int, band: int, pcols: int, pverp: int) -> int:
 
 
 @inline
+def _lw_idx(i: int, k: int, band: int, pcols: int, pver: int) -> int:
+    """modal_aero_lw output arrays declared as (pcols,pver,nlwbands)."""
+    return (i - 1) + (k - 1) * pcols + (band - 1) * pcols * pver
+
+
+@inline
 def _cheb_idx(nc: int, i: int, k: int, ncoef: int, pcols: int) -> int:
     """modal_aero_sw Chebyshev arrays declared as (ncoef,pcols,pver)."""
     return (nc - 1) + (i - 1) * ncoef + (k - 1) * ncoef * pcols
@@ -1041,3 +1047,78 @@ def modal_aer_opt_sw_accumulate_tau_codon(
         wa[idx3] = wa[idx3] + dopaer[idx1] * palb[idx1]
         ga[idx3] = ga[idx3] + dopaer[idx1] * palb[idx1] * pasm[idx1]
         fa[idx3] = fa[idx3] + dopaer[idx1] * palb[idx1] * pasm[idx1] * pasm[idx1]
+
+
+def modal_aer_opt_lw_init_state_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    nlwbands: int,
+    rga: float,
+    pdeldry_p: cobj,
+    tauxar_p: cobj,
+    mass_p: cobj,
+):
+    pdeldry = Ptr[float](pdeldry_p)
+    tauxar = Ptr[float](tauxar_p)
+    mass = Ptr[float](mass_p)
+
+    for ilw in range(1, nlwbands + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                tauxar[_lw_idx(i, k, ilw, pcols, pver)] = 0.0
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx = _idx2(i, k, pcols)
+            mass[idx] = pdeldry[idx] * rga
+
+
+def modal_aer_opt_lw_optics_props_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    k: int,
+    ncoef: int,
+    rhoh2o: float,
+    cheby_p: cobj,
+    cabs_p: cobj,
+    wetvol_p: cobj,
+    mass_p: cobj,
+    pabs_p: cobj,
+    dopaer_p: cobj,
+):
+    cheby = Ptr[float](cheby_p)
+    cabs = Ptr[float](cabs_p)
+    wetvol = Ptr[float](wetvol_p)
+    mass = Ptr[float](mass_p)
+    pabs = Ptr[float](pabs_p)
+    dopaer = Ptr[float](dopaer_p)
+
+    for i in range(1, ncol + 1):
+        idx1 = _idx1(i)
+        value = 0.5 * cabs[(i - 1)]
+        for nc in range(2, ncoef + 1):
+            value = value + cheby[_cheb_idx(nc, i, k, ncoef, pcols)] * cabs[(i - 1) + (nc - 1) * pcols]
+        value = value * wetvol[idx1] * rhoh2o
+        value = max(0.0, value)
+        pabs[idx1] = value
+        dopaer[idx1] = value * mass[_idx2(i, k, pcols)]
+
+
+def modal_aer_opt_lw_accumulate_tau_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    k: int,
+    ilw: int,
+    dopaer_p: cobj,
+    tauxar_p: cobj,
+):
+    dopaer = Ptr[float](dopaer_p)
+    tauxar = Ptr[float](tauxar_p)
+
+    for i in range(1, ncol + 1):
+        idx1 = _idx1(i)
+        idx3 = _lw_idx(i, k, ilw, pcols, pver)
+        tauxar[idx3] = tauxar[idx3] + dopaer[idx1]
