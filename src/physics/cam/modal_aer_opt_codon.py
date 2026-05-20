@@ -248,6 +248,26 @@ def modal_aer_opt_sw_reset_layer_codon(
         hygroseasalt[idx] = 0.0
 
 
+def modal_aer_opt_sw_species_volume_codon(
+    ncol: int,
+    pcols: int,
+    k: int,
+    specdens: float,
+    specmmr_p: cobj,
+    vol_p: cobj,
+    dryvol_p: cobj,
+):
+    specmmr = Ptr[float](specmmr_p)
+    vol = Ptr[float](vol_p)
+    dryvol = Ptr[float](dryvol_p)
+
+    for i in range(1, ncol + 1):
+        idx1 = _idx1(i)
+        idx2 = _idx2(i, k, pcols)
+        vol[idx1] = specmmr[idx2] / specdens
+        dryvol[idx1] = dryvol[idx1] + vol[idx1]
+
+
 def modal_aer_opt_sw_species_vis_diag_codon(
     ncol: int,
     pcols: int,

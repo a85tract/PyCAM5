@@ -136,6 +136,14 @@ interface
       type(c_ptr), value :: scatseasalt_p, absseasalt_p, hygroseasalt_p
    end subroutine modal_aer_opt_sw_reset_layer_codon
 
+   subroutine modal_aer_opt_sw_species_volume_codon(ncol_c, pcols_c, k_c, specdens_c, &
+        specmmr_p, vol_p, dryvol_p) bind(c, name="modal_aer_opt_sw_species_volume_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, k_c
+      real(c_double), value :: specdens_c
+      type(c_ptr), value :: specmmr_p, vol_p, dryvol_p
+   end subroutine modal_aer_opt_sw_species_volume_codon
+
    subroutine modal_aer_opt_sw_species_vis_diag_codon(ncol_c, pcols_c, k_c, spectype_code_c, &
         specrefr_c, specrefi_c, hygro_aer_c, specmmr_p, mass_p, vol_p, burden_p, burdendust_p, &
         burdenso4_p, burdenbc_p, burdenpom_p, burdensoa_p, burdenseasalt_p, dustvol_p, scatdust_p, &
@@ -281,7 +289,7 @@ subroutine modal_aer_opt_helpers_proof_once()
 
    if (masterproc) then
       write(iulog,'(A)') 'modal_aer_opt_helpers entered (modal aerosol size/interpolation/sw diagnostics/tau/' // &
-           'layer reset/species vis/optics props helpers = codon)'
+           'layer reset/species volume/species vis/optics props helpers = codon)'
    end if
 
 end subroutine modal_aer_opt_helpers_proof_once
@@ -815,11 +823,21 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
                                            refindex_aer_sw=specrefindex, spectype=spectype, &
                                            hygro_aer=hygro_aer)
 
-               do i = 1, ncol
-                  vol(i)      = specmmr(i,k)/specdens
-                  dryvol(i)   = dryvol(i) + vol(i)
-                  crefin(i)   = crefin(i) + vol(i)*specrefindex(isw)
-               end do
+               if (.not. use_native_modal_aer_opt_helpers_impl) then
+                  call modal_aer_opt_helpers_proof_once()
+                  call modal_aer_opt_sw_species_volume_codon(int(ncol, c_int64_t), &
+                       int(pcols, c_int64_t), int(k, c_int64_t), specdens, c_loc(specmmr(1,1)), &
+                       c_loc(vol(1)), c_loc(dryvol(1)))
+                  do i = 1, ncol
+                     crefin(i) = crefin(i) + vol(i)*specrefindex(isw)
+                  end do
+               else
+                  do i = 1, ncol
+                     vol(i)      = specmmr(i,k)/specdens
+                     dryvol(i)   = dryvol(i) + vol(i)
+                     crefin(i)   = crefin(i) + vol(i)*specrefindex(isw)
+                  end do
+               end if
 
                ! compute some diagnostics for visible band only
                if (savaervis) then

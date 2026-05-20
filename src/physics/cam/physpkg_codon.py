@@ -3154,6 +3154,27 @@ def modal_aer_opt_sw_reset_layer_codon(
 
 
 @export
+def modal_aer_opt_sw_species_volume_codon(
+    ncol: int,
+    pcols: int,
+    k: int,
+    specdens: float,
+    specmmr_p: cobj,
+    vol_p: cobj,
+    dryvol_p: cobj,
+):
+    _modal_aer_opt.modal_aer_opt_sw_species_volume_codon(
+        ncol,
+        pcols,
+        k,
+        specdens,
+        specmmr_p,
+        vol_p,
+        dryvol_p,
+    )
+
+
+@export
 def modal_aer_opt_sw_species_vis_diag_codon(
     ncol: int,
     pcols: int,
