@@ -2987,7 +2987,7 @@ subroutine cldprp(lchnk   , &
    real(r8) zdef(pcols)
    real(r8), target :: epsm(pcols)
    real(r8) ratmjb(pcols)
-   real(r8) est(pcols)
+   real(r8), target :: est(pcols)
    real(r8), target :: totpcp(pcols)
    real(r8), target :: totevp(pcols)
    real(r8), target :: alfa(pcols)
@@ -3031,6 +3031,17 @@ subroutine cldprp(lchnk   , &
          type(c_ptr), value :: jb_p, lel_p, mx_p, hsat_p, hmn_p, s_p, jt_p, jd_p, jlcl_p, hmin_p, j0_p
          type(c_ptr), value :: hu_p, su_p
       end subroutine zm_cldprp_index_setup_codon
+
+      subroutine zm_cldprp_thermo_level_codon(il2g_c, pcols_c, msg_c, k_c, eps1_c, rl_c, rd_c, &
+           cp_c, grav_c, t_p, p_p, z_p, zf_p, q_p, qst_p, est_p, gamma_p, hmn_p, hsat_p, &
+           hu_p, hd_p, sd_p, su_p, tdt_p, tut_p, rprd_p, hsthat_p, qsthat_p, gamhat_p) &
+           bind(c, name="zm_cldprp_thermo_level_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c, msg_c, k_c
+         real(c_double), value :: eps1_c, rl_c, rd_c, cp_c, grav_c
+         type(c_ptr), value :: t_p, p_p, z_p, zf_p, q_p, qst_p, est_p, gamma_p, hmn_p, hsat_p
+         type(c_ptr), value :: hu_p, hd_p, sd_p, su_p, tdt_p, tut_p, rprd_p, hsthat_p, qsthat_p, gamhat_p
+      end subroutine zm_cldprp_thermo_level_codon
 
       subroutine zm_cldprp_copy_mass_fields_codon(pcols_c, pver_c, ed_p, md_p, mu_p, du_p, eu_p, &
            wted_p, wtmd_p, wtmu_p, wtdu_p, wteu_p) bind(c, name="zm_cldprp_copy_mass_fields_codon")
@@ -3138,9 +3149,9 @@ subroutine cldprp(lchnk   , &
 
    if (.not. use_native_zm_cldprp_helpers) then
       if (masterproc .and. .not. zm_cldprp_helpers_logged) then
-         write(iulog,*) 'zm_cldprp_helpers entered (init/index/eps/cloudtop/downdraft/cond/rain/evap direct = codon)'
+         write(iulog,*) 'zm_cldprp_helpers entered (init/thermo/index/eps/cloudtop/downdraft/cond/rain/evap direct = codon)'
          call zm_conv_evap_append_impl_proof( &
-              'zm_cldprp_helpers entered (init/index/eps/cloudtop/downdraft/cond/rain/evap direct = codon)')
+              'zm_cldprp_helpers entered (init/thermo/index/eps/cloudtop/downdraft/cond/rain/evap direct = codon)')
          call flush(iulog)
          zm_cldprp_helpers_logged = .true.
       end if
@@ -3205,39 +3216,51 @@ subroutine cldprp(lchnk   , &
    do k = 1,pver
       do i = 1,il2g
          call qsat_hPa(t(i,k), p(i,k), est(i), qst(i,k))
-         tdt(i,k) = sd(i,k) - grav/cp*zf(i,k) !water tracers
-         tut(i,k) = su(i,k) - grav/cp*zf(i,k)
-!++bee
-         if ( p(i,k)-est(i) <= 0._r8 ) then
-            qst(i,k) = 1.0_r8
-         end if
-!--bee
-         gamma(i,k) = qst(i,k)*(1._r8 + qst(i,k)/eps1)*eps1*rl/(rd*t(i,k)**2)*rl/cp
-         hmn(i,k) = cp*t(i,k) + grav*z(i,k) + rl*q(i,k)
-         hsat(i,k) = cp*t(i,k) + grav*z(i,k) + rl*qst(i,k)
-         hu(i,k) = hmn(i,k)
-         hd(i,k) = hmn(i,k)
       end do
+      if (.not. use_native_zm_cldprp_helpers) then
+         call zm_cldprp_thermo_level_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
+              int(msg, c_int64_t), int(k, c_int64_t), eps1, rl, rd, cp, grav, c_loc(t), &
+              c_loc(p), c_loc(z), c_loc(zf), c_loc(q), c_loc(qst), c_loc(est), c_loc(gamma), &
+              c_loc(hmn), c_loc(hsat), c_loc(hu), c_loc(hd), c_loc(sd), c_loc(su), c_loc(tdt), &
+              c_loc(tut), c_loc(rprd), c_loc(hsthat), c_loc(qsthat), c_loc(gamhat))
+      else
+         do i = 1,il2g
+            tdt(i,k) = sd(i,k) - grav/cp*zf(i,k) !water tracers
+            tut(i,k) = su(i,k) - grav/cp*zf(i,k)
+!++bee
+            if ( p(i,k)-est(i) <= 0._r8 ) then
+               qst(i,k) = 1.0_r8
+            end if
+!--bee
+            gamma(i,k) = qst(i,k)*(1._r8 + qst(i,k)/eps1)*eps1*rl/(rd*t(i,k)**2)*rl/cp
+            hmn(i,k) = cp*t(i,k) + grav*z(i,k) + rl*q(i,k)
+            hsat(i,k) = cp*t(i,k) + grav*z(i,k) + rl*qst(i,k)
+            hu(i,k) = hmn(i,k)
+            hd(i,k) = hmn(i,k)
+         end do
+      end if
    end do
 !
 !jr Set to zero things which make this routine blow up
 !
-   do k=1,msg
-      do i=1,il2g
-         rprd(i,k) = 0._r8
+   if (use_native_zm_cldprp_helpers) then
+      do k=1,msg
+         do i=1,il2g
+            rprd(i,k) = 0._r8
+         end do
       end do
-   end do
 !
 ! interpolate the layer values of qst, hsat and gamma to
 ! layer interfaces
 !
-   do k = 1, msg+1
-      do i = 1,il2g
-         hsthat(i,k) = hsat(i,k)
-         qsthat(i,k) = qst(i,k)
-         gamhat(i,k) = gamma(i,k)
+      do k = 1, msg+1
+         do i = 1,il2g
+            hsthat(i,k) = hsat(i,k)
+            qsthat(i,k) = qst(i,k)
+            gamhat(i,k) = gamma(i,k)
+         end do
       end do
-   end do
+   end if
    do i = 1,il2g
       totpcp(i) = 0._r8
       totevp(i) = 0._r8

@@ -126,6 +126,81 @@ def zm_cldprp_init_arrays_codon(
             rprd[idx] = 0.0
 
 
+def zm_cldprp_thermo_level_codon(
+    il2g: int,
+    pcols: int,
+    msg: int,
+    k: int,
+    eps1: float,
+    rl: float,
+    rd: float,
+    cp: float,
+    grav: float,
+    t_p: cobj,
+    p_p: cobj,
+    z_p: cobj,
+    zf_p: cobj,
+    q_p: cobj,
+    qst_p: cobj,
+    est_p: cobj,
+    gamma_p: cobj,
+    hmn_p: cobj,
+    hsat_p: cobj,
+    hu_p: cobj,
+    hd_p: cobj,
+    sd_p: cobj,
+    su_p: cobj,
+    tdt_p: cobj,
+    tut_p: cobj,
+    rprd_p: cobj,
+    hsthat_p: cobj,
+    qsthat_p: cobj,
+    gamhat_p: cobj,
+):
+    t = Ptr[float](t_p)
+    p = Ptr[float](p_p)
+    z = Ptr[float](z_p)
+    zf = Ptr[float](zf_p)
+    q = Ptr[float](q_p)
+    qst = Ptr[float](qst_p)
+    est = Ptr[float](est_p)
+    gamma = Ptr[float](gamma_p)
+    hmn = Ptr[float](hmn_p)
+    hsat = Ptr[float](hsat_p)
+    hu = Ptr[float](hu_p)
+    hd = Ptr[float](hd_p)
+    sd = Ptr[float](sd_p)
+    su = Ptr[float](su_p)
+    tdt = Ptr[float](tdt_p)
+    tut = Ptr[float](tut_p)
+    rprd = Ptr[float](rprd_p)
+    hsthat = Ptr[float](hsthat_p)
+    qsthat = Ptr[float](qsthat_p)
+    gamhat = Ptr[float](gamhat_p)
+
+    for i in range(1, il2g + 1):
+        idx = _idx2(i, k, pcols)
+        tdt[idx] = sd[idx] - grav / cp * zf[idx]
+        tut[idx] = su[idx] - grav / cp * zf[idx]
+        if p[idx] - est[_idx1(i)] <= 0.0:
+            qst[idx] = 1.0
+        tval = t[idx]
+        gamma[idx] = (
+            qst[idx] * (1.0 + qst[idx] / eps1) * eps1 * rl / (rd * (tval ** 2)) * rl / cp
+        )
+        hmn[idx] = cp * t[idx] + grav * z[idx] + rl * q[idx]
+        hsat[idx] = cp * t[idx] + grav * z[idx] + rl * qst[idx]
+        hu[idx] = hmn[idx]
+        hd[idx] = hmn[idx]
+
+        if k <= msg:
+            rprd[idx] = 0.0
+        if k <= msg + 1:
+            hsthat[idx] = hsat[idx]
+            qsthat[idx] = qst[idx]
+            gamhat[idx] = gamma[idx]
+
+
 def zm_cldprp_index_setup_codon(
     il2g: int,
     pcols: int,
