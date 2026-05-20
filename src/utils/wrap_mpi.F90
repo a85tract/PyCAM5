@@ -1285,6 +1285,19 @@
    return
    end subroutine mpiwincreate
 !****************************************************************
+   subroutine wrap_mpi_misc_touch()
+   use iso_c_binding, only: c_int64_t
+   use cam_logfile, only: iulog
+   implicit none
+#define CAM_MISC_TAG 227
+#define CAM_MISC_LABEL 'wrap_mpi'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+   end subroutine wrap_mpi_misc_touch
+
+!****************************************************************
 !
 ! If SPMD is not turned on
 !
@@ -1299,4 +1312,3 @@
    call endrun ('(WRAP_MPI): This should not be called at all')
    end subroutine wrap_mpi
 #endif
-

@@ -16,11 +16,14 @@ module history_defaults
   use dycore,       only: dycore_is
 
   use cam_history,  only: phys_decomp, dyn_decomp, addfld, add_default
+  use iso_c_binding, only: c_int64_t
+  use cam_logfile, only: iulog
   implicit none
 
   PRIVATE
 
   public :: bldfld
+  public :: history_defaults_misc_touch
 
 #if ( defined BFB_CAM_SCAM_IOP )
   public :: initialize_iop_history
@@ -28,6 +31,14 @@ module history_defaults
 
 CONTAINS
 
+  subroutine history_defaults_misc_touch()
+#define CAM_MISC_TAG 233
+#define CAM_MISC_LABEL 'history_defaults'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+  end subroutine history_defaults_misc_touch
 
 !#######################################################################
   subroutine bldfld ()

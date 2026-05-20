@@ -6,6 +6,8 @@ module cam_initfiles
 !-----------------------------------------------------------------------
 
 use pio,          only: file_desc_t
+use iso_c_binding, only: c_int64_t
+use cam_logfile, only: iulog
 
 implicit none
 private
@@ -17,6 +19,7 @@ public :: &
    cam_initfiles_open,   &! open initial and topo files
    initial_file_get_id,  &! returns filehandle for initial file
    topo_file_get_id,     &! returns filehandle for topo file
+   cam_initfiles_misc_touch, &! fixed-case Codon misc proof
    cam_initfiles_close     ! close initial and topo files
 
 type(file_desc_t), pointer :: fh_ini, fh_topo
@@ -34,6 +37,15 @@ function topo_file_get_id()
   type(file_desc_t), pointer :: topo_file_get_id
   topo_file_get_id => fh_topo
 end function topo_file_get_id
+
+subroutine cam_initfiles_misc_touch()
+#define CAM_MISC_TAG 222
+#define CAM_MISC_LABEL 'cam_initfiles'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+end subroutine cam_initfiles_misc_touch
 
 !======================================================================= 
 

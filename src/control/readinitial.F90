@@ -1,10 +1,23 @@
 module readinitial
 
+use iso_c_binding, only: c_int64_t
+
 implicit none
 
 public :: read_initial
+public :: readinitial_misc_touch
 
 contains
+
+subroutine readinitial_misc_touch()
+use cam_logfile, only: iulog
+#define CAM_MISC_TAG 229
+#define CAM_MISC_LABEL 'readinitial'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+end subroutine readinitial_misc_touch
 
 subroutine read_initial(ncid)
     !----------------------------------------------------------------------- 

@@ -1,12 +1,25 @@
 module intp_util
 
+use iso_c_binding, only: c_int64_t
+use cam_logfile, only: iulog
+
 implicit none
 
 private
 
 public :: findplb
+public :: intp_util_misc_touch
 
 contains
+
+subroutine intp_util_misc_touch()
+#define CAM_MISC_TAG 234
+#define CAM_MISC_LABEL 'intp_util'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+end subroutine intp_util_misc_touch
 
 !#######################################################################
 

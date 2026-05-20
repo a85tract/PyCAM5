@@ -8,6 +8,7 @@ module sat_hist
   use perf_mod,            only: t_startf, t_stopf
   use shr_kind_mod,        only: r8 => shr_kind_r8
   use cam_logfile,         only: iulog
+  use iso_c_binding,       only: c_int64_t
   use ppgrid,              only: pcols, pver, begchunk, endchunk
   use cam_history_support, only: fieldname_lenp2, max_string_len, ptapes
   use spmd_utils,          only: masterproc, iam
@@ -35,6 +36,7 @@ module sat_hist
   public :: sat_hist_write
   public :: sat_hist_define
   public :: is_satfile
+  public :: sat_hist_misc_touch
 
   character(len=max_string_len)  :: sathist_track_infile
   type(file_desc_t) :: infile
@@ -91,6 +93,16 @@ contains
     integer, intent(in) :: file_index ! index of file in question
     is_satfile = file_index == sat_tape_num
   end function is_satfile
+
+!-------------------------------------------------------------------------------
+  subroutine sat_hist_misc_touch()
+#define CAM_MISC_TAG 221
+#define CAM_MISC_LABEL 'sat_hist'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+  end subroutine sat_hist_misc_touch
 
 !-------------------------------------------------------------------------------
   subroutine sat_hist_readnl(nlfile, hfilename_spec, mfilt, fincl, nhtfrq, avgflag_pertape)

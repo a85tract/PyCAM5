@@ -1,5 +1,7 @@
 module string_utils
 
+   use iso_c_binding, only: c_int64_t
+   use cam_logfile,   only: iulog
 
    implicit none
    private
@@ -10,9 +12,19 @@ module string_utils
       to_upper, &   ! Convert character string to upper case
       to_lower, &   ! Convert character string to lower case
       INCSTR, &     ! increments a string
-      GLC           ! Position of last significant character in string
+      GLC, &        ! Position of last significant character in string
+      string_utils_misc_touch
 
 contains
+
+subroutine string_utils_misc_touch()
+#define CAM_MISC_TAG 223
+#define CAM_MISC_LABEL 'string_utils'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+end subroutine string_utils_misc_touch
 
 function to_upper(str)
 

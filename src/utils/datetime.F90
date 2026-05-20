@@ -1,12 +1,25 @@
 module datetime_mod
 
+use iso_c_binding, only: c_int64_t
+use cam_logfile, only: iulog
+
 implicit none
 
 private
 
 public :: datetime
+public :: datetime_misc_touch
 
 contains
+
+   subroutine datetime_misc_touch()
+#define CAM_MISC_TAG 226
+#define CAM_MISC_LABEL 'datetime'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+   end subroutine datetime_misc_touch
 
    subroutine datetime(cdate, ctime) 
 !-----------------------------------------------------------------------

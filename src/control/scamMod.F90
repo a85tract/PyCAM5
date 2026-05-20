@@ -15,6 +15,7 @@ module scamMod
   use pmgrid,       only: plon,plev,plevp,plat
   use wrap_nf
   use cam_logfile,  only: iulog
+  use iso_c_binding, only: c_int64_t
 !
   implicit none
 
@@ -25,6 +26,7 @@ module scamMod
   public scam_clm_default_opts    ! SCAM default run-time options for CLM
   public scam_default_opts        ! SCAM default run-time options 
   public scam_setopts             ! SCAM run-time options 
+  public scam_misc_touch
 
 !
 ! !PUBLIC MODULE DATA:
@@ -175,6 +177,15 @@ module scamMod
 !-----------------------------------------------------------------------
 !
 
+
+subroutine scam_misc_touch()
+#define CAM_MISC_TAG 228
+#define CAM_MISC_LABEL 'scamMod'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+end subroutine scam_misc_touch
 
 subroutine scam_default_opts( scmlat_out,scmlon_out,iopfile_out, &
 	single_column_out,scm_iop_srf_prop_out, scm_relaxation_out, &

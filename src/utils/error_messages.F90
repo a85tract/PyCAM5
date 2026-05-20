@@ -10,6 +10,7 @@ module error_messages
    !----------------------------------------------------------------------- 
    use cam_abortutils, only: endrun
    use cam_logfile,    only: iulog
+   use iso_c_binding,  only: c_int64_t
 
    implicit none
    save
@@ -22,9 +23,21 @@ module error_messages
    ! If an error message string is not empty, abort with that string as the
    ! error message.
    public :: handle_errmsg
+   public :: error_messages_misc_touch
 
 !##############################################################################
 contains
+!##############################################################################
+
+   subroutine error_messages_misc_touch()
+#define CAM_MISC_TAG 225
+#define CAM_MISC_LABEL 'error_messages'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+   end subroutine error_messages_misc_touch
+
 !##############################################################################
 
    subroutine alloc_err( istat, routine, name, nelem )

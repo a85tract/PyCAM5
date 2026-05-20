@@ -8,6 +8,7 @@ module offline_driver
   use cam_abortutils,   only: endrun
   use spmd_utils,       only: masterproc
   use cam_logfile,      only: iulog
+  use iso_c_binding,    only: c_int64_t
   use drv_input_data,   only: drv_input_data_t
   use drv_input_data,   only: drv_input_data_open, drv_input_data_close
   use tracer_data,      only: incr_filename
@@ -20,6 +21,7 @@ module offline_driver
   public :: offline_driver_run
   public :: offline_driver_dorun
   public :: offline_driver_readnl
+  public :: offline_driver_misc_touch
 
   integer :: recno = 1
   logical, protected :: offline_driver_dorun = .false.
@@ -31,6 +33,16 @@ module offline_driver
   type(drv_input_data_t) :: curr_indata
 
 contains
+
+!================================================================================
+  subroutine offline_driver_misc_touch()
+#define CAM_MISC_TAG 224
+#define CAM_MISC_LABEL 'offline_driver'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+  end subroutine offline_driver_misc_touch
 
 !================================================================================
 !================================================================================

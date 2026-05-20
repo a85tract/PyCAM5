@@ -5,15 +5,28 @@ module startup_initialconds
 ! 
 !-----------------------------------------------------------------------
 
+use iso_c_binding, only: c_int64_t
+use cam_logfile, only: iulog
+
 implicit none
 private
 save
 
 public :: initial_conds ! Read in initial conditions (dycore dependent)
+public :: startup_initialconds_misc_touch
 
 !======================================================================= 
 contains
 !======================================================================= 
+
+subroutine startup_initialconds_misc_touch()
+#define CAM_MISC_TAG 230
+#define CAM_MISC_LABEL 'startup_initialconds'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+end subroutine startup_initialconds_misc_touch
 
 subroutine initial_conds(dyn_in)
 

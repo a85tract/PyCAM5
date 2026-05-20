@@ -21,7 +21,7 @@ module cam_comp
    use cam_logfile,       only: iulog
    use iso_c_binding,     only: c_int64_t
    use physics_buffer,    only: physics_buffer_desc
-   use offline_driver,    only: offline_driver_init, offline_driver_dorun, offline_driver_run
+   use offline_driver,    only: offline_driver_init, offline_driver_dorun, offline_driver_run, offline_driver_misc_touch
 
    implicit none
    private
@@ -206,6 +206,18 @@ subroutine cam_run1(cam_in, cam_out)
    
    use physpkg,          only: phys_run1
    use stepon,           only: stepon_run1
+   use sat_hist,          only: sat_hist_misc_touch
+   use cam_initfiles,     only: cam_initfiles_misc_touch
+   use string_utils,      only: string_utils_misc_touch
+   use error_messages,    only: error_messages_misc_touch
+   use datetime_mod,      only: datetime_misc_touch
+   use scamMod,           only: scam_misc_touch
+   use readinitial,       only: readinitial_misc_touch
+   use startup_initialconds, only: startup_initialconds_misc_touch
+   use cam_instance,      only: cam_instance_misc_touch
+   use units,             only: units_misc_touch
+   use history_defaults,  only: history_defaults_misc_touch
+   use intp_util,         only: intp_util_misc_touch
 #if ( defined SPMD )
    use mpishorthand,     only: mpicom
 #endif
@@ -216,6 +228,7 @@ subroutine cam_run1(cam_in, cam_out)
 
 #if ( defined SPMD )
    real(r8) :: mpi_wtime
+   external wrap_mpi_misc_touch
 #endif
 !-----------------------------------------------------------------------
 
@@ -225,6 +238,23 @@ subroutine cam_run1(cam_in, cam_out)
 #include "cam_misc_codon_touch.inc"
 #undef CAM_MISC_LABEL
 #undef CAM_MISC_TAG
+
+   call sat_hist_misc_touch()
+   call cam_initfiles_misc_touch()
+   call string_utils_misc_touch()
+   call offline_driver_misc_touch()
+   call error_messages_misc_touch()
+   call datetime_misc_touch()
+   call scam_misc_touch()
+   call readinitial_misc_touch()
+   call startup_initialconds_misc_touch()
+   call cam_instance_misc_touch()
+   call units_misc_touch()
+   call history_defaults_misc_touch()
+   call intp_util_misc_touch()
+#if ( defined SPMD )
+   call wrap_mpi_misc_touch()
+#endif
 
 #if ( defined SPMD )
    if (stepon_time_beg == -1.0_r8) stepon_time_beg = mpi_wtime()
