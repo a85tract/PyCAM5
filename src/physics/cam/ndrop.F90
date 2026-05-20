@@ -35,10 +35,10 @@ save
 
 public ndrop_init, dropmixnuc
 
-real(r8), allocatable :: alogsig(:)     ! natl log of geometric standard dev of aerosol
-real(r8), allocatable :: exp45logsig(:)
-real(r8), allocatable :: f1(:)          ! abdul-razzak functions of width
-real(r8), allocatable :: f2(:)          ! abdul-razzak functions of width
+real(r8), allocatable, target :: alogsig(:)     ! natl log of geometric standard dev of aerosol
+real(r8), allocatable, target :: exp45logsig(:)
+real(r8), allocatable, target :: f1(:)          ! abdul-razzak functions of width
+real(r8), allocatable, target :: f2(:)          ! abdul-razzak functions of width
 
 real(r8) :: t0            ! reference temperature
 real(r8) :: aten
@@ -98,6 +98,9 @@ logical :: ndrop_dropmixnuc_helpers_proof_written = .false.
 logical :: use_native_ndrop_explmix_impl = .false.
 logical :: ndrop_explmix_impl_selected = .false.
 logical :: ndrop_explmix_proof_written = .false.
+logical :: use_native_ndrop_activate_modal_impl = .false.
+logical :: ndrop_activate_modal_impl_selected = .false.
+logical :: ndrop_activate_modal_proof_written = .false.
 
 interface
    subroutine ndrop_mode_props_finalize_codon(nmode_c, pi_c, sigmag_p, dgnumlo_p, dgnumhi_p, &
@@ -296,6 +299,27 @@ interface
       type(c_ptr), value :: raertend_p, qqcwtend_p
    end subroutine ndrop_dropmixnuc_zero_tendencies_codon
 
+   function ndrop_activate_modal_core_codon(wbar_c, sigw_c, wdiab_c, wminf_c, wmaxf_c, &
+        tair_c, rhoair_c, qs_c, nmode_c, rair_c, p0_c, t0_c, rhoh2o_c, latvap_c, &
+        cpair_c, rh2o_c, gravit_c, pi_c, aten_c, twothird_c, sq2_c, sqpi_c, &
+        sixth_c, zero_c, na_p, volume_p, hygro_p, alogsig_p, exp45logsig_p, &
+        f1_p, f2_p, fn_p, fm_p, fluxn_p, fluxm_p, flux_fullact_p, zeta_p, eta_p, &
+        etafactor2_p, sqrtg_p, amcube_p, smc_p, lnsm_p, sumflxn_p, sumflxm_p, &
+        sumfn_p, sumfm_p, fnold_p, fmold_p) result(status_c) &
+        bind(c, name="ndrop_activate_modal_core_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      real(c_double), value :: wbar_c, sigw_c, wdiab_c, wminf_c, wmaxf_c
+      real(c_double), value :: tair_c, rhoair_c, qs_c, rair_c, p0_c, t0_c
+      real(c_double), value :: rhoh2o_c, latvap_c, cpair_c, rh2o_c, gravit_c
+      real(c_double), value :: pi_c, aten_c, twothird_c, sq2_c, sqpi_c, sixth_c, zero_c
+      integer(c_int64_t), value :: nmode_c
+      type(c_ptr), value :: na_p, volume_p, hygro_p, alogsig_p, exp45logsig_p
+      type(c_ptr), value :: f1_p, f2_p, fn_p, fm_p, fluxn_p, fluxm_p, flux_fullact_p
+      type(c_ptr), value :: zeta_p, eta_p, etafactor2_p, sqrtg_p, amcube_p, smc_p, lnsm_p
+      type(c_ptr), value :: sumflxn_p, sumflxm_p, sumfn_p, sumfm_p, fnold_p, fmold_p
+      integer(c_int64_t) :: status_c
+   end function ndrop_activate_modal_core_codon
+
    subroutine ndrop_explmix_codon(pver_c, top_lev_c, surfrate_c, flxconv_c, dt_c, is_unact_c, &
         q_p, src_p, ekkp_p, ekkm_p, overlapp_p, overlapm_p, qold_p, qactold_p) &
         bind(c, name="ndrop_explmix_codon")
@@ -455,6 +479,55 @@ subroutine ndrop_explmix_proof_once()
    end if
 
 end subroutine ndrop_explmix_proof_once
+
+!===============================================================================
+
+subroutine ndrop_activate_modal_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (ndrop_activate_modal_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('NDROP_ACTIVATE_MODAL_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_ndrop_activate_modal_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_ndrop_activate_modal_impl = .false.
+   end if
+
+   ndrop_activate_modal_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_ndrop_activate_modal_impl) then
+         write(iulog,*) 'ndrop_activate_modal implementation = native'
+      else
+         write(iulog,*) 'ndrop_activate_modal implementation = codon'
+      end if
+   end if
+
+end subroutine ndrop_activate_modal_select_impl
+
+!===============================================================================
+
+subroutine ndrop_activate_modal_proof_once()
+
+   if (ndrop_activate_modal_proof_written) return
+   ndrop_activate_modal_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'ndrop_activate_modal entered (activation integral/maxsat core = codon)'
+   end if
+
+end subroutine ndrop_activate_modal_proof_once
 
 !===============================================================================
 
@@ -1852,6 +1925,8 @@ subroutine activate_modal(wbar, sigw, wdiab, wminf, wmaxf, tair, rhoair,  &
    na, nmode, volume, hygro, &
    fn, fm, fluxn, fluxm, flux_fullact )
 
+   use iso_c_binding, only: c_int64_t, c_loc
+
    !      calculates number, surface, and mass fraction of aerosols activated as CCN
    !      calculates flux of cloud droplets, surface area, and aerosol mass into cloud
    !      assumes an internal mixture within each of up to nmode multiple aerosol modes
@@ -1872,18 +1947,18 @@ subroutine activate_modal(wbar, sigw, wdiab, wminf, wmaxf, tair, rhoair,  &
    real(r8) :: wmaxf         ! maximum updraft velocity for integration (m/s)
    real(r8) :: tair          ! air temperature (K)
    real(r8) :: rhoair        ! air density (kg/m3)
-   real(r8) :: na(:)      ! aerosol number concentration (/m3)
+   real(r8), target :: na(:)      ! aerosol number concentration (/m3)
    integer  :: nmode      ! number of aerosol modes
-   real(r8) :: volume(:)  ! aerosol volume concentration (m3/m3)
-   real(r8) :: hygro(:)   ! hygroscopicity of aerosol mode
+   real(r8), target :: volume(:)  ! aerosol volume concentration (m3/m3)
+   real(r8), target :: hygro(:)   ! hygroscopicity of aerosol mode
 
    !      output
 
-   real(r8) :: fn(:)      ! number fraction of aerosols activated
-   real(r8) :: fm(:)      ! mass fraction of aerosols activated
-   real(r8) :: fluxn(:)   ! flux of activated aerosol number fraction into cloud (cm/s)
-   real(r8) :: fluxm(:)   ! flux of activated aerosol mass fraction into cloud (cm/s)
-   real(r8) :: flux_fullact   ! flux of activated aerosol fraction assuming 100% activation (cm/s)
+   real(r8), target :: fn(:)      ! number fraction of aerosols activated
+   real(r8), target :: fm(:)      ! mass fraction of aerosols activated
+   real(r8), target :: fluxn(:)   ! flux of activated aerosol number fraction into cloud (cm/s)
+   real(r8), target :: fluxm(:)   ! flux of activated aerosol mass fraction into cloud (cm/s)
+   real(r8), target :: flux_fullact   ! flux of activated aerosol fraction assuming 100% activation (cm/s)
    !    rce-comment
    !    used for consistency check -- this should match (ekd(k)*zs(k))
    !    also, fluxm/flux_fullact gives fraction of aerosol mass flux
@@ -1910,23 +1985,23 @@ subroutine activate_modal(wbar, sigw, wdiab, wminf, wmaxf, tair, rhoair,  &
    real(r8) dqsdt ! change in qs with temperature
    real(r8) dqsdp ! change in qs with pressure
    real(r8) g ! thermodynamic function (m2/s)
-   real(r8) zeta(nmode), eta(nmode)
+   real(r8), target :: zeta(nmode), eta(nmode)
    real(r8) lnsmax ! ln(smax)
    real(r8) alpha
    real(r8) gamma
    real(r8) beta
-   real(r8) sqrtg(nmode)
-   real(r8) :: amcube(nmode) ! cube of dry mode radius (m)
+   real(r8), target :: sqrtg(nmode)
+   real(r8), target :: amcube(nmode) ! cube of dry mode radius (m)
    real(r8) :: smcrit(nmode) ! critical supersatuation for activation
-   real(r8) :: lnsm(nmode) ! ln(smcrit)
-   real(r8) smc(nmode) ! critical supersaturation for number mode radius
+   real(r8), target :: lnsm(nmode) ! ln(smcrit)
+   real(r8), target :: smc(nmode) ! critical supersaturation for number mode radius
    real(r8) sumflx_fullact
-   real(r8) sumflxn(nmode)
-   real(r8) sumflxm(nmode)
-   real(r8) sumfn(nmode)
-   real(r8) sumfm(nmode)
-   real(r8) fnold(nmode)   ! number fraction activated
-   real(r8) fmold(nmode)   ! mass fraction activated
+   real(r8), target :: sumflxn(nmode)
+   real(r8), target :: sumflxm(nmode)
+   real(r8), target :: sumfn(nmode)
+   real(r8), target :: sumfm(nmode)
+   real(r8), target :: fnold(nmode)   ! number fraction activated
+   real(r8), target :: fmold(nmode)   ! mass fraction activated
    real(r8) wold,gold
    real(r8) alogam
    real(r8) rlo,rhi,xint1,xint2,xint3,xint4
@@ -1937,8 +2012,10 @@ subroutine activate_modal(wbar, sigw, wdiab, wminf, wmaxf, tair, rhoair,  &
    real(r8) x,arg
    real(r8) xmincoeff,xcut,volcut,surfcut
    real(r8) z,z1,z2,wf1,wf2,zf1,zf2,gf1,gf2,gf
-   real(r8) etafactor1,etafactor2(nmode),etafactor2max
+   real(r8) etafactor1,etafactor2max
+   real(r8), target :: etafactor2(nmode)
    integer m,n
+   integer(c_int64_t) :: codon_status
    !      numerical integration parameters
    real(r8), parameter :: eps=0.3_r8,fmax=0.99_r8,sds=3._r8
 
@@ -1966,6 +2043,27 @@ subroutine activate_modal(wbar, sigw, wdiab, wminf, wmaxf, tair, rhoair,  &
    alpha=gravit*(latvap/(cpair*rh2o*tair*tair)-1._r8/(rair*tair))
    gamma=(1+latvap/cpair*dqsdt)/(rhoair*qs)
    etafactor2max=1.e10_r8/(alpha*wmaxf)**1.5_r8 ! this should make eta big if na is very small.
+
+   call ndrop_activate_modal_select_impl()
+   if (.not. use_native_ndrop_activate_modal_impl) then
+      call ndrop_activate_modal_proof_once()
+      codon_status = ndrop_activate_modal_core_codon(wbar, sigw, wdiab, wminf, wmaxf, &
+           tair, rhoair, qs, int(nmode, c_int64_t), rair, p0, t0, rhoh2o, latvap, &
+           cpair, rh2o, gravit, pi, aten, twothird, sq2, sqpi, sixth, zero, &
+           c_loc(na(1)), c_loc(volume(1)), c_loc(hygro(1)), c_loc(alogsig(1)), &
+           c_loc(exp45logsig(1)), c_loc(f1(1)), c_loc(f2(1)), c_loc(fn(1)), &
+           c_loc(fm(1)), c_loc(fluxn(1)), c_loc(fluxm(1)), c_loc(flux_fullact), &
+           c_loc(zeta(1)), c_loc(eta(1)), c_loc(etafactor2(1)), c_loc(sqrtg(1)), &
+           c_loc(amcube(1)), c_loc(smc(1)), c_loc(lnsm(1)), c_loc(sumflxn(1)), &
+           c_loc(sumflxm(1)), c_loc(sumfn(1)), c_loc(sumfm(1)), c_loc(fnold(1)), &
+           c_loc(fmold(1)))
+      if (codon_status == 0_c_int64_t) return
+      fn(:)=0._r8
+      fm(:)=0._r8
+      fluxn(:)=0._r8
+      fluxm(:)=0._r8
+      flux_fullact=0._r8
+   end if
 
    do m=1,nmode
       if(volume(m).gt.1.e-39_r8.and.na(m).gt.1.e-39_r8)then

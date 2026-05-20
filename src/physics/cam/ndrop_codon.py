@@ -1,3 +1,6 @@
+from math import erf, exp, log, sqrt
+
+
 @inline
 def _idx2(i: int, k: int, pcols: int) -> int:
     """dropmixnuc arrays declared as (pcols,pver)."""
@@ -758,6 +761,334 @@ def ndrop_dropmixnuc_zero_tendencies_codon(
     for k in range(1, pver + 1):
         raertend[k - 1] = 0.0
         qqcwtend[k - 1] = 0.0
+
+
+@inline
+def _ndrop_maxsat_codon(
+    nmode: int,
+    zeta: Ptr[float],
+    eta: Ptr[float],
+    smc: Ptr[float],
+    f1: Ptr[float],
+    f2: Ptr[float],
+) -> float:
+    smax = 1.0e-20
+    any_active = False
+    for m in range(1, nmode + 1):
+        m0 = m - 1
+        if zeta[m0] > 1.0e5 * eta[m0] or smc[m0] * smc[m0] > 1.0e5 * eta[m0]:
+            smax = 1.0e-20
+        else:
+            any_active = True
+            break
+
+    if not any_active:
+        return smax
+
+    total = 0.0
+    for m in range(1, nmode + 1):
+        m0 = m - 1
+        if eta[m0] > 1.0e-20:
+            g1 = zeta[m0] / eta[m0]
+            g1sqrt = sqrt(g1)
+            g1 = g1sqrt * g1
+            g2 = smc[m0] / sqrt(eta[m0] + 3.0 * zeta[m0])
+            g2sqrt = sqrt(g2)
+            g2 = g2sqrt * g2
+            total = total + (f1[m0] * g1 + f2[m0] * g2) / (smc[m0] * smc[m0])
+        else:
+            total = 1.0e20
+
+    return 1.0 / sqrt(total)
+
+
+def ndrop_activate_modal_core_codon(
+    wbar: float,
+    sigw: float,
+    wdiab: float,
+    wminf: float,
+    wmaxf: float,
+    tair: float,
+    rhoair: float,
+    qs: float,
+    nmode: int,
+    rair: float,
+    p0: float,
+    t0: float,
+    rhoh2o: float,
+    latvap: float,
+    cpair: float,
+    rh2o: float,
+    gravit: float,
+    pi_value: float,
+    aten: float,
+    twothird: float,
+    sq2: float,
+    sqpi: float,
+    sixth: float,
+    zero_value: float,
+    na_p: cobj,
+    volume_p: cobj,
+    hygro_p: cobj,
+    alogsig_p: cobj,
+    exp45logsig_p: cobj,
+    f1_p: cobj,
+    f2_p: cobj,
+    fn_p: cobj,
+    fm_p: cobj,
+    fluxn_p: cobj,
+    fluxm_p: cobj,
+    flux_fullact_p: cobj,
+    zeta_p: cobj,
+    eta_p: cobj,
+    etafactor2_p: cobj,
+    sqrtg_p: cobj,
+    amcube_p: cobj,
+    smc_p: cobj,
+    lnsm_p: cobj,
+    sumflxn_p: cobj,
+    sumflxm_p: cobj,
+    sumfn_p: cobj,
+    sumfm_p: cobj,
+    fnold_p: cobj,
+    fmold_p: cobj,
+) -> int:
+    na = Ptr[float](na_p)
+    volume = Ptr[float](volume_p)
+    hygro = Ptr[float](hygro_p)
+    alogsig = Ptr[float](alogsig_p)
+    exp45logsig = Ptr[float](exp45logsig_p)
+    f1 = Ptr[float](f1_p)
+    f2 = Ptr[float](f2_p)
+    fn = Ptr[float](fn_p)
+    fm = Ptr[float](fm_p)
+    fluxn = Ptr[float](fluxn_p)
+    fluxm = Ptr[float](fluxm_p)
+    flux_fullact = Ptr[float](flux_fullact_p)
+    zeta = Ptr[float](zeta_p)
+    eta = Ptr[float](eta_p)
+    etafactor2 = Ptr[float](etafactor2_p)
+    sqrtg = Ptr[float](sqrtg_p)
+    amcube = Ptr[float](amcube_p)
+    smc = Ptr[float](smc_p)
+    lnsm = Ptr[float](lnsm_p)
+    sumflxn = Ptr[float](sumflxn_p)
+    sumflxm = Ptr[float](sumflxm_p)
+    sumfn = Ptr[float](sumfn_p)
+    sumfm = Ptr[float](sumfm_p)
+    fnold = Ptr[float](fnold_p)
+    fmold = Ptr[float](fmold_p)
+
+    for m in range(1, nmode + 1):
+        m0 = m - 1
+        fn[m0] = 0.0
+        fm[m0] = 0.0
+        fluxn[m0] = 0.0
+        fluxm[m0] = 0.0
+    flux_fullact[0] = 0.0
+
+    if nmode == 1 and na[0] < 1.0e-20:
+        return 0
+    if sigw <= 1.0e-5 and wbar <= 0.0:
+        return 0
+
+    pres = rair * rhoair * tair
+    p0_over_pres = p0 / pres
+    tair_over_t0 = tair / t0
+    diff0 = 0.211e-4 * p0_over_pres * (tair_over_t0 ** 1.94)
+    conduct0 = (5.69 + 0.017 * (tair - t0)) * 4.186e2 * 1.0e-5
+    dqsdt = latvap / (rh2o * tair * tair) * qs
+    alpha = gravit * (latvap / (cpair * rh2o * tair * tair) - 1.0 / (rair * tair))
+    gamma = (1.0 + latvap / cpair * dqsdt) / (rhoair * qs)
+    etafactor2max = 1.0e10 / ((alpha * wmaxf) ** 1.5)
+
+    for m in range(1, nmode + 1):
+        m0 = m - 1
+        if volume[m0] > 1.0e-39 and na[m0] > 1.0e-39:
+            amcube[m0] = 3.0 * volume[m0] / (4.0 * pi_value * exp45logsig[m0] * na[m0])
+            growth = 1.0 / (
+                rhoh2o / (diff0 * rhoair * qs)
+                + latvap * rhoh2o / (conduct0 * tair) * (latvap / (rh2o * tair) - 1.0)
+            )
+            sqrtg[m0] = sqrt(growth)
+            beta = 2.0 * pi_value * rhoh2o * growth * gamma
+            etafactor2[m0] = 1.0 / (na[m0] * beta * sqrtg[m0])
+            if hygro[m0] > 1.0e-10:
+                smc[m0] = 2.0 * aten * sqrt(aten / (27.0 * hygro[m0] * amcube[m0]))
+            else:
+                smc[m0] = 100.0
+        else:
+            growth = 1.0 / (
+                rhoh2o / (diff0 * rhoair * qs)
+                + latvap * rhoh2o / (conduct0 * tair) * (latvap / (rh2o * tair) - 1.0)
+            )
+            sqrtg[m0] = sqrt(growth)
+            smc[m0] = 1.0
+            etafactor2[m0] = etafactor2max
+        lnsm[m0] = log(smc[m0])
+
+    eps = 0.3
+    fmax = 0.99
+    sds = 3.0
+
+    if sigw > 1.0e-5:
+        wmax = min(wmaxf, wbar + sds * sigw)
+        wmin = max(wminf, -wdiab)
+        wmin = max(wmin, wbar - sds * sigw)
+        w = wmin
+        dwmax = eps * sigw
+        dw = dwmax
+        dfmax = 0.2
+        dfmin = 0.1
+        if wmax <= w:
+            return 0
+
+        for m in range(1, nmode + 1):
+            m0 = m - 1
+            sumflxn[m0] = 0.0
+            sumfn[m0] = 0.0
+            fnold[m0] = 0.0
+            sumflxm[m0] = 0.0
+            sumfm[m0] = 0.0
+            fmold[m0] = 0.0
+        sumflx_fullact = 0.0
+
+        fold = 0.0
+        wold = 0.0
+        gold = 0.0
+        dwmin = min(dwmax, 0.01)
+
+        n = 1
+        reached_exit = False
+        while n <= 200:
+            while True:
+                wnuc = w + wdiab
+                alw = alpha * wnuc
+                sqrtalw = sqrt(alw)
+                etafactor1 = alw * sqrtalw
+
+                for m in range(1, nmode + 1):
+                    m0 = m - 1
+                    eta[m0] = etafactor1 * etafactor2[m0]
+                    zeta[m0] = twothird * sqrtalw * aten / sqrtg[m0]
+
+                smax = _ndrop_maxsat_codon(nmode, zeta, eta, smc, f1, f2)
+                lnsmax = log(smax)
+                x = twothird * (lnsm[nmode - 1] - lnsmax) / (sq2 * alogsig[nmode - 1])
+                fnew = 0.5 * (1.0 - erf(x))
+
+                dwnew = dw
+                if fnew - fold > dfmax and n > 1:
+                    if dw > 1.01 * dwmin:
+                        dw = 0.7 * dw
+                        dw = max(dw, dwmin)
+                        w = wold + dw
+                        continue
+                    else:
+                        dwnew = dwmin
+                break
+
+            fold = fnew
+            z = (w - wbar) / (sigw * sq2)
+            g = exp(-z * z)
+            fnmin = 1.0
+            for m in range(1, nmode + 1):
+                m0 = m - 1
+                x = twothird * (lnsm[m0] - lnsmax) / (sq2 * alogsig[m0])
+                fn[m0] = 0.5 * (1.0 - erf(x))
+                fnmin = min(fn[m0], fnmin)
+                fnbar = fn[m0] * g + fnold[m0] * gold
+                arg = x - 1.5 * sq2 * alogsig[m0]
+                fm[m0] = 0.5 * (1.0 - erf(arg))
+                fmbar = fm[m0] * g + fmold[m0] * gold
+                wb = w + wold
+                if w > 0.0:
+                    sumflxn[m0] = sumflxn[m0] + sixth * (
+                        wb * fnbar + (fn[m0] * g * w + fnold[m0] * gold * wold)
+                    ) * dw
+                    sumflxm[m0] = sumflxm[m0] + sixth * (
+                        wb * fmbar + (fm[m0] * g * w + fmold[m0] * gold * wold)
+                    ) * dw
+                sumfn[m0] = sumfn[m0] + 0.5 * fnbar * dw
+                fnold[m0] = fn[m0]
+                sumfm[m0] = sumfm[m0] + 0.5 * fmbar * dw
+                fmold[m0] = fm[m0]
+
+            sumflx_fullact = sumflx_fullact + sixth * (
+                wb * (g + gold) + (g * w + gold * wold)
+            ) * dw
+            gold = g
+            wold = w
+            dw = dwnew
+            if n > 1 and (w > wmax or fnmin > fmax):
+                reached_exit = True
+                break
+            w = w + dw
+            n += 1
+
+        if not reached_exit:
+            return 1
+
+        if w < wmaxf:
+            z1 = (w - wbar) / (sigw * sq2)
+            z2 = (wmaxf - wbar) / (sigw * sq2)
+            g = exp(-z1 * z1)
+            integ = sigw * 0.5 * sq2 * sqpi * (erf(z2) - erf(z1))
+            wf1 = max(w, zero_value)
+            zf1 = (wf1 - wbar) / (sigw * sq2)
+            gf1 = exp(-zf1 * zf1)
+            wf2 = max(wmaxf, zero_value)
+            zf2 = (wf2 - wbar) / (sigw * sq2)
+            gf2 = exp(-zf2 * zf2)
+            gf = gf1 - gf2
+            integf = wbar * sigw * 0.5 * sq2 * sqpi * (erf(zf2) - erf(zf1)) + sigw * sigw * gf
+
+            for m in range(1, nmode + 1):
+                m0 = m - 1
+                sumflxn[m0] = sumflxn[m0] + integf * fn[m0]
+                sumfn[m0] = sumfn[m0] + fn[m0] * integ
+                sumflxm[m0] = sumflxm[m0] + integf * fm[m0]
+                sumfm[m0] = sumfm[m0] + fm[m0] * integ
+            sumflx_fullact = sumflx_fullact + integf
+
+        norm = sq2 * sqpi * sigw
+        for m in range(1, nmode + 1):
+            m0 = m - 1
+            fn[m0] = sumfn[m0] / norm
+            if fn[m0] > 1.01:
+                return 2
+            fluxn[m0] = sumflxn[m0] / norm
+            fm[m0] = sumfm[m0] / norm
+            fluxm[m0] = sumflxm[m0] / norm
+        flux_fullact[0] = sumflx_fullact / norm
+    else:
+        wnuc = wbar + wdiab
+        if wnuc > 0.0:
+            w = wbar
+            alw = alpha * wnuc
+            sqrtalw = sqrt(alw)
+            etafactor1 = alw * sqrtalw
+
+            for m in range(1, nmode + 1):
+                m0 = m - 1
+                eta[m0] = etafactor1 * etafactor2[m0]
+                zeta[m0] = twothird * sqrtalw * aten / sqrtg[m0]
+
+            smax = _ndrop_maxsat_codon(nmode, zeta, eta, smc, f1, f2)
+            lnsmax = log(smax)
+
+            for m in range(1, nmode + 1):
+                m0 = m - 1
+                x = twothird * (lnsm[m0] - lnsmax) / (sq2 * alogsig[m0])
+                fn[m0] = 0.5 * (1.0 - erf(x))
+                arg = x - 1.5 * sq2 * alogsig[m0]
+                fm[m0] = 0.5 * (1.0 - erf(arg))
+                if wbar > 0.0:
+                    fluxn[m0] = fn[m0] * w
+                    fluxm[m0] = fm[m0] * w
+            flux_fullact[0] = w
+
+    return 0
 
 
 def ndrop_explmix_codon(
