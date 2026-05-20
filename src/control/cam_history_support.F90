@@ -1,5 +1,6 @@
 module cam_history_support
   use shr_kind_mod,     only: r8=>shr_kind_r8, i8=>shr_kind_i8, shr_kind_cl
+  use iso_c_binding,    only: c_int64_t
   use pio,              only: var_desc_t, file_desc_t
   use cam_abortutils,   only: endrun
   use cam_logfile,      only: iulog
@@ -695,6 +696,13 @@ contains
     ! Local variables
     character(len=120)                                   :: errormsg
     integer                                              :: i
+
+#define CAM_MISC_TAG 207
+#define CAM_MISC_LABEL 'cam_history_support'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
     ! First, check to see if it is OK to add this coord
     i = check_hist_coord(name, vlen=vlen, long_name=long_name, units=units,   &

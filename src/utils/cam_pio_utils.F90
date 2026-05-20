@@ -4,6 +4,7 @@ module cam_pio_utils
   use pio, only : io_desc_t, iosystem_desc_t, file_desc_t, pio_double, pio_real, pio_freedecomp, &
        pio_offset_kind, pio_rearr_box, pio_rearr_subset
   use shr_kind_mod, only : r8=>shr_kind_r8, i8=>shr_kind_i8, shr_kind_cl
+  use iso_c_binding,    only: c_int64_t
   use cam_logfile,      only: iulog
   use perf_mod,         only: t_startf, t_stopf
   use spmd_utils,       only: masterproc
@@ -164,6 +165,13 @@ contains
     integer :: ierr, ldecomp
     logical :: twodhorizontal, found, oldcolumns
     integer :: mdimsize, mdimprod, i
+
+#define CAM_MISC_TAG 208
+#define CAM_MISC_LABEL 'cam_pio_utils'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
     call t_startf('get_phys_decomp')
     

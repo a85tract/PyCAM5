@@ -1,6 +1,8 @@
 module atm_import_export
 
   use shr_kind_mod  , only: r8 => shr_kind_r8, cl=>shr_kind_cl
+  use iso_c_binding , only: c_int64_t
+  use cam_logfile   , only: iulog
   implicit none
 
 contains
@@ -236,6 +238,13 @@ contains
     logical :: pass16, passD, pass18 !logicals that prevent the passing of water tag infromation to iCLM4.
     real(r8):: wiso_fixed
     !-----------------------------------------------------------------------
+
+#define CAM_MISC_TAG 206
+#define CAM_MISC_LABEL 'atm_import_export'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
     ! Copy from component arrays into chunk array data structure
     ! Rearrange data from chunk structure into lat-lon buffer and subsequently

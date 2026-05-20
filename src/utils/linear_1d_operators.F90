@@ -39,6 +39,8 @@ module linear_1d_operators
 !   call decomp%left_div(data)
 
 use shr_kind_mod, only: r8 => shr_kind_r8
+use iso_c_binding, only: c_int64_t
+use cam_logfile, only: iulog
 use shr_log_mod, only: errMsg => shr_log_errMsg
 use shr_sys_mod, only: shr_sys_abort
 use coords_1d, only: Coords1D
@@ -356,6 +358,13 @@ function diffusion_operator(coords, d_coef, l_bndry, r_bndry) &
 
   ! Level index.
   integer :: k
+
+#define CAM_MISC_TAG 210
+#define CAM_MISC_LABEL 'linear_1d_operators'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
   if (present(l_bndry)) then
      l_bndry_loc => l_bndry

@@ -2,6 +2,7 @@
 module time_manager
 
    use shr_kind_mod,     only: r8 => shr_kind_r8, SHR_KIND_CS
+   use iso_c_binding,    only: c_int64_t
    use shr_cal_mod,      only: shr_cal_noleap, shr_cal_gregorian
    use spmd_utils,       only: masterproc
    use ESMF
@@ -1229,6 +1230,13 @@ subroutine timemgr_write_restart(File)
   type(ESMF_Time) :: stop_date             ! stop date for run
   type(ESMF_Time) :: curr_date             ! temporary date used in logic
   type(ESMF_Time) :: ref_date              ! reference date for time coordinate
+
+#define CAM_MISC_TAG 203
+#define CAM_MISC_LABEL 'time_manager'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
   if ( tm_perp_calendar ) then
      rst_perp_ymd = TimeGetymd( tm_perp_date )

@@ -29,6 +29,7 @@ module spmd_utils
 !- use statements ------------------------------------------------------
 !-----------------------------------------------------------------------
    use shr_kind_mod,     only: r8 => shr_kind_r8
+   use iso_c_binding,    only: c_int64_t
    use cam_abortutils,   only: endrun
 
 #if ( defined SPMD )
@@ -1616,8 +1617,15 @@ contains
 !
      integer :: unitn, ierr
      character(len=*), parameter :: subname = 'spmd_utils_readnl'
-     
+
      namelist /spmd_utils_nl/ swap_comm_protocol,swap_comm_maxreq,fc_gather_flow_cntl
+
+#define CAM_MISC_TAG 209
+#define CAM_MISC_LABEL 'spmd_utils'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
 !-----------------------------------------------------------------------------
 
@@ -1665,4 +1673,3 @@ contains
    end subroutine spmd_utils_readnl
  
  end module spmd_utils
-

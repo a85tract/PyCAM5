@@ -1,4 +1,9 @@
+import cam_misc_codon as _cam_misc
 from math import exp, floor, log, sqrt
+
+@export
+def cam_misc_touch_codon(tag: int) -> int:
+    return _cam_misc.cam_misc_touch_codon(tag)
 
 @export
 def phys_timestep_init_select_branches_codon(

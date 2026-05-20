@@ -18,6 +18,7 @@ module atm_comp_mct
                                shr_file_getLogUnit, shr_file_getLogLevel, &
 		               shr_file_setIO
   use shr_sys_mod      , only: shr_sys_flush, shr_sys_abort
+  use iso_c_binding    , only: c_int64_t
 
   use cam_cpl_indices
   use atm_import_export
@@ -150,6 +151,7 @@ CONTAINS
                                 ! hdim2_d == 1.
     character(len=64) :: filein ! Input namelist filename
     !-----------------------------------------------------------------------
+
     !
     ! Determine cdata points
     !
@@ -435,6 +437,13 @@ CONTAINS
     integer :: lbnum
     character(len=*), parameter :: subname="atm_run_mct"
     !-----------------------------------------------------------------------
+
+#define CAM_MISC_TAG 204
+#define CAM_MISC_LABEL 'atm_comp_mct'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
 #if (defined _MEMTRACE)
     if(masterproc) then

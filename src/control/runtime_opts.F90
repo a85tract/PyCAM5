@@ -375,6 +375,7 @@ contains
 #endif
    use offline_driver,      only: offline_driver_readnl
    use rate_diags,          only: rate_diags_readnl
+   use iso_c_binding,       only: c_int64_t
 
 !---------------------------Arguments-----------------------------------
 
@@ -488,6 +489,13 @@ contains
 
 ! 
 !-----------------------------------------------------------------------
+#define CAM_MISC_TAG 202
+#define CAM_MISC_LABEL 'runtime_opts'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
   if (present(nlfilename_in)) then
      nlfilename = nlfilename_in
   end if

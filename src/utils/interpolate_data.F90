@@ -7,6 +7,7 @@ module interpolate_data
 ! Modules Used:
 !
   use shr_kind_mod,   only: r8 => shr_kind_r8
+  use iso_c_binding,  only: c_int64_t
   use cam_abortutils, only: endrun
   use cam_logfile,    only: iulog
   implicit none
@@ -90,6 +91,13 @@ contains
     integer, pointer :: jjp(:)
     logical :: increasing
     !
+#define CAM_MISC_TAG 205
+#define CAM_MISC_LABEL 'interpolate_data'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
+
     ! Check validity of input coordinate arrays: must be monotonically increasing,
     ! and have a total of at least 2 elements
     !

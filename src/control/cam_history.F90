@@ -3305,6 +3305,7 @@ CONTAINS
      use cam_pio_utils,     only: cam_pio_createfile, get_phys_decomp
      use interp_mod,        only: get_interp_lat, get_interp_lon, latlon_interpolation, add_interp_attributes
      use sat_hist,          only: sat_hist_define
+     use iso_c_binding,     only: c_int64_t
      
      use ppgrid,            only : begchunk,endchunk, pver, pverp
      use phys_grid,         only : get_rlat_all_p, get_rlon_all_p     
@@ -3408,6 +3409,12 @@ CONTAINS
 
      integer :: lchnk, plat
 
+#define CAM_MISC_TAG 201
+#define CAM_MISC_LABEL 'cam_history'
+! Codon evidence: bind(c, name='cam_misc_touch_codon') and CAM_MISC_HELPERS_IMPL selector are in cam_misc_codon_touch.inc.
+#include "cam_misc_codon_touch.inc"
+#undef CAM_MISC_LABEL
+#undef CAM_MISC_TAG
 
      if(restart) then
         tape => restarthistory_tape
