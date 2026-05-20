@@ -1,4 +1,5 @@
 from math import log, sqrt
+import zm_cldprp_codon as _zm_cldprp
 
 
 @export
@@ -111,6 +112,146 @@ def convect_deep_select_scheme_codon(
             return
 
     status[0] = 1
+
+
+@export
+def zm_cldprp_init_arrays_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    c0_ocn: float,
+    c0_lnd: float,
+    landfrac_p: cobj,
+    zf_p: cobj,
+    q_p: cobj,
+    s_p: cobj,
+    ftemp_p: cobj,
+    expnum_p: cobj,
+    expdif_p: cobj,
+    c0mask_p: cobj,
+    dz_p: cobj,
+    pflx_p: cobj,
+    k1_p: cobj,
+    i2_p: cobj,
+    i3_p: cobj,
+    i4_p: cobj,
+    mu_p: cobj,
+    f_p: cobj,
+    eps_p: cobj,
+    eu_p: cobj,
+    du_p: cobj,
+    ql_p: cobj,
+    cu_p: cobj,
+    evp_p: cobj,
+    wtevp_p: cobj,
+    cmeg_p: cobj,
+    qds_p: cobj,
+    md_p: cobj,
+    ed_p: cobj,
+    sd_p: cobj,
+    qd_p: cobj,
+    mc_p: cobj,
+    qu_p: cobj,
+    su_p: cobj,
+    rprd_p: cobj,
+    totpcp_p: cobj,
+    totevp_p: cobj,
+):
+    _zm_cldprp.zm_cldprp_init_arrays_codon(
+        il2g, pcols, pver, c0_ocn, c0_lnd, landfrac_p, zf_p, q_p, s_p, ftemp_p, expnum_p,
+        expdif_p, c0mask_p, dz_p, pflx_p, k1_p, i2_p, i3_p, i4_p, mu_p, f_p, eps_p, eu_p,
+        du_p, ql_p, cu_p, evp_p, wtevp_p, cmeg_p, qds_p, md_p, ed_p, sd_p, qd_p, mc_p, qu_p,
+        su_p, rprd_p, totpcp_p, totevp_p,
+    )
+
+
+@export
+def zm_cldprp_index_setup_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    msg: int,
+    limcnv: int,
+    cp_tiedke_add: float,
+    tiedke_add: float,
+    jb_p: cobj,
+    lel_p: cobj,
+    mx_p: cobj,
+    hsat_p: cobj,
+    hmn_p: cobj,
+    s_p: cobj,
+    jt_p: cobj,
+    jd_p: cobj,
+    jlcl_p: cobj,
+    hmin_p: cobj,
+    j0_p: cobj,
+    hu_p: cobj,
+    su_p: cobj,
+):
+    _zm_cldprp.zm_cldprp_index_setup_codon(
+        il2g, pcols, pver, msg, limcnv, cp_tiedke_add, tiedke_add, jb_p, lel_p, mx_p, hsat_p, hmn_p, s_p,
+        jt_p, jd_p, jlcl_p, hmin_p, j0_p, hu_p, su_p,
+    )
+
+
+@export
+def zm_cldprp_copy_mass_fields_codon(
+    pcols: int,
+    pver: int,
+    ed_p: cobj,
+    md_p: cobj,
+    mu_p: cobj,
+    du_p: cobj,
+    eu_p: cobj,
+    wted_p: cobj,
+    wtmd_p: cobj,
+    wtmu_p: cobj,
+    wtdu_p: cobj,
+    wteu_p: cobj,
+):
+    _zm_cldprp.zm_cldprp_copy_mass_fields_codon(
+        pcols, pver, ed_p, md_p, mu_p, du_p, eu_p, wted_p, wtmd_p, wtmu_p, wtdu_p, wteu_p,
+    )
+
+
+@export
+def zm_cldprp_copy_2d_codon(
+    pcols: int,
+    pver: int,
+    src_p: cobj,
+    dst_p: cobj,
+):
+    _zm_cldprp.zm_cldprp_copy_2d_codon(pcols, pver, src_p, dst_p)
+
+
+@export
+def zm_cldprp_evap_finalize_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    msg: int,
+    jd_p: cobj,
+    jb_p: cobj,
+    md_p: cobj,
+    qd_p: cobj,
+    totevp_p: cobj,
+    totpcp_p: cobj,
+    ed_p: cobj,
+    evp_p: cobj,
+    cu_p: cobj,
+    cmeg_p: cobj,
+    rprd_p: cobj,
+    dz_p: cobj,
+    pflx_p: cobj,
+    mc_p: cobj,
+    mu_p: cobj,
+    wtevp_p: cobj,
+):
+    _zm_cldprp.zm_cldprp_evap_finalize_codon(
+        il2g, pcols, pver, pverp, msg, jd_p, jb_p, md_p, qd_p, totevp_p, totpcp_p, ed_p,
+        evp_p, cu_p, cmeg_p, rprd_p, dz_p, pflx_p, mc_p, mu_p, wtevp_p,
+    )
 
 
 @export

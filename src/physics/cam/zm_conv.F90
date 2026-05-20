@@ -90,6 +90,9 @@ module zm_conv
    logical :: zm_q1q2_logged = .false.
    logical :: zm_convr_tail_logged = .false.
    logical :: zm_convr_finish_logged = .false.
+   logical :: use_native_zm_cldprp_helpers = .false.
+   logical :: zm_cldprp_helpers_selected = .false.
+   logical :: zm_cldprp_helpers_logged = .false.
 
 contains
 
@@ -339,6 +342,44 @@ subroutine zm_convr_shell_select_impl()
    end if
 
 end subroutine zm_convr_shell_select_impl
+
+
+subroutine zm_cldprp_helpers_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (zm_cldprp_helpers_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('ZM_CLDPRP_HELPERS_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_zm_cldprp_helpers = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_zm_cldprp_helpers = .false.
+   end if
+
+   zm_cldprp_helpers_selected = .true.
+
+   if (masterproc) then
+      if (use_native_zm_cldprp_helpers) then
+         write(iulog,*) 'zm_cldprp_helpers implementation = native'
+         call zm_conv_evap_append_impl_proof('zm_cldprp_helpers implementation = native')
+      else
+         write(iulog,*) 'zm_cldprp_helpers implementation = codon'
+         call zm_conv_evap_append_impl_proof('zm_cldprp_helpers implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine zm_cldprp_helpers_select_impl
 
 
 subroutine zm_convr(lchnk   ,ncol    , &
@@ -2835,6 +2876,8 @@ subroutine cldprp(lchnk   , &
 !
 !-----------------------------------------------------------------------
 
+   use iso_c_binding, only: c_int64_t, c_loc
+
    implicit none
 
 !------------------------------------------------------------------------------
@@ -2843,64 +2886,64 @@ subroutine cldprp(lchnk   , &
 !
    integer, intent(in) :: lchnk                  ! chunk identifier
 
-   real(r8), intent(in) :: q(pcols,pver)         ! spec. humidity of env
-   real(r8), intent(in) :: t(pcols,pver)         ! temp of env
-   real(r8), intent(in) :: p(pcols,pver)         ! pressure of env
-   real(r8), intent(in) :: z(pcols,pver)         ! height of env
-   real(r8), intent(in) :: s(pcols,pver)         ! normalized dry static energy of env
-   real(r8), intent(in) :: zf(pcols,pverp)       ! height of interfaces
+   real(r8), target, intent(in) :: q(pcols,pver)         ! spec. humidity of env
+   real(r8), target, intent(in) :: t(pcols,pver)         ! temp of env
+   real(r8), target, intent(in) :: p(pcols,pver)         ! pressure of env
+   real(r8), target, intent(in) :: z(pcols,pver)         ! height of env
+   real(r8), target, intent(in) :: s(pcols,pver)         ! normalized dry static energy of env
+   real(r8), target, intent(in) :: zf(pcols,pverp)       ! height of interfaces
    real(r8), intent(in) :: u(pcols,pver)         ! zonal velocity of env
    real(r8), intent(in) :: v(pcols,pver)         ! merid. velocity of env
 
-   real(r8), intent(in) :: landfrac(pcols) ! RBN Landfrac
+   real(r8), target, intent(in) :: landfrac(pcols) ! RBN Landfrac
 
-   integer, intent(in) :: jb(pcols)              ! updraft base level
-   integer, intent(in) :: lel(pcols)             ! updraft launch level
-   integer, intent(out) :: jt(pcols)              ! updraft plume top
-   integer, intent(out) :: jlcl(pcols)            ! updraft lifting cond level
-   integer, intent(in) :: mx(pcols)              ! updraft base level (same is jb)
-   integer, intent(out) :: j0(pcols)              ! level where updraft begins detraining
-   integer, intent(out) :: jd(pcols)              ! level of downdraft
+   integer, target, intent(in) :: jb(pcols)              ! updraft base level
+   integer, target, intent(in) :: lel(pcols)             ! updraft launch level
+   integer, target, intent(out) :: jt(pcols)              ! updraft plume top
+   integer, target, intent(out) :: jlcl(pcols)            ! updraft lifting cond level
+   integer, target, intent(in) :: mx(pcols)              ! updraft base level (same is jb)
+   integer, target, intent(out) :: j0(pcols)              ! level where updraft begins detraining
+   integer, target, intent(out) :: jd(pcols)              ! level of downdraft
    integer, intent(in) :: limcnv                 ! convection limiting level
    integer, intent(in) :: il2g                   !CORE GROUP REMOVE
    integer, intent(in) :: msg                    ! missing moisture vals (always 0)
    real(r8), intent(in) :: rl                    ! latent heat of vap
-   real(r8), intent(in) :: shat(pcols,pver)      ! interface values of dry stat energy
+   real(r8), target, intent(in) :: shat(pcols,pver)      ! interface values of dry stat energy
 !
 ! output
 !
-   real(r8), intent(out) :: rprd(pcols,pver)     ! rate of production of precip at that layer
-   real(r8), intent(out) :: du(pcols,pver)       ! detrainement rate of updraft
-   real(r8), intent(out) :: ed(pcols,pver)       ! entrainment rate of downdraft
-   real(r8), intent(out) :: eu(pcols,pver)       ! entrainment rate of updraft
-   real(r8), intent(out) :: hmn(pcols,pver)      ! moist stat energy of env
-   real(r8), intent(out) :: hsat(pcols,pver)     ! sat moist stat energy of env
-   real(r8), intent(out) :: mc(pcols,pver)       ! net mass flux
-   real(r8), intent(out) :: md(pcols,pver)       ! downdraft mass flux
-   real(r8), intent(out) :: mu(pcols,pver)       ! updraft mass flux
-   real(r8), intent(out) :: pflx(pcols,pverp)    ! precipitation flux thru layer
-   real(r8), intent(out) :: qd(pcols,pver)       ! spec humidity of downdraft
-   real(r8), intent(out) :: ql(pcols,pver)       ! liq water of updraft
-   real(r8), intent(out) :: qst(pcols,pver)      ! saturation mixing ratio of env.
-   real(r8), intent(out) :: qu(pcols,pver)       ! spec hum of updraft
-   real(r8), intent(out) :: sd(pcols,pver)       ! normalized dry stat energy of downdraft
-   real(r8), intent(out) :: su(pcols,pver)       ! normalized dry stat energy of updraft
+   real(r8), target, intent(out) :: rprd(pcols,pver)     ! rate of production of precip at that layer
+   real(r8), target, intent(out) :: du(pcols,pver)       ! detrainement rate of updraft
+   real(r8), target, intent(out) :: ed(pcols,pver)       ! entrainment rate of downdraft
+   real(r8), target, intent(out) :: eu(pcols,pver)       ! entrainment rate of updraft
+   real(r8), target, intent(out) :: hmn(pcols,pver)      ! moist stat energy of env
+   real(r8), target, intent(out) :: hsat(pcols,pver)     ! sat moist stat energy of env
+   real(r8), target, intent(out) :: mc(pcols,pver)       ! net mass flux
+   real(r8), target, intent(out) :: md(pcols,pver)       ! downdraft mass flux
+   real(r8), target, intent(out) :: mu(pcols,pver)       ! updraft mass flux
+   real(r8), target, intent(out) :: pflx(pcols,pverp)    ! precipitation flux thru layer
+   real(r8), target, intent(out) :: qd(pcols,pver)       ! spec humidity of downdraft
+   real(r8), target, intent(out) :: ql(pcols,pver)       ! liq water of updraft
+   real(r8), target, intent(out) :: qst(pcols,pver)      ! saturation mixing ratio of env.
+   real(r8), target, intent(out) :: qu(pcols,pver)       ! spec hum of updraft
+   real(r8), target, intent(out) :: sd(pcols,pver)       ! normalized dry stat energy of downdraft
+   real(r8), target, intent(out) :: su(pcols,pver)       ! normalized dry stat energy of updraft
 
    !Needed for Water Tracers:
-   real(r8), intent(out) :: tut(pcols,pver)  !updraft temperature (from su)
-   real(r8), intent(out) :: tdt(pcols,pver)  !downdarft temperature (from sd)
-   real(r8), intent(out) :: dz(pcols,pver)   !Layer thickness [m]
-   real(r8), intent(out) :: rppe(pcols,pver) !Rain production pre-evaporation
-   real(r8), intent(out) :: eps0(pcols)
-   real(r8), intent(out) :: qsthat(pcols,pver) !qsat at interfaces
-   real(r8), intent(out) :: hsthat(pcols,pver) !hsat at interfaces
-   real(r8), intent(out) :: qds(pcols,pver)    !saturation mixing ratio in downdraft
-   real(r8), intent(out) :: wtmu(pcols,pver)   !initial updraft mass flux value
-   real(r8), intent(out) :: wtdu(pcols,pver)   !detrainment in updraft beginning values
-   real(r8), intent(out) :: wteu(pcols,pver)   !entrainment in updraft beginning values
-   real(r8), intent(out) :: wted(pcols,pver)   !entrainment in dwndraft beginning values (not needed)
-   real(r8), intent(out) :: wtmd(pcols,pver)   !donwdraft mass flux beginning values
-   real(r8), intent(out) :: wtevp(pcols,pver)  !evaporation rate pre-precip limited
+   real(r8), target, intent(out) :: tut(pcols,pver)  !updraft temperature (from su)
+   real(r8), target, intent(out) :: tdt(pcols,pver)  !downdarft temperature (from sd)
+   real(r8), target, intent(out) :: dz(pcols,pver)   !Layer thickness [m]
+   real(r8), target, intent(out) :: rppe(pcols,pver) !Rain production pre-evaporation
+   real(r8), target, intent(out) :: eps0(pcols)
+   real(r8), target, intent(out) :: qsthat(pcols,pver) !qsat at interfaces
+   real(r8), target, intent(out) :: hsthat(pcols,pver) !hsat at interfaces
+   real(r8), target, intent(out) :: qds(pcols,pver)    !saturation mixing ratio in downdraft
+   real(r8), target, intent(out) :: wtmu(pcols,pver)   !initial updraft mass flux value
+   real(r8), target, intent(out) :: wtdu(pcols,pver)   !detrainment in updraft beginning values
+   real(r8), target, intent(out) :: wteu(pcols,pver)   !entrainment in updraft beginning values
+   real(r8), target, intent(out) :: wted(pcols,pver)   !entrainment in dwndraft beginning values (not needed)
+   real(r8), target, intent(out) :: wtmd(pcols,pver)   !donwdraft mass flux beginning values
+   real(r8), target, intent(out) :: wtevp(pcols,pver)  !evaporation rate pre-precip limited
    logical , intent(out) :: wtdn(pcols,pver)   !Endpoint of updraft loop
 
    real(r8) rd                   ! gas constant for dry air
@@ -2910,34 +2953,34 @@ subroutine cldprp(lchnk   , &
 !
 ! Local workspace
 !
-   real(r8) gamma(pcols,pver)
+   real(r8), target :: gamma(pcols,pver)
 !   real(r8) dz(pcols,pver)
-   real(r8) iprm(pcols,pver)
-   real(r8) hu(pcols,pver)
-   real(r8) hd(pcols,pver)
-   real(r8) eps(pcols,pver)
-   real(r8) f(pcols,pver)
-   real(r8) k1(pcols,pver)
-   real(r8) i2(pcols,pver)
-   real(r8) ihat(pcols,pver)
-   real(r8) i3(pcols,pver)
-   real(r8) idag(pcols,pver)
-   real(r8) i4(pcols,pver)
+   real(r8), target :: iprm(pcols,pver)
+   real(r8), target :: hu(pcols,pver)
+   real(r8), target :: hd(pcols,pver)
+   real(r8), target :: eps(pcols,pver)
+   real(r8), target :: f(pcols,pver)
+   real(r8), target :: k1(pcols,pver)
+   real(r8), target :: i2(pcols,pver)
+   real(r8), target :: ihat(pcols,pver)
+   real(r8), target :: i3(pcols,pver)
+   real(r8), target :: idag(pcols,pver)
+   real(r8), target :: i4(pcols,pver)
  !  real(r8) qsthat(pcols,pver)
  !  real(r8) hsthat(pcols,pver)
-   real(r8) gamhat(pcols,pver)
-   real(r8) cu(pcols,pver)
-   real(r8) evp(pcols,pver)
-   real(r8) cmeg(pcols,pver)
+   real(r8), target :: gamhat(pcols,pver)
+   real(r8), target :: cu(pcols,pver)
+   real(r8), target :: evp(pcols,pver)
+   real(r8), target :: cmeg(pcols,pver)
  !  real(r8) qds(pcols,pver)
 ! RBN For c0mask
  !  real(r8) c0mask(pcols)
-   real(r8), intent(out) :: c0mask(pcols)
+   real(r8), target, intent(out) :: c0mask(pcols)
 
-   real(r8) hmin(pcols)
-   real(r8) expdif(pcols)
-   real(r8) expnum(pcols)
-   real(r8) ftemp(pcols)
+   real(r8), target :: hmin(pcols)
+   real(r8), target :: expdif(pcols)
+   real(r8), target :: expnum(pcols)
+   real(r8), target :: ftemp(pcols)
 !   real(r8) eps0(pcols)
    real(r8) rmue(pcols)
    real(r8) zuef(pcols)
@@ -2945,8 +2988,8 @@ subroutine cldprp(lchnk   , &
    real(r8) epsm(pcols)
    real(r8) ratmjb(pcols)
    real(r8) est(pcols)
-   real(r8) totpcp(pcols)
-   real(r8) totevp(pcols)
+   real(r8), target :: totpcp(pcols)
+   real(r8), target :: totevp(pcols)
    real(r8) alfa(pcols)
    real(r8) ql1
    real(r8) tu
@@ -2963,53 +3006,126 @@ subroutine cldprp(lchnk   , &
 
    logical doit(pcols)
    logical done(pcols)
+
+   interface
+      subroutine zm_cldprp_init_arrays_codon(il2g_c, pcols_c, pver_c, c0_ocn_c, c0_lnd_c, landfrac_p, &
+           zf_p, q_p, s_p, ftemp_p, expnum_p, expdif_p, c0mask_p, dz_p, pflx_p, k1_p, i2_p, i3_p, &
+           i4_p, mu_p, f_p, eps_p, eu_p, du_p, ql_p, cu_p, evp_p, wtevp_p, cmeg_p, qds_p, md_p, ed_p, &
+           sd_p, qd_p, mc_p, qu_p, su_p, rprd_p, totpcp_p, totevp_p) bind(c, name="zm_cldprp_init_arrays_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c, pver_c
+         real(c_double), value :: c0_ocn_c, c0_lnd_c
+         type(c_ptr), value :: landfrac_p, zf_p, q_p, s_p, ftemp_p, expnum_p, expdif_p, c0mask_p
+         type(c_ptr), value :: dz_p, pflx_p, k1_p, i2_p, i3_p, i4_p, mu_p, f_p, eps_p, eu_p, du_p, ql_p
+         type(c_ptr), value :: cu_p, evp_p, wtevp_p, cmeg_p, qds_p, md_p, ed_p, sd_p, qd_p, mc_p, qu_p
+         type(c_ptr), value :: su_p, rprd_p, totpcp_p, totevp_p
+      end subroutine zm_cldprp_init_arrays_codon
+
+      subroutine zm_cldprp_index_setup_codon(il2g_c, pcols_c, pver_c, msg_c, limcnv_c, cp_tiedke_add_c, &
+           tiedke_add_c, &
+           jb_p, lel_p, mx_p, hsat_p, hmn_p, s_p, jt_p, jd_p, jlcl_p, hmin_p, j0_p, hu_p, su_p) &
+           bind(c, name="zm_cldprp_index_setup_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c, pver_c, msg_c, limcnv_c
+         real(c_double), value :: cp_tiedke_add_c, tiedke_add_c
+         type(c_ptr), value :: jb_p, lel_p, mx_p, hsat_p, hmn_p, s_p, jt_p, jd_p, jlcl_p, hmin_p, j0_p
+         type(c_ptr), value :: hu_p, su_p
+      end subroutine zm_cldprp_index_setup_codon
+
+      subroutine zm_cldprp_copy_mass_fields_codon(pcols_c, pver_c, ed_p, md_p, mu_p, du_p, eu_p, &
+           wted_p, wtmd_p, wtmu_p, wtdu_p, wteu_p) bind(c, name="zm_cldprp_copy_mass_fields_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: pcols_c, pver_c
+         type(c_ptr), value :: ed_p, md_p, mu_p, du_p, eu_p, wted_p, wtmd_p, wtmu_p, wtdu_p, wteu_p
+      end subroutine zm_cldprp_copy_mass_fields_codon
+
+      subroutine zm_cldprp_copy_2d_codon(pcols_c, pver_c, src_p, dst_p) bind(c, name="zm_cldprp_copy_2d_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: pcols_c, pver_c
+         type(c_ptr), value :: src_p, dst_p
+      end subroutine zm_cldprp_copy_2d_codon
+
+      subroutine zm_cldprp_evap_finalize_codon(il2g_c, pcols_c, pver_c, pverp_c, msg_c, jd_p, jb_p, &
+           md_p, qd_p, totevp_p, totpcp_p, ed_p, evp_p, cu_p, cmeg_p, rprd_p, dz_p, pflx_p, mc_p, &
+           mu_p, wtevp_p) bind(c, name="zm_cldprp_evap_finalize_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c, pver_c, pverp_c, msg_c
+         type(c_ptr), value :: jd_p, jb_p, md_p, qd_p, totevp_p, totpcp_p, ed_p, evp_p, cu_p, cmeg_p
+         type(c_ptr), value :: rprd_p, dz_p, pflx_p, mc_p, mu_p, wtevp_p
+      end subroutine zm_cldprp_evap_finalize_codon
+   end interface
 !
 !------------------------------------------------------------------------------
 !
-   do i = 1,il2g
-      ftemp(i) = 0._r8
-      expnum(i) = 0._r8
-      expdif(i) = 0._r8
-      c0mask(i)  = c0_ocn * (1._r8-landfrac(i)) +   c0_lnd * landfrac(i)
-   end do
+   call zm_cldprp_helpers_select_impl()
+
+   if (.not. use_native_zm_cldprp_helpers) then
+      if (masterproc .and. .not. zm_cldprp_helpers_logged) then
+         write(iulog,*) 'zm_cldprp_helpers entered (init/index/copy/finalize direct = codon)'
+         call zm_conv_evap_append_impl_proof('zm_cldprp_helpers entered (init/index/copy/finalize direct = codon)')
+         call flush(iulog)
+         zm_cldprp_helpers_logged = .true.
+      end if
+      call zm_cldprp_init_arrays_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+           c0_ocn, c0_lnd, c_loc(landfrac), c_loc(zf), c_loc(q), c_loc(s), c_loc(ftemp), c_loc(expnum), &
+           c_loc(expdif), c_loc(c0mask), c_loc(dz), c_loc(pflx), c_loc(k1), c_loc(i2), c_loc(i3), &
+           c_loc(i4), c_loc(mu), c_loc(f), c_loc(eps), c_loc(eu), c_loc(du), c_loc(ql), c_loc(cu), &
+           c_loc(evp), c_loc(wtevp), c_loc(cmeg), c_loc(qds), c_loc(md), c_loc(ed), c_loc(sd), &
+           c_loc(qd), c_loc(mc), c_loc(qu), c_loc(su), c_loc(rprd), c_loc(totpcp), c_loc(totevp))
+   else
+      do i = 1,il2g
+         ftemp(i) = 0._r8
+         expnum(i) = 0._r8
+         expdif(i) = 0._r8
+         c0mask(i)  = c0_ocn * (1._r8-landfrac(i)) +   c0_lnd * landfrac(i)
+         totpcp(i) = 0._r8
+         totevp(i) = 0._r8
+      end do
 !
 !jr Change from msg+1 to 1 to prevent blowup
 !
-   do k = 1,pver
-      do i = 1,il2g
-         dz(i,k) = zf(i,k) - zf(i,k+1)
+      do k = 1,pver
+         do i = 1,il2g
+            dz(i,k) = zf(i,k) - zf(i,k+1)
+         end do
       end do
-   end do
 
 !
 ! initialize many output and work variables to zero
 !
-   pflx(:il2g,1) = 0
+      pflx(:il2g,1) = 0
+
+      do k = 1,pver
+         do i = 1,il2g
+            k1(i,k) = 0._r8
+            i2(i,k) = 0._r8
+            i3(i,k) = 0._r8
+            i4(i,k) = 0._r8
+            mu(i,k) = 0._r8
+            f(i,k) = 0._r8
+            eps(i,k) = 0._r8
+            eu(i,k) = 0._r8
+            du(i,k) = 0._r8
+            ql(i,k) = 0._r8
+            cu(i,k) = 0._r8
+            evp(i,k) = 0._r8
+            wtevp(i,k) = 0._r8 !water tracers
+            cmeg(i,k) = 0._r8
+            qds(i,k) = q(i,k)
+            md(i,k) = 0._r8
+            ed(i,k) = 0._r8
+            sd(i,k) = s(i,k)
+            qd(i,k) = q(i,k)
+            mc(i,k) = 0._r8
+            qu(i,k) = q(i,k)
+            su(i,k) = s(i,k)
+            rprd(i,k) = 0._r8
+         end do
+      end do
+   end if
 
    do k = 1,pver
       do i = 1,il2g
-         k1(i,k) = 0._r8
-         i2(i,k) = 0._r8
-         i3(i,k) = 0._r8
-         i4(i,k) = 0._r8
-         mu(i,k) = 0._r8
-         f(i,k) = 0._r8
-         eps(i,k) = 0._r8
-         eu(i,k) = 0._r8
-         du(i,k) = 0._r8
-         ql(i,k) = 0._r8
-         cu(i,k) = 0._r8
-         evp(i,k) = 0._r8
-         wtevp(i,k) = 0._r8 !water tracers
-         cmeg(i,k) = 0._r8
-         qds(i,k) = q(i,k)
-         md(i,k) = 0._r8
-         ed(i,k) = 0._r8
-         sd(i,k) = s(i,k)
-         qd(i,k) = q(i,k)
-         mc(i,k) = 0._r8
-         qu(i,k) = q(i,k)
-         su(i,k) = s(i,k)
          call qsat_hPa(t(i,k), p(i,k), est(i), qst(i,k))
          tdt(i,k) = sd(i,k) - grav/cp*zf(i,k) !water tracers
          tut(i,k) = su(i,k) - grav/cp*zf(i,k)
@@ -3023,7 +3139,6 @@ subroutine cldprp(lchnk   , &
          hsat(i,k) = cp*t(i,k) + grav*z(i,k) + rl*qst(i,k)
          hu(i,k) = hmn(i,k)
          hd(i,k) = hmn(i,k)
-         rprd(i,k) = 0._r8
       end do
    end do
 !
@@ -3069,46 +3184,53 @@ subroutine cldprp(lchnk   , &
 ! initialize cloud top to highest plume top.
 !jr changed hard-wired 4 to limcnv+1 (not to exceed pver)
 !
-   jt(:) = pver
-   do i = 1,il2g
-      jt(i) = max(lel(i),limcnv+1)
-      jt(i) = min(jt(i),pver)
-      jd(i) = pver
-      jlcl(i) = lel(i)
-      hmin(i) = 1.E6_r8
-   end do
+   if (.not. use_native_zm_cldprp_helpers) then
+      call zm_cldprp_index_setup_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(msg, c_int64_t), int(limcnv, c_int64_t), cp*tiedke_add, &
+           tiedke_add, c_loc(jb), c_loc(lel), c_loc(mx), c_loc(hsat), c_loc(hmn), c_loc(s), &
+           c_loc(jt), c_loc(jd), c_loc(jlcl), c_loc(hmin), c_loc(j0), c_loc(hu), c_loc(su))
+   else
+      jt(:) = pver
+      do i = 1,il2g
+         jt(i) = max(lel(i),limcnv+1)
+         jt(i) = min(jt(i),pver)
+         jd(i) = pver
+         jlcl(i) = lel(i)
+         hmin(i) = 1.E6_r8
+      end do
 
 !
 ! find the level of minimum hsat, where detrainment starts
 !
 
-   do k = msg + 1,pver
-      do i = 1,il2g
-         if (hsat(i,k) <= hmin(i) .and. k >= jt(i) .and. k <= jb(i)) then
-            hmin(i) = hsat(i,k)
-            j0(i) = k
-         end if
+      do k = msg + 1,pver
+         do i = 1,il2g
+            if (hsat(i,k) <= hmin(i) .and. k >= jt(i) .and. k <= jb(i)) then
+               hmin(i) = hsat(i,k)
+               j0(i) = k
+            end if
+         end do
       end do
-   end do
-   do i = 1,il2g
-      j0(i) = min(j0(i),jb(i)-2)
-      j0(i) = max(j0(i),jt(i)+2)
+      do i = 1,il2g
+         j0(i) = min(j0(i),jb(i)-2)
+         j0(i) = max(j0(i),jt(i)+2)
 !
 ! Fix from Guang Zhang to address out of bounds array reference
 !
-      j0(i) = min(j0(i),pver)
-   end do
+         j0(i) = min(j0(i),pver)
+      end do
 !
 ! Initialize certain arrays inside cloud
 !
-   do k = msg + 1,pver
-      do i = 1,il2g
-         if (k >= jt(i) .and. k <= jb(i)) then
-            hu(i,k) = hmn(i,mx(i)) + cp*tiedke_add
-            su(i,k) = s(i,mx(i)) + tiedke_add
-         end if
+      do k = msg + 1,pver
+         do i = 1,il2g
+            if (k >= jt(i) .and. k <= jb(i)) then
+               hu(i,k) = hmn(i,mx(i)) + cp*tiedke_add
+               su(i,k) = s(i,mx(i)) + tiedke_add
+            end if
+         end do
       end do
-   end do
+   end if
 !
 ! *********************************************************
 ! compute taylor series for approximate eps(z) below
@@ -3335,11 +3457,17 @@ subroutine cldprp(lchnk   , &
    end do
 
 !Needed for water tracers (NOTE: may be able to move this out of cldprp - JN)
-wted(:,:) = ed(:,:)
-wtmd(:,:) = md(:,:)
-wtmu(:,:) = mu(:,:)
-wtdu(:,:) = du(:,:)
-wteu(:,:) = eu(:,:)
+   if (.not. use_native_zm_cldprp_helpers) then
+      call zm_cldprp_copy_mass_fields_codon(int(pcols, c_int64_t), int(pver, c_int64_t), &
+           c_loc(ed), c_loc(md), c_loc(mu), c_loc(du), c_loc(eu), c_loc(wted), c_loc(wtmd), &
+           c_loc(wtmu), c_loc(wtdu), c_loc(wteu))
+   else
+      wted(:,:) = ed(:,:)
+      wtmd(:,:) = md(:,:)
+      wtmu(:,:) = mu(:,:)
+      wtdu(:,:) = du(:,:)
+      wteu(:,:) = eu(:,:)
+   end if
 
 !
 ! calculate updraft and downdraft properties.
@@ -3433,7 +3561,11 @@ wteu(:,:) = eu(:,:)
 
 !
 !Needed for water tracers:
-rppe(:,:) = rprd(:,:)
+   if (.not. use_native_zm_cldprp_helpers) then
+      call zm_cldprp_copy_2d_codon(int(pcols, c_int64_t), int(pver, c_int64_t), c_loc(rprd), c_loc(rppe))
+   else
+      rppe(:,:) = rprd(:,:)
+   end if
 !
    do i = 1,il2g
       qd(i,jd(i)) = qds(i,jd(i))
@@ -3455,61 +3587,69 @@ rppe(:,:) = rprd(:,:)
       end do
    end do
 
-   !Needed for water tracers:
-   wtevp(:,:) = evp(:,:)
+   if (.not. use_native_zm_cldprp_helpers) then
+      call zm_cldprp_evap_finalize_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(pverp, c_int64_t), int(msg, c_int64_t), c_loc(jd), &
+           c_loc(jb), c_loc(md), c_loc(qd), c_loc(totevp), c_loc(totpcp), c_loc(ed), &
+           c_loc(evp), c_loc(cu), c_loc(cmeg), c_loc(rprd), c_loc(dz), c_loc(pflx), &
+           c_loc(mc), c_loc(mu), c_loc(wtevp))
+   else
+      !Needed for water tracers:
+      wtevp(:,:) = evp(:,:)
 
-   do i = 1,il2g
+      do i = 1,il2g
 !*guang         totevp(i) = totevp(i) + md(i,jd(i))*q(i,jd(i)-1) -
-      totevp(i) = totevp(i) + md(i,jd(i))*qd(i,jd(i)) - md(i,jb(i))*qd(i,jb(i))
-   end do
-!!$   if (.true.) then
-   if (.false.) then
-      do i = 1,il2g
-         k = jb(i)
-         if (eps0(i) > 0._r8) then
-            evp(i,k) = -ed(i,k)*q(i,k) + (md(i,k)*qd(i,k))/dz(i,k)
-            evp(i,k) = max(evp(i,k),0._r8)
-            totevp(i) = totevp(i) - dz(i,k)*ed(i,k)*q(i,k)
-         end if
+         totevp(i) = totevp(i) + md(i,jd(i))*qd(i,jd(i)) - md(i,jb(i))*qd(i,jb(i))
       end do
-   endif
+!!$   if (.true.) then
+      if (.false.) then
+         do i = 1,il2g
+            k = jb(i)
+            if (eps0(i) > 0._r8) then
+               evp(i,k) = -ed(i,k)*q(i,k) + (md(i,k)*qd(i,k))/dz(i,k)
+               evp(i,k) = max(evp(i,k),0._r8)
+               totevp(i) = totevp(i) - dz(i,k)*ed(i,k)*q(i,k)
+            end if
+         end do
+      endif
 
-   do i = 1,il2g
-      totpcp(i) = max(totpcp(i),0._r8)
-      totevp(i) = max(totevp(i),0._r8)
-   end do
-!
-   do k = msg + 2,pver
       do i = 1,il2g
-         if (totevp(i) > 0._r8 .and. totpcp(i) > 0._r8) then
-            md(i,k)  = md (i,k)*min(1._r8, totpcp(i)/(totevp(i)+totpcp(i)))
-            ed(i,k)  = ed (i,k)*min(1._r8, totpcp(i)/(totevp(i)+totpcp(i)))
-            evp(i,k) = evp(i,k)*min(1._r8, totpcp(i)/(totevp(i)+totpcp(i)))
-         else
-            md(i,k) = 0._r8
-            ed(i,k) = 0._r8
-            evp(i,k) = 0._r8
-         end if
+         totpcp(i) = max(totpcp(i),0._r8)
+         totevp(i) = max(totevp(i),0._r8)
+      end do
+!
+      do k = msg + 2,pver
+         do i = 1,il2g
+            if (totevp(i) > 0._r8 .and. totpcp(i) > 0._r8) then
+               md(i,k)  = md (i,k)*min(1._r8, totpcp(i)/(totevp(i)+totpcp(i)))
+               ed(i,k)  = ed (i,k)*min(1._r8, totpcp(i)/(totevp(i)+totpcp(i)))
+               evp(i,k) = evp(i,k)*min(1._r8, totpcp(i)/(totevp(i)+totpcp(i)))
+            else
+               md(i,k) = 0._r8
+               ed(i,k) = 0._r8
+               evp(i,k) = 0._r8
+            end if
 ! cmeg is the cloud water condensed - rain water evaporated
 ! rprd is the cloud water converted to rain - (rain evaporated)
-         cmeg(i,k) = cu(i,k) - evp(i,k)
-         rprd(i,k) = rprd(i,k)-evp(i,k)
+            cmeg(i,k) = cu(i,k) - evp(i,k)
+            rprd(i,k) = rprd(i,k)-evp(i,k)
+         end do
       end do
-   end do
 
 ! compute the net precipitation flux across interfaces
-   pflx(:il2g,1) = 0._r8
-   do k = 2,pverp
-      do i = 1,il2g
-         pflx(i,k) = pflx(i,k-1) + rprd(i,k-1)*dz(i,k-1)
+      pflx(:il2g,1) = 0._r8
+      do k = 2,pverp
+         do i = 1,il2g
+            pflx(i,k) = pflx(i,k-1) + rprd(i,k-1)*dz(i,k-1)
+         end do
       end do
-   end do
 !
-   do k = msg + 1,pver
-      do i = 1,il2g
-         mc(i,k) = mu(i,k) + md(i,k)
+      do k = msg + 1,pver
+         do i = 1,il2g
+            mc(i,k) = mu(i,k) + md(i,k)
+         end do
       end do
-   end do
+   end if
 !
    return
 end subroutine cldprp
