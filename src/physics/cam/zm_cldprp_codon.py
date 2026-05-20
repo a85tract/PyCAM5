@@ -254,6 +254,429 @@ def zm_cldprp_copy_2d_codon(
             dst[idx] = src[idx]
 
 
+def zm_cldprp_eps_profile_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    msg: int,
+    jt_p: cobj,
+    jb_p: cobj,
+    j0_p: cobj,
+    f_p: cobj,
+    eps_p: cobj,
+    eps0_p: cobj,
+):
+    jt = Ptr[i32](jt_p)
+    jb = Ptr[i32](jb_p)
+    j0 = Ptr[i32](j0_p)
+    f = Ptr[float](f_p)
+    eps = Ptr[float](eps_p)
+    eps0 = Ptr[float](eps0_p)
+
+    for i in range(1, il2g + 1):
+        i0 = _idx1(i)
+        j0_i = int(j0[i0])
+        jb_i = int(jb[i0])
+        if j0_i < jb_i:
+            if f[_idx2(i, j0_i, pcols)] < 1.0e-6 and f[_idx2(i, j0_i + 1, pcols)] > f[_idx2(i, j0_i, pcols)]:
+                j0_i += 1
+                j0[i0] = i32(j0_i)
+
+    for k in range(msg + 2, pver + 1):
+        for i in range(1, il2g + 1):
+            i0 = _idx1(i)
+            if k >= int(jt[i0]) and k <= int(j0[i0]):
+                idx = _idx2(i, k, pcols)
+                prev_idx = _idx2(i, k - 1, pcols)
+                if f[idx] < f[prev_idx]:
+                    f[idx] = f[prev_idx]
+
+    for i in range(1, il2g + 1):
+        i0 = _idx1(i)
+        eps0[i0] = f[_idx2(i, int(j0[i0]), pcols)]
+        eps[_idx2(i, int(jb[i0]), pcols)] = eps0[i0]
+
+    for k in range(pver, msg + 1, -1):
+        for i in range(1, il2g + 1):
+            i0 = _idx1(i)
+            if k >= int(j0[i0]) and k <= int(jb[i0]):
+                eps[_idx2(i, k, pcols)] = f[_idx2(i, int(j0[i0]), pcols)]
+
+    for k in range(pver, msg + 1, -1):
+        for i in range(1, il2g + 1):
+            i0 = _idx1(i)
+            if k < int(j0[i0]) and k >= int(jt[i0]):
+                eps[_idx2(i, k, pcols)] = f[_idx2(i, k, pcols)]
+
+
+def zm_cldprp_cloud_top_reset_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    msg: int,
+    lel_p: cobj,
+    jb_p: cobj,
+    jt_p: cobj,
+    eps0_p: cobj,
+    mu_p: cobj,
+    eu_p: cobj,
+    du_p: cobj,
+    hu_p: cobj,
+    hmn_p: cobj,
+    hsthat_p: cobj,
+    dz_p: cobj,
+):
+    lel = Ptr[i32](lel_p)
+    jb = Ptr[i32](jb_p)
+    jt = Ptr[i32](jt_p)
+    eps0 = Ptr[float](eps0_p)
+    mu = Ptr[float](mu_p)
+    eu = Ptr[float](eu_p)
+    du = Ptr[float](du_p)
+    hu = Ptr[float](hu_p)
+    hmn = Ptr[float](hmn_p)
+    hsthat = Ptr[float](hsthat_p)
+    dz = Ptr[float](dz_p)
+
+    khighest = pverp
+    klowest = 1
+    for i in range(1, il2g + 1):
+        i0 = _idx1(i)
+        if int(lel[i0]) < khighest:
+            khighest = int(lel[i0])
+        if int(jb[i0]) > klowest:
+            klowest = int(jb[i0])
+
+    for i in range(1, il2g + 1):
+        i0 = _idx1(i)
+        found = False
+        for k in range(klowest - 2, khighest - 2, -1):
+            if not found and k <= int(jb[i0]) - 2 and k >= int(lel[i0]) - 1:
+                idx = _idx2(i, k, pcols)
+                idxp1 = _idx2(i, k + 1, pcols)
+                if hu[idx] <= hsthat[idx] and hu[idxp1] > hsthat[idxp1] and mu[idx] >= 0.02:
+                    if hu[idx] - hsthat[idx] < -2000.0:
+                        jt[i0] = i32(k + 1)
+                    else:
+                        jt[i0] = i32(k)
+                    found = True
+                elif hu[idx] > hu[_idx2(i, int(jb[i0]), pcols)] or mu[idx] < 0.02:
+                    jt[i0] = i32(k + 1)
+                    found = True
+
+    for k in range(pver, msg + 1, -1):
+        for i in range(1, il2g + 1):
+            i0 = _idx1(i)
+            idx = _idx2(i, k, pcols)
+            if k >= int(lel[i0]) and k <= int(jt[i0]) and eps0[i0] > 0.0:
+                mu[idx] = 0.0
+                eu[idx] = 0.0
+                du[idx] = 0.0
+                hu[idx] = hmn[idx]
+            if k == int(jt[i0]) and eps0[i0] > 0.0:
+                du[idx] = mu[_idx2(i, k + 1, pcols)] / dz[idx]
+                eu[idx] = 0.0
+                mu[idx] = 0.0
+
+
+def zm_cldprp_downdraft_init_codon(
+    il2g: int,
+    pcols: int,
+    jt_p: cobj,
+    jb_p: cobj,
+    j0_p: cobj,
+    jd_p: cobj,
+    hmn_p: cobj,
+    hd_p: cobj,
+    eps0_p: cobj,
+    epsm_p: cobj,
+    alfa_p: cobj,
+    md_p: cobj,
+):
+    jt = Ptr[i32](jt_p)
+    jb = Ptr[i32](jb_p)
+    j0 = Ptr[i32](j0_p)
+    jd = Ptr[i32](jd_p)
+    hmn = Ptr[float](hmn_p)
+    hd = Ptr[float](hd_p)
+    eps0 = Ptr[float](eps0_p)
+    epsm = Ptr[float](epsm_p)
+    alfa = Ptr[float](alfa_p)
+    md = Ptr[float](md_p)
+
+    for i in range(1, il2g + 1):
+        i0 = _idx1(i)
+        alfa[i0] = 0.1
+        if int(jt[i0]) > int(jb[i0]) - 1:
+            jt[i0] = i32(int(jb[i0]) - 1)
+        jd_i = int(j0[i0])
+        if int(jt[i0]) + 1 > jd_i:
+            jd_i = int(jt[i0]) + 1
+        if jd_i > int(jb[i0]):
+            jd_i = int(jb[i0])
+        jd[i0] = i32(jd_i)
+        hd[_idx2(i, jd_i, pcols)] = hmn[_idx2(i, jd_i - 1, pcols)]
+        if jd_i < int(jb[i0]) and eps0[i0] > 0.0:
+            epsm[i0] = eps0[i0]
+            md[_idx2(i, jd_i, pcols)] = -alfa[i0] * epsm[i0] / eps0[i0]
+
+
+def zm_cldprp_qds_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    msg: int,
+    rl: float,
+    jd_p: cobj,
+    jb_p: cobj,
+    eps0_p: cobj,
+    qds_p: cobj,
+    qsthat_p: cobj,
+    gamhat_p: cobj,
+    hd_p: cobj,
+    hsthat_p: cobj,
+):
+    jd = Ptr[i32](jd_p)
+    jb = Ptr[i32](jb_p)
+    eps0 = Ptr[float](eps0_p)
+    qds = Ptr[float](qds_p)
+    qsthat = Ptr[float](qsthat_p)
+    gamhat = Ptr[float](gamhat_p)
+    hd = Ptr[float](hd_p)
+    hsthat = Ptr[float](hsthat_p)
+
+    for k in range(msg + 2, pver + 1):
+        for i in range(1, il2g + 1):
+            i0 = _idx1(i)
+            if k >= int(jd[i0]) and k <= int(jb[i0]) and eps0[i0] > 0.0 and int(jd[i0]) < int(jb[i0]):
+                idx = _idx2(i, k, pcols)
+                qds[idx] = qsthat[idx] + gamhat[idx] * (hd[idx] - hsthat[idx]) / (rl * (1.0 + gamhat[idx]))
+
+
+def zm_cldprp_updraft_saturation_adjust_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    msg: int,
+    cp: float,
+    grav: float,
+    rl: float,
+    jt_p: cobj,
+    jlcl_p: cobj,
+    eps0_p: cobj,
+    shat_p: cobj,
+    hu_p: cobj,
+    hsthat_p: cobj,
+    gamhat_p: cobj,
+    zf_p: cobj,
+    qsthat_p: cobj,
+    su_p: cobj,
+    tut_p: cobj,
+    qu_p: cobj,
+):
+    jt = Ptr[i32](jt_p)
+    jlcl = Ptr[i32](jlcl_p)
+    eps0 = Ptr[float](eps0_p)
+    shat = Ptr[float](shat_p)
+    hu = Ptr[float](hu_p)
+    hsthat = Ptr[float](hsthat_p)
+    gamhat = Ptr[float](gamhat_p)
+    zf = Ptr[float](zf_p)
+    qsthat = Ptr[float](qsthat_p)
+    su = Ptr[float](su_p)
+    tut = Ptr[float](tut_p)
+    qu = Ptr[float](qu_p)
+
+    for k in range(msg + 2, pver + 1):
+        for i in range(1, il2g + 1):
+            i0 = _idx1(i)
+            if k > int(jt[i0]) and k <= int(jlcl[i0]) and eps0[i0] > 0.0:
+                idx = _idx2(i, k, pcols)
+                su[idx] = shat[idx] + (hu[idx] - hsthat[idx]) / (cp * (1.0 + gamhat[idx]))
+                tut[idx] = su[idx] - grav / cp * zf[idx]
+                qu[idx] = qsthat[idx] + gamhat[idx] * (hu[idx] - hsthat[idx]) / (rl * (1.0 + gamhat[idx]))
+
+
+def zm_cldprp_condensation_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    msg: int,
+    rl: float,
+    cp: float,
+    jt_p: cobj,
+    jb_p: cobj,
+    eps0_p: cobj,
+    mu_p: cobj,
+    su_p: cobj,
+    dz_p: cobj,
+    eu_p: cobj,
+    du_p: cobj,
+    s_p: cobj,
+    cu_p: cobj,
+):
+    jt = Ptr[i32](jt_p)
+    jb = Ptr[i32](jb_p)
+    eps0 = Ptr[float](eps0_p)
+    mu = Ptr[float](mu_p)
+    su = Ptr[float](su_p)
+    dz = Ptr[float](dz_p)
+    eu = Ptr[float](eu_p)
+    du = Ptr[float](du_p)
+    s = Ptr[float](s_p)
+    cu = Ptr[float](cu_p)
+
+    for k in range(pver, msg + 2, -1):
+        for i in range(1, il2g + 1):
+            i0 = _idx1(i)
+            if k >= int(jt[i0]) and k < int(jb[i0]) and eps0[i0] > 0.0:
+                idx = _idx2(i, k, pcols)
+                idxp1 = _idx2(i, k + 1, pcols)
+                cu[idx] = (
+                    (mu[idx] * su[idx] - mu[idxp1] * su[idxp1]) / dz[idx]
+                    - (eu[idx] - du[idx]) * s[idx]
+                ) / (rl / cp)
+                if k == int(jt[i0]):
+                    cu[idx] = 0.0
+                if cu[idx] < 0.0:
+                    cu[idx] = 0.0
+
+
+def zm_cldprp_rain_production_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    msg: int,
+    jt_p: cobj,
+    jb_p: cobj,
+    eps0_p: cobj,
+    mu_p: cobj,
+    ql_p: cobj,
+    dz_p: cobj,
+    du_p: cobj,
+    cu_p: cobj,
+    c0mask_p: cobj,
+    totpcp_p: cobj,
+    rprd_p: cobj,
+):
+    jt = Ptr[i32](jt_p)
+    jb = Ptr[i32](jb_p)
+    eps0 = Ptr[float](eps0_p)
+    mu = Ptr[float](mu_p)
+    ql = Ptr[float](ql_p)
+    dz = Ptr[float](dz_p)
+    du = Ptr[float](du_p)
+    cu = Ptr[float](cu_p)
+    c0mask = Ptr[float](c0mask_p)
+    totpcp = Ptr[float](totpcp_p)
+    rprd = Ptr[float](rprd_p)
+
+    for k in range(pver, msg + 2, -1):
+        for i in range(1, il2g + 1):
+            i0 = _idx1(i)
+            idx = _idx2(i, k, pcols)
+            idxp1 = _idx2(i, k + 1, pcols)
+            rprd[idx] = 0.0
+            if k >= int(jt[i0]) and k < int(jb[i0]) and eps0[i0] > 0.0 and mu[idx] >= 0.0:
+                if mu[idx] > 0.0:
+                    ql1 = 1.0 / mu[idx] * (mu[idxp1] * ql[idxp1] - dz[idx] * du[idx] * ql[idxp1] + dz[idx] * cu[idx])
+                    ql[idx] = ql1 / (1.0 + dz[idx] * c0mask[i0])
+                else:
+                    ql[idx] = 0.0
+                totpcp[i0] = totpcp[i0] + dz[idx] * (cu[idx] - du[idx] * ql[idxp1])
+                rprd[idx] = c0mask[i0] * mu[idx] * ql[idx]
+
+
+def zm_cldprp_downdraft_seed_codon(
+    il2g: int,
+    pcols: int,
+    cp: float,
+    grav: float,
+    rl: float,
+    jd_p: cobj,
+    qds_p: cobj,
+    qd_p: cobj,
+    hd_p: cobj,
+    sd_p: cobj,
+    tdt_p: cobj,
+    zf_p: cobj,
+):
+    jd = Ptr[i32](jd_p)
+    qds = Ptr[float](qds_p)
+    qd = Ptr[float](qd_p)
+    hd = Ptr[float](hd_p)
+    sd = Ptr[float](sd_p)
+    tdt = Ptr[float](tdt_p)
+    zf = Ptr[float](zf_p)
+
+    for i in range(1, il2g + 1):
+        jd_i = int(jd[_idx1(i)])
+        idx = _idx2(i, jd_i, pcols)
+        qd[idx] = qds[idx]
+        sd[idx] = (hd[idx] - rl * qd[idx]) / cp
+        tdt[idx] = sd[idx] - grav / cp * zf[idx]
+
+
+def zm_cldprp_downdraft_evap_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    msg: int,
+    cp: float,
+    grav: float,
+    rl: float,
+    small: float,
+    jd_p: cobj,
+    jb_p: cobj,
+    eps0_p: cobj,
+    q_p: cobj,
+    s_p: cobj,
+    zf_p: cobj,
+    dz_p: cobj,
+    ed_p: cobj,
+    md_p: cobj,
+    qd_p: cobj,
+    qds_p: cobj,
+    sd_p: cobj,
+    tdt_p: cobj,
+    evp_p: cobj,
+    totevp_p: cobj,
+):
+    jd = Ptr[i32](jd_p)
+    jb = Ptr[i32](jb_p)
+    eps0 = Ptr[float](eps0_p)
+    q = Ptr[float](q_p)
+    s = Ptr[float](s_p)
+    zf = Ptr[float](zf_p)
+    dz = Ptr[float](dz_p)
+    ed = Ptr[float](ed_p)
+    md = Ptr[float](md_p)
+    qd = Ptr[float](qd_p)
+    qds = Ptr[float](qds_p)
+    sd = Ptr[float](sd_p)
+    tdt = Ptr[float](tdt_p)
+    evp = Ptr[float](evp_p)
+    totevp = Ptr[float](totevp_p)
+
+    for k in range(msg + 2, pver + 1):
+        for i in range(1, il2g + 1):
+            i0 = _idx1(i)
+            if k >= int(jd[i0]) and k < int(jb[i0]) and eps0[i0] > 0.0:
+                idx = _idx2(i, k, pcols)
+                idxp1 = _idx2(i, k + 1, pcols)
+                qd[idxp1] = qds[idxp1]
+                evp[idx] = -ed[idx] * q[idx] + (md[idx] * qd[idx] - md[idxp1] * qd[idxp1]) / dz[idx]
+                if evp[idx] < 0.0:
+                    evp[idx] = 0.0
+                mdt = md[idxp1]
+                if -small < mdt:
+                    mdt = -small
+                sd[idxp1] = ((rl / cp * evp[idx] - ed[idx] * s[idx]) * dz[idx] + md[idx] * sd[idx]) / mdt
+                tdt[idxp1] = sd[idxp1] - grav / cp * zf[idxp1]
+                totevp[i0] = totevp[i0] - dz[idx] * ed[idx] * q[idx]
+
+
 def zm_cldprp_evap_finalize_codon(
     il2g: int,
     pcols: int,

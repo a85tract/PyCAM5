@@ -2985,12 +2985,12 @@ subroutine cldprp(lchnk   , &
    real(r8) rmue(pcols)
    real(r8) zuef(pcols)
    real(r8) zdef(pcols)
-   real(r8) epsm(pcols)
+   real(r8), target :: epsm(pcols)
    real(r8) ratmjb(pcols)
    real(r8) est(pcols)
    real(r8), target :: totpcp(pcols)
    real(r8), target :: totevp(pcols)
-   real(r8) alfa(pcols)
+   real(r8), target :: alfa(pcols)
    real(r8) ql1
    real(r8) tu
    real(r8) estu
@@ -3045,6 +3045,83 @@ subroutine cldprp(lchnk   , &
          type(c_ptr), value :: src_p, dst_p
       end subroutine zm_cldprp_copy_2d_codon
 
+      subroutine zm_cldprp_eps_profile_codon(il2g_c, pcols_c, pver_c, msg_c, jt_p, jb_p, j0_p, &
+           f_p, eps_p, eps0_p) bind(c, name="zm_cldprp_eps_profile_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c, pver_c, msg_c
+         type(c_ptr), value :: jt_p, jb_p, j0_p, f_p, eps_p, eps0_p
+      end subroutine zm_cldprp_eps_profile_codon
+
+      subroutine zm_cldprp_cloud_top_reset_codon(il2g_c, pcols_c, pver_c, pverp_c, msg_c, &
+           lel_p, jb_p, jt_p, eps0_p, mu_p, eu_p, du_p, hu_p, hmn_p, hsthat_p, dz_p) &
+           bind(c, name="zm_cldprp_cloud_top_reset_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c, pver_c, pverp_c, msg_c
+         type(c_ptr), value :: lel_p, jb_p, jt_p, eps0_p, mu_p, eu_p, du_p, hu_p, hmn_p
+         type(c_ptr), value :: hsthat_p, dz_p
+      end subroutine zm_cldprp_cloud_top_reset_codon
+
+      subroutine zm_cldprp_downdraft_init_codon(il2g_c, pcols_c, jt_p, jb_p, j0_p, jd_p, &
+           hmn_p, hd_p, eps0_p, epsm_p, alfa_p, md_p) bind(c, name="zm_cldprp_downdraft_init_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c
+         type(c_ptr), value :: jt_p, jb_p, j0_p, jd_p, hmn_p, hd_p, eps0_p, epsm_p, alfa_p, md_p
+      end subroutine zm_cldprp_downdraft_init_codon
+
+      subroutine zm_cldprp_qds_codon(il2g_c, pcols_c, pver_c, msg_c, rl_c, jd_p, jb_p, eps0_p, &
+           qds_p, qsthat_p, gamhat_p, hd_p, hsthat_p) bind(c, name="zm_cldprp_qds_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c, pver_c, msg_c
+         real(c_double), value :: rl_c
+         type(c_ptr), value :: jd_p, jb_p, eps0_p, qds_p, qsthat_p, gamhat_p, hd_p, hsthat_p
+      end subroutine zm_cldprp_qds_codon
+
+      subroutine zm_cldprp_updraft_saturation_adjust_codon(il2g_c, pcols_c, pver_c, msg_c, &
+           cp_c, grav_c, rl_c, jt_p, jlcl_p, eps0_p, shat_p, hu_p, hsthat_p, gamhat_p, zf_p, &
+           qsthat_p, su_p, tut_p, qu_p) bind(c, name="zm_cldprp_updraft_saturation_adjust_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c, pver_c, msg_c
+         real(c_double), value :: cp_c, grav_c, rl_c
+         type(c_ptr), value :: jt_p, jlcl_p, eps0_p, shat_p, hu_p, hsthat_p, gamhat_p, zf_p
+         type(c_ptr), value :: qsthat_p, su_p, tut_p, qu_p
+      end subroutine zm_cldprp_updraft_saturation_adjust_codon
+
+      subroutine zm_cldprp_condensation_codon(il2g_c, pcols_c, pver_c, msg_c, rl_c, cp_c, &
+           jt_p, jb_p, eps0_p, mu_p, su_p, dz_p, eu_p, du_p, s_p, cu_p) &
+           bind(c, name="zm_cldprp_condensation_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c, pver_c, msg_c
+         real(c_double), value :: rl_c, cp_c
+         type(c_ptr), value :: jt_p, jb_p, eps0_p, mu_p, su_p, dz_p, eu_p, du_p, s_p, cu_p
+      end subroutine zm_cldprp_condensation_codon
+
+      subroutine zm_cldprp_rain_production_codon(il2g_c, pcols_c, pver_c, msg_c, &
+           jt_p, jb_p, eps0_p, mu_p, ql_p, dz_p, du_p, cu_p, c0mask_p, totpcp_p, rprd_p) &
+           bind(c, name="zm_cldprp_rain_production_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c, pver_c, msg_c
+         type(c_ptr), value :: jt_p, jb_p, eps0_p, mu_p, ql_p, dz_p, du_p, cu_p, c0mask_p
+         type(c_ptr), value :: totpcp_p, rprd_p
+      end subroutine zm_cldprp_rain_production_codon
+
+      subroutine zm_cldprp_downdraft_seed_codon(il2g_c, pcols_c, cp_c, grav_c, rl_c, &
+           jd_p, qds_p, qd_p, hd_p, sd_p, tdt_p, zf_p) bind(c, name="zm_cldprp_downdraft_seed_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c
+         real(c_double), value :: cp_c, grav_c, rl_c
+         type(c_ptr), value :: jd_p, qds_p, qd_p, hd_p, sd_p, tdt_p, zf_p
+      end subroutine zm_cldprp_downdraft_seed_codon
+
+      subroutine zm_cldprp_downdraft_evap_codon(il2g_c, pcols_c, pver_c, msg_c, cp_c, &
+           grav_c, rl_c, small_c, jd_p, jb_p, eps0_p, q_p, s_p, zf_p, dz_p, ed_p, md_p, &
+           qd_p, qds_p, sd_p, tdt_p, evp_p, totevp_p) bind(c, name="zm_cldprp_downdraft_evap_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c, pver_c, msg_c
+         real(c_double), value :: cp_c, grav_c, rl_c, small_c
+         type(c_ptr), value :: jd_p, jb_p, eps0_p, q_p, s_p, zf_p, dz_p, ed_p, md_p
+         type(c_ptr), value :: qd_p, qds_p, sd_p, tdt_p, evp_p, totevp_p
+      end subroutine zm_cldprp_downdraft_evap_codon
+
       subroutine zm_cldprp_evap_finalize_codon(il2g_c, pcols_c, pver_c, pverp_c, msg_c, jd_p, jb_p, &
            md_p, qd_p, totevp_p, totpcp_p, ed_p, evp_p, cu_p, cmeg_p, rprd_p, dz_p, pflx_p, mc_p, &
            mu_p, wtevp_p) bind(c, name="zm_cldprp_evap_finalize_codon")
@@ -3061,8 +3138,9 @@ subroutine cldprp(lchnk   , &
 
    if (.not. use_native_zm_cldprp_helpers) then
       if (masterproc .and. .not. zm_cldprp_helpers_logged) then
-         write(iulog,*) 'zm_cldprp_helpers entered (init/index/copy/finalize direct = codon)'
-         call zm_conv_evap_append_impl_proof('zm_cldprp_helpers entered (init/index/copy/finalize direct = codon)')
+         write(iulog,*) 'zm_cldprp_helpers entered (init/index/eps/cloudtop/downdraft/cond/rain/evap direct = codon)'
+         call zm_conv_evap_append_impl_proof( &
+              'zm_cldprp_helpers entered (init/index/eps/cloudtop/downdraft/cond/rain/evap direct = codon)')
          call flush(iulog)
          zm_cldprp_helpers_logged = .true.
       end if
@@ -3292,37 +3370,43 @@ subroutine cldprp(lchnk   , &
          end if
       end do
    end do
-   do i = 1,il2g
-      if (j0(i) < jb(i)) then
-         if (f(i,j0(i)) < 1.E-6_r8 .and. f(i,j0(i)+1) > f(i,j0(i))) j0(i) = j0(i) + 1
-      end if
-   end do
-   do k = msg + 2,pver
+   if (.not. use_native_zm_cldprp_helpers) then
+      call zm_cldprp_eps_profile_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(msg, c_int64_t), c_loc(jt), c_loc(jb), c_loc(j0), &
+           c_loc(f), c_loc(eps), c_loc(eps0))
+   else
       do i = 1,il2g
-         if (k >= jt(i) .and. k <= j0(i)) then
-            f(i,k) = max(f(i,k),f(i,k-1))
+         if (j0(i) < jb(i)) then
+            if (f(i,j0(i)) < 1.E-6_r8 .and. f(i,j0(i)+1) > f(i,j0(i))) j0(i) = j0(i) + 1
          end if
       end do
-   end do
-   do i = 1,il2g
-      eps0(i) = f(i,j0(i))
-      eps(i,jb(i)) = eps0(i)
-   end do
+      do k = msg + 2,pver
+         do i = 1,il2g
+            if (k >= jt(i) .and. k <= j0(i)) then
+               f(i,k) = max(f(i,k),f(i,k-1))
+            end if
+         end do
+      end do
+      do i = 1,il2g
+         eps0(i) = f(i,j0(i))
+         eps(i,jb(i)) = eps0(i)
+      end do
 !
 ! This is set to match the Rasch and Kristjansson paper
 !
-   do k = pver,msg + 1,-1
-      do i = 1,il2g
-         if (k >= j0(i) .and. k <= jb(i)) then
-            eps(i,k) = f(i,j0(i))
-         end if
+      do k = pver,msg + 1,-1
+         do i = 1,il2g
+            if (k >= j0(i) .and. k <= jb(i)) then
+               eps(i,k) = f(i,j0(i))
+            end if
+         end do
       end do
-   end do
-   do k = pver,msg + 1,-1
-      do i = 1,il2g
-         if (k < j0(i) .and. k >= jt(i)) eps(i,k) = f(i,k)
+      do k = pver,msg + 1,-1
+         do i = 1,il2g
+            if (k < j0(i) .and. k >= jt(i)) eps(i,k) = f(i,k)
+         end do
       end do
-   end do
+   end if
 !
 ! specify the updraft mass flux mu, entrainment eu, detrainment du
 ! and moist static energy hu.
@@ -3372,62 +3456,75 @@ subroutine cldprp(lchnk   , &
 ! reset cloud top index beginning from two layers above the
 ! cloud base (i.e. if cloud is only one layer thick, top is not reset
 !
-   do i=1,il2g
-      doit(i) = .true.
-   end do
-   do k=klowest-2,khighest-1,-1
+   if (.not. use_native_zm_cldprp_helpers) then
+      call zm_cldprp_cloud_top_reset_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(pverp, c_int64_t), int(msg, c_int64_t), c_loc(lel), &
+           c_loc(jb), c_loc(jt), c_loc(eps0), c_loc(mu), c_loc(eu), c_loc(du), c_loc(hu), &
+           c_loc(hmn), c_loc(hsthat), c_loc(dz))
+   else
       do i=1,il2g
-         if (doit(i) .and. k <= jb(i)-2 .and. k >= lel(i)-1) then
-            if (hu(i,k) <= hsthat(i,k) .and. hu(i,k+1) > hsthat(i,k+1) &
-               .and. mu(i,k) >= 0.02_r8) then
-               if (hu(i,k)-hsthat(i,k) < -2000._r8) then
+         doit(i) = .true.
+      end do
+      do k=klowest-2,khighest-1,-1
+         do i=1,il2g
+            if (doit(i) .and. k <= jb(i)-2 .and. k >= lel(i)-1) then
+               if (hu(i,k) <= hsthat(i,k) .and. hu(i,k+1) > hsthat(i,k+1) &
+                  .and. mu(i,k) >= 0.02_r8) then
+                  if (hu(i,k)-hsthat(i,k) < -2000._r8) then
+                     jt(i) = k + 1
+                     doit(i) = .false.
+                  else
+                     jt(i) = k
+                     doit(i) = .false.
+                  end if
+               else if (hu(i,k) > hu(i,jb(i)) .or. mu(i,k) < 0.02_r8) then
                   jt(i) = k + 1
                   doit(i) = .false.
-               else
-                  jt(i) = k
-                  doit(i) = .false.
                end if
-            else if (hu(i,k) > hu(i,jb(i)) .or. mu(i,k) < 0.02_r8) then
-               jt(i) = k + 1
-               doit(i) = .false.
             end if
-         end if
+         end do
       end do
-   end do
-   do k = pver,msg + 1,-1
-      do i = 1,il2g
-         if (k >= lel(i) .and. k <= jt(i) .and. eps0(i) > 0._r8) then
-            mu(i,k) = 0._r8
-            eu(i,k) = 0._r8
-            du(i,k) = 0._r8
-            hu(i,k) = hmn(i,k)
-         end if
-         if (k == jt(i) .and. eps0(i) > 0._r8) then
-            du(i,k) = mu(i,k+1)/dz(i,k)
-            eu(i,k) = 0._r8
-            mu(i,k) = 0._r8
-         end if
+      do k = pver,msg + 1,-1
+         do i = 1,il2g
+            if (k >= lel(i) .and. k <= jt(i) .and. eps0(i) > 0._r8) then
+               mu(i,k) = 0._r8
+               eu(i,k) = 0._r8
+               du(i,k) = 0._r8
+               hu(i,k) = hmn(i,k)
+            end if
+            if (k == jt(i) .and. eps0(i) > 0._r8) then
+               du(i,k) = mu(i,k+1)/dz(i,k)
+               eu(i,k) = 0._r8
+               mu(i,k) = 0._r8
+            end if
+         end do
       end do
-   end do
+   end if
 !
 ! specify downdraft properties (no downdrafts if jd.ge.jb).
 ! scale down downward mass flux profile so that net flux
 ! (up-down) at cloud base in not negative.
 !
-   do i = 1,il2g
+   if (.not. use_native_zm_cldprp_helpers) then
+      call zm_cldprp_downdraft_init_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
+           c_loc(jt), c_loc(jb), c_loc(j0), c_loc(jd), c_loc(hmn), c_loc(hd), c_loc(eps0), &
+           c_loc(epsm), c_loc(alfa), c_loc(md))
+   else
+      do i = 1,il2g
 !
 ! in normal downdraft strength run alfa=0.2.  In test4 alfa=0.1
 !
-      alfa(i) = 0.1_r8
-      jt(i) = min(jt(i),jb(i)-1)
-      jd(i) = max(j0(i),jt(i)+1)
-      jd(i) = min(jd(i),jb(i))
-      hd(i,jd(i)) = hmn(i,jd(i)-1)
-      if (jd(i) < jb(i) .and. eps0(i) > 0._r8) then
-         epsm(i) = eps0(i)
-         md(i,jd(i)) = -alfa(i)*epsm(i)/eps0(i)
-      end if
-   end do
+         alfa(i) = 0.1_r8
+         jt(i) = min(jt(i),jb(i)-1)
+         jd(i) = max(j0(i),jt(i)+1)
+         jd(i) = min(jd(i),jb(i))
+         hd(i,jd(i)) = hmn(i,jd(i)-1)
+         if (jd(i) < jb(i) .and. eps0(i) > 0._r8) then
+            epsm(i) = eps0(i)
+            md(i,jd(i)) = -alfa(i)*epsm(i)/eps0(i)
+         end if
+      end do
+   end if
    do k = msg + 1,pver
       do i = 1,il2g
          if ((k > jd(i) .and. k <= jb(i)) .and. eps0(i) > 0._r8) then
@@ -3472,14 +3569,20 @@ subroutine cldprp(lchnk   , &
 !
 ! calculate updraft and downdraft properties.
 !
-   do k = msg + 2,pver
-      do i = 1,il2g
-         if ((k >= jd(i) .and. k <= jb(i)) .and. eps0(i) > 0._r8 .and. jd(i) < jb(i)) then
-            qds(i,k) = qsthat(i,k) + gamhat(i,k)*(hd(i,k)-hsthat(i,k))/ &
-               (rl*(1._r8 + gamhat(i,k)))
-         end if
+   if (.not. use_native_zm_cldprp_helpers) then
+      call zm_cldprp_qds_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(msg, c_int64_t), rl, c_loc(jd), c_loc(jb), &
+           c_loc(eps0), c_loc(qds), c_loc(qsthat), c_loc(gamhat), c_loc(hd), c_loc(hsthat))
+   else
+      do k = msg + 2,pver
+         do i = 1,il2g
+            if ((k >= jd(i) .and. k <= jb(i)) .and. eps0(i) > 0._r8 .and. jd(i) < jb(i)) then
+               qds(i,k) = qsthat(i,k) + gamhat(i,k)*(hd(i,k)-hsthat(i,k))/ &
+                  (rl*(1._r8 + gamhat(i,k)))
+            end if
+         end do
       end do
-   end do
+   end if
 !
    do i = 1,il2g
       done(i) = .false.
@@ -3512,28 +3615,41 @@ subroutine cldprp(lchnk   , &
       if (kount >= il2g) goto 690
    end do
 690 continue
-   do k = msg + 2,pver
-      do i = 1,il2g
-         if ((k > jt(i) .and. k <= jlcl(i)) .and. eps0(i) > 0._r8) then
-            su(i,k) = shat(i,k) + (hu(i,k)-hsthat(i,k))/(cp* (1._r8+gamhat(i,k)))
-            tut(i,k) = su(i,k) - grav/cp*zf(i,k)
-            qu(i,k) = qsthat(i,k) + gamhat(i,k)*(hu(i,k)-hsthat(i,k))/ &
-                     (rl* (1._r8+gamhat(i,k)))
-         end if
+   if (.not. use_native_zm_cldprp_helpers) then
+      call zm_cldprp_updraft_saturation_adjust_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(msg, c_int64_t), cp, grav, rl, c_loc(jt), c_loc(jlcl), &
+           c_loc(eps0), c_loc(shat), c_loc(hu), c_loc(hsthat), c_loc(gamhat), c_loc(zf), &
+           c_loc(qsthat), c_loc(su), c_loc(tut), c_loc(qu))
+   else
+      do k = msg + 2,pver
+         do i = 1,il2g
+            if ((k > jt(i) .and. k <= jlcl(i)) .and. eps0(i) > 0._r8) then
+               su(i,k) = shat(i,k) + (hu(i,k)-hsthat(i,k))/(cp* (1._r8+gamhat(i,k)))
+               tut(i,k) = su(i,k) - grav/cp*zf(i,k)
+               qu(i,k) = qsthat(i,k) + gamhat(i,k)*(hu(i,k)-hsthat(i,k))/ &
+                        (rl* (1._r8+gamhat(i,k)))
+            end if
+         end do
       end do
-   end do
+   end if
 
 ! compute condensation in updraft
-   do k = pver,msg + 2,-1
-      do i = 1,il2g
-         if (k >= jt(i) .and. k < jb(i) .and. eps0(i) > 0._r8) then
-            cu(i,k) = ((mu(i,k)*su(i,k)-mu(i,k+1)*su(i,k+1))/ &
-                      dz(i,k)- (eu(i,k)-du(i,k))*s(i,k))/(rl/cp)
-          if (k == jt(i)) cu(i,k) = 0._r8
-            cu(i,k) = max(0._r8,cu(i,k))
-         end if
+   if (.not. use_native_zm_cldprp_helpers) then
+      call zm_cldprp_condensation_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(msg, c_int64_t), rl, cp, c_loc(jt), c_loc(jb), &
+           c_loc(eps0), c_loc(mu), c_loc(su), c_loc(dz), c_loc(eu), c_loc(du), c_loc(s), c_loc(cu))
+   else
+      do k = pver,msg + 2,-1
+         do i = 1,il2g
+            if (k >= jt(i) .and. k < jb(i) .and. eps0(i) > 0._r8) then
+               cu(i,k) = ((mu(i,k)*su(i,k)-mu(i,k+1)*su(i,k+1))/ &
+                         dz(i,k)- (eu(i,k)-du(i,k))*s(i,k))/(rl/cp)
+             if (k == jt(i)) cu(i,k) = 0._r8
+               cu(i,k) = max(0._r8,cu(i,k))
+            end if
+         end do
       end do
-   end do
+   end if
 
 ! compute condensed liquid, rain production rate
 ! accumulate total precipitation (condensation - detrainment of liquid)
@@ -3542,22 +3658,29 @@ subroutine cldprp(lchnk   , &
 ! consistently applied.
 !    mu, ql are interface quantities
 !    cu, du, eu, rprd are midpoint quantites
-   do k = pver,msg + 2,-1
-      do i = 1,il2g
-         rprd(i,k) = 0._r8
-         if (k >= jt(i) .and. k < jb(i) .and. eps0(i) > 0._r8 .and. mu(i,k) >= 0.0_r8) then
-            if (mu(i,k) > 0._r8) then
-               ql1 = 1._r8/mu(i,k)* (mu(i,k+1)*ql(i,k+1)- &
-                     dz(i,k)*du(i,k)*ql(i,k+1)+dz(i,k)*cu(i,k))
-               ql(i,k) = ql1/ (1._r8+dz(i,k)*c0mask(i))
-            else
-               ql(i,k) = 0._r8
+   if (.not. use_native_zm_cldprp_helpers) then
+      call zm_cldprp_rain_production_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(msg, c_int64_t), c_loc(jt), c_loc(jb), c_loc(eps0), &
+           c_loc(mu), c_loc(ql), c_loc(dz), c_loc(du), c_loc(cu), c_loc(c0mask), &
+           c_loc(totpcp), c_loc(rprd))
+   else
+      do k = pver,msg + 2,-1
+         do i = 1,il2g
+            rprd(i,k) = 0._r8
+            if (k >= jt(i) .and. k < jb(i) .and. eps0(i) > 0._r8 .and. mu(i,k) >= 0.0_r8) then
+               if (mu(i,k) > 0._r8) then
+                  ql1 = 1._r8/mu(i,k)* (mu(i,k+1)*ql(i,k+1)- &
+                        dz(i,k)*du(i,k)*ql(i,k+1)+dz(i,k)*cu(i,k))
+                  ql(i,k) = ql1/ (1._r8+dz(i,k)*c0mask(i))
+               else
+                  ql(i,k) = 0._r8
+               end if
+               totpcp(i) = totpcp(i) + dz(i,k)*(cu(i,k)-du(i,k)*ql(i,k+1))
+               rprd(i,k) = c0mask(i)*mu(i,k)*ql(i,k)
             end if
-            totpcp(i) = totpcp(i) + dz(i,k)*(cu(i,k)-du(i,k)*ql(i,k+1))
-            rprd(i,k) = c0mask(i)*mu(i,k)*ql(i,k)
-         end if
+         end do
       end do
-   end do
+   end if
 
 !
 !Needed for water tracers:
@@ -3567,25 +3690,38 @@ subroutine cldprp(lchnk   , &
       rppe(:,:) = rprd(:,:)
    end if
 !
-   do i = 1,il2g
-      qd(i,jd(i)) = qds(i,jd(i))
-      sd(i,jd(i)) = (hd(i,jd(i)) - rl*qd(i,jd(i)))/cp
-      tdt(i,jd(i)) = sd(i,jd(i)) - grav/cp*zf(i,jd(i))
-   end do
-!
-   do k = msg + 2,pver
-     do i = 1,il2g
-         if (k >= jd(i) .and. k < jb(i) .and. eps0(i) > 0._r8) then
-            qd(i,k+1) = qds(i,k+1)
-            evp(i,k) = -ed(i,k)*q(i,k) + (md(i,k)*qd(i,k)-md(i,k+1)*qd(i,k+1))/dz(i,k)
-            evp(i,k) = max(evp(i,k),0._r8)
-            mdt = min(md(i,k+1),-small)
-            sd(i,k+1) = ((rl/cp*evp(i,k)-ed(i,k)*s(i,k))*dz(i,k) + md(i,k)*sd(i,k))/mdt
-            tdt(i,k+1) = sd(i,k+1) - grav/cp*zf(i,k+1)
-            totevp(i) = totevp(i) - dz(i,k)*ed(i,k)*q(i,k)
-         end if
+   if (.not. use_native_zm_cldprp_helpers) then
+      call zm_cldprp_downdraft_seed_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
+           cp, grav, rl, c_loc(jd), c_loc(qds), c_loc(qd), c_loc(hd), c_loc(sd), &
+           c_loc(tdt), c_loc(zf))
+   else
+      do i = 1,il2g
+         qd(i,jd(i)) = qds(i,jd(i))
+         sd(i,jd(i)) = (hd(i,jd(i)) - rl*qd(i,jd(i)))/cp
+         tdt(i,jd(i)) = sd(i,jd(i)) - grav/cp*zf(i,jd(i))
       end do
-   end do
+   end if
+!
+   if (.not. use_native_zm_cldprp_helpers) then
+      call zm_cldprp_downdraft_evap_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(msg, c_int64_t), cp, grav, rl, small, c_loc(jd), &
+           c_loc(jb), c_loc(eps0), c_loc(q), c_loc(s), c_loc(zf), c_loc(dz), c_loc(ed), &
+           c_loc(md), c_loc(qd), c_loc(qds), c_loc(sd), c_loc(tdt), c_loc(evp), c_loc(totevp))
+   else
+      do k = msg + 2,pver
+        do i = 1,il2g
+            if (k >= jd(i) .and. k < jb(i) .and. eps0(i) > 0._r8) then
+               qd(i,k+1) = qds(i,k+1)
+               evp(i,k) = -ed(i,k)*q(i,k) + (md(i,k)*qd(i,k)-md(i,k+1)*qd(i,k+1))/dz(i,k)
+               evp(i,k) = max(evp(i,k),0._r8)
+               mdt = min(md(i,k+1),-small)
+               sd(i,k+1) = ((rl/cp*evp(i,k)-ed(i,k)*s(i,k))*dz(i,k) + md(i,k)*sd(i,k))/mdt
+               tdt(i,k+1) = sd(i,k+1) - grav/cp*zf(i,k+1)
+               totevp(i) = totevp(i) - dz(i,k)*ed(i,k)*q(i,k)
+            end if
+         end do
+      end do
+   end if
 
    if (.not. use_native_zm_cldprp_helpers) then
       call zm_cldprp_evap_finalize_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
