@@ -1351,38 +1351,44 @@ do k=top_lev,pver
 end do ! k loop
 
 
-!! initialize sub-step precip flux variables
-do i=1,ncol
-   !! flux is zero at top interface, so these should stay as 0.
-   rflx1(i,1)=0._r8
-   sflx1(i,1)=0._r8
-   do k=top_lev,pver
+call micro_mg1_0_select_colzero_impl()
+if (micro_mg1_0_colzero_use_native_impl) then
+   !! initialize sub-step precip flux variables
+   do i=1,ncol
+      !! flux is zero at top interface, so these should stay as 0.
+      rflx1(i,1)=0._r8
+      sflx1(i,1)=0._r8
+      do k=top_lev,pver
 
-      ! initialize normal and sub-step precip flux variables
-      rflx1(i,k+1)=0._r8
-      sflx1(i,k+1)=0._r8
-   end do ! i loop
-end do ! k loop
-!! initialize final precip flux variables.
-do i=1,ncol
-   !! flux is zero at top interface, so these should stay as 0.
-   rflx(i,1)=0._r8
-   sflx(i,1)=0._r8
-   do k=top_lev,pver
-      ! initialize normal and sub-step precip flux variables
-      rflx(i,k+1)=0._r8
-      sflx(i,k+1)=0._r8
-   end do ! i loop
-end do ! k loop
+         ! initialize normal and sub-step precip flux variables
+         rflx1(i,k+1)=0._r8
+         sflx1(i,k+1)=0._r8
+      end do ! i loop
+   end do ! k loop
+   !! initialize final precip flux variables.
+   do i=1,ncol
+      !! flux is zero at top interface, so these should stay as 0.
+      rflx(i,1)=0._r8
+      sflx(i,1)=0._r8
+      do k=top_lev,pver
+         ! initialize normal and sub-step precip flux variables
+         rflx(i,k+1)=0._r8
+         sflx(i,k+1)=0._r8
+      end do ! i loop
+   end do ! k loop
 
-do i=1,ncol
-   ltrue(i)=0
-   do k=top_lev,pver
-      ! skip microphysical calculations if no cloud water
+   do i=1,ncol
+      ltrue(i)=0
+      do k=top_lev,pver
+         ! skip microphysical calculations if no cloud water
 
-      if (qc(i,k).ge.qsmall.or.qi(i,k).ge.qsmall.or.cmei(i,k).ge.qsmall) ltrue(i)=1
+         if (qc(i,k).ge.qsmall.or.qi(i,k).ge.qsmall.or.cmei(i,k).ge.qsmall) ltrue(i)=1
+      end do
    end do
-end do
+else
+   call micro_mg1_0_flux_ltrue_init_codon_wrap(ncol, pcols, pver, top_lev, qsmall, &
+        rflx1, sflx1, rflx, sflx, qc, qi, cmei, ltrue)
+end if
 
 ! assign number of sub-steps to iter
 ! use 2 sub-steps, following tests described in MG2008
@@ -1400,8 +1406,6 @@ deltat=deltat/real(iter)
 
 mtime=1._r8
 rate1ord_cw2pr_st(:,:)=0._r8 ! rce 2010/05/01
-call micro_mg1_0_select_colzero_impl()
-
 !!!! skip calculations if no cloud water
 do i=1,ncol
    if (ltrue(i).eq.0) then
@@ -3933,12 +3937,46 @@ end subroutine micro_mg1_0_select_colzero_impl
 
 subroutine micro_mg1_0_colzero_log_entry()
   if (masterproc .and. .not. micro_mg1_0_colzero_wrapper_logged) then
-     write(iulog,*) 'micro_mg1_0_colzero_wrap entered (column zero initialization = codon)'
+     write(iulog,*) 'micro_mg1_0_colzero_wrap entered (column/flux/ltrue initialization = codon)'
      call micro_mg1_0_append_impl_proof('MICRO_MG1_0_COLZERO_PROOF_FILE', &
-          'micro_mg1_0_colzero_wrap entered (column zero initialization = codon)')
+          'micro_mg1_0_colzero_wrap entered (column/flux/ltrue initialization = codon)')
      micro_mg1_0_colzero_wrapper_logged = .true.
   end if
 end subroutine micro_mg1_0_colzero_log_entry
+
+subroutine micro_mg1_0_flux_ltrue_init_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, &
+     qsmall_local, rflx1_local, sflx1_local, rflx_local, sflx_local, qc_local, qi_local, cmei_local, &
+     ltrue_local)
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  integer, intent(in) :: ncol_local, pcols_local, pver_local, top_lev_local
+  real(r8), intent(in) :: qsmall_local
+  real(r8), target, intent(inout) :: rflx1_local(pcols_local,pver_local+1)
+  real(r8), target, intent(inout) :: sflx1_local(pcols_local,pver_local+1)
+  real(r8), target, intent(inout) :: rflx_local(pcols_local,pver_local+1)
+  real(r8), target, intent(inout) :: sflx_local(pcols_local,pver_local+1)
+  real(r8), target, intent(in) :: qc_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: qi_local(pcols_local,pver_local)
+  real(r8), target, intent(in) :: cmei_local(pcols_local,pver_local)
+  integer, target, intent(inout) :: ltrue_local(pcols_local)
+
+  interface
+     subroutine micro_mg1_0_flux_ltrue_init_codon(ncol_c, pcols_c, pver_c, top_lev_c, qsmall_c, &
+          rflx1_p, sflx1_p, rflx_p, sflx_p, qc_p, qi_p, cmei_p, ltrue_p) &
+          bind(c, name="micro_mg1_0_flux_ltrue_init_codon")
+       import c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
+       real(c_double), value :: qsmall_c
+       type(c_ptr), value :: rflx1_p, sflx1_p, rflx_p, sflx_p
+       type(c_ptr), value :: qc_p, qi_p, cmei_p, ltrue_p
+     end subroutine micro_mg1_0_flux_ltrue_init_codon
+  end interface
+
+  call micro_mg1_0_colzero_log_entry()
+  call micro_mg1_0_flux_ltrue_init_codon(int(ncol_local, c_int64_t), int(pcols_local, c_int64_t), &
+       int(pver_local, c_int64_t), int(top_lev_local, c_int64_t), real(qsmall_local, c_double), &
+       c_loc(rflx1_local), c_loc(sflx1_local), c_loc(rflx_local), c_loc(sflx_local), c_loc(qc_local), &
+       c_loc(qi_local), c_loc(cmei_local), c_loc(ltrue_local))
+end subroutine micro_mg1_0_flux_ltrue_init_codon_wrap
 
 subroutine micro_mg1_0_no_cloud_zero_column_codon_wrap(i_local, pcols_local, pver_local, &
      tlat_local, qvlat_local, qctend_local, qitend_local, qnitend_local, qrtend_local, &

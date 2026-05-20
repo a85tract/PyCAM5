@@ -657,6 +657,53 @@ def micro_mg1_0_substep_zero_column_codon(
     )
 
 
+@export
+def micro_mg1_0_flux_ltrue_init_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    qsmall: float,
+    rflx1_p: cobj,
+    sflx1_p: cobj,
+    rflx_p: cobj,
+    sflx_p: cobj,
+    qc_p: cobj,
+    qi_p: cobj,
+    cmei_p: cobj,
+    ltrue_p: cobj,
+):
+    rflx1 = Ptr[float](rflx1_p)
+    sflx1 = Ptr[float](sflx1_p)
+    rflx = Ptr[float](rflx_p)
+    sflx = Ptr[float](sflx_p)
+    qc = Ptr[float](qc_p)
+    qi = Ptr[float](qi_p)
+    cmei = Ptr[float](cmei_p)
+    ltrue = Ptr[i32](ltrue_p)
+
+    for i in range(1, ncol + 1):
+        rflx1[_idx2(i, 1, pcols)] = 0.0
+        sflx1[_idx2(i, 1, pcols)] = 0.0
+        for k in range(top_lev, pver + 1):
+            rflx1[_idx2(i, k + 1, pcols)] = 0.0
+            sflx1[_idx2(i, k + 1, pcols)] = 0.0
+
+    for i in range(1, ncol + 1):
+        rflx[_idx2(i, 1, pcols)] = 0.0
+        sflx[_idx2(i, 1, pcols)] = 0.0
+        for k in range(top_lev, pver + 1):
+            rflx[_idx2(i, k + 1, pcols)] = 0.0
+            sflx[_idx2(i, k + 1, pcols)] = 0.0
+
+    for i in range(1, ncol + 1):
+        ltrue[i - 1] = i32(0)
+        for k in range(top_lev, pver + 1):
+            idx = _idx2(i, k, pcols)
+            if qc[idx] >= qsmall or qi[idx] >= qsmall or cmei[idx] >= qsmall:
+                ltrue[i - 1] = i32(1)
+
+
 @inline
 def _pack2d_mgcols(
     mgncol: int,
