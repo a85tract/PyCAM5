@@ -329,6 +329,69 @@ def zm_cldprp_copy_2d_codon(
             dst[idx] = src[idx]
 
 
+def zm_cldprp_taylor_hmin_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    msg: int,
+    jt_p: cobj,
+    jb_p: cobj,
+    mx_p: cobj,
+    j0_p: cobj,
+    hmn_p: cobj,
+    dz_p: cobj,
+    k1_p: cobj,
+    ihat_p: cobj,
+    i2_p: cobj,
+    idag_p: cobj,
+    i3_p: cobj,
+    iprm_p: cobj,
+    i4_p: cobj,
+    hmin_p: cobj,
+    expdif_p: cobj,
+):
+    jt = Ptr[i32](jt_p)
+    jb = Ptr[i32](jb_p)
+    mx = Ptr[i32](mx_p)
+    j0 = Ptr[i32](j0_p)
+    hmn = Ptr[float](hmn_p)
+    dz = Ptr[float](dz_p)
+    k1 = Ptr[float](k1_p)
+    ihat = Ptr[float](ihat_p)
+    i2 = Ptr[float](i2_p)
+    idag = Ptr[float](idag_p)
+    i3 = Ptr[float](i3_p)
+    iprm = Ptr[float](iprm_p)
+    i4 = Ptr[float](i4_p)
+    hmin = Ptr[float](hmin_p)
+    expdif = Ptr[float](expdif_p)
+
+    for k in range(pver - 1, msg + 1, -1):
+        for i in range(1, il2g + 1):
+            i0 = _idx1(i)
+            if k < int(jb[i0]) and k >= int(jt[i0]):
+                idx = _idx2(i, k, pcols)
+                idxp1 = _idx2(i, k + 1, pcols)
+                k1[idx] = k1[idxp1] + (hmn[_idx2(i, int(mx[i0]), pcols)] - hmn[idx]) * dz[idx]
+                ihat[idx] = 0.5 * (k1[idxp1] + k1[idx])
+                i2[idx] = i2[idxp1] + ihat[idx] * dz[idx]
+                idag[idx] = 0.5 * (i2[idxp1] + i2[idx])
+                i3[idx] = i3[idxp1] + idag[idx] * dz[idx]
+                iprm[idx] = 0.5 * (i3[idxp1] + i3[idx])
+                i4[idx] = i4[idxp1] + iprm[idx] * dz[idx]
+
+    for i in range(1, il2g + 1):
+        hmin[_idx1(i)] = 1.0e6
+
+    for k in range(msg + 1, pver + 1):
+        for i in range(1, il2g + 1):
+            i0 = _idx1(i)
+            idx = _idx2(i, k, pcols)
+            if k >= int(j0[i0]) and k <= int(jb[i0]) and hmn[idx] <= hmin[i0]:
+                hmin[i0] = hmn[idx]
+                expdif[i0] = hmn[_idx2(i, int(mx[i0]), pcols)] - hmin[i0]
+
+
 def zm_cldprp_eps_profile_codon(
     il2g: int,
     pcols: int,

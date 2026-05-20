@@ -3056,6 +3056,15 @@ subroutine cldprp(lchnk   , &
          type(c_ptr), value :: src_p, dst_p
       end subroutine zm_cldprp_copy_2d_codon
 
+      subroutine zm_cldprp_taylor_hmin_codon(il2g_c, pcols_c, pver_c, msg_c, jt_p, jb_p, mx_p, &
+           j0_p, hmn_p, dz_p, k1_p, ihat_p, i2_p, idag_p, i3_p, iprm_p, i4_p, hmin_p, &
+           expdif_p) bind(c, name="zm_cldprp_taylor_hmin_codon")
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c, pver_c, msg_c
+         type(c_ptr), value :: jt_p, jb_p, mx_p, j0_p, hmn_p, dz_p, k1_p, ihat_p, i2_p
+         type(c_ptr), value :: idag_p, i3_p, iprm_p, i4_p, hmin_p, expdif_p
+      end subroutine zm_cldprp_taylor_hmin_codon
+
       subroutine zm_cldprp_eps_profile_codon(il2g_c, pcols_c, pver_c, msg_c, jt_p, jb_p, j0_p, &
            f_p, eps_p, eps0_p) bind(c, name="zm_cldprp_eps_profile_codon")
          use iso_c_binding, only: c_int64_t, c_ptr
@@ -3158,9 +3167,11 @@ subroutine cldprp(lchnk   , &
 
    if (.not. use_native_zm_cldprp_helpers) then
       if (masterproc .and. .not. zm_cldprp_helpers_logged) then
-         write(iulog,*) 'zm_cldprp_helpers entered (init/thermo/index/eps/cloudtop/ddmass/downdraft/cond/rain/evap direct = codon)'
+         write(iulog,*) 'zm_cldprp_helpers entered (init/thermo/index/taylor/eps/cloudtop/ddmass/' // &
+              'downdraft/cond/rain/evap direct = codon)'
          call zm_conv_evap_append_impl_proof( &
-              'zm_cldprp_helpers entered (init/thermo/index/eps/cloudtop/ddmass/downdraft/cond/rain/evap direct = codon)')
+              'zm_cldprp_helpers entered (init/thermo/index/taylor/eps/cloudtop/ddmass/' // &
+              'downdraft/cond/rain/evap direct = codon)')
          call flush(iulog)
          zm_cldprp_helpers_logged = .true.
       end if
@@ -3346,33 +3357,40 @@ subroutine cldprp(lchnk   , &
 ! compute taylor series for approximate eps(z) below
 ! *********************************************************
 !
-   do k = pver - 1,msg + 1,-1
-      do i = 1,il2g
-         if (k < jb(i) .and. k >= jt(i)) then
-            k1(i,k) = k1(i,k+1) + (hmn(i,mx(i))-hmn(i,k))*dz(i,k)
-            ihat(i,k) = 0.5_r8* (k1(i,k+1)+k1(i,k))
-            i2(i,k) = i2(i,k+1) + ihat(i,k)*dz(i,k)
-            idag(i,k) = 0.5_r8* (i2(i,k+1)+i2(i,k))
-            i3(i,k) = i3(i,k+1) + idag(i,k)*dz(i,k)
-            iprm(i,k) = 0.5_r8* (i3(i,k+1)+i3(i,k))
-            i4(i,k) = i4(i,k+1) + iprm(i,k)*dz(i,k)
-         end if
+   if (.not. use_native_zm_cldprp_helpers) then
+      call zm_cldprp_taylor_hmin_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(msg, c_int64_t), c_loc(jt), c_loc(jb), c_loc(mx), &
+           c_loc(j0), c_loc(hmn), c_loc(dz), c_loc(k1), c_loc(ihat), c_loc(i2), c_loc(idag), &
+           c_loc(i3), c_loc(iprm), c_loc(i4), c_loc(hmin), c_loc(expdif))
+   else
+      do k = pver - 1,msg + 1,-1
+         do i = 1,il2g
+            if (k < jb(i) .and. k >= jt(i)) then
+               k1(i,k) = k1(i,k+1) + (hmn(i,mx(i))-hmn(i,k))*dz(i,k)
+               ihat(i,k) = 0.5_r8* (k1(i,k+1)+k1(i,k))
+               i2(i,k) = i2(i,k+1) + ihat(i,k)*dz(i,k)
+               idag(i,k) = 0.5_r8* (i2(i,k+1)+i2(i,k))
+               i3(i,k) = i3(i,k+1) + idag(i,k)*dz(i,k)
+               iprm(i,k) = 0.5_r8* (i3(i,k+1)+i3(i,k))
+               i4(i,k) = i4(i,k+1) + iprm(i,k)*dz(i,k)
+            end if
+         end do
       end do
-   end do
 !
 ! re-initialize hmin array for ensuing calculation.
 !
-   do i = 1,il2g
-      hmin(i) = 1.E6_r8
-   end do
-   do k = msg + 1,pver
       do i = 1,il2g
-         if (k >= j0(i) .and. k <= jb(i) .and. hmn(i,k) <= hmin(i)) then
-            hmin(i) = hmn(i,k)
-            expdif(i) = hmn(i,mx(i)) - hmin(i)
-         end if
+         hmin(i) = 1.E6_r8
       end do
-   end do
+      do k = msg + 1,pver
+         do i = 1,il2g
+            if (k >= j0(i) .and. k <= jb(i) .and. hmn(i,k) <= hmin(i)) then
+               hmin(i) = hmn(i,k)
+               expdif(i) = hmn(i,mx(i)) - hmin(i)
+            end if
+         end do
+      end do
+   end if
 !
 ! *********************************************************
 ! compute approximate eps(z) using above taylor series
