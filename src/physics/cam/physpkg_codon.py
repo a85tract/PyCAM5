@@ -2042,6 +2042,27 @@ def _physics_types_zero_3d(psetcols: int, pver: int, pcnst: int, arr: Ptr[float]
 
 
 @inline
+def _physics_types_fill_1d(n: int, value: float, arr: Ptr[float]):
+    for i in range(0, n):
+        arr[i] = value
+
+
+@inline
+def _physics_types_fill_2d(psetcols: int, pver: int, value: float, arr: Ptr[float]):
+    for k in range(1, pver + 1):
+        for i in range(1, psetcols + 1):
+            arr[_field2_idx(i, k, psetcols)] = value
+
+
+@inline
+def _physics_types_fill_3d(psetcols: int, pver: int, pcnst: int, value: float, arr: Ptr[float]):
+    for m in range(1, pcnst + 1):
+        for k in range(1, pver + 1):
+            for i in range(1, psetcols + 1):
+                arr[_field3_idx(i, k, m, psetcols, pver)] = value
+
+
+@inline
 def _physics_types_copy_1d(n: int, src: Ptr[float], dst: Ptr[float]):
     for i in range(0, n):
         dst[i] = src[i]
@@ -2086,6 +2107,21 @@ def physics_tend_init_codon(
     _physics_types_zero_1d(psetcols, flx_net)
     _physics_types_zero_1d(psetcols, te_tnd)
     _physics_types_zero_1d(psetcols, tw_tnd)
+
+
+@export
+def physics_fill_real_1d_codon(n: int, value: float, arr_p: cobj):
+    _physics_types_fill_1d(n, value, Ptr[float](arr_p))
+
+
+@export
+def physics_fill_real_2d_codon(psetcols: int, pver: int, value: float, arr_p: cobj):
+    _physics_types_fill_2d(psetcols, pver, value, Ptr[float](arr_p))
+
+
+@export
+def physics_fill_real_3d_codon(psetcols: int, pver: int, pcnst: int, value: float, arr_p: cobj):
+    _physics_types_fill_3d(psetcols, pver, pcnst, value, Ptr[float](arr_p))
 
 
 @export

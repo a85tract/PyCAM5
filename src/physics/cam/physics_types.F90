@@ -174,6 +174,8 @@ module physics_types
   logical :: set_dry_to_wet_logged = .false.
   logical :: init_geo_unique_logged = .false.
   logical :: physics_state_copy_logged = .false.
+  logical :: physics_state_alloc_logged = .false.
+  logical :: physics_tend_alloc_logged = .false.
 
   interface
      subroutine physics_tend_init_codon(psetcols_c, pver_c, dtdt_p, dudt_p, dvdt_p, flx_net_p, te_tnd_p, tw_tnd_p) &
@@ -182,6 +184,27 @@ module physics_types
        integer(c_int64_t), value :: psetcols_c, pver_c
        type(c_ptr), value :: dtdt_p, dudt_p, dvdt_p, flx_net_p, te_tnd_p, tw_tnd_p
      end subroutine physics_tend_init_codon
+
+     subroutine physics_fill_real_1d_codon(n_c, value_c, arr_p) bind(c, name="physics_fill_real_1d_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: n_c
+       real(c_double), value :: value_c
+       type(c_ptr), value :: arr_p
+     end subroutine physics_fill_real_1d_codon
+
+     subroutine physics_fill_real_2d_codon(ld1_c, nlev_c, value_c, arr_p) bind(c, name="physics_fill_real_2d_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ld1_c, nlev_c
+       real(c_double), value :: value_c
+       type(c_ptr), value :: arr_p
+     end subroutine physics_fill_real_2d_codon
+
+     subroutine physics_fill_real_3d_codon(ld1_c, nlev_c, n3_c, value_c, arr_p) bind(c, name="physics_fill_real_3d_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ld1_c, nlev_c, n3_c
+       real(c_double), value :: value_c
+       type(c_ptr), value :: arr_p
+     end subroutine physics_fill_real_3d_codon
 
      subroutine physics_ptend_reset_s_codon(psetcols_c, pver_c, s_p, hflux_srf_p, hflux_top_p) &
           bind(c, name="physics_ptend_reset_s_codon")
@@ -377,6 +400,35 @@ contains
     call physics_tend_init_codon(int(psetcols_local, c_int64_t), int(pver, c_int64_t), &
          c_loc(dtdt), c_loc(dudt), c_loc(dvdt), c_loc(flx_net), c_loc(te_tnd), c_loc(tw_tnd))
   end subroutine physics_tend_init_codon_wrap
+
+  subroutine physics_fill_real_1d_codon_wrap(n_local, value_local, arr)
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
+    integer, intent(in) :: n_local
+    real(r8), intent(in) :: value_local
+    real(r8), target, intent(inout) :: arr(:)
+
+    call physics_fill_real_1d_codon(int(n_local, c_int64_t), real(value_local, c_double), c_loc(arr))
+  end subroutine physics_fill_real_1d_codon_wrap
+
+  subroutine physics_fill_real_2d_codon_wrap(ld1_local, nlev_local, value_local, arr)
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
+    integer, intent(in) :: ld1_local, nlev_local
+    real(r8), intent(in) :: value_local
+    real(r8), target, intent(inout) :: arr(:,:)
+
+    call physics_fill_real_2d_codon(int(ld1_local, c_int64_t), int(nlev_local, c_int64_t), &
+         real(value_local, c_double), c_loc(arr))
+  end subroutine physics_fill_real_2d_codon_wrap
+
+  subroutine physics_fill_real_3d_codon_wrap(ld1_local, nlev_local, n3_local, value_local, arr)
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
+    integer, intent(in) :: ld1_local, nlev_local, n3_local
+    real(r8), intent(in) :: value_local
+    real(r8), target, intent(inout) :: arr(:,:,:)
+
+    call physics_fill_real_3d_codon(int(ld1_local, c_int64_t), int(nlev_local, c_int64_t), int(n3_local, c_int64_t), &
+         real(value_local, c_double), c_loc(arr))
+  end subroutine physics_fill_real_3d_codon_wrap
 
   subroutine physics_ptend_reset_s_codon_wrap(psetcols_local, s, hflux_srf, hflux_top)
     use iso_c_binding, only: c_int64_t, c_loc
@@ -2162,6 +2214,7 @@ subroutine physics_state_alloc(state,lchnk,psetcols)
   integer, intent(in)                :: psetcols
 
   integer :: ierr=0, i
+  real(r8) :: inf_local
 
   state%lchnk    = lchnk
   state%psetcols = psetcols
@@ -2279,40 +2332,82 @@ subroutine physics_state_alloc(state,lchnk,psetcols)
   allocate(state%cid(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%cid')
 
-  state%lat(:) = inf
-  state%lon(:) = inf
-  state%ulat(:) = inf
-  state%ulon(:) = inf
-  state%ps(:) = inf
-  state%psdry(:) = inf
-  state%phis(:) = inf
-  state%t(:,:) = inf
-  state%u(:,:) = inf
-  state%v(:,:) = inf
-  state%s(:,:) = inf
-  state%omega(:,:) = inf
-  state%pmid(:,:) = inf
-  state%pmiddry(:,:) = inf
-  state%pdel(:,:) = inf
-  state%pdeldry(:,:) = inf
-  state%rpdel(:,:) = inf
-  state%rpdeldry(:,:) = inf
-  state%lnpmid(:,:) = inf
-  state%lnpmiddry(:,:) = inf
-  state%exner(:,:) = inf
-  state%zm(:,:) = inf
-  state%q(:,:,:) = inf
+  inf_local = inf
+  call physics_types_zero_select_impl()
 
-  state%pint(:,:) = inf
-  state%pintdry(:,:) = inf
-  state%lnpint(:,:) = inf
-  state%lnpintdry(:,:) = inf
-  state%zi(:,:) = inf
+  if (use_native_zero_impl) then
+     state%lat(:) = inf
+     state%lon(:) = inf
+     state%ulat(:) = inf
+     state%ulon(:) = inf
+     state%ps(:) = inf
+     state%psdry(:) = inf
+     state%phis(:) = inf
+     state%t(:,:) = inf
+     state%u(:,:) = inf
+     state%v(:,:) = inf
+     state%s(:,:) = inf
+     state%omega(:,:) = inf
+     state%pmid(:,:) = inf
+     state%pmiddry(:,:) = inf
+     state%pdel(:,:) = inf
+     state%pdeldry(:,:) = inf
+     state%rpdel(:,:) = inf
+     state%rpdeldry(:,:) = inf
+     state%lnpmid(:,:) = inf
+     state%lnpmiddry(:,:) = inf
+     state%exner(:,:) = inf
+     state%zm(:,:) = inf
+     state%q(:,:,:) = inf
 
-  state%te_ini(:) = inf
-  state%te_cur(:) = inf
-  state%tw_ini(:) = inf
-  state%tw_cur(:) = inf
+     state%pint(:,:) = inf
+     state%pintdry(:,:) = inf
+     state%lnpint(:,:) = inf
+     state%lnpintdry(:,:) = inf
+     state%zi(:,:) = inf
+
+     state%te_ini(:) = inf
+     state%te_cur(:) = inf
+     state%tw_ini(:) = inf
+     state%tw_cur(:) = inf
+  else
+     call physics_fill_real_1d_codon_wrap(psetcols, inf_local, state%lat)
+     call physics_fill_real_1d_codon_wrap(psetcols, inf_local, state%lon)
+     call physics_fill_real_1d_codon_wrap(psetcols, inf_local, state%ulat)
+     call physics_fill_real_1d_codon_wrap(psetcols, inf_local, state%ulon)
+     call physics_fill_real_1d_codon_wrap(psetcols, inf_local, state%ps)
+     call physics_fill_real_1d_codon_wrap(psetcols, inf_local, state%psdry)
+     call physics_fill_real_1d_codon_wrap(psetcols, inf_local, state%phis)
+     call physics_fill_real_2d_codon_wrap(psetcols, pver, inf_local, state%t)
+     call physics_fill_real_2d_codon_wrap(psetcols, pver, inf_local, state%u)
+     call physics_fill_real_2d_codon_wrap(psetcols, pver, inf_local, state%v)
+     call physics_fill_real_2d_codon_wrap(psetcols, pver, inf_local, state%s)
+     call physics_fill_real_2d_codon_wrap(psetcols, pver, inf_local, state%omega)
+     call physics_fill_real_2d_codon_wrap(psetcols, pver, inf_local, state%pmid)
+     call physics_fill_real_2d_codon_wrap(psetcols, pver, inf_local, state%pmiddry)
+     call physics_fill_real_2d_codon_wrap(psetcols, pver, inf_local, state%pdel)
+     call physics_fill_real_2d_codon_wrap(psetcols, pver, inf_local, state%pdeldry)
+     call physics_fill_real_2d_codon_wrap(psetcols, pver, inf_local, state%rpdel)
+     call physics_fill_real_2d_codon_wrap(psetcols, pver, inf_local, state%rpdeldry)
+     call physics_fill_real_2d_codon_wrap(psetcols, pver, inf_local, state%lnpmid)
+     call physics_fill_real_2d_codon_wrap(psetcols, pver, inf_local, state%lnpmiddry)
+     call physics_fill_real_2d_codon_wrap(psetcols, pver, inf_local, state%exner)
+     call physics_fill_real_2d_codon_wrap(psetcols, pver, inf_local, state%zm)
+     call physics_fill_real_3d_codon_wrap(psetcols, pver, pcnst, inf_local, state%q)
+
+     call physics_fill_real_2d_codon_wrap(psetcols, pver+1, inf_local, state%pint)
+     call physics_fill_real_2d_codon_wrap(psetcols, pver+1, inf_local, state%pintdry)
+     call physics_fill_real_2d_codon_wrap(psetcols, pver+1, inf_local, state%lnpint)
+     call physics_fill_real_2d_codon_wrap(psetcols, pver+1, inf_local, state%lnpintdry)
+     call physics_fill_real_2d_codon_wrap(psetcols, pver+1, inf_local, state%zi)
+
+     call physics_fill_real_1d_codon_wrap(psetcols, inf_local, state%te_ini)
+     call physics_fill_real_1d_codon_wrap(psetcols, inf_local, state%te_cur)
+     call physics_fill_real_1d_codon_wrap(psetcols, inf_local, state%tw_ini)
+     call physics_fill_real_1d_codon_wrap(psetcols, inf_local, state%tw_cur)
+     call physics_types_zero_proof_once()
+     call physics_types_log_direct(physics_state_alloc_logged, 'physics_state_alloc inf fill = codon')
+  end if
 
 end subroutine physics_state_alloc
 
@@ -2444,6 +2539,7 @@ subroutine physics_tend_alloc(tend,psetcols)
   integer, intent(in)                :: psetcols
 
   integer :: ierr = 0
+  real(r8) :: inf_local
 
   tend%psetcols = psetcols
 
@@ -2465,12 +2561,26 @@ subroutine physics_tend_alloc(tend,psetcols)
   allocate(tend%tw_tnd(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_tend_alloc error: allocation error for tend%tw_tnd')
 
-  tend%dtdt(:,:) = inf
-  tend%dudt(:,:) = inf
-  tend%dvdt(:,:) = inf
-  tend%flx_net(:) = inf
-  tend%te_tnd(:) = inf
-  tend%tw_tnd(:) = inf
+  inf_local = inf
+  call physics_types_zero_select_impl()
+
+  if (use_native_zero_impl) then
+     tend%dtdt(:,:) = inf
+     tend%dudt(:,:) = inf
+     tend%dvdt(:,:) = inf
+     tend%flx_net(:) = inf
+     tend%te_tnd(:) = inf
+     tend%tw_tnd(:) = inf
+  else
+     call physics_fill_real_2d_codon_wrap(psetcols, pver, inf_local, tend%dtdt)
+     call physics_fill_real_2d_codon_wrap(psetcols, pver, inf_local, tend%dudt)
+     call physics_fill_real_2d_codon_wrap(psetcols, pver, inf_local, tend%dvdt)
+     call physics_fill_real_1d_codon_wrap(psetcols, inf_local, tend%flx_net)
+     call physics_fill_real_1d_codon_wrap(psetcols, inf_local, tend%te_tnd)
+     call physics_fill_real_1d_codon_wrap(psetcols, inf_local, tend%tw_tnd)
+     call physics_types_zero_proof_once()
+     call physics_types_log_direct(physics_tend_alloc_logged, 'physics_tend_alloc inf fill = codon')
+  end if
 
 end subroutine physics_tend_alloc
 
