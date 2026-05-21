@@ -33,6 +33,9 @@
       logical :: use_native_setcoef_impl = .false.
       logical :: setcoef_impl_selected = .false.
       logical :: setcoef_entered_logged = .false.
+      logical :: use_native_lwavplank_impl = .false.
+      logical :: lwavplank_impl_selected = .false.
+      logical :: lwavplank_entered_logged = .false.
 
       contains
 
@@ -728,6 +731,30 @@
 
 !***************************************************************************
       subroutine lwavplank
+!***************************************************************************
+      use iso_c_binding, only: c_loc, c_ptr
+
+      interface
+         subroutine rrtmg_lw_lwavplank_codon(totplnk_p, totplk16_p) &
+              bind(c, name="rrtmg_lw_lwavplank_codon")
+            use iso_c_binding, only: c_ptr
+            type(c_ptr), value :: totplnk_p
+            type(c_ptr), value :: totplk16_p
+         end subroutine rrtmg_lw_lwavplank_codon
+      end interface
+
+      call lwavplank_select_impl()
+      if (use_native_lwavplank_impl) then
+         call lwavplank_native()
+      else
+         call lwavplank_log_entered()
+         call rrtmg_lw_lwavplank_codon(c_loc(totplnk(1,1)), c_loc(totplk16(1)))
+      endif
+
+      end subroutine lwavplank
+
+!***************************************************************************
+      subroutine lwavplank_native
 !***************************************************************************
 
       save
@@ -1430,7 +1457,64 @@
       0.12421e-06_r8,0.12876e-06_r8,0.13346e-06_r8,0.13830e-06_r8,0.14328e-06_r8, &
       0.14841e-06_r8/)
 
-      end subroutine lwavplank
+      end subroutine lwavplank_native
+
+! --------------------------------------------------------------------------
+      subroutine lwavplank_select_impl()
+
+      character(len=32) :: impl_name
+      integer :: status, n, i, code
+
+      if (lwavplank_impl_selected) return
+
+      impl_name = 'codon'
+      n = 0
+      status = 1
+      call get_environment_variable('RRTMG_LW_AVPLANK_IMPL', value=impl_name, length=n, status=status)
+      if (status /= 0 .or. n <= 0) then
+         impl_name = 'codon'
+         n = 0
+         status = 1
+         call get_environment_variable('RRTMG_INIT_HELPERS_IMPL', value=impl_name, length=n, status=status)
+      end if
+
+      if (status == 0 .and. n > 0) then
+         do i = 1, n
+            code = iachar(impl_name(i:i))
+            if (code >= iachar('A') .and. code <= iachar('Z')) then
+               impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+            end if
+         end do
+         use_native_lwavplank_impl = trim(adjustl(impl_name(:n))) == 'native'
+      else
+         use_native_lwavplank_impl = .false.
+      end if
+
+      lwavplank_impl_selected = .true.
+
+      if (masterproc) then
+         if (use_native_lwavplank_impl) then
+            write(iulog,*) 'rrtmg_lw_lwavplank implementation = native'
+         else
+            write(iulog,*) 'rrtmg_lw_lwavplank implementation = codon'
+         end if
+         call flush(iulog)
+      end if
+
+      end subroutine lwavplank_select_impl
+
+! --------------------------------------------------------------------------
+      subroutine lwavplank_log_entered()
+
+      if (lwavplank_entered_logged) return
+      lwavplank_entered_logged = .true.
+
+      if (masterproc) then
+         write(iulog,*) 'rrtmg_lw_lwavplank entered (Planck table fill = codon)'
+         call flush(iulog)
+      end if
+
+      end subroutine lwavplank_log_entered
 
 ! --------------------------------------------------------------------------
       subroutine setcoef_select_impl()

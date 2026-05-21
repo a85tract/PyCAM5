@@ -73,6 +73,11 @@ def rrtmg_sw_swcldpr_codon(
     )
 
 
+@export
+def rrtmg_lw_lwavplank_codon(totplnk_p: cobj, totplk16_p: cobj):
+    _init_tables.rrtmg_lw_lwavplank_codon(totplnk_p, totplk16_p)
+
+
 @inline
 def _idx2(i: int, k: int, ld1: int) -> int:
     """Fortran array declared as (ld1, n2), both bounds starting at 1."""
