@@ -70,6 +70,7 @@ logical :: modal_aer_opt_lw_helpers_proof_written = .false.
 logical :: modal_aer_opt_sw_guard_helpers_proof_written = .false.
 logical :: modal_aer_opt_sw_water_refr_proof_written = .false.
 logical :: modal_aer_opt_sw_optics_tau_proof_written = .false.
+logical :: modal_aer_opt_sw_species_batch_proof_written = .false.
 
 interface
    subroutine modal_aer_opt_size_parameters_codon(pcols_c, pver_c, top_lev_c, ncol_c, ncoef_c, &
@@ -213,6 +214,24 @@ interface
       type(c_ptr), value :: scatsoa_p, abssoa_p, hygrosoa_p, scatseasalt_p, absseasalt_p
       type(c_ptr), value :: hygroseasalt_p
    end subroutine modal_aer_opt_sw_species_vis_diag_codon
+
+   subroutine modal_aer_opt_sw_species_layer_batch_codon(ncol_c, pcols_c, k_c, spectype_code_c, do_vis_c, &
+        specdens_c, specrefr_c, specrefi_c, hygro_aer_c, specmmr_p, mass_p, vol_p, dryvol_p, &
+        crefin_re_p, crefin_im_p, burden_p, burdendust_p, burdenso4_p, burdenbc_p, burdenpom_p, &
+        burdensoa_p, burdenseasalt_p, dustvol_p, scatdust_p, absdust_p, hygrodust_p, scatso4_p, &
+        absso4_p, hygroso4_p, scatbc_p, absbc_p, hygrobc_p, scatpom_p, abspom_p, hygropom_p, &
+        scatsoa_p, abssoa_p, hygrosoa_p, scatseasalt_p, absseasalt_p, hygroseasalt_p) &
+        bind(c, name="modal_aer_opt_sw_species_layer_batch_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, k_c, spectype_code_c, do_vis_c
+      real(c_double), value :: specdens_c, specrefr_c, specrefi_c, hygro_aer_c
+      type(c_ptr), value :: specmmr_p, mass_p, vol_p, dryvol_p, crefin_re_p, crefin_im_p
+      type(c_ptr), value :: burden_p, burdendust_p, burdenso4_p, burdenbc_p, burdenpom_p
+      type(c_ptr), value :: burdensoa_p, burdenseasalt_p, dustvol_p, scatdust_p, absdust_p
+      type(c_ptr), value :: hygrodust_p, scatso4_p, absso4_p, hygroso4_p, scatbc_p, absbc_p
+      type(c_ptr), value :: hygrobc_p, scatpom_p, abspom_p, hygropom_p, scatsoa_p, abssoa_p
+      type(c_ptr), value :: hygrosoa_p, scatseasalt_p, absseasalt_p, hygroseasalt_p
+   end subroutine modal_aer_opt_sw_species_layer_batch_codon
 
    subroutine modal_aer_opt_sw_optics_props_codon(ncol_c, pcols_c, k_c, ncoef_c, xrmax_c, &
         rhoh2o_c, radsurf_p, logradsurf_p, cheb_p, cext_p, cabs_p, casm_p, wetvol_p, mass_p, &
@@ -445,6 +464,19 @@ subroutine modal_aer_opt_sw_water_refr_proof_once()
            '(water volume/negative scan/finalize fast path = codon)'
    endif
 end subroutine modal_aer_opt_sw_water_refr_proof_once
+
+!===============================================================================
+
+subroutine modal_aer_opt_sw_species_batch_proof_once()
+   use spmd_utils, only: masterproc
+   if (modal_aer_opt_sw_species_batch_proof_written) return
+   modal_aer_opt_sw_species_batch_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'modal_aero_sw species layer batch entered ' // &
+           '(volume + visible diagnostics = codon)'
+   endif
+end subroutine modal_aer_opt_sw_species_batch_proof_once
 
 !===============================================================================
 
@@ -995,29 +1027,11 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
                                            refindex_aer_sw=specrefindex, spectype=spectype, &
                                            hygro_aer=hygro_aer)
 
+               specrefr = real(specrefindex(isw))
+               specrefi = aimag(specrefindex(isw))
+
                if (.not. use_native_modal_aer_opt_helpers_impl) then
-                  specrefr = real(specrefindex(isw))
-                  specrefi = aimag(specrefindex(isw))
-                  call modal_aer_opt_helpers_proof_once()
-                  call modal_aer_opt_sw_species_volume_codon(int(ncol, c_int64_t), &
-                       int(pcols, c_int64_t), int(k, c_int64_t), specdens, specrefr, specrefi, &
-                       c_loc(specmmr(1,1)), c_loc(vol(1)), c_loc(dryvol(1)), c_loc(crefin_re(1)), &
-                       c_loc(crefin_im(1)))
-               else
-                  do i = 1, ncol
-                     vol(i)      = specmmr(i,k)/specdens
-                     dryvol(i)   = dryvol(i) + vol(i)
-                     crefin(i)   = crefin(i) + vol(i)*specrefindex(isw)
-                  end do
-               end if
-
-               ! compute some diagnostics for visible band only
-               if (savaervis) then
-
-                  specrefr = real(specrefindex(isw))
-                  specrefi = aimag(specrefindex(isw))
-
-                  if (.not. use_native_modal_aer_opt_helpers_impl) then
+                  if (savaervis) then
                      select case (trim(spectype))
                      case ('dust')
                         spectype_code = 1
@@ -1034,19 +1048,33 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
                      case default
                         spectype_code = 0
                      end select
-                     call modal_aer_opt_helpers_proof_once()
-                     call modal_aer_opt_sw_species_vis_diag_codon(int(ncol, c_int64_t), &
-                          int(pcols, c_int64_t), int(k, c_int64_t), int(spectype_code, c_int64_t), &
-                          specrefr, specrefi, hygro_aer, c_loc(specmmr(1,1)), c_loc(mass(1,1)), &
-                          c_loc(vol(1)), c_loc(burden(1)), c_loc(burdendust(1)), c_loc(burdenso4(1)), &
-                          c_loc(burdenbc(1)), c_loc(burdenpom(1)), c_loc(burdensoa(1)), &
-                          c_loc(burdenseasalt(1)), c_loc(dustvol(1)), c_loc(scatdust(1)), &
-                          c_loc(absdust(1)), c_loc(hygrodust(1)), c_loc(scatso4(1)), c_loc(absso4(1)), &
-                          c_loc(hygroso4(1)), c_loc(scatbc(1)), c_loc(absbc(1)), c_loc(hygrobc(1)), &
-                          c_loc(scatpom(1)), c_loc(abspom(1)), c_loc(hygropom(1)), c_loc(scatsoa(1)), &
-                          c_loc(abssoa(1)), c_loc(hygrosoa(1)), c_loc(scatseasalt(1)), &
-                          c_loc(absseasalt(1)), c_loc(hygroseasalt(1)))
                   else
+                     spectype_code = 0
+                  end if
+
+                  call modal_aer_opt_helpers_proof_once()
+                  call modal_aer_opt_sw_species_batch_proof_once()
+                  call modal_aer_opt_sw_species_layer_batch_codon(int(ncol, c_int64_t), &
+                       int(pcols, c_int64_t), int(k, c_int64_t), int(spectype_code, c_int64_t), &
+                       merge(1_c_int64_t, 0_c_int64_t, savaervis), specdens, specrefr, specrefi, hygro_aer, &
+                       c_loc(specmmr(1,1)), c_loc(mass(1,1)), c_loc(vol(1)), c_loc(dryvol(1)), &
+                       c_loc(crefin_re(1)), c_loc(crefin_im(1)), c_loc(burden(1)), c_loc(burdendust(1)), &
+                       c_loc(burdenso4(1)), c_loc(burdenbc(1)), c_loc(burdenpom(1)), &
+                       c_loc(burdensoa(1)), c_loc(burdenseasalt(1)), c_loc(dustvol(1)), &
+                       c_loc(scatdust(1)), c_loc(absdust(1)), c_loc(hygrodust(1)), c_loc(scatso4(1)), &
+                       c_loc(absso4(1)), c_loc(hygroso4(1)), c_loc(scatbc(1)), c_loc(absbc(1)), &
+                       c_loc(hygrobc(1)), c_loc(scatpom(1)), c_loc(abspom(1)), c_loc(hygropom(1)), &
+                       c_loc(scatsoa(1)), c_loc(abssoa(1)), c_loc(hygrosoa(1)), c_loc(scatseasalt(1)), &
+                       c_loc(absseasalt(1)), c_loc(hygroseasalt(1)))
+               else
+                  do i = 1, ncol
+                     vol(i)      = specmmr(i,k)/specdens
+                     dryvol(i)   = dryvol(i) + vol(i)
+                     crefin(i)   = crefin(i) + vol(i)*specrefindex(isw)
+                  end do
+
+                  ! compute some diagnostics for visible band only
+                  if (savaervis) then
                      do i = 1, ncol
                         burden(i) = burden(i) + specmmr(i,k)*mass(i,k)
                      end do
@@ -1099,10 +1127,10 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
                            scatseasalt(i)   = vol(i)*specrefr
                            absseasalt(i)    = -vol(i)*specrefi
                            hygroseasalt(i)  = vol(i)*hygro_aer
-                         end do
+                        end do
                      end if
-                  end if
 
+                  end if
                end if
             end do ! species loop
 
