@@ -313,6 +313,96 @@ def _tropopause_twmo_pressure(
 
 
 @export
+def tropopause_twmo_pressure_profile_codon(
+    level: int,
+    cnst_kap: float,
+    cnst_ka1: float,
+    cnst_faktor: float,
+    plimu: float,
+    pliml: float,
+    gam: float,
+    t_p: cobj,
+    p_p: cobj,
+) -> float:
+    t = Ptr[float](t_p)
+    p = Ptr[float](p_p)
+    deltaz = 2000.0
+
+    trp = -99.0
+    pmk = 0.5 * (p[level - 2] ** cnst_kap + p[level - 1] ** cnst_kap)
+    pm = pmk ** (1.0 / cnst_kap)
+    a = (t[level - 2] - t[level - 1]) / (p[level - 2] ** cnst_kap - p[level - 1] ** cnst_kap)
+    b = t[level - 1] - (a * p[level - 1] ** cnst_kap)
+    tm = a * pmk + b
+    dtdp = a * cnst_kap * (pm ** cnst_ka1)
+    dtdz = cnst_faktor * dtdp * pm / tm
+
+    for j in range(level - 1, 1, -1):
+        pm0 = pm
+        pmk0 = pmk
+        dtdz0 = dtdz
+
+        pmk = 0.5 * (p[j - 2] ** cnst_kap + p[j - 1] ** cnst_kap)
+        pm = pmk ** (1.0 / cnst_kap)
+        a = (t[j - 2] - t[j - 1]) / (p[j - 2] ** cnst_kap - p[j - 1] ** cnst_kap)
+        b = t[j - 1] - (a * p[j - 1] ** cnst_kap)
+        tm = a * pmk + b
+        dtdp = a * cnst_kap * (pm ** cnst_ka1)
+        dtdz = cnst_faktor * dtdp * pm / tm
+
+        if dtdz <= gam:
+            continue
+        if pm > plimu:
+            continue
+
+        if dtdz0 < gam:
+            ag = (dtdz - dtdz0) / (pmk - pmk0)
+            bg = dtdz0 - (ag * pmk0)
+            ptph = exp(log((gam - bg) / ag) / cnst_kap)
+        else:
+            ptph = pm
+
+        if ptph < pliml:
+            continue
+        if ptph > plimu:
+            continue
+
+        p2km = ptph + deltaz * (pm / tm) * cnst_faktor
+        asum = 0.0
+        icount = 0
+        valid = True
+
+        for jj in range(j, 1, -1):
+            pmk2 = 0.5 * (p[jj - 2] ** cnst_kap + p[jj - 1] ** cnst_kap)
+            pm2 = pmk2 ** (1.0 / cnst_kap)
+            if pm2 > ptph:
+                continue
+            if pm2 < p2km:
+                break
+
+            a2 = t[jj - 2] - t[jj - 1]
+            a2 = a2 / (p[jj - 2] ** cnst_kap - p[jj - 1] ** cnst_kap)
+            b2 = t[jj - 1] - (a2 * p[jj - 1] ** cnst_kap)
+            tm2 = a2 * pmk2 + b2
+            dtdp2 = a2 * cnst_kap * (pm2 ** (cnst_kap - 1.0))
+            dtdz2 = cnst_faktor * dtdp2 * pm2 / tm2
+            asum = asum + dtdz2
+            icount = icount + 1
+            aquer = asum / float(icount)
+            if aquer <= gam:
+                valid = False
+                break
+
+        if not valid:
+            continue
+
+        trp = ptph
+        break
+
+    return trp
+
+
+@export
 def tropopause_twmo_codon(
     ncol: int,
     pcols: int,

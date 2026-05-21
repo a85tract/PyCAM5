@@ -85,6 +85,9 @@ module tropopause
   logical :: use_native_tropopause_find_impl = .false.
   logical :: tropopause_find_impl_selected = .false.
   logical :: tropopause_twmo_entered_logged = .false.
+  logical :: use_native_tropopause_twmo_profile_impl = .false.
+  logical :: tropopause_twmo_profile_impl_selected = .false.
+  logical :: tropopause_twmo_profile_entered_logged = .false.
 
 !================================================================================================
 contains
@@ -717,6 +720,43 @@ contains
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   subroutine twmo(t, p, plimu, pliml, gam, trp)
 
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
+    real(r8), intent(in), dimension(:)      :: t, p
+    real(r8), intent(in)                    :: plimu, pliml, gam
+    real(r8), intent(out)                   :: trp
+    real(r8), target                        :: t_work(size(t)), p_work(size(p))
+
+    interface
+       function tropopause_twmo_pressure_profile_codon(level_c, cnst_kap_c, cnst_ka1_c, cnst_faktor_c, &
+            plimu_c, pliml_c, gam_c, t_p, p_p) result(trp_c) &
+            bind(c, name="tropopause_twmo_pressure_profile_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: level_c
+         real(c_double), value :: cnst_kap_c, cnst_ka1_c, cnst_faktor_c
+         real(c_double), value :: plimu_c, pliml_c, gam_c
+         type(c_ptr), value :: t_p, p_p
+         real(c_double) :: trp_c
+       end function tropopause_twmo_pressure_profile_codon
+    end interface
+
+    call tropopause_twmo_profile_select_impl()
+    if (use_native_tropopause_twmo_profile_impl) then
+       call twmo_native(t, p, plimu, pliml, gam, trp)
+    else
+       t_work(:) = t(:)
+       p_work(:) = p(:)
+       call tropopause_twmo_profile_log_entered()
+       trp = real(tropopause_twmo_pressure_profile_codon( &
+            int(size(t), c_int64_t), real(cnst_kap, c_double), real(cnst_ka1, c_double), &
+            real(cnst_faktor, c_double), real(plimu, c_double), real(pliml, c_double), &
+            real(gam, c_double), c_loc(t_work(1)), c_loc(p_work(1))), r8)
+    end if
+
+  end subroutine twmo
+
+  subroutine twmo_native(t, p, plimu, pliml, gam, trp)
+
     real(r8), intent(in), dimension(:)      :: t, p
     real(r8), intent(in)                    :: plimu, pliml, gam
     real(r8), intent(out)                   :: trp
@@ -807,7 +847,7 @@ contains
       exit main_loop
     enddo main_loop
     
-  end subroutine twmo
+  end subroutine twmo_native
   
 
   ! This routine uses an implementation of Reichler et al. [2003] done by
@@ -1194,6 +1234,61 @@ contains
     end if
 
   end subroutine tropopause_find_select_impl
+
+  !===============================================================================
+
+  subroutine tropopause_twmo_profile_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (tropopause_twmo_profile_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('TROPOPAUSE_TWMO_PROFILE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_tropopause_twmo_profile_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_tropopause_twmo_profile_impl = .false.
+    end if
+
+    tropopause_twmo_profile_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_tropopause_twmo_profile_impl) then
+          write(iulog,*) 'tropopause_twmo_profile implementation = native'
+          call tropopause_find_append_proof('tropopause_twmo_profile selector entered implementation = native')
+       else
+          write(iulog,*) 'tropopause_twmo_profile implementation = codon'
+          call tropopause_find_append_proof('tropopause_twmo_profile selector entered implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine tropopause_twmo_profile_select_impl
+
+  !===============================================================================
+
+  subroutine tropopause_twmo_profile_log_entered()
+
+    if (tropopause_twmo_profile_entered_logged) return
+    tropopause_twmo_profile_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) 'tropopause_twmo_profile entered (TWMO profile pressure solve direct = codon)'
+       call tropopause_find_append_proof( &
+            'tropopause_twmo_profile entered (TWMO profile pressure solve direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine tropopause_twmo_profile_log_entered
 
   !===============================================================================
 
