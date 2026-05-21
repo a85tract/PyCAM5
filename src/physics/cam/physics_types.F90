@@ -169,6 +169,9 @@ module physics_types
   logical :: physics_ptend_reset_logged = .false.
   logical :: physics_ptend_scale_logged = .false.
   logical :: physics_ptend_sum_logged = .false.
+  logical :: set_state_pdry_logged = .false.
+  logical :: set_wet_to_dry_logged = .false.
+  logical :: set_dry_to_wet_logged = .false.
 
   interface
      subroutine physics_tend_init_codon(psetcols_c, pver_c, dtdt_p, dudt_p, dvdt_p, flx_net_p, te_tnd_p, tw_tnd_p) &
@@ -250,6 +253,29 @@ module physics_types
        type(c_ptr), value :: src_field_p, dst_field_p, src_flx_srf_p, dst_flx_srf_p
        type(c_ptr), value :: src_flx_top_p, dst_flx_top_p
      end subroutine physics_ptend_sum_field_codon
+
+     subroutine physics_set_state_pdry_codon(ncol_c, psetcols_c, pver_c, do_pdeld_calc_c, psdry_p, pint_p, &
+          pdel_p, q_p, pdeldry_p, pintdry_p, pmiddry_p, rpdeldry_p, lnpmiddry_p, lnpintdry_p) &
+          bind(c, name="physics_set_state_pdry_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, psetcols_c, pver_c, do_pdeld_calc_c
+       type(c_ptr), value :: psdry_p, pint_p, pdel_p, q_p, pdeldry_p, pintdry_p
+       type(c_ptr), value :: pmiddry_p, rpdeldry_p, lnpmiddry_p, lnpintdry_p
+     end subroutine physics_set_state_pdry_codon
+
+     subroutine physics_set_wet_to_dry_constituent_codon(ncol_c, psetcols_c, pver_c, q_p, pdel_p, &
+          pdeldry_p) bind(c, name="physics_set_wet_to_dry_constituent_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, psetcols_c, pver_c
+       type(c_ptr), value :: q_p, pdel_p, pdeldry_p
+     end subroutine physics_set_wet_to_dry_constituent_codon
+
+     subroutine physics_set_dry_to_wet_constituent_codon(ncol_c, psetcols_c, pver_c, q_p, pdeldry_p, &
+          pdel_p) bind(c, name="physics_set_dry_to_wet_constituent_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, psetcols_c, pver_c
+       type(c_ptr), value :: q_p, pdeldry_p, pdel_p
+     end subroutine physics_set_dry_to_wet_constituent_codon
   end interface
 
 
@@ -457,6 +483,41 @@ contains
          int(top_level_local, c_int64_t), int(bot_level_local, c_int64_t), c_loc(src_field), &
          c_loc(dst_field), c_loc(src_flx_srf), c_loc(dst_flx_srf), c_loc(src_flx_top), c_loc(dst_flx_top))
   end subroutine physics_ptend_sum_field_codon_wrap
+
+  subroutine physics_set_state_pdry_codon_wrap(ncol_local, psetcols_local, do_pdeld_calc, psdry, pint, pdel, q, &
+                                               pdeldry, pintdry, pmiddry, rpdeldry, lnpmiddry, lnpintdry)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncol_local, psetcols_local
+    logical, intent(in) :: do_pdeld_calc
+    real(r8), target, intent(inout) :: psdry(:), pdeldry(:,:), pintdry(:,:), pmiddry(:,:)
+    real(r8), target, intent(inout) :: rpdeldry(:,:), lnpmiddry(:,:), lnpintdry(:,:)
+    real(r8), target, intent(in) :: pint(:,:), pdel(:,:), q(:,:,:)
+
+    call physics_set_state_pdry_codon(int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), &
+         int(pver, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, do_pdeld_calc), c_loc(psdry), &
+         c_loc(pint), c_loc(pdel), c_loc(q), c_loc(pdeldry), c_loc(pintdry), c_loc(pmiddry), &
+         c_loc(rpdeldry), c_loc(lnpmiddry), c_loc(lnpintdry))
+  end subroutine physics_set_state_pdry_codon_wrap
+
+  subroutine physics_set_wet_to_dry_constituent_codon_wrap(ncol_local, psetcols_local, q_m, pdel, pdeldry)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncol_local, psetcols_local
+    real(r8), target, intent(inout) :: q_m(:,:)
+    real(r8), target, intent(in) :: pdel(:,:), pdeldry(:,:)
+
+    call physics_set_wet_to_dry_constituent_codon(int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), &
+         int(pver, c_int64_t), c_loc(q_m), c_loc(pdel), c_loc(pdeldry))
+  end subroutine physics_set_wet_to_dry_constituent_codon_wrap
+
+  subroutine physics_set_dry_to_wet_constituent_codon_wrap(ncol_local, psetcols_local, q_m, pdeldry, pdel)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncol_local, psetcols_local
+    real(r8), target, intent(inout) :: q_m(:,:)
+    real(r8), target, intent(in) :: pdeldry(:,:), pdel(:,:)
+
+    call physics_set_dry_to_wet_constituent_codon(int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), &
+         int(pver, c_int64_t), c_loc(q_m), c_loc(pdeldry), c_loc(pdel))
+  end subroutine physics_set_dry_to_wet_constituent_codon_wrap
 
 !===============================================================================
   subroutine physics_type_alloc(phys_state, phys_tend, begchunk, endchunk, psetcols)
@@ -1856,24 +1917,33 @@ subroutine set_state_pdry (state,pdeld_calc)
   
   ncol = state%ncol
 
+  call physics_types_zero_select_impl()
 
-  state%psdry(:ncol) = state%pint(:ncol,1)
-  state%pintdry(:ncol,1) = state%pint(:ncol,1)
+  if (use_native_zero_impl) then
+     state%psdry(:ncol) = state%pint(:ncol,1)
+     state%pintdry(:ncol,1) = state%pint(:ncol,1)
 
-  if (do_pdeld_calc)  then
+     if (do_pdeld_calc)  then
+        do k = 1, pver
+           state%pdeldry(:ncol,k) = state%pdel(:ncol,k)*(1._r8-state%q(:ncol,k,1))
+        end do
+     endif
      do k = 1, pver
-        state%pdeldry(:ncol,k) = state%pdel(:ncol,k)*(1._r8-state%q(:ncol,k,1))
+        state%pintdry(:ncol,k+1) = state%pintdry(:ncol,k)+state%pdeldry(:ncol,k)
+        state%pmiddry(:ncol,k) = (state%pintdry(:ncol,k+1)+state%pintdry(:ncol,k))/2._r8
+        state%psdry(:ncol) = state%psdry(:ncol) + state%pdeldry(:ncol,k)
      end do
-  endif
-  do k = 1, pver
-     state%pintdry(:ncol,k+1) = state%pintdry(:ncol,k)+state%pdeldry(:ncol,k)
-     state%pmiddry(:ncol,k) = (state%pintdry(:ncol,k+1)+state%pintdry(:ncol,k))/2._r8
-     state%psdry(:ncol) = state%psdry(:ncol) + state%pdeldry(:ncol,k)
-  end do
 
-  state%rpdeldry(:ncol,:) = 1._r8/state%pdeldry(:ncol,:)
-  state%lnpmiddry(:ncol,:) = log(state%pmiddry(:ncol,:))
-  state%lnpintdry(:ncol,:) = log(state%pintdry(:ncol,:))
+     state%rpdeldry(:ncol,:) = 1._r8/state%pdeldry(:ncol,:)
+     state%lnpmiddry(:ncol,:) = log(state%pmiddry(:ncol,:))
+     state%lnpintdry(:ncol,:) = log(state%pintdry(:ncol,:))
+  else
+     call physics_set_state_pdry_codon_wrap(ncol, state%psetcols, do_pdeld_calc, state%psdry, state%pint, &
+          state%pdel, state%q, state%pdeldry, state%pintdry, state%pmiddry, state%rpdeldry, &
+          state%lnpmiddry, state%lnpintdry)
+     call physics_types_zero_proof_once()
+     call physics_types_log_direct(set_state_pdry_logged, 'set_state_pdry direct = codon')
+  end if
 
 end subroutine set_state_pdry 
 
@@ -1886,14 +1956,31 @@ subroutine set_wet_to_dry (state)
   type(physics_state), intent(inout) :: state
 
   integer m, ncol
+  logical :: used_codon
   
   ncol = state%ncol
+  used_codon = .false.
+  call physics_types_zero_select_impl()
 
-  do m = 1,pcnst
-     if (cnst_type(m).eq.'dry') then
-        state%q(:ncol,:,m) = state%q(:ncol,:,m)*state%pdel(:ncol,:)/state%pdeldry(:ncol,:)
-     endif
-  end do
+  if (use_native_zero_impl) then
+     do m = 1,pcnst
+        if (cnst_type(m).eq.'dry') then
+           state%q(:ncol,:,m) = state%q(:ncol,:,m)*state%pdel(:ncol,:)/state%pdeldry(:ncol,:)
+        endif
+     end do
+  else
+     do m = 1,pcnst
+        if (cnst_type(m).eq.'dry') then
+           call physics_set_wet_to_dry_constituent_codon_wrap(ncol, state%psetcols, state%q(:,:,m), &
+                state%pdel, state%pdeldry)
+           used_codon = .true.
+        endif
+     end do
+     if (used_codon) then
+        call physics_types_zero_proof_once()
+        call physics_types_log_direct(set_wet_to_dry_logged, 'set_wet_to_dry direct = codon')
+     end if
+  end if
 
 end subroutine set_wet_to_dry 
 
@@ -1906,14 +1993,31 @@ subroutine set_dry_to_wet (state)
   type(physics_state), intent(inout) :: state
 
   integer m, ncol
+  logical :: used_codon
   
   ncol = state%ncol
+  used_codon = .false.
+  call physics_types_zero_select_impl()
 
-  do m = 1,pcnst
-     if (cnst_type(m).eq.'dry') then
-        state%q(:ncol,:,m) = state%q(:ncol,:,m)*state%pdeldry(:ncol,:)/state%pdel(:ncol,:)
-     endif
-  end do
+  if (use_native_zero_impl) then
+     do m = 1,pcnst
+        if (cnst_type(m).eq.'dry') then
+           state%q(:ncol,:,m) = state%q(:ncol,:,m)*state%pdeldry(:ncol,:)/state%pdel(:ncol,:)
+        endif
+     end do
+  else
+     do m = 1,pcnst
+        if (cnst_type(m).eq.'dry') then
+           call physics_set_dry_to_wet_constituent_codon_wrap(ncol, state%psetcols, state%q(:,:,m), &
+                state%pdeldry, state%pdel)
+           used_codon = .true.
+        endif
+     end do
+     if (used_codon) then
+        call physics_types_zero_proof_once()
+        call physics_types_log_direct(set_dry_to_wet_logged, 'set_dry_to_wet direct = codon')
+     end if
+  end if
 
 end subroutine set_dry_to_wet
 

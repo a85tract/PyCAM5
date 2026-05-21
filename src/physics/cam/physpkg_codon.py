@@ -2237,6 +2237,102 @@ def physics_ptend_sum_field_codon(
 
 
 @export
+def physics_set_state_pdry_codon(
+    ncol: int,
+    psetcols: int,
+    pver: int,
+    do_pdeld_calc: int,
+    psdry_p: cobj,
+    pint_p: cobj,
+    pdel_p: cobj,
+    q_p: cobj,
+    pdeldry_p: cobj,
+    pintdry_p: cobj,
+    pmiddry_p: cobj,
+    rpdeldry_p: cobj,
+    lnpmiddry_p: cobj,
+    lnpintdry_p: cobj,
+):
+    psdry = Ptr[float](psdry_p)
+    pint = Ptr[float](pint_p)
+    pdel = Ptr[float](pdel_p)
+    q = Ptr[float](q_p)
+    pdeldry = Ptr[float](pdeldry_p)
+    pintdry = Ptr[float](pintdry_p)
+    pmiddry = Ptr[float](pmiddry_p)
+    rpdeldry = Ptr[float](rpdeldry_p)
+    lnpmiddry = Ptr[float](lnpmiddry_p)
+    lnpintdry = Ptr[float](lnpintdry_p)
+
+    for i in range(1, ncol + 1):
+        psdry[_idx(i)] = pint[_field2_idx(i, 1, psetcols)]
+        pintdry[_field2_idx(i, 1, psetcols)] = pint[_field2_idx(i, 1, psetcols)]
+
+    if do_pdeld_calc != 0:
+        for k in range(1, pver + 1):
+            for i in range(1, ncol + 1):
+                idx2 = _field2_idx(i, k, psetcols)
+                pdeldry[idx2] = pdel[idx2] * (1.0 - q[_field3_idx(i, k, 1, psetcols, pver)])
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _field2_idx(i, k, psetcols)
+            idx2p1 = _field2_idx(i, k + 1, psetcols)
+            pintdry[idx2p1] = pintdry[idx2] + pdeldry[idx2]
+            pmiddry[idx2] = (pintdry[idx2p1] + pintdry[idx2]) / 2.0
+            psdry[_idx(i)] = psdry[_idx(i)] + pdeldry[idx2]
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _field2_idx(i, k, psetcols)
+            rpdeldry[idx2] = 1.0 / pdeldry[idx2]
+            lnpmiddry[idx2] = log(pmiddry[idx2])
+
+    for k in range(1, pver + 2):
+        for i in range(1, ncol + 1):
+            idx2 = _field2_idx(i, k, psetcols)
+            lnpintdry[idx2] = log(pintdry[idx2])
+
+
+@export
+def physics_set_wet_to_dry_constituent_codon(
+    ncol: int,
+    psetcols: int,
+    pver: int,
+    q_p: cobj,
+    pdel_p: cobj,
+    pdeldry_p: cobj,
+):
+    q = Ptr[float](q_p)
+    pdel = Ptr[float](pdel_p)
+    pdeldry = Ptr[float](pdeldry_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _field2_idx(i, k, psetcols)
+            q[idx2] = q[idx2] * pdel[idx2] / pdeldry[idx2]
+
+
+@export
+def physics_set_dry_to_wet_constituent_codon(
+    ncol: int,
+    psetcols: int,
+    pver: int,
+    q_p: cobj,
+    pdeldry_p: cobj,
+    pdel_p: cobj,
+):
+    q = Ptr[float](q_p)
+    pdeldry = Ptr[float](pdeldry_p)
+    pdel = Ptr[float](pdel_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx2 = _field2_idx(i, k, psetcols)
+            q[idx2] = q[idx2] * pdeldry[idx2] / pdel[idx2]
+
+
+@export
 def phys_grid_get_gcol_all_codon(ncols: int, out_dim: int, src_p: cobj, dst_p: cobj):
     src = Ptr[i32](src_p)
     dst = Ptr[i32](dst_p)
