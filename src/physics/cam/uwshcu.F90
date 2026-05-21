@@ -137,6 +137,9 @@
   logical :: use_native_conden_init_impl = .false.
   logical :: conden_init_impl_selected = .false.
   logical :: conden_init_entered_logged = .false.
+  logical :: use_native_qsinvert_rh_guard_impl = .false.
+  logical :: qsinvert_rh_guard_impl_selected = .false.
+  logical :: qsinvert_rh_guard_entered_logged = .false.
 
   interface
      subroutine uwshcu_getbuoy_codon(pbot_c, thv0bot_c, ptop_c, thv0top_c, &
@@ -202,6 +205,13 @@
         real(c_double), value :: zvir_in_c, r_in_c, g_in_c, ep2_in_c
         type(c_ptr), value :: constants_p
      end subroutine uwshcu_init_constants_codon
+
+     function uwshcu_qsinvert_rh_guard_codon(rhi_c) result(is_dry_c) &
+          bind(c, name="uwshcu_qsinvert_rh_guard_codon")
+        use iso_c_binding, only: c_double, c_int64_t
+        real(c_double), value :: rhi_c
+        integer(c_int64_t) :: is_dry_c
+     end function uwshcu_qsinvert_rh_guard_codon
   end interface
 
 !===============================================================================
@@ -466,6 +476,61 @@ contains
     end if
 
   end subroutine uwshcu_log_conden_init_entered
+
+!===============================================================================
+
+  subroutine uwshcu_select_qsinvert_rh_guard_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (qsinvert_rh_guard_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('UWSHCU_QSINVERT_RH_GUARD_IMPL', value=impl_name, length=n, status=status)
+    if (status /= 0 .or. n <= 0) then
+       call get_environment_variable('CONVECT_SHALLOW_IMPL', value=impl_name, length=n, status=status)
+    end if
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+       end do
+       use_native_qsinvert_rh_guard_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_qsinvert_rh_guard_impl = .false.
+    end if
+
+    qsinvert_rh_guard_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_qsinvert_rh_guard_impl) then
+          write(iulog,'(A)') 'uwshcu qsinvert rh guard implementation = native'
+          call uwshcu_append_proof('uwshcu qsinvert rh guard implementation = native')
+       else
+          write(iulog,'(A)') 'uwshcu qsinvert rh guard implementation = codon'
+          call uwshcu_append_proof('uwshcu qsinvert rh guard implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_select_qsinvert_rh_guard_impl
+
+!===============================================================================
+
+  subroutine uwshcu_log_qsinvert_rh_guard_entered()
+
+    if (qsinvert_rh_guard_entered_logged) return
+    qsinvert_rh_guard_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu qsinvert rh guard entered (source-air dry guard direct = codon)'
+       call uwshcu_append_proof('uwshcu qsinvert rh guard entered (source-air dry guard direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_qsinvert_rh_guard_entered
 
 !===============================================================================
 
@@ -11460,6 +11525,7 @@ end subroutine uwshcu_readnl
   end function slope_native
 
   function qsinvert(qt,thl,psfc)
+    use iso_c_binding, only: c_double, c_int64_t
   ! ----------------------------------------------------------------- !
   ! Function calculating saturation pressure ps (or pLCL) from qt and !
   ! thl ( liquid potential temperature,  NOT liquid virtual potential ! 
@@ -11476,6 +11542,7 @@ end subroutine uwshcu_readnl
     real(r8)          :: qs                     ! saturation spec. humidity
     real(r8)          :: gam                    ! (L/cp)*dqs/dT
     real(r8)          :: leff, nu
+    integer(c_int64_t) :: dry_guard_c
 
     psmin  = 100._r8*100._r8 ! Default saturation pressure [Pa] if iteration does not converge
     dpsmax = 1._r8           ! Tolerance [Pa] for convergence of iteration
@@ -11487,7 +11554,14 @@ end subroutine uwshcu_readnl
     Ti       =  thl*(psfc/p00)**rovcp
     call qsat(Ti, psfc, es, qs)
     rhi      =  qt/qs
-    if( rhi .le. 0.01_r8 ) then
+    call uwshcu_select_qsinvert_rh_guard_impl()
+    if (use_native_qsinvert_rh_guard_impl) then
+        dry_guard_c = merge(1_c_int64_t, 0_c_int64_t, rhi .le. 0.01_r8)
+    else
+        call uwshcu_log_qsinvert_rh_guard_entered()
+        dry_guard_c = uwshcu_qsinvert_rh_guard_codon(real(rhi, c_double))
+    end if
+    if( dry_guard_c /= 0_c_int64_t ) then
         write(iulog,*) 'Source air is too dry and pLCL is set to psmin in uwshcu.F90' 
         qsinvert = psmin
         return

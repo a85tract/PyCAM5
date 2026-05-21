@@ -10973,6 +10973,13 @@ def uwshcu_conden_init_codon(
 
 
 @export
+def uwshcu_qsinvert_rh_guard_codon(rhi: float) -> int:
+    if rhi <= 0.01:
+        return 1
+    return 0
+
+
+@export
 def uwshcu_positive_moisture_single_codon(
     mkx: int,
     xlv_v: float,
