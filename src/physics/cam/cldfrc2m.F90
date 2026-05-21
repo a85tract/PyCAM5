@@ -62,8 +62,33 @@ real(r8)             :: icecrit                   ! Critical RH for ice clouds i
 logical :: use_native_cldfrc2m_aist_impl = .false.
 logical :: cldfrc2m_aist_impl_selected = .false.
 logical :: cldfrc2m_aist_proof_written = .false.
+logical :: cldfrc2m_aist_single_proof_written = .false.
+logical :: use_native_cldfrc2m_astg_pdf_impl = .false.
+logical :: cldfrc2m_astg_pdf_impl_selected = .false.
+logical :: cldfrc2m_astg_pdf_proof_written = .false.
 
 interface
+   function cldfrc2m_pressure_regime_codon(p_c, premib_c, premit_c) result(regime_c) &
+        bind(c, name="cldfrc2m_pressure_regime_codon")
+     use iso_c_binding, only: c_int64_t, c_double
+     real(c_double), value :: p_c, premib_c, premit_c
+     integer(c_int64_t) :: regime_c
+   end function cldfrc2m_pressure_regime_codon
+
+   subroutine cldfrc2m_astg_pdf_zero_codon(pcols_c, a_p, ga_p) &
+        bind(c, name="cldfrc2m_astg_pdf_zero_codon")
+     use iso_c_binding, only: c_int64_t, c_ptr
+     integer(c_int64_t), value :: pcols_c
+     type(c_ptr), value :: a_p, ga_p
+   end subroutine cldfrc2m_astg_pdf_zero_codon
+
+   function cldfrc2m_aist_single_option5_codon(qv_c, qi_c, qs_c, esl_c, esi_c, &
+        rhmini_c, rhmaxi_c) result(aist_c) bind(c, name="cldfrc2m_aist_single_option5_codon")
+     use iso_c_binding, only: c_double
+     real(c_double), value :: qv_c, qi_c, qs_c, esl_c, esi_c, rhmini_c, rhmaxi_c
+     real(c_double) :: aist_c
+   end function cldfrc2m_aist_single_option5_codon
+
    subroutine cldfrc2m_aist_vector_codon(pcols_c, ncol_c, rhmaxi_c, qv_p, qi_p, qsat_p, esl_p, esi_p, &
         rhmini_p, aist_p) bind(c, name="cldfrc2m_aist_vector_codon")
      use iso_c_binding, only: c_int64_t, c_double, c_ptr
@@ -113,6 +138,42 @@ end subroutine cldfrc2m_aist_select_impl
 
 !================================================================================================
 
+subroutine cldfrc2m_astg_pdf_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cldfrc2m_astg_pdf_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CLDFRC2M_ASTG_PDF_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_cldfrc2m_astg_pdf_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_cldfrc2m_astg_pdf_impl = .false.
+   end if
+
+   cldfrc2m_astg_pdf_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_cldfrc2m_astg_pdf_impl) then
+         write(iulog,*) 'cldfrc2m_astg_pdf implementation = native'
+      else
+         write(iulog,*) 'cldfrc2m_astg_pdf implementation = codon'
+      end if
+   end if
+
+end subroutine cldfrc2m_astg_pdf_select_impl
+
+!================================================================================================
+
 subroutine cldfrc2m_aist_proof_once()
 
    if (cldfrc2m_aist_proof_written) return
@@ -123,6 +184,32 @@ subroutine cldfrc2m_aist_proof_once()
    end if
 
 end subroutine cldfrc2m_aist_proof_once
+
+!================================================================================================
+
+subroutine cldfrc2m_aist_single_proof_once()
+
+   if (cldfrc2m_aist_single_proof_written) return
+   cldfrc2m_aist_single_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'cldfrc2m_aist_single entered (ice stratus option 5 helper = codon)'
+   end if
+
+end subroutine cldfrc2m_aist_single_proof_once
+
+!================================================================================================
+
+subroutine cldfrc2m_astg_pdf_proof_once()
+
+   if (cldfrc2m_astg_pdf_proof_written) return
+   cldfrc2m_astg_pdf_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'cldfrc2m_astg_pdf entered (pressure regime and zero init helpers = codon)'
+   end if
+
+end subroutine cldfrc2m_astg_pdf_proof_once
 
 !================================================================================================
 
@@ -199,6 +286,8 @@ end subroutine cldfrc2m_init
 subroutine astG_PDF_single(U, p, qv, landfrac, snowh, a, Ga, orhmin, &
                            rhminl_in, rhminl_adj_land_in, rhminh_in )
 
+   use iso_c_binding, only: c_double
+
    ! --------------------------------------------------------- !
    ! Compute 'stratus fraction(a)' and Gs=(dU/da) from the     !
    ! analytical formulation of triangular PDF.                 !
@@ -233,6 +322,7 @@ subroutine astG_PDF_single(U, p, qv, landfrac, snowh, a, Ga, orhmin, &
    real(r8) cldrh                                 ! RH of stratus cloud
    real(r8) rhmin                                 ! Critical RH
    real(r8) rhwght
+   integer :: pressure_regime
                             
    real(r8) :: rhminl
    real(r8) :: rhminl_adj_land
@@ -259,7 +349,22 @@ subroutine astG_PDF_single(U, p, qv, landfrac, snowh, a, Ga, orhmin, &
    ! Main computation !
    ! ---------------- !
 
-   if( p .ge. premib ) then
+   call cldfrc2m_astg_pdf_select_impl()
+   if (use_native_cldfrc2m_astg_pdf_impl) then
+      if (p .ge. premib) then
+         pressure_regime = 0
+      elseif (p .lt. premit) then
+         pressure_regime = 1
+      else
+         pressure_regime = 2
+      end if
+   else
+      call cldfrc2m_astg_pdf_proof_once()
+      pressure_regime = int(cldfrc2m_pressure_regime_codon(real(p, c_double), &
+           real(premib, c_double), real(premit, c_double)))
+   end if
+
+   if( pressure_regime == 0 ) then
 
        if( land .and. (snowh.le.0.000001_r8) ) then
            rhmin = rhminl - rhminl_adj_land
@@ -289,7 +394,7 @@ subroutine astG_PDF_single(U, p, qv, landfrac, snowh, a, Ga, orhmin, &
            Ga = Ga/max(0.15_r8,min(1.0_r8,qv/0.0030_r8)) 
        endif
 
-   elseif( p .lt. premit ) then
+   elseif( pressure_regime == 1 ) then
 
        rhmin = rhminh
        dV    = cldrh - rhmin
@@ -347,6 +452,8 @@ end subroutine astG_PDF_single
 subroutine astG_PDF(U_in, p_in, qv_in, landfrac_in, snowh_in, a_out, Ga_out, ncol, &
                     rhminl_in, rhminl_adj_land_in, rhminh_in )
 
+   use iso_c_binding, only: c_int64_t, c_double, c_loc
+
    ! --------------------------------------------------------- !
    ! Compute 'stratus fraction(a)' and Gs=(dU/da) from the     !
    ! analytical formulation of triangular PDF.                 !
@@ -367,8 +474,8 @@ subroutine astG_PDF(U_in, p_in, qv_in, landfrac_in, snowh_in, a_out, Ga_out, nco
    real(r8), intent(in)  :: landfrac_in(pcols)    ! Land fraction
    real(r8), intent(in)  :: snowh_in(pcols)       ! Snow depth (liquid water equivalent)
 
-   real(r8), intent(out) :: a_out(pcols)          ! Stratus fraction
-   real(r8), intent(out) :: Ga_out(pcols)         ! dU/da
+   real(r8), target, intent(out) :: a_out(pcols)  ! Stratus fraction
+   real(r8), target, intent(out) :: Ga_out(pcols) ! dU/da
    integer,  intent(in)  :: ncol
 
    real(r8), optional, intent(in)  :: rhminl_in(pcols)                ! Critical relative humidity for low-level  liquid stratus
@@ -394,6 +501,8 @@ subroutine astG_PDF(U_in, p_in, qv_in, landfrac_in, snowh_in, a_out, Ga_out, nco
    real(r8) cldrh                                 ! RH of stratus cloud
    real(r8) rhmin                                 ! Critical RH
    real(r8) rhwght
+   integer :: pressure_regime
+   logical :: use_codon_astg_pdf
                             
    ! Statement functions
    logical land
@@ -413,8 +522,16 @@ subroutine astG_PDF(U_in, p_in, qv_in, landfrac_in, snowh_in, a_out, Ga_out, nco
    ! Main computation !
    ! ---------------- !
 
-   a_out(:)  = 0._r8
-   Ga_out(:) = 0._r8
+   call cldfrc2m_astg_pdf_select_impl()
+   use_codon_astg_pdf = .not. use_native_cldfrc2m_astg_pdf_impl
+
+   if (use_codon_astg_pdf) then
+      call cldfrc2m_astg_pdf_proof_once()
+      call cldfrc2m_astg_pdf_zero_codon(int(pcols, c_int64_t), c_loc(a_out(1)), c_loc(Ga_out(1)))
+   else
+      a_out(:)  = 0._r8
+      Ga_out(:) = 0._r8
+   end if
 
    do i = 1, ncol
 
@@ -428,7 +545,20 @@ subroutine astG_PDF(U_in, p_in, qv_in, landfrac_in, snowh_in, a_out, Ga_out, nco
    if (present(rhminl_adj_land_in)) rhminl_adj_land = rhminl_adj_land_in(i)
    if (present(rhminh_in))          rhminh          = rhminh_in(i)
 
-   if( p .ge. premib ) then
+   if (use_codon_astg_pdf) then
+      pressure_regime = int(cldfrc2m_pressure_regime_codon(real(p, c_double), &
+           real(premib, c_double), real(premit, c_double)))
+   else
+      if (p .ge. premib) then
+         pressure_regime = 0
+      elseif (p .lt. premit) then
+         pressure_regime = 1
+      else
+         pressure_regime = 2
+      end if
+   end if
+
+   if( pressure_regime == 0 ) then
 
        if( land(i) .and. (snowh.le.0.000001_r8) ) then
            rhmin = rhminl - rhminl_adj_land
@@ -458,7 +588,7 @@ subroutine astG_PDF(U_in, p_in, qv_in, landfrac_in, snowh_in, a_out, Ga_out, nco
            Ga = Ga/max(0.15_r8,min(1.0_r8,qv/0.0030_r8)) 
        endif
 
-   elseif( p .lt. premit ) then
+   elseif( pressure_regime == 1 ) then
 
        rhmin = rhminh
        dV    = cldrh - rhmin
@@ -757,6 +887,8 @@ end subroutine astG_RHU
 subroutine aist_single(qv, T, p, qi, landfrac, snowh, aist, &
                        rhmaxi_in, rhmini_in, rhminl_in, rhminl_adj_land_in, rhminh_in)
 
+   use iso_c_binding, only: c_double
+
    ! --------------------------------------------------------- !
    ! Compute non-physical ice stratus fraction                 ! 
    ! --------------------------------------------------------- !
@@ -888,42 +1020,52 @@ subroutine aist_single(qv, T, p, qi, landfrac, snowh, aist, &
              aist = 1._r8
          endif
              aist = max(0._r8,min(aist,1._r8))
-     elseif (iceopt.eq.5) then 
-        ! set rh ice cloud fraction
-        rhi= (qv+qi)/qs * (esl/esi)
-        rhdif= (rhi-rhmini) / (rhmaxi - rhmini)
-        aist = min(1.0_r8, max(rhdif,0._r8)**2)
+     elseif (iceopt.eq.5) then
+        call cldfrc2m_aist_select_impl()
+        if (use_native_cldfrc2m_aist_impl) then
+           ! set rh ice cloud fraction
+           rhi= (qv+qi)/qs * (esl/esi)
+           rhdif= (rhi-rhmini) / (rhmaxi - rhmini)
+           aist = min(1.0_r8, max(rhdif,0._r8)**2)
 
 
-        ! limiter to remove empty cloud and ice with no cloud
-        ! and set icecld fraction to mincld if ice exists
+           ! limiter to remove empty cloud and ice with no cloud
+           ! and set icecld fraction to mincld if ice exists
 
-        if (qi.lt.minice) then
-           aist=0._r8
+           if (qi.lt.minice) then
+              aist=0._r8
+           else
+              aist=max(mincld,aist)
+           endif
+
+           ! enforce limits on icimr
+           if (qi.ge.minice) then
+              icimr=qi/aist
+
+              !minimum
+              if (icimr.lt.qist_min) then
+                 aist = max(0._r8,min(1._r8,qi/qist_min))
+              endif
+              !maximum
+              if (icimr.gt.qist_max) then
+                 aist = max(0._r8,min(1._r8,qi/qist_max))
+              endif
+
+           endif
         else
-           aist=max(mincld,aist)
-        endif
-
-        ! enforce limits on icimr
-        if (qi.ge.minice) then
-           icimr=qi/aist
-
-           !minimum
-           if (icimr.lt.qist_min) then
-              aist = max(0._r8,min(1._r8,qi/qist_min))
-           endif
-           !maximum
-           if (icimr.gt.qist_max) then
-              aist = max(0._r8,min(1._r8,qi/qist_max))
-           endif
-
+           call cldfrc2m_aist_single_proof_once()
+           aist = real(cldfrc2m_aist_single_option5_codon(real(qv, c_double), real(qi, c_double), &
+                real(qs, c_double), real(esl, c_double), real(esi, c_double), real(rhmini, c_double), &
+                real(rhmaxi, c_double)), r8)
         endif
      endif 
 
    ! 0.999_r8 is added to prevent infinite 'ql_st' at the end of instratus_condensate
    ! computed after updating 'qi_st'.  
 
-     aist = max(0._r8,min(aist,0.999_r8))
+     if (iceopt /= 5 .or. use_native_cldfrc2m_aist_impl) then
+        aist = max(0._r8,min(aist,0.999_r8))
+     end if
 
 end subroutine aist_single
 

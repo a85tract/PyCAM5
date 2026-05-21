@@ -3442,6 +3442,58 @@ def diffusion_solver_setup_codon(
 
 
 @export
+def cldfrc2m_pressure_regime_codon(p: float, premib: float, premit: float) -> int:
+    if p >= premib:
+        return 0
+    if p < premit:
+        return 1
+    return 2
+
+
+@export
+def cldfrc2m_astg_pdf_zero_codon(pcols: int, a_p: cobj, ga_p: cobj):
+    a = Ptr[float](a_p)
+    ga = Ptr[float](ga_p)
+    for i in range(pcols):
+        a[i] = 0.0
+        ga[i] = 0.0
+
+
+@export
+def cldfrc2m_aist_single_option5_codon(
+    qv: float,
+    qi: float,
+    qsat: float,
+    esl: float,
+    esi: float,
+    rhmini: float,
+    rhmaxi: float,
+) -> float:
+    qist_min = 1.0e-7
+    qist_max = 5.0e-3
+    minice = 1.0e-12
+    mincld = 1.0e-4
+
+    rhi = (qv + qi) / qsat * (esl / esi)
+    rhdif = (rhi - rhmini) / (rhmaxi - rhmini)
+    aist = min(1.0, max(rhdif, 0.0) ** 2)
+
+    if qi < minice:
+        aist = 0.0
+    else:
+        aist = max(mincld, aist)
+
+    if qi >= minice:
+        icimr = qi / aist
+        if icimr < qist_min:
+            aist = max(0.0, min(1.0, qi / qist_min))
+        if icimr > qist_max:
+            aist = max(0.0, min(1.0, qi / qist_max))
+
+    return max(0.0, min(aist, 0.999))
+
+
+@export
 def cldfrc2m_aist_vector_codon(
     pcols: int,
     ncol: int,
