@@ -127,6 +127,66 @@
   logical :: precip_surface_finalize_shell_entered_logged = .false.
   logical :: precip_bulk_shell_entered_logged = .false.
   logical :: slope_recon_shell_entered_logged = .false.
+  logical :: use_native_small_kernels_impl = .false.
+  logical :: small_kernels_impl_selected = .false.
+  logical :: small_kernels_entered_logged = .false.
+
+  interface
+     subroutine uwshcu_getbuoy_codon(pbot_c, thv0bot_c, ptop_c, thv0top_c, &
+          thvubot_c, thvutop_c, r_c, p00_c, rovcp_c, plfc_p, cin_p) &
+          bind(c, name="uwshcu_getbuoy_codon")
+        use iso_c_binding, only: c_double, c_ptr
+        real(c_double), value :: pbot_c, thv0bot_c, ptop_c, thv0top_c
+        real(c_double), value :: thvubot_c, thvutop_c, r_c, p00_c, rovcp_c
+        type(c_ptr), value :: plfc_p, cin_p
+     end subroutine uwshcu_getbuoy_codon
+
+     function uwshcu_single_cin_codon(pbot_c, thv0bot_c, ptop_c, thv0top_c, &
+          thvubot_c, thvutop_c, r_c, p00_c, rovcp_c) result(cin_c) &
+          bind(c, name="uwshcu_single_cin_codon")
+        use iso_c_binding, only: c_double
+        real(c_double), value :: pbot_c, thv0bot_c, ptop_c, thv0top_c
+        real(c_double), value :: thvubot_c, thvutop_c, r_c, p00_c, rovcp_c
+        real(c_double) :: cin_c
+     end function uwshcu_single_cin_codon
+
+     subroutine uwshcu_roots_codon(a_c, b_c, c_c, r1_p, r2_p, status_p) &
+          bind(c, name="uwshcu_roots_codon")
+        use iso_c_binding, only: c_double, c_ptr
+        real(c_double), value :: a_c, b_c, c_c
+        type(c_ptr), value :: r1_p, r2_p, status_p
+     end subroutine uwshcu_roots_codon
+
+     subroutine uwshcu_slope_codon(mkx_c, field_p, p0_p, slope_p) &
+          bind(c, name="uwshcu_slope_codon")
+        use iso_c_binding, only: c_int64_t, c_ptr
+        integer(c_int64_t), value :: mkx_c
+        type(c_ptr), value :: field_p, p0_p, slope_p
+     end subroutine uwshcu_slope_codon
+
+     function uwshcu_compute_alpha_codon(del_cin_c, ke_c) result(alpha_c) &
+          bind(c, name="uwshcu_compute_alpha_codon")
+        use iso_c_binding, only: c_double
+        real(c_double), value :: del_cin_c, ke_c
+        real(c_double) :: alpha_c
+     end function uwshcu_compute_alpha_codon
+
+     function uwshcu_compute_ppen_codon(wtwb_c, d_c, bogbot_c, bogtop_c, &
+          rho0j_c, dpen_c) result(ppen_c) bind(c, name="uwshcu_compute_ppen_codon")
+        use iso_c_binding, only: c_double
+        real(c_double), value :: wtwb_c, d_c, bogbot_c, bogtop_c, rho0j_c, dpen_c
+        real(c_double) :: ppen_c
+     end function uwshcu_compute_ppen_codon
+
+     subroutine uwshcu_fluxbelowinv_codon(mkx_c, kinv_c, cbmf_c, dt_c, xsrc_c, &
+          xmean_c, xtopin_c, xbotin_c, g_c, ps0_p, xflx_p) &
+          bind(c, name="uwshcu_fluxbelowinv_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        integer(c_int64_t), value :: mkx_c, kinv_c
+        real(c_double), value :: cbmf_c, dt_c, xsrc_c, xmean_c, xtopin_c, xbotin_c, g_c
+        type(c_ptr), value :: ps0_p, xflx_p
+     end subroutine uwshcu_fluxbelowinv_codon
+  end interface
 
 !===============================================================================
 contains
@@ -207,6 +267,62 @@ contains
     end if
 
   end subroutine uwshcu_log_init_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_select_small_kernels_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (small_kernels_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('UWSHCU_SMALL_KERNELS_IMPL', value=impl_name, length=n, status=status)
+    if (status /= 0 .or. n <= 0) then
+       call get_environment_variable('CONVECT_SHALLOW_IMPL', value=impl_name, length=n, status=status)
+    end if
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+       end do
+       use_native_small_kernels_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_small_kernels_impl = .false.
+    end if
+
+    small_kernels_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_small_kernels_impl) then
+          write(iulog,'(A)') 'uwshcu small kernels implementation = native'
+          call uwshcu_append_proof('uwshcu small kernels implementation = native')
+       else
+          write(iulog,'(A)') 'uwshcu small kernels implementation = codon'
+          call uwshcu_append_proof('uwshcu small kernels implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_select_small_kernels_impl
+
+!===============================================================================
+
+  subroutine uwshcu_log_small_kernels_entered()
+
+    if (small_kernels_entered_logged) return
+    small_kernels_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu small kernels entered (buoyancy/CIN/roots/slope/ppen/fluxbelowinv direct = codon)'
+       call uwshcu_append_proof( &
+            'uwshcu small kernels entered (buoyancy/CIN/roots/slope/ppen/fluxbelowinv direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_small_kernels_entered
 
 !===============================================================================
 
@@ -10783,6 +10899,23 @@ end subroutine uwshcu_readnl
   ! ------------------------------ !
 
   subroutine getbuoy(pbot,thv0bot,ptop,thv0top,thvubot,thvutop,plfc,cin)
+    use iso_c_binding, only: c_loc
+
+    real(r8), intent(in) :: pbot, thv0bot, ptop, thv0top, thvubot, thvutop
+    real(r8), target, intent(inout) :: plfc, cin
+
+    call uwshcu_select_small_kernels_impl()
+    if (use_native_small_kernels_impl) then
+       call getbuoy_native(pbot, thv0bot, ptop, thv0top, thvubot, thvutop, plfc, cin)
+    else
+       call uwshcu_log_small_kernels_entered()
+       call uwshcu_getbuoy_codon(pbot, thv0bot, ptop, thv0top, thvubot, thvutop, &
+            r, p00, rovcp, c_loc(plfc), c_loc(cin))
+    end if
+
+  end subroutine getbuoy
+
+  subroutine getbuoy_native(pbot,thv0bot,ptop,thv0top,thvubot,thvutop,plfc,cin)
   ! ----------------------------------------------------------- !
   ! Subroutine to calculate integrated CIN [ J/kg = m2/s2 ] and !
   ! 'cinlcl, plfc' if any. Assume 'thv' is linear in each layer !
@@ -10812,23 +10945,62 @@ end subroutine uwshcu_readnl
     endif
 
     return
-  end subroutine getbuoy
+  end subroutine getbuoy_native
 
   function single_cin(pbot,thv0bot,ptop,thv0top,thvubot,thvutop)
+    real(r8) :: single_cin
+    real(r8) :: pbot, thv0bot, ptop, thv0top, thvubot, thvutop
+
+    call uwshcu_select_small_kernels_impl()
+    if (use_native_small_kernels_impl) then
+       single_cin = single_cin_native(pbot, thv0bot, ptop, thv0top, thvubot, thvutop)
+    else
+       call uwshcu_log_small_kernels_entered()
+       single_cin = uwshcu_single_cin_codon(pbot, thv0bot, ptop, thv0top, &
+            thvubot, thvutop, r, p00, rovcp)
+    end if
+
+  end function single_cin
+
+  function single_cin_native(pbot,thv0bot,ptop,thv0top,thvubot,thvutop)
   ! ------------------------------------------------------- !
   ! Function to calculate a single layer CIN by summing all ! 
   ! positive and negative CIN.                              !
   ! ------------------------------------------------------- ! 
-    real(r8) :: single_cin
+    real(r8) :: single_cin_native
     real(r8)    pbot,thv0bot,ptop,thv0top,thvubot,thvutop 
 
-    single_cin = ( (1._r8 - thvubot/thv0bot) + (1._r8 - thvutop/thv0top)) * ( pbot - ptop ) / &
+    single_cin_native = ( (1._r8 - thvubot/thv0bot) + (1._r8 - thvutop/thv0top)) * ( pbot - ptop ) / &
                  ( pbot/(r*thv0bot*exnf(pbot)) + ptop/(r*thv0top*exnf(ptop)) )
     return
-  end function single_cin   
+  end function single_cin_native
 
 
   subroutine roots(a,b,c,r1,r2,status)
+    use iso_c_binding, only: c_int64_t, c_loc
+
+    real(r8), intent(in)  :: a
+    real(r8), intent(in)  :: b
+    real(r8), intent(in)  :: c
+    real(r8), target, intent(out) :: r1
+    real(r8), target, intent(out) :: r2
+    integer , intent(out) :: status
+    integer(c_int64_t), target :: status_c
+
+    call uwshcu_select_small_kernels_impl()
+    if (use_native_small_kernels_impl) then
+       call roots_native(a, b, c, r1, r2, status)
+    else
+       status_c = 0_c_int64_t
+       call uwshcu_log_small_kernels_entered()
+       call uwshcu_roots_codon(a, b, c, c_loc(r1), c_loc(r2), c_loc(status_c))
+       status = int(status_c)
+    end if
+
+  end subroutine roots
+
+
+  subroutine roots_native(a,b,c,r1,r2,status)
   ! --------------------------------------------------------- !
   ! Subroutine to solve the second order polynomial equation. !
   ! I should check this subroutine later.                     !
@@ -10870,7 +11042,7 @@ end subroutine uwshcu_readnl
     endif
 
     return
-  end subroutine roots
+  end subroutine roots_native
 
 
   subroutine conden(p,thl,qt,th,qv,ql,qi,rvls,id_check,ncnst,qv0,tr0,wtout)
@@ -11053,6 +11225,24 @@ end subroutine uwshcu_readnl
   end subroutine conden
 
   function slope(mkx,field,p0)
+    use iso_c_binding, only: c_int64_t, c_loc
+
+    integer,  intent(in) :: mkx
+    real(r8), target     :: slope(mkx)
+    real(r8), target, intent(in) :: field(mkx)
+    real(r8), target, intent(in) :: p0(mkx)
+
+    call uwshcu_select_small_kernels_impl()
+    if (use_native_small_kernels_impl) then
+       slope = slope_native(mkx, field, p0)
+    else
+       call uwshcu_log_small_kernels_entered()
+       call uwshcu_slope_codon(int(mkx, c_int64_t), c_loc(field(1)), c_loc(p0(1)), c_loc(slope(1)))
+    end if
+
+  end function slope
+
+  function slope_native(mkx,field,p0)
   ! ------------------------------------------------------------------ !
   ! Function performing profile reconstruction of conservative scalars !
   ! in each layer. This is identical to profile reconstruction used in !
@@ -11061,7 +11251,7 @@ end subroutine uwshcu_readnl
   ! mid-point values. I checked this subroutine and it is correct.     !
   ! ------------------------------------------------------------------ !
     integer,  intent(in) :: mkx
-    real(r8)             :: slope(mkx)
+    real(r8)             :: slope_native(mkx)
     real(r8), intent(in) :: field(mkx)
     real(r8), intent(in) :: p0(mkx)
     
@@ -11073,16 +11263,16 @@ end subroutine uwshcu_readnl
     do k = 2, mkx
        above = ( field(k) - field(k-1) ) / ( p0(k) - p0(k-1) )
        if( above .gt. 0._r8 ) then
-           slope(k-1) = max(0._r8,min(above,below))
+           slope_native(k-1) = max(0._r8,min(above,below))
        else 
-           slope(k-1) = min(0._r8,max(above,below))
+           slope_native(k-1) = min(0._r8,max(above,below))
        end if
        below = above
     end do
-    slope(mkx) = slope(mkx-1)
+    slope_native(mkx) = slope_native(mkx-1)
 
     return
-  end function slope
+  end function slope_native
 
   function qsinvert(qt,thl,psfc)
   ! ----------------------------------------------------------------- !
@@ -11151,6 +11341,19 @@ end subroutine uwshcu_readnl
   end function qsinvert
 
   real(r8) function compute_alpha(del_CIN,ke)
+    real(r8) :: del_CIN, ke
+
+    call uwshcu_select_small_kernels_impl()
+    if (use_native_small_kernels_impl) then
+       compute_alpha = compute_alpha_native(del_CIN, ke)
+    else
+       call uwshcu_log_small_kernels_entered()
+       compute_alpha = uwshcu_compute_alpha_codon(del_CIN, ke)
+    end if
+
+  end function compute_alpha
+
+  real(r8) function compute_alpha_native(del_CIN,ke)
   ! ------------------------------------------------ !
   ! Subroutine to compute proportionality factor for !
   ! implicit CIN calculation.                        !   
@@ -11165,11 +11368,11 @@ end subroutine uwshcu_readnl
        x1 = x0 - (exp(-x0*ke*del_CIN) - x0)/(-ke*del_CIN*exp(-x0*ke*del_CIN) - 1._r8)
        x0 = x1
     end do
-    compute_alpha = x0
+    compute_alpha_native = x0
 
     return
 
-  end function compute_alpha
+  end function compute_alpha_native
 
   real(r8) function compute_mumin2(mulcl,rmaxfrac,mulow)
   ! --------------------------------------------------------- !
@@ -11201,6 +11404,19 @@ end subroutine uwshcu_readnl
   end function compute_mumin2
 
   real(r8) function compute_ppen(wtwb,D,bogbot,bogtop,rho0j,dpen)
+    real(r8) :: wtwb, D, bogbot, bogtop, rho0j, dpen
+
+    call uwshcu_select_small_kernels_impl()
+    if (use_native_small_kernels_impl) then
+       compute_ppen = compute_ppen_native(wtwb, D, bogbot, bogtop, rho0j, dpen)
+    else
+       call uwshcu_log_small_kernels_entered()
+       compute_ppen = uwshcu_compute_ppen_codon(wtwb, D, bogbot, bogtop, rho0j, dpen)
+    end if
+
+  end function compute_ppen
+
+  real(r8) function compute_ppen_native(wtwb,D,bogbot,bogtop,rho0j,dpen)
   ! ----------------------------------------------------------- !
   ! Subroutine to compute critical 'ppen[Pa]<0' ( pressure dis. !
   ! from 'ps0(kpen-1)' to the cumulus top where cumulus updraft !
@@ -11245,11 +11461,30 @@ end subroutine uwshcu_readnl
 
     endif    
 
-    compute_ppen = -max(0._r8,min(dpen,x0))
+    compute_ppen_native = -max(0._r8,min(dpen,x0))
 
-  end function compute_ppen
+  end function compute_ppen_native
 
   subroutine fluxbelowinv(cbmf,ps0,mkx,kinv,dt,xsrc,xmean,xtopin,xbotin,xflx)   
+    use iso_c_binding, only: c_int64_t, c_loc
+
+    integer,  intent(in)                     :: mkx, kinv
+    real(r8), intent(in)                     :: cbmf, dt, xsrc, xmean, xtopin, xbotin
+    real(r8), target, intent(in),  dimension(0:mkx)  :: ps0
+    real(r8), target, intent(out), dimension(0:mkx)  :: xflx
+
+    call uwshcu_select_small_kernels_impl()
+    if (use_native_small_kernels_impl) then
+       call fluxbelowinv_native(cbmf, ps0, mkx, kinv, dt, xsrc, xmean, xtopin, xbotin, xflx)
+    else
+       call uwshcu_log_small_kernels_entered()
+       call uwshcu_fluxbelowinv_codon(int(mkx, c_int64_t), int(kinv, c_int64_t), &
+            cbmf, dt, xsrc, xmean, xtopin, xbotin, g, c_loc(ps0(0)), c_loc(xflx(0)))
+    end if
+
+  end subroutine fluxbelowinv
+
+  subroutine fluxbelowinv_native(cbmf,ps0,mkx,kinv,dt,xsrc,xmean,xtopin,xbotin,xflx)
   ! ------------------------------------------------------------------------- !
   ! Subroutine to calculate turbulent fluxes at and below 'kinv-1' interfaces.!
   ! Check in the main program such that input 'cbmf' should not be zero.      !  
@@ -11314,7 +11549,7 @@ end subroutine uwshcu_readnl
     endif
 
     return
-  end subroutine fluxbelowinv
+  end subroutine fluxbelowinv_native
 
   subroutine positive_moisture_single( xlv, xls, mkx, dt, qvmin, qlmin, qimin, dp, qv, ql, qi, s, qvten, qlten, qiten, sten, &
                                        ncnst, wtr, wtten )

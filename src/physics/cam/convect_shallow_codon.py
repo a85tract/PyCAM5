@@ -1,3 +1,6 @@
+from math import exp, sqrt
+
+
 @inline
 def _idx2(i: int, k: int, ld1: int) -> int:
     return (i - 1) + (k - 1) * ld1
@@ -6,6 +9,207 @@ def _idx2(i: int, k: int, ld1: int) -> int:
 @inline
 def _idx3(i: int, k: int, m: int, ld1: int, ld2: int) -> int:
     return (i - 1) + (k - 1) * ld1 + (m - 1) * ld1 * ld2
+
+
+@inline
+def _uwshcu_exnf(pressure: float, p00: float, rovcp: float) -> float:
+    return (pressure / p00) ** rovcp
+
+
+@export
+def uwshcu_getbuoy_codon(
+    pbot: float,
+    thv0bot: float,
+    ptop: float,
+    thv0top: float,
+    thvubot: float,
+    thvutop: float,
+    r: float,
+    p00: float,
+    rovcp: float,
+    plfc_p: cobj,
+    cin_p: cobj,
+):
+    plfc = Ptr[float](plfc_p)
+    cin = Ptr[float](cin_p)
+
+    if thvubot > thv0bot and thvutop > thv0top:
+        plfc[0] = pbot
+        return
+    elif thvubot <= thv0bot and thvutop <= thv0top:
+        cin[0] = cin[0] - ((thvubot / thv0bot - 1.0) + (thvutop / thv0top - 1.0)) * (
+            pbot - ptop
+        ) / (
+            pbot / (r * thv0bot * _uwshcu_exnf(pbot, p00, rovcp))
+            + ptop / (r * thv0top * _uwshcu_exnf(ptop, p00, rovcp))
+        )
+    elif thvubot > thv0bot and thvutop <= thv0top:
+        frc = (thvutop / thv0top - 1.0) / ((thvutop / thv0top - 1.0) - (thvubot / thv0bot - 1.0))
+        cin[0] = cin[0] - (thvutop / thv0top - 1.0) * ((ptop + frc * (pbot - ptop)) - ptop) / (
+            pbot / (r * thv0bot * _uwshcu_exnf(pbot, p00, rovcp))
+            + ptop / (r * thv0top * _uwshcu_exnf(ptop, p00, rovcp))
+        )
+    else:
+        frc = (thvubot / thv0bot - 1.0) / ((thvubot / thv0bot - 1.0) - (thvutop / thv0top - 1.0))
+        plfc[0] = pbot - frc * (pbot - ptop)
+        cin[0] = cin[0] - (thvubot / thv0bot - 1.0) * (pbot - plfc[0]) / (
+            pbot / (r * thv0bot * _uwshcu_exnf(pbot, p00, rovcp))
+            + ptop / (r * thv0top * _uwshcu_exnf(ptop, p00, rovcp))
+        )
+
+
+@export
+def uwshcu_single_cin_codon(
+    pbot: float,
+    thv0bot: float,
+    ptop: float,
+    thv0top: float,
+    thvubot: float,
+    thvutop: float,
+    r: float,
+    p00: float,
+    rovcp: float,
+) -> float:
+    return ((1.0 - thvubot / thv0bot) + (1.0 - thvutop / thv0top)) * (pbot - ptop) / (
+        pbot / (r * thv0bot * _uwshcu_exnf(pbot, p00, rovcp))
+        + ptop / (r * thv0top * _uwshcu_exnf(ptop, p00, rovcp))
+    )
+
+
+@export
+def uwshcu_roots_codon(a: float, b: float, c: float, r1_p: cobj, r2_p: cobj, status_p: cobj):
+    r1 = Ptr[float](r1_p)
+    r2 = Ptr[float](r2_p)
+    status = Ptr[int](status_p)
+
+    status[0] = 0
+    if a == 0.0:
+        if b == 0.0:
+            status[0] = 1
+        else:
+            r1[0] = -c / b
+        r2[0] = r1[0]
+    else:
+        if b == 0.0:
+            if a * c > 0.0:
+                status[0] = 2
+            else:
+                r1[0] = sqrt(-c / a)
+            r2[0] = -r1[0]
+        else:
+            disc = b**2 - 4.0 * a * c
+            if disc < 0.0:
+                status[0] = 3
+            else:
+                if b >= 0.0:
+                    bsign = 1.0
+                else:
+                    bsign = -1.0
+                q = -0.5 * (b + bsign * sqrt(disc))
+                r1[0] = q / a
+                r2[0] = c / q
+
+
+@export
+def uwshcu_slope_codon(mkx: int, field_p: cobj, p0_p: cobj, slope_p: cobj):
+    field = Ptr[float](field_p)
+    p0 = Ptr[float](p0_p)
+    slope = Ptr[float](slope_p)
+
+    below = (field[1] - field[0]) / (p0[1] - p0[0])
+    for k in range(2, mkx + 1):
+        above = (field[k - 1] - field[k - 2]) / (p0[k - 1] - p0[k - 2])
+        if above > 0.0:
+            slope[k - 2] = max(0.0, min(above, below))
+        else:
+            slope[k - 2] = min(0.0, max(above, below))
+        below = above
+    slope[mkx - 1] = slope[mkx - 2]
+
+
+@export
+def uwshcu_compute_alpha_codon(del_CIN: float, ke: float) -> float:
+    x0 = 0.0
+    for _ in range(10):
+        x1 = x0 - (exp(-x0 * ke * del_CIN) - x0) / (-ke * del_CIN * exp(-x0 * ke * del_CIN) - 1.0)
+        x0 = x1
+    return x0
+
+
+@export
+def uwshcu_compute_ppen_codon(wtwb: float, D: float, bogbot: float, bogtop: float, rho0j: float, dpen: float) -> float:
+    SB = (bogtop - bogbot) / dpen
+    s00 = bogbot / rho0j - D * wtwb
+
+    if D * dpen < 1.0e-8:
+        if s00 >= 0.0:
+            x0 = dpen
+        else:
+            x0 = max(0.0, min(dpen, -0.5 * wtwb / s00))
+    else:
+        if s00 >= 0.0:
+            x0 = dpen
+        else:
+            x0 = 0.0
+        for _ in range(5):
+            f = exp(-2.0 * D * x0) * (wtwb - (bogbot - SB / (2.0 * D)) / (D * rho0j)) + (
+                SB * x0 + bogbot - SB / (2.0 * D)
+            ) / (D * rho0j)
+            fs = -2.0 * D * exp(-2.0 * D * x0) * (wtwb - (bogbot - SB / (2.0 * D)) / (D * rho0j)) + SB / (
+                D * rho0j
+            )
+            if fs >= 0.0:
+                fs = max(fs, 1.0e-10)
+            else:
+                fs = min(fs, -1.0e-10)
+            x1 = x0 - f / fs
+            x0 = x1
+
+    return -max(0.0, min(dpen, x0))
+
+
+@export
+def uwshcu_fluxbelowinv_codon(
+    mkx: int,
+    kinv: int,
+    cbmf: float,
+    dt: float,
+    xsrc: float,
+    xmean: float,
+    xtopin: float,
+    xbotin: float,
+    g: float,
+    ps0_p: cobj,
+    xflx_p: cobj,
+):
+    ps0 = Ptr[float](ps0_p)
+    xflx = Ptr[float](xflx_p)
+
+    for k in range(0, mkx + 1):
+        xflx[k] = 0.0
+    dp = ps0[kinv - 1] - ps0[kinv]
+    xbot = xbotin
+    xtop = xtopin
+    xtop_ori = xtop
+    xbot_ori = xbot
+    rcbmf = (cbmf * g * dt) / dp
+
+    if xbot >= xtop:
+        rpeff = (xmean - xtop) / max(1.0e-20, xbot - xtop)
+    else:
+        rpeff = (xmean - xtop) / min(-1.0e-20, xbot - xtop)
+
+    rpeff = min(max(0.0, rpeff), 1.0)
+    if rpeff == 0.0 or rpeff == 1.0:
+        xbot = xmean
+        xtop = xmean
+    rr = rpeff / rcbmf
+    pinv = ps0[kinv - 1] - rpeff * dp
+
+    for k in range(0, kinv):
+        xflx[k] = cbmf * (xsrc - xbot) * (ps0[0] - ps0[k]) / (ps0[0] - pinv)
+    if rr <= 1.0:
+        xflx[kinv - 1] = xflx[kinv - 1] - (1.0 - rr) * cbmf * (xtop_ori - xbot_ori)
 
 
 @export
