@@ -111,6 +111,27 @@ interface
       integer(c_int64_t), value :: srf_flux_avg_c
       integer(c_int64_t) :: do_flux_avg_c
    end function phys_control_do_flux_avg_codon
+
+   function phys_control_bool_flag_codon(flag_c) &
+        result(flag_out_c) bind(c, name="phys_control_bool_flag_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: flag_out_c
+   end function phys_control_bool_flag_codon
+
+   function phys_control_index_positive_codon(index_c) &
+        result(flag_out_c) bind(c, name="phys_control_index_positive_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: index_c
+      integer(c_int64_t) :: flag_out_c
+   end function phys_control_index_positive_codon
+
+   function phys_control_int_value_codon(value_c) &
+        result(value_out_c) bind(c, name="phys_control_int_value_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: value_c
+      integer(c_int64_t) :: value_out_c
+   end function phys_control_int_value_codon
 end interface
 
 !======================================================================= 
@@ -282,7 +303,13 @@ subroutine phys_ctl_readnl(nlfile)
    end if
 
    ! prog_modal_aero determines whether prognostic modal aerosols are present in the run.
-   prog_modal_aero = index(cam_chempkg,'_mam')>0
+   call phys_control_bool_helpers_select_impl()
+   if (use_native_phys_control_bool_helpers_impl) then
+      prog_modal_aero = index(cam_chempkg,'_mam')>0
+   else
+      call phys_control_bool_helpers_proof_once()
+      prog_modal_aero = (phys_control_index_positive_codon(int(index(cam_chempkg,'_mam'), c_int64_t)) /= 0_c_int64_t)
+   end if
 
 end subroutine phys_ctl_readnl
 
@@ -293,8 +320,18 @@ logical function cam_physpkg_is(name)
    ! query for the name of the physics package
 
    character(len=*) :: name
+   integer(c_int64_t) :: match_c
    
-   cam_physpkg_is = (trim(name) == trim(cam_physpkg))
+   call phys_control_bool_helpers_select_impl()
+   if (use_native_phys_control_bool_helpers_impl) then
+      cam_physpkg_is = (trim(name) == trim(cam_physpkg))
+      return
+   end if
+
+   call phys_control_bool_helpers_proof_once()
+   match_c = 0_c_int64_t
+   if (trim(name) == trim(cam_physpkg)) match_c = 1_c_int64_t
+   cam_physpkg_is = (phys_control_bool_flag_codon(match_c) /= 0_c_int64_t)
 end function cam_physpkg_is
 
 !===============================================================================
@@ -304,8 +341,18 @@ logical function cam_chempkg_is(name)
    ! query for the name of the chemics package
 
    character(len=*) :: name
+   integer(c_int64_t) :: match_c
    
-   cam_chempkg_is = (trim(name) == trim(cam_chempkg))
+   call phys_control_bool_helpers_select_impl()
+   if (use_native_phys_control_bool_helpers_impl) then
+      cam_chempkg_is = (trim(name) == trim(cam_chempkg))
+      return
+   end if
+
+   call phys_control_bool_helpers_proof_once()
+   match_c = 0_c_int64_t
+   if (trim(name) == trim(cam_chempkg)) match_c = 1_c_int64_t
+   cam_chempkg_is = (phys_control_bool_flag_codon(match_c) /= 0_c_int64_t)
 end function cam_chempkg_is
 
 !===============================================================================
@@ -315,8 +362,18 @@ logical function waccmx_is(name)
    ! query for the name of the waccmx run option
 
    character(len=*) :: name
+   integer(c_int64_t) :: match_c
    
-   waccmx_is = (trim(name) == trim(waccmx_opt))
+   call phys_control_bool_helpers_select_impl()
+   if (use_native_phys_control_bool_helpers_impl) then
+      waccmx_is = (trim(name) == trim(waccmx_opt))
+      return
+   end if
+
+   call phys_control_bool_helpers_proof_once()
+   match_c = 0_c_int64_t
+   if (trim(name) == trim(waccmx_opt)) match_c = 1_c_int64_t
+   waccmx_is = (phys_control_bool_flag_codon(match_c) /= 0_c_int64_t)
 end function waccmx_is
 
 !===============================================================================
@@ -368,6 +425,8 @@ subroutine phys_getopts(deep_scheme_out, shallow_scheme_out, eddy_scheme_out, mi
    integer,           intent(out), optional :: cld_macmic_num_steps_out
    logical,           intent(out), optional :: offline_driver_out
 
+   call phys_control_bool_helpers_select_impl()
+
    if ( present(deep_scheme_out         ) ) deep_scheme_out          = deep_scheme
    if ( present(shallow_scheme_out      ) ) shallow_scheme_out       = shallow_scheme
    if ( present(eddy_scheme_out         ) ) eddy_scheme_out          = eddy_scheme
@@ -397,6 +456,57 @@ subroutine phys_getopts(deep_scheme_out, shallow_scheme_out, eddy_scheme_out, mi
    if ( present(state_debug_checks_out  ) ) state_debug_checks_out   = state_debug_checks
    if ( present(cld_macmic_num_steps_out) ) cld_macmic_num_steps_out = cld_macmic_num_steps
    if ( present(offline_driver_out      ) ) offline_driver_out       = offline_driver
+
+   if (.not. use_native_phys_control_bool_helpers_impl) then
+      call phys_control_bool_helpers_proof_once()
+      if (present(use_subcol_microp_out)) &
+         use_subcol_microp_out = (phys_control_bool_flag_codon( &
+         merge(1_c_int64_t, 0_c_int64_t, use_subcol_microp_out)) /= 0_c_int64_t)
+      if (present(atm_dep_flux_out)) &
+         atm_dep_flux_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, atm_dep_flux_out)) /= 0_c_int64_t)
+      if (present(history_amwg_out)) &
+         history_amwg_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, history_amwg_out)) /= 0_c_int64_t)
+      if (present(history_vdiag_out)) &
+         history_vdiag_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, history_vdiag_out)) /= 0_c_int64_t)
+      if (present(history_aerosol_out)) &
+         history_aerosol_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, history_aerosol_out)) /= 0_c_int64_t)
+      if (present(history_aero_optics_out)) &
+         history_aero_optics_out = (phys_control_bool_flag_codon( &
+         merge(1_c_int64_t, 0_c_int64_t, history_aero_optics_out)) /= 0_c_int64_t)
+      if (present(history_eddy_out)) &
+         history_eddy_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, history_eddy_out)) /= 0_c_int64_t)
+      if (present(history_budget_out)) &
+         history_budget_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, history_budget_out)) /= 0_c_int64_t)
+      if (present(history_waccm_out)) &
+         history_waccm_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, history_waccm_out)) /= 0_c_int64_t)
+      if (present(history_waccmx_out)) &
+         history_waccmx_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, history_waccmx_out)) /= 0_c_int64_t)
+      if (present(history_chemistry_out)) &
+         history_chemistry_out = (phys_control_bool_flag_codon( &
+         merge(1_c_int64_t, 0_c_int64_t, history_chemistry_out)) /= 0_c_int64_t)
+      if (present(history_carma_out)) &
+         history_carma_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, history_carma_out)) /= 0_c_int64_t)
+      if (present(history_clubb_out)) &
+         history_clubb_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, history_clubb_out)) /= 0_c_int64_t)
+      if (present(do_clubb_sgs_out)) &
+         do_clubb_sgs_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, do_clubb_sgs_out)) /= 0_c_int64_t)
+      if (present(micro_do_icesupersat_out)) &
+         micro_do_icesupersat_out = (phys_control_bool_flag_codon( &
+         merge(1_c_int64_t, 0_c_int64_t, micro_do_icesupersat_out)) /= 0_c_int64_t)
+      if (present(prog_modal_aero_out)) &
+         prog_modal_aero_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, prog_modal_aero_out)) /= 0_c_int64_t)
+      if (present(do_tms_out)) &
+         do_tms_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, do_tms_out)) /= 0_c_int64_t)
+      if (present(state_debug_checks_out)) &
+         state_debug_checks_out = (phys_control_bool_flag_codon( &
+         merge(1_c_int64_t, 0_c_int64_t, state_debug_checks_out)) /= 0_c_int64_t)
+      if (present(offline_driver_out)) &
+         offline_driver_out = (phys_control_bool_flag_codon(merge(1_c_int64_t, 0_c_int64_t, offline_driver_out)) /= 0_c_int64_t)
+      if (present(history_budget_histfile_num_out)) &
+         history_budget_histfile_num_out = int(phys_control_int_value_codon(int(history_budget_histfile_num_out, c_int64_t)))
+      if (present(cld_macmic_num_steps_out)) &
+         cld_macmic_num_steps_out = int(phys_control_int_value_codon(int(cld_macmic_num_steps_out, c_int64_t)))
+   end if
 
 end subroutine phys_getopts
 

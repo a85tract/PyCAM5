@@ -5992,6 +5992,25 @@ def phys_control_do_flux_avg_codon(srf_flux_avg: int) -> int:
 
 
 @export
+def phys_control_bool_flag_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def phys_control_index_positive_codon(index_value: int) -> int:
+    if index_value > 0:
+        return 1
+    return 0
+
+
+@export
+def phys_control_int_value_codon(value: int) -> int:
+    return value
+
+
+@export
 def constituents_rgas_codon(r_universal: float, mwc: float) -> float:
     return r_universal * mwc
 
