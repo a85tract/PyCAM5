@@ -63,6 +63,7 @@ character(len=256) :: co2flux_fuel_file = 'unset' ! co2 flux from fossil fuel
 logical :: use_native_co2_cycle_impl = .false.
 logical :: co2_cycle_impl_selected = .false.
 logical :: co2_cycle_proof_written = .false.
+logical :: co2_transport_logged = .false.
 
 interface
    function co2_cycle_flag_codon(flag_c) result(out_c) bind(c, name="co2_cycle_flag_codon")
@@ -136,6 +137,22 @@ subroutine co2_cycle_proof_once()
    end if
 
 end subroutine co2_cycle_proof_once
+
+!================================================================================================
+
+subroutine co2_cycle_log_direct(logged, proof_line)
+
+   logical, intent(inout) :: logged
+   character(len=*), intent(in) :: proof_line
+
+   if (logged) return
+   logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') trim(proof_line)
+   end if
+
+end subroutine co2_cycle_log_direct
 
 !================================================================================================
 
@@ -251,7 +268,16 @@ function co2_transport()
    logical :: co2_transport
 !-----------------------------------------------------------------------
 
-   co2_transport = co2_cycle_flag(co2_flag)
+   call co2_cycle_select_impl()
+
+   if (use_native_co2_cycle_impl) then
+      co2_transport = co2_flag
+      return
+   end if
+
+   call co2_cycle_proof_once()
+   co2_transport = co2_cycle_flag_codon(merge(1_c_int64_t, 0_c_int64_t, co2_flag)) /= 0_c_int64_t
+   call co2_cycle_log_direct(co2_transport_logged, 'co2_transport direct = codon')
 
 end function co2_transport
 

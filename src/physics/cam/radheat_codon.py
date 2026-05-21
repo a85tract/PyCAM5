@@ -20,6 +20,16 @@ def _col_idx(icol: int) -> int:
 
 
 @export
+def radheat_readnl_codon():
+    return
+
+
+@export
+def radheat_init_codon():
+    return
+
+
+@export
 def radheat_timestep_init_codon():
     return
 

@@ -1,4 +1,14 @@
 @export
+def qbo_readnl_codon():
+    return
+
+
+@export
+def qbo_init_codon():
+    return
+
+
+@export
 def qbo_relax_codon():
     return
 

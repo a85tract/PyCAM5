@@ -30,6 +30,8 @@ logical :: tstep_init_impl_selected = .false.
 logical :: radheat_batch_use_native_impl = .false.
 logical :: radheat_batch_impl_selected = .false.
 logical :: radheat_batch_entered_logged = .false.
+logical :: radheat_readnl_logged = .false.
+logical :: radheat_init_logged = .false.
 
 ! Public interfaces
 public  &
@@ -111,11 +113,37 @@ subroutine radheat_batch_log_entered()
 
 end subroutine radheat_batch_log_entered
 
+subroutine radheat_log_direct(logged, proof_line)
+
+  logical, intent(inout) :: logged
+  character(len=*), intent(in) :: proof_line
+
+  if (logged) return
+  logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') trim(proof_line)
+     call radheat_batch_append_proof(proof_line)
+     call flush(iulog)
+  end if
+
+end subroutine radheat_log_direct
+
 subroutine radheat_readnl(nlfile)
 
   character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
-  ! No options for this version of radheat; this is just a stub.
+  interface
+     subroutine radheat_readnl_codon() bind(c, name="radheat_readnl_codon")
+     end subroutine radheat_readnl_codon
+  end interface
+
+  call radheat_batch_select_impl()
+
+  if (radheat_batch_use_native_impl) return
+
+  call radheat_readnl_codon()
+  call radheat_log_direct(radheat_readnl_logged, 'radheat_readnl direct = codon')
 
 end subroutine radheat_readnl
 
@@ -128,6 +156,17 @@ subroutine radheat_init(pref_mid)
 
    real(r8), intent(in) :: pref_mid(plev)
 
+   interface
+      subroutine radheat_init_codon() bind(c, name="radheat_init_codon")
+      end subroutine radheat_init_codon
+   end interface
+
+   call radheat_batch_select_impl()
+
+   if (radheat_batch_use_native_impl) return
+
+   call radheat_init_codon()
+   call radheat_log_direct(radheat_init_logged, 'radheat_init direct = codon')
 
 end subroutine radheat_init
 

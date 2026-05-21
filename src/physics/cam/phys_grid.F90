@@ -298,6 +298,7 @@ module phys_grid
    logical, private :: use_native_getters_impl = .false.
    logical, private :: getters_impl_selected = .false.
    logical, private :: getters_proof_written = .false.
+   logical, private :: get_nlcols_logged = .false.
    logical, private :: phys_grid_initialized_logged = .false.
    logical, private :: get_gcol_all_logged = .false.
    logical, private :: get_gcol_logged = .false.
@@ -566,7 +567,15 @@ module phys_grid
 contains
 !========================================================================
   integer function get_nlcols_p()
-    get_nlcols_p = nlcols
+    use iso_c_binding, only: c_int64_t
+
+    call phys_grid_getters_select_impl()
+    if (use_native_getters_impl) then
+       get_nlcols_p = nlcols
+    else
+       get_nlcols_p = int(phys_grid_int_scalar_codon(int(nlcols, c_int64_t)))
+       call phys_grid_getter_log_direct(get_nlcols_logged, 'get_nlcols_p direct = codon')
+    end if
   end function get_nlcols_p
 
   integer function get_clon_p_tot()

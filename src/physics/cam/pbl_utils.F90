@@ -41,6 +41,7 @@ real(r8) :: zvir      ! rh2o/rair - 1
 logical :: use_native_pbl_utils_impl = .false.
 logical :: pbl_utils_impl_selected = .false.
 logical :: pbl_utils_proof_written = .false.
+logical :: pbl_utils_init_logged = .false.
 
 interface
   function pbl_utils_value_codon(value_c) result(value_out) &
@@ -98,6 +99,20 @@ subroutine pbl_utils_proof_once()
 
 end subroutine pbl_utils_proof_once
 
+subroutine pbl_utils_log_direct(logged, proof_line)
+
+  logical, intent(inout) :: logged
+  character(len=*), intent(in) :: proof_line
+
+  if (logged) return
+  logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') trim(proof_line)
+  end if
+
+end subroutine pbl_utils_log_direct
+
 real(r8) function pbl_utils_value(value) result(out)
   real(r8), intent(in) :: value
 
@@ -130,6 +145,10 @@ subroutine pbl_utils_init(g_in,vk_in,cpair_in,rair_in,zvir_in)
   cpair = pbl_utils_value(cpair_in)
   rair = pbl_utils_value(rair_in)
   zvir = pbl_utils_value(zvir_in)
+
+  if (.not. use_native_pbl_utils_impl) then
+     call pbl_utils_log_direct(pbl_utils_init_logged, 'pbl_utils_init direct = codon')
+  end if
 
 end subroutine pbl_utils_init
 

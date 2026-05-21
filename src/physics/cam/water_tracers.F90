@@ -146,6 +146,9 @@ module water_tracers
   logical :: use_native_wtrc_scalar_helpers_impl = .false.
   logical :: wtrc_scalar_helpers_impl_selected = .false.
   logical :: wtrc_scalar_helpers_entered_logged = .false.
+  logical :: wtrc_is_wtrc_logged = .false.
+  logical :: wtrc_is_tagged_logged = .false.
+  logical :: wtrc_init_rates_logged = .false.
   logical :: use_native_wtrc_apply_rates_helpers_impl = .false.
   logical :: wtrc_apply_rates_helpers_impl_selected = .false.
   logical :: wtrc_apply_rates_helpers_entered_logged = .false.
@@ -605,6 +608,22 @@ subroutine wtrc_scalar_helpers_log_entered()
   end if
 
 end subroutine wtrc_scalar_helpers_log_entered
+
+!=======================================================================
+subroutine wtrc_scalar_helpers_log_direct(logged, proof_line)
+
+  logical, intent(inout) :: logged
+  character(len=*), intent(in) :: proof_line
+
+  if (logged) return
+  logged = .true.
+
+  if (masterproc) then
+    write(iulog,'(A)') trim(proof_line)
+    call flush(iulog)
+  end if
+
+end subroutine wtrc_scalar_helpers_log_direct
 
 !=======================================================================
 subroutine wtrc_apply_rates_helpers_select_impl()
@@ -1138,6 +1157,7 @@ end subroutine wtrc_register
     if (.not. use_native_wtrc_scalar_helpers_impl) then
       call wtrc_scalar_helpers_log_entered()
       wtrc_is_wtrc = wtrc_int_ne_codon(int(iwater(m), c_int64_t), int(iwtundef, c_int64_t)) /= 0_c_int64_t
+      call wtrc_scalar_helpers_log_direct(wtrc_is_wtrc_logged, 'wtrc_is_wtrc direct = codon')
       return
     end if
     wtrc_is_wtrc = .false.
@@ -1290,6 +1310,7 @@ end subroutine wtrc_register
     if (.not. use_native_wtrc_scalar_helpers_impl) then
       call wtrc_scalar_helpers_log_entered()
       wtrc_is_tagged = wtrc_bool_id_codon(merge(1_c_int64_t, 0_c_int64_t, iwistag(m))) /= 0_c_int64_t
+      call wtrc_scalar_helpers_log_direct(wtrc_is_tagged_logged, 'wtrc_is_tagged direct = codon')
       return
     end if
     wtrc_is_tagged = iwistag(m)
@@ -1649,6 +1670,7 @@ end subroutine wtrc_register
       call wtrc_scalar_helpers_log_entered()
       call wtrc_init_rates_codon(int(pcols, c_int64_t), int(pver, c_int64_t), int(pwtype, c_int64_t), &
            int(top_lev, c_int64_t), c_loc(process_rates))
+      call wtrc_scalar_helpers_log_direct(wtrc_init_rates_logged, 'wtrc_init_rates direct = codon')
       return
     end if
 

@@ -16,6 +16,8 @@ logical :: tstep_impl_selected = .false.
 logical :: qbo_batch_use_native_impl = .false.
 logical :: qbo_batch_impl_selected = .false.
 logical :: qbo_batch_entered_logged = .false.
+logical :: qbo_readnl_logged = .false.
+logical :: qbo_init_logged = .false.
 
 !---------------------------------------------------------------------
 ! Public methods
@@ -96,6 +98,22 @@ subroutine qbo_batch_log_entered()
 
 end subroutine qbo_batch_log_entered
 
+subroutine qbo_log_direct(logged, proof_line)
+
+  logical, intent(inout) :: logged
+  character(len=*), intent(in) :: proof_line
+
+  if (logged) return
+  logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') trim(proof_line)
+     call qbo_batch_append_proof(proof_line)
+     call flush(iulog)
+  end if
+
+end subroutine qbo_log_direct
+
 subroutine qbo_relax_select_impl()
 
   character(len=32) :: impl_name
@@ -168,13 +186,33 @@ subroutine qbo_readnl(nlfile)
 
   character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
-  ! Stub; do nothing.
+  interface
+     subroutine qbo_readnl_codon() bind(c, name="qbo_readnl_codon")
+     end subroutine qbo_readnl_codon
+  end interface
+
+  call qbo_batch_select_impl()
+
+  if (qbo_batch_use_native_impl) return
+
+  call qbo_readnl_codon()
+  call qbo_log_direct(qbo_readnl_logged, 'qbo_readnl direct = codon')
 
 end subroutine qbo_readnl
 
 subroutine qbo_init
 
-  ! Stub; do nothing.
+  interface
+     subroutine qbo_init_codon() bind(c, name="qbo_init_codon")
+     end subroutine qbo_init_codon
+  end interface
+
+  call qbo_batch_select_impl()
+
+  if (qbo_batch_use_native_impl) return
+
+  call qbo_init_codon()
+  call qbo_log_direct(qbo_init_logged, 'qbo_init direct = codon')
 
 end subroutine qbo_init
 
