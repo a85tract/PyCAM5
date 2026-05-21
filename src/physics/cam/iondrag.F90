@@ -36,12 +36,36 @@ module iondrag
   logical :: use_native_iondrag_impl = .false.
   logical :: iondrag_impl_selected = .false.
   logical :: iondrag_proof_written = .false.
+  logical :: iondrag_readnl_logged = .false.
+  logical :: iondrag_register_logged = .false.
+  logical :: iondrag_init_logged = .false.
+  logical :: iondrag_calc_ghg_logged = .false.
 
   interface
      function iondrag_touch_codon() result(out_c) bind(c, name="iondrag_touch_codon")
         use iso_c_binding, only: c_int64_t
         integer(c_int64_t) :: out_c
      end function iondrag_touch_codon
+
+     function iondrag_readnl_codon() result(out_c) bind(c, name="iondrag_readnl_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t) :: out_c
+     end function iondrag_readnl_codon
+
+     function iondrag_register_codon() result(out_c) bind(c, name="iondrag_register_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t) :: out_c
+     end function iondrag_register_codon
+
+     function iondrag_init_codon() result(out_c) bind(c, name="iondrag_init_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t) :: out_c
+     end function iondrag_init_codon
+
+     function iondrag_calc_ghg_codon() result(out_c) bind(c, name="iondrag_calc_ghg_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t) :: out_c
+     end function iondrag_calc_ghg_codon
   end interface
 
 contains
@@ -97,6 +121,22 @@ contains
 
   !================================================================================================
 
+  subroutine iondrag_log_direct(logged, proof_line)
+
+    logical, intent(inout) :: logged
+    character(len=*), intent(in) :: proof_line
+
+    if (logged) return
+    logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') trim(proof_line)
+    end if
+
+  end subroutine iondrag_log_direct
+
+  !================================================================================================
+
   subroutine iondrag_touch()
 
     integer(c_int64_t) :: out_c
@@ -120,18 +160,46 @@ contains
   subroutine iondrag_readnl(nlfile)
 
     character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
+    integer(c_int64_t) :: out_c
 
-    call iondrag_touch()
+    call iondrag_select_impl()
+
+    if (use_native_iondrag_impl) then
+       call iondrag_readnl_native(nlfile)
+       return
+    end if
+
+    call iondrag_log_direct(iondrag_readnl_logged, 'iondrag_readnl direct = codon')
+    out_c = iondrag_readnl_codon()
 
   end subroutine iondrag_readnl
+
+  subroutine iondrag_readnl_native(nlfile)
+
+    character(len=*), intent(in) :: nlfile
+
+  end subroutine iondrag_readnl_native
 
   !==============================================================================     
 
   subroutine iondrag_register
+    integer(c_int64_t) :: out_c
 
-    call iondrag_touch()
+    call iondrag_select_impl()
+
+    if (use_native_iondrag_impl) then
+       call iondrag_register_native()
+       return
+    end if
+
+    call iondrag_log_direct(iondrag_register_logged, 'iondrag_register direct = codon')
+    out_c = iondrag_register_codon()
 
   end subroutine iondrag_register
+
+  subroutine iondrag_register_native
+
+  end subroutine iondrag_register_native
 
   !================================================================================================
 
@@ -141,10 +209,25 @@ contains
     ! dummy arguments
     !-------------------------------------------------------------------------------
     real(r8), intent(in) :: pref_mid(pver)
+    integer(c_int64_t) :: out_c
 
-    call iondrag_touch()
+    call iondrag_select_impl()
+
+    if (use_native_iondrag_impl) then
+       call iondrag_init_native(pref_mid)
+       return
+    end if
+
+    call iondrag_log_direct(iondrag_init_logged, 'iondrag_init direct = codon')
+    out_c = iondrag_init_codon()
 
   end subroutine iondrag_init
+
+  subroutine iondrag_init_native( pref_mid )
+
+    real(r8), intent(in) :: pref_mid(pver)
+
+  end subroutine iondrag_init_native
 
   !================================================================================================
   subroutine iondrag_calc_ions( lchnk, ncol, state, ptend, pbuf, delt )
@@ -174,10 +257,28 @@ contains
 
     type(physics_state), intent(in) :: state
     type(physics_ptend), intent(out):: ptend
+    integer(c_int64_t) :: out_c
 
-    call iondrag_touch()
+    call iondrag_select_impl()
+
+    if (use_native_iondrag_impl) then
+       call iondrag_calc_ghg_native(lchnk, ncol, state, ptend)
+       return
+    end if
+
+    call iondrag_log_direct(iondrag_calc_ghg_logged, 'iondrag_calc_ghg direct = codon')
+    out_c = iondrag_calc_ghg_codon()
 
   end subroutine iondrag_calc_ghg
+
+  subroutine iondrag_calc_ghg_native (lchnk,ncol,state,ptend)
+
+    integer, intent(in) :: lchnk
+    integer, intent(in) :: ncol
+    type(physics_state), intent(in) :: state
+    type(physics_ptend), intent(out):: ptend
+
+  end subroutine iondrag_calc_ghg_native
 
   !===================================================================================
 

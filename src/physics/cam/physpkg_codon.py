@@ -5444,6 +5444,36 @@ def carma_intr_touch_codon() -> int:
 
 
 @export
+def carma_register_codon() -> int:
+    return 0
+
+
+@export
+def carma_implements_cnst_codon() -> int:
+    return 0
+
+
+@export
+def carma_init_codon() -> int:
+    return 0
+
+
+@export
+def carma_final_codon() -> int:
+    return 0
+
+
+@export
+def carma_timestep_init_codon() -> int:
+    return 0
+
+
+@export
+def carma_accumulate_stats_codon() -> int:
+    return 0
+
+
+@export
 def subcol_touch_codon() -> int:
     return 0
 
@@ -5597,6 +5627,26 @@ def unicon_cam_int_codon(value: int) -> int:
 
 @export
 def iondrag_touch_codon() -> int:
+    return 0
+
+
+@export
+def iondrag_readnl_codon() -> int:
+    return 0
+
+
+@export
+def iondrag_register_codon() -> int:
+    return 0
+
+
+@export
+def iondrag_init_codon() -> int:
+    return 0
+
+
+@export
+def iondrag_calc_ghg_codon() -> int:
     return 0
 
 

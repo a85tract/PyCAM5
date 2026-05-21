@@ -49,6 +49,12 @@ module carma_intr
   logical :: use_native_carma_intr_impl = .false.
   logical :: carma_intr_impl_selected = .false.
   logical :: carma_intr_proof_written = .false.
+  logical :: carma_register_logged = .false.
+  logical :: carma_implements_cnst_logged = .false.
+  logical :: carma_init_logged = .false.
+  logical :: carma_final_logged = .false.
+  logical :: carma_timestep_init_logged = .false.
+  logical :: carma_accumulate_stats_logged = .false.
 
   interface
     function carma_intr_false_codon() result(out_c) bind(c, name="carma_intr_false_codon")
@@ -60,6 +66,36 @@ module carma_intr
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t) :: out_c
     end function carma_intr_touch_codon
+
+    function carma_register_codon() result(out_c) bind(c, name="carma_register_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t) :: out_c
+    end function carma_register_codon
+
+    function carma_implements_cnst_codon() result(out_c) bind(c, name="carma_implements_cnst_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t) :: out_c
+    end function carma_implements_cnst_codon
+
+    function carma_init_codon() result(out_c) bind(c, name="carma_init_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t) :: out_c
+    end function carma_init_codon
+
+    function carma_final_codon() result(out_c) bind(c, name="carma_final_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t) :: out_c
+    end function carma_final_codon
+
+    function carma_timestep_init_codon() result(out_c) bind(c, name="carma_timestep_init_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t) :: out_c
+    end function carma_timestep_init_codon
+
+    function carma_accumulate_stats_codon() result(out_c) bind(c, name="carma_accumulate_stats_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t) :: out_c
+    end function carma_accumulate_stats_codon
   end interface
 
 contains
@@ -113,6 +149,22 @@ contains
 
   !================================================================================================
 
+  subroutine carma_intr_log_direct(logged, proof_line)
+
+    logical, intent(inout) :: logged
+    character(len=*), intent(in) :: proof_line
+
+    if (logged) return
+    logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') trim(proof_line)
+    end if
+
+  end subroutine carma_intr_log_direct
+
+  !================================================================================================
+
   subroutine carma_intr_touch()
 
     integer(c_int64_t) :: out_c
@@ -151,12 +203,26 @@ contains
 
 
   subroutine carma_register
-    implicit none
+    integer(c_int64_t) :: out_c
 
-    call carma_intr_touch()
+    call carma_intr_select_impl()
+
+    if (use_native_carma_intr_impl) then
+       call carma_register_native()
+       return
+    end if
+
+    call carma_intr_log_direct(carma_register_logged, 'carma_register direct = codon')
+    out_c = carma_register_codon()
 
     return
   end subroutine carma_register
+
+  subroutine carma_register_native
+    implicit none
+
+    return
+  end subroutine carma_register_native
 
 
   function carma_is_active()
@@ -175,38 +241,101 @@ contains
     
     character(len=*), intent(in) :: name   !! constituent name
     logical :: carma_implements_cnst       ! return value
+    integer(c_int64_t) :: out_c
 
-    carma_implements_cnst = carma_intr_false()
-    
+    call carma_intr_select_impl()
+
+    if (use_native_carma_intr_impl) then
+       carma_implements_cnst = carma_implements_cnst_native(name)
+       return
+    end if
+
+    call carma_intr_log_direct(carma_implements_cnst_logged, 'carma_implements_cnst direct = codon')
+    out_c = carma_implements_cnst_codon()
+    carma_implements_cnst = out_c /= 0_c_int64_t
+
     return
   end function carma_implements_cnst
+
+  function carma_implements_cnst_native(name)
+    implicit none
+
+    character(len=*), intent(in) :: name
+    logical :: carma_implements_cnst_native
+
+    carma_implements_cnst_native = .false.
+
+    return
+  end function carma_implements_cnst_native
   
 
   subroutine carma_init
-    implicit none
+    integer(c_int64_t) :: out_c
 
-    call carma_intr_touch()
+    call carma_intr_select_impl()
+
+    if (use_native_carma_intr_impl) then
+       call carma_init_native()
+       return
+    end if
+
+    call carma_intr_log_direct(carma_init_logged, 'carma_init direct = codon')
+    out_c = carma_init_codon()
     
     return
   end subroutine carma_init
 
-
-  subroutine carma_final
+  subroutine carma_init_native
     implicit none
 
-    call carma_intr_touch()
+    return
+  end subroutine carma_init_native
+
+
+  subroutine carma_final
+    integer(c_int64_t) :: out_c
+
+    call carma_intr_select_impl()
+
+    if (use_native_carma_intr_impl) then
+       call carma_final_native()
+       return
+    end if
+
+    call carma_intr_log_direct(carma_final_logged, 'carma_final direct = codon')
+    out_c = carma_final_codon()
         
     return
   end subroutine carma_final
+
+  subroutine carma_final_native
+    implicit none
+
+    return
+  end subroutine carma_final_native
   
 
   subroutine carma_timestep_init
-    implicit none
+    integer(c_int64_t) :: out_c
 
-    call carma_intr_touch()
+    call carma_intr_select_impl()
+
+    if (use_native_carma_intr_impl) then
+       call carma_timestep_init_native()
+       return
+    end if
+
+    call carma_intr_log_direct(carma_timestep_init_logged, 'carma_timestep_init direct = codon')
+    out_c = carma_timestep_init_codon()
 
     return
   end subroutine carma_timestep_init
+
+  subroutine carma_timestep_init_native
+    implicit none
+
+    return
+  end subroutine carma_timestep_init_native
 
 
   subroutine carma_timestep_tend(state, cam_in, cam_out, ptend, dt, pbuf, dlf, rliq, prec_str, snow_str, &
@@ -298,9 +427,22 @@ contains
 
 
   subroutine carma_accumulate_stats()
-    implicit none
+    integer(c_int64_t) :: out_c
 
-    call carma_intr_touch()
+    call carma_intr_select_impl()
+
+    if (use_native_carma_intr_impl) then
+       call carma_accumulate_stats_native()
+       return
+    end if
+
+    call carma_intr_log_direct(carma_accumulate_stats_logged, 'carma_accumulate_stats direct = codon')
+    out_c = carma_accumulate_stats_codon()
 
   end subroutine carma_accumulate_stats
+
+  subroutine carma_accumulate_stats_native()
+    implicit none
+
+  end subroutine carma_accumulate_stats_native
 end module carma_intr
