@@ -87,6 +87,8 @@ module zm_conv
    logical :: zm_convr_unit_logged = .false.
    logical :: zm_convr_limit_logged = .false.
    logical :: zm_convr_mflux_logged = .false.
+   logical :: use_native_zm_q1q2_pjr = .false.
+   logical :: zm_q1q2_pjr_selected = .false.
    logical :: zm_q1q2_logged = .false.
    logical :: zm_convr_tail_logged = .false.
    logical :: zm_convr_finish_logged = .false.
@@ -380,6 +382,50 @@ subroutine zm_cldprp_helpers_select_impl()
    end if
 
 end subroutine zm_cldprp_helpers_select_impl
+
+
+subroutine zm_q1q2_pjr_select_impl()
+
+   character(len=32) :: impl_name, q1q2_impl_name
+   integer :: status, q1q2_status, n, q1q2_n, i, code
+
+   if (zm_q1q2_pjr_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('ZM_CONV_POST_SHELL_IMPL', value=impl_name, length=n, status=status)
+   call get_environment_variable('ZM_Q1Q2_PJR_IMPL', value=q1q2_impl_name, length=q1q2_n, status=q1q2_status)
+   if (q1q2_status == 0 .and. q1q2_n > 0) then
+      impl_name = q1q2_impl_name
+      n = q1q2_n
+      status = q1q2_status
+   end if
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_zm_q1q2_pjr = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_zm_q1q2_pjr = .false.
+   end if
+
+   zm_q1q2_pjr_selected = .true.
+
+   if (masterproc) then
+      if (use_native_zm_q1q2_pjr) then
+         write(iulog,*) 'zm_q1q2_pjr implementation = native'
+         call zm_conv_evap_append_impl_proof('zm_q1q2_pjr implementation = native')
+      else
+         write(iulog,*) 'zm_q1q2_pjr implementation = codon'
+         call zm_conv_evap_append_impl_proof('zm_q1q2_pjr implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine zm_q1q2_pjr_select_impl
 
 
 subroutine zm_convr(lchnk   ,ncol    , &
@@ -4201,6 +4247,92 @@ subroutine q1q2_pjr(lchnk   , &
                     cp      ,rl      ,msg     ,          &
                     dl      ,evp     ,cu      )
 
+   use iso_c_binding, only: c_double, c_int64_t, c_loc
+
+   implicit none
+
+   integer, intent(in) :: lchnk             ! chunk identifier
+   integer, intent(in) :: il1g
+   integer, intent(in) :: il2g
+   integer, intent(in) :: msg
+
+   real(r8), intent(in) :: cp
+   real(r8), intent(in) :: rl
+   real(r8), intent(in), target :: q(pcols,pver)
+   real(r8), intent(in) :: qs(pcols,pver)
+   real(r8), intent(in), target :: qu(pcols,pver)
+   real(r8), intent(in), target :: su(pcols,pver)
+   real(r8), intent(in), target :: du(pcols,pver)
+   real(r8), intent(in), target :: qhat(pcols,pver)
+   real(r8), intent(in), target :: shat(pcols,pver)
+   real(r8), intent(in), target :: dp(pcols,pver)
+   real(r8), intent(in), target :: mu(pcols,pver)
+   real(r8), intent(in), target :: md(pcols,pver)
+   real(r8), intent(in), target :: sd(pcols,pver)
+   real(r8), intent(in), target :: qd(pcols,pver)
+   real(r8), intent(in), target :: ql(pcols,pver)
+   real(r8), intent(in), target :: evp(pcols,pver)
+   real(r8), intent(in), target :: cu(pcols,pver)
+   real(r8), intent(in), target :: dsubcld(pcols)
+   real(r8), intent(out), target :: dqdt(pcols,pver),dsdt(pcols,pver)
+   real(r8), intent(out), target :: dl(pcols,pver)
+   integer, intent(in), target :: jt(pcols)
+   integer, intent(in), target :: mx(pcols)
+
+   integer :: i
+   integer(c_int64_t), target :: jt64(pcols)
+   integer(c_int64_t), target :: mx64(pcols)
+
+   interface
+      subroutine zm_q1q2_pjr_codon(lengath_c, pcols_c, pver_c, msg_c, cpres_c, rl_c, q_p, qu_p, su_p, du_p, &
+           qhat_p, shat_p, dp_p, mu_p, md_p, sd_p, qd_p, ql_p, dsubcld_p, jt_p, mx_p, dl_p, evp_p, cu_p, &
+           dqdt_p, dsdt_p) bind(c, name="zm_q1q2_pjr_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: lengath_c, pcols_c, pver_c, msg_c
+         real(c_double), value :: cpres_c, rl_c
+         type(c_ptr), value :: q_p, qu_p, su_p, du_p, qhat_p, shat_p, dp_p, mu_p, md_p, sd_p, qd_p, ql_p
+         type(c_ptr), value :: dsubcld_p, jt_p, mx_p, dl_p, evp_p, cu_p, dqdt_p, dsdt_p
+      end subroutine zm_q1q2_pjr_codon
+   end interface
+
+   call zm_q1q2_pjr_select_impl()
+
+   if (use_native_zm_q1q2_pjr .or. il1g /= 1) then
+      call q1q2_pjr_native(lchnk, dqdt, dsdt, q, qs, qu, su, du, qhat, shat, dp, &
+           mu, md, sd, qd, ql, dsubcld, jt, mx, il1g, il2g, cp, rl, msg, dl, evp, cu)
+      return
+   end if
+
+   do i = 1, il2g
+      jt64(i) = int(jt(i), c_int64_t)
+      mx64(i) = int(mx(i), c_int64_t)
+   end do
+
+   if (masterproc .and. .not. zm_q1q2_logged) then
+      write(iulog,*) 'zm_q1q2_pjr entered (heating/moisture tendency direct = codon)'
+      call zm_conv_evap_append_impl_proof('zm_q1q2_pjr entered (heating/moisture tendency direct = codon)')
+      call flush(iulog)
+      zm_q1q2_logged = .true.
+   end if
+
+   call zm_q1q2_pjr_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+        int(msg, c_int64_t), real(cp, c_double), real(rl, c_double), c_loc(q), c_loc(qu), c_loc(su), &
+        c_loc(du), c_loc(qhat), c_loc(shat), c_loc(dp), c_loc(mu), c_loc(md), c_loc(sd), c_loc(qd), &
+        c_loc(ql), c_loc(dsubcld), c_loc(jt64), c_loc(mx64), c_loc(dl), c_loc(evp), c_loc(cu), &
+        c_loc(dqdt), c_loc(dsdt))
+
+   return
+
+end subroutine q1q2_pjr
+
+subroutine q1q2_pjr_native(lchnk   , &
+                    dqdt    ,dsdt    ,q       ,qs      ,qu      , &
+                    su      ,du      ,qhat    ,shat    ,dp      , &
+                    mu      ,md      ,sd      ,qd      ,ql      , &
+                    dsubcld ,jt      ,mx      ,il1g    ,il2g    , &
+                    cp      ,rl      ,msg     ,          &
+                    dl      ,evp     ,cu      )
+
 
    implicit none
 
@@ -4319,7 +4451,7 @@ subroutine q1q2_pjr(lchnk   , &
    end do
 !
    return
-end subroutine q1q2_pjr
+end subroutine q1q2_pjr_native
 
 subroutine buoyan_dilute(lchnk   ,ncol    , &
                   q       ,t       ,p       ,z       ,pf      , &
