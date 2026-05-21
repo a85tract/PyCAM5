@@ -6038,6 +6038,28 @@ def ghg_data_mw_ratios_codon(
 
 
 @export
+def ghg_data_trcmix_scale_codon(gas_id: int, dlat: float) -> float:
+    if gas_id == 1:
+        if dlat <= 45.0:
+            return 0.2353
+        return 0.2353 + 0.0225489 * (dlat - 45.0)
+
+    if gas_id == 2:
+        if dlat <= 45.0:
+            return 0.3478 + 0.00116 * dlat
+        return 0.4000 + 0.013333 * (dlat - 45.0)
+
+    if gas_id == 3:
+        if dlat <= 45.0:
+            return 0.7273 + 0.00606 * dlat
+        return 1.00 + 0.013333 * (dlat - 45.0)
+
+    if dlat <= 45.0:
+        return 0.4000 + 0.00222 * dlat
+    return 0.50 + 0.024444 * (dlat - 45.0)
+
+
+@export
 def rad_cnst_out_mass_cb_codon(
     ncol: int,
     pcols: int,

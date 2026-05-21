@@ -48,6 +48,9 @@ integer  :: pbuf_idx(ncnst)
 logical :: use_native_ghg_data_mw_ratios_impl = .false.
 logical :: ghg_data_mw_ratios_impl_selected = .false.
 logical :: ghg_data_mw_ratios_proof_written = .false.
+logical :: use_native_ghg_data_trcmix_scale_impl = .false.
+logical :: ghg_data_trcmix_scale_impl_selected = .false.
+logical :: ghg_data_trcmix_scale_proof_written = .false.
 
 interface
   subroutine ghg_data_mw_ratios_codon(mwdry_c, mwn2o_c, mwch4_c, mwf11_c, mwf12_c, mwco2_c, &
@@ -56,6 +59,14 @@ interface
     real(c_double), value :: mwdry_c, mwn2o_c, mwch4_c, mwf11_c, mwf12_c, mwco2_c
     type(c_ptr), value :: rmwn2o_p, rmwch4_p, rmwf11_p, rmwf12_p, rmwco2_p
   end subroutine ghg_data_mw_ratios_codon
+
+  function ghg_data_trcmix_scale_codon(gas_id_c, dlat_c) result(scale_c) &
+       bind(c, name="ghg_data_trcmix_scale_codon")
+    use iso_c_binding, only: c_int64_t, c_double
+    integer(c_int64_t), value :: gas_id_c
+    real(c_double), value :: dlat_c
+    real(c_double) :: scale_c
+  end function ghg_data_trcmix_scale_codon
 end interface
 
 !================================================================================================
@@ -96,6 +107,40 @@ subroutine ghg_data_mw_ratios_select_impl()
 
 end subroutine ghg_data_mw_ratios_select_impl
 
+subroutine ghg_data_trcmix_scale_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (ghg_data_trcmix_scale_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('GHG_DATA_TRCMIX_SCALE_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+    do i = 1, n
+      code = iachar(impl_name(i:i))
+      if (code >= iachar('A') .and. code <= iachar('Z')) then
+        impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+      end if
+    end do
+    use_native_ghg_data_trcmix_scale_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+    use_native_ghg_data_trcmix_scale_impl = .false.
+  end if
+
+  ghg_data_trcmix_scale_impl_selected = .true.
+
+  if (masterproc) then
+    if (use_native_ghg_data_trcmix_scale_impl) then
+      write(iulog,*) 'ghg_data_trcmix_scale implementation = native'
+    else
+      write(iulog,*) 'ghg_data_trcmix_scale implementation = codon'
+    end if
+  end if
+
+end subroutine ghg_data_trcmix_scale_select_impl
+
 subroutine ghg_data_mw_ratios_proof_once()
 
   if (ghg_data_mw_ratios_proof_written) return
@@ -106,6 +151,17 @@ subroutine ghg_data_mw_ratios_proof_once()
   end if
 
 end subroutine ghg_data_mw_ratios_proof_once
+
+subroutine ghg_data_trcmix_scale_proof_once()
+
+  if (ghg_data_trcmix_scale_proof_written) return
+  ghg_data_trcmix_scale_proof_written = .true.
+
+  if (masterproc) then
+    write(iulog,'(A)') 'ghg_data_trcmix_scale entered (trace-gas latitude scale helper = codon)'
+  end if
+
+end subroutine ghg_data_trcmix_scale_proof_once
 
 subroutine ghg_data_update_mw_ratios()
 !-------------------------------------------------------------------------------
@@ -209,6 +265,8 @@ subroutine trcmix(name, ncol, clat, pmid, q)
 ! 
 !-----------------------------------------------------------------------
 
+   use iso_c_binding, only: c_int64_t, c_double
+
    ! Arguments
    character(len=*), intent(in)  :: name              ! constituent name
    integer,          intent(in)  :: ncol              ! number of columns
@@ -225,7 +283,11 @@ subroutine trcmix(name, ncol, clat, pmid, q)
    real(r8) pratio          ! pressure divided by ptrop
    real(r8) trop_mmr        ! tropospheric mass mixing ratio
    real(r8) scale           ! pressure scale height
+   logical :: use_codon_scale
 !-----------------------------------------------------------------------
+
+   call ghg_data_trcmix_scale_select_impl()
+   use_codon_scale = .not. use_native_ghg_data_trcmix_scale_impl
 
    do i = 1, ncol
       coslat(i) = cos(clat(i))
@@ -248,10 +310,15 @@ subroutine trcmix(name, ncol, clat, pmid, q)
          do i = 1,ncol
             ! set stratospheric scale height factor for gases
             dlat = abs(57.2958_r8 * clat(i))
-            if(dlat.le.45.0_r8) then
-               scale = 0.2353_r8
+            if (use_codon_scale) then
+               call ghg_data_trcmix_scale_proof_once()
+               scale = real(ghg_data_trcmix_scale_codon(1_c_int64_t, real(dlat, c_double)), r8)
             else
-               scale = 0.2353_r8 + 0.0225489_r8 * (dlat - 45)
+               if(dlat.le.45.0_r8) then
+                  scale = 0.2353_r8
+               else
+                  scale = 0.2353_r8 + 0.0225489_r8 * (dlat - 45)
+               end if
             end if
 
             ! pressure of tropopause
@@ -276,10 +343,15 @@ subroutine trcmix(name, ncol, clat, pmid, q)
          do i = 1,ncol
             ! set stratospheric scale height factor for gases
             dlat = abs(57.2958_r8 * clat(i))
-            if(dlat.le.45.0_r8) then
-               scale = 0.3478_r8 + 0.00116_r8 * dlat
+            if (use_codon_scale) then
+               call ghg_data_trcmix_scale_proof_once()
+               scale = real(ghg_data_trcmix_scale_codon(2_c_int64_t, real(dlat, c_double)), r8)
             else
-               scale = 0.4000_r8 + 0.013333_r8 * (dlat - 45)
+               if(dlat.le.45.0_r8) then
+                  scale = 0.3478_r8 + 0.00116_r8 * dlat
+               else
+                  scale = 0.4000_r8 + 0.013333_r8 * (dlat - 45)
+               end if
             end if
 
             ! pressure of tropopause
@@ -304,10 +376,15 @@ subroutine trcmix(name, ncol, clat, pmid, q)
          do i = 1,ncol
             ! set stratospheric scale height factor for gases
             dlat = abs(57.2958_r8 * clat(i))
-            if(dlat.le.45.0_r8) then
-               scale = 0.7273_r8 + 0.00606_r8 * dlat
+            if (use_codon_scale) then
+               call ghg_data_trcmix_scale_proof_once()
+               scale = real(ghg_data_trcmix_scale_codon(3_c_int64_t, real(dlat, c_double)), r8)
             else
-               scale = 1.00_r8 + 0.013333_r8 * (dlat - 45)
+               if(dlat.le.45.0_r8) then
+                  scale = 0.7273_r8 + 0.00606_r8 * dlat
+               else
+                  scale = 1.00_r8 + 0.013333_r8 * (dlat - 45)
+               end if
             end if
 
             ! pressure of tropopause
@@ -332,10 +409,15 @@ subroutine trcmix(name, ncol, clat, pmid, q)
          do i = 1,ncol
             ! set stratospheric scale height factor for gases
             dlat = abs(57.2958_r8 * clat(i))
-            if(dlat.le.45.0_r8) then
-               scale = 0.4000_r8 + 0.00222_r8 * dlat
+            if (use_codon_scale) then
+               call ghg_data_trcmix_scale_proof_once()
+               scale = real(ghg_data_trcmix_scale_codon(4_c_int64_t, real(dlat, c_double)), r8)
             else
-               scale = 0.50_r8 + 0.024444_r8 * (dlat - 45)
+               if(dlat.le.45.0_r8) then
+                  scale = 0.4000_r8 + 0.00222_r8 * dlat
+               else
+                  scale = 0.50_r8 + 0.024444_r8 * (dlat - 45)
+               end if
             end if
 
             ! pressure of tropopause
