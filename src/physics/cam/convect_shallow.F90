@@ -71,6 +71,9 @@
    logical    :: convect_shallow_ptend_lq_mask_shell_logged = .false.
    logical    :: convect_shallow_uw_post_shell_logged = .false.
    logical    :: convect_shallow_wtrc_precip_shell_logged = .false.
+   logical    :: use_native_init_impl = .false.
+   logical    :: init_impl_selected = .false.
+   logical    :: init_mw_ratio_logged = .false.
 
    integer :: & ! field index in physics buffer
       sh_flxprc_idx, &
@@ -145,6 +148,7 @@
   ! Purpose : Declare output fields, and initialize variables needed by convection !
   !------------------------------------------------------------------------------- !
 
+  use iso_c_binding,    only : c_double
   use cam_history,       only : addfld, add_default, phys_decomp
   use ppgrid,            only : pcols, pver
   use hk_conv,           only : mfinti
@@ -166,6 +170,16 @@
   integer limcnv                                   ! Top interface level limit for convection
   integer k
   character(len=16)          :: eddy_scheme
+  real(r8)                   :: mwh2o_mwdry_ratio
+
+  interface
+     function convect_shallow_init_mw_ratio_codon(mwh2o_c, mwdry_c) result(ratio_c) &
+          bind(c, name="convect_shallow_init_mw_ratio_codon")
+        use iso_c_binding, only: c_double
+        real(c_double), value :: mwh2o_c, mwdry_c
+        real(c_double) :: ratio_c
+     end function convect_shallow_init_mw_ratio_codon
+  end interface
     
   ! ------------------------------------------------- !
   ! Variables for detailed abalysis of UW-ShCu scheme !
@@ -326,7 +340,15 @@
          write(iulog,*) 'ERROR: shallow convection scheme ', shallow_scheme, ' is incompatible with eddy scheme ', eddy_scheme
          call endrun( 'convect_shallow_init: shallow_scheme and eddy_scheme are incompatible' )
      endif
-     call init_uwshcu( r8, latvap, cpair, latice, zvir, rair, gravit, mwh2o/mwdry )
+     call convect_shallow_init_select_impl()
+     if (use_native_init_impl) then
+        mwh2o_mwdry_ratio = mwh2o/mwdry
+     else
+        call convect_shallow_log_init_mw_ratio_entered()
+        mwh2o_mwdry_ratio = real(convect_shallow_init_mw_ratio_codon(real(mwh2o, c_double), &
+             real(mwdry, c_double)), r8)
+     end if
+     call init_uwshcu( r8, latvap, cpair, latice, zvir, rair, gravit, mwh2o_mwdry_ratio )
 
      tke_idx = pbuf_get_index('tke')
 
@@ -1119,6 +1141,62 @@ subroutine convect_shallow_select_codon_scheme()
    codon_scheme_selected = .true.
 
 end subroutine convect_shallow_select_codon_scheme
+
+  !=============================================================================== !
+
+subroutine convect_shallow_init_select_impl()
+
+   use spmd_utils, only: masterproc
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (init_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CONVECT_SHALLOW_INIT_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_init_impl = .false.
+   end if
+
+   init_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_init_impl) then
+         write(iulog,*) 'convect_shallow_init implementation = native'
+         call convect_shallow_append_proof('convect_shallow_init implementation = native')
+      else
+         write(iulog,*) 'convect_shallow_init implementation = codon'
+         call convect_shallow_append_proof('convect_shallow_init implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine convect_shallow_init_select_impl
+
+subroutine convect_shallow_log_init_mw_ratio_entered()
+
+   use spmd_utils, only: masterproc
+
+   if (init_mw_ratio_logged) return
+   init_mw_ratio_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'convect_shallow_init mw ratio entered (UW molecular-weight ratio = codon)'
+      call convect_shallow_append_proof('convect_shallow_init mw ratio entered (UW molecular-weight ratio = codon)')
+      call flush(iulog)
+   end if
+
+end subroutine convect_shallow_log_init_mw_ratio_entered
 
   !=============================================================================== !
 

@@ -385,6 +385,11 @@ def convect_shallow_init_shell_codon(
 
 
 @export
+def convect_shallow_init_mw_ratio_codon(mwh2o: float, mwdry: float) -> float:
+    return mwh2o / mwdry
+
+
+@export
 def convect_shallow_ptend_lq_mask_shell_codon(pcnst: int, lq_mask_p: cobj):
     lq_mask = Ptr[int](lq_mask_p)
 
