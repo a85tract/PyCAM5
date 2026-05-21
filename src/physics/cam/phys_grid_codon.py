@@ -520,3 +520,71 @@ def phys_grid_assign_chunks_smp_setup_codon(
             ntmp3_smp[smp] = i32(int(ntmp3_smp[smp]) - 1)
             if int(ntmp3_smp[smp]) == 0:
                 ntmp4_smp[smp] = i32(int(ntmp4_smp[smp]) - 1)
+
+
+def phys_grid_assign_block_no_twin_codon(
+    blksiz: int,
+    pcols: int,
+    smp: int,
+    cols_p: cobj,
+    cid_offset_p: cobj,
+    local_cid_p: cobj,
+    nsmpchunks_p: cobj,
+    maxcol_chk_p: cobj,
+    maxcol_chks_p: cobj,
+    dyn_to_latlon_gcol_map_p: cobj,
+    lon_p_p: cobj,
+    lat_p_p: cobj,
+    chunk_ncols_p: cobj,
+    chunk_gcol_p: cobj,
+    chunk_lon_p: cobj,
+    chunk_lat_p: cobj,
+    knuhcs_chunkid_p: cobj,
+    knuhcs_col_p: cobj,
+):
+    cols = Ptr[i32](cols_p)
+    cid_offset = Ptr[i32](cid_offset_p)
+    local_cid = Ptr[i32](local_cid_p)
+    nsmpchunks = Ptr[i32](nsmpchunks_p)
+    maxcol_chk = Ptr[i32](maxcol_chk_p)
+    maxcol_chks = Ptr[i32](maxcol_chks_p)
+    dyn_to_latlon_gcol_map = Ptr[i32](dyn_to_latlon_gcol_map_p)
+    lon_p = Ptr[i32](lon_p_p)
+    lat_p = Ptr[i32](lat_p_p)
+    chunk_ncols = Ptr[i32](chunk_ncols_p)
+    chunk_gcol = Ptr[i32](chunk_gcol_p)
+    chunk_lon = Ptr[i32](chunk_lon_p)
+    chunk_lat = Ptr[i32](chunk_lat_p)
+    knuhcs_chunkid = Ptr[i32](knuhcs_chunkid_p)
+    knuhcs_col = Ptr[i32](knuhcs_col_p)
+
+    for ib in range(blksiz):
+        curgcol = int(cols[ib])
+        curgcol0 = curgcol - 1
+        if int(dyn_to_latlon_gcol_map[curgcol0]) != -1 and int(knuhcs_chunkid[curgcol0]) == -1:
+            cid = int(cid_offset[smp]) + int(local_cid[smp])
+            cid0 = cid - 1
+            if int(maxcol_chks[smp]) > 0:
+                while int(chunk_ncols[cid0]) >= int(maxcol_chk[smp]):
+                    local_cid[smp] = i32((int(local_cid[smp]) + 1) % int(nsmpchunks[smp]))
+                    cid = int(cid_offset[smp]) + int(local_cid[smp])
+                    cid0 = cid - 1
+            else:
+                while int(chunk_ncols[cid0]) >= int(maxcol_chk[smp]) - 1:
+                    local_cid[smp] = i32((int(local_cid[smp]) + 1) % int(nsmpchunks[smp]))
+                    cid = int(cid_offset[smp]) + int(local_cid[smp])
+                    cid0 = cid - 1
+
+            ncols = int(chunk_ncols[cid0]) + 1
+            chunk_ncols[cid0] = i32(ncols)
+            if ncols == int(maxcol_chk[smp]):
+                maxcol_chks[smp] = i32(int(maxcol_chks[smp]) - 1)
+
+            slot = (ncols - 1) + cid0 * pcols
+            chunk_gcol[slot] = i32(curgcol)
+            chunk_lon[slot] = lon_p[curgcol0]
+            chunk_lat[slot] = lat_p[curgcol0]
+            knuhcs_chunkid[curgcol0] = i32(cid)
+            knuhcs_col[curgcol0] = i32(ncols)
+
+            local_cid[smp] = i32((int(local_cid[smp]) + 1) % int(nsmpchunks[smp]))

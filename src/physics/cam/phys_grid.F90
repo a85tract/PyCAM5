@@ -562,6 +562,18 @@ module phys_grid
        type(c_ptr), value :: ntsks_smpx_p, smp_proc_mapx_p, cid_offset_p
        type(c_ptr), value :: ntmp1_smp_p, ntmp2_smp_p, ntmp3_smp_p, ntmp4_smp_p, npchunks_p
      end subroutine phys_grid_assign_chunks_smp_setup_codon
+
+     subroutine phys_grid_assign_block_no_twin_codon(blksiz_c, pcols_c, smp_c, &
+          cols_p, cid_offset_p, local_cid_p, nsmpchunks_p, maxcol_chk_p, maxcol_chks_p, &
+          dyn_to_latlon_gcol_map_p, lon_p_p, lat_p_p, chunk_ncols_p, chunk_gcol_p, &
+          chunk_lon_p, chunk_lat_p, knuhcs_chunkid_p, knuhcs_col_p) &
+          bind(c, name="phys_grid_assign_block_no_twin_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: blksiz_c, pcols_c, smp_c
+       type(c_ptr), value :: cols_p, cid_offset_p, local_cid_p, nsmpchunks_p, maxcol_chk_p, maxcol_chks_p
+       type(c_ptr), value :: dyn_to_latlon_gcol_map_p, lon_p_p, lat_p_p, chunk_ncols_p
+       type(c_ptr), value :: chunk_gcol_p, chunk_lon_p, chunk_lat_p, knuhcs_chunkid_p, knuhcs_col_p
+     end subroutine phys_grid_assign_block_no_twin_codon
    end interface
 
 contains
@@ -1092,6 +1104,29 @@ contains
          c_loc(ntmp2_smp_local(0)), c_loc(ntmp3_smp_local(0)), c_loc(ntmp4_smp_local(0)), &
          c_loc(npchunks_local(0)))
   end subroutine phys_grid_assign_chunks_smp_setup_codon_wrap
+
+  subroutine phys_grid_assign_block_no_twin_codon_wrap(blksiz_local, smp_local, cols_local, &
+       cid_offset_local, local_cid_local, nsmpchunks_local, maxcol_chk_local, maxcol_chks_local, &
+       dyn_map_local, lon_map_local, lat_map_local, chunk_ncols_local, chunk_gcol_local, &
+       chunk_lon_local, chunk_lat_local, knuhcs_chunkid_local, knuhcs_col_local)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: blksiz_local, smp_local
+    integer, target, intent(in) :: cols_local(:), cid_offset_local(0:), nsmpchunks_local(0:)
+    integer, target, intent(in) :: maxcol_chk_local(0:), dyn_map_local(:), lon_map_local(:), lat_map_local(:)
+    integer, target, intent(inout) :: local_cid_local(0:), maxcol_chks_local(0:)
+    integer, target, intent(inout) :: chunk_ncols_local(:), chunk_gcol_local(:,:)
+    integer, target, intent(inout) :: chunk_lon_local(:,:), chunk_lat_local(:,:)
+    integer, target, intent(inout) :: knuhcs_chunkid_local(:), knuhcs_col_local(:)
+
+    if (blksiz_local <= 0) return
+    call phys_grid_assign_block_no_twin_codon(int(blksiz_local, c_int64_t), int(pcols, c_int64_t), &
+         int(smp_local, c_int64_t), c_loc(cols_local(1)), c_loc(cid_offset_local(0)), &
+         c_loc(local_cid_local(0)), c_loc(nsmpchunks_local(0)), c_loc(maxcol_chk_local(0)), &
+         c_loc(maxcol_chks_local(0)), c_loc(dyn_map_local(1)), c_loc(lon_map_local(1)), &
+         c_loc(lat_map_local(1)), c_loc(chunk_ncols_local(1)), c_loc(chunk_gcol_local(1,1)), &
+         c_loc(chunk_lon_local(1,1)), c_loc(chunk_lat_local(1,1)), &
+         c_loc(knuhcs_chunkid_local(1)), c_loc(knuhcs_col_local(1)))
+  end subroutine phys_grid_assign_block_no_twin_codon_wrap
 
   subroutine phys_grid_init( )
     !----------------------------------------------------------------------- 
@@ -4772,6 +4807,14 @@ logical function phys_grid_initialized ()
    ! process-local chunk id (0:nsmpx-1)
    integer, dimension(:), allocatable, target :: local_cid
 
+   ! flattened work arrays used by the Codon no-twin chunk assignment helper
+   integer, dimension(:), allocatable, target :: chunk_ncols_work
+   integer, dimension(:,:), allocatable, target :: chunk_gcol_work
+   integer, dimension(:,:), allocatable, target :: chunk_lon_work
+   integer, dimension(:,:), allocatable, target :: chunk_lat_work
+   integer, dimension(:), allocatable, target :: knuhcs_chunkid_work
+   integer, dimension(:), allocatable, target :: knuhcs_col_work
+
 #if ( defined _OPENMP )
    integer omp_get_max_threads
    external omp_get_max_threads
@@ -5110,75 +5153,125 @@ logical function phys_grid_initialized ()
 !
 ! Assign columns to chunks
 !
-      do jb=firstblock,lastblock
-         p = get_block_owner_d(jb)
-         smp = proc_smp_mapx(p)
-         blksiz = get_block_gcol_cnt_d(jb)
-         call get_block_gcol_d(jb,blksiz,cols)
-         do ib = 1,blksiz
+      if ((.not. use_native_init_helpers_impl) .and. (opt < 4) .and. (twin_alg <= 0)) then
+         allocate( chunk_ncols_work(1:nchunks) )
+         allocate( chunk_gcol_work(1:pcols,1:nchunks) )
+         allocate( chunk_lon_work(1:pcols,1:nchunks) )
+         allocate( chunk_lat_work(1:pcols,1:nchunks) )
+         allocate( knuhcs_chunkid_work(1:ngcols) )
+         allocate( knuhcs_col_work(1:ngcols) )
+
+         chunk_ncols_work(:) = 0
+         chunk_gcol_work(:,:) = 0
+         chunk_lon_work(:,:) = 0
+         chunk_lat_work(:,:) = 0
+         knuhcs_chunkid_work(:) = -1
+         knuhcs_col_work(:) = -1
+
+         do jb=firstblock,lastblock
+            p = get_block_owner_d(jb)
+            smp = proc_smp_mapx(p)
+            blksiz = get_block_gcol_cnt_d(jb)
+            call get_block_gcol_d(jb,blksiz,cols)
+            call phys_grid_assign_block_no_twin_codon_wrap(blksiz, smp, cols, cid_offset, local_cid, &
+                 nsmpchunks, maxcol_chk, maxcol_chks, dyn_to_latlon_gcol_map, lon_p, lat_p, &
+                 chunk_ncols_work, chunk_gcol_work, chunk_lon_work, chunk_lat_work, &
+                 knuhcs_chunkid_work, knuhcs_col_work)
+         enddo
+
+         do cid=1,nchunks
+            chunks(cid)%ncols = chunk_ncols_work(cid)
+            do i=1,chunks(cid)%ncols
+               chunks(cid)%gcol(i) = chunk_gcol_work(i,cid)
+               chunks(cid)%lon(i) = chunk_lon_work(i,cid)
+               chunks(cid)%lat(i) = chunk_lat_work(i,cid)
+            enddo
+         enddo
+         do curgcol=1,ngcols
+            knuhcs(curgcol)%chunkid = knuhcs_chunkid_work(curgcol)
+            knuhcs(curgcol)%col = knuhcs_col_work(curgcol)
+         enddo
+
+         deallocate( chunk_ncols_work )
+         deallocate( chunk_gcol_work )
+         deallocate( chunk_lon_work )
+         deallocate( chunk_lat_work )
+         deallocate( knuhcs_chunkid_work )
+         deallocate( knuhcs_col_work )
+         if (masterproc) then
+            write(iulog,'(A)') 'phys_grid_init_helpers create chunks no-twin block assignment entered (direct = codon)'
+         endif
+      else
+         do jb=firstblock,lastblock
+            p = get_block_owner_d(jb)
+            smp = proc_smp_mapx(p)
+            blksiz = get_block_gcol_cnt_d(jb)
+            call get_block_gcol_d(jb,blksiz,cols)
+            do ib = 1,blksiz
 !
 ! Assign column to a chunk if not already assigned
-            curgcol = cols(ib)
-            if ((dyn_to_latlon_gcol_map(curgcol) .ne. -1) .and. &
-                (knuhcs(curgcol)%chunkid == -1)) then
+               curgcol = cols(ib)
+               if ((dyn_to_latlon_gcol_map(curgcol) .ne. -1) .and. &
+                   (knuhcs(curgcol)%chunkid == -1)) then
 !
 ! Find next chunk with space
 ! (maxcol_chks > 0 test necessary for opt=4 block map)
-               cid = cid_offset(smp) + local_cid(smp)
-               if (maxcol_chks(smp) > 0) then
-                  do while (chunks(cid)%ncols >=  maxcol_chk(smp))
-                     local_cid(smp) = mod(local_cid(smp)+1,nsmpchunks(smp))
-                     cid = cid_offset(smp) + local_cid(smp)
-                  enddo
-               else
-                  do while (chunks(cid)%ncols >=  maxcol_chk(smp)-1)
-                     local_cid(smp) = mod(local_cid(smp)+1,nsmpchunks(smp))
-                     cid = cid_offset(smp) + local_cid(smp)
-                  enddo
-               endif
-               chunks(cid)%ncols = chunks(cid)%ncols + 1
-               if (chunks(cid)%ncols .eq. maxcol_chk(smp)) &
-                  maxcol_chks(smp) = maxcol_chks(smp) - 1
+                  cid = cid_offset(smp) + local_cid(smp)
+                  if (maxcol_chks(smp) > 0) then
+                     do while (chunks(cid)%ncols >=  maxcol_chk(smp))
+                        local_cid(smp) = mod(local_cid(smp)+1,nsmpchunks(smp))
+                        cid = cid_offset(smp) + local_cid(smp)
+                     enddo
+                  else
+                     do while (chunks(cid)%ncols >=  maxcol_chk(smp)-1)
+                        local_cid(smp) = mod(local_cid(smp)+1,nsmpchunks(smp))
+                        cid = cid_offset(smp) + local_cid(smp)
+                     enddo
+                  endif
+                  chunks(cid)%ncols = chunks(cid)%ncols + 1
+                  if (chunks(cid)%ncols .eq. maxcol_chk(smp)) &
+                     maxcol_chks(smp) = maxcol_chks(smp) - 1
 !
-               i = chunks(cid)%ncols
-               chunks(cid)%gcol(i) = curgcol
-               chunks(cid)%lon(i)  = lon_p(curgcol)
-               chunks(cid)%lat(i)  = lat_p(curgcol)
-               knuhcs(curgcol)%chunkid = cid
-               knuhcs(curgcol)%col = i
+                  i = chunks(cid)%ncols
+                  chunks(cid)%gcol(i) = curgcol
+                  chunks(cid)%lon(i)  = lon_p(curgcol)
+                  chunks(cid)%lat(i)  = lat_p(curgcol)
+                  knuhcs(curgcol)%chunkid = cid
+                  knuhcs(curgcol)%col = i
 !
-               if (opt < 4) then
+                  if (opt < 4) then
 !
 ! If space available, look to assign a load-balancing "twin" to same chunk
-                  if ( (chunks(cid)%ncols <  maxcol_chk(smp)) .and. &
-                       (maxcol_chks(smp) > 0) .and. (twin_alg > 0)) then
+                     if ( (chunks(cid)%ncols <  maxcol_chk(smp)) .and. &
+                          (maxcol_chks(smp) > 0) .and. (twin_alg > 0)) then
 
-                     call find_twin(curgcol, smp, &
-                                    proc_smp_mapx, twingcol)
+                        call find_twin(curgcol, smp, &
+                                       proc_smp_mapx, twingcol)
 
-                     if (twingcol > 0) then
-                        chunks(cid)%ncols = chunks(cid)%ncols + 1
-                        if (chunks(cid)%ncols .eq. maxcol_chk(smp)) &
-                           maxcol_chks(smp) = maxcol_chks(smp) - 1
+                        if (twingcol > 0) then
+                           chunks(cid)%ncols = chunks(cid)%ncols + 1
+                           if (chunks(cid)%ncols .eq. maxcol_chk(smp)) &
+                              maxcol_chks(smp) = maxcol_chks(smp) - 1
 !
-                        i = chunks(cid)%ncols
-                        chunks(cid)%gcol(i) = twingcol
-                        chunks(cid)%lon(i) = lon_p(twingcol)
-                        chunks(cid)%lat(i) = lat_p(twingcol)
-                        knuhcs(twingcol)%chunkid = cid
-                        knuhcs(twingcol)%col = i
+                           i = chunks(cid)%ncols
+                           chunks(cid)%gcol(i) = twingcol
+                           chunks(cid)%lon(i) = lon_p(twingcol)
+                           chunks(cid)%lat(i) = lat_p(twingcol)
+                           knuhcs(twingcol)%chunkid = cid
+                           knuhcs(twingcol)%col = i
+                        endif
+!
                      endif
+!
+! Move on to next chunk (wrap map)
+                     local_cid(smp) = mod(local_cid(smp)+1,nsmpchunks(smp))
 !
                   endif
 !
-! Move on to next chunk (wrap map)
-                  local_cid(smp) = mod(local_cid(smp)+1,nsmpchunks(smp))
-!
                endif
-!
-            endif
+            enddo
          enddo
-      enddo
+      endif
 !
    else
 !

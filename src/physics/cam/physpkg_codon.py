@@ -2761,6 +2761,49 @@ def phys_grid_assign_chunks_smp_setup_codon(
 
 
 @export
+def phys_grid_assign_block_no_twin_codon(
+    blksiz: int,
+    pcols: int,
+    smp: int,
+    cols_p: cobj,
+    cid_offset_p: cobj,
+    local_cid_p: cobj,
+    nsmpchunks_p: cobj,
+    maxcol_chk_p: cobj,
+    maxcol_chks_p: cobj,
+    dyn_to_latlon_gcol_map_p: cobj,
+    lon_p_p: cobj,
+    lat_p_p: cobj,
+    chunk_ncols_p: cobj,
+    chunk_gcol_p: cobj,
+    chunk_lon_p: cobj,
+    chunk_lat_p: cobj,
+    knuhcs_chunkid_p: cobj,
+    knuhcs_col_p: cobj,
+):
+    _phys_grid.phys_grid_assign_block_no_twin_codon(
+        blksiz,
+        pcols,
+        smp,
+        cols_p,
+        cid_offset_p,
+        local_cid_p,
+        nsmpchunks_p,
+        maxcol_chk_p,
+        maxcol_chks_p,
+        dyn_to_latlon_gcol_map_p,
+        lon_p_p,
+        lat_p_p,
+        chunk_ncols_p,
+        chunk_gcol_p,
+        chunk_lon_p,
+        chunk_lat_p,
+        knuhcs_chunkid_p,
+        knuhcs_col_p,
+    )
+
+
+@export
 def phys_grid_get_gcol_vec_codon(lth: int, cols_p: cobj, src_p: cobj, dst_p: cobj):
     cols = Ptr[i32](cols_p)
     src = Ptr[i32](src_p)
