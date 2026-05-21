@@ -26,7 +26,7 @@ module physics_types
   public physics_state
   public physics_tend
   public physics_ptend
-  
+
 ! Public interfaces
 
   public physics_update
@@ -74,15 +74,15 @@ module physics_types
           u,       &! zonal wind (m/s)
           v,       &! meridional wind (m/s)
           s,       &! dry static energy
-          omega,   &! vertical pressure velocity (Pa/s) 
-          pmid,    &! midpoint pressure (Pa) 
-          pmiddry, &! midpoint pressure dry (Pa) 
+          omega,   &! vertical pressure velocity (Pa/s)
+          pmid,    &! midpoint pressure (Pa)
+          pmiddry, &! midpoint pressure dry (Pa)
           pdel,    &! layer thickness (Pa)
           pdeldry, &! layer thickness dry (Pa)
           rpdel,   &! reciprocal of layer thickness (Pa)
           rpdeldry,&! recipricol layer thickness dry (Pa)
           lnpmid,  &! ln(pmid)
-          lnpmiddry,&! log midpoint pressure dry (Pa) 
+          lnpmiddry,&! log midpoint pressure dry (Pa)
           exner,   &! inverse exner function w.r.t. surface pressure (ps/p)^(R/cp)
           zm        ! geopotential height above surface at midpoints (m)
 
@@ -91,9 +91,9 @@ module physics_types
 
      real(r8), dimension(:,:),allocatable        :: &
           pint,    &! interface pressure (Pa)
-          pintdry, &! interface pressure dry (Pa) 
+          pintdry, &! interface pressure dry (Pa)
           lnpint,  &! ln(pint)
-          lnpintdry,&! log interface pressure dry (Pa) 
+          lnpintdry,&! log interface pressure dry (Pa)
           zi        ! geopotential height above surface at interfaces (m)
 
      real(r8), dimension(:),allocatable          :: &
@@ -172,6 +172,8 @@ module physics_types
   logical :: set_state_pdry_logged = .false.
   logical :: set_wet_to_dry_logged = .false.
   logical :: set_dry_to_wet_logged = .false.
+  logical :: init_geo_unique_logged = .false.
+  logical :: physics_state_copy_logged = .false.
 
   interface
      subroutine physics_tend_init_codon(psetcols_c, pver_c, dtdt_p, dudt_p, dvdt_p, flx_net_p, te_tnd_p, tw_tnd_p) &
@@ -276,6 +278,33 @@ module physics_types
        integer(c_int64_t), value :: ncol_c, psetcols_c, pver_c
        type(c_ptr), value :: q_p, pdeldry_p, pdel_p
      end subroutine physics_set_dry_to_wet_constituent_codon
+
+     subroutine physics_init_geo_unique_maps_codon(ncol_c, psetcols_c, lat_p, lon_p, ulat_p, ulon_p, &
+          latmapback_p, lonmapback_p, ulatcnt_p, uloncnt_p) bind(c, name="physics_init_geo_unique_maps_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, psetcols_c
+       type(c_ptr), value :: lat_p, lon_p, ulat_p, ulon_p, latmapback_p, lonmapback_p, ulatcnt_p, uloncnt_p
+     end subroutine physics_init_geo_unique_maps_codon
+
+     subroutine physics_copy_real_1d_codon(n_c, src_p, dst_p) bind(c, name="physics_copy_real_1d_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: n_c
+       type(c_ptr), value :: src_p, dst_p
+     end subroutine physics_copy_real_1d_codon
+
+     subroutine physics_copy_real_2d_codon(ncol_c, ld1_c, nlev_c, src_p, dst_p) &
+          bind(c, name="physics_copy_real_2d_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, ld1_c, nlev_c
+       type(c_ptr), value :: src_p, dst_p
+     end subroutine physics_copy_real_2d_codon
+
+     subroutine physics_copy_real_3d_codon(ncol_c, ld1_c, nlev_c, n3_c, src_p, dst_p) &
+          bind(c, name="physics_copy_real_3d_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, ld1_c, nlev_c, n3_c
+       type(c_ptr), value :: src_p, dst_p
+     end subroutine physics_copy_real_3d_codon
   end interface
 
 
@@ -519,6 +548,52 @@ contains
          int(pver, c_int64_t), c_loc(q_m), c_loc(pdeldry), c_loc(pdel))
   end subroutine physics_set_dry_to_wet_constituent_codon_wrap
 
+  subroutine physics_init_geo_unique_maps_codon_wrap(ncol_local, psetcols_local, lat, lon, ulat, ulon, &
+                                                     latmapback, lonmapback, ulatcnt, uloncnt)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncol_local, psetcols_local
+    real(r8), target, intent(in) :: lat(:), lon(:)
+    real(r8), target, intent(inout) :: ulat(:), ulon(:)
+    integer, target, intent(inout) :: latmapback(:), lonmapback(:)
+    integer, intent(out) :: ulatcnt, uloncnt
+    integer(c_int64_t), target :: ulatcnt_out, uloncnt_out
+
+    call physics_init_geo_unique_maps_codon(int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), &
+         c_loc(lat), c_loc(lon), c_loc(ulat), c_loc(ulon), c_loc(latmapback), c_loc(lonmapback), &
+         c_loc(ulatcnt_out), c_loc(uloncnt_out))
+    ulatcnt = int(ulatcnt_out)
+    uloncnt = int(uloncnt_out)
+  end subroutine physics_init_geo_unique_maps_codon_wrap
+
+  subroutine physics_copy_real_1d_codon_wrap(n_local, src, dst)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: n_local
+    real(r8), target, intent(in) :: src(:)
+    real(r8), target, intent(inout) :: dst(:)
+
+    call physics_copy_real_1d_codon(int(n_local, c_int64_t), c_loc(src), c_loc(dst))
+  end subroutine physics_copy_real_1d_codon_wrap
+
+  subroutine physics_copy_real_2d_codon_wrap(ncol_local, ld1_local, nlev_local, src, dst)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncol_local, ld1_local, nlev_local
+    real(r8), target, intent(in) :: src(:,:)
+    real(r8), target, intent(inout) :: dst(:,:)
+
+    call physics_copy_real_2d_codon(int(ncol_local, c_int64_t), int(ld1_local, c_int64_t), &
+         int(nlev_local, c_int64_t), c_loc(src), c_loc(dst))
+  end subroutine physics_copy_real_2d_codon_wrap
+
+  subroutine physics_copy_real_3d_codon_wrap(ncol_local, ld1_local, nlev_local, n3_local, src, dst)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncol_local, ld1_local, nlev_local, n3_local
+    real(r8), target, intent(in) :: src(:,:,:)
+    real(r8), target, intent(inout) :: dst(:,:,:)
+
+    call physics_copy_real_3d_codon(int(ncol_local, c_int64_t), int(ld1_local, c_int64_t), &
+         int(nlev_local, c_int64_t), int(n3_local, c_int64_t), c_loc(src), c_loc(dst))
+  end subroutine physics_copy_real_3d_codon_wrap
+
 !===============================================================================
   subroutine physics_type_alloc(phys_state, phys_tend, begchunk, endchunk, psetcols)
     implicit none
@@ -526,7 +601,7 @@ contains
     type(physics_tend), pointer :: phys_tend(:)
     integer, intent(in) :: begchunk, endchunk
     integer, intent(in) :: psetcols
-    
+
     integer :: ierr=0, lchnk
     type(physics_state), pointer :: state
     type(physics_tend), pointer :: tend
@@ -795,20 +870,20 @@ contains
     !------------------------------------------------------------------------
     ! Get indices for molecular weights and call WACCM-X physconst_update
     !------------------------------------------------------------------------
-    if ( waccmx_is('ionosphere') .or. waccmx_is('neutral') ) then 
+    if ( waccmx_is('ionosphere') .or. waccmx_is('neutral') ) then
       call cnst_get_ind('O', ixo)
       call cnst_get_ind('O2', ixo2)
-      call cnst_get_ind('N', ixn)             
+      call cnst_get_ind('N', ixn)
 
       call physconst_update(state%q, state%t, &
                             cnst_mw(ixo), cnst_mw(ixo2), cnst_mw(ixh), cnst_mw(ixn), &
                             ixo, ixo2, ixh, pcnst, state%lchnk, ncol)
     endif
-   
-    if ( waccmx_is('ionosphere') .or. waccmx_is('neutral') ) then 
+
+    if ( waccmx_is('ionosphere') .or. waccmx_is('neutral') ) then
       zvirv(:,:) = shr_const_rwv / rairv_loc(:,:,state%lchnk) - 1._r8
     else
-      zvirv(:,:) = zvir    
+      zvirv(:,:) = zvir
     endif
 
     !-------------------------------------------------------------------------------------------
@@ -1097,7 +1172,7 @@ contains
     if (ncol > ptend_sum%psetcols) then
        call endrun('physics_ptend_sum error: ncol must be less than or equal to psetcols')
     end if
-    
+
     psetcols = ptend_sum%psetcols
     used_codon = .false.
     call physics_types_zero_select_impl()
@@ -1107,7 +1182,7 @@ contains
 
 ! Update u,v fields
     if(ptend%lu) then
-       if (.not. allocated(ptend_sum%u)) then 
+       if (.not. allocated(ptend_sum%u)) then
           allocate(ptend_sum%u(psetcols,pver), stat=ierr)
           if ( ierr /= 0 ) call endrun('physics_ptend_sum error: allocation error for ptend_sum%u')
           ptend_sum%u=0.0_r8
@@ -1140,7 +1215,7 @@ contains
     end if
 
     if(ptend%lv) then
-       if (.not. allocated(ptend_sum%v)) then 
+       if (.not. allocated(ptend_sum%v)) then
           allocate(ptend_sum%v(psetcols,pver), stat=ierr)
           if ( ierr /= 0 ) call endrun('physics_ptend_sum error: allocation error for ptend_sum%v')
           ptend_sum%v=0.0_r8
@@ -1174,7 +1249,7 @@ contains
 
 
     if(ptend%ls) then
-       if (.not. allocated(ptend_sum%s)) then 
+       if (.not. allocated(ptend_sum%s)) then
           allocate(ptend_sum%s(psetcols,pver), stat=ierr)
           if ( ierr /= 0 ) call endrun('physics_ptend_sum error: allocation error for ptend_sum%s')
           ptend_sum%s=0.0_r8
@@ -1216,7 +1291,7 @@ contains
           allocate(ptend_sum%cflx_srf(psetcols,pcnst), stat=ierr)
           if ( ierr /= 0 ) call endrun('physics_ptend_sum error: allocation error for ptend_sum%cflx_srf')
           ptend_sum%cflx_srf=0.0_r8
-  
+
           allocate(ptend_sum%cflx_top(psetcols,pcnst), stat=ierr)
           if ( ierr /= 0 ) call endrun('physics_ptend_sum error: allocation error for ptend_sum%cflx_top')
           ptend_sum%cflx_top=0.0_r8
@@ -1505,10 +1580,10 @@ end subroutine physics_ptend_copy
     logical, optional                   :: lu       ! if true, then fields to support dudt are allocated
     logical, optional                   :: lv       ! if true, then fields to support dvdt are allocated
     logical, dimension(pcnst),optional  :: lq       ! if true, then fields to support dqdt are allocated
-    
+
 !-----------------------------------------------------------------------
 
-    if (allocated(ptend%s)) then 
+    if (allocated(ptend%s)) then
        call endrun(' physics_ptend_init: ptend should not be allocated before calling this routine')
     end if
 
@@ -1604,44 +1679,55 @@ end subroutine physics_ptend_copy
     logical :: match
     integer :: i, j, ulatcnt, uloncnt
 
-    phys_state%ulat=-999._r8
-    phys_state%ulon=-999._r8
-    phys_state%latmapback=0
-    phys_state%lonmapback=0
-    match=.false.
-    ulatcnt=0
-    uloncnt=0
-    match=.false.
-    do i=1,ncol
-       do j=1,ulatcnt
-          if(phys_state%lat(i) .eq. phys_state%ulat(j)) then
-             match=.true.
-             phys_state%latmapback(i)=j
-          end if
-       end do
-       if(.not. match) then
-          ulatcnt=ulatcnt+1
-          phys_state%ulat(ulatcnt)=phys_state%lat(i)
-          phys_state%latmapback(i)=ulatcnt
-       end if
+    call physics_types_zero_select_impl()
 
+    if (use_native_zero_impl) then
+       phys_state%ulat=-999._r8
+       phys_state%ulon=-999._r8
+       phys_state%latmapback=0
+       phys_state%lonmapback=0
        match=.false.
-       do j=1,uloncnt
-          if(phys_state%lon(i) .eq. phys_state%ulon(j)) then
-             match=.true.
-             phys_state%lonmapback(i)=j
+       ulatcnt=0
+       uloncnt=0
+       match=.false.
+       do i=1,ncol
+          do j=1,ulatcnt
+             if(phys_state%lat(i) .eq. phys_state%ulat(j)) then
+                match=.true.
+                phys_state%latmapback(i)=j
+             end if
+          end do
+          if(.not. match) then
+             ulatcnt=ulatcnt+1
+             phys_state%ulat(ulatcnt)=phys_state%lat(i)
+             phys_state%latmapback(i)=ulatcnt
           end if
-       end do
-       if(.not. match) then
-          uloncnt=uloncnt+1
-          phys_state%ulon(uloncnt)=phys_state%lon(i)
-          phys_state%lonmapback(i)=uloncnt
-       end if
-       match=.false.
 
-    end do
-    phys_state%uloncnt=uloncnt
-    phys_state%ulatcnt=ulatcnt
+          match=.false.
+          do j=1,uloncnt
+             if(phys_state%lon(i) .eq. phys_state%ulon(j)) then
+                match=.true.
+                phys_state%lonmapback(i)=j
+             end if
+          end do
+          if(.not. match) then
+             uloncnt=uloncnt+1
+             phys_state%ulon(uloncnt)=phys_state%lon(i)
+             phys_state%lonmapback(i)=uloncnt
+          end if
+          match=.false.
+
+       end do
+       phys_state%uloncnt=uloncnt
+       phys_state%ulatcnt=ulatcnt
+    else
+       call physics_init_geo_unique_maps_codon_wrap(ncol, phys_state%psetcols, phys_state%lat, phys_state%lon, &
+            phys_state%ulat, phys_state%ulon, phys_state%latmapback, phys_state%lonmapback, ulatcnt, uloncnt)
+       phys_state%uloncnt=uloncnt
+       phys_state%ulatcnt=ulatcnt
+       call physics_types_zero_proof_once()
+       call physics_types_log_direct(init_geo_unique_logged, 'init_geo_unique direct = codon')
+    end if
 
     call get_gcol_all_p(phys_state%lchnk,pcols,phys_state%cid)
 
@@ -1650,28 +1736,28 @@ end subroutine physics_ptend_copy
 
 !===============================================================================
   subroutine physics_dme_adjust(state, tend, qini, dt)
-    !----------------------------------------------------------------------- 
-    ! 
+    !-----------------------------------------------------------------------
+    !
     ! Purpose: Adjust the dry mass in each layer back to the value of physics input state
-    ! 
+    !
     ! Method: Conserve the integrated mass, momentum and total energy in each layer
     !         by scaling the specific mass of consituents, specific momentum (velocity)
     !         and specific total energy by the relative change in layer mass. Solve for
     !         the new temperature by subtracting the new kinetic energy from total energy
     !         and inverting the hydrostatic equation
     !
-    !         The mass in each layer is modified, changing the relationship of the layer 
-    !         interfaces and midpoints to the surface pressure. The result is no longer in 
-    !         the original hybrid coordinate. 
+    !         The mass in each layer is modified, changing the relationship of the layer
+    !         interfaces and midpoints to the surface pressure. The result is no longer in
+    !         the original hybrid coordinate.
     !
     !         This procedure cannot be applied to the "eul" or "sld" dycores because they
     !         require the hybrid coordinate.
-    ! 
+    !
     ! Author: Byron Boville
 
     ! !REVISION HISTORY:
     !   03.03.28  Boville    Created, partly from code by Lin in p_d_adjust
-    ! 
+    !
     !-----------------------------------------------------------------------
 
     use constituents, only : cnst_get_type_byind
@@ -1722,7 +1808,7 @@ end subroutine physics_ptend_copy
 
        if (adjust_te) then
           ! compute specific total energy of unadjusted state (J/kg)
-          te(:ncol) = state%s(:ncol,k) + 0.5_r8*(state%u(:ncol,k)**2 + state%v(:ncol,k)**2) 
+          te(:ncol) = state%s(:ncol,k) + 0.5_r8*(state%u(:ncol,k)**2 + state%v(:ncol,k)**2)
 
           ! recompute initial u,v from the new values and the tendencies
           utmp(:ncol) = state%u(:ncol,k) - dt * tend%dudt(:ncol,k)
@@ -1746,10 +1832,10 @@ end subroutine physics_ptend_copy
        state%rpdel (:ncol,k  ) = 1._r8/ state%pdel(:ncol,k  )
     end do
 
-    if ( waccmx_is('ionosphere') .or. waccmx_is('neutral') ) then 
+    if ( waccmx_is('ionosphere') .or. waccmx_is('neutral') ) then
       zvirv(:,:) = shr_const_rwv / rairv(:,:,state%lchnk) - 1._r8
     else
-      zvirv(:,:) = zvir    
+      zvirv(:,:) = zvir
     endif
 
 ! compute new T,z from new s,q,dp
@@ -1766,7 +1852,7 @@ end subroutine physics_ptend_copy
 
 !===============================================================================
   subroutine physics_state_copy(state_in, state_out)
-    
+
     use ppgrid,       only: pver, pverp
     use constituents, only: pcnst
 
@@ -1787,83 +1873,124 @@ end subroutine physics_ptend_copy
     call physics_state_alloc ( state_out, state_in%lchnk, state_in%psetcols)
 
     ncol = state_in%ncol
-    
+
     state_out%psetcols = state_in%psetcols
     state_out%ngrdcol  = state_in%ngrdcol
     state_out%lchnk    = state_in%lchnk
-    state_out%ncol     = state_in%ncol  
-    state_out%count    = state_in%count 
+    state_out%ncol     = state_in%ncol
+    state_out%count    = state_in%count
 
-    do i = 1, ncol
-       state_out%lat(i)    = state_in%lat(i)
-       state_out%lon(i)    = state_in%lon(i)
-       state_out%ps(i)     = state_in%ps(i)
-       state_out%phis(i)   = state_in%phis(i)
-       state_out%te_ini(i) = state_in%te_ini(i) 
-       state_out%te_cur(i) = state_in%te_cur(i) 
-       state_out%tw_ini(i) = state_in%tw_ini(i) 
-       state_out%tw_cur(i) = state_in%tw_cur(i) 
-    end do
+    call physics_types_zero_select_impl()
 
-    do k = 1, pver
+    if (use_native_zero_impl) then
        do i = 1, ncol
-          state_out%t(i,k)         = state_in%t(i,k) 
-          state_out%u(i,k)         = state_in%u(i,k) 
-          state_out%v(i,k)         = state_in%v(i,k) 
-          state_out%s(i,k)         = state_in%s(i,k) 
-          state_out%omega(i,k)     = state_in%omega(i,k) 
-          state_out%pmid(i,k)      = state_in%pmid(i,k) 
-          state_out%pdel(i,k)      = state_in%pdel(i,k) 
-          state_out%rpdel(i,k)     = state_in%rpdel(i,k) 
-          state_out%lnpmid(i,k)    = state_in%lnpmid(i,k) 
-          state_out%exner(i,k)     = state_in%exner(i,k) 
-          state_out%zm(i,k)        = state_in%zm(i,k)
+          state_out%lat(i)    = state_in%lat(i)
+          state_out%lon(i)    = state_in%lon(i)
+          state_out%ps(i)     = state_in%ps(i)
+          state_out%phis(i)   = state_in%phis(i)
+          state_out%te_ini(i) = state_in%te_ini(i)
+          state_out%te_cur(i) = state_in%te_cur(i)
+          state_out%tw_ini(i) = state_in%tw_ini(i)
+          state_out%tw_cur(i) = state_in%tw_cur(i)
        end do
-    end do
 
-    do k = 1, pverp
-       do i = 1, ncol
-          state_out%pint(i,k)      = state_in%pint(i,k) 
-          state_out%lnpint(i,k)    = state_in%lnpint(i,k) 
-          state_out%zi(i,k)        = state_in% zi(i,k) 
-       end do
-    end do
-
-
-       do i = 1, ncol
-          state_out%psdry(i)  = state_in%psdry(i) 
-       end do
        do k = 1, pver
           do i = 1, ncol
-             state_out%lnpmiddry(i,k) = state_in%lnpmiddry(i,k) 
-             state_out%pmiddry(i,k)   = state_in%pmiddry(i,k) 
-             state_out%pdeldry(i,k)   = state_in%pdeldry(i,k) 
-             state_out%rpdeldry(i,k)  = state_in%rpdeldry(i,k) 
+             state_out%t(i,k)         = state_in%t(i,k)
+             state_out%u(i,k)         = state_in%u(i,k)
+             state_out%v(i,k)         = state_in%v(i,k)
+             state_out%s(i,k)         = state_in%s(i,k)
+             state_out%omega(i,k)     = state_in%omega(i,k)
+             state_out%pmid(i,k)      = state_in%pmid(i,k)
+             state_out%pdel(i,k)      = state_in%pdel(i,k)
+             state_out%rpdel(i,k)     = state_in%rpdel(i,k)
+             state_out%lnpmid(i,k)    = state_in%lnpmid(i,k)
+             state_out%exner(i,k)     = state_in%exner(i,k)
+             state_out%zm(i,k)        = state_in%zm(i,k)
           end do
        end do
+
        do k = 1, pverp
           do i = 1, ncol
-             state_out%pintdry(i,k)   = state_in%pintdry(i,k)
-             state_out%lnpintdry(i,k) = state_in%lnpintdry(i,k) 
+             state_out%pint(i,k)      = state_in%pint(i,k)
+             state_out%lnpint(i,k)    = state_in%lnpint(i,k)
+             state_out%zi(i,k)        = state_in% zi(i,k)
           end do
        end do
 
-    do m = 1, pcnst
-       do k = 1, pver
+
           do i = 1, ncol
-             state_out%q(i,k,m) = state_in%q(i,k,m) 
+             state_out%psdry(i)  = state_in%psdry(i)
+          end do
+          do k = 1, pver
+             do i = 1, ncol
+                state_out%lnpmiddry(i,k) = state_in%lnpmiddry(i,k)
+                state_out%pmiddry(i,k)   = state_in%pmiddry(i,k)
+                state_out%pdeldry(i,k)   = state_in%pdeldry(i,k)
+                state_out%rpdeldry(i,k)  = state_in%rpdeldry(i,k)
+             end do
+          end do
+          do k = 1, pverp
+             do i = 1, ncol
+                state_out%pintdry(i,k)   = state_in%pintdry(i,k)
+                state_out%lnpintdry(i,k) = state_in%lnpintdry(i,k)
+             end do
+          end do
+
+       do m = 1, pcnst
+          do k = 1, pver
+             do i = 1, ncol
+                state_out%q(i,k,m) = state_in%q(i,k,m)
+             end do
           end do
        end do
-    end do
+    else
+       call physics_copy_real_1d_codon_wrap(ncol, state_in%lat, state_out%lat)
+       call physics_copy_real_1d_codon_wrap(ncol, state_in%lon, state_out%lon)
+       call physics_copy_real_1d_codon_wrap(ncol, state_in%ps, state_out%ps)
+       call physics_copy_real_1d_codon_wrap(ncol, state_in%phis, state_out%phis)
+       call physics_copy_real_1d_codon_wrap(ncol, state_in%te_ini, state_out%te_ini)
+       call physics_copy_real_1d_codon_wrap(ncol, state_in%te_cur, state_out%te_cur)
+       call physics_copy_real_1d_codon_wrap(ncol, state_in%tw_ini, state_out%tw_ini)
+       call physics_copy_real_1d_codon_wrap(ncol, state_in%tw_cur, state_out%tw_cur)
+       call physics_copy_real_1d_codon_wrap(ncol, state_in%psdry, state_out%psdry)
+
+       call physics_copy_real_2d_codon_wrap(ncol, state_in%psetcols, pver, state_in%t, state_out%t)
+       call physics_copy_real_2d_codon_wrap(ncol, state_in%psetcols, pver, state_in%u, state_out%u)
+       call physics_copy_real_2d_codon_wrap(ncol, state_in%psetcols, pver, state_in%v, state_out%v)
+       call physics_copy_real_2d_codon_wrap(ncol, state_in%psetcols, pver, state_in%s, state_out%s)
+       call physics_copy_real_2d_codon_wrap(ncol, state_in%psetcols, pver, state_in%omega, state_out%omega)
+       call physics_copy_real_2d_codon_wrap(ncol, state_in%psetcols, pver, state_in%pmid, state_out%pmid)
+       call physics_copy_real_2d_codon_wrap(ncol, state_in%psetcols, pver, state_in%pdel, state_out%pdel)
+       call physics_copy_real_2d_codon_wrap(ncol, state_in%psetcols, pver, state_in%rpdel, state_out%rpdel)
+       call physics_copy_real_2d_codon_wrap(ncol, state_in%psetcols, pver, state_in%lnpmid, state_out%lnpmid)
+       call physics_copy_real_2d_codon_wrap(ncol, state_in%psetcols, pver, state_in%exner, state_out%exner)
+       call physics_copy_real_2d_codon_wrap(ncol, state_in%psetcols, pver, state_in%zm, state_out%zm)
+       call physics_copy_real_2d_codon_wrap(ncol, state_in%psetcols, pver, state_in%lnpmiddry, state_out%lnpmiddry)
+       call physics_copy_real_2d_codon_wrap(ncol, state_in%psetcols, pver, state_in%pmiddry, state_out%pmiddry)
+       call physics_copy_real_2d_codon_wrap(ncol, state_in%psetcols, pver, state_in%pdeldry, state_out%pdeldry)
+       call physics_copy_real_2d_codon_wrap(ncol, state_in%psetcols, pver, state_in%rpdeldry, state_out%rpdeldry)
+
+       call physics_copy_real_2d_codon_wrap(ncol, state_in%psetcols, pverp, state_in%pint, state_out%pint)
+       call physics_copy_real_2d_codon_wrap(ncol, state_in%psetcols, pverp, state_in%lnpint, state_out%lnpint)
+       call physics_copy_real_2d_codon_wrap(ncol, state_in%psetcols, pverp, state_in%zi, state_out%zi)
+       call physics_copy_real_2d_codon_wrap(ncol, state_in%psetcols, pverp, state_in%pintdry, state_out%pintdry)
+       call physics_copy_real_2d_codon_wrap(ncol, state_in%psetcols, pverp, state_in%lnpintdry, state_out%lnpintdry)
+
+       call physics_copy_real_3d_codon_wrap(ncol, state_in%psetcols, pver, pcnst, state_in%q, state_out%q)
+
+       call physics_types_zero_proof_once()
+       call physics_types_log_direct(physics_state_copy_logged, 'physics_state_copy direct = codon')
+    end if
 
   end subroutine physics_state_copy
 !===============================================================================
 
   subroutine physics_tend_init(tend)
     use iso_c_binding, only: c_int64_t, c_loc
-    
+
     implicit none
-    
+
     !
     ! Arguments
     !
@@ -1891,7 +2018,7 @@ end subroutine physics_ptend_copy
             tend%te_tnd, tend%tw_tnd)
        call physics_types_zero_proof_once()
     end if
-    
+
 end subroutine physics_tend_init
 
 !===============================================================================
@@ -1904,7 +2031,7 @@ subroutine set_state_pdry (state,pdeld_calc)
 
   type(physics_state), intent(inout) :: state
   logical, optional, intent(in) :: pdeld_calc    !  .true. do calculate pdeld [default]
-                                                 !  .false. don't calculate pdeld 
+                                                 !  .false. don't calculate pdeld
   integer ncol
   integer i, k
   logical do_pdeld_calc
@@ -1914,7 +2041,7 @@ subroutine set_state_pdry (state,pdeld_calc)
   else
      do_pdeld_calc = .true.
   endif
-  
+
   ncol = state%ncol
 
   call physics_types_zero_select_impl()
@@ -1945,7 +2072,7 @@ subroutine set_state_pdry (state,pdeld_calc)
      call physics_types_log_direct(set_state_pdry_logged, 'set_state_pdry direct = codon')
   end if
 
-end subroutine set_state_pdry 
+end subroutine set_state_pdry
 
 !===============================================================================
 
@@ -1957,7 +2084,7 @@ subroutine set_wet_to_dry (state)
 
   integer m, ncol
   logical :: used_codon
-  
+
   ncol = state%ncol
   used_codon = .false.
   call physics_types_zero_select_impl()
@@ -1982,7 +2109,7 @@ subroutine set_wet_to_dry (state)
      end if
   end if
 
-end subroutine set_wet_to_dry 
+end subroutine set_wet_to_dry
 
 !===============================================================================
 
@@ -1994,7 +2121,7 @@ subroutine set_dry_to_wet (state)
 
   integer m, ncol
   logical :: used_codon
-  
+
   ncol = state%ncol
   used_codon = .false.
   call physics_types_zero_select_impl()
@@ -2049,106 +2176,106 @@ subroutine physics_state_alloc(state,lchnk,psetcols)
 
   allocate(state%lat(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%lat')
-  
+
   allocate(state%lon(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%lon')
-  
+
   allocate(state%ps(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%ps')
-  
+
   allocate(state%psdry(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%psdry')
-  
+
   allocate(state%phis(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%phis')
-  
+
   allocate(state%ulat(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%ulat')
-  
+
   allocate(state%ulon(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%ulon')
-  
+
   allocate(state%t(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%t')
-  
+
   allocate(state%u(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%u')
-  
+
   allocate(state%v(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%v')
-  
+
   allocate(state%s(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%s')
-  
+
   allocate(state%omega(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%omega')
-  
+
   allocate(state%pmid(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%pmid')
-  
+
   allocate(state%pmiddry(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%pmiddry')
-  
+
   allocate(state%pdel(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%pdel')
-  
+
   allocate(state%pdeldry(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%pdeldry')
-  
+
   allocate(state%rpdel(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%rpdel')
-  
+
   allocate(state%rpdeldry(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%rpdeldry')
-  
+
   allocate(state%lnpmid(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%lnpmid')
-  
+
   allocate(state%lnpmiddry(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%lnpmiddry')
-  
+
   allocate(state%exner(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%exner')
-  
+
   allocate(state%zm(psetcols,pver), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%zm')
-  
+
   allocate(state%q(psetcols,pver,pcnst), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%q')
-  
+
   allocate(state%pint(psetcols,pver+1), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%pint')
-  
+
   allocate(state%pintdry(psetcols,pver+1), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%pintdry')
-  
+
   allocate(state%lnpint(psetcols,pver+1), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%lnpint')
-  
+
   allocate(state%lnpintdry(psetcols,pver+1), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%lnpintdry')
-  
+
   allocate(state%zi(psetcols,pver+1), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%zi')
-  
+
   allocate(state%te_ini(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%te_ini')
-  
+
   allocate(state%te_cur(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%te_cur')
-  
+
   allocate(state%tw_ini(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%tw_ini')
-  
+
   allocate(state%tw_cur(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%tw_cur')
-  
+
   allocate(state%latmapback(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%latmapback')
-  
+
   allocate(state%lonmapback(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%lonmapback')
-  
+
   allocate(state%cid(psetcols), stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_alloc error: allocation error for state%cid')
 
@@ -2175,13 +2302,13 @@ subroutine physics_state_alloc(state,lchnk,psetcols)
   state%exner(:,:) = inf
   state%zm(:,:) = inf
   state%q(:,:,:) = inf
-      
+
   state%pint(:,:) = inf
   state%pintdry(:,:) = inf
   state%lnpint(:,:) = inf
   state%lnpintdry(:,:) = inf
   state%zi(:,:) = inf
-      
+
   state%te_ini(:) = inf
   state%te_cur(:) = inf
   state%tw_ini(:) = inf
@@ -2200,103 +2327,103 @@ subroutine physics_state_dealloc(state)
 
   deallocate(state%lat, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%lat')
-  
+
   deallocate(state%lon, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%lon')
-  
+
   deallocate(state%ps, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%ps')
-  
+
   deallocate(state%psdry, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%psdry')
-  
+
   deallocate(state%phis, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%phis')
-  
+
   deallocate(state%ulat, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%ulat')
-  
+
   deallocate(state%ulon, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%ulon')
-  
+
   deallocate(state%t, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%t')
-  
+
   deallocate(state%u, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%u')
-  
+
   deallocate(state%v, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%v')
-  
+
   deallocate(state%s, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%s')
-  
+
   deallocate(state%omega, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%omega')
-  
+
   deallocate(state%pmid, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%pmid')
-  
+
   deallocate(state%pmiddry, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%pmiddry')
-  
+
   deallocate(state%pdel, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%pdel')
-  
+
   deallocate(state%pdeldry, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%pdeldry')
-  
+
   deallocate(state%rpdel, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%rpdel')
-  
+
   deallocate(state%rpdeldry, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%rpdeldry')
-  
+
   deallocate(state%lnpmid, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%lnpmid')
-  
+
   deallocate(state%lnpmiddry, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%lnpmiddry')
-  
+
   deallocate(state%exner, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%exner')
-  
+
   deallocate(state%zm, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%zm')
-  
+
   deallocate(state%q, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%q')
-  
+
   deallocate(state%pint, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%pint')
-  
+
   deallocate(state%pintdry, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%pintdry')
-  
+
   deallocate(state%lnpint, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%lnpint')
-  
+
   deallocate(state%lnpintdry, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%lnpintdry')
-  
+
   deallocate(state%zi, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%zi')
 
   deallocate(state%te_ini, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%te_ini')
-  
+
   deallocate(state%te_cur, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%te_cur')
-  
+
   deallocate(state%tw_ini, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%tw_ini')
-  
+
   deallocate(state%tw_cur, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%tw_cur')
-  
+
   deallocate(state%latmapback, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%latmapback')
-  
+
   deallocate(state%lonmapback, stat=ierr)
   if ( ierr /= 0 ) call endrun('physics_state_dealloc error: deallocation error for state%lonmapback')
 
@@ -2401,7 +2528,7 @@ subroutine physics_ptend_alloc(ptend,psetcols)
      if ( ierr /= 0 ) call endrun('physics_ptend_alloc error: allocation error for ptend%hflux_top')
   end if
 
-  if (ptend%lu) then 
+  if (ptend%lu) then
      allocate(ptend%u(psetcols,pver), stat=ierr)
      if ( ierr /= 0 ) call endrun('physics_ptend_alloc error: allocation error for ptend%u')
 
@@ -2412,7 +2539,7 @@ subroutine physics_ptend_alloc(ptend,psetcols)
      if ( ierr /= 0 ) call endrun('physics_ptend_alloc error: allocation error for ptend%taux_top')
   end if
 
-  if (ptend%lv) then 
+  if (ptend%lv) then
      allocate(ptend%v(psetcols,pver), stat=ierr)
      if ( ierr /= 0 ) call endrun('physics_ptend_alloc error: allocation error for ptend%v')
 
@@ -2423,7 +2550,7 @@ subroutine physics_ptend_alloc(ptend,psetcols)
      if ( ierr /= 0 ) call endrun('physics_ptend_alloc error: allocation error for ptend%tauy_top')
   end if
 
-  if (any(ptend%lq)) then 
+  if (any(ptend%lq)) then
      allocate(ptend%q(psetcols,pver,pcnst), stat=ierr)
      if ( ierr /= 0 ) call endrun('physics_ptend_alloc error: allocation error for ptend%q')
 

@@ -2333,6 +2333,95 @@ def physics_set_dry_to_wet_constituent_codon(
 
 
 @export
+def physics_init_geo_unique_maps_codon(
+    ncol: int,
+    psetcols: int,
+    lat_p: cobj,
+    lon_p: cobj,
+    ulat_p: cobj,
+    ulon_p: cobj,
+    latmapback_p: cobj,
+    lonmapback_p: cobj,
+    ulatcnt_p: cobj,
+    uloncnt_p: cobj,
+):
+    lat = Ptr[float](lat_p)
+    lon = Ptr[float](lon_p)
+    ulat = Ptr[float](ulat_p)
+    ulon = Ptr[float](ulon_p)
+    latmapback = Ptr[i32](latmapback_p)
+    lonmapback = Ptr[i32](lonmapback_p)
+    ulatcnt_out = Ptr[int](ulatcnt_p)
+    uloncnt_out = Ptr[int](uloncnt_p)
+
+    for i in range(0, psetcols):
+        ulat[i] = -999.0
+        ulon[i] = -999.0
+        latmapback[i] = i32(0)
+        lonmapback[i] = i32(0)
+
+    ulatcnt = 0
+    uloncnt = 0
+    match = False
+
+    for i in range(1, ncol + 1):
+        for j in range(1, ulatcnt + 1):
+            if lat[_idx(i)] == ulat[_idx(j)]:
+                match = True
+                latmapback[_idx(i)] = i32(j)
+        if not match:
+            ulatcnt += 1
+            ulat[_idx(ulatcnt)] = lat[_idx(i)]
+            latmapback[_idx(i)] = i32(ulatcnt)
+
+        match = False
+        for j in range(1, uloncnt + 1):
+            if lon[_idx(i)] == ulon[_idx(j)]:
+                match = True
+                lonmapback[_idx(i)] = i32(j)
+        if not match:
+            uloncnt += 1
+            ulon[_idx(uloncnt)] = lon[_idx(i)]
+            lonmapback[_idx(i)] = i32(uloncnt)
+        match = False
+
+    ulatcnt_out[0] = ulatcnt
+    uloncnt_out[0] = uloncnt
+
+
+@export
+def physics_copy_real_1d_codon(n: int, src_p: cobj, dst_p: cobj):
+    src = Ptr[float](src_p)
+    dst = Ptr[float](dst_p)
+
+    for i in range(0, n):
+        dst[i] = src[i]
+
+
+@export
+def physics_copy_real_2d_codon(ncol: int, ld1: int, nlev: int, src_p: cobj, dst_p: cobj):
+    src = Ptr[float](src_p)
+    dst = Ptr[float](dst_p)
+
+    for k in range(1, nlev + 1):
+        for i in range(1, ncol + 1):
+            idx = _field2_idx(i, k, ld1)
+            dst[idx] = src[idx]
+
+
+@export
+def physics_copy_real_3d_codon(ncol: int, ld1: int, nlev: int, n3: int, src_p: cobj, dst_p: cobj):
+    src = Ptr[float](src_p)
+    dst = Ptr[float](dst_p)
+
+    for m in range(1, n3 + 1):
+        for k in range(1, nlev + 1):
+            for i in range(1, ncol + 1):
+                idx = _field3_idx(i, k, m, ld1, nlev)
+                dst[idx] = src[idx]
+
+
+@export
 def phys_grid_get_gcol_all_codon(ncols: int, out_dim: int, src_p: cobj, dst_p: cobj):
     src = Ptr[i32](src_p)
     dst = Ptr[i32](dst_p)
