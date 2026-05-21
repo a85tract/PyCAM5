@@ -35,6 +35,7 @@
   real(r8) :: rpen          !  For penetrative entrainment efficiency
   logical :: use_native_init_shell_impl = .false.
   logical :: init_shell_impl_selected = .false.
+  logical :: init_constants_entered_logged = .false.
   logical :: init_shell_entered_logged = .false.
   logical :: diag_init_shell_entered_logged = .false.
   logical :: output_diag_init_shell_entered_logged = .false.
@@ -186,6 +187,15 @@
         real(c_double), value :: cbmf_c, dt_c, xsrc_c, xmean_c, xtopin_c, xbotin_c, g_c
         type(c_ptr), value :: ps0_p, xflx_p
      end subroutine uwshcu_fluxbelowinv_codon
+
+     subroutine uwshcu_init_constants_codon(xlv_in_c, xlf_in_c, cp_in_c, &
+          zvir_in_c, r_in_c, g_in_c, ep2_in_c, constants_p) &
+          bind(c, name="uwshcu_init_constants_codon")
+        use iso_c_binding, only: c_double, c_ptr
+        real(c_double), value :: xlv_in_c, xlf_in_c, cp_in_c
+        real(c_double), value :: zvir_in_c, r_in_c, g_in_c, ep2_in_c
+        type(c_ptr), value :: constants_p
+     end subroutine uwshcu_init_constants_codon
   end interface
 
 !===============================================================================
@@ -252,6 +262,21 @@ contains
     end if
 
   end subroutine uwshcu_select_init_shell_impl
+
+!===============================================================================
+
+  subroutine uwshcu_log_init_constants_entered()
+
+    if (init_constants_entered_logged) return
+    init_constants_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu init constants entered (module scalar constants direct = codon)'
+       call uwshcu_append_proof('uwshcu init constants entered (module scalar constants direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_init_constants_entered
 
 !===============================================================================
 
@@ -1895,6 +1920,7 @@ end subroutine uwshcu_readnl
     !------------------------------------------------------------- !
 
     use cam_history,   only: outfld, addfld, phys_decomp
+    use iso_c_binding, only: c_loc
     use ppgrid,        only: pcols, pver, pverp
     implicit none
     integer , intent(in) :: kind       !  kind of reals being passed in
@@ -1907,6 +1933,7 @@ end subroutine uwshcu_readnl
     real(r8), intent(in) :: ep2_in     !  mol wgt water vapor / mol wgt dry air 
 
     character(len=*), parameter :: subname = 'init_uwshcu'
+    real(r8), target :: init_constants(10)
 
     ! ------------------------- !
     ! Internal Output Variables !
@@ -2015,16 +2042,33 @@ end subroutine uwshcu_readnl
         call endrun(subname//': ERROR -- real KIND does not match internal specification.')
     endif
 
-    xlv   = xlv_in
-    xlf   = xlf_in
-    xls   = xlv + xlf
-    cp    = cp_in
-    zvir  = zvir_in
-    r     = r_in
-    g     = g_in
-    ep2   = ep2_in
-    p00   = 1.e5_r8
-    rovcp = r/cp
+    call uwshcu_select_init_shell_impl()
+    if (use_native_init_shell_impl) then
+       xlv   = xlv_in
+       xlf   = xlf_in
+       xls   = xlv + xlf
+       cp    = cp_in
+       zvir  = zvir_in
+       r     = r_in
+       g     = g_in
+       ep2   = ep2_in
+       p00   = 1.e5_r8
+       rovcp = r/cp
+    else
+       call uwshcu_log_init_constants_entered()
+       call uwshcu_init_constants_codon(xlv_in, xlf_in, cp_in, zvir_in, &
+            r_in, g_in, ep2_in, c_loc(init_constants(1)))
+       xlv   = init_constants(1)
+       xlf   = init_constants(2)
+       xls   = init_constants(3)
+       cp    = init_constants(4)
+       zvir  = init_constants(5)
+       r     = init_constants(6)
+       g     = init_constants(7)
+       ep2   = init_constants(8)
+       p00   = init_constants(9)
+       rovcp = init_constants(10)
+    end if
 
     if (rpen == unset_r8) then
        call endrun(subname//': uwshcu_rpen must be set in the namelist')

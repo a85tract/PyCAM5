@@ -213,6 +213,31 @@ def uwshcu_fluxbelowinv_codon(
 
 
 @export
+def uwshcu_init_constants_codon(
+    xlv_in: float,
+    xlf_in: float,
+    cp_in: float,
+    zvir_in: float,
+    r_in: float,
+    g_in: float,
+    ep2_in: float,
+    constants_p: cobj,
+):
+    constants = Ptr[float](constants_p)
+
+    constants[0] = xlv_in
+    constants[1] = xlf_in
+    constants[2] = constants[0] + constants[1]
+    constants[3] = cp_in
+    constants[4] = zvir_in
+    constants[5] = r_in
+    constants[6] = g_in
+    constants[7] = ep2_in
+    constants[8] = 1.0e5
+    constants[9] = constants[5] / constants[3]
+
+
+@export
 def convect_shallow_select_scheme_codon(
     scheme_len: int,
     scheme_ascii_p: cobj,
