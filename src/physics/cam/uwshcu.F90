@@ -134,6 +134,9 @@
   logical :: use_native_positive_moisture_single_impl = .false.
   logical :: positive_moisture_single_impl_selected = .false.
   logical :: positive_moisture_single_entered_logged = .false.
+  logical :: use_native_conden_init_impl = .false.
+  logical :: conden_init_impl_selected = .false.
+  logical :: conden_init_entered_logged = .false.
 
   interface
      subroutine uwshcu_getbuoy_codon(pbot_c, thv0bot_c, ptop_c, thv0top_c, &
@@ -408,6 +411,61 @@ contains
     end if
 
   end subroutine uwshcu_log_positive_moisture_single_entered
+
+!===============================================================================
+
+  subroutine uwshcu_select_conden_init_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (conden_init_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('UWSHCU_CONDEN_INIT_IMPL', value=impl_name, length=n, status=status)
+    if (status /= 0 .or. n <= 0) then
+       call get_environment_variable('CONVECT_SHALLOW_IMPL', value=impl_name, length=n, status=status)
+    end if
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+       end do
+       use_native_conden_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_conden_init_impl = .false.
+    end if
+
+    conden_init_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_conden_init_impl) then
+          write(iulog,'(A)') 'uwshcu conden init implementation = native'
+          call uwshcu_append_proof('uwshcu conden init implementation = native')
+       else
+          write(iulog,'(A)') 'uwshcu conden init implementation = codon'
+          call uwshcu_append_proof('uwshcu conden init implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_select_conden_init_impl
+
+!===============================================================================
+
+  subroutine uwshcu_log_conden_init_entered()
+
+    if (conden_init_entered_logged) return
+    conden_init_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu conden init entered (temperature/phase initialization direct = codon)'
+       call uwshcu_append_proof('uwshcu conden init entered (temperature/phase initialization direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_conden_init_entered
 
 !===============================================================================
 
@@ -11153,6 +11211,7 @@ end subroutine uwshcu_readnl
   ! --------------------------- !
    !water tracer use statements
   ! --------------------------- !
+    use iso_c_binding, only: c_double, c_loc, c_ptr
     use water_tracer_vars, only : trace_water, wisotope, wtrc_iatype, iwspec, wtrc_nwset
     use water_tracers,     only : wtrc_ratio, wtrc_get_alpha
     use water_types,       only : iwtvap, iwtliq, iwtice
@@ -11181,6 +11240,7 @@ end subroutine uwshcu_readnl
 
     real(r8)              :: tc,temps,t
     real(r8)              :: leff, nu, qc
+    real(r8), target      :: conden_init_vals(4)
     integer               :: iteration
     real(r8)              :: es              ! Saturation vapor pressure
     real(r8)              :: qs              ! Saturation spec. humidity
@@ -11201,13 +11261,35 @@ end subroutine uwshcu_readnl
     integer              :: m    !Loop control variable
     !************************************
 
-    tc   = thl*exnf(p)
+    interface
+       subroutine uwshcu_conden_init_codon(p_c, thl_c, xlv_c, xls_c, p00_c, rovcp_c, vals_p) &
+            bind(c, name="uwshcu_conden_init_codon")
+          use iso_c_binding, only: c_double, c_ptr
+          real(c_double), value :: p_c, thl_c, xlv_c, xls_c, p00_c, rovcp_c
+          type(c_ptr), value :: vals_p
+       end subroutine uwshcu_conden_init_codon
+    end interface
+
+    call uwshcu_select_conden_init_impl()
+    if (use_native_conden_init_impl) then
+       tc = thl*exnf(p)
+       nu = max(min((268._r8 - tc)/20._r8,1.0_r8),0.0_r8)
+       leff = (1._r8 - nu)*xlv + nu*xls
+       temps = tc
+    else
+       call uwshcu_log_conden_init_entered()
+       call uwshcu_conden_init_codon(real(p, c_double), real(thl, c_double), real(xlv, c_double), &
+            real(xls, c_double), real(p00, c_double), real(rovcp, c_double), c_loc(conden_init_vals(1)))
+       tc = conden_init_vals(1)
+       nu = conden_init_vals(2)
+       leff = conden_init_vals(3)
+       temps = conden_init_vals(4)
+    end if
   ! Modification : In order to be compatible with the dlf treatment in stratiform.F90,
   !                we may use ( 268.15, 238.15 ) with 30K ramping instead of 20 K,
   !                in computing ice fraction below.
   !                Note that 'cldwat_fice' uses ( 243.15, 263.15 ) with 20K ramping for stratus.
-    nu   = max(min((268._r8 - tc)/20._r8,1.0_r8),0.0_r8)  ! Fraction of ice in the condensate.
-   leff = (1._r8 - nu)*xlv + nu*xls                      ! This is an estimate that hopefully speeds convergence
+    ! Fraction of ice and leff are computed in the selector block above.
 
    ! --------------------------------------------------------------------------- !
    ! Below "temps" and "rvls" are just initial guesses for iteration loop below. !
@@ -11215,7 +11297,6 @@ end subroutine uwshcu_readnl
    ! NOT "liquid temperature".                                                   !
    ! --------------------------------------------------------------------------- !
 
-    temps  = tc
     call qsat(temps, p, es, qs)
     rvls   = qs
 

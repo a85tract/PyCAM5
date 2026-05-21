@@ -10953,6 +10953,26 @@ def uwshcu_cloud_diag_conden_exit_shell_codon(
 
 
 @export
+def uwshcu_conden_init_codon(
+    p_v: float,
+    thl_v: float,
+    xlv_v: float,
+    xls_v: float,
+    p00_v: float,
+    rovcp_v: float,
+    vals_p: cobj,
+):
+    vals = Ptr[float](vals_p)
+
+    tc = thl_v * _uwshcu_exnf(p_v, p00_v, rovcp_v)
+    nu = max(min((268.0 - tc) / 20.0, 1.0), 0.0)
+    vals[0] = tc
+    vals[1] = nu
+    vals[2] = (1.0 - nu) * xlv_v + nu * xls_v
+    vals[3] = tc
+
+
+@export
 def uwshcu_positive_moisture_single_codon(
     mkx: int,
     xlv_v: float,
