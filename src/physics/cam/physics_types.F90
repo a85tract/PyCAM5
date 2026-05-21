@@ -166,6 +166,9 @@ module physics_types
   logical :: use_native_zero_impl = .false.
   logical :: zero_impl_selected = .false.
   logical :: zero_proof_written = .false.
+  logical :: physics_ptend_reset_logged = .false.
+  logical :: physics_ptend_scale_logged = .false.
+  logical :: physics_ptend_sum_logged = .false.
 
   interface
      subroutine physics_tend_init_codon(psetcols_c, pver_c, dtdt_p, dudt_p, dvdt_p, flx_net_p, te_tnd_p, tw_tnd_p) &
@@ -238,6 +241,15 @@ module physics_types
        real(c_double), value :: fac_c
        type(c_ptr), value :: field_p, flx_srf_p, flx_top_p
      end subroutine physics_ptend_scale_field_codon
+
+     subroutine physics_ptend_sum_field_codon(ncol_c, psetcols_c, top_level_c, bot_level_c, src_field_p, &
+          dst_field_p, src_flx_srf_p, dst_flx_srf_p, src_flx_top_p, dst_flx_top_p) &
+          bind(c, name="physics_ptend_sum_field_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, psetcols_c, top_level_c, bot_level_c
+       type(c_ptr), value :: src_field_p, dst_field_p, src_flx_srf_p, dst_flx_srf_p
+       type(c_ptr), value :: src_flx_top_p, dst_flx_top_p
+     end subroutine physics_ptend_sum_field_codon
   end interface
 
 
@@ -283,6 +295,19 @@ contains
        write(iulog,'(A)') 'physics_types_zero helpers entered (tend init/ptend reset/copy/scale = codon)'
     end if
   end subroutine physics_types_zero_proof_once
+
+  subroutine physics_types_log_direct(logged, proof_line)
+    logical, intent(inout) :: logged
+    character(len=*), intent(in) :: proof_line
+
+    if (logged) return
+    logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') trim(proof_line)
+       call flush(iulog)
+    end if
+  end subroutine physics_types_log_direct
 
   subroutine physics_tend_init_codon_wrap(psetcols_local, dtdt, dudt, dvdt, flx_net, te_tnd, tw_tnd)
     use iso_c_binding, only: c_int64_t, c_loc
@@ -407,7 +432,7 @@ contains
   end subroutine physics_ptend_copy_q_codon_wrap
 
   subroutine physics_ptend_scale_field_codon_wrap(ncol_local, psetcols_local, top_level_local, bot_level_local, fac_local, &
-       field, flx_srf, flx_top)
+                                                  field, flx_srf, flx_top)
     use iso_c_binding, only: c_double, c_int64_t, c_loc
     integer, intent(in) :: ncol_local, psetcols_local, top_level_local, bot_level_local
     real(r8), intent(in) :: fac_local
@@ -419,6 +444,19 @@ contains
          int(top_level_local, c_int64_t), int(bot_level_local, c_int64_t), real(fac_local, c_double), &
          c_loc(field), c_loc(flx_srf), c_loc(flx_top))
   end subroutine physics_ptend_scale_field_codon_wrap
+
+  subroutine physics_ptend_sum_field_codon_wrap(ncol_local, psetcols_local, top_level_local, bot_level_local, &
+                                                src_field, dst_field, src_flx_srf, dst_flx_srf, &
+                                                src_flx_top, dst_flx_top)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncol_local, psetcols_local, top_level_local, bot_level_local
+    real(r8), target, intent(in) :: src_field(:,:), src_flx_srf(:), src_flx_top(:)
+    real(r8), target, intent(inout) :: dst_field(:,:), dst_flx_srf(:), dst_flx_top(:)
+
+    call physics_ptend_sum_field_codon(int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), &
+         int(top_level_local, c_int64_t), int(bot_level_local, c_int64_t), c_loc(src_field), &
+         c_loc(dst_field), c_loc(src_flx_srf), c_loc(dst_flx_srf), c_loc(src_flx_top), c_loc(dst_flx_top))
+  end subroutine physics_ptend_sum_field_codon_wrap
 
 !===============================================================================
   subroutine physics_type_alloc(phys_state, phys_tend, begchunk, endchunk, psetcols)
@@ -973,6 +1011,7 @@ contains
 !===============================================================================
 
   subroutine physics_ptend_sum(ptend, ptend_sum, ncol)
+    use iso_c_binding, only: c_int64_t, c_loc
 !-----------------------------------------------------------------------
 ! Add ptend fields to ptend_sum for ptend logical flags = .true.
 ! Where ptend logical flags = .false, don't change ptend_sum
@@ -987,6 +1026,7 @@ contains
     integer :: i,k,m                               ! column,level,constituent indices
     integer :: psetcols                            ! maximum number of columns
     integer :: ierr = 0
+    logical :: used_codon
 
 !-----------------------------------------------------------------------
     if (ptend%psetcols /= ptend_sum%psetcols) then
@@ -998,6 +1038,8 @@ contains
     end if
     
     psetcols = ptend_sum%psetcols
+    used_codon = .false.
+    call physics_types_zero_select_impl()
 
     ptend_sum%top_level = ptend%top_level
     ptend_sum%bot_level = ptend%bot_level
@@ -1019,15 +1061,21 @@ contains
        end if
        ptend_sum%lu = .true.
 
-       do k = ptend%top_level, ptend%bot_level
-          do i = 1, ncol
-             ptend_sum%u(i,k) = ptend_sum%u(i,k) + ptend%u(i,k)
+       if (use_native_zero_impl) then
+          do k = ptend%top_level, ptend%bot_level
+             do i = 1, ncol
+                ptend_sum%u(i,k) = ptend_sum%u(i,k) + ptend%u(i,k)
+             end do
           end do
-       end do
-       do i = 1, ncol
-          ptend_sum%taux_srf(i) = ptend_sum%taux_srf(i) + ptend%taux_srf(i)
-          ptend_sum%taux_top(i) = ptend_sum%taux_top(i) + ptend%taux_top(i)
-       end do
+          do i = 1, ncol
+             ptend_sum%taux_srf(i) = ptend_sum%taux_srf(i) + ptend%taux_srf(i)
+             ptend_sum%taux_top(i) = ptend_sum%taux_top(i) + ptend%taux_top(i)
+          end do
+       else
+          call physics_ptend_sum_field_codon_wrap(ncol, psetcols, ptend%top_level, ptend%bot_level, &
+               ptend%u, ptend_sum%u, ptend%taux_srf, ptend_sum%taux_srf, ptend%taux_top, ptend_sum%taux_top)
+          used_codon = .true.
+       end if
     end if
 
     if(ptend%lv) then
@@ -1046,15 +1094,21 @@ contains
        end if
        ptend_sum%lv = .true.
 
-       do k = ptend%top_level, ptend%bot_level
-          do i = 1, ncol
-             ptend_sum%v(i,k) = ptend_sum%v(i,k) + ptend%v(i,k)
+       if (use_native_zero_impl) then
+          do k = ptend%top_level, ptend%bot_level
+             do i = 1, ncol
+                ptend_sum%v(i,k) = ptend_sum%v(i,k) + ptend%v(i,k)
+             end do
           end do
-       end do
-       do i = 1, ncol
-          ptend_sum%tauy_srf(i) = ptend_sum%tauy_srf(i) + ptend%tauy_srf(i)
-          ptend_sum%tauy_top(i) = ptend_sum%tauy_top(i) + ptend%tauy_top(i)
-       end do
+          do i = 1, ncol
+             ptend_sum%tauy_srf(i) = ptend_sum%tauy_srf(i) + ptend%tauy_srf(i)
+             ptend_sum%tauy_top(i) = ptend_sum%tauy_top(i) + ptend%tauy_top(i)
+          end do
+       else
+          call physics_ptend_sum_field_codon_wrap(ncol, psetcols, ptend%top_level, ptend%bot_level, &
+               ptend%v, ptend_sum%v, ptend%tauy_srf, ptend_sum%tauy_srf, ptend%tauy_top, ptend_sum%tauy_top)
+          used_codon = .true.
+       end if
     end if
 
 
@@ -1074,15 +1128,21 @@ contains
        end if
        ptend_sum%ls = .true.
 
-       do k = ptend%top_level, ptend%bot_level
-          do i = 1, ncol
-             ptend_sum%s(i,k) = ptend_sum%s(i,k) + ptend%s(i,k)
+       if (use_native_zero_impl) then
+          do k = ptend%top_level, ptend%bot_level
+             do i = 1, ncol
+                ptend_sum%s(i,k) = ptend_sum%s(i,k) + ptend%s(i,k)
+             end do
           end do
-       end do
-       do i = 1, ncol
-          ptend_sum%hflux_srf(i) = ptend_sum%hflux_srf(i) + ptend%hflux_srf(i)
-          ptend_sum%hflux_top(i) = ptend_sum%hflux_top(i) + ptend%hflux_top(i)
-       end do
+          do i = 1, ncol
+             ptend_sum%hflux_srf(i) = ptend_sum%hflux_srf(i) + ptend%hflux_srf(i)
+             ptend_sum%hflux_top(i) = ptend_sum%hflux_top(i) + ptend%hflux_top(i)
+          end do
+       else
+          call physics_ptend_sum_field_codon_wrap(ncol, psetcols, ptend%top_level, ptend%bot_level, &
+               ptend%s, ptend_sum%s, ptend%hflux_srf, ptend_sum%hflux_srf, ptend%hflux_top, ptend_sum%hflux_top)
+          used_codon = .true.
+       end if
     end if
 
     if (any(ptend%lq(:))) then
@@ -1104,18 +1164,30 @@ contains
        do m = 1, pcnst
           if(ptend%lq(m)) then
              ptend_sum%lq(m) = .true.
-             do k = ptend%top_level, ptend%bot_level
-                do i = 1,ncol
-                   ptend_sum%q(i,k,m) = ptend_sum%q(i,k,m) + ptend%q(i,k,m)
+             if (use_native_zero_impl) then
+                do k = ptend%top_level, ptend%bot_level
+                   do i = 1,ncol
+                      ptend_sum%q(i,k,m) = ptend_sum%q(i,k,m) + ptend%q(i,k,m)
+                   end do
                 end do
-             end do
-             do i = 1,ncol
-                ptend_sum%cflx_srf(i,m) = ptend_sum%cflx_srf(i,m) + ptend%cflx_srf(i,m)
-                ptend_sum%cflx_top(i,m) = ptend_sum%cflx_top(i,m) + ptend%cflx_top(i,m)
-             end do
+                do i = 1,ncol
+                   ptend_sum%cflx_srf(i,m) = ptend_sum%cflx_srf(i,m) + ptend%cflx_srf(i,m)
+                   ptend_sum%cflx_top(i,m) = ptend_sum%cflx_top(i,m) + ptend%cflx_top(i,m)
+                end do
+             else
+                call physics_ptend_sum_field_codon_wrap(ncol, psetcols, ptend%top_level, ptend%bot_level, &
+                     ptend%q(:,:,m), ptend_sum%q(:,:,m), ptend%cflx_srf(:,m), ptend_sum%cflx_srf(:,m), &
+                     ptend%cflx_top(:,m), ptend_sum%cflx_top(:,m))
+                used_codon = .true.
+             end if
           end if
        end do
 
+    end if
+
+    if (used_codon) then
+       call physics_types_zero_proof_once()
+       call physics_types_log_direct(physics_ptend_sum_logged, 'physics_ptend_sum direct = codon')
     end if
 
   end subroutine physics_ptend_sum
@@ -1193,6 +1265,7 @@ contains
        end do
 
        call physics_types_zero_proof_once()
+       call physics_types_log_direct(physics_ptend_scale_logged, 'physics_ptend_scale direct = codon')
     end if
 
 
@@ -1347,6 +1420,7 @@ end subroutine physics_ptend_copy
           call physics_ptend_reset_q_codon_wrap(ptend%psetcols, ptend%q, ptend%cflx_srf, ptend%cflx_top)
        end if
        call physics_types_zero_proof_once()
+       call physics_types_log_direct(physics_ptend_reset_logged, 'physics_ptend_reset direct = codon')
     end if
 
     ptend%top_level = 1

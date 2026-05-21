@@ -2206,6 +2206,37 @@ def physics_ptend_scale_field_codon(
 
 
 @export
+def physics_ptend_sum_field_codon(
+    ncol: int,
+    psetcols: int,
+    top_level: int,
+    bot_level: int,
+    src_field_p: cobj,
+    dst_field_p: cobj,
+    src_flx_srf_p: cobj,
+    dst_flx_srf_p: cobj,
+    src_flx_top_p: cobj,
+    dst_flx_top_p: cobj,
+):
+    src_field = Ptr[float](src_field_p)
+    dst_field = Ptr[float](dst_field_p)
+    src_flx_srf = Ptr[float](src_flx_srf_p)
+    dst_flx_srf = Ptr[float](dst_flx_srf_p)
+    src_flx_top = Ptr[float](src_flx_top_p)
+    dst_flx_top = Ptr[float](dst_flx_top_p)
+
+    for k in range(top_level, bot_level + 1):
+        for i in range(1, ncol + 1):
+            idx = _field2_idx(i, k, psetcols)
+            dst_field[idx] = dst_field[idx] + src_field[idx]
+
+    for i in range(1, ncol + 1):
+        idx = _idx(i)
+        dst_flx_srf[idx] = dst_flx_srf[idx] + src_flx_srf[idx]
+        dst_flx_top[idx] = dst_flx_top[idx] + src_flx_top[idx]
+
+
+@export
 def phys_grid_get_gcol_all_codon(ncols: int, out_dim: int, src_p: cobj, dst_p: cobj):
     src = Ptr[i32](src_p)
     dst = Ptr[i32](dst_p)
