@@ -474,6 +474,56 @@ def modal_aer_opt_sw_has_negative_water_codon(ncol: int, watervol_p: cobj) -> in
     return 0
 
 
+def modal_aer_opt_sw_water_refr_fastpath_codon(
+    ncol: int,
+    pcols: int,
+    k: int,
+    rhoh2o: float,
+    crefwsw_re: float,
+    crefwsw_im: float,
+    qaerwat_p: cobj,
+    dryvol_p: cobj,
+    watervol_p: cobj,
+    wetvol_p: cobj,
+    crefin_re_p: cobj,
+    crefin_im_p: cobj,
+    refr_p: cobj,
+    refi_p: cobj,
+) -> int:
+    qaerwat = Ptr[float](qaerwat_p)
+    dryvol = Ptr[float](dryvol_p)
+    watervol = Ptr[float](watervol_p)
+    wetvol = Ptr[float](wetvol_p)
+    crefin_re = Ptr[float](crefin_re_p)
+    crefin_im = Ptr[float](crefin_im_p)
+    refr = Ptr[float](refr_p)
+    refi = Ptr[float](refi_p)
+
+    has_negative = 0
+    for i in range(1, ncol + 1):
+        idx1 = _idx1(i)
+        idx2 = _idx2(i, k, pcols)
+        watervol[idx1] = qaerwat[idx2] / rhoh2o
+        wetvol[idx1] = watervol[idx1] + dryvol[idx1]
+        if watervol[idx1] < 0.0:
+            has_negative = 1
+
+    if has_negative != 0:
+        return 1
+
+    for i in range(1, ncol + 1):
+        idx1 = _idx1(i)
+        crefin_re[idx1] = crefin_re[idx1] + watervol[idx1] * crefwsw_re
+        crefin_im[idx1] = crefin_im[idx1] + watervol[idx1] * crefwsw_im
+        denom = max(wetvol[idx1], 1.0e-60)
+        crefin_re[idx1] = crefin_re[idx1] / denom
+        crefin_im[idx1] = crefin_im[idx1] / denom
+        refr[idx1] = crefin_re[idx1]
+        refi[idx1] = abs(crefin_im[idx1])
+
+    return 0
+
+
 def modal_aer_opt_sw_finalize_refr_codon(
     ncol: int,
     crefwsw_re: float,

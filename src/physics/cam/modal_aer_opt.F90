@@ -68,6 +68,7 @@ logical :: modal_aer_opt_helpers_impl_selected = .false.
 logical :: modal_aer_opt_helpers_proof_written = .false.
 logical :: modal_aer_opt_lw_helpers_proof_written = .false.
 logical :: modal_aer_opt_sw_guard_helpers_proof_written = .false.
+logical :: modal_aer_opt_sw_water_refr_proof_written = .false.
 
 interface
    subroutine modal_aer_opt_size_parameters_codon(pcols_c, pver_c, top_lev_c, ncol_c, ncoef_c, &
@@ -173,6 +174,18 @@ interface
       type(c_ptr), value :: watervol_p
       integer(c_int64_t) :: has_c
    end function modal_aer_opt_sw_has_negative_water_codon
+
+   function modal_aer_opt_sw_water_refr_fastpath_codon(ncol_c, pcols_c, k_c, rhoh2o_c, &
+        crefwsw_re_c, crefwsw_im_c, qaerwat_p, dryvol_p, watervol_p, wetvol_p, &
+        crefin_re_p, crefin_im_p, refr_p, refi_p) result(has_negative_c) &
+        bind(c, name="modal_aer_opt_sw_water_refr_fastpath_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, k_c
+      real(c_double), value :: rhoh2o_c, crefwsw_re_c, crefwsw_im_c
+      type(c_ptr), value :: qaerwat_p, dryvol_p, watervol_p, wetvol_p
+      type(c_ptr), value :: crefin_re_p, crefin_im_p, refr_p, refi_p
+      integer(c_int64_t) :: has_negative_c
+   end function modal_aer_opt_sw_water_refr_fastpath_codon
 
    subroutine modal_aer_opt_sw_finalize_refr_codon(ncol_c, crefwsw_re_c, crefwsw_im_c, &
         watervol_p, wetvol_p, crefin_re_p, crefin_im_p, refr_p, refi_p) &
@@ -391,6 +404,17 @@ subroutine modal_aer_opt_sw_guard_helpers_proof_once()
    end if
 
 end subroutine modal_aer_opt_sw_guard_helpers_proof_once
+
+subroutine modal_aer_opt_sw_water_refr_proof_once()
+   use spmd_utils, only: masterproc
+   if (modal_aer_opt_sw_water_refr_proof_written) return
+   modal_aer_opt_sw_water_refr_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'modal_aero_sw water/refr batch entered ' // &
+           '(water volume/negative scan/finalize fast path = codon)'
+   endif
+end subroutine modal_aer_opt_sw_water_refr_proof_once
 
 !===============================================================================
 
@@ -748,6 +772,7 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
    logical :: savaernir ! true if near ir wavelength (~0.88 micron)
    logical :: savaeruv  ! true if uv wavelength (~0.35 micron)
    logical :: run_dopaer_diag
+   logical :: run_water_fix
 
    real(r8), target :: aoduv(pcols)        ! extinction optical depth in uv
    real(r8), target :: aoduvst(pcols)      ! stratospheric extinction optical depth in uv
@@ -1040,12 +1065,13 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
 
             if (.not. use_native_modal_aer_opt_helpers_impl) then
                call modal_aer_opt_helpers_proof_once()
-               call modal_aer_opt_sw_water_volume_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
-                    int(k, c_int64_t), rhoh2o, c_loc(qaerwat(1,1)), c_loc(dryvol(1)), &
-                    c_loc(watervol(1)), c_loc(wetvol(1)))
-               call modal_aer_opt_sw_guard_helpers_proof_once()
-               if (modal_aer_opt_sw_has_negative_water_codon(int(ncol, c_int64_t), &
-                    c_loc(watervol(1))) /= 0_c_int64_t) then
+               call modal_aer_opt_sw_water_refr_proof_once()
+               run_water_fix = modal_aer_opt_sw_water_refr_fastpath_codon(int(ncol, c_int64_t), &
+                    int(pcols, c_int64_t), int(k, c_int64_t), rhoh2o, real(crefwsw(isw), r8), &
+                    aimag(crefwsw(isw)), c_loc(qaerwat(1,1)), c_loc(dryvol(1)), c_loc(watervol(1)), &
+                    c_loc(wetvol(1)), c_loc(crefin_re(1)), c_loc(crefin_im(1)), c_loc(refr(1)), &
+                    c_loc(refi(1))) /= 0_c_int64_t
+               if (run_water_fix) then
                   do i = 1, ncol
                      if (watervol(i) < 0._r8) then
                         if (abs(watervol(i)) .gt. 1.e-1_r8*wetvol(i)) then
@@ -1056,12 +1082,12 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
                         wetvol(i) = dryvol(i)
                      end if
                   end do
-               end if
 
-               call modal_aer_opt_helpers_proof_once()
-               call modal_aer_opt_sw_finalize_refr_codon(int(ncol, c_int64_t), real(crefwsw(isw), r8), &
-                    aimag(crefwsw(isw)), c_loc(watervol(1)), c_loc(wetvol(1)), c_loc(crefin_re(1)), &
-                    c_loc(crefin_im(1)), c_loc(refr(1)), c_loc(refi(1)))
+                  call modal_aer_opt_helpers_proof_once()
+                  call modal_aer_opt_sw_finalize_refr_codon(int(ncol, c_int64_t), real(crefwsw(isw), r8), &
+                       aimag(crefwsw(isw)), c_loc(watervol(1)), c_loc(wetvol(1)), c_loc(crefin_re(1)), &
+                       c_loc(crefin_im(1)), c_loc(refr(1)), c_loc(refi(1)))
+               end if
             else
                do i = 1, ncol
                   watervol(i) = qaerwat(i,k)/rhoh2o

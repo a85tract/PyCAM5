@@ -3680,6 +3680,41 @@ def modal_aer_opt_sw_has_negative_water_codon(ncol: int, watervol_p: cobj) -> in
 
 
 @export
+def modal_aer_opt_sw_water_refr_fastpath_codon(
+    ncol: int,
+    pcols: int,
+    k: int,
+    rhoh2o: float,
+    crefwsw_re: float,
+    crefwsw_im: float,
+    qaerwat_p: cobj,
+    dryvol_p: cobj,
+    watervol_p: cobj,
+    wetvol_p: cobj,
+    crefin_re_p: cobj,
+    crefin_im_p: cobj,
+    refr_p: cobj,
+    refi_p: cobj,
+) -> int:
+    return _modal_aer_opt.modal_aer_opt_sw_water_refr_fastpath_codon(
+        ncol,
+        pcols,
+        k,
+        rhoh2o,
+        crefwsw_re,
+        crefwsw_im,
+        qaerwat_p,
+        dryvol_p,
+        watervol_p,
+        wetvol_p,
+        crefin_re_p,
+        crefin_im_p,
+        refr_p,
+        refi_p,
+    )
+
+
+@export
 def modal_aer_opt_sw_finalize_refr_codon(
     ncol: int,
     crefwsw_re: float,
