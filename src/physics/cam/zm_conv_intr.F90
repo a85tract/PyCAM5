@@ -83,6 +83,9 @@ module zm_conv_intr
 
    logical :: use_native_zm_post_shell = .false.
    logical :: zm_post_shell_selected = .false.
+   logical :: use_native_zm_conv_init_limcnv = .false.
+   logical :: zm_conv_init_limcnv_selected = .false.
+   logical :: zm_conv_init_limcnv_logged = .false.
    logical :: zm_convr_post_logged = .false.
    logical :: zm_conv_evap_prep_logged = .false.
    logical :: zm_conv_evap_post_logged = .false.
@@ -100,6 +103,41 @@ module zm_conv_intr
 
 !=========================================================================================
 contains
+!=========================================================================================
+
+subroutine zm_conv_init_limcnv_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (zm_conv_init_limcnv_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('ZM_CONV_INIT_LIMCNV_IMPL', value=impl_name, length=n, status=status)
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_zm_conv_init_limcnv = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_zm_conv_init_limcnv = .false.
+   end if
+
+   zm_conv_init_limcnv_selected = .true.
+
+   if (masterproc) then
+      if (use_native_zm_conv_init_limcnv) then
+         write(iulog,*) 'zm_conv_init_limcnv implementation = native'
+      else
+         write(iulog,*) 'zm_conv_init_limcnv implementation = codon'
+      end if
+   end if
+
+end subroutine zm_conv_init_limcnv_select_impl
+
 !=========================================================================================
 
 subroutine zm_conv_register
@@ -185,6 +223,7 @@ subroutine zm_conv_init(pref_edge)
 ! Purpose:  declare output fields, initialize variables needed by convection
 !----------------------------------------
 
+  use iso_c_binding,  only: c_int64_t, c_ptr, c_loc
   use cam_history,    only: outfld, addfld, add_default, phys_decomp
   use ppgrid,         only: pcols, pver
   use zm_conv,        only: zm_convi
@@ -196,7 +235,7 @@ subroutine zm_conv_init(pref_edge)
 
   implicit none
 
-  real(r8),intent(in) :: pref_edge(plevp)        ! reference pressures at interfaces
+  real(r8),intent(in), target :: pref_edge(plevp)        ! reference pressures at interfaces
 
 
   logical :: no_deep_pbl    ! if true, no deep convection in PBL
@@ -206,6 +245,16 @@ subroutine zm_conv_init(pref_edge)
                             ! temperature, water vapor, cloud ice and cloud
                             ! liquid budgets.
   integer :: history_budget_histfile_num ! output history file number for budget fields
+
+  interface
+     function zm_conv_init_limcnv_codon(plev_c, pref_edge_p) result(limcnv_c) &
+          bind(c, name="zm_conv_init_limcnv_codon")
+        use iso_c_binding, only: c_int64_t, c_ptr
+        integer(c_int64_t), value :: plev_c
+        type(c_ptr), value :: pref_edge_p
+        integer(c_int64_t) :: limcnv_c
+     end function zm_conv_init_limcnv_codon
+  end interface
 
 !
 ! Allocate space for arrays private to this module
@@ -319,17 +368,26 @@ subroutine zm_conv_init(pref_edge)
 ! Limit deep convection to regions below 40 mb
 ! Note this calculation is repeated in the shallow convection interface
 !
-    limcnv = 0   ! null value to check against below
-    if (pref_edge(1) >= 4.e3_r8) then
-       limcnv = 1
+    call zm_conv_init_limcnv_select_impl()
+    if (.not. use_native_zm_conv_init_limcnv) then
+       if (masterproc .and. .not. zm_conv_init_limcnv_logged) then
+          write(iulog,*) 'zm_conv_init_limcnv entered (deep convection cap scan = codon)'
+          zm_conv_init_limcnv_logged = .true.
+       end if
+       limcnv = int(zm_conv_init_limcnv_codon(int(plev, c_int64_t), c_loc(pref_edge(1))))
     else
-       do k=1,plev
-          if (pref_edge(k) < 4.e3_r8 .and. pref_edge(k+1) >= 4.e3_r8) then
-             limcnv = k
-             exit
-          end if
-       end do
-       if ( limcnv == 0 ) limcnv = plevp
+       limcnv = 0   ! null value to check against below
+       if (pref_edge(1) >= 4.e3_r8) then
+          limcnv = 1
+       else
+          do k=1,plev
+             if (pref_edge(k) < 4.e3_r8 .and. pref_edge(k+1) >= 4.e3_r8) then
+                limcnv = k
+                exit
+             end if
+          end do
+          if ( limcnv == 0 ) limcnv = plevp
+       end if
     end if
     
     if (masterproc) then

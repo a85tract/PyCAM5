@@ -3,6 +3,21 @@ import zm_cldprp_codon as _zm_cldprp
 
 
 @export
+def zm_conv_init_limcnv_codon(plev: int, pref_edge_p: cobj) -> int:
+    pref_edge = Ptr[float](pref_edge_p)
+    threshold = 4000.0
+
+    if pref_edge[0] >= threshold:
+        return 1
+
+    for k in range(1, plev + 1):
+        if pref_edge[k - 1] < threshold and pref_edge[k] >= threshold:
+            return k
+
+    return plev + 1
+
+
+@export
 def convect_deep_select_scheme_codon(
     scheme_len: int,
     scheme_ascii_p: cobj,
