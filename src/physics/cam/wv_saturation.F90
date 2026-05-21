@@ -24,6 +24,7 @@ module wv_saturation
 !--------------------------------------------------------------------!
 
 use shr_kind_mod, only: r8 => shr_kind_r8
+use iso_c_binding, only: c_double
 use physconst,    only: epsilo, &
                         latvap, &
                         latice, &
@@ -98,6 +99,43 @@ real(r8), parameter :: tboil = 373.16_r8
        real(c_double), value :: value_c
        real(c_double) :: value_out
      end function wv_saturation_value_codon
+
+     pure function wv_saturation_limit_es_codon(es_c, p_c) result(es_out) &
+          bind(c, name="wv_saturation_limit_es_codon")
+       use iso_c_binding, only: c_double
+       real(c_double), value :: es_c, p_c
+       real(c_double) :: es_out
+     end function wv_saturation_limit_es_codon
+
+     pure function wv_saturation_tq_enthalpy_codon(cpair_c, t_c, q_c, hltalt_c) result(enthalpy_out) &
+          bind(c, name="wv_saturation_tq_enthalpy_codon")
+       use iso_c_binding, only: c_double
+       real(c_double), value :: cpair_c, t_c, q_c, hltalt_c
+       real(c_double) :: enthalpy_out
+     end function wv_saturation_tq_enthalpy_codon
+
+     pure function wv_saturation_no_ip_hltalt_codon(t_c, tmelt_c, latvap_c) result(hltalt_out) &
+          bind(c, name="wv_saturation_no_ip_hltalt_codon")
+       use iso_c_binding, only: c_double
+       real(c_double), value :: t_c, tmelt_c, latvap_c
+       real(c_double) :: hltalt_out
+     end function wv_saturation_no_ip_hltalt_codon
+
+     pure subroutine wv_saturation_calc_hltalt_codon(t_c, tmelt_c, ttrice_c, latvap_c, latice_c, &
+          pcf1_c, pcf2_c, pcf3_c, pcf4_c, pcf5_c, hltalt_c, tterm_c) &
+          bind(c, name="wv_saturation_calc_hltalt_codon")
+       use iso_c_binding, only: c_double
+       real(c_double), value :: t_c, tmelt_c, ttrice_c, latvap_c, latice_c
+       real(c_double), value :: pcf1_c, pcf2_c, pcf3_c, pcf4_c, pcf5_c
+       real(c_double), intent(out) :: hltalt_c, tterm_c
+     end subroutine wv_saturation_calc_hltalt_codon
+
+     pure function wv_saturation_deriv_dqsdt_codon(t_c, p_c, es_c, qs_c, hltalt_c, tterm_c, &
+          rh2o_c, omeps_c) result(dqsdt_out) bind(c, name="wv_saturation_deriv_dqsdt_codon")
+       use iso_c_binding, only: c_double
+       real(c_double), value :: t_c, p_c, es_c, qs_c, hltalt_c, tterm_c, rh2o_c, omeps_c
+       real(c_double) :: dqsdt_out
+     end function wv_saturation_deriv_dqsdt_codon
   end interface
 
   ! Set coefficients for polynomial approximation of difference
@@ -412,7 +450,8 @@ elemental function tq_enthalpy(t, q, hltalt) result(enthalpy)
 
   real(r8) :: enthalpy
 
-  enthalpy = cpair * t + hltalt * q
+  enthalpy = real(wv_saturation_tq_enthalpy_codon(real(cpair, c_double), real(t, c_double), &
+       real(q, c_double), real(hltalt, c_double)), r8)
   
 end function tq_enthalpy
 
@@ -432,13 +471,8 @@ elemental subroutine no_ip_hltalt(t, hltalt)
   ! Outputs
   real(r8), intent(out) :: hltalt  ! Appropriately modified hlat
 
-  hltalt = latvap
-
-  ! Account for change of latvap with t above freezing where
-  ! constant slope is given by -2369 j/(kg c) = cpv - cw
-  if (t >= tmelt) then
-     hltalt = hltalt - 2369.0_r8*(t-tmelt)
-  end if
+  hltalt = real(wv_saturation_no_ip_hltalt_codon(real(t, c_double), real(tmelt, c_double), &
+       real(latvap, c_double)), r8)
 
 end subroutine no_ip_hltalt
 
@@ -460,39 +494,14 @@ elemental subroutine calc_hltalt(t, hltalt, tterm)
   real(r8), intent(out), optional :: tterm
 
   ! Local variables
-  real(r8) :: tc      ! Temperature in degrees C
-  real(r8) :: weight  ! Weight for es transition from water to ice
-  ! Loop iterator
-  integer :: i
+  real(r8) :: tterm_loc
 
-  if (present(tterm)) tterm = 0.0_r8
+  call wv_saturation_calc_hltalt_codon(real(t, c_double), real(tmelt, c_double), &
+       real(ttrice, c_double), real(latvap, c_double), real(latice, c_double), &
+       real(pcf(1), c_double), real(pcf(2), c_double), real(pcf(3), c_double), &
+       real(pcf(4), c_double), real(pcf(5), c_double), hltalt, tterm_loc)
 
-  call no_ip_hltalt(t,hltalt)
-  if (t < tmelt) then
-     ! Weighting of hlat accounts for transition from water to ice.
-     tc = t - tmelt
-
-     if (tc >= -ttrice) then
-        weight = -tc/ttrice
-
-        ! polynomial expression approximates difference between es
-        ! over water and es over ice from 0 to -ttrice (C) (max of
-        ! ttrice is 40): required for accurate estimate of es
-        ! derivative in transition range from ice to water
-        if (present(tterm)) then
-           do i = size(pcf), 1, -1
-              tterm = pcf(i) + tc*tterm
-           end do
-           tterm = tterm/ttrice
-        end if
-
-     else
-        weight = 1.0_r8
-     end if
-
-     hltalt = hltalt + weight*latice
-
-  end if
+  if (present(tterm)) tterm = tterm_loc
 
 end subroutine calc_hltalt
 
@@ -521,12 +530,9 @@ elemental subroutine deriv_outputs(t, p, es, qs, hltalt, tterm, &
   real(r8) :: desdt        ! d(es)/dt
   real(r8) :: dqsdt_loc    ! local copy of dqsdt
 
-  if (qs == 1.0_r8) then
-     dqsdt_loc = 0._r8
-  else
-     desdt = hltalt*es/(rh2o*t*t) + tterm
-     dqsdt_loc = qs*p*desdt/(es*(p-omeps*es))
-  end if
+  dqsdt_loc = real(wv_saturation_deriv_dqsdt_codon(real(t, c_double), real(p, c_double), &
+       real(es, c_double), real(qs, c_double), real(hltalt, c_double), real(tterm, c_double), &
+       real(rh2o, c_double), real(omeps, c_double)), r8)
 
   if (present(dqsdt)) dqsdt = dqsdt_loc
   if (present(gam))   gam   = dqsdt_loc * (hltalt/cpair)
@@ -566,7 +572,7 @@ elemental subroutine qsat(t, p, es, qs, gam, dqsdt, enthalpy)
   qs = svp_to_qsat(es, p)
 
   ! Ensures returned es is consistent with limiters on qs.
-  es = min(es, p)
+  es = real(wv_saturation_limit_es_codon(real(es, c_double), real(p, c_double)), r8)
 
   ! Calculate optional arguments.
   if (present(gam) .or. present(dqsdt) .or. present(enthalpy)) then
@@ -610,6 +616,7 @@ elemental subroutine qsat_water(t, p, es, qs, gam, dqsdt, enthalpy)
   real(r8) :: hltalt       ! Modified latent heat for T derivatives
 
   call wv_sat_qsat_water(t, p, es, qs)
+  es = real(wv_saturation_limit_es_codon(real(es, c_double), real(p, c_double)), r8)
 
   if (present(gam) .or. present(dqsdt) .or. present(enthalpy)) then
 
@@ -653,6 +660,7 @@ elemental subroutine qsat_ice(t, p, es, qs, gam, dqsdt, enthalpy)
   real(r8) :: hltalt       ! Modified latent heat for T derivatives
 
   call wv_sat_qsat_ice(t, p, es, qs)
+  es = real(wv_saturation_limit_es_codon(real(es, c_double), real(p, c_double)), r8)
 
   if (present(gam) .or. present(dqsdt) .or. present(enthalpy)) then
 

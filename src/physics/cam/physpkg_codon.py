@@ -6555,6 +6555,92 @@ def wv_saturation_value_codon(value: float) -> float:
 
 
 @export
+def wv_saturation_limit_es_codon(es: float, p: float) -> float:
+    if p < es:
+        return p
+    return es
+
+
+@export
+def wv_saturation_tq_enthalpy_codon(cpair: float, t: float, q: float, hltalt: float) -> float:
+    return cpair * t + hltalt * q
+
+
+@export
+def wv_saturation_no_ip_hltalt_codon(t: float, tmelt: float, latvap: float) -> float:
+    hltalt = latvap
+    if t >= tmelt:
+        hltalt = hltalt - 2369.0 * (t - tmelt)
+    return hltalt
+
+
+@export
+def wv_saturation_calc_hltalt_codon(
+    t: float,
+    tmelt: float,
+    ttrice: float,
+    latvap: float,
+    latice: float,
+    pcf1: float,
+    pcf2: float,
+    pcf3: float,
+    pcf4: float,
+    pcf5: float,
+    hltalt_p: cobj,
+    tterm_p: cobj,
+):
+    hltalt_out = Ptr[float](hltalt_p)
+    tterm_out = Ptr[float](tterm_p)
+
+    hltalt = latvap
+    if t >= tmelt:
+        hltalt = hltalt - 2369.0 * (t - tmelt)
+
+    tterm = 0.0
+    if t < tmelt:
+        tc = t - tmelt
+        if tc >= -ttrice:
+            weight = -tc / ttrice
+            tterm = pcf5 + tc * tterm
+            tterm = pcf4 + tc * tterm
+            tterm = pcf3 + tc * tterm
+            tterm = pcf2 + tc * tterm
+            tterm = pcf1 + tc * tterm
+            tterm = tterm / ttrice
+        else:
+            weight = 1.0
+        hltalt = hltalt + weight * latice
+
+    hltalt_out[0] = hltalt
+    tterm_out[0] = tterm
+
+
+@export
+def wv_saturation_deriv_dqsdt_codon(
+    t: float,
+    p: float,
+    es: float,
+    qs: float,
+    hltalt: float,
+    tterm: float,
+    rh2o: float,
+    omeps: float,
+) -> float:
+    if qs == 1.0:
+        return 0.0
+    den = rh2o * t
+    den = den * t
+    desdt = hltalt * es
+    desdt = desdt / den
+    desdt = desdt + tterm
+    out = qs * p
+    out = out * desdt
+    den2 = p - omeps * es
+    den2 = es * den2
+    return out / den2
+
+
+@export
 def vdiff_lu_solver_flag_codon(flag: int) -> int:
     if flag != 0:
         return 1
