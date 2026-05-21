@@ -682,3 +682,107 @@ def wtrc_apply_rates_second_correction_codon(
                     ispec = iwspec[midx - 1]
                     ratio = _ratio_from_table(ispec, ptend_q[qidx], qtmp, qmin, rstd)
                     ptend_q[qidx] = ptend_q[qidx] - ratio * diff[_idx3(i, k, icnst, pcols, pver)]
+
+
+def wtrc_apply_rates_bulk_stage_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pwtype: int,
+    top_lev: int,
+    dtime: float,
+    bulk_indices_p: cobj,
+    bulk_indices64_p: cobj,
+    ptend_q_p: cobj,
+    qloc_p: cobj,
+):
+    wtrc_apply_rates_prepare_bulk_indices_codon(pwtype, bulk_indices_p, bulk_indices64_p)
+    wtrc_apply_rates_bulk_update_codon(
+        ncol, pcols, pver, pwtype, top_lev, dtime, bulk_indices64_p, ptend_q_p, qloc_p
+    )
+
+
+def wtrc_apply_rates_net_stage_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    pwtype: int,
+    wtrc_ncnst: int,
+    top_lev: int,
+    dtime: float,
+    wtrc_indices_p: cobj,
+    bulk_indices_p: cobj,
+    wtrc_indices64_p: cobj,
+    bulk_indices64_p: cobj,
+    pstate_q_p: cobj,
+    ptend_q_p: cobj,
+    qloc_p: cobj,
+    diff_p: cobj,
+):
+    wtrc_apply_rates_prepare_net_indices_codon(
+        pwtype, wtrc_ncnst, wtrc_indices_p, bulk_indices_p, wtrc_indices64_p, bulk_indices64_p
+    )
+    wtrc_apply_rates_net_tend_codon(
+        ncol,
+        pcols,
+        pver,
+        pcnst,
+        pwtype,
+        wtrc_ncnst,
+        top_lev,
+        dtime,
+        wtrc_indices64_p,
+        bulk_indices64_p,
+        pstate_q_p,
+        ptend_q_p,
+        qloc_p,
+        diff_p,
+    )
+
+
+def wtrc_apply_rates_correction_pair_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pwtype: int,
+    wtrc_nwset: int,
+    top_lev: int,
+    qmin: float,
+    wtrc_iatype_p: cobj,
+    bulk_indices_p: cobj,
+    iwspec_p: cobj,
+    rstd_p: cobj,
+    ptend_q_p: cobj,
+    diff_p: cobj,
+):
+    wtrc_apply_rates_first_correction_codon(
+        ncol,
+        pcols,
+        pver,
+        pwtype,
+        wtrc_nwset,
+        top_lev,
+        qmin,
+        wtrc_iatype_p,
+        bulk_indices_p,
+        iwspec_p,
+        rstd_p,
+        ptend_q_p,
+        diff_p,
+    )
+    wtrc_apply_rates_second_correction_codon(
+        ncol,
+        pcols,
+        pver,
+        pwtype,
+        wtrc_nwset,
+        top_lev,
+        qmin,
+        wtrc_iatype_p,
+        bulk_indices_p,
+        iwspec_p,
+        rstd_p,
+        ptend_q_p,
+        diff_p,
+    )

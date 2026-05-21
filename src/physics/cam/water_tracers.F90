@@ -152,6 +152,7 @@ module water_tracers
   logical :: use_native_wtrc_apply_rates_helpers_impl = .false.
   logical :: wtrc_apply_rates_helpers_impl_selected = .false.
   logical :: wtrc_apply_rates_helpers_entered_logged = .false.
+  logical :: wtrc_apply_rates_final_stage_logged = .false.
   logical :: use_native_wtrc_batch_impl = .false.
   logical :: wtrc_batch_impl_selected = .false.
   logical :: wtrc_batch_entered_logged = .false.
@@ -677,6 +678,19 @@ subroutine wtrc_apply_rates_helpers_log_entered()
   end if
 
 end subroutine wtrc_apply_rates_helpers_log_entered
+
+!=======================================================================
+subroutine wtrc_apply_rates_final_stage_log_entered()
+
+  if (wtrc_apply_rates_final_stage_logged) return
+  wtrc_apply_rates_final_stage_logged = .true.
+
+  if (masterproc) then
+    write(iulog,'(A)') 'wtrc_apply_rates final stage entered (bulk/net/correction stage dispatch = codon)'
+    call flush(iulog)
+  end if
+
+end subroutine wtrc_apply_rates_final_stage_log_entered
 
 !=======================================================================
 subroutine wtrc_readnl(nlfile)
@@ -1981,6 +1995,30 @@ end subroutine wtrc_register
       real(c_double), value :: qmin_c
       type(c_ptr), value :: wtrc_iatype_p, bulk_indices_p, iwspec_p, rstd_p, ptend_q_p, diff_p
     end subroutine wtrc_apply_rates_second_correction_codon
+    subroutine wtrc_apply_rates_bulk_stage_codon(ncol_c, pcols_c, pver_c, pwtype_c, top_lev_c, dtime_c, &
+         bulk_indices_p, bulk_indices64_p, ptend_q_p, qloc_p) bind(c, name="wtrc_apply_rates_bulk_stage_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pwtype_c, top_lev_c
+      real(c_double), value :: dtime_c
+      type(c_ptr), value :: bulk_indices_p, bulk_indices64_p, ptend_q_p, qloc_p
+    end subroutine wtrc_apply_rates_bulk_stage_codon
+    subroutine wtrc_apply_rates_net_stage_codon(ncol_c, pcols_c, pver_c, pcnst_c, pwtype_c, wtrc_ncnst_c, &
+         top_lev_c, dtime_c, wtrc_indices_p, bulk_indices_p, wtrc_indices64_p, bulk_indices64_p, &
+         pstate_q_p, ptend_q_p, qloc_p, diff_p) bind(c, name="wtrc_apply_rates_net_stage_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pcnst_c, pwtype_c, wtrc_ncnst_c, top_lev_c
+      real(c_double), value :: dtime_c
+      type(c_ptr), value :: wtrc_indices_p, bulk_indices_p, wtrc_indices64_p, bulk_indices64_p
+      type(c_ptr), value :: pstate_q_p, ptend_q_p, qloc_p, diff_p
+    end subroutine wtrc_apply_rates_net_stage_codon
+    subroutine wtrc_apply_rates_correction_pair_codon(ncol_c, pcols_c, pver_c, pwtype_c, wtrc_nwset_c, &
+         top_lev_c, qmin_c, wtrc_iatype_p, bulk_indices_p, iwspec_p, rstd_p, ptend_q_p, diff_p) &
+         bind(c, name="wtrc_apply_rates_correction_pair_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pwtype_c, wtrc_nwset_c, top_lev_c
+      real(c_double), value :: qmin_c
+      type(c_ptr), value :: wtrc_iatype_p, bulk_indices_p, iwspec_p, rstd_p, ptend_q_p, diff_p
+    end subroutine wtrc_apply_rates_correction_pair_codon
   end interface
  
 
@@ -2659,11 +2697,10 @@ end subroutine wtrc_register
   
       if (.not. use_native_wtrc_apply_rates_helpers_impl) then
         call wtrc_apply_rates_helpers_log_entered()
-        call wtrc_apply_rates_prepare_bulk_indices_codon(int(pwtype, c_int64_t), &
-             c_loc(wtrc_bulk_indices(1)), c_loc(wtrc_bulk_indices64(1)))
-        call wtrc_apply_rates_bulk_update_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+        call wtrc_apply_rates_final_stage_log_entered()
+        call wtrc_apply_rates_bulk_stage_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
              int(pver, c_int64_t), int(pwtype, c_int64_t), int(top_lev, c_int64_t), real(dtime, c_double), &
-             c_loc(wtrc_bulk_indices64), c_loc(ptend_sum%q), c_loc(qloc))
+             c_loc(wtrc_bulk_indices(1)), c_loc(wtrc_bulk_indices64(1)), c_loc(ptend_sum%q), c_loc(qloc))
       else
         do idsttype = 1, pwtype
           qloc(:ncol, top_lev:, wtrc_bulk_indices(idsttype)) = qloc(:ncol, top_lev:, wtrc_bulk_indices(idsttype)) + &
@@ -2711,14 +2748,12 @@ end subroutine wtrc_register
     !Calculate net tendencies:
     if (.not. use_native_wtrc_apply_rates_helpers_impl) then
       call wtrc_apply_rates_helpers_log_entered()
-      call wtrc_apply_rates_prepare_net_indices_codon(int(pwtype, c_int64_t), &
-           int(wtrc_ncnst, c_int64_t), c_loc(wtrc_indices(1)), c_loc(wtrc_bulk_indices(1)), &
-           c_loc(wtrc_indices64(1)), c_loc(wtrc_bulk_indices64(1)))
-      call wtrc_apply_rates_net_tend_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+      call wtrc_apply_rates_final_stage_log_entered()
+      call wtrc_apply_rates_net_stage_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
            int(pver, c_int64_t), int(pcnst, c_int64_t), int(pwtype, c_int64_t), &
            int(wtrc_ncnst, c_int64_t), int(top_lev, c_int64_t), real(dtime, c_double), &
-           c_loc(wtrc_indices64), c_loc(wtrc_bulk_indices64), c_loc(pstate%q), &
-           c_loc(ptend_sum%q), c_loc(qloc), c_loc(diff))
+           c_loc(wtrc_indices(1)), c_loc(wtrc_bulk_indices(1)), c_loc(wtrc_indices64(1)), &
+           c_loc(wtrc_bulk_indices64(1)), c_loc(pstate%q), c_loc(ptend_sum%q), c_loc(qloc), c_loc(diff))
     else
       diff(:,:,:) = 0._r8 !set initial difference to zero!
       do i=1,ncol
@@ -2765,7 +2800,8 @@ end subroutine wtrc_register
     do ispec = 1, pwtspec
       rstd(ispec) = real(wtrc_get_rstd(ispec), c_double)
     end do
-    call wtrc_apply_rates_first_correction_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+    call wtrc_apply_rates_final_stage_log_entered()
+    call wtrc_apply_rates_correction_pair_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
          int(pver, c_int64_t), int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), &
          int(top_lev, c_int64_t), real(wtrc_qmin, c_double), c_loc(wtrc_iatype64), &
          c_loc(wtrc_bulk_indices64), c_loc(iwspec64), c_loc(rstd), c_loc(ptend_sum%q), c_loc(diff))
@@ -2792,13 +2828,7 @@ end subroutine wtrc_register
  
 !Apply correction again (I don't know why this is needed, but for some reason it is, as apparently the fix above produces
 !another numerical error for cloud liquid - JN)
-  if (.not. use_native_wtrc_apply_rates_helpers_impl) then
-    call wtrc_apply_rates_helpers_log_entered()
-    call wtrc_apply_rates_second_correction_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
-         int(pver, c_int64_t), int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), &
-         int(top_lev, c_int64_t), real(wtrc_qmin, c_double), c_loc(wtrc_iatype64), &
-         c_loc(wtrc_bulk_indices64), c_loc(iwspec64), c_loc(rstd), c_loc(ptend_sum%q), c_loc(diff))
-  else
+  if (use_native_wtrc_apply_rates_helpers_impl) then
     do i=1,ncol
       do k=top_lev,pver
         do icnst = 1,pwtype  !only loop over bulk_water!

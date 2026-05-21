@@ -694,6 +694,105 @@ def wtrc_apply_rates_second_correction_codon(
     )
 
 
+@export
+def wtrc_apply_rates_bulk_stage_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pwtype: int,
+    top_lev: int,
+    dtime: float,
+    bulk_indices_p: cobj,
+    bulk_indices64_p: cobj,
+    ptend_q_p: cobj,
+    qloc_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_bulk_stage_codon(
+        ncol,
+        pcols,
+        pver,
+        pwtype,
+        top_lev,
+        dtime,
+        bulk_indices_p,
+        bulk_indices64_p,
+        ptend_q_p,
+        qloc_p,
+    )
+
+
+@export
+def wtrc_apply_rates_net_stage_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    pwtype: int,
+    wtrc_ncnst: int,
+    top_lev: int,
+    dtime: float,
+    wtrc_indices_p: cobj,
+    bulk_indices_p: cobj,
+    wtrc_indices64_p: cobj,
+    bulk_indices64_p: cobj,
+    pstate_q_p: cobj,
+    ptend_q_p: cobj,
+    qloc_p: cobj,
+    diff_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_net_stage_codon(
+        ncol,
+        pcols,
+        pver,
+        pcnst,
+        pwtype,
+        wtrc_ncnst,
+        top_lev,
+        dtime,
+        wtrc_indices_p,
+        bulk_indices_p,
+        wtrc_indices64_p,
+        bulk_indices64_p,
+        pstate_q_p,
+        ptend_q_p,
+        qloc_p,
+        diff_p,
+    )
+
+
+@export
+def wtrc_apply_rates_correction_pair_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pwtype: int,
+    wtrc_nwset: int,
+    top_lev: int,
+    qmin: float,
+    wtrc_iatype_p: cobj,
+    bulk_indices_p: cobj,
+    iwspec_p: cobj,
+    rstd_p: cobj,
+    ptend_q_p: cobj,
+    diff_p: cobj,
+):
+    _apply_rates.wtrc_apply_rates_correction_pair_codon(
+        ncol,
+        pcols,
+        pver,
+        pwtype,
+        wtrc_nwset,
+        top_lev,
+        qmin,
+        wtrc_iatype_p,
+        bulk_indices_p,
+        iwspec_p,
+        rstd_p,
+        ptend_q_p,
+        diff_p,
+    )
+
+
 @inline
 def _wtrc_q1q2_3d_idx(i: int, k: int, m: int, pcols: int, pver: int) -> int:
     """work(pcols, pver, wtrc_nwset)"""
