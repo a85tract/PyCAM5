@@ -152,6 +152,7 @@ module water_tracers
   logical :: use_native_wtrc_apply_rates_helpers_impl = .false.
   logical :: wtrc_apply_rates_helpers_impl_selected = .false.
   logical :: wtrc_apply_rates_helpers_entered_logged = .false.
+  logical :: wtrc_apply_rates_normal_batch_logged = .false.
   logical :: wtrc_apply_rates_final_stage_logged = .false.
   logical :: use_native_wtrc_batch_impl = .false.
   logical :: wtrc_batch_impl_selected = .false.
@@ -691,6 +692,19 @@ subroutine wtrc_apply_rates_final_stage_log_entered()
   end if
 
 end subroutine wtrc_apply_rates_final_stage_log_entered
+
+!=======================================================================
+subroutine wtrc_apply_rates_normal_batch_log_entered()
+
+  if (wtrc_apply_rates_normal_batch_logged) return
+  wtrc_apply_rates_normal_batch_logged = .true.
+
+  if (masterproc) then
+    write(iulog,'(A)') 'wtrc_apply_rates normal batch entered (pre/post normal tendency batches = codon)'
+    call flush(iulog)
+  end if
+
+end subroutine wtrc_apply_rates_normal_batch_log_entered
 
 !=======================================================================
 subroutine wtrc_readnl(nlfile)
@@ -1933,6 +1947,28 @@ end subroutine wtrc_register
       real(c_double), value :: ratio_c, rate_c, dtime_c, niter_c
       type(c_ptr), value :: qloc_p
     end subroutine wtrc_apply_rates_post_normal_tendency_codon
+    subroutine wtrc_apply_rates_pre_normal_batch_codon(i_c, k_c, pcols_c, pver_c, pcnst_c, &
+         pwtype_c, wtrc_nwset_c, isrctype_c, idsttype_c, iwtice_c, iwtstrain_c, iwtstsnow_c, &
+         qmin_c, rate_c, dtime_c, niter_c, pdel_ik_c, wtrc_iawset_p, iwspec_p, rstd_p, &
+         qloc_p, qloc0_p, rmass_p, smass_p, rmass0_p, smass0_p) &
+         bind(c, name="wtrc_apply_rates_pre_normal_batch_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c, pcnst_c, pwtype_c, wtrc_nwset_c
+      integer(c_int64_t), value :: isrctype_c, idsttype_c, iwtice_c, iwtstrain_c, iwtstsnow_c
+      real(c_double), value :: qmin_c, rate_c, dtime_c, niter_c, pdel_ik_c
+      type(c_ptr), value :: wtrc_iawset_p, iwspec_p, rstd_p, qloc_p, qloc0_p
+      type(c_ptr), value :: rmass_p, smass_p, rmass0_p, smass0_p
+    end subroutine wtrc_apply_rates_pre_normal_batch_codon
+    subroutine wtrc_apply_rates_post_normal_batch_codon(i_c, k_c, pcols_c, pver_c, pcnst_c, &
+         pwtype_c, wtrc_nwset_c, isrctype_c, idsttype_c, qmin_c, rate_c, dtime_c, niter_c, &
+         wtrc_iawset_p, iwspec_p, rstd_p, qloc_p, qloc0_p) &
+         bind(c, name="wtrc_apply_rates_post_normal_batch_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c, pcnst_c, pwtype_c, wtrc_nwset_c
+      integer(c_int64_t), value :: isrctype_c, idsttype_c
+      real(c_double), value :: qmin_c, rate_c, dtime_c, niter_c
+      type(c_ptr), value :: wtrc_iawset_p, iwspec_p, rstd_p, qloc_p, qloc0_p
+    end subroutine wtrc_apply_rates_post_normal_batch_codon
     subroutine wtrc_apply_rates_precip_error_correction_codon(i_c, k_c, pcols_c, pver_c, pcnst_c, &
          pwtype_c, wtrc_nwset_c, iwtstrain_c, iwtvap_c, qmin_c, pdel_ik_c, wtrc_iawset_p, iwspec_p, &
          rstd_p, qloc_p, qloc0_p, rmass_p, smass_p, rmass0_p, smass0_p) &
@@ -2065,7 +2101,7 @@ end subroutine wtrc_register
       end if
     end if
 
-    if (.not. use_native_wtrc_apply_rates_helpers_impl .and. ldo_stprecip) then
+    if (.not. use_native_wtrc_apply_rates_helpers_impl) then
       do iwset = 1, wtrc_nwset
         wtrc_iawset64(:,iwset) = int(wtrc_iawset(:,iwset), c_int64_t)
       end do
@@ -2111,6 +2147,24 @@ end subroutine wtrc_register
                 do idsttype=1,pwtype !loop through water types that are modified
                   rtype = isrctype  !the moisture source is what determines the value of R
                   if(pre_rates(i,k,idsttype,isrctype,rtype) .gt. 0._r8) then !make sure destination type is increasing
+                    if (.not. use_native_wtrc_apply_rates_helpers_impl .and. &
+                        .not. (((isrctype .eq. iwtliq) .or. (isrctype .eq. iwtice)) .and. &
+                               (isrctype .eq. idsttype)) .and. &
+                        .not. (wisotope .and. (isrctype .eq. iwtvap) .and. &
+                               ((idsttype .eq. iwtice) .or. (idsttype .eq. iwtstsnow)))) then
+                      call wtrc_apply_rates_helpers_log_entered()
+                      call wtrc_apply_rates_normal_batch_log_entered()
+                      call wtrc_apply_rates_pre_normal_batch_codon(int(i, c_int64_t), int(k, c_int64_t), &
+                           int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+                           int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), int(isrctype, c_int64_t), &
+                           int(idsttype, c_int64_t), int(iwtice, c_int64_t), int(iwtstrain, c_int64_t), &
+                           int(iwtstsnow, c_int64_t), real(wtrc_qmin, c_double), &
+                           real(pre_rates(i,k,idsttype,isrctype,rtype), c_double), real(dtime, c_double), &
+                           real(wtrc_niter, c_double), real(pstate%pdel(i,k), c_double), c_loc(wtrc_iawset64), &
+                           c_loc(iwspec64), c_loc(rstd), c_loc(qloc), c_loc(qloc0), c_loc(rmass), c_loc(smass), &
+                           c_loc(rmass0), c_loc(smass0))
+                      cycle
+                    end if
                     do iwset=1,wtrc_nwset !loop over water tracers/isotopes
 
                       msrc = wtrc_iawset(isrctype,iwset) !source water index
@@ -2536,6 +2590,20 @@ end subroutine wtrc_register
                 do idsttype=1,pwtype !loop through water types that are modified
                   rtype = isrctype  !the moisture source is what determines the value of R
                   if(post_rates(i,k,idsttype,isrctype,rtype) .gt. 0._r8) then !make sure destination type is increasing
+                    if (.not. use_native_wtrc_apply_rates_helpers_impl .and. (isrctype .le. iwtice) .and. &
+                        .not. (wisotope .and. (isrctype .eq. iwtvap) .and. &
+                               ((idsttype .eq. iwtice) .or. (idsttype .eq. iwtstsnow)))) then
+                      call wtrc_apply_rates_helpers_log_entered()
+                      call wtrc_apply_rates_normal_batch_log_entered()
+                      call wtrc_apply_rates_post_normal_batch_codon(int(i, c_int64_t), int(k, c_int64_t), &
+                           int(pcols, c_int64_t), int(pver, c_int64_t), int(pcnst, c_int64_t), &
+                           int(pwtype, c_int64_t), int(wtrc_nwset, c_int64_t), int(isrctype, c_int64_t), &
+                           int(idsttype, c_int64_t), real(wtrc_qmin, c_double), &
+                           real(post_rates(i,k,idsttype,isrctype,rtype), c_double), real(dtime, c_double), &
+                           real(wtrc_niter, c_double), c_loc(wtrc_iawset64), c_loc(iwspec64), c_loc(rstd), &
+                           c_loc(qloc), c_loc(qloc0))
+                      cycle
+                    end if
                     do iwset=1,wtrc_nwset !loop over water tracers/isotopes
 
                       msrc = wtrc_iawset(isrctype,iwset) !source water index

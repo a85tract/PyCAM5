@@ -420,6 +420,140 @@ def wtrc_apply_rates_post_normal_tendency_codon(
         qloc[qsrc] = qloc[qsrc] - alpha * ratio * rate * dtime / niter
 
 
+def wtrc_apply_rates_pre_normal_batch_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    pwtype: int,
+    wtrc_nwset: int,
+    isrctype: int,
+    idsttype: int,
+    iwtice: int,
+    iwtstrain: int,
+    iwtstsnow: int,
+    qmin: float,
+    rate: float,
+    dtime: float,
+    niter: float,
+    pdel_ik: float,
+    wtrc_iawset_p: cobj,
+    iwspec_p: cobj,
+    rstd_p: cobj,
+    qloc_p: cobj,
+    qloc0_p: cobj,
+    rmass_p: cobj,
+    smass_p: cobj,
+    rmass0_p: cobj,
+    smass0_p: cobj,
+):
+    wtrc_iawset = Ptr[int](wtrc_iawset_p)
+    iwspec = Ptr[int](iwspec_p)
+    rstd = Ptr[float](rstd_p)
+    qloc0 = Ptr[float](qloc0_p)
+    rmass0 = Ptr[float](rmass0_p)
+    smass0 = Ptr[float](smass0_p)
+
+    for iwset in range(1, wtrc_nwset + 1):
+        msrc = wtrc_iawset[_idx_iawset(isrctype, iwset, pwtype)]
+        mbase = wtrc_iawset[_idx_iawset(isrctype, 1, pwtype)]
+        mdst = wtrc_iawset[_idx_iawset(idsttype, iwset, pwtype)]
+        ispec = iwspec[msrc - 1]
+
+        if isrctype > iwtice:
+            pidx = _idx_rmass(i, iwset, pcols)
+            base_idx = _idx_rmass(i, 1, pcols)
+            if isrctype == iwtstrain:
+                ratio = _ratio_from_table(ispec, rmass0[pidx], rmass0[base_idx], qmin, rstd)
+            else:
+                ratio = _ratio_from_table(ispec, smass0[pidx], smass0[base_idx], qmin, rstd)
+        else:
+            qidx = _idx3(i, k, msrc, pcols, pver)
+            qbase_idx = _idx3(i, k, mbase, pcols, pver)
+            ratio = _ratio_from_table(ispec, qloc0[qidx], qloc0[qbase_idx], qmin, rstd)
+
+        wtrc_apply_rates_pre_normal_tendency_codon(
+            i,
+            k,
+            pcols,
+            pver,
+            isrctype,
+            idsttype,
+            iwset,
+            iwtstrain,
+            iwtstsnow,
+            msrc,
+            mdst,
+            ratio,
+            rate,
+            dtime,
+            niter,
+            pdel_ik,
+            qloc_p,
+            rmass_p,
+            smass_p,
+        )
+
+    wtrc_apply_rates_sync_level_state_codon(i, k, pcols, pver, pcnst, qloc_p, qloc0_p)
+    wtrc_apply_rates_sync_precip_column_codon(
+        i, pcols, wtrc_nwset, rmass_p, smass_p, rmass0_p, smass0_p
+    )
+
+
+def wtrc_apply_rates_post_normal_batch_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    pcnst: int,
+    pwtype: int,
+    wtrc_nwset: int,
+    isrctype: int,
+    idsttype: int,
+    qmin: float,
+    rate: float,
+    dtime: float,
+    niter: float,
+    wtrc_iawset_p: cobj,
+    iwspec_p: cobj,
+    rstd_p: cobj,
+    qloc_p: cobj,
+    qloc0_p: cobj,
+):
+    wtrc_iawset = Ptr[int](wtrc_iawset_p)
+    iwspec = Ptr[int](iwspec_p)
+    rstd = Ptr[float](rstd_p)
+    qloc0 = Ptr[float](qloc0_p)
+
+    for iwset in range(1, wtrc_nwset + 1):
+        msrc = wtrc_iawset[_idx_iawset(isrctype, iwset, pwtype)]
+        mbase = wtrc_iawset[_idx_iawset(isrctype, 1, pwtype)]
+        mdst = wtrc_iawset[_idx_iawset(idsttype, iwset, pwtype)]
+        ispec = iwspec[msrc - 1]
+        qidx = _idx3(i, k, msrc, pcols, pver)
+        qbase_idx = _idx3(i, k, mbase, pcols, pver)
+        ratio = _ratio_from_table(ispec, qloc0[qidx], qloc0[qbase_idx], qmin, rstd)
+
+        wtrc_apply_rates_post_normal_tendency_codon(
+            i,
+            k,
+            pcols,
+            pver,
+            isrctype,
+            idsttype,
+            msrc,
+            mdst,
+            ratio,
+            rate,
+            dtime,
+            niter,
+            qloc_p,
+        )
+
+    wtrc_apply_rates_sync_level_state_codon(i, k, pcols, pver, pcnst, qloc_p, qloc0_p)
+
+
 def wtrc_apply_rates_precip_error_correction_codon(
     i: int,
     k: int,
