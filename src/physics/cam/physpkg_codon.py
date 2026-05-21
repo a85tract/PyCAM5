@@ -2218,6 +2218,18 @@ def phys_grid_get_gcol_all_codon(ncols: int, out_dim: int, src_p: cobj, dst_p: c
 
 
 @export
+def phys_grid_int_scalar_codon(value: int) -> int:
+    return value
+
+
+@export
+def phys_grid_bool_scalar_codon(value: int) -> int:
+    if value != 0:
+        return 1
+    return 0
+
+
+@export
 def phys_grid_count_valid_cols_codon(ngcols: int, clon_d_p: cobj) -> int:
     return _phys_grid.phys_grid_count_valid_cols_codon(ngcols, clon_d_p)
 

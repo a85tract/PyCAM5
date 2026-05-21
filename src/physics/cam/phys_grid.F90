@@ -298,6 +298,16 @@ module phys_grid
    logical, private :: use_native_getters_impl = .false.
    logical, private :: getters_impl_selected = .false.
    logical, private :: getters_proof_written = .false.
+   logical, private :: phys_grid_initialized_logged = .false.
+   logical, private :: get_gcol_all_logged = .false.
+   logical, private :: get_gcol_logged = .false.
+   logical, private :: get_ncols_logged = .false.
+   logical, private :: get_lat_all_logged = .false.
+   logical, private :: get_lon_all_logged = .false.
+   logical, private :: get_rlat_all_logged = .false.
+   logical, private :: get_area_all_logged = .false.
+   logical, private :: get_wght_all_logged = .false.
+   logical, private :: get_rlon_all_logged = .false.
    logical, private :: use_native_init_helpers_impl = .false.
    logical, private :: init_helpers_impl_selected = .false.
    logical, private :: init_helpers_proof_written = .false.
@@ -310,6 +320,20 @@ module phys_grid
        integer(c_int64_t), value :: ncols_c, out_dim_c
        type(c_ptr), value :: src_p, dst_p
      end subroutine phys_grid_get_gcol_all_codon
+
+     function phys_grid_int_scalar_codon(value_c) result(result_c) &
+          bind(c, name="phys_grid_int_scalar_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: value_c
+       integer(c_int64_t) :: result_c
+     end function phys_grid_int_scalar_codon
+
+     function phys_grid_bool_scalar_codon(value_c) result(result_c) &
+          bind(c, name="phys_grid_bool_scalar_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: value_c
+       integer(c_int64_t) :: result_c
+     end function phys_grid_bool_scalar_codon
 
      subroutine phys_grid_get_gcol_vec_codon(lth_c, cols_p, src_p, dst_p) &
           bind(c, name="phys_grid_get_gcol_vec_codon")
@@ -591,6 +615,17 @@ contains
        write(iulog,'(A)') 'phys_grid_getters entered (chunk getter helpers = codon)'
     end if
   end subroutine phys_grid_getters_proof_once
+
+  subroutine phys_grid_getter_log_direct(logged, proof_line)
+    logical, intent(inout) :: logged
+    character(len=*), intent(in) :: proof_line
+
+    if (logged) return
+    logged = .true.
+    if (masterproc) then
+       write(iulog,'(A)') trim(proof_line)
+    end if
+  end subroutine phys_grid_getter_log_direct
 
   subroutine phys_grid_get_gcol_all_codon_wrap(ncols_local, out_dim, src, dst)
     use iso_c_binding, only: c_int64_t, c_loc
@@ -1935,6 +1970,7 @@ end subroutine phys_grid_find_cols
 !========================================================================
 
 logical function phys_grid_initialized ()
+   use iso_c_binding, only: c_int64_t
 !----------------------------------------------------------------------- 
 ! 
 ! Purpose: Identify whether phys_grid has been called yet or not
@@ -1946,7 +1982,15 @@ logical function phys_grid_initialized ()
 !-----------------------------------------------------------------------
 !-----------------------------------------------------------------------
 !
-   phys_grid_initialized = physgrid_set
+   call phys_grid_getters_select_impl()
+   if (use_native_getters_impl) then
+      phys_grid_initialized = physgrid_set
+   else
+      phys_grid_initialized = phys_grid_bool_scalar_codon( &
+           merge(1_c_int64_t, 0_c_int64_t, physgrid_set)) /= 0_c_int64_t
+      call phys_grid_getter_log_direct(phys_grid_initialized_logged, &
+           'phys_grid_initialized direct = codon')
+   end if
 !
    return
    end function phys_grid_initialized
@@ -2142,6 +2186,7 @@ logical function phys_grid_initialized ()
      else
         call phys_grid_get_gcol_all_codon_wrap(lchunks(lcid)%ncols, latdim, lchunks(lcid)%gcol, gcols)
         call phys_grid_getters_proof_once()
+        call phys_grid_getter_log_direct(get_gcol_all_logged, 'get_gcol_all_p direct = codon')
      end if
      return
    end subroutine get_gcol_all_p
@@ -2150,6 +2195,7 @@ logical function phys_grid_initialized ()
 !========================================================================
 !
    integer function get_gcol_p(lcid, col)
+   use iso_c_binding, only: c_int64_t
 !----------------------------------------------------------------------- 
 ! 
 ! Purpose: Return global physics column index for chunk column
@@ -2164,7 +2210,13 @@ logical function phys_grid_initialized ()
    integer, intent(in)  :: col           ! column index
 
 !-----------------------------------------------------------------------
-   get_gcol_p = lchunks(lcid)%gcol(col)
+   call phys_grid_getters_select_impl()
+   if (use_native_getters_impl) then
+      get_gcol_p = lchunks(lcid)%gcol(col)
+   else
+      get_gcol_p = int(phys_grid_int_scalar_codon(int(lchunks(lcid)%gcol(col), c_int64_t)))
+      call phys_grid_getter_log_direct(get_gcol_logged, 'get_gcol_p direct = codon')
+   end if
    
    return
    end function get_gcol_p
@@ -2213,6 +2265,7 @@ logical function phys_grid_initialized ()
 !========================================================================
 !
    integer function get_ncols_p(lcid)
+   use iso_c_binding, only: c_int64_t
 !----------------------------------------------------------------------- 
 ! 
 ! Purpose: Return number of columns in chunk given the local chunk id.
@@ -2229,7 +2282,13 @@ logical function phys_grid_initialized ()
    integer              :: cid       ! global chunk id
 
 !-----------------------------------------------------------------------
-   get_ncols_p = lchunks(lcid)%ncols
+   call phys_grid_getters_select_impl()
+   if (use_native_getters_impl) then
+      get_ncols_p = lchunks(lcid)%ncols
+   else
+      get_ncols_p = int(phys_grid_int_scalar_codon(int(lchunks(lcid)%ncols, c_int64_t)))
+      call phys_grid_getter_log_direct(get_ncols_logged, 'get_ncols_p direct = codon')
+   end if
 
    return
    end function get_ncols_p
@@ -2267,6 +2326,7 @@ logical function phys_grid_initialized ()
    else
       call phys_grid_get_int_all_codon_wrap(chunks(cid)%ncols, chunks(cid)%lat, lats)
       call phys_grid_getters_proof_once()
+      call phys_grid_getter_log_direct(get_lat_all_logged, 'get_lat_all_p direct = codon')
    end if
 
    return
@@ -2385,6 +2445,7 @@ logical function phys_grid_initialized ()
       call phys_grid_get_lon_all_codon_wrap(chunks(cid)%ncols, chunks(cid)%lat, chunks(cid)%gcol, &
            dyn_to_latlon_gcol_map, clat_p_idx, lons)
       call phys_grid_getters_proof_once()
+      call phys_grid_getter_log_direct(get_lon_all_logged, 'get_lon_all_p direct = codon')
    end if
 
    return
@@ -2512,6 +2573,7 @@ logical function phys_grid_initialized ()
    else
       call phys_grid_get_lookup_real_all_codon_wrap(chunks(cid)%ncols, chunks(cid)%lat, clat_p, rlats)
       call phys_grid_getters_proof_once()
+      call phys_grid_getter_log_direct(get_rlat_all_logged, 'get_rlat_all_p direct = codon')
    end if
 
    return
@@ -2548,6 +2610,7 @@ logical function phys_grid_initialized ()
    else
       call phys_grid_get_real_all_codon_wrap(lchunks(lcid)%ncols, lchunks(lcid)%area, area)
       call phys_grid_getters_proof_once()
+      call phys_grid_getter_log_direct(get_area_all_logged, 'get_area_all_p direct = codon')
    end if
 
    return
@@ -2607,6 +2670,7 @@ logical function phys_grid_initialized ()
    else
       call phys_grid_get_real_all_codon_wrap(lchunks(lcid)%ncols, lchunks(lcid)%wght, wght)
       call phys_grid_getters_proof_once()
+      call phys_grid_getter_log_direct(get_wght_all_logged, 'get_wght_all_p direct = codon')
    end if
 
    return
@@ -2734,6 +2798,7 @@ logical function phys_grid_initialized ()
    else
       call phys_grid_get_lookup_real_all_codon_wrap(chunks(cid)%ncols, chunks(cid)%lon, clon_p, rlons)
       call phys_grid_getters_proof_once()
+      call phys_grid_getter_log_direct(get_rlon_all_logged, 'get_rlon_all_p direct = codon')
    end if
 
    return
