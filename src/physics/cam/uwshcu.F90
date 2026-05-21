@@ -131,6 +131,9 @@
   logical :: use_native_small_kernels_impl = .false.
   logical :: small_kernels_impl_selected = .false.
   logical :: small_kernels_entered_logged = .false.
+  logical :: use_native_positive_moisture_single_impl = .false.
+  logical :: positive_moisture_single_impl_selected = .false.
+  logical :: positive_moisture_single_entered_logged = .false.
 
   interface
      subroutine uwshcu_getbuoy_codon(pbot_c, thv0bot_c, ptop_c, thv0top_c, &
@@ -348,6 +351,63 @@ contains
     end if
 
   end subroutine uwshcu_log_small_kernels_entered
+
+!===============================================================================
+
+  subroutine uwshcu_select_positive_moisture_single_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (positive_moisture_single_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('UWSHCU_POSITIVE_MOISTURE_SINGLE_IMPL', value=impl_name, length=n, status=status)
+    if (status /= 0 .or. n <= 0) then
+       call get_environment_variable('CONVECT_SHALLOW_IMPL', value=impl_name, length=n, status=status)
+    end if
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+       end do
+       use_native_positive_moisture_single_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_positive_moisture_single_impl = .false.
+    end if
+
+    positive_moisture_single_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_positive_moisture_single_impl) then
+          write(iulog,'(A)') 'uwshcu positive moisture single implementation = native'
+          call uwshcu_append_proof('uwshcu positive moisture single implementation = native')
+       else
+          write(iulog,'(A)') 'uwshcu positive moisture single implementation = codon'
+          call uwshcu_append_proof('uwshcu positive moisture single implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_select_positive_moisture_single_impl
+
+!===============================================================================
+
+  subroutine uwshcu_log_positive_moisture_single_entered()
+
+    if (positive_moisture_single_entered_logged) return
+    positive_moisture_single_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu positive moisture single entered (positive moisture correction direct = codon)'
+       call uwshcu_append_proof( &
+            'uwshcu positive moisture single entered (positive moisture correction direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_positive_moisture_single_entered
 
 !===============================================================================
 
@@ -11598,6 +11658,91 @@ end subroutine uwshcu_readnl
   subroutine positive_moisture_single( xlv, xls, mkx, dt, qvmin, qlmin, qimin, dp, qv, ql, qi, s, qvten, qlten, qiten, sten, &
                                        ncnst, wtr, wtten )
   ! ------------------------------------------------------------------------------- !
+  ! Codon-backed wrapper for the positive-moisture correction path.                 !
+  ! ------------------------------------------------------------------------------- !
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
+    use water_isotopes, only: pwtspec
+    use water_tracer_vars, only : trace_water, wtrc_iatype, wtrc_nwset, wtrc_qmin, iwspec
+    use water_tracers, only : wtrc_get_rstd
+    use water_types, only : iwtvap, iwtliq, iwtice
+
+    implicit none
+    integer,  intent(in)     :: mkx
+    real(r8), intent(in)     :: xlv, xls
+    real(r8), intent(in)     :: dt, qvmin, qlmin, qimin
+    real(r8), target, intent(in)     :: dp(mkx)
+    real(r8), target, intent(inout)  :: qv(mkx), ql(mkx), qi(mkx), s(mkx)
+    real(r8), target, intent(inout)  :: qvten(mkx), qlten(mkx), qiten(mkx), sten(mkx)
+    integer,  intent(in)             :: ncnst
+    real(r8), target, intent(inout), optional :: wtr(mkx,wtrc_nwset,3)
+    real(r8), target, intent(inout), optional :: wtten(mkx,ncnst)
+    integer(c_int64_t), target :: status_c
+    integer(c_int64_t), target :: wtrc_iatype64(max(1,wtrc_nwset),3), iwspec64(ncnst)
+    real(r8), target :: rstd(pwtspec)
+    type(c_ptr) :: wtr_p, wtten_p, wtrc_iatype_p, iwspec_p, rstd_p
+    integer :: m, ispec
+
+    interface
+       subroutine uwshcu_positive_moisture_single_codon(mkx_c, xlv_c, xls_c, dt_c, qvmin_c, qlmin_c, qimin_c, &
+            trace_water_c, wtrc_nwset_c, ncnst_c, wtrc_qmin_c, dp_p, qv_p, ql_p, qi_p, s_p, qvten_p, qlten_p, &
+            qiten_p, sten_p, wtrc_iatype_p, iwspec_p, rstd_p, wtr_p, wtten_p, status_p) &
+            bind(c, name="uwshcu_positive_moisture_single_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, trace_water_c, wtrc_nwset_c, ncnst_c
+          real(c_double), value :: xlv_c, xls_c, dt_c, qvmin_c, qlmin_c, qimin_c, wtrc_qmin_c
+          type(c_ptr), value :: dp_p, qv_p, ql_p, qi_p, s_p, qvten_p, qlten_p, qiten_p, sten_p
+          type(c_ptr), value :: wtrc_iatype_p, iwspec_p, rstd_p, wtr_p, wtten_p, status_p
+       end subroutine uwshcu_positive_moisture_single_codon
+    end interface
+
+    call uwshcu_select_positive_moisture_single_impl()
+    if (use_native_positive_moisture_single_impl .or. (trace_water .and. (.not. present(wtr) .or. .not. present(wtten)))) then
+       call positive_moisture_single_native(xlv, xls, mkx, dt, qvmin, qlmin, qimin, dp, qv, ql, qi, s, &
+            qvten, qlten, qiten, sten, ncnst, wtr=wtr, wtten=wtten)
+       return
+    end if
+
+    wtr_p = c_null_ptr
+    wtten_p = c_null_ptr
+    wtrc_iatype_p = c_null_ptr
+    iwspec_p = c_null_ptr
+    rstd_p = c_null_ptr
+    if (trace_water) then
+       do m = 1, wtrc_nwset
+          wtrc_iatype64(m,1) = int(wtrc_iatype(m,iwtvap), c_int64_t)
+          wtrc_iatype64(m,2) = int(wtrc_iatype(m,iwtliq), c_int64_t)
+          wtrc_iatype64(m,3) = int(wtrc_iatype(m,iwtice), c_int64_t)
+       end do
+       do m = 1, ncnst
+          iwspec64(m) = int(iwspec(m), c_int64_t)
+       end do
+       do ispec = 1, pwtspec
+          rstd(ispec) = wtrc_get_rstd(ispec)
+       end do
+       wtr_p = c_loc(wtr(1,1,1))
+       wtten_p = c_loc(wtten(1,1))
+       wtrc_iatype_p = c_loc(wtrc_iatype64(1,1))
+       iwspec_p = c_loc(iwspec64(1))
+       rstd_p = c_loc(rstd(1))
+    end if
+
+    status_c = 0_c_int64_t
+    call uwshcu_log_positive_moisture_single_entered()
+    call uwshcu_positive_moisture_single_codon(int(mkx, c_int64_t), real(xlv, c_double), real(xls, c_double), &
+         real(dt, c_double), real(qvmin, c_double), real(qlmin, c_double), real(qimin, c_double), &
+         merge(1_c_int64_t, 0_c_int64_t, trace_water), int(wtrc_nwset, c_int64_t), int(ncnst, c_int64_t), &
+         real(wtrc_qmin, c_double), c_loc(dp(1)), c_loc(qv(1)), c_loc(ql(1)), c_loc(qi(1)), c_loc(s(1)), &
+         c_loc(qvten(1)), c_loc(qlten(1)), c_loc(qiten(1)), c_loc(sten(1)), wtrc_iatype_p, iwspec_p, &
+         rstd_p, wtr_p, wtten_p, c_loc(status_c))
+    if (status_c .ne. 0_c_int64_t) then
+       write(iulog,*) 'Full positive_moisture is impossible in uwshcu'
+    end if
+
+  end subroutine positive_moisture_single
+
+  subroutine positive_moisture_single_native( xlv, xls, mkx, dt, qvmin, qlmin, qimin, dp, qv, ql, qi, s, qvten, qlten, qiten, sten, &
+                                       ncnst, wtr, wtten )
+  ! ------------------------------------------------------------------------------- !
   ! If any 'ql < qlmin, qi < qimin, qv < qvmin' are developed in any layer,         !
   ! force them to be larger than minimum value by (1) condensating water vapor      !
   ! into liquid or ice, and (2) by transporting water vapor from the very lower     !
@@ -11744,7 +11889,7 @@ end subroutine uwshcu_readnl
     endif
 
     return
-  end subroutine positive_moisture_single
+  end subroutine positive_moisture_single_native
 
   ! ------------------------ !
   !                          ! 

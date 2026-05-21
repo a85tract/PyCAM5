@@ -10953,6 +10953,169 @@ def uwshcu_cloud_diag_conden_exit_shell_codon(
 
 
 @export
+def uwshcu_positive_moisture_single_codon(
+    mkx: int,
+    xlv_v: float,
+    xls_v: float,
+    dt_v: float,
+    qvmin: float,
+    qlmin: float,
+    qimin: float,
+    trace_water: int,
+    wtrc_nwset: int,
+    ncnst: int,
+    wtrc_qmin: float,
+    dp_p: cobj,
+    qv_p: cobj,
+    ql_p: cobj,
+    qi_p: cobj,
+    s_p: cobj,
+    qvten_p: cobj,
+    qlten_p: cobj,
+    qiten_p: cobj,
+    sten_p: cobj,
+    wtrc_iatype_p: cobj,
+    iwspec_p: cobj,
+    rstd_p: cobj,
+    wtr_p: cobj,
+    wtten_p: cobj,
+    status_p: cobj,
+):
+    dp = Ptr[float](dp_p)
+    qv = Ptr[float](qv_p)
+    ql = Ptr[float](ql_p)
+    qi = Ptr[float](qi_p)
+    s = Ptr[float](s_p)
+    qvten = Ptr[float](qvten_p)
+    qlten = Ptr[float](qlten_p)
+    qiten = Ptr[float](qiten_p)
+    sten = Ptr[float](sten_p)
+    status = Ptr[int](status_p)
+
+    status[0] = 0
+    dqv = 0.0
+
+    has_wtr = trace_water != 0
+    if has_wtr:
+        wtrc_iatype = Ptr[int](wtrc_iatype_p)
+        iwspec = Ptr[int](iwspec_p)
+        rstd = Ptr[float](rstd_p)
+        wtr = Ptr[float](wtr_p)
+        wtten = Ptr[float](wtten_p)
+
+    k = mkx
+    while k >= 1:
+        idx = k - 1
+        dql = max(0.0, 1.0 * qlmin - ql[idx])
+        dqi = max(0.0, 1.0 * qimin - qi[idx])
+        qlten[idx] = qlten[idx] + dql / dt_v
+        qiten[idx] = qiten[idx] + dqi / dt_v
+        qvten[idx] = qvten[idx] - (dql + dqi) / dt_v
+        sten[idx] = sten[idx] + xlv_v * (dql / dt_v) + xls_v * (dqi / dt_v)
+        ql[idx] = ql[idx] + dql
+        qi[idx] = qi[idx] + dqi
+        qv[idx] = qv[idx] - dql - dqi
+        s[idx] = s[idx] + xlv_v * dql + xls_v * dqi
+        dqv = max(0.0, 1.0 * qvmin - qv[idx])
+        qvten[idx] = qvten[idx] + dqv / dt_v
+        qv[idx] = qv[idx] + dqv
+        if k != 1:
+            ratio = dqv * dp[idx] / dp[idx - 1]
+            qv[idx - 1] = qv[idx - 1] - ratio
+            qvten[idx - 1] = qvten[idx - 1] - ratio / dt_v
+        qv[idx] = max(qv[idx], qvmin)
+        ql[idx] = max(ql[idx], qlmin)
+        qi[idx] = max(qi[idx], qimin)
+
+        if has_wtr:
+            base_vapor0 = wtr[idx]
+            m = 1
+            while m <= wtrc_nwset:
+                vap = int(wtrc_iatype[(m - 1)])
+                liq = int(wtrc_iatype[(m - 1) + wtrc_nwset])
+                ice = int(wtrc_iatype[(m - 1) + 2 * wtrc_nwset])
+                ispec = int(iwspec[vap - 1])
+                vapor0 = wtr[idx + (m - 1) * mkx]
+                if abs(base_vapor0) < wtrc_qmin:
+                    rv = rstd[ispec - 1]
+                else:
+                    rv = vapor0 / base_vapor0
+                wtten[idx + (liq - 1) * mkx] = wtten[idx + (liq - 1) * mkx] + rv * dql / dt_v
+                wtten[idx + (ice - 1) * mkx] = wtten[idx + (ice - 1) * mkx] + rv * dqi / dt_v
+                wtten[idx + (vap - 1) * mkx] = wtten[idx + (vap - 1) * mkx] - rv * (dql + dqi) / dt_v
+                wtr[idx + (m - 1) * mkx + mkx * wtrc_nwset] = (
+                    wtr[idx + (m - 1) * mkx + mkx * wtrc_nwset] + rv * dql
+                )
+                wtr[idx + (m - 1) * mkx + 2 * mkx * wtrc_nwset] = (
+                    wtr[idx + (m - 1) * mkx + 2 * mkx * wtrc_nwset] + rv * dqi
+                )
+                wtr[idx + (m - 1) * mkx] = wtr[idx + (m - 1) * mkx] - rv * (dql + dqi)
+                m += 1
+
+            base_vapor1 = wtr[idx]
+            m = 1
+            while m <= wtrc_nwset:
+                vap = int(wtrc_iatype[(m - 1)])
+                ispec = int(iwspec[vap - 1])
+                vapor1 = wtr[idx + (m - 1) * mkx]
+                if abs(base_vapor1) < wtrc_qmin:
+                    rv = rstd[ispec - 1]
+                else:
+                    rv = vapor1 / base_vapor1
+                wtten[idx + (vap - 1) * mkx] = wtten[idx + (vap - 1) * mkx] + rv * dqv / dt_v
+                wtr[idx + (m - 1) * mkx] = wtr[idx + (m - 1) * mkx] + rv * dqv
+                if k != 1:
+                    transfer = rv * (dqv * dp[idx] / dp[idx - 1])
+                    wtr[idx - 1 + (m - 1) * mkx] = wtr[idx - 1 + (m - 1) * mkx] - transfer
+                    wtten[idx - 1 + (vap - 1) * mkx] = wtten[idx - 1 + (vap - 1) * mkx] - transfer / dt_v
+                rv = rstd[ispec - 1]
+                wtr[idx + (m - 1) * mkx] = max(wtr[idx + (m - 1) * mkx], rv * qvmin)
+                wtr[idx + (m - 1) * mkx + mkx * wtrc_nwset] = max(
+                    wtr[idx + (m - 1) * mkx + mkx * wtrc_nwset], rv * qlmin
+                )
+                wtr[idx + (m - 1) * mkx + 2 * mkx * wtrc_nwset] = max(
+                    wtr[idx + (m - 1) * mkx + 2 * mkx * wtrc_nwset], rv * qimin
+                )
+                m += 1
+        k -= 1
+
+    if dqv > 1.0e-20:
+        total = 0.0
+        k = 1
+        while k <= mkx:
+            idx = k - 1
+            if qv[idx] > 2.0 * qvmin:
+                total = total + qv[idx] * dp[idx]
+            k += 1
+        aa = dqv * dp[0] / max(1.0e-20, total)
+        if aa < 0.5:
+            k = 1
+            while k <= mkx:
+                idx = k - 1
+                if qv[idx] > 2.0 * qvmin:
+                    dum = aa * qv[idx]
+                    qv[idx] = qv[idx] - dum
+                    qvten[idx] = qvten[idx] - dum / dt_v
+                    if has_wtr:
+                        base_vapor = wtr[idx]
+                        m = 1
+                        while m <= wtrc_nwset:
+                            vap = int(wtrc_iatype[(m - 1)])
+                            ispec = int(iwspec[vap - 1])
+                            vapor = wtr[idx + (m - 1) * mkx]
+                            if abs(base_vapor) < wtrc_qmin:
+                                rv = rstd[ispec - 1]
+                            else:
+                                rv = vapor / base_vapor
+                            wtr[idx + (m - 1) * mkx] = wtr[idx + (m - 1) * mkx] - rv * dum
+                            wtten[idx + (vap - 1) * mkx] = wtten[idx + (vap - 1) * mkx] - rv * dum / dt_v
+                            m += 1
+                k += 1
+        else:
+            status[0] = 1
+
+
+@export
 def uwshcu_positive_moisture_prep_shell_codon(
     mkx: int,
     ncnst: int,
