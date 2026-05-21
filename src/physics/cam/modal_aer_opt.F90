@@ -69,6 +69,7 @@ logical :: modal_aer_opt_helpers_proof_written = .false.
 logical :: modal_aer_opt_lw_helpers_proof_written = .false.
 logical :: modal_aer_opt_sw_guard_helpers_proof_written = .false.
 logical :: modal_aer_opt_sw_water_refr_proof_written = .false.
+logical :: modal_aer_opt_sw_optics_tau_proof_written = .false.
 
 interface
    subroutine modal_aer_opt_size_parameters_codon(pcols_c, pver_c, top_lev_c, ncol_c, ncoef_c, &
@@ -301,6 +302,35 @@ interface
       integer(c_int64_t) :: has_c
    end function modal_aer_opt_sw_has_bad_dopaer_codon
 
+   function modal_aer_opt_sw_optics_diag_tau_batch_codon(ncol_c, pcols_c, pver_c, k_c, isw_c, &
+        ncoef_c, xrmax_c, rhoh2o_c, do_uv_c, do_nir_c, do_vis_c, crefwsw_re_c, crefwsw_im_c, &
+        radsurf_p, logradsurf_p, cheb_p, cext_p, cabs_p, casm_p, wetvol_p, mass_p, pext_p, &
+        specpext_p, pabs_p, pasm_p, palb_p, dopaer_p, troplev_p, air_density_p, watervol_p, &
+        dustvol_p, scatdust_p, scatso4_p, scatbc_p, scatpom_p, scatsoa_p, scatseasalt_p, &
+        absdust_p, absso4_p, absbc_p, abspom_p, abssoa_p, absseasalt_p, hygrodust_p, &
+        hygroso4_p, hygrobc_p, hygropom_p, hygrosoa_p, hygroseasalt_p, extinctuv_p, aoduv_p, &
+        aoduvst_p, extinctnir_p, aodnir_p, aodnirst_p, extinct_p, absorb_p, aodvis_p, &
+        aodabs_p, aodmode_p, ssavis_p, aodvisst_p, dustaodmode_p, aodabsbc_p, dustaod_p, &
+        so4aod_p, pomaod_p, soaaod_p, bcaod_p, seasaltaod_p, tauxar_p, wa_p, ga_p, fa_p) &
+        result(has_c) bind(c, name="modal_aer_opt_sw_optics_diag_tau_batch_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, k_c, isw_c, ncoef_c
+      integer(c_int64_t), value :: do_uv_c, do_nir_c, do_vis_c
+      real(c_double), value :: xrmax_c, rhoh2o_c, crefwsw_re_c, crefwsw_im_c
+      type(c_ptr), value :: radsurf_p, logradsurf_p, cheb_p, cext_p, cabs_p, casm_p
+      type(c_ptr), value :: wetvol_p, mass_p, pext_p, specpext_p, pabs_p, pasm_p, palb_p
+      type(c_ptr), value :: dopaer_p, troplev_p, air_density_p, watervol_p, dustvol_p
+      type(c_ptr), value :: scatdust_p, scatso4_p, scatbc_p, scatpom_p, scatsoa_p, scatseasalt_p
+      type(c_ptr), value :: absdust_p, absso4_p, absbc_p, abspom_p, abssoa_p, absseasalt_p
+      type(c_ptr), value :: hygrodust_p, hygroso4_p, hygrobc_p, hygropom_p, hygrosoa_p
+      type(c_ptr), value :: hygroseasalt_p, extinctuv_p, aoduv_p, aoduvst_p, extinctnir_p
+      type(c_ptr), value :: aodnir_p, aodnirst_p, extinct_p, absorb_p, aodvis_p, aodabs_p
+      type(c_ptr), value :: aodmode_p, ssavis_p, aodvisst_p, dustaodmode_p, aodabsbc_p
+      type(c_ptr), value :: dustaod_p, so4aod_p, pomaod_p, soaaod_p, bcaod_p, seasaltaod_p
+      type(c_ptr), value :: tauxar_p, wa_p, ga_p, fa_p
+      integer(c_int64_t) :: has_c
+   end function modal_aer_opt_sw_optics_diag_tau_batch_codon
+
    subroutine modal_aer_opt_lw_init_state_codon(ncol_c, pcols_c, pver_c, nlwbands_c, rga_c, &
         pdeldry_p, tauxar_p, mass_p) bind(c, name="modal_aer_opt_lw_init_state_codon")
       use iso_c_binding, only: c_int64_t, c_double, c_ptr
@@ -415,6 +445,19 @@ subroutine modal_aer_opt_sw_water_refr_proof_once()
            '(water volume/negative scan/finalize fast path = codon)'
    endif
 end subroutine modal_aer_opt_sw_water_refr_proof_once
+
+!===============================================================================
+
+subroutine modal_aer_opt_sw_optics_tau_proof_once()
+   use spmd_utils, only: masterproc
+   if (modal_aer_opt_sw_optics_tau_proof_written) return
+   modal_aer_opt_sw_optics_tau_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'modal_aero_sw optics/diagnostics/tau batch entered ' // &
+           '(optics/diagnostics/dopaer scan/clean tau = codon)'
+   endif
+end subroutine modal_aer_opt_sw_optics_tau_proof_once
 
 !===============================================================================
 
@@ -1136,15 +1179,34 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
 
             ! call t_stopf('binterp')
 
-            ! parameterized optical properties
+            ! parameterized optical properties, diagnostics, dopaer scan, and clean tau accumulate
             if (.not. use_native_modal_aer_opt_helpers_impl) then
                call modal_aer_opt_helpers_proof_once()
-               call modal_aer_opt_sw_optics_props_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
-                    int(k, c_int64_t), int(ncoef, c_int64_t), xrmax, rhoh2o, c_loc(radsurf(1,1)), &
-                    c_loc(logradsurf(1,1)), c_loc(cheb(1,1,1)), c_loc(cext(1,1)), &
-                    c_loc(cabs(1,1)), c_loc(casm(1,1)), c_loc(wetvol(1)), c_loc(mass(1,1)), &
-                    c_loc(pext(1)), c_loc(specpext(1)), c_loc(pabs(1)), c_loc(pasm(1)), &
-                    c_loc(palb(1)), c_loc(dopaer(1)))
+               call modal_aer_opt_sw_optics_tau_proof_once()
+               run_dopaer_diag = modal_aer_opt_sw_optics_diag_tau_batch_codon( &
+                    int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+                    int(k, c_int64_t), int(isw, c_int64_t), int(ncoef, c_int64_t), xrmax, rhoh2o, &
+                    merge(1_c_int64_t, 0_c_int64_t, savaeruv), &
+                    merge(1_c_int64_t, 0_c_int64_t, savaernir), &
+                    merge(1_c_int64_t, 0_c_int64_t, savaervis), real(crefwsw(isw), r8), &
+                    aimag(crefwsw(isw)), c_loc(radsurf(1,1)), c_loc(logradsurf(1,1)), &
+                    c_loc(cheb(1,1,1)), c_loc(cext(1,1)), c_loc(cabs(1,1)), c_loc(casm(1,1)), &
+                    c_loc(wetvol(1)), c_loc(mass(1,1)), c_loc(pext(1)), c_loc(specpext(1)), &
+                    c_loc(pabs(1)), c_loc(pasm(1)), c_loc(palb(1)), c_loc(dopaer(1)), &
+                    c_loc(troplev(1)), c_loc(air_density(1,1)), c_loc(watervol(1)), &
+                    c_loc(dustvol(1)), c_loc(scatdust(1)), c_loc(scatso4(1)), c_loc(scatbc(1)), &
+                    c_loc(scatpom(1)), c_loc(scatsoa(1)), c_loc(scatseasalt(1)), &
+                    c_loc(absdust(1)), c_loc(absso4(1)), c_loc(absbc(1)), c_loc(abspom(1)), &
+                    c_loc(abssoa(1)), c_loc(absseasalt(1)), c_loc(hygrodust(1)), &
+                    c_loc(hygroso4(1)), c_loc(hygrobc(1)), c_loc(hygropom(1)), &
+                    c_loc(hygrosoa(1)), c_loc(hygroseasalt(1)), c_loc(extinctuv(1,1)), &
+                    c_loc(aoduv(1)), c_loc(aoduvst(1)), c_loc(extinctnir(1,1)), &
+                    c_loc(aodnir(1)), c_loc(aodnirst(1)), c_loc(extinct(1,1)), &
+                    c_loc(absorb(1,1)), c_loc(aodvis(1)), c_loc(aodabs(1)), c_loc(aodmode(1)), &
+                    c_loc(ssavis(1)), c_loc(aodvisst(1)), c_loc(dustaodmode(1)), &
+                    c_loc(aodabsbc(1)), c_loc(dustaod(1)), c_loc(so4aod(1)), c_loc(pomaod(1)), &
+                    c_loc(soaaod(1)), c_loc(bcaod(1)), c_loc(seasaltaod(1)), c_loc(tauxar(1,0,1)), &
+                    c_loc(wa(1,0,1)), c_loc(ga(1,0,1)), c_loc(fa(1,0,1))) /= 0_c_int64_t
             else
                do i=1,ncol
 
@@ -1176,31 +1238,6 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
 
                   dopaer(i) = pext(i)*mass(i,k)
                end do
-            end if
-
-            if (.not. use_native_modal_aer_opt_helpers_impl) then
-               call modal_aer_opt_helpers_proof_once()
-               call modal_aer_opt_sw_accumulate_diagnostics_codon( &
-                    int(ncol, c_int64_t), int(pcols, c_int64_t), int(k, c_int64_t), &
-                    merge(1_c_int64_t, 0_c_int64_t, savaeruv), &
-                    merge(1_c_int64_t, 0_c_int64_t, savaernir), &
-                    merge(1_c_int64_t, 0_c_int64_t, savaervis), &
-                    real(crefwsw(isw), r8), aimag(crefwsw(isw)), c_loc(troplev(1)), &
-                    c_loc(mass(1,1)), c_loc(air_density(1,1)), c_loc(dopaer(1)), &
-                    c_loc(pabs(1)), c_loc(palb(1)), c_loc(wetvol(1)), c_loc(watervol(1)), &
-                    c_loc(dustvol(1)), c_loc(scatdust(1)), c_loc(scatso4(1)), c_loc(scatbc(1)), &
-                    c_loc(scatpom(1)), c_loc(scatsoa(1)), c_loc(scatseasalt(1)), &
-                    c_loc(absdust(1)), c_loc(absso4(1)), c_loc(absbc(1)), c_loc(abspom(1)), &
-                    c_loc(abssoa(1)), c_loc(absseasalt(1)), c_loc(hygrodust(1)), &
-                    c_loc(hygroso4(1)), c_loc(hygrobc(1)), c_loc(hygropom(1)), &
-                    c_loc(hygrosoa(1)), c_loc(hygroseasalt(1)), c_loc(extinctuv(1,1)), &
-                    c_loc(aoduv(1)), c_loc(aoduvst(1)), c_loc(extinctnir(1,1)), &
-                    c_loc(aodnir(1)), c_loc(aodnirst(1)), c_loc(extinct(1,1)), &
-                    c_loc(absorb(1,1)), c_loc(aodvis(1)), c_loc(aodabs(1)), c_loc(aodmode(1)), &
-                    c_loc(ssavis(1)), c_loc(aodvisst(1)), c_loc(dustaodmode(1)), &
-                    c_loc(aodabsbc(1)), c_loc(dustaod(1)), c_loc(so4aod(1)), c_loc(pomaod(1)), &
-                    c_loc(soaaod(1)), c_loc(bcaod(1)), c_loc(seasaltaod(1)))
-            else
                if (savaeruv) then
                   do i = 1, ncol
                     extinctuv(i,k) = extinctuv(i,k) + dopaer(i)*air_density(i,k)/mass(i,k)
@@ -1294,14 +1331,7 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
 
                   end do
                endif
-            end if
-
-            if (use_native_modal_aer_opt_helpers_impl) then
                run_dopaer_diag = .true.
-            else
-               call modal_aer_opt_sw_guard_helpers_proof_once()
-               run_dopaer_diag = modal_aer_opt_sw_has_bad_dopaer_codon(int(ncol, c_int64_t), &
-                    c_loc(dopaer(1))) /= 0_c_int64_t
             end if
 
             if (run_dopaer_diag) then
@@ -1347,11 +1377,13 @@ subroutine modal_aero_sw(list_idx, state, pbuf, nnite, idxnite, &
             end if
 
             if (.not. use_native_modal_aer_opt_helpers_impl) then
-               call modal_aer_opt_helpers_proof_once()
-               call modal_aer_opt_sw_accumulate_tau_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
-                    int(pver, c_int64_t), int(k, c_int64_t), int(isw, c_int64_t), c_loc(dopaer(1)), &
-                    c_loc(palb(1)), c_loc(pasm(1)), c_loc(tauxar(1,0,1)), c_loc(wa(1,0,1)), &
-                    c_loc(ga(1,0,1)), c_loc(fa(1,0,1)))
+               if (run_dopaer_diag) then
+                  call modal_aer_opt_helpers_proof_once()
+                  call modal_aer_opt_sw_accumulate_tau_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+                       int(pver, c_int64_t), int(k, c_int64_t), int(isw, c_int64_t), c_loc(dopaer(1)), &
+                       c_loc(palb(1)), c_loc(pasm(1)), c_loc(tauxar(1,0,1)), c_loc(wa(1,0,1)), &
+                       c_loc(ga(1,0,1)), c_loc(fa(1,0,1)))
+               end if
             else
                do i=1,ncol
                   tauxar(i,k,isw) = tauxar(i,k,isw) + dopaer(i)
