@@ -177,6 +177,37 @@ def _micro_mg_data_accumulate_1d(n: int, src: Ptr[float], dst: Ptr[float]):
         dst[i - 1] = dst[i - 1] + src[i - 1]
 
 
+@export
+def micro_mg1_0_init_scalars_codon(
+    gravit: float,
+    rair: float,
+    rh2o: float,
+    cpair: float,
+    rhoh2o: float,
+    tmelt_in: float,
+    rhmini_in: float,
+    micro_mg_berg_eff_factor_in: float,
+    latvap: float,
+    latice: float,
+    scalars_p: cobj,
+):
+    scalars = Ptr[float](scalars_p)
+
+    scalars[0] = gravit
+    scalars[1] = rair
+    scalars[2] = rh2o
+    scalars[3] = cpair
+    scalars[4] = rhoh2o
+    scalars[5] = tmelt_in
+    scalars[6] = rhmini_in
+    scalars[7] = micro_mg_berg_eff_factor_in
+    scalars[8] = latvap
+    scalars[9] = latice
+    scalars[10] = scalars[8] + scalars[9]
+    scalars[11] = scalars[5]
+    scalars[12] = scalars[5] - 5.0
+
+
 @inline
 def _micro_mg_data_accumulate_2d(
     n1: int,

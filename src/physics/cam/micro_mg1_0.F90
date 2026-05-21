@@ -144,6 +144,7 @@ real(r8)           :: micro_mg_berg_eff_factor     ! berg efficiency factor
 logical :: micro_mg1_0_init_use_native_impl = .false.
 logical :: micro_mg1_0_init_impl_selected = .false.
 logical :: micro_mg1_0_init_wrapper_logged = .false.
+logical :: micro_mg1_0_init_scalars_logged = .false.
 logical :: micro_mg1_0_colzero_use_native_impl = .false.
 logical :: micro_mg1_0_colzero_impl_selected = .false.
 logical :: micro_mg1_0_colzero_wrapper_logged = .false.
@@ -168,6 +169,8 @@ subroutine micro_mg_init( &
 ! 
 !-----------------------------------------------------------------------
 
+use iso_c_binding, only: c_loc
+
 integer,          intent(in)  :: kind            ! Kind used for reals
 real(r8),         intent(in)  :: gravit
 real(r8),         intent(in)  :: rair
@@ -190,6 +193,19 @@ integer k
 integer l,m, iaer
 real(r8) surften       ! surface tension of water w/respect to air (N/m)
 real(r8) arg
+real(r8), target :: init_scalars(13)
+
+interface
+   subroutine micro_mg1_0_init_scalars_codon(gravit_c, rair_c, rh2o_c, &
+        cpair_c, rhoh2o_c, tmelt_c, rhmini_c, berg_eff_c, latvap_c, &
+        latice_c, scalars_p) bind(c, name="micro_mg1_0_init_scalars_codon")
+      use iso_c_binding, only: c_double, c_ptr
+      real(c_double), value :: gravit_c, rair_c, rh2o_c, cpair_c
+      real(c_double), value :: rhoh2o_c, tmelt_c, rhmini_c, berg_eff_c
+      real(c_double), value :: latvap_c, latice_c
+      type(c_ptr), value :: scalars_p
+   end subroutine micro_mg1_0_init_scalars_codon
+end interface
 !-----------------------------------------------------------------------
 
 errstring = ' '
@@ -201,29 +217,60 @@ end if
 
 !declarations for morrison codes (transforms variable names)
 
-g= gravit                  !gravity
-r= rair                    !Dry air Gas constant: note units(phys_constants are in J/K/kmol)
-rv= rh2o                   !water vapor gas contstant
-cpp = cpair                !specific heat of dry air
-rhow = rhoh2o              !density of liquid water
-tmelt = tmelt_in
-rhmini = rhmini_in
-micro_mg_precip_frac_method = micro_mg_precip_frac_method_in
-micro_mg_berg_eff_factor    = micro_mg_berg_eff_factor_in
+call micro_mg1_0_select_init_impl()
+if (micro_mg1_0_init_use_native_impl) then
+   g= gravit                  !gravity
+   r= rair                    !Dry air Gas constant: note units(phys_constants are in J/K/kmol)
+   rv= rh2o                   !water vapor gas contstant
+   cpp = cpair                !specific heat of dry air
+   rhow = rhoh2o              !density of liquid water
+   tmelt = tmelt_in
+   rhmini = rhmini_in
+   micro_mg_precip_frac_method = micro_mg_precip_frac_method_in
+   micro_mg_berg_eff_factor    = micro_mg_berg_eff_factor_in
 
-! latent heats
+   ! latent heats
 
-xxlv = latvap         ! latent heat vaporization
-xlf = latice          ! latent heat freezing
-xxls = xxlv + xlf     ! latent heat of sublimation
+   xxlv = latvap         ! latent heat vaporization
+   xlf = latice          ! latent heat freezing
+   xxls = xxlv + xlf     ! latent heat of sublimation
 
-! flags
-use_hetfrz_classnuc = use_hetfrz_classnuc_in
+   ! flags
+   use_hetfrz_classnuc = use_hetfrz_classnuc_in
 
-! parameters for snow/rain fraction for convective clouds
+   ! parameters for snow/rain fraction for convective clouds
 
-tmax_fsnow = tmelt
-tmin_fsnow = tmelt-5._r8
+   tmax_fsnow = tmelt
+   tmin_fsnow = tmelt-5._r8
+else
+   call micro_mg1_0_log_init_scalars_entered()
+   call micro_mg1_0_init_scalars_codon(gravit, rair, rh2o, cpair, rhoh2o, &
+        tmelt_in, rhmini_in, micro_mg_berg_eff_factor_in, latvap, latice, &
+        c_loc(init_scalars(1)))
+   g= init_scalars(1)         !gravity
+   r= init_scalars(2)         !Dry air Gas constant: note units(phys_constants are in J/K/kmol)
+   rv= init_scalars(3)        !water vapor gas contstant
+   cpp = init_scalars(4)      !specific heat of dry air
+   rhow = init_scalars(5)     !density of liquid water
+   tmelt = init_scalars(6)
+   rhmini = init_scalars(7)
+   micro_mg_precip_frac_method = micro_mg_precip_frac_method_in
+   micro_mg_berg_eff_factor    = init_scalars(8)
+
+   ! latent heats
+
+   xxlv = init_scalars(9)     ! latent heat vaporization
+   xlf = init_scalars(10)     ! latent heat freezing
+   xxls = init_scalars(11)    ! latent heat of sublimation
+
+   ! flags
+   use_hetfrz_classnuc = use_hetfrz_classnuc_in
+
+   ! parameters for snow/rain fraction for convective clouds
+
+   tmax_fsnow = init_scalars(12)
+   tmin_fsnow = init_scalars(13)
+end if
 
 ! parameters below from Reisner et al. (1998)
 ! density parameters (kg/m3)
@@ -3784,6 +3831,16 @@ subroutine micro_mg1_0_append_impl_proof(env_name, proof_line)
   write(unitno,'(A)') trim(proof_line)
   close(unitno)
 end subroutine micro_mg1_0_append_impl_proof
+
+subroutine micro_mg1_0_log_init_scalars_entered()
+  if (micro_mg1_0_init_scalars_logged) return
+  micro_mg1_0_init_scalars_logged = .true.
+  if (masterproc) then
+     write(iulog,*) 'micro_mg1_0_init scalars entered (module scalar constants direct = codon)'
+     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_INIT_PROOF_FILE', &
+          'micro_mg1_0_init scalars entered (module scalar constants direct = codon)')
+  end if
+end subroutine micro_mg1_0_log_init_scalars_entered
 
 subroutine micro_mg1_0_init_fields_codon_wrap(ncol_local, pcols_local, pver_local, top_lev_local, mincld_local, &
      qn_local, tn_local, qc_local, qi_local, nc_local, ni_local, ncai_local, ncal_local, rercld_local, arcld_local, &
