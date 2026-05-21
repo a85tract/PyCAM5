@@ -1,5 +1,7 @@
 from math import exp, log, sqrt
 
+import rrtmg_init_tables_codon as _init_tables
+
 
 @export
 def rrtmg_init_real_passthrough_codon(value: float) -> float:
@@ -9,6 +11,66 @@ def rrtmg_init_real_passthrough_codon(value: float) -> float:
 @export
 def rrtmg_init_int_passthrough_codon(value: int) -> int:
     return value
+
+
+@export
+def rrtmg_lw_lwcldpr_codon(
+    abscld1_p: cobj,
+    absliq0_p: cobj,
+    absice0_p: cobj,
+    absice1_p: cobj,
+    absice2_p: cobj,
+    absice3_p: cobj,
+    absliq1_p: cobj,
+):
+    _init_tables.rrtmg_lw_lwcldpr_codon(
+        abscld1_p,
+        absliq0_p,
+        absice0_p,
+        absice1_p,
+        absice2_p,
+        absice3_p,
+        absliq1_p,
+    )
+
+
+@export
+def rrtmg_sw_swcldpr_codon(
+    abari_p: cobj,
+    bbari_p: cobj,
+    cbari_p: cobj,
+    dbari_p: cobj,
+    ebari_p: cobj,
+    fbari_p: cobj,
+    extliq1_p: cobj,
+    ssaliq1_p: cobj,
+    asyliq1_p: cobj,
+    extice2_p: cobj,
+    ssaice2_p: cobj,
+    asyice2_p: cobj,
+    extice3_p: cobj,
+    ssaice3_p: cobj,
+    asyice3_p: cobj,
+    fdlice3_p: cobj,
+):
+    _init_tables.rrtmg_sw_swcldpr_codon(
+        abari_p,
+        bbari_p,
+        cbari_p,
+        dbari_p,
+        ebari_p,
+        fbari_p,
+        extliq1_p,
+        ssaliq1_p,
+        asyliq1_p,
+        extice2_p,
+        ssaice2_p,
+        asyice2_p,
+        extice3_p,
+        ssaice3_p,
+        asyice3_p,
+        fdlice3_p,
+    )
 
 
 @inline

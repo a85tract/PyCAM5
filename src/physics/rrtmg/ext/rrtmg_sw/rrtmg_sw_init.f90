@@ -36,6 +36,28 @@
             real(c_double), value :: value_c
             real(c_double) :: result_c
          end function rrtmg_init_real_passthrough_codon
+         subroutine rrtmg_sw_swcldpr_codon(abari_p, bbari_p, cbari_p, dbari_p, &
+              ebari_p, fbari_p, extliq1_p, ssaliq1_p, asyliq1_p, extice2_p, &
+              ssaice2_p, asyice2_p, extice3_p, ssaice3_p, asyice3_p, fdlice3_p) &
+              bind(c, name="rrtmg_sw_swcldpr_codon")
+            use iso_c_binding, only: c_ptr
+            type(c_ptr), value :: abari_p
+            type(c_ptr), value :: bbari_p
+            type(c_ptr), value :: cbari_p
+            type(c_ptr), value :: dbari_p
+            type(c_ptr), value :: ebari_p
+            type(c_ptr), value :: fbari_p
+            type(c_ptr), value :: extliq1_p
+            type(c_ptr), value :: ssaliq1_p
+            type(c_ptr), value :: asyliq1_p
+            type(c_ptr), value :: extice2_p
+            type(c_ptr), value :: ssaice2_p
+            type(c_ptr), value :: asyice2_p
+            type(c_ptr), value :: extice3_p
+            type(c_ptr), value :: ssaice3_p
+            type(c_ptr), value :: asyice3_p
+            type(c_ptr), value :: fdlice3_p
+         end subroutine rrtmg_sw_swcldpr_codon
       end interface
 
       contains
@@ -1529,6 +1551,39 @@
  
 !***********************************************************************
       subroutine swcldpr
+!***********************************************************************
+
+! Purpose: Define cloud extinction coefficient, single scattering albedo
+!          and asymmetry parameter data.
+!
+
+! ------- Modules -------
+
+      use iso_c_binding, only: c_loc
+      use rrsw_cld, only : extliq1, ssaliq1, asyliq1, &
+                           extice2, ssaice2, asyice2, &
+                           extice3, ssaice3, asyice3, fdlice3, &
+                           abari, bbari, cbari, dbari, ebari, fbari
+
+      save
+
+      call rrtmg_sw_init_select_impl()
+      if (use_native_rrtmg_sw_init_impl) then
+         call swcldpr_native
+      else
+         call rrtmg_sw_init_log_entered()
+         call rrtmg_sw_swcldpr_codon(c_loc(abari(1)), c_loc(bbari(1)), &
+              c_loc(cbari(1)), c_loc(dbari(1)), c_loc(ebari(1)), c_loc(fbari(1)), &
+              c_loc(extliq1(1,16)), c_loc(ssaliq1(1,16)), c_loc(asyliq1(1,16)), &
+              c_loc(extice2(1,16)), c_loc(ssaice2(1,16)), c_loc(asyice2(1,16)), &
+              c_loc(extice3(1,16)), c_loc(ssaice3(1,16)), c_loc(asyice3(1,16)), &
+              c_loc(fdlice3(1,16)))
+      endif
+
+      end subroutine swcldpr
+
+!***********************************************************************
+      subroutine swcldpr_native
 !***********************************************************************
 
 ! Purpose: Define cloud extinction coefficient, single scattering albedo
@@ -3309,7 +3364,7 @@
         & 1.603020e-02_r8,1.490925e-02_r8,1.372635e-02_r8,1.247363e-02_r8,1.114319e-02_r8,&
         & 9.727157e-03_r8 /)
 
-      end subroutine swcldpr
+      end subroutine swcldpr_native
 
 !***************************************************************************
       subroutine rrtmg_sw_init_select_impl()
@@ -3355,11 +3410,10 @@
       rrtmg_sw_init_entered_logged = .true.
 
       if (masterproc) then
-         write(iulog,*) 'rrtmg_sw_init entered (initial scalar passthrough = codon)'
+      write(iulog,*) 'rrtmg_sw_init entered (bpade/swcldpr table fill = codon)'
          call flush(iulog)
       endif
 
       end subroutine rrtmg_sw_init_log_entered
 
       end module rrtmg_sw_init
-

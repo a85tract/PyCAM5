@@ -34,6 +34,18 @@
             real(c_double), value :: value_c
             real(c_double) :: result_c
          end function rrtmg_init_real_passthrough_codon
+         subroutine rrtmg_lw_lwcldpr_codon(abscld1_p, absliq0_p, absice0_p, &
+              absice1_p, absice2_p, absice3_p, absliq1_p) &
+              bind(c, name="rrtmg_lw_lwcldpr_codon")
+            use iso_c_binding, only: c_ptr
+            type(c_ptr), value :: abscld1_p
+            type(c_ptr), value :: absliq0_p
+            type(c_ptr), value :: absice0_p
+            type(c_ptr), value :: absice1_p
+            type(c_ptr), value :: absice2_p
+            type(c_ptr), value :: absice3_p
+            type(c_ptr), value :: absliq1_p
+         end subroutine rrtmg_lw_lwcldpr_codon
       end interface
 
       contains
@@ -2012,6 +2024,30 @@
 
 ! --------- Modules ----------
 
+      use iso_c_binding, only: c_loc
+      use rrlw_cld, only: abscld1, absliq0, absliq1, &
+                          absice0, absice1, absice2, absice3
+
+      save
+
+      call rrtmg_lw_init_select_impl()
+      if (use_native_rrtmg_lw_init_impl) then
+         call lwcldpr_native
+      else
+         call rrtmg_lw_init_log_entered()
+         call rrtmg_lw_lwcldpr_codon(c_loc(abscld1), c_loc(absliq0), &
+              c_loc(absice0(1)), c_loc(absice1(1,1)), c_loc(absice2(1,1)), &
+              c_loc(absice3(1,1)), c_loc(absliq1(1,1)))
+      endif
+
+      end subroutine lwcldpr
+
+!***************************************************************************
+      subroutine lwcldpr_native
+!***************************************************************************
+
+! --------- Modules ----------
+
       use rrlw_cld, only: abscld1, absliq0, absliq1, &
                           absice0, absice1, absice2, absice3
 
@@ -2645,7 +2681,7 @@
        1.17216e-02_r8, 1.15168e-02_r8, 1.13177e-02_r8, 1.11241e-02_r8, 1.09358e-02_r8, &
        1.07525e-02_r8, 1.05741e-02_r8, 1.04003e-02_r8/)
 
-      end subroutine lwcldpr
+      end subroutine lwcldpr_native
 
 !***************************************************************************
       subroutine rrtmg_lw_init_select_impl()
@@ -2691,7 +2727,7 @@
       rrtmg_lw_init_entered_logged = .true.
 
       if (masterproc) then
-         write(iulog,*) 'rrtmg_lw_init entered (initial scalar passthrough = codon)'
+      write(iulog,*) 'rrtmg_lw_init entered (bpade/lwcldpr table fill = codon)'
          call flush(iulog)
       endif
 
