@@ -1333,3 +1333,192 @@ def zm_cldprp_evap_finalize_codon(
         for i in range(1, il2g + 1):
             idx = _idx2(i, k, pcols)
             mc[idx] = mu[idx] + md[idx]
+
+
+def zm_cldprp_pre_lcl_batch_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    msg: int,
+    limcnv: int,
+    cp_tiedke_add: float,
+    tiedke_add: float,
+    small: float,
+    rl: float,
+    cp: float,
+    jb_p: cobj,
+    lel_p: cobj,
+    mx_p: cobj,
+    hsat_p: cobj,
+    hmn_p: cobj,
+    s_p: cobj,
+    jt_p: cobj,
+    jd_p: cobj,
+    jlcl_p: cobj,
+    hmin_p: cobj,
+    j0_p: cobj,
+    hu_p: cobj,
+    su_p: cobj,
+    dz_p: cobj,
+    k1_p: cobj,
+    ihat_p: cobj,
+    i2_p: cobj,
+    idag_p: cobj,
+    i3_p: cobj,
+    iprm_p: cobj,
+    i4_p: cobj,
+    expdif_p: cobj,
+    expnum_p: cobj,
+    ftemp_p: cobj,
+    zf_p: cobj,
+    z_p: cobj,
+    f_p: cobj,
+    eps_p: cobj,
+    eps0_p: cobj,
+    eu_p: cobj,
+    du_p: cobj,
+    mu_p: cobj,
+    hd_p: cobj,
+    epsm_p: cobj,
+    alfa_p: cobj,
+    md_p: cobj,
+    ed_p: cobj,
+    wted_p: cobj,
+    wtmd_p: cobj,
+    wtmu_p: cobj,
+    wtdu_p: cobj,
+    wteu_p: cobj,
+    qds_p: cobj,
+    qsthat_p: cobj,
+    gamhat_p: cobj,
+    hsthat_p: cobj,
+    q_p: cobj,
+    qu_p: cobj,
+    lcl_done_p: cobj,
+    lcl_active_p: cobj,
+    lcl_found_p: cobj,
+    lcl_tu_p: cobj,
+    lcl_qstu_p: cobj,
+    lcl_kount_p: cobj,
+):
+    zm_cldprp_index_setup_codon(
+        il2g, pcols, pver, msg, limcnv, cp_tiedke_add, tiedke_add, jb_p, lel_p,
+        mx_p, hsat_p, hmn_p, s_p, jt_p, jd_p, jlcl_p, hmin_p, j0_p, hu_p, su_p,
+    )
+    zm_cldprp_taylor_hmin_codon(
+        il2g, pcols, pver, msg, jt_p, jb_p, mx_p, j0_p, hmn_p, dz_p, k1_p,
+        ihat_p, i2_p, idag_p, i3_p, iprm_p, i4_p, hmin_p, expdif_p,
+    )
+    zm_cldprp_taylor_f_codon(
+        il2g, pcols, pver, msg, jt_p, jb_p, mx_p, expdif_p, expnum_p, ftemp_p,
+        hmn_p, hsat_p, zf_p, z_p, k1_p, i2_p, i3_p, i4_p, dz_p, f_p,
+    )
+    zm_cldprp_eps_profile_codon(il2g, pcols, pver, msg, jt_p, jb_p, j0_p, f_p, eps_p, eps0_p)
+    zm_cldprp_updraft_mass_energy_codon(
+        il2g, pcols, pver, pverp, msg, jb_p, jt_p, lel_p, eps0_p, eps_p, zf_p,
+        dz_p, mu_p, eu_p, du_p, hmn_p, hsat_p, hu_p,
+    )
+    zm_cldprp_cloud_top_reset_codon(
+        il2g, pcols, pver, pverp, msg, lel_p, jb_p, jt_p, eps0_p, mu_p, eu_p,
+        du_p, hu_p, hmn_p, hsthat_p, dz_p,
+    )
+    zm_cldprp_downdraft_init_codon(
+        il2g, pcols, jt_p, jb_p, j0_p, jd_p, hmn_p, hd_p, eps0_p, epsm_p,
+        alfa_p, md_p,
+    )
+    zm_cldprp_downdraft_mass_profile_codon(
+        il2g, pcols, pver, msg, jd_p, jb_p, eps0_p, epsm_p, alfa_p, zf_p, md_p,
+    )
+    zm_cldprp_downdraft_scale_energy_codon(
+        il2g, pcols, pver, msg, small, jt_p, jb_p, jd_p, eps0_p, mu_p, md_p,
+        dz_p, ed_p, hd_p, hmn_p,
+    )
+    zm_cldprp_copy_mass_fields_codon(
+        pcols, pver, ed_p, md_p, mu_p, du_p, eu_p, wted_p, wtmd_p, wtmu_p,
+        wtdu_p, wteu_p,
+    )
+    zm_cldprp_qds_codon(
+        il2g, pcols, pver, msg, rl, jd_p, jb_p, eps0_p, qds_p, qsthat_p,
+        gamhat_p, hd_p, hsthat_p,
+    )
+    zm_cldprp_updraft_seed_codon(il2g, pcols, rl, cp, jb_p, mx_p, eps0_p, q_p, hu_p, qu_p, su_p)
+    zm_cldprp_updraft_lcl_reset_codon(
+        il2g, lcl_done_p, lcl_active_p, lcl_found_p, lcl_tu_p, lcl_qstu_p, lcl_kount_p,
+    )
+
+
+def zm_cldprp_post_lcl_batch_codon(
+    il2g: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    msg: int,
+    cp: float,
+    grav: float,
+    rl: float,
+    small: float,
+    jt_p: cobj,
+    jlcl_p: cobj,
+    eps0_p: cobj,
+    shat_p: cobj,
+    hu_p: cobj,
+    hsthat_p: cobj,
+    gamhat_p: cobj,
+    zf_p: cobj,
+    qsthat_p: cobj,
+    su_p: cobj,
+    tut_p: cobj,
+    qu_p: cobj,
+    jb_p: cobj,
+    mu_p: cobj,
+    dz_p: cobj,
+    eu_p: cobj,
+    du_p: cobj,
+    s_p: cobj,
+    cu_p: cobj,
+    ql_p: cobj,
+    c0mask_p: cobj,
+    totpcp_p: cobj,
+    rprd_p: cobj,
+    rppe_p: cobj,
+    jd_p: cobj,
+    qds_p: cobj,
+    qd_p: cobj,
+    hd_p: cobj,
+    sd_p: cobj,
+    tdt_p: cobj,
+    q_p: cobj,
+    ed_p: cobj,
+    md_p: cobj,
+    evp_p: cobj,
+    totevp_p: cobj,
+    cmeg_p: cobj,
+    pflx_p: cobj,
+    mc_p: cobj,
+    wtevp_p: cobj,
+):
+    zm_cldprp_updraft_saturation_adjust_codon(
+        il2g, pcols, pver, msg, cp, grav, rl, jt_p, jlcl_p, eps0_p, shat_p,
+        hu_p, hsthat_p, gamhat_p, zf_p, qsthat_p, su_p, tut_p, qu_p,
+    )
+    zm_cldprp_condensation_codon(
+        il2g, pcols, pver, msg, rl, cp, jt_p, jb_p, eps0_p, mu_p, su_p,
+        dz_p, eu_p, du_p, s_p, cu_p,
+    )
+    zm_cldprp_rain_production_codon(
+        il2g, pcols, pver, msg, jt_p, jb_p, eps0_p, mu_p, ql_p, dz_p, du_p,
+        cu_p, c0mask_p, totpcp_p, rprd_p,
+    )
+    zm_cldprp_copy_2d_codon(pcols, pver, rprd_p, rppe_p)
+    zm_cldprp_downdraft_seed_codon(il2g, pcols, cp, grav, rl, jd_p, qds_p, qd_p, hd_p, sd_p, tdt_p, zf_p)
+    zm_cldprp_downdraft_evap_codon(
+        il2g, pcols, pver, msg, cp, grav, rl, small, jd_p, jb_p, eps0_p,
+        q_p, s_p, zf_p, dz_p, ed_p, md_p, qd_p, qds_p, sd_p, tdt_p, evp_p,
+        totevp_p,
+    )
+    zm_cldprp_evap_finalize_codon(
+        il2g, pcols, pver, pverp, msg, jd_p, jb_p, md_p, qd_p, totevp_p,
+        totpcp_p, ed_p, evp_p, cu_p, cmeg_p, rprd_p, dz_p, pflx_p, mc_p,
+        mu_p, wtevp_p,
+    )

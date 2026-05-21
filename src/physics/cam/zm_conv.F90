@@ -3281,6 +3281,40 @@ subroutine cldprp(lchnk   , &
          type(c_ptr), value :: jd_p, jb_p, md_p, qd_p, totevp_p, totpcp_p, ed_p, evp_p, cu_p, cmeg_p
          type(c_ptr), value :: rprd_p, dz_p, pflx_p, mc_p, mu_p, wtevp_p
       end subroutine zm_cldprp_evap_finalize_codon
+
+      subroutine zm_cldprp_pre_lcl_batch_codon(il2g_c, pcols_c, pver_c, pverp_c, msg_c, limcnv_c, &
+           cp_tiedke_add_c, tiedke_add_c, small_c, rl_c, cp_c, jb_p, lel_p, mx_p, hsat_p, hmn_p, &
+           s_p, jt_p, jd_p, jlcl_p, hmin_p, j0_p, hu_p, su_p, dz_p, k1_p, ihat_p, i2_p, idag_p, &
+           i3_p, iprm_p, i4_p, expdif_p, expnum_p, ftemp_p, zf_p, z_p, f_p, eps_p, eps0_p, eu_p, &
+           du_p, mu_p, hd_p, epsm_p, alfa_p, md_p, ed_p, wted_p, wtmd_p, wtmu_p, wtdu_p, wteu_p, &
+           qds_p, qsthat_p, gamhat_p, hsthat_p, q_p, qu_p, lcl_done_p, lcl_active_p, lcl_found_p, &
+           lcl_tu_p, lcl_qstu_p, lcl_kount_p) bind(c, name="zm_cldprp_pre_lcl_batch_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c, pver_c, pverp_c, msg_c, limcnv_c
+         real(c_double), value :: cp_tiedke_add_c, tiedke_add_c, small_c, rl_c, cp_c
+         type(c_ptr), value :: jb_p, lel_p, mx_p, hsat_p, hmn_p, s_p, jt_p, jd_p, jlcl_p
+         type(c_ptr), value :: hmin_p, j0_p, hu_p, su_p, dz_p, k1_p, ihat_p, i2_p, idag_p
+         type(c_ptr), value :: i3_p, iprm_p, i4_p, expdif_p, expnum_p, ftemp_p, zf_p, z_p
+         type(c_ptr), value :: f_p, eps_p, eps0_p, eu_p, du_p, mu_p, hd_p, epsm_p, alfa_p
+         type(c_ptr), value :: md_p, ed_p, wted_p, wtmd_p, wtmu_p, wtdu_p, wteu_p
+         type(c_ptr), value :: qds_p, qsthat_p, gamhat_p, hsthat_p, q_p, qu_p
+         type(c_ptr), value :: lcl_done_p, lcl_active_p, lcl_found_p, lcl_tu_p, lcl_qstu_p, lcl_kount_p
+      end subroutine zm_cldprp_pre_lcl_batch_codon
+
+      subroutine zm_cldprp_post_lcl_batch_codon(il2g_c, pcols_c, pver_c, pverp_c, msg_c, cp_c, &
+           grav_c, rl_c, small_c, jt_p, jlcl_p, eps0_p, shat_p, hu_p, hsthat_p, gamhat_p, zf_p, &
+           qsthat_p, su_p, tut_p, qu_p, jb_p, mu_p, dz_p, eu_p, du_p, s_p, cu_p, ql_p, c0mask_p, &
+           totpcp_p, rprd_p, rppe_p, jd_p, qds_p, qd_p, hd_p, sd_p, tdt_p, q_p, ed_p, md_p, &
+           evp_p, totevp_p, cmeg_p, pflx_p, mc_p, wtevp_p) bind(c, name="zm_cldprp_post_lcl_batch_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: il2g_c, pcols_c, pver_c, pverp_c, msg_c
+         real(c_double), value :: cp_c, grav_c, rl_c, small_c
+         type(c_ptr), value :: jt_p, jlcl_p, eps0_p, shat_p, hu_p, hsthat_p, gamhat_p, zf_p
+         type(c_ptr), value :: qsthat_p, su_p, tut_p, qu_p, jb_p, mu_p, dz_p, eu_p, du_p
+         type(c_ptr), value :: s_p, cu_p, ql_p, c0mask_p, totpcp_p, rprd_p, rppe_p
+         type(c_ptr), value :: jd_p, qds_p, qd_p, hd_p, sd_p, tdt_p, q_p, ed_p, md_p
+         type(c_ptr), value :: evp_p, totevp_p, cmeg_p, pflx_p, mc_p, wtevp_p
+      end subroutine zm_cldprp_post_lcl_batch_codon
    end interface
 !
 !------------------------------------------------------------------------------
@@ -3289,13 +3323,11 @@ subroutine cldprp(lchnk   , &
 
    if (.not. use_native_zm_cldprp_helpers) then
       if (masterproc .and. .not. zm_cldprp_helpers_logged) then
-         write(iulog,*) 'zm_cldprp_helpers entered (init/thermo/iface/index/taylor/fpoly/eps/upmass/' // &
-              'cloudtop/ddprof/ddmass/qds/upseed/' // &
-              'lcl/downdraft/cond/rain/evap direct = codon; qsat_hPa native)'
+         write(iulog,*) 'zm_cldprp_helpers entered (init/thermo/iface/pre-lcl batch/' // &
+              'lcl/post-lcl batch direct = codon; qsat_hPa native)'
          call zm_conv_evap_append_impl_proof( &
-              'zm_cldprp_helpers entered (init/thermo/iface/index/taylor/fpoly/eps/upmass/' // &
-              'cloudtop/ddprof/ddmass/qds/upseed/' // &
-              'lcl/downdraft/cond/rain/evap direct = codon; qsat_hPa native)')
+              'zm_cldprp_helpers entered (init/thermo/iface/pre-lcl batch/' // &
+              'lcl/post-lcl batch direct = codon; qsat_hPa native)')
          call flush(iulog)
          zm_cldprp_helpers_logged = .true.
       end if
@@ -3430,6 +3462,25 @@ subroutine cldprp(lchnk   , &
             end if
          end do
       end do
+   end if
+
+   if (.not. use_native_zm_cldprp_helpers) then
+      call zm_cldprp_pre_lcl_batch_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(pverp, c_int64_t), int(msg, c_int64_t), int(limcnv, c_int64_t), &
+           cp*tiedke_add, tiedke_add, 1.e-20_r8, rl, cp, c_loc(jb), c_loc(lel), c_loc(mx), &
+           c_loc(hsat), c_loc(hmn), c_loc(s), c_loc(jt), c_loc(jd), c_loc(jlcl), c_loc(hmin), &
+           c_loc(j0), c_loc(hu), c_loc(su), c_loc(dz), c_loc(k1), c_loc(ihat), c_loc(i2), &
+           c_loc(idag), c_loc(i3), c_loc(iprm), c_loc(i4), c_loc(expdif), c_loc(expnum), &
+           c_loc(ftemp), c_loc(zf), c_loc(z), c_loc(f), c_loc(eps), c_loc(eps0), c_loc(eu), &
+           c_loc(du), c_loc(mu), c_loc(hd), c_loc(epsm), c_loc(alfa), c_loc(md), c_loc(ed), &
+           c_loc(wted), c_loc(wtmd), c_loc(wtmu), c_loc(wtdu), c_loc(wteu), c_loc(qds), &
+           c_loc(qsthat), c_loc(gamhat), c_loc(hsthat), c_loc(q), c_loc(qu), c_loc(lcl_done), &
+           c_loc(lcl_active), c_loc(lcl_found), c_loc(lcl_tu), c_loc(lcl_qstu), c_loc(lcl_kount))
+      do i = 1,il2g
+         done(i) = .false.
+         wtdn(i,:) = .false.
+      end do
+      goto 680
    end if
 !
 ! initialize cloud top to highest plume top.
@@ -3801,6 +3852,7 @@ subroutine cldprp(lchnk   , &
       call zm_cldprp_updraft_lcl_reset_codon(int(il2g, c_int64_t), c_loc(lcl_done), &
            c_loc(lcl_active), c_loc(lcl_found), c_loc(lcl_tu), c_loc(lcl_qstu), c_loc(lcl_kount))
    end if
+680 continue
    kount = 0
    if (.not. use_native_zm_cldprp_helpers) then
       do k = pver,msg + 2,-1
@@ -3849,6 +3901,18 @@ subroutine cldprp(lchnk   , &
       end do
    end if
 690 continue
+   if (.not. use_native_zm_cldprp_helpers) then
+      call zm_cldprp_post_lcl_batch_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
+           int(pver, c_int64_t), int(pverp, c_int64_t), int(msg, c_int64_t), cp, grav, rl, &
+           1.e-20_r8, c_loc(jt), c_loc(jlcl), c_loc(eps0), c_loc(shat), c_loc(hu), &
+           c_loc(hsthat), c_loc(gamhat), c_loc(zf), c_loc(qsthat), c_loc(su), c_loc(tut), &
+           c_loc(qu), c_loc(jb), c_loc(mu), c_loc(dz), c_loc(eu), c_loc(du), c_loc(s), &
+           c_loc(cu), c_loc(ql), c_loc(c0mask), c_loc(totpcp), c_loc(rprd), c_loc(rppe), &
+           c_loc(jd), c_loc(qds), c_loc(qd), c_loc(hd), c_loc(sd), c_loc(tdt), c_loc(q), &
+           c_loc(ed), c_loc(md), c_loc(evp), c_loc(totevp), c_loc(cmeg), c_loc(pflx), &
+           c_loc(mc), c_loc(wtevp))
+      return
+   end if
    if (.not. use_native_zm_cldprp_helpers) then
       call zm_cldprp_updraft_saturation_adjust_codon(int(il2g, c_int64_t), int(pcols, c_int64_t), &
            int(pver, c_int64_t), int(msg, c_int64_t), cp, grav, rl, c_loc(jt), c_loc(jlcl), &
