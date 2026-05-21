@@ -5709,6 +5709,57 @@ def ndrop_explmix_codon(
 
 
 @export
+def ndrop_dropmixnuc_submix_all_codon(
+    pver: int,
+    top_lev: int,
+    ntot_amode: int,
+    ncnst_tot: int,
+    dtmix: float,
+    taumix_internal_pver_inv: float,
+    nact_p: cobj,
+    mact_p: cobj,
+    mam_idx_p: cobj,
+    nspec_amode_p: cobj,
+    ekkp_p: cobj,
+    ekkm_p: cobj,
+    overlapp_p: cobj,
+    overlapm_p: cobj,
+    qcld_p: cobj,
+    qncld_p: cobj,
+    srcn_p: cobj,
+    source_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+    nsav_p: cobj,
+    nnew_p: cobj,
+):
+    _ndrop.ndrop_dropmixnuc_submix_all_codon(
+        pver,
+        top_lev,
+        ntot_amode,
+        ncnst_tot,
+        dtmix,
+        taumix_internal_pver_inv,
+        nact_p,
+        mact_p,
+        mam_idx_p,
+        nspec_amode_p,
+        ekkp_p,
+        ekkm_p,
+        overlapp_p,
+        overlapm_p,
+        qcld_p,
+        qncld_p,
+        srcn_p,
+        source_p,
+        raercol_p,
+        raercol_cw_p,
+        nsav_p,
+        nnew_p,
+    )
+
+
+@export
 def ghg_data_mw_ratios_codon(
     mwdry: float,
     mwn2o: float,

@@ -1535,3 +1535,303 @@ def ndrop_explmix_codon(
 
         q[pver - 1] = q[pver - 1] - surfrate * qold[pver - 1] * dt + flxconv * dt
         q[pver - 1] = max(q[pver - 1], 0.0)
+
+
+@inline
+def _dropmixnuc_explmix_ptr(
+    pver: int,
+    top_lev: int,
+    surfrate: float,
+    flxconv: float,
+    dt: float,
+    is_unact: int,
+    q: Ptr[float],
+    q_base: int,
+    src: Ptr[float],
+    ekkp: Ptr[float],
+    ekkm: Ptr[float],
+    overlapp: Ptr[float],
+    overlapm: Ptr[float],
+    qold: Ptr[float],
+    qold_base: int,
+    qactold: Ptr[float],
+    qactold_base: int,
+):
+    if is_unact != 0:
+        for k in range(top_lev, pver + 1):
+            kp1 = min(k + 1, pver)
+            km1 = max(k - 1, top_lev)
+            k0 = k - 1
+            kp10 = kp1 - 1
+            km10 = km1 - 1
+            q[q_base + k0] = qold[qold_base + k0] + dt * (
+                -src[k0]
+                + ekkp[k0]
+                * (
+                    qold[qold_base + kp10]
+                    - qold[qold_base + k0]
+                    + qactold[qactold_base + kp10] * (1.0 - overlapp[k0])
+                )
+                + ekkm[k0]
+                * (
+                    qold[qold_base + km10]
+                    - qold[qold_base + k0]
+                    + qactold[qactold_base + km10] * (1.0 - overlapm[k0])
+                )
+            )
+            q[q_base + k0] = max(q[q_base + k0], 0.0)
+
+        q[q_base + pver - 1] = (
+            q[q_base + pver - 1] - surfrate * qold[qold_base + pver - 1] * dt + flxconv * dt
+        )
+        q[q_base + pver - 1] = max(q[q_base + pver - 1], 0.0)
+    else:
+        for k in range(top_lev, pver + 1):
+            kp1 = min(k + 1, pver)
+            km1 = max(k - 1, top_lev)
+            k0 = k - 1
+            kp10 = kp1 - 1
+            km10 = km1 - 1
+            q[q_base + k0] = qold[qold_base + k0] + dt * (
+                src[k0]
+                + ekkp[k0] * (overlapp[k0] * qold[qold_base + kp10] - qold[qold_base + k0])
+                + ekkm[k0] * (overlapm[k0] * qold[qold_base + km10] - qold[qold_base + k0])
+            )
+            q[q_base + k0] = max(q[q_base + k0], 0.0)
+
+        q[q_base + pver - 1] = (
+            q[q_base + pver - 1] - surfrate * qold[qold_base + pver - 1] * dt + flxconv * dt
+        )
+        q[q_base + pver - 1] = max(q[q_base + pver - 1], 0.0)
+
+
+@inline
+def _dropmixnuc_source_from_act_ptr(
+    pver: int,
+    top_lev: int,
+    ncnst_tot: int,
+    m: int,
+    mm: int,
+    nsav: int,
+    taumix_internal_pver_inv: float,
+    act: Ptr[float],
+    raercol: Ptr[float],
+    raercol_cw: Ptr[float],
+    source: Ptr[float],
+):
+    for k in range(top_lev, pver):
+        source[k - 1] = act[_mode_idx(k, m, pver)] * (
+            raercol[_aero_col_idx(k + 1, mm, nsav, pver, ncnst_tot)]
+        )
+
+    tmpa = (
+        raercol[_aero_col_idx(pver, mm, nsav, pver, ncnst_tot)] * act[_mode_idx(pver, m, pver)]
+        + raercol_cw[_aero_col_idx(pver, mm, nsav, pver, ncnst_tot)]
+        * (act[_mode_idx(pver, m, pver)] - taumix_internal_pver_inv)
+    )
+    source[pver - 1] = max(0.0, tmpa)
+
+
+def ndrop_dropmixnuc_submix_all_codon(
+    pver: int,
+    top_lev: int,
+    ntot_amode: int,
+    ncnst_tot: int,
+    dtmix: float,
+    taumix_internal_pver_inv: float,
+    nact_p: cobj,
+    mact_p: cobj,
+    mam_idx_p: cobj,
+    nspec_amode_p: cobj,
+    ekkp_p: cobj,
+    ekkm_p: cobj,
+    overlapp_p: cobj,
+    overlapm_p: cobj,
+    qcld_p: cobj,
+    qncld_p: cobj,
+    srcn_p: cobj,
+    source_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+    nsav_p: cobj,
+    nnew_p: cobj,
+):
+    nact = Ptr[float](nact_p)
+    mact = Ptr[float](mact_p)
+    mam_idx = Ptr[i32](mam_idx_p)
+    nspec_amode = Ptr[i32](nspec_amode_p)
+    ekkp = Ptr[float](ekkp_p)
+    ekkm = Ptr[float](ekkm_p)
+    overlapp = Ptr[float](overlapp_p)
+    overlapm = Ptr[float](overlapm_p)
+    qcld = Ptr[float](qcld_p)
+    qncld = Ptr[float](qncld_p)
+    srcn = Ptr[float](srcn_p)
+    source = Ptr[float](source_p)
+    raercol = Ptr[float](raercol_p)
+    raercol_cw = Ptr[float](raercol_cw_p)
+    nsav_ref = Ptr[i32](nsav_p)
+    nnew_ref = Ptr[i32](nnew_p)
+
+    for k in range(1, pver + 1):
+        qncld[k - 1] = qcld[k - 1]
+        srcn[k - 1] = 0.0
+
+    ntemp = nsav_ref[0]
+    nsav_ref[0] = nnew_ref[0]
+    nnew_ref[0] = ntemp
+    nsav = int(nsav_ref[0])
+    nnew = int(nnew_ref[0])
+
+    for m in range(1, ntot_amode + 1):
+        mm = int(mam_idx[_mam_idx(m, 0, ntot_amode)])
+        for k in range(top_lev, pver):
+            srcn[k - 1] = srcn[k - 1] + nact[_mode_idx(k, m, pver)] * (
+                raercol[_aero_col_idx(k + 1, mm, nsav, pver, ncnst_tot)]
+            )
+
+        tmpa = (
+            raercol[_aero_col_idx(pver, mm, nsav, pver, ncnst_tot)]
+            * nact[_mode_idx(pver, m, pver)]
+            + raercol_cw[_aero_col_idx(pver, mm, nsav, pver, ncnst_tot)]
+            * (nact[_mode_idx(pver, m, pver)] - taumix_internal_pver_inv)
+        )
+        srcn[pver - 1] = srcn[pver - 1] + max(0.0, tmpa)
+
+    _dropmixnuc_explmix_ptr(
+        pver,
+        top_lev,
+        0.0,
+        0.0,
+        dtmix,
+        0,
+        qcld,
+        0,
+        srcn,
+        ekkp,
+        ekkm,
+        overlapp,
+        overlapm,
+        qncld,
+        0,
+        qncld,
+        0,
+    )
+
+    for m in range(1, ntot_amode + 1):
+        mm = int(mam_idx[_mam_idx(m, 0, ntot_amode)])
+        _dropmixnuc_source_from_act_ptr(
+            pver,
+            top_lev,
+            ncnst_tot,
+            m,
+            mm,
+            nsav,
+            taumix_internal_pver_inv,
+            nact,
+            raercol,
+            raercol_cw,
+            source,
+        )
+
+        cw_new = _aero_col_idx(1, mm, nnew, pver, ncnst_tot)
+        cw_sav = _aero_col_idx(1, mm, nsav, pver, ncnst_tot)
+        raer_new = _aero_col_idx(1, mm, nnew, pver, ncnst_tot)
+        raer_sav = _aero_col_idx(1, mm, nsav, pver, ncnst_tot)
+        _dropmixnuc_explmix_ptr(
+            pver,
+            top_lev,
+            0.0,
+            0.0,
+            dtmix,
+            0,
+            raercol_cw,
+            cw_new,
+            source,
+            ekkp,
+            ekkm,
+            overlapp,
+            overlapm,
+            raercol_cw,
+            cw_sav,
+            raercol_cw,
+            cw_sav,
+        )
+        _dropmixnuc_explmix_ptr(
+            pver,
+            top_lev,
+            0.0,
+            0.0,
+            dtmix,
+            1,
+            raercol,
+            raer_new,
+            source,
+            ekkp,
+            ekkm,
+            overlapp,
+            overlapm,
+            raercol,
+            raer_sav,
+            raercol_cw,
+            cw_sav,
+        )
+
+        for l in range(1, int(nspec_amode[m - 1]) + 1):
+            mm = int(mam_idx[_mam_idx(m, l, ntot_amode)])
+            _dropmixnuc_source_from_act_ptr(
+                pver,
+                top_lev,
+                ncnst_tot,
+                m,
+                mm,
+                nsav,
+                taumix_internal_pver_inv,
+                mact,
+                raercol,
+                raercol_cw,
+                source,
+            )
+
+            cw_new = _aero_col_idx(1, mm, nnew, pver, ncnst_tot)
+            cw_sav = _aero_col_idx(1, mm, nsav, pver, ncnst_tot)
+            raer_new = _aero_col_idx(1, mm, nnew, pver, ncnst_tot)
+            raer_sav = _aero_col_idx(1, mm, nsav, pver, ncnst_tot)
+            _dropmixnuc_explmix_ptr(
+                pver,
+                top_lev,
+                0.0,
+                0.0,
+                dtmix,
+                0,
+                raercol_cw,
+                cw_new,
+                source,
+                ekkp,
+                ekkm,
+                overlapp,
+                overlapm,
+                raercol_cw,
+                cw_sav,
+                raercol_cw,
+                cw_sav,
+            )
+            _dropmixnuc_explmix_ptr(
+                pver,
+                top_lev,
+                0.0,
+                0.0,
+                dtmix,
+                1,
+                raercol,
+                raer_new,
+                source,
+                ekkp,
+                ekkm,
+                overlapp,
+                overlapm,
+                raercol,
+                raer_sav,
+                raercol_cw,
+                cw_sav,
+            )

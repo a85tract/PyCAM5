@@ -332,6 +332,19 @@ interface
       type(c_ptr), value :: qcld_p, qncld_p, srcn_p, nsav_p, nnew_p
    end subroutine ndrop_dropmixnuc_submix_iter_init_codon
 
+   subroutine ndrop_dropmixnuc_submix_all_codon(pver_c, top_lev_c, ntot_amode_c, ncnst_tot_c, &
+        dtmix_c, taumix_internal_pver_inv_c, nact_p, mact_p, mam_idx_p, nspec_amode_p, &
+        ekkp_p, ekkm_p, overlapp_p, overlapm_p, qcld_p, qncld_p, srcn_p, source_p, &
+        raercol_p, raercol_cw_p, nsav_p, nnew_p) bind(c, name="ndrop_dropmixnuc_submix_all_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: pver_c, top_lev_c, ntot_amode_c, ncnst_tot_c
+      real(c_double), value :: dtmix_c, taumix_internal_pver_inv_c
+      type(c_ptr), value :: nact_p, mact_p, mam_idx_p, nspec_amode_p
+      type(c_ptr), value :: ekkp_p, ekkm_p, overlapp_p, overlapm_p
+      type(c_ptr), value :: qcld_p, qncld_p, srcn_p, source_p
+      type(c_ptr), value :: raercol_p, raercol_cw_p, nsav_p, nnew_p
+   end subroutine ndrop_dropmixnuc_submix_all_codon
+
    subroutine ndrop_dropmixnuc_zero_tendencies_codon(pver_c, raertend_p, qqcwtend_p) &
         bind(c, name="ndrop_dropmixnuc_zero_tendencies_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
@@ -538,7 +551,7 @@ subroutine ndrop_dropmixnuc_helpers_proof_once()
 
    if (masterproc) then
       write(iulog,'(A)') 'ndrop_dropmixnuc_helpers entered (array setup/grow-shrink/oldcloud/mix/' // &
-           'source/submix init/aero pointer-table batches/grow batch/aero tend all/clear/finalize direct = codon)'
+           'source/submix all/aero pointer-table batches/grow batch/aero tend all/clear/finalize direct = codon)'
    end if
 
 end subroutine ndrop_dropmixnuc_helpers_proof_once
@@ -1754,21 +1767,16 @@ subroutine dropmixnuc( &
 
 
       ! old_cloud_nsubmix_loop
+      call ndrop_explmix_select_impl()
       do n = 1, nsubmix
-         if (use_native_ndrop_dropmixnuc_helpers_impl) then
+         if (use_native_ndrop_dropmixnuc_helpers_impl .or. use_native_ndrop_explmix_impl) then
             qncld(:) = qcld(:)
             ! switch nsav, nnew so that nsav is the updated aerosol
             ntemp   = nsav
             nsav    = nnew
             nnew    = ntemp
             srcn(:) = 0.0_r8
-         else
-            call ndrop_dropmixnuc_helpers_proof_once()
-            call ndrop_dropmixnuc_submix_iter_init_codon(int(pver, c_int64_t), &
-                 c_loc(qcld(1)), c_loc(qncld(1)), c_loc(srcn(1)), c_loc(nsav), c_loc(nnew))
-         end if
 
-         if (use_native_ndrop_dropmixnuc_helpers_impl) then
             do m = 1, ntot_amode
                mm = mam_idx(m,0)
 
@@ -1784,28 +1792,21 @@ subroutine dropmixnuc( &
                     + raercol_cw(pver,mm,nsav)*(nact(pver,m) - taumix_internal_pver_inv)
                srcn(pver) = srcn(pver) + max(0.0_r8,tmpa)
             end do
-         else
-            call ndrop_dropmixnuc_helpers_proof_once()
-            call ndrop_dropmixnuc_srcn_from_nact_codon(int(pver, c_int64_t), int(top_lev, c_int64_t), &
-                 int(ntot_amode, c_int64_t), int(ncnst_tot, c_int64_t), int(nsav, c_int64_t), &
-                 taumix_internal_pver_inv, c_loc(nact(1,1)), c_loc(mam_idx(1,0)), &
-                 c_loc(raercol(1,1,1)), c_loc(raercol_cw(1,1,1)), c_loc(srcn(1)))
-         end if
-         call explmix(  &
-            qcld, srcn, ekkp, ekkm, overlapp,  &
-            overlapm, qncld, zero, zero, pver, &
-            dtmix, .false.)
 
-         ! rce-comment
-         !    the interstitial particle mixratio is different in clear/cloudy portions
-         !    of a layer, and generally higher in the clear portion.  (we have/had
-         !    a method for diagnosing the the clear/cloudy mixratios.)  the activation
-         !    source terms involve clear air (from below) moving into cloudy air (above).
-         !    in theory, the clear-portion mixratio should be used when calculating 
-         !    source terms
-         do m = 1, ntot_amode
-            mm = mam_idx(m,0)
-            if (use_native_ndrop_dropmixnuc_helpers_impl) then
+            call explmix(  &
+               qcld, srcn, ekkp, ekkm, overlapp,  &
+               overlapm, qncld, zero, zero, pver, &
+               dtmix, .false.)
+
+            ! rce-comment
+            !    the interstitial particle mixratio is different in clear/cloudy portions
+            !    of a layer, and generally higher in the clear portion.  (we have/had
+            !    a method for diagnosing the the clear/cloudy mixratios.)  the activation
+            !    source terms involve clear air (from below) moving into cloudy air (above).
+            !    in theory, the clear-portion mixratio should be used when calculating
+            !    source terms
+            do m = 1, ntot_amode
+               mm = mam_idx(m,0)
                ! rce-comment -   activation source in layer k involves particles from k+1
                !	              source(:)= nact(:,m)*(raercol(:,mm,nsav))
                source(top_lev:pver-1) = nact(top_lev:pver-1,m)*(raercol(top_lev+1:pver,mm,nsav))
@@ -1814,43 +1815,7 @@ subroutine dropmixnuc( &
                tmpa = raercol(pver,mm,nsav)*nact(pver,m) &
                     + raercol_cw(pver,mm,nsav)*(nact(pver,m) - taumix_internal_pver_inv)
                source(pver) = max(0.0_r8, tmpa)
-            else
-               call ndrop_dropmixnuc_helpers_proof_once()
-               call ndrop_dropmixnuc_source_from_act_codon(int(pver, c_int64_t), int(top_lev, c_int64_t), &
-                    int(ncnst_tot, c_int64_t), int(m, c_int64_t), int(mm, c_int64_t), int(nsav, c_int64_t), &
-                    taumix_internal_pver_inv, c_loc(nact(1,1)), c_loc(raercol(1,1,1)), &
-                    c_loc(raercol_cw(1,1,1)), c_loc(source(1)))
-            end if
-            flxconv = 0._r8
 
-            call explmix( &
-               raercol_cw(:,mm,nnew), source, ekkp, ekkm, overlapp, &
-               overlapm, raercol_cw(:,mm,nsav), zero, zero, pver,   &
-               dtmix, .false.)
-
-            call explmix( &
-               raercol(:,mm,nnew), source, ekkp, ekkm, overlapp,  &
-               overlapm, raercol(:,mm,nsav), zero, flxconv, pver, &
-               dtmix, .true., raercol_cw(:,mm,nsav))
-
-            do l = 1, nspec_amode(m)
-               mm = mam_idx(m,l)
-               if (use_native_ndrop_dropmixnuc_helpers_impl) then
-                  ! rce-comment -   activation source in layer k involves particles from k+1
-                  !	          source(:)= mact(:,m)*(raercol(:,mm,nsav))
-                  source(top_lev:pver-1) = mact(top_lev:pver-1,m)*(raercol(top_lev+1:pver,mm,nsav))
-                  ! rce-comment- new formulation for k=pver
-                  !                 source(  pver  )= mact(  pver  ,m)*(raercol(  pver,mm,nsav))
-                  tmpa = raercol(pver,mm,nsav)*mact(pver,m) &
-                       + raercol_cw(pver,mm,nsav)*(mact(pver,m) - taumix_internal_pver_inv)
-                  source(pver) = max(0.0_r8, tmpa)
-               else
-                  call ndrop_dropmixnuc_helpers_proof_once()
-                  call ndrop_dropmixnuc_source_from_act_codon(int(pver, c_int64_t), int(top_lev, c_int64_t), &
-                       int(ncnst_tot, c_int64_t), int(m, c_int64_t), int(mm, c_int64_t), int(nsav, c_int64_t), &
-                       taumix_internal_pver_inv, c_loc(mact(1,1)), c_loc(raercol(1,1,1)), &
-                       c_loc(raercol_cw(1,1,1)), c_loc(source(1)))
-               end if
                flxconv = 0._r8
 
                call explmix( &
@@ -1863,8 +1828,41 @@ subroutine dropmixnuc( &
                   overlapm, raercol(:,mm,nsav), zero, flxconv, pver, &
                   dtmix, .true., raercol_cw(:,mm,nsav))
 
+               do l = 1, nspec_amode(m)
+                  mm = mam_idx(m,l)
+                  ! rce-comment -   activation source in layer k involves particles from k+1
+                  !	          source(:)= mact(:,m)*(raercol(:,mm,nsav))
+                  source(top_lev:pver-1) = mact(top_lev:pver-1,m)*(raercol(top_lev+1:pver,mm,nsav))
+                  ! rce-comment- new formulation for k=pver
+                  !                 source(  pver  )= mact(  pver  ,m)*(raercol(  pver,mm,nsav))
+                  tmpa = raercol(pver,mm,nsav)*mact(pver,m) &
+                       + raercol_cw(pver,mm,nsav)*(mact(pver,m) - taumix_internal_pver_inv)
+                  source(pver) = max(0.0_r8, tmpa)
+
+                  flxconv = 0._r8
+
+                  call explmix( &
+                     raercol_cw(:,mm,nnew), source, ekkp, ekkm, overlapp, &
+                     overlapm, raercol_cw(:,mm,nsav), zero, zero, pver,   &
+                     dtmix, .false.)
+
+                  call explmix( &
+                     raercol(:,mm,nnew), source, ekkp, ekkm, overlapp,  &
+                     overlapm, raercol(:,mm,nsav), zero, flxconv, pver, &
+                     dtmix, .true., raercol_cw(:,mm,nsav))
+
+               end do
             end do
-         end do
+         else
+            call ndrop_dropmixnuc_helpers_proof_once()
+            call ndrop_explmix_proof_once()
+            call ndrop_dropmixnuc_submix_all_codon(int(pver, c_int64_t), int(top_lev, c_int64_t), &
+                 int(ntot_amode, c_int64_t), int(ncnst_tot, c_int64_t), dtmix, taumix_internal_pver_inv, &
+                 c_loc(nact(1,1)), c_loc(mact(1,1)), c_loc(mam_idx(1,0)), c_loc(nspec_amode(1)), &
+                 c_loc(ekkp(1)), c_loc(ekkm(1)), c_loc(overlapp(1)), c_loc(overlapm(1)), &
+                 c_loc(qcld(1)), c_loc(qncld(1)), c_loc(srcn(1)), c_loc(source(1)), &
+                 c_loc(raercol(1,1,1)), c_loc(raercol_cw(1,1,1)), c_loc(nsav), c_loc(nnew))
+         end if
 
       end do ! old_cloud_nsubmix_loop
 
