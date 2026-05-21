@@ -984,6 +984,45 @@ def ndrop_loadaer_species_accum_codon(
         hygro[idx1] = hygro[idx1] + vol * spechygro
 
 
+def ndrop_loadaer_species_batch_codon(
+    istart: int,
+    istop: int,
+    k: int,
+    pcols: int,
+    nspec: int,
+    phase: int,
+    raer_ptrs_p: cobj,
+    qqcw_ptrs_p: cobj,
+    specdens_p: cobj,
+    spechygro_p: cobj,
+    vaerosol_p: cobj,
+    hygro_p: cobj,
+):
+    raer_ptrs = Ptr[cobj](raer_ptrs_p)
+    qqcw_ptrs = Ptr[cobj](qqcw_ptrs_p)
+    specdens = Ptr[float](specdens_p)
+    spechygro = Ptr[float](spechygro_p)
+    vaerosol = Ptr[float](vaerosol_p)
+    hygro = Ptr[float](hygro_p)
+
+    for l in range(1, nspec + 1):
+        raer = Ptr[float](raer_ptrs[l - 1])
+        qqcw = Ptr[float](qqcw_ptrs[l - 1])
+        specdens_l = specdens[l - 1]
+        spechygro_l = spechygro[l - 1]
+        for i in range(istart, istop + 1):
+            idx1 = i - 1
+            idx2 = _idx2(i, k, pcols)
+            if phase == 3:
+                vol = max(raer[idx2] + qqcw[idx2], 0.0) / specdens_l
+            elif phase == 2:
+                vol = max(qqcw[idx2], 0.0) / specdens_l
+            else:
+                vol = max(raer[idx2], 0.0) / specdens_l
+            vaerosol[idx1] = vaerosol[idx1] + vol
+            hygro[idx1] = hygro[idx1] + vol * spechygro_l
+
+
 def ndrop_loadaer_finalize_volume_codon(
     istart: int,
     istop: int,

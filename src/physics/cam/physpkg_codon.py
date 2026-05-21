@@ -5440,6 +5440,37 @@ def ndrop_loadaer_species_accum_codon(
 
 
 @export
+def ndrop_loadaer_species_batch_codon(
+    istart: int,
+    istop: int,
+    k: int,
+    pcols: int,
+    nspec: int,
+    phase: int,
+    raer_ptrs_p: cobj,
+    qqcw_ptrs_p: cobj,
+    specdens_p: cobj,
+    spechygro_p: cobj,
+    vaerosol_p: cobj,
+    hygro_p: cobj,
+):
+    _ndrop.ndrop_loadaer_species_batch_codon(
+        istart,
+        istop,
+        k,
+        pcols,
+        nspec,
+        phase,
+        raer_ptrs_p,
+        qqcw_ptrs_p,
+        specdens_p,
+        spechygro_p,
+        vaerosol_p,
+        hygro_p,
+    )
+
+
+@export
 def ndrop_loadaer_finalize_volume_codon(
     istart: int,
     istop: int,

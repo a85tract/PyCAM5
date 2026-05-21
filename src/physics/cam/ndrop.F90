@@ -368,6 +368,14 @@ interface
       type(c_ptr), value :: raer_p, qqcw_p, vaerosol_p, hygro_p
    end subroutine ndrop_loadaer_species_accum_codon
 
+   subroutine ndrop_loadaer_species_batch_codon(istart_c, istop_c, k_c, pcols_c, nspec_c, phase_c, &
+        raer_ptrs_p, qqcw_ptrs_p, specdens_p, spechygro_p, vaerosol_p, hygro_p) &
+        bind(c, name="ndrop_loadaer_species_batch_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: istart_c, istop_c, k_c, pcols_c, nspec_c, phase_c
+      type(c_ptr), value :: raer_ptrs_p, qqcw_ptrs_p, specdens_p, spechygro_p, vaerosol_p, hygro_p
+   end subroutine ndrop_loadaer_species_batch_codon
+
    subroutine ndrop_loadaer_finalize_volume_codon(istart_c, istop_c, k_c, pcols_c, cs_p, &
         vaerosol_p, hygro_p) bind(c, name="ndrop_loadaer_finalize_volume_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
@@ -600,7 +608,7 @@ subroutine ndrop_loadaer_helpers_proof_once()
    ndrop_loadaer_helpers_proof_written = .true.
 
    if (masterproc) then
-      write(iulog,'(A)') 'ndrop_loadaer_helpers entered (volume/hygro/number adjust direct = codon)'
+      write(iulog,'(A)') 'ndrop_loadaer_helpers entered (species batch/volume/hygro/number adjust direct = codon)'
    end if
 
 end subroutine ndrop_loadaer_helpers_proof_once
@@ -2789,7 +2797,7 @@ subroutine loadaer( &
    m, cs, phase, naerosol, &
    vaerosol, hygro)
 
-   use iso_c_binding, only: c_int64_t, c_loc
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
 
    ! return aerosol number, volume concentrations, and bulk hygroscopicity
 
@@ -2817,6 +2825,10 @@ subroutine loadaer( &
    real(r8) :: specdens, spechygro
 
    real(r8) :: vol(pcols) ! aerosol volume mixing ratio
+   type(c_ptr), target :: species_raer_ptrs(ncnst_tot)
+   type(c_ptr), target :: species_qqcw_ptrs(ncnst_tot)
+   real(r8), target :: species_specdens(ncnst_tot)
+   real(r8), target :: species_spechygro(ncnst_tot)
    integer  :: i, l
    !-------------------------------------------------------------------------------
 
@@ -2838,13 +2850,13 @@ subroutine loadaer( &
            c_loc(vaerosol(1)), c_loc(hygro(1)))
    end if
 
-   do l = 1, nspec_amode(m)
+   if (use_native_ndrop_loadaer_helpers_impl) then
+      do l = 1, nspec_amode(m)
 
-      call rad_cnst_get_aer_mmr(0, m, l, 'a', state, pbuf, raer)
-      call rad_cnst_get_aer_mmr(0, m, l, 'c', state, pbuf, qqcw)
-      call rad_cnst_get_aer_props(0, m, l, density_aer=specdens, hygro_aer=spechygro)
+         call rad_cnst_get_aer_mmr(0, m, l, 'a', state, pbuf, raer)
+         call rad_cnst_get_aer_mmr(0, m, l, 'c', state, pbuf, qqcw)
+         call rad_cnst_get_aer_props(0, m, l, density_aer=specdens, hygro_aer=spechygro)
 
-      if (use_native_ndrop_loadaer_helpers_impl) then
          if (phase == 3) then
             do i = istart, istop
                vol(i) = max(raer(i,k) + qqcw(i,k), 0._r8)/specdens
@@ -2866,14 +2878,23 @@ subroutine loadaer( &
             vaerosol(i) = vaerosol(i) + vol(i)
             hygro(i)    = hygro(i) + vol(i)*spechygro
          end do
-      else
-         call ndrop_loadaer_helpers_proof_once()
-         call ndrop_loadaer_species_accum_codon(int(istart, c_int64_t), int(istop, c_int64_t), &
-              int(k, c_int64_t), int(pcols, c_int64_t), int(phase, c_int64_t), specdens, spechygro, &
-              c_loc(raer(1,1)), c_loc(qqcw(1,1)), c_loc(vaerosol(1)), c_loc(hygro(1)))
-      end if
 
-   end do
+      end do
+   else
+      do l = 1, nspec_amode(m)
+         call rad_cnst_get_aer_mmr(0, m, l, 'a', state, pbuf, raer)
+         call rad_cnst_get_aer_mmr(0, m, l, 'c', state, pbuf, qqcw)
+         call rad_cnst_get_aer_props(0, m, l, density_aer=species_specdens(l), &
+              hygro_aer=species_spechygro(l))
+         species_raer_ptrs(l) = c_loc(raer(1,1))
+         species_qqcw_ptrs(l) = c_loc(qqcw(1,1))
+      end do
+      call ndrop_loadaer_helpers_proof_once()
+      call ndrop_loadaer_species_batch_codon(int(istart, c_int64_t), int(istop, c_int64_t), &
+           int(k, c_int64_t), int(pcols, c_int64_t), int(nspec_amode(m), c_int64_t), int(phase, c_int64_t), &
+           c_loc(species_raer_ptrs(1)), c_loc(species_qqcw_ptrs(1)), c_loc(species_specdens(1)), &
+           c_loc(species_spechygro(1)), c_loc(vaerosol(1)), c_loc(hygro(1)))
+   end if
 
    if (use_native_ndrop_loadaer_helpers_impl) then
       do i = istart, istop
