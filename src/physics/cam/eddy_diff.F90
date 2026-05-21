@@ -233,6 +233,9 @@
   logical                     :: compute_radf_impl_selected = .false.
   logical                     :: use_native_caleddy_impl = .false.
   logical                     :: caleddy_impl_selected = .false.
+  logical                     :: use_native_caleddy_full_impl = .false.
+  logical                     :: caleddy_full_impl_selected = .false.
+  logical                     :: caleddy_full_entered_logged = .false.
   logical                     :: use_native_caleddy_init_impl = .false.
   logical                     :: caleddy_init_impl_selected = .false.
   logical                     :: use_native_caleddy_diaginit_impl = .false.
@@ -8984,6 +8987,100 @@
 
   end subroutine caleddy_select_impl
 
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine caleddy_full_append_proof(proof_line)
+
+    implicit none
+
+    character(len=*), intent(in) :: proof_line
+
+    character(len=512) :: proof_file
+    integer :: status, n, unitno
+
+    proof_file = ''
+    call get_environment_variable('EDDY_DIFF_CALEDDY_FULL_PROOF_FILE', value=proof_file, length=n, status=status)
+    if (status == 0 .and. n > 0) then
+       open(newunit=unitno, file=trim(proof_file(:n)), status='unknown', position='append', action='write')
+       write(unitno,'(A)') trim(proof_line)
+       close(unitno)
+    end if
+
+  end subroutine caleddy_full_append_proof
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine caleddy_full_select_impl()
+
+    implicit none
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (caleddy_full_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('EDDY_DIFF_CALEDDY_FULL_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_caleddy_full_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_caleddy_full_impl = .false.
+    end if
+
+    caleddy_full_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_caleddy_full_impl) then
+          write(iulog,*) 'eddy_diff_caleddy_full implementation = native'
+          write(*,*) 'eddy_diff_caleddy_full implementation = native'
+          call eddy_diff_append_impl_trace('eddy_diff_caleddy_full implementation = native')
+          call caleddy_full_append_proof('eddy_diff_caleddy_full selector entered implementation = native')
+       else
+          write(iulog,*) 'eddy_diff_caleddy_full implementation = codon'
+          write(*,*) 'eddy_diff_caleddy_full implementation = codon'
+          call eddy_diff_append_impl_trace('eddy_diff_caleddy_full implementation = codon')
+          call caleddy_full_append_proof('eddy_diff_caleddy_full selector entered implementation = codon')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine caleddy_full_select_impl
+
+  !=============================================================================== !
+  !                                                                                !
+  !=============================================================================== !
+
+  subroutine caleddy_full_log_entered()
+
+    implicit none
+
+    character(len=*), parameter :: proof_msg = 'eddy_diff_caleddy_full entered (' // &
+         'monolithic caleddy body direct = codon)'
+
+    if (caleddy_full_entered_logged) return
+    caleddy_full_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,*) proof_msg
+       write(*,*) proof_msg
+       call eddy_diff_append_impl_trace(proof_msg)
+       call caleddy_full_append_proof(proof_msg)
+       call flush(iulog)
+    end if
+
+  end subroutine caleddy_full_log_entered
+
     ! ---------------------------------------------------------------------------- !
     !                                                                              !
     ! The University of Washington Moist Turbulence Scheme                         !
@@ -9444,6 +9541,66 @@
         srcl_mode = 0
     elseif (choice_SRCL .eq. 'nonamb') then
         srcl_mode = 2
+    end if
+
+    if (.not. use_native_caleddy_impl) then
+       call caleddy_full_select_impl()
+       if (.not. use_native_caleddy_full_impl) then
+          extend_codon = 0_i4
+          extend_up_codon = 0_i4
+          extend_dn_codon = 0_i4
+          zisocl_status_codon = 0_i4
+          ncvsurf_codon = 0_i4
+          srcl_status_codon = 0_i4
+          closure_status_local = 0_i4
+          caleddy_status_local = 0_i4
+
+          call caleddy_full_log_entered()
+          call eddy_diff_caleddy_codon(int(pcols, c_int64_t), int(pver, c_int64_t), int(ncol, c_int64_t), &
+               int(ncvmax, c_int64_t), int(ntop_turb, c_int64_t), int(nbot_turb, c_int64_t), &
+               int(qrlzero_mode, c_int64_t), int(cldeff_mode, c_int64_t), int(tkes_mode, c_int64_t), &
+               int(use_kvf_mode, c_int64_t), int(tunl_mode, c_int64_t), int(leng_mode, c_int64_t), &
+               int(evhc_mode, c_int64_t), int(wstarent_mode, c_int64_t), int(sedfact_mode, c_int64_t), &
+               int(srcl_mode, c_int64_t), int(radf_mode, c_int64_t), int(use_dw_surf_mode, c_int64_t), &
+               int(choice_tkes_ebprod_mode, c_int64_t), qmin, ricrit, b1, vk, ntzero, alph1, alph2, alph3, alph4, &
+               alph5, alph4exs, ghmin, tunl, ctunl, cleng, lbulk_max, tkemax, rinc, ae, a1l, a1i, ccrit, &
+               wstar3factcrit, onet, rcapmin, rcapmax, wfac, wpertmin, tfac, g, cpair, latvap, a2l, a3l, &
+               jbumin, evhcmax, ased, fak, c_loc(sl), c_loc(qt), c_loc(ql), c_loc(slv), c_loc(u), c_loc(v), &
+               c_loc(pi), c_loc(z), c_loc(zi), c_loc(qflx), c_loc(shflx), c_loc(slslope), c_loc(qtslope), &
+               c_loc(chu), c_loc(chs), c_loc(cmu), c_loc(cms), c_loc(sfuh), c_loc(sflh), c_loc(n2), c_loc(s2), &
+               c_loc(ri), c_loc(rrho), c_loc(pblh), c_loc(ustar), c_loc(kvh_in), c_loc(kvm_in), c_loc(kvh), &
+               c_loc(kvm), c_loc(tpert), c_loc(qpert), c_loc(qrlin), c_loc(kvf), c_loc(tke), c_loc(bprod), &
+               c_loc(sprod), c_loc(wpert), c_loc(tkes), c_loc(went), c_loc(turbtype), c_loc(sm_aw), c_loc(kbase_o), &
+               c_loc(ktop_o), c_loc(ncvfin_o), c_loc(kbase_mg), c_loc(ktop_mg), c_loc(ncvfin_mg), c_loc(kbase_f), &
+               c_loc(ktop_f), c_loc(ncvfin_f), c_loc(wet_CL), c_loc(web_CL), c_loc(jtbu_CL), c_loc(jbbu_CL), &
+               c_loc(evhc_CL), c_loc(jt2slv_CL), c_loc(n2ht_CL), c_loc(n2hb_CL), c_loc(lwp_CL), c_loc(opt_depth_CL), &
+               c_loc(radinvfrac_CL), c_loc(radf_CL), c_loc(wstar_CL), c_loc(wstar3fact_CL), c_loc(ebrk), &
+               c_loc(wbrk), c_loc(lbrk), c_loc(ricl), c_loc(ghcl), c_loc(shcl), c_loc(smcl), c_loc(gh_a), &
+               c_loc(sh_a), c_loc(sm_a), c_loc(ri_a), c_loc(leng), c_loc(wcap), c_loc(pblhp), c_loc(cld), &
+               c_loc(ipbl), c_loc(kpblh), c_loc(wsedl), c_loc(wsed_CL), c_loc(leng_max), c_loc(qrlw), &
+               c_loc(cldeff), c_loc(bflxs), c_loc(ncvfin), c_loc(kbase), c_loc(ktop), c_loc(belongcv_mask_local), &
+               c_loc(stlmask_local), c_loc(extend_codon), c_loc(extend_up_codon), c_loc(extend_dn_codon), &
+               c_loc(zisocl_status_codon), c_loc(ncvsurf_codon), c_loc(srcl_status_codon), c_loc(zero_tke_mask_local), &
+               c_loc(closure_status_local), c_loc(caleddy_status_local))
+
+          if (caleddy_status_local(1) .eq. 1_i4) then
+             if (caleddy_status_local(2) .eq. 1_i4) then
+                write(iulog,*) 'zisocl: Error: Tried to extend CL to the model top'
+                call endrun('zisocl: Error: Tried to extend CL to the model top')
+             elseif (caleddy_status_local(2) .eq. 2_i4) then
+                write(iulog,*) 'Major mistake zisocl: the CL based at surface is not indexed 1'
+                call endrun('Major mistake zisocl: the CL based at surface is not indexed 1')
+             else
+                call endrun('CALEDDY Error: unexpected zisocl status in Codon full shell')
+             end if
+          elseif (caleddy_status_local(1) .eq. 2_i4) then
+             write(iulog,*) 'CALEDDY: Major mistake in SRCL: bflxs > 0 for surface-based SRCL'
+             write(iulog,*) 'column = ', caleddy_status_local(3)
+             call endrun('CALEDDY: Major mistake in SRCL: bflxs > 0 for surface-based SRCL')
+          end if
+
+          return
+       end if
     end if
 
     ! Initialize main fields, diagnostics, and the initial CL regimes in one setup batch.

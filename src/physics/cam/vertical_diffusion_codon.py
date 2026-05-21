@@ -5087,9 +5087,12 @@ def eddy_diff_caleddy_codon(
 ):
     ncvfin = Ptr[i32](ncvfin_p)
     kbase = Ptr[i32](kbase_p)
+    belong_mask = Ptr[i32](belong_mask_p)
     zisocl_status = Ptr[i32](zisocl_status_p)
     ncvsurf_state = Ptr[i32](ncvsurf_p)
     srcl_status = Ptr[i32](srcl_status_p)
+    zero_tke_mask = Ptr[i32](zero_tke_mask_p)
+    closure_status = Ptr[i32](closure_status_p)
     caleddy_status = Ptr[i32](caleddy_status_p)
 
     caleddy_status[0] = i32(0)
@@ -5433,6 +5436,10 @@ def eddy_diff_caleddy_codon(
             zero_tke_mask_p,
             closure_status_p,
         )
+        if closure_status[0] != i32(0):
+            for k in range(1, pver + 2):
+                if zero_tke_mask[k - 1] != i32(0):
+                    belong_mask[k - 1] = i32(0)
 
         eddy_diff_caleddy_stl_codon(
             i,
