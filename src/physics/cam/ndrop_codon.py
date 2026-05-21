@@ -269,6 +269,55 @@ def ndrop_dropmixnuc_aero_column_copy_codon(
         raercol[col_idx] = raer_fld[field_idx]
 
 
+def ndrop_dropmixnuc_aero_column_copy_all_codon(
+    i: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    ntot_amode: int,
+    ncnst_tot: int,
+    slot: int,
+    raer_ptrs_p: cobj,
+    qqcw_ptrs_p: cobj,
+    nspec_amode_p: cobj,
+    mam_idx_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+):
+    raer_ptrs = Ptr[cobj](raer_ptrs_p)
+    qqcw_ptrs = Ptr[cobj](qqcw_ptrs_p)
+    nspec_amode = Ptr[i32](nspec_amode_p)
+    mam_idx = Ptr[i32](mam_idx_p)
+    raercol = Ptr[float](raercol_p)
+    raercol_cw = Ptr[float](raercol_cw_p)
+
+    for m in range(1, ntot_amode + 1):
+        mm = int(mam_idx[_mam_idx(m, 0, ntot_amode)])
+        raer_fld = Ptr[float](raer_ptrs[mm - 1])
+        qqcw_fld = Ptr[float](qqcw_ptrs[mm - 1])
+
+        for k in range(1, pver + 1):
+            col_idx = _aero_col_idx(k, mm, slot, pver, ncnst_tot)
+            raercol_cw[col_idx] = 0.0
+            raercol[col_idx] = 0.0
+
+        for k in range(top_lev, pver + 1):
+            col_idx = _aero_col_idx(k, mm, slot, pver, ncnst_tot)
+            field_idx = _idx2(i, k, pcols)
+            raercol_cw[col_idx] = qqcw_fld[field_idx]
+            raercol[col_idx] = raer_fld[field_idx]
+
+        for l in range(1, int(nspec_amode[m - 1]) + 1):
+            mm = int(mam_idx[_mam_idx(m, l, ntot_amode)])
+            raer_fld = Ptr[float](raer_ptrs[mm - 1])
+            qqcw_fld = Ptr[float](qqcw_ptrs[mm - 1])
+            for k in range(top_lev, pver + 1):
+                col_idx = _aero_col_idx(k, mm, slot, pver, ncnst_tot)
+                field_idx = _idx2(i, k, pcols)
+                raercol_cw[col_idx] = qqcw_fld[field_idx]
+                raercol[col_idx] = raer_fld[field_idx]
+
+
 def ndrop_dropmixnuc_aero_tend_prepare_codon(
     i: int,
     pcols: int,
@@ -371,6 +420,78 @@ def ndrop_dropmixnuc_aero_coltend_codon(
 
     coltend_out[0] = sum_raer / gravit
     coltend_cw_out[0] = sum_cw / gravit
+
+
+def ndrop_dropmixnuc_aero_tend_all_codon(
+    i: int,
+    pcols: int,
+    psetcols: int,
+    pver: int,
+    top_lev: int,
+    ntot_amode: int,
+    ncnst_tot: int,
+    slot: int,
+    dtinv: float,
+    gravit: float,
+    raer_ptrs_p: cobj,
+    qqcw_ptrs_p: cobj,
+    nspec_amode_p: cobj,
+    mam_idx_p: cobj,
+    mam_cnst_idx_p: cobj,
+    pdel_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+    coltend_p: cobj,
+    coltend_cw_p: cobj,
+    ptend_q_p: cobj,
+):
+    raer_ptrs = Ptr[cobj](raer_ptrs_p)
+    qqcw_ptrs = Ptr[cobj](qqcw_ptrs_p)
+    nspec_amode = Ptr[i32](nspec_amode_p)
+    mam_idx = Ptr[i32](mam_idx_p)
+    mam_cnst_idx = Ptr[i32](mam_cnst_idx_p)
+    pdel = Ptr[float](pdel_p)
+    raercol = Ptr[float](raercol_p)
+    raercol_cw = Ptr[float](raercol_cw_p)
+    coltend = Ptr[float](coltend_p)
+    coltend_cw = Ptr[float](coltend_cw_p)
+    ptend_q = Ptr[float](ptend_q_p)
+
+    for m in range(1, ntot_amode + 1):
+        for l in range(0, int(nspec_amode[m - 1]) + 1):
+            mm = int(mam_idx[_mam_idx(m, l, ntot_amode)])
+            lptr = int(mam_cnst_idx[_mam_idx(m, l, ntot_amode)])
+            raer_fld = Ptr[float](raer_ptrs[mm - 1])
+            qqcw_fld = Ptr[float](qqcw_ptrs[mm - 1])
+
+            for k in range(1, pver + 1):
+                ptend_q[_idx3(i, k, lptr, psetcols, pver)] = 0.0
+
+            sum_raer = 0.0
+            sum_cw = 0.0
+            for k in range(1, pver + 1):
+                if k >= top_lev:
+                    col_idx = _aero_col_idx(k, mm, slot, pver, ncnst_tot)
+                    field_idx = _idx2(i, k, pcols)
+                    raertend = (raercol[col_idx] - raer_fld[field_idx]) * dtinv
+                    qqcwtend = (raercol_cw[col_idx] - qqcw_fld[field_idx]) * dtinv
+                    ptend_q[_idx3(i, k, lptr, psetcols, pver)] = raertend
+                else:
+                    raertend = 0.0
+                    qqcwtend = 0.0
+
+                pdel_ik = pdel[_idx2(i, k, pcols)]
+                sum_raer = sum_raer + pdel_ik * raertend
+                sum_cw = sum_cw + pdel_ik * qqcwtend
+
+            coltend[_idx2(i, mm, pcols)] = sum_raer / gravit
+            coltend_cw[_idx2(i, mm, pcols)] = sum_cw / gravit
+
+            for k in range(1, pver + 1):
+                qqcw_fld[_idx2(i, k, pcols)] = 0.0
+
+            for k in range(top_lev, pver + 1):
+                qqcw_fld[_idx2(i, k, pcols)] = raercol_cw[_aero_col_idx(k, mm, slot, pver, ncnst_tot)]
 
 
 def ndrop_dropmixnuc_finalize_column_codon(
@@ -535,6 +656,61 @@ def ndrop_dropmixnuc_grow_cloud_number_update_codon(
     col_idx = _aero_col_idx(k, mm, nsav, pver, ncnst_tot)
     raercol_cw[col_idx] = raercol_cw[col_idx] + dact
     raercol[col_idx] = raercol[col_idx] - dact
+
+
+def ndrop_dropmixnuc_grow_cloud_update_all_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    ntot_amode: int,
+    ncnst_tot: int,
+    nsav: int,
+    dtinv: float,
+    dumc: float,
+    raer_ptrs_p: cobj,
+    nspec_amode_p: cobj,
+    mam_idx_p: cobj,
+    fn_p: cobj,
+    fm_p: cobj,
+    qcld_p: cobj,
+    nsource_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+    factnum_p: cobj,
+):
+    raer_ptrs = Ptr[cobj](raer_ptrs_p)
+    nspec_amode = Ptr[i32](nspec_amode_p)
+    mam_idx = Ptr[i32](mam_idx_p)
+    fn = Ptr[float](fn_p)
+    fm = Ptr[float](fm_p)
+    qcld = Ptr[float](qcld_p)
+    nsource = Ptr[float](nsource_p)
+    raercol = Ptr[float](raercol_p)
+    raercol_cw = Ptr[float](raercol_cw_p)
+    factnum = Ptr[float](factnum_p)
+
+    for m in range(1, ntot_amode + 1):
+        factnum[_idx3(i, k, m, pcols, pver)] = fn[m - 1]
+
+    for m in range(1, ntot_amode + 1):
+        mm = int(mam_idx[_mam_idx(m, 0, ntot_amode)])
+        raer_fld = Ptr[float](raer_ptrs[mm - 1])
+        dact = dumc * fn[m - 1] * raer_fld[_idx2(i, k, pcols)]
+        qcld[k - 1] = qcld[k - 1] + dact
+        nsource[_idx2(i, k, pcols)] = nsource[_idx2(i, k, pcols)] + dact * dtinv
+        col_idx = _aero_col_idx(k, mm, nsav, pver, ncnst_tot)
+        raercol_cw[col_idx] = raercol_cw[col_idx] + dact
+        raercol[col_idx] = raercol[col_idx] - dact
+
+        dum = dumc * fm[m - 1]
+        for l in range(1, int(nspec_amode[m - 1]) + 1):
+            mm = int(mam_idx[_mam_idx(m, l, ntot_amode)])
+            raer_fld = Ptr[float](raer_ptrs[mm - 1])
+            dact = dum * raer_fld[_idx2(i, k, pcols)]
+            col_idx = _aero_col_idx(k, mm, nsav, pver, ncnst_tot)
+            raercol_cw[col_idx] = raercol_cw[col_idx] + dact
+            raercol[col_idx] = raercol[col_idx] - dact
 
 
 def ndrop_dropmixnuc_grow_cloud_species_update_codon(

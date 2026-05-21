@@ -76,7 +76,7 @@ integer, allocatable, target :: mam_idx(:,:) ! table for local indexing of modal
 integer :: ncnst_tot                  ! total number of mode number conc + mode species
 
 ! Indices for MAM species in the ptend%q array.  Needed for prognostic aerosol case.
-integer, allocatable :: mam_cnst_idx(:,:)
+integer, allocatable, target :: mam_cnst_idx(:,:)
 
 
 ! ptr2d_t is used to create arrays of pointers to 2D fields
@@ -161,6 +161,14 @@ interface
       type(c_ptr), value :: raer_fld_p, qqcw_fld_p, raercol_p, raercol_cw_p
    end subroutine ndrop_dropmixnuc_aero_column_copy_codon
 
+   subroutine ndrop_dropmixnuc_aero_column_copy_all_codon(i_c, pcols_c, pver_c, top_lev_c, &
+        ntot_amode_c, ncnst_tot_c, slot_c, raer_ptrs_p, qqcw_ptrs_p, nspec_amode_p, &
+        mam_idx_p, raercol_p, raercol_cw_p) bind(c, name="ndrop_dropmixnuc_aero_column_copy_all_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: i_c, pcols_c, pver_c, top_lev_c, ntot_amode_c, ncnst_tot_c, slot_c
+      type(c_ptr), value :: raer_ptrs_p, qqcw_ptrs_p, nspec_amode_p, mam_idx_p, raercol_p, raercol_cw_p
+   end subroutine ndrop_dropmixnuc_aero_column_copy_all_codon
+
    subroutine ndrop_dropmixnuc_aero_tend_prepare_codon(i_c, pcols_c, pver_c, top_lev_c, ncnst_tot_c, &
         mm_c, slot_c, dtinv_c, raer_fld_p, qqcw_fld_p, raercol_p, raercol_cw_p, raertend_p, qqcwtend_p) &
         bind(c, name="ndrop_dropmixnuc_aero_tend_prepare_codon")
@@ -194,6 +202,18 @@ interface
       real(c_double), value :: gravit_c
       type(c_ptr), value :: pdel_p, raertend_p, qqcwtend_p, coltend_out_p, coltend_cw_out_p
    end subroutine ndrop_dropmixnuc_aero_coltend_codon
+
+   subroutine ndrop_dropmixnuc_aero_tend_all_codon(i_c, pcols_c, psetcols_c, pver_c, top_lev_c, &
+        ntot_amode_c, ncnst_tot_c, slot_c, dtinv_c, gravit_c, raer_ptrs_p, qqcw_ptrs_p, &
+        nspec_amode_p, mam_idx_p, mam_cnst_idx_p, pdel_p, raercol_p, raercol_cw_p, &
+        coltend_p, coltend_cw_p, ptend_q_p) bind(c, name="ndrop_dropmixnuc_aero_tend_all_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: i_c, pcols_c, psetcols_c, pver_c, top_lev_c
+      integer(c_int64_t), value :: ntot_amode_c, ncnst_tot_c, slot_c
+      real(c_double), value :: dtinv_c, gravit_c
+      type(c_ptr), value :: raer_ptrs_p, qqcw_ptrs_p, nspec_amode_p, mam_idx_p, mam_cnst_idx_p
+      type(c_ptr), value :: pdel_p, raercol_p, raercol_cw_p, coltend_p, coltend_cw_p, ptend_q_p
+   end subroutine ndrop_dropmixnuc_aero_tend_all_codon
 
    subroutine ndrop_dropmixnuc_finalize_column_codon(i_c, pcols_c, pver_c, top_lev_c, dtinv_c, &
         gravit_c, qcld_p, ncldwtr_p, pdel_p, nsource_p, ndropmix_p, tendnd_p, ndropcol_p) &
@@ -239,6 +259,17 @@ interface
       real(c_double), value :: dtinv_c, dumc_c, fn_m_c
       type(c_ptr), value :: raer_fld_p, qcld_p, nsource_p, raercol_p, raercol_cw_p
    end subroutine ndrop_dropmixnuc_grow_cloud_number_update_codon
+
+   subroutine ndrop_dropmixnuc_grow_cloud_update_all_codon(i_c, k_c, pcols_c, pver_c, &
+        ntot_amode_c, ncnst_tot_c, nsav_c, dtinv_c, dumc_c, raer_ptrs_p, nspec_amode_p, &
+        mam_idx_p, fn_p, fm_p, qcld_p, nsource_p, raercol_p, raercol_cw_p, factnum_p) &
+        bind(c, name="ndrop_dropmixnuc_grow_cloud_update_all_codon")
+      use iso_c_binding, only: c_int64_t, c_double, c_ptr
+      integer(c_int64_t), value :: i_c, k_c, pcols_c, pver_c, ntot_amode_c, ncnst_tot_c, nsav_c
+      real(c_double), value :: dtinv_c, dumc_c
+      type(c_ptr), value :: raer_ptrs_p, nspec_amode_p, mam_idx_p, fn_p, fm_p
+      type(c_ptr), value :: qcld_p, nsource_p, raercol_p, raercol_cw_p, factnum_p
+   end subroutine ndrop_dropmixnuc_grow_cloud_update_all_codon
 
    subroutine ndrop_dropmixnuc_grow_cloud_species_update_codon(i_c, k_c, pcols_c, pver_c, &
         ncnst_tot_c, nsav_c, mm_c, dum_c, raer_fld_p, raercol_p, raercol_cw_p) &
@@ -507,7 +538,7 @@ subroutine ndrop_dropmixnuc_helpers_proof_once()
 
    if (masterproc) then
       write(iulog,'(A)') 'ndrop_dropmixnuc_helpers entered (array setup/grow-shrink/oldcloud/mix/' // &
-           'source/submix init/aero tend/coltend/ptend and qqcw commit/tend zero/clear/finalize direct = codon)'
+           'source/submix init/aero pointer-table batches/grow batch/aero tend all/clear/finalize direct = codon)'
    end if
 
 end subroutine ndrop_dropmixnuc_helpers_proof_once
@@ -1019,7 +1050,7 @@ subroutine dropmixnuc( &
    ! assume cloud presence controlled by cloud fraction
    ! doesn't distinguish between warm, cold clouds
 
-   use iso_c_binding, only: c_int64_t, c_loc
+   use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr, c_ptr
 
    ! arguments
    type(physics_state), target, intent(in)    :: state
@@ -1054,6 +1085,8 @@ subroutine dropmixnuc( &
 
    type(ptr2d_t), allocatable :: raer(:)     ! aerosol mass, number mixing ratios
    type(ptr2d_t), allocatable :: qqcw(:)
+   type(c_ptr), target :: raer_ptrs(ncnst_tot)
+   type(c_ptr), target :: qqcw_ptrs(ncnst_tot)
    real(r8), target :: raertend(pver)  ! tendency of aerosol mass, number mixing ratios
    real(r8), target :: qqcwtend(pver)  ! tendency of cloudborne aerosol mass, number mixing ratios
 
@@ -1129,7 +1162,7 @@ subroutine dropmixnuc( &
    real(r8), target :: source(pver)
 
    real(r8), allocatable, target :: fn(:)      ! activation fraction for aerosol number
-   real(r8), allocatable :: fm(:)              ! activation fraction for aerosol mass
+   real(r8), allocatable, target :: fm(:)      ! activation fraction for aerosol mass
 
    real(r8), allocatable, target :: fluxn(:)   ! number  activation fraction flux (cm/s)
    real(r8), allocatable, target :: fluxm(:)   ! mass    activation fraction flux (cm/s)
@@ -1139,8 +1172,8 @@ subroutine dropmixnuc( &
    !           / [aero. number conc. in updraft, just below cloudbase (#/cm3)]
 
 
-   real(r8), allocatable :: coltend(:,:)       ! column tendency for diagnostic output
-   real(r8), allocatable :: coltend_cw(:,:)    ! column tendency
+   real(r8), allocatable, target :: coltend(:,:)    ! column tendency for diagnostic output
+   real(r8), allocatable, target :: coltend_cw(:,:) ! column tendency
    real(r8) :: ccn(pcols,pver,psat)    ! number conc of aerosols activated at supersat
 
    !-------------------------------------------------------------------------------
@@ -1196,14 +1229,20 @@ subroutine dropmixnuc( &
 
    ! Init pointers to mode number and specie mass mixing ratios in 
    ! intersitial and cloud borne phases.
+   raer_ptrs = c_null_ptr
+   qqcw_ptrs = c_null_ptr
    do m = 1, ntot_amode
       mm = mam_idx(m, 0)
       call rad_cnst_get_mode_num(0, m, 'a', state, pbuf, raer(mm)%fld)
       call rad_cnst_get_mode_num(0, m, 'c', state, pbuf, qqcw(mm)%fld)  ! cloud-borne aerosol
+      raer_ptrs(mm) = c_loc(raer(mm)%fld(1,1))
+      qqcw_ptrs(mm) = c_loc(qqcw(mm)%fld(1,1))
       do l = 1, nspec_amode(m)
          mm = mam_idx(m, l)
          call rad_cnst_get_aer_mmr(0, m, l, 'a', state, pbuf, raer(mm)%fld)
          call rad_cnst_get_aer_mmr(0, m, l, 'c', state, pbuf, qqcw(mm)%fld)  ! cloud-borne aerosol
+         raer_ptrs(mm) = c_loc(raer(mm)%fld(1,1))
+         qqcw_ptrs(mm) = c_loc(qqcw(mm)%fld(1,1))
       end do
    end do
 
@@ -1290,34 +1329,27 @@ subroutine dropmixnuc( &
 
       nsav = 1
       nnew = 2
-      do m = 1, ntot_amode
-         mm = mam_idx(m,0)
-         if (use_native_ndrop_dropmixnuc_helpers_impl) then
+      if (use_native_ndrop_dropmixnuc_helpers_impl) then
+         do m = 1, ntot_amode
+            mm = mam_idx(m,0)
             raercol_cw(:,mm,nsav) = 0.0_r8
             raercol(:,mm,nsav)    = 0.0_r8
             raercol_cw(top_lev:pver,mm,nsav) = qqcw(mm)%fld(i,top_lev:pver)
             raercol(top_lev:pver,mm,nsav)    = raer(mm)%fld(i,top_lev:pver)
-         else
-            call ndrop_dropmixnuc_helpers_proof_once()
-            call ndrop_dropmixnuc_aero_column_copy_codon(int(i, c_int64_t), int(pcols, c_int64_t), &
-                 int(pver, c_int64_t), int(top_lev, c_int64_t), int(ncnst_tot, c_int64_t), &
-                 int(mm, c_int64_t), int(nsav, c_int64_t), 1_c_int64_t, c_loc(raer(mm)%fld(1,1)), &
-                 c_loc(qqcw(mm)%fld(1,1)), c_loc(raercol(1,1,1)), c_loc(raercol_cw(1,1,1)))
-         end if
-         do l = 1, nspec_amode(m)
-            mm = mam_idx(m,l)
-            if (use_native_ndrop_dropmixnuc_helpers_impl) then
+            do l = 1, nspec_amode(m)
+               mm = mam_idx(m,l)
                raercol_cw(top_lev:pver,mm,nsav) = qqcw(mm)%fld(i,top_lev:pver)
                raercol(top_lev:pver,mm,nsav)    = raer(mm)%fld(i,top_lev:pver)
-            else
-               call ndrop_dropmixnuc_helpers_proof_once()
-               call ndrop_dropmixnuc_aero_column_copy_codon(int(i, c_int64_t), int(pcols, c_int64_t), &
-                    int(pver, c_int64_t), int(top_lev, c_int64_t), int(ncnst_tot, c_int64_t), &
-                    int(mm, c_int64_t), int(nsav, c_int64_t), 0_c_int64_t, c_loc(raer(mm)%fld(1,1)), &
-                    c_loc(qqcw(mm)%fld(1,1)), c_loc(raercol(1,1,1)), c_loc(raercol_cw(1,1,1)))
-            end if
+            end do
          end do
-      end do
+      else
+         call ndrop_dropmixnuc_helpers_proof_once()
+         call ndrop_dropmixnuc_aero_column_copy_all_codon(int(i, c_int64_t), int(pcols, c_int64_t), &
+              int(pver, c_int64_t), int(top_lev, c_int64_t), int(ntot_amode, c_int64_t), &
+              int(ncnst_tot, c_int64_t), int(nsav, c_int64_t), c_loc(raer_ptrs(1)), &
+              c_loc(qqcw_ptrs(1)), c_loc(nspec_amode(1)), c_loc(mam_idx(1,0)), &
+              c_loc(raercol(1,1,1)), c_loc(raercol_cw(1,1,1)))
+      end if
 
       ! droplet nucleation/aerosol activation
 
@@ -1404,49 +1436,33 @@ subroutine dropmixnuc( &
                vaerosol, hygro, fn, fm, fluxn,                      &
                fluxm,flux_fullact(k))
 
+            dumc = (cldn_tmp - cldo_tmp)
             if (use_native_ndrop_dropmixnuc_helpers_impl) then
                factnum(i,k,:) = fn
-            else
-               call ndrop_dropmixnuc_helpers_proof_once()
-               call ndrop_dropmixnuc_factnum_store_codon(int(i, c_int64_t), int(k, c_int64_t), &
-                    int(pcols, c_int64_t), int(pver, c_int64_t), int(ntot_amode, c_int64_t), &
-                    c_loc(fn(1)), c_loc(factnum(1,1,1)))
-            end if
-
-            dumc = (cldn_tmp - cldo_tmp)
-            do m = 1, ntot_amode
-               mm = mam_idx(m,0)
-               if (use_native_ndrop_dropmixnuc_helpers_impl) then
+               do m = 1, ntot_amode
+                  mm = mam_idx(m,0)
                   dact   = dumc*fn(m)*raer(mm)%fld(i,k) ! interstitial only
                   qcld(k) = qcld(k) + dact
                   nsource(i,k) = nsource(i,k) + dact*dtinv
                   raercol_cw(k,mm,nsav) = raercol_cw(k,mm,nsav) + dact  ! cloud-borne aerosol
                   raercol(k,mm,nsav)    = raercol(k,mm,nsav) - dact
-               else
-                  call ndrop_dropmixnuc_helpers_proof_once()
-                  call ndrop_dropmixnuc_grow_cloud_number_update_codon(int(i, c_int64_t), &
-                       int(k, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-                       int(ncnst_tot, c_int64_t), int(nsav, c_int64_t), int(mm, c_int64_t), &
-                       dtinv, dumc, fn(m), c_loc(raer(mm)%fld(1,1)), c_loc(qcld(1)), &
-                       c_loc(nsource(1,1)), c_loc(raercol(1,1,1)), c_loc(raercol_cw(1,1,1)))
-               end if
-               dum = dumc*fm(m)
-               do l = 1, nspec_amode(m)
-                  mm = mam_idx(m,l)
-                  if (use_native_ndrop_dropmixnuc_helpers_impl) then
+                  dum = dumc*fm(m)
+                  do l = 1, nspec_amode(m)
+                     mm = mam_idx(m,l)
                      dact    = dum*raer(mm)%fld(i,k) ! interstitial only
                      raercol_cw(k,mm,nsav) = raercol_cw(k,mm,nsav) + dact  ! cloud-borne aerosol
                      raercol(k,mm,nsav)    = raercol(k,mm,nsav) - dact
-                  else
-                     call ndrop_dropmixnuc_helpers_proof_once()
-                     call ndrop_dropmixnuc_grow_cloud_species_update_codon(int(i, c_int64_t), &
-                          int(k, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
-                          int(ncnst_tot, c_int64_t), int(nsav, c_int64_t), int(mm, c_int64_t), &
-                          dum, c_loc(raer(mm)%fld(1,1)), c_loc(raercol(1,1,1)), &
-                          c_loc(raercol_cw(1,1,1)))
-                  end if
+                  enddo
                enddo
-            enddo
+            else
+               call ndrop_dropmixnuc_helpers_proof_once()
+               call ndrop_dropmixnuc_grow_cloud_update_all_codon(int(i, c_int64_t), int(k, c_int64_t), &
+                    int(pcols, c_int64_t), int(pver, c_int64_t), int(ntot_amode, c_int64_t), &
+                    int(ncnst_tot, c_int64_t), int(nsav, c_int64_t), dtinv, dumc, c_loc(raer_ptrs(1)), &
+                    c_loc(nspec_amode(1)), c_loc(mam_idx(1,0)), c_loc(fn(1)), c_loc(fm(1)), &
+                    c_loc(qcld(1)), c_loc(nsource(1,1)), c_loc(raercol(1,1,1)), &
+                    c_loc(raercol_cw(1,1,1)), c_loc(factnum(1,1,1)))
+            end if
          endif
 
       enddo  ! grow_shrink_main_k_loop
@@ -1906,63 +1922,33 @@ subroutine dropmixnuc( &
          if (use_native_ndrop_dropmixnuc_helpers_impl) then
             raertend = 0._r8
             qqcwtend = 0._r8
-         else
-            call ndrop_dropmixnuc_helpers_proof_once()
-            call ndrop_dropmixnuc_zero_tendencies_codon(int(pver, c_int64_t), &
-                 c_loc(raertend(1)), c_loc(qqcwtend(1)))
-         end if
 
-         do m = 1, ntot_amode
-            do l = 0, nspec_amode(m)
+            do m = 1, ntot_amode
+               do l = 0, nspec_amode(m)
 
-               mm   = mam_idx(m,l)
-               lptr = mam_cnst_idx(m,l)
+                  mm   = mam_idx(m,l)
+                  lptr = mam_cnst_idx(m,l)
 
-               if (use_native_ndrop_dropmixnuc_helpers_impl) then
                   raertend(top_lev:pver) = (raercol(top_lev:pver,mm,nnew) - raer(mm)%fld(i,top_lev:pver))*dtinv
                   qqcwtend(top_lev:pver) = (raercol_cw(top_lev:pver,mm,nnew) - qqcw(mm)%fld(i,top_lev:pver))*dtinv
-               else
-                  call ndrop_dropmixnuc_helpers_proof_once()
-                  call ndrop_dropmixnuc_aero_tend_prepare_codon(int(i, c_int64_t), int(pcols, c_int64_t), &
-                       int(pver, c_int64_t), int(top_lev, c_int64_t), int(ncnst_tot, c_int64_t), &
-                       int(mm, c_int64_t), int(nnew, c_int64_t), dtinv, c_loc(raer(mm)%fld(1,1)), &
-                       c_loc(qqcw(mm)%fld(1,1)), c_loc(raercol(1,1,1)), c_loc(raercol_cw(1,1,1)), &
-                       c_loc(raertend(1)), c_loc(qqcwtend(1)))
-               end if
 
-               if (use_native_ndrop_dropmixnuc_helpers_impl) then
                   coltend(i,mm)    = sum( pdel(i,:)*raertend )/gravit
                   coltend_cw(i,mm) = sum( pdel(i,:)*qqcwtend )/gravit
-               else
-                  call ndrop_dropmixnuc_helpers_proof_once()
-                  call ndrop_dropmixnuc_aero_coltend_codon(int(i, c_int64_t), int(pcols, c_int64_t), &
-                       int(pver, c_int64_t), int(mm, c_int64_t), gravit, c_loc(pdel(1,1)), &
-                       c_loc(raertend(1)), c_loc(qqcwtend(1)), c_loc(coltend_tmp), &
-                       c_loc(coltend_cw_tmp))
-                  coltend(i,mm)    = coltend_tmp
-                  coltend_cw(i,mm) = coltend_cw_tmp
-               end if
 
-               if (use_native_ndrop_dropmixnuc_helpers_impl) then
                   ptend%q(i,:,lptr) = 0.0_r8
                   ptend%q(i,top_lev:pver,lptr) = raertend(top_lev:pver) ! set tendencies for interstitial aerosol
-               else
-                  call ndrop_dropmixnuc_helpers_proof_once()
-                  call ndrop_dropmixnuc_aero_tend_commit_ptend_codon_wrap(i, ptend%psetcols, pver, &
-                       top_lev, pcnst, lptr, raertend, ptend%q)
-               end if
-               if (use_native_ndrop_dropmixnuc_helpers_impl) then
+
                   qqcw(mm)%fld(i,:) = 0.0_r8
                   qqcw(mm)%fld(i,top_lev:pver) = raercol_cw(top_lev:pver,mm,nnew) ! update cloud-borne aerosol
-               else
-                  call ndrop_dropmixnuc_helpers_proof_once()
-                  call ndrop_dropmixnuc_aero_tend_commit_qqcw_codon(int(i, c_int64_t), &
-                       int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
-                       int(ncnst_tot, c_int64_t), int(mm, c_int64_t), int(nnew, c_int64_t), &
-                       c_loc(qqcw(mm)%fld(1,1)), c_loc(raercol_cw(1,1,1)))
-               end if
+               end do
             end do
-         end do
+         else
+            call ndrop_dropmixnuc_helpers_proof_once()
+            call ndrop_dropmixnuc_aero_tend_all_codon_wrap(i, pcols, ptend%psetcols, pver, top_lev, &
+                 ntot_amode, ncnst_tot, size(mam_idx,2)-1, nnew, dtinv, gravit, raer_ptrs, qqcw_ptrs, &
+                 nspec_amode, mam_idx, mam_cnst_idx, pdel, raercol, raercol_cw, coltend, &
+                 coltend_cw, ptend%q)
+         end if
 
       end if
 
@@ -2008,6 +1994,38 @@ subroutine dropmixnuc( &
       fluxm       )
 
 end subroutine dropmixnuc
+
+!===============================================================================
+
+subroutine ndrop_dropmixnuc_aero_tend_all_codon_wrap(i, pcols_local, psetcols_local, pver_local, &
+     top_lev_local, ntot_amode_local, ncnst_tot_local, nspec_max_local, slot, dtinv, gravit, &
+     raer_ptrs, qqcw_ptrs, nspec_amode_local, mam_idx_local, mam_cnst_idx_local, pdel_local, &
+     raercol_local, raercol_cw_local, coltend_local, coltend_cw_local, ptend_q)
+   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
+   integer, intent(in) :: i, pcols_local, psetcols_local, pver_local, top_lev_local
+   integer, intent(in) :: ntot_amode_local, ncnst_tot_local, nspec_max_local, slot
+   real(r8), intent(in) :: dtinv, gravit
+   type(c_ptr), target, intent(in) :: raer_ptrs(ncnst_tot_local)
+   type(c_ptr), target, intent(in) :: qqcw_ptrs(ncnst_tot_local)
+   integer, target, intent(in) :: nspec_amode_local(ntot_amode_local)
+   integer, target, intent(in) :: mam_idx_local(ntot_amode_local,0:nspec_max_local)
+   integer, target, intent(in) :: mam_cnst_idx_local(ntot_amode_local,0:nspec_max_local)
+   real(r8), target, intent(in) :: pdel_local(pcols_local,pver_local)
+   real(r8), target, intent(inout) :: raercol_local(pver_local,ncnst_tot_local,2)
+   real(r8), target, intent(inout) :: raercol_cw_local(pver_local,ncnst_tot_local,2)
+   real(r8), target, intent(inout) :: coltend_local(pcols_local,ncnst_tot_local)
+   real(r8), target, intent(inout) :: coltend_cw_local(pcols_local,ncnst_tot_local)
+   real(r8), target, intent(inout) :: ptend_q(psetcols_local,pver_local,pcnst)
+
+   call ndrop_dropmixnuc_aero_tend_all_codon(int(i, c_int64_t), int(pcols_local, c_int64_t), &
+        int(psetcols_local, c_int64_t), int(pver_local, c_int64_t), int(top_lev_local, c_int64_t), &
+        int(ntot_amode_local, c_int64_t), int(ncnst_tot_local, c_int64_t), int(slot, c_int64_t), &
+        dtinv, gravit, c_loc(raer_ptrs(1)), c_loc(qqcw_ptrs(1)), c_loc(nspec_amode_local(1)), &
+        c_loc(mam_idx_local(1,0)), c_loc(mam_cnst_idx_local(1,0)), c_loc(pdel_local(1,1)), &
+        c_loc(raercol_local(1,1,1)), c_loc(raercol_cw_local(1,1,1)), c_loc(coltend_local(1,1)), &
+        c_loc(coltend_cw_local(1,1)), c_loc(ptend_q(1,1,1)))
+end subroutine ndrop_dropmixnuc_aero_tend_all_codon_wrap
 
 !===============================================================================
 

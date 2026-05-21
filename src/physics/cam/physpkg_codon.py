@@ -4613,6 +4613,39 @@ def ndrop_dropmixnuc_aero_column_copy_codon(
 
 
 @export
+def ndrop_dropmixnuc_aero_column_copy_all_codon(
+    i: int,
+    pcols: int,
+    pver: int,
+    top_lev: int,
+    ntot_amode: int,
+    ncnst_tot: int,
+    slot: int,
+    raer_ptrs_p: cobj,
+    qqcw_ptrs_p: cobj,
+    nspec_amode_p: cobj,
+    mam_idx_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+):
+    _ndrop.ndrop_dropmixnuc_aero_column_copy_all_codon(
+        i,
+        pcols,
+        pver,
+        top_lev,
+        ntot_amode,
+        ncnst_tot,
+        slot,
+        raer_ptrs_p,
+        qqcw_ptrs_p,
+        nspec_amode_p,
+        mam_idx_p,
+        raercol_p,
+        raercol_cw_p,
+    )
+
+
+@export
 def ndrop_dropmixnuc_aero_tend_prepare_codon(
     i: int,
     pcols: int,
@@ -4719,6 +4752,55 @@ def ndrop_dropmixnuc_aero_coltend_codon(
         qqcwtend_p,
         coltend_out_p,
         coltend_cw_out_p,
+    )
+
+
+@export
+def ndrop_dropmixnuc_aero_tend_all_codon(
+    i: int,
+    pcols: int,
+    psetcols: int,
+    pver: int,
+    top_lev: int,
+    ntot_amode: int,
+    ncnst_tot: int,
+    slot: int,
+    dtinv: float,
+    gravit: float,
+    raer_ptrs_p: cobj,
+    qqcw_ptrs_p: cobj,
+    nspec_amode_p: cobj,
+    mam_idx_p: cobj,
+    mam_cnst_idx_p: cobj,
+    pdel_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+    coltend_p: cobj,
+    coltend_cw_p: cobj,
+    ptend_q_p: cobj,
+):
+    _ndrop.ndrop_dropmixnuc_aero_tend_all_codon(
+        i,
+        pcols,
+        psetcols,
+        pver,
+        top_lev,
+        ntot_amode,
+        ncnst_tot,
+        slot,
+        dtinv,
+        gravit,
+        raer_ptrs_p,
+        qqcw_ptrs_p,
+        nspec_amode_p,
+        mam_idx_p,
+        mam_cnst_idx_p,
+        pdel_p,
+        raercol_p,
+        raercol_cw_p,
+        coltend_p,
+        coltend_cw_p,
+        ptend_q_p,
     )
 
 
@@ -4876,6 +4958,51 @@ def ndrop_dropmixnuc_grow_cloud_number_update_codon(
         nsource_p,
         raercol_p,
         raercol_cw_p,
+    )
+
+
+@export
+def ndrop_dropmixnuc_grow_cloud_update_all_codon(
+    i: int,
+    k: int,
+    pcols: int,
+    pver: int,
+    ntot_amode: int,
+    ncnst_tot: int,
+    nsav: int,
+    dtinv: float,
+    dumc: float,
+    raer_ptrs_p: cobj,
+    nspec_amode_p: cobj,
+    mam_idx_p: cobj,
+    fn_p: cobj,
+    fm_p: cobj,
+    qcld_p: cobj,
+    nsource_p: cobj,
+    raercol_p: cobj,
+    raercol_cw_p: cobj,
+    factnum_p: cobj,
+):
+    _ndrop.ndrop_dropmixnuc_grow_cloud_update_all_codon(
+        i,
+        k,
+        pcols,
+        pver,
+        ntot_amode,
+        ncnst_tot,
+        nsav,
+        dtinv,
+        dumc,
+        raer_ptrs_p,
+        nspec_amode_p,
+        mam_idx_p,
+        fn_p,
+        fm_p,
+        qcld_p,
+        nsource_p,
+        raercol_p,
+        raercol_cw_p,
+        factnum_p,
     )
 
 
