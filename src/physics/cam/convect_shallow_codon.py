@@ -12653,6 +12653,129 @@ def uwshcu_cloud_diag_batch_shell_codon(
 
 
 @export
+def uwshcu_cloud_diag_conden_batch_shell_codon(
+    kind: int,
+    mkx: int,
+    k_fortran: int,
+    krel: int,
+    kpen: int,
+    ncnst: int,
+    criqc_v: float,
+    prel_v: float,
+    ppen_v: float,
+    ufrclcl_v: float,
+    g_v: float,
+    thlu_top_v: float,
+    qtu_top_v: float,
+    thj_p: cobj,
+    qvj_p: cobj,
+    qlj_p: cobj,
+    qij_p: cobj,
+    qse_p: cobj,
+    id_check_p: cobj,
+    exit_conden_p: cobj,
+    exit_code_p: cobj,
+    cloud_qlj0_p: cobj,
+    cloud_qij0_p: cobj,
+    cloud_qlj_p: cobj,
+    cloud_qij_p: cobj,
+    ps0_p: cobj,
+    thlu_p: cobj,
+    qtu_p: cobj,
+    ufrc_p: cobj,
+    qcu_p: cobj,
+    qlu_p: cobj,
+    qiu_p: cobj,
+    cufrc_p: cobj,
+    qcubelow_p: cobj,
+    qlubelow_p: cobj,
+    qiubelow_p: cobj,
+    rcwp_p: cobj,
+    rlwp_p: cobj,
+    riwp_p: cobj,
+    cnt_p: cobj,
+    cnb_p: cobj,
+):
+    ps0 = Ptr[float](ps0_p)
+    thlu = Ptr[float](thlu_p)
+    qtu = Ptr[float](qtu_p)
+    id_check = Ptr[int](id_check_p)
+    qlj = Ptr[float](qlj_p)
+    qij = Ptr[float](qij_p)
+
+    if kind == 0:
+        uwshcu_conden_scalar_from_c_dispatch(
+            prel_v,
+            thlu[krel - 1],
+            qtu[krel - 1],
+            thj_p,
+            qvj_p,
+            qlj_p,
+            qij_p,
+            qse_p,
+            id_check_p,
+            ncnst,
+        )
+    elif kind == 1:
+        if k_fortran == kpen:
+            pressure = ps0[k_fortran - 1] + ppen_v
+            thl = thlu_top_v
+            qt = qtu_top_v
+        else:
+            pressure = ps0[k_fortran]
+            thl = thlu[k_fortran]
+            qt = qtu[k_fortran]
+        uwshcu_conden_scalar_from_c_dispatch(
+            pressure,
+            thl,
+            qt,
+            thj_p,
+            qvj_p,
+            qlj_p,
+            qij_p,
+            qse_p,
+            id_check_p,
+            ncnst,
+        )
+
+    uwshcu_cloud_diag_batch_stage_dispatch_codon(
+        kind,
+        mkx,
+        k_fortran,
+        krel,
+        kpen,
+        id_check[0],
+        qlj[0],
+        qij[0],
+        criqc_v,
+        prel_v,
+        ppen_v,
+        ufrclcl_v,
+        g_v,
+        exit_conden_p,
+        exit_code_p,
+        cloud_qlj0_p,
+        cloud_qij0_p,
+        cloud_qlj_p,
+        cloud_qij_p,
+        ps0_p,
+        ufrc_p,
+        qcu_p,
+        qlu_p,
+        qiu_p,
+        cufrc_p,
+        qcubelow_p,
+        qlubelow_p,
+        qiubelow_p,
+        rcwp_p,
+        rlwp_p,
+        riwp_p,
+        cnt_p,
+        cnb_p,
+    )
+
+
+@export
 def uwshcu_cloud_diag_index_shell_codon(
     kpen: int,
     krel: int,

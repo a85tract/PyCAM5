@@ -2367,10 +2367,10 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') 'uwshcu cloud diag batch shell entered ' // &
-            '(unified cloud-diag stage dispatch = codon; conden/goto native)'
+            '(unified cloud-diag stage dispatch = codon; conden callback/goto native)'
        call uwshcu_append_proof( &
             'uwshcu cloud diag batch shell entered ' // &
-            '(unified cloud-diag stage dispatch = codon; conden/goto native)')
+            '(unified cloud-diag stage dispatch = codon; conden callback/goto native)')
        call flush(iulog)
     end if
 
@@ -4300,7 +4300,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: buoy_conden_exit_code_c
     integer(c_int64_t), target       :: buoy_top_id_check_c, buoy_top_conden_exit_code_c
     integer(c_int64_t), target       :: buoy_top_prep_warning_code_c
-    integer(c_int64_t), target       :: cloud_diag_conden_exit_code_c
+    integer(c_int64_t), target       :: cloud_diag_id_check_c, cloud_diag_conden_exit_code_c
     integer(c_int64_t), target       :: comp_sub_loop_id_check_c, comp_sub_conden_exit_code_c
     integer(c_int64_t), target       :: thermo_conden_exit_code_c
     integer(c_int64_t), target       :: thermo_emf_conden_exit_code_c
@@ -5101,6 +5101,22 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: cufrc_p, qcubelow_p, qlubelow_p, qiubelow_p
           type(c_ptr), value :: rcwp_p, rlwp_p, riwp_p, cnt_p, cnb_p
        end subroutine uwshcu_cloud_diag_batch_shell_codon
+
+       subroutine uwshcu_cloud_diag_conden_batch_shell_codon(kind_c, mkx_c, k_c, krel_c, kpen_c, &
+            ncnst_c, criqc_c, prel_c, ppen_c, ufrclcl_c, g_c, thlu_top_c, qtu_top_c, thj_p, qvj_p, &
+            qlj_p, qij_p, qse_p, id_check_p, exit_conden_p, exit_code_p, cloud_qlj0_p, cloud_qij0_p, &
+            cloud_qlj_p, cloud_qij_p, ps0_p, thlu_p, qtu_p, ufrc_p, qcu_p, qlu_p, qiu_p, cufrc_p, &
+            qcubelow_p, qlubelow_p, qiubelow_p, rcwp_p, rlwp_p, riwp_p, cnt_p, cnb_p) &
+            bind(c, name="uwshcu_cloud_diag_conden_batch_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: kind_c, mkx_c, k_c, krel_c, kpen_c, ncnst_c
+          real(c_double), value :: criqc_c, prel_c, ppen_c, ufrclcl_c, g_c, thlu_top_c, qtu_top_c
+          type(c_ptr), value :: thj_p, qvj_p, qlj_p, qij_p, qse_p, id_check_p
+          type(c_ptr), value :: exit_conden_p, exit_code_p, cloud_qlj0_p, cloud_qij0_p
+          type(c_ptr), value :: cloud_qlj_p, cloud_qij_p, ps0_p, thlu_p, qtu_p, ufrc_p
+          type(c_ptr), value :: qcu_p, qlu_p, qiu_p, cufrc_p, qcubelow_p, qlubelow_p, qiubelow_p
+          type(c_ptr), value :: rcwp_p, rlwp_p, riwp_p, cnt_p, cnb_p
+       end subroutine uwshcu_cloud_diag_conden_batch_shell_codon
 
        subroutine uwshcu_buoy_top_expel_final_shell_codon(kpen_c, criqc_c, xlv_c, xls_c, cp_c, &
             exntop_c, qlj_c, qij_c, thlu_top_p, qtu_top_p, dwten_p, diten_p) &
@@ -11687,8 +11703,8 @@ end subroutine uwshcu_readnl
  
        !NOTE:  This section of code is solely for diagnostic output, which doesn't impact water tracers. - JN
 
-       call conden(prel,thlu(krel-1),qtu(krel-1),thj,qvj,qlj,qij,qse,id_check,ncnst)
        if (use_native_init_shell_impl) then
+          call conden(prel,thlu(krel-1),qtu(krel-1),thj,qvj,qlj,qij,qse,id_check,ncnst)
           if( id_check .eq. 1 ) then
               exit_conden(i) = 1._r8
               id_exit = .true.
@@ -11696,13 +11712,15 @@ end subroutine uwshcu_readnl
           end if
        else
           call uwshcu_log_cloud_diag_batch_shell_entered()
-          call uwshcu_cloud_diag_batch_shell_codon(0_c_int64_t, int(mkx, c_int64_t), 0_c_int64_t, &
-                int(krel, c_int64_t), int(kpen, c_int64_t), int(id_check, c_int64_t), qlj, qij, &
-                criqc, prel, ppen, ufrclcl, g, c_loc(exit_conden(i)), c_loc(cloud_diag_conden_exit_code_c), &
+          cloud_diag_id_check_c = 0_c_int64_t
+          call uwshcu_cloud_diag_conden_batch_shell_codon(0_c_int64_t, int(mkx, c_int64_t), 0_c_int64_t, &
+                int(krel, c_int64_t), int(kpen, c_int64_t), int(ncnst, c_int64_t), criqc, prel, ppen, &
+                ufrclcl, g, 0._r8, 0._r8, c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), c_loc(qse), &
+                c_loc(cloud_diag_id_check_c), c_loc(exit_conden(i)), c_loc(cloud_diag_conden_exit_code_c), &
                 c_loc(cloud_diag_qlj0), c_loc(cloud_diag_qij0), c_loc(cloud_diag_qlj), c_loc(cloud_diag_qij), &
-                c_loc(ps0), c_loc(ufrc), c_loc(qcu), c_loc(qlu), c_loc(qiu), c_loc(cufrc), &
-                c_loc(qcubelow), c_loc(qlubelow), c_loc(qiubelow), c_loc(rcwp), c_loc(rlwp), c_loc(riwp), &
-                c_loc(cnt), c_loc(cnb))
+                c_loc(ps0), c_loc(thlu), c_loc(qtu), c_loc(ufrc), c_loc(qcu), c_loc(qlu), c_loc(qiu), &
+                c_loc(cufrc), c_loc(qcubelow), c_loc(qlubelow), c_loc(qiubelow), c_loc(rcwp), c_loc(rlwp), &
+                c_loc(riwp), c_loc(cnt), c_loc(cnb))
           if( cloud_diag_conden_exit_code_c .ne. 0_c_int64_t ) then
               id_exit = .true.
               go to 333
@@ -11727,12 +11745,12 @@ end subroutine uwshcu_readnl
           ! Note 'ppen < 0' and at 'k=kpen' layer, I used 'thlu_top'&'qtu_top' !
           ! which explicitly considered zero or non-zero 'fer(kpen)'.          !
           ! ------------------------------------------------------------------ ! 
-          if( k .eq. kpen ) then 
-              call conden(ps0(k-1)+ppen,thlu_top,qtu_top,thj,qvj,qlj,qij,qse,id_check,ncnst)
-          else
-              call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,ncnst)
-          endif
           if (use_native_init_shell_impl) then
+             if( k .eq. kpen ) then
+                 call conden(ps0(k-1)+ppen,thlu_top,qtu_top,thj,qvj,qlj,qij,qse,id_check,ncnst)
+             else
+                 call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,ncnst)
+             endif
              if( id_check .eq. 1 ) then
                  exit_conden(i) = 1._r8
                  id_exit = .true.
@@ -11740,13 +11758,15 @@ end subroutine uwshcu_readnl
              end if
           else
              call uwshcu_log_cloud_diag_batch_shell_entered()
-             call uwshcu_cloud_diag_batch_shell_codon(1_c_int64_t, int(mkx, c_int64_t), int(k, c_int64_t), &
-                   int(krel, c_int64_t), int(kpen, c_int64_t), int(id_check, c_int64_t), qlj, qij, &
-                   criqc, prel, ppen, ufrclcl, g, c_loc(exit_conden(i)), c_loc(cloud_diag_conden_exit_code_c), &
+             cloud_diag_id_check_c = 0_c_int64_t
+             call uwshcu_cloud_diag_conden_batch_shell_codon(1_c_int64_t, int(mkx, c_int64_t), int(k, c_int64_t), &
+                   int(krel, c_int64_t), int(kpen, c_int64_t), int(ncnst, c_int64_t), criqc, prel, ppen, &
+                   ufrclcl, g, thlu_top, qtu_top, c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), c_loc(qse), &
+                   c_loc(cloud_diag_id_check_c), c_loc(exit_conden(i)), c_loc(cloud_diag_conden_exit_code_c), &
                    c_loc(cloud_diag_qlj0), c_loc(cloud_diag_qij0), c_loc(cloud_diag_qlj), c_loc(cloud_diag_qij), &
-                   c_loc(ps0), c_loc(ufrc), c_loc(qcu), c_loc(qlu), c_loc(qiu), c_loc(cufrc), &
-                   c_loc(qcubelow), c_loc(qlubelow), c_loc(qiubelow), c_loc(rcwp), c_loc(rlwp), c_loc(riwp), &
-                   c_loc(cnt), c_loc(cnb))
+                   c_loc(ps0), c_loc(thlu), c_loc(qtu), c_loc(ufrc), c_loc(qcu), c_loc(qlu), c_loc(qiu), &
+                   c_loc(cufrc), c_loc(qcubelow), c_loc(qlubelow), c_loc(qiubelow), c_loc(rcwp), c_loc(rlwp), &
+                   c_loc(riwp), c_loc(cnt), c_loc(cnb))
              if( cloud_diag_conden_exit_code_c .ne. 0_c_int64_t ) then
                  id_exit = .true.
                  go to 333
