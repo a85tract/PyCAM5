@@ -11,7 +11,6 @@ from C import uwshcu_wtrc_metadata_from_c_cb(Ptr[int], Ptr[int]) -> None
 from C import uwshcu_wtrc_ratio_type_from_c_cb(int, float, float) -> float
 from C import uwshcu_wtrc_precip_evap_isotope_from_c_cb(int, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float) -> float
 from C import uwshcu_wtrc_precip_mass_error_from_c_cb(float, float, float, float, int) -> None
-from C import uwshcu_positive_moisture_single_from_c_cb(int, int, int, float, float, float, float, float, float, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[int]) -> None
 
 
 def uwshcu_compute_native_from_c_dispatch(
@@ -339,51 +338,3 @@ def uwshcu_wtrc_precip_mass_error_from_c_dispatch(
     m: int,
 ):
     uwshcu_wtrc_precip_mass_error_from_c_cb(wtprec_m, wtprec_1, wtsnow_m, wtsnow_1, m)
-
-
-def uwshcu_positive_moisture_single_from_c_dispatch(
-    mkx: int,
-    ncnst: int,
-    trace_water: int,
-    xlv: float,
-    xls: float,
-    dt: float,
-    qvmin: float,
-    qlmin: float,
-    qimin: float,
-    dp_p: cobj,
-    qv_p: cobj,
-    ql_p: cobj,
-    qi_p: cobj,
-    s_p: cobj,
-    qvten_p: cobj,
-    qlten_p: cobj,
-    qiten_p: cobj,
-    sten_p: cobj,
-    wtr_p: cobj,
-    wtten_p: cobj,
-    status_p: cobj,
-):
-    uwshcu_positive_moisture_single_from_c_cb(
-        mkx,
-        ncnst,
-        trace_water,
-        xlv,
-        xls,
-        dt,
-        qvmin,
-        qlmin,
-        qimin,
-        Ptr[float](dp_p),
-        Ptr[float](qv_p),
-        Ptr[float](ql_p),
-        Ptr[float](qi_p),
-        Ptr[float](s_p),
-        Ptr[float](qvten_p),
-        Ptr[float](qlten_p),
-        Ptr[float](qiten_p),
-        Ptr[float](sten_p),
-        Ptr[float](wtr_p),
-        Ptr[float](wtten_p),
-        Ptr[int](status_p),
-    )
