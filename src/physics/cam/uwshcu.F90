@@ -143,6 +143,7 @@
   logical :: positive_moisture_prep_shell_entered_logged = .false.
   logical :: precip_surface_finalize_shell_entered_logged = .false.
   logical :: precip_evap_prep_shell_entered_logged = .false.
+  logical :: precip_wtrc_evap_shell_entered_logged = .false.
   logical :: precip_bulk_shell_entered_logged = .false.
   logical :: slope_recon_shell_entered_logged = .false.
   logical :: use_native_small_kernels_impl = .false.
@@ -2551,6 +2552,23 @@ contains
 
 !===============================================================================
 
+  subroutine uwshcu_log_precip_wtrc_evap_shell_entered()
+
+    if (precip_wtrc_evap_shell_entered_logged) return
+    precip_wtrc_evap_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu precip water-tracer evaporation shell entered (water-tracer evap/sublim loop owned by codon; isotope scalar callback)'
+       call uwshcu_append_proof( &
+            'uwshcu precip water-tracer evaporation shell entered (water-tracer evap/sublim loop owned by codon; isotope scalar callback)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_precip_wtrc_evap_shell_entered
+
+!===============================================================================
+
   subroutine uwshcu_log_precip_bulk_shell_entered()
 
     if (precip_bulk_shell_entered_logged) return
@@ -3502,6 +3520,60 @@ end subroutine uwshcu_readnl
     id_check_out = int(id_check, c_int64_t)
 
   end subroutine uwshcu_thermo_conden_from_c_cb
+
+  function uwshcu_wtrc_precip_evap_isotope_from_c_cb(iatype_vap_c, qv0_c, t0_c, p0_c, qs_c, &
+       wtflxrn_base_c, wtflxrn_m_c, tr0_vap_c, tr0_base_vap_c, evprain_c, wtevp_base_c, &
+       rr_c, dp0_c, g_c, dt_c, dz_c) result(wtevp_c) &
+       bind(c, name="uwshcu_wtrc_precip_evap_isotope_from_c_cb")
+
+    use iso_c_binding, only: c_double, c_int64_t
+    use water_tracer_vars, only : iwspec
+    use water_tracers,     only : wtrc_get_alpha, wtrc_equil_time, wtrc_liqvap_equil
+    use water_types,       only : iwtvap, iwtliq
+
+    implicit none
+
+    integer(c_int64_t), value :: iatype_vap_c
+    real(c_double), value :: qv0_c, t0_c, p0_c, qs_c
+    real(c_double), value :: wtflxrn_base_c, wtflxrn_m_c
+    real(c_double), value :: tr0_vap_c, tr0_base_vap_c
+    real(c_double), value :: evprain_c, wtevp_base_c, rr_c, dp0_c, g_c, dt_c, dz_c
+    real(c_double) :: wtevp_c
+    integer :: ispec
+    real(r8) :: difrm(4), dkfac, phi
+    real(r8) :: alpliq, alpkin, heff, fr, rain_radius, fequil
+    real(r8) :: ivtmp, iltmp, vtmp, ltmp, dliqiso, wtevp_local
+
+    difrm = (/ 1._r8, 1._r8, 0.9836504_r8, 0.9686999_r8 /)
+    dkfac = 0.58_r8
+    phi = 0.9_r8
+    ispec = iwspec(int(iatype_vap_c))
+
+    alpliq = wtrc_get_alpha(real(qv0_c, r8), real(t0_c, r8), ispec, iwtvap, iwtliq, &
+         .false., 1._r8, .false.)
+    alpkin = (1._r8 / difrm(ispec))**dkfac
+    heff = phi + ((1._r8 - phi) * (real(qv0_c, r8) / real(qs_c, r8)))
+    fr = (real(wtflxrn_base_c, r8) - (real(evprain_c, r8) * real(dp0_c, r8) / real(g_c, r8))) / &
+         real(wtflxrn_base_c, r8)
+    fr = min(1._r8, max(0._r8, fr))
+    rain_radius = 2._r8 / (4.1_r8 * (real(wtflxrn_base_c, r8) * 60._r8 * 60._r8)**(-0.21_r8))
+    rain_radius = rain_radius / 1000._r8
+    call wtrc_equil_time(ispec, real(t0_c, r8), real(p0_c, r8), rain_radius, real(dz_c, r8), &
+         alpliq, difrm(ispec), fequil)
+    fequil = min(1._r8, max(0._r8, fequil))
+
+    wtevp_local = real(evprain_c, r8) * real(rr_c, r8)
+    ivtmp = real(tr0_vap_c, r8) + wtevp_local * real(dt_c, r8)
+    iltmp = ((real(wtflxrn_m_c, r8) * real(g_c, r8) / real(dp0_c, r8)) - wtevp_local) * real(dt_c, r8)
+    vtmp = real(tr0_base_vap_c, r8) + real(wtevp_base_c, r8) * real(dt_c, r8)
+    ltmp = ((real(wtflxrn_base_c, r8) * real(g_c, r8) / real(dp0_c, r8)) - real(wtevp_base_c, r8)) * &
+         real(dt_c, r8)
+    call wtrc_liqvap_equil(alpliq, fequil, vtmp, ltmp, ivtmp, iltmp, dliqiso)
+    wtevp_local = wtevp_local - dliqiso / real(dt_c, r8)
+
+    wtevp_c = real(wtevp_local, c_double)
+
+  end function uwshcu_wtrc_precip_evap_isotope_from_c_cb
 
   function uwshcu_wtrc_ratio_type_from_c_cb(iatype_c, qtrc_c, qtot_c) result(ratio_c) &
        bind(c, name="uwshcu_wtrc_ratio_type_from_c_cb")
@@ -6272,6 +6344,18 @@ end subroutine uwshcu_readnl
           real(c_double), value :: evpint_rain_c, evpint_snow_c
           type(c_ptr), value :: es_p, qs_p, snowmlt_p, evprain_p, evpsnow_p
        end subroutine uwshcu_precip_evap_prep_shell_codon
+
+       subroutine uwshcu_precip_wtrc_evap_tendency_shell_codon(mkx_c, k_c, wtrc_nwset_c, wisotope_c, &
+            g_c, dt_c, qs_c, evprain_c, evpsnow_c, t0_c, p0_c, qv0_c, zs0_k_c, zs0_km1_c, dp0_c, &
+            wtrc_iatype_p, tr0_p, wtrpten_p, wtspten_p, wtevp_p, wtsub_p, wtflxrn_p, wtflxsn_p, dz_p) &
+            bind(c, name="uwshcu_precip_wtrc_evap_tendency_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, k_c, wtrc_nwset_c, wisotope_c
+          real(c_double), value :: g_c, dt_c, qs_c, evprain_c, evpsnow_c
+          real(c_double), value :: t0_c, p0_c, qv0_c, zs0_k_c, zs0_km1_c, dp0_c
+          type(c_ptr), value :: wtrc_iatype_p, tr0_p, wtrpten_p, wtspten_p
+          type(c_ptr), value :: wtevp_p, wtsub_p, wtflxrn_p, wtflxsn_p, dz_p
+       end subroutine uwshcu_precip_wtrc_evap_tendency_shell_codon
 
        subroutine uwshcu_precip_bulk_layer_shell_codon(mkx_c, mix_c, i_c, k_c, wtrc_nwset_c, trace_water_c, t0_c, &
             rainflx_c, snowflx_c, snowmlt_c, evprain_c, evpsnow_c, g_c, dt_c, xlv_c, xls_c, &
@@ -11500,6 +11584,7 @@ end subroutine uwshcu_readnl
        !Water tracers precipitation re-evaporation
        !***************************************************
         if(trace_water) then
+          if (use_native_init_shell_impl) then
 
          !NOTE:  The precipitation evaporation code was taken almost directly
          !from the wtrc_precip_evap subroutine.  So, if there is a way to call
@@ -11642,6 +11727,14 @@ end subroutine uwshcu_readnl
             endif
 
           end do !Water species
+          else
+            call uwshcu_log_precip_wtrc_evap_shell_entered()
+            call uwshcu_precip_wtrc_evap_tendency_shell_codon(int(mkx, c_int64_t), int(k, c_int64_t), &
+                 int(wtrc_nwset, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, wisotope), g, dt, qs, &
+                 evprain, evpsnow, t0(k), p0(k), qv0(k), zs0(k), zs0(k-1), dp0(k), &
+                 c_loc(wtrc_iatype_post), c_loc(tr0), c_loc(wtrpten), c_loc(wtspten), &
+                 c_loc(wtevp), c_loc(wtsub), c_loc(wtflxrn), c_loc(wtflxsn), c_loc(dz))
+          endif
         end if   !water tracers?
         !*****************************************************************
 

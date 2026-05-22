@@ -11,6 +11,7 @@ from convect_shallow_native_callbacks_codon import (
     uwshcu_thermo_conden_from_c_dispatch,
     uwshcu_top_conden_from_c_dispatch,
     uwshcu_wtrc_metadata_from_c_dispatch,
+    uwshcu_wtrc_precip_evap_isotope_from_c_dispatch,
     uwshcu_wtrc_ratio_type_from_c_dispatch,
 )
 
@@ -14114,6 +14115,105 @@ def uwshcu_precip_evap_prep_shell_codon(
     snowmlt_out[0] = snowmlt
     evprain_out[0] = evprain
     evpsnow_out[0] = evpsnow
+
+
+@export
+def uwshcu_precip_wtrc_evap_tendency_shell_codon(
+    mkx: int,
+    k: int,
+    wtrc_nwset: int,
+    wisotope: int,
+    g: float,
+    dt: float,
+    qs: float,
+    evprain: float,
+    evpsnow: float,
+    t0_v: float,
+    p0_v: float,
+    qv0_v: float,
+    zs0_k: float,
+    zs0_km1: float,
+    dp0_v: float,
+    wtrc_iatype_p: cobj,
+    tr0_p: cobj,
+    wtrpten_p: cobj,
+    wtspten_p: cobj,
+    wtevp_p: cobj,
+    wtsub_p: cobj,
+    wtflxrn_p: cobj,
+    wtflxsn_p: cobj,
+    dz_p: cobj,
+):
+    wtrc_iatype = Ptr[int](wtrc_iatype_p)
+    tr0 = Ptr[float](tr0_p)
+    wtrpten = Ptr[float](wtrpten_p)
+    wtspten = Ptr[float](wtspten_p)
+    wtevp = Ptr[float](wtevp_p)
+    wtsub = Ptr[float](wtsub_p)
+    wtflxrn = Ptr[float](wtflxrn_p)
+    wtflxsn = Ptr[float](wtflxsn_p)
+    dz = Ptr[float](dz_p)
+
+    kk = k - 1
+    iface_stride = mkx + 1
+    dz_v = zs0_k - zs0_km1
+    dz[k] = dz_v
+
+    base_layer = kk
+    base_top = k
+    base_vap = wtrc_iatype[0] - 1
+
+    m = 0
+    while m < wtrc_nwset:
+        layer_idx = kk + m * mkx
+        top_idx = k + m * iface_stride
+        vap = wtrc_iatype[m] - 1
+        liq = wtrc_iatype[m + wtrc_nwset]
+        ice = wtrc_iatype[m + 2 * wtrc_nwset]
+
+        if k == mkx:
+            rr = uwshcu_wtrc_ratio_type_from_c_dispatch(liq, wtrpten[layer_idx], wtrpten[base_layer])
+            rs = uwshcu_wtrc_ratio_type_from_c_dispatch(ice, wtspten[layer_idx], wtspten[base_layer])
+        else:
+            if wtflxrn[base_top] != 0.0:
+                rr = uwshcu_wtrc_ratio_type_from_c_dispatch(liq, wtflxrn[top_idx], wtflxrn[base_top])
+            else:
+                rr = uwshcu_wtrc_ratio_type_from_c_dispatch(liq, wtrpten[layer_idx], wtrpten[base_layer])
+            if wtflxsn[base_top] != 0.0:
+                rs = uwshcu_wtrc_ratio_type_from_c_dispatch(ice, wtflxsn[top_idx], wtflxsn[base_top])
+            else:
+                rs = uwshcu_wtrc_ratio_type_from_c_dispatch(ice, wtspten[layer_idx], wtspten[base_layer])
+
+        _rv = uwshcu_wtrc_ratio_type_from_c_dispatch(
+            vap + 1,
+            tr0[kk + vap * mkx],
+            tr0[kk + base_vap * mkx],
+        )
+
+        if wisotope != 0 and m + 1 > 1 and wtflxrn[base_top] > 0.0:
+            wtevp[layer_idx] = uwshcu_wtrc_precip_evap_isotope_from_c_dispatch(
+                vap + 1,
+                qv0_v,
+                t0_v,
+                p0_v,
+                qs,
+                wtflxrn[base_top],
+                wtflxrn[top_idx],
+                tr0[kk + vap * mkx],
+                tr0[kk + base_vap * mkx],
+                evprain,
+                wtevp[base_layer],
+                rr,
+                dp0_v,
+                g,
+                dt,
+                dz_v,
+            )
+        else:
+            wtevp[layer_idx] = evprain * rr
+
+        wtsub[layer_idx] = evpsnow * rs
+        m += 1
 
 
 @export

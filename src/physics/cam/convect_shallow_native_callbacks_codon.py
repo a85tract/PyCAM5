@@ -9,6 +9,7 @@ from C import uwshcu_qsat_from_c_cb(float, float, Ptr[float], Ptr[float]) -> Non
 from C import uwshcu_select_init_shell_from_c_cb(Ptr[int]) -> None
 from C import uwshcu_wtrc_metadata_from_c_cb(Ptr[int], Ptr[int]) -> None
 from C import uwshcu_wtrc_ratio_type_from_c_cb(int, float, float) -> float
+from C import uwshcu_wtrc_precip_evap_isotope_from_c_cb(int, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float) -> float
 from C import uwshcu_positive_moisture_single_from_c_cb(int, int, int, float, float, float, float, float, float, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[int]) -> None
 
 
@@ -289,6 +290,44 @@ def uwshcu_qsat_from_c_dispatch(t: float, p: float, es_p: cobj, qs_p: cobj):
 
 def uwshcu_wtrc_ratio_type_from_c_dispatch(iatype: int, qtrc: float, qtot: float) -> float:
     return uwshcu_wtrc_ratio_type_from_c_cb(iatype, qtrc, qtot)
+
+
+def uwshcu_wtrc_precip_evap_isotope_from_c_dispatch(
+    iatype_vap: int,
+    qv0: float,
+    t0: float,
+    p0: float,
+    qs: float,
+    wtflxrn_base: float,
+    wtflxrn_m: float,
+    tr0_vap: float,
+    tr0_base_vap: float,
+    evprain: float,
+    wtevp_base: float,
+    rr: float,
+    dp0: float,
+    g: float,
+    dt: float,
+    dz: float,
+) -> float:
+    return uwshcu_wtrc_precip_evap_isotope_from_c_cb(
+        iatype_vap,
+        qv0,
+        t0,
+        p0,
+        qs,
+        wtflxrn_base,
+        wtflxrn_m,
+        tr0_vap,
+        tr0_base_vap,
+        evprain,
+        wtevp_base,
+        rr,
+        dp0,
+        g,
+        dt,
+        dz,
+    )
 
 
 def uwshcu_positive_moisture_single_from_c_dispatch(
