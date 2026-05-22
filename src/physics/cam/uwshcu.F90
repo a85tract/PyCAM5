@@ -139,6 +139,7 @@
   logical :: cloud_diag_conden_exit_shell_entered_logged = .false.
   logical :: positive_moisture_prep_shell_entered_logged = .false.
   logical :: precip_surface_finalize_shell_entered_logged = .false.
+  logical :: precip_evap_prep_shell_entered_logged = .false.
   logical :: precip_bulk_shell_entered_logged = .false.
   logical :: slope_recon_shell_entered_logged = .false.
   logical :: use_native_small_kernels_impl = .false.
@@ -2459,15 +2460,32 @@ contains
 
 !===============================================================================
 
+  subroutine uwshcu_log_precip_evap_prep_shell_entered()
+
+    if (precip_evap_prep_shell_entered_logged) return
+    precip_evap_prep_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu precip evap prep shell entered (snowmelt/evaporation limits direct = codon; qsat/isotope native)'
+       call uwshcu_append_proof( &
+            'uwshcu precip evap prep shell entered (snowmelt/evaporation limits direct = codon; qsat/isotope native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_precip_evap_prep_shell_entered
+
+!===============================================================================
+
   subroutine uwshcu_log_precip_bulk_shell_entered()
 
     if (precip_bulk_shell_entered_logged) return
     precip_bulk_shell_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'uwshcu precip bulk shell entered (unified precip-bulk stage dispatch = codon; qsat/sqrt/isotope native)'
+       write(iulog,'(A)') 'uwshcu precip bulk shell entered (unified precip-bulk stage dispatch = codon; qsat/isotope native)'
        call uwshcu_append_proof( &
-            'uwshcu precip bulk shell entered (unified precip-bulk stage dispatch = codon; qsat/sqrt/isotope native)')
+            'uwshcu precip bulk shell entered (unified precip-bulk stage dispatch = codon; qsat/isotope native)')
        call flush(iulog)
     end if
 
@@ -3894,10 +3912,10 @@ end subroutine uwshcu_readnl
                                                               ! rate of snow in each layer [ kg/kg/s ]
     real(r8)    flxsntm                                       !  Downward snow flux
                                                               ! at the top of each layer after melting [ kg/m2/s ]
-    real(r8)    snowmlt                                       !  Snow melting tendency [ kg/kg/s ]
+    real(r8), target :: snowmlt                               !  Snow melting tendency [ kg/kg/s ]
     real(r8)    subsat                                        !  Sub-saturation ratio (1-qv/qs) [ no unit ]
-    real(r8)    evprain                                       !  Evaporation rate of rain [ kg/kg/s ]
-    real(r8)    evpsnow                                       !  Evaporation rate of snow [ kg/kg/s ]
+    real(r8), target :: evprain                               !  Evaporation rate of rain [ kg/kg/s ]
+    real(r8), target :: evpsnow                               !  Evaporation rate of snow [ kg/kg/s ]
     real(r8)    evplimit                                      !  Limiter of 'evprain + evpsnow' [ kg/kg/s ]
     real(r8)    evplimit_rain                                 !  Limiter of 'evprain' [ kg/kg/s ]
     real(r8)    evplimit_snow                                 !  Limiter of 'evpsnow' [ kg/kg/s ]
@@ -5967,6 +5985,18 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: evpint_rain_p, evpint_snow_p, flxrain_p, flxsnow_p
           type(c_ptr), value :: ntraprd_p, ntsnprd_p, wtflxrn_p, wtflxsn_p
        end subroutine uwshcu_precip_bulk_init_shell_codon
+
+       subroutine uwshcu_precip_evap_prep_shell_codon(k_c, krel_c, noevap_krelkpen_c, &
+            t0_c, qv0_c, qs_c, qw0_c, kevp_c, rainflx_c, snowflx_c, g_c, dt_c, dp0_c, &
+            flxrain_c, flxsnow_c, evpint_rain_c, evpint_snow_c, snowmlt_p, evprain_p, evpsnow_p) &
+            bind(c, name="uwshcu_precip_evap_prep_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: k_c, krel_c, noevap_krelkpen_c
+          real(c_double), value :: t0_c, qv0_c, qs_c, qw0_c, kevp_c, rainflx_c, snowflx_c
+          real(c_double), value :: g_c, dt_c, dp0_c, flxrain_c, flxsnow_c
+          real(c_double), value :: evpint_rain_c, evpint_snow_c
+          type(c_ptr), value :: snowmlt_p, evprain_p, evpsnow_p
+       end subroutine uwshcu_precip_evap_prep_shell_codon
 
        subroutine uwshcu_precip_bulk_layer_shell_codon(mkx_c, mix_c, i_c, k_c, wtrc_nwset_c, trace_water_c, t0_c, &
             rainflx_c, snowflx_c, snowmlt_c, evprain_c, evpsnow_c, g_c, dt_c, xlv_c, xls_c, &
@@ -10990,10 +11020,12 @@ end subroutine uwshcu_readnl
           ! Below allows melting of snow when it goes down into the warm layer below.     !
           ! ----------------------------------------------------------------------------- !
 
-          if( t0(k) .gt. 273.16_r8 ) then
-              snowmlt = max( 0._r8, flxsnow(k) * g / dp0(k) ) 
-          else
-              snowmlt = 0._r8
+          if (use_native_init_shell_impl) then
+             if( t0(k) .gt. 273.16_r8 ) then
+                 snowmlt = max( 0._r8, flxsnow(k) * g / dp0(k) )
+             else
+                 snowmlt = 0._r8
+             endif
           endif
 
           ! ----------------------------------------------------------------- !
@@ -11010,29 +11042,37 @@ end subroutine uwshcu_readnl
           ! ----------------------------------------------------------------- !
 
           call qsat(t0(k), p0(k), es, qs)          
-          subsat = max( ( 1._r8 - qv0(k)/qs ), 0._r8 )
-          if( noevap_krelkpen ) then
-              if( k .ge. krel ) subsat = 0._r8
-          endif
+          if (use_native_init_shell_impl) then
+             subsat = max( ( 1._r8 - qv0(k)/qs ), 0._r8 )
+             if( noevap_krelkpen ) then
+                 if( k .ge. krel ) subsat = 0._r8
+             endif
 
-          evprain  = kevp * subsat * sqrt(flxrain(k)+snowmlt*dp0(k)/g) 
-          evpsnow  = kevp * subsat * sqrt(max(flxsnow(k)-snowmlt*dp0(k)/g,0._r8))
+             evprain  = kevp * subsat * sqrt(flxrain(k)+snowmlt*dp0(k)/g)
+             evpsnow  = kevp * subsat * sqrt(max(flxsnow(k)-snowmlt*dp0(k)/g,0._r8))
 
-          evplimit = max( 0._r8, ( qw0_active(i,k) - qv0(k) ) / dt )
+             evplimit = max( 0._r8, ( qw0_active(i,k) - qv0(k) ) / dt )
 
-          evplimit_rain = min( evplimit,      ( flxrain(k) + snowmlt * dp0(k) / g ) * g / dp0(k) )
-          evplimit_rain = min( evplimit_rain, ( rainflx - evpint_rain ) * g / dp0(k) )
-          evprain = max(0._r8,min( evplimit_rain, evprain ))
+             evplimit_rain = min( evplimit,      ( flxrain(k) + snowmlt * dp0(k) / g ) * g / dp0(k) )
+             evplimit_rain = min( evplimit_rain, ( rainflx - evpint_rain ) * g / dp0(k) )
+             evprain = max(0._r8,min( evplimit_rain, evprain ))
 
-          evplimit_snow = min( evplimit,   max( flxsnow(k) - snowmlt * dp0(k) / g , 0._r8 ) * g / dp0(k) )
-          evplimit_snow = min( evplimit_snow, ( snowflx - evpint_snow ) * g / dp0(k) )
-          evpsnow = max(0._r8,min( evplimit_snow, evpsnow ))
+             evplimit_snow = min( evplimit,   max( flxsnow(k) - snowmlt * dp0(k) / g , 0._r8 ) * g / dp0(k) )
+             evplimit_snow = min( evplimit_snow, ( snowflx - evpint_snow ) * g / dp0(k) )
+             evpsnow = max(0._r8,min( evplimit_snow, evpsnow ))
 
-          if( ( evprain + evpsnow ) .gt. evplimit ) then
-                tmp1 = evprain * evplimit / ( evprain + evpsnow )
-                tmp2 = evpsnow * evplimit / ( evprain + evpsnow )
-                evprain = tmp1
-                evpsnow = tmp2
+             if( ( evprain + evpsnow ) .gt. evplimit ) then
+                   tmp1 = evprain * evplimit / ( evprain + evpsnow )
+                   tmp2 = evpsnow * evplimit / ( evprain + evpsnow )
+                   evprain = tmp1
+                   evpsnow = tmp2
+             endif
+          else
+             call uwshcu_log_precip_evap_prep_shell_entered()
+             call uwshcu_precip_evap_prep_shell_codon(int(k, c_int64_t), int(krel, c_int64_t), &
+                  merge(1_c_int64_t, 0_c_int64_t, noevap_krelkpen), t0(k), qv0(k), qs, &
+                  qw0_active(i,k), kevp, rainflx, snowflx, g, dt, dp0(k), flxrain(k), flxsnow(k), &
+                  evpint_rain, evpint_snow, c_loc(snowmlt), c_loc(evprain), c_loc(evpsnow))
           endif
 
           if (use_native_init_shell_impl) then

@@ -13538,6 +13538,67 @@ def uwshcu_precip_bulk_layer_stage_dispatch_codon(
             m += 1
 
 @export
+def uwshcu_precip_evap_prep_shell_codon(
+    k: int,
+    krel: int,
+    noevap_krelkpen: int,
+    t0_v: float,
+    qv0_v: float,
+    qs_v: float,
+    qw0_v: float,
+    kevp_v: float,
+    rainflx_v: float,
+    snowflx_v: float,
+    g_v: float,
+    dt_v: float,
+    dp0_v: float,
+    flxrain_v: float,
+    flxsnow_v: float,
+    evpint_rain_v: float,
+    evpint_snow_v: float,
+    snowmlt_p: cobj,
+    evprain_p: cobj,
+    evpsnow_p: cobj,
+):
+    snowmlt_out = Ptr[float](snowmlt_p)
+    evprain_out = Ptr[float](evprain_p)
+    evpsnow_out = Ptr[float](evpsnow_p)
+
+    if t0_v > 273.16:
+        snowmlt = max(0.0, flxsnow_v * g_v / dp0_v)
+    else:
+        snowmlt = 0.0
+
+    subsat = max((1.0 - qv0_v / qs_v), 0.0)
+    if noevap_krelkpen != 0:
+        if k >= krel:
+            subsat = 0.0
+
+    evprain = kevp_v * subsat * sqrt(flxrain_v + snowmlt * dp0_v / g_v)
+    evpsnow = kevp_v * subsat * sqrt(max(flxsnow_v - snowmlt * dp0_v / g_v, 0.0))
+
+    evplimit = max(0.0, (qw0_v - qv0_v) / dt_v)
+
+    evplimit_rain = min(evplimit, (flxrain_v + snowmlt * dp0_v / g_v) * g_v / dp0_v)
+    evplimit_rain = min(evplimit_rain, (rainflx_v - evpint_rain_v) * g_v / dp0_v)
+    evprain = max(0.0, min(evplimit_rain, evprain))
+
+    evplimit_snow = min(evplimit, max(flxsnow_v - snowmlt * dp0_v / g_v, 0.0) * g_v / dp0_v)
+    evplimit_snow = min(evplimit_snow, (snowflx_v - evpint_snow_v) * g_v / dp0_v)
+    evpsnow = max(0.0, min(evplimit_snow, evpsnow))
+
+    if (evprain + evpsnow) > evplimit:
+        tmp1 = evprain * evplimit / (evprain + evpsnow)
+        tmp2 = evpsnow * evplimit / (evprain + evpsnow)
+        evprain = tmp1
+        evpsnow = tmp2
+
+    snowmlt_out[0] = snowmlt
+    evprain_out[0] = evprain
+    evpsnow_out[0] = evpsnow
+
+
+@export
 def uwshcu_precip_bulk_layer_shell_codon(
     mkx: int,
     mix: int,
