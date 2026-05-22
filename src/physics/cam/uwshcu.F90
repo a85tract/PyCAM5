@@ -125,6 +125,7 @@
   logical :: thermo_condensate_batch_shell_entered_logged = .false.
   logical :: thermo_conden_condensate_batch_shell_entered_logged = .false.
   logical :: thermo_conden_callback_shell_entered_logged = .false.
+  logical :: thermo_wtrc_midpoint_shell_entered_logged = .false.
   logical :: thermo_wtrc_state_sustain_shell_entered_logged = .false.
   logical :: thermo_wtrc_detrain_detached_shell_entered_logged = .false.
   logical :: thermo_wtrc_emf_kbup_shell_entered_logged = .false.
@@ -2246,6 +2247,23 @@ contains
 
 !===============================================================================
 
+  subroutine uwshcu_log_thermo_wtrc_midpoint_shell_entered()
+
+    if (thermo_wtrc_midpoint_shell_entered_logged) return
+    thermo_wtrc_midpoint_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu thermo wtrc midpoint shell entered (conden wtout below/mid/top updates owned by codon)'
+       call uwshcu_append_proof( &
+            'uwshcu thermo wtrc midpoint shell entered (conden wtout below/mid/top updates owned by codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_thermo_wtrc_midpoint_shell_entered
+
+!===============================================================================
+
   subroutine uwshcu_log_thermo_wtrc_state_sustain_shell_entered()
 
     if (thermo_wtrc_state_sustain_shell_entered_logged) return
@@ -4169,8 +4187,8 @@ end subroutine uwshcu_readnl
     real(r8)   wtexql(wtrc_nwset)           ! Expelled (detrained) water tracer liquid (not completely necessary)
     real(r8)   wtexqi(wtrc_nwset)           ! Expelled (detrained) water tracer ice    (not completely necessary)
     real(r8), target :: wtu_top(wtrc_nwset) ! Tracer updraft flux at top of cloud (not sure if needed at all).
-    real(r8)   wlu_top(wtrc_nwset)          ! Tracer liquid flux in updraft at top of cloud (?)
-    real(r8)   wiu_top(wtrc_nwset)          ! Tracer ice flux in updraft at top of cloud (?)
+    real(r8), target :: wlu_top(wtrc_nwset) ! Tracer liquid flux in updraft at top of cloud (?)
+    real(r8), target :: wiu_top(wtrc_nwset) ! Tracer ice flux in updraft at top of cloud (?)
     real(r8)   wtu_mid(wtrc_nwset)          ! midlevel condensate (?)
     real(r8), target :: wlu_mid(wtrc_nwset) ! midlevel cloud liquid (?)
     real(r8), target :: wiu_mid(wtrc_nwset) ! midlevel cloud ice (?)
@@ -5872,6 +5890,17 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: exit_conden_p, exit_code_p, tru_emf_p, qc_l_k_p, qc_i_k_p
           type(c_ptr), value :: qc_lm_p, qc_im_p, nc_lm_p, nc_im_p, nl_emf_kbup_p, ni_emf_kbup_p
        end subroutine uwshcu_thermo_conden_condensate_batch_shell_codon
+
+       subroutine uwshcu_thermo_wtrc_midpoint_shell_codon(kind_c, wtrc_nwset_c, trace_water_c, &
+            prel_c, ppen_c, ps0_km1_c, ps0_k_c, wtout_p, wlubelow_p, wiubelow_p, &
+            wlu_mid_p, wiu_mid_p, wlu_top_p, wiu_top_p) &
+            bind(c, name="uwshcu_thermo_wtrc_midpoint_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: kind_c, wtrc_nwset_c, trace_water_c
+          real(c_double), value :: prel_c, ppen_c, ps0_km1_c, ps0_k_c
+          type(c_ptr), value :: wtout_p, wlubelow_p, wiubelow_p, wlu_mid_p, wiu_mid_p
+          type(c_ptr), value :: wlu_top_p, wiu_top_p
+       end subroutine uwshcu_thermo_wtrc_midpoint_shell_codon
 
        subroutine uwshcu_thermo_wtrc_state_sustain_shell_codon(mkx_c, wtrc_nwset_c, k_c, &
             trace_water_c, frc_rasn_c, qlj_c, qij_c, qlubelow_p, qiubelow_p, wtout_p, &
@@ -10628,9 +10657,11 @@ end subroutine uwshcu_readnl
              !Water tracers:
              !************* 
              if(trace_water) then
-               wlu_mid(:) = 0._r8
-               wiu_mid(:) = 0._r8
-               wtout(:,:) = 0._r8
+               if (use_native_init_shell_impl) then
+                  wlu_mid(:) = 0._r8
+                  wiu_mid(:) = 0._r8
+                  wtout(:,:) = 0._r8
+               endif
              end if
             !*************
               if (.not. use_native_init_shell_impl) then
@@ -10646,6 +10677,13 @@ end subroutine uwshcu_readnl
                       c_loc(thermo_conden_exit_code_c), c_null_ptr, c_loc(qc_l(k)), &
                       c_loc(qc_i(k)), c_loc(qc_lm), c_loc(qc_im), c_loc(nc_lm), c_loc(nc_im), &
                       c_loc(nl_emf_kbup), c_loc(ni_emf_kbup))
+                 if(trace_water) then
+                    call uwshcu_log_thermo_wtrc_midpoint_shell_entered()
+                    call uwshcu_thermo_wtrc_midpoint_shell_codon(0_c_int64_t, int(wtrc_nwset, c_int64_t), &
+                         merge(1_c_int64_t, 0_c_int64_t, trace_water), prel, ppen, ps0(k-1), ps0(k), &
+                         c_loc(wtout), c_loc(wlubelow), c_loc(wiubelow), c_loc(wlu_mid), c_loc(wiu_mid), &
+                         c_loc(wlu_top), c_loc(wiu_top))
+                 endif
               endif
           elseif( k .eq. krel ) then 
               if (use_native_init_shell_impl) then
@@ -10686,18 +10724,28 @@ end subroutine uwshcu_readnl
                      go to 333
                  endif
               endif
-              qlubelow = qlj       
-              qiubelow = qij     
+              if (use_native_init_shell_impl) then
+                 qlubelow = qlj
+                 qiubelow = qij
+              endif
               !*************
               !Water tracers:
               !*************
               if(trace_water) then
-                wlubelow(:) = 0._r8
-                wiubelow(:) = 0._r8
-                do m=1,wtrc_nwset !Loop over water species
-                  wlubelow(m) = wtout(m,2)
-                  wiubelow(m) = wtout(m,3)
-                end do
+                if (use_native_init_shell_impl) then
+                  wlubelow(:) = 0._r8
+                  wiubelow(:) = 0._r8
+                  do m=1,wtrc_nwset !Loop over water species
+                    wlubelow(m) = wtout(m,2)
+                    wiubelow(m) = wtout(m,3)
+                  end do
+                else
+                  call uwshcu_log_thermo_wtrc_midpoint_shell_entered()
+                  call uwshcu_thermo_wtrc_midpoint_shell_codon(1_c_int64_t, int(wtrc_nwset, c_int64_t), &
+                       merge(1_c_int64_t, 0_c_int64_t, trace_water), prel, ppen, ps0(k-1), ps0(k), &
+                       c_loc(wtout), c_loc(wlubelow), c_loc(wiubelow), c_loc(wlu_mid), c_loc(wiu_mid), &
+                       c_loc(wlu_top), c_loc(wiu_top))
+                endif
               end if
               !*************
               if (use_native_init_shell_impl) then
@@ -10747,12 +10795,20 @@ end subroutine uwshcu_readnl
              !Water tracers:
              !*************
               if(trace_water) then
-                do m=1,wtrc_nwset !Loop over water species
-                  wlu_mid(m) = 0.5_r8 * ( wlubelow(m) + wtout(m,2) ) * &
-                                                   ( prel - ps0(k) )/( ps0(k-1) - ps0(k) )
-                  wiu_mid(m) = 0.5_r8 * ( wiubelow(m) + wtout(m,3) ) * &
-                                                   ( prel - ps0(k) )/( ps0(k-1) - ps0(k) )
-                end do
+                if (use_native_init_shell_impl) then
+                  do m=1,wtrc_nwset !Loop over water species
+                    wlu_mid(m) = 0.5_r8 * ( wlubelow(m) + wtout(m,2) ) * &
+                                                     ( prel - ps0(k) )/( ps0(k-1) - ps0(k) )
+                    wiu_mid(m) = 0.5_r8 * ( wiubelow(m) + wtout(m,3) ) * &
+                                                     ( prel - ps0(k) )/( ps0(k-1) - ps0(k) )
+                  end do
+                else
+                  call uwshcu_log_thermo_wtrc_midpoint_shell_entered()
+                  call uwshcu_thermo_wtrc_midpoint_shell_codon(2_c_int64_t, int(wtrc_nwset, c_int64_t), &
+                       merge(1_c_int64_t, 0_c_int64_t, trace_water), prel, ppen, ps0(k-1), ps0(k), &
+                       c_loc(wtout), c_loc(wlubelow), c_loc(wiubelow), c_loc(wlu_mid), c_loc(wiu_mid), &
+                       c_loc(wlu_top), c_loc(wiu_top))
+                endif
               end if
              !*************
           elseif( k .eq. kpen ) then 
@@ -10806,14 +10862,22 @@ end subroutine uwshcu_readnl
              !Water tracers:
              !*************
               if(trace_water) then
-                do m=1,wtrc_nwset !Loop over water species
-                  wlu_mid(m) = 0.5_r8 * ( wlubelow(m) + wtout(m,2) )* &
-                                                   ( -ppen )/( ps0(k-1) - ps0(k) )
-                  wiu_mid(m) = 0.5_r8 * ( wiubelow(m) + wtout(m,3) )* &
-                                                   ( -ppen )/( ps0(k-1) - ps0(k) )
-                  wlu_top(m) = wtout(m,2)
-                  wiu_top(m) = wtout(m,3)
-                end do
+                if (use_native_init_shell_impl) then
+                  do m=1,wtrc_nwset !Loop over water species
+                    wlu_mid(m) = 0.5_r8 * ( wlubelow(m) + wtout(m,2) )* &
+                                                     ( -ppen )/( ps0(k-1) - ps0(k) )
+                    wiu_mid(m) = 0.5_r8 * ( wiubelow(m) + wtout(m,3) )* &
+                                                     ( -ppen )/( ps0(k-1) - ps0(k) )
+                    wlu_top(m) = wtout(m,2)
+                    wiu_top(m) = wtout(m,3)
+                  end do
+                else
+                  call uwshcu_log_thermo_wtrc_midpoint_shell_entered()
+                  call uwshcu_thermo_wtrc_midpoint_shell_codon(3_c_int64_t, int(wtrc_nwset, c_int64_t), &
+                       merge(1_c_int64_t, 0_c_int64_t, trace_water), prel, ppen, ps0(k-1), ps0(k), &
+                       c_loc(wtout), c_loc(wlubelow), c_loc(wiubelow), c_loc(wlu_mid), c_loc(wiu_mid), &
+                       c_loc(wlu_top), c_loc(wiu_top))
+                endif
               end if
              !*************
           else
@@ -10864,10 +10928,18 @@ end subroutine uwshcu_readnl
              !Water tracers:
              !*************
               if(trace_water) then
-                do m=1,wtrc_nwset
-                  wlu_mid(m) = 0.5_r8 * ( wlubelow(m) + wtout(m,2) )
-                  wiu_mid(m) = 0.5_r8 * ( wiubelow(m) + wtout(m,3) )
-                end do
+                if (use_native_init_shell_impl) then
+                  do m=1,wtrc_nwset
+                    wlu_mid(m) = 0.5_r8 * ( wlubelow(m) + wtout(m,2) )
+                    wiu_mid(m) = 0.5_r8 * ( wiubelow(m) + wtout(m,3) )
+                  end do
+                else
+                  call uwshcu_log_thermo_wtrc_midpoint_shell_entered()
+                  call uwshcu_thermo_wtrc_midpoint_shell_codon(4_c_int64_t, int(wtrc_nwset, c_int64_t), &
+                       merge(1_c_int64_t, 0_c_int64_t, trace_water), prel, ppen, ps0(k-1), ps0(k), &
+                       c_loc(wtout), c_loc(wlubelow), c_loc(wiubelow), c_loc(wlu_mid), c_loc(wiu_mid), &
+                       c_loc(wlu_top), c_loc(wiu_top))
+                endif
               end if
              !*************
           endif

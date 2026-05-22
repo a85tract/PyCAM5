@@ -11275,6 +11275,63 @@ def uwshcu_thermo_conden_condensate_batch_shell_codon(
 
 
 @export
+def uwshcu_thermo_wtrc_midpoint_shell_codon(
+    kind: int,
+    wtrc_nwset: int,
+    trace_water: int,
+    prel_v: float,
+    ppen_v: float,
+    ps0_km1: float,
+    ps0_k: float,
+    wtout_p: cobj,
+    wlubelow_p: cobj,
+    wiubelow_p: cobj,
+    wlu_mid_p: cobj,
+    wiu_mid_p: cobj,
+    wlu_top_p: cobj,
+    wiu_top_p: cobj,
+):
+    if trace_water == 0:
+        return
+
+    wtout = Ptr[float](wtout_p)
+    wlubelow = Ptr[float](wlubelow_p)
+    wiubelow = Ptr[float](wiubelow_p)
+    wlu_mid = Ptr[float](wlu_mid_p)
+    wiu_mid = Ptr[float](wiu_mid_p)
+
+    m = 0
+    while m < wtrc_nwset:
+        wtout_liq = wtout[m + wtrc_nwset]
+        wtout_ice = wtout[m + 2 * wtrc_nwset]
+
+        if kind == 0:
+            wlu_mid[m] = 0.0
+            wiu_mid[m] = 0.0
+            wtout[m] = 0.0
+            wtout[m + wtrc_nwset] = 0.0
+            wtout[m + 2 * wtrc_nwset] = 0.0
+        elif kind == 1:
+            wlubelow[m] = wtout_liq
+            wiubelow[m] = wtout_ice
+        elif kind == 2:
+            wlu_mid[m] = 0.5 * (wlubelow[m] + wtout_liq) * (prel_v - ps0_k) / (ps0_km1 - ps0_k)
+            wiu_mid[m] = 0.5 * (wiubelow[m] + wtout_ice) * (prel_v - ps0_k) / (ps0_km1 - ps0_k)
+        elif kind == 3:
+            wlu_top = Ptr[float](wlu_top_p)
+            wiu_top = Ptr[float](wiu_top_p)
+            wlu_mid[m] = 0.5 * (wlubelow[m] + wtout_liq) * (-ppen_v) / (ps0_km1 - ps0_k)
+            wiu_mid[m] = 0.5 * (wiubelow[m] + wtout_ice) * (-ppen_v) / (ps0_km1 - ps0_k)
+            wlu_top[m] = wtout_liq
+            wiu_top[m] = wtout_ice
+        elif kind == 4:
+            wlu_mid[m] = 0.5 * (wlubelow[m] + wtout_liq)
+            wiu_mid[m] = 0.5 * (wiubelow[m] + wtout_ice)
+
+        m += 1
+
+
+@export
 def uwshcu_thermo_wtrc_state_sustain_shell_codon(
     mkx: int,
     wtrc_nwset: int,
