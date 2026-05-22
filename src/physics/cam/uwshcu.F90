@@ -60,6 +60,7 @@
   logical :: interface_thv_shell_entered_logged = .false.
   logical :: interface_thv_loop_shell_entered_logged = .false.
   logical :: iter_interface_thv_shell_entered_logged = .false.
+  logical :: iter_interface_thv_loop_shell_entered_logged = .false.
   logical :: cin_thv_scalar_shell_entered_logged = .false.
   logical :: cin_conden_exit_shell_entered_logged = .false.
   logical :: buoy_sort_scalar_shell_entered_logged = .false.
@@ -1100,6 +1101,23 @@ contains
     end if
 
   end subroutine uwshcu_log_iter_interface_thv_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_iter_interface_thv_loop_shell_entered()
+
+    if (iter_interface_thv_loop_shell_entered_logged) return
+    iter_interface_thv_loop_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu iter interface thv loop shell entered (implicit-CIN interface conden/thv loop owned by codon; conden native callback)'
+       call uwshcu_append_proof( &
+            'uwshcu iter interface thv loop shell entered (implicit-CIN interface conden/thv loop owned by codon; conden native callback)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_iter_interface_thv_loop_shell_entered
 
 !===============================================================================
 
@@ -11424,65 +11442,48 @@ end subroutine uwshcu_readnl
              enddo
           end if
 
-          do k = 1, mkx
+	          if (use_native_init_shell_impl) then
+	             do k = 1, mkx
 
-             thl0bot = thl0(k) + ssthl0(k) * ( ps0(k-1) - p0(k) )
-             qt0bot  = qt0(k)  + ssqt0(k)  * ( ps0(k-1) - p0(k) )
-             call conden(ps0(k-1),thl0bot,qt0bot,thj,qvj,qlj,qij,qse,id_check,ncnst)
-             if (use_native_init_shell_impl) then
-                if( id_check .eq. 1 ) then
-                    exit_conden(i) = 1._r8
-                    id_exit = .true.
-                    go to 333
-                end if
-             else
-                call uwshcu_log_interface_conden_exit_shell_entered()
-                call uwshcu_log_iter_interface_thv_shell_entered()
-                call uwshcu_log_conden_exit_thv_batch_shell_entered()
-                call uwshcu_conden_exit_thv_batch_shell_codon(2_c_int64_t, int(k, c_int64_t), &
-                      int(id_check, c_int64_t), zvir, thj, qvj, qlj, qij, thl0bot, qt0bot, &
-                      c_loc(exit_conden(i)), c_loc(interface_conden_exit_code_c), &
-                      c_loc(thv0bot), c_loc(thvl0bot))
-                if( interface_conden_exit_code_c .ne. 0_c_int64_t ) then
-                    id_exit = .true.
-                    go to 333
-                end if
-             endif
-             if (use_native_init_shell_impl) then
-                thv0bot(k)  = thj * ( 1._r8 + zvir*qvj - qlj - qij )
-                thvl0bot(k) = thl0bot * ( 1._r8 + zvir*qt0bot )
-             endif
-          
-             thl0top = thl0(k) + ssthl0(k) * ( ps0(k) - p0(k) )
-             qt0top  =  qt0(k) + ssqt0(k)  * ( ps0(k) - p0(k) )
-             call conden(ps0(k),thl0top,qt0top,thj,qvj,qlj,qij,qse,id_check,ncnst)
-             if (use_native_init_shell_impl) then
-                if( id_check .eq. 1 ) then
-                    exit_conden(i) = 1._r8
-                    id_exit = .true.
-                    go to 333
-                end if
-             else
-                call uwshcu_log_interface_conden_exit_shell_entered()
-                call uwshcu_log_iter_interface_thv_shell_entered()
-                call uwshcu_log_conden_exit_thv_batch_shell_entered()
-                call uwshcu_conden_exit_thv_batch_shell_codon(2_c_int64_t, int(k, c_int64_t), &
-                      int(id_check, c_int64_t), zvir, thj, qvj, qlj, qij, thl0top, qt0top, &
-                      c_loc(exit_conden(i)), c_loc(interface_conden_exit_code_c), &
-                      c_loc(thv0top), c_loc(thvl0top))
-                if( interface_conden_exit_code_c .ne. 0_c_int64_t ) then
-                    id_exit = .true.
-                    go to 333
-                end if
-             endif
-             if (use_native_init_shell_impl) then
-                thv0top(k)  = thj * ( 1._r8 + zvir*qvj - qlj - qij )
-                thvl0top(k) = thl0top * ( 1._r8 + zvir*qt0top )
-             endif
+	                thl0bot = thl0(k) + ssthl0(k) * ( ps0(k-1) - p0(k) )
+	                qt0bot  = qt0(k)  + ssqt0(k)  * ( ps0(k-1) - p0(k) )
+	                call conden(ps0(k-1),thl0bot,qt0bot,thj,qvj,qlj,qij,qse,id_check,ncnst)
+	                if( id_check .eq. 1 ) then
+	                    exit_conden(i) = 1._r8
+	                    id_exit = .true.
+	                    go to 333
+	                end if
+	                thv0bot(k)  = thj * ( 1._r8 + zvir*qvj - qlj - qij )
+	                thvl0bot(k) = thl0bot * ( 1._r8 + zvir*qt0bot )
 
-          end do
+	                thl0top = thl0(k) + ssthl0(k) * ( ps0(k) - p0(k) )
+	                qt0top  =  qt0(k) + ssqt0(k)  * ( ps0(k) - p0(k) )
+	                call conden(ps0(k),thl0top,qt0top,thj,qvj,qlj,qij,qse,id_check,ncnst)
+	                if( id_check .eq. 1 ) then
+	                    exit_conden(i) = 1._r8
+	                    id_exit = .true.
+	                    go to 333
+	                end if
+	                thv0top(k)  = thj * ( 1._r8 + zvir*qvj - qlj - qij )
+	                thvl0top(k) = thl0top * ( 1._r8 + zvir*qt0top )
 
-       endif               ! End of 'if(iter .ne. iter_cin)' if sentence. 
+	             end do
+	          else
+	             id_check_thv_loop_c = 0_c_int64_t
+	             interface_conden_exit_code_c = 0_c_int64_t
+	             call uwshcu_log_iter_interface_thv_loop_shell_entered()
+	             call uwshcu_interface_thv_loop_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), zvir, &
+	                  c_loc(ps0), c_loc(p0), c_loc(thl0), c_loc(ssthl0), c_loc(qt0), c_loc(ssqt0), &
+	                  c_loc(exit_conden(i)), c_loc(thv0bot), c_loc(thvl0bot), c_loc(thv0top), &
+	                  c_loc(thvl0top), c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), c_loc(qse), &
+	                  c_loc(id_check_thv_loop_c), c_loc(interface_conden_exit_code_c))
+	             if( interface_conden_exit_code_c .ne. 0_c_int64_t ) then
+	                 id_exit = .true.
+	                 go to 333
+	             end if
+	          endif
+
+	       endif               ! End of 'if(iter .ne. iter_cin)' if sentence.
 
      end do                ! End of implicit CIN loop (cin_iter)      
 
