@@ -1297,10 +1297,10 @@ contains
     if (masterproc) then
        write(iulog,'(A)') &
             'uwshcu buoy top conden finalize full shell entered ' // &
-            '(top conden dispatch/finalize owned by codon; conden/exntop/wtrc_ratio native callbacks)'
+            '(top conden dispatch/finalize owned by codon; conden/exntop native callbacks; wtrc_ratio direct)'
        call uwshcu_append_proof( &
             'uwshcu buoy top conden finalize full shell entered ' // &
-            '(top conden dispatch/finalize owned by codon; conden/exntop/wtrc_ratio native callbacks)')
+            '(top conden dispatch/finalize owned by codon; conden/exntop native callbacks; wtrc_ratio direct)')
        call flush(iulog)
     end if
 
@@ -2564,9 +2564,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu precip water-tracer evaporation shell entered (water-tracer evap/sublim loop owned by codon; isotope scalar callback)'
+            'uwshcu precip water-tracer evaporation shell entered (water-tracer evap/sublim loop owned by codon; wtrc_ratio direct; isotope scalar callback)'
        call uwshcu_append_proof( &
-            'uwshcu precip water-tracer evaporation shell entered (water-tracer evap/sublim loop owned by codon; isotope scalar callback)')
+            'uwshcu precip water-tracer evaporation shell entered (water-tracer evap/sublim loop owned by codon; wtrc_ratio direct; isotope scalar callback)')
        call flush(iulog)
     end if
 
@@ -3625,23 +3625,6 @@ end subroutine uwshcu_readnl
     wtevp_c = real(wtevp_local, c_double)
 
   end function uwshcu_wtrc_precip_evap_isotope_from_c_cb
-
-  function uwshcu_wtrc_ratio_type_from_c_cb(iatype_c, qtrc_c, qtot_c) result(ratio_c) &
-       bind(c, name="uwshcu_wtrc_ratio_type_from_c_cb")
-
-    use iso_c_binding, only: c_double, c_int64_t
-    use water_tracer_vars, only : iwspec
-    use water_tracers,     only : wtrc_ratio
-
-    implicit none
-
-    integer(c_int64_t), value :: iatype_c
-    real(c_double), value :: qtrc_c, qtot_c
-    real(c_double) :: ratio_c
-
-    ratio_c = real(wtrc_ratio(iwspec(int(iatype_c)), real(qtrc_c, r8), real(qtot_c, r8)), c_double)
-
-  end function uwshcu_wtrc_ratio_type_from_c_cb
 
   subroutine uwshcu_wtrc_precip_mass_error_from_c_cb(wtprec_m_c, wtprec_1_c, wtsnow_m_c, wtsnow_1_c, m_c) &
        bind(c, name="uwshcu_wtrc_precip_mass_error_from_c_cb")
@@ -5269,16 +5252,17 @@ end subroutine uwshcu_readnl
        subroutine uwshcu_buoy_top_finalize_full_shell_codon(mkx_c, wtrc_nwset_c, trace_water_c, &
             kpen_c, id_check_c, criqc_c, xlv_c, xls_c, cp_c, exntop_c, qlj_c, qij_c, &
             r_c, g_c, ppen_c, ps0_p, zs0_p, thv0bot_p, thv0top_p, exns0_p, thlu_top_p, &
-            qtu_top_p, dwten_p, diten_p, wtout_p, wtrc_iatype_p, wtdwten_p, wtditen_p, &
-            wtu_top_p, exit_conden_p, exit_code_p, cush_p, scaleh_p) &
+            qtu_top_p, dwten_p, diten_p, wtout_p, wtrc_iatype_p, wtrc_qmin_c, &
+            iwspec_p, rstd_p, wtdwten_p, wtditen_p, wtu_top_p, exit_conden_p, &
+            exit_code_p, cush_p, scaleh_p) &
             bind(c, name="uwshcu_buoy_top_finalize_full_shell_codon")
           use iso_c_binding, only: c_double, c_int64_t, c_ptr
           integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, trace_water_c, kpen_c, id_check_c
           real(c_double), value :: criqc_c, xlv_c, xls_c, cp_c, exntop_c, qlj_c, qij_c
-          real(c_double), value :: r_c, g_c, ppen_c
+          real(c_double), value :: r_c, g_c, ppen_c, wtrc_qmin_c
           type(c_ptr), value :: ps0_p, zs0_p, thv0bot_p, thv0top_p, exns0_p, thlu_top_p
           type(c_ptr), value :: qtu_top_p, dwten_p, diten_p, wtout_p, wtrc_iatype_p
-          type(c_ptr), value :: wtdwten_p, wtditen_p, wtu_top_p, exit_conden_p, exit_code_p
+          type(c_ptr), value :: iwspec_p, rstd_p, wtdwten_p, wtditen_p, wtu_top_p, exit_conden_p, exit_code_p
           type(c_ptr), value :: cush_p, scaleh_p
        end subroutine uwshcu_buoy_top_finalize_full_shell_codon
 
@@ -5286,18 +5270,19 @@ end subroutine uwshcu_readnl
             trace_water_c, ncnst_c, kpen_c, criqc_c, xlv_c, xls_c, cp_c, r_c, g_c, &
             p00_c, rovcp_c, ppen_c, ps0_p, zs0_p, thv0bot_p, thv0top_p, exns0_p, &
             thlu_top_p, qtu_top_p, th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, &
-            exntop_p, dwten_p, diten_p, wtout_p, wtrc_iatype_p, wtdwten_p, &
-            wtditen_p, wtu_top_p, exit_conden_p, exit_code_p, cush_p, scaleh_p) &
+            exntop_p, dwten_p, diten_p, wtout_p, wtrc_iatype_p, wtrc_qmin_c, &
+            iwspec_p, rstd_p, wtdwten_p, wtditen_p, wtu_top_p, exit_conden_p, &
+            exit_code_p, cush_p, scaleh_p) &
             bind(c, name="uwshcu_buoy_top_conden_finalize_full_shell_codon")
           use iso_c_binding, only: c_double, c_int64_t, c_ptr
           integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, trace_water_c, ncnst_c, kpen_c
           real(c_double), value :: criqc_c, xlv_c, xls_c, cp_c, r_c, g_c, p00_c, rovcp_c
-          real(c_double), value :: ppen_c
+          real(c_double), value :: ppen_c, wtrc_qmin_c
           type(c_ptr), value :: ps0_p, zs0_p, thv0bot_p, thv0top_p, exns0_p
           type(c_ptr), value :: thlu_top_p, qtu_top_p, th_p, qv_p, ql_p, qi_p, qse_p
           type(c_ptr), value :: id_check_p, exntop_p, dwten_p, diten_p, wtout_p
           type(c_ptr), value :: wtrc_iatype_p, wtdwten_p, wtditen_p, wtu_top_p
-          type(c_ptr), value :: exit_conden_p, exit_code_p, cush_p, scaleh_p
+          type(c_ptr), value :: iwspec_p, rstd_p, exit_conden_p, exit_code_p, cush_p, scaleh_p
        end subroutine uwshcu_buoy_top_conden_finalize_full_shell_codon
 
        subroutine uwshcu_buoy_diag_update_shell_codon(k_c, excessu_c, excess0_c, xc_c, &
@@ -6297,13 +6282,14 @@ end subroutine uwshcu_readnl
 
        subroutine uwshcu_precip_wtrc_evap_tendency_shell_codon(mkx_c, k_c, wtrc_nwset_c, wisotope_c, &
             g_c, dt_c, qs_c, evprain_c, evpsnow_c, t0_c, p0_c, qv0_c, zs0_k_c, zs0_km1_c, dp0_c, &
-            wtrc_iatype_p, tr0_p, wtrpten_p, wtspten_p, wtevp_p, wtsub_p, wtflxrn_p, wtflxsn_p, dz_p) &
+            wtrc_iatype_p, wtrc_qmin_c, iwspec_p, rstd_p, tr0_p, wtrpten_p, wtspten_p, &
+            wtevp_p, wtsub_p, wtflxrn_p, wtflxsn_p, dz_p) &
             bind(c, name="uwshcu_precip_wtrc_evap_tendency_shell_codon")
           use iso_c_binding, only: c_double, c_int64_t, c_ptr
           integer(c_int64_t), value :: mkx_c, k_c, wtrc_nwset_c, wisotope_c
           real(c_double), value :: g_c, dt_c, qs_c, evprain_c, evpsnow_c
-          real(c_double), value :: t0_c, p0_c, qv0_c, zs0_k_c, zs0_km1_c, dp0_c
-          type(c_ptr), value :: wtrc_iatype_p, tr0_p, wtrpten_p, wtspten_p
+          real(c_double), value :: t0_c, p0_c, qv0_c, zs0_k_c, zs0_km1_c, dp0_c, wtrc_qmin_c
+          type(c_ptr), value :: wtrc_iatype_p, iwspec_p, rstd_p, tr0_p, wtrpten_p, wtspten_p
           type(c_ptr), value :: wtevp_p, wtsub_p, wtflxrn_p, wtflxsn_p, dz_p
        end subroutine uwshcu_precip_wtrc_evap_tendency_shell_codon
 
@@ -9775,11 +9761,12 @@ end subroutine uwshcu_readnl
           call uwshcu_buoy_top_conden_finalize_full_shell_codon(int(mkx, c_int64_t), int(wtrc_nwset, c_int64_t), &
                merge(1_c_int64_t, 0_c_int64_t, trace_water), int(ncnst, c_int64_t), int(kpen, c_int64_t), &
                criqc, xlv, xls, cp, r, g, p00, rovcp, ppen, c_loc(ps0), c_loc(zs0), c_loc(thv0bot), &
-               c_loc(thv0top), c_loc(exns0), c_loc(thlu_top), c_loc(qtu_top), c_loc(thj), c_loc(qvj), &
-               c_loc(qlj), c_loc(qij), c_loc(qse), c_loc(buoy_top_id_check_c), c_loc(exntop), &
-               c_loc(dwten), c_loc(diten), c_loc(wtout), c_loc(wtrc_iatype_post), c_loc(wtdwten), &
-               c_loc(wtditen), c_loc(wtu_top), c_loc(exit_conden(i)), c_loc(buoy_top_conden_exit_code_c), &
-               c_loc(cush), c_loc(scaleh))
+	               c_loc(thv0top), c_loc(exns0), c_loc(thlu_top), c_loc(qtu_top), c_loc(thj), c_loc(qvj), &
+	               c_loc(qlj), c_loc(qij), c_loc(qse), c_loc(buoy_top_id_check_c), c_loc(exntop), &
+	               c_loc(dwten), c_loc(diten), c_loc(wtout), c_loc(wtrc_iatype_post), &
+	               real(wtrc_qmin, c_double), c_loc(positive_moisture_iwspec), &
+	               c_loc(positive_moisture_rstd), c_loc(wtdwten), c_loc(wtditen), c_loc(wtu_top), &
+	               c_loc(exit_conden(i)), c_loc(buoy_top_conden_exit_code_c), c_loc(cush), c_loc(scaleh))
           id_check = int(buoy_top_id_check_c)
           if( buoy_top_conden_exit_code_c .ne. 0_c_int64_t ) then
               id_exit = .true.
@@ -11691,10 +11678,11 @@ end subroutine uwshcu_readnl
           else
             call uwshcu_log_precip_wtrc_evap_shell_entered()
             call uwshcu_precip_wtrc_evap_tendency_shell_codon(int(mkx, c_int64_t), int(k, c_int64_t), &
-                 int(wtrc_nwset, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, wisotope), g, dt, qs, &
-                 evprain, evpsnow, t0(k), p0(k), qv0(k), zs0(k), zs0(k-1), dp0(k), &
-                 c_loc(wtrc_iatype_post), c_loc(tr0), c_loc(wtrpten), c_loc(wtspten), &
-                 c_loc(wtevp), c_loc(wtsub), c_loc(wtflxrn), c_loc(wtflxsn), c_loc(dz))
+	                 int(wtrc_nwset, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, wisotope), g, dt, qs, &
+	                 evprain, evpsnow, t0(k), p0(k), qv0(k), zs0(k), zs0(k-1), dp0(k), &
+	                 c_loc(wtrc_iatype_post), real(wtrc_qmin, c_double), &
+	                 c_loc(positive_moisture_iwspec), c_loc(positive_moisture_rstd), c_loc(tr0), c_loc(wtrpten), c_loc(wtspten), &
+	                 c_loc(wtevp), c_loc(wtsub), c_loc(wtflxrn), c_loc(wtflxsn), c_loc(dz))
           endif
         end if   !water tracers?
         !*****************************************************************

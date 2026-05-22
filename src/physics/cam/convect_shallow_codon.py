@@ -9,7 +9,6 @@ from convect_shallow_native_callbacks_codon import (
     uwshcu_top_conden_from_c_dispatch,
     uwshcu_wtrc_precip_mass_error_from_c_dispatch,
     uwshcu_wtrc_precip_evap_isotope_from_c_dispatch,
-    uwshcu_wtrc_ratio_type_from_c_dispatch,
 )
 
 
@@ -26,6 +25,14 @@ def _idx3(i: int, k: int, m: int, ld1: int, ld2: int) -> int:
 @inline
 def _uwshcu_exnf(pressure: float, p00: float, rovcp: float) -> float:
     return (pressure / p00) ** rovcp
+
+
+@inline
+def _uwshcu_wtrc_ratio_type(iatype: int, qtrc: float, qtot: float, wtrc_qmin: float, iwspec: Ptr[int], rstd: Ptr[float]) -> float:
+    ispec = iwspec[iatype - 1]
+    if abs(qtot) < wtrc_qmin:
+        return rstd[ispec - 1]
+    return qtrc / qtot
 
 
 @export
@@ -6358,6 +6365,9 @@ def uwshcu_buoy_top_finalize_full_shell_codon(
     diten_p: cobj,
     wtout_p: cobj,
     wtrc_iatype_p: cobj,
+    wtrc_qmin: float,
+    iwspec_p: cobj,
+    rstd_p: cobj,
     wtdwten_p: cobj,
     wtditen_p: cobj,
     wtu_top_p: cobj,
@@ -6393,6 +6403,8 @@ def uwshcu_buoy_top_finalize_full_shell_codon(
     if trace_water != 0:
         wtout = Ptr[float](wtout_p)
         wtrc_iatype = Ptr[int](wtrc_iatype_p)
+        iwspec = Ptr[int](iwspec_p)
+        rstd = Ptr[float](rstd_p)
         wtdwten = Ptr[float](wtdwten_p)
         wtditen = Ptr[float](wtditen_p)
         wtu_top = Ptr[float](wtu_top_p)
@@ -6410,8 +6422,8 @@ def uwshcu_buoy_top_finalize_full_shell_codon(
                 ice_idx = m + 2 * wtrc_nwset
                 field_idx = layer_idx + m * mkx
 
-                rldt = uwshcu_wtrc_ratio_type_from_c_dispatch(wtrc_iatype[liq_idx], wtout[liq_idx], wtout[liq_base_idx])
-                ridt = uwshcu_wtrc_ratio_type_from_c_dispatch(wtrc_iatype[ice_idx], wtout[ice_idx], wtout[ice_base_idx])
+                rldt = _uwshcu_wtrc_ratio_type(wtrc_iatype[liq_idx], wtout[liq_idx], wtout[liq_base_idx], wtrc_qmin, iwspec, rstd)
+                ridt = _uwshcu_wtrc_ratio_type(wtrc_iatype[ice_idx], wtout[ice_idx], wtout[ice_base_idx], wtrc_qmin, iwspec, rstd)
 
                 wtdwten[field_idx] = rldt * dwten[layer_idx]
                 wtditen[field_idx] = ridt * diten[layer_idx]
@@ -6474,6 +6486,9 @@ def uwshcu_buoy_top_conden_finalize_full_shell_codon(
     diten_p: cobj,
     wtout_p: cobj,
     wtrc_iatype_p: cobj,
+    wtrc_qmin: float,
+    iwspec_p: cobj,
+    rstd_p: cobj,
     wtdwten_p: cobj,
     wtditen_p: cobj,
     wtu_top_p: cobj,
@@ -6547,6 +6562,9 @@ def uwshcu_buoy_top_conden_finalize_full_shell_codon(
         diten_p,
         wtout_p,
         wtrc_iatype_p,
+        wtrc_qmin,
+        iwspec_p,
+        rstd_p,
         wtdwten_p,
         wtditen_p,
         wtu_top_p,
@@ -14224,6 +14242,9 @@ def uwshcu_precip_wtrc_evap_tendency_shell_codon(
     zs0_km1: float,
     dp0_v: float,
     wtrc_iatype_p: cobj,
+    wtrc_qmin: float,
+    iwspec_p: cobj,
+    rstd_p: cobj,
     tr0_p: cobj,
     wtrpten_p: cobj,
     wtspten_p: cobj,
@@ -14234,6 +14255,8 @@ def uwshcu_precip_wtrc_evap_tendency_shell_codon(
     dz_p: cobj,
 ):
     wtrc_iatype = Ptr[int](wtrc_iatype_p)
+    iwspec = Ptr[int](iwspec_p)
+    rstd = Ptr[float](rstd_p)
     tr0 = Ptr[float](tr0_p)
     wtrpten = Ptr[float](wtrpten_p)
     wtspten = Ptr[float](wtspten_p)
@@ -14261,22 +14284,25 @@ def uwshcu_precip_wtrc_evap_tendency_shell_codon(
         ice = wtrc_iatype[m + 2 * wtrc_nwset]
 
         if k == mkx:
-            rr = uwshcu_wtrc_ratio_type_from_c_dispatch(liq, wtrpten[layer_idx], wtrpten[base_layer])
-            rs = uwshcu_wtrc_ratio_type_from_c_dispatch(ice, wtspten[layer_idx], wtspten[base_layer])
+            rr = _uwshcu_wtrc_ratio_type(liq, wtrpten[layer_idx], wtrpten[base_layer], wtrc_qmin, iwspec, rstd)
+            rs = _uwshcu_wtrc_ratio_type(ice, wtspten[layer_idx], wtspten[base_layer], wtrc_qmin, iwspec, rstd)
         else:
             if wtflxrn[base_top] != 0.0:
-                rr = uwshcu_wtrc_ratio_type_from_c_dispatch(liq, wtflxrn[top_idx], wtflxrn[base_top])
+                rr = _uwshcu_wtrc_ratio_type(liq, wtflxrn[top_idx], wtflxrn[base_top], wtrc_qmin, iwspec, rstd)
             else:
-                rr = uwshcu_wtrc_ratio_type_from_c_dispatch(liq, wtrpten[layer_idx], wtrpten[base_layer])
+                rr = _uwshcu_wtrc_ratio_type(liq, wtrpten[layer_idx], wtrpten[base_layer], wtrc_qmin, iwspec, rstd)
             if wtflxsn[base_top] != 0.0:
-                rs = uwshcu_wtrc_ratio_type_from_c_dispatch(ice, wtflxsn[top_idx], wtflxsn[base_top])
+                rs = _uwshcu_wtrc_ratio_type(ice, wtflxsn[top_idx], wtflxsn[base_top], wtrc_qmin, iwspec, rstd)
             else:
-                rs = uwshcu_wtrc_ratio_type_from_c_dispatch(ice, wtspten[layer_idx], wtspten[base_layer])
+                rs = _uwshcu_wtrc_ratio_type(ice, wtspten[layer_idx], wtspten[base_layer], wtrc_qmin, iwspec, rstd)
 
-        _rv = uwshcu_wtrc_ratio_type_from_c_dispatch(
+        _rv = _uwshcu_wtrc_ratio_type(
             vap + 1,
             tr0[kk + vap * mkx],
             tr0[kk + base_vap * mkx],
+            wtrc_qmin,
+            iwspec,
+            rstd,
         )
 
         if wisotope != 0 and m + 1 > 1 and wtflxrn[base_top] > 0.0:
