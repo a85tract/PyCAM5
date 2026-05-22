@@ -3,6 +3,7 @@ from convect_shallow_native_callbacks_codon import (
     uwshcu_cnst_indices_from_c_dispatch,
     uwshcu_compute_native_from_c_dispatch,
     uwshcu_findsp_layer_from_c_dispatch,
+    uwshcu_select_init_shell_from_c_dispatch,
 )
 
 
@@ -246,7 +247,9 @@ def uwshcu_compute_parent_shell_codon(
     tw0_p: cobj,
     qw0_p: cobj,
     constituent_indices_p: cobj,
+    init_shell_flags_p: cobj,
 ):
+    uwshcu_select_init_shell_from_c_dispatch(init_shell_flags_p)
     uwshcu_cnst_indices_from_c_dispatch(constituent_indices_p)
 
     qv0 = Ptr[float](qv0_p)
@@ -326,6 +329,8 @@ def uwshcu_compute_parent_shell_codon(
         qw0_p,
         1,
         constituent_indices_p,
+        1,
+        init_shell_flags_p,
     )
 
 

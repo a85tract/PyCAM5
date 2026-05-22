@@ -148,6 +148,7 @@
   logical :: compute_parent_shell_entered_logged = .false.
   logical :: compute_wetbulb_parent_shell_entered_logged = .false.
   logical :: compute_cnst_indices_parent_shell_entered_logged = .false.
+  logical :: compute_init_selector_parent_shell_entered_logged = .false.
 
   interface
      subroutine uwshcu_getbuoy_codon(pbot_c, thv0bot_c, ptop_c, thv0top_c, &
@@ -210,7 +211,8 @@
           qiten_p, sten_p, uten_p, vten_p, trten_p, qrten_p, qsten_p, &
           precip_p, snow_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, cbmf_p, &
           qc_p, rliq_p, cnt_p, cnb_p, lchnk_c, dpdry0_p, wtprec_p, wtsnow_p, &
-          wtqc_p, tw0_p, qw0_p, constituent_indices_p) bind(c, name="uwshcu_compute_parent_shell_codon")
+          wtqc_p, tw0_p, qw0_p, constituent_indices_p, init_shell_flags_p) &
+          bind(c, name="uwshcu_compute_parent_shell_codon")
        use iso_c_binding, only: c_double, c_int64_t, c_ptr
        integer(c_int64_t), value :: mix_c, mkx_c, iend_c, ncnst_c, lchnk_c
        real(c_double), value :: dt_c
@@ -221,7 +223,7 @@
        type(c_ptr), value :: precip_p, snow_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, cbmf_p
        type(c_ptr), value :: qc_p, rliq_p, cnt_p, cnb_p, dpdry0_p, wtprec_p, wtsnow_p, wtqc_p
        type(c_ptr), value :: tw0_p, qw0_p
-       type(c_ptr), value :: constituent_indices_p
+       type(c_ptr), value :: constituent_indices_p, init_shell_flags_p
      end subroutine uwshcu_compute_parent_shell_codon
 
      subroutine uwshcu_fluxbelowinv_codon(mkx_c, kinv_c, cbmf_c, dt_c, xsrc_c, &
@@ -366,6 +368,25 @@ contains
     end if
 
   end subroutine uwshcu_log_compute_cnst_indices_parent_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_compute_init_selector_parent_shell_entered()
+
+    if (compute_init_selector_parent_shell_entered_logged) return
+    compute_init_selector_parent_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu compute init selector parent shell entered ' // &
+            '(init-shell selector owned by codon; native selector callback)'
+       call uwshcu_append_proof( &
+            'uwshcu compute init selector parent shell entered ' // &
+            '(init-shell selector owned by codon; native selector callback)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_compute_init_selector_parent_shell_entered
 
 !===============================================================================
 
@@ -2838,6 +2859,7 @@ end subroutine uwshcu_readnl
     real(r8), target                :: tw0_parent(mix,mkx)
     real(r8), target                :: qw0_parent(mix,mkx)
     integer(c_int64_t), target      :: constituent_indices_parent(4)
+    integer(c_int64_t), target      :: init_shell_flags_parent(1)
 
     call uwshcu_select_compute_impl()
 
@@ -2857,7 +2879,8 @@ end subroutine uwshcu_readnl
             c_loc(qiu_out), c_loc(cbmf_out), c_loc(qc_out), c_loc(rliq_out), &
             c_loc(cnt_out), c_loc(cnb_out), int(lchnk, c_int64_t), c_loc(dpdry0_in), &
             c_loc(wtprec_out), c_loc(wtsnow_out), c_loc(wtqc_out), &
-            c_loc(tw0_parent), c_loc(qw0_parent), c_loc(constituent_indices_parent))
+            c_loc(tw0_parent), c_loc(qw0_parent), c_loc(constituent_indices_parent), &
+            c_loc(init_shell_flags_parent))
        return
     end if
 
@@ -2886,7 +2909,8 @@ end subroutine uwshcu_readnl
        precip_p, snow_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, cbmf_p, &
        qc_p, rliq_p, cnt_p, cnb_p, lchnk_c, dpdry0_p, wtprec_p, wtsnow_p, &
        wtqc_p, wetbulb_precomputed_c, tw0_precomputed_p, qw0_precomputed_p, &
-       constituent_indices_precomputed_c, constituent_indices_p) &
+       constituent_indices_precomputed_c, constituent_indices_p, &
+       init_shell_preselected_c, init_shell_flags_p) &
        bind(c, name="uwshcu_compute_native_from_c_cb")
 
     use iso_c_binding, only: c_double, c_f_pointer, c_int64_t, c_ptr
@@ -2894,7 +2918,7 @@ end subroutine uwshcu_readnl
     implicit none
 
     integer(c_int64_t), value :: mix_c, mkx_c, iend_c, ncnst_c, lchnk_c, wetbulb_precomputed_c
-    integer(c_int64_t), value :: constituent_indices_precomputed_c
+    integer(c_int64_t), value :: constituent_indices_precomputed_c, init_shell_preselected_c
     real(c_double), value :: dt_c
     type(c_ptr), value :: ps0_p, zs0_p, p0_p, z0_p, dp0_p, u0_p, v0_p, qv0_p, ql0_p, qi0_p
     type(c_ptr), value :: t0_p, s0_p, tr0_p, tke_p, cldfrct_p, concldfrct_p, pblh_p, cush_p
@@ -2903,7 +2927,7 @@ end subroutine uwshcu_readnl
     type(c_ptr), value :: precip_p, snow_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, cbmf_p
     type(c_ptr), value :: qc_p, rliq_p, cnt_p, cnb_p, dpdry0_p, wtprec_p, wtsnow_p, wtqc_p
     type(c_ptr), value :: tw0_precomputed_p, qw0_precomputed_p
-    type(c_ptr), value :: constituent_indices_p
+    type(c_ptr), value :: constituent_indices_p, init_shell_flags_p
 
     integer :: mix, mkx, iend, ncnst, lchnk
     real(r8), pointer :: ps0_in(:,:), zs0_in(:,:), p0_in(:,:), z0_in(:,:), dp0_in(:,:)
@@ -2918,6 +2942,7 @@ end subroutine uwshcu_readnl
     real(r8), pointer :: cnt_out(:), cnb_out(:), dpdry0_in(:,:), wtprec_out(:,:), wtsnow_out(:,:), wtqc_out(:,:,:)
     real(r8), pointer :: tw0_precomputed(:,:), qw0_precomputed(:,:)
     integer(c_int64_t), pointer :: constituent_indices_precomputed(:)
+    integer(c_int64_t), pointer :: init_shell_flags_precomputed(:)
 
     mix = int(mix_c)
     mkx = int(mkx_c)
@@ -2976,6 +3001,7 @@ end subroutine uwshcu_readnl
     call c_f_pointer(tw0_precomputed_p, tw0_precomputed, [mix, mkx])
     call c_f_pointer(qw0_precomputed_p, qw0_precomputed, [mix, mkx])
     call c_f_pointer(constituent_indices_p, constituent_indices_precomputed, [4])
+    call c_f_pointer(init_shell_flags_p, init_shell_flags_precomputed, [1])
 
     call compute_uwshcu_native(mix, mkx, iend, ncnst, real(dt_c, r8), &
          ps0_in, zs0_in, p0_in, z0_in, dp0_in, u0_in, v0_in, qv0_in, ql0_in, qi0_in, &
@@ -2985,9 +3011,28 @@ end subroutine uwshcu_readnl
          precip_out, snow_out, evapc_out, cufrc_out, qcu_out, qlu_out, qiu_out, cbmf_out, &
          qc_out, rliq_out, cnt_out, cnb_out, lchnk, dpdry0_in, wtprec_out, wtsnow_out, wtqc_out, &
          wetbulb_precomputed_c /= 0_c_int64_t, tw0_precomputed, qw0_precomputed, &
-         constituent_indices_precomputed_c /= 0_c_int64_t, constituent_indices_precomputed)
+         constituent_indices_precomputed_c /= 0_c_int64_t, constituent_indices_precomputed, &
+         init_shell_preselected_c /= 0_c_int64_t, init_shell_flags_precomputed)
 
   end subroutine uwshcu_compute_native_from_c_cb
+
+  subroutine uwshcu_select_init_shell_from_c_cb(flags_p) bind(c, name="uwshcu_select_init_shell_from_c_cb")
+
+    use iso_c_binding, only: c_f_pointer, c_int64_t, c_ptr
+
+    implicit none
+
+    type(c_ptr), value :: flags_p
+    integer(c_int64_t), pointer :: flags(:)
+
+    call c_f_pointer(flags_p, flags, [1])
+
+    call uwshcu_select_init_shell_impl()
+    flags(1) = merge(1_c_int64_t, 0_c_int64_t, use_native_init_shell_impl)
+
+    call uwshcu_log_compute_init_selector_parent_shell_entered()
+
+  end subroutine uwshcu_select_init_shell_from_c_cb
 
   subroutine uwshcu_cnst_indices_from_c_cb(indices_p) bind(c, name="uwshcu_cnst_indices_from_c_cb")
 
@@ -3058,7 +3103,8 @@ end subroutine uwshcu_readnl
                                     wtsnow_out, wtqc_out , wetbulb_precomputed,                  &
                                     tw0_precomputed_in, qw0_precomputed_in,                      &
                                     constituent_indices_precomputed,                              &
-                                    constituent_indices_precomputed_in )
+                                    constituent_indices_precomputed_in,                           &
+                                    init_shell_preselected, init_shell_flags_in )
 
     ! ------------------------------------------------------------ !
     !                                                              !  
@@ -3128,6 +3174,8 @@ end subroutine uwshcu_readnl
     real(r8), intent(in), optional :: qw0_precomputed_in(mix,mkx)
     logical , intent(in), optional :: constituent_indices_precomputed
     integer(c_int64_t), intent(in), optional :: constituent_indices_precomputed_in(4)
+    logical , intent(in), optional :: init_shell_preselected
+    integer(c_int64_t), intent(in), optional :: init_shell_flags_in(1)
 
     real(r8)                   tw0_in(mix,mkx)                !  Wet bulb temperature [ K ]
     real(r8)                   qw0_in(mix,mkx)                !  Wet-bulb specific humidity [ kg/kg ]
@@ -3461,6 +3509,7 @@ end subroutine uwshcu_readnl
     integer     kpen                                          !  Highest layer with positive updraft vertical velocity
                                                               ! - top layer cumulus can reach
     logical     use_precomputed_constituent_indices
+    logical     use_preselected_init_shell
     logical     use_precomputed_wetbulb
     logical     id_exit   
     logical     forcedCu                                      !  If 'true', cumulus updraft cannot overcome the buoyancy barrier
@@ -5840,7 +5889,18 @@ end subroutine uwshcu_readnl
     ! Initialize output variables defined for all grid points !
     ! ------------------------------------------------------- !
 
-    call uwshcu_select_init_shell_impl()
+    use_preselected_init_shell = .false.
+    if (present(init_shell_preselected)) use_preselected_init_shell = init_shell_preselected
+
+    if (use_preselected_init_shell) then
+       if (.not. present(init_shell_flags_in)) then
+          call endrun('compute_uwshcu_native: missing preselected init-shell flag')
+       end if
+       use_native_init_shell_impl = init_shell_flags_in(1) /= 0_c_int64_t
+       init_shell_impl_selected = .true.
+    else
+       call uwshcu_select_init_shell_impl()
+    end if
     if (use_native_init_shell_impl) then
        umf_out(:iend,0:mkx)         = 0.0_r8
        slflx_out(:iend,0:mkx)       = 0.0_r8
