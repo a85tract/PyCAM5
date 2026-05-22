@@ -1,4 +1,5 @@
 from math import erfc, exp, log, sqrt
+from convect_shallow_native_callbacks_codon import uwshcu_compute_native_from_c_dispatch
 
 
 @inline
@@ -166,6 +167,135 @@ def uwshcu_compute_ppen_codon(wtwb: float, D: float, bogbot: float, bogtop: floa
             x0 = x1
 
     return -max(0.0, min(dpen, x0))
+
+
+@export
+def uwshcu_compute_mumin2_codon(mulcl: float, rmaxfrac: float, mulow: float) -> float:
+    x0 = mulow
+    for iteration in range(1, 11):
+        ex = exp(-(x0 ** 2))
+        ef = erfc(x0)
+        exf = ex / ef
+        f = 0.5 * (exf ** 2) - 0.5 * (ex / 2.0 / rmaxfrac) ** 2 - (mulcl * 2.5066 / 2.0) ** 2
+        fs = (2.0 * (exf ** 2)) * (exf / sqrt(3.141592) - x0) + (0.5 * x0 * (ex ** 2)) / (rmaxfrac ** 2)
+        x1 = x0 - f / fs
+        x0 = x1
+    return x0
+
+
+@export
+def uwshcu_compute_parent_shell_codon(
+    mix: int,
+    mkx: int,
+    iend: int,
+    ncnst: int,
+    dt: float,
+    ps0_p: cobj,
+    zs0_p: cobj,
+    p0_p: cobj,
+    z0_p: cobj,
+    dp0_p: cobj,
+    u0_p: cobj,
+    v0_p: cobj,
+    qv0_p: cobj,
+    ql0_p: cobj,
+    qi0_p: cobj,
+    t0_p: cobj,
+    s0_p: cobj,
+    tr0_p: cobj,
+    tke_p: cobj,
+    cldfrct_p: cobj,
+    concldfrct_p: cobj,
+    pblh_p: cobj,
+    cush_p: cobj,
+    umf_p: cobj,
+    slflx_p: cobj,
+    qtflx_p: cobj,
+    flxprc1_p: cobj,
+    flxsnow1_p: cobj,
+    qvten_p: cobj,
+    qlten_p: cobj,
+    qiten_p: cobj,
+    sten_p: cobj,
+    uten_p: cobj,
+    vten_p: cobj,
+    trten_p: cobj,
+    qrten_p: cobj,
+    qsten_p: cobj,
+    precip_p: cobj,
+    snow_p: cobj,
+    evapc_p: cobj,
+    cufrc_p: cobj,
+    qcu_p: cobj,
+    qlu_p: cobj,
+    qiu_p: cobj,
+    cbmf_p: cobj,
+    qc_p: cobj,
+    rliq_p: cobj,
+    cnt_p: cobj,
+    cnb_p: cobj,
+    lchnk: int,
+    dpdry0_p: cobj,
+    wtprec_p: cobj,
+    wtsnow_p: cobj,
+    wtqc_p: cobj,
+):
+    uwshcu_compute_native_from_c_dispatch(
+        mix,
+        mkx,
+        iend,
+        ncnst,
+        dt,
+        ps0_p,
+        zs0_p,
+        p0_p,
+        z0_p,
+        dp0_p,
+        u0_p,
+        v0_p,
+        qv0_p,
+        ql0_p,
+        qi0_p,
+        t0_p,
+        s0_p,
+        tr0_p,
+        tke_p,
+        cldfrct_p,
+        concldfrct_p,
+        pblh_p,
+        cush_p,
+        umf_p,
+        slflx_p,
+        qtflx_p,
+        flxprc1_p,
+        flxsnow1_p,
+        qvten_p,
+        qlten_p,
+        qiten_p,
+        sten_p,
+        uten_p,
+        vten_p,
+        trten_p,
+        qrten_p,
+        qsten_p,
+        precip_p,
+        snow_p,
+        evapc_p,
+        cufrc_p,
+        qcu_p,
+        qlu_p,
+        qiu_p,
+        cbmf_p,
+        qc_p,
+        rliq_p,
+        cnt_p,
+        cnb_p,
+        lchnk,
+        dpdry0_p,
+        wtprec_p,
+        wtsnow_p,
+        wtqc_p,
+    )
 
 
 @export

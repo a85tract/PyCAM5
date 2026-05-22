@@ -133,6 +133,7 @@
   logical :: use_native_small_kernels_impl = .false.
   logical :: small_kernels_impl_selected = .false.
   logical :: small_kernels_entered_logged = .false.
+  logical :: compute_mumin2_entered_logged = .false.
   logical :: use_native_positive_moisture_single_impl = .false.
   logical :: positive_moisture_single_impl_selected = .false.
   logical :: positive_moisture_single_entered_logged = .false.
@@ -142,6 +143,9 @@
   logical :: use_native_qsinvert_rh_guard_impl = .false.
   logical :: qsinvert_rh_guard_impl_selected = .false.
   logical :: qsinvert_rh_guard_entered_logged = .false.
+  logical :: use_native_compute_impl = .true.
+  logical :: compute_impl_selected = .false.
+  logical :: compute_parent_shell_entered_logged = .false.
 
   interface
      subroutine uwshcu_getbuoy_codon(pbot_c, thv0bot_c, ptop_c, thv0top_c, &
@@ -189,6 +193,32 @@
         real(c_double), value :: wtwb_c, d_c, bogbot_c, bogtop_c, rho0j_c, dpen_c
         real(c_double) :: ppen_c
      end function uwshcu_compute_ppen_codon
+
+     function uwshcu_compute_mumin2_codon(mulcl_c, rmaxfrac_c, mulow_c) result(mumin2_c) &
+          bind(c, name="uwshcu_compute_mumin2_codon")
+        use iso_c_binding, only: c_double
+        real(c_double), value :: mulcl_c, rmaxfrac_c, mulow_c
+        real(c_double) :: mumin2_c
+     end function uwshcu_compute_mumin2_codon
+
+     subroutine uwshcu_compute_parent_shell_codon(mix_c, mkx_c, iend_c, ncnst_c, dt_c, &
+          ps0_p, zs0_p, p0_p, z0_p, dp0_p, u0_p, v0_p, qv0_p, ql0_p, qi0_p, &
+          t0_p, s0_p, tr0_p, tke_p, cldfrct_p, concldfrct_p, pblh_p, cush_p, &
+          umf_p, slflx_p, qtflx_p, flxprc1_p, flxsnow1_p, qvten_p, qlten_p, &
+          qiten_p, sten_p, uten_p, vten_p, trten_p, qrten_p, qsten_p, &
+          precip_p, snow_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, cbmf_p, &
+          qc_p, rliq_p, cnt_p, cnb_p, lchnk_c, dpdry0_p, wtprec_p, wtsnow_p, &
+          wtqc_p) bind(c, name="uwshcu_compute_parent_shell_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: mix_c, mkx_c, iend_c, ncnst_c, lchnk_c
+       real(c_double), value :: dt_c
+       type(c_ptr), value :: ps0_p, zs0_p, p0_p, z0_p, dp0_p, u0_p, v0_p, qv0_p, ql0_p, qi0_p
+       type(c_ptr), value :: t0_p, s0_p, tr0_p, tke_p, cldfrct_p, concldfrct_p, pblh_p, cush_p
+       type(c_ptr), value :: umf_p, slflx_p, qtflx_p, flxprc1_p, flxsnow1_p, qvten_p, qlten_p
+       type(c_ptr), value :: qiten_p, sten_p, uten_p, vten_p, trten_p, qrten_p, qsten_p
+       type(c_ptr), value :: precip_p, snow_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, cbmf_p
+       type(c_ptr), value :: qc_p, rliq_p, cnt_p, cnb_p, dpdry0_p, wtprec_p, wtsnow_p, wtqc_p
+     end subroutine uwshcu_compute_parent_shell_codon
 
      subroutine uwshcu_fluxbelowinv_codon(mkx_c, kinv_c, cbmf_c, dt_c, xsrc_c, &
           xmean_c, xtopin_c, xbotin_c, g_c, ps0_p, xflx_p) &
@@ -240,6 +270,60 @@ contains
     close(unit_id)
 
   end subroutine uwshcu_append_proof
+
+!===============================================================================
+
+  subroutine uwshcu_select_compute_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (compute_impl_selected) return
+
+    impl_name = 'native'
+    call get_environment_variable('UWSHCU_COMPUTE_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+       end do
+       use_native_compute_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_compute_impl = .true.
+    end if
+
+    compute_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_compute_impl) then
+          write(iulog,'(A)') 'uwshcu compute implementation = native'
+          call uwshcu_append_proof('uwshcu compute implementation = native')
+       else
+          write(iulog,'(A)') 'uwshcu compute implementation = codon parent shell'
+          call uwshcu_append_proof('uwshcu compute implementation = codon parent shell')
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_select_compute_impl
+
+!===============================================================================
+
+  subroutine uwshcu_log_compute_parent_shell_entered()
+
+    if (compute_parent_shell_entered_logged) return
+    compute_parent_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu compute parent shell entered (codon dispatch; native body callback bootstrap)'
+       call uwshcu_append_proof( &
+            'uwshcu compute parent shell entered (codon dispatch; native body callback bootstrap)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_compute_parent_shell_entered
 
 !===============================================================================
 
@@ -359,13 +443,28 @@ contains
     small_kernels_entered_logged = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'uwshcu small kernels entered (buoyancy/CIN/roots/slope/ppen/fluxbelowinv direct = codon)'
+       write(iulog,'(A)') 'uwshcu small kernels entered (buoyancy/CIN/roots/slope/ppen/mumin2/fluxbelowinv direct = codon)'
        call uwshcu_append_proof( &
-            'uwshcu small kernels entered (buoyancy/CIN/roots/slope/ppen/fluxbelowinv direct = codon)')
+            'uwshcu small kernels entered (buoyancy/CIN/roots/slope/ppen/mumin2/fluxbelowinv direct = codon)')
        call flush(iulog)
     end if
 
   end subroutine uwshcu_log_small_kernels_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_compute_mumin2_entered()
+
+    if (compute_mumin2_entered_logged) return
+    compute_mumin2_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu compute_mumin2 entered (critical mu solve direct = codon)'
+       call uwshcu_append_proof('uwshcu compute_mumin2 entered (critical mu solve direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_compute_mumin2_entered
 
 !===============================================================================
 
@@ -1230,9 +1329,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu release mu solve shell entered (mu/base solve direct = codon; compute_mumin2 native)'
+            'uwshcu release mu solve shell entered (mu/base solve direct = codon; compute_mumin2 small-kernel selectable)'
        call uwshcu_append_proof( &
-            'uwshcu release mu solve shell entered (mu/base solve direct = codon; compute_mumin2 native)')
+            'uwshcu release mu solve shell entered (mu/base solve direct = codon; compute_mumin2 small-kernel selectable)')
        call flush(iulog)
     end if
 
@@ -1264,9 +1363,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu release mu limit shell entered (mumin limit flags direct = codon; exp/erfc/compute_mumin2 native)'
+            'uwshcu release mu limit shell entered (mumin limit flags direct = codon; exp/erfc/compute_mumin2 small-kernel selectable)'
        call uwshcu_append_proof( &
-            'uwshcu release mu limit shell entered (mumin limit flags direct = codon; exp/erfc/compute_mumin2 native)')
+            'uwshcu release mu limit shell entered (mumin limit flags direct = codon; exp/erfc/compute_mumin2 small-kernel selectable)')
        call flush(iulog)
     end if
 
@@ -2634,6 +2733,218 @@ end subroutine uwshcu_readnl
                              cbmf_out , qc_out    , rliq_out     ,                        &
                              cnt_out  , cnb_out   , lchnk        , dpdry0_in, wtprec_out, &
                              wtsnow_out, wtqc_out )
+
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
+
+    implicit none
+
+    integer , intent(in)    :: lchnk
+    integer , intent(in)    :: mix
+    integer , intent(in)    :: mkx
+    integer , intent(in)    :: iend
+    integer , intent(in)    :: ncnst
+    real(r8), intent(in)    :: dt
+    real(r8), target, intent(in) :: ps0_in(mix,0:mkx)
+    real(r8), target, intent(in) :: zs0_in(mix,0:mkx)
+    real(r8), target, intent(in) :: p0_in(mix,mkx)
+    real(r8), target, intent(in) :: z0_in(mix,mkx)
+    real(r8), target, intent(in) :: dp0_in(mix,mkx)
+    real(r8), target, intent(in) :: dpdry0_in(mix,mkx)
+    real(r8), target, intent(in) :: u0_in(mix,mkx)
+    real(r8), target, intent(in) :: v0_in(mix,mkx)
+    real(r8), target, intent(in) :: qv0_in(mix,mkx)
+    real(r8), target, intent(in) :: ql0_in(mix,mkx)
+    real(r8), target, intent(in) :: qi0_in(mix,mkx)
+    real(r8), target, intent(in) :: t0_in(mix,mkx)
+    real(r8), target, intent(in) :: s0_in(mix,mkx)
+    real(r8), target, intent(in) :: tr0_in(mix,mkx,ncnst)
+    real(r8), target, intent(in) :: tke_in(mix,0:mkx)
+    real(r8), target, intent(in) :: cldfrct_in(mix,mkx)
+    real(r8), target, intent(in) :: concldfrct_in(mix,mkx)
+    real(r8), target, intent(in) :: pblh_in(mix)
+    real(r8), target, intent(inout) :: cush_inout(mix)
+
+    real(r8), target, intent(out)   :: umf_out(mix,0:mkx)
+    real(r8), target, intent(out)   :: qvten_out(mix,mkx)
+    real(r8), target, intent(out)   :: qlten_out(mix,mkx)
+    real(r8), target, intent(out)   :: qiten_out(mix,mkx)
+    real(r8), target, intent(out)   :: sten_out(mix,mkx)
+    real(r8), target, intent(out)   :: uten_out(mix,mkx)
+    real(r8), target, intent(out)   :: vten_out(mix,mkx)
+    real(r8), target, intent(out)   :: trten_out(mix,mkx,ncnst)
+    real(r8), target, intent(out)   :: qrten_out(mix,mkx)
+    real(r8), target, intent(out)   :: qsten_out(mix,mkx)
+    real(r8), target, intent(out)   :: precip_out(mix)
+    real(r8), target, intent(out)   :: snow_out(mix)
+    real(r8), target, intent(out)   :: evapc_out(mix,mkx)
+    real(r8), target, intent(out)   :: slflx_out(mix,0:mkx)
+    real(r8), target, intent(out)   :: qtflx_out(mix,0:mkx)
+    real(r8), target, intent(out)   :: flxprc1_out(mix,0:mkx)
+    real(r8), target, intent(out)   :: flxsnow1_out(mix,0:mkx)
+    real(r8), target, intent(out)   :: cufrc_out(mix,mkx)
+    real(r8), target, intent(out)   :: qcu_out(mix,mkx)
+    real(r8), target, intent(out)   :: qlu_out(mix,mkx)
+    real(r8), target, intent(out)   :: qiu_out(mix,mkx)
+    real(r8), target, intent(out)   :: cbmf_out(mix)
+    real(r8), target, intent(out)   :: qc_out(mix,mkx)
+    real(r8), target, intent(out)   :: rliq_out(mix)
+    real(r8), target, intent(out)   :: cnt_out(mix)
+    real(r8), target, intent(out)   :: cnb_out(mix)
+    real(r8), target, intent(out)   :: wtqc_out(mix,mkx,ncnst)
+    real(r8), target, intent(out)   :: wtprec_out(mix,ncnst)
+    real(r8), target, intent(out)   :: wtsnow_out(mix,ncnst)
+
+    call uwshcu_select_compute_impl()
+
+    if (.not. use_native_compute_impl) then
+       call uwshcu_log_compute_parent_shell_entered()
+       call uwshcu_compute_parent_shell_codon( &
+            int(mix, c_int64_t), int(mkx, c_int64_t), int(iend, c_int64_t), int(ncnst, c_int64_t), &
+            real(dt, c_double), c_loc(ps0_in), c_loc(zs0_in), c_loc(p0_in), c_loc(z0_in), &
+            c_loc(dp0_in), c_loc(u0_in), c_loc(v0_in), c_loc(qv0_in), c_loc(ql0_in), &
+            c_loc(qi0_in), c_loc(t0_in), c_loc(s0_in), c_loc(tr0_in), c_loc(tke_in), &
+            c_loc(cldfrct_in), c_loc(concldfrct_in), c_loc(pblh_in), c_loc(cush_inout), &
+            c_loc(umf_out), c_loc(slflx_out), c_loc(qtflx_out), c_loc(flxprc1_out), &
+            c_loc(flxsnow1_out), c_loc(qvten_out), c_loc(qlten_out), c_loc(qiten_out), &
+            c_loc(sten_out), c_loc(uten_out), c_loc(vten_out), c_loc(trten_out), &
+            c_loc(qrten_out), c_loc(qsten_out), c_loc(precip_out), c_loc(snow_out), &
+            c_loc(evapc_out), c_loc(cufrc_out), c_loc(qcu_out), c_loc(qlu_out), &
+            c_loc(qiu_out), c_loc(cbmf_out), c_loc(qc_out), c_loc(rliq_out), &
+            c_loc(cnt_out), c_loc(cnb_out), int(lchnk, c_int64_t), c_loc(dpdry0_in), &
+            c_loc(wtprec_out), c_loc(wtsnow_out), c_loc(wtqc_out))
+       return
+    end if
+
+    call compute_uwshcu_native( mix      , mkx       , iend         , ncnst    , dt        , &
+                                ps0_in   , zs0_in    , p0_in        , z0_in    , dp0_in    , &
+                                u0_in    , v0_in     , qv0_in       , ql0_in   , qi0_in    , &
+                                t0_in    , s0_in     , tr0_in       ,                        &
+                                tke_in   , cldfrct_in, concldfrct_in,  pblh_in , cush_inout, &
+                                umf_out  , slflx_out , qtflx_out    ,                        &
+                                flxprc1_out  , flxsnow1_out  ,                              &
+                                qvten_out, qlten_out , qiten_out    ,                        &
+                                sten_out , uten_out  , vten_out     , trten_out,             &
+                                qrten_out, qsten_out , precip_out   , snow_out , evapc_out , &
+                                cufrc_out, qcu_out   , qlu_out      , qiu_out  ,             &
+                                cbmf_out , qc_out    , rliq_out     ,                        &
+                                cnt_out  , cnb_out   , lchnk        , dpdry0_in, wtprec_out, &
+                                wtsnow_out, wtqc_out )
+
+  end subroutine compute_uwshcu
+
+  subroutine uwshcu_compute_native_from_c_cb(mix_c, mkx_c, iend_c, ncnst_c, dt_c, &
+       ps0_p, zs0_p, p0_p, z0_p, dp0_p, u0_p, v0_p, qv0_p, ql0_p, qi0_p, &
+       t0_p, s0_p, tr0_p, tke_p, cldfrct_p, concldfrct_p, pblh_p, cush_p, &
+       umf_p, slflx_p, qtflx_p, flxprc1_p, flxsnow1_p, qvten_p, qlten_p, &
+       qiten_p, sten_p, uten_p, vten_p, trten_p, qrten_p, qsten_p, &
+       precip_p, snow_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, cbmf_p, &
+       qc_p, rliq_p, cnt_p, cnb_p, lchnk_c, dpdry0_p, wtprec_p, wtsnow_p, &
+       wtqc_p) bind(c, name="uwshcu_compute_native_from_c_cb")
+
+    use iso_c_binding, only: c_double, c_f_pointer, c_int64_t, c_ptr
+
+    implicit none
+
+    integer(c_int64_t), value :: mix_c, mkx_c, iend_c, ncnst_c, lchnk_c
+    real(c_double), value :: dt_c
+    type(c_ptr), value :: ps0_p, zs0_p, p0_p, z0_p, dp0_p, u0_p, v0_p, qv0_p, ql0_p, qi0_p
+    type(c_ptr), value :: t0_p, s0_p, tr0_p, tke_p, cldfrct_p, concldfrct_p, pblh_p, cush_p
+    type(c_ptr), value :: umf_p, slflx_p, qtflx_p, flxprc1_p, flxsnow1_p, qvten_p, qlten_p
+    type(c_ptr), value :: qiten_p, sten_p, uten_p, vten_p, trten_p, qrten_p, qsten_p
+    type(c_ptr), value :: precip_p, snow_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, cbmf_p
+    type(c_ptr), value :: qc_p, rliq_p, cnt_p, cnb_p, dpdry0_p, wtprec_p, wtsnow_p, wtqc_p
+
+    integer :: mix, mkx, iend, ncnst, lchnk
+    real(r8), pointer :: ps0_in(:,:), zs0_in(:,:), p0_in(:,:), z0_in(:,:), dp0_in(:,:)
+    real(r8), pointer :: u0_in(:,:), v0_in(:,:), qv0_in(:,:), ql0_in(:,:), qi0_in(:,:)
+    real(r8), pointer :: t0_in(:,:), s0_in(:,:), tr0_in(:,:,:), tke_in(:,:)
+    real(r8), pointer :: cldfrct_in(:,:), concldfrct_in(:,:), pblh_in(:), cush_inout(:)
+    real(r8), pointer :: umf_out(:,:), slflx_out(:,:), qtflx_out(:,:), flxprc1_out(:,:), flxsnow1_out(:,:)
+    real(r8), pointer :: qvten_out(:,:), qlten_out(:,:), qiten_out(:,:), sten_out(:,:), uten_out(:,:)
+    real(r8), pointer :: vten_out(:,:), trten_out(:,:,:), qrten_out(:,:), qsten_out(:,:)
+    real(r8), pointer :: precip_out(:), snow_out(:), evapc_out(:,:), cufrc_out(:,:), qcu_out(:,:)
+    real(r8), pointer :: qlu_out(:,:), qiu_out(:,:), cbmf_out(:), qc_out(:,:), rliq_out(:)
+    real(r8), pointer :: cnt_out(:), cnb_out(:), dpdry0_in(:,:), wtprec_out(:,:), wtsnow_out(:,:), wtqc_out(:,:,:)
+
+    mix = int(mix_c)
+    mkx = int(mkx_c)
+    iend = int(iend_c)
+    ncnst = int(ncnst_c)
+    lchnk = int(lchnk_c)
+
+    call c_f_pointer(ps0_p, ps0_in, [mix, mkx + 1])
+    call c_f_pointer(zs0_p, zs0_in, [mix, mkx + 1])
+    call c_f_pointer(p0_p, p0_in, [mix, mkx])
+    call c_f_pointer(z0_p, z0_in, [mix, mkx])
+    call c_f_pointer(dp0_p, dp0_in, [mix, mkx])
+    call c_f_pointer(u0_p, u0_in, [mix, mkx])
+    call c_f_pointer(v0_p, v0_in, [mix, mkx])
+    call c_f_pointer(qv0_p, qv0_in, [mix, mkx])
+    call c_f_pointer(ql0_p, ql0_in, [mix, mkx])
+    call c_f_pointer(qi0_p, qi0_in, [mix, mkx])
+    call c_f_pointer(t0_p, t0_in, [mix, mkx])
+    call c_f_pointer(s0_p, s0_in, [mix, mkx])
+    call c_f_pointer(tr0_p, tr0_in, [mix, mkx, ncnst])
+    call c_f_pointer(tke_p, tke_in, [mix, mkx + 1])
+    call c_f_pointer(cldfrct_p, cldfrct_in, [mix, mkx])
+    call c_f_pointer(concldfrct_p, concldfrct_in, [mix, mkx])
+    call c_f_pointer(pblh_p, pblh_in, [mix])
+    call c_f_pointer(cush_p, cush_inout, [mix])
+    call c_f_pointer(umf_p, umf_out, [mix, mkx + 1])
+    call c_f_pointer(slflx_p, slflx_out, [mix, mkx + 1])
+    call c_f_pointer(qtflx_p, qtflx_out, [mix, mkx + 1])
+    call c_f_pointer(flxprc1_p, flxprc1_out, [mix, mkx + 1])
+    call c_f_pointer(flxsnow1_p, flxsnow1_out, [mix, mkx + 1])
+    call c_f_pointer(qvten_p, qvten_out, [mix, mkx])
+    call c_f_pointer(qlten_p, qlten_out, [mix, mkx])
+    call c_f_pointer(qiten_p, qiten_out, [mix, mkx])
+    call c_f_pointer(sten_p, sten_out, [mix, mkx])
+    call c_f_pointer(uten_p, uten_out, [mix, mkx])
+    call c_f_pointer(vten_p, vten_out, [mix, mkx])
+    call c_f_pointer(trten_p, trten_out, [mix, mkx, ncnst])
+    call c_f_pointer(qrten_p, qrten_out, [mix, mkx])
+    call c_f_pointer(qsten_p, qsten_out, [mix, mkx])
+    call c_f_pointer(precip_p, precip_out, [mix])
+    call c_f_pointer(snow_p, snow_out, [mix])
+    call c_f_pointer(evapc_p, evapc_out, [mix, mkx])
+    call c_f_pointer(cufrc_p, cufrc_out, [mix, mkx])
+    call c_f_pointer(qcu_p, qcu_out, [mix, mkx])
+    call c_f_pointer(qlu_p, qlu_out, [mix, mkx])
+    call c_f_pointer(qiu_p, qiu_out, [mix, mkx])
+    call c_f_pointer(cbmf_p, cbmf_out, [mix])
+    call c_f_pointer(qc_p, qc_out, [mix, mkx])
+    call c_f_pointer(rliq_p, rliq_out, [mix])
+    call c_f_pointer(cnt_p, cnt_out, [mix])
+    call c_f_pointer(cnb_p, cnb_out, [mix])
+    call c_f_pointer(dpdry0_p, dpdry0_in, [mix, mkx])
+    call c_f_pointer(wtprec_p, wtprec_out, [mix, ncnst])
+    call c_f_pointer(wtsnow_p, wtsnow_out, [mix, ncnst])
+    call c_f_pointer(wtqc_p, wtqc_out, [mix, mkx, ncnst])
+
+    call compute_uwshcu_native(mix, mkx, iend, ncnst, real(dt_c, r8), &
+         ps0_in, zs0_in, p0_in, z0_in, dp0_in, u0_in, v0_in, qv0_in, ql0_in, qi0_in, &
+         t0_in, s0_in, tr0_in, tke_in, cldfrct_in, concldfrct_in, pblh_in, cush_inout, &
+         umf_out, slflx_out, qtflx_out, flxprc1_out, flxsnow1_out, qvten_out, qlten_out, &
+         qiten_out, sten_out, uten_out, vten_out, trten_out, qrten_out, qsten_out, &
+         precip_out, snow_out, evapc_out, cufrc_out, qcu_out, qlu_out, qiu_out, cbmf_out, &
+         qc_out, rliq_out, cnt_out, cnb_out, lchnk, dpdry0_in, wtprec_out, wtsnow_out, wtqc_out)
+
+  end subroutine uwshcu_compute_native_from_c_cb
+
+  subroutine compute_uwshcu_native( mix      , mkx       , iend         , ncnst    , dt        , &
+                                    ps0_in   , zs0_in    , p0_in        , z0_in    , dp0_in    , &
+                                    u0_in    , v0_in     , qv0_in       , ql0_in   , qi0_in    , &
+                                    t0_in    , s0_in     , tr0_in       ,                        &
+                                    tke_in   , cldfrct_in, concldfrct_in,  pblh_in , cush_inout, &
+                                    umf_out  , slflx_out , qtflx_out    ,                        &
+                                    flxprc1_out  , flxsnow1_out  ,                              &
+                                    qvten_out, qlten_out , qiten_out    ,                        &
+                                    sten_out , uten_out  , vten_out     , trten_out,             &
+                                    qrten_out, qsten_out , precip_out   , snow_out , evapc_out , &
+                                    cufrc_out, qcu_out   , qlu_out      , qiu_out  ,             &
+                                    cbmf_out , qc_out    , rliq_out     ,                        &
+                                    cnt_out  , cnb_out   , lchnk        , dpdry0_in, wtprec_out, &
+                                    wtsnow_out, wtqc_out )
 
     ! ------------------------------------------------------------ !
     !                                                              !  
@@ -11175,7 +11486,7 @@ end subroutine uwshcu_readnl
 
     return
 
-  end subroutine compute_uwshcu
+  end subroutine compute_uwshcu_native
 
   ! ------------------------------ !
   !                                ! 
@@ -11692,6 +12003,22 @@ end subroutine uwshcu_readnl
   end function compute_alpha_native
 
   real(r8) function compute_mumin2(mulcl,rmaxfrac,mulow)
+    use iso_c_binding, only: c_double
+    real(r8) :: mulcl, rmaxfrac, mulow
+
+    call uwshcu_select_small_kernels_impl()
+    if (use_native_small_kernels_impl) then
+       compute_mumin2 = compute_mumin2_native(mulcl, rmaxfrac, mulow)
+    else
+       call uwshcu_log_small_kernels_entered()
+       call uwshcu_log_compute_mumin2_entered()
+       compute_mumin2 = uwshcu_compute_mumin2_codon(real(mulcl, c_double), real(rmaxfrac, c_double), &
+            real(mulow, c_double))
+    end if
+
+  end function compute_mumin2
+
+  real(r8) function compute_mumin2_native(mulcl,rmaxfrac,mulow)
   ! --------------------------------------------------------- !
   ! Subroutine to compute critical 'mu' (normalized CIN) such ! 
   ! that updraft fraction at the LCL is equal to 'rmaxfrac'.  !
@@ -11714,11 +12041,11 @@ end subroutine uwshcu_readnl
        x1 = x0 - f/fs     
        x0 = x1
     end do
-    compute_mumin2 = x0
+    compute_mumin2_native = x0
 
  20 return
 
-  end function compute_mumin2
+  end function compute_mumin2_native
 
   real(r8) function compute_ppen(wtwb,D,bogbot,bogtop,rho0j,dpen)
     real(r8) :: wtwb, D, bogbot, bogtop, rho0j, dpen
