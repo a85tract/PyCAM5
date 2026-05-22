@@ -125,6 +125,7 @@
   logical :: thermo_condensate_batch_shell_entered_logged = .false.
   logical :: thermo_conden_condensate_batch_shell_entered_logged = .false.
   logical :: thermo_conden_callback_shell_entered_logged = .false.
+  logical :: thermo_emf_kbup_conden_shell_entered_logged = .false.
   logical :: thermo_wtrc_midpoint_shell_entered_logged = .false.
   logical :: thermo_wtrc_state_sustain_shell_entered_logged = .false.
   logical :: thermo_wtrc_detrain_detached_shell_entered_logged = .false.
@@ -2247,6 +2248,23 @@ contains
 
 !===============================================================================
 
+  subroutine uwshcu_log_thermo_emf_kbup_conden_shell_entered()
+
+    if (thermo_emf_kbup_conden_shell_entered_logged) return
+    thermo_emf_kbup_conden_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu thermo emf kbup conden shell entered (emf kbup conden dispatch owned by codon; conden callback)'
+       call uwshcu_append_proof( &
+            'uwshcu thermo emf kbup conden shell entered (emf kbup conden dispatch owned by codon; conden callback)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_thermo_emf_kbup_conden_shell_entered
+
+!===============================================================================
+
   subroutine uwshcu_log_thermo_wtrc_midpoint_shell_entered()
 
     if (thermo_wtrc_midpoint_shell_entered_logged) return
@@ -3934,8 +3952,8 @@ end subroutine uwshcu_readnl
     real(r8), target :: qc_im
     real(r8), target :: nc_lm
     real(r8), target :: nc_im
-    real(r8)    ql_emf_kbup
-    real(r8)    qi_emf_kbup
+    real(r8), target :: ql_emf_kbup
+    real(r8), target :: qi_emf_kbup
     real(r8), target :: nl_emf_kbup
     real(r8), target :: ni_emf_kbup
     real(r8)    qlten_det
@@ -5890,6 +5908,23 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: exit_conden_p, exit_code_p, tru_emf_p, qc_l_k_p, qc_i_k_p
           type(c_ptr), value :: qc_lm_p, qc_im_p, nc_lm_p, nc_im_p, nl_emf_kbup_p, ni_emf_kbup_p
        end subroutine uwshcu_thermo_conden_condensate_batch_shell_codon
+
+       subroutine uwshcu_thermo_emf_kbup_conden_shell_codon(k_c, mkx_c, ixnumliq_c, &
+            ixnumice_c, trace_water_c, wtrc_nwset_c, ncnst_c, g_c, emf_k_c, ql0_k_c, &
+            qi0_k_c, tr0_liq_k_c, tr0_ice_k_c, ps0_km1_c, ps0_k_c, p0_k_c, &
+            thlu_emf_k_c, qtu_emf_k_c, th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, &
+            exit_code_p, wtu_emf_p, wtout_emf_kbup_p, tru_emf_p, qc_l_k_p, qc_i_k_p, &
+            qc_lm_p, qc_im_p, nc_lm_p, nc_im_p, nl_emf_kbup_p, ni_emf_kbup_p) &
+            bind(c, name="uwshcu_thermo_emf_kbup_conden_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: k_c, mkx_c, ixnumliq_c, ixnumice_c
+          integer(c_int64_t), value :: trace_water_c, wtrc_nwset_c, ncnst_c
+          real(c_double), value :: g_c, emf_k_c, ql0_k_c, qi0_k_c, tr0_liq_k_c, tr0_ice_k_c
+          real(c_double), value :: ps0_km1_c, ps0_k_c, p0_k_c, thlu_emf_k_c, qtu_emf_k_c
+          type(c_ptr), value :: th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, exit_code_p
+          type(c_ptr), value :: wtu_emf_p, wtout_emf_kbup_p, tru_emf_p, qc_l_k_p, qc_i_k_p
+          type(c_ptr), value :: qc_lm_p, qc_im_p, nc_lm_p, nc_im_p, nl_emf_kbup_p, ni_emf_kbup_p
+       end subroutine uwshcu_thermo_emf_kbup_conden_shell_codon
 
        subroutine uwshcu_thermo_wtrc_midpoint_shell_codon(kind_c, wtrc_nwset_c, trace_water_c, &
             prel_c, ppen_c, ps0_km1_c, ps0_k_c, wtout_p, wlubelow_p, wiubelow_p, &
@@ -11077,29 +11112,34 @@ end subroutine uwshcu_readnl
           !    Explicitly compute the properties detrained penetrative entrained airs in k = kbup layer.
 
           if( k .eq. kbup ) then
-              if(trace_water) then
-                wtout_emf_kbup(:,:) = 0.0_r8 !initalize variable (needed to prevent random tracer ice error) - JN
-                call conden(p0(k),thlu_emf(k),qtu_emf(k),thj,qvj,ql_emf_kbup,qi_emf_kbup,qse,id_check,wtrc_nwset,&
-                            qv0=qtu_emf(k),tr0=wtu_emf(k,:),wtout=wtout_emf_kbup)
-              else
-                call conden(p0(k),thlu_emf(k),qtu_emf(k),thj,qvj,ql_emf_kbup,qi_emf_kbup,qse,id_check,ncnst)
-              end if
               if (use_native_init_shell_impl) then
+                 if(trace_water) then
+                   wtout_emf_kbup(:,:) = 0.0_r8 !initalize variable (needed to prevent random tracer ice error) - JN
+                   call conden(p0(k),thlu_emf(k),qtu_emf(k),thj,qvj,ql_emf_kbup,qi_emf_kbup,qse,id_check,wtrc_nwset,&
+                               qv0=qtu_emf(k),tr0=wtu_emf(k,:),wtout=wtout_emf_kbup)
+                 else
+                   call conden(p0(k),thlu_emf(k),qtu_emf(k),thj,qvj,ql_emf_kbup,qi_emf_kbup,qse,id_check,ncnst)
+                 end if
                  if( id_check .eq. 1 ) then
                      id_exit = .true.
                      go to 333
                  endif
               else
-                 call uwshcu_log_thermo_conden_condensate_batch_shell_entered()
-                 call uwshcu_thermo_conden_condensate_batch_shell_codon(5_c_int64_t, int(k, c_int64_t), &
-                      int(mkx, c_int64_t), int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), &
-                      int(id_check, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0._r8, g, 0._r8, &
-                      0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, ql0(k), qi0(k), &
-                      tr0(k,ixnumliq), tr0(k,ixnumice), ps0(k-1), ps0(k), prel, ppen, &
-                      emf(k), ql_emf_kbup, qi_emf_kbup, c_null_ptr, c_null_ptr, c_null_ptr, &
-                      c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(thermo_emf_conden_exit_code_c), &
-                      c_loc(tru_emf), c_loc(qc_l(k)), c_loc(qc_i(k)), c_loc(qc_lm), c_loc(qc_im), &
-                      c_loc(nc_lm), c_loc(nc_im), c_loc(nl_emf_kbup), c_loc(ni_emf_kbup))
+                 call uwshcu_log_thermo_emf_kbup_conden_shell_entered()
+                 thermo_emf_conden_exit_code_c = 0_c_int64_t
+                 wtrc_nwset_post_c = 0_c_int64_t
+                 if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
+                 call uwshcu_thermo_emf_kbup_conden_shell_codon(int(k, c_int64_t), int(mkx, c_int64_t), &
+                      int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), &
+                      merge(1_c_int64_t, 0_c_int64_t, trace_water), wtrc_nwset_post_c, &
+                      int(ncnst, c_int64_t), g, emf(k), ql0(k), qi0(k), tr0(k,ixnumliq), &
+                      tr0(k,ixnumice), ps0(k-1), ps0(k), p0(k), thlu_emf(k), qtu_emf(k), &
+                      c_loc(thj), c_loc(qvj), c_loc(ql_emf_kbup), c_loc(qi_emf_kbup), &
+                      c_loc(qse), c_loc(thermo_conden_id_check_c), c_loc(thermo_emf_conden_exit_code_c), &
+                      c_loc(wtu_emf), c_loc(wtout_emf_kbup), c_loc(tru_emf), c_loc(qc_l(k)), &
+                      c_loc(qc_i(k)), c_loc(qc_lm), c_loc(qc_im), c_loc(nc_lm), c_loc(nc_im), &
+                      c_loc(nl_emf_kbup), c_loc(ni_emf_kbup))
+                 id_check = int(thermo_conden_id_check_c)
                  if( thermo_emf_conden_exit_code_c .ne. 0_c_int64_t ) then
                      id_exit = .true.
                      go to 333
