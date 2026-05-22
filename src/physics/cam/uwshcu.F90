@@ -96,6 +96,7 @@
   logical :: iter_env_restore_thermo_slope_shell_entered_logged = .false.
   logical :: release_prep_shell_entered_logged = .false.
   logical :: release_scaleh_batch_shell_entered_logged = .false.
+  logical :: release_base_full_shell_entered_logged = .false.
   logical :: release_mu_solve_shell_entered_logged = .false.
   logical :: release_mu_exit_shell_entered_logged = .false.
   logical :: release_mu_limit_shell_entered_logged = .false.
@@ -1788,6 +1789,23 @@ contains
     end if
 
   end subroutine uwshcu_log_release_scaleh_batch_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_release_base_full_shell_entered()
+
+    if (release_base_full_shell_entered_logged) return
+    release_base_full_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu release base full shell entered (release level/mu/base setup owned by codon; conden native callback)'
+       call uwshcu_append_proof( &
+            'uwshcu release base full shell entered (release level/mu/base setup owned by codon; conden native callback)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_release_base_full_shell_entered
 
 !===============================================================================
 
@@ -4012,6 +4030,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: lcl_id_check_c, lcl_conden_exit_code_c
     integer(c_int64_t), target       :: krel_release_c
     integer(c_int64_t), target       :: release_mu_exit_code_c, release_mumin2_needed_c
+    integer(c_int64_t), target       :: release_base_full_exit_code_c
     integer(c_int64_t), target       :: release_base_exit_code_c
     integer(c_int64_t), target       :: release_conden_exit_code_c
     integer(c_int64_t), target       :: kbup_iter_c, kpen_iter_c
@@ -4886,6 +4905,31 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: cbmf_p, winv_p, ufrcinv_p, wtw_p, wlcl_p, ufrclcl_p, wrel_p
           type(c_ptr), value :: exit_wtw_p, exit_ufrc_p, exit_code_p
        end subroutine uwshcu_release_base_solve_shell_codon
+
+       subroutine uwshcu_release_base_full_shell_codon(mkx_c, ncnst_c, use_cincin_c, kinv_c, &
+            klcl_c, zvir_c, cin_c, cinlcl_c, rbuoy_c, rkfre_c, tkeavg_c, epsvarw_c, r_c, &
+            g_c, dt_c, mumin1_c, rmaxfrac_c, plcl_c, thv0lcl_c, thlsrc_c, qtsrc_c, &
+            ps0_p, dp0_p, thv0bot_p, thv0top_p, exns0_p, krel_p, prel_p, thv0rel_p, &
+            sigmaw_p, mu_p, rho0inv_p, cbmflimit_p, mumin0_p, mumin2_p, mulcl_p, &
+            cbmf_p, winv_p, ufrcinv_p, wtw_p, wlcl_p, ufrclcl_p, wrel_p, ufrc_p, &
+            umf_p, wu_p, emf_p, thlu_p, qtu_p, ufrcinvbase_p, winvbase_p, pe_p, &
+            dpe_p, exit_wtw_p, exit_ufrc_p, limit_ufrc_p, limit_cbmf_p, th_p, qv_p, &
+            ql_p, qi_p, qse_p, id_check_p, exit_conden_p, exit_code_p) &
+            bind(c, name="uwshcu_release_base_full_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, use_cincin_c, kinv_c, klcl_c
+          real(c_double), value :: zvir_c, cin_c, cinlcl_c, rbuoy_c, rkfre_c, tkeavg_c
+          real(c_double), value :: epsvarw_c, r_c, g_c, dt_c, mumin1_c, rmaxfrac_c
+          real(c_double), value :: plcl_c, thv0lcl_c, thlsrc_c, qtsrc_c
+          type(c_ptr), value :: ps0_p, dp0_p, thv0bot_p, thv0top_p, exns0_p
+          type(c_ptr), value :: krel_p, prel_p, thv0rel_p, sigmaw_p, mu_p, rho0inv_p
+          type(c_ptr), value :: cbmflimit_p, mumin0_p, mumin2_p, mulcl_p, cbmf_p, winv_p
+          type(c_ptr), value :: ufrcinv_p, wtw_p, wlcl_p, ufrclcl_p, wrel_p, ufrc_p
+          type(c_ptr), value :: umf_p, wu_p, emf_p, thlu_p, qtu_p, ufrcinvbase_p
+          type(c_ptr), value :: winvbase_p, pe_p, dpe_p, exit_wtw_p, exit_ufrc_p
+          type(c_ptr), value :: limit_ufrc_p, limit_cbmf_p, th_p, qv_p, ql_p, qi_p
+          type(c_ptr), value :: qse_p, id_check_p, exit_conden_p, exit_code_p
+       end subroutine uwshcu_release_base_full_shell_codon
 
        subroutine uwshcu_release_mu_exit_shell_codon(mu_c, exit_code_p) &
             bind(c, name="uwshcu_release_mu_exit_shell_codon")
@@ -7647,6 +7691,36 @@ end subroutine uwshcu_readnl
        ! we simply assume that no lateral mixing occurs in this range.      !
        ! ------------------------------------------------------------------ !
 
+       if (.not. use_native_init_shell_impl) then
+          call uwshcu_log_release_base_full_shell_entered()
+          release_base_full_exit_code_c = 0_c_int64_t
+          krel_release_c = int(krel, c_int64_t)
+          call uwshcu_release_base_full_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+               merge(1_c_int64_t, 0_c_int64_t, use_CINcin), int(kinv, c_int64_t), int(klcl, c_int64_t), &
+               zvir, cin, cinlcl, rbuoy, rkfre, tkeavg, epsvarw, r, g, dt, mumin1, rmaxfrac, &
+               plcl, thv0lcl, thlsrc, qtsrc, c_loc(ps0), c_loc(dp0), c_loc(thv0bot), &
+               c_loc(thv0top), c_loc(exns0), c_loc(krel_release_c), c_loc(prel), c_loc(thv0rel), &
+               c_loc(sigmaw), c_loc(mu), c_loc(rho0inv), c_loc(cbmflimit), c_loc(mumin0), &
+               c_loc(mumin2), c_loc(mulcl), c_loc(cbmf), c_loc(winv), c_loc(ufrcinv), &
+               c_loc(wtw), c_loc(wlcl), c_loc(ufrclcl), c_loc(wrel), c_loc(ufrc), c_loc(umf), &
+               c_loc(wu), c_loc(emf), c_loc(thlu), c_loc(qtu), c_loc(ufrcinvbase), &
+               c_loc(winvbase), c_loc(pe), c_loc(dpe), c_loc(exit_wtw(i)), c_loc(exit_ufrc(i)), &
+               c_loc(limit_ufrc(i)), c_loc(limit_cbmf(i)), c_loc(thj), c_loc(qvj), c_loc(qlj), &
+               c_loc(qij), c_loc(qse), c_loc(id_check_thv_loop_c), c_loc(exit_conden(i)), &
+               c_loc(release_base_full_exit_code_c))
+          krel = int(krel_release_c)
+          id_check = int(id_check_thv_loop_c)
+          if( release_base_full_exit_code_c .eq. 2_c_int64_t ) then
+              write(iulog,*) 'Critical error in mu calculation in UW_ShCu'
+              call endrun
+          endif
+          if( release_base_full_exit_code_c .ne. 0_c_int64_t ) then
+              id_exit = .true.
+              go to 333
+          endif
+          go to 36
+       endif
+
        if (use_native_init_shell_impl) then
           if( klcl .lt. kinv ) then
               krel    = kinv
@@ -7984,6 +8058,8 @@ end subroutine uwshcu_readnl
           end if
           !*************
        endif
+
+ 36    continue
 
        !-------------------------! 
        ! Buoyancy-Sorting Mixing !

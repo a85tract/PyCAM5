@@ -7704,6 +7704,209 @@ def uwshcu_release_base_solve_shell_codon(
 
 
 @export
+def uwshcu_release_base_full_shell_codon(
+    mkx: int,
+    ncnst: int,
+    use_cincin: int,
+    kinv: int,
+    klcl: int,
+    zvir: float,
+    cin_v: float,
+    cinlcl_v: float,
+    rbuoy: float,
+    rkfre: float,
+    tkeavg_v: float,
+    epsvarw: float,
+    r_v: float,
+    g_v: float,
+    dt_v: float,
+    mumin1_v: float,
+    rmaxfrac_v: float,
+    plcl: float,
+    thv0lcl_v: float,
+    thlsrc: float,
+    qtsrc: float,
+    ps0_p: cobj,
+    dp0_p: cobj,
+    thv0bot_p: cobj,
+    thv0top_p: cobj,
+    exns0_p: cobj,
+    krel_p: cobj,
+    prel_p: cobj,
+    thv0rel_p: cobj,
+    sigmaw_p: cobj,
+    mu_p: cobj,
+    rho0inv_p: cobj,
+    cbmflimit_p: cobj,
+    mumin0_p: cobj,
+    mumin2_p: cobj,
+    mulcl_p: cobj,
+    cbmf_p: cobj,
+    winv_p: cobj,
+    ufrcinv_p: cobj,
+    wtw_p: cobj,
+    wlcl_p: cobj,
+    ufrclcl_p: cobj,
+    wrel_p: cobj,
+    ufrc_p: cobj,
+    umf_p: cobj,
+    wu_p: cobj,
+    emf_p: cobj,
+    thlu_p: cobj,
+    qtu_p: cobj,
+    ufrcinvbase_p: cobj,
+    winvbase_p: cobj,
+    pe_p: cobj,
+    dpe_p: cobj,
+    exit_wtw_p: cobj,
+    exit_ufrc_p: cobj,
+    limit_ufrc_p: cobj,
+    limit_cbmf_p: cobj,
+    th_p: cobj,
+    qv_p: cobj,
+    ql_p: cobj,
+    qi_p: cobj,
+    qse_p: cobj,
+    id_check_p: cobj,
+    exit_conden_p: cobj,
+    exit_code_p: cobj,
+):
+    uwshcu_release_level_shell_codon(
+        kinv,
+        klcl,
+        plcl,
+        thv0lcl_v,
+        ps0_p,
+        thv0bot_p,
+        krel_p,
+        prel_p,
+        thv0rel_p,
+    )
+
+    krel = Ptr[int](krel_p)[0]
+    prel_v = Ptr[float](prel_p)[0]
+    mu = Ptr[float](mu_p)
+    mumin0 = Ptr[float](mumin0_p)
+    mumin2 = Ptr[float](mumin2_p)
+    mulcl = Ptr[float](mulcl_p)
+    limit_ufrc = Ptr[float](limit_ufrc_p)
+    limit_cbmf = Ptr[float](limit_cbmf_p)
+    exit_code = Ptr[int](exit_code_p)
+
+    need_mumin2 = 0
+    ps0 = Ptr[float](ps0_p)
+    thv0top = Ptr[float](thv0top_p)
+    exns0 = Ptr[float](exns0_p)
+    dp0 = Ptr[float](dp0_p)
+    sigmaw = Ptr[float](sigmaw_p)
+    rho0inv = Ptr[float](rho0inv_p)
+    cbmflimit = Ptr[float](cbmflimit_p)
+
+    if use_cincin != 0:
+        wcrit = sqrt(2.0 * cin_v * rbuoy)
+    else:
+        wcrit = sqrt(2.0 * cinlcl_v * rbuoy)
+    sigmaw[0] = sqrt(rkfre * tkeavg_v + epsvarw)
+    mu_v = wcrit / sigmaw[0] / 1.4142
+
+    exit_code[0] = 0
+    if mu_v >= 3.0:
+        exit_code[0] = 1
+        return
+
+    iface_idx = kinv - 1
+    layer_idx = kinv - 2
+    rho0inv[0] = ps0[iface_idx] / (r_v * thv0top[layer_idx] * exns0[iface_idx])
+    cbmf_initial = (rho0inv[0] * sigmaw[0] / 2.5066) * exp(-(mu_v ** 2))
+    cbmflimit[0] = 0.9 * dp0[layer_idx] / g_v / dt_v
+    mumin0[0] = 0.0
+    if cbmf_initial > cbmflimit[0]:
+        mumin0[0] = sqrt(-log(2.5066 * cbmflimit[0] / rho0inv[0] / sigmaw[0]))
+
+    mu_v = max(max(mu_v, mumin0[0]), mumin1_v)
+    mulcl[0] = sqrt(2.0 * cinlcl_v * rbuoy) / 1.4142 / sigmaw[0]
+    mulclstar = sqrt(max(0.0, 2.0 * (exp(-(mu_v ** 2)) / 2.5066) ** 2 * (1.0 / erfc(mu_v) ** 2 - 0.25 / rmaxfrac_v ** 2)))
+    if mulcl[0] > 1.0e-8 and mulcl[0] > mulclstar:
+        need_mumin2 = 1
+
+    if need_mumin2 != 0:
+        mumin2[0] = uwshcu_compute_mumin2_codon(mulcl[0], rmaxfrac_v, mu_v)
+        if mu_v > mumin2[0]:
+            exit_code[0] = 2
+            return
+        mu_v = max(mu_v, mumin2[0])
+        if mu_v == mumin2[0]:
+            limit_ufrc[0] = 1.0
+
+    if mu_v == mumin0[0]:
+        limit_cbmf[0] = 1.0
+    if mu_v == mumin1_v:
+        limit_ufrc[0] = 1.0
+    mu[0] = mu_v
+
+    uwshcu_release_base_solve_shell_codon(
+        mu_v,
+        rho0inv[0],
+        sigmaw[0],
+        cinlcl_v,
+        rbuoy,
+        cbmf_p,
+        winv_p,
+        ufrcinv_p,
+        wtw_p,
+        wlcl_p,
+        ufrclcl_p,
+        wrel_p,
+        exit_wtw_p,
+        exit_ufrc_p,
+        exit_code_p,
+    )
+    if exit_code[0] != 0:
+        return
+
+    uwshcu_release_base_shell_codon(
+        mkx,
+        kinv,
+        krel,
+        Ptr[float](cbmf_p)[0],
+        Ptr[float](wrel_p)[0],
+        Ptr[float](winv_p)[0],
+        Ptr[float](ufrcinv_p)[0],
+        Ptr[float](ufrclcl_p)[0],
+        thlsrc,
+        qtsrc,
+        prel_v,
+        ps0_p,
+        ufrc_p,
+        umf_p,
+        wu_p,
+        emf_p,
+        thlu_p,
+        qtu_p,
+        ufrcinvbase_p,
+        winvbase_p,
+        pe_p,
+        dpe_p,
+    )
+
+    uwshcu_conden_scalar_from_c_dispatch(
+        prel_v,
+        thlsrc,
+        qtsrc,
+        th_p,
+        qv_p,
+        ql_p,
+        qi_p,
+        qse_p,
+        id_check_p,
+        ncnst,
+    )
+    if Ptr[int](id_check_p)[0] == 1:
+        Ptr[float](exit_conden_p)[0] = 1.0
+        exit_code[0] = 1
+
+
+@export
 def uwshcu_release_scaleh_stage_dispatch_codon(
     kind: int,
     mkx: int,
