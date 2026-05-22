@@ -5125,6 +5125,222 @@ def uwshcu_lcl_conden_init_shell_codon(
 
 
 @export
+def uwshcu_cin_main_loop_shell_codon(
+    mkx: int,
+    ncnst: int,
+    kinv: int,
+    klcl: int,
+    zvir: float,
+    qtsrc: float,
+    thlsrc: float,
+    thvlsrc: float,
+    plcl: float,
+    thv0lcl: float,
+    r_v: float,
+    p00_v: float,
+    rovcp_v: float,
+    ps0_p: cobj,
+    thv0bot_p: cobj,
+    thv0top_p: cobj,
+    th_p: cobj,
+    qv_p: cobj,
+    ql_p: cobj,
+    qi_p: cobj,
+    qse_p: cobj,
+    id_check_p: cobj,
+    exit_conden_p: cobj,
+    exit_code_p: cobj,
+    limit_cinlcl_p: cobj,
+    cin_p: cobj,
+    cinlcl_p: cobj,
+    plfc_p: cobj,
+    klfc_p: cobj,
+):
+    # ps0 has Fortran lower bound 0; thv0bot/thv0top have lower bound 1.
+    ps0 = Ptr[float](ps0_p)
+    thv0bot = Ptr[float](thv0bot_p)
+    thv0top = Ptr[float](thv0top_p)
+    th = Ptr[float](th_p)
+    qv = Ptr[float](qv_p)
+    ql = Ptr[float](ql_p)
+    qi = Ptr[float](qi_p)
+    id_check = Ptr[int](id_check_p)
+    exit_conden = Ptr[float](exit_conden_p)
+    exit_code = Ptr[int](exit_code_p)
+    limit_cinlcl = Ptr[float](limit_cinlcl_p)
+    cin = Ptr[float](cin_p)
+    cinlcl = Ptr[float](cinlcl_p)
+    plfc = Ptr[float](plfc_p)
+    klfc = Ptr[int](klfc_p)
+
+    exit_code[0] = 0
+
+    if klcl >= kinv:
+        thvutop = thvlsrc
+        k = kinv
+        while k <= mkx - 1:
+            if k < klcl:
+                thvubot = thvlsrc
+                thvutop = thvlsrc
+                cin[0] = cin[0] + uwshcu_single_cin_codon(
+                    ps0[k - 1],
+                    thv0bot[k - 1],
+                    ps0[k],
+                    thv0top[k - 1],
+                    thvubot,
+                    thvutop,
+                    r_v,
+                    p00_v,
+                    rovcp_v,
+                )
+            elif k == klcl:
+                thvubot = thvlsrc
+                thvutop = thvlsrc
+                cin[0] = cin[0] + uwshcu_single_cin_codon(
+                    ps0[k - 1],
+                    thv0bot[k - 1],
+                    plcl,
+                    thv0lcl,
+                    thvubot,
+                    thvutop,
+                    r_v,
+                    p00_v,
+                    rovcp_v,
+                )
+                if cin[0] < 0.0:
+                    limit_cinlcl[0] = 1.0
+                cinlcl[0] = max(cin[0], 0.0)
+                cin[0] = cinlcl[0]
+
+                thvubot = thvlsrc
+                uwshcu_conden_scalar_from_c_dispatch(
+                    ps0[k],
+                    thlsrc,
+                    qtsrc,
+                    th_p,
+                    qv_p,
+                    ql_p,
+                    qi_p,
+                    qse_p,
+                    id_check_p,
+                    ncnst,
+                )
+                if id_check[0] == 1:
+                    exit_conden[0] = 1.0
+                    exit_code[0] = 1
+                    return
+                thvutop = th[0] * (1.0 + zvir * qv[0] - ql[0] - qi[0])
+                uwshcu_getbuoy_codon(
+                    plcl,
+                    thv0lcl,
+                    ps0[k],
+                    thv0top[k - 1],
+                    thvubot,
+                    thvutop,
+                    r_v,
+                    p00_v,
+                    rovcp_v,
+                    plfc_p,
+                    cin_p,
+                )
+                if plfc[0] > 0.0:
+                    klfc[0] = k
+                    return
+            else:
+                thvubot = thvutop
+                uwshcu_conden_scalar_from_c_dispatch(
+                    ps0[k],
+                    thlsrc,
+                    qtsrc,
+                    th_p,
+                    qv_p,
+                    ql_p,
+                    qi_p,
+                    qse_p,
+                    id_check_p,
+                    ncnst,
+                )
+                if id_check[0] == 1:
+                    exit_conden[0] = 1.0
+                    exit_code[0] = 1
+                    return
+                thvutop = th[0] * (1.0 + zvir * qv[0] - ql[0] - qi[0])
+                uwshcu_getbuoy_codon(
+                    ps0[k - 1],
+                    thv0bot[k - 1],
+                    ps0[k],
+                    thv0top[k - 1],
+                    thvubot,
+                    thvutop,
+                    r_v,
+                    p00_v,
+                    rovcp_v,
+                    plfc_p,
+                    cin_p,
+                )
+                if plfc[0] > 0.0:
+                    klfc[0] = k
+                    return
+            k += 1
+    else:
+        cinlcl[0] = 0.0
+        k = kinv
+        while k <= mkx - 1:
+            uwshcu_conden_scalar_from_c_dispatch(
+                ps0[k - 1],
+                thlsrc,
+                qtsrc,
+                th_p,
+                qv_p,
+                ql_p,
+                qi_p,
+                qse_p,
+                id_check_p,
+                ncnst,
+            )
+            if id_check[0] == 1:
+                exit_conden[0] = 1.0
+                exit_code[0] = 1
+                return
+            thvubot = th[0] * (1.0 + zvir * qv[0] - ql[0] - qi[0])
+
+            uwshcu_conden_scalar_from_c_dispatch(
+                ps0[k],
+                thlsrc,
+                qtsrc,
+                th_p,
+                qv_p,
+                ql_p,
+                qi_p,
+                qse_p,
+                id_check_p,
+                ncnst,
+            )
+            if id_check[0] == 1:
+                exit_conden[0] = 1.0
+                exit_code[0] = 1
+                return
+            thvutop = th[0] * (1.0 + zvir * qv[0] - ql[0] - qi[0])
+            uwshcu_getbuoy_codon(
+                ps0[k - 1],
+                thv0bot[k - 1],
+                ps0[k],
+                thv0top[k - 1],
+                thvubot,
+                thvutop,
+                r_v,
+                p00_v,
+                rovcp_v,
+                plfc_p,
+                cin_p,
+            )
+            if plfc[0] > 0.0:
+                klfc[0] = k
+                return
+            k += 1
+
+
+@export
 def uwshcu_interface_thv_stage_dispatch_codon(
     k_fortran: int,
     zvir: float,

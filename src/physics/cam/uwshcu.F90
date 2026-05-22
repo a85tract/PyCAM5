@@ -88,6 +88,7 @@
   logical :: lcl_conden_init_shell_entered_logged = .false.
   logical :: lcl_prep_shell_entered_logged = .false.
   logical :: cin_prep_batch_shell_entered_logged = .false.
+  logical :: cin_main_loop_shell_entered_logged = .false.
   logical :: cin_scalar_shell_entered_logged = .false.
   logical :: cin_save_shell_entered_logged = .false.
   logical :: cin_restore_shell_entered_logged = .false.
@@ -1653,6 +1654,23 @@ contains
     end if
 
   end subroutine uwshcu_log_cin_prep_batch_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_cin_main_loop_shell_entered()
+
+    if (cin_main_loop_shell_entered_logged) return
+    cin_main_loop_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu cin main loop shell entered (cin case loop owned by codon; conden native callback; buoy direct = codon)'
+       call uwshcu_append_proof( &
+            'uwshcu cin main loop shell entered (cin case loop owned by codon; conden native callback; buoy direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_cin_main_loop_shell_entered
 
 !===============================================================================
 
@@ -3990,6 +4008,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: cin_post_exit_code_c
     integer(c_int64_t), target       :: id_check_thv_loop_c, interface_conden_exit_code_c
     integer(c_int64_t), target       :: cin_conden_exit_code_c
+    integer(c_int64_t), target       :: cin_loop_id_check_c, cin_loop_exit_code_c
     integer(c_int64_t), target       :: lcl_id_check_c, lcl_conden_exit_code_c
     integer(c_int64_t), target       :: krel_release_c
     integer(c_int64_t), target       :: release_mu_exit_code_c, release_mumin2_needed_c
@@ -4555,6 +4574,20 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: th_p, qv_p, ql_p, qi_p, qse_p, id_check_p
           type(c_ptr), value :: exit_conden_p, exit_code_p, thv0lcl_p, cin_p, cinlcl_p, plfc_p, klfc_p
        end subroutine uwshcu_lcl_conden_init_shell_codon
+
+       subroutine uwshcu_cin_main_loop_shell_codon(mkx_c, ncnst_c, kinv_c, klcl_c, zvir_c, &
+            qtsrc_c, thlsrc_c, thvlsrc_c, plcl_c, thv0lcl_c, r_c, p00_c, rovcp_c, &
+            ps0_p, thv0bot_p, thv0top_p, th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, &
+            exit_conden_p, exit_code_p, limit_cinlcl_p, cin_p, cinlcl_p, plfc_p, klfc_p) &
+            bind(c, name="uwshcu_cin_main_loop_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, kinv_c, klcl_c
+          real(c_double), value :: zvir_c, qtsrc_c, thlsrc_c, thvlsrc_c, plcl_c, thv0lcl_c
+          real(c_double), value :: r_c, p00_c, rovcp_c
+          type(c_ptr), value :: ps0_p, thv0bot_p, thv0top_p, th_p, qv_p, ql_p, qi_p, qse_p
+          type(c_ptr), value :: id_check_p, exit_conden_p, exit_code_p, limit_cinlcl_p
+          type(c_ptr), value :: cin_p, cinlcl_p, plfc_p, klfc_p
+       end subroutine uwshcu_cin_main_loop_shell_codon
 
        subroutine uwshcu_interface_thv_shell_codon(k_c, zvir_c, thj_c, qvj_c, qlj_c, qij_c, &
             thl0edge_c, qt0edge_c, thv0_p, thvl0_p) bind(c, name="uwshcu_interface_thv_shell_codon")
@@ -6951,6 +6984,7 @@ end subroutine uwshcu_readnl
         ! Case 1. LCL height is higher than PBL interface ( 'pLCL <= ps0(kinv-1)' ) !
         ! ------------------------------------------------------------------------- !
 
+        if (use_native_init_shell_impl) then
         if( klcl .ge. kinv ) then
 
             do k = kinv, mkx - 1
@@ -7089,6 +7123,24 @@ end subroutine uwshcu_readnl
              end if 
           end do
        endif  ! End of CIN case selection
+       else
+          call uwshcu_log_cin_main_loop_shell_entered()
+          cin_loop_id_check_c = 0_c_int64_t
+          cin_loop_exit_code_c = 0_c_int64_t
+          klfc_cin_state_c = int(klfc, c_int64_t)
+          call uwshcu_cin_main_loop_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+               int(kinv, c_int64_t), int(klcl, c_int64_t), zvir, qtsrc, thlsrc, thvlsrc, &
+               plcl, thv0lcl, r, p00, rovcp, c_loc(ps0), c_loc(thv0bot), c_loc(thv0top), &
+               c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), c_loc(qse), &
+               c_loc(cin_loop_id_check_c), c_loc(exit_conden(i)), c_loc(cin_loop_exit_code_c), &
+               c_loc(limit_cinlcl(i)), c_loc(cin), c_loc(cinlcl), c_loc(plfc), c_loc(klfc_cin_state_c))
+          id_check = int(cin_loop_id_check_c)
+          klfc = int(klfc_cin_state_c)
+          if( cin_loop_exit_code_c .ne. 0_c_int64_t ) then
+              id_exit = .true.
+              go to 333
+          end if
+       end if
 
  35    continue
        cin_post_exit_code_c = 0_c_int64_t
