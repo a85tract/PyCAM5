@@ -11103,6 +11103,54 @@ def uwshcu_thermo_conden_condensate_batch_shell_codon(
     )
 
 
+@export
+def uwshcu_thermo_wtrc_state_sustain_shell_codon(
+    mkx: int,
+    wtrc_nwset: int,
+    k_fortran: int,
+    trace_water: int,
+    frc_rasn: float,
+    qlj: float,
+    qij: float,
+    qlubelow_p: cobj,
+    qiubelow_p: cobj,
+    wtout_p: cobj,
+    wlubelow_p: cobj,
+    wiubelow_p: cobj,
+    wtdwten_p: cobj,
+    wtditen_p: cobj,
+    wtqc_liq_p: cobj,
+    wtqc_ice_p: cobj,
+):
+    qlubelow = Ptr[float](qlubelow_p)
+    qiubelow = Ptr[float](qiubelow_p)
+    wtdwten = Ptr[float](wtdwten_p)
+    wtditen = Ptr[float](wtditen_p)
+    wtqc_liq = Ptr[float](wtqc_liq_p)
+    wtqc_ice = Ptr[float](wtqc_ice_p)
+
+    qlubelow[0] = qlj
+    qiubelow[0] = qij
+
+    if trace_water != 0:
+        wtout = Ptr[float](wtout_p)
+        wlubelow = Ptr[float](wlubelow_p)
+        wiubelow = Ptr[float](wiubelow_p)
+        m = 0
+        while m < wtrc_nwset:
+            wlubelow[m] = wtout[m + wtrc_nwset]
+            wiubelow[m] = wtout[m + 2 * wtrc_nwset]
+            m += 1
+
+    k = k_fortran - 1
+    m = 0
+    while m < wtrc_nwset:
+        idx = k + m * mkx
+        wtqc_liq[idx] = (1.0 - frc_rasn) * wtdwten[idx]
+        wtqc_ice[idx] = (1.0 - frc_rasn) * wtditen[idx]
+        m += 1
+
+
 
 
 @export

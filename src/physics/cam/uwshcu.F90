@@ -124,6 +124,7 @@
   logical :: thermo_detached_shell_entered_logged = .false.
   logical :: thermo_condensate_batch_shell_entered_logged = .false.
   logical :: thermo_conden_condensate_batch_shell_entered_logged = .false.
+  logical :: thermo_wtrc_state_sustain_shell_entered_logged = .false.
   logical :: thermo_prelim_shell_entered_logged = .false.
   logical :: thermo_final_shell_entered_logged = .false.
   logical :: thermo_post_batch_shell_entered_logged = .false.
@@ -2204,6 +2205,23 @@ contains
 
 !===============================================================================
 
+  subroutine uwshcu_log_thermo_wtrc_state_sustain_shell_entered()
+
+    if (thermo_wtrc_state_sustain_shell_entered_logged) return
+    thermo_wtrc_state_sustain_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu thermo wtrc state/sustain shell entered (below-state and water-tracer sustain owned by codon)'
+       call uwshcu_append_proof( &
+            'uwshcu thermo wtrc state/sustain shell entered (below-state and water-tracer sustain owned by codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_thermo_wtrc_state_sustain_shell_entered
+
+!===============================================================================
+
   subroutine uwshcu_log_thermo_prelim_shell_entered()
 
     if (thermo_prelim_shell_entered_logged) return
@@ -3944,8 +3962,8 @@ end subroutine uwshcu_readnl
     real(r8)   wlu_mid(wtrc_nwset)          ! midlevel cloud liquid (?)
     real(r8)   wiu_mid(wtrc_nwset)          ! midlevel cloud ice (?)
     real(r8)   wtubelow(wtrc_nwset)         ! condensate below cloud level (?)
-    real(r8)   wlubelow(wtrc_nwset)         ! cloud liquid below updraft (?)
-    real(r8)   wiubelow(wtrc_nwset)         ! cloud ice below updraft (?)
+    real(r8), target :: wlubelow(wtrc_nwset) ! cloud liquid below updraft (?)
+    real(r8), target :: wiubelow(wtrc_nwset) ! cloud ice below updraft (?)
     real(r8)   Rldt                         ! Ratio of water tracer cloud liquid for detrainment
     real(r8)   Ridt                         ! Ratio of water tracer cloud ice for detrainment
     real(r8)   wttot0                       ! Total water tracer initial values
@@ -5600,6 +5618,17 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: exit_conden_p, exit_code_p, tru_emf_p, qc_l_k_p, qc_i_k_p
           type(c_ptr), value :: qc_lm_p, qc_im_p, nc_lm_p, nc_im_p, nl_emf_kbup_p, ni_emf_kbup_p
        end subroutine uwshcu_thermo_conden_condensate_batch_shell_codon
+
+       subroutine uwshcu_thermo_wtrc_state_sustain_shell_codon(mkx_c, wtrc_nwset_c, k_c, &
+            trace_water_c, frc_rasn_c, qlj_c, qij_c, qlubelow_p, qiubelow_p, wtout_p, &
+            wlubelow_p, wiubelow_p, wtdwten_p, wtditen_p, wtqc_liq_p, wtqc_ice_p) &
+            bind(c, name="uwshcu_thermo_wtrc_state_sustain_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, k_c, trace_water_c
+          real(c_double), value :: frc_rasn_c, qlj_c, qij_c
+          type(c_ptr), value :: qlubelow_p, qiubelow_p, wtout_p, wlubelow_p, wiubelow_p
+          type(c_ptr), value :: wtdwten_p, wtditen_p, wtqc_liq_p, wtqc_ice_p
+       end subroutine uwshcu_thermo_wtrc_state_sustain_shell_codon
 
        subroutine uwshcu_thermo_prelim_shell_codon(mkx_c, wtrc_nwset_c, kpen_c, &
             frc_rasn_c, g_c, dp0_p, umf_p, dwten_p, diten_p, wtdwten_p, wtditen_p, &
@@ -10505,6 +10534,7 @@ end subroutine uwshcu_readnl
               end if
              !*************
           endif
+          if (use_native_init_shell_impl) then
           qlubelow = qlj       
           qiubelow = qij       
  
@@ -10520,6 +10550,7 @@ end subroutine uwshcu_readnl
             end do
           end if
          !*************
+          endif
 
           ! 1. Sustained Precipitation
 
@@ -10528,13 +10559,23 @@ end subroutine uwshcu_readnl
              qc_i(k) = ( 1._r8 - frc_rasn ) * diten(k) ! [ kg/kg/s ]
           endif
 
-          !*************
-          !Water tracers:
-          !*************
+         !*************
+         !Water tracers:
+         !*************
+          if (use_native_init_shell_impl) then
           do m=1,wtrc_nwset
             wtqc_liq(k,m) = ( 1._r8 - frc_rasn ) * wtdwten(k,m) ! [ kg/kg/s ]
             wtqc_ice(k,m) = ( 1._r8 - frc_rasn ) * wtditen(k,m)
           end do
+          else
+             call uwshcu_log_thermo_wtrc_state_sustain_shell_entered()
+             call uwshcu_thermo_wtrc_state_sustain_shell_codon(int(mkx, c_int64_t), &
+                  int(wtrc_nwset, c_int64_t), int(k, c_int64_t), &
+                  merge(1_c_int64_t, 0_c_int64_t, trace_water), frc_rasn, qlj, qij, &
+                  c_loc(qlubelow), c_loc(qiubelow), c_loc(wtout), c_loc(wlubelow), &
+                  c_loc(wiubelow), c_loc(wtdwten), c_loc(wtditen), c_loc(wtqc_liq), &
+                  c_loc(wtqc_ice))
+          endif
           !*************
 
           ! 2. Detrained Condensate
