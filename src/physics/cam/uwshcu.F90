@@ -3324,8 +3324,8 @@ end subroutine uwshcu_readnl
     real(r8), target, intent(inout) :: cush_inout(mix)        !  Convective scale height [ m ]
 
     logical , intent(in), optional :: wetbulb_precomputed
-    real(r8), intent(in), optional :: tw0_precomputed_in(mix,mkx)
-    real(r8), intent(in), optional :: qw0_precomputed_in(mix,mkx)
+    real(r8), target, intent(in), optional :: tw0_precomputed_in(mix,mkx)
+    real(r8), target, intent(in), optional :: qw0_precomputed_in(mix,mkx)
     logical , intent(in), optional :: constituent_indices_precomputed
     integer(c_int64_t), intent(in), optional :: constituent_indices_precomputed_in(4)
     logical , intent(in), optional :: init_shell_preselected
@@ -3335,8 +3335,9 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), intent(in), optional :: wtrc_iatype_precomputed_in(max(1,wtrc_nwset),3)
     logical , intent(in), optional :: public_outputs_preinitialized
 
-    real(r8)                   tw0_in(mix,mkx)                !  Wet bulb temperature [ K ]
-    real(r8)                   qw0_in(mix,mkx)                !  Wet-bulb specific humidity [ kg/kg ]
+    real(r8), target          :: tw0_in(mix,mkx)              !  Wet bulb temperature [ K ]
+    real(r8), target          :: qw0_in(mix,mkx)              !  Wet-bulb specific humidity [ kg/kg ]
+    real(r8), pointer         :: qw0_active(:,:)              !  Active wet-bulb specific humidity workspace
 
     real(r8), target, intent(out)   :: umf_out(mix,0:mkx)     !  Updraft mass flux at the interfaces [ kg/m2/s ]
     real(r8), target, intent(out)   :: qvten_out(mix,mkx)     !  Tendency of water vapor specific humidity [ kg/kg/s ]
@@ -6293,16 +6294,14 @@ end subroutine uwshcu_readnl
        if (.not. present(tw0_precomputed_in) .or. .not. present(qw0_precomputed_in)) then
           call endrun('compute_uwshcu_native: missing precomputed wet-bulb arrays')
        end if
-       do k = 1, mkx
-          tw0_in(:iend,k) = tw0_precomputed_in(:iend,k)
-          qw0_in(:iend,k) = qw0_precomputed_in(:iend,k)
-       end do
+       qw0_active => qw0_precomputed_in
     else
        ! "True" means ice will be taken into account
        do k = 1, mkx
           call findsp_vc(qv0_in(:iend,k), t0_in(:iend,k), p0_in(:iend,k), .true., &
                tw0_in(:iend,k), qw0_in(:iend,k))
        end do
+       qw0_active => qw0_in
     end if
 
     do i = 1, iend                                      
@@ -10610,7 +10609,7 @@ end subroutine uwshcu_readnl
           evprain  = kevp * subsat * sqrt(flxrain(k)+snowmlt*dp0(k)/g) 
           evpsnow  = kevp * subsat * sqrt(max(flxsnow(k)-snowmlt*dp0(k)/g,0._r8))
 
-          evplimit = max( 0._r8, ( qw0_in(i,k) - qv0(k) ) / dt ) 
+          evplimit = max( 0._r8, ( qw0_active(i,k) - qv0(k) ) / dt )
 
           evplimit_rain = min( evplimit,      ( flxrain(k) + snowmlt * dp0(k) / g ) * g / dp0(k) )
           evplimit_rain = min( evplimit_rain, ( rainflx - evpint_rain ) * g / dp0(k) )
