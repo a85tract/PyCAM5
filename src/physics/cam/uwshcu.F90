@@ -85,6 +85,7 @@
   logical :: pbl_source_shell_entered_logged = .false.
   logical :: pbl_precheck_source_shell_entered_logged = .false.
   logical :: source_lcl_solve_prep_shell_entered_logged = .false.
+  logical :: lcl_conden_init_shell_entered_logged = .false.
   logical :: lcl_prep_shell_entered_logged = .false.
   logical :: cin_prep_batch_shell_entered_logged = .false.
   logical :: cin_scalar_shell_entered_logged = .false.
@@ -1603,6 +1604,23 @@ contains
     end if
 
   end subroutine uwshcu_log_source_lcl_solve_prep_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_lcl_conden_init_shell_entered()
+
+    if (lcl_conden_init_shell_entered_logged) return
+    lcl_conden_init_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu lcl conden/init shell entered (conden native callback; cin lcl init direct = codon)'
+       call uwshcu_append_proof( &
+            'uwshcu lcl conden/init shell entered (conden native callback; cin lcl init direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_lcl_conden_init_shell_entered
 
 !===============================================================================
 
@@ -3972,6 +3990,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: cin_post_exit_code_c
     integer(c_int64_t), target       :: id_check_thv_loop_c, interface_conden_exit_code_c
     integer(c_int64_t), target       :: cin_conden_exit_code_c
+    integer(c_int64_t), target       :: lcl_id_check_c, lcl_conden_exit_code_c
     integer(c_int64_t), target       :: krel_release_c
     integer(c_int64_t), target       :: release_mu_exit_code_c, release_mumin2_needed_c
     integer(c_int64_t), target       :: release_base_exit_code_c
@@ -4525,6 +4544,17 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p
           type(c_ptr), value :: klcl_out_p, exit_code_p, thl0lcl_p, qt0lcl_p
        end subroutine uwshcu_lcl_prep_shell_codon
+
+       subroutine uwshcu_lcl_conden_init_shell_codon(mkx_c, ncnst_c, zvir_c, plcl_c, &
+            thl0lcl_c, qt0lcl_c, th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, &
+            exit_conden_p, exit_code_p, thv0lcl_p, cin_p, cinlcl_p, plfc_p, klfc_p) &
+            bind(c, name="uwshcu_lcl_conden_init_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c
+          real(c_double), value :: zvir_c, plcl_c, thl0lcl_c, qt0lcl_c
+          type(c_ptr), value :: th_p, qv_p, ql_p, qi_p, qse_p, id_check_p
+          type(c_ptr), value :: exit_conden_p, exit_code_p, thv0lcl_p, cin_p, cinlcl_p, plfc_p, klfc_p
+       end subroutine uwshcu_lcl_conden_init_shell_codon
 
        subroutine uwshcu_interface_thv_shell_codon(k_c, zvir_c, thj_c, qvj_c, qlj_c, qij_c, &
             thl0edge_c, qt0edge_c, thv0_p, thvl0_p) bind(c, name="uwshcu_interface_thv_shell_codon")
@@ -6864,38 +6894,28 @@ end subroutine uwshcu_readnl
        if (use_native_init_shell_impl) then
           thl0lcl = thl0(klcl) + ssthl0(klcl) * ( plcl - p0(klcl) )
           qt0lcl  = qt0(klcl)  + ssqt0(klcl)  * ( plcl - p0(klcl) )
-       end if
-       call conden(plcl,thl0lcl,qt0lcl,thj,qvj,qlj,qij,qse,id_check,ncnst)
-       if (use_native_init_shell_impl) then
+          call conden(plcl,thl0lcl,qt0lcl,thj,qvj,qlj,qij,qse,id_check,ncnst)
           if( id_check .eq. 1 ) then
               exit_conden(i) = 1._r8
               id_exit = .true.
               go to 333
           end if
+          thv0lcl = thj * ( 1._r8 + zvir * qvj - qlj - qij )
        else
-          call uwshcu_log_cin_prep_batch_shell_entered()
-          call uwshcu_cin_prep_batch_shell_codon(2_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
-                int(id_check, c_int64_t), 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
-                c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(exit_conden(i)), &
-                c_loc(cin_conden_exit_code_c), c_null_ptr, c_null_ptr, &
-                c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
-          if( cin_conden_exit_code_c .ne. 0_c_int64_t ) then
+          call uwshcu_log_lcl_conden_init_shell_entered()
+          lcl_id_check_c = 0_c_int64_t
+          call uwshcu_lcl_conden_init_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+               zvir, plcl, thl0lcl, qt0lcl, c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), &
+               c_loc(qse), c_loc(lcl_id_check_c), c_loc(exit_conden(i)), &
+               c_loc(lcl_conden_exit_code_c), c_loc(thv0lcl), c_loc(cin), c_loc(cinlcl), &
+               c_loc(plfc), c_loc(klfc_cin_state_c))
+          id_check = int(lcl_id_check_c)
+          if( lcl_conden_exit_code_c .ne. 0_c_int64_t ) then
               id_exit = .true.
               go to 333
           end if
-       endif
-       if (use_native_init_shell_impl) then
-          thv0lcl = thj * ( 1._r8 + zvir * qvj - qlj - qij )
-       else
-          call uwshcu_log_cin_prep_batch_shell_entered()
-          call uwshcu_cin_prep_batch_shell_codon(3_c_int64_t, 0_c_int64_t, int(mkx, c_int64_t), &
-               0_c_int64_t, 0._r8, zvir, thj, qvj, qlj, qij, 0._r8, 0._r8, &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-               c_loc(thv0lcl), c_null_ptr, c_loc(cin), c_loc(cinlcl), c_loc(plfc), c_loc(klfc_cin_state_c))
           klfc = int(klfc_cin_state_c)
-       end if
+       endif
 
        ! ------------------------------------------------------------------------ !
        ! Compute Convective Inhibition, 'cin' & 'cinlcl' [J/kg]=[m2/s2] TKE unit. !

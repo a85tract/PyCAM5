@@ -5066,6 +5066,65 @@ def uwshcu_source_lcl_solve_prep_shell_codon(
 
 
 @export
+def uwshcu_lcl_conden_init_shell_codon(
+    mkx: int,
+    ncnst: int,
+    zvir: float,
+    plcl: float,
+    thl0lcl: float,
+    qt0lcl: float,
+    th_p: cobj,
+    qv_p: cobj,
+    ql_p: cobj,
+    qi_p: cobj,
+    qse_p: cobj,
+    id_check_p: cobj,
+    exit_conden_p: cobj,
+    exit_code_p: cobj,
+    thv0lcl_p: cobj,
+    cin_p: cobj,
+    cinlcl_p: cobj,
+    plfc_p: cobj,
+    klfc_p: cobj,
+):
+    uwshcu_conden_scalar_from_c_dispatch(
+        plcl,
+        thl0lcl,
+        qt0lcl,
+        th_p,
+        qv_p,
+        ql_p,
+        qi_p,
+        qse_p,
+        id_check_p,
+        ncnst,
+    )
+
+    id_check = Ptr[int](id_check_p)
+    exit_conden = Ptr[float](exit_conden_p)
+    exit_code = Ptr[int](exit_code_p)
+    exit_code[0] = 0
+    if id_check[0] == 1:
+        exit_conden[0] = 1.0
+        exit_code[0] = 1
+        return
+
+    uwshcu_cin_lcl_init_shell_codon(
+        mkx,
+        zvir,
+        Ptr[float](th_p)[0],
+        Ptr[float](qv_p)[0],
+        Ptr[float](ql_p)[0],
+        Ptr[float](qi_p)[0],
+        thv0lcl_p,
+        cin_p,
+        cinlcl_p,
+        plfc_p,
+        klfc_p,
+    )
+
+
+@export
 def uwshcu_interface_thv_stage_dispatch_codon(
     k_fortran: int,
     zvir: float,
