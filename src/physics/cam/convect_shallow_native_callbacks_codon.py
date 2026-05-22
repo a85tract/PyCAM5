@@ -2,6 +2,7 @@ from C import uwshcu_compute_native_from_c_cb(int, int, int, int, float, Ptr[flo
 from C import uwshcu_conden_scalar_from_c_cb(float, float, float, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[int], int) -> None
 from C import uwshcu_cnst_indices_from_c_cb(Ptr[int]) -> None
 from C import uwshcu_findsp_layer_from_c_cb(int, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float]) -> None
+from C import uwshcu_qsinvert_from_c_cb(float, float, float) -> float
 from C import uwshcu_select_init_shell_from_c_cb(Ptr[int]) -> None
 from C import uwshcu_wtrc_metadata_from_c_cb(Ptr[int], Ptr[int]) -> None
 
@@ -189,3 +190,7 @@ def uwshcu_findsp_layer_from_c_dispatch(
     qw0_p: Ptr[float],
 ):
     uwshcu_findsp_layer_from_c_cb(iend, qv0_p, t0_p, p0_p, tw0_p, qw0_p)
+
+
+def uwshcu_qsinvert_from_c_dispatch(qt: float, thl: float, psfc: float) -> float:
+    return uwshcu_qsinvert_from_c_cb(qt, thl, psfc)

@@ -84,6 +84,7 @@
   logical :: pbl_precheck_shell_entered_logged = .false.
   logical :: pbl_source_shell_entered_logged = .false.
   logical :: pbl_precheck_source_shell_entered_logged = .false.
+  logical :: source_lcl_solve_prep_shell_entered_logged = .false.
   logical :: lcl_prep_shell_entered_logged = .false.
   logical :: cin_prep_batch_shell_entered_logged = .false.
   logical :: cin_scalar_shell_entered_logged = .false.
@@ -231,6 +232,16 @@
        type(c_ptr), value :: constituent_indices_p, init_shell_flags_p
        type(c_ptr), value :: wtrc_metadata_flags_p, wtrc_iatype_p
      end subroutine uwshcu_compute_parent_shell_codon
+
+     subroutine uwshcu_source_lcl_solve_prep_shell_codon(mkx_c, qtsrc_c, thlsrc_c, psfc_c, &
+          ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p, plcl_p, klcl_out_p, &
+          exit_code_p, thl0lcl_p, qt0lcl_p) bind(c, name="uwshcu_source_lcl_solve_prep_shell_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: mkx_c
+       real(c_double), value :: qtsrc_c, thlsrc_c, psfc_c
+       type(c_ptr), value :: ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p
+       type(c_ptr), value :: plcl_p, klcl_out_p, exit_code_p, thl0lcl_p, qt0lcl_p
+     end subroutine uwshcu_source_lcl_solve_prep_shell_codon
 
      subroutine uwshcu_fluxbelowinv_codon(mkx_c, kinv_c, cbmf_c, dt_c, xsrc_c, &
           xmean_c, xtopin_c, xbotin_c, g_c, ps0_p, xflx_p) &
@@ -1575,6 +1586,23 @@ contains
     end if
 
   end subroutine uwshcu_log_pbl_precheck_source_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_source_lcl_solve_prep_shell_entered()
+
+    if (source_lcl_solve_prep_shell_entered_logged) return
+    source_lcl_solve_prep_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu source lcl solve/prep shell entered (qsinvert native callback; lcl prep direct = codon)'
+       call uwshcu_append_proof( &
+            'uwshcu source lcl solve/prep shell entered (qsinvert native callback; lcl prep direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_source_lcl_solve_prep_shell_entered
 
 !===============================================================================
 
@@ -3136,6 +3164,20 @@ end subroutine uwshcu_readnl
     id_check_out = int(id_check, c_int64_t)
 
   end subroutine uwshcu_conden_scalar_from_c_cb
+
+  function uwshcu_qsinvert_from_c_cb(qt_c, thl_c, psfc_c) result(plcl_c) &
+       bind(c, name="uwshcu_qsinvert_from_c_cb")
+
+    use iso_c_binding, only: c_double
+
+    implicit none
+
+    real(c_double), value :: qt_c, thl_c, psfc_c
+    real(c_double) :: plcl_c
+
+    plcl_c = real(qsinvert(real(qt_c, r8), real(thl_c, r8), real(psfc_c, r8)), c_double)
+
+  end function uwshcu_qsinvert_from_c_cb
 
   subroutine uwshcu_select_init_shell_from_c_cb(flags_p) bind(c, name="uwshcu_select_init_shell_from_c_cb")
 
@@ -6779,8 +6821,8 @@ end subroutine uwshcu_readnl
        ! set to 1.                                                          !
        ! ------------------------------------------------------------------ !
 
-       plcl = qsinvert(qtsrc,thlsrc,ps0(0))
        if (use_native_init_shell_impl) then
+          plcl = qsinvert(qtsrc,thlsrc,ps0(0))
           do k = 0, mkx
              if( ps0(k) .lt. plcl ) then
                  klcl = k
@@ -6793,13 +6835,11 @@ end subroutine uwshcu_readnl
           lcl_exit_code_c = 0_c_int64_t
           if( plcl .lt. 30000._r8 ) lcl_exit_code_c = 1_c_int64_t
        else
-          call uwshcu_log_cin_prep_batch_shell_entered()
-          call uwshcu_cin_prep_batch_shell_codon(1_c_int64_t, 0_c_int64_t, int(mkx, c_int64_t), &
-               0_c_int64_t, plcl, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
+          call uwshcu_log_source_lcl_solve_prep_shell_entered()
+          call uwshcu_source_lcl_solve_prep_shell_codon(int(mkx, c_int64_t), qtsrc, thlsrc, ps0(0), &
                c_loc(ps0), c_loc(p0), c_loc(thl0), c_loc(ssthl0), c_loc(qt0), c_loc(ssqt0), &
-               c_loc(klcl_prep_c), c_loc(lcl_exit_code_c), c_loc(thl0lcl), c_loc(qt0lcl), &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
+               c_loc(plcl), c_loc(klcl_prep_c), c_loc(lcl_exit_code_c), c_loc(thl0lcl), &
+               c_loc(qt0lcl))
           klcl = int(klcl_prep_c)
        end if
 

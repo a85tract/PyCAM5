@@ -4,6 +4,7 @@ from convect_shallow_native_callbacks_codon import (
     uwshcu_cnst_indices_from_c_dispatch,
     uwshcu_compute_native_from_c_dispatch,
     uwshcu_findsp_layer_from_c_dispatch,
+    uwshcu_qsinvert_from_c_dispatch,
     uwshcu_select_init_shell_from_c_dispatch,
     uwshcu_wtrc_metadata_from_c_dispatch,
 )
@@ -5026,6 +5027,42 @@ def uwshcu_lcl_prep_shell_codon(
     idx = klcl - 1
     thl0lcl[0] = thl0[idx] + ssthl0[idx] * (plcl - p0[idx])
     qt0lcl[0] = qt0[idx] + ssqt0[idx] * (plcl - p0[idx])
+
+
+@export
+def uwshcu_source_lcl_solve_prep_shell_codon(
+    mkx: int,
+    qtsrc: float,
+    thlsrc: float,
+    psfc: float,
+    ps0_p: cobj,
+    p0_p: cobj,
+    thl0_p: cobj,
+    ssthl0_p: cobj,
+    qt0_p: cobj,
+    ssqt0_p: cobj,
+    plcl_p: cobj,
+    klcl_out_p: cobj,
+    exit_code_p: cobj,
+    thl0lcl_p: cobj,
+    qt0lcl_p: cobj,
+):
+    plcl = uwshcu_qsinvert_from_c_dispatch(qtsrc, thlsrc, psfc)
+    Ptr[float](plcl_p)[0] = plcl
+    uwshcu_lcl_prep_shell_codon(
+        mkx,
+        plcl,
+        ps0_p,
+        p0_p,
+        thl0_p,
+        ssthl0_p,
+        qt0_p,
+        ssqt0_p,
+        klcl_out_p,
+        exit_code_p,
+        thl0lcl_p,
+        qt0lcl_p,
+    )
 
 
 @export
