@@ -125,6 +125,7 @@
   logical :: thermo_condensate_batch_shell_entered_logged = .false.
   logical :: thermo_conden_condensate_batch_shell_entered_logged = .false.
   logical :: thermo_wtrc_state_sustain_shell_entered_logged = .false.
+  logical :: thermo_wtrc_detrain_detached_shell_entered_logged = .false.
   logical :: thermo_prelim_shell_entered_logged = .false.
   logical :: thermo_final_shell_entered_logged = .false.
   logical :: thermo_post_batch_shell_entered_logged = .false.
@@ -2222,6 +2223,23 @@ contains
 
 !===============================================================================
 
+  subroutine uwshcu_log_thermo_wtrc_detrain_detached_shell_entered()
+
+    if (thermo_wtrc_detrain_detached_shell_entered_logged) return
+    thermo_wtrc_detrain_detached_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu thermo wtrc detrain/detached shell entered (water-tracer detrain and detached updates owned by codon)'
+       call uwshcu_append_proof( &
+            'uwshcu thermo wtrc detrain/detached shell entered (water-tracer detrain and detached updates owned by codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_thermo_wtrc_detrain_detached_shell_entered
+
+!===============================================================================
+
   subroutine uwshcu_log_thermo_prelim_shell_entered()
 
     if (thermo_prelim_shell_entered_logged) return
@@ -3959,8 +3977,8 @@ end subroutine uwshcu_readnl
     real(r8)   wlu_top(wtrc_nwset)          ! Tracer liquid flux in updraft at top of cloud (?)
     real(r8)   wiu_top(wtrc_nwset)          ! Tracer ice flux in updraft at top of cloud (?)
     real(r8)   wtu_mid(wtrc_nwset)          ! midlevel condensate (?)
-    real(r8)   wlu_mid(wtrc_nwset)          ! midlevel cloud liquid (?)
-    real(r8)   wiu_mid(wtrc_nwset)          ! midlevel cloud ice (?)
+    real(r8), target :: wlu_mid(wtrc_nwset) ! midlevel cloud liquid (?)
+    real(r8), target :: wiu_mid(wtrc_nwset) ! midlevel cloud ice (?)
     real(r8)   wtubelow(wtrc_nwset)         ! condensate below cloud level (?)
     real(r8), target :: wlubelow(wtrc_nwset) ! cloud liquid below updraft (?)
     real(r8), target :: wiubelow(wtrc_nwset) ! cloud ice below updraft (?)
@@ -5629,6 +5647,19 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: qlubelow_p, qiubelow_p, wtout_p, wlubelow_p, wiubelow_p
           type(c_ptr), value :: wtdwten_p, wtditen_p, wtqc_liq_p, wtqc_ice_p
        end subroutine uwshcu_thermo_wtrc_state_sustain_shell_codon
+
+       subroutine uwshcu_thermo_wtrc_detrain_detached_shell_codon(mkx_c, wtrc_nwset_c, k_c, &
+            trace_water_c, k_le_kbup_c, k_eq_kbup_c, g_c, umf_km1_c, umf_k_c, fdr_k_c, &
+            ps0_km1_c, ps0_k_c, wlu_mid_p, wiu_mid_p, wtout_p, tr0_p, wtrc_iatype_p, &
+            wtqc_liq_p, wtqc_ice_p, wtqcm_liq_p, wtqcm_ice_p) &
+            bind(c, name="uwshcu_thermo_wtrc_detrain_detached_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, k_c, trace_water_c
+          integer(c_int64_t), value :: k_le_kbup_c, k_eq_kbup_c
+          real(c_double), value :: g_c, umf_km1_c, umf_k_c, fdr_k_c, ps0_km1_c, ps0_k_c
+          type(c_ptr), value :: wlu_mid_p, wiu_mid_p, wtout_p, tr0_p, wtrc_iatype_p
+          type(c_ptr), value :: wtqc_liq_p, wtqc_ice_p, wtqcm_liq_p, wtqcm_ice_p
+       end subroutine uwshcu_thermo_wtrc_detrain_detached_shell_codon
 
        subroutine uwshcu_thermo_prelim_shell_codon(mkx_c, wtrc_nwset_c, kpen_c, &
             frc_rasn_c, g_c, dp0_p, umf_p, dwten_p, diten_p, wtdwten_p, wtditen_p, &
@@ -10594,6 +10625,7 @@ end subroutine uwshcu_readnl
              !Water tracers:
              !*************
               if(trace_water) then
+                if (use_native_init_shell_impl) then
                 do m=1,wtrc_nwset
                   wtqc_liq(k,m) = wtqc_liq(k,m)+ g * 0.5_r8 * &
                                               ( umf(k-1) + umf(k) ) * fdr(k) * wlu_mid(m)         ! [ kg/kg/s ]
@@ -10602,6 +10634,7 @@ end subroutine uwshcu_readnl
                   wtqcm_liq(m)= - g * 0.5_r8 * ( umf(k-1) + umf(k) ) * fdr(k) * tr0(k,wtrc_iatype(m,iwtliq))
                   wtqcm_ice(m)= - g * 0.5_r8 * ( umf(k-1) + umf(k) ) * fdr(k) * tr0(k,wtrc_iatype(m,iwtice))
                 end do
+                endif
               end if
              !*************
           else
@@ -10615,8 +10648,10 @@ end subroutine uwshcu_readnl
              !Water tracers:
              !*************
               if(trace_water) then
+                if (use_native_init_shell_impl) then
                 wtqcm_liq(:)= 0._r8
                 wtqcm_ice(:)= 0._r8
+                endif
               end if
              !*************
           endif
@@ -10636,15 +10671,29 @@ end subroutine uwshcu_readnl
              !Water tracers:
              !*************
              if(trace_water) then
+               if (use_native_init_shell_impl) then
                do m=1,wtrc_nwset
                  wtqc_liq(k,m) = wtqc_liq(k,m) + g * umf(k) * wtout(m,2) / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
                  wtqc_ice(k,m) = wtqc_ice(k,m) + g * umf(k) * wtout(m,3) / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
                  wtqcm_liq(m)  = wtqcm_liq(m) - g * umf(k) * tr0(k,wtrc_iatype(m,iwtliq))  / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
                  wtqcm_ice(m)  = wtqcm_ice(m) - g * umf(k) * tr0(k,wtrc_iatype(m,iwtice))  / ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
                end do
+               endif
              end if
              !*************
           endif 
+
+          if (.not. use_native_init_shell_impl) then
+             call uwshcu_log_thermo_wtrc_detrain_detached_shell_entered()
+             call uwshcu_thermo_wtrc_detrain_detached_shell_codon(int(mkx, c_int64_t), &
+                  int(wtrc_nwset, c_int64_t), int(k, c_int64_t), &
+                  merge(1_c_int64_t, 0_c_int64_t, trace_water), &
+                  merge(1_c_int64_t, 0_c_int64_t, k .le. kbup), &
+                  merge(1_c_int64_t, 0_c_int64_t, k .eq. kbup), g, umf(k-1), umf(k), &
+                  fdr(k), ps0(k-1), ps0(k), c_loc(wlu_mid), c_loc(wiu_mid), c_loc(wtout), &
+                  c_loc(tr0), c_loc(wtrc_iatype_post), c_loc(wtqc_liq), c_loc(wtqc_ice), &
+                  c_loc(wtqcm_liq), c_loc(wtqcm_ice))
+          endif
 
           ! 4. Cumulative Penetrative entrainment detrained in the 'kbup' layer
           !    Explicitly compute the properties detrained penetrative entrained airs in k = kbup layer.

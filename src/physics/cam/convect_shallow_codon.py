@@ -11151,6 +11151,79 @@ def uwshcu_thermo_wtrc_state_sustain_shell_codon(
         m += 1
 
 
+@export
+def uwshcu_thermo_wtrc_detrain_detached_shell_codon(
+    mkx: int,
+    wtrc_nwset: int,
+    k_fortran: int,
+    trace_water: int,
+    k_le_kbup: int,
+    k_eq_kbup: int,
+    g_v: float,
+    umf_km1: float,
+    umf_k: float,
+    fdr_k: float,
+    ps0_km1: float,
+    ps0_k: float,
+    wlu_mid_p: cobj,
+    wiu_mid_p: cobj,
+    wtout_p: cobj,
+    tr0_p: cobj,
+    wtrc_iatype_p: cobj,
+    wtqc_liq_p: cobj,
+    wtqc_ice_p: cobj,
+    wtqcm_liq_p: cobj,
+    wtqcm_ice_p: cobj,
+):
+    if trace_water == 0:
+        return
+
+    wlu_mid = Ptr[float](wlu_mid_p)
+    wiu_mid = Ptr[float](wiu_mid_p)
+    wtout = Ptr[float](wtout_p)
+    tr0 = Ptr[float](tr0_p)
+    wtrc_iatype = Ptr[int](wtrc_iatype_p)
+    wtqc_liq = Ptr[float](wtqc_liq_p)
+    wtqc_ice = Ptr[float](wtqc_ice_p)
+    wtqcm_liq = Ptr[float](wtqcm_liq_p)
+    wtqcm_ice = Ptr[float](wtqcm_ice_p)
+
+    k = k_fortran - 1
+    m = 0
+    if k_le_kbup != 0:
+        while m < wtrc_nwset:
+            liq = wtrc_iatype[m + wtrc_nwset] - 1
+            ice = wtrc_iatype[m + 2 * wtrc_nwset] - 1
+            idx = k + m * mkx
+            tr_liq_idx = k + liq * mkx
+            tr_ice_idx = k + ice * mkx
+            wtqc_liq[idx] = wtqc_liq[idx] + g_v * 0.5 * (umf_km1 + umf_k) * fdr_k * wlu_mid[m]
+            wtqc_ice[idx] = wtqc_ice[idx] + g_v * 0.5 * (umf_km1 + umf_k) * fdr_k * wiu_mid[m]
+            wtqcm_liq[m] = -g_v * 0.5 * (umf_km1 + umf_k) * fdr_k * tr0[tr_liq_idx]
+            wtqcm_ice[m] = -g_v * 0.5 * (umf_km1 + umf_k) * fdr_k * tr0[tr_ice_idx]
+            m += 1
+    else:
+        while m < wtrc_nwset:
+            wtqcm_liq[m] = 0.0
+            wtqcm_ice[m] = 0.0
+            m += 1
+
+    if k_eq_kbup != 0:
+        denom = ps0_km1 - ps0_k
+        m = 0
+        while m < wtrc_nwset:
+            liq = wtrc_iatype[m + wtrc_nwset] - 1
+            ice = wtrc_iatype[m + 2 * wtrc_nwset] - 1
+            idx = k + m * mkx
+            tr_liq_idx = k + liq * mkx
+            tr_ice_idx = k + ice * mkx
+            wtqc_liq[idx] = wtqc_liq[idx] + g_v * umf_k * wtout[m + wtrc_nwset] / denom
+            wtqc_ice[idx] = wtqc_ice[idx] + g_v * umf_k * wtout[m + 2 * wtrc_nwset] / denom
+            wtqcm_liq[m] = wtqcm_liq[m] - g_v * umf_k * tr0[tr_liq_idx] / denom
+            wtqcm_ice[m] = wtqcm_ice[m] - g_v * umf_k * tr0[tr_ice_idx] / denom
+            m += 1
+
+
 
 
 @export
