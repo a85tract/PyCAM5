@@ -144,6 +144,7 @@
   logical :: precip_surface_finalize_shell_entered_logged = .false.
   logical :: precip_evap_prep_shell_entered_logged = .false.
   logical :: precip_wtrc_evap_shell_entered_logged = .false.
+  logical :: precip_wtrc_mass_check_shell_entered_logged = .false.
   logical :: precip_bulk_shell_entered_logged = .false.
   logical :: slope_recon_shell_entered_logged = .false.
   logical :: use_native_small_kernels_impl = .false.
@@ -2569,6 +2570,23 @@ contains
 
 !===============================================================================
 
+  subroutine uwshcu_log_precip_wtrc_mass_check_shell_entered()
+
+    if (precip_wtrc_mass_check_shell_entered_logged) return
+    precip_wtrc_mass_check_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu precip water-tracer mass check shell entered (surface isotope precip check owned by codon; error write native)'
+       call uwshcu_append_proof( &
+            'uwshcu precip water-tracer mass check shell entered (surface isotope precip check owned by codon; error write native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_precip_wtrc_mass_check_shell_entered
+
+!===============================================================================
+
   subroutine uwshcu_log_precip_bulk_shell_entered()
 
     if (precip_bulk_shell_entered_logged) return
@@ -3591,6 +3609,21 @@ end subroutine uwshcu_readnl
     ratio_c = real(wtrc_ratio(iwspec(int(iatype_c)), real(qtrc_c, r8), real(qtot_c, r8)), c_double)
 
   end function uwshcu_wtrc_ratio_type_from_c_cb
+
+  subroutine uwshcu_wtrc_precip_mass_error_from_c_cb(wtprec_m_c, wtprec_1_c, wtsnow_m_c, wtsnow_1_c, m_c) &
+       bind(c, name="uwshcu_wtrc_precip_mass_error_from_c_cb")
+
+    use iso_c_binding, only: c_double, c_int64_t
+
+    implicit none
+
+    real(c_double), value :: wtprec_m_c, wtprec_1_c, wtsnow_m_c, wtsnow_1_c
+    integer(c_int64_t), value :: m_c
+
+    write(*,*) 'ERROR:  Isotopic shallow-conv precip error!', real(wtprec_m_c, r8), &
+         real(wtprec_1_c, r8), real(wtsnow_m_c, r8), real(wtsnow_1_c, r8), int(m_c)
+
+  end subroutine uwshcu_wtrc_precip_mass_error_from_c_cb
 
   function uwshcu_qsinvert_from_c_cb(qt_c, thl_c, psfc_c) result(plcl_c) &
        bind(c, name="uwshcu_qsinvert_from_c_cb")
@@ -11798,6 +11831,7 @@ end subroutine uwshcu_readnl
        end if
        !*************
 	       else
+          if (trace_water) call uwshcu_log_precip_wtrc_mass_check_shell_entered()
 	          call uwshcu_log_precip_surface_finalize_shell_entered()
 	          call uwshcu_log_thermo_post_batch_shell_entered()
 	          call uwshcu_thermo_post_batch_shell_codon(2_c_int64_t, int(mkx, c_int64_t), &
@@ -11817,25 +11851,10 @@ end subroutine uwshcu_readnl
 	               c_loc(snow), c_loc(evapc), c_loc(evpint_rain), c_loc(evpint_snow), c_loc(flxrain), &
 	               c_loc(flxsnow), c_loc(ntraprd), c_loc(ntsnprd), c_loc(limit_negcon), c_loc(wtrpten), &
 	               c_loc(wtspten), c_loc(wtevp), c_loc(wtsub), c_loc(wtflxrn), c_loc(wtflxsn), &
-	               c_loc(wtprec), c_loc(wtsnow), c_loc(qv0_star), c_loc(ql0_star), c_loc(qi0_star), &
-	               c_loc(s0_star), c_loc(wt0_star), c_loc(dpdry0), c_loc(trflx), c_loc(trflx_d), &
-	               c_loc(trflx_u), c_loc(qmin), c_loc(iwater_is_water), c_loc(cnst_type_is_wet))
-	          if(trace_water) then
-            do m=1,wtrc_nwset
-              !----------
-              !Mass fixer:
-              !----------
-              if((m .gt. 1) .and. (wtprec(m) .gt. 2._r8*wtprec(1))) then
-                if(wtprec(1) .gt. 1e-18_r8) &
-                write(*,*) 'ERROR:  Isotopic shallow-conv precip error!',wtprec(m),wtprec(1),wtsnow(m),wtsnow(1),m
-               ! wtprec(m) = wtprec(1)
-               ! wtsnow(m) = wtsnow(1)
-              end if
-              !-----------
-            end do
-          end if
-          !*************
-       endif
+		               c_loc(wtprec), c_loc(wtsnow), c_loc(qv0_star), c_loc(ql0_star), c_loc(qi0_star), &
+		               c_loc(s0_star), c_loc(wt0_star), c_loc(dpdry0), c_loc(trflx), c_loc(trflx_d), &
+		               c_loc(trflx_u), c_loc(qmin), c_loc(iwater_is_water), c_loc(cnst_type_is_wet))
+	       endif
 
        ! --------------------------------------------------------------------------- !
        ! Until now, all the calculations are done completely in this shallow cumulus !

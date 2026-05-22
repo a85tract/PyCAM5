@@ -10,6 +10,7 @@ from C import uwshcu_select_init_shell_from_c_cb(Ptr[int]) -> None
 from C import uwshcu_wtrc_metadata_from_c_cb(Ptr[int], Ptr[int]) -> None
 from C import uwshcu_wtrc_ratio_type_from_c_cb(int, float, float) -> float
 from C import uwshcu_wtrc_precip_evap_isotope_from_c_cb(int, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float) -> float
+from C import uwshcu_wtrc_precip_mass_error_from_c_cb(float, float, float, float, int) -> None
 from C import uwshcu_positive_moisture_single_from_c_cb(int, int, int, float, float, float, float, float, float, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[int]) -> None
 
 
@@ -328,6 +329,16 @@ def uwshcu_wtrc_precip_evap_isotope_from_c_dispatch(
         dt,
         dz,
     )
+
+
+def uwshcu_wtrc_precip_mass_error_from_c_dispatch(
+    wtprec_m: float,
+    wtprec_1: float,
+    wtsnow_m: float,
+    wtsnow_1: float,
+    m: int,
+):
+    uwshcu_wtrc_precip_mass_error_from_c_cb(wtprec_m, wtprec_1, wtsnow_m, wtsnow_1, m)
 
 
 def uwshcu_positive_moisture_single_from_c_dispatch(

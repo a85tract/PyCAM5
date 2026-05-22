@@ -11,6 +11,7 @@ from convect_shallow_native_callbacks_codon import (
     uwshcu_thermo_conden_from_c_dispatch,
     uwshcu_top_conden_from_c_dispatch,
     uwshcu_wtrc_metadata_from_c_dispatch,
+    uwshcu_wtrc_precip_mass_error_from_c_dispatch,
     uwshcu_wtrc_precip_evap_isotope_from_c_dispatch,
     uwshcu_wtrc_ratio_type_from_c_dispatch,
 )
@@ -13674,6 +13675,15 @@ def uwshcu_precip_surface_finalize_shell_codon(
     while m < wtrc_nwset:
         wtprec[m] = (wtflxrn[m * (mkx + 1)] + wtflxsn[m * (mkx + 1)]) / 1000.0
         wtsnow[m] = wtflxsn[m * (mkx + 1)] / 1000.0
+        if m > 0 and wtprec[m] > 2.0 * wtprec[0]:
+            if wtprec[0] > 1.0e-18:
+                uwshcu_wtrc_precip_mass_error_from_c_dispatch(
+                    wtprec[m],
+                    wtprec[0],
+                    wtsnow[m],
+                    wtsnow[0],
+                    m + 1,
+                )
         m += 1
 
 
