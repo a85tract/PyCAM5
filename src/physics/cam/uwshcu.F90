@@ -1264,9 +1264,11 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu buoy top finalize full shell entered (top exit/condensate/wtrc/scaleh owned by codon; conden/exntop/wtrc_ratio native)'
+            'uwshcu buoy top conden finalize full shell entered ' // &
+            '(top conden dispatch/finalize owned by codon; conden/exntop/wtrc_ratio native callbacks)'
        call uwshcu_append_proof( &
-            'uwshcu buoy top finalize full shell entered (top exit/condensate/wtrc/scaleh owned by codon; conden/exntop/wtrc_ratio native)')
+            'uwshcu buoy top conden finalize full shell entered ' // &
+            '(top conden dispatch/finalize owned by codon; conden/exntop/wtrc_ratio native callbacks)')
        call flush(iulog)
     end if
 
@@ -3237,6 +3239,52 @@ end subroutine uwshcu_readnl
 
   end subroutine uwshcu_conden_scalar_from_c_cb
 
+  subroutine uwshcu_top_conden_from_c_cb(trace_water_c, wtrc_nwset_c, ncnst_c, p_c, thl_c, qt_c, &
+       p00_c, rovcp_c, th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, exntop_p, wtu_top_p, wtout_p) &
+       bind(c, name="uwshcu_top_conden_from_c_cb")
+
+    use iso_c_binding, only: c_double, c_f_pointer, c_int64_t, c_ptr
+
+    implicit none
+
+    integer(c_int64_t), value :: trace_water_c, wtrc_nwset_c, ncnst_c
+    real(c_double), value :: p_c, thl_c, qt_c, p00_c, rovcp_c
+    type(c_ptr), value :: th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, exntop_p
+    type(c_ptr), value :: wtu_top_p, wtout_p
+    real(c_double), pointer :: th, qv, ql, qi, qse, exntop
+    real(r8), pointer :: wtu_top(:), wtout(:,:)
+    integer(c_int64_t), pointer :: id_check_out
+    integer :: id_check, ncnst_local, wtrc_nwset_local
+    real(r8) :: p, thl, qt
+
+    call c_f_pointer(th_p, th)
+    call c_f_pointer(qv_p, qv)
+    call c_f_pointer(ql_p, ql)
+    call c_f_pointer(qi_p, qi)
+    call c_f_pointer(qse_p, qse)
+    call c_f_pointer(id_check_p, id_check_out)
+    call c_f_pointer(exntop_p, exntop)
+
+    p = real(p_c, r8)
+    thl = real(thl_c, r8)
+    qt = real(qt_c, r8)
+    ncnst_local = int(ncnst_c)
+    wtrc_nwset_local = int(wtrc_nwset_c)
+
+    if (trace_water_c /= 0_c_int64_t) then
+       call c_f_pointer(wtu_top_p, wtu_top, [wtrc_nwset_local])
+       call c_f_pointer(wtout_p, wtout, [wtrc_nwset_local, 3])
+       call conden(p, thl, qt, th, qv, ql, qi, qse, id_check, wtrc_nwset_local, &
+            qv0=qt, tr0=wtu_top, wtout=wtout)
+    else
+       call conden(p, thl, qt, th, qv, ql, qi, qse, id_check, ncnst_local)
+    end if
+
+    id_check_out = int(id_check, c_int64_t)
+    if (id_check /= 1) exntop = (p / real(p00_c, r8))**real(rovcp_c, r8)
+
+  end subroutine uwshcu_top_conden_from_c_cb
+
   function uwshcu_wtrc_ratio_type_from_c_cb(iatype_c, qtrc_c, qtot_c) result(ratio_c) &
        bind(c, name="uwshcu_wtrc_ratio_type_from_c_cb")
 
@@ -3844,7 +3892,7 @@ end subroutine uwshcu_readnl
     real(r8), target :: thvubot, thvutop
     real(r8), target :: thlu_top, qtu_top
     real(r8), target :: qlu_top, qiu_top, qlu_mid, qiu_mid
-    real(r8)    exntop
+    real(r8), target :: exntop
     real(r8), target :: thl0lcl, qt0lcl
     real(r8), target :: thv0lcl
     real(r8), target :: thv0rel
@@ -4074,7 +4122,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: buoy_wu_exit_code_c
     integer(c_int64_t), target       :: buoy_ufrc_limit_code_c
     integer(c_int64_t), target       :: buoy_conden_exit_code_c
-    integer(c_int64_t), target       :: buoy_top_conden_exit_code_c
+    integer(c_int64_t), target       :: buoy_top_id_check_c, buoy_top_conden_exit_code_c
     integer(c_int64_t), target       :: buoy_top_prep_warning_code_c
     integer(c_int64_t), target       :: cloud_diag_conden_exit_code_c
     integer(c_int64_t), target       :: comp_sub_conden_exit_code_c
@@ -4911,6 +4959,24 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: wtdwten_p, wtditen_p, wtu_top_p, exit_conden_p, exit_code_p
           type(c_ptr), value :: cush_p, scaleh_p
        end subroutine uwshcu_buoy_top_finalize_full_shell_codon
+
+       subroutine uwshcu_buoy_top_conden_finalize_full_shell_codon(mkx_c, wtrc_nwset_c, &
+            trace_water_c, ncnst_c, kpen_c, criqc_c, xlv_c, xls_c, cp_c, r_c, g_c, &
+            p00_c, rovcp_c, ppen_c, ps0_p, zs0_p, thv0bot_p, thv0top_p, exns0_p, &
+            thlu_top_p, qtu_top_p, th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, &
+            exntop_p, dwten_p, diten_p, wtout_p, wtrc_iatype_p, wtdwten_p, &
+            wtditen_p, wtu_top_p, exit_conden_p, exit_code_p, cush_p, scaleh_p) &
+            bind(c, name="uwshcu_buoy_top_conden_finalize_full_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, trace_water_c, ncnst_c, kpen_c
+          real(c_double), value :: criqc_c, xlv_c, xls_c, cp_c, r_c, g_c, p00_c, rovcp_c
+          real(c_double), value :: ppen_c
+          type(c_ptr), value :: ps0_p, zs0_p, thv0bot_p, thv0top_p, exns0_p
+          type(c_ptr), value :: thlu_top_p, qtu_top_p, th_p, qv_p, ql_p, qi_p, qse_p
+          type(c_ptr), value :: id_check_p, exntop_p, dwten_p, diten_p, wtout_p
+          type(c_ptr), value :: wtrc_iatype_p, wtdwten_p, wtditen_p, wtu_top_p
+          type(c_ptr), value :: exit_conden_p, exit_code_p, cush_p, scaleh_p
+       end subroutine uwshcu_buoy_top_conden_finalize_full_shell_codon
 
        subroutine uwshcu_buoy_diag_update_shell_codon(k_c, excessu_c, excess0_c, xc_c, &
             aquad_c, bquad_c, cquad_c, bogbot_c, bogtop_c, excessu_arr_p, excess0_arr_p, &
@@ -9195,15 +9261,15 @@ end subroutine uwshcu_readnl
        !NOTE:  Not 100% sure if using qv0/tr0 to calculate R is appropriate here
        !(versus some sort of updraft quantity) - JN 
 
-       if(trace_water) then
-         wtout(:,:) = 0._r8
-         call conden(ps0(kpen-1)+ppen,thlu_top,qtu_top,thj,qvj,qlj,qij,qse, &
-                     id_check,wtrc_nwset,qv0=qtu_top,tr0=wtu_top(:),wtout=wtout)
-       else
-         call conden(ps0(kpen-1)+ppen,thlu_top,qtu_top,thj,qvj,qlj,qij,qse,id_check,ncnst)
-       end if
-       if( id_check .ne. 1 ) exntop = ((ps0(kpen-1)+ppen)/p00)**rovcp
        if (use_native_init_shell_impl) then
+          if(trace_water) then
+            wtout(:,:) = 0._r8
+            call conden(ps0(kpen-1)+ppen,thlu_top,qtu_top,thj,qvj,qlj,qij,qse, &
+                        id_check,wtrc_nwset,qv0=qtu_top,tr0=wtu_top(:),wtout=wtout)
+          else
+            call conden(ps0(kpen-1)+ppen,thlu_top,qtu_top,thj,qvj,qlj,qij,qse,id_check,ncnst)
+          end if
+          if( id_check .ne. 1 ) exntop = ((ps0(kpen-1)+ppen)/p00)**rovcp
           if( id_check .eq. 1 ) then
               exit_conden(i) = 1._r8
               id_exit = .true.
@@ -9237,13 +9303,17 @@ end subroutine uwshcu_readnl
           scaleh = cush
        else
           call uwshcu_log_buoy_top_shell_entered()
-          call uwshcu_buoy_top_finalize_full_shell_codon(int(mkx, c_int64_t), int(wtrc_nwset, c_int64_t), &
-               merge(1_c_int64_t, 0_c_int64_t, trace_water), int(kpen, c_int64_t), int(id_check, c_int64_t), &
-               criqc, xlv, xls, cp, exntop, qlj, qij, r, g, ppen, c_loc(ps0), c_loc(zs0), &
-               c_loc(thv0bot), c_loc(thv0top), c_loc(exns0), c_loc(thlu_top), c_loc(qtu_top), &
+          buoy_top_id_check_c = 0_c_int64_t
+          buoy_top_conden_exit_code_c = 0_c_int64_t
+          call uwshcu_buoy_top_conden_finalize_full_shell_codon(int(mkx, c_int64_t), int(wtrc_nwset, c_int64_t), &
+               merge(1_c_int64_t, 0_c_int64_t, trace_water), int(ncnst, c_int64_t), int(kpen, c_int64_t), &
+               criqc, xlv, xls, cp, r, g, p00, rovcp, ppen, c_loc(ps0), c_loc(zs0), c_loc(thv0bot), &
+               c_loc(thv0top), c_loc(exns0), c_loc(thlu_top), c_loc(qtu_top), c_loc(thj), c_loc(qvj), &
+               c_loc(qlj), c_loc(qij), c_loc(qse), c_loc(buoy_top_id_check_c), c_loc(exntop), &
                c_loc(dwten), c_loc(diten), c_loc(wtout), c_loc(wtrc_iatype_post), c_loc(wtdwten), &
                c_loc(wtditen), c_loc(wtu_top), c_loc(exit_conden(i)), c_loc(buoy_top_conden_exit_code_c), &
                c_loc(cush), c_loc(scaleh))
+          id_check = int(buoy_top_id_check_c)
           if( buoy_top_conden_exit_code_c .ne. 0_c_int64_t ) then
               id_exit = .true.
               go to 333

@@ -6,6 +6,7 @@ from convect_shallow_native_callbacks_codon import (
     uwshcu_findsp_layer_from_c_dispatch,
     uwshcu_qsinvert_from_c_dispatch,
     uwshcu_select_init_shell_from_c_dispatch,
+    uwshcu_top_conden_from_c_dispatch,
     uwshcu_wtrc_metadata_from_c_dispatch,
     uwshcu_wtrc_ratio_type_from_c_dispatch,
 )
@@ -6414,6 +6415,123 @@ def uwshcu_buoy_top_finalize_full_shell_codon(
         thv0bot_p,
         thv0top_p,
         exns0_p,
+        cush_p,
+        scaleh_p,
+    )
+
+
+@export
+def uwshcu_buoy_top_conden_finalize_full_shell_codon(
+    mkx: int,
+    wtrc_nwset: int,
+    trace_water: int,
+    ncnst: int,
+    kpen: int,
+    criqc: float,
+    xlv: float,
+    xls: float,
+    cp: float,
+    r_v: float,
+    g_v: float,
+    p00: float,
+    rovcp: float,
+    ppen: float,
+    ps0_p: cobj,
+    zs0_p: cobj,
+    thv0bot_p: cobj,
+    thv0top_p: cobj,
+    exns0_p: cobj,
+    thlu_top_p: cobj,
+    qtu_top_p: cobj,
+    thj_p: cobj,
+    qvj_p: cobj,
+    qlj_p: cobj,
+    qij_p: cobj,
+    qse_p: cobj,
+    id_check_p: cobj,
+    exntop_p: cobj,
+    dwten_p: cobj,
+    diten_p: cobj,
+    wtout_p: cobj,
+    wtrc_iatype_p: cobj,
+    wtdwten_p: cobj,
+    wtditen_p: cobj,
+    wtu_top_p: cobj,
+    exit_conden_p: cobj,
+    exit_code_p: cobj,
+    cush_p: cobj,
+    scaleh_p: cobj,
+):
+    ps0 = Ptr[float](ps0_p)
+    thlu_top = Ptr[float](thlu_top_p)
+    qtu_top = Ptr[float](qtu_top_p)
+
+    if trace_water != 0:
+        wtout = Ptr[float](wtout_p)
+        idx = 0
+        total = wtrc_nwset * 3
+        while idx < total:
+            wtout[idx] = 0.0
+            idx += 1
+
+    pressure = ps0[kpen - 1] + ppen
+    uwshcu_top_conden_from_c_dispatch(
+        trace_water,
+        wtrc_nwset,
+        ncnst,
+        pressure,
+        thlu_top[0],
+        qtu_top[0],
+        p00,
+        rovcp,
+        thj_p,
+        qvj_p,
+        qlj_p,
+        qij_p,
+        qse_p,
+        id_check_p,
+        exntop_p,
+        wtu_top_p,
+        wtout_p,
+    )
+
+    id_check = Ptr[int](id_check_p)[0]
+    exntop = Ptr[float](exntop_p)[0]
+    qlj = Ptr[float](qlj_p)[0]
+    qij = Ptr[float](qij_p)[0]
+
+    uwshcu_buoy_top_finalize_full_shell_codon(
+        mkx,
+        wtrc_nwset,
+        trace_water,
+        kpen,
+        id_check,
+        criqc,
+        xlv,
+        xls,
+        cp,
+        exntop,
+        qlj,
+        qij,
+        r_v,
+        g_v,
+        ppen,
+        ps0_p,
+        zs0_p,
+        thv0bot_p,
+        thv0top_p,
+        exns0_p,
+        thlu_top_p,
+        qtu_top_p,
+        dwten_p,
+        diten_p,
+        wtout_p,
+        wtrc_iatype_p,
+        wtdwten_p,
+        wtditen_p,
+        wtu_top_p,
+        exit_conden_p,
+        exit_code_p,
         cush_p,
         scaleh_p,
     )

@@ -1,5 +1,6 @@
 from C import uwshcu_compute_native_from_c_cb(int, int, int, int, float, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], int, Ptr[float], Ptr[float], Ptr[float], Ptr[float], int, Ptr[float], Ptr[float], int, Ptr[int], int, Ptr[int], int, Ptr[int], Ptr[int], int) -> None
 from C import uwshcu_conden_scalar_from_c_cb(float, float, float, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[int], int) -> None
+from C import uwshcu_top_conden_from_c_cb(int, int, int, float, float, float, float, float, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[int], Ptr[float], Ptr[float], Ptr[float]) -> None
 from C import uwshcu_cnst_indices_from_c_cb(Ptr[int]) -> None
 from C import uwshcu_findsp_layer_from_c_cb(int, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float]) -> None
 from C import uwshcu_qsinvert_from_c_cb(float, float, float) -> float
@@ -171,6 +172,46 @@ def uwshcu_conden_scalar_from_c_dispatch(
         Ptr[float](qse_p),
         Ptr[int](id_check_p),
         ncnst,
+    )
+
+
+def uwshcu_top_conden_from_c_dispatch(
+    trace_water: int,
+    wtrc_nwset: int,
+    ncnst: int,
+    pressure: float,
+    thl: float,
+    qt: float,
+    p00: float,
+    rovcp: float,
+    th_p: cobj,
+    qv_p: cobj,
+    ql_p: cobj,
+    qi_p: cobj,
+    qse_p: cobj,
+    id_check_p: cobj,
+    exntop_p: cobj,
+    wtu_top_p: cobj,
+    wtout_p: cobj,
+):
+    uwshcu_top_conden_from_c_cb(
+        trace_water,
+        wtrc_nwset,
+        ncnst,
+        pressure,
+        thl,
+        qt,
+        p00,
+        rovcp,
+        Ptr[float](th_p),
+        Ptr[float](qv_p),
+        Ptr[float](ql_p),
+        Ptr[float](qi_p),
+        Ptr[float](qse_p),
+        Ptr[int](id_check_p),
+        Ptr[float](exntop_p),
+        Ptr[float](wtu_top_p),
+        Ptr[float](wtout_p),
     )
 
 
