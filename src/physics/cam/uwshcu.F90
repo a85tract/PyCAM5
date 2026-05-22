@@ -58,6 +58,7 @@
   logical :: column_thermo_slope_shell_entered_logged = .false.
   logical :: interface_conden_exit_shell_entered_logged = .false.
   logical :: interface_thv_shell_entered_logged = .false.
+  logical :: interface_thv_loop_shell_entered_logged = .false.
   logical :: iter_interface_thv_shell_entered_logged = .false.
   logical :: cin_thv_scalar_shell_entered_logged = .false.
   logical :: cin_conden_exit_shell_entered_logged = .false.
@@ -1065,6 +1066,23 @@ contains
     end if
 
   end subroutine uwshcu_log_interface_thv_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_interface_thv_loop_shell_entered()
+
+    if (interface_thv_loop_shell_entered_logged) return
+    interface_thv_loop_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu interface thv loop shell entered (interface conden/thv loop owned by codon; conden native callback)'
+       call uwshcu_append_proof( &
+            'uwshcu interface thv loop shell entered (interface conden/thv loop owned by codon; conden native callback)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_interface_thv_loop_shell_entered
 
 !===============================================================================
 
@@ -3074,6 +3092,33 @@ end subroutine uwshcu_readnl
 
   end subroutine uwshcu_compute_native_from_c_cb
 
+  subroutine uwshcu_conden_scalar_from_c_cb(p_c, thl_c, qt_c, th_p, qv_p, ql_p, qi_p, &
+       qse_p, id_check_p, ncnst_c) bind(c, name="uwshcu_conden_scalar_from_c_cb")
+
+    use iso_c_binding, only: c_double, c_f_pointer, c_int64_t, c_ptr
+
+    implicit none
+
+    real(c_double), value :: p_c, thl_c, qt_c
+    type(c_ptr), value :: th_p, qv_p, ql_p, qi_p, qse_p, id_check_p
+    integer(c_int64_t), value :: ncnst_c
+    real(c_double), pointer :: th, qv, ql, qi, qse
+    integer(c_int64_t), pointer :: id_check_out
+    integer :: id_check
+
+    call c_f_pointer(th_p, th)
+    call c_f_pointer(qv_p, qv)
+    call c_f_pointer(ql_p, ql)
+    call c_f_pointer(qi_p, qi)
+    call c_f_pointer(qse_p, qse)
+    call c_f_pointer(id_check_p, id_check_out)
+
+    call conden(real(p_c, r8), real(thl_c, r8), real(qt_c, r8), th, qv, ql, qi, &
+         qse, id_check, int(ncnst_c))
+    id_check_out = int(id_check, c_int64_t)
+
+  end subroutine uwshcu_conden_scalar_from_c_cb
+
   subroutine uwshcu_select_init_shell_from_c_cb(flags_p) bind(c, name="uwshcu_select_init_shell_from_c_cb")
 
     use iso_c_binding, only: c_f_pointer, c_int64_t, c_ptr
@@ -3631,7 +3676,7 @@ end subroutine uwshcu_readnl
     real(r8)    thlxsat, qtxsat, x_cu, x_en, thv_x0, thv_x1
     real(r8), target :: thvxsat
     real(r8), target :: rhos0j
-    real(r8)    thj, qvj, qlj, qij, qse
+    real(r8), target :: thj, qvj, qlj, qij, qse
     real(r8), target :: thvj, tj, thv0j, rho0j
     real(r8), target :: cin, cinlcl
     real(r8), target :: pe, dpe, thvebot, thle, qte, ue, ve
@@ -3864,7 +3909,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: klcl_prep_c, lcl_exit_code_c
     integer(c_int64_t), target       :: kinv_cin_state_c, klcl_cin_state_c, klfc_cin_state_c
     integer(c_int64_t), target       :: cin_post_exit_code_c
-    integer(c_int64_t), target       :: interface_conden_exit_code_c
+    integer(c_int64_t), target       :: id_check_thv_loop_c, interface_conden_exit_code_c
     integer(c_int64_t), target       :: cin_conden_exit_code_c
     integer(c_int64_t), target       :: krel_release_c
     integer(c_int64_t), target       :: release_mu_exit_code_c, release_mumin2_needed_c
@@ -4427,6 +4472,18 @@ end subroutine uwshcu_readnl
           real(c_double), value :: zvir_c, thj_c, qvj_c, qlj_c, qij_c, thl0edge_c, qt0edge_c
           type(c_ptr), value :: thv0_p, thvl0_p
        end subroutine uwshcu_interface_thv_shell_codon
+
+       subroutine uwshcu_interface_thv_loop_shell_codon(mkx_c, ncnst_c, zvir_c, ps0_p, p0_p, &
+            thl0_p, ssthl0_p, qt0_p, ssqt0_p, exit_conden_p, thv0bot_p, thvl0bot_p, &
+            thv0top_p, thvl0top_p, th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, exit_code_p) &
+            bind(c, name="uwshcu_interface_thv_loop_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c
+          real(c_double), value :: zvir_c
+          type(c_ptr), value :: ps0_p, p0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p
+          type(c_ptr), value :: exit_conden_p, thv0bot_p, thvl0bot_p, thv0top_p, thvl0top_p
+          type(c_ptr), value :: th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, exit_code_p
+       end subroutine uwshcu_interface_thv_loop_shell_codon
 
        subroutine uwshcu_interface_conden_exit_shell_codon(id_check_c, exit_conden_p, exit_code_p) &
             bind(c, name="uwshcu_interface_conden_exit_shell_codon")
@@ -6347,63 +6404,46 @@ end subroutine uwshcu_readnl
       !NOTE:  Given that this section is used purely to calculate thermodynamic variables, and not
       !moisture tendencies, there is not need to call water tracer subroutines here. - JN
 
-      do k = 1, mkx
+      if (use_native_init_shell_impl) then
+         do k = 1, mkx
 
-         thl0bot = thl0(k) + ssthl0(k)*(ps0(k-1) - p0(k))
-         qt0bot  = qt0(k)  + ssqt0(k) *(ps0(k-1) - p0(k))
-         call conden(ps0(k-1),thl0bot,qt0bot,thj,qvj,qlj,qij,qse,id_check,ncnst)
-         if (use_native_init_shell_impl) then
+            thl0bot = thl0(k) + ssthl0(k)*(ps0(k-1) - p0(k))
+            qt0bot  = qt0(k)  + ssqt0(k) *(ps0(k-1) - p0(k))
+            call conden(ps0(k-1),thl0bot,qt0bot,thj,qvj,qlj,qij,qse,id_check,ncnst)
             if( id_check .eq. 1 ) then
                 exit_conden(i) = 1._r8
                 id_exit = .true.
                 go to 333
             end if
-         else
-            call uwshcu_log_cin_prep_batch_shell_entered()
-            call uwshcu_cin_prep_batch_shell_codon(0_c_int64_t, int(k, c_int64_t), int(mkx, c_int64_t), &
-                  int(id_check, c_int64_t), 0._r8, zvir, thj, qvj, qlj, qij, thl0bot, qt0bot, &
-                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(exit_conden(i)), &
-                  c_loc(interface_conden_exit_code_c), c_loc(thv0bot), c_loc(thvl0bot), &
-                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
-            if( interface_conden_exit_code_c .ne. 0_c_int64_t ) then
-                id_exit = .true.
-                go to 333
-            end if
-         endif
-         if (use_native_init_shell_impl) then
             thv0bot(k)  = thj*(1._r8 + zvir*qvj - qlj - qij)
             thvl0bot(k) = thl0bot*(1._r8 + zvir*qt0bot)
-         endif
-          
-         thl0top = thl0(k) + ssthl0(k)*(ps0(k) - p0(k))
-         qt0top  =  qt0(k) + ssqt0(k) *(ps0(k) - p0(k))
-         call conden(ps0(k),thl0top,qt0top,thj,qvj,qlj,qij,qse,id_check,ncnst)
-         if (use_native_init_shell_impl) then
+
+            thl0top = thl0(k) + ssthl0(k)*(ps0(k) - p0(k))
+            qt0top  =  qt0(k) + ssqt0(k) *(ps0(k) - p0(k))
+            call conden(ps0(k),thl0top,qt0top,thj,qvj,qlj,qij,qse,id_check,ncnst)
             if( id_check .eq. 1 ) then
                 exit_conden(i) = 1._r8
                 id_exit = .true.
                 go to 333
             end if
-         else
-            call uwshcu_log_cin_prep_batch_shell_entered()
-            call uwshcu_cin_prep_batch_shell_codon(0_c_int64_t, int(k, c_int64_t), int(mkx, c_int64_t), &
-                  int(id_check, c_int64_t), 0._r8, zvir, thj, qvj, qlj, qij, thl0top, qt0top, &
-                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(exit_conden(i)), &
-                  c_loc(interface_conden_exit_code_c), c_loc(thv0top), c_loc(thvl0top), &
-                  c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
-            if( interface_conden_exit_code_c .ne. 0_c_int64_t ) then
-                id_exit = .true.
-                go to 333
-            end if
-         endif
-         if (use_native_init_shell_impl) then
             thv0top(k)  = thj*(1._r8 + zvir*qvj - qlj - qij)
             thvl0top(k) = thl0top*(1._r8 + zvir*qt0top)
-         endif
 
-      end do
+         end do
+      else
+         id_check_thv_loop_c = 0_c_int64_t
+         interface_conden_exit_code_c = 0_c_int64_t
+         call uwshcu_log_interface_thv_loop_shell_entered()
+         call uwshcu_interface_thv_loop_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), zvir, &
+              c_loc(ps0), c_loc(p0), c_loc(thl0), c_loc(ssthl0), c_loc(qt0), c_loc(ssqt0), &
+              c_loc(exit_conden(i)), c_loc(thv0bot), c_loc(thvl0bot), c_loc(thv0top), &
+              c_loc(thvl0top), c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), c_loc(qse), &
+              c_loc(id_check_thv_loop_c), c_loc(interface_conden_exit_code_c))
+         if( interface_conden_exit_code_c .ne. 0_c_int64_t ) then
+             id_exit = .true.
+             go to 333
+         end if
+      endif
 
       ! ------------------------------------------------------------ !
       ! Save input and related environmental thermodynamic variables !

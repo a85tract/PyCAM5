@@ -1,5 +1,6 @@
 from math import erfc, exp, log, sqrt
 from convect_shallow_native_callbacks_codon import (
+    uwshcu_conden_scalar_from_c_dispatch,
     uwshcu_cnst_indices_from_c_dispatch,
     uwshcu_compute_native_from_c_dispatch,
     uwshcu_findsp_layer_from_c_dispatch,
@@ -5199,6 +5200,113 @@ def uwshcu_conden_exit_thv_batch_shell_codon(
         thv_p,
         thvl_p,
     )
+
+
+@export
+def uwshcu_interface_thv_loop_shell_codon(
+    mkx: int,
+    ncnst: int,
+    zvir: float,
+    ps0_p: cobj,
+    p0_p: cobj,
+    thl0_p: cobj,
+    ssthl0_p: cobj,
+    qt0_p: cobj,
+    ssqt0_p: cobj,
+    exit_conden_p: cobj,
+    thv0bot_p: cobj,
+    thvl0bot_p: cobj,
+    thv0top_p: cobj,
+    thvl0top_p: cobj,
+    th_p: cobj,
+    qv_p: cobj,
+    ql_p: cobj,
+    qi_p: cobj,
+    qse_p: cobj,
+    id_check_p: cobj,
+    exit_code_p: cobj,
+):
+    ps0 = Ptr[float](ps0_p)
+    p0 = Ptr[float](p0_p)
+    thl0 = Ptr[float](thl0_p)
+    ssthl0 = Ptr[float](ssthl0_p)
+    qt0 = Ptr[float](qt0_p)
+    ssqt0 = Ptr[float](ssqt0_p)
+    th = Ptr[float](th_p)
+    qv = Ptr[float](qv_p)
+    ql = Ptr[float](ql_p)
+    qi = Ptr[float](qi_p)
+    id_check = Ptr[int](id_check_p)
+    exit_code = Ptr[int](exit_code_p)
+
+    exit_code[0] = 0
+    for k in range(1, mkx + 1):
+        idx = k - 1
+        thl0bot = thl0[idx] + ssthl0[idx] * (ps0[k - 1] - p0[idx])
+        qt0bot = qt0[idx] + ssqt0[idx] * (ps0[k - 1] - p0[idx])
+        uwshcu_conden_scalar_from_c_dispatch(
+            ps0[k - 1],
+            thl0bot,
+            qt0bot,
+            th_p,
+            qv_p,
+            ql_p,
+            qi_p,
+            qse_p,
+            id_check_p,
+            ncnst,
+        )
+        uwshcu_conden_exit_thv_batch_shell_codon(
+            2,
+            k,
+            id_check[0],
+            zvir,
+            th[0],
+            qv[0],
+            ql[0],
+            qi[0],
+            thl0bot,
+            qt0bot,
+            exit_conden_p,
+            exit_code_p,
+            thv0bot_p,
+            thvl0bot_p,
+        )
+        if exit_code[0] != 0:
+            return
+
+        thl0top = thl0[idx] + ssthl0[idx] * (ps0[k] - p0[idx])
+        qt0top = qt0[idx] + ssqt0[idx] * (ps0[k] - p0[idx])
+        uwshcu_conden_scalar_from_c_dispatch(
+            ps0[k],
+            thl0top,
+            qt0top,
+            th_p,
+            qv_p,
+            ql_p,
+            qi_p,
+            qse_p,
+            id_check_p,
+            ncnst,
+        )
+        uwshcu_conden_exit_thv_batch_shell_codon(
+            2,
+            k,
+            id_check[0],
+            zvir,
+            th[0],
+            qv[0],
+            ql[0],
+            qi[0],
+            thl0top,
+            qt0top,
+            exit_conden_p,
+            exit_code_p,
+            thv0top_p,
+            thvl0top_p,
+        )
+        if exit_code[0] != 0:
+            return
 
 
 @export

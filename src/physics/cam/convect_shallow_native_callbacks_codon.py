@@ -1,4 +1,5 @@
 from C import uwshcu_compute_native_from_c_cb(int, int, int, int, float, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], int, Ptr[float], Ptr[float], Ptr[float], Ptr[float], int, Ptr[float], Ptr[float], int, Ptr[int], int, Ptr[int], int, Ptr[int], Ptr[int], int) -> None
+from C import uwshcu_conden_scalar_from_c_cb(float, float, float, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[int], int) -> None
 from C import uwshcu_cnst_indices_from_c_cb(Ptr[int]) -> None
 from C import uwshcu_findsp_layer_from_c_cb(int, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float]) -> None
 from C import uwshcu_select_init_shell_from_c_cb(Ptr[int]) -> None
@@ -143,6 +144,32 @@ def uwshcu_compute_native_from_c_dispatch(
 
 def uwshcu_cnst_indices_from_c_dispatch(indices_p: cobj):
     uwshcu_cnst_indices_from_c_cb(Ptr[int](indices_p))
+
+
+def uwshcu_conden_scalar_from_c_dispatch(
+    p: float,
+    thl: float,
+    qt: float,
+    th_p: cobj,
+    qv_p: cobj,
+    ql_p: cobj,
+    qi_p: cobj,
+    qse_p: cobj,
+    id_check_p: cobj,
+    ncnst: int,
+):
+    uwshcu_conden_scalar_from_c_cb(
+        p,
+        thl,
+        qt,
+        Ptr[float](th_p),
+        Ptr[float](qv_p),
+        Ptr[float](ql_p),
+        Ptr[float](qi_p),
+        Ptr[float](qse_p),
+        Ptr[int](id_check_p),
+        ncnst,
+    )
 
 
 def uwshcu_select_init_shell_from_c_dispatch(flags_p: cobj):
