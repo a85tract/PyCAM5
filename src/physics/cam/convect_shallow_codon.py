@@ -4,6 +4,7 @@ from convect_shallow_native_callbacks_codon import (
     uwshcu_cnst_indices_from_c_dispatch,
     uwshcu_compute_native_from_c_dispatch,
     uwshcu_findsp_layer_from_c_dispatch,
+    uwshcu_qsat_from_c_dispatch,
     uwshcu_qsinvert_from_c_dispatch,
     uwshcu_select_init_shell_from_c_dispatch,
     uwshcu_top_conden_from_c_dispatch,
@@ -13543,8 +13544,8 @@ def uwshcu_precip_evap_prep_shell_codon(
     krel: int,
     noevap_krelkpen: int,
     t0_v: float,
+    p0_v: float,
     qv0_v: float,
-    qs_v: float,
     qw0_v: float,
     kevp_v: float,
     rainflx_v: float,
@@ -13556,6 +13557,8 @@ def uwshcu_precip_evap_prep_shell_codon(
     flxsnow_v: float,
     evpint_rain_v: float,
     evpint_snow_v: float,
+    es_p: cobj,
+    qs_p: cobj,
     snowmlt_p: cobj,
     evprain_p: cobj,
     evpsnow_p: cobj,
@@ -13569,7 +13572,10 @@ def uwshcu_precip_evap_prep_shell_codon(
     else:
         snowmlt = 0.0
 
-    subsat = max((1.0 - qv0_v / qs_v), 0.0)
+    uwshcu_qsat_from_c_dispatch(t0_v, p0_v, es_p, qs_p)
+    qs = Ptr[float](qs_p)
+
+    subsat = max((1.0 - qv0_v / qs[0]), 0.0)
     if noevap_krelkpen != 0:
         if k >= krel:
             subsat = 0.0

@@ -4,6 +4,7 @@ from C import uwshcu_top_conden_from_c_cb(int, int, int, float, float, float, fl
 from C import uwshcu_cnst_indices_from_c_cb(Ptr[int]) -> None
 from C import uwshcu_findsp_layer_from_c_cb(int, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float]) -> None
 from C import uwshcu_qsinvert_from_c_cb(float, float, float) -> float
+from C import uwshcu_qsat_from_c_cb(float, float, Ptr[float], Ptr[float]) -> None
 from C import uwshcu_select_init_shell_from_c_cb(Ptr[int]) -> None
 from C import uwshcu_wtrc_metadata_from_c_cb(Ptr[int], Ptr[int]) -> None
 from C import uwshcu_wtrc_ratio_type_from_c_cb(int, float, float) -> float
@@ -236,6 +237,10 @@ def uwshcu_findsp_layer_from_c_dispatch(
 
 def uwshcu_qsinvert_from_c_dispatch(qt: float, thl: float, psfc: float) -> float:
     return uwshcu_qsinvert_from_c_cb(qt, thl, psfc)
+
+
+def uwshcu_qsat_from_c_dispatch(t: float, p: float, es_p: cobj, qs_p: cobj):
+    uwshcu_qsat_from_c_cb(t, p, Ptr[float](es_p), Ptr[float](qs_p))
 
 
 def uwshcu_wtrc_ratio_type_from_c_dispatch(iatype: int, qtrc: float, qtot: float) -> float:

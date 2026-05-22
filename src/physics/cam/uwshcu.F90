@@ -2467,9 +2467,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu precip evap prep shell entered (snowmelt/evaporation limits direct = codon; qsat/isotope native)'
+            'uwshcu precip evap prep shell entered (qsat callback; snowmelt/evaporation limits direct = codon; isotope native)'
        call uwshcu_append_proof( &
-            'uwshcu precip evap prep shell entered (snowmelt/evaporation limits direct = codon; qsat/isotope native)')
+            'uwshcu precip evap prep shell entered (qsat callback; snowmelt/evaporation limits direct = codon; isotope native)')
        call flush(iulog)
     end if
 
@@ -3406,6 +3406,23 @@ end subroutine uwshcu_readnl
 
   end function uwshcu_qsinvert_from_c_cb
 
+  subroutine uwshcu_qsat_from_c_cb(t_c, p_c, es_p, qs_p) bind(c, name="uwshcu_qsat_from_c_cb")
+
+    use iso_c_binding, only: c_double, c_f_pointer, c_ptr
+
+    implicit none
+
+    real(c_double), value :: t_c, p_c
+    type(c_ptr), value :: es_p, qs_p
+    real(c_double), pointer :: es, qs
+
+    call c_f_pointer(es_p, es)
+    call c_f_pointer(qs_p, qs)
+
+    call qsat(real(t_c, r8), real(p_c, r8), es, qs)
+
+  end subroutine uwshcu_qsat_from_c_cb
+
   subroutine uwshcu_select_init_shell_from_c_cb(flags_p) bind(c, name="uwshcu_select_init_shell_from_c_cb")
 
     use iso_c_binding, only: c_f_pointer, c_int64_t, c_ptr
@@ -3996,8 +4013,8 @@ end subroutine uwshcu_readnl
     real(r8), target :: cloud_diag_qlj0, cloud_diag_qij0
     real(r8), target :: cloud_diag_qlj(mkx), cloud_diag_qij(mkx)
     real(r8), target :: rainflx, snowflx
-    real(r8)    es
-    real(r8)    qs
+    real(r8), target :: es
+    real(r8), target :: qs
     real(r8), target :: qsat_arg
     real(r8)    xsrc, xmean, xtop, xbot, xflx(0:mkx)
     real(r8)    tmp1, tmp2
@@ -5987,15 +6004,15 @@ end subroutine uwshcu_readnl
        end subroutine uwshcu_precip_bulk_init_shell_codon
 
        subroutine uwshcu_precip_evap_prep_shell_codon(k_c, krel_c, noevap_krelkpen_c, &
-            t0_c, qv0_c, qs_c, qw0_c, kevp_c, rainflx_c, snowflx_c, g_c, dt_c, dp0_c, &
-            flxrain_c, flxsnow_c, evpint_rain_c, evpint_snow_c, snowmlt_p, evprain_p, evpsnow_p) &
+            t0_c, p0_c, qv0_c, qw0_c, kevp_c, rainflx_c, snowflx_c, g_c, dt_c, dp0_c, &
+            flxrain_c, flxsnow_c, evpint_rain_c, evpint_snow_c, es_p, qs_p, snowmlt_p, evprain_p, evpsnow_p) &
             bind(c, name="uwshcu_precip_evap_prep_shell_codon")
           use iso_c_binding, only: c_double, c_int64_t, c_ptr
           integer(c_int64_t), value :: k_c, krel_c, noevap_krelkpen_c
-          real(c_double), value :: t0_c, qv0_c, qs_c, qw0_c, kevp_c, rainflx_c, snowflx_c
+          real(c_double), value :: t0_c, p0_c, qv0_c, qw0_c, kevp_c, rainflx_c, snowflx_c
           real(c_double), value :: g_c, dt_c, dp0_c, flxrain_c, flxsnow_c
           real(c_double), value :: evpint_rain_c, evpint_snow_c
-          type(c_ptr), value :: snowmlt_p, evprain_p, evpsnow_p
+          type(c_ptr), value :: es_p, qs_p, snowmlt_p, evprain_p, evpsnow_p
        end subroutine uwshcu_precip_evap_prep_shell_codon
 
        subroutine uwshcu_precip_bulk_layer_shell_codon(mkx_c, mix_c, i_c, k_c, wtrc_nwset_c, trace_water_c, t0_c, &
@@ -11041,8 +11058,8 @@ end subroutine uwshcu_readnl
           !   3. Total evaporation cannot exceed the input total surface flux !
           ! ----------------------------------------------------------------- !
 
-          call qsat(t0(k), p0(k), es, qs)          
           if (use_native_init_shell_impl) then
+             call qsat(t0(k), p0(k), es, qs)
              subsat = max( ( 1._r8 - qv0(k)/qs ), 0._r8 )
              if( noevap_krelkpen ) then
                  if( k .ge. krel ) subsat = 0._r8
@@ -11070,9 +11087,9 @@ end subroutine uwshcu_readnl
           else
              call uwshcu_log_precip_evap_prep_shell_entered()
              call uwshcu_precip_evap_prep_shell_codon(int(k, c_int64_t), int(krel, c_int64_t), &
-                  merge(1_c_int64_t, 0_c_int64_t, noevap_krelkpen), t0(k), qv0(k), qs, &
+                  merge(1_c_int64_t, 0_c_int64_t, noevap_krelkpen), t0(k), p0(k), qv0(k), &
                   qw0_active(i,k), kevp, rainflx, snowflx, g, dt, dp0(k), flxrain(k), flxsnow(k), &
-                  evpint_rain, evpint_snow, c_loc(snowmlt), c_loc(evprain), c_loc(evpsnow))
+                  evpint_rain, evpint_snow, c_loc(es), c_loc(qs), c_loc(snowmlt), c_loc(evprain), c_loc(evpsnow))
           endif
 
           if (use_native_init_shell_impl) then
