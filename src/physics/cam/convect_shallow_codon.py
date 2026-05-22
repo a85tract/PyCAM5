@@ -8,6 +8,7 @@ from convect_shallow_native_callbacks_codon import (
     uwshcu_qsinvert_from_c_dispatch,
     uwshcu_positive_moisture_single_from_c_dispatch,
     uwshcu_select_init_shell_from_c_dispatch,
+    uwshcu_thermo_conden_from_c_dispatch,
     uwshcu_top_conden_from_c_dispatch,
     uwshcu_wtrc_metadata_from_c_dispatch,
     uwshcu_wtrc_ratio_type_from_c_dispatch,
@@ -11008,6 +11009,174 @@ def uwshcu_thermo_conden_condensate_stage_dispatch_codon(
         nl_emf_kbup_p,
         ni_emf_kbup_p,
     )
+
+
+@export
+def uwshcu_thermo_conden_condensate_conden_shell_codon(
+    kind: int,
+    k_fortran: int,
+    mkx: int,
+    ixnumliq: int,
+    ixnumice: int,
+    trace_water: int,
+    wtrc_nwset: int,
+    ncnst: int,
+    krel: int,
+    kpen: int,
+    flag1: int,
+    flag2: int,
+    frc_rasn: float,
+    g_v: float,
+    dwten_k: float,
+    diten_k: float,
+    umf_km1: float,
+    umf_k: float,
+    fdr_k: float,
+    ql0_k: float,
+    qi0_k: float,
+    tr0_liq_k: float,
+    tr0_ice_k: float,
+    prel_v: float,
+    ppen_v: float,
+    thlu_top_v: float,
+    qtu_top_v: float,
+    thj_p: cobj,
+    qvj_p: cobj,
+    qlj_p: cobj,
+    qij_p: cobj,
+    qse_p: cobj,
+    id_check_p: cobj,
+    qlubelow_p: cobj,
+    qiubelow_p: cobj,
+    qlu_mid_p: cobj,
+    qiu_mid_p: cobj,
+    qlu_top_p: cobj,
+    qiu_top_p: cobj,
+    exit_conden_p: cobj,
+    exit_code_p: cobj,
+    tru_emf_p: cobj,
+    qc_l_k_p: cobj,
+    qc_i_k_p: cobj,
+    qc_lm_p: cobj,
+    qc_im_p: cobj,
+    nc_lm_p: cobj,
+    nc_im_p: cobj,
+    nl_emf_kbup_p: cobj,
+    ni_emf_kbup_p: cobj,
+    ps0_p: cobj,
+    thlu_p: cobj,
+    qtu_p: cobj,
+    wtu_p: cobj,
+    wtu_top_p: cobj,
+    wtout_p: cobj,
+):
+    ps0 = Ptr[float](ps0_p)
+    thlu = Ptr[float](thlu_p)
+    qtu = Ptr[float](qtu_p)
+    ps0_km1 = ps0[k_fortran - 1]
+    ps0_k = ps0[k_fortran]
+
+    pressure = 0.0
+    thl = 0.0
+    qt = 0.0
+    wtu_row = 0
+    use_top = 0
+
+    if kind == 1:
+        pressure = prel_v
+        thl = thlu[krel - 1]
+        qt = qtu[krel - 1]
+        wtu_row = krel - 1
+    elif kind == 2:
+        pressure = ps0[k_fortran]
+        thl = thlu[k_fortran]
+        qt = qtu[k_fortran]
+        wtu_row = k_fortran
+    elif kind == 3:
+        pressure = ps0[k_fortran - 1] + ppen_v
+        thl = thlu_top_v
+        qt = qtu_top_v
+        use_top = 1
+    elif kind == 4:
+        pressure = ps0[k_fortran]
+        thl = thlu[k_fortran]
+        qt = qtu[k_fortran]
+        wtu_row = k_fortran
+
+    uwshcu_thermo_conden_from_c_dispatch(
+        trace_water,
+        wtrc_nwset,
+        ncnst,
+        mkx,
+        wtu_row,
+        use_top,
+        pressure,
+        thl,
+        qt,
+        thj_p,
+        qvj_p,
+        qlj_p,
+        qij_p,
+        qse_p,
+        id_check_p,
+        wtu_p,
+        wtu_top_p,
+        wtout_p,
+    )
+
+    id_check = Ptr[int](id_check_p)
+    qlj = Ptr[float](qlj_p)
+    qij = Ptr[float](qij_p)
+
+    uwshcu_thermo_conden_condensate_stage_dispatch_codon(
+        kind,
+        k_fortran,
+        mkx,
+        ixnumliq,
+        ixnumice,
+        id_check[0],
+        flag1,
+        flag2,
+        frc_rasn,
+        g_v,
+        dwten_k,
+        diten_k,
+        umf_km1,
+        umf_k,
+        fdr_k,
+        qlj[0],
+        qij[0],
+        ql0_k,
+        qi0_k,
+        tr0_liq_k,
+        tr0_ice_k,
+        ps0_km1,
+        ps0_k,
+        prel_v,
+        ppen_v,
+        0.0,
+        0.0,
+        0.0,
+        qlubelow_p,
+        qiubelow_p,
+        qlu_mid_p,
+        qiu_mid_p,
+        qlu_top_p,
+        qiu_top_p,
+        exit_conden_p,
+        exit_code_p,
+        tru_emf_p,
+        qc_l_k_p,
+        qc_i_k_p,
+        qc_lm_p,
+        qc_im_p,
+        nc_lm_p,
+        nc_im_p,
+        nl_emf_kbup_p,
+        ni_emf_kbup_p,
+    )
+
+
 @export
 def uwshcu_thermo_conden_condensate_batch_shell_codon(
     kind: int,

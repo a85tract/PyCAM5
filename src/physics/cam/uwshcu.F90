@@ -124,6 +124,7 @@
   logical :: thermo_detached_shell_entered_logged = .false.
   logical :: thermo_condensate_batch_shell_entered_logged = .false.
   logical :: thermo_conden_condensate_batch_shell_entered_logged = .false.
+  logical :: thermo_conden_callback_shell_entered_logged = .false.
   logical :: thermo_wtrc_state_sustain_shell_entered_logged = .false.
   logical :: thermo_wtrc_detrain_detached_shell_entered_logged = .false.
   logical :: thermo_wtrc_emf_kbup_shell_entered_logged = .false.
@@ -2226,6 +2227,25 @@ contains
 
 !===============================================================================
 
+  subroutine uwshcu_log_thermo_conden_callback_shell_entered()
+
+    if (thermo_conden_callback_shell_entered_logged) return
+    thermo_conden_callback_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu thermo conden callback shell entered ' // &
+            '(thermo condensate conden dispatch owned by codon; conden callback/wtrc native)'
+       call uwshcu_append_proof( &
+            'uwshcu thermo conden callback shell entered ' // &
+            '(thermo condensate conden dispatch owned by codon; conden callback/wtrc native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_thermo_conden_callback_shell_entered
+
+!===============================================================================
+
   subroutine uwshcu_log_thermo_wtrc_state_sustain_shell_entered()
 
     if (thermo_wtrc_state_sustain_shell_entered_logged) return
@@ -3393,6 +3413,60 @@ end subroutine uwshcu_readnl
 
   end subroutine uwshcu_top_conden_from_c_cb
 
+  subroutine uwshcu_thermo_conden_from_c_cb(trace_water_c, wtrc_nwset_c, ncnst_c, mkx_c, &
+       wtu_row_c, use_top_c, p_c, thl_c, qt_c, th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, &
+       wtu_p, wtu_top_p, wtout_p) bind(c, name="uwshcu_thermo_conden_from_c_cb")
+
+    use iso_c_binding, only: c_double, c_f_pointer, c_int64_t, c_ptr
+
+    implicit none
+
+    integer(c_int64_t), value :: trace_water_c, wtrc_nwset_c, ncnst_c, mkx_c
+    integer(c_int64_t), value :: wtu_row_c, use_top_c
+    real(c_double), value :: p_c, thl_c, qt_c
+    type(c_ptr), value :: th_p, qv_p, ql_p, qi_p, qse_p, id_check_p
+    type(c_ptr), value :: wtu_p, wtu_top_p, wtout_p
+    real(c_double), pointer :: th, qv, ql, qi, qse
+    real(r8), pointer :: wtu(:,:), wtu_top(:), wtout(:,:)
+    integer(c_int64_t), pointer :: id_check_out
+    integer :: id_check, ncnst_local, wtrc_nwset_local, mkx_local, wtu_row_local
+    real(r8) :: p, thl, qt
+
+    call c_f_pointer(th_p, th)
+    call c_f_pointer(qv_p, qv)
+    call c_f_pointer(ql_p, ql)
+    call c_f_pointer(qi_p, qi)
+    call c_f_pointer(qse_p, qse)
+    call c_f_pointer(id_check_p, id_check_out)
+
+    p = real(p_c, r8)
+    thl = real(thl_c, r8)
+    qt = real(qt_c, r8)
+    ncnst_local = int(ncnst_c)
+    wtrc_nwset_local = int(wtrc_nwset_c)
+    mkx_local = int(mkx_c)
+    wtu_row_local = int(wtu_row_c)
+
+    if (trace_water_c /= 0_c_int64_t) then
+       call c_f_pointer(wtout_p, wtout, [wtrc_nwset_local, 3])
+       wtout(:,:) = 0.0_r8
+       if (use_top_c /= 0_c_int64_t) then
+          call c_f_pointer(wtu_top_p, wtu_top, [wtrc_nwset_local])
+          call conden(p, thl, qt, th, qv, ql, qi, qse, id_check, wtrc_nwset_local, &
+               qv0=qt, tr0=wtu_top, wtout=wtout)
+       else
+          call c_f_pointer(wtu_p, wtu, [mkx_local+1, wtrc_nwset_local])
+          call conden(p, thl, qt, th, qv, ql, qi, qse, id_check, wtrc_nwset_local, &
+               qv0=qt, tr0=wtu(wtu_row_local+1,:), wtout=wtout)
+       end if
+    else
+       call conden(p, thl, qt, th, qv, ql, qi, qse, id_check, ncnst_local)
+    end if
+
+    id_check_out = int(id_check, c_int64_t)
+
+  end subroutine uwshcu_thermo_conden_from_c_cb
+
   function uwshcu_wtrc_ratio_type_from_c_cb(iatype_c, qtrc_c, qtot_c) result(ratio_c) &
        bind(c, name="uwshcu_wtrc_ratio_type_from_c_cb")
 
@@ -4302,7 +4376,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: buoy_top_prep_warning_code_c
     integer(c_int64_t), target       :: cloud_diag_id_check_c, cloud_diag_conden_exit_code_c
     integer(c_int64_t), target       :: comp_sub_loop_id_check_c, comp_sub_conden_exit_code_c
-    integer(c_int64_t), target       :: thermo_conden_exit_code_c
+    integer(c_int64_t), target       :: thermo_conden_id_check_c, thermo_conden_exit_code_c
     integer(c_int64_t), target       :: thermo_emf_conden_exit_code_c
     integer(c_int64_t), target       :: post_scaleh_exit_code_c
     integer(c_int64_t), target       :: scaleh_cufilter_exit_code_c
@@ -5753,7 +5827,31 @@ end subroutine uwshcu_readnl
           real(c_double), value :: emf_k_c, ql_emf_kbup_c, qi_emf_kbup_c
           type(c_ptr), value :: tru_emf_p, qc_l_k_p, qc_i_k_p, qc_lm_p, qc_im_p
           type(c_ptr), value :: nc_lm_p, nc_im_p, nl_emf_kbup_p, ni_emf_kbup_p
-       end subroutine uwshcu_thermo_condensate_batch_shell_codon
+	       end subroutine uwshcu_thermo_condensate_batch_shell_codon
+
+       subroutine uwshcu_thermo_conden_condensate_conden_shell_codon(kind_c, k_c, mkx_c, &
+            ixnumliq_c, ixnumice_c, trace_water_c, wtrc_nwset_c, ncnst_c, krel_c, kpen_c, &
+            flag1_c, flag2_c, frc_rasn_c, g_c, dwten_k_c, diten_k_c, umf_km1_c, umf_k_c, &
+            fdr_k_c, ql0_k_c, qi0_k_c, tr0_liq_k_c, tr0_ice_k_c, prel_c, ppen_c, &
+            thlu_top_c, qtu_top_c, th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, &
+            qlubelow_p, qiubelow_p, qlu_mid_p, qiu_mid_p, qlu_top_p, qiu_top_p, &
+            exit_conden_p, exit_code_p, tru_emf_p, qc_l_k_p, qc_i_k_p, qc_lm_p, qc_im_p, &
+            nc_lm_p, nc_im_p, nl_emf_kbup_p, ni_emf_kbup_p, ps0_p, thlu_p, qtu_p, &
+            wtu_p, wtu_top_p, wtout_p) &
+            bind(c, name="uwshcu_thermo_conden_condensate_conden_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: kind_c, k_c, mkx_c, ixnumliq_c, ixnumice_c
+          integer(c_int64_t), value :: trace_water_c, wtrc_nwset_c, ncnst_c, krel_c, kpen_c
+          integer(c_int64_t), value :: flag1_c, flag2_c
+          real(c_double), value :: frc_rasn_c, g_c, dwten_k_c, diten_k_c, umf_km1_c, umf_k_c
+          real(c_double), value :: fdr_k_c, ql0_k_c, qi0_k_c, tr0_liq_k_c, tr0_ice_k_c
+          real(c_double), value :: prel_c, ppen_c, thlu_top_c, qtu_top_c
+          type(c_ptr), value :: th_p, qv_p, ql_p, qi_p, qse_p, id_check_p
+          type(c_ptr), value :: qlubelow_p, qiubelow_p, qlu_mid_p, qiu_mid_p, qlu_top_p, qiu_top_p
+          type(c_ptr), value :: exit_conden_p, exit_code_p, tru_emf_p, qc_l_k_p, qc_i_k_p
+          type(c_ptr), value :: qc_lm_p, qc_im_p, nc_lm_p, nc_im_p, nl_emf_kbup_p, ni_emf_kbup_p
+          type(c_ptr), value :: ps0_p, thlu_p, qtu_p, wtu_p, wtu_top_p, wtout_p
+       end subroutine uwshcu_thermo_conden_condensate_conden_shell_codon
 
        subroutine uwshcu_thermo_conden_condensate_batch_shell_codon(kind_c, k_c, mkx_c, &
             ixnumliq_c, ixnumice_c, id_check_c, flag1_c, flag2_c, frc_rasn_c, g_c, &
@@ -10550,30 +10648,39 @@ end subroutine uwshcu_readnl
                       c_loc(nl_emf_kbup), c_loc(ni_emf_kbup))
               endif
           elseif( k .eq. krel ) then 
-              if(trace_water) then
-                wtout(:,:) = 0.0_r8
-                call conden(prel,thlu(krel-1),qtu(krel-1),thj,qvj,qlj,qij,qse,id_check,wtrc_nwset,&
-                                qv0=qtu(krel-1),tr0=wtu(krel-1,:),wtout=wtout)
-              else
-                call conden(prel,thlu(krel-1),qtu(krel-1),thj,qvj,qlj,qij,qse,id_check,ncnst)
-              end if
               if (use_native_init_shell_impl) then
+                 if(trace_water) then
+                   wtout(:,:) = 0.0_r8
+                   call conden(prel,thlu(krel-1),qtu(krel-1),thj,qvj,qlj,qij,qse,id_check,wtrc_nwset,&
+                                   qv0=qtu(krel-1),tr0=wtu(krel-1,:),wtout=wtout)
+                 else
+                   call conden(prel,thlu(krel-1),qtu(krel-1),thj,qvj,qlj,qij,qse,id_check,ncnst)
+                 end if
                  if( id_check .eq. 1 ) then
                      exit_conden(i) = 1._r8
                      id_exit = .true.
                      go to 333
                  endif
               else
+                 call uwshcu_log_thermo_conden_callback_shell_entered()
                  call uwshcu_log_thermo_conden_condensate_batch_shell_entered()
-                 call uwshcu_thermo_conden_condensate_batch_shell_codon(1_c_int64_t, int(k, c_int64_t), &
+                 thermo_conden_id_check_c = 0_c_int64_t
+                 wtrc_nwset_post_c = 0_c_int64_t
+                 if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
+                 call uwshcu_thermo_conden_condensate_conden_shell_codon(1_c_int64_t, int(k, c_int64_t), &
                       int(mkx, c_int64_t), int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), &
-                      int(id_check, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0._r8, g, 0._r8, &
-                      0._r8, 0._r8, 0._r8, 0._r8, qlj, qij, 0._r8, 0._r8, 0._r8, 0._r8, &
-                      0._r8, 0._r8, prel, ppen, 0._r8, 0._r8, 0._r8, c_loc(qlubelow), &
+                      merge(1_c_int64_t, 0_c_int64_t, trace_water), wtrc_nwset_post_c, &
+                      int(ncnst, c_int64_t), int(krel, c_int64_t), int(kpen, c_int64_t), &
+                      0_c_int64_t, 0_c_int64_t, 0._r8, g, 0._r8, 0._r8, 0._r8, 0._r8, &
+                      0._r8, ql0(k), qi0(k), tr0(k,ixnumliq), tr0(k,ixnumice), prel, ppen, &
+                      thlu_top, qtu_top, c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), &
+                      c_loc(qse), c_loc(thermo_conden_id_check_c), c_loc(qlubelow), &
                       c_loc(qiubelow), c_loc(qlu_mid), c_loc(qiu_mid), c_null_ptr, c_null_ptr, &
                       c_loc(exit_conden(i)), c_loc(thermo_conden_exit_code_c), c_null_ptr, &
                       c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                      c_null_ptr, c_null_ptr)
+                      c_null_ptr, c_null_ptr, c_loc(ps0), c_loc(thlu), c_loc(qtu), c_loc(wtu), &
+                      c_loc(wtu_top), c_loc(wtout))
+                 id_check = int(thermo_conden_id_check_c)
                  if( thermo_conden_exit_code_c .ne. 0_c_int64_t ) then
                      id_exit = .true.
                      go to 333
@@ -10593,31 +10700,40 @@ end subroutine uwshcu_readnl
                 end do
               end if
               !*************
-              if(trace_water) then
-                wtout(:,:) = 0.0_r8
-                call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,wtrc_nwset,qv0=qtu(k),tr0=wtu(k,:),wtout=wtout) 
-              else
-                call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,ncnst)
-              end if
               if (use_native_init_shell_impl) then
+                 if(trace_water) then
+                   wtout(:,:) = 0.0_r8
+                   call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,wtrc_nwset,qv0=qtu(k),tr0=wtu(k,:),wtout=wtout)
+                 else
+                   call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,ncnst)
+                 end if
                  if( id_check .eq. 1 ) then
                      exit_conden(i) = 1._r8
                      id_exit = .true.
                      go to 333
                  end if
               else
+                 call uwshcu_log_thermo_conden_callback_shell_entered()
                  call uwshcu_log_thermo_conden_condensate_batch_shell_entered()
-                 call uwshcu_thermo_conden_condensate_batch_shell_codon(2_c_int64_t, int(k, c_int64_t), &
+                 thermo_conden_id_check_c = 0_c_int64_t
+                 wtrc_nwset_post_c = 0_c_int64_t
+                 if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
+                 call uwshcu_thermo_conden_condensate_conden_shell_codon(2_c_int64_t, int(k, c_int64_t), &
                       int(mkx, c_int64_t), int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), &
-                      int(id_check, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, k .le. kbup), &
+                      merge(1_c_int64_t, 0_c_int64_t, trace_water), wtrc_nwset_post_c, &
+                      int(ncnst, c_int64_t), int(krel, c_int64_t), int(kpen, c_int64_t), &
+                      merge(1_c_int64_t, 0_c_int64_t, k .le. kbup), &
                       merge(1_c_int64_t, 0_c_int64_t, k .eq. kbup), frc_rasn, g, dwten(k), &
-                      diten(k), umf(k-1), umf(k), fdr(k), qlj, qij, ql0(k), qi0(k), &
-                      tr0(k,ixnumliq), tr0(k,ixnumice), ps0(k-1), ps0(k), prel, ppen, &
-                      0._r8, 0._r8, 0._r8, c_loc(qlubelow), c_loc(qiubelow), c_loc(qlu_mid), &
-                      c_loc(qiu_mid), c_null_ptr, c_null_ptr, c_loc(exit_conden(i)), &
-                      c_loc(thermo_conden_exit_code_c), c_null_ptr, c_loc(qc_l(k)), &
-                      c_loc(qc_i(k)), c_loc(qc_lm), c_loc(qc_im), c_loc(nc_lm), c_loc(nc_im), &
-                      c_loc(nl_emf_kbup), c_loc(ni_emf_kbup))
+                      diten(k), umf(k-1), umf(k), fdr(k), ql0(k), qi0(k), &
+                      tr0(k,ixnumliq), tr0(k,ixnumice), prel, ppen, thlu_top, qtu_top, &
+                      c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), c_loc(qse), &
+                      c_loc(thermo_conden_id_check_c), c_loc(qlubelow), c_loc(qiubelow), &
+                      c_loc(qlu_mid), c_loc(qiu_mid), c_null_ptr, c_null_ptr, &
+                      c_loc(exit_conden(i)), c_loc(thermo_conden_exit_code_c), c_null_ptr, &
+                      c_loc(qc_l(k)), c_loc(qc_i(k)), c_loc(qc_lm), c_loc(qc_im), &
+                      c_loc(nc_lm), c_loc(nc_im), c_loc(nl_emf_kbup), c_loc(ni_emf_kbup), &
+                      c_loc(ps0), c_loc(thlu), c_loc(qtu), c_loc(wtu), c_loc(wtu_top), c_loc(wtout))
+                 id_check = int(thermo_conden_id_check_c)
                  if( thermo_conden_exit_code_c .ne. 0_c_int64_t ) then
                      id_exit = .true.
                      go to 333
@@ -10640,32 +10756,41 @@ end subroutine uwshcu_readnl
               end if
              !*************
           elseif( k .eq. kpen ) then 
-              if(trace_water) then
-                wtout(:,:) = 0.0_r8
-                call conden(ps0(k-1)+ppen,thlu_top,qtu_top,thj,qvj,qlj,qij, &
-                            qse,id_check,wtrc_nwset,qv0=qtu_top,tr0=wtu_top(:),wtout=wtout)
-              else
-                call conden(ps0(k-1)+ppen,thlu_top,qtu_top,thj,qvj,qlj,qij,qse,id_check,ncnst)
-              end if
               if (use_native_init_shell_impl) then
+                 if(trace_water) then
+                   wtout(:,:) = 0.0_r8
+                   call conden(ps0(k-1)+ppen,thlu_top,qtu_top,thj,qvj,qlj,qij, &
+                               qse,id_check,wtrc_nwset,qv0=qtu_top,tr0=wtu_top(:),wtout=wtout)
+                 else
+                   call conden(ps0(k-1)+ppen,thlu_top,qtu_top,thj,qvj,qlj,qij,qse,id_check,ncnst)
+                 end if
                  if( id_check .eq. 1 ) then
                      exit_conden(i) = 1._r8
                      id_exit = .true.
                      go to 333
                  end if
               else
+                 call uwshcu_log_thermo_conden_callback_shell_entered()
                  call uwshcu_log_thermo_conden_condensate_batch_shell_entered()
-                 call uwshcu_thermo_conden_condensate_batch_shell_codon(3_c_int64_t, int(k, c_int64_t), &
+                 thermo_conden_id_check_c = 0_c_int64_t
+                 wtrc_nwset_post_c = 0_c_int64_t
+                 if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
+                 call uwshcu_thermo_conden_condensate_conden_shell_codon(3_c_int64_t, int(k, c_int64_t), &
                       int(mkx, c_int64_t), int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), &
-                      int(id_check, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, k .le. kbup), &
+                      merge(1_c_int64_t, 0_c_int64_t, trace_water), wtrc_nwset_post_c, &
+                      int(ncnst, c_int64_t), int(krel, c_int64_t), int(kpen, c_int64_t), &
+                      merge(1_c_int64_t, 0_c_int64_t, k .le. kbup), &
                       merge(1_c_int64_t, 0_c_int64_t, k .eq. kbup), frc_rasn, g, dwten(k), &
-                      diten(k), umf(k-1), umf(k), fdr(k), qlj, qij, ql0(k), qi0(k), &
-                      tr0(k,ixnumliq), tr0(k,ixnumice), ps0(k-1), ps0(k), prel, ppen, &
-                      0._r8, 0._r8, 0._r8, c_loc(qlubelow), c_loc(qiubelow), c_loc(qlu_mid), &
-                      c_loc(qiu_mid), c_loc(qlu_top), c_loc(qiu_top), c_loc(exit_conden(i)), &
-                      c_loc(thermo_conden_exit_code_c), c_null_ptr, c_loc(qc_l(k)), &
-                      c_loc(qc_i(k)), c_loc(qc_lm), c_loc(qc_im), c_loc(nc_lm), c_loc(nc_im), &
-                      c_loc(nl_emf_kbup), c_loc(ni_emf_kbup))
+                      diten(k), umf(k-1), umf(k), fdr(k), ql0(k), qi0(k), &
+                      tr0(k,ixnumliq), tr0(k,ixnumice), prel, ppen, thlu_top, qtu_top, &
+                      c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), c_loc(qse), &
+                      c_loc(thermo_conden_id_check_c), c_loc(qlubelow), c_loc(qiubelow), &
+                      c_loc(qlu_mid), c_loc(qiu_mid), c_loc(qlu_top), c_loc(qiu_top), &
+                      c_loc(exit_conden(i)), c_loc(thermo_conden_exit_code_c), c_null_ptr, &
+                      c_loc(qc_l(k)), c_loc(qc_i(k)), c_loc(qc_lm), c_loc(qc_im), &
+                      c_loc(nc_lm), c_loc(nc_im), c_loc(nl_emf_kbup), c_loc(ni_emf_kbup), &
+                      c_loc(ps0), c_loc(thlu), c_loc(qtu), c_loc(wtu), c_loc(wtu_top), c_loc(wtout))
+                 id_check = int(thermo_conden_id_check_c)
                  if( thermo_conden_exit_code_c .ne. 0_c_int64_t ) then
                      id_exit = .true.
                      go to 333
@@ -10692,31 +10817,40 @@ end subroutine uwshcu_readnl
               end if
              !*************
           else
-              if(trace_water) then
-                wtout(:,:) = 0.0_r8
-                call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,wtrc_nwset,qv0=qtu(k),tr0=wtu(k,:),wtout=wtout)
-              else
-                call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,ncnst)
-              end if
               if (use_native_init_shell_impl) then
+                 if(trace_water) then
+                   wtout(:,:) = 0.0_r8
+                   call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,wtrc_nwset,qv0=qtu(k),tr0=wtu(k,:),wtout=wtout)
+                 else
+                   call conden(ps0(k),thlu(k),qtu(k),thj,qvj,qlj,qij,qse,id_check,ncnst)
+                 end if
                  if( id_check .eq. 1 ) then
                      exit_conden(i) = 1._r8
                      id_exit = .true.
                      go to 333
                  end if
               else
+                 call uwshcu_log_thermo_conden_callback_shell_entered()
                  call uwshcu_log_thermo_conden_condensate_batch_shell_entered()
-                 call uwshcu_thermo_conden_condensate_batch_shell_codon(4_c_int64_t, int(k, c_int64_t), &
+                 thermo_conden_id_check_c = 0_c_int64_t
+                 wtrc_nwset_post_c = 0_c_int64_t
+                 if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
+                 call uwshcu_thermo_conden_condensate_conden_shell_codon(4_c_int64_t, int(k, c_int64_t), &
                       int(mkx, c_int64_t), int(ixnumliq, c_int64_t), int(ixnumice, c_int64_t), &
-                      int(id_check, c_int64_t), merge(1_c_int64_t, 0_c_int64_t, k .le. kbup), &
+                      merge(1_c_int64_t, 0_c_int64_t, trace_water), wtrc_nwset_post_c, &
+                      int(ncnst, c_int64_t), int(krel, c_int64_t), int(kpen, c_int64_t), &
+                      merge(1_c_int64_t, 0_c_int64_t, k .le. kbup), &
                       merge(1_c_int64_t, 0_c_int64_t, k .eq. kbup), frc_rasn, g, dwten(k), &
-                      diten(k), umf(k-1), umf(k), fdr(k), qlj, qij, ql0(k), qi0(k), &
-                      tr0(k,ixnumliq), tr0(k,ixnumice), ps0(k-1), ps0(k), prel, ppen, &
-                      0._r8, 0._r8, 0._r8, c_loc(qlubelow), c_loc(qiubelow), c_loc(qlu_mid), &
-                      c_loc(qiu_mid), c_null_ptr, c_null_ptr, c_loc(exit_conden(i)), &
-                      c_loc(thermo_conden_exit_code_c), c_null_ptr, c_loc(qc_l(k)), &
-                      c_loc(qc_i(k)), c_loc(qc_lm), c_loc(qc_im), c_loc(nc_lm), c_loc(nc_im), &
-                      c_loc(nl_emf_kbup), c_loc(ni_emf_kbup))
+                      diten(k), umf(k-1), umf(k), fdr(k), ql0(k), qi0(k), &
+                      tr0(k,ixnumliq), tr0(k,ixnumice), prel, ppen, thlu_top, qtu_top, &
+                      c_loc(thj), c_loc(qvj), c_loc(qlj), c_loc(qij), c_loc(qse), &
+                      c_loc(thermo_conden_id_check_c), c_loc(qlubelow), c_loc(qiubelow), &
+                      c_loc(qlu_mid), c_loc(qiu_mid), c_null_ptr, c_null_ptr, &
+                      c_loc(exit_conden(i)), c_loc(thermo_conden_exit_code_c), c_null_ptr, &
+                      c_loc(qc_l(k)), c_loc(qc_i(k)), c_loc(qc_lm), c_loc(qc_im), &
+                      c_loc(nc_lm), c_loc(nc_im), c_loc(nl_emf_kbup), c_loc(ni_emf_kbup), &
+                      c_loc(ps0), c_loc(thlu), c_loc(qtu), c_loc(wtu), c_loc(wtu_top), c_loc(wtout))
+                 id_check = int(thermo_conden_id_check_c)
                  if( thermo_conden_exit_code_c .ne. 0_c_int64_t ) then
                      id_exit = .true.
                      go to 333
