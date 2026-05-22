@@ -1,15 +1,12 @@
 from math import erfc, exp, log, sqrt
 from convect_shallow_native_callbacks_codon import (
     uwshcu_conden_scalar_from_c_dispatch,
-    uwshcu_cnst_indices_from_c_dispatch,
     uwshcu_compute_native_from_c_dispatch,
     uwshcu_findsp_layer_from_c_dispatch,
     uwshcu_qsat_from_c_dispatch,
     uwshcu_qsinvert_from_c_dispatch,
-    uwshcu_select_init_shell_from_c_dispatch,
     uwshcu_thermo_conden_from_c_dispatch,
     uwshcu_top_conden_from_c_dispatch,
-    uwshcu_wtrc_metadata_from_c_dispatch,
     uwshcu_wtrc_precip_mass_error_from_c_dispatch,
     uwshcu_wtrc_precip_evap_isotope_from_c_dispatch,
     uwshcu_wtrc_ratio_type_from_c_dispatch,
@@ -260,9 +257,6 @@ def uwshcu_compute_parent_shell_codon(
     wtrc_metadata_flags_p: cobj,
     wtrc_iatype_p: cobj,
 ):
-    uwshcu_select_init_shell_from_c_dispatch(init_shell_flags_p)
-    uwshcu_cnst_indices_from_c_dispatch(constituent_indices_p)
-    uwshcu_wtrc_metadata_from_c_dispatch(wtrc_metadata_flags_p, wtrc_iatype_p)
     init_shell_flags = Ptr[int](init_shell_flags_p)
     public_outputs_preinitialized = 0
 

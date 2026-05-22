@@ -2,12 +2,9 @@ from C import uwshcu_compute_native_from_c_cb(int, int, int, int, float, Ptr[flo
 from C import uwshcu_conden_scalar_from_c_cb(float, float, float, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[int], int) -> None
 from C import uwshcu_top_conden_from_c_cb(int, int, int, float, float, float, float, float, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[int], Ptr[float], Ptr[float], Ptr[float]) -> None
 from C import uwshcu_thermo_conden_from_c_cb(int, int, int, int, int, int, float, float, float, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[int], Ptr[float], Ptr[float], Ptr[float]) -> None
-from C import uwshcu_cnst_indices_from_c_cb(Ptr[int]) -> None
 from C import uwshcu_findsp_layer_from_c_cb(int, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float]) -> None
 from C import uwshcu_qsinvert_from_c_cb(float, float, float) -> float
 from C import uwshcu_qsat_from_c_cb(float, float, Ptr[float], Ptr[float]) -> None
-from C import uwshcu_select_init_shell_from_c_cb(Ptr[int]) -> None
-from C import uwshcu_wtrc_metadata_from_c_cb(Ptr[int], Ptr[int]) -> None
 from C import uwshcu_wtrc_ratio_type_from_c_cb(int, float, float) -> float
 from C import uwshcu_wtrc_precip_evap_isotope_from_c_cb(int, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float) -> float
 from C import uwshcu_wtrc_precip_mass_error_from_c_cb(float, float, float, float, int) -> None
@@ -149,10 +146,6 @@ def uwshcu_compute_native_from_c_dispatch(
     )
 
 
-def uwshcu_cnst_indices_from_c_dispatch(indices_p: cobj):
-    uwshcu_cnst_indices_from_c_cb(Ptr[int](indices_p))
-
-
 def uwshcu_conden_scalar_from_c_dispatch(
     p: float,
     thl: float,
@@ -259,14 +252,6 @@ def uwshcu_thermo_conden_from_c_dispatch(
         Ptr[float](wtu_top_p),
         Ptr[float](wtout_p),
     )
-
-
-def uwshcu_select_init_shell_from_c_dispatch(flags_p: cobj):
-    uwshcu_select_init_shell_from_c_cb(Ptr[int](flags_p))
-
-
-def uwshcu_wtrc_metadata_from_c_dispatch(flags_p: cobj, iatype_p: cobj):
-    uwshcu_wtrc_metadata_from_c_cb(Ptr[int](flags_p), Ptr[int](iatype_p))
 
 
 def uwshcu_findsp_layer_from_c_dispatch(

@@ -392,10 +392,10 @@ contains
     if (masterproc) then
        write(iulog,'(A)') &
             'uwshcu compute constituent index parent shell entered ' // &
-            '(cnst_get_ind orchestration owned by codon; native lookup callback)'
+            '(cnst_get_ind precomputed before codon shell)'
        call uwshcu_append_proof( &
             'uwshcu compute constituent index parent shell entered ' // &
-            '(cnst_get_ind orchestration owned by codon; native lookup callback)')
+            '(cnst_get_ind precomputed before codon shell)')
        call flush(iulog)
     end if
 
@@ -411,10 +411,10 @@ contains
     if (masterproc) then
        write(iulog,'(A)') &
             'uwshcu compute init selector parent shell entered ' // &
-            '(init-shell selector owned by codon; native selector callback)'
+            '(init-shell selector precomputed before codon shell)'
        call uwshcu_append_proof( &
             'uwshcu compute init selector parent shell entered ' // &
-            '(init-shell selector owned by codon; native selector callback)')
+            '(init-shell selector precomputed before codon shell)')
        call flush(iulog)
     end if
 
@@ -430,10 +430,10 @@ contains
     if (masterproc) then
        write(iulog,'(A)') &
             'uwshcu compute water tracer metadata parent shell entered ' // &
-            '(wtrc metadata owned by codon; native lookup callback)'
+            '(wtrc metadata precomputed before codon shell)'
        call uwshcu_append_proof( &
             'uwshcu compute water tracer metadata parent shell entered ' // &
-            '(wtrc metadata owned by codon; native lookup callback)')
+            '(wtrc metadata precomputed before codon shell)')
        call flush(iulog)
     end if
 
@@ -3178,7 +3178,9 @@ end subroutine uwshcu_readnl
                              wtsnow_out, wtqc_out )
 
     use iso_c_binding, only: c_double, c_int64_t, c_loc
-    use water_tracer_vars, only : wtrc_nwset
+    use constituents, only: cnst_get_ind
+    use water_tracer_vars, only : trace_water, wtrc_iatype, wtrc_nwset
+    use water_types, only : iwtvap, iwtliq, iwtice
 
     implicit none
 
@@ -3243,11 +3245,38 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target      :: init_shell_flags_parent(1)
     integer(c_int64_t), target      :: wtrc_metadata_flags_parent(2)
     integer(c_int64_t), target      :: wtrc_iatype_parent(max(1,wtrc_nwset),3)
+    integer                         :: ixnumliq_parent, ixnumice_parent, ixcldliq_parent, ixcldice_parent
+    integer                         :: m
 
     call uwshcu_select_compute_impl()
 
     if (.not. use_native_compute_impl) then
        call uwshcu_log_compute_parent_shell_entered()
+       call uwshcu_select_init_shell_impl()
+       init_shell_flags_parent(1) = merge(1_c_int64_t, 0_c_int64_t, use_native_init_shell_impl)
+       call uwshcu_log_compute_init_selector_parent_shell_entered()
+
+       call cnst_get_ind('NUMLIQ', ixnumliq_parent)
+       call cnst_get_ind('NUMICE', ixnumice_parent)
+       call cnst_get_ind('CLDLIQ', ixcldliq_parent)
+       call cnst_get_ind('CLDICE', ixcldice_parent)
+       constituent_indices_parent(1) = int(ixnumliq_parent, c_int64_t)
+       constituent_indices_parent(2) = int(ixnumice_parent, c_int64_t)
+       constituent_indices_parent(3) = int(ixcldliq_parent, c_int64_t)
+       constituent_indices_parent(4) = int(ixcldice_parent, c_int64_t)
+       call uwshcu_log_compute_cnst_indices_parent_shell_entered()
+
+       wtrc_metadata_flags_parent(1) = merge(1_c_int64_t, 0_c_int64_t, trace_water)
+       wtrc_metadata_flags_parent(2) = int(wtrc_nwset, c_int64_t)
+       if (trace_water) then
+          do m = 1, wtrc_nwset
+             wtrc_iatype_parent(m,1) = int(wtrc_iatype(m,iwtvap), c_int64_t)
+             wtrc_iatype_parent(m,2) = int(wtrc_iatype(m,iwtliq), c_int64_t)
+             wtrc_iatype_parent(m,3) = int(wtrc_iatype(m,iwtice), c_int64_t)
+          end do
+       end if
+       call uwshcu_log_compute_wtrc_metadata_parent_shell_entered()
+
        call uwshcu_compute_parent_shell_codon( &
             int(mix, c_int64_t), int(mkx, c_int64_t), int(iend, c_int64_t), int(ncnst, c_int64_t), &
             real(dt, c_double), c_loc(ps0_in), c_loc(zs0_in), c_loc(p0_in), c_loc(z0_in), &
@@ -3655,82 +3684,6 @@ end subroutine uwshcu_readnl
     call qsat(real(t_c, r8), real(p_c, r8), es, qs)
 
   end subroutine uwshcu_qsat_from_c_cb
-
-  subroutine uwshcu_select_init_shell_from_c_cb(flags_p) bind(c, name="uwshcu_select_init_shell_from_c_cb")
-
-    use iso_c_binding, only: c_f_pointer, c_int64_t, c_ptr
-
-    implicit none
-
-    type(c_ptr), value :: flags_p
-    integer(c_int64_t), pointer :: flags(:)
-
-    call c_f_pointer(flags_p, flags, [1])
-
-    call uwshcu_select_init_shell_impl()
-    flags(1) = merge(1_c_int64_t, 0_c_int64_t, use_native_init_shell_impl)
-
-    call uwshcu_log_compute_init_selector_parent_shell_entered()
-
-  end subroutine uwshcu_select_init_shell_from_c_cb
-
-  subroutine uwshcu_wtrc_metadata_from_c_cb(flags_p, iatype_p) bind(c, name="uwshcu_wtrc_metadata_from_c_cb")
-
-    use iso_c_binding, only: c_f_pointer, c_int64_t, c_ptr
-    use water_tracer_vars, only : trace_water, wtrc_iatype, wtrc_nwset
-    use water_types,       only : iwtvap, iwtliq, iwtice
-
-    implicit none
-
-    type(c_ptr), value :: flags_p, iatype_p
-    integer(c_int64_t), pointer :: flags(:)
-    integer(c_int64_t), pointer :: iatype(:,:)
-    integer :: m
-
-    call c_f_pointer(flags_p, flags, [2])
-    call c_f_pointer(iatype_p, iatype, [max(1,wtrc_nwset), 3])
-
-    flags(1) = merge(1_c_int64_t, 0_c_int64_t, trace_water)
-    flags(2) = int(wtrc_nwset, c_int64_t)
-
-    if (trace_water) then
-       do m = 1, wtrc_nwset
-          iatype(m,1) = int(wtrc_iatype(m,iwtvap), c_int64_t)
-          iatype(m,2) = int(wtrc_iatype(m,iwtliq), c_int64_t)
-          iatype(m,3) = int(wtrc_iatype(m,iwtice), c_int64_t)
-       end do
-    end if
-
-    call uwshcu_log_compute_wtrc_metadata_parent_shell_entered()
-
-  end subroutine uwshcu_wtrc_metadata_from_c_cb
-
-  subroutine uwshcu_cnst_indices_from_c_cb(indices_p) bind(c, name="uwshcu_cnst_indices_from_c_cb")
-
-    use iso_c_binding, only: c_f_pointer, c_int64_t, c_ptr
-    use constituents,  only: cnst_get_ind
-
-    implicit none
-
-    type(c_ptr), value :: indices_p
-    integer(c_int64_t), pointer :: indices(:)
-    integer :: ixnumliq, ixnumice, ixcldliq, ixcldice
-
-    call c_f_pointer(indices_p, indices, [4])
-
-    call cnst_get_ind('NUMLIQ', ixnumliq)
-    call cnst_get_ind('NUMICE', ixnumice)
-    call cnst_get_ind('CLDLIQ', ixcldliq)
-    call cnst_get_ind('CLDICE', ixcldice)
-
-    indices(1) = int(ixnumliq, c_int64_t)
-    indices(2) = int(ixnumice, c_int64_t)
-    indices(3) = int(ixcldliq, c_int64_t)
-    indices(4) = int(ixcldice, c_int64_t)
-
-    call uwshcu_log_compute_cnst_indices_parent_shell_entered()
-
-  end subroutine uwshcu_cnst_indices_from_c_cb
 
   subroutine uwshcu_findsp_layer_from_c_cb(iend_c, qv0_p, t0_p, p0_p, tw0_p, qw0_p) &
        bind(c, name="uwshcu_findsp_layer_from_c_cb")
