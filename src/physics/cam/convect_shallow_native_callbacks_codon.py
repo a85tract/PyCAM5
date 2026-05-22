@@ -1,4 +1,5 @@
-from C import uwshcu_compute_native_from_c_cb(int, int, int, int, float, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], int, Ptr[float], Ptr[float], Ptr[float], Ptr[float], int, Ptr[float], Ptr[float]) -> None
+from C import uwshcu_compute_native_from_c_cb(int, int, int, int, float, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], int, Ptr[float], Ptr[float], Ptr[float], Ptr[float], int, Ptr[float], Ptr[float], int, Ptr[int]) -> None
+from C import uwshcu_cnst_indices_from_c_cb(Ptr[int]) -> None
 from C import uwshcu_findsp_layer_from_c_cb(int, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float]) -> None
 
 
@@ -60,6 +61,8 @@ def uwshcu_compute_native_from_c_dispatch(
     wetbulb_precomputed: int,
     tw0_precomputed_p: cobj,
     qw0_precomputed_p: cobj,
+    constituent_indices_precomputed: int,
+    constituent_indices_p: cobj,
 ):
     uwshcu_compute_native_from_c_cb(
         mix,
@@ -119,7 +122,13 @@ def uwshcu_compute_native_from_c_dispatch(
         wetbulb_precomputed,
         Ptr[float](tw0_precomputed_p),
         Ptr[float](qw0_precomputed_p),
+        constituent_indices_precomputed,
+        Ptr[int](constituent_indices_p),
     )
+
+
+def uwshcu_cnst_indices_from_c_dispatch(indices_p: cobj):
+    uwshcu_cnst_indices_from_c_cb(Ptr[int](indices_p))
 
 
 def uwshcu_findsp_layer_from_c_dispatch(

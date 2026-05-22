@@ -1,5 +1,6 @@
 from math import erfc, exp, log, sqrt
 from convect_shallow_native_callbacks_codon import (
+    uwshcu_cnst_indices_from_c_dispatch,
     uwshcu_compute_native_from_c_dispatch,
     uwshcu_findsp_layer_from_c_dispatch,
 )
@@ -244,7 +245,10 @@ def uwshcu_compute_parent_shell_codon(
     wtqc_p: cobj,
     tw0_p: cobj,
     qw0_p: cobj,
+    constituent_indices_p: cobj,
 ):
+    uwshcu_cnst_indices_from_c_dispatch(constituent_indices_p)
+
     qv0 = Ptr[float](qv0_p)
     t0 = Ptr[float](t0_p)
     p0 = Ptr[float](p0_p)
@@ -320,6 +324,8 @@ def uwshcu_compute_parent_shell_codon(
         1,
         tw0_p,
         qw0_p,
+        1,
+        constituent_indices_p,
     )
 
 
