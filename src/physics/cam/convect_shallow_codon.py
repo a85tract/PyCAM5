@@ -1,4 +1,4 @@
-from math import exp, sqrt
+from math import erfc, exp, log, sqrt
 
 
 @inline
@@ -6746,6 +6746,125 @@ def uwshcu_release_base_shell_codon(
     qtu[km1_rel] = qtsrc
     pe[0] = 0.5 * (prel + ps0[krel])
     dpe[0] = prel - ps0[krel]
+
+
+@export
+def uwshcu_release_mu_pre_solve_shell_codon(
+    use_cincin: int,
+    kinv: int,
+    cin_v: float,
+    cinlcl_v: float,
+    rbuoy: float,
+    rkfre: float,
+    tkeavg_v: float,
+    epsvarw: float,
+    r_v: float,
+    g_v: float,
+    dt_v: float,
+    mumin1_v: float,
+    rmaxfrac_v: float,
+    ps0_p: cobj,
+    thv0top_p: cobj,
+    exns0_p: cobj,
+    dp0_p: cobj,
+    sigmaw_p: cobj,
+    mu_p: cobj,
+    rho0inv_p: cobj,
+    cbmflimit_p: cobj,
+    mumin0_p: cobj,
+    mulcl_p: cobj,
+    need_mumin2_p: cobj,
+    exit_code_p: cobj,
+):
+    ps0 = Ptr[float](ps0_p)
+    thv0top = Ptr[float](thv0top_p)
+    exns0 = Ptr[float](exns0_p)
+    dp0 = Ptr[float](dp0_p)
+    sigmaw = Ptr[float](sigmaw_p)
+    mu = Ptr[float](mu_p)
+    rho0inv = Ptr[float](rho0inv_p)
+    cbmflimit = Ptr[float](cbmflimit_p)
+    mumin0 = Ptr[float](mumin0_p)
+    mulcl = Ptr[float](mulcl_p)
+    need_mumin2 = Ptr[int](need_mumin2_p)
+    exit_code = Ptr[int](exit_code_p)
+
+    if use_cincin != 0:
+        wcrit = sqrt(2.0 * cin_v * rbuoy)
+    else:
+        wcrit = sqrt(2.0 * cinlcl_v * rbuoy)
+    sigmaw[0] = sqrt(rkfre * tkeavg_v + epsvarw)
+    mu_v = wcrit / sigmaw[0] / 1.4142
+
+    exit_code[0] = 0
+    if mu_v >= 3.0:
+        exit_code[0] = 1
+        return
+
+    iface_idx = kinv - 1
+    layer_idx = kinv - 2
+    rho0inv[0] = ps0[iface_idx] / (r_v * thv0top[layer_idx] * exns0[iface_idx])
+    cbmf_initial = (rho0inv[0] * sigmaw[0] / 2.5066) * exp(-(mu_v ** 2))
+    cbmflimit[0] = 0.9 * dp0[layer_idx] / g_v / dt_v
+    mumin0[0] = 0.0
+    if cbmf_initial > cbmflimit[0]:
+        mumin0[0] = sqrt(-log(2.5066 * cbmflimit[0] / rho0inv[0] / sigmaw[0]))
+
+    mu_v = max(max(mu_v, mumin0[0]), mumin1_v)
+    mu[0] = mu_v
+    mulcl[0] = sqrt(2.0 * cinlcl_v * rbuoy) / 1.4142 / sigmaw[0]
+    mulclstar = sqrt(max(0.0, 2.0 * (exp(-(mu_v ** 2)) / 2.5066) ** 2 * (1.0 / erfc(mu_v) ** 2 - 0.25 / rmaxfrac_v ** 2)))
+    need_mumin2[0] = 0
+    if mulcl[0] > 1.0e-8 and mulcl[0] > mulclstar:
+        need_mumin2[0] = 1
+
+
+@export
+def uwshcu_release_base_solve_shell_codon(
+    mu_v: float,
+    rho0inv_v: float,
+    sigmaw_v: float,
+    cinlcl_v: float,
+    rbuoy: float,
+    cbmf_p: cobj,
+    winv_p: cobj,
+    ufrcinv_p: cobj,
+    wtw_p: cobj,
+    wlcl_p: cobj,
+    ufrclcl_p: cobj,
+    wrel_p: cobj,
+    exit_wtw_p: cobj,
+    exit_ufrc_p: cobj,
+    exit_code_p: cobj,
+):
+    cbmf = Ptr[float](cbmf_p)
+    winv = Ptr[float](winv_p)
+    ufrcinv = Ptr[float](ufrcinv_p)
+    wtw = Ptr[float](wtw_p)
+    wlcl = Ptr[float](wlcl_p)
+    ufrclcl = Ptr[float](ufrclcl_p)
+    wrel = Ptr[float](wrel_p)
+    exit_wtw = Ptr[float](exit_wtw_p)
+    exit_ufrc = Ptr[float](exit_ufrc_p)
+    exit_code = Ptr[int](exit_code_p)
+
+    cbmf[0] = (rho0inv_v * sigmaw_v / 2.5066) * exp(-(mu_v ** 2))
+    winv[0] = sigmaw_v * (2.0 / 2.5066) * exp(-(mu_v ** 2)) / erfc(mu_v)
+    ufrcinv[0] = cbmf[0] / winv[0] / rho0inv_v
+    wtw[0] = winv[0] * winv[0] - 2.0 * cinlcl_v * rbuoy
+
+    exit_code[0] = 0
+    if wtw[0] <= 0.0:
+        exit_wtw[0] = 1.0
+        exit_code[0] = 1
+        return
+
+    wlcl[0] = sqrt(wtw[0])
+    ufrclcl[0] = cbmf[0] / wlcl[0] / rho0inv_v
+    wrel[0] = wlcl[0]
+    if ufrclcl[0] <= 0.0001:
+        exit_ufrc[0] = 1.0
+        exit_code[0] = 1
 
 
 @export

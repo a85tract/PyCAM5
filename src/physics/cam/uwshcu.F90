@@ -91,6 +91,7 @@
   logical :: iter_env_restore_thermo_slope_shell_entered_logged = .false.
   logical :: release_prep_shell_entered_logged = .false.
   logical :: release_scaleh_batch_shell_entered_logged = .false.
+  logical :: release_mu_solve_shell_entered_logged = .false.
   logical :: release_mu_exit_shell_entered_logged = .false.
   logical :: release_mu_limit_shell_entered_logged = .false.
   logical :: release_base_exit_shell_entered_logged = .false.
@@ -1219,6 +1220,23 @@ contains
     end if
 
   end subroutine uwshcu_log_buoy_wu_exit_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_release_mu_solve_shell_entered()
+
+    if (release_mu_solve_shell_entered_logged) return
+    release_mu_solve_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu release mu solve shell entered (mu/base solve direct = codon; compute_mumin2 native)'
+       call uwshcu_append_proof( &
+            'uwshcu release mu solve shell entered (mu/base solve direct = codon; compute_mumin2 native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_release_mu_solve_shell_entered
 
 !===============================================================================
 
@@ -3019,7 +3037,7 @@ end subroutine uwshcu_readnl
     real(r8), target :: trsrc(ncnst)
     real(r8), target :: tre(ncnst)
     real(r8), target :: plcl, plfc, prel
-    real(r8)    wrel
+    real(r8), target :: wrel
     real(r8)    frc_rasn
     real(r8), target :: wtw
     real(r8)    ee2, ud2, wtwh
@@ -3029,7 +3047,8 @@ end subroutine uwshcu_readnl
     real(r8), target :: scaleh
     real(r8)    cldhgt, cridis, rle, rkm
     real(r8), target :: tkeavg, thvlmin
-    real(r8)    rkfre, sigmaw, epsvarw, dpsum, dpi
+    real(r8)    rkfre, epsvarw, dpsum, dpi
+    real(r8), target :: sigmaw
     real(r8)    thlxsat, qtxsat, x_cu, x_en, thv_x0, thv_x1
     real(r8), target :: thvxsat
     real(r8), target :: rhos0j
@@ -3040,9 +3059,11 @@ end subroutine uwshcu_readnl
     real(r8), target :: exne
     real(r8)    wue
     real(r8), target :: thlue, qtue
-    real(r8)    mu, mumin0, mumin1, mumin2, mulcl, mulclstar
+    real(r8), target :: mu, mumin0, mumin2, mulcl, mulclstar
+    real(r8)    mumin1
     real(r8), target :: cbmf, wlcl, ufrclcl
-    real(r8)    wcrit, winv, ufrcinv, rmaxfrac
+    real(r8), target :: winv, ufrcinv
+    real(r8)    wcrit, rmaxfrac
     real(r8)    criqc, exql, exqi, ppen
     real(r8)    thl0top, thl0bot, qt0bot, qt0top
     real(r8), target :: thvubot, thvutop
@@ -3052,7 +3073,8 @@ end subroutine uwshcu_readnl
     real(r8), target :: thl0lcl, qt0lcl
     real(r8), target :: thv0lcl
     real(r8), target :: thv0rel
-    real(r8)    rho0inv, autodet, self_detrain_expfac
+    real(r8), target :: rho0inv
+    real(r8)    autodet, self_detrain_expfac
     real(r8)    aquad, bquad, cquad, xc1, xc2, xsat, xs1, xs2
     real(r8), target :: excessu, excess0
     real(r8), target :: bogbot, bogtop, delbog
@@ -3266,7 +3288,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: interface_conden_exit_code_c
     integer(c_int64_t), target       :: cin_conden_exit_code_c
     integer(c_int64_t), target       :: krel_release_c
-    integer(c_int64_t), target       :: release_mu_exit_code_c
+    integer(c_int64_t), target       :: release_mu_exit_code_c, release_mumin2_needed_c
     integer(c_int64_t), target       :: release_base_exit_code_c
     integer(c_int64_t), target       :: release_conden_exit_code_c
     integer(c_int64_t), target       :: kbup_iter_c, kpen_iter_c
@@ -4071,6 +4093,30 @@ end subroutine uwshcu_readnl
           real(c_double), value :: wu_c
           type(c_ptr), value :: exit_wu_p, exit_code_p
        end subroutine uwshcu_buoy_wu_exit_shell_codon
+
+       subroutine uwshcu_release_mu_pre_solve_shell_codon(use_cincin_c, kinv_c, cin_c, cinlcl_c, &
+            rbuoy_c, rkfre_c, tkeavg_c, epsvarw_c, r_c, g_c, dt_c, mumin1_c, rmaxfrac_c, &
+            ps0_p, thv0top_p, exns0_p, dp0_p, sigmaw_p, mu_p, rho0inv_p, cbmflimit_p, &
+            mumin0_p, mulcl_p, need_mumin2_p, exit_code_p) &
+            bind(c, name="uwshcu_release_mu_pre_solve_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: use_cincin_c, kinv_c
+          real(c_double), value :: cin_c, cinlcl_c, rbuoy_c, rkfre_c, tkeavg_c, epsvarw_c
+          real(c_double), value :: r_c, g_c, dt_c, mumin1_c, rmaxfrac_c
+          type(c_ptr), value :: ps0_p, thv0top_p, exns0_p, dp0_p, sigmaw_p, mu_p
+          type(c_ptr), value :: rho0inv_p, cbmflimit_p, mumin0_p, mulcl_p
+          type(c_ptr), value :: need_mumin2_p, exit_code_p
+       end subroutine uwshcu_release_mu_pre_solve_shell_codon
+
+       subroutine uwshcu_release_base_solve_shell_codon(mu_c, rho0inv_c, sigmaw_c, cinlcl_c, &
+            rbuoy_c, cbmf_p, winv_p, ufrcinv_p, wtw_p, wlcl_p, ufrclcl_p, wrel_p, &
+            exit_wtw_p, exit_ufrc_p, exit_code_p) &
+            bind(c, name="uwshcu_release_base_solve_shell_codon")
+          use iso_c_binding, only: c_double, c_ptr
+          real(c_double), value :: mu_c, rho0inv_c, sigmaw_c, cinlcl_c, rbuoy_c
+          type(c_ptr), value :: cbmf_p, winv_p, ufrcinv_p, wtw_p, wlcl_p, ufrclcl_p, wrel_p
+          type(c_ptr), value :: exit_wtw_p, exit_ufrc_p, exit_code_p
+       end subroutine uwshcu_release_base_solve_shell_codon
 
        subroutine uwshcu_release_mu_exit_shell_codon(mu_c, exit_code_p) &
             bind(c, name="uwshcu_release_mu_exit_shell_codon")
@@ -6824,46 +6870,45 @@ end subroutine uwshcu_readnl
        ! that buoyancy sorting does not occur when cumulus updraft is unsaturated.   !
        ! --------------------------------------------------------------------------- !
    
-       if( use_CINcin ) then       
-           wcrit = sqrt( 2._r8 * cin * rbuoy )      
-       else
-           wcrit = sqrt( 2._r8 * cinlcl * rbuoy )   
-       endif
-       sigmaw = sqrt( rkfre * tkeavg + epsvarw )
-       mu = wcrit/sigmaw/1.4142_r8                  
        if (use_native_init_shell_impl) then
+          if( use_CINcin ) then
+              wcrit = sqrt( 2._r8 * cin * rbuoy )
+          else
+              wcrit = sqrt( 2._r8 * cinlcl * rbuoy )
+          endif
+          sigmaw = sqrt( rkfre * tkeavg + epsvarw )
+          mu = wcrit/sigmaw/1.4142_r8
           if( mu .ge. 3._r8 ) then
             ! write(iulog,*) 'mu >= 3'
               id_exit = .true.
               go to 333
           endif
+          rho0inv = ps0(kinv-1)/(r*thv0top(kinv-1)*exns0(kinv-1))
+          cbmf = (rho0inv*sigmaw/2.5066_r8)*exp(-mu**2)
+          ! 1. 'cbmf' constraint
+          cbmflimit = 0.9_r8*dp0(kinv-1)/g/dt
+          mumin0 = 0._r8
+          if( cbmf .gt. cbmflimit ) mumin0 = sqrt(-log(2.5066_r8*cbmflimit/rho0inv/sigmaw))
+          ! 2. 'ufrcinv' constraint
+          mu = max(max(mu,mumin0),mumin1)
+          ! 3. 'ufrclcl' constraint
+          mulcl = sqrt(2._r8*cinlcl*rbuoy)/1.4142_r8/sigmaw
+          mulclstar = sqrt(max(0._r8,2._r8*(exp(-mu**2)/2.5066_r8)**2*(1._r8/erfc(mu)**2-0.25_r8/rmaxfrac**2)))
        else
-          call uwshcu_log_release_scaleh_batch_shell_entered()
-          call uwshcu_release_scaleh_batch_shell_codon(1_c_int64_t, int(mkx, c_int64_t), &
-               0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._r8, 0._r8, &
-               mu, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
-               0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-               c_loc(release_mu_exit_code_c), c_null_ptr, c_null_ptr, c_null_ptr, &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
+          release_mumin2_needed_c = 0_c_int64_t
+          call uwshcu_log_release_mu_solve_shell_entered()
+          call uwshcu_release_mu_pre_solve_shell_codon(merge(1_c_int64_t, 0_c_int64_t, use_CINcin), &
+               int(kinv, c_int64_t), cin, cinlcl, rbuoy, rkfre, tkeavg, epsvarw, r, g, dt, &
+               mumin1, rmaxfrac, c_loc(ps0), c_loc(thv0top), c_loc(exns0), c_loc(dp0), &
+               c_loc(sigmaw), c_loc(mu), c_loc(rho0inv), c_loc(cbmflimit), c_loc(mumin0), &
+               c_loc(mulcl), c_loc(release_mumin2_needed_c), c_loc(release_mu_exit_code_c))
           if( release_mu_exit_code_c .ne. 0_c_int64_t ) then
              id_exit = .true.
              go to 333
           endif
        endif
-       rho0inv = ps0(kinv-1)/(r*thv0top(kinv-1)*exns0(kinv-1))
-       cbmf = (rho0inv*sigmaw/2.5066_r8)*exp(-mu**2)
-       ! 1. 'cbmf' constraint
-       cbmflimit = 0.9_r8*dp0(kinv-1)/g/dt
-       mumin0 = 0._r8
-       if( cbmf .gt. cbmflimit ) mumin0 = sqrt(-log(2.5066_r8*cbmflimit/rho0inv/sigmaw))
-       ! 2. 'ufrcinv' constraint
-       mu = max(max(mu,mumin0),mumin1)
-       ! 3. 'ufrclcl' constraint      
-       mulcl = sqrt(2._r8*cinlcl*rbuoy)/1.4142_r8/sigmaw
-       mulclstar = sqrt(max(0._r8,2._r8*(exp(-mu**2)/2.5066_r8)**2*(1._r8/erfc(mu)**2-0.25_r8/rmaxfrac**2)))
-       if( mulcl .gt. 1.e-8_r8 .and. mulcl .gt. mulclstar ) then
+       if( (use_native_init_shell_impl .and. mulcl .gt. 1.e-8_r8 .and. mulcl .gt. mulclstar) .or. &
+           (.not. use_native_init_shell_impl .and. release_mumin2_needed_c .ne. 0_c_int64_t) ) then
            mumin2 = compute_mumin2(mulcl,rmaxfrac,mu)
            if( mu .gt. mumin2 ) then
                write(iulog,*) 'Critical error in mu calculation in UW_ShCu'
@@ -6905,9 +6950,20 @@ end subroutine uwshcu_readnl
        ! 'ufrclcl' are smaller than ufrcmax with no instability.             !
        ! ------------------------------------------------------------------- !
 
-       cbmf = (rho0inv*sigmaw/2.5066_r8)*exp(-mu**2)                       
-       winv = sigmaw*(2._r8/2.5066_r8)*exp(-mu**2)/erfc(mu)
-       ufrcinv = cbmf/winv/rho0inv
+       if (use_native_init_shell_impl) then
+          cbmf = (rho0inv*sigmaw/2.5066_r8)*exp(-mu**2)
+          winv = sigmaw*(2._r8/2.5066_r8)*exp(-mu**2)/erfc(mu)
+          ufrcinv = cbmf/winv/rho0inv
+       else
+          call uwshcu_release_base_solve_shell_codon(mu, rho0inv, sigmaw, cinlcl, rbuoy, &
+               c_loc(cbmf), c_loc(winv), c_loc(ufrcinv), c_loc(wtw), c_loc(wlcl), &
+               c_loc(ufrclcl), c_loc(wrel), c_loc(exit_wtw(i)), c_loc(exit_ufrc(i)), &
+               c_loc(release_base_exit_code_c))
+          if( release_base_exit_code_c .ne. 0_c_int64_t ) then
+             id_exit = .true.
+             go to 333
+          endif
+       endif
 
        ! ------------------------------------------------------------------- !
        ! Calculate ['ufrclcl','wlcl'] at the LCL. When LCL is below PBL top, !
@@ -6920,52 +6976,24 @@ end subroutine uwshcu_readnl
        ! this again in the below block. If 'ufrclcl < 0.1%', just exit.      !
        ! ------------------------------------------------------------------- !
 
-       wtw = winv * winv - 2._r8 * cinlcl * rbuoy
        if (use_native_init_shell_impl) then
+          wtw = winv * winv - 2._r8 * cinlcl * rbuoy
           if( wtw .le. 0._r8 ) then
             ! write(iulog,*) 'wlcl < 0 at the LCL'
               exit_wtw(i) = 1._r8
               id_exit = .true.
               go to 333
           endif
-       else
-          call uwshcu_log_release_scaleh_batch_shell_entered()
-          call uwshcu_release_scaleh_batch_shell_codon(4_c_int64_t, int(mkx, c_int64_t), &
-               0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._r8, 0._r8, &
-               0._r8, 0._r8, 0._r8, 0._r8, wtw, 0._r8, 0._r8, 0._r8, 0._r8, &
-               0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-               c_loc(exit_wtw(i)), c_null_ptr, c_null_ptr, c_null_ptr, c_loc(release_base_exit_code_c), &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
-          if( release_base_exit_code_c .ne. 0_c_int64_t ) then
-             id_exit = .true.
-             go to 333
-          endif
        endif
-       wlcl = sqrt(wtw)
-       ufrclcl = cbmf/wlcl/rho0inv
-       wrel = wlcl
        if (use_native_init_shell_impl) then
+          wlcl = sqrt(wtw)
+          ufrclcl = cbmf/wlcl/rho0inv
+          wrel = wlcl
           if( ufrclcl .le. 0.0001_r8 ) then
             ! write(iulog,*) 'ufrclcl <= 0.0001'
               exit_ufrc(i) = 1._r8
               id_exit = .true.
               go to 333
-          endif
-       else
-          call uwshcu_log_release_scaleh_batch_shell_entered()
-          call uwshcu_release_scaleh_batch_shell_codon(5_c_int64_t, int(mkx, c_int64_t), &
-               0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._r8, 0._r8, &
-               0._r8, 0._r8, 0._r8, 0._r8, 0._r8, ufrclcl, 0._r8, 0._r8, 0._r8, &
-               0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-               c_null_ptr, c_loc(exit_ufrc(i)), c_null_ptr, c_null_ptr, c_loc(release_base_exit_code_c), &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
-          if( release_base_exit_code_c .ne. 0_c_int64_t ) then
-             id_exit = .true.
-             go to 333
           endif
        endif
        if (use_native_init_shell_impl) then
