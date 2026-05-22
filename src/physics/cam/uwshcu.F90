@@ -149,6 +149,7 @@
   logical :: compute_wetbulb_parent_shell_entered_logged = .false.
   logical :: compute_cnst_indices_parent_shell_entered_logged = .false.
   logical :: compute_init_selector_parent_shell_entered_logged = .false.
+  logical :: compute_wtrc_metadata_parent_shell_entered_logged = .false.
 
   interface
      subroutine uwshcu_getbuoy_codon(pbot_c, thv0bot_c, ptop_c, thv0top_c, &
@@ -211,7 +212,8 @@
           qiten_p, sten_p, uten_p, vten_p, trten_p, qrten_p, qsten_p, &
           precip_p, snow_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, cbmf_p, &
           qc_p, rliq_p, cnt_p, cnb_p, lchnk_c, dpdry0_p, wtprec_p, wtsnow_p, &
-          wtqc_p, tw0_p, qw0_p, constituent_indices_p, init_shell_flags_p) &
+          wtqc_p, tw0_p, qw0_p, constituent_indices_p, init_shell_flags_p, &
+          wtrc_metadata_flags_p, wtrc_iatype_p) &
           bind(c, name="uwshcu_compute_parent_shell_codon")
        use iso_c_binding, only: c_double, c_int64_t, c_ptr
        integer(c_int64_t), value :: mix_c, mkx_c, iend_c, ncnst_c, lchnk_c
@@ -224,6 +226,7 @@
        type(c_ptr), value :: qc_p, rliq_p, cnt_p, cnb_p, dpdry0_p, wtprec_p, wtsnow_p, wtqc_p
        type(c_ptr), value :: tw0_p, qw0_p
        type(c_ptr), value :: constituent_indices_p, init_shell_flags_p
+       type(c_ptr), value :: wtrc_metadata_flags_p, wtrc_iatype_p
      end subroutine uwshcu_compute_parent_shell_codon
 
      subroutine uwshcu_fluxbelowinv_codon(mkx_c, kinv_c, cbmf_c, dt_c, xsrc_c, &
@@ -387,6 +390,25 @@ contains
     end if
 
   end subroutine uwshcu_log_compute_init_selector_parent_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_compute_wtrc_metadata_parent_shell_entered()
+
+    if (compute_wtrc_metadata_parent_shell_entered_logged) return
+    compute_wtrc_metadata_parent_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu compute water tracer metadata parent shell entered ' // &
+            '(wtrc metadata owned by codon; native lookup callback)'
+       call uwshcu_append_proof( &
+            'uwshcu compute water tracer metadata parent shell entered ' // &
+            '(wtrc metadata owned by codon; native lookup callback)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_compute_wtrc_metadata_parent_shell_entered
 
 !===============================================================================
 
@@ -2798,6 +2820,7 @@ end subroutine uwshcu_readnl
                              wtsnow_out, wtqc_out )
 
     use iso_c_binding, only: c_double, c_int64_t, c_loc
+    use water_tracer_vars, only : wtrc_nwset
 
     implicit none
 
@@ -2860,6 +2883,8 @@ end subroutine uwshcu_readnl
     real(r8), target                :: qw0_parent(mix,mkx)
     integer(c_int64_t), target      :: constituent_indices_parent(4)
     integer(c_int64_t), target      :: init_shell_flags_parent(1)
+    integer(c_int64_t), target      :: wtrc_metadata_flags_parent(2)
+    integer(c_int64_t), target      :: wtrc_iatype_parent(max(1,wtrc_nwset),3)
 
     call uwshcu_select_compute_impl()
 
@@ -2880,7 +2905,8 @@ end subroutine uwshcu_readnl
             c_loc(cnt_out), c_loc(cnb_out), int(lchnk, c_int64_t), c_loc(dpdry0_in), &
             c_loc(wtprec_out), c_loc(wtsnow_out), c_loc(wtqc_out), &
             c_loc(tw0_parent), c_loc(qw0_parent), c_loc(constituent_indices_parent), &
-            c_loc(init_shell_flags_parent))
+            c_loc(init_shell_flags_parent), c_loc(wtrc_metadata_flags_parent), &
+            c_loc(wtrc_iatype_parent))
        return
     end if
 
@@ -2910,15 +2936,18 @@ end subroutine uwshcu_readnl
        qc_p, rliq_p, cnt_p, cnb_p, lchnk_c, dpdry0_p, wtprec_p, wtsnow_p, &
        wtqc_p, wetbulb_precomputed_c, tw0_precomputed_p, qw0_precomputed_p, &
        constituent_indices_precomputed_c, constituent_indices_p, &
-       init_shell_preselected_c, init_shell_flags_p) &
+       init_shell_preselected_c, init_shell_flags_p, &
+       wtrc_metadata_precomputed_c, wtrc_metadata_flags_p, wtrc_iatype_p) &
        bind(c, name="uwshcu_compute_native_from_c_cb")
 
     use iso_c_binding, only: c_double, c_f_pointer, c_int64_t, c_ptr
+    use water_tracer_vars, only : wtrc_nwset
 
     implicit none
 
     integer(c_int64_t), value :: mix_c, mkx_c, iend_c, ncnst_c, lchnk_c, wetbulb_precomputed_c
     integer(c_int64_t), value :: constituent_indices_precomputed_c, init_shell_preselected_c
+    integer(c_int64_t), value :: wtrc_metadata_precomputed_c
     real(c_double), value :: dt_c
     type(c_ptr), value :: ps0_p, zs0_p, p0_p, z0_p, dp0_p, u0_p, v0_p, qv0_p, ql0_p, qi0_p
     type(c_ptr), value :: t0_p, s0_p, tr0_p, tke_p, cldfrct_p, concldfrct_p, pblh_p, cush_p
@@ -2928,6 +2957,7 @@ end subroutine uwshcu_readnl
     type(c_ptr), value :: qc_p, rliq_p, cnt_p, cnb_p, dpdry0_p, wtprec_p, wtsnow_p, wtqc_p
     type(c_ptr), value :: tw0_precomputed_p, qw0_precomputed_p
     type(c_ptr), value :: constituent_indices_p, init_shell_flags_p
+    type(c_ptr), value :: wtrc_metadata_flags_p, wtrc_iatype_p
 
     integer :: mix, mkx, iend, ncnst, lchnk
     real(r8), pointer :: ps0_in(:,:), zs0_in(:,:), p0_in(:,:), z0_in(:,:), dp0_in(:,:)
@@ -2943,6 +2973,8 @@ end subroutine uwshcu_readnl
     real(r8), pointer :: tw0_precomputed(:,:), qw0_precomputed(:,:)
     integer(c_int64_t), pointer :: constituent_indices_precomputed(:)
     integer(c_int64_t), pointer :: init_shell_flags_precomputed(:)
+    integer(c_int64_t), pointer :: wtrc_metadata_flags_precomputed(:)
+    integer(c_int64_t), pointer :: wtrc_iatype_precomputed(:,:)
 
     mix = int(mix_c)
     mkx = int(mkx_c)
@@ -3002,6 +3034,8 @@ end subroutine uwshcu_readnl
     call c_f_pointer(qw0_precomputed_p, qw0_precomputed, [mix, mkx])
     call c_f_pointer(constituent_indices_p, constituent_indices_precomputed, [4])
     call c_f_pointer(init_shell_flags_p, init_shell_flags_precomputed, [1])
+    call c_f_pointer(wtrc_metadata_flags_p, wtrc_metadata_flags_precomputed, [2])
+    call c_f_pointer(wtrc_iatype_p, wtrc_iatype_precomputed, [max(1,wtrc_nwset), 3])
 
     call compute_uwshcu_native(mix, mkx, iend, ncnst, real(dt_c, r8), &
          ps0_in, zs0_in, p0_in, z0_in, dp0_in, u0_in, v0_in, qv0_in, ql0_in, qi0_in, &
@@ -3012,7 +3046,9 @@ end subroutine uwshcu_readnl
          qc_out, rliq_out, cnt_out, cnb_out, lchnk, dpdry0_in, wtprec_out, wtsnow_out, wtqc_out, &
          wetbulb_precomputed_c /= 0_c_int64_t, tw0_precomputed, qw0_precomputed, &
          constituent_indices_precomputed_c /= 0_c_int64_t, constituent_indices_precomputed, &
-         init_shell_preselected_c /= 0_c_int64_t, init_shell_flags_precomputed)
+         init_shell_preselected_c /= 0_c_int64_t, init_shell_flags_precomputed, &
+         wtrc_metadata_precomputed_c /= 0_c_int64_t, wtrc_metadata_flags_precomputed, &
+         wtrc_iatype_precomputed)
 
   end subroutine uwshcu_compute_native_from_c_cb
 
@@ -3033,6 +3069,37 @@ end subroutine uwshcu_readnl
     call uwshcu_log_compute_init_selector_parent_shell_entered()
 
   end subroutine uwshcu_select_init_shell_from_c_cb
+
+  subroutine uwshcu_wtrc_metadata_from_c_cb(flags_p, iatype_p) bind(c, name="uwshcu_wtrc_metadata_from_c_cb")
+
+    use iso_c_binding, only: c_f_pointer, c_int64_t, c_ptr
+    use water_tracer_vars, only : trace_water, wtrc_iatype, wtrc_nwset
+    use water_types,       only : iwtvap, iwtliq, iwtice
+
+    implicit none
+
+    type(c_ptr), value :: flags_p, iatype_p
+    integer(c_int64_t), pointer :: flags(:)
+    integer(c_int64_t), pointer :: iatype(:,:)
+    integer :: m
+
+    call c_f_pointer(flags_p, flags, [2])
+    call c_f_pointer(iatype_p, iatype, [max(1,wtrc_nwset), 3])
+
+    flags(1) = merge(1_c_int64_t, 0_c_int64_t, trace_water)
+    flags(2) = int(wtrc_nwset, c_int64_t)
+
+    if (trace_water) then
+       do m = 1, wtrc_nwset
+          iatype(m,1) = int(wtrc_iatype(m,iwtvap), c_int64_t)
+          iatype(m,2) = int(wtrc_iatype(m,iwtliq), c_int64_t)
+          iatype(m,3) = int(wtrc_iatype(m,iwtice), c_int64_t)
+       end do
+    end if
+
+    call uwshcu_log_compute_wtrc_metadata_parent_shell_entered()
+
+  end subroutine uwshcu_wtrc_metadata_from_c_cb
 
   subroutine uwshcu_cnst_indices_from_c_cb(indices_p) bind(c, name="uwshcu_cnst_indices_from_c_cb")
 
@@ -3104,7 +3171,9 @@ end subroutine uwshcu_readnl
                                     tw0_precomputed_in, qw0_precomputed_in,                      &
                                     constituent_indices_precomputed,                              &
                                     constituent_indices_precomputed_in,                           &
-                                    init_shell_preselected, init_shell_flags_in )
+                                    init_shell_preselected, init_shell_flags_in,                  &
+                                    wtrc_metadata_precomputed, wtrc_metadata_flags_in,            &
+                                    wtrc_iatype_precomputed_in )
 
     ! ------------------------------------------------------------ !
     !                                                              !  
@@ -3176,6 +3245,9 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), intent(in), optional :: constituent_indices_precomputed_in(4)
     logical , intent(in), optional :: init_shell_preselected
     integer(c_int64_t), intent(in), optional :: init_shell_flags_in(1)
+    logical , intent(in), optional :: wtrc_metadata_precomputed
+    integer(c_int64_t), intent(in), optional :: wtrc_metadata_flags_in(2)
+    integer(c_int64_t), intent(in), optional :: wtrc_iatype_precomputed_in(max(1,wtrc_nwset),3)
 
     real(r8)                   tw0_in(mix,mkx)                !  Wet bulb temperature [ K ]
     real(r8)                   qw0_in(mix,mkx)                !  Wet-bulb specific humidity [ kg/kg ]
@@ -3510,6 +3582,7 @@ end subroutine uwshcu_readnl
                                                               ! - top layer cumulus can reach
     logical     use_precomputed_constituent_indices
     logical     use_preselected_init_shell
+    logical     use_precomputed_wtrc_metadata
     logical     use_precomputed_wetbulb
     logical     id_exit   
     logical     forcedCu                                      !  If 'true', cumulus updraft cannot overcome the buoyancy barrier
@@ -5901,6 +5974,25 @@ end subroutine uwshcu_readnl
     else
        call uwshcu_select_init_shell_impl()
     end if
+
+    use_precomputed_wtrc_metadata = .false.
+    if (present(wtrc_metadata_precomputed)) use_precomputed_wtrc_metadata = wtrc_metadata_precomputed
+
+    if (use_precomputed_wtrc_metadata) then
+       if (.not. present(wtrc_metadata_flags_in) .or. .not. present(wtrc_iatype_precomputed_in)) then
+          call endrun('compute_uwshcu_native: missing precomputed water tracer metadata')
+       end if
+       if ((wtrc_metadata_flags_in(1) /= 0_c_int64_t) .neqv. trace_water) then
+          call endrun('compute_uwshcu_native: inconsistent precomputed water tracer trace flag')
+       end if
+       if (wtrc_metadata_flags_in(2) /= int(wtrc_nwset, c_int64_t)) then
+          call endrun('compute_uwshcu_native: inconsistent precomputed water tracer count')
+       end if
+       if (trace_water) then
+          wtrc_iatype_post(1:wtrc_nwset,1:3) = wtrc_iatype_precomputed_in(1:wtrc_nwset,1:3)
+       end if
+    end if
+
     if (use_native_init_shell_impl) then
        umf_out(:iend,0:mkx)         = 0.0_r8
        slflx_out(:iend,0:mkx)       = 0.0_r8
@@ -6141,11 +6233,13 @@ end subroutine uwshcu_readnl
          wtrc_nwset_post_c = 0_c_int64_t
          if (trace_water) then
             wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-            do m = 1, wtrc_nwset
-               wtrc_iatype_post(m,1) = int(wtrc_iatype(m,iwtvap), c_int64_t)
-               wtrc_iatype_post(m,2) = int(wtrc_iatype(m,iwtliq), c_int64_t)
-               wtrc_iatype_post(m,3) = int(wtrc_iatype(m,iwtice), c_int64_t)
-            end do
+            if (.not. use_precomputed_wtrc_metadata) then
+               do m = 1, wtrc_nwset
+                  wtrc_iatype_post(m,1) = int(wtrc_iatype(m,iwtvap), c_int64_t)
+                  wtrc_iatype_post(m,2) = int(wtrc_iatype(m,iwtliq), c_int64_t)
+                  wtrc_iatype_post(m,3) = int(wtrc_iatype(m,iwtice), c_int64_t)
+               end do
+            end if
          end if
          call uwshcu_log_column_thermo_slope_shell_entered()
          call uwshcu_column_thermo_slope_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
@@ -7244,11 +7338,13 @@ end subroutine uwshcu_readnl
                   wtrc_nwset_post_c = 0_c_int64_t
                   if (trace_water) then
                     wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-                    do m=1, wtrc_nwset
-                      wtrc_iatype_post(m,1) = int(wtrc_iatype(m,iwtvap), c_int64_t)
-                      wtrc_iatype_post(m,2) = int(wtrc_iatype(m,iwtliq), c_int64_t)
-                      wtrc_iatype_post(m,3) = int(wtrc_iatype(m,iwtice), c_int64_t)
-                    end do
+                    if (.not. use_precomputed_wtrc_metadata) then
+                      do m=1, wtrc_nwset
+                        wtrc_iatype_post(m,1) = int(wtrc_iatype(m,iwtvap), c_int64_t)
+                        wtrc_iatype_post(m,2) = int(wtrc_iatype(m,iwtliq), c_int64_t)
+                        wtrc_iatype_post(m,3) = int(wtrc_iatype(m,iwtice), c_int64_t)
+                      end do
+                    end if
                   end if
                   call uwshcu_log_iter_restore_shell_entered()
                   call uwshcu_iter_restore_all_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), &
@@ -11337,11 +11433,13 @@ end subroutine uwshcu_readnl
            wtsnow_out(i,wtrc_iatype(m,iwtvap))    = wtsnow(m)
          end do
        else
-         do m=1, wtrc_nwset
-           wtrc_iatype_post(m,1) = int(wtrc_iatype(m,iwtvap), c_int64_t)
-           wtrc_iatype_post(m,2) = int(wtrc_iatype(m,iwtliq), c_int64_t)
-           wtrc_iatype_post(m,3) = int(wtrc_iatype(m,iwtice), c_int64_t)
-         end do
+         if (.not. use_precomputed_wtrc_metadata) then
+           do m=1, wtrc_nwset
+             wtrc_iatype_post(m,1) = int(wtrc_iatype(m,iwtvap), c_int64_t)
+             wtrc_iatype_post(m,2) = int(wtrc_iatype(m,iwtliq), c_int64_t)
+             wtrc_iatype_post(m,3) = int(wtrc_iatype(m,iwtice), c_int64_t)
+           end do
+         end if
        end if
      end if
     !*************
