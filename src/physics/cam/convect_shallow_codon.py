@@ -7,7 +7,6 @@ from convect_shallow_native_callbacks_codon import (
     uwshcu_qsat_gam_from_c_dispatch,
     uwshcu_thermo_conden_from_c_dispatch,
     uwshcu_top_conden_from_c_dispatch,
-    uwshcu_wtrc_precip_mass_error_from_c_dispatch,
     uwshcu_wtrc_precip_evap_isotope_from_c_dispatch,
 )
 
@@ -13774,7 +13773,8 @@ def uwshcu_precip_surface_finalize_shell_codon(
         wtsnow[m] = wtflxsn[m * (mkx + 1)] / 1000.0
         if m > 0 and wtprec[m] > 2.0 * wtprec[0]:
             if wtprec[0] > 1.0e-18:
-                uwshcu_wtrc_precip_mass_error_from_c_dispatch(
+                print(
+                    "ERROR:  Isotopic shallow-conv precip error!",
                     wtprec[m],
                     wtprec[0],
                     wtsnow[m],

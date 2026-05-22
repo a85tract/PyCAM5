@@ -2581,9 +2581,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu precip water-tracer mass check shell entered (surface isotope precip check owned by codon; error write native)'
+            'uwshcu precip water-tracer mass check shell entered (surface isotope precip check owned by codon; error write direct)'
        call uwshcu_append_proof( &
-            'uwshcu precip water-tracer mass check shell entered (surface isotope precip check owned by codon; error write native)')
+            'uwshcu precip water-tracer mass check shell entered (surface isotope precip check owned by codon; error write direct)')
        call flush(iulog)
     end if
 
@@ -3625,21 +3625,6 @@ end subroutine uwshcu_readnl
     wtevp_c = real(wtevp_local, c_double)
 
   end function uwshcu_wtrc_precip_evap_isotope_from_c_cb
-
-  subroutine uwshcu_wtrc_precip_mass_error_from_c_cb(wtprec_m_c, wtprec_1_c, wtsnow_m_c, wtsnow_1_c, m_c) &
-       bind(c, name="uwshcu_wtrc_precip_mass_error_from_c_cb")
-
-    use iso_c_binding, only: c_double, c_int64_t
-
-    implicit none
-
-    real(c_double), value :: wtprec_m_c, wtprec_1_c, wtsnow_m_c, wtsnow_1_c
-    integer(c_int64_t), value :: m_c
-
-    write(*,*) 'ERROR:  Isotopic shallow-conv precip error!', real(wtprec_m_c, r8), &
-         real(wtprec_1_c, r8), real(wtsnow_m_c, r8), real(wtsnow_1_c, r8), int(m_c)
-
-  end subroutine uwshcu_wtrc_precip_mass_error_from_c_cb
 
   subroutine uwshcu_qsat_from_c_cb(t_c, p_c, es_p, qs_p) bind(c, name="uwshcu_qsat_from_c_cb")
 

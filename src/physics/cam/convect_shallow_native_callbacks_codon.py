@@ -6,7 +6,6 @@ from C import uwshcu_findsp_layer_from_c_cb(int, Ptr[float], Ptr[float], Ptr[flo
 from C import uwshcu_qsat_from_c_cb(float, float, Ptr[float], Ptr[float]) -> None
 from C import uwshcu_qsat_gam_from_c_cb(float, float, Ptr[float], Ptr[float], Ptr[float]) -> None
 from C import uwshcu_wtrc_precip_evap_isotope_from_c_cb(int, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float) -> float
-from C import uwshcu_wtrc_precip_mass_error_from_c_cb(float, float, float, float, int) -> None
 
 
 def uwshcu_compute_native_from_c_dispatch(
@@ -308,13 +307,3 @@ def uwshcu_wtrc_precip_evap_isotope_from_c_dispatch(
         dt,
         dz,
     )
-
-
-def uwshcu_wtrc_precip_mass_error_from_c_dispatch(
-    wtprec_m: float,
-    wtprec_1: float,
-    wtsnow_m: float,
-    wtsnow_1: float,
-    m: int,
-):
-    uwshcu_wtrc_precip_mass_error_from_c_cb(wtprec_m, wtprec_1, wtsnow_m, wtsnow_1, m)
