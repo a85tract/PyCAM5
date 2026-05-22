@@ -149,6 +149,7 @@
   logical :: use_native_positive_moisture_single_impl = .false.
   logical :: positive_moisture_single_impl_selected = .false.
   logical :: positive_moisture_single_entered_logged = .false.
+  logical :: positive_moisture_single_shell_entered_logged = .false.
   logical :: use_native_conden_init_impl = .false.
   logical :: conden_init_impl_selected = .false.
   logical :: conden_init_entered_logged = .false.
@@ -649,6 +650,23 @@ contains
     end if
 
   end subroutine uwshcu_log_positive_moisture_single_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_positive_moisture_single_shell_entered()
+
+    if (positive_moisture_single_shell_entered_logged) return
+    positive_moisture_single_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu positive moisture single shell entered (call site owned by codon; wrapper callback)'
+       call uwshcu_append_proof( &
+            'uwshcu positive moisture single shell entered (call site owned by codon; wrapper callback)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_positive_moisture_single_shell_entered
 
 !===============================================================================
 
@@ -3423,6 +3441,56 @@ end subroutine uwshcu_readnl
 
   end subroutine uwshcu_qsat_from_c_cb
 
+  subroutine uwshcu_positive_moisture_single_from_c_cb(mkx_c, ncnst_c, trace_water_c, &
+       xlv_c, xls_c, dt_c, qvmin_c, qlmin_c, qimin_c, dp_p, qv_p, ql_p, qi_p, s_p, &
+       qvten_p, qlten_p, qiten_p, sten_p, wtr_p, wtten_p, status_p) &
+       bind(c, name="uwshcu_positive_moisture_single_from_c_cb")
+
+    use iso_c_binding, only: c_double, c_f_pointer, c_int64_t, c_ptr
+    use water_tracer_vars, only : wtrc_nwset
+
+    implicit none
+
+    integer(c_int64_t), value :: mkx_c, ncnst_c, trace_water_c
+    real(c_double), value :: xlv_c, xls_c, dt_c, qvmin_c, qlmin_c, qimin_c
+    type(c_ptr), value :: dp_p, qv_p, ql_p, qi_p, s_p
+    type(c_ptr), value :: qvten_p, qlten_p, qiten_p, sten_p, wtr_p, wtten_p, status_p
+    integer :: mkx_i, ncnst_i
+    real(r8), pointer :: dp(:), qv(:), ql(:), qi(:), s(:)
+    real(r8), pointer :: qvten(:), qlten(:), qiten(:), sten(:)
+    real(r8), pointer :: wtr(:,:,:), wtten(:,:)
+    integer(c_int64_t), pointer :: status(:)
+
+    mkx_i = int(mkx_c)
+    ncnst_i = int(ncnst_c)
+
+    call c_f_pointer(dp_p, dp, [mkx_i])
+    call c_f_pointer(qv_p, qv, [mkx_i])
+    call c_f_pointer(ql_p, ql, [mkx_i])
+    call c_f_pointer(qi_p, qi, [mkx_i])
+    call c_f_pointer(s_p, s, [mkx_i])
+    call c_f_pointer(qvten_p, qvten, [mkx_i])
+    call c_f_pointer(qlten_p, qlten, [mkx_i])
+    call c_f_pointer(qiten_p, qiten, [mkx_i])
+    call c_f_pointer(sten_p, sten, [mkx_i])
+    call c_f_pointer(status_p, status, [1])
+
+    status(1) = 0_c_int64_t
+    call uwshcu_log_positive_moisture_single_shell_entered()
+    if (trace_water_c .ne. 0_c_int64_t) then
+       call c_f_pointer(wtr_p, wtr, [mkx_i, wtrc_nwset, 3])
+       call c_f_pointer(wtten_p, wtten, [mkx_i, ncnst_i])
+       call positive_moisture_single(real(xlv_c, r8), real(xls_c, r8), mkx_i, real(dt_c, r8), &
+            real(qvmin_c, r8), real(qlmin_c, r8), real(qimin_c, r8), dp, qv, ql, qi, s, &
+            qvten, qlten, qiten, sten, ncnst_i, wtr=wtr, wtten=wtten)
+    else
+       call positive_moisture_single(real(xlv_c, r8), real(xls_c, r8), mkx_i, real(dt_c, r8), &
+            real(qvmin_c, r8), real(qlmin_c, r8), real(qimin_c, r8), dp, qv, ql, qi, s, &
+            qvten, qlten, qiten, sten, ncnst_i)
+    end if
+
+  end subroutine uwshcu_positive_moisture_single_from_c_cb
+
   subroutine uwshcu_select_init_shell_from_c_cb(flags_p) bind(c, name="uwshcu_select_init_shell_from_c_cb")
 
     use iso_c_binding, only: c_f_pointer, c_int64_t, c_ptr
@@ -3568,7 +3636,7 @@ end subroutine uwshcu_readnl
     use wv_saturation,   only : findsp_vc
     use iso_c_binding,   only : c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 
-   !Water tracers:
+    !Water tracers:
     use water_tracer_vars, only : trace_water, wisotope, wtrc_iatype, wtrc_nwset, &
                                   iwspec, iwater_is_water
     use water_tracers,     only : wtrc_ratio, wtrc_get_alpha, wtrc_liqvap_equil, &
@@ -4211,6 +4279,7 @@ end subroutine uwshcu_readnl
     real(r8), target, dimension(mkx,wtrc_nwset) :: sswt0_o !Water tracers
     integer                          :: ixnumliq, ixnumice, ixcldliq, ixcldice
     integer(c_int64_t), target       :: wtrc_iatype_post(wtrc_nwset,3)
+    integer(c_int64_t), target       :: positive_moisture_status_c
     integer(c_int64_t), target       :: kinv_precheck_c, pbl_exit_code_c
     integer(c_int64_t), target       :: klcl_prep_c, lcl_exit_code_c
     integer(c_int64_t), target       :: kinv_cin_state_c, klcl_cin_state_c, klfc_cin_state_c
@@ -5939,6 +6008,17 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: s0_star_p, wt0_star_p
        end subroutine uwshcu_positive_moisture_prep_shell_codon
 
+       subroutine uwshcu_positive_moisture_single_shell_codon(mkx_c, ncnst_c, trace_water_c, &
+            xlv_c, xls_c, dt_c, qvmin_c, qlmin_c, qimin_c, dp_p, qv_p, ql_p, qi_p, s_p, &
+            qvten_p, qlten_p, qiten_p, sten_p, wtr_p, wtten_p, status_p) &
+            bind(c, name="uwshcu_positive_moisture_single_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, trace_water_c
+          real(c_double), value :: xlv_c, xls_c, dt_c, qvmin_c, qlmin_c, qimin_c
+          type(c_ptr), value :: dp_p, qv_p, ql_p, qi_p, s_p
+          type(c_ptr), value :: qvten_p, qlten_p, qiten_p, sten_p, wtr_p, wtten_p, status_p
+       end subroutine uwshcu_positive_moisture_single_shell_codon
+
        subroutine uwshcu_post_precip_positive_prep_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             kpen_c, xlv_c, xls_c, dt_c, qtten_p, qlten_p, qiten_p, slten_p, sten_p, &
             qc_p, qc_l_p, qc_i_p, trten_p, wtrc_iatype_p, wtqc_liq_p, wtqc_ice_p, &
@@ -6544,6 +6624,8 @@ end subroutine uwshcu_readnl
           wtrc_iatype_post(1:wtrc_nwset,1:3) = wtrc_iatype_precomputed_in(1:wtrc_nwset,1:3)
        end if
     end if
+
+    positive_moisture_status_c = 0_c_int64_t
 
     use_preinitialized_public_outputs = .false.
     if (present(public_outputs_preinitialized)) &
@@ -11490,14 +11572,28 @@ end subroutine uwshcu_readnl
           end do
         end if
         endif
-        if(trace_water) then
-          call positive_moisture_single( xlv, xls, mkx, dt, qmin(1), qmin(ixcldliq), &
-                                         qmin(ixcldice), dp0, qv0_star, ql0_star, qi0_star, s0_star, &
-                                         qvten, qlten, qiten, sten, ncnst, wtr=wt0_star, wtten=trten )
+        call uwshcu_select_positive_moisture_single_impl()
+        if(use_native_init_shell_impl .or. use_native_positive_moisture_single_impl) then
+          if(trace_water) then
+            call positive_moisture_single( xlv, xls, mkx, dt, qmin(1), qmin(ixcldliq), &
+                                           qmin(ixcldice), dp0, qv0_star, ql0_star, qi0_star, s0_star, &
+                                           qvten, qlten, qiten, sten, ncnst, wtr=wt0_star, wtten=trten )
+          else
+            call positive_moisture_single( xlv, xls, mkx, dt, qmin(1), qmin(ixcldliq), qmin(ixcldice), &
+                 dp0, qv0_star, ql0_star, qi0_star, s0_star, qvten, qlten, qiten, sten, ncnst )
+          end if !water tracers
         else
-          call positive_moisture_single( xlv, xls, mkx, dt, qmin(1), qmin(ixcldliq), qmin(ixcldice), &
-               dp0, qv0_star, ql0_star, qi0_star, s0_star, qvten, qlten, qiten, sten, ncnst )
-        end if !water tracers
+          positive_moisture_status_c = 0_c_int64_t
+          call uwshcu_log_positive_moisture_single_entered()
+          call uwshcu_positive_moisture_single_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+               merge(1_c_int64_t, 0_c_int64_t, trace_water), xlv, xls, dt, qmin(1), &
+               qmin(ixcldliq), qmin(ixcldice), c_loc(dp0), c_loc(qv0_star), c_loc(ql0_star), &
+               c_loc(qi0_star), c_loc(s0_star), c_loc(qvten), c_loc(qlten), c_loc(qiten), &
+               c_loc(sten), c_loc(wt0_star), c_loc(trten), c_loc(positive_moisture_status_c))
+          if (positive_moisture_status_c .ne. 0_c_int64_t) then
+             write(iulog,*) 'Full positive_moisture is impossible in uwshcu'
+          end if
+        end if
         !************
         if (use_native_init_shell_impl) then
         qtten(:mkx)    = qvten(:mkx) + qlten(:mkx) + qiten(:mkx)

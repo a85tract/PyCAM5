@@ -6,6 +6,7 @@ from convect_shallow_native_callbacks_codon import (
     uwshcu_findsp_layer_from_c_dispatch,
     uwshcu_qsat_from_c_dispatch,
     uwshcu_qsinvert_from_c_dispatch,
+    uwshcu_positive_moisture_single_from_c_dispatch,
     uwshcu_select_init_shell_from_c_dispatch,
     uwshcu_top_conden_from_c_dispatch,
     uwshcu_wtrc_metadata_from_c_dispatch,
@@ -12868,6 +12869,55 @@ def uwshcu_positive_moisture_single_codon(
                 k += 1
         else:
             status[0] = 1
+
+
+@export
+def uwshcu_positive_moisture_single_shell_codon(
+    mkx: int,
+    ncnst: int,
+    trace_water: int,
+    xlv_v: float,
+    xls_v: float,
+    dt_v: float,
+    qvmin: float,
+    qlmin: float,
+    qimin: float,
+    dp_p: cobj,
+    qv_p: cobj,
+    ql_p: cobj,
+    qi_p: cobj,
+    s_p: cobj,
+    qvten_p: cobj,
+    qlten_p: cobj,
+    qiten_p: cobj,
+    sten_p: cobj,
+    wtr_p: cobj,
+    wtten_p: cobj,
+    status_p: cobj,
+):
+    uwshcu_positive_moisture_single_from_c_dispatch(
+        mkx,
+        ncnst,
+        trace_water,
+        xlv_v,
+        xls_v,
+        dt_v,
+        qvmin,
+        qlmin,
+        qimin,
+        dp_p,
+        qv_p,
+        ql_p,
+        qi_p,
+        s_p,
+        qvten_p,
+        qlten_p,
+        qiten_p,
+        sten_p,
+        wtr_p,
+        wtten_p,
+        status_p,
+    )
 
 
 @export
