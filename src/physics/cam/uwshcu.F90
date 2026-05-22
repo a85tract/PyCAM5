@@ -1264,9 +1264,9 @@ contains
 
     if (masterproc) then
        write(iulog,'(A)') &
-            'uwshcu buoy top shell entered (top condensate/thv/scaleh scalars direct = codon; conden/exnf/wtrc_ratio native)'
+            'uwshcu buoy top finalize full shell entered (top exit/condensate/wtrc/scaleh owned by codon; conden/exntop/wtrc_ratio native)'
        call uwshcu_append_proof( &
-            'uwshcu buoy top shell entered (top condensate/thv/scaleh scalars direct = codon; conden/exnf/wtrc_ratio native)')
+            'uwshcu buoy top finalize full shell entered (top exit/condensate/wtrc/scaleh owned by codon; conden/exntop/wtrc_ratio native)')
        call flush(iulog)
     end if
 
@@ -3237,6 +3237,23 @@ end subroutine uwshcu_readnl
 
   end subroutine uwshcu_conden_scalar_from_c_cb
 
+  function uwshcu_wtrc_ratio_type_from_c_cb(iatype_c, qtrc_c, qtot_c) result(ratio_c) &
+       bind(c, name="uwshcu_wtrc_ratio_type_from_c_cb")
+
+    use iso_c_binding, only: c_double, c_int64_t
+    use water_tracer_vars, only : iwspec
+    use water_tracers,     only : wtrc_ratio
+
+    implicit none
+
+    integer(c_int64_t), value :: iatype_c
+    real(c_double), value :: qtrc_c, qtot_c
+    real(c_double) :: ratio_c
+
+    ratio_c = real(wtrc_ratio(iwspec(int(iatype_c)), real(qtrc_c, r8), real(qtot_c, r8)), c_double)
+
+  end function uwshcu_wtrc_ratio_type_from_c_cb
+
   function uwshcu_qsinvert_from_c_cb(qt_c, thl_c, psfc_c) result(plcl_c) &
        bind(c, name="uwshcu_qsinvert_from_c_cb")
 
@@ -3850,7 +3867,7 @@ end subroutine uwshcu_readnl
    !Water tracers:
     real(r8), target :: wte(wtrc_nwset)     ! Total water tracer humidity at release level [ kg/kg ]
     real(r8), target :: wtsrc(wtrc_nwset)   ! Total water tracer humidity at surface [ kg/kg ]
-    real(r8)   wtout(wtrc_nwset,3)          ! Output for water tracers from conden (1=vapor,2=liquid,3=ice)
+    real(r8), target :: wtout(wtrc_nwset,3) ! Output for water tracers from conden (1=vapor,2=liquid,3=ice)
     real(r8)   wtout_emf_kbup(wtrc_nwset,3) ! Output from conden during penetrative entrainment [ kg/kg ]
     real(r8)   wtexql(wtrc_nwset)           ! Expelled (detrained) water tracer liquid (not completely necessary)
     real(r8)   wtexqi(wtrc_nwset)           ! Expelled (detrained) water tracer ice    (not completely necessary)
@@ -4878,6 +4895,22 @@ end subroutine uwshcu_readnl
           real(c_double), value :: r_c, g_c, ppen_c
           type(c_ptr), value :: ps0_p, zs0_p, thv0bot_p, thv0top_p, exns0_p, cush_p, scaleh_p
        end subroutine uwshcu_buoy_scaleh_shell_codon
+
+       subroutine uwshcu_buoy_top_finalize_full_shell_codon(mkx_c, wtrc_nwset_c, trace_water_c, &
+            kpen_c, id_check_c, criqc_c, xlv_c, xls_c, cp_c, exntop_c, qlj_c, qij_c, &
+            r_c, g_c, ppen_c, ps0_p, zs0_p, thv0bot_p, thv0top_p, exns0_p, thlu_top_p, &
+            qtu_top_p, dwten_p, diten_p, wtout_p, wtrc_iatype_p, wtdwten_p, wtditen_p, &
+            wtu_top_p, exit_conden_p, exit_code_p, cush_p, scaleh_p) &
+            bind(c, name="uwshcu_buoy_top_finalize_full_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, trace_water_c, kpen_c, id_check_c
+          real(c_double), value :: criqc_c, xlv_c, xls_c, cp_c, exntop_c, qlj_c, qij_c
+          real(c_double), value :: r_c, g_c, ppen_c
+          type(c_ptr), value :: ps0_p, zs0_p, thv0bot_p, thv0top_p, exns0_p, thlu_top_p
+          type(c_ptr), value :: qtu_top_p, dwten_p, diten_p, wtout_p, wtrc_iatype_p
+          type(c_ptr), value :: wtdwten_p, wtditen_p, wtu_top_p, exit_conden_p, exit_code_p
+          type(c_ptr), value :: cush_p, scaleh_p
+       end subroutine uwshcu_buoy_top_finalize_full_shell_codon
 
        subroutine uwshcu_buoy_diag_update_shell_codon(k_c, excessu_c, excess0_c, xc_c, &
             aquad_c, bquad_c, cquad_c, bogbot_c, bogtop_c, excessu_arr_p, excess0_arr_p, &
@@ -9169,109 +9202,53 @@ end subroutine uwshcu_readnl
        else
          call conden(ps0(kpen-1)+ppen,thlu_top,qtu_top,thj,qvj,qlj,qij,qse,id_check,ncnst)
        end if
+       if( id_check .ne. 1 ) exntop = ((ps0(kpen-1)+ppen)/p00)**rovcp
        if (use_native_init_shell_impl) then
           if( id_check .eq. 1 ) then
               exit_conden(i) = 1._r8
               id_exit = .true.
               go to 333
           end if
+          if( (qlj + qij) .gt. criqc ) then
+               dwten(kpen) = ( ( qlj + qij ) - criqc ) * qlj / ( qlj + qij )
+               diten(kpen) = ( ( qlj + qij ) - criqc ) * qij / ( qlj + qij )
+               qtu_top  = qtu_top - dwten(kpen) - diten(kpen)
+               thlu_top = thlu_top + (xlv/cp/exntop)*dwten(kpen) + (xls/cp/exntop)*diten(kpen)
+
+               if(trace_water) then
+                 do m=1,wtrc_nwset
+                    Rldt = wtrc_ratio(iwspec(wtrc_iatype(m,iwtliq)),wtout(m,2),wtout(1,2))
+                    Ridt = wtrc_ratio(iwspec(wtrc_iatype(m,iwtice)),wtout(m,3),wtout(1,3))
+                    wtdwten(kpen,m) = Rldt*dwten(kpen)
+                    wtditen(kpen,m) = Ridt*diten(kpen)
+                    wtu_top(m) = wtu_top(m)-wtdwten(kpen,m) - wtditen(kpen,m)
+                 end do
+               end if
+          else
+               dwten(kpen) = 0._r8
+               diten(kpen) = 0._r8
+               if(trace_water) then
+                 wtdwten(kpen,:) = 0._r8
+                 wtditen(kpen,:) = 0._r8
+               end if
+          endif
+          rhos0j = ps0(kpen-1)/(r*0.5_r8*(thv0bot(kpen)+thv0top(kpen-1))*exns0(kpen-1))
+          cush   = zs0(kpen-1) - ppen/rhos0j/g
+          scaleh = cush
        else
-          call uwshcu_log_buoy_loop_batch_shell_entered()
-          call uwshcu_buoy_loop_batch_shell_codon(1_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
-                0_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
-                0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
-                c_loc(exit_conden(i)), c_loc(buoy_top_conden_exit_code_c), c_null_ptr, c_null_ptr, &
-                c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
+          call uwshcu_log_buoy_top_shell_entered()
+          call uwshcu_buoy_top_finalize_full_shell_codon(int(mkx, c_int64_t), int(wtrc_nwset, c_int64_t), &
+               merge(1_c_int64_t, 0_c_int64_t, trace_water), int(kpen, c_int64_t), int(id_check, c_int64_t), &
+               criqc, xlv, xls, cp, exntop, qlj, qij, r, g, ppen, c_loc(ps0), c_loc(zs0), &
+               c_loc(thv0bot), c_loc(thv0top), c_loc(exns0), c_loc(thlu_top), c_loc(qtu_top), &
+               c_loc(dwten), c_loc(diten), c_loc(wtout), c_loc(wtrc_iatype_post), c_loc(wtdwten), &
+               c_loc(wtditen), c_loc(wtu_top), c_loc(exit_conden(i)), c_loc(buoy_top_conden_exit_code_c), &
+               c_loc(cush), c_loc(scaleh))
           if( buoy_top_conden_exit_code_c .ne. 0_c_int64_t ) then
               id_exit = .true.
               go to 333
           end if
        endif
-	       exntop = ((ps0(kpen-1)+ppen)/p00)**rovcp
-	       if (use_native_init_shell_impl) then
-	          if( (qlj + qij) .gt. criqc ) then
-	               dwten(kpen) = ( ( qlj + qij ) - criqc ) * qlj / ( qlj + qij )
-	               diten(kpen) = ( ( qlj + qij ) - criqc ) * qij / ( qlj + qij )
-	               qtu_top  = qtu_top - dwten(kpen) - diten(kpen)
-	               thlu_top = thlu_top + (xlv/cp/exntop)*dwten(kpen) + (xls/cp/exntop)*diten(kpen)
-
-	               if(trace_water) then
-	               !*********************************************
-	               !Re-calculate water tracer expelled condensate
-	               !*********************************************
-
-	               !Method one:  Calculate condensate ratio, and adjust detrainment
-	               !values accordingly. - JN
-
-	                 do m=1,wtrc_nwset !Loop over water species
-
-	                    Rldt = wtrc_ratio(iwspec(wtrc_iatype(m,iwtliq)),wtout(m,2),&
-	                                      wtout(1,2))  !Calculate liquid ratio
-	                    Ridt = wtrc_ratio(iwspec(wtrc_iatype(m,iwtice)),wtout(m,3),&
-	                                      wtout(1,3))  !Calculate ice ratio
-
-	                   !Add detrained condensate to detrainment tendency:
-	                   wtdwten(kpen,m) = Rldt*dwten(kpen)
-	                   wtditen(kpen,m) = Ridt*diten(kpen)
-
-	                   !Remove detrained condensate from updraft values:
-	                    wtu_top(m) = wtu_top(m)-wtdwten(kpen,m) - wtditen(kpen,m)
-
-	                 end do
-	               !*********************************************
-	               end if
-
-	          else
-	               dwten(kpen) = 0._r8
-	               diten(kpen) = 0._r8
-	              !Water tracers:
-	              !*************
-	               if(trace_water) then
-	                 wtdwten(kpen,:) = 0._r8
-	                 wtditen(kpen,:) = 0._r8
-	               end if
-	              !************
-		          endif
-		       else
-		          call uwshcu_log_buoy_state_batch_shell_entered()
-		          call uwshcu_buoy_state_batch_shell_codon(9_c_int64_t, int(kpen, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
-		               0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, criqc, xlv, xls, cp, &
-		               exntop, qlj, qij, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, c_loc(thlu_top), &
-		               c_loc(qtu_top), c_loc(dwten), c_loc(diten), c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr)
-		          if(trace_water) then
-	             if( (qlj + qij) .gt. criqc ) then
-	                do m=1,wtrc_nwset
-	                   Rldt = wtrc_ratio(iwspec(wtrc_iatype(m,iwtliq)),wtout(m,2),wtout(1,2))
-	                   Ridt = wtrc_ratio(iwspec(wtrc_iatype(m,iwtice)),wtout(m,3),wtout(1,3))
-	                   wtdwten(kpen,m) = Rldt*dwten(kpen)
-	                   wtditen(kpen,m) = Ridt*diten(kpen)
-	                   wtu_top(m) = wtu_top(m)-wtdwten(kpen,m) - wtditen(kpen,m)
-	                end do
-	             else
-	                wtdwten(kpen,:) = 0._r8
-	                wtditen(kpen,:) = 0._r8
-	             endif
-	          endif
-	       endif
- 
-
-       ! ----------------------------------------------------------------------- !
-       ! Calculate cumulus scale height as the top height that cumulus can reach.!
-       ! ----------------------------------------------------------------------- !
-       
-	       if (use_native_init_shell_impl) then
-	          rhos0j = ps0(kpen-1)/(r*0.5_r8*(thv0bot(kpen)+thv0top(kpen-1))*exns0(kpen-1))
-		          cush   = zs0(kpen-1) - ppen/rhos0j/g
-		          scaleh = cush
-		       else
-		          call uwshcu_log_buoy_state_batch_shell_entered()
-		          call uwshcu_buoy_state_batch_shell_codon(10_c_int64_t, int(kpen, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
-		               0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, r, g, ppen, 0._r8, &
-		               0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, c_loc(ps0), &
-		               c_loc(zs0), c_loc(thv0bot), c_loc(thv0top), c_loc(exns0), c_loc(cush), c_loc(scaleh), c_null_ptr)
-		       endif
 
     end do   ! End of 'iter_scaleh' loop.   
 

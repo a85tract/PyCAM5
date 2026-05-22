@@ -5,6 +5,7 @@ from C import uwshcu_findsp_layer_from_c_cb(int, Ptr[float], Ptr[float], Ptr[flo
 from C import uwshcu_qsinvert_from_c_cb(float, float, float) -> float
 from C import uwshcu_select_init_shell_from_c_cb(Ptr[int]) -> None
 from C import uwshcu_wtrc_metadata_from_c_cb(Ptr[int], Ptr[int]) -> None
+from C import uwshcu_wtrc_ratio_type_from_c_cb(int, float, float) -> float
 
 
 def uwshcu_compute_native_from_c_dispatch(
@@ -194,3 +195,7 @@ def uwshcu_findsp_layer_from_c_dispatch(
 
 def uwshcu_qsinvert_from_c_dispatch(qt: float, thl: float, psfc: float) -> float:
     return uwshcu_qsinvert_from_c_cb(qt, thl, psfc)
+
+
+def uwshcu_wtrc_ratio_type_from_c_dispatch(iatype: int, qtrc: float, qtot: float) -> float:
+    return uwshcu_wtrc_ratio_type_from_c_cb(iatype, qtrc, qtot)

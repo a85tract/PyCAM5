@@ -7,6 +7,7 @@ from convect_shallow_native_callbacks_codon import (
     uwshcu_qsinvert_from_c_dispatch,
     uwshcu_select_init_shell_from_c_dispatch,
     uwshcu_wtrc_metadata_from_c_dispatch,
+    uwshcu_wtrc_ratio_type_from_c_dispatch,
 )
 
 
@@ -6306,6 +6307,116 @@ def uwshcu_buoy_scaleh_shell_codon(
     rho = ps0[iface_idx] / (r_v * 0.5 * (thv0bot[kpen - 1] + thv0top[kpen - 2]) * exns0[iface_idx])
     cush[0] = zs0[iface_idx] - ppen / rho / g_v
     scaleh[0] = cush[0]
+
+
+@export
+def uwshcu_buoy_top_finalize_full_shell_codon(
+    mkx: int,
+    wtrc_nwset: int,
+    trace_water: int,
+    kpen: int,
+    id_check: int,
+    criqc: float,
+    xlv: float,
+    xls: float,
+    cp: float,
+    exntop: float,
+    qlj: float,
+    qij: float,
+    r_v: float,
+    g_v: float,
+    ppen: float,
+    ps0_p: cobj,
+    zs0_p: cobj,
+    thv0bot_p: cobj,
+    thv0top_p: cobj,
+    exns0_p: cobj,
+    thlu_top_p: cobj,
+    qtu_top_p: cobj,
+    dwten_p: cobj,
+    diten_p: cobj,
+    wtout_p: cobj,
+    wtrc_iatype_p: cobj,
+    wtdwten_p: cobj,
+    wtditen_p: cobj,
+    wtu_top_p: cobj,
+    exit_conden_p: cobj,
+    exit_code_p: cobj,
+    cush_p: cobj,
+    scaleh_p: cobj,
+):
+    exit_conden = Ptr[float](exit_conden_p)
+    exit_code = Ptr[int](exit_code_p)
+    exit_code[0] = 0
+
+    if id_check == 1:
+        exit_conden[0] = 1.0
+        exit_code[0] = 1
+        return
+
+    uwshcu_buoy_top_expel_final_shell_codon(
+        kpen,
+        criqc,
+        xlv,
+        xls,
+        cp,
+        exntop,
+        qlj,
+        qij,
+        thlu_top_p,
+        qtu_top_p,
+        dwten_p,
+        diten_p,
+    )
+
+    if trace_water != 0:
+        wtout = Ptr[float](wtout_p)
+        wtrc_iatype = Ptr[int](wtrc_iatype_p)
+        wtdwten = Ptr[float](wtdwten_p)
+        wtditen = Ptr[float](wtditen_p)
+        wtu_top = Ptr[float](wtu_top_p)
+        dwten = Ptr[float](dwten_p)
+        diten = Ptr[float](diten_p)
+
+        layer_idx = kpen - 1
+        liq_base_idx = wtrc_nwset
+        ice_base_idx = 2 * wtrc_nwset
+
+        if qlj + qij > criqc:
+            m = 0
+            while m < wtrc_nwset:
+                liq_idx = m + wtrc_nwset
+                ice_idx = m + 2 * wtrc_nwset
+                field_idx = layer_idx + m * mkx
+
+                rldt = uwshcu_wtrc_ratio_type_from_c_dispatch(wtrc_iatype[liq_idx], wtout[liq_idx], wtout[liq_base_idx])
+                ridt = uwshcu_wtrc_ratio_type_from_c_dispatch(wtrc_iatype[ice_idx], wtout[ice_idx], wtout[ice_base_idx])
+
+                wtdwten[field_idx] = rldt * dwten[layer_idx]
+                wtditen[field_idx] = ridt * diten[layer_idx]
+                wtu_top[m] = wtu_top[m] - wtdwten[field_idx] - wtditen[field_idx]
+                m += 1
+        else:
+            m = 0
+            while m < wtrc_nwset:
+                field_idx = layer_idx + m * mkx
+                wtdwten[field_idx] = 0.0
+                wtditen[field_idx] = 0.0
+                m += 1
+
+    uwshcu_buoy_scaleh_shell_codon(
+        kpen,
+        r_v,
+        g_v,
+        ppen,
+        ps0_p,
+        zs0_p,
+        thv0bot_p,
+        thv0top_p,
+        exns0_p,
+        cush_p,
+        scaleh_p,
+    )
 
 
 @export
