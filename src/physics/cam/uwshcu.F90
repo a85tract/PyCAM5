@@ -53,6 +53,7 @@
   logical :: column_init_shell_entered_logged = .false.
   logical :: column_workspace_reset_shell_entered_logged = .false.
   logical :: column_input_shell_entered_logged = .false.
+  logical :: exner_profile_shell_entered_logged = .false.
   logical :: column_thermo_shell_entered_logged = .false.
   logical :: column_thermo_slope_shell_entered_logged = .false.
   logical :: interface_conden_exit_shell_entered_logged = .false.
@@ -778,6 +779,21 @@ contains
     end if
 
   end subroutine uwshcu_log_column_input_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_exner_profile_shell_entered()
+
+    if (exner_profile_shell_entered_logged) return
+    exner_profile_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu exner profile shell entered (exn0/exns0 pressure profile direct = codon)'
+       call uwshcu_append_proof('uwshcu exner profile shell entered (exn0/exns0 pressure profile direct = codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_exner_profile_shell_entered
 
 !===============================================================================
 
@@ -3716,6 +3732,14 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: t0_p, s0_p, tke_p, cldfrct_p, concldfrct_p, tr0_p, pblh_p, cush_p
        end subroutine uwshcu_column_input_load_shell_codon
 
+       subroutine uwshcu_exner_profile_shell_codon(mkx_c, p00_c, rovcp_c, p0_p, ps0_p, &
+            exn0_p, exns0_p) bind(c, name="uwshcu_exner_profile_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c
+          real(c_double), value :: p00_c, rovcp_c
+          type(c_ptr), value :: p0_p, ps0_p, exn0_p, exns0_p
+       end subroutine uwshcu_exner_profile_shell_codon
+
        subroutine uwshcu_column_thermo_state_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, &
             xlv_c, xls_c, cp_c, zvir_c, qv0_p, ql0_p, qi0_p, t0_p, exn0_p, tr0_p, &
             wtrc_iatype_p, qt0_p, thl0_p, thvl0_p, wt0_p) &
@@ -5535,8 +5559,14 @@ end subroutine uwshcu_readnl
 
       !----- 1. Compute internal environmental variables
       
-      exn0(:mkx)   = (p0(:mkx)/p00)**rovcp
-      exns0(0:mkx) = (ps0(0:mkx)/p00)**rovcp
+      if (use_native_init_shell_impl) then
+         exn0(:mkx)   = (p0(:mkx)/p00)**rovcp
+         exns0(0:mkx) = (ps0(0:mkx)/p00)**rovcp
+      else
+         call uwshcu_log_exner_profile_shell_entered()
+         call uwshcu_exner_profile_shell_codon(int(mkx, c_int64_t), p00, rovcp, &
+              c_loc(p0), c_loc(ps0), c_loc(exn0), c_loc(exns0))
+      end if
       if (use_native_init_shell_impl) then
          qt0(:mkx)    = (qv0(:mkx) + ql0(:mkx) + qi0(:mkx))
          thl0(:mkx)   = (t0(:mkx) - xlv*ql0(:mkx)/cp - xls*qi0(:mkx)/cp)/exn0(:mkx)

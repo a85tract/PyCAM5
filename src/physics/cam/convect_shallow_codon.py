@@ -12802,6 +12802,32 @@ def uwshcu_column_input_load_shell_codon(
 
 
 @export
+def uwshcu_exner_profile_shell_codon(
+    mkx: int,
+    p00_v: float,
+    rovcp_v: float,
+    p0_p: cobj,
+    ps0_p: cobj,
+    exn0_p: cobj,
+    exns0_p: cobj,
+):
+    p0 = Ptr[float](p0_p)
+    ps0 = Ptr[float](ps0_p)
+    exn0 = Ptr[float](exn0_p)
+    exns0 = Ptr[float](exns0_p)
+
+    k = 0
+    while k < mkx:
+        exn0[k] = (p0[k] / p00_v) ** rovcp_v
+        k += 1
+
+    k = 0
+    while k <= mkx:
+        exns0[k] = (ps0[k] / p00_v) ** rovcp_v
+        k += 1
+
+
+@export
 def uwshcu_column_env_save_shell_codon(
     mkx: int,
     ncnst: int,
