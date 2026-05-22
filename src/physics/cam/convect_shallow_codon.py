@@ -4,7 +4,7 @@ from convect_shallow_native_callbacks_codon import (
     uwshcu_compute_native_from_c_dispatch,
     uwshcu_findsp_layer_from_c_dispatch,
     uwshcu_qsat_from_c_dispatch,
-    uwshcu_qsinvert_from_c_dispatch,
+    uwshcu_qsat_gam_from_c_dispatch,
     uwshcu_thermo_conden_from_c_dispatch,
     uwshcu_top_conden_from_c_dispatch,
     uwshcu_wtrc_precip_mass_error_from_c_dispatch,
@@ -5035,19 +5035,41 @@ def uwshcu_source_lcl_solve_prep_shell_codon(
     qtsrc: float,
     thlsrc: float,
     psfc: float,
+    p00_v: float,
+    rovcp_v: float,
+    xlv_v: float,
+    xls_v: float,
+    cp_v: float,
+    ep2_v: float,
     ps0_p: cobj,
     p0_p: cobj,
     thl0_p: cobj,
     ssthl0_p: cobj,
     qt0_p: cobj,
     ssqt0_p: cobj,
+    qsinvert_es_p: cobj,
+    qsinvert_qs_p: cobj,
+    qsinvert_gam_p: cobj,
     plcl_p: cobj,
     klcl_out_p: cobj,
     exit_code_p: cobj,
     thl0lcl_p: cobj,
     qt0lcl_p: cobj,
 ):
-    plcl = uwshcu_qsinvert_from_c_dispatch(qtsrc, thlsrc, psfc)
+    plcl = uwshcu_qsinvert_codon(
+        qtsrc,
+        thlsrc,
+        psfc,
+        p00_v,
+        rovcp_v,
+        xlv_v,
+        xls_v,
+        cp_v,
+        ep2_v,
+        qsinvert_es_p,
+        qsinvert_qs_p,
+        qsinvert_gam_p,
+    )
     Ptr[float](plcl_p)[0] = plcl
     uwshcu_lcl_prep_shell_codon(
         mkx,
@@ -13163,6 +13185,60 @@ def uwshcu_qsinvert_rh_guard_codon(rhi: float) -> int:
     if rhi <= 0.01:
         return 1
     return 0
+
+
+@export
+def uwshcu_qsinvert_codon(
+    qt: float,
+    thl: float,
+    psfc: float,
+    p00_v: float,
+    rovcp_v: float,
+    xlv_v: float,
+    xls_v: float,
+    cp_v: float,
+    ep2_v: float,
+    es_p: cobj,
+    qs_p: cobj,
+    gam_p: cobj,
+) -> float:
+    es = Ptr[float](es_p)
+    qs = Ptr[float](qs_p)
+    gam = Ptr[float](gam_p)
+
+    psmin = 100.0 * 100.0
+    dpsmax = 1.0
+
+    Ti = thl * (psfc / p00_v) ** rovcp_v
+    uwshcu_qsat_from_c_dispatch(Ti, psfc, es_p, qs_p)
+    rhi = qt / qs[0]
+    if uwshcu_qsinvert_rh_guard_codon(rhi) != 0:
+        return psmin
+
+    TLCL = 55.0 + 1.0 / (1.0 / (Ti - 55.0) - log(rhi) / 2840.0)
+    PiLCL = TLCL / thl
+    ps = p00_v * (PiLCL) ** (1.0 / rovcp_v)
+
+    for _ in range(10):
+        Pis = (ps / p00_v) ** rovcp_v
+        Ts = thl * Pis
+        uwshcu_qsat_gam_from_c_dispatch(Ts, ps, es_p, qs_p, gam_p)
+        err = qt - qs[0]
+        nu = max(min((268.0 - Ts) / 20.0, 1.0), 0.0)
+        leff = (1.0 - nu) * xlv_v + nu * xls_v
+        dlnqsdT = gam[0] * (cp_v / leff) / qs[0]
+        dTdPis = thl
+        dPisdps = rovcp_v * Pis / ps
+        dlnqsdps = -1.0 / (ps - (1.0 - ep2_v) * es[0])
+        derrdps = -qs[0] * (dlnqsdT * dTdPis * dPisdps + dlnqsdps)
+        dps = -err / derrdps
+        ps = ps + dps
+        if ps < 0.0:
+            return psmin
+        if abs(dps) <= dpsmax:
+            return ps
+
+    return psmin
 
 
 @export

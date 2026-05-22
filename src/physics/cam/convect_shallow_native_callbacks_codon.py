@@ -3,8 +3,8 @@ from C import uwshcu_conden_scalar_from_c_cb(float, float, float, Ptr[float], Pt
 from C import uwshcu_top_conden_from_c_cb(int, int, int, float, float, float, float, float, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[int], Ptr[float], Ptr[float], Ptr[float]) -> None
 from C import uwshcu_thermo_conden_from_c_cb(int, int, int, int, int, int, float, float, float, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[int], Ptr[float], Ptr[float], Ptr[float]) -> None
 from C import uwshcu_findsp_layer_from_c_cb(int, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float]) -> None
-from C import uwshcu_qsinvert_from_c_cb(float, float, float) -> float
 from C import uwshcu_qsat_from_c_cb(float, float, Ptr[float], Ptr[float]) -> None
+from C import uwshcu_qsat_gam_from_c_cb(float, float, Ptr[float], Ptr[float], Ptr[float]) -> None
 from C import uwshcu_wtrc_ratio_type_from_c_cb(int, float, float) -> float
 from C import uwshcu_wtrc_precip_evap_isotope_from_c_cb(int, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float) -> float
 from C import uwshcu_wtrc_precip_mass_error_from_c_cb(float, float, float, float, int) -> None
@@ -265,12 +265,12 @@ def uwshcu_findsp_layer_from_c_dispatch(
     uwshcu_findsp_layer_from_c_cb(iend, qv0_p, t0_p, p0_p, tw0_p, qw0_p)
 
 
-def uwshcu_qsinvert_from_c_dispatch(qt: float, thl: float, psfc: float) -> float:
-    return uwshcu_qsinvert_from_c_cb(qt, thl, psfc)
-
-
 def uwshcu_qsat_from_c_dispatch(t: float, p: float, es_p: cobj, qs_p: cobj):
     uwshcu_qsat_from_c_cb(t, p, Ptr[float](es_p), Ptr[float](qs_p))
+
+
+def uwshcu_qsat_gam_from_c_dispatch(t: float, p: float, es_p: cobj, qs_p: cobj, gam_p: cobj):
+    uwshcu_qsat_gam_from_c_cb(t, p, Ptr[float](es_p), Ptr[float](qs_p), Ptr[float](gam_p))
 
 
 def uwshcu_wtrc_ratio_type_from_c_dispatch(iatype: int, qtrc: float, qtot: float) -> float:
