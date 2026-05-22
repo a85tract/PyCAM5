@@ -146,6 +146,7 @@
   logical :: use_native_compute_impl = .true.
   logical :: compute_impl_selected = .false.
   logical :: compute_parent_shell_entered_logged = .false.
+  logical :: compute_wetbulb_parent_shell_entered_logged = .false.
 
   interface
      subroutine uwshcu_getbuoy_codon(pbot_c, thv0bot_c, ptop_c, thv0top_c, &
@@ -208,7 +209,7 @@
           qiten_p, sten_p, uten_p, vten_p, trten_p, qrten_p, qsten_p, &
           precip_p, snow_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, cbmf_p, &
           qc_p, rliq_p, cnt_p, cnb_p, lchnk_c, dpdry0_p, wtprec_p, wtsnow_p, &
-          wtqc_p) bind(c, name="uwshcu_compute_parent_shell_codon")
+          wtqc_p, tw0_p, qw0_p) bind(c, name="uwshcu_compute_parent_shell_codon")
        use iso_c_binding, only: c_double, c_int64_t, c_ptr
        integer(c_int64_t), value :: mix_c, mkx_c, iend_c, ncnst_c, lchnk_c
        real(c_double), value :: dt_c
@@ -218,6 +219,7 @@
        type(c_ptr), value :: qiten_p, sten_p, uten_p, vten_p, trten_p, qrten_p, qsten_p
        type(c_ptr), value :: precip_p, snow_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, cbmf_p
        type(c_ptr), value :: qc_p, rliq_p, cnt_p, cnb_p, dpdry0_p, wtprec_p, wtsnow_p, wtqc_p
+       type(c_ptr), value :: tw0_p, qw0_p
      end subroutine uwshcu_compute_parent_shell_codon
 
      subroutine uwshcu_fluxbelowinv_codon(mkx_c, kinv_c, cbmf_c, dt_c, xsrc_c, &
@@ -324,6 +326,25 @@ contains
     end if
 
   end subroutine uwshcu_log_compute_parent_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_compute_wetbulb_parent_shell_entered()
+
+    if (compute_wetbulb_parent_shell_entered_logged) return
+    compute_wetbulb_parent_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu compute wetbulb precompute parent shell entered ' // &
+            '(findsp loop owned by codon; findsp_vc native callback)'
+       call uwshcu_append_proof( &
+            'uwshcu compute wetbulb precompute parent shell entered ' // &
+            '(findsp loop owned by codon; findsp_vc native callback)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_compute_wetbulb_parent_shell_entered
 
 !===============================================================================
 
@@ -2793,6 +2814,8 @@ end subroutine uwshcu_readnl
     real(r8), target, intent(out)   :: wtqc_out(mix,mkx,ncnst)
     real(r8), target, intent(out)   :: wtprec_out(mix,ncnst)
     real(r8), target, intent(out)   :: wtsnow_out(mix,ncnst)
+    real(r8), target                :: tw0_parent(mix,mkx)
+    real(r8), target                :: qw0_parent(mix,mkx)
 
     call uwshcu_select_compute_impl()
 
@@ -2811,7 +2834,8 @@ end subroutine uwshcu_readnl
             c_loc(evapc_out), c_loc(cufrc_out), c_loc(qcu_out), c_loc(qlu_out), &
             c_loc(qiu_out), c_loc(cbmf_out), c_loc(qc_out), c_loc(rliq_out), &
             c_loc(cnt_out), c_loc(cnb_out), int(lchnk, c_int64_t), c_loc(dpdry0_in), &
-            c_loc(wtprec_out), c_loc(wtsnow_out), c_loc(wtqc_out))
+            c_loc(wtprec_out), c_loc(wtsnow_out), c_loc(wtqc_out), &
+            c_loc(tw0_parent), c_loc(qw0_parent))
        return
     end if
 
@@ -2839,13 +2863,14 @@ end subroutine uwshcu_readnl
        qiten_p, sten_p, uten_p, vten_p, trten_p, qrten_p, qsten_p, &
        precip_p, snow_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, cbmf_p, &
        qc_p, rliq_p, cnt_p, cnb_p, lchnk_c, dpdry0_p, wtprec_p, wtsnow_p, &
-       wtqc_p) bind(c, name="uwshcu_compute_native_from_c_cb")
+       wtqc_p, wetbulb_precomputed_c, tw0_precomputed_p, qw0_precomputed_p) &
+       bind(c, name="uwshcu_compute_native_from_c_cb")
 
     use iso_c_binding, only: c_double, c_f_pointer, c_int64_t, c_ptr
 
     implicit none
 
-    integer(c_int64_t), value :: mix_c, mkx_c, iend_c, ncnst_c, lchnk_c
+    integer(c_int64_t), value :: mix_c, mkx_c, iend_c, ncnst_c, lchnk_c, wetbulb_precomputed_c
     real(c_double), value :: dt_c
     type(c_ptr), value :: ps0_p, zs0_p, p0_p, z0_p, dp0_p, u0_p, v0_p, qv0_p, ql0_p, qi0_p
     type(c_ptr), value :: t0_p, s0_p, tr0_p, tke_p, cldfrct_p, concldfrct_p, pblh_p, cush_p
@@ -2853,6 +2878,7 @@ end subroutine uwshcu_readnl
     type(c_ptr), value :: qiten_p, sten_p, uten_p, vten_p, trten_p, qrten_p, qsten_p
     type(c_ptr), value :: precip_p, snow_p, evapc_p, cufrc_p, qcu_p, qlu_p, qiu_p, cbmf_p
     type(c_ptr), value :: qc_p, rliq_p, cnt_p, cnb_p, dpdry0_p, wtprec_p, wtsnow_p, wtqc_p
+    type(c_ptr), value :: tw0_precomputed_p, qw0_precomputed_p
 
     integer :: mix, mkx, iend, ncnst, lchnk
     real(r8), pointer :: ps0_in(:,:), zs0_in(:,:), p0_in(:,:), z0_in(:,:), dp0_in(:,:)
@@ -2865,6 +2891,7 @@ end subroutine uwshcu_readnl
     real(r8), pointer :: precip_out(:), snow_out(:), evapc_out(:,:), cufrc_out(:,:), qcu_out(:,:)
     real(r8), pointer :: qlu_out(:,:), qiu_out(:,:), cbmf_out(:), qc_out(:,:), rliq_out(:)
     real(r8), pointer :: cnt_out(:), cnb_out(:), dpdry0_in(:,:), wtprec_out(:,:), wtsnow_out(:,:), wtqc_out(:,:,:)
+    real(r8), pointer :: tw0_precomputed(:,:), qw0_precomputed(:,:)
 
     mix = int(mix_c)
     mkx = int(mkx_c)
@@ -2920,6 +2947,8 @@ end subroutine uwshcu_readnl
     call c_f_pointer(wtprec_p, wtprec_out, [mix, ncnst])
     call c_f_pointer(wtsnow_p, wtsnow_out, [mix, ncnst])
     call c_f_pointer(wtqc_p, wtqc_out, [mix, mkx, ncnst])
+    call c_f_pointer(tw0_precomputed_p, tw0_precomputed, [mix, mkx])
+    call c_f_pointer(qw0_precomputed_p, qw0_precomputed, [mix, mkx])
 
     call compute_uwshcu_native(mix, mkx, iend, ncnst, real(dt_c, r8), &
          ps0_in, zs0_in, p0_in, z0_in, dp0_in, u0_in, v0_in, qv0_in, ql0_in, qi0_in, &
@@ -2927,9 +2956,36 @@ end subroutine uwshcu_readnl
          umf_out, slflx_out, qtflx_out, flxprc1_out, flxsnow1_out, qvten_out, qlten_out, &
          qiten_out, sten_out, uten_out, vten_out, trten_out, qrten_out, qsten_out, &
          precip_out, snow_out, evapc_out, cufrc_out, qcu_out, qlu_out, qiu_out, cbmf_out, &
-         qc_out, rliq_out, cnt_out, cnb_out, lchnk, dpdry0_in, wtprec_out, wtsnow_out, wtqc_out)
+         qc_out, rliq_out, cnt_out, cnb_out, lchnk, dpdry0_in, wtprec_out, wtsnow_out, wtqc_out, &
+         wetbulb_precomputed_c /= 0_c_int64_t, tw0_precomputed, qw0_precomputed)
 
   end subroutine uwshcu_compute_native_from_c_cb
+
+  subroutine uwshcu_findsp_layer_from_c_cb(iend_c, qv0_p, t0_p, p0_p, tw0_p, qw0_p) &
+       bind(c, name="uwshcu_findsp_layer_from_c_cb")
+
+    use iso_c_binding, only: c_f_pointer, c_int64_t, c_ptr
+    use wv_saturation, only : findsp_vc
+
+    implicit none
+
+    integer(c_int64_t), value :: iend_c
+    type(c_ptr), value :: qv0_p, t0_p, p0_p, tw0_p, qw0_p
+    real(r8), pointer :: qv0(:), t0(:), p0(:), tw0(:), qw0(:)
+    integer :: iend
+
+    iend = int(iend_c)
+
+    call c_f_pointer(qv0_p, qv0, [iend])
+    call c_f_pointer(t0_p, t0, [iend])
+    call c_f_pointer(p0_p, p0, [iend])
+    call c_f_pointer(tw0_p, tw0, [iend])
+    call c_f_pointer(qw0_p, qw0, [iend])
+
+    call uwshcu_log_compute_wetbulb_parent_shell_entered()
+    call findsp_vc(qv0, t0, p0, .true., tw0, qw0)
+
+  end subroutine uwshcu_findsp_layer_from_c_cb
 
   subroutine compute_uwshcu_native( mix      , mkx       , iend         , ncnst    , dt        , &
                                     ps0_in   , zs0_in    , p0_in        , z0_in    , dp0_in    , &
@@ -2944,7 +3000,8 @@ end subroutine uwshcu_readnl
                                     cufrc_out, qcu_out   , qlu_out      , qiu_out  ,             &
                                     cbmf_out , qc_out    , rliq_out     ,                        &
                                     cnt_out  , cnb_out   , lchnk        , dpdry0_in, wtprec_out, &
-                                    wtsnow_out, wtqc_out )
+                                    wtsnow_out, wtqc_out , wetbulb_precomputed,                  &
+                                    tw0_precomputed_in, qw0_precomputed_in )
 
     ! ------------------------------------------------------------ !
     !                                                              !  
@@ -3008,6 +3065,10 @@ end subroutine uwshcu_readnl
                                                               ! at the previous time step [ fraction ]
     real(r8), intent(in)    :: pblh_in(mix)                   !  Height of PBL [ m ]
     real(r8), target, intent(inout) :: cush_inout(mix)        !  Convective scale height [ m ]
+
+    logical , intent(in), optional :: wetbulb_precomputed
+    real(r8), intent(in), optional :: tw0_precomputed_in(mix,mkx)
+    real(r8), intent(in), optional :: qw0_precomputed_in(mix,mkx)
 
     real(r8)                   tw0_in(mix,mkx)                !  Wet bulb temperature [ K ]
     real(r8)                   qw0_in(mix,mkx)                !  Wet-bulb specific humidity [ kg/kg ]
@@ -3340,6 +3401,7 @@ end subroutine uwshcu_readnl
     integer     kbup                                          !  Top layer in which cloud buoyancy is positive at the top interface
     integer     kpen                                          !  Highest layer with positive updraft vertical velocity
                                                               ! - top layer cumulus can reach
+    logical     use_precomputed_wetbulb
     logical     id_exit   
     logical     forcedCu                                      !  If 'true', cumulus updraft cannot overcome the buoyancy barrier
                                                               ! just above the PBL top.
@@ -5860,11 +5922,24 @@ end subroutine uwshcu_readnl
     ! Compute wet-bulb temperature and specific humidity
     ! for treating evaporation of precipitation.
 
-    ! "True" means ice will be taken into account
-    do k = 1, mkx
-       call findsp_vc(qv0_in(:iend,k), t0_in(:iend,k), p0_in(:iend,k), .true., &
-            tw0_in(:iend,k), qw0_in(:iend,k))
-    end do
+    use_precomputed_wetbulb = .false.
+    if (present(wetbulb_precomputed)) use_precomputed_wetbulb = wetbulb_precomputed
+
+    if (use_precomputed_wetbulb) then
+       if (.not. present(tw0_precomputed_in) .or. .not. present(qw0_precomputed_in)) then
+          call endrun('compute_uwshcu_native: missing precomputed wet-bulb arrays')
+       end if
+       do k = 1, mkx
+          tw0_in(:iend,k) = tw0_precomputed_in(:iend,k)
+          qw0_in(:iend,k) = qw0_precomputed_in(:iend,k)
+       end do
+    else
+       ! "True" means ice will be taken into account
+       do k = 1, mkx
+          call findsp_vc(qv0_in(:iend,k), t0_in(:iend,k), p0_in(:iend,k), .true., &
+               tw0_in(:iend,k), qw0_in(:iend,k))
+       end do
+    end if
 
     do i = 1, iend                                      
 

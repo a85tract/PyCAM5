@@ -1,5 +1,8 @@
 from math import erfc, exp, log, sqrt
-from convect_shallow_native_callbacks_codon import uwshcu_compute_native_from_c_dispatch
+from convect_shallow_native_callbacks_codon import (
+    uwshcu_compute_native_from_c_dispatch,
+    uwshcu_findsp_layer_from_c_dispatch,
+)
 
 
 @inline
@@ -239,7 +242,26 @@ def uwshcu_compute_parent_shell_codon(
     wtprec_p: cobj,
     wtsnow_p: cobj,
     wtqc_p: cobj,
+    tw0_p: cobj,
+    qw0_p: cobj,
 ):
+    qv0 = Ptr[float](qv0_p)
+    t0 = Ptr[float](t0_p)
+    p0 = Ptr[float](p0_p)
+    tw0 = Ptr[float](tw0_p)
+    qw0 = Ptr[float](qw0_p)
+
+    for k in range(1, mkx + 1):
+        offset = (k - 1) * mix
+        uwshcu_findsp_layer_from_c_dispatch(
+            iend,
+            qv0 + offset,
+            t0 + offset,
+            p0 + offset,
+            tw0 + offset,
+            qw0 + offset,
+        )
+
     uwshcu_compute_native_from_c_dispatch(
         mix,
         mkx,
@@ -295,6 +317,9 @@ def uwshcu_compute_parent_shell_codon(
         wtprec_p,
         wtsnow_p,
         wtqc_p,
+        1,
+        tw0_p,
+        qw0_p,
     )
 
 

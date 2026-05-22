@@ -1,4 +1,5 @@
-from C import uwshcu_compute_native_from_c_cb(int, int, int, int, float, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], int, Ptr[float], Ptr[float], Ptr[float], Ptr[float]) -> None
+from C import uwshcu_compute_native_from_c_cb(int, int, int, int, float, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], int, Ptr[float], Ptr[float], Ptr[float], Ptr[float], int, Ptr[float], Ptr[float]) -> None
+from C import uwshcu_findsp_layer_from_c_cb(int, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float]) -> None
 
 
 def uwshcu_compute_native_from_c_dispatch(
@@ -56,6 +57,9 @@ def uwshcu_compute_native_from_c_dispatch(
     wtprec_p: cobj,
     wtsnow_p: cobj,
     wtqc_p: cobj,
+    wetbulb_precomputed: int,
+    tw0_precomputed_p: cobj,
+    qw0_precomputed_p: cobj,
 ):
     uwshcu_compute_native_from_c_cb(
         mix,
@@ -112,4 +116,18 @@ def uwshcu_compute_native_from_c_dispatch(
         Ptr[float](wtprec_p),
         Ptr[float](wtsnow_p),
         Ptr[float](wtqc_p),
+        wetbulb_precomputed,
+        Ptr[float](tw0_precomputed_p),
+        Ptr[float](qw0_precomputed_p),
     )
+
+
+def uwshcu_findsp_layer_from_c_dispatch(
+    iend: int,
+    qv0_p: Ptr[float],
+    t0_p: Ptr[float],
+    p0_p: Ptr[float],
+    tw0_p: Ptr[float],
+    qw0_p: Ptr[float],
+):
+    uwshcu_findsp_layer_from_c_cb(iend, qv0_p, t0_p, p0_p, tw0_p, qw0_p)
