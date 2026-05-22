@@ -67,6 +67,7 @@
   logical :: buoy_conden_scalar_batch_shell_entered_logged = .false.
   logical :: buoy_state_batch_shell_entered_logged = .false.
   logical :: buoy_top_state_shell_entered_logged = .false.
+  logical :: buoy_top_prep_full_shell_entered_logged = .false.
   logical :: buoy_top_shell_entered_logged = .false.
   logical :: buoy_updraft_state_shell_entered_logged = .false.
   logical :: buoy_loop_batch_shell_entered_logged = .false.
@@ -1236,6 +1237,23 @@ contains
     end if
 
   end subroutine uwshcu_log_buoy_top_state_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_buoy_top_prep_full_shell_entered()
+
+    if (buoy_top_prep_full_shell_entered_logged) return
+    buoy_top_prep_full_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu buoy top prep full shell entered (ppen/top-state prep owned by codon; top conden native)'
+       call uwshcu_append_proof( &
+            'uwshcu buoy top prep full shell entered (ppen/top-state prep owned by codon; top conden native)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_buoy_top_prep_full_shell_entered
 
 !===============================================================================
 
@@ -3803,7 +3821,8 @@ end subroutine uwshcu_readnl
     real(r8), target :: cbmf, wlcl, ufrclcl
     real(r8), target :: winv, ufrcinv
     real(r8)    wcrit, rmaxfrac
-    real(r8)    criqc, exql, exqi, ppen
+    real(r8)    criqc, exql, exqi
+    real(r8), target :: ppen
     real(r8)    thl0top, thl0bot, qt0bot, qt0top
     real(r8), target :: thvubot, thvutop
     real(r8), target :: thlu_top, qtu_top
@@ -4039,6 +4058,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: buoy_ufrc_limit_code_c
     integer(c_int64_t), target       :: buoy_conden_exit_code_c
     integer(c_int64_t), target       :: buoy_top_conden_exit_code_c
+    integer(c_int64_t), target       :: buoy_top_prep_warning_code_c
     integer(c_int64_t), target       :: cloud_diag_conden_exit_code_c
     integer(c_int64_t), target       :: comp_sub_conden_exit_code_c
     integer(c_int64_t), target       :: thermo_conden_exit_code_c
@@ -4732,6 +4752,19 @@ end subroutine uwshcu_readnl
           real(c_double), value :: qt0_kpen_c, ssqt0_kpen_c
           type(c_ptr), value :: thlu_p, qtu_p, wt0_p, sswt0_p, wtu_p, thlu_top_p, qtu_top_p, wtu_top_p
        end subroutine uwshcu_buoy_top_state_shell_codon
+
+       subroutine uwshcu_buoy_top_prep_full_shell_codon(mkx_c, wtrc_nwset_c, trace_water_c, &
+            kpen_c, drage_c, bogbot_c, bogtop_c, wtwb_c, wu_kpenm1_c, rho0j_c, ps0_p, &
+            dp0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p, fer_p, thlu_p, qtu_p, wt0_p, &
+            sswt0_p, wtu_p, limit_ppen_p, ppen_p, thlu_top_p, qtu_top_p, wtu_top_p, &
+            warning_code_p) bind(c, name="uwshcu_buoy_top_prep_full_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, trace_water_c, kpen_c
+          real(c_double), value :: drage_c, bogbot_c, bogtop_c, wtwb_c, wu_kpenm1_c, rho0j_c
+          type(c_ptr), value :: ps0_p, dp0_p, thl0_p, ssthl0_p, qt0_p, ssqt0_p, fer_p
+          type(c_ptr), value :: thlu_p, qtu_p, wt0_p, sswt0_p, wtu_p, limit_ppen_p, ppen_p
+          type(c_ptr), value :: thlu_top_p, qtu_top_p, wtu_top_p, warning_code_p
+       end subroutine uwshcu_buoy_top_prep_full_shell_codon
 
        subroutine uwshcu_buoy_updraft_state_shell_codon(mkx_c, ncnst_c, wtrc_nwset_c, k_c, &
             trace_water_c, linear_branch_c, dpe_c, expfac_c, fer_k_c, PGFc_c, thle_c, qte_c, &
@@ -9045,41 +9078,31 @@ end subroutine uwshcu_readnl
        ! Below solving equation is clearly wrong ! I should revise this !               !
        ! ------------------------------------------------------------------------------ ! 
             
-       if( drage .eq. 0._r8 ) then
-           aquad =  ( bogtop - bogbot ) / ( ps0(kpen) - ps0(kpen-1) )
-           bquad =  2._r8 * bogbot
-           cquad = -wu(kpen-1)**2 * rho0j
-           call roots(aquad,bquad,cquad,xc1,xc2,status)
-           if( status .eq. 0 ) then
-               if( xc1 .le. 0._r8 .and. xc2 .le. 0._r8 ) then
-                   ppen = max( xc1, xc2 )
-                   ppen = min( 0._r8,max( -dp0(kpen), ppen ) )  
-               elseif( xc1 .gt. 0._r8 .and. xc2 .gt. 0._r8 ) then
-                   ppen = -dp0(kpen)
-                   write(iulog,*) 'Warning : UW-Cumulus penetrates upto kpen interface'
-               else
-                   ppen = min( xc1, xc2 )
-                   ppen = min( 0._r8,max( -dp0(kpen), ppen ) )  
-               endif
-           else
-               ppen = -dp0(kpen)
-               write(iulog,*) 'Warning : UW-Cumulus penetrates upto kpen interface'
-           endif       
-       else 
-           ppen = compute_ppen(wtwb,drage,bogbot,bogtop,rho0j,dp0(kpen))
-       endif
        if (use_native_init_shell_impl) then
+          if( drage .eq. 0._r8 ) then
+              aquad =  ( bogtop - bogbot ) / ( ps0(kpen) - ps0(kpen-1) )
+              bquad =  2._r8 * bogbot
+              cquad = -wu(kpen-1)**2 * rho0j
+              call roots(aquad,bquad,cquad,xc1,xc2,status)
+              if( status .eq. 0 ) then
+                  if( xc1 .le. 0._r8 .and. xc2 .le. 0._r8 ) then
+                      ppen = max( xc1, xc2 )
+                      ppen = min( 0._r8,max( -dp0(kpen), ppen ) )
+                  elseif( xc1 .gt. 0._r8 .and. xc2 .gt. 0._r8 ) then
+                      ppen = -dp0(kpen)
+                      write(iulog,*) 'Warning : UW-Cumulus penetrates upto kpen interface'
+                  else
+                      ppen = min( xc1, xc2 )
+                      ppen = min( 0._r8,max( -dp0(kpen), ppen ) )
+                  endif
+              else
+                  ppen = -dp0(kpen)
+                  write(iulog,*) 'Warning : UW-Cumulus penetrates upto kpen interface'
+              endif
+          else
+              ppen = compute_ppen(wtwb,drage,bogbot,bogtop,rho0j,dp0(kpen))
+          endif
           if( ppen .eq. -dp0(kpen) .or. ppen .eq. 0._r8 ) limit_ppen(i) = 1._r8
-       else
-          call uwshcu_log_release_scaleh_batch_shell_entered()
-          call uwshcu_release_scaleh_batch_shell_codon(8_c_int64_t, int(mkx, c_int64_t), &
-               0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._r8, 0._r8, &
-               0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, 0._r8, &
-               0._r8, 0._r8, 0._r8, 0._r8, ppen, dp0(kpen), c_null_ptr, c_null_ptr, &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_loc(limit_ppen(i)), &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-               c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-               c_null_ptr, c_null_ptr, c_null_ptr)
        endif
 
        ! -------------------------------------------------------------------- !
@@ -9090,49 +9113,51 @@ end subroutine uwshcu_readnl
        ! using non-zero 'fer(kpen)'.                                          !    
        ! -------------------------------------------------------------------- !
 
-	       if (use_native_init_shell_impl) then
-	       if( fer(kpen)*(-ppen) .lt. 1.e-4_r8 ) then
-	           thlu_top = thlu(kpen-1) + ( thl0(kpen) + ssthl0(kpen) * (-ppen) / 2._r8 - thlu(kpen-1) ) * fer(kpen) * (-ppen)
-	           qtu_top  =  qtu(kpen-1) + (  qt0(kpen) +  ssqt0(kpen) * (-ppen) / 2._r8  - qtu(kpen-1) ) * fer(kpen) * (-ppen)
-	          !Water tracers:
-	          !*************
-	           if(trace_water) then
-	             do m=1,wtrc_nwset
-	               wtu_top(m) = wtu(kpen-1,m) + ( wt0(kpen,m) +  sswt0(kpen,m) * &
-	                            (-ppen) / 2._r8  - wtu(kpen-1,m) ) * fer(kpen) * (-ppen)
-	             end do
-	           end if
-	          !*************
-	       else
-	           thlu_top = ( thl0(kpen) + ssthl0(kpen) / fer(kpen) - ssthl0(kpen) * (-ppen) / 2._r8 ) - &
-	                      ( thl0(kpen) + ssthl0(kpen) * (-ppen) / 2._r8 - thlu(kpen-1) + ssthl0(kpen) / fer(kpen) ) &
-	                      * exp(-fer(kpen) * (-ppen))
-	           qtu_top  = ( qt0(kpen)  +  ssqt0(kpen) / fer(kpen) -  ssqt0(kpen) * (-ppen) / 2._r8 ) - &
-	                      ( qt0(kpen)  +  ssqt0(kpen) * (-ppen) / 2._r8 -  qtu(kpen-1) +  ssqt0(kpen) / fer(kpen) ) &
-	                      * exp(-fer(kpen) * (-ppen))
-	          !Water tracers:
-	          !*************
-	           if(trace_water) then
-	             do m=1,wtrc_nwset
-	               wtu_top(m) = ( wt0(kpen,m)  +  sswt0(kpen,m) / fer(kpen) -  sswt0(kpen,m) * (-ppen) / 2._r8 ) - &
-	               ( wt0(kpen,m)  +  sswt0(kpen,m) * (-ppen) / 2._r8 -  wtu(kpen-1,m) +  sswt0(kpen,m) / fer(kpen) ) &
-	               * exp(-fer(kpen) * (-ppen))
-	             end do
-	           end if
-	          !*************
-	       end if
-		       else
-		          top_expfac = 0._r8
-		          if( fer(kpen)*(-ppen) .ge. 1.e-4_r8 ) top_expfac = exp(-fer(kpen) * (-ppen))
-		          call uwshcu_log_buoy_state_batch_shell_entered()
-		          call uwshcu_buoy_state_batch_shell_codon(8_c_int64_t, int(kpen, c_int64_t), &
-		               int(mkx, c_int64_t), int(wtrc_nwset, c_int64_t), 0_c_int64_t, 0_c_int64_t, &
-		               merge(1_c_int64_t, 0_c_int64_t, trace_water), &
-		               merge(1_c_int64_t, 0_c_int64_t, fer(kpen)*(-ppen) .lt. 1.e-4_r8), ppen, &
-		               top_expfac, fer(kpen), thl0(kpen), ssthl0(kpen), qt0(kpen), ssqt0(kpen), &
-		               0._r8, 0._r8, 0._r8, 0._r8, 0._r8, c_loc(thlu), c_loc(qtu), c_loc(wt0), &
-		               c_loc(sswt0), c_loc(wtu), c_loc(thlu_top), c_loc(qtu_top), c_loc(wtu_top))
-		       endif
+       if (use_native_init_shell_impl) then
+          if( fer(kpen)*(-ppen) .lt. 1.e-4_r8 ) then
+              thlu_top = thlu(kpen-1) + ( thl0(kpen) + ssthl0(kpen) * (-ppen) / 2._r8 - thlu(kpen-1) ) * fer(kpen) * (-ppen)
+              qtu_top  =  qtu(kpen-1) + (  qt0(kpen) +  ssqt0(kpen) * (-ppen) / 2._r8  - qtu(kpen-1) ) * fer(kpen) * (-ppen)
+             !Water tracers:
+             !*************
+              if(trace_water) then
+                do m=1,wtrc_nwset
+                  wtu_top(m) = wtu(kpen-1,m) + ( wt0(kpen,m) +  sswt0(kpen,m) * &
+                               (-ppen) / 2._r8  - wtu(kpen-1,m) ) * fer(kpen) * (-ppen)
+                end do
+              end if
+             !*************
+          else
+              thlu_top = ( thl0(kpen) + ssthl0(kpen) / fer(kpen) - ssthl0(kpen) * (-ppen) / 2._r8 ) - &
+                         ( thl0(kpen) + ssthl0(kpen) * (-ppen) / 2._r8 - thlu(kpen-1) + ssthl0(kpen) / fer(kpen) ) &
+                         * exp(-fer(kpen) * (-ppen))
+              qtu_top  = ( qt0(kpen)  +  ssqt0(kpen) / fer(kpen) -  ssqt0(kpen) * (-ppen) / 2._r8 ) - &
+                         ( qt0(kpen)  +  ssqt0(kpen) * (-ppen) / 2._r8 -  qtu(kpen-1) +  ssqt0(kpen) / fer(kpen) ) &
+                         * exp(-fer(kpen) * (-ppen))
+             !Water tracers:
+             !*************
+              if(trace_water) then
+                do m=1,wtrc_nwset
+                  wtu_top(m) = ( wt0(kpen,m)  +  sswt0(kpen,m) / fer(kpen) -  sswt0(kpen,m) * (-ppen) / 2._r8 ) - &
+                  ( wt0(kpen,m)  +  sswt0(kpen,m) * (-ppen) / 2._r8 -  wtu(kpen-1,m) +  sswt0(kpen,m) / fer(kpen) ) &
+                  * exp(-fer(kpen) * (-ppen))
+                end do
+              end if
+             !*************
+          end if
+       else
+          call uwshcu_log_buoy_top_prep_full_shell_entered()
+          buoy_top_prep_warning_code_c = 0_c_int64_t
+          call uwshcu_buoy_top_prep_full_shell_codon(int(mkx, c_int64_t), int(wtrc_nwset, c_int64_t), &
+               merge(1_c_int64_t, 0_c_int64_t, trace_water), int(kpen, c_int64_t), drage, &
+               bogbot, bogtop, wtwb, wu(kpen-1), rho0j, c_loc(ps0), c_loc(dp0), &
+               c_loc(thl0), c_loc(ssthl0), c_loc(qt0), c_loc(ssqt0), c_loc(fer), &
+               c_loc(thlu), c_loc(qtu), c_loc(wt0), c_loc(sswt0), c_loc(wtu), &
+               c_loc(limit_ppen(i)), c_loc(ppen), c_loc(thlu_top), c_loc(qtu_top), &
+               c_loc(wtu_top), c_loc(buoy_top_prep_warning_code_c))
+          if( buoy_top_prep_warning_code_c .ne. 0_c_int64_t ) then
+              write(iulog,*) 'Warning : UW-Cumulus penetrates upto kpen interface'
+          endif
+       endif
 
        !NOTE:  Not 100% sure if using qv0/tr0 to calculate R is appropriate here
        !(versus some sort of updraft quantity) - JN 

@@ -6309,6 +6309,133 @@ def uwshcu_buoy_scaleh_shell_codon(
 
 
 @export
+def uwshcu_buoy_top_prep_full_shell_codon(
+    mkx: int,
+    wtrc_nwset: int,
+    trace_water: int,
+    kpen: int,
+    drage: float,
+    bogbot: float,
+    bogtop: float,
+    wtwb: float,
+    wu_kpenm1: float,
+    rho0j: float,
+    ps0_p: cobj,
+    dp0_p: cobj,
+    thl0_p: cobj,
+    ssthl0_p: cobj,
+    qt0_p: cobj,
+    ssqt0_p: cobj,
+    fer_p: cobj,
+    thlu_p: cobj,
+    qtu_p: cobj,
+    wt0_p: cobj,
+    sswt0_p: cobj,
+    wtu_p: cobj,
+    limit_ppen_p: cobj,
+    ppen_p: cobj,
+    thlu_top_p: cobj,
+    qtu_top_p: cobj,
+    wtu_top_p: cobj,
+    warning_code_p: cobj,
+):
+    ps0 = Ptr[float](ps0_p)
+    dp0 = Ptr[float](dp0_p)
+    thl0 = Ptr[float](thl0_p)
+    ssthl0 = Ptr[float](ssthl0_p)
+    qt0 = Ptr[float](qt0_p)
+    ssqt0 = Ptr[float](ssqt0_p)
+    fer = Ptr[float](fer_p)
+    limit_ppen = Ptr[float](limit_ppen_p)
+    ppen = Ptr[float](ppen_p)
+    warning_code = Ptr[int](warning_code_p)
+
+    warning_code[0] = 0
+    layer_idx = kpen - 1
+    if drage == 0.0:
+        aquad = (bogtop - bogbot) / (ps0[kpen] - ps0[kpen - 1])
+        bquad = 2.0 * bogbot
+        cquad = -(wu_kpenm1 ** 2) * rho0j
+
+        status = 0
+        xc1 = 0.0
+        xc2 = 0.0
+        if aquad == 0.0:
+            if bquad == 0.0:
+                status = 1
+            else:
+                xc1 = -cquad / bquad
+            xc2 = xc1
+        else:
+            if bquad == 0.0:
+                if aquad * cquad > 0.0:
+                    status = 2
+                else:
+                    xc1 = sqrt(-cquad / aquad)
+                xc2 = -xc1
+            else:
+                disc = bquad ** 2 - 4.0 * aquad * cquad
+                if disc < 0.0:
+                    status = 3
+                else:
+                    bsign = 1.0
+                    if bquad < 0.0:
+                        bsign = -1.0
+                    q = -0.5 * (bquad + bsign * sqrt(disc))
+                    xc1 = q / aquad
+                    xc2 = cquad / q
+
+        if status == 0:
+            if xc1 <= 0.0 and xc2 <= 0.0:
+                ppen[0] = max(xc1, xc2)
+                ppen[0] = min(0.0, max(-dp0[layer_idx], ppen[0]))
+            elif xc1 > 0.0 and xc2 > 0.0:
+                ppen[0] = -dp0[layer_idx]
+                warning_code[0] = 1
+            else:
+                ppen[0] = min(xc1, xc2)
+                ppen[0] = min(0.0, max(-dp0[layer_idx], ppen[0]))
+        else:
+            ppen[0] = -dp0[layer_idx]
+            warning_code[0] = 1
+    else:
+        ppen[0] = uwshcu_compute_ppen_codon(wtwb, drage, bogbot, bogtop, rho0j, dp0[layer_idx])
+
+    if ppen[0] == -dp0[layer_idx] or ppen[0] == 0.0:
+        limit_ppen[0] = 1.0
+
+    top_expfac = 0.0
+    linear_branch = 0
+    if fer[layer_idx] * (-ppen[0]) < 1.0e-4:
+        linear_branch = 1
+    else:
+        top_expfac = exp(-fer[layer_idx] * (-ppen[0]))
+
+    uwshcu_buoy_top_state_shell_codon(
+        mkx,
+        wtrc_nwset,
+        kpen,
+        trace_water,
+        linear_branch,
+        ppen[0],
+        top_expfac,
+        fer[layer_idx],
+        thl0[layer_idx],
+        ssthl0[layer_idx],
+        qt0[layer_idx],
+        ssqt0[layer_idx],
+        thlu_p,
+        qtu_p,
+        wt0_p,
+        sswt0_p,
+        wtu_p,
+        thlu_top_p,
+        qtu_top_p,
+        wtu_top_p,
+    )
+
+
+@export
 def uwshcu_buoy_diag_update_shell_codon(
     k_fortran: int,
     excessu_v: float,
