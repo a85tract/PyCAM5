@@ -114,6 +114,7 @@
   logical :: conden_exit_thv_batch_shell_entered_logged = .false.
   logical :: comp_sub_sink_shell_entered_logged = .false.
   logical :: comp_sub_conden_exit_shell_entered_logged = .false.
+  logical :: comp_sub_conden_loop_shell_entered_logged = .false.
   logical :: thermo_conden_exit_shell_entered_logged = .false.
   logical :: thermo_emf_conden_exit_shell_entered_logged = .false.
   logical :: thermo_emf_kbup_state_shell_entered_logged = .false.
@@ -2027,6 +2028,23 @@ contains
     end if
 
   end subroutine uwshcu_log_comp_sub_conden_exit_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_comp_sub_conden_loop_shell_entered()
+
+    if (comp_sub_conden_loop_shell_entered_logged) return
+    comp_sub_conden_loop_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu comp sub conden loop shell entered (comp-sub conden check loop owned by codon; conden native callback)'
+       call uwshcu_append_proof( &
+            'uwshcu comp sub conden loop shell entered (comp-sub conden check loop owned by codon; conden native callback)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_comp_sub_conden_loop_shell_entered
 
 !===============================================================================
 
@@ -4125,7 +4143,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), target       :: buoy_top_id_check_c, buoy_top_conden_exit_code_c
     integer(c_int64_t), target       :: buoy_top_prep_warning_code_c
     integer(c_int64_t), target       :: cloud_diag_conden_exit_code_c
-    integer(c_int64_t), target       :: comp_sub_conden_exit_code_c
+    integer(c_int64_t), target       :: comp_sub_loop_id_check_c, comp_sub_conden_exit_code_c
     integer(c_int64_t), target       :: thermo_conden_exit_code_c
     integer(c_int64_t), target       :: thermo_emf_conden_exit_code_c
     integer(c_int64_t), target       :: post_scaleh_exit_code_c
@@ -5473,6 +5491,16 @@ end subroutine uwshcu_readnl
           integer(c_int64_t), value :: id_check_c
           type(c_ptr), value :: exit_code_p
        end subroutine uwshcu_comp_sub_conden_exit_shell_codon
+
+       subroutine uwshcu_comp_sub_conden_loop_shell_codon(mkx_c, ncnst_c, kpen_c, dt_c, &
+            p0_p, thl0_p, qt0_p, thlten_sub_p, qtten_sub_p, th_p, qv_p, ql_p, qi_p, &
+            qse_p, id_check_p, exit_code_p) bind(c, name="uwshcu_comp_sub_conden_loop_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, ncnst_c, kpen_c
+          real(c_double), value :: dt_c
+          type(c_ptr), value :: p0_p, thl0_p, qt0_p, thlten_sub_p, qtten_sub_p
+          type(c_ptr), value :: th_p, qv_p, ql_p, qi_p, qse_p, id_check_p, exit_code_p
+       end subroutine uwshcu_comp_sub_conden_loop_shell_codon
 
        subroutine uwshcu_thermo_conden_exit_shell_codon(id_check_c, exit_conden_p, exit_code_p) &
             bind(c, name="uwshcu_thermo_conden_exit_shell_codon")
@@ -10034,24 +10062,19 @@ end subroutine uwshcu_readnl
          !**************
        end do
        else
-          wtrc_nwset_post_c = 0_c_int64_t
-          if (trace_water) wtrc_nwset_post_c = int(wtrc_nwset, c_int64_t)
-          do k = 1, kpen
-             thlten_sub = thlten_sub_tmp(k)
-             qtten_sub  = qtten_sub_tmp(k)
-             thl_prog = thl0(k) + thlten_sub * dt
-             qt_prog  = max( qt0(k) + qtten_sub * dt, 1.e-12_r8 )
-             call conden(p0(k),thl_prog,qt_prog,thj,qvj,qlj,qij,qse,id_check,ncnst)
-             call uwshcu_log_comp_sub_conden_exit_shell_entered()
-             call uwshcu_log_scalar_exit_limit_batch_shell_entered()
-             call uwshcu_scalar_exit_limit_batch_shell_codon(2_c_int64_t, 0_c_int64_t, int(id_check, c_int64_t), &
-                  0._r8, 0._r8, 0._r8, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-                  c_null_ptr, c_loc(comp_sub_conden_exit_code_c))
-             if( comp_sub_conden_exit_code_c .ne. 0_c_int64_t ) then
-                 id_exit = .true.
-                 go to 333
-             endif
-          end do
+          comp_sub_loop_id_check_c = 0_c_int64_t
+          comp_sub_conden_exit_code_c = 0_c_int64_t
+          call uwshcu_log_comp_sub_conden_loop_shell_entered()
+          call uwshcu_comp_sub_conden_loop_shell_codon(int(mkx, c_int64_t), int(ncnst, c_int64_t), &
+               int(kpen, c_int64_t), dt, c_loc(p0), c_loc(thl0), c_loc(qt0), &
+               c_loc(thlten_sub_tmp), c_loc(qtten_sub_tmp), c_loc(thj), c_loc(qvj), &
+               c_loc(qlj), c_loc(qij), c_loc(qse), c_loc(comp_sub_loop_id_check_c), &
+               c_loc(comp_sub_conden_exit_code_c))
+          id_check = int(comp_sub_loop_id_check_c)
+          if( comp_sub_conden_exit_code_c .ne. 0_c_int64_t ) then
+              id_exit = .true.
+              go to 333
+          endif
        endif
 
        ! --------------------------------------------- !

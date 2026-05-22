@@ -10515,6 +10515,60 @@ def uwshcu_comp_sub_conden_exit_shell_codon(
 
 
 @export
+def uwshcu_comp_sub_conden_loop_shell_codon(
+    mkx: int,
+    ncnst: int,
+    kpen: int,
+    dt_v: float,
+    p0_p: cobj,
+    thl0_p: cobj,
+    qt0_p: cobj,
+    thlten_sub_p: cobj,
+    qtten_sub_p: cobj,
+    th_p: cobj,
+    qv_p: cobj,
+    ql_p: cobj,
+    qi_p: cobj,
+    qse_p: cobj,
+    id_check_p: cobj,
+    exit_code_p: cobj,
+):
+    p0 = Ptr[float](p0_p)
+    thl0 = Ptr[float](thl0_p)
+    qt0 = Ptr[float](qt0_p)
+    thlten_sub = Ptr[float](thlten_sub_p)
+    qtten_sub = Ptr[float](qtten_sub_p)
+    id_check = Ptr[int](id_check_p)
+    exit_code = Ptr[int](exit_code_p)
+
+    exit_code[0] = 0
+    k_fortran = 1
+    while k_fortran <= kpen:
+        k = k_fortran - 1
+        thl_prog = thl0[k] + thlten_sub[k] * dt_v
+        qt_prog = max(qt0[k] + qtten_sub[k] * dt_v, 1.0e-12)
+        uwshcu_conden_scalar_from_c_dispatch(
+            p0[k],
+            thl_prog,
+            qt_prog,
+            th_p,
+            qv_p,
+            ql_p,
+            qi_p,
+            qse_p,
+            id_check_p,
+            ncnst,
+        )
+        uwshcu_comp_sub_conden_exit_stage_dispatch_codon(
+            id_check[0],
+            exit_code_p,
+        )
+        if exit_code[0] != 0:
+            return
+        k_fortran += 1
+
+
+@export
 def uwshcu_thermo_conden_exit_shell_codon(
     id_check: int,
     exit_conden_p: cobj,
