@@ -150,6 +150,7 @@
   logical :: compute_cnst_indices_parent_shell_entered_logged = .false.
   logical :: compute_init_selector_parent_shell_entered_logged = .false.
   logical :: compute_wtrc_metadata_parent_shell_entered_logged = .false.
+  logical :: compute_public_output_parent_shell_entered_logged = .false.
 
   interface
      subroutine uwshcu_getbuoy_codon(pbot_c, thv0bot_c, ptop_c, thv0top_c, &
@@ -409,6 +410,25 @@ contains
     end if
 
   end subroutine uwshcu_log_compute_wtrc_metadata_parent_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_compute_public_output_parent_shell_entered()
+
+    if (compute_public_output_parent_shell_entered_logged) return
+    compute_public_output_parent_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu compute public output init parent shell entered ' // &
+            '(public outputs owned by codon; native body initializes internal diagnostics)'
+       call uwshcu_append_proof( &
+            'uwshcu compute public output init parent shell entered ' // &
+            '(public outputs owned by codon; native body initializes internal diagnostics)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_compute_public_output_parent_shell_entered
 
 !===============================================================================
 
@@ -2937,7 +2957,8 @@ end subroutine uwshcu_readnl
        wtqc_p, wetbulb_precomputed_c, tw0_precomputed_p, qw0_precomputed_p, &
        constituent_indices_precomputed_c, constituent_indices_p, &
        init_shell_preselected_c, init_shell_flags_p, &
-       wtrc_metadata_precomputed_c, wtrc_metadata_flags_p, wtrc_iatype_p) &
+       wtrc_metadata_precomputed_c, wtrc_metadata_flags_p, wtrc_iatype_p, &
+       public_outputs_preinitialized_c) &
        bind(c, name="uwshcu_compute_native_from_c_cb")
 
     use iso_c_binding, only: c_double, c_f_pointer, c_int64_t, c_ptr
@@ -2948,6 +2969,7 @@ end subroutine uwshcu_readnl
     integer(c_int64_t), value :: mix_c, mkx_c, iend_c, ncnst_c, lchnk_c, wetbulb_precomputed_c
     integer(c_int64_t), value :: constituent_indices_precomputed_c, init_shell_preselected_c
     integer(c_int64_t), value :: wtrc_metadata_precomputed_c
+    integer(c_int64_t), value :: public_outputs_preinitialized_c
     real(c_double), value :: dt_c
     type(c_ptr), value :: ps0_p, zs0_p, p0_p, z0_p, dp0_p, u0_p, v0_p, qv0_p, ql0_p, qi0_p
     type(c_ptr), value :: t0_p, s0_p, tr0_p, tke_p, cldfrct_p, concldfrct_p, pblh_p, cush_p
@@ -3048,7 +3070,7 @@ end subroutine uwshcu_readnl
          constituent_indices_precomputed_c /= 0_c_int64_t, constituent_indices_precomputed, &
          init_shell_preselected_c /= 0_c_int64_t, init_shell_flags_precomputed, &
          wtrc_metadata_precomputed_c /= 0_c_int64_t, wtrc_metadata_flags_precomputed, &
-         wtrc_iatype_precomputed)
+         wtrc_iatype_precomputed, public_outputs_preinitialized_c /= 0_c_int64_t)
 
   end subroutine uwshcu_compute_native_from_c_cb
 
@@ -3173,7 +3195,7 @@ end subroutine uwshcu_readnl
                                     constituent_indices_precomputed_in,                           &
                                     init_shell_preselected, init_shell_flags_in,                  &
                                     wtrc_metadata_precomputed, wtrc_metadata_flags_in,            &
-                                    wtrc_iatype_precomputed_in )
+                                    wtrc_iatype_precomputed_in, public_outputs_preinitialized )
 
     ! ------------------------------------------------------------ !
     !                                                              !  
@@ -3248,6 +3270,7 @@ end subroutine uwshcu_readnl
     logical , intent(in), optional :: wtrc_metadata_precomputed
     integer(c_int64_t), intent(in), optional :: wtrc_metadata_flags_in(2)
     integer(c_int64_t), intent(in), optional :: wtrc_iatype_precomputed_in(max(1,wtrc_nwset),3)
+    logical , intent(in), optional :: public_outputs_preinitialized
 
     real(r8)                   tw0_in(mix,mkx)                !  Wet bulb temperature [ K ]
     real(r8)                   qw0_in(mix,mkx)                !  Wet-bulb specific humidity [ kg/kg ]
@@ -3584,6 +3607,7 @@ end subroutine uwshcu_readnl
     logical     use_preselected_init_shell
     logical     use_precomputed_wtrc_metadata
     logical     use_precomputed_wetbulb
+    logical     use_preinitialized_public_outputs
     logical     id_exit   
     logical     forcedCu                                      !  If 'true', cumulus updraft cannot overcome the buoyancy barrier
                                                               ! just above the PBL top.
@@ -3876,6 +3900,15 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: trten_p, trflx_p, wtqc_p, wtprec_p, wtsnow_p
           type(c_ptr), value :: precip_p, snow_p, cinh_p, cinlclh_p, cbmf_p, rliq_p, cnt_p, cnb_p
        end subroutine uwshcu_output_init_shell_codon
+
+       subroutine uwshcu_internal_output_init_shell_codon(mix_c, mkx_c, iend_c, ncnst_c, &
+            fer_p, fdr_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p, trflx_p, &
+            cinh_p, cinlclh_p) bind(c, name="uwshcu_internal_output_init_shell_codon")
+          use iso_c_binding, only: c_int64_t, c_ptr
+          integer(c_int64_t), value :: mix_c, mkx_c, iend_c, ncnst_c
+          type(c_ptr), value :: fer_p, fdr_p, qtten_p, slten_p, ufrc_p, uflx_p, vflx_p, trflx_p
+          type(c_ptr), value :: cinh_p, cinlclh_p
+       end subroutine uwshcu_internal_output_init_shell_codon
 
        subroutine uwshcu_diag_init_shell_codon(mix_c, mkx_c, iend_c, ncnst_c, &
             ufrcinvbase_p, ufrclcl_p, winvbase_p, wlcl_p, plcl_p, pinv_p, plfc_p, &
@@ -5993,6 +6026,10 @@ end subroutine uwshcu_readnl
        end if
     end if
 
+    use_preinitialized_public_outputs = .false.
+    if (present(public_outputs_preinitialized)) &
+         use_preinitialized_public_outputs = public_outputs_preinitialized
+
     if (use_native_init_shell_impl) then
        umf_out(:iend,0:mkx)         = 0.0_r8
        slflx_out(:iend,0:mkx)       = 0.0_r8
@@ -6033,6 +6070,32 @@ end subroutine uwshcu_readnl
        wtqc_out(:iend,:mkx,:ncnst)  = 0.0_r8
        wtprec_out(:iend,:ncnst)     = 0.0_r8
        wtsnow_out(:iend,:ncnst)     = 0.0_r8
+    else if (use_preinitialized_public_outputs) then
+       call uwshcu_log_compute_public_output_parent_shell_entered()
+       call uwshcu_internal_output_init_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), &
+            int(iend, c_int64_t), int(ncnst, c_int64_t), c_loc(fer_out), c_loc(fdr_out), &
+            c_loc(qtten_out), c_loc(slten_out), c_loc(ufrc_out), c_loc(uflx_out), &
+            c_loc(vflx_out), c_loc(trflx_out), c_loc(cinh_out), c_loc(cinlclh_out))
+       call uwshcu_log_diag_init_shell_entered()
+       call uwshcu_diag_init_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), &
+            int(iend, c_int64_t), int(ncnst, c_int64_t), c_loc(ufrcinvbase_out), &
+            c_loc(ufrclcl_out), c_loc(winvbase_out), c_loc(wlcl_out), c_loc(plcl_out), &
+            c_loc(pinv_out), c_loc(plfc_out), c_loc(pbup_out), c_loc(ppen_out), &
+            c_loc(qtsrc_out), c_loc(thlsrc_out), c_loc(thvlsrc_out), c_loc(emfkbup_out), &
+            c_loc(cbmflimit_out), c_loc(tkeavg_out), c_loc(zinv_out), c_loc(rcwp_out), &
+            c_loc(rlwp_out), c_loc(riwp_out), c_loc(wu_out), c_loc(qtu_out), c_loc(thlu_out), &
+            c_loc(thvu_out), c_loc(uu_out), c_loc(vu_out), c_loc(qtu_emf_out), &
+            c_loc(thlu_emf_out), c_loc(uu_emf_out), c_loc(vu_emf_out), c_loc(uemf_out), &
+            c_loc(tru_out), c_loc(tru_emf_out), c_loc(dwten_out), c_loc(diten_out), &
+            c_loc(flxrain_out), c_loc(flxsnow_out), c_loc(ntraprd_out), c_loc(ntsnprd_out), &
+            c_loc(excessu_arr_out), c_loc(excess0_arr_out), c_loc(xc_arr_out), &
+            c_loc(aquad_arr_out), c_loc(bquad_arr_out), c_loc(cquad_arr_out), &
+            c_loc(bogbot_arr_out), c_loc(bogtop_arr_out), c_loc(exit_UWCu), &
+            c_loc(exit_conden), c_loc(exit_klclmkx), c_loc(exit_klfcmkx), c_loc(exit_ufrc), &
+            c_loc(exit_wtw), c_loc(exit_drycore), c_loc(exit_wu), c_loc(exit_cufilter), &
+            c_loc(exit_kinv1), c_loc(exit_rei), c_loc(limit_shcu), c_loc(limit_negcon), &
+            c_loc(limit_ufrc), c_loc(limit_ppen), c_loc(limit_emf), c_loc(limit_cinlcl), &
+            c_loc(limit_cin), c_loc(limit_cbmf), c_loc(limit_rei), c_loc(ind_delcin))
     else
        call uwshcu_log_output_diag_init_shell_entered()
        call uwshcu_output_diag_init_shell_codon(int(mix, c_int64_t), int(mkx, c_int64_t), &

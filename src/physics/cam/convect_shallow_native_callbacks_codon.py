@@ -1,4 +1,4 @@
-from C import uwshcu_compute_native_from_c_cb(int, int, int, int, float, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], int, Ptr[float], Ptr[float], Ptr[float], Ptr[float], int, Ptr[float], Ptr[float], int, Ptr[int], int, Ptr[int], int, Ptr[int], Ptr[int]) -> None
+from C import uwshcu_compute_native_from_c_cb(int, int, int, int, float, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float], int, Ptr[float], Ptr[float], Ptr[float], Ptr[float], int, Ptr[float], Ptr[float], int, Ptr[int], int, Ptr[int], int, Ptr[int], Ptr[int], int) -> None
 from C import uwshcu_cnst_indices_from_c_cb(Ptr[int]) -> None
 from C import uwshcu_findsp_layer_from_c_cb(int, Ptr[float], Ptr[float], Ptr[float], Ptr[float], Ptr[float]) -> None
 from C import uwshcu_select_init_shell_from_c_cb(Ptr[int]) -> None
@@ -70,6 +70,7 @@ def uwshcu_compute_native_from_c_dispatch(
     wtrc_metadata_precomputed: int,
     wtrc_metadata_flags_p: cobj,
     wtrc_iatype_p: cobj,
+    public_outputs_preinitialized: int,
 ):
     uwshcu_compute_native_from_c_cb(
         mix,
@@ -136,6 +137,7 @@ def uwshcu_compute_native_from_c_dispatch(
         wtrc_metadata_precomputed,
         Ptr[int](wtrc_metadata_flags_p),
         Ptr[int](wtrc_iatype_p),
+        public_outputs_preinitialized,
     )
 
 
