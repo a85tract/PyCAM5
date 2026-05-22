@@ -11224,6 +11224,44 @@ def uwshcu_thermo_wtrc_detrain_detached_shell_codon(
             m += 1
 
 
+@export
+def uwshcu_thermo_wtrc_emf_kbup_shell_codon(
+    mkx: int,
+    wtrc_nwset: int,
+    k_fortran: int,
+    trace_water: int,
+    g_v: float,
+    emf_k: float,
+    ps0_km1: float,
+    ps0_k: float,
+    wtout_emf_kbup_p: cobj,
+    tr0_p: cobj,
+    wtrc_iatype_p: cobj,
+    wtqcm_liq_p: cobj,
+    wtqcm_ice_p: cobj,
+):
+    if trace_water == 0:
+        return
+
+    wtout_emf_kbup = Ptr[float](wtout_emf_kbup_p)
+    tr0 = Ptr[float](tr0_p)
+    wtrc_iatype = Ptr[int](wtrc_iatype_p)
+    wtqcm_liq = Ptr[float](wtqcm_liq_p)
+    wtqcm_ice = Ptr[float](wtqcm_ice_p)
+
+    k = k_fortran - 1
+    denom = ps0_km1 - ps0_k
+    m = 0
+    while m < wtrc_nwset:
+        liq = wtrc_iatype[m + wtrc_nwset] - 1
+        ice = wtrc_iatype[m + 2 * wtrc_nwset] - 1
+        tr_liq_idx = k + liq * mkx
+        tr_ice_idx = k + ice * mkx
+        wtqcm_liq[m] = wtqcm_liq[m] - g_v * emf_k * (wtout_emf_kbup[m + wtrc_nwset] - tr0[tr_liq_idx]) / denom
+        wtqcm_ice[m] = wtqcm_ice[m] - g_v * emf_k * (wtout_emf_kbup[m + 2 * wtrc_nwset] - tr0[tr_ice_idx]) / denom
+        m += 1
+
+
 
 
 @export

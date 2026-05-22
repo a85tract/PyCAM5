@@ -126,6 +126,7 @@
   logical :: thermo_conden_condensate_batch_shell_entered_logged = .false.
   logical :: thermo_wtrc_state_sustain_shell_entered_logged = .false.
   logical :: thermo_wtrc_detrain_detached_shell_entered_logged = .false.
+  logical :: thermo_wtrc_emf_kbup_shell_entered_logged = .false.
   logical :: thermo_prelim_shell_entered_logged = .false.
   logical :: thermo_final_shell_entered_logged = .false.
   logical :: thermo_post_batch_shell_entered_logged = .false.
@@ -2240,6 +2241,23 @@ contains
 
 !===============================================================================
 
+  subroutine uwshcu_log_thermo_wtrc_emf_kbup_shell_entered()
+
+    if (thermo_wtrc_emf_kbup_shell_entered_logged) return
+    thermo_wtrc_emf_kbup_shell_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') &
+            'uwshcu thermo wtrc emf kbup shell entered (water-tracer emf kbup updates owned by codon)'
+       call uwshcu_append_proof( &
+            'uwshcu thermo wtrc emf kbup shell entered (water-tracer emf kbup updates owned by codon)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_thermo_wtrc_emf_kbup_shell_entered
+
+!===============================================================================
+
   subroutine uwshcu_log_thermo_prelim_shell_entered()
 
     if (thermo_prelim_shell_entered_logged) return
@@ -3970,7 +3988,7 @@ end subroutine uwshcu_readnl
     real(r8), target :: wte(wtrc_nwset)     ! Total water tracer humidity at release level [ kg/kg ]
     real(r8), target :: wtsrc(wtrc_nwset)   ! Total water tracer humidity at surface [ kg/kg ]
     real(r8), target :: wtout(wtrc_nwset,3) ! Output for water tracers from conden (1=vapor,2=liquid,3=ice)
-    real(r8)   wtout_emf_kbup(wtrc_nwset,3) ! Output from conden during penetrative entrainment [ kg/kg ]
+    real(r8), target :: wtout_emf_kbup(wtrc_nwset,3) ! Output from conden during penetrative entrainment [ kg/kg ]
     real(r8)   wtexql(wtrc_nwset)           ! Expelled (detrained) water tracer liquid (not completely necessary)
     real(r8)   wtexqi(wtrc_nwset)           ! Expelled (detrained) water tracer ice    (not completely necessary)
     real(r8), target :: wtu_top(wtrc_nwset) ! Tracer updraft flux at top of cloud (not sure if needed at all).
@@ -5660,6 +5678,15 @@ end subroutine uwshcu_readnl
           type(c_ptr), value :: wlu_mid_p, wiu_mid_p, wtout_p, tr0_p, wtrc_iatype_p
           type(c_ptr), value :: wtqc_liq_p, wtqc_ice_p, wtqcm_liq_p, wtqcm_ice_p
        end subroutine uwshcu_thermo_wtrc_detrain_detached_shell_codon
+
+       subroutine uwshcu_thermo_wtrc_emf_kbup_shell_codon(mkx_c, wtrc_nwset_c, k_c, &
+            trace_water_c, g_c, emf_k_c, ps0_km1_c, ps0_k_c, wtout_emf_kbup_p, tr0_p, &
+            wtrc_iatype_p, wtqcm_liq_p, wtqcm_ice_p) bind(c, name="uwshcu_thermo_wtrc_emf_kbup_shell_codon")
+          use iso_c_binding, only: c_double, c_int64_t, c_ptr
+          integer(c_int64_t), value :: mkx_c, wtrc_nwset_c, k_c, trace_water_c
+          real(c_double), value :: g_c, emf_k_c, ps0_km1_c, ps0_k_c
+          type(c_ptr), value :: wtout_emf_kbup_p, tr0_p, wtrc_iatype_p, wtqcm_liq_p, wtqcm_ice_p
+       end subroutine uwshcu_thermo_wtrc_emf_kbup_shell_codon
 
        subroutine uwshcu_thermo_prelim_shell_codon(mkx_c, wtrc_nwset_c, kpen_c, &
             frc_rasn_c, g_c, dp0_p, umf_p, dwten_p, diten_p, wtdwten_p, wtditen_p, &
@@ -10749,12 +10776,21 @@ end subroutine uwshcu_readnl
              !Water tracers:
              !*************
               if(trace_water) then
+                if (use_native_init_shell_impl) then
                 do m=1,wtrc_nwset
                   wtqcm_liq(m) = wtqcm_liq(m)  - g * emf(k) * ( wtout_emf_kbup(m,2) - tr0(k,wtrc_iatype(m,iwtliq)) ) / &
                                              ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
                   wtqcm_ice(m) = wtqcm_ice(m)  - g * emf(k) * ( wtout_emf_kbup(m,3) - tr0(k,wtrc_iatype(m,iwtice)) ) / &
                                              ( ps0(k-1) - ps0(k) ) ! [ kg/kg/s ]
                 end do
+                else
+                  call uwshcu_log_thermo_wtrc_emf_kbup_shell_entered()
+                  call uwshcu_thermo_wtrc_emf_kbup_shell_codon(int(mkx, c_int64_t), &
+                       int(wtrc_nwset, c_int64_t), int(k, c_int64_t), &
+                       merge(1_c_int64_t, 0_c_int64_t, trace_water), g, emf(k), &
+                       ps0(k-1), ps0(k), c_loc(wtout_emf_kbup), c_loc(tr0), &
+                       c_loc(wtrc_iatype_post), c_loc(wtqcm_liq), c_loc(wtqcm_ice))
+                endif
               end if
              !*************
           endif 
