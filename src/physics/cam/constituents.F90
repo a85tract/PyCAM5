@@ -102,6 +102,18 @@ module constituents
         real(c_double), value :: cpc_c, rgas_c
         real(c_double) :: cv_c
      end function constituents_cv_codon
+
+     function cnst_read_iv_codon(flag_c) result(out_c) bind(c, name="cnst_read_iv_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: flag_c
+        integer(c_int64_t) :: out_c
+     end function cnst_read_iv_codon
+
+     function cnst_cam_outfld_codon(flag_c) result(out_c) bind(c, name="cnst_cam_outfld_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: flag_c
+        integer(c_int64_t) :: out_c
+     end function cnst_cam_outfld_codon
   end interface
 
 !==============================================================================================
@@ -472,7 +484,7 @@ CONTAINS
     logical :: cnst_read_iv     ! true => read initial values from inital file
 !-----------------------------------------------------------------------
 
-    cnst_read_iv = read_init_vals(m)
+    cnst_read_iv = cnst_read_iv_codon(merge(1_c_int64_t, 0_c_int64_t, read_init_vals(m))) /= 0_c_int64_t
  end function cnst_read_iv
 
 !==============================================================================
@@ -533,7 +545,7 @@ function cnst_cam_outfld(m)
    logical             :: cnst_cam_outfld  ! true => use default CAM outfld calls
 !-----------------------------------------------------------------------
 
-   cnst_cam_outfld = cam_outfld_(m)
+   cnst_cam_outfld = cnst_cam_outfld_codon(merge(1_c_int64_t, 0_c_int64_t, cam_outfld_(m))) /= 0_c_int64_t
 
 end function cnst_cam_outfld
 

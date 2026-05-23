@@ -6217,6 +6217,42 @@ def phys_control_int_value_codon(value: int) -> int:
     return value
 
 
+@inline
+def _ascii_first(name_len: int, name_ascii_p: cobj) -> int:
+    if name_len <= 0:
+        return 0
+    name_ascii = Ptr[int](name_ascii_p)
+    return name_ascii[0]
+
+
+@inline
+def _vdiff_field_idx(name_len: int, name_ascii_p: cobj, has_qindex: int, qindex: int) -> int:
+    if name_len != 1:
+        return 0
+    first = _ascii_first(name_len, name_ascii_p)
+    if first == 117 or first == 85:
+        return 1
+    if first == 118 or first == 86:
+        return 2
+    if first == 115 or first == 83:
+        return 3
+    if first == 113 or first == 81:
+        if has_qindex != 0:
+            return 3 + qindex
+        return 4
+    return 0
+
+
+@export
+def vdiff_select_codon(name_len: int, name_ascii_p: cobj, has_qindex: int, qindex: int) -> int:
+    return _vdiff_field_idx(name_len, name_ascii_p, has_qindex, qindex)
+
+
+@export
+def diffuse_codon(name_len: int, name_ascii_p: cobj, has_qindex: int, qindex: int) -> int:
+    return _vdiff_field_idx(name_len, name_ascii_p, has_qindex, qindex)
+
+
 @export
 def constituents_rgas_codon(r_universal: float, mwc: float) -> float:
     return r_universal * mwc
@@ -6225,6 +6261,20 @@ def constituents_rgas_codon(r_universal: float, mwc: float) -> float:
 @export
 def constituents_cv_codon(cpc: float, rgas: float) -> float:
     return cpc - rgas
+
+
+@export
+def cnst_read_iv_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def cnst_cam_outfld_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
 
 
 @inline
@@ -6886,6 +6936,44 @@ def phys_gmean_normalize_codon(arr_p: cobj, nflds: int, pi_value: float):
 @export
 def pbl_utils_value_codon(value: float) -> float:
     return value
+
+
+@export
+def pbl_utils_init_codon(value: float) -> float:
+    return value
+
+
+@export
+def calc_ustar_rrho_codon(rair: float, t: float, pmid: float) -> float:
+    return rair * t / pmid
+
+
+@export
+def calc_ustar_codon(taux: float, tauy: float, rrho: float, ustar_min: float) -> float:
+    return max(sqrt(sqrt(taux**2 + tauy**2) * rrho), ustar_min)
+
+
+@export
+def calc_obklen_khfs_codon(shflx: float, rrho: float, cpair: float) -> float:
+    return shflx * rrho / cpair
+
+
+@export
+def calc_obklen_kqfs_codon(qflx: float, rrho: float) -> float:
+    return qflx * rrho
+
+
+@export
+def calc_obklen_kbfs_codon(khfs: float, zvir: float, ths: float, kqfs: float) -> float:
+    return khfs + zvir * ths * kqfs
+
+
+@export
+def calc_obklen_codon(thvs: float, ustar: float, g: float, vk: float, kbfs: float) -> float:
+    sign_eps = 1.0e-10
+    if kbfs < 0.0:
+        sign_eps = -1.0e-10
+    return -thvs * ustar**3 / (g * vk * (kbfs + sign_eps))
 
 
 @export

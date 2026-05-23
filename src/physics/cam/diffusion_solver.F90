@@ -20,6 +20,8 @@
   ! Most Recent Code    :  Sungsu Park, Aug. 2006, Dec. 2008, Jan. 2010.                !
   !------------------------------------------------------------------------------------ !
 
+  use iso_c_binding, only: c_int64_t, c_loc, c_ptr
+
   implicit none
   private       
   save
@@ -86,6 +88,22 @@
   logical :: diffusion_solver_setup_proof_written = .false.
 
   interface
+     pure function vdiff_select_codon(name_len_c, name_ascii_p, has_qindex_c, qindex_c) result(field_idx_c) &
+          bind(c, name="vdiff_select_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: name_len_c, has_qindex_c, qindex_c
+       type(c_ptr), value :: name_ascii_p
+       integer(c_int64_t) :: field_idx_c
+     end function vdiff_select_codon
+
+     pure function diffuse_codon(name_len_c, name_ascii_p, has_qindex_c, qindex_c) result(field_idx_c) &
+          bind(c, name="diffuse_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: name_len_c, has_qindex_c, qindex_c
+       type(c_ptr), value :: name_ascii_p
+       integer(c_int64_t) :: field_idx_c
+     end function diffuse_codon
+
      subroutine diffusion_solver_setup_codon(pcols_c, pver_c, ncol_c, ztodt_c, gravit_c, rair_c, &
           t_p, rairi_p, p_ifc_p, p_mid_p, p_rdel_p, p_rdst_p, tint_p, rhoi_p, dpidz_sq_p, tmpi2_p, &
           rrho_p, tmp1_p) bind(c, name="diffusion_solver_setup_codon")
@@ -1075,24 +1093,28 @@
     type(vdiff_selector), intent(inout)        :: fieldlist
     character(*),         intent(in)           :: name
     integer,              intent(in), optional :: qindex
+    integer(c_int64_t), target :: name_ascii(len(name))
+    integer :: i, field_idx
     
     vdiff_select = ''
-    select case (name)
-    case ('u','U')
-       fieldlist%fields(1) = .true.
-    case ('v','V')
-       fieldlist%fields(2) = .true.
-    case ('s','S')
-       fieldlist%fields(3) = .true.
-    case ('q','Q')
-       if( present(qindex) ) then
-           fieldlist%fields(3 + qindex) = .true.
-       else
-           fieldlist%fields(4) = .true.
-       endif
-    case default
+
+    do i = 1, len(name)
+       name_ascii(i) = int(iachar(name(i:i)), c_int64_t)
+    end do
+
+    if (present(qindex)) then
+       field_idx = int(vdiff_select_codon(int(len(name), c_int64_t), c_loc(name_ascii(1)), &
+            1_c_int64_t, int(qindex, c_int64_t)))
+    else
+       field_idx = int(vdiff_select_codon(int(len(name), c_int64_t), c_loc(name_ascii(1)), &
+            0_c_int64_t, 0_c_int64_t))
+    end if
+
+    if (field_idx > 0) then
+       fieldlist%fields(field_idx) = .true.
+    else
        write(vdiff_select,*) 'Bad argument to vdiff_index: ', name
-    end select
+    end if
     return
     
   end function vdiff_select
@@ -1122,23 +1144,26 @@
     type(vdiff_selector), intent(in)           :: fieldlist
     character(*),         intent(in)           :: name
     integer,              intent(in), optional :: qindex
+    integer(c_int64_t), target :: name_ascii(len(name))
+    integer :: i, field_idx
     
-    select case (name)
-    case ('u','U')
-       diffuse = fieldlist%fields(1)
-    case ('v','V')
-       diffuse = fieldlist%fields(2)
-    case ('s','S')
-       diffuse = fieldlist%fields(3)
-    case ('q','Q')
-       if( present(qindex) ) then
-           diffuse = fieldlist%fields(3 + qindex)
-       else
-           diffuse = fieldlist%fields(4)
-       endif
-    case default
+    do i = 1, len(name)
+       name_ascii(i) = int(iachar(name(i:i)), c_int64_t)
+    end do
+
+    if (present(qindex)) then
+       field_idx = int(diffuse_codon(int(len(name), c_int64_t), c_loc(name_ascii(1)), &
+            1_c_int64_t, int(qindex, c_int64_t)))
+    else
+       field_idx = int(diffuse_codon(int(len(name), c_int64_t), c_loc(name_ascii(1)), &
+            0_c_int64_t, 0_c_int64_t))
+    end if
+
+    if (field_idx > 0) then
+       diffuse = fieldlist%fields(field_idx)
+    else
        diffuse = .false.
-    end select
+    end if
     return
   end function diffuse
 

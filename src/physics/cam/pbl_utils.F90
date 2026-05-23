@@ -50,6 +50,48 @@ interface
     real(c_double), value :: value_c
     real(c_double) :: value_out
   end function pbl_utils_value_codon
+  function pbl_utils_init_codon(value_c) result(value_out) &
+       bind(c, name="pbl_utils_init_codon")
+    use iso_c_binding, only: c_double
+    real(c_double), value :: value_c
+    real(c_double) :: value_out
+  end function pbl_utils_init_codon
+  pure function calc_ustar_rrho_codon(rair_c, t_c, pmid_c) result(rrho_out) &
+       bind(c, name="calc_ustar_rrho_codon")
+    use iso_c_binding, only: c_double
+    real(c_double), value :: rair_c, t_c, pmid_c
+    real(c_double) :: rrho_out
+  end function calc_ustar_rrho_codon
+  pure function calc_ustar_codon(taux_c, tauy_c, rrho_c, ustar_min_c) result(ustar_out) &
+       bind(c, name="calc_ustar_codon")
+    use iso_c_binding, only: c_double
+    real(c_double), value :: taux_c, tauy_c, rrho_c, ustar_min_c
+    real(c_double) :: ustar_out
+  end function calc_ustar_codon
+  pure function calc_obklen_khfs_codon(shflx_c, rrho_c, cpair_c) result(khfs_out) &
+       bind(c, name="calc_obklen_khfs_codon")
+    use iso_c_binding, only: c_double
+    real(c_double), value :: shflx_c, rrho_c, cpair_c
+    real(c_double) :: khfs_out
+  end function calc_obklen_khfs_codon
+  pure function calc_obklen_kqfs_codon(qflx_c, rrho_c) result(kqfs_out) &
+       bind(c, name="calc_obklen_kqfs_codon")
+    use iso_c_binding, only: c_double
+    real(c_double), value :: qflx_c, rrho_c
+    real(c_double) :: kqfs_out
+  end function calc_obklen_kqfs_codon
+  pure function calc_obklen_kbfs_codon(khfs_c, zvir_c, ths_c, kqfs_c) result(kbfs_out) &
+       bind(c, name="calc_obklen_kbfs_codon")
+    use iso_c_binding, only: c_double
+    real(c_double), value :: khfs_c, zvir_c, ths_c, kqfs_c
+    real(c_double) :: kbfs_out
+  end function calc_obklen_kbfs_codon
+  pure function calc_obklen_codon(thvs_c, ustar_c, g_c, vk_c, kbfs_c) result(obklen_out) &
+       bind(c, name="calc_obklen_codon")
+    use iso_c_binding, only: c_double
+    real(c_double), value :: thvs_c, ustar_c, g_c, vk_c, kbfs_c
+    real(c_double) :: obklen_out
+  end function calc_obklen_codon
   pure function virtem_codon(t_c, q_c, zvir_c) result(value_out) &
        bind(c, name="virtem_codon")
     use iso_c_binding, only: c_double
@@ -146,11 +188,23 @@ subroutine pbl_utils_init(g_in,vk_in,cpair_in,rair_in,zvir_in)
   real(r8), intent(in) :: rair_in    ! gas constant for dry air
   real(r8), intent(in) :: zvir_in    ! rh2o/rair - 1
 
-  g = pbl_utils_value(g_in)
-  vk = pbl_utils_value(vk_in)
-  cpair = pbl_utils_value(cpair_in)
-  rair = pbl_utils_value(rair_in)
-  zvir = pbl_utils_value(zvir_in)
+  call pbl_utils_select_impl()
+
+  if (use_native_pbl_utils_impl) then
+     g = g_in
+     vk = vk_in
+     cpair = cpair_in
+     rair = rair_in
+     zvir = zvir_in
+     return
+  end if
+
+  call pbl_utils_proof_once()
+  g = real(pbl_utils_init_codon(real(g_in, c_double)), r8)
+  vk = real(pbl_utils_init_codon(real(vk_in, c_double)), r8)
+  cpair = real(pbl_utils_init_codon(real(cpair_in, c_double)), r8)
+  rair = real(pbl_utils_init_codon(real(rair_in, c_double)), r8)
+  zvir = real(pbl_utils_init_codon(real(zvir_in, c_double)), r8)
 
   if (.not. use_native_pbl_utils_impl) then
      call pbl_utils_log_direct(pbl_utils_init_logged, 'pbl_utils_init direct = codon')
@@ -174,8 +228,10 @@ elemental subroutine calc_ustar( t,    pmid, taux, tauy, &
   real(r8), intent(out) :: rrho     ! 1./bottom level density
   real(r8), intent(out) :: ustar    ! surface friction velocity [m/s]
 
-  rrho = rair * t / pmid
-  ustar = max( sqrt( sqrt(taux**2 + tauy**2)*rrho ), ustar_min )
+  rrho = real(calc_ustar_rrho_codon(real(rair, c_double), real(t, c_double), &
+       real(pmid, c_double)), r8)
+  ustar = real(calc_ustar_codon(real(taux, c_double), real(tauy, c_double), &
+       real(rrho, c_double), real(ustar_min, c_double)), r8)
   
 end subroutine calc_ustar
 
@@ -200,12 +256,15 @@ elemental subroutine calc_obklen( ths,  thvs, qflx, shflx, rrho, ustar, &
   real(r8), intent(out) :: obklen        ! Obukhov length
   
   ! Need kinematic fluxes for Obukhov:
-  khfs = shflx*rrho/cpair
-  kqfs = qflx*rrho
-  kbfs = khfs + zvir*ths*kqfs
+  khfs = real(calc_obklen_khfs_codon(real(shflx, c_double), real(rrho, c_double), &
+       real(cpair, c_double)), r8)
+  kqfs = real(calc_obklen_kqfs_codon(real(qflx, c_double), real(rrho, c_double)), r8)
+  kbfs = real(calc_obklen_kbfs_codon(real(khfs, c_double), real(zvir, c_double), &
+       real(ths, c_double), real(kqfs, c_double)), r8)
   
   ! Compute Obukhov length:
-  obklen = -thvs * ustar**3 / (g*vk*(kbfs + sign(1.e-10_r8,kbfs)))
+  obklen = real(calc_obklen_codon(real(thvs, c_double), real(ustar, c_double), &
+       real(g, c_double), real(vk, c_double), real(kbfs, c_double)), r8)
 
 end subroutine calc_obklen
 
