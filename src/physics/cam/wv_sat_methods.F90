@@ -28,7 +28,7 @@ module wv_sat_methods
 ! elemental) interface.
 
 use cam_logfile, only: iulog
-use iso_c_binding, only: c_double
+use iso_c_binding, only: c_double, c_int64_t
 use spmd_utils, only: masterproc
 
 implicit none
@@ -74,6 +74,20 @@ interface
     real(c_double), value :: epsilo_c
     real(c_double) :: omeps_c
   end function wv_sat_methods_omeps_codon
+
+  pure function wv_sat_valid_idx_codon(idx_c) result(status_c) &
+       bind(c, name="wv_sat_valid_idx_codon")
+    use iso_c_binding, only: c_int64_t
+    integer(c_int64_t), value :: idx_c
+    integer(c_int64_t) :: status_c
+  end function wv_sat_valid_idx_codon
+
+  pure function wv_sat_svp_to_qsat_codon(es_c, p_c, epsilo_c, omeps_c) result(qs_c) &
+       bind(c, name="wv_sat_svp_to_qsat_codon")
+    use iso_c_binding, only: c_double
+    real(c_double), value :: es_c, p_c, epsilo_c, omeps_c
+    real(c_double) :: qs_c
+  end function wv_sat_svp_to_qsat_codon
 end interface
 
 public wv_sat_methods_init
@@ -237,7 +251,7 @@ pure function wv_sat_valid_idx(idx) result(status)
   integer, intent(in) :: idx
   logical :: status
 
-  status = (idx /= Invalid_idx)
+  status = wv_sat_valid_idx_codon(int(idx, c_int64_t)) /= 0_c_int64_t
 
 end function wv_sat_valid_idx
 
@@ -282,12 +296,8 @@ elemental function wv_sat_svp_to_qsat(es, p) result(qs)
   real(r8), intent(in) :: p   ! Current pressure.
   real(r8) :: qs
 
-  ! If pressure is less than SVP, set qs to maximum of 1.
-  if ( (p - es) <= 0._r8 ) then
-     qs = 1.0_r8
-  else
-     qs = epsilo*es / (p - omeps*es)
-  end if
+  qs = real(wv_sat_svp_to_qsat_codon(real(es, c_double), real(p, c_double), &
+       real(epsilo, c_double), real(omeps, c_double)), r8)
 
 end function wv_sat_svp_to_qsat
 

@@ -10,7 +10,7 @@ module cloud_fraction
   use cam_logfile,    only: iulog
   use cam_abortutils, only: endrun
   use ref_pres,       only: trop_cloud_top_lev
-  use iso_c_binding,  only: c_int64_t
+  use iso_c_binding,  only: c_double, c_int64_t
 
   implicit none
   private
@@ -120,6 +120,12 @@ module cloud_fraction
        integer(c_int64_t), value :: flag_c
        integer(c_int64_t) :: out_c
      end function cldfrc_register_codon
+     function relhum_min_codon(press_c, lat_c, rhminh_c, rhminp_c, cldfrc_rhminp_botmb_c, unset_r8_c, pi_c) &
+          result(rh_c) bind(c, name="relhum_min_codon")
+       use iso_c_binding, only: c_double
+       real(c_double), value :: press_c, lat_c, rhminh_c, rhminp_c, cldfrc_rhminp_botmb_c, unset_r8_c, pi_c
+       real(c_double) :: rh_c
+     end function relhum_min_codon
   end interface
 
 !================================================================================================
@@ -1677,13 +1683,9 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     real(r8), intent(in) :: press, lat
     real(r8) :: rh
 
-    rh = rhminh
-    if (rhminp .eq. unset_r8 ) return
-
-    if ((press .lt. cldfrc_rhminp_botmb*1.e2_r8) .and. &
-        ( abs( lat*180._r8/pi ) .gt. 60._r8 ) ) then
-       rh = rhminp
-    endif
+    rh = relhum_min_codon(real(press, c_double), real(lat, c_double), real(rhminh, c_double), &
+         real(rhminp, c_double), real(cldfrc_rhminp_botmb, c_double), real(unset_r8, c_double), &
+         real(pi, c_double))
 
   end function relhum_min
 

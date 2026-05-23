@@ -21,6 +21,20 @@ module cmparray_mod
        type(c_ptr), value :: in_array_p, out_array_p, idxday_p, idxnite_p
        integer(c_int64_t), value :: nday_c, nnite_c, il1_c, iu1_c, il2_c, iu2_c, il3_c, iu3_c
      end subroutine cmparray_daynite_copy_real_codon
+     subroutine cmpdaynite_1d_r_copy_codon(in_array_p, out_array_p, idxday_p, idxnite_p, &
+          nday_c, nnite_c, il1_c, iu1_c, il2_c, iu2_c, il3_c, iu3_c) &
+          bind(c, name="cmpdaynite_1d_r_copy_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       type(c_ptr), value :: in_array_p, out_array_p, idxday_p, idxnite_p
+       integer(c_int64_t), value :: nday_c, nnite_c, il1_c, iu1_c, il2_c, iu2_c, il3_c, iu3_c
+     end subroutine cmpdaynite_1d_r_copy_codon
+     subroutine cmpdaynite_2d_r_copy_codon(in_array_p, out_array_p, idxday_p, idxnite_p, &
+          nday_c, nnite_c, il1_c, iu1_c, il2_c, iu2_c, il3_c, iu3_c) &
+          bind(c, name="cmpdaynite_2d_r_copy_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       type(c_ptr), value :: in_array_p, out_array_p, idxday_p, idxnite_p
+       integer(c_int64_t), value :: nday_c, nnite_c, il1_c, iu1_c, il2_c, iu2_c, il3_c, iu3_c
+     end subroutine cmpdaynite_2d_r_copy_codon
 
      subroutine cmparray_exp_daynite_real_codon(array_p, tmp_p, idxday_p, idxnite_p, &
           nday_c, nnite_c, il1_c, iu1_c, il2_c, iu2_c, il3_c, iu3_c) &
@@ -29,6 +43,20 @@ module cmparray_mod
        type(c_ptr), value :: array_p, tmp_p, idxday_p, idxnite_p
        integer(c_int64_t), value :: nday_c, nnite_c, il1_c, iu1_c, il2_c, iu2_c, il3_c, iu3_c
      end subroutine cmparray_exp_daynite_real_codon
+     subroutine expdaynite_1d_r_codon(array_p, tmp_p, idxday_p, idxnite_p, &
+          nday_c, nnite_c, il1_c, iu1_c, il2_c, iu2_c, il3_c, iu3_c) &
+          bind(c, name="expdaynite_1d_r_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       type(c_ptr), value :: array_p, tmp_p, idxday_p, idxnite_p
+       integer(c_int64_t), value :: nday_c, nnite_c, il1_c, iu1_c, il2_c, iu2_c, il3_c, iu3_c
+     end subroutine expdaynite_1d_r_codon
+     subroutine expdaynite_2d_r_codon(array_p, tmp_p, idxday_p, idxnite_p, &
+          nday_c, nnite_c, il1_c, iu1_c, il2_c, iu2_c, il3_c, iu3_c) &
+          bind(c, name="expdaynite_2d_r_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       type(c_ptr), value :: array_p, tmp_p, idxday_p, idxnite_p
+       integer(c_int64_t), value :: nday_c, nnite_c, il1_c, iu1_c, il2_c, iu2_c, il3_c, iu3_c
+     end subroutine expdaynite_2d_r_codon
   end interface
 
   interface CmpDayNite
@@ -184,7 +212,7 @@ module cmparray_mod
 
     if (.not. use_native_cmparray_impl) then
        call cmparray_proof_once()
-       call cmparray_daynite_copy_real_codon(c_loc(InArray), c_loc(OutArray), &
+       call cmpdaynite_1d_r_copy_codon(c_loc(InArray), c_loc(OutArray), &
             c_loc(IdxDay), c_loc(IdxNite), int(Nday, c_int64_t), int(Nnite, c_int64_t), &
             int(il1, c_int64_t), int(iu1, c_int64_t), 1_c_int64_t, 1_c_int64_t, &
             1_c_int64_t, 1_c_int64_t)
@@ -209,7 +237,7 @@ module cmparray_mod
 
     if (.not. use_native_cmparray_impl) then
        call cmparray_proof_once()
-       call cmparray_daynite_copy_real_codon(c_loc(InArray), c_loc(OutArray), &
+       call cmpdaynite_2d_r_copy_codon(c_loc(InArray), c_loc(OutArray), &
             c_loc(IdxDay), c_loc(IdxNite), int(Nday, c_int64_t), int(Nnite, c_int64_t), &
             int(il1, c_int64_t), int(iu1, c_int64_t), int(il2, c_int64_t), int(iu2, c_int64_t), &
             1_c_int64_t, 1_c_int64_t)
@@ -326,7 +354,7 @@ module cmparray_mod
 
     if (.not. use_native_cmparray_impl) then
        call cmparray_proof_once()
-       call cmparray_exp_daynite_real_codon(c_loc(Array), c_loc(tmp), &
+       call expdaynite_1d_r_codon(c_loc(Array), c_loc(tmp), &
             c_loc(IdxDay), c_loc(IdxNite), int(Nday, c_int64_t), int(Nnite, c_int64_t), &
             int(il1, c_int64_t), int(iu1, c_int64_t), 1_c_int64_t, 1_c_int64_t, &
             1_c_int64_t, 1_c_int64_t)
@@ -352,7 +380,7 @@ module cmparray_mod
 
     if (.not. use_native_cmparray_impl) then
        call cmparray_proof_once()
-       call cmparray_exp_daynite_real_codon(c_loc(Array), c_loc(tmp), &
+       call expdaynite_2d_r_codon(c_loc(Array), c_loc(tmp), &
             c_loc(IdxDay), c_loc(IdxNite), int(Nday, c_int64_t), int(Nnite, c_int64_t), &
             int(il1, c_int64_t), int(iu1, c_int64_t), int(il2, c_int64_t), int(iu2, c_int64_t), &
             1_c_int64_t, 1_c_int64_t)

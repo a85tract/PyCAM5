@@ -6882,6 +6882,11 @@ def pbl_utils_value_codon(value: float) -> float:
 
 
 @export
+def virtem_codon(t: float, q: float, zvir: float) -> float:
+    return t * (1.0 + zvir * q)
+
+
+@export
 def wv_sat_methods_value_codon(value: float) -> float:
     return value
 
@@ -6889,6 +6894,20 @@ def wv_sat_methods_value_codon(value: float) -> float:
 @export
 def wv_sat_methods_omeps_codon(epsilo: float) -> float:
     return 1.0 - epsilo
+
+
+@export
+def wv_sat_valid_idx_codon(idx: int) -> int:
+    if idx != -1:
+        return 1
+    return 0
+
+
+@export
+def wv_sat_svp_to_qsat_codon(es: float, p: float, epsilo: float, omeps: float) -> float:
+    if (p - es) <= 0.0:
+        return 1.0
+    return epsilo * es / (p - omeps * es)
 
 
 @export
@@ -7076,6 +7095,46 @@ def cmparray_daynite_copy_real_codon(
 
 
 @export
+def cmpdaynite_1d_r_copy_codon(
+    in_array_p: cobj,
+    out_array_p: cobj,
+    idxday_p: cobj,
+    idxnite_p: cobj,
+    nday: int,
+    nnite: int,
+    il1: int,
+    iu1: int,
+    il2: int,
+    iu2: int,
+    il3: int,
+    iu3: int,
+):
+    cmparray_daynite_copy_real_codon(
+        in_array_p, out_array_p, idxday_p, idxnite_p, nday, nnite, il1, iu1, il2, iu2, il3, iu3
+    )
+
+
+@export
+def cmpdaynite_2d_r_copy_codon(
+    in_array_p: cobj,
+    out_array_p: cobj,
+    idxday_p: cobj,
+    idxnite_p: cobj,
+    nday: int,
+    nnite: int,
+    il1: int,
+    iu1: int,
+    il2: int,
+    iu2: int,
+    il3: int,
+    iu3: int,
+):
+    cmparray_daynite_copy_real_codon(
+        in_array_p, out_array_p, idxday_p, idxnite_p, nday, nnite, il1, iu1, il2, iu2, il3, iu3
+    )
+
+
+@export
 def cmparray_exp_daynite_real_codon(
     array_p: cobj,
     tmp_p: cobj,
@@ -7111,3 +7170,43 @@ def cmparray_exp_daynite_real_codon(
             for pos in range(nday):
                 i_dst = int(idxday[pos])
                 array[_cmparray_idx3(i_dst, j, k, il1, il2, il3, ld1, ld2)] = tmp[pos]
+
+
+@export
+def expdaynite_1d_r_codon(
+    array_p: cobj,
+    tmp_p: cobj,
+    idxday_p: cobj,
+    idxnite_p: cobj,
+    nday: int,
+    nnite: int,
+    il1: int,
+    iu1: int,
+    il2: int,
+    iu2: int,
+    il3: int,
+    iu3: int,
+):
+    cmparray_exp_daynite_real_codon(
+        array_p, tmp_p, idxday_p, idxnite_p, nday, nnite, il1, iu1, il2, iu2, il3, iu3
+    )
+
+
+@export
+def expdaynite_2d_r_codon(
+    array_p: cobj,
+    tmp_p: cobj,
+    idxday_p: cobj,
+    idxnite_p: cobj,
+    nday: int,
+    nnite: int,
+    il1: int,
+    iu1: int,
+    il2: int,
+    iu2: int,
+    il3: int,
+    iu3: int,
+):
+    cmparray_exp_daynite_real_codon(
+        array_p, tmp_p, idxday_p, idxnite_p, nday, nnite, il1, iu1, il2, iu2, il3, iu3
+    )

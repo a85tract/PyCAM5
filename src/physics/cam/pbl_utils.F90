@@ -50,6 +50,12 @@ interface
     real(c_double), value :: value_c
     real(c_double) :: value_out
   end function pbl_utils_value_codon
+  pure function virtem_codon(t_c, q_c, zvir_c) result(value_out) &
+       bind(c, name="virtem_codon")
+    use iso_c_binding, only: c_double
+    real(c_double), value :: t_c, q_c, zvir_c
+    real(c_double) :: value_out
+  end function virtem_codon
 end interface
 
 contains
@@ -212,7 +218,7 @@ elemental real(r8) function virtem(t,q)
 
   real(r8), intent(in) :: t, q
 
-  virtem = t * (1.0_r8 + zvir*q)
+  virtem = real(virtem_codon(real(t, c_double), real(q, c_double), real(zvir, c_double)), r8)
 
 end function virtem
 

@@ -79,6 +79,19 @@ def _relhum_min(
 
 
 @export
+def relhum_min_codon(
+    press: float,
+    lat: float,
+    rhminh: float,
+    rhminp: float,
+    cldfrc_rhminp_botmb: float,
+    unset_r8: float,
+    pi: float,
+) -> float:
+    return _relhum_min(press, lat, rhminh, rhminp, cldfrc_rhminp_botmb, unset_r8, pi)
+
+
+@export
 def cldfrc_layer_rh_codon(
     ncol: int,
     pcols: int,
