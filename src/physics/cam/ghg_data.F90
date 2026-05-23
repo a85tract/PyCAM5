@@ -18,7 +18,7 @@ use physconst,      only: mwdry, mwch4, mwn2o, mwf11, mwf12, mwco2
 use chem_surfvals,  only: chem_surfvals_get, chem_surfvals_co2_rad
 use cam_abortutils, only: endrun
 use error_messages, only: handle_err
-use iso_c_binding, only: c_ptr
+use iso_c_binding, only: c_int64_t, c_ptr
 use spmd_utils, only: masterproc
 use cam_logfile, only: iulog
 
@@ -60,14 +60,24 @@ interface
     type(c_ptr), value :: rmwn2o_p, rmwch4_p, rmwf11_p, rmwf12_p, rmwco2_p
   end subroutine ghg_data_mw_ratios_codon
 
-  function ghg_data_trcmix_scale_codon(gas_id_c, dlat_c) result(scale_c) &
-       bind(c, name="ghg_data_trcmix_scale_codon")
-    use iso_c_binding, only: c_int64_t, c_double
-    integer(c_int64_t), value :: gas_id_c
-    real(c_double), value :: dlat_c
-    real(c_double) :: scale_c
-  end function ghg_data_trcmix_scale_codon
-end interface
+	  function ghg_data_trcmix_scale_codon(gas_id_c, dlat_c) result(scale_c) &
+	       bind(c, name="ghg_data_trcmix_scale_codon")
+	    use iso_c_binding, only: c_int64_t, c_double
+	    integer(c_int64_t), value :: gas_id_c
+	    real(c_double), value :: dlat_c
+	    real(c_double) :: scale_c
+	  end function ghg_data_trcmix_scale_codon
+	  function ghg_data_register_codon(flag_c) result(out_c) bind(c, name="ghg_data_register_codon")
+	    use iso_c_binding, only: c_int64_t
+	    integer(c_int64_t), value :: flag_c
+	    integer(c_int64_t) :: out_c
+	  end function ghg_data_register_codon
+	  function ghg_data_timestep_init_codon(flag_c) result(out_c) bind(c, name="ghg_data_timestep_init_codon")
+	    use iso_c_binding, only: c_int64_t
+	    integer(c_int64_t), value :: flag_c
+	    integer(c_int64_t) :: out_c
+	  end function ghg_data_timestep_init_codon
+	end interface
 
 !================================================================================================
 contains
@@ -203,6 +213,7 @@ subroutine ghg_data_register()
   use physics_buffer, only : pbuf_add_field, dtype_r8
 
   integer iconst
+  if (ghg_data_register_codon(1_c_int64_t) == 0_c_int64_t) return
 
  
   do iconst = 1,ncnst
@@ -228,6 +239,7 @@ subroutine ghg_data_timestep_init(pbuf2d, state)
 
   integer iconst
   integer lchnk
+  if (ghg_data_timestep_init_codon(1_c_int64_t) == 0_c_int64_t) return
 
   call ghg_data_update_mw_ratios()
 

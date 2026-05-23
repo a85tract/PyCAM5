@@ -1,6 +1,13 @@
 from math import acos, cos, log
 
 
+@export
+def cldfrc_register_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
 @inline
 def _field2_idx(i: int, k: int, ld1: int) -> int:
     """t/fice/fsnow declared as (ld1, pver)"""

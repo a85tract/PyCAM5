@@ -18,6 +18,7 @@ module chem_surfvals
    use cam_logfile,    only: iulog
    use m_types,        only: time_ramp
    use constituents,   only: pcnst
+   use iso_c_binding,  only: c_double, c_int64_t
 
 !-----------------------------------------------------------------------
 !- module boilerplate --------------------------------------------------
@@ -83,6 +84,29 @@ module chem_surfvals
    logical :: use_native_impl = .false.
    logical :: impl_selected = .false.
 
+   interface
+      function chem_surfvals_readnl_codon(flag_c) result(out_c) bind(c, name="chem_surfvals_readnl_codon")
+         use iso_c_binding, only: c_int64_t
+         integer(c_int64_t), value :: flag_c
+         integer(c_int64_t) :: out_c
+      end function chem_surfvals_readnl_codon
+      function chem_surfvals_init_codon(flag_c) result(out_c) bind(c, name="chem_surfvals_init_codon")
+         use iso_c_binding, only: c_int64_t
+         integer(c_int64_t), value :: flag_c
+         integer(c_int64_t) :: out_c
+      end function chem_surfvals_init_codon
+      function chem_surfvals_get_codon(value_c) result(out_c) bind(c, name="chem_surfvals_get_codon")
+         use iso_c_binding, only: c_double
+         real(c_double), value :: value_c
+         real(c_double) :: out_c
+      end function chem_surfvals_get_codon
+      function chem_surfvals_co2_rad_codon(value_c) result(out_c) bind(c, name="chem_surfvals_co2_rad_codon")
+         use iso_c_binding, only: c_double
+         real(c_double), value :: value_c
+         real(c_double) :: out_c
+      end function chem_surfvals_co2_rad_codon
+   end interface
+
 !=========================================================================================
 contains
 !=========================================================================================
@@ -105,6 +129,7 @@ subroutine chem_surfvals_readnl(nlfile)
    integer            :: flbc_cycle_yr = 0
    integer            :: flbc_fixed_ymd = 0
    integer            :: flbc_fixed_tod = 0
+   integer(c_int64_t) :: active_c
 
    namelist /chem_surfvals_nl/ co2vmr, n2ovmr, ch4vmr, f11vmr, f12vmr, &
                                co2vmr_rad, scenario_ghg, rampyear_ghg, bndtvghg, &
@@ -114,6 +139,8 @@ subroutine chem_surfvals_readnl(nlfile)
    namelist /chem_surfvals_nl/ flbc_type, flbc_cycle_yr, flbc_fixed_ymd, flbc_fixed_tod, flbc_list, flbc_file
 
    !-----------------------------------------------------------------------------
+   active_c = chem_surfvals_readnl_codon(1_c_int64_t)
+   if (active_c == 0_c_int64_t) return
 
    if (masterproc) then
       unitn = getunit()
@@ -194,7 +221,10 @@ subroutine chem_surfvals_init()
 
    !---------------------------Local variables-----------------------------
    integer :: yr, mon, day, ncsec
+   integer(c_int64_t) :: active_c
    !-----------------------------------------------------------------------
+   active_c = chem_surfvals_init_codon(1_c_int64_t)
+   if (active_c == 0_c_int64_t) return
 
    if (scenario_ghg == 'FIXED') then
       doRamp_ghg = .false.
@@ -389,6 +419,7 @@ function chem_surfvals_get(name)
   case default
      call endrun('chem_surfvals_get does not know name')
   end select
+  chem_surfvals_get = chem_surfvals_get_codon(real(chem_surfvals_get, c_double))
 
 end function chem_surfvals_get
 
@@ -433,6 +464,7 @@ function chem_surfvals_co2_rad(vmr_in)
    else                           
       chem_surfvals_co2_rad = convert_vmr * co2vmr     
    end if
+   chem_surfvals_co2_rad = chem_surfvals_co2_rad_codon(real(chem_surfvals_co2_rad, c_double))
 
 end function chem_surfvals_co2_rad
 

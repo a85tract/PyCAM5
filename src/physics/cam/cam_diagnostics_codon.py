@@ -2,6 +2,34 @@ from math import exp, log, sqrt
 import cam_diagnostics_init_codon as _diag_init
 
 
+@export
+def cloud_diagnostics_register_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def cloud_diagnostics_init_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def cloud_cover_diags_init_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def cloud_cover_diags_out_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
 @inline
 def _idx(i: int) -> int:
     return i - 1

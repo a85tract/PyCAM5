@@ -10,6 +10,7 @@ module cloud_fraction
   use cam_logfile,    only: iulog
   use cam_abortutils, only: endrun
   use ref_pres,       only: trop_cloud_top_lev
+  use iso_c_binding,  only: c_int64_t
 
   implicit none
   private
@@ -114,6 +115,11 @@ module cloud_fraction
        type(c_ptr), value :: rhminl_p, rhminl_adj_land_p, rhminh_p, rhminp_p
        type(c_ptr), value :: premit_p, premib_p, iceopt_p, icecrit_p
      end subroutine cldfrc_getparams_codon
+     function cldfrc_register_codon(flag_c) result(out_c) bind(c, name="cldfrc_register_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: flag_c
+       integer(c_int64_t) :: out_c
+     end function cldfrc_register_codon
   end interface
 
 !================================================================================================
@@ -531,6 +537,7 @@ subroutine cldfrc_register
    use physics_buffer, only : pbuf_add_field, dtype_r8
 
    !-----------------------------------------------------------------------
+   if (cldfrc_register_codon(1_c_int64_t) == 0_c_int64_t) return
 
    call pbuf_add_field('SH_FRAC', 'physpkg', dtype_r8, (/pcols,pver/), sh_frac_idx) 
    call pbuf_add_field('DP_FRAC', 'physpkg', dtype_r8, (/pcols,pver/), dp_frac_idx) 

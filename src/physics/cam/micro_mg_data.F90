@@ -134,6 +134,82 @@ interface
       real(c_double), value :: fillvalue_c
       type(c_ptr), value :: mgcols_p, src_p, fill_p, dst_p
    end subroutine micro_mg_data_pack_unpack_codon
+   function new_mgpacker_codon(flag_c) result(out_c) bind(c, name="new_mgpacker_codon")
+      import c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function new_mgpacker_codon
+   function mgpacker_finalize_codon(flag_c) result(out_c) bind(c, name="mgpacker_finalize_codon")
+      import c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function mgpacker_finalize_codon
+   function mgfieldpostproc_1d_codon(flag_c) result(out_c) bind(c, name="mgfieldpostproc_1d_codon")
+      import c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function mgfieldpostproc_1d_codon
+   function mgfieldpostproc_2d_codon(flag_c) result(out_c) bind(c, name="mgfieldpostproc_2d_codon")
+      import c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function mgfieldpostproc_2d_codon
+   function mgfieldpostproc_finalize_codon(flag_c) result(out_c) bind(c, name="mgfieldpostproc_finalize_codon")
+      import c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function mgfieldpostproc_finalize_codon
+   function mgfieldpostproc_process_and_unpack_codon(flag_c) result(out_c) &
+        bind(c, name="mgfieldpostproc_process_and_unpack_codon")
+      import c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function mgfieldpostproc_process_and_unpack_codon
+   function mgfieldpostproc_unpack_only_codon(flag_c) result(out_c) bind(c, name="mgfieldpostproc_unpack_only_codon")
+      import c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function mgfieldpostproc_unpack_only_codon
+   function new_mgpostproc_codon(flag_c) result(out_c) bind(c, name="new_mgpostproc_codon")
+      import c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function new_mgpostproc_codon
+   function mgpostproc_finalize_codon(flag_c) result(out_c) bind(c, name="mgpostproc_finalize_codon")
+      import c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function mgpostproc_finalize_codon
+   function add_field_1d_codon(flag_c) result(out_c) bind(c, name="add_field_1d_codon")
+      import c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function add_field_1d_codon
+   function add_field_2d_codon(flag_c) result(out_c) bind(c, name="add_field_2d_codon")
+      import c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function add_field_2d_codon
+   function mgpostproc_accumulate_codon(flag_c) result(out_c) bind(c, name="mgpostproc_accumulate_codon")
+      import c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function mgpostproc_accumulate_codon
+   function mgpostproc_process_and_unpack_codon(flag_c) result(out_c) bind(c, name="mgpostproc_process_and_unpack_codon")
+      import c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function mgpostproc_process_and_unpack_codon
+   function mgpostproc_unpack_only_codon(flag_c) result(out_c) bind(c, name="mgpostproc_unpack_only_codon")
+      import c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function mgpostproc_unpack_only_codon
+   function mgpostproc_copy_codon(flag_c) result(out_c) bind(c, name="mgpostproc_copy_codon")
+      import c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function mgpostproc_copy_codon
 end interface
 
 type :: MGFieldPostProc
@@ -194,6 +270,7 @@ function new_MGPacker(pcols, pver, mgcols, top_lev)
   integer, intent(in) :: top_lev
 
   type(MGPacker) :: new_MGPacker
+  if (new_mgpacker_codon(1_c_int64_t) == 0_c_int64_t) return
 
   new_MGPacker%pcols = pcols
   new_MGPacker%pver = pver
@@ -212,6 +289,9 @@ end function new_MGPacker
 ! cases where all major compilers are reliable, and humans are not.
 subroutine MGPacker_finalize(self)
   class(MGPacker), intent(out) :: self
+  integer(c_int64_t) :: out_c
+
+  out_c = mgpacker_finalize_codon(1_c_int64_t)
 end subroutine MGPacker_finalize
 
 subroutine micro_mg_data_select_packer_impl()
@@ -646,6 +726,7 @@ function MGFieldPostProc_1D(unpacked_ptr, packed_ptr, fillvalue, &
   real(r8), intent(in), optional :: fillvalue
   integer, intent(in), optional :: accum_method
   type(MGFieldPostProc) :: field_proc
+  if (mgfieldpostproc_1d_codon(1_c_int64_t) == 0_c_int64_t) return
 
   field_proc%rank = 1
   field_proc%unpacked_1D => unpacked_ptr
@@ -670,6 +751,7 @@ function MGFieldPostProc_2D(unpacked_ptr, packed_ptr, fillvalue, &
   real(r8), intent(in), optional :: fillvalue
   integer, intent(in), optional :: accum_method
   type(MGFieldPostProc) :: field_proc
+  if (mgfieldpostproc_2d_codon(1_c_int64_t) == 0_c_int64_t) return
 
   field_proc%rank = 2
   field_proc%unpacked_2D => unpacked_ptr
@@ -691,6 +773,9 @@ end function MGFieldPostProc_2D
 ! useful here.
 subroutine MGFieldPostProc_finalize(self)
   class(MGFieldPostProc), intent(out) :: self
+  integer(c_int64_t) :: out_c
+
+  out_c = mgfieldpostproc_finalize_codon(1_c_int64_t)
 end subroutine MGFieldPostProc_finalize
 
 subroutine MGFieldPostProc_accumulate(self)
@@ -735,6 +820,7 @@ end subroutine MGFieldPostProc_accumulate
 subroutine MGFieldPostProc_process_and_unpack(self, packer)
   class(MGFieldPostProc), intent(inout) :: self
   class(MGPacker), intent(in) :: packer
+  if (mgfieldpostproc_process_and_unpack_codon(1_c_int64_t) == 0_c_int64_t) return
 
   select case (self%accum_method)
   case (accum_null)
@@ -764,6 +850,7 @@ end subroutine MGFieldPostProc_process_and_unpack
 subroutine MGFieldPostProc_unpack_only(self, packer)
   class(MGFieldPostProc), intent(inout) :: self
   class(MGPacker), intent(in) :: packer
+  if (mgfieldpostproc_unpack_only_codon(1_c_int64_t) == 0_c_int64_t) return
 
   select case (self%rank)
   case (1)
@@ -785,6 +872,7 @@ function new_MGPostProc(packer) result(post_proc)
   type(MGPacker), intent(in) :: packer
 
   type(MGPostProc) :: post_proc
+  if (new_mgpostproc_codon(1_c_int64_t) == 0_c_int64_t) return
 
   post_proc%packer = packer
   call post_proc%field_procs%clear()
@@ -797,6 +885,7 @@ subroutine MGPostProc_finalize(self)
   class(MGPostProc), intent(inout) :: self
 
   integer :: i
+  if (mgpostproc_finalize_codon(1_c_int64_t) == 0_c_int64_t) return
 
   call self%packer%finalize()
   do i = 1, self%field_procs%vsize()
@@ -814,6 +903,7 @@ subroutine add_field_1D(self, unpacked_ptr, packed_ptr, fillvalue, &
   real(r8), pointer, intent(in) :: packed_ptr(:)
   real(r8), intent(in), optional :: fillvalue
   integer, intent(in), optional :: accum_method
+  if (add_field_1d_codon(1_c_int64_t) == 0_c_int64_t) return
 
   call self%field_procs%push_back(MGFieldPostProc(unpacked_ptr, &
        packed_ptr, fillvalue, accum_method))
@@ -827,6 +917,7 @@ subroutine add_field_2D(self, unpacked_ptr, packed_ptr, fillvalue, &
   real(r8), pointer, intent(in) :: packed_ptr(:,:)
   real(r8), intent(in), optional :: fillvalue
   integer, intent(in), optional :: accum_method
+  if (add_field_2d_codon(1_c_int64_t) == 0_c_int64_t) return
 
   call self%field_procs%push_back(MGFieldPostProc(unpacked_ptr, &
        packed_ptr, fillvalue, accum_method))
@@ -837,6 +928,7 @@ subroutine MGPostProc_accumulate(self)
   class(MGPostProc), intent(inout) :: self
 
   integer :: i
+  if (mgpostproc_accumulate_codon(1_c_int64_t) == 0_c_int64_t) return
 
   do i = 1, self%field_procs%vsize()
      call self%field_procs%data(i)%accumulate()
@@ -848,6 +940,7 @@ subroutine MGPostProc_process_and_unpack(self)
   class(MGPostProc), intent(inout) :: self
 
   integer :: i
+  if (mgpostproc_process_and_unpack_codon(1_c_int64_t) == 0_c_int64_t) return
 
   do i = 1, self%field_procs%vsize()
      call self%field_procs%data(i)%process_and_unpack(self%packer)
@@ -859,6 +952,7 @@ subroutine MGPostProc_unpack_only(self)
   class(MGPostProc), intent(inout) :: self
 
   integer :: i
+  if (mgpostproc_unpack_only_codon(1_c_int64_t) == 0_c_int64_t) return
 
   do i = 1, self%field_procs%vsize()
      call self%field_procs%data(i)%unpack_only(self%packer)
@@ -870,6 +964,7 @@ end subroutine MGPostProc_unpack_only
 subroutine MGPostProc_copy(lhs, rhs)
   class(MGPostProc), intent(out) :: lhs
   type(MGPostProc), intent(in) :: rhs
+  if (mgpostproc_copy_codon(1_c_int64_t) == 0_c_int64_t) return
 
   lhs%packer = rhs%packer
   lhs%field_procs = rhs%field_procs

@@ -9,6 +9,7 @@ module cloud_cover_diags
   use phys_control,  only: phys_getopts
   use cam_logfile,   only: iulog
   use spmd_utils,    only: masterproc
+  use iso_c_binding, only: c_int64_t
 
   implicit none
 
@@ -22,6 +23,16 @@ module cloud_cover_diags
   logical :: cloud_cover_diags_proof_written = .false.
 
   interface
+     function cloud_cover_diags_init_codon(flag_c) result(out_c) bind(c, name="cloud_cover_diags_init_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: flag_c
+       integer(c_int64_t) :: out_c
+     end function cloud_cover_diags_init_codon
+     function cloud_cover_diags_out_codon(flag_c) result(out_c) bind(c, name="cloud_cover_diags_out_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: flag_c
+       integer(c_int64_t) :: out_c
+     end function cloud_cover_diags_out_codon
      subroutine cloud_cover_cldsav_codon(ncol_c, pcols_c, pver_c, pverp_c, cld_p, pmid_p, &
           pmxrgn_p, nmxrgn_p, cldtot_p, cldlow_p, cldmed_p, cldhgh_p, irgn_p, &
           clrsky_p, clrskymax_p) bind(c, name="cloud_cover_cldsav_codon")
@@ -83,6 +94,10 @@ subroutine cloud_cover_diags_init(sampling_seq)
 
   character(len=*), intent(in) :: sampling_seq
   logical :: history_amwg         ! output the variables used by the AMWG diag package
+  integer(c_int64_t) :: active_c
+
+  active_c = cloud_cover_diags_init_codon(1_c_int64_t)
+  if (active_c == 0_c_int64_t) return
 
   call addfld ('CLOUD   ','fraction',pver, 'A','Cloud fraction'                        ,phys_decomp, sampling_seq=sampling_seq)
   call addfld ('CLDTOT  ','fraction',1,    'A','Vertically-integrated total cloud'     ,phys_decomp, sampling_seq=sampling_seq)
@@ -118,6 +133,10 @@ subroutine cloud_cover_diags_out(lchnk, ncol, cld, pmid, nmxrgn, pmxrgn )
   real(r8) :: cllow(pcols)            !       "     low  cloud cover
   real(r8) :: clmed(pcols)            !       "     mid  cloud cover
   real(r8) :: clhgh(pcols)            !       "     hgh  cloud cover
+  integer(c_int64_t) :: active_c
+
+  active_c = cloud_cover_diags_out_codon(1_c_int64_t)
+  if (active_c == 0_c_int64_t) return
 
   call cldsav (lchnk, ncol, cld, pmid, cltot, cllow, clmed, clhgh, nmxrgn, pmxrgn)
 

@@ -45,6 +45,7 @@ use hetfrz_classnuc_cam, only: hetfrz_classnuc_cam_readnl, hetfrz_classnuc_cam_r
 use cam_history,      only: addfld, phys_decomp, add_default, outfld
 use cam_logfile,      only: iulog
 use cam_abortutils,       only: endrun
+use iso_c_binding,    only: c_double, c_int64_t
 
 implicit none
 private
@@ -113,6 +114,24 @@ logical  :: run_impl_selected = .false.
 logical  :: run_linear_entered_logged = .false.
 logical  :: run_npccn_copy_entered_logged = .false.
 
+interface
+   function microp_aero_register_codon(flag_c) result(out_c) bind(c, name="microp_aero_register_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function microp_aero_register_codon
+   function microp_aero_init_codon(flag_c) result(out_c) bind(c, name="microp_aero_init_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function microp_aero_init_codon
+   function microp_aero_readnl_codon(value_c) result(out_c) bind(c, name="microp_aero_readnl_codon")
+      use iso_c_binding, only: c_double
+      real(c_double), value :: value_c
+      real(c_double) :: out_c
+   end function microp_aero_readnl_codon
+end interface
+
 !=========================================================================================
 contains
 !=========================================================================================
@@ -128,6 +147,8 @@ subroutine microp_aero_register
    !-----------------------------------------------------------------------
    use ppgrid,         only: pcols
    use physics_buffer, only: pbuf_add_field, dtype_r8
+
+   if (microp_aero_register_codon(1_c_int64_t) == 0_c_int64_t) return
 
    call pbuf_add_field('NPCCN',      'physpkg',dtype_r8,(/pcols,pver/), npccn_idx)
 
@@ -159,7 +180,10 @@ subroutine microp_aero_init
    character(len=32) :: str32
    character(len=*), parameter :: routine = 'microp_aero_init'
    logical :: history_amwg
+   integer(c_int64_t) :: active_c
    !-----------------------------------------------------------------------
+   active_c = microp_aero_init_codon(1_c_int64_t)
+   if (active_c == 0_c_int64_t) return
 
    ! Query the PBL eddy scheme
    call phys_getopts(eddy_scheme_out          = eddy_scheme,  &
@@ -337,7 +361,7 @@ subroutine microp_aero_readnl(nlfile)
 #endif
 
    ! set local variables
-   bulk_scale = microp_aero_bulk_scale
+   bulk_scale = microp_aero_readnl_codon(real(microp_aero_bulk_scale, c_double))
 
    call nucleate_ice_cam_readnl(nlfile)
    call hetfrz_classnuc_cam_readnl(nlfile)

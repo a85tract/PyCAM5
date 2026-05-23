@@ -1,5 +1,12 @@
 from math import erfc, exp, log, log10, sqrt
 
+@export
+def convect_shallow_use_shfrc_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
 _UWSHCU_XLV = 0.0
 _UWSHCU_XLS = 0.0
 _UWSHCU_CP = 0.0

@@ -3,6 +3,20 @@ import zm_cldprp_codon as _zm_cldprp
 
 
 @export
+def convect_deep_register_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def convect_deep_init_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
 def zm_conv_init_limcnv_codon(plev: int, pref_edge_p: cobj) -> int:
     pref_edge = Ptr[float](pref_edge_p)
     threshold = 4000.0

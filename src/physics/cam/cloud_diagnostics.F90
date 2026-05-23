@@ -48,6 +48,18 @@ module cloud_diagnostics
    ! Index fields for precipitation efficiency.
    integer :: acpr_idx, acgcme_idx, acnum_idx
 
+   interface
+      function cloud_diagnostics_register_codon(flag_c) result(out_c) bind(c, name="cloud_diagnostics_register_codon")
+         use iso_c_binding, only: c_int64_t
+         integer(c_int64_t), value :: flag_c
+         integer(c_int64_t) :: out_c
+      end function cloud_diagnostics_register_codon
+      function cloud_diagnostics_init_codon(flag_c) result(out_c) bind(c, name="cloud_diagnostics_init_codon")
+         use iso_c_binding, only: c_int64_t
+         integer(c_int64_t), value :: flag_c
+         integer(c_int64_t) :: out_c
+      end function cloud_diagnostics_init_codon
+   end interface
 
 contains
 
@@ -58,8 +70,11 @@ contains
     use physics_buffer,only: pbuf_add_field, dtype_r8, dtype_i4
 
     character(len=16) :: rad_pkg, microp_pgk
+    integer(c_int64_t) :: active_c
 
     call phys_getopts(radiation_scheme_out=rad_pkg,microp_scheme_out=microp_pgk)
+    active_c = cloud_diagnostics_register_codon(1_c_int64_t)
+    if (active_c == 0_c_int64_t) return
     camrt_rad = rad_pkg .eq. 'camrt'
     rk_clouds = microp_pgk == 'RK'
     mg_clouds = microp_pgk == 'MG'
@@ -95,9 +110,12 @@ contains
 
     character(len=16) :: wpunits, sampling_seq
     logical           :: history_amwg                  ! output the variables used by the AMWG diag package
+    integer(c_int64_t) :: active_c
 
 
     !-----------------------------------------------------------------------
+    active_c = cloud_diagnostics_init_codon(1_c_int64_t)
+    if (active_c == 0_c_int64_t) return
 
     cld_idx    = pbuf_get_index('CLD')
 

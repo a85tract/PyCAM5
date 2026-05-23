@@ -41,6 +41,21 @@ logical :: codon_scheme_selected = .false.
 logical :: microp_driver_implements_cnst_logged = .false.
 
 interface
+   function microp_driver_readnl_codon(flag_c) result(out_c) bind(c, name="microp_driver_readnl_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function microp_driver_readnl_codon
+   function microp_driver_register_codon(flag_c) result(out_c) bind(c, name="microp_driver_register_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function microp_driver_register_codon
+   function microp_driver_init_codon(flag_c) result(out_c) bind(c, name="microp_driver_init_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function microp_driver_init_codon
    function microp_driver_implements_cnst_codon(flag_c) result(out_c) &
         bind(c, name="microp_driver_implements_cnst_codon")
       use iso_c_binding, only: c_int64_t
@@ -55,12 +70,17 @@ contains
 
 subroutine microp_driver_readnl(nlfile)
 
+   use iso_c_binding, only: c_int64_t
+
    character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
+   integer(c_int64_t) :: active_c
 
    ! Read in namelist for microphysics scheme
    !-----------------------------------------------------------------------
 
    call phys_getopts(microp_scheme_out=microp_scheme)
+   active_c = microp_driver_readnl_codon(1_c_int64_t)
+   if (active_c == 0_c_int64_t) return
 
    select case (microp_scheme)
    case ('MG')
@@ -79,6 +99,12 @@ subroutine microp_driver_register
    ! Register microphysics constituents and fields in the physics buffer.
    !-----------------------------------------------------------------------
 
+   use iso_c_binding, only: c_int64_t
+
+   integer(c_int64_t) :: active_c
+
+   active_c = microp_driver_register_codon(1_c_int64_t)
+   if (active_c == 0_c_int64_t) return
 
    select case (microp_scheme)
    case ('MG')
@@ -159,10 +185,15 @@ end subroutine microp_driver_init_cnst
 
 subroutine microp_driver_init(pbuf2d)
 
+   use iso_c_binding, only: c_int64_t
+
    type(physics_buffer_desc), pointer :: pbuf2d(:,:)
+   integer(c_int64_t) :: active_c
 
    ! Initialize the microphysics parameterizations
    !-----------------------------------------------------------------------
+   active_c = microp_driver_init_codon(1_c_int64_t)
+   if (active_c == 0_c_int64_t) return
 
    select case (microp_scheme)
    case ('MG')

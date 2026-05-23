@@ -1,3 +1,31 @@
+@export
+def check_energy_defaultopts_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def check_energy_setopts_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def check_energy_register_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def check_energy_init_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
 @inline
 def _ptend_idx(i: int, k: int, psetcols: int) -> int:
     """ptend%s(psetcols, pver)"""

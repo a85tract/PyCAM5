@@ -17,6 +17,7 @@
    use cam_history,       only : outfld, addfld, phys_decomp
    use cam_logfile,       only : iulog
    use phys_control,      only : phys_getopts
+   use iso_c_binding,     only : c_int64_t
 
    implicit none
    private                 
@@ -80,6 +81,15 @@
       sh_flxsnw_idx, &
       sh_cldliq_idx, &
       sh_cldice_idx
+
+   interface
+      function convect_shallow_use_shfrc_codon(flag_c) result(out_c) &
+           bind(c, name="convect_shallow_use_shfrc_codon")
+         use iso_c_binding, only: c_int64_t
+         integer(c_int64_t), value :: flag_c
+         integer(c_int64_t) :: out_c
+      end function convect_shallow_use_shfrc_codon
+   end interface
 
    contains
 
@@ -429,12 +439,15 @@ end subroutine convect_shallow_init_cnst
   !-------------------------------------------------------------- !
      implicit none
      logical :: convect_shallow_use_shfrc     ! Return value
+     integer(c_int64_t) :: out_c
 
      if (shallow_scheme .eq. 'UW' .or. shallow_scheme .eq. 'UNICON') then
           convect_shallow_use_shfrc = .true.
      else
 	  convect_shallow_use_shfrc = .false.
      endif
+     out_c = convect_shallow_use_shfrc_codon(merge(1_c_int64_t, 0_c_int64_t, convect_shallow_use_shfrc))
+     convect_shallow_use_shfrc = out_c /= 0_c_int64_t
 
      return
 

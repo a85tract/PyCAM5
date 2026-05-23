@@ -15,6 +15,7 @@ module convect_deep
    use ppgrid,       only: pver, pcols, pverp, begchunk, endchunk
    use cam_logfile,  only: iulog
    use spmd_utils,   only: masterproc
+   use iso_c_binding, only: c_int64_t
 
    implicit none
 
@@ -59,6 +60,16 @@ module convect_deep
         integer(c_int64_t), value :: scheme_code_c
         integer(c_int64_t) :: flag_c
       end function deep_scheme_does_scav_trans_codon
+      function convect_deep_register_codon(flag_c) result(out_c) bind(c, name="convect_deep_register_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: flag_c
+        integer(c_int64_t) :: out_c
+      end function convect_deep_register_codon
+      function convect_deep_init_codon(flag_c) result(out_c) bind(c, name="convect_deep_init_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: flag_c
+        integer(c_int64_t) :: out_c
+      end function convect_deep_init_codon
    end interface
 
 !=========================================================================================
@@ -107,9 +118,12 @@ subroutine convect_deep_register
   implicit none
 
   integer idx
+  integer(c_int64_t) :: active_c
 
   ! get deep_scheme setting from phys_control
   call phys_getopts(deep_scheme_out = deep_scheme)
+  active_c = convect_deep_register_codon(1_c_int64_t)
+  if (active_c == 0_c_int64_t) return
 
   select case ( deep_scheme )
   case('ZM') !    Zhang-McFarlane (default)
@@ -150,6 +164,10 @@ subroutine convect_deep_init(pref_edge)
   implicit none
 
   real(r8),intent(in) :: pref_edge(plevp)        ! reference pressures at interfaces
+  integer(c_int64_t) :: active_c
+
+  active_c = convect_deep_init_codon(1_c_int64_t)
+  if (active_c == 0_c_int64_t) return
 
   select case ( deep_scheme )
   case('off')

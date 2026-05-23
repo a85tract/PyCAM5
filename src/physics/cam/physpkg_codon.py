@@ -6841,6 +6841,34 @@ def constituent_burden_flag_codon(flag: int) -> int:
 
 
 @export
+def constituent_burden_init_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def constituent_burden_comp_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def ghg_data_register_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def ghg_data_timestep_init_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
 def phys_gmean_normalize_codon(arr_p: cobj, nflds: int, pi_value: float):
     arr = Ptr[float](arr_p)
     denom = 4.0 * pi_value

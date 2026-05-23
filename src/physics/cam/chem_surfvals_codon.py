@@ -1,4 +1,28 @@
 @export
+def chem_surfvals_readnl_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def chem_surfvals_init_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def chem_surfvals_get_codon(value: float) -> float:
+    return value
+
+
+@export
+def chem_surfvals_co2_rad_codon(value: float) -> float:
+    return value
+
+
+@export
 def chem_surfvals_set_all_codon(
     fixYear_ghg: int,
     ghg_yearStart_model: int,

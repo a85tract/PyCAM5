@@ -23,6 +23,7 @@
 
   use perf_mod
   use cam_logfile,    only: iulog
+  use iso_c_binding,  only: c_double, c_int64_t
 
   implicit none
   private
@@ -67,6 +68,21 @@ interface
       type(c_ptr), value :: totg_ice_sh_p, totg_liq_sh_p, totg_ice_dp_p, totg_liq_dp_p
       type(c_ptr), value :: fresh_p, fredp_p, frecu_p, fretot_p, sh_cldliq_p, sh_cldice_p
    end subroutine conv_water_4rad_codon
+   function conv_water_readnl_codon(value_c) result(out_c) bind(c, name="conv_water_readnl_codon")
+      use iso_c_binding, only: c_double
+      real(c_double), value :: value_c
+      real(c_double) :: out_c
+   end function conv_water_readnl_codon
+   function conv_water_register_codon(flag_c) result(out_c) bind(c, name="conv_water_register_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function conv_water_register_codon
+   function conv_water_init_codon(flag_c) result(out_c) bind(c, name="conv_water_init_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function conv_water_init_codon
 end interface
 
 !=============================================================================================
@@ -145,7 +161,7 @@ subroutine conv_water_readnl(nlfile)
 #endif
 
    conv_water_mode = conv_water_in_rad
-   frac_limit      = conv_water_frac_limit
+   frac_limit      = conv_water_readnl_codon(real(conv_water_frac_limit, c_double))
 
 end subroutine conv_water_readnl
 
@@ -165,6 +181,7 @@ end subroutine conv_water_readnl
     use physics_buffer, only : pbuf_add_field, dtype_r8
 
   !-----------------------------------------------------------------------
+    if (conv_water_register_codon(1_c_int64_t) == 0_c_int64_t) return
 
     ! these calls were already done in convect_shallow...so here I add the same fields to the physics buffer with a "1" at the end
 ! shallow gbm cloud liquid water (kg/kg)
@@ -192,6 +209,7 @@ end subroutine conv_water_readnl
    use constituents,  only: cnst_get_ind
 
    implicit none
+   if (conv_water_init_codon(1_c_int64_t) == 0_c_int64_t) return
 
    call cnst_get_ind('CLDICE', ixcldice)
    call cnst_get_ind('CLDLIQ', ixcldliq)

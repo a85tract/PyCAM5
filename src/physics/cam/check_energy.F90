@@ -31,6 +31,7 @@ module check_energy
   use time_manager,    only: is_first_step
   use cam_logfile,     only: iulog
   use cam_abortutils,  only: endrun
+  use iso_c_binding,   only: c_int64_t
 
   implicit none
   private
@@ -105,6 +106,26 @@ module check_energy
         type(c_ptr), value :: p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p, p9_p, p10_p
         type(c_ptr), value :: p11_p, p12_p, p13_p, p14_p, p15_p, p16_p, p17_p, p18_p
      end subroutine check_energy_batch_dispatch_codon
+     function check_energy_defaultopts_codon(flag_c) result(out_c) bind(c, name="check_energy_defaultopts_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: flag_c
+       integer(c_int64_t) :: out_c
+     end function check_energy_defaultopts_codon
+     function check_energy_setopts_codon(flag_c) result(out_c) bind(c, name="check_energy_setopts_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: flag_c
+       integer(c_int64_t) :: out_c
+     end function check_energy_setopts_codon
+     function check_energy_register_codon(flag_c) result(out_c) bind(c, name="check_energy_register_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: flag_c
+       integer(c_int64_t) :: out_c
+     end function check_energy_register_codon
+     function check_energy_init_codon(flag_c) result(out_c) bind(c, name="check_energy_init_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: flag_c
+       integer(c_int64_t) :: out_c
+     end function check_energy_init_codon
   end interface
 
 
@@ -456,10 +477,12 @@ subroutine check_energy_defaultopts( &
 !-----------------------------------------------------------------------
 
    logical,          intent(out), optional :: print_energy_errors_out
+   integer(c_int64_t) :: out_c
 !-----------------------------------------------------------------------
 
    if ( present(print_energy_errors_out) ) then
-      print_energy_errors_out = print_energy_errors
+      out_c = check_energy_defaultopts_codon(merge(1_c_int64_t, 0_c_int64_t, print_energy_errors))
+      print_energy_errors_out = out_c /= 0_c_int64_t
    endif
 
 end subroutine check_energy_defaultopts
@@ -473,10 +496,12 @@ subroutine check_energy_setopts( &
 !-----------------------------------------------------------------------
 
    logical,          intent(in), optional :: print_energy_errors_in
+   integer(c_int64_t) :: out_c
 !-----------------------------------------------------------------------
 
    if ( present(print_energy_errors_in) ) then
-      print_energy_errors = print_energy_errors_in
+      out_c = check_energy_setopts_codon(merge(1_c_int64_t, 0_c_int64_t, print_energy_errors_in))
+      print_energy_errors = out_c /= 0_c_int64_t
    endif
 
 end subroutine check_energy_setopts
@@ -494,6 +519,7 @@ end subroutine check_energy_setopts
     use subcol_utils,   only : is_subcol_on
 
 !-----------------------------------------------------------------------
+    if (check_energy_register_codon(1_c_int64_t) == 0_c_int64_t) return
 
 ! Request physics buffer space for fields that persist across timesteps.
 
@@ -544,6 +570,7 @@ end subroutine check_energy_get_integrals
     integer          :: history_budget_histfile_num ! output history file number for budget fields
 
 !-----------------------------------------------------------------------
+    if (check_energy_init_codon(1_c_int64_t) == 0_c_int64_t) return
 
     call phys_getopts( history_budget_out = history_budget, &
                        history_budget_histfile_num_out = history_budget_histfile_num)

@@ -34,6 +34,18 @@ module constituent_burden
        integer(c_int64_t), value :: flag_c
        integer(c_int64_t) :: active_c
      end function constituent_burden_flag_codon
+     function constituent_burden_init_codon(flag_c) result(active_c) &
+          bind(c, name="constituent_burden_init_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: flag_c
+       integer(c_int64_t) :: active_c
+     end function constituent_burden_init_codon
+     function constituent_burden_comp_codon(flag_c) result(active_c) &
+          bind(c, name="constituent_burden_comp_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: flag_c
+       integer(c_int64_t) :: active_c
+     end function constituent_burden_comp_codon
   end interface
 
   save
@@ -116,6 +128,7 @@ subroutine constituent_burden_init
   use constituents,  only: cnst_name
 
   integer :: m
+  if (constituent_burden_init_codon(1_c_int64_t) == 0_c_int64_t) return
 
   do m = 2, pcnst
     burdennam(m) = 'TM'//cnst_name(m)
@@ -147,6 +160,7 @@ subroutine constituent_burden_comp(state)
   real(r8) :: ftem(pcols)      ! temporary workspace
 
   integer :: m, lchnk, ncol
+  if (constituent_burden_comp_codon(1_c_int64_t) == 0_c_int64_t) return
 
   lchnk = state%lchnk
   ncol  = state%ncol

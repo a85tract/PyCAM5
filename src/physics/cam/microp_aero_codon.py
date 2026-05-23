@@ -1,6 +1,49 @@
 from math import erf, exp, log, sqrt
 
 
+@export
+def microp_aero_register_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def microp_aero_init_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def microp_aero_readnl_codon(value: float) -> float:
+    return value
+
+
+@export
+def nucleate_ice_cam_readnl_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def nucleate_ice_cam_register_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def nucleate_ice_cam_init_mincld_codon(value: float) -> float:
+    return value
+
+
+@export
+def nucleate_ice_cam_init_bulk_scale_codon(value: float) -> float:
+    return value
+
+
 @inline
 def _idx2(i: int, k: int, ld1: int) -> int:
     return (i - 1) + (k - 1) * ld1

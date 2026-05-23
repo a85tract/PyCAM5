@@ -1,4 +1,25 @@
 @export
+def microp_driver_readnl_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def microp_driver_register_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def microp_driver_init_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
 def microp_driver_implements_cnst_codon(flag: int) -> int:
     if flag != 0:
         return 1

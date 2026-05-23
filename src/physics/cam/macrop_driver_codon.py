@@ -1,6 +1,27 @@
 from math import exp, log10
 
 
+@export
+def macrop_driver_readnl_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def macrop_driver_register_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def macrop_driver_init_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
 def _idx2(i: int, k: int, pcols: int):
     return (k - 1) * pcols + (i - 1)
 

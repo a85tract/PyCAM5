@@ -22,6 +22,7 @@
   use perf_mod,          only: t_startf, t_stopf
   use cam_logfile,       only: iulog
   use cam_abortutils,    only: endrun
+  use iso_c_binding,     only: c_int64_t
 
   implicit none
   private
@@ -121,6 +122,24 @@
   logical :: ptend_lq_mask_shell_logged = .false.
   logical :: store_state_logged = .false.
 
+  interface
+    function macrop_driver_readnl_codon(flag_c) result(out_c) bind(c, name="macrop_driver_readnl_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+    end function macrop_driver_readnl_codon
+    function macrop_driver_register_codon(flag_c) result(out_c) bind(c, name="macrop_driver_register_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+    end function macrop_driver_register_codon
+    function macrop_driver_init_codon(flag_c) result(out_c) bind(c, name="macrop_driver_init_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+    end function macrop_driver_init_codon
+  end interface
+
   contains
 
   ! ===============================================================================
@@ -140,9 +159,12 @@
    ! Local variables
    integer :: unitn, ierr
    character(len=*), parameter :: subname = 'macrop_driver_readnl'
+   integer(c_int64_t) :: active_c
 
    namelist /macro_park_nl/ macro_park_do_cldice, macro_park_do_cldliq, macro_park_do_detrain
    !-----------------------------------------------------------------------------
+   active_c = macrop_driver_readnl_codon(1_c_int64_t)
+   if (active_c == 0_c_int64_t) return
 
    if (masterproc) then
       unitn = getunit()
@@ -189,6 +211,7 @@ end subroutine macrop_driver_readnl
    use physics_buffer, only : pbuf_add_field, dtype_r8, dyn_time_lvls
 
   !-----------------------------------------------------------------------
+    if (macrop_driver_register_codon(1_c_int64_t) == 0_c_int64_t) return
 
     call phys_getopts(shallow_scheme_out=shallow_scheme)
 
@@ -237,7 +260,10 @@ end subroutine macrop_driver_readnl
     integer              :: history_budget_histfile_num ! output history file number for budget fields
     integer :: istat
     character(len=*), parameter :: subname = 'macrop_driver_init'
+    integer(c_int64_t) :: active_c
     !-----------------------------------------------------------------------
+    active_c = macrop_driver_init_codon(1_c_int64_t)
+    if (active_c == 0_c_int64_t) return
 
     ! Initialization routine for cloud macrophysics
     if (shallow_scheme .eq. 'UNICON') rhminl_opt = 1

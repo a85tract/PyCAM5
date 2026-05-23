@@ -5,6 +5,25 @@ KABSL = 0.090361
 IC_LIMIT = 1.0e-12
 
 
+@export
+def conv_water_readnl_codon(value: float) -> float:
+    return value
+
+
+@export
+def conv_water_register_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def conv_water_init_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
 @inline
 def _idx(i: int, k: int, pcols: int) -> int:
     """Fortran arrays declared as (pcols, pver)."""

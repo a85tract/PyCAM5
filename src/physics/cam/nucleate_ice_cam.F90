@@ -28,6 +28,7 @@ use shr_spfn_mod,   only: erf => shr_spfn_erf
 
 use cam_logfile,    only: iulog
 use cam_abortutils, only: endrun
+use iso_c_binding, only: c_double, c_int64_t
 
 use nucleate_ice,   only: nucleati_init, nucleati
 
@@ -100,6 +101,30 @@ logical :: nucleate_ice_cam_post_entered_logged = .false.
 logical :: nucleate_ice_cam_modal_dust_entered_logged = .false.
 logical :: nucleate_ice_cam_modal_so4_entered_logged = .false.
 
+interface
+   function nucleate_ice_cam_readnl_codon(flag_c) result(out_c) bind(c, name="nucleate_ice_cam_readnl_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function nucleate_ice_cam_readnl_codon
+   function nucleate_ice_cam_register_codon(flag_c) result(out_c) bind(c, name="nucleate_ice_cam_register_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function nucleate_ice_cam_register_codon
+   function nucleate_ice_cam_init_mincld_codon(value_c) result(out_c) bind(c, name="nucleate_ice_cam_init_mincld_codon")
+      use iso_c_binding, only: c_double
+      real(c_double), value :: value_c
+      real(c_double) :: out_c
+   end function nucleate_ice_cam_init_mincld_codon
+   function nucleate_ice_cam_init_bulk_scale_codon(value_c) result(out_c) &
+        bind(c, name="nucleate_ice_cam_init_bulk_scale_codon")
+      use iso_c_binding, only: c_double
+      real(c_double), value :: value_c
+      real(c_double) :: out_c
+   end function nucleate_ice_cam_init_bulk_scale_codon
+end interface
+
 !===============================================================================
 contains
 !===============================================================================
@@ -115,11 +140,14 @@ subroutine nucleate_ice_cam_readnl(nlfile)
   ! Local variables
   integer :: unitn, ierr
   character(len=*), parameter :: subname = 'nucleate_ice_cam_readnl'
+  integer(c_int64_t) :: active_c
 
   namelist /nucleate_ice_nl/ use_preexisting_ice, hist_preexisting_ice, &
        nucleate_ice_subgrid
 
   !-----------------------------------------------------------------------------
+  active_c = nucleate_ice_cam_readnl_codon(1_c_int64_t)
+  if (active_c == 0_c_int64_t) return
 
   if (masterproc) then
      unitn = getunit()
@@ -149,6 +177,8 @@ end subroutine nucleate_ice_cam_readnl
 
 subroutine nucleate_ice_cam_register()
 
+   if (nucleate_ice_cam_register_codon(1_c_int64_t) == 0_c_int64_t) return
+
    call pbuf_add_field('NAAI',     'physpkg', dtype_r8, (/pcols,pver/), naai_idx)
    call pbuf_add_field('NAAI_HOM', 'physpkg', dtype_r8, (/pcols,pver/), naai_hom_idx)
 
@@ -169,8 +199,8 @@ subroutine nucleate_ice_cam_init(mincld_in, bulk_scale_in)
    character(len=*), parameter :: routine = 'nucleate_ice_cam_init'
    !--------------------------------------------------------------------------------------------
 
-   mincld     = mincld_in
-   bulk_scale = bulk_scale_in
+   mincld     = nucleate_ice_cam_init_mincld_codon(real(mincld_in, c_double))
+   bulk_scale = nucleate_ice_cam_init_bulk_scale_codon(real(bulk_scale_in, c_double))
 
    call cnst_get_ind('CLDLIQ', cldliq_idx)
    call cnst_get_ind('CLDICE', cldice_idx)
