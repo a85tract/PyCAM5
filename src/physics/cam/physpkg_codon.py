@@ -2,6 +2,13 @@ import cam_misc_codon as _cam_misc
 import modal_aer_opt_codon as _modal_aer_opt
 import ndrop_codon as _ndrop
 import phys_grid_codon as _phys_grid
+from C import goffgratch_svp_ice_native_cb(float) -> float
+from C import goffgratch_svp_water_native_cb(float) -> float
+from C import bolton_svp_water_native_cb(float) -> float
+from C import murphykoop_svp_ice_native_cb(float) -> float
+from C import murphykoop_svp_water_native_cb(float) -> float
+from C import oldgoffgratch_svp_ice_native_cb(float) -> float
+from C import oldgoffgratch_svp_water_native_cb(float) -> float
 from math import exp, floor, log, sqrt
 
 @export
@@ -6897,6 +6904,35 @@ def wv_sat_methods_omeps_codon(epsilo: float) -> float:
 
 
 @export
+def wv_sat_methods_init_codon(
+    tmelt_in: float,
+    h2otrip_in: float,
+    tboil_in: float,
+    ttrice_in: float,
+    epsilo_in: float,
+    tmelt_p: cobj,
+    h2otrip_p: cobj,
+    tboil_p: cobj,
+    ttrice_p: cobj,
+    epsilo_p: cobj,
+    omeps_p: cobj,
+):
+    tmelt = Ptr[float](tmelt_p)
+    h2otrip = Ptr[float](h2otrip_p)
+    tboil = Ptr[float](tboil_p)
+    ttrice = Ptr[float](ttrice_p)
+    epsilo = Ptr[float](epsilo_p)
+    omeps = Ptr[float](omeps_p)
+
+    tmelt[0] = tmelt_in
+    h2otrip[0] = h2otrip_in
+    tboil[0] = tboil_in
+    ttrice[0] = ttrice_in
+    epsilo[0] = epsilo_in
+    omeps[0] = 1.0 - epsilo_in
+
+
+@export
 def wv_sat_valid_idx_codon(idx: int) -> int:
     if idx != -1:
         return 1
@@ -6908,6 +6944,191 @@ def wv_sat_svp_to_qsat_codon(es: float, p: float, epsilo: float, omeps: float) -
     if (p - es) <= 0.0:
         return 1.0
     return epsilo * es / (p - omeps * es)
+
+
+WV_SAT_INVALID_IDX = -1
+WV_SAT_OLD_GOFF_GRATCH_IDX = 0
+WV_SAT_GOFF_GRATCH_IDX = 1
+WV_SAT_MURPHY_KOOP_IDX = 2
+WV_SAT_BOLTON_IDX = 3
+
+
+@export
+def wv_sat_get_scheme_idx_codon(name_len: int, name_ascii_p: cobj) -> int:
+    name_ascii = Ptr[int](name_ascii_p)
+
+    n = name_len
+    while n > 0 and name_ascii[n - 1] == 32:
+        n -= 1
+
+    if n == 10:
+        if (
+            name_ascii[0] == 71
+            and name_ascii[1] == 111
+            and name_ascii[2] == 102
+            and name_ascii[3] == 102
+            and name_ascii[4] == 71
+            and name_ascii[5] == 114
+            and name_ascii[6] == 97
+            and name_ascii[7] == 116
+            and name_ascii[8] == 99
+            and name_ascii[9] == 104
+        ):
+            return WV_SAT_GOFF_GRATCH_IDX
+        if (
+            name_ascii[0] == 77
+            and name_ascii[1] == 117
+            and name_ascii[2] == 114
+            and name_ascii[3] == 112
+            and name_ascii[4] == 104
+            and name_ascii[5] == 121
+            and name_ascii[6] == 75
+            and name_ascii[7] == 111
+            and name_ascii[8] == 111
+            and name_ascii[9] == 112
+        ):
+            return WV_SAT_MURPHY_KOOP_IDX
+    elif n == 13:
+        if (
+            name_ascii[0] == 79
+            and name_ascii[1] == 108
+            and name_ascii[2] == 100
+            and name_ascii[3] == 71
+            and name_ascii[4] == 111
+            and name_ascii[5] == 102
+            and name_ascii[6] == 102
+            and name_ascii[7] == 71
+            and name_ascii[8] == 114
+            and name_ascii[9] == 97
+            and name_ascii[10] == 116
+            and name_ascii[11] == 99
+            and name_ascii[12] == 104
+        ):
+            return WV_SAT_OLD_GOFF_GRATCH_IDX
+    elif n == 6:
+        if (
+            name_ascii[0] == 66
+            and name_ascii[1] == 111
+            and name_ascii[2] == 108
+            and name_ascii[3] == 116
+            and name_ascii[4] == 111
+            and name_ascii[5] == 110
+        ):
+            return WV_SAT_BOLTON_IDX
+
+    return WV_SAT_INVALID_IDX
+
+
+@export
+def wv_sat_set_default_codon(tmp_idx: int, default_idx_p: cobj) -> int:
+    default_idx = Ptr[i32](default_idx_p)
+
+    if wv_sat_valid_idx_codon(tmp_idx) == 0:
+        return 0
+
+    default_idx[0] = i32(tmp_idx)
+    return 1
+
+
+@export
+def goffgratch_svp_water_codon(t: float) -> float:
+    return goffgratch_svp_water_native_cb(t)
+
+
+@export
+def goffgratch_svp_ice_codon(t: float) -> float:
+    return goffgratch_svp_ice_native_cb(t)
+
+
+@export
+def murphykoop_svp_water_codon(t: float) -> float:
+    return murphykoop_svp_water_native_cb(t)
+
+
+@export
+def murphykoop_svp_ice_codon(t: float) -> float:
+    return murphykoop_svp_ice_native_cb(t)
+
+
+@export
+def oldgoffgratch_svp_water_codon(t: float) -> float:
+    return oldgoffgratch_svp_water_native_cb(t)
+
+
+@export
+def oldgoffgratch_svp_ice_codon(t: float) -> float:
+    return oldgoffgratch_svp_ice_native_cb(t)
+
+
+@export
+def bolton_svp_water_codon(t: float) -> float:
+    return bolton_svp_water_native_cb(t)
+
+
+@export
+def wv_sat_svp_water_codon(t: float, idx: int) -> float:
+    if idx == WV_SAT_GOFF_GRATCH_IDX:
+        return goffgratch_svp_water_codon(t)
+    if idx == WV_SAT_MURPHY_KOOP_IDX:
+        return murphykoop_svp_water_codon(t)
+    if idx == WV_SAT_OLD_GOFF_GRATCH_IDX:
+        return oldgoffgratch_svp_water_codon(t)
+    if idx == WV_SAT_BOLTON_IDX:
+        return bolton_svp_water_codon(t)
+    return 0.0
+
+
+@export
+def wv_sat_svp_ice_codon(t: float, idx: int) -> float:
+    if idx == WV_SAT_GOFF_GRATCH_IDX:
+        return goffgratch_svp_ice_codon(t)
+    if idx == WV_SAT_MURPHY_KOOP_IDX:
+        return murphykoop_svp_ice_codon(t)
+    if idx == WV_SAT_OLD_GOFF_GRATCH_IDX:
+        return oldgoffgratch_svp_ice_codon(t)
+    if idx == WV_SAT_BOLTON_IDX:
+        return bolton_svp_water_codon(t)
+    return 0.0
+
+
+@export
+def wv_sat_svp_trans_codon(t: float, idx: int, tmelt: float, ttrice: float) -> float:
+    es = 0.0
+    if t >= (tmelt - ttrice):
+        es = wv_sat_svp_water_codon(t, idx)
+
+    if t < tmelt:
+        esice = wv_sat_svp_ice_codon(t, idx)
+        weight = 0.0
+        if (tmelt - t) > ttrice:
+            weight = 1.0
+        else:
+            weight = (tmelt - t) / ttrice
+        es = weight * esice + (1.0 - weight) * es
+
+    return es
+
+
+@export
+def wv_sat_qsat_water_codon(
+    t: float,
+    p: float,
+    idx: int,
+    epsilo: float,
+    omeps: float,
+    es_p: cobj,
+    qs_p: cobj,
+):
+    es_out = Ptr[float](es_p)
+    qs_out = Ptr[float](qs_p)
+
+    es = wv_sat_svp_water_codon(t, idx)
+    qs = wv_sat_svp_to_qsat_codon(es, p, epsilo, omeps)
+    if p < es:
+        es = p
+
+    es_out[0] = es
+    qs_out[0] = qs
 
 
 @export
