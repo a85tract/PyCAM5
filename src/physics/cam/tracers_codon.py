@@ -18,6 +18,20 @@ def tracers_implements_cnst_codon(flag: int) -> int:
     return 0
 
 
+@export
+def tracers_register_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def tracers_init_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
 @inline
 def _flux_idx(icol: int, mconst: int, pcols: int) -> int:
     """cflx declared as (pcols, pcnst)"""

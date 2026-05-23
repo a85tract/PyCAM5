@@ -15,7 +15,7 @@ subroutine tsinti (tmeltx, latvapx, rairx, stebolx, laticex)
    use shr_kind_mod, only: r8 => shr_kind_r8
    use cam_control_mod, only: rair, stebol, snwedp, snwedp, latice, tmelt, latvap
    use cam_logfile, only: iulog
-   use iso_c_binding, only: c_double
+   use iso_c_binding, only: c_double, c_loc, c_ptr
    use spmd_utils, only: masterproc
    implicit none
 
@@ -32,8 +32,15 @@ subroutine tsinti (tmeltx, latvapx, rairx, stebolx, laticex)
    logical, save :: use_native_tsinti_impl = .false.
    logical, save :: tsinti_impl_selected = .false.
    logical, save :: tsinti_proof_written = .false.
+   real(c_double), target :: tsinti_values(6)
 
    interface
+      subroutine tsinti_codon(tmelt_c, latvap_c, rair_c, stebol_c, latice_c, values_p) &
+           bind(c, name="tsinti_codon")
+         use iso_c_binding, only: c_double, c_ptr
+         real(c_double), value :: tmelt_c, latvap_c, rair_c, stebol_c, latice_c
+         type(c_ptr), value :: values_p
+      end subroutine tsinti_codon
       function tsinti_param_codon(value_c) result(out_c) bind(c, name="tsinti_param_codon")
          use iso_c_binding, only: c_double
          real(c_double), value :: value_c
@@ -43,12 +50,26 @@ subroutine tsinti (tmeltx, latvapx, rairx, stebolx, laticex)
 !
 !-----------------------------------------------------------------------
 !
-   latice = tsinti_param(laticex)    ! Latent heat of fusion at 0'C = 3.336e5 J/Kg
-   tmelt  = tsinti_param(tmeltx)
-   latvap = tsinti_param(latvapx)
-   rair   = tsinti_param(rairx)
-   stebol = tsinti_param(stebolx)
-   snwedp = tsinti_param(10.0_r8)       ! 10:1 Snow:water equivalent depth factor
+   call tsinti_select_impl()
+   if (use_native_tsinti_impl) then
+      latice = laticex    ! Latent heat of fusion at 0'C = 3.336e5 J/Kg
+      tmelt  = tmeltx
+      latvap = latvapx
+      rair   = rairx
+      stebol = stebolx
+      snwedp = 10.0_r8       ! 10:1 Snow:water equivalent depth factor
+      return
+   end if
+
+   call tsinti_proof_once()
+   call tsinti_codon(real(tmeltx, c_double), real(latvapx, c_double), real(rairx, c_double), &
+        real(stebolx, c_double), real(laticex, c_double), c_loc(tsinti_values))
+   latice = real(tsinti_values(1), r8)    ! Latent heat of fusion at 0'C = 3.336e5 J/Kg
+   tmelt  = real(tsinti_values(2), r8)
+   latvap = real(tsinti_values(3), r8)
+   rair   = real(tsinti_values(4), r8)
+   stebol = real(tsinti_values(5), r8)
+   snwedp = real(tsinti_values(6), r8)       ! 10:1 Snow:water equivalent depth factor
 !
    return
 

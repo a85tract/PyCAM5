@@ -89,6 +89,16 @@ module tracers
         integer(c_int64_t), value :: flag_c
         integer(c_int64_t) :: out_c
      end function tracers_implements_cnst_codon
+     function tracers_register_codon(flag_c) result(out_c) bind(c, name="tracers_register_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: flag_c
+        integer(c_int64_t) :: out_c
+     end function tracers_register_codon
+     function tracers_init_codon(flag_c) result(out_c) bind(c, name="tracers_init_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: flag_c
+        integer(c_int64_t) :: out_c
+     end function tracers_init_codon
   end interface
   
 contains
@@ -203,7 +213,7 @@ subroutine tracers_register
    if (use_native_impl) then
       if (.not. tracers_flag) return
    else
-      active_c = tracers_flag_codon(merge(1_c_int64_t, 0_c_int64_t, tracers_flag))
+      active_c = tracers_register_codon(merge(1_c_int64_t, 0_c_int64_t, tracers_flag))
       call tracers_log_direct(tracers_register_logged, 'tracers_register direct = codon')
       if (active_c == 0_c_int64_t) return
    end if
@@ -327,7 +337,7 @@ subroutine tracers_init
    if (use_native_impl) then
       if (.not. tracers_flag) return
    else
-      active_c = tracers_flag_codon(merge(1_c_int64_t, 0_c_int64_t, tracers_flag))
+      active_c = tracers_init_codon(merge(1_c_int64_t, 0_c_int64_t, tracers_flag))
       call tracers_log_direct(tracers_init_logged, 'tracers_init direct = codon')
       if (active_c == 0_c_int64_t) return
    end if

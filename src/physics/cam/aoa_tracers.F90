@@ -64,6 +64,16 @@ module aoa_tracers
        integer(c_int64_t), value :: flag_c
        integer(c_int64_t) :: out_c
      end function aoa_tracers_implements_cnst_codon
+     function aoa_tracers_register_codon(flag_c) result(out_c) bind(c, name="aoa_tracers_register_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: flag_c
+       integer(c_int64_t) :: out_c
+     end function aoa_tracers_register_codon
+     function aoa_tracers_init_codon(flag_c) result(out_c) bind(c, name="aoa_tracers_init_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: flag_c
+       integer(c_int64_t) :: out_c
+     end function aoa_tracers_init_codon
   end interface
   
   real(r8),  parameter ::  treldays = 15._r8
@@ -152,7 +162,7 @@ contains
     if (use_native_impl) then
        if (.not. aoa_tracers_flag) return
     else
-       active_c = aoa_tracers_flag_codon(merge(1_c_int64_t, 0_c_int64_t, aoa_tracers_flag))
+       active_c = aoa_tracers_register_codon(merge(1_c_int64_t, 0_c_int64_t, aoa_tracers_flag))
        call aoa_tracers_log_direct(aoa_tracers_register_logged, 'aoa_tracers_register direct = codon')
        if (active_c == 0_c_int64_t) return
     end if
@@ -264,7 +274,7 @@ contains
     if (use_native_impl) then
        if (.not. aoa_tracers_flag) return
     else
-       active_c = aoa_tracers_flag_codon(merge(1_c_int64_t, 0_c_int64_t, aoa_tracers_flag))
+       active_c = aoa_tracers_init_codon(merge(1_c_int64_t, 0_c_int64_t, aoa_tracers_flag))
        call aoa_tracers_log_direct(aoa_tracers_init_logged, 'aoa_tracers_init direct = codon')
        if (active_c == 0_c_int64_t) return
     end if

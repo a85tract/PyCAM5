@@ -21,7 +21,7 @@ module carma_intr
   use physics_buffer, only: physics_buffer_desc
   use spmd_utils,     only: masterproc
   use cam_logfile,    only: iulog
-  use iso_c_binding,  only: c_int64_t
+  use iso_c_binding,  only: c_int64_t, c_loc, c_null_ptr, c_ptr
 
 
   implicit none
@@ -54,6 +54,7 @@ module carma_intr
   logical :: carma_init_logged = .false.
   logical :: carma_final_logged = .false.
   logical :: carma_timestep_init_logged = .false.
+  logical :: carma_timestep_tend_logged = .false.
   logical :: carma_accumulate_stats_logged = .false.
 
   interface
@@ -91,6 +92,15 @@ module carma_intr
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t) :: out_c
     end function carma_timestep_init_codon
+
+    subroutine carma_timestep_tend_codon(pcols_c, prec_str_present_c, snow_str_present_c, &
+         prec_sed_present_c, snow_sed_present_c, prec_str_p, snow_str_p, prec_sed_p, snow_sed_p) &
+         bind(c, name="carma_timestep_tend_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: pcols_c, prec_str_present_c, snow_str_present_c
+      integer(c_int64_t), value :: prec_sed_present_c, snow_sed_present_c
+      type(c_ptr), value :: prec_str_p, snow_str_p, prec_sed_p, snow_sed_p
+    end subroutine carma_timestep_tend_codon
 
     function carma_accumulate_stats_codon() result(out_c) bind(c, name="carma_accumulate_stats_codon")
       use iso_c_binding, only: c_int64_t
@@ -355,21 +365,54 @@ contains
     type(physics_buffer_desc), pointer :: pbuf(:)               !! physics buffer
     real(r8), intent(in), optional     :: dlf(pcols,pver)       !! Detraining cld H20 from convection (kg/kg/s)
     real(r8), intent(inout), optional  :: rliq(pcols)           !! vertical integral of liquid not yet in q(ixcldliq)
-    real(r8), intent(out), optional    :: prec_str(pcols)       !! [Total] sfc flux of precip from stratiform (m/s) 
-    real(r8), intent(out), optional    :: snow_str(pcols)       !! [Total] sfc flux of snow from stratiform   (m/s)
-    real(r8), intent(out), optional    :: prec_sed(pcols)       !! total precip from cloud sedimentation (m/s)
-    real(r8), intent(out), optional    :: snow_sed(pcols)       !! snow from cloud ice sedimentation (m/s)
+    real(r8), target, intent(out), optional    :: prec_str(pcols)       !! [Total] sfc flux of precip from stratiform (m/s)
+    real(r8), target, intent(out), optional    :: snow_str(pcols)       !! [Total] sfc flux of snow from stratiform   (m/s)
+    real(r8), target, intent(out), optional    :: prec_sed(pcols)       !! total precip from cloud sedimentation (m/s)
+    real(r8), target, intent(out), optional    :: snow_sed(pcols)       !! snow from cloud ice sedimentation (m/s)
     real(r8), intent(in), optional     :: ustar(pcols)          !! friction velocity (m/s)
     real(r8), intent(in), optional     :: obklen(pcols)         !! Obukhov length [ m ]
+    type(c_ptr) :: prec_str_p, snow_str_p, prec_sed_p, snow_sed_p
+    integer(c_int64_t) :: prec_str_present, snow_str_present, prec_sed_present, snow_sed_present
 
-    call carma_intr_touch()
+    call carma_intr_select_impl()
     
     call physics_ptend_init(ptend,state%psetcols,'none') !Initialize an empty ptend for use with physics_update
 
-    if (present(prec_str))  prec_str(:)    = 0._r8
-    if (present(snow_str))  snow_str(:)    = 0._r8
-    if (present(prec_sed))  prec_sed(:)    = 0._r8
-    if (present(snow_sed))  snow_sed(:)    = 0._r8
+    if (use_native_carma_intr_impl) then
+       if (present(prec_str))  prec_str(:)    = 0._r8
+       if (present(snow_str))  snow_str(:)    = 0._r8
+       if (present(prec_sed))  prec_sed(:)    = 0._r8
+       if (present(snow_sed))  snow_sed(:)    = 0._r8
+       return
+    end if
+
+    call carma_intr_log_direct(carma_timestep_tend_logged, 'carma_timestep_tend direct = codon')
+    prec_str_present = 0_c_int64_t
+    snow_str_present = 0_c_int64_t
+    prec_sed_present = 0_c_int64_t
+    snow_sed_present = 0_c_int64_t
+    prec_str_p = c_null_ptr
+    snow_str_p = c_null_ptr
+    prec_sed_p = c_null_ptr
+    snow_sed_p = c_null_ptr
+    if (present(prec_str)) then
+       prec_str_present = 1_c_int64_t
+       prec_str_p = c_loc(prec_str(1))
+    end if
+    if (present(snow_str)) then
+       snow_str_present = 1_c_int64_t
+       snow_str_p = c_loc(snow_str(1))
+    end if
+    if (present(prec_sed)) then
+       prec_sed_present = 1_c_int64_t
+       prec_sed_p = c_loc(prec_sed(1))
+    end if
+    if (present(snow_sed)) then
+       snow_sed_present = 1_c_int64_t
+       snow_sed_p = c_loc(snow_sed(1))
+    end if
+    call carma_timestep_tend_codon(int(pcols, c_int64_t), prec_str_present, snow_str_present, &
+         prec_sed_present, snow_sed_present, prec_str_p, snow_str_p, prec_sed_p, snow_sed_p)
 
     return
   end subroutine carma_timestep_tend

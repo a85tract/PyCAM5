@@ -6530,6 +6530,36 @@ def carma_timestep_init_codon() -> int:
 
 
 @export
+def carma_timestep_tend_codon(
+    pcols: int,
+    prec_str_present: int,
+    snow_str_present: int,
+    prec_sed_present: int,
+    snow_sed_present: int,
+    prec_str_p: cobj,
+    snow_str_p: cobj,
+    prec_sed_p: cobj,
+    snow_sed_p: cobj,
+):
+    if prec_str_present != 0:
+        prec_str = Ptr[float](prec_str_p)
+        for i in range(pcols):
+            prec_str[i] = 0.0
+    if snow_str_present != 0:
+        snow_str = Ptr[float](snow_str_p)
+        for i in range(pcols):
+            snow_str[i] = 0.0
+    if prec_sed_present != 0:
+        prec_sed = Ptr[float](prec_sed_p)
+        for i in range(pcols):
+            prec_sed[i] = 0.0
+    if snow_sed_present != 0:
+        snow_sed = Ptr[float](snow_sed_p)
+        for i in range(pcols):
+            snow_sed[i] = 0.0
+
+
+@export
 def carma_accumulate_stats_codon() -> int:
     return 0
 
@@ -6743,6 +6773,24 @@ def cld_sediment_param_codon(value: float) -> float:
 @export
 def tsinti_param_codon(value: float) -> float:
     return value
+
+
+@export
+def tsinti_codon(
+    tmelt: float,
+    latvap: float,
+    rair: float,
+    stebol: float,
+    latice: float,
+    values_p: cobj,
+):
+    values = Ptr[float](values_p)
+    values[0] = latice
+    values[1] = tmelt
+    values[2] = latvap
+    values[3] = rair
+    values[4] = stebol
+    values[5] = 10.0
 
 
 @export
