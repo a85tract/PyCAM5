@@ -1,9 +1,29 @@
 from math import erfc, exp, log, log10, sqrt
 
 @export
-def convect_shallow_use_shfrc_codon(flag: int) -> int:
-    if flag != 0:
-        return 1
+def convect_shallow_use_shfrc_codon(scheme_len: int, scheme_ascii_p: cobj) -> int:
+    scheme_ascii = Ptr[int](scheme_ascii_p)
+
+    n = scheme_len
+    while n > 0 and scheme_ascii[n - 1] == 32:
+        n -= 1
+
+    if n == 2:
+        c1 = scheme_ascii[0]
+        c2 = scheme_ascii[1]
+        if c1 == 85 and c2 == 87:
+            return 1
+
+    if n == 6:
+        c1 = scheme_ascii[0]
+        c2 = scheme_ascii[1]
+        c3 = scheme_ascii[2]
+        c4 = scheme_ascii[3]
+        c5 = scheme_ascii[4]
+        c6 = scheme_ascii[5]
+        if c1 == 85 and c2 == 78 and c3 == 73 and c4 == 67 and c5 == 79 and c6 == 78:
+            return 1
+
     return 0
 
 

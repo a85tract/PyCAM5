@@ -75,6 +75,7 @@
    logical    :: use_native_init_impl = .false.
    logical    :: init_impl_selected = .false.
    logical    :: init_mw_ratio_logged = .false.
+   logical    :: convect_shallow_use_shfrc_logged = .false.
 
    integer :: & ! field index in physics buffer
       sh_flxprc_idx, &
@@ -83,10 +84,11 @@
       sh_cldice_idx
 
    interface
-      function convect_shallow_use_shfrc_codon(flag_c) result(out_c) &
+      function convect_shallow_use_shfrc_codon(scheme_len_c, scheme_ascii_p) result(out_c) &
            bind(c, name="convect_shallow_use_shfrc_codon")
-         use iso_c_binding, only: c_int64_t
-         integer(c_int64_t), value :: flag_c
+         use iso_c_binding, only: c_int64_t, c_ptr
+         integer(c_int64_t), value :: scheme_len_c
+         type(c_ptr), value :: scheme_ascii_p
          integer(c_int64_t) :: out_c
       end function convect_shallow_use_shfrc_codon
    end interface
@@ -437,17 +439,29 @@ end subroutine convect_shallow_init_cnst
   ! Return true if cloud fraction should use shallow convection   !
   !          calculated convective clouds.                        !
   !-------------------------------------------------------------- !
+     use iso_c_binding, only : c_int64_t, c_loc
+     use spmd_utils,    only : masterproc
+
      implicit none
      logical :: convect_shallow_use_shfrc     ! Return value
      integer(c_int64_t) :: out_c
+     integer(c_int64_t), target :: scheme_ascii(len(shallow_scheme))
+     integer :: i
 
-     if (shallow_scheme .eq. 'UW' .or. shallow_scheme .eq. 'UNICON') then
-          convect_shallow_use_shfrc = .true.
-     else
-	  convect_shallow_use_shfrc = .false.
-     endif
-     out_c = convect_shallow_use_shfrc_codon(merge(1_c_int64_t, 0_c_int64_t, convect_shallow_use_shfrc))
+     do i = 1, len(shallow_scheme)
+        scheme_ascii(i) = int(iachar(shallow_scheme(i:i)), c_int64_t)
+     end do
+
+     out_c = convect_shallow_use_shfrc_codon(int(len(shallow_scheme), c_int64_t), c_loc(scheme_ascii(1)))
      convect_shallow_use_shfrc = out_c /= 0_c_int64_t
+     if (.not. convect_shallow_use_shfrc_logged) then
+        convect_shallow_use_shfrc_logged = .true.
+        if (masterproc) then
+           write(iulog,'(A)') 'convect_shallow_use_shfrc direct = codon'
+           call convect_shallow_append_proof('convect_shallow_use_shfrc direct = codon')
+           call flush(iulog)
+        end if
+     end if
 
      return
 
