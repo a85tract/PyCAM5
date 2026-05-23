@@ -118,6 +118,11 @@ module radiation_data
       integer(c_int64_t), value :: flag_c
       integer(c_int64_t) :: out_c
     end function radiation_data_flag_codon
+    function rad_data_register_codon(flag_c) result(out_c) bind(c, name="rad_data_register_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+    end function rad_data_register_codon
   end interface
 
 contains
@@ -201,6 +206,16 @@ contains
   !================================================================================================
   subroutine rad_data_register
     use physics_buffer,  only: pbuf_add_field, dtype_r8
+    integer(c_int64_t) :: active_c
+
+    active_c = rad_data_register_codon(merge(1_c_int64_t, 0_c_int64_t, do_fdh))
+    if (active_c == 0_c_int64_t) then
+      if (masterproc) then
+        write(iulog,'(A)') 'rad_data_register direct = codon'
+        call flush(iulog)
+      end if
+      return
+    end if
 
     if ( do_fdh ) then
       call pbuf_add_field('tcorr', 'global',  dtype_r8, (/pcols,pver/), tcorr_idx)

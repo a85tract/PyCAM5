@@ -40,7 +40,7 @@ use shr_spfn_mod, only: gamma => shr_spfn_gamma
 #endif
 use spmd_utils,    only: masterproc
 use cam_logfile,   only: iulog
-use iso_c_binding, only: c_double, c_ptr
+use iso_c_binding, only: c_double, c_int64_t, c_ptr
 
 implicit none
 private
@@ -208,6 +208,15 @@ interface
     real(c_double), value :: rh2o_c, cpair_c, tmelt_c, latvap_c, latice_c
     type(c_ptr), value :: rv_p, cpp_p, tmelt_p, xxlv_p, xlf_p, xxls_p
   end subroutine micro_mg_utils_init_scalars_codon
+  pure function no_limiter_codon() result(bits_c) bind(c, name="no_limiter_codon")
+    use iso_c_binding, only: c_int64_t
+    integer(c_int64_t) :: bits_c
+  end function no_limiter_codon
+  pure function limiter_is_on_codon(bits_c, off_bits_c) result(status_c) bind(c, name="limiter_is_on_codon")
+    use iso_c_binding, only: c_int64_t
+    integer(c_int64_t), value :: bits_c, off_bits_c
+    integer(c_int64_t) :: status_c
+  end function limiter_is_on_codon
 end interface
 
 !==========================================================================
@@ -1328,7 +1337,7 @@ end subroutine bergeron_process_snow
 pure function no_limiter()
   real(r8) :: no_limiter
 
-  no_limiter = transfer(limiter_off, no_limiter)
+  no_limiter = transfer(no_limiter_codon(), no_limiter)
 
 end function no_limiter
 
@@ -1336,7 +1345,8 @@ pure function limiter_is_on(lim)
   real(r8), intent(in) :: lim
   logical :: limiter_is_on
 
-  limiter_is_on = transfer(lim, limiter_off) /= limiter_off
+  limiter_is_on = limiter_is_on_codon(int(transfer(lim, limiter_off), c_int64_t), &
+       int(limiter_off, c_int64_t)) /= 0_c_int64_t
 
 end function limiter_is_on
 

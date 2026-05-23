@@ -67,8 +67,8 @@
   integer :: iulog = -1
 
   real(r8), private   :: cpair                           ! Specific heat of dry air
-  real(r8), private   :: gravit                          ! Acceleration due to gravity
-  real(r8), private   :: rair                            ! Gas constant for dry air
+  real(r8), private, target :: gravit                     ! Acceleration due to gravity
+  real(r8), private, target :: rair                       ! Gas constant for dry air
   real(r8), private   :: zvir                            ! rh2o/rair - 1
   real(r8), private   :: latvap                          ! Latent heat of vaporization
   real(r8), private   :: karman                          ! von Karman constant
@@ -88,6 +88,15 @@
   logical :: diffusion_solver_setup_proof_written = .false.
 
   interface
+     subroutine init_vdiff_codon(kind_c, expected_kind_c, do_iss_c, rair_in_c, gravit_in_c, rair_p, gravit_p, &
+          do_iss_p, status_p) &
+          bind(c, name="init_vdiff_codon")
+       use iso_c_binding, only: c_int64_t, c_double, c_ptr
+       integer(c_int64_t), value :: kind_c, expected_kind_c, do_iss_c
+       real(c_double), value :: rair_in_c, gravit_in_c
+       type(c_ptr), value :: rair_p, gravit_p, do_iss_p, status_p
+     end subroutine init_vdiff_codon
+
      pure function vdiff_select_codon(name_len_c, name_ascii_p, has_qindex_c, qindex_c) result(field_idx_c) &
           bind(c, name="vdiff_select_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
@@ -208,24 +217,37 @@
   subroutine init_vdiff( kind, iulog_in, rair_in, gravit_in, do_iss_in, &
                          errstring )
 
+    use iso_c_binding, only: c_double
+
     integer,              intent(in)  :: kind            ! Kind used for reals
     integer,              intent(in)  :: iulog_in        ! Unit number for log output.
     real(r8),             intent(in)  :: rair_in         ! Input gas constant for dry air
     real(r8),             intent(in)  :: gravit_in       ! Input gravitational acceleration
     logical,              intent(in)  :: do_iss_in       ! Input ISS flag
     character(128),       intent(out) :: errstring       ! Output status
+    integer(c_int64_t), target :: do_iss_i, status_i
     
     errstring = ''
     iulog = iulog_in
-    if( kind .ne. r8 ) then
+    do_iss_i = merge(1_c_int64_t, 0_c_int64_t, do_iss_in)
+    status_i = 0_c_int64_t
+
+    call init_vdiff_codon(int(kind, c_int64_t), int(r8, c_int64_t), do_iss_i, &
+         real(rair_in, c_double), real(gravit_in, c_double), c_loc(rair), c_loc(gravit), &
+         c_loc(do_iss_i), c_loc(status_i))
+
+    if( status_i .ne. 0_c_int64_t ) then
         write(iulog,*) 'KIND of reals passed to init_vdiff -- exiting.'
         errstring = 'init_vdiff'
         return
     endif
 
-    rair   = rair_in     
-    gravit = gravit_in 
-    do_iss = do_iss_in
+    do_iss = do_iss_i /= 0_c_int64_t
+
+    if (iulog > 0) then
+       write(iulog,'(A)') 'init_vdiff direct = codon'
+       call flush(iulog)
+    end if
 
   end subroutine init_vdiff
 

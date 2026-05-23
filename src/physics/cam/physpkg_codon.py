@@ -6402,7 +6402,26 @@ def micro_mg_utils_init_scalars_codon(
 
 
 @export
+def no_limiter_codon() -> int:
+    return 0x7FF1111111111111
+
+
+@export
+def limiter_is_on_codon(bits: int, off_bits: int) -> int:
+    if bits != off_bits:
+        return 1
+    return 0
+
+
+@export
 def radiation_data_flag_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def rad_data_register_codon(flag: int) -> int:
     if flag != 0:
         return 1
     return 0
@@ -7356,6 +7375,36 @@ def wv_saturation_deriv_dqsdt_codon(
     den2 = p - omeps * es
     den2 = es * den2
     return out / den2
+
+
+@export
+def init_vdiff_codon(
+    kind: int,
+    expected_kind: int,
+    do_iss_in: int,
+    rair_in: float,
+    gravit_in: float,
+    rair_p: cobj,
+    gravit_p: cobj,
+    do_iss_p: cobj,
+    status_p: cobj,
+):
+    rair = Ptr[float](rair_p)
+    gravit = Ptr[float](gravit_p)
+    do_iss = Ptr[int](do_iss_p)
+    status = Ptr[int](status_p)
+
+    if kind != expected_kind:
+        status[0] = 1
+        return
+
+    rair[0] = rair_in
+    gravit[0] = gravit_in
+    if do_iss_in != 0:
+        do_iss[0] = 1
+    else:
+        do_iss[0] = 0
+    status[0] = 0
 
 
 @export
