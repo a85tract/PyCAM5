@@ -86,6 +86,7 @@
   logical :: use_native_diffusion_solver_setup_impl = .false.
   logical :: diffusion_solver_setup_impl_selected = .false.
   logical :: diffusion_solver_setup_proof_written = .false.
+  logical :: my_any_logged = .false.
 
   interface
      subroutine init_vdiff_codon(kind_c, expected_kind_c, do_iss_c, rair_in_c, gravit_in_c, rair_p, gravit_p, &
@@ -112,6 +113,13 @@
        type(c_ptr), value :: name_ascii_p
        integer(c_int64_t) :: field_idx_c
      end function diffuse_codon
+
+     function my_any_codon(n_c, values_p) result(out_c) bind(c, name="my_any_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: n_c
+       type(c_ptr), value :: values_p
+       integer(c_int64_t) :: out_c
+     end function my_any_codon
 
      subroutine diffusion_solver_setup_codon(pcols_c, pver_c, ncol_c, ztodt_c, gravit_c, rair_c, &
           t_p, rairi_p, p_ifc_p, p_mid_p, p_rdel_p, p_rdst_p, tint_p, rhoi_p, dpidz_sq_p, tmpi2_p, &
@@ -1151,12 +1159,28 @@
   end function not
 
   logical function my_any(a)
+    use spmd_utils, only: masterproc
+
     ! -------------------------------------------------- !
     ! This function extends the intrinsic function 'any' ! 
     ! to operate on type vdiff_selector                  ! 
     ! -------------------------------------------------- !
     type(vdiff_selector), intent(in) :: a
-    my_any = any(a%fields)
+    integer(c_int64_t), target :: values(size(a%fields))
+    integer :: i
+
+    do i = 1, size(a%fields)
+       values(i) = merge(1_c_int64_t, 0_c_int64_t, a%fields(i))
+    end do
+
+    my_any = my_any_codon(int(size(a%fields), c_int64_t), c_loc(values(1))) /= 0_c_int64_t
+    if (.not. my_any_logged) then
+       my_any_logged = .true.
+       if (masterproc .and. iulog > 0) then
+          write(iulog,'(A)') 'my_any direct = codon'
+          call flush(iulog)
+       end if
+    end if
   end function my_any
 
   logical function diffuse(fieldlist,name,qindex)

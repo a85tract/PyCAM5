@@ -6254,6 +6254,15 @@ def diffuse_codon(name_len: int, name_ascii_p: cobj, has_qindex: int, qindex: in
 
 
 @export
+def my_any_codon(n: int, values_p: cobj) -> int:
+    values = Ptr[int](values_p)
+    for i in range(n):
+        if values[i] != 0:
+            return 1
+    return 0
+
+
+@export
 def constituents_rgas_codon(r_universal: float, mwc: float) -> float:
     return r_universal * mwc
 
