@@ -171,6 +171,11 @@ module vertical_diffusion
   integer, allocatable, target :: pmam_cnst_idx(:)     ! constituent indices of prognostic modal aerosols
   integer(c_int64_t), allocatable, target :: pmam_cnst_idx_c(:) ! 64-bit indices for Codon interop
 
+  interface
+     subroutine vertical_diffusion_ts_init_codon() bind(c, name="vertical_diffusion_ts_init_codon")
+     end subroutine vertical_diffusion_ts_init_codon
+  end interface
+
 contains
 
   ! =============================================================================== !
@@ -660,11 +665,6 @@ contains
 
     type(physics_state), intent(in) :: state(begchunk:endchunk)                 
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
-
-    interface
-       subroutine vertical_diffusion_ts_init_codon() bind(c, name="vertical_diffusion_ts_init_codon")
-       end subroutine vertical_diffusion_ts_init_codon
-    end interface
 
     call vertical_diffusion_ts_init_select_impl()
 

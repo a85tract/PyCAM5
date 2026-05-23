@@ -53,6 +53,26 @@ module rayleigh_friction
   real (r8), target :: otau0          ! inverse of tau0
   real (r8), target :: otau(pver)     ! inverse decay time versus vertical level
 
+  interface
+    subroutine rayleigh_friction_init_codon(rayk0_c, raykrange_c, raytau0_c, pver_c, &
+         krange_p, tau0_p, otau0_p, otau_p) bind(c, name="rayleigh_friction_init_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: rayk0_c
+      real(c_double), value :: raykrange_c, raytau0_c
+      integer(c_int64_t), value :: pver_c
+      type(c_ptr), value :: krange_p, tau0_p, otau0_p, otau_p
+    end subroutine rayleigh_friction_init_codon
+
+    subroutine rayleigh_friction_tend_codon(ztodt_c, pver_c, psetcols_c, ncol_c, &
+         otau_p, state_u_p, state_v_p, ptend_u_p, ptend_v_p, ptend_s_p) &
+         bind(c, name="rayleigh_friction_tend_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      real(c_double), value :: ztodt_c
+      integer(c_int64_t), value :: pver_c, psetcols_c, ncol_c
+      type(c_ptr), value :: otau_p, state_u_p, state_v_p, ptend_u_p, ptend_v_p, ptend_s_p
+    end subroutine rayleigh_friction_tend_codon
+  end interface
+
   ! We apply a profile of the form otau0 * [1 + tanh (x)] / 2 , where
   ! x = (k0 - k) / krange. The default is for x to equal 2 at k=1, meaning
   ! krange = (k0 - 1) / 2. The default is applied when raykrange is set to 0.
@@ -97,18 +117,6 @@ contains
   !===============================================================================
   subroutine rayleigh_friction_init()
     use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
-
-    !------------------------------Arguments--------------------------------
-    interface
-      subroutine rayleigh_friction_init_codon(rayk0_c, raykrange_c, raytau0_c, pver_c, &
-           krange_p, tau0_p, otau0_p, otau_p) bind(c, name="rayleigh_friction_init_codon")
-        use iso_c_binding, only: c_double, c_int64_t, c_ptr
-        integer(c_int64_t), value :: rayk0_c
-        real(c_double), value :: raykrange_c, raytau0_c
-        integer(c_int64_t), value :: pver_c
-        type(c_ptr), value :: krange_p, tau0_p, otau0_p, otau_p
-      end subroutine rayleigh_friction_init_codon
-    end interface
 
     !---------------------------Local storage-------------------------------
     integer k
@@ -201,16 +209,6 @@ contains
     type(physics_ptend), target, intent(out) :: ptend      ! individual parameterization tendencies
     !
     !---------------------------Local storage-------------------------------
-    interface
-      subroutine rayleigh_friction_tend_codon(ztodt_c, pver_c, psetcols_c, ncol_c, &
-           otau_p, state_u_p, state_v_p, ptend_u_p, ptend_v_p, ptend_s_p) &
-           bind(c, name="rayleigh_friction_tend_codon")
-        use iso_c_binding, only: c_double, c_int64_t, c_ptr
-        real(c_double), value :: ztodt_c
-        integer(c_int64_t), value :: pver_c, psetcols_c, ncol_c
-        type(c_ptr), value :: otau_p, state_u_p, state_v_p, ptend_u_p, ptend_v_p, ptend_s_p
-      end subroutine rayleigh_friction_tend_codon
-    end interface
     !-----------------------------------------------------------------------
 
     call rayleigh_friction_select_impl()

@@ -19,6 +19,21 @@ logical :: qbo_batch_entered_logged = .false.
 logical :: qbo_readnl_logged = .false.
 logical :: qbo_init_logged = .false.
 
+interface
+   subroutine qbo_readnl_codon() bind(c, name="qbo_readnl_codon")
+   end subroutine qbo_readnl_codon
+
+   subroutine qbo_init_codon() bind(c, name="qbo_init_codon")
+   end subroutine qbo_init_codon
+
+   subroutine qbo_batch_tstep_init_stage_dispatch_codon() &
+        bind(c, name="qbo_batch_tstep_init_stage_dispatch_codon")
+   end subroutine qbo_batch_tstep_init_stage_dispatch_codon
+
+   subroutine qbo_batch_relax_stage_dispatch_codon() bind(c, name="qbo_batch_relax_stage_dispatch_codon")
+   end subroutine qbo_batch_relax_stage_dispatch_codon
+end interface
+
 !---------------------------------------------------------------------
 ! Public methods
 !---------------------------------------------------------------------
@@ -186,11 +201,6 @@ subroutine qbo_readnl(nlfile)
 
   character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
-  interface
-     subroutine qbo_readnl_codon() bind(c, name="qbo_readnl_codon")
-     end subroutine qbo_readnl_codon
-  end interface
-
   call qbo_batch_select_impl()
 
   if (qbo_batch_use_native_impl) return
@@ -202,11 +212,6 @@ end subroutine qbo_readnl
 
 subroutine qbo_init
 
-  interface
-     subroutine qbo_init_codon() bind(c, name="qbo_init_codon")
-     end subroutine qbo_init_codon
-  end interface
-
   call qbo_batch_select_impl()
 
   if (qbo_batch_use_native_impl) return
@@ -217,11 +222,6 @@ subroutine qbo_init
 end subroutine qbo_init
 
 subroutine qbo_timestep_init
-  interface
-     subroutine qbo_batch_tstep_init_stage_dispatch_codon() &
-          bind(c, name="qbo_batch_tstep_init_stage_dispatch_codon")
-     end subroutine qbo_batch_tstep_init_stage_dispatch_codon
-  end interface
 
   call qbo_batch_select_impl()
 
@@ -246,11 +246,6 @@ subroutine qbo_relax( state, pbuf, ptend )
   use iso_c_binding, only: c_int64_t
   use physics_types,  only: physics_state, physics_ptend, physics_ptend_init
   use physics_buffer, only: physics_buffer_desc
-
-  interface
-     subroutine qbo_batch_relax_stage_dispatch_codon() bind(c, name="qbo_batch_relax_stage_dispatch_codon")
-     end subroutine qbo_batch_relax_stage_dispatch_codon
-  end interface
 
 !--------------------------------------------------------------------------------
 !       ... dummy arguments

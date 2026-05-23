@@ -33,6 +33,26 @@ logical :: radheat_batch_entered_logged = .false.
 logical :: radheat_readnl_logged = .false.
 logical :: radheat_init_logged = .false.
 
+interface
+   subroutine radheat_readnl_codon() bind(c, name="radheat_readnl_codon")
+   end subroutine radheat_readnl_codon
+
+   subroutine radheat_init_codon() bind(c, name="radheat_init_codon")
+   end subroutine radheat_init_codon
+
+   subroutine radheat_batch_timestep_init_stage_dispatch_codon() &
+        bind(c, name="radheat_batch_timestep_init_stage_dispatch_codon")
+   end subroutine radheat_batch_timestep_init_stage_dispatch_codon
+
+   subroutine radheat_batch_tend_stage_dispatch_codon(ncol_c, pcols_c, pver_c, psetcols_c, &
+        qrl_p, qrs_p, ptend_s_p, fsns_p, fsnt_p, flns_p, flnt_p, net_flx_p) &
+        bind(c, name="radheat_batch_tend_stage_dispatch_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, psetcols_c
+      type(c_ptr), value :: qrl_p, qrs_p, ptend_s_p, fsns_p, fsnt_p, flns_p, flnt_p, net_flx_p
+   end subroutine radheat_batch_tend_stage_dispatch_codon
+end interface
+
 ! Public interfaces
 public  &
    radheat_readnl,        &!
@@ -133,11 +153,6 @@ subroutine radheat_readnl(nlfile)
 
   character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
-  interface
-     subroutine radheat_readnl_codon() bind(c, name="radheat_readnl_codon")
-     end subroutine radheat_readnl_codon
-  end interface
-
   call radheat_batch_select_impl()
 
   if (radheat_batch_use_native_impl) return
@@ -155,11 +170,6 @@ subroutine radheat_init(pref_mid)
    use physics_buffer, only : physics_buffer_desc
 
    real(r8), intent(in) :: pref_mid(plev)
-
-   interface
-      subroutine radheat_init_codon() bind(c, name="radheat_init_codon")
-      end subroutine radheat_init_codon
-   end interface
 
    call radheat_batch_select_impl()
 
@@ -179,12 +189,6 @@ subroutine radheat_timestep_init (state, pbuf2d)
 
     type(physics_state), intent(in):: state(begchunk:endchunk)                 
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
-
-    interface
-       subroutine radheat_batch_timestep_init_stage_dispatch_codon() &
-            bind(c, name="radheat_batch_timestep_init_stage_dispatch_codon")
-       end subroutine radheat_batch_timestep_init_stage_dispatch_codon
-    end interface
 
     call radheat_batch_select_impl()
 
@@ -244,16 +248,6 @@ subroutine radheat_tend(state, pbuf,  ptend, qrl, qrs, fsns, &
 ! Local variables
    integer :: ncol
    real(r8), target :: ptend_s_work(state%psetcols,pver)
-
-   interface
-      subroutine radheat_batch_tend_stage_dispatch_codon(ncol_c, pcols_c, pver_c, psetcols_c, &
-           qrl_p, qrs_p, ptend_s_p, fsns_p, fsnt_p, flns_p, flnt_p, net_flx_p) &
-           bind(c, name="radheat_batch_tend_stage_dispatch_codon")
-         use iso_c_binding, only: c_int64_t, c_ptr
-         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, psetcols_c
-         type(c_ptr), value :: qrl_p, qrs_p, ptend_s_p, fsns_p, fsnt_p, flns_p, flnt_p, net_flx_p
-      end subroutine radheat_batch_tend_stage_dispatch_codon
-   end interface
 !-----------------------------------------------------------------------
 
    call radheat_batch_select_impl()

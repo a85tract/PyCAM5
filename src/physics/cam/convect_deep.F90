@@ -52,6 +52,15 @@ module convect_deep
 
    integer     ::  ttend_dp_idx        = 0
 
+   interface
+      function deep_scheme_does_scav_trans_codon(scheme_code_c) result(flag_c) &
+           bind(c, name="deep_scheme_does_scav_trans_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: scheme_code_c
+        integer(c_int64_t) :: flag_c
+      end function deep_scheme_does_scav_trans_codon
+   end interface
+
 !=========================================================================================
   contains 
 
@@ -66,15 +75,6 @@ function deep_scheme_does_scav_trans()
 !
 
   logical deep_scheme_does_scav_trans
-
-  interface
-     function deep_scheme_does_scav_trans_codon(scheme_code_c) result(flag_c) &
-          bind(c, name="deep_scheme_does_scav_trans_codon")
-       use iso_c_binding, only: c_int64_t
-       integer(c_int64_t), value :: scheme_code_c
-       integer(c_int64_t) :: flag_c
-     end function deep_scheme_does_scav_trans_codon
-  end interface
 
   call convect_deep_select_impl()
 

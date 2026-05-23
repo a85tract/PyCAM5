@@ -52,6 +52,23 @@ real(r8) :: frac_limit
 logical :: use_native_impl = .false.
 logical :: impl_selected = .false.
 
+interface
+   subroutine conv_water_4rad_codon(ncol_c, pcols_c, pver_c, conv_water_mode_c, microp_is_rk_c, frac_limit_c, gravit_c, &
+        pdel_p, ls_liq_p, ls_ice_p, ast_p, sh_frac_p, dp_frac_p, rei_p, dp_icwmr_p, sh_icwmr_p, fice_p, &
+        totg_liq_p, totg_ice_p, conv_ice_p, conv_liq_p, tot_ice_p, tot_liq_p, totg_ice_sh_p, totg_liq_sh_p, &
+        totg_ice_dp_p, totg_liq_dp_p, fresh_p, fredp_p, frecu_p, fretot_p, sh_cldliq_p, sh_cldice_p) &
+        bind(c, name="conv_water_4rad_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, conv_water_mode_c, microp_is_rk_c
+      real(c_double), value :: frac_limit_c, gravit_c
+      type(c_ptr), value :: pdel_p, ls_liq_p, ls_ice_p, ast_p, sh_frac_p, dp_frac_p, rei_p
+      type(c_ptr), value :: dp_icwmr_p, sh_icwmr_p, fice_p
+      type(c_ptr), value :: totg_liq_p, totg_ice_p, conv_ice_p, conv_liq_p, tot_ice_p, tot_liq_p
+      type(c_ptr), value :: totg_ice_sh_p, totg_liq_sh_p, totg_ice_dp_p, totg_liq_dp_p
+      type(c_ptr), value :: fresh_p, fredp_p, frecu_p, fretot_p, sh_cldliq_p, sh_cldice_p
+   end subroutine conv_water_4rad_codon
+end interface
+
 !=============================================================================================
 contains
 !=============================================================================================
@@ -263,23 +280,6 @@ end subroutine conv_water_readnl
    integer :: ncol
    integer :: microp_is_rk
    character(len=16) :: microp_scheme
-
-   interface
-      subroutine conv_water_4rad_codon(ncol_c, pcols_c, pver_c, conv_water_mode_c, microp_is_rk_c, frac_limit_c, gravit_c, &
-           pdel_p, ls_liq_p, ls_ice_p, ast_p, sh_frac_p, dp_frac_p, rei_p, dp_icwmr_p, sh_icwmr_p, fice_p, &
-           totg_liq_p, totg_ice_p, conv_ice_p, conv_liq_p, tot_ice_p, tot_liq_p, totg_ice_sh_p, totg_liq_sh_p, &
-           totg_ice_dp_p, totg_liq_dp_p, fresh_p, fredp_p, frecu_p, fretot_p, sh_cldliq_p, sh_cldice_p) &
-           bind(c, name="conv_water_4rad_codon")
-        use iso_c_binding, only: c_double, c_int64_t, c_ptr
-        integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, conv_water_mode_c, microp_is_rk_c
-        real(c_double), value :: frac_limit_c, gravit_c
-        type(c_ptr), value :: pdel_p, ls_liq_p, ls_ice_p, ast_p, sh_frac_p, dp_frac_p, rei_p
-        type(c_ptr), value :: dp_icwmr_p, sh_icwmr_p, fice_p
-        type(c_ptr), value :: totg_liq_p, totg_ice_p, conv_ice_p, conv_liq_p, tot_ice_p, tot_liq_p
-        type(c_ptr), value :: totg_ice_sh_p, totg_liq_sh_p, totg_ice_dp_p, totg_liq_dp_p
-        type(c_ptr), value :: fresh_p, fredp_p, frecu_p, fretot_p, sh_cldliq_p, sh_cldice_p
-      end subroutine conv_water_4rad_codon
-   end interface
 
    call conv_water_select_impl()
 

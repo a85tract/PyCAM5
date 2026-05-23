@@ -590,19 +590,6 @@ end subroutine check_energy_get_integrals
     integer ncol                                   ! number of atmospheric columns
     integer :: ixcldice, ixcldliq                  ! CLDICE and CLDLIQ indices
     integer :: ixrain, ixsnow                      ! RAINQM and SNOWQM indices
-    interface
-       subroutine check_energy_batch_timestep_init_codon(ncol_c, pver_c, psetcols_c, pcnst_c, &
-            latvap_c, latice_c, gravit_c, ixcldliq_c, ixcldice_c, ixrain_c, ixsnow_c, &
-            state_u_p, state_v_p, state_s_p, state_q_p, state_pdel_p, &
-            ke_p, se_p, wv_p, wl_p, wi_p, state_te_ini_p, state_tw_ini_p) bind(c, name="check_energy_batch_timestep_init_codon")
-         use iso_c_binding, only: c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: ncol_c, pver_c, psetcols_c, pcnst_c
-         integer(c_int64_t), value :: ixcldliq_c, ixcldice_c, ixrain_c, ixsnow_c
-         real(c_double), value :: latvap_c, latice_c, gravit_c
-         type(c_ptr), value :: state_u_p, state_v_p, state_s_p, state_q_p, state_pdel_p
-         type(c_ptr), value :: ke_p, se_p, wv_p, wl_p, wi_p, state_te_ini_p, state_tw_ini_p
-       end subroutine check_energy_batch_timestep_init_codon
-    end interface
 !-----------------------------------------------------------------------
 
     call check_energy_batch_select_impl()
@@ -773,22 +760,6 @@ end subroutine check_energy_get_integrals
     integer ncol                                   ! number of atmospheric columns
     integer :: ixcldice, ixcldliq                  ! CLDICE and CLDLIQ indices
     integer :: ixrain, ixsnow                      ! RAINQM and SNOWQM indices
-    interface
-       subroutine check_energy_batch_chng_codon(ncol_c, pver_c, psetcols_c, &
-            latvap_c, latice_c, gravit_c, ixcldliq_c, ixcldice_c, ixrain_c, ixsnow_c, &
-            state_u_p, state_v_p, state_s_p, state_q_p, state_pdel_p, &
-            flx_vap_p, flx_cnd_p, flx_ice_p, flx_sen_p, &
-            ke_p, se_p, wv_p, wl_p, wi_p, tend_te_tnd_p, tend_tw_tnd_p, state_te_cur_p, state_tw_cur_p) bind(c, name="check_energy_batch_chng_codon")
-         use iso_c_binding, only: c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: ncol_c, pver_c, psetcols_c
-         integer(c_int64_t), value :: ixcldliq_c, ixcldice_c, ixrain_c, ixsnow_c
-         real(c_double), value :: latvap_c, latice_c, gravit_c
-         type(c_ptr), value :: state_u_p, state_v_p, state_s_p, state_q_p, state_pdel_p
-         type(c_ptr), value :: flx_vap_p, flx_cnd_p, flx_ice_p, flx_sen_p
-         type(c_ptr), value :: ke_p, se_p, wv_p, wl_p, wi_p
-         type(c_ptr), value :: tend_te_tnd_p, tend_tw_tnd_p, state_te_cur_p, state_tw_cur_p
-       end subroutine check_energy_batch_chng_codon
-    end interface
 !-----------------------------------------------------------------------
 
     call check_energy_batch_select_impl()
@@ -1006,15 +977,6 @@ end subroutine check_energy_get_integrals
                                          ! total energy of input/output states (copy)
     real(r8) :: te_glob(3)               ! global means of total energy
     real(r8), pointer :: teout(:)
-    interface
-       subroutine check_energy_batch_gmean_fill_codon(ncol_c, state_te_ini_p, teout_p, pint_surf_p, &
-            te1_p, te2_p, te3_p) bind(c, name="check_energy_batch_gmean_fill_codon")
-         use iso_c_binding, only: c_int64_t, c_ptr
-         integer(c_int64_t), value :: ncol_c
-         type(c_ptr), value :: state_te_ini_p, teout_p, pint_surf_p
-         type(c_ptr), value :: te1_p, te2_p, te3_p
-       end subroutine check_energy_batch_gmean_fill_codon
-    end interface
 !-----------------------------------------------------------------------
 
     call check_energy_batch_select_impl()
@@ -1159,15 +1121,6 @@ end subroutine check_energy_get_integrals
     real(r8) :: eshflx_dbg(pcols)
     real(r8) :: max_abs_s, max_abs_esh, max_abs_pint, diff
     real(r8) :: max_abs_hflux_srf, max_abs_hflux_top, max_abs_state_s, max_abs_te_cur
-    interface
-       subroutine check_energy_batch_fix_codon(ncol_c, pcols_c, pver_c, psetcols_c, heat_glob_c, gravit_c, &
-            state_pint_p, ptend_s_p, eshflx_p) bind(c, name="check_energy_batch_fix_codon")
-         use iso_c_binding, only: c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, psetcols_c
-         real(c_double), value :: heat_glob_c, gravit_c
-         type(c_ptr), value :: state_pint_p, ptend_s_p, eshflx_p
-       end subroutine check_energy_batch_fix_codon
-    end interface
 !-----------------------------------------------------------------------
     ncol = state%ncol
     debug_compare = .false.
@@ -1410,10 +1363,6 @@ end subroutine check_energy_get_integrals
 
     type(physics_state),   intent(in)    :: state
     type(check_tracers_data), intent(out)   :: tracerint
-    interface
-       subroutine check_tracers_batch_init_codon() bind(c, name="check_tracers_batch_init_codon")
-       end subroutine check_tracers_batch_init_codon
-    end interface
 
 !-----------------------------------------------------------------------
 
@@ -1524,10 +1473,6 @@ end subroutine check_energy_get_integrals
     integer , intent(in   ) :: nstep               ! current timestep number
     real(r8), intent(in   ) :: ztodt               ! 2 delta t (model time increment)
     real(r8), intent(in   ) :: cflx(pcols,pcnst)       ! boundary flux of tracers       (kg/m2/s)
-    interface
-       subroutine check_tracers_batch_chng_codon() bind(c, name="check_tracers_batch_chng_codon")
-       end subroutine check_tracers_batch_chng_codon
-    end interface
 
     call check_tracers_batch_select_impl()
     if (use_native_tracers_batch_impl) then

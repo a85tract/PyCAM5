@@ -71,6 +71,11 @@ module tracers
   logical :: impl_selected = .false.
   logical :: use_native_tstep_init_impl = .false.
   logical :: tstep_init_impl_selected = .false.
+
+  interface
+     subroutine tracers_timestep_init_codon() bind(c, name="tracers_timestep_init_codon")
+     end subroutine tracers_timestep_init_codon
+  end interface
   
 contains
 !======================================================================
@@ -302,11 +307,6 @@ subroutine tracers_timestep_init( phys_state )
   type(physics_state), intent(inout), dimension(begchunk:endchunk), optional :: phys_state    
 !-----------------------------------------------------------------------
 
-  interface
-     subroutine tracers_timestep_init_codon() bind(c, name="tracers_timestep_init_codon")
-     end subroutine tracers_timestep_init_codon
-  end interface
-
   call tracers_tstep_init_select_impl()
 
   if (use_native_tstep_init_impl .or. tracers_flag) then
@@ -386,7 +386,6 @@ subroutine tracers_timestep_tend(state, ptend, cflx, landfrac, deltat)
         type(c_ptr), value :: ptend_q_p, cflx_p
       end subroutine tracers_timestep_tend_codon
    end interface
-
 !-----------------------------------------------------------------------
 
   if (.not. tracers_flag) then
