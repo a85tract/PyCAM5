@@ -1,4 +1,4 @@
-from math import sqrt
+from math import exp, log, sqrt
 import cam_diagnostics_init_codon as _diag_init
 
 
@@ -2406,3 +2406,40 @@ def pkg_cldoptics_cldovrlap_codon(
 
         pmxrgn[_idx2(i, n, pcols)] = pint[_idx2(i, pverp, pcols)] * 10.0
         nmxrgn[i - 1] = i32(n)
+
+
+@export
+def pkg_cldoptics_cldclw_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    zi_p: cobj,
+    clwp_p: cobj,
+    tpw_p: cobj,
+    hl_p: cobj,
+    emziohl_p: cobj,
+    rhl_p: cobj,
+):
+    zi = Ptr[float](zi_p)
+    clwp = Ptr[float](clwp_p)
+    tpw = Ptr[float](tpw_p)
+    hl = Ptr[float](hl_p)
+    emziohl = Ptr[float](emziohl_p)
+    rhl = Ptr[float](rhl_p)
+
+    clwc0 = 0.21
+
+    for i in range(1, ncol + 1):
+        hl[i - 1] = 700.0 * log(max(tpw[i - 1] + 1.0, 1.0))
+        rhl[i - 1] = 1.0 / hl[i - 1]
+
+    for k in range(1, pverp + 1):
+        for i in range(1, ncol + 1):
+            emziohl[_idx2(i, k, pcols)] = exp(-zi[_idx2(i, k, pcols)] * rhl[i - 1])
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            clwp[_idx2(i, k, pcols)] = clwc0 * hl[i - 1] * (
+                emziohl[_idx2(i, k + 1, pcols)] - emziohl[_idx2(i, k, pcols)]
+            )

@@ -117,10 +117,22 @@ def buildcpp(case):
     if not os.path.isdir(camconf):
         os.makedirs(camconf)
 
+    config_cache_dir = os.environ.get("CAM_CONFIG_CACHE_DIR")
+    if config_cache_dir:
+        os.makedirs(config_cache_dir, exist_ok=True)
+        config_opts += ["-cachedir", config_cache_dir]
+
     # Construct the command itself.
     cmd = os.path.join(srcroot, "components", "cam", "bld", "configure") + \
           " " + " ".join(config_opts)
     run_cmd_no_fail(cmd, from_dir=camconf)
+
+    if config_cache_dir:
+        cache_src = os.path.join(config_cache_dir, "config_cache.xml")
+        cache_dst = os.path.join(camconf, "config_cache.xml")
+        if os.path.lexists(cache_dst):
+            os.remove(cache_dst)
+        os.symlink(cache_src, cache_dst)
 
     # determine cppdefs - caseroot/camconf/CESM_cppdefs is created by the call to configure
     with open(os.path.join(camconf, "CESM_cppdefs"), 'r') as f:

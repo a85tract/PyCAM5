@@ -48,6 +48,10 @@ def convect_deep_select_scheme_codon(
             scheme_code[0] = 1
             return
 
+        if c1 == 107 and c2 == 101:
+            scheme_code[0] = 5
+            return
+
     if n == 3:
         c1 = scheme_ascii[0]
         c2 = scheme_ascii[1]
@@ -127,6 +131,13 @@ def convect_deep_select_scheme_codon(
             return
 
     status[0] = 1
+
+
+@export
+def deep_scheme_does_scav_trans_codon(scheme_code: int) -> int:
+    if scheme_code == 5:
+        return 1
+    return 0
 
 
 @export

@@ -29,6 +29,13 @@ module pkg_cldoptics
        integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c
        type(c_ptr), value :: pint_p, cld_p, nmxrgn_p, pmxrgn_p
      end subroutine pkg_cldoptics_cldovrlap_codon
+
+     subroutine pkg_cldoptics_cldclw_codon(ncol_c, pcols_c, pver_c, pverp_c, &
+          zi_p, clwp_p, tpw_p, hl_p, emziohl_p, rhl_p) bind(c, name="pkg_cldoptics_cldclw_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c
+       type(c_ptr), value :: zi_p, clwp_p, tpw_p, hl_p, emziohl_p, rhl_p
+     end subroutine pkg_cldoptics_cldclw_codon
   end interface
 
 contains
@@ -81,7 +88,7 @@ contains
     pkg_cldoptics_proof_written = .true.
 
     if (masterproc) then
-       write(iulog,'(A)') 'pkg_cldoptics cldovrlap entered (cloud overlap region helper = codon)'
+       write(iulog,'(A)') 'pkg_cldoptics entered (cldovrlap/cldclw helpers = codon)'
     end if
 
   end subroutine pkg_cldoptics_proof_once
@@ -301,6 +308,7 @@ contains
 
 !===============================================================================
   subroutine cldclw(lchnk   ,ncol    ,zi      ,clwp    ,tpw     ,hl      )
+    use iso_c_binding, only: c_int64_t, c_loc
 !----------------------------------------------------------------------- 
 ! 
 ! Purpose: 
@@ -321,21 +329,33 @@ contains
     integer, intent(in) :: lchnk                 ! chunk identifier
     integer, intent(in) :: ncol                  ! number of atmospheric columns
 
-    real(r8), intent(in) :: zi(pcols,pverp)      ! height at layer interfaces(m)
-    real(r8), intent(in) :: tpw(pcols)           ! total precipitable water (mm)
+    real(r8), target, intent(in) :: zi(pcols,pverp)      ! height at layer interfaces(m)
+    real(r8), target, intent(in) :: tpw(pcols)           ! total precipitable water (mm)
 !
 ! Output arguments
 !
-    real(r8), intent(out) :: clwp(pcols,pver)     ! cloud liquid water path (g/m**2)
-    real(r8), intent(out) :: hl(pcols)            ! liquid water scale height
+    real(r8), target, intent(out) :: clwp(pcols,pver)     ! cloud liquid water path (g/m**2)
+    real(r8), target, intent(out) :: hl(pcols)            ! liquid water scale height
 
 !
 !---------------------------Local workspace-----------------------------
 !
     integer  :: i,k                  ! longitude, level indices
     real(r8) :: clwc0                ! reference liquid water concentration (g/m**3)
-    real(r8) :: emziohl(pcols,pverp) ! exp(-zi/hl)
-    real(r8) :: rhl(pcols)           ! 1/hl
+    real(r8), target :: emziohl(pcols,pverp) ! exp(-zi/hl)
+    real(r8), target :: rhl(pcols)           ! 1/hl
+!
+!-----------------------------------------------------------------------
+!
+    call pkg_cldoptics_select_impl()
+
+    if (.not. use_native_pkg_cldoptics_impl) then
+       call pkg_cldoptics_proof_once()
+       call pkg_cldoptics_cldclw_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+            int(pver, c_int64_t), int(pverp, c_int64_t), c_loc(zi(1,1)), c_loc(clwp(1,1)), &
+            c_loc(tpw(1)), c_loc(hl(1)), c_loc(emziohl(1,1)), c_loc(rhl(1)))
+       return
+    end if
 !
 !-----------------------------------------------------------------------
 !

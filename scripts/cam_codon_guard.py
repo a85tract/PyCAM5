@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import argparse
+import datetime as _datetime
 import fnmatch
 import gzip
+import hashlib
+import json
 import os
 from pathlib import Path
 import py_compile
@@ -20,6 +23,7 @@ except ImportError:  # pragma: no cover - exercised only on systems without PyYA
 
 
 DEFAULT_CONFIG = ".codon_guard.yaml"
+DEFAULT_RECEIPT_DIR = ".codon_guard_receipts"
 ALLOW_HIGH_RISK_ENV = "CAM_CODON_GUARD_ALLOW_HIGH_RISK"
 DEFAULT_NUMERIC_HAZARD_OVERRIDE_ENV = "CAM_CODON_GUARD_ALLOW_NUMERIC_HAZARD"
 
@@ -114,9 +118,63 @@ def config_path(config: dict, key: str, *, required: bool = True) -> Path | None
     return Path(value)
 
 
+def receipt_dir(root: Path, config: dict) -> Path:
+    paths = config.get("paths", {})
+    value = paths.get("receipt_dir") if isinstance(paths, dict) else None
+    path = Path(value) if isinstance(value, str) else Path(DEFAULT_RECEIPT_DIR)
+    if not path.is_absolute():
+        path = root / path
+    return path
+
+
 def staged_files(root: Path) -> list[str]:
     result = run_cmd(["git", "diff", "--cached", "--name-only", "-z"], root, check=True)
     return [item for item in result.stdout.split("\0") if item]
+
+
+def current_head(root: Path) -> str:
+    result = run_cmd(["git", "rev-parse", "HEAD"], root, check=True)
+    return result.stdout.strip()
+
+
+def staged_diff_text(root: Path) -> str:
+    result = run_cmd(
+        ["git", "diff", "--cached", "--full-index", "--binary", "--no-ext-diff", "--"],
+        root,
+        check=True,
+    )
+    return result.stdout
+
+
+def staged_diff_hash(root: Path) -> str:
+    text = staged_diff_text(root)
+    return hashlib.sha256(text.encode("utf-8", errors="surrogateescape")).hexdigest()
+
+
+def receipt_path(root: Path, config: dict, diff_hash: str) -> Path:
+    return receipt_dir(root, config) / f"{diff_hash}.json"
+
+
+def load_matching_receipt(root: Path, config: dict, diff_hash: str) -> dict | None:
+    path = receipt_path(root, config, diff_hash)
+    if not path.is_file():
+        return None
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    if data.get("version") != 1:
+        return None
+    if data.get("staged_diff_hash") != diff_hash:
+        return None
+    if data.get("git_head") != current_head(root):
+        return None
+    if data.get("overall_numeric_equal") is not True:
+        return None
+    return data
 
 
 def path_matches(path: str, patterns: Iterable[str]) -> bool:
@@ -185,7 +243,9 @@ def staged_diff_lines(root: Path) -> list[tuple[str, str, int | None, str]]:
     return entries
 
 
-def numeric_hazard_findings(root: Path, config: dict) -> tuple[list[str], list[str]]:
+def numeric_hazard_findings(
+    root: Path, config: dict, *, receipt_unlocked: bool = False
+) -> tuple[list[str], list[str]]:
     warnings: list[str] = []
     failures: list[str] = []
     override_env = config_string(
@@ -223,7 +283,9 @@ def numeric_hazard_findings(root: Path, config: dict) -> tuple[list[str], list[s
             if policy == "warn":
                 warnings.append(message)
             elif policy == "require_override":
-                if override_enabled:
+                if receipt_unlocked:
+                    warnings.append(message + " [covered by matching BFB receipt]")
+                elif override_enabled:
                     warnings.append(message + f" [override {override_env}=1]")
                 else:
                     failures.append(message + f" [set {override_env}=1 to allow]")
@@ -265,6 +327,9 @@ def pre_commit(args: argparse.Namespace) -> int:
     root = repo_root()
     config = load_config(root, args.config)
     files = staged_files(root)
+    diff_hash = staged_diff_hash(root)
+    receipt = load_matching_receipt(root, config, diff_hash) if files else None
+    receipt_unlocked = receipt is not None
     failures: list[str] = []
 
     forbidden = config_list(config, "forbidden_staged_globs")
@@ -276,9 +341,14 @@ def pre_commit(args: argparse.Namespace) -> int:
         failures.append("forbidden staged paths:\n  " + "\n  ".join(forbidden_hits))
 
     high_risk_hits = [path for path in files if path_matches(path, high_risk)]
-    if high_risk_hits and os.environ.get(ALLOW_HIGH_RISK_ENV) != "1":
+    if (
+        high_risk_hits
+        and not receipt_unlocked
+        and os.environ.get(ALLOW_HIGH_RISK_ENV) != "1"
+    ):
         failures.append(
-            "high-risk staged paths require explicit override "
+            "high-risk staged paths require a matching BFB receipt from "
+            "`validate-run`, or explicit override "
             f"{ALLOW_HIGH_RISK_ENV}=1:\n  " + "\n  ".join(high_risk_hits)
         )
 
@@ -291,7 +361,9 @@ def pre_commit(args: argparse.Namespace) -> int:
         failures.append("python syntax checks failed:\n  " + "\n  ".join(compile_errors))
 
     warnings = cache_warnings(root)
-    numeric_warnings, numeric_failures = numeric_hazard_findings(root, config)
+    numeric_warnings, numeric_failures = numeric_hazard_findings(
+        root, config, receipt_unlocked=receipt_unlocked
+    )
     if numeric_failures:
         failures.append("numeric hazard checks failed:\n  " + "\n  ".join(numeric_failures))
     if warnings:
@@ -306,6 +378,12 @@ def pre_commit(args: argparse.Namespace) -> int:
             print(f"  {warning}", file=sys.stderr)
         if len(numeric_warnings) > 30:
             print(f"  ... {len(numeric_warnings) - 30} more", file=sys.stderr)
+    if receipt_unlocked:
+        print(
+            "CAM/Codon guard: staged diff has matching BFB receipt "
+            f"for job {receipt.get('job', '<unknown>')}.",
+            file=sys.stderr,
+        )
 
     if failures:
         print("CAM/Codon guard failed pre-commit checks:", file=sys.stderr)
@@ -412,6 +490,65 @@ def parse_char_diff_vars(compare_text: str) -> set[str]:
     return vars_seen
 
 
+def write_receipt(
+    root: Path,
+    config: dict,
+    args: argparse.Namespace,
+    *,
+    run_env: Path,
+    proof_count: int,
+    compare_text: str,
+) -> tuple[Path | None, str]:
+    files = staged_files(root)
+    if not files:
+        return None, "no staged diff"
+    if not args.selector or not args.proof_line:
+        return None, "missing selector or proof-line"
+    if "overall_numeric_equal=True" not in compare_text:
+        return None, "compare did not report overall_numeric_equal=True"
+
+    validation_mtime = run_env.stat().st_mtime
+    newer_files = [
+        relpath
+        for relpath in files
+        if (root / relpath).is_file() and (root / relpath).stat().st_mtime > validation_mtime
+    ]
+    if newer_files:
+        return (
+            None,
+            "staged source file(s) are newer than run_environment for this job: "
+            + ", ".join(newer_files[:10]),
+        )
+
+    diff_hash = staged_diff_hash(root)
+    path = receipt_path(root, config, diff_hash)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    now = _datetime.datetime.now(_datetime.timezone.utc).isoformat()
+    payload = {
+        "version": 1,
+        "created_at_utc": now,
+        "git_head": current_head(root),
+        "staged_diff_hash": diff_hash,
+        "staged_files": files,
+        "job": args.job,
+        "run_dir": str(Path(args.run_dir).resolve()),
+        "case_root": str((Path(args.case_root) if args.case_root else config_path(config, "validation_case")).resolve()),
+        "run_environment": str(run_env.resolve()),
+        "selectors": args.selector,
+        "proof_lines": args.proof_line,
+        "proof_files": args.proof_file,
+        "proof_candidates_checked": proof_count,
+        "compare_output": str(Path(args.compare_output).resolve()) if args.compare_output else None,
+        "native_run_dir": str(Path(args.native_run_dir).resolve()) if args.native_run_dir else str(config_path(config, "pristine_baseline").resolve()),
+        "overall_numeric_equal": True,
+        "char_diff_vars": sorted(parse_char_diff_vars(compare_text)),
+    }
+    with path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+    return path, "written"
+
+
 def validate_run(args: argparse.Namespace) -> int:
     root = repo_root()
     config = load_config(root, args.config)
@@ -449,11 +586,24 @@ def validate_run(args: argparse.Namespace) -> int:
             print(f"  {failure}", file=sys.stderr)
         return 1
 
+    receipt, receipt_reason = write_receipt(
+        root,
+        config,
+        args,
+        run_env=run_env,
+        proof_count=len(candidates),
+        compare_text=compare_text,
+    ) if compare_text else (None, "compare skipped")
+
     print(f"CAM/Codon guard validate-run passed for job {args.job}.")
     print(f"run_environment={run_env}")
     print(f"proof_candidates={len(candidates)}")
     if compare_text:
         print("overall_numeric_equal=True")
+    if receipt:
+        print(f"receipt={receipt}")
+    elif compare_text:
+        print(f"receipt=<not written: {receipt_reason}>")
     return 0
 
 
@@ -467,15 +617,20 @@ def doctor(args: argparse.Namespace) -> int:
     hooks = run_cmd(["git", "config", "--get", "core.hooksPath"], root)
     staged = staged_files(root)
     warnings = cache_warnings(root)
+    diff_hash = staged_diff_hash(root)
+    receipt = load_matching_receipt(root, config, diff_hash) if staged else None
 
     print(f"repo_root={root}")
     print(f"config={config_path_arg}")
     print(f"config_version={config.get('version')}")
+    print(f"receipt_dir={receipt_dir(root, config)}")
     print(f"pre_commit_hook={hook_path}")
     print(f"pre_commit_hook_exists={hook_path.is_file()}")
     print(f"pre_commit_hook_executable={os.access(hook_path, os.X_OK)}")
     print(f"core.hooksPath={hooks.stdout.strip() or '<unset>'}")
     print(f"staged_count={len(staged)}")
+    print(f"staged_diff_hash={diff_hash}")
+    print(f"matching_receipt={'yes' if receipt else 'no'}")
     print(f"cache_warning_count={len(warnings)}")
     for path in warnings[:20]:
         print(f"cache_warning={path}")

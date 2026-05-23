@@ -88,6 +88,8 @@ module cloud_fraction
   logical :: cldfrc_total_cloud_impl_selected = .false.
   logical :: use_native_cldfrc_batch_impl = .false.
   logical :: cldfrc_batch_impl_selected = .false.
+  logical :: use_native_cldfrc_getparams_impl = .false.
+  logical :: cldfrc_getparams_impl_selected = .false.
   logical :: cldfrc_batch_entered_logged = .false.
 
   interface
@@ -101,6 +103,17 @@ module cloud_fraction
         real(c_double), value :: scalar7_c, scalar8_c, scalar9_c
         type(c_ptr), value :: p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p, p9_p, p10_p
      end subroutine cldfrc_batch_dispatch_codon
+
+     subroutine cldfrc_getparams_codon(flags_c, rhminl_c, rhminl_adj_land_c, rhminh_c, rhminp_c, &
+          premit_c, premib_c, iceopt_c, icecrit_c, rhminl_p, rhminl_adj_land_p, rhminh_p, rhminp_p, &
+          premit_p, premib_p, iceopt_p, icecrit_p) bind(c, name="cldfrc_getparams_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: flags_c, iceopt_c
+       real(c_double), value :: rhminl_c, rhminl_adj_land_c, rhminh_c, rhminp_c
+       real(c_double), value :: premit_c, premib_c, icecrit_c
+       type(c_ptr), value :: rhminl_p, rhminl_adj_land_p, rhminh_p, rhminp_p
+       type(c_ptr), value :: premit_p, premib_p, iceopt_p, icecrit_p
+     end subroutine cldfrc_getparams_codon
   end interface
 
 !================================================================================================
@@ -403,6 +416,43 @@ end subroutine cldfrc_batch_log_entered
 
 !================================================================================================
 
+subroutine cldfrc_getparams_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (cldfrc_getparams_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CLDFRC_GETPARAMS_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_cldfrc_getparams_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_cldfrc_getparams_impl = .false.
+   end if
+
+   cldfrc_getparams_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_cldfrc_getparams_impl) then
+         write(iulog,*) 'cldfrc_getparams implementation = native'
+      else
+         write(iulog,*) 'cldfrc_getparams implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine cldfrc_getparams_select_impl
+
+!================================================================================================
+
 subroutine cldfrc_readnl(nlfile)
 
    use namelist_utils,  only: find_group_name
@@ -491,27 +541,85 @@ end subroutine cldfrc_register
 
 subroutine cldfrc_getparams(rhminl_out, rhminl_adj_land_out, rhminh_out,  premit_out, &
                             rhminp_out, premib_out, iceopt_out, icecrit_out)
+   use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
 !-----------------------------------------------------------------------
 ! Purpose: Return cldfrc tuning parameters
 !-----------------------------------------------------------------------
 
-   real(r8),          intent(out), optional :: rhminl_out
-   real(r8),          intent(out), optional :: rhminl_adj_land_out
-   real(r8),          intent(out), optional :: rhminh_out
-   real(r8),          intent(out), optional :: rhminp_out
-   real(r8),          intent(out), optional :: premit_out
-   real(r8),          intent(out), optional :: premib_out
-   integer,           intent(out), optional :: iceopt_out
-   real(r8),          intent(out), optional :: icecrit_out
+   real(r8), target, intent(out), optional :: rhminl_out
+   real(r8), target, intent(out), optional :: rhminl_adj_land_out
+   real(r8), target, intent(out), optional :: rhminh_out
+   real(r8), target, intent(out), optional :: rhminp_out
+   real(r8), target, intent(out), optional :: premit_out
+   real(r8), target, intent(out), optional :: premib_out
+   integer,  target, intent(out), optional :: iceopt_out
+   real(r8), target, intent(out), optional :: icecrit_out
 
-   if ( present(rhminl_out) )      rhminl_out = rhminl
-   if ( present(rhminl_adj_land_out) ) rhminl_adj_land_out = rhminl_adj_land
-   if ( present(rhminh_out) )      rhminh_out = rhminh
-   if ( present(rhminp_out) )      rhminp_out = rhminp
-   if ( present(premit_out) )      premit_out = premit
-   if ( present(premib_out) )      premib_out  = premib
-   if ( present(iceopt_out) )      iceopt_out  = iceopt
-   if ( present(icecrit_out) )     icecrit_out = icecrit
+   integer(c_int64_t) :: flags
+   type(c_ptr) :: rhminl_p, rhminl_adj_land_p, rhminh_p, rhminp_p
+   type(c_ptr) :: premit_p, premib_p, iceopt_p, icecrit_p
+
+   call cldfrc_getparams_select_impl()
+
+   if (use_native_cldfrc_getparams_impl) then
+      if ( present(rhminl_out) )      rhminl_out = rhminl
+      if ( present(rhminl_adj_land_out) ) rhminl_adj_land_out = rhminl_adj_land
+      if ( present(rhminh_out) )      rhminh_out = rhminh
+      if ( present(rhminp_out) )      rhminp_out = rhminp
+      if ( present(premit_out) )      premit_out = premit
+      if ( present(premib_out) )      premib_out  = premib
+      if ( present(iceopt_out) )      iceopt_out  = iceopt
+      if ( present(icecrit_out) )     icecrit_out = icecrit
+      return
+   end if
+
+   flags = 0_c_int64_t
+   rhminl_p = c_null_ptr
+   rhminl_adj_land_p = c_null_ptr
+   rhminh_p = c_null_ptr
+   rhminp_p = c_null_ptr
+   premit_p = c_null_ptr
+   premib_p = c_null_ptr
+   iceopt_p = c_null_ptr
+   icecrit_p = c_null_ptr
+
+   if ( present(rhminl_out) ) then
+      flags = flags + 1_c_int64_t
+      rhminl_p = c_loc(rhminl_out)
+   end if
+   if ( present(rhminl_adj_land_out) ) then
+      flags = flags + 2_c_int64_t
+      rhminl_adj_land_p = c_loc(rhminl_adj_land_out)
+   end if
+   if ( present(rhminh_out) ) then
+      flags = flags + 4_c_int64_t
+      rhminh_p = c_loc(rhminh_out)
+   end if
+   if ( present(rhminp_out) ) then
+      flags = flags + 8_c_int64_t
+      rhminp_p = c_loc(rhminp_out)
+   end if
+   if ( present(premit_out) ) then
+      flags = flags + 16_c_int64_t
+      premit_p = c_loc(premit_out)
+   end if
+   if ( present(premib_out) ) then
+      flags = flags + 32_c_int64_t
+      premib_p = c_loc(premib_out)
+   end if
+   if ( present(iceopt_out) ) then
+      flags = flags + 64_c_int64_t
+      iceopt_p = c_loc(iceopt_out)
+   end if
+   if ( present(icecrit_out) ) then
+      flags = flags + 128_c_int64_t
+      icecrit_p = c_loc(icecrit_out)
+   end if
+
+   call cldfrc_getparams_codon(flags, real(rhminl, c_double), real(rhminl_adj_land, c_double), &
+        real(rhminh, c_double), real(rhminp, c_double), real(premit, c_double), real(premib, c_double), &
+        int(iceopt, c_int64_t), real(icecrit, c_double), rhminl_p, rhminl_adj_land_p, rhminh_p, &
+        rhminp_p, premit_p, premib_p, iceopt_p, icecrit_p)
 
 end subroutine cldfrc_getparams
 

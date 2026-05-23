@@ -12,6 +12,44 @@ def _field1_idx(i: int) -> int:
     return i - 1
 
 
+@export
+def cldfrc_getparams_codon(
+    flags: int,
+    rhminl_in: float,
+    rhminl_adj_land_in: float,
+    rhminh_in: float,
+    rhminp_in: float,
+    premit_in: float,
+    premib_in: float,
+    iceopt_in: int,
+    icecrit_in: float,
+    rhminl_p: cobj,
+    rhminl_adj_land_p: cobj,
+    rhminh_p: cobj,
+    rhminp_p: cobj,
+    premit_p: cobj,
+    premib_p: cobj,
+    iceopt_p: cobj,
+    icecrit_p: cobj,
+):
+    if flags & 1:
+        Ptr[float](rhminl_p)[0] = rhminl_in
+    if flags & 2:
+        Ptr[float](rhminl_adj_land_p)[0] = rhminl_adj_land_in
+    if flags & 4:
+        Ptr[float](rhminh_p)[0] = rhminh_in
+    if flags & 8:
+        Ptr[float](rhminp_p)[0] = rhminp_in
+    if flags & 16:
+        Ptr[float](premit_p)[0] = premit_in
+    if flags & 32:
+        Ptr[float](premib_p)[0] = premib_in
+    if flags & 64:
+        Ptr[i32](iceopt_p)[0] = i32(iceopt_in)
+    if flags & 128:
+        Ptr[float](icecrit_p)[0] = icecrit_in
+
+
 @inline
 def _relhum_min(
     press: float,

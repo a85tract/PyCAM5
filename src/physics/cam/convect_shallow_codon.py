@@ -1,14 +1,18 @@
-from math import erfc, exp, log, sqrt
-from convect_shallow_native_callbacks_codon import (
-    uwshcu_conden_scalar_from_c_dispatch,
-    uwshcu_compute_native_from_c_dispatch,
-    uwshcu_findsp_layer_from_c_dispatch,
-    uwshcu_qsat_from_c_dispatch,
-    uwshcu_qsat_gam_from_c_dispatch,
-    uwshcu_thermo_conden_from_c_dispatch,
-    uwshcu_top_conden_from_c_dispatch,
-    uwshcu_wtrc_precip_evap_isotope_from_c_dispatch,
-)
+from math import erfc, exp, log, log10, sqrt
+
+_UWSHCU_XLV = 0.0
+_UWSHCU_XLS = 0.0
+_UWSHCU_CP = 0.0
+_UWSHCU_R = 0.0
+_UWSHCU_EP2 = 0.0
+_UWSHCU_P00 = 1.0e5
+_UWSHCU_ROVCP = 0.0
+_UWSHCU_TMELT = 273.16
+_UWSHCU_H2OTRIP = 273.16
+_UWSHCU_TBOIL = 373.16
+_UWSHCU_TTRICE = 20.0
+_UWSHCU_TMIN = 127.16
+_UWSHCU_TMAX = 375.16
 
 
 @inline
@@ -27,11 +31,704 @@ def _uwshcu_exnf(pressure: float, p00: float, rovcp: float) -> float:
 
 
 @inline
+def _uwshcu_goff_gratch_svp_water(t: float) -> float:
+    return (
+        10.0
+        ** (
+            -7.90298 * (_UWSHCU_TBOIL / t - 1.0)
+            + 5.02808 * log10(_UWSHCU_TBOIL / t)
+            - 1.3816e-7 * (10.0 ** (11.344 * (1.0 - t / _UWSHCU_TBOIL)) - 1.0)
+            + 8.1328e-3 * (10.0 ** (-3.49149 * (_UWSHCU_TBOIL / t - 1.0)) - 1.0)
+            + log10(1013.246)
+        )
+    ) * 100.0
+
+
+@inline
+def _uwshcu_goff_gratch_svp_ice(t: float) -> float:
+    return (
+        10.0
+        ** (
+            -9.09718 * (_UWSHCU_H2OTRIP / t - 1.0)
+            - 3.56654 * log10(_UWSHCU_H2OTRIP / t)
+            + 0.876793 * (1.0 - t / _UWSHCU_H2OTRIP)
+            + log10(6.1071)
+        )
+    ) * 100.0
+
+
+@inline
+def _uwshcu_svp_trans(t: float) -> float:
+    if t >= (_UWSHCU_TMELT - _UWSHCU_TTRICE):
+        es = _uwshcu_goff_gratch_svp_water(t)
+    else:
+        es = 0.0
+
+    if t < _UWSHCU_TMELT:
+        esice = _uwshcu_goff_gratch_svp_ice(t)
+        if (_UWSHCU_TMELT - t) > _UWSHCU_TTRICE:
+            weight = 1.0
+        else:
+            weight = (_UWSHCU_TMELT - t) / _UWSHCU_TTRICE
+        es = weight * esice + (1.0 - weight) * es
+    return es
+
+
+@inline
+def _uwshcu_estblf(t: float) -> float:
+    t_tmp = max(min(t, _UWSHCU_TMAX) - _UWSHCU_TMIN, 0.0)
+    i = int(t_tmp) + 1
+    weight = t_tmp - float(int(t_tmp))
+    es0 = _uwshcu_svp_trans(_UWSHCU_TMIN + float(i - 1))
+    es1 = _uwshcu_svp_trans(_UWSHCU_TMIN + float(i))
+    return (1.0 - weight) * es0 + weight * es1
+
+
+@inline
+def _uwshcu_svp_to_qsat(es: float, p: float) -> float:
+    if (p - es) <= 0.0:
+        return 1.0
+    return _UWSHCU_EP2 * es / (p - (1.0 - _UWSHCU_EP2) * es)
+
+
+@inline
+def _uwshcu_calc_hltalt_tterm(t: float, hltalt_p: Ptr[float], tterm_p: Ptr[float]):
+    latice = _UWSHCU_XLS - _UWSHCU_XLV
+    hltalt = _UWSHCU_XLV
+    if t >= _UWSHCU_TMELT:
+        hltalt = hltalt - 2369.0 * (t - _UWSHCU_TMELT)
+
+    tterm = 0.0
+    if t < _UWSHCU_TMELT:
+        tc = t - _UWSHCU_TMELT
+        if tc >= -_UWSHCU_TTRICE:
+            weight = -tc / _UWSHCU_TTRICE
+            tterm = -7.78053686625e-05 + tc * tterm
+            tterm = -8.95963532403e-03 + tc * tterm
+            tterm = -3.67471858735e-01 + tc * tterm
+            tterm = -5.47288442819e00 + tc * tterm
+            tterm = 5.04469588506e-01 + tc * tterm
+            tterm = tterm / _UWSHCU_TTRICE
+        else:
+            weight = 1.0
+        hltalt = hltalt + weight * latice
+
+    hltalt_p[0] = hltalt
+    tterm_p[0] = tterm
+
+
+@inline
+def _uwshcu_qsat_ptr_codon(t: float, p: float, es_p: Ptr[float], qs_p: Ptr[float]):
+    es = _uwshcu_estblf(t)
+    qs = _uwshcu_svp_to_qsat(es, p)
+    if p < es:
+        es = p
+    es_p[0] = es
+    qs_p[0] = qs
+
+
+@inline
+def _uwshcu_qsat_gam_ptr_codon(t: float, p: float, es_p: Ptr[float], qs_p: Ptr[float], gam_p: Ptr[float]):
+    _uwshcu_qsat_ptr_codon(t, p, es_p, qs_p)
+    hltalt = 0.0
+    tterm = 0.0
+    _uwshcu_calc_hltalt_tterm(t, __ptr__(hltalt), __ptr__(tterm))
+    qs = qs_p[0]
+    if qs == 1.0:
+        dqsdt = 0.0
+    else:
+        rh2o = _UWSHCU_R / _UWSHCU_EP2
+        den = rh2o * t
+        den = den * t
+        desdt = hltalt * es_p[0]
+        desdt = desdt / den
+        desdt = desdt + tterm
+        out = qs * p
+        out = out * desdt
+        den2 = p - (1.0 - _UWSHCU_EP2) * es_p[0]
+        den2 = es_p[0] * den2
+        dqsdt = out / den2
+    gam_p[0] = dqsdt * (hltalt / _UWSHCU_CP)
+
+
+@inline
+def _uwshcu_qsat_gam_enthalpy_codon(
+    t: float,
+    p: float,
+    es_p: Ptr[float],
+    qs_p: Ptr[float],
+    gam_p: Ptr[float],
+    enthalpy_p: Ptr[float],
+):
+    _uwshcu_qsat_ptr_codon(t, p, es_p, qs_p)
+    hltalt = 0.0
+    tterm = 0.0
+    _uwshcu_calc_hltalt_tterm(t, __ptr__(hltalt), __ptr__(tterm))
+    enthalpy_p[0] = _UWSHCU_CP * t + hltalt * qs_p[0]
+    qs = qs_p[0]
+    if qs == 1.0:
+        dqsdt = 0.0
+    else:
+        rh2o = _UWSHCU_R / _UWSHCU_EP2
+        den = rh2o * t
+        den = den * t
+        desdt = hltalt * es_p[0]
+        desdt = desdt / den
+        desdt = desdt + tterm
+        out = qs * p
+        out = out * desdt
+        den2 = p - (1.0 - _UWSHCU_EP2) * es_p[0]
+        den2 = es_p[0] * den2
+        dqsdt = out / den2
+    gam_p[0] = dqsdt * (hltalt / _UWSHCU_CP)
+
+
+@inline
+def _uwshcu_no_ip_hltalt(t: float) -> float:
+    hltalt = _UWSHCU_XLV
+    if t >= _UWSHCU_TMELT:
+        hltalt = hltalt - 2369.0 * (t - _UWSHCU_TMELT)
+    return hltalt
+
+
+@inline
+def _uwshcu_qsat_water_ptr_codon(t: float, p: float, es_p: Ptr[float], qs_p: Ptr[float]):
+    es = _uwshcu_goff_gratch_svp_water(t)
+    qs = _uwshcu_svp_to_qsat(es, p)
+    if p < es:
+        es = p
+    es_p[0] = es
+    qs_p[0] = qs
+
+
+@inline
+def _uwshcu_qsat_water_gam_enthalpy_codon(
+    t: float,
+    p: float,
+    es_p: Ptr[float],
+    qs_p: Ptr[float],
+    gam_p: Ptr[float],
+    enthalpy_p: Ptr[float],
+):
+    _uwshcu_qsat_water_ptr_codon(t, p, es_p, qs_p)
+    hltalt = _uwshcu_no_ip_hltalt(t)
+    enthalpy_p[0] = _UWSHCU_CP * t + hltalt * qs_p[0]
+    qs = qs_p[0]
+    if qs == 1.0:
+        dqsdt = 0.0
+    else:
+        rh2o = _UWSHCU_R / _UWSHCU_EP2
+        den = rh2o * t
+        den = den * t
+        desdt = hltalt * es_p[0]
+        desdt = desdt / den
+        out = qs * p
+        out = out * desdt
+        den2 = p - (1.0 - _UWSHCU_EP2) * es_p[0]
+        den2 = es_p[0] * den2
+        dqsdt = out / den2
+    gam_p[0] = dqsdt * (hltalt / _UWSHCU_CP)
+
+
+@inline
+def _uwshcu_findsp_scalar_codon(q: float, t: float, p: float, tsp_p: Ptr[float], qsp_p: Ptr[float]) -> int:
+    es = 0.0
+    qs = 0.0
+    _uwshcu_qsat_ptr_codon(t, p, __ptr__(es), __ptr__(qs))
+
+    if p <= 5.0 * es or qs <= 0.0 or qs >= 0.5 or t < _UWSHCU_TMIN or t > _UWSHCU_TMAX:
+        tsp_p[0] = t
+        qsp_p[0] = q
+        return 1
+
+    status = 2
+    hltalt = 0.0
+    tterm = 0.0
+    _uwshcu_calc_hltalt_tterm(t, __ptr__(hltalt), __ptr__(tterm))
+    enin = _UWSHCU_CP * t + hltalt * q
+
+    c3 = 287.04 * (7.5 * log(10.0)) / _UWSHCU_CP
+    c1 = hltalt * c3
+    c2 = (t + 36.0) ** 2
+    r1b = c2 / (c2 + c1 * qs)
+    qvd = r1b * (q - qs)
+    tsp = t + ((hltalt / _UWSHCU_CP) * qvd)
+
+    gam = 0.0
+    enout = 0.0
+    _uwshcu_qsat_gam_enthalpy_codon(tsp, p, __ptr__(es), qsp_p, __ptr__(gam), __ptr__(enout))
+
+    l = 1
+    while l <= 8:
+        g = enin - enout
+        dgdt = -_UWSHCU_CP * (1.0 + gam)
+        t1 = tsp - g / dgdt
+        dt = abs(t1 - tsp) / t1
+        tsp = t1
+
+        if tsp < _UWSHCU_TMIN:
+            tsp = _UWSHCU_TMIN
+            _uwshcu_calc_hltalt_tterm(tsp, __ptr__(hltalt), __ptr__(tterm))
+            qsp_p[0] = (enin - _UWSHCU_CP * tsp) / hltalt
+            enout = _UWSHCU_CP * tsp + hltalt * qsp_p[0]
+            status = 4
+            break
+
+        q1 = 0.0
+        _uwshcu_qsat_gam_enthalpy_codon(tsp, p, __ptr__(es), __ptr__(q1), __ptr__(gam), __ptr__(enout))
+        dq = abs(q1 - qsp_p[0]) / max(q1, 1.0e-12)
+        qsp_p[0] = q1
+
+        if dt < 1.0e-4 and dq < 1.0e-4:
+            status = 0
+            break
+        l += 1
+
+    if abs((enin - enout) / (enin + enout)) > 1.0e-4:
+        status = 8
+
+    tsp_p[0] = tsp
+    return status
+
+
+def uwshcu_findsp_layer_codon(iend: int, qv0_p: Ptr[float], t0_p: Ptr[float], p0_p: Ptr[float], tw0_p: Ptr[float], qw0_p: Ptr[float]):
+    i = 0
+    while i < iend:
+        _uwshcu_findsp_scalar_codon(qv0_p[i], t0_p[i], p0_p[i], tw0_p + i, qw0_p + i)
+        i += 1
+
+
+@export
+def uwshcu_qsat_codon(t: float, p: float, es_p: cobj, qs_p: cobj):
+    _uwshcu_qsat_ptr_codon(t, p, Ptr[float](es_p), Ptr[float](qs_p))
+
+
+def uwshcu_qsat_gam_codon(t: float, p: float, es_p: cobj, qs_p: cobj, gam_p: cobj):
+    _uwshcu_qsat_gam_ptr_codon(t, p, Ptr[float](es_p), Ptr[float](qs_p), Ptr[float](gam_p))
+
+
+@inline
 def _uwshcu_wtrc_ratio_type(iatype: int, qtrc: float, qtot: float, wtrc_qmin: float, iwspec: Ptr[int], rstd: Ptr[float]) -> float:
     ispec = iwspec[iatype - 1]
     if abs(qtot) < wtrc_qmin:
         return rstd[ispec - 1]
     return qtrc / qtot
+
+
+@inline
+def _uwshcu_wiso_alpl(ispec: int, tk: float) -> float:
+    if ispec <= 2:
+        return 1.0
+    if ispec == 3:
+        return exp(
+            1158.8e-12 * tk**3
+            + (-1620.1e-9) * tk**2
+            + 794.84e-6 * tk
+            + (-161.04e-3)
+            + 2.9992e6 / tk**3
+        )
+    return exp(0.35041e6 / tk**3 + (-1.6664e3) / tk**2 + 6.7123 / tk + (-7.685e-3))
+
+
+@inline
+def _uwshcu_wiso_alpi(ispec: int, tk: float) -> float:
+    if ispec <= 2:
+        return 1.0
+    if ispec == 3:
+        return exp(16289.0 / tk**2 + (-9.45e-2))
+    return exp(11.839 / tk + (-28.224e-3))
+
+
+@inline
+def _uwshcu_wiso_ssatf(tk: float) -> float:
+    ssat = 1.0 + (-0.002) * (tk - 273.16)
+    if ssat < 1.0:
+        ssat = 1.0
+    if ssat > 2.0:
+        ssat = 2.0
+    return ssat
+
+
+@inline
+def _uwshcu_wiso_akci(ispec: int, tk: float, alpeq: float) -> float:
+    if tk >= 253.15:
+        return alpeq
+    sat1 = _uwshcu_wiso_ssatf(tk)
+    difrmj = 1.0
+    if ispec == 3:
+        difrmj = 0.9757
+    elif ispec == 4:
+        difrmj = 0.9727
+    dondi = 1.0 / difrmj
+    return alpeq * sat1 / (alpeq * dondi * (sat1 - 1.0) + 1.0)
+
+
+@inline
+def _uwshcu_wtrc_get_alpha_codon(ispec: int, idsttype: int, tk: float, kin: int) -> float:
+    if idsttype == 2:
+        return _uwshcu_wiso_alpl(ispec, tk)
+    if idsttype == 3:
+        alpha = _uwshcu_wiso_alpi(ispec, tk)
+        if kin != 0:
+            alpha = _uwshcu_wiso_akci(ispec, tk, alpha)
+        return alpha
+    return 1.0
+
+
+@inline
+def _uwshcu_wtrc_efac(alpha: float, vapnew: float, liqnew: float, wtrc_qmin: float, rstd_h2o: float) -> float:
+    qtot = vapnew + liqnew
+    if abs(qtot) < wtrc_qmin:
+        alov = rstd_h2o
+    else:
+        alov = vapnew / qtot
+    alov = alpha * (1.0 / alov - 1.0)
+    efac = 1.0 / (alov + 1.0)
+    if efac < 0.0:
+        efac = 0.0
+    if efac > 1.0:
+        efac = 1.0
+    return efac
+
+
+@inline
+def _uwshcu_wtrc_dqequil(
+    alpha: float,
+    feq0: float,
+    vtotnew: float,
+    ltotnew: float,
+    visoold: float,
+    lisoold: float,
+    wtrc_qmin: float,
+    rstd_h2o: float,
+) -> float:
+    qiso = visoold + lisoold
+    vieql = qiso * _uwshcu_wtrc_efac(alpha, vtotnew, ltotnew, wtrc_qmin, rstd_h2o)
+    vinof = qiso * _uwshcu_wtrc_efac(1.0, vtotnew, ltotnew, wtrc_qmin, rstd_h2o)
+    visonew = feq0 * vieql + (1.0 - feq0) * vinof
+    dviso = visonew - visoold
+    if dviso < 0.0:
+        dviso = max(dviso, -visoold)
+    else:
+        dviso = min(dviso, lisoold)
+    return dviso
+
+
+@inline
+def _uwshcu_wtrc_liqvap_equil_dliqiso(
+    alpha: float,
+    feq0: float,
+    vaptot: float,
+    liqtot: float,
+    vapiso: float,
+    liqiso: float,
+    wtrc_qmin: float,
+    rstd_h2o: float,
+) -> float:
+    qtiny = 1.0e-36
+    qtot = vaptot + liqtot
+    qiso = vapiso + liqiso
+
+    if qtot < qtiny:
+        return 0.0
+    if qiso < qtiny:
+        return 0.0
+    if liqtot < qtiny:
+        return -liqiso
+    if vaptot < qtiny:
+        return vapiso
+
+    dviso = _uwshcu_wtrc_dqequil(alpha, feq0, vaptot, liqtot, vapiso, liqiso, wtrc_qmin, rstd_h2o)
+    return -dviso
+
+
+@inline
+def _uwshcu_wtrc_equil_time(
+    ispec: int,
+    temp: float,
+    pres: float,
+    rdrop: float,
+    zdel: float,
+    alpha: float,
+    difrm: float,
+    esat: float,
+    rair: float,
+    rh2o: float,
+    gravit: float,
+    rhoh2o: float,
+) -> float:
+    rhoa = pres / (rair * temp)
+    difa = 2.11e-5 * difrm * (temp / 273.15) ** 1.94 * (101325.0 / pres)
+    mu = 1.72e-5 * ((temp / 273.0) ** 1.5) * 393.0 / (temp + 120.0)
+    cddrop = 0.6
+    vterm = sqrt((4.0 / 3.0) * gravit * (2.0 * rdrop) * rhoh2o / (cddrop * rhoa))
+    re_num = 2.0 * rdrop * rhoa * vterm / mu
+    sc_num = mu / (rhoa * difa)
+    xx = re_num ** (1.0 / 2.0) * sc_num ** (1.0 / 3.0)
+    if xx >= 1.4:
+        fvent = 0.78 + 0.308 * xx
+    else:
+        fvent = 1.0 + 0.108 * xx * xx
+    tadjust = alpha * (rdrop * rdrop) * rhoh2o * rh2o * temp / (3.0 * fvent * difa * esat)
+    texposure = zdel / vterm
+    return 1.0 - exp(-texposure / tadjust)
+
+
+@inline
+def _uwshcu_wtrc_precip_evap_isotope_codon(
+    iatype_vap: int,
+    qv0_v: float,
+    t0_v: float,
+    p0_v: float,
+    es_v: float,
+    wtflxrn_base: float,
+    wtflxrn_m: float,
+    tr0_vap: float,
+    tr0_base_vap: float,
+    evprain: float,
+    wtevp_base: float,
+    rr: float,
+    dp0_v: float,
+    g: float,
+    dt: float,
+    dz_v: float,
+    rair: float,
+    rh2o: float,
+    rhoh2o: float,
+    wtrc_qmin: float,
+    iwspec: Ptr[int],
+    rstd: Ptr[float],
+) -> float:
+    ispec = iwspec[iatype_vap - 1]
+    if ispec == 3:
+        difrm = 0.9836504
+    elif ispec == 4:
+        difrm = 0.9686999
+    else:
+        difrm = 1.0
+
+    alpliq = _uwshcu_wiso_alpl(ispec, t0_v)
+    rain_radius = 2.0 / (4.1 * (wtflxrn_base * 60.0 * 60.0) ** (-0.21))
+    rain_radius = rain_radius / 1000.0
+    fequil = _uwshcu_wtrc_equil_time(ispec, t0_v, p0_v, rain_radius, dz_v, alpliq, difrm, es_v, rair, rh2o, g, rhoh2o)
+    fequil = min(1.0, max(0.0, fequil))
+
+    wtevp_local = evprain * rr
+    ivtmp = tr0_vap + wtevp_local * dt
+    iltmp = ((wtflxrn_m * g / dp0_v) - wtevp_local) * dt
+    vtmp = tr0_base_vap + wtevp_base * dt
+    ltmp = ((wtflxrn_base * g / dp0_v) - wtevp_base) * dt
+    dliqiso = _uwshcu_wtrc_liqvap_equil_dliqiso(alpliq, fequil, vtmp, ltmp, ivtmp, iltmp, wtrc_qmin, rstd[0])
+    return wtevp_local - dliqiso / dt
+
+
+def _uwshcu_conden_scalar_ptr_codon(
+    p: float,
+    thl: float,
+    qt: float,
+    th: Ptr[float],
+    qv: Ptr[float],
+    ql: Ptr[float],
+    qi: Ptr[float],
+    qse: Ptr[float],
+    id_check: Ptr[int],
+    ncnst: int,
+):
+    tc = thl * _uwshcu_exnf(p, _UWSHCU_P00, _UWSHCU_ROVCP)
+    nu = max(min((268.0 - tc) / 20.0, 1.0), 0.0)
+    leff = (1.0 - nu) * _UWSHCU_XLV + nu * _UWSHCU_XLS
+    temps = tc
+
+    es = 0.0
+    qs = 0.0
+    _uwshcu_qsat_ptr_codon(temps, p, __ptr__(es), __ptr__(qs))
+    qse[0] = qs
+
+    if qs >= qt:
+        id_check[0] = 0
+        qv[0] = qt
+        ql[0] = 0.0
+        qi[0] = 0.0
+        th[0] = tc / _uwshcu_exnf(p, _UWSHCU_P00, _UWSHCU_ROVCP)
+    else:
+        iteration = 1
+        while iteration <= 10:
+            temps = temps + (
+                (tc - temps) * _UWSHCU_CP / leff + qt - qse[0]
+            ) / (
+                _UWSHCU_CP / leff
+                + _UWSHCU_EP2 * leff * qse[0] / _UWSHCU_R / temps / temps
+            )
+            _uwshcu_qsat_ptr_codon(temps, p, __ptr__(es), __ptr__(qs))
+            qse[0] = qs
+            iteration += 1
+        qc = max(qt - qs, 0.0)
+        qv[0] = qt - qc
+        ql[0] = qc * (1.0 - nu)
+        qi[0] = nu * qc
+        th[0] = temps / _uwshcu_exnf(p, _UWSHCU_P00, _UWSHCU_ROVCP)
+        if abs((temps - (leff / _UWSHCU_CP) * qc) - tc) >= 1.0:
+            id_check[0] = 1
+        else:
+            id_check[0] = 0
+
+
+@export
+def uwshcu_conden_scalar_codon(
+    p: float,
+    thl: float,
+    qt: float,
+    th_p: cobj,
+    qv_p: cobj,
+    ql_p: cobj,
+    qi_p: cobj,
+    qse_p: cobj,
+    id_check_p: cobj,
+    ncnst: int,
+):
+    _uwshcu_conden_scalar_ptr_codon(
+        p,
+        thl,
+        qt,
+        Ptr[float](th_p),
+        Ptr[float](qv_p),
+        Ptr[float](ql_p),
+        Ptr[float](qi_p),
+        Ptr[float](qse_p),
+        Ptr[int](id_check_p),
+        ncnst,
+    )
+
+
+@export
+def uwshcu_conden_wtout_codon(
+    p: float,
+    thl: float,
+    qt: float,
+    th_p: cobj,
+    qv_p: cobj,
+    ql_p: cobj,
+    qi_p: cobj,
+    qse_p: cobj,
+    id_check_p: cobj,
+    ncnst: int,
+    qv0: float,
+    tr0_p: cobj,
+    tr0_stride: int,
+    tr0_offset: int,
+    wtout_p: cobj,
+    wtrc_nwset: int,
+    wisotope: int,
+    wtrc_alpha_kinetic: int,
+    wtrc_iatype_p: cobj,
+    wtrc_qmin: float,
+    iwspec_p: cobj,
+    rstd_p: cobj,
+):
+    th = Ptr[float](th_p)
+    qv = Ptr[float](qv_p)
+    ql = Ptr[float](ql_p)
+    qi = Ptr[float](qi_p)
+    qse = Ptr[float](qse_p)
+    id_check = Ptr[int](id_check_p)
+
+    tc = thl * _uwshcu_exnf(p, _UWSHCU_P00, _UWSHCU_ROVCP)
+    nu = max(min((268.0 - tc) / 20.0, 1.0), 0.0)
+    leff = (1.0 - nu) * _UWSHCU_XLV + nu * _UWSHCU_XLS
+    temps = tc
+
+    es = 0.0
+    qs = 0.0
+    _uwshcu_qsat_ptr_codon(temps, p, __ptr__(es), __ptr__(qs))
+    qse[0] = qs
+
+    if qs >= qt:
+        id_check[0] = 0
+        qv[0] = qt
+        ql[0] = 0.0
+        qi[0] = 0.0
+        th[0] = tc / _uwshcu_exnf(p, _UWSHCU_P00, _UWSHCU_ROVCP)
+        return
+
+    iteration = 1
+    while iteration <= 10:
+        temps = temps + (
+            (tc - temps) * _UWSHCU_CP / leff + qt - qse[0]
+        ) / (
+            _UWSHCU_CP / leff
+            + _UWSHCU_EP2 * leff * qse[0] / _UWSHCU_R / temps / temps
+        )
+        _uwshcu_qsat_ptr_codon(temps, p, __ptr__(es), __ptr__(qs))
+        qse[0] = qs
+        iteration += 1
+
+    qc = max(qt - qs, 0.0)
+    qv[0] = qt - qc
+    ql[0] = qc * (1.0 - nu)
+    qi[0] = nu * qc
+    th[0] = temps / _uwshcu_exnf(p, _UWSHCU_P00, _UWSHCU_ROVCP)
+    if abs((temps - (leff / _UWSHCU_CP) * qc) - tc) >= 1.0:
+        id_check[0] = 1
+    else:
+        id_check[0] = 0
+
+    tr0 = Ptr[float](tr0_p)
+    wtout = Ptr[float](wtout_p)
+    wtrc_iatype = Ptr[int](wtrc_iatype_p)
+    iwspec = Ptr[int](iwspec_p)
+    rstd = Ptr[float](rstd_p)
+
+    tavg = (tc + temps) / 2.0
+    base_tr0_idx = tr0_offset
+    if ncnst > wtrc_nwset:
+        base_tr0_idx = tr0_offset + (wtrc_iatype[0] - 1) * tr0_stride
+
+    m = 0
+    while m < wtrc_nwset:
+        vap_type = wtrc_iatype[m]
+        tr0_idx = tr0_offset + m * tr0_stride
+        if ncnst > wtrc_nwset:
+            tr0_idx = tr0_offset + (vap_type - 1) * tr0_stride
+
+        rv0 = _uwshcu_wtrc_ratio_type(vap_type, tr0[tr0_idx], tr0[base_tr0_idx], wtrc_qmin, iwspec, rstd)
+
+        if wisotope != 0:
+            if qv0 != 0.0:
+                fv = qv[0] / qv0
+            else:
+                fv = 1.0
+
+            ispec = iwspec[vap_type - 1]
+            ae = _uwshcu_wtrc_get_alpha_codon(ispec, 2, tavg, wtrc_alpha_kinetic)
+            if ae - fv * (ae - 1.0) != 0.0:
+                rve = rv0 / (ae - fv * (ae - 1.0))
+                rle = ae * rve
+                rve = rve * (1.0 - nu)
+                rle = rle * (1.0 - nu)
+            else:
+                rve = rv0 * (1.0 - nu)
+                rle = rv0 * (1.0 - nu)
+
+            if fv != 1.0:
+                ae = _uwshcu_wtrc_get_alpha_codon(ispec, 3, tavg, wtrc_alpha_kinetic)
+                rvr = rv0 * (fv ** (ae - 1.0))
+                rlr = (rv0 - fv * rvr) / (1.0 - fv)
+                rvr = rvr * nu
+                rlr = rlr * nu
+            else:
+                rvr = rv0 * nu
+                rlr = rv0 * nu
+
+            rv = rve + rvr
+            rl = rle + rlr
+        else:
+            rv = rv0
+            rl = rv0
+
+        wtout[m] = rv * qv[0]
+        wtout[m + wtrc_nwset] = (rl * qc) * (1.0 - nu)
+        wtout[m + 2 * wtrc_nwset] = nu * (rl * qc)
+        m += 1
 
 
 @export
@@ -262,9 +959,29 @@ def uwshcu_compute_parent_shell_codon(
     init_shell_flags_p: cobj,
     wtrc_metadata_flags_p: cobj,
     wtrc_iatype_p: cobj,
+    positive_moisture_iwspec_p: cobj,
+    positive_moisture_rstd_p: cobj,
+    qmin_p: cobj,
+    constituent_state_flags_p: cobj,
+    wtrc_scalar_metadata_p: cobj,
+    constant_metadata_p: cobj,
+    parent_real_workspace_p: cobj,
+    parent_int_workspace_p: cobj,
 ):
     init_shell_flags = Ptr[int](init_shell_flags_p)
-    public_outputs_preinitialized = 0
+    wtrc_metadata_flags = Ptr[int](wtrc_metadata_flags_p)
+    constants = Ptr[float](constant_metadata_p)
+
+    uwshcu_init_constants_codon(
+        constants[0],
+        constants[1],
+        constants[3],
+        constants[4],
+        constants[5],
+        constants[6],
+        constants[7],
+        constant_metadata_p,
+    )
 
     if init_shell_flags[0] == 0:
         uwshcu_public_output_init_shell_codon(
@@ -302,7 +1019,6 @@ def uwshcu_compute_parent_shell_codon(
             wtsnow_p,
             wtqc_p,
         )
-        public_outputs_preinitialized = 1
 
     qv0 = Ptr[float](qv0_p)
     t0 = Ptr[float](t0_p)
@@ -312,7 +1028,7 @@ def uwshcu_compute_parent_shell_codon(
 
     for k in range(1, mkx + 1):
         offset = (k - 1) * mix
-        uwshcu_findsp_layer_from_c_dispatch(
+        uwshcu_findsp_layer_codon(
             iend,
             qv0 + offset,
             t0 + offset,
@@ -321,17 +1037,28 @@ def uwshcu_compute_parent_shell_codon(
             qw0 + offset,
         )
 
-    uwshcu_compute_native_from_c_dispatch(
+    wtrc_nwset = 0
+    if wtrc_metadata_flags[0] != 0:
+        wtrc_nwset = wtrc_metadata_flags[1]
+
+    uwshcu_compute_parent_prefix_workspace_codon(
         mix,
         mkx,
         iend,
         ncnst,
-        dt,
+        wtrc_nwset,
+        constants[0],
+        constants[2],
+        constants[3],
+        constants[4],
+        constants[8],
+        constants[9],
         ps0_p,
         zs0_p,
         p0_p,
         z0_p,
         dp0_p,
+        dpdry0_p,
         u0_p,
         v0_p,
         qv0_p,
@@ -339,55 +1066,481 @@ def uwshcu_compute_parent_shell_codon(
         qi0_p,
         t0_p,
         s0_p,
-        tr0_p,
         tke_p,
         cldfrct_p,
         concldfrct_p,
+        tr0_p,
         pblh_p,
         cush_p,
-        umf_p,
-        slflx_p,
-        qtflx_p,
-        flxprc1_p,
-        flxsnow1_p,
-        qvten_p,
-        qlten_p,
-        qiten_p,
-        sten_p,
-        uten_p,
-        vten_p,
-        trten_p,
-        qrten_p,
-        qsten_p,
-        precip_p,
-        snow_p,
-        evapc_p,
-        cufrc_p,
-        qcu_p,
-        qlu_p,
-        qiu_p,
-        cbmf_p,
-        qc_p,
-        rliq_p,
-        cnt_p,
-        cnb_p,
-        lchnk,
-        dpdry0_p,
-        wtprec_p,
-        wtsnow_p,
-        wtqc_p,
-        1,
-        tw0_p,
-        qw0_p,
-        1,
-        constituent_indices_p,
-        1,
-        init_shell_flags_p,
-        1,
-        wtrc_metadata_flags_p,
         wtrc_iatype_p,
-        public_outputs_preinitialized,
+        parent_real_workspace_p,
+        parent_int_workspace_p,
     )
+
+
+@export
+def uwshcu_compute_parent_prefix_workspace_codon(
+    mix: int,
+    mkx: int,
+    iend: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    xlv: float,
+    xls: float,
+    cp: float,
+    zvir: float,
+    p00: float,
+    rovcp: float,
+    ps0_in_p: cobj,
+    zs0_in_p: cobj,
+    p0_in_p: cobj,
+    z0_in_p: cobj,
+    dp0_in_p: cobj,
+    dpdry0_in_p: cobj,
+    u0_in_p: cobj,
+    v0_in_p: cobj,
+    qv0_in_p: cobj,
+    ql0_in_p: cobj,
+    qi0_in_p: cobj,
+    t0_in_p: cobj,
+    s0_in_p: cobj,
+    tke_in_p: cobj,
+    cldfrct_in_p: cobj,
+    concldfrct_in_p: cobj,
+    tr0_in_p: cobj,
+    pblh_in_p: cobj,
+    cush_inout_p: cobj,
+    wtrc_iatype_p: cobj,
+    parent_real_workspace_p: cobj,
+    parent_int_workspace_p: cobj,
+):
+    rw = Ptr[float](parent_real_workspace_p)
+    iw = Ptr[int](parent_int_workspace_p)
+    ps0_in = Ptr[float](ps0_in_p)
+    zs0_in = Ptr[float](zs0_in_p)
+    p0_in = Ptr[float](p0_in_p)
+    z0_in = Ptr[float](z0_in_p)
+    dp0_in = Ptr[float](dp0_in_p)
+    dpdry0_in = Ptr[float](dpdry0_in_p)
+    u0_in = Ptr[float](u0_in_p)
+    v0_in = Ptr[float](v0_in_p)
+    qv0_in = Ptr[float](qv0_in_p)
+    ql0_in = Ptr[float](ql0_in_p)
+    qi0_in = Ptr[float](qi0_in_p)
+    t0_in = Ptr[float](t0_in_p)
+    s0_in = Ptr[float](s0_in_p)
+    tke_in = Ptr[float](tke_in_p)
+    cldfrct_in = Ptr[float](cldfrct_in_p)
+    concldfrct_in = Ptr[float](concldfrct_in_p)
+    tr0_in = Ptr[float](tr0_in_p)
+    pblh_in = Ptr[float](pblh_in_p)
+    cush_inout = Ptr[float](cush_inout_p)
+    wtrc_iatype = Ptr[int](wtrc_iatype_p)
+
+    nlevp = mkx + 1
+    wtrc_slots = max(1, wtrc_nwset)
+    per_col_stride = 4 * nlevp + 21 * mkx + 2 * mkx * ncnst + 2 * mkx * wtrc_slots + 4 * mkx + 8
+
+    i_col = 1
+    while i_col <= iend:
+        col = i_col - 1
+        exit_code = iw + 16 + col
+        id_check = iw + 16 + iend + col
+        exit_code[0] = 0
+        id_check[0] = 0
+        off = col * per_col_stride
+        ps0 = rw + off
+        off += nlevp
+        zs0 = rw + off
+        off += nlevp
+        tke = rw + off
+        off += nlevp
+        exns0 = rw + off
+        off += nlevp
+        p0 = rw + off
+        off += mkx
+        z0 = rw + off
+        off += mkx
+        dp0 = rw + off
+        off += mkx
+        dpdry0 = rw + off
+        off += mkx
+        u0 = rw + off
+        off += mkx
+        v0 = rw + off
+        off += mkx
+        qv0 = rw + off
+        off += mkx
+        ql0 = rw + off
+        off += mkx
+        qi0 = rw + off
+        off += mkx
+        t0 = rw + off
+        off += mkx
+        s0 = rw + off
+        off += mkx
+        cldfrct = rw + off
+        off += mkx
+        concldfrct = rw + off
+        off += mkx
+        exn0 = rw + off
+        off += mkx
+        qt0 = rw + off
+        off += mkx
+        thl0 = rw + off
+        off += mkx
+        thvl0 = rw + off
+        off += mkx
+        ssthl0 = rw + off
+        off += mkx
+        ssqt0 = rw + off
+        off += mkx
+        ssu0 = rw + off
+        off += mkx
+        ssv0 = rw + off
+        off += mkx
+        tr0 = rw + off
+        off += mkx * ncnst
+        sstr0 = rw + off
+        off += mkx * ncnst
+        wt0 = rw + off
+        off += mkx * wtrc_slots
+        sswt0 = rw + off
+        off += mkx * wtrc_slots
+        pblh = rw + off
+        off += 1
+        cush = rw + off
+        off += 1
+        thv0bot = rw + off
+        off += mkx
+        thvl0bot = rw + off
+        off += mkx
+        thv0top = rw + off
+        off += mkx
+        thvl0top = rw + off
+        off += mkx
+        th = rw + off
+        off += 1
+        qv = rw + off
+        off += 1
+        ql = rw + off
+        off += 1
+        qi = rw + off
+        off += 1
+        qse = rw + off
+        off += 1
+        tmp_exit_conden = rw + off
+        off += 1
+        pad0 = rw + off
+        off += 1
+        pad1 = rw + off
+        off += 1
+
+        pblh[0] = pblh_in[col]
+        cush[0] = cush_inout[col]
+        tmp_exit_conden[0] = 0.0
+        pad0[0] = 0.0
+        pad1[0] = 0.0
+
+        k = 0
+        while k <= mkx:
+            src = col + k * mix
+            ps0[k] = ps0_in[src]
+            zs0[k] = zs0_in[src]
+            tke[k] = tke_in[src]
+            exns0[k] = (ps0[k] / p00) ** rovcp
+            k += 1
+
+        k = 0
+        while k < mkx:
+            src = col + k * mix
+            p0[k] = p0_in[src]
+            z0[k] = z0_in[src]
+            dp0[k] = dp0_in[src]
+            dpdry0[k] = dpdry0_in[src]
+            u0[k] = u0_in[src]
+            v0[k] = v0_in[src]
+            qv0[k] = qv0_in[src]
+            ql0[k] = ql0_in[src]
+            qi0[k] = qi0_in[src]
+            t0[k] = t0_in[src]
+            s0[k] = s0_in[src]
+            cldfrct[k] = cldfrct_in[src]
+            concldfrct[k] = concldfrct_in[src]
+            exn0[k] = (p0[k] / p00) ** rovcp
+            qt0[k] = qv0[k] + ql0[k] + qi0[k]
+            thl0[k] = (t0[k] - xlv * ql0[k] / cp - xls * qi0[k] / cp) / exn0[k]
+            thvl0[k] = (1.0 + zvir * qt0[k]) * thl0[k]
+            k += 1
+
+        m = 0
+        while m < ncnst:
+            src_offset = m * mix * mkx
+            dst_offset = m * mkx
+            k = 0
+            while k < mkx:
+                tr0[k + dst_offset] = tr0_in[col + k * mix + src_offset]
+                k += 1
+            m += 1
+
+        m = 0
+        while m < wtrc_nwset:
+            vap = wtrc_iatype[m] - 1
+            liq = wtrc_iatype[m + wtrc_nwset] - 1
+            ice = wtrc_iatype[m + 2 * wtrc_nwset] - 1
+            dst_offset = m * mkx
+            vap_offset = vap * mkx
+            liq_offset = liq * mkx
+            ice_offset = ice * mkx
+            k = 0
+            while k < mkx:
+                wt0[k + dst_offset] = tr0[k + vap_offset] + tr0[k + liq_offset] + tr0[k + ice_offset]
+                k += 1
+            m += 1
+
+        _uwshcu_slope_column(mkx, p0, thl0, 0, 1, ssthl0, 0, 1)
+        _uwshcu_slope_column(mkx, p0, qt0, 0, 1, ssqt0, 0, 1)
+        _uwshcu_slope_column(mkx, p0, u0, 0, 1, ssu0, 0, 1)
+        _uwshcu_slope_column(mkx, p0, v0, 0, 1, ssv0, 0, 1)
+
+        m = 0
+        while m < ncnst:
+            _uwshcu_slope_column(mkx, p0, tr0, m * mkx, 1, sstr0, m * mkx, 1)
+            m += 1
+
+        m = 0
+        while m < wtrc_nwset:
+            _uwshcu_slope_column(mkx, p0, wt0, m * mkx, 1, sswt0, m * mkx, 1)
+            m += 1
+
+        _uwshcu_interface_thv_loop_ptr_codon(
+            mkx,
+            ncnst,
+            zvir,
+            ps0,
+            p0,
+            thl0,
+            ssthl0,
+            qt0,
+            ssqt0,
+            tmp_exit_conden,
+            thv0bot,
+            thvl0bot,
+            thv0top,
+            thvl0top,
+            th,
+            qv,
+            ql,
+            qi,
+            qse,
+            id_check,
+            exit_code,
+        )
+
+        i_col += 1
+
+    iw[0] = 1
+    iw[1] = per_col_stride
+    iw[2] = iend
+    iw[3] = mkx
+    iw[4] = ncnst
+    iw[5] = wtrc_nwset
+
+
+@inline
+def _uwshcu_copy_contig_float(dst: Ptr[float], src: Ptr[float], n: int):
+    k = 0
+    while k < n:
+        dst[k] = src[k]
+        k += 1
+
+
+@export
+def uwshcu_parent_prefix_load_shell_codon(
+    i_col: int,
+    mkx: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    parent_prefix_stride: int,
+    parent_prefix_wtrc_slots: int,
+    trace_water_flag: int,
+    parent_real_workspace_p: cobj,
+    parent_int_workspace_p: cobj,
+    ps0_p: cobj,
+    zs0_p: cobj,
+    tke_p: cobj,
+    exns0_p: cobj,
+    p0_p: cobj,
+    z0_p: cobj,
+    dp0_p: cobj,
+    dpdry0_p: cobj,
+    u0_p: cobj,
+    v0_p: cobj,
+    qv0_p: cobj,
+    ql0_p: cobj,
+    qi0_p: cobj,
+    t0_p: cobj,
+    s0_p: cobj,
+    cldfrct_p: cobj,
+    concldfrct_p: cobj,
+    exn0_p: cobj,
+    qt0_p: cobj,
+    thl0_p: cobj,
+    thvl0_p: cobj,
+    ssthl0_p: cobj,
+    ssqt0_p: cobj,
+    ssu0_p: cobj,
+    ssv0_p: cobj,
+    tr0_p: cobj,
+    sstr0_p: cobj,
+    wt0_p: cobj,
+    sswt0_p: cobj,
+    pblh_p: cobj,
+    cush_p: cobj,
+    thv0bot_p: cobj,
+    thvl0bot_p: cobj,
+    thv0top_p: cobj,
+    thvl0top_p: cobj,
+    exit_conden_i_p: cobj,
+    exit_code_p: cobj,
+):
+    rw = Ptr[float](parent_real_workspace_p)
+    iw = Ptr[int](parent_int_workspace_p)
+    ps0 = Ptr[float](ps0_p)
+    zs0 = Ptr[float](zs0_p)
+    tke = Ptr[float](tke_p)
+    exns0 = Ptr[float](exns0_p)
+    p0 = Ptr[float](p0_p)
+    z0 = Ptr[float](z0_p)
+    dp0 = Ptr[float](dp0_p)
+    dpdry0 = Ptr[float](dpdry0_p)
+    u0 = Ptr[float](u0_p)
+    v0 = Ptr[float](v0_p)
+    qv0 = Ptr[float](qv0_p)
+    ql0 = Ptr[float](ql0_p)
+    qi0 = Ptr[float](qi0_p)
+    t0 = Ptr[float](t0_p)
+    s0 = Ptr[float](s0_p)
+    cldfrct = Ptr[float](cldfrct_p)
+    concldfrct = Ptr[float](concldfrct_p)
+    exn0 = Ptr[float](exn0_p)
+    qt0 = Ptr[float](qt0_p)
+    thl0 = Ptr[float](thl0_p)
+    thvl0 = Ptr[float](thvl0_p)
+    ssthl0 = Ptr[float](ssthl0_p)
+    ssqt0 = Ptr[float](ssqt0_p)
+    ssu0 = Ptr[float](ssu0_p)
+    ssv0 = Ptr[float](ssv0_p)
+    tr0 = Ptr[float](tr0_p)
+    sstr0 = Ptr[float](sstr0_p)
+    wt0 = Ptr[float](wt0_p)
+    sswt0 = Ptr[float](sswt0_p)
+    pblh = Ptr[float](pblh_p)
+    cush = Ptr[float](cush_p)
+    thv0bot = Ptr[float](thv0bot_p)
+    thvl0bot = Ptr[float](thvl0bot_p)
+    thv0top = Ptr[float](thv0top_p)
+    thvl0top = Ptr[float](thvl0top_p)
+    exit_conden_i = Ptr[float](exit_conden_i_p)
+    exit_code = Ptr[int](exit_code_p)
+
+    col = i_col - 1
+    off = col * parent_prefix_stride
+    nlevp = mkx + 1
+    exit_code[0] = 0
+
+    _uwshcu_copy_contig_float(ps0, rw + off, nlevp)
+    off += nlevp
+    _uwshcu_copy_contig_float(zs0, rw + off, nlevp)
+    off += nlevp
+    _uwshcu_copy_contig_float(tke, rw + off, nlevp)
+    off += nlevp
+    _uwshcu_copy_contig_float(exns0, rw + off, nlevp)
+    off += nlevp
+    _uwshcu_copy_contig_float(p0, rw + off, mkx)
+    off += mkx
+    _uwshcu_copy_contig_float(z0, rw + off, mkx)
+    off += mkx
+    _uwshcu_copy_contig_float(dp0, rw + off, mkx)
+    off += mkx
+    _uwshcu_copy_contig_float(dpdry0, rw + off, mkx)
+    off += mkx
+    _uwshcu_copy_contig_float(u0, rw + off, mkx)
+    off += mkx
+    _uwshcu_copy_contig_float(v0, rw + off, mkx)
+    off += mkx
+    _uwshcu_copy_contig_float(qv0, rw + off, mkx)
+    off += mkx
+    _uwshcu_copy_contig_float(ql0, rw + off, mkx)
+    off += mkx
+    _uwshcu_copy_contig_float(qi0, rw + off, mkx)
+    off += mkx
+    _uwshcu_copy_contig_float(t0, rw + off, mkx)
+    off += mkx
+    _uwshcu_copy_contig_float(s0, rw + off, mkx)
+    off += mkx
+    _uwshcu_copy_contig_float(cldfrct, rw + off, mkx)
+    off += mkx
+    _uwshcu_copy_contig_float(concldfrct, rw + off, mkx)
+    off += mkx
+    _uwshcu_copy_contig_float(exn0, rw + off, mkx)
+    off += mkx
+    _uwshcu_copy_contig_float(qt0, rw + off, mkx)
+    off += mkx
+    _uwshcu_copy_contig_float(thl0, rw + off, mkx)
+    off += mkx
+    _uwshcu_copy_contig_float(thvl0, rw + off, mkx)
+    off += mkx
+    _uwshcu_copy_contig_float(ssthl0, rw + off, mkx)
+    off += mkx
+    _uwshcu_copy_contig_float(ssqt0, rw + off, mkx)
+    off += mkx
+    _uwshcu_copy_contig_float(ssu0, rw + off, mkx)
+    off += mkx
+    _uwshcu_copy_contig_float(ssv0, rw + off, mkx)
+    off += mkx
+
+    m = 0
+    while m < ncnst:
+        _uwshcu_copy_contig_float(tr0 + m * mkx, rw + off, mkx)
+        off += mkx
+        m += 1
+
+    m = 0
+    while m < ncnst:
+        _uwshcu_copy_contig_float(sstr0 + m * mkx, rw + off, mkx)
+        off += mkx
+        m += 1
+
+    if trace_water_flag != 0:
+        m = 0
+        while m < wtrc_nwset:
+            _uwshcu_copy_contig_float(wt0 + m * mkx, rw + off, mkx)
+            off += mkx
+            m += 1
+        m = 0
+        while m < wtrc_nwset:
+            _uwshcu_copy_contig_float(sswt0 + m * mkx, rw + off, mkx)
+            off += mkx
+            m += 1
+    else:
+        off += 2 * mkx * parent_prefix_wtrc_slots
+
+    pblh[0] = rw[off]
+    off += 1
+    cush[0] = rw[off]
+    off += 1
+    _uwshcu_copy_contig_float(thv0bot, rw + off, mkx)
+    off += mkx
+    _uwshcu_copy_contig_float(thvl0bot, rw + off, mkx)
+    off += mkx
+    _uwshcu_copy_contig_float(thv0top, rw + off, mkx)
+    off += mkx
+    _uwshcu_copy_contig_float(thvl0top, rw + off, mkx)
+
+    if iw[16 + col] != 0:
+        exit_conden_i[0] = 1.0
+        exit_code[0] = 1
 
 
 @export
@@ -445,6 +1598,14 @@ def uwshcu_init_constants_codon(
     ep2_in: float,
     constants_p: cobj,
 ):
+    global _UWSHCU_XLV
+    global _UWSHCU_XLS
+    global _UWSHCU_CP
+    global _UWSHCU_R
+    global _UWSHCU_EP2
+    global _UWSHCU_P00
+    global _UWSHCU_ROVCP
+
     constants = Ptr[float](constants_p)
 
     constants[0] = xlv_in
@@ -457,6 +1618,14 @@ def uwshcu_init_constants_codon(
     constants[7] = ep2_in
     constants[8] = 1.0e5
     constants[9] = constants[5] / constants[3]
+
+    _UWSHCU_XLV = constants[0]
+    _UWSHCU_XLS = constants[2]
+    _UWSHCU_CP = constants[3]
+    _UWSHCU_R = constants[5]
+    _UWSHCU_EP2 = constants[7]
+    _UWSHCU_P00 = constants[8]
+    _UWSHCU_ROVCP = constants[9]
 
 
 @export
@@ -5115,7 +6284,7 @@ def uwshcu_lcl_conden_init_shell_codon(
     plfc_p: cobj,
     klfc_p: cobj,
 ):
-    uwshcu_conden_scalar_from_c_dispatch(
+    uwshcu_conden_scalar_codon(
         plcl,
         thl0lcl,
         qt0lcl,
@@ -5241,7 +6410,7 @@ def uwshcu_cin_main_loop_shell_codon(
                 cin[0] = cinlcl[0]
 
                 thvubot = thvlsrc
-                uwshcu_conden_scalar_from_c_dispatch(
+                uwshcu_conden_scalar_codon(
                     ps0[k],
                     thlsrc,
                     qtsrc,
@@ -5276,7 +6445,7 @@ def uwshcu_cin_main_loop_shell_codon(
                     return
             else:
                 thvubot = thvutop
-                uwshcu_conden_scalar_from_c_dispatch(
+                uwshcu_conden_scalar_codon(
                     ps0[k],
                     thlsrc,
                     qtsrc,
@@ -5314,7 +6483,7 @@ def uwshcu_cin_main_loop_shell_codon(
         cinlcl[0] = 0.0
         k = kinv
         while k <= mkx - 1:
-            uwshcu_conden_scalar_from_c_dispatch(
+            uwshcu_conden_scalar_codon(
                 ps0[k - 1],
                 thlsrc,
                 qtsrc,
@@ -5332,7 +6501,7 @@ def uwshcu_cin_main_loop_shell_codon(
                 return
             thvubot = th[0] * (1.0 + zvir * qv[0] - ql[0] - qi[0])
 
-            uwshcu_conden_scalar_from_c_dispatch(
+            uwshcu_conden_scalar_codon(
                 ps0[k],
                 thlsrc,
                 qtsrc,
@@ -5542,6 +6711,75 @@ def uwshcu_conden_exit_thv_batch_shell_codon(
     )
 
 
+def _uwshcu_interface_thv_loop_ptr_codon(
+    mkx: int,
+    ncnst: int,
+    zvir: float,
+    ps0: Ptr[float],
+    p0: Ptr[float],
+    thl0: Ptr[float],
+    ssthl0: Ptr[float],
+    qt0: Ptr[float],
+    ssqt0: Ptr[float],
+    exit_conden: Ptr[float],
+    thv0bot: Ptr[float],
+    thvl0bot: Ptr[float],
+    thv0top: Ptr[float],
+    thvl0top: Ptr[float],
+    th: Ptr[float],
+    qv: Ptr[float],
+    ql: Ptr[float],
+    qi: Ptr[float],
+    qse: Ptr[float],
+    id_check: Ptr[int],
+    exit_code: Ptr[int],
+):
+    exit_code[0] = 0
+    for k in range(1, mkx + 1):
+        idx = k - 1
+        thl0bot = thl0[idx] + ssthl0[idx] * (ps0[k - 1] - p0[idx])
+        qt0bot = qt0[idx] + ssqt0[idx] * (ps0[k - 1] - p0[idx])
+        _uwshcu_conden_scalar_ptr_codon(
+            ps0[k - 1],
+            thl0bot,
+            qt0bot,
+            th,
+            qv,
+            ql,
+            qi,
+            qse,
+            id_check,
+            ncnst,
+        )
+        if id_check[0] == 1:
+            exit_conden[0] = 1.0
+            exit_code[0] = 1
+            return
+        thv0bot[idx] = th[0] * (1.0 + zvir * qv[0] - ql[0] - qi[0])
+        thvl0bot[idx] = thl0bot * (1.0 + zvir * qt0bot)
+
+        thl0top = thl0[idx] + ssthl0[idx] * (ps0[k] - p0[idx])
+        qt0top = qt0[idx] + ssqt0[idx] * (ps0[k] - p0[idx])
+        _uwshcu_conden_scalar_ptr_codon(
+            ps0[k],
+            thl0top,
+            qt0top,
+            th,
+            qv,
+            ql,
+            qi,
+            qse,
+            id_check,
+            ncnst,
+        )
+        if id_check[0] == 1:
+            exit_conden[0] = 1.0
+            exit_code[0] = 1
+            return
+        thv0top[idx] = th[0] * (1.0 + zvir * qv[0] - ql[0] - qi[0])
+        thvl0top[idx] = thl0top * (1.0 + zvir * qt0top)
+
+
 @export
 def uwshcu_interface_thv_loop_shell_codon(
     mkx: int,
@@ -5566,87 +6804,29 @@ def uwshcu_interface_thv_loop_shell_codon(
     id_check_p: cobj,
     exit_code_p: cobj,
 ):
-    ps0 = Ptr[float](ps0_p)
-    p0 = Ptr[float](p0_p)
-    thl0 = Ptr[float](thl0_p)
-    ssthl0 = Ptr[float](ssthl0_p)
-    qt0 = Ptr[float](qt0_p)
-    ssqt0 = Ptr[float](ssqt0_p)
-    th = Ptr[float](th_p)
-    qv = Ptr[float](qv_p)
-    ql = Ptr[float](ql_p)
-    qi = Ptr[float](qi_p)
-    id_check = Ptr[int](id_check_p)
-    exit_code = Ptr[int](exit_code_p)
-
-    exit_code[0] = 0
-    for k in range(1, mkx + 1):
-        idx = k - 1
-        thl0bot = thl0[idx] + ssthl0[idx] * (ps0[k - 1] - p0[idx])
-        qt0bot = qt0[idx] + ssqt0[idx] * (ps0[k - 1] - p0[idx])
-        uwshcu_conden_scalar_from_c_dispatch(
-            ps0[k - 1],
-            thl0bot,
-            qt0bot,
-            th_p,
-            qv_p,
-            ql_p,
-            qi_p,
-            qse_p,
-            id_check_p,
-            ncnst,
-        )
-        uwshcu_conden_exit_thv_batch_shell_codon(
-            2,
-            k,
-            id_check[0],
-            zvir,
-            th[0],
-            qv[0],
-            ql[0],
-            qi[0],
-            thl0bot,
-            qt0bot,
-            exit_conden_p,
-            exit_code_p,
-            thv0bot_p,
-            thvl0bot_p,
-        )
-        if exit_code[0] != 0:
-            return
-
-        thl0top = thl0[idx] + ssthl0[idx] * (ps0[k] - p0[idx])
-        qt0top = qt0[idx] + ssqt0[idx] * (ps0[k] - p0[idx])
-        uwshcu_conden_scalar_from_c_dispatch(
-            ps0[k],
-            thl0top,
-            qt0top,
-            th_p,
-            qv_p,
-            ql_p,
-            qi_p,
-            qse_p,
-            id_check_p,
-            ncnst,
-        )
-        uwshcu_conden_exit_thv_batch_shell_codon(
-            2,
-            k,
-            id_check[0],
-            zvir,
-            th[0],
-            qv[0],
-            ql[0],
-            qi[0],
-            thl0top,
-            qt0top,
-            exit_conden_p,
-            exit_code_p,
-            thv0top_p,
-            thvl0top_p,
-        )
-        if exit_code[0] != 0:
-            return
+    _uwshcu_interface_thv_loop_ptr_codon(
+        mkx,
+        ncnst,
+        zvir,
+        Ptr[float](ps0_p),
+        Ptr[float](p0_p),
+        Ptr[float](thl0_p),
+        Ptr[float](ssthl0_p),
+        Ptr[float](qt0_p),
+        Ptr[float](ssqt0_p),
+        Ptr[float](exit_conden_p),
+        Ptr[float](thv0bot_p),
+        Ptr[float](thvl0bot_p),
+        Ptr[float](thv0top_p),
+        Ptr[float](thvl0top_p),
+        Ptr[float](th_p),
+        Ptr[float](qv_p),
+        Ptr[float](ql_p),
+        Ptr[float](qi_p),
+        Ptr[float](qse_p),
+        Ptr[int](id_check_p),
+        Ptr[int](exit_code_p),
+    )
 
 
 @export
@@ -5897,6 +7077,74 @@ def uwshcu_buoy_top_expel_shell_codon(
     else:
         dwten[layer_idx] = 0.0
         diten[layer_idx] = 0.0
+
+
+@export
+def uwshcu_buoy_wtrc_expel_shell_codon(
+    k_fortran: int,
+    mkx: int,
+    wtrc_nwset: int,
+    criqc: float,
+    qlj: float,
+    qij: float,
+    wtrc_qmin: float,
+    wtout_p: cobj,
+    wtrc_iatype_p: cobj,
+    iwspec_p: cobj,
+    rstd_p: cobj,
+    dwten_p: cobj,
+    diten_p: cobj,
+    tru_p: cobj,
+    wtu_p: cobj,
+    wtdwten_p: cobj,
+    wtditen_p: cobj,
+):
+    wtout = Ptr[float](wtout_p)
+    wtrc_iatype = Ptr[int](wtrc_iatype_p)
+    iwspec = Ptr[int](iwspec_p)
+    rstd = Ptr[float](rstd_p)
+    dwten = Ptr[float](dwten_p)
+    diten = Ptr[float](diten_p)
+    tru = Ptr[float](tru_p)
+    wtu = Ptr[float](wtu_p)
+    wtdwten = Ptr[float](wtdwten_p)
+    wtditen = Ptr[float](wtditen_p)
+
+    layer_idx = k_fortran - 1
+    iface_idx = k_fortran
+    iface_stride = mkx + 1
+    liq_base_idx = wtrc_nwset
+    ice_base_idx = 2 * wtrc_nwset
+
+    if qlj + qij > criqc:
+        m = 0
+        while m < wtrc_nwset:
+            liq_idx = m + wtrc_nwset
+            ice_idx = m + 2 * wtrc_nwset
+            field_idx = layer_idx + m * mkx
+
+            rldt = _uwshcu_wtrc_ratio_type(wtrc_iatype[liq_idx], wtout[liq_idx], wtout[liq_base_idx], wtrc_qmin, iwspec, rstd)
+            ridt = _uwshcu_wtrc_ratio_type(wtrc_iatype[ice_idx], wtout[ice_idx], wtout[ice_base_idx], wtrc_qmin, iwspec, rstd)
+            wtexql = rldt * dwten[layer_idx]
+            wtexqi = ridt * diten[layer_idx]
+
+            tru[iface_idx + (wtrc_iatype[liq_idx] - 1) * iface_stride] = (
+                tru[iface_idx + (wtrc_iatype[liq_idx] - 1) * iface_stride] - wtexql
+            )
+            tru[iface_idx + (wtrc_iatype[ice_idx] - 1) * iface_stride] = (
+                tru[iface_idx + (wtrc_iatype[ice_idx] - 1) * iface_stride] - wtexqi
+            )
+            wtu[iface_idx + m * iface_stride] = wtu[iface_idx + m * iface_stride] - wtexql - wtexqi
+            wtdwten[field_idx] = wtexql
+            wtditen[field_idx] = wtexqi
+            m += 1
+    else:
+        m = 0
+        while m < wtrc_nwset:
+            field_idx = layer_idx + m * mkx
+            wtdwten[field_idx] = 0.0
+            wtditen[field_idx] = 0.0
+            m += 1
 
 
 @export
@@ -6456,6 +7704,8 @@ def uwshcu_buoy_top_conden_finalize_full_shell_codon(
     mkx: int,
     wtrc_nwset: int,
     trace_water: int,
+    wisotope: int,
+    wtrc_alpha_kinetic: int,
     ncnst: int,
     kpen: int,
     criqc: float,
@@ -6509,25 +7759,46 @@ def uwshcu_buoy_top_conden_finalize_full_shell_codon(
             idx += 1
 
     pressure = ps0[kpen - 1] + ppen
-    uwshcu_top_conden_from_c_dispatch(
-        trace_water,
-        wtrc_nwset,
-        ncnst,
-        pressure,
-        thlu_top[0],
-        qtu_top[0],
-        p00,
-        rovcp,
-        thj_p,
-        qvj_p,
-        qlj_p,
-        qij_p,
-        qse_p,
-        id_check_p,
-        exntop_p,
-        wtu_top_p,
-        wtout_p,
-    )
+    if trace_water != 0:
+        uwshcu_conden_wtout_codon(
+            pressure,
+            thlu_top[0],
+            qtu_top[0],
+            thj_p,
+            qvj_p,
+            qlj_p,
+            qij_p,
+            qse_p,
+            id_check_p,
+            wtrc_nwset,
+            qtu_top[0],
+            wtu_top_p,
+            1,
+            0,
+            wtout_p,
+            wtrc_nwset,
+            wisotope,
+            wtrc_alpha_kinetic,
+            wtrc_iatype_p,
+            wtrc_qmin,
+            iwspec_p,
+            rstd_p,
+        )
+    else:
+        uwshcu_conden_scalar_codon(
+            pressure,
+            thlu_top[0],
+            qtu_top[0],
+            thj_p,
+            qvj_p,
+            qlj_p,
+            qij_p,
+            qse_p,
+            id_check_p,
+            ncnst,
+        )
+    if Ptr[int](id_check_p)[0] != 1:
+        Ptr[float](exntop_p)[0] = (pressure / p00) ** rovcp
 
     id_check = Ptr[int](id_check_p)[0]
     exntop = Ptr[float](exntop_p)[0]
@@ -8282,7 +9553,7 @@ def uwshcu_release_base_full_shell_codon(
         dpe_p,
     )
 
-    uwshcu_conden_scalar_from_c_dispatch(
+    uwshcu_conden_scalar_codon(
         prel_v,
         thlsrc,
         qtsrc,
@@ -10124,6 +11395,8 @@ def uwshcu_scaleh_filter_penent_flux_comp_sub_prep_stage_dispatch_codon(
     limit_emf_p: cobj,
     limit_shcu_p: cobj,
     exit_code_p: cobj,
+    exit_cufilter_p: cobj,
+    cufilter_exit_code_p: cobj,
     trsrc_p: cobj,
     wtsrc_p: cobj,
     slflx_p: cobj,
@@ -10145,14 +11418,26 @@ def uwshcu_scaleh_filter_penent_flux_comp_sub_prep_stage_dispatch_codon(
     niten_sub_p: cobj,
     wtlten_sub_p: cobj,
     wtiten_sub_p: cobj,
+    th_p: cobj,
+    qv_p: cobj,
+    ql_p: cobj,
+    qi_p: cobj,
+    qse_p: cobj,
+    id_check_p: cobj,
+    comp_sub_conden_exit_code_p: cobj,
 ):
     limit_shcu = Ptr[float](limit_shcu_p)
     exit_code = Ptr[int](exit_code_p)
+    exit_cufilter = Ptr[float](exit_cufilter_p)
+    cufilter_exit_code = Ptr[int](cufilter_exit_code_p)
 
     exit_code[0] = 0
+    cufilter_exit_code[0] = 0
     if kbup == krel:
         limit_shcu[0] = 1.0
         exit_code[0] = 1
+        exit_cufilter[0] = 1.0
+        cufilter_exit_code[0] = 1
         return
     limit_shcu[0] = 0.0
 
@@ -10242,6 +11527,24 @@ def uwshcu_scaleh_filter_penent_flux_comp_sub_prep_stage_dispatch_codon(
         wtlten_sub_p,
         wtiten_sub_p,
     )
+    uwshcu_comp_sub_conden_loop_shell_codon(
+        mkx,
+        ncnst,
+        kpen,
+        dt_v,
+        p0_p,
+        thl0_p,
+        qt0_p,
+        thlten_sub_p,
+        qtten_sub_p,
+        th_p,
+        qv_p,
+        ql_p,
+        qi_p,
+        qse_p,
+        id_check_p,
+        comp_sub_conden_exit_code_p,
+    )
 
 @export
 def uwshcu_scaleh_filter_penent_flux_comp_sub_prep_shell_codon(
@@ -10310,6 +11613,8 @@ def uwshcu_scaleh_filter_penent_flux_comp_sub_prep_shell_codon(
     limit_emf_p: cobj,
     limit_shcu_p: cobj,
     exit_code_p: cobj,
+    exit_cufilter_p: cobj,
+    cufilter_exit_code_p: cobj,
     trsrc_p: cobj,
     wtsrc_p: cobj,
     slflx_p: cobj,
@@ -10331,6 +11636,13 @@ def uwshcu_scaleh_filter_penent_flux_comp_sub_prep_shell_codon(
     niten_sub_p: cobj,
     wtlten_sub_p: cobj,
     wtiten_sub_p: cobj,
+    th_p: cobj,
+    qv_p: cobj,
+    ql_p: cobj,
+    qi_p: cobj,
+    qse_p: cobj,
+    id_check_p: cobj,
+    comp_sub_conden_exit_code_p: cobj,
 ):
     uwshcu_scaleh_filter_penent_flux_comp_sub_prep_stage_dispatch_codon(
         mkx,
@@ -10398,6 +11710,8 @@ def uwshcu_scaleh_filter_penent_flux_comp_sub_prep_shell_codon(
         limit_emf_p,
         limit_shcu_p,
         exit_code_p,
+        exit_cufilter_p,
+        cufilter_exit_code_p,
         trsrc_p,
         wtsrc_p,
         slflx_p,
@@ -10419,6 +11733,13 @@ def uwshcu_scaleh_filter_penent_flux_comp_sub_prep_shell_codon(
         niten_sub_p,
         wtlten_sub_p,
         wtiten_sub_p,
+        th_p,
+        qv_p,
+        ql_p,
+        qi_p,
+        qse_p,
+        id_check_p,
+        comp_sub_conden_exit_code_p,
     )
 
 
@@ -10584,7 +11905,7 @@ def uwshcu_comp_sub_conden_loop_shell_codon(
         k = k_fortran - 1
         thl_prog = thl0[k] + thlten_sub[k] * dt_v
         qt_prog = max(qt0[k] + qtten_sub[k] * dt_v, 1.0e-12)
-        uwshcu_conden_scalar_from_c_dispatch(
+        uwshcu_conden_scalar_codon(
             p0[k],
             thl_prog,
             qt_prog,
@@ -11054,6 +12375,8 @@ def uwshcu_thermo_conden_condensate_conden_shell_codon(
     ixnumice: int,
     trace_water: int,
     wtrc_nwset: int,
+    wisotope: int,
+    wtrc_alpha_kinetic: int,
     ncnst: int,
     krel: int,
     kpen: int,
@@ -11103,6 +12426,10 @@ def uwshcu_thermo_conden_condensate_conden_shell_codon(
     wtu_p: cobj,
     wtu_top_p: cobj,
     wtout_p: cobj,
+    wtrc_iatype_p: cobj,
+    wtrc_qmin: float,
+    iwspec_p: cobj,
+    rstd_p: cobj,
 ):
     ps0 = Ptr[float](ps0_p)
     thlu = Ptr[float](thlu_p)
@@ -11137,26 +12464,76 @@ def uwshcu_thermo_conden_condensate_conden_shell_codon(
         qt = qtu[k_fortran]
         wtu_row = k_fortran
 
-    uwshcu_thermo_conden_from_c_dispatch(
-        trace_water,
-        wtrc_nwset,
-        ncnst,
-        mkx,
-        wtu_row,
-        use_top,
-        pressure,
-        thl,
-        qt,
-        thj_p,
-        qvj_p,
-        qlj_p,
-        qij_p,
-        qse_p,
-        id_check_p,
-        wtu_p,
-        wtu_top_p,
-        wtout_p,
-    )
+    if trace_water != 0:
+        wtout = Ptr[float](wtout_p)
+        idx = 0
+        total = wtrc_nwset * 3
+        while idx < total:
+            wtout[idx] = 0.0
+            idx += 1
+        if use_top != 0:
+            uwshcu_conden_wtout_codon(
+                pressure,
+                thl,
+                qt,
+                thj_p,
+                qvj_p,
+                qlj_p,
+                qij_p,
+                qse_p,
+                id_check_p,
+                wtrc_nwset,
+                qt,
+                wtu_top_p,
+                1,
+                0,
+                wtout_p,
+                wtrc_nwset,
+                wisotope,
+                wtrc_alpha_kinetic,
+                wtrc_iatype_p,
+                wtrc_qmin,
+                iwspec_p,
+                rstd_p,
+            )
+        else:
+            uwshcu_conden_wtout_codon(
+                pressure,
+                thl,
+                qt,
+                thj_p,
+                qvj_p,
+                qlj_p,
+                qij_p,
+                qse_p,
+                id_check_p,
+                wtrc_nwset,
+                qt,
+                wtu_p,
+                mkx + 1,
+                wtu_row,
+                wtout_p,
+                wtrc_nwset,
+                wisotope,
+                wtrc_alpha_kinetic,
+                wtrc_iatype_p,
+                wtrc_qmin,
+                iwspec_p,
+                rstd_p,
+            )
+    else:
+        uwshcu_conden_scalar_codon(
+            pressure,
+            thl,
+            qt,
+            thj_p,
+            qvj_p,
+            qlj_p,
+            qij_p,
+            qse_p,
+            id_check_p,
+            ncnst,
+        )
 
     id_check = Ptr[int](id_check_p)
     qlj = Ptr[float](qlj_p)
@@ -11316,6 +12693,8 @@ def uwshcu_thermo_emf_kbup_conden_shell_codon(
     ixnumice: int,
     trace_water: int,
     wtrc_nwset: int,
+    wisotope: int,
+    wtrc_alpha_kinetic: int,
     ncnst: int,
     g_v: float,
     emf_k: float,
@@ -11346,27 +12725,55 @@ def uwshcu_thermo_emf_kbup_conden_shell_codon(
     nc_im_p: cobj,
     nl_emf_kbup_p: cobj,
     ni_emf_kbup_p: cobj,
+    wtrc_iatype_p: cobj,
+    wtrc_qmin: float,
+    iwspec_p: cobj,
+    rstd_p: cobj,
 ):
-    uwshcu_thermo_conden_from_c_dispatch(
-        trace_water,
-        wtrc_nwset,
-        ncnst,
-        mkx,
-        k_fortran,
-        0,
-        p0_k,
-        thlu_emf_k,
-        qtu_emf_k,
-        thj_p,
-        qvj_p,
-        ql_emf_kbup_p,
-        qi_emf_kbup_p,
-        qse_p,
-        id_check_p,
-        wtu_emf_p,
-        wtu_emf_p,
-        wtout_emf_kbup_p,
-    )
+    if trace_water != 0:
+        wtout = Ptr[float](wtout_emf_kbup_p)
+        idx = 0
+        total = wtrc_nwset * 3
+        while idx < total:
+            wtout[idx] = 0.0
+            idx += 1
+        uwshcu_conden_wtout_codon(
+            p0_k,
+            thlu_emf_k,
+            qtu_emf_k,
+            thj_p,
+            qvj_p,
+            ql_emf_kbup_p,
+            qi_emf_kbup_p,
+            qse_p,
+            id_check_p,
+            wtrc_nwset,
+            qtu_emf_k,
+            wtu_emf_p,
+            mkx + 1,
+            k_fortran,
+            wtout_emf_kbup_p,
+            wtrc_nwset,
+            wisotope,
+            wtrc_alpha_kinetic,
+            wtrc_iatype_p,
+            wtrc_qmin,
+            iwspec_p,
+            rstd_p,
+        )
+    else:
+        uwshcu_conden_scalar_codon(
+            p0_k,
+            thlu_emf_k,
+            qtu_emf_k,
+            thj_p,
+            qvj_p,
+            ql_emf_kbup_p,
+            qi_emf_kbup_p,
+            qse_p,
+            id_check_p,
+            ncnst,
+        )
 
     id_check = Ptr[int](id_check_p)
     ql_emf_kbup = Ptr[float](ql_emf_kbup_p)
@@ -13077,7 +14484,7 @@ def uwshcu_cloud_diag_conden_batch_shell_codon(
     qij = Ptr[float](qij_p)
 
     if kind == 0:
-        uwshcu_conden_scalar_from_c_dispatch(
+        uwshcu_conden_scalar_codon(
             prel_v,
             thlu[krel - 1],
             qtu[krel - 1],
@@ -13098,7 +14505,7 @@ def uwshcu_cloud_diag_conden_batch_shell_codon(
             pressure = ps0[k_fortran]
             thl = thlu[k_fortran]
             qt = qtu[k_fortran]
-        uwshcu_conden_scalar_from_c_dispatch(
+        uwshcu_conden_scalar_codon(
             pressure,
             thl,
             qt,
@@ -13227,7 +14634,7 @@ def uwshcu_qsinvert_codon(
     dpsmax = 1.0
 
     Ti = thl * (psfc / p00_v) ** rovcp_v
-    uwshcu_qsat_from_c_dispatch(Ti, psfc, es_p, qs_p)
+    uwshcu_qsat_codon(Ti, psfc, es_p, qs_p)
     rhi = qt / qs[0]
     if uwshcu_qsinvert_rh_guard_codon(rhi) != 0:
         return psmin
@@ -13239,7 +14646,7 @@ def uwshcu_qsinvert_codon(
     for _ in range(10):
         Pis = (ps / p00_v) ** rovcp_v
         Ts = thl * Pis
-        uwshcu_qsat_gam_from_c_dispatch(Ts, ps, es_p, qs_p, gam_p)
+        uwshcu_qsat_gam_codon(Ts, ps, es_p, qs_p, gam_p)
         err = qt - qs[0]
         nu = max(min((268.0 - Ts) / 20.0, 1.0), 0.0)
         leff = (1.0 - nu) * xlv_v + nu * xls_v
@@ -14192,7 +15599,7 @@ def uwshcu_precip_evap_prep_shell_codon(
     else:
         snowmlt = 0.0
 
-    uwshcu_qsat_from_c_dispatch(t0_v, p0_v, es_p, qs_p)
+    uwshcu_qsat_codon(t0_v, p0_v, es_p, qs_p)
     qs = Ptr[float](qs_p)
 
     subsat = max((1.0 - qv0_v / qs[0]), 0.0)
@@ -14231,7 +15638,11 @@ def uwshcu_precip_wtrc_evap_tendency_shell_codon(
     wtrc_nwset: int,
     wisotope: int,
     g: float,
+    rair: float,
+    rh2o: float,
+    rhoh2o: float,
     dt: float,
+    es: float,
     qs: float,
     evprain: float,
     evpsnow: float,
@@ -14306,12 +15717,12 @@ def uwshcu_precip_wtrc_evap_tendency_shell_codon(
         )
 
         if wisotope != 0 and m + 1 > 1 and wtflxrn[base_top] > 0.0:
-            wtevp[layer_idx] = uwshcu_wtrc_precip_evap_isotope_from_c_dispatch(
+            wtevp[layer_idx] = _uwshcu_wtrc_precip_evap_isotope_codon(
                 vap + 1,
                 qv0_v,
                 t0_v,
                 p0_v,
-                qs,
+                es,
                 wtflxrn[base_top],
                 wtflxrn[top_idx],
                 tr0[kk + vap * mkx],
@@ -14323,12 +15734,538 @@ def uwshcu_precip_wtrc_evap_tendency_shell_codon(
                 g,
                 dt,
                 dz_v,
+                rair,
+                rh2o,
+                rhoh2o,
+                wtrc_qmin,
+                iwspec,
+                rstd,
             )
         else:
             wtevp[layer_idx] = evprain * rr
 
         wtsub[layer_idx] = evpsnow * rs
         m += 1
+
+
+@export
+def uwshcu_precip_layer_full_shell_codon(
+    mkx: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    k: int,
+    kpen: int,
+    mix: int,
+    i_col: int,
+    ixnumliq: int,
+    ixnumice: int,
+    trace_water: int,
+    wisotope: int,
+    noevap_krelkpen: int,
+    krel: int,
+    t0_v: float,
+    p0_v: float,
+    qv0_v: float,
+    qw0_v: float,
+    zs0_k: float,
+    zs0_km1: float,
+    dp0_v: float,
+    flxrain_v: float,
+    flxsnow_v: float,
+    kevp_v: float,
+    rainflx_v: float,
+    snowflx_v: float,
+    g_v: float,
+    dt_v: float,
+    xlv_v: float,
+    xls_v: float,
+    rair_v: float,
+    rh2o_v: float,
+    rhoh2o_v: float,
+    wtrc_qmin: float,
+    qmin_vap: float,
+    qmin_liq: float,
+    qmin_ice: float,
+    dp0_p: cobj,
+    qv0_p: cobj,
+    qt0_p: cobj,
+    ql0_p: cobj,
+    qi0_p: cobj,
+    s0_p: cobj,
+    qrten_p: cobj,
+    qsten_p: cobj,
+    dwten_p: cobj,
+    diten_p: cobj,
+    qtten_p: cobj,
+    slten_p: cobj,
+    qlten_sink_p: cobj,
+    qiten_sink_p: cobj,
+    nlten_sink_p: cobj,
+    niten_sink_p: cobj,
+    qc_l_p: cobj,
+    qc_i_p: cobj,
+    qlten_p: cobj,
+    qiten_p: cobj,
+    qvten_p: cobj,
+    sten_p: cobj,
+    tr0_p: cobj,
+    trten_p: cobj,
+    wtrc_iatype_p: cobj,
+    wt0_p: cobj,
+    wtdwten_p: cobj,
+    wtditen_p: cobj,
+    wttotten_p: cobj,
+    wtten_sink_liq_p: cobj,
+    wtten_sink_ice_p: cobj,
+    wtqc_liq_p: cobj,
+    wtqc_ice_p: cobj,
+    wtqcm_liq_p: cobj,
+    wtqcm_ice_p: cobj,
+    wtlten_det_p: cobj,
+    wtiten_det_p: cobj,
+    qc_p: cobj,
+    rliq_p: cobj,
+    precip_p: cobj,
+    snow_p: cobj,
+    evapc_p: cobj,
+    evpint_rain_p: cobj,
+    evpint_snow_p: cobj,
+    flxrain_p: cobj,
+    flxsnow_p: cobj,
+    ntraprd_p: cobj,
+    ntsnprd_p: cobj,
+    limit_negcon_p: cobj,
+    wtrpten_p: cobj,
+    wtspten_p: cobj,
+    wtevp_p: cobj,
+    wtsub_p: cobj,
+    wtflxrn_p: cobj,
+    wtflxsn_p: cobj,
+    wtprec_p: cobj,
+    wtsnow_p: cobj,
+    qv0_star_p: cobj,
+    ql0_star_p: cobj,
+    qi0_star_p: cobj,
+    s0_star_p: cobj,
+    wt0_star_p: cobj,
+    dpdry0_p: cobj,
+    trflx_p: cobj,
+    trflx_d_p: cobj,
+    trflx_u_p: cobj,
+    qmin_p: cobj,
+    is_water_p: cobj,
+    wet_p: cobj,
+    iwspec_p: cobj,
+    rstd_p: cobj,
+    dz_p: cobj,
+):
+    es = 0.0
+    qs = 0.0
+    snowmlt = 0.0
+    evprain = 0.0
+    evpsnow = 0.0
+    evpint_rain = Ptr[float](evpint_rain_p)
+    evpint_snow = Ptr[float](evpint_snow_p)
+
+    if t0_v > 273.16:
+        snowmlt = max(0.0, flxsnow_v * g_v / dp0_v)
+    else:
+        snowmlt = 0.0
+
+    _uwshcu_qsat_ptr_codon(t0_v, p0_v, __ptr__(es), __ptr__(qs))
+
+    subsat = max((1.0 - qv0_v / qs), 0.0)
+    if noevap_krelkpen != 0:
+        if k >= krel:
+            subsat = 0.0
+
+    evprain = kevp_v * subsat * sqrt(flxrain_v + snowmlt * dp0_v / g_v)
+    evpsnow = kevp_v * subsat * sqrt(max(flxsnow_v - snowmlt * dp0_v / g_v, 0.0))
+
+    evplimit = max(0.0, (qw0_v - qv0_v) / dt_v)
+
+    evplimit_rain = min(evplimit, (flxrain_v + snowmlt * dp0_v / g_v) * g_v / dp0_v)
+    evplimit_rain = min(evplimit_rain, (rainflx_v - evpint_rain[0]) * g_v / dp0_v)
+    evprain = max(0.0, min(evplimit_rain, evprain))
+
+    evplimit_snow = min(evplimit, max(flxsnow_v - snowmlt * dp0_v / g_v, 0.0) * g_v / dp0_v)
+    evplimit_snow = min(evplimit_snow, (snowflx_v - evpint_snow[0]) * g_v / dp0_v)
+    evpsnow = max(0.0, min(evplimit_snow, evpsnow))
+
+    if (evprain + evpsnow) > evplimit:
+        tmp1 = evprain * evplimit / (evprain + evpsnow)
+        tmp2 = evpsnow * evplimit / (evprain + evpsnow)
+        evprain = tmp1
+        evpsnow = tmp2
+
+    if trace_water != 0:
+        uwshcu_precip_wtrc_evap_tendency_shell_codon(
+            mkx,
+            k,
+            wtrc_nwset,
+            wisotope,
+            g_v,
+            rair_v,
+            rh2o_v,
+            rhoh2o_v,
+            dt_v,
+            es,
+            qs,
+            evprain,
+            evpsnow,
+            t0_v,
+            p0_v,
+            qv0_v,
+            zs0_k,
+            zs0_km1,
+            dp0_v,
+            wtrc_iatype_p,
+            wtrc_qmin,
+            iwspec_p,
+            rstd_p,
+            tr0_p,
+            wtrpten_p,
+            wtspten_p,
+            wtevp_p,
+            wtsub_p,
+            wtflxrn_p,
+            wtflxsn_p,
+            dz_p,
+        )
+
+    uwshcu_thermo_post_batch_shell_codon(
+        1,
+        mkx,
+        ncnst,
+        wtrc_nwset,
+        k,
+        kpen,
+        mix,
+        i_col,
+        0,
+        0,
+        ixnumliq,
+        ixnumice,
+        trace_water,
+        0.0,
+        dt_v,
+        xlv_v,
+        xls_v,
+        g_v,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        rainflx_v,
+        snowflx_v,
+        t0_v,
+        snowmlt,
+        evprain,
+        evpsnow,
+        qmin_vap,
+        qmin_liq,
+        qmin_ice,
+        dp0_p,
+        qv0_p,
+        qt0_p,
+        ql0_p,
+        qi0_p,
+        s0_p,
+        qrten_p,
+        qsten_p,
+        dwten_p,
+        diten_p,
+        qtten_p,
+        slten_p,
+        qlten_sink_p,
+        qiten_sink_p,
+        nlten_sink_p,
+        niten_sink_p,
+        qc_l_p,
+        qc_i_p,
+        qlten_p,
+        qiten_p,
+        qvten_p,
+        sten_p,
+        tr0_p,
+        trten_p,
+        wtrc_iatype_p,
+        wt0_p,
+        wtdwten_p,
+        wtditen_p,
+        wttotten_p,
+        wtten_sink_liq_p,
+        wtten_sink_ice_p,
+        wtqc_liq_p,
+        wtqc_ice_p,
+        wtqcm_liq_p,
+        wtqcm_ice_p,
+        wtlten_det_p,
+        wtiten_det_p,
+        qc_p,
+        rliq_p,
+        precip_p,
+        snow_p,
+        evapc_p,
+        evpint_rain_p,
+        evpint_snow_p,
+        flxrain_p,
+        flxsnow_p,
+        ntraprd_p,
+        ntsnprd_p,
+        limit_negcon_p,
+        wtrpten_p,
+        wtspten_p,
+        wtevp_p,
+        wtsub_p,
+        wtflxrn_p,
+        wtflxsn_p,
+        wtprec_p,
+        wtsnow_p,
+        qv0_star_p,
+        ql0_star_p,
+        qi0_star_p,
+        s0_star_p,
+        wt0_star_p,
+        dpdry0_p,
+        trflx_p,
+        trflx_d_p,
+        trflx_u_p,
+        qmin_p,
+        is_water_p,
+        wet_p,
+    )
+
+
+@export
+def uwshcu_precip_all_layers_full_shell_codon(
+    mkx: int,
+    ncnst: int,
+    wtrc_nwset: int,
+    kpen: int,
+    mix: int,
+    i_col: int,
+    ixnumliq: int,
+    ixnumice: int,
+    trace_water: int,
+    wisotope: int,
+    noevap_krelkpen: int,
+    krel: int,
+    kevp_v: float,
+    rainflx_v: float,
+    snowflx_v: float,
+    g_v: float,
+    dt_v: float,
+    xlv_v: float,
+    xls_v: float,
+    rair_v: float,
+    rh2o_v: float,
+    rhoh2o_v: float,
+    wtrc_qmin: float,
+    qmin_vap: float,
+    qmin_liq: float,
+    qmin_ice: float,
+    t0_p: cobj,
+    p0_p: cobj,
+    qv0_p: cobj,
+    qw0_p: cobj,
+    zs0_p: cobj,
+    dp0_p: cobj,
+    qt0_p: cobj,
+    ql0_p: cobj,
+    qi0_p: cobj,
+    s0_p: cobj,
+    qrten_p: cobj,
+    qsten_p: cobj,
+    dwten_p: cobj,
+    diten_p: cobj,
+    qtten_p: cobj,
+    slten_p: cobj,
+    qlten_sink_p: cobj,
+    qiten_sink_p: cobj,
+    nlten_sink_p: cobj,
+    niten_sink_p: cobj,
+    qc_l_p: cobj,
+    qc_i_p: cobj,
+    qlten_p: cobj,
+    qiten_p: cobj,
+    qvten_p: cobj,
+    sten_p: cobj,
+    tr0_p: cobj,
+    trten_p: cobj,
+    wtrc_iatype_p: cobj,
+    wt0_p: cobj,
+    wtdwten_p: cobj,
+    wtditen_p: cobj,
+    wttotten_p: cobj,
+    wtten_sink_liq_p: cobj,
+    wtten_sink_ice_p: cobj,
+    wtqc_liq_p: cobj,
+    wtqc_ice_p: cobj,
+    wtqcm_liq_p: cobj,
+    wtqcm_ice_p: cobj,
+    wtlten_det_p: cobj,
+    wtiten_det_p: cobj,
+    qc_p: cobj,
+    rliq_p: cobj,
+    precip_p: cobj,
+    snow_p: cobj,
+    evapc_p: cobj,
+    evpint_rain_p: cobj,
+    evpint_snow_p: cobj,
+    flxrain_p: cobj,
+    flxsnow_p: cobj,
+    ntraprd_p: cobj,
+    ntsnprd_p: cobj,
+    limit_negcon_p: cobj,
+    wtrpten_p: cobj,
+    wtspten_p: cobj,
+    wtevp_p: cobj,
+    wtsub_p: cobj,
+    wtflxrn_p: cobj,
+    wtflxsn_p: cobj,
+    wtprec_p: cobj,
+    wtsnow_p: cobj,
+    qv0_star_p: cobj,
+    ql0_star_p: cobj,
+    qi0_star_p: cobj,
+    s0_star_p: cobj,
+    wt0_star_p: cobj,
+    dpdry0_p: cobj,
+    trflx_p: cobj,
+    trflx_d_p: cobj,
+    trflx_u_p: cobj,
+    qmin_p: cobj,
+    is_water_p: cobj,
+    wet_p: cobj,
+    iwspec_p: cobj,
+    rstd_p: cobj,
+    dz_p: cobj,
+):
+    t0 = Ptr[float](t0_p)
+    p0 = Ptr[float](p0_p)
+    qv0 = Ptr[float](qv0_p)
+    qw0 = Ptr[float](qw0_p)
+    zs0 = Ptr[float](zs0_p)
+    dp0 = Ptr[float](dp0_p)
+    flxrain = Ptr[float](flxrain_p)
+    flxsnow = Ptr[float](flxsnow_p)
+
+    k = mkx
+    while k >= 1:
+        idx = k - 1
+        qw_idx = (i_col - 1) + idx * mix
+        uwshcu_precip_layer_full_shell_codon(
+            mkx,
+            ncnst,
+            wtrc_nwset,
+            k,
+            kpen,
+            mix,
+            i_col,
+            ixnumliq,
+            ixnumice,
+            trace_water,
+            wisotope,
+            noevap_krelkpen,
+            krel,
+            t0[idx],
+            p0[idx],
+            qv0[idx],
+            qw0[qw_idx],
+            zs0[k],
+            zs0[k - 1],
+            dp0[idx],
+            flxrain[k],
+            flxsnow[k],
+            kevp_v,
+            rainflx_v,
+            snowflx_v,
+            g_v,
+            dt_v,
+            xlv_v,
+            xls_v,
+            rair_v,
+            rh2o_v,
+            rhoh2o_v,
+            wtrc_qmin,
+            qmin_vap,
+            qmin_liq,
+            qmin_ice,
+            dp0_p,
+            qv0_p,
+            qt0_p,
+            ql0_p,
+            qi0_p,
+            s0_p,
+            qrten_p,
+            qsten_p,
+            dwten_p,
+            diten_p,
+            qtten_p,
+            slten_p,
+            qlten_sink_p,
+            qiten_sink_p,
+            nlten_sink_p,
+            niten_sink_p,
+            qc_l_p,
+            qc_i_p,
+            qlten_p,
+            qiten_p,
+            qvten_p,
+            sten_p,
+            tr0_p,
+            trten_p,
+            wtrc_iatype_p,
+            wt0_p,
+            wtdwten_p,
+            wtditen_p,
+            wttotten_p,
+            wtten_sink_liq_p,
+            wtten_sink_ice_p,
+            wtqc_liq_p,
+            wtqc_ice_p,
+            wtqcm_liq_p,
+            wtqcm_ice_p,
+            wtlten_det_p,
+            wtiten_det_p,
+            qc_p,
+            rliq_p,
+            precip_p,
+            snow_p,
+            evapc_p,
+            evpint_rain_p,
+            evpint_snow_p,
+            flxrain_p,
+            flxsnow_p,
+            ntraprd_p,
+            ntsnprd_p,
+            limit_negcon_p,
+            wtrpten_p,
+            wtspten_p,
+            wtevp_p,
+            wtsub_p,
+            wtflxrn_p,
+            wtflxsn_p,
+            wtprec_p,
+            wtsnow_p,
+            qv0_star_p,
+            ql0_star_p,
+            qi0_star_p,
+            s0_star_p,
+            wt0_star_p,
+            dpdry0_p,
+            trflx_p,
+            trflx_d_p,
+            trflx_u_p,
+            qmin_p,
+            is_water_p,
+            wet_p,
+            iwspec_p,
+            rstd_p,
+            dz_p,
+        )
+        k -= 1
 
 
 @export

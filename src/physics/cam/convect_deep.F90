@@ -57,6 +57,7 @@ module convect_deep
 
 !=========================================================================================
 function deep_scheme_does_scav_trans()
+  use iso_c_binding, only: c_int64_t
 !
 ! Function called by tphysbc to determine if it needs to do scavenging and convective transport
 ! or if those have been done by the deep convection scheme. Each scheme could have its own
@@ -65,6 +66,23 @@ function deep_scheme_does_scav_trans()
 !
 
   logical deep_scheme_does_scav_trans
+
+  interface
+     function deep_scheme_does_scav_trans_codon(scheme_code_c) result(flag_c) &
+          bind(c, name="deep_scheme_does_scav_trans_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: scheme_code_c
+       integer(c_int64_t) :: flag_c
+     end function deep_scheme_does_scav_trans_codon
+  end interface
+
+  call convect_deep_select_impl()
+
+  if (.not. use_native_impl) then
+     call convect_deep_select_codon_scheme()
+     deep_scheme_does_scav_trans = deep_scheme_does_scav_trans_codon(int(codon_scheme_code, c_int64_t)) /= 0_c_int64_t
+     return
+  end if
 
   deep_scheme_does_scav_trans = .false.
 

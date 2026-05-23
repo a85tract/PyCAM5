@@ -175,10 +175,21 @@ module cmparray_mod
   subroutine CmpDayNite_1d_R_Copy(InArray, OutArray, Nday, IdxDay, Nnite, IdxNite, il1, iu1)
     integer, intent(in) :: Nday, Nnite
     integer, intent(in) :: il1, iu1
-    integer, intent(in), dimension(Nday) :: IdxDay
-    integer, intent(in), dimension(Nnite) :: IdxNite
-    real(r8), intent(in), dimension(il1:iu1) :: InArray
-    real(r8), intent(out), dimension(il1:iu1) :: OutArray
+    integer, target, intent(in), dimension(Nday) :: IdxDay
+    integer, target, intent(in), dimension(Nnite) :: IdxNite
+    real(r8), target, intent(in), dimension(il1:iu1) :: InArray
+    real(r8), target, intent(out), dimension(il1:iu1) :: OutArray
+
+    call cmparray_select_impl()
+
+    if (.not. use_native_cmparray_impl) then
+       call cmparray_proof_once()
+       call cmparray_daynite_copy_real_codon(c_loc(InArray), c_loc(OutArray), &
+            c_loc(IdxDay), c_loc(IdxNite), int(Nday, c_int64_t), int(Nnite, c_int64_t), &
+            int(il1, c_int64_t), int(iu1, c_int64_t), 1_c_int64_t, 1_c_int64_t, &
+            1_c_int64_t, 1_c_int64_t)
+       return
+    end if
 
     call CmpDayNite_3d_R_Copy(InArray, OutArray, Nday, IdxDay, Nnite, IdxNite, il1, iu1, 1, 1, 1, 1)
 
@@ -189,10 +200,21 @@ module cmparray_mod
     integer, intent(in) :: Nday, Nnite
     integer, intent(in) :: il1, iu1
     integer, intent(in) :: il2, iu2
-    integer, intent(in), dimension(Nday) :: IdxDay
-    integer, intent(in), dimension(Nnite) :: IdxNite
-    real(r8), intent(in), dimension(il1:iu1,il2:iu2) :: InArray
-    real(r8), intent(out), dimension(il1:iu1,il2:iu2) :: OutArray
+    integer, target, intent(in), dimension(Nday) :: IdxDay
+    integer, target, intent(in), dimension(Nnite) :: IdxNite
+    real(r8), target, intent(in), dimension(il1:iu1,il2:iu2) :: InArray
+    real(r8), target, intent(out), dimension(il1:iu1,il2:iu2) :: OutArray
+
+    call cmparray_select_impl()
+
+    if (.not. use_native_cmparray_impl) then
+       call cmparray_proof_once()
+       call cmparray_daynite_copy_real_codon(c_loc(InArray), c_loc(OutArray), &
+            c_loc(IdxDay), c_loc(IdxNite), int(Nday, c_int64_t), int(Nnite, c_int64_t), &
+            int(il1, c_int64_t), int(iu1, c_int64_t), int(il2, c_int64_t), int(iu2, c_int64_t), &
+            1_c_int64_t, 1_c_int64_t)
+       return
+    end if
 
     call CmpDayNite_3d_R_Copy(InArray, OutArray, Nday, IdxDay, Nnite, IdxNite, il1, iu1, il2, iu2, 1, 1)
 
@@ -294,9 +316,22 @@ module cmparray_mod
   subroutine ExpDayNite_1d_R(Array, Nday, IdxDay, Nnite, IdxNite, il1, iu1)
     integer, intent(in) :: Nday, Nnite
     integer, intent(in) :: il1, iu1
-    integer, intent(in), dimension(Nday) :: IdxDay
-    integer, intent(in), dimension(Nnite) :: IdxNite
-    real(r8), intent(inout), dimension(il1:iu1) :: Array
+    integer, target, intent(in), dimension(Nday) :: IdxDay
+    integer, target, intent(in), dimension(Nnite) :: IdxNite
+    real(r8), target, intent(inout), dimension(il1:iu1) :: Array
+
+    real(r8), target, dimension(il1:iu1) :: tmp
+
+    call cmparray_select_impl()
+
+    if (.not. use_native_cmparray_impl) then
+       call cmparray_proof_once()
+       call cmparray_exp_daynite_real_codon(c_loc(Array), c_loc(tmp), &
+            c_loc(IdxDay), c_loc(IdxNite), int(Nday, c_int64_t), int(Nnite, c_int64_t), &
+            int(il1, c_int64_t), int(iu1, c_int64_t), 1_c_int64_t, 1_c_int64_t, &
+            1_c_int64_t, 1_c_int64_t)
+       return
+    end if
 
     call ExpDayNite_3d_R(Array, Nday, IdxDay, Nnite, IdxNite, il1, iu1, 1, 1, 1, 1)
 
@@ -307,9 +342,22 @@ module cmparray_mod
     integer, intent(in) :: Nday, Nnite
     integer, intent(in) :: il1, iu1
     integer, intent(in) :: il2, iu2
-    integer, intent(in), dimension(Nday) :: IdxDay
-    integer, intent(in), dimension(Nnite) :: IdxNite
-    real(r8), intent(inout), dimension(il1:iu1,il2:iu2) :: Array
+    integer, target, intent(in), dimension(Nday) :: IdxDay
+    integer, target, intent(in), dimension(Nnite) :: IdxNite
+    real(r8), target, intent(inout), dimension(il1:iu1,il2:iu2) :: Array
+
+    real(r8), target, dimension(il1:iu1) :: tmp
+
+    call cmparray_select_impl()
+
+    if (.not. use_native_cmparray_impl) then
+       call cmparray_proof_once()
+       call cmparray_exp_daynite_real_codon(c_loc(Array), c_loc(tmp), &
+            c_loc(IdxDay), c_loc(IdxNite), int(Nday, c_int64_t), int(Nnite, c_int64_t), &
+            int(il1, c_int64_t), int(iu1, c_int64_t), int(il2, c_int64_t), int(iu2, c_int64_t), &
+            1_c_int64_t, 1_c_int64_t)
+       return
+    end if
 
     call ExpDayNite_3d_R(Array, Nday, IdxDay, Nnite, IdxNite, il1, iu1, il2, iu2, 1, 1)
 

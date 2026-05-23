@@ -30,3 +30,6 @@
 *.exe
 *.out
 *.app
+
+# Local CAM/Codon validation receipts
+.codon_guard_receipts/
