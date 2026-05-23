@@ -78,12 +78,22 @@ logical            :: microphys_tend_diag_entered_logged = .false.
 logical            :: cloud_mixing_diag_entered_logged = .false.
 logical            :: postcloud_diag_entered_logged = .false.
 logical            :: store_oldcloud_entered_logged = .false.
+logical            :: stratiform_implements_cnst_logged = .false.
 integer            :: branch_mask = 0
 logical            :: branch_selected = .false.
 
 integer :: &
    ixcldliq,     &! cloud liquid amount index
    ixcldice       ! cloud ice amount index
+
+interface
+   function stratiform_implements_cnst_codon(flag_c) result(out_c) &
+        bind(c, name="stratiform_implements_cnst_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function stratiform_implements_cnst_codon
+end interface
 
 !===============================================================================
 contains
@@ -142,6 +152,8 @@ end subroutine stratiform_register
 
 function stratiform_implements_cnst(name)
 
+   use iso_c_binding, only: c_int64_t
+
   !----------------------------------------------------------------------------- ! 
   !                                                                              !    
   ! Return true if specified constituent is implemented by this package          !
@@ -150,10 +162,15 @@ function stratiform_implements_cnst(name)
 
    character(len=*), intent(in) :: name      ! constituent name
    logical :: stratiform_implements_cnst     ! return value
+   integer(c_int64_t) :: out_c
 
    !-----------------------------------------------------------------------
 
-   stratiform_implements_cnst = (do_cnst .and. any(name == cnst_names))
+   out_c = stratiform_implements_cnst_codon( &
+        merge(1_c_int64_t, 0_c_int64_t, do_cnst .and. any(name == cnst_names)))
+   stratiform_implements_cnst = out_c /= 0_c_int64_t
+   call stratiform_log_entered_once(stratiform_implements_cnst_logged, &
+        'STRATIFORM_PROOF_FILE', 'stratiform_implements_cnst direct = codon')
 
 end function stratiform_implements_cnst
 

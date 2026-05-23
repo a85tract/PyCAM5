@@ -180,6 +180,8 @@ module clubb_intr
   logical :: use_native_clubb_intr_impl = .false.
   logical :: clubb_intr_impl_selected = .false.
   logical :: clubb_intr_proof_written = .false.
+  logical :: clubb_implements_cnst_logged = .false.
+  logical :: clubb_readnl_logged = .false.
 
   interface
      function clubb_intr_flag_codon(flag_c) result(out_c) bind(c, name="clubb_intr_flag_codon")
@@ -192,6 +194,15 @@ module clubb_intr
         use iso_c_binding, only: c_int64_t
         integer(c_int64_t) :: out_c
      end function clubb_intr_touch_codon
+     function clubb_implements_cnst_codon(flag_c) result(out_c) bind(c, name="clubb_implements_cnst_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: flag_c
+        integer(c_int64_t) :: out_c
+     end function clubb_implements_cnst_codon
+     function clubb_readnl_codon() result(out_c) bind(c, name="clubb_readnl_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t) :: out_c
+     end function clubb_readnl_codon
   end interface
 
   contains
@@ -288,6 +299,22 @@ module clubb_intr
     out_c = clubb_intr_touch_codon()
 
   end subroutine clubb_intr_touch
+
+  ! =============================================================================== !
+
+  subroutine clubb_intr_log_direct(logged, proof_line)
+
+    logical, intent(inout) :: logged
+    character(len=*), intent(in) :: proof_line
+
+    if (logged) return
+    logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') trim(proof_line)
+    end if
+
+  end subroutine clubb_intr_log_direct
   
   ! =============================================================================== !
   !                                                                                 !
@@ -385,10 +412,21 @@ function clubb_implements_cnst(name)
 
    character(len=*), intent(in) :: name      ! constituent name
    logical :: clubb_implements_cnst     ! return value
+   logical :: matched
+   integer(c_int64_t) :: out_c
 
    !-----------------------------------------------------------------------
 
-   clubb_implements_cnst = clubb_intr_flag(do_cnst .and. any(name == cnst_names))
+   matched = do_cnst .and. any(name == cnst_names)
+   call clubb_intr_select_impl()
+   if (use_native_clubb_intr_impl) then
+      clubb_implements_cnst = matched
+   else
+      call clubb_intr_proof_once()
+      out_c = clubb_implements_cnst_codon(merge(1_c_int64_t, 0_c_int64_t, matched))
+      clubb_implements_cnst = out_c /= 0_c_int64_t
+      call clubb_intr_log_direct(clubb_implements_cnst_logged, 'clubb_implements_cnst direct = codon')
+   end if
 
 end function clubb_implements_cnst
 
@@ -446,6 +484,7 @@ end subroutine clubb_init_cnst
 #endif
 
     character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
+    integer(c_int64_t) :: out_c
 
 #ifdef CLUBB_SGS
     logical :: clubb_history, clubb_rad_history, clubb_cloudtop_cooling, clubb_rainevap_turb, clubb_expldiff ! Stats enabled (T/F)
@@ -510,7 +549,14 @@ end subroutine clubb_init_cnst
     if (clubb_expldiff) do_expldiff = .true.
 
 #endif
-    call clubb_intr_touch()
+    call clubb_intr_select_impl()
+    if (use_native_clubb_intr_impl) then
+       call clubb_intr_touch()
+    else
+       call clubb_intr_proof_once()
+       out_c = clubb_readnl_codon()
+       call clubb_intr_log_direct(clubb_readnl_logged, 'clubb_readnl direct = codon')
+    end if
   end subroutine clubb_readnl
 
   ! =============================================================================== !

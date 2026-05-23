@@ -4,6 +4,20 @@ def _field3_idx(icol: int, klev: int, mconst: int, ld1: int, ld2: int) -> int:
     return (icol - 1) + (klev - 1) * ld1 + (mconst - 1) * ld1 * ld2
 
 
+@export
+def tracers_flag_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def tracers_implements_cnst_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
 @inline
 def _flux_idx(icol: int, mconst: int, pcols: int) -> int:
     """cflx declared as (pcols, pcnst)"""

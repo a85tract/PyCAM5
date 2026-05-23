@@ -41,6 +41,10 @@ module carma_model_flags_mod
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t) :: out_c
     end function carma_flags_touch_codon
+    function carma_model_readnl_codon() result(out_c) bind(c, name="carma_model_readnl_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t) :: out_c
+    end function carma_model_readnl_codon
   end interface
 
 contains
@@ -132,6 +136,7 @@ contains
     ! local vars
   
     integer :: unitn, ierr
+    integer(c_int64_t) :: out_c
   
     ! read namelist for CARMA
 !    namelist /carma_model_nl/ &
@@ -161,7 +166,13 @@ contains
 !    call mpibcast (carma_reftfile, len(carma_reftfile), mpichar, 0, mpicom)
 #endif
 
-    call carma_model_flags_touch()
+    call carma_model_flags_select_impl()
+    if (use_native_carma_model_flags_impl) then
+       call carma_model_flags_touch()
+    else
+       call carma_model_flags_proof_once()
+       out_c = carma_model_readnl_codon()
+    end if
   
   end subroutine carma_model_readnl
 

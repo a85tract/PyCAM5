@@ -64,6 +64,9 @@ logical :: use_native_co2_cycle_impl = .false.
 logical :: co2_cycle_impl_selected = .false.
 logical :: co2_cycle_proof_written = .false.
 logical :: co2_transport_logged = .false.
+logical :: co2_register_logged = .false.
+logical :: co2_implements_cnst_logged = .false.
+logical :: co2_init_logged = .false.
 
 interface
    function co2_cycle_flag_codon(flag_c) result(out_c) bind(c, name="co2_cycle_flag_codon")
@@ -71,6 +74,21 @@ interface
       integer(c_int64_t), value :: flag_c
       integer(c_int64_t) :: out_c
    end function co2_cycle_flag_codon
+   function co2_register_codon(flag_c) result(out_c) bind(c, name="co2_register_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function co2_register_codon
+   function co2_implements_cnst_codon(flag_c) result(out_c) bind(c, name="co2_implements_cnst_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function co2_implements_cnst_codon
+   function co2_init_codon(flag_c) result(out_c) bind(c, name="co2_init_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function co2_init_codon
 end interface
 
 !-----------------------------------------------------------------------
@@ -246,8 +264,17 @@ subroutine co2_register
 ! 
 !-----------------------------------------------------------------------
    integer  :: i
+   integer(c_int64_t) :: active_c
 
-   if (.not. co2_cycle_flag(co2_flag)) return
+   call co2_cycle_select_impl()
+   if (use_native_co2_cycle_impl) then
+      if (.not. co2_cycle_flag(co2_flag)) return
+   else
+      call co2_cycle_proof_once()
+      active_c = co2_register_codon(merge(1_c_int64_t, 0_c_int64_t, co2_flag))
+      call co2_cycle_log_direct(co2_register_logged, 'co2_register direct = codon')
+      if (active_c == 0_c_int64_t) return
+   end if
  
 ! CO2 as dry tracer
    do i = 1, ncnst
@@ -297,14 +324,28 @@ function co2_implements_cnst(name)
     logical :: co2_implements_cnst        ! return value
 
     integer :: m     
+    integer(c_int64_t) :: active_c, out_c
       
     co2_implements_cnst = .false.
  
-    if (.not. co2_cycle_flag(co2_flag)) return
+    call co2_cycle_select_impl()
+    if (use_native_co2_cycle_impl) then
+       if (.not. co2_cycle_flag(co2_flag)) return
+    else
+       call co2_cycle_proof_once()
+       active_c = co2_implements_cnst_codon(merge(1_c_int64_t, 0_c_int64_t, co2_flag))
+       call co2_cycle_log_direct(co2_implements_cnst_logged, 'co2_implements_cnst direct = codon')
+       if (active_c == 0_c_int64_t) return
+    end if
  
     do m = 1, ncnst
        if (name == c_names(m)) then
-          co2_implements_cnst = .true.
+          if (use_native_co2_cycle_impl) then
+             co2_implements_cnst = .true.
+          else
+             out_c = co2_implements_cnst_codon(1_c_int64_t)
+             co2_implements_cnst = out_c /= 0_c_int64_t
+          end if
           return
        end if
     end do
@@ -325,8 +366,17 @@ subroutine co2_init
     use cam_history, only: addfld, add_default, phys_decomp
  
     integer :: m, mm
+    integer(c_int64_t) :: active_c
       
-    if (.not. co2_flag) return
+    call co2_cycle_select_impl()
+    if (use_native_co2_cycle_impl) then
+       if (.not. co2_flag) return
+    else
+       call co2_cycle_proof_once()
+       active_c = co2_init_codon(merge(1_c_int64_t, 0_c_int64_t, co2_flag))
+       call co2_cycle_log_direct(co2_init_logged, 'co2_init direct = codon')
+       if (active_c == 0_c_int64_t) return
+    end if
  
     ! Add constituents and fluxes to history file
     do m = 1, ncnst

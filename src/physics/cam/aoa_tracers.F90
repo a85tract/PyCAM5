@@ -48,6 +48,23 @@ module aoa_tracers
   logical :: impl_selected = .false.
   logical :: use_native_tstep_init_impl = .false.
   logical :: tstep_init_impl_selected = .false.
+  logical :: aoa_tracers_register_logged = .false.
+  logical :: aoa_tracers_implements_cnst_logged = .false.
+  logical :: aoa_tracers_init_logged = .false.
+
+  interface
+     function aoa_tracers_flag_codon(flag_c) result(out_c) bind(c, name="aoa_tracers_flag_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: flag_c
+       integer(c_int64_t) :: out_c
+     end function aoa_tracers_flag_codon
+     function aoa_tracers_implements_cnst_codon(flag_c) result(out_c) &
+          bind(c, name="aoa_tracers_implements_cnst_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: flag_c
+       integer(c_int64_t) :: out_c
+     end function aoa_tracers_implements_cnst_codon
+  end interface
   
   real(r8),  parameter ::  treldays = 15._r8
   real(r8),  parameter ::  vert_offset = 10._r8
@@ -127,9 +144,18 @@ contains
     ! 
     !-----------------------------------------------------------------------
     use physconst,  only: cpair, mwdry
+    use iso_c_binding, only: c_int64_t
     !-----------------------------------------------------------------------
+    integer(c_int64_t) :: active_c
 
-    if (.not. aoa_tracers_flag) return
+    call aoa_tracers_select_impl()
+    if (use_native_impl) then
+       if (.not. aoa_tracers_flag) return
+    else
+       active_c = aoa_tracers_flag_codon(merge(1_c_int64_t, 0_c_int64_t, aoa_tracers_flag))
+       call aoa_tracers_log_direct(aoa_tracers_register_logged, 'aoa_tracers_register direct = codon')
+       if (active_c == 0_c_int64_t) return
+    end if
 
     call cnst_add(c_names(1), mwdry, cpair, 0._r8, ixaoa1, readiv=aoa_read_from_ic_file, &
                   longname='Age-of_air tracer 1')
@@ -152,20 +178,36 @@ contains
     ! 
     !-----------------------------------------------------------------------
 
+    use iso_c_binding, only: c_int64_t
+
     character(len=*), intent(in) :: name   ! constituent name
     logical :: aoa_tracers_implements_cnst        ! return value
 
     !---------------------------Local workspace-----------------------------
     integer :: m
+    integer(c_int64_t) :: active_c, out_c
     !-----------------------------------------------------------------------
 
     aoa_tracers_implements_cnst = .false.
 
-    if (.not. aoa_tracers_flag) return
+    call aoa_tracers_select_impl()
+    if (use_native_impl) then
+       if (.not. aoa_tracers_flag) return
+    else
+       active_c = aoa_tracers_flag_codon(merge(1_c_int64_t, 0_c_int64_t, aoa_tracers_flag))
+       if (active_c == 0_c_int64_t) return
+    end if
 
     do m = 1, ncnst
        if (name == c_names(m)) then
-          aoa_tracers_implements_cnst = .true.
+          if (use_native_impl) then
+             aoa_tracers_implements_cnst = .true.
+          else
+             out_c = aoa_tracers_implements_cnst_codon(1_c_int64_t)
+             aoa_tracers_implements_cnst = out_c /= 0_c_int64_t
+             call aoa_tracers_log_direct(aoa_tracers_implements_cnst_logged, &
+                  'aoa_tracers_implements_cnst direct = codon')
+          end if
           return
        end if
     end do
@@ -212,11 +254,20 @@ contains
     !-----------------------------------------------------------------------
 
     use cam_history,    only: addfld, add_default, phys_decomp
+    use iso_c_binding, only: c_int64_t
 
     integer :: m, mm, k
+    integer(c_int64_t) :: active_c
     !-----------------------------------------------------------------------
 
-    if (.not. aoa_tracers_flag) return
+    call aoa_tracers_select_impl()
+    if (use_native_impl) then
+       if (.not. aoa_tracers_flag) return
+    else
+       active_c = aoa_tracers_flag_codon(merge(1_c_int64_t, 0_c_int64_t, aoa_tracers_flag))
+       call aoa_tracers_log_direct(aoa_tracers_init_logged, 'aoa_tracers_init direct = codon')
+       if (active_c == 0_c_int64_t) return
+    end if
 
     ! Set names of tendencies and declare them as history variables
 
@@ -402,6 +453,23 @@ contains
     end if
 
   end subroutine aoa_tracers_select_impl
+
+!===============================================================================
+
+  subroutine aoa_tracers_log_direct(logged, proof_line)
+
+    logical, intent(inout) :: logged
+    character(len=*), intent(in) :: proof_line
+
+    if (logged) return
+    logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') trim(proof_line)
+       call flush(iulog)
+    end if
+
+  end subroutine aoa_tracers_log_direct
 
 !===============================================================================
 

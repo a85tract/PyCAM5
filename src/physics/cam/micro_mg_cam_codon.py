@@ -9,6 +9,13 @@ def _idx3(i: int, k: int, m: int, ld1: int, ld2: int):
     return ((m - 1) * ld2 + (k - 1)) * ld1 + (i - 1)
 
 
+@export
+def micro_mg_cam_implements_cnst_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
 @inline
 def _micro_mg_data_copy_pack_1d(
     mgncol: int,

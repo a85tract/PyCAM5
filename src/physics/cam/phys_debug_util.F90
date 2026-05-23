@@ -60,6 +60,19 @@ interface
       integer(c_int64_t), value :: lat_set_c, lon_set_c
       integer(c_int64_t) :: out_c
    end function phys_debug_has_location_codon
+
+   function phys_debug_init_codon(lat_set_c, lon_set_c) result(out_c) bind(c, name="phys_debug_init_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: lat_set_c, lon_set_c
+      integer(c_int64_t) :: out_c
+   end function phys_debug_init_codon
+
+   function phys_debug_col_codon(chunk_c, debchunk_c, debcol_c) result(out_c) &
+        bind(c, name="phys_debug_col_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: chunk_c, debchunk_c, debcol_c
+      integer(c_int64_t) :: out_c
+   end function phys_debug_col_codon
 end interface
 
 !================================================================================
@@ -219,10 +232,20 @@ subroutine phys_debug_init()
 
    integer  :: owner, lchunk, icol
    real(r8) :: deblat, deblon
+   integer(c_int64_t) :: lat_set_c, lon_set_c, active_c
    !-----------------------------------------------------------------------------
 
    ! If no debug column specified then do nothing
-   if (.not. phys_debug_has_location(phys_debug_lat, phys_debug_lon)) return
+   call phys_debug_util_select_impl()
+   lat_set_c = merge(1_c_int64_t, 0_c_int64_t, phys_debug_lat /= uninit_r8)
+   lon_set_c = merge(1_c_int64_t, 0_c_int64_t, phys_debug_lon /= uninit_r8)
+   if (use_native_phys_debug_util_impl) then
+      if (.not. (lat_set_c /= 0_c_int64_t .and. lon_set_c /= 0_c_int64_t)) return
+   else
+      call phys_debug_util_proof_once()
+      active_c = phys_debug_init_codon(lat_set_c, lon_set_c)
+      if (active_c == 0_c_int64_t) return
+   end if
 
    ! User has specified a column location for debugging.  Find the closest
    ! column in the physics grid.
@@ -244,13 +267,21 @@ end subroutine phys_debug_init
 integer function phys_debug_col(chunk)
 
    integer,  intent(in) :: chunk
+   integer(c_int64_t) :: out_c
    !-----------------------------------------------------------------------------
 
-   if (chunk == debchunk) then
-      phys_debug_col = debcol
+   call phys_debug_util_select_impl()
+   if (use_native_phys_debug_util_impl) then
+      if (chunk == debchunk) then
+         phys_debug_col = debcol
+      else
+         phys_debug_col = 0
+      endif
    else
-      phys_debug_col = 0
-   endif
+      call phys_debug_util_proof_once()
+      out_c = phys_debug_col_codon(int(chunk, c_int64_t), int(debchunk, c_int64_t), int(debcol, c_int64_t))
+      phys_debug_col = int(out_c)
+   end if
 
 end function phys_debug_col
 

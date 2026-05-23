@@ -1,6 +1,20 @@
 from math import sin
 
 
+@export
+def aoa_tracers_flag_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def aoa_tracers_implements_cnst_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
 @inline
 def _col_idx(icol: int) -> int:
     """state%lat declared as (pcols)"""

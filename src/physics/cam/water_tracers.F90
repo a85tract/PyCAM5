@@ -148,6 +148,7 @@ module water_tracers
   logical :: wtrc_scalar_helpers_entered_logged = .false.
   logical :: wtrc_is_wtrc_logged = .false.
   logical :: wtrc_is_tagged_logged = .false.
+  logical :: wtrc_implements_cnst_logged = .false.
   logical :: wtrc_init_rates_logged = .false.
   logical :: use_native_wtrc_apply_rates_helpers_impl = .false.
   logical :: wtrc_apply_rates_helpers_impl_selected = .false.
@@ -195,6 +196,11 @@ module water_tracers
       integer(c_int64_t), value :: value_c
       integer(c_int64_t) :: result_c
     end function wtrc_bool_id_codon
+    function wtrc_implements_cnst_codon(value_c) result(result_c) bind(c, name="wtrc_implements_cnst_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: value_c
+      integer(c_int64_t) :: result_c
+    end function wtrc_implements_cnst_codon
     function wtrc_select_real_codon(use_first_c, first_c, second_c) result(result_c) &
          bind(c, name="wtrc_select_real_codon")
       use iso_c_binding, only: c_double, c_int64_t
@@ -1451,15 +1457,24 @@ end subroutine wtrc_register
      logical :: wtrc_implements_cnst        ! return value
 !---------------------------Local workspace-----------------------------
      integer :: icnst
+     integer(c_int64_t) :: out_c
 !-----------------------------------------------------------------------
     wtrc_implements_cnst = .false.
     
     do icnst = 1, wtrc_ncnst
       if (name == wtrc_names(icnst)) then
         wtrc_implements_cnst = .true.
-        return
+        exit
       end if
     end do
+
+    call wtrc_scalar_helpers_select_impl()
+    if (.not. use_native_wtrc_scalar_helpers_impl) then
+      call wtrc_scalar_helpers_log_entered()
+      out_c = wtrc_implements_cnst_codon(merge(1_c_int64_t, 0_c_int64_t, wtrc_implements_cnst))
+      wtrc_implements_cnst = out_c /= 0_c_int64_t
+      call wtrc_scalar_helpers_log_direct(wtrc_implements_cnst_logged, 'wtrc_implements_cnst direct = codon')
+    end if
     
     return
   end function wtrc_implements_cnst

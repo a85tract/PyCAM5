@@ -38,6 +38,16 @@ logical :: use_native_impl = .false.
 logical :: impl_selected = .false.
 integer :: codon_scheme_code = 0
 logical :: codon_scheme_selected = .false.
+logical :: microp_driver_implements_cnst_logged = .false.
+
+interface
+   function microp_driver_implements_cnst_codon(flag_c) result(out_c) &
+        bind(c, name="microp_driver_implements_cnst_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function microp_driver_implements_cnst_codon
+end interface
 
 !===============================================================================
 contains
@@ -86,6 +96,8 @@ end subroutine microp_driver_register
 
 function microp_driver_implements_cnst(name)
 
+   use iso_c_binding, only: c_int64_t
+
    ! Return true if specified constituent is implemented by the
    ! microphysics package
 
@@ -93,7 +105,7 @@ function microp_driver_implements_cnst(name)
    logical :: microp_driver_implements_cnst    ! return value
 
    ! Local workspace
-   integer :: m
+   integer(c_int64_t) :: out_c
    !-----------------------------------------------------------------------
 
    microp_driver_implements_cnst = .false.
@@ -107,6 +119,15 @@ function microp_driver_implements_cnst(name)
    case default
       call endrun('microp_driver_implements_cnst:: unrecognized microp_scheme')
    end select
+
+   call microp_driver_select_impl()
+   if (.not. use_native_impl) then
+      out_c = microp_driver_implements_cnst_codon( &
+           merge(1_c_int64_t, 0_c_int64_t, microp_driver_implements_cnst))
+      microp_driver_implements_cnst = out_c /= 0_c_int64_t
+      call microp_driver_log_direct(microp_driver_implements_cnst_logged, &
+           'microp_driver_implements_cnst direct = codon')
+   end if
 
 end function microp_driver_implements_cnst
 
@@ -300,5 +321,22 @@ subroutine microp_driver_select_impl()
    end if
 
 end subroutine microp_driver_select_impl
+
+!===============================================================================
+
+subroutine microp_driver_log_direct(logged, proof_line)
+
+   logical, intent(inout) :: logged
+   character(len=*), intent(in) :: proof_line
+
+   if (logged) return
+   logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') trim(proof_line)
+      call flush(iulog)
+   end if
+
+end subroutine microp_driver_log_direct
 
 end module microp_driver

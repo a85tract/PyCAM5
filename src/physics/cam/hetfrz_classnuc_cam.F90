@@ -49,6 +49,8 @@ logical :: hist_hetfrz_classnuc = .false.
 logical :: use_native_hetfrz_classnuc_cam_impl = .false.
 logical :: hetfrz_classnuc_cam_impl_selected = .false.
 logical :: hetfrz_classnuc_cam_proof_written = .false.
+logical :: hetfrz_classnuc_cam_register_logged = .false.
+logical :: hetfrz_classnuc_cam_init_logged = .false.
 
 interface
    function hetfrz_classnuc_cam_flag_codon(flag_c) result(out_c) bind(c, name="hetfrz_classnuc_cam_flag_codon")
@@ -56,6 +58,18 @@ interface
       integer(c_int64_t), value :: flag_c
       integer(c_int64_t) :: out_c
    end function hetfrz_classnuc_cam_flag_codon
+   function hetfrz_classnuc_cam_register_codon(flag_c) result(out_c) &
+        bind(c, name="hetfrz_classnuc_cam_register_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function hetfrz_classnuc_cam_register_codon
+   function hetfrz_classnuc_cam_init_codon(flag_c) result(out_c) &
+        bind(c, name="hetfrz_classnuc_cam_init_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function hetfrz_classnuc_cam_init_codon
 end interface
 
 ! Vars set via init method.
@@ -217,6 +231,22 @@ end function hetfrz_classnuc_cam_flag
 
 !===============================================================================
 
+subroutine hetfrz_classnuc_cam_log_direct(logged, proof_line)
+
+   logical, intent(inout) :: logged
+   character(len=*), intent(in) :: proof_line
+
+   if (logged) return
+   logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') trim(proof_line)
+   end if
+
+end subroutine hetfrz_classnuc_cam_log_direct
+
+!===============================================================================
+
 subroutine hetfrz_classnuc_cam_readnl(nlfile)
 
   use namelist_utils,  only: find_group_name
@@ -261,7 +291,18 @@ end subroutine hetfrz_classnuc_cam_readnl
 
 subroutine hetfrz_classnuc_cam_register()
 
-   if (.not. hetfrz_classnuc_cam_flag(use_hetfrz_classnuc)) return
+   integer(c_int64_t) :: active_c
+
+   call hetfrz_classnuc_cam_select_impl()
+   if (use_native_hetfrz_classnuc_cam_impl) then
+      if (.not. use_hetfrz_classnuc) return
+   else
+      call hetfrz_classnuc_cam_proof_once()
+      active_c = hetfrz_classnuc_cam_register_codon(merge(1_c_int64_t, 0_c_int64_t, use_hetfrz_classnuc))
+      call hetfrz_classnuc_cam_log_direct(hetfrz_classnuc_cam_register_logged, &
+           'hetfrz_classnuc_cam_register direct = codon')
+      if (active_c == 0_c_int64_t) return
+   end if
 
    ! pbuf fields provided by hetfrz_classnuc
    call pbuf_add_field('FRZIMM', 'physpkg', dtype_r8, (/pcols,pver/), frzimm_idx)
@@ -285,9 +326,19 @@ subroutine hetfrz_classnuc_cam_init(mincld_in)
 
    character(len=32) :: str32
    character(len=*), parameter :: routine = 'hetfrz_classnuc_cam_init'
+   integer(c_int64_t) :: active_c
    !--------------------------------------------------------------------------------------------
 
-   if (.not. hetfrz_classnuc_cam_flag(use_hetfrz_classnuc)) return
+   call hetfrz_classnuc_cam_select_impl()
+   if (use_native_hetfrz_classnuc_cam_impl) then
+      if (.not. use_hetfrz_classnuc) return
+   else
+      call hetfrz_classnuc_cam_proof_once()
+      active_c = hetfrz_classnuc_cam_init_codon(merge(1_c_int64_t, 0_c_int64_t, use_hetfrz_classnuc))
+      call hetfrz_classnuc_cam_log_direct(hetfrz_classnuc_cam_init_logged, &
+           'hetfrz_classnuc_cam_init direct = codon')
+      if (active_c == 0_c_int64_t) return
+   end if
 
    ! This parameterization currently assumes that prognostic modal aerosols are on.  Check...
    call phys_getopts(prog_modal_aero_out=prog_modal_aero)

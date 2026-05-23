@@ -6398,6 +6398,11 @@ def carma_flags_touch_codon() -> int:
 
 
 @export
+def carma_model_readnl_codon() -> int:
+    return 0
+
+
+@export
 def tidal_diag_int_codon(value: int, force_one: int) -> int:
     if force_one != 0:
         return 1
@@ -6406,6 +6411,27 @@ def tidal_diag_int_codon(value: int, force_one: int) -> int:
 
 @export
 def co2_cycle_flag_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def co2_register_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def co2_implements_cnst_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def co2_init_codon(flag: int) -> int:
     if flag != 0:
         return 1
     return 0
@@ -6453,6 +6479,16 @@ def carma_accumulate_stats_codon() -> int:
 
 @export
 def subcol_touch_codon() -> int:
+    return 0
+
+
+@export
+def subcol_readnl_codon() -> int:
+    return 0
+
+
+@export
+def subcol_register_codon() -> int:
     return 0
 
 
@@ -6592,6 +6628,20 @@ def phys_debug_has_location_codon(lat_set: int, lon_set: int) -> int:
 
 
 @export
+def phys_debug_init_codon(lat_set: int, lon_set: int) -> int:
+    if lat_set != 0 and lon_set != 0:
+        return 1
+    return 0
+
+
+@export
+def phys_debug_col_codon(chunk: int, debchunk: int, debcol: int) -> int:
+    if chunk == debchunk:
+        return debcol
+    return 0
+
+
+@export
 def unicon_cam_flag_codon(flag: int) -> int:
     if flag != 0:
         return 1
@@ -6651,6 +6701,18 @@ def clubb_intr_touch_codon() -> int:
 
 
 @export
+def clubb_implements_cnst_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def clubb_readnl_codon() -> int:
+    return 0
+
+
+@export
 def radae_ntoplw_codon(pref_mid_p: cobj, nlev: int) -> int:
     pref_mid = Ptr[float](pref_mid_p)
     ntoplw = 1
@@ -6683,6 +6745,39 @@ def hetfrz_classnuc_cam_flag_codon(flag: int) -> int:
     if flag != 0:
         return 1
     return 0
+
+
+@export
+def hetfrz_classnuc_cam_register_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def hetfrz_classnuc_cam_init_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
+def press_lim_idx_codon(p: float, top: int, pver: int, pref_mid_p: cobj) -> int:
+    pref_mid = Ptr[float](pref_mid_p)
+    if top != 0:
+        k_lim = pver + 1
+        for k in range(1, pver + 1):
+            if pref_mid[k - 1] > p:
+                k_lim = k
+                break
+        return k_lim
+
+    k_lim = 0
+    for k in range(pver, 0, -1):
+        if pref_mid[k - 1] < p:
+            k_lim = k
+            break
+    return k_lim
 
 
 @export

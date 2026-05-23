@@ -167,6 +167,7 @@ logical :: pbuf_copy_entered_logged = .false.
 logical :: use_reff_calc_compare = .false.
 logical :: reff_calc_compare_selected = .false.
 logical :: reff_calc_compare_done = .false.
+logical :: micro_mg_cam_implements_cnst_logged = .false.
 
 integer :: num_steps ! Number of MG substeps
 
@@ -277,6 +278,15 @@ interface p
    module procedure p1
    module procedure p2
 end interface p
+
+interface
+   function micro_mg_cam_implements_cnst_codon(flag_c) result(out_c) &
+        bind(c, name="micro_mg_cam_implements_cnst_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function micro_mg_cam_implements_cnst_codon
+end interface
 
 
 !===============================================================================
@@ -580,15 +590,21 @@ end subroutine micro_mg_cam_register
 
 function micro_mg_cam_implements_cnst(name)
 
+   use iso_c_binding, only: c_int64_t
+
    ! Return true if specified constituent is implemented by the
    ! microphysics package
 
    character(len=*), intent(in) :: name        ! constituent name
    logical :: micro_mg_cam_implements_cnst    ! return value
+   integer(c_int64_t) :: out_c
 
    !-----------------------------------------------------------------------
 
-   micro_mg_cam_implements_cnst = any(name == cnst_names)
+   out_c = micro_mg_cam_implements_cnst_codon(merge(1_c_int64_t, 0_c_int64_t, any(name == cnst_names)))
+   micro_mg_cam_implements_cnst = out_c /= 0_c_int64_t
+   call micro_mg_cam_log_entered_once(micro_mg_cam_implements_cnst_logged, &
+        'MICRO_MG_CAM_PROOF_FILE', 'micro_mg_cam_implements_cnst direct = codon')
 
 end function micro_mg_cam_implements_cnst
 

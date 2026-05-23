@@ -86,12 +86,22 @@ module subcol
    logical :: use_native_subcol_impl = .false.
    logical :: subcol_impl_selected = .false.
    logical :: subcol_proof_written = .false.
+   logical :: subcol_readnl_logged = .false.
+   logical :: subcol_register_logged = .false.
 
    interface
       function subcol_touch_codon() result(out_c) bind(c, name="subcol_touch_codon")
          use iso_c_binding, only: c_int64_t
          integer(c_int64_t) :: out_c
       end function subcol_touch_codon
+      function subcol_readnl_codon() result(out_c) bind(c, name="subcol_readnl_codon")
+         use iso_c_binding, only: c_int64_t
+         integer(c_int64_t) :: out_c
+      end function subcol_readnl_codon
+      function subcol_register_codon() result(out_c) bind(c, name="subcol_register_codon")
+         use iso_c_binding, only: c_int64_t
+         integer(c_int64_t) :: out_c
+      end function subcol_register_codon
    end interface
 
 
@@ -168,6 +178,22 @@ contains
 
    !==========================================================================
 
+   subroutine subcol_log_direct(logged, proof_line)
+
+      logical, intent(inout) :: logged
+      character(len=*), intent(in) :: proof_line
+
+      if (logged) return
+      logged = .true.
+
+      if (masterproc) then
+         write(iulog,'(A)') trim(proof_line)
+      end if
+
+   end subroutine subcol_log_direct
+
+   !==========================================================================
+
    subroutine subcol_readnl(nlfile)
       use subcol_utils,    only: subcol_get_scheme, subcol_utils_readnl
       use subcol_tstcp,    only: subcol_readnl_tstcp
@@ -180,6 +206,7 @@ contains
       ! Local variables
       !
       character(len=16) :: subcol_scheme_init          ! Name of subcolumn schem
+      integer(c_int64_t) :: out_c
       !-----------------------------------------------------------------------------
 
       call subcol_touch()
@@ -197,6 +224,10 @@ contains
 !      case ('vamp')
 !         call subcol_readnl_vamp(nlfile)
       case ('off')
+         if (.not. use_native_subcol_impl) then
+            out_c = subcol_readnl_codon()
+            call subcol_log_direct(subcol_readnl_logged, 'subcol_readnl direct = codon')
+         end if
          ! No namelist for off 
       case default
          call endrun('subcol_register error: unsupported subcol_scheme specified')
@@ -208,6 +239,7 @@ contains
       use phys_control,    only: phys_getopts
       use physics_buffer,  only: pbuf_add_field, dtype_i4
       use subcol_utils,    only: subcol_get_scheme
+      integer(c_int64_t) :: out_c
 
       call subcol_touch()
 
@@ -221,6 +253,10 @@ contains
 !         case ('vamp')
 !            call subcol_register_vamp()
          case ('off')
+            if (.not. use_native_subcol_impl) then
+               out_c = subcol_register_codon()
+               call subcol_log_direct(subcol_register_logged, 'subcol_register direct = codon')
+            end if
             ! No registration called
          case default
             call endrun('subcol_register error: unsupported subcol_scheme specified')

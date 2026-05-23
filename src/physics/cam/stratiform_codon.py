@@ -1,4 +1,11 @@
 @export
+def stratiform_implements_cnst_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
 def stratiform_select_branches_codon(
     use_shfrc: int,
     cam3: int,

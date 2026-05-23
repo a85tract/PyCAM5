@@ -41,6 +41,13 @@ def wtrc_bool_id_codon(value: int) -> int:
 
 
 @export
+def wtrc_implements_cnst_codon(flag: int) -> int:
+    if flag != 0:
+        return 1
+    return 0
+
+
+@export
 def wtrc_select_real_codon(use_first: int, first: float, second: float) -> float:
     if use_first != 0:
         return first

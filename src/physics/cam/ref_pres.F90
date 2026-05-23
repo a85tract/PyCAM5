@@ -66,6 +66,14 @@ interface
       type(c_ptr), value :: pref_edge_p, pref_mid_p, pref_mid_norm_p
       type(c_ptr), value :: scalar_out_p, int_out_p, flag_out_p
    end subroutine ref_pres_init_finalize_codon
+   function press_lim_idx_codon(p_c, top_c, pver_c, pref_mid_p) result(k_lim_c) &
+        bind(c, name="press_lim_idx_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      real(c_double), value :: p_c
+      integer(c_int64_t), value :: top_c, pver_c
+      type(c_ptr), value :: pref_mid_p
+      integer(c_int64_t) :: k_lim_c
+   end function press_lim_idx_codon
 end interface
 
 !====================================================================================
@@ -229,30 +237,18 @@ end subroutine ref_pres_init
 !====================================================================================
 
 ! Convert pressure limiters to the appropriate level.
-pure function press_lim_idx(p, top) result(k_lim)
+function press_lim_idx(p, top) result(k_lim)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc
+
   ! Pressure
   real(r8), intent(in) :: p
   ! Is this a top or bottom limit?
   logical,  intent(in) :: top
-  integer :: k_lim, k
+  integer :: k_lim
 
-  if (top) then
-     k_lim = pver+1
-     do k = 1, pver
-        if (pref_mid(k) > p) then
-           k_lim = k
-           exit
-        end if
-     end do
-  else
-     k_lim = 0
-     do k = pver, 1, -1
-        if (pref_mid(k) < p) then
-           k_lim = k
-           exit
-        end if
-     end do
-  end if
+  k_lim = int(press_lim_idx_codon(real(p, c_double), merge(1_c_int64_t, 0_c_int64_t, top), &
+       int(pver, c_int64_t), c_loc(pref_mid(1))))
 
 end function press_lim_idx
 

@@ -71,10 +71,24 @@ module tracers
   logical :: impl_selected = .false.
   logical :: use_native_tstep_init_impl = .false.
   logical :: tstep_init_impl_selected = .false.
+  logical :: tracers_register_logged = .false.
+  logical :: tracers_implements_cnst_logged = .false.
+  logical :: tracers_init_logged = .false.
 
   interface
      subroutine tracers_timestep_init_codon() bind(c, name="tracers_timestep_init_codon")
      end subroutine tracers_timestep_init_codon
+     function tracers_flag_codon(flag_c) result(out_c) bind(c, name="tracers_flag_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: flag_c
+        integer(c_int64_t) :: out_c
+     end function tracers_flag_codon
+     function tracers_implements_cnst_codon(flag_c) result(out_c) &
+          bind(c, name="tracers_implements_cnst_codon")
+        use iso_c_binding, only: c_int64_t
+        integer(c_int64_t), value :: flag_c
+        integer(c_int64_t) :: out_c
+     end function tracers_implements_cnst_codon
   end interface
   
 contains
@@ -147,6 +161,21 @@ subroutine tracers_tstep_init_select_impl()
 
 end subroutine tracers_tstep_init_select_impl
 !======================================================================
+subroutine tracers_log_direct(logged, proof_line)
+
+  logical, intent(inout) :: logged
+  character(len=*), intent(in) :: proof_line
+
+  if (logged) return
+  logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') trim(proof_line)
+     call flush(iulog)
+  end if
+
+end subroutine tracers_log_direct
+!======================================================================
 subroutine tracers_register
 !----------------------------------------------------------------------- 
 !
@@ -160,15 +189,25 @@ subroutine tracers_register
    use physconst,    only: mwdry, cpair
    use constituents, only: cnst_add, cnst_num_avail
    use tracers_suite, only: get_tracer_name
+   use iso_c_binding, only: c_int64_t
    
    implicit none
 !---------------------------Local workspace-----------------------------
    integer :: mm,m                                 ! dummy
    character(len=8) :: name   ! constituent name
    real(r8) minc
+   integer(c_int64_t) :: active_c
 
 !-----------------------------------------------------------------------
-   if ( tracers_flag ) then 
+   call tracers_select_impl()
+   if (use_native_impl) then
+      if (.not. tracers_flag) return
+   else
+      active_c = tracers_flag_codon(merge(1_c_int64_t, 0_c_int64_t, tracers_flag))
+      call tracers_log_direct(tracers_register_logged, 'tracers_register direct = codon')
+      if (active_c == 0_c_int64_t) return
+   end if
+
       minc = 0        ! min mixing ratio (normal setting)
       minc = -1.e36_r8   ! min mixing ratio (disable qneg3)
       
@@ -185,7 +224,6 @@ subroutine tracers_register
          if ( m .eq. 1 ) ixtrct = mm  ! save index number of first tracer
          
       end do
-   end if
 
 end subroutine tracers_register
 !======================================================================
@@ -200,6 +238,7 @@ function tracers_implements_cnst(name)
 !-----------------------------------------------------------------------
 
   use tracers_suite, only: get_tracer_name
+  use iso_c_binding, only: c_int64_t
   
   implicit none
 !-----------------------------Arguments---------------------------------
@@ -208,17 +247,30 @@ function tracers_implements_cnst(name)
   logical :: tracers_implements_cnst        ! return value
 !---------------------------Local workspace-----------------------------
    integer :: m
+   integer(c_int64_t) :: active_c, out_c
 !-----------------------------------------------------------------------
 
    tracers_implements_cnst = .false.
-   if ( tracers_flag ) then 
-      do m = 1, trac_ncnst
-         if (name == get_tracer_name(m)) then
-            tracers_implements_cnst = .true.
-            return
-         end if
-      end do
+   call tracers_select_impl()
+   if (use_native_impl) then
+      if (.not. tracers_flag) return
+   else
+      active_c = tracers_flag_codon(merge(1_c_int64_t, 0_c_int64_t, tracers_flag))
+      if (active_c == 0_c_int64_t) return
    end if
+
+   do m = 1, trac_ncnst
+      if (name == get_tracer_name(m)) then
+         if (use_native_impl) then
+            tracers_implements_cnst = .true.
+         else
+            out_c = tracers_implements_cnst_codon(1_c_int64_t)
+            tracers_implements_cnst = out_c /= 0_c_int64_t
+            call tracers_log_direct(tracers_implements_cnst_logged, 'tracers_implements_cnst direct = codon')
+         end if
+         return
+      end if
+   end do
 end function tracers_implements_cnst
 
 !===============================================================================
@@ -264,12 +316,21 @@ subroutine tracers_init
    use cam_history,     only: addfld, add_default, phys_decomp
    use ppgrid,          only: pver
    use constituents,    only: cnst_get_ind, cnst_name, cnst_longname, sflxnam
+   use iso_c_binding,   only: c_int64_t
 
    ! Local
    integer m, mm
    character(len=8) :: name   ! constituent name
+   integer(c_int64_t) :: active_c
 
-   if ( tracers_flag ) then     
+   call tracers_select_impl()
+   if (use_native_impl) then
+      if (.not. tracers_flag) return
+   else
+      active_c = tracers_flag_codon(merge(1_c_int64_t, 0_c_int64_t, tracers_flag))
+      call tracers_log_direct(tracers_init_logged, 'tracers_init direct = codon')
+      if (active_c == 0_c_int64_t) return
+   end if
      
       do m = 1,trac_ncnst 
          name = get_tracer_name(m)
@@ -284,8 +345,6 @@ subroutine tracers_init
       ! initialize datasets, etc, needed for constituents.
       call init_tr  
 
-  endif
-     
 end subroutine tracers_init
 
 !======================================================================
