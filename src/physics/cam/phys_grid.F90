@@ -315,12 +315,12 @@ module phys_grid
    logical, private :: init_helpers_assign_proof_written = .false.
 
    interface
-     subroutine phys_grid_get_gcol_all_codon(ncols_c, out_dim_c, src_p, dst_p) &
+     subroutine phys_grid_get_gcol_all_codon_raw(ncols_c, out_dim_c, src_p, dst_p) &
           bind(c, name="phys_grid_get_gcol_all_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncols_c, out_dim_c
        type(c_ptr), value :: src_p, dst_p
-     end subroutine phys_grid_get_gcol_all_codon
+     end subroutine phys_grid_get_gcol_all_codon_raw
 
      function phys_grid_int_scalar_codon(value_c) result(result_c) &
           bind(c, name="phys_grid_int_scalar_codon")
@@ -336,223 +336,223 @@ module phys_grid
        integer(c_int64_t) :: result_c
      end function phys_grid_bool_scalar_codon
 
-     subroutine phys_grid_get_gcol_vec_codon(lth_c, cols_p, src_p, dst_p) &
+     subroutine phys_grid_get_gcol_vec_codon_raw(lth_c, cols_p, src_p, dst_p) &
           bind(c, name="phys_grid_get_gcol_vec_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: lth_c
        type(c_ptr), value :: cols_p, src_p, dst_p
-     end subroutine phys_grid_get_gcol_vec_codon
+     end subroutine phys_grid_get_gcol_vec_codon_raw
 
-     subroutine phys_grid_get_int_all_codon(ncols_c, src_p, dst_p) &
+     subroutine phys_grid_get_int_all_codon_raw(ncols_c, src_p, dst_p) &
           bind(c, name="phys_grid_get_int_all_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncols_c
        type(c_ptr), value :: src_p, dst_p
-     end subroutine phys_grid_get_int_all_codon
+     end subroutine phys_grid_get_int_all_codon_raw
 
-     subroutine phys_grid_get_int_vec_codon(lth_c, cols_p, src_p, dst_p) &
+     subroutine phys_grid_get_int_vec_codon_raw(lth_c, cols_p, src_p, dst_p) &
           bind(c, name="phys_grid_get_int_vec_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: lth_c
        type(c_ptr), value :: cols_p, src_p, dst_p
-     end subroutine phys_grid_get_int_vec_codon
+     end subroutine phys_grid_get_int_vec_codon_raw
 
-     subroutine phys_grid_get_lon_all_codon(ncols_c, lat_p, gcol_p, map_p, clat_idx_p, dst_p) &
+     subroutine phys_grid_get_lon_all_codon_raw(ncols_c, lat_p, gcol_p, map_p, clat_idx_p, dst_p) &
           bind(c, name="phys_grid_get_lon_all_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncols_c
        type(c_ptr), value :: lat_p, gcol_p, map_p, clat_idx_p, dst_p
-     end subroutine phys_grid_get_lon_all_codon
+     end subroutine phys_grid_get_lon_all_codon_raw
 
-     subroutine phys_grid_get_lon_vec_codon(lth_c, cols_p, lat_p, gcol_p, map_p, clat_idx_p, dst_p) &
+     subroutine phys_grid_get_lon_vec_codon_raw(lth_c, cols_p, lat_p, gcol_p, map_p, clat_idx_p, dst_p) &
           bind(c, name="phys_grid_get_lon_vec_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: lth_c
        type(c_ptr), value :: cols_p, lat_p, gcol_p, map_p, clat_idx_p, dst_p
-     end subroutine phys_grid_get_lon_vec_codon
+     end subroutine phys_grid_get_lon_vec_codon_raw
 
-     subroutine phys_grid_get_real_all_codon(ncols_c, src_p, dst_p) &
+     subroutine phys_grid_get_real_all_codon_raw(ncols_c, src_p, dst_p) &
           bind(c, name="phys_grid_get_real_all_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncols_c
        type(c_ptr), value :: src_p, dst_p
-     end subroutine phys_grid_get_real_all_codon
+     end subroutine phys_grid_get_real_all_codon_raw
 
-     subroutine phys_grid_get_lookup_real_all_codon(ncols_c, idx_p, lookup_p, dst_p) &
+     subroutine phys_grid_get_lookup_real_all_codon_raw(ncols_c, idx_p, lookup_p, dst_p) &
           bind(c, name="phys_grid_get_lookup_real_all_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncols_c
        type(c_ptr), value :: idx_p, lookup_p, dst_p
-     end subroutine phys_grid_get_lookup_real_all_codon
+     end subroutine phys_grid_get_lookup_real_all_codon_raw
 
-     subroutine phys_grid_get_lookup_real_vec_codon(lth_c, cols_p, idx_p, lookup_p, dst_p) &
+     subroutine phys_grid_get_lookup_real_vec_codon_raw(lth_c, cols_p, idx_p, lookup_p, dst_p) &
           bind(c, name="phys_grid_get_lookup_real_vec_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: lth_c
        type(c_ptr), value :: cols_p, idx_p, lookup_p, dst_p
-     end subroutine phys_grid_get_lookup_real_vec_codon
+     end subroutine phys_grid_get_lookup_real_vec_codon_raw
 
-     function phys_grid_count_valid_cols_codon(ngcols_c, clon_d_p) result(count_c) &
+     function phys_grid_count_valid_cols_codon_raw(ngcols_c, clon_d_p) result(count_c) &
           bind(c, name="phys_grid_count_valid_cols_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ngcols_c
        type(c_ptr), value :: clon_d_p
        integer(c_int64_t) :: count_c
-     end function phys_grid_count_valid_cols_codon
+     end function phys_grid_count_valid_cols_codon_raw
 
-     function phys_grid_count_unique_sorted_real_codon(ncols_c, cdex_p, coord_p) result(count_c) &
+     function phys_grid_count_unique_sorted_real_codon_raw(ncols_c, cdex_p, coord_p) result(count_c) &
           bind(c, name="phys_grid_count_unique_sorted_real_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncols_c
        type(c_ptr), value :: cdex_p, coord_p
        integer(c_int64_t) :: count_c
-     end function phys_grid_count_unique_sorted_real_codon
+     end function phys_grid_count_unique_sorted_real_codon_raw
 
-     subroutine phys_grid_fill_unique_sorted_real_codon(ncols_c, cdex_p, coord_p, unique_p, counts_p) &
+     subroutine phys_grid_fill_unique_sorted_real_codon_raw(ncols_c, cdex_p, coord_p, unique_p, counts_p) &
           bind(c, name="phys_grid_fill_unique_sorted_real_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncols_c
        type(c_ptr), value :: cdex_p, coord_p, unique_p, counts_p
-     end subroutine phys_grid_fill_unique_sorted_real_codon
+     end subroutine phys_grid_fill_unique_sorted_real_codon_raw
 
-     subroutine phys_grid_prefix_counts_codon(n_c, counts_p, idx_p) &
+     subroutine phys_grid_prefix_counts_codon_raw(n_c, counts_p, idx_p) &
           bind(c, name="phys_grid_prefix_counts_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: n_c
        type(c_ptr), value :: counts_p, idx_p
-     end subroutine phys_grid_prefix_counts_codon
+     end subroutine phys_grid_prefix_counts_codon_raw
 
-     subroutine phys_grid_fill_real_pair_codon(n_c, first_value_c, second_value_c, first_p, second_p) &
+     subroutine phys_grid_fill_real_pair_codon_raw(n_c, first_value_c, second_value_c, first_p, second_p) &
           bind(c, name="phys_grid_fill_real_pair_codon")
        use iso_c_binding, only: c_int64_t, c_double, c_ptr
        integer(c_int64_t), value :: n_c
        real(c_double), value :: first_value_c, second_value_c
        type(c_ptr), value :: first_p, second_p
-     end subroutine phys_grid_fill_real_pair_codon
+     end subroutine phys_grid_fill_real_pair_codon_raw
 
-     subroutine phys_grid_init_lat_map_codon(ngcols_c, ncols_p_c, clat_tot_c, has_latlon_map_c, &
+     subroutine phys_grid_init_lat_map_codon_raw(ngcols_c, ncols_p_c, clat_tot_c, has_latlon_map_c, &
           cdex_p, clat_d_p, clat_p_p, lat_p_p, dyn_map_p, latlon_map_p) &
           bind(c, name="phys_grid_init_lat_map_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ngcols_c, ncols_p_c, clat_tot_c, has_latlon_map_c
        type(c_ptr), value :: cdex_p, clat_d_p, clat_p_p, lat_p_p, dyn_map_p, latlon_map_p
-     end subroutine phys_grid_init_lat_map_codon
+     end subroutine phys_grid_init_lat_map_codon_raw
 
-     subroutine phys_grid_init_lon_map_codon(ngcols_c, ncols_p_c, clon_tot_c, has_lonlat_map_c, &
+     subroutine phys_grid_init_lon_map_codon_raw(ngcols_c, ncols_p_c, clon_tot_c, has_lonlat_map_c, &
           cdex_p, clon_d_p, clon_p_p, lon_p_p, lonlat_map_p) &
           bind(c, name="phys_grid_init_lon_map_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ngcols_c, ncols_p_c, clon_tot_c, has_lonlat_map_c
        type(c_ptr), value :: cdex_p, clon_d_p, clon_p_p, lon_p_p, lonlat_map_p
-     end subroutine phys_grid_init_lon_map_codon
+     end subroutine phys_grid_init_lon_map_codon_raw
 
-     subroutine phys_grid_zero_proc_counts_codon(npes_c, chunk_counts_p, col_counts_p) &
+     subroutine phys_grid_zero_proc_counts_codon_raw(npes_c, chunk_counts_p, col_counts_p) &
           bind(c, name="phys_grid_zero_proc_counts_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: npes_c
        type(c_ptr), value :: chunk_counts_p, col_counts_p
-     end subroutine phys_grid_zero_proc_counts_codon
+     end subroutine phys_grid_zero_proc_counts_codon_raw
 
-     subroutine phys_grid_proc_prefix_offsets_codon(npes_c, start_value_c, set_final_c, &
+     subroutine phys_grid_proc_prefix_offsets_codon_raw(npes_c, start_value_c, set_final_c, &
           chunk_counts_p, col_counts_p, pchunkid_p, gs_col_offset_p) &
           bind(c, name="phys_grid_proc_prefix_offsets_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: npes_c, start_value_c, set_final_c
        type(c_ptr), value :: chunk_counts_p, col_counts_p, pchunkid_p, gs_col_offset_p
-     end subroutine phys_grid_proc_prefix_offsets_codon
+     end subroutine phys_grid_proc_prefix_offsets_codon_raw
 
-     subroutine phys_grid_process_bin_sort_codon(nchunks_c, lastblock_c, chunk_owner_p, chunk_ncols_p, &
+     subroutine phys_grid_process_bin_sort_codon_raw(nchunks_c, lastblock_c, chunk_owner_p, chunk_ncols_p, &
           pchunkid_p, gs_col_offset_p, chunk_lcid_p, pgcol_chunk_p, pgcol_ccol_p) &
           bind(c, name="phys_grid_process_bin_sort_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: nchunks_c, lastblock_c
        type(c_ptr), value :: chunk_owner_p, chunk_ncols_p, pchunkid_p, gs_col_offset_p
        type(c_ptr), value :: chunk_lcid_p, pgcol_chunk_p, pgcol_ccol_p
-     end subroutine phys_grid_process_bin_sort_codon
+     end subroutine phys_grid_process_bin_sort_codon_raw
 
-     subroutine phys_grid_lchunk_gcol_copy_codon(ncols_c, src_gcol_p, dst_gcol_p) &
+     subroutine phys_grid_lchunk_gcol_copy_codon_raw(ncols_c, src_gcol_p, dst_gcol_p) &
           bind(c, name="phys_grid_lchunk_gcol_copy_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncols_c
        type(c_ptr), value :: src_gcol_p, dst_gcol_p
-     end subroutine phys_grid_lchunk_gcol_copy_codon
+     end subroutine phys_grid_lchunk_gcol_copy_codon_raw
 
-     subroutine phys_grid_lchunk_area_wght_codon(ncols_c, gcol_p, area_d_p, wght_d_p, area_p, wght_p) &
+     subroutine phys_grid_lchunk_area_wght_codon_raw(ncols_c, gcol_p, area_d_p, wght_d_p, area_p, wght_p) &
           bind(c, name="phys_grid_lchunk_area_wght_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncols_c
        type(c_ptr), value :: gcol_p, area_d_p, wght_d_p, area_p, wght_p
-     end subroutine phys_grid_lchunk_area_wght_codon
+     end subroutine phys_grid_lchunk_area_wght_codon_raw
 
-     function phys_grid_count_smp_procs_codon(npes_c, nsmpx_c, proc_smp_mapx_p, nsmpprocs_p) result(max_count_c) &
+     function phys_grid_count_smp_procs_codon_raw(npes_c, nsmpx_c, proc_smp_mapx_p, nsmpprocs_p) result(max_count_c) &
           bind(c, name="phys_grid_count_smp_procs_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: npes_c, nsmpx_c
        type(c_ptr), value :: proc_smp_mapx_p, nsmpprocs_p
        integer(c_int64_t) :: max_count_c
-     end function phys_grid_count_smp_procs_codon
+     end function phys_grid_count_smp_procs_codon_raw
 
-     subroutine phys_grid_create_chunks_thread_counts_codon(npes_c, nsmpx_c, proc_smp_mapx_p, &
+     subroutine phys_grid_create_chunks_thread_counts_codon_raw(npes_c, nsmpx_c, proc_smp_mapx_p, &
           npthreads_p, nsmpthreads_p) bind(c, name="phys_grid_create_chunks_thread_counts_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: npes_c, nsmpx_c
        type(c_ptr), value :: proc_smp_mapx_p, npthreads_p, nsmpthreads_p
-     end subroutine phys_grid_create_chunks_thread_counts_codon
+     end subroutine phys_grid_create_chunks_thread_counts_codon_raw
 
-     function phys_grid_create_chunks_shape_codon(nsmpx_c, pcols_c, chunks_per_thread_c, nsmpcolumns_p, &
+     function phys_grid_create_chunks_shape_codon_raw(nsmpx_c, pcols_c, chunks_per_thread_c, nsmpcolumns_p, &
           nsmpthreads_p, nsmpchunks_p, maxcol_chk_p, maxcol_chks_p) result(nchunks_c) &
           bind(c, name="phys_grid_create_chunks_shape_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: nsmpx_c, pcols_c, chunks_per_thread_c
        type(c_ptr), value :: nsmpcolumns_p, nsmpthreads_p, nsmpchunks_p, maxcol_chk_p, maxcol_chks_p
        integer(c_int64_t) :: nchunks_c
-     end function phys_grid_create_chunks_shape_codon
+     end function phys_grid_create_chunks_shape_codon_raw
 
-     subroutine phys_grid_create_chunks_prefix_codon(nsmpx_c, nsmpchunks_p, cid_offset_p, local_cid_p) &
+     subroutine phys_grid_create_chunks_prefix_codon_raw(nsmpx_c, nsmpchunks_p, cid_offset_p, local_cid_p) &
           bind(c, name="phys_grid_create_chunks_prefix_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: nsmpx_c
        type(c_ptr), value :: nsmpchunks_p, cid_offset_p, local_cid_p
-     end subroutine phys_grid_create_chunks_prefix_codon
+     end subroutine phys_grid_create_chunks_prefix_codon_raw
 
-     subroutine phys_grid_count_smp_columns_codon(nsmpx_c, ngcols_p_c, latlon_map_p, col_smp_mapx_p, &
+     subroutine phys_grid_count_smp_columns_codon_raw(nsmpx_c, ngcols_p_c, latlon_map_p, col_smp_mapx_p, &
           nsmpcolumns_p) bind(c, name="phys_grid_count_smp_columns_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: nsmpx_c, ngcols_p_c
        type(c_ptr), value :: latlon_map_p, col_smp_mapx_p, nsmpcolumns_p
-     end subroutine phys_grid_count_smp_columns_codon
+     end subroutine phys_grid_count_smp_columns_codon_raw
 
-     subroutine phys_grid_zero_int_array_codon(n_c, values_p) bind(c, name="phys_grid_zero_int_array_codon")
+     subroutine phys_grid_zero_int_array_codon_raw(n_c, values_p) bind(c, name="phys_grid_zero_int_array_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: n_c
        type(c_ptr), value :: values_p
-     end subroutine phys_grid_zero_int_array_codon
+     end subroutine phys_grid_zero_int_array_codon_raw
 
-     subroutine phys_grid_assign_chunks_zero_column_count_codon(smp_c, nsmpx_c, max_nproc_smpx_c, &
+     subroutine phys_grid_assign_chunks_zero_column_count_codon_raw(smp_c, nsmpx_c, max_nproc_smpx_c, &
           ntsks_smpx_p, smp_proc_mapx_p, column_count_p) &
           bind(c, name="phys_grid_assign_chunks_zero_column_count_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: smp_c, nsmpx_c, max_nproc_smpx_c
        type(c_ptr), value :: ntsks_smpx_p, smp_proc_mapx_p, column_count_p
-     end subroutine phys_grid_assign_chunks_zero_column_count_codon
+     end subroutine phys_grid_assign_chunks_zero_column_count_codon_raw
 
-     function phys_grid_assign_chunks_select_owner_codon(smp_c, nsmpx_c, max_nproc_smpx_c, &
+     function phys_grid_assign_chunks_select_owner_codon_raw(smp_c, nsmpx_c, max_nproc_smpx_c, &
           ntsks_smpx_p, smp_proc_mapx_p, cur_npchunks_p, npchunks_p, column_count_p) result(owner_c) &
           bind(c, name="phys_grid_assign_chunks_select_owner_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: smp_c, nsmpx_c, max_nproc_smpx_c
        type(c_ptr), value :: ntsks_smpx_p, smp_proc_mapx_p, cur_npchunks_p, npchunks_p, column_count_p
        integer(c_int64_t) :: owner_c
-     end function phys_grid_assign_chunks_select_owner_codon
+     end function phys_grid_assign_chunks_select_owner_codon_raw
 
-     subroutine phys_grid_assign_chunks_commit_owner_codon(owner_c, ncols_c, cur_npchunks_p, gs_col_num_p) &
+     subroutine phys_grid_assign_chunks_commit_owner_codon_raw(owner_c, ncols_c, cur_npchunks_p, gs_col_num_p) &
           bind(c, name="phys_grid_assign_chunks_commit_owner_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: owner_c, ncols_c
        type(c_ptr), value :: cur_npchunks_p, gs_col_num_p
-     end subroutine phys_grid_assign_chunks_commit_owner_codon
+     end subroutine phys_grid_assign_chunks_commit_owner_codon_raw
 
-     subroutine phys_grid_assign_chunks_smp_setup_codon(npes_c, nsmpx_c, max_nproc_smpx_c, &
+     subroutine phys_grid_assign_chunks_smp_setup_codon_raw(npes_c, nsmpx_c, max_nproc_smpx_c, &
           proc_smp_mapx_p, npthreads_p, nsmpthreads_p, nsmpchunks_p, ntsks_smpx_p, smp_proc_mapx_p, &
           cid_offset_p, ntmp1_smp_p, ntmp2_smp_p, ntmp3_smp_p, ntmp4_smp_p, npchunks_p) &
           bind(c, name="phys_grid_assign_chunks_smp_setup_codon")
@@ -561,9 +561,9 @@ module phys_grid
        type(c_ptr), value :: proc_smp_mapx_p, npthreads_p, nsmpthreads_p, nsmpchunks_p
        type(c_ptr), value :: ntsks_smpx_p, smp_proc_mapx_p, cid_offset_p
        type(c_ptr), value :: ntmp1_smp_p, ntmp2_smp_p, ntmp3_smp_p, ntmp4_smp_p, npchunks_p
-     end subroutine phys_grid_assign_chunks_smp_setup_codon
+     end subroutine phys_grid_assign_chunks_smp_setup_codon_raw
 
-     subroutine phys_grid_assign_block_no_twin_codon(blksiz_c, pcols_c, smp_c, &
+     subroutine phys_grid_assign_block_no_twin_codon_raw(blksiz_c, pcols_c, smp_c, &
           cols_p, cid_offset_p, local_cid_p, nsmpchunks_p, maxcol_chk_p, maxcol_chks_p, &
           dyn_to_latlon_gcol_map_p, lon_p_p, lat_p_p, chunk_ncols_p, chunk_gcol_p, &
           chunk_lon_p, chunk_lat_p, knuhcs_chunkid_p, knuhcs_col_p) &
@@ -573,7 +573,7 @@ module phys_grid
        type(c_ptr), value :: cols_p, cid_offset_p, local_cid_p, nsmpchunks_p, maxcol_chk_p, maxcol_chks_p
        type(c_ptr), value :: dyn_to_latlon_gcol_map_p, lon_p_p, lat_p_p, chunk_ncols_p
        type(c_ptr), value :: chunk_gcol_p, chunk_lon_p, chunk_lat_p, knuhcs_chunkid_p, knuhcs_col_p
-     end subroutine phys_grid_assign_block_no_twin_codon
+     end subroutine phys_grid_assign_block_no_twin_codon_raw
    end interface
 
 contains
@@ -648,17 +648,17 @@ contains
     end if
   end subroutine phys_grid_getter_log_direct
 
-  subroutine phys_grid_get_gcol_all_codon_wrap(ncols_local, out_dim, src, dst)
+  subroutine phys_grid_get_gcol_all_codon(ncols_local, out_dim, src, dst)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: ncols_local, out_dim
     integer, target, intent(in) :: src(pcols)
     integer, target, intent(inout) :: dst(:)
 
-    call phys_grid_get_gcol_all_codon(int(ncols_local, c_int64_t), int(out_dim, c_int64_t), &
+    call phys_grid_get_gcol_all_codon_raw(int(ncols_local, c_int64_t), int(out_dim, c_int64_t), &
          c_loc(src(1)), c_loc(dst(1)))
-  end subroutine phys_grid_get_gcol_all_codon_wrap
+  end subroutine phys_grid_get_gcol_all_codon
 
-  subroutine phys_grid_get_gcol_vec_codon_wrap(lth, cols, src, dst)
+  subroutine phys_grid_get_gcol_vec_codon(lth, cols, src, dst)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: lth
     integer, target, intent(in) :: cols(lth)
@@ -666,19 +666,19 @@ contains
     integer, target, intent(inout) :: dst(lth)
 
     if (lth <= 0) return
-    call phys_grid_get_gcol_vec_codon(int(lth, c_int64_t), c_loc(cols(1)), c_loc(src(1)), c_loc(dst(1)))
-  end subroutine phys_grid_get_gcol_vec_codon_wrap
+    call phys_grid_get_gcol_vec_codon_raw(int(lth, c_int64_t), c_loc(cols(1)), c_loc(src(1)), c_loc(dst(1)))
+  end subroutine phys_grid_get_gcol_vec_codon
 
-  subroutine phys_grid_get_int_all_codon_wrap(ncols_local, src, dst)
+  subroutine phys_grid_get_int_all_codon(ncols_local, src, dst)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: ncols_local
     integer, target, intent(in) :: src(pcols)
     integer, target, intent(inout) :: dst(:)
 
-    call phys_grid_get_int_all_codon(int(ncols_local, c_int64_t), c_loc(src(1)), c_loc(dst(1)))
-  end subroutine phys_grid_get_int_all_codon_wrap
+    call phys_grid_get_int_all_codon_raw(int(ncols_local, c_int64_t), c_loc(src(1)), c_loc(dst(1)))
+  end subroutine phys_grid_get_int_all_codon
 
-  subroutine phys_grid_get_int_vec_codon_wrap(lth, cols, src, dst)
+  subroutine phys_grid_get_int_vec_codon(lth, cols, src, dst)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: lth
     integer, target, intent(in) :: cols(lth)
@@ -686,21 +686,21 @@ contains
     integer, target, intent(inout) :: dst(lth)
 
     if (lth <= 0) return
-    call phys_grid_get_int_vec_codon(int(lth, c_int64_t), c_loc(cols(1)), c_loc(src(1)), c_loc(dst(1)))
-  end subroutine phys_grid_get_int_vec_codon_wrap
+    call phys_grid_get_int_vec_codon_raw(int(lth, c_int64_t), c_loc(cols(1)), c_loc(src(1)), c_loc(dst(1)))
+  end subroutine phys_grid_get_int_vec_codon
 
-  subroutine phys_grid_get_lon_all_codon_wrap(ncols_local, src_lat, src_gcol, dyn_map, clat_idx, dst)
+  subroutine phys_grid_get_lon_all_codon(ncols_local, src_lat, src_gcol, dyn_map, clat_idx, dst)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: ncols_local
     integer, target, intent(in) :: src_lat(pcols), src_gcol(pcols)
     integer, target, intent(in) :: dyn_map(ngcols), clat_idx(clat_p_tot)
     integer, target, intent(inout) :: dst(:)
 
-    call phys_grid_get_lon_all_codon(int(ncols_local, c_int64_t), c_loc(src_lat(1)), c_loc(src_gcol(1)), &
+    call phys_grid_get_lon_all_codon_raw(int(ncols_local, c_int64_t), c_loc(src_lat(1)), c_loc(src_gcol(1)), &
          c_loc(dyn_map(1)), c_loc(clat_idx(1)), c_loc(dst(1)))
-  end subroutine phys_grid_get_lon_all_codon_wrap
+  end subroutine phys_grid_get_lon_all_codon
 
-  subroutine phys_grid_get_lon_vec_codon_wrap(lth, cols, src_lat, src_gcol, dyn_map, clat_idx, dst)
+  subroutine phys_grid_get_lon_vec_codon(lth, cols, src_lat, src_gcol, dyn_map, clat_idx, dst)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: lth
     integer, target, intent(in) :: cols(lth)
@@ -709,31 +709,31 @@ contains
     integer, target, intent(inout) :: dst(lth)
 
     if (lth <= 0) return
-    call phys_grid_get_lon_vec_codon(int(lth, c_int64_t), c_loc(cols(1)), c_loc(src_lat(1)), &
+    call phys_grid_get_lon_vec_codon_raw(int(lth, c_int64_t), c_loc(cols(1)), c_loc(src_lat(1)), &
          c_loc(src_gcol(1)), c_loc(dyn_map(1)), c_loc(clat_idx(1)), c_loc(dst(1)))
-  end subroutine phys_grid_get_lon_vec_codon_wrap
+  end subroutine phys_grid_get_lon_vec_codon
 
-  subroutine phys_grid_get_real_all_codon_wrap(ncols_local, src, dst)
+  subroutine phys_grid_get_real_all_codon(ncols_local, src, dst)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: ncols_local
     real(r8), target, intent(in) :: src(pcols)
     real(r8), target, intent(inout) :: dst(:)
 
-    call phys_grid_get_real_all_codon(int(ncols_local, c_int64_t), c_loc(src(1)), c_loc(dst(1)))
-  end subroutine phys_grid_get_real_all_codon_wrap
+    call phys_grid_get_real_all_codon_raw(int(ncols_local, c_int64_t), c_loc(src(1)), c_loc(dst(1)))
+  end subroutine phys_grid_get_real_all_codon
 
-  subroutine phys_grid_get_lookup_real_all_codon_wrap(ncols_local, idx, lookup, dst)
+  subroutine phys_grid_get_lookup_real_all_codon(ncols_local, idx, lookup, dst)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: ncols_local
     integer, target, intent(in) :: idx(pcols)
     real(r8), target, intent(in) :: lookup(:)
     real(r8), target, intent(inout) :: dst(:)
 
-    call phys_grid_get_lookup_real_all_codon(int(ncols_local, c_int64_t), c_loc(idx(1)), &
+    call phys_grid_get_lookup_real_all_codon_raw(int(ncols_local, c_int64_t), c_loc(idx(1)), &
          c_loc(lookup(1)), c_loc(dst(1)))
-  end subroutine phys_grid_get_lookup_real_all_codon_wrap
+  end subroutine phys_grid_get_lookup_real_all_codon
 
-  subroutine phys_grid_get_lookup_real_vec_codon_wrap(lth, cols, idx, lookup, dst)
+  subroutine phys_grid_get_lookup_real_vec_codon(lth, cols, idx, lookup, dst)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: lth
     integer, target, intent(in) :: cols(lth)
@@ -742,9 +742,9 @@ contains
     real(r8), target, intent(inout) :: dst(lth)
 
     if (lth <= 0) return
-    call phys_grid_get_lookup_real_vec_codon(int(lth, c_int64_t), c_loc(cols(1)), c_loc(idx(1)), &
+    call phys_grid_get_lookup_real_vec_codon_raw(int(lth, c_int64_t), c_loc(cols(1)), c_loc(idx(1)), &
          c_loc(lookup(1)), c_loc(dst(1)))
-  end subroutine phys_grid_get_lookup_real_vec_codon_wrap
+  end subroutine phys_grid_get_lookup_real_vec_codon
 
   subroutine phys_grid_init_helpers_select_impl()
     character(len=32) :: impl_name
@@ -796,34 +796,34 @@ contains
     end if
   end subroutine phys_grid_init_assign_bookkeeping_proof_once
 
-  integer function phys_grid_count_valid_cols_codon_wrap(ngcols_local, coord)
+  integer function phys_grid_count_valid_cols_codon(ngcols_local, coord)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: ngcols_local
     real(r8), target, intent(in) :: coord(:)
 
     if (ngcols_local <= 0) then
-       phys_grid_count_valid_cols_codon_wrap = 0
+       phys_grid_count_valid_cols_codon = 0
        return
     end if
-    phys_grid_count_valid_cols_codon_wrap = int( &
-         phys_grid_count_valid_cols_codon(int(ngcols_local, c_int64_t), c_loc(coord(1))))
-  end function phys_grid_count_valid_cols_codon_wrap
+    phys_grid_count_valid_cols_codon = int( &
+         phys_grid_count_valid_cols_codon_raw(int(ngcols_local, c_int64_t), c_loc(coord(1))))
+  end function phys_grid_count_valid_cols_codon
 
-  integer function phys_grid_count_unique_sorted_real_codon_wrap(ncols_local, idx, coord)
+  integer function phys_grid_count_unique_sorted_real_codon(ncols_local, idx, coord)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: ncols_local
     integer, target, intent(in) :: idx(:)
     real(r8), target, intent(in) :: coord(:)
 
     if (ncols_local <= 0) then
-       phys_grid_count_unique_sorted_real_codon_wrap = 0
+       phys_grid_count_unique_sorted_real_codon = 0
        return
     end if
-    phys_grid_count_unique_sorted_real_codon_wrap = int( &
-         phys_grid_count_unique_sorted_real_codon(int(ncols_local, c_int64_t), c_loc(idx(1)), c_loc(coord(1))))
-  end function phys_grid_count_unique_sorted_real_codon_wrap
+    phys_grid_count_unique_sorted_real_codon = int( &
+         phys_grid_count_unique_sorted_real_codon_raw(int(ncols_local, c_int64_t), c_loc(idx(1)), c_loc(coord(1))))
+  end function phys_grid_count_unique_sorted_real_codon
 
-  subroutine phys_grid_fill_unique_sorted_real_codon_wrap(ncols_local, idx, coord, unique, counts)
+  subroutine phys_grid_fill_unique_sorted_real_codon(ncols_local, idx, coord, unique, counts)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: ncols_local
     integer, target, intent(in) :: idx(:)
@@ -832,32 +832,32 @@ contains
     integer, target, intent(inout) :: counts(:)
 
     if (ncols_local <= 0) return
-    call phys_grid_fill_unique_sorted_real_codon(int(ncols_local, c_int64_t), c_loc(idx(1)), &
+    call phys_grid_fill_unique_sorted_real_codon_raw(int(ncols_local, c_int64_t), c_loc(idx(1)), &
          c_loc(coord(1)), c_loc(unique(1)), c_loc(counts(1)))
-  end subroutine phys_grid_fill_unique_sorted_real_codon_wrap
+  end subroutine phys_grid_fill_unique_sorted_real_codon
 
-  subroutine phys_grid_prefix_counts_codon_wrap(n, counts, idx)
+  subroutine phys_grid_prefix_counts_codon(n, counts, idx)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: n
     integer, target, intent(in) :: counts(:)
     integer, target, intent(inout) :: idx(:)
 
     if (n <= 0) return
-    call phys_grid_prefix_counts_codon(int(n, c_int64_t), c_loc(counts(1)), c_loc(idx(1)))
-  end subroutine phys_grid_prefix_counts_codon_wrap
+    call phys_grid_prefix_counts_codon_raw(int(n, c_int64_t), c_loc(counts(1)), c_loc(idx(1)))
+  end subroutine phys_grid_prefix_counts_codon
 
-  subroutine phys_grid_fill_real_pair_codon_wrap(n, first_value, second_value, first, second)
+  subroutine phys_grid_fill_real_pair_codon(n, first_value, second_value, first, second)
     use iso_c_binding, only: c_int64_t, c_double, c_loc
     integer, intent(in) :: n
     real(r8), intent(in) :: first_value, second_value
     real(r8), target, intent(inout) :: first(:), second(:)
 
     if (n <= 0) return
-    call phys_grid_fill_real_pair_codon(int(n, c_int64_t), real(first_value, c_double), &
+    call phys_grid_fill_real_pair_codon_raw(int(n, c_int64_t), real(first_value, c_double), &
          real(second_value, c_double), c_loc(first(1)), c_loc(second(1)))
-  end subroutine phys_grid_fill_real_pair_codon_wrap
+  end subroutine phys_grid_fill_real_pair_codon
 
-  subroutine phys_grid_init_lat_map_codon_wrap(ngcols_local, ncols_local, clat_tot_local, idx, coord, unique, &
+  subroutine phys_grid_init_lat_map_codon(ngcols_local, ncols_local, clat_tot_local, idx, coord, unique, &
        lat_map, dyn_map, latlon_map)
     use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr, c_ptr
     integer, intent(in) :: ngcols_local, ncols_local, clat_tot_local
@@ -875,12 +875,12 @@ contains
        has_latlon = 1_c_int64_t
        latlon_p = c_loc(latlon_map(1))
     end if
-    call phys_grid_init_lat_map_codon(int(ngcols_local, c_int64_t), int(ncols_local, c_int64_t), &
+    call phys_grid_init_lat_map_codon_raw(int(ngcols_local, c_int64_t), int(ncols_local, c_int64_t), &
          int(clat_tot_local, c_int64_t), has_latlon, c_loc(idx(1)), c_loc(coord(1)), c_loc(unique(1)), &
          c_loc(lat_map(1)), c_loc(dyn_map(1)), latlon_p)
-  end subroutine phys_grid_init_lat_map_codon_wrap
+  end subroutine phys_grid_init_lat_map_codon
 
-  subroutine phys_grid_init_lon_map_codon_wrap(ngcols_local, ncols_local, clon_tot_local, idx, coord, unique, &
+  subroutine phys_grid_init_lon_map_codon(ngcols_local, ncols_local, clon_tot_local, idx, coord, unique, &
        lon_map, lonlat_map)
     use iso_c_binding, only: c_int64_t, c_loc, c_null_ptr, c_ptr
     integer, intent(in) :: ngcols_local, ncols_local, clon_tot_local
@@ -898,22 +898,22 @@ contains
        has_lonlat = 1_c_int64_t
        lonlat_p = c_loc(lonlat_map(1))
     end if
-    call phys_grid_init_lon_map_codon(int(ngcols_local, c_int64_t), int(ncols_local, c_int64_t), &
+    call phys_grid_init_lon_map_codon_raw(int(ngcols_local, c_int64_t), int(ncols_local, c_int64_t), &
          int(clon_tot_local, c_int64_t), has_lonlat, c_loc(idx(1)), c_loc(coord(1)), c_loc(unique(1)), &
          c_loc(lon_map(1)), lonlat_p)
-  end subroutine phys_grid_init_lon_map_codon_wrap
+  end subroutine phys_grid_init_lon_map_codon
 
-  subroutine phys_grid_zero_proc_counts_codon_wrap(npes_local, chunk_counts, col_counts)
+  subroutine phys_grid_zero_proc_counts_codon(npes_local, chunk_counts, col_counts)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: npes_local
     integer, target, intent(inout) :: chunk_counts(0:), col_counts(0:)
 
     if (npes_local <= 0) return
-    call phys_grid_zero_proc_counts_codon(int(npes_local, c_int64_t), &
+    call phys_grid_zero_proc_counts_codon_raw(int(npes_local, c_int64_t), &
          c_loc(chunk_counts(0)), c_loc(col_counts(0)))
-  end subroutine phys_grid_zero_proc_counts_codon_wrap
+  end subroutine phys_grid_zero_proc_counts_codon
 
-  subroutine phys_grid_proc_prefix_offsets_codon_wrap(npes_local, start_value, set_final, &
+  subroutine phys_grid_proc_prefix_offsets_codon(npes_local, start_value, set_final, &
        chunk_counts, col_counts, chunk_offsets, col_offsets)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: npes_local, start_value
@@ -924,12 +924,12 @@ contains
 
     if (npes_local <= 0) return
     set_final_c = merge(1_c_int64_t, 0_c_int64_t, set_final)
-    call phys_grid_proc_prefix_offsets_codon(int(npes_local, c_int64_t), int(start_value, c_int64_t), &
+    call phys_grid_proc_prefix_offsets_codon_raw(int(npes_local, c_int64_t), int(start_value, c_int64_t), &
          set_final_c, c_loc(chunk_counts(0)), c_loc(col_counts(0)), &
          c_loc(chunk_offsets(0)), c_loc(col_offsets(0)))
-  end subroutine phys_grid_proc_prefix_offsets_codon_wrap
+  end subroutine phys_grid_proc_prefix_offsets_codon
 
-  subroutine phys_grid_process_bin_sort_codon_wrap(nchunks_local, lastblock_local, chunk_owner, chunk_ncols, &
+  subroutine phys_grid_process_bin_sort_codon(nchunks_local, lastblock_local, chunk_owner, chunk_ncols, &
        chunk_offsets, col_offsets, chunk_lcid, pgcol_chunk, pgcol_ccol)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: nchunks_local, lastblock_local
@@ -938,22 +938,22 @@ contains
     integer, target, intent(inout) :: chunk_lcid(:), pgcol_chunk(:), pgcol_ccol(:)
 
     if (nchunks_local <= 0) return
-    call phys_grid_process_bin_sort_codon(int(nchunks_local, c_int64_t), int(lastblock_local, c_int64_t), &
+    call phys_grid_process_bin_sort_codon_raw(int(nchunks_local, c_int64_t), int(lastblock_local, c_int64_t), &
          c_loc(chunk_owner(1)), c_loc(chunk_ncols(1)), c_loc(chunk_offsets(0)), c_loc(col_offsets(0)), &
          c_loc(chunk_lcid(1)), c_loc(pgcol_chunk(1)), c_loc(pgcol_ccol(1)))
-  end subroutine phys_grid_process_bin_sort_codon_wrap
+  end subroutine phys_grid_process_bin_sort_codon
 
-  subroutine phys_grid_lchunk_gcol_copy_codon_wrap(ncols_local, src_gcol, dst_gcol)
+  subroutine phys_grid_lchunk_gcol_copy_codon(ncols_local, src_gcol, dst_gcol)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: ncols_local
     integer, target, intent(in) :: src_gcol(pcols)
     integer, target, intent(inout) :: dst_gcol(pcols)
 
     if (ncols_local <= 0) return
-    call phys_grid_lchunk_gcol_copy_codon(int(ncols_local, c_int64_t), c_loc(src_gcol(1)), c_loc(dst_gcol(1)))
-  end subroutine phys_grid_lchunk_gcol_copy_codon_wrap
+    call phys_grid_lchunk_gcol_copy_codon_raw(int(ncols_local, c_int64_t), c_loc(src_gcol(1)), c_loc(dst_gcol(1)))
+  end subroutine phys_grid_lchunk_gcol_copy_codon
 
-  subroutine phys_grid_lchunk_area_wght_codon_wrap(ncols_local, gcol, area_d_local, wght_d_local, area, wght)
+  subroutine phys_grid_lchunk_area_wght_codon(ncols_local, gcol, area_d_local, wght_d_local, area, wght)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: ncols_local
     integer, target, intent(in) :: gcol(pcols)
@@ -961,26 +961,26 @@ contains
     real(r8), target, intent(inout) :: area(pcols), wght(pcols)
 
     if (ncols_local <= 0) return
-    call phys_grid_lchunk_area_wght_codon(int(ncols_local, c_int64_t), c_loc(gcol(1)), &
+    call phys_grid_lchunk_area_wght_codon_raw(int(ncols_local, c_int64_t), c_loc(gcol(1)), &
          c_loc(area_d_local(1)), c_loc(wght_d_local(1)), c_loc(area(1)), c_loc(wght(1)))
-  end subroutine phys_grid_lchunk_area_wght_codon_wrap
+  end subroutine phys_grid_lchunk_area_wght_codon
 
-  integer function phys_grid_count_smp_procs_codon_wrap(npes_local, nsmpx_local, proc_smp_mapx_local, nsmpprocs)
+  integer function phys_grid_count_smp_procs_codon(npes_local, nsmpx_local, proc_smp_mapx_local, nsmpprocs)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: npes_local, nsmpx_local
     integer, target, intent(in) :: proc_smp_mapx_local(0:)
     integer, target, intent(inout) :: nsmpprocs(0:)
 
     if (npes_local <= 0 .or. nsmpx_local <= 0) then
-       phys_grid_count_smp_procs_codon_wrap = 0
+       phys_grid_count_smp_procs_codon = 0
        return
     endif
-    phys_grid_count_smp_procs_codon_wrap = int( &
-         phys_grid_count_smp_procs_codon(int(npes_local, c_int64_t), int(nsmpx_local, c_int64_t), &
+    phys_grid_count_smp_procs_codon = int( &
+         phys_grid_count_smp_procs_codon_raw(int(npes_local, c_int64_t), int(nsmpx_local, c_int64_t), &
          c_loc(proc_smp_mapx_local(0)), c_loc(nsmpprocs(0))))
-  end function phys_grid_count_smp_procs_codon_wrap
+  end function phys_grid_count_smp_procs_codon
 
-  subroutine phys_grid_create_chunks_thread_counts_codon_wrap(npes_local, nsmpx_local, &
+  subroutine phys_grid_create_chunks_thread_counts_codon(npes_local, nsmpx_local, &
        proc_smp_mapx_local, npthreads_local, nsmpthreads_local)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: npes_local, nsmpx_local
@@ -988,11 +988,11 @@ contains
     integer, target, intent(inout) :: nsmpthreads_local(0:)
 
     if (npes_local <= 0 .or. nsmpx_local <= 0) return
-    call phys_grid_create_chunks_thread_counts_codon(int(npes_local, c_int64_t), int(nsmpx_local, c_int64_t), &
+    call phys_grid_create_chunks_thread_counts_codon_raw(int(npes_local, c_int64_t), int(nsmpx_local, c_int64_t), &
          c_loc(proc_smp_mapx_local(0)), c_loc(npthreads_local(0)), c_loc(nsmpthreads_local(0)))
-  end subroutine phys_grid_create_chunks_thread_counts_codon_wrap
+  end subroutine phys_grid_create_chunks_thread_counts_codon
 
-  integer function phys_grid_create_chunks_shape_codon_wrap(nsmpx_local, pcols_local, chunks_per_thread_local, &
+  integer function phys_grid_create_chunks_shape_codon(nsmpx_local, pcols_local, chunks_per_thread_local, &
        nsmpcolumns_local, nsmpthreads_local, nsmpchunks_local, maxcol_chk_local, maxcol_chks_local)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: nsmpx_local, pcols_local, chunks_per_thread_local
@@ -1000,16 +1000,16 @@ contains
     integer, target, intent(inout) :: nsmpchunks_local(0:), maxcol_chk_local(0:), maxcol_chks_local(0:)
 
     if (nsmpx_local <= 0) then
-       phys_grid_create_chunks_shape_codon_wrap = 0
+       phys_grid_create_chunks_shape_codon = 0
        return
     endif
-    phys_grid_create_chunks_shape_codon_wrap = int( &
-         phys_grid_create_chunks_shape_codon(int(nsmpx_local, c_int64_t), int(pcols_local, c_int64_t), &
+    phys_grid_create_chunks_shape_codon = int( &
+         phys_grid_create_chunks_shape_codon_raw(int(nsmpx_local, c_int64_t), int(pcols_local, c_int64_t), &
          int(chunks_per_thread_local, c_int64_t), c_loc(nsmpcolumns_local(0)), c_loc(nsmpthreads_local(0)), &
          c_loc(nsmpchunks_local(0)), c_loc(maxcol_chk_local(0)), c_loc(maxcol_chks_local(0))))
-  end function phys_grid_create_chunks_shape_codon_wrap
+  end function phys_grid_create_chunks_shape_codon
 
-  subroutine phys_grid_create_chunks_prefix_codon_wrap(nsmpx_local, nsmpchunks_local, &
+  subroutine phys_grid_create_chunks_prefix_codon(nsmpx_local, nsmpchunks_local, &
        cid_offset_local, local_cid_local)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: nsmpx_local
@@ -1017,11 +1017,11 @@ contains
     integer, target, intent(inout) :: cid_offset_local(0:), local_cid_local(0:)
 
     if (nsmpx_local <= 0) return
-    call phys_grid_create_chunks_prefix_codon(int(nsmpx_local, c_int64_t), c_loc(nsmpchunks_local(0)), &
+    call phys_grid_create_chunks_prefix_codon_raw(int(nsmpx_local, c_int64_t), c_loc(nsmpchunks_local(0)), &
          c_loc(cid_offset_local(0)), c_loc(local_cid_local(0)))
-  end subroutine phys_grid_create_chunks_prefix_codon_wrap
+  end subroutine phys_grid_create_chunks_prefix_codon
 
-  subroutine phys_grid_count_smp_columns_codon_wrap(nsmpx_local, ngcols_p_local, latlon_map, &
+  subroutine phys_grid_count_smp_columns_codon(nsmpx_local, ngcols_p_local, latlon_map, &
        col_smp_mapx_local, nsmpcolumns_local)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: nsmpx_local, ngcols_p_local
@@ -1029,20 +1029,20 @@ contains
     integer, target, intent(inout) :: nsmpcolumns_local(0:)
 
     if (nsmpx_local <= 0 .or. ngcols_p_local <= 0) return
-    call phys_grid_count_smp_columns_codon(int(nsmpx_local, c_int64_t), int(ngcols_p_local, c_int64_t), &
+    call phys_grid_count_smp_columns_codon_raw(int(nsmpx_local, c_int64_t), int(ngcols_p_local, c_int64_t), &
          c_loc(latlon_map(1)), c_loc(col_smp_mapx_local(1)), c_loc(nsmpcolumns_local(0)))
-  end subroutine phys_grid_count_smp_columns_codon_wrap
+  end subroutine phys_grid_count_smp_columns_codon
 
-  subroutine phys_grid_zero_int_array_codon_wrap(n, values)
+  subroutine phys_grid_zero_int_array_codon(n, values)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: n
     integer, target, intent(inout) :: values(0:)
 
     if (n <= 0) return
-    call phys_grid_zero_int_array_codon(int(n, c_int64_t), c_loc(values(0)))
-  end subroutine phys_grid_zero_int_array_codon_wrap
+    call phys_grid_zero_int_array_codon_raw(int(n, c_int64_t), c_loc(values(0)))
+  end subroutine phys_grid_zero_int_array_codon
 
-  subroutine phys_grid_assign_chunks_zero_column_count_codon_wrap(smp_local, nsmpx_local, &
+  subroutine phys_grid_assign_chunks_zero_column_count_codon(smp_local, nsmpx_local, &
        max_nproc_smpx_local, ntsks_smpx_local, smp_proc_mapx_local, column_count_local)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: smp_local, nsmpx_local, max_nproc_smpx_local
@@ -1050,12 +1050,12 @@ contains
     integer, target, intent(inout) :: column_count_local(0:)
 
     if (nsmpx_local <= 0 .or. max_nproc_smpx_local <= 0) return
-    call phys_grid_assign_chunks_zero_column_count_codon(int(smp_local, c_int64_t), &
+    call phys_grid_assign_chunks_zero_column_count_codon_raw(int(smp_local, c_int64_t), &
          int(nsmpx_local, c_int64_t), int(max_nproc_smpx_local, c_int64_t), &
          c_loc(ntsks_smpx_local(0)), c_loc(smp_proc_mapx_local(0,1)), c_loc(column_count_local(0)))
-  end subroutine phys_grid_assign_chunks_zero_column_count_codon_wrap
+  end subroutine phys_grid_assign_chunks_zero_column_count_codon
 
-  integer function phys_grid_assign_chunks_select_owner_codon_wrap(smp_local, nsmpx_local, &
+  integer function phys_grid_assign_chunks_select_owner_codon(smp_local, nsmpx_local, &
        max_nproc_smpx_local, ntsks_smpx_local, smp_proc_mapx_local, cur_npchunks_local, &
        npchunks_local, column_count_local)
     use iso_c_binding, only: c_int64_t, c_loc
@@ -1065,26 +1065,26 @@ contains
     integer, target, intent(in) :: npchunks_local(0:)
 
     if (nsmpx_local <= 0 .or. max_nproc_smpx_local <= 0) then
-       phys_grid_assign_chunks_select_owner_codon_wrap = -1
+       phys_grid_assign_chunks_select_owner_codon = -1
        return
     endif
-    phys_grid_assign_chunks_select_owner_codon_wrap = int( &
-         phys_grid_assign_chunks_select_owner_codon(int(smp_local, c_int64_t), int(nsmpx_local, c_int64_t), &
+    phys_grid_assign_chunks_select_owner_codon = int( &
+         phys_grid_assign_chunks_select_owner_codon_raw(int(smp_local, c_int64_t), int(nsmpx_local, c_int64_t), &
          int(max_nproc_smpx_local, c_int64_t), c_loc(ntsks_smpx_local(0)), c_loc(smp_proc_mapx_local(0,1)), &
          c_loc(cur_npchunks_local(0)), c_loc(npchunks_local(0)), c_loc(column_count_local(0))))
-  end function phys_grid_assign_chunks_select_owner_codon_wrap
+  end function phys_grid_assign_chunks_select_owner_codon
 
-  subroutine phys_grid_assign_chunks_commit_owner_codon_wrap(owner_local, ncols_local, &
+  subroutine phys_grid_assign_chunks_commit_owner_codon(owner_local, ncols_local, &
        cur_npchunks_local, gs_col_num_local)
     use iso_c_binding, only: c_int64_t, c_loc
     integer, intent(in) :: owner_local, ncols_local
     integer, target, intent(inout) :: cur_npchunks_local(0:), gs_col_num_local(0:)
 
-    call phys_grid_assign_chunks_commit_owner_codon(int(owner_local, c_int64_t), int(ncols_local, c_int64_t), &
+    call phys_grid_assign_chunks_commit_owner_codon_raw(int(owner_local, c_int64_t), int(ncols_local, c_int64_t), &
          c_loc(cur_npchunks_local(0)), c_loc(gs_col_num_local(0)))
-  end subroutine phys_grid_assign_chunks_commit_owner_codon_wrap
+  end subroutine phys_grid_assign_chunks_commit_owner_codon
 
-  subroutine phys_grid_assign_chunks_smp_setup_codon_wrap(npes_local, nsmpx_local, max_nproc_smpx_local, &
+  subroutine phys_grid_assign_chunks_smp_setup_codon(npes_local, nsmpx_local, max_nproc_smpx_local, &
        proc_smp_mapx_local, npthreads_local, nsmpthreads_local, nsmpchunks_local, ntsks_smpx_local, &
        smp_proc_mapx_local, cid_offset_local, ntmp1_smp_local, ntmp2_smp_local, ntmp3_smp_local, &
        ntmp4_smp_local, npchunks_local)
@@ -1097,15 +1097,15 @@ contains
     integer, target, intent(inout) :: ntmp3_smp_local(0:), ntmp4_smp_local(0:), npchunks_local(0:)
 
     if (npes_local <= 0 .or. nsmpx_local <= 0 .or. max_nproc_smpx_local <= 0) return
-    call phys_grid_assign_chunks_smp_setup_codon(int(npes_local, c_int64_t), int(nsmpx_local, c_int64_t), &
+    call phys_grid_assign_chunks_smp_setup_codon_raw(int(npes_local, c_int64_t), int(nsmpx_local, c_int64_t), &
          int(max_nproc_smpx_local, c_int64_t), c_loc(proc_smp_mapx_local(0)), c_loc(npthreads_local(0)), &
          c_loc(nsmpthreads_local(0)), c_loc(nsmpchunks_local(0)), c_loc(ntsks_smpx_local(0)), &
          c_loc(smp_proc_mapx_local(0,1)), c_loc(cid_offset_local(0)), c_loc(ntmp1_smp_local(0)), &
          c_loc(ntmp2_smp_local(0)), c_loc(ntmp3_smp_local(0)), c_loc(ntmp4_smp_local(0)), &
          c_loc(npchunks_local(0)))
-  end subroutine phys_grid_assign_chunks_smp_setup_codon_wrap
+  end subroutine phys_grid_assign_chunks_smp_setup_codon
 
-  subroutine phys_grid_assign_block_no_twin_codon_wrap(blksiz_local, smp_local, cols_local, &
+  subroutine phys_grid_assign_block_no_twin_codon(blksiz_local, smp_local, cols_local, &
        cid_offset_local, local_cid_local, nsmpchunks_local, maxcol_chk_local, maxcol_chks_local, &
        dyn_map_local, lon_map_local, lat_map_local, chunk_ncols_local, chunk_gcol_local, &
        chunk_lon_local, chunk_lat_local, knuhcs_chunkid_local, knuhcs_col_local)
@@ -1119,14 +1119,14 @@ contains
     integer, target, intent(inout) :: knuhcs_chunkid_local(:), knuhcs_col_local(:)
 
     if (blksiz_local <= 0) return
-    call phys_grid_assign_block_no_twin_codon(int(blksiz_local, c_int64_t), int(pcols, c_int64_t), &
+    call phys_grid_assign_block_no_twin_codon_raw(int(blksiz_local, c_int64_t), int(pcols, c_int64_t), &
          int(smp_local, c_int64_t), c_loc(cols_local(1)), c_loc(cid_offset_local(0)), &
          c_loc(local_cid_local(0)), c_loc(nsmpchunks_local(0)), c_loc(maxcol_chk_local(0)), &
          c_loc(maxcol_chks_local(0)), c_loc(dyn_map_local(1)), c_loc(lon_map_local(1)), &
          c_loc(lat_map_local(1)), c_loc(chunk_ncols_local(1)), c_loc(chunk_gcol_local(1,1)), &
          c_loc(chunk_lon_local(1,1)), c_loc(chunk_lat_local(1,1)), &
          c_loc(knuhcs_chunkid_local(1)), c_loc(knuhcs_col_local(1)))
-  end subroutine phys_grid_assign_block_no_twin_codon_wrap
+  end subroutine phys_grid_assign_block_no_twin_codon
 
   subroutine phys_grid_init( )
     !----------------------------------------------------------------------- 
@@ -1221,7 +1221,7 @@ contains
        clat_d = 100000.0_r8
        clon_d = 100000.0_r8
     else
-       call phys_grid_fill_real_pair_codon_wrap(ngcols, 100000.0_r8, 100000.0_r8, clat_d, clon_d)
+       call phys_grid_fill_real_pair_codon(ngcols, 100000.0_r8, 100000.0_r8, clat_d, clon_d)
        call phys_grid_init_helpers_proof_once()
     endif
     call get_horiz_grid_d(ngcols, clat_d_out=clat_d, clon_d_out=clon_d)
@@ -1235,7 +1235,7 @@ contains
           endif
        enddo
     else
-       ngcols_p = phys_grid_count_valid_cols_codon_wrap(ngcols, clon_d)
+       ngcols_p = phys_grid_count_valid_cols_codon(ngcols, clon_d)
        call phys_grid_init_helpers_proof_once()
     endif
 
@@ -1253,7 +1253,7 @@ contains
           endif
        enddo
     else
-       clon_p_tot = phys_grid_count_unique_sorted_real_codon_wrap(ngcols_p, cdex, clon_d)
+       clon_p_tot = phys_grid_count_unique_sorted_real_codon(ngcols_p, cdex, clon_d)
     endif
 
     allocate( clon_p(1:clon_p_tot) )
@@ -1273,7 +1273,7 @@ contains
        enddo
        clon_p_cnt(clon_p_tot) = (ngcols_p+1)-pre_i
     else
-       call phys_grid_fill_unique_sorted_real_codon_wrap(ngcols_p, cdex, clon_d, clon_p, clon_p_cnt)
+       call phys_grid_fill_unique_sorted_real_codon(ngcols_p, cdex, clon_d, clon_p, clon_p_cnt)
     endif
 
     ! sort over latitude and identify unique latitude coordinates
@@ -1289,7 +1289,7 @@ contains
           endif
        enddo
     else
-       clat_p_tot = phys_grid_count_unique_sorted_real_codon_wrap(ngcols_p, cdex, clat_d)
+       clat_p_tot = phys_grid_count_unique_sorted_real_codon(ngcols_p, cdex, clat_d)
     endif
 
     allocate( clat_p(1:clat_p_tot) )
@@ -1315,8 +1315,8 @@ contains
           clat_p_idx(j) = clat_p_idx(j-1) + clat_p_cnt(j-1)
        enddo
     else
-       call phys_grid_fill_unique_sorted_real_codon_wrap(ngcols_p, cdex, clat_d, clat_p, clat_p_cnt)
-       call phys_grid_prefix_counts_codon_wrap(clat_p_tot, clat_p_cnt, clat_p_idx)
+       call phys_grid_fill_unique_sorted_real_codon(ngcols_p, cdex, clat_d, clat_p, clat_p_cnt)
+       call phys_grid_prefix_counts_codon(clat_p_tot, clat_p_cnt, clat_p_idx)
     endif
 
     ! sort by longitude within latitudes
@@ -1355,10 +1355,10 @@ contains
           lat_p(cdex(i)) = clat_p_dex
        enddo
     else if (lbal_opt .ne. -1) then
-       call phys_grid_init_lat_map_codon_wrap(ngcols, ngcols_p, clat_p_tot, cdex, clat_d, clat_p, &
+       call phys_grid_init_lat_map_codon(ngcols, ngcols_p, clat_p_tot, cdex, clat_d, clat_p, &
             lat_p, dyn_to_latlon_gcol_map, latlon_to_dyn_gcol_map)
     else
-       call phys_grid_init_lat_map_codon_wrap(ngcols, ngcols_p, clat_p_tot, cdex, clat_d, clat_p, &
+       call phys_grid_init_lat_map_codon(ngcols, ngcols_p, clat_p_tot, cdex, clat_d, clat_p, &
             lat_p, dyn_to_latlon_gcol_map)
     endif
 
@@ -1394,10 +1394,10 @@ contains
           lon_p(cdex(i)) = clon_p_dex
        enddo
     else if ((twin_alg .eq. 1) .and. (lbal_opt .ne. -1)) then
-       call phys_grid_init_lon_map_codon_wrap(ngcols, ngcols_p, clon_p_tot, cdex, clon_d, clon_p, &
+       call phys_grid_init_lon_map_codon(ngcols, ngcols_p, clon_p_tot, cdex, clon_d, clon_p, &
             lon_p, lonlat_to_dyn_gcol_map)
     else
-       call phys_grid_init_lon_map_codon_wrap(ngcols, ngcols_p, clon_p_tot, cdex, clon_d, clon_p, lon_p)
+       call phys_grid_init_lon_map_codon(ngcols, ngcols_p, clon_p_tot, cdex, clon_d, clon_p, lon_p)
     endif
 
     ! Clean-up
@@ -1419,7 +1419,7 @@ contains
        npchunks(:) = 0
        gs_col_num(:) = 0
     else
-       call phys_grid_zero_proc_counts_codon_wrap(npes, npchunks, gs_col_num)
+       call phys_grid_zero_proc_counts_codon(npes, npchunks, gs_col_num)
        call phys_grid_init_helpers_proof_once()
     endif
 
@@ -1576,7 +1576,7 @@ contains
           gs_col_offset(p) = gs_col_offset(p-1) + gs_col_num(p-1)
        enddo
     else
-       call phys_grid_proc_prefix_offsets_codon_wrap(npes, 0, .false., &
+       call phys_grid_proc_prefix_offsets_codon(npes, 0, .false., &
             npchunks, gs_col_num, pchunkid, gs_col_offset)
     endif
     
@@ -1606,7 +1606,7 @@ contains
           chunk_owner_work(cid) = chunks(cid)%owner
           chunk_ncols_work(cid) = chunks(cid)%ncols
        enddo
-       call phys_grid_process_bin_sort_codon_wrap(nchunks, lastblock, chunk_owner_work, chunk_ncols_work, &
+       call phys_grid_process_bin_sort_codon(nchunks, lastblock, chunk_owner_work, chunk_ncols_work, &
             pchunkid, gs_col_offset, chunk_lcid_work, pgcol_chunk_work, pgcol_ccol_work)
        if (masterproc) then
           write(iulog,'(A)') 'phys_grid_init_helpers process bin sort entered (direct = codon)'
@@ -1636,7 +1636,7 @@ contains
        pchunkid(npes)      = pchunkid(npes-1)      + npchunks(npes-1)
        gs_col_offset(npes) = gs_col_offset(npes-1) + gs_col_num(npes-1)
     else
-       call phys_grid_proc_prefix_offsets_codon_wrap(npes, 1, .true., &
+       call phys_grid_proc_prefix_offsets_codon(npes, 1, .true., &
             npchunks, gs_col_num, pchunkid, gs_col_offset)
     endif
 
@@ -1660,7 +1660,7 @@ contains
                 lchunks(lcid)%gcol(i) = chunks(cid)%gcol(i)
              enddo
           else
-             call phys_grid_lchunk_gcol_copy_codon_wrap(chunks(cid)%ncols, chunks(cid)%gcol, lchunks(lcid)%gcol)
+             call phys_grid_lchunk_gcol_copy_codon(chunks(cid)%ncols, chunks(cid)%gcol, lchunks(lcid)%gcol)
           endif
        endif
     enddo
@@ -1679,7 +1679,7 @@ contains
        area_d = 0.0_r8
        wght_d = 0.0_r8
     else
-       call phys_grid_fill_real_pair_codon_wrap(ngcols, 0.0_r8, 0.0_r8, area_d, wght_d)
+       call phys_grid_fill_real_pair_codon(ngcols, 0.0_r8, 0.0_r8, area_d, wght_d)
     endif
 
     call get_horiz_grid_d(ngcols, area_d_out=area_d, wght_d_out=wght_d)
@@ -1704,7 +1704,7 @@ contains
              lchunks(lcid)%wght(i) = wght_d(lchunks(lcid)%gcol(i))
           enddo
        else
-          call phys_grid_lchunk_area_wght_codon_wrap(lchunks(lcid)%ncols, lchunks(lcid)%gcol, &
+          call phys_grid_lchunk_area_wght_codon(lchunks(lcid)%ncols, lchunks(lcid)%gcol, &
                area_d, wght_d, lchunks(lcid)%area, lchunks(lcid)%wght)
        endif
     enddo
@@ -2228,7 +2228,7 @@ logical function phys_grid_initialized ()
            gcols(i) = lchunks(lcid)%gcol(i)
         enddo
      else
-        call phys_grid_get_gcol_all_codon_wrap(lchunks(lcid)%ncols, latdim, lchunks(lcid)%gcol, gcols)
+        call phys_grid_get_gcol_all_codon(lchunks(lcid)%ncols, latdim, lchunks(lcid)%gcol, gcols)
         call phys_grid_getters_proof_once()
         call phys_grid_getter_log_direct(get_gcol_all_logged, 'get_gcol_all_p direct = codon')
      end if
@@ -2298,7 +2298,7 @@ logical function phys_grid_initialized ()
         gcols(i) = lchunks(lcid)%gcol(cols(i))
       enddo
    else
-      call phys_grid_get_gcol_vec_codon_wrap(lth, cols, lchunks(lcid)%gcol, gcols)
+      call phys_grid_get_gcol_vec_codon(lth, cols, lchunks(lcid)%gcol, gcols)
       call phys_grid_getters_proof_once()
    end if
 
@@ -2368,7 +2368,7 @@ logical function phys_grid_initialized ()
         lats(i) = chunks(cid)%lat(i)
       enddo
    else
-      call phys_grid_get_int_all_codon_wrap(chunks(cid)%ncols, chunks(cid)%lat, lats)
+      call phys_grid_get_int_all_codon(chunks(cid)%ncols, chunks(cid)%lat, lats)
       call phys_grid_getters_proof_once()
       call phys_grid_getter_log_direct(get_lat_all_logged, 'get_lat_all_p direct = codon')
    end if
@@ -2409,7 +2409,7 @@ logical function phys_grid_initialized ()
         lats(i) = chunks(cid)%lat(cols(i))
       enddo
    else
-      call phys_grid_get_int_vec_codon_wrap(lth, cols, chunks(cid)%lat, lats)
+      call phys_grid_get_int_vec_codon(lth, cols, chunks(cid)%lat, lats)
       call phys_grid_getters_proof_once()
    end if
 
@@ -2486,7 +2486,7 @@ logical function phys_grid_initialized ()
         lons(i) = (gcol - clat_p_idx(lat)) + 1
       enddo
    else
-      call phys_grid_get_lon_all_codon_wrap(chunks(cid)%ncols, chunks(cid)%lat, chunks(cid)%gcol, &
+      call phys_grid_get_lon_all_codon(chunks(cid)%ncols, chunks(cid)%lat, chunks(cid)%gcol, &
            dyn_to_latlon_gcol_map, clat_p_idx, lons)
       call phys_grid_getters_proof_once()
       call phys_grid_getter_log_direct(get_lon_all_logged, 'get_lon_all_p direct = codon')
@@ -2538,7 +2538,7 @@ logical function phys_grid_initialized ()
         lons(i) = (gcol - clat_p_idx(lat)) + 1
       enddo
    else
-      call phys_grid_get_lon_vec_codon_wrap(lth, cols, chunks(cid)%lat, chunks(cid)%gcol, &
+      call phys_grid_get_lon_vec_codon(lth, cols, chunks(cid)%lat, chunks(cid)%gcol, &
            dyn_to_latlon_gcol_map, clat_p_idx, lons)
       call phys_grid_getters_proof_once()
    end if
@@ -2615,7 +2615,7 @@ logical function phys_grid_initialized ()
         rlats(i) = clat_p(chunks(cid)%lat(i))
       enddo
    else
-      call phys_grid_get_lookup_real_all_codon_wrap(chunks(cid)%ncols, chunks(cid)%lat, clat_p, rlats)
+      call phys_grid_get_lookup_real_all_codon(chunks(cid)%ncols, chunks(cid)%lat, clat_p, rlats)
       call phys_grid_getters_proof_once()
       call phys_grid_getter_log_direct(get_rlat_all_logged, 'get_rlat_all_p direct = codon')
    end if
@@ -2652,7 +2652,7 @@ logical function phys_grid_initialized ()
         area(i) = lchunks(lcid)%area(i)
       enddo
    else
-      call phys_grid_get_real_all_codon_wrap(lchunks(lcid)%ncols, lchunks(lcid)%area, area)
+      call phys_grid_get_real_all_codon(lchunks(lcid)%ncols, lchunks(lcid)%area, area)
       call phys_grid_getters_proof_once()
       call phys_grid_getter_log_direct(get_area_all_logged, 'get_area_all_p direct = codon')
    end if
@@ -2712,7 +2712,7 @@ logical function phys_grid_initialized ()
         wght(i) = lchunks(lcid)%wght(i)
       enddo
    else
-      call phys_grid_get_real_all_codon_wrap(lchunks(lcid)%ncols, lchunks(lcid)%wght, wght)
+      call phys_grid_get_real_all_codon(lchunks(lcid)%ncols, lchunks(lcid)%wght, wght)
       call phys_grid_getters_proof_once()
       call phys_grid_getter_log_direct(get_wght_all_logged, 'get_wght_all_p direct = codon')
    end if
@@ -2775,7 +2775,7 @@ logical function phys_grid_initialized ()
         rlats(i) = clat_p(chunks(cid)%lat(cols(i)))
       enddo
    else
-      call phys_grid_get_lookup_real_vec_codon_wrap(lth, cols, chunks(cid)%lat, clat_p, rlats)
+      call phys_grid_get_lookup_real_vec_codon(lth, cols, chunks(cid)%lat, clat_p, rlats)
       call phys_grid_getters_proof_once()
    end if
 
@@ -2840,7 +2840,7 @@ logical function phys_grid_initialized ()
         rlons(i) = clon_p(chunks(cid)%lon(i))
       enddo
    else
-      call phys_grid_get_lookup_real_all_codon_wrap(chunks(cid)%ncols, chunks(cid)%lon, clon_p, rlons)
+      call phys_grid_get_lookup_real_all_codon(chunks(cid)%ncols, chunks(cid)%lon, clon_p, rlons)
       call phys_grid_getters_proof_once()
       call phys_grid_getter_log_direct(get_rlon_all_logged, 'get_rlon_all_p direct = codon')
    end if
@@ -2880,7 +2880,7 @@ logical function phys_grid_initialized ()
         rlons(i) = clon_p(chunks(cid)%lon(cols(i)))
       enddo
    else
-      call phys_grid_get_lookup_real_vec_codon_wrap(lth, cols, chunks(cid)%lon, clon_p, rlons)
+      call phys_grid_get_lookup_real_vec_codon(lth, cols, chunks(cid)%lon, clon_p, rlons)
       call phys_grid_getters_proof_once()
    end if
 
@@ -4993,7 +4993,7 @@ logical function phys_grid_initialized ()
       enddo
       max_nproc_smpx = maxval(nsmpprocs)
    else
-      max_nproc_smpx = phys_grid_count_smp_procs_codon_wrap(npes, nsmpx, proc_smp_mapx, nsmpprocs)
+      max_nproc_smpx = phys_grid_count_smp_procs_codon(npes, nsmpx, proc_smp_mapx, nsmpprocs)
    endif
 !
    deallocate( nsmpprocs )
@@ -5034,7 +5034,7 @@ logical function phys_grid_initialized ()
          nsmpcolumns(smp) = nsmpcolumns(smp) + 1
       end do
    else
-      call phys_grid_count_smp_columns_codon_wrap(nsmpx, ngcols_p, latlon_to_dyn_gcol_map, &
+      call phys_grid_count_smp_columns_codon(nsmpx, ngcols_p, latlon_to_dyn_gcol_map, &
            col_smp_mapx, nsmpcolumns)
       call phys_grid_init_assign_bookkeeping_proof_once()
    endif
@@ -5076,7 +5076,7 @@ logical function phys_grid_initialized ()
             nsmpthreads(smp) = nsmpthreads(smp) + npthreads(p)
          enddo
       else
-         call phys_grid_create_chunks_thread_counts_codon_wrap(npes, nsmpx, proc_smp_mapx, npthreads, nsmpthreads)
+         call phys_grid_create_chunks_thread_counts_codon(npes, nsmpx, proc_smp_mapx, npthreads, nsmpthreads)
       endif
 !
 ! Determine number of chunks to keep all threads busy
@@ -5120,7 +5120,7 @@ logical function phys_grid_initialized ()
             endif
          enddo
       else
-         nchunks = phys_grid_create_chunks_shape_codon_wrap(nsmpx, pcols, chunks_per_thread, &
+         nchunks = phys_grid_create_chunks_shape_codon(nsmpx, pcols, chunks_per_thread, &
               nsmpcolumns, nsmpthreads, nsmpchunks, maxcol_chk, maxcol_chks)
          if (masterproc) then
             write(iulog,'(A)') 'phys_grid_init_helpers create chunk quotas entered (direct = codon)'
@@ -5148,7 +5148,7 @@ logical function phys_grid_initialized ()
             local_cid(smp) = 0
          enddo
       else
-         call phys_grid_create_chunks_prefix_codon_wrap(nsmpx, nsmpchunks, cid_offset, local_cid)
+         call phys_grid_create_chunks_prefix_codon(nsmpx, nsmpchunks, cid_offset, local_cid)
       endif
 !
 ! Assign columns to chunks
@@ -5173,7 +5173,7 @@ logical function phys_grid_initialized ()
             smp = proc_smp_mapx(p)
             blksiz = get_block_gcol_cnt_d(jb)
             call get_block_gcol_d(jb,blksiz,cols)
-            call phys_grid_assign_block_no_twin_codon_wrap(blksiz, smp, cols, cid_offset, local_cid, &
+            call phys_grid_assign_block_no_twin_codon(blksiz, smp, cols, cid_offset, local_cid, &
                  nsmpchunks, maxcol_chk, maxcol_chks, dyn_to_latlon_gcol_map, lon_p, lat_p, &
                  chunk_ncols_work, chunk_gcol_work, chunk_lon_work, chunk_lat_work, &
                  knuhcs_chunkid_work, knuhcs_col_work)
@@ -5880,7 +5880,7 @@ logical function phys_grid_initialized ()
          endif
       enddo
    else
-      call phys_grid_assign_chunks_smp_setup_codon_wrap(npes, nsmpx, max_nproc_smpx, &
+      call phys_grid_assign_chunks_smp_setup_codon(npes, nsmpx, max_nproc_smpx, &
            proc_smp_mapx, npthreads, nsmpthreads, nsmpchunks, ntsks_smpx, smp_proc_mapx, &
            cid_offset, ntmp1_smp, ntmp2_smp, ntmp3_smp, ntmp4_smp, npchunks)
    endif
@@ -5891,7 +5891,7 @@ logical function phys_grid_initialized ()
    if (use_native_init_helpers_impl) then
       cur_npchunks(:) = 0
    else
-      call phys_grid_zero_int_array_codon_wrap(npes, cur_npchunks)
+      call phys_grid_zero_int_array_codon(npes, cur_npchunks)
       call phys_grid_init_assign_bookkeeping_proof_once()
    endif
 !
@@ -5904,7 +5904,7 @@ logical function phys_grid_initialized ()
                column_count(p) = 0
             enddo
          else
-            call phys_grid_assign_chunks_zero_column_count_codon_wrap(smp, nsmpx, max_nproc_smpx, &
+            call phys_grid_assign_chunks_zero_column_count_codon(smp, nsmpx, max_nproc_smpx, &
                  ntsks_smpx, smp_proc_mapx, column_count)
          endif
 !
@@ -5948,9 +5948,9 @@ logical function phys_grid_initialized ()
 !  Update total number of columns assigned to this process
             gs_col_num(ntmp2)   = gs_col_num(ntmp2) + chunks(cid)%ncols
          else
-            ntmp2 = phys_grid_assign_chunks_select_owner_codon_wrap(smp, nsmpx, max_nproc_smpx, &
+            ntmp2 = phys_grid_assign_chunks_select_owner_codon(smp, nsmpx, max_nproc_smpx, &
                  ntsks_smpx, smp_proc_mapx, cur_npchunks, npchunks, column_count)
-            call phys_grid_assign_chunks_commit_owner_codon_wrap(ntmp2, chunks(cid)%ncols, &
+            call phys_grid_assign_chunks_commit_owner_codon(ntmp2, chunks(cid)%ncols, &
                  cur_npchunks, gs_col_num)
             chunks(cid)%owner   = ntmp2
          endif
