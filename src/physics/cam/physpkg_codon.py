@@ -6185,6 +6185,18 @@ def rad_cnst_out_mass_cb_codon(
 
 
 @export
+def rad_cnst_get_call_list_codon(n: int, active_p: cobj, call_list_p: cobj):
+    active = Ptr[int](active_p)
+    call_list = Ptr[int](call_list_p)
+
+    for i in range(n):
+        if active[i] != 0:
+            call_list[i] = 1
+        else:
+            call_list[i] = 0
+
+
+@export
 def phys_control_deepconv_pbl_codon(eddy_diag_tke: int, shallow_uw: int) -> int:
     if eddy_diag_tke != 0 or shallow_uw != 0:
         return 1

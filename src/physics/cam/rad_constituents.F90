@@ -209,6 +209,7 @@ character(len=1), parameter :: nl = achar(10)
 logical :: use_native_rad_cnst_out_mass_impl = .false.
 logical :: rad_cnst_out_mass_impl_selected = .false.
 logical :: rad_cnst_out_mass_proof_written = .false.
+logical :: rad_cnst_get_call_list_proof_written = .false.
 
 integer, parameter :: num_mode_types = 8
 integer, parameter :: num_spec_types = 8
@@ -227,6 +228,12 @@ interface
       real(c_double), value :: rga_c
       type(c_ptr), value :: mmr_p, pdeldry_p, mass_p, cb_p
    end subroutine rad_cnst_out_mass_cb_codon
+   subroutine rad_cnst_get_call_list_codon(n_c, active_p, call_list_p) &
+        bind(c, name="rad_cnst_get_call_list_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: n_c
+      type(c_ptr), value :: active_p, call_list_p
+   end subroutine rad_cnst_get_call_list_codon
 end interface
 
 
@@ -965,10 +972,31 @@ subroutine rad_cnst_get_call_list(call_list)
    ! Return info about which climate/diagnostic calculations are requested
 
    ! Arguments
+   use iso_c_binding, only: c_int64_t, c_loc
+
    logical, intent(out) :: call_list(0:N_DIAG)
+   integer(c_int64_t), target :: active_c(0:N_DIAG)
+   integer(c_int64_t), target :: call_list_c(0:N_DIAG)
+   integer :: i
    !-----------------------------------------------------------------------------
 
-   call_list(:) = active_calls(:)
+   do i = 0, N_DIAG
+      active_c(i) = merge(1_c_int64_t, 0_c_int64_t, active_calls(i))
+   end do
+
+   call rad_cnst_get_call_list_codon(int(N_DIAG + 1, c_int64_t), c_loc(active_c(0)), c_loc(call_list_c(0)))
+
+   do i = 0, N_DIAG
+      call_list(i) = call_list_c(i) /= 0_c_int64_t
+   end do
+
+   if (.not. rad_cnst_get_call_list_proof_written) then
+      rad_cnst_get_call_list_proof_written = .true.
+      if (masterproc) then
+         write(iulog,'(A)') 'rad_cnst_get_call_list direct = codon'
+         call flush(iulog)
+      end if
+   end if
 
 end subroutine rad_cnst_get_call_list
 
