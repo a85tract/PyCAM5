@@ -210,6 +210,8 @@ logical :: use_native_rad_cnst_out_mass_impl = .false.
 logical :: rad_cnst_out_mass_impl_selected = .false.
 logical :: rad_cnst_out_mass_proof_written = .false.
 logical :: rad_cnst_get_call_list_proof_written = .false.
+logical :: rad_cnst_check_specie_type_proof_written = .false.
+logical :: rad_cnst_check_mode_type_proof_written = .false.
 
 integer, parameter :: num_mode_types = 8
 integer, parameter :: num_spec_types = 8
@@ -234,6 +236,20 @@ interface
       integer(c_int64_t), value :: n_c
       type(c_ptr), value :: active_p, call_list_p
    end subroutine rad_cnst_get_call_list_codon
+   function rad_cnst_check_specie_type_codon(n_c, text_p) result(valid_c) &
+        bind(c, name="rad_cnst_check_specie_type_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: n_c
+      type(c_ptr), value :: text_p
+      integer(c_int64_t) :: valid_c
+   end function rad_cnst_check_specie_type_codon
+   function rad_cnst_check_mode_type_codon(n_c, text_p) result(valid_c) &
+        bind(c, name="rad_cnst_check_mode_type_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: n_c
+      type(c_ptr), value :: text_p
+      integer(c_int64_t) :: valid_c
+   end function rad_cnst_check_mode_type_codon
 end interface
 
 
@@ -1763,14 +1779,30 @@ subroutine parse_mode_defs(nl_in, modes)
 
    subroutine check_specie_type(str, ib, ie)
 
+      use iso_c_binding, only: c_int64_t, c_loc
+
       character(len=*), intent(in) :: str
       integer,          intent(in) :: ib, ie
    
+      integer(c_int64_t), target :: text_ascii(ie - ib + 1)
+      integer(c_int64_t) :: valid_c
       integer :: i
 
-      do i = 1, num_spec_types
-         if (str(ib:ie) == trim(spec_type_names(i))) return
+      do i = ib, ie
+         text_ascii(i - ib + 1) = int(iachar(str(i:i)), c_int64_t)
       end do
+
+      valid_c = rad_cnst_check_specie_type_codon(int(ie - ib + 1, c_int64_t), c_loc(text_ascii(1)))
+      if (valid_c /= 0_c_int64_t) then
+         if (.not. rad_cnst_check_specie_type_proof_written) then
+            rad_cnst_check_specie_type_proof_written = .true.
+            if (masterproc) then
+               write(iulog,'(A)') 'rad_cnst_check_specie_type direct = codon'
+               call flush(iulog)
+            end if
+         end if
+         return
+      end if
 
       call parse_error('specie type not valid', str(ib:ie))
 
@@ -1780,14 +1812,30 @@ subroutine parse_mode_defs(nl_in, modes)
 
    subroutine check_mode_type(str, ib, ie)
 
+      use iso_c_binding, only: c_int64_t, c_loc
+
       character(len=*), intent(in) :: str
       integer,          intent(in) :: ib, ie  ! begin, end character of mode type substring
    
+      integer(c_int64_t), target :: text_ascii(ie - ib + 1)
+      integer(c_int64_t) :: valid_c
       integer :: i
 
-      do i = 1, num_mode_types
-         if (str(ib:ie) == trim(mode_type_names(i))) return
+      do i = ib, ie
+         text_ascii(i - ib + 1) = int(iachar(str(i:i)), c_int64_t)
       end do
+
+      valid_c = rad_cnst_check_mode_type_codon(int(ie - ib + 1, c_int64_t), c_loc(text_ascii(1)))
+      if (valid_c /= 0_c_int64_t) then
+         if (.not. rad_cnst_check_mode_type_proof_written) then
+            rad_cnst_check_mode_type_proof_written = .true.
+            if (masterproc) then
+               write(iulog,'(A)') 'rad_cnst_check_mode_type direct = codon'
+               call flush(iulog)
+            end if
+         end if
+         return
+      end if
 
       call parse_error('mode type not valid', str(ib:ie))
 

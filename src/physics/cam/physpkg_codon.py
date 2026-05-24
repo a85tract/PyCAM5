@@ -6196,6 +6196,94 @@ def rad_cnst_get_call_list_codon(n: int, active_p: cobj, call_list_p: cobj):
             call_list[i] = 0
 
 
+@inline
+def _ascii_eq(text: Ptr[int], n: int, a0: int, a1: int, a2: int, a3: int, a4: int, a5: int, a6: int,
+              a7: int, a8: int, a9: int, a10: int, a11: int, a12: int, a13: int) -> bool:
+    if n >= 1 and text[0] != a0:
+        return False
+    if n >= 2 and text[1] != a1:
+        return False
+    if n >= 3 and text[2] != a2:
+        return False
+    if n >= 4 and text[3] != a3:
+        return False
+    if n >= 5 and text[4] != a4:
+        return False
+    if n >= 6 and text[5] != a5:
+        return False
+    if n >= 7 and text[6] != a6:
+        return False
+    if n >= 8 and text[7] != a7:
+        return False
+    if n >= 9 and text[8] != a8:
+        return False
+    if n >= 10 and text[9] != a9:
+        return False
+    if n >= 11 and text[10] != a10:
+        return False
+    if n >= 12 and text[11] != a11:
+        return False
+    if n >= 13 and text[12] != a12:
+        return False
+    if n >= 14 and text[13] != a13:
+        return False
+    return True
+
+
+@export
+def rad_cnst_check_specie_type_codon(n: int, text_p: cobj) -> int:
+    text = Ptr[int](text_p)
+    if n == 4:
+        if _ascii_eq(text, n, 100, 117, 115, 116, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0):
+            return 1
+    if n == 7:
+        if _ascii_eq(text, n, 110, 105, 116, 114, 97, 116, 101, 0, 0, 0, 0, 0, 0, 0):
+            return 1
+        if _ascii_eq(text, n, 115, 117, 108, 102, 97, 116, 101, 0, 0, 0, 0, 0, 0, 0):
+            return 1
+        if _ascii_eq(text, n, 115, 101, 97, 115, 97, 108, 116, 0, 0, 0, 0, 0, 0, 0):
+            return 1
+        if _ascii_eq(text, n, 98, 108, 97, 99, 107, 45, 99, 0, 0, 0, 0, 0, 0, 0):
+            return 1
+    if n == 8:
+        if _ascii_eq(text, n, 97, 109, 109, 111, 110, 105, 117, 109, 0, 0, 0, 0, 0, 0):
+            return 1
+    if n == 9:
+        if _ascii_eq(text, n, 112, 45, 111, 114, 103, 97, 110, 105, 99, 0, 0, 0, 0, 0):
+            return 1
+        if _ascii_eq(text, n, 115, 45, 111, 114, 103, 97, 110, 105, 99, 0, 0, 0, 0, 0):
+            return 1
+    return 0
+
+
+@export
+def rad_cnst_check_mode_type_codon(n: int, text_p: cobj) -> int:
+    text = Ptr[int](text_p)
+    if n == 5:
+        if _ascii_eq(text, n, 97, 99, 99, 117, 109, 0, 0, 0, 0, 0, 0, 0, 0, 0):
+            return 1
+    if n == 6:
+        if _ascii_eq(text, n, 99, 111, 97, 114, 115, 101, 0, 0, 0, 0, 0, 0, 0, 0):
+            return 1
+        if _ascii_eq(text, n, 97, 105, 116, 107, 101, 110, 0, 0, 0, 0, 0, 0, 0, 0):
+            return 1
+    if n == 9:
+        if _ascii_eq(text, n, 102, 105, 110, 101, 95, 100, 117, 115, 116, 0, 0, 0, 0, 0):
+            return 1
+    if n == 11:
+        if _ascii_eq(text, n, 99, 111, 97, 114, 115, 101, 95, 100, 117, 115, 116, 0, 0, 0):
+            return 1
+    if n == 12:
+        if _ascii_eq(text, n, 102, 105, 110, 101, 95, 115, 101, 97, 115, 97, 108, 116, 0, 0):
+            return 1
+    if n == 14:
+        if _ascii_eq(text, n, 112, 114, 105, 109, 97, 114, 121, 95, 99, 97, 114, 98, 111, 110):
+            return 1
+        if _ascii_eq(text, n, 99, 111, 97, 114, 115, 101, 95, 115, 101, 97, 115, 97, 108, 116):
+            return 1
+    return 0
+
+
 @export
 def phys_control_deepconv_pbl_codon(eddy_diag_tke: int, shallow_uw: int) -> int:
     if eddy_diag_tke != 0 or shallow_uw != 0:
