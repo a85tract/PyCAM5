@@ -18,7 +18,7 @@ module chem_surfvals
    use cam_logfile,    only: iulog
    use m_types,        only: time_ramp
    use constituents,   only: pcnst
-   use iso_c_binding,  only: c_double, c_int64_t
+   use iso_c_binding,  only: c_double, c_int64_t, c_loc, c_ptr
 
 !-----------------------------------------------------------------------
 !- module boilerplate --------------------------------------------------
@@ -83,6 +83,8 @@ module chem_surfvals
    type(time_ramp)    :: flbc_timing     != time_ramp( "CYCLICAL",  19970101, 0 )
    logical :: use_native_impl = .false.
    logical :: impl_selected = .false.
+   logical :: chem_surfvals_get_logged = .false.
+   logical :: chem_surfvals_co2_rad_logged = .false.
 
    interface
       function chem_surfvals_readnl_codon(flag_c) result(out_c) bind(c, name="chem_surfvals_readnl_codon")
@@ -95,14 +97,22 @@ module chem_surfvals
          integer(c_int64_t), value :: flag_c
          integer(c_int64_t) :: out_c
       end function chem_surfvals_init_codon
-      function chem_surfvals_get_codon(value_c) result(out_c) bind(c, name="chem_surfvals_get_codon")
-         use iso_c_binding, only: c_double
-         real(c_double), value :: value_c
+      function chem_surfvals_get_codon(name_len_c, name_ascii_p, mwdry_c, mwco2_c, &
+           co2vmr_c, n2ovmr_c, ch4vmr_c, f11vmr_c, f12vmr_c, o2mmr_c, status_p) result(out_c) &
+           bind(c, name="chem_surfvals_get_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: name_len_c
+         type(c_ptr), value :: name_ascii_p
+         real(c_double), value :: mwdry_c, mwco2_c
+         real(c_double), value :: co2vmr_c, n2ovmr_c, ch4vmr_c, f11vmr_c, f12vmr_c, o2mmr_c
+         type(c_ptr), value :: status_p
          real(c_double) :: out_c
       end function chem_surfvals_get_codon
-      function chem_surfvals_co2_rad_codon(value_c) result(out_c) bind(c, name="chem_surfvals_co2_rad_codon")
-         use iso_c_binding, only: c_double
-         real(c_double), value :: value_c
+      function chem_surfvals_co2_rad_codon(vmr_present_c, vmr_value_c, mwdry_c, mwco2_c, &
+           co2vmr_rad_c, co2vmr_c) result(out_c) bind(c, name="chem_surfvals_co2_rad_codon")
+         use iso_c_binding, only: c_double, c_int64_t
+         integer(c_int64_t), value :: vmr_present_c, vmr_value_c
+         real(c_double), value :: mwdry_c, mwco2_c, co2vmr_rad_c, co2vmr_c
          real(c_double) :: out_c
       end function chem_surfvals_co2_rad_codon
    end interface
@@ -399,6 +409,26 @@ function chem_surfvals_get(name)
 
   real(r8) :: rmwco2 
   real(r8) :: chem_surfvals_get
+  integer :: i
+  integer(c_int64_t), target :: name_ascii(len(name))
+  integer(c_int64_t), target :: status_code
+
+  call chem_surfvals_select_impl()
+
+  if (.not. use_native_impl) then
+     do i = 1, len(name)
+        name_ascii(i) = int(iachar(name(i:i)), c_int64_t)
+     end do
+     status_code = 0_c_int64_t
+     chem_surfvals_get = real(chem_surfvals_get_codon(int(len(name), c_int64_t), &
+          c_loc(name_ascii(1)), real(mwdry, c_double), real(mwco2, c_double), &
+          real(co2vmr, c_double), real(n2ovmr, c_double), real(ch4vmr, c_double), &
+          real(f11vmr, c_double), real(f12vmr, c_double), real(o2mmr, c_double), &
+          c_loc(status_code)), r8)
+     if (status_code /= 0_c_int64_t) call endrun('chem_surfvals_get does not know name')
+     call chem_surfvals_log_direct(chem_surfvals_get_logged, 'chem_surfvals_get direct = codon')
+     return
+  end if
 
   rmwco2 = mwco2/mwdry    ! ratio of molecular weights of co2 to dry air
   select case (name)
@@ -419,7 +449,6 @@ function chem_surfvals_get(name)
   case default
      call endrun('chem_surfvals_get does not know name')
   end select
-  chem_surfvals_get = chem_surfvals_get_codon(real(chem_surfvals_get, c_double))
 
 end function chem_surfvals_get
 
@@ -450,7 +479,24 @@ function chem_surfvals_co2_rad(vmr_in)
 
    ! Local variables
    real(r8) :: convert_vmr      ! convert vmr to desired output
+   integer(c_int64_t) :: vmr_present_c, vmr_value_c
    !-----------------------------------------------------------------------
+
+   call chem_surfvals_select_impl()
+
+   if (.not. use_native_impl) then
+      vmr_present_c = merge(1_c_int64_t, 0_c_int64_t, present(vmr_in))
+      if (present(vmr_in)) then
+         vmr_value_c = merge(1_c_int64_t, 0_c_int64_t, vmr_in)
+      else
+         vmr_value_c = 0_c_int64_t
+      end if
+      chem_surfvals_co2_rad = real(chem_surfvals_co2_rad_codon(vmr_present_c, vmr_value_c, &
+           real(mwdry, c_double), real(mwco2, c_double), real(co2vmr_rad, c_double), &
+           real(co2vmr, c_double)), r8)
+      call chem_surfvals_log_direct(chem_surfvals_co2_rad_logged, 'chem_surfvals_co2_rad direct = codon')
+      return
+   end if
 
    ! by default convert vmr to mmr
    convert_vmr = mwco2/mwdry    ! ratio of molecular weights of co2 to dry air
@@ -464,7 +510,6 @@ function chem_surfvals_co2_rad(vmr_in)
    else                           
       chem_surfvals_co2_rad = convert_vmr * co2vmr     
    end if
-   chem_surfvals_co2_rad = chem_surfvals_co2_rad_codon(real(chem_surfvals_co2_rad, c_double))
 
 end function chem_surfvals_co2_rad
 
@@ -661,6 +706,23 @@ subroutine chem_surfvals_select_impl()
    end if
 
 end subroutine chem_surfvals_select_impl
+
+!=========================================================================================
+
+subroutine chem_surfvals_log_direct(logged, proof_line)
+
+   logical, intent(inout) :: logged
+   character(len=*), intent(in) :: proof_line
+
+   if (logged) return
+   logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') trim(proof_line)
+      call flush(iulog)
+   end if
+
+end subroutine chem_surfvals_log_direct
 
 !=========================================================================================
 

@@ -13,13 +13,121 @@ def chem_surfvals_init_codon(flag: int) -> int:
 
 
 @export
-def chem_surfvals_get_codon(value: float) -> float:
-    return value
+def chem_surfvals_get_codon(
+    name_len: int,
+    name_ascii_p: cobj,
+    mwdry: float,
+    mwco2: float,
+    co2vmr: float,
+    n2ovmr: float,
+    ch4vmr: float,
+    f11vmr: float,
+    f12vmr: float,
+    o2mmr: float,
+    status_p: cobj,
+) -> float:
+    name_ascii = Ptr[int](name_ascii_p)
+    status = Ptr[int](status_p)
+
+    status[0] = 0
+    rmwco2 = mwco2 / mwdry
+
+    if name_len == 6:
+        if (
+            name_ascii[0] == 67
+            and name_ascii[1] == 79
+            and name_ascii[2] == 50
+            and name_ascii[3] == 86
+            and name_ascii[4] == 77
+            and name_ascii[5] == 82
+        ):
+            return co2vmr
+        if (
+            name_ascii[0] == 67
+            and name_ascii[1] == 79
+            and name_ascii[2] == 50
+            and name_ascii[3] == 77
+            and name_ascii[4] == 77
+            and name_ascii[5] == 82
+        ):
+            return rmwco2 * co2vmr
+        if (
+            name_ascii[0] == 78
+            and name_ascii[1] == 50
+            and name_ascii[2] == 79
+            and name_ascii[3] == 86
+            and name_ascii[4] == 77
+            and name_ascii[5] == 82
+        ):
+            return n2ovmr
+        if (
+            name_ascii[0] == 67
+            and name_ascii[1] == 72
+            and name_ascii[2] == 52
+            and name_ascii[3] == 86
+            and name_ascii[4] == 77
+            and name_ascii[5] == 82
+        ):
+            return ch4vmr
+        if (
+            name_ascii[0] == 70
+            and name_ascii[1] == 49
+            and name_ascii[2] == 49
+            and name_ascii[3] == 86
+            and name_ascii[4] == 77
+            and name_ascii[5] == 82
+        ):
+            return f11vmr
+        if (
+            name_ascii[0] == 70
+            and name_ascii[1] == 49
+            and name_ascii[2] == 50
+            and name_ascii[3] == 86
+            and name_ascii[4] == 77
+            and name_ascii[5] == 82
+        ):
+            return f12vmr
+        if (
+            name_ascii[0] == 79
+            and name_ascii[1] == 50
+            and name_ascii[2] == 77
+            and name_ascii[3] == 77
+            and name_ascii[4] == 82
+            and name_ascii[5] == 32
+        ):
+            return o2mmr
+    elif name_len == 5:
+        if (
+            name_ascii[0] == 79
+            and name_ascii[1] == 50
+            and name_ascii[2] == 77
+            and name_ascii[3] == 77
+            and name_ascii[4] == 82
+        ):
+            return o2mmr
+
+    status[0] = 1
+    return 0.0
 
 
 @export
-def chem_surfvals_co2_rad_codon(value: float) -> float:
-    return value
+def chem_surfvals_co2_rad_codon(
+    vmr_present: int,
+    vmr_value: int,
+    mwdry: float,
+    mwco2: float,
+    co2vmr_rad: float,
+    co2vmr: float,
+) -> float:
+    convert_vmr = mwco2 / mwdry
+    if vmr_present != 0:
+        if vmr_value != 0:
+            convert_vmr = 1.0
+
+    if co2vmr_rad > 0.0:
+        return convert_vmr * co2vmr_rad
+
+    return convert_vmr * co2vmr
 
 
 @export
