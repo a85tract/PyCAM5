@@ -212,6 +212,8 @@ logical :: rad_cnst_out_mass_proof_written = .false.
 logical :: rad_cnst_get_call_list_proof_written = .false.
 logical :: rad_cnst_check_specie_type_proof_written = .false.
 logical :: rad_cnst_check_mode_type_proof_written = .false.
+logical :: rad_cnst_get_mam_mmr_idx_proof_written = .false.
+logical :: rad_cnst_get_mode_num_idx_proof_written = .false.
 
 integer, parameter :: num_mode_types = 8
 integer, parameter :: num_spec_types = 8
@@ -250,6 +252,18 @@ interface
       type(c_ptr), value :: text_p
       integer(c_int64_t) :: valid_c
    end function rad_cnst_check_mode_type_codon
+   subroutine rad_cnst_mam_mmr_idx_codon(mode_idx_c, spec_idx_c, nmodes_c, nspec_c, idx_mmr_a_c, &
+        idx_p, status_p) bind(c, name="rad_cnst_mam_mmr_idx_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: mode_idx_c, spec_idx_c, nmodes_c, nspec_c, idx_mmr_a_c
+      type(c_ptr), value :: idx_p, status_p
+   end subroutine rad_cnst_mam_mmr_idx_codon
+   subroutine rad_cnst_mode_num_idx_codon(mode_idx_c, nmodes_c, source_ascii_c, idx_num_a_c, &
+        idx_p, status_p) bind(c, name="rad_cnst_mode_num_idx_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: mode_idx_c, nmodes_c, source_ascii_c, idx_num_a_c
+      type(c_ptr), value :: idx_p, status_p
+   end subroutine rad_cnst_mode_num_idx_codon
 end interface
 
 
@@ -2067,6 +2081,8 @@ end subroutine rad_cnst_get_mam_mmr_by_idx
 
 subroutine rad_cnst_get_mam_mmr_idx(mode_idx, spec_idx, idx)
 
+   use iso_c_binding, only: c_int64_t, c_loc
+
    ! Return constituent index of mam specie mass mixing ratio for aerosol modes in
    ! the climate list.
 
@@ -2082,6 +2098,9 @@ subroutine rad_cnst_get_mam_mmr_idx(mode_idx, spec_idx, idx)
 
    ! Local variables
    integer :: m_idx
+   integer(c_int64_t), target :: idx_mmr_a_c
+   integer(c_int64_t), target :: idx_c
+   integer(c_int64_t), target :: status_c
    type(modelist_t), pointer :: mlist
    character(len=*), parameter :: subname = 'rad_cnst_get_mam_mmr_idx'
    !-----------------------------------------------------------------------------
@@ -2089,8 +2108,12 @@ subroutine rad_cnst_get_mam_mmr_idx(mode_idx, spec_idx, idx)
    ! assume climate list (i.e., species are in the constituent array)
    mlist => ma_list(0)
 
-   ! Check for valid mode index
-   if (mode_idx < 1  .or.  mode_idx > mlist%nmodes) then
+   idx_c = 0_c_int64_t
+   status_c = 0_c_int64_t
+   call rad_cnst_mam_mmr_idx_codon(int(mode_idx, c_int64_t), int(spec_idx, c_int64_t), &
+        int(mlist%nmodes, c_int64_t), -1_c_int64_t, 0_c_int64_t, c_loc(idx_c), c_loc(status_c))
+
+   if (status_c == -1_c_int64_t) then
       write(iulog,*) subname//': mode_idx= ', mode_idx, '  nmodes= ', mlist%nmodes
       call endrun(subname//': mode list index out of range')
    end if
@@ -2098,14 +2121,35 @@ subroutine rad_cnst_get_mam_mmr_idx(mode_idx, spec_idx, idx)
    ! Get the index for the corresponding mode in the mode definition object
    m_idx = mlist%idx(mode_idx)
 
-   ! Check for valid specie index
-   if (spec_idx < 1  .or.  spec_idx > modes%comps(m_idx)%nspec) then
+   idx_mmr_a_c = 0_c_int64_t
+   if (spec_idx >= 1 .and. spec_idx <= modes%comps(m_idx)%nspec) then
+      idx_mmr_a_c = int(modes%comps(m_idx)%idx_mmr_a(spec_idx), c_int64_t)
+   end if
+
+   idx_c = 0_c_int64_t
+   status_c = 0_c_int64_t
+   call rad_cnst_mam_mmr_idx_codon(int(mode_idx, c_int64_t), int(spec_idx, c_int64_t), &
+        int(mlist%nmodes, c_int64_t), int(modes%comps(m_idx)%nspec, c_int64_t), &
+        idx_mmr_a_c, c_loc(idx_c), c_loc(status_c))
+
+   if (status_c == 0_c_int64_t) then
+      idx = int(idx_c)
+      if (.not. rad_cnst_get_mam_mmr_idx_proof_written) then
+         rad_cnst_get_mam_mmr_idx_proof_written = .true.
+         if (masterproc) then
+            write(iulog,'(A)') 'rad_cnst_get_mam_mmr_idx direct = codon'
+            call flush(iulog)
+         end if
+      end if
+      return
+   end if
+
+   if (status_c == -2_c_int64_t) then
       write(iulog,*) subname//': spec_idx= ', spec_idx, '  nspec= ', modes%comps(m_idx)%nspec
       call endrun(subname//': specie list index out of range')
    end if
 
-   ! Assume data source is interstitial since that's what's in the constituent array
-   idx    = modes%comps(m_idx)%idx_mmr_a(spec_idx)
+   call endrun(subname//': unexpected codon status')
 
 end subroutine rad_cnst_get_mam_mmr_idx
 
@@ -2178,6 +2222,8 @@ end subroutine rad_cnst_get_mode_num
 
 subroutine rad_cnst_get_mode_num_idx(mode_idx, cnst_idx)
 
+   use iso_c_binding, only: c_int64_t, c_loc
+
    ! Return constituent index of mode number mixing ratio for the aerosol mode in
    ! the climate list.
 
@@ -2192,7 +2238,8 @@ subroutine rad_cnst_get_mode_num_idx(mode_idx, cnst_idx)
 
    ! Local variables
    integer :: m_idx
-   character(len=1) :: source
+   integer(c_int64_t), target :: cnst_idx_c
+   integer(c_int64_t), target :: status_c
    type(modelist_t), pointer :: mlist
    character(len=*), parameter :: subname = 'rad_cnst_get_mode_num'
    !-----------------------------------------------------------------------------
@@ -2200,8 +2247,12 @@ subroutine rad_cnst_get_mode_num_idx(mode_idx, cnst_idx)
    ! assume climate list
    mlist => ma_list(0)
 
-   ! Check for valid mode index
-   if (mode_idx < 1  .or.  mode_idx > mlist%nmodes) then
+   cnst_idx_c = 0_c_int64_t
+   status_c = 0_c_int64_t
+   call rad_cnst_mode_num_idx_codon(int(mode_idx, c_int64_t), int(mlist%nmodes, c_int64_t), &
+        -1_c_int64_t, 0_c_int64_t, c_loc(cnst_idx_c), c_loc(status_c))
+
+   if (status_c == -1_c_int64_t) then
       write(iulog,*) subname//': mode_idx= ', mode_idx, '  nmodes= ', mlist%nmodes
       call endrun(subname//': mode list index out of range')
    end if
@@ -2209,15 +2260,30 @@ subroutine rad_cnst_get_mode_num_idx(mode_idx, cnst_idx)
    ! Get the index for the corresponding mode in the mode definition object
    m_idx = mlist%idx(mode_idx)
 
-   ! Check that source is 'A' which means the index is for the constituent array
-   source = modes%comps(m_idx)%source_num_a
-   if (source /= 'A') then
-      write(iulog,*) subname//': source= ', source
+   cnst_idx_c = 0_c_int64_t
+   status_c = 0_c_int64_t
+   call rad_cnst_mode_num_idx_codon(int(mode_idx, c_int64_t), int(mlist%nmodes, c_int64_t), &
+        int(iachar(modes%comps(m_idx)%source_num_a(1:1)), c_int64_t), &
+        int(modes%comps(m_idx)%idx_num_a, c_int64_t), c_loc(cnst_idx_c), c_loc(status_c))
+
+   if (status_c == 0_c_int64_t) then
+      cnst_idx = int(cnst_idx_c)
+      if (.not. rad_cnst_get_mode_num_idx_proof_written) then
+         rad_cnst_get_mode_num_idx_proof_written = .true.
+         if (masterproc) then
+            write(iulog,'(A)') 'rad_cnst_get_mode_num_idx direct = codon'
+            call flush(iulog)
+         end if
+      end if
+      return
+   end if
+
+   if (status_c == -2_c_int64_t) then
+      write(iulog,*) subname//': source= ', modes%comps(m_idx)%source_num_a
       call endrun(subname//': requested mode number index not in constituent array')
    end if
 
-   ! Return index in constituent array
-   cnst_idx = modes%comps(m_idx)%idx_num_a
+   call endrun(subname//': unexpected codon status')
 
 end subroutine rad_cnst_get_mode_num_idx
 

@@ -6285,6 +6285,61 @@ def rad_cnst_check_mode_type_codon(n: int, text_p: cobj) -> int:
 
 
 @export
+def rad_cnst_mam_mmr_idx_codon(
+    mode_idx: int,
+    spec_idx: int,
+    nmodes: int,
+    nspec: int,
+    idx_mmr_a: int,
+    idx_p: cobj,
+    status_p: cobj,
+):
+    idx = Ptr[int](idx_p)
+    status = Ptr[int](status_p)
+
+    idx[0] = 0
+    status[0] = 0
+
+    if mode_idx < 1 or mode_idx > nmodes:
+        status[0] = -1
+        return
+
+    if nspec >= 0:
+        if spec_idx < 1 or spec_idx > nspec:
+            status[0] = -2
+            return
+
+        idx[0] = idx_mmr_a
+
+
+@export
+def rad_cnst_mode_num_idx_codon(
+    mode_idx: int,
+    nmodes: int,
+    source_ascii: int,
+    idx_num_a: int,
+    idx_p: cobj,
+    status_p: cobj,
+):
+    idx = Ptr[int](idx_p)
+    status = Ptr[int](status_p)
+
+    idx[0] = 0
+    status[0] = 0
+
+    if mode_idx < 1 or mode_idx > nmodes:
+        status[0] = -1
+        return
+
+    if source_ascii >= 0:
+        if source_ascii != 65:
+            status[0] = -2
+            return
+
+        idx[0] = idx_num_a
+
+
+@export
 def phys_control_deepconv_pbl_codon(eddy_diag_tke: int, shallow_uw: int) -> int:
     if eddy_diag_tke != 0 or shallow_uw != 0:
         return 1
