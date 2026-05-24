@@ -3221,6 +3221,58 @@ def phys_grid_pter_offsets_codon(
 
 
 @export
+def block_to_chunk_send_pters_codon(
+    ncols: int,
+    nlvls: int,
+    fdim: int,
+    ldim: int,
+    record_size: int,
+    src_p: cobj,
+    dst_p: cobj,
+):
+    phys_grid_pter_offsets_codon(ncols, nlvls, fdim, ldim, record_size, src_p, dst_p)
+
+
+@export
+def block_to_chunk_recv_pters_codon(
+    ncols: int,
+    nlvls: int,
+    fdim: int,
+    ldim: int,
+    record_size: int,
+    src_p: cobj,
+    dst_p: cobj,
+):
+    phys_grid_pter_offsets_codon(ncols, nlvls, fdim, ldim, record_size, src_p, dst_p)
+
+
+@export
+def chunk_to_block_send_pters_codon(
+    ncols: int,
+    nlvls: int,
+    fdim: int,
+    ldim: int,
+    record_size: int,
+    src_p: cobj,
+    dst_p: cobj,
+):
+    phys_grid_pter_offsets_codon(ncols, nlvls, fdim, ldim, record_size, src_p, dst_p)
+
+
+@export
+def chunk_to_block_recv_pters_codon(
+    ncols: int,
+    nlvls: int,
+    fdim: int,
+    ldim: int,
+    record_size: int,
+    src_p: cobj,
+    dst_p: cobj,
+):
+    phys_grid_pter_offsets_codon(ncols, nlvls, fdim, ldim, record_size, src_p, dst_p)
+
+
+@export
 def restart_physics_fill_tail_codon(
     ncol: int,
     pcols: int,
@@ -3547,6 +3599,33 @@ def trb_mtn_stress_init_codon(
     karman[0] = karman_in
     gravit[0] = gravit_in
     rair[0] = rair_in
+
+
+@export
+def init_tms_codon(
+    oro_in: float,
+    z0fac_in: float,
+    karman_in: float,
+    gravit_in: float,
+    rair_in: float,
+    orocnst_p: cobj,
+    z0fac_p: cobj,
+    karman_p: cobj,
+    gravit_p: cobj,
+    rair_p: cobj,
+):
+    trb_mtn_stress_init_codon(
+        oro_in,
+        z0fac_in,
+        karman_in,
+        gravit_in,
+        rair_in,
+        orocnst_p,
+        z0fac_p,
+        karman_p,
+        gravit_p,
+        rair_p,
+    )
 
 
 @export

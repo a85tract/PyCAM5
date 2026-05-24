@@ -37,6 +37,13 @@ module trb_mtn_stress
        type(c_ptr), value :: orocnst_p, z0fac_p, karman_p, gravit_p, rair_p
      end subroutine trb_mtn_stress_init_codon
 
+     subroutine init_tms_codon(oro_in_c, z0fac_in_c, karman_in_c, gravit_in_c, rair_in_c, &
+          orocnst_p, z0fac_p, karman_p, gravit_p, rair_p) bind(c, name="init_tms_codon")
+       use iso_c_binding, only: c_double, c_ptr
+       real(c_double), value :: oro_in_c, z0fac_in_c, karman_in_c, gravit_in_c, rair_in_c
+       type(c_ptr), value :: orocnst_p, z0fac_p, karman_p, gravit_p, rair_p
+     end subroutine init_tms_codon
+
      subroutine trb_mtn_stress_compute_codon(pcols_c, pver_c, ncol_c, orocnst_c, z0fac_c, karman_c, gravit_c, rair_c, &
           u_p, v_p, t_p, pmid_p, exner_p, zm_p, sgh_p, landfrac_p, ksrf_p, taux_p, tauy_p) &
           bind(c, name="trb_mtn_stress_compute_codon")
@@ -200,7 +207,7 @@ contains
        rair     = rair_in
     else
        call init_tms_proof_once()
-       call trb_mtn_stress_init_codon(real(oro_in, c_double), real(z0fac_in, c_double), real(karman_in, c_double), &
+       call init_tms_codon(real(oro_in, c_double), real(z0fac_in, c_double), real(karman_in, c_double), &
             real(gravit_in, c_double), real(rair_in, c_double), c_loc(orocnst), c_loc(z0fac), c_loc(karman), &
             c_loc(gravit), c_loc(rair))
     end if

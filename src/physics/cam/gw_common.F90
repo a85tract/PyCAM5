@@ -123,6 +123,15 @@ interface
      integer(c_int64_t), value :: n_c
      type(c_ptr), value :: alpha_in_p, alpha_p
    end subroutine gw_common_init_alpha_codon
+   subroutine gw_common_init_codon(pver_in_c, ktop_in_c, gravit_in_c, rair_in_c, &
+        tau_0_ubc_in_c, pver_p, tau_0_ubc_p, ktop_p, gravit_p, rair_p, rog_p, &
+        alpha_n_c, alpha_in_p, alpha_p) bind(c, name="gw_common_init_codon")
+     use iso_c_binding, only: c_double, c_int64_t, c_ptr
+     integer(c_int64_t), value :: pver_in_c, ktop_in_c, tau_0_ubc_in_c, alpha_n_c
+     real(c_double), value :: gravit_in_c, rair_in_c
+     type(c_ptr), value :: pver_p, tau_0_ubc_p, ktop_p, gravit_p, rair_p, rog_p
+     type(c_ptr), value :: alpha_in_p, alpha_p
+   end subroutine gw_common_init_codon
 end interface
 
 ! Type describing a band of wavelengths into which gravity waves can be
@@ -277,11 +286,11 @@ subroutine gw_common_init(pver_in, &
      alpha = alpha_in
      rog = rair/gravit
   else
-     call gw_common_init_scalars_codon(int(pver_in, c_int64_t), int(ktop_in, c_int64_t), &
+     call gw_common_init_codon(int(pver_in, c_int64_t), int(ktop_in, c_int64_t), &
           real(gravit_in, c_double), real(rair_in, c_double), &
           merge(1_c_int64_t, 0_c_int64_t, tau_0_ubc_in), &
-          c_loc(pver), c_loc(tau_0_ubc), c_loc(ktop), c_loc(gravit), c_loc(rair), c_loc(rog))
-     call gw_common_init_alpha_codon(int(pver_in + 1, c_int64_t), c_loc(alpha_in(1)), c_loc(alpha(1)))
+          c_loc(pver), c_loc(tau_0_ubc), c_loc(ktop), c_loc(gravit), c_loc(rair), c_loc(rog), &
+          int(pver_in + 1, c_int64_t), c_loc(alpha_in(1)), c_loc(alpha(1)))
      call gw_common_init_note_direct()
   end if
 

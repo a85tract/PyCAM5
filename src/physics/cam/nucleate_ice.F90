@@ -77,6 +77,16 @@ interface
      type(c_ptr), value :: use_preexisting_ice_p, use_hetfrz_classnuc_p
      type(c_ptr), value :: iulog_p, pi_p, mincld_p, subgrid_p, ci_p
    end subroutine nucleati_init_scalars_codon
+   subroutine nucleati_init_codon(use_preexisting_ice_in_c, use_hetfrz_classnuc_in_c, &
+        iulog_in_c, pi_in_c, mincld_in_c, subgrid_in_c, rhoice_c, &
+        use_preexisting_ice_p, use_hetfrz_classnuc_p, iulog_p, pi_p, mincld_p, subgrid_p, ci_p) &
+        bind(c, name="nucleati_init_codon")
+     use iso_c_binding, only: c_double, c_int64_t, c_ptr
+     integer(c_int64_t), value :: use_preexisting_ice_in_c, use_hetfrz_classnuc_in_c, iulog_in_c
+     real(c_double), value :: pi_in_c, mincld_in_c, subgrid_in_c, rhoice_c
+     type(c_ptr), value :: use_preexisting_ice_p, use_hetfrz_classnuc_p
+     type(c_ptr), value :: iulog_p, pi_p, mincld_p, subgrid_p, ci_p
+   end subroutine nucleati_init_codon
 end interface
 
 !===============================================================================
@@ -104,7 +114,7 @@ subroutine nucleati_init( &
       subgrid = subgrid_in
       ci      = rhoice*pi/6._r8
    else
-      call nucleati_init_scalars_codon(merge(1_c_int64_t, 0_c_int64_t, use_preexisting_ice_in), &
+      call nucleati_init_codon(merge(1_c_int64_t, 0_c_int64_t, use_preexisting_ice_in), &
            merge(1_c_int64_t, 0_c_int64_t, use_hetfrz_classnuc_in), int(iulog_in, c_int64_t), &
            real(pi_in, c_double), real(mincld_in, c_double), real(subgrid_in, c_double), &
            real(rhoice, c_double), c_loc(use_preexisting_ice), c_loc(use_hetfrz_classnuc), &

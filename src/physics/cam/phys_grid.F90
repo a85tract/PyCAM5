@@ -596,6 +596,30 @@ module phys_grid
        integer(c_int64_t), value :: ncols_c, nlvls_c, fdim_c, ldim_c, record_size_c
        type(c_ptr), value :: src_p, dst_p
      end subroutine phys_grid_pter_offsets_codon_raw
+     subroutine block_to_chunk_send_pters_codon_raw(ncols_c, nlvls_c, fdim_c, ldim_c, record_size_c, &
+          src_p, dst_p) bind(c, name="block_to_chunk_send_pters_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncols_c, nlvls_c, fdim_c, ldim_c, record_size_c
+       type(c_ptr), value :: src_p, dst_p
+     end subroutine block_to_chunk_send_pters_codon_raw
+     subroutine block_to_chunk_recv_pters_codon_raw(ncols_c, nlvls_c, fdim_c, ldim_c, record_size_c, &
+          src_p, dst_p) bind(c, name="block_to_chunk_recv_pters_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncols_c, nlvls_c, fdim_c, ldim_c, record_size_c
+       type(c_ptr), value :: src_p, dst_p
+     end subroutine block_to_chunk_recv_pters_codon_raw
+     subroutine chunk_to_block_send_pters_codon_raw(ncols_c, nlvls_c, fdim_c, ldim_c, record_size_c, &
+          src_p, dst_p) bind(c, name="chunk_to_block_send_pters_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncols_c, nlvls_c, fdim_c, ldim_c, record_size_c
+       type(c_ptr), value :: src_p, dst_p
+     end subroutine chunk_to_block_send_pters_codon_raw
+     subroutine chunk_to_block_recv_pters_codon_raw(ncols_c, nlvls_c, fdim_c, ldim_c, record_size_c, &
+          src_p, dst_p) bind(c, name="chunk_to_block_recv_pters_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncols_c, nlvls_c, fdim_c, ldim_c, record_size_c
+       type(c_ptr), value :: src_p, dst_p
+     end subroutine chunk_to_block_recv_pters_codon_raw
    end interface
 
 contains
@@ -794,6 +818,50 @@ contains
          int(fdim, c_int64_t), int(ldim, c_int64_t), int(record_size, c_int64_t), &
          c_loc(src(1,1)), c_loc(dst(1,1)))
   end subroutine phys_grid_pter_offsets_codon
+
+  subroutine block_to_chunk_send_pters_codon(ncols_local, nlvls_local, fdim, ldim, record_size, src, dst)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncols_local, nlvls_local, fdim, ldim, record_size
+    integer, target, intent(in) :: src(ncols_local,nlvls_local)
+    integer, target, intent(out) :: dst(fdim,ldim)
+
+    call block_to_chunk_send_pters_codon_raw(int(ncols_local, c_int64_t), int(nlvls_local, c_int64_t), &
+         int(fdim, c_int64_t), int(ldim, c_int64_t), int(record_size, c_int64_t), &
+         c_loc(src(1,1)), c_loc(dst(1,1)))
+  end subroutine block_to_chunk_send_pters_codon
+
+  subroutine block_to_chunk_recv_pters_codon(ncols_local, nlvls_local, fdim, ldim, record_size, src, dst)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncols_local, nlvls_local, fdim, ldim, record_size
+    integer, target, intent(in) :: src(ncols_local,nlvls_local)
+    integer, target, intent(out) :: dst(fdim,ldim)
+
+    call block_to_chunk_recv_pters_codon_raw(int(ncols_local, c_int64_t), int(nlvls_local, c_int64_t), &
+         int(fdim, c_int64_t), int(ldim, c_int64_t), int(record_size, c_int64_t), &
+         c_loc(src(1,1)), c_loc(dst(1,1)))
+  end subroutine block_to_chunk_recv_pters_codon
+
+  subroutine chunk_to_block_send_pters_codon(ncols_local, nlvls_local, fdim, ldim, record_size, src, dst)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncols_local, nlvls_local, fdim, ldim, record_size
+    integer, target, intent(in) :: src(ncols_local,nlvls_local)
+    integer, target, intent(out) :: dst(fdim,ldim)
+
+    call chunk_to_block_send_pters_codon_raw(int(ncols_local, c_int64_t), int(nlvls_local, c_int64_t), &
+         int(fdim, c_int64_t), int(ldim, c_int64_t), int(record_size, c_int64_t), &
+         c_loc(src(1,1)), c_loc(dst(1,1)))
+  end subroutine chunk_to_block_send_pters_codon
+
+  subroutine chunk_to_block_recv_pters_codon(ncols_local, nlvls_local, fdim, ldim, record_size, src, dst)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncols_local, nlvls_local, fdim, ldim, record_size
+    integer, target, intent(in) :: src(ncols_local,nlvls_local)
+    integer, target, intent(out) :: dst(fdim,ldim)
+
+    call chunk_to_block_recv_pters_codon_raw(int(ncols_local, c_int64_t), int(nlvls_local, c_int64_t), &
+         int(fdim, c_int64_t), int(ldim, c_int64_t), int(record_size, c_int64_t), &
+         c_loc(src(1,1)), c_loc(dst(1,1)))
+  end subroutine chunk_to_block_recv_pters_codon
 
   subroutine phys_grid_init_helpers_select_impl()
     character(len=32) :: impl_name
@@ -4383,7 +4451,7 @@ logical function phys_grid_initialized ()
          enddo
       enddo
    else
-      call phys_grid_pter_offsets_codon(btofc_blk_offset(blockid)%ncols, btofc_blk_offset(blockid)%nlvls, &
+      call block_to_chunk_send_pters_codon(btofc_blk_offset(blockid)%ncols, btofc_blk_offset(blockid)%nlvls, &
            fdim, ldim, record_size, btofc_blk_offset(blockid)%pter, pter)
       call phys_grid_getter_log_direct(block_to_chunk_send_pters_logged, &
            'block_to_chunk_send_pters direct = codon')
@@ -4443,7 +4511,7 @@ logical function phys_grid_initialized ()
          enddo
       enddo
    else
-      call phys_grid_pter_offsets_codon(btofc_chk_offset(lcid)%ncols, btofc_chk_offset(lcid)%nlvls, &
+      call block_to_chunk_recv_pters_codon(btofc_chk_offset(lcid)%ncols, btofc_chk_offset(lcid)%nlvls, &
            fdim, ldim, record_size, btofc_chk_offset(lcid)%pter, pter)
       call phys_grid_getter_log_direct(block_to_chunk_recv_pters_logged, &
            'block_to_chunk_recv_pters direct = codon')
@@ -4729,7 +4797,7 @@ logical function phys_grid_initialized ()
          enddo
       enddo
    else
-      call phys_grid_pter_offsets_codon(btofc_chk_offset(lcid)%ncols, btofc_chk_offset(lcid)%nlvls, &
+      call chunk_to_block_send_pters_codon(btofc_chk_offset(lcid)%ncols, btofc_chk_offset(lcid)%nlvls, &
            fdim, ldim, record_size, btofc_chk_offset(lcid)%pter, pter)
       call phys_grid_getter_log_direct(chunk_to_block_send_pters_logged, &
            'chunk_to_block_send_pters direct = codon')
@@ -4789,7 +4857,7 @@ logical function phys_grid_initialized ()
          enddo
       enddo
    else
-      call phys_grid_pter_offsets_codon(btofc_blk_offset(blockid)%ncols, btofc_blk_offset(blockid)%nlvls, &
+      call chunk_to_block_recv_pters_codon(btofc_blk_offset(blockid)%ncols, btofc_blk_offset(blockid)%nlvls, &
            fdim, ldim, record_size, btofc_blk_offset(blockid)%pter, pter)
       call phys_grid_getter_log_direct(chunk_to_block_recv_pters_logged, &
            'chunk_to_block_recv_pters direct = codon')

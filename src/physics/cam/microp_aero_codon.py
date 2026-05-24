@@ -78,6 +78,41 @@ def nucleati_init_scalars_codon(
     ci[0] = rhoice * pi[0] / 6.0
 
 
+@export
+def nucleati_init_codon(
+    use_preexisting_ice_in: int,
+    use_hetfrz_classnuc_in: int,
+    iulog_in: int,
+    pi_in: float,
+    mincld_in: float,
+    subgrid_in: float,
+    rhoice: float,
+    use_preexisting_ice_p: cobj,
+    use_hetfrz_classnuc_p: cobj,
+    iulog_p: cobj,
+    pi_p: cobj,
+    mincld_p: cobj,
+    subgrid_p: cobj,
+    ci_p: cobj,
+):
+    nucleati_init_scalars_codon(
+        use_preexisting_ice_in,
+        use_hetfrz_classnuc_in,
+        iulog_in,
+        pi_in,
+        mincld_in,
+        subgrid_in,
+        rhoice,
+        use_preexisting_ice_p,
+        use_hetfrz_classnuc_p,
+        iulog_p,
+        pi_p,
+        mincld_p,
+        subgrid_p,
+        ci_p,
+    )
+
+
 @inline
 def _idx2(i: int, k: int, ld1: int) -> int:
     return (i - 1) + (k - 1) * ld1

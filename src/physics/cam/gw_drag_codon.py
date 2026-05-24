@@ -138,6 +138,39 @@ def gw_common_init_alpha_codon(n: int, alpha_in_p: cobj, alpha_p: cobj):
 
 
 @export
+def gw_common_init_codon(
+    pver_in: int,
+    ktop_in: int,
+    gravit_in: float,
+    rair_in: float,
+    tau_0_ubc_in: int,
+    pver_p: cobj,
+    tau_0_ubc_p: cobj,
+    ktop_p: cobj,
+    gravit_p: cobj,
+    rair_p: cobj,
+    rog_p: cobj,
+    alpha_n: int,
+    alpha_in_p: cobj,
+    alpha_p: cobj,
+):
+    gw_common_init_scalars_codon(
+        pver_in,
+        ktop_in,
+        gravit_in,
+        rair_in,
+        tau_0_ubc_in,
+        pver_p,
+        tau_0_ubc_p,
+        ktop_p,
+        gravit_p,
+        rair_p,
+        rog_p,
+    )
+    gw_common_init_alpha_codon(alpha_n, alpha_in_p, alpha_p)
+
+
+@export
 def gw_prof_codon(
     ncol: int,
     pver: int,
