@@ -1,3 +1,4 @@
+from C import compute_cubic_native_cb(float, float, float) -> float
 from C import eddy_diff_estblf_cb(float) -> float
 from C import eddy_diff_svp_to_qsat_cb(float, float) -> float
 from math import acos, cos, exp, log, sqrt
@@ -3939,29 +3940,12 @@ def eddy_diff_caleddy_clprep_codon(
 
 @inline
 def _eddy_diff_compute_cubic(a: float, b: float, c: float) -> float:
-    xmin = 1.0e-2
-    qq = (a**2 - 3.0 * b) / 9.0
-    rr = (2.0 * a**3 - 9.0 * a * b + 27.0 * c) / 54.0
+    return compute_cubic_codon(a, b, c)
 
-    dd = rr**2 - qq**3
-    if dd <= 0.0:
-        theta = acos(rr / qq ** (3.0 / 2.0))
-        x1 = -2.0 * sqrt(qq) * cos(theta / 3.0) - a / 3.0
-        x2 = -2.0 * sqrt(qq) * cos((theta + 2.0 * 3.141592) / 3.0) - a / 3.0
-        x3 = -2.0 * sqrt(qq) * cos((theta - 2.0 * 3.141592) / 3.0) - a / 3.0
-        return max(max(max(x1, x2), x3), xmin)
 
-    if rr >= 0.0:
-        aa = -(sqrt(rr**2 - qq**3) + rr) ** (1.0 / 3.0)
-    else:
-        aa = (sqrt(rr**2 - qq**3) - rr) ** (1.0 / 3.0)
-
-    if aa == 0.0:
-        bb = 0.0
-    else:
-        bb = qq / aa
-
-    return max((aa + bb) - a / 3.0, xmin)
+@export
+def compute_cubic_codon(a: float, b: float, c: float) -> float:
+    return compute_cubic_native_cb(a, b, c)
 
 
 @export

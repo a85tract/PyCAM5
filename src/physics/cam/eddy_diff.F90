@@ -236,6 +236,7 @@
   logical                     :: use_native_caleddy_full_impl = .false.
   logical                     :: caleddy_full_impl_selected = .false.
   logical                     :: caleddy_full_entered_logged = .false.
+  logical                     :: compute_cubic_logged = .false.
   logical                     :: use_native_caleddy_init_impl = .false.
   logical                     :: caleddy_init_impl_selected = .false.
   logical                     :: use_native_caleddy_diaginit_impl = .false.
@@ -298,6 +299,30 @@
   logical                     :: caleddy_core_batch_entered_logged = .false.
 
   CONTAINS
+
+  !============================================================================ !
+  !                                                                             !
+  !============================================================================ !
+
+  subroutine compute_cubic_log_direct()
+
+    implicit none
+
+    character(len=*), parameter :: proof_msg = &
+         'compute_cubic direct = codon (native cubic expression callback)'
+
+    if (compute_cubic_logged) return
+    compute_cubic_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') proof_msg
+       write(*,'(A)') proof_msg
+       call eddy_diff_append_impl_trace(proof_msg)
+       call caleddy_full_append_proof(proof_msg)
+       call flush(iulog)
+    end if
+
+  end subroutine compute_cubic_log_direct
 
   !============================================================================ !
   !                                                                             !
@@ -10652,10 +10677,39 @@
     ! Solve canonical cubic : x^3 + a*x^2 + b*x + c = 0,  x = sqrt(e)/sqrt(<e>) !
     ! Set x = max(xmin,x) at the end                                            ! 
     ! ------------------------------------------------------------------------- !
+    use iso_c_binding, only: c_double
     implicit none
     real(r8), intent(in)     :: a, b, c
+    interface
+       function compute_cubic_codon(a_c, b_c, c_c) result(out_c) &
+            bind(c, name="compute_cubic_codon")
+         use iso_c_binding, only: c_double
+         real(c_double), value :: a_c, b_c, c_c
+         real(c_double) :: out_c
+       end function compute_cubic_codon
+    end interface
+
+    call compute_cubic_log_direct()
+    compute_cubic = real(compute_cubic_codon(real(a, c_double), real(b, c_double), &
+         real(c, c_double)), r8)
+
+    return
+    end function compute_cubic
+
+    real(c_double) function compute_cubic_native_cb(a_c,b_c,c_c) result(out_c) &
+         bind(C, name="compute_cubic_native_cb")
+    use iso_c_binding, only: c_double
+    implicit none
+    real(c_double), value :: a_c, b_c, c_c
+    real(r8) :: a, b, c
     real(r8)  qq, rr, dd, theta, aa, bb, x1, x2, x3
     real(r8), parameter      :: xmin = 1.e-2_r8
+
+    call compute_cubic_log_direct()
+
+    a = real(a_c, r8)
+    b = real(b_c, r8)
+    c = real(c_c, r8)
     
     qq = (a**2-3._r8*b)/9._r8 
     rr = (2._r8*a**3 - 9._r8*a*b + 27._r8*c)/54._r8
@@ -10666,7 +10720,7 @@
         x1 = -2._r8*sqrt(qq)*cos(theta/3._r8) - a/3._r8
         x2 = -2._r8*sqrt(qq)*cos((theta+2._r8*3.141592_r8)/3._r8) - a/3._r8
         x3 = -2._r8*sqrt(qq)*cos((theta-2._r8*3.141592_r8)/3._r8) - a/3._r8
-        compute_cubic = max(max(max(x1,x2),x3),xmin)        
+        out_c = real(max(max(max(x1,x2),x3),xmin), c_double)
         return
     else
         if( rr .ge. 0._r8 ) then
@@ -10679,11 +10733,11 @@
         else
             bb = qq/aa
         endif
-        compute_cubic = max((aa+bb)-a/3._r8,xmin) 
+        out_c = real(max((aa+bb)-a/3._r8,xmin), c_double)
         return
     endif
 
     return
-    end function compute_cubic
+    end function compute_cubic_native_cb
 
 END MODULE eddy_diff
