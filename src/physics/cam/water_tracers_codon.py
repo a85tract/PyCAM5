@@ -48,10 +48,24 @@ def wtrc_implements_cnst_codon(flag: int) -> int:
 
 
 @export
+def wtrc_get_icnst_codon(ncnst: int, target_idx: int) -> int:
+    if target_idx >= 1 and target_idx <= ncnst:
+        return target_idx
+    return -1
+
+
+@export
 def wtrc_select_real_codon(use_first: int, first: float, second: float) -> float:
     if use_first != 0:
         return first
     return second
+
+
+@export
+def wtrc_get_rstd_codon(use_wisotope: int, true_rstd: float, fixed_rstd: float) -> float:
+    if use_wisotope != 0:
+        return true_rstd
+    return fixed_rstd
 
 
 @export
@@ -62,6 +76,11 @@ def wtrc_ratio_scalar_codon(qtrc: float, qtot: float, qmin: float, rstd: float) 
 
 
 @export
+def wtrc_ratio_codon(qtrc: float, qtot: float, qmin: float, rstd: float) -> float:
+    return wtrc_ratio_scalar_codon(qtrc, qtot, qmin, rstd)
+
+
+@export
 def wtrc_efac_scalar_codon(alpha: float, vapnew: float, liqnew: float, qmin: float, rstd_h2o: float) -> float:
     alov = wtrc_ratio_scalar_codon(vapnew, vapnew + liqnew, qmin, rstd_h2o)
     alov = alpha * (1.0 / alov - 1.0)
@@ -69,6 +88,11 @@ def wtrc_efac_scalar_codon(alpha: float, vapnew: float, liqnew: float, qmin: flo
     efac = max(efac, 0.0)
     efac = min(efac, 1.0)
     return efac
+
+
+@export
+def wtrc_efac_codon(alpha: float, vapnew: float, liqnew: float, qmin: float, rstd_h2o: float) -> float:
+    return wtrc_efac_scalar_codon(alpha, vapnew, liqnew, qmin, rstd_h2o)
 
 
 @export
@@ -92,6 +116,20 @@ def wtrc_dqequil_scalar_codon(
     else:
         dviso = min(dviso, lisoold)
     return dviso
+
+
+@export
+def wtrc_dqequil_codon(
+    alpha: float,
+    feq0: float,
+    vtotnew: float,
+    ltotnew: float,
+    visoold: float,
+    lisoold: float,
+    qmin: float,
+    rstd_h2o: float,
+) -> float:
+    return wtrc_dqequil_scalar_codon(alpha, feq0, vtotnew, ltotnew, visoold, lisoold, qmin, rstd_h2o)
 
 
 @export
@@ -134,6 +172,21 @@ def wtrc_liqvap_equil_scalar_codon(
     dliqiso[0] = -dviso
     liqiso[0] = liqiso[0] + dliqiso[0]
     vapiso[0] = vapiso[0] - dliqiso[0]
+
+
+@export
+def wtrc_liqvap_equil_codon(
+    alpha: float,
+    feq0: float,
+    vaptot: float,
+    liqtot: float,
+    qmin: float,
+    rstd_h2o: float,
+    vapiso_p: cobj,
+    liqiso_p: cobj,
+    dliqiso_p: cobj,
+) -> None:
+    wtrc_liqvap_equil_scalar_codon(alpha, feq0, vaptot, liqtot, qmin, rstd_h2o, vapiso_p, liqiso_p, dliqiso_p)
 
 
 @export
@@ -2452,6 +2505,35 @@ def wtrc_diagnose_bulk_precip_codon(
     for k in range(top_lev, pver + 1):
         for i in range(1, ncol + 1):
             ptend_q[_state_q_idx(i, k, bulk_idx, pcols, pver)] = 0.0
+
+
+@export
+def wtrc_add_rate_codon(
+    pcols: int,
+    pver: int,
+    pwtype: int,
+    icol: int,
+    iz: int,
+    isrctype: int,
+    idsttype: int,
+    rtype: int,
+    rate: float,
+    do_reverse_present: int,
+    do_reverse: int,
+    process_rates_p: cobj,
+) -> None:
+    process_rates = Ptr[float](process_rates_p)
+
+    ldo_reverse = True
+    if do_reverse_present != 0:
+        ldo_reverse = do_reverse != 0
+
+    dst_idx = _process_rates_idx(icol, iz, idsttype, isrctype, rtype, pcols, pver, pwtype)
+    process_rates[dst_idx] = process_rates[dst_idx] + rate
+
+    if isrctype != idsttype and ldo_reverse:
+        src_idx = _process_rates_idx(icol, iz, isrctype, idsttype, rtype, pcols, pver, pwtype)
+        process_rates[src_idx] = process_rates[src_idx] - rate
 
 
 @export

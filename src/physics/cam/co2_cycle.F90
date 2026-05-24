@@ -74,6 +74,11 @@ interface
       integer(c_int64_t), value :: flag_c
       integer(c_int64_t) :: out_c
    end function co2_cycle_flag_codon
+   function co2_transport_codon(flag_c) result(out_c) bind(c, name="co2_transport_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function co2_transport_codon
    function co2_register_codon(flag_c) result(out_c) bind(c, name="co2_register_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: flag_c
@@ -303,7 +308,7 @@ function co2_transport()
    end if
 
    call co2_cycle_proof_once()
-   co2_transport = co2_cycle_flag_codon(merge(1_c_int64_t, 0_c_int64_t, co2_flag)) /= 0_c_int64_t
+   co2_transport = co2_transport_codon(merge(1_c_int64_t, 0_c_int64_t, co2_flag)) /= 0_c_int64_t
    call co2_cycle_log_direct(co2_transport_logged, 'co2_transport direct = codon')
 
 end function co2_transport

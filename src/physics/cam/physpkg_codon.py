@@ -6696,6 +6696,11 @@ def co2_cycle_flag_codon(flag: int) -> int:
 
 
 @export
+def co2_transport_codon(flag: int) -> int:
+    return co2_cycle_flag_codon(flag)
+
+
+@export
 def co2_register_codon(flag: int) -> int:
     if flag != 0:
         return 1
