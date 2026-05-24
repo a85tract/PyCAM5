@@ -70,6 +70,7 @@ module physpkg
   logical           :: phys_tstep_impl_selected = .false.
   integer           :: phys_tstep_branch_mask = 0
   logical           :: phys_tstep_branch_selected = .false.
+  logical           :: phys_timestep_init_logged = .false.
   logical           :: use_native_tphysac_flx_net_update_impl = .false.
   logical           :: tphysac_flx_net_update_impl_selected = .false.
   logical           :: use_native_tphysbc_precip_ops_impl = .false.
@@ -2563,6 +2564,7 @@ subroutine phys_timestep_init(phys_state, cam_out, pbuf2d)
   use efield,              only: get_efield
   use iondrag,             only: do_waccm_ions
   use perf_mod
+  use iso_c_binding,       only: c_int64_t, c_loc, c_ptr
 
   use prescribed_ozone,    only: prescribed_ozone_adv
   use prescribed_ghg,      only: prescribed_ghg_adv
@@ -2580,17 +2582,42 @@ subroutine phys_timestep_init(phys_state, cam_out, pbuf2d)
   logical :: do_cam3_aero_data
   logical :: do_cam3_ozone_data
   logical :: do_waccm_ions_local
+  integer(c_int64_t), target :: branch_mask
 
   type(physics_buffer_desc), pointer                 :: pbuf2d(:,:)
+
+  interface
+     subroutine phys_timestep_init_select_branches_codon(cam3_aero_on_c, cam3_ozone_on_c, do_waccm_ions_c, branch_mask_p) &
+          bind(c, name="phys_timestep_init_select_branches_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: cam3_aero_on_c, cam3_ozone_on_c, do_waccm_ions_c
+       type(c_ptr), value :: branch_mask_p
+     end subroutine phys_timestep_init_select_branches_codon
+  end interface
 
   !-----------------------------------------------------------------------------
 
   call phys_timestep_init_select_impl()
   if (.not. use_native_phys_tstep_impl) then
-     call phys_timestep_init_select_branches(cam3_aero_data_on, cam3_ozone_data_on, do_waccm_ions)
+     if (.not. phys_tstep_branch_selected) then
+        branch_mask = 0_c_int64_t
+        call phys_timestep_init_select_branches_codon( &
+             merge(1_c_int64_t, 0_c_int64_t, cam3_aero_data_on), &
+             merge(1_c_int64_t, 0_c_int64_t, cam3_ozone_data_on), &
+             merge(1_c_int64_t, 0_c_int64_t, do_waccm_ions), &
+             c_loc(branch_mask))
+        phys_tstep_branch_mask = int(branch_mask)
+        phys_tstep_branch_selected = .true.
+     end if
      do_cam3_aero_data = iand(phys_tstep_branch_mask, 1) /= 0
      do_cam3_ozone_data = iand(phys_tstep_branch_mask, 2) /= 0
      do_waccm_ions_local = iand(phys_tstep_branch_mask, 4) /= 0
+     if (.not. phys_timestep_init_logged) then
+        phys_timestep_init_logged = .true.
+        if (masterproc) then
+           write(iulog,'(A)') 'phys_timestep_init direct = codon'
+        end if
+     end if
   else
      do_cam3_aero_data = cam3_aero_data_on
      do_cam3_ozone_data = cam3_ozone_data_on

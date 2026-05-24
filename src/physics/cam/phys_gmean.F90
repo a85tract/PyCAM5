@@ -51,6 +51,7 @@ module phys_gmean
    logical :: use_native_phys_gmean_impl = .false.
    logical :: phys_gmean_impl_selected = .false.
    logical :: phys_gmean_proof_written = .false.
+   logical :: gmean_fixed_repro_logged = .false.
 
    interface
       subroutine phys_gmean_normalize_codon(arr_p, nflds_c, pi_c) &
@@ -112,6 +113,19 @@ module phys_gmean
       end if
 
    end subroutine phys_gmean_proof_once
+
+   subroutine phys_gmean_log_direct(logged, proof_line)
+      logical, intent(inout) :: logged
+      character(len=*), intent(in) :: proof_line
+
+      if (logged) return
+      logged = .true.
+
+      if (masterproc) then
+         write(iulog,'(A)') trim(proof_line)
+      end if
+
+   end subroutine phys_gmean_log_direct
 
    subroutine phys_gmean_normalize(arr_gmean, nflds)
       integer, intent(in) :: nflds
@@ -453,7 +467,7 @@ module phys_gmean
       integer, intent(in)  :: nflds             ! number of fields
       real(r8), intent(in) :: &
          arr(pcols,begchunk:endchunk,nflds)     ! Input array, chunked
-      real(r8), intent(out):: arr_gmean(nflds)  ! global means
+      real(r8), intent(out), target :: arr_gmean(nflds)  ! global means
       real(r8), intent(out):: rel_diff(2,nflds) ! relative and absolute
                                                 !  differences between 
                                                 !  reproducible and nonreproducible
@@ -497,7 +511,15 @@ module phys_gmean
 
       deallocate(xfld)
 ! final normalization
-      call phys_gmean_normalize(arr_gmean, nflds)
+      call phys_gmean_select_impl()
+      if (use_native_phys_gmean_impl) then
+         arr_gmean(:) = arr_gmean(:) / (4.0_r8 * pi)
+      else
+         call phys_gmean_proof_once()
+         call phys_gmean_normalize_codon(c_loc(arr_gmean(1)), int(nflds, c_int64_t), &
+              real(pi, c_double))
+         call phys_gmean_log_direct(gmean_fixed_repro_logged, 'gmean_fixed_repro direct = codon')
+      end if
 
       return
 

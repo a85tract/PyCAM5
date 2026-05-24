@@ -210,6 +210,7 @@ module radae
   logical :: use_native_radae_radbuffer_impl = .false.
   logical :: radae_radbuffer_impl_selected = .false.
   logical :: radae_radbuffer_proof_written = .false.
+  logical :: initialize_radbuffer_logged = .false.
 
   interface
      function radae_ntoplw_codon(pref_mid_p, nlev_c) result(out_c) bind(c, name="radae_ntoplw_codon")
@@ -271,6 +272,19 @@ subroutine radae_radbuffer_proof_once()
    end if
 
 end subroutine radae_radbuffer_proof_once
+
+!====================================================================================
+
+subroutine radae_radbuffer_log_direct()
+
+   if (initialize_radbuffer_logged) return
+   initialize_radbuffer_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'initialize_radbuffer direct = codon'
+   end if
+
+end subroutine radae_radbuffer_log_direct
 
 !====================================================================================
 
@@ -3056,10 +3070,19 @@ subroutine initialize_radbuffer
   use phys_control, only : phys_getopts
 
   character(len=16) :: radiation_scheme
+  integer(c_int64_t) :: ntoplw_c
 
 ! If the top model level is above ~90 km (0.1 Pa), set the top level to compute
 ! longwave cooling to about 80 km (1 Pa)
-   ntoplw = radae_ntoplw_from_pref_mid(pref_mid, plev)
+   call radae_radbuffer_select_impl()
+   if (use_native_radae_radbuffer_impl) then
+      ntoplw = radae_ntoplw_native(pref_mid, plev)
+   else
+      call radae_radbuffer_proof_once()
+      ntoplw_c = radae_ntoplw_codon(c_loc(pref_mid(1)), int(plev, c_int64_t))
+      ntoplw = int(ntoplw_c)
+      call radae_radbuffer_log_direct()
+   end if
    if (masterproc) then
       write(iulog,*) 'INITIALIZE_RADBUFFER: ntoplw =',ntoplw, ' pressure:',pref_mid(ntoplw)
    endif

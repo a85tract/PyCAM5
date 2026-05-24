@@ -173,6 +173,7 @@ module physics_types
   logical :: set_wet_to_dry_logged = .false.
   logical :: set_dry_to_wet_logged = .false.
   logical :: init_geo_unique_logged = .false.
+  logical :: physics_state_set_grid_logged = .false.
   logical :: physics_state_copy_logged = .false.
   logical :: physics_state_alloc_logged = .false.
   logical :: physics_tend_alloc_logged = .false.
@@ -1707,7 +1708,7 @@ end subroutine physics_ptend_copy
     type(physics_state), intent(inout) :: phys_state
 
     ! local variables
-    integer  :: i, ncol
+    integer  :: i, ncol, ulatcnt, uloncnt
     real(r8) :: rlon(pcols)
     real(r8) :: rlat(pcols)
 
@@ -1732,7 +1733,18 @@ end subroutine physics_ptend_copy
        phys_state%lat(i) = rlat(i)
        phys_state%lon(i) = rlon(i)
     end do
-    call init_geo_unique(phys_state,ncol)
+    call physics_types_zero_select_impl()
+    if (use_native_zero_impl) then
+       call init_geo_unique(phys_state,ncol)
+    else
+       call physics_init_geo_unique_maps_codon(ncol, phys_state%psetcols, phys_state%lat, phys_state%lon, &
+            phys_state%ulat, phys_state%ulon, phys_state%latmapback, phys_state%lonmapback, ulatcnt, uloncnt)
+       phys_state%uloncnt=uloncnt
+       phys_state%ulatcnt=ulatcnt
+       call physics_types_zero_proof_once()
+       call physics_types_log_direct(physics_state_set_grid_logged, 'physics_state_set_grid direct = codon')
+       call get_gcol_all_p(phys_state%lchnk,pcols,phys_state%cid)
+    end if
 
   end subroutine physics_state_set_grid
 
