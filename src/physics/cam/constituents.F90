@@ -19,7 +19,7 @@ module constituents
   use spmd_utils,       only: masterproc
   use cam_abortutils,   only: endrun
   use cam_logfile,      only: iulog
-  use iso_c_binding,    only: c_int64_t, c_double
+  use iso_c_binding,    only: c_int64_t, c_double, c_loc, c_ptr
 
   implicit none
   private
@@ -87,6 +87,9 @@ module constituents
   logical :: use_native_constituents_thermo_impl = .false.
   logical :: constituents_thermo_impl_selected = .false.
   logical :: constituents_thermo_proof_written = .false.
+  logical :: cnst_get_ind_logged = .false.
+  logical :: cnst_get_type_byind_logged = .false.
+  logical :: cnst_get_molec_byind_logged = .false.
   logical :: cnst_read_iv_logged = .false.
   logical :: cnst_cam_outfld_logged = .false.
 
@@ -116,6 +119,28 @@ module constituents
         integer(c_int64_t), value :: flag_c
         integer(c_int64_t) :: out_c
      end function cnst_cam_outfld_codon
+
+     function cnst_get_ind_codon(name_len_c, name_ascii_p, cnst_name_len_c, cnst_names_ascii_p, &
+          pcnst_c) result(ind_c) bind(c, name="cnst_get_ind_codon")
+        use iso_c_binding, only: c_int64_t, c_ptr
+        integer(c_int64_t), value :: name_len_c, cnst_name_len_c, pcnst_c
+        type(c_ptr), value :: name_ascii_p, cnst_names_ascii_p
+        integer(c_int64_t) :: ind_c
+     end function cnst_get_ind_codon
+
+     subroutine cnst_get_type_byind_codon(ind_c, pcnst_c, cnst_type_ascii_p, out_ascii_p, status_p) &
+          bind(c, name="cnst_get_type_byind_codon")
+        use iso_c_binding, only: c_int64_t, c_ptr
+        integer(c_int64_t), value :: ind_c, pcnst_c
+        type(c_ptr), value :: cnst_type_ascii_p, out_ascii_p, status_p
+     end subroutine cnst_get_type_byind_codon
+
+     subroutine cnst_get_molec_byind_codon(ind_c, pcnst_c, cnst_molec_ascii_p, out_ascii_p, status_p) &
+          bind(c, name="cnst_get_molec_byind_codon")
+        use iso_c_binding, only: c_int64_t, c_ptr
+        integer(c_int64_t), value :: ind_c, pcnst_c
+        type(c_ptr), value :: cnst_molec_ascii_p, out_ascii_p, status_p
+     end subroutine cnst_get_molec_byind_codon
   end interface
 
 !==============================================================================================
@@ -365,8 +390,46 @@ CONTAINS
 
 !---------------------------Local workspace-----------------------------
     integer :: m                                   ! tracer index
+    integer :: ichar
+    integer(c_int64_t), target :: name_ascii(max(1, len(name)))
+    integer(c_int64_t), target :: cnst_names_ascii(len(cnst_name(1)), pcnst)
+    integer(c_int64_t) :: ind_c
     logical :: abort_on_error
 !-----------------------------------------------------------------------
+
+    call constituents_thermo_select_impl()
+
+    if (.not. use_native_constituents_thermo_impl) then
+       do ichar = 1, len(name)
+          name_ascii(ichar) = int(iachar(name(ichar:ichar)), c_int64_t)
+       end do
+       if (len(name) == 0) name_ascii(1) = 32_c_int64_t
+       do m = 1, pcnst
+          do ichar = 1, len(cnst_name(1))
+             cnst_names_ascii(ichar,m) = int(iachar(cnst_name(m)(ichar:ichar)), c_int64_t)
+          end do
+       end do
+
+       ind_c = cnst_get_ind_codon(int(len(name), c_int64_t), c_loc(name_ascii(1)), &
+            int(len(cnst_name(1)), c_int64_t), c_loc(cnst_names_ascii(1,1)), int(pcnst, c_int64_t))
+       if (ind_c > 0_c_int64_t) then
+          ind = int(ind_c)
+          call constituents_log_direct(cnst_get_ind_logged, 'cnst_get_ind direct = codon')
+          return
+       end if
+
+       abort_on_error = .true.
+       if ( present(abort) ) abort_on_error = abort
+
+       if ( abort_on_error ) then
+          write(iulog,*) 'CNST_GET_IND, name:', name,  ' not found in list:', cnst_name(:)
+          call endrun('CNST_GET_IND: name not found')
+       end if
+
+       ind = -1
+       call constituents_log_direct(cnst_get_ind_logged, 'cnst_get_ind direct = codon')
+       return
+    end if
 
 ! Find tracer name in list
     do m = 1, pcnst
@@ -409,8 +472,30 @@ CONTAINS
 
 !---------------------------Local workspace-----------------------------
     integer :: m                                   ! tracer index
+    integer :: ichar
+    integer(c_int64_t), target :: cnst_type_ascii(3, pcnst), out_ascii(3), status_c
 
 !-----------------------------------------------------------------------
+
+    call constituents_thermo_select_impl()
+
+    if (.not. use_native_constituents_thermo_impl) then
+       do m = 1, pcnst
+          do ichar = 1, 3
+             cnst_type_ascii(ichar,m) = int(iachar(cnst_type(m)(ichar:ichar)), c_int64_t)
+          end do
+       end do
+       status_c = 0_c_int64_t
+       call cnst_get_type_byind_codon(int(ind, c_int64_t), int(pcnst, c_int64_t), &
+            c_loc(cnst_type_ascii(1,1)), c_loc(out_ascii(1)), c_loc(status_c))
+       if (status_c == 0_c_int64_t) then
+          do ichar = 1, 3
+             cnst_get_type_byind(ichar:ichar) = achar(int(out_ascii(ichar)))
+          end do
+          call constituents_log_direct(cnst_get_type_byind_logged, 'cnst_get_type_byind direct = codon')
+          return
+       end if
+    end if
 
     if (ind.le.pcnst) then
        cnst_get_type_byind = cnst_type(ind)
@@ -475,8 +560,30 @@ CONTAINS
 
 !---------------------------Local workspace-----------------------------
     integer :: m				   ! tracer index
+    integer :: ichar
+    integer(c_int64_t), target :: cnst_molec_ascii(5, pcnst), out_ascii(5), status_c
 
 !-----------------------------------------------------------------------
+
+    call constituents_thermo_select_impl()
+
+    if (.not. use_native_constituents_thermo_impl) then
+       do m = 1, pcnst
+          do ichar = 1, 5
+             cnst_molec_ascii(ichar,m) = int(iachar(cnst_molec(m)(ichar:ichar)), c_int64_t)
+          end do
+       end do
+       status_c = 0_c_int64_t
+       call cnst_get_molec_byind_codon(int(ind, c_int64_t), int(pcnst, c_int64_t), &
+            c_loc(cnst_molec_ascii(1,1)), c_loc(out_ascii(1)), c_loc(status_c))
+       if (status_c == 0_c_int64_t) then
+          do ichar = 1, 5
+             cnst_get_molec_byind(ichar:ichar) = achar(int(out_ascii(ichar)))
+          end do
+          call constituents_log_direct(cnst_get_molec_byind_logged, 'cnst_get_molec_byind direct = codon')
+          return
+       end if
+    end if
 
     if (ind.le.pcnst) then
        cnst_get_molec_byind = cnst_molec(ind)

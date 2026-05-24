@@ -18,7 +18,7 @@ from C import murphykoop_svp_water_native_cb(float) -> float
 from C import oldgoffgratch_svp_ice_native_cb(float) -> float
 from C import oldgoffgratch_svp_water_native_cb(float) -> float
 from C import zm_entropy_expr_native_cb(float, float, float, float, float, float, float, float, float, float, float, float) -> float
-from math import exp, floor, log, sqrt
+from math import cos, exp, floor, log, sin, sqrt
 
 @export
 def cam_misc_touch_codon(tag: int) -> int:
@@ -3766,6 +3766,44 @@ def _phys_prop_interp_index(n: int, x: Ptr[float], y: float) -> int:
     return k
 
 
+@inline
+def _phys_prop_trimmed_len(text: Ptr[int], n: int) -> int:
+    out = n
+    while out > 0 and text[out - 1] == 32:
+        out -= 1
+    return out
+
+
+@inline
+def _phys_prop_trimmed_eq(a: Ptr[int], a_len: int, b: Ptr[int], b_len: int) -> bool:
+    a_trim = _phys_prop_trimmed_len(a, a_len)
+    b_trim = _phys_prop_trimmed_len(b, b_len)
+    if a_trim != b_trim:
+        return False
+
+    i = 0
+    while i < a_trim:
+        if a[i] != b[i]:
+            return False
+        i += 1
+    return True
+
+
+@export
+def physprop_get_id_codon(filename_len: int, filename_ascii_p: cobj, names_len: int, names_ascii_p: cobj,
+                          numphysprops: int) -> int:
+    filename_ascii = Ptr[int](filename_ascii_p)
+    names_ascii = Ptr[int](names_ascii_p)
+
+    iphysprop = 1
+    while iphysprop <= numphysprops:
+        name_offset = (iphysprop - 1) * names_len
+        if _phys_prop_trimmed_eq(filename_ascii, filename_len, names_ascii + name_offset, names_len):
+            return iphysprop
+        iphysprop += 1
+    return -1
+
+
 @export
 def phys_prop_exp_interpol_codon(n: int, x_p: cobj, f_p: cobj, y: float) -> float:
     x = Ptr[float](x_p)
@@ -6645,6 +6683,57 @@ def cnst_cam_outfld_codon(flag: int) -> int:
     return 0
 
 
+@export
+def cnst_get_ind_codon(name_len: int, name_ascii_p: cobj, cnst_name_len: int, cnst_names_ascii_p: cobj,
+                       pcnst: int) -> int:
+    name_ascii = Ptr[int](name_ascii_p)
+    cnst_names_ascii = Ptr[int](cnst_names_ascii_p)
+
+    m = 1
+    while m <= pcnst:
+        name_offset = (m - 1) * cnst_name_len
+        if _phys_prop_trimmed_eq(name_ascii, name_len, cnst_names_ascii + name_offset, cnst_name_len):
+            return m
+        m += 1
+    return -1
+
+
+@inline
+def _copy_ascii_fixed(n: int, src: Ptr[int], dst: Ptr[int]):
+    i = 0
+    while i < n:
+        dst[i] = src[i]
+        i += 1
+
+
+@export
+def cnst_get_type_byind_codon(ind: int, pcnst: int, cnst_type_ascii_p: cobj, out_ascii_p: cobj,
+                              status_p: cobj):
+    cnst_type_ascii = Ptr[int](cnst_type_ascii_p)
+    out_ascii = Ptr[int](out_ascii_p)
+    status = Ptr[int](status_p)
+
+    if ind <= pcnst:
+        _copy_ascii_fixed(3, cnst_type_ascii + (ind - 1) * 3, out_ascii)
+        status[0] = 0
+    else:
+        status[0] = 1
+
+
+@export
+def cnst_get_molec_byind_codon(ind: int, pcnst: int, cnst_molec_ascii_p: cobj, out_ascii_p: cobj,
+                               status_p: cobj):
+    cnst_molec_ascii = Ptr[int](cnst_molec_ascii_p)
+    out_ascii = Ptr[int](out_ascii_p)
+    status = Ptr[int](status_p)
+
+    if ind <= pcnst:
+        _copy_ascii_fixed(5, cnst_molec_ascii + (ind - 1) * 5, out_ascii)
+        status[0] = 0
+    else:
+        status[0] = 1
+
+
 @inline
 def _aer_rad_sw_idx(i: int, k0: int, band: int, pcols: int, pverp: int) -> int:
     """tau/tau_w/tau_w_g/tau_w_f declared as (pcols,0:pver,nswbands)."""
@@ -7124,6 +7213,19 @@ def tidal_diag_int_codon(value: int, force_one: int) -> int:
     if force_one != 0:
         return 1
     return value
+
+
+@export
+def get_tidal_coeffs_codon(tod: int, pi: float, cday: float, dcoef_p: cobj):
+    dcoef = Ptr[float](dcoef_p)
+    gmtfrac = tod / cday
+    pi_x_2 = 2.0 * pi
+    pi_x_4 = 4.0 * pi
+
+    dcoef[0] = 2.0 * sin(pi_x_2 * gmtfrac)
+    dcoef[1] = 2.0 * cos(pi_x_2 * gmtfrac)
+    dcoef[2] = 2.0 * sin(pi_x_4 * gmtfrac)
+    dcoef[3] = 2.0 * cos(pi_x_4 * gmtfrac)
 
 
 @export

@@ -108,8 +108,17 @@ character(len=256), allocatable :: uniquefilenames(:)
 logical :: use_native_phys_prop_interp_impl = .false.
 logical :: phys_prop_interp_impl_selected = .false.
 logical :: phys_prop_interp_proof_written = .false.
+logical :: physprop_get_id_logged = .false.
 
 interface
+   function physprop_get_id_codon(filename_len_c, filename_ascii_p, names_len_c, names_ascii_p, &
+        numphysprops_c) result(id_c) bind(c, name="physprop_get_id_codon")
+     use iso_c_binding, only: c_int64_t, c_ptr
+     integer(c_int64_t), value :: filename_len_c, names_len_c, numphysprops_c
+     type(c_ptr), value :: filename_ascii_p, names_ascii_p
+     integer(c_int64_t) :: id_c
+   end function physprop_get_id_codon
+
    function phys_prop_exp_interpol_codon(n_c, x_p, f_p, y_c) result(g) &
         bind(c, name="phys_prop_exp_interpol_codon")
      use iso_c_binding, only: c_int64_t, c_double, c_ptr
@@ -318,19 +327,46 @@ end subroutine physprop_init
 
 integer function physprop_get_id(filename)
 
+   use iso_c_binding, only: c_int64_t, c_loc
+
    ! Look for filename in the global list of unique filenames (module data uniquefilenames).
    ! If found, return it's index in the list.  Otherwise return -1.
 
    character(len=*), intent(in) :: filename
-   integer iphysprop
+   integer :: iphysprop, ichar, names_len
+   integer(c_int64_t), allocatable, target :: filename_ascii(:), names_ascii(:,:)
+   integer(c_int64_t) :: id_c
 
-   physprop_get_id = -1
+   if (allocated(uniquefilenames)) then
+      names_len = len(uniquefilenames(1))
+   else
+      names_len = 1
+   end if
+
+   allocate(filename_ascii(max(1, len(filename))))
+   allocate(names_ascii(max(1, names_len), max(1, numphysprops)))
+
+   do ichar = 1, len(filename)
+      filename_ascii(ichar) = int(iachar(filename(ichar:ichar)), c_int64_t)
+   end do
+   if (len(filename) == 0) filename_ascii(1) = 32_c_int64_t
+
    do iphysprop = 1, numphysprops
-     if(trim(uniquefilenames(iphysprop)) == trim(filename) ) then
-       physprop_get_id = iphysprop
-       return
-     endif
-   enddo
+      do ichar = 1, names_len
+         names_ascii(ichar, iphysprop) = int(iachar(uniquefilenames(iphysprop)(ichar:ichar)), c_int64_t)
+      end do
+   end do
+   if (numphysprops == 0) names_ascii(1,1) = 32_c_int64_t
+
+   id_c = physprop_get_id_codon(int(len(filename), c_int64_t), c_loc(filename_ascii(1)), &
+        int(names_len, c_int64_t), c_loc(names_ascii(1,1)), int(numphysprops, c_int64_t))
+   physprop_get_id = int(id_c)
+
+   if (masterproc .and. .not. physprop_get_id_logged) then
+      write(iulog,'(A)') 'physprop_get_id direct = codon'
+      call flush(iulog)
+      physprop_get_id_logged = .true.
+   end if
 
 end function physprop_get_id
 

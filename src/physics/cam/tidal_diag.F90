@@ -11,7 +11,7 @@ module tidal_diag
   use ppgrid,        only: pcols, pver
   use spmd_utils,    only: masterproc
   use cam_logfile,   only: iulog
-  use iso_c_binding, only: c_int64_t
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
   implicit none
 
@@ -28,6 +28,7 @@ module tidal_diag
   logical :: tidal_diag_proof_written = .false.
   logical :: tidal_diag_init_logged = .false.
   logical :: tidal_diag_write_logged = .false.
+  logical :: get_tidal_coeffs_logged = .false.
 
   interface
     function tidal_diag_int_codon(value_c, force_one_c) result(out_c) bind(c, name="tidal_diag_int_codon")
@@ -35,6 +36,12 @@ module tidal_diag
       integer(c_int64_t), value :: value_c, force_one_c
       integer(c_int64_t) :: out_c
     end function tidal_diag_int_codon
+    subroutine get_tidal_coeffs_codon(tod_c, pi_c, cday_c, dcoef_p) bind(c, name="get_tidal_coeffs_codon")
+      use iso_c_binding, only: c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: tod_c
+      real(c_double), value :: pi_c, cday_c
+      type(c_ptr), value :: dcoef_p
+    end subroutine get_tidal_coeffs_codon
   end interface
 
 contains
@@ -290,7 +297,7 @@ contains
     use time_manager,  only: get_curr_date               
     use physconst, only: pi, cday
 
-    real(r8), intent(out) :: dcoef(4) 
+    real(r8), target, intent(out) :: dcoef(4)
 
  !  variables to calculate tidal coeffs
     real(r8), parameter :: pi_x_2 = 2._r8*pi
@@ -302,12 +309,20 @@ contains
 
  !  calculate multipliers for Fourier transform in time (tidal analysis)
     call get_curr_date(year, month, day, tod)
-    gmtfrac = tod / cday
+    call tidal_diag_select_impl()
+    if (use_native_tidal_diag_impl) then
+       gmtfrac = tod / cday
 
-    dcoef(1) = 2._r8*sin(pi_x_2*gmtfrac)
-    dcoef(2) = 2._r8*cos(pi_x_2*gmtfrac)
-    dcoef(3) = 2._r8*sin(pi_x_4*gmtfrac)
-    dcoef(4) = 2._r8*cos(pi_x_4*gmtfrac)
+       dcoef(1) = 2._r8*sin(pi_x_2*gmtfrac)
+       dcoef(2) = 2._r8*cos(pi_x_2*gmtfrac)
+       dcoef(3) = 2._r8*sin(pi_x_4*gmtfrac)
+       dcoef(4) = 2._r8*cos(pi_x_4*gmtfrac)
+       return
+    end if
+
+    call tidal_diag_proof_once()
+    call get_tidal_coeffs_codon(int(tod, c_int64_t), real(pi, c_double), real(cday, c_double), c_loc(dcoef(1)))
+    call tidal_diag_log_direct(get_tidal_coeffs_logged, 'get_tidal_coeffs direct = codon')
 
   end subroutine get_tidal_coeffs
 
