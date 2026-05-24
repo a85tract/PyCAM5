@@ -92,10 +92,10 @@ interface MGHydrometeorProps
    module procedure NewMGHydrometeorProps
 end interface
 
-type(MGHydrometeorProps), public :: mg_liq_props
-type(MGHydrometeorProps), public :: mg_ice_props
-type(MGHydrometeorProps), public :: mg_rain_props
-type(MGHydrometeorProps), public :: mg_snow_props
+type(MGHydrometeorProps), target, public :: mg_liq_props
+type(MGHydrometeorProps), target, public :: mg_ice_props
+type(MGHydrometeorProps), target, public :: mg_rain_props
+type(MGHydrometeorProps), target, public :: mg_snow_props
 
 !=================================================
 ! Public module parameters (mostly for MG itself)
@@ -193,9 +193,9 @@ real(r8), target :: xlf         ! freezing
 real(r8), target :: xxls        ! sublimation
 
 ! additional constants to help speed up code
-real(r8) :: gamma_bs_plus3
-real(r8) :: gamma_half_br_plus5
-real(r8) :: gamma_half_bs_plus5
+real(r8), target :: gamma_bs_plus3
+real(r8), target :: gamma_half_br_plus5
+real(r8), target :: gamma_half_bs_plus5
 
 logical :: use_native_micro_mg_utils_init_impl = .false.
 logical :: micro_mg_utils_init_impl_selected = .false.
@@ -208,6 +208,32 @@ interface
     real(c_double), value :: rh2o_c, cpair_c, tmelt_c, latvap_c, latice_c
     type(c_ptr), value :: rv_p, cpp_p, tmelt_p, xxlv_p, xlf_p, xxls_p
   end subroutine micro_mg_utils_init_scalars_codon
+  subroutine micro_mg_utils_init_codon(kind_c, expected_kind_c, rh2o_c, cpair_c, tmelt_c, &
+       latvap_c, latice_c, dcs_c, pi_c, dsph_c, bs_c, br_c, rhow_c, rhoi_c, rhosn_c, &
+       min_mean_mass_liq_c, min_mean_mass_ice_c, no_limiter_bits_c, lam_bnd_rain1_c, &
+       lam_bnd_rain2_c, lam_bnd_snow1_c, lam_bnd_snow2_c, rv_p, cpp_p, tmelt_p, &
+       xxlv_p, xlf_p, xxls_p, gamma_bs_plus3_p, gamma_half_br_plus5_p, &
+       gamma_half_bs_plus5_p, liq_rho_p, liq_eff_dim_p, liq_shape_coef_p, &
+       liq_lambda_bounds_p, liq_min_mean_mass_p, ice_rho_p, ice_eff_dim_p, &
+       ice_shape_coef_p, ice_lambda_bounds_p, ice_min_mean_mass_p, rain_rho_p, &
+       rain_eff_dim_p, rain_shape_coef_p, rain_lambda_bounds_p, rain_min_mean_mass_p, &
+       snow_rho_p, snow_eff_dim_p, snow_shape_coef_p, snow_lambda_bounds_p, &
+       snow_min_mean_mass_p, status_p) bind(c, name="micro_mg_utils_init_codon")
+    use iso_c_binding, only: c_double, c_int64_t, c_ptr
+    integer(c_int64_t), value :: kind_c, expected_kind_c, no_limiter_bits_c
+    real(c_double), value :: rh2o_c, cpair_c, tmelt_c, latvap_c, latice_c, dcs_c
+    real(c_double), value :: pi_c, dsph_c, bs_c, br_c, rhow_c, rhoi_c, rhosn_c
+    real(c_double), value :: min_mean_mass_liq_c, min_mean_mass_ice_c
+    real(c_double), value :: lam_bnd_rain1_c, lam_bnd_rain2_c, lam_bnd_snow1_c, lam_bnd_snow2_c
+    type(c_ptr), value :: rv_p, cpp_p, tmelt_p, xxlv_p, xlf_p, xxls_p
+    type(c_ptr), value :: gamma_bs_plus3_p, gamma_half_br_plus5_p, gamma_half_bs_plus5_p
+    type(c_ptr), value :: liq_rho_p, liq_eff_dim_p, liq_shape_coef_p, liq_lambda_bounds_p
+    type(c_ptr), value :: liq_min_mean_mass_p, ice_rho_p, ice_eff_dim_p, ice_shape_coef_p
+    type(c_ptr), value :: ice_lambda_bounds_p, ice_min_mean_mass_p, rain_rho_p, rain_eff_dim_p
+    type(c_ptr), value :: rain_shape_coef_p, rain_lambda_bounds_p, rain_min_mean_mass_p
+    type(c_ptr), value :: snow_rho_p, snow_eff_dim_p, snow_shape_coef_p, snow_lambda_bounds_p
+    type(c_ptr), value :: snow_min_mean_mass_p, status_p
+  end subroutine micro_mg_utils_init_codon
   pure function no_limiter_codon() result(bits_c) bind(c, name="no_limiter_codon")
     use iso_c_binding, only: c_int64_t
     integer(c_int64_t) :: bits_c
@@ -265,7 +291,7 @@ subroutine micro_mg_utils_init_proof_once()
   micro_mg_utils_init_proof_written = .true.
 
   if (masterproc) then
-     write(iulog,'(A)') 'micro_mg_utils_init entered (scalar thermodynamic constants = codon)'
+     write(iulog,'(A)') 'micro_mg_utils_init entered (direct init = codon with native gamma callback)'
   end if
 
 end subroutine micro_mg_utils_init_proof_once
@@ -333,6 +359,61 @@ end subroutine micro_mg_utils_init_scalars_native
 subroutine micro_mg_utils_init( kind, rh2o, cpair, tmelt_in, latvap, &
      latice, dcs, errstring)
 
+  use iso_c_binding, only: c_loc
+
+  integer,  intent(in)  :: kind
+  real(r8), intent(in)  :: rh2o
+  real(r8), intent(in)  :: cpair
+  real(r8), intent(in)  :: tmelt_in
+  real(r8), intent(in)  :: latvap
+  real(r8), intent(in)  :: latice
+  real(r8), intent(in)  :: dcs
+
+  character(128), intent(out) :: errstring
+
+  integer(c_int64_t), target :: init_status
+
+  call micro_mg_utils_init_select_impl()
+
+  if (use_native_micro_mg_utils_init_impl) then
+     call micro_mg_utils_init_native(kind, rh2o, cpair, tmelt_in, latvap, latice, dcs, errstring)
+     return
+  end if
+
+  errstring = ' '
+  call micro_mg_utils_init_proof_once()
+  call micro_mg_utils_init_codon(int(kind, c_int64_t), int(r8, c_int64_t), &
+       real(rh2o, c_double), real(cpair, c_double), real(tmelt_in, c_double), &
+       real(latvap, c_double), real(latice, c_double), real(dcs, c_double), &
+       real(pi, c_double), real(dsph, c_double), real(bs, c_double), real(br, c_double), &
+       real(rhow, c_double), real(rhoi, c_double), real(rhosn, c_double), &
+       real(min_mean_mass_liq, c_double), real(min_mean_mass_ice, c_double), &
+       int(limiter_off, c_int64_t), real(lam_bnd_rain(1), c_double), &
+       real(lam_bnd_rain(2), c_double), real(lam_bnd_snow(1), c_double), &
+       real(lam_bnd_snow(2), c_double), c_loc(rv), c_loc(cpp), c_loc(tmelt), &
+       c_loc(xxlv), c_loc(xlf), c_loc(xxls), c_loc(gamma_bs_plus3), &
+       c_loc(gamma_half_br_plus5), c_loc(gamma_half_bs_plus5), &
+       c_loc(mg_liq_props%rho), c_loc(mg_liq_props%eff_dim), &
+       c_loc(mg_liq_props%shape_coef), c_loc(mg_liq_props%lambda_bounds(1)), &
+       c_loc(mg_liq_props%min_mean_mass), c_loc(mg_ice_props%rho), &
+       c_loc(mg_ice_props%eff_dim), c_loc(mg_ice_props%shape_coef), &
+       c_loc(mg_ice_props%lambda_bounds(1)), c_loc(mg_ice_props%min_mean_mass), &
+       c_loc(mg_rain_props%rho), c_loc(mg_rain_props%eff_dim), &
+       c_loc(mg_rain_props%shape_coef), c_loc(mg_rain_props%lambda_bounds(1)), &
+       c_loc(mg_rain_props%min_mean_mass), c_loc(mg_snow_props%rho), &
+       c_loc(mg_snow_props%eff_dim), c_loc(mg_snow_props%shape_coef), &
+       c_loc(mg_snow_props%lambda_bounds(1)), c_loc(mg_snow_props%min_mean_mass), &
+       c_loc(init_status))
+
+  if (init_status /= 0_c_int64_t) then
+     errstring = 'micro_mg_init: KIND of reals does not match'
+  end if
+
+end subroutine micro_mg_utils_init
+
+subroutine micro_mg_utils_init_native( kind, rh2o, cpair, tmelt_in, latvap, &
+     latice, dcs, errstring)
+
   integer,  intent(in)  :: kind
   real(r8), intent(in)  :: rh2o
   real(r8), intent(in)  :: cpair
@@ -356,7 +437,7 @@ subroutine micro_mg_utils_init( kind, rh2o, cpair, tmelt_in, latvap, &
      return
   endif
 
-  call micro_mg_utils_init_scalars(rh2o, cpair, tmelt_in, latvap, latice)
+  call micro_mg_utils_init_scalars_native(rh2o, cpair, tmelt_in, latvap, latice)
 
   ! Define constants to help speed up code (this limits calls to gamma function)
   gamma_bs_plus3=gamma(3._r8+bs)
@@ -377,7 +458,17 @@ subroutine micro_mg_utils_init( kind, rh2o, cpair, tmelt_in, latvap, &
   mg_rain_props = MGHydrometeorProps(rhow, dsph, lam_bnd_rain)
   mg_snow_props = MGHydrometeorProps(rhosn, dsph, lam_bnd_snow)
 
-end subroutine micro_mg_utils_init
+end subroutine micro_mg_utils_init_native
+
+pure function micro_mg_utils_gamma_native_cb(x_c) result(g_c) &
+     bind(C, name="micro_mg_utils_gamma_native_cb")
+  use iso_c_binding, only: c_double
+  real(c_double), value :: x_c
+  real(c_double) :: g_c
+
+  g_c = real(gamma(real(x_c, r8)), c_double)
+
+end function micro_mg_utils_gamma_native_cb
 
 ! Constructor for a constituent property object.
 function NewMGHydrometeorProps(rho, eff_dim, lambda_bounds, min_mean_mass) &

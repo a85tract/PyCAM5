@@ -2,6 +2,7 @@ import cam_misc_codon as _cam_misc
 import modal_aer_opt_codon as _modal_aer_opt
 import ndrop_codon as _ndrop
 import phys_grid_codon as _phys_grid
+from C import micro_mg_utils_gamma_native_cb(float) -> float
 from C import goffgratch_svp_ice_native_cb(float) -> float
 from C import goffgratch_svp_water_native_cb(float) -> float
 from C import bolton_svp_water_native_cb(float) -> float
@@ -6652,6 +6653,139 @@ def micro_mg_utils_init_scalars_codon(
     xxlv[0] = latvap
     xlf[0] = latice
     xxls[0] = xxlv[0] + xlf[0]
+
+
+@export
+def micro_mg_utils_init_codon(
+    kind: int,
+    expected_kind: int,
+    rh2o: float,
+    cpair: float,
+    tmelt_in: float,
+    latvap: float,
+    latice: float,
+    dcs: float,
+    pi: float,
+    dsph: float,
+    bs: float,
+    br: float,
+    rhow: float,
+    rhoi: float,
+    rhosn: float,
+    min_mean_mass_liq: float,
+    min_mean_mass_ice: float,
+    no_limiter_bits: int,
+    lam_bnd_rain1: float,
+    lam_bnd_rain2: float,
+    lam_bnd_snow1: float,
+    lam_bnd_snow2: float,
+    rv_p: cobj,
+    cpp_p: cobj,
+    tmelt_p: cobj,
+    xxlv_p: cobj,
+    xlf_p: cobj,
+    xxls_p: cobj,
+    gamma_bs_plus3_p: cobj,
+    gamma_half_br_plus5_p: cobj,
+    gamma_half_bs_plus5_p: cobj,
+    liq_rho_p: cobj,
+    liq_eff_dim_p: cobj,
+    liq_shape_coef_p: cobj,
+    liq_lambda_bounds_p: cobj,
+    liq_min_mean_mass_p: cobj,
+    ice_rho_p: cobj,
+    ice_eff_dim_p: cobj,
+    ice_shape_coef_p: cobj,
+    ice_lambda_bounds_p: cobj,
+    ice_min_mean_mass_p: cobj,
+    rain_rho_p: cobj,
+    rain_eff_dim_p: cobj,
+    rain_shape_coef_p: cobj,
+    rain_lambda_bounds_p: cobj,
+    rain_min_mean_mass_p: cobj,
+    snow_rho_p: cobj,
+    snow_eff_dim_p: cobj,
+    snow_shape_coef_p: cobj,
+    snow_lambda_bounds_p: cobj,
+    snow_min_mean_mass_p: cobj,
+    status_p: cobj,
+):
+    rv = Ptr[float](rv_p)
+    cpp = Ptr[float](cpp_p)
+    tmelt = Ptr[float](tmelt_p)
+    xxlv = Ptr[float](xxlv_p)
+    xlf = Ptr[float](xlf_p)
+    xxls = Ptr[float](xxls_p)
+    gamma_bs_plus3 = Ptr[float](gamma_bs_plus3_p)
+    gamma_half_br_plus5 = Ptr[float](gamma_half_br_plus5_p)
+    gamma_half_bs_plus5 = Ptr[float](gamma_half_bs_plus5_p)
+    liq_rho = Ptr[float](liq_rho_p)
+    liq_eff_dim = Ptr[float](liq_eff_dim_p)
+    liq_shape_coef = Ptr[float](liq_shape_coef_p)
+    liq_lambda_bounds = Ptr[float](liq_lambda_bounds_p)
+    liq_min_mean_mass = Ptr[float](liq_min_mean_mass_p)
+    ice_rho = Ptr[float](ice_rho_p)
+    ice_eff_dim = Ptr[float](ice_eff_dim_p)
+    ice_shape_coef = Ptr[float](ice_shape_coef_p)
+    ice_lambda_bounds = Ptr[float](ice_lambda_bounds_p)
+    ice_min_mean_mass = Ptr[float](ice_min_mean_mass_p)
+    rain_rho = Ptr[float](rain_rho_p)
+    rain_eff_dim = Ptr[float](rain_eff_dim_p)
+    rain_shape_coef = Ptr[float](rain_shape_coef_p)
+    rain_lambda_bounds = Ptr[float](rain_lambda_bounds_p)
+    rain_min_mean_mass = Ptr[float](rain_min_mean_mass_p)
+    snow_rho = Ptr[float](snow_rho_p)
+    snow_eff_dim = Ptr[float](snow_eff_dim_p)
+    snow_shape_coef = Ptr[float](snow_shape_coef_p)
+    snow_lambda_bounds = Ptr[float](snow_lambda_bounds_p)
+    snow_min_mean_mass = Ptr[float](snow_min_mean_mass_p)
+    status = Ptr[int](status_p)
+
+    if kind != expected_kind:
+        status[0] = 1
+        return
+
+    status[0] = 0
+    rv[0] = rh2o
+    cpp[0] = cpair
+    tmelt[0] = tmelt_in
+    xxlv[0] = latvap
+    xlf[0] = latice
+    xxls[0] = xxlv[0] + xlf[0]
+
+    gamma_bs_plus3[0] = micro_mg_utils_gamma_native_cb(3.0 + bs)
+    gamma_half_br_plus5[0] = micro_mg_utils_gamma_native_cb(5.0 / 2.0 + br / 2.0)
+    gamma_half_bs_plus5[0] = micro_mg_utils_gamma_native_cb(5.0 / 2.0 + bs / 2.0)
+
+    liq_rho[0] = rhow
+    liq_eff_dim[0] = dsph
+    liq_lambda_bounds[0] = float(no_limiter_bits)
+    liq_lambda_bounds[1] = float(no_limiter_bits)
+    Ptr[int](liq_lambda_bounds_p)[0] = no_limiter_bits
+    Ptr[int](liq_lambda_bounds_p)[1] = no_limiter_bits
+    liq_min_mean_mass[0] = min_mean_mass_liq
+    liq_shape_coef[0] = rhow * pi * micro_mg_utils_gamma_native_cb(dsph + 1.0) / 6.0
+
+    ice_rho[0] = rhoi
+    ice_eff_dim[0] = dsph
+    ice_lambda_bounds[0] = 1.0 / (2.0 * dcs)
+    ice_lambda_bounds[1] = 1.0 / 10.0e-6
+    ice_min_mean_mass[0] = min_mean_mass_ice
+    ice_shape_coef[0] = rhoi * pi * micro_mg_utils_gamma_native_cb(dsph + 1.0) / 6.0
+
+    rain_rho[0] = rhow
+    rain_eff_dim[0] = dsph
+    rain_lambda_bounds[0] = lam_bnd_rain1
+    rain_lambda_bounds[1] = lam_bnd_rain2
+    Ptr[int](rain_min_mean_mass_p)[0] = no_limiter_bits
+    rain_shape_coef[0] = rhow * pi * micro_mg_utils_gamma_native_cb(dsph + 1.0) / 6.0
+
+    snow_rho[0] = rhosn
+    snow_eff_dim[0] = dsph
+    snow_lambda_bounds[0] = lam_bnd_snow1
+    snow_lambda_bounds[1] = lam_bnd_snow2
+    Ptr[int](snow_min_mean_mass_p)[0] = no_limiter_bits
+    snow_shape_coef[0] = rhosn * pi * micro_mg_utils_gamma_native_cb(dsph + 1.0) / 6.0
 
 
 @export
