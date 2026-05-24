@@ -245,6 +245,13 @@ interface
       type(c_ptr), value :: text_p
       integer(c_int64_t) :: valid_c
    end function rad_cnst_check_specie_type_codon
+   function check_specie_type_codon(n_c, text_p) result(valid_c) &
+        bind(c, name="check_specie_type_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: n_c
+      type(c_ptr), value :: text_p
+      integer(c_int64_t) :: valid_c
+   end function check_specie_type_codon
    function rad_cnst_check_mode_type_codon(n_c, text_p) result(valid_c) &
         bind(c, name="rad_cnst_check_mode_type_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
@@ -252,18 +259,37 @@ interface
       type(c_ptr), value :: text_p
       integer(c_int64_t) :: valid_c
    end function rad_cnst_check_mode_type_codon
+   function check_mode_type_codon(n_c, text_p) result(valid_c) &
+        bind(c, name="check_mode_type_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: n_c
+      type(c_ptr), value :: text_p
+      integer(c_int64_t) :: valid_c
+   end function check_mode_type_codon
    subroutine rad_cnst_mam_mmr_idx_codon(mode_idx_c, spec_idx_c, nmodes_c, nspec_c, idx_mmr_a_c, &
         idx_p, status_p) bind(c, name="rad_cnst_mam_mmr_idx_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
       integer(c_int64_t), value :: mode_idx_c, spec_idx_c, nmodes_c, nspec_c, idx_mmr_a_c
       type(c_ptr), value :: idx_p, status_p
    end subroutine rad_cnst_mam_mmr_idx_codon
+   subroutine rad_cnst_get_mam_mmr_idx_codon(mode_idx_c, spec_idx_c, nmodes_c, nspec_c, idx_mmr_a_c, &
+        idx_p, status_p) bind(c, name="rad_cnst_get_mam_mmr_idx_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: mode_idx_c, spec_idx_c, nmodes_c, nspec_c, idx_mmr_a_c
+      type(c_ptr), value :: idx_p, status_p
+   end subroutine rad_cnst_get_mam_mmr_idx_codon
    subroutine rad_cnst_mode_num_idx_codon(mode_idx_c, nmodes_c, source_ascii_c, idx_num_a_c, &
         idx_p, status_p) bind(c, name="rad_cnst_mode_num_idx_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
       integer(c_int64_t), value :: mode_idx_c, nmodes_c, source_ascii_c, idx_num_a_c
       type(c_ptr), value :: idx_p, status_p
    end subroutine rad_cnst_mode_num_idx_codon
+   subroutine rad_cnst_get_mode_num_idx_codon(mode_idx_c, nmodes_c, source_ascii_c, idx_num_a_c, &
+        idx_p, status_p) bind(c, name="rad_cnst_get_mode_num_idx_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: mode_idx_c, nmodes_c, source_ascii_c, idx_num_a_c
+      type(c_ptr), value :: idx_p, status_p
+   end subroutine rad_cnst_get_mode_num_idx_codon
 end interface
 
 
@@ -1806,12 +1832,12 @@ subroutine parse_mode_defs(nl_in, modes)
          text_ascii(i - ib + 1) = int(iachar(str(i:i)), c_int64_t)
       end do
 
-      valid_c = rad_cnst_check_specie_type_codon(int(ie - ib + 1, c_int64_t), c_loc(text_ascii(1)))
+      valid_c = check_specie_type_codon(int(ie - ib + 1, c_int64_t), c_loc(text_ascii(1)))
       if (valid_c /= 0_c_int64_t) then
          if (.not. rad_cnst_check_specie_type_proof_written) then
             rad_cnst_check_specie_type_proof_written = .true.
             if (masterproc) then
-               write(iulog,'(A)') 'rad_cnst_check_specie_type direct = codon'
+               write(iulog,'(A)') 'check_specie_type direct = codon'
                call flush(iulog)
             end if
          end if
@@ -1839,12 +1865,12 @@ subroutine parse_mode_defs(nl_in, modes)
          text_ascii(i - ib + 1) = int(iachar(str(i:i)), c_int64_t)
       end do
 
-      valid_c = rad_cnst_check_mode_type_codon(int(ie - ib + 1, c_int64_t), c_loc(text_ascii(1)))
+      valid_c = check_mode_type_codon(int(ie - ib + 1, c_int64_t), c_loc(text_ascii(1)))
       if (valid_c /= 0_c_int64_t) then
          if (.not. rad_cnst_check_mode_type_proof_written) then
             rad_cnst_check_mode_type_proof_written = .true.
             if (masterproc) then
-               write(iulog,'(A)') 'rad_cnst_check_mode_type direct = codon'
+               write(iulog,'(A)') 'check_mode_type direct = codon'
                call flush(iulog)
             end if
          end if
@@ -2110,7 +2136,7 @@ subroutine rad_cnst_get_mam_mmr_idx(mode_idx, spec_idx, idx)
 
    idx_c = 0_c_int64_t
    status_c = 0_c_int64_t
-   call rad_cnst_mam_mmr_idx_codon(int(mode_idx, c_int64_t), int(spec_idx, c_int64_t), &
+   call rad_cnst_get_mam_mmr_idx_codon(int(mode_idx, c_int64_t), int(spec_idx, c_int64_t), &
         int(mlist%nmodes, c_int64_t), -1_c_int64_t, 0_c_int64_t, c_loc(idx_c), c_loc(status_c))
 
    if (status_c == -1_c_int64_t) then
@@ -2128,7 +2154,7 @@ subroutine rad_cnst_get_mam_mmr_idx(mode_idx, spec_idx, idx)
 
    idx_c = 0_c_int64_t
    status_c = 0_c_int64_t
-   call rad_cnst_mam_mmr_idx_codon(int(mode_idx, c_int64_t), int(spec_idx, c_int64_t), &
+   call rad_cnst_get_mam_mmr_idx_codon(int(mode_idx, c_int64_t), int(spec_idx, c_int64_t), &
         int(mlist%nmodes, c_int64_t), int(modes%comps(m_idx)%nspec, c_int64_t), &
         idx_mmr_a_c, c_loc(idx_c), c_loc(status_c))
 
@@ -2249,7 +2275,7 @@ subroutine rad_cnst_get_mode_num_idx(mode_idx, cnst_idx)
 
    cnst_idx_c = 0_c_int64_t
    status_c = 0_c_int64_t
-   call rad_cnst_mode_num_idx_codon(int(mode_idx, c_int64_t), int(mlist%nmodes, c_int64_t), &
+   call rad_cnst_get_mode_num_idx_codon(int(mode_idx, c_int64_t), int(mlist%nmodes, c_int64_t), &
         -1_c_int64_t, 0_c_int64_t, c_loc(cnst_idx_c), c_loc(status_c))
 
    if (status_c == -1_c_int64_t) then
@@ -2262,7 +2288,7 @@ subroutine rad_cnst_get_mode_num_idx(mode_idx, cnst_idx)
 
    cnst_idx_c = 0_c_int64_t
    status_c = 0_c_int64_t
-   call rad_cnst_mode_num_idx_codon(int(mode_idx, c_int64_t), int(mlist%nmodes, c_int64_t), &
+   call rad_cnst_get_mode_num_idx_codon(int(mode_idx, c_int64_t), int(mlist%nmodes, c_int64_t), &
         int(iachar(modes%comps(m_idx)%source_num_a(1:1)), c_int64_t), &
         int(modes%comps(m_idx)%idx_num_a, c_int64_t), c_loc(cnst_idx_c), c_loc(status_c))
 

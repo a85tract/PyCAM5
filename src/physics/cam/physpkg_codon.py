@@ -6257,6 +6257,11 @@ def rad_cnst_check_specie_type_codon(n: int, text_p: cobj) -> int:
 
 
 @export
+def check_specie_type_codon(n: int, text_p: cobj) -> int:
+    return rad_cnst_check_specie_type_codon(n, text_p)
+
+
+@export
 def rad_cnst_check_mode_type_codon(n: int, text_p: cobj) -> int:
     text = Ptr[int](text_p)
     if n == 5:
@@ -6282,6 +6287,11 @@ def rad_cnst_check_mode_type_codon(n: int, text_p: cobj) -> int:
         if _ascii_eq(text, n, 99, 111, 97, 114, 115, 101, 95, 115, 101, 97, 115, 97, 108, 116):
             return 1
     return 0
+
+
+@export
+def check_mode_type_codon(n: int, text_p: cobj) -> int:
+    return rad_cnst_check_mode_type_codon(n, text_p)
 
 
 @export
@@ -6313,6 +6323,27 @@ def rad_cnst_mam_mmr_idx_codon(
 
 
 @export
+def rad_cnst_get_mam_mmr_idx_codon(
+    mode_idx: int,
+    spec_idx: int,
+    nmodes: int,
+    nspec: int,
+    idx_mmr_a: int,
+    idx_p: cobj,
+    status_p: cobj,
+):
+    rad_cnst_mam_mmr_idx_codon(
+        mode_idx,
+        spec_idx,
+        nmodes,
+        nspec,
+        idx_mmr_a,
+        idx_p,
+        status_p,
+    )
+
+
+@export
 def rad_cnst_mode_num_idx_codon(
     mode_idx: int,
     nmodes: int,
@@ -6337,6 +6368,25 @@ def rad_cnst_mode_num_idx_codon(
             return
 
         idx[0] = idx_num_a
+
+
+@export
+def rad_cnst_get_mode_num_idx_codon(
+    mode_idx: int,
+    nmodes: int,
+    source_ascii: int,
+    idx_num_a: int,
+    idx_p: cobj,
+    status_p: cobj,
+):
+    rad_cnst_mode_num_idx_codon(
+        mode_idx,
+        nmodes,
+        source_ascii,
+        idx_num_a,
+        idx_p,
+        status_p,
+    )
 
 
 @export
