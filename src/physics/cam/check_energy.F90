@@ -75,6 +75,8 @@ module check_energy
   logical  :: use_native_tracers_batch_impl = .false.
   logical  :: tracers_batch_impl_selected = .false.
   logical  :: tracers_batch_entered_logged = .false.
+  logical  :: check_energy_defaultopts_logged = .false.
+  logical  :: check_energy_setopts_logged = .false.
 
   real(r8) :: teout_glob           ! global mean energy of output state
   real(r8) :: teinp_glob           ! global mean energy of input state
@@ -470,6 +472,21 @@ subroutine check_tracers_batch_log_entered()
 
 end subroutine check_tracers_batch_log_entered
 
+subroutine check_energy_log_direct(logged, proof_line)
+
+   logical, intent(inout) :: logged
+   character(len=*), intent(in) :: proof_line
+
+   if (logged) return
+   logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') trim(proof_line)
+      call flush(iulog)
+   end if
+
+end subroutine check_energy_log_direct
+
 subroutine check_energy_defaultopts( &
    print_energy_errors_out)
 !----------------------------------------------------------------------- 
@@ -482,6 +499,7 @@ subroutine check_energy_defaultopts( &
 
    if ( present(print_energy_errors_out) ) then
       out_c = check_energy_defaultopts_codon(merge(1_c_int64_t, 0_c_int64_t, print_energy_errors))
+      call check_energy_log_direct(check_energy_defaultopts_logged, 'check_energy_defaultopts direct = codon')
       print_energy_errors_out = out_c /= 0_c_int64_t
    endif
 
@@ -501,6 +519,7 @@ subroutine check_energy_setopts( &
 
    if ( present(print_energy_errors_in) ) then
       out_c = check_energy_setopts_codon(merge(1_c_int64_t, 0_c_int64_t, print_energy_errors_in))
+      call check_energy_log_direct(check_energy_setopts_logged, 'check_energy_setopts direct = codon')
       print_energy_errors = out_c /= 0_c_int64_t
    endif
 

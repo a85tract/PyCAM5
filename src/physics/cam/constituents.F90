@@ -87,6 +87,8 @@ module constituents
   logical :: use_native_constituents_thermo_impl = .false.
   logical :: constituents_thermo_impl_selected = .false.
   logical :: constituents_thermo_proof_written = .false.
+  logical :: cnst_read_iv_logged = .false.
+  logical :: cnst_cam_outfld_logged = .false.
 
   interface
      function constituents_rgas_codon(r_universal_c, mwc_c) result(rgas_c) &
@@ -166,6 +168,23 @@ CONTAINS
     end if
 
   end subroutine constituents_thermo_proof_once
+
+!==============================================================================
+
+  subroutine constituents_log_direct(logged, proof_line)
+
+    logical, intent(inout) :: logged
+    character(len=*), intent(in) :: proof_line
+
+    if (logged) return
+    logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') trim(proof_line)
+       call flush(iulog)
+    end if
+
+  end subroutine constituents_log_direct
 
 !==============================================================================
 
@@ -485,6 +504,7 @@ CONTAINS
 !-----------------------------------------------------------------------
 
     cnst_read_iv = cnst_read_iv_codon(merge(1_c_int64_t, 0_c_int64_t, read_init_vals(m))) /= 0_c_int64_t
+    call constituents_log_direct(cnst_read_iv_logged, 'cnst_read_iv direct = codon')
  end function cnst_read_iv
 
 !==============================================================================
@@ -546,6 +566,7 @@ function cnst_cam_outfld(m)
 !-----------------------------------------------------------------------
 
    cnst_cam_outfld = cnst_cam_outfld_codon(merge(1_c_int64_t, 0_c_int64_t, cam_outfld_(m))) /= 0_c_int64_t
+   call constituents_log_direct(cnst_cam_outfld_logged, 'cnst_cam_outfld direct = codon')
 
 end function cnst_cam_outfld
 

@@ -87,6 +87,7 @@
   logical :: diffusion_solver_setup_impl_selected = .false.
   logical :: diffusion_solver_setup_proof_written = .false.
   logical :: my_any_logged = .false.
+  logical :: diffuse_logged = .false.
 
   interface
      subroutine init_vdiff_codon(kind_c, expected_kind_c, do_iss_c, rair_in_c, gravit_in_c, rair_p, gravit_p, &
@@ -188,6 +189,25 @@
     end if
 
   end subroutine diffusion_solver_setup_proof_once
+
+  ! =============================================================================== !
+
+  subroutine diffusion_solver_log_direct(logged, proof_line)
+
+    use spmd_utils, only: masterproc
+
+    logical, intent(inout) :: logged
+    character(len=*), intent(in) :: proof_line
+
+    if (logged) return
+    logged = .true.
+
+    if (masterproc .and. iulog > 0) then
+       write(iulog,'(A)') trim(proof_line)
+       call flush(iulog)
+    end if
+
+  end subroutine diffusion_solver_log_direct
 
   ! =============================================================================== !
 
@@ -1174,13 +1194,7 @@
     end do
 
     my_any = my_any_codon(int(size(a%fields), c_int64_t), c_loc(values(1))) /= 0_c_int64_t
-    if (.not. my_any_logged) then
-       my_any_logged = .true.
-       if (masterproc .and. iulog > 0) then
-          write(iulog,'(A)') 'my_any direct = codon'
-          call flush(iulog)
-       end if
-    end if
+    call diffusion_solver_log_direct(my_any_logged, 'my_any direct = codon')
   end function my_any
 
   logical function diffuse(fieldlist,name,qindex)
@@ -1207,6 +1221,7 @@
 
     if (field_idx > 0) then
        diffuse = fieldlist%fields(field_idx)
+       call diffusion_solver_log_direct(diffuse_logged, 'diffuse direct = codon')
     else
        diffuse = .false.
     end if
