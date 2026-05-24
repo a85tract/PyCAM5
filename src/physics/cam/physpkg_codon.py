@@ -2347,6 +2347,28 @@ def physics_ptend_scale_field_codon(
 
 
 @export
+def state_cnst_min_nz_codon(
+    ncol: int,
+    psetcols: int,
+    pver: int,
+    pcnst: int,
+    q_p: cobj,
+    lim: float,
+    qix: int,
+    numix: int,
+):
+    q = Ptr[float](q_p)
+
+    for k in range(1, pver + 1):
+        for i in range(1, ncol + 1):
+            idx_q = _field3_idx(i, k, qix, psetcols, pver)
+            if q[idx_q] < lim:
+                q[idx_q] = 0.0
+                if numix > 0:
+                    q[_field3_idx(i, k, numix, psetcols, pver)] = 0.0
+
+
+@export
 def physics_ptend_sum_field_codon(
     ncol: int,
     psetcols: int,

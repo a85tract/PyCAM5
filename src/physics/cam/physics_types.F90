@@ -176,6 +176,7 @@ module physics_types
   logical :: physics_state_copy_logged = .false.
   logical :: physics_state_alloc_logged = .false.
   logical :: physics_tend_alloc_logged = .false.
+  logical :: state_cnst_min_nz_logged = .false.
 
   interface
      subroutine physics_tend_init_codon_raw(psetcols_c, pver_c, dtdt_p, dudt_p, dvdt_p, flx_net_p, te_tnd_p, tw_tnd_p) &
@@ -328,6 +329,14 @@ module physics_types
        integer(c_int64_t), value :: ncol_c, ld1_c, nlev_c, n3_c
        type(c_ptr), value :: src_p, dst_p
      end subroutine physics_copy_real_3d_codon_raw
+
+     subroutine state_cnst_min_nz_codon_raw(ncol_c, psetcols_c, pver_c, pcnst_c, q_p, lim_c, qix_c, numix_c) &
+          bind(c, name="state_cnst_min_nz_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, psetcols_c, pver_c, pcnst_c, qix_c, numix_c
+       real(c_double), value :: lim_c
+       type(c_ptr), value :: q_p
+     end subroutine state_cnst_min_nz_codon_raw
   end interface
 
 
@@ -645,6 +654,17 @@ contains
     call physics_copy_real_3d_codon_raw(int(ncol_local, c_int64_t), int(ld1_local, c_int64_t), &
          int(nlev_local, c_int64_t), int(n3_local, c_int64_t), c_loc(src), c_loc(dst))
   end subroutine physics_copy_real_3d_codon
+
+  subroutine state_cnst_min_nz_codon(ncol_local, psetcols_local, q, lim, qix, numix)
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
+    integer, intent(in) :: ncol_local, psetcols_local, qix, numix
+    real(r8), target, intent(inout) :: q(:,:,:)
+    real(r8), intent(in) :: lim
+
+    call state_cnst_min_nz_codon_raw(int(ncol_local, c_int64_t), int(psetcols_local, c_int64_t), &
+         int(pver, c_int64_t), int(pcnst, c_int64_t), c_loc(q), real(lim, c_double), &
+         int(qix, c_int64_t), int(numix, c_int64_t))
+  end subroutine state_cnst_min_nz_codon
 
 !===============================================================================
   subroutine physics_type_alloc(phys_state, phys_tend, begchunk, endchunk, psetcols)
@@ -987,18 +1007,10 @@ contains
       ! Ignored if <= 0 (and therefore constituent is not present).
       integer,  intent(in) :: numix
 
-      if (numix > 0) then
-         ! Where q is too small, zero mass and number
-         ! concentration.
-         where (state%q(:ncol,:,qix) < lim)
-            state%q(:ncol,:,qix) = 0._r8
-            state%q(:ncol,:,numix) = 0._r8
-         end where
-      else
-         ! If no number index, just do mass.
-          where (state%q(:ncol,:,qix) < lim)
-             state%q(:ncol,:,qix) = 0._r8
-          end where
+      call state_cnst_min_nz_codon(ncol, state%psetcols, state%q, lim, qix, numix)
+      if (.not. state_cnst_min_nz_logged) then
+         call physics_types_zero_proof_once()
+         call physics_types_log_direct(state_cnst_min_nz_logged, 'state_cnst_min_nz direct = codon')
       end if
 
     end subroutine state_cnst_min_nz
