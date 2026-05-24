@@ -170,6 +170,40 @@ def _tropopause_interp_t(
     return trop_t
 
 
+@export
+def tropopause_interpolateT_codon(
+    i: int,
+    lev: int,
+    trop_p: float,
+    pcols: int,
+    pver: int,
+    state_t_p: cobj,
+    state_pmid_p: cobj,
+) -> float:
+    return _tropopause_interp_t(
+        i,
+        lev,
+        trop_p,
+        pcols,
+        pver,
+        Ptr[float](state_t_p),
+        Ptr[float](state_pmid_p),
+    )
+
+
+@export
+def tropopause_interpolatet_codon(
+    i: int,
+    lev: int,
+    trop_p: float,
+    pcols: int,
+    pver: int,
+    state_t_p: cobj,
+    state_pmid_p: cobj,
+) -> float:
+    return tropopause_interpolateT_codon(i, lev, trop_p, pcols, pver, state_t_p, state_pmid_p)
+
+
 @inline
 def _tropopause_interp_z(
     i: int,
@@ -205,6 +239,52 @@ def _tropopause_interp_z(
             log(trop_p) - log(state_pmid[_field2_idx(i, lev, pcols)])
         ) * dzdlogp
     return trop_z
+
+
+@export
+def tropopause_interpolateZ_codon(
+    i: int,
+    lev: int,
+    trop_p: float,
+    pcols: int,
+    state_zm_p: cobj,
+    state_zi_p: cobj,
+    state_pmid_p: cobj,
+    state_pint_p: cobj,
+) -> float:
+    return _tropopause_interp_z(
+        i,
+        lev,
+        trop_p,
+        pcols,
+        Ptr[float](state_zm_p),
+        Ptr[float](state_zi_p),
+        Ptr[float](state_pmid_p),
+        Ptr[float](state_pint_p),
+    )
+
+
+@export
+def tropopause_interpolatez_codon(
+    i: int,
+    lev: int,
+    trop_p: float,
+    pcols: int,
+    state_zm_p: cobj,
+    state_zi_p: cobj,
+    state_pmid_p: cobj,
+    state_pint_p: cobj,
+) -> float:
+    return tropopause_interpolateZ_codon(
+        i,
+        lev,
+        trop_p,
+        pcols,
+        state_zm_p,
+        state_zi_p,
+        state_pmid_p,
+        state_pint_p,
+    )
 
 
 @inline
@@ -8288,6 +8368,19 @@ def zm_qsat_hpa_codon(
 
 
 @export
+def qsat_hpa_codon(
+    t: float,
+    p_hpa: float,
+    idx: int,
+    epsilo: float,
+    omeps: float,
+    es_p: cobj,
+    qm_p: cobj,
+):
+    _zm_qsat_hpa_ptr_codon(t, p_hpa, idx, epsilo, omeps, Ptr[float](es_p), Ptr[float](qm_p))
+
+
+@export
 def zm_entropy_codon(
     tk: float,
     p_hpa: float,
@@ -8320,6 +8413,41 @@ def zm_entropy_codon(
         rgas,
         eps1,
         rh2o,
+    )
+
+
+@export
+def entropy_codon(
+    tk: float,
+    p_hpa: float,
+    qtot: float,
+    rl: float,
+    cpliq: float,
+    cpwv: float,
+    tfreez: float,
+    cpres: float,
+    rgas: float,
+    eps1: float,
+    rh2o: float,
+    idx: int,
+    epsilo: float,
+    omeps: float,
+) -> float:
+    return zm_entropy_codon(
+        tk,
+        p_hpa,
+        qtot,
+        rl,
+        cpliq,
+        cpwv,
+        tfreez,
+        cpres,
+        rgas,
+        eps1,
+        rh2o,
+        idx,
+        epsilo,
+        omeps,
     )
 
 

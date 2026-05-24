@@ -5225,26 +5225,26 @@ real(r8) function entropy(TK,p,qtot)
      real(r8), parameter :: pref = 1000._r8
 
      interface
-        function zm_entropy_codon(TK_c, p_c, qtot_c, rl_c, cpliq_c, cpwv_c, tfreez_c, &
+        function entropy_codon(TK_c, p_c, qtot_c, rl_c, cpliq_c, cpwv_c, tfreez_c, &
              cpres_c, rgas_c, eps1_c, rh2o_c, wv_idx_c, epsilo_c, omeps_c) result(out_c) &
-             bind(c, name="zm_entropy_codon")
+             bind(c, name="entropy_codon")
           use iso_c_binding, only: c_double, c_int64_t
           real(c_double), value :: TK_c, p_c, qtot_c, rl_c, cpliq_c, cpwv_c, tfreez_c
           real(c_double), value :: cpres_c, rgas_c, eps1_c, rh2o_c, epsilo_c, omeps_c
           integer(c_int64_t), value :: wv_idx_c
           real(c_double) :: out_c
-        end function zm_entropy_codon
+        end function entropy_codon
      end interface
 
      call zm_entropy_select_impl()
      if (.not. use_native_zm_entropy) then
-        entropy = real(zm_entropy_codon(real(TK, c_double), real(p, c_double), real(qtot, c_double), &
+        entropy = real(entropy_codon(real(TK, c_double), real(p, c_double), real(qtot, c_double), &
              real(rl, c_double), real(cpliq, c_double), real(cpwv, c_double), real(tfreez, c_double), &
              real(cpres, c_double), real(rgas, c_double), real(eps1, c_double), real(rh2o, c_double), &
              int(wv_sat_get_default_idx(), c_int64_t), real(epsilo, c_double), &
              real(1._r8 - epsilo, c_double)), r8)
         call zm_conv_log_direct(zm_entropy_logged, &
-             'zm_entropy direct = codon; entropy expression native callback')
+             'entropy direct = codon; entropy expression native callback')
         return
      end if
 
@@ -5411,21 +5411,21 @@ subroutine qsat_hPa(t, p, es, qm)
                                ! (vapor mass over dry mass, kg/kg)
 
   interface
-     subroutine zm_qsat_hpa_codon(t_c, p_c, idx_c, epsilo_c, omeps_c, es_p, qm_p) &
-          bind(c, name="zm_qsat_hpa_codon")
+     subroutine qsat_hpa_codon(t_c, p_c, idx_c, epsilo_c, omeps_c, es_p, qm_p) &
+          bind(c, name="qsat_hpa_codon")
        use iso_c_binding, only: c_double, c_int64_t, c_ptr
        real(c_double), value :: t_c, p_c, epsilo_c, omeps_c
        integer(c_int64_t), value :: idx_c
        type(c_ptr), value :: es_p, qm_p
-     end subroutine zm_qsat_hpa_codon
+     end subroutine qsat_hpa_codon
   end interface
 
   call zm_qsat_hpa_select_impl()
   if (.not. use_native_zm_qsat_hpa) then
-     call zm_qsat_hpa_codon(real(t, c_double), real(p, c_double), &
+     call qsat_hpa_codon(real(t, c_double), real(p, c_double), &
           int(wv_sat_get_default_idx(), c_int64_t), real(epsilo, c_double), &
           real(1._r8 - epsilo, c_double), c_loc(es), c_loc(qm))
-     call zm_conv_log_direct(zm_qsat_hpa_logged, 'qsat_hPa direct = codon')
+     call zm_conv_log_direct(zm_qsat_hpa_logged, 'qsat_hpa direct = codon')
      return
   end if
 

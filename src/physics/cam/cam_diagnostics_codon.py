@@ -2471,3 +2471,19 @@ def pkg_cldoptics_cldclw_codon(
             clwp[_idx2(i, k, pcols)] = clwc0 * hl[i - 1] * (
                 emziohl[_idx2(i, k + 1, pcols)] - emziohl[_idx2(i, k, pcols)]
             )
+
+
+@export
+def cldclw_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    pverp: int,
+    zi_p: cobj,
+    clwp_p: cobj,
+    tpw_p: cobj,
+    hl_p: cobj,
+    emziohl_p: cobj,
+    rhl_p: cobj,
+):
+    pkg_cldoptics_cldclw_codon(ncol, pcols, pver, pverp, zi_p, clwp_p, tpw_p, hl_p, emziohl_p, rhl_p)

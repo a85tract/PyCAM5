@@ -21,6 +21,7 @@ module pkg_cldoptics
   logical :: use_native_pkg_cldoptics_impl = .false.
   logical :: pkg_cldoptics_impl_selected = .false.
   logical :: pkg_cldoptics_proof_written = .false.
+  logical :: cldclw_logged = .false.
 
   interface
      subroutine pkg_cldoptics_cldovrlap_codon(ncol_c, pcols_c, pver_c, pverp_c, pint_p, cld_p, nmxrgn_p, pmxrgn_p) &
@@ -30,12 +31,12 @@ module pkg_cldoptics
        type(c_ptr), value :: pint_p, cld_p, nmxrgn_p, pmxrgn_p
      end subroutine pkg_cldoptics_cldovrlap_codon
 
-     subroutine pkg_cldoptics_cldclw_codon(ncol_c, pcols_c, pver_c, pverp_c, &
-          zi_p, clwp_p, tpw_p, hl_p, emziohl_p, rhl_p) bind(c, name="pkg_cldoptics_cldclw_codon")
+     subroutine cldclw_codon(ncol_c, pcols_c, pver_c, pverp_c, &
+          zi_p, clwp_p, tpw_p, hl_p, emziohl_p, rhl_p) bind(c, name="cldclw_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, pverp_c
        type(c_ptr), value :: zi_p, clwp_p, tpw_p, hl_p, emziohl_p, rhl_p
-     end subroutine pkg_cldoptics_cldclw_codon
+     end subroutine cldclw_codon
   end interface
 
 contains
@@ -309,6 +310,8 @@ contains
 !===============================================================================
   subroutine cldclw(lchnk   ,ncol    ,zi      ,clwp    ,tpw     ,hl      )
     use iso_c_binding, only: c_int64_t, c_loc
+    use cam_logfile, only: iulog
+    use spmd_utils,  only: masterproc
 !----------------------------------------------------------------------- 
 ! 
 ! Purpose: 
@@ -351,9 +354,13 @@ contains
 
     if (.not. use_native_pkg_cldoptics_impl) then
        call pkg_cldoptics_proof_once()
-       call pkg_cldoptics_cldclw_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+       call cldclw_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
             int(pver, c_int64_t), int(pverp, c_int64_t), c_loc(zi(1,1)), c_loc(clwp(1,1)), &
             c_loc(tpw(1)), c_loc(hl(1)), c_loc(emziohl(1,1)), c_loc(rhl(1)))
+       if (.not. cldclw_logged) then
+          if (masterproc) write(iulog,'(A)') 'cldclw direct = codon'
+          cldclw_logged = .true.
+       end if
        return
     end if
 !

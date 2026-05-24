@@ -88,6 +88,8 @@ module tropopause
   logical :: use_native_tropopause_twmo_profile_impl = .false.
   logical :: tropopause_twmo_profile_impl_selected = .false.
   logical :: tropopause_twmo_profile_entered_logged = .false.
+  logical :: tropopause_interpolateT_logged = .false.
+  logical :: tropopause_interpolateZ_logged = .false.
 
 !================================================================================================
 contains
@@ -1406,10 +1408,11 @@ contains
   ! This routine interpolates the temperatures in the physics state to
   ! find the temperature at the specified tropopause pressure.
   function tropopause_interpolateT(pstate, icol, tropLev, tropP)
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
  
     implicit none
 
-    type(physics_state), intent(in)     :: pstate 
+    type(physics_state), intent(in), target :: pstate
     integer, intent(in)                 :: icol               ! column being processed
     integer, intent(in)                 :: tropLev            ! tropopause level index   
     real(r8), optional, intent(in)      :: tropP              ! tropopause pressure (Pa)
@@ -1418,6 +1421,32 @@ contains
     ! Local Variables
     real(r8)   :: tropT              ! tropopause temperature (K)
     real(r8)   :: dTdlogP            ! dT/dlog(P)
+
+    interface
+       function tropopause_interpolatet_codon(icol_c, tropLev_c, tropP_c, pcols_c, pver_c, &
+            state_t_p, state_pmid_p) result(tropT_c) bind(c, name="tropopause_interpolatet_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: icol_c, tropLev_c, pcols_c, pver_c
+         real(c_double), value :: tropP_c
+         type(c_ptr), value :: state_t_p, state_pmid_p
+         real(c_double) :: tropT_c
+       end function tropopause_interpolatet_codon
+    end interface
+
+    if (.not. tropopause_interpolateT_logged) then
+       if (masterproc) then
+          write(iulog,'(A)') 'tropopause_interpolateT direct = codon'
+          call tropopause_find_append_proof('tropopause_interpolateT direct = codon')
+          call flush(iulog)
+       end if
+       tropopause_interpolateT_logged = .true.
+    end if
+
+    tropopause_interpolateT = real(tropopause_interpolatet_codon( &
+         int(icol, c_int64_t), int(tropLev, c_int64_t), real(tropP, c_double), &
+         int(pcols, c_int64_t), int(pver, c_int64_t), &
+         c_loc(pstate%t(1,1)), c_loc(pstate%pmid(1,1))), r8)
+    return
     
     ! Intrepolate the temperature linearly against log(P)
     
@@ -1450,10 +1479,11 @@ contains
   ! This routine interpolates the geopotential height in the physics state to
   ! find the geopotential height at the specified tropopause pressure.
   function tropopause_interpolateZ(pstate, icol, tropLev, tropP)
+    use iso_c_binding, only: c_double, c_int64_t, c_loc
  
     implicit none
 
-    type(physics_state), intent(in)     :: pstate 
+    type(physics_state), intent(in), target :: pstate
     integer, intent(in)                 :: icol               ! column being processed
     integer, intent(in)                 :: tropLev            ! tropopause level index   
     real(r8), optional, intent(in)      :: tropP              ! tropopause pressure (Pa)
@@ -1462,6 +1492,33 @@ contains
     ! Local Variables
     real(r8)   :: tropZ              ! tropopause geopotential height (m)
     real(r8)   :: dZdlogP            ! dZ/dlog(P)
+
+    interface
+       function tropopause_interpolatez_codon(icol_c, tropLev_c, tropP_c, pcols_c, &
+            state_zm_p, state_zi_p, state_pmid_p, state_pint_p) result(tropZ_c) &
+            bind(c, name="tropopause_interpolatez_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: icol_c, tropLev_c, pcols_c
+         real(c_double), value :: tropP_c
+         type(c_ptr), value :: state_zm_p, state_zi_p, state_pmid_p, state_pint_p
+         real(c_double) :: tropZ_c
+       end function tropopause_interpolatez_codon
+    end interface
+
+    if (.not. tropopause_interpolateZ_logged) then
+       if (masterproc) then
+          write(iulog,'(A)') 'tropopause_interpolateZ direct = codon'
+          call tropopause_find_append_proof('tropopause_interpolateZ direct = codon')
+          call flush(iulog)
+       end if
+       tropopause_interpolateZ_logged = .true.
+    end if
+
+    tropopause_interpolateZ = real(tropopause_interpolatez_codon( &
+         int(icol, c_int64_t), int(tropLev, c_int64_t), real(tropP, c_double), &
+         int(pcols, c_int64_t), c_loc(pstate%zm(1,1)), c_loc(pstate%zi(1,1)), &
+         c_loc(pstate%pmid(1,1)), c_loc(pstate%pint(1,1))), r8)
+    return
     
     ! Intrepolate the geopotential height linearly against log(P)
     
