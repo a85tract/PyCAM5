@@ -7523,6 +7523,43 @@ def wv_sat_svp_trans_codon(t: float, idx: int, tmelt: float, ttrice: float) -> f
 
 
 @export
+def svp_water_codon(t: float, idx: int) -> float:
+    return wv_sat_svp_water_codon(t, idx)
+
+
+@export
+def svp_ice_codon(t: float, idx: int) -> float:
+    return wv_sat_svp_ice_codon(t, idx)
+
+
+@export
+def svp_trans_codon(t: float, idx: int, tmelt: float, ttrice: float) -> float:
+    return wv_sat_svp_trans_codon(t, idx, tmelt, ttrice)
+
+
+@export
+def estblf_codon(t: float, tmin: float, tmax: float, estbl_p: cobj, plenest: int) -> float:
+    estbl = Ptr[float](estbl_p)
+
+    t_limited = t
+    if t_limited > tmax:
+        t_limited = tmax
+
+    t_tmp = t_limited - tmin
+    if t_tmp < 0.0:
+        t_tmp = 0.0
+
+    i0 = int(t_tmp)
+    if i0 < 0:
+        i0 = 0
+    if i0 > plenest - 2:
+        i0 = plenest - 2
+
+    weight = t_tmp - float(i0)
+    return (1.0 - weight) * estbl[i0] + weight * estbl[i0 + 1]
+
+
+@export
 def wv_sat_qsat_water_codon(
     t: float,
     p: float,

@@ -24,7 +24,7 @@ module wv_saturation
 !--------------------------------------------------------------------!
 
 use shr_kind_mod, only: r8 => shr_kind_r8
-use iso_c_binding, only: c_double
+use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 use physconst,    only: epsilo, &
                         latvap, &
                         latice, &
@@ -83,7 +83,7 @@ real(r8), parameter :: tboil = 373.16_r8
   real(r8), parameter :: ttrice = 20.00_r8  ! transition range from es over H2O to es over ice
 
   integer :: plenest                             ! length of estbl
-  real(r8), allocatable :: estbl(:)              ! table values of saturation vapor pressure
+  real(r8), allocatable, target :: estbl(:)      ! table values of saturation vapor pressure
 
   real(r8) :: omeps      ! 1.0_r8 - epsilo
 
@@ -136,6 +136,37 @@ real(r8), parameter :: tboil = 373.16_r8
        real(c_double), value :: t_c, p_c, es_c, qs_c, hltalt_c, tterm_c, rh2o_c, omeps_c
        real(c_double) :: dqsdt_out
      end function wv_saturation_deriv_dqsdt_codon
+
+     pure function svp_water_codon(t_c, idx_c) result(es_c) bind(c, name="svp_water_codon")
+       use iso_c_binding, only: c_double, c_int64_t
+       real(c_double), value :: t_c
+       integer(c_int64_t), value :: idx_c
+       real(c_double) :: es_c
+     end function svp_water_codon
+
+     pure function svp_ice_codon(t_c, idx_c) result(es_c) bind(c, name="svp_ice_codon")
+       use iso_c_binding, only: c_double, c_int64_t
+       real(c_double), value :: t_c
+       integer(c_int64_t), value :: idx_c
+       real(c_double) :: es_c
+     end function svp_ice_codon
+
+     pure function svp_trans_codon(t_c, idx_c, tmelt_c, ttrice_c) result(es_c) &
+          bind(c, name="svp_trans_codon")
+       use iso_c_binding, only: c_double, c_int64_t
+       real(c_double), value :: t_c, tmelt_c, ttrice_c
+       integer(c_int64_t), value :: idx_c
+       real(c_double) :: es_c
+     end function svp_trans_codon
+
+     pure function estblf_codon(t_c, tmin_c, tmax_c, estbl_p, plenest_c) result(es_c) &
+          bind(c, name="estblf_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       real(c_double), value :: t_c, tmin_c, tmax_c
+       type(c_ptr), value :: estbl_p
+       integer(c_int64_t), value :: plenest_c
+       real(c_double) :: es_c
+     end function estblf_codon
   end interface
 
   ! Set coefficients for polynomial approximation of difference
@@ -382,12 +413,13 @@ end subroutine wv_sat_final
 elemental function svp_water(t) result(es)
 
   use wv_sat_methods, only: &
-       wv_sat_svp_water
+       wv_sat_get_default_idx
 
   real(r8), intent(in) :: t ! Temperature (K)
   real(r8) :: es            ! SVP (Pa)
 
-  es = wv_sat_svp_water(T)
+  es = real(svp_water_codon(real(t, c_double), &
+       int(wv_sat_get_default_idx(), c_int64_t)), r8)
 
 end function svp_water
 
@@ -395,12 +427,13 @@ end function svp_water
 elemental function svp_ice(t) result(es)
 
   use wv_sat_methods, only: &
-       wv_sat_svp_ice
+       wv_sat_get_default_idx
 
   real(r8), intent(in) :: t ! Temperature (K)
   real(r8) :: es            ! SVP (Pa)
 
-  es = wv_sat_svp_ice(T)
+  es = real(svp_ice_codon(real(t, c_double), &
+       int(wv_sat_get_default_idx(), c_int64_t)), r8)
 
 end function svp_ice
 
@@ -408,12 +441,13 @@ end function svp_ice
 elemental function svp_trans(t) result(es)
 
   use wv_sat_methods, only: &
-       wv_sat_svp_trans
+       wv_sat_get_default_idx
 
   real(r8), intent(in) :: t ! Temperature (K)
   real(r8) :: es            ! SVP (Pa)
 
-  es = wv_sat_svp_trans(T)
+  es = real(svp_trans_codon(real(t, c_double), int(wv_sat_get_default_idx(), c_int64_t), &
+       real(tmelt, c_double), real(ttrice, c_double)), r8)
 
 end function svp_trans
 
@@ -428,15 +462,8 @@ elemental function estblf(t) result(es)
   real(r8), intent(in) :: t ! Temperature 
   real(r8) :: es            ! SVP (Pa)
 
-  integer  :: i         ! Index for t in the table
-  real(r8) :: t_tmp     ! intermediate temperature for es look-up
-
-  real(r8) :: weight ! Weight for interpolation
-
-  t_tmp = max(min(t,tmax)-tmin, 0._r8)   ! Number of table entries above tmin
-  i = int(t_tmp) + 1                     ! Corresponding index.
-  weight = t_tmp - aint(t_tmp, r8)       ! Fractional part of t_tmp (for interpolation).
-  es = (1._r8 - weight)*estbl(i) + weight*estbl(i+1)
+  es = real(estblf_codon(real(t, c_double), real(tmin, c_double), real(tmax, c_double), &
+       c_loc(estbl(1)), int(plenest, c_int64_t)), r8)
 
 end function estblf
 

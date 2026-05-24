@@ -199,6 +199,7 @@ end interface
 public wv_sat_methods_init
 public wv_sat_get_scheme_idx
 public wv_sat_valid_idx
+public wv_sat_get_default_idx
 
 public wv_sat_set_default
 public wv_sat_reset_default
@@ -391,6 +392,14 @@ subroutine wv_sat_reset_default()
   default_idx = initial_default_idx
 
 end subroutine wv_sat_reset_default
+
+pure function wv_sat_get_default_idx() result(idx)
+
+  integer :: idx
+
+  idx = default_idx
+
+end function wv_sat_get_default_idx
 
 !---------------------------------------------------------------------
 ! UTILITIES
