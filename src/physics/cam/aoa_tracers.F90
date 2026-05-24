@@ -58,10 +58,11 @@ module aoa_tracers
        integer(c_int64_t), value :: flag_c
        integer(c_int64_t) :: out_c
      end function aoa_tracers_flag_codon
-     function aoa_tracers_implements_cnst_codon(flag_c) result(out_c) &
+     function aoa_tracers_implements_cnst_codon(flag_c, name_len_c, name_ascii_p) result(out_c) &
           bind(c, name="aoa_tracers_implements_cnst_codon")
-       use iso_c_binding, only: c_int64_t
-       integer(c_int64_t), value :: flag_c
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: flag_c, name_len_c
+       type(c_ptr), value :: name_ascii_p
        integer(c_int64_t) :: out_c
      end function aoa_tracers_implements_cnst_codon
      function aoa_tracers_register_codon(flag_c) result(out_c) bind(c, name="aoa_tracers_register_codon")
@@ -188,14 +189,15 @@ contains
     ! 
     !-----------------------------------------------------------------------
 
-    use iso_c_binding, only: c_int64_t
+    use iso_c_binding, only: c_int64_t, c_loc
 
     character(len=*), intent(in) :: name   ! constituent name
     logical :: aoa_tracers_implements_cnst        ! return value
 
     !---------------------------Local workspace-----------------------------
-    integer :: m
+    integer :: i, m
     integer(c_int64_t) :: active_c, out_c
+    integer(c_int64_t), target :: name_ascii(max(1, len(name)))
     !-----------------------------------------------------------------------
 
     aoa_tracers_implements_cnst = .false.
@@ -205,19 +207,19 @@ contains
        if (.not. aoa_tracers_flag) return
     else
        active_c = aoa_tracers_flag_codon(merge(1_c_int64_t, 0_c_int64_t, aoa_tracers_flag))
-       if (active_c == 0_c_int64_t) return
+       do i = 1, len(name)
+          name_ascii(i) = int(iachar(name(i:i)), c_int64_t)
+       end do
+       out_c = aoa_tracers_implements_cnst_codon(active_c, int(len(name), c_int64_t), c_loc(name_ascii(1)))
+       aoa_tracers_implements_cnst = out_c /= 0_c_int64_t
+       call aoa_tracers_log_direct(aoa_tracers_implements_cnst_logged, &
+            'aoa_tracers_implements_cnst direct = codon')
+       return
     end if
 
     do m = 1, ncnst
        if (name == c_names(m)) then
-          if (use_native_impl) then
-             aoa_tracers_implements_cnst = .true.
-          else
-             out_c = aoa_tracers_implements_cnst_codon(1_c_int64_t)
-             aoa_tracers_implements_cnst = out_c /= 0_c_int64_t
-             call aoa_tracers_log_direct(aoa_tracers_implements_cnst_logged, &
-                  'aoa_tracers_implements_cnst direct = codon')
-          end if
+          aoa_tracers_implements_cnst = .true.
           return
        end if
     end do

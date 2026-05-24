@@ -10,10 +10,56 @@ def _idx3(i: int, k: int, m: int, ld1: int, ld2: int):
 
 
 @export
-def micro_mg_cam_implements_cnst_codon(flag: int) -> int:
-    if flag != 0:
+def micro_mg_cam_implements_cnst_codon(name_len: int, name_ascii_p: cobj) -> int:
+    name_ascii = Ptr[int](name_ascii_p)
+    if _name_eq8(name_len, name_ascii, 67, 76, 68, 76, 73, 81, 32, 32) != 0:
+        return 1
+    if _name_eq8(name_len, name_ascii, 67, 76, 68, 73, 67, 69, 32, 32) != 0:
+        return 1
+    if _name_eq8(name_len, name_ascii, 78, 85, 77, 76, 73, 81, 32, 32) != 0:
+        return 1
+    if _name_eq8(name_len, name_ascii, 78, 85, 77, 73, 67, 69, 32, 32) != 0:
+        return 1
+    if _name_eq8(name_len, name_ascii, 82, 65, 73, 78, 81, 77, 32, 32) != 0:
+        return 1
+    if _name_eq8(name_len, name_ascii, 83, 78, 79, 87, 81, 77, 32, 32) != 0:
+        return 1
+    if _name_eq8(name_len, name_ascii, 78, 85, 77, 82, 65, 73, 32, 32) != 0:
+        return 1
+    if _name_eq8(name_len, name_ascii, 78, 85, 77, 83, 78, 79, 32, 32) != 0:
         return 1
     return 0
+
+
+@inline
+def _name_eq8(
+    name_len: int,
+    name_ascii: Ptr[int],
+    c0: int,
+    c1: int,
+    c2: int,
+    c3: int,
+    c4: int,
+    c5: int,
+    c6: int,
+    c7: int,
+) -> int:
+    if name_len > 8:
+        i = 8
+        while i < name_len:
+            if name_ascii[i] != 32:
+                return 0
+            i += 1
+    values = (c0, c1, c2, c3, c4, c5, c6, c7)
+    i = 0
+    while i < 8:
+        left = 32
+        if i < name_len:
+            left = name_ascii[i]
+        if left != values[i]:
+            return 0
+        i += 1
+    return 1
 
 
 @export

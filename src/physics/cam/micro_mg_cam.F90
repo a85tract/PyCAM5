@@ -280,10 +280,11 @@ interface p
 end interface p
 
 interface
-   function micro_mg_cam_implements_cnst_codon(flag_c) result(out_c) &
+   function micro_mg_cam_implements_cnst_codon(name_len_c, name_ascii_p) result(out_c) &
         bind(c, name="micro_mg_cam_implements_cnst_codon")
-      use iso_c_binding, only: c_int64_t
-      integer(c_int64_t), value :: flag_c
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: name_len_c
+      type(c_ptr), value :: name_ascii_p
       integer(c_int64_t) :: out_c
    end function micro_mg_cam_implements_cnst_codon
 end interface
@@ -590,18 +591,23 @@ end subroutine micro_mg_cam_register
 
 function micro_mg_cam_implements_cnst(name)
 
-   use iso_c_binding, only: c_int64_t
+   use iso_c_binding, only: c_int64_t, c_loc
 
    ! Return true if specified constituent is implemented by the
    ! microphysics package
 
    character(len=*), intent(in) :: name        ! constituent name
    logical :: micro_mg_cam_implements_cnst    ! return value
+   integer :: i
    integer(c_int64_t) :: out_c
+   integer(c_int64_t), target :: name_ascii(max(1, len(name)))
 
    !-----------------------------------------------------------------------
 
-   out_c = micro_mg_cam_implements_cnst_codon(merge(1_c_int64_t, 0_c_int64_t, any(name == cnst_names)))
+   do i = 1, len(name)
+      name_ascii(i) = int(iachar(name(i:i)), c_int64_t)
+   end do
+   out_c = micro_mg_cam_implements_cnst_codon(int(len(name), c_int64_t), c_loc(name_ascii(1)))
    micro_mg_cam_implements_cnst = out_c /= 0_c_int64_t
    call micro_mg_cam_log_entered_once(micro_mg_cam_implements_cnst_logged, &
         'MICRO_MG_CAM_PROOF_FILE', 'micro_mg_cam_implements_cnst direct = codon')

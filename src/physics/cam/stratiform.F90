@@ -87,10 +87,11 @@ integer :: &
    ixcldice       ! cloud ice amount index
 
 interface
-   function stratiform_implements_cnst_codon(flag_c) result(out_c) &
+   function stratiform_implements_cnst_codon(do_cnst_c, name_len_c, name_ascii_p) result(out_c) &
         bind(c, name="stratiform_implements_cnst_codon")
-      use iso_c_binding, only: c_int64_t
-      integer(c_int64_t), value :: flag_c
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: do_cnst_c, name_len_c
+      type(c_ptr), value :: name_ascii_p
       integer(c_int64_t) :: out_c
    end function stratiform_implements_cnst_codon
 end interface
@@ -152,7 +153,7 @@ end subroutine stratiform_register
 
 function stratiform_implements_cnst(name)
 
-   use iso_c_binding, only: c_int64_t
+   use iso_c_binding, only: c_int64_t, c_loc
 
   !----------------------------------------------------------------------------- ! 
   !                                                                              !    
@@ -162,12 +163,17 @@ function stratiform_implements_cnst(name)
 
    character(len=*), intent(in) :: name      ! constituent name
    logical :: stratiform_implements_cnst     ! return value
+   integer :: i
    integer(c_int64_t) :: out_c
+   integer(c_int64_t), target :: name_ascii(max(1, len(name)))
 
    !-----------------------------------------------------------------------
 
-   out_c = stratiform_implements_cnst_codon( &
-        merge(1_c_int64_t, 0_c_int64_t, do_cnst .and. any(name == cnst_names)))
+   do i = 1, len(name)
+      name_ascii(i) = int(iachar(name(i:i)), c_int64_t)
+   end do
+   out_c = stratiform_implements_cnst_codon(merge(1_c_int64_t, 0_c_int64_t, do_cnst), &
+        int(len(name), c_int64_t), c_loc(name_ascii(1)))
    stratiform_implements_cnst = out_c /= 0_c_int64_t
    call stratiform_log_entered_once(stratiform_implements_cnst_logged, &
         'STRATIFORM_PROOF_FILE', 'stratiform_implements_cnst direct = codon')

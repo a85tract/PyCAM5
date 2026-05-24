@@ -25,7 +25,7 @@ module clubb_intr
   use spmd_utils,    only: masterproc 
   use constituents,  only: pcnst, cnst_add
   use pbl_utils,     only: calc_ustar, calc_obklen
-  use iso_c_binding, only: c_int64_t
+  use iso_c_binding, only: c_int64_t, c_loc
   use mpishorthand
 
   implicit none
@@ -194,9 +194,11 @@ module clubb_intr
         use iso_c_binding, only: c_int64_t
         integer(c_int64_t) :: out_c
      end function clubb_intr_touch_codon
-     function clubb_implements_cnst_codon(flag_c) result(out_c) bind(c, name="clubb_implements_cnst_codon")
-        use iso_c_binding, only: c_int64_t
-        integer(c_int64_t), value :: flag_c
+     function clubb_implements_cnst_codon(do_cnst_c, name_len_c, name_ascii_p) result(out_c) &
+          bind(c, name="clubb_implements_cnst_codon")
+        use iso_c_binding, only: c_int64_t, c_ptr
+        integer(c_int64_t), value :: do_cnst_c, name_len_c
+        type(c_ptr), value :: name_ascii_p
         integer(c_int64_t) :: out_c
      end function clubb_implements_cnst_codon
      function clubb_readnl_codon() result(out_c) bind(c, name="clubb_readnl_codon")
@@ -413,17 +415,23 @@ function clubb_implements_cnst(name)
    character(len=*), intent(in) :: name      ! constituent name
    logical :: clubb_implements_cnst     ! return value
    logical :: matched
+   integer :: i
    integer(c_int64_t) :: out_c
+   integer(c_int64_t), target :: name_ascii(max(1, len(name)))
 
    !-----------------------------------------------------------------------
 
-   matched = do_cnst .and. any(name == cnst_names)
    call clubb_intr_select_impl()
    if (use_native_clubb_intr_impl) then
+      matched = do_cnst .and. any(name == cnst_names)
       clubb_implements_cnst = matched
    else
+      do i = 1, len(name)
+         name_ascii(i) = int(iachar(name(i:i)), c_int64_t)
+      end do
       call clubb_intr_proof_once()
-      out_c = clubb_implements_cnst_codon(merge(1_c_int64_t, 0_c_int64_t, matched))
+      out_c = clubb_implements_cnst_codon(merge(1_c_int64_t, 0_c_int64_t, do_cnst), &
+           int(len(name), c_int64_t), c_loc(name_ascii(1)))
       clubb_implements_cnst = out_c /= 0_c_int64_t
       call clubb_intr_log_direct(clubb_implements_cnst_logged, 'clubb_implements_cnst direct = codon')
    end if

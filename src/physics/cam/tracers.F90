@@ -83,10 +83,11 @@ module tracers
         integer(c_int64_t), value :: flag_c
         integer(c_int64_t) :: out_c
      end function tracers_flag_codon
-     function tracers_implements_cnst_codon(flag_c) result(out_c) &
+     function tracers_implements_cnst_codon(flag_c, name_len_c, name_ascii_p, ncnst_c) result(out_c) &
           bind(c, name="tracers_implements_cnst_codon")
-        use iso_c_binding, only: c_int64_t
-        integer(c_int64_t), value :: flag_c
+        use iso_c_binding, only: c_int64_t, c_ptr
+        integer(c_int64_t), value :: flag_c, name_len_c, ncnst_c
+        type(c_ptr), value :: name_ascii_p
         integer(c_int64_t) :: out_c
      end function tracers_implements_cnst_codon
      function tracers_register_codon(flag_c) result(out_c) bind(c, name="tracers_register_codon")
@@ -248,7 +249,7 @@ function tracers_implements_cnst(name)
 !-----------------------------------------------------------------------
 
   use tracers_suite, only: get_tracer_name
-  use iso_c_binding, only: c_int64_t
+  use iso_c_binding, only: c_int64_t, c_loc
   
   implicit none
 !-----------------------------Arguments---------------------------------
@@ -256,8 +257,9 @@ function tracers_implements_cnst(name)
   character(len=*), intent(in) :: name   ! constituent name
   logical :: tracers_implements_cnst        ! return value
 !---------------------------Local workspace-----------------------------
-   integer :: m
+   integer :: i, m
    integer(c_int64_t) :: active_c, out_c
+   integer(c_int64_t), target :: name_ascii(max(1, len(name)))
 !-----------------------------------------------------------------------
 
    tracers_implements_cnst = .false.
@@ -266,18 +268,19 @@ function tracers_implements_cnst(name)
       if (.not. tracers_flag) return
    else
       active_c = tracers_flag_codon(merge(1_c_int64_t, 0_c_int64_t, tracers_flag))
-      if (active_c == 0_c_int64_t) return
+      do i = 1, len(name)
+         name_ascii(i) = int(iachar(name(i:i)), c_int64_t)
+      end do
+      out_c = tracers_implements_cnst_codon(active_c, int(len(name), c_int64_t), &
+           c_loc(name_ascii(1)), int(trac_ncnst, c_int64_t))
+      tracers_implements_cnst = out_c /= 0_c_int64_t
+      call tracers_log_direct(tracers_implements_cnst_logged, 'tracers_implements_cnst direct = codon')
+      return
    end if
 
    do m = 1, trac_ncnst
       if (name == get_tracer_name(m)) then
-         if (use_native_impl) then
-            tracers_implements_cnst = .true.
-         else
-            out_c = tracers_implements_cnst_codon(1_c_int64_t)
-            tracers_implements_cnst = out_c /= 0_c_int64_t
-            call tracers_log_direct(tracers_implements_cnst_logged, 'tracers_implements_cnst direct = codon')
-         end if
+         tracers_implements_cnst = .true.
          return
       end if
    end do

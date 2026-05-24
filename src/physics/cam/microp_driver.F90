@@ -56,10 +56,11 @@ interface
       integer(c_int64_t), value :: flag_c
       integer(c_int64_t) :: out_c
    end function microp_driver_init_codon
-   function microp_driver_implements_cnst_codon(flag_c) result(out_c) &
+   function microp_driver_implements_cnst_codon(scheme_len_c, scheme_ascii_p, name_len_c, name_ascii_p) result(out_c) &
         bind(c, name="microp_driver_implements_cnst_codon")
-      use iso_c_binding, only: c_int64_t
-      integer(c_int64_t), value :: flag_c
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: scheme_len_c, name_len_c
+      type(c_ptr), value :: scheme_ascii_p, name_ascii_p
       integer(c_int64_t) :: out_c
    end function microp_driver_implements_cnst_codon
 end interface
@@ -122,7 +123,7 @@ end subroutine microp_driver_register
 
 function microp_driver_implements_cnst(name)
 
-   use iso_c_binding, only: c_int64_t
+   use iso_c_binding, only: c_int64_t, c_loc
 
    ! Return true if specified constituent is implemented by the
    ! microphysics package
@@ -131,10 +132,35 @@ function microp_driver_implements_cnst(name)
    logical :: microp_driver_implements_cnst    ! return value
 
    ! Local workspace
+   integer :: i
    integer(c_int64_t) :: out_c
+   integer(c_int64_t), target :: name_ascii(max(1, len(name)))
+   integer(c_int64_t), target :: scheme_ascii(len(microp_scheme))
    !-----------------------------------------------------------------------
 
    microp_driver_implements_cnst = .false.
+
+   call microp_driver_select_impl()
+   if (.not. use_native_impl) then
+      select case (microp_scheme)
+      case ('MG', 'RK')
+         continue
+      case default
+         call endrun('microp_driver_implements_cnst:: unrecognized microp_scheme')
+      end select
+      do i = 1, len(name)
+         name_ascii(i) = int(iachar(name(i:i)), c_int64_t)
+      end do
+      do i = 1, len(microp_scheme)
+         scheme_ascii(i) = int(iachar(microp_scheme(i:i)), c_int64_t)
+      end do
+      out_c = microp_driver_implements_cnst_codon(int(len(microp_scheme), c_int64_t), &
+           c_loc(scheme_ascii(1)), int(len(name), c_int64_t), c_loc(name_ascii(1)))
+      microp_driver_implements_cnst = out_c /= 0_c_int64_t
+      call microp_driver_log_direct(microp_driver_implements_cnst_logged, &
+           'microp_driver_implements_cnst direct = codon')
+      return
+   end if
 
    select case (microp_scheme)
    case ('MG')
@@ -145,15 +171,6 @@ function microp_driver_implements_cnst(name)
    case default
       call endrun('microp_driver_implements_cnst:: unrecognized microp_scheme')
    end select
-
-   call microp_driver_select_impl()
-   if (.not. use_native_impl) then
-      out_c = microp_driver_implements_cnst_codon( &
-           merge(1_c_int64_t, 0_c_int64_t, microp_driver_implements_cnst))
-      microp_driver_implements_cnst = out_c /= 0_c_int64_t
-      call microp_driver_log_direct(microp_driver_implements_cnst_logged, &
-           'microp_driver_implements_cnst direct = codon')
-   end if
 
 end function microp_driver_implements_cnst
 
