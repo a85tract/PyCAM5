@@ -13,7 +13,7 @@ module pbl_utils
 
 use shr_kind_mod, only: r8 => shr_kind_r8
 use cam_logfile, only: iulog
-use iso_c_binding, only: c_double
+use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 use spmd_utils, only: masterproc
 
 implicit none
@@ -42,6 +42,9 @@ logical :: use_native_pbl_utils_impl = .false.
 logical :: pbl_utils_impl_selected = .false.
 logical :: pbl_utils_proof_written = .false.
 logical :: pbl_utils_init_logged = .false.
+logical :: use_native_compute_radf_impl = .false.
+logical :: compute_radf_impl_selected = .false.
+logical :: compute_radf_logged = .false.
 
 interface
   function pbl_utils_value_codon(value_c) result(value_out) &
@@ -98,6 +101,15 @@ interface
     real(c_double), value :: t_c, q_c, zvir_c
     real(c_double) :: value_out
   end function virtem_codon
+  subroutine pbl_utils_compute_radf_codon(i_c, pcols_c, pver_c, ncvmax_c, radf_mode_c, qmin_c, g_c, &
+       ncvfin_p, ktop_p, ql_p, pi_p, qrlw_p, cldeff_p, zi_p, chs_p, lwp_CL_p, opt_depth_CL_p, &
+       radinvfrac_CL_p, radf_CL_p) bind(c, name="pbl_utils_compute_radf_codon")
+    use iso_c_binding, only: c_double, c_int64_t, c_ptr
+    integer(c_int64_t), value :: i_c, pcols_c, pver_c, ncvmax_c, radf_mode_c
+    real(c_double), value :: qmin_c, g_c
+    type(c_ptr), value :: ncvfin_p, ktop_p, ql_p, pi_p, qrlw_p, cldeff_p, zi_p, chs_p
+    type(c_ptr), value :: lwp_CL_p, opt_depth_CL_p, radinvfrac_CL_p, radf_CL_p
+  end subroutine pbl_utils_compute_radf_codon
 end interface
 
 contains
@@ -160,6 +172,51 @@ subroutine pbl_utils_log_direct(logged, proof_line)
   end if
 
 end subroutine pbl_utils_log_direct
+
+subroutine pbl_utils_compute_radf_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (compute_radf_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('PBL_UTILS_COMPUTE_RADF_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_compute_radf_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_compute_radf_impl = .false.
+  end if
+
+  compute_radf_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_compute_radf_impl) then
+        write(iulog,*) 'pbl_utils_compute_radf implementation = native'
+     else
+        write(iulog,*) 'pbl_utils_compute_radf implementation = codon'
+     end if
+  end if
+
+end subroutine pbl_utils_compute_radf_select_impl
+
+subroutine pbl_utils_compute_radf_log_direct()
+
+  if (compute_radf_logged) return
+  compute_radf_logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') 'pbl_utils_compute_radf direct = codon'
+  end if
+
+end subroutine pbl_utils_compute_radf_log_direct
 
 real(r8) function pbl_utils_value(value) result(out)
   real(r8), intent(in) :: value
@@ -302,35 +359,54 @@ subroutine compute_radf( choice_radf, i, pcols, pver, ncvmax, ncvfin, ktop, qmin
   integer,  intent(in)  :: pcols               ! Number of atmospheric columns
   integer,  intent(in)  :: pver                ! Number of atmospheric layers
   integer,  intent(in)  :: ncvmax              ! Max numbers of CLs (perhaps equal to pver)
-  integer,  intent(in)  :: ncvfin(pcols)       ! Total number of CL in column
-  integer,  intent(in)  :: ktop(pcols, ncvmax) ! ktop for current column
+  integer,  target, intent(in)  :: ncvfin(pcols)       ! Total number of CL in column
+  integer,  target, intent(in)  :: ktop(pcols, ncvmax) ! ktop for current column
   real(r8), intent(in)  :: qmin                ! Minimum grid-mean LWC counted as clouds [kg/kg]
-  real(r8), intent(in)  :: ql(pcols, pver)     ! Liquid water specific humidity [ kg/kg ]
-  real(r8), intent(in)  :: pi(pcols, pver+1)   ! Interface pressures [ Pa ]
-  real(r8), intent(in)  :: qrlw(pcols, pver)   ! Input grid-mean LW heating rate : [ K/s ] * cpair * dp = [ W/kg*Pa ]
+  real(r8), target, intent(in)  :: ql(pcols, pver)     ! Liquid water specific humidity [ kg/kg ]
+  real(r8), target, intent(in)  :: pi(pcols, pver+1)   ! Interface pressures [ Pa ]
+  real(r8), target, intent(in)  :: qrlw(pcols, pver)   ! Input grid-mean LW heating rate : [ K/s ] * cpair * dp = [ W/kg*Pa ]
   real(r8), intent(in)  :: g                   ! Gravitational acceleration
-  real(r8), intent(in)  :: cldeff(pcols,pver)  ! Effective Cloud Fraction [fraction]
-  real(r8), intent(in)  :: zi(pcols, pver+1)   ! Interface heights [ m ]
-  real(r8), intent(in)  :: chs(pcols, pver+1)  ! Buoyancy coeffi. saturated sl (heat) coef. at all interfaces.
+  real(r8), target, intent(in)  :: cldeff(pcols,pver)  ! Effective Cloud Fraction [fraction]
+  real(r8), target, intent(in)  :: zi(pcols, pver+1)   ! Interface heights [ m ]
+  real(r8), target, intent(in)  :: chs(pcols, pver+1)  ! Buoyancy coeffi. saturated sl (heat) coef. at all interfaces.
 
   !------------------!
   ! Output variables !
   !------------------!
-  real(r8), intent(out) :: lwp_CL(ncvmax)         ! LWP in the CL top layer [ kg/m2 ]
-  real(r8), intent(out) :: opt_depth_CL(ncvmax)   ! Optical depth of the CL top layer
-  real(r8), intent(out) :: radinvfrac_CL(ncvmax)  ! Fraction of LW radiative cooling confined in the top portion of CL
-  real(r8), intent(out) :: radf_CL(ncvmax)        ! Buoyancy production at the CL top due to radiative cooling [ m2/s3 ]
+  real(r8), target, intent(out) :: lwp_CL(ncvmax)         ! LWP in the CL top layer [ kg/m2 ]
+  real(r8), target, intent(out) :: opt_depth_CL(ncvmax)   ! Optical depth of the CL top layer
+  real(r8), target, intent(out) :: radinvfrac_CL(ncvmax)  ! Fraction of LW radiative cooling confined in the top portion of CL
+  real(r8), target, intent(out) :: radf_CL(ncvmax)        ! Buoyancy production at the CL top due to radiative cooling [ m2/s3 ]
 
   !-----------------!
   ! Local variables !
   !-----------------!
   integer :: kt, ncv
+  integer :: radf_mode
   real(r8) :: lwp, opt_depth, radinvfrac, radf
 
 
   !-----------------!
   ! Begin main code !
   !-----------------!
+  call pbl_utils_compute_radf_select_impl()
+
+  if (.not. use_native_compute_radf_impl) then
+    radf_mode = 2
+    if( choice_radf .eq. 'orig' ) then
+      radf_mode = 0
+    elseif( choice_radf .eq. 'ramp' ) then
+      radf_mode = 1
+    endif
+
+    call pbl_utils_compute_radf_log_direct()
+    call pbl_utils_compute_radf_codon(int(i, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(ncvmax, c_int64_t), int(radf_mode, c_int64_t), real(qmin, c_double), real(g, c_double), &
+         c_loc(ncvfin), c_loc(ktop), c_loc(ql), c_loc(pi), c_loc(qrlw), c_loc(cldeff), c_loc(zi), c_loc(chs), &
+         c_loc(lwp_CL), c_loc(opt_depth_CL), c_loc(radinvfrac_CL), c_loc(radf_CL))
+    return
+  end if
+
   lwp_CL        = 0._r8
   opt_depth_CL  = 0._r8
   radinvfrac_CL = 0._r8
