@@ -103,13 +103,13 @@ logical :: new_gwband_impl_selected = .false.
 logical :: new_gwband_direct_logged = .false.
 
 interface
-   subroutine gw_common_new_gwband_codon(ngwv_c, dc_c, fcrit2_c, wavelength_c, pi_c, &
-        ngwv_p, dc_p, fcrit2_p, cref_p, kwv_p, effkwv_p) bind(c, name="gw_common_new_gwband_codon")
+   subroutine new_gwband_codon(ngwv_c, dc_c, fcrit2_c, wavelength_c, pi_c, &
+        ngwv_p, dc_p, fcrit2_p, cref_p, kwv_p, effkwv_p) bind(c, name="new_gwband_codon")
      use iso_c_binding, only: c_double, c_int64_t, c_ptr
      integer(c_int64_t), value :: ngwv_c
      real(c_double), value :: dc_c, fcrit2_c, wavelength_c, pi_c
      type(c_ptr), value :: ngwv_p, dc_p, fcrit2_p, cref_p, kwv_p, effkwv_p
-   end subroutine gw_common_new_gwband_codon
+   end subroutine new_gwband_codon
    subroutine gw_common_init_scalars_codon(pver_in_c, ktop_in_c, gravit_in_c, rair_in_c, &
         tau_0_ubc_in_c, pver_p, tau_0_ubc_p, ktop_p, gravit_p, rair_p, rog_p) &
         bind(c, name="gw_common_init_scalars_codon")
@@ -194,7 +194,7 @@ function new_GWBand(ngwv, dc, fcrit2, wavelength) result(band)
      band%kwv = 2._r8*pi / wavelength
      band%effkwv = band%fcrit2 * band%kwv
   else
-     call gw_common_new_gwband_codon(int(ngwv, c_int64_t), real(dc, c_double), &
+     call new_gwband_codon(int(ngwv, c_int64_t), real(dc, c_double), &
           real(fcrit2, c_double), real(wavelength, c_double), real(pi, c_double), &
           c_loc(band%ngwv), c_loc(band%dc), c_loc(band%fcrit2), c_loc(band%cref(-ngwv)), &
           c_loc(band%kwv), c_loc(band%effkwv))

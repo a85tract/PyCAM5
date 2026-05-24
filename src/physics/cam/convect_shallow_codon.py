@@ -59,8 +59,13 @@ def _uwshcu_exnf(pressure: float, p00: float, rovcp: float) -> float:
 
 
 @export
-def uwshcu_exnf_codon(pressure: float, p00: float, rovcp: float) -> float:
+def exnf_codon(pressure: float, p00: float, rovcp: float) -> float:
     return uwshcu_exnf_native_cb(pressure, p00, rovcp)
+
+
+@export
+def uwshcu_exnf_codon(pressure: float, p00: float, rovcp: float) -> float:
+    return exnf_codon(pressure, p00, rovcp)
 
 
 @inline

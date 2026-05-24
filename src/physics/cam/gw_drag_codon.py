@@ -97,7 +97,7 @@ def gw_common_init_scalars_codon(
 
 
 @export
-def gw_common_new_gwband_codon(
+def new_gwband_codon(
     ngwv_in: int,
     dc_in: float,
     fcrit2_in: float,
@@ -126,6 +126,35 @@ def gw_common_new_gwband_codon(
 
     kwv[0] = 2.0 * pi_in / wavelength
     effkwv[0] = fcrit2[0] * kwv[0]
+
+
+@export
+def gw_common_new_gwband_codon(
+    ngwv_in: int,
+    dc_in: float,
+    fcrit2_in: float,
+    wavelength: float,
+    pi_in: float,
+    ngwv_p: cobj,
+    dc_p: cobj,
+    fcrit2_p: cobj,
+    cref_p: cobj,
+    kwv_p: cobj,
+    effkwv_p: cobj,
+):
+    new_gwband_codon(
+        ngwv_in,
+        dc_in,
+        fcrit2_in,
+        wavelength,
+        pi_in,
+        ngwv_p,
+        dc_p,
+        fcrit2_p,
+        cref_p,
+        kwv_p,
+        effkwv_p,
+    )
 
 
 @export

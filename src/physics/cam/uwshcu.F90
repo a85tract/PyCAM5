@@ -294,12 +294,12 @@
         integer(c_int64_t) :: is_dry_c
      end function uwshcu_qsinvert_rh_guard_codon
 
-     function uwshcu_exnf_codon(pressure_c, p00_c, rovcp_c) result(exnf_c) &
-          bind(c, name="uwshcu_exnf_codon")
+     function exnf_codon(pressure_c, p00_c, rovcp_c) result(exnf_c) &
+          bind(c, name="exnf_codon")
         use iso_c_binding, only: c_double
         real(c_double), value :: pressure_c, p00_c, rovcp_c
         real(c_double) :: exnf_c
-     end function uwshcu_exnf_codon
+     end function exnf_codon
   end interface
 
 !===============================================================================
@@ -2660,7 +2660,7 @@ contains
            use iso_c_binding, only: c_double
            real(r8), intent(in)              :: pressure
            call uwshcu_log_exnf_direct_entered()
-           exnf = real(uwshcu_exnf_codon(real(pressure, c_double), &
+           exnf = real(exnf_codon(real(pressure, c_double), &
                 real(p00, c_double), real(rovcp, c_double)), r8)
            return
   end function exnf
