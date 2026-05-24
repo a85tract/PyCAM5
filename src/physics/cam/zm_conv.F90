@@ -95,6 +95,12 @@ module zm_conv
    logical :: use_native_zm_cldprp_helpers = .false.
    logical :: zm_cldprp_helpers_selected = .false.
    logical :: zm_cldprp_helpers_logged = .false.
+   logical :: use_native_zm_entropy = .false.
+   logical :: zm_entropy_selected = .false.
+   logical :: zm_entropy_logged = .false.
+   logical :: use_native_zm_qsat_hpa = .false.
+   logical :: zm_qsat_hpa_selected = .false.
+   logical :: zm_qsat_hpa_logged = .false.
 
 contains
 
@@ -174,6 +180,23 @@ subroutine zm_conv_evap_append_impl_proof(proof_line)
    close(unit_id)
 
 end subroutine zm_conv_evap_append_impl_proof
+
+
+subroutine zm_conv_log_direct(logged, proof_line)
+
+   logical, intent(inout) :: logged
+   character(len=*), intent(in) :: proof_line
+
+   if (logged) return
+   logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') trim(proof_line)
+      call zm_conv_evap_append_impl_proof(proof_line)
+      call flush(iulog)
+   end if
+
+end subroutine zm_conv_log_direct
 
 
 subroutine zm_conv_evap_main_select_impl()
@@ -426,6 +449,82 @@ subroutine zm_q1q2_pjr_select_impl()
    end if
 
 end subroutine zm_q1q2_pjr_select_impl
+
+
+subroutine zm_entropy_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (zm_entropy_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('ZM_ENTROPY_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_zm_entropy = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_zm_entropy = .false.
+   end if
+
+   zm_entropy_selected = .true.
+
+   if (masterproc) then
+      if (use_native_zm_entropy) then
+         write(iulog,*) 'zm_entropy implementation = native'
+         call zm_conv_evap_append_impl_proof('zm_entropy implementation = native')
+      else
+         write(iulog,*) 'zm_entropy implementation = codon'
+         call zm_conv_evap_append_impl_proof('zm_entropy implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine zm_entropy_select_impl
+
+
+subroutine zm_qsat_hpa_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (zm_qsat_hpa_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('ZM_QSAT_HPA_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_zm_qsat_hpa = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_zm_qsat_hpa = .false.
+   end if
+
+   zm_qsat_hpa_selected = .true.
+
+   if (masterproc) then
+      if (use_native_zm_qsat_hpa) then
+         write(iulog,*) 'zm_qsat_hPa implementation = native'
+         call zm_conv_evap_append_impl_proof('zm_qsat_hPa implementation = native')
+      else
+         write(iulog,*) 'zm_qsat_hPa implementation = codon'
+         call zm_conv_evap_append_impl_proof('zm_qsat_hPa implementation = codon')
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine zm_qsat_hpa_select_impl
 
 
 subroutine zm_convr(lchnk   ,ncol    , &
@@ -5114,6 +5213,8 @@ end subroutine parcel_dilute
 
 !-----------------------------------------------------------------------------------------
 real(r8) function entropy(TK,p,qtot)
+     use iso_c_binding, only: c_double, c_int64_t
+     use wv_sat_methods, only: wv_sat_get_default_idx
 !-----------------------------------------------------------------------------------------
 !
 ! TK(K),p(mb),qtot(kg/kg)
@@ -5122,6 +5223,30 @@ real(r8) function entropy(TK,p,qtot)
      real(r8), intent(in) :: p,qtot,TK
      real(r8) :: qv,qst,e,est,L
      real(r8), parameter :: pref = 1000._r8
+
+     interface
+        function zm_entropy_codon(TK_c, p_c, qtot_c, rl_c, cpliq_c, cpwv_c, tfreez_c, &
+             cpres_c, rgas_c, eps1_c, rh2o_c, wv_idx_c, epsilo_c, omeps_c) result(out_c) &
+             bind(c, name="zm_entropy_codon")
+          use iso_c_binding, only: c_double, c_int64_t
+          real(c_double), value :: TK_c, p_c, qtot_c, rl_c, cpliq_c, cpwv_c, tfreez_c
+          real(c_double), value :: cpres_c, rgas_c, eps1_c, rh2o_c, epsilo_c, omeps_c
+          integer(c_int64_t), value :: wv_idx_c
+          real(c_double) :: out_c
+        end function zm_entropy_codon
+     end interface
+
+     call zm_entropy_select_impl()
+     if (.not. use_native_zm_entropy) then
+        entropy = real(zm_entropy_codon(real(TK, c_double), real(p, c_double), real(qtot, c_double), &
+             real(rl, c_double), real(cpliq, c_double), real(cpwv, c_double), real(tfreez, c_double), &
+             real(cpres, c_double), real(rgas, c_double), real(eps1, c_double), real(rh2o, c_double), &
+             int(wv_sat_get_default_idx(), c_int64_t), real(epsilo, c_double), &
+             real(1._r8 - epsilo, c_double)), r8)
+        call zm_conv_log_direct(zm_entropy_logged, &
+             'zm_entropy direct = codon; entropy expression native callback')
+        return
+     end if
 
 L = rl - (cpliq - cpwv)*(TK-tfreez)         ! T IN CENTIGRADE
 
@@ -5134,6 +5259,26 @@ entropy = (cpres + qtot*cpliq)*log( TK/tfreez) - rgas*log( (p-e)/pref ) + &
         L*qv/TK - qv*rh2o*log(qv/qst)
 
 end FUNCTION entropy
+
+
+real(c_double) function zm_entropy_expr_native_cb(TK_c, p_c, qtot_c, qst_c, rl_c, &
+     cpliq_c, cpwv_c, tfreez_c, cpres_c, rgas_c, eps1_c, rh2o_c) result(entropy_c) &
+     bind(C, name="zm_entropy_expr_native_cb")
+  use iso_c_binding, only: c_double
+
+  real(c_double), value :: TK_c, p_c, qtot_c, qst_c, rl_c
+  real(c_double), value :: cpliq_c, cpwv_c, tfreez_c, cpres_c, rgas_c, eps1_c, rh2o_c
+  real(c_double) :: qv, e, L
+  real(c_double), parameter :: pref = 1000._c_double
+
+  L = rl_c - (cpliq_c - cpwv_c)*(TK_c-tfreez_c)
+  qv = min(qtot_c,qst_c)
+  e = qv*p_c / (eps1_c +qv)
+
+  entropy_c = (cpres_c + qtot_c*cpliq_c)*log( TK_c/tfreez_c) - rgas_c*log( (p_c-e)/pref ) + &
+        L*qv/TK_c - qv*rh2o_c*log(qv/qst_c)
+
+end function zm_entropy_expr_native_cb
 
 !
 !-----------------------------------------------------------------------------------------
@@ -5252,16 +5397,37 @@ end SUBROUTINE ientropy
 ! Wrapper for qsat_water that does translation between Pa and hPa
 ! qsat_water uses Pa internally, so get it right, need to pass in Pa.
 ! Afterward, set es back to hPa.
-elemental subroutine qsat_hPa(t, p, es, qm)
+subroutine qsat_hPa(t, p, es, qm)
+  use iso_c_binding, only: c_double, c_int64_t, c_loc
   use wv_saturation, only: qsat_water
+  use wv_sat_methods, only: wv_sat_get_default_idx
 
   ! Inputs
   real(r8), intent(in) :: t    ! Temperature (K)
   real(r8), intent(in) :: p    ! Pressure (hPa)
   ! Outputs
-  real(r8), intent(out) :: es  ! Saturation vapor pressure (hPa)
-  real(r8), intent(out) :: qm  ! Saturation mass mixing ratio
+  real(r8), target, intent(out) :: es  ! Saturation vapor pressure (hPa)
+  real(r8), target, intent(out) :: qm  ! Saturation mass mixing ratio
                                ! (vapor mass over dry mass, kg/kg)
+
+  interface
+     subroutine zm_qsat_hpa_codon(t_c, p_c, idx_c, epsilo_c, omeps_c, es_p, qm_p) &
+          bind(c, name="zm_qsat_hpa_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       real(c_double), value :: t_c, p_c, epsilo_c, omeps_c
+       integer(c_int64_t), value :: idx_c
+       type(c_ptr), value :: es_p, qm_p
+     end subroutine zm_qsat_hpa_codon
+  end interface
+
+  call zm_qsat_hpa_select_impl()
+  if (.not. use_native_zm_qsat_hpa) then
+     call zm_qsat_hpa_codon(real(t, c_double), real(p, c_double), &
+          int(wv_sat_get_default_idx(), c_int64_t), real(epsilo, c_double), &
+          real(1._r8 - epsilo, c_double), c_loc(es), c_loc(qm))
+     call zm_conv_log_direct(zm_qsat_hpa_logged, 'qsat_hPa direct = codon')
+     return
+  end if
 
   call qsat_water(t, p*100._r8, es, qm)
 

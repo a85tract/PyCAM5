@@ -17,6 +17,7 @@ from C import murphykoop_svp_ice_native_cb(float) -> float
 from C import murphykoop_svp_water_native_cb(float) -> float
 from C import oldgoffgratch_svp_ice_native_cb(float) -> float
 from C import oldgoffgratch_svp_water_native_cb(float) -> float
+from C import zm_entropy_expr_native_cb(float, float, float, float, float, float, float, float, float, float, float, float) -> float
 from math import exp, floor, log, sqrt
 
 @export
@@ -8070,6 +8071,75 @@ def wv_sat_qsat_water_codon(
 
     es_out[0] = es
     qs_out[0] = qs
+
+
+@inline
+def _zm_qsat_hpa_ptr_codon(
+    t: float,
+    p_hpa: float,
+    idx: int,
+    epsilo: float,
+    omeps: float,
+    es_out: Ptr[float],
+    qm_out: Ptr[float],
+):
+    p_pa = p_hpa * 100.0
+    es = wv_sat_svp_water_codon(t, idx)
+    qm = wv_sat_svp_to_qsat_codon(es, p_pa, epsilo, omeps)
+    if p_pa < es:
+        es = p_pa
+
+    es_out[0] = es * 0.01
+    qm_out[0] = qm
+
+
+@export
+def zm_qsat_hpa_codon(
+    t: float,
+    p_hpa: float,
+    idx: int,
+    epsilo: float,
+    omeps: float,
+    es_p: cobj,
+    qm_p: cobj,
+):
+    _zm_qsat_hpa_ptr_codon(t, p_hpa, idx, epsilo, omeps, Ptr[float](es_p), Ptr[float](qm_p))
+
+
+@export
+def zm_entropy_codon(
+    tk: float,
+    p_hpa: float,
+    qtot: float,
+    rl: float,
+    cpliq: float,
+    cpwv: float,
+    tfreez: float,
+    cpres: float,
+    rgas: float,
+    eps1: float,
+    rh2o: float,
+    idx: int,
+    epsilo: float,
+    omeps: float,
+) -> float:
+    est = 0.0
+    qst = 0.0
+    _zm_qsat_hpa_ptr_codon(tk, p_hpa, idx, epsilo, omeps, __ptr__(est), __ptr__(qst))
+    return zm_entropy_expr_native_cb(
+        tk,
+        p_hpa,
+        qtot,
+        qst,
+        rl,
+        cpliq,
+        cpwv,
+        tfreez,
+        cpres,
+        rgas,
+        eps1,
+        rh2o,
+    )
 
 
 @export
