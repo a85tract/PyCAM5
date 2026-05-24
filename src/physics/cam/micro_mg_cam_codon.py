@@ -321,6 +321,65 @@ def micro_mg1_0_init_scalars_codon(
 
 
 @inline
+def _micro_mg1_0_column_has_cloud(i: int, ldq: int, nlev: int, top_lev: int,
+                                  qsmall: float, qcn: Ptr[float], qin: Ptr[float]) -> bool:
+    lev_offset = top_lev - 1
+    for k in range(top_lev, nlev + lev_offset + 1):
+        idx = _idx2(i, k, ldq)
+        if qcn[idx] >= qsmall:
+            return True
+    for k in range(top_lev, nlev + lev_offset + 1):
+        idx = _idx2(i, k, ldq)
+        if qin[idx] >= qsmall:
+            return True
+    return False
+
+
+@export
+def micro_mg1_0_get_cols_count_codon(
+    ncol: int,
+    ldq: int,
+    nlev: int,
+    top_lev: int,
+    qsmall: float,
+    qcn_p: cobj,
+    qin_p: cobj,
+    mgncol_p: cobj,
+):
+    qcn = Ptr[float](qcn_p)
+    qin = Ptr[float](qin_p)
+    mgncol = Ptr[int](mgncol_p)
+
+    count = 0
+    for i in range(1, ncol + 1):
+        if _micro_mg1_0_column_has_cloud(i, ldq, nlev, top_lev, qsmall, qcn, qin):
+            count += 1
+    mgncol[0] = count
+
+
+@export
+def micro_mg1_0_get_cols_fill_codon(
+    ncol: int,
+    ldq: int,
+    nlev: int,
+    top_lev: int,
+    qsmall: float,
+    qcn_p: cobj,
+    qin_p: cobj,
+    mgcols_p: cobj,
+):
+    qcn = Ptr[float](qcn_p)
+    qin = Ptr[float](qin_p)
+    mgcols = Ptr[i32](mgcols_p)
+
+    out_i = 0
+    for i in range(1, ncol + 1):
+        if _micro_mg1_0_column_has_cloud(i, ldq, nlev, top_lev, qsmall, qcn, qin):
+            mgcols[out_i] = i32(i)
+            out_i += 1
+
+
+@inline
 def _micro_mg_data_accumulate_2d(
     n1: int,
     n2: int,

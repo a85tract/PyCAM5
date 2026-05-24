@@ -148,6 +148,9 @@ logical :: micro_mg1_0_init_scalars_logged = .false.
 logical :: micro_mg1_0_colzero_use_native_impl = .false.
 logical :: micro_mg1_0_colzero_impl_selected = .false.
 logical :: micro_mg1_0_colzero_wrapper_logged = .false.
+logical :: micro_mg1_0_get_cols_use_native_impl = .false.
+logical :: micro_mg1_0_get_cols_impl_selected = .false.
+logical :: micro_mg1_0_get_cols_logged = .false.
 
 
 !===============================================================================
@@ -4136,8 +4139,47 @@ end subroutine micro_mg1_0_substep_zero_column_codon_wrap
 !UTILITIES
 !========================================================================
 
-pure subroutine micro_mg_get_cols(ncol, nlev, top_lev, qcn, qin, &
+subroutine micro_mg1_0_select_get_cols_impl()
+  character(len=32) :: impl_name
+  integer :: n, status
+
+  if (micro_mg1_0_get_cols_impl_selected) return
+
+  call get_environment_variable('MICRO_MG1_0_GET_COLS_IMPL', value=impl_name, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     micro_mg1_0_get_cols_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     micro_mg1_0_get_cols_use_native_impl = .false.
+  end if
+
+  if (masterproc) then
+     if (micro_mg1_0_get_cols_use_native_impl) then
+        write(iulog,*) 'micro_mg1_0_get_cols implementation = native'
+        call micro_mg1_0_append_impl_proof('MICRO_MG1_0_GET_COLS_PROOF_FILE', &
+             'micro_mg1_0_get_cols implementation = native')
+     else
+        write(iulog,*) 'micro_mg1_0_get_cols implementation = codon'
+        call micro_mg1_0_append_impl_proof('MICRO_MG1_0_GET_COLS_PROOF_FILE', &
+             'micro_mg1_0_get_cols implementation = codon')
+     end if
+  end if
+
+  micro_mg1_0_get_cols_impl_selected = .true.
+end subroutine micro_mg1_0_select_get_cols_impl
+
+subroutine micro_mg1_0_get_cols_log_entry()
+  if (masterproc .and. .not. micro_mg1_0_get_cols_logged) then
+     write(iulog,*) 'micro_mg1_0_get_cols direct = codon'
+     call micro_mg1_0_append_impl_proof('MICRO_MG1_0_GET_COLS_PROOF_FILE', &
+          'micro_mg1_0_get_cols direct = codon')
+     micro_mg1_0_get_cols_logged = .true.
+  end if
+end subroutine micro_mg1_0_get_cols_log_entry
+
+subroutine micro_mg_get_cols(ncol, nlev, top_lev, qcn, qin, &
      mgncol, mgcols)
+
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
   ! Determines which columns microphysics should operate over by
   ! checking for non-zero cloud water/ice.
@@ -4146,18 +4188,55 @@ pure subroutine micro_mg_get_cols(ncol, nlev, top_lev, qcn, qin, &
   integer, intent(in) :: nlev      ! Number of levels to use
   integer, intent(in) :: top_lev   ! Top level for microphysics
 
-  real(r8), intent(in) :: qcn(:,:) ! cloud water mixing ratio (kg/kg)
-  real(r8), intent(in) :: qin(:,:) ! cloud ice mixing ratio (kg/kg)
+  real(r8), target, intent(in) :: qcn(:,:) ! cloud water mixing ratio (kg/kg)
+  real(r8), target, intent(in) :: qin(:,:) ! cloud ice mixing ratio (kg/kg)
 
   integer, intent(out) :: mgncol   ! Number of columns MG will use
-  integer, allocatable, intent(out) :: mgcols(:) ! column indices
+  integer, allocatable, target, intent(out) :: mgcols(:) ! column indices
 
   integer :: lev_offset  ! top_lev - 1 (defined here for consistency)
   logical :: ltrue(ncol) ! store tests for each column
 
   integer :: i, ii ! column indices
+  integer(c_int64_t), target :: mgncol_c
+
+  interface
+     subroutine micro_mg1_0_get_cols_count_codon(ncol_c, ldq_c, nlev_c, top_lev_c, qsmall_c, &
+          qcn_p, qin_p, mgncol_p) bind(c, name="micro_mg1_0_get_cols_count_codon")
+       import c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, ldq_c, nlev_c, top_lev_c
+       real(c_double), value :: qsmall_c
+       type(c_ptr), value :: qcn_p, qin_p, mgncol_p
+     end subroutine micro_mg1_0_get_cols_count_codon
+
+     subroutine micro_mg1_0_get_cols_fill_codon(ncol_c, ldq_c, nlev_c, top_lev_c, qsmall_c, &
+          qcn_p, qin_p, mgcols_p) bind(c, name="micro_mg1_0_get_cols_fill_codon")
+       import c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, ldq_c, nlev_c, top_lev_c
+       real(c_double), value :: qsmall_c
+       type(c_ptr), value :: qcn_p, qin_p, mgcols_p
+     end subroutine micro_mg1_0_get_cols_fill_codon
+  end interface
 
   if (allocated(mgcols)) deallocate(mgcols)
+
+  call micro_mg1_0_select_get_cols_impl()
+
+  if (.not. micro_mg1_0_get_cols_use_native_impl) then
+     mgncol_c = 0_c_int64_t
+     call micro_mg1_0_get_cols_log_entry()
+     call micro_mg1_0_get_cols_count_codon(int(ncol, c_int64_t), int(size(qcn, 1), c_int64_t), &
+          int(nlev, c_int64_t), int(top_lev, c_int64_t), real(qsmall, c_double), &
+          c_loc(qcn(1,1)), c_loc(qin(1,1)), c_loc(mgncol_c))
+     mgncol = int(mgncol_c)
+     allocate(mgcols(mgncol))
+     if (mgncol > 0) then
+        call micro_mg1_0_get_cols_fill_codon(int(ncol, c_int64_t), int(size(qcn, 1), c_int64_t), &
+             int(nlev, c_int64_t), int(top_lev, c_int64_t), real(qsmall, c_double), &
+             c_loc(qcn(1,1)), c_loc(qin(1,1)), c_loc(mgcols(1)))
+     end if
+     return
+  end if
 
   lev_offset = top_lev - 1
 
