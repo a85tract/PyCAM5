@@ -137,6 +137,7 @@ module vertical_diffusion
   logical              :: prog_modal_aero = .false.    ! set true if prognostic modal aerosols are present
   logical              :: use_native_ts_init_impl = .false.
   logical              :: ts_init_impl_selected = .false.
+  logical              :: ts_init_logged = .false.
   logical              :: use_native_tend_impl = .false.
   logical              :: tend_impl_selected = .false.
   logical              :: use_native_flux_diag_impl = .false.
@@ -177,6 +178,24 @@ module vertical_diffusion
   end interface
 
 contains
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+  subroutine vertical_diffusion_log_direct(logged, proof_line)
+
+    logical, intent(inout) :: logged
+    character(len=*), intent(in) :: proof_line
+
+    if (logged) return
+    logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') trim(proof_line)
+       call flush(iulog)
+    end if
+
+  end subroutine vertical_diffusion_log_direct
 
   ! =============================================================================== !
   !                                                                                 !
@@ -674,6 +693,7 @@ contains
     end if
 
     call vertical_diffusion_ts_init_codon()
+    call vertical_diffusion_log_direct(ts_init_logged, 'vertical_diffusion_ts_init direct = codon')
 
   end subroutine vertical_diffusion_ts_init
 
