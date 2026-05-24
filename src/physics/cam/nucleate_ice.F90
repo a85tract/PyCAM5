@@ -30,7 +30,7 @@ module nucleate_ice
 !-------------------------------------------------------------------------------
 
 use wv_saturation,  only: svp_water, svp_ice
-use iso_c_binding,  only: c_double, c_loc, c_ptr
+use iso_c_binding,  only: c_double, c_int64_t, c_loc, c_ptr
 
 implicit none
 private
@@ -40,14 +40,14 @@ integer, parameter :: r8 = selected_real_kind(12)
 
 public :: nucleati_init, nucleati
 
-logical  :: use_preexisting_ice
-logical  :: use_hetfrz_classnuc
-integer  :: iulog
-real(r8) :: pi
-real(r8) :: mincld
+logical,  target :: use_preexisting_ice
+logical,  target :: use_hetfrz_classnuc
+integer,  target :: iulog
+real(r8), target :: pi
+real(r8), target :: mincld
 
 ! Subgrid scale factor on relative humidity (dimensionless)
-real(r8) :: subgrid
+real(r8), target :: subgrid
 
 real(r8), parameter :: Shet   = 1.3_r8     ! het freezing threshold
 real(r8), parameter :: rhoice = 0.5e3_r8   ! kg/m3, Wpice is not sensitive to rhoice
@@ -57,11 +57,27 @@ real(r8), parameter :: gamma2=1.0_r8
 real(r8), parameter :: gamma3=2.0_r8 
 real(r8), parameter :: gamma4=6.0_r8 
 
-real(r8) :: ci
+real(r8), target :: ci
 
 logical :: use_native_nucleate_ice_helpers_impl = .false.
 logical :: nucleate_ice_helpers_impl_selected = .false.
 logical :: nucleate_ice_helpers_entered_logged = .false.
+logical :: use_native_nucleati_init_impl = .false.
+logical :: nucleati_init_impl_selected = .false.
+logical :: nucleati_init_direct_logged = .false.
+
+interface
+   subroutine nucleati_init_scalars_codon(use_preexisting_ice_in_c, use_hetfrz_classnuc_in_c, &
+        iulog_in_c, pi_in_c, mincld_in_c, subgrid_in_c, rhoice_c, &
+        use_preexisting_ice_p, use_hetfrz_classnuc_p, iulog_p, pi_p, mincld_p, subgrid_p, ci_p) &
+        bind(c, name="nucleati_init_scalars_codon")
+     use iso_c_binding, only: c_double, c_int64_t, c_ptr
+     integer(c_int64_t), value :: use_preexisting_ice_in_c, use_hetfrz_classnuc_in_c, iulog_in_c
+     real(c_double), value :: pi_in_c, mincld_in_c, subgrid_in_c, rhoice_c
+     type(c_ptr), value :: use_preexisting_ice_p, use_hetfrz_classnuc_p
+     type(c_ptr), value :: iulog_p, pi_p, mincld_p, subgrid_p, ci_p
+   end subroutine nucleati_init_scalars_codon
+end interface
 
 !===============================================================================
 contains
@@ -78,16 +94,71 @@ subroutine nucleati_init( &
    real(r8), intent(in) :: mincld_in
    real(r8), intent(in) :: subgrid_in
 
-   use_preexisting_ice = use_preexisting_ice_in
-   use_hetfrz_classnuc = use_hetfrz_classnuc_in
-   iulog               = iulog_in
-   pi                  = pi_in
-   mincld              = mincld_in
-   subgrid             = subgrid_in
-
-   ci = rhoice*pi/6._r8
+   call nucleati_init_select_impl(iulog_in)
+   if (use_native_nucleati_init_impl) then
+      use_preexisting_ice = use_preexisting_ice_in
+      use_hetfrz_classnuc = use_hetfrz_classnuc_in
+      iulog   = iulog_in
+      pi      = pi_in
+      mincld  = mincld_in
+      subgrid = subgrid_in
+      ci      = rhoice*pi/6._r8
+   else
+      call nucleati_init_scalars_codon(merge(1_c_int64_t, 0_c_int64_t, use_preexisting_ice_in), &
+           merge(1_c_int64_t, 0_c_int64_t, use_hetfrz_classnuc_in), int(iulog_in, c_int64_t), &
+           real(pi_in, c_double), real(mincld_in, c_double), real(subgrid_in, c_double), &
+           real(rhoice, c_double), c_loc(use_preexisting_ice), c_loc(use_hetfrz_classnuc), &
+           c_loc(iulog), c_loc(pi), c_loc(mincld), c_loc(subgrid), c_loc(ci))
+      call nucleati_init_note_direct()
+   end if
 
 end subroutine nucleati_init
+
+!===============================================================================
+
+subroutine nucleati_init_select_impl(log_unit)
+
+   integer, intent(in) :: log_unit
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (nucleati_init_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('NUCLEATI_INIT_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_nucleati_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_nucleati_init_impl = .false.
+   end if
+
+   nucleati_init_impl_selected = .true.
+
+   write(log_unit,*) 'nucleati_init implementation = ', &
+        merge('native', 'codon ', use_native_nucleati_init_impl)
+   call flush(log_unit)
+
+end subroutine nucleati_init_select_impl
+
+!===============================================================================
+
+subroutine nucleati_init_note_direct()
+
+   if (nucleati_init_direct_logged) return
+   nucleati_init_direct_logged = .true.
+
+   write(iulog,*) 'nucleati_init direct = codon'
+   call flush(iulog)
+
+end subroutine nucleati_init_note_direct
 
 !===============================================================================
 

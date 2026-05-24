@@ -8,6 +8,7 @@ use gw_utils, only: r8
 use coords_1d, only: Coords1D
 use spmd_utils, only: masterproc
 use cam_logfile, only: iulog
+use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
 
 
 implicit none
@@ -32,10 +33,10 @@ public :: gravit
 public :: rair
 
 ! Number of levels in the atmosphere.
-integer, protected :: pver = 0
+integer, target, protected :: pver = 0
 
 ! Whether or not to enforce an upper boundary condition of tau = 0.
-logical :: tau_0_ubc = .false.
+logical, target :: tau_0_ubc = .false.
 
 ! Index the cardinal directions.
 integer, parameter :: west = 1
@@ -47,26 +48,26 @@ integer, parameter :: north = 4
 real(r8), parameter :: pi = acos(-1._r8)
 
 ! Acceleration due to gravity.
-real(r8), protected :: gravit = huge(1._r8)
+real(r8), target, protected :: gravit = huge(1._r8)
 
 ! Gas constant for dry air.
-real(r8), protected :: rair = huge(1._r8)
+real(r8), target, protected :: rair = huge(1._r8)
 
 !
 ! Private variables
 !
 
 ! Interface levels for gravity wave sources.
-integer :: ktop = huge(1)
+integer, target :: ktop = huge(1)
 
 ! Background diffusivity.
 real(r8), parameter :: dback = 0.05_r8
 
 ! rair/gravit
-real(r8) :: rog = huge(1._r8)
+real(r8), target :: rog = huge(1._r8)
 
 ! Newtonian cooling coefficients.
-real(r8), allocatable :: alpha(:)
+real(r8), allocatable, target :: alpha(:)
 
 !
 ! Limits to keep values reasonable.
@@ -94,6 +95,25 @@ logical :: gw_drag_prof_core_entered_logged = .false.
 logical :: use_native_gw_diff_solver_impl = .false.
 logical :: gw_diff_solver_impl_selected = .false.
 logical :: gw_diff_solver_entered_logged = .false.
+logical :: use_native_gw_common_init_impl = .false.
+logical :: gw_common_init_impl_selected = .false.
+logical :: gw_common_init_direct_logged = .false.
+
+interface
+   subroutine gw_common_init_scalars_codon(pver_in_c, ktop_in_c, gravit_in_c, rair_in_c, &
+        tau_0_ubc_in_c, pver_p, tau_0_ubc_p, ktop_p, gravit_p, rair_p, rog_p) &
+        bind(c, name="gw_common_init_scalars_codon")
+     use iso_c_binding, only: c_double, c_int64_t, c_ptr
+     integer(c_int64_t), value :: pver_in_c, ktop_in_c, tau_0_ubc_in_c
+     real(c_double), value :: gravit_in_c, rair_in_c
+     type(c_ptr), value :: pver_p, tau_0_ubc_p, ktop_p, gravit_p, rair_p, rog_p
+   end subroutine gw_common_init_scalars_codon
+   subroutine gw_common_init_alpha_codon(n_c, alpha_in_p, alpha_p) bind(c, name="gw_common_init_alpha_codon")
+     use iso_c_binding, only: c_int64_t, c_ptr
+     integer(c_int64_t), value :: n_c
+     type(c_ptr), value :: alpha_in_p, alpha_p
+   end subroutine gw_common_init_alpha_codon
+end interface
 
 ! Type describing a band of wavelengths into which gravity waves can be
 ! emitted.
@@ -162,26 +182,88 @@ subroutine gw_common_init(pver_in, &
   integer,  intent(in) :: ktop_in
   real(r8), intent(in) :: gravit_in
   real(r8), intent(in) :: rair_in
-  real(r8), intent(in) :: alpha_in(:)
+  real(r8), target, intent(in) :: alpha_in(:)
   ! Report any errors from this routine.
   character(len=*), intent(out) :: errstring
 
   integer :: ierr
 
+  call gw_common_init_select_impl()
+
   errstring = ""
 
-  pver = pver_in
-  tau_0_ubc = tau_0_ubc_in
-  ktop = ktop_in
-  gravit = gravit_in
-  rair = rair_in
-  allocate(alpha(pver+1), stat=ierr, errmsg=errstring)
+  allocate(alpha(pver_in+1), stat=ierr, errmsg=errstring)
   if (ierr /= 0) return
-  alpha = alpha_in
 
-  rog = rair/gravit
+  if (use_native_gw_common_init_impl) then
+     pver = pver_in
+     tau_0_ubc = tau_0_ubc_in
+     ktop = ktop_in
+     gravit = gravit_in
+     rair = rair_in
+     alpha = alpha_in
+     rog = rair/gravit
+  else
+     call gw_common_init_scalars_codon(int(pver_in, c_int64_t), int(ktop_in, c_int64_t), &
+          real(gravit_in, c_double), real(rair_in, c_double), &
+          merge(1_c_int64_t, 0_c_int64_t, tau_0_ubc_in), &
+          c_loc(pver), c_loc(tau_0_ubc), c_loc(ktop), c_loc(gravit), c_loc(rair), c_loc(rog))
+     call gw_common_init_alpha_codon(int(pver_in + 1, c_int64_t), c_loc(alpha_in(1)), c_loc(alpha(1)))
+     call gw_common_init_note_direct()
+  end if
 
 end subroutine gw_common_init
+
+!==========================================================================
+
+subroutine gw_common_init_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (gw_common_init_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('GW_COMMON_INIT_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_gw_common_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_gw_common_init_impl = .false.
+  end if
+
+  gw_common_init_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_gw_common_init_impl) then
+        write(iulog,*) 'gw_common_init implementation = native'
+     else
+        write(iulog,*) 'gw_common_init implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine gw_common_init_select_impl
+
+!==========================================================================
+
+subroutine gw_common_init_note_direct()
+
+  if (gw_common_init_direct_logged) return
+  gw_common_init_direct_logged = .true.
+
+  if (masterproc) then
+     write(iulog,*) 'gw_common_init direct = codon'
+     call flush(iulog)
+  end if
+
+end subroutine gw_common_init_note_direct
 
 !==========================================================================
 

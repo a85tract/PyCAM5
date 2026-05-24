@@ -68,6 +68,44 @@ def _sign_fortran(a: float, b: float) -> float:
 
 
 @export
+def gw_common_init_scalars_codon(
+    pver_in: int,
+    ktop_in: int,
+    gravit_in: float,
+    rair_in: float,
+    tau_0_ubc_in: int,
+    pver_p: cobj,
+    tau_0_ubc_p: cobj,
+    ktop_p: cobj,
+    gravit_p: cobj,
+    rair_p: cobj,
+    rog_p: cobj,
+):
+    pver = Ptr[i32](pver_p)
+    tau_0_ubc = Ptr[i32](tau_0_ubc_p)
+    ktop = Ptr[i32](ktop_p)
+    gravit = Ptr[float](gravit_p)
+    rair = Ptr[float](rair_p)
+    rog = Ptr[float](rog_p)
+
+    pver[0] = i32(pver_in)
+    tau_0_ubc[0] = i32(tau_0_ubc_in)
+    ktop[0] = i32(ktop_in)
+    gravit[0] = gravit_in
+    rair[0] = rair_in
+    rog[0] = rair[0] / gravit[0]
+
+
+@export
+def gw_common_init_alpha_codon(n: int, alpha_in_p: cobj, alpha_p: cobj):
+    alpha_in = Ptr[float](alpha_in_p)
+    alpha = Ptr[float](alpha_p)
+
+    for i in range(n):
+        alpha[i] = alpha_in[i]
+
+
+@export
 def gw_prof_codon(
     ncol: int,
     pver: int,

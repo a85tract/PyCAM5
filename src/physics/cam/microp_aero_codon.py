@@ -44,6 +44,40 @@ def nucleate_ice_cam_init_bulk_scale_codon(value: float) -> float:
     return value
 
 
+@export
+def nucleati_init_scalars_codon(
+    use_preexisting_ice_in: int,
+    use_hetfrz_classnuc_in: int,
+    iulog_in: int,
+    pi_in: float,
+    mincld_in: float,
+    subgrid_in: float,
+    rhoice: float,
+    use_preexisting_ice_p: cobj,
+    use_hetfrz_classnuc_p: cobj,
+    iulog_p: cobj,
+    pi_p: cobj,
+    mincld_p: cobj,
+    subgrid_p: cobj,
+    ci_p: cobj,
+):
+    use_preexisting_ice = Ptr[i32](use_preexisting_ice_p)
+    use_hetfrz_classnuc = Ptr[i32](use_hetfrz_classnuc_p)
+    iulog = Ptr[i32](iulog_p)
+    pi = Ptr[float](pi_p)
+    mincld = Ptr[float](mincld_p)
+    subgrid = Ptr[float](subgrid_p)
+    ci = Ptr[float](ci_p)
+
+    use_preexisting_ice[0] = i32(use_preexisting_ice_in)
+    use_hetfrz_classnuc[0] = i32(use_hetfrz_classnuc_in)
+    iulog[0] = i32(iulog_in)
+    pi[0] = pi_in
+    mincld[0] = mincld_in
+    subgrid[0] = subgrid_in
+    ci[0] = rhoice * pi[0] / 6.0
+
+
 @inline
 def _idx2(i: int, k: int, ld1: int) -> int:
     return (i - 1) + (k - 1) * ld1
