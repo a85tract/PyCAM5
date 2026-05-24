@@ -178,8 +178,16 @@ module physics_types
   logical :: physics_state_alloc_logged = .false.
   logical :: physics_tend_alloc_logged = .false.
   logical :: state_cnst_min_nz_logged = .false.
+  logical :: physics_dme_adjust_logged = .false.
 
   interface
+     function physics_dme_adjust_active_codon(is_lr_c) result(active_c) &
+          bind(c, name="physics_dme_adjust_active_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: is_lr_c
+       integer(c_int64_t) :: active_c
+     end function physics_dme_adjust_active_codon
+
      subroutine physics_tend_init_codon_raw(psetcols_c, pver_c, dtdt_p, dudt_p, dvdt_p, flx_net_p, te_tnd_p, tw_tnd_p) &
           bind(c, name="physics_tend_init_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
@@ -1837,6 +1845,7 @@ end subroutine physics_ptend_copy
     !-----------------------------------------------------------------------
 
     use constituents, only : cnst_get_type_byind
+    use iso_c_binding, only: c_int64_t
 
     implicit none
     !
@@ -1849,6 +1858,7 @@ end subroutine physics_ptend_copy
     !
     !---------------------------Local workspace-----------------------------
     !
+    integer(c_int64_t) :: active_c
     integer  :: lchnk         ! chunk identifier
     integer  :: ncol          ! number of atmospheric columns
     integer  :: i,k,m         ! Longitude, level indices
@@ -1861,7 +1871,15 @@ end subroutine physics_ptend_copy
     !
     !-----------------------------------------------------------------------
     ! verify that the dycore is FV
-    if (.not. dycore_is('LR') ) return
+    call physics_types_zero_select_impl()
+    if (use_native_zero_impl) then
+       if (.not. dycore_is('LR') ) return
+    else
+       active_c = physics_dme_adjust_active_codon(merge(1_c_int64_t, 0_c_int64_t, dycore_is('LR')))
+       call physics_types_zero_proof_once()
+       call physics_types_log_direct(physics_dme_adjust_logged, 'physics_dme_adjust direct = codon')
+       if (active_c == 0_c_int64_t) return
+    end if
 
     if (state%psetcols .ne. pcols) then
        call endrun('physics_dme_adjust: cannot pass in a state which has sub-columns')

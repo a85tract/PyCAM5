@@ -33,6 +33,7 @@ module carma_model_flags_mod
   logical :: use_native_carma_model_flags_impl = .false.
   logical :: carma_model_flags_impl_selected = .false.
   logical :: carma_model_flags_proof_written = .false.
+  logical :: carma_model_readnl_logged = .false.
 
   private :: carma_model_flags_select_impl, carma_model_flags_proof_once, carma_model_flags_touch
 
@@ -95,6 +96,22 @@ contains
     end if
 
   end subroutine carma_model_flags_proof_once
+
+  !================================================================================================
+  !================================================================================================
+  subroutine carma_model_flags_log_direct(logged, proof_line)
+
+    logical, intent(inout) :: logged
+    character(len=*), intent(in) :: proof_line
+
+    if (logged) return
+    logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') trim(proof_line)
+    end if
+
+  end subroutine carma_model_flags_log_direct
 
   !================================================================================================
   !================================================================================================
@@ -172,6 +189,7 @@ contains
     else
        call carma_model_flags_proof_once()
        out_c = carma_model_readnl_codon()
+       call carma_model_flags_log_direct(carma_model_readnl_logged, 'carma_model_readnl direct = codon')
     end if
   
   end subroutine carma_model_readnl

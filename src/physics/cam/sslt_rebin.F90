@@ -33,6 +33,7 @@ module sslt_rebin
   logical :: sslt_rebin_impl_selected = .false.
   logical :: sslt_rebin_proof_written = .false.
   logical :: sslt_rebin_init_logged = .false.
+  logical :: sslt_rebin_adv_logged = .false.
 
   interface
      function sslt_rebin_has_four_codon(i1_c, i2_c, i3_c, i4_c) result(has_c) &
@@ -41,6 +42,12 @@ module sslt_rebin
        integer(c_int64_t), value :: i1_c, i2_c, i3_c, i4_c
        integer(c_int64_t) :: has_c
      end function sslt_rebin_has_four_codon
+     function sslt_rebin_active_codon(has_sslt_c) result(active_c) &
+          bind(c, name="sslt_rebin_active_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: has_sslt_c
+       integer(c_int64_t) :: active_c
+     end function sslt_rebin_active_codon
   end interface
 
   private
@@ -214,12 +221,21 @@ contains
     real(r8), dimension(:,:), pointer :: sslt1, sslt2, sslt3, sslt4
     real(r8), dimension(:,:), pointer :: sslta, ssltc
     integer :: lchnk, ncol
+    integer(c_int64_t) :: active_c
     real(r8) :: sslt_sum(pcols,pver)
 
     lchnk = phys_state%lchnk
     ncol = phys_state%ncol
 
-    if (.not. has_sslt) return
+    call sslt_rebin_select_impl()
+    if (use_native_sslt_rebin_impl) then
+       if (.not. has_sslt) return
+    else
+       call sslt_rebin_proof_once()
+       active_c = sslt_rebin_active_codon(merge(1_c_int64_t, 0_c_int64_t, has_sslt))
+       call sslt_rebin_log_direct(sslt_rebin_adv_logged, 'sslt_rebin_adv direct = codon')
+       if (active_c == 0_c_int64_t) return
+    end if
 
     select case( source )
     case (PROG)

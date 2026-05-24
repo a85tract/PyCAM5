@@ -2270,6 +2270,13 @@ def _physics_types_copy_3d(psetcols: int, pver: int, pcnst: int, src: Ptr[float]
 
 
 @export
+def physics_dme_adjust_active_codon(is_lr: int) -> int:
+    if is_lr != 0:
+        return 1
+    return 0
+
+
+@export
 def physics_tend_init_codon(
     psetcols: int,
     pver: int,
@@ -7860,6 +7867,13 @@ def cpslec_codon(
 @export
 def sslt_rebin_has_four_codon(i1: int, i2: int, i3: int, i4: int) -> int:
     if i1 > 0 and i2 > 0 and i3 > 0 and i4 > 0:
+        return 1
+    return 0
+
+
+@export
+def sslt_rebin_active_codon(has_sslt: int) -> int:
+    if has_sslt != 0:
         return 1
     return 0
 
