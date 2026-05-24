@@ -24,6 +24,7 @@ integer, parameter :: r8 = selected_real_kind(12)
 logical :: use_native_vdiff_lu_solver_impl = .false.
 logical :: vdiff_lu_solver_impl_selected = .false.
 logical :: vdiff_lu_solver_proof_written = .false.
+logical :: fin_vol_lu_decomp_logged = .false.
 
 interface
    function vdiff_lu_solver_flag_codon(flag_c) result(flag_out) &
@@ -89,6 +90,20 @@ subroutine vdiff_lu_solver_proof_once()
   end if
 
 end subroutine vdiff_lu_solver_proof_once
+
+subroutine fin_vol_lu_decomp_log_direct()
+
+  use cam_logfile, only: iulog
+  use spmd_utils, only: masterproc
+
+  if (fin_vol_lu_decomp_logged) return
+  fin_vol_lu_decomp_logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') 'fin_vol_lu_decomp direct = codon'
+  end if
+
+end subroutine fin_vol_lu_decomp_log_direct
 
 logical function vdiff_lu_solver_flag(flag) result(out)
 
@@ -241,15 +256,31 @@ function fin_vol_lu_decomp(dt, p, coef_q, coef_q_diff, coef_q_adv, &
   ! Operator objects.
   type(TriDiagOp) :: add_term
   type(TriDiagOp) :: net_operator
+  logical :: has_coef_q_diff, has_coef_q, has_coef_q_adv, has_coef_q_weight
 
   ! ----------------------- !
   ! Main Computation Begins !
   ! ----------------------- !
 
+  call vdiff_lu_solver_select_impl()
+  if (use_native_vdiff_lu_solver_impl) then
+     has_coef_q_diff = present(coef_q_diff)
+     has_coef_q = present(coef_q)
+     has_coef_q_adv = present(coef_q_adv)
+     has_coef_q_weight = present(coef_q_weight)
+  else
+     call vdiff_lu_solver_proof_once()
+     has_coef_q_diff = vdiff_lu_solver_flag_codon(merge(1_c_int64_t, 0_c_int64_t, present(coef_q_diff))) /= 0_c_int64_t
+     has_coef_q = vdiff_lu_solver_flag_codon(merge(1_c_int64_t, 0_c_int64_t, present(coef_q))) /= 0_c_int64_t
+     has_coef_q_adv = vdiff_lu_solver_flag_codon(merge(1_c_int64_t, 0_c_int64_t, present(coef_q_adv))) /= 0_c_int64_t
+     has_coef_q_weight = vdiff_lu_solver_flag_codon(merge(1_c_int64_t, 0_c_int64_t, present(coef_q_weight))) /= 0_c_int64_t
+     call fin_vol_lu_decomp_log_direct()
+  end if
+
   ! A diffusion term is probably present, so start with that. Otherwise
   ! start with an operator of all 0s.
 
-  if (vdiff_lu_solver_flag(present(coef_q_diff))) then
+  if (has_coef_q_diff) then
      net_operator = diffusion_operator(p, coef_q_diff, &
           upper_bndry, lower_bndry)
   else
@@ -257,13 +288,13 @@ function fin_vol_lu_decomp(dt, p, coef_q, coef_q_diff, coef_q_adv, &
   end if
 
   ! Constant term (damping).
-  if (vdiff_lu_solver_flag(present(coef_q))) then
+  if (has_coef_q) then
      add_term = diagonal_operator(coef_q)
      call net_operator%add(add_term)
   end if
 
   ! Effective advection.
-  if (vdiff_lu_solver_flag(present(coef_q_adv))) then
+  if (has_coef_q_adv) then
      add_term = advection_operator(p, coef_q_adv, &
           upper_bndry, lower_bndry)
      call net_operator%add(add_term)
@@ -271,7 +302,7 @@ function fin_vol_lu_decomp(dt, p, coef_q, coef_q_diff, coef_q_adv, &
 
   ! We want I-dt*(w^-1)*A for a single time step, implicit method, where
   ! A is the right-hand-side operator (i.e. what net_operator is now).
-  if (vdiff_lu_solver_flag(present(coef_q_weight))) then
+  if (has_coef_q_weight) then
      call net_operator%lmult_as_diag(-dt/coef_q_weight)
   else
      call net_operator%lmult_as_diag(-dt)

@@ -49,6 +49,7 @@ logical :: hist_hetfrz_classnuc = .false.
 logical :: use_native_hetfrz_classnuc_cam_impl = .false.
 logical :: hetfrz_classnuc_cam_impl_selected = .false.
 logical :: hetfrz_classnuc_cam_proof_written = .false.
+logical :: hetfrz_classnuc_cam_readnl_logged = .false.
 logical :: hetfrz_classnuc_cam_register_logged = .false.
 logical :: hetfrz_classnuc_cam_init_logged = .false.
 
@@ -257,6 +258,7 @@ subroutine hetfrz_classnuc_cam_readnl(nlfile)
 
   ! Local variables
   integer :: unitn, ierr
+  integer(c_int64_t) :: active_c
   character(len=*), parameter :: subname = 'hetfrz_classnuc_cam_readnl'
 
   namelist /hetfrz_classnuc_nl/ hist_hetfrz_classnuc
@@ -283,7 +285,14 @@ subroutine hetfrz_classnuc_cam_readnl(nlfile)
   call mpibcast(hist_hetfrz_classnuc, 1, mpilog, 0, mpicom)
 #endif
 
-  hist_hetfrz_classnuc = hetfrz_classnuc_cam_flag(hist_hetfrz_classnuc)
+  call hetfrz_classnuc_cam_select_impl()
+  if (.not. use_native_hetfrz_classnuc_cam_impl) then
+     call hetfrz_classnuc_cam_proof_once()
+     active_c = hetfrz_classnuc_cam_flag_codon(merge(1_c_int64_t, 0_c_int64_t, hist_hetfrz_classnuc))
+     hist_hetfrz_classnuc = active_c /= 0_c_int64_t
+     call hetfrz_classnuc_cam_log_direct(hetfrz_classnuc_cam_readnl_logged, &
+          'hetfrz_classnuc_cam_readnl direct = codon')
+  end if
 
 end subroutine hetfrz_classnuc_cam_readnl
 

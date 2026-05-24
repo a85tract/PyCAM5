@@ -53,6 +53,7 @@ module pkg_cld_sediment
   logical :: use_native_cld_sediment_impl = .false.
   logical :: cld_sediment_impl_selected = .false.
   logical :: cld_sediment_proof_written = .false.
+  logical :: cld_sediment_readnl_logged = .false.
 
   interface
      function cld_sediment_param_codon(value_c) result(out_c) bind(c, name="cld_sediment_param_codon")
@@ -112,6 +113,21 @@ subroutine cld_sediment_proof_once()
    end if
 
 end subroutine cld_sediment_proof_once
+
+!===============================================================================
+
+subroutine cld_sediment_log_direct(proof_line)
+
+   character(len=*), intent(in) :: proof_line
+
+   if (cld_sediment_readnl_logged) return
+   cld_sediment_readnl_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') trim(proof_line)
+   end if
+
+end subroutine cld_sediment_log_direct
 
 !===============================================================================
 
@@ -180,7 +196,14 @@ subroutine cld_sediment_readnl(nlfile)
    call mpibcast(cldsed_ice_stokes_fac, 1, mpir8, 0, mpicom)
 #endif
 
-   call cld_sediment_finalize_params()
+   call cld_sediment_select_impl()
+   if (use_native_cld_sediment_impl) then
+      call cld_sediment_finalize_params()
+   else
+      call cld_sediment_proof_once()
+      cldsed_ice_stokes_fac = real(cld_sediment_param_codon(real(cldsed_ice_stokes_fac, c_double)), r8)
+      call cld_sediment_log_direct('cld_sediment_readnl direct = codon')
+   end if
 
 end subroutine cld_sediment_readnl
 
