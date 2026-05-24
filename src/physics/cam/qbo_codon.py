@@ -19,6 +19,11 @@ def qbo_tstep_init_codon():
 
 
 @export
+def qbo_timestep_init_codon():
+    qbo_tstep_init_codon()
+
+
+@export
 def qbo_batch_relax_codon():
     qbo_relax_codon()
 

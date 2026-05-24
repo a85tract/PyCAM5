@@ -18,6 +18,8 @@ logical :: qbo_batch_impl_selected = .false.
 logical :: qbo_batch_entered_logged = .false.
 logical :: qbo_readnl_logged = .false.
 logical :: qbo_init_logged = .false.
+logical :: qbo_timestep_init_logged = .false.
+logical :: qbo_relax_logged = .false.
 
 interface
    subroutine qbo_readnl_codon() bind(c, name="qbo_readnl_codon")
@@ -29,6 +31,12 @@ interface
    subroutine qbo_batch_tstep_init_stage_dispatch_codon() &
         bind(c, name="qbo_batch_tstep_init_stage_dispatch_codon")
    end subroutine qbo_batch_tstep_init_stage_dispatch_codon
+
+   subroutine qbo_timestep_init_codon() bind(c, name="qbo_timestep_init_codon")
+   end subroutine qbo_timestep_init_codon
+
+   subroutine qbo_relax_codon() bind(c, name="qbo_relax_codon")
+   end subroutine qbo_relax_codon
 
    subroutine qbo_batch_relax_stage_dispatch_codon() bind(c, name="qbo_batch_relax_stage_dispatch_codon")
    end subroutine qbo_batch_relax_stage_dispatch_codon
@@ -231,7 +239,8 @@ subroutine qbo_timestep_init
   end if
 
   call qbo_batch_log_entered()
-  call qbo_batch_tstep_init_stage_dispatch_codon()
+  call qbo_timestep_init_codon()
+  call qbo_log_direct(qbo_timestep_init_logged, 'qbo_timestep_init direct = codon')
 
 end subroutine qbo_timestep_init
 
@@ -263,7 +272,8 @@ subroutine qbo_relax( state, pbuf, ptend )
 
   call physics_ptend_init(ptend, state%psetcols, 'qbo (stub)')
   call qbo_batch_log_entered()
-  call qbo_batch_relax_stage_dispatch_codon()
+  call qbo_relax_codon()
+  call qbo_log_direct(qbo_relax_logged, 'qbo_relax direct = codon')
 
 end subroutine qbo_relax
 

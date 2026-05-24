@@ -533,6 +533,150 @@ def micro_mg_data_pack_unpack_codon(
         _micro_mg_data_mean_2d(count1, extent2, num_steps, src, dst)
 
 
+@export
+def pack_2d_codon(
+    mode: int,
+    pcols: int,
+    pver: int,
+    mgncol: int,
+    nlev: int,
+    top_lev: int,
+    extent2: int,
+    extent3: int,
+    count1: int,
+    num_steps: int,
+    fillvalue: float,
+    mgcols_p: cobj,
+    src_p: cobj,
+    fill_p: cobj,
+    dst_p: cobj,
+):
+    micro_mg_data_pack_unpack_codon(
+        mode, pcols, pver, mgncol, nlev, top_lev, extent2, extent3,
+        count1, num_steps, fillvalue, mgcols_p, src_p, fill_p, dst_p
+    )
+
+
+@export
+def pack_interface_codon(
+    mode: int,
+    pcols: int,
+    pver: int,
+    mgncol: int,
+    nlev: int,
+    top_lev: int,
+    extent2: int,
+    extent3: int,
+    count1: int,
+    num_steps: int,
+    fillvalue: float,
+    mgcols_p: cobj,
+    src_p: cobj,
+    fill_p: cobj,
+    dst_p: cobj,
+):
+    micro_mg_data_pack_unpack_codon(
+        mode, pcols, pver, mgncol, nlev, top_lev, extent2, extent3,
+        count1, num_steps, fillvalue, mgcols_p, src_p, fill_p, dst_p
+    )
+
+
+@export
+def pack_3d_codon(
+    mode: int,
+    pcols: int,
+    pver: int,
+    mgncol: int,
+    nlev: int,
+    top_lev: int,
+    extent2: int,
+    extent3: int,
+    count1: int,
+    num_steps: int,
+    fillvalue: float,
+    mgcols_p: cobj,
+    src_p: cobj,
+    fill_p: cobj,
+    dst_p: cobj,
+):
+    micro_mg_data_pack_unpack_codon(
+        mode, pcols, pver, mgncol, nlev, top_lev, extent2, extent3,
+        count1, num_steps, fillvalue, mgcols_p, src_p, fill_p, dst_p
+    )
+
+
+@export
+def unpack_1d_codon(
+    mode: int,
+    pcols: int,
+    pver: int,
+    mgncol: int,
+    nlev: int,
+    top_lev: int,
+    extent2: int,
+    extent3: int,
+    count1: int,
+    num_steps: int,
+    fillvalue: float,
+    mgcols_p: cobj,
+    src_p: cobj,
+    fill_p: cobj,
+    dst_p: cobj,
+):
+    micro_mg_data_pack_unpack_codon(
+        mode, pcols, pver, mgncol, nlev, top_lev, extent2, extent3,
+        count1, num_steps, fillvalue, mgcols_p, src_p, fill_p, dst_p
+    )
+
+
+@export
+def unpack_2d_codon(
+    mode: int,
+    pcols: int,
+    pver: int,
+    mgncol: int,
+    nlev: int,
+    top_lev: int,
+    extent2: int,
+    extent3: int,
+    count1: int,
+    num_steps: int,
+    fillvalue: float,
+    mgcols_p: cobj,
+    src_p: cobj,
+    fill_p: cobj,
+    dst_p: cobj,
+):
+    micro_mg_data_pack_unpack_codon(
+        mode, pcols, pver, mgncol, nlev, top_lev, extent2, extent3,
+        count1, num_steps, fillvalue, mgcols_p, src_p, fill_p, dst_p
+    )
+
+
+@export
+def unpack_2d_array_fill_codon(
+    mode: int,
+    pcols: int,
+    pver: int,
+    mgncol: int,
+    nlev: int,
+    top_lev: int,
+    extent2: int,
+    extent3: int,
+    count1: int,
+    num_steps: int,
+    fillvalue: float,
+    mgcols_p: cobj,
+    src_p: cobj,
+    fill_p: cobj,
+    dst_p: cobj,
+):
+    micro_mg_data_pack_unpack_codon(
+        mode, pcols, pver, mgncol, nlev, top_lev, extent2, extent3,
+        count1, num_steps, fillvalue, mgcols_p, src_p, fill_p, dst_p
+    )
+
+
 @inline
 def _zero2(ncol: int, pver: int, pcols: int, arr: Ptr[float]):
     for k in range(1, pver + 1):

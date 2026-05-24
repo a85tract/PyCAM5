@@ -140,6 +140,60 @@ interface
       real(c_double), value :: fillvalue_c
       type(c_ptr), value :: mgcols_p, src_p, fill_p, dst_p
    end subroutine micro_mg_data_pack_unpack_codon
+   subroutine pack_2d_codon(mode_c, pcols_c, pver_c, mgncol_c, nlev_c, top_lev_c, &
+        extent2_c, extent3_c, count1_c, num_steps_c, fillvalue_c, mgcols_p, src_p, fill_p, dst_p) &
+        bind(c, name="pack_2d_codon")
+      import c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: mode_c, pcols_c, pver_c, mgncol_c, nlev_c, top_lev_c
+      integer(c_int64_t), value :: extent2_c, extent3_c, count1_c, num_steps_c
+      real(c_double), value :: fillvalue_c
+      type(c_ptr), value :: mgcols_p, src_p, fill_p, dst_p
+   end subroutine pack_2d_codon
+   subroutine pack_interface_codon(mode_c, pcols_c, pver_c, mgncol_c, nlev_c, top_lev_c, &
+        extent2_c, extent3_c, count1_c, num_steps_c, fillvalue_c, mgcols_p, src_p, fill_p, dst_p) &
+        bind(c, name="pack_interface_codon")
+      import c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: mode_c, pcols_c, pver_c, mgncol_c, nlev_c, top_lev_c
+      integer(c_int64_t), value :: extent2_c, extent3_c, count1_c, num_steps_c
+      real(c_double), value :: fillvalue_c
+      type(c_ptr), value :: mgcols_p, src_p, fill_p, dst_p
+   end subroutine pack_interface_codon
+   subroutine pack_3d_codon(mode_c, pcols_c, pver_c, mgncol_c, nlev_c, top_lev_c, &
+        extent2_c, extent3_c, count1_c, num_steps_c, fillvalue_c, mgcols_p, src_p, fill_p, dst_p) &
+        bind(c, name="pack_3d_codon")
+      import c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: mode_c, pcols_c, pver_c, mgncol_c, nlev_c, top_lev_c
+      integer(c_int64_t), value :: extent2_c, extent3_c, count1_c, num_steps_c
+      real(c_double), value :: fillvalue_c
+      type(c_ptr), value :: mgcols_p, src_p, fill_p, dst_p
+   end subroutine pack_3d_codon
+   subroutine unpack_1d_codon(mode_c, pcols_c, pver_c, mgncol_c, nlev_c, top_lev_c, &
+        extent2_c, extent3_c, count1_c, num_steps_c, fillvalue_c, mgcols_p, src_p, fill_p, dst_p) &
+        bind(c, name="unpack_1d_codon")
+      import c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: mode_c, pcols_c, pver_c, mgncol_c, nlev_c, top_lev_c
+      integer(c_int64_t), value :: extent2_c, extent3_c, count1_c, num_steps_c
+      real(c_double), value :: fillvalue_c
+      type(c_ptr), value :: mgcols_p, src_p, fill_p, dst_p
+   end subroutine unpack_1d_codon
+   subroutine unpack_2d_codon(mode_c, pcols_c, pver_c, mgncol_c, nlev_c, top_lev_c, &
+        extent2_c, extent3_c, count1_c, num_steps_c, fillvalue_c, mgcols_p, src_p, fill_p, dst_p) &
+        bind(c, name="unpack_2d_codon")
+      import c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: mode_c, pcols_c, pver_c, mgncol_c, nlev_c, top_lev_c
+      integer(c_int64_t), value :: extent2_c, extent3_c, count1_c, num_steps_c
+      real(c_double), value :: fillvalue_c
+      type(c_ptr), value :: mgcols_p, src_p, fill_p, dst_p
+   end subroutine unpack_2d_codon
+   subroutine unpack_2d_array_fill_codon(mode_c, pcols_c, pver_c, mgncol_c, nlev_c, top_lev_c, &
+        extent2_c, extent3_c, count1_c, num_steps_c, fillvalue_c, mgcols_p, src_p, fill_p, dst_p) &
+        bind(c, name="unpack_2d_array_fill_codon")
+      import c_double, c_int64_t, c_ptr
+      integer(c_int64_t), value :: mode_c, pcols_c, pver_c, mgncol_c, nlev_c, top_lev_c
+      integer(c_int64_t), value :: extent2_c, extent3_c, count1_c, num_steps_c
+      real(c_double), value :: fillvalue_c
+      type(c_ptr), value :: mgcols_p, src_p, fill_p, dst_p
+   end subroutine unpack_2d_array_fill_codon
    function new_mgpacker_codon(flag_c) result(out_c) bind(c, name="new_mgpacker_codon")
       import c_int64_t
       integer(c_int64_t), value :: flag_c
@@ -647,7 +701,7 @@ function pack_2D(self, unpacked) result(packed)
      if (size(packed) > 0) dst_p = c_loc(packed)
      call micro_mg_data_log_packer_entry()
      call micro_mg_data_log_pack_2d_direct()
-     call micro_mg_data_pack_unpack_codon(int(pack_mode_pack_2D, c_int64_t), &
+     call pack_2d_codon(int(pack_mode_pack_2D, c_int64_t), &
           int(self%pcols, c_int64_t), int(self%pver, c_int64_t), int(self%mgncol, c_int64_t), &
           int(self%nlev, c_int64_t), int(self%top_lev, c_int64_t), int(self%nlev, c_int64_t), &
           1_c_int64_t, int(self%mgncol, c_int64_t), 1_c_int64_t, 0.0_c_double, &
@@ -675,7 +729,7 @@ function pack_interface(self, unpacked) result(packed)
      if (size(packed) > 0) dst_p = c_loc(packed)
      call micro_mg_data_log_packer_entry()
      call micro_mg_data_log_pack_interface_direct()
-     call micro_mg_data_pack_unpack_codon(int(pack_mode_pack_interface, c_int64_t), &
+     call pack_interface_codon(int(pack_mode_pack_interface, c_int64_t), &
           int(self%pcols, c_int64_t), int(self%pver, c_int64_t), int(self%mgncol, c_int64_t), &
           int(self%nlev, c_int64_t), int(self%top_lev, c_int64_t), int(self%nlev+1, c_int64_t), &
           1_c_int64_t, int(self%mgncol, c_int64_t), 1_c_int64_t, 0.0_c_double, &
@@ -705,7 +759,7 @@ function pack_3D(self, unpacked) result(packed)
      if (size(packed) > 0) dst_p = c_loc(packed)
      call micro_mg_data_log_packer_entry()
      call micro_mg_data_log_pack_3d_direct()
-     call micro_mg_data_pack_unpack_codon(int(pack_mode_pack_3D, c_int64_t), &
+     call pack_3d_codon(int(pack_mode_pack_3D, c_int64_t), &
           int(self%pcols, c_int64_t), int(self%pver, c_int64_t), int(self%mgncol, c_int64_t), &
           int(self%nlev, c_int64_t), int(self%top_lev, c_int64_t), int(self%nlev, c_int64_t), &
           int(size(unpacked, 3), c_int64_t), int(self%mgncol, c_int64_t), 1_c_int64_t, 0.0_c_double, &
@@ -737,7 +791,7 @@ function unpack_1D(self, packed, fill) result(unpacked)
      if (size(unpacked) > 0) dst_p = c_loc(unpacked)
      call micro_mg_data_log_packer_entry()
      call micro_mg_data_log_unpack_1d_direct()
-     call micro_mg_data_pack_unpack_codon(int(pack_mode_unpack_1D, c_int64_t), &
+     call unpack_1d_codon(int(pack_mode_unpack_1D, c_int64_t), &
           int(self%pcols, c_int64_t), int(self%pver, c_int64_t), int(self%mgncol, c_int64_t), &
           int(self%nlev, c_int64_t), int(self%top_lev, c_int64_t), 1_c_int64_t, 1_c_int64_t, &
           int(self%pcols, c_int64_t), 1_c_int64_t, real(fill, c_double), c_loc(mgcols_c), &
@@ -788,7 +842,7 @@ function unpack_2D(self, packed, fill) result(unpacked)
      if (size(unpacked) > 0) dst_p = c_loc(unpacked)
      call micro_mg_data_log_packer_entry()
      call micro_mg_data_log_unpack_2d_direct()
-     call micro_mg_data_pack_unpack_codon(int(pack_mode_unpack_2D, c_int64_t), &
+     call unpack_2d_codon(int(pack_mode_unpack_2D, c_int64_t), &
           int(self%pcols, c_int64_t), int(self%pver, c_int64_t), int(self%mgncol, c_int64_t), &
           int(self%nlev, c_int64_t), int(self%top_lev, c_int64_t), int(size(packed, 2), c_int64_t), &
           1_c_int64_t, int(self%pcols, c_int64_t), 1_c_int64_t, real(fill, c_double), &
@@ -822,7 +876,7 @@ function unpack_2D_array_fill(self, packed, fill) result(unpacked)
      if (size(unpacked) > 0) dst_p = c_loc(unpacked)
      call micro_mg_data_log_packer_entry()
      call micro_mg_data_log_unpack_2d_array_fill_direct()
-     call micro_mg_data_pack_unpack_codon(int(pack_mode_unpack_2D_array_fill, c_int64_t), &
+     call unpack_2d_array_fill_codon(int(pack_mode_unpack_2D_array_fill, c_int64_t), &
           int(self%pcols, c_int64_t), int(self%pver, c_int64_t), int(self%mgncol, c_int64_t), &
           int(self%nlev, c_int64_t), int(self%top_lev, c_int64_t), int(size(packed, 2), c_int64_t), &
           1_c_int64_t, int(self%pcols, c_int64_t), 1_c_int64_t, 0.0_c_double, &

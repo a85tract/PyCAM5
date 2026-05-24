@@ -48,6 +48,8 @@ module rayleigh_friction
   !
   logical :: use_native_impl = .false.
   logical :: impl_selected = .false.
+  logical :: rayleigh_friction_init_logged = .false.
+  logical :: rayleigh_friction_tend_logged = .false.
   real (r8), target :: krange         ! range of rayleigh friction profile
   real (r8), target :: tau0           ! approximate value of decay time at model top
   real (r8), target :: otau0          ! inverse of tau0
@@ -79,6 +81,20 @@ module rayleigh_friction
   ! If otau0 = 0, no term is applied.
 
 contains
+
+  !===============================================================================
+  subroutine rayleigh_friction_log_direct(logged, proof_line)
+    logical, intent(inout) :: logged
+    character(len=*), intent(in) :: proof_line
+
+    if (logged) return
+    logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') trim(proof_line)
+       call flush(iulog)
+    end if
+  end subroutine rayleigh_friction_log_direct
 
   !===============================================================================
   subroutine rayleigh_friction_select_impl()
@@ -135,6 +151,7 @@ contains
          int(rayk0, c_int64_t), real(raykrange, c_double), real(raytau0, c_double), int(pver, c_int64_t), &
          c_loc(krange), c_loc(tau0), c_loc(otau0), c_loc(otau) &
     )
+    call rayleigh_friction_log_direct(rayleigh_friction_init_logged, 'rayleigh_friction_init direct = codon')
 
     if (masterproc) then
        write (iulog,*) 'Rayleigh friction - rayk0 = ', rayk0
@@ -220,12 +237,20 @@ contains
 
     call physics_ptend_init(ptend, state%psetcols, 'rayleigh friction', ls=.true., lu=.true., lv=.true.)
 
-    if (otau0 .eq. 0._r8) return
+    if (otau0 .eq. 0._r8) then
+       call rayleigh_friction_tend_codon( &
+            real(ztodt, c_double), int(pver, c_int64_t), int(state%psetcols, c_int64_t), int(0, c_int64_t), &
+            c_loc(otau), c_loc(state%u), c_loc(state%v), c_loc(ptend%u), c_loc(ptend%v), c_loc(ptend%s) &
+       )
+       call rayleigh_friction_log_direct(rayleigh_friction_tend_logged, 'rayleigh_friction_tend direct = codon')
+       return
+    end if
 
     call rayleigh_friction_tend_codon( &
          real(ztodt, c_double), int(pver, c_int64_t), int(state%psetcols, c_int64_t), int(state%ncol, c_int64_t), &
          c_loc(otau), c_loc(state%u), c_loc(state%v), c_loc(ptend%u), c_loc(ptend%v), c_loc(ptend%s) &
     )
+    call rayleigh_friction_log_direct(rayleigh_friction_tend_logged, 'rayleigh_friction_tend direct = codon')
 
     return
   end subroutine rayleigh_friction_tend
