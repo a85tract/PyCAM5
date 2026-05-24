@@ -234,6 +234,47 @@ interface
     type(c_ptr), value :: snow_rho_p, snow_eff_dim_p, snow_shape_coef_p, snow_lambda_bounds_p
     type(c_ptr), value :: snow_min_mean_mass_p, status_p
   end subroutine micro_mg_utils_init_codon
+  pure subroutine newmghydrometeorprops_codon(rho_c, eff_dim_c, has_lambda_bounds_c, &
+       lambda_bounds1_c, lambda_bounds2_c, has_min_mean_mass_c, min_mean_mass_c, pi_c, &
+       no_limiter_bits_c, rho_p, eff_dim_p, shape_coef_p, lambda_bounds_p, min_mean_mass_p) &
+       bind(c, name="newmghydrometeorprops_codon")
+    use iso_c_binding, only: c_double, c_int64_t, c_ptr
+    real(c_double), value :: rho_c, eff_dim_c, lambda_bounds1_c, lambda_bounds2_c
+    real(c_double), value :: min_mean_mass_c, pi_c
+    integer(c_int64_t), value :: has_lambda_bounds_c, has_min_mean_mass_c, no_limiter_bits_c
+    type(c_ptr), value :: rho_p, eff_dim_p, shape_coef_p, lambda_bounds_p, min_mean_mass_p
+  end subroutine newmghydrometeorprops_codon
+  pure function rising_factorial_codon(x_c, n_c) result(out_c) bind(c, name="rising_factorial_codon")
+    use iso_c_binding, only: c_double
+    real(c_double), value :: x_c, n_c
+    real(c_double) :: out_c
+  end function rising_factorial_codon
+  pure subroutine size_dist_param_liq_codon(qsmall_c, pi_c, no_limiter_bits_c, prop_rho_c, &
+       prop_eff_dim_c, prop_min_mean_mass_c, prop_min_mean_mass_bits_c, qcic_c, ncic_in_c, &
+       rho_c, ncic_out_c, pgam_c, lamc_c) bind(c, name="size_dist_param_liq_codon")
+    use iso_c_binding, only: c_double, c_int64_t
+    real(c_double), value :: qsmall_c, pi_c, prop_rho_c, prop_eff_dim_c, prop_min_mean_mass_c
+    real(c_double), value :: qcic_c, ncic_in_c, rho_c
+    integer(c_int64_t), value :: no_limiter_bits_c, prop_min_mean_mass_bits_c
+    real(c_double), intent(out) :: ncic_out_c, pgam_c, lamc_c
+  end subroutine size_dist_param_liq_codon
+  pure subroutine size_dist_param_basic_codon(qsmall_c, no_limiter_bits_c, prop_eff_dim_c, &
+       prop_shape_coef_c, lambda_bounds1_c, lambda_bounds2_c, min_mean_mass_c, &
+       min_mean_mass_bits_c, qic_c, nic_in_c, want_n0_c, nic_out_c, lam_c, n0_c) &
+       bind(c, name="size_dist_param_basic_codon")
+    use iso_c_binding, only: c_double, c_int64_t
+    real(c_double), value :: qsmall_c, prop_eff_dim_c, prop_shape_coef_c
+    real(c_double), value :: lambda_bounds1_c, lambda_bounds2_c, min_mean_mass_c
+    real(c_double), value :: qic_c, nic_in_c
+    integer(c_int64_t), value :: no_limiter_bits_c, min_mean_mass_bits_c, want_n0_c
+    real(c_double), intent(out) :: nic_out_c, lam_c, n0_c
+  end subroutine size_dist_param_basic_codon
+  pure function avg_diameter_codon(q_c, n_c, rho_air_c, rho_sub_c) result(out_c) &
+       bind(c, name="avg_diameter_codon")
+    use iso_c_binding, only: c_double
+    real(c_double), value :: q_c, n_c, rho_air_c, rho_sub_c
+    real(c_double) :: out_c
+  end function avg_diameter_codon
   pure function no_limiter_codon() result(bits_c) bind(c, name="no_limiter_codon")
     use iso_c_binding, only: c_int64_t
     integer(c_int64_t) :: bits_c
@@ -470,27 +511,118 @@ pure function micro_mg_utils_gamma_native_cb(x_c) result(g_c) &
 
 end function micro_mg_utils_gamma_native_cb
 
+pure function micro_mg_utils_shape_coef_native_cb(rho_c, eff_dim_c) result(out_c) &
+     bind(C, name="micro_mg_utils_shape_coef_native_cb")
+  use iso_c_binding, only: c_double
+  real(c_double), value :: rho_c, eff_dim_c
+  real(c_double) :: out_c
+
+  out_c = real(real(rho_c, r8)*pi*gamma(real(eff_dim_c, r8)+1._r8)/6._r8, c_double)
+
+end function micro_mg_utils_shape_coef_native_cb
+
+pure function micro_mg_utils_rising_factorial_native_cb(x_c, n_c) result(out_c) &
+     bind(C, name="micro_mg_utils_rising_factorial_native_cb")
+  use iso_c_binding, only: c_double
+  real(c_double), value :: x_c, n_c
+  real(c_double) :: out_c
+
+  out_c = real(gamma(real(x_c, r8)+real(n_c, r8))/gamma(real(x_c, r8)), c_double)
+
+end function micro_mg_utils_rising_factorial_native_cb
+
+pure function micro_mg_utils_liq_pgam_native_cb(ncic_c, rho_c) result(out_c) &
+     bind(C, name="micro_mg_utils_liq_pgam_native_cb")
+  use iso_c_binding, only: c_double
+  real(c_double), value :: ncic_c, rho_c
+  real(c_double) :: out_c
+  real(r8) :: pgam
+
+  pgam = 0.0005714_r8*(real(ncic_c, r8)/1.e6_r8*real(rho_c, r8)) + 0.2714_r8
+  pgam = 1._r8/(pgam**2) - 1._r8
+  pgam = max(pgam, 2._r8)
+  pgam = min(pgam, 15._r8)
+  out_c = real(pgam, c_double)
+
+end function micro_mg_utils_liq_pgam_native_cb
+
+pure function micro_mg_utils_liq_shape_coef_native_cb(rho_c, pgam_c, eff_dim_c) result(out_c) &
+     bind(C, name="micro_mg_utils_liq_shape_coef_native_cb")
+  use iso_c_binding, only: c_double
+  real(c_double), value :: rho_c, pgam_c, eff_dim_c
+  real(c_double) :: out_c
+  real(r8) :: rising_factorial
+
+  rising_factorial = gamma(real(pgam_c, r8)+1._r8+real(eff_dim_c, r8)) / &
+       gamma(real(pgam_c, r8)+1._r8)
+  out_c = real(pi * real(rho_c, r8) / 6._r8 * rising_factorial, c_double)
+
+end function micro_mg_utils_liq_shape_coef_native_cb
+
+pure function micro_mg_utils_basic_lam_native_cb(shape_coef_c, nic_c, qic_c, eff_dim_c) result(out_c) &
+     bind(C, name="micro_mg_utils_basic_lam_native_cb")
+  use iso_c_binding, only: c_double
+  real(c_double), value :: shape_coef_c, nic_c, qic_c, eff_dim_c
+  real(c_double) :: out_c
+
+  out_c = real((real(shape_coef_c, r8) * real(nic_c, r8)/real(qic_c, r8))** &
+       (1._r8/real(eff_dim_c, r8)), c_double)
+
+end function micro_mg_utils_basic_lam_native_cb
+
+pure function micro_mg_utils_basic_nic_native_cb(lam_c, eff_dim_c, qic_c, shape_coef_c) result(out_c) &
+     bind(C, name="micro_mg_utils_basic_nic_native_cb")
+  use iso_c_binding, only: c_double
+  real(c_double), value :: lam_c, eff_dim_c, qic_c, shape_coef_c
+  real(c_double) :: out_c
+
+  out_c = real(real(lam_c, r8)**(real(eff_dim_c, r8)) * &
+       real(qic_c, r8)/real(shape_coef_c, r8), c_double)
+
+end function micro_mg_utils_basic_nic_native_cb
+
+pure function micro_mg_utils_avg_diameter_native_cb(q_c, n_c, rho_air_c, rho_sub_c) result(out_c) &
+     bind(C, name="micro_mg_utils_avg_diameter_native_cb")
+  use iso_c_binding, only: c_double
+  real(c_double), value :: q_c, n_c, rho_air_c, rho_sub_c
+  real(c_double) :: out_c
+
+  out_c = real((pi * real(rho_sub_c, r8) * real(n_c, r8) / &
+       (real(q_c, r8)*real(rho_air_c, r8)))**(-1._r8/3._r8), c_double)
+
+end function micro_mg_utils_avg_diameter_native_cb
+
 ! Constructor for a constituent property object.
 function NewMGHydrometeorProps(rho, eff_dim, lambda_bounds, min_mean_mass) &
      result(res)
+  use iso_c_binding, only: c_loc
   real(r8), intent(in) :: rho, eff_dim
   real(r8), intent(in), optional :: lambda_bounds(2), min_mean_mass
-  type(MGHydrometeorProps) :: res
+  type(MGHydrometeorProps), target :: res
+  real(r8) :: lambda_bounds_arg(2), min_mean_mass_arg
+  integer(c_int64_t) :: has_lambda_bounds, has_min_mean_mass
 
-  res%rho = rho
-  res%eff_dim = eff_dim
   if (present(lambda_bounds)) then
-     res%lambda_bounds = lambda_bounds
+     lambda_bounds_arg = lambda_bounds
+     has_lambda_bounds = 1_c_int64_t
   else
-     res%lambda_bounds = no_limiter()
-  end if
-  if (present(min_mean_mass)) then
-     res%min_mean_mass = min_mean_mass
-  else
-     res%min_mean_mass = no_limiter()
+     lambda_bounds_arg = 0._r8
+     has_lambda_bounds = 0_c_int64_t
   end if
 
-  res%shape_coef = rho*pi*gamma(eff_dim+1._r8)/6._r8
+  if (present(min_mean_mass)) then
+     min_mean_mass_arg = min_mean_mass
+     has_min_mean_mass = 1_c_int64_t
+  else
+     min_mean_mass_arg = 0._r8
+     has_min_mean_mass = 0_c_int64_t
+  end if
+
+  call newmghydrometeorprops_codon(real(rho, c_double), real(eff_dim, c_double), &
+       has_lambda_bounds, real(lambda_bounds_arg(1), c_double), real(lambda_bounds_arg(2), c_double), &
+       has_min_mean_mass, real(min_mean_mass_arg, c_double), real(pi, c_double), &
+       int(limiter_off, c_int64_t), c_loc(res%rho), c_loc(res%eff_dim), c_loc(res%shape_coef), &
+       c_loc(res%lambda_bounds(1)), c_loc(res%min_mean_mass))
 
 end function NewMGHydrometeorProps
 
@@ -523,37 +655,15 @@ elemental subroutine size_dist_param_liq(props, qcic, ncic, rho, pgam, lamc)
   real(r8), intent(out) :: pgam
   real(r8), intent(out) :: lamc
 
-  type(MGHydrometeorProps) :: props_loc
+  real(c_double) :: ncic_c, pgam_c, lamc_c
 
-  if (qcic > qsmall) then
-
-     ! Local copy of properties that can be modified.
-     ! (Elemental routines that operate on arrays can't modify scalar
-     ! arguments.)
-     props_loc = props
-
-     ! Get pgam from fit to observations of martin et al. 1994
-     pgam = 0.0005714_r8*(ncic/1.e6_r8*rho) + 0.2714_r8
-     pgam = 1._r8/(pgam**2) - 1._r8
-     pgam = max(pgam, 2._r8)
-     pgam = min(pgam, 15._r8)
-
-     ! Set coefficient for use in size_dist_param_basic.
-     props_loc%shape_coef = pi * props_loc%rho / 6._r8 * &
-          rising_factorial(pgam+1._r8, props_loc%eff_dim)
-
-     ! Limit to between 2 and 50 microns mean size.
-     props_loc%lambda_bounds = (pgam+1._r8)*1._r8/[50.e-6_r8, 2.e-6_r8]
-
-     call size_dist_param_basic(props_loc, qcic, ncic, lamc)
-
-  else
-     ! pgam not calculated in this case, so set it to a value likely to
-     ! cause an error if it is accidentally used
-     ! (gamma function undefined for negative integers)
-     pgam = -100._r8
-     lamc = 0._r8
-  end if
+  call size_dist_param_liq_codon(real(qsmall, c_double), real(pi, c_double), &
+       int(limiter_off, c_int64_t), real(props%rho, c_double), real(props%eff_dim, c_double), &
+       real(props%min_mean_mass, c_double), int(transfer(props%min_mean_mass, limiter_off), c_int64_t), &
+       real(qcic, c_double), real(ncic, c_double), real(rho, c_double), ncic_c, pgam_c, lamc_c)
+  ncic = real(ncic_c, r8)
+  pgam = real(pgam_c, r8)
+  lamc = real(lamc_c, r8)
 
 contains
 
@@ -562,7 +672,7 @@ contains
     real(r8), intent(in) :: x, n
     real(r8) :: rising_factorial
 
-    rising_factorial = gamma(x+n)/gamma(x)
+    rising_factorial = real(rising_factorial_codon(real(x, c_double), real(n, c_double)), r8)
 
   end function rising_factorial
 
@@ -576,33 +686,17 @@ elemental subroutine size_dist_param_basic(props, qic, nic, lam, n0)
 
   real(r8), intent(out) :: lam
   real(r8), intent(out), optional :: n0
+  real(c_double) :: nic_c, lam_c, n0_c
 
-  if (qic > qsmall) then
-
-     ! add upper limit to in-cloud number concentration to prevent
-     ! numerical error
-     if (limiter_is_on(props%min_mean_mass)) then
-        nic = min(nic, qic / props%min_mean_mass)
-     end if
-
-     ! lambda = (c n/q)^(1/d)
-     lam = (props%shape_coef * nic/qic)**(1._r8/props%eff_dim)
-
-     ! check for slope
-     ! adjust vars
-     if (lam < props%lambda_bounds(1)) then
-        lam = props%lambda_bounds(1)
-        nic = lam**(props%eff_dim) * qic/props%shape_coef
-     else if (lam > props%lambda_bounds(2)) then
-        lam = props%lambda_bounds(2)
-        nic = lam**(props%eff_dim) * qic/props%shape_coef
-     end if
-
-  else
-     lam = 0._r8
-  end if
-
-  if (present(n0)) n0 = nic * lam
+  call size_dist_param_basic_codon(real(qsmall, c_double), int(limiter_off, c_int64_t), &
+       real(props%eff_dim, c_double), real(props%shape_coef, c_double), &
+       real(props%lambda_bounds(1), c_double), real(props%lambda_bounds(2), c_double), &
+       real(props%min_mean_mass, c_double), int(transfer(props%min_mean_mass, limiter_off), c_int64_t), &
+       real(qic, c_double), real(nic, c_double), merge(1_c_int64_t, 0_c_int64_t, present(n0)), &
+       nic_c, lam_c, n0_c)
+  nic = real(nic_c, r8)
+  lam = real(lam_c, r8)
+  if (present(n0)) n0 = real(n0_c, r8)
 
 end subroutine size_dist_param_basic
 
@@ -615,7 +709,8 @@ real(r8) elemental function avg_diameter(q, n, rho_air, rho_sub)
   real(r8), intent(in) :: rho_air   ! local density of the air
   real(r8), intent(in) :: rho_sub   ! density of the particle substance
 
-  avg_diameter = (pi * rho_sub * n/(q*rho_air))**(-1._r8/3._r8)
+  avg_diameter = real(avg_diameter_codon(real(q, c_double), real(n, c_double), &
+       real(rho_air, c_double), real(rho_sub, c_double)), r8)
 
 end function avg_diameter
 

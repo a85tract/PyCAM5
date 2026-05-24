@@ -3,6 +3,13 @@ import modal_aer_opt_codon as _modal_aer_opt
 import ndrop_codon as _ndrop
 import phys_grid_codon as _phys_grid
 from C import micro_mg_utils_gamma_native_cb(float) -> float
+from C import micro_mg_utils_shape_coef_native_cb(float, float) -> float
+from C import micro_mg_utils_rising_factorial_native_cb(float, float) -> float
+from C import micro_mg_utils_liq_pgam_native_cb(float, float) -> float
+from C import micro_mg_utils_liq_shape_coef_native_cb(float, float, float) -> float
+from C import micro_mg_utils_basic_lam_native_cb(float, float, float, float) -> float
+from C import micro_mg_utils_basic_nic_native_cb(float, float, float, float) -> float
+from C import micro_mg_utils_avg_diameter_native_cb(float, float, float, float) -> float
 from C import goffgratch_svp_ice_native_cb(float) -> float
 from C import goffgratch_svp_water_native_cb(float) -> float
 from C import bolton_svp_water_native_cb(float) -> float
@@ -6798,6 +6805,146 @@ def limiter_is_on_codon(bits: int, off_bits: int) -> int:
     if bits != off_bits:
         return 1
     return 0
+
+
+@export
+def newmghydrometeorprops_codon(
+    rho_value: float,
+    eff_dim_value: float,
+    has_lambda_bounds: int,
+    lambda_bounds1: float,
+    lambda_bounds2: float,
+    has_min_mean_mass: int,
+    min_mean_mass_value: float,
+    pi_value: float,
+    no_limiter_bits: int,
+    rho_p: cobj,
+    eff_dim_p: cobj,
+    shape_coef_p: cobj,
+    lambda_bounds_p: cobj,
+    min_mean_mass_p: cobj,
+):
+    rho = Ptr[float](rho_p)
+    eff_dim = Ptr[float](eff_dim_p)
+    shape_coef = Ptr[float](shape_coef_p)
+    lambda_bounds = Ptr[float](lambda_bounds_p)
+    min_mean_mass = Ptr[float](min_mean_mass_p)
+
+    rho[0] = rho_value
+    eff_dim[0] = eff_dim_value
+    if has_lambda_bounds != 0:
+        lambda_bounds[0] = lambda_bounds1
+        lambda_bounds[1] = lambda_bounds2
+    else:
+        Ptr[int](lambda_bounds_p)[0] = no_limiter_bits
+        Ptr[int](lambda_bounds_p)[1] = no_limiter_bits
+
+    if has_min_mean_mass != 0:
+        min_mean_mass[0] = min_mean_mass_value
+    else:
+        Ptr[int](min_mean_mass_p)[0] = no_limiter_bits
+
+    shape_coef[0] = micro_mg_utils_shape_coef_native_cb(rho_value, eff_dim_value)
+
+
+@export
+def rising_factorial_codon(x: float, n: float) -> float:
+    return micro_mg_utils_rising_factorial_native_cb(x, n)
+
+
+@export
+def size_dist_param_basic_codon(
+    qsmall_value: float,
+    no_limiter_bits: int,
+    prop_eff_dim: float,
+    prop_shape_coef: float,
+    lambda_bounds1: float,
+    lambda_bounds2: float,
+    min_mean_mass: float,
+    min_mean_mass_bits: int,
+    qic: float,
+    nic_in: float,
+    want_n0: int,
+    nic_out_c: cobj,
+    lam_c: cobj,
+    n0_c: cobj,
+):
+    nic_out = Ptr[float](nic_out_c)
+    lam_out = Ptr[float](lam_c)
+    n0_out = Ptr[float](n0_c)
+
+    nic = nic_in
+    lam = 0.0
+    if qic > qsmall_value:
+        if min_mean_mass_bits != no_limiter_bits:
+            nic = min(nic, qic / min_mean_mass)
+
+        lam = micro_mg_utils_basic_lam_native_cb(prop_shape_coef, nic, qic, prop_eff_dim)
+
+        if lam < lambda_bounds1:
+            lam = lambda_bounds1
+            nic = micro_mg_utils_basic_nic_native_cb(lam, prop_eff_dim, qic, prop_shape_coef)
+        elif lam > lambda_bounds2:
+            lam = lambda_bounds2
+            nic = micro_mg_utils_basic_nic_native_cb(lam, prop_eff_dim, qic, prop_shape_coef)
+
+    nic_out[0] = nic
+    lam_out[0] = lam
+    if want_n0 != 0:
+        n0_out[0] = nic * lam
+
+
+@export
+def size_dist_param_liq_codon(
+    qsmall_value: float,
+    pi_value: float,
+    no_limiter_bits: int,
+    prop_rho: float,
+    prop_eff_dim: float,
+    prop_min_mean_mass: float,
+    prop_min_mean_mass_bits: int,
+    qcic: float,
+    ncic_in: float,
+    rho: float,
+    ncic_out_c: cobj,
+    pgam_c: cobj,
+    lamc_c: cobj,
+):
+    ncic_out = Ptr[float](ncic_out_c)
+    pgam_out = Ptr[float](pgam_c)
+    lamc_out = Ptr[float](lamc_c)
+
+    ncic = ncic_in
+    if qcic > qsmall_value:
+        pgam = micro_mg_utils_liq_pgam_native_cb(ncic, rho)
+        shape_coef = micro_mg_utils_liq_shape_coef_native_cb(prop_rho, pgam, prop_eff_dim)
+        lambda_bounds1 = (pgam + 1.0) * 1.0 / 50.0e-6
+        lambda_bounds2 = (pgam + 1.0) * 1.0 / 2.0e-6
+
+        if prop_min_mean_mass_bits != no_limiter_bits:
+            ncic = min(ncic, qcic / prop_min_mean_mass)
+
+        lam = micro_mg_utils_basic_lam_native_cb(shape_coef, ncic, qcic, prop_eff_dim)
+
+        if lam < lambda_bounds1:
+            lam = lambda_bounds1
+            ncic = micro_mg_utils_basic_nic_native_cb(lam, prop_eff_dim, qcic, shape_coef)
+        elif lam > lambda_bounds2:
+            lam = lambda_bounds2
+            ncic = micro_mg_utils_basic_nic_native_cb(lam, prop_eff_dim, qcic, shape_coef)
+
+        pgam_out[0] = pgam
+        lamc_out[0] = lam
+    else:
+        pgam_out[0] = -100.0
+        lamc_out[0] = 0.0
+
+    ncic_out[0] = ncic
+
+
+@export
+def avg_diameter_codon(q: float, n: float, rho_air: float, rho_sub: float) -> float:
+    return micro_mg_utils_avg_diameter_native_cb(q, n, rho_air, rho_sub)
 
 
 @export
