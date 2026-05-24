@@ -346,6 +346,9 @@
                              eddy_lbulk_max, eddy_leng_max, eddy_max_bot_pressure, &
                              eddy_moist_entrain_a2l)
 
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+    use ref_pres,      only: pref_mid
+
     implicit none
 
     integer,  intent(in) :: kind
@@ -364,7 +367,66 @@
     real(r8), intent(in) :: eddy_max_bot_pressure
     real(r8), intent(in) :: eddy_moist_entrain_a2l
 
+    real(r8), target :: pref_mid_local(pver)
+    real(r8), target :: cpair_local
+    real(r8), target :: rair_local
+    real(r8), target :: g_local
+    real(r8), target :: zvir_local
+    real(r8), target :: latvap_local
+    real(r8), target :: latice_local
+    real(r8), target :: latsub_local
+    real(r8), target :: vk_local
+    real(r8), target :: ccon_local
+    real(r8), target :: b123_local
+    real(r8), target :: a2l_local
+    real(r8), target :: lbulk_max_local
+
+    interface
+       subroutine init_eddy_diff_codon(pver_c, ntop_eddy_c, nbot_eddy_c, gravx_c, cpairx_c, rairx_c, zvirx_c, latvapx_c, &
+            laticex_c, vkx_c, fak_c, sffrac_c, b1_c, eddy_lbulk_max_c, eddy_leng_max_c, eddy_max_bot_pressure_c, &
+            eddy_moist_entrain_a2l_c, pref_mid_p, leng_max_p, ml2_p, cpair_p, rair_p, g_p, zvir_p, latvap_p, latice_p, &
+            latsub_p, vk_p, ccon_p, b123_p, a2l_p, lbulk_max_p) bind(c, name="init_eddy_diff_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: pver_c, ntop_eddy_c, nbot_eddy_c
+         real(c_double), value :: gravx_c, cpairx_c, rairx_c, zvirx_c, latvapx_c, laticex_c, vkx_c
+         real(c_double), value :: fak_c, sffrac_c, b1_c, eddy_lbulk_max_c, eddy_leng_max_c, eddy_max_bot_pressure_c
+         real(c_double), value :: eddy_moist_entrain_a2l_c
+         type(c_ptr), value :: pref_mid_p, leng_max_p, ml2_p, cpair_p, rair_p, g_p, zvir_p, latvap_p, latice_p
+         type(c_ptr), value :: latsub_p, vk_p, ccon_p, b123_p, a2l_p, lbulk_max_p
+       end subroutine init_eddy_diff_codon
+    end interface
+
     call init_eddy_diff_select_impl()
+
+    if (.not. use_native_init_eddy_diff_impl) then
+       if( kind .ne. r8 ) then
+          write(iulog,*) 'wrong KIND of reals passed to init_diffusvity -- exiting.'
+          call endrun('init_eddy_diff: wrong KIND of reals passed to init_diffusvity')
+       endif
+
+       ntop_turb = ntop_eddy
+       nbot_turb = nbot_eddy
+       allocate(ml2(pver+1))
+       pref_mid_local(:) = pref_mid(:)
+       call init_eddy_diff_codon(int(pver, c_int64_t), int(ntop_turb, c_int64_t), int(nbot_turb, c_int64_t), gravx, cpairx, &
+            rairx, zvirx, latvapx, laticex, vkx, fak, sffrac, b1, eddy_lbulk_max, eddy_leng_max, eddy_max_bot_pressure, &
+            eddy_moist_entrain_a2l, c_loc(pref_mid_local), c_loc(leng_max), c_loc(ml2), c_loc(cpair_local), c_loc(rair_local), &
+            c_loc(g_local), c_loc(zvir_local), c_loc(latvap_local), c_loc(latice_local), c_loc(latsub_local), c_loc(vk_local), &
+            c_loc(ccon_local), c_loc(b123_local), c_loc(a2l_local), c_loc(lbulk_max_local))
+       cpair = cpair_local
+       rair = rair_local
+       g = g_local
+       zvir = zvir_local
+       latvap = latvap_local
+       latice = latice_local
+       latsub = latsub_local
+       vk = vk_local
+       ccon = ccon_local
+       b123 = b123_local
+       a2l = a2l_local
+       lbulk_max = lbulk_max_local
+       if (masterproc) write(iulog,'(A)') 'init_eddy_diff direct = codon'
+    end if
 
     call init_eddy_diff_driver(kind, pver, gravx, cpairx, rairx, zvirx, latvapx, laticex, ntop_eddy, nbot_eddy, vkx, &
          eddy_lbulk_max, eddy_leng_max, eddy_max_bot_pressure, eddy_moist_entrain_a2l, use_native_init_eddy_diff_impl)
@@ -410,34 +472,6 @@
     real(r8), intent(in) :: eddy_moist_entrain_a2l ! Moist entrainment enhancement param
 
     integer              :: k          ! Vertical loop index
-    real(r8), target     :: pref_mid_local(pver)
-    real(r8), target     :: cpair_local
-    real(r8), target     :: rair_local
-    real(r8), target     :: g_local
-    real(r8), target     :: zvir_local
-    real(r8), target     :: latvap_local
-    real(r8), target     :: latice_local
-    real(r8), target     :: latsub_local
-    real(r8), target     :: vk_local
-    real(r8), target     :: ccon_local
-    real(r8), target     :: b123_local
-    real(r8), target     :: a2l_local
-    real(r8), target     :: lbulk_max_local
-
-    interface
-       subroutine init_eddy_diff_codon(pver_c, ntop_eddy_c, nbot_eddy_c, gravx_c, cpairx_c, rairx_c, zvirx_c, latvapx_c, &
-            laticex_c, vkx_c, fak_c, sffrac_c, b1_c, eddy_lbulk_max_c, eddy_leng_max_c, eddy_max_bot_pressure_c, &
-            eddy_moist_entrain_a2l_c, pref_mid_p, leng_max_p, ml2_p, cpair_p, rair_p, g_p, zvir_p, latvap_p, latice_p, &
-            latsub_p, vk_p, ccon_p, b123_p, a2l_p, lbulk_max_p) bind(c, name="init_eddy_diff_codon")
-         use iso_c_binding, only: c_double, c_int64_t, c_ptr
-         integer(c_int64_t), value :: pver_c, ntop_eddy_c, nbot_eddy_c
-         real(c_double), value :: gravx_c, cpairx_c, rairx_c, zvirx_c, latvapx_c, laticex_c, vkx_c
-         real(c_double), value :: fak_c, sffrac_c, b1_c, eddy_lbulk_max_c, eddy_leng_max_c, eddy_max_bot_pressure_c
-         real(c_double), value :: eddy_moist_entrain_a2l_c
-         type(c_ptr), value :: pref_mid_p, leng_max_p, ml2_p, cpair_p, rair_p, g_p, zvir_p, latvap_p, latice_p
-         type(c_ptr), value :: latsub_p, vk_p, ccon_p, b123_p, a2l_p, lbulk_max_p
-       end subroutine init_eddy_diff_codon
-    end interface
 
     if( kind .ne. r8 ) then
         write(iulog,*) 'wrong KIND of reals passed to init_diffusvity -- exiting.'
@@ -475,26 +509,6 @@
           ml2(k) = 30.0_r8**2
        end do
        ml2(nbot_turb+1:pver+1) = 0._r8
-    else
-       allocate(ml2(pver+1))
-       pref_mid_local(:) = pref_mid(:)
-       call init_eddy_diff_codon(int(pver, c_int64_t), int(ntop_turb, c_int64_t), int(nbot_turb, c_int64_t), gravx, cpairx, &
-            rairx, zvirx, latvapx, laticex, vkx, fak, sffrac, b1, eddy_lbulk_max, eddy_leng_max, eddy_max_bot_pressure, &
-            eddy_moist_entrain_a2l, c_loc(pref_mid_local), c_loc(leng_max), c_loc(ml2), c_loc(cpair_local), c_loc(rair_local), &
-            c_loc(g_local), c_loc(zvir_local), c_loc(latvap_local), c_loc(latice_local), c_loc(latsub_local), c_loc(vk_local), &
-            c_loc(ccon_local), c_loc(b123_local), c_loc(a2l_local), c_loc(lbulk_max_local))
-       cpair = cpair_local
-       rair = rair_local
-       g = g_local
-       zvir = zvir_local
-       latvap = latvap_local
-       latice = latice_local
-       latsub = latsub_local
-       vk = vk_local
-       ccon = ccon_local
-       b123 = b123_local
-       a2l = a2l_local
-       lbulk_max = lbulk_max_local
     end if
 
     if (masterproc) then
