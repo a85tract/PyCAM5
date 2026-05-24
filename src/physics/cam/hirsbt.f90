@@ -18,6 +18,7 @@
     logical :: use_native_hirsbt_init_impl = .false.
     logical :: hirsbt_init_impl_selected = .false.
     logical :: hirsbt_init_proof_written = .false.
+    logical :: hirsbt_init_logged = .false.
 
     interface
       function hirsbt_flag_codon(flag_c) result(out_c) bind(c, name="hirsbt_flag_codon")
@@ -80,6 +81,17 @@
       end if
 
     end subroutine hirsbt_init_proof_once
+
+    subroutine hirsbt_init_log_direct()
+
+      if (hirsbt_init_logged) return
+      hirsbt_init_logged = .true.
+
+      if (masterproc) then
+        write(iulog,'(A)') 'hirsbt_init direct = codon'
+      end if
+
+    end subroutine hirsbt_init_log_direct
 
     logical function hirsbt_init_flag(flag_in)
 
@@ -761,6 +773,7 @@
 
 !------------------------------Local variables--------------------------
     integer :: dtime      ! integer timestep size
+    integer(c_int64_t) :: out_c
 
 !*******************************************************************************************
 !     Set constants to values used in the model
@@ -791,10 +804,24 @@
 
 ! These should be namelist variables; 
 ! Set flag to do HIRS brightness temperature calculation 
-    dohirs = hirsbt_init_flag(.true.)
+    call hirsbt_init_select_impl()
+    if (use_native_hirsbt_init_impl) then
+      dohirs = .true.
+    else
+      call hirsbt_init_proof_once()
+      out_c = hirsbt_flag_codon(1_c_int64_t)
+      dohirs = out_c /= 0_c_int64_t
+      call hirsbt_init_log_direct()
+    end if
 ! Set frequency of HIRS calculation
 ! ihirsfq is in timesteps if positive, or hours if negative; 6 hours is recommended
-    ihirsfq = hirsbt_init_freq(-6, dtime)
+    if (use_native_hirsbt_init_impl) then
+      ihirsfq = -6
+      if (ihirsfq < 0) ihirsfq = nint((-ihirsfq*3600._r8)/dtime)
+    else
+      out_c = hirsbt_freq_codon(int(-6, c_int64_t), int(dtime, c_int64_t))
+      ihirsfq = int(out_c)
+    end if
 
 ! Convert ihirsfq from hours to timesteps if necessary
 

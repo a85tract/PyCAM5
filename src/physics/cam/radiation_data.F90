@@ -111,6 +111,9 @@ module radiation_data
   logical :: use_native_radiation_data_flags_impl = .false.
   logical :: radiation_data_flags_impl_selected = .false.
   logical :: radiation_data_flags_proof_written = .false.
+  logical :: rad_data_readnl_logged = .false.
+  logical :: rad_data_init_logged = .false.
+  logical :: rad_data_write_logged = .false.
 
   interface
     function radiation_data_flag_codon(flag_c) result(out_c) bind(c, name="radiation_data_flag_codon")
@@ -176,6 +179,22 @@ contains
     end if
 
   end subroutine radiation_data_flags_proof_once
+
+  !================================================================================================
+  !================================================================================================
+  subroutine radiation_data_flags_log_direct(logged, proof_line)
+
+    logical, intent(inout) :: logged
+    character(len=*), intent(in) :: proof_line
+
+    if (logged) return
+    logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') trim(proof_line)
+    end if
+
+  end subroutine radiation_data_flags_log_direct
 
   !================================================================================================
   !================================================================================================
@@ -268,7 +287,14 @@ contains
     call mpibcast (rad_data_histfile_num, 1,   mpiint ,  0, mpicom)
     call mpibcast (rad_data_avgflag,      1,   mpichar , 0, mpicom)
 #endif
-    do_fdh = radiation_data_flag(rad_data_fdh)
+    call radiation_data_flags_select_impl()
+    if (use_native_radiation_data_flags_impl) then
+       do_fdh = rad_data_fdh
+    else
+       call radiation_data_flags_proof_once()
+       do_fdh = radiation_data_flag_codon(merge(1_c_int64_t, 0_c_int64_t, rad_data_fdh)) /= 0_c_int64_t
+       call radiation_data_flags_log_direct(rad_data_readnl_logged, 'rad_data_readnl direct = codon')
+    end if
 
   end subroutine rad_data_readnl
 
@@ -281,6 +307,7 @@ contains
     
     integer :: i
     integer :: m,l, nspec
+    integer(c_int64_t) :: active_c
     character(len=64) :: name
     character(len=32) :: aername =  ' '
     character(len=128):: long_name
@@ -289,7 +316,16 @@ contains
     character(len=16)  :: rad_scheme
    
     call phys_getopts(microp_scheme_out=microp_scheme, radiation_scheme_out=rad_scheme)
-    mg_microphys = radiation_data_flag(trim(microp_scheme) == 'MG')
+
+    call radiation_data_flags_select_impl()
+    if (use_native_radiation_data_flags_impl) then
+       mg_microphys = trim(microp_scheme) == 'MG'
+    else
+       call radiation_data_flags_proof_once()
+       active_c = radiation_data_flag_codon(merge(1_c_int64_t, 0_c_int64_t, trim(microp_scheme) == 'MG'))
+       mg_microphys = active_c /= 0_c_int64_t
+       call radiation_data_flags_log_direct(rad_data_init_logged, 'rad_data_init direct = codon')
+    end if
 
     cld_ifld    = pbuf_get_index('CLD')
     rel_ifld    = pbuf_get_index('REL')
@@ -347,7 +383,12 @@ contains
        enddo
     endif
 
-    if (.not.radiation_data_flag(rad_data_output)) return
+    if (use_native_radiation_data_flags_impl) then
+       if (.not. rad_data_output) return
+    else
+       active_c = radiation_data_flag_codon(merge(1_c_int64_t, 0_c_int64_t, rad_data_output))
+       if (active_c == 0_c_int64_t) return
+    end if
 
     call addfld (lndfrc_fldn, 'fraction', 1,    rad_data_avgflag,&
          'radiation input: land fraction',phys_decomp)
@@ -574,6 +615,7 @@ contains
     integer :: ixcldliq              ! cloud liquid water index
     integer :: icol
     integer :: ncol
+    integer(c_int64_t) :: active_c
     
     ! surface albedoes weighted by (positive cosine zenith angle)
     real(r8):: coszrs_pos(pcols)    ! = max(coszrs,0)
@@ -622,7 +664,15 @@ contains
 
     end if
 
-    if (.not.radiation_data_flag(rad_data_output)) return
+    call radiation_data_flags_select_impl()
+    if (use_native_radiation_data_flags_impl) then
+       if (.not. rad_data_output) return
+    else
+       call radiation_data_flags_proof_once()
+       active_c = radiation_data_flag_codon(merge(1_c_int64_t, 0_c_int64_t, rad_data_output))
+       call radiation_data_flags_log_direct(rad_data_write_logged, 'rad_data_write direct = codon')
+       if (active_c == 0_c_int64_t) return
+    end if
 
     call outfld(qrs_fldn, qrs, pcols, lchnk )
     call outfld(qrl_fldn, qrl, pcols, lchnk )

@@ -91,6 +91,7 @@ real(r8), parameter :: tboil = 373.16_r8
   logical :: use_native_wv_saturation_impl = .false.
   logical :: wv_saturation_impl_selected = .false.
   logical :: wv_saturation_proof_written = .false.
+  logical :: wv_sat_init_logged = .false.
 
   interface
      function wv_saturation_value_codon(value_c) result(value_out) &
@@ -265,6 +266,23 @@ real(r8) function wv_saturation_value(value) result(out)
 
 end function wv_saturation_value
 
+subroutine wv_saturation_log_direct(logged, proof_line)
+
+  use cam_logfile, only: iulog
+  use spmd_utils, only: masterproc
+
+  logical, intent(inout) :: logged
+  character(len=*), intent(in) :: proof_line
+
+  if (logged) return
+  logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') trim(proof_line)
+  end if
+
+end subroutine wv_saturation_log_direct
+
 subroutine wv_sat_readnl(nlfile)
   !------------------------------------------------------------------!
   ! Purpose:                                                         !
@@ -346,7 +364,14 @@ subroutine wv_sat_init
   integer  :: i         ! Increment counter
 
   ! Precalculated because so frequently used.
-  omeps  = wv_saturation_value(1.0_r8 - epsilo)
+  call wv_saturation_select_impl()
+  if (use_native_wv_saturation_impl) then
+     omeps = 1.0_r8 - epsilo
+  else
+     call wv_saturation_proof_once()
+     omeps = real(wv_saturation_value_codon(real(1.0_r8 - epsilo, c_double)), r8)
+     call wv_saturation_log_direct(wv_sat_init_logged, 'wv_sat_init direct = codon')
+  end if
 
   ! Transition range method is only valid for transition temperatures at:
   ! -40 deg C < T < 0 deg C
@@ -354,7 +379,11 @@ subroutine wv_sat_init
        msg="wv_sat_init: Invalid transition temperature range.")
 
 ! This parameter uses a hardcoded 287.04_r8?
-  c3 = wv_saturation_value(287.04_r8*(7.5_r8*log(10._r8))/cpair)
+  if (use_native_wv_saturation_impl) then
+     c3 = 287.04_r8*(7.5_r8*log(10._r8))/cpair
+  else
+     c3 = real(wv_saturation_value_codon(real(287.04_r8*(7.5_r8*log(10._r8))/cpair, c_double)), r8)
+  end if
 
 ! Init "methods" module containing actual SVP formulae.
 

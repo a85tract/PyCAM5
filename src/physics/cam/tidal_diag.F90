@@ -26,6 +26,8 @@ module tidal_diag
   logical :: use_native_tidal_diag_impl = .false.
   logical :: tidal_diag_impl_selected = .false.
   logical :: tidal_diag_proof_written = .false.
+  logical :: tidal_diag_init_logged = .false.
+  logical :: tidal_diag_write_logged = .false.
 
   interface
     function tidal_diag_int_codon(value_c, force_one_c) result(out_c) bind(c, name="tidal_diag_int_codon")
@@ -118,6 +120,22 @@ contains
 
   !===============================================================================
 
+  subroutine tidal_diag_log_direct(logged, proof_line)
+
+    logical, intent(inout) :: logged
+    character(len=*), intent(in) :: proof_line
+
+    if (logged) return
+    logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') trim(proof_line)
+    end if
+
+  end subroutine tidal_diag_log_direct
+
+  !===============================================================================
+
   subroutine  tidal_diag_init()
     !----------------------------------------------------------------------- 
     ! Purpose: create fourier coefficient history file variables
@@ -126,9 +144,20 @@ contains
     use cam_history,        only: addfld, phys_decomp
 
     integer :: lev3d, levs
+    integer(c_int64_t) :: out_c
 
-    lev3d = tidal_diag_int(pver, .false.)
-    levs = tidal_diag_int(pver, .true.)
+    call tidal_diag_select_impl()
+    if (use_native_tidal_diag_impl) then
+       lev3d = pver
+       levs = 1
+    else
+       call tidal_diag_proof_once()
+       out_c = tidal_diag_int_codon(int(pver, c_int64_t), 0_c_int64_t)
+       lev3d = int(out_c)
+       out_c = tidal_diag_int_codon(int(pver, c_int64_t), 1_c_int64_t)
+       levs = int(out_c)
+       call tidal_diag_log_direct(tidal_diag_init_logged, 'tidal_diag_init direct = codon')
+    end if
 
     call addfld ('T_24_COS','K       ',lev3d, 'A','Temperature 24hr. cos coeff.',phys_decomp)
     call addfld ('T_24_SIN','K       ',lev3d, 'A','Temperature 24hr. sin coeff.',phys_decomp)
@@ -180,14 +209,25 @@ contains
     !---------------------------Local workspace-----------------------------
 
     integer  :: lchnk
+    integer(c_int64_t) :: out_c
 
     real(r8) :: dcoef(4) 
     integer :: ncol
 
     !-----------------------------------------------------------------------
 
-    lchnk = tidal_diag_int(state%lchnk, .false.)
-    ncol = tidal_diag_int(state%ncol, .false.)
+    call tidal_diag_select_impl()
+    if (use_native_tidal_diag_impl) then
+       lchnk = state%lchnk
+       ncol = state%ncol
+    else
+       call tidal_diag_proof_once()
+       out_c = tidal_diag_int_codon(int(state%lchnk, c_int64_t), 0_c_int64_t)
+       lchnk = int(out_c)
+       out_c = tidal_diag_int_codon(int(state%ncol, c_int64_t), 0_c_int64_t)
+       ncol = int(out_c)
+       call tidal_diag_log_direct(tidal_diag_write_logged, 'tidal_diag_write direct = codon')
+    end if
 
     call get_tidal_coeffs( dcoef )
 

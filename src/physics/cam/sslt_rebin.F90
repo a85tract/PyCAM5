@@ -32,6 +32,7 @@ module sslt_rebin
   logical :: use_native_sslt_rebin_impl = .false.
   logical :: sslt_rebin_impl_selected = .false.
   logical :: sslt_rebin_proof_written = .false.
+  logical :: sslt_rebin_init_logged = .false.
 
   interface
      function sslt_rebin_has_four_codon(i1_c, i2_c, i3_c, i4_c) result(has_c) &
@@ -107,6 +108,20 @@ contains
 
   end function sslt_rebin_has_four
 
+  subroutine sslt_rebin_log_direct(logged, proof_line)
+
+    logical, intent(inout) :: logged
+    character(len=*), intent(in) :: proof_line
+
+    if (logged) return
+    logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') trim(proof_line)
+    end if
+
+  end subroutine sslt_rebin_log_direct
+
 
 !-------------------------------------------------------------------
 !-------------------------------------------------------------------
@@ -134,6 +149,7 @@ contains
     implicit none
 
     integer :: errcode
+    integer(c_int64_t) :: has_c
 
 
     indices(1) = pbuf_get_index('sslt1',errcode)
@@ -141,7 +157,16 @@ contains
     indices(3) = pbuf_get_index('sslt3',errcode)
     indices(4) = pbuf_get_index('sslt4',errcode)
 
-    has_sslt = sslt_rebin_has_four(indices(1), indices(2), indices(3), indices(4))
+    call sslt_rebin_select_impl()
+    if (use_native_sslt_rebin_impl) then
+       has_sslt = indices(1) > 0 .and. indices(2) > 0 .and. indices(3) > 0 .and. indices(4) > 0
+    else
+       call sslt_rebin_proof_once()
+       has_c = sslt_rebin_has_four_codon(int(indices(1), c_int64_t), int(indices(2), c_int64_t), &
+            int(indices(3), c_int64_t), int(indices(4), c_int64_t))
+       has_sslt = has_c /= 0_c_int64_t
+       call sslt_rebin_log_direct(sslt_rebin_init_logged, 'sslt_rebin_init direct = codon')
+    end if
     if ( has_sslt ) source = DATA
 
     if ( .not. has_sslt ) then
@@ -149,7 +174,13 @@ contains
        call cnst_get_ind ('SSLT02', indices(2), abort=.false.)
        call cnst_get_ind ('SSLT03', indices(3), abort=.false.)
        call cnst_get_ind ('SSLT04', indices(4), abort=.false.)
-       has_sslt = sslt_rebin_has_four(indices(1), indices(2), indices(3), indices(4))
+       if (use_native_sslt_rebin_impl) then
+          has_sslt = indices(1) > 0 .and. indices(2) > 0 .and. indices(3) > 0 .and. indices(4) > 0
+       else
+          has_c = sslt_rebin_has_four_codon(int(indices(1), c_int64_t), int(indices(2), c_int64_t), &
+               int(indices(3), c_int64_t), int(indices(4), c_int64_t))
+          has_sslt = has_c /= 0_c_int64_t
+       end if
        if ( has_sslt ) source = PROG
     endif
 
