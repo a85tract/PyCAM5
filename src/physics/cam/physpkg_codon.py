@@ -7485,6 +7485,11 @@ def subcol_register_codon() -> int:
 
 
 @export
+def subcol_init_codon() -> int:
+    return 0
+
+
+@export
 def cldwat_param_codon(value: float) -> float:
     return value
 

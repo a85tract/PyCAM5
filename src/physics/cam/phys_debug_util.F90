@@ -47,6 +47,7 @@ logical :: use_native_phys_debug_util_impl = .false.
 logical :: phys_debug_util_impl_selected = .false.
 logical :: phys_debug_util_proof_written = .false.
 logical :: phys_debug_readnl_logged = .false.
+logical :: phys_debug_init_logged = .false.
 
 interface
    function phys_debug_readnl_codon(lat_set_c, lon_set_c) result(out_c) bind(c, name="phys_debug_readnl_codon")
@@ -294,7 +295,10 @@ subroutine phys_debug_init()
    else
       call phys_debug_util_proof_once()
       active_c = phys_debug_init_codon(lat_set_c, lon_set_c)
-      if (active_c == 0_c_int64_t) return
+      if (active_c == 0_c_int64_t) then
+         call phys_debug_util_log_direct(phys_debug_init_logged, 'phys_debug_init direct = codon')
+         return
+      end if
    end if
 
    ! User has specified a column location for debugging.  Find the closest

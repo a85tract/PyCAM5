@@ -88,6 +88,7 @@ module subcol
    logical :: subcol_proof_written = .false.
    logical :: subcol_readnl_logged = .false.
    logical :: subcol_register_logged = .false.
+   logical :: subcol_init_logged = .false.
 
    interface
       function subcol_touch_codon() result(out_c) bind(c, name="subcol_touch_codon")
@@ -102,6 +103,10 @@ module subcol
          use iso_c_binding, only: c_int64_t
          integer(c_int64_t) :: out_c
       end function subcol_register_codon
+      function subcol_init_codon() result(out_c) bind(c, name="subcol_init_codon")
+         use iso_c_binding, only: c_int64_t
+         integer(c_int64_t) :: out_c
+      end function subcol_init_codon
    end interface
 
 
@@ -311,6 +316,7 @@ contains
       ! Local variables
       !
       character(len=16) :: subcol_scheme_init          ! Name of subcolumn scheme
+      integer(c_int64_t) :: out_c
   
       call subcol_touch()
 
@@ -343,6 +349,10 @@ contains
 !        case ('vamp')
 !           call subcol_init_vamp()
         case ('off')
+           if (.not. use_native_subcol_impl) then
+              out_c = subcol_init_codon()
+              call subcol_log_direct(subcol_init_logged, 'subcol_init direct = codon')
+           end if
            ! No initialization needed for off
         case default
            call endrun('subcol_init error: unsupported subcol_scheme specified')
