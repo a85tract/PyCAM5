@@ -121,6 +121,9 @@
   logical :: ptend_config_shell_logged = .false.
   logical :: ptend_lq_mask_shell_logged = .false.
   logical :: store_state_logged = .false.
+  logical :: readnl_use_native_impl = .false.
+  logical :: readnl_impl_selected = .false.
+  logical :: macrop_driver_readnl_logged = .false.
 
   interface
     function macrop_driver_readnl_codon(flag_c) result(out_c) bind(c, name="macrop_driver_readnl_codon")
@@ -159,12 +162,34 @@
    ! Local variables
    integer :: unitn, ierr
    character(len=*), parameter :: subname = 'macrop_driver_readnl'
-   integer(c_int64_t) :: active_c
+   integer(c_int64_t) :: out_c
+   logical :: group_found
 
    namelist /macro_park_nl/ macro_park_do_cldice, macro_park_do_cldliq, macro_park_do_detrain
    !-----------------------------------------------------------------------------
-   active_c = macrop_driver_readnl_codon(1_c_int64_t)
-   if (active_c == 0_c_int64_t) return
+   call macrop_driver_readnl_select_impl()
+   if (.not. readnl_use_native_impl) then
+      group_found = .false.
+      if (masterproc) then
+         unitn = getunit()
+         open( unitn, file=trim(nlfile), status='old' )
+         call find_group_name(unitn, 'macro_park_nl', status=ierr)
+         group_found = ierr == 0
+         close(unitn)
+         call freeunit(unitn)
+      end if
+#ifdef SPMD
+      call mpibcast(group_found, 1, mpilog,  0, mpicom)
+#endif
+      if (.not. group_found) then
+         out_c = macrop_driver_readnl_codon(7_c_int64_t)
+         do_cldice = mod(out_c, 2_c_int64_t) /= 0_c_int64_t
+         do_cldliq = mod(out_c / 2_c_int64_t, 2_c_int64_t) /= 0_c_int64_t
+         do_detrain = mod(out_c / 4_c_int64_t, 2_c_int64_t) /= 0_c_int64_t
+         call macrop_driver_readnl_log_direct('macrop_driver_readnl direct = codon')
+         return
+      end if
+   end if
 
    if (masterproc) then
       unitn = getunit()
@@ -195,6 +220,59 @@
 #endif
 
 end subroutine macrop_driver_readnl
+
+  !================================================================================================
+
+subroutine macrop_driver_readnl_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (readnl_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MACROP_DRIVER_READNL_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     readnl_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     readnl_use_native_impl = .false.
+  end if
+
+  readnl_impl_selected = .true.
+
+  if (masterproc) then
+     if (readnl_use_native_impl) then
+        write(iulog,*) 'macrop_driver_readnl implementation = native'
+     else
+        write(iulog,*) 'macrop_driver_readnl implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine macrop_driver_readnl_select_impl
+
+  !================================================================================================
+
+subroutine macrop_driver_readnl_log_direct(proof_line)
+
+  character(len=*), intent(in) :: proof_line
+
+  if (macrop_driver_readnl_logged) return
+  macrop_driver_readnl_logged = .true.
+
+  if (masterproc) then
+     write(iulog,'(A)') trim(proof_line)
+     call flush(iulog)
+  end if
+
+end subroutine macrop_driver_readnl_log_direct
 
   !================================================================================================
 

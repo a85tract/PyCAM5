@@ -120,8 +120,15 @@ logical :: cam_diag_conv_precip_dtcond_entered_logged = .false.
 logical :: cam_diag_init_helpers_use_native_impl = .false.
 logical :: cam_diag_init_helpers_impl_selected = .false.
 logical :: cam_diag_init_helpers_entered_logged = .false.
+logical :: diag_readnl_use_native_impl = .false.
+logical :: diag_readnl_impl_selected = .false.
+logical :: diag_readnl_logged = .false.
 
 interface
+   function diag_readnl_codon() result(out_c) bind(c, name="diag_readnl_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t) :: out_c
+   end function diag_readnl_codon
    subroutine diag_phys_writeout_batch_dispatch_codon(group_c, mode_c, submode_c, ncol_c, pcols_c, pver_c, &
         scalar1_c, scalar2_c, scalar3_c, a_p, b_p, c_p, d_p, e_p, f_p, out1_p, out2_p, out3_p) &
         bind(c, name="diag_phys_writeout_batch_dispatch_codon")
@@ -159,15 +166,41 @@ subroutine diag_readnl(nlfile)
   use units,           only: getunit, freeunit
   use mpishorthand
   use spmd_utils,      only: masterproc
+  use iso_c_binding,   only: c_int64_t
 
   character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
   ! Local variables
   integer :: unitn, ierr
+  integer(c_int64_t) :: out_c
+  logical :: group_found
   character(len=*), parameter :: subname = 'diag_readnl'
 
   namelist /cam_diag_opts/ diag_cnst_conv_tend
   !-----------------------------------------------------------------------------
+
+  call diag_readnl_select_impl()
+  if (.not. diag_readnl_use_native_impl) then
+     group_found = .false.
+     if (masterproc) then
+        unitn = getunit()
+        open( unitn, file=trim(nlfile), status='old' )
+        call find_group_name(unitn, 'cam_diag_opts', status=ierr)
+        group_found = ierr == 0
+        close(unitn)
+        call freeunit(unitn)
+     end if
+#ifdef SPMD
+     call mpibcast(group_found, 1, mpilog,  0, mpicom)
+#endif
+     if (.not. group_found) then
+        out_c = diag_readnl_codon()
+        if (out_c == 0_c_int64_t) then
+           call diag_readnl_log_direct('diag_readnl direct = codon')
+           return
+        end if
+     end if
+  end if
 
   if (masterproc) then
       unitn = getunit()
@@ -189,6 +222,59 @@ subroutine diag_readnl(nlfile)
 #endif
 
 end subroutine diag_readnl
+
+!================================================================================================
+
+subroutine diag_readnl_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (diag_readnl_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('CAM_DIAGNOSTICS_READNL_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      diag_readnl_use_native_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      diag_readnl_use_native_impl = .false.
+   end if
+
+   diag_readnl_impl_selected = .true.
+
+   if (masterproc) then
+      if (diag_readnl_use_native_impl) then
+         write(iulog,*) 'diag_readnl implementation = native'
+      else
+         write(iulog,*) 'diag_readnl implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine diag_readnl_select_impl
+
+!================================================================================================
+
+subroutine diag_readnl_log_direct(proof_line)
+
+   character(len=*), intent(in) :: proof_line
+
+   if (diag_readnl_logged) return
+   diag_readnl_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') trim(proof_line)
+      call flush(iulog)
+   end if
+
+end subroutine diag_readnl_log_direct
 
 !================================================================================================
 

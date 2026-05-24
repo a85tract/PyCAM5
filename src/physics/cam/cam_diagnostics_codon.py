@@ -3,6 +3,11 @@ import cam_diagnostics_init_codon as _diag_init
 
 
 @export
+def diag_readnl_codon() -> int:
+    return 0
+
+
+@export
 def cloud_diagnostics_register_codon(flag: int) -> int:
     if flag != 0:
         return 1
