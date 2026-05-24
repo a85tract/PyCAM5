@@ -97,6 +97,38 @@ def gw_common_init_scalars_codon(
 
 
 @export
+def gw_common_new_gwband_codon(
+    ngwv_in: int,
+    dc_in: float,
+    fcrit2_in: float,
+    wavelength: float,
+    pi_in: float,
+    ngwv_p: cobj,
+    dc_p: cobj,
+    fcrit2_p: cobj,
+    cref_p: cobj,
+    kwv_p: cobj,
+    effkwv_p: cobj,
+):
+    ngwv = Ptr[i32](ngwv_p)
+    dc = Ptr[float](dc_p)
+    fcrit2 = Ptr[float](fcrit2_p)
+    cref = Ptr[float](cref_p)
+    kwv = Ptr[float](kwv_p)
+    effkwv = Ptr[float](effkwv_p)
+
+    ngwv[0] = i32(ngwv_in)
+    dc[0] = dc_in
+    fcrit2[0] = fcrit2_in
+
+    for l in range(-ngwv_in, ngwv_in + 1):
+        cref[l + ngwv_in] = dc_in * float(l)
+
+    kwv[0] = 2.0 * pi_in / wavelength
+    effkwv[0] = fcrit2[0] * kwv[0]
+
+
+@export
 def gw_common_init_alpha_codon(n: int, alpha_in_p: cobj, alpha_p: cobj):
     alpha_in = Ptr[float](alpha_in_p)
     alpha = Ptr[float](alpha_p)

@@ -98,8 +98,18 @@ logical :: gw_diff_solver_entered_logged = .false.
 logical :: use_native_gw_common_init_impl = .false.
 logical :: gw_common_init_impl_selected = .false.
 logical :: gw_common_init_direct_logged = .false.
+logical :: use_native_new_gwband_impl = .false.
+logical :: new_gwband_impl_selected = .false.
+logical :: new_gwband_direct_logged = .false.
 
 interface
+   subroutine gw_common_new_gwband_codon(ngwv_c, dc_c, fcrit2_c, wavelength_c, pi_c, &
+        ngwv_p, dc_p, fcrit2_p, cref_p, kwv_p, effkwv_p) bind(c, name="gw_common_new_gwband_codon")
+     use iso_c_binding, only: c_double, c_int64_t, c_ptr
+     integer(c_int64_t), value :: ngwv_c
+     real(c_double), value :: dc_c, fcrit2_c, wavelength_c, pi_c
+     type(c_ptr), value :: ngwv_p, dc_p, fcrit2_p, cref_p, kwv_p, effkwv_p
+   end subroutine gw_common_new_gwband_codon
    subroutine gw_common_init_scalars_codon(pver_in_c, ktop_in_c, gravit_in_c, rair_in_c, &
         tau_0_ubc_in_c, pver_p, tau_0_ubc_p, ktop_p, gravit_p, rair_p, rog_p) &
         bind(c, name="gw_common_init_scalars_codon")
@@ -152,25 +162,88 @@ function new_GWBand(ngwv, dc, fcrit2, wavelength) result(band)
   real(r8), intent(in) :: wavelength
 
   ! Output.
-  type(GWBand) :: band
+  type(GWBand), target :: band
 
   ! Wavenumber index.
   integer :: l
 
-  ! Simple assignments.
-  band%ngwv = ngwv
-  band%dc = dc
-  band%fcrit2 = fcrit2
+  call new_gwband_select_impl()
 
   ! Uniform phase speed reference grid.
   allocate(band%cref(-ngwv:ngwv))
-  band%cref = [( dc * l, l = -ngwv, ngwv )]
 
-  ! Wavenumber and effective wavenumber come from the wavelength.
-  band%kwv = 2._r8*pi / wavelength
-  band%effkwv = band%fcrit2 * band%kwv
+  if (use_native_new_gwband_impl) then
+     ! Simple assignments.
+     band%ngwv = ngwv
+     band%dc = dc
+     band%fcrit2 = fcrit2
+
+     ! Uniform phase speed reference grid.
+     band%cref = [( dc * l, l = -ngwv, ngwv )]
+
+     ! Wavenumber and effective wavenumber come from the wavelength.
+     band%kwv = 2._r8*pi / wavelength
+     band%effkwv = band%fcrit2 * band%kwv
+  else
+     call gw_common_new_gwband_codon(int(ngwv, c_int64_t), real(dc, c_double), &
+          real(fcrit2, c_double), real(wavelength, c_double), real(pi, c_double), &
+          c_loc(band%ngwv), c_loc(band%dc), c_loc(band%fcrit2), c_loc(band%cref(-ngwv)), &
+          c_loc(band%kwv), c_loc(band%effkwv))
+     call new_gwband_note_direct()
+  end if
 
 end function new_GWBand
+
+!==========================================================================
+
+subroutine new_gwband_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (new_gwband_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('GW_COMMON_NEW_GWBAND_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_new_gwband_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_new_gwband_impl = .false.
+  end if
+
+  new_gwband_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_new_gwband_impl) then
+        write(iulog,*) 'new_GWBand implementation = native'
+     else
+        write(iulog,*) 'new_GWBand implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine new_gwband_select_impl
+
+!==========================================================================
+
+subroutine new_gwband_note_direct()
+
+  if (new_gwband_direct_logged) return
+  new_gwband_direct_logged = .true.
+
+  if (masterproc) then
+     write(iulog,*) 'new_GWBand direct = codon'
+     call flush(iulog)
+  end if
+
+end subroutine new_gwband_note_direct
 
 !==========================================================================
 
