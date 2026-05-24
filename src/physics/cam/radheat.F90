@@ -32,6 +32,8 @@ logical :: radheat_batch_impl_selected = .false.
 logical :: radheat_batch_entered_logged = .false.
 logical :: radheat_readnl_logged = .false.
 logical :: radheat_init_logged = .false.
+logical :: radheat_timestep_init_logged = .false.
+logical :: radheat_tend_logged = .false.
 
 interface
    subroutine radheat_readnl_codon() bind(c, name="radheat_readnl_codon")
@@ -40,9 +42,20 @@ interface
    subroutine radheat_init_codon() bind(c, name="radheat_init_codon")
    end subroutine radheat_init_codon
 
+   subroutine radheat_timestep_init_codon() bind(c, name="radheat_timestep_init_codon")
+   end subroutine radheat_timestep_init_codon
+
    subroutine radheat_batch_timestep_init_stage_dispatch_codon() &
         bind(c, name="radheat_batch_timestep_init_stage_dispatch_codon")
    end subroutine radheat_batch_timestep_init_stage_dispatch_codon
+
+   subroutine radheat_tend_codon(ncol_c, pcols_c, pver_c, psetcols_c, &
+        qrl_p, qrs_p, ptend_s_p, fsns_p, fsnt_p, flns_p, flnt_p, net_flx_p) &
+        bind(c, name="radheat_tend_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, psetcols_c
+      type(c_ptr), value :: qrl_p, qrs_p, ptend_s_p, fsns_p, fsnt_p, flns_p, flnt_p, net_flx_p
+   end subroutine radheat_tend_codon
 
    subroutine radheat_batch_tend_stage_dispatch_codon(ncol_c, pcols_c, pver_c, psetcols_c, &
         qrl_p, qrs_p, ptend_s_p, fsns_p, fsnt_p, flns_p, flnt_p, net_flx_p) &
@@ -198,7 +211,8 @@ subroutine radheat_timestep_init (state, pbuf2d)
     end if
 
     call radheat_batch_log_entered()
-    call radheat_batch_timestep_init_stage_dispatch_codon()
+    call radheat_timestep_init_codon()
+    call radheat_log_direct(radheat_timestep_init_logged, 'radheat_timestep_init direct = codon')
 
 
 end subroutine radheat_timestep_init
@@ -268,10 +282,11 @@ subroutine radheat_tend(state, pbuf,  ptend, qrl, qrs, fsns, &
    ptend_s_work = 0._r8
 
    call radheat_batch_log_entered()
-   call radheat_batch_tend_stage_dispatch_codon( &
+   call radheat_tend_codon( &
         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(state%psetcols, c_int64_t), &
         c_loc(qrl), c_loc(qrs), c_loc(ptend_s_work), c_loc(fsns), c_loc(fsnt), c_loc(flns), c_loc(flnt), c_loc(net_flx) &
    )
+   call radheat_log_direct(radheat_tend_logged, 'radheat_tend direct = codon')
    ptend%s = ptend_s_work
 
 end subroutine radheat_tend
