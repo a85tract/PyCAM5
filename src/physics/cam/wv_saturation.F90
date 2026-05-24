@@ -91,9 +91,15 @@ real(r8), parameter :: tboil = 373.16_r8
   logical :: use_native_wv_saturation_impl = .false.
   logical :: wv_saturation_impl_selected = .false.
   logical :: wv_saturation_proof_written = .false.
+  logical :: wv_sat_readnl_logged = .false.
   logical :: wv_sat_init_logged = .false.
 
   interface
+     function wv_sat_readnl_codon() result(out_c) bind(c, name="wv_sat_readnl_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t) :: out_c
+     end function wv_sat_readnl_codon
+
      function wv_saturation_value_codon(value_c) result(value_out) &
           bind(c, name="wv_saturation_value_codon")
        use iso_c_binding, only: c_double
@@ -303,6 +309,8 @@ subroutine wv_sat_readnl(nlfile)
    
   ! Local variables
   integer :: unitn, ierr
+  integer(c_int64_t) :: out_c
+  logical :: group_found
 
   character(len=32) :: wv_sat_scheme = "GoffGratch"
 
@@ -310,6 +318,36 @@ subroutine wv_sat_readnl(nlfile)
 
   namelist /wv_sat_nl/ wv_sat_scheme
   !-----------------------------------------------------------------------------
+
+  call wv_saturation_select_impl()
+  if (.not. use_native_wv_saturation_impl) then
+     group_found = .false.
+     if (masterproc) then
+        unitn = getunit()
+        open( unitn, file=trim(nlfile), status='old' )
+        call find_group_name(unitn, 'wv_sat_nl', status=ierr)
+        group_found = ierr == 0
+        close(unitn)
+        call freeunit(unitn)
+     end if
+#ifdef SPMD
+     call mpibcast(group_found, 1, mpilog, 0, mpicom)
+#endif
+     if (.not. group_found) then
+        call wv_saturation_proof_once()
+        out_c = wv_sat_readnl_codon()
+        if (out_c == 0_c_int64_t) then
+           call endrun('wv_sat_readnl :: Invalid wv_sat_scheme.')
+           return
+        end if
+        if (.not. wv_sat_set_default(wv_sat_scheme)) then
+           call endrun('wv_sat_readnl :: Invalid wv_sat_scheme.')
+           return
+        end if
+        call wv_saturation_log_direct(wv_sat_readnl_logged, 'wv_sat_readnl direct = codon')
+        return
+     end if
+  end if
 
   if (masterproc) then
      unitn = getunit()

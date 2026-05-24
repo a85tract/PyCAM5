@@ -54,6 +54,12 @@ logical :: hetfrz_classnuc_cam_register_logged = .false.
 logical :: hetfrz_classnuc_cam_init_logged = .false.
 
 interface
+   function hetfrz_classnuc_cam_readnl_codon(flag_c) result(out_c) &
+        bind(c, name="hetfrz_classnuc_cam_readnl_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c
+      integer(c_int64_t) :: out_c
+   end function hetfrz_classnuc_cam_readnl_codon
    function hetfrz_classnuc_cam_flag_codon(flag_c) result(out_c) bind(c, name="hetfrz_classnuc_cam_flag_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: flag_c
@@ -259,11 +265,37 @@ subroutine hetfrz_classnuc_cam_readnl(nlfile)
   ! Local variables
   integer :: unitn, ierr
   integer(c_int64_t) :: active_c
+  logical :: group_found
   character(len=*), parameter :: subname = 'hetfrz_classnuc_cam_readnl'
 
   namelist /hetfrz_classnuc_nl/ hist_hetfrz_classnuc
 
   !-----------------------------------------------------------------------------
+
+  call hetfrz_classnuc_cam_select_impl()
+  if (.not. use_native_hetfrz_classnuc_cam_impl) then
+     group_found = .false.
+     if (masterproc) then
+        unitn = getunit()
+        open( unitn, file=trim(nlfile), status='old' )
+        call find_group_name(unitn, 'hetfrz_classnuc_nl', status=ierr)
+        group_found = ierr == 0
+        close(unitn)
+        call freeunit(unitn)
+     end if
+#ifdef SPMD
+     call mpibcast(group_found, 1, mpilog, 0, mpicom)
+#endif
+     if (.not. group_found) then
+        call hetfrz_classnuc_cam_proof_once()
+        active_c = hetfrz_classnuc_cam_readnl_codon( &
+             merge(1_c_int64_t, 0_c_int64_t, hist_hetfrz_classnuc))
+        hist_hetfrz_classnuc = active_c /= 0_c_int64_t
+        call hetfrz_classnuc_cam_log_direct(hetfrz_classnuc_cam_readnl_logged, &
+             'hetfrz_classnuc_cam_readnl direct = codon')
+        return
+     end if
+  end if
 
   if (masterproc) then
      unitn = getunit()

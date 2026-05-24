@@ -7238,6 +7238,16 @@ def radiation_data_flag_codon(flag: int) -> int:
 
 
 @export
+def rad_data_readnl_codon(output: int, fdh: int) -> int:
+    out = 0
+    if output != 0:
+        out += 1
+    if fdh != 0:
+        out += 2
+    return out
+
+
+@export
 def rad_data_register_codon(flag: int) -> int:
     if flag != 0:
         return 1
@@ -7320,6 +7330,18 @@ def co2_cycle_flag_codon(flag: int) -> int:
     if flag != 0:
         return 1
     return 0
+
+
+@export
+def co2_cycle_readnl_codon(flag: int, read_ocn: int, read_fuel: int) -> int:
+    out = 0
+    if flag != 0:
+        out += 1
+    if read_ocn != 0:
+        out += 2
+    if read_fuel != 0:
+        out += 4
+    return out
 
 
 @export
@@ -7579,6 +7601,11 @@ def cam3_aero_data_flag_codon(flag: int) -> int:
 
 
 @export
+def cam3_aero_data_readnl_codon(flag: int) -> int:
+    return cam3_aero_data_flag_codon(flag)
+
+
+@export
 def cam3_ozone_data_flag_codon(flag: int) -> int:
     if flag != 0:
         return 1
@@ -7586,8 +7613,25 @@ def cam3_ozone_data_flag_codon(flag: int) -> int:
 
 
 @export
+def cam3_ozone_data_readnl_codon(flag: int, cyc: int) -> int:
+    out = 0
+    if flag != 0:
+        out += 1
+    if cyc != 0:
+        out += 2
+    return out
+
+
+@export
 def phys_debug_value_codon(value: float) -> float:
     return value
+
+
+@export
+def phys_debug_readnl_codon(lat_set: int, lon_set: int) -> int:
+    if lat_set != 0 and lon_set != 0:
+        return 1
+    return 0
 
 
 @export
@@ -7616,6 +7660,14 @@ def unicon_cam_flag_codon(flag: int) -> int:
     if flag != 0:
         return 1
     return 0
+
+
+@export
+def unicon_cam_readnl_codon(flag: int, hfile: int) -> int:
+    out = hfile * 2
+    if flag != 0:
+        out += 1
+    return out
 
 
 @export
@@ -7783,6 +7835,11 @@ def hetfrz_classnuc_cam_flag_codon(flag: int) -> int:
     if flag != 0:
         return 1
     return 0
+
+
+@export
+def hetfrz_classnuc_cam_readnl_codon(flag: int) -> int:
+    return hetfrz_classnuc_cam_flag_codon(flag)
 
 
 @export
@@ -8468,6 +8525,11 @@ def entropy_codon(
 @export
 def wv_saturation_value_codon(value: float) -> float:
     return value
+
+
+@export
+def wv_sat_readnl_codon() -> int:
+    return 1
 
 
 @export

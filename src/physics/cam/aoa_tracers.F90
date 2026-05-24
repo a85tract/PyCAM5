@@ -48,11 +48,18 @@ module aoa_tracers
   logical :: impl_selected = .false.
   logical :: use_native_tstep_init_impl = .false.
   logical :: tstep_init_impl_selected = .false.
+  logical :: aoa_tracers_readnl_logged = .false.
   logical :: aoa_tracers_register_logged = .false.
   logical :: aoa_tracers_implements_cnst_logged = .false.
   logical :: aoa_tracers_init_logged = .false.
 
   interface
+     function aoa_tracers_readnl_codon(flag_c, read_from_ic_c) result(out_c) &
+          bind(c, name="aoa_tracers_readnl_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: flag_c, read_from_ic_c
+       integer(c_int64_t) :: out_c
+     end function aoa_tracers_readnl_codon
      function aoa_tracers_flag_codon(flag_c) result(out_c) bind(c, name="aoa_tracers_flag_codon")
        use iso_c_binding, only: c_int64_t
        integer(c_int64_t), value :: flag_c
@@ -111,6 +118,7 @@ contains
     use units,              only: getunit, freeunit
     use mpishorthand
     use cam_abortutils,     only: endrun
+    use iso_c_binding,      only: c_int64_t
 
     implicit none
 
@@ -118,12 +126,38 @@ contains
 
     ! Local variables
     integer :: unitn, ierr
+    integer(c_int64_t) :: out_c
+    logical :: group_found
     character(len=*), parameter :: subname = 'aoa_tracers_readnl'
 
 
     namelist /aoa_tracers_nl/ aoa_tracers_flag, aoa_read_from_ic_file
 
     !-----------------------------------------------------------------------------
+
+    call aoa_tracers_select_impl()
+    if (.not. use_native_impl) then
+       group_found = .false.
+       if (masterproc) then
+          unitn = getunit()
+          open( unitn, file=trim(nlfile), status='old' )
+          call find_group_name(unitn, 'aoa_tracers_nl', status=ierr)
+          group_found = ierr == 0
+          close(unitn)
+          call freeunit(unitn)
+       end if
+#ifdef SPMD
+       call mpibcast(group_found, 1, mpilog,  0, mpicom)
+#endif
+       if (.not. group_found) then
+          out_c = aoa_tracers_readnl_codon(merge(1_c_int64_t, 0_c_int64_t, aoa_tracers_flag), &
+               merge(1_c_int64_t, 0_c_int64_t, aoa_read_from_ic_file))
+          aoa_tracers_flag = mod(out_c, 2_c_int64_t) /= 0_c_int64_t
+          aoa_read_from_ic_file = mod(out_c / 2_c_int64_t, 2_c_int64_t) /= 0_c_int64_t
+          call aoa_tracers_log_direct(aoa_tracers_readnl_logged, 'aoa_tracers_readnl direct = codon')
+          return
+       end if
+    end if
 
     if (masterproc) then
        unitn = getunit()

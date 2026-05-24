@@ -63,12 +63,19 @@ character(len=256) :: co2flux_fuel_file = 'unset' ! co2 flux from fossil fuel
 logical :: use_native_co2_cycle_impl = .false.
 logical :: co2_cycle_impl_selected = .false.
 logical :: co2_cycle_proof_written = .false.
+logical :: co2_readnl_logged = .false.
 logical :: co2_transport_logged = .false.
 logical :: co2_register_logged = .false.
 logical :: co2_implements_cnst_logged = .false.
 logical :: co2_init_logged = .false.
 
 interface
+   function co2_cycle_readnl_codon(flag_c, read_ocn_c, read_fuel_c) result(out_c) &
+        bind(c, name="co2_cycle_readnl_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c, read_ocn_c, read_fuel_c
+      integer(c_int64_t) :: out_c
+   end function co2_cycle_readnl_codon
    function co2_cycle_flag_codon(flag_c) result(out_c) bind(c, name="co2_cycle_flag_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: flag_c
@@ -228,11 +235,40 @@ subroutine co2_cycle_readnl(nlfile)
 
    ! Local variables
    integer :: unitn, ierr, i
+   integer(c_int64_t) :: out_c
+   logical :: group_found
    character(len=*), parameter :: subname = 'co2_cycle_readnl'
 
    namelist /co2_cycle_nl/ co2_flag, co2_readFlux_ocn, co2_readFlux_fuel, &
                            co2flux_ocn_file, co2flux_fuel_file
    !-----------------------------------------------------------------------------
+
+   call co2_cycle_select_impl()
+   if (.not. use_native_co2_cycle_impl) then
+      group_found = .false.
+      if (masterproc) then
+         unitn = getunit()
+         open( unitn, file=trim(nlfile), status='old' )
+         call find_group_name(unitn, 'co2_cycle_nl', status=ierr)
+         group_found = ierr == 0
+         close(unitn)
+         call freeunit(unitn)
+      end if
+#ifdef SPMD
+      call mpibcast(group_found, 1, mpilog, 0, mpicom)
+#endif
+      if (.not. group_found) then
+         call co2_cycle_proof_once()
+         out_c = co2_cycle_readnl_codon(merge(1_c_int64_t, 0_c_int64_t, co2_flag), &
+              merge(1_c_int64_t, 0_c_int64_t, co2_readFlux_ocn), &
+              merge(1_c_int64_t, 0_c_int64_t, co2_readFlux_fuel))
+         co2_flag = mod(out_c, 2_c_int64_t) /= 0_c_int64_t
+         co2_readFlux_ocn = mod(out_c / 2_c_int64_t, 2_c_int64_t) /= 0_c_int64_t
+         co2_readFlux_fuel = mod(out_c / 4_c_int64_t, 2_c_int64_t) /= 0_c_int64_t
+         call co2_cycle_log_direct(co2_readnl_logged, 'co2_cycle_readnl direct = codon')
+         return
+      end if
+   end if
 
    if (masterproc) then
       unitn = getunit()

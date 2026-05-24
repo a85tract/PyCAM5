@@ -46,8 +46,15 @@ integer :: debcol   = -999            ! the column within the chunk we will debu
 logical :: use_native_phys_debug_util_impl = .false.
 logical :: phys_debug_util_impl_selected = .false.
 logical :: phys_debug_util_proof_written = .false.
+logical :: phys_debug_readnl_logged = .false.
 
 interface
+   function phys_debug_readnl_codon(lat_set_c, lon_set_c) result(out_c) bind(c, name="phys_debug_readnl_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: lat_set_c, lon_set_c
+      integer(c_int64_t) :: out_c
+   end function phys_debug_readnl_codon
+
    function phys_debug_value_codon(value_c) result(out_c) bind(c, name="phys_debug_value_codon")
       use iso_c_binding, only: c_double
       real(c_double), value :: value_c
@@ -128,6 +135,22 @@ end subroutine phys_debug_util_proof_once
 
 !================================================================================
 
+subroutine phys_debug_util_log_direct(logged, proof_line)
+
+   logical, intent(inout) :: logged
+   character(len=*), intent(in) :: proof_line
+
+   if (logged) return
+   logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') trim(proof_line)
+   end if
+
+end subroutine phys_debug_util_log_direct
+
+!================================================================================
+
 real(r8) function phys_debug_value(value_in)
 
    real(r8), intent(in) :: value_in
@@ -197,10 +220,37 @@ subroutine phys_debug_readnl(nlfile)
 
    ! Local variables
    integer :: unitn, ierr
+   integer(c_int64_t) :: out_c
+   logical :: group_found
    character(len=*), parameter :: subname = 'phys_debug_readnl'
 
    namelist /phys_debug_nl/ phys_debug_lat, phys_debug_lon
    !-----------------------------------------------------------------------------
+
+   call phys_debug_util_select_impl()
+   if (.not. use_native_phys_debug_util_impl) then
+      group_found = .false.
+      if (masterproc) then
+         unitn = getunit()
+         open( unitn, file=trim(nlfile), status='old' )
+         call find_group_name(unitn, 'phys_debug_nl', status=ierr)
+         group_found = ierr == 0
+         close(unitn)
+         call freeunit(unitn)
+      end if
+#ifdef SPMD
+      call mpibcast(group_found, 1, mpilog, 0, mpicom)
+#endif
+      if (.not. group_found) then
+         call phys_debug_util_proof_once()
+         out_c = phys_debug_readnl_codon(merge(1_c_int64_t, 0_c_int64_t, phys_debug_lat /= uninit_r8), &
+              merge(1_c_int64_t, 0_c_int64_t, phys_debug_lon /= uninit_r8))
+         phys_debug_lat = phys_debug_value(phys_debug_lat)
+         phys_debug_lon = phys_debug_value(phys_debug_lon)
+         call phys_debug_util_log_direct(phys_debug_readnl_logged, 'phys_debug_readnl direct = codon')
+         return
+      end if
+   end if
 
    if (masterproc) then
       unitn = getunit()

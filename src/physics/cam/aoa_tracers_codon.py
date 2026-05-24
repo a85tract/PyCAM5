@@ -2,6 +2,16 @@ from math import sin
 
 
 @export
+def aoa_tracers_readnl_codon(flag: int, read_from_ic: int) -> int:
+    out = 0
+    if flag != 0:
+        out += 1
+    if read_from_ic != 0:
+        out += 2
+    return out
+
+
+@export
 def aoa_tracers_flag_codon(flag: int) -> int:
     if flag != 0:
         return 1

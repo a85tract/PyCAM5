@@ -132,8 +132,15 @@ logical :: cnst_is_mam_mmr(ncnst)
 logical :: use_native_unicon_cam_impl = .false.
 logical :: unicon_cam_impl_selected = .false.
 logical :: unicon_cam_proof_written = .false.
+logical :: unicon_cam_readnl_logged = .false.
 
 interface
+   function unicon_cam_readnl_codon(flag_c, hfile_c) result(out_c) bind(c, name="unicon_cam_readnl_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c, hfile_c
+      integer(c_int64_t) :: out_c
+   end function unicon_cam_readnl_codon
+
    function unicon_cam_flag_codon(flag_c) result(out_c) bind(c, name="unicon_cam_flag_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: flag_c
@@ -197,6 +204,22 @@ subroutine unicon_cam_proof_once()
    end if
 
 end subroutine unicon_cam_proof_once
+
+!==================================================================================================
+
+subroutine unicon_cam_log_direct(logged, proof_line)
+
+   logical, intent(inout) :: logged
+   character(len=*), intent(in) :: proof_line
+
+   if (logged) return
+   logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') trim(proof_line)
+   end if
+
+end subroutine unicon_cam_log_direct
 
 !==================================================================================================
 
@@ -268,11 +291,38 @@ subroutine unicon_cam_readnl(nlfile)
 
    ! Local variables
    integer :: unitn, ierr
+   integer(c_int64_t) :: out_c
+   logical :: group_found
    character(len=*), parameter :: subname = 'unicon_cam_readnl'
    
    namelist /unicon_nl/ unicon_offline_dat_out, unicon_offline_dat_hfile
 
    !-----------------------------------------------------------------------------
+
+   call unicon_cam_select_impl()
+   if (.not. use_native_unicon_cam_impl) then
+      group_found = .false.
+      if (masterproc) then
+         unitn = getunit()
+         open( unitn, file=trim(nlfile), status='old' )
+         call find_group_name(unitn, 'unicon_nl', status=ierr)
+         group_found = ierr == 0
+         close(unitn)
+         call freeunit(unitn)
+      end if
+#ifdef SPMD
+      call mpibcast(group_found, 1, mpilog, 0, mpicom)
+#endif
+      if (.not. group_found) then
+         call unicon_cam_proof_once()
+         out_c = unicon_cam_readnl_codon(merge(1_c_int64_t, 0_c_int64_t, unicon_offline_dat_out), &
+              int(unicon_offline_dat_hfile, c_int64_t))
+         unicon_offline_dat_out = mod(out_c, 2_c_int64_t) /= 0_c_int64_t
+         unicon_offline_dat_hfile = int(out_c / 2_c_int64_t)
+         call unicon_cam_log_direct(unicon_cam_readnl_logged, 'unicon_cam_readnl direct = codon')
+         return
+      end if
+   end if
 
    if (masterproc) then
       unitn = getunit()

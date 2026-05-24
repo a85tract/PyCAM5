@@ -116,6 +116,11 @@ module radiation_data
   logical :: rad_data_write_logged = .false.
 
   interface
+    function rad_data_readnl_codon(output_c, fdh_c) result(out_c) bind(c, name="rad_data_readnl_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: output_c, fdh_c
+      integer(c_int64_t) :: out_c
+    end function rad_data_readnl_codon
     function radiation_data_flag_codon(flag_c) result(out_c) bind(c, name="radiation_data_flag_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: flag_c
@@ -260,11 +265,38 @@ contains
 
     ! Local variables
     integer :: unitn, ierr, i
+    integer(c_int64_t) :: out_c
+    logical :: group_found
     character(len=*), parameter :: subname = 'rad_data_readnl'
 
     namelist /rad_data_nl/ rad_data_output, rad_data_histfile_num, rad_data_avgflag, rad_data_fdh
 
     !-----------------------------------------------------------------------------
+
+    call radiation_data_flags_select_impl()
+    if (.not. use_native_radiation_data_flags_impl) then
+       group_found = .false.
+       if (masterproc) then
+          unitn = getunit()
+          open( unitn, file=trim(nlfile), status='old' )
+          call find_group_name(unitn, 'rad_data_nl', status=ierr)
+          group_found = ierr == 0
+          close(unitn)
+          call freeunit(unitn)
+       end if
+#ifdef SPMD
+       call mpibcast(group_found, 1, mpilog, 0, mpicom)
+#endif
+       if (.not. group_found) then
+          call radiation_data_flags_proof_once()
+          out_c = rad_data_readnl_codon(merge(1_c_int64_t, 0_c_int64_t, rad_data_output), &
+               merge(1_c_int64_t, 0_c_int64_t, rad_data_fdh))
+          rad_data_output = mod(out_c, 2_c_int64_t) /= 0_c_int64_t
+          do_fdh = mod(out_c / 2_c_int64_t, 2_c_int64_t) /= 0_c_int64_t
+          call radiation_data_flags_log_direct(rad_data_readnl_logged, 'rad_data_readnl direct = codon')
+          return
+       end if
+    end if
 
     if (masterproc) then
        unitn = getunit()

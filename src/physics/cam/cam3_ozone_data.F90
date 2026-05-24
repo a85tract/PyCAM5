@@ -52,8 +52,15 @@ character(len=6), parameter, dimension(1) :: nc_name = (/'OZONE '/) ! constituen
 logical :: use_native_cam3_ozone_data_impl = .false.
 logical :: cam3_ozone_data_impl_selected = .false.
 logical :: cam3_ozone_data_proof_written = .false.
+logical :: cam3_ozone_data_readnl_logged = .false.
 
 interface
+   function cam3_ozone_data_readnl_codon(flag_c, cyc_c) result(out_c) &
+        bind(c, name="cam3_ozone_data_readnl_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: flag_c, cyc_c
+      integer(c_int64_t) :: out_c
+   end function cam3_ozone_data_readnl_codon
    function cam3_ozone_data_flag_codon(flag_c) result(out_c) bind(c, name="cam3_ozone_data_flag_codon")
       use iso_c_binding, only: c_int64_t
       integer(c_int64_t), value :: flag_c
@@ -114,6 +121,22 @@ end subroutine cam3_ozone_data_proof_once
 
 !================================================================================================
 
+subroutine cam3_ozone_data_log_direct(logged, proof_line)
+
+   logical, intent(inout) :: logged
+   character(len=*), intent(in) :: proof_line
+
+   if (logged) return
+   logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') trim(proof_line)
+   end if
+
+end subroutine cam3_ozone_data_log_direct
+
+!================================================================================================
+
 logical function cam3_ozone_data_flag(flag)
 
    logical, intent(in) :: flag
@@ -158,10 +181,39 @@ subroutine cam3_ozone_data_readnl(nlfile)
 
    ! Local variables
    integer :: unitn, ierr
+   integer(c_int64_t) :: out_c
+   logical :: group_found
    character(len=*), parameter :: subname = 'cam3_ozone_data_readnl'
 
    namelist /cam3_ozone_data_nl/ cam3_ozone_data_on, bndtvo, ozncyc
    !-----------------------------------------------------------------------------
+
+   call cam3_ozone_data_select_impl()
+   if (.not. use_native_cam3_ozone_data_impl) then
+      group_found = .false.
+      if (masterproc) then
+         unitn = getunit()
+         open( unitn, file=trim(nlfile), status='old' )
+         call find_group_name(unitn, 'cam3_ozone_data_nl', status=ierr)
+         group_found = ierr == 0
+         close(unitn)
+         call freeunit(unitn)
+      end if
+#ifdef SPMD
+      call mpibcast(group_found, 1, mpilog, 0, mpicom)
+#endif
+      if (.not. group_found) then
+         call cam3_ozone_data_proof_once()
+         out_c = cam3_ozone_data_readnl_codon( &
+              merge(1_c_int64_t, 0_c_int64_t, cam3_ozone_data_on), &
+              merge(1_c_int64_t, 0_c_int64_t, ozncyc))
+         cam3_ozone_data_on = mod(out_c, 2_c_int64_t) /= 0_c_int64_t
+         ozncyc = mod(out_c / 2_c_int64_t, 2_c_int64_t) /= 0_c_int64_t
+         call cam3_ozone_data_log_direct(cam3_ozone_data_readnl_logged, &
+              'cam3_ozone_data_readnl direct = codon')
+         return
+      end if
+   end if
 
    if (masterproc) then
       unitn = getunit()
