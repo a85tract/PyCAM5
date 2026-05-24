@@ -2609,6 +2609,35 @@ def phys_grid_bool_scalar_codon(value: int) -> int:
 
 
 @export
+def phys_grid_defaultopts_codon(
+    has_lbal: int,
+    has_twin: int,
+    has_alltoall: int,
+    has_chunks: int,
+    is_unstructured: int,
+    def_lbal: int,
+    def_twin_unstructured: int,
+    def_twin_lonlat: int,
+    def_alltoall: int,
+    def_chunks: int,
+    out_p: cobj,
+):
+    out = Ptr[int](out_p)
+
+    if has_lbal != 0:
+        out[0] = def_lbal
+    if has_twin != 0:
+        if is_unstructured != 0:
+            out[1] = def_twin_unstructured
+        else:
+            out[1] = def_twin_lonlat
+    if has_alltoall != 0:
+        out[2] = def_alltoall
+    if has_chunks != 0:
+        out[3] = def_chunks
+
+
+@export
 def phys_grid_count_valid_cols_codon(ngcols: int, clon_d_p: cobj) -> int:
     return _phys_grid.phys_grid_count_valid_cols_codon(ngcols, clon_d_p)
 
@@ -3077,6 +3106,30 @@ def phys_grid_get_lookup_real_vec_codon(
     for i in range(lth):
         col = int(cols[i])
         dst[i] = lookup[int(idx[col - 1]) - 1]
+
+
+@export
+def phys_grid_pter_offsets_codon(
+    ncols: int,
+    nlvls: int,
+    fdim: int,
+    ldim: int,
+    record_size: int,
+    src_p: cobj,
+    dst_p: cobj,
+):
+    src = Ptr[i32](src_p)
+    dst = Ptr[i32](dst_p)
+
+    for k in range(1, nlvls + 1):
+        for i in range(1, ncols + 1):
+            dst[(i - 1) + (k - 1) * fdim] = i32(1 + record_size * int(src[(i - 1) + (k - 1) * ncols]))
+        for i in range(ncols + 1, fdim + 1):
+            dst[(i - 1) + (k - 1) * fdim] = i32(-1)
+
+    for k in range(nlvls + 1, ldim + 1):
+        for i in range(1, fdim + 1):
+            dst[(i - 1) + (k - 1) * fdim] = i32(-1)
 
 
 @export

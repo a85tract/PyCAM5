@@ -309,6 +309,11 @@ module phys_grid
    logical, private :: get_area_all_logged = .false.
    logical, private :: get_wght_all_logged = .false.
    logical, private :: get_rlon_all_logged = .false.
+   logical, private :: phys_grid_defaultopts_logged = .false.
+   logical, private :: block_to_chunk_send_pters_logged = .false.
+   logical, private :: block_to_chunk_recv_pters_logged = .false.
+   logical, private :: chunk_to_block_send_pters_logged = .false.
+   logical, private :: chunk_to_block_recv_pters_logged = .false.
    logical, private :: use_native_init_helpers_impl = .false.
    logical, private :: init_helpers_impl_selected = .false.
    logical, private :: init_helpers_proof_written = .false.
@@ -335,6 +340,16 @@ module phys_grid
        integer(c_int64_t), value :: value_c
        integer(c_int64_t) :: result_c
      end function phys_grid_bool_scalar_codon
+
+     subroutine phys_grid_defaultopts_codon_raw(has_lbal_c, has_twin_c, has_alltoall_c, has_chunks_c, &
+          is_unstructured_c, def_lbal_c, def_twin_unstructured_c, def_twin_lonlat_c, def_alltoall_c, &
+          def_chunks_c, out_p) bind(c, name="phys_grid_defaultopts_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: has_lbal_c, has_twin_c, has_alltoall_c, has_chunks_c
+       integer(c_int64_t), value :: is_unstructured_c, def_lbal_c, def_twin_unstructured_c
+       integer(c_int64_t), value :: def_twin_lonlat_c, def_alltoall_c, def_chunks_c
+       type(c_ptr), value :: out_p
+     end subroutine phys_grid_defaultopts_codon_raw
 
      subroutine phys_grid_get_gcol_vec_codon_raw(lth_c, cols_p, src_p, dst_p) &
           bind(c, name="phys_grid_get_gcol_vec_codon")
@@ -574,6 +589,13 @@ module phys_grid
        type(c_ptr), value :: dyn_to_latlon_gcol_map_p, lon_p_p, lat_p_p, chunk_ncols_p
        type(c_ptr), value :: chunk_gcol_p, chunk_lon_p, chunk_lat_p, knuhcs_chunkid_p, knuhcs_col_p
      end subroutine phys_grid_assign_block_no_twin_codon_raw
+
+     subroutine phys_grid_pter_offsets_codon_raw(ncols_c, nlvls_c, fdim_c, ldim_c, record_size_c, &
+          src_p, dst_p) bind(c, name="phys_grid_pter_offsets_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncols_c, nlvls_c, fdim_c, ldim_c, record_size_c
+       type(c_ptr), value :: src_p, dst_p
+     end subroutine phys_grid_pter_offsets_codon_raw
    end interface
 
 contains
@@ -745,6 +767,33 @@ contains
     call phys_grid_get_lookup_real_vec_codon_raw(int(lth, c_int64_t), c_loc(cols(1)), c_loc(idx(1)), &
          c_loc(lookup(1)), c_loc(dst(1)))
   end subroutine phys_grid_get_lookup_real_vec_codon
+
+  subroutine phys_grid_defaultopts_codon(has_lbal, has_twin, has_alltoall, has_chunks, is_unstructured, out)
+    use iso_c_binding, only: c_int64_t, c_loc
+    logical, intent(in) :: has_lbal, has_twin, has_alltoall, has_chunks, is_unstructured
+    integer(c_int64_t), target, intent(out) :: out(4)
+
+    call phys_grid_defaultopts_codon_raw( &
+         merge(1_c_int64_t, 0_c_int64_t, has_lbal), &
+         merge(1_c_int64_t, 0_c_int64_t, has_twin), &
+         merge(1_c_int64_t, 0_c_int64_t, has_alltoall), &
+         merge(1_c_int64_t, 0_c_int64_t, has_chunks), &
+         merge(1_c_int64_t, 0_c_int64_t, is_unstructured), &
+         int(def_lbal_opt, c_int64_t), int(def_twin_alg_unstructured, c_int64_t), &
+         int(def_twin_alg_lonlat, c_int64_t), int(def_alltoall, c_int64_t), &
+         int(def_chunks_per_thread, c_int64_t), c_loc(out(1)))
+  end subroutine phys_grid_defaultopts_codon
+
+  subroutine phys_grid_pter_offsets_codon(ncols_local, nlvls_local, fdim, ldim, record_size, src, dst)
+    use iso_c_binding, only: c_int64_t, c_loc
+    integer, intent(in) :: ncols_local, nlvls_local, fdim, ldim, record_size
+    integer, target, intent(in) :: src(ncols_local,nlvls_local)
+    integer, target, intent(out) :: dst(fdim,ldim)
+
+    call phys_grid_pter_offsets_codon_raw(int(ncols_local, c_int64_t), int(nlvls_local, c_int64_t), &
+         int(fdim, c_int64_t), int(ldim, c_int64_t), int(record_size, c_int64_t), &
+         c_loc(src(1,1)), c_loc(dst(1,1)))
+  end subroutine phys_grid_pter_offsets_codon
 
   subroutine phys_grid_init_helpers_select_impl()
     character(len=32) :: impl_name
@@ -2051,6 +2100,7 @@ logical function phys_grid_initialized ()
 ! Author: Tom Henderson
 !-----------------------------------------------------------------------
    use dycore, only: dycore_is
+   use iso_c_binding, only: c_int64_t
 !------------------------------Arguments--------------------------------
      ! physics load balancing option
      integer, intent(out), optional :: phys_loadbalance_out
@@ -2061,21 +2111,35 @@ logical function phys_grid_initialized ()
      ! number of chunks per thread
      integer, intent(out), optional :: phys_chnk_per_thd_out
 !-----------------------------------------------------------------------
-     if ( present(phys_loadbalance_out) ) then
-       phys_loadbalance_out = def_lbal_opt
-     endif
-     if ( present(phys_twin_algorithm_out) ) then
-       if (dycore_is('UNSTRUCTURED')) then
-          phys_twin_algorithm_out = def_twin_alg_unstructured
-       else
-          phys_twin_algorithm_out = def_twin_alg_lonlat
-       endif
-     endif
-     if ( present(phys_alltoall_out) ) then
-       phys_alltoall_out = def_alltoall
-     endif
-     if ( present(phys_chnk_per_thd_out) ) then
-       phys_chnk_per_thd_out = def_chunks_per_thread
+     integer(c_int64_t) :: default_values(4)
+
+     call phys_grid_getters_select_impl()
+     if (use_native_getters_impl) then
+        if ( present(phys_loadbalance_out) ) then
+          phys_loadbalance_out = def_lbal_opt
+        endif
+        if ( present(phys_twin_algorithm_out) ) then
+          if (dycore_is('UNSTRUCTURED')) then
+             phys_twin_algorithm_out = def_twin_alg_unstructured
+          else
+             phys_twin_algorithm_out = def_twin_alg_lonlat
+          endif
+        endif
+        if ( present(phys_alltoall_out) ) then
+          phys_alltoall_out = def_alltoall
+        endif
+        if ( present(phys_chnk_per_thd_out) ) then
+          phys_chnk_per_thd_out = def_chunks_per_thread
+        endif
+     else
+        call phys_grid_defaultopts_codon(present(phys_loadbalance_out), present(phys_twin_algorithm_out), &
+             present(phys_alltoall_out), present(phys_chnk_per_thd_out), dycore_is('UNSTRUCTURED'), &
+             default_values)
+        if ( present(phys_loadbalance_out) ) phys_loadbalance_out = int(default_values(1))
+        if ( present(phys_twin_algorithm_out) ) phys_twin_algorithm_out = int(default_values(2))
+        if ( present(phys_alltoall_out) ) phys_alltoall_out = int(default_values(3))
+        if ( present(phys_chnk_per_thd_out) ) phys_chnk_per_thd_out = int(default_values(4))
+        call phys_grid_getter_log_direct(phys_grid_defaultopts_logged, 'phys_grid_defaultopts direct = codon')
      endif
    end subroutine phys_grid_defaultopts
 !
@@ -4288,7 +4352,7 @@ logical function phys_grid_initialized ()
    integer, intent(in) :: ldim         ! last dimension of pter array
    integer, intent(in) :: record_size  ! per coordinate amount of data 
 
-   integer, intent(out) :: pter(fdim,ldim)  ! buffer offsets
+   integer, target, intent(out) :: pter(fdim,ldim)  ! buffer offsets
 !---------------------------Local workspace-----------------------------
    integer :: i, k                     ! loop indices
 !-----------------------------------------------------------------------
@@ -4301,21 +4365,29 @@ logical function phys_grid_initialized ()
       call endrun()
    endif
 !
-   do k=1,btofc_blk_offset(blockid)%nlvls
-      do i=1,btofc_blk_offset(blockid)%ncols
-         pter(i,k) = 1 + record_size* &
-                     (btofc_blk_offset(blockid)%pter(i,k))
+   call phys_grid_getters_select_impl()
+   if (use_native_getters_impl) then
+      do k=1,btofc_blk_offset(blockid)%nlvls
+         do i=1,btofc_blk_offset(blockid)%ncols
+            pter(i,k) = 1 + record_size* &
+                        (btofc_blk_offset(blockid)%pter(i,k))
+         enddo
+         do i=btofc_blk_offset(blockid)%ncols+1,fdim
+            pter(i,k) = -1
+         enddo
       enddo
-      do i=btofc_blk_offset(blockid)%ncols+1,fdim
-         pter(i,k) = -1
-      enddo
-   enddo
 !
-   do k=btofc_blk_offset(blockid)%nlvls+1,ldim
-      do i=1,fdim
-         pter(i,k) = -1
+      do k=btofc_blk_offset(blockid)%nlvls+1,ldim
+         do i=1,fdim
+            pter(i,k) = -1
+         enddo
       enddo
-   enddo
+   else
+      call phys_grid_pter_offsets_codon(btofc_blk_offset(blockid)%ncols, btofc_blk_offset(blockid)%nlvls, &
+           fdim, ldim, record_size, btofc_blk_offset(blockid)%pter, pter)
+      call phys_grid_getter_log_direct(block_to_chunk_send_pters_logged, &
+           'block_to_chunk_send_pters direct = codon')
+   endif
 !
    return
    end subroutine block_to_chunk_send_pters
@@ -4340,7 +4412,7 @@ logical function phys_grid_initialized ()
    integer, intent(in) :: ldim         ! last dimension of pter array
    integer, intent(in) :: record_size  ! per coordinate amount of data 
 
-   integer, intent(out) :: pter(fdim,ldim)  ! buffer offset
+   integer, target, intent(out) :: pter(fdim,ldim)  ! buffer offset
 !---------------------------Local workspace-----------------------------
    integer :: i, k                     ! loop indices
 !-----------------------------------------------------------------------
@@ -4353,21 +4425,29 @@ logical function phys_grid_initialized ()
       call endrun()
    endif
 !
-   do k=1,btofc_chk_offset(lcid)%nlvls
-      do i=1,btofc_chk_offset(lcid)%ncols
-         pter(i,k) = 1 + record_size* &
-                     (btofc_chk_offset(lcid)%pter(i,k))
+   call phys_grid_getters_select_impl()
+   if (use_native_getters_impl) then
+      do k=1,btofc_chk_offset(lcid)%nlvls
+         do i=1,btofc_chk_offset(lcid)%ncols
+            pter(i,k) = 1 + record_size* &
+                        (btofc_chk_offset(lcid)%pter(i,k))
+         enddo
+         do i=btofc_chk_offset(lcid)%ncols+1,fdim
+            pter(i,k) = -1
+         enddo
       enddo
-      do i=btofc_chk_offset(lcid)%ncols+1,fdim
-         pter(i,k) = -1
-      enddo
-   enddo
 !
-   do k=btofc_chk_offset(lcid)%nlvls+1,ldim
-      do i=1,fdim
-         pter(i,k) = -1
+      do k=btofc_chk_offset(lcid)%nlvls+1,ldim
+         do i=1,fdim
+            pter(i,k) = -1
+         enddo
       enddo
-   enddo
+   else
+      call phys_grid_pter_offsets_codon(btofc_chk_offset(lcid)%ncols, btofc_chk_offset(lcid)%nlvls, &
+           fdim, ldim, record_size, btofc_chk_offset(lcid)%pter, pter)
+      call phys_grid_getter_log_direct(block_to_chunk_recv_pters_logged, &
+           'block_to_chunk_recv_pters direct = codon')
+   endif
 !
    return
    end subroutine block_to_chunk_recv_pters
@@ -4618,7 +4698,7 @@ logical function phys_grid_initialized ()
    integer, intent(in) :: ldim         ! last dimension of pter array
    integer, intent(in) :: record_size  ! per coordinate amount of data 
 
-   integer, intent(out) :: pter(fdim,ldim)  ! buffer offset
+   integer, target, intent(out) :: pter(fdim,ldim)  ! buffer offset
 !---------------------------Local workspace-----------------------------
    integer :: i, k                     ! loop indices
 !-----------------------------------------------------------------------
@@ -4631,21 +4711,29 @@ logical function phys_grid_initialized ()
       call endrun()
    endif
 !
-   do k=1,btofc_chk_offset(lcid)%nlvls
-      do i=1,btofc_chk_offset(lcid)%ncols
-         pter(i,k) = 1 + record_size* &
-                     (btofc_chk_offset(lcid)%pter(i,k))
+   call phys_grid_getters_select_impl()
+   if (use_native_getters_impl) then
+      do k=1,btofc_chk_offset(lcid)%nlvls
+         do i=1,btofc_chk_offset(lcid)%ncols
+            pter(i,k) = 1 + record_size* &
+                        (btofc_chk_offset(lcid)%pter(i,k))
+         enddo
+         do i=btofc_chk_offset(lcid)%ncols+1,fdim
+            pter(i,k) = -1
+         enddo
       enddo
-      do i=btofc_chk_offset(lcid)%ncols+1,fdim
-         pter(i,k) = -1
-      enddo
-   enddo
 !
-   do k=btofc_chk_offset(lcid)%nlvls+1,ldim
-      do i=1,fdim
-         pter(i,k) = -1
+      do k=btofc_chk_offset(lcid)%nlvls+1,ldim
+         do i=1,fdim
+            pter(i,k) = -1
+         enddo
       enddo
-   enddo
+   else
+      call phys_grid_pter_offsets_codon(btofc_chk_offset(lcid)%ncols, btofc_chk_offset(lcid)%nlvls, &
+           fdim, ldim, record_size, btofc_chk_offset(lcid)%pter, pter)
+      call phys_grid_getter_log_direct(chunk_to_block_send_pters_logged, &
+           'chunk_to_block_send_pters direct = codon')
+   endif
 !
    return
    end subroutine chunk_to_block_send_pters
@@ -4670,7 +4758,7 @@ logical function phys_grid_initialized ()
    integer, intent(in) :: ldim         ! last dimension of pter array
    integer, intent(in) :: record_size  ! per coordinate amount of data 
 
-   integer, intent(out) :: pter(fdim,ldim)  ! buffer offsets
+   integer, target, intent(out) :: pter(fdim,ldim)  ! buffer offsets
 !---------------------------Local workspace-----------------------------
    integer :: i, k                     ! loop indices
 !-----------------------------------------------------------------------
@@ -4683,21 +4771,29 @@ logical function phys_grid_initialized ()
       call endrun()
    endif
 !
-   do k=1,btofc_blk_offset(blockid)%nlvls
-      do i=1,btofc_blk_offset(blockid)%ncols
-         pter(i,k) = 1 + record_size* &
-                     (btofc_blk_offset(blockid)%pter(i,k))
+   call phys_grid_getters_select_impl()
+   if (use_native_getters_impl) then
+      do k=1,btofc_blk_offset(blockid)%nlvls
+         do i=1,btofc_blk_offset(blockid)%ncols
+            pter(i,k) = 1 + record_size* &
+                        (btofc_blk_offset(blockid)%pter(i,k))
+         enddo
+         do i=btofc_blk_offset(blockid)%ncols+1,fdim
+            pter(i,k) = -1
+         enddo
       enddo
-      do i=btofc_blk_offset(blockid)%ncols+1,fdim
-         pter(i,k) = -1
-      enddo
-   enddo
 !
-   do k=btofc_blk_offset(blockid)%nlvls+1,ldim
-      do i=1,fdim
-         pter(i,k) = -1
+      do k=btofc_blk_offset(blockid)%nlvls+1,ldim
+         do i=1,fdim
+            pter(i,k) = -1
+         enddo
       enddo
-   enddo
+   else
+      call phys_grid_pter_offsets_codon(btofc_blk_offset(blockid)%ncols, btofc_blk_offset(blockid)%nlvls, &
+           fdim, ldim, record_size, btofc_blk_offset(blockid)%pter, pter)
+      call phys_grid_getter_log_direct(chunk_to_block_recv_pters_logged, &
+           'chunk_to_block_recv_pters direct = codon')
+   endif
 !
    return
    end subroutine chunk_to_block_recv_pters
