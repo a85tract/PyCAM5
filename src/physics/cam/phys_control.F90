@@ -14,7 +14,7 @@ use spmd_utils,     only: masterproc
 use cam_logfile,    only: iulog
 use cam_abortutils, only: endrun
 use shr_kind_mod,   only: r8 => shr_kind_r8
-use iso_c_binding,  only: c_int64_t
+use iso_c_binding,  only: c_int64_t, c_loc
 
 implicit none
 private
@@ -96,6 +96,11 @@ logical, public, protected :: use_gw_convect_sh = .false.
 logical :: use_native_phys_control_bool_helpers_impl = .false.
 logical :: phys_control_bool_helpers_impl_selected = .false.
 logical :: phys_control_bool_helpers_proof_written = .false.
+logical :: cam_physpkg_is_logged = .false.
+logical :: cam_chempkg_is_logged = .false.
+logical :: waccmx_is_logged = .false.
+logical :: phys_deepconv_pbl_logged = .false.
+logical :: phys_do_flux_avg_logged = .false.
 
 interface
    function phys_control_deepconv_pbl_codon(eddy_diag_tke_c, shallow_uw_c) &
@@ -132,6 +137,30 @@ interface
       integer(c_int64_t), value :: value_c
       integer(c_int64_t) :: value_out_c
    end function phys_control_int_value_codon
+
+   function cam_physpkg_is_codon(name_len_c, name_ascii_p, pkg_len_c, pkg_ascii_p) &
+        result(match_c) bind(c, name="cam_physpkg_is_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: name_len_c, pkg_len_c
+      type(c_ptr), value :: name_ascii_p, pkg_ascii_p
+      integer(c_int64_t) :: match_c
+   end function cam_physpkg_is_codon
+
+   function cam_chempkg_is_codon(name_len_c, name_ascii_p, pkg_len_c, pkg_ascii_p) &
+        result(match_c) bind(c, name="cam_chempkg_is_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: name_len_c, pkg_len_c
+      type(c_ptr), value :: name_ascii_p, pkg_ascii_p
+      integer(c_int64_t) :: match_c
+   end function cam_chempkg_is_codon
+
+   function waccmx_is_codon(name_len_c, name_ascii_p, opt_len_c, opt_ascii_p) &
+        result(match_c) bind(c, name="waccmx_is_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: name_len_c, opt_len_c
+      type(c_ptr), value :: name_ascii_p, opt_ascii_p
+      integer(c_int64_t) :: match_c
+   end function waccmx_is_codon
 end interface
 
 !======================================================================= 
@@ -184,6 +213,37 @@ subroutine phys_control_bool_helpers_proof_once()
    end if
 
 end subroutine phys_control_bool_helpers_proof_once
+
+!===============================================================================
+
+subroutine phys_control_log_direct(logged, proof_line)
+
+   logical, intent(inout) :: logged
+   character(len=*), intent(in) :: proof_line
+
+   if (logged) return
+   logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') trim(proof_line)
+      call flush(iulog)
+   end if
+
+end subroutine phys_control_log_direct
+
+!===============================================================================
+
+subroutine phys_control_ascii_pack(text, ascii)
+
+   character(len=*), intent(in) :: text
+   integer(c_int64_t), intent(out) :: ascii(:)
+   integer :: i
+
+   do i = 1, len(text)
+      ascii(i) = int(iachar(text(i:i)), c_int64_t)
+   end do
+
+end subroutine phys_control_ascii_pack
 
 subroutine phys_ctl_readnl(nlfile)
 
@@ -320,7 +380,8 @@ logical function cam_physpkg_is(name)
    ! query for the name of the physics package
 
    character(len=*) :: name
-   integer(c_int64_t) :: match_c
+   integer(c_int64_t), target :: name_ascii(len(name))
+   integer(c_int64_t), target :: pkg_ascii(len(cam_physpkg))
    
    call phys_control_bool_helpers_select_impl()
    if (use_native_phys_control_bool_helpers_impl) then
@@ -329,9 +390,11 @@ logical function cam_physpkg_is(name)
    end if
 
    call phys_control_bool_helpers_proof_once()
-   match_c = 0_c_int64_t
-   if (trim(name) == trim(cam_physpkg)) match_c = 1_c_int64_t
-   cam_physpkg_is = (phys_control_bool_flag_codon(match_c) /= 0_c_int64_t)
+   call phys_control_ascii_pack(name, name_ascii)
+   call phys_control_ascii_pack(cam_physpkg, pkg_ascii)
+   cam_physpkg_is = (cam_physpkg_is_codon(int(len(name), c_int64_t), c_loc(name_ascii(1)), &
+        int(len(cam_physpkg), c_int64_t), c_loc(pkg_ascii(1))) /= 0_c_int64_t)
+   call phys_control_log_direct(cam_physpkg_is_logged, 'cam_physpkg_is direct = codon')
 end function cam_physpkg_is
 
 !===============================================================================
@@ -341,7 +404,8 @@ logical function cam_chempkg_is(name)
    ! query for the name of the chemics package
 
    character(len=*) :: name
-   integer(c_int64_t) :: match_c
+   integer(c_int64_t), target :: name_ascii(len(name))
+   integer(c_int64_t), target :: pkg_ascii(len(cam_chempkg))
    
    call phys_control_bool_helpers_select_impl()
    if (use_native_phys_control_bool_helpers_impl) then
@@ -350,9 +414,11 @@ logical function cam_chempkg_is(name)
    end if
 
    call phys_control_bool_helpers_proof_once()
-   match_c = 0_c_int64_t
-   if (trim(name) == trim(cam_chempkg)) match_c = 1_c_int64_t
-   cam_chempkg_is = (phys_control_bool_flag_codon(match_c) /= 0_c_int64_t)
+   call phys_control_ascii_pack(name, name_ascii)
+   call phys_control_ascii_pack(cam_chempkg, pkg_ascii)
+   cam_chempkg_is = (cam_chempkg_is_codon(int(len(name), c_int64_t), c_loc(name_ascii(1)), &
+        int(len(cam_chempkg), c_int64_t), c_loc(pkg_ascii(1))) /= 0_c_int64_t)
+   call phys_control_log_direct(cam_chempkg_is_logged, 'cam_chempkg_is direct = codon')
 end function cam_chempkg_is
 
 !===============================================================================
@@ -362,7 +428,8 @@ logical function waccmx_is(name)
    ! query for the name of the waccmx run option
 
    character(len=*) :: name
-   integer(c_int64_t) :: match_c
+   integer(c_int64_t), target :: name_ascii(len(name))
+   integer(c_int64_t), target :: opt_ascii(len(waccmx_opt))
    
    call phys_control_bool_helpers_select_impl()
    if (use_native_phys_control_bool_helpers_impl) then
@@ -371,9 +438,11 @@ logical function waccmx_is(name)
    end if
 
    call phys_control_bool_helpers_proof_once()
-   match_c = 0_c_int64_t
-   if (trim(name) == trim(waccmx_opt)) match_c = 1_c_int64_t
-   waccmx_is = (phys_control_bool_flag_codon(match_c) /= 0_c_int64_t)
+   call phys_control_ascii_pack(name, name_ascii)
+   call phys_control_ascii_pack(waccmx_opt, opt_ascii)
+   waccmx_is = (waccmx_is_codon(int(len(name), c_int64_t), c_loc(name_ascii(1)), &
+        int(len(waccmx_opt), c_int64_t), c_loc(opt_ascii(1))) /= 0_c_int64_t)
+   call phys_control_log_direct(waccmx_is_logged, 'waccmx_is direct = codon')
 end function waccmx_is
 
 !===============================================================================
@@ -530,6 +599,7 @@ function phys_deepconv_pbl()
    if (shallow_scheme .eq. 'UW') shallow_uw_c = 1_c_int64_t
    result_c = phys_control_deepconv_pbl_codon(eddy_diag_tke_c, shallow_uw_c)
    phys_deepconv_pbl = (result_c /= 0_c_int64_t)
+   call phys_control_log_direct(phys_deepconv_pbl_logged, 'phys_deepconv_pbl direct = codon')
 
    return
 
@@ -569,6 +639,7 @@ function phys_do_flux_avg()
    call phys_control_bool_helpers_proof_once()
    result_c = phys_control_do_flux_avg_codon(int(srf_flux_avg, c_int64_t))
    phys_do_flux_avg = (result_c /= 0_c_int64_t)
+   call phys_control_log_direct(phys_do_flux_avg_logged, 'phys_do_flux_avg direct = codon')
 
 end function phys_do_flux_avg
 

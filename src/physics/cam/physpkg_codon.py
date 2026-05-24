@@ -6373,6 +6373,45 @@ def phys_control_int_value_codon(value: int) -> int:
 
 
 @inline
+def _trimmed_ascii_len(text: Ptr[int], n: int) -> int:
+    last = n
+    while last > 0 and text[last - 1] == 32:
+        last -= 1
+    return last
+
+
+@inline
+def _trimmed_ascii_eq(name_len: int, name_p: cobj, value_len: int, value_p: cobj) -> int:
+    name = Ptr[int](name_p)
+    value = Ptr[int](value_p)
+
+    n_name = _trimmed_ascii_len(name, name_len)
+    n_value = _trimmed_ascii_len(value, value_len)
+    if n_name != n_value:
+        return 0
+
+    for i in range(n_name):
+        if name[i] != value[i]:
+            return 0
+    return 1
+
+
+@export
+def cam_physpkg_is_codon(name_len: int, name_p: cobj, pkg_len: int, pkg_p: cobj) -> int:
+    return _trimmed_ascii_eq(name_len, name_p, pkg_len, pkg_p)
+
+
+@export
+def cam_chempkg_is_codon(name_len: int, name_p: cobj, pkg_len: int, pkg_p: cobj) -> int:
+    return _trimmed_ascii_eq(name_len, name_p, pkg_len, pkg_p)
+
+
+@export
+def waccmx_is_codon(name_len: int, name_p: cobj, opt_len: int, opt_p: cobj) -> int:
+    return _trimmed_ascii_eq(name_len, name_p, opt_len, opt_p)
+
+
+@inline
 def _ascii_first(name_len: int, name_ascii_p: cobj) -> int:
     if name_len <= 0:
         return 0
