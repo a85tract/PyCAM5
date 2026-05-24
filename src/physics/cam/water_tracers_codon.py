@@ -41,16 +41,53 @@ def wtrc_bool_id_codon(value: int) -> int:
 
 
 @export
-def wtrc_implements_cnst_codon(flag: int) -> int:
-    if flag != 0:
+def wtrc_implements_cnst_codon(
+    name_len: int,
+    name_ascii_p: cobj,
+    cnst_name_len: int,
+    names_ascii_p: cobj,
+    ncnst: int,
+) -> int:
+    if wtrc_get_icnst_codon(name_len, name_ascii_p, cnst_name_len, names_ascii_p, ncnst) >= 1:
         return 1
     return 0
 
 
+@inline
+def _fortran_char_eq(name_len: int, name_ascii: Ptr[int], value_len: int, names_ascii: Ptr[int], value_offset: int) -> int:
+    cmp_len = name_len
+    if value_len > cmp_len:
+        cmp_len = value_len
+    i = 0
+    while i < cmp_len:
+        left = 32
+        if i < name_len:
+            left = name_ascii[i]
+        right = 32
+        if i < value_len:
+            right = names_ascii[value_offset + i]
+        if left != right:
+            return 0
+        i += 1
+    return 1
+
+
 @export
-def wtrc_get_icnst_codon(ncnst: int, target_idx: int) -> int:
-    if target_idx >= 1 and target_idx <= ncnst:
-        return target_idx
+def wtrc_get_icnst_codon(
+    name_len: int,
+    name_ascii_p: cobj,
+    cnst_name_len: int,
+    names_ascii_p: cobj,
+    ncnst: int,
+) -> int:
+    name_ascii = Ptr[int](name_ascii_p)
+    names_ascii = Ptr[int](names_ascii_p)
+    icnst = 1
+    while icnst <= ncnst:
+        offset = (icnst - 1) * cnst_name_len
+        if _fortran_char_eq(name_len, name_ascii, cnst_name_len, names_ascii, offset) != 0:
+            return icnst
+        icnst += 1
     return -1
 
 

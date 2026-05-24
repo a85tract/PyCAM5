@@ -24,7 +24,7 @@ use chem_surfvals,  only: chem_surfvals_get
 use co2_data_flux
 use cam_abortutils,  only: endrun
 use cam_logfile,     only: iulog
-use iso_c_binding,   only: c_int64_t
+use iso_c_binding,   only: c_int64_t, c_loc
 
 implicit none
 private
@@ -84,9 +84,11 @@ interface
       integer(c_int64_t), value :: flag_c
       integer(c_int64_t) :: out_c
    end function co2_register_codon
-   function co2_implements_cnst_codon(flag_c) result(out_c) bind(c, name="co2_implements_cnst_codon")
-      use iso_c_binding, only: c_int64_t
-      integer(c_int64_t), value :: flag_c
+   function co2_implements_cnst_codon(flag_c, name_len_c, name_ascii_p) result(out_c) &
+        bind(c, name="co2_implements_cnst_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: flag_c, name_len_c
+      type(c_ptr), value :: name_ascii_p
       integer(c_int64_t) :: out_c
    end function co2_implements_cnst_codon
    function co2_init_codon(flag_c) result(out_c) bind(c, name="co2_init_codon")
@@ -329,7 +331,8 @@ function co2_implements_cnst(name)
     logical :: co2_implements_cnst        ! return value
 
     integer :: m     
-    integer(c_int64_t) :: active_c, out_c
+    integer(c_int64_t) :: out_c
+    integer(c_int64_t), target :: name_ascii(max(1, len(name)))
       
     co2_implements_cnst = .false.
  
@@ -338,19 +341,19 @@ function co2_implements_cnst(name)
        if (.not. co2_cycle_flag(co2_flag)) return
     else
        call co2_cycle_proof_once()
-       active_c = co2_implements_cnst_codon(merge(1_c_int64_t, 0_c_int64_t, co2_flag))
+       do m = 1, len(name)
+          name_ascii(m) = int(iachar(name(m:m)), c_int64_t)
+       end do
+       out_c = co2_implements_cnst_codon(merge(1_c_int64_t, 0_c_int64_t, co2_flag), &
+            int(len(name), c_int64_t), c_loc(name_ascii(1)))
        call co2_cycle_log_direct(co2_implements_cnst_logged, 'co2_implements_cnst direct = codon')
-       if (active_c == 0_c_int64_t) return
+       co2_implements_cnst = out_c /= 0_c_int64_t
+       return
     end if
  
     do m = 1, ncnst
        if (name == c_names(m)) then
-          if (use_native_co2_cycle_impl) then
-             co2_implements_cnst = .true.
-          else
-             out_c = co2_implements_cnst_codon(1_c_int64_t)
-             co2_implements_cnst = out_c /= 0_c_int64_t
-          end if
+          co2_implements_cnst = .true.
           return
        end if
     end do

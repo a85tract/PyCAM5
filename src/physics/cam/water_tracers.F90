@@ -203,14 +203,18 @@ module water_tracers
       integer(c_int64_t), value :: value_c
       integer(c_int64_t) :: result_c
     end function wtrc_bool_id_codon
-    function wtrc_implements_cnst_codon(value_c) result(result_c) bind(c, name="wtrc_implements_cnst_codon")
-      use iso_c_binding, only: c_int64_t
-      integer(c_int64_t), value :: value_c
+    function wtrc_implements_cnst_codon(name_len_c, name_ascii_p, cnst_name_len_c, names_ascii_p, ncnst_c) &
+         result(result_c) bind(c, name="wtrc_implements_cnst_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: name_len_c, cnst_name_len_c, ncnst_c
+      type(c_ptr), value :: name_ascii_p, names_ascii_p
       integer(c_int64_t) :: result_c
     end function wtrc_implements_cnst_codon
-    function wtrc_get_icnst_codon(ncnst_c, target_idx_c) result(result_c) bind(c, name="wtrc_get_icnst_codon")
-      use iso_c_binding, only: c_int64_t
-      integer(c_int64_t), value :: ncnst_c, target_idx_c
+    function wtrc_get_icnst_codon(name_len_c, name_ascii_p, cnst_name_len_c, names_ascii_p, ncnst_c) &
+         result(result_c) bind(c, name="wtrc_get_icnst_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: name_len_c, cnst_name_len_c, ncnst_c
+      type(c_ptr), value :: name_ascii_p, names_ascii_p
       integer(c_int64_t) :: result_c
     end function wtrc_get_icnst_codon
     function wtrc_select_real_codon(use_first_c, first_c, second_c) result(result_c) &
@@ -1404,32 +1408,36 @@ end subroutine wtrc_register
     character(len=*),  intent(in)  :: name              ! tracer name
     integer                        :: wtrc_get_icnst    ! return constituent index
     integer                        :: icnst             ! local constituent index
+    integer                        :: ichar             ! local character index
     integer(c_int64_t)             :: out_c
+    integer(c_int64_t), target     :: name_ascii(max(1, len(name)))
+    integer(c_int64_t), target     :: names_ascii(len(wtrc_names(1)), max(1, wtrc_ncnst))
 !-----------------------------------------------------------------------
+    call wtrc_scalar_helpers_select_impl()
+    if (.not. use_native_wtrc_scalar_helpers_impl) then
+      do ichar = 1, len(name)
+        name_ascii(ichar) = int(iachar(name(ichar:ichar)), c_int64_t)
+      end do
+      do icnst = 1, wtrc_ncnst
+        do ichar = 1, len(wtrc_names(1))
+          names_ascii(ichar, icnst) = int(iachar(wtrc_names(icnst)(ichar:ichar)), c_int64_t)
+        end do
+      end do
+      call wtrc_scalar_helpers_log_entered()
+      out_c = wtrc_get_icnst_codon(int(len(name), c_int64_t), c_loc(name_ascii(1)), &
+           int(len(wtrc_names(1)), c_int64_t), c_loc(names_ascii(1, 1)), int(wtrc_ncnst, c_int64_t))
+      wtrc_get_icnst = int(out_c)
+      call wtrc_scalar_helpers_log_direct(wtrc_get_icnst_logged, 'wtrc_get_icnst direct = codon')
+      return
+    end if
+
     do icnst = 1, wtrc_ncnst
       if (name == wtrc_names(icnst)) then
-        call wtrc_scalar_helpers_select_impl()
-        if (.not. use_native_wtrc_scalar_helpers_impl) then
-          call wtrc_scalar_helpers_log_entered()
-          out_c = wtrc_get_icnst_codon(int(wtrc_ncnst, c_int64_t), int(icnst, c_int64_t))
-          wtrc_get_icnst = int(out_c)
-          call wtrc_scalar_helpers_log_direct(wtrc_get_icnst_logged, 'wtrc_get_icnst direct = codon')
-        else
-          wtrc_get_icnst = icnst
-        end if
+        wtrc_get_icnst = icnst
         return
       end if
     end do
-    
-    call wtrc_scalar_helpers_select_impl()
-    if (.not. use_native_wtrc_scalar_helpers_impl) then
-      call wtrc_scalar_helpers_log_entered()
-      out_c = wtrc_get_icnst_codon(int(wtrc_ncnst, c_int64_t), -1_c_int64_t)
-      wtrc_get_icnst = int(out_c)
-      call wtrc_scalar_helpers_log_direct(wtrc_get_icnst_logged, 'wtrc_get_icnst direct = codon')
-    else
-      wtrc_get_icnst = -1
-    end if
+    wtrc_get_icnst = -1
     
     return
   end function wtrc_get_icnst
@@ -1520,24 +1528,37 @@ end subroutine wtrc_register
      logical :: wtrc_implements_cnst        ! return value
 !---------------------------Local workspace-----------------------------
      integer :: icnst
+     integer :: ichar
      integer(c_int64_t) :: out_c
+     integer(c_int64_t), target :: name_ascii(max(1, len(name)))
+     integer(c_int64_t), target :: names_ascii(len(wtrc_names(1)), max(1, wtrc_ncnst))
 !-----------------------------------------------------------------------
     wtrc_implements_cnst = .false.
-    
+
+    call wtrc_scalar_helpers_select_impl()
+    if (.not. use_native_wtrc_scalar_helpers_impl) then
+      do ichar = 1, len(name)
+        name_ascii(ichar) = int(iachar(name(ichar:ichar)), c_int64_t)
+      end do
+      do icnst = 1, wtrc_ncnst
+        do ichar = 1, len(wtrc_names(1))
+          names_ascii(ichar, icnst) = int(iachar(wtrc_names(icnst)(ichar:ichar)), c_int64_t)
+        end do
+      end do
+      call wtrc_scalar_helpers_log_entered()
+      out_c = wtrc_implements_cnst_codon(int(len(name), c_int64_t), c_loc(name_ascii(1)), &
+           int(len(wtrc_names(1)), c_int64_t), c_loc(names_ascii(1, 1)), int(wtrc_ncnst, c_int64_t))
+      wtrc_implements_cnst = out_c /= 0_c_int64_t
+      call wtrc_scalar_helpers_log_direct(wtrc_implements_cnst_logged, 'wtrc_implements_cnst direct = codon')
+      return
+    end if
+
     do icnst = 1, wtrc_ncnst
       if (name == wtrc_names(icnst)) then
         wtrc_implements_cnst = .true.
         exit
       end if
     end do
-
-    call wtrc_scalar_helpers_select_impl()
-    if (.not. use_native_wtrc_scalar_helpers_impl) then
-      call wtrc_scalar_helpers_log_entered()
-      out_c = wtrc_implements_cnst_codon(merge(1_c_int64_t, 0_c_int64_t, wtrc_implements_cnst))
-      wtrc_implements_cnst = out_c /= 0_c_int64_t
-      call wtrc_scalar_helpers_log_direct(wtrc_implements_cnst_logged, 'wtrc_implements_cnst direct = codon')
-    end if
     
     return
   end function wtrc_implements_cnst

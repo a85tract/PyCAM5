@@ -7145,9 +7145,38 @@ def co2_register_codon(flag: int) -> int:
     return 0
 
 
+@inline
+def _co2_name_eq(name_len: int, name_ascii: Ptr[int], c0: int, c1: int, c2: int, c3: int, c4: int, c5: int, c6: int) -> int:
+    if name_len > 7:
+        i = 7
+        while i < name_len:
+            if name_ascii[i] != 32:
+                return 0
+            i += 1
+    values = (c0, c1, c2, c3, c4, c5, c6)
+    i = 0
+    while i < 7:
+        left = 32
+        if i < name_len:
+            left = name_ascii[i]
+        if left != values[i]:
+            return 0
+        i += 1
+    return 1
+
+
 @export
-def co2_implements_cnst_codon(flag: int) -> int:
-    if flag != 0:
+def co2_implements_cnst_codon(flag: int, name_len: int, name_ascii_p: cobj) -> int:
+    if flag == 0:
+        return 0
+    name_ascii = Ptr[int](name_ascii_p)
+    if _co2_name_eq(name_len, name_ascii, 67, 79, 50, 95, 79, 67, 78) != 0:
+        return 1
+    if _co2_name_eq(name_len, name_ascii, 67, 79, 50, 95, 70, 70, 70) != 0:
+        return 1
+    if _co2_name_eq(name_len, name_ascii, 67, 79, 50, 95, 76, 78, 68) != 0:
+        return 1
+    if _co2_name_eq(name_len, name_ascii, 67, 79, 50, 32, 32, 32, 32) != 0:
         return 1
     return 0
 
