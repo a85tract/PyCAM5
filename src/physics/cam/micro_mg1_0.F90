@@ -4169,9 +4169,9 @@ end subroutine micro_mg1_0_select_get_cols_impl
 
 subroutine micro_mg1_0_get_cols_log_entry()
   if (masterproc .and. .not. micro_mg1_0_get_cols_logged) then
-     write(iulog,*) 'micro_mg1_0_get_cols direct = codon'
+     write(iulog,*) 'micro_mg_get_cols direct = codon'
      call micro_mg1_0_append_impl_proof('MICRO_MG1_0_GET_COLS_PROOF_FILE', &
-          'micro_mg1_0_get_cols direct = codon')
+          'micro_mg_get_cols direct = codon')
      micro_mg1_0_get_cols_logged = .true.
   end if
 end subroutine micro_mg1_0_get_cols_log_entry
@@ -4179,7 +4179,7 @@ end subroutine micro_mg1_0_get_cols_log_entry
 subroutine micro_mg_get_cols(ncol, nlev, top_lev, qcn, qin, &
      mgncol, mgcols)
 
-  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr, c_null_ptr
 
   ! Determines which columns microphysics should operate over by
   ! checking for non-zero cloud water/ice.
@@ -4201,21 +4201,13 @@ subroutine micro_mg_get_cols(ncol, nlev, top_lev, qcn, qin, &
   integer(c_int64_t), target :: mgncol_c
 
   interface
-     subroutine micro_mg1_0_get_cols_count_codon(ncol_c, ldq_c, nlev_c, top_lev_c, qsmall_c, &
-          qcn_p, qin_p, mgncol_p) bind(c, name="micro_mg1_0_get_cols_count_codon")
+     subroutine micro_mg_get_cols_codon(stage_c, ncol_c, ldq_c, nlev_c, top_lev_c, qsmall_c, &
+          qcn_p, qin_p, mgncol_p, mgcols_p) bind(c, name="micro_mg_get_cols_codon")
        import c_double, c_int64_t, c_ptr
-       integer(c_int64_t), value :: ncol_c, ldq_c, nlev_c, top_lev_c
+       integer(c_int64_t), value :: stage_c, ncol_c, ldq_c, nlev_c, top_lev_c
        real(c_double), value :: qsmall_c
-       type(c_ptr), value :: qcn_p, qin_p, mgncol_p
-     end subroutine micro_mg1_0_get_cols_count_codon
-
-     subroutine micro_mg1_0_get_cols_fill_codon(ncol_c, ldq_c, nlev_c, top_lev_c, qsmall_c, &
-          qcn_p, qin_p, mgcols_p) bind(c, name="micro_mg1_0_get_cols_fill_codon")
-       import c_double, c_int64_t, c_ptr
-       integer(c_int64_t), value :: ncol_c, ldq_c, nlev_c, top_lev_c
-       real(c_double), value :: qsmall_c
-       type(c_ptr), value :: qcn_p, qin_p, mgcols_p
-     end subroutine micro_mg1_0_get_cols_fill_codon
+       type(c_ptr), value :: qcn_p, qin_p, mgncol_p, mgcols_p
+     end subroutine micro_mg_get_cols_codon
   end interface
 
   if (allocated(mgcols)) deallocate(mgcols)
@@ -4225,15 +4217,15 @@ subroutine micro_mg_get_cols(ncol, nlev, top_lev, qcn, qin, &
   if (.not. micro_mg1_0_get_cols_use_native_impl) then
      mgncol_c = 0_c_int64_t
      call micro_mg1_0_get_cols_log_entry()
-     call micro_mg1_0_get_cols_count_codon(int(ncol, c_int64_t), int(size(qcn, 1), c_int64_t), &
+     call micro_mg_get_cols_codon(0_c_int64_t, int(ncol, c_int64_t), int(size(qcn, 1), c_int64_t), &
           int(nlev, c_int64_t), int(top_lev, c_int64_t), real(qsmall, c_double), &
-          c_loc(qcn(1,1)), c_loc(qin(1,1)), c_loc(mgncol_c))
+          c_loc(qcn(1,1)), c_loc(qin(1,1)), c_loc(mgncol_c), c_null_ptr)
      mgncol = int(mgncol_c)
      allocate(mgcols(mgncol))
      if (mgncol > 0) then
-        call micro_mg1_0_get_cols_fill_codon(int(ncol, c_int64_t), int(size(qcn, 1), c_int64_t), &
+        call micro_mg_get_cols_codon(1_c_int64_t, int(ncol, c_int64_t), int(size(qcn, 1), c_int64_t), &
              int(nlev, c_int64_t), int(top_lev, c_int64_t), real(qsmall, c_double), &
-             c_loc(qcn(1,1)), c_loc(qin(1,1)), c_loc(mgcols(1)))
+             c_loc(qcn(1,1)), c_loc(qin(1,1)), c_loc(mgncol_c), c_loc(mgcols(1)))
      end if
      return
   end if

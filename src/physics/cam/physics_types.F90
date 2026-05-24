@@ -181,12 +181,12 @@ module physics_types
   logical :: physics_dme_adjust_logged = .false.
 
   interface
-     function physics_dme_adjust_active_codon(is_lr_c) result(active_c) &
-          bind(c, name="physics_dme_adjust_active_codon")
+     function physics_dme_adjust_codon(is_lr_c) result(active_c) &
+          bind(c, name="physics_dme_adjust_codon")
        use iso_c_binding, only: c_int64_t
        integer(c_int64_t), value :: is_lr_c
        integer(c_int64_t) :: active_c
-     end function physics_dme_adjust_active_codon
+     end function physics_dme_adjust_codon
 
      subroutine physics_tend_init_codon_raw(psetcols_c, pver_c, dtdt_p, dudt_p, dvdt_p, flx_net_p, te_tnd_p, tw_tnd_p) &
           bind(c, name="physics_tend_init_codon")
@@ -1875,7 +1875,7 @@ end subroutine physics_ptend_copy
     if (use_native_zero_impl) then
        if (.not. dycore_is('LR') ) return
     else
-       active_c = physics_dme_adjust_active_codon(merge(1_c_int64_t, 0_c_int64_t, dycore_is('LR')))
+       active_c = physics_dme_adjust_codon(merge(1_c_int64_t, 0_c_int64_t, dycore_is('LR')))
        call physics_types_zero_proof_once()
        call physics_types_log_direct(physics_dme_adjust_logged, 'physics_dme_adjust direct = codon')
        if (active_c == 0_c_int64_t) return

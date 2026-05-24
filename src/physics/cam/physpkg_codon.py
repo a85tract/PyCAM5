@@ -2277,6 +2277,11 @@ def physics_dme_adjust_active_codon(is_lr: int) -> int:
 
 
 @export
+def physics_dme_adjust_codon(is_lr: int) -> int:
+    return physics_dme_adjust_active_codon(is_lr)
+
+
+@export
 def physics_tend_init_codon(
     psetcols: int,
     pver: int,

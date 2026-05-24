@@ -425,6 +425,25 @@ def micro_mg1_0_get_cols_fill_codon(
             out_i += 1
 
 
+@export
+def micro_mg_get_cols_codon(
+    stage: int,
+    ncol: int,
+    ldq: int,
+    nlev: int,
+    top_lev: int,
+    qsmall: float,
+    qcn_p: cobj,
+    qin_p: cobj,
+    mgncol_p: cobj,
+    mgcols_p: cobj,
+):
+    if stage == 0:
+        micro_mg1_0_get_cols_count_codon(ncol, ldq, nlev, top_lev, qsmall, qcn_p, qin_p, mgncol_p)
+    elif stage == 1:
+        micro_mg1_0_get_cols_fill_codon(ncol, ldq, nlev, top_lev, qsmall, qcn_p, qin_p, mgcols_p)
+
+
 @inline
 def _micro_mg_data_accumulate_2d(
     n1: int,
