@@ -3361,6 +3361,32 @@ def _trb_mtn_idx(i: int, k: int, pcols: int) -> int:
 
 
 @export
+def trb_mtn_stress_init_codon(
+    oro_in: float,
+    z0fac_in: float,
+    karman_in: float,
+    gravit_in: float,
+    rair_in: float,
+    orocnst_p: cobj,
+    z0fac_p: cobj,
+    karman_p: cobj,
+    gravit_p: cobj,
+    rair_p: cobj,
+):
+    orocnst = Ptr[float](orocnst_p)
+    z0fac = Ptr[float](z0fac_p)
+    karman = Ptr[float](karman_p)
+    gravit = Ptr[float](gravit_p)
+    rair = Ptr[float](rair_p)
+
+    orocnst[0] = oro_in
+    z0fac[0] = z0fac_in
+    karman[0] = karman_in
+    gravit[0] = gravit_in
+    rair[0] = rair_in
+
+
+@export
 def trb_mtn_stress_compute_codon(
     pcols: int,
     pver: int,

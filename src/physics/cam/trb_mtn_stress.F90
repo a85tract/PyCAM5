@@ -16,17 +16,27 @@ module trb_mtn_stress
   real(r8), parameter :: horomin= 1._r8       ! Minimum value of subgrid orographic height for mountain stress [ m ]
   real(r8), parameter :: z0max  = 100._r8     ! Maximum value of z_0 for orography [ m ]
   real(r8), parameter :: dv2min = 0.01_r8     ! Minimum shear squared [ m2/s2 ]
-  real(r8)            :: orocnst              ! Converts from standard deviation to height [ no unit ]
-  real(r8)            :: z0fac                ! Factor determining z_0 from orographic standard deviation [ no unit ] 
-  real(r8)            :: karman               ! von Karman constant
-  real(r8)            :: gravit               ! Acceleration due to gravity
-  real(r8)            :: rair                 ! Gas constant for dry air
+  real(r8), target    :: orocnst              ! Converts from standard deviation to height [ no unit ]
+  real(r8), target    :: z0fac                ! Factor determining z_0 from orographic standard deviation [ no unit ]
+  real(r8), target    :: karman               ! von Karman constant
+  real(r8), target    :: gravit               ! Acceleration due to gravity
+  real(r8), target    :: rair                 ! Gas constant for dry air
 
   logical             :: use_native_tms_impl = .false.
   logical             :: tms_impl_selected = .false.
   logical             :: tms_proof_written = .false.
+  logical             :: use_native_init_tms_impl = .false.
+  logical             :: init_tms_impl_selected = .false.
+  logical             :: init_tms_proof_written = .false.
 
   interface
+     subroutine trb_mtn_stress_init_codon(oro_in_c, z0fac_in_c, karman_in_c, gravit_in_c, rair_in_c, &
+          orocnst_p, z0fac_p, karman_p, gravit_p, rair_p) bind(c, name="trb_mtn_stress_init_codon")
+       use iso_c_binding, only: c_double, c_ptr
+       real(c_double), value :: oro_in_c, z0fac_in_c, karman_in_c, gravit_in_c, rair_in_c
+       type(c_ptr), value :: orocnst_p, z0fac_p, karman_p, gravit_p, rair_p
+     end subroutine trb_mtn_stress_init_codon
+
      subroutine trb_mtn_stress_compute_codon(pcols_c, pver_c, ncol_c, orocnst_c, z0fac_c, karman_c, gravit_c, rair_c, &
           u_p, v_p, t_p, pmid_p, exner_p, zm_p, sgh_p, landfrac_p, ksrf_p, taux_p, tauy_p) &
           bind(c, name="trb_mtn_stress_compute_codon")
@@ -39,6 +49,65 @@ module trb_mtn_stress
   end interface
 
 contains
+
+  !============================================================================ !
+  !                                                                             !
+  !============================================================================ !
+
+  subroutine init_tms_select_impl()
+
+    use cam_logfile, only: iulog
+    use spmd_utils,  only: masterproc
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (init_tms_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('TRB_MTN_STRESS_INIT_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_init_tms_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_init_tms_impl = .false.
+    end if
+
+    init_tms_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_init_tms_impl) then
+          write(iulog,*) 'trb_mtn_stress_init implementation = native'
+       else
+          write(iulog,*) 'trb_mtn_stress_init implementation = codon'
+       end if
+    end if
+
+  end subroutine init_tms_select_impl
+
+  !============================================================================ !
+  !                                                                             !
+  !============================================================================ !
+
+  subroutine init_tms_proof_once()
+
+    use cam_logfile, only: iulog
+    use spmd_utils,  only: masterproc
+
+    if (init_tms_proof_written) return
+    init_tms_proof_written = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'trb_mtn_stress_init direct = codon'
+    end if
+
+  end subroutine init_tms_proof_once
 
   !============================================================================ !
   !                                                                             !
@@ -106,6 +175,8 @@ contains
   subroutine init_tms( kind, oro_in, z0fac_in, karman_in, gravit_in, rair_in, &
        errstring)
 
+    use iso_c_binding, only: c_double, c_loc
+
     integer, intent(in) :: kind
 
     real(r8), intent(in) :: oro_in, z0fac_in, karman_in, gravit_in, rair_in
@@ -119,11 +190,20 @@ contains
        return
     endif
 
-    orocnst  = oro_in
-    z0fac    = z0fac_in
-    karman   = karman_in
-    gravit   = gravit_in
-    rair     = rair_in
+    call init_tms_select_impl()
+
+    if (use_native_init_tms_impl) then
+       orocnst  = oro_in
+       z0fac    = z0fac_in
+       karman   = karman_in
+       gravit   = gravit_in
+       rair     = rair_in
+    else
+       call init_tms_proof_once()
+       call trb_mtn_stress_init_codon(real(oro_in, c_double), real(z0fac_in, c_double), real(karman_in, c_double), &
+            real(gravit_in, c_double), real(rair_in, c_double), c_loc(orocnst), c_loc(z0fac), c_loc(karman), &
+            c_loc(gravit), c_loc(rair))
+    end if
     
   end subroutine init_tms
 
