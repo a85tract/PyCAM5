@@ -1,4 +1,5 @@
 from math import erfc, exp, log, log10, sqrt
+from C import uwshcu_exnf_native_cb(float, float, float) -> float
 
 @export
 def convect_shallow_use_shfrc_codon(scheme_len: int, scheme_ascii_p: cobj) -> int:
@@ -55,6 +56,11 @@ def _idx3(i: int, k: int, m: int, ld1: int, ld2: int) -> int:
 @inline
 def _uwshcu_exnf(pressure: float, p00: float, rovcp: float) -> float:
     return (pressure / p00) ** rovcp
+
+
+@export
+def uwshcu_exnf_codon(pressure: float, p00: float, rovcp: float) -> float:
+    return uwshcu_exnf_native_cb(pressure, p00, rovcp)
 
 
 @inline

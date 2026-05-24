@@ -54,6 +54,7 @@
   logical :: column_workspace_reset_shell_entered_logged = .false.
   logical :: column_input_shell_entered_logged = .false.
   logical :: exner_profile_shell_entered_logged = .false.
+  logical :: exnf_direct_entered_logged = .false.
   logical :: column_thermo_shell_entered_logged = .false.
   logical :: column_thermo_slope_shell_entered_logged = .false.
   logical :: interface_conden_exit_shell_entered_logged = .false.
@@ -292,6 +293,13 @@
         real(c_double), value :: rhi_c
         integer(c_int64_t) :: is_dry_c
      end function uwshcu_qsinvert_rh_guard_codon
+
+     function uwshcu_exnf_codon(pressure_c, p00_c, rovcp_c) result(exnf_c) &
+          bind(c, name="uwshcu_exnf_codon")
+        use iso_c_binding, only: c_double
+        real(c_double), value :: pressure_c, p00_c, rovcp_c
+        real(c_double) :: exnf_c
+     end function uwshcu_exnf_codon
   end interface
 
 !===============================================================================
@@ -1058,6 +1066,21 @@ contains
     end if
 
   end subroutine uwshcu_log_exner_profile_shell_entered
+
+!===============================================================================
+
+  subroutine uwshcu_log_exnf_direct_entered()
+
+    if (exnf_direct_entered_logged) return
+    exnf_direct_entered_logged = .true.
+
+    if (masterproc) then
+       write(iulog,'(A)') 'uwshcu exnf direct = codon (pow native callback)'
+       call uwshcu_append_proof('uwshcu exnf direct = codon (pow native callback)')
+       call flush(iulog)
+    end if
+
+  end subroutine uwshcu_log_exnf_direct_entered
 
 !===============================================================================
 
@@ -2634,10 +2657,25 @@ contains
 !===============================================================================
   
   real(r8) function exnf(pressure)
+           use iso_c_binding, only: c_double
            real(r8), intent(in)              :: pressure
-           exnf = (pressure/p00)**rovcp
+           call uwshcu_log_exnf_direct_entered()
+           exnf = real(uwshcu_exnf_codon(real(pressure, c_double), &
+                real(p00, c_double), real(rovcp, c_double)), r8)
            return
   end function exnf
+
+!===============================================================================
+
+  pure function uwshcu_exnf_native_cb(pressure_c, p00_c, rovcp_c) result(exnf_c) &
+       bind(C, name="uwshcu_exnf_native_cb")
+    use iso_c_binding, only: c_double
+    real(c_double), value :: pressure_c, p00_c, rovcp_c
+    real(c_double) :: exnf_c
+
+    exnf_c = (pressure_c / p00_c) ** rovcp_c
+
+  end function uwshcu_exnf_native_cb
 
 !===============================================================================
 
