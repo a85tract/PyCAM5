@@ -6607,6 +6607,11 @@ def diffuse_codon(name_len: int, name_ascii_p: cobj, has_qindex: int, qindex: in
 
 
 @export
+def new_fieldlist_vdiff_codon(ncnst: int) -> int:
+    return 3 + ncnst
+
+
+@export
 def my_any_codon(n: int, values_p: cobj) -> int:
     values = Ptr[int](values_p)
     for i in range(n):

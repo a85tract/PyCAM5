@@ -115,6 +115,13 @@
        integer(c_int64_t) :: field_idx_c
      end function diffuse_codon
 
+     pure function new_fieldlist_vdiff_codon(ncnst_c) result(nfields_c) &
+          bind(c, name="new_fieldlist_vdiff_codon")
+       use iso_c_binding, only: c_int64_t
+       integer(c_int64_t), value :: ncnst_c
+       integer(c_int64_t) :: nfields_c
+     end function new_fieldlist_vdiff_codon
+
      function my_any_codon(n_c, values_p) result(out_c) bind(c, name="my_any_codon")
        use iso_c_binding, only: c_int64_t, c_ptr
        integer(c_int64_t), value :: n_c
@@ -286,8 +293,10 @@
   type(vdiff_selector) pure function new_fieldlist_vdiff(ncnst)
 
     integer,              intent(in)  :: ncnst           ! Number of constituents
+    integer(c_int64_t) :: nfields
 
-    allocate( new_fieldlist_vdiff%fields( 3 + ncnst ) )
+    nfields = new_fieldlist_vdiff_codon(int(ncnst, c_int64_t))
+    allocate( new_fieldlist_vdiff%fields( int(nfields) ) )
     new_fieldlist_vdiff%fields = .false.
 
   end function new_fieldlist_vdiff
