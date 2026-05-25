@@ -4144,6 +4144,45 @@ def hygroscopic_optics_init_dim_mask_codon(nbnd: int, nlwbands: int, swbands: in
 
 
 @export
+def modal_optics_init_dim_mask_codon(lw_val: int, nlwbands: int, sw_val: int, nswbands: int) -> int:
+    mask = 0
+    if lw_val != nlwbands:
+        mask |= 1
+    if sw_val != nswbands:
+        mask |= 2
+    return mask
+
+
+@export
+def modal_optics_init_copy_mode1_codon(
+    ncoef: int,
+    prefr: int,
+    prefi: int,
+    nbands: int,
+    src_p: cobj,
+    dst_p: cobj,
+):
+    src = Ptr[float](src_p)
+    dst = Ptr[float](dst_p)
+
+    b = 0
+    while b < nbands:
+        i3 = 0
+        while i3 < prefi:
+            i2 = 0
+            while i2 < prefr:
+                i1 = 0
+                while i1 < ncoef:
+                    idx4 = i1 + i2 * ncoef + i3 * ncoef * prefr + b * ncoef * prefr * prefi
+                    idx5 = idx4
+                    dst[idx4] = src[idx5]
+                    i1 += 1
+                i2 += 1
+            i3 += 1
+        b += 1
+
+
+@export
 def refindex_aer_init_fill_complex_codon(n: int, ref_real_p: cobj, ref_im_p: cobj, refindex_p: cobj):
     ref_real = Ptr[float](ref_real_p)
     ref_im = Ptr[float](ref_im_p)

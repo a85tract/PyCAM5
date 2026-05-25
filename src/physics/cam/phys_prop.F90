@@ -129,12 +129,29 @@ logical :: insoluble_optics_init_logged = .false.
 logical :: use_native_hygroscopic_optics_init_impl = .false.
 logical :: hygroscopic_optics_init_impl_selected = .false.
 logical :: hygroscopic_optics_init_logged = .false.
+logical :: use_native_modal_optics_init_impl = .false.
+logical :: modal_optics_init_impl_selected = .false.
+logical :: modal_optics_init_logged = .false.
 logical :: physprop_get_id_logged = .false.
 logical :: exp_interpol_logged = .false.
 logical :: lin_interpol_logged = .false.
 logical :: aer_optics_log_rh_logged = .false.
 
 interface
+   function modal_optics_init_dim_mask_codon(lw_val_c, nlwbands_c, sw_val_c, nswbands_c) &
+        result(mask_c) bind(c, name="modal_optics_init_dim_mask_codon")
+     use iso_c_binding, only: c_int64_t
+     integer(c_int64_t), value :: lw_val_c, nlwbands_c, sw_val_c, nswbands_c
+     integer(c_int64_t) :: mask_c
+   end function modal_optics_init_dim_mask_codon
+
+   subroutine modal_optics_init_copy_mode1_codon(ncoef_c, prefr_c, prefi_c, nbands_c, &
+        src_p, dst_p) bind(c, name="modal_optics_init_copy_mode1_codon")
+     use iso_c_binding, only: c_int64_t, c_ptr
+     integer(c_int64_t), value :: ncoef_c, prefr_c, prefi_c, nbands_c
+     type(c_ptr), value :: src_p, dst_p
+   end subroutine modal_optics_init_copy_mode1_codon
+
    function hygroscopic_optics_init_dim_mask_codon(nbnd_c, nlwbands_c, swbands_c, nswbands_c) &
         result(mask_c) bind(c, name="hygroscopic_optics_init_dim_mask_codon")
      use iso_c_binding, only: c_int64_t
@@ -491,6 +508,43 @@ end subroutine hygroscopic_optics_init_select_impl
 
 !================================================================================================
 
+subroutine modal_optics_init_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (modal_optics_init_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('MODAL_OPTICS_INIT_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_modal_optics_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_modal_optics_init_impl = .false.
+   end if
+
+   modal_optics_init_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_modal_optics_init_impl) then
+         write(iulog,*) 'modal_optics_init implementation = native'
+      else
+         write(iulog,*) 'modal_optics_init implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine modal_optics_init_select_impl
+
+!================================================================================================
+
 subroutine bulk_props_init_log_direct()
 
    if (bulk_props_init_logged) return
@@ -544,6 +598,20 @@ subroutine hygroscopic_optics_init_log_direct()
    end if
 
 end subroutine hygroscopic_optics_init_log_direct
+
+!================================================================================================
+
+subroutine modal_optics_init_log_direct()
+
+   if (modal_optics_init_logged) return
+   modal_optics_init_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'modal_optics_init direct = codon band-dimension checks and singleton-mode copy; native PIO reads'
+      call flush(iulog)
+   end if
+
+end subroutine modal_optics_init_log_direct
 
 !================================================================================================
 
@@ -1734,6 +1802,8 @@ subroutine modal_optics_init(props, ncid)
 
 !  Read optics data for modal aerosols
 
+   use iso_c_binding, only: c_int64_t, c_loc
+
    type (physprop_type), intent(inout) :: props   ! storage for file data
    type (file_desc_T),   intent(inout) :: ncid    ! indentifier for netcdf file
 
@@ -1743,6 +1813,8 @@ subroutine modal_optics_init(props, ncid)
    integer :: ival
    type(var_desc_t) :: vid
    real(r8), pointer :: rval(:,:,:,:,:) ! temp array used to eliminate a singleton dimension
+   integer :: lw_val, sw_val
+   integer(c_int64_t) :: dim_mask
 
    character(len=*), parameter :: subname = 'modal_optics_init'
    !------------------------------------------------------------------------------------
@@ -1751,12 +1823,26 @@ subroutine modal_optics_init(props, ncid)
 
    ierr = pio_inq_dimid(ncid, 'lw_band', did)
    ierr = pio_inq_dimlen(ncid, did, ival)
-   if (ival .ne. nlwbands) call endrun(subname//':'//props%sourcefile// &
-        ' has the wrong number of lw bands')
+   lw_val = ival
 
    ierr = pio_inq_dimid(ncid, 'sw_band', did)
    ierr = pio_inq_dimlen(ncid, did, ival)
-   if (ival .ne. nswbands) call endrun(subname//':'//props%sourcefile// &
+   sw_val = ival
+
+   call modal_optics_init_select_impl()
+   if (use_native_modal_optics_init_impl) then
+      dim_mask = 0_c_int64_t
+      if (lw_val .ne. nlwbands) dim_mask = ior(dim_mask, 1_c_int64_t)
+      if (sw_val .ne. nswbands) dim_mask = ior(dim_mask, 2_c_int64_t)
+   else
+      dim_mask = modal_optics_init_dim_mask_codon(int(lw_val, c_int64_t), &
+           int(nlwbands, c_int64_t), int(sw_val, c_int64_t), int(nswbands, c_int64_t))
+      call modal_optics_init_log_direct()
+   end if
+
+   if (iand(dim_mask, 1_c_int64_t) /= 0_c_int64_t) call endrun(subname//':'//props%sourcefile// &
+        ' has the wrong number of lw bands')
+   if (iand(dim_mask, 2_c_int64_t) /= 0_c_int64_t) call endrun(subname//':'//props%sourcefile// &
         ' has the wrong number of sw bands')
 
    ! Get other dimensions
@@ -1786,15 +1872,33 @@ subroutine modal_optics_init(props, ncid)
 
    ierr = pio_inq_varid(ncid, 'extpsw', vid)
    ierr = pio_get_var(ncid, vid, rval)
-   props%extpsw = rval(:,:,:,1,:)
+   if (use_native_modal_optics_init_impl) then
+      props%extpsw = rval(:,:,:,1,:)
+   else
+      call modal_optics_init_copy_mode1_codon(int(props%ncoef, c_int64_t), &
+           int(props%prefr, c_int64_t), int(props%prefi, c_int64_t), int(nswbands, c_int64_t), &
+           c_loc(rval(1,1,1,1,1)), c_loc(props%extpsw(1,1,1,1)))
+   end if
 
    ierr = pio_inq_varid(ncid, 'abspsw', vid)
    ierr = pio_get_var(ncid, vid, rval)
-   props%abspsw = rval(:,:,:,1,:)
+   if (use_native_modal_optics_init_impl) then
+      props%abspsw = rval(:,:,:,1,:)
+   else
+      call modal_optics_init_copy_mode1_codon(int(props%ncoef, c_int64_t), &
+           int(props%prefr, c_int64_t), int(props%prefi, c_int64_t), int(nswbands, c_int64_t), &
+           c_loc(rval(1,1,1,1,1)), c_loc(props%abspsw(1,1,1,1)))
+   end if
 
    ierr = pio_inq_varid(ncid, 'asmpsw', vid)
    ierr = pio_get_var(ncid, vid, rval)
-   props%asmpsw = rval(:,:,:,1,:)
+   if (use_native_modal_optics_init_impl) then
+      props%asmpsw = rval(:,:,:,1,:)
+   else
+      call modal_optics_init_copy_mode1_codon(int(props%ncoef, c_int64_t), &
+           int(props%prefr, c_int64_t), int(props%prefi, c_int64_t), int(nswbands, c_int64_t), &
+           c_loc(rval(1,1,1,1,1)), c_loc(props%asmpsw(1,1,1,1)))
+   end if
 
    deallocate(rval)
 
@@ -1803,7 +1907,13 @@ subroutine modal_optics_init(props, ncid)
 
    ierr = pio_inq_varid(ncid, 'absplw', vid)
    ierr = pio_get_var(ncid, vid, rval)
-   props%absplw = rval(:,:,:,1,:)
+   if (use_native_modal_optics_init_impl) then
+      props%absplw = rval(:,:,:,1,:)
+   else
+      call modal_optics_init_copy_mode1_codon(int(props%ncoef, c_int64_t), &
+           int(props%prefr, c_int64_t), int(props%prefi, c_int64_t), int(nlwbands, c_int64_t), &
+           c_loc(rval(1,1,1,1,1)), c_loc(props%absplw(1,1,1,1)))
+   end if
 
    deallocate(rval)
 
