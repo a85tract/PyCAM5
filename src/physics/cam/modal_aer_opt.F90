@@ -53,8 +53,8 @@ integer, parameter :: ncoef=5, prefr=7, prefi=10
 real(r8) :: xrmin, xrmax
 
 ! refractive index for water read in read_water_refindex
-complex(r8) :: crefwsw(nswbands) ! complex refractive index for water visible
-complex(r8) :: crefwlw(nlwbands) ! complex refractive index for water infrared
+complex(r8), target :: crefwsw(nswbands) ! complex refractive index for water visible
+complex(r8), target :: crefwlw(nlwbands) ! complex refractive index for water infrared
 
 ! physics buffer indices
 integer :: dgnumwet_idx = -1
@@ -67,6 +67,9 @@ logical :: use_native_modal_aer_opt_helpers_impl = .false.
 logical :: modal_aer_opt_helpers_impl_selected = .false.
 logical :: use_native_modal_aer_opt_readnl_impl = .false.
 logical :: modal_aer_opt_readnl_impl_selected = .false.
+logical :: use_native_read_water_refindex_impl = .false.
+logical :: read_water_refindex_impl_selected = .false.
+logical :: read_water_refindex_proof_written = .false.
 logical :: modal_aer_opt_helpers_proof_written = .false.
 logical :: modal_aer_opt_lw_helpers_proof_written = .false.
 logical :: modal_aer_opt_sw_guard_helpers_proof_written = .false.
@@ -383,6 +386,13 @@ interface
       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, k_c, ilw_c
       type(c_ptr), value :: dopaer_p, tauxar_p
    end subroutine modal_aer_opt_lw_accumulate_tau_codon
+
+   subroutine modal_aer_opt_read_water_refindex_codon(nswbands_c, nlwbands_c, refrwsw_p, refiwsw_p, &
+        refrwlw_p, refiwlw_p, crefwsw_p, crefwlw_p) bind(c, name="modal_aer_opt_read_water_refindex_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: nswbands_c, nlwbands_c
+      type(c_ptr), value :: refrwsw_p, refiwsw_p, refrwlw_p, refiwlw_p, crefwsw_p, crefwlw_p
+   end subroutine modal_aer_opt_read_water_refindex_codon
 end interface
 
 !===============================================================================
@@ -459,6 +469,57 @@ subroutine modal_aer_opt_helpers_select_impl()
    end if
 
 end subroutine modal_aer_opt_helpers_select_impl
+
+!===============================================================================
+
+subroutine read_water_refindex_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (read_water_refindex_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('MODAL_AER_OPT_READ_WATER_REFINDEX_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_read_water_refindex_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_read_water_refindex_impl = .false.
+   end if
+
+   read_water_refindex_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_read_water_refindex_impl) then
+         write(iulog,*) 'modal_aer_opt_read_water_refindex implementation = native'
+      else
+         write(iulog,*) 'modal_aer_opt_read_water_refindex implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine read_water_refindex_select_impl
+
+!===============================================================================
+
+subroutine read_water_refindex_proof_once()
+
+   if (read_water_refindex_proof_written) return
+   read_water_refindex_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'read_water_refindex direct = codon module refractive-index assignment; native PIO read/dimension checks'
+      call flush(iulog)
+   end if
+
+end subroutine read_water_refindex_proof_once
 
 !===============================================================================
 
@@ -1888,6 +1949,8 @@ subroutine read_water_refindex(infilename)
 
    ! read water refractive index file and set module data
 
+   use iso_c_binding, only: c_int64_t, c_loc
+
    character*(*), intent(in) :: infilename   ! modal optics filename
 
    ! Local variables
@@ -1897,8 +1960,8 @@ subroutine read_water_refindex(infilename)
    integer            :: did               ! dimension ids
    integer            :: dimlen            ! dimension lengths
    type(var_desc_t)   :: vid               ! variable ids
-   real(r8) :: refrwsw(nswbands), refiwsw(nswbands) ! real, imaginary ref index for water visible
-   real(r8) :: refrwlw(nlwbands), refiwlw(nlwbands) ! real, imaginary ref index for water infrared
+   real(r8), target :: refrwsw(nswbands), refiwsw(nswbands) ! real, imaginary ref index for water visible
+   real(r8), target :: refrwlw(nlwbands), refiwlw(nlwbands) ! real, imaginary ref index for water infrared
    !----------------------------------------------------------------------------
 
    ! open file
@@ -1933,13 +1996,22 @@ subroutine read_water_refindex(infilename)
    ierr = pio_inq_varid(ncid, 'refindex_im_water_lw', vid)
    ierr = pio_get_var(ncid, vid, refiwlw)
 
+   call read_water_refindex_select_impl()
+
    ! set complex representation of refractive indices as module data
-   do i = 1, nswbands
-      crefwsw(i)  = cmplx(refrwsw(i), abs(refiwsw(i)),kind=r8)
-   end do
-   do i = 1, nlwbands
-      crefwlw(i)  = cmplx(refrwlw(i), abs(refiwlw(i)),kind=r8)
-   end do
+   if (use_native_read_water_refindex_impl) then
+      do i = 1, nswbands
+         crefwsw(i)  = cmplx(refrwsw(i), abs(refiwsw(i)),kind=r8)
+      end do
+      do i = 1, nlwbands
+         crefwlw(i)  = cmplx(refrwlw(i), abs(refiwlw(i)),kind=r8)
+      end do
+   else
+      call modal_aer_opt_read_water_refindex_codon(int(nswbands, c_int64_t), int(nlwbands, c_int64_t), &
+           c_loc(refrwsw(1)), c_loc(refiwsw(1)), c_loc(refrwlw(1)), c_loc(refiwlw(1)), &
+           c_loc(crefwsw(1)), c_loc(crefwlw(1)))
+      call read_water_refindex_proof_once()
+   end if
 
    call pio_closefile(ncid)
 

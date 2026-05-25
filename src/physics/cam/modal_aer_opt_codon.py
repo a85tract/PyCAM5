@@ -88,6 +88,33 @@ def modal_aer_opt_readnl_codon(
     return 0
 
 
+@export
+def modal_aer_opt_read_water_refindex_codon(
+    nswbands: int,
+    nlwbands: int,
+    refrwsw_p: cobj,
+    refiwsw_p: cobj,
+    refrwlw_p: cobj,
+    refiwlw_p: cobj,
+    crefwsw_p: cobj,
+    crefwlw_p: cobj,
+):
+    refrwsw = Ptr[float](refrwsw_p)
+    refiwsw = Ptr[float](refiwsw_p)
+    refrwlw = Ptr[float](refrwlw_p)
+    refiwlw = Ptr[float](refiwlw_p)
+    crefwsw = Ptr[float](crefwsw_p)
+    crefwlw = Ptr[float](crefwlw_p)
+
+    for i in range(nswbands):
+        crefwsw[2 * i] = refrwsw[i]
+        crefwsw[2 * i + 1] = abs(refiwsw[i])
+
+    for i in range(nlwbands):
+        crefwlw[2 * i] = refrwlw[i]
+        crefwlw[2 * i + 1] = abs(refiwlw[i])
+
+
 @inline
 def _idx1(i: int) -> int:
     return i - 1
