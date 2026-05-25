@@ -1,4 +1,5 @@
 from math import exp, log10
+from C import cldwat2m_qsat_water_native_cb(float, float, Ptr[float], Ptr[float], Ptr[float]) -> None
 
 
 @export
@@ -26,6 +27,66 @@ def _idx2(i: int, k: int, pcols: int):
 
 def _idx3(i: int, k: int, m: int, pcols: int, pver: int):
     return (m - 1) * pcols * pver + (k - 1) * pcols + (i - 1)
+
+
+@inline
+def _cldwat2m_qsat_water_native(t: float, p: float):
+    es = 0.0
+    qs = 0.0
+    dqsdt = 0.0
+    cldwat2m_qsat_water_native_cb(t, p, __ptr__(es), __ptr__(qs), __ptr__(dqsdt))
+    return es, qs, dqsdt
+
+
+@export
+def cldwat2m_gridmean_rh_codon(
+    p: float,
+    latvap: float,
+    cpair: float,
+    t_p: cobj,
+    qv_p: cobj,
+    ql_p: cobj,
+    qi_p: cobj,
+    a_dc: float,
+    ql_dc: float,
+    qi_dc: float,
+    a_sc: float,
+    ql_sc: float,
+    qi_sc: float,
+):
+    t = Ptr[float](t_p)
+    qv = Ptr[float](qv_p)
+    ql = Ptr[float](ql_p)
+    qi = Ptr[float](qi_p)
+
+    ql_nc0 = max(0.0, ql[0] - a_dc * ql_dc - a_sc * ql_sc)
+    qi_nc0 = max(0.0, qi[0] - a_dc * qi_dc - a_sc * qi_sc)
+    qc_nc0 = max(0.0, ql[0] + qi[0] - a_dc * (ql_dc + qi_dc) - a_sc * (ql_sc + qi_sc))
+    tc = t[0] - (latvap / cpair) * ql[0]
+    qt = qv[0] + ql[0]
+
+    for _ in range(20):
+        _, qs, dqsdt = _cldwat2m_qsat_water_native(t[0], p)
+        tscale = latvap / cpair
+        qc = (t[0] - tc) / tscale
+        dqcdt = 1.0 / tscale
+        f = qs + qc - qt
+        fg = dqsdt + dqcdt
+        fg_abs = abs(fg)
+        if fg_abs < 1.0e-10:
+            fg_abs = 1.0e-10
+        if fg < 0.0:
+            fg = -fg_abs
+        else:
+            fg = fg_abs
+        if qc >= 0.0 and (qt - qc) >= 0.999 * qs and (qt - qc) <= 1.0 * qs:
+            break
+        t[0] = t[0] - f / fg
+
+    _, qs_final, _ = _cldwat2m_qsat_water_native(t[0], p)
+    qv[0] = min(qt, qs_final)
+    ql[0] = qt - qv[0]
+    t[0] = tc + (latvap / cpair) * ql[0]
 
 
 @export

@@ -22,7 +22,7 @@
    use cldfrc2m,         only: astG_PDF_single, astG_PDF, astG_RHU_single, &
                                astG_RHU, aist_single, aist_vector,         &
                                rhmini_const, rhmaxi=>rhmaxi_const
-   use iso_c_binding,    only: c_int64_t, c_loc, c_ptr
+   use iso_c_binding,    only: c_double, c_int64_t, c_loc, c_ptr
 
    implicit none
    private
@@ -124,6 +124,9 @@
    logical :: use_native_gaussj_impl = .false.
    logical :: gaussj_impl_selected = .false.
    logical :: gaussj_entered_logged = .false.
+   logical :: use_native_gridmean_rh_impl = .false.
+   logical :: gridmean_rh_impl_selected = .false.
+   logical :: gridmean_rh_entered_logged = .false.
 
    contains
 
@@ -3058,6 +3061,49 @@ end subroutine rhcrit_calc
    ! End of subroutine !
    ! ----------------- !
 
+   subroutine gridmean_rh_select_impl()
+   character(len=32) :: impl_name
+   integer :: n, status
+
+   if (gridmean_rh_impl_selected) return
+   call get_environment_variable('CLDWAT2M_GRIDMEAN_RH_IMPL', value=impl_name, length=n, status=status)
+   use_native_gridmean_rh_impl = .false.
+   if (status == 0 .and. n > 0) then
+      select case (adjustl(impl_name(:n)))
+      case ('native', 'Native', 'NATIVE')
+         use_native_gridmean_rh_impl = .true.
+      case ('codon', 'Codon', 'CODON')
+         use_native_gridmean_rh_impl = .false.
+      case default
+         use_native_gridmean_rh_impl = .false.
+      end select
+   end if
+   gridmean_rh_impl_selected = .true.
+   if (masterproc) then
+      if (use_native_gridmean_rh_impl) then
+         write(iulog,*) 'cldwat2m_gridmean_rh implementation = native'
+      else
+         write(iulog,*) 'cldwat2m_gridmean_rh implementation = codon'
+      end if
+   end if
+   end subroutine gridmean_rh_select_impl
+
+   subroutine gridmean_rh_log_entered()
+   if (gridmean_rh_entered_logged) return
+   gridmean_rh_entered_logged = .true.
+   if (masterproc) then
+      write(iulog,*) 'cldwat2m_gridmean_rh direct = codon with native qsat_water island'
+   end if
+   end subroutine gridmean_rh_log_entered
+
+   subroutine cldwat2m_qsat_water_native_cb(t_c, p_c, es_c, qs_c, dqsdt_c) &
+        bind(C, name="cldwat2m_qsat_water_native_cb")
+   real(c_double), value :: t_c, p_c
+   real(c_double), intent(out) :: es_c, qs_c, dqsdt_c
+
+   call qsat_water(real(t_c, r8), real(p_c, r8), es_c, qs_c, dqsdt=dqsdt_c)
+   end subroutine cldwat2m_qsat_water_native_cb
+
    subroutine gridmean_RH( lchnk, icol, k, p, T, qv, ql, qi,       &
                            a_dc, ql_dc, qi_dc, a_sc, ql_sc, qi_sc, &
                            landfrac, snowh )
@@ -3074,10 +3120,10 @@ end subroutine rhcrit_calc
    integer,  intent(in)    :: k          ! Layer index
 
    real(r8), intent(in)    :: p          ! Pressure [Pa]
-   real(r8), intent(inout) :: T          ! Temperature [K]
-   real(r8), intent(inout) :: qv         ! Grid-mean water vapor [kg/kg]
-   real(r8), intent(inout) :: ql         ! Grid-mean LWC [kg/kg]
-   real(r8), intent(inout) :: qi         ! Grid-mean IWC [kg/kg]
+   real(r8), target, intent(inout) :: T  ! Temperature [K]
+   real(r8), target, intent(inout) :: qv ! Grid-mean water vapor [kg/kg]
+   real(r8), target, intent(inout) :: ql ! Grid-mean LWC [kg/kg]
+   real(r8), target, intent(inout) :: qi ! Grid-mean IWC [kg/kg]
 
    real(r8), intent(in)    :: a_dc       ! Deep cumulus cloud fraction
    real(r8), intent(in)    :: ql_dc      ! In-deep cumulus LWC [kg/kg]
@@ -3101,9 +3147,27 @@ end subroutine rhcrit_calc
    real(r8)  f, fg
    real(r8), parameter :: xacc = 1.e-3_r8
 
+   interface
+      subroutine cldwat2m_gridmean_rh_codon(p_c, latvap_c, cpair_c, t_p, qv_p, ql_p, qi_p, &
+           a_dc_c, ql_dc_c, qi_dc_c, a_sc_c, ql_sc_c, qi_sc_c) bind(c, name="cldwat2m_gridmean_rh_codon")
+         use iso_c_binding, only: c_double, c_ptr
+         real(c_double), value :: p_c, latvap_c, cpair_c
+         type(c_ptr), value :: t_p, qv_p, ql_p, qi_p
+         real(c_double), value :: a_dc_c, ql_dc_c, qi_dc_c, a_sc_c, ql_sc_c, qi_sc_c
+      end subroutine cldwat2m_gridmean_rh_codon
+   end interface
+
    ! ---------------- !
    ! Main computation !
    ! ---------------- !
+
+   call gridmean_rh_select_impl()
+   if (.not. use_native_gridmean_rh_impl) then
+      call gridmean_rh_log_entered()
+      call cldwat2m_gridmean_rh_codon(p, latvap, cpair, c_loc(T), c_loc(qv), c_loc(ql), c_loc(qi), &
+           a_dc, ql_dc, qi_dc, a_sc, ql_sc, qi_sc)
+      return
+   end if
 
    ql_nc0 = max(0._r8,ql-a_dc*ql_dc-a_sc*ql_sc)
    qi_nc0 = max(0._r8,qi-a_dc*qi_dc-a_sc*qi_sc)
