@@ -104,7 +104,7 @@ def _flux_idx(icol: int, mconst: int, pcols: int) -> int:
 
 
 @export
-def aoa_tracers_tstep_init_codon(
+def aoa_tracers_timestep_init_codon(
     ncol: int,
     pcols: int,
     pver: int,
@@ -126,6 +126,29 @@ def aoa_tracers_tstep_init_codon(
             state_q[_field3_idx(i, k, ixvt, pcols, pver)] = qrel_vert[
                 _vec_idx(k)
             ]
+
+
+@export
+def aoa_tracers_tstep_init_codon(
+    ncol: int,
+    pcols: int,
+    pver: int,
+    ixht: int,
+    ixvt: int,
+    qrel_vert_p: cobj,
+    state_lat_p: cobj,
+    state_q_p: cobj,
+):
+    aoa_tracers_timestep_init_codon(
+        ncol,
+        pcols,
+        pver,
+        ixht,
+        ixvt,
+        qrel_vert_p,
+        state_lat_p,
+        state_q_p,
+    )
 
 
 @export

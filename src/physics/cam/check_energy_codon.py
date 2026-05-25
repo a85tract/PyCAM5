@@ -288,6 +288,27 @@ def check_energy_gmean_fill_codon(
 
 
 @export
+def check_energy_gmean_codon(
+    ncol: int,
+    state_te_ini_p: cobj,
+    teout_p: cobj,
+    pint_surf_p: cobj,
+    te1_p: cobj,
+    te2_p: cobj,
+    te3_p: cobj,
+):
+    check_energy_gmean_fill_codon(
+        ncol,
+        state_te_ini_p,
+        teout_p,
+        pint_surf_p,
+        te1_p,
+        te2_p,
+        te3_p,
+    )
+
+
+@export
 def check_energy_batch_timestep_init_codon(
     ncol: int,
     pver: int,

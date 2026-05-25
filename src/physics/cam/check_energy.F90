@@ -108,6 +108,46 @@ module check_energy
         type(c_ptr), value :: p1_p, p2_p, p3_p, p4_p, p5_p, p6_p, p7_p, p8_p, p9_p, p10_p
         type(c_ptr), value :: p11_p, p12_p, p13_p, p14_p, p15_p, p16_p, p17_p, p18_p
      end subroutine check_energy_batch_dispatch_codon
+     subroutine check_energy_timestep_init_codon(ncol_c, pver_c, psetcols_c, pcnst_c, latvap_c, latice_c, gravit_c, &
+          ixcldliq_c, ixcldice_c, ixrain_c, ixsnow_c, state_u_p, state_v_p, state_s_p, state_q_p, state_pdel_p, &
+          ke_p, se_p, wv_p, wl_p, wi_p, state_te_ini_p, state_tw_ini_p) bind(c, name="check_energy_timestep_init_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pver_c, psetcols_c, pcnst_c
+       integer(c_int64_t), value :: ixcldliq_c, ixcldice_c, ixrain_c, ixsnow_c
+       real(c_double), value :: latvap_c, latice_c, gravit_c
+       type(c_ptr), value :: state_u_p, state_v_p, state_s_p, state_q_p, state_pdel_p
+       type(c_ptr), value :: ke_p, se_p, wv_p, wl_p, wi_p, state_te_ini_p, state_tw_ini_p
+     end subroutine check_energy_timestep_init_codon
+     subroutine check_energy_chng_codon(ncol_c, pver_c, psetcols_c, latvap_c, latice_c, gravit_c, &
+          ixcldliq_c, ixcldice_c, ixrain_c, ixsnow_c, state_u_p, state_v_p, state_s_p, state_q_p, state_pdel_p, &
+          flx_vap_p, flx_cnd_p, flx_ice_p, flx_sen_p, ke_p, se_p, wv_p, wl_p, wi_p, tend_te_tnd_p, &
+          tend_tw_tnd_p, state_te_cur_p, state_tw_cur_p) bind(c, name="check_energy_chng_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pver_c, psetcols_c
+       integer(c_int64_t), value :: ixcldliq_c, ixcldice_c, ixrain_c, ixsnow_c
+       real(c_double), value :: latvap_c, latice_c, gravit_c
+       type(c_ptr), value :: state_u_p, state_v_p, state_s_p, state_q_p, state_pdel_p
+       type(c_ptr), value :: flx_vap_p, flx_cnd_p, flx_ice_p, flx_sen_p
+       type(c_ptr), value :: ke_p, se_p, wv_p, wl_p, wi_p, tend_te_tnd_p, tend_tw_tnd_p
+       type(c_ptr), value :: state_te_cur_p, state_tw_cur_p
+     end subroutine check_energy_chng_codon
+     subroutine check_energy_gmean_codon(ncol_c, state_te_ini_p, teout_p, pint_surf_p, te1_p, te2_p, te3_p) &
+          bind(c, name="check_energy_gmean_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c
+       type(c_ptr), value :: state_te_ini_p, teout_p, pint_surf_p, te1_p, te2_p, te3_p
+     end subroutine check_energy_gmean_codon
+     subroutine check_energy_fix_codon(ncol_c, pcols_c, pver_c, psetcols_c, heat_glob_c, gravit_c, &
+          state_pint_p, ptend_s_p, eshflx_p) bind(c, name="check_energy_fix_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, psetcols_c
+       real(c_double), value :: heat_glob_c, gravit_c
+       type(c_ptr), value :: state_pint_p, ptend_s_p, eshflx_p
+     end subroutine check_energy_fix_codon
+     subroutine check_tracers_init_codon() bind(c, name="check_tracers_init_codon")
+     end subroutine check_tracers_init_codon
+     subroutine check_tracers_chng_codon() bind(c, name="check_tracers_chng_codon")
+     end subroutine check_tracers_chng_codon
      function check_energy_defaultopts_codon(flag_c) result(out_c) bind(c, name="check_energy_defaultopts_codon")
        use iso_c_binding, only: c_int64_t
        integer(c_int64_t), value :: flag_c
@@ -651,15 +691,13 @@ end subroutine check_energy_get_integrals
     call cnst_get_ind('SNOWQM', ixsnow,   abort=.false.)
 
     call check_energy_batch_log_entered()
-    call check_energy_batch_dispatch_codon( &
-         1_c_int64_t, int(ncol, c_int64_t), int(pver, c_int64_t), int(pcols, c_int64_t), &
+    call check_energy_timestep_init_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), &
          int(state%psetcols, c_int64_t), int(pcnst, c_int64_t), &
-         int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), int(ixrain, c_int64_t), int(ixsnow, c_int64_t), &
          real(latvap, c_double), real(latice, c_double), real(gravit, c_double), &
+         int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), int(ixrain, c_int64_t), int(ixsnow, c_int64_t), &
          c_loc(state%u), c_loc(state%v), c_loc(state%s), c_loc(state%q), c_loc(state%pdel), &
-         c_loc(ke), c_loc(se), c_loc(wv), c_loc(wl), c_loc(wi), c_loc(state%te_ini), c_loc(state%tw_ini), &
-         c_loc(state%te_ini), c_loc(state%tw_ini), c_loc(state%te_ini), c_loc(state%tw_ini), c_loc(state%te_ini), &
-         c_loc(state%tw_ini) &
+         c_loc(ke), c_loc(se), c_loc(wv), c_loc(wl), c_loc(wi), c_loc(state%te_ini), c_loc(state%tw_ini) &
     )
 
     state%te_cur(:ncol) = state%te_ini(:ncol)
@@ -821,11 +859,10 @@ end subroutine check_energy_get_integrals
     call cnst_get_ind('SNOWQM', ixsnow,   abort=.false.)
 
     call check_energy_batch_log_entered()
-    call check_energy_batch_dispatch_codon( &
-         2_c_int64_t, int(ncol, c_int64_t), int(pver, c_int64_t), int(pcols, c_int64_t), &
-         int(state%psetcols, c_int64_t), int(pcnst, c_int64_t), &
-         int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), int(ixrain, c_int64_t), int(ixsnow, c_int64_t), &
+    call check_energy_chng_codon( &
+         int(ncol, c_int64_t), int(pver, c_int64_t), int(state%psetcols, c_int64_t), &
          real(latvap, c_double), real(latice, c_double), real(gravit, c_double), &
+         int(ixcldliq, c_int64_t), int(ixcldice, c_int64_t), int(ixrain, c_int64_t), int(ixsnow, c_int64_t), &
          c_loc(state%u), c_loc(state%v), c_loc(state%s), c_loc(state%q), c_loc(state%pdel), &
          c_loc(flx_vap), c_loc(flx_cnd), c_loc(flx_ice), c_loc(flx_sen), &
          c_loc(ke), c_loc(se), c_loc(wv), c_loc(wl), c_loc(wi), &
@@ -1036,19 +1073,14 @@ end subroutine check_energy_get_integrals
     do lchnk = begchunk, endchunk
        ncol = state(lchnk)%ncol
        call pbuf_get_field(pbuf_get_chunk(pbuf2d,lchnk),teout_idx, teout)
-       if (ncol > 0) then
-          call check_energy_batch_log_entered()
-          call check_energy_batch_dispatch_codon( &
-               3_c_int64_t, int(ncol, c_int64_t), int(pver, c_int64_t), int(pcols, c_int64_t), &
-               int(state(lchnk)%psetcols, c_int64_t), int(pcnst, c_int64_t), &
-               0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._c_double, 0._c_double, 0._c_double, &
-               c_loc(state(lchnk)%te_ini(1)), c_loc(teout(1)), c_loc(state(lchnk)%pint(1,pver+1)), &
-               c_loc(te(1,lchnk,1)), c_loc(te(1,lchnk,2)), c_loc(te(1,lchnk,3)), c_loc(te(1,lchnk,1)), &
-               c_loc(te(1,lchnk,2)), c_loc(te(1,lchnk,3)), c_loc(te(1,lchnk,1)), c_loc(te(1,lchnk,2)), &
-               c_loc(te(1,lchnk,3)), c_loc(te(1,lchnk,1)), c_loc(te(1,lchnk,2)), c_loc(te(1,lchnk,3)), &
-               c_loc(te(1,lchnk,1)), c_loc(te(1,lchnk,2)), c_loc(te(1,lchnk,3)) &
-          )
-       end if
+      if (ncol > 0) then
+         call check_energy_batch_log_entered()
+         call check_energy_gmean_codon( &
+              int(ncol, c_int64_t), &
+              c_loc(state(lchnk)%te_ini(1)), c_loc(teout(1)), c_loc(state(lchnk)%pint(1,pver+1)), &
+              c_loc(te(1,lchnk,1)), c_loc(te(1,lchnk,2)), c_loc(te(1,lchnk,3)) &
+         )
+      end if
     end do
 
     ! Compute global means of input and output energies and of
@@ -1212,13 +1244,10 @@ end subroutine check_energy_get_integrals
     end if
 
     call check_energy_batch_log_entered()
-    call check_energy_batch_dispatch_codon( &
-         4_c_int64_t, int(ncol, c_int64_t), int(pver, c_int64_t), int(pcols, c_int64_t), &
-         int(state%psetcols, c_int64_t), int(pcnst, c_int64_t), 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, &
-         real(heat_glob, c_double), real(gravit, c_double), 0._c_double, c_loc(state%pint), c_loc(ptend%s), &
-         c_loc(eshflx), c_loc(eshflx), c_loc(eshflx), c_loc(eshflx), c_loc(eshflx), c_loc(eshflx), &
-         c_loc(eshflx), c_loc(eshflx), c_loc(eshflx), c_loc(eshflx), c_loc(eshflx), c_loc(eshflx), &
-         c_loc(eshflx), c_loc(eshflx), c_loc(eshflx), c_loc(eshflx) &
+    call check_energy_fix_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+         int(state%psetcols, c_int64_t), real(heat_glob, c_double), real(gravit, c_double), &
+         c_loc(state%pint), c_loc(ptend%s), c_loc(eshflx) &
     )
 
     if (debug_compare) then
@@ -1398,7 +1427,7 @@ end subroutine check_energy_get_integrals
 
 !===============================================================================
   subroutine check_tracers_init(state, tracerint)
-    use iso_c_binding, only: c_double, c_int64_t, c_null_ptr
+    use iso_c_binding, only: c_double, c_int64_t
 
 !-----------------------------------------------------------------------
 ! Compute initial values of tracers integrals, 
@@ -1419,13 +1448,7 @@ end subroutine check_energy_get_integrals
     end if
 
     call check_tracers_batch_log_entered()
-    call check_energy_batch_dispatch_codon( &
-         5_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(pcols, c_int64_t), 0_c_int64_t, int(pcnst, c_int64_t), &
-         0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._c_double, 0._c_double, 0._c_double, &
-         c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-         c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-         c_null_ptr, c_null_ptr &
-    )
+    call check_tracers_init_codon()
 
     return
   end subroutine check_tracers_init
@@ -1497,7 +1520,7 @@ end subroutine check_energy_get_integrals
 
 !===============================================================================
   subroutine check_tracers_chng(state, tracerint, name, nstep, ztodt, cflx)
-    use iso_c_binding, only: c_double, c_int64_t, c_null_ptr
+    use iso_c_binding, only: c_double, c_int64_t
 
 !-----------------------------------------------------------------------
 ! Check that the tracers and water change matches the boundary fluxes
@@ -1527,13 +1550,7 @@ end subroutine check_energy_get_integrals
     end if
 
     call check_tracers_batch_log_entered()
-    call check_energy_batch_dispatch_codon( &
-         6_c_int64_t, 0_c_int64_t, 0_c_int64_t, int(pcols, c_int64_t), 0_c_int64_t, int(pcnst, c_int64_t), &
-         0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0_c_int64_t, 0._c_double, 0._c_double, 0._c_double, &
-         c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-         c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, c_null_ptr, &
-         c_null_ptr, c_null_ptr &
-    )
+    call check_tracers_chng_codon()
 
     return
   end subroutine check_tracers_chng

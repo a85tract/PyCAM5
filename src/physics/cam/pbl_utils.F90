@@ -101,15 +101,15 @@ interface
     real(c_double), value :: t_c, q_c, zvir_c
     real(c_double) :: value_out
   end function virtem_codon
-  subroutine pbl_utils_compute_radf_codon(i_c, pcols_c, pver_c, ncvmax_c, radf_mode_c, qmin_c, g_c, &
+  subroutine compute_radf_codon(i_c, pcols_c, pver_c, ncvmax_c, radf_mode_c, qmin_c, g_c, &
        ncvfin_p, ktop_p, ql_p, pi_p, qrlw_p, cldeff_p, zi_p, chs_p, lwp_CL_p, opt_depth_CL_p, &
-       radinvfrac_CL_p, radf_CL_p) bind(c, name="pbl_utils_compute_radf_codon")
+       radinvfrac_CL_p, radf_CL_p) bind(c, name="compute_radf_codon")
     use iso_c_binding, only: c_double, c_int64_t, c_ptr
     integer(c_int64_t), value :: i_c, pcols_c, pver_c, ncvmax_c, radf_mode_c
     real(c_double), value :: qmin_c, g_c
     type(c_ptr), value :: ncvfin_p, ktop_p, ql_p, pi_p, qrlw_p, cldeff_p, zi_p, chs_p
     type(c_ptr), value :: lwp_CL_p, opt_depth_CL_p, radinvfrac_CL_p, radf_CL_p
-  end subroutine pbl_utils_compute_radf_codon
+  end subroutine compute_radf_codon
 end interface
 
 contains
@@ -213,7 +213,7 @@ subroutine pbl_utils_compute_radf_log_direct()
   compute_radf_logged = .true.
 
   if (masterproc) then
-     write(iulog,'(A)') 'pbl_utils_compute_radf direct = codon'
+     write(iulog,'(A)') 'compute_radf direct = codon'
   end if
 
 end subroutine pbl_utils_compute_radf_log_direct
@@ -400,7 +400,7 @@ subroutine compute_radf( choice_radf, i, pcols, pver, ncvmax, ncvfin, ktop, qmin
     endif
 
     call pbl_utils_compute_radf_log_direct()
-    call pbl_utils_compute_radf_codon(int(i, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+    call compute_radf_codon(int(i, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
          int(ncvmax, c_int64_t), int(radf_mode, c_int64_t), real(qmin, c_double), real(g, c_double), &
          c_loc(ncvfin), c_loc(ktop), c_loc(ql), c_loc(pi), c_loc(qrlw), c_loc(cldeff), c_loc(zi), c_loc(chs), &
          c_loc(lwp_CL), c_loc(opt_depth_CL), c_loc(radinvfrac_CL), c_loc(radf_CL))

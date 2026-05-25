@@ -8116,7 +8116,7 @@ def virtem_codon(t: float, q: float, zvir: float) -> float:
 
 
 @export
-def pbl_utils_compute_radf_codon(
+def compute_radf_codon(
     i_col: int,
     pcols: int,
     pver: int,
@@ -8217,6 +8217,51 @@ def pbl_utils_compute_radf_codon(
         opt_depth_CL[ncv - 1] = opt_depth
         radinvfrac_CL[ncv - 1] = radinvfrac
         radf_CL[ncv - 1] = radf
+
+
+@export
+def pbl_utils_compute_radf_codon(
+    i_col: int,
+    pcols: int,
+    pver: int,
+    ncvmax: int,
+    radf_mode: int,
+    qmin: float,
+    gravit: float,
+    ncvfin_p: cobj,
+    ktop_p: cobj,
+    ql_p: cobj,
+    pi_p: cobj,
+    qrlw_p: cobj,
+    cldeff_p: cobj,
+    zi_p: cobj,
+    chs_p: cobj,
+    lwp_CL_p: cobj,
+    opt_depth_CL_p: cobj,
+    radinvfrac_CL_p: cobj,
+    radf_CL_p: cobj,
+):
+    compute_radf_codon(
+        i_col,
+        pcols,
+        pver,
+        ncvmax,
+        radf_mode,
+        qmin,
+        gravit,
+        ncvfin_p,
+        ktop_p,
+        ql_p,
+        pi_p,
+        qrlw_p,
+        cldeff_p,
+        zi_p,
+        chs_p,
+        lwp_CL_p,
+        opt_depth_CL_p,
+        radinvfrac_CL_p,
+        radf_CL_p,
+    )
 
 
 @export

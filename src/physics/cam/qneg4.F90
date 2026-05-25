@@ -69,16 +69,16 @@ subroutine qneg4 (subnam  ,lchnk   ,ncol    ,ztodt   ,        &
    real(c_double), target :: rstd(pwtspec)
 
    interface
-      subroutine qneg_batch_4_codon(ncol_c, pcols_c, pcnst_c, trace_water_on_c, iwtvap_n_c, &
+      subroutine qneg4_codon(ncol_c, pcols_c, pcnst_c, trace_water_on_c, iwtvap_n_c, &
            qmin1_c, ztodt_c, gravit_c, latvap_c, wtrc_qmin_c, &
            qbot_p, srfrpdel_p, shflx_p, lhflx_p, qflx_p, indxexc_p, excess_p, qfxo_p, &
-           nptsexc_p, worst_p, iw_p, wtrc_iatype_vap_p, iwspec_p, rstd_p) bind(c, name="qneg_batch_4_codon")
+           nptsexc_p, worst_p, iw_p, wtrc_iatype_vap_p, iwspec_p, rstd_p) bind(c, name="qneg4_codon")
          use iso_c_binding, only: c_double, c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pcols_c, pcnst_c, trace_water_on_c, iwtvap_n_c
          real(c_double), value :: qmin1_c, ztodt_c, gravit_c, latvap_c, wtrc_qmin_c
          type(c_ptr), value :: qbot_p, srfrpdel_p, shflx_p, lhflx_p, qflx_p, indxexc_p, excess_p, qfxo_p
          type(c_ptr), value :: nptsexc_p, worst_p, iw_p, wtrc_iatype_vap_p, iwspec_p, rstd_p
-      end subroutine qneg_batch_4_codon
+      end subroutine qneg4_codon
    end interface
 
 !
@@ -112,7 +112,7 @@ subroutine qneg4 (subnam  ,lchnk   ,ncol    ,ztodt   ,        &
    end if
 
    call qneg4_batch_log_entered()
-   call qneg_batch_4_codon( &
+   call qneg4_codon( &
         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pcnst, c_int64_t), &
         merge(1_c_int64_t, 0_c_int64_t, trace_water), int(wtrc_ntype(iwtvap), c_int64_t), &
         real(qmin(1), c_double), real(ztodt, c_double), real(gravit, c_double), real(latvap, c_double), real(wtrc_qmin, c_double), &

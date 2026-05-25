@@ -350,12 +350,12 @@ contains
     integer c, ncol
     integer yr, mon, day, tod
     interface
-       subroutine aoa_tracers_tstep_init_codon(ncol_c, pcols_c, pver_c, ixht_c, ixvt_c, &
-            qrel_vert_p, state_lat_p, state_q_p) bind(c, name="aoa_tracers_tstep_init_codon")
+       subroutine aoa_tracers_timestep_init_codon(ncol_c, pcols_c, pver_c, ixht_c, ixvt_c, &
+            qrel_vert_p, state_lat_p, state_q_p) bind(c, name="aoa_tracers_timestep_init_codon")
          use iso_c_binding, only: c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, ixht_c, ixvt_c
          type(c_ptr), value :: qrel_vert_p, state_lat_p, state_q_p
-       end subroutine aoa_tracers_tstep_init_codon
+       end subroutine aoa_tracers_timestep_init_codon
     end interface
     !--------------------------------------------------------------------------
 
@@ -377,7 +377,7 @@ contains
 
        do c = begchunk, endchunk
           ncol = phys_state(c)%ncol
-          call aoa_tracers_tstep_init_codon( &
+          call aoa_tracers_timestep_init_codon( &
                int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
                int(ixht, c_int64_t), int(ixvt, c_int64_t), c_loc(qrel_vert), &
                c_loc(phys_state(c)%lat), c_loc(phys_state(c)%q) &

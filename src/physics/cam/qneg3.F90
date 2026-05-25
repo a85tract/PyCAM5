@@ -53,12 +53,12 @@ subroutine qneg3 (subnam  ,idx     ,ncol    ,ncold   ,lver    ,lconst_beg  , &
    real(c_double), target :: worst(lconst_beg:lconst_end)
 
    interface
-      subroutine qneg_batch_3_codon(ncol_c, ncold_c, lver_c, nconst_c, &
-           qmin_p, q_p, indx_p, nval_p, nvals_p, worst_p, iw_p, kw_p) bind(c, name="qneg_batch_3_codon")
+      subroutine qneg3_codon(ncol_c, ncold_c, lver_c, nconst_c, &
+           qmin_p, q_p, indx_p, nval_p, nvals_p, worst_p, iw_p, kw_p) bind(c, name="qneg3_codon")
          use iso_c_binding, only: c_int64_t, c_ptr
          integer(c_int64_t), value :: ncol_c, ncold_c, lver_c, nconst_c
          type(c_ptr), value :: qmin_p, q_p, indx_p, nval_p, nvals_p, worst_p, iw_p, kw_p
-      end subroutine qneg_batch_3_codon
+      end subroutine qneg3_codon
    end interface
 
    call qneg3_batch_select_impl()
@@ -69,7 +69,7 @@ subroutine qneg3 (subnam  ,idx     ,ncol    ,ncold   ,lver    ,lconst_beg  , &
    end if
 
    call qneg3_batch_log_entered()
-   call qneg_batch_3_codon( &
+   call qneg3_codon( &
         int(ncol, c_int64_t), int(ncold, c_int64_t), int(lver, c_int64_t), &
         int(lconst_end-lconst_beg+1, c_int64_t), &
         c_loc(qmin), c_loc(q), c_loc(indx), c_loc(nval), c_loc(nvals), c_loc(worst), c_loc(iw), c_loc(kw) &
