@@ -40,7 +40,7 @@
    ! Parameter used for selecting generalized critical RH for liquid and ice stratus !
    ! ------------------------------------------------------------------------------- !
 
-   integer :: i_rhminl ! This is for liquid stratus fraction.
+   integer, target :: i_rhminl ! This is for liquid stratus fraction.
                        ! If 0 : Original fixed critical RH from the namelist.
                        ! If 1 : Add convective detrainment effect on the above '0' option. 
                        !        In this case, 'tau_detw' [s] should be specified below.
@@ -48,7 +48,7 @@
                        !        In this case, 'tau_detw' [s] and 'c_aniso' [no unit] should
                        !        be specified below. 
 
-   integer :: i_rhmini ! This is for ice stratus fraction.
+   integer, target :: i_rhmini ! This is for ice stratus fraction.
                        ! If 0 : Original fixed critical RH from the namelist.
                        ! If 1 : Add convective detrainment effect on the above '0' option. 
                        !        In this case, 'tau_deti' [s] should be specified below.
@@ -75,13 +75,16 @@
    real(r8), parameter  :: cc           = 0.1_r8     ! For newly formed/dissipated in-stratus CWC ( 0 <= cc <= 1 )
    integer,  parameter  :: niter        = 2          ! For iterative computation of QQ with 'ramda' below.
    real(r8), parameter  :: ramda        = 0.5_r8     ! Explicit : ramda = 0, Implicit : ramda = 1 ( 0<= ramda <= 1 )
-   real(r8), private    :: rhminl_const              ! Critical RH for low-level  liquid stratus clouds
-   real(r8), private    :: rhminl_adj_land_const     ! rhminl adjustment for snowfree land
-   real(r8), private    :: rhminh_const              ! Critical RH for high-level liquid stratus clouds
-   real(r8), private    :: premit                    ! Top    height for mid-level liquid stratus fraction
-   real(r8), private    :: premib                    ! Bottom height for mid-level liquid stratus fraction
+   real(r8), private, target :: rhminl_const              ! Critical RH for low-level  liquid stratus clouds
+   real(r8), private, target :: rhminl_adj_land_const     ! rhminl adjustment for snowfree land
+   real(r8), private, target :: rhminh_const              ! Critical RH for high-level liquid stratus clouds
+   real(r8), private, target :: premit                    ! Top    height for mid-level liquid stratus fraction
+   real(r8), private, target :: premib                    ! Bottom height for mid-level liquid stratus fraction
 
    real(r8), parameter :: qsmall = 1.e-18_r8         ! Smallest mixing ratio considered in the macrophysics
+   logical :: use_native_ini_macro_impl = .false.
+   logical :: ini_macro_impl_selected = .false.
+   logical :: ini_macro_entered_logged = .false.
    logical :: use_native_positive_moisture_impl = .false.
    logical :: positive_moisture_impl_selected = .false.
    logical :: positive_moisture_entered_logged = .false.
@@ -158,12 +161,43 @@
 
    integer,  intent(in) :: rhminl_opt_in
    integer,  intent(in) :: rhmini_opt_in
+   integer(c_int64_t), target :: i_rhminl_c
+   integer(c_int64_t), target :: i_rhmini_c
 
-   i_rhminl   = rhminl_opt_in
-   i_rhmini   = rhmini_opt_in
+   interface
+      subroutine cldwat2m_ini_macro_codon(rhminl_opt_c, rhmini_opt_c, rhminl_in_c, &
+           rhminl_adj_land_in_c, rhminh_in_c, premit_in_c, premib_in_c, i_rhminl_out_p, &
+           i_rhmini_out_p, rhminl_p, rhminl_adj_land_p, rhminh_p, premit_p, premib_p) &
+           bind(c, name="cldwat2m_ini_macro_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: rhminl_opt_c, rhmini_opt_c
+         real(c_double), value :: rhminl_in_c, rhminl_adj_land_in_c, rhminh_in_c
+         real(c_double), value :: premit_in_c, premib_in_c
+         type(c_ptr), value :: i_rhminl_out_p, i_rhmini_out_p, rhminl_p, rhminl_adj_land_p
+         type(c_ptr), value :: rhminh_p, premit_p, premib_p
+      end subroutine cldwat2m_ini_macro_codon
+   end interface
+
+   call ini_macro_select_impl()
 
    call cldfrc_getparams(rhminl_out=rhminl_const, rhminl_adj_land_out=rhminl_adj_land_const,  &
                          rhminh_out=rhminh_const, premit_out=premit, premib_out=premib)
+
+   if (use_native_ini_macro_impl) then
+      i_rhminl   = rhminl_opt_in
+      i_rhmini   = rhmini_opt_in
+   else
+      i_rhminl_c = int(i_rhminl, c_int64_t)
+      i_rhmini_c = int(i_rhmini, c_int64_t)
+      call cldwat2m_ini_macro_codon(int(rhminl_opt_in, c_int64_t), &
+           int(rhmini_opt_in, c_int64_t), rhminl_const, rhminl_adj_land_const, &
+           rhminh_const, premit, premib, c_loc(i_rhminl_c), c_loc(i_rhmini_c), &
+           c_loc(rhminl_const), c_loc(rhminl_adj_land_const), c_loc(rhminh_const), &
+           c_loc(premit), c_loc(premib))
+      i_rhminl = int(i_rhminl_c)
+      i_rhmini = int(i_rhmini_c)
+      call ini_macro_log_entered()
+   end if
 
    if( masterproc ) then
        write(iulog,*) 'Park Macrophysics Parameters'
@@ -185,6 +219,41 @@
    call addfld ('DRHMINDET_ICE', 'fraction', pver, 'A', 'Drop of    ice-stratus critical RH by convective detrainment', phys_decomp)
 
    end subroutine ini_macro
+
+   subroutine ini_macro_select_impl()
+   character(len=32) :: impl_name
+   integer :: n, status
+
+   if (ini_macro_impl_selected) return
+   call get_environment_variable('CLDWAT2M_INI_MACRO_IMPL', value=impl_name, length=n, status=status)
+   use_native_ini_macro_impl = .false.
+   if (status == 0 .and. n > 0) then
+      select case (adjustl(impl_name(:n)))
+      case ('native', 'Native', 'NATIVE')
+         use_native_ini_macro_impl = .true.
+      case ('codon', 'Codon', 'CODON')
+         use_native_ini_macro_impl = .false.
+      case default
+         use_native_ini_macro_impl = .false.
+      end select
+   end if
+   ini_macro_impl_selected = .true.
+   if (masterproc) then
+      if (use_native_ini_macro_impl) then
+         write(iulog,*) 'cldwat2m_ini_macro implementation = native'
+      else
+         write(iulog,*) 'cldwat2m_ini_macro implementation = codon'
+      end if
+   end if
+   end subroutine ini_macro_select_impl
+
+   subroutine ini_macro_log_entered()
+   if (ini_macro_entered_logged) return
+   ini_macro_entered_logged = .true.
+   if (masterproc) then
+      write(iulog,*) 'ini_macro direct = codon scalar parameter synchronization; native cldfrc_getparams/log/addfld'
+   end if
+   end subroutine ini_macro_log_entered
 
    ! ------------------------------ !
    ! Stratiform Liquid Macrophysics !

@@ -48,6 +48,40 @@ def macrop_driver_init_codon(flag: int) -> int:
     return 0
 
 
+@export
+def cldwat2m_ini_macro_codon(
+    rhminl_opt: int,
+    rhmini_opt: int,
+    rhminl_in: float,
+    rhminl_adj_land_in: float,
+    rhminh_in: float,
+    premit_in: float,
+    premib_in: float,
+    i_rhminl_p: cobj,
+    i_rhmini_p: cobj,
+    rhminl_p: cobj,
+    rhminl_adj_land_p: cobj,
+    rhminh_p: cobj,
+    premit_p: cobj,
+    premib_p: cobj,
+):
+    i_rhminl = Ptr[int](i_rhminl_p)
+    i_rhmini = Ptr[int](i_rhmini_p)
+    rhminl = Ptr[float](rhminl_p)
+    rhminl_adj_land = Ptr[float](rhminl_adj_land_p)
+    rhminh = Ptr[float](rhminh_p)
+    premit = Ptr[float](premit_p)
+    premib = Ptr[float](premib_p)
+
+    i_rhminl[0] = rhminl_opt
+    i_rhmini[0] = rhmini_opt
+    rhminl[0] = rhminl_in
+    rhminl_adj_land[0] = rhminl_adj_land_in
+    rhminh[0] = rhminh_in
+    premit[0] = premit_in
+    premib[0] = premib_in
+
+
 def _idx2(i: int, k: int, pcols: int):
     return (k - 1) * pcols + (i - 1)
 
