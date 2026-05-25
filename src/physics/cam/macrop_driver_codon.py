@@ -13,6 +13,20 @@ from C import cldwat2m_astg_single_native_cb(
     Ptr[float],
     Ptr[float],
 ) -> None
+from C import cldwat2m_aist_single_native_cb(
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    Ptr[float],
+) -> None
 
 
 @export
@@ -81,6 +95,38 @@ def _cldwat2m_astg_single_native(
     return a, ga
 
 
+@inline
+def _cldwat2m_aist_single_native(
+    qv: float,
+    t: float,
+    p: float,
+    qi: float,
+    landfrac: float,
+    snowh: float,
+    rhmaxi: float,
+    rhmini: float,
+    rhminl: float,
+    rhminl_adj_land: float,
+    rhminh: float,
+):
+    aist = 0.0
+    cldwat2m_aist_single_native_cb(
+        qv,
+        t,
+        p,
+        qi,
+        landfrac,
+        snowh,
+        rhmaxi,
+        rhmini,
+        rhminl,
+        rhminl_adj_land,
+        rhminh,
+        __ptr__(aist),
+    )
+    return aist
+
+
 @export
 def cldwat2m_gridmean_rh_codon(
     p: float,
@@ -102,6 +148,39 @@ def cldwat2m_gridmean_rh_codon(
     ql = Ptr[float](ql_p)
     qi = Ptr[float](qi_p)
 
+    _cldwat2m_gridmean_rh_calc(
+        p,
+        latvap,
+        cpair,
+        t,
+        qv,
+        ql,
+        qi,
+        a_dc,
+        ql_dc,
+        qi_dc,
+        a_sc,
+        ql_sc,
+        qi_sc,
+    )
+
+
+@inline
+def _cldwat2m_gridmean_rh_calc(
+    p: float,
+    latvap: float,
+    cpair: float,
+    t: Ptr[float],
+    qv: Ptr[float],
+    ql: Ptr[float],
+    qi: Ptr[float],
+    a_dc: float,
+    ql_dc: float,
+    qi_dc: float,
+    a_sc: float,
+    ql_sc: float,
+    qi_sc: float,
+):
     ql_nc0 = max(0.0, ql[0] - a_dc * ql_dc - a_sc * ql_sc)
     qi_nc0 = max(0.0, qi[0] - a_dc * qi_dc - a_sc * qi_sc)
     qc_nc0 = max(0.0, ql[0] + qi[0] - a_dc * (ql_dc + qi_dc) - a_sc * (ql_sc + qi_sc))
@@ -310,6 +389,71 @@ def cldwat2m_instratus_core_codon(
     ql_out = Ptr[float](ql_p)
     qi_out = Ptr[float](qi_p)
 
+    _cldwat2m_instratus_core_calc(
+        p,
+        t0,
+        qv0,
+        ql0,
+        qi0,
+        a_dc,
+        ql_dc,
+        qi_dc,
+        a_sc,
+        ql_sc,
+        qi_sc,
+        ai_st,
+        qcst_crit,
+        tmin,
+        tmax,
+        landfrac,
+        snowh,
+        rhminl,
+        rhminl_adj_land,
+        rhminh,
+        cpair,
+        latvap,
+        qlst_min,
+        qlst_max,
+        camstfrac,
+        t_out,
+        qv_out,
+        ql_out,
+        qi_out,
+    )
+
+
+@inline
+def _cldwat2m_instratus_core_calc(
+    p: float,
+    t0: float,
+    qv0: float,
+    ql0: float,
+    qi0: float,
+    a_dc: float,
+    ql_dc: float,
+    qi_dc: float,
+    a_sc: float,
+    ql_sc: float,
+    qi_sc: float,
+    ai_st: float,
+    qcst_crit: float,
+    tmin: float,
+    tmax: float,
+    landfrac: float,
+    snowh: float,
+    rhminl: float,
+    rhminl_adj_land: float,
+    rhminh: float,
+    cpair: float,
+    latvap: float,
+    qlst_min: float,
+    qlst_max: float,
+    camstfrac: int,
+    t_out: Ptr[float],
+    qv_out: Ptr[float],
+    ql_out: Ptr[float],
+    qi_out: Ptr[float],
+):
     ql_nc0 = max(0.0, ql0 - a_dc * ql_dc - a_sc * ql_sc)
     qi_nc0 = max(0.0, qi0 - a_dc * qi_dc - a_sc * qi_sc)
     qc_nc0 = max(0.0, ql0 + qi0 - a_dc * (ql_dc + qi_dc) - a_sc * (ql_sc + qi_sc))
@@ -537,6 +681,433 @@ def cldwat2m_instratus_core_codon(
     qi_out[0] = qc_nc * fice + a_dc * qi_dc + a_sc * qi_sc
     qv_out[0] = qv0 + ql0 + qi0 - (qc_nc + a_dc * (ql_dc + qi_dc) + a_sc * (ql_sc + qi_sc))
     qv_out[0] = max(qv_out[0], 1.0e-12)
+
+
+@export
+def cldwat2m_instratus_condensate_codon(
+    ncol: int,
+    pcols: int,
+    camstfrac: int,
+    cpair: float,
+    latvap: float,
+    latice: float,
+    qlst_min: float,
+    qlst_max: float,
+    rhmaxi: float,
+    p_p: cobj,
+    t0_p: cobj,
+    qv0_p: cobj,
+    ql0_p: cobj,
+    qi0_p: cobj,
+    ni0_p: cobj,
+    a_dc_p: cobj,
+    ql_dc_p: cobj,
+    qi_dc_p: cobj,
+    a_sc_p: cobj,
+    ql_sc_p: cobj,
+    qi_sc_p: cobj,
+    landfrac_p: cobj,
+    snowh_p: cobj,
+    rhmini_p: cobj,
+    rhminl_p: cobj,
+    rhminl_adj_land_p: cobj,
+    rhminh_p: cobj,
+    t_out_p: cobj,
+    qv_out_p: cobj,
+    ql_out_p: cobj,
+    qi_out_p: cobj,
+    al_st_out_p: cobj,
+    ai_st_out_p: cobj,
+    ql_st_out_p: cobj,
+    qi_st_out_p: cobj,
+    status_p: cobj,
+):
+    p_in = Ptr[float](p_p)
+    t0_in = Ptr[float](t0_p)
+    qv0_in = Ptr[float](qv0_p)
+    ql0_in = Ptr[float](ql0_p)
+    qi0_in = Ptr[float](qi0_p)
+    ni0_in = Ptr[float](ni0_p)
+    a_dc_in = Ptr[float](a_dc_p)
+    ql_dc_in = Ptr[float](ql_dc_p)
+    qi_dc_in = Ptr[float](qi_dc_p)
+    a_sc_in = Ptr[float](a_sc_p)
+    ql_sc_in = Ptr[float](ql_sc_p)
+    qi_sc_in = Ptr[float](qi_sc_p)
+    landfrac = Ptr[float](landfrac_p)
+    snowh = Ptr[float](snowh_p)
+    rhmini_in = Ptr[float](rhmini_p)
+    rhminl_in = Ptr[float](rhminl_p)
+    rhminl_adj_land_in = Ptr[float](rhminl_adj_land_p)
+    rhminh_in = Ptr[float](rhminh_p)
+    t_out = Ptr[float](t_out_p)
+    qv_out = Ptr[float](qv_out_p)
+    ql_out = Ptr[float](ql_out_p)
+    qi_out = Ptr[float](qi_out_p)
+    al_st_out = Ptr[float](al_st_out_p)
+    ai_st_out = Ptr[float](ai_st_out_p)
+    ql_st_out = Ptr[float](ql_st_out_p)
+    qi_st_out = Ptr[float](qi_st_out_p)
+    status = Ptr[int](status_p)
+
+    status[0] = 0
+    for i in range(1, ncol + 1):
+        idx = i - 1
+        p = p_in[idx]
+
+        t0 = t0_in[idx]
+        qv0 = qv0_in[idx]
+        ql0 = ql0_in[idx]
+        qi0 = qi0_in[idx]
+
+        a_dc = a_dc_in[idx]
+        ql_dc = ql_dc_in[idx]
+        qi_dc = qi_dc_in[idx]
+
+        a_sc = a_sc_in[idx]
+        ql_sc = ql_sc_in[idx]
+        qi_sc = qi_sc_in[idx]
+
+        ql_dc = 0.0
+        qi_dc = 0.0
+        ql_sc = 0.0
+        qi_sc = 0.0
+
+        _, qs, _ = _cldwat2m_qsat_water_native(t0, p)
+
+        rhmini = rhmini_in[idx]
+        rhminl = rhminl_in[idx]
+        rhminl_adj_land = rhminl_adj_land_in[idx]
+        rhminh = rhminh_in[idx]
+
+        idxmod = 0
+
+        u0 = qv0 / qs
+        u0_nc = u0
+        al0_st_nc, g0_nc = _cldwat2m_astg_single_native(
+            camstfrac,
+            u0_nc,
+            p,
+            qv0,
+            landfrac[idx],
+            snowh[idx],
+            rhminl,
+            rhminl_adj_land,
+            rhminh,
+        )
+        ai0_st_nc = _cldwat2m_aist_single_native(
+            qv0,
+            t0,
+            p,
+            qi0,
+            landfrac[idx],
+            snowh[idx],
+            rhmaxi,
+            rhmini,
+            rhminl,
+            rhminl_adj_land,
+            rhminh,
+        )
+
+        if qv0 > qs:
+            _cldwat2m_gridmean_rh_calc(
+                p,
+                latvap,
+                cpair,
+                __ptr__(t0),
+                __ptr__(qv0),
+                __ptr__(ql0),
+                __ptr__(qi0),
+                a_dc,
+                ql_dc,
+                qi_dc,
+                a_sc,
+                ql_sc,
+                qi_sc,
+            )
+            _, qsat0, _ = _cldwat2m_qsat_water_native(t0, p)
+            u0 = qv0 / qsat0
+            u0_nc = u0
+            al0_st_nc, g0_nc = _cldwat2m_astg_single_native(
+                camstfrac,
+                u0_nc,
+                p,
+                qv0,
+                landfrac[idx],
+                snowh[idx],
+                rhminl,
+                rhminl_adj_land,
+                rhminh,
+            )
+            ai0_st_nc = _cldwat2m_aist_single_native(
+                qv0,
+                t0,
+                p,
+                qi0,
+                landfrac[idx],
+                snowh[idx],
+                rhmaxi,
+                rhmini,
+                rhminl,
+                rhminl_adj_land,
+                rhminh,
+            )
+            ai0_st = (1.0 - a_dc - a_sc) * ai0_st_nc
+            al0_st = (1.0 - a_dc - a_sc) * al0_st_nc
+            a0_st = max(ai0_st, al0_st)
+            idxmod = 1
+        else:
+            ai0_st = (1.0 - a_dc - a_sc) * ai0_st_nc
+            al0_st = (1.0 - a_dc - a_sc) * al0_st_nc
+        a0_st = max(ai0_st, al0_st)
+
+        ql0_nc = max(0.0, ql0 - a_dc * ql_dc - a_sc * ql_sc)
+        qi0_nc = max(0.0, qi0 - a_dc * qi_dc - a_sc * qi_sc)
+        qc0_nc = ql0_nc + qi0_nc
+
+        tmin0 = t0 - (latvap / cpair) * ql0
+        tmax0 = t0 + ((latvap + latice) / cpair) * qv0
+
+        t = 0.0
+        qv = 0.0
+        ql = 0.0
+        qi = 0.0
+        al_st = 0.0
+        ai_st = 0.0
+        ql_st = 0.0
+        qi_st = 0.0
+
+        if ql0_nc >= qlst_min * al0_st and ql0_nc <= qlst_max * al0_st:
+            t = t0
+            qv = qv0
+            ql = ql0
+            qi = qi0
+        else:
+            if al0_st == 0.0 and ql0_nc > 0.0:
+                t = tmin0
+                qv = qv0 + ql0
+                _, qs, _ = _cldwat2m_qsat_water_native(t, p)
+                u = qv / qs
+                u_nc = u
+                al_st_nc, g_nc = _cldwat2m_astg_single_native(
+                    camstfrac,
+                    u_nc,
+                    p,
+                    qv,
+                    landfrac[idx],
+                    snowh[idx],
+                    rhminl,
+                    rhminl_adj_land,
+                    rhminh,
+                )
+                al_st = (1.0 - a_dc - a_sc) * al_st_nc
+
+                if al_st == 0.0:
+                    ql = 0.0
+                    qi = qi0
+                    idxmod = 1
+                else:
+                    _cldwat2m_instratus_core_calc(
+                        p,
+                        t0,
+                        qv0,
+                        ql0,
+                        0.0,
+                        a_dc,
+                        ql_dc,
+                        qi_dc,
+                        a_sc,
+                        ql_sc,
+                        qi_sc,
+                        ai0_st,
+                        qlst_max,
+                        tmin0,
+                        t0,
+                        landfrac[idx],
+                        snowh[idx],
+                        rhminl,
+                        rhminl_adj_land,
+                        rhminh,
+                        cpair,
+                        latvap,
+                        qlst_min,
+                        qlst_max,
+                        camstfrac,
+                        __ptr__(t),
+                        __ptr__(qv),
+                        __ptr__(ql),
+                        __ptr__(qi),
+                    )
+                    idxmod = 1
+            elif al0_st > 0.0 and ql0_nc == 0.0:
+                _cldwat2m_instratus_core_calc(
+                    p,
+                    t0,
+                    qv0,
+                    ql0,
+                    0.0,
+                    a_dc,
+                    ql_dc,
+                    qi_dc,
+                    a_sc,
+                    ql_sc,
+                    qi_sc,
+                    ai0_st,
+                    qlst_min,
+                    tmin0,
+                    tmax0,
+                    landfrac[idx],
+                    snowh[idx],
+                    rhminl,
+                    rhminl_adj_land,
+                    rhminh,
+                    cpair,
+                    latvap,
+                    qlst_min,
+                    qlst_max,
+                    camstfrac,
+                    __ptr__(t),
+                    __ptr__(qv),
+                    __ptr__(ql),
+                    __ptr__(qi),
+                )
+                idxmod = 1
+            elif al0_st > 0.0 and ql0_nc > 0.0:
+                if ql0_nc > qlst_max * al0_st:
+                    _cldwat2m_instratus_core_calc(
+                        p,
+                        t0,
+                        qv0,
+                        ql0,
+                        0.0,
+                        a_dc,
+                        ql_dc,
+                        qi_dc,
+                        a_sc,
+                        ql_sc,
+                        qi_sc,
+                        ai0_st,
+                        qlst_max,
+                        tmin0,
+                        tmax0,
+                        landfrac[idx],
+                        snowh[idx],
+                        rhminl,
+                        rhminl_adj_land,
+                        rhminh,
+                        cpair,
+                        latvap,
+                        qlst_min,
+                        qlst_max,
+                        camstfrac,
+                        __ptr__(t),
+                        __ptr__(qv),
+                        __ptr__(ql),
+                        __ptr__(qi),
+                    )
+                    idxmod = 1
+                elif ql0_nc < qlst_min * al0_st:
+                    _cldwat2m_instratus_core_calc(
+                        p,
+                        t0,
+                        qv0,
+                        ql0,
+                        0.0,
+                        a_dc,
+                        ql_dc,
+                        qi_dc,
+                        a_sc,
+                        ql_sc,
+                        qi_sc,
+                        ai0_st,
+                        qlst_min,
+                        tmin0,
+                        tmax0,
+                        landfrac[idx],
+                        snowh[idx],
+                        rhminl,
+                        rhminl_adj_land,
+                        rhminh,
+                        cpair,
+                        latvap,
+                        qlst_min,
+                        qlst_max,
+                        camstfrac,
+                        __ptr__(t),
+                        __ptr__(qv),
+                        __ptr__(ql),
+                        __ptr__(qi),
+                    )
+                    idxmod = 1
+                else:
+                    status[0] = 1
+                    return
+            else:
+                status[0] = 2
+                return
+
+        qi = qi0
+
+        if idxmod == 1:
+            ai_st_nc = _cldwat2m_aist_single_native(
+                qv,
+                t,
+                p,
+                qi,
+                landfrac[idx],
+                snowh[idx],
+                rhmaxi,
+                rhmini,
+                rhminl,
+                rhminl_adj_land,
+                rhminh,
+            )
+            ai_st = (1.0 - a_dc - a_sc) * ai_st_nc
+            _, qs, _ = _cldwat2m_qsat_water_native(t, p)
+            u = qv / qs
+            u_nc = u
+            al_st_nc, g_nc = _cldwat2m_astg_single_native(
+                camstfrac,
+                u_nc,
+                p,
+                qv,
+                landfrac[idx],
+                snowh[idx],
+                rhminl,
+                rhminl_adj_land,
+                rhminh,
+            )
+            al_st = (1.0 - a_dc - a_sc) * al_st_nc
+        else:
+            ai_st = (1.0 - a_dc - a_sc) * ai0_st_nc
+            al_st = (1.0 - a_dc - a_sc) * al0_st_nc
+
+        a_st = max(ai_st, al_st)
+
+        if al_st == 0.0:
+            ql_st = 0.0
+        else:
+            ql_st = ql / al_st
+            ql_st = min(qlst_max, max(qlst_min, ql_st))
+        if ai_st == 0.0:
+            qi_st = 0.0
+        else:
+            qi_st = qi / ai_st
+
+        qi = ai_st * qi_st
+        ql = al_st * ql_st
+
+        t = t0 - (latvap / cpair) * (ql0 - ql) - ((latvap + latice) / cpair) * (qi0 - qi)
+        qv = qv0 + ql0 - ql + qi0 - qi
+
+        t_out[idx] = t
+        qv_out[idx] = qv
+        ql_out[idx] = ql
+        qi_out[idx] = qi
+        al_st_out[idx] = al_st
+        ai_st_out[idx] = ai_st
+        ql_st_out[idx] = ql_st
+        qi_st_out[idx] = qi_st
 
 
 @export

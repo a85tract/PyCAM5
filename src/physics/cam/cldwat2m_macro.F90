@@ -127,6 +127,9 @@
    logical :: use_native_gridmean_rh_impl = .false.
    logical :: gridmean_rh_impl_selected = .false.
    logical :: gridmean_rh_entered_logged = .false.
+   logical :: use_native_instratus_condensate_impl = .false.
+   logical :: instratus_condensate_impl_selected = .false.
+   logical :: instratus_condensate_entered_logged = .false.
    logical :: use_native_instratus_core_impl = .false.
    logical :: instratus_core_impl_selected = .false.
    logical :: instratus_core_entered_logged = .false.
@@ -2383,37 +2386,37 @@ end subroutine rhcrit_calc
    integer,  intent(in)  :: ncol                 ! Number of atmospheric columns
    integer,  intent(in)  :: k                    ! Layer index
 
-   real(r8), intent(in)  :: p_in(pcols)          ! Pressure [Pa]
-   real(r8), intent(in)  :: T0_in(pcols)         ! Temperature [K]
-   real(r8), intent(in)  :: qv0_in(pcols)        ! Grid-mean water vapor [kg/kg]
-   real(r8), intent(in)  :: ql0_in(pcols)        ! Grid-mean LWC [kg/kg]
-   real(r8), intent(in)  :: qi0_in(pcols)        ! Grid-mean IWC [kg/kg]
-   real(r8), intent(in)  :: ni0_in(pcols)
+   real(r8), target, intent(in)  :: p_in(pcols)          ! Pressure [Pa]
+   real(r8), target, intent(in)  :: T0_in(pcols)         ! Temperature [K]
+   real(r8), target, intent(in)  :: qv0_in(pcols)        ! Grid-mean water vapor [kg/kg]
+   real(r8), target, intent(in)  :: ql0_in(pcols)        ! Grid-mean LWC [kg/kg]
+   real(r8), target, intent(in)  :: qi0_in(pcols)        ! Grid-mean IWC [kg/kg]
+   real(r8), target, intent(in)  :: ni0_in(pcols)
 
-   real(r8), intent(in)  :: a_dc_in(pcols)       ! Deep cumulus cloud fraction
-   real(r8), intent(in)  :: ql_dc_in(pcols)      ! In-deep cumulus LWC [kg/kg]
-   real(r8), intent(in)  :: qi_dc_in(pcols)      ! In-deep cumulus IWC [kg/kg]
-   real(r8), intent(in)  :: a_sc_in(pcols)       ! Shallow cumulus cloud fraction
-   real(r8), intent(in)  :: ql_sc_in(pcols)      ! In-shallow cumulus LWC [kg/kg]
-   real(r8), intent(in)  :: qi_sc_in(pcols)      ! In-shallow cumulus IWC [kg/kg]
+   real(r8), target, intent(in)  :: a_dc_in(pcols)       ! Deep cumulus cloud fraction
+   real(r8), target, intent(in)  :: ql_dc_in(pcols)      ! In-deep cumulus LWC [kg/kg]
+   real(r8), target, intent(in)  :: qi_dc_in(pcols)      ! In-deep cumulus IWC [kg/kg]
+   real(r8), target, intent(in)  :: a_sc_in(pcols)       ! Shallow cumulus cloud fraction
+   real(r8), target, intent(in)  :: ql_sc_in(pcols)      ! In-shallow cumulus LWC [kg/kg]
+   real(r8), target, intent(in)  :: qi_sc_in(pcols)      ! In-shallow cumulus IWC [kg/kg]
 
-   real(r8), intent(in)  :: landfrac(pcols)      ! Land fraction
-   real(r8), intent(in)  :: snowh(pcols)         ! Snow depth (liquid water equivalent)
+   real(r8), target, intent(in)  :: landfrac(pcols)      ! Land fraction
+   real(r8), target, intent(in)  :: snowh(pcols)         ! Snow depth (liquid water equivalent)
 
-   real(r8), intent(in)  :: rhmini_in(pcols) 
-   real(r8), intent(in)  :: rhminl_in(pcols)
-   real(r8), intent(in)  :: rhminl_adj_land_in(pcols)
-   real(r8), intent(in)  :: rhminh_in(pcols)     
+   real(r8), target, intent(in)  :: rhmini_in(pcols)
+   real(r8), target, intent(in)  :: rhminl_in(pcols)
+   real(r8), target, intent(in)  :: rhminl_adj_land_in(pcols)
+   real(r8), target, intent(in)  :: rhminh_in(pcols)
 
-   real(r8), intent(out) :: T_out(pcols)         ! Temperature [K]
-   real(r8), intent(out) :: qv_out(pcols)        ! Grid-mean water vapor [kg/kg]
-   real(r8), intent(out) :: ql_out(pcols)        ! Grid-mean LWC [kg/kg]
-   real(r8), intent(out) :: qi_out(pcols)        ! Grid-mean IWC [kg/kg]
+   real(r8), target, intent(out) :: T_out(pcols)         ! Temperature [K]
+   real(r8), target, intent(out) :: qv_out(pcols)        ! Grid-mean water vapor [kg/kg]
+   real(r8), target, intent(out) :: ql_out(pcols)        ! Grid-mean LWC [kg/kg]
+   real(r8), target, intent(out) :: qi_out(pcols)        ! Grid-mean IWC [kg/kg]
 
-   real(r8), intent(out) :: al_st_out(pcols)     ! Liquid stratus fraction
-   real(r8), intent(out) :: ai_st_out(pcols)     ! Ice stratus fraction
-   real(r8), intent(out) :: ql_st_out(pcols)     ! In-stratus LWC [kg/kg]
-   real(r8), intent(out) :: qi_st_out(pcols)     ! In-stratus IWC [kg/kg]
+   real(r8), target, intent(out) :: al_st_out(pcols)     ! Liquid stratus fraction
+   real(r8), target, intent(out) :: ai_st_out(pcols)     ! Ice stratus fraction
+   real(r8), target, intent(out) :: ql_st_out(pcols)     ! In-stratus LWC [kg/kg]
+   real(r8), target, intent(out) :: qi_st_out(pcols)     ! In-stratus IWC [kg/kg]
 
    ! Local variables
 
@@ -2461,6 +2464,7 @@ end subroutine rhcrit_calc
    real(r8) ai0_st_nc_in(pcols)
    real(r8) G0_nc_in(pcols)
    integer  idxmod 
+   integer(c_int64_t), target :: codon_status
    real(r8) U
    real(r8) U_nc
    real(r8) al_st_nc
@@ -2480,9 +2484,50 @@ end subroutine rhcrit_calc
    real(r8) rhminl_adj_land
    real(r8) rhminh
 
+   interface
+      subroutine cldwat2m_instratus_condensate_codon(ncol_c, pcols_c, camstfrac_c, &
+           cpair_c, latvap_c, latice_c, qlst_min_c, qlst_max_c, rhmaxi_c, p_p, t0_p, qv0_p, &
+           ql0_p, qi0_p, ni0_p, a_dc_p, ql_dc_p, qi_dc_p, a_sc_p, ql_sc_p, qi_sc_p, &
+           landfrac_p, snowh_p, rhmini_p, rhminl_p, rhminl_adj_land_p, rhminh_p, t_out_p, &
+           qv_out_p, ql_out_p, qi_out_p, al_st_out_p, ai_st_out_p, ql_st_out_p, qi_st_out_p, &
+           status_p) bind(c, name="cldwat2m_instratus_condensate_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, camstfrac_c
+         real(c_double), value :: cpair_c, latvap_c, latice_c, qlst_min_c, qlst_max_c, rhmaxi_c
+         type(c_ptr), value :: p_p, t0_p, qv0_p, ql0_p, qi0_p, ni0_p
+         type(c_ptr), value :: a_dc_p, ql_dc_p, qi_dc_p, a_sc_p, ql_sc_p, qi_sc_p
+         type(c_ptr), value :: landfrac_p, snowh_p, rhmini_p, rhminl_p, rhminl_adj_land_p, rhminh_p
+         type(c_ptr), value :: t_out_p, qv_out_p, ql_out_p, qi_out_p
+         type(c_ptr), value :: al_st_out_p, ai_st_out_p, ql_st_out_p, qi_st_out_p, status_p
+      end subroutine cldwat2m_instratus_condensate_codon
+   end interface
+
    ! ---------------- !
    ! Main Computation ! 
    ! ---------------- !
+
+   call instratus_condensate_select_impl()
+   if (.not. use_native_instratus_condensate_impl) then
+      codon_status = 0_c_int64_t
+      call instratus_condensate_log_entered()
+      call cldwat2m_instratus_condensate_codon(int(ncol, c_int64_t), int(pcols, c_int64_t), &
+           merge(1_c_int64_t, 0_c_int64_t, CAMstfrac), cpair, latvap, latice, qlst_min, qlst_max, rhmaxi, &
+           c_loc(p_in(1)), c_loc(T0_in(1)), c_loc(qv0_in(1)), c_loc(ql0_in(1)), c_loc(qi0_in(1)), &
+           c_loc(ni0_in(1)), c_loc(a_dc_in(1)), c_loc(ql_dc_in(1)), c_loc(qi_dc_in(1)), &
+           c_loc(a_sc_in(1)), c_loc(ql_sc_in(1)), c_loc(qi_sc_in(1)), c_loc(landfrac(1)), &
+           c_loc(snowh(1)), c_loc(rhmini_in(1)), c_loc(rhminl_in(1)), c_loc(rhminl_adj_land_in(1)), &
+           c_loc(rhminh_in(1)), c_loc(T_out(1)), c_loc(qv_out(1)), c_loc(ql_out(1)), c_loc(qi_out(1)), &
+           c_loc(al_st_out(1)), c_loc(ai_st_out(1)), c_loc(ql_st_out(1)), c_loc(qi_st_out(1)), &
+           c_loc(codon_status))
+      if (codon_status == 1_c_int64_t) then
+         write(iulog,*) 'Impossible case1 in instratus_condensate'
+         call endrun
+      else if (codon_status == 2_c_int64_t) then
+         write(iulog,*) 'Impossible case2 in instratus_condensate'
+         call endrun
+      endif
+      return
+   end if
 
    call qsat_water(T0_in(1:ncol), p_in(1:ncol), &
         esat_in(1:ncol), qsat_in(1:ncol))
@@ -3026,6 +3071,41 @@ end subroutine rhcrit_calc
    end if
    end subroutine instratus_core_log_entered
 
+   subroutine instratus_condensate_select_impl()
+   character(len=32) :: impl_name
+   integer :: n, status
+
+   if (instratus_condensate_impl_selected) return
+   call get_environment_variable('CLDWAT2M_INSTRATUS_CONDENSATE_IMPL', value=impl_name, length=n, status=status)
+   use_native_instratus_condensate_impl = .false.
+   if (status == 0 .and. n > 0) then
+      select case (adjustl(impl_name(:n)))
+      case ('native', 'Native', 'NATIVE')
+         use_native_instratus_condensate_impl = .true.
+      case ('codon', 'Codon', 'CODON')
+         use_native_instratus_condensate_impl = .false.
+      case default
+         use_native_instratus_condensate_impl = .false.
+      end select
+   end if
+   instratus_condensate_impl_selected = .true.
+   if (masterproc) then
+      if (use_native_instratus_condensate_impl) then
+         write(iulog,*) 'cldwat2m_instratus_condensate implementation = native'
+      else
+         write(iulog,*) 'cldwat2m_instratus_condensate implementation = codon'
+      end if
+   end if
+   end subroutine instratus_condensate_select_impl
+
+   subroutine instratus_condensate_log_entered()
+   if (instratus_condensate_entered_logged) return
+   instratus_condensate_entered_logged = .true.
+   if (masterproc) then
+      write(iulog,*) 'cldwat2m_instratus_condensate direct = codon with native qsat_water/astG_single/aist_single islands'
+   end if
+   end subroutine instratus_condensate_log_entered
+
    ! ----------------- !
    ! End of subroutine !
    ! ----------------- !
@@ -3203,6 +3283,17 @@ end subroutine rhcrit_calc
            rhminl_in=rhminl_c, rhminl_adj_land_in=rhminl_adj_land_c, rhminh_in=rhminh_c)
    end if
    end subroutine cldwat2m_astg_single_native_cb
+
+   subroutine cldwat2m_aist_single_native_cb(qv_c, t_c, p_c, qi_c, landfrac_c, snowh_c, &
+        rhmaxi_c, rhmini_c, rhminl_c, rhminl_adj_land_c, rhminh_c, aist_c) &
+        bind(C, name="cldwat2m_aist_single_native_cb")
+   real(c_double), value :: qv_c, t_c, p_c, qi_c, landfrac_c, snowh_c
+   real(c_double), value :: rhmaxi_c, rhmini_c, rhminl_c, rhminl_adj_land_c, rhminh_c
+   real(c_double), intent(out) :: aist_c
+
+   call aist_single(qv_c, t_c, p_c, qi_c, landfrac_c, snowh_c, aist_c, &
+        rhmaxi_c, rhmini_c, rhminl_c, rhminl_adj_land_c, rhminh_c)
+   end subroutine cldwat2m_aist_single_native_cb
 
    ! ----------------- !
    ! End of subroutine !
