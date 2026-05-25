@@ -126,6 +126,24 @@ def vertical_diffusion_ts_init_codon():
 
 
 @export
+def vd_register_plan_codon(shallow_unicon: int, count_p: cobj, codes_p: cobj):
+    count = Ptr[int](count_p)
+    codes = Ptr[int](codes_p)
+
+    n = 0
+    for code in range(1, 12):
+        codes[n] = code
+        n += 1
+
+    if shallow_unicon != 0:
+        for code in range(12, 20):
+            codes[n] = code
+            n += 1
+
+    count[0] = n
+
+
+@export
 def vertical_diffusion_tend_select_branches_codon(
     do_tms: int,
     do_molec_diff: int,

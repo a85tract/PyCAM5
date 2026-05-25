@@ -137,6 +137,9 @@ module vertical_diffusion
   logical              :: prog_modal_aero = .false.    ! set true if prognostic modal aerosols are present
   logical              :: use_native_vd_readnl_impl = .false.
   logical              :: vd_readnl_impl_selected = .false.
+  logical              :: use_native_vd_register_impl = .false.
+  logical              :: vd_register_impl_selected = .false.
+  logical              :: vd_register_logged = .false.
   logical              :: use_native_ts_init_impl = .false.
   logical              :: ts_init_impl_selected = .false.
   logical              :: ts_init_logged = .false.
@@ -185,6 +188,13 @@ module vertical_diffusion
 
      subroutine vertical_diffusion_ts_init_codon() bind(c, name="vertical_diffusion_ts_init_codon")
      end subroutine vertical_diffusion_ts_init_codon
+
+     subroutine vd_register_plan_codon(shallow_unicon_c, count_p, codes_p) &
+          bind(c, name="vd_register_plan_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: shallow_unicon_c
+       type(c_ptr), value :: count_p, codes_p
+     end subroutine vd_register_plan_codon
   end interface
 
 contains
@@ -244,6 +254,44 @@ contains
     end if
 
   end subroutine vd_readnl_select_impl
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+  subroutine vd_register_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (vd_register_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('VD_REGISTER_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_vd_register_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_vd_register_impl = .false.
+    end if
+
+    vd_register_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_vd_register_impl) then
+          write(iulog,*) 'vd_register implementation = native'
+       else
+          write(iulog,*) 'vd_register implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine vd_register_select_impl
 
   ! =============================================================================== !
   !                                                                                 !
@@ -337,7 +385,12 @@ contains
     ! Register physics buffer fields and constituents !
     !------------------------------------------------ !
 
+    use iso_c_binding,       only : c_int64_t, c_loc
     use physics_buffer,      only : pbuf_add_field, dtype_r8, dtype_i4
+
+    integer :: ifield
+    integer(c_int64_t), target :: vd_register_count
+    integer(c_int64_t), target :: vd_register_codes(19)
 
     ! Get eddy_scheme setting from phys_control.F90
 
@@ -345,6 +398,60 @@ contains
                        shallow_scheme_out       =       shallow_scheme, &
                        microp_scheme_out        =        microp_scheme, &
                        do_tms_out               =               do_tms)
+
+    call vd_register_select_impl()
+
+    if (.not. use_native_vd_register_impl) then
+       call vd_register_plan_codon(merge(1_c_int64_t, 0_c_int64_t, trim(shallow_scheme) == 'UNICON'), &
+            c_loc(vd_register_count), c_loc(vd_register_codes(1)))
+       do ifield = 1, int(vd_register_count)
+          select case (int(vd_register_codes(ifield)))
+          case (1)
+             call pbuf_add_field('kvt', 'physpkg', dtype_r8, (/pcols,pverp/), kvt_idx)
+          case (2)
+             call pbuf_add_field('pblh',     'global', dtype_r8, (/pcols/),        pblh_idx)
+          case (3)
+             call pbuf_add_field('tke',      'global', dtype_r8, (/pcols, pverp/), tke_idx)
+          case (4)
+             call pbuf_add_field('kvh',      'global', dtype_r8, (/pcols, pverp/), kvh_idx)
+          case (5)
+             call pbuf_add_field('kvm',      'global', dtype_r8, (/pcols, pverp/), kvm_idx)
+          case (6)
+             call pbuf_add_field('turbtype', 'global', dtype_i4, (/pcols, pverp/), turbtype_idx)
+          case (7)
+             call pbuf_add_field('smaw',     'global', dtype_r8, (/pcols, pverp/), smaw_idx)
+          case (8)
+             call pbuf_add_field('tauresx',  'global', dtype_r8, (/pcols/),        tauresx_idx)
+          case (9)
+             call pbuf_add_field('tauresy',  'global', dtype_r8, (/pcols/),        tauresy_idx)
+          case (10)
+             call pbuf_add_field('tpert', 'global', dtype_r8, (/pcols/),                       tpert_idx)
+          case (11)
+             call pbuf_add_field('qpert', 'global', dtype_r8, (/pcols,pcnst/),                 qpert_idx)
+          case (12)
+             call pbuf_add_field('bprod',    'global', dtype_r8, (/pcols,pverp/), bprod_idx)
+          case (13)
+             call pbuf_add_field('ipbl',     'global', dtype_i4, (/pcols/),       ipbl_idx)
+          case (14)
+             call pbuf_add_field('kpblh',    'global', dtype_i4, (/pcols/),       kpblh_idx)
+          case (15)
+             call pbuf_add_field('wstarPBL', 'global', dtype_r8, (/pcols/),       wstarPBL_idx)
+          case (16)
+             call pbuf_add_field('tkes',     'global', dtype_r8, (/pcols/),       tkes_idx)
+          case (17)
+             call pbuf_add_field('went',     'global', dtype_r8, (/pcols/),       went_idx)
+          case (18)
+             call pbuf_add_field('qtl_flx',  'global', dtype_r8, (/pcols, pverp/), qtl_flx_idx)
+          case (19)
+             call pbuf_add_field('qti_flx',  'global', dtype_r8, (/pcols, pverp/), qti_flx_idx)
+          case default
+             call endrun('vd_register: Codon registration plan contained an unknown field code')
+          end select
+       end do
+       call vertical_diffusion_log_direct(vd_register_logged, &
+            'vd_register direct = codon registration plan; native phys_getopts/pbuf_add_field callbacks')
+       return
+    end if
 
     ! Add fields to physics buffer
 
