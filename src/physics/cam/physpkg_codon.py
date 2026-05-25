@@ -4134,6 +4134,16 @@ def insoluble_optics_init_dim_mask_codon(nbnd: int, nlwbands: int, swbands: int,
 
 
 @export
+def hygroscopic_optics_init_dim_mask_codon(nbnd: int, nlwbands: int, swbands: int, nswbands: int) -> int:
+    mask = 0
+    if nbnd != nlwbands:
+        mask |= 1
+    if swbands != nswbands:
+        mask |= 2
+    return mask
+
+
+@export
 def refindex_aer_init_fill_complex_codon(n: int, ref_real_p: cobj, ref_im_p: cobj, refindex_p: cobj):
     ref_real = Ptr[float](ref_real_p)
     ref_im = Ptr[float](ref_im_p)
