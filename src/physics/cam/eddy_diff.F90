@@ -228,7 +228,7 @@
   logical                     :: exacol_impl_selected = .false.
   logical                     :: use_native_zisocl_impl = .false.
   logical                     :: zisocl_impl_selected = .false.
-  logical                     :: zisocl_shell_main_path_traced = .false.
+  logical                     :: zisocl_direct_path_traced = .false.
   logical                     :: use_native_compute_radf_impl = .false.
   logical                     :: compute_radf_impl_selected = .false.
   logical                     :: use_native_caleddy_impl = .false.
@@ -9747,7 +9747,7 @@
        ncvsurf = 0
        if( ncvfin(i) .gt. 0 ) then 
            if (use_native_caleddy_impl) then
-              call zisocl_native(pcols, pver, i, z, zi, n2, s2, bprod, sprod, bflxs, tkes, ncvfin, kbase, ktop, belongcv, &
+              call zisocl(pcols, pver, i, z, zi, n2, s2, bprod, sprod, bflxs, tkes, ncvfin, kbase, ktop, belongcv, &
                    ricl, ghcl, shcl, smcl, lbrk, wbrk, ebrk, extend, extend_up, extend_dn)
            else
               call eddy_diff_caleddy_core_batch_zisocl_call(i, pcols, pver, ncvmax, tunl_mode, leng_mode, &
@@ -10242,17 +10242,19 @@
                        ricl   , ghcl  , shcl ,  smcl    ,                      &
                        lbrk   , wbrk  , ebrk ,  extend  , extend_up, extend_dn )
 
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
+
     implicit none
 
     integer, intent(in) :: pcols, pver, long
-    real(r8), intent(in) :: z(pcols,pver), zi(pcols,pver+1)
-    real(r8), intent(in) :: n2(pcols,pver), s2(pcols,pver)
-    real(r8), intent(in) :: bprod(pcols,pver+1), sprod(pcols,pver+1)
-    real(r8), intent(in) :: bflxs(pcols), tkes(pcols)
-    integer(i4), intent(inout) :: ncvfin(pcols), kbase(pcols,ncvmax), ktop(pcols,ncvmax)
+    real(r8), target, intent(in) :: z(pcols,pver), zi(pcols,pver+1)
+    real(r8), target, intent(in) :: n2(pcols,pver), s2(pcols,pver)
+    real(r8), target, intent(in) :: bprod(pcols,pver+1), sprod(pcols,pver+1)
+    real(r8), target, intent(in) :: bflxs(pcols), tkes(pcols)
+    integer(i4), target, intent(inout) :: ncvfin(pcols), kbase(pcols,ncvmax), ktop(pcols,ncvmax)
     logical, intent(out) :: belongcv(pcols,pver+1)
-    real(r8), intent(out) :: ricl(pcols,ncvmax), ghcl(pcols,ncvmax), shcl(pcols,ncvmax), smcl(pcols,ncvmax)
-    real(r8), intent(out) :: lbrk(pcols,ncvmax), wbrk(pcols,ncvmax), ebrk(pcols,ncvmax)
+    real(r8), target, intent(out) :: ricl(pcols,ncvmax), ghcl(pcols,ncvmax), shcl(pcols,ncvmax), smcl(pcols,ncvmax)
+    real(r8), target, intent(out) :: lbrk(pcols,ncvmax), wbrk(pcols,ncvmax), ebrk(pcols,ncvmax)
     logical, intent(out) :: extend, extend_up, extend_dn
 
     logical :: saved_use_native_zisocl_surface_energy_impl, saved_zisocl_surface_energy_impl_selected
@@ -10267,8 +10269,93 @@
     logical :: saved_use_native_zisocl_stability_impl, saved_zisocl_stability_impl_selected
     logical :: saved_use_native_zisocl_layer_energy_impl, saved_zisocl_layer_energy_impl_selected
     logical :: saved_use_native_zisocl_interface_energy_impl, saved_zisocl_interface_energy_impl_selected
+    integer :: k
+    integer :: tunl_mode_local, leng_mode_local, use_dw_surf_mode_local, choice_tkes_ebprod_mode_local
+    integer(i4), target :: belongcv_mask_local(pver+1)
+    integer(i4), target :: extend_codon, extend_up_codon, extend_dn_codon, zisocl_status_codon
+
+    interface
+       subroutine eddy_diff_zisocl_codon(i_c, pcols_c, pver_c, ncvmax_c, ntop_turb_c, use_dw_surf_c, &
+            choice_tkes_ebprod_c, tunl_mode_c, leng_mode_c, alph1_c, alph2_c, alph3_c, alph4_c, alph5_c, &
+            b1_c, vk_c, ntzero_c, ricrit_c, lbulk_max_c, tunl_c, ctunl_c, cleng_c, tkemax_c, rinc_c, z_p, &
+            zi_p, n2_p, s2_p, leng_max_p, bprod_p, sprod_p, bflxs_p, tkes_p, ncvfin_p, kbase_p, ktop_p, &
+            ricl_p, ghcl_p, shcl_p, smcl_p, lbrk_p, wbrk_p, ebrk_p, belong_mask_p, extend_p, extend_up_p, &
+            extend_dn_p, status_p) bind(c, name="eddy_diff_zisocl_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: i_c, pcols_c, pver_c, ncvmax_c, ntop_turb_c, use_dw_surf_c
+         integer(c_int64_t), value :: choice_tkes_ebprod_c, tunl_mode_c, leng_mode_c
+         real(c_double), value :: alph1_c, alph2_c, alph3_c, alph4_c, alph5_c, b1_c, vk_c, ntzero_c, ricrit_c
+         real(c_double), value :: lbulk_max_c, tunl_c, ctunl_c, cleng_c, tkemax_c, rinc_c
+         type(c_ptr), value :: z_p, zi_p, n2_p, s2_p, leng_max_p, bprod_p, sprod_p, bflxs_p, tkes_p, ncvfin_p
+         type(c_ptr), value :: kbase_p, ktop_p, ricl_p, ghcl_p, shcl_p, smcl_p, lbrk_p, wbrk_p, ebrk_p
+         type(c_ptr), value :: belong_mask_p, extend_p, extend_up_p, extend_dn_p, status_p
+       end subroutine eddy_diff_zisocl_codon
+    end interface
 
     call zisocl_select_impl()
+
+    if (.not. use_native_zisocl_impl) then
+       tunl_mode_local = 0
+       if( choice_tunl .eq. 'rampcl' ) then
+          tunl_mode_local = 1
+       elseif( choice_tunl .eq. 'rampsl' ) then
+          tunl_mode_local = 2
+       end if
+
+       leng_mode_local = 1
+       if( choice_leng .eq. 'origin' ) then
+          leng_mode_local = 0
+       end if
+
+       use_dw_surf_mode_local = 0
+       if (use_dw_surf) use_dw_surf_mode_local = 1
+
+       choice_tkes_ebprod_mode_local = 0
+       if (choice_tkes .eq. 'ebprod') choice_tkes_ebprod_mode_local = 1
+
+       extend_codon = 0_i4
+       extend_up_codon = 0_i4
+       extend_dn_codon = 0_i4
+       zisocl_status_codon = 0_i4
+
+       if (masterproc .and. .not. zisocl_direct_path_traced) then
+          write(iulog,'(A)') 'eddy_diff_zisocl direct = codon'
+          write(*,'(A)') 'eddy_diff_zisocl direct = codon'
+          call eddy_diff_append_impl_trace('eddy_diff_zisocl direct = codon')
+          call flush(iulog)
+          zisocl_direct_path_traced = .true.
+       end if
+
+       call eddy_diff_zisocl_codon(int(long, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+            int(ncvmax, c_int64_t), int(ntop_turb, c_int64_t), int(use_dw_surf_mode_local, c_int64_t), &
+            int(choice_tkes_ebprod_mode_local, c_int64_t), int(tunl_mode_local, c_int64_t), &
+            int(leng_mode_local, c_int64_t), real(alph1, c_double), real(alph2, c_double), &
+            real(alph3, c_double), real(alph4, c_double), real(alph5, c_double), real(b1, c_double), &
+            real(vk, c_double), real(ntzero, c_double), real(ricrit, c_double), real(lbulk_max, c_double), &
+            real(tunl, c_double), real(ctunl, c_double), real(cleng, c_double), real(tkemax, c_double), &
+            real(rinc, c_double), c_loc(z), c_loc(zi), c_loc(n2), c_loc(s2), c_loc(leng_max), &
+            c_loc(bprod), c_loc(sprod), c_loc(bflxs), c_loc(tkes), c_loc(ncvfin), c_loc(kbase), &
+            c_loc(ktop), c_loc(ricl), c_loc(ghcl), c_loc(shcl), c_loc(smcl), c_loc(lbrk), &
+            c_loc(wbrk), c_loc(ebrk), c_loc(belongcv_mask_local), c_loc(extend_codon), &
+            c_loc(extend_up_codon), c_loc(extend_dn_codon), c_loc(zisocl_status_codon))
+
+       if (zisocl_status_codon .eq. 1_i4) then
+          write(iulog,*) 'zisocl: Error: Tried to extend CL to the model top'
+          call endrun('zisocl: Error: Tried to extend CL to the model top')
+       elseif (zisocl_status_codon .eq. 2_i4) then
+          write(iulog,*) 'Major mistake zisocl: the CL based at surface is not indexed 1'
+          call endrun('Major mistake zisocl: the CL based at surface is not indexed 1')
+       end if
+
+       do k = 1, pver + 1
+          belongcv(long,k) = belongcv_mask_local(k) .ne. 0_i4
+       end do
+       extend = extend_codon .ne. 0_i4
+       extend_up = extend_up_codon .ne. 0_i4
+       extend_dn = extend_dn_codon .ne. 0_i4
+
+       return
+    end if
 
     saved_use_native_zisocl_surface_energy_impl = use_native_zisocl_surface_energy_impl
     saved_zisocl_surface_energy_impl_selected = zisocl_surface_energy_impl_selected
@@ -10319,11 +10406,6 @@
     zisocl_layer_energy_impl_selected = .true.
     use_native_zisocl_interface_energy_impl = use_native_zisocl_impl
     zisocl_interface_energy_impl_selected = .true.
-
-    if (.not. use_native_zisocl_impl .and. masterproc .and. .not. zisocl_shell_main_path_traced) then
-       call eddy_diff_append_impl_trace('eddy_diff_zisocl main path = shell')
-       zisocl_shell_main_path_traced = .true.
-    end if
 
     call zisocl_native(pcols, pver, long, z, zi, n2, s2, bprod, sprod, bflxs, tkes, ncvfin, kbase, ktop, belongcv, ricl, &
          ghcl, shcl, smcl, lbrk, wbrk, ebrk, extend, extend_up, extend_dn)
