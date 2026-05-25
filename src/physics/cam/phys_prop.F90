@@ -132,12 +132,22 @@ logical :: hygroscopic_optics_init_logged = .false.
 logical :: use_native_modal_optics_init_impl = .false.
 logical :: modal_optics_init_impl_selected = .false.
 logical :: modal_optics_init_logged = .false.
+logical :: use_native_physprop_init_impl = .false.
+logical :: physprop_init_impl_selected = .false.
+logical :: physprop_init_logged = .false.
 logical :: physprop_get_id_logged = .false.
 logical :: exp_interpol_logged = .false.
 logical :: lin_interpol_logged = .false.
 logical :: aer_optics_log_rh_logged = .false.
 
 interface
+   subroutine physprop_init_file_order_codon(numphysprops_c, file_order_p) &
+        bind(c, name="physprop_init_file_order_codon")
+     use iso_c_binding, only: c_int64_t, c_ptr
+     integer(c_int64_t), value :: numphysprops_c
+     type(c_ptr), value :: file_order_p
+   end subroutine physprop_init_file_order_codon
+
    function modal_optics_init_dim_mask_codon(lw_val_c, nlwbands_c, sw_val_c, nswbands_c) &
         result(mask_c) bind(c, name="modal_optics_init_dim_mask_codon")
      use iso_c_binding, only: c_int64_t
@@ -545,6 +555,43 @@ end subroutine modal_optics_init_select_impl
 
 !================================================================================================
 
+subroutine physprop_init_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (physprop_init_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('PHYS_PROP_INIT_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_physprop_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_physprop_init_impl = .false.
+   end if
+
+   physprop_init_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_physprop_init_impl) then
+         write(iulog,*) 'physprop_init implementation = native'
+      else
+         write(iulog,*) 'physprop_init implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine physprop_init_select_impl
+
+!================================================================================================
+
 subroutine bulk_props_init_log_direct()
 
    if (bulk_props_init_logged) return
@@ -612,6 +659,20 @@ subroutine modal_optics_init_log_direct()
    end if
 
 end subroutine modal_optics_init_log_direct
+
+!================================================================================================
+
+subroutine physprop_init_log_direct()
+
+   if (physprop_init_logged) return
+   physprop_init_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'physprop_init direct = codon file-loop order; native pointer nullify and PIO reads'
+      call flush(iulog)
+   end if
+
+end subroutine physprop_init_log_direct
 
 !================================================================================================
 
@@ -861,6 +922,8 @@ end subroutine physprop_accum_unique_files
 
 subroutine physprop_init()
 
+   use iso_c_binding, only: c_int64_t, c_loc
+
    ! Read properties from the aerosol data files.
 
    ! ***N.B.*** The calls to physprop_accum_unique_files must be made before calling
@@ -868,19 +931,32 @@ subroutine physprop_init()
    !            the list of files to be read here.
 
    ! Local variables
-   integer            :: fileindex
+   integer            :: fileindex, loopindex
    type(file_desc_t)  :: nc_id ! index to netcdf file
    character(len=256) :: locfn ! path to actual file used
    character(len=32)  :: aername_str ! string read from netCDF file -- may contain trailing
                                      ! nulls which aren't dealt with by trim()
    
    integer :: ierr ! error codes from mpi
+   integer(c_int64_t), allocatable, target :: file_order(:)
 
    !------------------------------------------------------------------------------------
 
    allocate(physprop(numphysprops))
+   allocate(file_order(max(1, numphysprops)))
 
-   do fileindex = 1, numphysprops
+   call physprop_init_select_impl()
+   if (use_native_physprop_init_impl) then
+      do fileindex = 1, numphysprops
+         file_order(fileindex) = int(fileindex, c_int64_t)
+      end do
+   else
+      call physprop_init_file_order_codon(int(numphysprops, c_int64_t), c_loc(file_order(1)))
+      call physprop_init_log_direct()
+   end if
+
+   do loopindex = 1, numphysprops
+      fileindex = int(file_order(loopindex))
       nullify(physprop(fileindex)%sw_hygro_ext)
       nullify(physprop(fileindex)%sw_hygro_ssa)
       nullify(physprop(fileindex)%sw_hygro_asm)
@@ -923,6 +999,7 @@ subroutine physprop_init()
       call pio_closefile(nc_id)
 
    end do
+   deallocate(file_order)
 end subroutine physprop_init
 
 !================================================================================================

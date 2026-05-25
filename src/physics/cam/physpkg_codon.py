@@ -4154,6 +4154,15 @@ def modal_optics_init_dim_mask_codon(lw_val: int, nlwbands: int, sw_val: int, ns
 
 
 @export
+def physprop_init_file_order_codon(numphysprops: int, file_order_p: cobj):
+    file_order = Ptr[int](file_order_p)
+    i = 0
+    while i < numphysprops:
+        file_order[i] = i + 1
+        i += 1
+
+
+@export
 def modal_optics_init_copy_mode1_codon(
     ncoef: int,
     prefr: int,
