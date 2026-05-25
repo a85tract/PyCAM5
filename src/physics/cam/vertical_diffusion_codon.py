@@ -143,6 +143,86 @@ def vd_register_plan_codon(shallow_unicon: int, count_p: cobj, codes_p: cobj):
     count[0] = n
 
 
+@inline
+def _press_lim_idx_local(p: float, top: int, pver: int, pref_mid: Ptr[float]) -> int:
+    if top != 0:
+        k_lim = pver + 1
+        for k in range(1, pver + 1):
+            if pref_mid[k - 1] > p:
+                k_lim = k
+                break
+        return k_lim
+
+    k_lim = 0
+    for k in range(pver, 0, -1):
+        if pref_mid[k - 1] < p:
+            k_lim = k
+            break
+    return k_lim
+
+
+@export
+def vertical_diffusion_init_plan_codon(
+    pver: int,
+    pcnst: int,
+    waccmx_mode: int,
+    ntop_molec: int,
+    nbot_molec: int,
+    ntop_eddy_pres: float,
+    pref_mid_p: cobj,
+    prog_modal_aero: int,
+    ixnumliq: int,
+    pmam_ncnst: int,
+    pmam_cnst_idx_p: cobj,
+    cnst_is_wet_p: cobj,
+    cnst_is_minor_p: cobj,
+    init_out_p: cobj,
+    q_plan_p: cobj,
+    molec_plan_p: cobj,
+):
+    pref_mid = Ptr[float](pref_mid_p)
+    pmam_cnst_idx = Ptr[int](pmam_cnst_idx_p)
+    cnst_is_wet = Ptr[int](cnst_is_wet_p)
+    cnst_is_minor = Ptr[int](cnst_is_minor_p)
+    init_out = Ptr[int](init_out_p)
+    q_plan = Ptr[int](q_plan_p)
+    molec_plan = Ptr[int](molec_plan_p)
+
+    if waccmx_mode != 0:
+        ntop_eddy = _press_lim_idx_local(ntop_eddy_pres, 1, pver, pref_mid)
+    else:
+        ntop_eddy = 1
+    nbot_eddy = pver
+
+    init_out[0] = ntop_eddy
+    init_out[1] = nbot_eddy
+    init_out[2] = min(ntop_molec, ntop_eddy)
+    init_out[3] = max(nbot_molec, nbot_eddy)
+
+    for k in range(1, pcnst + 1):
+        q_plan[k - 1] = 0
+        molec_plan[k - 1] = 0
+
+        skip = False
+        if prog_modal_aero != 0:
+            if k == ixnumliq:
+                skip = True
+            for m in range(1, pmam_ncnst + 1):
+                if k == int(pmam_cnst_idx[m - 1]):
+                    skip = True
+
+        if skip:
+            continue
+
+        if cnst_is_wet[k - 1] != 0:
+            q_plan[k - 1] = 1
+        else:
+            q_plan[k - 1] = 2
+
+        if cnst_is_minor[k - 1] != 0:
+            molec_plan[k - 1] = 1
+
+
 @export
 def vertical_diffusion_tend_select_branches_codon(
     do_tms: int,

@@ -140,6 +140,9 @@ module vertical_diffusion
   logical              :: use_native_vd_register_impl = .false.
   logical              :: vd_register_impl_selected = .false.
   logical              :: vd_register_logged = .false.
+  logical              :: use_native_vertical_diffusion_init_impl = .false.
+  logical              :: vertical_diffusion_init_impl_selected = .false.
+  logical              :: vertical_diffusion_init_logged = .false.
   logical              :: use_native_ts_init_impl = .false.
   logical              :: ts_init_impl_selected = .false.
   logical              :: ts_init_logged = .false.
@@ -195,6 +198,18 @@ module vertical_diffusion
        integer(c_int64_t), value :: shallow_unicon_c
        type(c_ptr), value :: count_p, codes_p
      end subroutine vd_register_plan_codon
+
+     subroutine vertical_diffusion_init_plan_codon(pver_c, pcnst_c, waccmx_mode_c, ntop_molec_c, &
+          nbot_molec_c, ntop_eddy_pres_c, pref_mid_p, prog_modal_aero_c, ixnumliq_c, pmam_ncnst_c, &
+          pmam_cnst_idx_p, cnst_is_wet_p, cnst_is_minor_p, init_out_p, q_plan_p, molec_plan_p) &
+          bind(c, name="vertical_diffusion_init_plan_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: pver_c, pcnst_c, waccmx_mode_c, ntop_molec_c, nbot_molec_c
+       real(c_double), value :: ntop_eddy_pres_c
+       integer(c_int64_t), value :: prog_modal_aero_c, ixnumliq_c, pmam_ncnst_c
+       type(c_ptr), value :: pref_mid_p, pmam_cnst_idx_p, cnst_is_wet_p, cnst_is_minor_p
+       type(c_ptr), value :: init_out_p, q_plan_p, molec_plan_p
+     end subroutine vertical_diffusion_init_plan_codon
   end interface
 
 contains
@@ -292,6 +307,44 @@ contains
     end if
 
   end subroutine vd_register_select_impl
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
+  subroutine vertical_diffusion_init_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (vertical_diffusion_init_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('VERTICAL_DIFFUSION_INIT_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_vertical_diffusion_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_vertical_diffusion_init_impl = .false.
+    end if
+
+    vertical_diffusion_init_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_vertical_diffusion_init_impl) then
+          write(iulog,*) 'vertical_diffusion_init implementation = native'
+       else
+          write(iulog,*) 'vertical_diffusion_init implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine vertical_diffusion_init_select_impl
 
   ! =============================================================================== !
   !                                                                                 !
@@ -508,6 +561,7 @@ contains
     use physics_buffer,    only : pbuf_set_field, pbuf_get_index, physics_buffer_desc
     use rad_constituents,  only : rad_cnst_get_info, rad_cnst_get_mode_num_idx, &
                                   rad_cnst_get_mam_mmr_idx
+    use iso_c_binding,     only : c_double, c_int64_t, c_loc
 
     type(physics_buffer_desc), pointer :: pbuf2d(:,:)
     character(128) :: errstring   ! Error status for init_vdiff
@@ -518,12 +572,18 @@ contains
     real(r8), parameter :: ntop_eddy_pres = 1.e-5_r8 ! Pressure below which eddy diffusion is not done in WACCM-X. (Pa)
 
     integer :: im, l, m, nmodes, nspec
+    integer(c_int64_t), target :: init_plan_out(4)
+    integer(c_int64_t), target :: q_select_plan(pcnst), molec_select_plan(pcnst)
+    integer(c_int64_t), target :: cnst_is_wet(pcnst), cnst_is_minor(pcnst)
+    integer(c_int64_t), target :: pmam_cnst_idx_dummy(1)
 
     ! ----------------------------------------------------------------- !
 
     if (masterproc) then
        write(iulog,*)'Initializing vertical diffusion (vertical_diffusion_init)'
     end if
+
+    call vertical_diffusion_init_select_impl()
 
     ! ----------------------------------------------------------------- !
     ! Get indices of cloud liquid and ice within the constituents array !
@@ -572,6 +632,32 @@ contains
        pmam_cnst_idx_c(:) = int(pmam_cnst_idx(:), c_int64_t)
     end if
 
+    if (.not. use_native_vertical_diffusion_init_impl) then
+       pmam_cnst_idx_dummy(1) = 0_c_int64_t
+       do k = 1, pcnst
+          cnst_is_wet(k)   = merge(1_c_int64_t, 0_c_int64_t, cnst_get_type_byind(k) .eq. 'wet')
+          cnst_is_minor(k) = merge(1_c_int64_t, 0_c_int64_t, cnst_get_molec_byind(k) .eq. 'minor')
+       end do
+
+       if (prog_modal_aero) then
+          call vertical_diffusion_init_plan_codon(int(pver, c_int64_t), int(pcnst, c_int64_t), &
+               merge(1_c_int64_t, 0_c_int64_t, waccmx_is('ionosphere') .or. waccmx_is('neutral')), &
+               int(ntop_molec, c_int64_t), int(nbot_molec, c_int64_t), real(ntop_eddy_pres, c_double), &
+               c_loc(pref_mid(1)), merge(1_c_int64_t, 0_c_int64_t, prog_modal_aero), &
+               int(ixnumliq, c_int64_t), int(pmam_ncnst, c_int64_t), c_loc(pmam_cnst_idx_c(1)), &
+               c_loc(cnst_is_wet(1)), c_loc(cnst_is_minor(1)), c_loc(init_plan_out(1)), &
+               c_loc(q_select_plan(1)), c_loc(molec_select_plan(1)))
+       else
+          call vertical_diffusion_init_plan_codon(int(pver, c_int64_t), int(pcnst, c_int64_t), &
+               merge(1_c_int64_t, 0_c_int64_t, waccmx_is('ionosphere') .or. waccmx_is('neutral')), &
+               int(ntop_molec, c_int64_t), int(nbot_molec, c_int64_t), real(ntop_eddy_pres, c_double), &
+               c_loc(pref_mid(1)), merge(1_c_int64_t, 0_c_int64_t, prog_modal_aero), &
+               int(ixnumliq, c_int64_t), int(pmam_ncnst, c_int64_t), c_loc(pmam_cnst_idx_dummy(1)), &
+               c_loc(cnst_is_wet(1)), c_loc(cnst_is_minor(1)), c_loc(init_plan_out(1)), &
+               c_loc(q_select_plan(1)), c_loc(molec_select_plan(1)))
+       end if
+    end if
+
     ! ---------------------------------------------------------------------------------------- !
     ! Initialize molecular diffusivity module                                                  !
     ! Note that computing molecular diffusivities is a trivial expense, but constituent        !
@@ -599,12 +685,17 @@ contains
  
     ! ntop_eddy must be 1 or <= nbot_molec
     ! Currently, it is always 1 except for WACCM-X.
-    if ( waccmx_is('ionosphere') .or. waccmx_is('neutral') ) then
-       ntop_eddy  = press_lim_idx(ntop_eddy_pres, top=.true.)
+    if (.not. use_native_vertical_diffusion_init_impl) then
+       ntop_eddy = int(init_plan_out(1))
+       nbot_eddy = int(init_plan_out(2))
     else
-       ntop_eddy = 1
+       if ( waccmx_is('ionosphere') .or. waccmx_is('neutral') ) then
+          ntop_eddy  = press_lim_idx(ntop_eddy_pres, top=.true.)
+       else
+          ntop_eddy = 1
+       end if
+       nbot_eddy  = pver
     end if
-    nbot_eddy  = pver
 
     if (masterproc) write(iulog, fmt='(a,i3,5x,a,i3)') 'NTOP_EDDY  =', ntop_eddy, 'NBOT_EDDY  =', nbot_eddy
 
@@ -626,8 +717,13 @@ contains
     ! The vertical diffusion solver must operate 
     ! over the full range of molecular and eddy diffusion
 
-    ntop = min(ntop_molec,ntop_eddy)
-    nbot = max(nbot_molec,nbot_eddy)
+    if (.not. use_native_vertical_diffusion_init_impl) then
+       ntop = int(init_plan_out(3))
+       nbot = int(init_plan_out(4))
+    else
+       ntop = min(ntop_molec,ntop_eddy)
+       nbot = max(nbot_molec,nbot_eddy)
+    end if
     
     ! ------------------------------------------- !
     ! Initialize turbulent mountain stress module !
@@ -671,6 +767,23 @@ contains
     if( vdiff_select( fieldlist_wet, 'v' ) .ne. '' ) call endrun( vdiff_select( fieldlist_wet, 'v' ) )
     if( vdiff_select( fieldlist_wet, 's' ) .ne. '' ) call endrun( vdiff_select( fieldlist_wet, 's' ) )
 
+    if (.not. use_native_vertical_diffusion_init_impl) then
+       do k = 1, pcnst
+          select case (int(q_select_plan(k)))
+          case (1)
+             if( vdiff_select( fieldlist_wet, 'q', k ) .ne. '' ) call endrun( vdiff_select( fieldlist_wet, 'q', k ) )
+          case (2)
+             if( vdiff_select( fieldlist_dry, 'q', k ) .ne. '' ) call endrun( vdiff_select( fieldlist_dry, 'q', k ) )
+          end select
+
+          if (molec_select_plan(k) /= 0_c_int64_t) then
+             if( vdiff_select(fieldlist_molec,'q',k) .ne. '' ) call endrun( vdiff_select( fieldlist_molec,'q',k ) )
+          end if
+       end do
+
+       call vertical_diffusion_log_direct(vertical_diffusion_init_logged, &
+            'vertical_diffusion_init direct = codon init limits and fieldlist plan; native module init/history/pbuf callbacks')
+    else
     constit_loop: do k = 1, pcnst
 
        if (prog_modal_aero) then
@@ -696,6 +809,7 @@ contains
        endif
 
     end do constit_loop
+    end if
     
     ! ------------------------ !
     ! Diagnostic output fields !
