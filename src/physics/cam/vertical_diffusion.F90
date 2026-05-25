@@ -135,6 +135,8 @@ module vertical_diffusion
   logical              :: do_tms                       ! switch for turbulent mountain stress
   logical              :: do_iss                       ! switch for implicit turbulent surface stress
   logical              :: prog_modal_aero = .false.    ! set true if prognostic modal aerosols are present
+  logical              :: use_native_vd_readnl_impl = .false.
+  logical              :: vd_readnl_impl_selected = .false.
   logical              :: use_native_ts_init_impl = .false.
   logical              :: ts_init_impl_selected = .false.
   logical              :: ts_init_logged = .false.
@@ -173,6 +175,14 @@ module vertical_diffusion
   integer(c_int64_t), allocatable, target :: pmam_cnst_idx_c(:) ! 64-bit indices for Codon interop
 
   interface
+     function vd_readnl_codon(path_len_c, path_ascii_p, reals_p, logicals_p) result(status_c) &
+          bind(c, name="vd_readnl_codon")
+       use iso_c_binding, only: c_int64_t, c_ptr
+       integer(c_int64_t), value :: path_len_c
+       type(c_ptr), value :: path_ascii_p, reals_p, logicals_p
+       integer(c_int64_t) :: status_c
+     end function vd_readnl_codon
+
      subroutine vertical_diffusion_ts_init_codon() bind(c, name="vertical_diffusion_ts_init_codon")
      end subroutine vertical_diffusion_ts_init_codon
   end interface
@@ -200,35 +210,106 @@ contains
   ! =============================================================================== !
   !                                                                                 !
   ! =============================================================================== !
+  subroutine vd_readnl_select_impl()
+
+    character(len=32) :: impl_name
+    integer :: status, n, i, code
+
+    if (vd_readnl_impl_selected) return
+
+    impl_name = 'codon'
+    call get_environment_variable('VD_READNL_IMPL', value=impl_name, length=n, status=status)
+
+    if (status == 0 .and. n > 0) then
+       do i = 1, n
+          code = iachar(impl_name(i:i))
+          if (code >= iachar('A') .and. code <= iachar('Z')) then
+             impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+          end if
+       end do
+       use_native_vd_readnl_impl = trim(adjustl(impl_name(:n))) == 'native'
+    else
+       use_native_vd_readnl_impl = .false.
+    end if
+
+    vd_readnl_impl_selected = .true.
+
+    if (masterproc) then
+       if (use_native_vd_readnl_impl) then
+          write(iulog,*) 'vd_readnl implementation = native'
+       else
+          write(iulog,*) 'vd_readnl implementation = codon'
+       end if
+       call flush(iulog)
+    end if
+
+  end subroutine vd_readnl_select_impl
+
+  ! =============================================================================== !
+  !                                                                                 !
+  ! =============================================================================== !
   subroutine vd_readnl(nlfile)
 
     use namelist_utils,  only: find_group_name
     use units,           only: getunit, freeunit
     use mpishorthand
-    use spmd_utils,      only: masterproc
+    use iso_c_binding,   only: c_double, c_int, c_int64_t, c_loc
   
     character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
   
     ! Local variables
-    integer :: unitn, ierr
+    integer :: unitn, ierr, i
     character(len=*), parameter :: subname = 'vd_readnl'
+    integer(c_int64_t) :: status_c
+    integer(c_int64_t), target :: path_ascii(max(1, len(nlfile)))
+    real(c_double), target :: readnl_reals(7)
+    integer(c_int), target :: readnl_logicals(2)
   
     namelist /vert_diff_nl/ kv_top_pressure, kv_top_scale, kv_freetrop_scale, eddy_lbulk_max, eddy_leng_max, &
          eddy_max_bot_pressure, eddy_moist_entrain_a2l, diff_cnsrv_mass_check, do_iss
     !-----------------------------------------------------------------------------
   
+    call vd_readnl_select_impl()
+
     if (masterproc) then
-      unitn = getunit()
-      open( unitn, file=trim(nlfile), status='old' )
-      call find_group_name(unitn, 'vert_diff_nl', status=ierr)
-      if (ierr == 0) then
-        read(unitn, vert_diff_nl, iostat=ierr)
-        if (ierr /= 0) then
-          call endrun(subname // ':: ERROR reading namelist')
+      if (use_native_vd_readnl_impl) then
+        unitn = getunit()
+        open( unitn, file=trim(nlfile), status='old' )
+        call find_group_name(unitn, 'vert_diff_nl', status=ierr)
+        if (ierr == 0) then
+          read(unitn, vert_diff_nl, iostat=ierr)
+          if (ierr /= 0) then
+            call endrun(subname // ':: ERROR reading namelist')
+          end if
         end if
+        close(unitn)
+        call freeunit(unitn)
+      else
+        readnl_reals = (/ real(kv_top_pressure, c_double), real(kv_top_scale, c_double), &
+             real(kv_freetrop_scale, c_double), real(eddy_lbulk_max, c_double), &
+             real(eddy_leng_max, c_double), real(eddy_max_bot_pressure, c_double), &
+             real(eddy_moist_entrain_a2l, c_double) /)
+        readnl_logicals = (/ merge(1, 0, diff_cnsrv_mass_check), merge(1, 0, do_iss) /)
+        do i = 1, len_trim(nlfile)
+           path_ascii(i) = int(iachar(nlfile(i:i)), c_int64_t)
+        end do
+        status_c = vd_readnl_codon(int(len_trim(nlfile), c_int64_t), c_loc(path_ascii(1)), &
+             c_loc(readnl_reals(1)), c_loc(readnl_logicals(1)))
+        if (status_c /= 0_c_int64_t) then
+          call endrun(subname // ':: ERROR reading namelist with Codon parser')
+        end if
+        kv_top_pressure = readnl_reals(1)
+        kv_top_scale = readnl_reals(2)
+        kv_freetrop_scale = readnl_reals(3)
+        eddy_lbulk_max = readnl_reals(4)
+        eddy_leng_max = readnl_reals(5)
+        eddy_max_bot_pressure = readnl_reals(6)
+        eddy_moist_entrain_a2l = readnl_reals(7)
+        diff_cnsrv_mass_check = readnl_logicals(1) /= 0
+        do_iss = readnl_logicals(2) /= 0
+        write(iulog,'(A)') 'vd_readnl direct = codon namelist parser; native MPI broadcast'
+        call flush(iulog)
       end if
-      close(unitn)
-      call freeunit(unitn)
     end if
   
 #ifdef SPMD

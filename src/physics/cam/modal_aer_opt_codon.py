@@ -1,6 +1,94 @@
 from math import exp
 
 @inline
+def _ascii_ptr_to_str(n: int, ptr_p: cobj) -> str:
+    ptr = Ptr[int](ptr_p)
+    out = ""
+    for i in range(n):
+        out += chr(ptr[i])
+    return out.strip()
+
+
+@inline
+def _strip_comment(line: str) -> str:
+    pos = line.find("!")
+    if pos >= 0:
+        return line[:pos]
+    return line
+
+
+@inline
+def _find_group_end(line: str) -> int:
+    quote = ""
+    for i in range(len(line)):
+        ch = line[i]
+        if quote:
+            if ch == quote:
+                quote = ""
+        elif ch == "'" or ch == '"':
+            quote = ch
+        elif ch == "/":
+            return i
+    return -1
+
+
+@export
+def modal_aer_opt_readnl_codon(
+    path_len: int,
+    path_ascii_p: cobj,
+    value_len: int,
+    value_ascii_p: cobj,
+) -> int:
+    path = _ascii_ptr_to_str(path_len, path_ascii_p)
+    value_ascii = Ptr[int](value_ascii_p)
+
+    f = open(path, "r")
+    text = f.read()
+    f.close()
+
+    in_group = False
+    found_group = False
+    assignments = ""
+
+    for raw_line in text.split("\n"):
+        line = _strip_comment(raw_line).strip()
+        lowered = line.lower()
+        if not in_group:
+            if lowered.startswith("&modal_aer_opt_nl"):
+                in_group = True
+                found_group = True
+                rest = line[len("&modal_aer_opt_nl") :]
+                if rest:
+                    assignments += rest + ","
+            continue
+
+        slash = _find_group_end(line)
+        if slash >= 0:
+            assignments += line[:slash] + ","
+            break
+        assignments += line + ","
+
+    if not found_group:
+        return 0
+
+    for item in assignments.split(","):
+        if "=" not in item:
+            continue
+        parts = item.split("=", 1)
+        key = parts[0].strip().lower()
+        value = parts[1].strip()
+        if key == "water_refindex_file":
+            text_value = value.strip().strip("'").strip('"')
+            for i in range(value_len):
+                if i < len(text_value):
+                    value_ascii[i] = ord(text_value[i])
+                else:
+                    value_ascii[i] = 32
+
+    return 0
+
+
+@inline
 def _idx1(i: int) -> int:
     return i - 1
 

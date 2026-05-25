@@ -12,6 +12,114 @@ SFDIAG_STRATUS_RAMP = 1
 SFDIAG_STRATUS_MAXI = 2
 
 
+@inline
+def _ascii_ptr_to_str(n: int, ptr_p: cobj) -> str:
+    ptr = Ptr[int](ptr_p)
+    out = ""
+    for i in range(n):
+        out += chr(ptr[i])
+    return out.strip()
+
+
+@inline
+def _strip_comment(line: str) -> str:
+    pos = line.find("!")
+    if pos >= 0:
+        return line[:pos]
+    return line
+
+
+@inline
+def _find_group_end(line: str) -> int:
+    quote = ""
+    for i in range(len(line)):
+        ch = line[i]
+        if quote:
+            if ch == quote:
+                quote = ""
+        elif ch == "'" or ch == '"':
+            quote = ch
+        elif ch == "/":
+            return i
+    return -1
+
+
+@inline
+def _parse_fortran_float(value: str) -> float:
+    return float(value.strip().replace("D", "E").replace("d", "e"))
+
+
+@inline
+def _parse_fortran_bool(value: str) -> int:
+    text = value.strip().lower()
+    if text == ".true." or text == "t" or text == "true":
+        return 1
+    return 0
+
+
+@export
+def vd_readnl_codon(path_len: int, path_ascii_p: cobj, reals_p: cobj, logicals_p: cobj) -> int:
+    path = _ascii_ptr_to_str(path_len, path_ascii_p)
+    reals = Ptr[float](reals_p)
+    logicals = Ptr[i32](logicals_p)
+
+    f = open(path, "r")
+    text = f.read()
+    f.close()
+
+    in_group = False
+    found_group = False
+    assignments = ""
+
+    for raw_line in text.split("\n"):
+        line = _strip_comment(raw_line).strip()
+        lowered = line.lower()
+        if not in_group:
+            if lowered.startswith("&vert_diff_nl"):
+                in_group = True
+                found_group = True
+                rest = line[len("&vert_diff_nl") :]
+                if rest:
+                    assignments += rest + ","
+            continue
+
+        slash = _find_group_end(line)
+        if slash >= 0:
+            assignments += line[:slash] + ","
+            break
+        assignments += line + ","
+
+    if not found_group:
+        return 0
+
+    for item in assignments.split(","):
+        if "=" not in item:
+            continue
+        parts = item.split("=", 1)
+        key = parts[0].strip().lower()
+        value = parts[1].strip()
+        if key == "kv_top_pressure":
+            reals[0] = _parse_fortran_float(value)
+        elif key == "kv_top_scale":
+            reals[1] = _parse_fortran_float(value)
+        elif key == "kv_freetrop_scale":
+            reals[2] = _parse_fortran_float(value)
+        elif key == "eddy_lbulk_max":
+            reals[3] = _parse_fortran_float(value)
+        elif key == "eddy_leng_max":
+            reals[4] = _parse_fortran_float(value)
+        elif key == "eddy_max_bot_pressure":
+            reals[5] = _parse_fortran_float(value)
+        elif key == "eddy_moist_entrain_a2l":
+            reals[6] = _parse_fortran_float(value)
+        elif key == "diff_cnsrv_mass_check":
+            logicals[0] = i32(_parse_fortran_bool(value))
+        elif key == "do_iss":
+            logicals[1] = i32(_parse_fortran_bool(value))
+
+    return 0
+
+
 @export
 def vertical_diffusion_ts_init_codon():
     return

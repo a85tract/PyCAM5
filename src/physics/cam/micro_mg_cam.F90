@@ -124,6 +124,8 @@ logical, public :: do_cldliq ! Prognose cldliq flag
 logical, public :: do_cldice ! Prognose cldice flag
 
 logical :: use_native_premg_diag_impl = .false.
+logical :: use_native_micro_mg_cam_readnl_impl = .false.
+logical :: micro_mg_cam_readnl_impl_selected = .false.
 logical :: premg_diag_impl_selected = .false.
 logical :: premg_diag_entered_logged = .false.
 logical :: use_native_postmg_diag_impl = .false.
@@ -280,6 +282,15 @@ interface p
 end interface p
 
 interface
+   function micro_mg_cam_readnl_codon(path_len_c, path_ascii_p, reals_p, ints_p, logicals_p, &
+        precip_frac_len_c, precip_frac_ascii_p) result(status_c) &
+        bind(c, name="micro_mg_cam_readnl_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: path_len_c, precip_frac_len_c
+      type(c_ptr), value :: path_ascii_p, reals_p, ints_p, logicals_p, precip_frac_ascii_p
+      integer(c_int64_t) :: status_c
+   end function micro_mg_cam_readnl_codon
+
    function micro_mg_cam_implements_cnst_codon(name_len_c, name_ascii_p) result(out_c) &
         bind(c, name="micro_mg_cam_implements_cnst_codon")
       use iso_c_binding, only: c_int64_t, c_ptr
@@ -294,11 +305,49 @@ end interface
 contains
 !===============================================================================
 
+subroutine micro_mg_cam_readnl_select_impl()
+
+  character(len=32) :: impl_name
+  integer :: status, n, i, code
+
+  if (micro_mg_cam_readnl_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('MICRO_MG_CAM_READNL_IMPL', value=impl_name, length=n, status=status)
+
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_micro_mg_cam_readnl_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_micro_mg_cam_readnl_impl = .false.
+  end if
+
+  micro_mg_cam_readnl_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_micro_mg_cam_readnl_impl) then
+        write(iulog,*) 'micro_mg_cam_readnl implementation = native'
+     else
+        write(iulog,*) 'micro_mg_cam_readnl implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+
+end subroutine micro_mg_cam_readnl_select_impl
+
+!===============================================================================
+
 subroutine micro_mg_cam_readnl(nlfile)
 
   use namelist_utils,  only: find_group_name
   use units,           only: getunit, freeunit
   use mpishorthand
+  use iso_c_binding,   only: c_double, c_int, c_int64_t, c_loc
 
   character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
@@ -309,8 +358,14 @@ subroutine micro_mg_cam_readnl(nlfile)
 
 
   ! Local variables
-  integer :: unitn, ierr
+  integer :: unitn, ierr, i
   character(len=*), parameter :: subname = 'micro_mg_cam_readnl'
+  integer(c_int64_t) :: status_c
+  integer(c_int64_t), target :: path_ascii(max(1, len(nlfile)))
+  integer(c_int64_t), target :: precip_frac_ascii(len(micro_mg_precip_frac_method))
+  real(c_double), target :: readnl_reals(2)
+  integer(c_int), target :: readnl_ints(3)
+  integer(c_int), target :: readnl_logicals(3)
 
   namelist /micro_mg_nl/ micro_mg_version, micro_mg_sub_version, &
        micro_mg_do_cldice, micro_mg_do_cldliq, micro_mg_num_steps, &
@@ -318,18 +373,52 @@ subroutine micro_mg_cam_readnl(nlfile)
 
   !-----------------------------------------------------------------------------
 
+  call micro_mg_cam_readnl_select_impl()
+
   if (masterproc) then
-     unitn = getunit()
-     open( unitn, file=trim(nlfile), status='old' )
-     call find_group_name(unitn, 'micro_mg_nl', status=ierr)
-     if (ierr == 0) then
-        read(unitn, micro_mg_nl, iostat=ierr)
-        if (ierr /= 0) then
-           call endrun(subname // ':: ERROR reading namelist')
+     if (use_native_micro_mg_cam_readnl_impl) then
+        unitn = getunit()
+        open( unitn, file=trim(nlfile), status='old' )
+        call find_group_name(unitn, 'micro_mg_nl', status=ierr)
+        if (ierr == 0) then
+           read(unitn, micro_mg_nl, iostat=ierr)
+           if (ierr /= 0) then
+              call endrun(subname // ':: ERROR reading namelist')
+           end if
         end if
+        close(unitn)
+        call freeunit(unitn)
+     else
+        readnl_reals = (/ real(micro_mg_dcs, c_double), real(micro_mg_berg_eff_factor, c_double) /)
+        readnl_ints = (/ micro_mg_version, micro_mg_sub_version, micro_mg_num_steps /)
+        readnl_logicals = (/ merge(1, 0, micro_mg_do_cldice), merge(1, 0, micro_mg_do_cldliq), &
+             merge(1, 0, microp_uniform) /)
+        do i = 1, len(micro_mg_precip_frac_method)
+           precip_frac_ascii(i) = int(iachar(micro_mg_precip_frac_method(i:i)), c_int64_t)
+        end do
+        do i = 1, len_trim(nlfile)
+           path_ascii(i) = int(iachar(nlfile(i:i)), c_int64_t)
+        end do
+        status_c = micro_mg_cam_readnl_codon(int(len_trim(nlfile), c_int64_t), c_loc(path_ascii(1)), &
+             c_loc(readnl_reals(1)), c_loc(readnl_ints(1)), c_loc(readnl_logicals(1)), &
+             int(len(micro_mg_precip_frac_method), c_int64_t), c_loc(precip_frac_ascii(1)))
+        if (status_c /= 0_c_int64_t) then
+           call endrun(subname // ':: ERROR reading namelist with Codon parser')
+        end if
+        micro_mg_dcs = readnl_reals(1)
+        micro_mg_berg_eff_factor = readnl_reals(2)
+        micro_mg_version = readnl_ints(1)
+        micro_mg_sub_version = readnl_ints(2)
+        micro_mg_num_steps = readnl_ints(3)
+        micro_mg_do_cldice = readnl_logicals(1) /= 0
+        micro_mg_do_cldliq = readnl_logicals(2) /= 0
+        microp_uniform = readnl_logicals(3) /= 0
+        do i = 1, len(micro_mg_precip_frac_method)
+           micro_mg_precip_frac_method(i:i) = achar(int(precip_frac_ascii(i)))
+        end do
+        write(iulog,'(A)') 'micro_mg_cam_readnl direct = codon namelist parser; native MPI broadcast'
+        call flush(iulog)
      end if
-     close(unitn)
-     call freeunit(unitn)
 
      ! set local variables
      do_cldice = micro_mg_do_cldice

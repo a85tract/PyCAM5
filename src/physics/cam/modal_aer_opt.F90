@@ -65,6 +65,8 @@ character(len=4) :: diag(0:n_diag) = (/'    ','_d1 ','_d2 ','_d3 ','_d4 ','_d5 '
 
 logical :: use_native_modal_aer_opt_helpers_impl = .false.
 logical :: modal_aer_opt_helpers_impl_selected = .false.
+logical :: use_native_modal_aer_opt_readnl_impl = .false.
+logical :: modal_aer_opt_readnl_impl_selected = .false.
 logical :: modal_aer_opt_helpers_proof_written = .false.
 logical :: modal_aer_opt_lw_helpers_proof_written = .false.
 logical :: modal_aer_opt_sw_guard_helpers_proof_written = .false.
@@ -73,6 +75,14 @@ logical :: modal_aer_opt_sw_optics_tau_proof_written = .false.
 logical :: modal_aer_opt_sw_species_batch_proof_written = .false.
 
 interface
+   function modal_aer_opt_readnl_codon(path_len_c, path_ascii_p, value_len_c, value_ascii_p) &
+        result(status_c) bind(c, name="modal_aer_opt_readnl_codon")
+      use iso_c_binding, only: c_int64_t, c_ptr
+      integer(c_int64_t), value :: path_len_c, value_len_c
+      type(c_ptr), value :: path_ascii_p, value_ascii_p
+      integer(c_int64_t) :: status_c
+   end function modal_aer_opt_readnl_codon
+
    subroutine modal_aer_opt_size_parameters_codon(pcols_c, pver_c, top_lev_c, ncol_c, ncoef_c, &
         sigma_logr_aer_c, xrmin_c, xrmax_c, dgnumwet_p, radsurf_p, logradsurf_p, cheb_p) &
         bind(c, name="modal_aer_opt_size_parameters_codon")
@@ -379,6 +389,43 @@ end interface
 CONTAINS
 !===============================================================================
 
+subroutine modal_aer_opt_readnl_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (modal_aer_opt_readnl_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('MODAL_AER_OPT_READNL_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_modal_aer_opt_readnl_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_modal_aer_opt_readnl_impl = .false.
+   end if
+
+   modal_aer_opt_readnl_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_modal_aer_opt_readnl_impl) then
+         write(iulog,*) 'modal_aer_opt_readnl implementation = native'
+      else
+         write(iulog,*) 'modal_aer_opt_readnl implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine modal_aer_opt_readnl_select_impl
+
+!===============================================================================
+
 subroutine modal_aer_opt_helpers_select_impl()
 
    character(len=32) :: impl_name
@@ -498,28 +545,53 @@ subroutine modal_aer_opt_readnl(nlfile)
    use namelist_utils,  only: find_group_name
    use units,           only: getunit, freeunit
    use mpishorthand
+   use iso_c_binding,   only: c_int64_t, c_loc
 
    character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
    ! Local variables
-   integer :: unitn, ierr
+   integer :: unitn, ierr, i
    character(len=*), parameter :: subname = 'modal_aer_opt_readnl'
+   integer(c_int64_t) :: status_c
+   integer(c_int64_t), target :: path_ascii(max(1, len(nlfile)))
+   integer(c_int64_t), target :: value_ascii(len(water_refindex_file))
 
    namelist /modal_aer_opt_nl/ water_refindex_file
    !-----------------------------------------------------------------------------
 
+   call modal_aer_opt_readnl_select_impl()
+
    if (masterproc) then
-      unitn = getunit()
-      open( unitn, file=trim(nlfile), status='old' )
-      call find_group_name(unitn, 'modal_aer_opt_nl', status=ierr)
-      if (ierr == 0) then
-         read(unitn, modal_aer_opt_nl, iostat=ierr)
-         if (ierr /= 0) then
-            call endrun(subname // ':: ERROR reading namelist')
+      if (use_native_modal_aer_opt_readnl_impl) then
+         unitn = getunit()
+         open( unitn, file=trim(nlfile), status='old' )
+         call find_group_name(unitn, 'modal_aer_opt_nl', status=ierr)
+         if (ierr == 0) then
+            read(unitn, modal_aer_opt_nl, iostat=ierr)
+            if (ierr /= 0) then
+               call endrun(subname // ':: ERROR reading namelist')
+            end if
          end if
+         close(unitn)
+         call freeunit(unitn)
+      else
+         do i = 1, len(water_refindex_file)
+            value_ascii(i) = int(iachar(water_refindex_file(i:i)), c_int64_t)
+         end do
+         do i = 1, len_trim(nlfile)
+            path_ascii(i) = int(iachar(nlfile(i:i)), c_int64_t)
+         end do
+         status_c = modal_aer_opt_readnl_codon(int(len_trim(nlfile), c_int64_t), c_loc(path_ascii(1)), &
+              int(len(water_refindex_file), c_int64_t), c_loc(value_ascii(1)))
+         if (status_c /= 0_c_int64_t) then
+            call endrun(subname // ':: ERROR reading namelist with Codon parser')
+         end if
+         do i = 1, len(water_refindex_file)
+            water_refindex_file(i:i) = achar(int(value_ascii(i)))
+         end do
+         write(iulog,'(A)') 'modal_aer_opt_readnl direct = codon namelist parser; native MPI broadcast'
+         call flush(iulog)
       end if
-      close(unitn)
-      call freeunit(unitn)
    end if
 
 #ifdef SPMD

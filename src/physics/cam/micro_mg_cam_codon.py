@@ -1,12 +1,140 @@
 from math import gamma, pi
 
 
+@inline
+def _ascii_ptr_to_str(n: int, ptr_p: cobj) -> str:
+    ptr = Ptr[int](ptr_p)
+    out = ""
+    for i in range(n):
+        out += chr(ptr[i])
+    return out.strip()
+
+
+@inline
+def _strip_comment(line: str) -> str:
+    pos = line.find("!")
+    if pos >= 0:
+        return line[:pos]
+    return line
+
+
+@inline
+def _find_group_end(line: str) -> int:
+    quote = ""
+    for i in range(len(line)):
+        ch = line[i]
+        if quote:
+            if ch == quote:
+                quote = ""
+        elif ch == "'" or ch == '"':
+            quote = ch
+        elif ch == "/":
+            return i
+    return -1
+
+
+@inline
+def _parse_fortran_float(value: str) -> float:
+    return float(value.strip().replace("D", "E").replace("d", "e"))
+
+
+@inline
+def _parse_fortran_int(value: str) -> int:
+    return int(value.strip())
+
+
+@inline
+def _parse_fortran_bool(value: str) -> int:
+    text = value.strip().lower()
+    if text == ".true." or text == "t" or text == "true":
+        return 1
+    return 0
+
+
 def _idx2(i: int, k: int, ld1: int):
     return (k - 1) * ld1 + (i - 1)
 
 
 def _idx3(i: int, k: int, m: int, ld1: int, ld2: int):
     return ((m - 1) * ld2 + (k - 1)) * ld1 + (i - 1)
+
+
+@export
+def micro_mg_cam_readnl_codon(
+    path_len: int,
+    path_ascii_p: cobj,
+    reals_p: cobj,
+    ints_p: cobj,
+    logicals_p: cobj,
+    precip_frac_len: int,
+    precip_frac_ascii_p: cobj,
+) -> int:
+    path = _ascii_ptr_to_str(path_len, path_ascii_p)
+    reals = Ptr[float](reals_p)
+    ints = Ptr[i32](ints_p)
+    logicals = Ptr[i32](logicals_p)
+    precip_frac_ascii = Ptr[int](precip_frac_ascii_p)
+
+    f = open(path, "r")
+    text = f.read()
+    f.close()
+
+    in_group = False
+    found_group = False
+    assignments = ""
+
+    for raw_line in text.split("\n"):
+        line = _strip_comment(raw_line).strip()
+        lowered = line.lower()
+        if not in_group:
+            if lowered.startswith("&micro_mg_nl"):
+                in_group = True
+                found_group = True
+                rest = line[len("&micro_mg_nl") :]
+                if rest:
+                    assignments += rest + ","
+            continue
+
+        slash = _find_group_end(line)
+        if slash >= 0:
+            assignments += line[:slash] + ","
+            break
+        assignments += line + ","
+
+    if not found_group:
+        return 0
+
+    for item in assignments.split(","):
+        if "=" not in item:
+            continue
+        parts = item.split("=", 1)
+        key = parts[0].strip().lower()
+        value = parts[1].strip()
+        if key == "micro_mg_dcs":
+            reals[0] = _parse_fortran_float(value)
+        elif key == "micro_mg_berg_eff_factor":
+            reals[1] = _parse_fortran_float(value)
+        elif key == "micro_mg_version":
+            ints[0] = i32(_parse_fortran_int(value))
+        elif key == "micro_mg_sub_version":
+            ints[1] = i32(_parse_fortran_int(value))
+        elif key == "micro_mg_num_steps":
+            ints[2] = i32(_parse_fortran_int(value))
+        elif key == "micro_mg_do_cldice":
+            logicals[0] = i32(_parse_fortran_bool(value))
+        elif key == "micro_mg_do_cldliq":
+            logicals[1] = i32(_parse_fortran_bool(value))
+        elif key == "microp_uniform":
+            logicals[2] = i32(_parse_fortran_bool(value))
+        elif key == "micro_mg_precip_frac_method":
+            text_value = value.strip().strip("'").strip('"')
+            for i in range(precip_frac_len):
+                if i < len(text_value):
+                    precip_frac_ascii[i] = ord(text_value[i])
+                else:
+                    precip_frac_ascii[i] = 32
+
+    return 0
 
 
 @export
