@@ -1564,13 +1564,13 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
     real(r8) :: tmin_fsnow                        ! min temperature for transition to convective snow
 
     interface
-       subroutine cldfrc_batch_fice_codon(ncol_c, pcols_c, pver_c, top_lev_c, t_p, fice_p, fsnow_p, &
-            tmax_fice_c, tmin_fice_c, tmax_fsnow_c, tmin_fsnow_c) bind(c, name="cldfrc_batch_fice_codon")
+       subroutine cldfrc_fice_codon(ncol_c, pcols_c, pver_c, top_lev_c, t_p, fice_p, fsnow_p, &
+            tmax_fice_c, tmin_fice_c, tmax_fsnow_c, tmin_fsnow_c) bind(c, name="cldfrc_fice_codon")
          use iso_c_binding, only: c_int64_t, c_ptr, c_double
          integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, top_lev_c
          type(c_ptr), value :: t_p, fice_p, fsnow_p
          real(c_double), value :: tmax_fice_c, tmin_fice_c, tmax_fsnow_c, tmin_fsnow_c
-       end subroutine cldfrc_batch_fice_codon
+       end subroutine cldfrc_fice_codon
     end interface
 
 !-----------------------------------------------------------------------
@@ -1589,11 +1589,10 @@ subroutine cldfrc(lchnk   ,ncol    , pbuf,  &
 
     call cldfrc_batch_log_entered()
 
-    call cldfrc_batch_dispatch_codon( &
-         6_c_int64_t, int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
-         0_c_int64_t, real(tmax_fice, c_double), real(tmin_fice, c_double), real(tmax_fsnow, c_double), &
-         real(tmin_fsnow, c_double), 0._c_double, 0._c_double, 0._c_double, 0._c_double, 0._c_double, &
-         c_loc(t), c_loc(fice), c_loc(fsnow), c_loc(t), c_loc(t), c_loc(t), c_loc(t), c_loc(t), c_loc(t), c_loc(t))
+    call cldfrc_fice_codon( &
+         int(ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), int(top_lev, c_int64_t), &
+         c_loc(t), c_loc(fice), c_loc(fsnow), real(tmax_fice, c_double), real(tmin_fice, c_double), &
+         real(tmax_fsnow, c_double), real(tmin_fsnow, c_double))
 
   end subroutine cldfrc_fice
 

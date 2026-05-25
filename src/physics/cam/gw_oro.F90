@@ -28,30 +28,45 @@ subroutine gw_oro_src(ncol, band, p, &
      u, v, t, sgh, zm, nm, &
      src_level, tend_level, tau, ubm, ubi, xv, yv, c)
   use gw_common, only: GWBand, pver, rair
-  use iso_c_binding, only: c_int64_t
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
   !-----------------------------------------------------------------------
   ! Selectable wrapper for the active fixed-case orographic source helper.
   ! The Codon path receives only Fortran-owned arrays/workspaces.
   !-----------------------------------------------------------------------
   integer, intent(in) :: ncol
   type(GWBand), intent(in) :: band
-  type(Coords1D), intent(in) :: p
-  real(r8), intent(in) :: u(ncol,pver), v(ncol,pver)
-  real(r8), intent(in) :: t(ncol,pver)
-  real(r8), intent(in) :: sgh(ncol)
-  real(r8), intent(in) :: zm(ncol,pver)
-  real(r8), intent(in) :: nm(ncol,pver)
+  type(Coords1D), target, intent(in) :: p
+  real(r8), target, intent(in) :: u(ncol,pver), v(ncol,pver)
+  real(r8), target, intent(in) :: t(ncol,pver)
+  real(r8), target, intent(in) :: sgh(ncol)
+  real(r8), target, intent(in) :: zm(ncol,pver)
+  real(r8), target, intent(in) :: nm(ncol,pver)
   integer, intent(out) :: src_level(ncol)
   integer, intent(out) :: tend_level(ncol)
-  real(r8), intent(out) :: tau(ncol,-band%ngwv:band%ngwv,pver+1)
-  real(r8), intent(out) :: ubm(ncol,pver), ubi(ncol,pver+1)
-  real(r8), intent(out) :: xv(ncol), yv(ncol)
-  real(r8), intent(out) :: c(ncol,-band%ngwv:band%ngwv)
+  real(r8), target, intent(out) :: tau(ncol,-band%ngwv:band%ngwv,pver+1)
+  real(r8), target, intent(out) :: ubm(ncol,pver), ubi(ncol,pver+1)
+  real(r8), target, intent(out) :: xv(ncol), yv(ncol)
+  real(r8), target, intent(out) :: c(ncol,-band%ngwv:band%ngwv)
 
   integer :: i
   integer(c_int64_t), target :: src_level64(ncol), tend_level64(ncol)
   real(r8), target :: hdsp(ncol), tauoro(ncol), nsrc(ncol), rsrc(ncol)
   real(r8), target :: usrc(ncol), vsrc(ncol), dpsrc(ncol)
+
+  interface
+     subroutine gw_oro_src_codon(ncol_c, pver_c, ngwv_c, fcrit2_c, kwv_c, rair_c, &
+          p_mid_p, p_del_p, p_ifc_p, u_p, v_p, t_p, sgh_p, zm_p, nm_p, &
+          src_level_p, tend_level_p, tau_p, ubm_p, ubi_p, xv_p, yv_p, c_p, &
+          hdsp_p, tauoro_p, nsrc_p, rsrc_p, usrc_p, vsrc_p, dpsrc_p) &
+          bind(c, name="gw_oro_src_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pver_c, ngwv_c
+       real(c_double), value :: fcrit2_c, kwv_c, rair_c
+       type(c_ptr), value :: p_mid_p, p_del_p, p_ifc_p, u_p, v_p, t_p, sgh_p, zm_p, nm_p
+       type(c_ptr), value :: src_level_p, tend_level_p, tau_p, ubm_p, ubi_p, xv_p, yv_p, c_p
+       type(c_ptr), value :: hdsp_p, tauoro_p, nsrc_p, rsrc_p, usrc_p, vsrc_p, dpsrc_p
+     end subroutine gw_oro_src_codon
+  end interface
 
   call gw_oro_src_select_impl()
 
@@ -60,9 +75,12 @@ subroutine gw_oro_src(ncol, band, p, &
           src_level, tend_level, tau, ubm, ubi, xv, yv, c)
   else
      call gw_oro_src_note_entered()
-     call gw_oro_src_codon_wrap(ncol, pver, band%ngwv, band%fcrit2, band%kwv, rair, &
-          p%mid, p%del, p%ifc, u, v, t, sgh, zm, nm, src_level64, tend_level64, &
-          tau, ubm, ubi, xv, yv, c, hdsp, tauoro, nsrc, rsrc, usrc, vsrc, dpsrc)
+     call gw_oro_src_codon(int(ncol, c_int64_t), int(pver, c_int64_t), int(band%ngwv, c_int64_t), &
+          real(band%fcrit2, c_double), real(band%kwv, c_double), real(rair, c_double), &
+          c_loc(p%mid), c_loc(p%del), c_loc(p%ifc), c_loc(u), c_loc(v), c_loc(t), c_loc(sgh), &
+          c_loc(zm), c_loc(nm), c_loc(src_level64), c_loc(tend_level64), c_loc(tau), c_loc(ubm), &
+          c_loc(ubi), c_loc(xv), c_loc(yv), c_loc(c), c_loc(hdsp), c_loc(tauoro), c_loc(nsrc), &
+          c_loc(rsrc), c_loc(usrc), c_loc(vsrc), c_loc(dpsrc))
      do i = 1, ncol
         src_level(i) = int(src_level64(i))
         tend_level(i) = int(tend_level64(i))

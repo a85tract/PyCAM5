@@ -350,17 +350,29 @@ end subroutine gw_common_init_note_direct
 !==========================================================================
 
 subroutine gw_prof (ncol, p, cpair, t, rhoi, nm, ni)
+  use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
   !-----------------------------------------------------------------------
   ! Selectable wrapper for background gravity-wave profile calculations.
   !-----------------------------------------------------------------------
   integer, intent(in) :: ncol
-  type(Coords1D), intent(in) :: p
+  type(Coords1D), target, intent(in) :: p
   real(r8), intent(in) :: cpair
-  real(r8), intent(in) :: t(ncol,pver)
-  real(r8), intent(out) :: rhoi(ncol,pver+1)
-  real(r8), intent(out) :: nm(ncol,pver), ni(ncol,pver+1)
+  real(r8), target, intent(in) :: t(ncol,pver)
+  real(r8), target, intent(out) :: rhoi(ncol,pver+1)
+  real(r8), target, intent(out) :: nm(ncol,pver), ni(ncol,pver+1)
 
   real(r8), target :: ti(ncol,pver+1)
+
+  interface
+     subroutine gw_prof_codon(ncol_c, pver_c, cpair_c, rair_c, gravit_c, &
+          p_ifc_p, p_rdst_p, t_p, rhoi_p, nm_p, ni_p, ti_p) &
+          bind(c, name="gw_prof_codon")
+       use iso_c_binding, only: c_double, c_int64_t, c_ptr
+       integer(c_int64_t), value :: ncol_c, pver_c
+       real(c_double), value :: cpair_c, rair_c, gravit_c
+       type(c_ptr), value :: p_ifc_p, p_rdst_p, t_p, rhoi_p, nm_p, ni_p, ti_p
+     end subroutine gw_prof_codon
+  end interface
 
   call gw_prof_select_impl()
 
@@ -368,8 +380,9 @@ subroutine gw_prof (ncol, p, cpair, t, rhoi, nm, ni)
      call gw_prof_native(ncol, p, cpair, t, rhoi, nm, ni)
   else
      call gw_prof_note_entered()
-     call gw_prof_codon_wrap(ncol, pver, cpair, rair, gravit, p%ifc, p%rdst, &
-          t, rhoi, nm, ni, ti)
+     call gw_prof_codon(int(ncol, c_int64_t), int(pver, c_int64_t), &
+          real(cpair, c_double), real(rair, c_double), real(gravit, c_double), &
+          c_loc(p%ifc), c_loc(p%rdst), c_loc(t), c_loc(rhoi), c_loc(nm), c_loc(ni), c_loc(ti))
   end if
 
 end subroutine gw_prof

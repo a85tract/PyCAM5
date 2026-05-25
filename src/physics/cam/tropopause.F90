@@ -857,13 +857,15 @@ contains
   ! routines, but is designed for GCMs with a coarse vertical grid.
   subroutine tropopause_twmo(pstate, tropLev, tropP, tropT, tropZ)
 
+    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_null_ptr, c_ptr
+
     implicit none
 
     type(physics_state), intent(in), target :: pstate
     integer,            intent(inout)  :: tropLev(pcols)            ! tropopause level index   
-    real(r8), optional, intent(inout)  :: tropP(pcols)              ! tropopause pressure (Pa)   
-    real(r8), optional, intent(inout)  :: tropT(pcols)              ! tropopause temperature (K)
-    real(r8), optional, intent(inout)  :: tropZ(pcols)              ! tropopause height (m)
+    real(r8), optional, target, intent(inout)  :: tropP(pcols)      ! tropopause pressure (Pa)
+    real(r8), optional, target, intent(inout)  :: tropT(pcols)      ! tropopause temperature (K)
+    real(r8), optional, target, intent(inout)  :: tropZ(pcols)      ! tropopause height (m)
 
     ! Local Variables 
     real(r8), parameter     :: gam    = -0.002_r8         ! K/m
@@ -875,10 +877,57 @@ contains
     integer                 :: ncol                         ! number of columns in the chunk
     integer                 :: lchnk                        ! chunk identifier
     real(r8)                :: tP                       ! tropopause pressure (Pa)
+    integer(c_int64_t), target :: tropLev_i8(pcols)
+    real(r8), target :: dummy(pcols)
+    type(c_ptr) :: tropP_p, tropT_p, tropZ_p
+
+    interface
+       subroutine tropopause_twmo_codon(ncol_c, pcols_c, pver_c, notfound_c, write_tropp_c, write_tropt_c, &
+            write_tropz_c, cnst_kap_c, cnst_ka1_c, cnst_faktor_c, state_t_p, state_pmid_p, state_pint_p, &
+            state_zm_p, state_zi_p, trop_lev_p, trop_p_p, trop_t_p, trop_z_p) bind(c, name="tropopause_twmo_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: ncol_c, pcols_c, pver_c, notfound_c, write_tropp_c, write_tropt_c, write_tropz_c
+         real(c_double), value :: cnst_kap_c, cnst_ka1_c, cnst_faktor_c
+         type(c_ptr), value :: state_t_p, state_pmid_p, state_pint_p, state_zm_p, state_zi_p
+         type(c_ptr), value :: trop_lev_p, trop_p_p, trop_t_p, trop_z_p
+       end subroutine tropopause_twmo_codon
+    end interface
 
     call tropopause_find_select_impl()
     if (.not. use_native_tropopause_find_impl) then
-      call tropopause_twmo_codon_wrap(pstate, tropLev, tropP, tropT, tropZ)
+      do i = 1, pcols
+         tropLev_i8(i) = int(tropLev(i), c_int64_t)
+      end do
+
+      tropP_p = c_null_ptr
+      tropT_p = c_null_ptr
+      tropZ_p = c_null_ptr
+      dummy(:) = 0._r8
+      if (present(tropP)) tropP_p = c_loc(tropP(1))
+      if (present(tropT)) tropT_p = c_loc(tropT(1))
+      if (present(tropZ)) tropZ_p = c_loc(tropZ(1))
+      if (.not. present(tropP)) tropP_p = c_loc(dummy(1))
+      if (.not. present(tropT)) tropT_p = c_loc(dummy(1))
+      if (.not. present(tropZ)) tropZ_p = c_loc(dummy(1))
+
+      if (masterproc .and. .not. tropopause_twmo_entered_logged) then
+         write(iulog,*) 'tropopause_twmo entered (unified TWMO direct = codon; other algorithms = native)'
+         call tropopause_find_append_proof('tropopause_twmo entered (unified TWMO direct = codon; ' // &
+              'other algorithms = native)')
+         tropopause_twmo_entered_logged = .true.
+         call flush(iulog)
+      end if
+
+      call tropopause_twmo_codon(int(pstate%ncol, c_int64_t), int(pcols, c_int64_t), int(pver, c_int64_t), &
+           int(NOTFOUND, c_int64_t), int(merge(1, 0, present(tropP)), c_int64_t), &
+           int(merge(1, 0, present(tropT)), c_int64_t), int(merge(1, 0, present(tropZ)), c_int64_t), &
+           real(cnst_kap, c_double), real(cnst_ka1, c_double), real(cnst_faktor, c_double), &
+           c_loc(pstate%t(1,1)), c_loc(pstate%pmid(1,1)), c_loc(pstate%pint(1,1)), &
+           c_loc(pstate%zm(1,1)), c_loc(pstate%zi(1,1)), c_loc(tropLev_i8(1)), tropP_p, tropT_p, tropZ_p)
+
+      do i = 1, pcols
+         tropLev(i) = int(tropLev_i8(i))
+      end do
       return
     end if
 
