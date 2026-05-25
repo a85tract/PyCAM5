@@ -662,6 +662,8 @@
           write(iulog,*) 'eddy_diff_compute implementation = native'
        else
           write(iulog,*) 'eddy_diff_compute implementation = codon'
+          write(iulog,*) 'compute_eddy_diff direct = codon front/tail/trbintd/caleddy stage dispatch; ' // &
+                          'native compute_vdiff/outfld callbacks'
        end if
     end if
 
