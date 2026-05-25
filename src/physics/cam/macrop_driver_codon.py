@@ -1,5 +1,18 @@
 from math import exp, log10
 from C import cldwat2m_qsat_water_native_cb(float, float, Ptr[float], Ptr[float], Ptr[float]) -> None
+from C import cldwat2m_astg_single_native_cb(
+    int,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    float,
+    Ptr[float],
+    Ptr[float],
+) -> None
 
 
 @export
@@ -36,6 +49,36 @@ def _cldwat2m_qsat_water_native(t: float, p: float):
     dqsdt = 0.0
     cldwat2m_qsat_water_native_cb(t, p, __ptr__(es), __ptr__(qs), __ptr__(dqsdt))
     return es, qs, dqsdt
+
+
+@inline
+def _cldwat2m_astg_single_native(
+    use_rhu: int,
+    u: float,
+    p: float,
+    qv: float,
+    landfrac: float,
+    snowh: float,
+    rhminl: float,
+    rhminl_adj_land: float,
+    rhminh: float,
+):
+    a = 0.0
+    ga = 0.0
+    cldwat2m_astg_single_native_cb(
+        use_rhu,
+        u,
+        p,
+        qv,
+        landfrac,
+        snowh,
+        rhminl,
+        rhminl_adj_land,
+        rhminh,
+        __ptr__(a),
+        __ptr__(ga),
+    )
+    return a, ga
 
 
 @export
@@ -87,6 +130,80 @@ def cldwat2m_gridmean_rh_codon(
     qv[0] = min(qt, qs_final)
     ql[0] = qt - qv[0]
     t[0] = tc + (latvap / cpair) * ql[0]
+
+
+@export
+def cldwat2m_funcd_instratus_codon(
+    t: float,
+    p: float,
+    t0: float,
+    qv0: float,
+    ql0: float,
+    qi0: float,
+    fice0: float,
+    muq0: float,
+    qc_nc0: float,
+    a_dc: float,
+    ql_dc: float,
+    qi_dc: float,
+    a_sc: float,
+    ql_sc: float,
+    qi_sc: float,
+    ai_st: float,
+    qcst_crit: float,
+    landfrac: float,
+    snowh: float,
+    rhminl: float,
+    rhminl_adj_land: float,
+    rhminh: float,
+    cpair: float,
+    latvap: float,
+    camstfrac: int,
+    f_p: cobj,
+    fg_p: cobj,
+    qc_nc_p: cobj,
+    fice_p: cobj,
+    al_st_p: cobj,
+):
+    f = Ptr[float](f_p)
+    fg = Ptr[float](fg_p)
+    qc_nc_out = Ptr[float](qc_nc_p)
+    fice_out = Ptr[float](fice_p)
+    al_st_out = Ptr[float](al_st_p)
+
+    _, qs, dqsdt = _cldwat2m_qsat_water_native(t, p)
+
+    fice = fice0
+    qc_nc = (cpair / latvap) * (t - t0) + muq0 * qc_nc0
+    dqcncdt = cpair / latvap
+    qv = qv0 + ql0 + qi0 - (qc_nc + a_dc * (ql_dc + qi_dc) + a_sc * (ql_sc + qi_sc))
+    alpha = 1.0 / qs
+    beta = (qv / qs**2.0) * dqsdt
+
+    u = qv / qs
+    u_nc = u
+    al_st_nc, g_nc = _cldwat2m_astg_single_native(
+        camstfrac,
+        u_nc,
+        p,
+        qv,
+        landfrac,
+        snowh,
+        rhminl,
+        rhminl_adj_land,
+        rhminh,
+    )
+    al_st = (1.0 - a_dc - a_sc) * al_st_nc
+    dudt = -(alpha * dqcncdt + beta)
+    dalstdt = (1.0 / g_nc) * dudt
+    if u_nc == 1.0:
+        dalstdt = 0.0
+
+    f[0] = qc_nc - qcst_crit * al_st
+    fg[0] = dqcncdt - qcst_crit * dalstdt
+    qc_nc_out[0] = qc_nc
+    al_st_out[0] = al_st
+    fice_out[0] = fice
 
 
 @export
