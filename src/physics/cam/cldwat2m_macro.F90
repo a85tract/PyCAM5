@@ -85,6 +85,9 @@
    logical :: use_native_ini_macro_impl = .false.
    logical :: ini_macro_impl_selected = .false.
    logical :: ini_macro_entered_logged = .false.
+   logical :: use_native_mmacro_pcond_impl = .false.
+   logical :: mmacro_pcond_impl_selected = .false.
+   logical :: mmacro_pcond_entered_logged = .false.
    logical :: use_native_positive_moisture_impl = .false.
    logical :: positive_moisture_impl_selected = .false.
    logical :: positive_moisture_entered_logged = .false.
@@ -124,6 +127,9 @@
    logical :: use_native_iter_column_impl = .false.
    logical :: iter_column_impl_selected = .false.
    logical :: iter_column_entered_logged = .false.
+   logical :: use_native_qq_coeff_impl = .false.
+   logical :: qq_coeff_impl_selected = .false.
+   logical :: qq_coeff_entered_logged = .false.
    logical :: use_native_gaussj_impl = .false.
    logical :: gaussj_impl_selected = .false.
    logical :: gaussj_entered_logged = .false.
@@ -254,6 +260,85 @@
       write(iulog,*) 'ini_macro direct = codon scalar parameter synchronization; native cldfrc_getparams/log/addfld'
    end if
    end subroutine ini_macro_log_entered
+
+   subroutine mmacro_pcond_select_impl()
+   character(len=32) :: impl_name
+   integer :: n, status
+
+   if (mmacro_pcond_impl_selected) return
+   impl_name = 'codon'
+   call get_environment_variable('CLDWAT2M_MMACRO_PCOND_IMPL', value=impl_name, length=n, status=status)
+   use_native_mmacro_pcond_impl = .false.
+   if (status == 0 .and. n > 0) then
+      select case (adjustl(impl_name(:n)))
+      case ('native', 'Native', 'NATIVE')
+         use_native_mmacro_pcond_impl = .true.
+      case ('codon', 'Codon', 'CODON')
+         use_native_mmacro_pcond_impl = .false.
+      case default
+         use_native_mmacro_pcond_impl = .false.
+      end select
+   end if
+   mmacro_pcond_impl_selected = .true.
+
+   if (use_native_mmacro_pcond_impl) then
+      use_native_positive_moisture_impl = .true.
+      positive_moisture_impl_selected = .true.
+      use_native_rhcrit_const_impl = .true.
+      rhcrit_const_impl_selected = .true.
+      use_native_instratus_tendency_impl = .true.
+      instratus_tendency_impl_selected = .true.
+      use_native_dropnum_limit_impl = .true.
+      dropnum_limit_impl_selected = .true.
+      use_native_final_tendency_impl = .true.
+      final_tendency_impl_selected = .true.
+      use_native_iter_state_impl = .true.
+      iter_state_impl_selected = .true.
+      use_native_advective_state_impl = .true.
+      advective_state_impl_selected = .true.
+      use_native_ref_state_impl = .true.
+      ref_state_impl_selected = .true.
+      use_native_linear_state_impl = .true.
+      linear_state_impl_selected = .true.
+      use_native_qq_limiter_impl = .true.
+      qq_limiter_impl_selected = .true.
+      use_native_iter_zero_impl = .true.
+      iter_zero_impl_selected = .true.
+      use_native_init_zero_impl = .true.
+      init_zero_impl_selected = .true.
+      use_native_iter_column_impl = .true.
+      iter_column_impl_selected = .true.
+      use_native_qq_coeff_impl = .true.
+      qq_coeff_impl_selected = .true.
+      use_native_gaussj_impl = .true.
+      gaussj_impl_selected = .true.
+      use_native_gridmean_rh_impl = .true.
+      gridmean_rh_impl_selected = .true.
+      use_native_instratus_condensate_impl = .true.
+      instratus_condensate_impl_selected = .true.
+      use_native_instratus_core_impl = .true.
+      instratus_core_impl_selected = .true.
+      use_native_funcd_instratus_impl = .true.
+      funcd_instratus_impl_selected = .true.
+   end if
+
+   if (masterproc) then
+      if (use_native_mmacro_pcond_impl) then
+         write(iulog,*) 'mmacro_pcond implementation = native'
+      else
+         write(iulog,*) 'mmacro_pcond implementation = codon'
+      end if
+   end if
+   end subroutine mmacro_pcond_select_impl
+
+   subroutine mmacro_pcond_log_entered()
+   if (mmacro_pcond_entered_logged) return
+   mmacro_pcond_entered_logged = .true.
+   if (masterproc) then
+      write(iulog,*) 'mmacro_pcond direct = codon macrophysics stage helpers and QQ coefficient solve; ' // &
+                     'native qsat/findsp/astG/aist/outfld islands'
+   end if
+   end subroutine mmacro_pcond_log_entered
 
    ! ------------------------------ !
    ! Stratiform Liquid Macrophysics !
@@ -579,6 +664,8 @@
    real(r8) QQmax,QQmin,QQwmin,QQimin                      ! For limiting QQ
 	   real(r8) cone                                           ! Number close to but smaller than 1
 
+	   call mmacro_pcond_select_impl()
+	   if (.not. use_native_mmacro_pcond_impl) call mmacro_pcond_log_entered()
 	   cone            = 0.999_r8
 	   call zero16_ncol_codon_wrap(ncol, zeros, s_tendout, qv_tendout, ql_tendout, qi_tendout, &
 	        nl_tendout, ni_tendout, qme, cld, al_st_star, ai_st_star, ql_st_star, qi_st_star, T, T1, T_0)
@@ -737,47 +824,9 @@
       call iter_column_stratus_codon_wrap(ncol, a_cu(:,k), al_st_nc(:,k), ai_st_nc(:,k), &
            al_st(:,k), ai_st(:,k), a_st(:,k))
 
-      do i = 1, ncol
-
-         ! -------------------------------------------------------- !
-         ! Compute basic thermodynamic coefficients for computing Q !
-         ! -------------------------------------------------------- !
-
-         alpha  =  1._r8/qsat_b(i)
-         beta   =  dqsdT_b(i)*(qv(i,k)/qsat_b(i)**2)
-         betast =  alpha*dqsdT_b(i) 
-         gammal =  alpha + (latvap/cpair)*beta
-         gammai =  alpha + ((latvap+latice)/cpair)*beta
-         gammaQ =  alpha + (latvap/cpair)*beta
-         deltal =  1._r8 + a_st(i,k)*(latvap/cpair)*(betast/alpha)
-         deltai =  1._r8 + a_st(i,k)*((latvap+latice)/cpair)*(betast/alpha)
-         A_Tc   =  A_T(i,k)+A_T_adj(i,k)-(latvap/cpair)*(A_ql(i,k)+A_ql_adj(i,k))-((latvap+latice)/cpair)*(A_qi(i,k)+A_qi_adj(i,k))
-         A_qt   =  A_qv(i,k) + A_qv_adj(i,k) + A_ql(i,k) + A_ql_adj(i,k) + A_qi(i,k) + A_qi_adj(i,k)
-         C_Tc   =  C_T(i,k) - (latvap/cpair)*C_ql(i,k) - ((latvap+latice)/cpair)*C_qi(i,k)
-         C_qt   =  C_qv(i,k) + C_ql(i,k) + C_qi(i,k)
-         dTcdt  =  A_Tc + C_Tc
-         dqtdt  =  A_qt + C_qt
-       ! dqtstldt = A_qt + C_ql(i,k)/max(1.e-2_r8,al_st(i,k))                             ! Original  
-       ! dqtstldt = A_qt - A_qi(i,k) - A_qi_adj(i,k) + C_ql(i,k)/max(1.e-2_r8,al_st(i,k)) ! New 1 on Dec.30.2009.
-         dqtstldt = A_qt - A_qi(i,k) - A_qi_adj(i,k) + C_qlst(i,k)                        ! New 2 on Dec.30.2009.
-       ! dqtstldt = A_qt + C_qt                                                           ! Original Conservative treatment
-       ! dqtstldt = A_qt - A_qi(i,k) - A_qi_adj(i,k) + C_qt - C_qi(i,k)            ! New Conservative treatment on Dec.30.2009
-         dqidt = A_qi(i,k) + A_qi_adj(i,k) + C_qi(i,k) 
-
-         anic    = max(1.e-8_r8,(1._r8-a_cu(i,k)))
-         GG      = G_nc(i,k)/anic
-         aa(1,1) = gammal*al_st(i,k)
-         aa(1,2) = GG + gammal*cc*ql_st(i,k)          
-         aa(2,1) = alpha + (latvap/cpair)*betast*al_st(i,k)
-         aa(2,2) = (latvap/cpair)*betast*cc*ql_st(i,k) 
-         bb(1,1) = alpha*dqtdt - beta*dTcdt - gammai*dqidt - GG*al_st_nc(i,k)*dacudt(i,k) + F_nc(i,k) 
-         bb(2,1) = alpha*dqtstldt - betast*(dTcdt + ((latvap+latice)/cpair)*dqidt) 
-         call gaussj(aa(1:2,1:2),2,2,bb(1:2,1),1,1)
-         dqlstdt = bb(1,1)
-         dalstdt = bb(2,1)
-         QQ(i,k) = al_st(i,k)*dqlstdt + cc*ql_st(i,k)*dalstdt - ( A_ql(i,k) + A_ql_adj(i,k) + C_ql(i,k) )
-
-	      enddo
+      call qq_coeff_solve_codon_wrap(k, ncol, qsat_b, dqsdT_b, qv, A_T, A_T_adj, A_ql, A_ql_adj, &
+           A_qi, A_qi_adj, A_qv, A_qv_adj, C_T, C_ql, C_qi, C_qv, C_qlst, a_cu, G_nc, &
+           al_st, ql_st, al_st_nc, dacudt, F_nc, QQ)
 	      enddo
 
       call qq_limiter_codon_wrap(ncol, dt, cone, qmin(1), qv_05, ql_05, qi_05, nl_05, ni_05, &
@@ -1996,6 +2045,138 @@ end subroutine rhcrit_calc
    enddo
 
    end subroutine iter_column_stratus_codon_wrap
+
+!=======================================================================================================
+
+   subroutine qq_coeff_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: n, status
+
+   if (qq_coeff_impl_selected) return
+   call get_environment_variable('CLDWAT2M_QQ_COEFF_IMPL', value=impl_name, length=n, status=status)
+   use_native_qq_coeff_impl = .false.
+   if (status == 0 .and. n > 0) then
+      select case (adjustl(impl_name(:n)))
+      case ('native', 'Native', 'NATIVE')
+         use_native_qq_coeff_impl = .true.
+      case ('codon', 'Codon', 'CODON')
+         use_native_qq_coeff_impl = .false.
+      case default
+         use_native_qq_coeff_impl = .false.
+      end select
+   end if
+   qq_coeff_impl_selected = .true.
+   if (masterproc) then
+      if (use_native_qq_coeff_impl) then
+         write(iulog,*) 'cldwat2m_qq_coeff_solve implementation = native'
+      else
+         write(iulog,*) 'cldwat2m_qq_coeff_solve implementation = codon'
+      end if
+   end if
+   end subroutine qq_coeff_select_impl
+
+   subroutine qq_coeff_log_entered()
+   if (qq_coeff_entered_logged) return
+   qq_coeff_entered_logged = .true.
+   if (masterproc) then
+      write(iulog,*) 'cldwat2m_qq_coeff_solve entered (macrophysics QQ coefficient solve = codon)'
+   end if
+   end subroutine qq_coeff_log_entered
+
+   subroutine qq_coeff_solve_codon_wrap(k, ncol, qsat_b, dqsdT_b, qv, A_T, A_T_adj, A_ql, A_ql_adj, &
+        A_qi, A_qi_adj, A_qv, A_qv_adj, C_T, C_ql, C_qi, C_qv, C_qlst, a_cu, G_nc, &
+        al_st, ql_st, al_st_nc, dacudt, F_nc, QQ)
+
+   integer, intent(in) :: k
+   integer, intent(in) :: ncol
+   real(r8), target, intent(in) :: qsat_b(pcols), dqsdT_b(pcols)
+   real(r8), target, intent(in) :: qv(pcols,pver), A_T(pcols,pver), A_T_adj(pcols,pver)
+   real(r8), target, intent(in) :: A_ql(pcols,pver), A_ql_adj(pcols,pver), A_qi(pcols,pver)
+   real(r8), target, intent(in) :: A_qi_adj(pcols,pver), A_qv(pcols,pver), A_qv_adj(pcols,pver)
+   real(r8), target, intent(in) :: C_T(pcols,pver), C_ql(pcols,pver), C_qi(pcols,pver)
+   real(r8), target, intent(in) :: C_qv(pcols,pver), C_qlst(pcols,pver), a_cu(pcols,pver)
+   real(r8), target, intent(in) :: G_nc(pcols,pver), al_st(pcols,pver), ql_st(pcols,pver)
+   real(r8), target, intent(in) :: al_st_nc(pcols,pver), dacudt(pcols,pver), F_nc(pcols,pver)
+   real(r8), target, intent(inout) :: QQ(pcols,pver)
+
+   integer :: i
+   integer(c_int64_t) :: qq_coeff_status
+   real(r8) :: alpha, beta, betast, gammal, gammai, gammaQ
+   real(r8) :: deltal, deltai, A_Tc, A_qt, C_Tc, C_qt
+   real(r8) :: dTcdt, dqtdt, dqtstldt, dqidt, anic, GG
+   real(r8) :: aa(2,2), bb(2,1), dqlstdt, dalstdt
+
+   interface
+      function cldwat2m_qq_coeff_solve_codon(k_c, ncol_c, pcols_c, pver_c, latvap_c, latice_c, cpair_c, cc_c, &
+           qsat_b_p, dqsdt_b_p, qv_p, a_t_p, a_t_adj_p, a_ql_p, a_ql_adj_p, a_qi_p, a_qi_adj_p, &
+           a_qv_p, a_qv_adj_p, c_t_p, c_ql_p, c_qi_p, c_qv_p, c_qlst_p, a_cu_p, g_nc_p, &
+           al_st_p, ql_st_p, al_st_nc_p, dacudt_p, f_nc_p, qq_p) result(status_c) &
+           bind(c, name="cldwat2m_qq_coeff_solve_codon")
+         use iso_c_binding, only: c_double, c_int64_t, c_ptr
+         integer(c_int64_t), value :: k_c, ncol_c, pcols_c, pver_c
+         real(c_double), value :: latvap_c, latice_c, cpair_c, cc_c
+         type(c_ptr), value :: qsat_b_p, dqsdt_b_p, qv_p, a_t_p, a_t_adj_p
+         type(c_ptr), value :: a_ql_p, a_ql_adj_p, a_qi_p, a_qi_adj_p
+         type(c_ptr), value :: a_qv_p, a_qv_adj_p, c_t_p, c_ql_p, c_qi_p, c_qv_p, c_qlst_p
+         type(c_ptr), value :: a_cu_p, g_nc_p, al_st_p, ql_st_p, al_st_nc_p, dacudt_p, f_nc_p, qq_p
+         integer(c_int64_t) :: status_c
+      end function cldwat2m_qq_coeff_solve_codon
+   end interface
+
+   call qq_coeff_select_impl()
+   if (.not. use_native_qq_coeff_impl) then
+      call qq_coeff_log_entered()
+      qq_coeff_status = cldwat2m_qq_coeff_solve_codon(int(k, c_int64_t), int(ncol, c_int64_t), &
+           int(pcols, c_int64_t), int(pver, c_int64_t), latvap, latice, cpair, cc, &
+           c_loc(qsat_b(1)), c_loc(dqsdT_b(1)), c_loc(qv(1,1)), c_loc(A_T(1,1)), c_loc(A_T_adj(1,1)), &
+           c_loc(A_ql(1,1)), c_loc(A_ql_adj(1,1)), c_loc(A_qi(1,1)), c_loc(A_qi_adj(1,1)), &
+           c_loc(A_qv(1,1)), c_loc(A_qv_adj(1,1)), c_loc(C_T(1,1)), c_loc(C_ql(1,1)), &
+           c_loc(C_qi(1,1)), c_loc(C_qv(1,1)), c_loc(C_qlst(1,1)), c_loc(a_cu(1,1)), &
+           c_loc(G_nc(1,1)), c_loc(al_st(1,1)), c_loc(ql_st(1,1)), c_loc(al_st_nc(1,1)), &
+           c_loc(dacudt(1,1)), c_loc(F_nc(1,1)), c_loc(QQ(1,1)))
+      if (qq_coeff_status == 0_c_int64_t) return
+      if (qq_coeff_status == 1_c_int64_t) then
+         write(iulog,*) 'singular matrix in cldwat2m_qq_coeff_solve 1'
+      else
+         write(iulog,*) 'singular matrix in cldwat2m_qq_coeff_solve 2'
+      end if
+      call endrun
+   end if
+
+   do i = 1, ncol
+      alpha  =  1._r8/qsat_b(i)
+      beta   =  dqsdT_b(i)*(qv(i,k)/qsat_b(i)**2)
+      betast =  alpha*dqsdT_b(i)
+      gammal =  alpha + (latvap/cpair)*beta
+      gammai =  alpha + ((latvap+latice)/cpair)*beta
+      gammaQ =  alpha + (latvap/cpair)*beta
+      deltal =  1._r8 + al_st(i,k)*(latvap/cpair)*(betast/alpha)
+      deltai =  1._r8 + al_st(i,k)*((latvap+latice)/cpair)*(betast/alpha)
+      A_Tc   =  A_T(i,k)+A_T_adj(i,k)-(latvap/cpair)*(A_ql(i,k)+A_ql_adj(i,k))-((latvap+latice)/cpair)*(A_qi(i,k)+A_qi_adj(i,k))
+      A_qt   =  A_qv(i,k) + A_qv_adj(i,k) + A_ql(i,k) + A_ql_adj(i,k) + A_qi(i,k) + A_qi_adj(i,k)
+      C_Tc   =  C_T(i,k) - (latvap/cpair)*C_ql(i,k) - ((latvap+latice)/cpair)*C_qi(i,k)
+      C_qt   =  C_qv(i,k) + C_ql(i,k) + C_qi(i,k)
+      dTcdt  =  A_Tc + C_Tc
+      dqtdt  =  A_qt + C_qt
+      dqtstldt = A_qt - A_qi(i,k) - A_qi_adj(i,k) + C_qlst(i,k)
+      dqidt = A_qi(i,k) + A_qi_adj(i,k) + C_qi(i,k)
+
+      anic    = max(1.e-8_r8,(1._r8-a_cu(i,k)))
+      GG      = G_nc(i,k)/anic
+      aa(1,1) = gammal*al_st(i,k)
+      aa(1,2) = GG + gammal*cc*ql_st(i,k)
+      aa(2,1) = alpha + (latvap/cpair)*betast*al_st(i,k)
+      aa(2,2) = (latvap/cpair)*betast*cc*ql_st(i,k)
+      bb(1,1) = alpha*dqtdt - beta*dTcdt - gammai*dqidt - GG*al_st_nc(i,k)*dacudt(i,k) + F_nc(i,k)
+      bb(2,1) = alpha*dqtstldt - betast*(dTcdt + ((latvap+latice)/cpair)*dqidt)
+      call gaussj(aa(1:2,1:2),2,2,bb(1:2,1),1,1)
+      dqlstdt = bb(1,1)
+      dalstdt = bb(2,1)
+      QQ(i,k) = al_st(i,k)*dqlstdt + cc*ql_st(i,k)*dalstdt - ( A_ql(i,k) + A_ql_adj(i,k) + C_ql(i,k) )
+   enddo
+
+   end subroutine qq_coeff_solve_codon_wrap
 
 !=======================================================================================================
 

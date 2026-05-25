@@ -1781,6 +1781,195 @@ def cldwat2m_iter_column_stratus_codon(
 
 
 @export
+def cldwat2m_qq_coeff_solve_codon(
+    k: int,
+    ncol: int,
+    pcols: int,
+    pver: int,
+    latvap: float,
+    latice: float,
+    cpair: float,
+    cc: float,
+    qsat_b_p: cobj,
+    dqsdT_b_p: cobj,
+    qv_p: cobj,
+    a_t_p: cobj,
+    a_t_adj_p: cobj,
+    a_ql_p: cobj,
+    a_ql_adj_p: cobj,
+    a_qi_p: cobj,
+    a_qi_adj_p: cobj,
+    a_qv_p: cobj,
+    a_qv_adj_p: cobj,
+    c_t_p: cobj,
+    c_ql_p: cobj,
+    c_qi_p: cobj,
+    c_qv_p: cobj,
+    c_qlst_p: cobj,
+    a_cu_p: cobj,
+    g_nc_p: cobj,
+    al_st_p: cobj,
+    ql_st_p: cobj,
+    al_st_nc_p: cobj,
+    dacudt_p: cobj,
+    f_nc_p: cobj,
+    qq_p: cobj,
+) -> int:
+    qsat_b = Ptr[float](qsat_b_p)
+    dqsdT_b = Ptr[float](dqsdT_b_p)
+    qv = Ptr[float](qv_p)
+    a_t = Ptr[float](a_t_p)
+    a_t_adj = Ptr[float](a_t_adj_p)
+    a_ql = Ptr[float](a_ql_p)
+    a_ql_adj = Ptr[float](a_ql_adj_p)
+    a_qi = Ptr[float](a_qi_p)
+    a_qi_adj = Ptr[float](a_qi_adj_p)
+    a_qv = Ptr[float](a_qv_p)
+    a_qv_adj = Ptr[float](a_qv_adj_p)
+    c_t = Ptr[float](c_t_p)
+    c_ql = Ptr[float](c_ql_p)
+    c_qi = Ptr[float](c_qi_p)
+    c_qv = Ptr[float](c_qv_p)
+    c_qlst = Ptr[float](c_qlst_p)
+    a_cu = Ptr[float](a_cu_p)
+    g_nc = Ptr[float](g_nc_p)
+    al_st = Ptr[float](al_st_p)
+    ql_st = Ptr[float](ql_st_p)
+    al_st_nc = Ptr[float](al_st_nc_p)
+    dacudt = Ptr[float](dacudt_p)
+    f_nc = Ptr[float](f_nc_p)
+    qq = Ptr[float](qq_p)
+
+    for i in range(1, ncol + 1):
+        idx = _idx2(i, k, pcols)
+        idx1 = i - 1
+
+        alpha = 1.0 / qsat_b[idx1]
+        beta = dqsdT_b[idx1] * (qv[idx] / (qsat_b[idx1] ** 2))
+        betast = alpha * dqsdT_b[idx1]
+        gammal = alpha + (latvap / cpair) * beta
+        gammai = alpha + ((latvap + latice) / cpair) * beta
+        gammaQ = alpha + (latvap / cpair) * beta
+        deltal = 1.0 + al_st[idx] * (latvap / cpair) * (betast / alpha)
+        deltai = 1.0 + al_st[idx] * ((latvap + latice) / cpair) * (betast / alpha)
+        a_tc = a_t[idx] + a_t_adj[idx] - (latvap / cpair) * (a_ql[idx] + a_ql_adj[idx]) - (
+            (latvap + latice) / cpair
+        ) * (a_qi[idx] + a_qi_adj[idx])
+        a_qt = a_qv[idx] + a_qv_adj[idx] + a_ql[idx] + a_ql_adj[idx] + a_qi[idx] + a_qi_adj[idx]
+        c_tc = c_t[idx] - (latvap / cpair) * c_ql[idx] - ((latvap + latice) / cpair) * c_qi[idx]
+        c_qt = c_qv[idx] + c_ql[idx] + c_qi[idx]
+        dTcdt = a_tc + c_tc
+        dqtdt = a_qt + c_qt
+        dqtstldt = a_qt - a_qi[idx] - a_qi_adj[idx] + c_qlst[idx]
+        dqidt = a_qi[idx] + a_qi_adj[idx] + c_qi[idx]
+
+        anic = max(1.0e-8, (1.0 - a_cu[idx]))
+        gg = g_nc[idx] / anic
+        a11 = gammal * al_st[idx]
+        a12 = gg + gammal * cc * ql_st[idx]
+        a21 = alpha + (latvap / cpair) * betast * al_st[idx]
+        a22 = (latvap / cpair) * betast * cc * ql_st[idx]
+        b1 = alpha * dqtdt - beta * dTcdt - gammai * dqidt - gg * al_st_nc[idx] * dacudt[idx] + f_nc[idx]
+        b2 = alpha * dqtstldt - betast * (dTcdt + ((latvap + latice) / cpair) * dqidt)
+
+        ipiv1 = 0
+        ipiv2 = 0
+        for iter_idx in range(1, 3):
+            big = 0.0
+            irow = 1
+            icol = 1
+
+            if ipiv1 != 1:
+                if ipiv1 == 0:
+                    value = abs(a11)
+                    if value >= big:
+                        big = value
+                        irow = 1
+                        icol = 1
+                elif ipiv1 > 1:
+                    return 1
+                if ipiv2 == 0:
+                    value = abs(a12)
+                    if value >= big:
+                        big = value
+                        irow = 1
+                        icol = 2
+                elif ipiv2 > 1:
+                    return 1
+
+            if ipiv2 != 1:
+                if ipiv1 == 0:
+                    value = abs(a21)
+                    if value >= big:
+                        big = value
+                        irow = 2
+                        icol = 1
+                elif ipiv1 > 1:
+                    return 1
+                if ipiv2 == 0:
+                    value = abs(a22)
+                    if value >= big:
+                        big = value
+                        irow = 2
+                        icol = 2
+                elif ipiv2 > 1:
+                    return 1
+
+            if icol == 1:
+                ipiv1 += 1
+            else:
+                ipiv2 += 1
+
+            if irow != icol:
+                dum = a11
+                a11 = a21
+                a21 = dum
+                dum = a12
+                a12 = a22
+                a22 = dum
+                dum = b1
+                b1 = b2
+                b2 = dum
+
+            if icol == 1:
+                if a11 == 0.0:
+                    return 2
+                pivinv = 1.0 / a11
+                a11 = 1.0
+                a11 = a11 * pivinv
+                a12 = a12 * pivinv
+                b1 = b1 * pivinv
+                dum = a21
+                a21 = 0.0
+                a21 = a21 - a11 * dum
+                a22 = a22 - a12 * dum
+                b2 = b2 - b1 * dum
+            else:
+                if a22 == 0.0:
+                    return 2
+                pivinv = 1.0 / a22
+                a22 = 1.0
+                a21 = a21 * pivinv
+                a22 = a22 * pivinv
+                b2 = b2 * pivinv
+                dum = a12
+                a12 = 0.0
+                a11 = a11 - a21 * dum
+                a12 = a12 - a22 * dum
+                b1 = b1 - b2 * dum
+
+        dqlstdt = b1
+        dalstdt = b2
+        qq[idx] = al_st[idx] * dqlstdt + cc * ql_st[idx] * dalstdt - (a_ql[idx] + a_ql_adj[idx] + c_ql[idx])
+
+        gammaQ = gammaQ
+        deltal = deltal
+        deltai = deltai
+
+    return 0
+
+
+@export
 def cldwat2m_advective_state_codon(
     ncol: int,
     pcols: int,
