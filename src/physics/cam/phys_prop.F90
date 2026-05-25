@@ -123,12 +123,22 @@ logical :: bulk_props_init_logged = .false.
 logical :: use_native_refindex_aer_init_impl = .false.
 logical :: refindex_aer_init_impl_selected = .false.
 logical :: refindex_aer_init_logged = .false.
+logical :: use_native_insoluble_optics_init_impl = .false.
+logical :: insoluble_optics_init_impl_selected = .false.
+logical :: insoluble_optics_init_logged = .false.
 logical :: physprop_get_id_logged = .false.
 logical :: exp_interpol_logged = .false.
 logical :: lin_interpol_logged = .false.
 logical :: aer_optics_log_rh_logged = .false.
 
 interface
+   function insoluble_optics_init_dim_mask_codon(nbnd_c, nlwbands_c, swbands_c, nswbands_c) &
+        result(mask_c) bind(c, name="insoluble_optics_init_dim_mask_codon")
+     use iso_c_binding, only: c_int64_t
+     integer(c_int64_t), value :: nbnd_c, nlwbands_c, swbands_c, nswbands_c
+     integer(c_int64_t) :: mask_c
+   end function insoluble_optics_init_dim_mask_codon
+
    function refindex_aer_init_have_pair_codon(istat1_c, istat2_c, noerr_c) result(have_pair_c) &
         bind(c, name="refindex_aer_init_have_pair_codon")
      use iso_c_binding, only: c_int64_t
@@ -397,6 +407,43 @@ end subroutine refindex_aer_init_select_impl
 
 !================================================================================================
 
+subroutine insoluble_optics_init_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (insoluble_optics_init_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('INSOLUBLE_OPTICS_INIT_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_insoluble_optics_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_insoluble_optics_init_impl = .false.
+   end if
+
+   insoluble_optics_init_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_insoluble_optics_init_impl) then
+         write(iulog,*) 'insoluble_optics_init implementation = native'
+      else
+         write(iulog,*) 'insoluble_optics_init implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine insoluble_optics_init_select_impl
+
+!================================================================================================
+
 subroutine bulk_props_init_log_direct()
 
    if (bulk_props_init_logged) return
@@ -422,6 +469,20 @@ subroutine refindex_aer_init_log_direct()
    end if
 
 end subroutine refindex_aer_init_log_direct
+
+!================================================================================================
+
+subroutine insoluble_optics_init_log_direct()
+
+   if (insoluble_optics_init_logged) return
+   insoluble_optics_init_logged = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') 'insoluble_optics_init direct = codon band-dimension checks; native PIO reads'
+      call flush(iulog)
+   end if
+
+end subroutine insoluble_optics_init_log_direct
 
 !================================================================================================
 
@@ -1146,6 +1207,8 @@ subroutine insoluble_optics_init(phys_prop, nc_id)
 
    ! Read optics data of type 'nonhygro'
 
+   use iso_c_binding, only: c_int64_t
+
    type (physprop_type), intent(inout) :: phys_prop  ! storage for file data
    type (file_desc_t),   intent(inout) :: nc_id      ! indentifier for netcdf file
 
@@ -1155,6 +1218,7 @@ subroutine insoluble_optics_init(phys_prop, nc_id)
    integer :: swbands, nbnd
    integer :: ierr ! error flag
    integer :: start(2), count(2)
+   integer(c_int64_t) :: dim_mask
    !------------------------------------------------------------------------------------
 
    allocate (phys_prop%sw_nonhygro_ext(nswbands))
@@ -1168,12 +1232,22 @@ subroutine insoluble_optics_init(phys_prop, nc_id)
 
    ierr = pio_inq_dimlen(nc_id, lw_band_id, nbnd)
 
-   if (nbnd .ne. nlwbands) call endrun(phys_prop%sourcefile// &
-        ' has the wrong number of lwbands')
-
    ierr = pio_inq_dimlen(nc_id, sw_band_id, swbands)
 
-   if (swbands .ne. nswbands) call endrun(phys_prop%sourcefile// &
+   call insoluble_optics_init_select_impl()
+   if (use_native_insoluble_optics_init_impl) then
+      dim_mask = 0_c_int64_t
+      if (nbnd .ne. nlwbands) dim_mask = ior(dim_mask, 1_c_int64_t)
+      if (swbands .ne. nswbands) dim_mask = ior(dim_mask, 2_c_int64_t)
+   else
+      dim_mask = insoluble_optics_init_dim_mask_codon(int(nbnd, c_int64_t), &
+           int(nlwbands, c_int64_t), int(swbands, c_int64_t), int(nswbands, c_int64_t))
+      call insoluble_optics_init_log_direct()
+   end if
+
+   if (iand(dim_mask, 1_c_int64_t) /= 0_c_int64_t) call endrun(phys_prop%sourcefile// &
+        ' has the wrong number of lwbands')
+   if (iand(dim_mask, 2_c_int64_t) /= 0_c_int64_t) call endrun(phys_prop%sourcefile// &
         ' has the wrong number of sw bands')
 
    ! read file data
