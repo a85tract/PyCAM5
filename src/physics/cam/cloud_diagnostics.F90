@@ -34,6 +34,9 @@ module cloud_diagnostics
    integer :: ixcldice, ixcldliq, rei_idx, rel_idx
 
    logical :: do_cld_diag, mg_clouds, rk_clouds, camrt_rad
+   logical :: use_native_cloud_diagnostics_calc_impl = .false.
+   logical :: cloud_diagnostics_calc_impl_selected = .false.
+   logical :: cloud_diagnostics_calc_entered_logged = .false.
    logical :: use_native_mg_diag_impl = .false.
    logical :: mg_diag_impl_selected = .false.
    logical :: mg_diag_entered_logged = .false.
@@ -62,6 +65,48 @@ module cloud_diagnostics
    end interface
 
 contains
+
+!===============================================================================
+subroutine cloud_diagnostics_select_calc_impl()
+  character(len=32) :: impl_name
+  integer :: n, status, i, code
+
+  if (cloud_diagnostics_calc_impl_selected) return
+
+  impl_name = 'codon'
+  call get_environment_variable('CLOUD_DIAGNOSTICS_CALC_IMPL', value=impl_name, length=n, status=status)
+  if (status == 0 .and. n > 0) then
+     do i = 1, n
+        code = iachar(impl_name(i:i))
+        if (code >= iachar('A') .and. code <= iachar('Z')) then
+           impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+        end if
+     end do
+     use_native_cloud_diagnostics_calc_impl = trim(adjustl(impl_name(:n))) == 'native'
+  else
+     use_native_cloud_diagnostics_calc_impl = .false.
+  end if
+
+  cloud_diagnostics_calc_impl_selected = .true.
+
+  if (masterproc) then
+     if (use_native_cloud_diagnostics_calc_impl) then
+        write(iulog,*) 'cloud_diagnostics_calc implementation = native'
+     else
+        write(iulog,*) 'cloud_diagnostics_calc implementation = codon'
+     end if
+     call flush(iulog)
+  end if
+end subroutine cloud_diagnostics_select_calc_impl
+
+!===============================================================================
+subroutine cloud_diagnostics_log_calc_entry()
+  if (masterproc .and. .not. cloud_diagnostics_calc_entered_logged) then
+     write(iulog,'(A)') 'cloud_diagnostics_calc direct = codon MG water-path/totals/tpw helpers; native radiation/outfld/overlap callbacks'
+     call flush(iulog)
+     cloud_diagnostics_calc_entered_logged = .true.
+  end if
+end subroutine cloud_diagnostics_log_calc_entry
 
 !===============================================================================
   subroutine cloud_diagnostics_register
@@ -297,6 +342,7 @@ subroutine cloud_diagnostics_calc(state,  pbuf)
 !-----------------------------------------------------------------------
     if (.not.do_cld_diag) return
 
+    call cloud_diagnostics_select_calc_impl()
 
     if(rk_clouds) then
        dosw     = radiation_do('sw')      ! do shortwave heating calc this timestep?
@@ -393,8 +439,8 @@ subroutine cloud_diagnostics_calc(state,  pbuf)
        ! Note that 'iclwp, iciwp' are used for radiation computation. !
        ! ------------------------------------------------------------ !
 
-       call cloud_diagnostics_select_mg_impl()
-       if (use_native_mg_diag_impl) then
+       call cloud_diagnostics_select_mg_impl(use_native_cloud_diagnostics_calc_impl)
+       if (use_native_cloud_diagnostics_calc_impl .or. use_native_mg_diag_impl) then
           iciwp = 0._r8
           iclwp = 0._r8
           icimr = 0._r8
@@ -425,6 +471,7 @@ subroutine cloud_diagnostics_calc(state,  pbuf)
              end do
           end do
        else
+          call cloud_diagnostics_log_calc_entry()
           call cloud_diagnostics_calc_codon(ncol, top_lev, state%pmid, state%t, state%pdel, &
                cld, allcld_ice, allcld_liq, iciwp, iclwp, icimr, icwmr, iwc, lwc, &
                gicewp, gliqwp, cicewp, cliqwp)
@@ -458,8 +505,8 @@ subroutine cloud_diagnostics_calc(state,  pbuf)
        call cloud_cover_diags_out(lchnk, ncol, cld, state%pmid, nmxrgn, pmxrgn )
     endif
     
-    call cloud_diagnostics_select_mg_impl()
-    if (use_native_mg_diag_impl) then
+    call cloud_diagnostics_select_mg_impl(use_native_cloud_diagnostics_calc_impl)
+    if (use_native_cloud_diagnostics_calc_impl .or. use_native_mg_diag_impl) then
        tgicewp(:ncol) = 0._r8
        tgliqwp(:ncol) = 0._r8
 
@@ -472,6 +519,7 @@ subroutine cloud_diagnostics_calc(state,  pbuf)
        gwp(:ncol,:pver) = gicewp(:ncol,:pver) + gliqwp(:ncol,:pver)
        cwp(:ncol,:pver) = cicewp(:ncol,:pver) + cliqwp(:ncol,:pver)
     else
+       call cloud_diagnostics_log_calc_entry()
        call cloud_diagnostics_totals_codon_wrap(ncol, gicewp, gliqwp, cicewp, cliqwp, &
             tgicewp, tgliqwp, tgwp, gwp, cwp)
     end if
@@ -516,7 +564,7 @@ subroutine cloud_diagnostics_calc(state,  pbuf)
     call outfld('ICLDIWP' ,cicewp , pcols,lchnk)
 
 ! Compute total preciptable water in column (in mm)
-    if (use_native_mg_diag_impl) then
+    if (use_native_cloud_diagnostics_calc_impl .or. use_native_mg_diag_impl) then
        tpw(:ncol) = 0.0_r8
        rgrav = 1.0_r8/gravit
        do k=1,pver
@@ -525,6 +573,7 @@ subroutine cloud_diagnostics_calc(state,  pbuf)
           end do
        end do
     else
+       call cloud_diagnostics_log_calc_entry()
        call cloud_diagnostics_tpw_codon_wrap(ncol, state%pdel, state%q, tpw)
     end if
 
@@ -546,17 +595,22 @@ subroutine cloud_diagnostics_calc(state,  pbuf)
     return
 end subroutine cloud_diagnostics_calc
 
-subroutine cloud_diagnostics_select_mg_impl()
+subroutine cloud_diagnostics_select_mg_impl(force_native)
   character(len=32) :: impl_name
   integer :: n, status
+  logical, intent(in) :: force_native
 
   if (mg_diag_impl_selected) return
 
-  call get_environment_variable('CLOUD_DIAGNOSTICS_MG_IMPL', value=impl_name, length=n, status=status)
-  if (status == 0 .and. n > 0) then
-     use_native_mg_diag_impl = trim(adjustl(impl_name(:n))) == 'native'
+  if (force_native) then
+     use_native_mg_diag_impl = .true.
   else
-     use_native_mg_diag_impl = .false.
+     call get_environment_variable('CLOUD_DIAGNOSTICS_MG_IMPL', value=impl_name, length=n, status=status)
+     if (status == 0 .and. n > 0) then
+        use_native_mg_diag_impl = trim(adjustl(impl_name(:n))) == 'native'
+     else
+        use_native_mg_diag_impl = .false.
+     end if
   end if
 
   if (masterproc) then
