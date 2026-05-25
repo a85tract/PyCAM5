@@ -8271,6 +8271,24 @@ def gmean_fixed_repro_codon(arr_p: cobj, nflds: int, pi_value: float):
 
 
 @export
+def gmean_arr_recompute_flags_codon(
+    rel_diff_p: cobj,
+    nflds: int,
+    reldiffmax: float,
+    recompute: int,
+    recompute_flags_p: cobj,
+):
+    rel_diff = Ptr[float](rel_diff_p)
+    recompute_flags = Ptr[int](recompute_flags_p)
+
+    for ifld in range(nflds):
+        flag = 0
+        if recompute != 0 and rel_diff[ifld * 2] > reldiffmax:
+            flag = 1
+        recompute_flags[ifld] = flag
+
+
+@export
 def phys_gmean_normalize_codon(arr_p: cobj, nflds: int, pi_value: float):
     gmean_fixed_repro_codon(arr_p, nflds, pi_value)
 

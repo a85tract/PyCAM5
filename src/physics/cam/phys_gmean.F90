@@ -51,9 +51,18 @@ module phys_gmean
    logical :: use_native_phys_gmean_impl = .false.
    logical :: phys_gmean_impl_selected = .false.
    logical :: phys_gmean_proof_written = .false.
+   logical :: gmean_arr_logged = .false.
    logical :: gmean_fixed_repro_logged = .false.
 
    interface
+      subroutine gmean_arr_recompute_flags_codon(rel_diff_p, nflds_c, reldiffmax_c, &
+           recompute_c, recompute_flags_p) bind(c, name="gmean_arr_recompute_flags_codon")
+        use iso_c_binding, only: c_double, c_int64_t, c_ptr
+        type(c_ptr), value :: rel_diff_p, recompute_flags_p
+        integer(c_int64_t), value :: nflds_c, recompute_c
+        real(c_double), value :: reldiffmax_c
+      end subroutine gmean_arr_recompute_flags_codon
+
       subroutine gmean_fixed_repro_codon(arr_p, nflds_c, pi_c) &
            bind(c, name="gmean_fixed_repro_codon")
         use iso_c_binding, only: c_double, c_int64_t, c_ptr
@@ -166,14 +175,17 @@ module phys_gmean
 !
 ! Local workspace
 !
-      real(r8) :: rel_diff(2,nflds)                 ! relative differences between 
+      real(r8), target :: rel_diff(2,nflds)         ! relative differences between
                                                     !  'fast' reproducible and 
                                                     !  nonreproducible means
       integer  :: ifld                              ! field index
-      logical  :: write_warning
+      integer(c_int64_t), target :: recompute_flags(nflds)
+      logical  :: write_warning, tol_exceeded
 !
 !-----------------------------------------------------------------------
 !
+      call phys_gmean_select_impl()
+
       call t_startf ('gmean_fixed_repro')
       call gmean_fixed_repro(arr, arr_gmean, rel_diff, nflds)
       call t_stopf ('gmean_fixed_repro')
@@ -181,17 +193,35 @@ module phys_gmean
       ! check that "fast" reproducible sum is accurate enough. If not, calculate
       ! using old method
       write_warning = masterproc
-      if ( shr_reprosum_tolExceeded('gmean', nflds, write_warning, &
-                                  iulog, rel_diff) ) then
-         if ( shr_reprosum_recompute ) then
-            do ifld=1,nflds
-               if ( rel_diff(1,ifld) > shr_reprosum_reldiffmax ) then
-                  call t_startf ('gmean_float_repro')
-                  call gmean_float_repro(arr(:,:,ifld), arr_gmean(ifld), 1)
-                  call t_stopf ('gmean_float_repro')
-               endif
-            enddo
+      tol_exceeded = shr_reprosum_tolExceeded('gmean', nflds, write_warning, &
+                                  iulog, rel_diff)
+      if (use_native_phys_gmean_impl) then
+         if (tol_exceeded) then
+            if ( shr_reprosum_recompute ) then
+               do ifld=1,nflds
+                  if ( rel_diff(1,ifld) > shr_reprosum_reldiffmax ) then
+                     call t_startf ('gmean_float_repro')
+                     call gmean_float_repro(arr(:,:,ifld), arr_gmean(ifld), 1)
+                     call t_stopf ('gmean_float_repro')
+                  endif
+               enddo
+            endif
          endif
+      else
+         call gmean_arr_recompute_flags_codon(c_loc(rel_diff(1,1)), int(nflds, c_int64_t), &
+              real(shr_reprosum_reldiffmax, c_double), &
+              int(merge(1, 0, tol_exceeded .and. shr_reprosum_recompute), c_int64_t), &
+              c_loc(recompute_flags(1)))
+         do ifld=1,nflds
+            if ( recompute_flags(ifld) /= 0_c_int64_t ) then
+               call t_startf ('gmean_float_repro')
+               call gmean_float_repro(arr(:,:,ifld), arr_gmean(ifld), 1)
+               call t_stopf ('gmean_float_repro')
+            endif
+         enddo
+         call phys_gmean_proof_once()
+         call phys_gmean_log_direct(gmean_arr_logged, &
+              'gmean_arr direct = codon recompute-field selection; native reprosum/timer APIs')
       endif
 
       return
