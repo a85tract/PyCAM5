@@ -749,7 +749,7 @@ end subroutine macrop_driver_readnl_log_direct
 
   call macrop_driver_select_impl()
   if (.not. use_native_impl) then
-     call macrop_driver_select_branches(micro_do_icesupersat, trace_water, wtrc_detrain_in_macrop, &
+     call macrop_driver_tend_codon(micro_do_icesupersat, trace_water, wtrc_detrain_in_macrop, &
           cu_det_st, use_shfrc, do_cldice, do_cldliq, do_detrain)
      micro_do_icesupersat_local = iand(branch_mask, 1) /= 0
      trace_water_local = iand(branch_mask, 2) /= 0
@@ -3079,7 +3079,7 @@ end subroutine macrop_driver_select_impl
 !                                                                             !
 !============================================================================ !
 
-subroutine macrop_driver_select_branches(micro_do_icesupersat_in, trace_water_in, &
+subroutine macrop_driver_tend_codon(micro_do_icesupersat_in, trace_water_in, &
      wtrc_detrain_in_macrop_in, cu_det_st_in, use_shfrc_in, do_cldice_in, do_cldliq_in, do_detrain_in)
 
   use iso_c_binding, only: c_int64_t, c_loc, c_ptr
@@ -3125,7 +3125,7 @@ subroutine macrop_driver_select_branches(micro_do_icesupersat_in, trace_water_in
   branch_mask = int(branch_mask_c)
   branch_selected = .true.
 
-end subroutine macrop_driver_select_branches
+end subroutine macrop_driver_tend_codon
 
 ! Saturation adjustment for ice
 ! Add ice mass if supersaturated

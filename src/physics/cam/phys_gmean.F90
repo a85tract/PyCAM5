@@ -54,13 +54,13 @@ module phys_gmean
    logical :: gmean_fixed_repro_logged = .false.
 
    interface
-      subroutine phys_gmean_normalize_codon(arr_p, nflds_c, pi_c) &
-           bind(c, name="phys_gmean_normalize_codon")
+      subroutine gmean_fixed_repro_codon(arr_p, nflds_c, pi_c) &
+           bind(c, name="gmean_fixed_repro_codon")
         use iso_c_binding, only: c_double, c_int64_t, c_ptr
         type(c_ptr), value :: arr_p
         integer(c_int64_t), value :: nflds_c
         real(c_double), value :: pi_c
-      end subroutine phys_gmean_normalize_codon
+      end subroutine gmean_fixed_repro_codon
    end interface
 
    CONTAINS
@@ -139,7 +139,7 @@ module phys_gmean
       end if
 
       call phys_gmean_proof_once()
-      call phys_gmean_normalize_codon(c_loc(arr_gmean(1)), int(nflds, c_int64_t), &
+      call gmean_fixed_repro_codon(c_loc(arr_gmean(1)), int(nflds, c_int64_t), &
            real(pi, c_double))
 
    end subroutine phys_gmean_normalize
@@ -516,7 +516,7 @@ module phys_gmean
          arr_gmean(:) = arr_gmean(:) / (4.0_r8 * pi)
       else
          call phys_gmean_proof_once()
-         call phys_gmean_normalize_codon(c_loc(arr_gmean(1)), int(nflds, c_int64_t), &
+         call gmean_fixed_repro_codon(c_loc(arr_gmean(1)), int(nflds, c_int64_t), &
               real(pi, c_double))
          call phys_gmean_log_direct(gmean_fixed_repro_logged, 'gmean_fixed_repro direct = codon')
       end if

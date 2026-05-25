@@ -445,13 +445,13 @@ subroutine microp_aero_run ( &
    type(physics_buffer_desc),   pointer       :: pbuf(:)
 
    call microp_aero_run_select_impl()
-   call microp_aero_run_impl(state, ptend, deltatin, pbuf, use_native_run_impl)
+   call microp_aero_run_codon(state, ptend, deltatin, pbuf, use_native_run_impl)
 
 end subroutine microp_aero_run
 
 !=========================================================================================
 
-subroutine microp_aero_run_impl ( &
+subroutine microp_aero_run_codon ( &
    state, ptend, deltatin, pbuf, use_native_impl)
 
    use iso_c_binding, only: c_double, c_int64_t, c_loc, c_ptr
@@ -930,7 +930,7 @@ subroutine microp_aero_run_impl ( &
 
    end associate
 
-end subroutine microp_aero_run_impl
+end subroutine microp_aero_run_codon
 
 !=========================================================================================
 

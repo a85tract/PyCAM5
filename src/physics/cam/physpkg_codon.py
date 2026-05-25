@@ -3976,7 +3976,7 @@ def physprop_get_id_codon(filename_len: int, filename_ascii_p: cobj, names_len: 
 
 
 @export
-def phys_prop_exp_interpol_codon(n: int, x_p: cobj, f_p: cobj, y: float) -> float:
+def exp_interpol_codon(n: int, x_p: cobj, f_p: cobj, y: float) -> float:
     x = Ptr[float](x_p)
     f = Ptr[float](f_p)
 
@@ -3989,7 +3989,7 @@ def phys_prop_exp_interpol_codon(n: int, x_p: cobj, f_p: cobj, y: float) -> floa
 
 
 @export
-def phys_prop_lin_interpol_codon(n: int, x_p: cobj, f_p: cobj, y: float) -> float:
+def lin_interpol_codon(n: int, x_p: cobj, f_p: cobj, y: float) -> float:
     x = Ptr[float](x_p)
     f = Ptr[float](f_p)
 
@@ -3999,6 +3999,16 @@ def phys_prop_lin_interpol_codon(n: int, x_p: cobj, f_p: cobj, y: float) -> floa
 
     a = (f[k1] - f[k0]) / (x[k1] - x[k0])
     return f[k0] + a * (y - x[k0])
+
+
+@export
+def phys_prop_exp_interpol_codon(n: int, x_p: cobj, f_p: cobj, y: float) -> float:
+    return exp_interpol_codon(n, x_p, f_p, y)
+
+
+@export
+def phys_prop_lin_interpol_codon(n: int, x_p: cobj, f_p: cobj, y: float) -> float:
+    return lin_interpol_codon(n, x_p, f_p, y)
 
 
 @export
@@ -7585,7 +7595,7 @@ def _cldwat_gaussj_idx(row: int, col: int, ld1: int) -> int:
 
 
 @export
-def cldwat2m_gaussj_codon(
+def gaussj_codon(
     n: int,
     np: int,
     m: int,
@@ -7675,6 +7685,21 @@ def cldwat2m_gaussj_codon(
                 a[col_idx] = dum
 
     return 0
+
+
+@export
+def cldwat2m_gaussj_codon(
+    n: int,
+    np: int,
+    m: int,
+    mp: int,
+    a_p: cobj,
+    b_p: cobj,
+    indxc_p: cobj,
+    indxr_p: cobj,
+    ipiv_p: cobj,
+) -> int:
+    return gaussj_codon(n, np, m, mp, a_p, b_p, indxc_p, indxr_p, ipiv_p)
 
 
 @export
@@ -8060,11 +8085,16 @@ def ghg_data_timestep_init_codon(flag: int) -> int:
 
 
 @export
-def phys_gmean_normalize_codon(arr_p: cobj, nflds: int, pi_value: float):
+def gmean_fixed_repro_codon(arr_p: cobj, nflds: int, pi_value: float):
     arr = Ptr[float](arr_p)
     denom = 4.0 * pi_value
     for i in range(nflds):
         arr[i] = arr[i] / denom
+
+
+@export
+def phys_gmean_normalize_codon(arr_p: cobj, nflds: int, pi_value: float):
+    gmean_fixed_repro_codon(arr_p, nflds, pi_value)
 
 
 @export
@@ -8783,10 +8813,15 @@ def init_vdiff_codon(
 
 
 @export
-def vdiff_lu_solver_flag_codon(flag: int) -> int:
+def fin_vol_lu_decomp_codon(flag: int) -> int:
     if flag != 0:
         return 1
     return 0
+
+
+@export
+def vdiff_lu_solver_flag_codon(flag: int) -> int:
+    return fin_vol_lu_decomp_codon(flag)
 
 
 @export

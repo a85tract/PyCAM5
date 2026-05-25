@@ -800,7 +800,7 @@ contains
   !                                                                                 !
   ! =============================================================================== !
 
-  subroutine vertical_diffusion_tend_select_branches(do_tms_in, do_molec_diff_in, use_diag_tke_in, &
+  subroutine vertical_diffusion_tend_codon(do_tms_in, do_molec_diff_in, use_diag_tke_in, &
        use_hb_family_in, shallow_unicon_in, prog_modal_aero_in, do_pseudocon_diff_in, &
        diff_cnsrv_mass_check_in, waccmx_special_in)
 
@@ -850,7 +850,7 @@ contains
     tend_branch_mask = int(branch_mask_c)
     tend_branch_selected = .true.
 
-  end subroutine vertical_diffusion_tend_select_branches
+  end subroutine vertical_diffusion_tend_codon
 
   ! =============================================================================== !
   !                                                                                 !
@@ -2696,7 +2696,7 @@ contains
 
     call vertical_diffusion_tend_select_impl()
     if (.not. use_native_tend_impl) then
-       call vertical_diffusion_tend_select_branches( &
+       call vertical_diffusion_tend_codon( &
             do_tms, do_molec_diff, trim(eddy_scheme) == 'diag_TKE', &
             trim(eddy_scheme) == 'HB' .or. trim(eddy_scheme) == 'HBR', &
             trim(shallow_scheme) == 'UNICON', prog_modal_aero, do_pseudocon_diff, &

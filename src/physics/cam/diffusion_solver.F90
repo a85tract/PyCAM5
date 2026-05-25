@@ -218,7 +218,7 @@
 
   ! =============================================================================== !
 
-  subroutine diffusion_solver_setup_codon_wrap(pcols, pver, ncol, ztodt, t, rairi, p_ifc, p_mid, &
+  subroutine compute_vdiff_codon(pcols, pver, ncol, ztodt, t, rairi, p_ifc, p_mid, &
        p_rdel, p_rdst, tint, rhoi, dpidz_sq, tmpi2, rrho, tmp1)
 
     use iso_c_binding, only: c_int64_t, c_loc
@@ -243,7 +243,7 @@
          c_loc(p_rdel(1,1)), c_loc(p_rdst(1,1)), c_loc(tint(1,1)), c_loc(rhoi(1,1)), c_loc(dpidz_sq(1,1)), &
          c_loc(tmpi2(1,1)), c_loc(rrho(1)), c_loc(tmp1(1)))
 
-  end subroutine diffusion_solver_setup_codon_wrap
+  end subroutine compute_vdiff_codon
 
   ! =============================================================================== !
   !                                                                                 !
@@ -645,7 +645,7 @@
        p_rdel_codon = p%rdel
        p_rdst_codon = p%rdst
        call diffusion_solver_setup_proof_once()
-       call diffusion_solver_setup_codon_wrap(pcols, pver, ncol, ztodt, t, rairi, p_ifc_codon, p_mid_codon, &
+       call compute_vdiff_codon(pcols, pver, ncol, ztodt, t, rairi, p_ifc_codon, p_mid_codon, &
             p_rdel_codon, p_rdst_codon, tint, rhoi, dpidz_sq, tmpi2, rrho, tmp1)
     end if
 

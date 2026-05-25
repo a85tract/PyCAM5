@@ -119,23 +119,23 @@ interface
      integer(c_int64_t) :: id_c
    end function physprop_get_id_codon
 
-   function phys_prop_exp_interpol_codon(n_c, x_p, f_p, y_c) result(g) &
-        bind(c, name="phys_prop_exp_interpol_codon")
+   function exp_interpol_codon(n_c, x_p, f_p, y_c) result(g) &
+        bind(c, name="exp_interpol_codon")
      use iso_c_binding, only: c_int64_t, c_double, c_ptr
      integer(c_int64_t), value :: n_c
      type(c_ptr), value :: x_p, f_p
      real(c_double), value :: y_c
      real(c_double) :: g
-   end function phys_prop_exp_interpol_codon
+   end function exp_interpol_codon
 
-   function phys_prop_lin_interpol_codon(n_c, x_p, f_p, y_c) result(g) &
-        bind(c, name="phys_prop_lin_interpol_codon")
+   function lin_interpol_codon(n_c, x_p, f_p, y_c) result(g) &
+        bind(c, name="lin_interpol_codon")
      use iso_c_binding, only: c_int64_t, c_double, c_ptr
      integer(c_int64_t), value :: n_c
      type(c_ptr), value :: x_p, f_p
      real(c_double), value :: y_c
      real(c_double) :: g
-   end function phys_prop_lin_interpol_codon
+   end function lin_interpol_codon
 end interface
  
 !================================================================================================
@@ -1275,7 +1275,7 @@ function exp_interpol(x, f, y) result(g)
       g = exp_interpol_native(x, f, y)
    else
       call phys_prop_interp_proof_once()
-      g = phys_prop_exp_interpol_codon(int(size(x), c_int64_t), c_loc(x(1)), c_loc(f(1)), y)
+      g = exp_interpol_codon(int(size(x), c_int64_t), c_loc(x(1)), c_loc(f(1)), y)
    end if
 
    return
@@ -1346,7 +1346,7 @@ function lin_interpol(x, f, y) result(g)
       g = lin_interpol_native(x, f, y)
    else
       call phys_prop_interp_proof_once()
-      g = phys_prop_lin_interpol_codon(int(size(x), c_int64_t), c_loc(x(1)), c_loc(f(1)), y)
+      g = lin_interpol_codon(int(size(x), c_int64_t), c_loc(x(1)), c_loc(f(1)), y)
    end if
 
    return

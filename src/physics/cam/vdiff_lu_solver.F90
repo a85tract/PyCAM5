@@ -27,12 +27,12 @@ logical :: vdiff_lu_solver_proof_written = .false.
 logical :: fin_vol_lu_decomp_logged = .false.
 
 interface
-   function vdiff_lu_solver_flag_codon(flag_c) result(flag_out) &
-        bind(c, name="vdiff_lu_solver_flag_codon")
+   function fin_vol_lu_decomp_codon(flag_c) result(flag_out) &
+        bind(c, name="fin_vol_lu_decomp_codon")
      use iso_c_binding, only: c_int64_t
      integer(c_int64_t), value :: flag_c
      integer(c_int64_t) :: flag_out
-   end function vdiff_lu_solver_flag_codon
+   end function fin_vol_lu_decomp_codon
 end interface
 
 contains
@@ -119,7 +119,7 @@ logical function vdiff_lu_solver_flag(flag) result(out)
 
   call vdiff_lu_solver_proof_once()
   flag_c = merge(1_c_int64_t, 0_c_int64_t, flag)
-  out = vdiff_lu_solver_flag_codon(flag_c) /= 0_c_int64_t
+  out = fin_vol_lu_decomp_codon(flag_c) /= 0_c_int64_t
 
 end function vdiff_lu_solver_flag
 
@@ -270,10 +270,10 @@ function fin_vol_lu_decomp(dt, p, coef_q, coef_q_diff, coef_q_adv, &
      has_coef_q_weight = present(coef_q_weight)
   else
      call vdiff_lu_solver_proof_once()
-     has_coef_q_diff = vdiff_lu_solver_flag_codon(merge(1_c_int64_t, 0_c_int64_t, present(coef_q_diff))) /= 0_c_int64_t
-     has_coef_q = vdiff_lu_solver_flag_codon(merge(1_c_int64_t, 0_c_int64_t, present(coef_q))) /= 0_c_int64_t
-     has_coef_q_adv = vdiff_lu_solver_flag_codon(merge(1_c_int64_t, 0_c_int64_t, present(coef_q_adv))) /= 0_c_int64_t
-     has_coef_q_weight = vdiff_lu_solver_flag_codon(merge(1_c_int64_t, 0_c_int64_t, present(coef_q_weight))) /= 0_c_int64_t
+     has_coef_q_diff = fin_vol_lu_decomp_codon(merge(1_c_int64_t, 0_c_int64_t, present(coef_q_diff))) /= 0_c_int64_t
+     has_coef_q = fin_vol_lu_decomp_codon(merge(1_c_int64_t, 0_c_int64_t, present(coef_q))) /= 0_c_int64_t
+     has_coef_q_adv = fin_vol_lu_decomp_codon(merge(1_c_int64_t, 0_c_int64_t, present(coef_q_adv))) /= 0_c_int64_t
+     has_coef_q_weight = fin_vol_lu_decomp_codon(merge(1_c_int64_t, 0_c_int64_t, present(coef_q_weight))) /= 0_c_int64_t
      call fin_vol_lu_decomp_log_direct()
   end if
 

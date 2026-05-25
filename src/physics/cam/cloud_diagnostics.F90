@@ -425,7 +425,7 @@ subroutine cloud_diagnostics_calc(state,  pbuf)
              end do
           end do
        else
-          call cloud_diagnostics_mg_paths_codon_wrap(ncol, top_lev, state%pmid, state%t, state%pdel, &
+          call cloud_diagnostics_calc_codon(ncol, top_lev, state%pmid, state%t, state%pdel, &
                cld, allcld_ice, allcld_liq, iciwp, iclwp, icimr, icwmr, iwc, lwc, &
                gicewp, gliqwp, cicewp, cliqwp)
        end if
@@ -577,7 +577,7 @@ subroutine cloud_diagnostics_log_mg_entry()
   end if
 end subroutine cloud_diagnostics_log_mg_entry
 
-subroutine cloud_diagnostics_mg_paths_codon_wrap(ncol_local, top_lev_local, pmid_local, temp_local, pdel_local, &
+subroutine cloud_diagnostics_calc_codon(ncol_local, top_lev_local, pmid_local, temp_local, pdel_local, &
      cld_local, allcld_ice_local, allcld_liq_local, iciwp_local, iclwp_local, icimr_local, &
      icwmr_local, iwc_local, lwc_local, gicewp_local, gliqwp_local, cicewp_local, cliqwp_local)
   integer, intent(in) :: ncol_local, top_lev_local
@@ -613,7 +613,7 @@ subroutine cloud_diagnostics_mg_paths_codon_wrap(ncol_local, top_lev_local, pmid
        c_loc(icwmr_local(1,1)), c_loc(iwc_local(1,1)), c_loc(lwc_local(1,1)), &
        c_loc(gicewp_local(1,1)), c_loc(gliqwp_local(1,1)), c_loc(cicewp_local(1,1)), &
        c_loc(cliqwp_local(1,1)))
-end subroutine cloud_diagnostics_mg_paths_codon_wrap
+end subroutine cloud_diagnostics_calc_codon
 
 subroutine cloud_diagnostics_totals_codon_wrap(ncol_local, gicewp_local, gliqwp_local, &
      cicewp_local, cliqwp_local, tgicewp_local, tgliqwp_local, tgwp_local, gwp_local, cwp_local)

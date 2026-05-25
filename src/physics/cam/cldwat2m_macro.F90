@@ -3346,13 +3346,13 @@ end subroutine rhcrit_calc
       real(r8) big,dum,pivinv
 
       interface
-         function cldwat2m_gaussj_codon(n_c, np_c, m_c, mp_c, a_p, b_p, indxc_p, indxr_p, ipiv_p) &
-              result(status_c) bind(c, name="cldwat2m_gaussj_codon")
+         function gaussj_codon(n_c, np_c, m_c, mp_c, a_p, b_p, indxc_p, indxr_p, ipiv_p) &
+              result(status_c) bind(c, name="gaussj_codon")
             use iso_c_binding, only: c_int64_t, c_ptr
             integer(c_int64_t), value :: n_c, np_c, m_c, mp_c
             type(c_ptr), value :: a_p, b_p, indxc_p, indxr_p, ipiv_p
             integer(c_int64_t) :: status_c
-         end function cldwat2m_gaussj_codon
+         end function gaussj_codon
       end interface
 
       aa(:,:) = a(:,:)
@@ -3364,7 +3364,7 @@ end subroutine rhcrit_calc
          indxc64(:) = 0_c_int64_t
          indxr64(:) = 0_c_int64_t
          ipiv64(:) = 0_c_int64_t
-         gaussj_status = cldwat2m_gaussj_codon(int(n, c_int64_t), int(np, c_int64_t), &
+         gaussj_status = gaussj_codon(int(n, c_int64_t), int(np, c_int64_t), &
               int(m, c_int64_t), int(mp, c_int64_t), c_loc(a(1,1)), c_loc(b(1,1)), &
               c_loc(indxc64(1)), c_loc(indxr64(1)), c_loc(ipiv64(1)))
          if (gaussj_status == 0_c_int64_t) return
