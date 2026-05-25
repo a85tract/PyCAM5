@@ -89,6 +89,24 @@ def modal_aer_opt_readnl_codon(
 
 
 @export
+def modal_aer_opt_init_mode_dims_mismatch_codon(
+    m_ncoef: int,
+    m_prefr: int,
+    m_prefi: int,
+    ncoef: int,
+    prefr: int,
+    prefi: int,
+) -> int:
+    if m_ncoef != ncoef:
+        return 1
+    if m_prefr != prefr:
+        return 1
+    if m_prefi != prefi:
+        return 1
+    return 0
+
+
+@export
 def modal_aer_opt_read_water_refindex_codon(
     nswbands: int,
     nlwbands: int,

@@ -67,6 +67,9 @@ logical :: use_native_modal_aer_opt_helpers_impl = .false.
 logical :: modal_aer_opt_helpers_impl_selected = .false.
 logical :: use_native_modal_aer_opt_readnl_impl = .false.
 logical :: modal_aer_opt_readnl_impl_selected = .false.
+logical :: use_native_modal_aer_opt_init_impl = .false.
+logical :: modal_aer_opt_init_impl_selected = .false.
+logical :: modal_aer_opt_init_proof_written = .false.
 logical :: use_native_read_water_refindex_impl = .false.
 logical :: read_water_refindex_impl_selected = .false.
 logical :: read_water_refindex_proof_written = .false.
@@ -85,6 +88,13 @@ interface
       type(c_ptr), value :: path_ascii_p, value_ascii_p
       integer(c_int64_t) :: status_c
    end function modal_aer_opt_readnl_codon
+
+   function modal_aer_opt_init_mode_dims_mismatch_codon(m_ncoef_c, m_prefr_c, m_prefi_c, ncoef_c, &
+        prefr_c, prefi_c) result(mismatch_c) bind(c, name="modal_aer_opt_init_mode_dims_mismatch_codon")
+      use iso_c_binding, only: c_int64_t
+      integer(c_int64_t), value :: m_ncoef_c, m_prefr_c, m_prefi_c, ncoef_c, prefr_c, prefi_c
+      integer(c_int64_t) :: mismatch_c
+   end function modal_aer_opt_init_mode_dims_mismatch_codon
 
    subroutine modal_aer_opt_size_parameters_codon(pcols_c, pver_c, top_lev_c, ncol_c, ncoef_c, &
         sigma_logr_aer_c, xrmin_c, xrmax_c, dgnumwet_p, radsurf_p, logradsurf_p, cheb_p) &
@@ -436,6 +446,59 @@ end subroutine modal_aer_opt_readnl_select_impl
 
 !===============================================================================
 
+subroutine modal_aer_opt_init_select_impl()
+
+   character(len=32) :: impl_name
+   integer :: status, n, i, code
+
+   if (modal_aer_opt_init_impl_selected) return
+
+   impl_name = 'codon'
+   call get_environment_variable('MODAL_AER_OPT_INIT_IMPL', value=impl_name, length=n, status=status)
+
+   if (status == 0 .and. n > 0) then
+      do i = 1, n
+         code = iachar(impl_name(i:i))
+         if (code >= iachar('A') .and. code <= iachar('Z')) then
+            impl_name(i:i) = achar(code + iachar('a') - iachar('A'))
+         end if
+      end do
+      use_native_modal_aer_opt_init_impl = trim(adjustl(impl_name(:n))) == 'native'
+   else
+      use_native_modal_aer_opt_init_impl = .false.
+   end if
+
+   modal_aer_opt_init_impl_selected = .true.
+
+   if (masterproc) then
+      if (use_native_modal_aer_opt_init_impl) then
+         write(iulog,*) 'modal_aer_opt_init implementation = native'
+      else
+         write(iulog,*) 'modal_aer_opt_init implementation = codon'
+      end if
+      call flush(iulog)
+   end if
+
+end subroutine modal_aer_opt_init_select_impl
+
+!===============================================================================
+
+subroutine modal_aer_opt_init_proof_once()
+
+   if (modal_aer_opt_init_proof_written) return
+   modal_aer_opt_init_proof_written = .true.
+
+   if (masterproc) then
+      write(iulog,'(A)') &
+           'modal_aer_opt_init direct = codon mode-dimension checks; native rad_constituents, pbuf, ' // &
+           'history registration, and PIO reads'
+      call flush(iulog)
+   end if
+
+end subroutine modal_aer_opt_init_proof_once
+
+!===============================================================================
+
 subroutine modal_aer_opt_helpers_select_impl()
 
    character(len=32) :: impl_name
@@ -666,6 +729,7 @@ end subroutine modal_aer_opt_readnl
 
 subroutine modal_aer_opt_init()
 
+   use iso_c_binding, only: c_int64_t
    use ioFileMod,        only: getfil
    use phys_control,     only: phys_getopts
 
@@ -685,8 +749,11 @@ subroutine modal_aer_opt_init()
    character(len=*), parameter :: routine='modal_aer_opt_init'
    character(len=8) :: fldname
    character(len=128) :: lngname
+   logical :: mode_dim_mismatch
 
    !----------------------------------------------------------------------------
+
+   call modal_aer_opt_init_select_impl()
 
    rmmin = 0.01e-6_r8
    rmmax = 25.e-6_r8
@@ -702,7 +769,14 @@ subroutine modal_aer_opt_init()
          call rad_cnst_get_info(ilist, nmodes=nmodes)
          do m = 1, nmodes
             call rad_cnst_get_mode_props(ilist, m, ncoef=m_ncoef, prefr=m_prefr, prefi=m_prefi)
-            if (m_ncoef /= ncoef .or. m_prefr /= prefr .or. m_prefi /= prefi) then
+            if (use_native_modal_aer_opt_init_impl) then
+               mode_dim_mismatch = m_ncoef /= ncoef .or. m_prefr /= prefr .or. m_prefi /= prefi
+            else
+               mode_dim_mismatch = modal_aer_opt_init_mode_dims_mismatch_codon( &
+                    int(m_ncoef, c_int64_t), int(m_prefr, c_int64_t), int(m_prefi, c_int64_t), &
+                    int(ncoef, c_int64_t), int(prefr, c_int64_t), int(prefi, c_int64_t)) /= 0_c_int64_t
+            end if
+            if (mode_dim_mismatch) then
                write(iulog,*) routine//': ERROR - file and module values do not match:'
                write(iulog,*) '   ncoef:', ncoef, m_ncoef
                write(iulog,*) '   prefr:', prefr, m_prefr
@@ -712,6 +786,9 @@ subroutine modal_aer_opt_init()
          end do
       end if
    end do
+   if (.not. use_native_modal_aer_opt_init_impl) then
+      call modal_aer_opt_init_proof_once()
+   end if
 
    ! Initialize physics buffer indices for dgnumwet and qaerwat.  Note the implicit assumption
    ! that the loops over modes in the optics calculations will use the values for dgnumwet and qaerwat

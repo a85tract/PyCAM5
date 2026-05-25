@@ -4329,6 +4329,20 @@ def aer_optics_log_rh_codon(
 
 
 @export
+def modal_aer_opt_init_mode_dims_mismatch_codon(
+    m_ncoef: int,
+    m_prefr: int,
+    m_prefi: int,
+    ncoef: int,
+    prefr: int,
+    prefi: int,
+) -> int:
+    return _modal_aer_opt.modal_aer_opt_init_mode_dims_mismatch_codon(
+        m_ncoef, m_prefr, m_prefi, ncoef, prefr, prefi
+    )
+
+
+@export
 def modal_aer_opt_sw_init_state_codon(
     ncol: int,
     pcols: int,
